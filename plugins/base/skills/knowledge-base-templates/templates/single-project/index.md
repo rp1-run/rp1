@@ -40,7 +40,7 @@
 ## How to Load
 
 ```
-Read: {{$RP1_ROOT}}/context/{filename}
+Read: .rp1/context/{filename}
 ```
 
 ## Project Structure

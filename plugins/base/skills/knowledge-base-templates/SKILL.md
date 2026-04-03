@@ -41,7 +41,7 @@ For standard single-project repositories:
 
 ```bash
 # Target structure
-{{$RP1_ROOT}}/context/
+.rp1/context/
 ├── index.md              # Project overview
 ├── concept_map.md        # Domain concepts
 ├── architecture.md       # System architecture
@@ -53,7 +53,7 @@ For standard single-project repositories:
 **Using Templates**:
 1. Read template: `templates/single-project/index.md`
 2. Fill in placeholders with project-specific information
-3. Write to target location: `{{$RP1_ROOT}}/context/index.md`
+3. Write to target location: `.rp1/context/index.md`
 4. Repeat for each template
 
 **Template Placeholders**:
@@ -69,7 +69,7 @@ For repositories with multiple projects:
 
 ```bash
 # Target structure
-{{$RP1_ROOT}}/context/
+.rp1/context/
 ├── index.md              # Repository overview
 ├── concept_map.md        # Cross-project concepts
 ├── architecture.md       # System-wide architecture
@@ -115,7 +115,7 @@ filled = filled.replace("[Date]", current_date)
 # ... more replacements
 
 # Write to target location
-write_file(f"{{$RP1_ROOT}}/context/index.md", filled)
+write_file(f".rp1/context/index.md", filled)
 ```
 
 **Step 3: Generate Diagrams**
@@ -329,13 +329,13 @@ Extract data from each sub-agent's JSON output:
 After writing concept_map.md, architecture.md, modules.md, patterns.md, calculate line counts:
 
 ```bash
-wc -l {{$RP1_ROOT}}/context/concept_map.md
-wc -l {{$RP1_ROOT}}/context/architecture.md
-wc -l {{$RP1_ROOT}}/context/modules.md
-wc -l {{$RP1_ROOT}}/context/patterns.md
+wc -l .rp1/context/concept_map.md
+wc -l .rp1/context/architecture.md
+wc -l .rp1/context/modules.md
+wc -l .rp1/context/patterns.md
 # For monorepo, also:
-wc -l {{$RP1_ROOT}}/context/dependencies.md
-wc -l {{$RP1_ROOT}}/context/technology-matrix.md
+wc -l .rp1/context/dependencies.md
+wc -l .rp1/context/technology-matrix.md
 ```
 
 ### Template Placeholder Mapping

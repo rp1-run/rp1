@@ -7,11 +7,14 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
 	closeDatabase,
+	getArtifactByDocId,
 	getEmitDatabase,
+	getRunById,
 	insertRun,
 	resetInstance,
 	upsertArtifact,
@@ -33,6 +36,8 @@ describe("emit end-to-end", () => {
 		closeDatabase();
 		resetInstance();
 		tempDir = await createTempDir("emit-e2e");
+		mkdirSync(join(tempDir, ".rp1"), { recursive: true });
+		writeFileSync(join(tempDir, ".rp1", "project_id"), "test-emit-e2e-uuid");
 		testCounter++;
 		dbPath = join(tempDir, `test-${testCounter}.db`);
 		// Initialize the singleton with our test DB path.
@@ -110,6 +115,32 @@ describe("emit end-to-end", () => {
 
 			expect(result.data.runStatus).toBe("running");
 		});
+
+		test("persists resolved directory metadata on the run", async () => {
+			const projectRoot = join(tempDir, "project-root");
+			await writeFixture(
+				projectRoot,
+				".rp1/project_id",
+				"test-persist-dirs-uuid",
+			);
+
+			const runId = `run-dirs-${Date.now()}`;
+			const input = makeInput({
+				type: "status_change",
+				runId,
+				step: "build",
+				projectPath: projectRoot,
+				data: { status: "running", workflow: "build", feature: "feat" },
+			});
+
+			await expectTaskRight(executeEmit(input));
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const run = getRunById(db, runId);
+			expect(run?.rp1ProjectRoot).toBe(projectRoot);
+			expect(run?.rp1KbRoot).toBe(join(projectRoot, ".rp1", "context"));
+			expect(run?.rp1WorkRoot).toBe(join(projectRoot, ".rp1", "work"));
+		});
 	});
 
 	describe("artifact_registered events", () => {
@@ -126,6 +157,7 @@ describe("emit end-to-end", () => {
 				data: {
 					path: mdPath,
 					feature: "test-feat",
+					storageRoot: "absolute",
 					type: "markdown",
 					workflow: "build",
 				},
@@ -139,6 +171,82 @@ describe("emit end-to-end", () => {
 			expect(result.data.docId).toMatch(
 				/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
 			);
+		});
+
+		test("stores work-dir-relative artifact paths when the file is under rp1_work_root", async () => {
+			const projectRoot = join(tempDir, "project-artifacts");
+			await writeFixture(
+				projectRoot,
+				".rp1/project_id",
+				"test-work-dir-artifacts-uuid",
+			);
+
+			const workDir = join(projectRoot, ".rp1", "work");
+			await writeFixture(
+				workDir,
+				"features/test-feat/design.md",
+				"---\nrp1_doc_id: doc-storage\n---\n# Test Artifact\n",
+			);
+
+			const input = makeInput({
+				type: "artifact_registered",
+				step: "design",
+				projectPath: projectRoot,
+				data: {
+					path: "features/test-feat/design.md",
+					feature: "test-feat",
+					storageRoot: "work_dir",
+					type: "markdown",
+					workflow: "build",
+				},
+			});
+
+			const result = await expectTaskRight(executeEmit(input));
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const artifact = getArtifactByDocId(db, result.data.docId ?? "");
+
+			expect(artifact?.storageRoot).toBe("work_dir");
+			expect(artifact?.path).toBe("features/test-feat/design.md");
+		});
+
+		test("uses frontmatter doc_id for relative work-dir artifacts when storageRoot is explicit", async () => {
+			const projectRoot = join(tempDir, "project-relative-doc-id");
+			await writeFixture(
+				projectRoot,
+				".rp1/project_id",
+				"test-frontmatter-docid-uuid",
+			);
+
+			const workDir = join(projectRoot, ".rp1", "work");
+			await writeFixture(
+				workDir,
+				"features/test-feat/design.md",
+				"---\nrp1_doc_id: doc-relative-frontmatter\n---\n# Test Artifact\n",
+			);
+
+			const result = await expectTaskRight(
+				executeEmit(
+					makeInput({
+						type: "artifact_registered",
+						step: "design",
+						projectPath: projectRoot,
+						data: {
+							path: "features/test-feat/design.md",
+							feature: "test-feat",
+							storageRoot: "work_dir",
+							type: "markdown",
+							workflow: "build",
+						},
+					}),
+				),
+			);
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const artifact = getArtifactByDocId(db, "doc-relative-frontmatter");
+
+			expect(result.data.docId).toBe("doc-relative-frontmatter");
+			expect(artifact?.storageRoot).toBe("work_dir");
+			expect(artifact?.path).toBe("features/test-feat/design.md");
 		});
 	});
 
@@ -174,6 +282,151 @@ describe("emit end-to-end", () => {
 		});
 	});
 
+	describe("harness column", () => {
+		test("stores harness value from emit data payload", async () => {
+			const runId = `run-harness-${Date.now()}`;
+			const input = makeInput({
+				type: "status_change",
+				runId,
+				step: "design",
+				data: {
+					status: "running",
+					workflow: "build",
+					feature: "feat",
+					harness: "codex",
+				},
+			});
+
+			await expectTaskRight(executeEmit(input));
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const row = db
+				.prepare("SELECT harness FROM runs WHERE id = $id")
+				.get({ $id: runId }) as { harness: string | null } | null;
+
+			expect(row).not.toBeNull();
+			expect(row?.harness).toBe("codex");
+		});
+
+		test("existing runs without harness remain valid", async () => {
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const runId = `run-no-harness-${Date.now()}`;
+			insertRun(db, {
+				id: runId,
+				flow: "build",
+				featureId: "feat",
+				projectPath: tempDir,
+			});
+
+			const row = db
+				.prepare("SELECT harness FROM runs WHERE id = $id")
+				.get({ $id: runId }) as { harness: string | null } | null;
+
+			expect(row).not.toBeNull();
+			expect(row?.harness).toBeNull();
+		});
+
+		test("stores harness from explicit input.harness field over data payload", async () => {
+			const runId = `run-harness-flag-${Date.now()}`;
+			const input = makeInput({
+				type: "status_change",
+				runId,
+				step: "design",
+				harness: "opencode",
+				data: {
+					status: "running",
+					workflow: "build",
+					feature: "feat",
+					harness: "codex",
+				},
+			});
+
+			await expectTaskRight(executeEmit(input));
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const row = db
+				.prepare("SELECT harness FROM runs WHERE id = $id")
+				.get({ $id: runId }) as { harness: string | null } | null;
+
+			expect(row).not.toBeNull();
+			expect(row?.harness).toBe("opencode");
+		});
+
+		test("falls back to RP1_HARNESS env var when no explicit harness", async () => {
+			const runId = `run-harness-env-${Date.now()}`;
+			const originalEnv = process.env.RP1_HARNESS;
+			process.env.RP1_HARNESS = "claude-code";
+			try {
+				const input = makeInput({
+					type: "status_change",
+					runId,
+					step: "design",
+					data: {
+						status: "running",
+						workflow: "build",
+						feature: "feat",
+					},
+				});
+
+				await expectTaskRight(executeEmit(input));
+
+				const db = await expectTaskRight(getEmitDatabase(dbPath));
+				const row = db
+					.prepare("SELECT harness FROM runs WHERE id = $id")
+					.get({ $id: runId }) as { harness: string | null } | null;
+
+				expect(row).not.toBeNull();
+				expect(row?.harness).toBe("claude-code");
+			} finally {
+				if (originalEnv === undefined) {
+					delete process.env.RP1_HARNESS;
+				} else {
+					process.env.RP1_HARNESS = originalEnv;
+				}
+			}
+		});
+
+		test("backfills harness on subsequent emit for existing run with NULL harness", async () => {
+			const runId = `run-backfill-${Date.now()}`;
+
+			const firstInput = makeInput({
+				type: "status_change",
+				runId,
+				step: "design",
+				data: {
+					status: "running",
+					workflow: "build",
+					feature: "feat",
+				},
+			});
+			await expectTaskRight(executeEmit(firstInput));
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const beforeRow = db
+				.prepare("SELECT harness FROM runs WHERE id = $id")
+				.get({ $id: runId }) as { harness: string | null } | null;
+			expect(beforeRow?.harness).toBeNull();
+
+			const secondInput = makeInput({
+				type: "status_change",
+				runId,
+				step: "build",
+				data: {
+					status: "running",
+					workflow: "build",
+					feature: "feat",
+					harness: "claude-code",
+				},
+			});
+			await expectTaskRight(executeEmit(secondInput));
+
+			const afterRow = db
+				.prepare("SELECT harness FROM runs WHERE id = $id")
+				.get({ $id: runId }) as { harness: string | null } | null;
+			expect(afterRow?.harness).toBe("claude-code");
+		});
+	});
+
 	describe("annotation_updated events", () => {
 		test("upserts annotation linked to artifact doc_id", async () => {
 			// Pre-create a run and artifact so the annotation FK is valid.
@@ -191,6 +444,7 @@ describe("emit end-to-end", () => {
 				runId,
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: tempDir,
 				feature: "feat",
 			});

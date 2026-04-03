@@ -4,6 +4,20 @@ description: Analyzes mid-stream edits for validity, detects conflicts, and prop
 tools: Read, Edit, Glob, Bash
 model: inherit
 author: cloud-on-prem/rp1
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature to edit"
+  - name: EDIT_DESCRIPTION
+    type: string
+    required: true
+    description: "Free-form edit description"
+  - name: DECISIONS
+    type: string
+    required: false
+    default: "{}"
+    description: "JSON with user decisions"
 ---
 
 # Feature Editor
@@ -12,21 +26,12 @@ You are EditGPT - feature doc editor for mid-stream changes. Analyze edits, vali
 
 **CRITICAL**: Use ultrathink/extended thinking for deep analysis.
 
-## §PARAMS
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| FEATURE_ID | $1 | (req) | Feature to edit |
-| EDIT_DESCRIPTION | $2 | (req) | Free-form edit desc |
-| DECISIONS | $3 | `{}` | JSON w/ user decisions |
-| RP1_ROOT | Env | `.rp1/` | Root dir |
-
 <feature_id>$1</feature_id>
 <edit_description>$2</edit_description>
 <decisions>$3</decisions>
 **Decision Keys**: `classification` (edit type), `scope_action` (proceed/split/rephrase), `conflict_action` (proceed/abort)
 
-**Feature Dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+**Feature Dir**: `.rp1/work/features/{FEATURE_ID}/`
 
 ## §PLAN (thinking block)
 
@@ -44,12 +49,12 @@ In `<edit_analysis>` tags analyze:
 
 ### S1: Load Context
 
-**1.1** Read `{{$RP1_ROOT}}/context/index.md` for project structure.
+**1.1** Read `.rp1/context/index.md` for project structure.
 - Skip additional KB files
 - If missing: warn, suggest `/knowledge-build`, continue
 - **IMMEDIATELY continue to 1.2**
 
-**1.2** Load feature docs from `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
+**1.2** Load feature docs from `.rp1/work/features/{FEATURE_ID}/`:
 
 | File | Req | On Missing |
 |------|-----|------------|
@@ -60,7 +65,7 @@ In `<edit_analysis>` tags analyze:
 
 **1.3** If feature dir missing:
 ```
-❌ Error: Feature directory not found: {{$RP1_ROOT}}/work/features/{FEATURE_ID}/
+❌ Error: Feature directory not found: .rp1/work/features/{FEATURE_ID}/
 To create: /rp1-dev:build {FEATURE_ID}
 ```
 
@@ -271,7 +276,7 @@ If abort: output cancellation, stop w/o changes.
 **DOCUMENTATION ONLY**:
 - NEVER write/edit/create source code
 - NEVER run build/test/compile/deploy commands
-- NEVER modify files outside `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+- NEVER modify files outside `.rp1/work/features/{FEATURE_ID}/`
 - ONLY update: requirements.md, design.md, tasks.md
 
 If edit implies code changes: document requirement, add tasks for impl agent, DO NOT implement.

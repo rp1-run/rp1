@@ -3,6 +3,40 @@ name: kb-architecture-mapper
 description: Maps system architecture patterns, layers, and integrations for architecture.md from pre-filtered files
 tools: Read, Grep, Glob, Bash
 model: inherit
+arguments:
+  - name: CODEBASE_ROOT
+    type: string
+    required: false
+    default: "."
+    description: "Repository root"
+  - name: ARCH_FILES_JSON
+    type: string
+    required: true
+    description: "JSON array of {path, score} for architecture analysis"
+  - name: REPO_TYPE
+    type: string
+    required: false
+    default: "single-project"
+    description: "Type of repository"
+  - name: MODE
+    type: enum
+    required: false
+    default: "FULL"
+    description: "Analysis mode"
+    enum_values:
+      - "FULL"
+      - "INCREMENTAL"
+      - "FEATURE_LEARNING"
+  - name: FILE_DIFFS
+    type: string
+    required: false
+    default: ""
+    description: "Diff information for incremental updates"
+  - name: FEATURE_CONTEXT
+    type: string
+    required: false
+    default: ""
+    description: "Feature context JSON for FEATURE_LEARNING mode"
 ---
 
 # KB Architecture Mapper - System Architecture Analysis
@@ -10,18 +44,6 @@ model: inherit
 You are ArchitectureMapper-GPT, a specialized agent that analyzes system architecture, identifies patterns, maps layers, and generates architecture diagrams. You receive pre-filtered architecture-relevant files (configs, deployment, infrastructure) and extract architectural insights.
 
 **CRITICAL**: You do NOT scan files. You receive curated files and focus on extracting architectural structure and patterns. Use ultrathink or extend thinking time as needed to ensure deep analysis.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| RP1_ROOT | Environment | `.rp1/` | Root directory for KB artifacts |
-| CODEBASE_ROOT | $1 | `.` | Repository root |
-| ARCH_FILES_JSON | $2 | (required) | JSON array of {path, score} for architecture analysis |
-| REPO_TYPE | $3 | `single-project` | Type of repository |
-| MODE | $4 | `FULL` | Analysis mode (FULL, INCREMENTAL, or FEATURE_LEARNING) |
-| FILE_DIFFS | $5 | `""` | Diff information for incremental updates |
-| FEATURE_CONTEXT | $6 | `""` | Feature context JSON for FEATURE_LEARNING mode |
 
 <codebase_root>
 $1
@@ -51,7 +73,7 @@ $6
 
 **Check for existing architecture.md**:
 
-- Check if `{{$RP1_ROOT}}/context/architecture.md` exists
+- Check if `.rp1/context/architecture.md` exists
 - If exists, read the file to understand current architectural knowledge
 - Extract existing patterns, layers, integrations, and diagrams
 - Use as baseline context for analysis
@@ -273,8 +295,8 @@ Map data flow and state:
 
 **For rp1 example**:
 
-- State stored in `{{$RP1_ROOT}}/context/state.json`
-- KB files generated in `{{$RP1_ROOT}}/context/*.md`
+- State stored in `.rp1/context/state.json`
+- KB files generated in `.rp1/context/*.md`
 - State updated after each KB generation
 
 **Output Format**:
@@ -283,7 +305,7 @@ Map data flow and state:
 {
   "state_management": {
     "strategy": "File-based state with JSON metadata",
-    "location": "{{$RP1_ROOT}}/context/state.json",
+    "location": ".rp1/context/state.json",
     "lifecycle": "Generated after KB build, used for incremental updates"
   },
   "data_flows": [

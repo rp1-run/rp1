@@ -8,7 +8,13 @@
  */
 
 import type { SupportedTool } from "../config/supported-tools.js";
-import type { PlatformRegistry, SkillMetadata } from "./models.js";
+import { deriveArgumentHint } from "./arguments.js";
+import type {
+	ArgumentDefinition,
+	EnvironmentDefinition,
+	PlatformRegistry,
+	SkillMetadata,
+} from "./models.js";
 
 // ---------------------------------------------------------------------------
 // Platform type
@@ -49,6 +55,8 @@ export interface AgentArtifactData {
 	readonly tools: readonly string[];
 	readonly content: string; // post-conditional-processing
 	readonly roleType?: CodexRoleType; // computed for Codex
+	readonly arguments?: readonly ArgumentDefinition[];
+	readonly environment?: readonly EnvironmentDefinition[];
 }
 
 /** Data for a manifest artifact passed into the template context. */
@@ -93,6 +101,33 @@ export interface BuildTemplateContext extends Record<string, unknown> {
 	// Build metadata
 	readonly buildTimestamp: string;
 	readonly version: string; // rp1 CLI version
+}
+
+// ---------------------------------------------------------------------------
+// Argument hint auto-derivation
+// ---------------------------------------------------------------------------
+
+/**
+ * Return a new {@link SkillMetadata} with the `argumentHint` auto-derived
+ * from the structured `arguments` array when present.
+ *
+ * When `arguments` is defined the derived hint replaces any manually
+ * specified `argument-hint` value, ensuring the template always emits
+ * a hint consistent with the structured schema.
+ *
+ * Returns the original metadata unchanged when `arguments` is absent.
+ */
+export function withDerivedArgumentHint(
+	metadata: SkillMetadata | undefined,
+): SkillMetadata | undefined {
+	if (!metadata?.arguments || metadata.arguments.length === 0) {
+		return metadata;
+	}
+
+	return {
+		...metadata,
+		argumentHint: deriveArgumentHint(metadata.arguments),
+	};
 }
 
 // ---------------------------------------------------------------------------

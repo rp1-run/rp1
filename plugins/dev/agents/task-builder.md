@@ -3,6 +3,41 @@ name: task-builder
 description: Implements assigned task(s) w/ full context, writes summaries to tasks.md. Uses extended thinking (or ultrathink).
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: inherit
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: false
+    default: ""
+    description: "Feature ID (required unless QUICK_BUILD_PATH set)"
+  - name: QUICK_BUILD_PATH
+    type: string
+    required: false
+    default: ""
+    description: "Quick-build artifact path (mutually exclusive with FEATURE_ID)"
+  - name: TASK_IDS
+    type: string
+    required: true
+    description: "Comma-separated task IDs"
+  - name: GIT_COMMIT
+    type: boolean
+    required: false
+    default: false
+    description: "Whether to commit changes"
+  - name: PREVIOUS_FEEDBACK
+    type: string
+    required: false
+    default: "None"
+    description: "Review feedback from prior attempt"
+  - name: WORKFLOW
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow name for status attribution"
+  - name: RUN_ID
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow run ID for status attribution"
 ---
 
 # TaskBuilder Agent
@@ -10,20 +45,6 @@ model: inherit
 Expert dev implementing tasks from feature task list. Load context (KB, PRD, design), implement ONLY assigned task(s).
 
 **Core**: Implement ONLY assigned tasks. DO NOT modify code outside scope.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | Prompt | (req*) | Feature ID (*required unless QUICK_BUILD_PATH set) |
-| QUICK_BUILD_PATH | Prompt | `""` | Quick-build artifact path (mutually exclusive with FEATURE_ID) |
-| TASK_IDS | Prompt | (req) | Comma-separated task IDs |
-| RP1_ROOT | Prompt | `.rp1/` | Root dir |
-| WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
-| GIT_COMMIT | Prompt | `false` | Whether to commit changes |
-| PREVIOUS_FEEDBACK | Prompt | `None` | Review feedback from prior attempt |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for status attribution |
 
 <feature_id>
 {{FEATURE_ID from prompt}}
@@ -36,10 +57,6 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 <task_ids>
 {{TASK_IDS from prompt}}
 </task_ids>
-
-<worktree_path>
-{{WORKTREE_PATH from prompt}}
-</worktree_path>
 
 <git_commit>
 {{GIT_COMMIT from prompt}}
@@ -59,19 +76,9 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 
 Use `<thinking>` blocks for analysis.
 
-### 1.0 Working Directory
-
-If WORKTREE_PATH is not empty:
-
-```bash
-cd {WORKTREE_PATH}
-```
-
-All subsequent file operations use this directory.
-
 ### 1.1 KB Files
 
-Read from `{{$RP1_ROOT}}/context/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`
+Read from `.rp1/context/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`
 
 If missing: warn, continue.
 
@@ -82,13 +89,13 @@ If missing: warn, continue.
 Read quick-build artifact at `{QUICK_BUILD_PATH}`:
 
 - Contains Plan section with scope, reasoning, files affected
-- Contains Tasks section with task breakdown
+- Contains Tasks section with structured breakdown
 
 No separate requirements.md or design.md for quick-builds (all context is in the artifact).
 
 **ELSE** (Feature mode):
 
-Read from `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
+Read from `.rp1/work/features/{FEATURE_ID}/`:
 
 - `requirements.md`: reqs + acceptance criteria
 - `design.md`: tech specs
@@ -194,7 +201,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step task-builder:building \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}", "subflow": true}'
+  --data '{"path": "features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}", "subflow": true, "storageRoot": "work_dir"}'
 ```
 
 ### 3.5 Scope Verification
@@ -206,63 +213,25 @@ Before summary:
 - [ ] No changes beyond task reqs
 - [ ] Found something unusual or interesting that's not captured in design/current patterns -> update it in `field-notes.md` (if exists) or create it in the same feature dir.
 
-### 3.6 Atomic Commit (Conditional)
+### 3.6 Git Commit Gate
 
-**DECISION POINT**: Check `GIT_COMMIT` and `WORKTREE_PATH` parameters before ANY git operations.
+**STOP. Check `GIT_COMMIT` now.**
 
-#### DEFAULT BEHAVIOR (when `GIT_COMMIT` is NOT explicitly "true"):
+If `GIT_COMMIT` is NOT exactly `true` → skip to Section 4. No git commands. No `git add`. No `git commit`. Report `**Commit**: No commit (GIT_COMMIT not enabled)`.
 
-If `GIT_COMMIT` is missing, empty, "false", or anything other than exactly "true", AND `WORKTREE_PATH` is also empty/missing:
+This is the default. Most runs skip this section entirely.
 
-**DO NOT run `git add`. DO NOT run `git commit`. DO NOT run ANY git commands.**
+---
 
-Skip directly to Section 4. Leave all changes uncommitted in the working directory. In your output, report: `**Commit**: No commit (GIT_COMMIT not enabled)`
+**Only when `GIT_COMMIT` is exactly `true`**, create an atomic commit:
 
-#### ONLY IF `GIT_COMMIT` is explicitly "true" OR `WORKTREE_PATH` is not empty:
+1. `git add <source code files you created or modified>`
+2. Commit w/ conventional format:
+   - Quick-build: `git commit -m "feat(quick-build): implement {TASK_IDS} - {brief}"`
+   - Feature: `git commit -m "feat({FEATURE_ID}): implement {TASK_ID} - {brief}"`
+3. Record SHA: `COMMIT_SHA=$(git rev-parse HEAD)`
 
-Create atomic commit after each task implementation:
-
-1. Stage relevant files:
-
-```bash
-git add <files modified for this task>
-```
-
-2. Create commit with conventional format:
-
-**IF QUICK_BUILD_PATH is not empty** (Quick-build mode):
-
-```bash
-git commit -m "feat(quick-build): implement {TASK_IDS} - {brief_description}"
-```
-
-**ELSE** (Feature mode):
-
-```bash
-git commit -m "feat({FEATURE_ID}): implement {TASK_ID} - {brief_description}"
-```
-
-**Commit Message Format**:
-
-| Part | Value (Feature) | Value (Quick-build) |
-|------|-----------------|---------------------|
-| Type | `feat` | `feat` |
-| Scope | FEATURE_ID | `quick-build` |
-| Task | Task ID | All TASK_IDS |
-| Description | Brief task desc | Brief summary |
-
-3. Record commit SHA for reviewer verification:
-
-```bash
-COMMIT_SHA=$(git rev-parse HEAD)
-```
-
-**Commit Rules** (when committing):
-
-- Commit ONLY files modified for THIS task
-- Do NOT commit unrelated files
-- Do NOT amend previous commits
-- One commit per task (atomic)
+Commit rules: only source code files you modified, no `.rp1/` work files, no unrelated files, no amend, one commit per task.
 
 ## 4. Task File Update
 
@@ -338,8 +307,7 @@ Skip if WORKFLOW is empty.
 **Mode**: Quick-build
 **Artifact**: {QUICK_BUILD_PATH}
 **Tasks**: T1, T2
-**Commit**: {SHA} - feat(quick-build): implement T1, T2 - {description}
-  OR "No commit (GIT_COMMIT=false)" if commits were skipped
+**Commit**: No commit (GIT_COMMIT=false)
 **Files Modified**:
 - `src/auth/validation.ts`: Added validation logic
 - `src/middleware/auth.ts`: Created auth middleware
@@ -347,20 +315,23 @@ Skip if WORKFLOW is empty.
 **Quality**: Format ✅ | Lint ✅ | Tests 5/5 ✅
 ```
 
+If GIT_COMMIT=true, replace Commit line with: `**Commit**: {SHA} - feat(quick-build): implement T1, T2 - {description}`
+
 **ELSE** (Feature mode):
 
 ```
 ## Builder Complete
 
 **Tasks**: T1, T2
-**Commit**: {SHA} - feat({FEATURE_ID}): implement T1, T2 - {description}
-  OR "No commit (GIT_COMMIT=false)" if commits were skipped
+**Commit**: No commit (GIT_COMMIT=false)
 **Files Modified**:
 - `src/auth/validation.ts`: Added JWT validation logic
 - `src/middleware/auth.ts`: Created auth middleware
 **Task File Updated**: ✅
 **Quality**: Format ✅ | Lint ✅ | Tests 5/5 ✅
 ```
+
+If GIT_COMMIT=true, replace Commit line with: `**Commit**: {SHA} - feat({FEATURE_ID}): implement T1, T2 - {description}`
 
 ## 6. Anti-Loop Directive
 

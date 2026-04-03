@@ -3,7 +3,7 @@
 # Unified eval config for /rp1-dev:build across harnesses.
 # Default: claude-with-tools. Override: EVAL_HARNESS=opencode
 #
-# Run: just run-evals rp1-dev/build
+# Run: just eval-run rp1-dev/build
 description: "rp1-dev:build unified evaluation"
 evaluateOptions:
   maxConcurrency: 4
@@ -24,9 +24,9 @@ providers:
         - user
       plugins:
         - type: local
-          path: plugins/dev
+          path: dist/claude-code/dev
         - type: local
-          path: plugins/base
+          path: dist/claude-code/base
       tools:
         - Read
         - Write
@@ -74,7 +74,7 @@ tests:
           2. Executes workflow steps in order: Requirements -> Design -> Tasks -> Build -> Verify -> Archive
           3. For each step, spawns the appropriate agent(s) as defined in the progress table
           4. Outputs step status table using symbols: [ ]=PENDING, [~]=RUNNING, [x]=COMPLETED, [-]=SKIPPED, [!]=FAILED
-          5. Creates feature artifacts in {RP1_ROOT}/work/features/{FEATURE_ID}/ directory
+          5. Creates feature artifacts in .rp1/work/features/{FEATURE_ID}/ directory
           6. After requirements step completes, pauses for user review with Continue/Revise/Stop options (when not AFK)
           7. After design step completes, pauses for user review with Continue/Revise/Stop options (when not AFK)
           8. After build step completes, pauses for user review with Continue/Add Task/Stop options (when not AFK)
@@ -83,7 +83,7 @@ tests:
           11. Build-verify-aggregator determines overall_status (VERIFIED/FAILED) and ready_for_merge
           12. Final output includes Feature ID, step status table (1-6), and artifacts created
           13. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools emit" with "--type status_change" and "--run-id" flags
-          14. Agent registers produced artifacts via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags pointing to files in {RP1_ROOT}/work/features/{FEATURE_ID}/
+          14. Agent registers produced artifacts via Metadata bashCommands containing "rp1 agent-tools emit" with "--type artifact_registered" and "--run-id" flags pointing to files in .rp1/work/features/{FEATURE_ID}/
 
           PASS if: Full workflow executes with status tracking
           FAIL if: Steps skipped out of order or no status table

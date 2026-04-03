@@ -11,7 +11,53 @@ metadata:
   created: 2026-01-01
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "[development-request...] [--afk] [--confirm-plan] [--review] [--git-commit] [--git-push]"
+  arguments:
+    - name: DEVELOPMENT_REQUEST
+      type: string
+      required: true
+      description: "The freeform development request text"
+      variadic: true
+    - name: AFK
+      type: boolean
+      required: false
+      default: false
+      description: "Non-interactive mode"
+      aliases:
+        - "afk"
+        - "no prompts"
+        - "unattended"
+    - name: CONFIRM_PLAN
+      type: boolean
+      required: false
+      default: false
+      description: "Enable plan review checkpoint and post-implementation review"
+      aliases:
+        - "confirm"
+        - "review plan"
+        - "confirm-plan"
+    - name: REVIEW
+      type: boolean
+      required: false
+      default: false
+      description: "Enable task-reviewer validation after implementation"
+      aliases:
+        - "review"
+        - "verify"
+        - "check"
+    - name: GIT_COMMIT
+      type: boolean
+      required: false
+      default: false
+      description: "Commit changes"
+      aliases:
+        - "commit"
+    - name: GIT_PUSH
+      type: boolean
+      required: false
+      default: false
+      description: "Push branch to remote"
+      aliases:
+        - "push"
   sub_agents:
     - "rp1-dev:build-fast-planner"
     - "rp1-dev:task-builder"
@@ -21,22 +67,6 @@ metadata:
 # Build Fast Command
 
 Quick-iteration workflow for focused changes. Three-phase execution: plan -> build -> [review].
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `DEVELOPMENT_REQUEST` | Yes | - | The freeform development request text |
-| `AFK` | No | `false` | Non-interactive mode. Set `true` if user says "afk", "no prompts", or "unattended" |
-| `CONFIRM_PLAN` | No | `false` | Enable plan review checkpoint and post-implementation review. Set `true` if user says "confirm", "review plan", or "confirm-plan" |
-| `REVIEW` | No | `false` | Enable task-reviewer validation after implementation. Set `true` if user says "review", "verify", or "check" |
-| `GIT_COMMIT` | No | `false` | Commit changes. Set `true` if user says "commit" |
-| `GIT_PUSH` | No | `false` | Push branch to remote. Set `true` if user says "push" |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## §VERSION-GATE
 
@@ -52,12 +82,12 @@ Or in the terminal: `rp1 update`
 
 ## §FLAG-LOGIC
 
-**CRITICAL OVERRIDE**: When `AFK=true`, treat `CONFIRM_PLAN` as `false` regardless of its passed value. AFK mode means zero user interaction - skip ALL `AskUserQuestion` calls throughout this workflow.
+**CRITICAL OVERRIDE**: When `AFK=true`, treat `CONFIRM_PLAN` as `false` regardless of its passed value. AFK mode means zero user interaction - skip ALL user prompts throughout this workflow.
 
 **Effective values when AFK=true**:
 
 - `CONFIRM_PLAN` -> `false` (forced)
-- All checkpoints -> SKIP (no AskUserQuestion)
+- All checkpoints -> SKIP (no user prompts)
 
 ## STATE-MACHINE
 
@@ -75,11 +105,13 @@ rp1 agent-tools emit \
   --workflow build-fast \
   --type status_change \
   --run-id {RUN_ID} \
+  --name "{RUN_NAME}" \
   --step {CURRENT_STATE} \
   --data '{"status": "running"}'
 ```
 
 - Generate `RUN_ID` as a UUID at workflow start
+- Derive `RUN_NAME` from the development request: a brief summary (max 60 chars) prefixed with `"Feature: "` (e.g., `"Feature: Add logout button to navbar"`)
 
 **State Progression Protocol**:
 1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
@@ -89,7 +121,7 @@ rp1 agent-tools emit \
 
 **Example sequence**:
 ```
---workflow build-fast --step plan --data '{"status": "running"}'       # entering plan phase
+--workflow build-fast --step plan --name "Feature: Add logout button" --data '{"status": "running"}'   # first emit includes --name
 --workflow build-fast --step build --data '{"status": "running"}'      # plan done, entering build phase
 --workflow build-fast --step review --data '{"status": "running"}'     # build done, entering review phase
 --workflow build-fast --step review --data '{"status": "completed"}'   # review done, workflow complete
@@ -100,10 +132,10 @@ rp1 agent-tools emit \
 **Spawn agent**:
 
 {% dispatch_agent "rp1-dev:build-fast-planner" %}
-DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build-fast, RUN_ID={RUN_ID}
+DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, WORKFLOW=build-fast, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-**Parse response**: Extract `scope`, `plan_summary`, `files_affected`, `reasoning`, `artifact_path`, `task_count`, `task_ids`.
+**Parse response**: Extract `scope`, `plan_summary`, `files_affected`, `reasoning`, `artifact_path`, `artifact_relative_path`, `task_count`, `task_ids`.
 
 **If planner fails or returns an error**: Retry the planner once. If it fails again, use a `general-purpose` agent with the same prompt to generate the plan and artifact. Never skip planning — always produce an artifact before §PHASE-2.
 
@@ -117,7 +149,7 @@ Output the planner's `redirect_message` and STOP.
 
 **SKIP ENTIRELY if**: `AFK=true` OR `CONFIRM_PLAN=false`
 
-When skipped: Do NOT call AskUserQuestion. Proceed directly to §PHASE-2.
+When skipped: Do NOT prompt the user. Proceed directly to §PHASE-2.
 
 Emit waiting status so the Arcade dashboard reflects the gate pause:
 
@@ -151,17 +183,16 @@ Present the plan review to the user:
 
 ## §PHASE-2: Execution
 
-**CRITICAL**: You are an orchestrator. You MUST delegate implementation to `task-builder` via the Task tool. Do NOT write, edit, or create source code files yourself. Do NOT implement the plan directly. Your only job is to spawn agents and parse their responses.
+**CRITICAL**: You are an orchestrator. You MUST delegate implementation to `task-builder` by spawning an agent. Do NOT write, edit, or create source code files yourself. Do NOT implement the plan directly. Your only job is to spawn agents and parse their responses.
 
 ### §2.1 Task Execution
 
 **You MUST spawn task-builder here.** Do not implement the tasks yourself.
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-QUICK_BUILD_PATH={artifact_path}
+QUICK_BUILD_PATH=.rp1/work/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
-RP1_ROOT={{$RP1_ROOT}}
 WORKFLOW=build-fast
 RUN_ID={RUN_ID}
 {% enddispatch_agent %}
@@ -177,10 +208,9 @@ RUN_ID={RUN_ID}
 **You MUST use `subagent_type: rp1-dev:task-reviewer`** — do not use `general-purpose` or any other agent type.
 
 {% dispatch_agent "rp1-dev:task-reviewer" %}
-QUICK_BUILD_PATH={artifact_path}
+QUICK_BUILD_PATH=.rp1/work/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
-RP1_ROOT={{$RP1_ROOT}}
 WORKFLOW=build-fast
 RUN_ID={RUN_ID}
 {% enddispatch_agent %}
@@ -192,13 +222,12 @@ RUN_ID={RUN_ID}
 If `status` = "FAILURE":
 
 1. Extract `issues` and `summary` from reviewer response
-2. Re-invoke task-builder with feedback:
+2. Re-spawn task-builder with feedback:
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-QUICK_BUILD_PATH={artifact_path}
+QUICK_BUILD_PATH=.rp1/work/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
-RP1_ROOT={{$RP1_ROOT}}
 PREVIOUS_FEEDBACK={reviewer summary and issues}
 WORKFLOW=build-fast
 RUN_ID={RUN_ID}
@@ -220,7 +249,7 @@ git push -u origin {branch}
 
 **SKIP ENTIRELY if**: `AFK=true` OR `CONFIRM_PLAN=false`
 
-When skipped: Do NOT call AskUserQuestion. Proceed directly to §OUTPUT.
+When skipped: Do NOT prompt the user. Proceed directly to §OUTPUT.
 
 Emit waiting status so the Arcade dashboard reflects the gate pause:
 
@@ -258,7 +287,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step build \
-  --data '{"path": "{artifact_path}", "feature": "quick-build"}'
+  --data '{"path": "{artifact_relative_path}", "feature": "quick-build", "storageRoot": "work_dir"}'
 ```
 
 ```markdown
@@ -282,9 +311,9 @@ rp1 agent-tools emit \
 **MANDATORY — violations cause eval failure**:
 
 **DO**:
-- Spawn agents via Task/Agent tool for every phase (planner, task-builder, reviewer)
-- Wait for each Task to complete before proceeding
-- Use AskUserQuestion for user interactions (when not AFK)
+- Spawn agents for every phase (planner, task-builder, reviewer)
+- Wait for each spawned agent to complete before proceeding
+- Prompt user for interactions (when not AFK)
 - Register artifact via `rp1 agent-tools emit --type artifact_registered` in §OUTPUT — this is REQUIRED
 
 **DO NOT** (hard constraints — never violate these):

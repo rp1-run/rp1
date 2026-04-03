@@ -1,9 +1,8 @@
-import { execSync } from "node:child_process";
-import { statSync } from "node:fs";
 import { resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as O from "fp-ts/lib/Option.js";
+import { resolveDirectorySet } from "./directory-resolution.js";
 import { type CLIError, notFoundError, usageError } from "./errors.js";
 
 export interface CLIConfig {
@@ -19,47 +18,14 @@ export interface ArcadeConfig extends CLIConfig {
 
 export const findRp1Root = (
 	startPath: string = process.cwd(),
-): O.Option<string> => {
-	let current = resolve(startPath);
-	const root = resolve("/");
-
-	while (current !== root) {
-		const rp1Path = resolve(current, ".rp1");
-		try {
-			const stat = statSync(rp1Path);
-			if (stat.isDirectory()) {
-				return O.some(current);
-			}
-		} catch {
-			// Continue searching
-		}
-		current = resolve(current, "..");
-	}
-
-	// Worktree fallback: use git-common-dir to find the main repo root
-	try {
-		const commonDir = execSync("git rev-parse --git-common-dir", {
-			cwd: resolve(startPath),
-			encoding: "utf-8",
-			stdio: ["pipe", "pipe", "pipe"],
-		}).trim();
-
-		const absoluteCommonDir = resolve(startPath, commonDir);
-		const mainRoot = absoluteCommonDir.endsWith(".git")
-			? resolve(absoluteCommonDir, "..")
-			: absoluteCommonDir;
-
-		const rp1Path = resolve(mainRoot, ".rp1");
-		const stat = statSync(rp1Path);
-		if (stat.isDirectory()) {
-			return O.some(mainRoot);
-		}
-	} catch {
-		// Not a git repo or no .rp1 in main root
-	}
-
-	return O.none;
-};
+): O.Option<string> =>
+	pipe(
+		resolveDirectorySet(startPath),
+		E.match(
+			() => O.none,
+			(result) => O.some(result.projectRoot),
+		),
+	);
 
 const parsePort = (portStr: string): E.Either<CLIError, number> => {
 	const port = parseInt(portStr, 10);
@@ -77,7 +43,7 @@ export const parseArcadeArgs = (
 	args: string[],
 ): E.Either<CLIError, ArcadeConfig> => {
 	const config: ArcadeConfig = {
-		rp1Root: process.env.RP1_ROOT || "",
+		rp1Root: "",
 		port: 7710,
 		openBrowser: true,
 		verbose: false,
@@ -113,14 +79,22 @@ export const resolveRp1Root = (
 	config: ArcadeConfig,
 ): E.Either<CLIError, ArcadeConfig> =>
 	pipe(
-		config.rp1Root,
-		O.fromPredicate((root) => root.length > 0),
-		O.alt(() => findRp1Root()),
-		O.map((rp1Root) => ({ ...config, rp1Root })),
-		E.fromOption(() =>
-			notFoundError(
-				".rp1 directory",
-				"Run this command from an rp1 project directory, or specify a path: rp1 arcade /path/to/project",
+		resolveDirectorySet(config.rp1Root || process.cwd()),
+		E.map((directories) => ({
+			...config,
+			rp1Root: directories.projectRoot,
+		})),
+		E.chain((resolvedConfig) =>
+			pipe(
+				resolvedConfig.rp1Root,
+				O.fromPredicate((root) => root.length > 0),
+				E.fromOption(() =>
+					notFoundError(
+						".rp1 directory",
+						"Run this command from an rp1 project directory, or specify a path: rp1 arcade /path/to/project",
+					),
+				),
+				E.map(() => resolvedConfig),
 			),
 		),
 	);

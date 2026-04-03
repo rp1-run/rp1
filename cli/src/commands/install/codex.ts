@@ -68,8 +68,9 @@ Examples:
 		if (!ctx.dryRun) {
 			console.log("");
 			console.log("Installed plugins:");
-			console.log("  - rp1-base");
-			console.log("  - rp1-dev");
+			for (const plugin of installResult.pluginsInstalled) {
+				console.log(`  - ${plugin}`);
+			}
 
 			if (installResult.warnings.length > 0) {
 				console.log("");

@@ -1,7 +1,6 @@
 import {
 	BarChart3,
 	Check,
-	ChevronRight,
 	Circle,
 	Code,
 	File,
@@ -28,6 +27,7 @@ export interface VerticalStepListProps {
 	readonly onStepSelect: (stepId: string) => void;
 	readonly onArtifactSelect: (artifact: Artifact) => void;
 	readonly workflowName?: string | null;
+	readonly harness?: string | null;
 }
 
 const artifactIconMap: Record<ArtifactType, typeof FileText> = {
@@ -135,6 +135,48 @@ function StatusDot({ status }: { readonly status: StepStatus }) {
 	}
 }
 
+const STATUS_CATEGORIES: Record<string, string> = {
+	running: "active",
+	waiting: "waiting",
+	completed: "done",
+	failed: "failed",
+};
+
+function SubTaskSummaryChips({
+	tasks,
+}: {
+	readonly tasks: readonly AgentTask[];
+}) {
+	const counts = new Map<string, number>();
+	for (const task of tasks) {
+		const category = STATUS_CATEGORIES[task.status] ?? task.status;
+		counts.set(category, (counts.get(category) ?? 0) + 1);
+	}
+
+	const accentMap: Record<string, string> = {
+		active: "text-accent-amber",
+		waiting: "text-fg-ghost",
+		done: "text-fg-ghost",
+		failed: "text-failure",
+	};
+
+	return (
+		<span className="flex items-center gap-xs ml-xs">
+			{Array.from(counts.entries()).map(([category, count]) => (
+				<span
+					key={category}
+					className="type-secondary text-fg-ghost whitespace-nowrap"
+				>
+					<span className={accentMap[category] ?? "text-fg-ghost"}>
+						{count}
+					</span>{" "}
+					{category}
+				</span>
+			))}
+		</span>
+	);
+}
+
 function SubTaskStatusDot({ status }: { readonly status: string }) {
 	switch (status) {
 		case "completed":
@@ -177,11 +219,11 @@ export function VerticalStepList({
 	selectedStepId,
 	onStepSelect,
 	onArtifactSelect,
-	workflowName,
 }: VerticalStepListProps) {
 	const [expandedComposites, setExpandedComposites] = useState<Set<string>>(
 		() => new Set<string>(),
 	);
+	const [copiedArtifactId, setCopiedArtifactId] = useState<string | null>(null);
 
 	const artifactsByStep = useMemo(() => {
 		const map = new Map<string, Artifact[]>();
@@ -198,19 +240,6 @@ export function VerticalStepList({
 		return map;
 	}, [artifacts]);
 
-	const toggleComposite = useCallback((stepId: string, e: React.MouseEvent) => {
-		e.stopPropagation();
-		setExpandedComposites((prev) => {
-			const next = new Set(prev);
-			if (next.has(stepId)) {
-				next.delete(stepId);
-			} else {
-				next.add(stepId);
-			}
-			return next;
-		});
-	}, []);
-
 	const hasBackEdge = useCallback(
 		(step: Step, index: number) => {
 			if (index === 0) return false;
@@ -226,11 +255,6 @@ export function VerticalStepList({
 
 	return (
 		<nav aria-label="Workflow steps" className="relative py-md px-md">
-			{workflowName && (
-				<p className="type-caption text-fg-ghost mb-sm ml-[9px] pl-md">
-					/{workflowName}
-				</p>
-			)}
 			<ol className="relative ml-[9px] border-l border-border">
 				{steps.map((step, index) => {
 					const isSelected = step.id === selectedStepId;
@@ -252,9 +276,19 @@ export function VerticalStepList({
 						>
 							<button
 								type="button"
-								onClick={() => onStepSelect(step.id)}
+								onClick={() => {
+									onStepSelect(step.id);
+									if (isComposite) {
+										setExpandedComposites((prev) => {
+											const next = new Set(prev);
+											if (next.has(step.id)) next.delete(step.id);
+											else next.add(step.id);
+											return next;
+										});
+									}
+								}}
 								className={cn(
-									"flex w-full items-start gap-sm py-xs pr-sm pl-md text-left transition-colors duration-150",
+									"flex w-full items-start gap-sm py-sm pr-sm pl-md text-left transition-colors duration-150",
 									isSelected
 										? "bg-accent-ghost text-fg"
 										: "text-fg-muted hover:text-fg",
@@ -264,28 +298,7 @@ export function VerticalStepList({
 									<StatusDot status={step.status} />
 								</span>
 
-								<div className="flex min-w-0 flex-1 items-start gap-xs">
-									{isComposite && (
-										<button
-											type="button"
-											onClick={(e) => toggleComposite(step.id, e)}
-											className="mt-[1px] flex-shrink-0 p-0.5"
-											aria-label={
-												isCompositeExpanded
-													? "Collapse sub-tasks"
-													: "Expand sub-tasks"
-											}
-										>
-											<ChevronRight
-												className={cn(
-													"h-3 w-3 text-fg-ghost transition-transform duration-150",
-													isCompositeExpanded && "rotate-90",
-												)}
-												strokeWidth={1.5}
-											/>
-										</button>
-									)}
-
+								<div className="flex min-w-0 flex-1 items-baseline gap-xs">
 									<span
 										className={cn(
 											"type-body font-medium min-w-0 truncate",
@@ -302,6 +315,10 @@ export function VerticalStepList({
 										>
 											{"\u21A9"}
 										</span>
+									)}
+
+									{isComposite && !isCompositeExpanded && (
+										<SubTaskSummaryChips tasks={subTasks} />
 									)}
 								</div>
 
@@ -321,16 +338,37 @@ export function VerticalStepList({
 										const fileName =
 											artifact.path.split("/").pop() ?? artifact.path;
 										return (
-											<li key={artifact.docId}>
+											<li
+												key={artifact.docId}
+												className="flex items-center gap-xs"
+											>
+												<button
+													type="button"
+													onClick={(e) => {
+														e.stopPropagation();
+														navigator.clipboard.writeText(
+															artifact.absolutePath ?? artifact.path,
+														);
+														setCopiedArtifactId(artifact.docId);
+														setTimeout(() => setCopiedArtifactId(null), 2000);
+													}}
+													aria-label={`Copy path for ${fileName}`}
+													className="flex-shrink-0 p-[1px] text-fg-ghost hover:text-fg transition-colors duration-150"
+												>
+													{copiedArtifactId === artifact.docId ? (
+														<Check className="h-3 w-3" strokeWidth={1.5} />
+													) : (
+														<IconComponent
+															className="h-3 w-3"
+															strokeWidth={1.5}
+														/>
+													)}
+												</button>
 												<button
 													type="button"
 													onClick={() => onArtifactSelect(artifact)}
-													className="flex w-full items-center gap-xs py-[2px] text-left type-secondary text-fg-muted hover:text-fg transition-colors duration-150"
+													className="flex min-w-0 flex-1 items-center gap-xs py-[2px] text-left type-secondary text-fg-muted hover:text-fg transition-colors duration-150"
 												>
-													<IconComponent
-														className="h-3 w-3 flex-shrink-0"
-														strokeWidth={1.5}
-													/>
 													<span className="min-w-0 truncate">{fileName}</span>
 												</button>
 											</li>
@@ -344,8 +382,8 @@ export function VerticalStepList({
 									<ol>
 										{subTasks.map((task) => (
 											<li
-												key={task.id}
-												className="relative flex items-center gap-xs py-[3px] pl-sm"
+												key={`${task.agent}:${task.id}`}
+												className="relative flex items-center gap-xs py-sm pl-sm"
 											>
 												<span className="absolute -left-[10px]">
 													<SubTaskStatusDot status={task.status} />
@@ -353,8 +391,13 @@ export function VerticalStepList({
 												<span className="type-secondary text-fg-muted tabular-nums">
 													{task.id}
 												</span>
-												<span className="type-secondary text-fg-ghost">
-													{task.agent}
+												{task.agent !== task.id && (
+													<span className="type-secondary text-fg-ghost">
+														{task.agent}
+													</span>
+												)}
+												<span className="type-secondary text-fg-ghost ml-auto">
+													{task.status}
 												</span>
 											</li>
 										))}

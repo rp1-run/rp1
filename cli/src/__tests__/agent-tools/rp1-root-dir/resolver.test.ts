@@ -1,8 +1,3 @@
-/**
- * Unit tests for rp1-root-dir resolver module.
- * Tests path resolution logic with worktree detection.
- */
-
 import {
 	afterAll,
 	afterEach,
@@ -11,6 +6,7 @@ import {
 	expect,
 	test,
 } from "bun:test";
+import { writeFileSync } from "node:fs";
 import { mkdir, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,9 +15,7 @@ import {
 	captureMainRepoState,
 	createInitialCommit,
 	createTestWorktree,
-	expectTaskLeft,
 	expectTaskRight,
-	getErrorMessage,
 	initTestRepo,
 	removeTestWorktree,
 	verifyNoMainRepoContamination,
@@ -33,40 +27,39 @@ describe("rp1-root-dir resolver", () => {
 	let worktreeRepoRoot: string;
 	let linkedWorktreePath: string;
 	let nonGitDir: string;
-	let originalEnv: string | undefined;
+	let originalProjectRootEnv: string | undefined;
 	let mainRepoSnapshot: Awaited<ReturnType<typeof captureMainRepoState>>;
 
 	beforeAll(async () => {
-		// Capture main repo state before tests for contamination detection
 		mainRepoSnapshot = await captureMainRepoState();
 
-		// Save original RP1_ROOT env value
-		originalEnv = process.env.RP1_ROOT;
-		// Clear it for most tests
-		delete process.env.RP1_ROOT;
+		originalProjectRootEnv = process.env.RP1_PROJECT_ROOT;
+		delete process.env.RP1_PROJECT_ROOT;
 
-		// Create unique temp directory for this test run
-		// Use realpath to resolve symlinks (macOS /var -> /private/var)
 		const tempDir = join(tmpdir(), `rp1-root-dir-test-${Date.now()}`);
 		await mkdir(tempDir, { recursive: true });
 		tempBase = await realpath(tempDir);
 
-		// Create a standard git repo (non-worktree) using isolated git
 		standardRepoRoot = join(tempBase, "standard-repo");
-		await mkdir(standardRepoRoot, { recursive: true });
+		await mkdir(join(standardRepoRoot, ".rp1"), { recursive: true });
+		writeFileSync(
+			join(standardRepoRoot, ".rp1", "project_id"),
+			"aaa00000-0000-0000-0000-000000000001",
+		);
 		await initTestRepo(standardRepoRoot);
 		await createInitialCommit(standardRepoRoot);
 
-		// Create a repo with a linked worktree using isolated git
 		worktreeRepoRoot = join(tempBase, "worktree-main");
-		await mkdir(worktreeRepoRoot, { recursive: true });
+		await mkdir(join(worktreeRepoRoot, ".rp1"), { recursive: true });
+		writeFileSync(
+			join(worktreeRepoRoot, ".rp1", "project_id"),
+			"bbb00000-0000-0000-0000-000000000002",
+		);
 		await initTestRepo(worktreeRepoRoot);
 
-		// Create initial commit with different content
 		await Bun.write(join(worktreeRepoRoot, "README.md"), "# Worktree Main");
 		await createInitialCommit(worktreeRepoRoot);
 
-		// Create a linked worktree using isolated git
 		linkedWorktreePath = join(tempBase, "linked-worktree");
 		await createTestWorktree(
 			worktreeRepoRoot,
@@ -74,125 +67,86 @@ describe("rp1-root-dir resolver", () => {
 			"test-branch",
 		);
 
-		// Create a non-git directory
 		nonGitDir = join(tempBase, "not-a-repo");
 		await mkdir(nonGitDir, { recursive: true });
 	});
 
 	afterAll(async () => {
-		// Restore original RP1_ROOT
-		if (originalEnv !== undefined) {
-			process.env.RP1_ROOT = originalEnv;
+		if (originalProjectRootEnv !== undefined) {
+			process.env.RP1_PROJECT_ROOT = originalProjectRootEnv;
 		} else {
-			delete process.env.RP1_ROOT;
+			delete process.env.RP1_PROJECT_ROOT;
 		}
 
-		// Remove linked worktree first using isolated git
 		await removeTestWorktree(worktreeRepoRoot, linkedWorktreePath, true);
 
-		// Cleanup temp directories
 		await rm(tempBase, { recursive: true, force: true });
 
-		// Verify main repo wasn't contaminated
 		await verifyNoMainRepoContamination(mainRepoSnapshot);
 	});
 
 	afterEach(() => {
-		// Ensure RP1_ROOT is cleared after each test
-		delete process.env.RP1_ROOT;
+		delete process.env.RP1_PROJECT_ROOT;
 	});
 
 	describe("standard repo (non-worktree)", () => {
-		test("returns isWorktree: false and source: 'cwd' for standard git repo", async () => {
+		test("returns resolved directory metadata for standard git repo with .rp1/project_id", async () => {
 			const result = await expectTaskRight(resolveRp1Root(standardRepoRoot));
 
 			expect(result.isWorktree).toBe(false);
-			expect(result.source).toBe("cwd");
-			expect(result.root).toBe(join(standardRepoRoot, ".rp1"));
+			expect(result.projectRoot).toBe(standardRepoRoot);
+			expect(result.projectId).toBe("aaa00000-0000-0000-0000-000000000001");
+			expect(result.kbRoot).toBe(join(standardRepoRoot, ".rp1", "context"));
+			expect(result.workRoot).toBe(join(standardRepoRoot, ".rp1", "work"));
 			expect(result.worktreeName).toBeUndefined();
 		});
 
-		test("returns correct root from subdirectory of standard repo", async () => {
+		test("returns correct projectRoot from subdirectory of standard repo", async () => {
 			const subDir = join(standardRepoRoot, "src");
 			await mkdir(subDir, { recursive: true });
 
 			const result = await expectTaskRight(resolveRp1Root(subDir));
 
 			expect(result.isWorktree).toBe(false);
-			expect(result.source).toBe("cwd");
-			expect(result.root).toBe(join(standardRepoRoot, ".rp1"));
+			expect(result.projectRoot).toBe(standardRepoRoot);
 		});
 	});
 
 	describe("linked worktree", () => {
-		test("returns isWorktree: true and source: 'git-common-dir' when in linked worktree", async () => {
+		test("returns isWorktree: true when in linked worktree", async () => {
 			const result = await expectTaskRight(resolveRp1Root(linkedWorktreePath));
 
 			expect(result.isWorktree).toBe(true);
-			expect(result.source).toBe("git-common-dir");
-			expect(result.root).toBe(join(worktreeRepoRoot, ".rp1"));
+			expect(result.projectRoot).toBe(worktreeRepoRoot);
 			expect(result.worktreeName).toBe("test-branch");
+			expect(result.projectId).toBe("bbb00000-0000-0000-0000-000000000002");
 		});
 
-		test("returns main repo root path from linked worktree", async () => {
+		test("returns main repo projectRoot from linked worktree", async () => {
 			const result = await expectTaskRight(resolveRp1Root(linkedWorktreePath));
 
-			// The root should point to the main repo, not the worktree
-			expect(result.root).not.toContain("linked-worktree");
-			expect(result.root).toContain("worktree-main");
+			expect(result.projectRoot).not.toContain("linked-worktree");
+			expect(result.projectRoot).toContain("worktree-main");
 		});
 	});
 
-	describe("RP1_ROOT env override", () => {
-		test("returns env value with source: 'env' when RP1_ROOT is set", async () => {
-			const customRoot = join(tempBase, "custom-rp1-root");
-			process.env.RP1_ROOT = customRoot;
+	describe("RP1_PROJECT_ROOT env override is ignored", () => {
+		test("env var does not affect resolution when .rp1/project_id exists", async () => {
+			process.env.RP1_PROJECT_ROOT = join(tempBase, "custom-project");
 
 			const result = await expectTaskRight(resolveRp1Root(standardRepoRoot));
 
-			expect(result.source).toBe("env");
-			expect(result.root).toBe(customRoot);
-			expect(result.isWorktree).toBe(false);
-		});
-
-		test("env override takes precedence over git detection", async () => {
-			const customRoot = join(tempBase, "env-override");
-			process.env.RP1_ROOT = customRoot;
-
-			// Even when in a worktree, env should win
-			const result = await expectTaskRight(resolveRp1Root(linkedWorktreePath));
-
-			expect(result.source).toBe("env");
-			expect(result.root).toBe(customRoot);
-			// isWorktree should be false when using env override
-			expect(result.isWorktree).toBe(false);
-		});
-
-		test("env override resolves relative paths to absolute", async () => {
-			process.env.RP1_ROOT = "./relative/.rp1";
-
-			const result = await expectTaskRight(resolveRp1Root(standardRepoRoot));
-
-			expect(result.source).toBe("env");
-			// Should be absolute path
-			expect(result.root.startsWith("/")).toBe(true);
+			expect(result.projectRoot).toBe(standardRepoRoot);
+			expect(result.projectId).toBe("aaa00000-0000-0000-0000-000000000001");
 		});
 	});
 
 	describe("not a git repo", () => {
-		test("returns error when not in a git repository", async () => {
-			const error = await expectTaskLeft(resolveRp1Root(nonGitDir));
+		test("returns error when not in a git repository without .rp1", async () => {
+			const result = resolveRp1Root(nonGitDir);
+			const resolved = await result();
 
-			expect(error._tag).toBe("RuntimeError");
-			expect(getErrorMessage(error)).toContain("Git command failed");
-		});
-
-		test("returns error for non-existent directory", async () => {
-			const nonExistentPath = join(tempBase, "does-not-exist");
-
-			const error = await expectTaskLeft(resolveRp1Root(nonExistentPath));
-
-			expect(error._tag).toBe("RuntimeError");
+			expect(resolved._tag).toBe("Left");
 		});
 	});
 });

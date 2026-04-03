@@ -7,6 +7,8 @@ type EventCallback = (msg: EventNotificationMessage) => void;
 
 let eventListeners: EventCallback[] = [];
 let mockWsStatus = "connected";
+let runResponse: Run;
+let fetchMock: ReturnType<typeof mock>;
 
 mock.module("@/providers/WebSocketProvider", () => ({
 	useWebSocket: () => ({
@@ -32,8 +34,10 @@ const baseRun: Run = {
 	projectName: "Test Project",
 	featureId: "feat-1",
 	featureName: "Test Feature",
+	name: null,
 	command: "build",
 	status: "running",
+	harness: null,
 	currentStep: "design",
 	steps: [
 		{
@@ -57,16 +61,19 @@ const baseRun: Run = {
 beforeEach(() => {
 	eventListeners = [];
 	mockWsStatus = "connected";
+	runResponse = { ...baseRun };
 
-	globalThis.fetch = mock((url: string) => {
+	fetchMock = mock((url: string) => {
 		if (url === "/api/v2/runs/run-1") {
 			return Promise.resolve({
 				ok: true,
-				json: () => Promise.resolve({ ...baseRun }),
+				json: () => Promise.resolve({ ...runResponse }),
 			});
 		}
 		return Promise.resolve({ ok: false, status: 404, statusText: "Not Found" });
-	}) as unknown as typeof fetch;
+	});
+
+	globalThis.fetch = fetchMock as unknown as typeof fetch;
 });
 
 describe("useRunDetail", () => {
@@ -192,5 +199,85 @@ describe("useRunDetail", () => {
 
 		expect(result.current.run?.events.length).toBe(eventsBefore);
 		expect(result.current.run?.status).toBe("running");
+	});
+
+	test("ignores websocket events for a different run in the same project and feature", async () => {
+		const { useRunDetail } = await import("../../hooks/useRunDetail");
+		const { result } = renderHook(() => useRunDetail("run-1"));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		act(() => {
+			emitEvent({
+				type: "event:notification",
+				eventId: 500,
+				eventType: "waiting_for_user",
+				runId: "run-2",
+				projectId: "proj-1",
+				featureId: "feat-1",
+				step: "design",
+				data: { prompt: "Wrong run" },
+				createdAt: "2026-03-15T01:20:00Z",
+			});
+		});
+
+		expect(result.current.run?.status).toBe("running");
+		expect(result.current.run?.events).toHaveLength(0);
+	});
+
+	test("reconciled artifact updates local state without refetching the run", async () => {
+		runResponse = {
+			...baseRun,
+			artifacts: [
+				{
+					docId: "doc-1",
+					path: "/tmp/project/.rp1/work/features/feat-1/tasks.md",
+					absolutePath: "/tmp/project/.rp1/work/features/feat-1/tasks.md",
+					type: "markdown",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "design",
+				},
+			],
+		};
+
+		const { useRunDetail } = await import("../../hooks/useRunDetail");
+		const { result } = renderHook(() => useRunDetail("run-1"));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+
+		act(() => {
+			emitEvent({
+				type: "event:notification",
+				eventId: 600,
+				eventType: "artifact_registered",
+				runId: "run-1",
+				projectId: "proj-1",
+				featureId: "feat-1",
+				step: "design",
+				data: {
+					docId: "doc-1",
+					path: ".rp1/work/features/feat-1/tasks.md",
+					reconciled: true,
+				},
+				createdAt: "2026-03-15T01:25:00Z",
+			});
+		});
+
+		expect(result.current.run?.artifacts[0]?.path).toBe(
+			".rp1/work/features/feat-1/tasks.md",
+		);
+		expect(result.current.run?.artifacts[0]?.absolutePath).toBe(
+			"/tmp/project/.rp1/work/features/feat-1/tasks.md",
+		);
+
+		await new Promise((resolve) => setTimeout(resolve, 650));
+		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 });

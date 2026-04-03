@@ -14,25 +14,22 @@ metadata:
   created: 2025-11-30
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "[prd-name]"
+  arguments:
+    - name: PRD_NAME
+      type: string
+      required: false
+      description: "PRD name to create (omit for default charter + main PRD flow)"
+    - name: EXTRA_CONTEXT
+      type: string
+      required: false
+      default: ""
+      description: "Additional context provided by the user"
   sub_agents:
     - "rp1-dev:charter-interviewer"
     - "rp1-dev:blueprint-wizard"
 ---
 
 # Project Blueprint
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `PRD_NAME` | No | - | PRD name to create (omit for default charter + main PRD flow) |
-| `EXTRA_CONTEXT` | No | `""` | Additional context provided by the user |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## STATE-MACHINE
 
@@ -51,11 +48,13 @@ rp1 agent-tools emit \
   --workflow blueprint \
   --type status_change \
   --run-id {RUN_ID} \
+  --name "{RUN_NAME}" \
   --step {CURRENT_STATE} \
   --data '{"status": "running"}'
 ```
 
 - Generate `RUN_ID` as a UUID at workflow start
+- Derive `RUN_NAME`: use `"Blueprint: {PRD_NAME}"` when PRD_NAME is provided, otherwise use `"Blueprint: main"`
 
 **State Progression Protocol**:
 1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
@@ -65,7 +64,7 @@ rp1 agent-tools emit \
 
 **Example sequence** (with charter):
 ```
---workflow blueprint --step detect --data '{"status": "running"}'     # entering detect phase
+--workflow blueprint --step detect --name "Blueprint: mobile-app" --data '{"status": "running"}'   # first emit includes --name
 --workflow blueprint --step charter --data '{"status": "running"}'    # needs charter, entering charter phase
 --workflow blueprint --step prd --data '{"status": "running"}'        # charter done, entering prd phase
 --workflow blueprint --step prd --data '{"status": "completed"}'      # prd done, workflow complete
@@ -74,14 +73,14 @@ rp1 agent-tools emit \
 ## §CTX
 
 **Doc Hierarchy**:
-1. **Charter** (`{{$RP1_ROOT}}/context/charter.md`) - Project-level: problem/context, users, business rationale, scope guardrails, success criteria
-2. **PRDs** (`{{$RP1_ROOT}}/work/prds/<name>.md`) - Surface-specific: overview, in/out scope, requirements, dependencies, timeline. Inherit from charter, link back, no duplication.
+1. **Charter** (`.rp1/context/charter.md`) - Project-level: problem/context, users, business rationale, scope guardrails, success criteria
+2. **PRDs** (`.rp1/work/prds/<name>.md`) - Surface-specific: overview, in/out scope, requirements, dependencies, timeline. Inherit from charter, link back, no duplication.
 
 ## §PROC
 
 ### Step 1: Mode Detection
 
-Read `{{$RP1_ROOT}}/context/charter.md`:
+Read `.rp1/context/charter.md`:
 
 | Condition | Mode | Message |
 |-----------|------|---------|
@@ -126,7 +125,7 @@ Read `{{$RP1_ROOT}}/context/charter.md`:
 question_number = 0
 loop:
   1. {% dispatch_agent "rp1-dev:charter-interviewer" %}
-     CHARTER_PATH={{$RP1_ROOT}}/context/charter.md, MODE={mode}, RP1_ROOT={{$RP1_ROOT}}
+     CHARTER_PATH=.rp1/context/charter.md, MODE={mode}
      {% enddispatch_agent %}
 
   2. Parse JSON response
@@ -154,7 +153,7 @@ loop:
           --type artifact_registered \
           --run-id {RUN_ID} \
           --step charter \
-          --data '{"path": "{{$RP1_ROOT}}/context/charter.md"}'
+          --data '{"path": ".rp1/context/charter.md", "feature": "blueprint", "storageRoot": "project"}'
         ```
         Output: "Charter complete! Proceeding to PRD creation..."
         break -> Step 4
@@ -191,11 +190,11 @@ loop:
 `PRD_NAME = PRD_NAME || "main"`
 
 #### 4.2 Init PRD
-Create `{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`:
+Create `.rp1/work/prds/{PRD_NAME}.md`:
 ```markdown
 # PRD: {PRD_NAME}
 
-**Charter**: [Project Charter]({{$RP1_ROOT}}/context/charter.md)
+**Charter**: [Project Charter](.rp1/context/charter.md)
 **Version**: 1.0.0
 **Status**: Draft
 **Created**: {YYYY-MM-DD}
@@ -213,12 +212,12 @@ Create `{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`:
 
 #### 4.3 PRD Loop
 
-PRD_PATH = `{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`
+PRD_PATH = `.rp1/work/prds/{PRD_NAME}.md`
 question_count = 0
 
 loop:
   {% dispatch_agent "rp1-dev:blueprint-wizard" %}
-  PRD_NAME={PRD_NAME}, EXTRA_CONTEXT={EXTRA_CONTEXT}, RP1_ROOT={{$RP1_ROOT}}
+  PRD_NAME={PRD_NAME}, EXTRA_CONTEXT={EXTRA_CONTEXT}
   {% enddispatch_agent %}
 
   Parse JSON response
@@ -251,7 +250,7 @@ loop:
         --type artifact_registered \
         --run-id {RUN_ID} \
         --step prd \
-        --data '{"path": "{PRD_PATH}"}'
+        --data '{"path": "{PRD_PATH}", "feature": "{PRD_NAME}", "storageRoot": "project"}'
       ```
       Output: "PRD created at {PRD_PATH}"
       break
@@ -267,7 +266,7 @@ loop:
 PRD created!
 
 Created:
-- {{$RP1_ROOT}}/work/prds/{PRD_NAME}.md
+- .rp1/work/prds/{PRD_NAME}.md
 
 Next Steps:
 - Create features: /rp1-dev:build <feature-id>

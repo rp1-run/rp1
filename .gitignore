@@ -8,9 +8,9 @@ node_modules/
 
 # Build artifacts
 dist/
-!cli/dist/
-cli/dist/*
-!cli/dist/claude-code/
+
+# rp1 work directory (features, archives, scratch)
+.rp1/work/
 
 # MkDocs build output
 site/
@@ -25,7 +25,7 @@ __pycache__/
 # Package lock files (we use bun exclusively with bun.lock)
 package-lock.json
 
-# CLI build output (claude-code dist is tracked via rules above)
+# CLI build output
 cli/web-ui/.vite/
 cli/web-ui/dist/
 cli/web-ui/.playwright-cli/
@@ -40,15 +40,16 @@ bin/rp1
 # rp1:start
 !.rp1/
 .rp1/*
-!.rp1/context/
-!.rp1/context/**
 !.rp1/config/
 !.rp1/config/**
+!.rp1/context/
+!.rp1/context/**
 .rp1/context/meta.json
 .rp1/settings.toml
 # rp1:end
-.dev-marketplace/
-
 # Eval output - attestation results are tracked, .gitkeep placeholder removed
 # Result files (e.g., output/rp1-dev-build-fast-2026-01-19.json) are committed as evidence
 .playwright-cli/
+.osgrep
+# rp1 directory
+!.rp1/project_id

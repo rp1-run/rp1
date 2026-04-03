@@ -8,13 +8,13 @@ import {
 } from "@/components/ui/resizable";
 import { ArtifactViewerPanel } from "@/components/v2/ArtifactViewerPanel";
 import { VerticalStepList } from "@/components/v2/VerticalStepList";
-import { WaitingBanner } from "@/components/v2/WaitingBanner";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import {
 	commandToWorkflowName,
 	useWorkflowSteps,
 } from "@/hooks/useWorkflowSteps";
+import { resolveRunDisplayName } from "@/lib/run-display";
 import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Artifact, Step } from "@/types/runs";
@@ -74,20 +74,6 @@ export function RunDetailPage() {
 		return run ? run.steps : [];
 	}, [run]);
 
-	const waitingPrompt = useMemo<string | null>(() => {
-		if (!run || run.status !== "waiting") return null;
-		const waitingEvents = run.events.filter(
-			(e) => e.type === "waiting_for_user",
-		);
-		if (waitingEvents.length === 0) return null;
-		const mostRecent = waitingEvents.reduce((latest, e) =>
-			new Date(e.timestamp).getTime() > new Date(latest.timestamp).getTime()
-				? e
-				: latest,
-		);
-		return mostRecent.message || null;
-	}, [run]);
-
 	const selectedStep = useMemo(() => {
 		if (!selectedStepId || !run) return null;
 		return run.steps.find((s) => s.id === selectedStepId) ?? null;
@@ -98,7 +84,12 @@ export function RunDetailPage() {
 		return run.artifacts.filter((a) => a.step === selectedStepId);
 	}, [selectedStepId, run]);
 
-	const { setActiveArtifact, setProject } = useBreadcrumbContext();
+	const subflowDiagram = useMemo(() => {
+		if (!selectedStepId || !run?.subflows) return null;
+		return run.subflows[selectedStepId] ?? null;
+	}, [selectedStepId, run?.subflows]);
+
+	const { setActiveArtifact, setProject, setRunInfo } = useBreadcrumbContext();
 	const { setProjectId } = useWebSocket();
 
 	useEffect(() => {
@@ -112,14 +103,33 @@ export function RunDetailPage() {
 		};
 	}, [run?.projectName, run?.projectId, setProject, setProjectId]);
 
+	useEffect(() => {
+		if (run) {
+			setRunInfo({
+				startedAt: run.startedAt,
+				harness: run.harness,
+				command: run.command,
+				displayName: resolveRunDisplayName(run) || run.command,
+				projectName: run.projectName,
+				projectId: run.projectId,
+			});
+		}
+		return () => {
+			setRunInfo(null);
+		};
+	}, [run, setRunInfo]);
+
 	const handleStepSelect = useCallback(
 		(stepId: string) => {
 			if (!runId) return;
 			if (run) {
-				const art = run.artifacts.find((a) => a.step === stepId && a.docId);
-				if (art) {
-					navigate(`/runs/${runId}/step/${stepId}/artifact/${art.docId}`);
-					return;
+				const hasSubflow = run.subflows && run.subflows[stepId] !== undefined;
+				if (!hasSubflow) {
+					const art = run.artifacts.find((a) => a.step === stepId && a.docId);
+					if (art) {
+						navigate(`/runs/${runId}/step/${stepId}/artifact/${art.docId}`);
+						return;
+					}
 				}
 			}
 			navigate(`/runs/${runId}/step/${stepId}`);
@@ -169,11 +179,14 @@ export function RunDetailPage() {
 		}
 
 		if (urlStepId && !urlDocId) {
-			const art = run.artifacts.find((a) => a.step === urlStepId && a.docId);
-			if (art) {
-				navigate(`/runs/${runId}/step/${urlStepId}/artifact/${art.docId}`, {
-					replace: true,
-				});
+			const hasSubflow = run.subflows && run.subflows[urlStepId] !== undefined;
+			if (!hasSubflow) {
+				const art = run.artifacts.find((a) => a.step === urlStepId && a.docId);
+				if (art) {
+					navigate(`/runs/${runId}/step/${urlStepId}/artifact/${art.docId}`, {
+						replace: true,
+					});
+				}
 			}
 		}
 	}, [run, runId, urlStepId, urlDocId, navigate]);
@@ -244,12 +257,6 @@ export function RunDetailPage() {
 
 	return (
 		<div className="flex h-full flex-col">
-			{waitingPrompt && (
-				<div className="shrink-0 px-md py-sm">
-					<WaitingBanner prompt={waitingPrompt} />
-				</div>
-			)}
-
 			{/* Desktop: two-panel resizable layout */}
 			<div className="hidden md:flex flex-1 min-h-0">
 				<ResizablePanelGroup direction="horizontal">
@@ -261,6 +268,7 @@ export function RunDetailPage() {
 					>
 						<div className="h-full overflow-y-auto">
 							<VerticalStepList
+								harness={run.harness}
 								steps={displaySteps}
 								artifacts={run.artifacts}
 								agentSteps={run.agentSteps}
@@ -281,6 +289,7 @@ export function RunDetailPage() {
 							selectedArtifact={selectedArtifact}
 							onArtifactSelect={handleArtifactSelect}
 							runId={runId}
+							subflowDiagram={subflowDiagram}
 						/>
 					</ResizablePanel>
 				</ResizablePanelGroup>
@@ -301,6 +310,7 @@ export function RunDetailPage() {
 						selectedArtifact={selectedArtifact}
 						onArtifactSelect={handleArtifactSelect}
 						runId={runId}
+						subflowDiagram={subflowDiagram}
 					/>
 				</div>
 			</div>

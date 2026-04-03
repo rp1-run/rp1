@@ -13,21 +13,22 @@ metadata:
   created: 2025-10-25
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "[mode]"
+  arguments:
+    - name: LOAD_MODE
+      type: enum
+      required: false
+      default: "progressive"
+      description: "Loading mode"
+      enum_values:
+        - "progressive"
+        - "full"
+      aliases:
+        - "full"
+        - "all"
+        - "everything"
 ---
 
 # Knowledge Loader - Context Ingestion & Preparation
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `LOAD_MODE` | No | `progressive` | Loading mode. Set `full` if user says "full", "all", or "everything"; otherwise `progressive` |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 > **DEPRECATED**: This command is deprecated. All rp1 commands are now **self-contained**
 > and load KB context automatically via their agents. You no longer need to run `/knowledge-load`
@@ -72,7 +73,7 @@ Determine the repository type based on these indicators:
 
 ## Loading Strategies by Repository Type
 
-All relevant files are in {{$RP1_ROOT}}/context/
+All relevant files are in .rp1/context/
 
 **Single Project**:
 
@@ -150,7 +151,7 @@ READY [progressive]
 
 Loaded: index.md (~80 lines)
 Available: architecture.md, modules.md, patterns.md, concept_map.md
-Use Read tool to load additional files as needed.
+Load additional files as needed.
 ```
 
 **Full Mode Output**:
@@ -212,7 +213,7 @@ READY [monorepo: 2 projects - rp1-base, rp1-dev]
 
 ```
 Now analyzing parameters...
-I see that RP1_ROOT is set to .rp1/...
+I see that the KB root is at .rp1/context/...
 Loading index.md file...
 File loaded successfully, now parsing...
 Extracting repository structure...
@@ -236,12 +237,12 @@ etc. (too verbose!)
 ```markdown
 ## 1. Load Knowledge Base
 
-Read `{{$RP1_ROOT}}/context/index.md` to understand project structure and available KB files.
+Read `.rp1/context/index.md` to understand project structure and available KB files.
 
 **Selective Loading**: Based on your task, load additional files as needed:
-- For pattern consistency checks -> Read `{{$RP1_ROOT}}/context/patterns.md`
-- For architecture understanding -> Read `{{$RP1_ROOT}}/context/architecture.md`
-- For component details -> Read `{{$RP1_ROOT}}/context/modules.md`
+- For pattern consistency checks -> Read `.rp1/context/patterns.md`
+- For architecture understanding -> Read `.rp1/context/architecture.md`
+- For component details -> Read `.rp1/context/modules.md`
 
 Do NOT load all KB files unless performing holistic analysis.
 ```
@@ -251,14 +252,14 @@ Do NOT load all KB files unless performing holistic analysis.
 ```markdown
 ## 1. Load Knowledge Base
 
-Read all markdown files from `{{$RP1_ROOT}}/context/*.md`:
-- `{{$RP1_ROOT}}/context/index.md` - Project overview
-- `{{$RP1_ROOT}}/context/architecture.md` - System design
-- `{{$RP1_ROOT}}/context/modules.md` - Component breakdown
-- `{{$RP1_ROOT}}/context/concept_map.md` - Domain terminology
-- `{{$RP1_ROOT}}/context/patterns.md` - Code conventions
+Read all markdown files from `.rp1/context/*.md`:
+- `.rp1/context/index.md` - Project overview
+- `.rp1/context/architecture.md` - System design
+- `.rp1/context/modules.md` - Component breakdown
+- `.rp1/context/concept_map.md` - Domain terminology
+- `.rp1/context/patterns.md` - Code conventions
 
-If `{{$RP1_ROOT}}/context/` doesn't exist, warn user to run `/knowledge-build` first.
+If `.rp1/context/` doesn't exist, warn user to run `/knowledge-build` first.
 ```
 
 ### Task-to-KB-Files Mapping
@@ -274,13 +275,13 @@ If `{{$RP1_ROOT}}/context/` doesn't exist, warn user to run `/knowledge-build` f
 
 ### Critical: Subagent Limitation
 
-**NEVER use `/knowledge-load` command in subagents**. Using SlashCommand tool in subagents causes early exit.
+**NEVER use `/knowledge-load` command in subagents**. Invoking slash commands in subagents causes early exit.
 
 Always use direct Read tool calls:
 
 ```markdown
 # CORRECT (in subagent)
-Read `{{$RP1_ROOT}}/context/index.md`
+Read `.rp1/context/index.md`
 
 # INCORRECT (causes subagent to exit)
 Run `/knowledge-load`

@@ -65,6 +65,7 @@ process.on("SIGINT", () => {
 });
 
 import "./mmd-validate/index.js";
+import "./resolve-args/index.js";
 import "./rp1-root-dir/index.js";
 import "./comment-extract/index.js";
 import "./emit/index.js";
@@ -102,7 +103,8 @@ export const agentToolsCommand = new Command("agent-tools")
 		`
 Available Tools:
   mmd-validate      Validate Mermaid diagram syntax
-  rp1-root-dir      Resolve RP1_ROOT path with read-only worktree detection
+  resolve-args      Resolve structured arguments from schema, settings, and user input
+  rp1-root-dir      Resolve project, KB, and work directories with worktree detection
   comment-extract   Extract comments from git-changed files
   emit              Record events for the rp1 workflow event system
   feedback          Read, resolve, reply to, and accept feedback from the Arcade
@@ -224,33 +226,37 @@ Examples:
 
 /**
  * rp1-root-dir subcommand.
- * Resolves RP1_ROOT path with worktree awareness for KB and artifact access.
+ * Resolves project, KB, and work directories with worktree awareness.
  */
 agentToolsCommand
 	.command("rp1-root-dir")
-	.description("Resolve RP1_ROOT path with read-only worktree detection")
+	.description(
+		"Resolve project, KB, and work directories with worktree detection",
+	)
 	.addHelpText(
 		"after",
 		`
 Description:
-  Resolves the RP1_ROOT path so agents can access KB and work artifacts from
-  the correct project root. When running in a linked git worktree, the tool
-  detects this and maps back to the main repository's .rp1 directory.
+  Resolves the effective project root plus the derived knowledge-base and work
+  directories. When running in a linked git worktree, the tool detects this and
+  maps back to the main repository so agents operate on the canonical project.
 
   This is a read-only detection tool. It does not create, modify, or remove
   git worktrees. Users manage worktrees directly with native git commands.
 
 Resolution order:
-  1. RP1_ROOT environment variable (if set, used as-is)
+  1. Walk up from current directory to find .rp1/project_id
   2. Git worktree detection via git-common-dir (maps to main repo)
-  3. Standard resolution from current working directory
+  3. Fall back to .rp1/ directory without project_id (with warning)
 
 Output:
-  JSON with root path and detection metadata:
-  - root: Absolute path to RP1_ROOT directory
+  JSON with resolved directories and detection metadata:
+  - projectId: Stable project UUID when available
+  - projectRoot: Absolute path to the effective project root
+  - kbRoot: Absolute path to the knowledge-base directory
+  - workRoot: Absolute path to the work artifact directory
   - isWorktree: Whether running in a linked git worktree
   - worktreeName: Branch name if in worktree
-  - source: How root was resolved ('env', 'git-common-dir', or 'cwd')
 
 Examples:
   rp1 agent-tools rp1-root-dir
@@ -279,6 +285,137 @@ Examples:
 		console.log(formatOutput(result.right));
 		process.exit(0);
 	});
+
+/**
+ * resolve-args subcommand.
+ * Resolves structured arguments for skills and agents.
+ */
+agentToolsCommand
+	.command("resolve-args")
+	.description(
+		"Resolve structured arguments from schema, settings, and user input",
+	)
+	.option("-f, --file <path>", "Read JSON input from file instead of stdin")
+	.option(
+		"-n, --name <namespace>",
+		'Skill/agent name using namespace convention (e.g., "rp1-dev:build")',
+	)
+	.option(
+		"-s, --schema-path <path>",
+		"Direct path to SKILL.md or agent .md file (overrides --name)",
+	)
+	.option("-a, --args <args>", "Raw argument string from invocation")
+	.option(
+		"-p, --project-root <path>",
+		"Project root directory for settings lookup",
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Resolves arguments for a skill or agent by reading the structured arguments
+  schema from frontmatter, merging user input with project and user settings,
+  and returning a fully resolved argument object.
+
+  The schema can be located by name (--name) or by direct path (--schema-path).
+  Name-based lookup resolves the schema internally by searching plugin directories.
+  When --schema-path is provided, it takes precedence over --name.
+
+  Resolution precedence (highest to lowest):
+  1. Explicit user input (from raw_args)
+  2. Project settings (.rp1/settings.toml)
+  3. User settings (~/.config/rp1/settings.toml)
+  4. ENV var (source.env on argument definition)
+  5. Schema default
+
+Input (CLI flags or JSON via stdin/file):
+  - name: Skill/agent namespace (e.g., "rp1-dev:build")
+  - schema_path: Direct path to SKILL.md or agent .md file
+  - raw_args: Raw argument string from invocation
+  - project_root: Project root directory (for settings lookup)
+
+Output:
+  JSON ToolResult with resolved arguments, an environment placeholder object,
+  and an unresolved list.
+
+Examples:
+  rp1 agent-tools resolve-args --name rp1-dev:build --args "my-feature --afk"
+  rp1 agent-tools resolve-args --schema-path plugins/dev/skills/build/SKILL.md --args "my-feature"
+  echo '{"name":"rp1-dev:build","raw_args":"my-feature --afk","project_root":"/project"}' | rp1 agent-tools resolve-args
+  rp1 agent-tools resolve-args -f input.json
+`,
+	)
+	.action(
+		async (options: {
+			file?: string;
+			name?: string;
+			schemaPath?: string;
+			args?: string;
+			projectRoot?: string;
+		}): Promise<void> => {
+			const toolName = "resolve-args";
+
+			let content: string;
+			let source: "file" | "stdin" = "stdin";
+
+			// If CLI flags provide name or schema-path, build JSON input from flags
+			if (options.name || options.schemaPath) {
+				const input: Record<string, string> = {};
+				if (options.schemaPath) {
+					input.schema_path = options.schemaPath;
+				}
+				if (options.name) {
+					input.name = options.name;
+				}
+				if (options.args) {
+					input.raw_args = options.args;
+				}
+				if (options.projectRoot) {
+					input.project_root = options.projectRoot;
+				}
+				content = JSON.stringify(input);
+				source = "stdin";
+			} else {
+				// Fall back to file/stdin input
+				const inputResult = await readInput(options.file)();
+
+				if (E.isLeft(inputResult)) {
+					console.error(
+						createErrorResponse(toolName, formatError(inputResult.left, false)),
+					);
+					process.exit(1);
+				}
+
+				content = inputResult.right.content;
+				source = inputResult.right.source;
+			}
+
+			const tool = getTool(toolName);
+			if (!tool) {
+				console.error(
+					createErrorResponse(toolName, "Tool not found in registry"),
+				);
+				process.exit(1);
+			}
+
+			const toolOptions: ToolOptions = {
+				inputSource: source,
+				filePath: options.file,
+			};
+
+			const result = await tool.execute(content, toolOptions)();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
 
 /**
  * comment-extract subcommand.
@@ -368,6 +505,11 @@ const emitCommand = agentToolsCommand
 	.option("--unit <unit>", "Task/unit identifier")
 	.option("--data <json>", "JSON payload for the event")
 	.option("--project <path>", "Project path (defaults to cwd)")
+	.option("--name <name>", "Human-readable name for the run (set-once)")
+	.option(
+		"--harness <name>",
+		"Harness/platform name (e.g., claude-code, codex, opencode)",
+	)
 	.option(
 		"--close-run",
 		"Force-close the run by completing all non-terminal steps",
@@ -423,7 +565,7 @@ Examples:
     --workflow build \\
     --type artifact_registered \\
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
-    --data '{"path": "work/features/my-feature/design.md", "feature": "my-feature"}'
+    --data '{"path": "features/my-feature/design.md", "feature": "my-feature", "storageRoot": "work_dir"}'
 
   # Record a subflow
   rp1 agent-tools emit \\
@@ -444,6 +586,8 @@ Examples:
 			data?: string;
 			project?: string;
 			closeRun?: boolean;
+			name?: string;
+			harness?: string;
 		}): Promise<void> => {
 			const toolName = "emit";
 
@@ -456,6 +600,8 @@ Examples:
 				data: options.data,
 				project: options.project,
 				closeRun: options.closeRun,
+				name: options.name,
+				harness: options.harness,
 			};
 
 			const validationResult = await validateEmitOptions(emitOptions)();

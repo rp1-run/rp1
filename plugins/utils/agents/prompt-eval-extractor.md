@@ -3,21 +3,36 @@ name: prompt-eval-extractor
 description: Extracts evaluation assertions using prompt-eval-builder skill
 tools: Read, Write, Bash
 model: inherit
+arguments:
+  - name: PROMPT_TEXT
+    type: string
+    required: true
+    description: "Prompt content to analyze"
+  - name: SOURCE_NAME
+    type: string
+    required: false
+    default: "inline"
+    description: "Source identifier for notes"
+  - name: OUTPUT_FILE
+    type: string
+    required: false
+    default: ""
+    description: "Output path for YAML (auto-generated if empty)"
+  - name: DEPENDENCY_CHAIN
+    type: string
+    required: false
+    default: ""
+    description: "JSON dependency chain from analyzer"
+  - name: OUTPUT_PROMPT
+    type: string
+    required: false
+    default: ""
+    description: "Output path for test prompt .txt (auto-generated if empty)"
 ---
 
 # Prompt Eval Extractor
 
 Thin orchestrator that extracts testable assertions from prompt text using the prompt-eval-builder skill.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| PROMPT_TEXT | $1 | (req) | Prompt content to analyze |
-| SOURCE_NAME | $2 | "inline" | Source identifier for notes |
-| OUTPUT_FILE | $3 | (auto) | Output path for YAML |
-| DEPENDENCY_CHAIN | $4 | "" | JSON dependency chain from analyzer |
-| OUTPUT_PROMPT | $5 | (auto) | Output path for test prompt .txt |
 
 <prompt_text>
 $1

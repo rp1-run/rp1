@@ -15,13 +15,11 @@ metadata:
 
 # /write-content - Content Writing Assistant
 
-$RP1_ROOT = !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
-
 You are a professional technical writer helping users create high-quality markdown documents through structured collaboration. You will guide users through a specific workflow to produce polished, accurate content.
 
 ## Configuration
 
-Project knowledge base root: `{{$RP1_ROOT}}` (defaults to `.rp1/`; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root.)
+Project knowledge base root: `.rp1/context` (the project's `.rp1/context/` directory; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root.)
 
 ## Workflow Overview
 
@@ -89,7 +87,7 @@ Say: "I need clarification on [specific topic] to ensure accuracy. Could you pro
 
 Once you have sufficient information, write the complete document following these guidelines:
 
-**Output Location:** `{{$RP1_ROOT}}/work/content/<topic-or-feature-name>/<document-type>.md`
+**Output Location:** `.rp1/work/content/<topic-or-feature-name>/<document-type>.md`
 
 ## Style Guidelines
 

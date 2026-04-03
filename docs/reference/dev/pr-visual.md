@@ -79,7 +79,7 @@ Diagrams Generated:
 2. Auth Flow Changes (3 new paths)
 3. Dependency Graph (2 new imports)
 
-Output: $RP1_ROOT/work/pr-reviews/feature-auth-visual-001.md
+Output: .rp1/work/pr-reviews/feature-auth-visual-001.md
 ```
 
 ### Example Diagrams
@@ -180,7 +180,7 @@ Output: $RP1_ROOT/work/pr-reviews/feature-auth-visual-001.md
 
 ## Output
 
-**Location:** `$RP1_ROOT/work/pr-reviews/<review-id>-visual-<NNN>.md`
+**Location:** `.rp1/work/pr-reviews/<review-id>-visual-<NNN>.md`
 
 Contains validated Mermaid diagrams ready for rendering.
 

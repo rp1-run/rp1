@@ -2,6 +2,7 @@
 name: markdown-preview
 description: Generate browser-viewable HTML previews from markdown, plain text, and Mermaid diagrams. Auto-validates diagrams, applies professional styling, and opens in default browser. Use when agents need to preview documentation, visualizations, or formatted content.
 allowed-tools: Read, Write, Bash, Skill
+metadata:
 ---
 
 # Markdown Preview Generator — Browser-Ready HTML from Markdown
@@ -266,12 +267,10 @@ fi
 
 After creating the markdown file, use the markdown-preview skill to generate the HTML preview.
 
-Use the Skill tool:
+Invoke the `rp1-base:markdown-preview` skill.
 
-skill: "rp1-base:markdown-preview"
-
-Read the generated markdown file and pass content:
-- content: Read from {{$RP1_ROOT}}/work/pr_reviews/<pr-id>-visual.md
+Load the generated markdown file and pass content:
+- content: Read from .rp1/work/pr-reviews/<pr-id>-visual.md
 - title: "PR Visualization for PR #{pr-number}"
 - theme: "github"
 
@@ -289,7 +288,7 @@ Log the file path and report to user:
 
 **From Documentation Agent**:
 ```markdown
-Use skill: "rp1-base:markdown-preview"
+Invoke `rp1-base:markdown-preview`.
 
 Pass documentation content:
 - content: Generated markdown documentation

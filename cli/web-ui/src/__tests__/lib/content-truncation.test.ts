@@ -63,7 +63,7 @@ describe("truncateContent", () => {
 	test("truncates by character count and appends typographic ellipsis", () => {
 		const content = "a".repeat(TRUNCATION_CHARS + 50);
 		const result = truncateContent(content);
-		expect(result).toBe("a".repeat(TRUNCATION_CHARS) + "\u2026");
+		expect(result).toBe(`${"a".repeat(TRUNCATION_CHARS)}\u2026`);
 	});
 
 	test("line truncation takes priority over character truncation", () => {

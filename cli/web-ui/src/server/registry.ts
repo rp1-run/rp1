@@ -5,6 +5,9 @@
 
 import { readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname } from "node:path";
+import * as E from "fp-ts/lib/Either.js";
+import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
+import { readProjectId } from "../../../shared/project-id.js";
 import { ensureConfigDir, getRegistryPath } from "../daemon/config-dir";
 
 /**
@@ -16,8 +19,10 @@ const REGISTRY_VERSION = 1;
  * Single project entry in the registry.
  */
 export interface ProjectEntry {
-	/** Unique identifier derived from path */
+	/** Unique identifier -- UUID from .rp1/project_id when available, otherwise path-derived */
 	readonly id: string;
+	/** Stable project UUID from .rp1/project_id (same as id for UUID-keyed projects) */
+	readonly projectId: string | undefined;
 	/** Absolute path to project root */
 	readonly path: string;
 	/** Display name (from charter or directory name) */
@@ -196,11 +201,11 @@ function isEvalContext(projectPath: string): boolean {
 export async function registerProject(
 	projectPath: string,
 ): Promise<ProjectEntry> {
-	// Prevent eval workspaces from polluting the registry
 	if (isEvalContext(projectPath)) {
 		const now = new Date().toISOString();
 		return {
 			id: "eval-workspace",
+			projectId: undefined,
 			path: projectPath,
 			name: "eval-workspace",
 			addedAt: now,
@@ -209,45 +214,58 @@ export async function registerProject(
 		};
 	}
 
+	// Normalize path through directory resolution so worktrees resolve
+	// to the main repo path instead of being registered as separate projects.
+	const resolved = resolveDirectorySet(projectPath);
+	const normalizedPath = E.isRight(resolved)
+		? resolved.right.projectRoot
+		: projectPath;
+
 	const registry = await loadRegistry();
 	const existingIds = new Set(Object.keys(registry.projects));
+	const uuid = readProjectId(normalizedPath);
 
-	// Check if already registered by path
 	const existing = Object.values(registry.projects).find(
-		(p) => p.path === projectPath,
+		(p) => p.path === normalizedPath,
 	);
 
 	const now = new Date().toISOString();
-	const available = await isValidProject(projectPath);
+	const available = await isValidProject(normalizedPath);
 
 	if (existing) {
-		// Update existing entry
+		const needsRekey = uuid && existing.id !== uuid;
+		const updatedId = uuid ?? existing.id;
 		const updated: ProjectEntry = {
 			...existing,
+			id: updatedId,
+			projectId: uuid ?? existing.projectId,
 			lastAccessedAt: now,
 			available,
 		};
 
+		const projects = { ...registry.projects };
+		if (needsRekey) {
+			delete projects[existing.id];
+		}
+		projects[updatedId] = updated;
+
 		const updatedRegistry: ProjectRegistry = {
 			...registry,
-			lastInvoked: existing.id,
-			projects: {
-				...registry.projects,
-				[existing.id]: updated,
-			},
+			lastInvoked: updatedId,
+			projects,
 		};
 
 		await saveRegistry(updatedRegistry);
 		return updated;
 	}
 
-	// Create new entry
-	const id = generateProjectId(projectPath, existingIds);
-	const name = getProjectName(projectPath);
+	const id = uuid ?? generateProjectId(normalizedPath, existingIds);
+	const name = getProjectName(normalizedPath);
 
 	const entry: ProjectEntry = {
 		id,
-		path: projectPath,
+		projectId: uuid,
+		path: normalizedPath,
 		name,
 		addedAt: now,
 		lastAccessedAt: now,

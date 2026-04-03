@@ -14,6 +14,7 @@
 		"clean": "rm -rf dist"
 	},
 	"dependencies": {
+		"@lobehub/icons": "^5.2.0",
 		"@milkdown/kit": "^7.19.0",
 		"@milkdown/plugin-highlight": "^7.19.0",
 		"@milkdown/preset-gfm": "^7.19.0",

@@ -64,8 +64,18 @@ export const readCodexConfig = (
 		async () => {
 			try {
 				return await readFile(configPath, "utf-8");
-			} catch {
-				return "";
+			} catch (error) {
+				const code =
+					typeof error === "object" &&
+					error !== null &&
+					"code" in error &&
+					typeof error.code === "string"
+						? error.code
+						: null;
+				if (code === "ENOENT") {
+					return "";
+				}
+				throw error;
 			}
 		},
 		(e) => configError(`Failed to read Codex config: ${e}`),
@@ -90,6 +100,7 @@ export const buildConfigPatch = (
 
 			sections.push("[features]");
 			sections.push("multi_agent = true");
+			sections.push("codex_hooks = true");
 			sections.push("");
 
 			sections.push(

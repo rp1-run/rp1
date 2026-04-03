@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useReconnectRecovery } from "./useReconnectRecovery";
 
 interface WorkflowState {
 	readonly id: string;
@@ -105,6 +106,11 @@ export function useWorkflowSteps(
 
 		fetchWorkflow(workflowName);
 	}, [workflowName, fetchWorkflow]);
+
+	useReconnectRecovery(() => {
+		if (!workflowName) return;
+		void fetchWorkflow(workflowName);
+	});
 
 	return { workflow, isLoading, error };
 }

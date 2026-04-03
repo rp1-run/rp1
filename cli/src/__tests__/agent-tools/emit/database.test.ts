@@ -15,7 +15,7 @@ import {
 import { existsSync, writeFileSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
 	closeDatabase,
 	countEventsSince,
@@ -40,7 +40,9 @@ import {
 	insertEvent,
 	insertRun,
 	listRuns,
+	normalizeArtifactStorage,
 	resetInstance,
+	resolveArtifactPathForRun,
 	updateAnnotation,
 	upsertAnnotation,
 	upsertArtifact,
@@ -85,7 +87,7 @@ describe("emit database", () => {
 			expect(tableNames).toContain("schema_version");
 		});
 
-		test("schema_version is set to 4", async () => {
+		test("schema_version is set to 10", async () => {
 			const dbPath = join(tempDir, "version-test.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -93,7 +95,7 @@ describe("emit database", () => {
 				version: number;
 			};
 
-			expect(row.version).toBe(4);
+			expect(row.version).toBe(10);
 		});
 
 		test("artifacts table includes subflow column", async () => {
@@ -102,10 +104,15 @@ describe("emit database", () => {
 
 			const columns = db.prepare("PRAGMA table_info(artifacts)").all() as {
 				name: string;
+				dflt_value: string | null;
 			}[];
 			const columnNames = columns.map((c) => c.name);
 
 			expect(columnNames).toContain("subflow");
+			expect(columnNames).toContain("storage_root");
+			expect(
+				columns.find((column) => column.name === "storage_root")?.dflt_value,
+			).toBe("'work_dir'");
 		});
 
 		test("annotations table includes status and author columns", async () => {
@@ -119,6 +126,20 @@ describe("emit database", () => {
 
 			expect(columnNames).toContain("status");
 			expect(columnNames).toContain("author");
+		});
+
+		test("runs table includes resolved directory columns", async () => {
+			const dbPath = join(tempDir, "run-dir-columns-test.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const columns = db.prepare("PRAGMA table_info(runs)").all() as {
+				name: string;
+			}[];
+			const columnNames = columns.map((c) => c.name);
+
+			expect(columnNames).toContain("rp1_project_root");
+			expect(columnNames).toContain("rp1_kb_root");
+			expect(columnNames).toContain("rp1_work_root");
 		});
 
 		test("migrates v1 schema to add status and author columns", async () => {
@@ -201,10 +222,18 @@ describe("emit database", () => {
 			expect(artColumns.map((c) => c.name)).toContain("subflow");
 			expect(artColumns.map((c) => c.name)).toContain("baseline");
 
+			const runColumns = db.prepare("PRAGMA table_info(runs)").all() as {
+				name: string;
+			}[];
+			expect(runColumns.map((c) => c.name)).toContain("harness");
+			expect(runColumns.map((c) => c.name)).toContain("rp1_project_root");
+			expect(runColumns.map((c) => c.name)).toContain("rp1_kb_root");
+			expect(runColumns.map((c) => c.name)).toContain("rp1_work_root");
+
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(4);
+			expect(versionRow.version).toBe(10);
 		});
 
 		test("migrates v2 schema to add subflow column to artifacts", async () => {
@@ -282,11 +311,20 @@ describe("emit database", () => {
 
 			expect(columnNames).toContain("subflow");
 			expect(columnNames).toContain("baseline");
+			expect(columnNames).toContain("storage_root");
+
+			const runColumns = db.prepare("PRAGMA table_info(runs)").all() as {
+				name: string;
+			}[];
+			expect(runColumns.map((c) => c.name)).toContain("harness");
+			expect(runColumns.map((c) => c.name)).toContain("rp1_project_root");
+			expect(runColumns.map((c) => c.name)).toContain("rp1_kb_root");
+			expect(runColumns.map((c) => c.name)).toContain("rp1_work_root");
 
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(4);
+			expect(versionRow.version).toBe(10);
 		});
 
 		test("v3 to v4 migration adds baseline column and cleans orphaned edit-diff annotations", async () => {
@@ -373,7 +411,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(4);
+			expect(versionRow.version).toBe(10);
 
 			const annotations = db.prepare("SELECT * FROM annotations").all() as {
 				content: string;
@@ -417,6 +455,25 @@ describe("emit database", () => {
 			);
 		});
 
+		test("stores resolved run directory metadata", async () => {
+			const dbPath = join(tempDir, "insert-run-directories.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const run = insertRun(db, {
+				id: "run-dirs",
+				flow: "build",
+				featureId: "my-feature",
+				projectPath: "/test/project",
+				rp1ProjectRoot: "/resolved/project",
+				rp1KbRoot: "/kb/location",
+				rp1WorkRoot: "/work/location",
+			});
+
+			expect(run.rp1ProjectRoot).toBe("/resolved/project");
+			expect(run.rp1KbRoot).toBe("/kb/location");
+			expect(run.rp1WorkRoot).toBe("/work/location");
+		});
+
 		test("returns existing run if ID already present", async () => {
 			const dbPath = join(tempDir, "run-idempotent.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
@@ -438,6 +495,103 @@ describe("emit database", () => {
 			expect(second.id).toBe(first.id);
 			expect(second.flow).toBe("build");
 			expect(second.featureId).toBe("feat-1");
+		});
+
+		test("creates a new run with name when provided", async () => {
+			const dbPath = join(tempDir, "insert-run-name.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const run = insertRun(db, {
+				id: "run-named",
+				flow: "build",
+				featureId: "my-feature",
+				projectPath: "/test/project",
+				name: "Feature: My Feature",
+			});
+
+			expect(run.id).toBe("run-named");
+			expect(run.name).toBe("Feature: My Feature");
+		});
+
+		test("creates a new run with null name when omitted", async () => {
+			const dbPath = join(tempDir, "insert-run-no-name.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const run = insertRun(db, {
+				id: "run-unnamed",
+				flow: "build",
+				featureId: "my-feature",
+				projectPath: "/test/project",
+			});
+
+			expect(run.name).toBeNull();
+		});
+
+		test("backfills name when existing run has null name", async () => {
+			const dbPath = join(tempDir, "insert-run-backfill-name.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-backfill",
+				flow: "build",
+				featureId: "feat-1",
+				projectPath: "/project",
+			});
+
+			const updated = insertRun(db, {
+				id: "run-backfill",
+				flow: "build",
+				featureId: "feat-1",
+				projectPath: "/project",
+				name: "Feature: Backfilled",
+			});
+
+			expect(updated.name).toBe("Feature: Backfilled");
+		});
+
+		test("does not overwrite existing name on subsequent emit", async () => {
+			const dbPath = join(tempDir, "insert-run-keep-name.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-keep",
+				flow: "build",
+				featureId: "feat-1",
+				projectPath: "/project",
+				name: "Original Name",
+			});
+
+			const second = insertRun(db, {
+				id: "run-keep",
+				flow: "build",
+				featureId: "feat-1",
+				projectPath: "/project",
+				name: "New Name",
+			});
+
+			expect(second.name).toBe("Original Name");
+		});
+
+		test("emit without name never clears existing name", async () => {
+			const dbPath = join(tempDir, "insert-run-no-clear.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-no-clear",
+				flow: "build",
+				featureId: "feat-1",
+				projectPath: "/project",
+				name: "Preserved Name",
+			});
+
+			const second = insertRun(db, {
+				id: "run-no-clear",
+				flow: "build",
+				featureId: "feat-1",
+				projectPath: "/project",
+			});
+
+			expect(second.name).toBe("Preserved Name");
 		});
 	});
 
@@ -545,6 +699,7 @@ describe("emit database", () => {
 				runId: "run-art",
 				path: "design.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 				step: "design",
@@ -553,9 +708,10 @@ describe("emit database", () => {
 			expect(artifact.docId).toBe("doc-001");
 			expect(artifact.path).toBe("design.md");
 			expect(artifact.type).toBe("markdown");
+			expect(artifact.storageRoot).toBe("work_dir");
 		});
 
-		test("returns existing artifact if doc_id already present", async () => {
+		test("updates existing artifact if doc_id already present", async () => {
 			const dbPath = join(tempDir, "artifact-upsert.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -571,6 +727,7 @@ describe("emit database", () => {
 				runId: "run-art2",
 				path: "original.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -580,12 +737,17 @@ describe("emit database", () => {
 				runId: "run-art2",
 				path: "different.md",
 				type: "code",
+				storageRoot: "project",
 				projectPath: "/other",
 				feature: "other-feat",
 			});
 
 			expect(second.id).toBe(first.id);
-			expect(second.path).toBe("original.md");
+			expect(second.path).toBe("different.md");
+			expect(second.type).toBe("code");
+			expect(second.storageRoot).toBe("project");
+			expect(second.projectPath).toBe("/other");
+			expect(second.feature).toBe("other-feat");
 		});
 
 		test("inserts artifact with subflow=true", async () => {
@@ -604,6 +766,7 @@ describe("emit database", () => {
 				runId: "run-sf",
 				path: "flow.mmd",
 				type: "diagram",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 				step: "building",
@@ -630,11 +793,37 @@ describe("emit database", () => {
 				runId: "run-nsf",
 				path: "design.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
 
 			expect(artifact.subflow).toBe(false);
+		});
+
+		test("persists work-dir storage metadata", async () => {
+			const dbPath = join(tempDir, "artifact-storage-root.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-storage",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			const artifact = upsertArtifact(db, {
+				docId: "doc-storage",
+				runId: "run-storage",
+				path: "features/feat/design.md",
+				type: "markdown",
+				storageRoot: "work_dir",
+				projectPath: "/p",
+				feature: "feat",
+			});
+
+			expect(artifact.storageRoot).toBe("work_dir");
+			expect(artifact.path).toBe("features/feat/design.md");
 		});
 	});
 
@@ -655,6 +844,7 @@ describe("emit database", () => {
 				runId: "run-ann",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -689,6 +879,7 @@ describe("emit database", () => {
 				runId: "run-sa",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -912,6 +1103,167 @@ describe("emit database", () => {
 
 			expect(row.status).toBe("running");
 		});
+
+		test("latest logical work-item status supersedes earlier failed lifecycle states", async () => {
+			const dbPath = join(tempDir, "derive-logical-recovery-failed.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-logical-failed",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-logical-failed",
+				type: "status_change",
+				step: "task-reviewer:failed",
+				unit: "T1",
+				data: JSON.stringify({ status: "failed" }),
+			});
+			insertEvent(db, {
+				runId: "run-logical-failed",
+				type: "status_change",
+				step: "task-reviewer:completed",
+				unit: "T1",
+				data: JSON.stringify({ status: "completed" }),
+			});
+
+			const status = deriveRunStatus(db, "run-logical-failed");
+
+			expect(status).toBe("completed");
+		});
+
+		test("latest logical work-item status supersedes earlier running lifecycle states", async () => {
+			const dbPath = join(tempDir, "derive-logical-recovery-running.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-logical-running",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-logical-running",
+				type: "status_change",
+				step: "task-builder:building",
+				unit: "T1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-logical-running",
+				type: "status_change",
+				step: "task-builder:completed",
+				unit: "T1",
+				data: JSON.stringify({ status: "completed" }),
+			});
+
+			const status = deriveRunStatus(db, "run-logical-running");
+
+			expect(status).toBe("completed");
+		});
+
+		test("parent workflow completion supersedes contained child lifecycle failures", async () => {
+			const dbPath = join(tempDir, "derive-contained-child-failure.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-contained-failure",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-contained-failure",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-contained-failure",
+				type: "status_change",
+				step: "task-reviewer:failed",
+				unit: "T4",
+				data: JSON.stringify({ status: "failed" }),
+			});
+			insertEvent(db, {
+				runId: "run-contained-failure",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "completed" }),
+			});
+
+			const status = deriveRunStatus(db, "run-contained-failure");
+
+			expect(status).toBe("completed");
+		});
+
+		test("keeps units independent within the same sub-agent namespace", async () => {
+			const dbPath = join(tempDir, "derive-logical-units.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-logical-units",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-logical-units",
+				type: "status_change",
+				step: "task-builder:completed",
+				unit: "T1",
+				data: JSON.stringify({ status: "completed" }),
+			});
+			insertEvent(db, {
+				runId: "run-logical-units",
+				type: "status_change",
+				step: "task-builder:failed",
+				unit: "T2",
+				data: JSON.stringify({ status: "failed" }),
+			});
+
+			const status = deriveRunStatus(db, "run-logical-units");
+
+			expect(status).toBe("failed");
+		});
+
+		test("closeRun completes logical work items using their latest concrete step label", async () => {
+			const dbPath = join(tempDir, "derive-logical-close-run.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-logical-close",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-logical-close",
+				type: "status_change",
+				step: "task-builder:building",
+				unit: "T1",
+				data: JSON.stringify({ status: "running" }),
+			});
+
+			const status = deriveRunStatus(db, "run-logical-close", true);
+			const events = getEventsForRun(db, "run-logical-close");
+			const completionEvents = events.filter(
+				(event) =>
+					event.step === "task-builder:building" &&
+					event.data != null &&
+					JSON.parse(event.data).status === "completed",
+			);
+
+			expect(status).toBe("completed");
+			expect(completionEvents).toHaveLength(1);
+		});
 	});
 
 	describe("getStepStatuses", () => {
@@ -952,6 +1304,135 @@ describe("emit database", () => {
 
 			expect(step1?.status).toBe("completed");
 			expect(step2?.status).toBe("running");
+		});
+
+		test("reports the latest logical work-item key instead of stale lifecycle labels", async () => {
+			const dbPath = join(tempDir, "step-statuses-logical.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-ss-logical",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-ss-logical",
+				type: "status_change",
+				step: "task-reviewer:failed",
+				unit: "T1",
+				data: JSON.stringify({ status: "failed" }),
+			});
+			insertEvent(db, {
+				runId: "run-ss-logical",
+				type: "status_change",
+				step: "task-reviewer:completed",
+				unit: "T1",
+				data: JSON.stringify({ status: "completed" }),
+			});
+
+			const statuses = getStepStatuses(db, "run-ss-logical");
+
+			expect(statuses).toEqual([
+				{
+					step: "task-reviewer::T1",
+					status: "completed",
+					concreteStep: "task-reviewer:completed",
+					unit: "T1",
+				},
+			]);
+		});
+
+		test("namespaced sub-step events do not override active parent workflow step status", async () => {
+			const dbPath = join(tempDir, "step-statuses-contained-parent.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-ss-contained",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-ss-contained",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-ss-contained",
+				type: "status_change",
+				step: "task-reviewer:failed",
+				unit: "T4",
+				data: JSON.stringify({ status: "failed" }),
+			});
+
+			const statuses = getStepStatuses(db, "run-ss-contained");
+
+			expect(statuses).toEqual([
+				{
+					step: "build",
+					status: "running",
+					concreteStep: "build",
+					unit: null,
+				},
+			]);
+		});
+
+		test("parent step completed after sub-step failures shows completed", async () => {
+			const dbPath = join(tempDir, "step-statuses-parent-completed.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-ss-parent-ok",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-ss-parent-ok",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-ss-parent-ok",
+				type: "status_change",
+				step: "task-builder:completed",
+				unit: "T1",
+				data: JSON.stringify({ status: "completed" }),
+			});
+			insertEvent(db, {
+				runId: "run-ss-parent-ok",
+				type: "status_change",
+				step: "task-reviewer:failed",
+				unit: "T1",
+				data: JSON.stringify({ status: "failed" }),
+			});
+			insertEvent(db, {
+				runId: "run-ss-parent-ok",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "completed" }),
+			});
+			insertEvent(db, {
+				runId: "run-ss-parent-ok",
+				type: "status_change",
+				step: "verify",
+				data: JSON.stringify({ status: "running" }),
+			});
+
+			const statuses = getStepStatuses(db, "run-ss-parent-ok");
+
+			const buildStep = statuses.find((s) => s.step === "build");
+			const verifyStep = statuses.find((s) => s.step === "verify");
+
+			expect(buildStep?.status).toBe("completed");
+			expect(verifyStep?.status).toBe("running");
+			expect(statuses).toHaveLength(2);
 		});
 	});
 
@@ -1221,6 +1702,122 @@ describe("emit database", () => {
 
 			expect(result.runId).not.toBe("run-other-project");
 			expect(result.resumed).toBe(false);
+		});
+
+		test("does not resume run from different workflow type", async () => {
+			const dbPath = join(tempDir, "resume-flow-filter.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-pr-review",
+				flow: "pr-review",
+				featureId: "feat-flow",
+				projectPath: "/project/flow",
+			});
+
+			insertEvent(db, {
+				runId: "run-pr-review",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-pr-review");
+
+			const result = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-flow",
+				projectPath: "/project/flow",
+			});
+
+			expect(result.runId).not.toBe("run-pr-review");
+			expect(result.resumed).toBe(false);
+		});
+
+		test("resumes run matching same workflow type", async () => {
+			const dbPath = join(tempDir, "resume-same-flow.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-build-1",
+				flow: "build",
+				featureId: "feat-same-flow",
+				projectPath: "/project/same",
+			});
+
+			insertEvent(db, {
+				runId: "run-build-1",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-build-1");
+
+			insertRun(db, {
+				id: "run-pr-1",
+				flow: "pr-review",
+				featureId: "feat-same-flow",
+				projectPath: "/project/same",
+			});
+
+			insertEvent(db, {
+				runId: "run-pr-1",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-pr-1");
+
+			const buildResult = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-same-flow",
+				projectPath: "/project/same",
+			});
+
+			expect(buildResult.runId).toBe("run-build-1");
+			expect(buildResult.resumed).toBe(true);
+
+			const prResult = findOrCreateRun(db, {
+				flow: "pr-review",
+				featureId: "feat-same-flow",
+				projectPath: "/project/same",
+			});
+
+			expect(prResult.runId).toBe("run-pr-1");
+			expect(prResult.resumed).toBe(true);
+		});
+
+		test("resumes and backfills legacy active runs with unknown flow", async () => {
+			const dbPath = join(tempDir, "resume-legacy-unknown-flow.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-legacy",
+				flow: "unknown",
+				featureId: "feat-legacy",
+				projectPath: "/project/legacy",
+			});
+
+			insertEvent(db, {
+				runId: "run-legacy",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-legacy");
+
+			const result = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-legacy",
+				projectPath: "/project/legacy",
+			});
+
+			expect(result.runId).toBe("run-legacy");
+			expect(result.resumed).toBe(true);
+
+			const row = db
+				.prepare("SELECT flow FROM runs WHERE id = ?")
+				.get("run-legacy") as { flow: string } | null;
+			expect(row?.flow).toBe("build");
 		});
 	});
 
@@ -1503,6 +2100,7 @@ describe("emit database", () => {
 				runId: "run-snap-active",
 				path: "design.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p/snap",
 				feature: "feat-snap",
 				step: "design",
@@ -1623,6 +2221,32 @@ describe("emit database", () => {
 			expect(result.records[0].projectPath).toBe("/project/alpha");
 		});
 
+		test("filters by effective rp1_project_root when projectPath is legacy", async () => {
+			const dbPath = join(tempDir, "list-runs-effective-project.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-le1",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/legacy/path",
+				rp1ProjectRoot: "/resolved/project",
+			});
+			insertRun(db, {
+				id: "run-le2",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/other/path",
+				rp1ProjectRoot: "/other/project",
+			});
+
+			const result = listRuns(db, { projectPath: "/resolved/project" });
+
+			expect(result.total).toBe(1);
+			expect(result.records[0].id).toBe("run-le1");
+			expect(result.records[0].rp1ProjectRoot).toBe("/resolved/project");
+		});
+
 		test("filters by status", async () => {
 			const dbPath = join(tempDir, "list-runs-status.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
@@ -1652,6 +2276,75 @@ describe("emit database", () => {
 
 			expect(result.total).toBe(1);
 			expect(result.records[0].id).toBe("run-ls1");
+		});
+
+		test("sorts by the latest event timestamp", async () => {
+			const dbPath = join(tempDir, "list-runs-latest-event.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-lr1",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+			insertRun(db, {
+				id: "run-lr2",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			db.prepare("UPDATE runs SET created_at = $createdAt WHERE id = $id").run({
+				$createdAt: "2026-03-01T00:00:00.000Z",
+				$id: "run-lr1",
+			});
+			db.prepare("UPDATE runs SET created_at = $createdAt WHERE id = $id").run({
+				$createdAt: "2026-03-02T00:00:00.000Z",
+				$id: "run-lr2",
+			});
+
+			insertEvent(db, {
+				runId: "run-lr1",
+				type: "btw_update",
+				data: JSON.stringify({ message: "latest activity" }),
+				createdAt: "2026-03-03T00:00:00.000Z",
+			});
+			insertEvent(db, {
+				runId: "run-lr2",
+				type: "btw_update",
+				data: JSON.stringify({ message: "older activity" }),
+				createdAt: "2026-03-01T12:00:00.000Z",
+			});
+
+			const result = listRuns(db);
+
+			expect(result.records[0].id).toBe("run-lr1");
+			expect(result.records[0].lastEventAt).toBe("2026-03-03T00:00:00.000Z");
+			expect(result.records[1].id).toBe("run-lr2");
+			expect(result.records[1].lastEventAt).toBe("2026-03-01T12:00:00.000Z");
+		});
+
+		test("falls back to run created_at when there are no events", async () => {
+			const dbPath = join(tempDir, "list-runs-no-events.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-lr3",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			db.prepare("UPDATE runs SET created_at = $createdAt WHERE id = $id").run({
+				$createdAt: "2026-03-04T00:00:00.000Z",
+				$id: "run-lr3",
+			});
+
+			const result = listRuns(db);
+
+			expect(result.records[0].id).toBe("run-lr3");
+			expect(result.records[0].lastEventAt).toBe("2026-03-04T00:00:00.000Z");
 		});
 
 		test("supports pagination with limit and offset", async () => {
@@ -1791,6 +2484,7 @@ describe("emit database", () => {
 				runId: "run-afr",
 				path: "design.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -1799,6 +2493,7 @@ describe("emit database", () => {
 				runId: "run-afr-other",
 				path: "other.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -1827,6 +2522,7 @@ describe("emit database", () => {
 				runId: "run-abd",
 				path: "file.ts",
 				type: "code",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -1845,6 +2541,186 @@ describe("emit database", () => {
 			const artifact = getArtifactByDocId(db, "nonexistent");
 
 			expect(artifact).toBeNull();
+		});
+	});
+
+	describe("artifact storage helpers", () => {
+		test("normalizes absolute work-dir artifacts to work_dir-relative paths", () => {
+			const normalized = normalizeArtifactStorage(
+				"/resolved/work/features/feat/design.md",
+				{
+					rp1ProjectRoot: "/resolved/project",
+					rp1WorkRoot: "/resolved/work",
+				},
+			);
+
+			expect(normalized).toEqual({
+				path: "features/feat/design.md",
+				storageRoot: "work_dir",
+			});
+		});
+
+		test("normalizes legacy project-local .rp1/work artifacts to work_dir-relative paths", () => {
+			const normalized = normalizeArtifactStorage(
+				"/resolved/project/.rp1/work/features/feat/design.md",
+				{
+					rp1ProjectRoot: "/resolved/project",
+					rp1WorkRoot: "/resolved/external-work",
+				},
+			);
+
+			expect(normalized).toEqual({
+				path: "features/feat/design.md",
+				storageRoot: "work_dir",
+			});
+		});
+
+		test("promotes explicit project-relative traversal to absolute storage", () => {
+			const normalized = normalizeArtifactStorage(
+				"../outside.md",
+				{
+					rp1ProjectRoot: "/resolved/project",
+					rp1WorkRoot: "/resolved/work",
+				},
+				"project",
+			);
+
+			expect(normalized).toEqual({
+				path: "/resolved/outside.md",
+				storageRoot: "absolute",
+			});
+		});
+
+		test("resolves legacy project-relative artifacts from the project root", async () => {
+			const dbPath = join(tempDir, "artifact-resolve-project.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const projectRoot = join(tempDir, "project-root");
+			await mkdir(join(projectRoot, ".rp1"), { recursive: true });
+			writeFileSync(join(projectRoot, "legacy.md"), "# legacy\n");
+
+			const resolvedPath = await resolveArtifactPathForRun(
+				db,
+				{
+					rp1ProjectRoot: projectRoot,
+					rp1WorkRoot: join(tempDir, "external-work"),
+				},
+				{
+					docId: "doc-legacy",
+					path: "legacy.md",
+					storageRoot: "project",
+				},
+			);
+
+			expect(resolvedPath).toBe(join(projectRoot, "legacy.md"));
+		});
+
+		test("reconciles missing work-dir artifacts by scanning rp1_work_root", async () => {
+			const dbPath = join(tempDir, "artifact-resolve-reconcile.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const projectRoot = join(tempDir, "project-reconcile");
+			const workDir = join(tempDir, "external-work");
+			const filePath = join(workDir, "features", "feat", "design.md");
+			await mkdir(dirname(filePath), { recursive: true });
+			writeFileSync(
+				filePath,
+				"---\nrp1_doc_id: doc-reconcile\n---\n# Design\n",
+			);
+
+			insertRun(db, {
+				id: "run-reconcile",
+				flow: "build",
+				featureId: "feat",
+				projectPath: projectRoot,
+				rp1ProjectRoot: projectRoot,
+				rp1KbRoot: join(projectRoot, ".rp1", "context"),
+				rp1WorkRoot: workDir,
+			});
+			upsertArtifact(db, {
+				docId: "doc-reconcile",
+				runId: "run-reconcile",
+				path: "missing/design.md",
+				type: "markdown",
+				storageRoot: "work_dir",
+				projectPath: projectRoot,
+				feature: "feat",
+			});
+
+			const resolvedPath = await resolveArtifactPathForRun(
+				db,
+				{
+					rp1ProjectRoot: projectRoot,
+					rp1WorkRoot: workDir,
+				},
+				{
+					docId: "doc-reconcile",
+					path: "missing/design.md",
+					storageRoot: "work_dir",
+				},
+			);
+
+			expect(resolvedPath).toBe(filePath);
+
+			const artifact = getArtifactByDocId(db, "doc-reconcile");
+			expect(artifact?.path).toBe("features/feat/design.md");
+			expect(artifact?.storageRoot).toBe("work_dir");
+		});
+
+		test("reconciles missing work-dir artifacts by scanning the legacy .rp1/work directory", async () => {
+			const dbPath = join(tempDir, "artifact-resolve-legacy-work.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const projectRoot = join(tempDir, "project-legacy-work");
+			const workDir = join(tempDir, "external-work-empty");
+			const filePath = join(
+				projectRoot,
+				".rp1",
+				"work",
+				"features",
+				"feat",
+				"design.md",
+			);
+			await mkdir(dirname(filePath), { recursive: true });
+			writeFileSync(
+				filePath,
+				"---\nrp1_doc_id: doc-legacy-work\n---\n# Legacy Design\n",
+			);
+
+			insertRun(db, {
+				id: "run-legacy-work",
+				flow: "build",
+				featureId: "feat",
+				projectPath: projectRoot,
+				rp1ProjectRoot: projectRoot,
+				rp1KbRoot: join(projectRoot, ".rp1", "context"),
+				rp1WorkRoot: workDir,
+			});
+			upsertArtifact(db, {
+				docId: "doc-legacy-work",
+				runId: "run-legacy-work",
+				path: "missing/design.md",
+				type: "markdown",
+				storageRoot: "work_dir",
+				projectPath: projectRoot,
+				feature: "feat",
+			});
+
+			const resolvedPath = await resolveArtifactPathForRun(
+				db,
+				{
+					rp1ProjectRoot: projectRoot,
+					rp1WorkRoot: workDir,
+				},
+				{
+					docId: "doc-legacy-work",
+					path: "missing/design.md",
+					storageRoot: "work_dir",
+				},
+			);
+
+			expect(resolvedPath).toBe(filePath);
+
+			const artifact = getArtifactByDocId(db, "doc-legacy-work");
+			expect(artifact?.path).toBe("features/feat/design.md");
+			expect(artifact?.storageRoot).toBe("work_dir");
 		});
 	});
 
@@ -1871,6 +2747,7 @@ describe("emit database", () => {
 				runId: "run-anr",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -1910,6 +2787,7 @@ describe("emit database", () => {
 				runId: "run-and",
 				path: "a.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -1918,6 +2796,7 @@ describe("emit database", () => {
 				runId: "run-and",
 				path: "b.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -1957,6 +2836,7 @@ describe("emit database", () => {
 				runId: "run-abi",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2000,6 +2880,7 @@ describe("emit database", () => {
 				runId: "run-ua",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2034,6 +2915,7 @@ describe("emit database", () => {
 				runId: "run-uas",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2070,6 +2952,7 @@ describe("emit database", () => {
 				runId: "run-uad",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2104,6 +2987,7 @@ describe("emit database", () => {
 				runId: "run-da",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2156,6 +3040,31 @@ describe("emit database", () => {
 			expect(stats.get("/project/beta")?.runCount).toBe(1);
 			expect(stats.get("/project/gamma")?.runCount).toBe(0);
 			expect(stats.get("/project/gamma")?.lastActivityAt).toBeNull();
+		});
+
+		test("aggregates historical runs by effective rp1_project_root", async () => {
+			const dbPath = join(tempDir, "project-stats-effective.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-pse1",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/legacy/project",
+				rp1ProjectRoot: "/resolved/project",
+			});
+			insertRun(db, {
+				id: "run-pse2",
+				flow: "review",
+				featureId: "feat",
+				projectPath: "/legacy/project",
+				rp1ProjectRoot: "/resolved/project",
+			});
+
+			const stats = getProjectRunStats(db, ["/resolved/project"]);
+
+			expect(stats.get("/resolved/project")?.runCount).toBe(2);
+			expect(stats.get("/resolved/project")?.lastActivityAt).toBeTruthy();
 		});
 
 		test("returns empty map for empty project list", async () => {

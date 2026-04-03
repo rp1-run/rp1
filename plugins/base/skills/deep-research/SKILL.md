@@ -12,24 +12,17 @@ metadata:
   created: 2025-12-16
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "<research-topic>"
+  arguments:
+    - name: RESEARCH_TOPIC
+      type: string
+      required: true
+      description: "The research topic or questions (freeform text)"
   sub_agents:
     - "rp1-base:research-explorer"
     - "rp1-base:research-reporter"
 ---
 
 # Deep Research - Orchestration Command
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `RESEARCH_TOPIC` | Yes | - | The user's research topic or questions (freeform text) |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 You are executing the Deep Research workflow. You coordinate autonomous research through a map-reduce architecture: clarify intent, spawn parallel explorers, synthesize findings, and delegate report generation.
 
@@ -53,6 +46,7 @@ rp1 agent-tools emit \
   --workflow deep-research \
   --type status_change \
   --run-id {RUN_ID} \
+  --name "Research: {brief summary of research topic}" \
   --step {CURRENT_STATE} \
   --data '{"status": "running"}'
 ```
@@ -89,7 +83,7 @@ Analyze the RESEARCH_TOPIC to identify:
 
 ### Step 2: Determine if Clarification Needed
 
-Use AskUserQuestion if RESEARCH_TOPIC is ambiguous about:
+Prompt the user if RESEARCH_TOPIC is ambiguous about:
 - Which codebase(s) to analyze
 - Specific aspects to focus on (architecture, patterns, implementation, etc.)
 - Expected output format or depth
@@ -145,11 +139,11 @@ For each explorer, prepare:
 - EXPLORATION_TARGET: Path or topic
 - QUESTIONS: Subset of primary_questions relevant to this explorer
 - EXPLORATION_TYPE: codebase | web | hybrid
-- KB_PATH: Path to check for .rp1/context/ (for codebase explorers)
+- KB_PATH: Path to the KB root, typically `.rp1/context/` (for codebase explorers)
 
 ## 3. Spawn Explorers (~5% effort)
 
-**CRITICAL**: Spawn ALL explorers in a SINGLE message with PARALLEL Task tool calls.
+**CRITICAL**: Spawn ALL explorers in PARALLEL within a SINGLE message.
 
 For each explorer:
 
@@ -288,7 +282,6 @@ The reporter handles output file naming (slugification, directory creation, dedu
 {% dispatch_agent "rp1-base:research-reporter" %}
 Generate research report.
 SYNTHESIS_DATA: {stringify(synthesis_data)}
-RP1_ROOT: {{$RP1_ROOT}}
 REPORT_TYPE: {standard | comparative}
 
 Return JSON with report status and path.
@@ -314,7 +307,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step report \
-  --data '{"path": "{report_path}", "feature": "research"}'
+  --data '{"path": "{report_path}", "feature": "research", "storageRoot": "project"}'
 ```
 
 ## 6. Final Summary (~15% effort)
@@ -355,7 +348,7 @@ Full report saved to: `{report_path}`
 - Do NOT ask for approval beyond initial clarification
 - Do NOT iterate or refine after synthesis
 - Do NOT re-run explorers
-- Spawn explorers in PARALLEL (single message, multiple Task calls)
+- Spawn explorers in PARALLEL (single message, multiple parallel calls)
 - Synthesis is ONE pass with extended thinking
 - Output final summary after reporter completes
 - STOP after outputting final summary

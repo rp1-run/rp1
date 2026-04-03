@@ -6,9 +6,9 @@
 
 import { Database } from "bun:sqlite";
 import { existsSync, unlinkSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { runtimeError } from "../../../shared/errors.js";
@@ -18,6 +18,11 @@ import type {
 	RunRecord,
 	Status,
 } from "../../../shared/events.js";
+import {
+	getLogicalStepKey,
+	isNamespacedLifecycleStep,
+} from "../../../shared/logical-step.js";
+import { readProjectId } from "../../../shared/project-id.js";
 
 /** Default database file location. Override with RP1_DB env var. */
 const DEFAULT_DB_PATH = process.env.RP1_DB ?? join(homedir(), ".rp1", "rp1.db");
@@ -30,13 +35,19 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (4);
+INSERT INTO schema_version (version) VALUES (10);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
     flow TEXT NOT NULL,
     feature_id TEXT NOT NULL,
     project_path TEXT NOT NULL,
+    rp1_project_root TEXT NOT NULL,
+    rp1_kb_root TEXT NOT NULL,
+    rp1_work_root TEXT NOT NULL,
+    project_id TEXT DEFAULT NULL,
+    name TEXT DEFAULT NULL,
+    harness TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'not_started'
         CHECK(status IN ('not_started', 'running', 'waiting', 'completed', 'failed', 'skipped')),
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -47,6 +58,7 @@ CREATE INDEX IF NOT EXISTS idx_runs_project ON runs(project_path);
 CREATE INDEX IF NOT EXISTS idx_runs_feature ON runs(project_path, feature_id);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
 CREATE INDEX IF NOT EXISTS idx_runs_feature_status ON runs(project_path, feature_id, status);
+CREATE INDEX IF NOT EXISTS idx_runs_project_id ON runs(project_id);
 
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,7 +84,10 @@ CREATE TABLE IF NOT EXISTS artifacts (
     run_id TEXT REFERENCES runs(id),
     path TEXT NOT NULL,
     type TEXT NOT NULL DEFAULT 'other',
+    storage_root TEXT NOT NULL DEFAULT 'work_dir'
+        CHECK(storage_root IN ('absolute', 'project', 'work_dir')),
     project_path TEXT NOT NULL,
+    project_id TEXT DEFAULT NULL,
     feature TEXT NOT NULL,
     step TEXT,
     subflow INTEGER NOT NULL DEFAULT 0,
@@ -83,6 +98,7 @@ CREATE TABLE IF NOT EXISTS artifacts (
 CREATE INDEX IF NOT EXISTS idx_artifacts_doc_id ON artifacts(doc_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_project_feature ON artifacts(project_path, feature);
+CREATE INDEX IF NOT EXISTS idx_artifacts_project_id ON artifacts(project_id);
 
 CREATE TABLE IF NOT EXISTS annotations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,6 +125,7 @@ CREATE TABLE IF NOT EXISTS tasks (
         CHECK(status IN ('pending', 'in_progress', 'completed', 'failed', 'cancelled')),
     payload TEXT,
     project_path TEXT,
+    project_id TEXT DEFAULT NULL,
     result TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -118,6 +135,24 @@ CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_status_created ON tasks(status, created_at);
 CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_path);
 CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_path, status, created_at);
+CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message TEXT NOT NULL,
+    source_type TEXT NOT NULL DEFAULT 'run'
+        CHECK(source_type IN ('run', 'agent', 'system')),
+    source_id TEXT,
+    route TEXT,
+    project_id TEXT,
+    dismissed INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_dismissed ON notifications(dismissed);
+CREATE INDEX IF NOT EXISTS idx_notifications_project ON notifications(project_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_project_dismissed ON notifications(project_id, dismissed, created_at);
 `;
 
 /** Terminal statuses that indicate a run is no longer active */
@@ -145,6 +180,12 @@ export interface RunInput {
 	readonly flow: string;
 	readonly featureId: string;
 	readonly projectPath: string;
+	readonly rp1ProjectRoot?: string;
+	readonly rp1KbRoot?: string;
+	readonly rp1WorkRoot?: string;
+	readonly projectId?: string;
+	readonly name?: string;
+	readonly harness?: string;
 }
 
 /** Input for inserting an event */
@@ -164,10 +205,29 @@ export interface ArtifactInput {
 	readonly runId?: string;
 	readonly path: string;
 	readonly type: string;
+	readonly storageRoot: ArtifactStorageRoot;
 	readonly projectPath: string;
+	readonly projectId?: string;
 	readonly feature: string;
 	readonly step?: string;
 	readonly subflow?: boolean;
+}
+
+export type ArtifactStorageRoot = "absolute" | "project" | "work_dir";
+
+/** Notification source type discriminator */
+export type NotificationSourceType = "run" | "agent" | "system";
+
+/** Stored notification record shape (camelCase domain model) */
+export interface NotificationRecord {
+	readonly id: number;
+	readonly message: string;
+	readonly sourceType: NotificationSourceType;
+	readonly sourceId: string | null;
+	readonly route: string | null;
+	readonly projectId: string | null;
+	readonly dismissed: boolean;
+	readonly createdAt: string;
 }
 
 /** Stored artifact record shape */
@@ -177,7 +237,9 @@ export interface ArtifactRecord {
 	readonly runId: string | null;
 	readonly path: string;
 	readonly type: string;
+	readonly storageRoot: ArtifactStorageRoot;
 	readonly projectPath: string;
+	readonly projectId: string | null;
 	readonly feature: string;
 	readonly step: string | null;
 	readonly subflow: boolean;
@@ -216,6 +278,8 @@ export interface AnnotationRecord {
 export interface StepStatusEntry {
 	readonly step: string;
 	readonly status: Status;
+	readonly concreteStep?: string;
+	readonly unit?: string | null;
 }
 
 /** Raw database row shapes (snake_case) */
@@ -224,6 +288,12 @@ interface RunRow {
 	flow: string;
 	feature_id: string;
 	project_path: string;
+	rp1_project_root: string | null;
+	rp1_kb_root: string | null;
+	rp1_work_root: string | null;
+	project_id: string | null;
+	name: string | null;
+	harness: string | null;
 	status: string;
 	created_at: string;
 	updated_at: string;
@@ -246,7 +316,9 @@ interface ArtifactRow {
 	run_id: string | null;
 	path: string;
 	type: string;
+	storage_root: ArtifactStorageRoot | null;
 	project_path: string;
+	project_id: string | null;
 	feature: string;
 	step: string | null;
 	subflow: number;
@@ -267,16 +339,65 @@ interface AnnotationRow {
 }
 
 interface StepStatusRow {
+	id: number;
 	step: string;
+	unit: string | null;
 	status: string;
 }
+
+interface LogicalStepStatusEntry extends StepStatusEntry {
+	readonly concreteStep: string;
+	readonly unit: string | null;
+}
+
+const NON_TERMINAL_STATUSES = new Set<Status>([
+	"running",
+	"waiting",
+	"not_started",
+]);
+
+const defaultKbRoot = (projectRoot: string): string =>
+	join(projectRoot, ".rp1", "context");
+
+const defaultWorkRoot = (projectRoot: string): string =>
+	join(projectRoot, ".rp1", "work");
+
+const getLegacyWorkDir = (projectRoot: string): string =>
+	join(resolve(projectRoot), ".rp1", "work");
+
+const resolveRunDirectories = (input: {
+	readonly projectPath: string;
+	readonly rp1ProjectRoot?: string;
+	readonly rp1KbRoot?: string;
+	readonly rp1WorkRoot?: string;
+	readonly projectId?: string;
+}): {
+	readonly rp1ProjectRoot: string;
+	readonly rp1KbRoot: string;
+	readonly rp1WorkRoot: string;
+	readonly projectId: string | undefined;
+} => {
+	const rp1ProjectRoot = resolve(input.rp1ProjectRoot ?? input.projectPath);
+	return {
+		rp1ProjectRoot,
+		rp1KbRoot: resolve(input.rp1KbRoot ?? defaultKbRoot(rp1ProjectRoot)),
+		rp1WorkRoot: resolve(input.rp1WorkRoot ?? defaultWorkRoot(rp1ProjectRoot)),
+		projectId: input.projectId ?? readProjectId(rp1ProjectRoot),
+	};
+};
 
 const runRowToRecord = (row: RunRow): RunRecord => ({
 	id: row.id,
 	flow: row.flow,
 	featureId: row.feature_id,
 	projectPath: row.project_path,
+	rp1ProjectRoot: row.rp1_project_root ?? row.project_path,
+	rp1KbRoot: row.rp1_kb_root ?? defaultKbRoot(row.project_path),
+	rp1WorkRoot: row.rp1_work_root ?? defaultWorkRoot(row.project_path),
+	projectId: row.project_id ?? null,
 	status: row.status as Status,
+	name: row.name ?? null,
+	harness: row.harness ?? null,
 	createdAt: row.created_at,
 	updatedAt: row.updated_at,
 });
@@ -298,7 +419,9 @@ const artifactRowToRecord = (row: ArtifactRow): ArtifactRecord => ({
 	runId: row.run_id,
 	path: row.path,
 	type: row.type,
+	storageRoot: row.storage_root ?? "work_dir",
 	projectPath: row.project_path,
+	projectId: row.project_id ?? null,
 	feature: row.feature,
 	step: row.step,
 	subflow: !!row.subflow,
@@ -403,6 +526,233 @@ const applyMigrations = (db: Database): void => {
 
 		db.prepare("UPDATE schema_version SET version = 4").run();
 	}
+
+	const postV3Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV3Version?.version ?? 4) < 5) {
+		const columns = db.prepare("PRAGMA table_info(runs)").all() as {
+			name: string;
+		}[];
+		const columnNames = columns.map((c) => c.name);
+
+		if (!columnNames.includes("name")) {
+			db.exec("ALTER TABLE runs ADD COLUMN name TEXT DEFAULT NULL");
+		}
+
+		db.prepare("UPDATE schema_version SET version = 5").run();
+	}
+
+	const postV4Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV4Version?.version ?? 5) < 6) {
+		const columns = db.prepare("PRAGMA table_info(runs)").all() as {
+			name: string;
+		}[];
+		const columnNames = columns.map((c) => c.name);
+
+		if (!columnNames.includes("harness")) {
+			db.exec("ALTER TABLE runs ADD COLUMN harness TEXT DEFAULT NULL");
+		}
+
+		db.prepare("UPDATE schema_version SET version = 6").run();
+	}
+
+	const postV5Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV5Version?.version ?? 6) < 7) {
+		const runColumns = db.prepare("PRAGMA table_info(runs)").all() as {
+			name: string;
+		}[];
+		const runColumnNames = runColumns.map((c) => c.name);
+
+		if (!runColumnNames.includes("rp1_project_root")) {
+			db.exec("ALTER TABLE runs ADD COLUMN rp1_project_root TEXT DEFAULT NULL");
+		}
+		if (!runColumnNames.includes("rp1_kb_dir")) {
+			db.exec("ALTER TABLE runs ADD COLUMN rp1_kb_dir TEXT DEFAULT NULL");
+		}
+		if (!runColumnNames.includes("rp1_work_dir")) {
+			db.exec("ALTER TABLE runs ADD COLUMN rp1_work_dir TEXT DEFAULT NULL");
+		}
+
+		const artifactColumns = db
+			.prepare("PRAGMA table_info(artifacts)")
+			.all() as {
+			name: string;
+		}[];
+		const artifactColumnNames = artifactColumns.map((c) => c.name);
+
+		if (!artifactColumnNames.includes("storage_root")) {
+			db.exec(
+				"ALTER TABLE artifacts ADD COLUMN storage_root TEXT NOT NULL DEFAULT 'work_dir' CHECK(storage_root IN ('absolute', 'project', 'work_dir'))",
+			);
+		}
+
+		const runsToBackfill = db
+			.prepare(
+				"SELECT id, project_path FROM runs WHERE rp1_project_root IS NULL OR rp1_kb_dir IS NULL OR rp1_work_dir IS NULL",
+			)
+			.all() as { id: string; project_path: string }[];
+
+		const backfillRunStmt = db.prepare(
+			`UPDATE runs
+			 SET rp1_project_root = $rp1ProjectRoot,
+			     rp1_kb_dir = $rp1KbDir,
+			     rp1_work_dir = $rp1WorkDir
+			 WHERE id = $id`,
+		);
+
+		for (const run of runsToBackfill) {
+			const directories = resolveRunDirectories({
+				projectPath: run.project_path,
+			});
+			backfillRunStmt.run({
+				$id: run.id,
+				$rp1ProjectRoot: directories.rp1ProjectRoot,
+				$rp1KbDir: directories.rp1KbRoot,
+				$rp1WorkDir: directories.rp1WorkRoot,
+			});
+		}
+
+		db.prepare("UPDATE schema_version SET version = 7").run();
+	}
+
+	const postV7Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV7Version?.version ?? 7) < 8) {
+		const cols = db.prepare("PRAGMA table_info(runs)").all() as {
+			name: string;
+		}[];
+		const colNames = new Set(cols.map((c) => c.name));
+
+		if (colNames.has("rp1_kb_dir") && !colNames.has("rp1_kb_root")) {
+			db.exec("ALTER TABLE runs RENAME COLUMN rp1_kb_dir TO rp1_kb_root");
+		}
+		if (colNames.has("rp1_work_dir") && !colNames.has("rp1_work_root")) {
+			db.exec("ALTER TABLE runs RENAME COLUMN rp1_work_dir TO rp1_work_root");
+		}
+
+		db.prepare("UPDATE schema_version SET version = 8").run();
+	}
+
+	const postV8Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV8Version?.version ?? 8) < 9) {
+		const runCols = db.prepare("PRAGMA table_info(runs)").all() as {
+			name: string;
+		}[];
+		const runColNames = new Set(runCols.map((c) => c.name));
+
+		if (!runColNames.has("project_id")) {
+			db.exec("ALTER TABLE runs ADD COLUMN project_id TEXT DEFAULT NULL");
+		}
+		db.exec(
+			"CREATE INDEX IF NOT EXISTS idx_runs_project_id ON runs(project_id)",
+		);
+
+		const artifactCols = db.prepare("PRAGMA table_info(artifacts)").all() as {
+			name: string;
+		}[];
+		const artifactColNames = new Set(artifactCols.map((c) => c.name));
+
+		if (!artifactColNames.has("project_id")) {
+			db.exec("ALTER TABLE artifacts ADD COLUMN project_id TEXT DEFAULT NULL");
+		}
+		db.exec(
+			"CREATE INDEX IF NOT EXISTS idx_artifacts_project_id ON artifacts(project_id)",
+		);
+
+		const taskCols = db.prepare("PRAGMA table_info(tasks)").all() as {
+			name: string;
+		}[];
+		const taskColNames = new Set(taskCols.map((c) => c.name));
+
+		if (!taskColNames.has("project_id")) {
+			db.exec("ALTER TABLE tasks ADD COLUMN project_id TEXT DEFAULT NULL");
+		}
+		db.exec(
+			"CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id)",
+		);
+
+		const runsToBackfill = db
+			.prepare(
+				"SELECT id, rp1_project_root FROM runs WHERE project_id IS NULL AND rp1_project_root IS NOT NULL",
+			)
+			.all() as { id: string; rp1_project_root: string }[];
+
+		const backfillStmt = db.prepare(
+			"UPDATE runs SET project_id = $projectId WHERE id = $id",
+		);
+
+		for (const run of runsToBackfill) {
+			const projectId = readProjectId(run.rp1_project_root);
+			if (projectId) {
+				backfillStmt.run({ $id: run.id, $projectId: projectId });
+			}
+		}
+
+		const artifactsToBackfill = db
+			.prepare(
+				`SELECT a.id, r.rp1_project_root
+				 FROM artifacts a
+				 LEFT JOIN runs r ON a.run_id = r.id
+				 WHERE a.project_id IS NULL AND r.rp1_project_root IS NOT NULL`,
+			)
+			.all() as { id: number; rp1_project_root: string }[];
+
+		const backfillArtifactStmt = db.prepare(
+			"UPDATE artifacts SET project_id = $projectId WHERE id = $id",
+		);
+
+		for (const artifact of artifactsToBackfill) {
+			const projectId = readProjectId(artifact.rp1_project_root);
+			if (projectId) {
+				backfillArtifactStmt.run({
+					$id: artifact.id,
+					$projectId: projectId,
+				});
+			}
+		}
+
+		db.prepare("UPDATE schema_version SET version = 9").run();
+	}
+
+	const postV9Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV9Version?.version ?? 9) < 10) {
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS notifications (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				message TEXT NOT NULL,
+				source_type TEXT NOT NULL DEFAULT 'run'
+					CHECK(source_type IN ('run', 'agent', 'system')),
+				source_id TEXT,
+				route TEXT,
+				project_id TEXT,
+				dismissed INTEGER NOT NULL DEFAULT 0,
+				created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+			);
+
+			CREATE INDEX IF NOT EXISTS idx_notifications_dismissed ON notifications(dismissed);
+			CREATE INDEX IF NOT EXISTS idx_notifications_project ON notifications(project_id);
+			CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at);
+			CREATE INDEX IF NOT EXISTS idx_notifications_project_dismissed ON notifications(project_id, dismissed, created_at);
+		`);
+
+		db.prepare("UPDATE schema_version SET version = 10").run();
+	}
 };
 
 /**
@@ -467,9 +817,46 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 		const updates: string[] = [];
 		const params: Record<string, string> = { $id: input.id };
 
+		if (existing.flow === "unknown" && input.flow !== "unknown") {
+			updates.push("flow = $flow");
+			params.$flow = input.flow;
+		}
+
 		if (existing.feature_id === "unknown" && input.featureId !== "unknown") {
 			updates.push("feature_id = $featureId");
 			params.$featureId = input.featureId;
+		}
+
+		if (existing.name === null && input.name != null) {
+			updates.push("name = $name");
+			params.$name = input.name;
+		}
+
+		if (existing.harness === null && input.harness != null) {
+			updates.push("harness = $harness");
+			params.$harness = input.harness;
+		}
+
+		const directories = resolveRunDirectories(input);
+
+		if (existing.rp1_project_root == null && directories.rp1ProjectRoot) {
+			updates.push("rp1_project_root = $rp1ProjectRoot");
+			params.$rp1ProjectRoot = directories.rp1ProjectRoot;
+		}
+
+		if (existing.rp1_kb_root == null && directories.rp1KbRoot) {
+			updates.push("rp1_kb_root = $rp1KbRoot");
+			params.$rp1KbRoot = directories.rp1KbRoot;
+		}
+
+		if (existing.rp1_work_root == null && directories.rp1WorkRoot) {
+			updates.push("rp1_work_root = $rp1WorkRoot");
+			params.$rp1WorkRoot = directories.rp1WorkRoot;
+		}
+
+		if (existing.project_id == null && directories.projectId) {
+			updates.push("project_id = $projectId");
+			params.$projectId = directories.projectId;
 		}
 
 		if (updates.length > 0) {
@@ -486,10 +873,17 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 		return runRowToRecord(existing);
 	}
 
+	const directories = resolveRunDirectories(input);
 	const row = db
 		.prepare(
-			`INSERT INTO runs (id, flow, feature_id, project_path)
-			 VALUES ($id, $flow, $featureId, $projectPath)
+			`INSERT INTO runs (
+			    id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root,
+			    rp1_work_root, project_id, name, harness
+			 )
+			 VALUES (
+			    $id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbRoot,
+			    $rp1WorkRoot, $projectId, $name, $harness
+			 )
 			 RETURNING *`,
 		)
 		.get({
@@ -497,6 +891,12 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 			$flow: input.flow,
 			$featureId: input.featureId,
 			$projectPath: input.projectPath,
+			$rp1ProjectRoot: directories.rp1ProjectRoot,
+			$rp1KbRoot: directories.rp1KbRoot,
+			$rp1WorkRoot: directories.rp1WorkRoot,
+			$projectId: directories.projectId ?? null,
+			$name: input.name ?? null,
+			$harness: input.harness ?? null,
 		}) as RunRow;
 
 	return runRowToRecord(row);
@@ -516,6 +916,28 @@ export const findOrCreateRun = (
 		.prepare(
 			`SELECT * FROM runs
 			 WHERE feature_id = ?
+			   AND flow = ?
+			   AND project_path = ?
+			   AND status NOT IN (${terminalPlaceholders})
+			 ORDER BY created_at DESC
+			 LIMIT 1`,
+		)
+		.get(
+			input.featureId,
+			input.flow,
+			input.projectPath,
+			...TERMINAL_STATUSES,
+		) as RunRow | null;
+
+	if (existing) {
+		return { runId: existing.id, resumed: true };
+	}
+
+	const legacyUnknown = db
+		.prepare(
+			`SELECT * FROM runs
+			 WHERE feature_id = ?
+			   AND flow = 'unknown'
 			   AND project_path = ?
 			   AND status NOT IN (${terminalPlaceholders})
 			 ORDER BY created_at DESC
@@ -527,19 +949,36 @@ export const findOrCreateRun = (
 			...TERMINAL_STATUSES,
 		) as RunRow | null;
 
-	if (existing) {
-		return { runId: existing.id, resumed: true };
+	if (legacyUnknown) {
+		db.prepare(
+			`UPDATE runs
+			 SET flow = ?,
+			     updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+			 WHERE id = ?`,
+		).run(input.flow, legacyUnknown.id);
+		return { runId: legacyUnknown.id, resumed: true };
 	}
 
 	const newId = crypto.randomUUID();
+	const directories = resolveRunDirectories({ projectPath: input.projectPath });
 	db.prepare(
-		`INSERT INTO runs (id, flow, feature_id, project_path)
-		 VALUES ($id, $flow, $featureId, $projectPath)`,
+		`INSERT INTO runs (
+		    id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root,
+		    rp1_work_root, project_id, harness
+		 )
+		 VALUES (
+		    $id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbRoot,
+		    $rp1WorkRoot, $projectId, NULL
+		 )`,
 	).run({
 		$id: newId,
 		$flow: input.flow,
 		$featureId: input.featureId,
 		$projectPath: input.projectPath,
+		$rp1ProjectRoot: directories.rp1ProjectRoot,
+		$rp1KbRoot: directories.rp1KbRoot,
+		$rp1WorkRoot: directories.rp1WorkRoot,
+		$projectId: directories.projectId ?? null,
 	});
 
 	return { runId: newId, resumed: false };
@@ -570,7 +1009,7 @@ export const insertEvent = (db: Database, input: EventInput): EventRecord => {
 };
 
 /**
- * Insert an artifact with doc_id, or return the existing record if doc_id is already present.
+ * Insert an artifact by doc_id, or refresh the existing record in place.
  */
 export const upsertArtifact = (
 	db: Database,
@@ -581,13 +1020,45 @@ export const upsertArtifact = (
 		.get({ $docId: input.docId }) as ArtifactRow | null;
 
 	if (existing) {
-		return artifactRowToRecord(existing);
+		const row = db
+			.prepare(
+				`UPDATE artifacts
+				 SET run_id = $runId,
+				     path = $path,
+				     type = $type,
+				     storage_root = $storageRoot,
+				     project_path = $projectPath,
+				     project_id = $projectId,
+				     feature = $feature,
+				     step = $step,
+				     subflow = $subflow
+				 WHERE doc_id = $docId
+				 RETURNING *`,
+			)
+			.get({
+				$docId: input.docId,
+				$runId: input.runId ?? existing.run_id,
+				$path: input.path,
+				$type: input.type,
+				$storageRoot: input.storageRoot,
+				$projectPath: input.projectPath,
+				$projectId: input.projectId ?? existing.project_id,
+				$feature: input.feature,
+				$step: input.step ?? existing.step,
+				$subflow: input.subflow ?? existing.subflow,
+			}) as ArtifactRow;
+
+		return artifactRowToRecord(row);
 	}
 
 	const row = db
 		.prepare(
-			`INSERT INTO artifacts (doc_id, run_id, path, type, project_path, feature, step, subflow)
-			 VALUES ($docId, $runId, $path, $type, $projectPath, $feature, $step, $subflow)
+			`INSERT INTO artifacts (
+			    doc_id, run_id, path, type, storage_root, project_path, project_id, feature, step, subflow
+			 )
+			 VALUES (
+			    $docId, $runId, $path, $type, $storageRoot, $projectPath, $projectId, $feature, $step, $subflow
+			 )
 			 RETURNING *`,
 		)
 		.get({
@@ -595,7 +1066,9 @@ export const upsertArtifact = (
 			$runId: input.runId ?? null,
 			$path: input.path,
 			$type: input.type,
+			$storageRoot: input.storageRoot,
 			$projectPath: input.projectPath,
+			$projectId: input.projectId ?? null,
 			$feature: input.feature,
 			$step: input.step ?? null,
 			$subflow: input.subflow ? 1 : 0,
@@ -631,8 +1104,8 @@ export const upsertAnnotation = (
 };
 
 /**
- * Query the latest status_change event per step for a run.
- * Returns the most recent status for each unique step.
+ * Query the latest status_change event per logical work item for a run.
+ * Returns the most recent status for each unique logical step key.
  */
 export const getStepStatuses = (
 	db: Database,
@@ -640,22 +1113,47 @@ export const getStepStatuses = (
 ): StepStatusEntry[] => {
 	const rows = db
 		.prepare(
-			`SELECT e.step, json_extract(e.data, '$.status') as status
-			 FROM events e
-			 INNER JOIN (
-			     SELECT step, MAX(id) as max_id
-			     FROM events
-			     WHERE run_id = $runId AND type = 'status_change' AND step IS NOT NULL
-			     GROUP BY step
-			 ) latest ON e.id = latest.max_id
-			 WHERE e.run_id = $runId`,
+			`SELECT id, step, unit, json_extract(data, '$.status') as status
+			 FROM events
+			 WHERE run_id = $runId AND type = 'status_change' AND step IS NOT NULL
+			 ORDER BY id ASC`,
 		)
 		.all({ $runId: runId }) as StepStatusRow[];
 
-	return rows.map((row) => ({
-		step: row.step,
-		status: row.status as Status,
-	}));
+	const latestByLogicalKey = new Map<string, LogicalStepStatusEntry>();
+	let activeWorkflowStep: string | null = null;
+
+	for (const row of rows) {
+		const status = row.status as Status;
+
+		// When a parent workflow step is active, namespaced sub-step events
+		// must not override the parent's status. Sub-tasks are tracked
+		// separately via deriveAgentSteps in the web UI.
+		if (isNamespacedLifecycleStep(row.step) && activeWorkflowStep) {
+			continue;
+		}
+
+		const logicalStepKey = getLogicalStepKey(row.step, row.unit);
+
+		latestByLogicalKey.set(logicalStepKey, {
+			step: logicalStepKey,
+			status,
+			concreteStep: row.step,
+			unit: row.unit,
+		});
+
+		if (isNamespacedLifecycleStep(row.step)) {
+			continue;
+		}
+
+		if (NON_TERMINAL_STATUSES.has(status)) {
+			activeWorkflowStep = row.step;
+		} else if (activeWorkflowStep === row.step) {
+			activeWorkflowStep = null;
+		}
+	}
+
+	return Array.from(latestByLogicalKey.values());
 };
 
 /**
@@ -684,7 +1182,8 @@ export const deriveRunStatus = (
 				insertEvent(db, {
 					runId,
 					type: "status_change",
-					step: entry.step,
+					step: entry.concreteStep ?? entry.step,
+					unit: entry.unit ?? undefined,
 					data: JSON.stringify({ status: "completed" }),
 					createdAt: now,
 				});
@@ -867,6 +1366,7 @@ export const getMaxEventId = (db: Database): number => {
 export interface ListRunsOptions {
 	readonly projectPath?: string;
 	readonly projectPaths?: readonly string[];
+	readonly projectId?: string;
 	readonly status?: Status;
 	readonly limit?: number;
 	readonly offset?: number;
@@ -874,7 +1374,7 @@ export interface ListRunsOptions {
 
 /** Paginated result for run listing */
 export interface ListRunsResult {
-	readonly records: RunRecord[];
+	readonly records: RunRecordWithLastEvent[];
 	readonly total: number;
 }
 
@@ -885,10 +1385,15 @@ export interface ProjectRunStats {
 }
 
 /** Runs grouped by attention-requiring status */
+/** A run record augmented with the latest event timestamp. */
+export type RunRecordWithLastEvent = RunRecord & {
+	readonly lastEventAt: string | null;
+};
+
 export interface AttentionRuns {
-	readonly waiting: RunRecord[];
-	readonly failed: RunRecord[];
-	readonly running: RunRecord[];
+	readonly waiting: RunRecordWithLastEvent[];
+	readonly failed: RunRecordWithLastEvent[];
+	readonly running: RunRecordWithLastEvent[];
 }
 
 /**
@@ -901,12 +1406,17 @@ export const listRuns = (
 	const conditions: string[] = [];
 	const filterValues: (string | number)[] = [];
 
-	if (opts.projectPath != null) {
-		conditions.push("project_path = ?");
+	if (opts.projectId != null) {
+		conditions.push("project_id = ?");
+		filterValues.push(opts.projectId);
+	} else if (opts.projectPath != null) {
+		conditions.push("COALESCE(rp1_project_root, project_path) = ?");
 		filterValues.push(opts.projectPath);
 	} else if (opts.projectPaths != null && opts.projectPaths.length > 0) {
 		const placeholders = opts.projectPaths.map(() => "?").join(", ");
-		conditions.push(`project_path IN (${placeholders})`);
+		conditions.push(
+			`COALESCE(rp1_project_root, project_path) IN (${placeholders})`,
+		);
 		filterValues.push(...opts.projectPaths);
 	}
 	if (opts.status != null) {
@@ -926,12 +1436,29 @@ export const listRuns = (
 
 	const rows = db
 		.prepare(
-			`SELECT * FROM runs ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+			`SELECT runs.*,
+			        COALESCE(latest_events.last_event_at, runs.created_at) AS last_event_at
+			 FROM runs
+			 LEFT JOIN (
+			     SELECT run_id, MAX(created_at) AS last_event_at
+			     FROM events
+			     GROUP BY run_id
+			 ) AS latest_events ON latest_events.run_id = runs.id
+			 ${whereClause}
+			 ORDER BY COALESCE(latest_events.last_event_at, runs.created_at) DESC,
+			          runs.created_at DESC,
+			          runs.id DESC
+			 LIMIT ? OFFSET ?`,
 		)
-		.all(...filterValues, limit, offset) as RunRow[];
+		.all(...filterValues, limit, offset) as (RunRow & {
+		last_event_at: string;
+	})[];
 
 	return {
-		records: rows.map(runRowToRecord),
+		records: rows.map((row) => ({
+			...runRowToRecord(row),
+			lastEventAt: row.last_event_at,
+		})),
 		total: countRow.count,
 	};
 };
@@ -1052,6 +1579,228 @@ export const updateArtifactPath = (
 		$path: newPath,
 		$docId: docId,
 	});
+};
+
+export const updateArtifactStorage = (
+	db: Database,
+	docId: string,
+	updates: {
+		readonly path: string;
+		readonly storageRoot: ArtifactStorageRoot;
+	},
+): void => {
+	db.prepare(
+		"UPDATE artifacts SET path = $path, storage_root = $storageRoot WHERE doc_id = $docId",
+	).run({
+		$path: updates.path,
+		$storageRoot: updates.storageRoot,
+		$docId: docId,
+	});
+};
+
+const isWithinRoot = (candidatePath: string, rootPath: string): boolean => {
+	const normalizedRoot = resolve(rootPath);
+	const relativePath = relative(normalizedRoot, resolve(candidatePath));
+	return (
+		relativePath === "" ||
+		(!relativePath.startsWith("..") && !isAbsolute(relativePath))
+	);
+};
+
+export const normalizeArtifactStorage = (
+	artifactPath: string,
+	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkRoot">,
+	storageRoot?: ArtifactStorageRoot,
+): { readonly path: string; readonly storageRoot: ArtifactStorageRoot } => {
+	const normalizeWithinRoot = (
+		absolutePath: string,
+		rootPath: string,
+		targetStorageRoot: ArtifactStorageRoot,
+	): {
+		readonly path: string;
+		readonly storageRoot: ArtifactStorageRoot;
+	} | null => {
+		if (!isWithinRoot(absolutePath, rootPath)) {
+			return null;
+		}
+
+		return {
+			path: relative(rootPath, absolutePath),
+			storageRoot: targetStorageRoot,
+		};
+	};
+
+	const legacyWorkDir = getLegacyWorkDir(run.rp1ProjectRoot);
+
+	if (storageRoot != null) {
+		if (storageRoot === "absolute") {
+			return { path: resolve(artifactPath), storageRoot };
+		}
+
+		if (isAbsolute(artifactPath)) {
+			const absolutePath = resolve(artifactPath);
+			if (storageRoot === "work_dir") {
+				return (
+					normalizeWithinRoot(absolutePath, run.rp1WorkRoot, "work_dir") ??
+					normalizeWithinRoot(absolutePath, legacyWorkDir, "work_dir") ?? {
+						path: absolutePath,
+						storageRoot: "absolute",
+					}
+				);
+			}
+
+			return (
+				normalizeWithinRoot(absolutePath, run.rp1ProjectRoot, "project") ?? {
+					path: absolutePath,
+					storageRoot: "absolute",
+				}
+			);
+		}
+
+		const baseDir =
+			storageRoot === "work_dir" ? run.rp1WorkRoot : run.rp1ProjectRoot;
+		const resolvedPath = resolve(baseDir, artifactPath);
+		if (!isWithinRoot(resolvedPath, baseDir)) {
+			return {
+				path: resolvedPath,
+				storageRoot: "absolute",
+			};
+		}
+		return {
+			path: relative(baseDir, resolvedPath),
+			storageRoot,
+		};
+	}
+
+	if (isAbsolute(artifactPath)) {
+		const absolutePath = resolve(artifactPath);
+		return (
+			normalizeWithinRoot(absolutePath, run.rp1WorkRoot, "work_dir") ??
+			normalizeWithinRoot(absolutePath, legacyWorkDir, "work_dir") ??
+			normalizeWithinRoot(absolutePath, run.rp1ProjectRoot, "project") ?? {
+				path: absolutePath,
+				storageRoot: "absolute",
+			}
+		);
+	}
+
+	return { path: artifactPath, storageRoot: "work_dir" };
+};
+
+async function scanForArtifactDocId(
+	rootDir: string,
+	docId: string,
+	maxDepth = 8,
+): Promise<string | null> {
+	async function scanDir(dir: string, depth: number): Promise<string | null> {
+		if (depth > maxDepth) return null;
+
+		let entries: string[];
+		try {
+			entries = await readdir(dir);
+		} catch {
+			return null;
+		}
+
+		for (const name of entries) {
+			const fullPath = join(dir, name);
+
+			try {
+				const fileStat = await stat(fullPath);
+				if (fileStat.isDirectory()) {
+					const nested = await scanDir(fullPath, depth + 1);
+					if (nested) return nested;
+					continue;
+				}
+
+				if (!fileStat.isFile() || !name.endsWith(".md")) {
+					continue;
+				}
+			} catch {
+				continue;
+			}
+
+			try {
+				const headerBytes = await Bun.file(fullPath).slice(0, 1024).text();
+				const match = headerBytes.match(/^rp1_doc_id:\s*(.+)$/m);
+				if (match?.[1]?.trim() === docId) {
+					return fullPath;
+				}
+			} catch {}
+		}
+
+		return null;
+	}
+
+	return scanDir(rootDir, 0);
+}
+
+const getArtifactReconciliationRoots = (
+	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkRoot">,
+	storageRoot: ArtifactStorageRoot,
+): readonly string[] =>
+	Array.from(
+		new Set([
+			...(storageRoot === "project" ? [resolve(run.rp1ProjectRoot)] : []),
+			...(storageRoot === "absolute" ? [] : [resolve(run.rp1WorkRoot)]),
+			...(storageRoot === "absolute"
+				? []
+				: [getLegacyWorkDir(run.rp1ProjectRoot)]),
+		]),
+	);
+
+export const resolveArtifactPathForRun = async (
+	db: Database,
+	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkRoot">,
+	artifact: Pick<ArtifactRecord, "docId" | "path" | "storageRoot">,
+): Promise<string | null> => {
+	if (isAbsolute(artifact.path)) {
+		return (await Bun.file(artifact.path).exists()) ? artifact.path : null;
+	}
+
+	if (artifact.storageRoot === "work_dir") {
+		const workPath = resolve(run.rp1WorkRoot, artifact.path);
+		if (await Bun.file(workPath).exists()) {
+			return workPath;
+		}
+
+		const legacyWorkPath = resolve(
+			getLegacyWorkDir(run.rp1ProjectRoot),
+			artifact.path,
+		);
+		if (await Bun.file(legacyWorkPath).exists()) {
+			updateArtifactStorage(
+				db,
+				artifact.docId,
+				normalizeArtifactStorage(legacyWorkPath, run, artifact.storageRoot),
+			);
+			return legacyWorkPath;
+		}
+	} else {
+		const projectPath = resolve(run.rp1ProjectRoot, artifact.path);
+		if (await Bun.file(projectPath).exists()) {
+			return projectPath;
+		}
+	}
+
+	for (const rootDir of getArtifactReconciliationRoots(
+		run,
+		artifact.storageRoot,
+	)) {
+		const scannedPath = await scanForArtifactDocId(rootDir, artifact.docId);
+		if (scannedPath == null) {
+			continue;
+		}
+
+		updateArtifactStorage(
+			db,
+			artifact.docId,
+			normalizeArtifactStorage(scannedPath, run, artifact.storageRoot),
+		);
+		return scannedPath;
+	}
+
+	return null;
 };
 
 /**
@@ -1212,19 +1961,21 @@ export const getProjectRunStats = (
 
 	const rows = db
 		.prepare(
-			`SELECT project_path, COUNT(*) as run_count, MAX(updated_at) as last_activity_at
+			`SELECT COALESCE(rp1_project_root, project_path) as effective_project_path,
+			        COUNT(*) as run_count,
+			        MAX(updated_at) as last_activity_at
 			 FROM runs
-			 WHERE project_path IN (${placeholders})
-			 GROUP BY project_path`,
+			 WHERE COALESCE(rp1_project_root, project_path) IN (${placeholders})
+			 GROUP BY COALESCE(rp1_project_root, project_path)`,
 		)
 		.all(...projectPaths) as {
-		project_path: string;
+		effective_project_path: string;
 		run_count: number;
 		last_activity_at: string | null;
 	}[];
 
 	for (const row of rows) {
-		result.set(row.project_path, {
+		result.set(row.effective_project_path, {
 			runCount: row.run_count,
 			lastActivityAt: row.last_activity_at,
 		});
@@ -1245,18 +1996,28 @@ export const getProjectRunStats = (
 export const getRunsByAttentionStatus = (db: Database): AttentionRuns => {
 	const rows = db
 		.prepare(
-			`SELECT * FROM runs
-			 WHERE status IN ('waiting', 'failed', 'running')
-			 ORDER BY updated_at DESC`,
+			`SELECT runs.*,
+			        COALESCE(latest_events.last_event_at, runs.created_at) AS last_event_at
+			 FROM runs
+			 LEFT JOIN (
+			     SELECT run_id, MAX(created_at) AS last_event_at
+			     FROM events
+			     GROUP BY run_id
+			 ) AS latest_events ON latest_events.run_id = runs.id
+			 WHERE runs.status IN ('waiting', 'failed', 'running')
+			 ORDER BY COALESCE(latest_events.last_event_at, runs.updated_at) DESC`,
 		)
-		.all() as RunRow[];
+		.all() as (RunRow & { last_event_at: string })[];
 
-	const waiting: RunRecord[] = [];
-	const failed: RunRecord[] = [];
-	const running: RunRecord[] = [];
+	const waiting: RunRecordWithLastEvent[] = [];
+	const failed: RunRecordWithLastEvent[] = [];
+	const running: RunRecordWithLastEvent[] = [];
 
 	for (const row of rows) {
-		const record = runRowToRecord(row);
+		const record: RunRecordWithLastEvent = {
+			...runRowToRecord(row),
+			lastEventAt: row.last_event_at,
+		};
 		switch (row.status) {
 			case "waiting":
 				waiting.push(record);

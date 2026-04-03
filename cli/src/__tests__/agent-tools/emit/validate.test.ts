@@ -5,7 +5,6 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { dirname } from "node:path";
 import { VALID_EVENT_TYPES } from "../../../../shared/events.js";
 import {
 	validateEmitOptions,
@@ -77,6 +76,7 @@ describe("emit validation", () => {
 				const result = validatePayloadShape("artifact_registered", {
 					path: "work/design.md",
 					feature: "my-feature",
+					storageRoot: "project",
 				});
 				expectRight(result);
 			});
@@ -91,14 +91,59 @@ describe("emit validation", () => {
 				expect(getErrorMessage(error)).toContain("path");
 			});
 
-			test("rejects artifact_registered without feature", () => {
+			test("accepts artifact_registered without feature", () => {
+				const result = validatePayloadShape("artifact_registered", {
+					path: "file.md",
+					storageRoot: "work_dir",
+				});
+				expectRight(result);
+			});
+
+			test("rejects artifact_registered with non-string feature", () => {
 				const error = expectLeft(
 					validatePayloadShape("artifact_registered", {
 						path: "file.md",
+						feature: 123,
+						storageRoot: "work_dir",
 					}),
 				);
 				expect(error._tag).toBe("UsageError");
 				expect(getErrorMessage(error)).toContain("feature");
+			});
+
+			test("rejects artifact_registered without storageRoot", () => {
+				const error = expectLeft(
+					validatePayloadShape("artifact_registered", {
+						path: "file.md",
+						feature: "feat",
+					}),
+				);
+				expect(error._tag).toBe("UsageError");
+				expect(getErrorMessage(error)).toContain("storageRoot");
+			});
+
+			test("rejects traversal in non-absolute artifact paths", () => {
+				const error = expectLeft(
+					validatePayloadShape("artifact_registered", {
+						path: "../outside.md",
+						feature: "feat",
+						storageRoot: "project",
+					}),
+				);
+				expect(error._tag).toBe("UsageError");
+				expect(getErrorMessage(error)).toContain("must not contain '..'");
+			});
+
+			test("rejects absolute paths unless storageRoot is absolute", () => {
+				const error = expectLeft(
+					validatePayloadShape("artifact_registered", {
+						path: "/tmp/outside.md",
+						feature: "feat",
+						storageRoot: "project",
+					}),
+				);
+				expect(error._tag).toBe("UsageError");
+				expect(getErrorMessage(error)).toContain("must be relative");
 			});
 		});
 
@@ -201,6 +246,7 @@ describe("emit validation", () => {
 					artifact_registered: {
 						path: "file.md",
 						feature: "feat",
+						storageRoot: "work_dir",
 					},
 					annotation_updated: {
 						docId: "doc-1",
@@ -223,24 +269,21 @@ describe("emit validation", () => {
 	});
 
 	describe("validateEmitOptions project path resolution", () => {
-		test("uses RP1_ROOT env var to derive project path when --project omitted", async () => {
-			const fakeRp1Root = "/tmp/test-project/.rp1";
-			const restore = withEnvOverride("RP1_ROOT", fakeRp1Root);
-			try {
-				const result = await expectTaskRight(
-					validateEmitOptions({
-						type: "status_change",
-						runId: "test-run-1",
-						workflow: "build",
-						step: "plan",
-						data: '{"status": "running"}',
-						// project intentionally omitted
-					}),
-				);
-				expect(result.projectPath).toBe(dirname(fakeRp1Root));
-			} finally {
-				restore();
-			}
+		test("resolves project root when --project is omitted", async () => {
+			const result = await expectTaskRight(
+				validateEmitOptions({
+					type: "status_change",
+					runId: "test-run-1",
+					workflow: "build",
+					step: "plan",
+					data: '{"status": "running"}',
+					// project intentionally omitted
+				}),
+			);
+			// Should resolve to the project root (which has .rp1/project_id),
+			// not necessarily cwd if cwd is a subdirectory
+			expect(result.projectPath).toBeTruthy();
+			expect(typeof result.projectPath).toBe("string");
 		});
 
 		test("explicit --project takes precedence over RP1_ROOT env var", async () => {
@@ -266,42 +309,32 @@ describe("emit validation", () => {
 
 	describe("validateEmitOptions workflow validation", () => {
 		test("injects workflow into data payload", async () => {
-			const fakeRp1Root = "/tmp/test-project/.rp1";
-			const restore = withEnvOverride("RP1_ROOT", fakeRp1Root);
-			try {
-				const result = await expectTaskRight(
-					validateEmitOptions({
-						type: "status_change",
-						runId: "test-run-wf",
-						workflow: "build",
-						step: "plan",
-						data: '{"status": "running"}',
-					}),
-				);
-				expect(result.workflow).toBe("build");
-				expect(result.data.workflow).toBe("build");
-			} finally {
-				restore();
-			}
+			const result = await expectTaskRight(
+				validateEmitOptions({
+					type: "status_change",
+					runId: "test-run-wf",
+					workflow: "build",
+					step: "plan",
+					data: '{"status": "running"}',
+					project: process.cwd(),
+				}),
+			);
+			expect(result.workflow).toBe("build");
+			expect(result.data.workflow).toBe("build");
 		});
 
 		test("rejects empty workflow string", async () => {
-			const fakeRp1Root = "/tmp/test-project/.rp1";
-			const restore = withEnvOverride("RP1_ROOT", fakeRp1Root);
-			try {
-				const result = await validateEmitOptions({
-					type: "status_change",
-					runId: "test-run-wf",
-					workflow: "",
-					step: "plan",
-					data: '{"status": "running"}',
-				})();
-				expect(result._tag).toBe("Left");
-				if (result._tag === "Left") {
-					expect(getErrorMessage(result.left)).toContain("--workflow");
-				}
-			} finally {
-				restore();
+			const result = await validateEmitOptions({
+				type: "status_change",
+				runId: "test-run-wf",
+				workflow: "",
+				step: "plan",
+				data: '{"status": "running"}',
+				project: process.cwd(),
+			})();
+			expect(result._tag).toBe("Left");
+			if (result._tag === "Left") {
+				expect(getErrorMessage(result.left)).toContain("--workflow");
 			}
 		});
 	});

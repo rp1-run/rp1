@@ -111,7 +111,7 @@ describe("verifier", () => {
 				pluginsFound: 1,
 				pluginsExpected: 1,
 				issues: [
-					"Missing skills (5): rp1-build, rp1-build-fast, rp1-build-express, rp1-pr-review, rp1-pr-visual",
+					"Missing skills (5): rp1-build, rp1-build-fast, rp1-speedrun, rp1-pr-review, rp1-pr-visual",
 				],
 			};
 

@@ -13,6 +13,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import type {
 	Annotation,
 	AnnotationFilter,
@@ -66,13 +67,31 @@ interface AnnotationProviderProps {
 	readonly runId?: string;
 }
 
+export function buildAnnotationsUrl(params: {
+	readonly docId?: string;
+	readonly runId?: string;
+}): string {
+	const searchParams = new URLSearchParams();
+
+	if (params.docId) {
+		searchParams.set("docId", params.docId);
+	}
+	if (params.runId) {
+		searchParams.set("runId", params.runId);
+	}
+
+	const query = searchParams.toString();
+	return query.length > 0
+		? `/api/v2/annotations?${query}`
+		: "/api/v2/annotations";
+}
+
 /**
  * Provider component that manages annotation state and provides CRUD operations.
  * Automatically subscribes to WebSocket for real-time updates.
  */
 export function AnnotationProvider({
 	children,
-	artifactPath,
 	docId: docIdProp,
 	runId: runIdProp,
 }: AnnotationProviderProps) {
@@ -99,9 +118,10 @@ export function AnnotationProvider({
 			setIsLoading(true);
 			setError(null);
 
-			const url = artifactPath
-				? `/api/v2/annotations?artifactPath=${encodeURIComponent(artifactPath)}`
-				: "/api/v2/annotations";
+			const url = buildAnnotationsUrl({
+				docId: docIdProp,
+				runId: runIdProp,
+			});
 
 			const response = await fetch(url);
 			if (!response.ok) {
@@ -121,7 +141,9 @@ export function AnnotationProvider({
 				setIsLoading(false);
 			}
 		}
-	}, [artifactPath]);
+	}, [docIdProp, runIdProp]);
+
+	useReconnectRecovery(fetchAnnotations);
 
 	/**
 	 * Create a new annotation with optimistic update.

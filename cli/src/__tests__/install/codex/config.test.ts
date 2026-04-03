@@ -53,6 +53,15 @@ describe("codex config", () => {
 				expect(result.right).toBe(content);
 			}
 		});
+
+		test("returns an error for unreadable existing config path", async () => {
+			const configPath = join(tempDir, "config.toml");
+			await writeFixture(tempDir, "config.toml/nested", "blocked");
+
+			const result = await readCodexConfig(configPath)();
+
+			expect(E.isLeft(result)).toBe(true);
+		});
 	});
 
 	describe("buildConfigPatch", () => {

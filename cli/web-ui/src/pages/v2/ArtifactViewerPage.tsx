@@ -11,6 +11,7 @@ import {
 	useCallback,
 	useEffect,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -41,7 +42,9 @@ import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useFollowMode } from "@/hooks/useFollowMode";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useIsMobile } from "@/hooks/useMediaQuery";
+import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import { useRunDetail } from "@/hooks/useRunDetail";
+import { resolveRunDisplayName } from "@/lib/run-display";
 
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
@@ -183,6 +186,21 @@ export function ArtifactViewerPage() {
 	} = useFollowMode(scrollViewportRef);
 
 	const selectedArtifactPath = artifactPathParam || "";
+	const selectedArtifact = useMemo(() => {
+		if (!run || !selectedArtifactPath) {
+			return null;
+		}
+
+		return (
+			run.artifacts.find(
+				(artifact) => artifact.path === selectedArtifactPath,
+			) ??
+			run.artifacts.find((artifact) =>
+				artifact.path.endsWith(`/${selectedArtifactPath}`),
+			) ??
+			null
+		);
+	}, [run, selectedArtifactPath]);
 
 	const handleToggleTocCollapse = useCallback(() => {
 		setTocCollapsed((prev) => {
@@ -268,11 +286,7 @@ export function ArtifactViewerPage() {
 				setArtifactContent(null);
 				return;
 			}
-
-			const artifact =
-				run.artifacts.find((a) => a.path === selectedArtifactPath) ??
-				run.artifacts.find((a) => a.path.endsWith(`/${selectedArtifactPath}`));
-			if (!artifact) {
+			if (!selectedArtifact) {
 				setContentError("Artifact not found");
 				setArtifactContent(null);
 				return;
@@ -295,7 +309,7 @@ export function ArtifactViewerPage() {
 
 			try {
 				const response = await fetch(
-					`/api/v2/runs/${runId}/artifacts/${encodeURIComponent(artifact.path)}`,
+					`/api/v2/runs/${runId}/artifacts/${encodeURIComponent(selectedArtifact.path)}`,
 				);
 				if (!response.ok) {
 					let errorMessage = `Failed to fetch artifact: ${response.statusText}`;
@@ -315,7 +329,7 @@ export function ArtifactViewerPage() {
 				setArtifactContent({
 					path: selectedArtifactPath,
 					content: data.content,
-					docId: artifact.docId,
+					docId: selectedArtifact.docId,
 				});
 			} catch (err) {
 				setContentError(err instanceof Error ? err.message : String(err));
@@ -326,12 +340,14 @@ export function ArtifactViewerPage() {
 				}
 			}
 		},
-		[run, runId, selectedArtifactPath],
+		[run, runId, selectedArtifact, selectedArtifactPath],
 	);
 
 	useEffect(() => {
 		fetchArtifactContentWithScrollPreservation(false);
 	}, [fetchArtifactContentWithScrollPreservation]);
+
+	useReconnectRecovery(() => fetchArtifactContentWithScrollPreservation(true));
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally depends on artifactContent to restore scroll after content changes
 	useLayoutEffect(() => {
@@ -604,17 +620,21 @@ export function ArtifactViewerPage() {
 						<li aria-hidden="true">
 							<ChevronRight className="h-4 w-4" />
 						</li>
-						<li>
-							<Link
-								to={`/runs/${runId}`}
-								className="hover:text-foreground transition-colors"
-							>
-								{run.featureName}
-							</Link>
-						</li>
-						<li aria-hidden="true">
-							<ChevronRight className="h-4 w-4" />
-						</li>
+						{resolveRunDisplayName(run) && (
+							<>
+								<li>
+									<Link
+										to={`/runs/${runId}`}
+										className="hover:text-foreground transition-colors"
+									>
+										{resolveRunDisplayName(run)}
+									</Link>
+								</li>
+								<li aria-hidden="true">
+									<ChevronRight className="h-4 w-4" />
+								</li>
+							</>
+						)}
 						<li aria-current="page">
 							<span className="text-foreground truncate max-w-[100px]">
 								{selectedArtifactPath
@@ -745,7 +765,11 @@ export function ArtifactViewerPage() {
 		);
 
 		return (
-			<AnnotationProvider artifactPath={selectedArtifactPath} runId={runId}>
+			<AnnotationProvider
+				artifactPath={selectedArtifactPath}
+				docId={selectedArtifact?.docId}
+				runId={runId}
+			>
 				{mobileContent}
 			</AnnotationProvider>
 		);
@@ -770,17 +794,21 @@ export function ArtifactViewerPage() {
 					<li aria-hidden="true">
 						<ChevronRight className="h-4 w-4" />
 					</li>
-					<li>
-						<Link
-							to={`/runs/${runId}`}
-							className="hover:text-foreground transition-colors"
-						>
-							{run.featureName}
-						</Link>
-					</li>
-					<li aria-hidden="true">
-						<ChevronRight className="h-4 w-4" />
-					</li>
+					{resolveRunDisplayName(run) && (
+						<>
+							<li>
+								<Link
+									to={`/runs/${runId}`}
+									className="hover:text-foreground transition-colors"
+								>
+									{resolveRunDisplayName(run)}
+								</Link>
+							</li>
+							<li aria-hidden="true">
+								<ChevronRight className="h-4 w-4" />
+							</li>
+						</>
+					)}
 					<li aria-current={selectedArtifactPath ? undefined : "page"}>
 						<span className="text-foreground">Artifacts</span>
 					</li>
@@ -933,7 +961,11 @@ export function ArtifactViewerPage() {
 	);
 
 	return (
-		<AnnotationProvider artifactPath={selectedArtifactPath} runId={runId}>
+		<AnnotationProvider
+			artifactPath={selectedArtifactPath}
+			docId={selectedArtifact?.docId}
+			runId={runId}
+		>
 			{desktopContent}
 		</AnnotationProvider>
 	);

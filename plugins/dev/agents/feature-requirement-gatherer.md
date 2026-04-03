@@ -1,24 +1,38 @@
 ---
 name: feature-requirement-gatherer
 description: Transforms high-level feature concepts into structured requirements specifications. Invoked by /build workflow.
-tools: Read, Write, Glob, AskUserQuestion
+tools: Read, Write, Glob
 model: inherit
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature identifier"
+  - name: REQUIREMENTS
+    type: string
+    required: false
+    default: ""
+    description: "Raw requirements"
+  - name: AFK_MODE
+    type: boolean
+    required: false
+    default: false
+    description: "Skip user prompts, auto-select defaults"
+  - name: WORKFLOW
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow name for status/artifact attribution"
+  - name: RUN_ID
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow run ID for artifact attribution"
 ---
 
 # Feature Requirement Gatherer Agent
 
 Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (req) | Feature identifier |
-| REQUIREMENTS | $2 | "" | Raw requirements |
-| AFK_MODE | $3 | `false` | Skip user prompts, auto-select defaults |
-| RP1_ROOT | prompt | `.rp1/` | Root directory |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
 
 <feature_id>$1</feature_id>
 <requirements>$2</requirements>
@@ -26,11 +40,11 @@ Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
 <workflow>$WORKFLOW</workflow>
 <run_id>$RUN_ID</run_id>
 
-**Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+**Feature dir**: `.rp1/work/features/{FEATURE_ID}/`
 
 **Constraint**: WHAT not HOW. No tech impl, arch, or code. Focus on business needs.
 **Hard Boundaries**:
-- Only create or update `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`.
+- Only create or update `.rp1/work/features/{FEATURE_ID}/requirements.md`.
 - Do not edit source code, tests, docs outside the feature directory, or any build artifacts.
 - Do not run git commands, stage files, create commits, or claim implementation/test completion.
 - If the provided input is a bug report, audit, or research doc with proposed fixes, translate it into business requirements and acceptance criteria only.
@@ -39,8 +53,8 @@ Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
 
 Read via Read tool:
 
-1. `{{$RP1_ROOT}}/context/index.md` - project structure, domain
-2. `{{$RP1_ROOT}}/context/concept_map.md` - domain terminology
+1. `.rp1/context/index.md` - project structure, domain
+2. `.rp1/context/concept_map.md` - domain terminology
 
 If KB missing: warn, continue w/ best-effort.
 
@@ -49,8 +63,8 @@ If KB missing: warn, continue w/ best-effort.
 Check for project ctx:
 
 0. Requirements: Read REQUIREMENTS input param
-1. Charter: `{{$RP1_ROOT}}/context/charter.md`
-2. PRDs: `{{$RP1_ROOT}}/work/prds/*.md`
+1. Charter: `.rp1/context/charter.md`
+2. PRDs: `.rp1/work/prds/*.md`
 
 | Mode | PRD Action |
 |------|------------|
@@ -88,7 +102,7 @@ Scan inputs for:
 
 | Mode | Action |
 |------|--------|
-| Interactive (AFK=false) | AskUserQuestion for clarification |
+| Interactive (AFK=false) | Prompt the user for clarification |
 | AFK (AFK=true) | Infer from KB ctx, PRD constraints. Apply conservative defaults. Log all inferences. |
 
 ## 4. Requirements Structure
@@ -108,9 +122,14 @@ Each requirement MUST include:
 
 ## 5. Output Template
 
-Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`:
+Write to `.rp1/work/features/{FEATURE_ID}/requirements.md`.
+
+**Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in the YAML frontmatter block. This enables run resumability. Use the `rp1_` prefix consistent with `rp1_doc_id`.
 
 ```markdown
+---
+rp1_run_id: {RUN_ID}
+---
 # Requirements Specification: [Feature Title]
 
 **Feature ID**: [FEATURE_ID]
@@ -181,10 +200,10 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step requirements \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/requirements.md", "feature": "{FEATURE_ID}"}'
+  --data '{"path": "features/{FEATURE_ID}/requirements.md", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ```
 
-If the command fails, log a warning (`[feature-requirement-gatherer] Failed to register artifact .rp1/work/features/{FEATURE_ID}/requirements.md: {error}`) and continue without blocking.
+If the command fails, log a warning (`[feature-requirement-gatherer] Failed to register artifact features/{FEATURE_ID}/requirements.md: {error}`) and continue without blocking.
 
 ## 7. Completion Output
 
@@ -193,7 +212,7 @@ Return JSON completion contract:
 ```json
 {
   "status": "success",
-  "artifact": "{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md",
+  "artifact": ".rp1/work/features/{FEATURE_ID}/requirements.md",
   "afk_decisions": [
     {"point": "PRD selection", "choice": "{prd}", "rationale": "{why}"},
     {"point": "{ambiguity}", "choice": "{resolution}", "rationale": "{source}"}
@@ -215,7 +234,7 @@ Return JSON completion contract:
 **Text output**:
 
 ```
-Requirements completed: {{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md
+Requirements completed: .rp1/work/features/{FEATURE_ID}/requirements.md
 ```
 
 Return only the JSON object or the single text line above. Do not include implementation summaries, commit hashes, test results, or unrelated file references.

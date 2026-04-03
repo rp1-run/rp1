@@ -12,19 +12,11 @@ metadata:
   created: 2025-12-28
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: ""
   sub_agents:
     - "rp1-base:scribe"
 ---
 
 # Generate User Docs - Two-Phase Map-Reduce Orchestrator
-
-## Parameters
-
-This command takes no user parameters.
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 This command orchestrates user documentation synchronization with the auto-generated knowledge base using a two-phase map-reduce architecture.
 
@@ -57,7 +49,7 @@ Phase 5   (Sequential):  Result Aggregation -> Final Report
 
 Use Glob tool to check if state.json exists:
 ```
-Pattern: {{$RP1_ROOT}}/context/state.json
+Pattern: .rp1/context/state.json
 ```
 
 **If NOT found** - KB has never been built:
@@ -78,7 +70,7 @@ After KB generation completes, re-run this command.
 
 Use Read tool to read the state file:
 ```
-Read: {{$RP1_ROOT}}/context/state.json
+Read: .rp1/context/state.json
 ```
 
 Parse the JSON and extract these fields:
@@ -448,7 +440,7 @@ For each batch, construct the JSON input matching the scribe agent contract:
 {
   "mode": "scan",
   "files": ["path/to/file1.md", "path/to/file2.md", ...],
-  "kb_index_path": "{{$RP1_ROOT}}/context/index.md"
+  "kb_index_path": ".rp1/context/index.md"
 }
 ```
 
@@ -466,7 +458,7 @@ FOR each batch in BATCHES (in parallel):
 {% dispatch_agent "rp1-base:scribe" %}
 MODE: scan
 FILES: {{JSON.stringify(batch.files)}}
-KB_INDEX_PATH: {{$RP1_ROOT}}/context/index.md
+KB_INDEX_PATH: .rp1/context/index.md
 
 Scan documentation files for classification against KB index.
 Return JSON with classifications.
@@ -611,7 +603,7 @@ AGGREGATED.style = STYLE_CONFIG  # From Phase 1
 Before writing scan results, ensure the work directory exists:
 
 ```bash
-mkdir -p {{$RP1_ROOT}}/work/features/scribe
+mkdir -p .rp1/work/features/scribe
 ```
 
 Use Bash tool to create directory if it doesn't exist.
@@ -622,7 +614,7 @@ Write the aggregated results to external state file:
 
 ```
 Use Write tool:
-    Path: {{$RP1_ROOT}}/work/features/scribe/scan_results.json
+    Path: .rp1/work/features/scribe/scan_results.json
     Content: {{JSON.stringify(AGGREGATED, null, 2)}}
 ```
 
@@ -634,7 +626,7 @@ This external state file:
 
 Log write confirmation:
 ```
-Scan results written to {{$RP1_ROOT}}/work/features/scribe/scan_results.json
+Scan results written to .rp1/work/features/scribe/scan_results.json
 ```
 
 #### Step 3.4: Present Summary to User
@@ -660,7 +652,7 @@ Breakdown:
 
 #### Step 3.5: Wait for User Approval
 
-Use the AskUserQuestion tool to obtain explicit approval:
+Ask the user for explicit approval:
 
 {% ask_user "Proceed with documentation updates?", options: "Yes", "No" %}
 
@@ -668,7 +660,7 @@ Use the AskUserQuestion tool to obtain explicit approval:
 ```
 Documentation update cancelled.
 
-Scan results preserved at: {{$RP1_ROOT}}/work/features/scribe/scan_results.json
+Scan results preserved at: .rp1/work/features/scribe/scan_results.json
 You can review classifications and re-run when ready.
 ```
 **EXIT IMMEDIATELY** - do not proceed.
@@ -720,7 +712,7 @@ For each batch, construct the JSON input matching the scribe agent process mode 
 {
   "mode": "process",
   "files": ["path/to/file1.md", "path/to/file2.md", ...],
-  "scan_results_path": "{{$RP1_ROOT}}/work/features/scribe/scan_results.json",
+  "scan_results_path": ".rp1/work/features/scribe/scan_results.json",
   "style": {
     "heading_style": "atx",
     "list_marker": "dash",
@@ -746,7 +738,7 @@ FOR each batch in PROCESS_BATCHES (in parallel):
 {% dispatch_agent "rp1-base:scribe" %}
 MODE: process
 FILES: {{JSON.stringify(batch.files)}}
-SCAN_RESULTS_PATH: {{$RP1_ROOT}}/work/features/scribe/scan_results.json
+SCAN_RESULTS_PATH: .rp1/work/features/scribe/scan_results.json
 STYLE: {{JSON.stringify(STYLE_CONFIG)}}
 
 Process documentation files and apply edits.
@@ -893,7 +885,7 @@ Pass `PROCESS_SUMMARY` to Phase 5 for final reporting.
 3. **Cleanup** (optional):
    ```bash
    # Remove temporary scan results if desired
-   rm {{$RP1_ROOT}}/work/features/scribe/scan_results.json
+   rm .rp1/work/features/scribe/scan_results.json
    ```
 
 ## Error Handling

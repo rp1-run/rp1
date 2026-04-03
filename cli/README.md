@@ -195,9 +195,11 @@ cat diagram.mmd | rp1 agent-tools mmd-validate
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `RP1_ROOT` | `.rp1/` | Custom location for rp1 data directory |
+rp1 derives its directories from the project root:
+
+- Knowledge base: `.rp1/context/`
+- Work artifacts: `.rp1/work/`
+- Legacy directory override environment variables are no longer supported
 
 ## Deprecated Commands
 

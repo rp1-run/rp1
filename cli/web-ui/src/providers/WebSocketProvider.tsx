@@ -14,6 +14,8 @@ import type {
 	ConnectionStatus,
 	EventNotificationMessage,
 	FileChangedMessage,
+	NotificationMessage,
+	ProjectsChangedMessage,
 	ServerMessage,
 	TreeChangedMessage,
 } from "../types/websocket";
@@ -22,6 +24,7 @@ export type {
 	ConnectionStatus,
 	EventNotificationMessage,
 	FileChangedMessage,
+	NotificationMessage,
 	TreeChangedMessage,
 } from "../types/websocket";
 
@@ -36,10 +39,15 @@ interface WebSocketContextValue {
 	onEventNotification: (
 		callback: (msg: EventNotificationMessage) => void,
 	) => () => void;
+	onProjectsChange: (
+		callback: (msg: ProjectsChangedMessage) => void,
+	) => () => void;
 	onAnnotationMessage: (
 		callback: (msg: AnnotationMessage) => void,
 	) => () => void;
+	onNotification: (callback: (msg: NotificationMessage) => void) => () => void;
 	subscribeToAttention: (callback: AttentionCallback) => () => void;
+	subscribeToReconnect: (callback: () => void) => () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
@@ -75,12 +83,19 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	const eventNotificationListenersRef = useRef<
 		Set<(msg: EventNotificationMessage) => void>
 	>(new Set());
+	const projectsChangeListenersRef = useRef<
+		Set<(msg: ProjectsChangedMessage) => void>
+	>(new Set());
 	const annotationListenersRef = useRef<Set<(msg: AnnotationMessage) => void>>(
 		new Set(),
 	);
+	const notificationListenersRef = useRef<
+		Set<(msg: NotificationMessage) => void>
+	>(new Set());
 	const subscriptionsRef = useRef<Set<string>>(new Set());
-
 	const attentionListenersRef = useRef<Set<AttentionCallback>>(new Set());
+	const reconnectListenersRef = useRef<Set<() => void>>(new Set());
+	const notifyReconnectRef = useRef(false);
 
 	const startPollingFallback = useCallback(() => {
 		if (pollingIntervalRef.current) return;
@@ -129,12 +144,20 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				for (const path of subscriptionsRef.current) {
 					ws.send(JSON.stringify({ type: "subscribe", path }));
 				}
+
+				if (notifyReconnectRef.current) {
+					notifyReconnectRef.current = false;
+					for (const callback of reconnectListenersRef.current) {
+						callback();
+					}
+				}
 			};
 
 			ws.onclose = () => {
 				if (!mountedRef.current) return;
 				setStatus("disconnected");
 				wsRef.current = null;
+				notifyReconnectRef.current = true;
 				startPollingFallback();
 				scheduleReconnect();
 			};
@@ -175,12 +198,23 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 						callback();
 					}
 					break;
+				case "projects:changed":
+					for (const listener of projectsChangeListenersRef.current) {
+						listener(message);
+					}
+					break;
 				case "annotation:created":
 				case "annotation:updated":
 				case "annotation:resolved":
 				case "annotation:deleted":
 				case "annotation:reply-added":
 					for (const listener of annotationListenersRef.current) {
+						listener(message);
+					}
+					break;
+				case "notification:created":
+				case "notification:dismissed":
+					for (const listener of notificationListenersRef.current) {
 						listener(message);
 					}
 					break;
@@ -274,10 +308,37 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 		[],
 	);
 
+	const onNotification = useCallback(
+		(callback: (msg: NotificationMessage) => void) => {
+			notificationListenersRef.current.add(callback);
+			return () => {
+				notificationListenersRef.current.delete(callback);
+			};
+		},
+		[],
+	);
+
+	const onProjectsChange = useCallback(
+		(callback: (msg: ProjectsChangedMessage) => void) => {
+			projectsChangeListenersRef.current.add(callback);
+			return () => {
+				projectsChangeListenersRef.current.delete(callback);
+			};
+		},
+		[],
+	);
+
 	const subscribeToAttention = useCallback((callback: AttentionCallback) => {
 		attentionListenersRef.current.add(callback);
 		return () => {
 			attentionListenersRef.current.delete(callback);
+		};
+	}, []);
+
+	const subscribeToReconnect = useCallback((callback: () => void) => {
+		reconnectListenersRef.current.add(callback);
+		return () => {
+			reconnectListenersRef.current.delete(callback);
 		};
 	}, []);
 
@@ -296,8 +357,11 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				onFileChange,
 				onTreeChange,
 				onEventNotification,
+				onProjectsChange,
 				onAnnotationMessage,
+				onNotification,
 				subscribeToAttention,
+				subscribeToReconnect,
 			}}
 		>
 			{children}

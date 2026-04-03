@@ -64,7 +64,6 @@ export interface PluginInstallDeps {
 		logger: Logger,
 		dryRun: boolean,
 		isTTY: boolean,
-		useHttps?: boolean,
 	) => TE.TaskEither<CLIError, ClaudeCodeInstallResult>;
 }
 
@@ -352,8 +351,8 @@ async function executeInstallationForTool(
 		} else {
 			resultEither = E.right({
 				success: true,
-				pluginsInstalled: ["rp1-base", "rp1-dev"],
-				warnings: [],
+				pluginsInstalled: [...openCodeResult.right.pluginsInstalled],
+				warnings: [...openCodeResult.right.warnings],
 			});
 		}
 	} else {

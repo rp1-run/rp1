@@ -71,13 +71,16 @@ export interface Run {
 	readonly projectName: string;
 	readonly featureId: string;
 	readonly featureName: string;
+	readonly name: string | null;
 	readonly command: string;
 	readonly status: RunStatus;
+	readonly harness: string | null;
 	readonly currentStep: string | null;
 	readonly steps: readonly Step[];
 	readonly artifacts: readonly Artifact[];
 	readonly events: readonly RunEvent[];
 	readonly startedAt: string;
+	readonly lastEventAt?: string | null;
 	readonly completedAt: string | null;
 	readonly error: string | null;
 	readonly agentSteps: Readonly<Record<string, readonly AgentTask[]>> | null;

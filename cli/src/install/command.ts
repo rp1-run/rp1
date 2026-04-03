@@ -3,7 +3,8 @@
  * Implements install:opencode, verify, and list commands.
  */
 
-import { stat } from "node:fs/promises";
+import { mkdir, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
@@ -13,11 +14,13 @@ import { usageError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
 import { createSpinner } from "../../shared/spinner.js";
 import {
-	extractPlugins,
+	collectPlatformPlugins,
 	getBundledAssets,
 	hasBundledAssets,
 } from "../assets/index.js";
 import { colorFns } from "../lib/colors.js";
+import { getInstalledVersion } from "../lib/version.js";
+import { extractPlatformAssets } from "./asset-extractor.js";
 import { getDefaultArtifactsDir, installRp1 } from "./installer.js";
 import { discoverPlugins } from "./manifest.js";
 import { isHealthy } from "./models.js";
@@ -28,6 +31,7 @@ import {
 	getOpenCodeConfigDir,
 } from "./prerequisites.js";
 import { listInstalledSkills, verifyInstallation } from "./verifier.js";
+import { writeVersionMarker } from "./version-marker.js";
 
 const { green, yellow, red, dim, bold, cyan } = colorFns;
 
@@ -84,7 +88,48 @@ export const parseInstallArgs = (
 };
 
 /**
+ * Extract OpenCode hook plugins from bundled manifest.
+ * The asset extractor handles agents, skills, commands, and state machines.
+ * OpenCode hooks (TypeScript plugins) need separate extraction from the manifest.
+ */
+const extractBundledHooks = async (
+	onProgress?: (msg: string) => void,
+): Promise<number> => {
+	const assetsResult = getBundledAssets();
+	if (E.isLeft(assetsResult)) return 0;
+
+	const platform = assetsResult.right.platforms.opencode;
+	if (!platform) return 0;
+
+	const { homedir } = await import("node:os");
+	const { writeFile } = await import("node:fs/promises");
+	const pluginsDir = join(homedir(), ".config", "opencode", "plugins");
+	await mkdir(pluginsDir, { recursive: true });
+
+	let filesExtracted = 0;
+	const allPlugins = collectPlatformPlugins(platform);
+
+	for (const plugin of allPlugins) {
+		if (!plugin.openCodePlugin) continue;
+		const mainFile = plugin.openCodePlugin.files.find((f) =>
+			f.name.endsWith("index.ts"),
+		);
+		if (!mainFile) continue;
+
+		const targetFile = join(pluginsDir, `${plugin.openCodePlugin.name}.ts`);
+		const content = await Bun.file(mainFile.path).text();
+		await writeFile(targetFile, content);
+		filesExtracted++;
+		onProgress?.(`  ${plugin.openCodePlugin.name}: 1 file`);
+	}
+
+	return filesExtracted;
+};
+
+/**
  * Install plugins from bundled assets embedded in the release binary.
+ * Uses the asset extractor module to extract platform assets to a temp staging
+ * directory, then installs via the standard install flow with backup/rollback.
  */
 const executeInstallFromBundled = (
 	config: InstallArgs,
@@ -97,6 +142,15 @@ const executeInstallFromBundled = (
 	return pipe(
 		TE.fromEither(getBundledAssets()),
 		TE.chain((assets) => {
+			const platform = assets.platforms.opencode;
+			if (!platform) {
+				return TE.left(
+					usageError(
+						"No OpenCode platform found in embedded manifest",
+						"Ensure the binary was built with OpenCode assets.",
+					),
+				);
+			}
 			spinner.start("Checking prerequisites...");
 			return pipe(
 				checkOpenCodeInstalled(),
@@ -119,16 +173,13 @@ const executeInstallFromBundled = (
 					spinner.succeed("Prerequisites OK");
 					return TE.right(undefined);
 				}),
-				TE.chain(({ targetDir }) => {
+				TE.chain(() => {
 					if (config.dryRun) {
 						spinner.stop();
 						console.log(yellow("\nDRY RUN MODE - No files will be modified\n"));
 						console.log("Would install from bundled assets:");
-						for (const p of [
-							assets.plugins.base,
-							assets.plugins.dev,
-							assets.plugins.utils,
-						]) {
+						const pluginsToPreview = collectPlatformPlugins(platform);
+						for (const p of pluginsToPreview) {
 							console.log(
 								`  • ${p.name}: ${p.agents.length} agents, ${p.skills.length} skills`,
 							);
@@ -136,55 +187,131 @@ const executeInstallFromBundled = (
 						return TE.right(undefined);
 					}
 
-					spinner.start("Installing plugins...");
+					const stagingDir = join(
+						tmpdir(),
+						`rp1-opencode-extract-${Date.now()}`,
+					);
+
+					spinner.start("Extracting bundled assets...");
 					return pipe(
-						extractPlugins(assets, targetDir, (msg) => {
-							spinner.text = msg;
+						extractPlatformAssets({
+							platform: "opencode",
+							targetDir: stagingDir,
 						}),
-						TE.chain((result) => {
+						TE.chain((extractResult) => {
 							spinner.succeed(
-								`Installed ${result.filesExtracted} files from ${result.plugins.length} plugins`,
+								`Extracted ${extractResult.filesExtracted} files from ${extractResult.pluginsExtracted.length} plugins`,
 							);
 
-							spinner.succeed("Hooks installed via plugins directory");
-							return TE.right({ targetDir });
-						}),
-						TE.chain(() => {
-							spinner.start("Verifying installation...");
-							const allPlugins = [
-								assets.plugins.base,
-								assets.plugins.dev,
-								assets.plugins.utils,
-							];
-							// Count unique skill directories (entries are file-level, e.g. "rp1-build/SKILL.md")
-							const uniqueSkillDirs = new Set(
-								allPlugins.flatMap((p) =>
-									p.skills.map((s) => s.name.split("/")[0]),
+							const pluginDirs = extractResult.pluginsExtracted.map(
+								(pluginName) => {
+									const key = pluginName.replace(/^rp1-/, "");
+									return join(stagingDir, key);
+								},
+							);
+
+							spinner.start("Installing plugins...");
+							return pipe(
+								installRp1(
+									pluginDirs,
+									(msg) => {
+										spinner.text = msg;
+									},
+									undefined, // onOverwrite — rp1-namespaced files are always safe to overwrite
+									undefined,
+									config.strict,
+								),
+								TE.chain((installResult) => {
+									spinner.succeed(
+										`Installed ${installResult.filesInstalled} files from ${installResult.pluginsInstalled.length} plugins`,
+									);
+
+									for (const warning of installResult.warnings) {
+										console.log(yellow(`⚠ ${warning}`));
+									}
+
+									return TE.tryCatch(
+										async () => {
+											const hooksCount = await extractBundledHooks((msg) => {
+												spinner.text = msg;
+											});
+											if (hooksCount > 0) {
+												spinner.succeed(
+													"Hooks installed via plugins directory",
+												);
+											}
+										},
+										(e) =>
+											usageError("Failed to extract OpenCode hooks", `${e}`),
+									);
+								}),
+								TE.chain(() =>
+									pipe(
+										writeVersionMarker("opencode", getInstalledVersion()),
+										TE.mapLeft(
+											(e) => e, // pass through - version marker failure should not block install
+										),
+									),
+								),
+								TE.chain(() => {
+									spinner.start("Verifying installation...");
+									const allPlugins = collectPlatformPlugins(platform);
+									const uniqueSkillDirs = new Set(
+										allPlugins.flatMap((p) =>
+											p.skills.map((s) => s.name.split("/")[0]),
+										),
+									);
+									const bundledCounts = {
+										agents: allPlugins.reduce(
+											(sum, p) => sum + p.agents.length,
+											0,
+										),
+										skills: uniqueSkillDirs.size,
+									};
+									return pipe(
+										verifyInstallation(undefined, bundledCounts),
+										TE.map((report) => {
+											if (isHealthy(report)) {
+												spinner.succeed(
+													`Verified: ${report.skillsFound} skills, ${report.agentsFound} agents`,
+												);
+											} else {
+												spinner.stop();
+												console.log(
+													yellow("\n⚠ Installation complete with warnings"),
+												);
+												for (const issue of report.issues) {
+													console.log(yellow(`  • ${issue}`));
+												}
+											}
+										}),
+									);
+								}),
+								TE.chainFirst(() =>
+									TE.tryCatch(
+										() => rm(stagingDir, { recursive: true, force: true }),
+										() =>
+											usageError(
+												"cleanup",
+												"Failed to clean up staging directory",
+											),
+									),
 								),
 							);
-							const bundledCounts = {
-								agents: allPlugins.reduce((sum, p) => sum + p.agents.length, 0),
-								skills: uniqueSkillDirs.size,
-							};
-							return pipe(
-								verifyInstallation(undefined, bundledCounts),
-								TE.map((report) => {
-									if (isHealthy(report)) {
-										spinner.succeed(
-											`Verified: ${report.skillsFound} skills, ${report.agentsFound} agents`,
-										);
-									} else {
-										spinner.stop();
-										console.log(
-											yellow("\n⚠ Installation complete with warnings"),
-										);
-										for (const issue of report.issues) {
-											console.log(yellow(`  • ${issue}`));
-										}
-									}
-								}),
-							);
 						}),
+						TE.orElse((error) =>
+							pipe(
+								TE.tryCatch(
+									() => rm(stagingDir, { recursive: true, force: true }),
+									() =>
+										usageError(
+											"cleanup",
+											"Failed to clean up staging directory",
+										),
+								),
+								TE.chain(() => TE.left<CLIError, void>(error)),
+							),
+						),
 					);
 				}),
 			);
@@ -341,6 +468,9 @@ export const executeInstall = (
 								}),
 							);
 						}),
+						TE.chain(() =>
+							writeVersionMarker("opencode", getInstalledVersion()),
+						),
 					);
 				}),
 			);

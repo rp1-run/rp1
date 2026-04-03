@@ -15,7 +15,7 @@ rp1 init [options]
 The `init` command provides a comprehensive bootstrap experience for users adopting rp1 in their projects. It performs the following steps:
 
 1. **Git Root Detection** - Verifies you're at the repository root (with monorepo support)
-2. **Directory Setup** - Creates `.rp1/`, `.rp1/context/`, and `.rp1/work/` directories
+2. **Directory Setup** - Creates `.rp1/`, `.rp1/context/`, and `.rp1/work/` using the project-root-derived directory model
 3. **Settings Setup** - Creates settings files in global (`~/.config/rp1/settings.toml`) and local (`.rp1/settings.toml`) locations with safe defaults
 4. **Tool Detection** - Identifies installed AI assistants (Claude Code or OpenCode)
 5. **Instruction Injection** - Adds rp1 instructions to `CLAUDE.md` or `AGENTS.md`
@@ -74,7 +74,7 @@ rp1 init                                              Step 6 of 12
 | 1 | Loading tools registry | Loads the supported AI tools configuration |
 | 2 | Checking git repository | Detects git root and offers monorepo options |
 | 3 | Checking existing setup | Detects if rp1 is already initialized |
-| 4 | Setting up directories | Creates `.rp1/`, `.rp1/context/`, and `.rp1/work/` |
+| 4 | Setting up directories | Creates `.rp1/`, `.rp1/context/`, and `.rp1/work/` from the project-root-derived directory model |
 | 5 | Creating settings files | Creates settings files with safe defaults (all flags disabled) |
 | 6 | Detecting AI tools | Finds installed AI assistants (Claude Code, OpenCode) |
 | 7 | Configuring instruction file | Injects rp1 content into `CLAUDE.md` or `AGENTS.md` |
@@ -102,9 +102,9 @@ During initialization, you're offered three options for configuring `.gitignore`
 
 | Preset | Description | `.gitignore` Content |
 |--------|-------------|----------------------|
-| **Recommended** | Track context (shareable KB), ignore work | `.rp1/work/`<br>`.rp1/meta.json` |
-| **Track All** | Track everything except local metadata | `.rp1/meta.json` |
-| **Ignore All** | Ignore entire `.rp1/` directory | `.rp1/` |
+| **Recommended** | Track context (shareable KB), ignore generated metadata and `.rp1/work/` | `.rp1/settings.toml`<br>`.rp1/context/meta.json`<br>`.rp1/work/` |
+| **Track All** | Track everything except generated metadata | `.rp1/settings.toml`<br>`.rp1/context/meta.json` |
+| **Ignore All** | Ignore rp1-managed project files | `.rp1/` |
 
 !!! tip "Recommended Preset"
     The "Recommended" preset is the best choice for most projects. It allows your team to share the generated knowledge base while keeping work-in-progress feature artifacts local.
@@ -115,7 +115,8 @@ During initialization, you're offered three options for configuring `.gitignore`
 |------|----------|------------|
 | `.rp1/context/` | Generated knowledge base files | Yes |
 | `.rp1/work/` | Feature artifacts, PR reviews | Usually no |
-| `.rp1/meta.json` | Local paths (repo root) | No |
+| `.rp1/context/meta.json` | Generated KB metadata | No |
+| `.rp1/settings.toml` | Project-level command defaults | Usually no |
 
 ## Plugin Installation
 
@@ -365,7 +366,7 @@ rp1 init                                              Step 3 of 8
 |--------|----------|
 | **Update** | Refreshes fenced content in instruction files and gitignore. Preserves all user content and `.rp1/` data. |
 | **Skip** | Exits successfully without making changes. |
-| **Reinitialize** | Performs fresh init but preserves `.rp1/context/` and `.rp1/work/` content. |
+| **Reinitialize** | Performs fresh init but preserves `.rp1/context/` content and any existing resolved work artifacts. |
 
 ### Monorepo Support
 
@@ -504,7 +505,7 @@ fi
           - name: Verify setup
             run: |
               test -d .rp1/context
-              test -d .rp1/work
+              test -f .rp1/settings.toml
     ```
 
     #### GitLab CI
@@ -690,29 +691,18 @@ OpenCode: https://opencode.ai/docs/installation
       → 2. Restart OpenCode to load plugins     [required]
     ```
 
-## Environment Variables
+## Directory Layout
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `RP1_ROOT` | `.rp1/` | Custom location for rp1 data directory |
+After initialization, all rp1 state lives under the `.rp1/` directory within your project:
 
-### Custom RP1_ROOT
+| Path | Purpose |
+|------|---------|
+| `.rp1/project_id` | Stable UUID for project identity (checked into version control) |
+| `.rp1/context/` | Knowledge base files |
+| `.rp1/work/` | Work artifacts (git-ignored) |
+| `.rp1/config/` | Plugin and platform configuration |
 
-To use a custom location for rp1 data:
-
-```bash
-# Set via environment variable
-export RP1_ROOT=/custom/path/.rp1
-rp1 init
-
-# Or use direnv (.envrc)
-echo 'export RP1_ROOT=.config/rp1' >> .envrc
-direnv allow
-rp1 init
-```
-
-!!! tip "direnv"
-    [direnv](https://direnv.net/){:target="_blank"} automatically loads environment variables when you enter a directory. It's useful for per-project configuration without polluting your global shell config.
+Directory paths are fixed and derived from the project root -- there are no environment variable overrides. Run `rp1 migrate` if upgrading from a version that used `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, or `RP1_WORK_ROOT` environment variables.
 
 ## Idempotency
 

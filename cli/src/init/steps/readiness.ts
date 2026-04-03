@@ -4,7 +4,8 @@
  */
 
 import { stat } from "node:fs/promises";
-import { resolve } from "node:path";
+import { join } from "node:path";
+import { resolveInitDirectoryModel } from "../directory-model.js";
 import type { StepCallbacks } from "../models.js";
 
 /**
@@ -51,7 +52,9 @@ async function isDirectory(dirPath: string): Promise<boolean> {
 
 /**
  * Check rp1 readiness by performing parallel file system checks.
- * Checks for required directories, KB presence, and charter presence.
+ * Checks for the local rp1 directories, KB presence, and charter presence.
+ * The work root is resolved from directory settings/env but may be created on
+ * demand, so it is not required for readiness.
  *
  * @param cwd - Current working directory
  * @param callbacks - Optional callbacks for reporting progress to UI
@@ -61,35 +64,37 @@ export async function checkRp1Readiness(
 	cwd: string,
 	callbacks?: StepCallbacks,
 ): Promise<ReadinessResult> {
-	const rp1Root = process.env.RP1_ROOT || ".rp1";
-
 	callbacks?.onActivity("Checking existing rp1 configuration", "info");
 
-	const rp1Dir = resolve(cwd, rp1Root);
-	const contextDir = resolve(cwd, rp1Root, "context");
-	const workDir = resolve(cwd, rp1Root, "work");
-	const kbFile = resolve(cwd, rp1Root, "context", "index.md");
-	const charterFile = resolve(cwd, rp1Root, "context", "charter.md");
+	const directories = resolveInitDirectoryModel(cwd);
+	const rp1Dir = directories.rp1Dir;
+	const contextDir = directories.contextDir;
+	const kbFile = join(contextDir, "index.md");
+	const charterFile = join(contextDir, "charter.md");
+	const workDir = directories.workDir;
 
 	const [
 		rp1DirExists,
 		contextDirExists,
-		workDirExists,
 		kbExists,
 		charterExists,
+		workDirExists,
 	] = await Promise.all([
 		isDirectory(rp1Dir),
 		isDirectory(contextDir),
-		isDirectory(workDir),
 		pathExists(kbFile),
 		pathExists(charterFile),
+		isDirectory(workDir),
 	]);
 
-	const directoriesExist = rp1DirExists && contextDirExists && workDirExists;
+	const directoriesExist = rp1DirExists && contextDirExists;
 
 	// Report findings
 	if (directoriesExist) {
 		callbacks?.onActivity("Found existing rp1 directory structure", "info");
+	}
+	if (workDirExists) {
+		callbacks?.onActivity("Resolved work directory exists", "info");
 	}
 	if (kbExists) {
 		callbacks?.onActivity("Knowledge base exists", "info");

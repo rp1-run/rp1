@@ -1,7 +1,7 @@
 /**
  * Core command logic for eval attestation system.
  * Provides attest, verify, and status operations for tracking prompt changes.
- * All paths resolve from cli/dist/{platform}/ built artifacts.
+ * All paths resolve from dist/{platform}/ built artifacts.
  */
 
 import path from "node:path";
@@ -111,16 +111,16 @@ export function detectPassRate(output: PromptfooOutput): boolean {
 
 /**
  * Map suite path to skill file path in built dist directory.
- * e.g., ("rp1-dev/build-fast", "claude-code") -> "cli/dist/claude-code/dev/skills/build-fast/SKILL.md"
- * e.g., ("rp1-dev/build-fast", "opencode") -> "cli/dist/opencode/dev/skills/rp1-build-fast/SKILL.md"
+ * e.g., ("rp1-dev/build-fast", "claude-code") -> "dist/claude-code/dev/skills/build-fast/SKILL.md"
+ * e.g., ("rp1-dev/build-fast", "opencode") -> "dist/opencode/dev/skills/rp1-build-fast/SKILL.md"
  */
 function suiteToSkillPath(suite: string, platform: EvalPlatform): string {
 	const [plugin, skill] = suite.split("/");
 	const pluginDir = plugin.replace("rp1-", "");
 	if (platform === "claude-code") {
-		return `cli/dist/${platform}/${pluginDir}/skills/${skill}/SKILL.md`;
+		return `dist/${platform}/${pluginDir}/skills/${skill}/SKILL.md`;
 	}
-	return `cli/dist/${platform}/${pluginDir}/skills/rp1-${skill}/SKILL.md`;
+	return `dist/${platform}/${pluginDir}/skills/rp1-${skill}/SKILL.md`;
 }
 
 /**

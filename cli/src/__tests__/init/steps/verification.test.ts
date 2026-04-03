@@ -285,14 +285,16 @@ describe("verification step", () => {
 	});
 
 	describe("verifyCodexPlugins", () => {
-		test("passes when base skills, dev skills, and fenced config exist", async () => {
-			const skillsDir = join(tempDir, ".agents", "skills");
+		test("passes when rp1 skills, base/dev agents, and fenced config exist", async () => {
+			const skillsDir = join(tempDir, ".codex", "skills");
+			const agentsDir = join(tempDir, ".codex", "agents", "rp1");
 			const configDir = join(tempDir, ".codex");
 
-			await mkdir(join(skillsDir, "rp1-base-knowledge-build"), {
-				recursive: true,
-			});
-			await mkdir(join(skillsDir, "rp1-dev-build-fast"), { recursive: true });
+			await mkdir(join(skillsDir, "rp1-knowledge-build"), { recursive: true });
+			await mkdir(join(skillsDir, "rp1-build-fast"), { recursive: true });
+			await mkdir(agentsDir, { recursive: true });
+			await writeFile(join(agentsDir, "rp1-base-kb-spatial-analyzer.toml"), "");
+			await writeFile(join(agentsDir, "rp1-dev-build-fast-planner.toml"), "");
 			await mkdir(configDir, { recursive: true });
 			await writeFile(
 				join(configDir, "config.toml"),
@@ -319,13 +321,15 @@ describe("verification step", () => {
 		});
 
 		test("fails when config exists but rp1 fenced section is missing", async () => {
-			const skillsDir = join(tempDir, ".agents", "skills");
+			const skillsDir = join(tempDir, ".codex", "skills");
+			const agentsDir = join(tempDir, ".codex", "agents", "rp1");
 			const configDir = join(tempDir, ".codex");
 
-			await mkdir(join(skillsDir, "rp1-base-knowledge-build"), {
-				recursive: true,
-			});
-			await mkdir(join(skillsDir, "rp1-dev-build-fast"), { recursive: true });
+			await mkdir(join(skillsDir, "rp1-knowledge-build"), { recursive: true });
+			await mkdir(join(skillsDir, "rp1-build-fast"), { recursive: true });
+			await mkdir(agentsDir, { recursive: true });
+			await writeFile(join(agentsDir, "rp1-base-kb-spatial-analyzer.toml"), "");
+			await writeFile(join(agentsDir, "rp1-dev-build-fast-planner.toml"), "");
 			await mkdir(configDir, { recursive: true });
 			await writeFile(join(configDir, "config.toml"), 'model = "gpt-5"\n');
 
@@ -337,14 +341,15 @@ describe("verification step", () => {
 			);
 		});
 
-		test("fails when only one plugin group of skills is present", async () => {
-			const skillsDir = join(tempDir, ".agents", "skills");
+		test("fails when only one plugin group of agents is present", async () => {
+			const skillsDir = join(tempDir, ".codex", "skills");
+			const agentsDir = join(tempDir, ".codex", "agents", "rp1");
 			const configDir = join(tempDir, ".codex");
 
-			await mkdir(join(skillsDir, "rp1-base-knowledge-build"), {
-				recursive: true,
-			});
+			await mkdir(join(skillsDir, "rp1-knowledge-build"), { recursive: true });
 			await mkdir(configDir, { recursive: true });
+			await mkdir(agentsDir, { recursive: true });
+			await writeFile(join(agentsDir, "rp1-base-kb-spatial-analyzer.toml"), "");
 			await writeFile(
 				join(configDir, "config.toml"),
 				"# rp1:start\n# rp1 managed section\n# rp1:end\n",
@@ -360,7 +365,7 @@ describe("verification step", () => {
 				false,
 			);
 			expect(result.issues).toContain(
-				"Codex dev skills not found in ~/.agents/skills",
+				"Codex dev agents not found in ~/.codex/agents/rp1",
 			);
 		});
 	});

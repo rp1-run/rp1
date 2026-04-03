@@ -6,12 +6,33 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { REQUIRED_PLUGINS } from "../../assets/reader.js";
+import type { PlatformVersions } from "../../install/version-marker.js";
 import { CLAUDE_PLUGIN_DIRS } from "../../shared/paths.js";
 import type {
 	PluginStatus,
 	StepCallbacks,
 	VerificationResult,
 } from "../models.js";
+
+/**
+ * Read the installed version for a platform from the centralized version marker file.
+ * Returns null if the file is missing or the platform has no entry.
+ */
+async function getInstalledVersion(platform: string): Promise<string | null> {
+	try {
+		const filePath = join(
+			process.env.HOME ?? homedir(),
+			".rp1",
+			"platform-versions.json",
+		);
+		const content = await readFile(filePath, "utf-8");
+		const markers = JSON.parse(content) as PlatformVersions;
+		return markers[platform]?.version ?? null;
+	} catch {
+		return null;
+	}
+}
 
 /**
  * Get the OpenCode config directory path.
@@ -94,7 +115,7 @@ export async function verifyOpenCodePlugins(
 /**
  * Expected plugin names that should be installed.
  */
-const EXPECTED_PLUGINS = ["rp1-base", "rp1-dev"] as const;
+const EXPECTED_PLUGINS = REQUIRED_PLUGINS.map((k) => `rp1-${k}`);
 
 /**
  * Plugin directory name suffixes used by Claude Code.
@@ -252,10 +273,19 @@ export async function verifyClaudeCodePlugins(
 
 	// Read installed_plugins.json for verification
 	const installedPlugins = await readInstalledPluginsJson(pluginDir);
+	const platformVersion = await getInstalledVersion("claude-code");
 
 	// Verify each expected plugin
 	for (const pluginName of EXPECTED_PLUGINS) {
 		const result = verifyPluginFromJson(pluginName, installedPlugins);
+		// Use platform version marker when installed_plugins.json lacks version info
+		if (
+			result.status.installed &&
+			result.status.version === "unknown" &&
+			platformVersion
+		) {
+			result.status = { ...result.status, version: platformVersion };
+		}
 		plugins.push(result.status);
 		if (result.issue) {
 			issues.push(result.issue);
@@ -284,13 +314,13 @@ export async function verifyClaudeCodePlugins(
 }
 
 /**
- * Get the Codex agents skills directory path.
+ * Get the Codex skills directory path.
  *
  * @param home - Home directory (defaults to os.homedir())
- * @returns Path to Codex agents skills directory
+ * @returns Path to Codex skills directory
  */
 export function getCodexSkillsDir(home: string = homedir()): string {
-	return join(home, ".agents", "skills");
+	return join(home, ".codex", "skills");
 }
 
 /**
@@ -304,8 +334,19 @@ export function getCodexConfigFile(home: string = homedir()): string {
 }
 
 /**
+ * Get the Codex rp1 agents directory path.
+ *
+ * @param home - Home directory (defaults to os.homedir())
+ * @returns Path to Codex rp1 agents directory
+ */
+export function getCodexAgentsDir(home: string = homedir()): string {
+	return join(home, ".codex", "agents", "rp1");
+}
+
+/**
  * Verify Codex CLI plugin installation.
- * Checks for rp1 skill directories under ~/.agents/skills/ and confirms
+ * Checks for flat rp1-* skill directories under ~/.codex/skills/, confirms
+ * per-agent TOMLs are present under ~/.codex/agents/rp1/, and verifies the
  * rp1-managed config was merged into ~/.codex/config.toml.
  *
  * @param home - Home directory (for testing, defaults to os.homedir())
@@ -322,37 +363,53 @@ export async function verifyCodexPlugins(
 	callbacks?.onActivity("Checking Codex CLI skills directory", "info");
 
 	const skillsDir = getCodexSkillsDir(home);
+	const agentsDir = getCodexAgentsDir(home);
 	const configFile = getCodexConfigFile(home);
-	let hasBaseSkills = false;
-	let hasDevSkills = false;
+	let hasSkills = false;
+	let hasBaseAgents = false;
+	let hasDevAgents = false;
 
 	try {
 		const dirStat = await stat(skillsDir);
 		if (dirStat.isDirectory()) {
 			const entries = await readdir(skillsDir);
 			const rp1Dirs = entries.filter((e) => e.startsWith("rp1-"));
-			hasBaseSkills = rp1Dirs.some((entry) => entry.startsWith("rp1-base-"));
-			hasDevSkills = rp1Dirs.some((entry) => entry.startsWith("rp1-dev-"));
+			hasSkills = rp1Dirs.length > 0;
 
 			if (rp1Dirs.length > 0) {
 				callbacks?.onActivity(
-					`Found ${rp1Dirs.length} rp1 skill(s) in Codex agents directory`,
+					`Found ${rp1Dirs.length} rp1 skill(s) in Codex skills directory`,
 					"info",
 				);
 			}
 		}
 	} catch {
 		// Skills directory doesn't exist
-		issues.push("Codex agents skills directory not found");
-		callbacks?.onActivity("Codex agents skills directory not found", "warning");
+		issues.push("Codex skills directory not found");
+		callbacks?.onActivity("Codex skills directory not found", "warning");
 	}
 
-	if (!hasBaseSkills) {
-		issues.push("Codex base skills not found in ~/.agents/skills");
+	if (!hasSkills) {
+		issues.push("No rp1 skill directories found in ~/.codex/skills");
 	}
 
-	if (!hasDevSkills) {
-		issues.push("Codex dev skills not found in ~/.agents/skills");
+	try {
+		const dirStat = await stat(agentsDir);
+		if (dirStat.isDirectory()) {
+			const entries = await readdir(agentsDir);
+			hasBaseAgents = entries.some((e) => e.startsWith("rp1-base-"));
+			hasDevAgents = entries.some((e) => e.startsWith("rp1-dev-"));
+		}
+	} catch {
+		issues.push("Codex rp1 agents directory not found");
+	}
+
+	if (!hasBaseAgents) {
+		issues.push("Codex base agents not found in ~/.codex/agents/rp1");
+	}
+
+	if (!hasDevAgents) {
+		issues.push("Codex dev agents not found in ~/.codex/agents/rp1");
 	}
 
 	let configInstalled = false;
@@ -373,20 +430,23 @@ export async function verifyCodexPlugins(
 		);
 	}
 
+	const codexVersion = await getInstalledVersion("codex");
+
 	plugins.push({
 		name: "rp1-base",
-		installed: hasBaseSkills,
-		version: "unknown",
-		location: hasBaseSkills ? skillsDir : null,
+		installed: hasSkills && hasBaseAgents,
+		version: codexVersion ?? "unknown",
+		location: hasSkills && hasBaseAgents ? skillsDir : null,
 	});
 	plugins.push({
 		name: "rp1-dev",
-		installed: hasDevSkills,
-		version: "unknown",
-		location: hasDevSkills ? skillsDir : null,
+		installed: hasSkills && hasDevAgents,
+		version: codexVersion ?? "unknown",
+		location: hasSkills && hasDevAgents ? skillsDir : null,
 	});
 
-	const verified = hasBaseSkills && hasDevSkills && configInstalled;
+	const verified =
+		hasSkills && hasBaseAgents && hasDevAgents && configInstalled;
 
 	if (verified) {
 		callbacks?.onActivity("Codex plugins verified", "success");

@@ -3,6 +3,36 @@ name: task-reviewer
 description: Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification.
 tools: Read, Grep, Glob, Edit, Bash
 model: inherit
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: false
+    default: ""
+    description: "Feature identifier (mutually exclusive with QUICK_BUILD_PATH)"
+  - name: QUICK_BUILD_PATH
+    type: string
+    required: false
+    default: ""
+    description: "Path to quick-build artifact (mutually exclusive with FEATURE_ID)"
+  - name: TASK_IDS
+    type: string
+    required: true
+    description: "Comma-separated task IDs to verify"
+  - name: GIT_COMMIT
+    type: boolean
+    required: false
+    default: false
+    description: "Whether commits were requested"
+  - name: WORKFLOW
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow name for status attribution"
+  - name: RUN_ID
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow run ID for status attribution"
 ---
 
 # Task Reviewer Agent
@@ -10,19 +40,6 @@ model: inherit
 You are **TaskReviewer**, an expert code reviewer that verifies the builder's implementation. You examine the changeset against design specifications and verify the builder stayed within scope. Your job is to ensure quality before moving to the next task.
 
 **Core Principle**: Signal explicit SUCCESS or FAILURE. No ambiguous states. Failures must include actionable feedback.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | Prompt | `""` | Feature identifier (mutually exclusive with QUICK_BUILD_PATH) |
-| QUICK_BUILD_PATH | Prompt | `""` | Path to quick-build artifact (mutually exclusive with FEATURE_ID) |
-| TASK_IDS | Prompt | (required) | Comma-separated task IDs to verify |
-| RP1_ROOT | Prompt | `.rp1/` | Root directory |
-| WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
-| GIT_COMMIT | Prompt | `false` | Whether commits were requested |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for status attribution |
 
 **Mode Detection**: If QUICK_BUILD_PATH is not empty, operate in quick-build mode. Otherwise, use FEATURE_ID mode.
 
@@ -40,10 +57,6 @@ The orchestrator provides these parameters in the prompt:
 {{TASK_IDS from prompt}}
 </task_ids>
 
-<worktree_path>
-{{WORKTREE_PATH from prompt}}
-</worktree_path>
-
 <git_commit>
 {{GIT_COMMIT from prompt}}
 </git_commit>
@@ -52,17 +65,9 @@ The orchestrator provides these parameters in the prompt:
 
 Load verification context. Use `<thinking>` blocks for analysis.
 
-### 1.0 Working Directory
-
-If WORKTREE_PATH is not empty, verify code in that directory. All file operations should use the worktree path.
-
-```bash
-cd {WORKTREE_PATH}
-```
-
 ### 1.1 Selective KB Loading
 
-Read these files from `{{$RP1_ROOT}}/context/` (if they exist):
+Read these files from `.rp1/context/` (if they exist):
 
 | File | Purpose |
 |------|---------|
@@ -87,7 +92,7 @@ Read the quick-build artifact at `{QUICK_BUILD_PATH}`:
 
 **Else** (feature mode):
 
-Read these files from `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
+Read these files from `.rp1/work/features/{FEATURE_ID}/`:
 
 | File | Purpose |
 |------|---------|
@@ -229,7 +234,7 @@ Verify across seven dimensions, using `<thinking>` for detailed analysis:
 
 ### 3.6 Commit Validation Check
 
-**Skip if**: `GIT_COMMIT` is NOT explicitly "true" (i.e., missing, empty, or "false") AND `WORKTREE_PATH` is also empty/missing. Mark dimension as N/A (no commits expected when GIT_COMMIT not enabled).
+**Skip if**: `GIT_COMMIT` is NOT explicitly "true" (i.e., missing, empty, or "false"). Mark dimension as N/A (no commits expected when GIT_COMMIT not enabled).
 
 **Question**: Did the builder create a proper atomic commit for this task?
 

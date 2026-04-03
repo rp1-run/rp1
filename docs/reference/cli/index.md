@@ -21,7 +21,7 @@ Agent tools are CLI utilities designed for use by AI agents during automated wor
 
 | Command | Description |
 |---------|-------------|
-| [`rp1-root-dir`](rp1-root-dir.md) | Resolve RP1_ROOT path with read-only worktree detection |
+| [`rp1-root-dir`](rp1-root-dir.md) | Resolve canonical project, KB, and work directories with worktree detection |
 | [`emit`](../agent-tools.md#emit) | Record events for the rp1 workflow event system |
 | [`comment-extract`](../agent-tools.md#comment-extract) | Extract comments from git-changed files |
 | [`feedback`](../agent-tools.md#feedback) | Read, resolve, reply to, and accept feedback from the Arcade |
@@ -44,26 +44,13 @@ These options are available for all CLI commands:
 
 ---
 
-## Environment Variables
+## Directory Resolution
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `RP1_ROOT` | `.rp1/` | Custom location for rp1 data directory |
+rp1 derives its directories from the project root:
 
-### Using RP1_ROOT
-
-To use a custom location for rp1 data:
-
-```bash
-# Set via environment variable
-export RP1_ROOT=/custom/path/.rp1
-rp1 init
-
-# Or use direnv (.envrc)
-echo 'export RP1_ROOT=.config/rp1' >> .envrc
-direnv allow
-rp1 init
-```
+- Project root: directory containing `.rp1/project_id`
+- Knowledge base: `.rp1/context/`
+- Work artifacts: `.rp1/work/`
 
 ---
 

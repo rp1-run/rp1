@@ -7,7 +7,7 @@
 
 import type { Database } from "bun:sqlite";
 import { readdir, stat } from "node:fs/promises";
-import { join, relative, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { createTwoFilesPatch } from "diff";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../../../shared/errors.js";
@@ -15,22 +15,90 @@ import {
 	getArtifactBaseline,
 	getArtifactByDocId,
 	getArtifactByRunAndDocId,
+	getArtifactsForRun,
 	getEmitDatabase,
 	getRunById,
+	normalizeArtifactStorage,
+	resolveArtifactPathForRun,
 	setArtifactBaseline,
-	updateArtifactPath,
+	updateArtifactStorage,
 } from "../../../../src/agent-tools/emit/database.js";
+import {
+	findArtifactByRequestedPath,
+	getRunDirectories,
+	type ProjectDirectories,
+	resolveArtifactAbsolutePath,
+	resolveProjectDirectories,
+	toArtifactDisplayPathFromAbsolute,
+} from "../project-paths";
 import { getAllProjects } from "../registry";
 import type { WebSocketHub } from "../websocket";
 import { type ApiContext, errorResponse, jsonResponse } from "./content-utils";
 
-async function getDb(): Promise<Database> {
+function getEffectiveProjectPath(record: {
+	projectPath: string;
+	rp1ProjectRoot?: string | null;
+}): string {
+	return record.rp1ProjectRoot ?? record.projectPath;
+}
+
+function findProjectByPathSet<T extends { path: string }>(
+	projects: readonly T[],
+	projectPath: string,
+	fallbackPath?: string,
+): T | undefined {
+	return (
+		projects.find((project) => project.path === projectPath) ??
+		(fallbackPath
+			? projects.find((project) => project.path === fallbackPath)
+			: undefined)
+	);
+}
+
+export interface ArtifactsApiDependencies {
+	readonly getDb: () => Promise<Database>;
+	readonly getArtifactBaseline: typeof getArtifactBaseline;
+	readonly getArtifactByDocId: typeof getArtifactByDocId;
+	readonly getArtifactByRunAndDocId: typeof getArtifactByRunAndDocId;
+	readonly getArtifactsForRun: typeof getArtifactsForRun;
+	readonly getAllProjects: typeof getAllProjects;
+	readonly getRunById: typeof getRunById;
+	readonly normalizeArtifactStorage: typeof normalizeArtifactStorage;
+	readonly resolveArtifactPathForRun: typeof resolveArtifactPathForRun;
+	readonly setArtifactBaseline: typeof setArtifactBaseline;
+	readonly updateArtifactStorage: typeof updateArtifactStorage;
+}
+
+export type ArtifactsApiDependencyOverrides = Partial<ArtifactsApiDependencies>;
+
+async function getDefaultDb(): Promise<Database> {
 	const result = await getEmitDatabase()();
 	if (E.isLeft(result)) {
 		throw new Error(`Database unavailable: ${formatError(result.left, false)}`);
 	}
 	return result.right;
 }
+
+const defaultArtifactsApiDependencies: ArtifactsApiDependencies = {
+	getDb: getDefaultDb,
+	getArtifactBaseline,
+	getArtifactByDocId,
+	getArtifactByRunAndDocId,
+	getArtifactsForRun,
+	getAllProjects,
+	getRunById,
+	normalizeArtifactStorage,
+	resolveArtifactPathForRun,
+	setArtifactBaseline,
+	updateArtifactStorage,
+};
+
+const resolveDependencies = (
+	overrides: ArtifactsApiDependencyOverrides = {},
+): ArtifactsApiDependencies => ({
+	...defaultArtifactsApiDependencies,
+	...overrides,
+});
 
 /**
  * Broadcast an artifact_registered event after path reconciliation so the
@@ -73,6 +141,9 @@ export function validateSavePath(
 	return null;
 }
 
+const hasTraversal = (filePath: string): boolean =>
+	filePath.includes("..") || filePath.startsWith("/");
+
 /**
  * Extract rp1_doc_id from YAML frontmatter in a markdown file.
  * Only reads the frontmatter block (between --- delimiters) for efficiency.
@@ -95,17 +166,14 @@ export function extractDocIdFromContent(content: string): string | null {
 }
 
 /**
- * Scan .rp1/work/ for a markdown file containing the given doc_id in its frontmatter.
- * Returns the relative path (from projectRoot) if found, null otherwise.
- * Bounded to .rp1/work/ and only scans .md files. Stops on first match.
+ * Scan a candidate work root for a markdown file containing the given doc_id
+ * in its frontmatter. Returns the absolute path if found, null otherwise.
  */
 export async function scanForDocId(
-	projectRoot: string,
+	workRoot: string,
 	docId: string,
 	maxDepth = 8,
 ): Promise<string | null> {
-	const workDir = join(projectRoot, ".rp1", "work");
-
 	async function scanDir(dir: string, depth: number): Promise<string | null> {
 		if (depth > maxDepth) return null;
 
@@ -135,7 +203,7 @@ export async function scanForDocId(
 					const headerBytes = await file.slice(0, 1024).text();
 					const foundId = extractDocIdFromFrontmatter(headerBytes);
 					if (foundId === docId) {
-						return relative(projectRoot, fullPath);
+						return fullPath;
 					}
 				} catch {
 					continue;
@@ -151,56 +219,100 @@ export async function scanForDocId(
 		return null;
 	}
 
-	return scanDir(workDir, 0);
+	return scanDir(workRoot, 0);
 }
+
+const getReconciliationRoots = (
+	projectRoot: string,
+	workRoot: string,
+	storageRoot: "absolute" | "project" | "work_dir",
+): readonly string[] => {
+	const legacyWorkRoot = join(resolve(projectRoot), ".rp1", "work");
+	return Array.from(
+		new Set([
+			...(storageRoot === "project" ? [resolve(projectRoot)] : []),
+			...(storageRoot === "absolute" ? [] : [resolve(workRoot)]),
+			...(storageRoot === "absolute" ? [] : [legacyWorkRoot]),
+		]),
+	);
+};
 
 /**
  * Resolve an artifact's on-disk path using doc_id-based reconciliation.
  *
  * Fast path: file exists at the stored (cached) path -- returns immediately.
- * Slow path: scans .rp1/work/ for a file with matching rp1_doc_id in frontmatter.
- * On scan hit: updates the path column in the DB (cache refresh) and returns the new path.
+ * Slow path: scans the resolved work roots for a file with matching
+ * rp1_doc_id in frontmatter. On scan hit, updates artifact storage metadata
+ * using the current directory model and returns the new path.
  * On scan miss: returns null (file truly gone).
  */
 export async function resolveArtifactPath(
 	db: Database,
-	projectRoot: string,
-	storedPath: string,
-	docId: string,
+	directories: ProjectDirectories,
+	artifact: {
+		docId: string;
+		path: string;
+		storageRoot: "absolute" | "project" | "work_dir";
+	},
+	deps: ArtifactsApiDependencyOverrides = {},
 ): Promise<string | null> {
-	const absolutePath = resolve(projectRoot, storedPath);
+	const dependencies = resolveDependencies(deps);
+	const absolutePath = resolveArtifactAbsolutePath(directories, artifact);
 	if (await Bun.file(absolutePath).exists()) {
 		return absolutePath;
 	}
 
-	const newRelativePath = await scanForDocId(projectRoot, docId);
-	if (newRelativePath === null) {
-		return null;
+	for (const rootDir of getReconciliationRoots(
+		directories.projectRoot,
+		directories.workRoot,
+		artifact.storageRoot,
+	)) {
+		const scannedPath = await scanForDocId(rootDir, artifact.docId);
+		if (scannedPath === null) {
+			continue;
+		}
+
+		const normalized = dependencies.normalizeArtifactStorage(
+			scannedPath,
+			{
+				rp1ProjectRoot: directories.projectRoot,
+				rp1WorkRoot: directories.workRoot,
+			},
+			artifact.storageRoot,
+		);
+
+		dependencies.updateArtifactStorage(db, artifact.docId, normalized);
+		console.log(
+			`[path-reconciliation] Updated artifact path for ${artifact.docId}: ${artifact.path} -> ${normalized.path} (${normalized.storageRoot})`,
+		);
+
+		return scannedPath;
 	}
 
-	updateArtifactPath(db, docId, newRelativePath);
-	console.log(
-		`[path-reconciliation] Updated artifact path for ${docId}: ${storedPath} -> ${newRelativePath}`,
-	);
-
-	return resolve(projectRoot, newRelativePath);
+	return null;
 }
 
 export async function handleArtifactSaveRequest(
 	runId: string,
 	req: Request,
 	apiContext: ApiContext,
+	deps: ArtifactsApiDependencyOverrides = {},
 ): Promise<Response> {
 	try {
-		const db = await getDb();
-		const record = getRunById(db, runId);
+		const dependencies = resolveDependencies(deps);
+		const db = await dependencies.getDb();
+		const record = dependencies.getRunById(db, runId);
 
 		if (!record) {
 			return errorResponse(`Run not found: ${runId}`, 404);
 		}
 
-		const projects = await getAllProjects();
-		const project = projects.find((p) => p.path === record.projectPath);
+		const projects = await dependencies.getAllProjects();
+		const project = findProjectByPathSet(
+			projects,
+			getEffectiveProjectPath(record),
+			record.projectPath,
+		);
 		if (!project) {
 			return errorResponse(`Project not found for run: ${runId}`, 404);
 		}
@@ -213,101 +325,110 @@ export async function handleArtifactSaveRequest(
 				400,
 			);
 		}
+		const requestedPath = body.path;
+		const nextContent = body.content;
 
-		const projectRoot = resolve(project.path);
-		const validationError = validateSavePath(body.path, projectRoot);
-		if (validationError) {
-			return errorResponse(validationError, 400);
+		if (hasTraversal(requestedPath)) {
+			return errorResponse(
+				"Invalid path: directory traversal not allowed",
+				400,
+			);
 		}
 
-		// Primary lookup: by run_id + path
-		let artifactRow = db
-			.prepare(
-				"SELECT doc_id, baseline FROM artifacts WHERE run_id = $runId AND path = $path LIMIT 1",
-			)
-			.get({ $runId: runId, $path: body.path }) as {
-			doc_id: string;
-			baseline: string | null;
-		} | null;
+		const directories = getRunDirectories(record);
+		const artifactRecords = dependencies.getArtifactsForRun(db, runId);
+		let artifactRecord = findArtifactByRequestedPath(
+			directories,
+			artifactRecords,
+			requestedPath,
+		);
+		let artifactBaseline =
+			artifactRecord != null
+				? (dependencies.getArtifactBaseline(db, artifactRecord.docId)
+						?.baseline ?? null)
+				: null;
 
 		// Fallback: if path-based lookup missed (file was moved), try by run_id + doc_id
 		// extracted from the content being saved (which contains the frontmatter)
-		if (!artifactRow) {
-			const contentDocId = extractDocIdFromContent(body.content);
+		if (!artifactRecord) {
+			const contentDocId = extractDocIdFromContent(nextContent);
 			if (contentDocId) {
-				const fallbackRecord = getArtifactByRunAndDocId(
+				artifactRecord = dependencies.getArtifactByRunAndDocId(
 					db,
 					runId,
 					contentDocId,
 				);
-				if (fallbackRecord) {
-					artifactRow = {
-						doc_id: fallbackRecord.docId,
-						baseline: null,
-					};
-					// Read baseline from DB since we have a fresh record
-					const baselineInfo = getArtifactBaseline(db, contentDocId);
-					if (baselineInfo) {
-						artifactRow.baseline = baselineInfo.baseline;
-					}
-					updateArtifactPath(db, contentDocId, body.path);
-					console.log(
-						`[path-reconciliation] Save handler updated path for ${contentDocId}: ${fallbackRecord.path} -> ${body.path}`,
-					);
-					broadcastPathReconciliation(
-						apiContext.websocketHub,
-						project.id,
-						runId,
-						record.featureId,
+				if (artifactRecord) {
+					const baselineInfo = dependencies.getArtifactBaseline(
+						db,
 						contentDocId,
-						body.path,
 					);
+					if (baselineInfo) {
+						artifactBaseline = baselineInfo.baseline;
+					}
 				}
 			}
 		}
 
-		let absolutePath = resolve(projectRoot, body.path);
-		const fileExists = await Bun.file(absolutePath).exists();
+		if (!artifactRecord) {
+			return errorResponse("Artifact not found for save request", 404);
+		}
 
-		if (!fileExists && artifactRow) {
+		let absolutePath = await dependencies.resolveArtifactPathForRun(
+			db,
+			record,
+			artifactRecord,
+		);
+
+		if (!absolutePath) {
 			const resolvedPath = await resolveArtifactPath(
 				db,
-				projectRoot,
-				body.path,
-				artifactRow.doc_id,
+				directories,
+				artifactRecord,
+				dependencies,
 			);
 			if (resolvedPath) {
 				absolutePath = resolvedPath;
-				const newRelPath = relative(projectRoot, resolvedPath);
-				if (newRelPath !== body.path) {
-					broadcastPathReconciliation(
-						apiContext.websocketHub,
-						project.id,
-						runId,
-						record.featureId,
-						artifactRow.doc_id,
-						newRelPath,
-					);
-				}
 			} else {
 				return errorResponse(
 					"File does not exist: only existing files can be saved",
 					404,
 				);
 			}
-		} else if (!fileExists) {
+		}
+
+		if (!absolutePath) {
 			return errorResponse(
 				"File does not exist: only existing files can be saved",
 				404,
 			);
 		}
 
-		if (artifactRow && artifactRow.baseline === null) {
-			const originalContent = await Bun.file(absolutePath).text();
-			setArtifactBaseline(db, artifactRow.doc_id, originalContent);
+		const resolvedDisplayPath = toArtifactDisplayPathFromAbsolute(
+			directories,
+			absolutePath,
+		);
+		if (resolvedDisplayPath !== requestedPath) {
+			broadcastPathReconciliation(
+				apiContext.websocketHub,
+				project.id,
+				runId,
+				record.featureId,
+				artifactRecord.docId,
+				resolvedDisplayPath,
+			);
 		}
 
-		await Bun.write(absolutePath, body.content);
+		if (artifactBaseline === null) {
+			const originalContent = await Bun.file(absolutePath).text();
+			dependencies.setArtifactBaseline(
+				db,
+				artifactRecord.docId,
+				originalContent,
+			);
+		}
+
+		await Bun.write(absolutePath, nextContent);
 
 		return jsonResponse({ saved: true, path: absolutePath });
 	} catch (error) {
@@ -318,10 +439,12 @@ export async function handleArtifactSaveRequest(
 export async function handleArtifactPatchRequest(
 	docId: string,
 	apiContext?: ApiContext,
+	deps: ArtifactsApiDependencyOverrides = {},
 ): Promise<Response> {
 	try {
-		const db = await getDb();
-		const artifact = getArtifactBaseline(db, docId);
+		const dependencies = resolveDependencies(deps);
+		const db = await dependencies.getDb();
+		const artifact = dependencies.getArtifactBaseline(db, docId);
 
 		if (!artifact) {
 			return errorResponse(`Artifact not found: ${docId}`, 404);
@@ -331,13 +454,39 @@ export async function handleArtifactPatchRequest(
 			return jsonResponse({ patch: null, message: "No edits recorded" });
 		}
 
-		// Use path reconciliation instead of direct file check
-		const resolvedPath = await resolveArtifactPath(
-			db,
-			artifact.projectPath,
-			artifact.path,
-			docId,
-		);
+		const artifactRecord = dependencies.getArtifactByDocId(db, docId);
+		if (!artifactRecord) {
+			return errorResponse(`Artifact not found: ${docId}`, 404);
+		}
+
+		const run =
+			artifactRecord.runId != null
+				? dependencies.getRunById(db, artifactRecord.runId)
+				: null;
+		const directories =
+			run != null
+				? getRunDirectories(run)
+				: resolveProjectDirectories(artifact.projectPath);
+
+		const resolvedPath =
+			run != null
+				? ((await dependencies.resolveArtifactPathForRun(
+						db,
+						run,
+						artifactRecord,
+					)) ??
+					(await resolveArtifactPath(
+						db,
+						directories,
+						artifactRecord,
+						dependencies,
+					)))
+				: await resolveArtifactPath(
+						db,
+						directories,
+						artifactRecord,
+						dependencies,
+					);
 
 		if (!resolvedPath) {
 			return jsonResponse({ patch: null, message: "File not found on disk" });
@@ -345,23 +494,25 @@ export async function handleArtifactPatchRequest(
 
 		if (
 			apiContext?.websocketHub &&
-			resolve(artifact.projectPath, artifact.path) !== resolvedPath
+			resolveArtifactAbsolutePath(directories, artifactRecord) !== resolvedPath
 		) {
-			const projects = await getAllProjects();
-			const project = projects.find((p) => p.path === artifact.projectPath);
-			const artifactRecord = getArtifactByDocId(db, docId);
-			if (project && artifactRecord?.runId) {
-				const run = getRunById(db, artifactRecord.runId);
-				if (run) {
-					broadcastPathReconciliation(
-						apiContext.websocketHub,
-						project.id,
-						run.id,
-						run.featureId,
-						docId,
-						relative(artifact.projectPath, resolvedPath),
-					);
-				}
+			const projects = await dependencies.getAllProjects();
+			const project = run
+				? findProjectByPathSet(
+						projects,
+						getEffectiveProjectPath(run),
+						run.projectPath,
+					)
+				: findProjectByPathSet(projects, artifact.projectPath);
+			if (project && run) {
+				broadcastPathReconciliation(
+					apiContext.websocketHub,
+					project.id,
+					run.id,
+					run.featureId,
+					docId,
+					toArtifactDisplayPathFromAbsolute(directories, resolvedPath),
+				);
 			}
 		}
 
@@ -372,7 +523,10 @@ export async function handleArtifactPatchRequest(
 		}
 
 		// Use the potentially-updated path for diff headers
-		const displayPath = relative(artifact.projectPath, resolvedPath);
+		const displayPath = toArtifactDisplayPathFromAbsolute(
+			directories,
+			resolvedPath,
+		);
 
 		const patch = createTwoFilesPatch(
 			`a/${displayPath}`,

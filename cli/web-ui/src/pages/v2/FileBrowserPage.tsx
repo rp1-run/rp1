@@ -30,6 +30,7 @@ import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useProjectFileTree } from "@/hooks/useProjectFileTree";
 import { useProjects } from "@/hooks/useProjects";
+import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 
 import type { FileContent } from "../../server/routes/content-utils";
@@ -53,7 +54,12 @@ export function FileBrowserPage() {
 	} = useProjectFileTree(projectId);
 	const { setProjectId, onTreeChange, onFileChange } = useWebSocket();
 
-	const [content, setContent] = useState<FileContent | null>(null);
+	const [content, setContentRaw] = useState<FileContent | null>(null);
+	const [contentRevision, setContentRevision] = useState(0);
+	const setContent = useCallback((c: FileContent | null) => {
+		setContentRaw(c);
+		if (c !== null) setContentRevision((r) => r + 1);
+	}, []);
 	const [contentLoading, setContentLoading] = useState(false);
 	const [contentError, setContentError] = useState<string | null>(null);
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -71,8 +77,6 @@ export function FileBrowserPage() {
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const headingElementsRef = useRef<Map<string, Element>>(new Map());
 	const isNavigatingRef = useRef(false);
-	const previousContentRef = useRef<FileContent | null>(null);
-	const previousPathRef = useRef<string | null>(null);
 	const navigateTimerRef = useRef<ReturnType<typeof setTimeout>>();
 	const savedScrollState = useRef<{
 		scrollTop: number;
@@ -85,9 +89,11 @@ export function FileBrowserPage() {
 	const { projects } = useProjects();
 	const { setProject } = useBreadcrumbContext();
 
-	const projectName = projectId
-		? (projects.find((p) => p.id === projectId)?.name ?? projectId)
+	const project = projectId
+		? (projects.find((p) => p.id === projectId) ?? null)
 		: null;
+	const projectName = project?.name ?? projectId ?? null;
+	const projectPath = project?.path ?? null;
 
 	useEffect(() => {
 		if (projectId) {
@@ -127,14 +133,8 @@ export function FileBrowserPage() {
 				};
 			}
 
-			const hasPreviousContent = previousContentRef.current !== null;
-
 			if (!preserveScroll) {
-				if (hasPreviousContent) {
-					setIsRefreshing(true);
-				} else {
-					setContentLoading(true);
-				}
+				setContentLoading(true);
 				setHeadings([]);
 				setActiveHeadingId(null);
 			}
@@ -154,27 +154,23 @@ export function FileBrowserPage() {
 					throw new Error(`Failed to fetch content: ${response.statusText}`);
 				}
 				const data = (await response.json()) as FileContent;
-				previousContentRef.current = data;
-				previousPathRef.current = selectedPath;
 				setContent(data);
 			} catch (err) {
 				setContentError(err instanceof Error ? err.message : String(err));
 				setContent(null);
-				previousContentRef.current = null;
-				previousPathRef.current = null;
 			} finally {
-				if (!preserveScroll) {
-					setContentLoading(false);
-					setIsRefreshing(false);
-				}
+				setContentLoading(false);
+				setIsRefreshing(false);
 			}
 		},
-		[selectedPath, projectId],
+		[selectedPath, projectId, setContent],
 	);
 
 	useEffect(() => {
 		fetchContent(false);
 	}, [fetchContent]);
+
+	useReconnectRecovery(() => fetchContent(true));
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: restore scroll after content changes
 	useLayoutEffect(() => {
@@ -368,8 +364,6 @@ export function FileBrowserPage() {
 		enabled: !!selectedPath,
 	});
 
-	const displayContent = content ?? previousContentRef.current;
-
 	const liveRegion = (
 		<div aria-live="polite" aria-atomic="true" className="sr-only">
 			{liveAnnouncement}
@@ -440,12 +434,13 @@ export function FileBrowserPage() {
 
 					<ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
 						<ContentPanel
-							content={displayContent?.content ?? null}
+							key={contentRevision}
+							content={content?.content ?? null}
 							path={selectedPath ?? null}
 							isLoading={contentLoading}
 							error={contentError}
 							emptyMessage="Select a file from the sidebar to view its contents."
-							frontmatter={displayContent?.frontmatter}
+							frontmatter={content?.frontmatter}
 							isRefreshing={isRefreshing}
 							onHeadingsExtracted={handleHeadingsExtracted}
 							scrollViewportRef={scrollViewportRef}
@@ -469,6 +464,7 @@ export function FileBrowserPage() {
 							error={treeError}
 							selectedPath={selectedPath}
 							onSelect={handleFileSelect}
+							projectPath={projectPath}
 						/>
 					</ScrollArea>
 				</Drawer>
@@ -516,6 +512,7 @@ export function FileBrowserPage() {
 							error={treeError}
 							selectedPath={selectedPath}
 							onSelect={handleFileSelect}
+							projectPath={projectPath}
 						/>
 					</aside>
 				</ResizablePanel>
@@ -560,12 +557,13 @@ export function FileBrowserPage() {
 							viewportRef={scrollViewportRef}
 						>
 							<ContentPanel
-								content={displayContent?.content ?? null}
+								key={contentRevision}
+								content={content?.content ?? null}
 								path={selectedPath ?? null}
 								isLoading={contentLoading}
 								error={contentError}
 								emptyMessage="Select a file from the sidebar to view its contents."
-								frontmatter={displayContent?.frontmatter}
+								frontmatter={content?.frontmatter}
 								isRefreshing={isRefreshing}
 								onHeadingsExtracted={handleHeadingsExtracted}
 								scrollViewportRef={scrollViewportRef}

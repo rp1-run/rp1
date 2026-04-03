@@ -131,6 +131,55 @@ const createTestEngine = () => {
 		return value;
 	});
 
+	engine.registerFilter(
+		"param_transform",
+		(content: string, platform: string) => {
+			if (platform === "codex") {
+				return content
+					.replace(
+						/\$ARGUMENTS/g,
+						"the arguments provided by the user in their prompt",
+					)
+					.replace(/\$(\d+)\b/g, (_match: string, num: string) => {
+						const ordinals = ["first", "second", "third", "fourth", "fifth"];
+						const idx = parseInt(num, 10) - 1;
+						const ordinal = ordinals[idx] ?? `#${parseInt(num, 10)}`;
+						return `the value of the ${ordinal} argument (extracted from the user's prompt)`;
+					});
+			}
+			return content;
+		},
+	);
+
+	engine.registerFilter("to_yaml", (value: unknown, indent?: number) => {
+		const { stringify } = require("yaml");
+		if (value == null) return "";
+		const raw = stringify(value, { indent: 2 });
+		if (!raw || raw.trim() === "") return "";
+		const prefix = " ".repeat(indent ?? 4);
+		return raw
+			.trimEnd()
+			.split("\n")
+			.map((line: string) => (line.trim() === "" ? "" : `${prefix}${line}`))
+			.join("\n");
+	});
+
+	engine.registerFilter("tool_prose", (content: string, platform: string) => {
+		if (platform === "codex") {
+			const mappings: Record<string, string> = {
+				AskUserQuestion: "functions.request_user_input",
+				Edit: "functions.apply_patch",
+				Bash: "functions.exec_command",
+			};
+			let result = content;
+			for (const [cc, codex] of Object.entries(mappings)) {
+				result = result.replace(new RegExp(`\\b${cc}\\b`, "g"), codex);
+			}
+			return result;
+		}
+		return content;
+	});
+
 	return engine;
 };
 
@@ -241,6 +290,8 @@ describeWithLiquid("template rendering", () => {
 			const engine = createTestEngine();
 			const result = await engine.renderFile("codex/agent-toml", {
 				platform: "codex",
+				pluginName: "dev",
+				namespacedPluginName: "rp1-dev",
 				artifact: {
 					type: "agent",
 					name: "task-builder",
@@ -362,7 +413,7 @@ describeWithLiquid("template rendering", () => {
 			expect(manifest.codexVersionTested).toBe("0.1.x");
 			expect(manifest.artifacts.skills).toEqual(["skill1"]);
 			expect(manifest.artifacts.agents).toEqual(["agent1", "agent2"]);
-			expect(manifest.installation.skillsDir).toBe(".agents/skills/");
+			expect(manifest.installation.skillsDir).toBe("~/.codex/skills/");
 			expect(manifest.installation.configFile).toBe("~/.codex/config.toml");
 		});
 	});

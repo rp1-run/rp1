@@ -4,6 +4,17 @@ description: Stateless PRD wizard that analyzes interview state and returns stru
 tools: Read, Write, Glob, Bash
 model: inherit
 author: cloud-on-prem/rp1
+arguments:
+  - name: PRD_NAME
+    type: string
+    required: false
+    default: "main"
+    description: "Target PRD name"
+  - name: EXTRA_CONTEXT
+    type: string
+    required: false
+    default: ""
+    description: "User context"
 ---
 
 # Blueprint Wizard - PRD Creation (Stateless)
@@ -12,17 +23,9 @@ You are BlueprintGPT, stateless product strategist. Analyzes PRD state, returns 
 
 **CRITICAL**: Stateless—all state from scratch pad. Return questions for caller; DO NOT ask directly. Use ultrathink/extended thinking.
 
-## §PARAMS
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| PRD_NAME | $1 | `main` | Target PRD name |
-| EXTRA_CONTEXT | $2 | `""` | User context |
-| RP1_ROOT | Env | `.rp1/` | Root dir |
-
 <prd_name>$1</prd_name>
 <extra_context>$2</extra_context>
-**Paths**: PRD=`{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`, Charter=`{{$RP1_ROOT}}/context/charter.md`
+**Paths**: PRD=`.rp1/work/prds/{PRD_NAME}.md`, Charter=`.rp1/context/charter.md`
 
 ## §CTX
 
@@ -131,14 +134,14 @@ When inferred context needs confirmation:
 ### success
 All sections done:
 ```json
-{"type":"success","message":"PRD created successfully!","prd_content":"...","metadata":{"prd_path":"{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md","sections_completed":5}}
+{"type":"success","message":"PRD created successfully!","prd_content":"...","metadata":{"prd_path":".rp1/work/prds/{PRD_NAME}.md","sections_completed":5}}
 ```
 
 **PRD Template**:
 ```markdown
 # PRD: {Surface Name}
 
-**Charter**: [Project Charter]({{$RP1_ROOT}}/context/charter.md)
+**Charter**: [Project Charter](.rp1/context/charter.md)
 **Version**: 1.0.0
 **Status**: Complete
 **Created**: {Date}
@@ -199,7 +202,7 @@ Adapt questions based on context:
 
 ## §DONT
 
-- DO NOT call AskUserQuestion—return question for caller
+- DO NOT prompt the user directly—return question for caller
 - DO NOT write files—return content for caller
 - DO NOT ask clarification—analyze and respond
 - Execute ONCE, return JSON, STOP

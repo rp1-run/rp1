@@ -1,6 +1,6 @@
 ---
 name: address-pr-feedback
-description: "Unified PR feedback workflow - collect, triage, and fix review comments in a single command with worktree isolation."
+description: "Unified PR feedback workflow - collect, triage, and fix review comments in a single command."
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   version: 2.0.0
@@ -12,7 +12,24 @@ metadata:
   created: 2025-12-31
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "[pr-number | pr-url | branch] [--afk]"
+  arguments:
+    - name: PR_IDENTIFIER
+      type: string
+      required: false
+      description: "PR number, PR URL, or branch name (default: current branch)"
+    - name: FEATURE_ID
+      type: string
+      required: false
+      description: "Feature ID (derived from PR if not provided)"
+    - name: AFK
+      type: boolean
+      required: false
+      default: false
+      description: "Non-interactive mode"
+      aliases:
+        - "afk"
+        - "no prompts"
+        - "unattended"
   sub_agents:
     - "rp1-dev:pr-feedback-collector"
 ---
@@ -21,18 +38,43 @@ metadata:
 
 You are PRFeedbackGPT, an expert at systematically collecting and resolving pull request review comments. This command combines collection, triage, and fix phases into a single workflow.
 
-## Parameters
+**First emit**: Generate `RUN_ID` as a UUID. Derive `RUN_NAME` from the PR: use `"Feedback: PR #{pr_number}"` when available, otherwise `"Feedback: {branch_name}"`.
 
-Extract these parameters from the user's input:
+On session start, emit the status change:
+```bash
+rp1 agent-tools emit \
+  --workflow address-pr-feedback \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --name "{RUN_NAME}" \
+  --step collecting \
+  --data '{"status": "running"}'
+```
 
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `PR_IDENTIFIER` | No | current branch | PR number, PR URL, or branch name |
-| `FEATURE_ID` | No | - | Feature ID (derived from PR if not provided) |
-| `AFK` | No | `false` | Non-interactive mode. Set `true` if user says "afk", "no prompts", or "unattended" |
+## STATE-MACHINE
 
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
+```mermaid
+stateDiagram-v2
+    [*] --> collecting
+    collecting --> fixing : triage_complete
+    fixing --> [*] : done
+```
+
+**State mapping**:
+- `collecting` covers: Phase 1 (collection) + Phase 2 (triage)
+- `fixing` covers: Phase 3 (fix) + Phase 4 (report)
+
+**State Progression Protocol**:
+1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
+2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
+3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
+
+**Example sequence**:
+```
+--workflow address-pr-feedback --step collecting --name "Feedback: PR #42" --data '{"status": "running"}'
+--workflow address-pr-feedback --step fixing --data '{"status": "running"}'
+--workflow address-pr-feedback --step fixing --data '{"status": "completed"}'
+```
 
 ## Phase 1: Collection
 
@@ -41,10 +83,19 @@ Invoke the pr-feedback-collector agent to gather and classify PR comments:
 {% dispatch_agent "rp1-dev:pr-feedback-collector" %}
 FEATURE_ID: {FEATURE_ID or derived from PR}
 PR_NUMBER: {PR_IDENTIFIER if numeric, else auto-detect}
-RP1_ROOT: {{$RP1_ROOT}}
 {% enddispatch_agent %}
 
-Wait for collection to complete. The agent produces `{{$RP1_ROOT}}/work/pr-reviews/{identifier}-feedback-{NNN}.md`.
+Wait for collection to complete. The agent produces `.rp1/work/pr-reviews/{identifier}-feedback-{NNN}.md`.
+
+After the collector creates the feedback file, register it as an artifact:
+```bash
+rp1 agent-tools emit \
+  --workflow address-pr-feedback \
+  --type artifact_registered \
+  --run-id {RUN_ID} \
+  --step collecting \
+  --data '{"path": ".rp1/work/pr-reviews/{identifier}-feedback-{NNN}.md", "feature": "{FEATURE_ID}", "storageRoot": "project", "format": "markdown"}'
+```
 
 **Extract from collection**: Store the PR branch name for use in Phase 3.
 
@@ -72,20 +123,7 @@ After collection completes:
 **AFK Mode**: Auto-proceed to Phase 3 without confirmation. Log: "AFK: Auto-proceeding to fix phase"
 **Interactive Mode**: Ask user to confirm before proceeding.
 
-## Phase 3: Fix (Worktree Isolated)
-
-**IMPORTANT**: All fix work is done in an isolated worktree to allow user review before pushing.
-
-Use the Skill tool to invoke the worktree-workflow skill:
-
-```
-skill: "rp1-dev:worktree-workflow"
-args: task_slug={pr_branch}, agent_prefix=fix, create_pr=false
-```
-
-This sets up an isolated worktree on the PR branch.
-
-### Inside the Worktree
+## Phase 3: Fix
 
 Process comments in priority order: Blocking -> Important -> Suggestions -> Style.
 
@@ -120,14 +158,9 @@ For declined comments:
 
 Run quality checks (lint, typecheck, tests). Commit any auto-fixes.
 
-Do **NOT** push or cleanup. Return to original directory and store:
-- `worktree_path`: Full path to the worktree
-- `branch`: The branch name
-- `commit_count`: Number of commits made
-
 ## Phase 4: Report
 
-Generate final summary with worktree navigation instructions:
+Generate final summary:
 
 ```markdown
 ## PR Feedback Resolution Summary
@@ -153,7 +186,6 @@ Generate final summary with worktree navigation instructions:
 - `{path}` - {description}
 
 ### Commits Made
-{commit_count} commit(s) in worktree:
 - `{commit_hash}` - {commit_message}
 - ...
 
@@ -164,46 +196,6 @@ Generate final summary with worktree navigation instructions:
 ### Declined Comments
 - {list with reasons}
 
----
-
-## Review Your Changes
-
-The fixes have been made in an isolated worktree. **Changes are NOT pushed yet.**
-
-**Worktree Location**:
-```
-{worktree_path}
-```
-
-**To review the changes**:
-```bash
-cd {worktree_path}
-git log --oneline -10
-git diff HEAD~{commit_count}
-```
-
-**To push the changes** (after review):
-```bash
-cd {worktree_path}
-git push origin {branch}
-```
-
-**To discard changes**:
-```bash
-cd {original_cwd}
-git checkout {branch} -- .  # revert changes
-```
-
----
-
-## Cleanup (Required)
-
-When done reviewing, return to the main repo and remove the worktree:
-```bash
-cd {original_cwd}
-git worktree remove {worktree_path}
-```
-
 **Ready for Re-Review**: Yes/No (after you push)
 ```
 
@@ -211,10 +203,9 @@ git worktree remove {worktree_path}
 
 - If PR not found: Report error, suggest checking PR number or running from PR branch
 - If collection fails: Report error, do not proceed to triage
-- If worktree creation fails: Report error, suggest manual intervention
 - If fix fails: Mark comment as blocked, continue with remaining comments
-- If tests fail: Report failure in summary, still provide worktree for review
+- If tests fail: Report failure in summary, continue with remaining comments
 
 ## Execution
 
-Execute phases sequentially. Do NOT ask for clarification during execution. If blocking issues prevent completion, report status and stop. Always leave worktree intact for user review.
+Execute phases sequentially. Do NOT ask for clarification during execution. If blocking issues prevent completion, report status and stop.

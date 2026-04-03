@@ -4,8 +4,10 @@
  * Handles all 6 event types through a single executeEmit pipeline.
  */
 
+import { resolve } from "node:path";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
+import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { runtimeError } from "../../../shared/errors.js";
 import type { RunRecord, Status } from "../../../shared/events.js";
@@ -17,8 +19,10 @@ import {
 	getTransitivePredecessors,
 	loadStateMachine,
 } from "../state-machine/index.js";
+import type { NotificationRecord } from "./database.js";
 import {
 	type ArtifactInput,
+	type ArtifactStorageRoot,
 	deriveRunStatus,
 	type EventInput,
 	getEmitDatabase,
@@ -26,11 +30,13 @@ import {
 	getStepStatuses,
 	insertEvent,
 	insertRun,
+	normalizeArtifactStorage,
 	upsertAnnotation,
 	upsertArtifact,
 } from "./database.js";
 import { type DocIdResult, generateDocId, resolveDocId } from "./doc-id.js";
 import type { EmitInput, EmitResult } from "./models.js";
+import { maybeGenerateNotification } from "./notification-generator.js";
 import {
 	isNamespacedStep,
 	validateStepAgainstStateMachine,
@@ -200,15 +206,20 @@ const handleSkippedSteps = (
  */
 const handleArtifactRegistration = (
 	input: EmitInput,
+	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkRoot" | "projectId">,
 ): TE.TaskEither<CLIError, string | undefined> => {
 	if (input.type !== "artifact_registered") {
 		return TE.right(undefined);
 	}
 
 	const filePath = input.data.path as string;
-	const absolutePath = filePath.startsWith("/")
-		? filePath
-		: `${input.projectPath}/${filePath}`;
+	const storageRoot = input.data.storageRoot as ArtifactStorageRoot;
+	const absolutePath =
+		storageRoot === "absolute" || filePath.startsWith("/")
+			? resolve(filePath)
+			: storageRoot === "project"
+				? resolve(run.rp1ProjectRoot, filePath)
+				: resolve(run.rp1WorkRoot, filePath);
 
 	const docIdTask = pipe(
 		resolveDocId(absolutePath),
@@ -225,14 +236,21 @@ const handleArtifactRegistration = (
 				TE.map((db) => {
 					const artifactType =
 						(input.data.type as string) ?? classifyArtifactType(filePath);
-					const feature = input.data.feature as string;
+					const feature = (input.data.feature as string) ?? "unknown";
+					const normalizedStorage = normalizeArtifactStorage(
+						filePath,
+						run,
+						storageRoot,
+					);
 
 					const artifactInput: ArtifactInput = {
 						docId: docIdResult.docId,
 						runId: input.runId,
-						path: filePath,
+						path: normalizedStorage.path,
 						type: artifactType,
+						storageRoot: normalizedStorage.storageRoot,
 						projectPath: input.projectPath,
+						projectId: run.projectId ?? undefined,
 						feature,
 						step: input.step,
 						subflow: input.data.subflow === true,
@@ -275,6 +293,7 @@ const handleAnnotation = (input: EmitInput): TE.TaskEither<CLIError, void> => {
  */
 const notifyDaemon = async (
 	input: EmitInput,
+	run: Pick<RunRecord, "projectId" | "rp1ProjectRoot">,
 	_runStatus: Status,
 	eventId: number,
 ): Promise<void> => {
@@ -298,10 +317,41 @@ const notifyDaemon = async (
 				eventId,
 				runId: input.runId,
 				projectPath: input.projectPath,
+				projectId: run.projectId ?? undefined,
+				rp1ProjectRoot: run.rp1ProjectRoot,
 				featureId,
 				step: input.step ?? null,
 				data,
 				createdAt: new Date().toISOString(),
+			});
+		}
+	} catch {
+		// Daemon not available - polling will pick up the change
+	}
+};
+
+/**
+ * Notify the daemon of a newly created notification for WebSocket broadcast.
+ * Best-effort: failures are silently swallowed.
+ */
+const notifyDaemonNotification = async (
+	notification: NotificationRecord,
+): Promise<void> => {
+	try {
+		const { connectToDaemon, notifyNotification } = await import(
+			"../../../web-ui/src/daemon/index.js"
+		);
+
+		const conn = await connectToDaemon();
+		if (conn) {
+			await notifyNotification(conn, {
+				id: notification.id,
+				message: notification.message,
+				sourceType: notification.sourceType,
+				sourceId: notification.sourceId,
+				route: notification.route,
+				projectId: notification.projectId,
+				createdAt: notification.createdAt,
 			});
 		}
 	} catch {
@@ -327,11 +377,26 @@ export const executeEmit = (
 	pipe(
 		getEmitDatabase(),
 		TE.chain((db) => {
+			const directories = resolveDirectorySet(input.projectPath);
+			if (directories._tag === "Left") {
+				return TE.left(directories.left);
+			}
+
 			const run = insertRun(db, {
 				id: input.runId,
 				flow: (input.data.workflow as string) ?? "unknown",
 				featureId: (input.data.feature as string) ?? "unknown",
 				projectPath: input.projectPath,
+				rp1ProjectRoot: directories.right.projectRoot,
+				rp1KbRoot: directories.right.kbRoot,
+				rp1WorkRoot: directories.right.workRoot,
+				projectId: directories.right.projectId,
+				name: input.name,
+				harness:
+					input.harness ??
+					(input.data.harness as string) ??
+					process.env.RP1_HARNESS ??
+					undefined,
 			});
 
 			const now = new Date().toISOString();
@@ -345,7 +410,7 @@ export const executeEmit = (
 						TE.bind("skippedResult", () =>
 							handleSkippedSteps(input, run.flow, now),
 						),
-						TE.bind("docId", () => handleArtifactRegistration(input)),
+						TE.bind("docId", () => handleArtifactRegistration(input, run)),
 						TE.chainFirst(() => handleAnnotation(input)),
 						TE.chain(({ skippedResult, docId }) => {
 							const eventData = { ...input.data };
@@ -377,18 +442,35 @@ export const executeEmit = (
 										input.closeRun,
 									);
 
+									const notification = maybeGenerateNotification(
+										db,
+										input.runId,
+										runStatus,
+										input.type,
+										run.projectId,
+										run.flow !== "unknown"
+											? run.flow
+											: (input.workflow ?? null),
+										input.step ?? null,
+										input.data,
+									);
+
 									return {
 										event,
 										runStatus,
 										skippedResult,
 										docId,
+										notification,
 									};
 								}),
 							);
 						}),
-						TE.chainFirst(({ event, runStatus }) =>
+						TE.chainFirst(({ event, runStatus, notification }) =>
 							TE.fromTask(async () => {
-								await notifyDaemon(input, runStatus, event.id);
+								await notifyDaemon(input, run, runStatus, event.id);
+								if (notification) {
+									await notifyDaemonNotification(notification);
+								}
 							}),
 						),
 						TE.map(

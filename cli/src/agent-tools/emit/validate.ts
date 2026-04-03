@@ -4,7 +4,7 @@
  * payload shapes per event type with descriptive error messages.
  */
 
-import { dirname, isAbsolute } from "node:path";
+import { isAbsolute } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -30,6 +30,8 @@ export interface EmitCommandOptions {
 	readonly data?: string;
 	readonly project?: string;
 	readonly closeRun?: boolean;
+	readonly name?: string;
+	readonly harness?: string;
 }
 
 const validateEventType = (type: string): E.Either<CLIError, EventType> => {
@@ -120,15 +122,73 @@ const validateArtifactRegisteredPayload = (
 	if (!data.path || typeof data.path !== "string") {
 		return E.left(
 			usageError(
-				'artifact_registered events require a \'path\' field (string) in --data. Example: --data \'{"path": "work/features/my-feature/design.md", "feature": "my-feature"}\'',
+				'artifact_registered events require a \'path\' field (string) in --data. Example: --data \'{"path": "features/my-feature/design.md", "feature": "my-feature", "storageRoot": "work_dir"}\'',
 			),
 		);
 	}
 
-	if (!data.feature || typeof data.feature !== "string") {
+	if (data.feature !== undefined && typeof data.feature !== "string") {
 		return E.left(
 			usageError(
-				"artifact_registered events require a 'feature' field (string) in --data",
+				"artifact_registered 'feature' field must be a string when provided",
+			),
+		);
+	}
+
+	const storageRoot = data.storageRoot;
+	if (storageRoot === undefined) {
+		return E.left(
+			usageError(
+				"artifact_registered events require a 'storageRoot' field in --data. Use 'work_dir' for `.rp1/work`-relative paths, 'project' for project-root-relative paths, or 'absolute' for absolute paths",
+			),
+		);
+	}
+
+	if (
+		storageRoot !== "absolute" &&
+		storageRoot !== "project" &&
+		storageRoot !== "work_dir"
+	) {
+		return E.left(
+			usageError(
+				"artifact_registered events only support storageRoot values 'absolute', 'project', or 'work_dir'",
+			),
+		);
+	}
+
+	const artifactPath = data.path;
+	if (
+		typeof artifactPath === "string" &&
+		artifactPath.includes("..") &&
+		storageRoot !== "absolute"
+	) {
+		return E.left(
+			usageError(
+				"artifact_registered paths must not contain '..' unless storageRoot is 'absolute'",
+			),
+		);
+	}
+
+	if (
+		typeof artifactPath === "string" &&
+		isAbsolute(artifactPath) &&
+		storageRoot !== "absolute"
+	) {
+		return E.left(
+			usageError(
+				"artifact_registered paths must be relative when storageRoot is 'project' or 'work_dir'",
+			),
+		);
+	}
+
+	if (
+		typeof artifactPath === "string" &&
+		!isAbsolute(artifactPath) &&
+		storageRoot === "absolute"
+	) {
+		return E.left(
+			usageError(
+				"artifact_registered paths must be absolute when storageRoot is 'absolute'",
 			),
 		);
 	}
@@ -234,9 +294,9 @@ export const validatePayloadShape = (
  *
  * When --project is explicitly provided, validates and resolves it via git
  * worktree normalization. When omitted, uses the same resolution chain as
- * `rp1 agent-tools rp1-root-dir`: RP1_ROOT env var → git common-dir → cwd.
+ * `rp1 agent-tools rp1-root-dir`: project-root discovery → git common-dir → cwd.
  * This ensures emit records are attributed to the correct project regardless
- * of worktree context or env overrides.
+ * of worktree context.
  */
 const validateProjectPath = (
 	project: string | undefined,
@@ -254,7 +314,7 @@ const validateProjectPath = (
 		resolveRp1Root(),
 		TE.map(
 			(result): ResolvedProjectPath => ({
-				projectPath: dirname(result.root),
+				projectPath: result.projectRoot,
 				worktreePath: result.isWorktree ? process.cwd() : undefined,
 			}),
 		),
@@ -311,6 +371,8 @@ export const validateEmitOptions = (
 				data: { ...data, workflow },
 				projectPath: resolved.projectPath,
 				closeRun: options.closeRun,
+				name: options.name,
+				harness: options.harness,
 			}),
 		),
 	);

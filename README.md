@@ -78,6 +78,35 @@ This will set up rp1 and install plugins for your AI assistant (Claude Code, Ope
 
 ---
 
+## Beta Releases
+
+Want to try upcoming features before they're officially released?
+
+### Install Beta
+
+```bash
+brew install rp1-run/tap/rp1-beta
+rp1 install
+```
+
+> **Note:** You cannot have both stable and beta installed simultaneously. Installing one requires uninstalling the other first.
+
+### Verify
+
+```bash
+rp1 --version
+# Should show a pre-release version like 0.7.0-beta.1
+```
+
+### Rollback to Stable
+
+```bash
+brew uninstall rp1-beta && brew install rp1-run/tap/rp1
+rp1 install
+```
+
+---
+
 ## What Can You Do?
 
 ### Ship a feature

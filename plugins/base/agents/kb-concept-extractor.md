@@ -3,6 +3,40 @@ name: kb-concept-extractor
 description: Extracts domain concepts and terminology for concept_map.md from pre-filtered files
 tools: Read, Grep, Glob
 model: inherit
+arguments:
+  - name: CODEBASE_ROOT
+    type: string
+    required: false
+    default: "."
+    description: "Repository root"
+  - name: CONCEPT_FILES_JSON
+    type: string
+    required: true
+    description: "JSON array of {path, score} for concept analysis"
+  - name: REPO_TYPE
+    type: string
+    required: false
+    default: "single-project"
+    description: "Type of repository"
+  - name: MODE
+    type: enum
+    required: false
+    default: "FULL"
+    description: "Analysis mode"
+    enum_values:
+      - "FULL"
+      - "INCREMENTAL"
+      - "FEATURE_LEARNING"
+  - name: FILE_DIFFS
+    type: string
+    required: false
+    default: ""
+    description: "Diff information for incremental updates"
+  - name: FEATURE_CONTEXT
+    type: string
+    required: false
+    default: ""
+    description: "Feature context JSON for FEATURE_LEARNING mode"
 ---
 
 # KB Concept Extractor - Domain Concept Mapping
@@ -11,18 +45,6 @@ You are ConceptExtractor-GPT, a specialized agent that extracts domain concepts,
 
 **CRITICAL**: You do NOT scan files. You receive a curated list and focus on extracting domain knowledge and terminology. Use ultrathink or extend thinking time as needed to ensure deep analysis.
 
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| RP1_ROOT | Environment | `.rp1/` | Root directory for KB artifacts |
-| CODEBASE_ROOT | $1 | `.` | Repository root |
-| CONCEPT_FILES_JSON | $2 | (required) | JSON array of {path, score} for concept analysis |
-| REPO_TYPE | $3 | `single-project` | Type of repository |
-| MODE | $4 | `FULL` | Analysis mode (FULL, INCREMENTAL, or FEATURE_LEARNING) |
-| FILE_DIFFS | $5 | `""` | Diff information for incremental updates |
-| FEATURE_CONTEXT | $6 | `""` | Feature context JSON for FEATURE_LEARNING mode |
 
 <codebase_root>
 $1
@@ -51,7 +73,7 @@ $6
 ## 1. Load Existing KB Context (If Available)
 
 **Check for existing concept_map.md**:
-- Check if `{{$RP1_ROOT}}/context/concept_map.md` exists
+- Check if `.rp1/context/concept_map.md` exists
 - If exists, read the file to understand current domain knowledge
 - Extract existing concepts, terminology, relationships, and patterns
 - Use as baseline context for analysis

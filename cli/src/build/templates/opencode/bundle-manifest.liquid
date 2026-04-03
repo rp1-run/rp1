@@ -1,8 +1,10 @@
 {
   "plugins": {
     "base": {{ artifact.baseJson }},
-    "dev": {{ artifact.devJson }},
+    "dev": {{ artifact.devJson }}
+{%- if artifact.utilsJson %},
     "utils": {{ artifact.utilsJson }}
+{%- endif %}
   },
   "version": "{{ version }}",
   "buildTimestamp": "{{ buildTimestamp }}"

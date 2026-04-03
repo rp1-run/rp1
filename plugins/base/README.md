@@ -28,7 +28,7 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
     - Single project: `/deep-research "understand the authentication flow in this codebase"`
     - Multi-project: `/deep-research "compare error handling patterns across projects A, B, C"`
     - Technical investigation: `/deep-research "best practices for integrating Redis caching"`
-  - **Output**: Structured reports saved to `{{$RP1_ROOT}}/work/research/YYYY-MM-DD-<topic>.md`
+  - **Output**: Structured reports saved to `.rp1/work/research/YYYY-MM-DD-<topic>.md`
   - **Features**: Intent clarification, KB-aware exploration, web search integration, ultrathink synthesis
 
 ### Documentation & Strategy

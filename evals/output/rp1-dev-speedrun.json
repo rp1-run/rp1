@@ -1,0 +1,2038 @@
+{
+  "evalId": "eval-bMD-2026-04-03T02:08:39",
+  "results": {
+    "version": 3,
+    "timestamp": "2026-04-03T02:08:39.409Z",
+    "prompts": [
+      {
+        "raw": "/rp1-dev:speedrun \"{{REQUEST}}\"",
+        "label": "suites/rp1-dev/speedrun/prompt.txt: /rp1-dev:speedrun \"{{REQUEST}}\"",
+        "id": "709015575d5344366323cc28be117c1b03e3d8cdaa54eb64d4a34e4016522c24",
+        "provider": "rp1-agentic-eval",
+        "metrics": {
+          "score": 3,
+          "testPassCount": 3,
+          "testFailCount": 0,
+          "testErrorCount": 0,
+          "assertPassCount": 8,
+          "assertFailCount": 0,
+          "totalLatencyMs": 204374,
+          "tokenUsage": {
+            "prompt": 57,
+            "completion": 6360,
+            "cached": 0,
+            "total": 6417,
+            "numRequests": 3,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0
+            },
+            "assertions": {
+              "total": 12824,
+              "prompt": 12288,
+              "completion": 536,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0
+              }
+            }
+          },
+          "namedScores": {},
+          "namedScoresCount": {},
+          "cost": 0
+        }
+      }
+    ],
+    "results": [
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 5423,
+            "prompt": 5203,
+            "completion": 220,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "speedrun-builder spawned"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Found Bash tool call matching (input) =>\n\t\tinput.command.includes(\"rp1 agent-tools emit\") &&\n\t\tinput.command.includes(\"--type status_change\") &&\n\t\tinput.command.includes(\"--run-id\")"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Found Bash tool call matching (input) =>\n\t\tinput.command.includes(\"rp1 agent-tools emit\") &&\n\t\tinput.command.includes(\"--type artifact_registered\") &&\n\t\tinput.command.includes(\"--run-id\")"
+            },
+            {
+              "assertion": {
+                "type": "llm-rubric",
+                "value": "Evaluate the speedrun agent's orchestration behavior for a small request.\n\nNOTE: Sub-agent tool calls (Write, Edit, Bash, etc.) appear in metadata alongside\nthe orchestrator's calls — they CANNOT be distinguished. Only evaluate the\norchestrator's OUTPUT TEXT and delegation behavior, not raw tool call metadata.\n\nREQUIRED (all must pass):\n1. Agent spawns speedrun-builder sub-agent for implementation (visible in Agent/Task tool calls)\n2. Agent does NOT spawn build-fast-planner or task-builder (those are build-fast agents)\n3. Agent presents a post-build prompt with options including: commit, refine, new task, exit\n4. Agent tracks task count across the session\n\nPASS if: Small request delegated to speedrun-builder with post-build prompt options\nFAIL if: Agent uses build-fast pipeline agents or never presents post-build options\n"
+              },
+              "pass": true,
+              "score": 1,
+              "reason": "The output demonstrates proper speedrun agent orchestration: (1) The agent spawned a speedrun-builder sub-agent via the Task tool call with input 'subagent_type: rp1-dev:speedrun-builder' for the hello world implementation. (2) No build-fast-planner or task-builder agents were invoked - only speedrun-builder was used. (3) A post-build prompt was presented via AskUserQuestion with all four required options: 'Commit & move on', 'Refine', 'New task (no commit)', and 'Exit'. (4) Task tracking is visible with 'Tasks Completed: 1' in the session summary and task-1 unit references throughout the metadata. The agent correctly delegated the small request to the appropriate speedrun sub-agent and followed the expected workflow pattern.",
+              "tokensUsed": {
+                "total": 5423,
+                "prompt": 5203,
+                "completion": 220,
+                "cached": 0,
+                "numRequests": 0,
+                "completionDetails": {
+                  "reasoning": 0,
+                  "acceptedPrediction": 0,
+                  "rejectedPrediction": 0
+                }
+              },
+              "metadata": {
+                "renderedGradingPrompt": "[{\"role\":\"system\",\"content\":\"You are grading output according to a user-specified rubric. If the statement in the rubric is true, then the output passes the test. You respond with a JSON object with this structure: {reason: string, pass: boolean, score: number}\\n\\nExamples:\\n\\n<Output>Hello world</Output>\\n<Rubric>Content contains a greeting</Rubric>\\n{\\\"reason\\\": \\\"the content contains the word 'Hello'\\\", \\\"pass\\\": true, \\\"score\\\": 1.0}\\n\\n<Output>Avast ye swabs, repel the invaders!</Output>\\n<Rubric>Does not speak like a pirate</Rubric>\\n{\\\"reason\\\": \\\"'avast ye' is a common pirate term\\\", \\\"pass\\\": false, \\\"score\\\": 0.0}\"},{\"role\":\"user\",\"content\":\"<Output>\\nPerfect! ✅ **Task completed successfully**\\n\\n## Session Summary\\n\\n**Tasks Completed**: 1\\n\\n**What was done:**\\n- Created `src/hello.ts` with a simple hello world script\\n- The script includes a JSDoc comment and a `console.log(\\\"Hello, World!\\\")` statement\\n- All lint, format, and test checks passed\\n- Changes committed with a conventional commit message\\n\\nThe speedrun session has ended. The hello world script is now in your codebase at `src/hello.ts` and committed to your repository.\\n\\n## Metadata\\n\\n```json\\n{\\n  \\\"toolCalls\\\": [\\n    {\\n      \\\"id\\\": \\\"toolu_01S1BV3y8AktH1oHtAWTTzg3\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \\\\\\\"add a simple hello world script at src/hello.ts\\\\\\\"\\\",\\n        \\\"description\\\": \\\"Resolve speedrun arguments\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01QernhBauNcAxyAUckeS2Vt\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"\\\\n# Generate RUN_ID and capture datestamp\\\\nRUN_ID=\\\\\\\"$(uuidgen | tr '[:upper:]' '[:lower:]')\\\\\\\"\\\\nDATESTAMP=\\\\\\\"$(date +%Y-%m-%d)\\\\\\\"\\\\necho \\\\\\\"RUN_ID=$RUN_ID\\\\\\\"\\\\necho \\\\\\\"DATESTAMP=$DATESTAMP\\\\\\\"\\\\n\\\",\\n        \\\"description\\\": \\\"Generate session identifiers\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01E6u4R8JgxDuu4PWbbJZSvJ\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"\\\\nrp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type status_change \\\\\\\\\\\\n  --run-id \\\\\\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\\\\\" \\\\\\\\\\\\n  --name \\\\\\\"Feature: Add hello world script\\\\\\\" \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --data '{\\\\\\\"status\\\\\\\": \\\\\\\"running\\\\\\\"}'\\\\n\\\",\\n        \\\"description\\\": \\\"Emit session start status\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_012JcrnqTcsCMY1oZ7HaQiLF\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"\\\\nrp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type status_change \\\\\\\\\\\\n  --run-id \\\\\\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\\\\\" \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"status\\\\\\\": \\\\\\\"running\\\\\\\", \\\\\\\"request\\\\\\\": \\\\\\\"Add hello world script at src/hello.ts\\\\\\\"}'\\\\n\\\",\\n        \\\"description\\\": \\\"Emit task 1 start status\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01F48Enz2xYHPJji91nt3aA1\\\",\\n      \\\"name\\\": \\\"Task\\\",\\n      \\\"canonical\\\": \\\"subagent\\\",\\n      \\\"input\\\": {\\n        \\\"subagent_type\\\": \\\"rp1-dev:speedrun-builder\\\",\\n        \\\"description\\\": \\\"Add hello world script to src/hello.ts\\\",\\n        \\\"prompt\\\": \\\"Implement the following change in the codebase:\\\\n\\\\nAdd a simple hello world script at src/hello.ts\\\\n\\\\nKeep changes minimal and focused. Run any relevant lint/format/test checks after making changes. Do NOT commit.\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01Dj2Ur5P1NCXrqy3SYS955m\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"ls /private/tmp/rp1-evals/7ef66005/workspace/\\\",\\n        \\\"description\\\": \\\"List workspace root directory\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01KjAQLoiiNUb4MMMQtDzZLc\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"ls /private/tmp/rp1-evals/7ef66005/workspace/src/ 2>/dev/null || echo \\\\\\\"src directory does not exist\\\\\\\"\\\",\\n        \\\"description\\\": \\\"Check if src directory exists\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01GdvAeAPHecYFQqz7fmwvJc\\\",\\n      \\\"name\\\": \\\"Read\\\",\\n      \\\"canonical\\\": \\\"read\\\",\\n      \\\"input\\\": {\\n        \\\"file_path\\\": \\\"/private/tmp/rp1-evals/7ef66005/workspace/src/index.ts\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01D9jRCkAcAhxoY44w4vDd5S\\\",\\n      \\\"name\\\": \\\"Read\\\",\\n      \\\"canonical\\\": \\\"read\\\",\\n      \\\"input\\\": {\\n        \\\"file_path\\\": \\\"/private/tmp/rp1-evals/7ef66005/workspace/package.json\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01YDUkyfXjmVT6iKx5PjogmG\\\",\\n      \\\"name\\\": \\\"Read\\\",\\n      \\\"canonical\\\": \\\"read\\\",\\n      \\\"input\\\": {\\n        \\\"file_path\\\": \\\"/private/tmp/rp1-evals/7ef66005/workspace/tsconfig.json\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01SVSfYjFSL13mz8P3oWHvxr\\\",\\n      \\\"name\\\": \\\"Write\\\",\\n      \\\"canonical\\\": \\\"write\\\",\\n      \\\"input\\\": {\\n        \\\"file_path\\\": \\\"/private/tmp/rp1-evals/7ef66005/workspace/src/hello.ts\\\",\\n        \\\"content\\\": \\\"/**\\\\n * Simple hello world script.\\\\n */\\\\n\\\\nconsole.log(\\\\\\\"Hello, World!\\\\\\\");\\\\n\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01QSUZVVd7MbtHuUncmbYJzZ\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"bun run lint\\\",\\n        \\\"description\\\": \\\"Run lint check\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_017g6q9kRbkNQKeodVo6r9aA\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"bun run format\\\",\\n        \\\"description\\\": \\\"Run format check\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01VF876MhteJMzN2kMC3bcdB\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"bun test\\\",\\n        \\\"description\\\": \\\"Run tests\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01SC1KEwfPAwB8G9LkQ7VtMD\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"\\\\nrp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type waiting_for_user \\\\\\\\\\\\n  --run-id \\\\\\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\\\\\" \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"prompt\\\\\\\": \\\\\\\"What would you like to do next?\\\\\\\", \\\\\\\"context\\\\\\\": \\\\\\\"Post-build prompt after speedrun builder completes\\\\\\\"}'\\\\n\\\",\\n        \\\"description\\\": \\\"Emit waiting for user status\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01XYAUrPiLMDzTmyYTELewwq\\\",\\n      \\\"name\\\": \\\"AskUserQuestion\\\",\\n      \\\"canonical\\\": \\\"ask_user\\\",\\n      \\\"input\\\": {\\n        \\\"questions\\\": [\\n          {\\n            \\\"question\\\": \\\"What would you like to do next?\\\",\\n            \\\"header\\\": \\\"Next Action\\\",\\n            \\\"multiSelect\\\": false,\\n            \\\"options\\\": [\\n              {\\n                \\\"label\\\": \\\"Commit & move on\\\",\\n                \\\"description\\\": \\\"Commit the changes with a conventional commit message, then proceed to the next task\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"Refine\\\",\\n                \\\"description\\\": \\\"Make changes to the script before committing\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"New task (no commit)\\\",\\n                \\\"description\\\": \\\"Start a new task without committing this change\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"Exit\\\",\\n                \\\"description\\\": \\\"End the speedrun session\\\"\\n              }\\n            ]\\n          }\\n        ]\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01XYAUrPiLMDzTmyYTELewwq\\\",\\n      \\\"name\\\": \\\"AskUserQuestion\\\",\\n      \\\"canonical\\\": \\\"ask_user\\\",\\n      \\\"input\\\": {\\n        \\\"questions\\\": [\\n          {\\n            \\\"question\\\": \\\"What would you like to do next?\\\",\\n            \\\"header\\\": \\\"Next Action\\\",\\n            \\\"options\\\": [\\n              {\\n                \\\"label\\\": \\\"Commit & move on\\\",\\n                \\\"description\\\": \\\"Commit the changes with a conventional commit message, then proceed to the next task\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"Refine\\\",\\n                \\\"description\\\": \\\"Make changes to the script before committing\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"New task (no commit)\\\",\\n                \\\"description\\\": \\\"Start a new task without committing this change\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"Exit\\\",\\n                \\\"description\\\": \\\"End the speedrun session\\\"\\n              }\\n            ],\\n            \\\"multiSelect\\\": false\\n          }\\n        ]\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_015aKs23TdUs5ANQxu1uA4Gp\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"git add src/hello.ts && git commit -m \\\\\\\"$(cat <<'EOF'\\\\nfeat: add simple hello world script\\\\n\\\\nCreated src/hello.ts with a basic console.log statement following project\\\\nconventions. All tests and linting checks pass.\\\\n\\\\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\\\\nEOF\\\\n)\\\\\\\"\\\",\\n        \\\"description\\\": \\\"Commit the hello world script\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01HP77hrExAe7nc97MRrH27t\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"\\\\nrp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type status_change \\\\\\\\\\\\n  --run-id \\\\\\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\\\\\" \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"status\\\\\\\": \\\\\\\"completed\\\\\\\"}'\\\\n\\\",\\n        \\\"description\\\": \\\"Emit task completion status\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01X436BC85XoTQu3AL5pA6cd\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"mkdir -p \\\\\\\"/private/tmp/rp1-evals/7ef66005/workspace/.rp1/work/speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\\\\\"\\\",\\n        \\\"description\\\": \\\"Create session log directory\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_011gtr46zNToAGqmncQ2fs9Q\\\",\\n      \\\"name\\\": \\\"Write\\\",\\n      \\\"canonical\\\": \\\"write\\\",\\n      \\\"input\\\": {\\n        \\\"file_path\\\": \\\"/private/tmp/rp1-evals/7ef66005/workspace/.rp1/work/speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9/session-log.md\\\",\\n        \\\"content\\\": \\\"# Speedrun Session Log\\\\n\\\\n| # | Request | Change | Status |\\\\n|---|---------|--------|--------|\\\\n| 1 | Add hello world script at src/hello.ts | Created src/hello.ts with console.log(\\\\\\\"Hello, World!\\\\\\\") | committed |\\\\n\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01A1uqoN363C2GsgsjgswqCi\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"\\\\nrp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type artifact_registered \\\\\\\\\\\\n  --run-id \\\\\\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\\\\\" \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"path\\\\\\\": \\\\\\\"speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9/session-log.md\\\\\\\", \\\\\\\"storageRoot\\\\\\\": \\\\\\\"work_dir\\\\\\\", \\\\\\\"format\\\\\\\": \\\\\\\"markdown\\\\\\\"}'\\\\n\\\",\\n        \\\"description\\\": \\\"Register session log as artifact\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    }\\n  ],\\n  \\\"bashCommands\\\": [\\n    \\\"rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \\\\\\\"add a simple hello world script at src/hello.ts\\\\\\\"\\\",\\n    \\\"\\\\n# Generate RUN_ID and capture datestamp\\\\nRUN_ID=\\\\\\\"$(uuidgen | tr '[:upper:]' '[:lower:]')\\\\\\\"\\\\nDATESTAMP=\\\\\\\"$(date +%Y-%m-%d)\\\\\\\"\\\\necho \\\\\\\"RUN_ID=$RUN_ID\\\\\\\"\\\\necho \\\\\\\"DATESTAMP=$DATESTAMP\\\\\\\"\\\\n\\\",\\n    \\\"\\\\nrp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type status_change \\\\\\\\\\\\n  --run-id \\\\\\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\\\\\" \\\\\\\\\\\\n  --name \\\\\\\"Feature: Add hello world script\\\\\\\" \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --data '{\\\\\\\"status\\\\\\\": \\\\\\\"running\\\\\\\"}'\\\\n\\\",\\n    \\\"\\\\nrp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type status_change \\\\\\\\\\\\n  --run-id \\\\\\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\\\\\" \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"status\\\\\\\": \\\\\\\"running\\\\\\\", \\\\\\\"request\\\\\\\": \\\\\\\"Add hello world script at src/hello.ts\\\\\\\"}'\\\\n\\\",\\n    \\\"ls /private/tmp/rp1-evals/7ef66005/workspace/\\\",\\n    \\\"ls /private/tmp/rp1-evals/7ef66005/workspace/src/ 2>/dev/null || echo \\\\\\\"src directory does not exist\\\\\\\"\\\",\\n    \\\"bun run lint\\\",\\n    \\\"bun run format\\\",\\n    \\\"bun test\\\",\\n    \\\"\\\\nrp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type waiting_for_user \\\\\\\\\\\\n  --run-id \\\\\\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\\\\\" \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"prompt\\\\\\\": \\\\\\\"What would you like to do next?\\\\\\\", \\\\\\\"context\\\\\\\": \\\\\\\"Post-build prompt after speedrun builder completes\\\\\\\"}'\\\\n\\\",\\n    \\\"git add src/hello.ts && git commit -m \\\\\\\"$(cat <<'EOF'\\\\nfeat: add simple hello world script\\\\n\\\\nCreated src/hello.ts with a basic console.log statement following project\\\\nconventions. All tests and linting checks pass.\\\\n\\\\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\\\\nEOF\\\\n)\\\\\\\"\\\",\\n    \\\"\\\\nrp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type status_change \\\\\\\\\\\\n  --run-id \\\\\\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\\\\\" \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"status\\\\\\\": \\\\\\\"completed\\\\\\\"}'\\\\n\\\",\\n    \\\"mkdir -p \\\\\\\"/private/tmp/rp1-evals/7ef66005/workspace/.rp1/work/speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\\\\\"\\\",\\n    \\\"\\\\nrp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type artifact_registered \\\\\\\\\\\\n  --run-id \\\\\\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\\\\\" \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"path\\\\\\\": \\\\\\\"speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9/session-log.md\\\\\\\", \\\\\\\"storageRoot\\\\\\\": \\\\\\\"work_dir\\\\\\\", \\\\\\\"format\\\\\\\": \\\\\\\"markdown\\\\\\\"}'\\\\n\\\"\\n  ],\\n  \\\"toolCallCount\\\": 22\\n}\\n```\\n</Output>\\n<Rubric>\\nEvaluate the speedrun agent's orchestration behavior for a small request.\\n\\nNOTE: Sub-agent tool calls (Write, Edit, Bash, etc.) appear in metadata alongside\\nthe orchestrator's calls — they CANNOT be distinguished. Only evaluate the\\norchestrator's OUTPUT TEXT and delegation behavior, not raw tool call metadata.\\n\\nREQUIRED (all must pass):\\n1. Agent spawns speedrun-builder sub-agent for implementation (visible in Agent/Task tool calls)\\n2. Agent does NOT spawn build-fast-planner or task-builder (those are build-fast agents)\\n3. Agent presents a post-build prompt with options including: commit, refine, new task, exit\\n4. Agent tracks task count across the session\\n\\nPASS if: Small request delegated to speedrun-builder with post-build prompt options\\nFAIL if: Agent uses build-fast pipeline agents or never presents post-build options\\n\\n</Rubric>\"}]"
+              }
+            }
+          ]
+        },
+        "id": "a1a1b1db-24c3-44a9-abc2-4eb12a5692c7",
+        "latencyMs": 83230,
+        "namedScores": {},
+        "prompt": {
+          "raw": "/rp1-dev:speedrun \"add a simple hello world script at src/hello.ts\"",
+          "label": "suites/rp1-dev/speedrun/prompt.txt: /rp1-dev:speedrun \"{{REQUEST}}\"",
+          "config": {
+            "provider": {
+              "id": "anthropic:claude-haiku-4-5-20251001",
+              "config": {
+                "temperature": 0
+              }
+            }
+          }
+        },
+        "promptId": "709015575d5344366323cc28be117c1b03e3d8cdaa54eb64d4a34e4016522c24",
+        "promptIdx": 0,
+        "provider": {
+          "id": "claude-with-tools",
+          "label": "rp1-agentic-eval"
+        },
+        "response": {
+          "output": "Perfect! ✅ **Task completed successfully**\n\n## Session Summary\n\n**Tasks Completed**: 1\n\n**What was done:**\n- Created `src/hello.ts` with a simple hello world script\n- The script includes a JSDoc comment and a `console.log(\"Hello, World!\")` statement\n- All lint, format, and test checks passed\n- Changes committed with a conventional commit message\n\nThe speedrun session has ended. The hello world script is now in your codebase at `src/hello.ts` and committed to your repository.\n\n## Metadata\n\n```json\n{\n  \"toolCalls\": [\n    {\n      \"id\": \"toolu_01S1BV3y8AktH1oHtAWTTzg3\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \\\"add a simple hello world script at src/hello.ts\\\"\",\n        \"description\": \"Resolve speedrun arguments\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01QernhBauNcAxyAUckeS2Vt\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"\\n# Generate RUN_ID and capture datestamp\\nRUN_ID=\\\"$(uuidgen | tr '[:upper:]' '[:lower:]')\\\"\\nDATESTAMP=\\\"$(date +%Y-%m-%d)\\\"\\necho \\\"RUN_ID=$RUN_ID\\\"\\necho \\\"DATESTAMP=$DATESTAMP\\\"\\n\",\n        \"description\": \"Generate session identifiers\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01E6u4R8JgxDuu4PWbbJZSvJ\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"\\nrp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type status_change \\\\\\n  --run-id \\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\" \\\\\\n  --name \\\"Feature: Add hello world script\\\" \\\\\\n  --step active \\\\\\n  --data '{\\\"status\\\": \\\"running\\\"}'\\n\",\n        \"description\": \"Emit session start status\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_012JcrnqTcsCMY1oZ7HaQiLF\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"\\nrp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type status_change \\\\\\n  --run-id \\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\" \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"status\\\": \\\"running\\\", \\\"request\\\": \\\"Add hello world script at src/hello.ts\\\"}'\\n\",\n        \"description\": \"Emit task 1 start status\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01F48Enz2xYHPJji91nt3aA1\",\n      \"name\": \"Task\",\n      \"canonical\": \"subagent\",\n      \"input\": {\n        \"subagent_type\": \"rp1-dev:speedrun-builder\",\n        \"description\": \"Add hello world script to src/hello.ts\",\n        \"prompt\": \"Implement the following change in the codebase:\\n\\nAdd a simple hello world script at src/hello.ts\\n\\nKeep changes minimal and focused. Run any relevant lint/format/test checks after making changes. Do NOT commit.\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01Dj2Ur5P1NCXrqy3SYS955m\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"ls /private/tmp/rp1-evals/7ef66005/workspace/\",\n        \"description\": \"List workspace root directory\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_01KjAQLoiiNUb4MMMQtDzZLc\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"ls /private/tmp/rp1-evals/7ef66005/workspace/src/ 2>/dev/null || echo \\\"src directory does not exist\\\"\",\n        \"description\": \"Check if src directory exists\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_01GdvAeAPHecYFQqz7fmwvJc\",\n      \"name\": \"Read\",\n      \"canonical\": \"read\",\n      \"input\": {\n        \"file_path\": \"/private/tmp/rp1-evals/7ef66005/workspace/src/index.ts\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_01D9jRCkAcAhxoY44w4vDd5S\",\n      \"name\": \"Read\",\n      \"canonical\": \"read\",\n      \"input\": {\n        \"file_path\": \"/private/tmp/rp1-evals/7ef66005/workspace/package.json\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_01YDUkyfXjmVT6iKx5PjogmG\",\n      \"name\": \"Read\",\n      \"canonical\": \"read\",\n      \"input\": {\n        \"file_path\": \"/private/tmp/rp1-evals/7ef66005/workspace/tsconfig.json\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_01SVSfYjFSL13mz8P3oWHvxr\",\n      \"name\": \"Write\",\n      \"canonical\": \"write\",\n      \"input\": {\n        \"file_path\": \"/private/tmp/rp1-evals/7ef66005/workspace/src/hello.ts\",\n        \"content\": \"/**\\n * Simple hello world script.\\n */\\n\\nconsole.log(\\\"Hello, World!\\\");\\n\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_01QSUZVVd7MbtHuUncmbYJzZ\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"bun run lint\",\n        \"description\": \"Run lint check\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_017g6q9kRbkNQKeodVo6r9aA\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"bun run format\",\n        \"description\": \"Run format check\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_01VF876MhteJMzN2kMC3bcdB\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"bun test\",\n        \"description\": \"Run tests\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_01SC1KEwfPAwB8G9LkQ7VtMD\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"\\nrp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type waiting_for_user \\\\\\n  --run-id \\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\" \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"prompt\\\": \\\"What would you like to do next?\\\", \\\"context\\\": \\\"Post-build prompt after speedrun builder completes\\\"}'\\n\",\n        \"description\": \"Emit waiting for user status\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01XYAUrPiLMDzTmyYTELewwq\",\n      \"name\": \"AskUserQuestion\",\n      \"canonical\": \"ask_user\",\n      \"input\": {\n        \"questions\": [\n          {\n            \"question\": \"What would you like to do next?\",\n            \"header\": \"Next Action\",\n            \"multiSelect\": false,\n            \"options\": [\n              {\n                \"label\": \"Commit & move on\",\n                \"description\": \"Commit the changes with a conventional commit message, then proceed to the next task\"\n              },\n              {\n                \"label\": \"Refine\",\n                \"description\": \"Make changes to the script before committing\"\n              },\n              {\n                \"label\": \"New task (no commit)\",\n                \"description\": \"Start a new task without committing this change\"\n              },\n              {\n                \"label\": \"Exit\",\n                \"description\": \"End the speedrun session\"\n              }\n            ]\n          }\n        ]\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01XYAUrPiLMDzTmyYTELewwq\",\n      \"name\": \"AskUserQuestion\",\n      \"canonical\": \"ask_user\",\n      \"input\": {\n        \"questions\": [\n          {\n            \"question\": \"What would you like to do next?\",\n            \"header\": \"Next Action\",\n            \"options\": [\n              {\n                \"label\": \"Commit & move on\",\n                \"description\": \"Commit the changes with a conventional commit message, then proceed to the next task\"\n              },\n              {\n                \"label\": \"Refine\",\n                \"description\": \"Make changes to the script before committing\"\n              },\n              {\n                \"label\": \"New task (no commit)\",\n                \"description\": \"Start a new task without committing this change\"\n              },\n              {\n                \"label\": \"Exit\",\n                \"description\": \"End the speedrun session\"\n              }\n            ],\n            \"multiSelect\": false\n          }\n        ]\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_015aKs23TdUs5ANQxu1uA4Gp\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"git add src/hello.ts && git commit -m \\\"$(cat <<'EOF'\\nfeat: add simple hello world script\\n\\nCreated src/hello.ts with a basic console.log statement following project\\nconventions. All tests and linting checks pass.\\n\\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\\nEOF\\n)\\\"\",\n        \"description\": \"Commit the hello world script\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01HP77hrExAe7nc97MRrH27t\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"\\nrp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type status_change \\\\\\n  --run-id \\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\" \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"status\\\": \\\"completed\\\"}'\\n\",\n        \"description\": \"Emit task completion status\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01X436BC85XoTQu3AL5pA6cd\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"mkdir -p \\\"/private/tmp/rp1-evals/7ef66005/workspace/.rp1/work/speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\"\",\n        \"description\": \"Create session log directory\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_011gtr46zNToAGqmncQ2fs9Q\",\n      \"name\": \"Write\",\n      \"canonical\": \"write\",\n      \"input\": {\n        \"file_path\": \"/private/tmp/rp1-evals/7ef66005/workspace/.rp1/work/speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9/session-log.md\",\n        \"content\": \"# Speedrun Session Log\\n\\n| # | Request | Change | Status |\\n|---|---------|--------|--------|\\n| 1 | Add hello world script at src/hello.ts | Created src/hello.ts with console.log(\\\"Hello, World!\\\") | committed |\\n\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01A1uqoN363C2GsgsjgswqCi\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"\\nrp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type artifact_registered \\\\\\n  --run-id \\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\" \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"path\\\": \\\"speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9/session-log.md\\\", \\\"storageRoot\\\": \\\"work_dir\\\", \\\"format\\\": \\\"markdown\\\"}'\\n\",\n        \"description\": \"Register session log as artifact\"\n      },\n      \"source\": \"stream_event\"\n    }\n  ],\n  \"bashCommands\": [\n    \"rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \\\"add a simple hello world script at src/hello.ts\\\"\",\n    \"\\n# Generate RUN_ID and capture datestamp\\nRUN_ID=\\\"$(uuidgen | tr '[:upper:]' '[:lower:]')\\\"\\nDATESTAMP=\\\"$(date +%Y-%m-%d)\\\"\\necho \\\"RUN_ID=$RUN_ID\\\"\\necho \\\"DATESTAMP=$DATESTAMP\\\"\\n\",\n    \"\\nrp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type status_change \\\\\\n  --run-id \\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\" \\\\\\n  --name \\\"Feature: Add hello world script\\\" \\\\\\n  --step active \\\\\\n  --data '{\\\"status\\\": \\\"running\\\"}'\\n\",\n    \"\\nrp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type status_change \\\\\\n  --run-id \\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\" \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"status\\\": \\\"running\\\", \\\"request\\\": \\\"Add hello world script at src/hello.ts\\\"}'\\n\",\n    \"ls /private/tmp/rp1-evals/7ef66005/workspace/\",\n    \"ls /private/tmp/rp1-evals/7ef66005/workspace/src/ 2>/dev/null || echo \\\"src directory does not exist\\\"\",\n    \"bun run lint\",\n    \"bun run format\",\n    \"bun test\",\n    \"\\nrp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type waiting_for_user \\\\\\n  --run-id \\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\" \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"prompt\\\": \\\"What would you like to do next?\\\", \\\"context\\\": \\\"Post-build prompt after speedrun builder completes\\\"}'\\n\",\n    \"git add src/hello.ts && git commit -m \\\"$(cat <<'EOF'\\nfeat: add simple hello world script\\n\\nCreated src/hello.ts with a basic console.log statement following project\\nconventions. All tests and linting checks pass.\\n\\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\\nEOF\\n)\\\"\",\n    \"\\nrp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type status_change \\\\\\n  --run-id \\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\" \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"status\\\": \\\"completed\\\"}'\\n\",\n    \"mkdir -p \\\"/private/tmp/rp1-evals/7ef66005/workspace/.rp1/work/speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\"\",\n    \"\\nrp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type artifact_registered \\\\\\n  --run-id \\\"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\\\" \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"path\\\": \\\"speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9/session-log.md\\\", \\\"storageRoot\\\": \\\"work_dir\\\", \\\"format\\\": \\\"markdown\\\"}'\\n\"\n  ],\n  \"toolCallCount\": 22\n}\n```",
+          "tokenUsage": {
+            "prompt": 17,
+            "completion": 2467,
+            "total": 2484
+          },
+          "metadata": {
+            "toolCalls": [
+              {
+                "id": "toolu_01S1BV3y8AktH1oHtAWTTzg3",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \"add a simple hello world script at src/hello.ts\"",
+                  "description": "Resolve speedrun arguments"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01QernhBauNcAxyAUckeS2Vt",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "\n# Generate RUN_ID and capture datestamp\nRUN_ID=\"$(uuidgen | tr '[:upper:]' '[:lower:]')\"\nDATESTAMP=\"$(date +%Y-%m-%d)\"\necho \"RUN_ID=$RUN_ID\"\necho \"DATESTAMP=$DATESTAMP\"\n",
+                  "description": "Generate session identifiers"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01E6u4R8JgxDuu4PWbbJZSvJ",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --name \"Feature: Add hello world script\" \\\n  --step active \\\n  --data '{\"status\": \"running\"}'\n",
+                  "description": "Emit session start status"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_012JcrnqTcsCMY1oZ7HaQiLF",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"running\", \"request\": \"Add hello world script at src/hello.ts\"}'\n",
+                  "description": "Emit task 1 start status"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01F48Enz2xYHPJji91nt3aA1",
+                "name": "Task",
+                "canonical": "subagent",
+                "input": {
+                  "subagent_type": "rp1-dev:speedrun-builder",
+                  "description": "Add hello world script to src/hello.ts",
+                  "prompt": "Implement the following change in the codebase:\n\nAdd a simple hello world script at src/hello.ts\n\nKeep changes minimal and focused. Run any relevant lint/format/test checks after making changes. Do NOT commit."
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01Dj2Ur5P1NCXrqy3SYS955m",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "ls /private/tmp/rp1-evals/7ef66005/workspace/",
+                  "description": "List workspace root directory"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_01KjAQLoiiNUb4MMMQtDzZLc",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "ls /private/tmp/rp1-evals/7ef66005/workspace/src/ 2>/dev/null || echo \"src directory does not exist\"",
+                  "description": "Check if src directory exists"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_01GdvAeAPHecYFQqz7fmwvJc",
+                "name": "Read",
+                "canonical": "read",
+                "input": {
+                  "file_path": "/private/tmp/rp1-evals/7ef66005/workspace/src/index.ts"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_01D9jRCkAcAhxoY44w4vDd5S",
+                "name": "Read",
+                "canonical": "read",
+                "input": {
+                  "file_path": "/private/tmp/rp1-evals/7ef66005/workspace/package.json"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_01YDUkyfXjmVT6iKx5PjogmG",
+                "name": "Read",
+                "canonical": "read",
+                "input": {
+                  "file_path": "/private/tmp/rp1-evals/7ef66005/workspace/tsconfig.json"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_01SVSfYjFSL13mz8P3oWHvxr",
+                "name": "Write",
+                "canonical": "write",
+                "input": {
+                  "file_path": "/private/tmp/rp1-evals/7ef66005/workspace/src/hello.ts",
+                  "content": "/**\n * Simple hello world script.\n */\n\nconsole.log(\"Hello, World!\");\n"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_01QSUZVVd7MbtHuUncmbYJzZ",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "bun run lint",
+                  "description": "Run lint check"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_017g6q9kRbkNQKeodVo6r9aA",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "bun run format",
+                  "description": "Run format check"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_01VF876MhteJMzN2kMC3bcdB",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "bun test",
+                  "description": "Run tests"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_01SC1KEwfPAwB8G9LkQ7VtMD",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type waiting_for_user \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"prompt\": \"What would you like to do next?\", \"context\": \"Post-build prompt after speedrun builder completes\"}'\n",
+                  "description": "Emit waiting for user status"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01XYAUrPiLMDzTmyYTELewwq",
+                "name": "AskUserQuestion",
+                "canonical": "ask_user",
+                "input": {
+                  "questions": [
+                    {
+                      "question": "What would you like to do next?",
+                      "header": "Next Action",
+                      "multiSelect": false,
+                      "options": [
+                        {
+                          "label": "Commit & move on",
+                          "description": "Commit the changes with a conventional commit message, then proceed to the next task"
+                        },
+                        {
+                          "label": "Refine",
+                          "description": "Make changes to the script before committing"
+                        },
+                        {
+                          "label": "New task (no commit)",
+                          "description": "Start a new task without committing this change"
+                        },
+                        {
+                          "label": "Exit",
+                          "description": "End the speedrun session"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01XYAUrPiLMDzTmyYTELewwq",
+                "name": "AskUserQuestion",
+                "canonical": "ask_user",
+                "input": {
+                  "questions": [
+                    {
+                      "question": "What would you like to do next?",
+                      "header": "Next Action",
+                      "options": [
+                        {
+                          "label": "Commit & move on",
+                          "description": "Commit the changes with a conventional commit message, then proceed to the next task"
+                        },
+                        {
+                          "label": "Refine",
+                          "description": "Make changes to the script before committing"
+                        },
+                        {
+                          "label": "New task (no commit)",
+                          "description": "Start a new task without committing this change"
+                        },
+                        {
+                          "label": "Exit",
+                          "description": "End the speedrun session"
+                        }
+                      ],
+                      "multiSelect": false
+                    }
+                  ]
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_015aKs23TdUs5ANQxu1uA4Gp",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "git add src/hello.ts && git commit -m \"$(cat <<'EOF'\nfeat: add simple hello world script\n\nCreated src/hello.ts with a basic console.log statement following project\nconventions. All tests and linting checks pass.\n\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\nEOF\n)\"",
+                  "description": "Commit the hello world script"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01HP77hrExAe7nc97MRrH27t",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"completed\"}'\n",
+                  "description": "Emit task completion status"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01X436BC85XoTQu3AL5pA6cd",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "mkdir -p \"/private/tmp/rp1-evals/7ef66005/workspace/.rp1/work/speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\"",
+                  "description": "Create session log directory"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_011gtr46zNToAGqmncQ2fs9Q",
+                "name": "Write",
+                "canonical": "write",
+                "input": {
+                  "file_path": "/private/tmp/rp1-evals/7ef66005/workspace/.rp1/work/speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9/session-log.md",
+                  "content": "# Speedrun Session Log\n\n| # | Request | Change | Status |\n|---|---------|--------|--------|\n| 1 | Add hello world script at src/hello.ts | Created src/hello.ts with console.log(\"Hello, World!\") | committed |\n"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01A1uqoN363C2GsgsjgswqCi",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type artifact_registered \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"path\": \"speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9/session-log.md\", \"storageRoot\": \"work_dir\", \"format\": \"markdown\"}'\n",
+                  "description": "Register session log as artifact"
+                },
+                "source": "stream_event"
+              }
+            ],
+            "bashCommands": [
+              "rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \"add a simple hello world script at src/hello.ts\"",
+              "\n# Generate RUN_ID and capture datestamp\nRUN_ID=\"$(uuidgen | tr '[:upper:]' '[:lower:]')\"\nDATESTAMP=\"$(date +%Y-%m-%d)\"\necho \"RUN_ID=$RUN_ID\"\necho \"DATESTAMP=$DATESTAMP\"\n",
+              "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --name \"Feature: Add hello world script\" \\\n  --step active \\\n  --data '{\"status\": \"running\"}'\n",
+              "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"running\", \"request\": \"Add hello world script at src/hello.ts\"}'\n",
+              "ls /private/tmp/rp1-evals/7ef66005/workspace/",
+              "ls /private/tmp/rp1-evals/7ef66005/workspace/src/ 2>/dev/null || echo \"src directory does not exist\"",
+              "bun run lint",
+              "bun run format",
+              "bun test",
+              "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type waiting_for_user \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"prompt\": \"What would you like to do next?\", \"context\": \"Post-build prompt after speedrun builder completes\"}'\n",
+              "git add src/hello.ts && git commit -m \"$(cat <<'EOF'\nfeat: add simple hello world script\n\nCreated src/hello.ts with a basic console.log statement following project\nconventions. All tests and linting checks pass.\n\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\nEOF\n)\"",
+              "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"completed\"}'\n",
+              "mkdir -p \"/private/tmp/rp1-evals/7ef66005/workspace/.rp1/work/speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\"",
+              "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type artifact_registered \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"path\": \"speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9/session-log.md\", \"storageRoot\": \"work_dir\", \"format\": \"markdown\"}'\n"
+            ],
+            "toolCallCount": 22
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "small_request_delegates_to_subagent",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "file://../../shared/assertions/tool-calls.ts:assertSpeedrunBuilderSpawned"
+            },
+            {
+              "type": "javascript",
+              "value": "file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate"
+            },
+            {
+              "type": "javascript",
+              "value": "file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "Evaluate the speedrun agent's orchestration behavior for a small request.\n\nNOTE: Sub-agent tool calls (Write, Edit, Bash, etc.) appear in metadata alongside\nthe orchestrator's calls — they CANNOT be distinguished. Only evaluate the\norchestrator's OUTPUT TEXT and delegation behavior, not raw tool call metadata.\n\nREQUIRED (all must pass):\n1. Agent spawns speedrun-builder sub-agent for implementation (visible in Agent/Task tool calls)\n2. Agent does NOT spawn build-fast-planner or task-builder (those are build-fast agents)\n3. Agent presents a post-build prompt with options including: commit, refine, new task, exit\n4. Agent tracks task count across the session\n\nPASS if: Small request delegated to speedrun-builder with post-build prompt options\nFAIL if: Agent uses build-fast pipeline agents or never presents post-build options\n"
+            }
+          ],
+          "vars": {
+            "REQUEST": "add a simple hello world script at src/hello.ts",
+            "EVAL_BASE_DIR": "/tmp/rp1-evals/7ef66005",
+            "WORKSPACE_DIR": "/tmp/rp1-evals/7ef66005/workspace",
+            "REMOTE_DIR": "/tmp/rp1-evals/7ef66005/remote.git",
+            "GIT_HEAD_BEFORE": "83983bf07d61db23b3d43ba021e5dc2b5a6d872d",
+            "GIT_COUNT_BEFORE": "1",
+            "GIT_REMOTE_HEAD_BEFORE": "83983bf07d61db23b3d43ba021e5dc2b5a6d872d"
+          },
+          "options": {
+            "provider": {
+              "id": "anthropic:claude-haiku-4-5-20251001",
+              "config": {
+                "temperature": 0
+              }
+            }
+          },
+          "metadata": {}
+        },
+        "testIdx": 0,
+        "vars": {
+          "REQUEST": "add a simple hello world script at src/hello.ts",
+          "EVAL_BASE_DIR": "/tmp/rp1-evals/7ef66005",
+          "WORKSPACE_DIR": "/tmp/rp1-evals/7ef66005/workspace",
+          "REMOTE_DIR": "/tmp/rp1-evals/7ef66005/remote.git",
+          "GIT_HEAD_BEFORE": "83983bf07d61db23b3d43ba021e5dc2b5a6d872d",
+          "GIT_COUNT_BEFORE": "1",
+          "GIT_REMOTE_HEAD_BEFORE": "83983bf07d61db23b3d43ba021e5dc2b5a6d872d"
+        },
+        "metadata": {
+          "toolCalls": [
+            {
+              "id": "toolu_01S1BV3y8AktH1oHtAWTTzg3",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \"add a simple hello world script at src/hello.ts\"",
+                "description": "Resolve speedrun arguments"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01QernhBauNcAxyAUckeS2Vt",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "\n# Generate RUN_ID and capture datestamp\nRUN_ID=\"$(uuidgen | tr '[:upper:]' '[:lower:]')\"\nDATESTAMP=\"$(date +%Y-%m-%d)\"\necho \"RUN_ID=$RUN_ID\"\necho \"DATESTAMP=$DATESTAMP\"\n",
+                "description": "Generate session identifiers"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01E6u4R8JgxDuu4PWbbJZSvJ",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --name \"Feature: Add hello world script\" \\\n  --step active \\\n  --data '{\"status\": \"running\"}'\n",
+                "description": "Emit session start status"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_012JcrnqTcsCMY1oZ7HaQiLF",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"running\", \"request\": \"Add hello world script at src/hello.ts\"}'\n",
+                "description": "Emit task 1 start status"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01F48Enz2xYHPJji91nt3aA1",
+              "name": "Task",
+              "canonical": "subagent",
+              "input": {
+                "subagent_type": "rp1-dev:speedrun-builder",
+                "description": "Add hello world script to src/hello.ts",
+                "prompt": "Implement the following change in the codebase:\n\nAdd a simple hello world script at src/hello.ts\n\nKeep changes minimal and focused. Run any relevant lint/format/test checks after making changes. Do NOT commit."
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01Dj2Ur5P1NCXrqy3SYS955m",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "ls /private/tmp/rp1-evals/7ef66005/workspace/",
+                "description": "List workspace root directory"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_01KjAQLoiiNUb4MMMQtDzZLc",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "ls /private/tmp/rp1-evals/7ef66005/workspace/src/ 2>/dev/null || echo \"src directory does not exist\"",
+                "description": "Check if src directory exists"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_01GdvAeAPHecYFQqz7fmwvJc",
+              "name": "Read",
+              "canonical": "read",
+              "input": {
+                "file_path": "/private/tmp/rp1-evals/7ef66005/workspace/src/index.ts"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_01D9jRCkAcAhxoY44w4vDd5S",
+              "name": "Read",
+              "canonical": "read",
+              "input": {
+                "file_path": "/private/tmp/rp1-evals/7ef66005/workspace/package.json"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_01YDUkyfXjmVT6iKx5PjogmG",
+              "name": "Read",
+              "canonical": "read",
+              "input": {
+                "file_path": "/private/tmp/rp1-evals/7ef66005/workspace/tsconfig.json"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_01SVSfYjFSL13mz8P3oWHvxr",
+              "name": "Write",
+              "canonical": "write",
+              "input": {
+                "file_path": "/private/tmp/rp1-evals/7ef66005/workspace/src/hello.ts",
+                "content": "/**\n * Simple hello world script.\n */\n\nconsole.log(\"Hello, World!\");\n"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_01QSUZVVd7MbtHuUncmbYJzZ",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "bun run lint",
+                "description": "Run lint check"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_017g6q9kRbkNQKeodVo6r9aA",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "bun run format",
+                "description": "Run format check"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_01VF876MhteJMzN2kMC3bcdB",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "bun test",
+                "description": "Run tests"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_01SC1KEwfPAwB8G9LkQ7VtMD",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type waiting_for_user \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"prompt\": \"What would you like to do next?\", \"context\": \"Post-build prompt after speedrun builder completes\"}'\n",
+                "description": "Emit waiting for user status"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01XYAUrPiLMDzTmyYTELewwq",
+              "name": "AskUserQuestion",
+              "canonical": "ask_user",
+              "input": {
+                "questions": [
+                  {
+                    "question": "What would you like to do next?",
+                    "header": "Next Action",
+                    "multiSelect": false,
+                    "options": [
+                      {
+                        "label": "Commit & move on",
+                        "description": "Commit the changes with a conventional commit message, then proceed to the next task"
+                      },
+                      {
+                        "label": "Refine",
+                        "description": "Make changes to the script before committing"
+                      },
+                      {
+                        "label": "New task (no commit)",
+                        "description": "Start a new task without committing this change"
+                      },
+                      {
+                        "label": "Exit",
+                        "description": "End the speedrun session"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01XYAUrPiLMDzTmyYTELewwq",
+              "name": "AskUserQuestion",
+              "canonical": "ask_user",
+              "input": {
+                "questions": [
+                  {
+                    "question": "What would you like to do next?",
+                    "header": "Next Action",
+                    "options": [
+                      {
+                        "label": "Commit & move on",
+                        "description": "Commit the changes with a conventional commit message, then proceed to the next task"
+                      },
+                      {
+                        "label": "Refine",
+                        "description": "Make changes to the script before committing"
+                      },
+                      {
+                        "label": "New task (no commit)",
+                        "description": "Start a new task without committing this change"
+                      },
+                      {
+                        "label": "Exit",
+                        "description": "End the speedrun session"
+                      }
+                    ],
+                    "multiSelect": false
+                  }
+                ]
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_015aKs23TdUs5ANQxu1uA4Gp",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "git add src/hello.ts && git commit -m \"$(cat <<'EOF'\nfeat: add simple hello world script\n\nCreated src/hello.ts with a basic console.log statement following project\nconventions. All tests and linting checks pass.\n\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\nEOF\n)\"",
+                "description": "Commit the hello world script"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01HP77hrExAe7nc97MRrH27t",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"completed\"}'\n",
+                "description": "Emit task completion status"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01X436BC85XoTQu3AL5pA6cd",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "mkdir -p \"/private/tmp/rp1-evals/7ef66005/workspace/.rp1/work/speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\"",
+                "description": "Create session log directory"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_011gtr46zNToAGqmncQ2fs9Q",
+              "name": "Write",
+              "canonical": "write",
+              "input": {
+                "file_path": "/private/tmp/rp1-evals/7ef66005/workspace/.rp1/work/speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9/session-log.md",
+                "content": "# Speedrun Session Log\n\n| # | Request | Change | Status |\n|---|---------|--------|--------|\n| 1 | Add hello world script at src/hello.ts | Created src/hello.ts with console.log(\"Hello, World!\") | committed |\n"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01A1uqoN363C2GsgsjgswqCi",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type artifact_registered \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"path\": \"speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9/session-log.md\", \"storageRoot\": \"work_dir\", \"format\": \"markdown\"}'\n",
+                "description": "Register session log as artifact"
+              },
+              "source": "stream_event"
+            }
+          ],
+          "bashCommands": [
+            "rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \"add a simple hello world script at src/hello.ts\"",
+            "\n# Generate RUN_ID and capture datestamp\nRUN_ID=\"$(uuidgen | tr '[:upper:]' '[:lower:]')\"\nDATESTAMP=\"$(date +%Y-%m-%d)\"\necho \"RUN_ID=$RUN_ID\"\necho \"DATESTAMP=$DATESTAMP\"\n",
+            "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --name \"Feature: Add hello world script\" \\\n  --step active \\\n  --data '{\"status\": \"running\"}'\n",
+            "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"running\", \"request\": \"Add hello world script at src/hello.ts\"}'\n",
+            "ls /private/tmp/rp1-evals/7ef66005/workspace/",
+            "ls /private/tmp/rp1-evals/7ef66005/workspace/src/ 2>/dev/null || echo \"src directory does not exist\"",
+            "bun run lint",
+            "bun run format",
+            "bun test",
+            "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type waiting_for_user \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"prompt\": \"What would you like to do next?\", \"context\": \"Post-build prompt after speedrun builder completes\"}'\n",
+            "git add src/hello.ts && git commit -m \"$(cat <<'EOF'\nfeat: add simple hello world script\n\nCreated src/hello.ts with a basic console.log statement following project\nconventions. All tests and linting checks pass.\n\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\nEOF\n)\"",
+            "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"completed\"}'\n",
+            "mkdir -p \"/private/tmp/rp1-evals/7ef66005/workspace/.rp1/work/speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\"",
+            "\nrp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type artifact_registered \\\n  --run-id \"856c53d8-7a9a-4dd6-be10-2c9f6d5689b9\" \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"path\": \"speedrun/2026-04-03-856c53d8-7a9a-4dd6-be10-2c9f6d5689b9/session-log.md\", \"storageRoot\": \"work_dir\", \"format\": \"markdown\"}'\n"
+          ],
+          "toolCallCount": 22,
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 1827,
+            "prompt": 1638,
+            "completion": 189,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "No Write/Edit tool calls found"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "No implementation sub-agent spawned for medium/large request"
+            },
+            {
+              "assertion": {
+                "type": "llm-rubric",
+                "value": "Evaluate whether the agent correctly redirects a medium/large-scope request.\n\nREQUIRED (all must pass):\n1. Agent identifies the request as medium or large scope\n2. Agent does NOT delegate to a sub-agent for implementation\n3. Output recommends using `/rp1-dev:build-fast` or `/rp1-dev:build` instead\n4. Output explains WHY the request exceeds speedrun scope (e.g., multiple systems, high risk, many files)\n5. Agent still presents options to continue (new task or exit)\n\nPROHIBITED:\n- No source code files should be created or modified\n- No implementation sub-agent should be spawned\n- Agent should NOT attempt to break the request into smaller pieces and implement them\n\nPASS if: Agent declines and redirects to appropriate workflow\nFAIL if: Agent attempts implementation of the large request\n"
+              },
+              "pass": true,
+              "score": 1,
+              "reason": "The agent correctly identifies that the user's request ('refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL') exceeds speedrun scope. The agent: (1) identifies this as a large-scope request, (2) does NOT attempt implementation or spawn a sub-agent, (3) recommends the `/rp1-dev:build workflow` as an alternative, (4) explains the reasoning by asking if the user wants 'a smaller, focused task' or 'the structured workflow for this larger refactor', and (5) presents clear options (new task, use build workflow, or exit). No source files are created or modified, and no implementation is attempted.",
+              "tokensUsed": {
+                "total": 1827,
+                "prompt": 1638,
+                "completion": 189,
+                "cached": 0,
+                "numRequests": 0,
+                "completionDetails": {
+                  "reasoning": 0,
+                  "acceptedPrediction": 0,
+                  "rejectedPrediction": 0
+                }
+              },
+              "metadata": {
+                "renderedGradingPrompt": "[{\"role\":\"system\",\"content\":\"You are grading output according to a user-specified rubric. If the statement in the rubric is true, then the output passes the test. You respond with a JSON object with this structure: {reason: string, pass: boolean, score: number}\\n\\nExamples:\\n\\n<Output>Hello world</Output>\\n<Rubric>Content contains a greeting</Rubric>\\n{\\\"reason\\\": \\\"the content contains the word 'Hello'\\\", \\\"pass\\\": true, \\\"score\\\": 1.0}\\n\\n<Output>Avast ye swabs, repel the invaders!</Output>\\n<Rubric>Does not speak like a pirate</Rubric>\\n{\\\"reason\\\": \\\"'avast ye' is a common pirate term\\\", \\\"pass\\\": false, \\\"score\\\": 0.0}\"},{\"role\":\"user\",\"content\":\"<Output>\\nPerfect! The speedrun session is now active. \\n\\n## Ready for your next request\\n\\nI'm ready to help you implement a focused change. What would you like to build? \\n\\nSome examples of good speedrun tasks:\\n- \\\"Add a logout button to the navbar\\\"\\n- \\\"Fix the null error in the auth module\\\"\\n- \\\"Update the user profile styling\\\"\\n- \\\"Add input validation to the registration form\\\"\\n\\nWhat's your next task?\\n\\n## Metadata\\n\\n```json\\n{\\n  \\\"toolCalls\\\": [\\n    {\\n      \\\"id\\\": \\\"toolu_01TLtrmxBuZAsg8XJjTQEaSi\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \\\\\\\"refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL\\\\\\\"\\\",\\n        \\\"description\\\": \\\"Resolve speedrun command arguments\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01MPy5Hd2aw3ya3aRrHHcbFb\\\",\\n      \\\"name\\\": \\\"AskUserQuestion\\\",\\n      \\\"canonical\\\": \\\"ask_user\\\",\\n      \\\"input\\\": {\\n        \\\"questions\\\": [\\n          {\\n            \\\"question\\\": \\\"Would you like to proceed with a smaller, focused task, or use the /rp1-dev:build workflow for this larger refactor?\\\",\\n            \\\"header\\\": \\\"Next Step\\\",\\n            \\\"options\\\": [\\n              {\\n                \\\"label\\\": \\\"New task (smaller scope)\\\",\\n                \\\"description\\\": \\\"Submit a different, more focused change to implement with speedrun\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"Use /rp1-dev:build workflow\\\",\\n                \\\"description\\\": \\\"Switch to the structured workflow for this large refactor\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"Exit\\\",\\n                \\\"description\\\": \\\"End the speedrun session\\\"\\n              }\\n            ],\\n            \\\"multiSelect\\\": false\\n          }\\n        ]\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01MPy5Hd2aw3ya3aRrHHcbFb\\\",\\n      \\\"name\\\": \\\"AskUserQuestion\\\",\\n      \\\"canonical\\\": \\\"ask_user\\\",\\n      \\\"input\\\": {\\n        \\\"questions\\\": [\\n          {\\n            \\\"question\\\": \\\"Would you like to proceed with a smaller, focused task, or use the /rp1-dev:build workflow for this larger refactor?\\\",\\n            \\\"header\\\": \\\"Next Step\\\",\\n            \\\"options\\\": [\\n              {\\n                \\\"label\\\": \\\"New task (smaller scope)\\\",\\n                \\\"description\\\": \\\"Submit a different, more focused change to implement with speedrun\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"Use /rp1-dev:build workflow\\\",\\n                \\\"description\\\": \\\"Switch to the structured workflow for this large refactor\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"Exit\\\",\\n                \\\"description\\\": \\\"End the speedrun session\\\"\\n              }\\n            ],\\n            \\\"multiSelect\\\": false\\n          }\\n        ]\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01SqxMQKSoDDg9ZMMdPkHoqu\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"date +%Y-%m-%d\\\",\\n        \\\"description\\\": \\\"Get current datestamp\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_014a78QUU6JtRdHe41c3GpHF\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"rp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type status_change \\\\\\\\\\\\n  --run-id \\\\\\\"$(uuidgen | tr '[:upper:]' '[:lower:]')\\\\\\\" \\\\\\\\\\\\n  --name \\\\\\\"Feature: Interactive speedrun session\\\\\\\" \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --data '{\\\\\\\"status\\\\\\\": \\\\\\\"running\\\\\\\"}'\\\",\\n        \\\"description\\\": \\\"Emit speedrun session start\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    }\\n  ],\\n  \\\"bashCommands\\\": [\\n    \\\"rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \\\\\\\"refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL\\\\\\\"\\\",\\n    \\\"date +%Y-%m-%d\\\",\\n    \\\"rp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type status_change \\\\\\\\\\\\n  --run-id \\\\\\\"$(uuidgen | tr '[:upper:]' '[:lower:]')\\\\\\\" \\\\\\\\\\\\n  --name \\\\\\\"Feature: Interactive speedrun session\\\\\\\" \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --data '{\\\\\\\"status\\\\\\\": \\\\\\\"running\\\\\\\"}'\\\"\\n  ],\\n  \\\"toolCallCount\\\": 5\\n}\\n```\\n</Output>\\n<Rubric>\\nEvaluate whether the agent correctly redirects a medium/large-scope request.\\n\\nREQUIRED (all must pass):\\n1. Agent identifies the request as medium or large scope\\n2. Agent does NOT delegate to a sub-agent for implementation\\n3. Output recommends using `/rp1-dev:build-fast` or `/rp1-dev:build` instead\\n4. Output explains WHY the request exceeds speedrun scope (e.g., multiple systems, high risk, many files)\\n5. Agent still presents options to continue (new task or exit)\\n\\nPROHIBITED:\\n- No source code files should be created or modified\\n- No implementation sub-agent should be spawned\\n- Agent should NOT attempt to break the request into smaller pieces and implement them\\n\\nPASS if: Agent declines and redirects to appropriate workflow\\nFAIL if: Agent attempts implementation of the large request\\n\\n</Rubric>\"}]"
+              }
+            }
+          ]
+        },
+        "id": "0c031382-b6f7-4749-90f6-41c205424883",
+        "latencyMs": 32355,
+        "namedScores": {},
+        "prompt": {
+          "raw": "/rp1-dev:speedrun \"refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL\"",
+          "label": "suites/rp1-dev/speedrun/prompt.txt: /rp1-dev:speedrun \"{{REQUEST}}\"",
+          "config": {
+            "provider": {
+              "id": "anthropic:claude-haiku-4-5-20251001",
+              "config": {
+                "temperature": 0
+              }
+            }
+          }
+        },
+        "promptId": "709015575d5344366323cc28be117c1b03e3d8cdaa54eb64d4a34e4016522c24",
+        "promptIdx": 0,
+        "provider": {
+          "id": "claude-with-tools",
+          "label": "rp1-agentic-eval"
+        },
+        "response": {
+          "output": "Perfect! The speedrun session is now active. \n\n## Ready for your next request\n\nI'm ready to help you implement a focused change. What would you like to build? \n\nSome examples of good speedrun tasks:\n- \"Add a logout button to the navbar\"\n- \"Fix the null error in the auth module\"\n- \"Update the user profile styling\"\n- \"Add input validation to the registration form\"\n\nWhat's your next task?\n\n## Metadata\n\n```json\n{\n  \"toolCalls\": [\n    {\n      \"id\": \"toolu_01TLtrmxBuZAsg8XJjTQEaSi\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \\\"refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL\\\"\",\n        \"description\": \"Resolve speedrun command arguments\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01MPy5Hd2aw3ya3aRrHHcbFb\",\n      \"name\": \"AskUserQuestion\",\n      \"canonical\": \"ask_user\",\n      \"input\": {\n        \"questions\": [\n          {\n            \"question\": \"Would you like to proceed with a smaller, focused task, or use the /rp1-dev:build workflow for this larger refactor?\",\n            \"header\": \"Next Step\",\n            \"options\": [\n              {\n                \"label\": \"New task (smaller scope)\",\n                \"description\": \"Submit a different, more focused change to implement with speedrun\"\n              },\n              {\n                \"label\": \"Use /rp1-dev:build workflow\",\n                \"description\": \"Switch to the structured workflow for this large refactor\"\n              },\n              {\n                \"label\": \"Exit\",\n                \"description\": \"End the speedrun session\"\n              }\n            ],\n            \"multiSelect\": false\n          }\n        ]\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01MPy5Hd2aw3ya3aRrHHcbFb\",\n      \"name\": \"AskUserQuestion\",\n      \"canonical\": \"ask_user\",\n      \"input\": {\n        \"questions\": [\n          {\n            \"question\": \"Would you like to proceed with a smaller, focused task, or use the /rp1-dev:build workflow for this larger refactor?\",\n            \"header\": \"Next Step\",\n            \"options\": [\n              {\n                \"label\": \"New task (smaller scope)\",\n                \"description\": \"Submit a different, more focused change to implement with speedrun\"\n              },\n              {\n                \"label\": \"Use /rp1-dev:build workflow\",\n                \"description\": \"Switch to the structured workflow for this large refactor\"\n              },\n              {\n                \"label\": \"Exit\",\n                \"description\": \"End the speedrun session\"\n              }\n            ],\n            \"multiSelect\": false\n          }\n        ]\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01SqxMQKSoDDg9ZMMdPkHoqu\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"date +%Y-%m-%d\",\n        \"description\": \"Get current datestamp\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_014a78QUU6JtRdHe41c3GpHF\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"rp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type status_change \\\\\\n  --run-id \\\"$(uuidgen | tr '[:upper:]' '[:lower:]')\\\" \\\\\\n  --name \\\"Feature: Interactive speedrun session\\\" \\\\\\n  --step active \\\\\\n  --data '{\\\"status\\\": \\\"running\\\"}'\",\n        \"description\": \"Emit speedrun session start\"\n      },\n      \"source\": \"stream_event\"\n    }\n  ],\n  \"bashCommands\": [\n    \"rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \\\"refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL\\\"\",\n    \"date +%Y-%m-%d\",\n    \"rp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type status_change \\\\\\n  --run-id \\\"$(uuidgen | tr '[:upper:]' '[:lower:]')\\\" \\\\\\n  --name \\\"Feature: Interactive speedrun session\\\" \\\\\\n  --step active \\\\\\n  --data '{\\\"status\\\": \\\"running\\\"}'\"\n  ],\n  \"toolCallCount\": 5\n}\n```",
+          "tokenUsage": {
+            "prompt": 14,
+            "completion": 1090,
+            "total": 1104
+          },
+          "metadata": {
+            "toolCalls": [
+              {
+                "id": "toolu_01TLtrmxBuZAsg8XJjTQEaSi",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \"refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL\"",
+                  "description": "Resolve speedrun command arguments"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01MPy5Hd2aw3ya3aRrHHcbFb",
+                "name": "AskUserQuestion",
+                "canonical": "ask_user",
+                "input": {
+                  "questions": [
+                    {
+                      "question": "Would you like to proceed with a smaller, focused task, or use the /rp1-dev:build workflow for this larger refactor?",
+                      "header": "Next Step",
+                      "options": [
+                        {
+                          "label": "New task (smaller scope)",
+                          "description": "Submit a different, more focused change to implement with speedrun"
+                        },
+                        {
+                          "label": "Use /rp1-dev:build workflow",
+                          "description": "Switch to the structured workflow for this large refactor"
+                        },
+                        {
+                          "label": "Exit",
+                          "description": "End the speedrun session"
+                        }
+                      ],
+                      "multiSelect": false
+                    }
+                  ]
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01MPy5Hd2aw3ya3aRrHHcbFb",
+                "name": "AskUserQuestion",
+                "canonical": "ask_user",
+                "input": {
+                  "questions": [
+                    {
+                      "question": "Would you like to proceed with a smaller, focused task, or use the /rp1-dev:build workflow for this larger refactor?",
+                      "header": "Next Step",
+                      "options": [
+                        {
+                          "label": "New task (smaller scope)",
+                          "description": "Submit a different, more focused change to implement with speedrun"
+                        },
+                        {
+                          "label": "Use /rp1-dev:build workflow",
+                          "description": "Switch to the structured workflow for this large refactor"
+                        },
+                        {
+                          "label": "Exit",
+                          "description": "End the speedrun session"
+                        }
+                      ],
+                      "multiSelect": false
+                    }
+                  ]
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01SqxMQKSoDDg9ZMMdPkHoqu",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "date +%Y-%m-%d",
+                  "description": "Get current datestamp"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_014a78QUU6JtRdHe41c3GpHF",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"$(uuidgen | tr '[:upper:]' '[:lower:]')\" \\\n  --name \"Feature: Interactive speedrun session\" \\\n  --step active \\\n  --data '{\"status\": \"running\"}'",
+                  "description": "Emit speedrun session start"
+                },
+                "source": "stream_event"
+              }
+            ],
+            "bashCommands": [
+              "rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \"refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL\"",
+              "date +%Y-%m-%d",
+              "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"$(uuidgen | tr '[:upper:]' '[:lower:]')\" \\\n  --name \"Feature: Interactive speedrun session\" \\\n  --step active \\\n  --data '{\"status\": \"running\"}'"
+            ],
+            "toolCallCount": 5
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "medium_scope_redirects",
+          "vars": {
+            "REQUEST": "refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL",
+            "EVAL_BASE_DIR": "/tmp/rp1-evals/35ef9d71",
+            "WORKSPACE_DIR": "/tmp/rp1-evals/35ef9d71/workspace",
+            "REMOTE_DIR": "/tmp/rp1-evals/35ef9d71/remote.git",
+            "GIT_HEAD_BEFORE": "46d9bff0a1b17492ce317fd1b9cef74f6365ebb4",
+            "GIT_COUNT_BEFORE": "1",
+            "GIT_REMOTE_HEAD_BEFORE": "46d9bff0a1b17492ce317fd1b9cef74f6365ebb4"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "file://../../shared/assertions/tool-calls.ts:assertNoWriteEdit"
+            },
+            {
+              "type": "javascript",
+              "value": "file://../../shared/assertions/tool-calls.ts:assertNoImplSubagentSpawned"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "Evaluate whether the agent correctly redirects a medium/large-scope request.\n\nREQUIRED (all must pass):\n1. Agent identifies the request as medium or large scope\n2. Agent does NOT delegate to a sub-agent for implementation\n3. Output recommends using `/rp1-dev:build-fast` or `/rp1-dev:build` instead\n4. Output explains WHY the request exceeds speedrun scope (e.g., multiple systems, high risk, many files)\n5. Agent still presents options to continue (new task or exit)\n\nPROHIBITED:\n- No source code files should be created or modified\n- No implementation sub-agent should be spawned\n- Agent should NOT attempt to break the request into smaller pieces and implement them\n\nPASS if: Agent declines and redirects to appropriate workflow\nFAIL if: Agent attempts implementation of the large request\n"
+            }
+          ],
+          "options": {
+            "provider": {
+              "id": "anthropic:claude-haiku-4-5-20251001",
+              "config": {
+                "temperature": 0
+              }
+            }
+          },
+          "metadata": {}
+        },
+        "testIdx": 1,
+        "vars": {
+          "REQUEST": "refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL",
+          "EVAL_BASE_DIR": "/tmp/rp1-evals/35ef9d71",
+          "WORKSPACE_DIR": "/tmp/rp1-evals/35ef9d71/workspace",
+          "REMOTE_DIR": "/tmp/rp1-evals/35ef9d71/remote.git",
+          "GIT_HEAD_BEFORE": "46d9bff0a1b17492ce317fd1b9cef74f6365ebb4",
+          "GIT_COUNT_BEFORE": "1",
+          "GIT_REMOTE_HEAD_BEFORE": "46d9bff0a1b17492ce317fd1b9cef74f6365ebb4"
+        },
+        "metadata": {
+          "toolCalls": [
+            {
+              "id": "toolu_01TLtrmxBuZAsg8XJjTQEaSi",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \"refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL\"",
+                "description": "Resolve speedrun command arguments"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01MPy5Hd2aw3ya3aRrHHcbFb",
+              "name": "AskUserQuestion",
+              "canonical": "ask_user",
+              "input": {
+                "questions": [
+                  {
+                    "question": "Would you like to proceed with a smaller, focused task, or use the /rp1-dev:build workflow for this larger refactor?",
+                    "header": "Next Step",
+                    "options": [
+                      {
+                        "label": "New task (smaller scope)",
+                        "description": "Submit a different, more focused change to implement with speedrun"
+                      },
+                      {
+                        "label": "Use /rp1-dev:build workflow",
+                        "description": "Switch to the structured workflow for this large refactor"
+                      },
+                      {
+                        "label": "Exit",
+                        "description": "End the speedrun session"
+                      }
+                    ],
+                    "multiSelect": false
+                  }
+                ]
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01MPy5Hd2aw3ya3aRrHHcbFb",
+              "name": "AskUserQuestion",
+              "canonical": "ask_user",
+              "input": {
+                "questions": [
+                  {
+                    "question": "Would you like to proceed with a smaller, focused task, or use the /rp1-dev:build workflow for this larger refactor?",
+                    "header": "Next Step",
+                    "options": [
+                      {
+                        "label": "New task (smaller scope)",
+                        "description": "Submit a different, more focused change to implement with speedrun"
+                      },
+                      {
+                        "label": "Use /rp1-dev:build workflow",
+                        "description": "Switch to the structured workflow for this large refactor"
+                      },
+                      {
+                        "label": "Exit",
+                        "description": "End the speedrun session"
+                      }
+                    ],
+                    "multiSelect": false
+                  }
+                ]
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01SqxMQKSoDDg9ZMMdPkHoqu",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "date +%Y-%m-%d",
+                "description": "Get current datestamp"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_014a78QUU6JtRdHe41c3GpHF",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"$(uuidgen | tr '[:upper:]' '[:lower:]')\" \\\n  --name \"Feature: Interactive speedrun session\" \\\n  --step active \\\n  --data '{\"status\": \"running\"}'",
+                "description": "Emit speedrun session start"
+              },
+              "source": "stream_event"
+            }
+          ],
+          "bashCommands": [
+            "rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \"refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL\"",
+            "date +%Y-%m-%d",
+            "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id \"$(uuidgen | tr '[:upper:]' '[:lower:]')\" \\\n  --name \"Feature: Interactive speedrun session\" \\\n  --step active \\\n  --data '{\"status\": \"running\"}'"
+          ],
+          "toolCallCount": 5,
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 5574,
+            "prompt": 5447,
+            "completion": 127,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "assertion": {
+                "type": "llm-rubric",
+                "value": "Evaluate the post-build prompt options presented after a successful build.\n\nREQUIRED (all must pass):\n1. After the sub-agent completes, an AskUserQuestion is presented\n2. The prompt includes a \"commit\" option (commit & move on, or similar wording)\n3. The prompt includes a \"refine\" option (refine current changes, or similar)\n4. The prompt includes a \"new task\" option (move to next task without committing)\n5. The prompt includes an \"exit\" option\n\nPASS if: All four options present in post-build prompt\nFAIL if: Missing commit, refine, new task, or exit option\n"
+              },
+              "pass": true,
+              "score": 1,
+              "reason": "The output shows an AskUserQuestion tool call with all four required options: (1) 'Commit & move on' for committing changes, (2) 'Refine' for modifying the script with feedback, (3) 'New task (no commit)' for working on a different task without committing, and (4) 'Exit' for ending the session. All required post-build prompt options are present.",
+              "tokensUsed": {
+                "total": 5574,
+                "prompt": 5447,
+                "completion": 127,
+                "cached": 0,
+                "numRequests": 0,
+                "completionDetails": {
+                  "reasoning": 0,
+                  "acceptedPrediction": 0,
+                  "rejectedPrediction": 0
+                }
+              },
+              "metadata": {
+                "renderedGradingPrompt": "[{\"role\":\"system\",\"content\":\"You are grading output according to a user-specified rubric. If the statement in the rubric is true, then the output passes the test. You respond with a JSON object with this structure: {reason: string, pass: boolean, score: number}\\n\\nExamples:\\n\\n<Output>Hello world</Output>\\n<Rubric>Content contains a greeting</Rubric>\\n{\\\"reason\\\": \\\"the content contains the word 'Hello'\\\", \\\"pass\\\": true, \\\"score\\\": 1.0}\\n\\n<Output>Avast ye swabs, repel the invaders!</Output>\\n<Rubric>Does not speak like a pirate</Rubric>\\n{\\\"reason\\\": \\\"'avast ye' is a common pirate term\\\", \\\"pass\\\": false, \\\"score\\\": 0.0}\"},{\"role\":\"user\",\"content\":\"<Output>\\nPerfect! The session has completed successfully. Here's the summary:\\n\\n---\\n\\n## Session Summary\\n\\n**Tasks Completed**: 1\\n\\n✅ **Task 1: Add hello world script**\\n- **Created**: `src/hello.ts` with a simple TypeScript hello world script\\n- **Features**: JSDoc documentation, follows project conventions\\n- **Status**: ✓ Committed (commit: `53135a1`)\\n\\n**Speedrun session ended.**\\n\\nThe hello world script has been successfully created and committed to the repository!\\n\\n## Metadata\\n\\n```json\\n{\\n  \\\"toolCalls\\\": [\\n    {\\n      \\\"id\\\": \\\"toolu_01G4pMDhxCeCpDMFNL6QNH1h\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \\\\\\\"add a simple hello world script at src/hello.ts\\\\\\\"\\\",\\n        \\\"description\\\": \\\"Resolve speedrun command arguments\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_016b231eg4QRVGP9H2Njwy5r\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"date +%Y-%m-%d\\\",\\n        \\\"description\\\": \\\"Get current date for session logging\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01VmxY5yZGTuv3XX77ViX7gU\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"python3 -c \\\\\\\"import uuid; print(str(uuid.uuid4()))\\\\\\\"\\\",\\n        \\\"description\\\": \\\"Generate unique run ID for session tracking\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01FvcQCkSU2ZCLUHTrQrpuDL\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"uuidgen\\\",\\n        \\\"description\\\": \\\"Generate unique run ID for session\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01WLc4ceY8o3s74munGmupw9\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"rp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type status_change \\\\\\\\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\\\\\\\n  --name \\\\\\\"Feature: Add hello world script\\\\\\\" \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --data '{\\\\\\\"status\\\\\\\": \\\\\\\"running\\\\\\\"}'\\\",\\n        \\\"description\\\": \\\"Emit session start status to Arcade\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01PnMUtE6DVeSVFKnLPijvxX\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"rp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type status_change \\\\\\\\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"status\\\\\\\": \\\\\\\"running\\\\\\\", \\\\\\\"request\\\\\\\": \\\\\\\"Add hello world script at src/hello.ts\\\\\\\"}'\\\",\\n        \\\"description\\\": \\\"Emit task 1 build start status\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_018t9o92feXVhkFSWfm4noNn\\\",\\n      \\\"name\\\": \\\"Task\\\",\\n      \\\"canonical\\\": \\\"subagent\\\",\\n      \\\"input\\\": {\\n        \\\"subagent_type\\\": \\\"rp1-dev:speedrun-builder\\\",\\n        \\\"description\\\": \\\"Build hello world script\\\",\\n        \\\"prompt\\\": \\\"Implement the following change in the codebase:\\\\n\\\\nAdd a simple hello world script at src/hello.ts\\\\n\\\\nKeep changes minimal and focused. Run any relevant lint/format/test checks after making changes. Do NOT commit.\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01LgfWdsTEFXr7XUDptKe4Va\\\",\\n      \\\"name\\\": \\\"Read\\\",\\n      \\\"canonical\\\": \\\"read\\\",\\n      \\\"input\\\": {\\n        \\\"file_path\\\": \\\"/private/tmp/rp1-evals/287be03a/workspace/.rp1/context/index.md\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01H5KB2EqAiTp9wQcqdL6Z8u\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"ls /private/tmp/rp1-evals/287be03a/workspace/\\\",\\n        \\\"description\\\": \\\"List workspace root directory\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_0199Ykxy3BatrJroNBCvJgqv\\\",\\n      \\\"name\\\": \\\"Read\\\",\\n      \\\"canonical\\\": \\\"read\\\",\\n      \\\"input\\\": {\\n        \\\"file_path\\\": \\\"/private/tmp/rp1-evals/287be03a/workspace/src/index.ts\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01Dmq95ZGUu6iHLkLcLG8rVx\\\",\\n      \\\"name\\\": \\\"Read\\\",\\n      \\\"canonical\\\": \\\"read\\\",\\n      \\\"input\\\": {\\n        \\\"file_path\\\": \\\"/private/tmp/rp1-evals/287be03a/workspace/src/utils.ts\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01C8JHnHpNUzjfHR7Pgb567r\\\",\\n      \\\"name\\\": \\\"Read\\\",\\n      \\\"canonical\\\": \\\"read\\\",\\n      \\\"input\\\": {\\n        \\\"file_path\\\": \\\"/private/tmp/rp1-evals/287be03a/workspace/package.json\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_014mqr3Yr1DiAeghjQYvnHWk\\\",\\n      \\\"name\\\": \\\"Read\\\",\\n      \\\"canonical\\\": \\\"read\\\",\\n      \\\"input\\\": {\\n        \\\"file_path\\\": \\\"/private/tmp/rp1-evals/287be03a/workspace/.rp1/context/patterns.md\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01Mvntqf5e1UEYzrDboAPjt7\\\",\\n      \\\"name\\\": \\\"Write\\\",\\n      \\\"canonical\\\": \\\"write\\\",\\n      \\\"input\\\": {\\n        \\\"file_path\\\": \\\"/private/tmp/rp1-evals/287be03a/workspace/src/hello.ts\\\",\\n        \\\"content\\\": \\\"/**\\\\n * Simple hello world script.\\\\n */\\\\n\\\\nconsole.log(\\\\\\\"Hello, World!\\\\\\\");\\\\n\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01T8H3Pc2nBTqSoMemZJU8i9\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"bun run lint\\\",\\n        \\\"description\\\": \\\"Run lint check\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_014xPkpRTNB7e5NH3aZyuMw5\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"bun run format\\\",\\n        \\\"description\\\": \\\"Run format check\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01H4NC2yddfspr1qGuXeakdR\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"bun test\\\",\\n        \\\"description\\\": \\\"Run tests\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_014LjSUyDjRqhHNV5qnQYXsP\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"bun run /private/tmp/rp1-evals/287be03a/workspace/src/hello.ts\\\",\\n        \\\"description\\\": \\\"Run the hello world script\\\"\\n      },\\n      \\\"source\\\": \\\"assistant\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_017w46k5pYx6hmUWRzfZncVr\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"rp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type waiting_for_user \\\\\\\\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"prompt\\\\\\\": \\\\\\\"What would you like to do next?\\\\\\\", \\\\\\\"context\\\\\\\": \\\\\\\"Post-build prompt after speedrun builder completes\\\\\\\"}'\\\",\\n        \\\"description\\\": \\\"Emit waiting for user status\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_011oL3b1m2K6y5TxgV6225A2\\\",\\n      \\\"name\\\": \\\"AskUserQuestion\\\",\\n      \\\"canonical\\\": \\\"ask_user\\\",\\n      \\\"input\\\": {\\n        \\\"questions\\\": [\\n          {\\n            \\\"question\\\": \\\"What would you like to do next?\\\",\\n            \\\"header\\\": \\\"Next Action\\\",\\n            \\\"multiSelect\\\": false,\\n            \\\"options\\\": [\\n              {\\n                \\\"label\\\": \\\"Commit & move on\\\",\\n                \\\"description\\\": \\\"Commit the changes and prepare for a new task\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"Refine\\\",\\n                \\\"description\\\": \\\"Modify the hello world script with your feedback\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"New task (no commit)\\\",\\n                \\\"description\\\": \\\"Work on a different task without committing this change\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"Exit\\\",\\n                \\\"description\\\": \\\"End the speedrun session\\\"\\n              }\\n            ]\\n          }\\n        ]\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_011oL3b1m2K6y5TxgV6225A2\\\",\\n      \\\"name\\\": \\\"AskUserQuestion\\\",\\n      \\\"canonical\\\": \\\"ask_user\\\",\\n      \\\"input\\\": {\\n        \\\"questions\\\": [\\n          {\\n            \\\"question\\\": \\\"What would you like to do next?\\\",\\n            \\\"header\\\": \\\"Next Action\\\",\\n            \\\"options\\\": [\\n              {\\n                \\\"label\\\": \\\"Commit & move on\\\",\\n                \\\"description\\\": \\\"Commit the changes and prepare for a new task\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"Refine\\\",\\n                \\\"description\\\": \\\"Modify the hello world script with your feedback\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"New task (no commit)\\\",\\n                \\\"description\\\": \\\"Work on a different task without committing this change\\\"\\n              },\\n              {\\n                \\\"label\\\": \\\"Exit\\\",\\n                \\\"description\\\": \\\"End the speedrun session\\\"\\n              }\\n            ],\\n            \\\"multiSelect\\\": false\\n          }\\n        ]\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01FY5AsxnF2MsazTpY9Xkrq3\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"git status --short\\\",\\n        \\\"description\\\": \\\"Check what files need to be staged\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01N3ABJrAzaoizn2581vATc4\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"git add src/hello.ts && git commit -m \\\\\\\"$(cat <<'EOF'\\\\nAdd simple hello world script\\\\n\\\\nCreate a basic TypeScript hello world script at src/hello.ts that logs\\\\na greeting message. Includes JSDoc documentation and follows project\\\\nconventions.\\\\n\\\\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\\\\nEOF\\\\n)\\\\\\\"\\\",\\n        \\\"description\\\": \\\"Stage and commit the hello world script\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01KenYgCH7HcyiND6aFRKoye\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"rp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type status_change \\\\\\\\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"status\\\\\\\": \\\\\\\"completed\\\\\\\"}'\\\",\\n        \\\"description\\\": \\\"Emit task completion status\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01BZEjVeCw6pxVFq8MjJpsDe\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"mkdir -p /private/tmp/rp1-evals/287be03a/workspace/.rp1/work/speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8\\\",\\n        \\\"description\\\": \\\"Create session log directory\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_011KmWjhRQmYicnAGfZCAd91\\\",\\n      \\\"name\\\": \\\"Write\\\",\\n      \\\"canonical\\\": \\\"write\\\",\\n      \\\"input\\\": {\\n        \\\"file_path\\\": \\\"/private/tmp/rp1-evals/287be03a/workspace/.rp1/work/speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8/session-log.md\\\",\\n        \\\"content\\\": \\\"# Speedrun Session Log\\\\n\\\\n| # | Request | Change | Status |\\\\n|---|---------|--------|--------|\\\\n| 1 | Add a simple hello world script at src/hello.ts | Created src/hello.ts with hello world console.log and JSDoc documentation | committed |\\\\n\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"toolu_01X6KTj8YXeqHxVJSUMhtL3i\\\",\\n      \\\"name\\\": \\\"Bash\\\",\\n      \\\"canonical\\\": \\\"shell\\\",\\n      \\\"input\\\": {\\n        \\\"command\\\": \\\"rp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type artifact_registered \\\\\\\\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"path\\\\\\\": \\\\\\\"speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8/session-log.md\\\\\\\", \\\\\\\"storageRoot\\\\\\\": \\\\\\\"work_dir\\\\\\\", \\\\\\\"format\\\\\\\": \\\\\\\"markdown\\\\\\\"}'\\\",\\n        \\\"description\\\": \\\"Register session log as artifact\\\"\\n      },\\n      \\\"source\\\": \\\"stream_event\\\"\\n    }\\n  ],\\n  \\\"bashCommands\\\": [\\n    \\\"rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \\\\\\\"add a simple hello world script at src/hello.ts\\\\\\\"\\\",\\n    \\\"date +%Y-%m-%d\\\",\\n    \\\"python3 -c \\\\\\\"import uuid; print(str(uuid.uuid4()))\\\\\\\"\\\",\\n    \\\"uuidgen\\\",\\n    \\\"rp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type status_change \\\\\\\\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\\\\\\\n  --name \\\\\\\"Feature: Add hello world script\\\\\\\" \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --data '{\\\\\\\"status\\\\\\\": \\\\\\\"running\\\\\\\"}'\\\",\\n    \\\"rp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type status_change \\\\\\\\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"status\\\\\\\": \\\\\\\"running\\\\\\\", \\\\\\\"request\\\\\\\": \\\\\\\"Add hello world script at src/hello.ts\\\\\\\"}'\\\",\\n    \\\"ls /private/tmp/rp1-evals/287be03a/workspace/\\\",\\n    \\\"bun run lint\\\",\\n    \\\"bun run format\\\",\\n    \\\"bun test\\\",\\n    \\\"bun run /private/tmp/rp1-evals/287be03a/workspace/src/hello.ts\\\",\\n    \\\"rp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type waiting_for_user \\\\\\\\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"prompt\\\\\\\": \\\\\\\"What would you like to do next?\\\\\\\", \\\\\\\"context\\\\\\\": \\\\\\\"Post-build prompt after speedrun builder completes\\\\\\\"}'\\\",\\n    \\\"git status --short\\\",\\n    \\\"git add src/hello.ts && git commit -m \\\\\\\"$(cat <<'EOF'\\\\nAdd simple hello world script\\\\n\\\\nCreate a basic TypeScript hello world script at src/hello.ts that logs\\\\na greeting message. Includes JSDoc documentation and follows project\\\\nconventions.\\\\n\\\\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\\\\nEOF\\\\n)\\\\\\\"\\\",\\n    \\\"rp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type status_change \\\\\\\\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"status\\\\\\\": \\\\\\\"completed\\\\\\\"}'\\\",\\n    \\\"mkdir -p /private/tmp/rp1-evals/287be03a/workspace/.rp1/work/speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8\\\",\\n    \\\"rp1 agent-tools emit --harness claude-code \\\\\\\\\\\\n  --workflow speedrun \\\\\\\\\\\\n  --type artifact_registered \\\\\\\\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\\\\\\\n  --step active \\\\\\\\\\\\n  --unit task-1 \\\\\\\\\\\\n  --data '{\\\\\\\"path\\\\\\\": \\\\\\\"speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8/session-log.md\\\\\\\", \\\\\\\"storageRoot\\\\\\\": \\\\\\\"work_dir\\\\\\\", \\\\\\\"format\\\\\\\": \\\\\\\"markdown\\\\\\\"}'\\\"\\n  ],\\n  \\\"toolCallCount\\\": 27\\n}\\n```\\n</Output>\\n<Rubric>\\nEvaluate the post-build prompt options presented after a successful build.\\n\\nREQUIRED (all must pass):\\n1. After the sub-agent completes, an AskUserQuestion is presented\\n2. The prompt includes a \\\"commit\\\" option (commit & move on, or similar wording)\\n3. The prompt includes a \\\"refine\\\" option (refine current changes, or similar)\\n4. The prompt includes a \\\"new task\\\" option (move to next task without committing)\\n5. The prompt includes an \\\"exit\\\" option\\n\\nPASS if: All four options present in post-build prompt\\nFAIL if: Missing commit, refine, new task, or exit option\\n\\n</Rubric>\"}]"
+              }
+            }
+          ]
+        },
+        "id": "9130e8a4-19ba-4ffe-917e-8c013262c6b2",
+        "latencyMs": 88789,
+        "namedScores": {},
+        "prompt": {
+          "raw": "/rp1-dev:speedrun \"add a simple hello world script at src/hello.ts\"",
+          "label": "suites/rp1-dev/speedrun/prompt.txt: /rp1-dev:speedrun \"{{REQUEST}}\"",
+          "config": {
+            "provider": {
+              "id": "anthropic:claude-haiku-4-5-20251001",
+              "config": {
+                "temperature": 0
+              }
+            }
+          }
+        },
+        "promptId": "709015575d5344366323cc28be117c1b03e3d8cdaa54eb64d4a34e4016522c24",
+        "promptIdx": 0,
+        "provider": {
+          "id": "claude-with-tools",
+          "label": "rp1-agentic-eval"
+        },
+        "response": {
+          "output": "Perfect! The session has completed successfully. Here's the summary:\n\n---\n\n## Session Summary\n\n**Tasks Completed**: 1\n\n✅ **Task 1: Add hello world script**\n- **Created**: `src/hello.ts` with a simple TypeScript hello world script\n- **Features**: JSDoc documentation, follows project conventions\n- **Status**: ✓ Committed (commit: `53135a1`)\n\n**Speedrun session ended.**\n\nThe hello world script has been successfully created and committed to the repository!\n\n## Metadata\n\n```json\n{\n  \"toolCalls\": [\n    {\n      \"id\": \"toolu_01G4pMDhxCeCpDMFNL6QNH1h\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \\\"add a simple hello world script at src/hello.ts\\\"\",\n        \"description\": \"Resolve speedrun command arguments\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_016b231eg4QRVGP9H2Njwy5r\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"date +%Y-%m-%d\",\n        \"description\": \"Get current date for session logging\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01VmxY5yZGTuv3XX77ViX7gU\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"python3 -c \\\"import uuid; print(str(uuid.uuid4()))\\\"\",\n        \"description\": \"Generate unique run ID for session tracking\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01FvcQCkSU2ZCLUHTrQrpuDL\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"uuidgen\",\n        \"description\": \"Generate unique run ID for session\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01WLc4ceY8o3s74munGmupw9\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"rp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type status_change \\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\n  --name \\\"Feature: Add hello world script\\\" \\\\\\n  --step active \\\\\\n  --data '{\\\"status\\\": \\\"running\\\"}'\",\n        \"description\": \"Emit session start status to Arcade\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01PnMUtE6DVeSVFKnLPijvxX\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"rp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type status_change \\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"status\\\": \\\"running\\\", \\\"request\\\": \\\"Add hello world script at src/hello.ts\\\"}'\",\n        \"description\": \"Emit task 1 build start status\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_018t9o92feXVhkFSWfm4noNn\",\n      \"name\": \"Task\",\n      \"canonical\": \"subagent\",\n      \"input\": {\n        \"subagent_type\": \"rp1-dev:speedrun-builder\",\n        \"description\": \"Build hello world script\",\n        \"prompt\": \"Implement the following change in the codebase:\\n\\nAdd a simple hello world script at src/hello.ts\\n\\nKeep changes minimal and focused. Run any relevant lint/format/test checks after making changes. Do NOT commit.\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01LgfWdsTEFXr7XUDptKe4Va\",\n      \"name\": \"Read\",\n      \"canonical\": \"read\",\n      \"input\": {\n        \"file_path\": \"/private/tmp/rp1-evals/287be03a/workspace/.rp1/context/index.md\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_01H5KB2EqAiTp9wQcqdL6Z8u\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"ls /private/tmp/rp1-evals/287be03a/workspace/\",\n        \"description\": \"List workspace root directory\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_0199Ykxy3BatrJroNBCvJgqv\",\n      \"name\": \"Read\",\n      \"canonical\": \"read\",\n      \"input\": {\n        \"file_path\": \"/private/tmp/rp1-evals/287be03a/workspace/src/index.ts\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_01Dmq95ZGUu6iHLkLcLG8rVx\",\n      \"name\": \"Read\",\n      \"canonical\": \"read\",\n      \"input\": {\n        \"file_path\": \"/private/tmp/rp1-evals/287be03a/workspace/src/utils.ts\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_01C8JHnHpNUzjfHR7Pgb567r\",\n      \"name\": \"Read\",\n      \"canonical\": \"read\",\n      \"input\": {\n        \"file_path\": \"/private/tmp/rp1-evals/287be03a/workspace/package.json\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_014mqr3Yr1DiAeghjQYvnHWk\",\n      \"name\": \"Read\",\n      \"canonical\": \"read\",\n      \"input\": {\n        \"file_path\": \"/private/tmp/rp1-evals/287be03a/workspace/.rp1/context/patterns.md\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_01Mvntqf5e1UEYzrDboAPjt7\",\n      \"name\": \"Write\",\n      \"canonical\": \"write\",\n      \"input\": {\n        \"file_path\": \"/private/tmp/rp1-evals/287be03a/workspace/src/hello.ts\",\n        \"content\": \"/**\\n * Simple hello world script.\\n */\\n\\nconsole.log(\\\"Hello, World!\\\");\\n\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_01T8H3Pc2nBTqSoMemZJU8i9\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"bun run lint\",\n        \"description\": \"Run lint check\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_014xPkpRTNB7e5NH3aZyuMw5\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"bun run format\",\n        \"description\": \"Run format check\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_01H4NC2yddfspr1qGuXeakdR\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"bun test\",\n        \"description\": \"Run tests\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_014LjSUyDjRqhHNV5qnQYXsP\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"bun run /private/tmp/rp1-evals/287be03a/workspace/src/hello.ts\",\n        \"description\": \"Run the hello world script\"\n      },\n      \"source\": \"assistant\"\n    },\n    {\n      \"id\": \"toolu_017w46k5pYx6hmUWRzfZncVr\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"rp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type waiting_for_user \\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"prompt\\\": \\\"What would you like to do next?\\\", \\\"context\\\": \\\"Post-build prompt after speedrun builder completes\\\"}'\",\n        \"description\": \"Emit waiting for user status\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_011oL3b1m2K6y5TxgV6225A2\",\n      \"name\": \"AskUserQuestion\",\n      \"canonical\": \"ask_user\",\n      \"input\": {\n        \"questions\": [\n          {\n            \"question\": \"What would you like to do next?\",\n            \"header\": \"Next Action\",\n            \"multiSelect\": false,\n            \"options\": [\n              {\n                \"label\": \"Commit & move on\",\n                \"description\": \"Commit the changes and prepare for a new task\"\n              },\n              {\n                \"label\": \"Refine\",\n                \"description\": \"Modify the hello world script with your feedback\"\n              },\n              {\n                \"label\": \"New task (no commit)\",\n                \"description\": \"Work on a different task without committing this change\"\n              },\n              {\n                \"label\": \"Exit\",\n                \"description\": \"End the speedrun session\"\n              }\n            ]\n          }\n        ]\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_011oL3b1m2K6y5TxgV6225A2\",\n      \"name\": \"AskUserQuestion\",\n      \"canonical\": \"ask_user\",\n      \"input\": {\n        \"questions\": [\n          {\n            \"question\": \"What would you like to do next?\",\n            \"header\": \"Next Action\",\n            \"options\": [\n              {\n                \"label\": \"Commit & move on\",\n                \"description\": \"Commit the changes and prepare for a new task\"\n              },\n              {\n                \"label\": \"Refine\",\n                \"description\": \"Modify the hello world script with your feedback\"\n              },\n              {\n                \"label\": \"New task (no commit)\",\n                \"description\": \"Work on a different task without committing this change\"\n              },\n              {\n                \"label\": \"Exit\",\n                \"description\": \"End the speedrun session\"\n              }\n            ],\n            \"multiSelect\": false\n          }\n        ]\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01FY5AsxnF2MsazTpY9Xkrq3\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"git status --short\",\n        \"description\": \"Check what files need to be staged\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01N3ABJrAzaoizn2581vATc4\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"git add src/hello.ts && git commit -m \\\"$(cat <<'EOF'\\nAdd simple hello world script\\n\\nCreate a basic TypeScript hello world script at src/hello.ts that logs\\na greeting message. Includes JSDoc documentation and follows project\\nconventions.\\n\\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\\nEOF\\n)\\\"\",\n        \"description\": \"Stage and commit the hello world script\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01KenYgCH7HcyiND6aFRKoye\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"rp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type status_change \\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"status\\\": \\\"completed\\\"}'\",\n        \"description\": \"Emit task completion status\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01BZEjVeCw6pxVFq8MjJpsDe\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"mkdir -p /private/tmp/rp1-evals/287be03a/workspace/.rp1/work/speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8\",\n        \"description\": \"Create session log directory\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_011KmWjhRQmYicnAGfZCAd91\",\n      \"name\": \"Write\",\n      \"canonical\": \"write\",\n      \"input\": {\n        \"file_path\": \"/private/tmp/rp1-evals/287be03a/workspace/.rp1/work/speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8/session-log.md\",\n        \"content\": \"# Speedrun Session Log\\n\\n| # | Request | Change | Status |\\n|---|---------|--------|--------|\\n| 1 | Add a simple hello world script at src/hello.ts | Created src/hello.ts with hello world console.log and JSDoc documentation | committed |\\n\"\n      },\n      \"source\": \"stream_event\"\n    },\n    {\n      \"id\": \"toolu_01X6KTj8YXeqHxVJSUMhtL3i\",\n      \"name\": \"Bash\",\n      \"canonical\": \"shell\",\n      \"input\": {\n        \"command\": \"rp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type artifact_registered \\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"path\\\": \\\"speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8/session-log.md\\\", \\\"storageRoot\\\": \\\"work_dir\\\", \\\"format\\\": \\\"markdown\\\"}'\",\n        \"description\": \"Register session log as artifact\"\n      },\n      \"source\": \"stream_event\"\n    }\n  ],\n  \"bashCommands\": [\n    \"rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \\\"add a simple hello world script at src/hello.ts\\\"\",\n    \"date +%Y-%m-%d\",\n    \"python3 -c \\\"import uuid; print(str(uuid.uuid4()))\\\"\",\n    \"uuidgen\",\n    \"rp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type status_change \\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\n  --name \\\"Feature: Add hello world script\\\" \\\\\\n  --step active \\\\\\n  --data '{\\\"status\\\": \\\"running\\\"}'\",\n    \"rp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type status_change \\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"status\\\": \\\"running\\\", \\\"request\\\": \\\"Add hello world script at src/hello.ts\\\"}'\",\n    \"ls /private/tmp/rp1-evals/287be03a/workspace/\",\n    \"bun run lint\",\n    \"bun run format\",\n    \"bun test\",\n    \"bun run /private/tmp/rp1-evals/287be03a/workspace/src/hello.ts\",\n    \"rp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type waiting_for_user \\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"prompt\\\": \\\"What would you like to do next?\\\", \\\"context\\\": \\\"Post-build prompt after speedrun builder completes\\\"}'\",\n    \"git status --short\",\n    \"git add src/hello.ts && git commit -m \\\"$(cat <<'EOF'\\nAdd simple hello world script\\n\\nCreate a basic TypeScript hello world script at src/hello.ts that logs\\na greeting message. Includes JSDoc documentation and follows project\\nconventions.\\n\\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\\nEOF\\n)\\\"\",\n    \"rp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type status_change \\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"status\\\": \\\"completed\\\"}'\",\n    \"mkdir -p /private/tmp/rp1-evals/287be03a/workspace/.rp1/work/speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8\",\n    \"rp1 agent-tools emit --harness claude-code \\\\\\n  --workflow speedrun \\\\\\n  --type artifact_registered \\\\\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\\\\n  --step active \\\\\\n  --unit task-1 \\\\\\n  --data '{\\\"path\\\": \\\"speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8/session-log.md\\\", \\\"storageRoot\\\": \\\"work_dir\\\", \\\"format\\\": \\\"markdown\\\"}'\"\n  ],\n  \"toolCallCount\": 27\n}\n```",
+          "tokenUsage": {
+            "prompt": 26,
+            "completion": 2803,
+            "total": 2829
+          },
+          "metadata": {
+            "toolCalls": [
+              {
+                "id": "toolu_01G4pMDhxCeCpDMFNL6QNH1h",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \"add a simple hello world script at src/hello.ts\"",
+                  "description": "Resolve speedrun command arguments"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_016b231eg4QRVGP9H2Njwy5r",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "date +%Y-%m-%d",
+                  "description": "Get current date for session logging"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01VmxY5yZGTuv3XX77ViX7gU",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "python3 -c \"import uuid; print(str(uuid.uuid4()))\"",
+                  "description": "Generate unique run ID for session tracking"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01FvcQCkSU2ZCLUHTrQrpuDL",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "uuidgen",
+                  "description": "Generate unique run ID for session"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01WLc4ceY8o3s74munGmupw9",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --name \"Feature: Add hello world script\" \\\n  --step active \\\n  --data '{\"status\": \"running\"}'",
+                  "description": "Emit session start status to Arcade"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01PnMUtE6DVeSVFKnLPijvxX",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"running\", \"request\": \"Add hello world script at src/hello.ts\"}'",
+                  "description": "Emit task 1 build start status"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_018t9o92feXVhkFSWfm4noNn",
+                "name": "Task",
+                "canonical": "subagent",
+                "input": {
+                  "subagent_type": "rp1-dev:speedrun-builder",
+                  "description": "Build hello world script",
+                  "prompt": "Implement the following change in the codebase:\n\nAdd a simple hello world script at src/hello.ts\n\nKeep changes minimal and focused. Run any relevant lint/format/test checks after making changes. Do NOT commit."
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01LgfWdsTEFXr7XUDptKe4Va",
+                "name": "Read",
+                "canonical": "read",
+                "input": {
+                  "file_path": "/private/tmp/rp1-evals/287be03a/workspace/.rp1/context/index.md"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_01H5KB2EqAiTp9wQcqdL6Z8u",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "ls /private/tmp/rp1-evals/287be03a/workspace/",
+                  "description": "List workspace root directory"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_0199Ykxy3BatrJroNBCvJgqv",
+                "name": "Read",
+                "canonical": "read",
+                "input": {
+                  "file_path": "/private/tmp/rp1-evals/287be03a/workspace/src/index.ts"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_01Dmq95ZGUu6iHLkLcLG8rVx",
+                "name": "Read",
+                "canonical": "read",
+                "input": {
+                  "file_path": "/private/tmp/rp1-evals/287be03a/workspace/src/utils.ts"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_01C8JHnHpNUzjfHR7Pgb567r",
+                "name": "Read",
+                "canonical": "read",
+                "input": {
+                  "file_path": "/private/tmp/rp1-evals/287be03a/workspace/package.json"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_014mqr3Yr1DiAeghjQYvnHWk",
+                "name": "Read",
+                "canonical": "read",
+                "input": {
+                  "file_path": "/private/tmp/rp1-evals/287be03a/workspace/.rp1/context/patterns.md"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_01Mvntqf5e1UEYzrDboAPjt7",
+                "name": "Write",
+                "canonical": "write",
+                "input": {
+                  "file_path": "/private/tmp/rp1-evals/287be03a/workspace/src/hello.ts",
+                  "content": "/**\n * Simple hello world script.\n */\n\nconsole.log(\"Hello, World!\");\n"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_01T8H3Pc2nBTqSoMemZJU8i9",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "bun run lint",
+                  "description": "Run lint check"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_014xPkpRTNB7e5NH3aZyuMw5",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "bun run format",
+                  "description": "Run format check"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_01H4NC2yddfspr1qGuXeakdR",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "bun test",
+                  "description": "Run tests"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_014LjSUyDjRqhHNV5qnQYXsP",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "bun run /private/tmp/rp1-evals/287be03a/workspace/src/hello.ts",
+                  "description": "Run the hello world script"
+                },
+                "source": "assistant"
+              },
+              {
+                "id": "toolu_017w46k5pYx6hmUWRzfZncVr",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type waiting_for_user \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"prompt\": \"What would you like to do next?\", \"context\": \"Post-build prompt after speedrun builder completes\"}'",
+                  "description": "Emit waiting for user status"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_011oL3b1m2K6y5TxgV6225A2",
+                "name": "AskUserQuestion",
+                "canonical": "ask_user",
+                "input": {
+                  "questions": [
+                    {
+                      "question": "What would you like to do next?",
+                      "header": "Next Action",
+                      "multiSelect": false,
+                      "options": [
+                        {
+                          "label": "Commit & move on",
+                          "description": "Commit the changes and prepare for a new task"
+                        },
+                        {
+                          "label": "Refine",
+                          "description": "Modify the hello world script with your feedback"
+                        },
+                        {
+                          "label": "New task (no commit)",
+                          "description": "Work on a different task without committing this change"
+                        },
+                        {
+                          "label": "Exit",
+                          "description": "End the speedrun session"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_011oL3b1m2K6y5TxgV6225A2",
+                "name": "AskUserQuestion",
+                "canonical": "ask_user",
+                "input": {
+                  "questions": [
+                    {
+                      "question": "What would you like to do next?",
+                      "header": "Next Action",
+                      "options": [
+                        {
+                          "label": "Commit & move on",
+                          "description": "Commit the changes and prepare for a new task"
+                        },
+                        {
+                          "label": "Refine",
+                          "description": "Modify the hello world script with your feedback"
+                        },
+                        {
+                          "label": "New task (no commit)",
+                          "description": "Work on a different task without committing this change"
+                        },
+                        {
+                          "label": "Exit",
+                          "description": "End the speedrun session"
+                        }
+                      ],
+                      "multiSelect": false
+                    }
+                  ]
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01FY5AsxnF2MsazTpY9Xkrq3",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "git status --short",
+                  "description": "Check what files need to be staged"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01N3ABJrAzaoizn2581vATc4",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "git add src/hello.ts && git commit -m \"$(cat <<'EOF'\nAdd simple hello world script\n\nCreate a basic TypeScript hello world script at src/hello.ts that logs\na greeting message. Includes JSDoc documentation and follows project\nconventions.\n\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\nEOF\n)\"",
+                  "description": "Stage and commit the hello world script"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01KenYgCH7HcyiND6aFRKoye",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"completed\"}'",
+                  "description": "Emit task completion status"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01BZEjVeCw6pxVFq8MjJpsDe",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "mkdir -p /private/tmp/rp1-evals/287be03a/workspace/.rp1/work/speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8",
+                  "description": "Create session log directory"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_011KmWjhRQmYicnAGfZCAd91",
+                "name": "Write",
+                "canonical": "write",
+                "input": {
+                  "file_path": "/private/tmp/rp1-evals/287be03a/workspace/.rp1/work/speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8/session-log.md",
+                  "content": "# Speedrun Session Log\n\n| # | Request | Change | Status |\n|---|---------|--------|--------|\n| 1 | Add a simple hello world script at src/hello.ts | Created src/hello.ts with hello world console.log and JSDoc documentation | committed |\n"
+                },
+                "source": "stream_event"
+              },
+              {
+                "id": "toolu_01X6KTj8YXeqHxVJSUMhtL3i",
+                "name": "Bash",
+                "canonical": "shell",
+                "input": {
+                  "command": "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type artifact_registered \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"path\": \"speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8/session-log.md\", \"storageRoot\": \"work_dir\", \"format\": \"markdown\"}'",
+                  "description": "Register session log as artifact"
+                },
+                "source": "stream_event"
+              }
+            ],
+            "bashCommands": [
+              "rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \"add a simple hello world script at src/hello.ts\"",
+              "date +%Y-%m-%d",
+              "python3 -c \"import uuid; print(str(uuid.uuid4()))\"",
+              "uuidgen",
+              "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --name \"Feature: Add hello world script\" \\\n  --step active \\\n  --data '{\"status\": \"running\"}'",
+              "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"running\", \"request\": \"Add hello world script at src/hello.ts\"}'",
+              "ls /private/tmp/rp1-evals/287be03a/workspace/",
+              "bun run lint",
+              "bun run format",
+              "bun test",
+              "bun run /private/tmp/rp1-evals/287be03a/workspace/src/hello.ts",
+              "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type waiting_for_user \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"prompt\": \"What would you like to do next?\", \"context\": \"Post-build prompt after speedrun builder completes\"}'",
+              "git status --short",
+              "git add src/hello.ts && git commit -m \"$(cat <<'EOF'\nAdd simple hello world script\n\nCreate a basic TypeScript hello world script at src/hello.ts that logs\na greeting message. Includes JSDoc documentation and follows project\nconventions.\n\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\nEOF\n)\"",
+              "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"completed\"}'",
+              "mkdir -p /private/tmp/rp1-evals/287be03a/workspace/.rp1/work/speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8",
+              "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type artifact_registered \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"path\": \"speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8/session-log.md\", \"storageRoot\": \"work_dir\", \"format\": \"markdown\"}'"
+            ],
+            "toolCallCount": 27
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "post_build_prompt_has_commit_option",
+          "assert": [
+            {
+              "type": "llm-rubric",
+              "value": "Evaluate the post-build prompt options presented after a successful build.\n\nREQUIRED (all must pass):\n1. After the sub-agent completes, an AskUserQuestion is presented\n2. The prompt includes a \"commit\" option (commit & move on, or similar wording)\n3. The prompt includes a \"refine\" option (refine current changes, or similar)\n4. The prompt includes a \"new task\" option (move to next task without committing)\n5. The prompt includes an \"exit\" option\n\nPASS if: All four options present in post-build prompt\nFAIL if: Missing commit, refine, new task, or exit option\n"
+            }
+          ],
+          "vars": {
+            "REQUEST": "add a simple hello world script at src/hello.ts",
+            "EVAL_BASE_DIR": "/tmp/rp1-evals/287be03a",
+            "WORKSPACE_DIR": "/tmp/rp1-evals/287be03a/workspace",
+            "REMOTE_DIR": "/tmp/rp1-evals/287be03a/remote.git",
+            "GIT_HEAD_BEFORE": "46d9bff0a1b17492ce317fd1b9cef74f6365ebb4",
+            "GIT_COUNT_BEFORE": "1",
+            "GIT_REMOTE_HEAD_BEFORE": "46d9bff0a1b17492ce317fd1b9cef74f6365ebb4"
+          },
+          "options": {
+            "provider": {
+              "id": "anthropic:claude-haiku-4-5-20251001",
+              "config": {
+                "temperature": 0
+              }
+            }
+          },
+          "metadata": {}
+        },
+        "testIdx": 2,
+        "vars": {
+          "REQUEST": "add a simple hello world script at src/hello.ts",
+          "EVAL_BASE_DIR": "/tmp/rp1-evals/287be03a",
+          "WORKSPACE_DIR": "/tmp/rp1-evals/287be03a/workspace",
+          "REMOTE_DIR": "/tmp/rp1-evals/287be03a/remote.git",
+          "GIT_HEAD_BEFORE": "46d9bff0a1b17492ce317fd1b9cef74f6365ebb4",
+          "GIT_COUNT_BEFORE": "1",
+          "GIT_REMOTE_HEAD_BEFORE": "46d9bff0a1b17492ce317fd1b9cef74f6365ebb4"
+        },
+        "metadata": {
+          "toolCalls": [
+            {
+              "id": "toolu_01G4pMDhxCeCpDMFNL6QNH1h",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \"add a simple hello world script at src/hello.ts\"",
+                "description": "Resolve speedrun command arguments"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_016b231eg4QRVGP9H2Njwy5r",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "date +%Y-%m-%d",
+                "description": "Get current date for session logging"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01VmxY5yZGTuv3XX77ViX7gU",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "python3 -c \"import uuid; print(str(uuid.uuid4()))\"",
+                "description": "Generate unique run ID for session tracking"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01FvcQCkSU2ZCLUHTrQrpuDL",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "uuidgen",
+                "description": "Generate unique run ID for session"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01WLc4ceY8o3s74munGmupw9",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --name \"Feature: Add hello world script\" \\\n  --step active \\\n  --data '{\"status\": \"running\"}'",
+                "description": "Emit session start status to Arcade"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01PnMUtE6DVeSVFKnLPijvxX",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"running\", \"request\": \"Add hello world script at src/hello.ts\"}'",
+                "description": "Emit task 1 build start status"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_018t9o92feXVhkFSWfm4noNn",
+              "name": "Task",
+              "canonical": "subagent",
+              "input": {
+                "subagent_type": "rp1-dev:speedrun-builder",
+                "description": "Build hello world script",
+                "prompt": "Implement the following change in the codebase:\n\nAdd a simple hello world script at src/hello.ts\n\nKeep changes minimal and focused. Run any relevant lint/format/test checks after making changes. Do NOT commit."
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01LgfWdsTEFXr7XUDptKe4Va",
+              "name": "Read",
+              "canonical": "read",
+              "input": {
+                "file_path": "/private/tmp/rp1-evals/287be03a/workspace/.rp1/context/index.md"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_01H5KB2EqAiTp9wQcqdL6Z8u",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "ls /private/tmp/rp1-evals/287be03a/workspace/",
+                "description": "List workspace root directory"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_0199Ykxy3BatrJroNBCvJgqv",
+              "name": "Read",
+              "canonical": "read",
+              "input": {
+                "file_path": "/private/tmp/rp1-evals/287be03a/workspace/src/index.ts"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_01Dmq95ZGUu6iHLkLcLG8rVx",
+              "name": "Read",
+              "canonical": "read",
+              "input": {
+                "file_path": "/private/tmp/rp1-evals/287be03a/workspace/src/utils.ts"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_01C8JHnHpNUzjfHR7Pgb567r",
+              "name": "Read",
+              "canonical": "read",
+              "input": {
+                "file_path": "/private/tmp/rp1-evals/287be03a/workspace/package.json"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_014mqr3Yr1DiAeghjQYvnHWk",
+              "name": "Read",
+              "canonical": "read",
+              "input": {
+                "file_path": "/private/tmp/rp1-evals/287be03a/workspace/.rp1/context/patterns.md"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_01Mvntqf5e1UEYzrDboAPjt7",
+              "name": "Write",
+              "canonical": "write",
+              "input": {
+                "file_path": "/private/tmp/rp1-evals/287be03a/workspace/src/hello.ts",
+                "content": "/**\n * Simple hello world script.\n */\n\nconsole.log(\"Hello, World!\");\n"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_01T8H3Pc2nBTqSoMemZJU8i9",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "bun run lint",
+                "description": "Run lint check"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_014xPkpRTNB7e5NH3aZyuMw5",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "bun run format",
+                "description": "Run format check"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_01H4NC2yddfspr1qGuXeakdR",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "bun test",
+                "description": "Run tests"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_014LjSUyDjRqhHNV5qnQYXsP",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "bun run /private/tmp/rp1-evals/287be03a/workspace/src/hello.ts",
+                "description": "Run the hello world script"
+              },
+              "source": "assistant"
+            },
+            {
+              "id": "toolu_017w46k5pYx6hmUWRzfZncVr",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type waiting_for_user \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"prompt\": \"What would you like to do next?\", \"context\": \"Post-build prompt after speedrun builder completes\"}'",
+                "description": "Emit waiting for user status"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_011oL3b1m2K6y5TxgV6225A2",
+              "name": "AskUserQuestion",
+              "canonical": "ask_user",
+              "input": {
+                "questions": [
+                  {
+                    "question": "What would you like to do next?",
+                    "header": "Next Action",
+                    "multiSelect": false,
+                    "options": [
+                      {
+                        "label": "Commit & move on",
+                        "description": "Commit the changes and prepare for a new task"
+                      },
+                      {
+                        "label": "Refine",
+                        "description": "Modify the hello world script with your feedback"
+                      },
+                      {
+                        "label": "New task (no commit)",
+                        "description": "Work on a different task without committing this change"
+                      },
+                      {
+                        "label": "Exit",
+                        "description": "End the speedrun session"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_011oL3b1m2K6y5TxgV6225A2",
+              "name": "AskUserQuestion",
+              "canonical": "ask_user",
+              "input": {
+                "questions": [
+                  {
+                    "question": "What would you like to do next?",
+                    "header": "Next Action",
+                    "options": [
+                      {
+                        "label": "Commit & move on",
+                        "description": "Commit the changes and prepare for a new task"
+                      },
+                      {
+                        "label": "Refine",
+                        "description": "Modify the hello world script with your feedback"
+                      },
+                      {
+                        "label": "New task (no commit)",
+                        "description": "Work on a different task without committing this change"
+                      },
+                      {
+                        "label": "Exit",
+                        "description": "End the speedrun session"
+                      }
+                    ],
+                    "multiSelect": false
+                  }
+                ]
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01FY5AsxnF2MsazTpY9Xkrq3",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "git status --short",
+                "description": "Check what files need to be staged"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01N3ABJrAzaoizn2581vATc4",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "git add src/hello.ts && git commit -m \"$(cat <<'EOF'\nAdd simple hello world script\n\nCreate a basic TypeScript hello world script at src/hello.ts that logs\na greeting message. Includes JSDoc documentation and follows project\nconventions.\n\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\nEOF\n)\"",
+                "description": "Stage and commit the hello world script"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01KenYgCH7HcyiND6aFRKoye",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"completed\"}'",
+                "description": "Emit task completion status"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01BZEjVeCw6pxVFq8MjJpsDe",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "mkdir -p /private/tmp/rp1-evals/287be03a/workspace/.rp1/work/speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8",
+                "description": "Create session log directory"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_011KmWjhRQmYicnAGfZCAd91",
+              "name": "Write",
+              "canonical": "write",
+              "input": {
+                "file_path": "/private/tmp/rp1-evals/287be03a/workspace/.rp1/work/speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8/session-log.md",
+                "content": "# Speedrun Session Log\n\n| # | Request | Change | Status |\n|---|---------|--------|--------|\n| 1 | Add a simple hello world script at src/hello.ts | Created src/hello.ts with hello world console.log and JSDoc documentation | committed |\n"
+              },
+              "source": "stream_event"
+            },
+            {
+              "id": "toolu_01X6KTj8YXeqHxVJSUMhtL3i",
+              "name": "Bash",
+              "canonical": "shell",
+              "input": {
+                "command": "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type artifact_registered \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"path\": \"speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8/session-log.md\", \"storageRoot\": \"work_dir\", \"format\": \"markdown\"}'",
+                "description": "Register session log as artifact"
+              },
+              "source": "stream_event"
+            }
+          ],
+          "bashCommands": [
+            "rp1 agent-tools resolve-args --name rp1-dev:speedrun --args \"add a simple hello world script at src/hello.ts\"",
+            "date +%Y-%m-%d",
+            "python3 -c \"import uuid; print(str(uuid.uuid4()))\"",
+            "uuidgen",
+            "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --name \"Feature: Add hello world script\" \\\n  --step active \\\n  --data '{\"status\": \"running\"}'",
+            "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"running\", \"request\": \"Add hello world script at src/hello.ts\"}'",
+            "ls /private/tmp/rp1-evals/287be03a/workspace/",
+            "bun run lint",
+            "bun run format",
+            "bun test",
+            "bun run /private/tmp/rp1-evals/287be03a/workspace/src/hello.ts",
+            "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type waiting_for_user \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"prompt\": \"What would you like to do next?\", \"context\": \"Post-build prompt after speedrun builder completes\"}'",
+            "git status --short",
+            "git add src/hello.ts && git commit -m \"$(cat <<'EOF'\nAdd simple hello world script\n\nCreate a basic TypeScript hello world script at src/hello.ts that logs\na greeting message. Includes JSDoc documentation and follows project\nconventions.\n\nCo-Authored-By: Claude (claude-haiku-4-5) <noreply@anthropic.com>\nEOF\n)\"",
+            "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type status_change \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"status\": \"completed\"}'",
+            "mkdir -p /private/tmp/rp1-evals/287be03a/workspace/.rp1/work/speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8",
+            "rp1 agent-tools emit --harness claude-code \\\n  --workflow speedrun \\\n  --type artifact_registered \\\n  --run-id F0EB066F-F549-4BA0-89C9-6E843B470DA8 \\\n  --step active \\\n  --unit task-1 \\\n  --data '{\"path\": \"speedrun/2026-04-03-F0EB066F-F549-4BA0-89C9-6E843B470DA8/session-log.md\", \"storageRoot\": \"work_dir\", \"format\": \"markdown\"}'"
+          ],
+          "toolCallCount": 27,
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      }
+    ],
+    "stats": {
+      "successes": 3,
+      "failures": 0,
+      "errors": 0,
+      "tokenUsage": {
+        "prompt": 57,
+        "completion": 6360,
+        "cached": 0,
+        "total": 6417,
+        "numRequests": 3,
+        "completionDetails": {
+          "reasoning": 0,
+          "acceptedPrediction": 0,
+          "rejectedPrediction": 0
+        },
+        "assertions": {
+          "total": 12824,
+          "prompt": 12288,
+          "completion": 536,
+          "cached": 0,
+          "numRequests": 0,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0
+          }
+        }
+      },
+      "durationMs": 92176,
+      "evaluationDurationMs": 92176
+    }
+  },
+  "config": {
+    "tags": {},
+    "description": "rp1-dev:speedrun advisory evaluation",
+    "prompts": [
+      "file:///Users/prem/Development/rp1/evals/suites/rp1-dev/speedrun/prompt.txt"
+    ],
+    "providers": [
+      {
+        "id": "file://../../../providers/claude-with-tools.ts",
+        "label": "rp1-agentic-eval",
+        "config": {
+          "model": "claude-haiku-4-5",
+          "betas": [
+            "fast-mode-2026-02-01"
+          ],
+          "permission_mode": "bypassPermissions",
+          "allow_dangerously_skip_permissions": true,
+          "ask_user_behavior": "first_option",
+          "max_turns": 30,
+          "setting_sources": [
+            "project",
+            "local",
+            "user"
+          ],
+          "plugins": [
+            {
+              "type": "local",
+              "path": "dist/claude-code/dev"
+            },
+            {
+              "type": "local",
+              "path": "dist/claude-code/base"
+            }
+          ],
+          "tools": [
+            "Read",
+            "Write",
+            "Edit",
+            "Glob",
+            "Grep",
+            "Bash",
+            "Skill"
+          ]
+        }
+      }
+    ],
+    "tests": [
+      {
+        "description": "small_request_delegates_to_subagent",
+        "assert": [
+          {
+            "type": "javascript",
+            "value": "file://../../shared/assertions/tool-calls.ts:assertSpeedrunBuilderSpawned"
+          },
+          {
+            "type": "javascript",
+            "value": "file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate"
+          },
+          {
+            "type": "javascript",
+            "value": "file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration"
+          },
+          {
+            "type": "llm-rubric",
+            "value": "Evaluate the speedrun agent's orchestration behavior for a small request.\n\nNOTE: Sub-agent tool calls (Write, Edit, Bash, etc.) appear in metadata alongside\nthe orchestrator's calls — they CANNOT be distinguished. Only evaluate the\norchestrator's OUTPUT TEXT and delegation behavior, not raw tool call metadata.\n\nREQUIRED (all must pass):\n1. Agent spawns speedrun-builder sub-agent for implementation (visible in Agent/Task tool calls)\n2. Agent does NOT spawn build-fast-planner or task-builder (those are build-fast agents)\n3. Agent presents a post-build prompt with options including: commit, refine, new task, exit\n4. Agent tracks task count across the session\n\nPASS if: Small request delegated to speedrun-builder with post-build prompt options\nFAIL if: Agent uses build-fast pipeline agents or never presents post-build options\n"
+          }
+        ]
+      },
+      {
+        "description": "medium_scope_redirects",
+        "vars": {
+          "REQUEST": "refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL"
+        },
+        "assert": [
+          {
+            "type": "javascript",
+            "value": "file://../../shared/assertions/tool-calls.ts:assertNoWriteEdit"
+          },
+          {
+            "type": "javascript",
+            "value": "file://../../shared/assertions/tool-calls.ts:assertNoImplSubagentSpawned"
+          },
+          {
+            "type": "llm-rubric",
+            "value": "Evaluate whether the agent correctly redirects a medium/large-scope request.\n\nREQUIRED (all must pass):\n1. Agent identifies the request as medium or large scope\n2. Agent does NOT delegate to a sub-agent for implementation\n3. Output recommends using `/rp1-dev:build-fast` or `/rp1-dev:build` instead\n4. Output explains WHY the request exceeds speedrun scope (e.g., multiple systems, high risk, many files)\n5. Agent still presents options to continue (new task or exit)\n\nPROHIBITED:\n- No source code files should be created or modified\n- No implementation sub-agent should be spawned\n- Agent should NOT attempt to break the request into smaller pieces and implement them\n\nPASS if: Agent declines and redirects to appropriate workflow\nFAIL if: Agent attempts implementation of the large request\n"
+          }
+        ]
+      },
+      {
+        "description": "post_build_prompt_has_commit_option",
+        "assert": [
+          {
+            "type": "llm-rubric",
+            "value": "Evaluate the post-build prompt options presented after a successful build.\n\nREQUIRED (all must pass):\n1. After the sub-agent completes, an AskUserQuestion is presented\n2. The prompt includes a \"commit\" option (commit & move on, or similar wording)\n3. The prompt includes a \"refine\" option (refine current changes, or similar)\n4. The prompt includes a \"new task\" option (move to next task without committing)\n5. The prompt includes an \"exit\" option\n\nPASS if: All four options present in post-build prompt\nFAIL if: Missing commit, refine, new task, or exit option\n"
+          }
+        ]
+      }
+    ],
+    "scenarios": [],
+    "env": {},
+    "defaultTest": {
+      "options": {
+        "provider": {
+          "id": "anthropic:claude-haiku-4-5-20251001",
+          "config": {
+            "temperature": 0
+          }
+        }
+      },
+      "vars": {
+        "REQUEST": "add a simple hello world script at src/hello.ts"
+      },
+      "assert": [],
+      "metadata": {}
+    },
+    "outputPath": [
+      "output/rp1-dev-speedrun.json"
+    ],
+    "extensions": [
+      "file://../../shared/extension.ts:extensionHook"
+    ],
+    "metadata": {},
+    "evaluateOptions": {
+      "maxConcurrency": 4
+    }
+  },
+  "shareableUrl": null,
+  "metadata": {
+    "promptfooVersion": "0.121.2",
+    "nodeVersion": "v25.8.2",
+    "platform": "darwin",
+    "arch": "arm64",
+    "exportedAt": "2026-04-03T02:10:11.599Z",
+    "evaluationCreatedAt": "2026-04-03T02:08:39.409Z"
+  }
+}

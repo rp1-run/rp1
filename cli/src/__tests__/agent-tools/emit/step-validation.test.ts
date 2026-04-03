@@ -8,6 +8,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -262,7 +263,13 @@ describe("validateStepAgainstStateMachine", () => {
 		flow: overrides.flow ?? "build",
 		featureId: "feat",
 		projectPath: tempDir,
+		rp1ProjectRoot: tempDir,
+		rp1KbRoot: join(tempDir, ".rp1", "context"),
+		rp1WorkRoot: join(tempDir, ".rp1", "work"),
+		projectId: null,
 		status: "running" as const,
+		name: null,
+		harness: null,
 		createdAt: new Date().toISOString(),
 		updatedAt: new Date().toISOString(),
 	});
@@ -427,6 +434,11 @@ describe("flow-mismatch check (via executeEmit)", () => {
 		resetInstance();
 		clearCache();
 		tempDir = await createTempDir("flow-mismatch");
+		mkdirSync(join(tempDir, ".rp1"), { recursive: true });
+		writeFileSync(
+			join(tempDir, ".rp1", "project_id"),
+			"test-flow-mismatch-uuid",
+		);
 		dbPath = join(tempDir, "test.db");
 		await expectTaskRight(getEmitDatabase(dbPath));
 	});
@@ -438,7 +450,7 @@ describe("flow-mismatch check (via executeEmit)", () => {
 		await rm(tempDir, { recursive: true, force: true });
 	});
 
-	test("rejects when run has flow 'unknown' and --workflow provides a value", async () => {
+	test("backfills legacy run flow when stored flow is 'unknown'", async () => {
 		const db = await expectTaskRight(getEmitDatabase(dbPath));
 		const runId = "run-flow-mismatch";
 		insertRun(db, {
@@ -457,11 +469,13 @@ describe("flow-mismatch check (via executeEmit)", () => {
 			data: { status: "running", workflow: "build", feature: "feat" },
 		};
 
-		const error = await expectTaskLeft(executeEmit(input));
-		const msg = getErrorMessage(error);
-		expect(msg).toContain("flow");
-		expect(msg).toContain("unknown");
-		expect(msg).toContain("build");
+		const result = await expectTaskRight(executeEmit(input));
+		expect(result.success).toBe(true);
+
+		const row = db.prepare("SELECT flow FROM runs WHERE id = ?").get(runId) as {
+			flow: string;
+		} | null;
+		expect(row?.flow).toBe("build");
 	});
 
 	test("passes when run flow matches provided workflow", async () => {
@@ -501,6 +515,11 @@ describe("emit pipeline: step validation integration", () => {
 		resetInstance();
 		clearCache();
 		tempDir = await createTempDir("emit-step-val");
+		mkdirSync(join(tempDir, ".rp1"), { recursive: true });
+		writeFileSync(
+			join(tempDir, ".rp1", "project_id"),
+			"test-emit-step-val-uuid",
+		);
 		dbPath = join(tempDir, "test.db");
 		await expectTaskRight(getEmitDatabase(dbPath));
 	});
@@ -618,6 +637,11 @@ describe("predecessor auto-completion", () => {
 		resetInstance();
 		clearCache();
 		tempDir = await createTempDir("pred-completion");
+		mkdirSync(join(tempDir, ".rp1"), { recursive: true });
+		writeFileSync(
+			join(tempDir, ".rp1", "project_id"),
+			"test-pred-completion-uuid",
+		);
 		dbPath = join(tempDir, "test.db");
 		await expectTaskRight(getEmitDatabase(dbPath));
 	});

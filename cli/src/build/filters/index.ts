@@ -17,18 +17,24 @@ import { allowedToolsFilter } from "./allowed-tools.js";
 import { escapeToml } from "./escape-toml.js";
 import { escapeYaml } from "./escape-yaml.js";
 import { namespaceRef } from "./namespace-ref.js";
+import { paramTransform } from "./param-transform.js";
 import { roleType } from "./role-type.js";
 import { slashCommands } from "./slash-commands.js";
+import { toYaml } from "./to-yaml.js";
 import { toolName } from "./tool-name.js";
+import { toolProse } from "./tool-prose.js";
 
 export {
 	allowedToolsFilter,
 	escapeToml,
 	escapeYaml,
 	namespaceRef,
+	paramTransform,
 	roleType,
 	slashCommands,
+	toYaml,
 	toolName,
+	toolProse,
 };
 
 /**
@@ -87,5 +93,23 @@ export function registerFilters(liquid: Liquid): void {
 			}
 			return slashCommands(content, platform, skillMap);
 		},
+	);
+
+	liquid.registerFilter(
+		"param_transform",
+		(content: string, platform: BuildPlatform) =>
+			paramTransform(content, platform),
+	);
+
+	liquid.registerFilter(
+		"tool_prose",
+		function (content: string, platform: BuildPlatform) {
+			const registry = this.context.get(["registry"]) as PlatformRegistry;
+			return toolProse(content, platform, registry);
+		},
+	);
+
+	liquid.registerFilter("to_yaml", (value: unknown, indent?: number) =>
+		toYaml(value, indent),
 	);
 }

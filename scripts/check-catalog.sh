@@ -11,7 +11,7 @@ CATALOG_DIR="$REPO_ROOT/catalog"
 errors=0
 
 if [ ! -f "$CATALOG_DIR/skills.yaml" ] || [ ! -f "$CATALOG_DIR/agents.yaml" ]; then
-    echo "ERROR: Catalogue files missing. Run 'just generate-catalog' to create them."
+    echo "ERROR: Catalogue files missing. Run 'just catalog-generate' to create them."
     exit 1
 fi
 
@@ -25,9 +25,12 @@ get_checksum() {
     ' "$file"
 }
 
-# Check every skill SKILL.md checksum against what's in the catalogue
-for plugin_dir in "$PLUGINS_DIR"/*/; do
-    plugin=$(basename "$plugin_dir")
+# Only check distributable plugins (utils is internal-only, matching generate-catalog.sh)
+DIST_PLUGINS=("base" "dev")
+
+for plugin in "${DIST_PLUGINS[@]}"; do
+    plugin_dir="$PLUGINS_DIR/$plugin"
+    [ -d "$plugin_dir" ] || continue
     prefix="rp1-${plugin}"
 
     # Skills
@@ -75,7 +78,7 @@ done
 
 if [ "$errors" -gt 0 ]; then
     echo ""
-    echo "ERROR: Catalogue is out of date ($errors issues). Run 'just generate-catalog' and commit the changes."
+    echo "ERROR: Catalogue is out of date ($errors issues). Run 'just catalog-generate' and commit the changes."
     exit 1
 fi
 

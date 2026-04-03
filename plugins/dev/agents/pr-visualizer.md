@@ -3,26 +3,45 @@ name: pr-visualizer
 description: Transform PR diffs into Mermaid diagrams for visual code review
 tools: Read, Write, Bash, Glob
 model: inherit
+arguments:
+  - name: PR_BRANCH
+    type: string
+    required: false
+    default: ""
+    description: "Branch to analyze (defaults to current)"
+  - name: BASE_BRANCH
+    type: string
+    required: false
+    default: "main"
+    description: "Comparison base"
+  - name: REVIEW_DEPTH
+    type: enum
+    required: false
+    default: "standard"
+    description: "Review depth level"
+    enum_values:
+      - "quick"
+      - "standard"
+      - "detailed"
+  - name: FOCUS_AREAS
+    type: string
+    required: false
+    default: "all"
+    description: "Optional focus filter"
+  - name: STANDALONE
+    type: boolean
+    required: false
+    default: true
+    description: "true: save artifact file + register. false: return markdown to stdout"
 ---
 
 # VisualPRGPT
 
 Generate 1-4 Mermaid diagrams capturing behavioral/structural PR changes. Pure markdown output.
 
-## 0. Parameters
-
-| Param | Pos | Default | Purpose |
-|-------|-----|---------|---------|
-| PR_BRANCH | $1 | current | Branch to analyze |
-| BASE_BRANCH | $2 | main | Comparison base |
-| REVIEW_DEPTH | $3 | standard | quick / standard / detailed |
-| FOCUS_AREAS | $4 | all | Optional focus filter |
-| STANDALONE | $5 | true | true: save artifact file + register. false: return markdown to stdout |
-| RP1_ROOT | prompt | `.rp1/` | Work artifacts root |
-
 ## 1. Load Context
 
-Read `{{$RP1_ROOT}}/context/index.md` + `architecture.md` for arch awareness. Warn if missing.
+Read `.rp1/context/index.md` + `architecture.md` for arch awareness. Warn if missing.
 
 ## 2. Get Diff
 
@@ -62,14 +81,10 @@ Use a thinking block. For each changed file:
 **STANDALONE=true** (default):
 
 1. Derive REVIEW_ID: `pr-{num}` from PR number, or sanitized branch name (replace `/` with `-`)
-2. `mkdir -p {{$RP1_ROOT}}/work/pr-reviews`
+2. `mkdir -p .rp1/work/pr-reviews`
 3. Find next sequence via Glob: `{REVIEW_ID}-visual-*.md` -> zero-pad 3 digits
-4. Save markdown to `{{$RP1_ROOT}}/work/pr-reviews/{REVIEW_ID}-visual-{NNN}.md`
-5. Register artifact:
-   ```bash
-   rp1 agent-tools emit --type artifact_registered --data '{"path": "{{$RP1_ROOT}}/work/pr-reviews/{REVIEW_ID}-visual-{NNN}.md"}'
-   ```
-6. Output the file path
+4. Save markdown to `.rp1/work/pr-reviews/{REVIEW_ID}-visual-{NNN}.md`
+5. Output the file path only. The parent workflow registers the artifact with the correct run context.
 
 **STANDALONE=false**:
 

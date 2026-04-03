@@ -4,13 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const selectTriggerVariants = cva(
-	"inline-flex items-center justify-between rounded-md border border-border bg-background transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+	"inline-flex items-center justify-between rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 	{
 		variants: {
 			size: {
-				sm: "h-8 px-2 text-xs min-w-[80px] gap-1",
-				md: "h-9 px-3 text-sm min-w-[140px] gap-2",
-				lg: "h-10 px-4 text-sm min-w-[160px] gap-2",
+				sm: "h-7 px-2 text-xs min-w-[80px] max-w-[160px] gap-1 border border-border/50 bg-transparent hover:bg-surface text-fg-muted",
+				md: "h-9 px-3 text-sm min-w-[140px] gap-2 border border-border bg-background hover:bg-muted",
+				lg: "h-10 px-4 text-sm min-w-[160px] gap-2 border border-border bg-background hover:bg-muted",
 			},
 		},
 		defaultVariants: { size: "md" },
@@ -167,7 +167,9 @@ export function Select<T extends string>({
 				aria-haspopup="listbox"
 				aria-label={label}
 			>
-				<span className={cn(!selectedOption && "text-muted-foreground")}>
+				<span
+					className={cn("truncate", !selectedOption && "text-muted-foreground")}
+				>
 					{selectedOption?.label ?? placeholder ?? "Select..."}
 				</span>
 				<ChevronDown

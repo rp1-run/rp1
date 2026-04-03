@@ -4,6 +4,27 @@ export interface PromptOptions {
 }
 
 /**
+ * Raise the max-listener ceiling on process.stdin for the duration of an
+ * @inquirer/prompts call, then restore the previous value.
+ *
+ * Each inquirer prompt attaches multiple keypress listeners to stdin.
+ * When many prompts run sequentially (e.g. per-file overwrite confirmations
+ * during `rp1 install`), the accumulated listeners exceed the default limit
+ * and Node emits a MaxListenersExceededWarning.  Temporarily bumping the
+ * limit avoids the warning while keeping the safeguard in place otherwise.
+ */
+async function withStdinListenerLimit<T>(fn: () => Promise<T>): Promise<T> {
+	const stdin = process.stdin;
+	const prev = stdin.getMaxListeners();
+	stdin.setMaxListeners(Math.max(prev, 50));
+	try {
+		return await fn();
+	} finally {
+		stdin.setMaxListeners(prev);
+	}
+}
+
+/**
  * Confirm a destructive action.
  * In non-TTY environments, returns defaultOnNonTTY (default: false = abort).
  */
@@ -16,10 +37,12 @@ export async function confirmAction(
 	}
 
 	const { confirm } = await import("@inquirer/prompts");
-	return confirm({
-		message,
-		default: false,
-	});
+	return withStdinListenerLimit(() =>
+		confirm({
+			message,
+			default: false,
+		}),
+	);
 }
 
 /**
@@ -36,10 +59,12 @@ export async function selectOption<T extends string>(
 	}
 
 	const { select } = await import("@inquirer/prompts");
-	return select({
-		message,
-		choices,
-	});
+	return withStdinListenerLimit(() =>
+		select({
+			message,
+			choices,
+		}),
+	);
 }
 
 /**
@@ -56,8 +81,10 @@ export async function selectMultiple<T extends string>(
 	}
 
 	const { checkbox } = await import("@inquirer/prompts");
-	return checkbox({
-		message,
-		choices,
-	});
+	return withStdinListenerLimit(() =>
+		checkbox({
+			message,
+			choices,
+		}),
+	);
 }

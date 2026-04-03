@@ -1,0 +1,115 @@
+# speedrun Command Evaluation Suite
+#
+# Advisory eval for /rp1-dev:speedrun.
+# Validates: scope gating, delegation to general sub-agent, post-build prompt flow.
+#
+# Run: just eval-run rp1-dev/speedrun
+description: "rp1-dev:speedrun advisory evaluation"
+evaluateOptions:
+  maxConcurrency: 4
+extensions:
+  - file://../../shared/extension.ts:extensionHook
+providers:
+  - id: file://../../../providers/claude-with-tools.ts
+    label: rp1-agentic-eval
+    config:
+      model: claude-haiku-4-5
+      betas:
+        - fast-mode-2026-02-01
+      permission_mode: bypassPermissions
+      allow_dangerously_skip_permissions: true
+      ask_user_behavior: first_option
+      max_turns: 30
+      setting_sources:
+        - project
+        - local
+        - user
+      plugins:
+        - type: local
+          path: dist/claude-code/dev
+        - type: local
+          path: dist/claude-code/base
+      tools:
+        - Read
+        - Write
+        - Edit
+        - Glob
+        - Grep
+        - Bash
+        - Skill
+prompts:
+  - file://prompt.txt
+defaultTest:
+  options:
+    provider:
+      id: "anthropic:claude-haiku-4-5-20251001"
+      config:
+        temperature: 0
+  vars:
+    REQUEST: "add a simple hello world script at src/hello.ts"
+tests:
+  - description: "small_request_delegates_to_subagent"
+    assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertSpeedrunBuilderSpawned
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
+      - type: llm-rubric
+        value: |
+          Evaluate the speedrun agent's orchestration behavior for a small request.
+
+          NOTE: Sub-agent tool calls (Write, Edit, Bash, etc.) appear in metadata alongside
+          the orchestrator's calls — they CANNOT be distinguished. Only evaluate the
+          orchestrator's OUTPUT TEXT and delegation behavior, not raw tool call metadata.
+
+          REQUIRED (all must pass):
+          1. Agent spawns speedrun-builder sub-agent for implementation (visible in Agent/Task tool calls)
+          2. Agent does NOT spawn build-fast-planner or task-builder (those are build-fast agents)
+          3. Agent presents a post-build prompt with options including: commit, refine, new task, exit
+          4. Agent tracks task count across the session
+
+          PASS if: Small request delegated to speedrun-builder with post-build prompt options
+          FAIL if: Agent uses build-fast pipeline agents or never presents post-build options
+  - description: "medium_scope_redirects"
+    vars:
+      REQUEST: "refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL"
+    assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertNoWriteEdit
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertNoImplSubagentSpawned
+      - type: llm-rubric
+        value: |
+          Evaluate whether the agent correctly redirects a medium/large-scope request.
+
+          REQUIRED (all must pass):
+          1. Agent identifies the request as medium or large scope
+          2. Agent does NOT delegate to a sub-agent for implementation
+          3. Output recommends using `/rp1-dev:build-fast` or `/rp1-dev:build` instead
+          4. Output explains WHY the request exceeds speedrun scope (e.g., multiple systems, high risk, many files)
+          5. Agent still presents options to continue (new task or exit)
+
+          PROHIBITED:
+          - No source code files should be created or modified
+          - No implementation sub-agent should be spawned
+          - Agent should NOT attempt to break the request into smaller pieces and implement them
+
+          PASS if: Agent declines and redirects to appropriate workflow
+          FAIL if: Agent attempts implementation of the large request
+  - description: "post_build_prompt_has_commit_option"
+    assert:
+      - type: llm-rubric
+        value: |
+          Evaluate the post-build prompt options presented after a successful build.
+
+          REQUIRED (all must pass):
+          1. After the sub-agent completes, an AskUserQuestion is presented
+          2. The prompt includes a "commit" option (commit & move on, or similar wording)
+          3. The prompt includes a "refine" option (refine current changes, or similar)
+          4. The prompt includes a "new task" option (move to next task without committing)
+          5. The prompt includes an "exit" option
+
+          PASS if: All four options present in post-build prompt
+          FAIL if: Missing commit, refine, new task, or exit option

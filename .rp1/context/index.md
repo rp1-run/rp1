@@ -1,34 +1,21 @@
 # rp1 - Knowledge Base
 
-**Type**: Monorepo
+**Type**: Single Project
 **Languages**: TypeScript, TSX, Markdown, Shell
-**Version**: 0.6.0
-**Updated**: 2026-03-23
-**Projects**: 7 (cli, cli/web-ui, plugins/base, plugins/dev, plugins/utils, evals, packages/catppuccin-mermaid)
+**Version**: 0.6.4-dev
+**Updated**: 2026-03-26
 
 ## Project Summary
 
-rp1 is an AI agent orchestration platform that provides a plugin ecosystem for coding agents. It delivers skills, agents, and workflows to host tools (Claude Code, OpenCode, Codex) via a build pipeline that transforms markdown-first prompt definitions into platform-specific artifacts, with a Web UI dashboard for live workflow monitoring.
+rp1 is an AI agent orchestration CLI that enables developers to compose, build, and monitor agentic workflows across multiple host platforms (Claude Code, OpenCode, Codex). It provides a plugin architecture with skills and agents authored as markdown, compiled to platform-specific artifacts, and tracked via an event-sourced dashboard (Arcade).
 
 ## Quick Reference
 
 | Aspect | Value |
 |--------|-------|
-| Entry Point | `cli/src/main.ts` (CLI), `cli/web-ui/src/main.tsx` (dashboard) |
-| Key Pattern | Plugin Architecture with Skill-Agent delegation |
-| Tech Stack | Bun, TypeScript, fp-ts, React, Vite, SQLite, LiquidJS, GoReleaser |
-
-## Projects Overview
-
-| Project | Purpose | Language | Entry Point |
-|---------|---------|----------|-------------|
-| cli | CLI commands, build pipeline, agent tools, install | TypeScript | `src/main.ts` |
-| cli/web-ui | Dashboard SPA + Bun server + daemon | TSX/TypeScript | `src/main.tsx` |
-| plugins/base | KB generation, docs, mermaid, research, strategy | Markdown | `skills/knowledge-build/SKILL.md` |
-| plugins/dev | Feature delivery, PR review, code quality | Markdown | `skills/build/SKILL.md` |
-| plugins/utils | Prompt authoring, eval extraction, tersification | Markdown | `skills/prompt-writer/SKILL.md` |
-| evals | Prompt attestation and eval suite verification | TypeScript | `src/index.ts` |
-| packages/catppuccin-mermaid | Catppuccin-flavored Mermaid theme package | TypeScript | `src/index.ts` |
+| Entry Point | `cli/src/main.ts` |
+| Key Pattern | Skill-Agent delegation with state-machine-driven workflows |
+| Tech Stack | Bun, TypeScript, fp-ts, React, Vite, SQLite, LiquidJS |
 
 ## KB File Manifest
 
@@ -36,10 +23,10 @@ rp1 is an AI agent orchestration platform that provides a plugin ecosystem for c
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~150 | System design, component relationships, data flows |
-| modules.md | ~144 | Component breakdown, module responsibilities |
-| patterns.md | ~80 | Code conventions, implementation patterns |
-| concept_map.md | ~195 | Domain terminology, business concepts |
+| architecture.md | ~112 | System design, component relationships, data flows |
+| modules.md | ~159 | Component breakdown, module responsibilities |
+| patterns.md | ~79 | Code conventions, implementation patterns |
+| concept_map.md | ~183 | Domain terminology, business concepts |
 
 ## Task-Based Loading
 
@@ -48,5 +35,40 @@ rp1 is an AI agent orchestration platform that provides a plugin ecosystem for c
 | Code review | `patterns.md` |
 | Bug investigation | `architecture.md`, `modules.md` |
 | Feature implementation | `modules.md`, `patterns.md` |
-| Strategic or system-wide analysis | All files |
-| Understanding domain concepts | `concept_map.md` |
+| Strategic analysis | ALL files |
+
+## How to Load
+
+```
+Read: .rp1/context/{filename}
+```
+
+## Project Structure
+
+```
+cli/
+├── src/                  # CLI core (commands, agent-tools, build, install, init)
+│   ├── agent-tools/      # 9 subcommands (emit, task, feedback, github-pr, state-machine, ...)
+│   ├── build/            # Multi-platform LiquidJS build pipeline
+│   ├── commands/         # Commander.js CLI commands
+│   ├── install/          # Plugin installers (OpenCode, Claude Code, Codex)
+│   └── init/             # Project initialization wizard
+├── shared/               # Cross-cutting library (fp-ts, errors, events, config)
+├── web-ui/               # Arcade dashboard (React SPA + Bun server)
+│   ├── src/server/       # HTTP + WebSocket server, v2 API routes
+│   └── src/              # React frontend (pages, components, hooks, providers)
+├── scripts/              # Build scripts (build-claude-code.ts, build-codex.ts, build-opencode.ts)
+plugins/
+├── base/                 # Foundation: KB, strategy, Mermaid, research, security
+├── dev/                  # Delivery: build, blueprint, PR review, code audit, features
+└── utils/                # Prompt: writing, tersification, eval extraction
+evals/                    # Prompt attestation system
+packages/catppuccin-mermaid/  # Mermaid theme package
+```
+
+## Navigation
+
+- **[architecture.md](architecture.md)**: System design, layers, data flows, integrations
+- **[modules.md](modules.md)**: 15 modules with components, dependencies, cross-module patterns
+- **[patterns.md](patterns.md)**: Code conventions (naming, types, errors, testing, I/O)
+- **[concept_map.md](concept_map.md)**: 20 domain concepts, terminology glossary, bounded contexts

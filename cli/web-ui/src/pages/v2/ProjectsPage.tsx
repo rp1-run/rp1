@@ -1,4 +1,4 @@
-import { AlertCircle, FolderOpen, Play, RefreshCw } from "lucide-react";
+import { AlertCircle, FolderOpen, Play, SquareKanban } from "lucide-react";
 import { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
@@ -91,32 +91,27 @@ function ProjectRow({
 		>
 			<ActivityDot projectId={project.id} />
 			<span className="type-body text-fg truncate">{project.name}</span>
-			<span className="ml-auto flex items-center gap-3 shrink-0">
-				<span
-					role="link"
-					tabIndex={0}
+			<span className="type-secondary text-fg-ghost truncate">
+				{project.path}
+			</span>
+			<span className="ml-auto flex items-center gap-2 shrink-0 pl-4">
+				<button
+					type="button"
 					onClick={onRunsClick}
-					onKeyDown={(e) =>
-						e.key === "Enter" && onRunsClick(e as unknown as React.MouseEvent)
-					}
-					className="text-fg-ghost opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:text-fg"
+					className="text-fg-ghost transition-colors duration-150 hover:text-fg bg-transparent border-none p-0 cursor-pointer"
 					aria-label={`Runs for ${project.name}`}
 				>
 					<Play className="h-3.5 w-3.5" strokeWidth={1.5} />
-				</span>
-				<span
-					role="link"
-					tabIndex={0}
+				</button>
+				<button
+					type="button"
 					onClick={onFilesClick}
-					onKeyDown={(e) =>
-						e.key === "Enter" && onFilesClick(e as unknown as React.MouseEvent)
-					}
-					className="text-fg-ghost opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:text-fg"
+					className="text-fg-ghost transition-colors duration-150 hover:text-fg bg-transparent border-none p-0 cursor-pointer"
 					aria-label={`Files for ${project.name}`}
 				>
 					<FolderOpen className="h-3.5 w-3.5" strokeWidth={1.5} />
-				</span>
-				<span className="type-secondary text-fg-muted tabular-nums">
+				</button>
+				<span className="type-secondary text-fg-muted tabular-nums min-w-[4.5rem] text-right">
 					{project.runCount} run{project.runCount === 1 ? "" : "s"}
 				</span>
 			</span>
@@ -209,23 +204,11 @@ export function ProjectsPage() {
 
 	return (
 		<div className="mx-auto max-w-2xl px-6 py-8">
-			<header className="mb-6 flex items-center justify-between">
-				<h1 className="type-title text-fg">Projects</h1>
-				<button
-					type="button"
-					onClick={refetch}
-					disabled={isLoading}
-					className={cn(
-						"text-fg-ghost transition-colors duration-150 hover:text-fg",
-						"disabled:cursor-not-allowed disabled:opacity-50",
-					)}
-					aria-label="Refresh projects"
-				>
-					<RefreshCw
-						className={cn("h-4 w-4", isLoading && "animate-spin")}
-						strokeWidth={1.5}
-					/>
-				</button>
+			<header className="mb-6">
+				<h1 className="flex items-center gap-2 type-title text-fg">
+					<SquareKanban className="h-4 w-4" strokeWidth={1.5} />
+					Projects
+				</h1>
 			</header>
 
 			{isLoading && projects.length === 0 ? (
@@ -235,29 +218,28 @@ export function ProjectsPage() {
 			) : projects.length === 0 ? (
 				<EmptyState />
 			) : (
-				<div
-					className="divide-y divide-border"
-					role="list"
+				<ul
+					className="divide-y divide-border list-none m-0 p-0"
 					aria-label="Projects"
 				>
 					{projects.map((project, index) => (
-						<div key={project.id} role="listitem">
+						<li key={project.id}>
 							<ProjectRow
 								project={project}
 								selected={selectedIndex === index}
 								onClick={() => handleProjectClick(project)}
 								onRunsClick={(e) => {
 									e.stopPropagation();
-									navigate(`/projects/${project.id}/runs`);
+									navigate(`/?projectId=${project.id}`);
 								}}
 								onFilesClick={(e) => {
 									e.stopPropagation();
 									navigate(`/projects/${project.id}/files`);
 								}}
 							/>
-						</div>
+						</li>
 					))}
-				</div>
+				</ul>
 			)}
 		</div>
 	);

@@ -3,20 +3,15 @@
  * Validates TOML syntax in global and local rp1 settings files.
  */
 
-import { homedir } from "node:os";
-import { join } from "node:path";
+export {
+	resolveGlobalSettingsPath,
+	resolveLocalSettingsPath,
+} from "../../shared/settings.js";
 
-/**
- * Global settings file path: ~/.config/rp1/settings.toml
- */
-export const resolveGlobalSettingsPath = (): string =>
-	join(homedir(), ".config", "rp1", "settings.toml");
-
-/**
- * Local settings file path: .rp1/settings.toml relative to cwd
- */
-export const resolveLocalSettingsPath = (cwd: string = process.cwd()): string =>
-	join(cwd, ".rp1", "settings.toml");
+import {
+	resolveGlobalSettingsPath,
+	resolveLocalSettingsPath,
+} from "../../shared/settings.js";
 
 /**
  * Load a single settings file for validation purposes.

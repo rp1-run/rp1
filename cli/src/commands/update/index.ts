@@ -14,8 +14,13 @@ import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
-import { confirmAction } from "../../../shared/prompts.js";
 import { loadToolsRegistry } from "../../config/supported-tools.js";
+import { updatePlugin } from "../../install/claudecode/installer.js";
+import {
+	isStale,
+	type PlatformVersions,
+	readAllVersionMarkers,
+} from "../../install/version-marker.js";
 import { DEFAULT_TTL_HOURS, writeCache } from "../../lib/cache.js";
 import { getColorFns } from "../../lib/colors.js";
 import {
@@ -26,11 +31,12 @@ import {
 import {
 	type CheckOptions,
 	checkForUpdate,
+	getDisplayVersion,
 	getInstalledVersion,
 } from "../../lib/version.js";
 import {
 	type InstallContext,
-	installAllDetectedTools,
+	installForSpecificTool,
 } from "../../shared/install-core.js";
 import { pluginsSubcommand } from "./plugins.js";
 
@@ -90,6 +96,26 @@ export const formatCheckOutputJson = (
 			2,
 		),
 	);
+};
+
+/**
+ * Format check-update result for shell hooks.
+ * Returns a single-line message when an update is available, otherwise null.
+ */
+export const formatCheckOutputHookText = (
+	result: Awaited<ReturnType<typeof checkForUpdate>>,
+): string | null => {
+	if (result.error) {
+		return null;
+	}
+
+	if (result.updateAvailable && result.latestVersion) {
+		return `rp1 update available: v${result.currentVersion} -> v${result.latestVersion} | Run /self-update to update`;
+	}
+
+	// No update available — return current version info
+	const displayVersion = getDisplayVersion();
+	return `rp1 is running v${displayVersion}`;
 };
 
 /**
@@ -272,6 +298,150 @@ export const executeSelfUpdate = async (
 };
 
 /**
+ * Known platforms for staleness detection.
+ * Order determines display order in status output.
+ */
+const KNOWN_PLATFORMS = ["claude-code", "opencode", "codex"] as const;
+
+/**
+ * Check plugin staleness via version markers and reinstall stale platforms.
+ * Reads the centralized version markers file and compares each platform's
+ * installed version against the current binary version. Stale platforms
+ * are automatically re-extracted and reinstalled from the binary.
+ *
+ * For Claude Code, additionally runs `claude plugin update` after reinstall
+ * to ensure Claude picks up the new plugin files.
+ *
+ * @param options - Update options (dryRun)
+ * @param logger - Logger instance
+ * @param isTTY - Whether running in TTY mode
+ */
+const checkAndReinstallStalePlugins = async (
+	options: { dryRun: boolean; yes: boolean },
+	logger: Logger,
+	isTTY: boolean,
+): Promise<void> => {
+	const { green, yellow, bold, dim } = getColorFns(isTTY);
+	const currentVersion = getInstalledVersion();
+
+	console.log("");
+	console.log(bold("Checking plugin staleness..."));
+
+	const markersResult = await readAllVersionMarkers()();
+
+	if (E.isLeft(markersResult)) {
+		console.log(
+			yellow("Warning: Could not read version markers. Skipping plugin check."),
+		);
+		logger.debug(
+			`Version marker read failed: ${formatError(markersResult.left, false)}`,
+		);
+		return;
+	}
+
+	const markers: PlatformVersions = markersResult.right;
+	const stalePlatforms: string[] = [];
+	const upToDatePlatforms: string[] = [];
+
+	for (const platform of KNOWN_PLATFORMS) {
+		const marker = markers[platform] ?? null;
+		if (isStale(marker, currentVersion)) {
+			stalePlatforms.push(platform);
+		} else {
+			upToDatePlatforms.push(platform);
+		}
+	}
+
+	if (stalePlatforms.length === 0) {
+		console.log(green("All platform plugins are up to date."));
+		console.log("");
+		for (const platform of upToDatePlatforms) {
+			console.log(
+				dim(
+					`  ${platform}: v${markers[platform]?.version ?? "unknown"} (current)`,
+				),
+			);
+		}
+		return;
+	}
+
+	console.log("");
+	console.log(
+		`Stale plugins detected for: ${stalePlatforms.map((p) => bold(p)).join(", ")}`,
+	);
+
+	if (options.dryRun) {
+		console.log("");
+		console.log("Dry run mode - would reinstall plugins for:");
+		for (const platform of stalePlatforms) {
+			const markerVersion = markers[platform]?.version ?? "none";
+			console.log(`  ${platform}: ${markerVersion} -> ${currentVersion}`);
+		}
+		return;
+	}
+
+	const ctx: InstallContext = {
+		logger,
+		isTTY,
+		dryRun: options.dryRun,
+		skipPrompt: options.yes || !isTTY,
+	};
+
+	const registry = await loadToolsRegistry();
+
+	console.log("");
+	console.log(bold("Reinstalling stale plugins..."));
+	console.log("");
+
+	for (const platform of stalePlatforms) {
+		const markerVersion = markers[platform]?.version ?? "none";
+		console.log(
+			`Updating ${platform} plugins (${markerVersion} -> ${currentVersion})...`,
+		);
+
+		const result = await installForSpecificTool(platform, registry, ctx)();
+
+		if (E.isLeft(result)) {
+			console.log(yellow(`  ${platform}: Failed to reinstall`));
+			logger.debug(`  Error: ${formatError(result.left, false)}`);
+			continue;
+		}
+
+		if (result.right.success) {
+			console.log(green(`  ${platform}: Plugins reinstalled`));
+
+			if (platform === "claude-code") {
+				console.log(dim("  Running claude plugin update..."));
+				for (const pluginName of ["rp1-base", "rp1-dev"]) {
+					const updateResult = await updatePlugin(
+						pluginName,
+						"user",
+						logger,
+						options.dryRun,
+						isTTY,
+					)();
+					if (E.isLeft(updateResult)) {
+						logger.debug(
+							`  claude plugin update for ${pluginName} failed: ${formatError(updateResult.left, false)}`,
+						);
+					}
+				}
+			}
+		} else {
+			console.log(yellow(`  ${platform}: Reinstall failed`));
+			if (result.right.error) {
+				logger.debug(`  Error: ${formatError(result.right.error, false)}`);
+			}
+		}
+	}
+
+	console.log("");
+	for (const platform of upToDatePlatforms) {
+		console.log(dim(`  ${platform}: Already up to date`));
+	}
+};
+
+/**
  * Execute the update action logic.
  * Exported for use by deprecated command wrappers.
  *
@@ -286,6 +456,7 @@ export const executeUpdateAction = async (
 		force: boolean;
 		yes: boolean;
 		json?: boolean;
+		format?: string;
 	},
 	logger: Logger | undefined,
 	isTTY: boolean,
@@ -293,11 +464,27 @@ export const executeUpdateAction = async (
 	const { dim } = getColorFns(isTTY);
 
 	logger?.debug(
-		`Update action starting (check=${options.check}, dry-run=${options.dryRun}, force=${options.force}, yes=${options.yes}, json=${options.json})`,
+		`Update action starting (check=${options.check}, dry-run=${options.dryRun}, force=${options.force}, yes=${options.yes}, json=${options.json}, format=${options.format})`,
 	);
 
 	// Handle --check mode: delegate to check-update logic
 	if (options.check) {
+		if (options.json && options.format) {
+			console.error("Error: --json and --format cannot be used together.");
+			process.exit(1);
+		}
+
+		if (
+			options.format !== undefined &&
+			options.format !== "human" &&
+			options.format !== "hook-text"
+		) {
+			console.error(
+				"Error: Invalid --format value. Use 'human' or 'hook-text'.",
+			);
+			process.exit(1);
+		}
+
 		const checkOptions: CheckOptions = {
 			force: false, // Use cache unless expired
 			timeoutMs: 5000,
@@ -310,6 +497,13 @@ export const executeUpdateAction = async (
 
 			if (options.json) {
 				formatCheckOutputJson(result);
+			} else if (options.format === "hook-text") {
+				const message = formatCheckOutputHookText(result);
+				if (message) {
+					console.log(message);
+					process.exit(0);
+				}
+				process.exit(result.error && !result.latestVersion ? 2 : 1);
 			} else {
 				formatCheckOutput(result, isTTY);
 			}
@@ -346,110 +540,42 @@ export const executeUpdateAction = async (
 		}
 	}
 
-	// Standard update flow: self-update then optionally update plugins
+	// Standard update flow: self-update then check plugin staleness
 	const updateResult = await executeSelfUpdate(
 		{ dryRun: options.dryRun, force: options.force },
 		logger,
 		isTTY,
 	);
 
-	// If self-update failed or requires manual intervention, exit
-	if (!updateResult.success || updateResult.exitCode !== 0) {
+	// If self-update had a hard failure (not manual-install), exit immediately
+	if (!updateResult.success && updateResult.exitCode !== 2) {
 		process.exit(updateResult.exitCode);
 	}
 
-	// For dry-run, also show plugin update preview
-	if (options.dryRun) {
-		console.log("");
-		console.log("Plugin updates would also be available:");
-		console.log(
-			"  Run 'rp1 update plugins' to update plugins after CLI update.",
-		);
-		console.log("");
-		console.log("Run without --dry-run to perform the update.");
-		process.exit(0);
-	}
-
-	// Prompt for plugin update (skip in non-TTY or if --yes)
-	if (!isTTY) {
-		// Non-TTY: skip plugin prompt silently
-		console.log("");
-		console.log(
-			dim("Please restart Claude Code or OpenCode to use the new version."),
-		);
-		console.log(dim("Run 'rp1 update plugins' to update plugins."));
-		process.exit(0);
-	}
-
-	console.log("");
-	const shouldUpdatePlugins = options.yes
-		? true
-		: await confirmAction("Would you like to update rp1 plugins as well?", {
-				isTTY,
-				defaultOnNonTTY: false,
-			});
-
-	if (shouldUpdatePlugins && logger) {
-		await executePluginUpdates(
-			{ dryRun: false, yes: options.yes },
+	// Check plugin staleness and reinstall if needed.
+	// This runs for both successful updates AND manual installs (exitCode 2),
+	// so curl/direct-download users still get plugin staleness checks.
+	if (logger) {
+		await checkAndReinstallStalePlugins(
+			{ dryRun: options.dryRun, yes: options.yes },
 			logger,
 			isTTY,
 		);
 	}
 
+	// If self-update required manual intervention (manual install), exit
+	// after plugin checks have completed
+	if (!updateResult.success || updateResult.exitCode !== 0) {
+		process.exit(updateResult.exitCode);
+	}
+
 	console.log("");
 	console.log(
-		dim("Please restart Claude Code or OpenCode to use the new version."),
+		dim(
+			"Please restart Claude Code, OpenCode, or Codex to use the new version.",
+		),
 	);
 	process.exit(0);
-};
-
-/**
- * Execute plugin updates for all detected tools.
- */
-const executePluginUpdates = async (
-	options: { dryRun: boolean; yes: boolean },
-	logger: Logger,
-	isTTY: boolean,
-): Promise<void> => {
-	const { green, yellow, bold, dim } = getColorFns(isTTY);
-
-	const ctx: InstallContext = {
-		logger,
-		isTTY,
-		dryRun: options.dryRun,
-		skipPrompt: options.yes || !isTTY,
-	};
-
-	const registry = await loadToolsRegistry();
-
-	console.log("");
-	console.log(bold("Updating plugins for all detected tools..."));
-	console.log("");
-
-	const result = await installAllDetectedTools(registry, ctx)();
-
-	if (E.isLeft(result)) {
-		console.error(formatError(result.left, isTTY));
-		return;
-	}
-
-	const { installed, results, detected } = result.right;
-
-	console.log(`Detected tools: ${detected.map((d) => d.tool.name).join(", ")}`);
-	console.log(`Successfully updated: ${installed}/${results.length}`);
-	console.log("");
-
-	for (const res of results) {
-		if (res.success) {
-			console.log(green(`${res.toolName}: Plugins updated`));
-		} else {
-			console.log(yellow(`${res.toolName}: Update failed`));
-			if (res.error) {
-				console.log(dim(`  ${formatError(res.error, false)}`));
-			}
-		}
-	}
 };
 
 /**
@@ -469,6 +595,7 @@ export const updateCommand = new Command("update")
 	.description("Update rp1 CLI and/or plugins")
 	.option("--check", "Check for updates without installing", false)
 	.option("--json", "Output result as JSON (only with --check)", false)
+	.option("--format <format>", "Output format for --check: human or hook-text")
 	.option("--dry-run", "Show what would be done without executing", false)
 	.option("--force", "Force update even if already on latest", false)
 	.option("-y, --yes", "Skip confirmation prompts", false)
@@ -481,6 +608,7 @@ Subcommands:
 Options:
   --check    Check for available updates without installing
   --json     Output result as JSON (only with --check)
+  --format   Output format for --check: human or hook-text
   --dry-run  Preview what would be done without making changes
   --force    Force update even if already on the latest version
   -y, --yes  Skip all confirmation prompts
@@ -489,6 +617,7 @@ Examples:
   rp1 update                   Update CLI, then prompt for plugin update
   rp1 update --check           Check if updates are available
   rp1 update --check --json    Check for updates with JSON output
+  rp1 update --check --format hook-text  Emit shell-friendly hook text
   rp1 update --dry-run         Preview update actions
   rp1 update --force           Force reinstall current version
   rp1 update -y                Update without prompts
@@ -507,6 +636,7 @@ Examples:
 				force: options.force,
 				yes: options.yes,
 				json: options.json,
+				format: options.format,
 			},
 			logger,
 			isTTY,

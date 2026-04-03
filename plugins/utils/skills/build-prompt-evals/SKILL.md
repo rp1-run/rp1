@@ -9,7 +9,15 @@ metadata:
   created: 2026-01-19
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "<file-or-prompt> [--output <dir>]"
+  arguments:
+    - name: INPUT
+      type: string
+      required: true
+      description: "File path to a prompt file, or raw prompt text"
+    - name: OUTPUT_DIR
+      type: string
+      required: false
+      description: "Output directory for generated files (default: input file dir or cwd)"
   sub_agents:
     - "rp1-utils:dependency-chain-analyzer"
     - "rp1-utils:prompt-eval-extractor"
@@ -19,15 +27,6 @@ metadata:
 # Build Prompt Evals
 
 Generate eval assertions (YAML) and test invocation prompt from source prompt. Extracts assertions, then runs assertion specialist to resolve placeholders, consolidate scenarios, and document unresolved assertions.
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `INPUT` | Yes | - | File path to a prompt file, or raw prompt text |
-| `OUTPUT_DIR` | No | input file dir or cwd | Output directory for generated files. Set if user provides `--output <dir>` |
 
 ## Modes
 
@@ -63,7 +62,7 @@ Use Bash: test -f "{INPUT}" && echo "file" || echo "inline"
 Spawn dependency-chain-analyzer to discover sub-agent and skill dependencies:
 
 {% dispatch_agent "rp1-utils:dependency-chain-analyzer" %}
-$1: {INPUT file path}
+FILE_PATH: {INPUT file path}
 {% enddispatch_agent %}
 
 Capture JSON output as DEPENDENCY_CHAIN variable.
@@ -98,11 +97,11 @@ OUTPUT_PROMPT = {OUTPUT_DIR}/{basename}-eval-prompt.txt
 Single agent generates both YAML assertions and test prompt:
 
 {% dispatch_agent "rp1-utils:prompt-eval-extractor" %}
-$1: {PROMPT_TEXT content}
-$2: {SOURCE_NAME}
-$3: {OUTPUT_YAML}
-$4: {DEPENDENCY_CHAIN JSON or empty string}
-$5: {OUTPUT_PROMPT}
+PROMPT_TEXT: {PROMPT_TEXT content}
+SOURCE_NAME: {SOURCE_NAME}
+OUTPUT_FILE: {OUTPUT_YAML}
+DEPENDENCY_CHAIN: {DEPENDENCY_CHAIN JSON or empty string}
+OUTPUT_PROMPT: {OUTPUT_PROMPT}
 {% enddispatch_agent %}
 
 ### Step 6: Extraction Complete (Intermediate)
@@ -114,15 +113,10 @@ Extraction complete. Running assertion optimization...
 
 ### Step 7: Spawn Assertion Specialist
 
-Resolve RP1_ROOT from git root:
-```bash
-RP1_ROOT="$(git rev-parse --show-toplevel)/.rp1"
-```
-
 Invoke assertion specialist to optimize the generated eval config:
 
 {% dispatch_agent "rp1-utils:prompt-assertion-specialist" %}
-$1: {OUTPUT_YAML}
+CONFIG_PATH: {OUTPUT_YAML}
 {% enddispatch_agent %}
 
 Capture JSON output as ASSERTION_RESULT variable.

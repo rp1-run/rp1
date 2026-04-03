@@ -11,7 +11,9 @@ import * as path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { nanoid } from "nanoid";
 import { useCallback, useRef } from "react";
+import { formatError } from "../../../../shared/errors.js";
 import type { Logger } from "../../../../shared/logger.js";
+import { ensureProjectId } from "../../../../shared/project-id.js";
 import {
 	loadToolsRegistry,
 	type ToolsRegistry,
@@ -31,7 +33,12 @@ import {
 	detectProjectContext,
 	type ProjectContext,
 } from "../../context-detector.js";
+import {
+	detectReinitState,
+	resolveInitDirectoryModel,
+} from "../../directory-model.js";
 import { detectGitRoot, type GitRootResult } from "../../git-root.js";
+import { buildManagedGitignoreContent } from "../../gitignore.js";
 import type {
 	Activity,
 	ActivityType,
@@ -43,7 +50,7 @@ import type {
 	ReinitState,
 	StepId,
 } from "../../models.js";
-import { GITIGNORE_PRESETS } from "../../models.js";
+import { buildSettingsTomlTemplate } from "../../settings-template.js";
 import {
 	appendShellFencedContent,
 	hasShellFencedContent,
@@ -76,28 +83,7 @@ import {
 } from "../../tool-detector.js";
 import type { WizardAction, WizardState } from "./useWizardState.js";
 
-/**
- * Default settings template with all flags disabled for safety.
- * Users can enable features as needed after reviewing the settings.
- */
-const DEFAULT_SETTINGS_TEMPLATE = `# rp1 Settings
-# Documentation: https://rp1.run/configuration/settings
-
-# All settings are disabled by default for safety.
-# Enable features by changing false to true.
-
-# Enable git worktree isolation for build commands
-git_worktree = false
-
-# Automatically commit changes after builds
-git_commit = false
-
-# Automatically push branches to remote
-git_push = false
-
-# Enable AFK (unattended) mode for automated workflows
-afk = false
-`;
+const DEFAULT_SETTINGS_TEMPLATE = buildSettingsTomlTemplate();
 
 /**
  * Resolve the global settings file path.
@@ -111,8 +97,7 @@ function resolveGlobalSettingsPath(): string {
  * Resolve the local settings file path.
  */
 function resolveLocalSettingsPath(cwd: string): string {
-	const rp1Root = process.env.RP1_ROOT || ".rp1";
-	return path.join(cwd, rp1Root, "settings.toml");
+	return path.join(resolveInitDirectoryModel(cwd).rp1Dir, "settings.toml");
 }
 
 /**
@@ -419,30 +404,42 @@ export const useStepExecution = ({
 	const executeDirectorySetup = useCallback(
 		async (addAct: AddActivityFn): Promise<void> => {
 			const ctx = contextRef.current;
-			const rp1Root = process.env.RP1_ROOT || ".rp1";
-			const rp1Dir = path.resolve(ctx.cwd, rp1Root);
-			const contextDir = path.join(rp1Dir, "context");
-			const workDir = path.join(rp1Dir, "work");
+			const directories = resolveInitDirectoryModel(ctx.cwd);
 
 			let created = 0;
 
-			if (!(await directoryExists(rp1Dir))) {
-				await fs.mkdir(rp1Dir, { recursive: true });
-				addAct("directory-setup", `Created ${rp1Root}/`, "success");
+			if (!(await directoryExists(directories.rp1Dir))) {
+				await fs.mkdir(directories.rp1Dir, { recursive: true });
+				addAct(
+					"directory-setup",
+					`Created ${formatDirectoryForDisplay(ctx.cwd, directories.rp1Dir)}`,
+					"success",
+				);
 				created++;
 			}
 
-			if (!(await directoryExists(contextDir))) {
-				await fs.mkdir(contextDir, { recursive: true });
-				addAct("directory-setup", `Created ${rp1Root}/context/`, "success");
+			if (!(await directoryExists(directories.contextDir))) {
+				await fs.mkdir(directories.contextDir, { recursive: true });
+				addAct(
+					"directory-setup",
+					`Created ${formatDirectoryForDisplay(ctx.cwd, directories.contextDir)}`,
+					"success",
+				);
 				created++;
 			}
 
-			if (!(await directoryExists(workDir))) {
-				await fs.mkdir(workDir, { recursive: true });
-				addAct("directory-setup", `Created ${rp1Root}/work/`, "success");
+			if (!(await directoryExists(directories.workDir))) {
+				await fs.mkdir(directories.workDir, { recursive: true });
+				addAct(
+					"directory-setup",
+					`Created ${formatDirectoryForDisplay(ctx.cwd, directories.workDir)}`,
+					"success",
+				);
 				created++;
 			}
+
+			await ensureProjectId(directories.projectRoot);
+			addAct("directory-setup", "Project ID ensured", "success");
 
 			if (created === 0) {
 				addAct("directory-setup", "Directory structure exists", "success");
@@ -639,7 +636,14 @@ export const useStepExecution = ({
 
 			addAct("gitignore-config", `Applying ${preset} preset...`, "info");
 
-			const gitignoreContent = GITIGNORE_PRESETS[preset];
+			const gitignoreContentResult = buildManagedGitignoreContent(
+				ctx.cwd,
+				preset,
+			);
+			if (E.isLeft(gitignoreContentResult)) {
+				throw new Error(formatError(gitignoreContentResult.left, false));
+			}
+			const gitignoreContent = gitignoreContentResult.right;
 			const exists = await fileExists(gitignorePath);
 
 			if (!exists) {
@@ -1008,71 +1012,15 @@ export const useStepExecution = ({
 	return executeStep;
 };
 
-/**
- * Detect re-initialization state by checking for existing rp1 artifacts.
- */
-async function detectReinitState(
-	cwd: string,
-	detectedTool: DetectedTool | null,
-): Promise<ReinitState> {
-	const rp1Root = process.env.RP1_ROOT || ".rp1";
-	const rp1Dir = path.resolve(cwd, rp1Root);
-	const contextDir = path.join(rp1Dir, "context");
-
-	const hasRp1Dir = await directoryExists(rp1Dir);
-
-	let hasFenced = false;
-	const detectedToolInstructionFile =
-		detectedTool?.tool.instruction_file ?? null;
-
-	if (detectedToolInstructionFile) {
-		const instrPath = path.resolve(cwd, detectedToolInstructionFile);
-		const content = await readFileContent(instrPath);
-		if (content) {
-			hasFenced = hasFencedContent(content);
-		}
-	} else {
-		for (const file of ["CLAUDE.md", "AGENTS.md"]) {
-			const instrPath = path.resolve(cwd, file);
-			const content = await readFileContent(instrPath);
-			if (content && hasFencedContent(content)) {
-				hasFenced = true;
-				break;
-			}
-		}
+function formatDirectoryForDisplay(cwd: string, directoryPath: string): string {
+	const relativePath = path.relative(cwd, directoryPath);
+	if (
+		relativePath !== "" &&
+		!relativePath.startsWith("..") &&
+		!path.isAbsolute(relativePath)
+	) {
+		return `${relativePath.replaceAll("\\", "/")}/`;
 	}
 
-	const hasKB = await fileExists(path.join(contextDir, "index.md"));
-	const workDir = path.join(rp1Dir, "work");
-	const hasWork = await hasAnyFiles(workDir);
-
-	return {
-		hasRp1Dir,
-		hasFencedContent: hasFenced,
-		hasKBContent: hasKB,
-		hasWorkContent: hasWork,
-	};
-}
-
-/**
- * Check if a directory has any files (recursively).
- */
-async function hasAnyFiles(dirPath: string): Promise<boolean> {
-	try {
-		const entries = await fs.readdir(dirPath, { withFileTypes: true });
-		for (const entry of entries) {
-			if (entry.isFile()) {
-				return true;
-			}
-			if (entry.isDirectory()) {
-				const subPath = path.join(dirPath, entry.name);
-				if (await hasAnyFiles(subPath)) {
-					return true;
-				}
-			}
-		}
-		return false;
-	} catch {
-		return false;
-	}
+	return `${directoryPath.replaceAll("\\", "/")}/`;
 }

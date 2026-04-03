@@ -6,6 +6,10 @@ set -eu
 #        curl -fsSL https://rp1.run/install.sh | VERSION=5.5.0 sh
 #        curl -fsSL https://rp1.run/install.sh | INSTALL_DIR=/opt/bin sh
 #        curl -fsSL https://rp1.run/install.sh | SKIP_PLUGINS=1 sh
+#
+# Internal (not in site/install.sh):
+#        LOCAL_ARTIFACTS_DIR=/path/to/dir VERSION=0.6.5 sh install.sh
+#        Skips download; copies binary + checksums.txt from local dir.
 
 GITHUB_REPO="rp1-run/rp1"
 BINARY_NAME="rp1"
@@ -43,6 +47,27 @@ warn() {
 error() {
     printf "${RED}Error:${NC} %s\n" "$1" >&2
     exit 1
+}
+
+# Run a command, elevating with sudo only if needed and available.
+# Usage: maybe_sudo command [args...]
+maybe_sudo() {
+    if "$@" 2>/dev/null; then
+        return 0
+    fi
+
+    # Command failed -- try sudo if we are not already root
+    if [ "$(id -u)" -eq 0 ]; then
+        # Already root and still failed; nothing more to try
+        return 1
+    fi
+
+    if command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+    else
+        # No sudo available -- report clearly
+        return 1
+    fi
 }
 
 detect_os() {
@@ -217,64 +242,18 @@ Please report this issue at: https://github.com/${GITHUB_REPO}/issues"
 }
 
 install_plugins() {
-    local version="$1"
-    local scope="${PLUGIN_SCOPE:-user}"
+    local install_dir="$1"
 
     echo ""
-    printf "${BOLD}Claude Code Plugin Installation${NC}\n"
+    printf "${BOLD}Plugin Installation${NC}\n"
     echo "=============================="
     echo ""
 
-    if ! command -v claude >/dev/null 2>&1; then
-        info "Claude Code CLI not found — skipping plugin installation"
-        echo "  Install Claude Code first, then run:"
-        echo "    rp1 install claude-code"
-        return 0
-    fi
-
-    info "Installing rp1 plugins to Claude Code..."
-
-    # Try SSH-based marketplace add first
-    if claude plugin marketplace add ${GITHUB_REPO} >/dev/null 2>&1; then
-        success "Marketplace added"
+    info "Installing rp1 plugins..."
+    if "$install_dir/$BINARY_NAME" install 2>/dev/null; then
+        success "Plugins installed successfully"
     else
-        # Clean up any broken state from the failed SSH attempt
-        claude plugin marketplace remove rp1-run >/dev/null 2>&1 || true
-        # Fallback: download tarball via HTTPS and add as local path
-        info "Git clone failed, falling back to HTTPS tarball..."
-        local tarball_url="https://github.com/${GITHUB_REPO}/archive/refs/heads/main.tar.gz"
-        # Use persistent path — claude references this directory at runtime
-        local marketplace_dir="$HOME/.cache/rp1/marketplace"
-        rm -rf "$marketplace_dir"
-        mkdir -p "$marketplace_dir"
-        if download "$tarball_url" "$tmp_dir/rp1-repo.tar.gz" && \
-           tar -xzf "$tmp_dir/rp1-repo.tar.gz" -C "$marketplace_dir" --strip-components=1 --wildcards '*/.claude-plugin/*' '*/cli/dist/claude-code/*' 2>/dev/null && \
-           claude plugin marketplace add "$marketplace_dir" >/dev/null 2>&1; then
-            success "Marketplace added (HTTPS tarball)"
-        else
-            warn "Could not add marketplace. You can install plugins manually later:"
-            echo "    rp1 install claude-code"
-            return 0
-        fi
-    fi
-
-    # Install plugins
-    local plugin_failed=0
-    for plugin in rp1-base rp1-dev; do
-        if claude plugin install "${plugin}@rp1-run" --scope "$scope" >/dev/null 2>&1; then
-            success "Plugin ${plugin} installed"
-        else
-            warn "Failed to install ${plugin}"
-            plugin_failed=1
-        fi
-    done
-
-    if [ "$plugin_failed" = "0" ]; then
-        echo ""
-        success "All plugins installed! Restart Claude Code to load them."
-    else
-        echo ""
-        warn "Some plugins failed. Try: rp1 install claude-code"
+        warn "Plugin installation failed. Run 'rp1 install' manually after installation."
     fi
 }
 
@@ -296,6 +275,9 @@ main() {
         validate_version "$version"
         info "Using specified version: $version"
     else
+        if [ -n "${LOCAL_ARTIFACTS_DIR:-}" ]; then
+            error "VERSION must be set when using LOCAL_ARTIFACTS_DIR"
+        fi
         info "Fetching latest version..."
         version=$(get_latest_version)
         if [ -z "$version" ]; then
@@ -311,21 +293,34 @@ main() {
     trap 'rm -rf "$tmp_dir"' EXIT
 
     local binary_filename="${BINARY_NAME}-${os}-${arch}"
-    local download_url="https://github.com/${GITHUB_REPO}/releases/download/v${version}/${binary_filename}"
-    local checksums_url="https://github.com/${GITHUB_REPO}/releases/download/v${version}/checksums.txt"
-
     local binary_path="$tmp_dir/$binary_filename"
     local checksums_path="$tmp_dir/checksums.txt"
 
-    download "$download_url" "$binary_path"
-    download "$checksums_url" "$checksums_path"
+    if [ -n "${LOCAL_ARTIFACTS_DIR:-}" ]; then
+        info "Using local artifacts from $LOCAL_ARTIFACTS_DIR"
+        local local_binary="$LOCAL_ARTIFACTS_DIR/$binary_filename"
+        local local_checksums="$LOCAL_ARTIFACTS_DIR/checksums.txt"
+        if [ ! -f "$local_binary" ]; then
+            error "Binary not found: $local_binary"
+        fi
+        if [ ! -f "$local_checksums" ]; then
+            error "Checksums not found: $local_checksums"
+        fi
+        cp "$local_binary" "$binary_path"
+        cp "$local_checksums" "$checksums_path"
+    else
+        local download_url="https://github.com/${GITHUB_REPO}/releases/download/v${version}/${binary_filename}"
+        local checksums_url="https://github.com/${GITHUB_REPO}/releases/download/v${version}/checksums.txt"
+        download "$download_url" "$binary_path"
+        download "$checksums_url" "$checksums_path"
+    fi
 
     verify_checksum "$binary_path" "$checksums_path" "$binary_filename"
 
     info "Installing to $install_dir..."
 
     if [ ! -d "$install_dir" ]; then
-        if ! mkdir -p "$install_dir" 2>/dev/null; then
+        if ! maybe_sudo mkdir -p "$install_dir"; then
             error "Cannot create directory: $install_dir
 Try running with sudo:
   curl -fsSL https://rp1.run/install.sh | sudo sh
@@ -335,14 +330,12 @@ Or install to a user-writable directory:
     fi
 
     local final_path="$install_dir/$BINARY_NAME"
-    if ! mv "$binary_path" "$final_path" 2>/dev/null; then
-        if ! sudo mv "$binary_path" "$final_path" 2>/dev/null; then
-            error "Cannot install to $install_dir
+    if ! maybe_sudo mv "$binary_path" "$final_path"; then
+        error "Cannot install to $install_dir
 Try running with sudo:
   curl -fsSL https://rp1.run/install.sh | sudo sh
 Or install to a user-writable directory:
   curl -fsSL https://rp1.run/install.sh | INSTALL_DIR=\$HOME/.local/bin sh"
-        fi
     fi
 
     chmod +x "$final_path"
@@ -383,9 +376,9 @@ Or install to a user-writable directory:
         error "Installation verification failed. Binary is not executable."
     fi
 
-    # Plugin installation (if Claude Code is available)
-    if [ "${SKIP_PLUGINS:-}" != "1" ]; then
-        install_plugins "$version"
+    # Plugin installation
+    if [ "${SKIP_PLUGINS:-0}" != "1" ]; then
+        install_plugins "$install_dir"
     fi
 
     # macOS Gatekeeper note

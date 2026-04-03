@@ -1,6 +1,6 @@
 /**
  * Install subcommand for Claude Code.
- * Installs rp1 plugins to Claude Code using the marketplace.
+ * Installs rp1 plugins to Claude Code using the local filesystem marketplace.
  */
 
 import { Command } from "commander";
@@ -29,10 +29,6 @@ export const installClaudeCodeSubcommand = new Command("claude-code")
 		"Installation scope: user, project, or local",
 		"user",
 	)
-	.option(
-		"--https",
-		"Use HTTPS transport instead of SSH (no SSH keys required)",
-	)
 	.addHelpText(
 		"after",
 		`
@@ -41,7 +37,6 @@ Examples:
   rp1 install claude-code --dry-run    Preview installation commands
   rp1 install claude-code -y           Non-interactive installation
   rp1 install claude-code -s project   Install to project scope
-  rp1 install claude-code --https      Use HTTPS (no SSH keys needed)
 `,
 	)
 	.action(async (options, command) => {
@@ -56,37 +51,30 @@ Examples:
 
 		const scope = options.scope as "user" | "project" | "local";
 		const parentOpts = command.parent?.opts() ?? {};
-		const useHttps = options.https ?? parentOpts.https ?? false;
 		const ctx: InstallContext = {
 			logger,
 			isTTY,
 			dryRun: options.dryRun ?? parentOpts.dryRun ?? false,
 			skipPrompt: options.yes ?? parentOpts.yes ?? false,
-			useHttps,
 		};
 
 		// Display header
 		console.log("");
 		console.log(bold("Installing rp1 plugins to Claude Code"));
-		if (useHttps) {
-			console.log(dim("(using HTTPS transport)"));
-		}
 		console.log("");
 
 		if (ctx.dryRun) {
-			const marketplaceSource = useHttps
-				? "<HTTPS tarball download + local path>"
-				: "rp1-run/rp1";
 			console.log(dim("[dry-run] Installation plan:"));
 			console.log("");
+			console.log(`${dim("1.")} Extract assets to local marketplace`);
 			console.log(
-				`${dim("1.")} claude plugin marketplace add ${marketplaceSource}`,
+				`${dim("2.")} claude plugin marketplace add <local-marketplace>`,
 			);
 			console.log(
-				`${dim("2.")} claude plugin install rp1-base@rp1-run --scope ${scope}`,
+				`${dim("3.")} claude plugin install rp1-base@rp1-local --scope ${scope}`,
 			);
 			console.log(
-				`${dim("3.")} claude plugin install rp1-dev@rp1-run --scope ${scope}`,
+				`${dim("4.")} claude plugin install rp1-dev@rp1-local --scope ${scope}`,
 			);
 			console.log("");
 			console.log(dim("Run without --dry-run to execute these commands."));

@@ -71,8 +71,9 @@ export interface ArtifactRegisteredPayload {
 	readonly path: string;
 	readonly type: ArtifactType;
 	readonly projectPath: string;
-	readonly feature: string;
+	readonly feature?: string;
 	readonly docId?: string;
+	readonly storageRoot: "absolute" | "project" | "work_dir";
 }
 
 export interface AnnotationUpdatedPayload {
@@ -137,7 +138,13 @@ export interface RunRecord {
 	readonly flow: string;
 	readonly featureId: string;
 	readonly projectPath: string;
+	readonly rp1ProjectRoot: string;
+	readonly rp1KbRoot: string;
+	readonly rp1WorkRoot: string;
+	readonly projectId: string | null;
 	readonly status: Status;
+	readonly name: string | null;
+	readonly harness: string | null;
 	readonly createdAt: string;
 	readonly updatedAt: string;
 }

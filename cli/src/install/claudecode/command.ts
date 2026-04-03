@@ -10,6 +10,7 @@ import type { Logger } from "../../../shared/logger.js";
 import { createSpinner, type Spinner } from "../../../shared/spinner.js";
 import { getColorFns } from "../../lib/colors.js";
 import { installAllPlugins } from "./installer.js";
+import { DEFAULT_MARKETPLACE_DIR, MARKETPLACE_NAME } from "./marketplace.js";
 import type {
 	ClaudeCodeInstallConfig,
 	ClaudeCodeInstallResult,
@@ -24,7 +25,6 @@ export interface ClaudeCodeInstallArgs {
 	readonly dryRun: boolean;
 	readonly yes: boolean;
 	readonly scope: "user" | "project" | "local";
-	readonly useHttps: boolean;
 	readonly showHelp: boolean;
 }
 
@@ -57,7 +57,6 @@ export const parseClaudeCodeInstallArgs = (
 	let dryRun = false;
 	let yes = false;
 	let scope: "user" | "project" | "local" = "user";
-	let useHttps = false;
 	let showHelp = false;
 
 	for (let i = 0; i < args.length; i++) {
@@ -73,14 +72,12 @@ export const parseClaudeCodeInstallArgs = (
 				scope = nextArg;
 				i++; // Skip the next argument since we consumed it
 			}
-		} else if (arg === "--https") {
-			useHttps = true;
 		} else if (arg === "-h" || arg === "--help") {
 			showHelp = true;
 		}
 	}
 
-	return { dryRun, yes, scope, useHttps, showHelp };
+	return { dryRun, yes, scope, showHelp };
 };
 
 /**
@@ -92,7 +89,6 @@ const createConfig = (
 	dryRun: args.dryRun,
 	yes: args.yes,
 	scope: args.scope,
-	useHttps: args.useHttps,
 });
 
 /**
@@ -105,19 +101,19 @@ const displayDryRunPlan = (
 ): void => {
 	const color = getColorFns(isTTY);
 
-	const marketplaceSource = config.useHttps
-		? "<HTTPS tarball download + local path>"
-		: "rp1-run/rp1";
 	logger.info(color.yellow("[dry-run] Installation plan:"));
 	logger.info("");
 	logger.info(
-		`${color.dim("1.")} claude plugin marketplace add ${marketplaceSource}`,
+		`${color.dim("1.")} Extract assets to ${DEFAULT_MARKETPLACE_DIR}`,
 	);
 	logger.info(
-		`${color.dim("2.")} claude plugin install rp1-base@rp1-run --scope ${config.scope}`,
+		`${color.dim("2.")} claude plugin marketplace add ${DEFAULT_MARKETPLACE_DIR}`,
 	);
 	logger.info(
-		`${color.dim("3.")} claude plugin install rp1-dev@rp1-run --scope ${config.scope}`,
+		`${color.dim("3.")} claude plugin install rp1-base@${MARKETPLACE_NAME} --scope ${config.scope}`,
+	);
+	logger.info(
+		`${color.dim("4.")} claude plugin install rp1-dev@${MARKETPLACE_NAME} --scope ${config.scope}`,
 	);
 	logger.info("");
 	logger.info(color.dim("Run without --dry-run to execute these commands."));
@@ -141,7 +137,7 @@ const displaySuccess = (
 	logger.info("");
 	logger.info(color.dim("Installed plugins:"));
 	for (const plugin of result.pluginsInstalled) {
-		logger.info(color.dim(`  • ${plugin}`));
+		logger.info(color.dim(`  - ${plugin}`));
 	}
 	logger.info("");
 	logger.info(color.dim("Restart Claude Code to load updated plugins."));
@@ -183,7 +179,6 @@ const executeNormalInstall = (
 	isTTY: boolean,
 ): TE.TaskEither<CLIError, void> =>
 	pipe(
-		// Step 1: Install plugins
 		TE.Do,
 		TE.tap(() => {
 			logger.info("");
@@ -191,15 +186,8 @@ const executeNormalInstall = (
 			return TE.right(undefined);
 		}),
 		TE.chain(() =>
-			installAllPlugins(
-				config.scope,
-				logger,
-				config.dryRun,
-				isTTY,
-				config.useHttps,
-			),
+			installAllPlugins(config.scope, logger, config.dryRun, isTTY),
 		),
-		// Step 2: Display success message
 		TE.map((installResult: ClaudeCodeInstallResult) => {
 			displaySuccess(installResult, spinner, logger, isTTY);
 		}),

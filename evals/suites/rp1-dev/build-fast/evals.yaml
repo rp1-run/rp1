@@ -3,8 +3,8 @@
 # Unified eval config for /rp1-dev:build-fast across harnesses.
 # Default: claude-with-tools. Override: EVAL_HARNESS=opencode
 #
-# Run: just run-evals rp1-dev/build-fast
-# Run with opencode: just run-evals rp1-dev/build-fast --harness=opencode
+# Run: just eval-run rp1-dev/build-fast
+# Run with opencode: just eval-run rp1-dev/build-fast --harness=opencode
 description: "rp1-dev:build-fast unified evaluation"
 evaluateOptions:
   maxConcurrency: 4
@@ -27,9 +27,9 @@ providers:
         - user
       plugins:
         - type: local
-          path: plugins/dev
+          path: dist/claude-code/dev
         - type: local
-          path: plugins/base
+          path: dist/claude-code/base
       tools:
         - Read
         - Write
@@ -73,13 +73,13 @@ tests:
           1. Output contains "Scope" section with scope classification (Small, Medium, or Large)
           2. Output contains reasoning about files affected, systems involved, risk level, and estimated effort
           3. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools emit" with "--type status_change" and "--run-id" flags
-          4. Agent loads KB files (partial loading is fine) - Metadata bashCommands or toolCalls shows reading from {RP1_ROOT}/context/ directory
+          4. Agent loads KB files (partial loading is fine) - Metadata bashCommands or toolCalls shows reading from .rp1/context/ directory
           5. For Small/Medium scope: Output contains "Build Fast Complete" section with request summary
-          6. For Small/Medium scope: Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename pattern ({yyyy-mm-dd}-{slug}-{n}.md)
+          6. For Small/Medium scope: Agent creates artifact at .rp1/work/quick-builds/ with date-based filename pattern ({yyyy-mm-dd}-{slug}-{n}.md)
           7. For Small/Medium scope: Output contains "Quality" section (or similarly worded) showing format/lint/test status
           8. Output indicates changes are uncommitted in working directory
           9. For Small/Medium scope: Agent spawns task-builder (NOT build-fast-executor) for implementation
-          10. For Small/Medium scope: Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags
+          10. For Small/Medium scope: Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools emit" with "--type artifact_registered" and "--run-id" flags
 
           PROHIBITED (fail if any present in Metadata bashCommands):
           - "git init" (creates orphan repo, corrupts history)
@@ -89,7 +89,6 @@ tests:
           - "git commit"
 
           EDGE CASES:
-          - When AFK=true: Auto-decisions should be logged with "(AFK auto)" prefix in summary
           - When GIT_PUSH=true: Metadata bashCommands should contain "git push -u origin"
           - When KB files missing: Agent should warn but continue (not block)
   - description: "large_scope_redirect"
@@ -118,7 +117,7 @@ tests:
           - Agent should NOT proceed to implementation phase for large scope
           - No source code files should be created or modified (check Metadata toolCalls for Write/Edit)
           - No git commits should be created for the request itself
-          - No artifact registration calls (no "rp1 agent-tools work artifact" in Metadata bashCommands)
+          - No artifact registration calls (no "rp1 agent-tools emit" with "--type artifact_registered" in Metadata bashCommands)
 
           PASS if: Agent stops after redirect, provides actionable alternatives
           FAIL if: Agent attempts to implement the large-scope request
@@ -148,20 +147,20 @@ tests:
           Focus on the checkpoint flow and output quality — NOT artifact path format.
 
           REQUIRED (all must pass):
-          1. Agent spawns build-fast-planner which writes artifact to {RP1_ROOT}/work/quick-builds/{yyyy-mm-dd}-{slug}-{n}.md
+          1. Agent spawns build-fast-planner which writes artifact to .rp1/work/quick-builds/{yyyy-mm-dd}-{slug}-{n}.md
           2. Plan review checkpoint fires: Metadata toolCalls contains AskUserQuestion with options including "Continue", "Revise", "Stop"
           3. Post-implementation checkpoint fires: Metadata toolCalls contains AskUserQuestion with options including "Done", "Add/Edit"
           4. Agent spawns task-builder with QUICK_BUILD_PATH parameter pointing to the artifact
           5. Task IDs passed to task-builder as comma-separated list (e.g., "T1,T2" or "T1,T2,T3") in single invocation
           6. Agent spawns task-reviewer after task-builder completes (due to --review flag)
           7. Output shows "Review" status (PASSED, SKIPPED, or FAILED+RETRIED)
-          8. Artifact file exists at {RP1_ROOT}/work/quick-builds/ directory with correct structure:
+          8. Artifact file exists at .rp1/work/quick-builds/ directory with correct structure:
              - Contains "## Plan" section with reasoning and files affected
              - Contains "## Tasks" section with task list in format "- [ ] **T{N}**: description [complexity:X]"
              - Contains "## Implementation Summary" section (added by task-builder)
              - Contains "## Verification" section (added by task-reviewer)
           9. Output contains "Build Fast Complete" with artifact path
-          10. Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags
+          10. Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools emit" with "--type artifact_registered" and "--run-id" flags
 
           PASS if: Both checkpoints fire, reviewer invoked, artifact structure correct, artifact registered
           FAIL if: Missing checkpoints, no reviewer invocation, incorrect artifact structure, or missing artifact registration
@@ -192,8 +191,8 @@ tests:
           2. Metadata bashCommands contains "git commit"
           3. Agent uses conventional commit format (feat:, fix:, refactor:, etc.) in any git commits
           4. Agent spawns task-builder (NOT build-fast-executor) for implementation
-          5. Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename
-          6. Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags
+          5. Agent creates artifact at .rp1/work/quick-builds/ with date-based filename
+          6. Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools emit" with "--type artifact_registered" and "--run-id" flags
 
           PROHIBITED:
           - Agent should NOT use AskUserQuestion tool despite --confirm-plan being set (AFK overrides)

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { AttentionData } from "@/types/runs";
+import { useReconnectRecovery } from "./useReconnectRecovery";
 
 interface UseAttentionResult {
 	data: AttentionData | null;
@@ -43,6 +44,8 @@ export function useAttention(): UseAttentionResult {
 		});
 		return unsubscribe;
 	}, [subscribeToAttention, fetchAttention]);
+
+	useReconnectRecovery(fetchAttention);
 
 	const refetch = useCallback(() => {
 		setIsLoading(true);

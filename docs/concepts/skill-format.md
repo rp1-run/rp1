@@ -26,7 +26,31 @@ metadata:
   created: 2026-01-01
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "[development-request...] [--afk] [--review] [--git-commit]"
+  arguments:
+    - name: DEVELOPMENT_REQUEST
+      type: string
+      required: false
+      variadic: true
+      description: "The freeform development request text"
+    - name: AFK
+      type: boolean
+      required: false
+      default: false
+      description: "Non-interactive mode"
+      aliases:
+        - "afk"
+        - "no prompts"
+        - "unattended"
+    - name: REVIEW
+      type: boolean
+      required: false
+      default: false
+      description: "Run review after build"
+    - name: GIT_COMMIT
+      type: boolean
+      required: false
+      default: false
+      description: "Commit changes after build"
 ---
 ```
 
@@ -39,10 +63,45 @@ metadata:
 | `metadata.created` | nested | Yes* | Creation date (YYYY-MM-DD) |
 | `metadata.updated` | nested | No | Last update date (YYYY-MM-DD) |
 | `metadata.author` | nested | Yes* | Author identifier (e.g., `cloud-on-prem/rp1`) |
-| `metadata.argument-hint` | nested | No | Usage hint string for argument notation |
+| `metadata.arguments` | nested | No | Structured argument definitions (see below) |
+| `metadata.environment` | nested | No | Environment parameter definitions (see below) |
 | `metadata.sub_agents` | nested | No | List of agent references this skill delegates to |
 
 *Required for the build pipeline to produce valid manifests.
+
+### `metadata.arguments`
+
+The `arguments` field defines structured parameter schemas for skills. Each argument is an object with the following fields:
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `name` | string | Yes | UPPER_SNAKE_CASE identifier |
+| `type` | string | Yes | `"string"`, `"boolean"`, or `"enum"` |
+| `required` | boolean | Yes | Whether the argument must be supplied |
+| `default` | string/boolean | No | Default value (booleans default to `false` if omitted) |
+| `description` | string | Yes | Human-readable description |
+| `aliases` | string[] | No | Natural-language trigger phrases (boolean args) |
+| `implies` | string[] | No | Other boolean args set to `true` when this arg is `true` |
+| `enum_values` | string[] | No | Valid values (required when `type: enum`) |
+| `variadic` | boolean | No | Accept multiple values (string args only) |
+| `source` | object | No | ENV var fallback, e.g., `{ env: "VAR_NAME" }` |
+
+The build pipeline auto-derives the `argument-hint` string from structured arguments (see Argument-Hint Notation below). Manual `argument-hint` strings are no longer needed and will trigger a build error if present alongside `arguments`.
+
+### `metadata.environment`
+
+The `environment` field declares parameters resolved from the shell environment, not from user input. These are kept separate from `arguments` and do not appear in argument hints.
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `name` | string | Yes | Parameter name |
+| `source` | string | Yes | Resolution command or description |
+| `description` | string | Yes | Human-readable description |
+
+!!! warning "Directory variables removed"
+    The `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, and `RP1_WORK_ROOT` environment variables have been removed. All directory paths are now deterministic from the project root: KB is always `<projectRoot>/.rp1/context` and work is always `<projectRoot>/.rp1/work`. Skills that previously declared these in `metadata.environment` should remove those entries. Use `rp1 agent-tools rp1-root-dir` to discover the project root if needed.
+
+`rp1 agent-tools resolve-args` currently returns an empty `environment` object placeholder in its resolved output. Do not rely on `metadata.environment` for directory discovery; use `rp1 agent-tools rp1-root-dir` and deterministic `.rp1/context` / `.rp1/work` paths instead.
 
 ### `metadata.sub_agents`
 
@@ -70,55 +129,93 @@ metadata:
 rp1 skills that resolve environment variables or call rp1 CLI tools should include both `Bash(echo *)` and `Bash(rp1 *)`:
 
 - `Bash(echo *)` -- Shell echo commands
-- `Bash(rp1 *)` -- rp1 CLI invocations including RP1_ROOT resolution (`rp1 agent-tools rp1-root-dir`, `rp1 agent-tools emit`, `rp1 agent-tools mmd-validate`, etc.)
+- `Bash(rp1 *)` -- rp1 CLI invocations including directory resolution (`rp1 agent-tools rp1-root-dir`, `rp1 agent-tools emit`, `rp1 agent-tools mmd-validate`, etc.)
 
 **Important**: Do NOT use `echo ${VAR:-default}` syntax in skills. Claude Code blocks `${}` parameter substitution in Bash commands. Use `rp1 agent-tools rp1-root-dir` instead.
 
 ### Argument-Hint Notation
 
-| Notation | Meaning | Example |
-|----------|---------|---------|
-| `<param>` | Required parameter | `<feature-id>` |
-| `[param]` | Optional parameter | `[context]` |
-| `[param...]` | Variadic optional | `[files...]` |
-| `[--flag]` | Optional flag | `[--afk]` |
+When `metadata.arguments` is defined, the build pipeline auto-derives the `argument-hint` string. You do not need to write it manually. The derivation rules are:
+
+| Condition | Rendered As | Example |
+|-----------|-------------|---------|
+| `required: true`, `type: string` | `<name>` | `<feature-id>` |
+| `required: false`, `type: string` | `[name]` | `[context]` |
+| `required: false`, `type: boolean` | `[--name]` | `[--afk]` |
+| `variadic: true` | `[name...]` | `[files...]` |
+| `type: enum` | `<name>` or `[name]` | `<platform>` |
+
+Names are transformed from UPPER_SNAKE_CASE to lower-kebab-case (e.g., `FEATURE_ID` becomes `feature-id`).
+
+If a skill defines `metadata.arguments`, the build pipeline will reject any manually specified `argument-hint` (L007 build error). Skills without structured arguments that still use a manual `argument-hint` will also trigger a build error (L009), as all skills must use the structured format.
 
 ---
 
-## Standard `## Parameters` Section
+## Argument Resolution
 
-The `## Parameters` section provides model-driven parameter parsing. Instead of a CLI round-trip, the model extracts parameters directly from the user's natural language input.
+Arguments are resolved programmatically at invocation time via the `rp1 agent-tools resolve-args` CLI subcommand. Skills and agents no longer use hand-written `## Parameters` tables or text-based parsing instructions in their bodies.
 
-### Template
+### How It Works
 
-```markdown
-## Parameters
+1. The skill/agent defines its parameters in frontmatter using `metadata.arguments` and `metadata.environment`.
+2. At invocation time, the agent calls `rp1 agent-tools resolve-args` with the raw user input.
+3. The CLI merges values from five layers (highest precedence first): explicit user input, project settings (`.rp1/settings.toml`), user settings (`~/.config/rp1/settings.toml`), ENV var fallback (`source.env`), and schema `default`.
+4. The CLI resolves implies chains (e.g., `GIT_PR=true` implies `GIT_PUSH=true` implies `GIT_COMMIT=true`).
+5. The resolved arguments are returned as structured JSON for the agent to consume directly.
 
-Extract these parameters from the user's input:
+### Prompt Body Template
 
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `DEVELOPMENT_REQUEST` | Yes | - | The freeform development request text |
-| `AFK` | No | `false` | Non-interactive mode. Set `true` if user says "afk", "no prompts", or "unattended" |
+The build pipeline automatically injects a `## 0. Resolve Arguments` section into every parameterized skill's built output. Skill authors do **not** write this section — it is generated from the `metadata.arguments` and `metadata.environment` frontmatter declarations.
 
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
+The injected section uses `--name rp1-{plugin}:{skill}` for schema lookup, which resolves in both development (`cli/dist/`) and production (installed plugins) environments. Built artifacts include the structured `arguments` array in frontmatter alongside `argument-hint`.
+
+**What the build pipeline generates** (for reference — do not add this to source skills):
+
+````markdown
+## 0. Resolve Arguments
+
+Run the argument resolver to obtain all parameter values:
+
+```bash
+rp1 agent-tools resolve-args --name rp1-{plugin}:{skill-name} --args "$ARGUMENTS"
 ```
+
+Parse the JSON response. Extract values from `data.arguments`:
+
+| Variable | Source |
+|----------|--------|
+| FEATURE_ID | `data.arguments.FEATURE_ID` |
+| AFK | `data.arguments.AFK` |
+
+If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
+
+Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+To discover directory paths, use `rp1 agent-tools rp1-root-dir` which returns `projectRoot`, `kbRoot` (always `<projectRoot>/.rp1/context`), and `workRoot` (always `<projectRoot>/.rp1/work`).
+````
+
+**Key conventions**:
+
+- The `--name` flag uses the skill's namespace (e.g., `rp1-dev:build`, `rp1-base:task`). The CLI resolves this to the correct schema file automatically.
+- The variable table lists every entry from `metadata.arguments`, mapping each to its JSON response path.
+- The unresolved guard prevents the skill from proceeding with missing required values.
+- To discover directory paths, use `rp1 agent-tools rp1-root-dir` separately. Directory variables are no longer included in the `resolve-args` response.
 
 ### Rules
 
-1. **Parameter table**: Each parameter has a name, required flag, default value, and description with natural language extraction hints.
-2. **Environment values**: Use `` !`command` `` shell execution syntax for values from the environment. Confirmed cross-platform (Claude Code, OpenCode, Codex).
-3. **No `$ARGUMENTS`**: Do not use platform-specific `$ARGUMENTS` substitution.
-4. **No `$1`, `$2` positional params**: The model infers parameters from context.
-5. **Flag detection via natural language**: Boolean flags extracted by matching user phrases (e.g., "afk" -> `AFK=true`).
+1. **No `## Parameters` tables**: Do not add hand-written parameter tables to skill bodies. The build pipeline will reject them (L008 build error) when `arguments` is defined.
+2. **No `## 0. Resolve Arguments` section**: Do not add a hand-written resolver section. The build pipeline auto-injects this from frontmatter.
+3. **No `$ARGUMENTS`**: Do not use platform-specific `$ARGUMENTS` substitution in source skills.
+4. **No `$1`, `$2` positional params**: Parameters are defined in frontmatter and resolved via CLI.
+4. **Boolean defaults**: Boolean arguments default to `false` unless an explicit `default` is provided. The CLI enforces this, preventing model inference errors.
+5. **Implies chains**: Use the `implies` field to declare boolean flag dependencies. The CLI resolves these transitively.
 
 ### Skills Without Parameters
 
-Omit the `## Parameters` section entirely. Environment values can appear inline:
+Skills that accept no parameters omit the `arguments` field entirely. To discover project directories, use `rp1 agent-tools rp1-root-dir`:
 
 ```markdown
-$RP1_ROOT = !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
+Run `rp1 agent-tools rp1-root-dir` and extract `data.projectRoot`, `data.kbRoot`, and `data.workRoot` from the JSON response.
 ```
 
 ---
@@ -170,7 +267,16 @@ metadata:
   created: 2025-10-25
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "[mode]"
+  arguments:
+    - name: LOAD_MODE
+      type: enum
+      required: false
+      default: full
+      description: "Knowledge loading mode"
+      enum_values:
+        - full
+        - incremental
+        - refresh
 ---
 ```
 
@@ -179,10 +285,12 @@ metadata:
 | Change | Detail |
 |--------|--------|
 | **Directory** | `commands/knowledge-load.md` -> `skills/knowledge-load/SKILL.md` |
-| **Frontmatter** | `version`, `tags`, `created`, `updated`, `author`, `argument-hint` moved into `metadata` map |
+| **Frontmatter** | `version`, `tags`, `created`, `updated`, `author` moved into `metadata` map |
 | **allowed-tools** | Comma-separated string format |
-| **PARSE ARGUMENTS** | Entire section removed; replaced by `## Parameters` |
-| **`$1` reference** | Replaced with `{LOAD_MODE}` named parameter |
+| **argument-hint** | Replaced by `metadata.arguments` (hint auto-derived by build pipeline) |
+| **PARSE ARGUMENTS** | Entire section removed; arguments resolved via `rp1 agent-tools resolve-args` |
+| **`$1` reference** | Replaced with structured `LOAD_MODE` argument definition |
+| **Environment** | `metadata.environment` entries for directory variables removed (paths are now deterministic from project root) |
 | **Prompt body** | Unchanged (all workflow logic preserved) |
 
 ---
@@ -193,7 +301,9 @@ Use this checklist when creating a new skill:
 
 - [ ] Create directory: `plugins/{plugin}/skills/{skill-name}/`
 - [ ] Create `SKILL.md` with frontmatter (standard fields at top, rp1 fields in `metadata`)
-- [ ] Add `## Parameters` section with parameter table and extraction hints
+- [ ] Define parameters in `metadata.arguments` with structured schema (name, type, required, default, description)
+- [ ] Define environment parameters in `metadata.environment` where applicable (note: directory variables `RP1_KB_ROOT`, `RP1_WORK_ROOT`, `RP1_PROJECT_ROOT` are no longer used)
+- [ ] Do NOT add a hand-written `## Parameters` table or manual `argument-hint`
 - [ ] Include `Bash(echo *)` and `Bash(rp1 *)` in `allowed-tools` if the skill uses environment resolution or rp1 CLI tools
 - [ ] Preserve all prompt logic, agent spawning, workflow sections
 - [ ] Extract significant embedded examples to `EXAMPLES.md` only if warranted
@@ -222,7 +332,7 @@ Use the `dispatch_agent` tag:
 {% dispatch_agent "rp1-dev:code-writer", "Write the implementation" %}
 ```
 
-The tag produces the correct spawn instructions for each platform, including the full spawn/wait protocol on Codex.
+The tag produces the correct spawn instructions for each platform, including explicit `fork_context: false` and the full wait protocol on Codex by default. Use `context: "inherit"` only when the child needs parent conversation history.
 
 ### Example: User Input
 

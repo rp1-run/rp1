@@ -14,7 +14,23 @@ metadata:
   created: 2025-10-25
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "[target] [base-branch] [skip-visual]"
+  arguments:
+    - name: TARGET
+      type: string
+      required: false
+      description: "PR number, PR URL, branch name, or empty for current branch"
+    - name: BASE_BRANCH
+      type: string
+      required: false
+      description: "Diff base branch (default: from PR or main)"
+    - name: SKIP_VISUAL
+      type: boolean
+      required: false
+      default: false
+      description: "Skip visual diagram generation"
+      aliases:
+        - "skip-visual"
+        - "no visual"
   sub_agents:
     - "rp1-dev:pr-visualizer"
     - "rp1-dev:pr-review-splitter"
@@ -29,28 +45,13 @@ metadata:
 
 §ROLE: Map-reduce PR review orchestrator. 6 phases, local + CI modes, comment deduplication.
 
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `TARGET` | No | current branch | PR number, PR URL, branch name, or empty for current branch |
-| `BASE_BRANCH` | No | from PR or `main` | Diff base branch |
-| `SKIP_VISUAL` | No | `false` | Set `true` if user says "skip-visual" or "no visual" |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
-
 ## STATE-MACHINE
 
 ```mermaid
 stateDiagram-v2
-    [*] --> split
-    split --> review : split_complete
-    review --> synthesize : review_complete
-    synthesize --> post : synthesis_complete
-    post --> [*] : done
+    [*] --> reviewing
+    reviewing --> posting : analysis_complete
+    posting --> [*] : done
 ```
 
 **On each phase transition**, report via:
@@ -64,6 +65,19 @@ rp1 agent-tools emit \
 ```
 
 - Generate `RUN_ID` as a UUID at workflow start
+- Derive `RUN_NAME` from the resolved PR context: use `"PR #{pr_number}"` when a PR number is available, otherwise use `"PR: {branch_name}"` as fallback
+- On the **first** emit only, include `--name "{RUN_NAME}"` to label the run in the Arcade dashboard
+
+On session start, emit the status change:
+```bash
+rp1 agent-tools emit \
+  --workflow pr-review \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --name "{RUN_NAME}" \
+  --step reviewing \
+  --data '{"status": "running"}'
+```
 
 **State Progression Protocol**:
 1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
@@ -71,13 +85,15 @@ rp1 agent-tools emit \
 3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
 4. On error, transition to the appropriate failure state in the graph
 
+**State mapping**:
+- `reviewing` covers: P-1 (config), P0 (input resolution), P0.5 (visual gen), P1 (splitting), P2 (sub-reviewers), P3 (synthesis)
+- `posting` covers: P4 (reporting), P5 (comment posting)
+
 **Example sequence**:
 ```
---workflow pr-review --step split --data '{"status": "running"}'        # entering split phase
---workflow pr-review --step review --data '{"status": "running"}'       # split done, entering review phase
---workflow pr-review --step synthesize --data '{"status": "running"}'   # review done, entering synthesize phase
---workflow pr-review --step post --data '{"status": "running"}'         # synthesize done, entering post phase
---workflow pr-review --step post --data '{"status": "completed"}'       # post done, workflow complete
+--workflow pr-review --step reviewing --name "PR #42" --data '{"status": "running"}'   # first emit includes --name
+--workflow pr-review --step posting --data '{"status": "running"}'       # analysis done, entering posting phase
+--workflow pr-review --step posting --data '{"status": "completed"}'     # posting done, workflow complete
 ```
 
 §ARCH
@@ -270,21 +286,21 @@ Parse `units`, store counts. Fail -> Abort w/ error.
      CROSS_FILE_JSON: {{stringify(cross_file_findings)}}
      STATS_JSON: {{stringify(stats)}}
      VISUAL_CONTENT: {{VISUAL_CONTENT or ""}}
-     OUTPUT_DIR: {{$RP1_ROOT}}/work/pr-reviews
+     OUTPUT_DIR: .rp1/work/pr-reviews
      REVIEW_ID: {{review_id}}
      Return JSON with path.
    {% enddispatch_agent %}
 
 6. Fail -> output findings inline
 7. Store `REPORTER_FINDINGS` for P5 (CI mode)
-8. Register artifact:
+8. Register the report artifact after the reporter creates it:
    ```bash
    rp1 agent-tools emit \
      --workflow pr-review \
      --type artifact_registered \
      --run-id {RUN_ID} \
-     --step post \
-     --data '{"path": "{REPORT_PATH}"}'
+     --step posting \
+     --data '{"path": "{REPORT_PATH}", "feature": "{review_id}", "storageRoot": "project", "format": "markdown"}'
    ```
 
 ### P5: Comment Posting (CI Only)

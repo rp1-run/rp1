@@ -1,5 +1,11 @@
-import { join, relative } from "node:path";
+import { relative } from "node:path";
 import chokidar from "chokidar";
+import {
+	listProjectSectionRoots,
+	type ProjectDirectories,
+	type ProjectSectionRoot,
+	resolveProjectDirectories,
+} from "./project-paths";
 import type { WebSocketHub } from "./websocket";
 
 type ChangeType = "modify" | "add" | "delete";
@@ -41,7 +47,7 @@ const BURST_STABILIZE_MS = 300;
 export class FileWatcher {
 	private watchers: chokidar.FSWatcher[] = [];
 	private hub: WebSocketHub;
-	private rp1Path: string;
+	private directories: ProjectDirectories;
 	private pendingChanges: Map<string, PendingChange> = new Map();
 	private debounceTimeout: ReturnType<typeof setTimeout> | null = null;
 	private debounceMs: number;
@@ -61,24 +67,24 @@ export class FileWatcher {
 	) {
 		this.projectId = projectId;
 		this.projectPath = projectPath;
-		this.rp1Path = join(projectPath, ".rp1");
+		this.directories = resolveProjectDirectories(projectPath);
 		this.hub = hub;
 		this.debounceMs = options.debounceMs ?? 100;
 	}
 
 	start(): void {
-		const workPath = join(this.rp1Path, "work");
-		const contextPath = join(this.rp1Path, "context");
+		for (const root of listProjectSectionRoots(this.directories)) {
+			this.watchDirectory(root);
+		}
 
-		this.watchDirectory(workPath, "work");
-		this.watchDirectory(contextPath, "context");
-
-		console.log(`File watcher started for ${this.rp1Path}`);
+		console.log(
+			`File watcher started for ${this.projectPath} (work=${this.directories.workRoot}, kb=${this.directories.kbRoot})`,
+		);
 	}
 
-	private watchDirectory(dirPath: string, section: string): void {
+	private watchDirectory(root: ProjectSectionRoot): void {
 		try {
-			const watcher = chokidar.watch(dirPath, {
+			const watcher = chokidar.watch(root.absolutePath, {
 				persistent: true,
 				ignoreInitial: true,
 				awaitWriteFinish: {
@@ -90,31 +96,29 @@ export class FileWatcher {
 			});
 
 			watcher
-				.on("add", (fullPath) => this.handleEvent(fullPath, section, "add"))
-				.on("change", (fullPath) =>
-					this.handleEvent(fullPath, section, "modify"),
-				)
-				.on("unlink", (fullPath) =>
-					this.handleEvent(fullPath, section, "delete"),
-				)
+				.on("add", (fullPath) => this.handleEvent(fullPath, root, "add"))
+				.on("change", (fullPath) => this.handleEvent(fullPath, root, "modify"))
+				.on("unlink", (fullPath) => this.handleEvent(fullPath, root, "delete"))
 				.on("error", (error) => this.handleWatcherError(error));
 
 			this.watchers.push(watcher);
 		} catch (error) {
-			console.warn(`Could not watch directory ${dirPath}:`, error);
+			console.warn(`Could not watch directory ${root.absolutePath}:`, error);
 		}
 	}
 
 	private handleEvent(
 		fullPath: string,
-		section: string,
+		root: ProjectSectionRoot,
 		type: ChangeType,
 	): void {
 		try {
-			const filename = relative(join(this.rp1Path, section), fullPath);
-			if (!filename || shouldIgnore(filename)) return;
+			const filename = relative(root.absolutePath, fullPath);
+			if (!filename || filename.startsWith("..") || shouldIgnore(filename)) {
+				return;
+			}
 
-			const relativePath = `${section}/${filename}`;
+			const relativePath = `${root.displayPath}/${filename}`;
 			this.queueChange(relativePath, type);
 		} catch (error) {
 			console.warn(
@@ -352,26 +356,22 @@ export class FileWatcherPool {
 		}
 
 		if (!oldestKey) {
-			for (const [key, pooled] of this.watchers.entries()) {
-				if (pooled.lastAccessedAt < oldestTime) {
-					oldestTime = pooled.lastAccessedAt;
-					oldestKey = key;
-				}
-			}
+			console.log(
+				"[watcher-pool] All watchers are active; skipping eviction and allowing temporary overflow",
+			);
+			return;
 		}
 
-		if (oldestKey) {
-			const pooled = this.watchers.get(oldestKey);
-			if (pooled) {
-				if (pooled.gracePeriodTimer) {
-					clearTimeout(pooled.gracePeriodTimer);
-				}
-				pooled.watcher.stop();
-				this.watchers.delete(oldestKey);
-				console.log(
-					`[${oldestKey}] Watcher evicted (LRU), total watchers: ${this.watchers.size}`,
-				);
+		const pooled = this.watchers.get(oldestKey);
+		if (pooled) {
+			if (pooled.gracePeriodTimer) {
+				clearTimeout(pooled.gracePeriodTimer);
 			}
+			pooled.watcher.stop();
+			this.watchers.delete(oldestKey);
+			console.log(
+				`[${oldestKey}] Watcher evicted (LRU), total watchers: ${this.watchers.size}`,
+			);
 		}
 	}
 

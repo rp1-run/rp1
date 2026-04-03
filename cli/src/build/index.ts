@@ -4,10 +4,10 @@
 
 // Claude Code registry
 export { claudeCodeRegistry } from "./claude-code/registry.js";
+export type { PlatformBuildResult } from "./command.js";
 // Command
 export {
-	buildCCPlugin,
-	buildCodexPlugin,
+	buildPlatformPlugin,
 	deriveCCOutputDir,
 	deriveCodexOutputDir,
 	executeBuild,
@@ -26,6 +26,7 @@ export type {
 	ClaudeCodeAgent,
 	ClaudeCodeCommand,
 	ClaudeCodeSkill,
+	EmbeddedManifest,
 	OpenCodeAgent,
 	OpenCodeCommand,
 	OpenCodeSkill,
@@ -34,6 +35,20 @@ export type {
 } from "./models.js";
 // Parser
 export { parseAgent, parseCommand, parseSkill } from "./parser.js";
+export type {
+	HookContext,
+	PlatformBuildState,
+	PlatformDefinition,
+	PlatformHooks,
+	PlatformNaming,
+	PlatformTemplates,
+	PostBuildResult,
+} from "./platform-definitions.js";
+// Platform definitions
+export {
+	getPlatformConfig,
+	PLATFORM_DEFINITIONS,
+} from "./platform-definitions.js";
 // Preprocessor
 export { preprocessConditionals } from "./preprocessor.js";
 // Registry

@@ -11,7 +11,46 @@ metadata:
   created: 2025-12-30
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "<feature-id> [requirements...] [--afk] [--git-commit] [--git-push] [--git-pr]"
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "Feature identifier (kebab-case)"
+    - name: REQUIREMENTS
+      type: string
+      required: false
+      default: ""
+      description: "Raw requirements text"
+      variadic: true
+    - name: AFK
+      type: boolean
+      required: false
+      default: false
+      description: "Non-interactive mode"
+      aliases:
+        - "afk"
+        - "no prompts"
+        - "unattended"
+    - name: GIT_COMMIT
+      type: boolean
+      required: false
+      default: false
+      description: "Commit changes after build"
+    - name: GIT_PUSH
+      type: boolean
+      required: false
+      default: false
+      description: "Push branch to remote"
+      implies:
+        - GIT_COMMIT
+    - name: GIT_PR
+      type: boolean
+      required: false
+      default: false
+      description: "Create PR after build"
+      implies:
+        - GIT_PUSH
+        - GIT_COMMIT
   sub_agents:
     - "rp1-dev:build-artifact-detector"
     - "rp1-dev:feature-requirement-gatherer"
@@ -33,31 +72,31 @@ metadata:
 
 **YOU ARE A PURE ORCHESTRATOR.** Spawn agents for all work. NEVER write/edit/read files yourself. NEVER implement code, requirements, designs, or tests. Use exact agent references per step. If agent fails, retry it — never do its work.
 
-## Parameters
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `FEATURE_ID` | Yes | - | Feature identifier (kebab-case) |
-| `REQUIREMENTS` | No | `""` | Raw requirements text |
-| `AFK` | No | `false` | Non-interactive mode |
-| `GIT_COMMIT` | No | `false` | Commit changes after build |
-| `GIT_PUSH` | No | `false` | Push branch to remote |
-| `GIT_PR` | No | `false` | Create PR (implies push+commit) |
-
-**Resolve**: `RP1_ROOT` = !`rp1 agent-tools rp1-root-dir` (extract `data.root`)
-**Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
-**Flags**: GIT_PR → GIT_PUSH=true → GIT_COMMIT=true
+**Feature dir**: `.rp1/work/features/{FEATURE_ID}/`
 
 ## §0-FIRST-ACTION
 
 **FIRST tool call MUST be:**
 
 {% dispatch_agent "rp1-dev:build-artifact-detector" %}
-FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}
+FEATURE_ID={FEATURE_ID}, WORKFLOW_TYPE=build
 {% enddispatch_agent %}
 
 Do NOT read files, load KB, or analyze requirements before this completes.
-Parse response: extract `start_step` (1-6) and `artifacts` status.
+Parse response: extract `start_step` (1-6), `artifacts` status, `run_id`, and `resumed`.
+
+**Run ID Resolution**: Use the `run_id` from the artifact-detector response for all subsequent emits. If `resumed` is `true`, the detector found a resumable run and the returned `run_id` is the existing run. If `resumed` is `false`, the detector created a new run. Either way, set `RUN_ID = run_id` from the response. Do NOT generate a new UUID.
+
+**Artifact Reconciliation**: If `resumed` is `true` and `unregistered_artifacts` is present and non-empty, register each artifact under the resumed run:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type artifact_registered \
+  --run-id {RUN_ID} \
+  --step build \
+  --data '{"path": "{relative_path}", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
+```
 
 ## STATE-MACHINE
 
@@ -73,8 +112,30 @@ stateDiagram-v2
     archive --> [*] : done
 ```
 
-Report each transition: `rp1 agent-tools emit --workflow build --type status_change --run-id {RUN_ID} --step {STATE} --data '{"status": "running", "feature": "{FEATURE_ID}"}'`
-Generate `RUN_ID` as UUID at start. Terminal states (`→ [*]`): report with `--data '{"status": "completed", "feature": "{FEATURE_ID}"}'`.
+**First emit** (entering the first active state): include `--name` to label the run:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step {STATE} \
+  --name "Feature: {FEATURE_ID}" \
+  --data '{"status": "running", "feature": "{FEATURE_ID}"}'
+```
+
+Subsequent state transitions omit `--name` (set-once semantics; the DB keeps the first value):
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step {STATE} \
+  --data '{"status": "running", "feature": "{FEATURE_ID}"}'
+```
+
+`RUN_ID` comes from the artifact-detector (§0-FIRST-ACTION). Do NOT generate a new UUID.
 
 ## §PROGRESS
 
@@ -98,12 +159,12 @@ AFK mode: skip all prompts, auto-select defaults, retry once on failure, auto-ar
 **Skip if**: start_step > 1. **Spawn agent — do NOT gather requirements yourself:**
 
 {% dispatch_agent "rp1-dev:feature-requirement-gatherer" %}
-FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 Validate the response before continuing:
 
-- Accept only the documented completion contract from `feature-requirement-gatherer`: JSON with `"status": "success"` and `"artifact": "{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md"`, or the exact text line `Requirements completed: {{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`.
+- Accept only the documented completion contract from `feature-requirement-gatherer`: JSON with `"status": "success"` and `"artifact": ".rp1/work/features/{FEATURE_ID}/requirements.md"`, or the exact text line `Requirements completed: .rp1/work/features/{FEATURE_ID}/requirements.md`.
 - Treat any response that mentions commits, source-code edits, tests, verification, unrelated file paths, or implementation completion as a contract failure.
 - On contract failure: retry step 1 once with an explicit reminder that the agent may only write `requirements.md` and must not implement anything.
 - If the retry also fails, abort the build as failed. Do not continue to design, build, verify, or archive based on non-compliant output.
@@ -122,14 +183,23 @@ rp1 agent-tools emit \
 {% ask_user "Continue, Revise, Review feedback from Arcade, or Stop?", options: "Continue", "Revise", "Review feedback from Arcade", "Stop" %}
 On Revise: get feedback, append to REQUIREMENTS, re-invoke step 1.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
-On Stop: output summary, exit with `/build {FEATURE_ID}` resume instruction.
+On Stop: emit waiting status, output summary, exit with `/build {FEATURE_ID}` resume instruction.
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step requirements \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}"}'
+```
 
 ## §STEP-2: Design
 
 **Skip if**: start_step > 2. **Spawn agent — do NOT design yourself:**
 
 {% dispatch_agent "rp1-dev:feature-architect" %}
-FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 If `flagged_hypotheses` non-empty:
@@ -139,7 +209,7 @@ FEATURE_ID={FEATURE_ID}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:feature-tasker" %}
-FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 **Checkpoint** (skip if AFK):
@@ -156,14 +226,23 @@ rp1 agent-tools emit \
 {% ask_user "Continue, Revise, Review feedback from Arcade, or Stop?", options: "Continue", "Revise", "Review feedback from Arcade", "Stop" %}
 On Revise: get feedback, re-invoke §STEP-2 with UPDATE_MODE=true.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
-On Stop: output summary (steps 1-2 done), exit with `/build {FEATURE_ID}`.
+On Stop: emit waiting status, output summary (steps 1-2 done), exit with `/build {FEATURE_ID}`.
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step design \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}"}'
+```
 
 ## §STEP-3: Tasks
 
 **Skip if**: start_step > 3. **Spawn agent:**
 
 {% dispatch_agent "rp1-dev:feature-tasker" %}
-FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 **Checkpoint** (skip if AFK):
@@ -180,7 +259,16 @@ rp1 agent-tools emit \
 {% ask_user "Continue, Revise, Review feedback from Arcade, or Stop?", options: "Continue", "Revise", "Review feedback from Arcade", "Stop" %}
 On Revise: get feedback, re-invoke §STEP-3 with UPDATE_MODE=true and feedback as UPDATE_CONTEXT.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
-On Stop: output summary (steps 1-3 done), exit with `/build {FEATURE_ID}`.
+On Stop: emit waiting status, output summary (steps 1-3 done), exit with `/build {FEATURE_ID}`.
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step tasks \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}"}'
+```
 
 ## §STEP-4: Build
 
@@ -189,7 +277,7 @@ On Stop: output summary (steps 1-3 done), exit with `/build {FEATURE_ID}`.
 ### §4.1 Parse + Group
 
 {% dispatch_agent "rp1-dev:build-task-parser" %}
-TASKS_PATH={{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
+TASKS_PATH=.rp1/work/features/{FEATURE_ID}/tasks.md
 {% enddispatch_agent %}
 
 Extract `implementation_tasks`, `doc_tasks`.
@@ -205,11 +293,11 @@ Extract `task_units` array.
 For each task unit, run builder then reviewer:
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, WORKTREE_PATH={WORKTREE_PATH}, GIT_COMMIT={GIT_COMMIT}, FEEDBACK={feedback}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, FEEDBACK={feedback}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:task-reviewer" %}
-FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, WORKTREE_PATH={WORKTREE_PATH}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 Loop logic: attempt=1, max=2. If reviewer reports SUCCESS: move to next unit. If FAILURE and attempt < max: pass feedback to builder, retry. Else: escalate (AFK: mark blocked; Interactive: prompt user).
@@ -233,20 +321,33 @@ rp1 agent-tools emit \
 On Add Task: spawn builder+reviewer for ad-hoc TX-{timestamp} task, loop back.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
 
+### §4.4 Close Build Step
+
+**Before transitioning to verify**, emit `build → completed` (required even if sub-tasks had retried/escalated failures):
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step build \
+  --data '{"status": "completed", "feature": "{FEATURE_ID}"}'
+```
+
 ## §STEP-5: Verify
 
 **Skip if**: start_step > 5. **Invoke ALL THREE in SINGLE response:**
 
 {% dispatch_agent "rp1-dev:code-checker" %}
-FEATURE_ID={FEATURE_ID}, BRANCH={branch}, WORKTREE_PATH={WORKTREE_PATH}
+FEATURE_ID={FEATURE_ID}, BRANCH={branch}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:feature-verifier" %}
-FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}, WORKTREE_PATH={WORKTREE_PATH}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:comment-cleaner" %}
-MODE=clean, SCOPE=branch, COMMIT_CHANGES={GIT_COMMIT}, WORKTREE_PATH={WORKTREE_PATH}
+MODE=clean, SCOPE=branch, COMMIT_CHANGES={GIT_COMMIT}
 {% enddispatch_agent %}
 
 Then aggregate:
@@ -263,7 +364,7 @@ If GIT_COMMIT: stage+commit. If GIT_PUSH: push. If GIT_PR: create PR.
 
 ## §6 SUMMARY
 
-Register artifacts: for each file in `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
+Register artifacts: for each file in `.rp1/work/features/{FEATURE_ID}/`:
 
 ```bash
 rp1 agent-tools emit \
@@ -271,10 +372,21 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step archive \
-  --data '{"path": "{relative_path}", "feature": "{FEATURE_ID}"}'
+  --data '{"path": "{relative_path}", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ```
 
 Output: Feature ID, step status table (1-6), artifacts created.
+
+**Emit completed status** after registering all artifacts:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step archive \
+  --data '{"status": "completed", "feature": "{FEATURE_ID}"}'
+```
 
 **Post-verify** (skip if AFK):
 
@@ -295,6 +407,29 @@ On Review feedback from Arcade: load `arcade-collab` skill, process all feedback
 {% dispatch_agent "rp1-dev:feature-archiver" %}
 MODE=archive, FEATURE_ID={FEATURE_ID}, SKIP_DOC_CHECK=false
 {% enddispatch_agent %}
+
+## §TERMINAL-STATES
+
+**Every exit path MUST emit a terminal status.** No run may remain in "running" after the skill finishes.
+
+| Exit Path | Status | Step |
+|-----------|--------|------|
+| Archive completes successfully | `completed` | `archive` |
+| User selects "Stop" at any checkpoint | `waiting` | current step |
+| User selects "Do nothing" at post-verify | `completed` | `archive` |
+| Unrecoverable agent failure (steps 1-3) | `failed` | failing step |
+| AFK mode abort | `failed` | failing step |
+
+On any unrecoverable failure, emit before exiting:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step {FAILING_STEP} \
+  --data '{"status": "failed", "feature": "{FEATURE_ID}"}'
+```
 
 ## §ANTI-LOOP
 

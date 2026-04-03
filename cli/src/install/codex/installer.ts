@@ -13,7 +13,7 @@ import {
 	stat,
 	writeFile,
 } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
@@ -26,6 +26,7 @@ import {
 } from "../../../shared/errors.js";
 import { confirmAction, selectOption } from "../../../shared/prompts.js";
 import { createSpinner } from "../../../shared/spinner.js";
+import { OPTIONAL_PLUGINS, REQUIRED_PLUGINS } from "../../assets/reader.js";
 import {
 	hasShellFencedContent,
 	replaceShellFencedContent,
@@ -51,7 +52,9 @@ import {
 	getCodexPaths,
 } from "./prerequisites.js";
 
-const CODEX_PLUGINS = ["base", "dev"] as const;
+/** Extract plugin names (e.g. "rp1-base") from plugin directory paths. */
+const pluginNamesFromDirs = (dirs: readonly string[]): string[] =>
+	dirs.map((d) => `rp1-${basename(d)}`);
 
 /**
  * Recursively copy a directory, returning the number of files copied.
@@ -87,7 +90,8 @@ export const validateCodexArtifacts = (
 		async () => {
 			const pluginDirs: string[] = [];
 
-			for (const plugin of CODEX_PLUGINS) {
+			// Validate required plugins
+			for (const plugin of REQUIRED_PLUGINS) {
 				const pluginDir = join(artifactsDir, plugin);
 				try {
 					await stat(pluginDir);
@@ -119,6 +123,18 @@ export const validateCodexArtifacts = (
 				}
 
 				pluginDirs.push(pluginDir);
+			}
+
+			// Include optional plugins if present (e.g., utils in dev builds)
+			for (const plugin of OPTIONAL_PLUGINS) {
+				const pluginDir = join(artifactsDir, plugin);
+				try {
+					await stat(join(pluginDir, "skills"));
+					await stat(join(pluginDir, "agents"));
+					pluginDirs.push(pluginDir);
+				} catch {
+					// Optional plugin not present, skip
+				}
 			}
 
 			return pluginDirs;
@@ -361,6 +377,9 @@ export const installCodex = (
 			return TE.right<CLIError, void>(undefined);
 		}),
 		TE.chain(() => checkWritePermissions(paths.skillsDir)),
+		TE.chain(() => checkWritePermissions(paths.agentsDir)),
+		TE.chain(() => checkWritePermissions(paths.backupDir)),
+		TE.chain(() => checkWritePermissions(paths.configDir)),
 		TE.chainFirst(() => {
 			spinner.succeed("Codex prerequisites OK");
 			return TE.right(undefined);
@@ -384,6 +403,7 @@ export const installCodex = (
 							configMerged: false,
 							backupPath: null,
 							warnings: ["Dry run - no changes made"],
+							pluginsInstalled: pluginNamesFromDirs(pluginDirs),
 						}),
 					),
 				);
@@ -477,6 +497,7 @@ export const installCodex = (
 															configMerged: false,
 															backupPath,
 															warnings: ["Config merge skipped by user"],
+															pluginsInstalled: pluginNamesFromDirs(pluginDirs),
 														} satisfies CodexInstallResult;
 													}
 												} else if (choice === "skip" || choice === null) {
@@ -485,6 +506,7 @@ export const installCodex = (
 														configMerged: false,
 														backupPath,
 														warnings: ["Config merge skipped by user"],
+														pluginsInstalled: pluginNamesFromDirs(pluginDirs),
 													} satisfies CodexInstallResult;
 												}
 											}
@@ -500,6 +522,14 @@ export const installCodex = (
 											}
 
 											spinner.succeed("Config.toml updated");
+
+											// Install hooks.json for SessionStart hooks
+											try {
+												await installCodexHooks(paths.configDir, pluginDirs);
+												spinner.succeed("Installed hooks.json");
+											} catch (e) {
+												spinner.warn(`Could not install hooks.json: ${e}`);
+											}
 
 											spinner.start("Verifying installation...");
 											const verifyWarnings: string[] = [];
@@ -549,6 +579,7 @@ export const installCodex = (
 												configMerged: true,
 												backupPath,
 												warnings: verifyWarnings,
+												pluginsInstalled: pluginNamesFromDirs(pluginDirs),
 											} satisfies CodexInstallResult;
 										},
 										(e) => {
@@ -575,8 +606,103 @@ export const installCodex = (
 	);
 };
 
+const isRp1HookEntry = (entry: unknown): boolean => {
+	const s = JSON.stringify(entry);
+	return (
+		s.includes("rp1 arcade") ||
+		s.includes("RP1_BINARY") ||
+		s.includes("rp1 update")
+	);
+};
+
+/**
+ * Load rp1 SessionStart hooks from codex-hooks.json in build artifacts.
+ * Returns the SessionStart entries array, or null if no hooks file found.
+ */
+const loadRp1HookEntries = async (
+	pluginDirs: readonly string[],
+): Promise<unknown[] | null> => {
+	for (const dir of pluginDirs) {
+		try {
+			const content = await readFile(join(dir, "codex-hooks.json"), "utf-8");
+			const parsed = JSON.parse(content) as {
+				hooks?: { SessionStart?: unknown[] };
+			};
+			if (parsed.hooks?.SessionStart) {
+				return parsed.hooks.SessionStart;
+			}
+		} catch {
+			// Not in this plugin dir
+		}
+	}
+	return null;
+};
+
+/**
+ * Install hooks.json for Codex SessionStart hooks (arcade + update check).
+ * Reads hook definitions from codex-hooks.json in the build artifacts,
+ * then merges with any existing user hooks.json, preserving non-rp1 entries.
+ */
+const installCodexHooks = async (
+	configDir: string,
+	pluginDirs: readonly string[],
+): Promise<void> => {
+	const rp1Hooks = await loadRp1HookEntries(pluginDirs);
+	if (!rp1Hooks || rp1Hooks.length === 0) {
+		return;
+	}
+
+	const hooksPath = join(configDir, "hooks.json");
+	let existing: Record<string, unknown[]> = {};
+	try {
+		const content = await readFile(hooksPath, "utf-8");
+		const parsed = JSON.parse(content) as {
+			hooks?: Record<string, unknown[]>;
+		};
+		if (parsed.hooks && typeof parsed.hooks === "object") {
+			existing = parsed.hooks;
+		}
+	} catch {
+		// No existing hooks file
+	}
+
+	// Remove any previous rp1 hooks from SessionStart
+	if (existing.SessionStart && Array.isArray(existing.SessionStart)) {
+		existing.SessionStart = existing.SessionStart.filter(
+			(entry) => !isRp1HookEntry(entry),
+		);
+	}
+
+	// Merge rp1 hooks
+	const merged = { ...existing };
+	merged.SessionStart = [...(merged.SessionStart || []), ...rp1Hooks];
+
+	await writeFile(hooksPath, JSON.stringify({ hooks: merged }, null, 2));
+};
+
+/**
+ * Guard that ensures a path is not a structural Codex directory.
+ * Returns true if the path is safe to remove (i.e., not structural).
+ */
+const isSafeToRemove = (targetPath: string, paths: CodexPaths): boolean => {
+	const protectedPaths = [
+		paths.configDir,
+		paths.skillsDir,
+		dirname(paths.agentsDir),
+		paths.configFile,
+	];
+	return !protectedPaths.includes(targetPath);
+};
+
 /**
  * Remove rp1 content from Codex: skill directories, per-agent TOML files, and fenced config sections.
+ *
+ * Safety guarantees:
+ * - Only rp1-* prefixed skill directories are removed from ~/.codex/skills/
+ * - Only ~/.codex/agents/rp1/ subdirectory is removed (not the parent ~/.codex/agents/)
+ * - Only rp1 fenced sections are removed from config.toml (file is never deleted)
+ * - Structural directories (~/.codex/, ~/.codex/skills/, ~/.codex/agents/) are never removed
+ * - Missing or unexpected directory structure produces a descriptive error
  */
 export const uninstallCodex = (
 	paths: CodexPaths,
@@ -585,10 +711,20 @@ export const uninstallCodex = (
 	TE.tryCatch(
 		async () => {
 			let skillsRemoved = 0;
+			let agentsRemoved = false;
 			let configCleaned = false;
 
 			const rp1SkillDirs: string[] = [];
 			try {
+				const skillsStat = await stat(paths.skillsDir);
+				if (!skillsStat.isDirectory()) {
+					throw installError(
+						"uninstall",
+						`Expected ${paths.skillsDir} to be a directory, but it is not. ` +
+							"Cannot safely enumerate rp1 skills for removal. " +
+							"Verify your Codex installation structure.",
+					);
+				}
 				const entries = await readdir(paths.skillsDir, {
 					withFileTypes: true,
 				});
@@ -597,16 +733,18 @@ export const uninstallCodex = (
 						rp1SkillDirs.push(entry.name);
 					}
 				}
-			} catch {
-				// skills dir may not exist
+			} catch (err) {
+				if (typeof err === "object" && err !== null && "_tag" in err) {
+					throw err;
+				}
 			}
 
 			let hasAgentsDir = false;
 			try {
-				await stat(paths.agentsDir);
-				hasAgentsDir = true;
+				const agentsStat = await stat(paths.agentsDir);
+				hasAgentsDir = agentsStat.isDirectory();
 			} catch {
-				// agents dir may not exist
+				hasAgentsDir = false;
 			}
 
 			let hasFencedConfig = false;
@@ -614,7 +752,7 @@ export const uninstallCodex = (
 				const configContent = await readFile(paths.configFile, "utf-8");
 				hasFencedConfig = hasShellFencedContent(configContent);
 			} catch {
-				// config file may not exist
+				hasFencedConfig = false;
 			}
 
 			if (dryRun) {
@@ -633,16 +771,36 @@ export const uninstallCodex = (
 				if (rp1SkillDirs.length === 0 && !hasAgentsDir && !hasFencedConfig) {
 					console.log("No rp1 content found to remove.");
 				}
-				return { skillsRemoved: 0, configCleaned: false };
+				return {
+					skillsRemoved: 0,
+					agentsRemoved: false,
+					configCleaned: false,
+				};
 			}
 
 			for (const dirName of rp1SkillDirs) {
-				await rm(join(paths.skillsDir, dirName), { recursive: true });
+				const targetPath = join(paths.skillsDir, dirName);
+				if (!isSafeToRemove(targetPath, paths)) {
+					throw installError(
+						"uninstall",
+						`Refusing to remove structural directory: ${targetPath}. ` +
+							"Only rp1-managed content may be removed.",
+					);
+				}
+				await rm(targetPath, { recursive: true });
 				skillsRemoved++;
 			}
 
 			if (hasAgentsDir) {
+				if (!isSafeToRemove(paths.agentsDir, paths)) {
+					throw installError(
+						"uninstall",
+						`Refusing to remove structural directory: ${paths.agentsDir}. ` +
+							"Only the rp1 agent subdirectory may be removed.",
+					);
+				}
 				await rm(paths.agentsDir, { recursive: true });
+				agentsRemoved = true;
 			}
 
 			if (hasFencedConfig) {
@@ -651,14 +809,48 @@ export const uninstallCodex = (
 				if (cleaned.length > 0) {
 					await writeFile(paths.configFile, `${cleaned}\n`, "utf-8");
 				} else {
-					await rm(paths.configFile);
+					await writeFile(paths.configFile, "", "utf-8");
 				}
 				configCleaned = true;
 			}
 
-			return { skillsRemoved, configCleaned };
+			// Remove rp1 hooks from hooks.json
+			try {
+				const hooksPath = join(paths.configDir, "hooks.json");
+				const hooksContent = await readFile(hooksPath, "utf-8");
+				const parsed = JSON.parse(hooksContent) as {
+					hooks?: Record<string, unknown[]>;
+				};
+				if (parsed.hooks?.SessionStart) {
+					parsed.hooks.SessionStart = parsed.hooks.SessionStart.filter(
+						(entry: unknown) =>
+							!JSON.stringify(entry).includes("rp1 arcade") &&
+							!JSON.stringify(entry).includes("rp1 update"),
+					);
+					if (parsed.hooks.SessionStart.length === 0) {
+						delete parsed.hooks.SessionStart;
+					}
+				}
+				if (parsed.hooks && Object.keys(parsed.hooks).length === 0) {
+					await rm(hooksPath, { force: true });
+				} else {
+					await writeFile(hooksPath, JSON.stringify(parsed, null, 2));
+				}
+			} catch {
+				// hooks.json may not exist
+			}
+
+			return { skillsRemoved, agentsRemoved, configCleaned };
 		},
-		(e) => installError("uninstall", `Failed to uninstall Codex plugins: ${e}`),
+		(e) => {
+			if (typeof e === "object" && e !== null && "_tag" in e) {
+				return e as CLIError;
+			}
+			return installError(
+				"uninstall",
+				`Failed to uninstall Codex plugins: ${e}`,
+			);
+		},
 	);
 
 /**
@@ -673,7 +865,7 @@ export const previewCodexInstallation = (
 			console.log("[dry-run] Installation preview:\n");
 			console.log("Skills to install:");
 
-			for (const plugin of CODEX_PLUGINS) {
+			for (const plugin of [...REQUIRED_PLUGINS, ...OPTIONAL_PLUGINS]) {
 				const skillsSrc = join(artifactsDir, plugin, "skills");
 				try {
 					const entries = await readdir(skillsSrc, { withFileTypes: true });
@@ -690,7 +882,7 @@ export const previewCodexInstallation = (
 			}
 
 			console.log("\nPer-agent TOML files to install:");
-			for (const plugin of CODEX_PLUGINS) {
+			for (const plugin of [...REQUIRED_PLUGINS, ...OPTIONAL_PLUGINS]) {
 				const agentsSrc = join(artifactsDir, plugin, "agents");
 				try {
 					const entries = await readdir(agentsSrc, { withFileTypes: true });
@@ -708,7 +900,7 @@ export const previewCodexInstallation = (
 
 			console.log("\nConfig changes:");
 			const tomlPaths: string[] = [];
-			for (const plugin of CODEX_PLUGINS) {
+			for (const plugin of [...REQUIRED_PLUGINS, ...OPTIONAL_PLUGINS]) {
 				const tomlPath = join(artifactsDir, plugin, "rp1-agents.toml");
 				try {
 					await stat(tomlPath);

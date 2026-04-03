@@ -13,11 +13,20 @@ export {
 } from "./command.js";
 // Installer
 export {
-	addMarketplace,
 	installAllPlugins,
 	installPlugin,
 	updatePlugin,
 } from "./installer.js";
+// Marketplace
+export {
+	createLocalMarketplace,
+	DEFAULT_MARKETPLACE_DIR,
+	MARKETPLACE_NAME as LOCAL_MARKETPLACE_NAME,
+	type MarketplaceResult,
+	registerMarketplace,
+} from "./marketplace.js";
+// Migration
+export { migrateFromGitHubMarketplace } from "./migration.js";
 // Models
 export type {
 	ClaudeCodeInstallConfig,

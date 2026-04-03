@@ -4,11 +4,21 @@
  */
 
 import { Database } from "bun:sqlite";
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rename, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import * as E from "fp-ts/lib/Either.js";
+import {
+	type ArtifactsApiDependencyOverrides,
+	broadcastPathReconciliation,
+	extractDocIdFromFrontmatter,
+	handleArtifactPatchRequest as routeHandleArtifactPatchRequest,
+	handleArtifactSaveRequest as routeHandleArtifactSaveRequest,
+	resolveArtifactPath as routeResolveArtifactPath,
+	scanForDocId,
+	validateSavePath,
+} from "../../server/routes/artifacts-api";
+import type { WebSocketHub } from "../../server/websocket";
 
 let testDb: Database;
 let tmpDir: string;
@@ -18,133 +28,40 @@ const docId = "test-doc-001";
 const artifactPath = "docs/design.md";
 const originalContent = "# Original Design\n\nThis is the original file.";
 
-mock.module("../../../../src/agent-tools/emit/database.js", () => ({
-	getEmitDatabase: () => async () => E.right(testDb),
-	getRunById: (db: Database, id: string) => {
-		const row = db
-			.prepare("SELECT * FROM runs WHERE id = $id")
-			.get({ $id: id }) as {
-			id: string;
-			flow: string;
-			feature_id: string;
-			project_path: string;
-		} | null;
-		if (!row) return null;
-		return {
-			id: row.id,
-			flow: row.flow,
-			featureId: row.feature_id,
-			projectPath: row.project_path,
-			status: "running" as const,
-			createdAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString(),
-		};
-	},
-	setArtifactBaseline: (db: Database, dId: string, baseline: string) => {
-		db.prepare(
-			"UPDATE artifacts SET baseline = $baseline WHERE doc_id = $docId",
-		).run({ $baseline: baseline, $docId: dId });
-	},
-	getArtifactBaseline: (db: Database, dId: string) => {
-		const row = db
-			.prepare(
-				"SELECT baseline, path, project_path FROM artifacts WHERE doc_id = $docId",
-			)
-			.get({ $docId: dId }) as {
-			baseline: string | null;
-			path: string;
-			project_path: string;
-		} | null;
-		if (!row) return null;
-		return {
-			baseline: row.baseline,
-			path: row.path,
-			projectPath: row.project_path,
-		};
-	},
-	updateArtifactPath: (db: Database, dId: string, newPath: string) => {
-		db.prepare("UPDATE artifacts SET path = $path WHERE doc_id = $docId").run({
-			$path: newPath,
-			$docId: dId,
-		});
-	},
-	getArtifactByDocId: (db: Database, dId: string) => {
-		const row = db
-			.prepare("SELECT * FROM artifacts WHERE doc_id = $docId")
-			.get({ $docId: dId }) as {
-			id: number;
-			doc_id: string;
-			run_id: string;
-			path: string;
-			type: string;
-			project_path: string;
-			feature: string;
-			step: string | null;
-			subflow: number;
-			created_at: string;
-		} | null;
-		if (!row) return null;
-		return {
-			id: row.id,
-			docId: row.doc_id,
-			runId: row.run_id,
-			path: row.path,
-			type: row.type,
-			projectPath: row.project_path,
-			feature: row.feature,
-			step: row.step,
-			subflow: row.subflow === 1,
-			createdAt: row.created_at,
-		};
-	},
-	getArtifactByRunAndDocId: (db: Database, rId: string, dId: string) => {
-		const row = db
-			.prepare(
-				"SELECT * FROM artifacts WHERE run_id = $runId AND doc_id = $docId LIMIT 1",
-			)
-			.get({ $runId: rId, $docId: dId }) as {
-			id: number;
-			doc_id: string;
-			run_id: string;
-			path: string;
-			type: string;
-			project_path: string;
-			feature: string;
-			step: string | null;
-			subflow: number;
-			created_at: string;
-		} | null;
-		if (!row) return null;
-		return {
-			id: row.id,
-			docId: row.doc_id,
-			runId: row.run_id,
-			path: row.path,
-			type: row.type,
-			projectPath: row.project_path,
-			feature: row.feature,
-			step: row.step,
-			subflow: row.subflow === 1,
-			createdAt: row.created_at,
-		};
-	},
-}));
+const testDependencies: ArtifactsApiDependencyOverrides = {
+	getDb: async () => testDb,
+	getAllProjects: async () =>
+		tmpDir
+			? [
+					{
+						id: "test-project",
+						projectId: "test-project-uuid",
+						path: tmpDir,
+						name: "Test Project",
+						addedAt: new Date().toISOString(),
+						lastAccessedAt: new Date().toISOString(),
+						available: true,
+					},
+				]
+			: [],
+};
 
-mock.module("../../server/registry", () => ({
-	getAllProjects: async () => [
-		{ id: "test-project", path: tmpDir, name: "Test Project" },
-	],
-}));
+const handleArtifactPatchRequest = (
+	docId: Parameters<typeof routeHandleArtifactPatchRequest>[0],
+	apiContext?: Parameters<typeof routeHandleArtifactPatchRequest>[1],
+) => routeHandleArtifactPatchRequest(docId, apiContext, testDependencies);
 
-import {
-	broadcastPathReconciliation,
-	extractDocIdFromFrontmatter,
-	handleArtifactPatchRequest,
-	handleArtifactSaveRequest,
-	resolveArtifactPath,
-	scanForDocId,
-	validateSavePath,
-} from "../../server/routes/artifacts-api";
+const handleArtifactSaveRequest = (
+	runId: Parameters<typeof routeHandleArtifactSaveRequest>[0],
+	req: Parameters<typeof routeHandleArtifactSaveRequest>[1],
+	apiContext: Parameters<typeof routeHandleArtifactSaveRequest>[2],
+) => routeHandleArtifactSaveRequest(runId, req, apiContext, testDependencies);
+
+const resolveArtifactPath = (
+	db: Parameters<typeof routeResolveArtifactPath>[0],
+	directories: Parameters<typeof routeResolveArtifactPath>[1],
+	artifact: Parameters<typeof routeResolveArtifactPath>[2],
+) => routeResolveArtifactPath(db, directories, artifact, testDependencies);
 
 const SCHEMA_SQL = `
 	CREATE TABLE schema_version (version INTEGER NOT NULL);
@@ -155,6 +72,9 @@ const SCHEMA_SQL = `
 		flow TEXT NOT NULL,
 		feature_id TEXT NOT NULL,
 		project_path TEXT NOT NULL,
+		rp1_project_root TEXT DEFAULT NULL,
+		rp1_kb_root TEXT DEFAULT NULL,
+		rp1_work_root TEXT DEFAULT NULL,
 		status TEXT NOT NULL DEFAULT 'not_started',
 		created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
 		updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -166,6 +86,7 @@ const SCHEMA_SQL = `
 		run_id TEXT REFERENCES runs(id),
 		path TEXT NOT NULL,
 		type TEXT NOT NULL DEFAULT 'other',
+		storage_root TEXT NOT NULL DEFAULT 'project',
 		project_path TEXT NOT NULL,
 		feature TEXT NOT NULL,
 		step TEXT,
@@ -460,28 +381,29 @@ describe("extractDocIdFromFrontmatter", () => {
 
 describe("scanForDocId", () => {
 	let scanTmpDir: string;
+	let scanWorkDir: string;
 
 	beforeAll(async () => {
 		scanTmpDir = await mkdtemp(join(tmpdir(), "rp1-scan-test-"));
-		const workDir = join(scanTmpDir, ".rp1", "work");
+		scanWorkDir = join(scanTmpDir, ".rp1", "work");
 
-		await mkdir(join(workDir, "features", "feat-1"), { recursive: true });
-		await mkdir(join(workDir, "archives", "features", "feat-1"), {
+		await mkdir(join(scanWorkDir, "features", "feat-1"), { recursive: true });
+		await mkdir(join(scanWorkDir, "archives", "features", "feat-1"), {
 			recursive: true,
 		});
 
 		await Bun.write(
-			join(workDir, "features", "feat-1", "tasks.md"),
+			join(scanWorkDir, "features", "feat-1", "tasks.md"),
 			"---\nrp1_doc_id: scan-target-id\ntitle: Tasks\n---\n# Tasks",
 		);
 
 		await Bun.write(
-			join(workDir, "features", "feat-1", "design.md"),
+			join(scanWorkDir, "features", "feat-1", "design.md"),
 			"---\nrp1_doc_id: other-id\ntitle: Design\n---\n# Design",
 		);
 
 		await Bun.write(
-			join(workDir, "features", "feat-1", "notes.txt"),
+			join(scanWorkDir, "features", "feat-1", "notes.txt"),
 			"---\nrp1_doc_id: should-not-match\n---\nNot a markdown file",
 		);
 	});
@@ -490,18 +412,18 @@ describe("scanForDocId", () => {
 		if (scanTmpDir) await rm(scanTmpDir, { recursive: true, force: true });
 	});
 
-	test("finds file by doc_id in .rp1/work/", async () => {
-		const result = await scanForDocId(scanTmpDir, "scan-target-id");
-		expect(result).toBe(".rp1/work/features/feat-1/tasks.md");
+	test("finds file by doc_id in the resolved work directory", async () => {
+		const result = await scanForDocId(scanWorkDir, "scan-target-id");
+		expect(result).toBe(join(scanWorkDir, "features", "feat-1", "tasks.md"));
 	});
 
 	test("returns null for non-existent doc_id", async () => {
-		const result = await scanForDocId(scanTmpDir, "nonexistent-id");
+		const result = await scanForDocId(scanWorkDir, "nonexistent-id");
 		expect(result).toBeNull();
 	});
 
 	test("does not match non-.md files", async () => {
-		const result = await scanForDocId(scanTmpDir, "should-not-match");
+		const result = await scanForDocId(scanWorkDir, "should-not-match");
 		expect(result).toBeNull();
 	});
 
@@ -525,8 +447,10 @@ describe("scanForDocId", () => {
 		);
 		await rename(src, dest);
 
-		const result = await scanForDocId(scanTmpDir, "scan-target-id");
-		expect(result).toBe(".rp1/work/archives/features/feat-1/tasks.md");
+		const result = await scanForDocId(scanWorkDir, "scan-target-id");
+		expect(result).toBe(
+			join(scanWorkDir, "archives", "features", "feat-1", "tasks.md"),
+		);
 		await rename(dest, src);
 	});
 });
@@ -535,6 +459,11 @@ describe("resolveArtifactPath", () => {
 	let reconcileTmpDir: string;
 	let reconcileDb: Database;
 	const reconcileDocId = "reconcile-doc-001";
+	const reconcileDirectories = (projectRoot: string, workRoot: string) => ({
+		projectRoot,
+		kbRoot: join(projectRoot, ".rp1", "context"),
+		workRoot,
+	});
 
 	beforeAll(async () => {
 		reconcileTmpDir = await mkdtemp(join(tmpdir(), "rp1-reconcile-test-"));
@@ -586,9 +515,15 @@ describe("resolveArtifactPath", () => {
 	test("cache hit: returns immediately when file exists at stored path", async () => {
 		const result = await resolveArtifactPath(
 			reconcileDb,
-			reconcileTmpDir,
-			".rp1/work/features/feat-1/tasks.md",
-			reconcileDocId,
+			reconcileDirectories(
+				reconcileTmpDir,
+				join(reconcileTmpDir, ".rp1", "work"),
+			),
+			{
+				docId: reconcileDocId,
+				path: ".rp1/work/features/feat-1/tasks.md",
+				storageRoot: "project",
+			},
 		);
 		expect(result).toBe(
 			join(reconcileTmpDir, ".rp1/work/features/feat-1/tasks.md"),
@@ -616,9 +551,15 @@ describe("resolveArtifactPath", () => {
 
 		const result = await resolveArtifactPath(
 			reconcileDb,
-			reconcileTmpDir,
-			".rp1/work/features/feat-1/tasks.md",
-			reconcileDocId,
+			reconcileDirectories(
+				reconcileTmpDir,
+				join(reconcileTmpDir, ".rp1", "work"),
+			),
+			{
+				docId: reconcileDocId,
+				path: ".rp1/work/features/feat-1/tasks.md",
+				storageRoot: "project",
+			},
 		);
 		expect(result).toBe(
 			join(reconcileTmpDir, ".rp1/work/archives/features/feat-1/tasks.md"),
@@ -644,11 +585,138 @@ describe("resolveArtifactPath", () => {
 
 		const result = await resolveArtifactPath(
 			reconcileDb,
-			reconcileTmpDir,
-			".rp1/work/archives/features/feat-1/tasks.md",
-			reconcileDocId,
+			reconcileDirectories(
+				reconcileTmpDir,
+				join(reconcileTmpDir, ".rp1", "work"),
+			),
+			{
+				docId: reconcileDocId,
+				path: "archives/features/feat-1/tasks.md",
+				storageRoot: "work_dir",
+			},
 		);
 		expect(result).toBeNull();
+	});
+
+	test("reconciles moved work-dir artifacts using the stored external work directory", async () => {
+		const externalProjectRoot = await mkdtemp(
+			join(tmpdir(), "rp1-external-reconcile-"),
+		);
+		const externalWorkDir = join(externalProjectRoot, "external-work");
+		const externalDocId = "external-reconcile-doc";
+
+		try {
+			reconcileDb
+				.prepare(
+					"INSERT INTO artifacts (doc_id, run_id, path, type, storage_root, project_path, feature) VALUES ($docId, $runId, $path, $type, $storageRoot, $projectPath, $feature)",
+				)
+				.run({
+					$docId: externalDocId,
+					$runId: "reconcile-run",
+					$path: "features/ext/tasks.md",
+					$type: "markdown",
+					$storageRoot: "work_dir",
+					$projectPath: externalProjectRoot,
+					$feature: "test-feature",
+				});
+
+			await mkdir(join(externalWorkDir, "archives", "features", "ext"), {
+				recursive: true,
+			});
+			await Bun.write(
+				join(externalWorkDir, "archives", "features", "ext", "tasks.md"),
+				`---\nrp1_doc_id: ${externalDocId}\ntitle: Tasks\n---\n# Tasks`,
+			);
+
+			const result = await resolveArtifactPath(
+				reconcileDb,
+				reconcileDirectories(externalProjectRoot, externalWorkDir),
+				{
+					docId: externalDocId,
+					path: "features/ext/tasks.md",
+					storageRoot: "work_dir",
+				},
+			);
+
+			expect(result).toBe(
+				join(externalWorkDir, "archives", "features", "ext", "tasks.md"),
+			);
+			const row = reconcileDb
+				.prepare(
+					"SELECT path, storage_root FROM artifacts WHERE doc_id = $docId",
+				)
+				.get({ $docId: externalDocId }) as {
+				path: string;
+				storage_root: string;
+			};
+			expect(row.path).toBe("archives/features/ext/tasks.md");
+			expect(row.storage_root).toBe("work_dir");
+		} finally {
+			await rm(externalProjectRoot, { recursive: true, force: true });
+		}
+	});
+
+	test("reconciles work-dir artifacts from the legacy project-local .rp1/work directory", async () => {
+		const legacyProjectRoot = await mkdtemp(
+			join(tmpdir(), "rp1-legacy-work-reconcile-"),
+		);
+		const externalWorkDir = join(legacyProjectRoot, "external-work");
+		const legacyDocId = "legacy-project-work-doc";
+		const legacyPath = join(
+			legacyProjectRoot,
+			".rp1",
+			"work",
+			"features",
+			"legacy",
+			"tasks.md",
+		);
+
+		try {
+			reconcileDb
+				.prepare(
+					"INSERT INTO artifacts (doc_id, run_id, path, type, storage_root, project_path, feature) VALUES ($docId, $runId, $path, $type, $storageRoot, $projectPath, $feature)",
+				)
+				.run({
+					$docId: legacyDocId,
+					$runId: "reconcile-run",
+					$path: "missing/tasks.md",
+					$type: "markdown",
+					$storageRoot: "work_dir",
+					$projectPath: legacyProjectRoot,
+					$feature: "test-feature",
+				});
+
+			await mkdir(dirname(legacyPath), { recursive: true });
+			await Bun.write(
+				legacyPath,
+				`---\nrp1_doc_id: ${legacyDocId}\n---\n# Legacy Work`,
+			);
+
+			const result = await resolveArtifactPath(
+				reconcileDb,
+				reconcileDirectories(legacyProjectRoot, externalWorkDir),
+				{
+					docId: legacyDocId,
+					path: "missing/tasks.md",
+					storageRoot: "work_dir",
+				},
+			);
+
+			expect(result).toBe(legacyPath);
+
+			const row = reconcileDb
+				.prepare(
+					"SELECT path, storage_root FROM artifacts WHERE doc_id = $docId",
+				)
+				.get({ $docId: legacyDocId }) as {
+				path: string;
+				storage_root: string;
+			};
+			expect(row.path).toBe("features/legacy/tasks.md");
+			expect(row.storage_root).toBe("work_dir");
+		} finally {
+			await rm(legacyProjectRoot, { recursive: true, force: true });
+		}
 	});
 });
 
@@ -723,7 +791,7 @@ describe("handleArtifactSaveRequest with moved file", () => {
 		const row = movedDb
 			.prepare("SELECT path FROM artifacts WHERE doc_id = $docId")
 			.get({ $docId: movedDocId }) as { path: string };
-		expect(row.path).toBe(archivedPath);
+		expect(row.path).toBe(".rp1/work/archives/features/feat-move/design.md");
 		const written = await Bun.file(join(movedTmpDir, archivedPath)).text();
 		expect(written).toBe(newContent);
 	});
@@ -732,14 +800,14 @@ describe("handleArtifactSaveRequest with moved file", () => {
 describe("broadcastPathReconciliation", () => {
 	test("calls broadcastEvent with artifact_registered type and correct fields", () => {
 		const calls: unknown[][] = [];
-		const mockHub = {
+		const mockHub: Pick<WebSocketHub, "broadcastEvent"> = {
 			broadcastEvent: (...args: unknown[]) => {
 				calls.push(args);
 			},
 		};
 
 		broadcastPathReconciliation(
-			mockHub as any,
+			mockHub as WebSocketHub,
 			"proj-1",
 			"run-1",
 			"feat-1",
@@ -831,7 +899,7 @@ describe("handleArtifactSaveRequest broadcasts after path reconciliation", () =>
 
 	test("broadcasts artifact_registered when save handler reconciles a moved file via doc_id fallback", async () => {
 		const broadcastCalls: unknown[][] = [];
-		const mockHub = {
+		const mockHub: Pick<WebSocketHub, "broadcastEvent"> = {
 			broadcastEvent: (...args: unknown[]) => {
 				broadcastCalls.push(args);
 			},
@@ -842,7 +910,7 @@ describe("handleArtifactSaveRequest broadcasts after path reconciliation", () =>
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				path: bcastArchivedPath,
+				path: bcastOriginalPath,
 				content: newContent,
 			}),
 		});
@@ -850,7 +918,7 @@ describe("handleArtifactSaveRequest broadcasts after path reconciliation", () =>
 		const response = await handleArtifactSaveRequest(bcastRunId, req, {
 			port: 3000,
 			startTime: Date.now(),
-			websocketHub: mockHub as any,
+			websocketHub: mockHub as WebSocketHub,
 		});
 		expect(response.status).toBe(200);
 
@@ -863,6 +931,304 @@ describe("handleArtifactSaveRequest broadcasts after path reconciliation", () =>
 		expect(callRunId).toBe(bcastRunId);
 		expect(featureId).toBe("feat-bcast");
 		expect((data as Record<string, unknown>).docId).toBe(bcastDocId);
+		expect((data as Record<string, unknown>).path).toBe(bcastArchivedPath);
 		expect((data as Record<string, unknown>).reconciled).toBe(true);
+	});
+});
+
+describe("handleArtifactSaveRequest with external work_dir storage", () => {
+	const externalRunId = "external-run-001";
+	const externalDocId = "external-doc-001";
+	const externalStoredPath = "features/ext/design.md";
+	const externalDisplayPath = ".rp1/work/features/ext/design.md";
+	const legacyExternalDisplayPath = "work/features/ext/design.md";
+	let externalTmpDir: string;
+	let externalWorkDir: string;
+	let externalDb: Database;
+
+	beforeAll(async () => {
+		externalTmpDir = await mkdtemp(join(tmpdir(), "rp1-external-work-test-"));
+		externalWorkDir = join(externalTmpDir, "external-work");
+		externalDb = new Database(":memory:");
+		externalDb.exec("PRAGMA foreign_keys = ON;");
+		externalDb.exec(SCHEMA_SQL);
+
+		externalDb
+			.prepare(
+				"INSERT INTO runs (id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root, rp1_work_root) VALUES ($id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbRoot, $rp1WorkRoot)",
+			)
+			.run({
+				$id: externalRunId,
+				$flow: "build",
+				$featureId: "ext-feature",
+				$projectPath: externalTmpDir,
+				$rp1ProjectRoot: externalTmpDir,
+				$rp1KbRoot: join(externalTmpDir, ".rp1", "context"),
+				$rp1WorkRoot: externalWorkDir,
+			});
+
+		externalDb
+			.prepare(
+				"INSERT INTO artifacts (doc_id, run_id, path, type, storage_root, project_path, feature) VALUES ($docId, $runId, $path, $type, $storageRoot, $projectPath, $feature)",
+			)
+			.run({
+				$docId: externalDocId,
+				$runId: externalRunId,
+				$path: externalStoredPath,
+				$type: "markdown",
+				$storageRoot: "work_dir",
+				$projectPath: externalTmpDir,
+				$feature: "ext-feature",
+			});
+
+		await mkdir(dirname(join(externalWorkDir, externalStoredPath)), {
+			recursive: true,
+		});
+		await Bun.write(
+			join(externalWorkDir, externalStoredPath),
+			"# External work artifact\n",
+		);
+
+		tmpDir = externalTmpDir;
+		testDb = externalDb;
+	});
+
+	afterAll(async () => {
+		externalDb?.close();
+		if (externalTmpDir) {
+			await rm(externalTmpDir, { recursive: true, force: true });
+		}
+	});
+
+	test("saves through the canonical .rp1/work display path while writing to the resolved work directory", async () => {
+		const updatedContent = "# Updated external work artifact\n";
+		await Bun.write(
+			join(externalWorkDir, externalStoredPath),
+			"# External work artifact\n",
+		);
+
+		const request = new Request("http://localhost/api/save", {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				path: externalDisplayPath,
+				content: updatedContent,
+			}),
+		});
+
+		const response = await handleArtifactSaveRequest(externalRunId, request, {
+			port: 3000,
+			startTime: Date.now(),
+		});
+		expect(response.status).toBe(200);
+
+		const written = await Bun.file(
+			join(externalWorkDir, externalStoredPath),
+		).text();
+		expect(written).toBe(updatedContent);
+
+		const baselineRow = externalDb
+			.prepare("SELECT baseline FROM artifacts WHERE doc_id = $docId")
+			.get({ $docId: externalDocId }) as { baseline: string | null };
+		expect(baselineRow.baseline).toBe("# External work artifact\n");
+	});
+
+	test("still accepts the legacy work/ alias when no project artifact conflicts with it", async () => {
+		const updatedContent = "# Updated through legacy alias\n";
+		externalDb
+			.prepare("UPDATE artifacts SET baseline = NULL WHERE doc_id = $docId")
+			.run({ $docId: externalDocId });
+		await Bun.write(
+			join(externalWorkDir, externalStoredPath),
+			"# External work artifact\n",
+		);
+
+		const request = new Request("http://localhost/api/save", {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				path: legacyExternalDisplayPath,
+				content: updatedContent,
+			}),
+		});
+
+		const response = await handleArtifactSaveRequest(externalRunId, request, {
+			port: 3000,
+			startTime: Date.now(),
+		});
+		expect(response.status).toBe(200);
+
+		const written = await Bun.file(
+			join(externalWorkDir, externalStoredPath),
+		).text();
+		expect(written).toBe(updatedContent);
+	});
+
+	test("does not broadcast reconciliation when the canonical .rp1/work path already matches an external work_dir artifact", async () => {
+		const broadcastCalls: unknown[][] = [];
+		const mockHub: Pick<WebSocketHub, "broadcastEvent"> = {
+			broadcastEvent: (...args: unknown[]) => {
+				broadcastCalls.push(args);
+			},
+		};
+		const updatedContent = "# Updated without reconciliation broadcast\n";
+
+		await Bun.write(
+			join(externalWorkDir, externalStoredPath),
+			"# External work artifact\n",
+		);
+
+		const request = new Request("http://localhost/api/save", {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				path: externalDisplayPath,
+				content: updatedContent,
+			}),
+		});
+
+		const response = await handleArtifactSaveRequest(externalRunId, request, {
+			port: 3000,
+			startTime: Date.now(),
+			websocketHub: mockHub as WebSocketHub,
+		});
+		expect(response.status).toBe(200);
+		expect(broadcastCalls).toHaveLength(0);
+	});
+});
+
+describe("handleArtifactSaveRequest path collisions", () => {
+	const runId = "collision-run-001";
+	const projectDocId = "collision-project-doc";
+	const workDocId = "collision-work-doc";
+	const collidingPath = "work/features/ext/design.md";
+	const canonicalWorkPath = ".rp1/work/features/ext/design.md";
+	let collisionTmpDir: string;
+	let collisionWorkDir: string;
+	let collisionDb: Database;
+
+	beforeAll(async () => {
+		collisionTmpDir = await mkdtemp(join(tmpdir(), "rp1-artifact-collision-"));
+		collisionWorkDir = join(collisionTmpDir, "external-work");
+		collisionDb = new Database(":memory:");
+		collisionDb.exec("PRAGMA foreign_keys = ON;");
+		collisionDb.exec(SCHEMA_SQL);
+
+		collisionDb
+			.prepare(
+				"INSERT INTO runs (id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root, rp1_work_root) VALUES ($id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbRoot, $rp1WorkRoot)",
+			)
+			.run({
+				$id: runId,
+				$flow: "build",
+				$featureId: "ext-feature",
+				$projectPath: collisionTmpDir,
+				$rp1ProjectRoot: collisionTmpDir,
+				$rp1KbRoot: join(collisionTmpDir, ".rp1", "context"),
+				$rp1WorkRoot: collisionWorkDir,
+			});
+
+		collisionDb
+			.prepare(
+				"INSERT INTO artifacts (doc_id, run_id, path, type, storage_root, project_path, feature) VALUES ($docId, $runId, $path, $type, $storageRoot, $projectPath, $feature)",
+			)
+			.run({
+				$docId: projectDocId,
+				$runId: runId,
+				$path: collidingPath,
+				$type: "markdown",
+				$storageRoot: "project",
+				$projectPath: collisionTmpDir,
+				$feature: "ext-feature",
+			});
+
+		collisionDb
+			.prepare(
+				"INSERT INTO artifacts (doc_id, run_id, path, type, storage_root, project_path, feature) VALUES ($docId, $runId, $path, $type, $storageRoot, $projectPath, $feature)",
+			)
+			.run({
+				$docId: workDocId,
+				$runId: runId,
+				$path: "features/ext/design.md",
+				$type: "markdown",
+				$storageRoot: "work_dir",
+				$projectPath: collisionTmpDir,
+				$feature: "ext-feature",
+			});
+
+		await mkdir(dirname(join(collisionTmpDir, collidingPath)), {
+			recursive: true,
+		});
+		await mkdir(dirname(join(collisionWorkDir, "features/ext/design.md")), {
+			recursive: true,
+		});
+
+		tmpDir = collisionTmpDir;
+		testDb = collisionDb;
+	});
+
+	afterAll(async () => {
+		collisionDb?.close();
+		if (collisionTmpDir) {
+			await rm(collisionTmpDir, { recursive: true, force: true });
+		}
+	});
+
+	test("prefers the exact project-root artifact over the legacy work/ alias", async () => {
+		await Bun.write(join(collisionTmpDir, collidingPath), "# Project file\n");
+		await Bun.write(
+			join(collisionWorkDir, "features/ext/design.md"),
+			"# Work artifact\n",
+		);
+
+		const response = await handleArtifactSaveRequest(
+			runId,
+			new Request("http://localhost/api/save", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					path: collidingPath,
+					content: "# Updated project file\n",
+				}),
+			}),
+			{ port: 3000, startTime: Date.now() },
+		);
+		expect(response.status).toBe(200);
+
+		expect(await Bun.file(join(collisionTmpDir, collidingPath)).text()).toBe(
+			"# Updated project file\n",
+		);
+		expect(
+			await Bun.file(join(collisionWorkDir, "features/ext/design.md")).text(),
+		).toBe("# Work artifact\n");
+	});
+
+	test("routes the canonical .rp1/work path to the work_dir artifact", async () => {
+		await Bun.write(join(collisionTmpDir, collidingPath), "# Project file\n");
+		await Bun.write(
+			join(collisionWorkDir, "features/ext/design.md"),
+			"# Work artifact\n",
+		);
+
+		const response = await handleArtifactSaveRequest(
+			runId,
+			new Request("http://localhost/api/save", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					path: canonicalWorkPath,
+					content: "# Updated work artifact\n",
+				}),
+			}),
+			{ port: 3000, startTime: Date.now() },
+		);
+		expect(response.status).toBe(200);
+
+		expect(await Bun.file(join(collisionTmpDir, collidingPath)).text()).toBe(
+			"# Project file\n",
+		);
+		expect(
+			await Bun.file(join(collisionWorkDir, "features/ext/design.md")).text(),
+		).toBe("# Updated work artifact\n");
 	});
 });

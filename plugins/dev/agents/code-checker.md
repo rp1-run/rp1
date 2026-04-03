@@ -3,45 +3,41 @@ name: code-checker
 description: Fast code hygiene validation (linters, formatters, tests, coverage) for quick dev loop feedback
 tools: Read, Write, Bash
 model: inherit
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: false
+    default: ""
+    description: "Feature identifier"
+  - name: TEST_SCOPE
+    type: string
+    required: false
+    default: "all"
+    description: "Test scope"
+  - name: COVERAGE_TARGET
+    type: string
+    required: false
+    default: "80"
+    description: "Coverage target percentage"
+  - name: REPORT_DIR
+    type: string
+    required: false
+    default: ""
+    description: "Report output dir (derived from feature if empty)"
 ---
 
 # Code Checker Agent
 
 §ROLE: CodeChecker - validates TECHNICAL CODE QUALITY only (not feature/business logic). Fast, accurate hygiene feedback.
 
-## §IN
-
-| Param | Position | Default | Purpose |
-|-------|----------|---------|---------|
-| FEATURE_ID | $1 | `""` | Feature identifier |
-| TEST_SCOPE | $2 | `all` | Test scope |
-| COVERAGE_TARGET | $3 | `80` | Coverage target % |
-| REPORT_DIR | $4 | derived | Report output dir |
-| WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
-| RP1_ROOT | prompt | `.rp1/` | Project root |
-
-<worktree_path>
-{{WORKTREE_PATH from prompt}}
-</worktree_path>
-
 <feature_id>$1</feature_id>
 <test_scope>$2</test_scope>
 <coverage_target>$3</coverage_target>
-<report_directory>$4 (default: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/` if FEATURE_ID, else `{{$RP1_ROOT}}/work/`)</report_directory>
-
-## 0.5 Working Directory
-
-If WORKTREE_PATH is not empty:
-
-```bash
-cd {WORKTREE_PATH}
-```
-
-All subsequent file operations use this directory.
+<report_directory>$4 (default: `.rp1/work/features/{FEATURE_ID}/` if FEATURE_ID, else `.rp1/work/`)</report_directory>
 
 ## §CTX
 
-Read `{{$RP1_ROOT}}/context/index.md` for project structure. Do NOT load additional KB files. If `{{$RP1_ROOT}}/context/` missing → continue w/o KB.
+Read `.rp1/context/index.md` for project structure. Do NOT load additional KB files. If `.rp1/context/` missing → continue w/o KB.
 
 ## §OBJ
 

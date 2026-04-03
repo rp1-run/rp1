@@ -10,7 +10,19 @@ metadata:
     - task-queue
   created: 2026-03-15
   author: cloud-on-prem/rp1
-  argument-hint: "<operation> [options]"
+  arguments:
+    - name: OPERATION
+      type: enum
+      required: true
+      description: "Task operation to perform"
+      enum_values:
+        - "create"
+        - "list"
+        - "pickup"
+        - "complete"
+        - "fail"
+        - "cancel"
+        - "get"
 ---
 
 # Task Queue Management

@@ -53,7 +53,7 @@ export function startServer(config: ServerConfig): AppServer {
 
 	serverInstance = Bun.serve<WebSocketData>({
 		port,
-		hostname: "127.0.0.1",
+		hostname: process.env.RP1_ARCADE_HOST ?? "127.0.0.1",
 		fetch(req, server) {
 			const url = new URL(req.url);
 			const pathname = url.pathname;
@@ -362,6 +362,42 @@ async function handleV2ApiRequest(
 			);
 			return handleAnnotationDeleteRequest(id, annotationApiContext);
 		}
+	}
+
+	// Notification API routes
+
+	// POST /api/v2/notifications/notify - receive from CLI (most specific first)
+	if (pathname === "/api/v2/notifications/notify" && method === "POST") {
+		const { handleV2NotificationNotifyRequest } = await import(
+			"./routes/v2-api"
+		);
+		return handleV2NotificationNotifyRequest(req, apiContext);
+	}
+
+	// POST /api/v2/notifications/:id/dismiss
+	const notifDismissMatch = pathname.match(
+		/^\/api\/v2\/notifications\/(\d+)\/dismiss$/,
+	);
+	if (notifDismissMatch && method === "POST") {
+		const { handleV2NotificationDismissRequest } = await import(
+			"./routes/v2-api"
+		);
+		const notificationId = Number.parseInt(notifDismissMatch[1], 10);
+		return handleV2NotificationDismissRequest(notificationId, apiContext);
+	}
+
+	// GET /api/v2/notifications - list
+	if (pathname === "/api/v2/notifications" && method === "GET") {
+		const { handleV2NotificationsListRequest } = await import(
+			"./routes/v2-api"
+		);
+		return handleV2NotificationsListRequest(req);
+	}
+
+	// GET /api/v2/feed - unified activity feed
+	if (pathname === "/api/v2/feed" && method === "GET") {
+		const { handleV2FeedRequest } = await import("./routes/v2-api");
+		return handleV2FeedRequest(req);
 	}
 
 	// GET /api/v2/annotations - list annotations

@@ -1,6 +1,7 @@
 import { readdir, stat } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import type { FileWatcherPool } from "../file-watcher";
+import { parseCanonicalProjectSectionPath } from "../project-paths";
 import type { WebSocketHub } from "../websocket";
 
 export interface FileNode {
@@ -150,8 +151,7 @@ export function validateFilePath(filePath: string): string | null {
 		return "Invalid file path";
 	}
 
-	const allowedPrefixes = ["work/", "context/"];
-	if (!allowedPrefixes.some((prefix) => filePath.startsWith(prefix))) {
+	if (parseCanonicalProjectSectionPath(filePath) === null) {
 		return "Access denied: path outside allowed directories";
 	}
 

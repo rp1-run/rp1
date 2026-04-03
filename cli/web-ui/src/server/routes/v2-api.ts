@@ -8,7 +8,7 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { extname, join, relative, resolve } from "node:path";
+import { basename, extname, join, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../../../shared/errors.js";
 import type {
@@ -16,8 +16,15 @@ import type {
 	RunRecord,
 	Status,
 } from "../../../../shared/events.js";
+import {
+	getLogicalStepDisplayId,
+	getLogicalStepKey,
+	isNamespacedLifecycleStep,
+} from "../../../../shared/index.js";
 import type {
 	ArtifactRecord,
+	NotificationRecord,
+	RunRecordWithLastEvent,
 	StepStatusEntry,
 } from "../../../../src/agent-tools/emit/database.js";
 import {
@@ -29,7 +36,12 @@ import {
 	getRunsByAttentionStatus,
 	getStepStatuses,
 	listRuns,
+	resolveArtifactPathForRun,
 } from "../../../../src/agent-tools/emit/database.js";
+import {
+	dismissNotification,
+	listNotifications,
+} from "../../../../src/agent-tools/emit/notification-database.js";
 import {
 	deriveOrderedSteps,
 	listWorkflows,
@@ -48,6 +60,18 @@ import type {
 	Step,
 	StepStatus,
 } from "../../types/runs";
+import { buildProjectLookup, findProjectByIdentity } from "../project-lookup";
+import {
+	findArtifactByRequestedPath,
+	getRunDirectories,
+	listProjectSectionRoots,
+	type ProjectDirectories,
+	resolveArtifactAbsolutePath,
+	resolveProjectDirectories,
+	resolveProjectSectionFilePath,
+	toArtifactDisplayPath,
+	toArtifactDisplayPathFromAbsolute,
+} from "../project-paths";
 import {
 	getAllProjects,
 	getProject,
@@ -66,7 +90,6 @@ import {
 	getMimeType,
 	jsonResponse,
 	parseFrontmatter,
-	resolveWithArchiveFallback,
 	validateFilePath,
 } from "./content-utils";
 
@@ -94,6 +117,42 @@ function humanizeFeatureName(featureId: string): string {
 }
 
 /**
+ * Build a fallback ProjectEntry from a RunRecord when the project registry
+ * lookup fails. This ensures runs are never silently dropped from the UI.
+ */
+function fallbackProjectFromRun(record: {
+	readonly projectId: string | null;
+	readonly rp1ProjectRoot: string;
+	readonly projectPath: string;
+}): ProjectEntry {
+	const path = record.rp1ProjectRoot || record.projectPath;
+	return {
+		id: record.projectId ?? path,
+		projectId: record.projectId ?? undefined,
+		path,
+		name: basename(path),
+		addedAt: new Date().toISOString(),
+		lastAccessedAt: new Date().toISOString(),
+		available: false,
+	};
+}
+
+/**
+ * Check if a run record originated from an eval workspace.
+ * Eval runs use temporary directories and should not appear in the Activity UI.
+ */
+function isEvalRunRecord(record: {
+	readonly rp1ProjectRoot: string;
+	readonly projectPath: string;
+}): boolean {
+	const effectivePath = record.rp1ProjectRoot || record.projectPath;
+	return (
+		effectivePath.startsWith("/tmp/rp1-evals/") ||
+		effectivePath.startsWith("/private/tmp/rp1-evals/")
+	);
+}
+
+/**
  * Map a command string (e.g., "/build") to a workflow name (e.g., "build").
  * Returns null for commands that cannot map to a workflow name.
  */
@@ -117,46 +176,57 @@ function parseJsonSafe(
 	}
 }
 
+function getEffectiveLogicalStepEvents(
+	events: readonly EventRecord[],
+): readonly { logicalStepId: string; event: EventRecord }[] {
+	const effectiveEvents: { logicalStepId: string; event: EventRecord }[] = [];
+	let activeWorkflowStep: string | null = null;
+
+	for (const event of events) {
+		if (event.type !== "status_change" || !event.step) continue;
+
+		const data = parseJsonSafe(event.data);
+		const status = data?.status as Status | undefined;
+		const logicalStepId =
+			isNamespacedLifecycleStep(event.step) && activeWorkflowStep
+				? activeWorkflowStep
+				: getLogicalStepKey(event.step, event.unit);
+
+		effectiveEvents.push({ logicalStepId, event });
+
+		if (isNamespacedLifecycleStep(event.step) || status == null) {
+			continue;
+		}
+
+		if (
+			status === "running" ||
+			status === "waiting" ||
+			status === "not_started"
+		) {
+			activeWorkflowStep = event.step;
+		} else if (activeWorkflowStep === event.step) {
+			activeWorkflowStep = null;
+		}
+	}
+
+	return effectiveEvents;
+}
+
 /**
  * Normalize an artifact path to always be relative to the project root.
  * - Bare filenames -> resolve relative to feature's work directory
  * - Absolute paths -> strip project prefix to make relative
  * - Already relative -> pass through
  */
-function normalizeArtifactPath(
-	artifactPath: string,
-	featureId: string,
-	projectPath?: string,
-): string {
-	if (!artifactPath.includes("/")) {
-		return `.rp1/work/features/${featureId}/${artifactPath}`;
-	}
-	if (projectPath && artifactPath.startsWith("/")) {
-		const prefix = projectPath.endsWith("/") ? projectPath : `${projectPath}/`;
-		if (artifactPath.startsWith(prefix)) {
-			return artifactPath.slice(prefix.length);
-		}
-	}
-	return artifactPath;
-}
-
-/**
- * Convert an ArtifactRecord from the emit database to a frontend Artifact type.
- */
 function artifactRecordToArtifact(
 	record: ArtifactRecord,
-	projectPath: string,
-	featureId: string,
+	directories: ProjectDirectories,
 ): Artifact {
-	const relativePath = normalizeArtifactPath(
-		record.path,
-		featureId,
-		projectPath,
-	);
+	const relativePath = toArtifactDisplayPath(directories, record);
 	return {
 		docId: record.docId,
 		path: relativePath,
-		absolutePath: resolve(projectPath, relativePath),
+		absolutePath: resolveArtifactAbsolutePath(directories, record),
 		type: record.type as ArtifactType,
 		updatedDuringRun: true,
 		isNew: false,
@@ -170,14 +240,11 @@ function artifactRecordToArtifact(
  * Used as a fallback when no artifacts are registered in the database.
  */
 async function discoverArtifactsFromFilesystem(
-	projectPath: string,
+	workRoot: string,
 	featureId: string,
 ): Promise<readonly Artifact[]> {
-	const featureDir = resolve(projectPath, `.rp1/work/features/${featureId}`);
-	const archiveDir = resolve(
-		projectPath,
-		`.rp1/work/archives/features/${featureId}`,
-	);
+	const featureDir = resolve(workRoot, `features/${featureId}`);
+	const archiveDir = resolve(workRoot, `archives/features/${featureId}`);
 
 	const { existsSync } = await import("node:fs");
 	const dir = existsSync(featureDir)
@@ -190,11 +257,8 @@ async function discoverArtifactsFromFilesystem(
 
 	const glob = new Bun.Glob("*.md");
 	const artifacts: Artifact[] = [];
-	const resolvedProjectPath = resolve(projectPath);
 	for await (const entry of glob.scan({ cwd: dir })) {
-		const relativePath = dir.startsWith(resolvedProjectPath)
-			? `${dir.slice(resolvedProjectPath.length + 1)}/${entry}`
-			: entry;
+		const relativePath = `.rp1/work/${dir === featureDir ? `features/${featureId}` : `archives/features/${featureId}`}/${entry}`;
 		artifacts.push({
 			docId: `fs:${relativePath}`,
 			path: relativePath,
@@ -210,27 +274,90 @@ async function discoverArtifactsFromFilesystem(
 }
 
 /**
+ * Extract the best Mermaid fenced code block from markdown content.
+ * Prefers blocks under "Task Subflow" or "Execution Flow" headings
+ * (case-insensitive, within 3 lines above the opening fence).
+ * Falls back to the first Mermaid block if no heading match is found.
+ * Returns null when no Mermaid blocks exist.
+ */
+export function extractMermaidFromMarkdown(content: string): string | null {
+	if (!content) return null;
+
+	const lines = content.split("\n");
+	const blocks: { content: string; headingMatch: boolean }[] = [];
+
+	let inFence = false;
+	let fenceStart = -1;
+	let blockLines: string[] = [];
+
+	for (let i = 0; i < lines.length; i++) {
+		const trimmed = lines[i].trimStart();
+
+		if (!inFence) {
+			if (trimmed.startsWith("```mermaid")) {
+				inFence = true;
+				fenceStart = i;
+				blockLines = [];
+			}
+		} else {
+			if (trimmed.startsWith("```")) {
+				const blockContent = blockLines.join("\n").trim();
+				if (blockContent.length > 0) {
+					const headingMatch = hasMatchingHeading(lines, fenceStart);
+					blocks.push({ content: blockContent, headingMatch });
+				}
+				inFence = false;
+				blockLines = [];
+			} else {
+				blockLines.push(lines[i]);
+			}
+		}
+	}
+
+	if (blocks.length === 0) return null;
+
+	const preferred = blocks.find((b) => b.headingMatch);
+	return preferred ? preferred.content : blocks[0].content;
+}
+
+function hasMatchingHeading(lines: string[], fenceIndex: number): boolean {
+	const headingPattern = /task\s+subflow|execution\s+flow/i;
+	const searchStart = Math.max(0, fenceIndex - 3);
+	for (let i = searchStart; i < fenceIndex; i++) {
+		const trimmed = lines[i].trimStart();
+		if (trimmed.startsWith("#") || trimmed.startsWith("**")) {
+			if (headingPattern.test(trimmed)) return true;
+		}
+	}
+	return false;
+}
+
+/**
  * Read subflow diagram content from disk for subflow artifacts.
  * Returns a map of step ID to Mermaid diagram source.
- * Only reads .mmd files marked as subflow artifacts.
+ * Reads .mmd files directly and extracts Mermaid from markdown artifacts.
  */
 async function getSubflowDiagrams(
-	projectPath: string,
 	artifacts: readonly Artifact[],
 	events: readonly EventRecord[],
+	directories: ProjectDirectories,
 ): Promise<Readonly<Record<string, string>>> {
 	const subflows: Record<string, string> = {};
 
 	// Source 1: artifact-based subflow diagrams (requires subflow flag on artifact)
 	for (const artifact of artifacts) {
 		if (!artifact.subflow || !artifact.step) continue;
-		if (!artifact.path.endsWith(".mmd")) continue;
 
 		try {
-			const filePath = resolve(projectPath, artifact.path);
-			const file = Bun.file(filePath);
+			const file = Bun.file(artifact.absolutePath);
 			if (await file.exists()) {
-				subflows[artifact.step] = await file.text();
+				if (artifact.path.endsWith(".mmd")) {
+					subflows[artifact.step] = await file.text();
+				} else {
+					const content = await file.text();
+					const mermaid = extractMermaidFromMarkdown(content);
+					if (mermaid) subflows[artifact.step] = mermaid;
+				}
 			}
 		} catch {
 			// Best-effort: skip unreadable subflow files
@@ -250,7 +377,8 @@ async function getSubflowDiagrams(
 			subflows[event.step] = diagram;
 		} else if (path) {
 			try {
-				const filePath = resolve(projectPath, path);
+				const filePath =
+					(await resolveProjectSectionFilePath(directories, path)) ?? path;
 				const file = Bun.file(filePath);
 				if (await file.exists()) {
 					subflows[event.step] = await file.text();
@@ -302,37 +430,45 @@ function eventRecordToRunEvent(record: EventRecord): RunEvent {
 
 /**
  * Derive agent tasks from status_change events that have a unit field.
- * Groups by step, then by unit (agent task).
+ * Groups by logical parent step first, then by unit (agent task).
  */
-function deriveAgentSteps(
+export function deriveAgentSteps(
 	events: readonly EventRecord[],
 ): Readonly<Record<string, readonly AgentTask[]>> | null {
-	const agentEvents = events.filter(
-		(e) => e.type === "status_change" && e.unit != null,
-	);
+	const effectiveEvents = getEffectiveLogicalStepEvents(events);
+	const agentEvents = effectiveEvents.filter(({ event }) => event.unit != null);
 	if (agentEvents.length === 0) return null;
 
 	const stepMap = new Map<string, Map<string, AgentTask>>();
 
-	for (const event of agentEvents) {
+	for (const { logicalStepId, event } of agentEvents) {
 		const stepId = event.step;
 		if (!stepId) continue;
+		const logicalParentStepId =
+			isNamespacedLifecycleStep(stepId) &&
+			logicalStepId !== getLogicalStepKey(stepId, event.unit)
+				? logicalStepId
+				: getLogicalStepDisplayId(stepId);
 
-		let taskMap = stepMap.get(stepId);
+		let taskMap = stepMap.get(logicalParentStepId);
 		if (!taskMap) {
 			taskMap = new Map<string, AgentTask>();
-			stepMap.set(stepId, taskMap);
+			stepMap.set(logicalParentStepId, taskMap);
 		}
 
 		const data = parseJsonSafe(event.data);
 		const taskId = event.unit ?? `agent-${event.id}`;
+		const agentName = isNamespacedLifecycleStep(stepId)
+			? getLogicalStepDisplayId(stepId)
+			: stepId;
+		const compositeKey = `${agentName}:${taskId}`;
 		const status = (data?.status as string) ?? "running";
 
-		taskMap.set(taskId, {
+		taskMap.set(compositeKey, {
 			id: taskId,
 			name: humanizeFeatureName(taskId),
 			status,
-			agent: event.unit ?? "unknown",
+			agent: agentName,
 		});
 	}
 
@@ -346,6 +482,77 @@ function deriveAgentSteps(
 	return result;
 }
 
+function getLogicalParentStepId(
+	logicalStepId: string,
+	concreteStep: string | undefined,
+): string {
+	if (concreteStep) {
+		return getLogicalStepDisplayId(concreteStep);
+	}
+
+	const logicalUnitSeparator = logicalStepId.indexOf("::");
+	return logicalUnitSeparator === -1
+		? logicalStepId
+		: logicalStepId.slice(0, logicalUnitSeparator);
+}
+
+function getLogicalStepName(
+	logicalStepId: string,
+	concreteStep: string,
+): string {
+	const displayId = getLogicalStepDisplayId(concreteStep);
+	const logicalUnitSeparator = logicalStepId.indexOf("::");
+	if (logicalUnitSeparator === -1) {
+		return humanizeFeatureName(displayId);
+	}
+
+	const unit = logicalStepId.slice(logicalUnitSeparator + 2);
+	return `${humanizeFeatureName(displayId)} ${unit}`;
+}
+
+function groupEventsByLogicalStep(
+	events: readonly EventRecord[],
+): Map<string, EventRecord[]> {
+	const stepEvents = new Map<string, EventRecord[]>();
+	for (const { logicalStepId, event } of getEffectiveLogicalStepEvents(
+		events,
+	)) {
+		const existing = stepEvents.get(logicalStepId);
+		if (existing) {
+			existing.push(event);
+		} else {
+			stepEvents.set(logicalStepId, [event]);
+		}
+	}
+
+	return stepEvents;
+}
+
+function toStep(
+	stepId: string,
+	status: StepStatus,
+	events: readonly EventRecord[],
+): Step {
+	const startedAt = events.length > 0 ? events[0].createdAt : null;
+	const completedAt =
+		status === "completed" || status === "failed" || status === "skipped"
+			? events.length > 0
+				? events[events.length - 1].createdAt
+				: null
+			: null;
+	const concreteStep = events[events.length - 1]?.step ?? stepId;
+
+	return {
+		id: stepId,
+		name: getLogicalStepName(stepId, concreteStep),
+		status,
+		startedAt,
+		completedAt,
+		taskCount: null,
+		completedTaskCount: null,
+	};
+}
+
 /**
  * Derive steps from a state machine definition merged with step status data.
  * Steps with status_change events get their actual status;
@@ -357,39 +564,41 @@ export function deriveStepsFromMachine(
 	events: readonly EventRecord[],
 ): readonly Step[] {
 	const statusMap = new Map(stepStatuses.map((s) => [s.step, s.status]));
-
-	const stepEvents = new Map<string, EventRecord[]>();
-	for (const event of events) {
-		if (event.type !== "status_change" || !event.step) continue;
-		const existing = stepEvents.get(event.step);
-		if (existing) {
-			existing.push(event);
-		} else {
-			stepEvents.set(event.step, [event]);
-		}
-	}
-
-	return orderedSteps.map(({ id, label }) => {
+	const stepEvents = groupEventsByLogicalStep(events);
+	const orderedStepIds = new Set(orderedSteps.map((step) => step.id));
+	const machineSteps = orderedSteps.map(({ id, label }) => {
 		const status: StepStatus = statusMap.get(id) ?? "not_started";
-		const evts = stepEvents.get(id);
-		const startedAt = evts && evts.length > 0 ? evts[0].createdAt : null;
-		const completedAt =
-			status === "completed" || status === "failed" || status === "skipped"
-				? evts && evts.length > 0
-					? evts[evts.length - 1].createdAt
-					: null
-				: null;
+		const evts = stepEvents.get(id) ?? [];
+		const derivedStep = toStep(id, status, evts);
 
 		return {
-			id,
+			...derivedStep,
 			name: humanizeFeatureName(label),
-			status,
-			startedAt,
-			completedAt,
-			taskCount: null,
-			completedTaskCount: null,
 		};
 	});
+	const machineParentStepIds = new Set(
+		orderedSteps.map(({ id }) => getLogicalParentStepId(id, id)),
+	);
+	const syntheticSteps = Array.from(stepEvents.entries())
+		.filter(([stepId, evts]) => {
+			const concreteStep = evts[evts.length - 1]?.step;
+			if (!concreteStep || !isNamespacedLifecycleStep(concreteStep)) {
+				return false;
+			}
+
+			if (orderedStepIds.has(stepId)) return false;
+
+			const parentStepId = getLogicalParentStepId(stepId, concreteStep);
+			return !machineParentStepIds.has(parentStepId);
+		})
+		.sort(([, leftEvents], [, rightEvents]) =>
+			leftEvents[0].createdAt.localeCompare(rightEvents[0].createdAt),
+		)
+		.map(([stepId, evts]) =>
+			toStep(stepId, statusMap.get(stepId) ?? "not_started", evts),
+		);
+
+	return [...machineSteps, ...syntheticSteps];
 }
 
 /**
@@ -400,40 +609,12 @@ export function deriveStepsFromEvents(
 	stepStatuses: readonly StepStatusEntry[],
 	events: readonly EventRecord[],
 ): readonly Step[] {
-	const stepEvents = new Map<string, EventRecord[]>();
-	for (const event of events) {
-		if (event.type !== "status_change" || !event.step) continue;
-		const existing = stepEvents.get(event.step);
-		if (existing) {
-			existing.push(event);
-		} else {
-			stepEvents.set(event.step, [event]);
-		}
-	}
-
+	const stepEvents = groupEventsByLogicalStep(events);
 	const statusMap = new Map(stepStatuses.map((s) => [s.step, s.status]));
-	const steps: Step[] = [];
 
-	for (const [stepId, evts] of stepEvents) {
-		const status: StepStatus = statusMap.get(stepId) ?? "not_started";
-		const startedAt = evts[0].createdAt;
-		const completedAt =
-			status === "completed" || status === "failed" || status === "skipped"
-				? evts[evts.length - 1].createdAt
-				: null;
-
-		steps.push({
-			id: stepId,
-			name: humanizeFeatureName(stepId),
-			status,
-			startedAt,
-			completedAt,
-			taskCount: null,
-			completedTaskCount: null,
-		});
-	}
-
-	return steps;
+	return Array.from(stepEvents.entries()).map(([stepId, evts]) =>
+		toStep(stepId, statusMap.get(stepId) ?? "not_started", evts),
+	);
 }
 
 /**
@@ -460,20 +641,26 @@ async function deriveSteps(
 /**
  * Convert a RunRecord to a lightweight Run for list views.
  */
-function runRecordToListRun(record: RunRecord, project: ProjectEntry): Run {
+function runRecordToListRun(
+	record: RunRecordWithLastEvent,
+	project: ProjectEntry,
+): Run {
 	return {
 		id: record.id,
 		projectId: project.id,
 		projectName: project.name,
 		featureId: record.featureId,
 		featureName: humanizeFeatureName(record.featureId),
+		name: record.name ?? null,
 		command: `/${record.flow}`,
 		status: record.status,
+		harness: record.harness,
 		currentStep: null,
 		steps: [],
 		artifacts: [],
 		events: [],
 		startedAt: record.createdAt,
+		lastEventAt: record.lastEventAt ?? record.createdAt,
 		completedAt:
 			record.status === "completed" || record.status === "failed"
 				? record.updatedAt
@@ -494,6 +681,7 @@ async function buildDetailedRun(
 	project: ProjectEntry,
 ): Promise<Run> {
 	const command = `/${record.flow}`;
+	const directories = getRunDirectories(record);
 
 	const stepStatuses = getStepStatuses(db, record.id);
 	const events = getEventsForRun(db, record.id);
@@ -503,14 +691,14 @@ async function buildDetailedRun(
 	if (artifactRecords.length > 0) {
 		const deduped = new Map<string, ArtifactRecord>();
 		for (const ar of artifactRecords) {
-			deduped.set(ar.path, ar);
+			deduped.set(toArtifactDisplayPath(directories, ar), ar);
 		}
 		artifacts = [...deduped.values()].map((ar) =>
-			artifactRecordToArtifact(ar, record.projectPath, record.featureId),
+			artifactRecordToArtifact(ar, directories),
 		);
 	} else {
 		artifacts = await discoverArtifactsFromFilesystem(
-			record.projectPath,
+			directories.workRoot,
 			record.featureId,
 		);
 	}
@@ -518,11 +706,7 @@ async function buildDetailedRun(
 	const steps = await deriveSteps(stepStatuses, events, command);
 	const runEvents = events.map(eventRecordToRunEvent);
 	const agentSteps = deriveAgentSteps(events);
-	const subflows = await getSubflowDiagrams(
-		record.projectPath,
-		artifacts,
-		events,
-	);
+	const subflows = await getSubflowDiagrams(artifacts, events, directories);
 
 	let currentStep: string | null = null;
 	for (const step of [...steps].reverse()) {
@@ -565,13 +749,16 @@ async function buildDetailedRun(
 		projectName: project.name,
 		featureId: record.featureId,
 		featureName: humanizeFeatureName(record.featureId),
+		name: record.name ?? null,
 		command,
 		status: record.status,
+		harness: record.harness,
 		currentStep,
 		steps,
 		artifacts,
 		events: runEvents,
 		startedAt: record.createdAt,
+		lastEventAt: events[events.length - 1]?.createdAt ?? record.createdAt,
 		completedAt:
 			record.status === "completed" || record.status === "failed"
 				? record.updatedAt
@@ -593,6 +780,7 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 
 	const statusFilter = params.get("status") as RunStatus | "all" | null;
 	const projectIdFilter = params.get("projectId");
+	const projectUuidFilter = params.get("project_id");
 	const limit = Number.parseInt(params.get("limit") ?? "50", 10);
 	const offset = Number.parseInt(params.get("offset") ?? "0", 10);
 	const dateRange = params.get("dateRange") ?? "all";
@@ -600,12 +788,17 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 	try {
 		const db = await getDb();
 		const projects = await getAllProjects();
-		const projectById = new Map(projects.map((p) => [p.id, p]));
-		const projectByPath = new Map(projects.map((p) => [p.path, p]));
+		const projectLookup = buildProjectLookup(projects);
 
 		let projectPathFilter: string | undefined;
-		if (projectIdFilter) {
-			const project = projectById.get(projectIdFilter);
+		let dbProjectIdFilter: string | undefined;
+
+		if (projectUuidFilter) {
+			dbProjectIdFilter = projectUuidFilter;
+		} else if (projectIdFilter) {
+			const project = findProjectByIdentity(projectLookup, {
+				projectId: projectIdFilter,
+			});
 			if (project) {
 				projectPathFilter = project.path;
 			} else {
@@ -618,11 +811,9 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 				? (statusFilter as Status)
 				: undefined;
 
-		const knownProjectPaths = [...projectByPath.keys()];
-
 		const result = listRuns(db, {
-			projectPath: projectPathFilter,
-			projectPaths: projectPathFilter ? undefined : knownProjectPaths,
+			projectId: dbProjectIdFilter,
+			projectPath: dbProjectIdFilter ? undefined : projectPathFilter,
 			status: dbStatus,
 			limit,
 			offset,
@@ -630,10 +821,11 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 
 		let runs: Run[] = [];
 		for (const record of result.records) {
-			const project = projectByPath.get(record.projectPath);
-			if (project) {
-				runs.push(runRecordToListRun(record, project));
-			}
+			if (isEvalRunRecord(record)) continue;
+			const project =
+				findProjectByIdentity(projectLookup, record) ??
+				fallbackProjectFromRun(record);
+			runs.push(runRecordToListRun(record, project));
 		}
 
 		let total = result.total;
@@ -648,7 +840,8 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 			const range = ranges[dateRange];
 			if (range) {
 				runs = runs.filter(
-					(r) => now - new Date(r.startedAt).getTime() <= range,
+					(r) =>
+						now - new Date(r.lastEventAt ?? r.startedAt).getTime() <= range,
 				);
 				total = runs.length;
 			}
@@ -668,17 +861,17 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
 	try {
 		const db = await getDb();
 		const projects = await getAllProjects();
-		const projectByPath = new Map(projects.map((p) => [p.path, p]));
+		const projectLookup = buildProjectLookup(projects);
 
 		const attentionRuns = getRunsByAttentionStatus(db);
 
-		const toRuns = (records: readonly RunRecord[]): Run[] => {
+		const toRuns = (records: readonly RunRecordWithLastEvent[]): Run[] => {
 			const runs: Run[] = [];
 			for (const record of records) {
-				const project = projectByPath.get(record.projectPath);
-				if (project) {
-					runs.push(runRecordToListRun(record, project));
-				}
+				const project =
+					findProjectByIdentity(projectLookup, record) ??
+					fallbackProjectFromRun(record);
+				runs.push(runRecordToListRun(record, project));
 			}
 			return runs;
 		};
@@ -711,10 +904,10 @@ export async function handleV2RunDetailRequest(
 		}
 
 		const projects = await getAllProjects();
-		const project = projects.find((p) => p.path === record.projectPath);
-		if (!project) {
-			return errorResponse(`Project not found for run: ${runId}`, 404);
-		}
+		const projectLookup = buildProjectLookup(projects);
+		const project =
+			findProjectByIdentity(projectLookup, record) ??
+			fallbackProjectFromRun(record);
 
 		const run = await buildDetailedRun(db, record, project);
 		return jsonResponse(run);
@@ -741,52 +934,78 @@ export async function handleV2ArtifactContentRequest(
 		}
 
 		const projects = await getAllProjects();
-		const project = projects.find((p) => p.path === record.projectPath);
-		if (!project) {
-			return errorResponse(`Project not found for run: ${runId}`, 404);
-		}
+		const projectLookup = buildProjectLookup(projects);
+		const project =
+			findProjectByIdentity(projectLookup, record) ??
+			fallbackProjectFromRun(record);
 
 		if (artifactPath.includes("..")) {
 			return errorResponse("Invalid artifact path", 400);
 		}
 
-		const projectRoot = resolve(project.path);
+		const directories = getRunDirectories(record);
+		const artifactRecords = getArtifactsForRun(db, runId);
+		const artifactRecord = findArtifactByRequestedPath(
+			directories,
+			artifactRecords,
+			artifactPath,
+		);
 
-		const candidates: string[] = [];
-
-		candidates.push(resolve(projectRoot, artifactPath));
-
-		const archivablePrefixes = [".rp1/work/features/", ".rp1/work/prds/"];
-		for (const prefix of archivablePrefixes) {
-			if (artifactPath.startsWith(prefix)) {
-				candidates.push(
-					resolve(
-						projectRoot,
-						artifactPath.replace(
-							prefix,
-							`.rp1/work/archives/${prefix.slice(".rp1/work/".length)}`,
-						),
-					),
+		if (artifactRecord) {
+			const resolvedPath = await resolveArtifactPathForRun(
+				db,
+				record,
+				artifactRecord,
+			);
+			if (resolvedPath) {
+				const reconciledPath = toArtifactDisplayPathFromAbsolute(
+					directories,
+					resolvedPath,
 				);
+				if (reconciledPath !== artifactPath && apiContext?.websocketHub) {
+					const { broadcastPathReconciliation } = await import(
+						"./artifacts-api"
+					);
+					broadcastPathReconciliation(
+						apiContext.websocketHub,
+						project.id,
+						runId,
+						record.featureId,
+						artifactRecord.docId,
+						reconciledPath,
+					);
+				}
+
+				const content = await Bun.file(resolvedPath).text();
+				return jsonResponse({ content });
 			}
 		}
 
-		if (!artifactPath.includes("/")) {
-			const featureId = record.featureId;
-			candidates.push(
-				resolve(projectRoot, `.rp1/work/features/${featureId}/${artifactPath}`),
-				resolve(
-					projectRoot,
-					`.rp1/work/archives/features/${featureId}/${artifactPath}`,
-				),
-			);
+		const scopedPath = await resolveProjectSectionFilePath(
+			directories,
+			artifactPath,
+		);
+		if (scopedPath) {
+			const content = await Bun.file(scopedPath).text();
+			return jsonResponse({ content });
 		}
 
-		for (const candidate of candidates) {
-			if (!candidate.startsWith(`${projectRoot}/`)) continue;
-			if (await Bun.file(candidate).exists()) {
-				const content = await Bun.file(candidate).text();
-				return jsonResponse({ content });
+		if (!artifactPath.includes("/")) {
+			const fallbackCandidates = [
+				resolve(
+					directories.workRoot,
+					`features/${record.featureId}/${artifactPath}`,
+				),
+				resolve(
+					directories.workRoot,
+					`archives/features/${record.featureId}/${artifactPath}`,
+				),
+			];
+			for (const candidate of fallbackCandidates) {
+				if (await Bun.file(candidate).exists()) {
+					const content = await Bun.file(candidate).text();
+					return jsonResponse({ content });
+				}
 			}
 		}
 
@@ -803,14 +1022,16 @@ export async function handleV2ArtifactContentRequest(
 		} | null;
 
 		if (artifactRow) {
-			const resolvedPath = await resolveArtifactPath(
-				db,
-				projectRoot,
-				artifactPath,
-				artifactRow.doc_id,
-			);
+			const resolvedPath = await resolveArtifactPath(db, directories, {
+				docId: artifactRow.doc_id,
+				path: artifactPath,
+				storageRoot: "work_dir",
+			});
 			if (resolvedPath) {
-				const newRelPath = relative(projectRoot, resolvedPath);
+				const newRelPath = toArtifactDisplayPathFromAbsolute(
+					directories,
+					resolvedPath,
+				);
 				if (newRelPath !== artifactPath) {
 					broadcastPathReconciliation(
 						apiContext?.websocketHub,
@@ -857,6 +1078,14 @@ export async function handleV2ProjectsListRequest(): Promise<Response> {
 				runCount: stats?.runCount ?? 0,
 				lastActivityAt: stats?.lastActivityAt ?? null,
 			};
+		});
+
+		// Sort by latest activity descending; projects with no activity sink to the bottom
+		v2Projects.sort((a, b) => {
+			if (!a.lastActivityAt && !b.lastActivityAt) return 0;
+			if (!a.lastActivityAt) return 1;
+			if (!b.lastActivityAt) return -1;
+			return b.lastActivityAt.localeCompare(a.lastActivityAt);
 		});
 
 		return jsonResponse({ projects: v2Projects });
@@ -997,19 +1226,14 @@ export async function handleV2ProjectFilesRequest(
 			return errorResponse(`Project unavailable: ${projectId}`, 410);
 		}
 
-		const rp1Path = join(project.path, ".rp1");
+		const directories = resolveProjectDirectories(project.path);
 		const sections: FileNode[] = [];
 
-		const workPath = join(rp1Path, "work");
-		const workTree = await buildFileTree(workPath, "work");
-		if (workTree) {
-			sections.push(workTree);
-		}
-
-		const contextPath = join(rp1Path, "context");
-		const contextTree = await buildFileTree(contextPath, "context");
-		if (contextTree) {
-			sections.push(contextTree);
+		for (const root of listProjectSectionRoots(directories)) {
+			const tree = await buildFileTree(root.absolutePath, root.displayPath);
+			if (tree) {
+				sections.push(tree);
+			}
 		}
 
 		return jsonResponse(sections);
@@ -1043,9 +1267,11 @@ export async function handleV2ProjectContentRequest(
 			return errorResponse(validationError, status);
 		}
 
-		const rp1Path = resolve(project.path, ".rp1");
-
-		const resolvedPath = await resolveWithArchiveFallback(rp1Path, filePath);
+		const directories = resolveProjectDirectories(project.path);
+		const resolvedPath = await resolveProjectSectionFilePath(
+			directories,
+			filePath,
+		);
 		if (!resolvedPath) {
 			return errorResponse("File not found", 404);
 		}
@@ -1108,8 +1334,11 @@ export async function handleV2ProjectContentSaveRequest(
 			);
 		}
 
-		const rp1Path = resolve(project.path, ".rp1");
-		const resolvedPath = await resolveWithArchiveFallback(rp1Path, filePath);
+		const directories = resolveProjectDirectories(project.path);
+		const resolvedPath = await resolveProjectSectionFilePath(
+			directories,
+			filePath,
+		);
 
 		if (!resolvedPath) {
 			return errorResponse("File not found", 404);
@@ -1203,24 +1432,37 @@ export async function handleV2StatusNotifyRequest(
 		const eventType = body.eventType as string | undefined;
 		const eventId = body.eventId as number | undefined;
 		const runId = body.runId as string | undefined;
+		const projectId = body.projectId as string | undefined;
+		const rp1ProjectRoot = body.rp1ProjectRoot as string | undefined;
 		const projectPath = body.projectPath as string | undefined;
 		const featureId = body.featureId as string | undefined;
 		const step = (body.step as string | null) ?? null;
 		const data = (body.data as Record<string, unknown> | null) ?? null;
 		const createdAt = (body.createdAt as string) ?? new Date().toISOString();
 
-		if (!projectPath || !featureId || !eventType || eventId == null || !runId) {
+		if (
+			!featureId ||
+			!eventType ||
+			eventId == null ||
+			!runId ||
+			(!projectId && !rp1ProjectRoot && !projectPath)
+		) {
 			console.warn(
 				"[notify] Malformed event notification, missing required fields, discarding",
 			);
 			return errorResponse(
-				"Missing required fields for event notification: projectPath, featureId, eventType, eventId, runId",
+				"Missing required fields for event notification: featureId, eventType, eventId, runId, and one of projectId, rp1ProjectRoot, or projectPath",
 				400,
 			);
 		}
 
 		const projects = await getAllProjects();
-		const project = projects.find((p) => p.path === projectPath);
+		const projectLookup = buildProjectLookup(projects);
+		const project = findProjectByIdentity(projectLookup, {
+			projectId,
+			rp1ProjectRoot,
+			projectPath,
+		});
 
 		if (!project) {
 			return jsonResponse({
@@ -1303,5 +1545,280 @@ export async function handleV2ProjectDeleteRequest(
 		return jsonResponse({ removed: true });
 	} catch (error) {
 		return errorResponse(`Failed to remove project: ${String(error)}`);
+	}
+}
+
+/**
+ * GET /api/v2/notifications - list non-dismissed notifications with pagination.
+ */
+export async function handleV2NotificationsListRequest(
+	req: Request,
+): Promise<Response> {
+	try {
+		const url = new URL(req.url);
+		const params = url.searchParams;
+		const projectId = params.get("projectId") ?? undefined;
+		const limit = Number.parseInt(params.get("limit") ?? "50", 10);
+		const offset = Number.parseInt(params.get("offset") ?? "0", 10);
+
+		const db = await getDb();
+		const result = listNotifications(db, { projectId, limit, offset });
+
+		const notifications = result.notifications.map((n) => ({
+			id: n.id,
+			message: n.message,
+			sourceType: n.sourceType,
+			sourceId: n.sourceId,
+			route: n.route,
+			projectId: n.projectId,
+			createdAt: n.createdAt,
+		}));
+
+		return jsonResponse({ notifications, total: result.total });
+	} catch (error) {
+		return errorResponse(`Failed to fetch notifications: ${String(error)}`);
+	}
+}
+
+/**
+ * POST /api/v2/notifications/:id/dismiss - soft-delete a notification.
+ * Broadcasts notification:dismissed via WebSocket.
+ */
+export async function handleV2NotificationDismissRequest(
+	notificationId: number,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		const db = await getDb();
+		const dismissed = dismissNotification(db, notificationId);
+
+		if (!dismissed) {
+			return errorResponse(
+				`Notification not found or already dismissed: ${notificationId}`,
+				404,
+			);
+		}
+
+		ctx.websocketHub?.broadcastNotificationDismissed(notificationId);
+
+		return jsonResponse({ dismissed: true });
+	} catch (error) {
+		return errorResponse(`Failed to dismiss notification: ${String(error)}`);
+	}
+}
+
+/**
+ * POST /api/v2/notifications/notify - receive notification from CLI emit pipeline.
+ * Broadcasts via WebSocket hub for real-time delivery.
+ */
+export async function handleV2NotificationNotifyRequest(
+	req: Request,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		let body: Record<string, unknown>;
+		try {
+			body = (await req.json()) as Record<string, unknown>;
+		} catch {
+			return errorResponse("Malformed JSON body", 400);
+		}
+
+		if (body.type !== "notification") {
+			return errorResponse(
+				`Unsupported type: expected "notification", received "${String(body.type ?? "none")}"`,
+				400,
+			);
+		}
+
+		const notification = body.notification as
+			| {
+					id: number;
+					message: string;
+					sourceType: string;
+					sourceId: string | null;
+					route: string | null;
+					projectId: string | null;
+					createdAt: string;
+			  }
+			| undefined;
+
+		if (!notification || typeof notification.id !== "number") {
+			return errorResponse("Missing or invalid notification payload", 400);
+		}
+
+		ctx.websocketHub?.broadcastNotificationCreated(notification);
+
+		return jsonResponse({ notified: true, notificationId: notification.id });
+	} catch (error) {
+		return errorResponse(`Failed to process notification: ${String(error)}`);
+	}
+}
+
+/**
+ * GET /api/v2/feed - unified activity feed (runs + notifications, chronologically interleaved).
+ * Queries both tables, merges by timestamp, and applies pagination to the combined result.
+ * When a status filter is active, notifications are still included alongside filtered runs.
+ */
+export async function handleV2FeedRequest(req: Request): Promise<Response> {
+	try {
+		const url = new URL(req.url);
+		const params = url.searchParams;
+		const projectIdFilter = params.get("projectId");
+		const projectUuidFilter = params.get("project_id");
+		const statusFilter = params.get("status") as string | null;
+		const dateRange = params.get("dateRange") ?? "all";
+		const limit = Number.parseInt(params.get("limit") ?? "25", 10);
+		const offset = Number.parseInt(params.get("offset") ?? "0", 10);
+
+		const db = await getDb();
+		const projects = await getAllProjects();
+		const projectLookup = buildProjectLookup(projects);
+
+		let projectPathFilter: string | undefined;
+		let dbProjectIdFilter: string | undefined;
+
+		if (projectUuidFilter) {
+			dbProjectIdFilter = projectUuidFilter;
+		} else if (projectIdFilter) {
+			const project = findProjectByIdentity(projectLookup, {
+				projectId: projectIdFilter,
+			});
+			if (project) {
+				projectPathFilter = project.path;
+			} else {
+				return jsonResponse({ items: [], total: 0 });
+			}
+		}
+
+		const dbStatus =
+			statusFilter && statusFilter !== "all"
+				? (statusFilter as string)
+				: undefined;
+
+		const runsResult = listRuns(db, {
+			projectId: dbProjectIdFilter,
+			projectPath: dbProjectIdFilter ? undefined : projectPathFilter,
+			status: dbStatus as
+				| import("../../../../shared/events.js").Status
+				| undefined,
+			limit: 200,
+			offset: 0,
+		});
+
+		let runItems: Array<{
+			type: "run";
+			id: string;
+			timestamp: string;
+			run: Run;
+		}> = [];
+		for (const record of runsResult.records) {
+			if (isEvalRunRecord(record)) continue;
+			const project =
+				findProjectByIdentity(projectLookup, record) ??
+				fallbackProjectFromRun(record);
+			const run = runRecordToListRun(record, project);
+			runItems.push({
+				type: "run",
+				id: record.id,
+				timestamp: run.lastEventAt ?? run.startedAt,
+				run,
+			});
+		}
+
+		const notifProjectId = dbProjectIdFilter ?? undefined;
+		const notifResult = listNotifications(db, {
+			projectId: notifProjectId,
+			limit: 200,
+			offset: 0,
+		});
+
+		let notifItems: Array<{
+			type: "notification";
+			id: number;
+			timestamp: string;
+			notification: Omit<NotificationRecord, "dismissed"> & {
+				harness: string | null;
+				runCommand: string | null;
+				runName: string | null;
+				projectName: string | null;
+			};
+		}> = notifResult.notifications.map((n) => {
+			let harness: string | null = null;
+			let runCommand: string | null = null;
+			let runName: string | null = null;
+			let projectName: string | null = null;
+
+			if (n.sourceId) {
+				const run = getRunById(db, n.sourceId);
+				if (run) {
+					harness = run.harness;
+					runCommand = `/${run.flow}`;
+					runName = run.name ?? null;
+					const project =
+						findProjectByIdentity(projectLookup, run) ??
+						fallbackProjectFromRun(run);
+					projectName = project.name;
+				}
+			} else if (n.projectId) {
+				for (const [, project] of projectLookup.byId) {
+					if (project.id === n.projectId) {
+						projectName = project.name;
+						break;
+					}
+				}
+			}
+
+			return {
+				type: "notification" as const,
+				id: n.id,
+				timestamp: n.createdAt,
+				notification: {
+					id: n.id,
+					message: n.message,
+					sourceType: n.sourceType,
+					sourceId: n.sourceId,
+					route: n.route,
+					projectId: n.projectId,
+					createdAt: n.createdAt,
+					harness,
+					runCommand,
+					runName,
+					projectName,
+				},
+			};
+		});
+
+		if (dateRange !== "all") {
+			const now = Date.now();
+			const ranges: Record<string, number> = {
+				today: 24 * 60 * 60 * 1000,
+				week: 7 * 24 * 60 * 60 * 1000,
+				month: 30 * 24 * 60 * 60 * 1000,
+			};
+			const range = ranges[dateRange];
+			if (range) {
+				runItems = runItems.filter(
+					(item) => now - new Date(item.timestamp).getTime() <= range,
+				);
+				notifItems = notifItems.filter(
+					(item) => now - new Date(item.timestamp).getTime() <= range,
+				);
+			}
+		}
+
+		type FeedItem = (typeof runItems)[number] | (typeof notifItems)[number];
+
+		const allItems: FeedItem[] = [...runItems, ...notifItems];
+		allItems.sort(
+			(a, b) =>
+				new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+		);
+
+		const total = allItems.length;
+		const paged = allItems.slice(offset, offset + limit);
+
+		return jsonResponse({ items: paged, total });
+	} catch (error) {
+		return errorResponse(`Failed to fetch feed: ${String(error)}`);
 	}
 }

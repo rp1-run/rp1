@@ -12,23 +12,16 @@ metadata:
   created: 2025-12-31
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "<prd-name>"
+  arguments:
+    - name: PRD_NAME
+      type: string
+      required: true
+      description: "PRD filename without extension (kebab-case)"
 ---
 
 # PRD Archive
 
 Archives completed PRD docs from active -> archives dir with associated features.
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `PRD_NAME` | Yes | - | PRD filename without extension (kebab-case) |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## Usage
 
@@ -38,8 +31,8 @@ Extract these parameters from the user's input:
 
 ## Behavior
 
-- Moves `{{$RP1_ROOT}}/work/prds/<PRD_NAME>.md` -> `{{$RP1_ROOT}}/work/archives/prds/<PRD_NAME>/prd.md`
-- Archives associated completed features to `{{$RP1_ROOT}}/work/archives/features/`
+- Moves `.rp1/work/prds/<PRD_NAME>.md` -> `.rp1/work/archives/prds/<PRD_NAME>/prd.md`
+- Archives associated completed features to `.rp1/work/archives/features/`
 - Generates `closure_summary.md` with archive metadata
 - Checks KB staleness and suggests `/knowledge-build` if needed
 - Creates archive directories if missing

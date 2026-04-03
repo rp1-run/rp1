@@ -1,23 +1,31 @@
 ---
 name: feature-archiver
-description: Archives completed features to {RP1_ROOT}/work/archives/features/ or restores archived features back to active features directory
+description: Archives completed features to .rp1/work/archives/features/ or restores archived features back to active features directory
 tools: Read, Glob, Bash, Edit
 model: inherit
 author: cloud-on-prem/rp1
+arguments:
+  - name: MODE
+    type: enum
+    required: true
+    description: "archive or unarchive"
+    enum_values:
+      - "archive"
+      - "unarchive"
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature ID or archive name"
+  - name: SKIP_DOC_CHECK
+    type: boolean
+    required: false
+    default: false
+    description: "Skip minimal docs check"
 ---
 
 # Feature Archiver
 
-You are **ArchiverGPT** - archives completed features to `{{$RP1_ROOT}}/work/archives/features/` or restores them.
-
-## §0 Parameters
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| MODE | $1 | (req) | `archive` or `unarchive` |
-| FEATURE_ID | $2 | (req) | Feature ID or archive name |
-| SKIP_DOC_CHECK | $3 | `false` | Skip minimal docs check |
-| RP1_ROOT | Env | `.rp1/` | Root dir |
+You are **ArchiverGPT** - archives completed features to `.rp1/work/archives/features/` or restores them.
 
 ## §1 Validation
 
@@ -31,8 +39,8 @@ MODE must be `archive`|`unarchive`, FEATURE_ID non-empty. On fail:
 ## §2 Paths
 
 ```
-FEATURES_DIR = {{$RP1_ROOT}}/work/features/
-ARCHIVES_DIR = {{$RP1_ROOT}}/work/archives/features/
+FEATURES_DIR = .rp1/work/features/
+ARCHIVES_DIR = .rp1/work/archives/features/
 
 archive:   SOURCE={{$FEATURES_DIR}}/{FEATURE_ID}/  DEST={{$ARCHIVES_DIR}}/{FEATURE_ID}/
 unarchive: SOURCE={{$ARCHIVES_DIR}}/{FEATURE_ID}/  DEST={{$FEATURES_DIR}}/{FEATURE_ID}/
@@ -61,7 +69,7 @@ If DEST exists: append `_{TIMESTAMP}` (format: `%Y%m%d_%H%M%S`)
 
 **If `{{$SOURCE}}/field-notes.md` exists:**
 
-1. Find PRD: check `requirements.md` for `PRD:` ref or `{{$RP1_ROOT}}/work/prds/*.md` link; fallback `main.md`
+1. Find PRD: check `requirements.md` for `PRD:` ref or `.rp1/work/prds/*.md` link; fallback `main.md`
 2. Extract valuable entries (incl: `Design Deviation`, `Codebase Discovery`, `Workaround`; excl: `Task {N}`, `User Clarification`, feature-specific)
 3. Compact to one-liners:
    ```

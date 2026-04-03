@@ -4,7 +4,9 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { V2Project } from "@/types/projects";
+import { useReconnectRecovery } from "./useReconnectRecovery";
 
 export type { V2Project };
 
@@ -23,6 +25,7 @@ export function useProjects(): UseProjectsReturn {
 	const [projects, setProjects] = useState<V2Project[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
+	const { onProjectsChange } = useWebSocket();
 
 	const fetchProjects = useCallback(async () => {
 		try {
@@ -33,7 +36,15 @@ export function useProjects(): UseProjectsReturn {
 			}
 
 			const data = (await response.json()) as ProjectsResponse;
-			setProjects(data.projects);
+			const sorted = [...data.projects].sort((a, b) => {
+				// Projects with no activity sink to the bottom
+				if (!a.lastActivityAt && !b.lastActivityAt) return 0;
+				if (!a.lastActivityAt) return 1;
+				if (!b.lastActivityAt) return -1;
+				// Most recent activity first
+				return b.lastActivityAt.localeCompare(a.lastActivityAt);
+			});
+			setProjects(sorted);
 			setError(null);
 		} catch (err) {
 			setError(err instanceof Error ? err : new Error(String(err)));
@@ -45,6 +56,14 @@ export function useProjects(): UseProjectsReturn {
 	useEffect(() => {
 		fetchProjects();
 	}, [fetchProjects]);
+
+	useEffect(() => {
+		return onProjectsChange(() => {
+			void fetchProjects();
+		});
+	}, [fetchProjects, onProjectsChange]);
+
+	useReconnectRecovery(fetchProjects);
 
 	const refetch = useCallback(() => {
 		setIsLoading(true);

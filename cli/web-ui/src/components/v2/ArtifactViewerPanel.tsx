@@ -1,5 +1,6 @@
-import { FileText, List } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Check, FileText, GitBranch, List } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MermaidDiagram } from "@/components/MarkdownViewer/MermaidDiagram";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
 import { AnnotationToggleBtn } from "@/components/v2/AnnotationToggleBtn";
@@ -22,6 +23,7 @@ export interface ArtifactViewerPanelProps {
 	readonly selectedArtifact: Artifact | null;
 	readonly onArtifactSelect?: (artifact: Artifact) => void;
 	readonly runId?: string;
+	readonly subflowDiagram?: string | null;
 }
 
 function getFileName(path: string): string {
@@ -34,6 +36,7 @@ function ArtifactViewerInner({
 	selectedArtifact,
 	onArtifactSelect,
 	runId,
+	subflowDiagram,
 }: ArtifactViewerPanelProps) {
 	const [content, setContentRaw] = useState<string | null>(null);
 	const [contentRevision, setContentRevision] = useState(0);
@@ -47,8 +50,22 @@ function ArtifactViewerInner({
 	const [annotationSidebarOpen, setAnnotationSidebarOpen] = useState(false);
 	const [tocOpen, setTocOpen] = useState(false);
 	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+	const [copiedPath, setCopiedPath] = useState<string | null>(null);
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const { onFileChange } = useWebSocket();
+
+	const hasSubflow =
+		typeof subflowDiagram === "string" && subflowDiagram.length > 0;
+	const [showSubflow, setShowSubflow] = useState(false);
+
+	const shouldShowSubflow = useMemo(
+		() => hasSubflow && !selectedArtifact,
+		[hasSubflow, selectedArtifact],
+	);
+
+	useEffect(() => {
+		setShowSubflow(shouldShowSubflow);
+	}, [shouldShowSubflow]);
 
 	const artifactPath = selectedArtifact?.path ?? null;
 
@@ -185,27 +202,65 @@ function ArtifactViewerInner({
 					</div>
 				</div>
 
-				{stepArtifacts.length > 0 && (
+				{(hasSubflow || stepArtifacts.length > 0) && (
 					<nav className="mt-[8px] flex flex-wrap gap-x-[16px] gap-y-[4px]">
-						{stepArtifacts.map((artifact) => {
-							const isSelected = selectedArtifact?.path === artifact.path;
-							return (
+						{hasSubflow && (
+							<span
+								className={cn(
+									"type-secondary inline-flex items-center gap-1",
+									showSubflow ? "text-fg font-medium" : "text-fg-ghost",
+								)}
+							>
+								<GitBranch className="h-3 w-3 shrink-0" strokeWidth={1.5} />
 								<button
-									key={artifact.path}
 									type="button"
-									onClick={() => onArtifactSelect?.(artifact)}
+									onClick={() => setShowSubflow(true)}
+									className="transition-colors duration-150 hover:opacity-80"
+								>
+									Execution Flow
+								</button>
+							</span>
+						)}
+						{stepArtifacts.map((artifact) => {
+							const isSelected =
+								!showSubflow && selectedArtifact?.path === artifact.path;
+							const isCopied = copiedPath === artifact.path;
+							const IconComponent = isCopied ? Check : FileText;
+							return (
+								<span
+									key={artifact.path}
 									className={cn(
-										"type-secondary transition-colors duration-150 hover:opacity-80 inline-flex items-center gap-1",
+										"type-secondary inline-flex items-center gap-1",
 										isSelected ? "text-fg font-medium" : "text-fg-ghost",
 									)}
 								>
-									<FileText
-										className="h-3 w-3 shrink-0"
-										strokeWidth={1.5}
-										aria-hidden="true"
-									/>
-									{getFileName(artifact.path)}
-								</button>
+									<button
+										type="button"
+										title={artifact.absolutePath ?? artifact.path}
+										onClick={(e) => {
+											e.stopPropagation();
+											const absPath = artifact.absolutePath ?? artifact.path;
+											navigator.clipboard.writeText(absPath).then(() => {
+												setCopiedPath(artifact.path);
+												setTimeout(() => setCopiedPath(null), 2000);
+											});
+										}}
+										className="shrink-0 transition-colors duration-150 hover:text-fg"
+										aria-label={`Copy path for ${getFileName(artifact.path)}`}
+									>
+										<IconComponent className="h-3 w-3" strokeWidth={1.5} />
+									</button>
+									<button
+										type="button"
+										onClick={() => {
+											setShowSubflow(false);
+											onArtifactSelect?.(artifact);
+										}}
+										className="transition-colors duration-150 hover:opacity-80"
+									>
+										{getFileName(artifact.path)}
+									</button>
+								</span>
 							);
 						})}
 					</nav>
@@ -213,28 +268,44 @@ function ArtifactViewerInner({
 			</div>
 
 			<div className="flex flex-1 min-h-0 overflow-hidden">
-				<ScrollArea
-					className="flex-1 min-h-0 max-w-full overflow-hidden"
-					viewportRef={scrollViewportRef}
-				>
-					<ContentPanel
-						key={contentRevision}
-						content={content}
-						path={selectedArtifact?.path ?? null}
-						isLoading={contentLoading}
-						error={contentError}
-						emptyMessage={
-							stepArtifacts.length > 0
-								? "Select an artifact to view."
-								: "No artifacts for this step."
-						}
-						onHeadingsExtracted={handleHeadingsExtracted}
-						onSaveStatusChange={setSaveStatus}
-						runId={runId}
-						docId={selectedArtifact?.docId}
-						scrollViewportRef={scrollViewportRef}
-					/>
-				</ScrollArea>
+				{showSubflow && hasSubflow ? (
+					<ScrollArea
+						className="flex-1 min-h-0 max-w-full overflow-hidden"
+						viewportRef={scrollViewportRef}
+					>
+						<div className="px-4 md:px-[40px] py-4">
+							<MermaidDiagram
+								code={subflowDiagram as string}
+								title="Execution Flow"
+							/>
+						</div>
+					</ScrollArea>
+				) : (
+					<ScrollArea
+						className="flex-1 min-h-0 max-w-full overflow-hidden"
+						viewportRef={scrollViewportRef}
+					>
+						<ContentPanel
+							key={contentRevision}
+							content={content}
+							path={selectedArtifact?.path ?? null}
+							isLoading={contentLoading}
+							error={contentError}
+							emptyMessage={
+								hasSubflow
+									? "Select an artifact to view, or switch to Execution Flow."
+									: stepArtifacts.length > 0
+										? "Select an artifact to view."
+										: "No artifacts for this step."
+							}
+							onHeadingsExtracted={handleHeadingsExtracted}
+							onSaveStatusChange={setSaveStatus}
+							runId={runId}
+							docId={selectedArtifact?.docId}
+							scrollViewportRef={scrollViewportRef}
+						/>
+					</ScrollArea>
+				)}
 
 				{tocOpen && headings.length > 0 && (
 					<div className="w-[200px] shrink-0 border-l border-border overflow-y-auto">

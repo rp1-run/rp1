@@ -42,12 +42,6 @@ The command follows a structured process:
 4. **Iterative Refinement** - Continue until sufficient detail is gathered
 5. **Write Document** - Generate the complete, polished markdown
 
-## Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `RP1_ROOT` | `.rp1/` | Root directory for output |
-
 ## Output
 
 Documents are written to: `.rp1/work/content/<topic>/<type>.md`

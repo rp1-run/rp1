@@ -7,6 +7,7 @@ import { Command } from "commander";
 import type { Logger } from "../../shared/logger.js";
 import { getColorFns } from "../lib/colors.js";
 import { type CheckOptions, checkForUpdate } from "../lib/version.js";
+import { formatCheckOutputHookText } from "./update/index.js";
 
 /**
  * JSON output structure for check-update command.
@@ -110,6 +111,7 @@ const toJsonOutput = (
 export const checkUpdateCommand = new Command("check-update")
 	.description("Check if a newer version of rp1 is available")
 	.option("--json", "Output result as JSON", false)
+	.option("--format <format>", "Output format: human or hook-text")
 	.option("--timeout <ms>", "API timeout in milliseconds", "5000")
 	.option("--force", "Bypass cache and force fresh check", false)
 	.option("--cache-ttl <hours>", "Cache TTL in hours", "24")
@@ -130,6 +132,19 @@ Examples:
 		// Parse options
 		const timeoutMs = parseInt(options.timeout, 10);
 		const ttlHours = parseInt(options.cacheTtl, 10);
+		if (options.json && options.format) {
+			console.error("Error: --json and --format cannot be used together.");
+			process.exit(1);
+		}
+
+		if (
+			options.format !== undefined &&
+			options.format !== "human" &&
+			options.format !== "hook-text"
+		) {
+			console.error("Error: Invalid format. Use 'human' or 'hook-text'.");
+			process.exit(1);
+		}
 
 		// Validate numeric options
 		if (Number.isNaN(timeoutMs) || timeoutMs <= 0) {
@@ -167,6 +182,13 @@ Examples:
 			// Output result
 			if (options.json) {
 				console.log(JSON.stringify(toJsonOutput(result), null, 2));
+			} else if (options.format === "hook-text") {
+				const message = formatCheckOutputHookText(result);
+				if (message) {
+					console.log(message);
+					process.exit(0);
+				}
+				process.exit(result.error && !result.latestVersion ? 2 : 1);
 			} else {
 				console.log(formatHumanOutput(result, isTTY));
 			}

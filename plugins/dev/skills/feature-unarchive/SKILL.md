@@ -12,7 +12,11 @@ metadata:
   created: 2025-11-29
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "<feature-id>"
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "The feature identifier or timestamped archive name to restore"
   sub_agents:
     - "rp1-dev:feature-archiver"
 ---
@@ -20,17 +24,6 @@ metadata:
 # Feature Unarchive - Restore Archived Features
 
 Restores an archived feature's documentation from the archives directory back to the active features directory.
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `FEATURE_ID` | Yes | - | The feature identifier or timestamped archive name to restore (e.g., `my-feature` or `my-feature_20251129_143022`) |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## Usage
 
@@ -49,7 +42,7 @@ Extract these parameters from the user's input:
 
 ## Behavior
 
-- Moves `{{$RP1_ROOT}}/work/archives/features/{FEATURE_ID}/` to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+- Moves `.rp1/work/archives/features/{FEATURE_ID}/` to `.rp1/work/features/{FEATURE_ID}/`
 - Fails if a feature with the same ID already exists in the active directory
 - Provides guidance on resolving conflicts
 

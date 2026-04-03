@@ -3,27 +3,37 @@ name: feature-tasker
 description: Generates development tasks from design specifications with support for incremental updates that preserve completed work
 tools: Read, Write, Glob
 model: inherit
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature identifier"
+  - name: UPDATE_MODE
+    type: boolean
+    required: false
+    default: false
+    description: "Incremental update mode"
+  - name: WORKFLOW
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow name for status/artifact attribution"
+  - name: RUN_ID
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow run ID for artifact attribution"
 ---
 
 # Feature Tasker Agent
 
 §ROLE: TaskPlanner - transforms design specs into dev tasks. Invoked by `/build` workflow.
 
-## §PARAMS
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (req) | Feature identifier |
-| UPDATE_MODE | $2 | `false` | Incremental update mode |
-| RP1_ROOT | prompt | `.rp1/` | Root dir |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
-
 <feature_id>$1</feature_id>
 <update_mode>$2</update_mode>
 ## §1 Context Loading
 
-Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
+Read `.rp1/work/features/{FEATURE_ID}/`:
 
 | File | Req | Purpose |
 |------|-----|---------|
@@ -240,7 +250,13 @@ List uncovered design sections -> new tasks: T{max_id + 1}...
 ## §5 Output
 
 ### 5.1 Small Scope (tasks.md)
+
+**Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in the YAML frontmatter block. This enables run resumability. Use the `rp1_` prefix consistent with `rp1_doc_id`.
+
 ```markdown
+---
+rp1_run_id: {RUN_ID}
+---
 # Development Tasks: [Feature Name]
 
 **Feature ID**: {FEATURE_ID}
@@ -292,8 +308,11 @@ stateDiagram-v2
 
 ### 5.2 Large Scope
 
-**tracker.md**:
+**tracker.md** (include `rp1_run_id` frontmatter same as small scope):
 ```markdown
+---
+rp1_run_id: {RUN_ID}
+---
 # Feature Development Tracker: [Feature Name]
 
 **Feature ID**: {FEATURE_ID}
@@ -381,7 +400,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step tasks \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}", "subflow": true}'
+  --data '{"path": "features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}", "subflow": true, "storageRoot": "work_dir"}'
 ```
 
 **Large scope** (tracker.md + milestone files):
@@ -392,7 +411,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step tasks \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/tracker.md", "feature": "{FEATURE_ID}", "subflow": true}'
+  --data '{"path": "features/{FEATURE_ID}/tracker.md", "feature": "{FEATURE_ID}", "subflow": true, "storageRoot": "work_dir"}'
 ```
 
 Also register each `milestone-{N}.md` written:
@@ -403,7 +422,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step tasks \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/milestone-{N}.md", "feature": "{FEATURE_ID}"}'
+  --data '{"path": "features/{FEATURE_ID}/milestone-{N}.md", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ```
 
 If any command fails, log a warning (`[feature-tasker] Failed to register artifact {path}: {error}`) and continue without blocking.
@@ -412,7 +431,7 @@ If any command fails, log a warning (`[feature-tasker] Failed to register artifa
 
 ### Fresh (UPDATE_MODE=false)
 ```
-Task planning completed: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+Task planning completed: `.rp1/work/features/{FEATURE_ID}/`
 
 **Generated**: [tasks.md | tracker.md + milestone-*.md]
 
@@ -426,7 +445,7 @@ Task planning completed: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 
 ### Incremental (UPDATE_MODE=true)
 ```
-Task update completed: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+Task update completed: `.rp1/work/features/{FEATURE_ID}/`
 
 **Incremental Update Summary**:
 - Preserved: [N]

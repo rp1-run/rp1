@@ -262,6 +262,45 @@ If successful, you'll see output like `READY [single-project]` or `READY [monore
 
 ---
 
+## Beta Channel
+
+rp1 offers a beta channel for users who want to try upcoming features before stable release.
+
+!!! info "Beta vs Stable"
+    Beta and stable cannot be installed simultaneously. Installing one requires
+    uninstalling the other first. Your plugins and configuration are preserved
+    across switches.
+
+### Install Beta
+
+```bash
+brew install rp1-run/tap/rp1-beta
+```
+
+### Verify
+
+```bash
+rp1 --version
+# Should show a pre-release version like 0.7.0-beta.1
+```
+
+### Rollback to Stable
+
+```bash
+brew uninstall rp1-beta
+brew install rp1-run/tap/rp1
+rp1 install  # Re-extract stable plugins
+```
+
+### Upgrade Between Betas
+
+```bash
+brew upgrade rp1-beta
+rp1 install
+```
+
+---
+
 ## Next Steps
 
 You're ready to go! Continue to [Your First Workflow](first-workflow.md) to run your first rp1 command.
@@ -353,12 +392,14 @@ You're ready to go! Continue to [Your First Workflow](first-workflow.md) to run 
 
         ```bash
         brew upgrade rp1
+        rp1 install
         ```
 
     === "Scoop"
 
         ```bash
         scoop update rp1
+        rp1 install
         ```
 
     **Uninstalling:**

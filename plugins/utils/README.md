@@ -41,7 +41,7 @@ Generates eval assertions (YAML) and minimal test prompts from prompt text, then
 **Outputs**:
 - `{basename}-evals.yaml` - promptfoo-compatible assertions (optimized)
 - `{basename}-eval-prompt.txt` - minimal test prompt for evaluation
-- `{{$RP1_ROOT}}/work/notes/assertions-to-be-built-{timestamp}.md` - (if unresolved placeholders exist)
+- `.rp1/work/notes/assertions-to-be-built-{timestamp}.md` - (if unresolved placeholders exist)
 
 **Modes**:
 - **File mode**: Reads prompt file, outputs to same directory
@@ -104,7 +104,7 @@ $1: plugins/dev/commands/build-fast.md
 
 Optimizes eval configurations by resolving placeholder assertions to actual implementations, consolidating redundant test scenarios, and documenting assertions that require custom implementation.
 
-**Input**: Eval YAML config path, source name, RP1_ROOT
+**Input**: Eval YAML config path, source name, project root
 
 **Processing**:
 1. Parse placeholder assertions (PLACEHOLDER:, TODO:, # PLACEHOLDER: markers)

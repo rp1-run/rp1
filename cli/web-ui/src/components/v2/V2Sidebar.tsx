@@ -5,7 +5,6 @@ import {
 	FileBox,
 	FolderKanban,
 	Home,
-	ListTodo,
 	Pin,
 	Search,
 	Settings,
@@ -23,6 +22,7 @@ import {
 import { useAttention } from "@/hooks/useAttention";
 import { usePinnedProjects } from "@/hooks/usePinnedProjects";
 import { useRecentRuns } from "@/hooks/useRecentRuns";
+import { resolveRunDisplayName } from "@/lib/run-display";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Collapsible } from "./Collapsible";
@@ -49,7 +49,7 @@ interface NavItem {
 	conditionalRoute?: string;
 }
 
-const ENABLED_ROUTES = new Set(["/", "/runs", "/projects"]);
+const ENABLED_ROUTES = new Set(["/", "/projects"]);
 
 const allNavItems: NavItem[] = [
 	{
@@ -58,13 +58,6 @@ const allNavItems: NavItem[] = [
 		icon: <Home className="h-5 w-5" />,
 		shortcutHint: "g h",
 		badgeKey: "home",
-	},
-	{
-		to: "/runs",
-		label: "Runs",
-		icon: <ListTodo className="h-5 w-5" />,
-		shortcutHint: "g r",
-		badgeKey: "runs",
 	},
 	{
 		to: "/projects",
@@ -221,7 +214,7 @@ function SidebarQuickAccess({ collapsed }: SidebarQuickAccessProps) {
 												<span className="relative inline-flex h-2 w-2 rounded-full bg-status-running" />
 											</span>
 											<span className="flex-1 truncate text-foreground">
-												{run.featureName || run.projectName}
+												{resolveRunDisplayName(run) || run.projectName}
 											</span>
 										</Link>
 									</li>
@@ -247,7 +240,7 @@ function SidebarQuickAccess({ collapsed }: SidebarQuickAccessProps) {
 										>
 											<Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
 											<span className="flex-1 truncate text-foreground">
-												{run.featureName || run.projectName}
+												{resolveRunDisplayName(run) || run.projectName}
 											</span>
 											<span className="shrink-0 text-[0.625rem] text-muted-foreground">
 												{formatRelativeTime(

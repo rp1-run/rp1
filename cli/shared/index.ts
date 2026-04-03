@@ -6,6 +6,12 @@ export {
 	parseArcadeArgs,
 	resolveRp1Root,
 } from "./config.js";
+export {
+	normalizeProjectKey,
+	type ProjectRootSource,
+	type ResolvedDirectorySet,
+	resolveDirectorySet,
+} from "./directory-resolution.js";
 
 export {
 	backupError,
@@ -79,6 +85,16 @@ export {
 	type LoggerOptions,
 	LogLevel,
 } from "./logger.js";
+export {
+	getLogicalStepDisplayId,
+	getLogicalStepKey,
+	isNamespacedLifecycleStep,
+} from "./logical-step.js";
+export {
+	ensureProjectId,
+	PROJECT_ID_FILENAME,
+	readProjectId,
+} from "./project-id.js";
 export {
 	confirmAction,
 	type PromptOptions,

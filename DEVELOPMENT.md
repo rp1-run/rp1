@@ -58,12 +58,11 @@ All development commands use [Just](https://github.com/casey/just). Run `just` t
 
 | Recipe | Description |
 |--------|-------------|
-| `install` | Full local install: build + remove stable + install to both platforms |
+| `install` | Full local install: build + remove stable + install to all platforms |
 | `run *args` | Build and run local binary with arguments |
-| `install-claude` | Install dev plugins to Claude Code |
 | `install-opencode` | Install to OpenCode |
-| `rm-stable` | Remove stable rp1 from both platforms |
-| `prepare-dev-plugins` | Create `.dev-marketplace/` with -dev versioned plugins |
+| `install-codex` | Install to Codex |
+| `rm-stable` | Remove stable rp1 from all platforms |
 
 ### Web-UI Development
 
@@ -91,25 +90,25 @@ just serve-docs
 
 | Recipe | Description |
 |--------|-------------|
-| `setup-evals` | One-time setup: install eval dependencies |
-| `run-evals suite` | Run evaluation suite (e.g., `just run-evals rp1-dev/build`) |
-| `attest-evals file` | Generate attestation from eval output |
-| `verify-evals` | Verify all attestations are current |
-| `show-evals-status` | Show commands needing re-attestation |
-| `view-evals` | Open Promptfoo web viewer |
+| `eval-setup` | One-time setup: install eval dependencies |
+| `eval-run suite` | Run evaluation suite (e.g., `just eval-run rp1-dev/build`) |
+| `eval-attest file` | Generate attestation from eval output |
+| `eval-verify` | Verify all attestations are current |
+| `eval-status` | Show commands needing re-attestation |
+| `eval-view` | Open Promptfoo web viewer |
 
 **Eval workflow:**
 ```bash
 # First time only
-just setup-evals
+just eval-setup
 
 # Run evals and generate attestation
-just run-evals rp1-dev/build
-just attest-evals output/rp1-dev-build-2026-01-23T10-30-00.json
+just eval-run rp1-dev/build
+just eval-attest output/rp1-dev-build-2026-01-23T10-30-00.json
 
 # Check attestation status
-just verify-evals
-just show-evals-status
+just eval-verify
+just eval-status
 ```
 
 ## Project Structure
@@ -404,6 +403,28 @@ The project uses **release-please** for fully automated releases based on conven
 
 No manual tagging or release scripts required - just write good commit messages!
 
+### Manual Beta Releases
+
+Beta releases are intentionally separate from the `main` + `release-please` stable flow.
+
+Use:
+
+```bash
+just beta-release v0.7.0-beta.1
+```
+
+The beta recipe now adds release hygiene automatically:
+
+1. Verifies the current branch is clean before doing anything
+2. Verifies required release credentials are present (`GITHUB_TOKEN`, `HOMEBREW_TAP_TOKEN`)
+3. Fetches remote tags and refuses to reuse an existing beta tag
+4. Resets a temporary local branch named `beta-release` to the current branch tip
+5. Builds and commits the temporary beta version bump on `beta-release`
+6. Prompts for explicit confirmation before pushing the beta tag
+7. Switches back to your original branch and deletes `beta-release` on exit
+
+This lets you publish a beta from your current branch without merging to `main`. Stable releases still go through `release-please` on `main`.
+
 ### Commit Convention
 
 Use conventional commit format:
@@ -439,7 +460,7 @@ fix(commands): resolve argument parsing
 
 3. **Ensure agents follow constitutional prompt structure**:
    - Frontmatter with name, description, tools, model
-   - Parameters section with defaults
+   - Structured `arguments` and `environment` in frontmatter (not hand-written parameter tables)
    - Structured workflow with pseudocode
    - Anti-loop directives
 4. **Use proper namespace prefixes**:
@@ -489,8 +510,8 @@ model: inherit
 
 Role persona and critical instructions
 
-## 0. Parameters
-[Parameter definitions with defaults]
+## 0. Parameters (deprecated -- use frontmatter `arguments` instead)
+[Structured arguments defined in frontmatter, resolved via `rp1 agent-tools resolve-args`]
 
 ## 1-N. Workflow Sections
 [Detailed execution logic, algorithms, pseudocode]
@@ -526,7 +547,7 @@ These agents run `/rp1-base:knowledge-load` as their first step to receive compr
 
    ```bash
    # Clean previous installations
-   ./scripts/clean-dev-plugins.sh
+   just rm-stable
 
    # Install both plugins
    /plugin marketplace add ~/Development/rp1
@@ -783,7 +804,271 @@ just clean-fake-runs
 
 This deletes all `fake-`-prefixed rows from the status database (annotations, artifacts, events, and runs).
 
+## Adding a New Platform
+
+The build pipeline is data-driven via `PlatformDefinition` entries. Adding support for a new AI coding platform (e.g., Cursor, Copilot) requires creating configuration and templates -- no changes to the generic build loop (`buildPlatformPlugin()`) or asset embedding script (`generate-asset-imports.ts`).
+
+### Files to Create or Modify
+
+| File | Action | Purpose |
+|------|--------|---------|
+| `cli/src/build/template-context.ts` | Edit | Add platform ID to `BuildPlatform` union type |
+| `cli/src/build/platform-definitions.ts` | Edit | Add `PlatformDefinition` entry to `PLATFORM_DEFINITIONS` map |
+| `cli/src/build/<platform>/registry.ts` | Create | Define `PlatformRegistry` with tool name mappings |
+| `cli/src/build/templates/<platform>/` | Create | LiquidJS templates for skill, agent, and manifest artifacts |
+| `cli/src/config/supported-tools.yaml` | Edit | Add platform metadata (binary name, min version, instruction file) |
+| `cli/scripts/build-<platform>.ts` | Create | Thin wrapper calling `executeBuild` with `--platform <name>` |
+
+### Step-by-Step Process
+
+**1. Extend the `BuildPlatform` type** in `cli/src/build/template-context.ts`:
+
+```typescript
+export type BuildPlatform = "opencode" | "codex" | "claude-code" | "cursor";
+```
+
+**2. Create a platform registry** in `cli/src/build/<platform>/registry.ts`. The registry maps abstract tool names (Read, Write, Bash, etc.) to the platform's concrete tool names:
+
+```typescript
+import type { PlatformRegistry } from "../models.js";
+
+export const cursorRegistry: PlatformRegistry = {
+  tools: {
+    Read: "read_file",
+    Write: "write_file",
+    // ... map all tools the platform supports
+  },
+};
+```
+
+See `cli/src/build/registry.ts` (OpenCode), `cli/src/build/claude-code/registry.ts`, or `cli/src/build/codex/registry.ts` for examples.
+
+**3. Create LiquidJS templates** in `cli/src/build/templates/<platform>/`:
+
+- `skill.liquid` -- renders a skill artifact
+- `agent.liquid` or `agent-toml.liquid` -- renders an agent artifact
+- `manifest.liquid` -- renders the platform manifest (e.g., `manifest.json`)
+
+Templates receive the full build context including plugin metadata, parsed frontmatter, rendered content, and registry. See existing platform templates for the available context variables.
+
+**4. Add a `PlatformDefinition` entry** in `cli/src/build/platform-definitions.ts`:
+
+```typescript
+const cursorPlatform: PlatformDefinition = {
+  id: "cursor",
+  registry: cursorRegistry,
+  config: platformConfigs.cursor,
+  templates: {
+    skill: "cursor/skill",
+    agent: "cursor/agent",
+    manifest: "cursor/manifest",
+  },
+  naming: {
+    skillDirPrefix: "rp1-",
+    agentFileName: (pluginName, agentName) => `rp1-${pluginName}-${agentName}`,
+    agentExtension: ".md",
+  },
+  producesBundleAssets: false,
+};
+```
+
+Then add it to the `PLATFORM_DEFINITIONS` map:
+
+```typescript
+["cursor", cursorPlatform],
+```
+
+**5. (Optional) Add lifecycle hooks** if the platform requires custom build behavior. Available hooks:
+
+- `preparePlugin` -- initialize state before building (e.g., discover skill maps)
+- `enrichSkillContext` / `enrichAgentContext` -- inject platform-specific template variables
+- `postSkillWrite` -- run per-skill post-processing (e.g., generate companion config files)
+- `postPluginBuild` -- run per-plugin post-processing (e.g., generate index files, validate output)
+
+**6. Create a build script** at `cli/scripts/build-<platform>.ts`:
+
+```typescript
+#!/usr/bin/env bun
+import * as E from "fp-ts/lib/Either.js";
+import { createLogger, LogLevel } from "../shared/logger.js";
+import { executeBuild } from "../src/build/index.js";
+
+const logger = createLogger({
+  level: process.env.DEBUG ? LogLevel.DEBUG : LogLevel.INFO,
+  color: process.stdout.isTTY ?? false,
+});
+
+const args = process.argv.slice(2);
+const result = await executeBuild(
+  [...args, "--platform", "cursor"],
+  logger,
+)();
+
+if (E.isLeft(result)) {
+  process.exit(1);
+}
+```
+
+**7. Update `parseBuildArgs()`** in `cli/src/build/command.ts` to add the platform to `VALID_PLATFORMS`.
+
+**8. Verify the build**:
+
+```bash
+cd cli
+bun run scripts/build-<platform>.ts
+ls ../dist/<platform>/   # Verify output structure
+```
+
+The `--platform all` flag in `bun run build` will automatically include the new platform since `executeBuild` iterates `PLATFORM_DEFINITIONS`.
+
+### PlatformDefinition Interface Reference
+
+```typescript
+interface PlatformDefinition {
+  id: BuildPlatform;                    // Platform identifier
+  registry: PlatformRegistry;           // Tool name mappings
+  config: SupportedTool;                // Platform metadata
+  templates: PlatformTemplates;         // LiquidJS template paths
+  naming: PlatformNaming;               // Output file naming conventions
+  hooks?: PlatformHooks;                // Optional lifecycle hooks
+  copyDirs?: readonly string[];         // Directories to copy verbatim
+  producesBundleAssets: boolean;         // Include in embedded binary manifest
+}
+```
+
+## Docker Environment
+
+A containerized environment for testing rp1 against a real TypeScript codebase (`zod-to-json-schema`). Two scenarios are available: **Stable Tester** (production rp1 binary) and **Active Developer** (local source mounted).
+
+### Prerequisites
+
+- Docker Desktop (or compatible runtime) installed and running
+- Apple Silicon Mac (images target `linux/arm64` only)
+- `just` command runner installed on the host
+
+### Stable Tester (Clean Room)
+
+Starts a **clean room** container with all harness CLIs (Claude Code, OpenCode, Codex) pre-installed but **no rp1**. Use `test-install.sh` inside the container to simulate the user installation experience. Your local rp1 source is mounted read-only at `/src/rp1`.
+
+```bash
+just start-docker-stable
+```
+
+What it does:
+
+1. Builds the `stable` Docker image (cached after first build)
+2. Starts the container with port forwarding, env var injection, and local source mounted read-only
+3. Drops you into an interactive zsh shell at `~/target/zod-to-json-schema`
+
+The shell prompt shows `[rp1-stable]`. Use the test harness to install rp1:
+
+```bash
+# Simulate a first-time user running the production install script
+test-install.sh fresh
+
+# Simulate a first-time install with a locally-built binary (raw copy, skips install script)
+test-install.sh fresh --from-source
+
+# Simulate a first-time install through the real install script using local artifacts
+test-install.sh fresh --local-install
+
+# Simulate upgrading an existing install
+test-install.sh update --from-source
+test-install.sh update --local-install
+
+# Reset to clean room state (remove all rp1 artifacts)
+test-install.sh clean
+```
+
+Three modes are available:
+
+- **(default)**: Runs the real production install script (`curl -fsSL https://rp1.run/install.sh | sh`) — exactly what a user would run.
+- **`--from-source`**: Builds a linux/arm64 binary from the mounted source at `/src/rp1` and copies it directly into `~/.local/bin`. Fast, but skips the install script entirely.
+- **`--local-install`**: Builds the binary from source, stages it with goreleaser-style naming (`rp1-linux-arm64` + `checksums.txt`), then runs the real install script against those local artifacts. This exercises checksum verification, file permissions, and PATH checks — use this to test unreleased versions through the full install flow.
+
+### Active Developer
+
+Starts a container with your local rp1 source tree mounted at `/src/rp1`. The container automatically builds rp1 from your local source and installs plugins on startup. Use this for testing in-progress changes.
+
+```bash
+just start-docker-dev
+```
+
+What it does:
+
+1. Builds the `dev` Docker image (cached after first build)
+2. Starts the container with your local rp1 directory bind-mounted at `/src/rp1`
+3. Runs `setup-dev.sh` which:
+   - Installs CLI dependencies (`bun install`)
+   - Builds rp1 from local source (compiles to a temp dir to avoid virtiofs rename issues, then copies the binary)
+   - Installs plugins to detected platforms (`rp1 install -y`)
+4. Drops you into an interactive zsh shell at `/src/rp1`
+
+The shell prompt shows `[rp1-dev]` to indicate the active scenario. Changes to local files on the host are reflected inside the container without restart (bind mount).
+
+**Note**: The dev image includes Node.js, Claude Code, OpenCode, and Codex CLIs so that `rp1 install -y` can detect and install plugins to all platforms.
+
+### Environment Variables
+
+Both recipes forward API keys and tokens from your host shell to the container using `docker run -e VAR_NAME` syntax. The following variables are forwarded when set:
+
+- `ANTHROPIC_API_KEY`
+- `OPENAI_API_KEY`
+- `GITHUB_TOKEN`
+
+No `.env` file is needed. If a variable is not set on the host, it is silently skipped (no error). No secrets are baked into the Docker image.
+
+### Port Forwarding
+
+The container's Arcade dashboard port (7710) is mapped to host port **17710** to avoid conflicts with a locally running rp1 Arcade instance:
+
+```
+Container :7710  -->  Host :17710
+```
+
+After starting Arcade inside the container (`rp1 arcade`), access it at `http://localhost:17710` in your host browser. The container sets `RP1_ARCADE_HOST=0.0.0.0` so the Arcade server binds to all interfaces, enabling Docker port forwarding to reach it.
+
+To forward additional ports, modify the `docker run` command in the `start-docker-stable` or `start-docker-dev` recipes in the `justfile` by adding `-p <host-port>:<container-port>` flags.
+
+### Pinning the Target Repository
+
+The target repository (`zod-to-json-schema`) commit can be overridden at build time:
+
+```bash
+docker build --platform linux/arm64 --target stable \
+  --build-arg ZOD_COMMIT=<commit-sha> \
+  -t rp1-stable -f docker/Dockerfile .
+```
+
+By default, it checks out the `master` branch.
+
+### Container Layout
+
+```
+/home/rp1user/
+├── .local/bin/         # User-local binaries (rp1, bun)
+├── target/
+│   └── zod-to-json-schema/   # Target repository (working directory)
+/src/rp1/               # Volume mount point (dev container only)
+```
+
+### Installed Tools
+
+Both containers include: git, gh, zsh, ripgrep, bun, Node.js LTS, python3, curl, make, gcc, g++, tar, gzip, wget, less, vim, jq, just, Claude Code CLI, OpenCode CLI, Codex CLI.
+
 ## Troubleshooting
+
+### Docker: `SELF_SIGNED_CERT_IN_CHAIN` during image build
+
+This happens when a corporate VPN intercepts TLS connections inside the Docker build. Disconnect VPN and rebuild, or add the VPN's CA certificate to the container.
+
+### Docker: `failed to rename ... .bun-build` (virtiofs)
+
+Bun's `--compile` flag uses atomic rename which doesn't work on Docker's virtiofs filesystem. The `setup-dev.sh` script already works around this by building to a temp dir. If you hit this in other contexts, compile to a local path first then copy to the mount.
+
+### Docker: Arcade not reachable at localhost:17710
+
+Ensure `RP1_ARCADE_HOST=0.0.0.0` is set inside the container. Without it, the Arcade server binds to `127.0.0.1` which is unreachable from the host via Docker port forwarding. Both Docker images set this env var automatically.
 
 ### Port 7710 already in use
 
@@ -811,7 +1096,7 @@ just install            # Reinstall dev version
 ### Eval dependencies missing
 
 ```bash
-just setup-evals        # Run once after clone
+just eval-setup        # Run once after clone
 ```
 
 ### Tests failing with lint errors

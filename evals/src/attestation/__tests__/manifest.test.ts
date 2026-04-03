@@ -108,7 +108,7 @@ describe("manifest", () => {
 				schema_version: "2.0.0",
 				skills: { "rp1-dev:existing-skill@claude-code": existingAttestation },
 				files: {
-					"cli/dist/claude-code/dev/skills/existing/SKILL.md": "sha256:old",
+					"dist/claude-code/dev/skills/existing/SKILL.md": "sha256:old",
 				},
 			};
 
@@ -185,7 +185,7 @@ describe("manifest", () => {
 				schema_version: "2.0.0",
 				skills: {},
 				files: {
-					"cli/dist/claude-code/base/skills/existing/SKILL.md":
+					"dist/claude-code/base/skills/existing/SKILL.md":
 						"sha256:preserved",
 				},
 			};
@@ -198,7 +198,7 @@ describe("manifest", () => {
 			);
 
 			expect(
-				updated.files["cli/dist/claude-code/base/skills/existing/SKILL.md"],
+				updated.files["dist/claude-code/base/skills/existing/SKILL.md"],
 			).toBe("sha256:preserved");
 			expect(updated.files["plugins/dev/skills/build-fast/SKILL.md"]).toBe(
 				"sha256:abc123",
@@ -388,9 +388,9 @@ describe("manifest", () => {
 					},
 				},
 				files: {
-					"cli/dist/claude-code/dev/skills/build-fast/SKILL.md":
+					"dist/claude-code/dev/skills/build-fast/SKILL.md":
 						"sha256:abc123",
-					"cli/dist/claude-code/dev/agents/fast-builder.md": "sha256:xyz789",
+					"dist/claude-code/dev/agents/fast-builder.md": "sha256:xyz789",
 				},
 			};
 

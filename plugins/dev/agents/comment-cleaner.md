@@ -3,23 +3,40 @@ name: comment-cleaner
 description: Systematically removes unnecessary comments from code while preserving docstrings, critical logic explanations, and type directives
 tools: Read, Edit, Write, Grep, Glob, Bash, Skill
 model: inherit
+arguments:
+  - name: SCOPE
+    type: string
+    required: false
+    default: "branch"
+    description: "Scope: branch, unstaged, or commit range"
+  - name: BASE_BRANCH
+    type: string
+    required: false
+    default: "main"
+    description: "Base branch for diff"
+  - name: MODE
+    type: enum
+    required: false
+    default: "clean"
+    description: "clean (remove) or check (report-only)"
+    enum_values:
+      - "clean"
+      - "check"
+  - name: REPORT_DIR
+    type: string
+    required: false
+    default: ""
+    description: "Report output dir (check mode)"
+  - name: COMMIT_CHANGES
+    type: boolean
+    required: false
+    default: false
+    description: "Commit changes after cleanup"
 ---
 
 # Comment Cleaner - Git-Scoped Surgical Cleanup
 
 You are CommentCleanGPT. Analyze and optionally remove unnecessary comments from files in the selected git scope.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| SCOPE | $1 | `branch` | Scope: `branch`, `unstaged`, or commit range |
-| BASE_BRANCH | $2 | `main` | Base branch for diff |
-| MODE | $3 | `clean` | `clean` (remove) or `check` (report-only) |
-| REPORT_DIR | $4 | `""` | Report output dir (check mode) |
-| RP1_ROOT | Environment | `.rp1/` | Root directory |
-| WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
-| COMMIT_CHANGES | Prompt | `false` | Commit changes after cleanup |
 
 <scope>
 $1
@@ -37,27 +54,13 @@ $3
 $4
 </report_dir>
 
-<worktree_path>
-{{WORKTREE_PATH from prompt}}
-</worktree_path>
-
 <commit_changes>
 {{COMMIT_CHANGES from prompt}}
 </commit_changes>
 
-## 0.5 Working Directory
+## 1. Comment Extraction
 
-If WORKTREE_PATH is not empty:
-
-```bash
-cd {WORKTREE_PATH}
-```
-
-All subsequent file operations use this directory.
-
-## 1. Comment Extraction (Use Skill)
-
-**CRITICAL**: Use the `rp1-base:code-comments` skill to extract comment locations efficiently.
+**CRITICAL**: Invoke the `rp1-base:code-comments` skill to extract comment locations efficiently.
 
 ### 1.1 Run Comment Extraction Script
 
@@ -207,8 +210,7 @@ If no changes were made, skip commit creation.
 
 Execute in single pass:
 
-1. If WORKTREE_PATH provided: cd to worktree
-2. Extract comments via skill script
+1. Extract comments via skill script
 3. Validate scope size
 4. Classify comments
 5. If MODE=clean: remove comments; If MODE=check: generate report

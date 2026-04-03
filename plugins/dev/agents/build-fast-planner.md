@@ -2,20 +2,26 @@
 name: build-fast-planner
 description: Quick-iteration workflow planner. Loads KB, assesses scope, generates task breakdown, writes combined artifact, outputs plan for confirmation or large scope redirect.
 tools: Read, Write, Glob, Grep, Bash
+arguments:
+  - name: REQUEST
+    type: string
+    required: true
+    description: "Freeform development request"
+  - name: WORKFLOW
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow name for status/artifact attribution"
+  - name: RUN_ID
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow run ID for artifact attribution"
 ---
 
 # Build Fast Planner
 
 Analyze request, load KB, assess scope, generate task breakdown. Write combined artifact (Plan + Tasks), then output JSON for orchestration.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| REQUEST | Prompt | (req) | Freeform development request |
-| RP1_ROOT | Prompt | `.rp1/` | Root directory |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
 
 <request>
 {{REQUEST from prompt}}
@@ -38,7 +44,7 @@ Default: Feature (if no match).
 
 ### 1.2 Load KB Files
 
-Always read: `{{$RP1_ROOT}}/context/index.md`
+Always read: `.rp1/context/index.md`
 
 Then by type:
 
@@ -89,18 +95,18 @@ If scope is Small or Medium, generate task breakdown:
 
 1. Generate slug from REQUEST: 2-4 word kebab-case (e.g., "fix-auth-validation", "add-logging-module")
 2. Get current date: `yyyy-mm-dd` format
-3. Check for existing files matching pattern `{date}-{slug}-*.md` in `{{$RP1_ROOT}}/work/quick-builds/`
+3. Check for existing files matching pattern `{date}-{slug}-*.md` in `.rp1/work/quick-builds/`
 4. Determine suffix `n`:
    - If no match: n=1
    - If matches exist: n = highest existing suffix + 1
 
 Filename: `{yyyy-mm-dd}-{slug}-{n}.md`
-Full path: `{{$RP1_ROOT}}/work/quick-builds/{filename}`
+Full path: `.rp1/work/quick-builds/{filename}`
 
 ### 4.2 Create Directory
 
 ```bash
-mkdir -p "{{$RP1_ROOT}}/work/quick-builds"
+mkdir -p ".rp1/work/quick-builds"
 ```
 
 ### 4.3 Write Artifact
@@ -146,10 +152,10 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step plan \
-  --data '{"path": "{artifact_path}", "feature": "quick-build"}'
+  --data '{"path": "quick-builds/{filename}", "feature": "quick-build", "storageRoot": "work_dir"}'
 ```
 
-If the command fails, log a warning (`[build-fast-planner] Failed to register artifact {artifact_path}: {error}`) and continue without blocking.
+If the command fails, log a warning (`[build-fast-planner] Failed to register artifact quick-builds/{filename}: {error}`) and continue without blocking.
 
 ## 5. Output
 
@@ -182,7 +188,8 @@ After writing artifact, output:
   "reasoning": "[one line: files X, systems Y, risk Z]",
   "files_affected": "[list of files or patterns]",
   "plan_summary": "[2-4 sentences describing approach and changes]",
-  "artifact_path": "{RP1_ROOT}/work/quick-builds/{filename}",
+  "artifact_path": ".rp1/work/quick-builds/{filename}",
+  "artifact_relative_path": "quick-builds/{filename}",
   "task_count": {number of tasks},
   "task_ids": "T1,T2,T3",
   "redirect_message": null

@@ -5,6 +5,43 @@ default:
     @just --list
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Docker Environment
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Start the Stable Tester container (clean room with harness CLIs, no rp1 installed)
+# Use test-install.sh inside the container to simulate installation
+start-docker-stable:
+    #!/usr/bin/env bash
+    set -e
+    echo "Building stable image (cached layers reused)..."
+    docker build --platform linux/arm64 --target stable -t rp1-stable -f docker/Dockerfile .
+    echo "Starting stable container (clean room — run test-install.sh to install rp1)..."
+    docker run --rm -it \
+        --platform linux/arm64 \
+        -p 17710:7710 \
+        -v "$(pwd)":/src/rp1 \
+        -e ANTHROPIC_API_KEY \
+        -e OPENAI_API_KEY \
+        -e GITHUB_TOKEN \
+        rp1-stable
+
+# Start the Active Developer container (local rp1 source mounted)
+start-docker-dev:
+    #!/usr/bin/env bash
+    set -e
+    echo "Building dev image (cached layers reused)..."
+    docker build --platform linux/arm64 --target dev -t rp1-dev -f docker/Dockerfile .
+    echo "Starting dev container with local source mounted..."
+    docker run --rm -it \
+        --platform linux/arm64 \
+        -p 17710:7710 \
+        -v "$(pwd)":/src/rp1 \
+        -e ANTHROPIC_API_KEY \
+        -e OPENAI_API_KEY \
+        -e GITHUB_TOKEN \
+        rp1-dev
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Build
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -49,8 +86,50 @@ clean-web-ui-cache:
     rm -rf ~/.rp1/web-ui/
 
 # Build the local binary with -dev version suffix
-build-local-dev: build-opencode build-codex build-web-ui clean-web-ui-cache
-    cd cli && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
+# RP1_BUILD_INTERNAL=1 includes utils (internal-only plugin) in the dev build
+build-local-dev: build-web-ui clean-web-ui-cache
+    cd cli && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dev Launch (per-platform with auto-build)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Launch Claude Code with local dev plugins (auto-builds if stale)
+claude:
+    #!/usr/bin/env bash
+    set -e
+    if [ ! -d "dist/claude-code/base" ] || \
+       [ "$(find plugins/ -newer dist/claude-code/base -name '*.md' 2>/dev/null | head -1)" ]; then
+        echo "Building Claude Code artifacts..."
+        cd cli && bun run scripts/build-claude-code.ts && cd ..
+    fi
+    claude --plugin-dir dist/claude-code/base \
+           --plugin-dir dist/claude-code/dev \
+           ${PLUGIN_UTILS:+--plugin-dir dist/claude-code/utils}
+
+# Launch OpenCode with local dev plugins (auto-builds if stale)
+opencode:
+    #!/usr/bin/env bash
+    set -e
+    if [ ! -d "dist/opencode/base" ] || \
+       [ "$(find plugins/ -newer dist/opencode/base -name '*.md' 2>/dev/null | head -1)" ]; then
+        echo "Building OpenCode artifacts..."
+        cd cli && bun run scripts/build-opencode.ts && cd ..
+    fi
+    ./bin/rp1 install opencode --yes --artifacts-dir dist/opencode
+    opencode
+
+# Launch Codex with local dev plugins (auto-builds if stale)
+codex:
+    #!/usr/bin/env bash
+    set -e
+    if [ ! -d "dist/codex/base" ] || \
+       [ "$(find plugins/ -newer dist/codex/base -name '*.md' 2>/dev/null | head -1)" ]; then
+        echo "Building Codex artifacts..."
+        cd cli && bun run scripts/build-codex.ts && cd ..
+    fi
+    ./bin/rp1 install codex --yes --artifacts-dir dist/codex
+    codex
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Test
@@ -94,18 +173,6 @@ check-web-ui:
 check-evals:
     cd evals && bun run lint && bun run typecheck && bun run format
 
-# Verify cli/dist/claude-code/ is up to date with plugins/ source
-check-plugin-dist:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    just build-claude-code > /dev/null 2>&1
-    if [ -n "$(git diff --name-only cli/dist/claude-code/)" ]; then
-        echo "ERROR: cli/dist/claude-code/ is stale. Run 'just build-claude-code' and commit the changes."
-        git diff --stat cli/dist/claude-code/
-        exit 1
-    fi
-    echo "cli/dist/claude-code/ is up to date."
-
 # Auto-fix lint and format issues
 fix: fix-cli fix-evals
 
@@ -121,34 +188,16 @@ fix-evals:
 # Local Installation
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Full local install: build + remove stable + install to all platforms
-install: build rm-stable install-claude install-opencode
+# Full local install: remove stable + build + install to all platforms
+install: rm-stable build
+    @echo ""
+    @echo "━━━ Installing to all platforms ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
+    @./bin/rp1 install -y
 
 # Run local binary with args
 run *args: build
     ./bin/rp1 {{args}}
-
-# Prepare dev marketplace with -dev version plugins (builds CC artifacts first)
-prepare-dev-plugins: build-claude-code
-    ./scripts/prepare-dev-plugins.sh
-
-# Install dev plugins to Claude Code
-install-claude: prepare-dev-plugins
-    @echo ""
-    @echo "━━━ Claude Code ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo ""
-    @claude plugin marketplace rm rp1-local >/dev/null 2>&1 || true
-    @claude plugin marketplace add ./.dev-marketplace/ >/dev/null 2>&1 && printf '\033[32m✔\033[0m Marketplace configured\n' || printf '\033[31m✗\033[0m Marketplace configuration failed\n'
-    @claude plugin install rp1-base@rp1-local >/dev/null 2>&1 && printf '\033[32m✔\033[0m Installed rp1-base\n' || printf '\033[31m✗\033[0m Failed to install rp1-base\n'
-    @claude plugin install rp1-dev@rp1-local >/dev/null 2>&1 && printf '\033[32m✔\033[0m Installed rp1-dev\n' || printf '\033[31m✗\033[0m Failed to install rp1-dev\n'
-    @claude plugin install rp1-utils@rp1-local >/dev/null 2>&1 && printf '\033[32m✔\033[0m Installed rp1-utils\n' || printf '\033[31m✗\033[0m Failed to install rp1-utils\n'
-    @echo ""
-    @echo "Installed plugins:"
-    @echo "  - rp1-base"
-    @echo "  - rp1-dev"
-    @echo "  - rp1-utils"
-    @echo ""
-    @echo "Restart Claude Code to load updated plugins."
 
 # Install to OpenCode
 install-opencode:
@@ -157,12 +206,12 @@ install-opencode:
     @echo ""
     @./bin/rp1 install opencode
 
-# Install to Codex (disabled — Codex support is paused)
-# install-codex:
-#     @echo ""
-#     @echo "━━━ Codex ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-#     @echo ""
-#     @./bin/rp1 install codex --yes
+# Install to Codex
+install-codex:
+    @echo ""
+    @echo "━━━ Codex ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
+    @./bin/rp1 install codex --yes
 
 # Remove stable rp1 from all platforms (only rp1-namespaced, preserves user files)
 rm-stable:
@@ -170,7 +219,13 @@ rm-stable:
     rm -rf ~/.config/opencode/agents/rp1*
     rm -rf ~/.config/opencode/skills/rp1-*/
     -claude plugin marketplace rm rp1-run 2>/dev/null
+    -claude plugin marketplace rm rp1-local 2>/dev/null
+    rm -rf ~/.rp1/claude/plugins/
     rm -rf ~/.agents/skills/rp1-*/
+    rm -rf ~/.codex/skills/rp1-*/
+    rm -rf ~/.codex/agents/rp1/
+    rm -f bin/rp1
+    rm -f ~/.rp1/platform-versions.json
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Web-UI Development
@@ -258,8 +313,7 @@ clean-fake-runs:
 
     # Clean fake artifact files from disk
     echo ""
-    rp1_root="${RP1_ROOT:-.rp1}"
-    fake_dir="$rp1_root/work/features"
+    fake_dir=".rp1/work/features"
     file_count=0
     if [ -d "$fake_dir" ]; then
         for d in "$fake_dir"/fake-*/; do
@@ -299,21 +353,21 @@ serve-docs:
 # ─────────────────────────────────────────────────────────────────────────────
 
 # One-time setup for evals (run after clone)
-setup-evals:
+eval-setup:
     cd evals && bun install --frozen-lockfile
 
 # Directory structure: evals/suites/{plugin}/{suite}/evals.yaml
 # Default harness: claude code. Override with --harness=opencode.
 #
 # Examples:
-#   just run-evals                          # run all suites (claude harness)
-#   just run-evals rp1-dev/build-fast       # run specific suite
-#   just run-evals --harness=opencode       # run all with opencode
-#   just run-evals --attest --commit        # run all, attest passing, commit
-#   just run-evals --platform=opencode      # attest for opencode platform
+#   just eval-run                          # run all suites (claude harness)
+#   just eval-run rp1-dev/build-fast       # run specific suite
+#   just eval-run --harness=opencode       # run all with opencode
+#   just eval-run --attest --commit        # run all, attest passing, commit
+#   just eval-run --platform=opencode      # attest for opencode platform
 
 # Run eval suites. Optional: suite path, --harness=opencode, --platform=<platform>, --attest, --commit, --verbose
-run-evals *args:
+eval-run *args:
     #!/usr/bin/env bash
     set -e
     repo_root="$(pwd)"
@@ -383,12 +437,15 @@ run-evals *args:
         done
     fi
 
-    # Commit attestation changes
+    # Commit attestation changes and eval output files
     if [ "$do_commit" = "true" ] && [ "$attest" = "true" ]; then
-        if git diff --quiet evals/attestation.json 2>/dev/null; then
+        git add evals/attestation.json
+        for output in $passed_suites; do
+            git add "evals/${output}"
+        done
+        if git diff --cached --quiet 2>/dev/null; then
             echo "No attestation changes to commit"
         else
-            git add evals/attestation.json
             git commit -m "$(printf 'chore: attest evals\n\nGenerated with AI\n\nCo-Authored-By: rp1 <bot@rp1.run>')"
             echo "Attestation committed"
         fi
@@ -398,19 +455,19 @@ run-evals *args:
     echo "All evals PASSED"
 
 # Generate attestation from eval output file
-attest-evals output-file:
+eval-attest output-file:
     bun run evals/src/attestation/cli.ts attest-from-output evals/output/{{output-file}}
 
 # Verify all attestations are current
-verify-evals:
+eval-verify:
     bun run evals/src/attestation/cli.ts verify
 
 # Show commands needing re-attestation
-show-evals-status:
+eval-status:
     bun run evals/src/attestation/cli.ts status
 
 # View eval results in browser
-view-evals:
+eval-view:
     cd evals && bunx promptfoo view -n
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -418,12 +475,212 @@ view-evals:
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Generate catalog/skills.yaml and catalog/agents.yaml from plugin sources
-generate-catalog:
+catalog-generate:
     ./scripts/generate-catalog.sh
 
 # Verify catalogue is up-to-date with plugin sources
-check-catalog:
+catalog-check:
     ./scripts/check-catalog.sh
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Beta Release
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Build and publish a beta release via GoReleaser.
+# Usage: just beta-release v0.7.0-beta.1
+beta-release version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    version="{{version}}"
+    repo_root=$(git rev-parse --show-toplevel)
+    beta_branch="beta-release"
+    original_branch=$(git branch --show-current)
+    original_ref=$(git rev-parse HEAD)
+    original_short_ref=$(git rev-parse --short HEAD)
+    tag_created=false
+    tag_pushed=false
+    beta_branch_prepared=false
+
+    require_command() {
+        local cmd="$1"
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            echo "ERROR: Required command not found: $cmd"
+            exit 1
+        fi
+    }
+
+    cleanup() {
+        local exit_code="$1"
+        set +e
+
+        rm -rf \
+            "$repo_root/cli/dist" \
+            "$repo_root/cli/web-ui/dist" \
+            "$repo_root/cli/src/assets/embedded.ts"
+
+        if [[ "$(git branch --show-current)" == "$beta_branch" ]]; then
+            echo ""
+            echo "  Switching back to $original_branch"
+            if ! git switch "$original_branch" >/dev/null 2>&1; then
+                echo "WARNING: Failed to switch back to $original_branch"
+            fi
+        fi
+
+        if [[ "$tag_created" == true && "$tag_pushed" == false ]]; then
+            echo "  Removing local tag $version"
+            git tag -d "$version" >/dev/null 2>&1 || true
+        fi
+
+        if [[ "$beta_branch_prepared" == true ]] && git show-ref --verify --quiet "refs/heads/$beta_branch"; then
+            echo "  Deleting temporary branch $beta_branch"
+            git branch -D "$beta_branch" >/dev/null 2>&1 || {
+                echo "WARNING: Failed to delete temporary branch $beta_branch"
+            }
+        fi
+
+        trap - EXIT
+        exit "$exit_code"
+    }
+    trap 'cleanup "$?"' EXIT
+
+    require_command git
+    require_command node
+    require_command bun
+
+    # 1. Validate version format
+    if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
+        echo "ERROR: Version must match v*.*.*-beta.N (e.g., v0.7.0-beta.1)"
+        echo "  Got: $version"
+        exit 1
+    fi
+
+    if [[ -z "$original_branch" ]]; then
+        echo "ERROR: Beta releases must start from a named branch, not detached HEAD"
+        exit 1
+    fi
+
+    if [[ "$original_branch" == "$beta_branch" ]]; then
+        echo "ERROR: Beta releases cannot start from $beta_branch"
+        echo "  Switch to your source branch first, then re-run this recipe"
+        exit 1
+    fi
+
+    if [[ -n "$(git status --short)" ]]; then
+        echo "ERROR: Working tree must be clean before starting a beta release"
+        echo ""
+        git status --short
+        exit 1
+    fi
+
+    if ! git remote get-url origin >/dev/null 2>&1; then
+        echo "ERROR: Git remote 'origin' is not configured"
+        exit 1
+    fi
+
+    # Tokens are no longer required locally — CI handles the release via
+    # the GoReleaser workflow once the tag is pushed.
+
+    # Strip leading 'v' for package.json
+    pkg_version="${version#v}"
+
+    echo "━━━ Beta Release: $version ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
+    echo "  Checking origin connectivity..."
+    if ! git ls-remote --exit-code origin HEAD >/dev/null 2>&1; then
+        echo "ERROR: Failed to query origin"
+        exit 1
+    fi
+
+    if git rev-parse -q --verify "refs/tags/$version" >/dev/null 2>&1; then
+        echo "ERROR: Tag already exists locally: $version"
+        exit 1
+    fi
+
+    remote_tag=$(git ls-remote --tags origin "refs/tags/$version" 2>/dev/null || true)
+    if [[ -n "$remote_tag" ]]; then
+        echo "ERROR: Tag already exists on origin: $version"
+        exit 1
+    fi
+
+    # 2. Reset and switch to the temporary beta branch
+    echo "  Preparing temporary branch $beta_branch at $original_short_ref"
+    git switch -C "$beta_branch" "$original_ref" >/dev/null
+    beta_branch_prepared=true
+
+    # 3. Save original package.json version and bump
+    original_version=$(cd cli && node -p "require('./package.json').version")
+    if [[ "$original_version" == "$pkg_version" ]]; then
+        echo "ERROR: cli/package.json is already set to $pkg_version"
+        echo "  Choose a new beta version before running this recipe"
+        exit 1
+    fi
+    echo "  Bumping cli/package.json: $original_version -> $pkg_version"
+    cd cli && node -e "
+        const fs = require('fs');
+        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+        pkg.version = '$pkg_version';
+        fs.writeFileSync('package.json', JSON.stringify(pkg, null, '\t') + '\n');
+    " && cd ..
+
+    # 4. Build release assets (install deps first for clean environments)
+    echo ""
+    echo "  Building release assets..."
+    cd cli && bun install && bun run build:release && cd ..
+
+    # 5. Commit the temporary beta version bump
+    echo ""
+    git add cli/package.json
+    git commit -m "chore: bump version to $pkg_version for beta release"
+
+    beta_commit=$(git rev-parse --short HEAD)
+
+    echo ""
+    echo "  WARNING: This will publish a beta from a temporary branch"
+    echo "  ─────────────────────────────────────────────────────────"
+    echo "  Source branch:      $original_branch"
+    echo "  Source commit:      $original_short_ref"
+    echo "  Temporary branch:   $beta_branch (will be deleted afterward)"
+    echo "  Beta commit:        $beta_commit"
+    echo "  Beta tag:           $version"
+    echo ""
+    echo "  Remote actions after confirmation:"
+    echo "    - Push tag $version to origin"
+    echo "    - CI will build and publish the beta release via GoReleaser"
+    echo ""
+    read -r -p "  Continue? [y/N] " confirm
+    if [[ ! "$confirm" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+        echo "  Cancelled before pushing beta release"
+        exit 1
+    fi
+
+    # 6. Create and push git tag
+    echo ""
+    echo "  Creating git tag: $version"
+    git tag -a "$version" -m "Beta release $version"
+    tag_created=true
+    echo "  Pushing tag to origin..."
+    git push origin "refs/tags/$version"
+    tag_pushed=true
+
+    echo ""
+    echo "━━━ Beta Tag Pushed ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "  CI will now build and publish the release."
+    echo "  Monitor: https://github.com/rp1-run/rp1/actions"
+    echo ""
+    echo "  Post-Release Checklist:"
+    echo "  ────────────────────────"
+    echo "  [ ] Verify install:  brew install rp1-run/tap/rp1-beta"
+    echo "  [ ] Verify version:  rp1 --version  (expect $pkg_version)"
+    echo "  [ ] Notify testers via GitHub issue or discussion"
+    echo ""
+    echo "  After promoting to stable:"
+    echo "  [ ] Archive or remove the GitHub pre-release for $version"
+    echo "  [ ] Reset or remove Casks/rp1-beta.rb in homebrew-tap"
+    echo "  [ ] Notify testers that the beta has been promoted to stable"
+    echo ""
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Guards

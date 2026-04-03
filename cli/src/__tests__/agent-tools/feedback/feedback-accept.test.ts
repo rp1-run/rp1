@@ -53,6 +53,7 @@ describe("feedback accept-edit", () => {
 			runId,
 			path: "edited.md",
 			type: "markdown",
+			storageRoot: "work_dir",
 			projectPath: tempDir,
 			feature: "feat-1",
 		});
@@ -79,6 +80,7 @@ describe("feedback accept-edit", () => {
 			runId,
 			path: "clean.md",
 			type: "markdown",
+			storageRoot: "work_dir",
 			projectPath: tempDir,
 			feature: "feat-1",
 		});

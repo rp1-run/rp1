@@ -5,7 +5,7 @@
  * enabling rapid, repeatable UI testing of the Web UI dashboard.
  */
 
-import { dirname } from "node:path";
+import { join } from "node:path";
 import chalk from "chalk";
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
@@ -152,10 +152,19 @@ const ARTIFACT_STEPS: Record<
 const resolveProjectPath = async (): Promise<string> => {
 	const result = await resolveRp1Root()();
 	if (E.isRight(result)) {
-		return dirname(result.right.root);
+		return result.right.projectRoot;
 	}
 	return process.cwd();
 };
+
+export const resolveArtifactPaths = (
+	workDir: string,
+	featureId: string,
+	artifactName: string,
+): { readonly artifactPath: string; readonly fullDir: string } => ({
+	artifactPath: join("features", featureId, artifactName),
+	fullDir: join(workDir, "features", featureId),
+});
 
 /** Validate that a step name exists in the ordered steps list. */
 const validateStepName = (
@@ -249,6 +258,7 @@ const emitArtifactRegistered = async (params: {
 		data: {
 			path: params.path,
 			feature: params.feature,
+			storageRoot: "work_dir",
 			workflow: params.workflow,
 		},
 		projectPath: params.projectPath,
@@ -404,13 +414,20 @@ const simulateRun = async (
 
 		if (options.withArtifacts && ARTIFACT_STEPS[step.id]) {
 			const artifact = ARTIFACT_STEPS[step.id];
-			const artifactPath = `.rp1/work/features/${featureId}/${artifact.path}`;
-			const fullDir = `${projectPath}/.rp1/work/features/${featureId}`;
+			const resolvedRoot = await resolveRp1Root(projectPath)();
+			if (E.isLeft(resolvedRoot)) {
+				continue;
+			}
+			const { artifactPath, fullDir } = resolveArtifactPaths(
+				resolvedRoot.right.workRoot,
+				featureId,
+				artifact.path,
+			);
 
 			try {
 				const { mkdir, writeFile } = await import("node:fs/promises");
 				await mkdir(fullDir, { recursive: true });
-				await writeFile(`${fullDir}/${artifact.path}`, artifact.content);
+				await writeFile(join(fullDir, artifact.path), artifact.content);
 			} catch {
 				// Best-effort file creation
 			}

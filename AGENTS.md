@@ -52,45 +52,82 @@ When Codex agents spawn subagents in this repo:
 
 ### Argument style
 
-Use explicit positional arguments compatible with both Claude Code and OpenCode:
+Define parameters using structured `arguments` arrays in frontmatter. Skills nest arguments under `metadata`; agents place them at the top level.
 
-- `$1`, `$2`, `$3` for structured parameters
-- `$ARGUMENTS` for freeform text
+**Skills** (`metadata.arguments`):
 
-All commands with parameters must include this section:
-
-```markdown
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (required) | Feature identifier |
-| CONTEXT | $2 | `""` | Optional context |
-| RP1_ROOT | Environment | `.rp1/` | Root directory |
+```yaml
+metadata:
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "Feature identifier"
+    - name: AFK
+      type: boolean
+      required: false
+      default: false
+      description: "Non-interactive mode"
+      aliases:
+        - "afk"
+        - "no prompts"
 ```
 
-Use `argument-hint` in frontmatter with standard notation:
+**Agents** (top-level `arguments`):
 
-- `<param>` required
-- `[param]` optional
-- `[param...]` variadic optional
-- `[--flag]` optional flag
+```yaml
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature identifier"
+  - name: CONTEXT
+    type: string
+    required: false
+    description: "Optional context"
+```
+
+The build pipeline auto-derives the `argument-hint` string from these definitions. Do not write manual `argument-hint` strings or hand-written `## Parameters` / `## 0. Parameters` tables -- both trigger build errors.
+
+Argument names use UPPER_SNAKE_CASE. Supported types: `string`, `boolean`, `enum`. See [docs/concepts/skill-format.md](docs/concepts/skill-format.md) for the full field reference.
 
 ### Canonical variable assignment
 
-Resolve `RP1_ROOT` with:
+The build pipeline automatically injects a `## 0. Resolve Arguments` section into every parameterized skill that declares `metadata.arguments`. This section calls `rp1 agent-tools resolve-args --name rp1-{plugin}:{skill}` to resolve both user-supplied arguments and environment variables, returning structured JSON. Skill authors do **not** write this section — it is generated from frontmatter. See [docs/concepts/skill-format.md](docs/concepts/skill-format.md) for details.
+
+**Agents are excluded** from this requirement -- they receive pre-resolved named parameters from parent skills and do not call `resolve-args` themselves.
+
+#### Directory resolution
+
+All project directories are deterministic from the project root. The `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, and `RP1_WORK_ROOT` environment variables have been removed. Skills and agents should not declare them in `environment` schemas.
+
+To discover project directories, use `rp1 agent-tools rp1-root-dir` which returns:
+
+- `projectRoot` -- the project root (directory containing `.rp1/project_id`)
+- `kbRoot` -- always `<projectRoot>/.rp1/context`
+- `workRoot` -- always `<projectRoot>/.rp1/work`
+
+#### Path interpolation
+
+When referencing paths in prompts, use relative paths from the project root:
 
 ```markdown
-$RP1_ROOT = !`rp1 agent-tools rp1-root-dir`
-```
-
-When interpolating paths:
-
-```markdown
-{{$RP1_ROOT}}/work/features/{FEATURE_ID}/
+.rp1/context/index.md
+.rp1/work/features/{FEATURE_ID}/
 ```
 
 Do not use `${}` shell parameter expansion in Bash snippets intended for Claude Code.
+
+### Artifact Path Contract
+
+When emitting `artifact_registered` events via `rp1 agent-tools emit`, artifact paths must follow these rules:
+
+- **Always include `storageRoot` explicitly.** Do not rely on implicit defaults.
+- **Work artifacts** (`storageRoot: "work_dir"`): Paths must be relative to the work root (`.rp1/work/`) without any prefix. Example: `features/my-feature/design.md` (not `work/features/...`).
+- **KB artifacts** (`storageRoot: "project"`): Paths must be relative to the project root. Example: `.rp1/context/index.md`.
+- **Absolute paths**: Used as-is regardless of `storageRoot`.
+
+The system automatically resolves relative paths against the correct base directory based on `storageRoot`. Agents do not need to construct absolute paths manually.
 
 ### XML tags vs inline parameters
 
@@ -167,16 +204,22 @@ If installing `uv`, `bun`, or npm packages fails unexpectedly, it is likely due 
 <!-- rp1:start -->
 ## rp1 Knowledge Base
 
-Use the KB instead of duplicating project reference material in this file.
+**Use Progressive Disclosure Pattern**
 
 Location: `.rp1/context/`
 
-Loading rules:
+Files:
+- index.md (always load first)
+- architecture.md
+- modules.md
+- patterns.md
+- concept_map.md
 
-1. Always read `index.md` first.
-2. Then load only the files needed for the task:
-   - Code review: `patterns.md`
-   - Bug investigation: `architecture.md`, `modules.md`
-   - Feature work: `modules.md`, `patterns.md`
+Loading rules:
+1. Always read index.md first.
+2. Then load based on task type:
+   - Code review: patterns.md
+   - Bug investigation: architecture.md, modules.md
+   - Feature work: modules.md, patterns.md
    - Strategic or system-wide analysis: all files
 <!-- rp1:end -->

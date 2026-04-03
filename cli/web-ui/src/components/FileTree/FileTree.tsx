@@ -16,6 +16,7 @@ interface FileTreeProps {
 	error: string | null;
 	selectedPath: string | null;
 	onSelect: (path: string) => void;
+	projectPath?: string | null;
 }
 
 const EXPANDED_PATHS_KEY = "rp1-ui-expanded-paths";
@@ -29,7 +30,7 @@ function loadExpandedPaths(): Set<string> {
 	} catch {
 		// ignore
 	}
-	return new Set(["work", "context"]);
+	return new Set(["work", "kb"]);
 }
 
 function saveExpandedPaths(paths: Set<string>): void {
@@ -46,6 +47,7 @@ export function FileTree({
 	error,
 	selectedPath,
 	onSelect,
+	projectPath,
 }: FileTreeProps) {
 	const [expandedPaths, setExpandedPaths] =
 		useState<Set<string>>(loadExpandedPaths);
@@ -151,7 +153,9 @@ export function FileTree({
 	}
 
 	const workSection = tree.find((node) => node.name === "work");
-	const contextSection = tree.find((node) => node.name === "context");
+	const contextSection = tree.find(
+		(node) => node.name === "kb" || node.name === "context",
+	);
 
 	return (
 		<ScrollArea className="h-full">
@@ -177,6 +181,7 @@ export function FileTree({
 							onToggleExpand={handleToggleExpand}
 							focusedPath={focusedPath}
 							onFocusChange={setFocusedPath}
+							projectPath={projectPath}
 						/>
 					</div>
 				)}
@@ -195,6 +200,7 @@ export function FileTree({
 							onToggleExpand={handleToggleExpand}
 							focusedPath={focusedPath}
 							onFocusChange={setFocusedPath}
+							projectPath={projectPath}
 						/>
 					</div>
 				)}

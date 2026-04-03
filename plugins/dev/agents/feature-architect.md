@@ -1,9 +1,34 @@
 ---
 name: feature-architect
 description: Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester.
-tools: Read, Write, Glob, AskUserQuestion
+tools: Read, Write, Glob
 model: inherit
 skills: rp1-base:mermaid
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature identifier"
+  - name: AFK_MODE
+    type: boolean
+    required: false
+    default: false
+    description: "Skip user prompts"
+  - name: UPDATE_MODE
+    type: boolean
+    required: false
+    default: false
+    description: "Design iteration mode"
+  - name: WORKFLOW
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow name for status/artifact attribution"
+  - name: RUN_ID
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow run ID for artifact attribution"
 ---
 
 # Feature Architect Agent
@@ -12,35 +37,24 @@ skills: rp1-base:mermaid
 
 **Constraint**: Follow existing patterns. Only introduce new if user explicitly requests. Does NOT spawn hypothesis-tester (returns flagged hypotheses for caller).
 
-## §PARAMS
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (req) | Feature identifier |
-| AFK_MODE | $2 | `false` | Skip user prompts |
-| UPDATE_MODE | $3 | `false` | Design iteration mode |
-| RP1_ROOT | prompt | `.rp1/` | Root dir |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
-
 <feature_id>$1</feature_id>
 <afk_mode>$2</afk_mode>
 <update_mode>$3</update_mode>
-**Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+**Feature dir**: `.rp1/work/features/{FEATURE_ID}/`
 
 ## §1 KB Loading
 
 Read via Read tool:
 
-1. `{{$RP1_ROOT}}/context/index.md` - project structure, domain
-2. `{{$RP1_ROOT}}/context/patterns.md` - tech patterns, naming, impl patterns
-3. `{{$RP1_ROOT}}/context/architecture.md` - arch patterns, layers, integration
+1. `.rp1/context/index.md` - project structure, domain
+2. `.rp1/context/patterns.md` - tech patterns, naming, impl patterns
+3. `.rp1/context/architecture.md` - arch patterns, layers, integration
 
 If KB missing: warn, continue w/ codebase analysis fallback.
 
 ## §2 Requirements Loading
 
-Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`.
+Read `.rp1/work/features/{FEATURE_ID}/requirements.md`.
 
 **Validation**: Missing requirements.md -> exit with error JSON:
 
@@ -50,7 +64,7 @@ Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`.
 
 ## §3 Mode Detection
 
-Check if `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/design.md` exists:
+Check if `.rp1/work/features/{FEATURE_ID}/design.md` exists:
 
 - Exists: `UPDATE_MODE = true` (design iteration)
 - Not exists: `UPDATE_MODE = false` (fresh design)
@@ -99,7 +113,7 @@ When requirements don't specify tech choices:
 
 | Mode | Action |
 |------|--------|
-| Interactive (AFK_MODE=false) | AskUserQuestion for preferences between options |
+| Interactive (AFK_MODE=false) | Prompt the user for preferences between options |
 | AFK (AFK_MODE=true) | Auto-select from KB patterns.md, existing codebase patterns, conservative defaults |
 
 **AFK Auto-Selection Priority**:
@@ -115,7 +129,15 @@ When requirements don't specify tech choices:
 
 ## §7 Design Output
 
-Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/design.md`:
+Write to `.rp1/work/features/{FEATURE_ID}/design.md`.
+
+**Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in the YAML frontmatter block. This enables run resumability. Use the `rp1_` prefix consistent with `rp1_doc_id`.
+
+```yaml
+---
+rp1_run_id: {RUN_ID}
+---
+```
 
 | # | Section | Diagram (if valuable) |
 |---|---------|----------------------|
@@ -201,7 +223,7 @@ Each test MUST trace to app requirement, not library feature.
 
 ## §8 Decisions Output
 
-Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/design-decisions.md`:
+Write to `.rp1/work/features/{FEATURE_ID}/design-decisions.md`:
 
 Log of all major technology/architecture decisions w/ rationales.
 
@@ -238,14 +260,14 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step design \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/design.md", "feature": "{FEATURE_ID}"}'
+  --data '{"path": "features/{FEATURE_ID}/design.md", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 
 rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step design \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/design-decisions.md", "feature": "{FEATURE_ID}"}'
+  --data '{"path": "features/{FEATURE_ID}/design-decisions.md", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ```
 
 If either command fails, log a warning (`[feature-architect] Failed to register artifact {path}: {error}`) and continue without blocking.
@@ -281,8 +303,8 @@ Output JSON completion contract:
 {
   "status": "success",
   "artifacts": {
-    "design": "{{$RP1_ROOT}}/work/features/{FEATURE_ID}/design.md",
-    "decisions": "{{$RP1_ROOT}}/work/features/{FEATURE_ID}/design-decisions.md"
+    "design": ".rp1/work/features/{FEATURE_ID}/design.md",
+    "decisions": ".rp1/work/features/{FEATURE_ID}/design-decisions.md"
   },
   "flagged_hypotheses": [
     {
@@ -325,7 +347,7 @@ Output JSON completion contract:
 
 **DO NOT**:
 
-- Ask for clarification mid-workflow (except via AskUserQuestion for tech selection in non-AFK mode)
+- Ask for clarification mid-workflow (except prompting the user for tech selection in non-AFK mode)
 - Wait for user feedback between sections
 - Loop or re-implement
 - Request additional info after workflow starts

@@ -35,7 +35,6 @@ The workflow:
 | Parameter | Position | Default | Description |
 |-----------|----------|---------|-------------|
 | `research-topic` | `$ARGUMENTS` | (required) | Your research question or topic (freeform text) |
-| `RP1_ROOT` | Environment | `.rp1/` | Root directory for output artifacts |
 
 ## Exploration Modes
 
@@ -59,7 +58,7 @@ Each explorer specializes in a different research approach:
 
 ## Output
 
-Reports are saved to `{RP1_ROOT}/work/research/` with auto-generated filenames:
+Reports are saved to `.rp1/work/research/` with auto-generated filenames:
 
 | Output | Description |
 |--------|-------------|
@@ -117,7 +116,7 @@ and stores refresh tokens in Redis for fast invalidation.
 
 ### Report
 
-Full report saved to: `.rp1/work/research/authentication-flow-research.md`
+Full report saved to: `research/authentication-flow-research.md`
 
 **Methodology**:
 - Explorers spawned: 3
@@ -164,7 +163,7 @@ Inconsistent error codes between services cause user-facing issues.
 
 ### Report
 
-Full report saved to: `.rp1/work/research/error-handling-comparison-research.md`
+Full report saved to: `research/error-handling-comparison-research.md`
 ```
 
 ### Technical Investigation
@@ -205,7 +204,7 @@ connection pooling and circuit breakers for resilience.
 
 ### Report
 
-Full report saved to: `.rp1/work/research/redis-caching-best-practices-research.md`
+Full report saved to: `research/redis-caching-best-practices-research.md`
 ```
 
 ## Architecture
