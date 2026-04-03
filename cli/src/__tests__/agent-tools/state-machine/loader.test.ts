@@ -38,8 +38,8 @@ describe("loader", () => {
 			const machine = await expectTaskRight(loadStateMachine("pr-review"));
 
 			expect(machine.id).toBe("pr-review");
-			expect(machine.states.size).toBe(4);
-			expect(machine.initialStates).toEqual(["split"]);
+			expect(machine.states.size).toBe(2);
+			expect(machine.initialStates).toEqual(["reviewing"]);
 		});
 
 		test("returns cached result on second load", async () => {
