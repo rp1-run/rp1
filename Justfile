@@ -595,15 +595,19 @@ beta-release version:
     echo "━━━ Beta Release: $version ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 
-    echo "  Fetching tags from origin..."
-    git fetch origin --tags >/dev/null
+    echo "  Checking origin connectivity..."
+    if ! git ls-remote --exit-code origin HEAD >/dev/null 2>&1; then
+        echo "ERROR: Failed to query origin"
+        exit 1
+    fi
 
     if git rev-parse -q --verify "refs/tags/$version" >/dev/null 2>&1; then
         echo "ERROR: Tag already exists locally: $version"
         exit 1
     fi
 
-    if git ls-remote --exit-code --tags origin "refs/tags/$version" >/dev/null 2>&1; then
+    remote_tag=$(git ls-remote --tags origin "refs/tags/$version" 2>/dev/null || true)
+    if [[ -n "$remote_tag" ]]; then
         echo "ERROR: Tag already exists on origin: $version"
         exit 1
     fi
