@@ -403,6 +403,28 @@ The project uses **release-please** for fully automated releases based on conven
 
 No manual tagging or release scripts required - just write good commit messages!
 
+### Manual Beta Releases
+
+Beta releases are intentionally separate from the `main` + `release-please` stable flow.
+
+Use:
+
+```bash
+just beta-release v0.7.0-beta.1
+```
+
+The beta recipe now adds release hygiene automatically:
+
+1. Verifies the current branch is clean before doing anything
+2. Verifies required release credentials are present (`GITHUB_TOKEN`, `HOMEBREW_TAP_TOKEN`)
+3. Fetches remote tags and refuses to reuse an existing beta tag
+4. Resets a temporary local branch named `beta-release` to the current branch tip
+5. Builds and commits the temporary beta version bump on `beta-release`
+6. Prompts for explicit confirmation before pushing the beta tag
+7. Switches back to your original branch and deletes `beta-release` on exit
+
+This lets you publish a beta from your current branch without merging to `main`. Stable releases still go through `release-please` on `main`.
+
 ### Commit Convention
 
 Use conventional commit format:
