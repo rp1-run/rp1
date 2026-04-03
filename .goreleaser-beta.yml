@@ -53,6 +53,12 @@ release:
     brew uninstall rp1-beta && brew install rp1-run/tap/rp1
     ```
 
+    ### After Installing or Upgrading
+    ```bash
+    rp1 install
+    ```
+    This sets up plugins for Claude Code, OpenCode, and Codex.
+
     > **Note**: You cannot have both stable and beta installed simultaneously.
 
     ---
