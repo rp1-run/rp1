@@ -312,8 +312,8 @@ agents:
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build-fast,rp1-dev:build]
-    last_update: "2026-04-01"
-    last_checksum: 99aeaf8044d3588724c20509809b945495f8fbc133bb0740b855d024b0dd617e
+    last_update: "2026-04-03"
+    last_checksum: 22435c4184cbfd6c9e26b80cedb82462b9a0e12ee3ff232de4ff9f919312b536
   - name: rp1-dev:task-reviewer
     description: Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification.
     plugin: dev
