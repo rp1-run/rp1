@@ -483,6 +483,88 @@ catalog-check:
     ./scripts/check-catalog.sh
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Beta Release
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Build and publish a beta release via GoReleaser.
+# Usage: just beta-release v0.7.0-beta.1
+beta-release version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    version="{{version}}"
+
+    # 1. Validate version format
+    if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
+        echo "ERROR: Version must match v*.*.*-beta.N (e.g., v0.7.0-beta.1)"
+        echo "  Got: $version"
+        exit 1
+    fi
+
+    # Strip leading 'v' for package.json
+    pkg_version="${version#v}"
+
+    echo "━━━ Beta Release: $version ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
+    # 2. Save original package.json version and bump
+    original_version=$(cd cli && node -p "require('./package.json').version")
+    echo "  Bumping cli/package.json: $original_version -> $pkg_version"
+    cd cli && node -e "
+        const fs = require('fs');
+        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+        pkg.version = '$pkg_version';
+        fs.writeFileSync('package.json', JSON.stringify(pkg, null, '\t') + '\n');
+    " && cd ..
+
+    # Set up cleanup trap to restore package.json on failure or completion
+    cleanup() {
+        echo ""
+        echo "  Restoring cli/package.json to $original_version"
+        cd "$(git rev-parse --show-toplevel)/cli" && node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '$original_version';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, '\t') + '\n');
+        "
+    }
+    trap cleanup EXIT
+
+    # 3. Build release assets
+    echo ""
+    echo "  Building release assets..."
+    cd cli && bun run build:release && cd ..
+
+    # 4. Create and push git tag
+    echo ""
+    echo "  Creating git tag: $version"
+    git add cli/package.json
+    git commit -m "chore: bump version to $pkg_version for beta release"
+    git tag -a "$version" -m "Beta release $version"
+    echo "  Pushing tag to origin..."
+    git push origin "$version"
+
+    # 5. Run GoReleaser with beta config
+    echo ""
+    echo "  Running GoReleaser..."
+    goreleaser release --config .goreleaser-beta.yml --clean
+
+    echo ""
+    echo "━━━ Beta Release Complete ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "  Post-Release Checklist:"
+    echo "  ────────────────────────"
+    echo "  [ ] Verify install:  brew install rp1-run/tap/rp1-beta"
+    echo "  [ ] Verify version:  rp1 --version  (expect $pkg_version)"
+    echo "  [ ] Notify testers via GitHub issue or discussion"
+    echo ""
+    echo "  After promoting to stable:"
+    echo "  [ ] Archive or remove the GitHub pre-release for $version"
+    echo "  [ ] Reset or remove Casks/rp1-beta.rb in homebrew-tap"
+    echo "  [ ] Notify testers that the beta has been promoted to stable"
+    echo ""
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Guards
 # ─────────────────────────────────────────────────────────────────────────────
 
