@@ -22,6 +22,7 @@ metadata:
     - "rp1-base:kb-spatial-analyzer"
     - "rp1-base:kb-concept-extractor"
     - "rp1-base:kb-architecture-mapper"
+    - "rp1-base:kb-interaction-mapper"
     - "rp1-base:kb-module-analyzer"
     - "rp1-base:kb-pattern-extractor"
 ---
@@ -37,6 +38,7 @@ metadata:
   - `index.md`
   - `concept_map.md`
   - `architecture.md`
+  - `interaction-model.md`
   - `modules.md`
   - `patterns.md`
   - `state.json`
@@ -55,7 +57,7 @@ metadata:
 - When prior KB exists, section agents MUST reconcile against it, even in `FULL`.
 - Section agents MUST also treat prior KB as incomplete and perform one explicit novelty scan for material knowledge absent from it.
 - Replace all placeholders with concrete values before dispatching child agents.
-- Spawn the 4 analysis agents in one parallel batch.
+- Spawn the 5 analysis agents in one parallel batch.
 - Wait patiently for child agents on the critical path. Do not declare them stalled after a short wait.
 - Keep user-visible output terse:
   1. Initial status line
@@ -139,7 +141,7 @@ Use the computed build inputs from the parent orchestrator.
 
 - MODE: actual build mode (`FULL`, `INCREMENTAL`, or `FEATURE_LEARNING`)
 - CHANGED_FILES: actual JSON array for the scoped changed-file list when available; empty only for first-time `FULL`
-- Task: rank files 0-5 and categorize them into `index_files`, `concept_files`, `arch_files`, `module_files`
+- Task: rank files 0-5 and categorize them into `index_files`, `concept_files`, `arch_files`, `interaction_files`, `module_files`
 - Return JSON only with:
   - `repo_type`
   - `monorepo_projects`
@@ -147,6 +149,7 @@ Use the computed build inputs from the parent orchestrator.
   - `index_files`
   - `concept_files`
   - `arch_files`
+  - `interaction_files`
   - `module_files`
   - `local_meta`
 Do not echo placeholder tokens.
@@ -166,9 +169,10 @@ Do not echo placeholder tokens.
 ### 3. Parallel Analysis
 
 1. Compute:
-   - `PATTERN_FILES = unique(concept_files + module_files)`
-   - per-agent diff subsets from `FILE_DIFFS`
-2. Spawn all 4 analyzers in one batch:
+  - `PATTERN_FILES = unique(concept_files + module_files)`
+  - `INTERACTION_FILES = unique(interaction_files)`
+  - per-agent diff subsets from `FILE_DIFFS`
+2. Spawn all 5 analyzers in one batch:
 
 {% dispatch_agent "rp1-base:kb-concept-extractor", background %}
 Use the parent-computed inputs.
@@ -190,6 +194,17 @@ Use the parent-computed inputs.
 - FILE_DIFFS: actual diff subset JSON or empty object
 - FEATURE_CONTEXT: actual feature context JSON or empty object
 - Task: return JSON only for `architecture.md`
+{% enddispatch_agent %}
+
+{% dispatch_agent "rp1-base:kb-interaction-mapper", background %}
+Use the parent-computed inputs.
+
+- MODE: actual mode
+- REPO_TYPE: actual repo type
+- INTERACTION_FILES_JSON: actual JSON array
+- FILE_DIFFS: actual diff subset JSON or empty object
+- FEATURE_CONTEXT: actual feature context JSON or empty object
+- Task: return JSON only for `interaction-model.md`
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-base:kb-module-analyzer", background %}
@@ -215,7 +230,7 @@ Use the parent-computed inputs.
 - Constraint: rendered `patterns.md` MUST stay <=150 lines
 {% enddispatch_agent %}
 
-3. Wait for all 4 agents to finish.
+3. Wait for all 5 agents to finish.
 4. Parse JSON from each response.
 5. Failure policy:
    - 0 failures: continue normally
@@ -228,6 +243,7 @@ Use the parent-computed inputs.
 2. Merge analyzer output into:
    - `concept_map.md`
    - `architecture.md`
+   - `interaction-model.md`
    - `modules.md`
    - `patterns.md`
 3. Validate the `architecture.md` Mermaid diagram via `rp1-base:mermaid`.
@@ -235,6 +251,7 @@ Use the parent-computed inputs.
 4. Write these files first:
    - `{kbRoot}/concept_map.md`
    - `{kbRoot}/architecture.md`
+   - `{kbRoot}/interaction-model.md`
    - `{kbRoot}/modules.md`
    - `{kbRoot}/patterns.md`
 5. Count lines for the written markdown files.

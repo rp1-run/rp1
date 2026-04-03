@@ -72,6 +72,9 @@ If KB available, load files progressively based on EXPLORATION_TYPE and question
 **Load for architecture questions**:
 - `{KB_PATH}/architecture.md` - System design, patterns
 
+**Load for interaction / surface questions**:
+- `{KB_PATH}/interaction-model.md` - Cross-surface behavior, states, feedback
+
 **Load for pattern/implementation questions**:
 - `{KB_PATH}/patterns.md` - Code conventions
 

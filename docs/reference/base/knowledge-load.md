@@ -58,10 +58,10 @@ This command is typically called internally by other KB-aware agents, but can be
 The command adapts its loading strategy based on repository type:
 
 **Single Project:**
-- Loads: `index.md`, `concept_map.md`, `architecture.md`, `modules.md`, `patterns.md`
+- Loads: `index.md`, `concept_map.md`, `architecture.md`, `interaction-model.md`, `modules.md`, `patterns.md`
 
 **Monorepo Root:**
-- Loads: `index.md`, `architecture.md`, `dependencies.md`, `patterns.md`
+- Loads: `index.md`, `architecture.md`, `interaction-model.md`, `dependencies.md`, `patterns.md`
 - Optional: Project summaries
 
 **Monorepo Subproject:**
@@ -113,7 +113,7 @@ The command returns a status with deprecation warning:
 READY [progressive]
 
 Loaded: index.md (~80 lines)
-Available: architecture.md, modules.md, patterns.md, concept_map.md
+Available: architecture.md, interaction-model.md, modules.md, patterns.md, concept_map.md
 Use Read tool to load additional files as needed.
 ```
 
@@ -121,7 +121,7 @@ Use Read tool to load additional files as needed.
 ```
 ⚠️ DEPRECATION WARNING: This command is deprecated. Commands now load KB automatically.
 
-READY [full: 5 files, ~1180 lines]
+READY [full: 6 files, ~1400 lines]
 ```
 
 | Response | Meaning |
@@ -156,6 +156,7 @@ Based on your task, selectively load additional files:
 - Code review → Read `.rp1/context/patterns.md`
 - Bug investigation → Read `.rp1/context/architecture.md` + `modules.md`
 - Feature work → Read `.rp1/context/modules.md` + `patterns.md`
+- Frontend / UX / surface work → Read `.rp1/context/interaction-model.md` + `modules.md` + `patterns.md`
 ```
 
 See the [Knowledge-Aware Agents](../../concepts/knowledge-aware-agents.md) concept page for more on progressive loading patterns.

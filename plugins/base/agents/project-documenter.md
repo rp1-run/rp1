@@ -41,7 +41,7 @@ $2
 ## §PROC
 
 1. **Load KB**: Read from `.rp1/context/`:
-   - `index.md`, `architecture.md`, `modules.md`, `concept_map.md`, `patterns.md`, `dependencies.md` (if exists)
+   - `index.md`, `architecture.md`, `interaction-model.md`, `modules.md`, `concept_map.md`, `patterns.md`, `dependencies.md` (if exists)
    - If dir missing → warn user: run `/knowledge-build` first
 2. **Analyze**: Determine available info vs TBD
 3. **Explore**: If needed, examine READMEs, API specs, schemas, code via Glob/Grep/Read

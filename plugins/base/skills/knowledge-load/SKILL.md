@@ -77,12 +77,12 @@ All relevant files are in .rp1/context/
 
 **Single Project**:
 
-- Load: index.md, concept_map.md, architecture.md, modules.md, patterns.md
+- Load: index.md, concept_map.md, architecture.md, interaction-model.md, modules.md, patterns.md
 - Optional: api.md, runtime.md, data.md
 
 **Monorepo Root**:
 
-- Load: index.md, architecture.md, dependencies.md, patterns.md
+- Load: index.md, architecture.md, interaction-model.md, dependencies.md, patterns.md
 - Optional: concept_map.md, shared/*.md
 - Project summaries: projects/*/overview.md
 
@@ -150,7 +150,7 @@ DEPRECATION WARNING: This command is deprecated. Commands now load KB automatica
 READY [progressive]
 
 Loaded: index.md (~80 lines)
-Available: architecture.md, modules.md, patterns.md, concept_map.md
+Available: architecture.md, interaction-model.md, modules.md, patterns.md, concept_map.md
 Load additional files as needed.
 ```
 
@@ -159,7 +159,7 @@ Load additional files as needed.
 ```
 DEPRECATION WARNING: This command is deprecated. Commands now load KB automatically.
 
-READY [full: 5 files, ~1180 lines]
+READY [full: 6 files, ~1400 lines]
 ```
 
 **Error Response Format**:
@@ -242,6 +242,7 @@ Read `.rp1/context/index.md` to understand project structure and available KB fi
 **Selective Loading**: Based on your task, load additional files as needed:
 - For pattern consistency checks -> Read `.rp1/context/patterns.md`
 - For architecture understanding -> Read `.rp1/context/architecture.md`
+- For interaction / UX / surface semantics -> Read `.rp1/context/interaction-model.md`
 - For component details -> Read `.rp1/context/modules.md`
 
 Do NOT load all KB files unless performing holistic analysis.
@@ -255,6 +256,7 @@ Do NOT load all KB files unless performing holistic analysis.
 Read all markdown files from `.rp1/context/*.md`:
 - `.rp1/context/index.md` - Project overview
 - `.rp1/context/architecture.md` - System design
+- `.rp1/context/interaction-model.md` - Cross-surface interaction semantics
 - `.rp1/context/modules.md` - Component breakdown
 - `.rp1/context/concept_map.md` - Domain terminology
 - `.rp1/context/patterns.md` - Code conventions
@@ -269,6 +271,7 @@ If `.rp1/context/` doesn't exist, warn user to run `/knowledge-build` first.
 | Code review | `index.md` + `patterns.md` |
 | Bug investigation | `index.md` + `architecture.md` + `modules.md` |
 | Feature implementation | `index.md` + `modules.md` + `patterns.md` |
+| Frontend / UX / surface work | `index.md` + `interaction-model.md` + `modules.md` + `patterns.md` |
 | PR review | `index.md` + `patterns.md` |
 | Strategic analysis | ALL files (use full mode) |
 | Security audit | `index.md` + `architecture.md` |

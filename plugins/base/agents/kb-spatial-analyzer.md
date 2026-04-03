@@ -260,6 +260,13 @@ Categorize each file into one or more KB sections:
 - Middleware and infrastructure code
 - Monorepo workspace configs
 
+**interaction_files** (for interaction-model.md - user-visible semantics):
+- User-facing entry points: `cli/src/commands/`, `app/`, `routes/`, `pages/`, `screens/`
+- Interaction hooks/providers: `hooks/`, `providers/`, `shortcuts/`, `keyboard/`, `focus/`
+- Surface semantics docs: `docs/concepts/`, `docs/web-ui/`, platform/surface docs
+- Status/feedback UI: notifications, annotations, progress, dashboards
+- Design tokens and accessibility files when they shape user-visible meaning
+
 **module_files** (for modules.md - component breakdown):
 - All source files not in other categories
 - Utility modules: `utils/`, `helpers/`, `lib/`
@@ -299,6 +306,7 @@ Return structured JSON with these fields:
   "index_files": [{"path": <path>, "score": <0-5>}, ...],
   "concept_files": [{"path": <path>, "score": <0-5>}, ...],
   "arch_files": [{"path": <path>, "score": <0-5>}, ...],
+  "interaction_files": [{"path": <path>, "score": <0-5>}, ...],
   "module_files": [{"path": <path>, "score": <0-5>}, ...],
   "local_meta": {
     "repo_root": "/absolute/path",

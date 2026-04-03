@@ -39,7 +39,7 @@ The `knowledge-build` command analyzes your codebase and updates the structured 
 The command uses a parallel map-reduce architecture:
 
 1. **Spatial Analysis**: Categorizes files by KB section
-2. **Parallel Processing**: 4 agents analyze files simultaneously
+2. **Parallel Processing**: 5 agents analyze files simultaneously
 3. **Merge**: Orchestrator merges results, generates index.md, writes final KB files
 
 ## Arguments
@@ -100,6 +100,7 @@ KB Files Written:
 - .rp1/context/index.md
 - .rp1/context/concept_map.md
 - .rp1/context/architecture.md
+- .rp1/context/interaction-model.md
 - .rp1/context/modules.md
 - .rp1/context/patterns.md
 - .rp1/context/state.json (shareable)
@@ -152,8 +153,9 @@ flowchart TB
     subgraph "Phase 2 (Parallel)"
         A1[concept-extractor]
         A2[architecture-mapper]
-        A3[module-analyzer]
-        A4[pattern-extractor]
+        A3[interaction-mapper]
+        A4[module-analyzer]
+        A5[pattern-extractor]
     end
 
     subgraph "Phase 3"
@@ -164,11 +166,13 @@ flowchart TB
     SA --> A2
     SA --> A3
     SA --> A4
+    SA --> A5
 
     A1 --> M
     A2 --> M
     A3 --> M
     A4 --> M
+    A5 --> M
 ```
 
 ## Related Commands

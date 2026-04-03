@@ -26,7 +26,14 @@ agents:
     skills_that_i_use: []
     skills_that_use_me: []
     last_update: "2026-04-03"
-    last_checksum: b61791cbadc6dd6aacc77f5c1c0766f8b386e9b425569160ae54f35a4e020812
+    last_checksum: 159c6db88f0f948ad93f7cacec927170fcc723bf3208f384d4595dbe50ed814c
+  - name: rp1-base:kb-interaction-mapper
+    description: Maps cross-surface interaction semantics for interaction-model.md from pre-filtered files
+    plugin: base
+    skills_that_i_use: []
+    skills_that_use_me: [rp1-base:knowledge-build]
+    last_update: "2026-04-03"
+    last_checksum: b4fe9f31bbeb6291d0ab02d59f3e3af32721b6713e3463c8bedd69886d4d9182
   - name: rp1-base:kb-module-analyzer
     description: Analyzes modules, components, and dependencies for modules.md from pre-filtered files
     plugin: base
@@ -47,7 +54,7 @@ agents:
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:knowledge-build]
     last_update: "2026-04-03"
-    last_checksum: 58a3df00330add749fcd583adeb68271038a85a7c082c1f5aa0bc7ebdd297a9e
+    last_checksum: f320a18c37d98a7038874bb23486e960e194975121bc0fc9c8fb261a712e2660
   - name: rp1-base:mermaid-fixer
     description: Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates each diagram, attempts automatic repair (up to 3 iterations), and inserts placeholders for unfixable diagrams.
     plugin: base
@@ -61,14 +68,14 @@ agents:
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:project-birds-eye-view]
     last_update: "2026-04-03"
-    last_checksum: dca89d4abcf826bedc01bd83e7aa26f94e43e9431b507ac6a7d2c22c8007f25f
+    last_checksum: 0df4576215b21b3d0c3bc170594094e89494555417f344945d5f98253baf1e86
   - name: rp1-base:research-explorer
     description: Deep exploration of codebases or web resources, returning structured JSON findings with evidence
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:deep-research]
     last_update: "2026-04-03"
-    last_checksum: 591b87627dc18ef3e069e6e4767a1852478feb63207f9052d2c1018412756685
+    last_checksum: 253d2537b0680b8252e47b6ebc6ffba1d90e1b58c3ab19c87e37827b2d5611f8
   - name: rp1-base:research-reporter
     description: Generates structured research reports with validated Mermaid diagrams from synthesis data
     plugin: base
@@ -82,21 +89,21 @@ agents:
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:generate-user-docs]
     last_update: "2026-04-03"
-    last_checksum: 97a057f4e8277b2f6cad55892a28f0e883ca5c7728304f2924f75358bed797de
+    last_checksum: d99b2a34ed273230fb1446ae2cf809d4fc079de9996c2b0d25205e5ea63fedb7
   - name: rp1-base:security-validator
     description: Performs thorough security validation of features including vulnerability scans, authentication/authorization verification, compliance assessment, and penetration testing
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:analyse-security]
     last_update: "2026-04-03"
-    last_checksum: cbfe9c0479016318b94659d7e0c4937a90e3a2465c1c3944a26897fe49ff5d6d
+    last_checksum: b73caa88d9cebbbdcc53abb7083c2b7f8119119da6742f6134040dffd35df492
   - name: rp1-base:strategic-advisor
     description: Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:strategize]
     last_update: "2026-04-03"
-    last_checksum: 9abfe2887fe322d5db5ec26de1f00c3cf0d49fe634167d8ce94360e6f8d1a5f4
+    last_checksum: 2fbfb69e8d85b1f3109628236b23eee83e9fd4e92330dae7b817d857a10df7ef
   - name: rp1-dev:blueprint-auditor
     description: Audits PRD documents against implementation status and executes disposition actions
     plugin: dev

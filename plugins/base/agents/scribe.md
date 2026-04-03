@@ -60,7 +60,7 @@ Extract headings from FILES, match against KB index, classify into scenarios. AL
    - Remove trailing anchors `{#anchor-id}`
    - Store: text, normalized, file, line
 
-Also extract from file manifest: `architecture.md`, `modules.md`, `patterns.md`, `concept_map.md`
+Also extract from file manifest: `architecture.md`, `interaction-model.md`, `modules.md`, `patterns.md`, `concept_map.md`
 
 ### 2.2 Normalize Headings
 

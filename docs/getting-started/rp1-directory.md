@@ -12,6 +12,7 @@ rp1 stores all project-specific data in a `.rp1/` directory at your project root
 ├── context/                  # Generated knowledge base
 │   ├── index.md              # Project overview
 │   ├── architecture.md       # System architecture
+│   ├── interaction-model.md  # Cross-surface interaction semantics
 │   ├── modules.md            # Component breakdown
 │   ├── concept_map.md        # Domain concepts
 │   ├── patterns.md           # Implementation patterns

@@ -59,16 +59,16 @@ skills:
     sub_agents_that_i_use: []
     skills_that_i_use: []
     last_update: "2026-04-03"
-    last_checksum: c9aa5682e48f00a8e5a6802177685b51ed3817e98a273939bd6f7b3034794769
+    last_checksum: 11a2f74028c27dc8310d48d518829e5af8f97cd814716731c488a92ba7cd06e0
   - name: rp1-base:knowledge-build
     description: Orchestrates parallel KB generation using spatial analysis and a map-reduce architecture with incremental and feature-learning modes.
     plugin: base
     skills_that_use_me: [rp1-base:generate-user-docs,rp1-dev:bootstrap]
     agents_that_use_me: [rp1-base:kb-architecture-mapper]
-    sub_agents_that_i_use: [rp1-base:kb-architecture-mapper,rp1-base:kb-concept-extractor,rp1-base:kb-module-analyzer,rp1-base:kb-pattern-extractor,rp1-base:kb-spatial-analyzer]
+    sub_agents_that_i_use: [rp1-base:kb-architecture-mapper,rp1-base:kb-concept-extractor,rp1-base:kb-interaction-mapper,rp1-base:kb-module-analyzer,rp1-base:kb-pattern-extractor,rp1-base:kb-spatial-analyzer]
     skills_that_i_use: [rp1-base:knowledge-base-templates,rp1-base:mermaid]
     last_update: "2026-04-03"
-    last_checksum: 6ea2e0e2c80d83f7fcdda2a0a2a493647d51b92d4ffa1be5f05c45916d6114a5
+    last_checksum: 649ec4e03114369e315790e94555b095328b02671ce7b1e808e94dceb438f4fd
   - name: rp1-base:knowledge-load
     description: Ingests and prepares codebase documentation, builds internal knowledge graphs, and creates optimized context representations for downstream analysis tasks.
     plugin: base
@@ -77,7 +77,7 @@ skills:
     sub_agents_that_i_use: []
     skills_that_i_use: []
     last_update: "2026-04-03"
-    last_checksum: 9c23d71dff51f5857f61c0db0a6b23be4303c14447748c96cccfe2401128711c
+    last_checksum: 2b5029ec6dd6b010da0d1a4549db059cb4863e7d93ef485cb7c1888c0646cfa4
   - name: rp1-base:markdown-preview
     description: Generate browser-viewable HTML previews from markdown, plain text, and Mermaid diagrams. Auto-validates diagrams, applies professional styling, and opens in default browser. Use when agents need to preview documentation, visualizations, or formatted content.
     plugin: base
