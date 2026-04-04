@@ -5,7 +5,7 @@
 
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
-import { formatError, getExitCode } from "../../../shared/errors.js";
+import { formatError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import { isHealthy } from "../../install/models.js";
 import { verifyInstallation } from "../../install/verifier.js";
@@ -20,14 +20,14 @@ const { green, yellow, red, dim, bold, cyan } = colorFns;
 export const executeVerifyOpenCode = async (
 	artifactsDir: string | undefined,
 	_logger: Logger,
-): Promise<void> => {
+): Promise<boolean> => {
 	console.log(bold("\nVerifying OpenCode Plugins\n"));
 
 	const result = await verifyInstallation(artifactsDir)();
 
 	if (E.isLeft(result)) {
 		console.error(formatError(result.left, process.stderr.isTTY ?? false));
-		process.exit(getExitCode(result.left));
+		return false;
 	}
 
 	const report = result.right;
@@ -79,13 +79,14 @@ export const executeVerifyOpenCode = async (
 
 	if (isHealthy(report)) {
 		console.log(green("All components installed"));
-	} else {
-		console.log(red(bold("\nInstallation incomplete")));
-		console.log(dim("\nRemediation:"));
-		console.log(dim("  Install missing components with:"));
-		console.log(cyan("    rp1 install opencode"));
-		process.exit(1);
+		return true;
 	}
+
+	console.log(red(bold("\nInstallation incomplete")));
+	console.log(dim("\nRemediation:"));
+	console.log(dim("  Install missing components with:"));
+	console.log(cyan("    rp1 install opencode"));
+	return false;
 };
 
 /**
@@ -112,5 +113,6 @@ Examples:
 			process.exit(1);
 		}
 
-		await executeVerifyOpenCode(options.artifactsDir, logger);
+		const ok = await executeVerifyOpenCode(options.artifactsDir, logger);
+		if (!ok) process.exit(1);
 	});

@@ -4,18 +4,25 @@
  */
 
 import { Command } from "commander";
+import type { Logger } from "../../../shared/logger.js";
 import { TOOLS_REGISTRY } from "../../config/supported-tools.generated.js";
 import {
 	isToolEnabled,
 	type ToolsRegistry,
 } from "../../config/supported-tools.js";
-import { verifyClaudeCodeSubcommand } from "./claude-code.js";
-import { verifyCodexSubcommand } from "./codex.js";
-import { verifyOpenCodeSubcommand } from "./opencode.js";
+import { colorFns } from "../../lib/colors.js";
+import {
+	executeVerifyClaudeCode,
+	verifyClaudeCodeSubcommand,
+} from "./claude-code.js";
+import { executeVerifyCodex, verifyCodexSubcommand } from "./codex.js";
+import { executeVerifyOpenCode, verifyOpenCodeSubcommand } from "./opencode.js";
+
+const { bold, dim } = colorFns;
 
 /**
  * Verify parent command.
- * Shows help with available subcommands when invoked without arguments.
+ * When invoked without a subcommand, verifies all known platforms.
  */
 export const verifyCommand = new Command("verify")
 	.description("Verify rp1 plugin installations")
@@ -25,12 +32,51 @@ export const verifyCommand = new Command("verify")
 Subcommands:
   claude-code    Verify plugins in Claude Code
   opencode       Verify plugins in OpenCode
+  codex          Verify plugins in Codex CLI
 
 Examples:
+  rp1 verify                Verify all platforms
   rp1 verify claude-code    Verify Claude Code installation
   rp1 verify opencode       Verify OpenCode installation
+  rp1 verify codex          Verify Codex CLI installation
 `,
-	);
+	)
+	.action(async (_options, command) => {
+		const logger = command.parent?._logger as Logger;
+		if (!logger) {
+			console.error("Logger not initialized");
+			process.exit(1);
+		}
+
+		console.log(bold("Verifying all platforms...\n"));
+
+		const platforms: { name: string; run: () => Promise<boolean> }[] = [
+			{ name: "Claude Code", run: () => executeVerifyClaudeCode(logger) },
+			{
+				name: "OpenCode",
+				run: () => executeVerifyOpenCode(undefined, logger),
+			},
+		];
+
+		if (isToolEnabled(TOOLS_REGISTRY as ToolsRegistry, "codex")) {
+			platforms.push({
+				name: "Codex CLI",
+				run: () => executeVerifyCodex(logger),
+			});
+		}
+
+		let hasFailure = false;
+
+		for (const platform of platforms) {
+			const ok = await platform.run();
+			if (!ok) hasFailure = true;
+			console.log(dim("─".repeat(50)));
+		}
+
+		if (hasFailure) {
+			process.exit(1);
+		}
+	});
 
 verifyCommand.addCommand(verifyClaudeCodeSubcommand);
 verifyCommand.addCommand(verifyOpenCodeSubcommand);

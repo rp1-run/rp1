@@ -16,7 +16,7 @@ const { green, yellow, red, dim, bold, cyan } = colorFns;
  */
 export const executeVerifyClaudeCode = async (
 	_logger: Logger,
-): Promise<void> => {
+): Promise<boolean> => {
 	console.log(bold("\nVerifying Claude Code Plugins\n"));
 
 	const result = await verifyClaudeCodePlugins();
@@ -49,10 +49,11 @@ export const executeVerifyClaudeCode = async (
 			dim("\n  For more information, see: https://rp1.run/installation"),
 		);
 		console.log(red(bold("\nPlugins incomplete")));
-		process.exit(1);
+		return false;
 	}
 
 	console.log(green(bold("\nAll plugins installed")));
+	return true;
 };
 
 /**
@@ -74,5 +75,6 @@ Examples:
 			process.exit(1);
 		}
 
-		await executeVerifyClaudeCode(logger);
+		const ok = await executeVerifyClaudeCode(logger);
+		if (!ok) process.exit(1);
 	});
