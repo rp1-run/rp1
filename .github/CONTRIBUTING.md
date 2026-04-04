@@ -111,8 +111,8 @@ lefthook install
 
 ### What the hooks do
 
-- **pre-commit**: Runs lint and format checks on staged files (fast, parallel)
-- **pre-push**: Runs typecheck and tests (comprehensive, parallel)
+- **pre-commit**: Blocks direct commits on `main`/`master` and runs lint/format checks on staged files (fast, parallel)
+- **pre-push**: Blocks pushes targeting `main`/`master`, then runs typecheck and tests (comprehensive, parallel)
 
 ### Skipping hooks
 

@@ -3,6 +3,8 @@
 Arcade is rp1's browser UI for monitoring runs, opening artifacts, and working
 through feedback without losing the surrounding workflow context.
 
+![Arcade annotations view showing comments attached to an artifact with surrounding workflow context](../assets/screens/arcade/annotations.png)
+
 ## Launch Arcade
 
 Arcade normally starts automatically when your coding agent session starts.
