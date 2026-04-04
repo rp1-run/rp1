@@ -1,10 +1,18 @@
 {
   "strategy": "parallel-map-reduce",
-  "repo_type": "single-project",
-  "monorepo_projects": [],
-  "generated_at": "2026-04-03T20:00:00Z",
-  "git_commit": "aec65d0e0c69edc181c2b7a16ac35b2f73852865",
-  "files_analyzed": 804,
+  "repo_type": "monorepo",
+  "monorepo_projects": [
+    "cli/",
+    "cli/web-ui/",
+    "evals/",
+    "packages/catppuccin-mermaid/",
+    "plugins/base/",
+    "plugins/dev/",
+    "plugins/utils/"
+  ],
+  "generated_at": "2026-04-04T04:46:08Z",
+  "git_commit": "1880e8902925a6449733798f9caa8c445d72814a",
+  "files_analyzed": 14,
   "languages": [
     "TypeScript",
     "TSX",
@@ -18,7 +26,7 @@
   ],
   "metrics": {
     "modules": 21,
-    "components": 33,
+    "components": 7,
     "concepts": 23
   }
 }

@@ -1,173 +1,103 @@
 # Module & Component Breakdown
 
 **Project**: rp1
-**Analysis Date**: 2026-04-03
+**Analysis Date**: 2026-04-04
 **Modules Analyzed**: 21
 
 ## Core Modules
 
-### cli/commands (`cli/src/commands/`)
-**Purpose**: User-facing CLI commands via Commander.js
-**Files**: 27
-**Key Files**: `init.ts`, `install/index.ts`, `arcade.ts`, `fake.ts`, `verify/index.ts`, `update/index.ts`
-**Dependencies**: cli/shared, cli/init, cli/install, cli/config, cli/agent-tools (lazy), web-ui/daemon (lazy)
-
-### cli/agent-tools (`cli/src/agent-tools/`)
-**Purpose**: Agent-tools CLI surface with tool registry and 9 subcommands for AI agent infrastructure
-**Files**: 45
-**Key Components**:
-- **emit** (`emit/index.ts`): Event ingestion pipeline — validate, find/create run, insert event, upsert artifacts, derive status, maybe generate notification
-- **state-machine** (`state-machine/index.ts`): Parse Mermaid stateDiagram-v2 into queryable directed graphs with step ordering and transition validation
-- **resolve-args** (`resolve-args/index.ts`): Resolve structured arguments by merging 5 layers with implies chains
-- **task** (`task/index.ts`): Task queue management with create, list, get, pickup, complete, fail, cancel
-- **feedback** (`feedback/index.ts`): Arcade annotation feedback: read, reply, resolve, accept-edit
-- **github-pr** (`github-pr/index.ts`): GitHub PR interaction: fetch comments, submit reviews, reply, add reactions
-- **comment-extract** (`comment-extract/index.ts`): Extract code comments from git-changed files
-- **mmd-validate** (`mmd-validate/index.ts`): Mermaid diagram validation
-- **rp1-root-dir** (`rp1-root-dir/index.ts`): Project directory resolution
-
-### cli/build (`cli/src/build/`)
-**Purpose**: Multi-platform artifact build pipeline via LiquidJS templating
-**Files**: 48
-**Key Files**: `command.ts`, `index.ts`, `parser.ts`, `platform-definitions.ts`, `arguments.ts`, `transforms.ts`
-**Responsibilities**: Parse skill/agent markdown, preprocess with argument injection, template via LiquidJS with 9 custom filters, two-tier L1/L2 lint validation, multi-platform output for 3 host tools
-**Dependencies**: cli/shared, state-machine
-
-### cli/install (`cli/src/install/`)
-**Purpose**: Install plugin artifacts into host tools with staging, backup/rollback, verification
-**Files**: 22
-**Key Files**: `installer.ts`, `index.ts`, `claudecode/installer.ts`, `codex/installer.ts`
-
-### cli/init (`cli/src/init/`)
-**Purpose**: Project initialization with context detection, tool detection, plugin installation, Ink UI
-**Files**: 29
-**Key Files**: `index.ts`, `context-detector.ts`, `directory-model.ts`, `ui/InitWizard.tsx`
-**Dependencies**: cli/shared, cli/install, cli/config
-
-### cli/shared (`cli/shared/`)
-**Purpose**: Cross-cutting library (leaf module, no internal dependencies)
-**Files**: 15
-**Key Exports**:
-- **errors.ts**: CLIError tagged union with _tag discriminant, 14 factory functions, ExitCode mapping
-- **fp.ts**: fp-ts facade with suffix convention (mapTE, chainTE, foldO, mapA)
-- **events.ts**: Canonical event system types (Status enum, EventType enum, payload interfaces) — single source of truth for CLI and web-ui
-- **directory-resolution.ts**: Worktree-aware project root discovery returning ResolvedDirectorySet
-- **logger.ts**: consola-based Logger via createLogger() factory
-- **canonical-name.ts**: CanonicalName parse/format for cross-platform namespace translation
-- **prompts.ts**: TTY-aware interactive prompts with non-TTY defaults
-- **project-id.ts**: Project UUID management
-
-### cli/assets (`cli/src/assets/`)
-**Purpose**: Bundled asset access for release builds: manifest reading, plugin/web-ui extraction
-**Files**: 4
-
-### cli/settings (`cli/src/settings/`)
-**Purpose**: Settings file loading and validation for project/global rp1 configuration
-**Files**: 2
-
-### cli/config (`cli/src/config/`)
-**Purpose**: Supported tools registry (YAML-embedded at build time) defining host tool capabilities
-**Files**: 4
-
-### cli/lib (`cli/src/lib/`)
-**Purpose**: Utility library: cache, colors, package-manager detection, version comparison
-**Files**: 4
-
-### cli/migrate (`cli/src/migrate/`)
-**Purpose**: Migration system for upgrading rp1 project structures across versions
-**Files**: 4
-
-### cli/pr-review (`cli/src/pr-review/`)
-**Purpose**: PR review configuration loading and CI environment detection
-**Files**: 4
+| Module | Purpose | Notes |
+|--------|---------|-------|
+| `cli/commands` | User-facing CLI commands via Commander.js, including thin adapters into install, init, update, verify, arcade, and build workflows. | 27 files; now explicitly wires `build:opencode` through `cli/src/main.ts` and `cli/src/commands/build.ts`. |
+| `cli/agent-tools` | Agent-tools CLI surface with tool registry and workflow-oriented subcommands for AI agent infrastructure. | 45 files; includes `emit`, `state-machine`, `resolve-args`, `task`, `feedback`, `github-pr`, `comment-extract`, `mmd-validate`, and `rp1-root-dir`. |
+| `cli/build` | Multi-platform artifact build pipeline for Claude Code, OpenCode, and Codex outputs. | 64 files; owns parsing, linting, template transforms, and platform-specific emitters. |
+| `cli/install` | Install plugin artifacts into host tools with staging, backup/rollback, and verification. | 22 files. |
+| `cli/init` | Project initialization with context detection, tool detection, plugin installation, and Ink UI. | 29 files. |
+| `cli/shared` | Cross-cutting shared library for errors, fp-ts helpers, directory resolution, logging, events, and canonical naming. | 15 files; leaf-style support layer reused across CLI and web UI. |
+| `cli/assets` | Bundled asset access for release builds, including plugin and web-ui extraction. | 4 files. |
+| `cli/settings` | Settings file loading and validation for project and global rp1 configuration. | 2 files. |
+| `cli/config` | Supported-tools registry defining host tool capabilities. | 4 files. |
+| `cli/lib` | Utility library for cache, colors, package-manager detection, and version comparison. | 4 files. |
+| `cli/migrate` | Migration system for upgrading rp1 project structures across versions. | 4 files. |
+| `cli/pr-review` | PR review configuration loading and CI environment detection. | 4 files. |
 
 ## Web UI Modules
 
-### web-ui/server (`cli/web-ui/src/server/`)
-**Purpose**: Bun HTTP + WebSocket server with REST APIs, file watching, event broadcast, annotation embedding
-**Files**: 16
-**Key Components**: `http.ts` (regex-based routing), `websocket.ts` (reconnect replay), `routes/v2-api.ts`, `routes/artifacts-api.ts`, `routes/annotations-api.ts`, `file-watcher.ts` (chokidar LRU pool, max 10)
-
-### web-ui/daemon (`cli/web-ui/src/daemon/`)
-**Purpose**: Daemon lifecycle manager (spawn, monitor, IPC, PID files, config directory)
-**Files**: 4
-
-### web-ui/frontend (`cli/web-ui/src/`)
-**Purpose**: React SPA dashboard (Arcade) with pages, components, hooks, providers, and motion transitions
-**Files**: 175
-**Key Files**: `main.tsx`, `app/App.tsx`, `app/V2Layout.tsx`, `app/routes.tsx`
+| Module | Purpose | Notes |
+|--------|---------|-------|
+| `web-ui/server` | Bun HTTP and WebSocket server with REST APIs, file watching, event broadcast, and annotation embedding. | 16 files; key routes include `v2-api`, artifacts, and annotations. |
+| `web-ui/daemon` | Daemon lifecycle manager for the web UI server. | 4 files. |
+| `web-ui/frontend` | React SPA dashboard with pages, components, hooks, providers, and motion transitions. | 175 files; major entrypoints are `main.tsx`, `App.tsx`, `V2Layout.tsx`, and `routes.tsx`. |
 
 ## Plugin Modules
 
-### plugins/base
-**Purpose**: Foundational plugin: KB generation/loading, documentation, Mermaid, strategy, deep research, security
-**Files**: 47
-**Skills**: knowledge-build, knowledge-load, strategize, deep-research, write-content, fix-mermaid, analyse-security, task, self-update, project-birds-eye-view, mermaid, markdown-preview, knowledge-base-templates, generate-user-docs, code-comments
-**Agents**: kb-spatial-analyzer, kb-architecture-mapper, kb-concept-extractor, kb-interaction-mapper, kb-module-analyzer, kb-pattern-extractor, kb-index-builder, research-reporter, research-explorer, strategic-advisor, scribe, mermaid-fixer, project-documenter, security-validator
+| Module | Purpose | Notes |
+|--------|---------|-------|
+| `plugins/base` | Foundational plugin for KB generation/loading, documentation workflows and sync, Mermaid validation, deep research, strategy, security analysis, and maintenance. | 57 files; the frontier materially refined `generate-user-docs`, `write-content`, and `scribe`. |
+| `plugins/dev` | Feature delivery plugin for build workflows, blueprinting, PR review, code audit, and feature lifecycle automation. | 56 files. |
+| `plugins/utils` | Prompt authoring plugin for prompt writing and rewriting, tersification, eval assertion extraction, and prompt-eval helpers. | 18 files; `prompt-writer` now ships a companion reference pack. |
 
-### plugins/dev
-**Purpose**: Feature delivery plugin: build workflows, blueprint, PR review, code audit, feature lifecycle
-**Files**: 56
-**Skills**: build, build-fast, speedrun, blueprint, blueprint-audit, blueprint-archive, pr-review, pr-visual, code-audit, code-check, code-investigate, code-clean-comments, feature-archive, feature-unarchive, feature-edit, validate-hypothesis, address-pr-feedback, bootstrap, arcade-collab
-**Agents**: 33 agents including task-builder, feature-architect, feature-verifier, pr-sub-reviewer, pr-review-synthesizer, speedrun-builder, build-fast-planner, code-auditor, bug-investigator
+## Documentation & Packages
 
-### plugins/utils
-**Purpose**: Prompt authoring plugin: prompt writing, tersification, eval assertion extraction
-**Files**: 9
-**Skills**: prompt-writer, tersify-prompt, prompt-eval-builder, build-prompt-evals, tester
-**Agents**: prompt-tersifier, prompt-eval-extractor, prompt-assertion-specialist, dependency-chain-analyzer
+| Module | Purpose | Notes |
+|--------|---------|-------|
+| `docs/reference` | Human-facing reference surface for CLI commands, agent-tools, platform tags, web UI, and plugin skills. | 40 files; inferred as a standalone docs module because it has its own hub, sub-indexes, and topical pages. |
+| `evals` | Prompt attestation system with content-addressable hashing, dependency graphs, and verification. | 7 files. |
+| `packages/catppuccin-mermaid` | Standalone npm package providing Catppuccin-themed Mermaid rendering with contrast checks. | 3 files. |
 
-## Supporting Packages
+## Highlighted Components
 
-### evals (`evals/`)
-**Purpose**: Prompt attestation system with content-addressable hashing, dependency graphs, verification
-**Files**: 7
+### `build:opencode`
+Public CLI command that exposes the OpenCode artifact build pipeline. It translates Commander flags into build args and delegates the real work to `executeBuild()` in `cli/build`.
 
-### catppuccin-mermaid (`packages/catppuccin-mermaid/`)
-**Purpose**: Standalone npm package: Catppuccin-flavored Mermaid theme with four flavors and WCAG contrast checks
-**Files**: 3
+### `generate-user-docs`
+Base skill that synchronizes user-facing documentation against the current KB through a `validate -> stale gate -> scan -> approval -> process` workflow, preserving `scan_results.json` and asking for approval exactly once.
 
-## Module Dependencies
+### `scribe`
+Dual-mode documentation worker for scan/process batches. It classifies sections as `verify`, `add`, or `fix`, applies KB-backed rewrites or review markers, and returns JSON only.
 
-```mermaid
-graph TD
-    Commands[cli/commands] --> Shared[cli/shared]
-    Commands --> Init[cli/init]
-    Commands --> Install[cli/install]
-    Commands --> Config[cli/config]
-    Commands -.->|lazy| AgentTools[cli/agent-tools]
-    Commands -.->|lazy| Daemon[web-ui/daemon]
-    AgentTools --> Shared
-    AgentTools --> SM[state-machine]
-    AgentTools --> Assets[cli/assets]
-    AgentTools --> Settings[cli/settings]
-    AgentTools --> Daemon
-    Build[cli/build] --> Shared
-    Build --> SM
-    Init --> Shared
-    Init --> Install
-    Init --> Config
-    Install --> Shared
-    Server[web-ui/server] --> Shared
-    Server --> AgentTools
-    Frontend[web-ui/frontend] -.->|REST+WS| Server
-    DevPlugin[plugins/dev] -.->|runtime| BasePlugin[plugins/base]
-    Evals[evals] --> BasePlugin
-    Evals --> DevPlugin
-```
+### `write-content`
+Tracked content-writing workflow that turns rough notes into a grounded Markdown document, maintains `.rp1/work/content/.../brief.md`, and registers both brief and final document artifacts.
+
+### `prompt-writer`
+Prompt authoring workflow that supports new prompts and rewrites, emits workflow state, loads templates and patterns selectively, and applies rp1-specific validation rules.
+
+### `prompt-writer companion pack`
+Progressive-disclosure reference set backing `prompt-writer`. It separates reusable patterns, templates, and rp1-specific authoring rules into `PATTERNS.md`, `TEMPLATES.md`, and `RP1-AUTHORING.md`.
+
+### `reference hub`
+Top-level docs surface rooted at `docs/reference/index.md` that routes readers to CLI, base, dev, and web-ui references plus topical pages such as agent-tools and platform tags.
+
+## Dependency Highlights
+
+- `cli/commands` depends directly on `cli/shared`, `cli/init`, `cli/install`, `cli/config`, and now `cli/build`; it lazy-loads `cli/agent-tools` and the daemon server path.
+- `cli/build` depends on `cli/shared` plus the state-machine parser used for build-time validation of workflow prompts.
+- `web-ui/server` depends on `cli/shared` and on agent-tool-backed event and artifact state; `web-ui/frontend` consumes the server over REST and WebSocket.
+- `plugins/base` depends on agent-tool conventions for emits, artifact registration, and path resolution; `generate-user-docs` also treats `docs/reference` as a maintained target surface.
+- `plugins/utils` depends indirectly on agent-tools because `prompt-writer` and its companion guide teach `emit`, `resolve-args`, `rp1-root-dir`, and artifact-registration conventions.
+- `plugins/dev` depends on `plugins/base`; base does not depend on dev.
+- `evals` tracks prompt content from the base and dev plugins for attestation and verification.
 
 ## Cross-Module Patterns
 
-- **Skill-Agent Delegation**: Skills orchestrate; agents execute discrete tasks in single-pass autonomous mode
-- **Event-Driven Dashboard**: emit -> SQLite -> daemon IPC -> WebSocket -> React frontend; shared events.ts as single source of truth
-- **Multi-Platform Build**: Single markdown source -> LiquidJS -> platform-specific artifacts for CC/OpenCode/Codex
-- **Lazy-Load Isolation**: Heavy modules (puppeteer, daemon, web-ui server) dynamically imported for sub-100ms startup
-- **Shared fp-ts Pipeline**: TaskEither<CLIError, T> as canonical error-handling monad across all CLI modules
-- **State Machine Validation**: Mermaid definitions as single source of truth validated at emit time, build time, and in web-ui
-- **Tool Registry Self-Registration**: Agent tools register via registerTool() at module import time
-- **Daemon IPC Notification**: Agent tools send best-effort IPC for immediate WebSocket broadcast alongside SQLite persistence
+| Pattern | Meaning | Status |
+|---------|---------|--------|
+| Skill-Agent Delegation | High-level skills orchestrate while specialized agents perform bounded execution work. | Confirmed |
+| Documentation Scan/Process Orchestration | `generate-user-docs` splits doc reconciliation into discovery, scan, approval, and process phases, with `scribe` handling batched file-level work. | New |
+| State-Machine + Emit Discipline | Workflow prompts declare Mermaid state machines and drive dashboard-visible progress through `rp1 agent-tools emit`. | Refined |
+| Progressive Disclosure Authoring Pack | A primary skill stays focused while companion docs hold patterns, templates, and repo-specific conventions. | New |
+| Thin Command Adapter | User-facing CLI commands remain small adapters that translate flags and delegate substantive work into deeper modules. | Refined |
+| Multi-Platform Build | Single Markdown prompt sources are transformed into multiple host-tool artifacts through a shared build pipeline. | Confirmed |
+
+## Reconciliation Notes
+
+- The `cli/commands` boundary is still valid, but the dependency map had to expand to include the new `build:opencode` command path through `cli/build`.
+- `plugins/base` remains the foundational plugin, but its documentation surface is now materially sharper: doc sync, content writing, and `scribe` should be treated as a cohesive documentation-production area rather than generic support utilities.
+- `plugins/utils` still centers on prompt tooling, but `prompt-writer` now behaves like a tracked workflow with a reusable companion pack.
+- `docs/reference` is large and maintained enough to model as its own docs module rather than a footnote under plugins or website content.
 
 ## Cross-References
+
 - **System topology**: See [architecture.md](architecture.md)
 - **Surface behavior**: See [interaction-model.md](interaction-model.md)
 - **Code conventions**: See [patterns.md](patterns.md)
