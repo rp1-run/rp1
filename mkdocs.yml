@@ -89,26 +89,27 @@ nav:
     - Team Onboarding: guides/team-onboarding.md
     - CI/CD Integration: guides/ci-cd-integration.md
     - Scaling with Teams: guides/scaling-with-teams.md
-    - V2 Dashboard: web-ui/v2-dashboard.md
+  - Arcade:
+    - Overview: arcade/index.md
+    - Dashboard: arcade/dashboard.md
+    - Annotations: arcade/annotations.md
+    - Artifact Viewer: arcade/artifact-viewer.md
+    - Keyboard Shortcuts: arcade/keyboard-shortcuts.md
+    - Settings: arcade/settings.md
   - Comparison:
     - Why rp1?: comparison/vs-raw-prompting.md
   - Reference:
     - Overview: reference/index.md
-    - DAG Format: reference/dag-format.md
     - PR Review Config: reference/pr-review-config.md
-    - Agent Tools: reference/agent-tools.md
-    - Platform Tags: reference/platform-tags.md
-    - Web UI: reference/web-ui.md
     - CLI:
       - Overview: reference/cli/index.md
       - init: reference/cli/init.md
       - install: reference/cli/install.md
       - update: reference/cli/update.md
-      - rp1-root-dir: reference/cli/rp1-root-dir.md
+      - rp1 migrate: reference/cli/rp1-migrate.md
     - Base Plugin:
       - Overview: reference/base/index.md
       - knowledge-build: reference/base/knowledge-build.md
-      - knowledge-load: reference/base/knowledge-load.md
       - deep-research: reference/base/deep-research.md
       - project-birds-eye-view: reference/base/project-birds-eye-view.md
       - write-content: reference/base/write-content.md
@@ -134,29 +135,15 @@ nav:
       - pr-review: reference/dev/pr-review.md
       - pr-visual: reference/dev/pr-visual.md
       - address-pr-feedback: reference/dev/address-pr-feedback.md
-    - Web UI:
-      - V2 Dashboard: web-ui/v2-dashboard.md
-      - Annotations: web-ui/annotations.md
-      - Artifact Viewer: web-ui/artifact-viewer.md
-      - Keyboard Shortcuts: web-ui/keyboard-shortcuts.md
-      - Settings: web-ui/settings.md
   - Troubleshooting: troubleshooting/index.md
-  - Troubleshooting Details:
-    - Installation: troubleshooting/installation.md
   - Concepts:
     - Overview: concepts/index.md
     - Constitutional Prompting: concepts/constitutional-prompting.md
     - Knowledge-Aware Agents: concepts/knowledge-aware-agents.md
-    - Command-Agent Pattern: concepts/command-agent-pattern.md
+    - Skill-Agent Pattern: concepts/command-agent-pattern.md
     - Map-Reduce Workflows: concepts/map-reduce-workflows.md
     - Stateless Agents: concepts/stateless-agents.md
     - Builder-Reviewer Agents: concepts/builder-reviewer-agents.md
-    - Skills: concepts/skills.md
-    - SKILL.md Format: concepts/skill-format.md
-    - Eval System: concepts/eval-system.md
-    - State Machines: concepts/state-machines.md
-    - Platform Tags: concepts/platform-tags.md
-    - WebUI Interaction: concepts/webui.md
   - Retired Features: retired-features.md
 
 extra:

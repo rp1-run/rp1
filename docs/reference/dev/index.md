@@ -1,9 +1,7 @@
 # Dev Plugin Reference
 
-The `rp1-dev` plugin provides development workflow capabilities for the complete feature lifecycle, code quality tools, and PR management.
-
-**Version**: 3.0.0
-**Dependencies**: rp1-base >= 2.0.0
+The `rp1-dev` plugin provides feature delivery, code-quality, and PR workflows
+for day-to-day development.
 
 ---
 
@@ -17,9 +15,7 @@ Build features with full workflow orchestration.
 |---------|-------------|
 | [`build`](build.md) | **Primary skill** -- End-to-end feature workflow (requirements -> design -> build -> verify -> archive) |
 | [`build-fast`](build-fast.md) | Quick iteration for small, well-scoped tasks |
-| `speedrun` | Interactive speedrun loop for small, low-risk changes |
 | [`validate-hypothesis`](validate-hypothesis.md) | Test design assumptions through experiments |
-| `bootstrap` | Bootstrap a new greenfield project with charter discovery and scaffolding |
 
 ### Blueprint & Planning
 
@@ -66,13 +62,21 @@ Review and manage pull requests effectively.
 
 | Skill | Description |
 |---------|-------------|
-| `arcade-collab` | Structured guidance for reading, classifying, and acting on user feedback from the Arcade |
+| [`address-pr-feedback`](address-pr-feedback.md) | Collect, triage, and fix reviewer comments from a PR |
 
 ---
 
 ## Feature Development Workflow
 
-Use `/build` as your **single entry point** for feature development (in OpenCode, use `/rp1-dev-build` or type `/skills` to find it):
+Use the same workflow on every host:
+
+| Host | Example |
+|------|---------|
+| Claude Code | `/build my-feature` |
+| OpenCode | `/rp1-dev-build my-feature` |
+| Codex | `$rp1-dev-build my-feature` |
+
+`/build` is the primary entry point for large or multi-step feature work:
 
 ```mermaid
 flowchart LR
@@ -110,19 +114,13 @@ The skill handles all steps automatically with smart resumption -- it detects ex
 
 ## Installation
 
-=== "Claude Code"
+Install the plugin from the CLI:
 
-    ```bash
-    /plugin marketplace add rp1-run/rp1
-    /plugin install rp1-base  # Required dependency
-    /plugin install rp1-dev
-    ```
-
-=== "OpenCode"
-
-    ```bash
-    curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
-    ```
+```bash
+rp1 install claude-code
+rp1 install opencode
+rp1 install codex
+```
 
 ---
 
@@ -143,5 +141,11 @@ After installation, start a new feature:
     ```
 
     You can also type `/skills` to browse all available skills — rp1 skills are prefixed with `rp1-` (e.g., `/rp1-dev-build`, `/rp1-dev-build-fast`).
+
+=== "Codex"
+
+    ```bash
+    $rp1-dev-build my-feature
+    ```
 
 This runs the complete feature workflow -- collecting requirements, generating design, implementing with builder-reviewer, and verifying the result.

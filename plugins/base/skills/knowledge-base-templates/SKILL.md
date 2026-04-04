@@ -13,6 +13,7 @@ This skill provides professional templates for creating comprehensive codebase k
 - **index.md**: Project overview and quick start guide
 - **concept_map.md**: Domain concepts and terminology glossary
 - **architecture.md**: System architecture with Mermaid diagrams
+- **interaction-model.md**: Cross-surface interaction semantics and UX principles
 - **modules.md**: Component and module breakdown with dependency graphs
 - **patterns.md**: Implementation patterns and coding idioms (≤150 lines)
 - **dependencies.md**: Inter-project dependencies (monorepo)
@@ -45,6 +46,7 @@ For standard single-project repositories:
 ├── index.md              # Project overview
 ├── concept_map.md        # Domain concepts
 ├── architecture.md       # System architecture
+├── interaction-model.md  # Cross-surface interaction semantics
 ├── modules.md            # Module breakdown
 ├── patterns.md           # Implementation patterns
 └── state.json            # Metadata
@@ -73,6 +75,7 @@ For repositories with multiple projects:
 ├── index.md              # Repository overview
 ├── concept_map.md        # Cross-project concepts
 ├── architecture.md       # System-wide architecture
+├── interaction-model.md  # Cross-surface interaction semantics
 ├── modules.md           # Modules across projects
 ├── dependencies.md       # Inter-project relationships
 ├── technology-matrix.md  # Tech stack matrix
@@ -175,6 +178,23 @@ Index.md is designed as a "jump off" point. Agents should:
 - Component diagrams (graph TB/LR)
 - Sequence diagrams (sequenceDiagram)
 - Should be validated with mermaid skill
+
+### interaction-model.md
+**Purpose**: Cross-surface interaction semantics and user-visible behavior
+
+**Key Sections**:
+- Experience principles
+- Actors and surfaces
+- Entry points and primary actions
+- User-visible states and feedback loops
+- Accessibility and discoverability constraints
+- Intentional cross-surface deltas
+
+**When to Use**: Projects with user-facing behavior across CLI, UI, chat, mobile, or other operator surfaces
+
+**Scope Boundary**:
+- Owns verbs, states, feedback, and surface semantics
+- Does NOT duplicate topology from architecture, inventories from modules, or code idioms from patterns
 
 ### modules.md
 **Purpose**: Detailed module and component breakdown
@@ -309,7 +329,7 @@ These templates are designed to work with knowledge building workflows:
 
 ## Index.md Generation (Orchestrator-Owned)
 
-**Important**: Index.md is generated directly by the `/knowledge-build` orchestrator, NOT by a sub-agent. This is because the orchestrator has visibility into all 4 sub-agent outputs and can aggregate key facts into a "jump off" entry point.
+**Important**: Index.md is generated directly by the `/knowledge-build` orchestrator, NOT by a sub-agent. This is because the orchestrator has visibility into all 5 sub-agent outputs and can aggregate key facts into a "jump off" entry point.
 
 ### Aggregation Process
 
@@ -331,6 +351,7 @@ After writing concept_map.md, architecture.md, modules.md, patterns.md, calculat
 ```bash
 wc -l .rp1/context/concept_map.md
 wc -l .rp1/context/architecture.md
+wc -l .rp1/context/interaction-model.md
 wc -l .rp1/context/modules.md
 wc -l .rp1/context/patterns.md
 # For monorepo, also:
@@ -358,7 +379,7 @@ Use template from `templates/{single-project|monorepo}/index.md`:
 
 ### Generation Order
 
-1. Write concept_map.md, architecture.md, modules.md, patterns.md first
+1. Write concept_map.md, architecture.md, interaction-model.md, modules.md, patterns.md first
 2. Calculate line counts for file manifest
 3. Fill index.md template with aggregated data
 4. Write index.md last
@@ -385,12 +406,14 @@ templates/
 │   ├── index.md
 │   ├── concept_map.md
 │   ├── architecture.md
+│   ├── interaction-model.md
 │   ├── modules.md
 │   └── patterns.md
 ├── monorepo/
 │   ├── index.md
 │   ├── concept_map.md
 │   ├── architecture.md
+│   ├── interaction-model.md
 │   ├── modules.md
 │   ├── patterns.md
 │   ├── dependencies.md

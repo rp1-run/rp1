@@ -18,6 +18,12 @@ Thorough code review that understands what your PR is trying to accomplish and c
     /rp1-dev-pr-review [target] [base-branch] [skip-visual]
     ```
 
+=== "Codex"
+
+    ```bash
+    $rp1-dev-pr-review [target] [base-branch] [skip-visual]
+    ```
+
 ## Description
 
 The `pr-review` command performs comprehensive code review by first understanding what your PR is trying to accomplish (from the description or linked issues), then reviewing each changed file against that intent. Findings are synthesized into an overall assessment with specific, actionable feedback.
@@ -127,6 +133,12 @@ Findings are filtered by confidence level:
     /rp1-dev-pr-review
     ```
 
+=== "Codex"
+
+    ```bash
+    $rp1-dev-pr-review
+    ```
+
 ### Review Specific PR
 
 === "Claude Code"
@@ -139,6 +151,12 @@ Findings are filtered by confidence level:
 
     ```bash
     /rp1-dev-pr-review 123
+    ```
+
+=== "Codex"
+
+    ```bash
+    $rp1-dev-pr-review 123
     ```
 
 **Example output:**
@@ -269,4 +287,3 @@ See [Remote PR Review Guide](../../guides/remote-pr-review.md) for detailed setu
 - [Map-Reduce Workflows](../../concepts/map-reduce-workflows.md) - How parallel review works
 - [Remote PR Review Guide](../../guides/remote-pr-review.md) - CI setup tutorial
 - [PR Review Config](../pr-review-config.md) - Configuration reference
-- [Agent Tools](../agent-tools.md) - GitHub PR tools documentation

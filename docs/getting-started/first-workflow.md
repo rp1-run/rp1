@@ -39,6 +39,12 @@ The first step with any existing codebase is building a **knowledge base**. This
     !!! tip "Discovering Skills"
         Type `/skills` in OpenCode to browse all available skills. rp1 skills are prefixed with `rp1-` (e.g., `rp1-base-knowledge-build`, `rp1-dev-build`).
 
+=== "Codex"
+
+    ```bash
+    $rp1-base-knowledge-build
+    ```
+
 ### Expected Output
 
 After the command completes, you'll see:
@@ -80,6 +86,11 @@ The **recommended next step** is to build a feature. This is rp1's flagship work
 ## Explore More Workflows
 
 Now that rp1 understands your codebase, try these workflows:
+
+!!! tip "Codex equivalents"
+    In Codex, use the same workflows with `$rp1-...` names such as
+    `$rp1-dev-blueprint`, `$rp1-dev-build`, `$rp1-dev-build-fast`, and
+    `$rp1-dev-pr-review`.
 
 <div class="grid cards" markdown>
 

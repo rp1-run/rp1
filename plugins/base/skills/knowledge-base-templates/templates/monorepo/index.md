@@ -32,6 +32,7 @@
 | File | Lines | Load For |
 |------|-------|----------|
 | architecture.md | ~[N] | System design, component relationships, data flows |
+| interaction-model.md | ~[N] | Cross-surface interaction semantics, UX principles |
 | modules.md | ~[N] | Component breakdown, module responsibilities |
 | patterns.md | ~[N] | Code conventions, implementation patterns |
 | concept_map.md | ~[N] | Domain terminology, business concepts |
@@ -45,6 +46,7 @@
 | Code review | `patterns.md` |
 | Bug investigation | `architecture.md`, `modules.md` |
 | Feature implementation | `modules.md`, `patterns.md` |
+| Frontend / UX / surface work | `interaction-model.md`, `modules.md`, `patterns.md` |
 | Strategic analysis | ALL files |
 | Security audit | `architecture.md`, `dependencies.md` |
 
@@ -66,6 +68,7 @@ Read: .rp1/context/{filename}
 ## Navigation
 
 - **[architecture.md](architecture.md)**: System design and diagrams
+- **[interaction-model.md](interaction-model.md)**: Cross-surface behavior and UX semantics
 - **[modules.md](modules.md)**: Component breakdown
 - **[patterns.md](patterns.md)**: Code conventions
 - **[concept_map.md](concept_map.md)**: Domain terminology

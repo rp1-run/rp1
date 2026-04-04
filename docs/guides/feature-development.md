@@ -29,6 +29,10 @@ Build your first feature with rp1's complete development workflow. This tutorial
 
     [Command reference :material-arrow-right:](../reference/base/knowledge-build.md) · [Learn about knowledge-aware agents :material-arrow-right:](../concepts/knowledge-aware-agents.md)
 
+!!! tip "Host syntax"
+    Claude Code uses `/build`, OpenCode uses `/rp1-dev-build`, and Codex uses
+    `$rp1-dev-build`.
+
 ---
 
 ## When to Use /build vs /build-fast
@@ -270,7 +274,8 @@ rp1 analyzes your requirements and your codebase (via the KB) to create a design
     - **Dependencies**: Which tasks must complete before others can start
     - **Critical path**: The longest dependency chain
 
-    This enables the build phase to parallelize independent tasks. See [DAG Format Reference](../reference/dag-format.md) for the complete specification.
+    This enables the build phase to parallelize independent tasks without
+    forcing the whole build to run serially.
 
     Example DAG output:
     ```markdown

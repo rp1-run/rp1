@@ -1,79 +1,74 @@
 # Implementation Patterns
 
 **Project**: rp1
-**Last Updated**: 2026-03-26
+**Last Updated**: 2026-04-04
 
 ## Naming & Organization
 
-**Files**: snake_case module files (models.ts, command.ts, database.ts); feature directories group related modules (emit/, state-machine/, task/)
-**Functions**: camelCase verbs: executeEmit, insertRun, validateReadOptions; factory constructors: usageError(), createLogger()
-**Imports**: fp-ts via cli/shared/fp.ts facade with suffix convention (mapTE, chainTE, foldO, mapA); absolute imports with .js extensions; barrel re-exports via index.ts
-
-Evidence: cli/shared/fp.ts, cli/shared/errors.ts, cli/src/agent-tools/emit/models.ts
+- **Files**: TypeScript stays feature-scoped under directories such as `cli/src/commands/`; prompt assets use kebab-case skill folders with `SKILL.md` plus companion docs when deeper guidance is needed.
+- **Functions**: CLI helpers use camelCase verbs; prompt parameters use `UPPER_SNAKE_CASE` in `metadata.arguments`, while agents keep top-level `arguments`.
+- **Imports**: Relative TS imports keep explicit `.js` suffixes; command registration stays centralized in `cli/src/main.ts`.
+- **Evidence**: `cli/src/main.ts`, `plugins/base/skills/write-content/SKILL.md`, `plugins/base/agents/scribe.md`
 
 ## Type & Data Modeling
 
-**Data Representation**: Readonly interfaces with readonly fields; separate Row interfaces (snake_case DB) mapped to Record interfaces (camelCase domain) via pure mapper functions; generic ToolResult<T> envelope for all agent tool output
-**Type Strictness**: Discriminated unions using _tag (CLIError) and type (EventPayload); as const assertions for constant arrays (VALID_STATUSES, PLUGIN_NAMES); ReadonlyMap for state machine states
-**Immutability**: All model interfaces use readonly modifier; DB row-to-record mappers create new objects; readonly arrays in interface definitions
-
-Evidence: cli/shared/errors.ts:12-38, cli/src/agent-tools/models.ts:10-15, cli/shared/events.ts:18-25
+- **Data modeling**: Runtime TS favors discriminated unions, readonly records, and `Either`/`TaskEither`; prompt workflows describe inputs and outputs declaratively in YAML frontmatter and JSON contracts.
+- **Strictness**: Tagged unions (`_tag`, status/event enums) and explicit allowed-value tables are preferred over loose objects or prose-only contracts.
+- **Immutability**: TS models lean on `readonly` and `as const`; prompt workflows treat persisted artifacts such as `brief.md` and `scan_results.json` as source-of-truth snapshots.
+- **Evidence**: `cli/shared/errors.ts`, `cli/shared/events.ts`, `plugins/base/agents/scribe.md`
 
 ## Error Handling
 
-**Strategy**: fp-ts Either<CLIError, A> for sync, TaskEither<CLIError, A> for async; CLIError is a discriminated union with _tag field and 14 factory functions; tryCatchTE wraps Promise into TaskEither
-**Propagation**: Validate at command boundary with E.left early return; TE.Do + TE.bind for multi-field validation pipelines; formatError() at output boundary; TE.orElse for fallback chains; withGitHubErrorHandling wraps API calls with status-code dispatch
-**Common Types**: UsageError, NotFoundError, ConfigError, RuntimeError, ParseError, TransformError, ValidationError, GenerationError, PrerequisiteError, InstallError, BackupError, VerificationError, StrictModeError, PortInUseError
-
-Evidence: cli/shared/errors.ts, cli/src/agent-tools/github-pr/client.ts:62-131
+- **Strategy**: TS code returns `Either` or `TaskEither<CLIError, A>` and formats errors once at the CLI boundary; prompt workers fail fast on invalid inputs and return structured JSON with `errors[]`.
+- **Propagation**: Parent skills gate on hard failures, but batch workflows tolerate partial success when enough worker results are valid.
+- **Common types**: `UsageError`, `ConfigError`, `ValidationError`, `RuntimeError`, and `PrerequisiteError` dominate the changed frontier.
+- **Evidence**: `cli/shared/errors.ts`, `cli/src/commands/build.ts`, `plugins/base/agents/scribe.md`
 
 ## Validation & Boundaries
 
-**Location**: CLI option parsing layer (validateEmitOptions, validateReadOptions, parseBuildArgs); each returns Either<CLIError, ValidatedInput>; two-tier L1/L2 build validation; step validation against state machine graphs
-**Method**: Manual validation with early E.left returns; TE.Do/TE.bind for composing validations; per-event-type payload shape validation via switch dispatch; TTY-aware prompts with non-TTY defaults
-
-Evidence: cli/src/agent-tools/emit/validate.ts:36-50, cli/src/agent-tools/emit/validate.ts:287-318
+- **Where validation happens**: At workflow intake and command boundaries, not deep in execution.
+- **How validation happens**: Explicit enum/default tables, existence checks, compatibility aliases, and stop/continue gates.
+- **Normalization**: `list_marker` is canonical while `list_style` is preserved as a compatibility alias; repo-specific writing always starts from `.rp1/context/index.md` and narrows from there.
+- **Evidence**: `plugins/base/skills/write-content/SKILL.md`, `plugins/base/skills/generate-user-docs/SKILL.md`, `plugins/base/agents/scribe.md`
 
 ## Observability
 
-**Logging**: consola-based Logger via createLogger() factory; level-mapped (trace=5 through error=1); ANSI color formatting for CLI error output
-**Metrics**: Derived from persisted run data (deriveRunStatus, getProjectRunStats)
-**Tracing**: None; local SQLite event store with sequential IDs serves as audit trail
-
-Evidence: cli/shared/errors.ts:179-238
+- **Logging**: CLI entrypoints attach a logger in `preAction`, map `--verbose` and `--trace` to levels, and warn on runtime mismatches before command execution.
+- **Metrics**: No new metrics subsystem appeared in the frontier; workflow visibility is carried mostly by status events, summaries, and persisted artifacts.
+- **Tracing**: Skills emit lifecycle events and persist replayable artifacts under `.rp1/work/...` for audit and debugging.
+- **Evidence**: `cli/src/main.ts`, `plugins/base/skills/write-content/SKILL.md`, `plugins/base/skills/generate-user-docs/SKILL.md`
 
 ## Testing Idioms
 
-**Organization**: Tests under cli/src/__tests__/ mirror source structure; describe/test blocks with bun:test
-**Fixtures**: beforeEach creates temp directories via createTempDir(); afterEach cleans with rm(); DB singleton reset (closeDatabase + resetInstance) between tests; clearCache() for state machine isolation
-**Levels**: E2E integration tests exercising full pipeline (executeEmit through DB); helper functions like expectTaskRight unwrap TaskEither
-
-Evidence: cli/src/__tests__/agent-tools/emit/emit.test.ts
+- **Organization**: Tests live under `cli/src/__tests__/` and mirror feature areas with shared helpers in `helpers/`.
+- **Fixtures**: Common patterns include temp directories, explicit env save/restore, and helper unwraps for `Either` and `TaskEither`.
+- **Levels**: The repo remains unit-heavy, with integration-style setup around CLI, filesystem, and config behavior.
+- **Evidence**: `cli/src/__tests__/pr-review/config.test.ts`, `cli/src/__tests__/helpers/fp-ts-helpers.ts`
 
 ## I/O & Integration
 
-**Database**: bun:sqlite with singleton pattern; WAL mode + busy_timeout pragmas; schema versioning with additive migrations; parameterized queries with $-prefixed named params; RETURNING * for insert-then-read; CHECK constraints mirror TypeScript union types
-**HTTP Clients**: React hooks fetch from /api/v2/ REST endpoints; WebSocket with subscription-based event notification; Octokit wrapper with status-code-aware error mapping (401/403/404/422 dispatch)
-
-Evidence: cli/src/agent-tools/emit/database.ts:1-80, cli/src/agent-tools/github-pr/client.ts:31-131
+- **Workflow I/O**: Doc workflows are explicit `scan -> approve -> process` pipelines that read and write JSON artifacts and use `git` plus `Glob/Grep/Edit` instead of opaque repo sweeps.
+- **CLI entrypoints**: `cli/src/main.ts` lazy-loads heavy or special entrypoints such as `agent-tools` and the daemon server, while concrete commands adapt flags into executor args and delegate real work.
+- **External tooling**: `generate-user-docs` uses git for freshness and diff checks; `build:opencode` surfaces the shared build pipeline as a user command.
+- **Evidence**: `cli/src/main.ts`, `cli/src/commands/build.ts`, `plugins/base/skills/generate-user-docs/SKILL.md`
 
 ## Concurrency & Async
 
-**Async Usage**: TaskEither for async CLI operations wrapping Promise-based code; React hooks with useCallback/useEffect for async data fetching; useRef for mutable state across renders
-**Patterns**: Debounced refetch on WebSocket events (setTimeout 500ms); optimistic UI updates via setRun functional updaters; reconnection reconciliation refetches full state; primitive destructuring for stable useCallback dependencies
-
-Evidence: cli/web-ui/src/hooks/useRunDetail.ts:63-207, cli/web-ui/src/hooks/useRuns.ts:49-96
+- **Async usage**: TS entrypoints use async functions and dynamic imports; workflow prompts describe concurrency declaratively via background agent dispatch and later aggregation.
+- **Parallelism**: Batch by five, run background `rp1-base:scribe` workers, then aggregate counts and errors into one persisted result.
+- **Safety**: Parent workflows keep durable intermediates so retries and gates do not depend on transient prompt context.
+- **Evidence**: `cli/src/main.ts`, `plugins/base/skills/generate-user-docs/SKILL.md`
 
 ## Dependency & Configuration
 
-**DI Pattern**: Manual wiring: singleton DB via getEmitDatabase(); interface + factory function pattern; React Context for WebSocket/Annotations; useContext hooks as dependency access
-**Config Loading**: Environment variables (RP1_DB, GITHUB_TOKEN); project discovery walks directory tree for `.rp1/project_id` with git worktree fallback; KB and work paths are deterministic from project root (`.rp1/context` and `.rp1/work`); schema version migration for config evolution
-
-Evidence: cli/src/agent-tools/emit/database.ts:23-24, cli/shared/config.ts:20-131
+- **Injection**: rp1 skills declare capabilities and parameters declaratively in frontmatter; agents receive pre-resolved parameters from parents and do not re-parse arguments.
+- **Config resolution**: `resolve-args` and `rp1-root-dir` centralize argument and directory resolution; removed env-based root discovery is treated as a repo convention, not a per-skill choice.
+- **Settings**: Project and user settings remain TOML-backed and layered under the shared configuration model.
+- **Evidence**: `plugins/utils/skills/prompt-writer/RP1-AUTHORING.md`, `plugins/base/skills/write-content/SKILL.md`, `cli/shared/config.ts`
 
 ## Extension Mechanisms
 
-**Plugin Pattern**: Multi-platform build pipeline via LiquidJS templates + platform registries; Map-based registerTool/getTool/listTools pattern for agent tools
-**Discovery**: State machine loading via cache -> bundle -> filesystem chain with TE.orElse fallback; Codex TOML must use literal strings (''') not basic strings
-
-Evidence: cli/src/agent-tools/command.ts:68-74
+- **CLI extension**: Commands are added centrally with `program.addCommand(...)`, while heavy subsystems stay behind thin adapters.
+- **Prompt extension**: Workflows compose through `sub_agents` metadata, Liquid tags such as `dispatch_agent`, `ask_user`, `plan_tool`, and companion references loaded on demand.
+- **Build extension**: One prompt source is rendered into Claude Code, OpenCode, and Codex artifacts through a shared LiquidJS-based build pipeline.
+- **Evidence**: `cli/src/main.ts`, `plugins/utils/skills/prompt-writer/SKILL.md`, `plugins/utils/skills/prompt-writer/RP1-AUTHORING.md`

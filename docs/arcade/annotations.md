@@ -1,6 +1,8 @@
 # Annotations
 
-The annotation system enables persistent, contextual feedback on artifacts in the rp1 web UI. Add inline comments and collaborate on design documents, requirements, and code.
+The annotation system enables persistent, contextual feedback on artifacts in
+Arcade. Add inline comments and collaborate on design documents, requirements,
+and code.
 
 ---
 

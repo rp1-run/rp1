@@ -84,6 +84,43 @@ $6
 - Maintain conceptual continuity
 - Build incrementally on established domain model
 
+## §BAYES
+
+Existing `concept_map.md` = prior. New files/diffs/feature notes = evidence. Output = posterior.
+Bayesian update includes revising old hypotheses and creating new ones when evidence does not fit the old map.
+
+- Revise; do not rewrite.
+- Keep prior claims that still fit the evidence.
+- Tighten when evidence sharpens.
+- Rewrite/remove only on contradiction.
+- Add only with strong evidence.
+- Silence in changed files != deletion signal.
+- Local evidence -> local edits. Broad rewrites need broad evidence.
+
+Anti-bias:
+- Read the prior first, but treat it as hypotheses, not truth.
+- For each major claim: `confirmed | refined | contradicted | untested`.
+- Seek disconfirming evidence before preserving a major claim.
+- Preserve `untested` claims unless evidence disproves them.
+
+MUST NOT:
+- keep a claim only because it already exists
+- delete a claim only because new evidence is silent
+- replace a specific prior claim with weaker generic wording
+
+Preserve knowledge mass. Correct it; do not reset it.
+
+## §DISCOVERY
+
+The prior is incomplete.
+
+- Do not limit exploration to concepts already named in the prior.
+- Actively search for new domains, responsibilities, boundaries, links, patterns, and terms.
+- Treat the prior as a starting map, not a closed set.
+- If evidence points to a material area the prior does not model: investigate it, then add it if supported.
+- Missing prior coverage != unimportant.
+- After reconciling existing claims, perform one explicit novelty scan for material knowledge absent from the prior.
+
 ## 2. Parse Input Files
 
 Extract file list from CONCEPT_FILES_JSON:
@@ -93,8 +130,8 @@ Extract file list from CONCEPT_FILES_JSON:
 - Limit to top 100 files by score for efficiency
 
 **Check MODE**:
-- **FULL mode**: Analyze all assigned files completely
-- **INCREMENTAL mode**: Use FILE_DIFFS to focus on changed code sections
+- **FULL mode**: Analyze all assigned files completely. If `FILE_DIFFS` is non-empty, start from that changed-file frontier, then widen.
+- **INCREMENTAL mode**: Use `FILE_DIFFS` to focus on changed code sections. Widen only locally when needed.
 - **FEATURE_LEARNING mode**: Focus on concepts from completed feature implementation. Use FEATURE_CONTEXT to understand what was built, decisions made, and patterns discovered. Prioritize extracting domain concepts that emerged from the feature.
 
 ## 3. Core Domain Concepts

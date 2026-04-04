@@ -117,7 +117,7 @@ export const verifyInstallation = (
 			}
 
 			// Resolve expected counts: manifest names > explicit counts > fallback
-			// Agents default to 0 (agents are embedded in skills, not separate files)
+			// Without a manifest, expected defaults to 0 (display shows count only)
 			const agentsExpected =
 				expectedAgents.size > 0
 					? expectedAgents.size
@@ -125,7 +125,7 @@ export const verifyInstallation = (
 			const skillsExpected =
 				expectedSkills.size > 0
 					? expectedSkills.size
-					: (expectedCounts?.skills ?? 1);
+					: (expectedCounts?.skills ?? 0);
 
 			// Check agents
 			const agentDir = join(configDir, "agents");

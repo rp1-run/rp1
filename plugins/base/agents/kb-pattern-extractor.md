@@ -77,6 +77,43 @@ $6
 - If exists, read to understand current pattern documentation
 - Use as baseline for refinement in INCREMENTAL mode
 
+## §BAYES
+
+Existing `patterns.md` = prior. New files/diffs/feature notes = evidence. Output = posterior.
+Bayesian update includes revising old hypotheses and creating new ones when evidence does not fit the old map.
+
+- Revise; do not rewrite.
+- Keep prior claims that still fit the evidence.
+- Tighten when evidence sharpens.
+- Rewrite/remove only on contradiction.
+- Add only with strong evidence.
+- Silence in changed files != deletion signal.
+- Local evidence -> local edits. Broad rewrites need broad evidence.
+
+Anti-bias:
+- Read the prior first, but treat it as hypotheses, not truth.
+- For each major claim: `confirmed | refined | contradicted | untested`.
+- Seek disconfirming evidence before preserving a major claim.
+- Preserve `untested` claims unless evidence disproves them.
+
+MUST NOT:
+- keep a claim only because it already exists
+- delete a claim only because new evidence is silent
+- replace a specific prior claim with weaker generic wording
+
+Preserve knowledge mass. Correct it; do not reset it.
+
+## §DISCOVERY
+
+The prior is incomplete.
+
+- Do not limit exploration to patterns already named in the prior.
+- Actively search for new conventions, idioms, workarounds, boundaries, and recurring structures.
+- Treat the prior as a starting map, not a closed set.
+- If evidence points to a material area the prior does not model: investigate it, then add it if supported.
+- Missing prior coverage != unimportant.
+- After reconciling existing claims, perform one explicit novelty scan for material knowledge absent from the prior.
+
 ## 2. Parse Input Files
 
 Extract file list from PATTERN_FILES_JSON:
@@ -87,8 +124,8 @@ Extract file list from PATTERN_FILES_JSON:
 
 **Check MODE**:
 
-- **FULL mode**: Analyze all assigned files completely
-- **INCREMENTAL mode**: Use FILE_DIFFS to focus on changed code sections
+- **FULL mode**: Analyze all assigned files completely. If `FILE_DIFFS` is non-empty, start from that changed-file frontier, then widen.
+- **INCREMENTAL mode**: Use `FILE_DIFFS` to focus on changed code sections. Widen only locally when needed.
 - **FEATURE_LEARNING mode**: Focus on implementation patterns from completed feature. Use FEATURE_CONTEXT to understand patterns discovered during implementation, workarounds, and coding idioms used.
 
 **FEATURE_LEARNING mode specific**:

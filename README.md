@@ -50,14 +50,18 @@
 ```bash
 # macOS / Linux (Homebrew)
 brew install rp1-run/tap/rp1
+rp1 install
 
 # Windows (Scoop)
 scoop bucket add rp1 https://github.com/rp1-run/scoop-bucket
 scoop install rp1
+rp1 install
 
 # Or use the install script
 curl -fsSL https://rp1.run/install.sh | sh
 ```
+
+Homebrew and Scoop install the rp1 CLI binary. Run `rp1 install` next to install integrations into detected host tools, then run `rp1 verify` to confirm the installation. The standalone install script already attempts the `rp1 install` step automatically.
 
 ### 2. Initialize your project
 

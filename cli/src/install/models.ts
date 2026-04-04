@@ -49,7 +49,8 @@ export const isHealthy = (report: VerificationReport): boolean => {
 	return (
 		criticalIssues.length === 0 &&
 		report.agentsFound >= report.agentsExpected &&
-		report.skillsFound >= report.skillsExpected
+		report.skillsFound >= report.skillsExpected &&
+		report.skillsFound > 0
 	);
 };
 

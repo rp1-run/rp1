@@ -31,7 +31,7 @@ interface CodexVerifyReport {
  * Execute Codex CLI verification.
  * Checks skills dirs, agent TOML files, and config.toml fenced section.
  */
-export const executeVerifyCodex = async (_logger: Logger): Promise<void> => {
+export const executeVerifyCodex = async (_logger: Logger): Promise<boolean> => {
 	console.log(bold("\nVerifying Codex CLI Plugins\n"));
 
 	const paths = getCodexPaths();
@@ -155,13 +155,14 @@ export const executeVerifyCodex = async (_logger: Logger): Promise<void> => {
 	const healthy = skillOk && configHasFence;
 	if (healthy) {
 		console.log(green(bold("\nAll components installed")));
-	} else {
-		console.log(red(bold("\nInstallation incomplete")));
-		console.log(dim("\nRemediation:"));
-		console.log(dim("  Install missing components with:"));
-		console.log(cyan("    rp1 install codex"));
-		process.exit(1);
+		return true;
 	}
+
+	console.log(red(bold("\nInstallation incomplete")));
+	console.log(dim("\nRemediation:"));
+	console.log(dim("  Install missing components with:"));
+	console.log(cyan("    rp1 install codex"));
+	return false;
 };
 
 /**
@@ -183,5 +184,6 @@ Examples:
 			process.exit(1);
 		}
 
-		await executeVerifyCodex(logger);
+		const ok = await executeVerifyCodex(logger);
+		if (!ok) process.exit(1);
 	});

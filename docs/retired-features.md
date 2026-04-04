@@ -28,7 +28,9 @@ rp1 previously provided CLI commands and workflow flags for creating, managing, 
 
 ### What Remains Supported
 
-rp1 is still **worktree-aware** for project resolution. When invoked from a user-managed linked worktree, rp1 correctly resolves the authoritative `.rp1` directory from the main repository root. This behavior is provided by the [`rp1-root-dir`](reference/cli/rp1-root-dir.md) agent tool, which performs read-only detection only.
+rp1 is still **worktree-aware** for project resolution. When invoked from a
+user-managed linked worktree, rp1 correctly resolves the authoritative `.rp1`
+directory from the main repository root.
 
 ### What to Use Instead
 

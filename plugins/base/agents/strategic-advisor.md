@@ -80,6 +80,7 @@ Before providing your strategic recommendations, conduct a thorough analysis ins
 2. **Load Codebase Knowledge**: Read all markdown files from `.rp1/context/`:
    - `.rp1/context/index.md` - Project overview and structure
    - `.rp1/context/architecture.md` - System design and layers
+   - `.rp1/context/interaction-model.md` - Cross-surface interaction semantics
    - `.rp1/context/modules.md` - Component breakdown
    - `.rp1/context/concept_map.md` - Domain terminology
    - `.rp1/context/patterns.md` - Code conventions

@@ -45,7 +45,7 @@ arguments:
 > **⚠️ DEPRECATED**: This agent is deprecated as of v4.4.0.
 >
 > **Migration**: Index.md is now generated directly by the `knowledge-build` orchestrator
-> in Phase 3 (Reduce Phase). The orchestrator has visibility into all 4 sub-agent outputs
+> in Phase 3 (Reduce Phase). The orchestrator has visibility into all 5 sub-agent outputs
 > and can aggregate key facts into a "jump off" entry point with accurate file manifest.
 >
 > This agent is kept for reference but is no longer spawned by `knowledge-build`.

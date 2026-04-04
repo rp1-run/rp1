@@ -53,6 +53,7 @@ flowchart TB
     SA --> Index[Index Files]
     SA --> Concepts[Concept Files]
     SA --> Arch[Architecture Files]
+    SA --> Interaction[Interaction Files]
     SA --> Modules[Module Files]
     SA --> Patterns[Pattern Files]
 
@@ -64,14 +65,15 @@ flowchart TB
 - Categorization by KB section
 - Dependency mapping
 
-### Phase 2: Process (4 Parallel Agents)
+### Phase 2: Process (5 Parallel Agents)
 
-Four specialized agents process their assigned files simultaneously:
+Five specialized agents process their assigned files simultaneously:
 
 | Agent | Input | Output |
 |-------|-------|--------|
 | concept-extractor | Domain files | `concept_map.md` data |
 | architecture-mapper | Core modules | `architecture.md` data |
+| interaction-mapper | Surface files | `interaction-model.md` data |
 | module-analyzer | All modules | `modules.md` data |
 | pattern-extractor | Source files | `patterns.md` data |
 
@@ -80,19 +82,22 @@ flowchart TB
     subgraph "Parallel Agents"
         A1[concept-extractor]
         A2[architecture-mapper]
-        A3[module-analyzer]
-        A4[pattern-extractor]
+        A3[interaction-mapper]
+        A4[module-analyzer]
+        A5[pattern-extractor]
     end
 
     A1 --> J1[JSON]
     A2 --> J2[JSON]
     A3 --> J3[JSON]
     A4 --> J4[JSON]
+    A5 --> J5[JSON]
 
     style A1 fill:#2e7d32,color:#fff
     style A2 fill:#2e7d32,color:#fff
     style A3 fill:#2e7d32,color:#fff
     style A4 fill:#2e7d32,color:#fff
+    style A5 fill:#2e7d32,color:#fff
 ```
 
 ### Phase 3: Reduce (Merge)
@@ -104,6 +109,7 @@ The orchestrator merges JSON outputs into final KB files:
 ├── index.md         ← from orchestrator (merges all agent outputs)
 ├── concept_map.md   ← from concept-extractor
 ├── architecture.md  ← from architecture-mapper
+├── interaction-model.md ← from interaction-mapper
 ├── modules.md       ← from module-analyzer
 ├── patterns.md      ← from pattern-extractor
 ├── state.json       ← build metadata (shareable)
@@ -206,7 +212,7 @@ flowchart LR
 | Incremental | 10-15 minutes | 2-5 minutes |
 
 **Why faster:**
-- 4 agents work simultaneously
+- 5 agents work simultaneously
 - Each focuses on specific file types
 - No redundant processing
 

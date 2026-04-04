@@ -5,7 +5,7 @@
 
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
-import { formatError, getExitCode } from "../../../shared/errors.js";
+import { formatError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import { isHealthy } from "../../install/models.js";
 import { verifyInstallation } from "../../install/verifier.js";
@@ -20,14 +20,14 @@ const { green, yellow, red, dim, bold, cyan } = colorFns;
 export const executeVerifyOpenCode = async (
 	artifactsDir: string | undefined,
 	_logger: Logger,
-): Promise<void> => {
+): Promise<boolean> => {
 	console.log(bold("\nVerifying OpenCode Plugins\n"));
 
 	const result = await verifyInstallation(artifactsDir)();
 
 	if (E.isLeft(result)) {
 		console.error(formatError(result.left, process.stderr.isTTY ?? false));
-		process.exit(getExitCode(result.left));
+		return false;
 	}
 
 	const report = result.right;
@@ -36,29 +36,34 @@ export const executeVerifyOpenCode = async (
 	console.log("| Component | Found/Expect | Status |");
 	console.log("+-----------+--------------+--------+");
 
-	const cmdOk = report.commandsFound >= report.commandsExpected;
-	const cmdCount = `${report.commandsFound}/${report.commandsExpected}`.padEnd(
-		12,
-	);
-	console.log(
-		`| Commands  | ${cmdCount} | ${cmdOk ? green("  OK  ") : red(" MISS ")} |`,
-	);
-
 	const agentOk = report.agentsFound >= report.agentsExpected;
-	const agentCount = `${report.agentsFound}/${report.agentsExpected}`.padEnd(
-		12,
-	);
-	console.log(
-		`| Agents    | ${agentCount} | ${agentOk ? green("  OK  ") : red(" MISS ")} |`,
-	);
+	if (report.agentsExpected > 0) {
+		const agentCount = `${report.agentsFound}/${report.agentsExpected}`.padEnd(
+			12,
+		);
+		console.log(
+			`| Agents    | ${agentCount} | ${agentOk ? green("  OK  ") : red(" MISS ")} |`,
+		);
+	} else if (report.agentsFound > 0) {
+		const agentCount = `${report.agentsFound}`.padEnd(12);
+		console.log(`| Agents    | ${agentCount} | ${green("  OK  ")} |`);
+	}
 
 	const skillOk = report.skillsFound >= report.skillsExpected;
-	const skillCount = `${report.skillsFound}/${report.skillsExpected}`.padEnd(
-		12,
-	);
-	console.log(
-		`| Skills    | ${skillCount} | ${skillOk ? green("  OK  ") : yellow(" WARN ")} |`,
-	);
+	if (report.skillsExpected > 0) {
+		const skillCount = `${report.skillsFound}/${report.skillsExpected}`.padEnd(
+			12,
+		);
+		console.log(
+			`| Skills    | ${skillCount} | ${skillOk ? green("  OK  ") : yellow(" WARN ")} |`,
+		);
+	} else if (report.skillsFound > 0) {
+		const skillCount = `${report.skillsFound}`.padEnd(12);
+		console.log(`| Skills    | ${skillCount} | ${green("  OK  ")} |`);
+	} else {
+		const skillCount = "0".padEnd(12);
+		console.log(`| Skills    | ${skillCount} | ${red(" MISS ")} |`);
+	}
 
 	const pluginOk = report.pluginsFound >= report.pluginsExpected;
 	const pluginCount = `${report.pluginsFound}/${report.pluginsExpected}`.padEnd(
@@ -79,13 +84,14 @@ export const executeVerifyOpenCode = async (
 
 	if (isHealthy(report)) {
 		console.log(green("All components installed"));
-	} else {
-		console.log(red(bold("\nInstallation incomplete")));
-		console.log(dim("\nRemediation:"));
-		console.log(dim("  Install missing components with:"));
-		console.log(cyan("    rp1 install opencode"));
-		process.exit(1);
+		return true;
 	}
+
+	console.log(red(bold("\nInstallation incomplete")));
+	console.log(dim("\nRemediation:"));
+	console.log(dim("  Install missing components with:"));
+	console.log(cyan("    rp1 install opencode"));
+	return false;
 };
 
 /**
@@ -112,5 +118,6 @@ Examples:
 			process.exit(1);
 		}
 
-		await executeVerifyOpenCode(options.artifactsDir, logger);
+		const ok = await executeVerifyOpenCode(options.artifactsDir, logger);
+		if (!ok) process.exit(1);
 	});

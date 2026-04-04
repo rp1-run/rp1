@@ -1,11 +1,8 @@
 # Base Plugin Reference
 
-The `rp1-base` plugin provides foundation capabilities for knowledge management, deep research, documentation, strategic analysis, security validation, and self-maintenance.
-
-**Version**: 0.6.0
-**Skills**: 15
-**Agents**: 13
-**Dependencies**: None (base plugin)
+The `rp1-base` plugin provides foundation workflows for understanding your
+project, generating documentation, doing deep analysis, and keeping rp1 up to
+date.
 
 ---
 
@@ -14,7 +11,6 @@ The `rp1-base` plugin provides foundation capabilities for knowledge management,
 | Skill | Description |
 |---------|-------------|
 | [`knowledge-build`](knowledge-build.md) | Generate knowledge base using parallel map-reduce architecture |
-| [`knowledge-load`](knowledge-load.md) | Load KB context for downstream agents |
 | [`deep-research`](deep-research.md) | Autonomous research on codebases and technical topics |
 | [`project-birds-eye-view`](project-birds-eye-view.md) | Generate comprehensive project overview with diagrams |
 | [`write-content`](write-content.md) | Interactive technical content creation assistant |
@@ -31,8 +27,8 @@ The `rp1-base` plugin provides foundation capabilities for knowledge management,
 
 Build and load the knowledge base that powers context-aware agents.
 
-- **[`knowledge-build`](knowledge-build.md)**: Analyzes your codebase and generates documentation in `.rp1/context/`
-- **[`knowledge-load`](knowledge-load.md)**: Loads KB context for other agents to use
+- **[`knowledge-build`](knowledge-build.md)**: Analyzes your codebase and
+  generates documentation in `.rp1/context/`
 
 ### Research
 
@@ -68,37 +64,15 @@ Keep rp1 up to date.
 
 ---
 
-## Automatic Update Notifications
+## Invocation Patterns
 
-rp1 automatically checks for updates when you start a new session. If a newer version is available, you will see a notification with the current and available versions.
+Base workflows use the same names on every host:
 
-**Behavior**:
-
-- Checks only on new session start (not on resume, compact, or clear)
-- Version check results are cached for 24 hours to minimize network requests
-- Network failures are handled gracefully (no error shown, session continues normally)
-- Use `rp1 check-update --force` to bypass the cache and check immediately
-
-**Cache Location**: `~/.config/rp1/version-cache.json`
-
-**After Updating**: Restart Claude Code or OpenCode to use the new version.
-
----
-
-## Installation
-
-=== "Claude Code"
-
-    ```bash
-    /plugin marketplace add rp1-run/rp1
-    /plugin install rp1-base
-    ```
-
-=== "OpenCode"
-
-    ```bash
-    curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
-    ```
+| Host | Example |
+|------|---------|
+| Claude Code | `/knowledge-build` |
+| OpenCode | `/rp1-base-knowledge-build` |
+| Codex | `$rp1-base-knowledge-build` |
 
 ---
 
@@ -119,5 +93,11 @@ After installation, generate a knowledge base:
     ```
 
     You can also type `/skills` to browse all available skills — rp1 skills are prefixed with `rp1-` (e.g., `/rp1-base-knowledge-build`, `/rp1-base-strategize`).
+
+=== "Codex"
+
+    ```bash
+    $rp1-base-knowledge-build
+    ```
 
 This creates `.rp1/context/` with documentation files that other skills use for context-aware execution.

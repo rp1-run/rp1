@@ -211,6 +211,7 @@ Location: `.rp1/context/`
 Files:
 - index.md (always load first)
 - architecture.md
+- interaction-model.md
 - modules.md
 - patterns.md
 - concept_map.md
@@ -221,5 +222,6 @@ Loading rules:
    - Code review: patterns.md
    - Bug investigation: architecture.md, modules.md
    - Feature work: modules.md, patterns.md
+   - Frontend, UX, or surface behavior work: interaction-model.md, modules.md, patterns.md
    - Strategic or system-wide analysis: all files
 <!-- rp1:end -->

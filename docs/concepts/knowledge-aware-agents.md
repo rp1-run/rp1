@@ -38,14 +38,14 @@ sequenceDiagram
     participant User
     participant KB as knowledge-build
     participant SA as Spatial Analyzer
-    participant Agents as 4 Parallel Agents
+    participant Agents as 5 Parallel Agents
     participant Files as .rp1/context/
 
     User->>KB: /knowledge-build
     KB->>SA: Analyze codebase
     SA-->>KB: Categorized files
     KB->>Agents: Process in parallel
-    Note over Agents: concept-extractor<br/>architecture-mapper<br/>module-analyzer<br/>pattern-extractor
+    Note over Agents: concept-extractor<br/>architecture-mapper<br/>interaction-mapper<br/>module-analyzer<br/>pattern-extractor
     Agents-->>KB: Analysis results
     KB->>Files: Write KB files
     KB-->>User: READY
@@ -53,7 +53,8 @@ sequenceDiagram
 
 ### Phase 2: Self-Contained Context Loading
 
-rp1 commands are **self-contained**: agents load relevant KB context automatically. You never need to run `/knowledge-load` first.
+rp1 commands are **self-contained**: agents load relevant KB context
+automatically. You do not need a separate "load the KB first" step.
 
 ```mermaid
 sequenceDiagram
@@ -66,6 +67,7 @@ sequenceDiagram
     User->>Cmd: /build my-feature
     Cmd->>Agent: Spawn agent
     Agent->>KB: Load index.md (always)
+    Agent->>KB: Load interaction-model.md (if needed)
     Agent->>KB: Load patterns.md (if needed)
     Agent->>KB: Load modules.md (if needed)
     Agent->>Code: Read relevant files
@@ -85,6 +87,7 @@ The knowledge base lives in `.rp1/context/` and contains:
 |------|---------|----------|
 | `index.md` | Project overview | Structure, entry points, tech stack |
 | `architecture.md` | System architecture | Layers, patterns, integrations |
+| `interaction-model.md` | Cross-surface behavior | Actors, surfaces, states, feedback |
 | `modules.md` | Component breakdown | Modules, dependencies, key files |
 | `concept_map.md` | Domain terminology | Business concepts, glossary |
 | `patterns.md` | Implementation patterns | Code patterns, idioms, conventions |
@@ -192,4 +195,5 @@ The KB should be rebuilt when your codebase changes significantly:
 ## Learn More
 
 - [`knowledge-build` Reference](../reference/base/knowledge-build.md) - Generate the knowledge base
-- [`knowledge-load` Reference](../reference/base/knowledge-load.md) - Load KB context explicitly
+- [Feature Development Guide](../guides/feature-development.md) - See KB-backed
+  workflows in practice

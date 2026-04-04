@@ -7,9 +7,8 @@ hide:
 # stop prompting; **start shipping**
 
 Professional development workflows for AI coding assistants.
-Skip the iteration loops — single-pass workflows that get it right the first time.
-39 commands. 49 specialized agents. Careful context management.
-Works today with **Claude Code** and **OpenCode** (experimental).
+Skip the iteration loops. Keep work attached to projects, artifacts, and feedback instead of ephemeral sessions.
+40 workflow skills. 51 specialized agents. Use the same workflows in **Claude Code**, **OpenCode**, and **Codex**, then review them in **Arcade**.
 
 
 [:fontawesome-solid-terminal: Get Started](getting-started/installation.md){ .md-button .md-button--primary }
@@ -20,37 +19,20 @@ Works today with **Claude Code** and **OpenCode** (experimental).
     <div class="splide__track">
       <ul class="splide__list">
         <li class="splide__slide">
-          <div class="carousel-caption">Feature workflow — requirements, design, tasks, build, verify</div>
-          <div class="terminal-window">
-            <div class="terminal-header">
-              <span class="terminal-dot red"></span>
-              <span class="terminal-dot yellow"></span>
-              <span class="terminal-dot green"></span>
-            </div>
-            <img src="assets/screens/claude-code.png" alt="rp1 feature workflow showing requirements, design, and build commands">
-          </div>
+          <div class="carousel-caption">Project overview</div>
+          <img src="assets/screens/home/arcade-projects.png" alt="Arcade project overview showing project cards and recent workflow state">
         </li>
         <li class="splide__slide">
-          <div class="carousel-caption">PR visualization — understand changes at a glance</div>
-          <div class="terminal-window">
-            <div class="terminal-header">
-              <span class="terminal-dot red"></span>
-              <span class="terminal-dot yellow"></span>
-              <span class="terminal-dot green"></span>
-            </div>
-            <img src="assets/screens/pr-visual.png" alt="rp1 PR visual diagram showing code change visualization">
-          </div>
+          <div class="carousel-caption">Workflow detail</div>
+          <img src="assets/screens/home/arcade-design-step.png" alt="Arcade run detail view showing a workflow design step and related artifacts">
         </li>
         <li class="splide__slide">
-          <div class="carousel-caption">Artifacts-driven development — structured documentation for every feature</div>
-          <div class="terminal-window">
-            <div class="terminal-header">
-              <span class="terminal-dot red"></span>
-              <span class="terminal-dot yellow"></span>
-              <span class="terminal-dot green"></span>
-            </div>
-            <img src="assets/screens/artifacts driven development.png" alt="rp1 artifacts structure showing design decisions and feature documentation">
-          </div>
+          <div class="carousel-caption">Artifact feedback</div>
+          <img src="assets/screens/home/arcade-annotations.png" alt="Arcade annotations view showing comments attached to an artifact">
+        </li>
+        <li class="splide__slide">
+          <div class="carousel-caption">Claude Code workflow</div>
+          <img src="assets/screens/home/claude-code.png" alt="Claude Code running an rp1 feature workflow with structured commands">
         </li>
       </ul>
     </div>
@@ -59,62 +41,69 @@ Works today with **Claude Code** and **OpenCode** (experimental).
 
 ---
 
-## Try it out
+## Start with an outcome
 
-<div class="grid" markdown>
+Pick the workflow that matches the outcome you want. RP1 keeps the artifact trail and review loop intact across Claude Code, OpenCode, and Codex.
 
-<div markdown>
-
-**Ship a feature**
-
-```bash
-/build "user-auth"
-```
-
-Or for small well-scoped quick tasks (that don't need extensive planning):
-
-```bash
-/build-fast "Add dark mode toggle"
-```
-
-**Review a PR**
-
-```bash
-/pr-review "feature/auth"
-```
-
-**Investigate a bug**
-
-```bash
-/code-investigate "bug-123" "Login fails"
-```
-
+<div class="try-grid">
+  <div class="try-card">
+    <p class="try-card-title">Ship a feature</p>
+    <p>Turn a feature idea into requirements, design, implementation, and verification with durable artifacts at every step.</p>
+    <pre><code class="language-bash">/build "user-auth"</code></pre>
+  </div>
+  <div class="try-card">
+    <p class="try-card-title">Make a quick change</p>
+    <p>Push through a bounded change fast without giving up structure, reviewability, or resumability.</p>
+    <pre><code class="language-bash">/build-fast "Add dark mode toggle"</code></pre>
+  </div>
+  <div class="try-card">
+    <p class="try-card-title">Power through small changes</p>
+    <p>Work through a queue of small requests with speed, but still grounded in the codebase, its patterns, and the knowledge base.</p>
+    <pre><code class="language-bash">/speedrun "Tighten the empty state copy"</code></pre>
+  </div>
+  <div class="try-card">
+    <p class="try-card-title">Review a PR</p>
+    <p>Get structured findings, sharper confidence, and visual summaries instead of a shallow skim.</p>
+    <pre><code class="language-bash">/pr-review "feature/auth"</code></pre>
+  </div>
+  <div class="try-card">
+    <p class="try-card-title">Investigate a bug</p>
+    <p>Move from a vague failure to an evidence-backed root cause instead of bouncing through ad hoc prompts.</p>
+    <pre><code class="language-bash">/code-investigate "bug-123" "Login fails"</code></pre>
+  </div>
+  <div class="try-card">
+    <p class="try-card-title">Build project context</p>
+    <p>Generate a project-aware knowledge base so every workflow starts from your actual system, not generic assumptions.</p>
+    <pre><code class="language-bash">/knowledge-build</code></pre>
+  </div>
+  <div class="try-card">
+    <p class="try-card-title">Deep research</p>
+    <p>Investigate a system, compare multiple projects, or pull together a technical brief with grounded findings.</p>
+    <pre><code class="language-bash">/deep-research "Compare backend and frontend error handling"</code></pre>
+  </div>
 </div>
 
-<div markdown>
-
-**Generate knowledge base**
-
-```bash
-/knowledge-build
-```
-
-**Quick code check**
-
-```bash
-/code-check
-```
-
-**Strategic analysis**
-
-```bash
-/strategize
-```
-
-[See all 39 commands :material-arrow-right:](reference/index.md)
-
-</div>
-
+<div class="try-hosts">
+  <p class="try-hosts-title">Same workflow, different harness</p>
+  <div class="try-hosts-grid">
+    <div>
+      <strong>Claude Code</strong><br>
+      <code>/build "user-auth"</code>
+    </div>
+    <div>
+      <strong>OpenCode</strong><br>
+      <code>/rp1-dev-build "user-auth"</code>
+    </div>
+    <div>
+      <strong>Codex</strong><br>
+      <code>$rp1-dev-build "user-auth"</code>
+    </div>
+  </div>
+  <p class="try-hosts-links">
+    <a href="reference/index.md">See the workflow reference</a>
+    <span>·</span>
+    <a href="arcade/index.md">Explore Arcade</a>
+  </p>
 </div>
 
 ---
@@ -135,7 +124,7 @@ Constitutional prompts encode expert patterns with built-in rules. No "let me re
 
 <div markdown>
 
-:fontawesome-solid-brain: **Get context-aware suggestions instantly**
+:fontawesome-solid-brain: **Project-aware from the first command**
 
 Run `knowledge-build` once. Your architecture becomes context for every command. No generic advice — everything respects your patterns.
 
@@ -145,11 +134,11 @@ Run `knowledge-build` once. Your architecture becomes context for every command.
 
 <div markdown>
 
-:fontawesome-solid-layer-group: **Keep your AI focused, not overwhelmed**
+:fontawesome-solid-comment-dots: **Give feedback in context**
 
-Progressive disclosure and subagent delegation offload complex work to specialized agents while keeping your main thread focused. This allows your workflows to run uninterrupted for hours if needed on complex tasks.
+Open artifacts in Arcade and annotate the exact file or section you want changed. Agents can pick that feedback up without forcing you into copy-paste loops.
 
-[Explore the command-agent pattern :material-arrow-right:](concepts/command-agent-pattern.md)
+[Use Arcade annotations :material-arrow-right:](arcade/annotations.md)
 
 </div>
 
@@ -165,19 +154,19 @@ Automatic hypothesis testing catches bad assumptions early. Design decisions get
 
 <div markdown>
 
-:fontawesome-solid-door-open: **Jump in with any level of planning**
+:fontawesome-solid-shuffle: **Switch harnesses without switching costs**
 
-Full blueprints with charters and PRDs, or jump straight in with a vague idea. Structured when you need it, flexible when you don't.
+rp1 keeps the workflow layer stable across Claude Code, OpenCode, and Codex. The syntax adapts to each host, but the workflow, artifacts, and review loop stay the same.
 
-[Try the blueprint wizard :material-arrow-right:](reference/dev/blueprint.md)
+[See the same workflows on every host :material-arrow-right:](reference/dev/index.md)
 
 </div>
 
 <div markdown>
 
-:fontawesome-solid-file-lines: **Artifact-driven development**
+:fontawesome-solid-file-lines: **Durable artifacts, not disposable chats**
 
-Understand what is being created, how it's being created, and why. Full transparency into the agent's thinking as work progresses. Artifacts also enable full resumability — workflows aren't tied to the agent's context window to remember state.
+Requirements, design, tasks, verification, and reports stay attached to the project and remain resumable across sessions, reviews, and handoffs.
 
 [See the feature workflow :material-arrow-right:](guides/feature-development.md)
 
@@ -195,7 +184,7 @@ Understand what is being created, how it's being created, and why. Full transpar
 
 :fontawesome-solid-battery-full: **Batteries Included**
 
-Skills, subagents, specialized agent tools, and finely-tuned prompts ship out of the box. No assembly required.
+Workflows, subagents, KB generation, and structured artifacts ship together. No prompt assembly required.
 
 </div>
 
@@ -209,25 +198,25 @@ Fully pluggable into existing agentic tools. Your workflows, your control.
 
 <div markdown>
 
-:fontawesome-solid-eye: **Visual-First**
+:fontawesome-solid-eye: **Observable by Default**
 
-Heavily leans on visual language — diagrams, charts, and structured outputs for clarity.
-
-</div>
-
-<div markdown>
-
-:fontawesome-solid-rotate: **Continuous Evolution**
-
-Keep improving and adapting as frontier models mature. Today's best, tomorrow's baseline.
+Runs, gates, artifacts, and annotations stay visible in Arcade instead of disappearing into chat scrollback.
 
 </div>
 
 <div markdown>
 
-:fontawesome-solid-shuffle: **Model/Tool Agnostic**
+:fontawesome-solid-rotate: **Stable Workflows, Evolving Harnesses**
 
-No lock-in to any frontier lab or platform. Works with Claude Code, OpenCode, and more tools coming.
+Keep the workflow layer stable while frontier models and host tools keep changing.
+
+</div>
+
+<div markdown>
+
+:fontawesome-solid-shuffle: **Same Workflows, Different Hosts**
+
+Use rp1 from Claude Code, OpenCode, or Codex without rewriting how your team works.
 
 </div>
 
@@ -289,9 +278,9 @@ Get new developers productive on your codebase fast. Knowledge base + guided exp
 
 <div class="platform-card" markdown>
 
-<img src="assets/brands/claude.png" width="32">
+<span class="platform-logo platform-logo--claude" aria-hidden="true"></span>
 
-**Claude Code**
+**Claude**
 
 [Setup guide :material-arrow-right:](getting-started/installation.md)
 
@@ -299,17 +288,25 @@ Get new developers productive on your codebase fast. Knowledge base + guided exp
 
 <div class="platform-card" markdown>
 
-<img src="assets/brands/opencode.png" width="32">
+<span class="platform-logo platform-logo--opencode" aria-hidden="true"></span>
 
-**OpenCode** (experimental)
+**opencode**
+
+[Setup guide :material-arrow-right:](getting-started/installation.md)
+
+</div>
+
+<div class="platform-card" markdown>
+
+<span class="platform-logo platform-logo--codex" aria-hidden="true"></span>
+
+**Codex**
 
 [Setup guide :material-arrow-right:](getting-started/installation.md)
 
 </div>
 
 </div>
-
-**Coming soon:** Cursor, Goose, Amp
 
 ---
 

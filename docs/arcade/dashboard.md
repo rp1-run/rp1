@@ -1,6 +1,7 @@
-# Status Dashboard
+# Arcade Dashboard
 
-The dashboard provides a glanceable status view for monitoring AI agent runs across all your projects. Access it at `/` when the web UI is running.
+The dashboard provides a glanceable status view for monitoring AI agent runs
+across all your projects. Access it at `/` when Arcade is running.
 
 **Time to orient**: Under 30 seconds to understand what needs attention.
 
@@ -8,12 +9,15 @@ The dashboard provides a glanceable status view for monitoring AI agent runs acr
 
 ## Accessing the Dashboard
 
-Start the web UI with `rp1 arcade`:
+Arcade normally starts automatically when your coding agent session starts.
+If it does not, start it manually with `rp1 arcade`:
 
 ```bash
 rp1 arcade
 # Opens http://localhost:7710
 ```
+
+You can run that command from any project directory.
 
 ---
 
@@ -154,7 +158,8 @@ When a workflow step has associated agent activity, the step timeline displays a
 **Example**: During a `build` workflow's "build" phase, you might see:
 - `task-builder`: building (T2) -- with T1 shown as completed
 
-See [State Machines](../concepts/state-machines.md) for how agents define and report state machine transitions.
+Agent activity shown here is driven by the workflow steps and status events that
+rp1 records while a run is in progress.
 
 ### Artifacts Panel
 
