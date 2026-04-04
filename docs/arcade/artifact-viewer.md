@@ -1,6 +1,8 @@
 # Artifact Viewer
 
-The Artifact Viewer displays design documents, requirements, and other artifacts generated during rp1 workflows. Access it from run details or the project artifacts list.
+The Artifact Viewer displays design documents, requirements, and other
+artifacts generated during rp1 workflows. Access it from Arcade run details or
+the project artifacts list.
 
 ---
 

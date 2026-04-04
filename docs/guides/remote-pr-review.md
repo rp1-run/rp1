@@ -345,4 +345,5 @@ You've learned how to set up remote PR review:
 - [PR Review Config Reference](../reference/pr-review-config.md) - All configuration options
 - [PR Review Command Reference](../reference/dev/pr-review.md) - Command details
 - [CI/CD Integration Guide](ci-cd-integration.md) - Broader CI/CD patterns
-- [Agent Tools Reference](../reference/agent-tools.md) - GitHub PR tools documentation
+- [Troubleshooting](../troubleshooting/index.md) - Recover from CI install
+  issues

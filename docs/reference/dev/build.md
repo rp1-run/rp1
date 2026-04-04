@@ -18,6 +18,12 @@ End-to-end feature workflow orchestrator. Runs the complete 6-step lifecycle (re
     /rp1-dev-build <feature-id> [requirements...] [--afk] [--git-commit] [--git-push] [--git-pr]
     ```
 
+=== "Codex"
+
+    ```bash
+    $rp1-dev-build <feature-id> [requirements...] [--afk] [--git-commit] [--git-push] [--git-pr]
+    ```
+
 ## Description
 
 The `build` command is the **primary entry point** for feature development. It orchestrates all workflow steps automatically with smart resumption — detecting existing artifacts and continuing from where you left off.
@@ -135,6 +141,12 @@ If you stopped at a gate, resuming `/build` continues from the next stage.
     /rp1-dev-build user-authentication
     ```
 
+=== "Codex"
+
+    ```bash
+    $rp1-dev-build user-authentication
+    ```
+
 ### With Initial Requirements
 
 === "Claude Code"
@@ -147,6 +159,12 @@ If you stopped at a gate, resuming `/build` continues from the next stage.
 
     ```bash
     /rp1-dev-build dark-mode "Add dark mode toggle to settings page with system preference detection"
+    ```
+
+=== "Codex"
+
+    ```bash
+    $rp1-dev-build dark-mode "Add dark mode toggle to settings page with system preference detection"
     ```
 
 ### AFK Mode (Autonomous)
@@ -163,8 +181,14 @@ If you stopped at a gate, resuming `/build` continues from the next stage.
     /rp1-dev-build api-refactor --afk
     ```
 
+=== "Codex"
+
+    ```bash
+    $rp1-dev-build api-refactor --afk
+    ```
+
 !!! note "Your code is safe"
-    Even in AFK mode, all changes are isolated to a separate branch. Nothing is merged until you review and approve.
+    Even in AFK mode, git operations remain opt-in through `--git-*` flags.
 
 ### With PR Creation
 
@@ -180,6 +204,12 @@ If you stopped at a gate, resuming `/build` continues from the next stage.
     /rp1-dev-build new-feature --git-pr
     ```
 
+=== "Codex"
+
+    ```bash
+    $rp1-dev-build new-feature --git-pr
+    ```
+
 ### With Git Commit Only
 
 === "Claude Code"
@@ -192,6 +222,12 @@ If you stopped at a gate, resuming `/build` continues from the next stage.
 
     ```bash
     /rp1-dev-build new-feature --git-commit
+    ```
+
+=== "Codex"
+
+    ```bash
+    $rp1-dev-build new-feature --git-commit
     ```
 
 ## Output
@@ -305,7 +341,7 @@ Semantic `{% dispatch_agent %}` blocks render to Codex `Spawn agent:` instructio
 
 Running `rp1 install codex` copies skill directories to `~/.codex/skills/`, per-agent TOML files to `~/.codex/agents/rp1/`, and merges the slim config entries into `~/.codex/config.toml`. The managed section now also installs a Codex `notify` command that routes startup notices through `rp1 agent-tools codex-notify`. Uninstallation removes only rp1-managed artifacts (skill directories prefixed with `rp1-*`, the `~/.codex/agents/rp1/` directory, and the fenced Codex config section) while preserving user-created and third-party Codex configuration.
 
-For a detailed breakdown of validated Codex capabilities and platform differences, see the [Codex Capabilities](codex-capabilities.md) reference.
+Use the same workflow name on Codex with the `$rp1-dev-build` form.
 
 ## See Also
 

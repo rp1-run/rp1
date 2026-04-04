@@ -1,6 +1,6 @@
 # install
 
-Install rp1 plugins for AI coding assistants.
+Install rp1 plugins for supported host tools.
 
 ---
 
@@ -12,254 +12,130 @@ rp1 install <subcommand> [options]
 
 ## Description
 
-The `install` command installs rp1 plugins (rp1-base and rp1-dev) for your AI coding assistant. It supports Claude Code, OpenCode, and can auto-detect all installed tools.
+Use `rp1 install` when you want to install or refresh rp1 for a specific host
+tool, or for every detected host on the machine.
+
+Supported targets:
+
+- Claude Code
+- OpenCode
+- Codex
 
 ## Subcommands
 
 ### `install claude-code`
 
-Install plugins to Claude Code.
-
 ```bash
 rp1 install claude-code [options]
 ```
 
-This command:
-
-1. Verifies Claude Code is installed
-2. Installs rp1-base plugin
-3. Installs rp1-dev plugin
-4. Confirms installation success
+Installs rp1 into Claude Code.
 
 ### `install opencode`
-
-Install plugins to OpenCode.
 
 ```bash
 rp1 install opencode [options]
 ```
 
-This command:
+Installs rp1 into OpenCode.
 
-1. Verifies OpenCode is installed
-2. Copies plugin files to OpenCode prompts directory
-3. Confirms installation success
+### `install codex`
+
+```bash
+rp1 install codex [options]
+```
+
+Installs rp1 into Codex. This writes:
+
+- skills to `~/.codex/skills/`
+- agents to `~/.codex/agents/rp1/`
+- the rp1-managed section in `~/.codex/config.toml`
 
 ### `install all`
-
-Install plugins to all detected AI tools.
 
 ```bash
 rp1 install all [options]
 ```
 
-This command:
-
-1. Detects installed AI tools (Claude Code, OpenCode)
-2. Installs plugins for each detected tool
-3. Reports results for all tools
+Detects installed tools and installs rp1 to every supported one it finds.
 
 ## Options
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--dry-run` | | Show what would be installed without making changes. Also validates prerequisites (network, disk space). |
-| `--strict` | | Fail on any missing source directories (useful for CI/CD). Exit code 5 on strict mode failures. |
+| `--dry-run` | | Show what would be installed without changing anything |
+| `--strict` | | Fail if required source artifacts are missing |
 | `--yes` | `-y` | Skip confirmation prompts |
 | `--help` | `-h` | Display help information |
 
 ## Examples
 
-### Install for Claude Code
+### Install for a single host
 
 ```bash
 rp1 install claude-code
+rp1 install opencode
+rp1 install codex
 ```
 
-**Expected output:**
-
-```
-Installing rp1 plugins for Claude Code...
-
-  Installing rp1-base...
-  Installing rp1-dev...
-
-Plugins installed successfully.
-
-Next steps:
-  1. Restart Claude Code to load plugins
-  2. Type / to see available commands
-```
-
-### Install for all detected tools
+### Install everywhere detected
 
 ```bash
 rp1 install all
 ```
 
-**Expected output:**
-
-```
-Detecting AI tools...
-  Found: Claude Code v2.0.75
-  Found: OpenCode v0.8.0
-
-Installing plugins for all detected tools...
-
-Claude Code:
-  Installing rp1-base...
-  Installing rp1-dev...
-
-OpenCode:
-  Copying plugins to ~/.opencode/prompts/...
-
-All plugins installed successfully.
-```
-
-### Preview installation (dry run)
+### Preview without changing anything
 
 ```bash
-rp1 install claude-code --dry-run
+rp1 install codex --dry-run
 ```
-
-**Expected output:**
-
-```
-[DRY RUN] Would install:
-  - rp1-base to Claude Code
-  - rp1-dev to Claude Code
-
-Validating prerequisites...
-  Network connectivity: OK
-  Disk space: OK (150 MB available)
-  Latest version: 0.3.1
-
-No changes made.
-```
-
-### Strict mode for CI/CD
-
-```bash
-rp1 install opencode --strict
-```
-
-In strict mode, the command fails with exit code 5 if any source directories are missing. This is useful for CI/CD pipelines where you want deterministic failures rather than silent warnings.
-
-**Example in CI:**
-
-```yaml
-- name: Install rp1 plugins
-  run: rp1 install all --strict --yes
-```
-
-### Non-interactive installation
-
-```bash
-rp1 install all --yes
-```
-
-Skips all confirmation prompts. Useful for CI/CD or automation scripts.
 
 ## Verification
 
-After installation, verify plugins are correctly installed:
+After installation, verify the target host:
 
 ```bash
-# Verify Claude Code installation
 rp1 verify claude-code
-
-# Verify OpenCode installation
 rp1 verify opencode
-
+rp1 verify codex
 ```
 
-**Example output:**
+## Typical Locations
 
-```
-Plugin Verification: Claude Code
-
-Component        Status    Path
-rp1-base         OK        ~/.claude/commands/rp1-base
-rp1-dev          OK        ~/.claude/commands/rp1-dev
-
-All plugins verified successfully.
-```
-
-## Reliability Features
-
-### Automatic Rollback
-
-If installation fails partway through, rp1 automatically restores your previous installation from backup. You'll see a message like:
-
-```
-Installation failed. Restored previous installation (12 files). You can safely retry the installation.
-```
-
-### Safe Interruption
-
-You can safely press Ctrl+C during installation. The system will:
-
-1. Stop the installation gracefully
-2. Restore any backed-up files
-3. Clean up partial state
-4. Display guidance for retrying
-
-### Atomic Installation (OpenCode)
-
-For OpenCode installations, plugins are first copied to a staging directory (`~/.config/.rp1-staging/`), verified, then atomically moved to the target location. This ensures you never end up with a partial installation.
+| Host | Typical Install Location |
+|------|--------------------------|
+| OpenCode | `~/.config/opencode/plugins/` |
+| Codex skills | `~/.codex/skills/` |
+| Codex agents | `~/.codex/agents/rp1/` |
 
 ## Troubleshooting
 
-??? question "Installation fails with 'tool not found'"
+### Tool not found
 
-    Ensure your AI tool is installed and in your PATH:
+Confirm the host is installed and on your `PATH`:
 
-    ```bash
-    # Check Claude Code
-    which claude
+```bash
+which claude
+which opencode
+which codex
+```
 
-    # Check OpenCode
-    which opencode
-    ```
+### Plugins do not appear after install
 
-    If the binary is installed but not in PATH, add it to your shell configuration.
+1. Restart the host tool
+2. Run the matching `rp1 verify ...` command
+3. Check the install location for the host you are using
 
-??? question "Plugins not appearing after installation"
+### Permission denied
 
-    1. **Restart your AI tool** - Plugins are only loaded at startup
-    2. **Verify installation** - Run `rp1 verify claude-code` or `rp1 verify opencode`
-    3. **Check plugin directory** - Ensure plugins exist in the expected location:
-        - Claude Code: `~/.claude/commands/`
-        - OpenCode: `~/.opencode/prompts/`
+Confirm you can write to the relevant configuration directory:
 
-??? question "Permission denied during installation"
-
-    Check file permissions on the plugin directory:
-
-    ```bash
-    # Claude Code
-    ls -la ~/.claude/
-
-    # OpenCode
-    ls -la ~/.opencode/
-    ```
-
-    Ensure your user has write access to these directories.
-
-## Deprecated Syntax
-
-!!! warning "Deprecated Commands"
-    The following commands are deprecated and will be removed in a future release:
-
-    | Deprecated | New Command |
-    |------------|-------------|
-    | `rp1 install:claude-code` | `rp1 install claude-code` |
-    | `rp1 install:opencode` | `rp1 install opencode` |
-
-    The deprecated commands still work but display a warning message.
+```bash
+ls -la ~/.config/opencode/
+ls -la ~/.codex/
+```
 
 ## See Also
 
-- [Installation Guide](../../getting-started/installation.md) - Complete installation walkthrough
-- [`init`](init.md) - Initialize rp1 in a project (includes plugin installation)
-- [`update`](update.md) - Update CLI and plugins
+- [Installation Guide](../../getting-started/installation.md)
+- [update](update.md)

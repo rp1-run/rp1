@@ -37,7 +37,9 @@ rp1 stores all project-specific data in a `.rp1/` directory at your project root
 
 ## Project Identity
 
-Every rp1 project has a `.rp1/project_id` file containing a UUID (e.g., `550e8400-e29b-41d4-a716-446655440000`). This file is:
+Every rp1 project has a `.rp1/project_id` file containing a UUID (e.g., `550e8400-e29b-41d4-a716-446655440000`). Think of this as the stable identity rp1 uses to tell one project apart from another. It lets rp1 and Arcade keep runs, artifacts, and tasks attached to the right project even if you clone the repo elsewhere, rename the parent folder, or work from linked worktrees.
+
+This file is:
 
 - **Created automatically** by `rp1 init` or `rp1 migrate`.
 - **Checked into version control** so all team members and clones share the same identity.
@@ -89,9 +91,7 @@ The `.rp1/context/` directory contains your auto-generated knowledge base. There
 
 ## Monorepo Considerations
 
-For monorepos, you have two options:
-
-**Option A: Per-project .rp1 directories (Recommended)**
+For monorepos, initialize rp1 inside each project you want rp1 to track. Do not create a single `.rp1/` at the monorepo root.
 
 Create `.rp1/` inside each project to keep context tight and focused:
 
@@ -107,27 +107,16 @@ my-monorepo/
         └── .rp1/         # API-specific KB
 ```
 
-This approach:
+This is the supported pattern:
 
 - Keeps knowledge bases focused on each project's domain
 - Allows independent KB regeneration
 - Reduces noise when working on a single project
+- Gives each project its own `project_id`, so Arcade and rp1 do not mix activity from unrelated packages
 
-**Option B: Root-level .rp1 directory**
+Root-level monorepo `.rp1/` setup is not a supported pattern. If you want rp1 coverage for multiple packages or services, initialize each one separately and run rp1 from the project you are actively working in.
 
-Place `.rp1/` at the repository root for a unified view:
-
-```
-my-monorepo/
-├── .rp1/                 # Shared KB at repo root
-│   ├── project_id
-│   ├── context/
-│   └── work/
-├── packages/
-└── services/
-```
-
-rp1 automatically detects monorepo structures and creates project-specific sections. Use this when you need cross-project context.
+This does not block cross-project workflows. Commands such as `deep-research` can still switch into multi-project analysis when your request spans multiple codebases, then load the relevant rp1 context for each project they inspect.
 
 ---
 
@@ -174,11 +163,8 @@ The command is idempotent and safe to run multiple times. See [`rp1 migrate`](..
 ??? question "Feature files not found?"
 
     Ensure you're in the correct directory. Feature commands look for files in `.rp1/work/features/{feature-id}/`.
-
-    ```bash
-    # Check your resolved directories
-    rp1 agent-tools rp1-root-dir
-    ```
+    If you are using linked worktrees, remember that rp1 resolves back to the
+    shared project-level `.rp1/` directory.
 
 ??? question "Getting a warning about missing project_id?"
 

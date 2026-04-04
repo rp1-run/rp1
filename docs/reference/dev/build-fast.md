@@ -18,13 +18,24 @@ Quick-iteration development for small, well-scoped tasks using the [command-agen
     /rp1-dev-build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-commit] [--git-push]
     ```
 
+=== "Codex"
+
+    ```bash
+    $rp1-dev-build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-commit] [--git-push]
+    ```
+
 ## Description
 
 The `build-fast` command handles development requests that don't warrant the full feature workflow. It assesses request scope and either implements the changes (for small/medium scope) or redirects to `/build` (for large scope).
 
 By default, changes are made in your current working directory without any git operations. Use `--git-*` flags to enable commits or pushing.
 
-This command uses the [command-agent pattern](../../concepts/command-agent-pattern.md) with scope gating and AFK mode support.
+This command uses the [skill-agent pattern](../../concepts/command-agent-pattern.md)
+with scope gating and AFK mode support.
+
+!!! tip "Codex syntax"
+    In Codex, use the same workflow name with the `$rp1-dev-...` prefix, for
+    example `$rp1-dev-build-fast "fix flaky auth test"`.
 
 ## Parameters
 
@@ -157,6 +168,12 @@ Review the changes, then:
 
     ```bash
     /rp1-dev-build-fast "Fix the authentication bug when token expires"
+    ```
+
+=== "Codex"
+
+    ```bash
+    $rp1-dev-build-fast "Fix the authentication bug when token expires"
     ```
 
 ### Small Enhancement

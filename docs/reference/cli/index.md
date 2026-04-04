@@ -1,6 +1,7 @@
 # CLI Reference
 
-The rp1 CLI provides commands for initializing projects, managing plugin installations, and keeping rp1 up to date.
+The rp1 CLI provides the setup and maintenance commands that sit outside your
+AI assistant session.
 
 ---
 
@@ -12,24 +13,7 @@ The rp1 CLI provides commands for initializing projects, managing plugin install
 | [`install`](install.md) | Install rp1 plugins for AI tools |
 | [`verify`](install.md#verification) | Verify plugin installation |
 | [`update`](update.md) | Update rp1 CLI and plugins |
-
----
-
-## Agent Tools
-
-Agent tools are CLI utilities designed for use by AI agents during automated workflows. They provide structured JSON output for programmatic consumption.
-
-| Command | Description |
-|---------|-------------|
-| [`rp1-root-dir`](rp1-root-dir.md) | Resolve canonical project, KB, and work directories with worktree detection |
-| [`emit`](../agent-tools.md#emit) | Record events for the rp1 workflow event system |
-| [`comment-extract`](../agent-tools.md#comment-extract) | Extract comments from git-changed files |
-| [`feedback`](../agent-tools.md#feedback) | Read, resolve, reply to, and accept feedback from the Arcade |
-| [`github-pr`](../agent-tools.md#github-pr) | GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments) |
-| [`mmd-validate`](../agent-tools.md#mmd-validate) | Validate Mermaid diagram syntax in markdown or raw input |
-| [`task`](../agent-tools.md#task) | Manage task queue (create, list, pickup, complete, fail, cancel, get) |
-
-See [Agent Tools Reference](../agent-tools.md) for the full documentation.
+| [`rp1 migrate`](rp1-migrate.md) | Migrate older projects into the project-local `.rp1/` layout |
 
 ---
 

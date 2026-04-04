@@ -1,6 +1,8 @@
 # Concepts
 
-Understanding the core ideas behind rp1 helps you get the most out of its workflows. These concept guides explain the "why" behind rp1's design decisions.
+Understanding the core ideas behind rp1 helps you get more out of its
+workflows. These guides explain the patterns that end users interact with
+directly.
 
 ---
 
@@ -54,38 +56,6 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
     [:octicons-arrow-right-24: Learn more](builder-reviewer-agents.md)
 
--   :material-shield-check: **Eval System**
-
-    ---
-
-    Understand how content-addressable attestation ensures prompt changes are tested and traceable.
-
-    [:octicons-arrow-right-24: Learn more](eval-system.md)
-
--   :material-file-document-edit: **SKILL.md Format**
-
-    ---
-
-    The canonical format specification for all rp1 invocable prompts, replacing the legacy command format.
-
-    [:octicons-arrow-right-24: Learn more](skill-format.md)
-
--   :material-keyboard: **WebUI Interaction**
-
-    ---
-
-    Navigate the rp1 WebUI with keyboard shortcuts, a command palette, and vim-style navigation.
-
-    [:octicons-arrow-right-24: Learn more](webui.md)
-
--   :material-state-machine: **State Machines**
-
-    ---
-
-    Declarative workflow state management via co-located Mermaid state diagrams for validated transitions and dashboard visibility.
-
-    [:octicons-arrow-right-24: Learn more](state-machines.md)
-
 </div>
 
 ---
@@ -100,10 +70,6 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 | [Map-Reduce Workflows](map-reduce-workflows.md) | Parallel processing pattern | Fast KB and PR analysis |
 | [Stateless Agents](stateless-agents.md) | Resumable interview workflows | Robust, transparent state |
 | [Builder-Reviewer Agents](builder-reviewer-agents.md) | Adversarial agent cooperation | Higher quality, reliable code |
-| [Eval System](eval-system.md) | Content-addressable attestation | Deterministic, traceable releases |
-| [SKILL.md Format](skill-format.md) | Canonical format for all rp1 prompts | Single source of truth, cross-platform |
-| [WebUI Interaction](webui.md) | Keyboard-first WebUI navigation | Fast navigation without a mouse |
-| [State Machines](state-machines.md) | Declarative workflow state management | Validated transitions, automatic dashboard visibility |
 
 ---
 
@@ -121,11 +87,5 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
 **Want reliable implementations?** See [Builder-Reviewer Agents](builder-reviewer-agents.md) for adversarial cooperation.
 
-**Building evals for prompts?** See [Eval System](eval-system.md) for content-addressable attestation.
-
-
-**Migrating commands to skills?** See [SKILL.md Format](skill-format.md) for the canonical format specification.
-
-**Using the WebUI?** See [WebUI Interaction](webui.md) for keyboard shortcuts and the command palette.
-
-**Adding workflow tracking to a skill?** See [State Machines](state-machines.md) for the declarative state management pattern.
+**Using Arcade?** See [Arcade](../arcade/index.md) and
+[Keyboard Shortcuts](../arcade/keyboard-shortcuts.md).

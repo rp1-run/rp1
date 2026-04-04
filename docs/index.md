@@ -8,8 +8,8 @@ hide:
 
 Professional development workflows for AI coding assistants.
 Skip the iteration loops — single-pass workflows that get it right the first time.
-39 commands. 49 specialized agents. Careful context management.
-Works today with **Claude Code** and **OpenCode** (experimental).
+40 workflow skills. 51 specialized agents. Careful context management.
+Works today with **Claude Code**, **OpenCode**, and **Codex**.
 
 
 [:fontawesome-solid-terminal: Get Started](getting-started/installation.md){ .md-button .md-button--primary }
@@ -111,7 +111,10 @@ Or for small well-scoped quick tasks (that don't need extensive planning):
 /strategize
 ```
 
-[See all 39 commands :material-arrow-right:](reference/index.md)
+In Codex, invoke the same workflows with `$rp1-...` names such as
+`$rp1-dev-build` or `$rp1-base-knowledge-build`.
+
+[See the workflow reference :material-arrow-right:](reference/index.md)
 
 </div>
 
@@ -195,7 +198,7 @@ Understand what is being created, how it's being created, and why. Full transpar
 
 :fontawesome-solid-battery-full: **Batteries Included**
 
-Skills, subagents, specialized agent tools, and finely-tuned prompts ship out of the box. No assembly required.
+Workflows, subagents, KB generation, and structured artifacts ship together. No prompt assembly required.
 
 </div>
 
@@ -227,7 +230,7 @@ Keep improving and adapting as frontier models mature. Today's best, tomorrow's 
 
 :fontawesome-solid-shuffle: **Model/Tool Agnostic**
 
-No lock-in to any frontier lab or platform. Works with Claude Code, OpenCode, and more tools coming.
+No lock-in to a single lab or host tool. Use rp1 from Claude Code, OpenCode, or Codex.
 
 </div>
 
@@ -301,15 +304,21 @@ Get new developers productive on your codebase fast. Knowledge base + guided exp
 
 <img src="assets/brands/opencode.png" width="32">
 
-**OpenCode** (experimental)
+**OpenCode**
+
+[Setup guide :material-arrow-right:](getting-started/installation.md)
+
+</div>
+
+<div class="platform-card" markdown>
+
+**Codex**
 
 [Setup guide :material-arrow-right:](getting-started/installation.md)
 
 </div>
 
 </div>
-
-**Coming soon:** Cursor, Goose, Amp
 
 ---
 

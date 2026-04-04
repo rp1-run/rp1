@@ -104,4 +104,3 @@ git commit -m "chore: add rp1 project identity"
 
 - [`rp1 init`](init.md) - Initialize a new rp1 project (creates `.rp1/project_id` automatically)
 - [The .rp1 Directory](../../getting-started/rp1-directory.md) - Directory structure overview
-- [`rp1-root-dir`](rp1-root-dir.md) - Inspect resolved project directories

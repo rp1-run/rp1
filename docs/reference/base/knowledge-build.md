@@ -32,6 +32,18 @@ Optional feature-learning mode:
     /rp1-base-knowledge-build my-feature
     ```
 
+=== "Codex"
+
+    ```bash
+    $rp1-base-knowledge-build
+    ```
+
+    Optional feature-learning mode:
+
+    ```bash
+    $rp1-base-knowledge-build my-feature
+    ```
+
 ## Description
 
 The `knowledge-build` command analyzes your codebase and updates the structured knowledge base in `.rp1/context/`. It is a passive workflow: it does not create user-facing work artifacts under `.rp1/work/`, and it does not register an Arcade run.
@@ -84,6 +96,12 @@ The command generates knowledge base files in `.rp1/context/`.
 
     ```bash
     /rp1-base-knowledge-build
+    ```
+
+=== "Codex"
+
+    ```bash
+    $rp1-base-knowledge-build
     ```
 
 **Expected output:**
@@ -177,7 +195,8 @@ flowchart TB
 
 ## Related Commands
 
-- [`knowledge-load`](knowledge-load.md) - Load KB context for agents
+- [`project-birds-eye-view`](project-birds-eye-view.md) - Generate a shareable
+  project overview from the KB
 
 ## See Also
 

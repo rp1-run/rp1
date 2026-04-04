@@ -1,40 +1,24 @@
-# Skill Reference
+# Reference
 
-Complete documentation for all rp1 skills across both plugins, plus CLI tools.
+User-facing reference for rp1 setup, workflows, and automation configuration.
 
 ---
 
 ## CLI Commands
 
-The rp1 CLI provides tools for setup and management outside of AI assistant sessions.
+The rp1 CLI handles setup, verification, migration, and updates outside your AI
+assistant session.
 
 | Command | Description |
 |---------|-------------|
 | [`init`](cli/init.md) | Initialize rp1 in a project with guided setup |
-| [`install`](cli/install.md) | Install plugins for Claude Code or OpenCode |
-| `build` | Build plugin packages from source |
-| `self-update` | Update the rp1 CLI to the latest version |
-| `arcade` | Launch web dashboard |
+| [`install`](cli/install.md) | Install plugins for Claude Code, OpenCode, or Codex |
+| [`update`](cli/update.md) | Update the rp1 CLI and installed plugins |
+| [`rp1 migrate`](cli/rp1-migrate.md) | Migrate older projects into the project-local `.rp1/` layout |
 
-[:octicons-arrow-right-24: CLI Reference](cli/init.md)
+[:octicons-arrow-right-24: CLI Reference](cli/index.md)
 
-### Agent Tools
-
-Internal CLI utilities for AI agent workflows:
-
-| Tool | Description |
-|------|-------------|
-| [`emit`](agent-tools.md#emit) | Workflow event emission with state machine validation |
-| [`feedback`](agent-tools.md#feedback) | Feedback lifecycle: read, resolve, reply, accept-edit for Arcade annotations |
-| [`github-pr`](agent-tools.md#github-pr) | GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments) |
-| [`task`](agent-tools.md#task) | Task queue management (create, list, pickup, complete, fail, cancel, get) |
-| [`rp1-root-dir`](cli/rp1-root-dir.md) | Canonical project, KB, and work directory resolution with worktree-aware detection |
-| `comment-extract` | Extract comments from source files for review workflows |
-| `mmd-validate` | Validate Mermaid diagram syntax |
-
-[:octicons-arrow-right-24: Agent Tools Reference](agent-tools.md)
-
-### Configuration Files
+### Automation Config
 
 | Config | Description |
 |--------|-------------|
@@ -44,30 +28,21 @@ Internal CLI utilities for AI agent workflows:
 
 ---
 
-## Web UI
-
-The rp1 web UI provides browser-based documentation viewing and agent activity monitoring.
-
-| Feature | Description |
-|---------|-------------|
-| [Status Dashboard](web-ui.md#status-dashboard) | Real-time visibility into agent workflow progress |
-
-[:octicons-arrow-right-24: Web UI Reference](web-ui.md)
-
----
-
 ## Base Plugin Skills
 
-The base plugin provides foundation capabilities: knowledge management, documentation generation, strategic analysis, and security validation.
+The base plugin provides project understanding, documentation, analysis, and
+maintenance workflows.
 
 | Skill | Description |
 |---------|-------------|
 | [`knowledge-build`](base/knowledge-build.md) | Generate knowledge base using parallel map-reduce architecture |
-| [`knowledge-load`](base/knowledge-load.md) | Load KB context for downstream agents |
+| [`deep-research`](base/deep-research.md) | Investigate a codebase or technical topic in depth |
 | [`project-birds-eye-view`](base/project-birds-eye-view.md) | Generate comprehensive project overview with diagrams |
-| [`strategize`](base/strategize.md) | Holistic strategic analysis with trade-off recommendations |
 | [`write-content`](base/write-content.md) | Interactive technical content creation assistant |
+| [`strategize`](base/strategize.md) | Holistic strategic analysis with trade-off recommendations |
 | [`analyse-security`](base/analyse-security.md) | Comprehensive security validation and vulnerability scanning |
+| [`fix-mermaid`](base/fix-mermaid.md) | Validate and repair Mermaid diagrams in markdown docs |
+| [`self-update`](base/self-update.md) | Update rp1 and refresh installed plugins |
 
 [:octicons-arrow-right-24: Base Plugin Reference](base/index.md)
 
@@ -85,37 +60,19 @@ The dev plugin provides development workflow capabilities: feature lifecycle, co
 | [`build-fast`](dev/build-fast.md) | Quick iteration for small, well-scoped tasks |
 | [`validate-hypothesis`](dev/validate-hypothesis.md) | Test design assumptions through experiments |
 
-### Blueprint & Planning
-
-| Skill | Description |
-|---------|-------------|
 | [`blueprint`](dev/blueprint.md) | Create project charter and PRD documents |
 | [`blueprint-archive`](dev/blueprint-archive.md) | Archive completed blueprints |
-
-### Feature Management
-
-| Skill | Description |
-|---------|-------------|
-| [`feature-edit`](dev/feature-edit.md) | Propagate mid-stream changes across documents |
+| [`blueprint-audit`](dev/blueprint-audit.md) | Audit a PRD against implementation status |
+| [`feature-edit`](dev/feature-edit.md) | Propagate mid-stream changes across build artifacts |
 | [`feature-archive`](dev/feature-archive.md) | Archive completed features |
 | [`feature-unarchive`](dev/feature-unarchive.md) | Restore archived features |
-
-### Code Quality
-
-| Skill | Description |
-|---------|-------------|
 | [`code-check`](dev/code-check.md) | Fast hygiene validation (lint, test, coverage) |
 | [`code-audit`](dev/code-audit.md) | Pattern consistency and maintainability audit |
 | [`code-investigate`](dev/code-investigate.md) | Systematic bug investigation |
 | [`code-clean-comments`](dev/code-clean-comments.md) | Remove unnecessary code comments |
-
-### PR Management
-
-| Skill | Description |
-|---------|-------------|
 | [`pr-review`](dev/pr-review.md) | Map-reduce PR review with confidence gating |
 | [`pr-visual`](dev/pr-visual.md) | Generate Mermaid diagrams from PR diffs |
-| [`address-pr-feedback`](dev/address-pr-feedback.md) | Unified workflow: collect, triage, and fix PR review comments |
+| [`address-pr-feedback`](dev/address-pr-feedback.md) | Collect, triage, and fix PR review comments |
 
 [:octicons-arrow-right-24: Dev Plugin Reference](dev/index.md)
 
@@ -123,7 +80,7 @@ The dev plugin provides development workflow capabilities: feature lifecycle, co
 
 ## Skill Invocation
 
-Skills can be invoked differently depending on your AI assistant:
+The workflow stays the same across hosts. Only the command syntax changes:
 
 === "Claude Code"
 
@@ -148,6 +105,13 @@ Skills can be invoked differently depending on your AI assistant:
     !!! note
         Autocomplete for skill names is not yet available in OpenCode — see [opencode#14506](https://github.com/anomalyco/opencode/issues/14506). This may be supported soon.
 
+=== "Codex"
+
+    ```bash
+    $rp1-dev-build my-feature
+    $rp1-base-knowledge-build
+    ```
+
 ---
 
 ## Quick Navigation
@@ -159,8 +123,7 @@ Looking for something specific?
 - **Review a PR**: [`pr-review`](dev/pr-review.md)
 - **Run code checks**: [`code-check`](dev/code-check.md)
 - **Security scan**: [`analyse-security`](base/analyse-security.md)
-- **Task dependency format**: [`dag-format`](dag-format.md)
-- **Monitor agent progress**: [Status Dashboard](web-ui.md#status-dashboard)
+- **Monitor agent progress**: [Arcade](../arcade/index.md)
 - **CLI commands**: [`init`](cli/index.md), [`install`](cli/install.md), [`update`](cli/update.md)
-- **Troubleshooting install issues**: [Installation Troubleshooting](../troubleshooting/installation.md)
+- **Troubleshooting install issues**: [Troubleshooting](../troubleshooting/index.md)
 - **Deprecated features**: [Retired Features](../retired-features.md)

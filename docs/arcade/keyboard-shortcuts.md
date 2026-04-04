@@ -1,8 +1,9 @@
 # Keyboard Shortcuts
 
-The rp1 Web UI supports keyboard navigation for efficient workflow management. Vim-style keys operate in parallel with arrow keys, requiring no mode toggle.
+Arcade supports keyboard navigation for efficient workflow management.
+Vim-style keys operate in parallel with arrow keys, requiring no mode toggle.
 
-For a conceptual overview of the keyboard-first interaction model, see [WebUI Interaction](../concepts/webui.md).
+For an overview of Arcade surfaces, see [Arcade](index.md).
 
 ---
 
@@ -161,7 +162,7 @@ The command palette and shortcut overlay use ARIA dialog roles with proper focus
 
 ## Related
 
-- [WebUI Interaction](../concepts/webui.md) - Conceptual overview of keyboard-first navigation
+- [Arcade](index.md) - Arcade overview
 - [Dashboard](dashboard.md) - Status monitoring dashboard
 - [Artifact Viewer](artifact-viewer.md) - Document viewing
 - [Settings](settings.md) - Configuration options

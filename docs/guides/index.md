@@ -88,5 +88,9 @@ rp1 guides are designed to be:
 
 - **Practical** - Real tasks you'll actually do
 - **Complete** - Start to finish, no gaps
-- **Platform-aware** - Syntax for Claude Code and OpenCode
+- **Platform-aware** - Invocation patterns for Claude Code, OpenCode, and Codex
 - **Checkpoint-driven** - Verify progress at each step
+
+!!! tip "Host syntax"
+    Claude Code uses `/skill`, OpenCode uses `/rp1-plugin-skill`, and Codex
+    uses `$rp1-plugin-skill`.

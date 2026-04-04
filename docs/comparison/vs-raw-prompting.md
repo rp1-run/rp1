@@ -139,7 +139,7 @@ rp1 covers most development scenarios with dedicated commands:
 | Bug investigation | `/code-investigate` |
 | Learning, research, exploration | `/deep-research` |
 
-[:octicons-arrow-right-24: See all 39 commands](../reference/index.md)
+[:octicons-arrow-right-24: See the workflow reference](../reference/index.md)
 
 Raw prompting remains useful for:
 

@@ -1,6 +1,8 @@
 # Settings
 
-The rp1 Web UI uses a cascading settings system that allows global defaults with project-specific overrides. Settings are stored as JSON files that users edit directly.
+Arcade uses a cascading settings system that allows global defaults with
+project-specific overrides. Settings are stored as JSON files that users edit
+directly.
 
 ---
 
@@ -130,7 +132,7 @@ If a settings file has a version higher than supported, the server logs a warnin
 Settings are loaded at server startup. To apply changes:
 
 1. Edit the settings JSON file
-2. Restart the web UI (`rp1 arcade`)
+2. Restart Arcade (`rp1 arcade`)
 
 Changes take effect immediately on restart.
 

@@ -53,7 +53,8 @@ sequenceDiagram
 
 ### Phase 2: Self-Contained Context Loading
 
-rp1 commands are **self-contained**: agents load relevant KB context automatically. You never need to run `/knowledge-load` first.
+rp1 commands are **self-contained**: agents load relevant KB context
+automatically. You do not need a separate "load the KB first" step.
 
 ```mermaid
 sequenceDiagram
@@ -194,4 +195,5 @@ The KB should be rebuilt when your codebase changes significantly:
 ## Learn More
 
 - [`knowledge-build` Reference](../reference/base/knowledge-build.md) - Generate the knowledge base
-- [`knowledge-load` Reference](../reference/base/knowledge-load.md) - Load KB context explicitly
+- [Feature Development Guide](../guides/feature-development.md) - See KB-backed
+  workflows in practice

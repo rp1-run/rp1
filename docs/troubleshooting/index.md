@@ -15,7 +15,7 @@ Common issues, solutions, and debugging strategies for rp1.
 | KB content stale | Code changed after build | Rebuild KB |
 | Skills not found | Plugins not installed | Run `rp1 init` |
 | Slow operations | Large context window | Break into smaller operations |
-| Install rollback/recovery | Interrupted install | See [Installation Troubleshooting](installation.md) |
+| Install rollback/recovery | Interrupted install | See platform-specific issues below |
 
 ---
 
