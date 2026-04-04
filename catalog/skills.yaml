@@ -133,14 +133,14 @@ skills:
     last_update: "2026-04-03"
     last_checksum: 07bbbd6ab4647942d51ca06c331b4e1f0c3e20915505b242b634bf5780647e1a
   - name: rp1-base:write-content
-    description: Structured writing workflow that turns rough notes into an accurate markdown document with a persisted brief and tracked workflow state.
+    description: Interactive prompt to help create polished technical documents through clarifying questions and structured writing workflows.
     plugin: base
     skills_that_use_me: []
     agents_that_use_me: []
     sub_agents_that_i_use: []
     skills_that_i_use: []
     last_update: "2026-04-04"
-    last_checksum: 6ba91c11fc74bab1f97ee1235a9c93220338372426835c6a810c1129479341ce
+    last_checksum: 7f16a90a554ae61797d1aba916da54932b1b4ce7d84e9b9dd84059f19480b835
   - name: rp1-dev:address-pr-feedback
     description: Unified PR feedback workflow - collect, triage, and fix review comments in a single command.
     plugin: dev
