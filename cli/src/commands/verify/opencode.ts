@@ -36,29 +36,34 @@ export const executeVerifyOpenCode = async (
 	console.log("| Component | Found/Expect | Status |");
 	console.log("+-----------+--------------+--------+");
 
-	const cmdOk = report.commandsFound >= report.commandsExpected;
-	const cmdCount = `${report.commandsFound}/${report.commandsExpected}`.padEnd(
-		12,
-	);
-	console.log(
-		`| Commands  | ${cmdCount} | ${cmdOk ? green("  OK  ") : red(" MISS ")} |`,
-	);
-
 	const agentOk = report.agentsFound >= report.agentsExpected;
-	const agentCount = `${report.agentsFound}/${report.agentsExpected}`.padEnd(
-		12,
-	);
-	console.log(
-		`| Agents    | ${agentCount} | ${agentOk ? green("  OK  ") : red(" MISS ")} |`,
-	);
+	if (report.agentsExpected > 0) {
+		const agentCount = `${report.agentsFound}/${report.agentsExpected}`.padEnd(
+			12,
+		);
+		console.log(
+			`| Agents    | ${agentCount} | ${agentOk ? green("  OK  ") : red(" MISS ")} |`,
+		);
+	} else if (report.agentsFound > 0) {
+		const agentCount = `${report.agentsFound}`.padEnd(12);
+		console.log(`| Agents    | ${agentCount} | ${green("  OK  ")} |`);
+	}
 
 	const skillOk = report.skillsFound >= report.skillsExpected;
-	const skillCount = `${report.skillsFound}/${report.skillsExpected}`.padEnd(
-		12,
-	);
-	console.log(
-		`| Skills    | ${skillCount} | ${skillOk ? green("  OK  ") : yellow(" WARN ")} |`,
-	);
+	if (report.skillsExpected > 0) {
+		const skillCount = `${report.skillsFound}/${report.skillsExpected}`.padEnd(
+			12,
+		);
+		console.log(
+			`| Skills    | ${skillCount} | ${skillOk ? green("  OK  ") : yellow(" WARN ")} |`,
+		);
+	} else if (report.skillsFound > 0) {
+		const skillCount = `${report.skillsFound}`.padEnd(12);
+		console.log(`| Skills    | ${skillCount} | ${green("  OK  ")} |`);
+	} else {
+		const skillCount = "0".padEnd(12);
+		console.log(`| Skills    | ${skillCount} | ${red(" MISS ")} |`);
+	}
 
 	const pluginOk = report.pluginsFound >= report.pluginsExpected;
 	const pluginCount = `${report.pluginsFound}/${report.pluginsExpected}`.padEnd(
