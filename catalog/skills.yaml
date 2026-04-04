@@ -43,14 +43,14 @@ skills:
     last_update: "2026-04-03"
     last_checksum: 3e9b7bd0a6f4b56c59979dec0ee00c899cbe7ab06f0f0c35946ebaf529ded999
   - name: rp1-base:generate-user-docs
-    description: Synchronizes user documentation with knowledge base using two-phase map-reduce orchestration with scan and process phases.
+    description: Synchronizes user-facing documentation with the current knowledge base through validate -> stale gate -> scan -> approval -> process orchestration.
     plugin: base
     skills_that_use_me: []
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-base:scribe]
     skills_that_i_use: [rp1-base:knowledge-build]
-    last_update: "2026-04-03"
-    last_checksum: aedbeef926df951ad54cf7724db306d3b4933ba861654e2b51a40012827b8a7f
+    last_update: "2026-04-04"
+    last_checksum: 16a10ff86419ff2692b171a603bee94ea02efb8c6b1540271b60ba2cbd2a7982
   - name: rp1-base:knowledge-base-templates
     description: Provides reusable templates for generating comprehensive codebase knowledge bases including architecture diagrams, concept maps, and module documentation. Supports both single-project and monorepo structures. Use when creating project documentation, knowledge bases, or when user mentions KB templates, codebase documentation, or project documentation structure.
     plugin: base
@@ -58,7 +58,7 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: []
     skills_that_i_use: []
-    last_update: "2026-04-03"
+    last_update: "2026-04-04"
     last_checksum: 11a2f74028c27dc8310d48d518829e5af8f97cd814716731c488a92ba7cd06e0
   - name: rp1-base:knowledge-build
     description: Orchestrates parallel KB generation using spatial analysis and a map-reduce architecture with incremental and feature-learning modes.
@@ -67,7 +67,7 @@ skills:
     agents_that_use_me: [rp1-base:kb-architecture-mapper]
     sub_agents_that_i_use: [rp1-base:kb-architecture-mapper,rp1-base:kb-concept-extractor,rp1-base:kb-interaction-mapper,rp1-base:kb-module-analyzer,rp1-base:kb-pattern-extractor,rp1-base:kb-spatial-analyzer]
     skills_that_i_use: [rp1-base:knowledge-base-templates,rp1-base:mermaid]
-    last_update: "2026-04-03"
+    last_update: "2026-04-04"
     last_checksum: 649ec4e03114369e315790e94555b095328b02671ce7b1e808e94dceb438f4fd
   - name: rp1-base:knowledge-load
     description: Ingests and prepares codebase documentation, builds internal knowledge graphs, and creates optimized context representations for downstream analysis tasks.
@@ -76,7 +76,7 @@ skills:
     agents_that_use_me: [rp1-base:kb-module-analyzer]
     sub_agents_that_i_use: []
     skills_that_i_use: []
-    last_update: "2026-04-03"
+    last_update: "2026-04-04"
     last_checksum: 2b5029ec6dd6b010da0d1a4549db059cb4863e7d93ef485cb7c1888c0646cfa4
   - name: rp1-base:markdown-preview
     description: Generate browser-viewable HTML previews from markdown, plain text, and Mermaid diagrams. Auto-validates diagrams, applies professional styling, and opens in default browser. Use when agents need to preview documentation, visualizations, or formatted content.
@@ -133,14 +133,14 @@ skills:
     last_update: "2026-04-03"
     last_checksum: 07bbbd6ab4647942d51ca06c331b4e1f0c3e20915505b242b634bf5780647e1a
   - name: rp1-base:write-content
-    description: Interactive prompt to help create polished technical documents through clarifying questions and structured writing workflows.
+    description: Structured writing workflow that turns rough notes into an accurate markdown document with a persisted brief and tracked workflow state.
     plugin: base
     skills_that_use_me: []
     agents_that_use_me: []
     sub_agents_that_i_use: []
     skills_that_i_use: []
-    last_update: "2026-04-03"
-    last_checksum: 7f16a90a554ae61797d1aba916da54932b1b4ce7d84e9b9dd84059f19480b835
+    last_update: "2026-04-04"
+    last_checksum: 6ba91c11fc74bab1f97ee1235a9c93220338372426835c6a810c1129479341ce
   - name: rp1-dev:address-pr-feedback
     description: Unified PR feedback workflow - collect, triage, and fix review comments in a single command.
     plugin: dev
@@ -211,7 +211,7 @@ skills:
     agents_that_use_me: [rp1-dev:feature-editor,rp1-dev:hypothesis-tester]
     sub_agents_that_i_use: [rp1-dev:build-artifact-detector,rp1-dev:build-task-grouper,rp1-dev:build-task-parser,rp1-dev:build-verify-aggregator,rp1-dev:code-checker,rp1-dev:comment-cleaner,rp1-dev:feature-architect,rp1-dev:feature-archiver,rp1-dev:feature-requirement-gatherer,rp1-dev:feature-tasker,rp1-dev:feature-verifier,rp1-dev:hypothesis-tester,rp1-dev:task-builder,rp1-dev:task-reviewer]
     skills_that_i_use: [rp1-dev:code-check,rp1-dev:feature-archive]
-    last_update: "2026-04-03"
+    last_update: "2026-04-04"
     last_checksum: b95fffe661d04abc93400a5a9b808c4939b28fefd12bd28a3efd3ed9f8d8e6aa
   - name: rp1-dev:code-audit
     description: Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift.

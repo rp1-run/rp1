@@ -161,16 +161,34 @@
   text-align: center;
 }
 
-.md-typeset .platform-card img {
+.md-typeset .platform-logo {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
   margin-bottom: 0.5rem;
+  background-color: currentColor;
+  vertical-align: middle;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
 }
 
-/* Light/dark mode image switching for platform logos */
-[data-md-color-scheme="default"] .only-dark {
-  display: none;
+.md-typeset .platform-logo--claude {
+  -webkit-mask-image: url("../assets/brands/lobehub-claude.svg");
+  mask-image: url("../assets/brands/lobehub-claude.svg");
 }
-[data-md-color-scheme="slate"] .only-light {
-  display: none;
+
+.md-typeset .platform-logo--opencode {
+  -webkit-mask-image: url("../assets/brands/lobehub-opencode.svg");
+  mask-image: url("../assets/brands/lobehub-opencode.svg");
+}
+
+.md-typeset .platform-logo--codex {
+  -webkit-mask-image: url("../assets/brands/lobehub-openai.svg");
+  mask-image: url("../assets/brands/lobehub-openai.svg");
 }
 
 .md-typeset .platform-card p {
@@ -228,6 +246,82 @@
   vertical-align: -0.125em;
 }
 
+/* Home page outcome cards */
+.try-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0 1rem;
+}
+
+.md-typeset .try-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.6rem;
+  padding: 1rem;
+  background: var(--md-default-bg-color);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .try-card {
+  border-color: var(--md-default-fg-color--lighter);
+}
+
+.md-typeset .try-card-title {
+  margin: 0 0 0.55rem;
+  font-weight: 700;
+  color: var(--md-accent-fg-color);
+}
+
+.md-typeset .try-card p:last-of-type {
+  margin-bottom: 0;
+}
+
+.md-typeset .try-card pre {
+  margin: auto 0 0;
+}
+
+.try-hosts {
+  margin: 1rem 0 2rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.6rem;
+}
+
+[data-md-color-scheme="slate"] .try-hosts {
+  border-color: var(--md-default-fg-color--lighter);
+}
+
+.md-typeset .try-hosts-title {
+  margin: 0 0 0.8rem;
+  font-weight: 700;
+  color: var(--md-accent-fg-color);
+}
+
+.try-hosts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.md-typeset .try-hosts-grid > div {
+  margin: 0;
+}
+
+.md-typeset .try-hosts-grid code {
+  white-space: nowrap;
+}
+
+.md-typeset .try-hosts-links {
+  margin: 0.9rem 0 0;
+}
+
+.md-typeset .try-hosts-links span {
+  margin: 0 0.45rem;
+}
+
 /* Mermaid diagram centering */
 .md-typeset .mermaid {
   text-align: center;
@@ -258,37 +352,6 @@
 /* Badge centering */
 .md-typeset div[align="center"] {
   margin-top: 2rem;
-}
-
-/* Terminal window frame */
-.terminal-window {
-  margin: 2rem auto;
-  max-width: 900px;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-}
-
-.terminal-header {
-  background: #2d2d2d;
-  padding: 10px 12px;
-  display: flex;
-  gap: 6px;
-}
-
-.terminal-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.terminal-dot.red { background: #ff5f56; }
-.terminal-dot.yellow { background: #ffbd2e; }
-.terminal-dot.green { background: #27ca40; }
-
-.terminal-window img {
-  display: block;
-  width: 100%;
 }
 
 /* Grid layout for principles and why sections */
@@ -375,19 +438,16 @@
   z-index: 1;
 }
 
-/* Terminal window inside carousel */
-.carousel-container .terminal-window {
-  margin: 0;
-}
-
 /* Images scale to container width */
-.carousel-container .terminal-window img {
+.carousel-container .splide__slide img {
   display: block;
   width: 100%;
   height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.24);
 }
 
-/* Captions below terminal window */
+/* Captions above screenshots */
 .carousel-caption {
   text-align: center;
   padding: 0.75rem 1rem;

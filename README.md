@@ -61,7 +61,7 @@ rp1 install
 curl -fsSL https://rp1.run/install.sh | sh
 ```
 
-Homebrew and Scoop install the rp1 CLI binary. Run `rp1 install` next to install integrations into detected host tools. The standalone install script already attempts that step automatically.
+Homebrew and Scoop install the rp1 CLI binary. Run `rp1 install` next to install integrations into detected host tools, then run `rp1 verify` to confirm the installation. The standalone install script already attempts the `rp1 install` step automatically.
 
 ### 2. Initialize your project
 

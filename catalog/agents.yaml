@@ -11,49 +11,49 @@ agents:
     plugin: base
     skills_that_i_use: [rp1-base:knowledge-build]
     skills_that_use_me: [rp1-base:knowledge-build]
-    last_update: "2026-04-03"
+    last_update: "2026-04-04"
     last_checksum: 1ae203bb5f9371243a7ba314d18e4ec0f1eafe27760aa4bc821d3f48bf030a0c
   - name: rp1-base:kb-concept-extractor
     description: Extracts domain concepts and terminology for concept_map.md from pre-filtered files
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:knowledge-build]
-    last_update: "2026-04-03"
+    last_update: "2026-04-04"
     last_checksum: e1b7a1121d6ef383d17f40ce3139a97328410e2db528529b5d8902f2768e5077
   - name: rp1-base:kb-index-builder
     description: [DEPRECATED] Generates project overview data for index.md from pre-filtered files
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: []
-    last_update: "2026-04-03"
+    last_update: "2026-04-04"
     last_checksum: 159c6db88f0f948ad93f7cacec927170fcc723bf3208f384d4595dbe50ed814c
   - name: rp1-base:kb-interaction-mapper
     description: Maps cross-surface interaction semantics for interaction-model.md from pre-filtered files
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:knowledge-build]
-    last_update: "2026-04-03"
+    last_update: "2026-04-04"
     last_checksum: b4fe9f31bbeb6291d0ab02d59f3e3af32721b6713e3463c8bedd69886d4d9182
   - name: rp1-base:kb-module-analyzer
     description: Analyzes modules, components, and dependencies for modules.md from pre-filtered files
     plugin: base
     skills_that_i_use: [rp1-base:knowledge-load]
     skills_that_use_me: [rp1-base:knowledge-build]
-    last_update: "2026-04-03"
+    last_update: "2026-04-04"
     last_checksum: c61e2f98448130dbdcda3b0edcf53ea8dc89ed970e9deb543432f7cd9bf4e575
   - name: rp1-base:kb-pattern-extractor
     description: Extracts implementation patterns and idioms for patterns.md from pre-filtered source files
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:knowledge-build]
-    last_update: "2026-04-03"
+    last_update: "2026-04-04"
     last_checksum: 5383a0059af86d5716b30b8a6c1ffd9edb18bdb91e0943074a014b59f91bd33a
   - name: rp1-base:kb-spatial-analyzer
     description: Scans repository files, ranks by importance (0-5), and categorizes them by KB section for parallel analysis
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:knowledge-build]
-    last_update: "2026-04-03"
+    last_update: "2026-04-04"
     last_checksum: f320a18c37d98a7038874bb23486e960e194975121bc0fc9c8fb261a712e2660
   - name: rp1-base:mermaid-fixer
     description: Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates each diagram, attempts automatic repair (up to 3 iterations), and inserts placeholders for unfixable diagrams.
@@ -67,14 +67,14 @@ agents:
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:project-birds-eye-view]
-    last_update: "2026-04-03"
+    last_update: "2026-04-04"
     last_checksum: 0df4576215b21b3d0c3bc170594094e89494555417f344945d5f98253baf1e86
   - name: rp1-base:research-explorer
     description: Deep exploration of codebases or web resources, returning structured JSON findings with evidence
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:deep-research]
-    last_update: "2026-04-03"
+    last_update: "2026-04-04"
     last_checksum: 253d2537b0680b8252e47b6ebc6ffba1d90e1b58c3ab19c87e37827b2d5611f8
   - name: rp1-base:research-reporter
     description: Generates structured research reports with validated Mermaid diagrams from synthesis data
@@ -84,25 +84,25 @@ agents:
     last_update: "2026-04-03"
     last_checksum: d6d11641651eafefd2ffea139b210a79ae3048b55797806edbda51cb1a13bad5
   - name: rp1-base:scribe
-    description: Dual-mode agent for documentation scanning (mode=scan) and processing (mode=process)
+    description: Dual-mode doc worker for scan/process batches. Returns JSON only.
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:generate-user-docs]
-    last_update: "2026-04-03"
-    last_checksum: d99b2a34ed273230fb1446ae2cf809d4fc079de9996c2b0d25205e5ea63fedb7
+    last_update: "2026-04-04"
+    last_checksum: e8b1bc7efe6e42654d99ff2d67457b9fbeadd82e67174da3f9b417985a817d34
   - name: rp1-base:security-validator
     description: Performs thorough security validation of features including vulnerability scans, authentication/authorization verification, compliance assessment, and penetration testing
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:analyse-security]
-    last_update: "2026-04-03"
+    last_update: "2026-04-04"
     last_checksum: b73caa88d9cebbbdcc53abb7083c2b7f8119119da6742f6134040dffd35df492
   - name: rp1-base:strategic-advisor
     description: Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:strategize]
-    last_update: "2026-04-03"
+    last_update: "2026-04-04"
     last_checksum: 2fbfb69e8d85b1f3109628236b23eee83e9fd4e92330dae7b817d857a10df7ef
   - name: rp1-dev:blueprint-auditor
     description: Audits PRD documents against implementation status and executes disposition actions

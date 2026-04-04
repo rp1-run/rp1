@@ -49,10 +49,10 @@ curl -fsSL https://rp1.run/install.sh | sh
 
 Package-manager installs add the rp1 CLI, then you run `rp1 install` to install integrations into detected host tools. The standalone install script already attempts that `rp1 install` step automatically unless you set `SKIP_PLUGINS=1`.
 
-Verify the CLI:
+Verify the installation:
 
 ```bash
-rp1 --version
+rp1 verify
 ```
 
 ---
