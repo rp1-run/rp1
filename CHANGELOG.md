@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.7.0](https://github.com/rp1-run/rp1/compare/v0.6.5...v0.7.0) (2026-04-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* support codex ([#295](https://github.com/rp1-run/rp1/issues/295))
+
+### Features
+
+* run rp1 install -y in brew postflight hook ([b5b3e2f](https://github.com/rp1-run/rp1/commit/b5b3e2fd0f6221ff2019bdc018e18e0cb673fddf))
+* support codex ([#295](https://github.com/rp1-run/rp1/issues/295)) ([c4c7f3f](https://github.com/rp1-run/rp1/commit/c4c7f3f40ec4e640efdb13347ffda2a5c96027a0))
+
+
+### Bug Fixes
+
+* remove blocking overwrite prompt from install command ([9cd05c3](https://github.com/rp1-run/rp1/commit/9cd05c33835204154222d97bd0ffcb159f2bea09))
+* remove broken rp1 install from cask post_install hook ([f587cd1](https://github.com/rp1-run/rp1/commit/f587cd10dff707279d3f6ccbd8652230f05a4793))
+* replace brew postflight rp1 install with puts message ([6f433b6](https://github.com/rp1-run/rp1/commit/6f433b69b29745bc64decfc3464d87b99c42680c))
+
+
+### Documentation
+
+* add Arcade annotations screenshot ([#303](https://github.com/rp1-run/rp1/issues/303)) ([2c0f713](https://github.com/rp1-run/rp1/commit/2c0f713430680bb8ce5c73d17f56ca5efe8b201a))
+* add rp1 install step to release footers and replace broken hook with puts ([7824eee](https://github.com/rp1-run/rp1/commit/7824eee77f6c4bdd0bf30dd8c921d73eb8bc5f12))
+* update docs for 0.7.0 ([#302](https://github.com/rp1-run/rp1/issues/302)) ([d76b2f7](https://github.com/rp1-run/rp1/commit/d76b2f7197d1babde4183d7911ca96487604d40c))
+
 ## [0.6.5](https://github.com/rp1-run/rp1/compare/v0.6.4...v0.6.5) (2026-03-26)
 
 
