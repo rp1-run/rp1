@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/rp1-run/rp1/compare/v0.7.0...v0.7.1) (2026-04-05)
+
+
+### Bug Fixes
+
+* **ci:** correct tarball path for opencode release artifacts ([#304](https://github.com/rp1-run/rp1/issues/304)) ([c9312e8](https://github.com/rp1-run/rp1/commit/c9312e87a2434b2e4fc664a01f3006683fe3b278))
+
 ## [0.7.0](https://github.com/rp1-run/rp1/compare/v0.6.5...v0.7.0) (2026-04-04)
 
 
