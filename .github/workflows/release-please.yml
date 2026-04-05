@@ -91,7 +91,7 @@ jobs:
           VERSION=${{ needs.release-please.outputs.version }}
           mkdir -p release-artifacts
 
-          tar -czvf release-artifacts/rp1-opencode-${VERSION}.tar.gz -C cli/dist opencode
+          tar -czvf release-artifacts/rp1-opencode-${VERSION}.tar.gz -C dist opencode
 
           cat > release-artifacts/manifest.json << EOF
           {
