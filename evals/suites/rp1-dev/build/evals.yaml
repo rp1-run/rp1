@@ -63,6 +63,8 @@ tests:
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate
       - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
+      - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertNoAskUser
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertBuildProhibited
