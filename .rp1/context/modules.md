@@ -1,8 +1,8 @@
 # Module & Component Breakdown
 
 **Project**: rp1
-**Analysis Date**: 2026-04-04
-**Modules Analyzed**: 21
+**Analysis Date**: 2026-04-06
+**Modules Analyzed**: 20
 
 ## Core Modules
 
@@ -43,8 +43,6 @@
 |--------|---------|-------|
 | `docs/reference` | Human-facing reference surface for CLI commands, agent-tools, platform tags, web UI, and plugin skills. | 40 files; inferred as a standalone docs module because it has its own hub, sub-indexes, and topical pages. |
 | `evals` | Prompt attestation system with content-addressable hashing, dependency graphs, and verification. | 7 files. |
-| `packages/catppuccin-mermaid` | Standalone npm package providing Catppuccin-themed Mermaid rendering with contrast checks. | 3 files. |
-
 ## Highlighted Components
 
 ### `build:opencode`

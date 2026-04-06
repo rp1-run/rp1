@@ -1,8 +1,8 @@
 # Technology Stack Matrix
 
 **Repository**: rp1
-**Last Updated**: 2026-03-09
-**Total Projects**: 7 logical areas
+**Last Updated**: 2026-04-06
+**Total Projects**: 6 logical areas
 
 ## Project Technologies
 
@@ -14,7 +14,6 @@
 | `plugins/dev` | Markdown + TS ecosystem | rp1 workflow prompts | Work-state and KB contracts | CLI plugin build pipeline | Installed into host tools |
 | `plugins/utils` | Markdown + TS ecosystem | Prompt utility workflows | N/A | CLI plugin build pipeline | Installed into host tools |
 | `evals` | TypeScript | Prompt/eval tooling | JSON artifacts | Bun | CI and local runs |
-| `packages/catppuccin-mermaid` | TypeScript | Mermaid theme library | N/A | Bun | Packaged library |
 
 ## Shared Technologies
 
@@ -52,7 +51,7 @@
 ## Architecture Decisions
 
 ### Why Bun + TypeScript
-**Decision**: Use Bun and TypeScript for the CLI, packages, and most tooling.
+**Decision**: Use Bun and TypeScript for the CLI, web UI, and most tooling.
 **Rationale**:
 - Fast local iteration and packaging.
 - Shared language across CLI, UI, and support packages.

@@ -1,8 +1,8 @@
 # Inter-Project Dependencies
 
 **Repository**: rp1
-**Last Updated**: 2026-03-09
-**Projects Analyzed**: 7 logical areas
+**Last Updated**: 2026-04-06
+**Projects Analyzed**: 6 logical areas
 
 ## Dependency Graph
 
@@ -19,7 +19,6 @@ graph TD
     PR --> DEV
     EVALS[evals] --> DEV
     EVALS --> BASE
-    WEB --> THEME[packages/catppuccin-mermaid]
 ```
 
 ## Project Matrix
@@ -32,8 +31,6 @@ graph TD
 | `plugins/dev` | Plugin content | Markdown + TS ecosystem | `plugins/base`, agent tools | Supported platforms, evals |
 | `plugins/utils` | Plugin content | Markdown + TS ecosystem | - | Prompt and utility workflows |
 | `evals` | Library/tooling | TypeScript | `plugins/base`, `plugins/dev` concepts and artifacts | CI and local evaluation |
-| `packages/catppuccin-mermaid` | Library | TypeScript | - | Web UI and docs-adjacent diagram theming |
-
 ## Shared Code Impact
 
 ### `cli/src/agent-tools/`
@@ -57,14 +54,13 @@ graph TD
 ## Build Dependencies
 
 ### Build Order
-1. `packages/catppuccin-mermaid`
-2. `cli`
-3. `cli/web-ui`
-4. Plugin artifact builds
-5. `evals`
+1. `cli`
+2. `cli/web-ui`
+3. Plugin artifact builds
+4. `evals`
 
 ### Critical Path
-`packages/catppuccin-mermaid -> cli -> plugin builds -> evals`
+`cli -> plugin builds -> evals`
 
 ### Deployment Dependencies
 - Docs publish independently from runtime binaries.
@@ -90,8 +86,6 @@ graph TD
 | `plugins/base` | `plugins/dev`, KB-aware agents | High | Cross-plugin dependency surface |
 | `cli/src/config/supported-tools.yaml` | install, verify, init, update | High | Platform compatibility contract |
 | `cli/web-ui` route models | dashboard users, work status rendering | Medium | Usually paired with tool/runtime changes |
-| `packages/catppuccin-mermaid` | diagram styling consumers | Low | Mostly presentation impact |
-
 ## Testing Strategy
 
 - **Unit tests**: Keep command, tool, and package units independently testable.

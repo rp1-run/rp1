@@ -14,11 +14,11 @@ rp1 arcade
 ## Features
 
 - Documentation viewer with syntax highlighting
-- Live Mermaid diagram rendering with Catppuccin theming
+- Live Mermaid diagram rendering with the built-in warm stone theme
 - File tree navigation for `.rp1/` directory
 - Real-time status dashboard
 - WebSocket-based live reload
-- Dark/light theme support (Catppuccin Mocha/Latte)
+- Dark/light theme support with warm stone design tokens
 
 ## Routes
 
@@ -131,7 +131,7 @@ Run status events:
 - React 19
 - Vite 6
 - TypeScript
-- Tailwind CSS (Catppuccin theme)
+- Tailwind CSS (warm stone design tokens)
 - Radix UI primitives
 - Lucide React icons
 - react-router-dom

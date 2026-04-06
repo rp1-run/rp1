@@ -259,12 +259,12 @@ Keyboard navigation uses the roving tabindex pattern for accessibility.
 
 ## Theme
 
-The dashboard uses the Catppuccin color palette:
+The dashboard uses a warm stone design system with light and dark variants:
 
 | Theme | Description |
 |-------|-------------|
-| **Mocha** (dark) | Default theme with deep purple-blue tones |
-| **Latte** (light) | Light theme with warm cream tones |
+| **Dark** | Charcoal stone surfaces with warm foreground contrast and amber accents |
+| **Light** | Pale stone surfaces with dark text and restrained amber accents |
 
 Toggle between themes using the sun/moon button in the header. Your preference is saved to localStorage.
 
@@ -272,9 +272,9 @@ Toggle between themes using the sun/moon button in the header. Your preference i
 
 | Status | Color |
 |--------|-------|
-| Queued | Gray (Overlay) |
+| Queued | Muted gray |
 | Running | Blue |
-| Waiting | Peach |
+| Waiting | Amber |
 | Completed | Green |
 | Failed | Red |
 | Needs Review | Mauve |
