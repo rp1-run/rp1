@@ -9,6 +9,7 @@ export {
 	executeList,
 	executeVerify,
 	type InstallOptions,
+	type ListOptions,
 	parseInstallArgs,
 } from "./command.js";
 // Config
