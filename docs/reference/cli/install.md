@@ -20,6 +20,7 @@ Supported targets:
 - Claude Code
 - OpenCode
 - Codex
+- Copilot CLI
 
 ## Subcommands
 
@@ -51,6 +52,19 @@ Installs rp1 into Codex. This writes:
 - agents to `~/.codex/agents/rp1/`
 - the rp1-managed section in `~/.codex/config.toml`
 
+### `install copilot`
+
+```bash
+rp1 install copilot [options]
+```
+
+Installs rp1 into GitHub Copilot CLI. This writes:
+
+- skills to `~/.config/github-copilot/skills/rp1-*/`
+- agents to `~/.config/github-copilot/agents/`
+
+Requires the GitHub CLI (`gh`) with the Copilot extension installed.
+
 ### `install all`
 
 ```bash
@@ -76,6 +90,7 @@ Detects installed tools and installs rp1 to every supported one it finds.
 rp1 install claude-code
 rp1 install opencode
 rp1 install codex
+rp1 install copilot
 ```
 
 ### Install everywhere detected
@@ -98,6 +113,7 @@ After installation, verify the target host:
 rp1 verify claude-code
 rp1 verify opencode
 rp1 verify codex
+rp1 verify copilot
 ```
 
 ## Listing Installed Skills
@@ -138,6 +154,8 @@ they ignore keys they do not use.
 | OpenCode | `~/.config/opencode/plugins/` |
 | Codex skills | `~/.codex/skills/` |
 | Codex agents | `~/.codex/agents/rp1/` |
+| Copilot CLI skills | `~/.config/github-copilot/skills/` |
+| Copilot CLI agents | `~/.config/github-copilot/agents/` |
 
 ## Troubleshooting
 
@@ -149,6 +167,7 @@ Confirm the host is installed and on your `PATH`:
 which claude
 which opencode
 which codex
+which gh         # For Copilot CLI
 ```
 
 ### Plugins do not appear after install
@@ -164,6 +183,7 @@ Confirm you can write to the relevant configuration directory:
 ```bash
 ls -la ~/.config/opencode/
 ls -la ~/.codex/
+ls -la ~/.config/github-copilot/
 ```
 
 ## See Also
