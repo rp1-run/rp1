@@ -101,3 +101,5 @@ tests:
     assert:
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertPostBuildPromptOptions
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertPostBuildPromptOptions
