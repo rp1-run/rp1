@@ -33,6 +33,7 @@ cli/web-ui/.playwright-cli/
 # Generated files (created by build:release / generate:assets)
 cli/src/assets/embedded.ts
 cli/src/config/supported-tools.generated.ts
+plugins/base/skills/guide/CATALOG.md
 
 # local rp1 binary
 bin/rp1

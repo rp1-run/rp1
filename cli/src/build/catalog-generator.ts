@@ -45,7 +45,31 @@ export interface CatalogEntry {
 	readonly description: string;
 	readonly category: SkillCategory;
 	readonly isWorkflow: boolean;
+	readonly keyArgs: readonly string[];
 }
+
+/**
+ * Category-level trigger signals describing when to suggest skills
+ * in each category. Used in rendered catalog for fast-path lookups.
+ */
+const CATEGORY_TRIGGERS: Record<SkillCategory, string> = {
+	development:
+		"User starts a new feature, describes a change, or needs to scaffold a project",
+	investigation:
+		"User is debugging, examining errors, or testing a design hypothesis",
+	quality:
+		"User finishes implementation and needs hygiene checks, audits, or comment cleanup",
+	review:
+		"User prepares a PR, receives review feedback, or needs visual diff understanding",
+	documentation:
+		"User writes, updates, or previews docs, diagrams, or project overviews",
+	knowledge: "User needs codebase context, KB is stale, or wants KB templates",
+	strategy:
+		"User faces architectural decisions, security concerns, or needs deep research",
+	planning:
+		"User plans a project, audits a PRD, or manages blueprint lifecycle",
+	prompt: "User authors, rewrites, or evaluates agent prompts",
+};
 
 /**
  * Scan all plugin skill directories and collect catalog entries.
@@ -94,12 +118,20 @@ export const collectCatalogEntries = async (
 				continue;
 			}
 
+			const keyArgs: string[] = [];
+			if (skill.metadata?.arguments) {
+				for (const arg of skill.metadata.arguments) {
+					keyArgs.push(arg.name);
+				}
+			}
+
 			entries.push({
 				name: skill.name,
 				plugin,
 				description: skill.description,
 				category,
 				isWorkflow: skill.metadata?.isWorkflow ?? false,
+				keyArgs,
 			});
 		}
 	}
@@ -139,13 +171,17 @@ export const renderCatalog = (entries: readonly CatalogEntry[]): string => {
 
 		lines.push(`## ${CATEGORY_LABELS[category]}`);
 		lines.push("");
-		lines.push("| Skill | Plugin | Description | Workflow |");
-		lines.push("|-------|--------|-------------|----------|");
+		lines.push(`> **Suggest when**: ${CATEGORY_TRIGGERS[category]}`);
+		lines.push("");
+		lines.push("| Skill | Plugin | Description | Key Args | Workflow |");
+		lines.push("|-------|--------|-------------|----------|----------|");
 
 		for (const entry of categoryEntries) {
 			const workflow = entry.isWorkflow ? "Yes" : "";
+			const args =
+				entry.keyArgs.length > 0 ? `\`${entry.keyArgs.join("`, `")}\`` : "";
 			lines.push(
-				`| \`/${entry.name}\` | ${entry.plugin} | ${entry.description} | ${workflow} |`,
+				`| \`/${entry.name}\` | ${entry.plugin} | ${entry.description} | ${args} | ${workflow} |`,
 			);
 		}
 

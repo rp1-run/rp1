@@ -46,6 +46,7 @@ describe("catalog-generator", () => {
 					description: "End-to-end feature workflow.",
 					category: "development",
 					isWorkflow: true,
+					keyArgs: ["FEATURE_ID", "AFK"],
 				},
 				{
 					name: "speedrun",
@@ -53,6 +54,7 @@ describe("catalog-generator", () => {
 					description: "Quick iteration loop.",
 					category: "development",
 					isWorkflow: true,
+					keyArgs: [],
 				},
 				{
 					name: "code-check",
@@ -60,6 +62,7 @@ describe("catalog-generator", () => {
 					description: "Fast code hygiene validation.",
 					category: "quality",
 					isWorkflow: false,
+					keyArgs: ["TARGET"],
 				},
 			];
 
@@ -68,15 +71,34 @@ describe("catalog-generator", () => {
 			expect(result).toContain("# rp1 Skill Catalog");
 			expect(result).toContain("## Development");
 			expect(result).toContain("## Quality");
+			expect(result).toContain("| Key Args |");
 			expect(result).toContain(
-				"| `/build` | dev | End-to-end feature workflow. | Yes |",
+				"| `/build` | dev | End-to-end feature workflow. | `FEATURE_ID`, `AFK` | Yes |",
 			);
 			expect(result).toContain(
-				"| `/speedrun` | dev | Quick iteration loop. | Yes |",
+				"| `/speedrun` | dev | Quick iteration loop. |  | Yes |",
 			);
 			expect(result).toContain(
-				"| `/code-check` | dev | Fast code hygiene validation. |  |",
+				"| `/code-check` | dev | Fast code hygiene validation. | `TARGET` |  |",
 			);
+		});
+
+		test("renders category-level trigger signals", () => {
+			const entries: CatalogEntry[] = [
+				{
+					name: "build",
+					plugin: "dev",
+					description: "End-to-end feature workflow.",
+					category: "development",
+					isWorkflow: true,
+					keyArgs: [],
+				},
+			];
+
+			const result = renderCatalog(entries);
+
+			expect(result).toContain("> **Suggest when**:");
+			expect(result).toContain("new feature");
 		});
 
 		test("omits categories with no entries", () => {
@@ -87,6 +109,7 @@ describe("catalog-generator", () => {
 					description: "PR review workflow.",
 					category: "review",
 					isWorkflow: true,
+					keyArgs: [],
 				},
 			];
 
