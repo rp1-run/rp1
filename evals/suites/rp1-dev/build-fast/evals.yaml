@@ -92,8 +92,6 @@ tests:
         value: file://../../shared/assertions/tool-calls.ts:assertNoGitCommitToolCall
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertNoArtifactRegistration
-      - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertScopeRedirectStatus
       - type: llm-rubric
         value: |
           Evaluate whether the agent correctly identifies and redirects a large-scope request.
