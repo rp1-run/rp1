@@ -960,6 +960,33 @@ export const assertOrchestratorSpawnedSpeedrunBuilder: AssertionFunction = (
 	};
 };
 
+/** Assert speedrun-builder was spawned at orchestrator level (parentToolUseId is null/undefined). */
+export const assertOrchestratorSpawnedSpeedrunBuilder: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const orchestratorCalls = getOrchestratorToolCalls(context);
+	const subagentNames = ["Task", "task", "Agent", "agent"];
+	const found = orchestratorCalls.some(
+		(tc) =>
+			subagentNames.includes(tc.name) &&
+			JSON.stringify(tc.input).includes("speedrun-builder"),
+	);
+	if (!found) {
+		return {
+			pass: false,
+			score: 0,
+			reason:
+				"No orchestrator-level speedrun-builder spawn found (checked parentToolUseId)",
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "speedrun-builder spawned at orchestrator level",
+	};
+};
+
 /** Assert artifact-detector spawned first. */
 export const assertArtifactDetectorFirst =
 	assertFirstSubagent("artifact-detector");
