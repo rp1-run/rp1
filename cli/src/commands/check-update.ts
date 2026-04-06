@@ -6,6 +6,10 @@
 import { Command } from "commander";
 import type { Logger } from "../../shared/logger.js";
 import { getColorFns } from "../lib/colors.js";
+import {
+	checkFenceStaleness,
+	type FenceCheckResult,
+} from "../lib/fence-check.js";
 import { type CheckOptions, checkForUpdate } from "../lib/version.js";
 import { formatCheckOutputHookText } from "./update/index.js";
 
@@ -13,6 +17,13 @@ import { formatCheckOutputHookText } from "./update/index.js";
  * JSON output structure for check-update command.
  * Uses snake_case for JSON API consistency.
  */
+interface FenceVersionJson {
+	readonly current: string | null;
+	readonly latest: string;
+	readonly update_available: boolean;
+	readonly stale_files: string[];
+}
+
 interface CheckUpdateJsonOutput {
 	readonly current_version: string;
 	readonly latest_version: string | null;
@@ -22,6 +33,7 @@ interface CheckUpdateJsonOutput {
 	readonly cached: boolean;
 	readonly cache_age_hours: number | null;
 	readonly cache_expires_in_hours: number | null;
+	readonly fence_version?: FenceVersionJson;
 }
 
 /**
@@ -33,6 +45,7 @@ interface CheckUpdateJsonOutput {
  */
 const formatHumanOutput = (
 	result: Awaited<ReturnType<typeof checkForUpdate>>,
+	fenceResult: FenceCheckResult | null,
 	isTTY: boolean,
 ): string => {
 	const { green, yellow, cyan, bold, dim } = getColorFns(isTTY);
@@ -64,6 +77,17 @@ const formatHumanOutput = (
 		lines.push(green("You are up to date!"));
 	}
 
+	// Fence staleness (only when project exists and stale files found)
+	if (fenceResult?.hasProject && fenceResult.staleFiles.length > 0) {
+		const currentDisplay = fenceResult.oldestVersion ?? "0.0.0";
+		lines.push("");
+		lines.push(
+			`${yellow("Stanza configuration is outdated")} (v${currentDisplay} -> v${fenceResult.latestFenceVersion}).`,
+		);
+		lines.push(`  Outdated: ${fenceResult.staleFiles.join(", ")}`);
+		lines.push(`  Run '${cyan("rp1 migrate")}' to update.`);
+	}
+
 	// Cache status (only if cached)
 	if (result.cached && result.cacheAgeHours !== null) {
 		lines.push("");
@@ -85,16 +109,33 @@ const formatHumanOutput = (
  */
 const toJsonOutput = (
 	result: Awaited<ReturnType<typeof checkForUpdate>>,
-): CheckUpdateJsonOutput => ({
-	current_version: result.currentVersion,
-	latest_version: result.latestVersion,
-	update_available: result.updateAvailable,
-	release_url: result.releaseUrl,
-	error: result.error,
-	cached: result.cached,
-	cache_age_hours: result.cacheAgeHours,
-	cache_expires_in_hours: result.cacheExpiresInHours,
-});
+	fenceResult: FenceCheckResult | null,
+): CheckUpdateJsonOutput => {
+	const base: CheckUpdateJsonOutput = {
+		current_version: result.currentVersion,
+		latest_version: result.latestVersion,
+		update_available: result.updateAvailable,
+		release_url: result.releaseUrl,
+		error: result.error,
+		cached: result.cached,
+		cache_age_hours: result.cacheAgeHours,
+		cache_expires_in_hours: result.cacheExpiresInHours,
+	};
+
+	if (fenceResult?.hasProject) {
+		return {
+			...base,
+			fence_version: {
+				current: fenceResult.oldestVersion,
+				latest: fenceResult.latestFenceVersion,
+				update_available: fenceResult.staleFiles.length > 0,
+				stale_files: fenceResult.staleFiles,
+			},
+		};
+	}
+
+	return base;
+};
 
 /**
  * The check-update command.
@@ -179,18 +220,26 @@ Examples:
 			// Execute version check
 			const result = await checkForUpdate(checkOptions);
 
+			// Check fence staleness (graceful when no project)
+			let fenceResult: FenceCheckResult | null = null;
+			try {
+				fenceResult = checkFenceStaleness(process.cwd());
+			} catch {
+				// Fence check is best-effort; do not block version output
+			}
+
 			// Output result
 			if (options.json) {
-				console.log(JSON.stringify(toJsonOutput(result), null, 2));
+				console.log(JSON.stringify(toJsonOutput(result, fenceResult), null, 2));
 			} else if (options.format === "hook-text") {
-				const message = formatCheckOutputHookText(result);
+				const message = formatCheckOutputHookText(result, fenceResult);
 				if (message) {
 					console.log(message);
 					process.exit(0);
 				}
 				process.exit(result.error && !result.latestVersion ? 2 : 1);
 			} else {
-				console.log(formatHumanOutput(result, isTTY));
+				console.log(formatHumanOutput(result, fenceResult, isTTY));
 			}
 
 			// Exit code: 0 for success (check completed regardless of update availability)

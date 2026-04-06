@@ -24,6 +24,10 @@ import {
 import { DEFAULT_TTL_HOURS, writeCache } from "../../lib/cache.js";
 import { getColorFns } from "../../lib/colors.js";
 import {
+	checkFenceStaleness,
+	type FenceCheckResult,
+} from "../../lib/fence-check.js";
+import {
 	detectInstallMethod,
 	type InstallMethod,
 	runUpdate,
@@ -79,23 +83,29 @@ const getUpdateCommand = (method: InstallMethod): string | null => {
  */
 export const formatCheckOutputJson = (
 	result: Awaited<ReturnType<typeof checkForUpdate>>,
+	fenceResult?: FenceCheckResult | null,
 ): void => {
-	console.log(
-		JSON.stringify(
-			{
-				current_version: result.currentVersion,
-				latest_version: result.latestVersion,
-				update_available: result.updateAvailable,
-				release_url: result.releaseUrl,
-				error: result.error,
-				cached: result.cached,
-				cache_age_hours: result.cacheAgeHours,
-				cache_expires_in_hours: result.cacheExpiresInHours,
-			},
-			null,
-			2,
-		),
-	);
+	const output: Record<string, unknown> = {
+		current_version: result.currentVersion,
+		latest_version: result.latestVersion,
+		update_available: result.updateAvailable,
+		release_url: result.releaseUrl,
+		error: result.error,
+		cached: result.cached,
+		cache_age_hours: result.cacheAgeHours,
+		cache_expires_in_hours: result.cacheExpiresInHours,
+	};
+
+	if (fenceResult?.hasProject) {
+		output.fence_version = {
+			current: fenceResult.oldestVersion,
+			latest: fenceResult.latestFenceVersion,
+			update_available: fenceResult.staleFiles.length > 0,
+			stale_files: fenceResult.staleFiles,
+		};
+	}
+
+	console.log(JSON.stringify(output, null, 2));
 };
 
 /**
@@ -104,18 +114,24 @@ export const formatCheckOutputJson = (
  */
 export const formatCheckOutputHookText = (
 	result: Awaited<ReturnType<typeof checkForUpdate>>,
+	fenceResult?: FenceCheckResult | null,
 ): string | null => {
 	if (result.error) {
 		return null;
 	}
 
+	const stanzaSuffix =
+		fenceResult?.hasProject && fenceResult.staleFiles.length > 0
+			? " | stanza update: run rp1 migrate"
+			: "";
+
 	if (result.updateAvailable && result.latestVersion) {
-		return `rp1 update available: v${result.currentVersion} -> v${result.latestVersion} | Run /self-update to update`;
+		return `rp1 update available: v${result.currentVersion} -> v${result.latestVersion} | Run /self-update to update${stanzaSuffix}`;
 	}
 
 	// No update available — return current version info
 	const displayVersion = getDisplayVersion();
-	return `rp1 is running v${displayVersion}`;
+	return `rp1 is running v${displayVersion}${stanzaSuffix}`;
 };
 
 /**
@@ -125,6 +141,7 @@ export const formatCheckOutputHookText = (
 export const formatCheckOutput = (
 	result: Awaited<ReturnType<typeof checkForUpdate>>,
 	isTTY: boolean,
+	fenceResult?: FenceCheckResult | null,
 ): void => {
 	const { green, yellow, cyan, bold, dim } = getColorFns(isTTY);
 
@@ -146,6 +163,17 @@ export const formatCheckOutput = (
 	} else if (result.latestVersion) {
 		console.log("");
 		console.log(green("You are up to date!"));
+	}
+
+	// Fence staleness (only when project exists and stale files found)
+	if (fenceResult?.hasProject && fenceResult.staleFiles.length > 0) {
+		const currentDisplay = fenceResult.oldestVersion ?? "0.0.0";
+		console.log("");
+		console.log(
+			`${yellow("Stanza configuration is outdated")} (v${currentDisplay} -> v${fenceResult.latestFenceVersion}).`,
+		);
+		console.log(`  Outdated: ${fenceResult.staleFiles.join(", ")}`);
+		console.log(`  Run '${cyan("rp1 migrate")}' to update.`);
 	}
 
 	if (result.cached && result.cacheAgeHours !== null) {
@@ -495,17 +523,25 @@ export const executeUpdateAction = async (
 		try {
 			const result = await checkForUpdate(checkOptions);
 
+			// Check fence staleness (graceful when no project)
+			let fenceResult: FenceCheckResult | null = null;
+			try {
+				fenceResult = checkFenceStaleness(process.cwd());
+			} catch {
+				// Fence check is best-effort; do not block version output
+			}
+
 			if (options.json) {
-				formatCheckOutputJson(result);
+				formatCheckOutputJson(result, fenceResult);
 			} else if (options.format === "hook-text") {
-				const message = formatCheckOutputHookText(result);
+				const message = formatCheckOutputHookText(result, fenceResult);
 				if (message) {
 					console.log(message);
 					process.exit(0);
 				}
 				process.exit(result.error && !result.latestVersion ? 2 : 1);
 			} else {
-				formatCheckOutput(result, isTTY);
+				formatCheckOutput(result, isTTY, fenceResult);
 			}
 
 			if (result.error && !result.latestVersion) {
@@ -561,6 +597,23 @@ export const executeUpdateAction = async (
 			logger,
 			isTTY,
 		);
+	}
+
+	// Check fence staleness and report if stale
+	try {
+		const fenceResult = checkFenceStaleness(process.cwd());
+		if (fenceResult.hasProject && fenceResult.staleFiles.length > 0) {
+			const { yellow, cyan } = getColorFns(isTTY);
+			const currentDisplay = fenceResult.oldestVersion ?? "0.0.0";
+			console.log("");
+			console.log(
+				`${yellow("Stanza configuration is outdated")} (v${currentDisplay} -> v${fenceResult.latestFenceVersion}).`,
+			);
+			console.log(`  Outdated: ${fenceResult.staleFiles.join(", ")}`);
+			console.log(`  Run '${cyan("rp1 migrate")}' to update.`);
+		}
+	} catch {
+		// Fence check is best-effort; do not block update output
 	}
 
 	// If self-update required manual intervention (manual install), exit

@@ -16,6 +16,7 @@ export interface FenceCheckResult {
 	readonly staleFiles: string[];
 	readonly currentFiles: string[];
 	readonly hasProject: boolean;
+	readonly oldestVersion: string | null;
 }
 
 interface FileSpec {
@@ -44,11 +45,13 @@ export function checkFenceStaleness(cwd: string): FenceCheckResult {
 			staleFiles: [],
 			currentFiles: [],
 			hasProject: false,
+			oldestVersion: null,
 		};
 	}
 
 	const staleFiles: string[] = [];
 	const currentFiles: string[] = [];
+	let oldestVersion: string | null = null;
 
 	for (const { file, extractor } of INSTRUCTION_FILES) {
 		const filePath = path.join(cwd, file);
@@ -65,12 +68,25 @@ export function checkFenceStaleness(cwd: string): FenceCheckResult {
 			// A null version with fenced content means legacy (treat as 0.0.0)
 			if (!hasFenceMarker(content, file)) continue;
 			staleFiles.push(file);
+			// Legacy markers are treated as 0.0.0
+			if (
+				oldestVersion === null ||
+				compareVersions("0.0.0", oldestVersion) < 0
+			) {
+				oldestVersion = "0.0.0";
+			}
 			continue;
 		}
 
 		const cmp = compareVersions(version, LATEST_FENCE_VERSION);
 		if (cmp < 0) {
 			staleFiles.push(file);
+			if (
+				oldestVersion === null ||
+				compareVersions(version, oldestVersion) < 0
+			) {
+				oldestVersion = version;
+			}
 		} else {
 			currentFiles.push(file);
 		}
@@ -81,6 +97,7 @@ export function checkFenceStaleness(cwd: string): FenceCheckResult {
 		staleFiles,
 		currentFiles,
 		hasProject: true,
+		oldestVersion,
 	};
 }
 
