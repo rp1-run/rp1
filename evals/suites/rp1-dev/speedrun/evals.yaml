@@ -65,15 +65,17 @@ tests:
         value: file://../../shared/assertions/tool-calls.ts:assertPostBuildPromptOptions
       - type: llm-rubric
         value: |
-          Evaluate the qualitative aspects of the speedrun agent's orchestration for a small request.
+          Evaluate the agent's output after completing a small build request.
+          Note: post-build prompt options and task delegation are verified separately
+          by deterministic assertions — do NOT evaluate those here.
 
           REQUIRED (all must pass):
-          1. Post-build prompt options are clearly worded and easy to understand
-          2. Agent tracks task count across the session
-          3. Agent output is concise and well-structured
+          1. Output is concise, well-formatted, and free of confusion
+          2. Output does not contain error messages or stack traces
+          3. Agent completed the task (created the requested file) or clearly indicates next steps
 
-          PASS if: Output is clear, well-structured, and presents coherent post-build options
-          FAIL if: Output is confusing, poorly formatted, or options are unclear
+          PASS if: Output is clean and coherent
+          FAIL if: Output contains errors, is garbled, or is incoherent
   - description: "medium_scope_redirects"
     vars:
       REQUEST: "refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL"
