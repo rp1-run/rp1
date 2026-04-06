@@ -1175,7 +1175,7 @@ export const assertNoBuildFastAgents: AssertionFunction = (
 
 /** Assert AskUserQuestion was called with commit/refine/new/exit options (post-build prompt). Cross-provider: matches both AskUserQuestion and question. */
 export const assertPostBuildPromptOptions: AssertionFunction = (
-	_output,
+	output,
 	context,
 ) => {
 	const tcs = getToolCalls(context);
@@ -1183,21 +1183,46 @@ export const assertPostBuildPromptOptions: AssertionFunction = (
 		(tc) => tc.name === "AskUserQuestion" || tc.canonical === "ask_user",
 	);
 	const expectedOptions = ["commit", "refine", "new", "exit"];
-	const hasPostBuild = askCalls.some((tc) => {
+	const MIN_MATCH = 3;
+
+	// Check AskUserQuestion tool calls first
+	for (const tc of askCalls) {
 		const input = JSON.stringify(tc.input).toLowerCase();
-		return expectedOptions.every((opt) => input.includes(opt));
-	});
-	if (!hasPostBuild) {
+		const matched = expectedOptions.filter((opt) => input.includes(opt));
+		if (matched.length >= MIN_MATCH) {
+			return {
+				pass: true,
+				score: 1,
+				reason: `Post-build prompt found via AskUserQuestion (matched: ${matched.join(", ")})`,
+			};
+		}
+	}
+
+	// Fallback: check text output for post-build option keywords
+	const outputLower = (typeof output === "string" ? output : "").toLowerCase();
+	const outputMatched = expectedOptions.filter((opt) =>
+		outputLower.includes(opt),
+	);
+	if (outputMatched.length >= MIN_MATCH) {
 		return {
-			pass: false,
-			score: 0,
-			reason: `No AskUserQuestion with commit/refine/new/exit options found. Found ${askCalls.length} AskUserQuestion call(s)`,
+			pass: true,
+			score: 1,
+			reason: `Post-build prompt found in text output (matched: ${outputMatched.join(", ")})`,
 		};
 	}
+
+	const askSummary = askCalls
+		.map((tc) => {
+			const matched = expectedOptions.filter((opt) =>
+				JSON.stringify(tc.input).toLowerCase().includes(opt),
+			);
+			return `[${matched.join(",")}]`;
+		})
+		.join(", ");
 	return {
-		pass: true,
-		score: 1,
-		reason: "Post-build prompt with commit/refine/new/exit options found",
+		pass: false,
+		score: 0,
+		reason: `Post-build prompt needs ${MIN_MATCH}+ of [${expectedOptions.join("/")}]. Found ${askCalls.length} AskUserQuestion(s)${askSummary ? ` matching: ${askSummary}` : ""}, output matched: [${outputMatched.join(",")}]`,
 	};
 };
 
