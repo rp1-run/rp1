@@ -104,5 +104,7 @@ export const paramTransform = (
 			return content;
 		case "codex":
 			return transformParamsForCodex(content);
+		case "copilot":
+			return content;
 	}
 };

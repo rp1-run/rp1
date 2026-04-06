@@ -76,5 +76,7 @@ export const allowedToolsFilter = (
 			return toOpenCodeArray(allowedTools);
 		case "codex":
 			return toCodexString(allowedTools, registry);
+		case "copilot":
+			return toOpenCodeArray(allowedTools);
 	}
 };

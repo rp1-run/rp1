@@ -16,6 +16,7 @@ import type { CLIError } from "../../shared/errors.js";
 import { generationError } from "../../shared/errors.js";
 import type { PlatformRegistry } from "./models.js";
 import { registerTags } from "./tags/index.js";
+import type { BuildPlatform } from "./template-context.js";
 
 const PLACEHOLDER_PREFIX = "@@RP1_CODEBLOCK_";
 const OUTPUT_TAG_PREFIX = "@@RP1_OUTPUTTAG_";
@@ -135,7 +136,7 @@ const createPreprocessorLiquid = (): Liquid => {
  */
 export const preprocessConditionals = async (
 	content: string,
-	platform: "opencode" | "codex" | "claude-code",
+	platform: BuildPlatform,
 	registry?: PlatformRegistry,
 	skillMap?: ReadonlyMap<string, string>,
 ): Promise<E.Either<CLIError, string>> => {

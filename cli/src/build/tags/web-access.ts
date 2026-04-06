@@ -77,6 +77,8 @@ function renderWebAccess(
 			return renderOC(capability, directive);
 		case "codex":
 			return renderCodex(capability, directive);
+		case "copilot":
+			return renderOC(capability, directive);
 	}
 }
 

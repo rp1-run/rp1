@@ -218,6 +218,9 @@ export function transformNamespace(
 		case "codex":
 			// rp1-base:agent -> rp1-base-agent
 			return `${pluginName}-${artifact}`;
+		case "copilot":
+			// rp1-base:agent -> rp1-base/agent
+			return `${pluginName}/${artifact}`;
 	}
 }
 

@@ -64,7 +64,7 @@ import { createTemplateEngine } from "./template-engine.js";
 import { injectEmitHarness } from "./transforms.js";
 import { validateAgent, validateSkill } from "./validator.js";
 
-const VALID_PLATFORMS = ["opencode", "codex", "claude-code", "all"];
+const VALID_PLATFORMS = ["opencode", "codex", "claude-code", "copilot", "all"];
 
 /**
  * Format a lint diagnostic into a human-readable string.
@@ -130,29 +130,39 @@ export const parseBuildArgs = (
 			if (!value || !VALID_PLATFORMS.includes(value)) {
 				return E.left(
 					usageError(
-						"--platform must be 'opencode', 'codex', 'claude-code', or 'all'",
+						"--platform must be 'opencode', 'codex', 'claude-code', 'copilot', or 'all'",
 					),
 				);
 			}
 			(
 				config as {
-					platform: "opencode" | "codex" | "claude-code" | "all";
+					platform: "opencode" | "codex" | "claude-code" | "copilot" | "all";
 				}
-			).platform = value as "opencode" | "codex" | "claude-code" | "all";
+			).platform = value as
+				| "opencode"
+				| "codex"
+				| "claude-code"
+				| "copilot"
+				| "all";
 		} else if (arg.startsWith("--platform=")) {
 			const value = arg.slice("--platform=".length);
 			if (!VALID_PLATFORMS.includes(value)) {
 				return E.left(
 					usageError(
-						"--platform must be 'opencode', 'codex', 'claude-code', or 'all'",
+						"--platform must be 'opencode', 'codex', 'claude-code', 'copilot', or 'all'",
 					),
 				);
 			}
 			(
 				config as {
-					platform: "opencode" | "codex" | "claude-code" | "all";
+					platform: "opencode" | "codex" | "claude-code" | "copilot" | "all";
 				}
-			).platform = value as "opencode" | "codex" | "claude-code" | "all";
+			).platform = value as
+				| "opencode"
+				| "codex"
+				| "claude-code"
+				| "copilot"
+				| "all";
 		} else if (arg === "--json") {
 			(config as { jsonOutput: boolean }).jsonOutput = true;
 		} else if (arg === "--lint") {
@@ -179,7 +189,7 @@ ${bold("Usage:")}
 ${bold("Options:")}
   -o, --output-dir <dir>       Output directory (default: dist/opencode/)
   -p, --plugin <name>          Build specific plugin (base, dev, utils, or all)
-  --platform <name>            Target platform (opencode, codex, claude-code, or all)
+  --platform <name>            Target platform (opencode, codex, claude-code, copilot, or all)
   --json                       Output results as JSON for CI/CD
   --lint                       Run build pipeline with lint validation only (no file output)
   -h, --help                   Show this help message

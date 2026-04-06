@@ -52,6 +52,8 @@ function renderPlanTool(directive: string, platform: BuildPlatform): string {
 			return `manage_todos: ${directive}`;
 		case "codex":
 			return `update_plan: ${directive}`;
+		case "copilot":
+			return directive;
 	}
 }
 

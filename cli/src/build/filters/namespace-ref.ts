@@ -82,5 +82,7 @@ export const namespaceRef = (
 			return transformNamespaceSeparator(content);
 		case "codex":
 			return transformNamespaceToCodex(content);
+		case "copilot":
+			return transformNamespaceSeparator(content);
 	}
 };

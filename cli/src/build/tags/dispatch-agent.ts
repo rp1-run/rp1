@@ -92,6 +92,8 @@ function renderDispatch(
 			return mode === "background"
 				? renderCodexBackground(agentRef, prompt, context)
 				: renderCodexForeground(agentRef, prompt, context);
+		case "copilot":
+			return renderClaudeCode(agentRef, prompt);
 	}
 }
 

@@ -111,5 +111,7 @@ export const slashCommands = (
 				content,
 				skillMap ?? new Map<string, string>(),
 			);
+		case "copilot":
+			return transformSlashCommandCalls(content);
 	}
 };

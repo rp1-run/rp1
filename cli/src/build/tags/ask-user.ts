@@ -84,6 +84,8 @@ function renderAskUser(
 			return renderOpenCode(question, options);
 		case "codex":
 			return renderCodex(question, options);
+		case "copilot":
+			return renderOpenCode(question, options);
 	}
 }
 
