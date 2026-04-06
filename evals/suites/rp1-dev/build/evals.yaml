@@ -13,7 +13,7 @@ providers:
   - id: anthropic:claude-agent-sdk
     label: rp1-agentic-eval
     config:
-      model: claude-haiku-4-5
+      model: haiku
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
       ask_user_question:
