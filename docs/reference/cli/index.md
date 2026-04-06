@@ -13,7 +13,9 @@ AI assistant session.
 | [`install`](install.md) | Install rp1 plugins for AI tools |
 | [`verify`](install.md#verification) | Verify plugin installation |
 | [`update`](update.md) | Update rp1 CLI and plugins |
+| [`check-update`](check-update.md) | Check for CLI and stanza updates |
 | [`rp1 migrate`](rp1-migrate.md) | Migrate older projects into the project-local `.rp1/` layout |
+| [Fence Versioning](fence-versioning.md) | How fence version markers work |
 
 ---
 
