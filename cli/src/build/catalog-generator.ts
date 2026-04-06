@@ -9,6 +9,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
+import { formatError } from "../../shared/errors.js";
 import type { SkillCategory } from "./models.js";
 import { parseSkill } from "./parser.js";
 
@@ -81,7 +82,9 @@ export const collectCatalogEntries = async (
 		for (const skillDir of skillDirs) {
 			const result = await parseSkill(skillDir)();
 			if (E.isLeft(result)) {
-				errors.push(`Failed to parse ${skillDir}: ${result.left.message}`);
+				errors.push(
+					`Failed to parse ${skillDir}: ${formatError(result.left, false)}`,
+				);
 				continue;
 			}
 
