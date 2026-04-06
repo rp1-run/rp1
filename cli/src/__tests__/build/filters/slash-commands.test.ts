@@ -129,4 +129,41 @@ describe("slash_commands filter", () => {
 			expect(result).toBe("Use /build for builds.");
 		});
 	});
+
+	describe("copilot (colon to slash separator)", () => {
+		test("transforms /rp1-base:cmd to /rp1-base/cmd", () => {
+			const content = "Run /rp1-base:knowledge-load to load.";
+			const result = slashCommands(content, "copilot");
+			expect(result).toBe("Run /rp1-base/knowledge-load to load.");
+		});
+
+		test("transforms /rp1-dev:cmd to /rp1-dev/cmd", () => {
+			const content = "Run /rp1-dev:build to build.";
+			const result = slashCommands(content, "copilot");
+			expect(result).toBe("Run /rp1-dev/build to build.");
+		});
+
+		test("transforms multiple slash commands", () => {
+			const content = "Run /rp1-base:knowledge-load then /rp1-dev:build.";
+			const result = slashCommands(content, "copilot");
+			expect(result).toBe("Run /rp1-base/knowledge-load then /rp1-dev/build.");
+		});
+
+		test("preserves content inside code blocks", () => {
+			const content = [
+				"Outside /rp1-base:cmd should change.",
+				"",
+				"```bash",
+				"# Inside code block /rp1-base:cmd should NOT change",
+				"```",
+				"",
+				"After block /rp1-dev:other should change.",
+			].join("\n");
+
+			const result = slashCommands(content, "copilot");
+			expect(result).toContain("/rp1-base/cmd");
+			expect(result).toContain("/rp1-base:cmd should NOT change");
+			expect(result).toContain("/rp1-dev/other");
+		});
+	});
 });

@@ -194,6 +194,7 @@ export function parseTagArgs(args: string): ParsedTagArgs {
  * | claude-code | `rp1-dev:agent`    | `rp1-dev:agent`      |
  * | opencode    | `rp1-dev:agent`    | `@rp1-dev/agent`     |
  * | codex       | `rp1-dev:agent`    | `rp1-dev-agent`      |
+ * | copilot     | `rp1-dev:agent`    | `rp1-dev/agent`      |
  *
  * @param ref - Canonical reference in `rp1-{plugin}:{name}` format
  * @param platform - Target build platform

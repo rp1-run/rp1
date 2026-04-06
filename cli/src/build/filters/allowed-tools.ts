@@ -9,6 +9,7 @@
  * | claude-code | `"Bash(echo *), Read"`   | `"Bash(echo *), Read"` (passthrough)    |
  * | opencode    | `"Bash(echo *), Read"`   | `["Bash(echo *)", "read_file"]`         |
  * | codex       | `"Bash(echo *), Read"`   | `"functions.exec_command(echo *)"` etc. |
+ * | copilot     | `"Bash(echo *), Read"`   | `["run_terminal_command(echo *)", "read_file"]` |
  *
  * Extracts and reuses logic from transformations.ts (OpenCode split)
  * and codex/transformations.ts (Codex registry mapping with pattern handling).
@@ -22,6 +23,38 @@ import type { BuildPlatform } from "../template-context.js";
  */
 const toOpenCodeArray = (allowedTools: string): readonly string[] => {
 	return allowedTools.split(",").map((t) => t.trim());
+};
+
+/**
+ * Transform allowed-tools for Copilot: map tool names through the registry
+ * and return as an array. Filters out null-mapped tools, preserves
+ * parenthesized patterns, and passes through unknown tools.
+ */
+const toCopilotArray = (
+	allowedTools: string,
+	registry: PlatformRegistry,
+): readonly string[] => {
+	const tools = allowedTools.split(",").map((t) => t.trim());
+	const mapped: string[] = [];
+
+	for (const tool of tools) {
+		const parenMatch = tool.match(/^([A-Za-z]+)\((.+)\)$/);
+		const baseName = parenMatch ? parenMatch[1] : tool;
+
+		const mappedTool = registry.toolMappings[baseName];
+		if (mappedTool === null) {
+			continue;
+		}
+		if (mappedTool === undefined) {
+			mapped.push(tool);
+		} else if (parenMatch) {
+			mapped.push(`${mappedTool}(${parenMatch[2]})`);
+		} else {
+			mapped.push(mappedTool);
+		}
+	}
+
+	return mapped;
 };
 
 /**
@@ -77,6 +110,6 @@ export const allowedToolsFilter = (
 		case "codex":
 			return toCodexString(allowedTools, registry);
 		case "copilot":
-			return toOpenCodeArray(allowedTools);
+			return toCopilotArray(allowedTools, registry);
 	}
 };

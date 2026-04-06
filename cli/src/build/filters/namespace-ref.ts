@@ -8,6 +8,7 @@
  * | claude-code | `rp1-base:agent`   | `rp1-base:agent`    |
  * | opencode    | `rp1-base:agent`   | `rp1-base/agent`    |
  * | codex       | `/rp1-base:agent`  | `$rp1-base-agent`   |
+ * | copilot     | `rp1-base:agent`   | `rp1-base/agent`    |
  *
  * Wraps the existing transformNamespaceSeparator() and
  * transformNamespaceToCodex() logic from transformations.ts and
