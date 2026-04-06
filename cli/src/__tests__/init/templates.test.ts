@@ -37,6 +37,35 @@ describe("templates", () => {
 			expect(CLAUDE_CODE_TEMPLATE).not.toContain("Task shorthand");
 			expect(CLAUDE_CODE_TEMPLATE).not.toContain("Subagent waiting");
 		});
+
+		test("contains ambient skill awareness block", () => {
+			expect(CLAUDE_CODE_TEMPLATE).toContain("rp1 Skill Awareness");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Skill Categories");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Suggestion Rules");
+		});
+
+		test("ambient block includes all skill categories", () => {
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Development");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("/build");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Investigation");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("/code-investigate");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Quality");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Review");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Documentation");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Knowledge");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Strategy");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Planning");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Prompt");
+		});
+
+		test("ambient block includes suggestion rules", () => {
+			expect(CLAUDE_CODE_TEMPLATE).toContain("1 suggestion per turn");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Do not re-suggest");
+			expect(CLAUDE_CODE_TEMPLATE).toContain(
+				"Do not suggest while an rp1 workflow",
+			);
+			expect(CLAUDE_CODE_TEMPLATE).toContain("/guide");
+		});
 	});
 
 	describe("AGENTS_TEMPLATE", () => {
@@ -62,6 +91,12 @@ describe("templates", () => {
 			expect(AGENTS_TEMPLATE).not.toContain("Task shorthand");
 			expect(AGENTS_TEMPLATE).not.toContain("Subagent waiting");
 		});
+
+		test("contains ambient skill awareness block", () => {
+			expect(AGENTS_TEMPLATE).toContain("rp1 Skill Awareness");
+			expect(AGENTS_TEMPLATE).toContain("Skill Categories");
+			expect(AGENTS_TEMPLATE).toContain("Suggestion Rules");
+		});
 	});
 
 	describe("CODEX_TEMPLATE", () => {
@@ -80,6 +115,12 @@ describe("templates", () => {
 			expect(CODEX_TEMPLATE).toContain("Codex agent conventions");
 			expect(CODEX_TEMPLATE).toContain("Task shorthand");
 			expect(CODEX_TEMPLATE).toContain("Subagent waiting");
+		});
+
+		test("does not contain ambient skill awareness block", () => {
+			expect(CODEX_TEMPLATE).not.toContain("rp1 Skill Awareness");
+			expect(CODEX_TEMPLATE).not.toContain("Skill Categories");
+			expect(CODEX_TEMPLATE).not.toContain("Suggestion Rules");
 		});
 	});
 
@@ -117,8 +158,10 @@ describe("templates", () => {
 			expect(CLAUDE_CODE_TEMPLATE).toEqual(AGENTS_TEMPLATE);
 		});
 
-		test("codex template extends shared content with codex-specific sections", () => {
-			expect(CODEX_TEMPLATE).toContain(AGENTS_TEMPLATE);
+		test("codex template shares KB section but not ambient block", () => {
+			expect(CODEX_TEMPLATE).toContain("rp1 Knowledge Base");
+			expect(CODEX_TEMPLATE).toContain("Loading rules");
+			expect(CODEX_TEMPLATE).not.toContain("rp1 Skill Awareness");
 		});
 	});
 });
