@@ -7,11 +7,13 @@ import { describe, expect, test } from "bun:test";
 import {
 	appendShellFencedContent,
 	extractShellFencedContent,
+	extractShellFenceVersion,
 	findShellFencedContent,
 	hasShellFencedContent,
 	replaceShellFencedContent,
 	validateShellFencing,
 	wrapWithShellFence,
+	wrapWithVersionedShellFence,
 } from "../../init/shell-fence.js";
 
 describe("shell-fence", () => {
@@ -48,6 +50,59 @@ describe("shell-fence", () => {
 
 			expect(result).toBeNull();
 		});
+
+		test("finds versioned markers and extracts version", () => {
+			const content =
+				"before\n# rp1:start:v0.7.1\nmiddle\n# rp1:end:v0.7.1\nafter";
+			const result = findShellFencedContent(content);
+
+			expect(result).not.toBeNull();
+			expect(result?.version).toBe("0.7.1");
+			expect(result?.start).toBe(7);
+		});
+
+		test("returns version null for legacy markers", () => {
+			const content = "before\n# rp1:start\nmiddle\n# rp1:end\nafter";
+			const result = findShellFencedContent(content);
+
+			expect(result).not.toBeNull();
+			expect(result?.version).toBeNull();
+		});
+
+		test("handles prerelease version markers", () => {
+			const content =
+				"# rp1:start:v1.0.0-beta.1\ncontent\n# rp1:end:v1.0.0-beta.1";
+			const result = findShellFencedContent(content);
+
+			expect(result).not.toBeNull();
+			expect(result?.version).toBe("1.0.0-beta.1");
+		});
+
+		test("treats malformed version string as null version", () => {
+			const content =
+				"# rp1:start:vnotaversion\ncontent\n# rp1:end:vnotaversion";
+			const result = findShellFencedContent(content);
+
+			expect(result).not.toBeNull();
+			expect(result?.version).toBeNull();
+		});
+	});
+
+	describe("extractShellFenceVersion", () => {
+		test("returns semver string for versioned markers", () => {
+			const content = "# rp1:start:v1.2.3\ncontent\n# rp1:end:v1.2.3";
+			expect(extractShellFenceVersion(content)).toBe("1.2.3");
+		});
+
+		test("returns null for legacy unversioned markers", () => {
+			const content = "# rp1:start\ncontent\n# rp1:end";
+			expect(extractShellFenceVersion(content)).toBeNull();
+		});
+
+		test("returns null when no markers present", () => {
+			const content = "Just a plain gitignore file.";
+			expect(extractShellFenceVersion(content)).toBeNull();
+		});
 	});
 
 	describe("replaceShellFencedContent", () => {
@@ -80,6 +135,39 @@ describe("shell-fence", () => {
 			expect(result).toContain("Some text.");
 			expect(result).toContain("# Footer");
 			expect(result).toContain("replaced");
+		});
+
+		test("replaces with versioned markers when version provided", () => {
+			const original = "before\n# rp1:start\nold\n# rp1:end\nafter";
+			const result = replaceShellFencedContent(
+				original,
+				"new content",
+				"0.7.1",
+			);
+
+			expect(result).toContain("# rp1:start:v0.7.1");
+			expect(result).toContain("# rp1:end:v0.7.1");
+			expect(result).toContain("new content");
+			expect(result).toContain("before");
+			expect(result).toContain("after");
+		});
+
+		test("preserves user content outside versioned fence on replace", () => {
+			const original =
+				"# IDE files\n.idea/\n\n# rp1:start:v0.6.0\n.rp1/work/\n# rp1:end:v0.6.0\n\n# Build\ndist/";
+			const result = replaceShellFencedContent(
+				original,
+				".rp1/meta.json",
+				"0.7.1",
+			);
+
+			expect(result).toContain("# IDE files");
+			expect(result).toContain(".idea/");
+			expect(result).toContain("# Build");
+			expect(result).toContain("dist/");
+			expect(result).toContain(".rp1/meta.json");
+			expect(result).not.toContain(".rp1/work/");
+			expect(result).toContain("# rp1:start:v0.7.1");
 		});
 
 		test("handles gitignore-style content", () => {
@@ -154,6 +242,20 @@ dist/
 			const result = wrapWithShellFence(".rp1/work/\n.rp1/meta.json");
 
 			expect(result).toBe("# rp1:start\n.rp1/work/\n.rp1/meta.json\n# rp1:end");
+		});
+
+		test("produces versioned markers when version provided", () => {
+			const result = wrapWithShellFence("content", "0.7.1");
+
+			expect(result).toBe("# rp1:start:v0.7.1\ncontent\n# rp1:end:v0.7.1");
+		});
+	});
+
+	describe("wrapWithVersionedShellFence", () => {
+		test("produces versioned markers", () => {
+			const result = wrapWithVersionedShellFence("content", "1.0.0");
+
+			expect(result).toBe("# rp1:start:v1.0.0\ncontent\n# rp1:end:v1.0.0");
 		});
 	});
 
@@ -249,6 +351,13 @@ after`;
 
 			expect(result.valid).toBe(false);
 			expect(result.error).toContain("Multiple");
+		});
+
+		test("returns valid for versioned markers", () => {
+			const content = "# rp1:start:v0.7.1\ncontent\n# rp1:end:v0.7.1";
+			const result = validateShellFencing(content);
+
+			expect(result.valid).toBe(true);
 		});
 	});
 });
