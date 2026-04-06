@@ -322,7 +322,6 @@ Content.
 	});
 
 	test("handles transitive skill dependencies", async () => {
-		// Create directory structure in dist format
 		const distBase = join(tempDir, "dist/claude-code/base");
 		const distDev = join(tempDir, "dist/claude-code/dev");
 		await mkdir(join(distBase, "agents"), { recursive: true });
@@ -358,7 +357,6 @@ Use skill: rp1-base:mermaid for diagrams.
 `,
 		);
 
-		// Create skill file
 		const mermaidPath = join(distBase, "skills/mermaid/SKILL.md");
 		await writeFile(
 			mermaidPath,

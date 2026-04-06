@@ -1,7 +1,7 @@
 # build Command Evaluation Suite
 #
 # Unified eval config for /rp1-dev:build across harnesses.
-# Default: claude-with-tools. Override: EVAL_HARNESS=opencode
+# Default: anthropic:claude-agent-sdk. Override: EVAL_HARNESS=opencode
 #
 # Run: just eval-run rp1-dev/build
 description: "rp1-dev:build unified evaluation"
@@ -10,13 +10,16 @@ evaluateOptions:
 extensions:
   - file://../../shared/extension.ts:extensionHook
 providers:
-  - id: file://../../../providers/claude-with-tools.ts
+  - id: anthropic:claude-agent-sdk
     label: rp1-agentic-eval
     config:
-      model: claude-haiku-4-5
+      model: haiku
+      betas:
+        - fast-mode-2026-02-01
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
-      ask_user_behavior: first_option
+      ask_user_question:
+        behavior: first_option
       max_turns: 200
       setting_sources:
         - project
@@ -24,10 +27,10 @@ providers:
         - user
       plugins:
         - type: local
-          path: dist/claude-code/dev
+          path: ../../../../dist/claude-code/dev
         - type: local
-          path: dist/claude-code/base
-      tools:
+          path: ../../../../dist/claude-code/base
+      custom_allowed_tools:
         - Read
         - Write
         - Edit
@@ -62,28 +65,22 @@ tests:
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate
       - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
+      - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertNoAskUser
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertBuildProhibited
       - type: llm-rubric
         value: |
-          Evaluate the agent's output text for behavioral correctness.
+          Evaluate the agent's final output after completing a full build workflow in AFK mode.
+          Note: workflow delegation, status emits, and artifact registration are verified
+          by deterministic assertions — do NOT evaluate those here.
 
           REQUIRED (all must pass):
-          1. Spawns build-artifact-detector agent to determine start_step (1-6)
-          2. Executes workflow steps in order: Requirements -> Design -> Tasks -> Build -> Verify -> Archive
-          3. For each step, spawns the appropriate agent(s) as defined in the progress table
-          4. Outputs step status table using symbols: [ ]=PENDING, [~]=RUNNING, [x]=COMPLETED, [-]=SKIPPED, [!]=FAILED
-          5. Creates feature artifacts in .rp1/work/features/{FEATURE_ID}/ directory
-          6. After requirements step completes, pauses for user review with Continue/Revise/Stop options (when not AFK)
-          7. After design step completes, pauses for user review with Continue/Revise/Stop options (when not AFK)
-          8. After build step completes, pauses for user review with Continue/Add Task/Stop options (when not AFK)
-          9. Builder-reviewer loop runs for each task unit with max 2 attempts before escalation
-          10. Verification phase invokes code-checker, feature-verifier, and comment-cleaner in parallel
-          11. Build-verify-aggregator determines overall_status (VERIFIED/FAILED) and ready_for_merge
-          12. Final output includes Feature ID, step status table (1-6), and artifacts created
-          13. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools emit" with "--type status_change" and "--run-id" flags
-          14. Agent registers produced artifacts via Metadata bashCommands containing "rp1 agent-tools emit" with "--type artifact_registered" and "--run-id" flags pointing to files in .rp1/work/features/{FEATURE_ID}/
+          1. Output references a Feature ID
+          2. Output mentions feature artifacts under .rp1/work/features/ directory
+          3. Output is well-structured and free of errors or stack traces
+          4. Output indicates the build completed (not stalled or abandoned)
 
-          PASS if: Full workflow executes with status tracking
-          FAIL if: Steps skipped out of order or no status table
+          PASS if: Output is coherent, references feature artifacts, and indicates completion
+          FAIL if: Output contains errors, is incoherent, or indicates incomplete/stalled work
