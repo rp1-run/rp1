@@ -1,0 +1,13 @@
+---
+description: {{ artifact.description | escape_yaml }}
+mode: subagent
+{%- if artifact.model != "inherit" %}
+model: {{ artifact.model }}
+{%- endif %}
+tools:
+  bash: {% if artifact.tools contains "Bash" %}true{% else %}false{% endif %}
+  write: {% if artifact.tools contains "Write" %}true{% else %}false{% endif %}
+  edit: {% if artifact.tools contains "Edit" %}true{% else %}false{% endif %}
+---
+
+{{ artifact.content | namespace_ref: platform | slash_commands: platform | param_transform: platform | tool_prose: platform }}

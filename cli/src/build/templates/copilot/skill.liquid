@@ -1,0 +1,43 @@
+---
+name: {{ artifact.namespacedName | escape_yaml }}
+description: {{ artifact.description | escape_yaml }}
+{%- if artifact.allowedTools %}
+{%- assign tools = artifact.allowedTools | allowed_tools: platform %}
+allowed-tools:
+{%- for tool in tools %}
+  - {{ tool }}
+{%- endfor %}
+{%- endif -%}
+{%- if artifact.metadata and artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
+metadata:
+  arguments:
+{{ artifact.metadata.arguments | to_yaml: 4 }}
+{%- if artifact.metadata.environment and artifact.metadata.environment.size > 0 %}
+  environment:
+{{ artifact.metadata.environment | to_yaml: 4 }}
+{%- endif -%}
+{%- endif %}
+---
+{%- if artifact.metadata and artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
+
+## 0. Resolve Arguments
+
+Run the argument resolver to obtain all parameter values:
+
+```bash
+rp1 agent-tools resolve-args --name {{ namespacedPluginName }}:{{ artifact.name }} --args "the arguments provided by the user in their prompt"
+```
+
+Parse the JSON response. Extract values from `data.arguments`:
+
+| Variable | Source |
+|----------|--------|
+{%- for arg in artifact.metadata.arguments %}
+| {{ arg.name }} | `data.arguments.{{ arg.name }}` |
+{%- endfor %}
+
+If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
+
+Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+{% endif %}
+{{ artifact.content | namespace_ref: platform | slash_commands: platform | param_transform: platform | tool_prose: platform }}
