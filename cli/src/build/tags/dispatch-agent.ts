@@ -44,6 +44,24 @@ subagent_type: ${ns}
 ${renderPromptField("", prompt)}`;
 }
 
+function renderCopilotForeground(agentRef: string, prompt: string): string {
+	const ns = transformNamespace(agentRef, "copilot");
+	return `create_agent:
+  agent_type: ${ns}
+${renderPromptField("  ", prompt)}
+
+Wait for the agent to complete before continuing. Read the agent's output from its artifact file at \`.rp1/work/agent-output/{run-id}/${ns.replace(/\//g, "-")}.json\` to collect its result.`;
+}
+
+function renderCopilotBackground(agentRef: string, prompt: string): string {
+	const ns = transformNamespace(agentRef, "copilot");
+	return `create_agent (background):
+  agent_type: ${ns}
+${renderPromptField("  ", prompt)}
+
+This agent runs in the background. Continue with other work. When you need its result, read the artifact file at \`.rp1/work/agent-output/{run-id}/${ns.replace(/\//g, "-")}.json\`.`;
+}
+
 // Codex multi-agent API is experimental (HYP-002 rejected). The spawn/wait
 // protocol below reflects the current API surface and may need updating if
 // Codex changes its multi-agent primitives.
@@ -93,7 +111,9 @@ function renderDispatch(
 				? renderCodexBackground(agentRef, prompt, context)
 				: renderCodexForeground(agentRef, prompt, context);
 		case "copilot":
-			return renderClaudeCode(agentRef, prompt);
+			return mode === "background"
+				? renderCopilotBackground(agentRef, prompt)
+				: renderCopilotForeground(agentRef, prompt);
 	}
 }
 

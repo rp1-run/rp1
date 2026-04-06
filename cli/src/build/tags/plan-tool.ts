@@ -53,7 +53,7 @@ function renderPlanTool(directive: string, platform: BuildPlatform): string {
 		case "codex":
 			return `update_plan: ${directive}`;
 		case "copilot":
-			return directive;
+			return `${directive}\n\nNote: No dedicated planning tool is available on Copilot CLI. Track progress by writing status updates to a markdown file in the working directory.`;
 	}
 }
 
