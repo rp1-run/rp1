@@ -10,7 +10,7 @@ evaluateOptions:
 extensions:
   - file://../../shared/extension.ts:extensionHook
 providers:
-  - id: file://../../../providers/claude-with-tools.ts
+  - id: anthropic:claude-agent-sdk
     label: rp1-agentic-eval
     config:
       model: claude-haiku-4-5
@@ -18,7 +18,8 @@ providers:
         - fast-mode-2026-02-01
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
-      ask_user_behavior: first_option
+      ask_user_question:
+        behavior: first_option
       max_turns: 30
       setting_sources:
         - project
@@ -29,7 +30,7 @@ providers:
           path: dist/claude-code/dev
         - type: local
           path: dist/claude-code/base
-      tools:
+      custom_allowed_tools:
         - Read
         - Write
         - Edit
@@ -53,25 +54,26 @@ tests:
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertSpeedrunBuilderSpawned
       - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertOrchestratorSpawnedSpeedrunBuilder
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertNoBuildFastAgents
+      - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertPostBuildPromptOptions
       - type: llm-rubric
         value: |
-          Evaluate the speedrun agent's orchestration behavior for a small request.
-
-          NOTE: Sub-agent tool calls (Write, Edit, Bash, etc.) appear in metadata alongside
-          the orchestrator's calls — they CANNOT be distinguished. Only evaluate the
-          orchestrator's OUTPUT TEXT and delegation behavior, not raw tool call metadata.
+          Evaluate the qualitative aspects of the speedrun agent's orchestration for a small request.
 
           REQUIRED (all must pass):
-          1. Agent spawns speedrun-builder sub-agent for implementation (visible in Agent/Task tool calls)
-          2. Agent does NOT spawn build-fast-planner or task-builder (those are build-fast agents)
-          3. Agent presents a post-build prompt with options including: commit, refine, new task, exit
-          4. Agent tracks task count across the session
+          1. Post-build prompt options are clearly worded and easy to understand
+          2. Agent tracks task count across the session
+          3. Agent output is concise and well-structured
 
-          PASS if: Small request delegated to speedrun-builder with post-build prompt options
-          FAIL if: Agent uses build-fast pipeline agents or never presents post-build options
+          PASS if: Output is clear, well-structured, and presents coherent post-build options
+          FAIL if: Output is confusing, poorly formatted, or options are unclear
   - description: "medium_scope_redirects"
     vars:
       REQUEST: "refactor the entire authentication module to use OAuth2, update all API routes, and migrate the session store from Redis to PostgreSQL"
@@ -82,34 +84,29 @@ tests:
         value: file://../../shared/assertions/tool-calls.ts:assertNoImplSubagentSpawned
       - type: llm-rubric
         value: |
-          Evaluate whether the agent correctly redirects a medium/large-scope request.
+          Evaluate the qualitative aspects of the agent's scope classification and redirect for a medium/large-scope request.
 
           REQUIRED (all must pass):
-          1. Agent identifies the request as medium or large scope
-          2. Agent does NOT delegate to a sub-agent for implementation
-          3. Output recommends using `/rp1-dev:build-fast` or `/rp1-dev:build` instead
-          4. Output explains WHY the request exceeds speedrun scope (e.g., multiple systems, high risk, many files)
-          5. Agent still presents options to continue (new task or exit)
+          1. Agent identifies the request as medium or large scope with clear reasoning
+          2. Output recommends using `/rp1-dev:build-fast` or `/rp1-dev:build` instead
+          3. Output explains WHY the request exceeds speedrun scope (e.g., multiple systems, high risk, many files)
+          4. Agent still presents options to continue (new task or exit)
+          5. Redirect explanation is helpful and actionable
 
-          PROHIBITED:
-          - No source code files should be created or modified
-          - No implementation sub-agent should be spawned
-          - Agent should NOT attempt to break the request into smaller pieces and implement them
-
-          PASS if: Agent declines and redirects to appropriate workflow
-          FAIL if: Agent attempts implementation of the large request
+          PASS if: Scope reasoning is clear and redirect is helpful with actionable alternatives
+          FAIL if: Scope reasoning is absent, vague, or redirect lacks helpful guidance
   - description: "post_build_prompt_has_commit_option"
     assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertPostBuildPromptOptions
       - type: llm-rubric
         value: |
-          Evaluate the post-build prompt options presented after a successful build.
+          Evaluate the qualitative aspects of the post-build prompt presented after a successful build.
 
           REQUIRED (all must pass):
-          1. After the sub-agent completes, an AskUserQuestion is presented
-          2. The prompt includes a "commit" option (commit & move on, or similar wording)
-          3. The prompt includes a "refine" option (refine current changes, or similar)
-          4. The prompt includes a "new task" option (move to next task without committing)
-          5. The prompt includes an "exit" option
+          1. Post-build prompt options are clearly worded and easy to understand
+          2. Each option has a distinct, unambiguous purpose
+          3. The overall prompt structure is clean and user-friendly
 
-          PASS if: All four options present in post-build prompt
-          FAIL if: Missing commit, refine, new task, or exit option
+          PASS if: Prompt options are clear, well-worded, and easy to act on
+          FAIL if: Options are confusing, ambiguous, or poorly presented
