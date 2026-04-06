@@ -2,6 +2,8 @@
 name: tester
 description: "Test command template for verifying argument passing and skill invocation."
 metadata:
+  category: prompt
+  is_workflow: false
   version: 1.0.0
   tags:
     - prompt-engineering

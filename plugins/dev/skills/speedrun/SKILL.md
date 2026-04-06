@@ -3,6 +3,8 @@ name: speedrun
 description: "Interactive speedrun loop for small, low-risk changes. Delegates each request to a general sub-agent. Redirects larger work to /build-fast or /build."
 allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git *), Bash(mkdir *)
 metadata:
+  category: development
+  is_workflow: true
   version: 1.1.0
   tags:
     - core

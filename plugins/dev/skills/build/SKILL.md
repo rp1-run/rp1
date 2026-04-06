@@ -3,6 +3,8 @@ name: build
 description: "End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command."
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
+  category: development
+  is_workflow: true
   version: 3.0.0
   tags:
     - core

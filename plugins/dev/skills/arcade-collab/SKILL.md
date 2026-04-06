@@ -2,6 +2,8 @@
 name: arcade-collab
 description: "Structured guidance for agents to read, classify, and act on user feedback (annotations and direct file edits) from the Arcade."
 metadata:
+  category: review
+  is_workflow: false
   version: 1.0.0
   tags:
     - collaboration

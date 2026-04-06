@@ -2,6 +2,8 @@
 name: build-prompt-evals
 description: "Builds eval assertions and minimal test prompt from prompt text, then optimizes assertions via specialist agent."
 metadata:
+  category: prompt
+  is_workflow: false
   version: 1.1.0
   tags:
     - prompt-engineering

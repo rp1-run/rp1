@@ -2,6 +2,8 @@
 name: code-audit
 description: "Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift."
 metadata:
+  category: quality
+  is_workflow: false
   version: 2.0.0
   tags:
     - analysis

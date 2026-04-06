@@ -3,6 +3,8 @@ name: pr-review
 description: "Intent-aware map-reduce PR review with CI/CD support, confidence gating, and intelligent comment deduplication."
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
+  category: review
+  is_workflow: true
   version: 4.0.0
   tags:
     - review

@@ -2,6 +2,8 @@
 name: self-update
 description: "Update rp1 CLI and all plugins to the latest version."
 metadata:
+  category: knowledge
+  is_workflow: false
   version: 1.1.0
   tags:
     - utility

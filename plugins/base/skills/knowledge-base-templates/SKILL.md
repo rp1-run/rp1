@@ -1,6 +1,9 @@
 ---
 name: knowledge-base-templates
 description: Provides reusable templates for generating comprehensive codebase knowledge bases including architecture diagrams, concept maps, and module documentation. Supports both single-project and monorepo structures. Use when creating project documentation, knowledge bases, or when user mentions KB templates, codebase documentation, or project documentation structure.
+metadata:
+  category: knowledge
+  is_workflow: false
 ---
 
 # Knowledge Base Templates

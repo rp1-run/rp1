@@ -3,6 +3,8 @@ name: blueprint-archive
 description: "Archives a completed PRD to the archives directory with associated features and closure summary."
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
+  category: planning
+  is_workflow: false
   version: 1.0.0
   tags:
     - blueprint

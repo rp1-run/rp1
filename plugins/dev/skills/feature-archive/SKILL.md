@@ -3,6 +3,8 @@ name: feature-archive
 description: "Archives a completed feature to the archives directory with optional documentation validation."
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
+  category: development
+  is_workflow: false
   version: 1.0.0
   tags:
     - feature

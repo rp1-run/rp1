@@ -2,6 +2,8 @@
 name: blueprint-audit
 description: "Audits a PRD against implementation status and guides lifecycle decisions."
 metadata:
+  category: planning
+  is_workflow: false
   version: 1.0.0
   tags:
     - blueprint

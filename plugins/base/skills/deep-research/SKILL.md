@@ -3,6 +3,8 @@ name: deep-research
 description: "Autonomous deep research on codebases and technical topics with structured report output via map-reduce explorer architecture."
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
+  category: strategy
+  is_workflow: false
   version: 1.1.0
   tags:
     - research

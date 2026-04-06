@@ -3,6 +3,8 @@ name: build-fast
 description: "Quick-iteration development for small/medium scope changes with persistent artifacts and optional review."
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
+  category: development
+  is_workflow: true
   version: 3.0.0
   tags:
     - core

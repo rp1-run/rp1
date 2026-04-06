@@ -3,6 +3,8 @@ name: code-investigate
 description: "Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes."
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
+  category: investigation
+  is_workflow: false
   version: 2.1.0
   tags:
     - analysis

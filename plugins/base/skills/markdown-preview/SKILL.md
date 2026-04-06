@@ -3,6 +3,8 @@ name: markdown-preview
 description: Generate browser-viewable HTML previews from markdown, plain text, and Mermaid diagrams. Auto-validates diagrams, applies professional styling, and opens in default browser. Use when agents need to preview documentation, visualizations, or formatted content.
 allowed-tools: Read, Write, Bash, Skill
 metadata:
+  category: documentation
+  is_workflow: false
 ---
 
 # Markdown Preview Generator — Browser-Ready HTML from Markdown

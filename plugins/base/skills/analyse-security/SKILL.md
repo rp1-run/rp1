@@ -2,6 +2,8 @@
 name: analyse-security
 description: "Performs thorough security validation of features including vulnerability scans, authentication/authorization verification, compliance assessment, and penetration testing."
 metadata:
+  category: strategy
+  is_workflow: false
   version: 2.0.0
   tags:
     - security
