@@ -31,6 +31,7 @@ import {
 import { installAllSubcommand } from "./all.js";
 import { installClaudeCodeSubcommand } from "./claude-code.js";
 import { installCodexSubcommand } from "./codex.js";
+import { installCopilotSubcommand } from "./copilot.js";
 import { installOpenCodeSubcommand } from "./opencode.js";
 
 const { green, yellow, red, dim, bold } = colorFns;
@@ -101,7 +102,7 @@ export const installParentCommand = new Command("install")
 	.option("-y, --yes", "Skip confirmation prompts")
 	.option(
 		"-p, --platform <platform>",
-		"Target a specific platform (claude-code, opencode, codex)",
+		"Target a specific platform (claude-code, opencode, codex, copilot)",
 	)
 	.addHelpText(
 		"after",
@@ -113,6 +114,7 @@ Subcommands:
   claude-code    Install plugins to Claude Code
   opencode       Install plugins to OpenCode
   codex          Install plugins to Codex CLI
+  copilot        Install plugins to Copilot CLI
   all            Install plugins to all detected tools
 
 Examples:
@@ -120,6 +122,7 @@ Examples:
   rp1 install --platform claude-code     Install to Claude Code only
   rp1 install claude-code                Install to Claude Code (subcommand)
   rp1 install opencode                   Install to OpenCode (subcommand)
+  rp1 install copilot                    Install to Copilot CLI (subcommand)
   rp1 install all                        Install to all detected tools
   rp1 install --dry-run                  Preview installation
   rp1 install -y                         Skip confirmation prompts
@@ -271,9 +274,23 @@ if (!codexInstallEnabled) {
 	});
 }
 
+const copilotInstallEnabled = isToolEnabled(
+	TOOLS_REGISTRY as ToolsRegistry,
+	"copilot",
+);
+installParentCommand.addCommand(installCopilotSubcommand, {
+	hidden: !copilotInstallEnabled,
+});
+if (!copilotInstallEnabled) {
+	installCopilotSubcommand.action(async () => {
+		process.exit(1);
+	});
+}
+
 installParentCommand.addCommand(installAllSubcommand);
 
 export { installAllSubcommand } from "./all.js";
 export { installClaudeCodeSubcommand } from "./claude-code.js";
 export { installCodexSubcommand } from "./codex.js";
+export { installCopilotSubcommand } from "./copilot.js";
 export { installOpenCodeSubcommand } from "./opencode.js";

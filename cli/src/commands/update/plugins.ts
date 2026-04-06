@@ -20,7 +20,7 @@ import {
 /**
  * Valid tool identifiers for plugin updates.
  */
-const VALID_TOOLS = ["claude-code", "opencode", "codex"] as const;
+const VALID_TOOLS = ["claude-code", "opencode", "codex", "copilot"] as const;
 type ValidTool = (typeof VALID_TOOLS)[number];
 
 /**
@@ -105,7 +105,7 @@ export const pluginsSubcommand = new Command("plugins")
 	.description("Update rp1 plugins for agentic tools")
 	.argument(
 		"[tool]",
-		'Tool to update: "all", "claude-code", "opencode", or "codex" (default: "all")',
+		'Tool to update: "all", "claude-code", "opencode", "codex", or "copilot" (default: "all")',
 	)
 	.option("--dry-run", "Show what would be done without executing", false)
 	.option("-y, --yes", "Skip confirmation prompts", false)
@@ -118,6 +118,7 @@ Arguments:
         - claude-code  Update plugins for Claude Code only
         - opencode     Update plugins for OpenCode only
         - codex        Update plugins for Codex only
+        - copilot      Update plugins for Copilot CLI only
 
 Examples:
   rp1 update plugins           Update plugins for all detected tools
@@ -125,6 +126,7 @@ Examples:
   rp1 update plugins claude-code  Update Claude Code plugins only
   rp1 update plugins opencode     Update OpenCode plugins only
   rp1 update plugins codex        Update Codex plugins only
+  rp1 update plugins copilot      Update Copilot CLI plugins only
   rp1 update plugins --dry-run    Preview what would be updated
 `,
 	)
@@ -148,7 +150,7 @@ Examples:
 			!VALID_TOOLS.includes(targetTool as ValidTool)
 		) {
 			console.error(
-				`Invalid tool: ${targetTool}. Use "all", "claude-code", "opencode", or "codex".`,
+				`Invalid tool: ${targetTool}. Use "all", "claude-code", "opencode", "codex", or "copilot".`,
 			);
 			process.exit(1);
 		}

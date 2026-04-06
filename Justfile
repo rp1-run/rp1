@@ -200,6 +200,18 @@ opencode:
     ./bin/rp1 install opencode --yes --artifacts-dir dist/opencode
     opencode
 
+# Launch Copilot CLI with local dev plugins (auto-builds if stale)
+copilot:
+    #!/usr/bin/env bash
+    set -e
+    if [ ! -d "dist/copilot/base" ] || \
+       [ "$(find plugins/ -newer dist/copilot/base -name '*.md' 2>/dev/null | head -1)" ]; then
+        echo "Building Copilot CLI artifacts..."
+        cd cli && bun run scripts/build-copilot.ts && cd ..
+    fi
+    ./bin/rp1 install copilot --yes --artifacts-dir dist/copilot
+    gh copilot
+
 # Launch Codex with local dev plugins (auto-builds if stale)
 codex:
     #!/usr/bin/env bash
