@@ -70,16 +70,15 @@ tests:
         value: file://../../shared/assertions/tool-calls.ts:assertBuildProhibited
       - type: llm-rubric
         value: |
-          Evaluate the agent's output for workflow quality (qualitative aspects only).
+          Evaluate the agent's final output after completing a full build workflow in AFK mode.
+          Note: workflow delegation, status emits, and artifact registration are verified
+          by deterministic assertions — do NOT evaluate those here.
 
           REQUIRED (all must pass):
-          1. Workflow steps execute in logical order: Requirements -> Design -> Tasks -> Build -> Verify -> Archive
-          2. Step status table is presented clearly using symbols: [ ]=PENDING, [~]=RUNNING, [x]=COMPLETED, [-]=SKIPPED, [!]=FAILED
-          3. Feature artifacts are organized under .rp1/work/features/{FEATURE_ID}/ directory structure
-          4. Builder-reviewer loop demonstrates iterative refinement with max 2 attempts before escalation
-          5. Verification phase coordinates code-checker, feature-verifier, and comment-cleaner
-          6. Build-verify-aggregator determines overall_status (VERIFIED/FAILED) and ready_for_merge
-          7. Final output includes Feature ID, step status table (1-6), and artifacts created
+          1. Output references a Feature ID
+          2. Output mentions feature artifacts under .rp1/work/features/ directory
+          3. Output is well-structured and free of errors or stack traces
+          4. Output indicates the build completed (not stalled or abandoned)
 
-          PASS if: Workflow ordering is coherent, status table is well-structured, and artifact directory organization is clear
-          FAIL if: Steps are out of order, status table is missing or malformed, or artifact structure is disorganized
+          PASS if: Output is coherent, references feature artifacts, and indicates completion
+          FAIL if: Output contains errors, is incoherent, or indicates incomplete/stalled work
