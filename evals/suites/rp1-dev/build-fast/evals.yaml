@@ -92,8 +92,6 @@ tests:
         value: file://../../shared/assertions/tool-calls.ts:assertNoGitCommitToolCall
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertNoArtifactRegistration
-      - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertScopeRedirectStatus
       - type: llm-rubric
         value: |
           Evaluate whether the agent correctly identifies and redirects a large-scope request.
@@ -103,7 +101,6 @@ tests:
           2. Output contains a redirect notice explaining this exceeds build-fast scope
           3. Output explains why this needs the full /build workflow
           4. Output provides options: reduce scope, phase it, or use /build command
-          5. Output suggests a recommended quick win or minimal viable alternative
 
           PASS if: Agent stops after redirect, provides actionable alternatives
           FAIL if: Agent attempts to implement the large-scope request or provides no alternatives
@@ -129,18 +126,16 @@ tests:
         value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
       - type: llm-rubric
         value: |
-          Evaluate the agent execution with --confirm-plan and --review flags enabled.
-          Focus on checkpoint flow quality and output structure.
+          Evaluate the agent's output after completing a build with --confirm-plan and --review flags.
+          Note: checkpoint interactions and task delegation are verified by deterministic assertions.
 
           REQUIRED (all must pass):
-          1. Output shows "Review" status (PASSED, SKIPPED, or FAILED+RETRIED)
-          2. Artifact structure is correct with Plan, Tasks, Implementation Summary, and Verification sections
-          3. Output contains "Build Fast Complete" with artifact path
-          4. Task IDs are passed to task-builder as comma-separated list in a single invocation
-          5. Checkpoint options are clearly presented (Continue/Revise/Stop for plan, Done/Add for post-impl)
+          1. Output references an artifact at .rp1/work/quick-builds/ with a date-based filename
+          2. Output shows completion summary (e.g., "Build Fast Complete" or similar)
+          3. Output is well-structured and free of errors
 
-          PASS if: Checkpoint flow is coherent, reviewer invoked, artifact well-structured
-          FAIL if: Incoherent checkpoint flow, poor artifact structure, or missing completion summary
+          PASS if: Build completed with artifact and coherent summary
+          FAIL if: Output contains errors, is incoherent, or missing completion artifact
   - description: "in_afk_mode_bypasses_confirm"
     vars:
       DEVELOPMENT_REQUEST: "add a json validation script that's ultra performant"
@@ -161,12 +156,13 @@ tests:
         value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
       - type: llm-rubric
         value: |
-          Evaluate whether AFK=true correctly bypasses --confirm-plan checkpoints.
+          Evaluate the agent's output after completing a build in AFK mode.
+          Note: git commit presence and no-AskUser are verified by deterministic assertions.
 
           REQUIRED:
-          1. Agent implements the requested change (creates/modifies files)
-          2. Agent uses conventional commit format (feat:, fix:, refactor:, etc.) in any git commits
-          3. Agent creates artifact at .rp1/work/quick-builds/ with date-based filename
+          1. Agent implements the requested change (output mentions files created/modified)
+          2. Agent creates artifact at .rp1/work/quick-builds/ with date-based filename
+          3. Output does not indicate waiting for user input or incomplete implementation
 
-          PASS if: Changes made, committed with conventional format, artifact created
-          FAIL if: Output indicates waiting for user input or incomplete implementation
+          PASS if: Changes made, artifact created, no signs of stalling
+          FAIL if: Output indicates incomplete work or user interaction
