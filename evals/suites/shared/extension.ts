@@ -246,11 +246,7 @@ interface TestContext {
 	test: {
 		vars: Record<string, string>;
 		description?: string;
-		options?: {
-			provider?: {
-				config?: Record<string, unknown>;
-			};
-		};
+		options?: Record<string, unknown>;
 	};
 	result?: {
 		success: boolean;
@@ -282,13 +278,11 @@ export async function extensionHook(
 		// Signal eval mode to prevent project registry pollution
 		process.env.RP1_EVAL_MODE = "true";
 
-		// Inject working_dir into provider config for stock provider
+		// Inject working_dir for stock provider
+		// test.options is spread flat into prompt.config, which the provider
+		// merges via: config = { ...this.config, ...context.prompt.config }
 		context.test.options = context.test.options ?? {};
-		context.test.options.provider = context.test.options.provider ?? {};
-		context.test.options.provider.config = {
-			...(context.test.options.provider.config ?? {}),
-			working_dir: workspaceDir,
-		};
+		context.test.options.working_dir = workspaceDir;
 
 		// Inject paths into vars for assertion use
 		context.test.vars.EVAL_BASE_DIR = baseDir;
