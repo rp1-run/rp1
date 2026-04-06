@@ -556,6 +556,11 @@ export function executeInit(
 												? (result.error as { message: string }).message
 												: String(result.error)
 											: "Unknown error";
+										allActions.push({
+											type: "plugin_install_failed",
+											name: result.toolName,
+											error: errorMsg,
+										});
 										logger.warn(
 											`Plugin installation failed for ${result.toolName}: ${errorMsg}`,
 										);
@@ -563,6 +568,18 @@ export function executeInit(
 											`Plugin installation failed for ${result.toolName}: ${errorMsg}`,
 										);
 									}
+								}
+								// Ensure at least one install-related action exists
+								const hasInstallAction = allActions.some(
+									(a) =>
+										a.type === "plugin_installed" ||
+										a.type === "plugin_install_failed",
+								);
+								if (!hasInstallAction) {
+									allActions.push({
+										type: "skipped",
+										reason: "Plugin installation completed with no changes",
+									});
 								}
 								progress.completeStep();
 							} else {
