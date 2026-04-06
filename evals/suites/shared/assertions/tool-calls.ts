@@ -4,7 +4,7 @@
  */
 
 import { execSync } from "node:child_process";
-import type { CanonicalTool } from "../tool-names.js";
+import { type CanonicalTool, toCanonical } from "../tool-names.js";
 
 interface GradingResult {
 	pass: boolean;
@@ -115,6 +115,9 @@ export interface ToolCall {
 	readonly name: string;
 	readonly canonical?: CanonicalTool;
 	input: unknown;
+	readonly output?: unknown;
+	readonly is_error?: boolean;
+	readonly parentToolUseId?: string | null;
 	readonly source?: "stream_event" | "assistant" | "opencode";
 }
 
@@ -123,8 +126,8 @@ export interface ToolCall {
  */
 export interface ProviderMetadata {
 	readonly toolCalls: readonly ToolCall[];
-	readonly bashCommands: readonly string[];
-	readonly toolCallCount: number;
+	readonly bashCommands?: readonly string[];
+	readonly toolCallCount?: number;
 }
 
 /**
@@ -146,9 +149,31 @@ export type AssertionFunction = (
 
 /**
  * Get tool calls from the provider metadata.
+ * Computes canonical names on-the-fly when not already provided.
  */
 function getToolCalls(context: ToolCallEvalContext): readonly ToolCall[] {
-	return context.providerResponse?.metadata?.toolCalls ?? [];
+	const raw = context.providerResponse?.metadata?.toolCalls ?? [];
+	return raw.map((tc) => ({
+		...tc,
+		canonical: tc.canonical ?? toCanonical(tc.name),
+	}));
+}
+
+/**
+ * Derive bash commands from provider metadata.
+ * Uses pre-computed bashCommands when available (custom provider),
+ * otherwise extracts commands from Bash tool calls (stock provider).
+ */
+export function getBashCommands(
+	context: ToolCallEvalContext,
+): readonly string[] {
+	if (context.providerResponse?.metadata?.bashCommands) {
+		return context.providerResponse.metadata.bashCommands;
+	}
+	return getToolCalls(context)
+		.filter((tc) => tc.name === "Bash" || tc.name === "bash")
+		.map((tc) => (tc.input as { command?: string })?.command ?? "")
+		.filter((cmd) => cmd.length > 0);
 }
 
 /**
@@ -678,7 +703,7 @@ export function assertNoProhibitedCommands(
 	const rules = prohibited ?? defaults;
 
 	return (_output, context) => {
-		const cmds = context.providerResponse?.metadata?.bashCommands ?? [];
+		const cmds = getBashCommands(context);
 		for (const { pattern, label } of rules) {
 			const found = cmds.find((c) => pattern.test(c));
 			if (found)
