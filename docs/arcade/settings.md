@@ -26,8 +26,8 @@ Controls the UI color scheme.
 | Value | Description |
 |-------|-------------|
 | `"system"` | Follow OS preference (default) |
-| `"light"` | Catppuccin Latte theme |
-| `"dark"` | Catppuccin Mocha theme |
+| `"light"` | Warm stone light theme |
+| `"dark"` | Warm stone dark theme |
 
 ### Downsampling
 

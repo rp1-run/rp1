@@ -5,13 +5,12 @@
     "cli/",
     "cli/web-ui/",
     "evals/",
-    "packages/catppuccin-mermaid/",
     "plugins/base/",
     "plugins/dev/",
     "plugins/utils/"
   ],
-  "generated_at": "2026-04-04T04:46:08Z",
-  "git_commit": "1880e8902925a6449733798f9caa8c445d72814a",
+  "generated_at": "2026-04-06T01:01:29Z",
+  "git_commit": "4af71b9707030071faf1e74621308ab746c85170",
   "files_analyzed": 14,
   "languages": [
     "TypeScript",
@@ -25,8 +24,8 @@
     "HTML"
   ],
   "metrics": {
-    "modules": 21,
-    "components": 7,
+    "modules": 20,
+    "components": 6,
     "concepts": 23
   }
 }

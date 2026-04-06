@@ -3,7 +3,7 @@
 **Type**: Monorepo
 **Languages**: TypeScript, TSX, Markdown, JSON, YAML, TOML, Shell, CSS, HTML
 **Version**: 0.6.5
-**Updated**: 2026-04-04
+**Updated**: 2026-04-06
 
 ## Project Summary
 
@@ -64,8 +64,6 @@ plugins/
 docs/
 └── reference/         # User-facing reference docs for CLI, plugins, web UI, and platform tags
 evals/                 # Prompt attestation with content-addressable hashing
-packages/
-└── catppuccin-mermaid/ # Mermaid theme package
 ```
 
 ## Navigation
