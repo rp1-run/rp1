@@ -569,7 +569,26 @@ describe("assertPostBuildPromptOptions", () => {
 		expect(result.pass).toBe(true);
 	});
 
-	test("fails when AskUserQuestion missing options", () => {
+	test("passes with 3 of 4 options (MIN_MATCH threshold)", () => {
+		const ctx = makeStockContext([
+			tc("AskUserQuestion", {
+				questions: [
+					{
+						question: "What next?",
+						options: [
+							{ label: "Commit & move on" },
+							{ label: "Refine" },
+							{ label: "Exit session" },
+						],
+					},
+				],
+			}),
+		]);
+		const result = assertPostBuildPromptOptions("", ctx);
+		expect(result.pass).toBe(true);
+	});
+
+	test("fails when only 2 of 4 options match", () => {
 		const ctx = makeStockContext([
 			tc("AskUserQuestion", {
 				questions: [
@@ -584,10 +603,19 @@ describe("assertPostBuildPromptOptions", () => {
 		expect(result.pass).toBe(false);
 	});
 
-	test("fails when no AskUserQuestion calls", () => {
+	test("fails when no AskUserQuestion calls and no output match", () => {
 		const ctx = makeStockContext([tc("Bash", { command: "ls" })]);
 		const result = assertPostBuildPromptOptions("", ctx);
 		expect(result.pass).toBe(false);
+	});
+
+	test("falls back to text output when no AskUserQuestion", () => {
+		const ctx = makeStockContext([tc("Bash", { command: "ls" })]);
+		const output =
+			"Options:\n- Commit & move on\n- Refine\n- New task\n- Exit";
+		const result = assertPostBuildPromptOptions(output, ctx);
+		expect(result.pass).toBe(true);
+		expect(result.reason).toContain("text output");
 	});
 
 	test("matches case-insensitively", () => {
