@@ -17,6 +17,7 @@ import type {
 	ClaudeCodeCommand,
 	ClaudeCodeSkill,
 	EnvironmentDefinition,
+	SkillCategory,
 	SkillMetadata,
 } from "./models.js";
 
@@ -428,6 +429,29 @@ const extractSkillMetadata = (
 	}
 	const parsedEnv = envResult.right;
 
+	const VALID_CATEGORIES: readonly SkillCategory[] = [
+		"development",
+		"investigation",
+		"quality",
+		"review",
+		"documentation",
+		"knowledge",
+		"strategy",
+		"planning",
+		"prompt",
+	];
+
+	const categoryRaw = meta.category;
+	const category: SkillCategory | undefined =
+		typeof categoryRaw === "string" &&
+		VALID_CATEGORIES.includes(categoryRaw as SkillCategory)
+			? (categoryRaw as SkillCategory)
+			: undefined;
+
+	const isWorkflowRaw = meta.is_workflow;
+	const isWorkflow: boolean | undefined =
+		typeof isWorkflowRaw === "boolean" ? isWorkflowRaw : undefined;
+
 	const result: SkillMetadata = {
 		version: typeof meta.version === "string" ? meta.version : undefined,
 		tags: Array.isArray(meta.tags) ? meta.tags.map(String) : undefined,
@@ -443,6 +467,8 @@ const extractSkillMetadata = (
 			: undefined,
 		...(parsedArgs.length > 0 && { arguments: parsedArgs }),
 		...(parsedEnv.length > 0 && { environment: parsedEnv }),
+		...(category !== undefined && { category }),
+		...(isWorkflow !== undefined && { isWorkflow }),
 	};
 
 	// Return undefined if all fields are undefined (no meaningful metadata)

@@ -67,6 +67,18 @@ export interface ClaudeCodeAgent {
  * These fields are nested under `metadata` in frontmatter to comply
  * with the Agent Skills v1.0 whitelist (name, description, allowed-tools, metadata).
  */
+/** Valid skill category values for catalog grouping. */
+export type SkillCategory =
+	| "development"
+	| "investigation"
+	| "quality"
+	| "review"
+	| "documentation"
+	| "knowledge"
+	| "strategy"
+	| "planning"
+	| "prompt";
+
 export interface SkillMetadata {
 	readonly version?: string;
 	readonly tags?: readonly string[];
@@ -77,6 +89,8 @@ export interface SkillMetadata {
 	readonly subAgents?: readonly string[];
 	readonly arguments?: readonly ArgumentDefinition[];
 	readonly environment?: readonly EnvironmentDefinition[];
+	readonly category?: SkillCategory;
+	readonly isWorkflow?: boolean;
 }
 
 /**

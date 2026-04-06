@@ -30,6 +30,7 @@ import { extractStateMachineMermaid } from "../agent-tools/state-machine/extract
 import { serializeStateMachine } from "../agent-tools/state-machine/serialization.js";
 import { parseAndTransform } from "../agent-tools/state-machine/transform.js";
 import { colorFns } from "../lib/colors.js";
+import { generateCatalog } from "./catalog-generator.js";
 import { validateCodexSkill } from "./codex/validator.js";
 import { type LintDiagnostic, lintArtifact } from "./lint/index.js";
 import {
@@ -1203,6 +1204,22 @@ export const executeBuild = (
 					if (!config.jsonOutput) {
 						for (const { platform, outputPath: op } of platformsToBuild) {
 							logger.debug(`${platform} output directory: ${op}`);
+						}
+					}
+
+					// Generate CATALOG.md from skill frontmatter before platform builds
+					// so it is picked up as a supporting file of the guide skill.
+					if (!config.lintOnly) {
+						const catalogResult = await generateCatalog(projectRoot);
+						if (catalogResult.errors.length > 0 && !config.jsonOutput) {
+							for (const err of catalogResult.errors) {
+								logger.warn(`Catalog: ${err}`);
+							}
+						}
+						if (!config.jsonOutput) {
+							logger.debug(
+								`Generated CATALOG.md with ${catalogResult.entries.length} skills`,
+							);
 						}
 					}
 

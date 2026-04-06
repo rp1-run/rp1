@@ -2,6 +2,13 @@
  * Build module exports.
  */
 
+export type { CatalogEntry } from "./catalog-generator.js";
+// Catalog generator
+export {
+	collectCatalogEntries,
+	generateCatalog,
+	renderCatalog,
+} from "./catalog-generator.js";
 // Claude Code registry
 export { claudeCodeRegistry } from "./claude-code/registry.js";
 export type { PlatformBuildResult } from "./command.js";
@@ -32,6 +39,7 @@ export type {
 	OpenCodeSkill,
 	PlatformRegistry,
 	PluginManifest,
+	SkillCategory,
 } from "./models.js";
 // Parser
 export { parseAgent, parseCommand, parseSkill } from "./parser.js";
