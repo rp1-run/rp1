@@ -27,9 +27,9 @@ providers:
         - user
       plugins:
         - type: local
-          path: dist/claude-code/dev
+          path: ../../../../dist/claude-code/dev
         - type: local
-          path: dist/claude-code/base
+          path: ../../../../dist/claude-code/base
       custom_allowed_tools:
         - Read
         - Write
