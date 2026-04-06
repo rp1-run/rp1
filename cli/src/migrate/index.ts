@@ -13,6 +13,7 @@ import {
 	type LegacyWorkResult,
 	moveLegacyWork,
 } from "./legacy-work.js";
+import { type StanzaUpgradeResult, upgradeStanzas } from "./stanza-upgrade.js";
 
 export interface MigrateResult {
 	readonly projectRoot: string;
@@ -22,6 +23,7 @@ export interface MigrateResult {
 	readonly legacyWork: LegacyWorkResult | undefined;
 	readonly gitignore: GitignoreUpdateResult;
 	readonly dbBackfill: DbBackfillResult;
+	readonly stanzaUpgrade: StanzaUpgradeResult;
 }
 
 export const executeMigrate = async (
@@ -58,6 +60,8 @@ export const executeMigrate = async (
 
 	const dbBackfill = backfillProjectId(projectRoot, projectId);
 
+	const stanzaUpgrade = upgradeStanzas(projectRoot);
+
 	return {
 		projectRoot,
 		projectId,
@@ -66,6 +70,7 @@ export const executeMigrate = async (
 		legacyWork,
 		gitignore,
 		dbBackfill,
+		stanzaUpgrade,
 	};
 };
 
@@ -119,6 +124,24 @@ export const formatMigrateSummary = (result: MigrateResult): string => {
 		);
 	} else {
 		lines.push("  No database records to backfill");
+	}
+
+	if (result.stanzaUpgrade.filesUpgraded.length > 0) {
+		for (const upgrade of result.stanzaUpgrade.filesUpgraded) {
+			lines.push(
+				`  Updated ${upgrade.file} stanza (v${upgrade.fromVersion} -> v${upgrade.toVersion})`,
+			);
+		}
+	} else if (result.stanzaUpgrade.filesAlreadyCurrent.length > 0) {
+		lines.push("  Stanza content already up to date");
+	} else {
+		lines.push("  No stanza content to upgrade");
+	}
+
+	if (result.stanzaUpgrade.errors.length > 0) {
+		for (const err of result.stanzaUpgrade.errors) {
+			lines.push(`  Stanza upgrade error in ${err.file}: ${err.error}`);
+		}
 	}
 
 	return lines.join("\n");
