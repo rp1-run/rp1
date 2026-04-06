@@ -512,8 +512,8 @@ describe("init-install separation", () => {
 			expect(updatedContent).not.toContain("Old instructions.");
 
 			// Should still have fence markers with new content
-			expect(updatedContent).toContain("<!-- rp1:start -->");
-			expect(updatedContent).toContain("<!-- rp1:end -->");
+			expect(updatedContent).toMatch(/<!-- rp1:start(:\S+)? -->/);
+			expect(updatedContent).toMatch(/<!-- rp1:end(:\S+)? -->/);
 		});
 
 		test("fenced content is appended when no markers exist in file", async () => {
@@ -532,8 +532,8 @@ describe("init-install separation", () => {
 			expect(updatedContent).toContain("Existing content only.");
 
 			// Fenced content appended
-			expect(updatedContent).toContain("<!-- rp1:start -->");
-			expect(updatedContent).toContain("<!-- rp1:end -->");
+			expect(updatedContent).toMatch(/<!-- rp1:start(:\S+)? -->/);
+			expect(updatedContent).toMatch(/<!-- rp1:end(:\S+)? -->/);
 		});
 
 		test("instruction file is created with fenced content when it does not exist", async () => {
@@ -545,8 +545,8 @@ describe("init-install separation", () => {
 			// Default (no detected tool) creates CLAUDE.md
 			const content = await readFileIfExists(join(tempDir, "CLAUDE.md"));
 			expect(content).not.toBeNull();
-			expect(content).toContain("<!-- rp1:start -->");
-			expect(content).toContain("<!-- rp1:end -->");
+			expect(content).toMatch(/<!-- rp1:start(:\S+)? -->/);
+			expect(content).toMatch(/<!-- rp1:end(:\S+)? -->/);
 		});
 
 		test("refresh replaces only fenced content, not user content between files", async () => {

@@ -129,8 +129,8 @@ describe("integration: init workflow", () => {
 				// At least one instruction file should exist with fenced content
 				const instructionContent = claudeMdContent ?? agentsMdContent;
 				expect(instructionContent).not.toBeNull();
-				expect(instructionContent).toContain("<!-- rp1:start -->");
-				expect(instructionContent).toContain("<!-- rp1:end -->");
+				expect(instructionContent).toMatch(/<!-- rp1:start(:\S+)? -->/);
+				expect(instructionContent).toMatch(/<!-- rp1:end(:\S+)? -->/);
 			},
 			{ timeout: 30000 },
 		);
