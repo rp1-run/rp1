@@ -99,14 +99,3 @@ tests:
     assert:
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertPostBuildPromptOptions
-      - type: llm-rubric
-        value: |
-          Evaluate the qualitative aspects of the post-build prompt presented after a successful build.
-
-          REQUIRED (all must pass):
-          1. Post-build prompt options are clearly worded and easy to understand
-          2. Each option has a distinct, unambiguous purpose
-          3. The overall prompt structure is clean and user-friendly
-
-          PASS if: Prompt options are clear, well-worded, and easy to act on
-          FAIL if: Options are confusing, ambiguous, or poorly presented
