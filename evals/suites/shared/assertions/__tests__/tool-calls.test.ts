@@ -3,12 +3,18 @@ import {
 	assertCanonicalToolCall,
 	assertFileExists,
 	assertGitCommitToolCall,
+	assertKBLoad,
+	assertNoBuildFastAgents,
 	assertNoCanonicalToolCall,
 	assertNoGitPushToolCall,
 	assertNoToolCall,
 	assertOutputContains,
+	assertPostBuildPromptOptions,
 	assertToolCall,
 	assertToolCallCount,
+	getBashCommands,
+	getOrchestratorToolCalls,
+	getSubAgentToolCalls,
 	type ToolCall,
 	type ToolCallEvalContext,
 } from "../tool-calls.js";
@@ -32,13 +38,36 @@ function makeContext(
 	};
 }
 
-function tc(name: string, input: unknown = {}, canonical?: string): ToolCall {
+/**
+ * Create context matching stock provider shape (no bashCommands, no toolCallCount).
+ */
+function makeStockContext(
+	toolCalls: ToolCall[],
+	vars: Record<string, string> = {},
+): ToolCallEvalContext {
+	return {
+		vars,
+		providerResponse: {
+			metadata: {
+				toolCalls,
+			},
+		},
+	};
+}
+
+function tc(
+	name: string,
+	input: unknown = {},
+	canonical?: string,
+	parentToolUseId?: string | null,
+): ToolCall {
 	return {
 		id: `tc_${Math.random().toString(36).slice(2, 8)}`,
 		name,
 		canonical: canonical as ToolCall["canonical"],
 		input,
 		source: "stream_event",
+		...(parentToolUseId !== undefined ? { parentToolUseId } : {}),
 	};
 }
 
@@ -295,5 +324,327 @@ describe("assertNoCanonicalToolCall", () => {
 		const ctx = makeContext([tc("Bash", { command: "ls" }, "shell")]);
 		const result = assertNoCanonicalToolCall("shell", /git push/)("", ctx);
 		expect(result.pass).toBe(true);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Stock provider metadata shape (no bashCommands, no toolCallCount)
+// ─────────────────────────────────────────────────────────────────────
+
+describe("stock provider metadata (no bashCommands)", () => {
+	test("makeContext without bashCommands still works for assertToolCall", () => {
+		const ctx = makeStockContext([tc("Bash", { command: "git status" })]);
+		const result = assertToolCall("Bash")("", ctx);
+		expect(result.pass).toBe(true);
+	});
+
+	test("assertNoToolCall works without bashCommands", () => {
+		const ctx = makeStockContext([tc("Read", { file_path: "/tmp/a.ts" })]);
+		const result = assertNoToolCall("Write")("", ctx);
+		expect(result.pass).toBe(true);
+	});
+
+	test("assertToolCallCount works without bashCommands", () => {
+		const ctx = makeStockContext([tc("Bash"), tc("Bash")]);
+		const result = assertToolCallCount("Bash", 2)("", ctx);
+		expect(result.pass).toBe(true);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// getBashCommands derivation
+// ─────────────────────────────────────────────────────────────────────
+
+describe("getBashCommands", () => {
+	test("returns pre-computed bashCommands when available", () => {
+		const ctx = makeContext([tc("Bash", { command: "git status" })]);
+		const cmds = getBashCommands(ctx);
+		expect(cmds).toEqual(["git status"]);
+	});
+
+	test("derives bash commands from tool calls when bashCommands absent", () => {
+		const ctx = makeStockContext([
+			tc("Bash", { command: "git status" }),
+			tc("Read", { file_path: "/tmp/a.ts" }),
+			tc("Bash", { command: "rp1 agent-tools emit --type status_change" }),
+		]);
+		const cmds = getBashCommands(ctx);
+		expect(cmds).toEqual([
+			"git status",
+			"rp1 agent-tools emit --type status_change",
+		]);
+	});
+
+	test("returns empty array when no bash calls and no bashCommands", () => {
+		const ctx = makeStockContext([tc("Read", { file_path: "/tmp/a.ts" })]);
+		const cmds = getBashCommands(ctx);
+		expect(cmds).toEqual([]);
+	});
+
+	test("skips bash calls with empty/missing command", () => {
+		const ctx = makeStockContext([
+			tc("Bash", { command: "" }),
+			tc("Bash", {}),
+			tc("Bash", { command: "ls" }),
+		]);
+		const cmds = getBashCommands(ctx);
+		expect(cmds).toEqual(["ls"]);
+	});
+
+	test("handles lowercase 'bash' tool name", () => {
+		const ctx = makeStockContext([tc("bash", { command: "echo hi" })]);
+		const cmds = getBashCommands(ctx);
+		expect(cmds).toEqual(["echo hi"]);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Canonical name computation on-the-fly
+// ─────────────────────────────────────────────────────────────────────
+
+describe("canonical name on-the-fly computation", () => {
+	test("computes canonical for tool calls without explicit canonical", () => {
+		const ctx = makeStockContext([tc("Bash", { command: "ls" })]);
+		const result = assertCanonicalToolCall("shell")("", ctx);
+		expect(result.pass).toBe(true);
+	});
+
+	test("preserves explicit canonical when provided", () => {
+		const ctx = makeStockContext([tc("Bash", { command: "ls" }, "shell")]);
+		const result = assertCanonicalToolCall("shell")("", ctx);
+		expect(result.pass).toBe(true);
+	});
+
+	test("computes canonical for AskUserQuestion", () => {
+		const ctx = makeStockContext([tc("AskUserQuestion", { questions: [] })]);
+		const result = assertCanonicalToolCall("ask_user")("", ctx);
+		expect(result.pass).toBe(true);
+	});
+
+	test("computes canonical for Read tool", () => {
+		const ctx = makeStockContext([tc("Read", { file_path: "/tmp/test.ts" })]);
+		const result = assertCanonicalToolCall("read")("", ctx);
+		expect(result.pass).toBe(true);
+	});
+
+	test("computes canonical for Write tool", () => {
+		const ctx = makeStockContext([
+			tc("Write", { file_path: "/tmp/test.ts", content: "x" }),
+		]);
+		const result = assertCanonicalToolCall("write")("", ctx);
+		expect(result.pass).toBe(true);
+	});
+
+	test("computes canonical for Agent/Task as subagent", () => {
+		const ctx = makeStockContext([tc("Task", { agent: "speedrun-builder" })]);
+		const result = assertCanonicalToolCall("subagent")("", ctx);
+		expect(result.pass).toBe(true);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// parentToolUseId filtering
+// ─────────────────────────────────────────────────────────────────────
+
+describe("getOrchestratorToolCalls", () => {
+	test("returns calls with null parentToolUseId", () => {
+		const ctx = makeStockContext([
+			tc("Bash", { command: "ls" }, undefined, null),
+			tc("Bash", { command: "git status" }, undefined, "parent-id-123"),
+		]);
+		const calls = getOrchestratorToolCalls(ctx);
+		expect(calls.length).toBe(1);
+		expect((calls[0].input as { command: string }).command).toBe("ls");
+	});
+
+	test("returns calls with undefined parentToolUseId", () => {
+		const ctx = makeStockContext([
+			tc("Bash", { command: "ls" }),
+			tc("Bash", { command: "git status" }, undefined, "parent-id-123"),
+		]);
+		const calls = getOrchestratorToolCalls(ctx);
+		expect(calls.length).toBe(1);
+		expect((calls[0].input as { command: string }).command).toBe("ls");
+	});
+
+	test("returns all calls when none have parentToolUseId", () => {
+		const ctx = makeStockContext([
+			tc("Bash", { command: "ls" }),
+			tc("Read", { file_path: "/tmp/a.ts" }),
+		]);
+		const calls = getOrchestratorToolCalls(ctx);
+		expect(calls.length).toBe(2);
+	});
+
+	test("returns empty when all calls are sub-agent", () => {
+		const ctx = makeStockContext([
+			tc("Bash", { command: "ls" }, undefined, "parent-1"),
+			tc("Read", { file_path: "/tmp/a.ts" }, undefined, "parent-2"),
+		]);
+		const calls = getOrchestratorToolCalls(ctx);
+		expect(calls.length).toBe(0);
+	});
+});
+
+describe("getSubAgentToolCalls", () => {
+	test("returns calls with string parentToolUseId", () => {
+		const ctx = makeStockContext([
+			tc("Bash", { command: "ls" }, undefined, null),
+			tc("Bash", { command: "git status" }, undefined, "parent-id-123"),
+			tc("Read", { file_path: "/a.ts" }, undefined, "parent-id-456"),
+		]);
+		const calls = getSubAgentToolCalls(ctx);
+		expect(calls.length).toBe(2);
+	});
+
+	test("returns empty when no sub-agent calls", () => {
+		const ctx = makeStockContext([
+			tc("Bash", { command: "ls" }),
+			tc("Bash", { command: "git status" }, undefined, null),
+		]);
+		const calls = getSubAgentToolCalls(ctx);
+		expect(calls.length).toBe(0);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Domain assertions: assertNoBuildFastAgents
+// ─────────────────────────────────────────────────────────────────────
+
+describe("assertNoBuildFastAgents", () => {
+	test("passes when no build-fast agents spawned", () => {
+		const ctx = makeStockContext([
+			tc("Task", { agent: "speedrun-builder" }),
+			tc("Bash", { command: "ls" }),
+		]);
+		const result = assertNoBuildFastAgents("", ctx);
+		expect(result.pass).toBe(true);
+	});
+
+	test("fails when build-fast-planner spawned", () => {
+		const ctx = makeStockContext([tc("Task", { agent: "build-fast-planner" })]);
+		const result = assertNoBuildFastAgents("", ctx);
+		expect(result.pass).toBe(false);
+		expect(result.reason).toContain("build-fast-planner");
+	});
+
+	test("fails when task-builder spawned", () => {
+		const ctx = makeStockContext([
+			tc("Agent", { agent: "task-builder", task: "T1" }),
+		]);
+		const result = assertNoBuildFastAgents("", ctx);
+		expect(result.pass).toBe(false);
+		expect(result.reason).toContain("task-builder");
+	});
+
+	test("passes with no subagent calls at all", () => {
+		const ctx = makeStockContext([tc("Bash", { command: "ls" })]);
+		const result = assertNoBuildFastAgents("", ctx);
+		expect(result.pass).toBe(true);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Domain assertions: assertPostBuildPromptOptions
+// ─────────────────────────────────────────────────────────────────────
+
+describe("assertPostBuildPromptOptions", () => {
+	test("passes when AskUserQuestion has commit/refine/new/exit options", () => {
+		const ctx = makeStockContext([
+			tc("AskUserQuestion", {
+				questions: [
+					{
+						question: "What next?",
+						options: [
+							{ label: "Commit changes" },
+							{ label: "Refine implementation" },
+							{ label: "New task" },
+							{ label: "Exit" },
+						],
+					},
+				],
+			}),
+		]);
+		const result = assertPostBuildPromptOptions("", ctx);
+		expect(result.pass).toBe(true);
+	});
+
+	test("fails when AskUserQuestion missing options", () => {
+		const ctx = makeStockContext([
+			tc("AskUserQuestion", {
+				questions: [
+					{
+						question: "What next?",
+						options: [{ label: "Commit" }, { label: "Exit" }],
+					},
+				],
+			}),
+		]);
+		const result = assertPostBuildPromptOptions("", ctx);
+		expect(result.pass).toBe(false);
+	});
+
+	test("fails when no AskUserQuestion calls", () => {
+		const ctx = makeStockContext([tc("Bash", { command: "ls" })]);
+		const result = assertPostBuildPromptOptions("", ctx);
+		expect(result.pass).toBe(false);
+	});
+
+	test("matches case-insensitively", () => {
+		const ctx = makeStockContext([
+			tc("AskUserQuestion", {
+				questions: [
+					{
+						question: "Options",
+						options: [
+							{ label: "COMMIT" },
+							{ label: "REFINE" },
+							{ label: "NEW" },
+							{ label: "EXIT" },
+						],
+					},
+				],
+			}),
+		]);
+		const result = assertPostBuildPromptOptions("", ctx);
+		expect(result.pass).toBe(true);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Domain assertions: assertKBLoad
+// ─────────────────────────────────────────────────────────────────────
+
+describe("assertKBLoad", () => {
+	test("passes when Read called on .rp1/context/ path", () => {
+		const ctx = makeStockContext([
+			tc("Read", { file_path: "/project/.rp1/context/index.md" }),
+		]);
+		const result = assertKBLoad("", ctx);
+		expect(result.pass).toBe(true);
+	});
+
+	test("fails when no Read on .rp1/context/", () => {
+		const ctx = makeStockContext([
+			tc("Read", { file_path: "/project/src/main.ts" }),
+		]);
+		const result = assertKBLoad("", ctx);
+		expect(result.pass).toBe(false);
+	});
+
+	test("fails with no Read calls at all", () => {
+		const ctx = makeStockContext([tc("Bash", { command: "ls" })]);
+		const result = assertKBLoad("", ctx);
+		expect(result.pass).toBe(false);
+	});
+
+	test("counts multiple KB reads", () => {
+		const ctx = makeStockContext([
+			tc("Read", { file_path: "/p/.rp1/context/index.md" }),
+			tc("Read", { file_path: "/p/.rp1/context/patterns.md" }),
+		]);
+		const result = assertKBLoad("", ctx);
+		expect(result.pass).toBe(true);
+		expect(result.reason).toContain("2 Read call(s)");
 	});
 });
