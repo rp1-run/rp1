@@ -530,6 +530,157 @@ export function assertCanonicalToolCall(
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// ParentToolUseId filtering helpers (orchestrator vs sub-agent)
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Filter tool calls to top-level orchestrator calls only.
+ * Returns calls where parentToolUseId is null or undefined (not nested).
+ */
+export function getOrchestratorToolCalls(
+	context: ToolCallEvalContext,
+): readonly ToolCall[] {
+	return getToolCalls(context).filter(
+		(tc) => tc.parentToolUseId === null || tc.parentToolUseId === undefined,
+	);
+}
+
+/**
+ * Filter tool calls to nested sub-agent calls only.
+ * Returns calls where parentToolUseId is a non-null string.
+ */
+export function getSubAgentToolCalls(
+	context: ToolCallEvalContext,
+): readonly ToolCall[] {
+	return getToolCalls(context).filter(
+		(tc) => tc.parentToolUseId !== null && tc.parentToolUseId !== undefined,
+	);
+}
+
+/**
+ * Assert a tool was called at orchestrator level (parentToolUseId is null/undefined).
+ */
+export function assertOrchestratorToolCall<T extends ToolName>(
+	toolName: T,
+	matcher?: Matcher<ToolInputMap[T]>,
+): AssertionFunction {
+	return (_output: string, context: ToolCallEvalContext): GradingResult => {
+		const toolCalls = getOrchestratorToolCalls(context);
+
+		if (toolCalls.length === 0) {
+			return {
+				pass: false,
+				score: 0,
+				reason: "No orchestrator-level tool calls found",
+			};
+		}
+
+		const matchingCall = toolCalls.find((tc) =>
+			matchesToolCall(tc, toolName, matcher),
+		);
+
+		if (matchingCall) {
+			const matcherDesc =
+				matcher !== undefined ? ` matching ${String(matcher)}` : "";
+			return {
+				pass: true,
+				score: 1,
+				reason: `Found orchestrator-level ${toolName} tool call${matcherDesc}`,
+			};
+		}
+
+		const toolNameCalls = toolCalls.filter(
+			(tc) => tc.name.toLowerCase() === toolName.toLowerCase(),
+		);
+		const matcherDesc =
+			matcher !== undefined ? ` matching ${String(matcher)}` : "";
+
+		if (toolNameCalls.length === 0) {
+			return {
+				pass: false,
+				score: 0,
+				reason: `No orchestrator-level ${toolName} tool calls found. Orchestrator calls: ${toolCalls.length}`,
+			};
+		}
+
+		return {
+			pass: false,
+			score: 0,
+			reason: `Found ${toolNameCalls.length} orchestrator-level ${toolName} call(s), but none${matcherDesc}`,
+		};
+	};
+}
+
+/**
+ * Assert a tool was called only by sub-agents (parentToolUseId is not null).
+ */
+export function assertSubAgentOnlyToolCall<T extends ToolName>(
+	toolName: T,
+	matcher?: Matcher<ToolInputMap[T]>,
+): AssertionFunction {
+	return (_output: string, context: ToolCallEvalContext): GradingResult => {
+		const subAgentCalls = getSubAgentToolCalls(context);
+
+		if (subAgentCalls.length === 0) {
+			return {
+				pass: false,
+				score: 0,
+				reason: "No sub-agent-level tool calls found",
+			};
+		}
+
+		const matchingCall = subAgentCalls.find((tc) =>
+			matchesToolCall(tc, toolName, matcher),
+		);
+
+		if (matchingCall) {
+			const orchestratorCalls = getOrchestratorToolCalls(context);
+			const orchestratorMatch = orchestratorCalls.find((tc) =>
+				matchesToolCall(tc, toolName, matcher),
+			);
+
+			if (orchestratorMatch) {
+				const matcherDesc =
+					matcher !== undefined ? ` matching ${String(matcher)}` : "";
+				return {
+					pass: false,
+					score: 0,
+					reason: `${toolName}${matcherDesc} was called at both orchestrator and sub-agent level`,
+				};
+			}
+
+			const matcherDesc =
+				matcher !== undefined ? ` matching ${String(matcher)}` : "";
+			return {
+				pass: true,
+				score: 1,
+				reason: `Found sub-agent-only ${toolName} tool call${matcherDesc}`,
+			};
+		}
+
+		const toolNameCalls = subAgentCalls.filter(
+			(tc) => tc.name.toLowerCase() === toolName.toLowerCase(),
+		);
+		const matcherDesc =
+			matcher !== undefined ? ` matching ${String(matcher)}` : "";
+
+		if (toolNameCalls.length === 0) {
+			return {
+				pass: false,
+				score: 0,
+				reason: `No sub-agent-level ${toolName} tool calls found. Sub-agent calls: ${subAgentCalls.length}`,
+			};
+		}
+
+		return {
+			pass: false,
+			score: 0,
+			reason: `Found ${toolNameCalls.length} sub-agent-level ${toolName} call(s), but none${matcherDesc}`,
+		};
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Domain-specific assertions (rp1 workflow patterns)
 // ─────────────────────────────────────────────────────────────────────
 
@@ -781,6 +932,33 @@ export const assertSpeedrunBuilderSpawned =
 /** Assert build-fast-planner subagent was spawned. */
 export const assertBuildFastPlannerSpawned =
 	assertSubagentSpawned("build-fast-planner");
+
+/** Assert speedrun-builder was spawned at orchestrator level (parentToolUseId is null/undefined). */
+export const assertOrchestratorSpawnedSpeedrunBuilder: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const orchestratorCalls = getOrchestratorToolCalls(context);
+	const subagentNames = ["Task", "task", "Agent", "agent"];
+	const found = orchestratorCalls.some(
+		(tc) =>
+			subagentNames.includes(tc.name) &&
+			JSON.stringify(tc.input).includes("speedrun-builder"),
+	);
+	if (!found) {
+		return {
+			pass: false,
+			score: 0,
+			reason:
+				"No orchestrator-level speedrun-builder spawn found (checked parentToolUseId)",
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "speedrun-builder spawned at orchestrator level",
+	};
+};
 
 /** Assert artifact-detector spawned first. */
 export const assertArtifactDetectorFirst =
