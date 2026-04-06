@@ -1111,6 +1111,117 @@ export const assertScopeRedirectStatus: AssertionFunction = (
 	};
 };
 
+/** Assert no build-fast-planner or task-builder subagent was spawned. */
+export const assertNoBuildFastAgents: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const tcs = getToolCalls(context);
+	const subagentNames = ["Task", "task", "Agent", "agent"];
+	const buildFastAgents = tcs.filter((tc) => {
+		if (!subagentNames.includes(tc.name)) return false;
+		const input = JSON.stringify(tc.input);
+		return (
+			input.includes("build-fast-planner") || input.includes("task-builder")
+		);
+	});
+	if (buildFastAgents.length > 0) {
+		const names = buildFastAgents
+			.map((tc) => {
+				const input = JSON.stringify(tc.input);
+				if (input.includes("build-fast-planner")) return "build-fast-planner";
+				return "task-builder";
+			})
+			.join(", ");
+		return {
+			pass: false,
+			score: 0,
+			reason: `Found build-fast agent(s) spawned: ${names}`,
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "No build-fast-planner or task-builder spawned",
+	};
+};
+
+/** Assert AskUserQuestion was called with commit/refine/new/exit options (post-build prompt). Cross-provider: matches both AskUserQuestion and question. */
+export const assertPostBuildPromptOptions: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const tcs = getToolCalls(context);
+	const askCalls = tcs.filter(
+		(tc) => tc.name === "AskUserQuestion" || tc.canonical === "ask_user",
+	);
+	const expectedOptions = ["commit", "refine", "new", "exit"];
+	const hasPostBuild = askCalls.some((tc) => {
+		const input = JSON.stringify(tc.input).toLowerCase();
+		return expectedOptions.every((opt) => input.includes(opt));
+	});
+	if (!hasPostBuild) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `No AskUserQuestion with commit/refine/new/exit options found. Found ${askCalls.length} AskUserQuestion call(s)`,
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "Post-build prompt with commit/refine/new/exit options found",
+	};
+};
+
+/** Assert Read tool was called on a `.rp1/context/` path (KB load). */
+export const assertKBLoad: AssertionFunction = (_output, context) => {
+	const tcs = getToolCalls(context);
+	const kbReads = tcs.filter((tc) => {
+		if (tc.name !== "Read" && tc.canonical !== "read") return false;
+		const input = tc.input as { file_path?: string };
+		return input.file_path?.includes(".rp1/context/") ?? false;
+	});
+	if (kbReads.length === 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "No Read tool call on .rp1/context/ path found (KB not loaded)",
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: `KB loaded: ${kbReads.length} Read call(s) on .rp1/context/ paths`,
+	};
+};
+
+/** Assert status_change emit with redirect was called (scope redirect). */
+export const assertScopeRedirectStatus: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const cmds = getBashCommands(context);
+	const found = cmds.some(
+		(cmd) =>
+			cmd.includes("rp1 agent-tools emit") &&
+			cmd.includes("--type status_change") &&
+			cmd.includes("redirect"),
+	);
+	if (!found) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "No status_change emit with redirect found in bash commands",
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "Scope redirect status_change emit found",
+	};
+};
+
 /** Assert a general sub-agent was spawned (not a named rp1-dev agent like build-fast-planner or task-builder). */
 export const assertGeneralSubagentSpawned: AssertionFunction = (
 	_output,
