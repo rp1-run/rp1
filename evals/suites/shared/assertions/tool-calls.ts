@@ -4,7 +4,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { type CanonicalTool, toCanonical } from "../tool-names.js";
+import { type CanonicalTool, toCanonical } from "../tool-names.ts";
 
 interface GradingResult {
 	pass: boolean;
