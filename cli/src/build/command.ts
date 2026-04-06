@@ -1039,6 +1039,16 @@ export const deriveCodexOutputDir = (opencodeOutputDir: string): string => {
 };
 
 /**
+ * Derive Copilot output directory from the OpenCode output directory.
+ * Maps "dist/opencode" to "dist/copilot".
+ */
+export const deriveCopilotOutputDir = (opencodeOutputDir: string): string => {
+	const normalized = opencodeOutputDir.replace(/\/+$/, "");
+	const parent = dirname(normalized);
+	return join(parent, "copilot");
+};
+
+/**
  * Print build summary table.
  */
 const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
@@ -1177,6 +1187,7 @@ export const executeBuild = (
 					const outputPath = resolve(projectRoot, config.outputDir);
 					const ccOutputPath = deriveCCOutputDir(outputPath);
 					const codexOutputPath = deriveCodexOutputDir(outputPath);
+					const copilotOutputPath = deriveCopilotOutputDir(outputPath);
 
 					const platformsToBuild: Array<{
 						platform: BuildPlatform;
@@ -1187,6 +1198,7 @@ export const executeBuild = (
 									{ platform: "opencode", outputPath },
 									{ platform: "claude-code", outputPath: ccOutputPath },
 									{ platform: "codex", outputPath: codexOutputPath },
+									{ platform: "copilot", outputPath: copilotOutputPath },
 								]
 							: [
 									{
@@ -1196,7 +1208,9 @@ export const executeBuild = (
 												? ccOutputPath
 												: config.platform === "codex"
 													? codexOutputPath
-													: outputPath,
+													: config.platform === "copilot"
+														? copilotOutputPath
+														: outputPath,
 									},
 								];
 

@@ -226,6 +226,7 @@ import { mapAgentToRoleType } from "./codex/role-mapper.js";
 import { discoverSkillMap } from "./codex/skill-map.js";
 import { validateSubAgents } from "./codex/sub-agent-validator.js";
 import { validateCodexToml } from "./codex/validator.js";
+import { copilotRegistry } from "./copilot/registry.js";
 import { defaultRegistry } from "./registry.js";
 import { transformNamespace } from "./tags/index.js";
 import { buildTemplateContext } from "./template-context.js";
@@ -416,6 +417,23 @@ const opencodePreparePlugin = async (
 ): Promise<PlatformBuildState> => ({});
 
 // ---------------------------------------------------------------------------
+// Copilot hook implementations
+// ---------------------------------------------------------------------------
+
+const copilotPreparePlugin = async (
+	_ctx: HookContext,
+): Promise<PlatformBuildState> => ({});
+
+const copilotPostPluginBuild = async (
+	_outputDir: string,
+	_state: PlatformBuildState,
+	_hookCtx: HookContext,
+): Promise<PostBuildResult> => ({
+	errors: [],
+	warnings: [],
+});
+
+// ---------------------------------------------------------------------------
 // Platform definitions
 // ---------------------------------------------------------------------------
 
@@ -486,6 +504,28 @@ const codexPlatform: PlatformDefinition = {
 	producesBundleAssets: true,
 };
 
+const copilotPlatform: PlatformDefinition = {
+	id: "copilot",
+	registry: copilotRegistry,
+	config: platformConfigs.copilot,
+	templates: {
+		skill: "copilot/skill",
+		agent: "copilot/agent",
+		manifest: "copilot/manifest",
+	},
+	naming: {
+		skillDirPrefix: "rp1-",
+		agentFileName: (pluginName: string, agentName: string) =>
+			`rp1-${pluginName}-${agentName}`,
+		agentExtension: ".md",
+	},
+	hooks: {
+		preparePlugin: copilotPreparePlugin,
+		postPluginBuild: copilotPostPluginBuild,
+	},
+	producesBundleAssets: true,
+};
+
 // ---------------------------------------------------------------------------
 // Platform definitions map
 // ---------------------------------------------------------------------------
@@ -497,6 +537,7 @@ export const PLATFORM_DEFINITIONS: ReadonlyMap<
 	["opencode", opencodePlatform],
 	["claude-code", claudeCodePlatform],
 	["codex", codexPlatform],
+	["copilot", copilotPlatform],
 ]);
 
 /**

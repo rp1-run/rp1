@@ -126,6 +126,10 @@ build-claude-code:
 build-codex:
     cd cli && bun run scripts/build-codex.ts
 
+# Build the Copilot CLI plugins
+build-copilot:
+    cd cli && bun run scripts/build-copilot.ts
+
 # Build the web-ui
 build-web-ui:
     cd cli/web-ui && bun run build
@@ -315,6 +319,8 @@ rm-stable:
     rm -rf ~/.agents/skills/rp1-*/
     rm -rf ~/.codex/skills/rp1-*/
     rm -rf ~/.codex/agents/rp1/
+    rm -rf ~/.config/github-copilot/skills/rp1-*/
+    rm -rf ~/.config/github-copilot/agents/rp1*
     rm -f bin/rp1
     rm -f ~/.rp1/platform-versions.json
 
