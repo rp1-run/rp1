@@ -2,10 +2,6 @@
  * Type-safe data models for Claude Code and OpenCode artifacts.
  */
 
-// ---------------------------------------------------------------------------
-// Argument schema types
-// ---------------------------------------------------------------------------
-
 /** Supported argument types for structured argument definitions. */
 export type ArgumentType = "string" | "boolean" | "enum";
 

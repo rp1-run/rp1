@@ -158,7 +158,6 @@ export const parseAgent = (
 				);
 			}
 
-			// Handle tools as list or comma-separated string
 			let tools: string[] = [];
 			const toolsRaw = metadata.tools;
 			if (Array.isArray(toolsRaw)) {
@@ -167,14 +166,12 @@ export const parseAgent = (
 				tools = toolsRaw.split(",").map((t) => t.trim());
 			}
 
-			// Parse and validate arguments if present
 			const argsResult = parseArgumentDefinitions(metadata.arguments, filePath);
 			if (E.isLeft(argsResult)) {
 				return TE.left(argsResult.left);
 			}
 			const parsedArgs = argsResult.right;
 
-			// Parse and validate environment if present
 			const envResult = parseEnvironmentDefinitions(
 				metadata.environment,
 				filePath,
@@ -228,7 +225,6 @@ const parseArgumentDefinition = (
 
 	const obj = raw as Record<string, unknown>;
 
-	// Required fields
 	if (typeof obj.name !== "string" || obj.name.length === 0) {
 		return E.left(
 			parseError(
@@ -277,7 +273,6 @@ const parseArgumentDefinition = (
 		);
 	}
 
-	// Build the validated definition
 	const def: ArgumentDefinition = {
 		name: obj.name,
 		type: obj.type as ArgumentType,
@@ -415,14 +410,12 @@ const extractSkillMetadata = (
 
 	const meta = raw as Record<string, unknown>;
 
-	// Parse and validate arguments if present
 	const argsResult = parseArgumentDefinitions(meta.arguments, filePath);
 	if (E.isLeft(argsResult)) {
 		return argsResult;
 	}
 	const parsedArgs = argsResult.right;
 
-	// Parse and validate environment if present
 	const envResult = parseEnvironmentDefinitions(meta.environment, filePath);
 	if (E.isLeft(envResult)) {
 		return envResult;
@@ -471,7 +464,6 @@ const extractSkillMetadata = (
 		...(isWorkflow !== undefined && { isWorkflow }),
 	};
 
-	// Return undefined if all fields are undefined (no meaningful metadata)
 	const hasAnyField = Object.values(result).some((v) => v !== undefined);
 	return E.right(hasAnyField ? result : undefined);
 };

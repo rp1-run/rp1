@@ -93,9 +93,7 @@ export const collectCatalogEntries = async (
 					try {
 						await stat(skillMd);
 						skillDirs.push(join(skillsDir, entry.name));
-					} catch {
-						// No SKILL.md, skip
-					}
+					} catch {}
 				}
 			}
 			skillDirs.sort();

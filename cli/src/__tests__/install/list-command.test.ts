@@ -23,13 +23,11 @@ const mockSkills = [
 	},
 ];
 
-// Mock listInstalledSkills before importing executeList
 mock.module("../../install/verifier.js", () => ({
 	listInstalledSkills: () => TE.right(mockSkills),
 	verifyInstallation: () => TE.right({}),
 }));
 
-// Dynamic import after mock setup
 const { executeList } = await import("../../install/command.js");
 
 describe("executeList", () => {
@@ -121,7 +119,6 @@ describe("executeList with empty skills", () => {
 	});
 
 	test("--json outputs empty array when no skills installed", async () => {
-		// Re-mock with empty skills for this test
 		mock.module("../../install/verifier.js", () => ({
 			listInstalledSkills: () => TE.right([]),
 			verifyInstallation: () => TE.right({}),
