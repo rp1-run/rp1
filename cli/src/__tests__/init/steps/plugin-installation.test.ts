@@ -73,6 +73,23 @@ const createClaudeCodeTool = (version = "1.0.40"): DetectedTool => ({
 	meetsMinVersion: true,
 });
 
+const createCopilotTool = (version = "2.74.0"): DetectedTool => ({
+	tool: {
+		id: "copilot",
+		name: "GitHub Copilot CLI",
+		enabled: true,
+		binary: "gh",
+		min_version: "2.74.0",
+		instruction_file: "AGENTS.md",
+		install_url:
+			"https://docs.github.com/copilot/using-github-copilot/using-github-copilot-in-the-command-line",
+		plugin_install_cmd: "gh copilot -- plugin install {plugin}",
+		capabilities: ["plugins", "skills", "agents", "slash-commands"],
+	},
+	version,
+	meetsMinVersion: true,
+});
+
 // An unsupported tool for testing skip behavior
 const createUnsupportedTool = (): DetectedTool => ({
 	tool: {
@@ -435,6 +452,82 @@ describe("plugin-installation step", () => {
 	});
 
 	describe("checkPluginsInstalled", () => {
+		test("treats Copilot as missing when native verification fails", async () => {
+			const copilotTool = createCopilotTool();
+			const registry = {
+				version: "1.0.0",
+				tools: [copilotTool.tool],
+			};
+
+			const result = await checkPluginsInstalled(registry, {
+				detectTools: () =>
+					TE.right({
+						detected: [copilotTool],
+						missing: [],
+					}),
+				verifyCopilotPlugins: async () => ({
+					verified: false,
+					plugins: [
+						{
+							name: "rp1-base",
+							installed: false,
+							version: null,
+							location: null,
+						},
+						{
+							name: "rp1-dev",
+							installed: false,
+							version: null,
+							location: null,
+						},
+					],
+					issues: ["rp1-base missing from Copilot"],
+				}),
+			});
+
+			expect(result.installed).toBe(false);
+			expect(result.detected).toHaveLength(1);
+			expect(result.detected[0]?.tool.id).toBe("copilot");
+		});
+
+		test("treats Copilot as installed when native verification passes", async () => {
+			const copilotTool = createCopilotTool();
+			const registry = {
+				version: "1.0.0",
+				tools: [copilotTool.tool],
+			};
+
+			const result = await checkPluginsInstalled(registry, {
+				detectTools: () =>
+					TE.right({
+						detected: [copilotTool],
+						missing: [],
+					}),
+				verifyCopilotPlugins: async () => ({
+					verified: true,
+					plugins: [
+						{
+							name: "rp1-base",
+							installed: true,
+							version: "0.6.5",
+							location: "~/.copilot/installed-plugins/rp1-local/rp1-base",
+						},
+						{
+							name: "rp1-dev",
+							installed: true,
+							version: "0.6.5",
+							location: "~/.copilot/installed-plugins/rp1-local/rp1-dev",
+						},
+					],
+					issues: [],
+				}),
+			});
+
+			expect(result.installed).toBe(true);
+			expect(result.detected).toHaveLength(1);
+			expect(result.detected[0]?.tool.id).toBe("copilot");
+		});
+
 		test("returns correct shape with installed and detected fields", async () => {
 			// Use the real registry to check against actual environment
 			const { loadToolsRegistry } = await import(

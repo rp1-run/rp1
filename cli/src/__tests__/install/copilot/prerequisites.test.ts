@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
-
+import { MARKETPLACE_NAME } from "../../../install/copilot/marketplace.js";
 import {
 	checkCopilotVersion,
 	checkWritePermissions,
@@ -52,23 +52,28 @@ describe("copilot prerequisites", () => {
 			}
 		});
 
-		test("handles 'unknown' version gracefully", () => {
+		test("rejects unknown version values", () => {
 			const result = checkCopilotVersion("unknown");
-			expect(E.isRight(result)).toBe(true);
-			if (E.isRight(result)) {
-				expect(result.right.passed).toBe(true);
-				expect(result.right.message).toContain("unknown");
+			expect(E.isLeft(result)).toBe(true);
+			if (E.isLeft(result)) {
+				expect(getErrorMessage(result.left)).toContain("Could not determine");
+				expect((result.left as { suggestion?: string }).suggestion).toContain(
+					"2.74.0",
+				);
 			}
 		});
 
 		test("returns error for unparseable version strings", () => {
-			const invalidFormats = ["not-a-version", "abc.def.ghi"];
+			const invalidFormats = ["", "not-a-version", "abc.def.ghi"];
 
 			for (const format of invalidFormats) {
 				const result = checkCopilotVersion(format);
 				expect(E.isLeft(result)).toBe(true);
 				if (E.isLeft(result)) {
 					expect(getErrorMessage(result.left)).toContain("Could not parse");
+					expect((result.left as { suggestion?: string }).suggestion).toContain(
+						"2.74.0",
+					);
 				}
 			}
 		});
@@ -116,15 +121,24 @@ describe("copilot prerequisites", () => {
 	});
 
 	describe("getCopilotPaths", () => {
-		test("returns all required path fields with canonical ~/.config/github-copilot/ paths", () => {
+		test("returns separated native, marketplace, and legacy path groups", () => {
 			const paths = getCopilotPaths();
 
-			expect(paths.skillsDir).toContain("github-copilot");
-			expect(paths.skillsDir).toContain("skills");
-			expect(paths.agentsDir).toContain("github-copilot");
-			expect(paths.agentsDir).toContain("agents");
-			expect(paths.configDir).toContain("github-copilot");
-			expect(paths.backupDir).toContain("github-copilot-rp1-backups");
+			expect(paths.marketplaceDir).toContain(".rp1");
+			expect(paths.marketplaceDir).toContain("copilot");
+			expect(paths.marketplacePluginsDir).toContain("plugins");
+			expect(paths.marketplaceMetadataPath).toContain("marketplace.json");
+			expect(paths.nativeInstalledPluginsDir).toContain(".copilot");
+			expect(paths.nativeInstalledPluginsDir).toContain("installed-plugins");
+			expect(paths.nativeMarketplaceDir).toContain(MARKETPLACE_NAME);
+			expect(paths.legacySkillsDir).toContain("github-copilot");
+			expect(paths.legacySkillsDir).toContain("skills");
+			expect(paths.legacyAgentsDir).toContain("github-copilot");
+			expect(paths.legacyAgentsDir).toContain("agents");
+			expect(paths.legacyConfigDir).toContain("github-copilot");
+			expect(paths.skillsDir).toBe(paths.legacySkillsDir);
+			expect(paths.agentsDir).toBe(paths.legacyAgentsDir);
+			expect(paths.configDir).toBe(paths.legacyConfigDir);
 		});
 
 		test("resolves paths relative to home directory", () => {
@@ -132,10 +146,17 @@ describe("copilot prerequisites", () => {
 			const home = homedir();
 			const paths = getCopilotPaths();
 
+			expect(paths.marketplaceDir).toStartWith(home);
+			expect(paths.marketplacePluginsDir).toStartWith(home);
+			expect(paths.marketplaceMetadataPath).toStartWith(home);
+			expect(paths.nativeInstalledPluginsDir).toStartWith(home);
+			expect(paths.nativeMarketplaceDir).toStartWith(home);
+			expect(paths.legacyConfigDir).toStartWith(home);
+			expect(paths.legacySkillsDir).toStartWith(home);
+			expect(paths.legacyAgentsDir).toStartWith(home);
 			expect(paths.skillsDir).toStartWith(home);
 			expect(paths.agentsDir).toStartWith(home);
 			expect(paths.configDir).toStartWith(home);
-			expect(paths.backupDir).toStartWith(home);
 		});
 	});
 });

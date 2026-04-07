@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0.0",
+	"schema_version": "2.0.0",
   "skills": {
     "rp1-dev:build@claude-code": {
       "platform": "claude-code",
@@ -39,7 +39,7 @@
     }
   },
   "files": {
-    "plugins/dev/skills/worktree-workflow/SKILL.md": "sha256:c0f5beca9cba362eba543220df679b8016c8710390adcf8a61c95b0c10b06f48",
+  	"plugins/dev/skills/worktree-workflow/SKILL.md": "sha256:c0f5beca9cba362eba543220df679b8016c8710390adcf8a61c95b0c10b06f48",
     "plugins/dev/agents/build-artifact-detector.md": "sha256:4338c2daef255cc7547f723e056c4bfcabc6bb44fced8a8640c21ef43eb0f710",
     "plugins/dev/agents/feature-requirement-gatherer.md": "sha256:7577fdf296f4046df7a4fbbef2c95e8579828e4cb1bb88846f6c0b0e2a87c8c5",
     "plugins/dev/agents/feature-architect.md": "sha256:26b821abaaecea385d630f79d114ea5dfe82e9ae64a7bd0e59d4e0445e1f174c",
