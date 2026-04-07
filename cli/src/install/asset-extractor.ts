@@ -6,7 +6,6 @@
 
 import { copyFile, mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
-import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
