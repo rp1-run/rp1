@@ -1,5 +1,6 @@
 {
   "plugin": "{{ pluginName }}",
+  "nativePluginName": "{% if pluginName contains 'rp1-' %}{{ pluginName }}{% else %}{{ namespacedPluginName }}{% endif %}",
   "version": "{{ version }}",
   "copilotVersionTested": "2.74.x",
   "artifacts": {
@@ -20,10 +21,12 @@
     ]
   },
   "installation": {
-    "agentsDir": "~/.config/github-copilot/agents/",
-    "skillsDir": "~/.config/github-copilot/skills/"
+    "method": "native-plugin-marketplace",
+    "marketplaceDir": "~/.rp1/copilot/marketplace",
+    "installedPluginsDir": "~/.copilot/installed-plugins/"
   },
   "requirements": {
-    "copilotVersion": ">=2.74.0"
+    "copilotVersion": ">=2.74.0",
+    "pluginCommands": true
   }
 }
