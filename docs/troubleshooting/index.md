@@ -682,6 +682,130 @@ Common issues, solutions, and debugging strategies for rp1.
 
         File issues for significant behavioral differences between platforms.
 
+### GitHub Copilot CLI
+
+??? question "`rp1 verify copilot` reports `partial_native`"
+
+    **Symptoms:**
+
+    - `rp1 verify copilot` reports `partial_native`
+    - `gh copilot -- plugin list` is missing `rp1-base@rp1-local` or `rp1-dev@rp1-local`
+    - Verification shows missing `plugin.json`, `skills/`, or `agents/*.agent.md`
+
+    **Solutions:**
+
+    1. **Check the native Copilot plugin list:**
+
+        ```bash
+        gh copilot -- plugin list
+        ```
+
+    2. **Restage and reinstall the native marketplace plugins:**
+
+        ```bash
+        rp1 install copilot
+        ```
+
+    3. **If the staged marketplace looks incomplete, rebuild installable artifacts first:**
+
+        ```bash
+        just build-copilot
+        ./bin/rp1 install copilot --yes --artifacts-dir dist/copilot
+        ```
+
+    4. **Re-run verification until the state is `healthy_native`:**
+
+        ```bash
+        rp1 verify copilot
+        ```
+
+??? question "`rp1 verify copilot` reports `legacy_only`"
+
+    **Symptoms:**
+
+    - `rp1 verify copilot` reports `legacy_only`
+    - rp1 files only exist under `~/.config/github-copilot/`
+    - Copilot workflows are missing or inconsistent even though old rp1 files are present
+
+    **Solutions:**
+
+    1. **Remove the unsupported legacy rp1 files:**
+
+        ```bash
+        rm -rf ~/.config/github-copilot/skills/rp1-*/
+        rm -rf ~/.config/github-copilot/agents/rp1*
+        ```
+
+    2. **Install rp1 using the native marketplace flow:**
+
+        ```bash
+        rp1 install copilot
+        ```
+
+    3. **Verify the result:**
+
+        ```bash
+        rp1 verify copilot
+        ```
+
+??? question "`rp1 verify copilot` reports `mixed_native_and_legacy`"
+
+    **Symptoms:**
+
+    - `rp1 verify copilot` reports `mixed_native_and_legacy`
+    - `gh copilot -- plugin list` shows rp1 native plugins
+    - Verification still prints legacy footprints under `~/.config/github-copilot/`
+
+    **Solutions:**
+
+    1. **Keep the native install and remove only the listed legacy rp1 paths.**
+
+    2. **Re-run verification:**
+
+        ```bash
+        rp1 verify copilot
+        ```
+
+    3. **Aim for `healthy_native` as the clean end state.**
+
+??? question "`rp1 verify copilot` reports `not_installed`"
+
+    **Symptoms:**
+
+    - `rp1 verify copilot` reports `not_installed`
+    - `gh copilot -- plugin list` does not show any rp1 plugins
+
+    **Solutions:**
+
+    1. **Confirm Copilot plugin support exists locally:**
+
+        ```bash
+        gh --version
+        gh copilot -- plugin --help
+        ```
+
+    2. **Install rp1 into Copilot:**
+
+        ```bash
+        rp1 install copilot
+        ```
+
+    3. **Verify the native install:**
+
+        ```bash
+        rp1 verify copilot
+        ```
+
+??? question "What do the Copilot verification states mean?"
+
+    | State | Meaning | Next Step |
+    |-------|---------|-----------|
+    | `healthy_native` | Required rp1 plugins are installed natively and the staged marketplace is complete | No action |
+    | `partial_native` | Native install exists, but required plugins or artifact classes are missing | Re-run `rp1 install copilot` |
+    | `legacy_only` | Only unsupported legacy file-drop paths were found | Remove legacy files and reinstall |
+    | `mixed_native_and_legacy` | Native install works, but legacy rp1 files are still present | Clean up the legacy footprints |
+    | `not_installed` | No rp1 Copilot install was found | Install with `rp1 install copilot` |
+
 ---
 
 ## Getting Help

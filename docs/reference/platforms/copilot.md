@@ -13,8 +13,8 @@ Setup, usage, and platform-specific details for running rp1 on GitHub Copilot CL
 Verify prerequisites:
 
 ```bash
-gh --version          # Must be >= 2.74.0
-gh copilot --help     # Copilot extension must be available
+gh --version
+gh copilot -- plugin --help
 ```
 
 ## Installation
@@ -23,12 +23,18 @@ gh copilot --help     # Copilot extension must be available
 rp1 install copilot
 ```
 
-This extracts rp1 skills and agents to the Copilot CLI configuration directory:
+`rp1 install copilot` uses GitHub Copilot's native plugin lifecycle. It stages a local rp1-managed marketplace, registers it as `rp1-local`, then installs or updates the required Copilot plugins from that marketplace.
 
-| Artifact | Location |
-|----------|----------|
-| Skills | `~/.config/github-copilot/skills/rp1-*/` |
-| Agents | `~/.config/github-copilot/agents/` |
+Expected paths:
+
+| Surface | Location |
+|---------|----------|
+| Local marketplace metadata | `~/.rp1/copilot/marketplace/marketplace.json` |
+| Local marketplace plugins | `~/.rp1/copilot/marketplace/plugins/rp1-*` |
+| Native installed plugins | `~/.copilot/installed-plugins/rp1-local/rp1-*` |
+| Unsupported legacy footprint | `~/.config/github-copilot/` |
+
+The supported install target is the native marketplace flow above. Old file-copy paths under `~/.config/github-copilot/` are only treated as legacy leftovers during verification and uninstall.
 
 ### Verify Installation
 
@@ -36,11 +42,25 @@ This extracts rp1 skills and agents to the Copilot CLI configuration directory:
 rp1 verify copilot
 ```
 
+`rp1 verify copilot` inspects `gh copilot -- plugin list`, the native installed-plugin cache, the staged local marketplace, and any legacy rp1 footprints. The verifier reports one of these states:
+
+| State | Meaning | What to do |
+|-------|---------|------------|
+| `healthy_native` | Required plugins are installed from `rp1-local` and the native plus staged artifacts are complete | Success |
+| `partial_native` | Copilot sees some rp1 native state, but required plugins or artifact classes are missing | Re-run `rp1 install copilot` |
+| `legacy_only` | Only unsupported file-drop content exists under `~/.config/github-copilot/` | Remove legacy rp1 files and reinstall |
+| `mixed_native_and_legacy` | Native install works, but legacy rp1 files still exist | Clean up the listed legacy footprints |
+| `not_installed` | No rp1 Copilot install was found | Run `rp1 install copilot` |
+
+The clean target is `healthy_native`. `mixed_native_and_legacy` still indicates a working native install, but cleanup is still required.
+
 ### Preview Without Installing
 
 ```bash
 rp1 install copilot --dry-run
 ```
+
+Dry-run mode previews the local marketplace registration plus the `gh copilot -- plugin install` and `update` commands without mutating Copilot.
 
 ## Skill Invocation
 
@@ -122,25 +142,62 @@ Copilot CLI uses its own tool names. rp1's build pipeline translates tool refere
 ## Updating
 
 ```bash
+rp1 update plugins copilot
+# or
 rp1 update
 ```
 
-This detects when installed Copilot plugins are older than the embedded version and re-extracts them.
+Updating Copilot reuses the same native lifecycle as install. rp1 restages `~/.rp1/copilot/marketplace`, then runs Copilot's native install-or-update flow so `rp1-base` and `rp1-dev` stay on the same model as the original install.
+
+After updating, restart your Copilot CLI session so it reloads the refreshed rp1 plugins.
 
 ## Uninstalling
 
-To remove rp1 from Copilot CLI:
-
 ```bash
-just rm-stable
+rp1 uninstall copilot
 ```
 
-Or manually:
+Preview first if needed:
 
 ```bash
-rm -rf ~/.config/github-copilot/skills/rp1-*/
-rm -rf ~/.config/github-copilot/agents/rp1*
+rp1 uninstall copilot --dry-run
 ```
+
+`rp1 uninstall copilot` removes:
+
+- native rp1 plugins such as `rp1-base@rp1-local` and `rp1-dev@rp1-local`
+- the `rp1-local` marketplace registration
+- the staged marketplace at `~/.rp1/copilot/marketplace`
+- rp1-only legacy leftovers under `~/.config/github-copilot/`
+
+It preserves non-rp1 Copilot content.
+
+## Maintainer Workflow
+
+Use the fast iteration loop while developing Copilot behavior:
+
+```bash
+just copilot
+```
+
+This auto-builds stale Copilot plugin roots and launches:
+
+```bash
+gh copilot -- --plugin-dir dist/copilot/base --plugin-dir dist/copilot/dev
+```
+
+That path is for maintainer iteration only. It does not install into `rp1-local` and does not mutate `~/.copilot/installed-plugins/`. Set `PLUGIN_UTILS=1 just copilot` only when you intentionally need the internal-only `rp1-utils` plugin.
+
+Use the install-like path before release or when validating the supported user experience:
+
+```bash
+just build-copilot
+./bin/rp1 install copilot --yes --artifacts-dir dist/copilot
+./bin/rp1 verify copilot
+gh copilot
+```
+
+Release-readiness validation should end in `healthy_native`.
 
 ## Troubleshooting
 
@@ -163,18 +220,29 @@ Enable the Copilot CLI extension:
 gh extension install github/gh-copilot
 ```
 
-### Skills not appearing
+Then confirm the native plugin lifecycle commands exist:
+
+```bash
+gh copilot -- plugin --help
+```
+
+### `partial_native` or missing workflows
 
 1. Restart your Copilot CLI session
 2. Run `rp1 verify copilot` to check installation health
-3. Confirm skill files exist at `~/.config/github-copilot/skills/`
+3. Confirm `gh copilot -- plugin list` includes `rp1-base@rp1-local` and `rp1-dev@rp1-local`
+4. Re-run `rp1 install copilot`
+
+### `legacy_only` or `mixed_native_and_legacy`
+
+If verification reports legacy footprints, remove only the listed rp1 paths under `~/.config/github-copilot/` and rerun `rp1 verify copilot`. Do not treat those legacy paths as a valid install surface.
 
 ### Permission denied
 
-Confirm write access to the configuration directory:
+Confirm write access to the rp1 staging directory:
 
 ```bash
-ls -la ~/.config/github-copilot/
+ls -la ~/.rp1/copilot/
 ```
 
 ## See Also
