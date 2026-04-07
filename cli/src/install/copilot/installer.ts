@@ -1,31 +1,32 @@
 /**
  * Copilot installer orchestrator.
- * Manages the full install/uninstall lifecycle for rp1 plugins in Copilot CLI.
+ * Manages the native marketplace install and legacy uninstall lifecycle for rp1 plugins in Copilot CLI.
  */
 
+import { exec } from "node:child_process";
 import { existsSync } from "node:fs";
-import {
-	copyFile,
-	mkdir,
-	readdir,
-	rm,
-	stat,
-	writeFile,
-} from "node:fs/promises";
+import { readdir, rm, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import {
-	backupError,
+	formatError,
 	installError,
 	usageError,
 } from "../../../shared/errors.js";
-import { createSpinner } from "../../../shared/spinner.js";
+import type { Logger } from "../../../shared/logger.js";
+import { createSpinner, type Spinner } from "../../../shared/spinner.js";
 import { OPTIONAL_PLUGINS, REQUIRED_PLUGINS } from "../../assets/reader.js";
 import type { InstallContext } from "../../shared/install-core.js";
+import {
+	createLocalMarketplace,
+	MARKETPLACE_NAME,
+	registerMarketplace,
+} from "./marketplace.js";
 import type {
 	CopilotInstallConfig,
 	CopilotInstallResult,
@@ -33,43 +34,221 @@ import type {
 	CopilotUninstallResult,
 } from "./models.js";
 import {
+	type CommandResult,
 	checkCopilotInstalled,
+	checkCopilotPluginSupport,
 	checkCopilotVersion,
 	checkWritePermissions,
 	getCopilotPaths,
+	runGhCommand,
 } from "./prerequisites.js";
 
-/** Extract plugin names (e.g. "rp1-base") from plugin directory paths. */
-const pluginNamesFromDirs = (dirs: readonly string[]): string[] =>
-	dirs.map((d) => `rp1-${basename(d)}`);
+const execAsync = promisify(exec);
 
-/**
- * Recursively copy a directory, returning the number of files copied.
- */
-const copyDir = async (src: string, dst: string): Promise<number> => {
-	await mkdir(dst, { recursive: true });
-	let count = 0;
+const COMMAND_TIMEOUT = 30000;
 
-	const entries = await readdir(src, { withFileTypes: true });
-	for (const entry of entries) {
-		const srcPath = join(src, entry.name);
-		const dstPath = join(dst, entry.name);
-
-		if (entry.isDirectory()) {
-			count += await copyDir(srcPath, dstPath);
-		} else {
-			await copyFile(srcPath, dstPath);
-			count++;
-		}
-	}
-
-	return count;
+const pluginNameFromDir = (pluginDir: string): string => {
+	const pluginName = basename(pluginDir);
+	return pluginName.startsWith("rp1-") ? pluginName : `rp1-${pluginName}`;
 };
 
-/**
- * Verify that Copilot build artifacts exist at the given directory.
- * Checks for dist/copilot/{base,dev}/ with skills/ and agents/ directories.
- */
+const toCopilotPluginName = (pluginName: string): string =>
+	pluginName.startsWith("rp1-") ? pluginName : `rp1-${pluginName}`;
+
+const pluginNamesFromDirs = (dirs: readonly string[]): string[] =>
+	dirs.map(pluginNameFromDir);
+
+const executeCopilotCommand = (
+	command: string,
+	spinner: Spinner,
+	logger: Logger,
+	dryRun: boolean,
+): TE.TaskEither<CLIError, string> => {
+	if (dryRun) {
+		logger.info(`[dry-run] Would execute: ${command}`);
+		return TE.right("");
+	}
+
+	spinner.start(`Running: ${command}`);
+
+	return pipe(
+		TE.tryCatch(
+			async () => {
+				const { stdout, stderr } = await execAsync(command, {
+					timeout: COMMAND_TIMEOUT,
+				});
+				return stdout || stderr;
+			},
+			(e) => {
+				const error = e as Error & { stderr?: string };
+				const message = error.stderr || error.message || String(e);
+				return installError("copilot-command", `Command failed: ${message}`);
+			},
+		),
+	);
+};
+
+const isAlreadyExistsError = (error: CLIError): boolean => {
+	const message = formatError(error, false);
+	const alreadyExistsPatterns = [
+		/already exists/i,
+		/already added/i,
+		/already installed/i,
+		/already registered/i,
+	];
+	return alreadyExistsPatterns.some((pattern) => pattern.test(message));
+};
+
+const getErrorMessage = (error: CLIError): string => formatError(error, false);
+
+export const installPlugin = (
+	pluginName: string,
+	logger: Logger,
+	dryRun: boolean,
+	isTTY: boolean,
+): TE.TaskEither<CLIError, boolean> => {
+	const pluginRef = `${pluginName}@${MARKETPLACE_NAME}`;
+	const command = `gh copilot -- plugin install ${pluginRef}`;
+	const spinner = createSpinner(isTTY);
+
+	return pipe(
+		executeCopilotCommand(command, spinner, logger, dryRun),
+		TE.map(() => {
+			if (!dryRun) {
+				spinner.succeed(`Plugin ${pluginName} installed`);
+			}
+			return true;
+		}),
+		TE.orElse((error) => {
+			if (error._tag === "InstallError" && isAlreadyExistsError(error)) {
+				spinner.stop();
+				logger.info(`Plugin ${pluginName} already installed, updating...`);
+				return updatePlugin(pluginName, logger, dryRun, isTTY);
+			}
+			spinner.fail(
+				`Failed to install ${pluginName}: ${getErrorMessage(error)}`,
+			);
+			return TE.left(error);
+		}),
+	);
+};
+
+export const updatePlugin = (
+	pluginName: string,
+	logger: Logger,
+	dryRun: boolean,
+	isTTY: boolean,
+): TE.TaskEither<CLIError, boolean> => {
+	const pluginRef = `${pluginName}@${MARKETPLACE_NAME}`;
+	const command = `gh copilot -- plugin update ${pluginRef}`;
+	const spinner = createSpinner(isTTY);
+
+	return pipe(
+		executeCopilotCommand(command, spinner, logger, dryRun),
+		TE.map(() => {
+			if (!dryRun) {
+				spinner.succeed(`Plugin ${pluginName} updated`);
+			}
+			return true;
+		}),
+		TE.mapLeft((error) => {
+			spinner.fail(`Failed to update ${pluginName}: ${getErrorMessage(error)}`);
+			return error;
+		}),
+	);
+};
+
+const hasCopilotAgents = async (agentsDir: string): Promise<boolean> => {
+	const entries = await readdir(agentsDir, { withFileTypes: true });
+	return entries.some(
+		(entry) => !entry.isDirectory() && entry.name.endsWith(".agent.md"),
+	);
+};
+
+const directoryExists = async (targetPath: string): Promise<boolean> => {
+	try {
+		const entry = await stat(targetPath);
+		return entry.isDirectory();
+	} catch {
+		return false;
+	}
+};
+
+const isAlreadyAbsentOutput = (output: string): boolean =>
+	/not installed|not found|no plugin|not registered|no marketplace/i.test(
+		output,
+	);
+
+const requiresMarketplaceForceRemoval = (output: string): boolean =>
+	/plugins from this marketplace are installed|use --force/i.test(output);
+
+const listLegacySkillDirs = async (skillsDir: string): Promise<string[]> => {
+	try {
+		const skillsStat = await stat(skillsDir);
+		if (!skillsStat.isDirectory()) {
+			throw installError(
+				"uninstall",
+				`Expected ${skillsDir} to be a directory, but it is not. Cannot safely enumerate rp1 legacy skills for removal.`,
+			);
+		}
+
+		const entries = await readdir(skillsDir, { withFileTypes: true });
+		return entries
+			.filter((entry) => entry.isDirectory() && entry.name.startsWith("rp1-"))
+			.map((entry) => entry.name);
+	} catch (error) {
+		if (typeof error === "object" && error !== null && "_tag" in error) {
+			throw error;
+		}
+		return [];
+	}
+};
+
+const listLegacyAgentEntries = async (agentsDir: string): Promise<string[]> => {
+	try {
+		const agentsStat = await stat(agentsDir);
+		if (!agentsStat.isDirectory()) {
+			return [];
+		}
+
+		const entries = await readdir(agentsDir, { withFileTypes: true });
+		return entries
+			.filter((entry) => entry.name.startsWith("rp1"))
+			.map((entry) => entry.name);
+	} catch {
+		return [];
+	}
+};
+
+const removeDirectoryIfEmpty = async (targetPath: string): Promise<boolean> => {
+	try {
+		const entries = await readdir(targetPath);
+		if (entries.length > 0) {
+			return false;
+		}
+		await rm(targetPath);
+		return true;
+	} catch {
+		return false;
+	}
+};
+
+const shouldUninstallOptionalPlugin = async (
+	paths: CopilotPaths,
+	pluginName: string,
+): Promise<boolean> => {
+	const marketplacePath = join(paths.marketplacePluginsDir, pluginName);
+	const nativePath = join(paths.nativeMarketplaceDir, pluginName);
+	return (
+		(await directoryExists(marketplacePath)) ||
+		(await directoryExists(nativePath))
+	);
+};
+
+interface CopilotUninstallDeps {
+	readonly runGh?: (args: readonly string[]) => Promise<CommandResult>;
+}
+
 export const validateCopilotArtifacts = (
 	artifactsDir: string,
 ): TE.TaskEither<CLIError, readonly string[]> =>
@@ -85,6 +264,16 @@ export const validateCopilotArtifacts = (
 					throw usageError(
 						`Copilot artifacts not found at ${pluginDir}`,
 						"Build artifacts first with: rp1 build --platform copilot",
+					);
+				}
+
+				const pluginManifest = join(pluginDir, "plugin.json");
+				try {
+					await stat(pluginManifest);
+				} catch {
+					throw usageError(
+						`Native plugin manifest not found at ${pluginManifest}`,
+						"Rebuild Copilot artifacts so each plugin includes plugin.json",
 					);
 				}
 
@@ -108,17 +297,28 @@ export const validateCopilotArtifacts = (
 					);
 				}
 
+				if (!(await hasCopilotAgents(agentsDir))) {
+					throw usageError(
+						`No .agent.md files found in ${agentsDir}`,
+						"Rebuild Copilot artifacts so native agent files are generated",
+					);
+				}
+
 				pluginDirs.push(pluginDir);
 			}
 
 			for (const plugin of OPTIONAL_PLUGINS) {
 				const pluginDir = join(artifactsDir, plugin);
 				try {
+					await stat(join(pluginDir, "plugin.json"));
 					await stat(join(pluginDir, "skills"));
-					await stat(join(pluginDir, "agents"));
-					pluginDirs.push(pluginDir);
+					const agentsDir = join(pluginDir, "agents");
+					await stat(agentsDir);
+					if (await hasCopilotAgents(agentsDir)) {
+						pluginDirs.push(pluginDir);
+					}
 				} catch {
-					// Optional plugin not present, skip
+					// Optional plugin not present or incomplete, skip it.
 				}
 			}
 
@@ -140,191 +340,13 @@ export const validateCopilotArtifacts = (
 		},
 	);
 
-/**
- * Create a timestamped backup of the current Copilot installation.
- * Backs up any existing rp1-* skill and agent directories.
- */
-export const backupCopilotInstallation = (
-	paths: CopilotPaths,
-): TE.TaskEither<CLIError, string | null> =>
-	TE.tryCatch(
-		async () => {
-			let hasContent = false;
-
-			try {
-				const entries = await readdir(paths.skillsDir, {
-					withFileTypes: true,
-				});
-				if (entries.some((e) => e.isDirectory() && e.name.startsWith("rp1-"))) {
-					hasContent = true;
-				}
-			} catch {
-				// no skills dir
-			}
-
-			try {
-				const entries = await readdir(paths.agentsDir, {
-					withFileTypes: true,
-				});
-				if (entries.some((e) => e.name.startsWith("rp1"))) {
-					hasContent = true;
-				}
-			} catch {
-				// no agents dir
-			}
-
-			if (!hasContent) {
-				return null;
-			}
-
-			const timestamp = new Date()
-				.toISOString()
-				.replace(/[:.]/g, "-")
-				.slice(0, 19);
-			const backupPath = join(paths.backupDir, `backup_${timestamp}`);
-			await mkdir(backupPath, { recursive: true });
-
-			try {
-				const entries = await readdir(paths.skillsDir, {
-					withFileTypes: true,
-				});
-				for (const entry of entries) {
-					if (!entry.isDirectory() || !entry.name.startsWith("rp1-")) continue;
-					const srcDir = join(paths.skillsDir, entry.name);
-					const dstDir = join(backupPath, "skills", entry.name);
-					await copyDir(srcDir, dstDir);
-				}
-			} catch {
-				// skills dir may not exist
-			}
-
-			try {
-				const entries = await readdir(paths.agentsDir, {
-					withFileTypes: true,
-				});
-				for (const entry of entries) {
-					if (!entry.name.startsWith("rp1")) continue;
-					const srcPath = join(paths.agentsDir, entry.name);
-					if (entry.isDirectory()) {
-						const dstDir = join(backupPath, "agents", entry.name);
-						await copyDir(srcPath, dstDir);
-					} else {
-						const dstDir = join(backupPath, "agents");
-						await mkdir(dstDir, { recursive: true });
-						await copyFile(srcPath, join(dstDir, entry.name));
-					}
-				}
-			} catch {
-				// agents dir may not exist
-			}
-
-			const manifest = { timestamp, backupPath };
-			await writeFile(
-				join(backupPath, "manifest.json"),
-				JSON.stringify(manifest, null, 2),
-			);
-
-			return backupPath;
-		},
-		(e) => backupError(`Failed to create Copilot backup: ${e}`),
-	);
-
-/**
- * Copy skill directories from build artifacts to Copilot skills directory.
- * Overwrites existing rp1-* directories; preserves non-rp1 content.
- */
-export const copyCopilotSkills = (
-	pluginDirs: readonly string[],
-	targetDir: string,
-): TE.TaskEither<CLIError, number> =>
-	TE.tryCatch(
-		async () => {
-			await mkdir(targetDir, { recursive: true });
-			let totalCopied = 0;
-
-			for (const pluginDir of pluginDirs) {
-				const skillsSrc = join(pluginDir, "skills");
-
-				try {
-					await stat(skillsSrc);
-				} catch {
-					continue;
-				}
-
-				const entries = await readdir(skillsSrc, { withFileTypes: true });
-				for (const entry of entries) {
-					if (!entry.isDirectory()) continue;
-					if (!entry.name.startsWith("rp1-")) continue;
-
-					const srcSkillDir = join(skillsSrc, entry.name);
-					const dstSkillDir = join(targetDir, entry.name);
-
-					try {
-						await stat(dstSkillDir);
-						await rm(dstSkillDir, { recursive: true });
-					} catch {
-						// doesn't exist yet
-					}
-
-					totalCopied += await copyDir(srcSkillDir, dstSkillDir);
-				}
-			}
-
-			return totalCopied;
-		},
-		(e) => installError("copy-skills", `Failed to copy Copilot skills: ${e}`),
-	);
-
-/**
- * Copy per-agent Markdown files from build output to Copilot agents directory.
- * Creates the target directory if it does not exist.
- */
-export const copyCopilotAgents = (
-	pluginDirs: readonly string[],
-	targetDir: string,
-): TE.TaskEither<CLIError, number> =>
-	TE.tryCatch(
-		async () => {
-			await mkdir(targetDir, { recursive: true });
-			let totalCopied = 0;
-
-			for (const pluginDir of pluginDirs) {
-				const agentsSrc = join(pluginDir, "agents");
-
-				try {
-					await stat(agentsSrc);
-				} catch {
-					continue;
-				}
-
-				const entries = await readdir(agentsSrc, { withFileTypes: true });
-				for (const entry of entries) {
-					if (entry.isDirectory() || !entry.name.endsWith(".md")) continue;
-
-					const srcFile = join(agentsSrc, entry.name);
-					const dstFile = join(targetDir, entry.name);
-					await copyFile(srcFile, dstFile);
-					totalCopied++;
-				}
-			}
-
-			return totalCopied;
-		},
-		(e) =>
-			installError("copy-agents", `Failed to copy Copilot agent files: ${e}`),
-	);
-
-/**
- * Full Copilot installation pipeline.
- * Sequence: prerequisites -> validate -> backup -> copy skills -> copy agents -> verify.
- */
 export const installCopilot = (
 	config: CopilotInstallConfig,
 	ctx: InstallContext,
 ): TE.TaskEither<CLIError, CopilotInstallResult> => {
-	const isTTY = ctx.isTTY;
-	const spinner = createSpinner(isTTY);
+	const spinner = createSpinner(ctx.isTTY);
 	const paths = getCopilotPaths();
+	const warnings: string[] = [];
 
 	return pipe(
 		TE.Do,
@@ -340,9 +362,8 @@ export const installCopilot = (
 			}
 			return TE.right<CLIError, void>(undefined);
 		}),
-		TE.chain(() => checkWritePermissions(paths.skillsDir)),
-		TE.chain(() => checkWritePermissions(paths.agentsDir)),
-		TE.chain(() => checkWritePermissions(paths.backupDir)),
+		TE.chain(() => checkCopilotPluginSupport()),
+		TE.chain(() => checkWritePermissions(paths.marketplaceDir)),
 		TE.chainFirst(() => {
 			spinner.succeed("Copilot CLI prerequisites OK");
 			return TE.right(undefined);
@@ -359,116 +380,73 @@ export const installCopilot = (
 			if (config.dryRun) {
 				spinner.stop();
 				return pipe(
-					previewCopilotInstallation(config.artifactsDir, paths),
+					previewCopilotInstallation(pluginDirs, paths),
 					TE.map(
 						(): CopilotInstallResult => ({
-							skillsCopied: 0,
-							agentsCopied: 0,
-							backupPath: null,
-							warnings: ["Dry run - no changes made"],
+							marketplaceAdded: false,
 							pluginsInstalled: pluginNamesFromDirs(pluginDirs),
+							warnings: ["Dry run - no changes made"],
 						}),
 					),
 				);
 			}
 
+			const pluginsInstalled: string[] = [];
+
 			return pipe(
 				TE.Do,
 				TE.chain(() => {
-					spinner.start("Creating backup...");
-					return backupCopilotInstallation(paths);
+					spinner.start("Staging local marketplace...");
+					return createLocalMarketplace(paths.marketplaceDir, pluginDirs);
 				}),
-				TE.chain((backupPath) => {
-					if (backupPath) {
-						spinner.succeed(`Backup created: ${backupPath}`);
-					} else {
-						spinner.info("No existing installation to back up");
-					}
-
-					spinner.start("Copying skill directories...");
-					return pipe(
-						copyCopilotSkills(pluginDirs, paths.skillsDir),
-						TE.map((skillsCopied) => ({ backupPath, skillsCopied })),
+				TE.chainFirst((marketplaceResult) => {
+					spinner.succeed(
+						`Local marketplace staged at ${marketplaceResult.marketplaceDir}`,
 					);
+					return TE.right(undefined);
 				}),
-				TE.chain(({ backupPath, skillsCopied }) => {
-					spinner.succeed(`Copied ${skillsCopied} skill files`);
-
-					spinner.start("Copying agent files...");
-					return pipe(
-						copyCopilotAgents(pluginDirs, paths.agentsDir),
-						TE.map((agentsCopied) => ({
-							backupPath,
-							skillsCopied,
-							agentsCopied,
-						})),
-					);
-				}),
-				TE.chain(({ backupPath, skillsCopied, agentsCopied }) => {
-					spinner.succeed(`Copied ${agentsCopied} agent files`);
-
-					spinner.start("Verifying installation...");
-					const verifyWarnings: string[] = [];
-
-					return TE.tryCatch(
-						async () => {
-							try {
-								const skillEntries = await readdir(paths.skillsDir, {
-									withFileTypes: true,
-								});
-								const rp1Skills = skillEntries.filter(
-									(e) => e.isDirectory() && e.name.startsWith("rp1-"),
-								);
-								if (rp1Skills.length === 0) {
-									verifyWarnings.push(
-										`No rp1-* skill directories found in ${paths.skillsDir}`,
-									);
-								}
-							} catch {
-								verifyWarnings.push(
-									`Could not read skills directory: ${paths.skillsDir}`,
-								);
-							}
-
-							try {
-								const agentEntries = await readdir(paths.agentsDir, {
-									withFileTypes: true,
-								});
-								const rp1Agents = agentEntries.filter((e) =>
-									e.name.startsWith("rp1"),
-								);
-								if (rp1Agents.length === 0) {
-									verifyWarnings.push(
-										`No rp1 agent files found in ${paths.agentsDir}`,
-									);
-								}
-							} catch {
-								verifyWarnings.push(
-									`Could not read agents directory: ${paths.agentsDir}`,
-								);
-							}
-
-							if (verifyWarnings.length > 0) {
-								spinner.warn("Installation completed with warnings");
-							} else {
-								spinner.succeed("Installation verified");
-							}
-
-							return {
-								skillsCopied,
-								agentsCopied,
-								backupPath,
-								warnings: verifyWarnings,
-								pluginsInstalled: pluginNamesFromDirs(pluginDirs),
-							} satisfies CopilotInstallResult;
-						},
-						(e) =>
-							installError(
-								"verify-install",
-								`Failed to verify Copilot installation: ${e}`,
+				TE.chain((marketplaceResult) =>
+					pipe(
+						registerMarketplace(
+							paths.marketplaceDir,
+							ctx.logger,
+							false,
+							ctx.isTTY,
+						),
+						TE.map(() => marketplaceResult.pluginsRegistered),
+					),
+				),
+				TE.chain((pluginNames) =>
+					pluginNames.reduce(
+						(acc, pluginName) =>
+							pipe(
+								acc,
+								TE.chain(() =>
+									pipe(
+										installPlugin(
+											pluginName,
+											ctx.logger,
+											config.dryRun,
+											ctx.isTTY,
+										),
+										TE.map((success) => {
+											if (success) {
+												pluginsInstalled.push(pluginName);
+											}
+										}),
+									),
+								),
 							),
-					);
-				}),
+						TE.right(undefined) as TE.TaskEither<CLIError, void>,
+					),
+				),
+				TE.map(
+					(): CopilotInstallResult => ({
+						marketplaceAdded: true,
+						pluginsInstalled,
+						warnings,
+					}),
+				),
 			);
 		}),
 		TE.mapLeft((error) => {
@@ -478,112 +456,167 @@ export const installCopilot = (
 	);
 };
 
-/**
- * Guard that ensures a path is not a structural Copilot directory.
- * Returns true if the path is safe to remove (i.e., not structural).
- */
-const isSafeToRemove = (targetPath: string, paths: CopilotPaths): boolean => {
-	const protectedPaths = [paths.configDir, paths.skillsDir, paths.agentsDir];
-	return !protectedPaths.includes(targetPath);
-};
-
-/**
- * Remove rp1 content from Copilot: skill directories and agent files.
- *
- * Safety guarantees:
- * - Only rp1-* prefixed skill directories are removed from skills/
- * - Only rp1* prefixed agent files are removed from agents/
- * - Structural directories (~/.config/github-copilot/) are never removed
- */
 export const uninstallCopilot = (
 	paths: CopilotPaths,
 	dryRun: boolean,
+	deps: CopilotUninstallDeps = {},
 ): TE.TaskEither<CLIError, CopilotUninstallResult> =>
 	TE.tryCatch(
 		async () => {
-			let skillsRemoved = 0;
-			let agentsRemoved = false;
-
-			const rp1SkillDirs: string[] = [];
-			try {
-				const skillsStat = await stat(paths.skillsDir);
-				if (!skillsStat.isDirectory()) {
-					throw installError(
-						"uninstall",
-						`Expected ${paths.skillsDir} to be a directory, but it is not. ` +
-							"Cannot safely enumerate rp1 skills for removal. " +
-							"Verify your Copilot CLI installation structure.",
-					);
-				}
-				const entries = await readdir(paths.skillsDir, {
-					withFileTypes: true,
-				});
-				for (const entry of entries) {
-					if (entry.isDirectory() && entry.name.startsWith("rp1-")) {
-						rp1SkillDirs.push(entry.name);
-					}
-				}
-			} catch (err) {
-				if (typeof err === "object" && err !== null && "_tag" in err) {
-					throw err;
-				}
-			}
-
-			const rp1AgentFiles: string[] = [];
-			try {
-				const agentsStat = await stat(paths.agentsDir);
-				if (agentsStat.isDirectory()) {
-					const entries = await readdir(paths.agentsDir, {
-						withFileTypes: true,
-					});
-					for (const entry of entries) {
-						if (entry.name.startsWith("rp1")) {
-							rp1AgentFiles.push(entry.name);
-						}
-					}
-				}
-			} catch {
-				// agents dir may not exist
-			}
+			const runGh = deps.runGh ?? runGhCommand;
+			const nativeMarketplaceExists = await directoryExists(
+				paths.nativeMarketplaceDir,
+			);
+			const marketplaceExists = await directoryExists(paths.marketplaceDir);
+			const legacySkillDirs = await listLegacySkillDirs(paths.skillsDir);
+			const legacyAgentEntries = await listLegacyAgentEntries(paths.agentsDir);
+			const optionalPlugins = (
+				await Promise.all(
+					OPTIONAL_PLUGINS.map(async (pluginName) => {
+						const namespacedPluginName = toCopilotPluginName(pluginName);
+						return (await shouldUninstallOptionalPlugin(
+							paths,
+							namespacedPluginName,
+						))
+							? namespacedPluginName
+							: null;
+					}),
+				)
+			).filter((pluginName): pluginName is string => pluginName !== null);
+			const pluginsToUninstall =
+				nativeMarketplaceExists || marketplaceExists
+					? [...REQUIRED_PLUGINS.map(toCopilotPluginName), ...optionalPlugins]
+					: [];
+			const uniquePluginsToUninstall = [...new Set(pluginsToUninstall)];
 
 			if (dryRun) {
-				if (rp1SkillDirs.length > 0) {
-					console.log("Would remove skill directories:");
-					for (const dir of rp1SkillDirs) {
-						console.log(`  - ${join(paths.skillsDir, dir)}`);
+				if (uniquePluginsToUninstall.length > 0) {
+					console.log("Would uninstall native Copilot plugins:");
+					for (const pluginName of uniquePluginsToUninstall) {
+						console.log(
+							`  - gh copilot -- plugin uninstall ${pluginName}@${MARKETPLACE_NAME}`,
+						);
 					}
 				}
-				if (rp1AgentFiles.length > 0) {
-					console.log("Would remove agent files:");
-					for (const file of rp1AgentFiles) {
-						console.log(`  - ${join(paths.agentsDir, file)}`);
+				if (marketplaceExists || nativeMarketplaceExists) {
+					console.log("Would remove local Copilot marketplace:");
+					console.log(
+						`  - gh copilot -- plugin marketplace remove ${MARKETPLACE_NAME}`,
+					);
+				}
+				if (marketplaceExists) {
+					console.log("Would remove staged marketplace directory:");
+					console.log(`  - ${paths.marketplaceDir}`);
+				}
+				if (legacySkillDirs.length > 0) {
+					console.log("Would remove legacy skill directories:");
+					for (const dirName of legacySkillDirs) {
+						console.log(`  - ${join(paths.skillsDir, dirName)}`);
 					}
 				}
-				if (rp1SkillDirs.length === 0 && rp1AgentFiles.length === 0) {
-					console.log("No rp1 content found to remove.");
+				if (legacyAgentEntries.length > 0) {
+					console.log("Would remove legacy agent files:");
+					for (const entryName of legacyAgentEntries) {
+						console.log(`  - ${join(paths.agentsDir, entryName)}`);
+					}
+				}
+				if (
+					uniquePluginsToUninstall.length === 0 &&
+					!marketplaceExists &&
+					!nativeMarketplaceExists &&
+					legacySkillDirs.length === 0 &&
+					legacyAgentEntries.length === 0
+				) {
+					console.log("No rp1 Copilot content found to remove.");
 				}
 				return {
+					pluginsUninstalled: [],
+					marketplaceRemoved: false,
+					marketplaceDeleted: false,
 					skillsRemoved: 0,
 					agentsRemoved: false,
+					legacyConfigRemoved: false,
 				};
 			}
 
-			for (const dirName of rp1SkillDirs) {
-				const targetPath = join(paths.skillsDir, dirName);
-				if (!isSafeToRemove(targetPath, paths)) {
+			const pluginsUninstalled: string[] = [];
+			for (const pluginName of uniquePluginsToUninstall) {
+				const pluginRef = `${pluginName}@${MARKETPLACE_NAME}`;
+				const result = await runGh([
+					"copilot",
+					"--",
+					"plugin",
+					"uninstall",
+					pluginRef,
+				]);
+				if (result.exitCode === 0) {
+					pluginsUninstalled.push(pluginName);
+					continue;
+				}
+				if (isAlreadyAbsentOutput(result.output)) {
+					continue;
+				}
+				throw installError(
+					"uninstall",
+					`Failed to uninstall Copilot plugin ${pluginRef}: ${result.output || "unknown error"}`,
+				);
+			}
+
+			let marketplaceRemoved = false;
+			if (marketplaceExists || nativeMarketplaceExists) {
+				const removeResult = await runGh([
+					"copilot",
+					"--",
+					"plugin",
+					"marketplace",
+					"remove",
+					MARKETPLACE_NAME,
+				]);
+				if (removeResult.exitCode === 0) {
+					marketplaceRemoved = true;
+				} else if (requiresMarketplaceForceRemoval(removeResult.output)) {
+					const forceRemoveResult = await runGh([
+						"copilot",
+						"--",
+						"plugin",
+						"marketplace",
+						"remove",
+						"--force",
+						MARKETPLACE_NAME,
+					]);
+					if (forceRemoveResult.exitCode === 0) {
+						marketplaceRemoved = true;
+					} else if (!isAlreadyAbsentOutput(forceRemoveResult.output)) {
+						throw installError(
+							"uninstall",
+							`Failed to remove Copilot marketplace ${MARKETPLACE_NAME}: ${forceRemoveResult.output || "unknown error"}`,
+						);
+					}
+				} else if (!isAlreadyAbsentOutput(removeResult.output)) {
 					throw installError(
 						"uninstall",
-						`Refusing to remove structural directory: ${targetPath}. ` +
-							"Only rp1-managed content may be removed.",
+						`Failed to remove Copilot marketplace ${MARKETPLACE_NAME}: ${removeResult.output || "unknown error"}`,
 					);
 				}
+			}
+
+			let marketplaceDeleted = false;
+			if (marketplaceExists) {
+				await rm(paths.marketplaceDir, { recursive: true, force: true });
+				marketplaceDeleted = true;
+			}
+
+			let skillsRemoved = 0;
+			let agentsRemoved = false;
+			for (const dirName of legacySkillDirs) {
+				const targetPath = join(paths.skillsDir, dirName);
 				await rm(targetPath, { recursive: true });
 				skillsRemoved++;
 			}
 
-			if (rp1AgentFiles.length > 0) {
-				for (const fileName of rp1AgentFiles) {
-					const targetPath = join(paths.agentsDir, fileName);
+			if (legacyAgentEntries.length > 0) {
+				for (const entryName of legacyAgentEntries) {
+					const targetPath = join(paths.agentsDir, entryName);
 					const fileStat = await stat(targetPath);
 					if (fileStat.isDirectory()) {
 						await rm(targetPath, { recursive: true });
@@ -594,7 +627,18 @@ export const uninstallCopilot = (
 				agentsRemoved = true;
 			}
 
-			return { skillsRemoved, agentsRemoved };
+			await removeDirectoryIfEmpty(paths.skillsDir);
+			await removeDirectoryIfEmpty(paths.agentsDir);
+			const legacyConfigRemoved = await removeDirectoryIfEmpty(paths.configDir);
+
+			return {
+				pluginsUninstalled,
+				marketplaceRemoved,
+				marketplaceDeleted,
+				skillsRemoved,
+				agentsRemoved,
+				legacyConfigRemoved,
+			};
 		},
 		(e) => {
 			if (typeof e === "object" && e !== null && "_tag" in e) {
@@ -607,49 +651,35 @@ export const uninstallCopilot = (
 		},
 	);
 
-/**
- * Preview what the installer would do without writing any files.
- */
 export const previewCopilotInstallation = (
-	artifactsDir: string,
+	pluginDirs: readonly string[],
 	paths: CopilotPaths,
 ): TE.TaskEither<CLIError, void> =>
 	TE.tryCatch(
 		async () => {
-			console.log("[dry-run] Installation preview:\n");
-			console.log("Skills to install:");
+			const pluginNames = pluginNamesFromDirs(pluginDirs);
 
-			for (const plugin of [...REQUIRED_PLUGINS, ...OPTIONAL_PLUGINS]) {
-				const skillsSrc = join(artifactsDir, plugin, "skills");
-				try {
-					const entries = await readdir(skillsSrc, { withFileTypes: true });
-					for (const entry of entries) {
-						if (entry.isDirectory() && entry.name.startsWith("rp1-")) {
-							console.log(
-								`  - ${entry.name} -> ${join(paths.skillsDir, entry.name)}`,
-							);
-						}
-					}
-				} catch {
-					// skills dir may not exist for this plugin
-				}
+			console.log("[dry-run] Installation preview:\n");
+			console.log(`Local marketplace: ${paths.marketplaceDir}`);
+			console.log(`Marketplace metadata: ${paths.marketplaceMetadataPath}`);
+			console.log("\nPlugins to stage:");
+			for (const [index, pluginDir] of pluginDirs.entries()) {
+				console.log(
+					`  - ${pluginDir} -> ${join(paths.marketplacePluginsDir, pluginNames[index])}`,
+				);
 			}
 
-			console.log("\nAgent files to install:");
-			for (const plugin of [...REQUIRED_PLUGINS, ...OPTIONAL_PLUGINS]) {
-				const agentsSrc = join(artifactsDir, plugin, "agents");
-				try {
-					const entries = await readdir(agentsSrc, { withFileTypes: true });
-					for (const entry of entries) {
-						if (!entry.isDirectory() && entry.name.endsWith(".md")) {
-							console.log(
-								`  - ${entry.name} -> ${join(paths.agentsDir, entry.name)}`,
-							);
-						}
-					}
-				} catch {
-					// agents dir may not exist for this plugin
-				}
+			console.log("\nCommands to run:");
+			console.log(
+				`  - gh copilot -- plugin marketplace add "${paths.marketplaceDir}"`,
+			);
+			for (const pluginName of pluginNames) {
+				console.log(
+					`  - gh copilot -- plugin install ${pluginName}@${MARKETPLACE_NAME}`,
+				);
+				console.log(
+					`    gh copilot -- plugin update ${pluginName}@${MARKETPLACE_NAME}`,
+				);
 			}
 
 			console.log("\nRun without --dry-run to execute installation.");
@@ -657,19 +687,14 @@ export const previewCopilotInstallation = (
 		(e) => installError("preview", `Failed to preview installation: ${e}`),
 	);
 
-/**
- * Get the default Copilot artifacts directory.
- * Checks for dist/copilot/ relative to the module location.
- * Returns null if not found.
- */
 export const getDefaultCopilotArtifactsDir = (): string | null => {
 	const moduleDir = dirname(fileURLToPath(import.meta.url));
 	const candidates = [
-		join(moduleDir, "..", "..", "..", "dist", "copilot"), // From src/install/copilot/ -> dist/copilot
+		join(moduleDir, "..", "..", "..", "dist", "copilot"),
 		join(moduleDir, "..", "..", "dist", "copilot"),
 		join(moduleDir, "..", "dist", "copilot"),
-		join(moduleDir, "..", "cli", "dist", "copilot"), // From bin/ -> cli/dist/copilot (compiled binary)
-		join(process.cwd(), "cli", "dist", "copilot"), // CWD-relative for dev usage
+		join(moduleDir, "..", "cli", "dist", "copilot"),
+		join(process.cwd(), "cli", "dist", "copilot"),
 	];
 
 	for (const candidate of candidates) {

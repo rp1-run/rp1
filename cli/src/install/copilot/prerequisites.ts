@@ -1,9 +1,9 @@
 /**
  * Prerequisite checks for Copilot CLI installation.
- * Validates GitHub CLI with Copilot extension, version, paths, and write permissions.
+ * Validates GitHub CLI, Copilot plugin lifecycle support, and marketplace write permissions.
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
@@ -11,17 +11,39 @@ import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { prerequisiteError } from "../../../shared/errors.js";
 import type { PrerequisiteResult } from "../models.js";
+import { MARKETPLACE_NAME } from "./marketplace.js";
 import type { CopilotPaths } from "./models.js";
 
-/**
- * Minimum supported GitHub CLI version (from supported-tools.yaml).
- */
 const MIN_VERSION = "2.74.0";
+const VERSION_REQUIREMENT_SUGGESTION =
+	`GitHub Copilot native install requires gh >= ${MIN_VERSION}. ` +
+	"Run `gh --version` and update GitHub CLI if needed: https://cli.github.com/";
 
-/**
- * Check if GitHub CLI is installed and in PATH.
- * Uses Bun.which() for binary detection and Bun.spawn() for version retrieval.
- */
+export interface CommandResult {
+	readonly exitCode: number;
+	readonly output: string;
+}
+
+export const runGhCommand = async (
+	args: readonly string[],
+): Promise<CommandResult> => {
+	const proc = Bun.spawn(["gh", ...args], {
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+
+	const [exitCode, stdout, stderr] = await Promise.all([
+		proc.exited,
+		new Response(proc.stdout).text(),
+		new Response(proc.stderr).text(),
+	]);
+
+	return {
+		exitCode,
+		output: `${stdout}${stderr}`.trim(),
+	};
+};
+
 export const checkCopilotInstalled = (): TE.TaskEither<
 	CLIError,
 	PrerequisiteResult
@@ -37,13 +59,8 @@ export const checkCopilotInstalled = (): TE.TaskEither<
 				);
 			}
 
-			const proc = Bun.spawn(["gh", "--version"], {
-				stdout: "pipe",
-				stderr: "pipe",
-			});
-			const exitCode = await proc.exited;
-
-			if (exitCode !== 0) {
+			const result = await runGhCommand(["--version"]);
+			if (result.exitCode !== 0) {
 				return {
 					check: "copilot-installed",
 					passed: true,
@@ -52,8 +69,7 @@ export const checkCopilotInstalled = (): TE.TaskEither<
 				};
 			}
 
-			const output = (await new Response(proc.stdout).text()).trim();
-			const versionMatch = output.match(/(\d+\.\d+\.\d+)/);
+			const versionMatch = result.output.match(/(\d+\.\d+\.\d+)/);
 			const version = versionMatch ? versionMatch[1] : "unknown";
 
 			return {
@@ -80,20 +96,17 @@ export const checkCopilotInstalled = (): TE.TaskEither<
 		},
 	);
 
-/**
- * Validate GitHub CLI version meets minimum requirement.
- * Parses version string and compares against MIN_VERSION.
- */
 export const checkCopilotVersion = (
 	versionStr: string,
 ): E.Either<CLIError, PrerequisiteResult> => {
 	if (versionStr === "unknown") {
-		return E.right({
-			check: "copilot-version",
-			passed: true,
-			message: "GitHub CLI version unknown, assuming compatible",
-			value: versionStr,
-		});
+		return E.left(
+			prerequisiteError(
+				"copilot-version",
+				"Could not determine GitHub CLI version",
+				VERSION_REQUIREMENT_SUGGESTION,
+			),
+		);
 	}
 
 	const match = versionStr.match(/(\d+)\.(\d+)\.(\d+)/);
@@ -102,7 +115,7 @@ export const checkCopilotVersion = (
 			prerequisiteError(
 				"copilot-version",
 				`Could not parse GitHub CLI version: ${versionStr}`,
-				"Expected format: X.Y.Z",
+				VERSION_REQUIREMENT_SUGGESTION,
 			),
 		);
 	}
@@ -116,7 +129,7 @@ export const checkCopilotVersion = (
 			prerequisiteError(
 				"copilot-version",
 				`Could not parse GitHub CLI version: ${versionStr}`,
-				"Expected format: X.Y.Z",
+				VERSION_REQUIREMENT_SUGGESTION,
 			),
 		);
 	}
@@ -158,24 +171,68 @@ export const checkCopilotVersion = (
 	});
 };
 
-/**
- * Get resolved Copilot installation paths.
- * All paths use the user's home directory.
- */
+export const checkCopilotPluginSupport = (): TE.TaskEither<
+	CLIError,
+	PrerequisiteResult
+> =>
+	TE.tryCatch(
+		async () => {
+			const result = await runGhCommand(["copilot", "--", "plugin", "--help"]);
+			if (result.exitCode !== 0) {
+				throw prerequisiteError(
+					"copilot-plugin-support",
+					"GitHub Copilot plugin lifecycle commands are unavailable",
+					"Update GitHub CLI to >= 2.74.0 and ensure Copilot CLI support is enabled: gh extension install github/gh-copilot",
+				);
+			}
+
+			return {
+				check: "copilot-plugin-support",
+				passed: true,
+				message: "GitHub Copilot plugin lifecycle commands available",
+				value: "supported",
+			};
+		},
+		(e) => {
+			if (
+				typeof e === "object" &&
+				e !== null &&
+				"_tag" in e &&
+				(e as CLIError)._tag === "PrerequisiteError"
+			) {
+				return e as CLIError;
+			}
+			return prerequisiteError(
+				"copilot-plugin-support",
+				`Failed to verify GitHub Copilot plugin lifecycle commands: ${e}`,
+				"Run `gh copilot -- plugin --help` and update GitHub CLI if the command is unavailable",
+			);
+		},
+	);
+
 export const getCopilotPaths = (): CopilotPaths => {
 	const home = homedir();
+	const marketplaceDir = join(home, ".rp1", "copilot", "marketplace");
+	const legacyConfigDir = join(home, ".config", "github-copilot");
+	const legacySkillsDir = join(legacyConfigDir, "skills");
+	const legacyAgentsDir = join(legacyConfigDir, "agents");
+	const nativeInstalledPluginsDir = join(home, ".copilot", "installed-plugins");
+
 	return {
-		skillsDir: join(home, ".config", "github-copilot", "skills"),
-		agentsDir: join(home, ".config", "github-copilot", "agents"),
-		configDir: join(home, ".config", "github-copilot"),
-		backupDir: join(home, ".config", "github-copilot-rp1-backups"),
+		marketplaceDir,
+		marketplacePluginsDir: join(marketplaceDir, "plugins"),
+		marketplaceMetadataPath: join(marketplaceDir, "marketplace.json"),
+		nativeInstalledPluginsDir,
+		nativeMarketplaceDir: join(nativeInstalledPluginsDir, MARKETPLACE_NAME),
+		legacyConfigDir,
+		legacySkillsDir,
+		legacyAgentsDir,
+		configDir: legacyConfigDir,
+		skillsDir: legacySkillsDir,
+		agentsDir: legacyAgentsDir,
 	};
 };
 
-/**
- * Check write permissions to a target directory.
- * Creates the directory if it does not exist, writes a test file, then removes it.
- */
 export const checkWritePermissions = (
 	targetDir: string,
 ): TE.TaskEither<CLIError, PrerequisiteResult> =>
@@ -185,7 +242,6 @@ export const checkWritePermissions = (
 
 			const testFile = join(targetDir, ".rp1-write-test");
 			await writeFile(testFile, "test");
-			const { unlink } = await import("node:fs/promises");
 			await unlink(testFile);
 
 			return {
