@@ -37,16 +37,17 @@ cli/src/config/supported-tools.generated.ts
 # local rp1 binary
 bin/rp1
 
-# rp1:start
+# rp1:start:v0.7.1
 !.rp1/
 .rp1/*
+!.rp1/project_id
 !.rp1/config/
 !.rp1/config/**
 !.rp1/context/
 !.rp1/context/**
 .rp1/context/meta.json
 .rp1/settings.toml
-# rp1:end
+# rp1:end:v0.7.1
 # Eval output - attestation results are tracked, .gitkeep placeholder removed
 # Result files (e.g., output/rp1-dev-build-fast-2026-01-19.json) are committed as evidence
 .playwright-cli/
