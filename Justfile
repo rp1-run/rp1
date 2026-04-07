@@ -169,7 +169,7 @@ clean-web-ui-cache:
 
 # RP1_BUILD_INTERNAL=1 includes utils (internal-only plugin) in the dev build
 build-local-dev: build-web-ui clean-web-ui-cache
-    cd cli && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
+    cd cli && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Dev Launch (per-platform with auto-build)
@@ -200,17 +200,32 @@ opencode:
     ./bin/rp1 install opencode --yes --artifacts-dir dist/opencode
     opencode
 
-# Launch Copilot CLI with local dev plugins (auto-builds if stale)
+# Launch Copilot CLI with local --plugin-dir plugin roots for maintainer iteration.
+# This is the fast loop and intentionally does not mutate rp1-local native install state.
 copilot:
     #!/usr/bin/env bash
     set -e
     if [ ! -d "dist/copilot/base" ] || \
-       [ "$(find plugins/ -newer dist/copilot/base -name '*.md' 2>/dev/null | head -1)" ]; then
-        echo "Building Copilot CLI artifacts..."
-        cd cli && bun run scripts/build-copilot.ts && cd ..
+       [ ! -d "dist/copilot/dev" ] || \
+       [ ! -f "dist/copilot/base/plugin.json" ] || \
+       [ ! -f "dist/copilot/dev/plugin.json" ] || \
+       { [ -n "${PLUGIN_UTILS:-}" ] && [ ! -d "dist/copilot/utils" ]; } || \
+       { [ -n "${PLUGIN_UTILS:-}" ] && [ ! -f "dist/copilot/utils/plugin.json" ]; } || \
+       [ "$(find plugins/ cli/src/build cli/scripts -newer dist/copilot/base/plugin.json \\( -name '*.md' -o -name '*.liquid' -o -name '*.ts' -o -name '*.json' \\) 2>/dev/null | head -1)" ]; then
+        echo "Building Copilot CLI artifacts for the --plugin-dir dev loop..."
+        cd cli
+        if [ -n "${PLUGIN_UTILS:-}" ]; then
+            RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts
+        else
+            bun run scripts/build-copilot.ts
+        fi
+        cd ..
     fi
-    ./bin/rp1 install copilot --yes --artifacts-dir dist/copilot
-    gh copilot
+    plugin_dirs=(--plugin-dir dist/copilot/base --plugin-dir dist/copilot/dev)
+    if [ -n "${PLUGIN_UTILS:-}" ]; then
+        plugin_dirs+=(--plugin-dir dist/copilot/utils)
+    fi
+    gh copilot -- "${plugin_dirs[@]}"
 
 # Launch Codex with local dev plugins (auto-builds if stale)
 codex:

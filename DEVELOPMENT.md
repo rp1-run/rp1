@@ -64,7 +64,7 @@ All development commands use [Just](https://github.com/casey/just). Run `just` t
 | `run *args` | Build and run local binary with arguments |
 | `install-opencode` | Install to OpenCode |
 | `install-codex` | Install to Codex |
-| `install-copilot` | Install to Copilot CLI |
+| `copilot` | Launch Copilot with local `--plugin-dir` artifacts |
 | `rm-stable` | Remove stable rp1 from all platforms |
 
 ### Web-UI Development
@@ -600,23 +600,38 @@ These agents run `/rp1-base:knowledge-load` as their first step to receive compr
 
 **For Copilot CLI:**
 
-1. Build and install using the `just` recipe:
+1. Use the fast development loop while iterating on Copilot behavior:
 
    ```bash
    just copilot
    ```
 
-   This auto-builds Copilot CLI artifacts if stale, installs them to `~/.config/github-copilot/`, and launches `gh copilot`.
+   This auto-builds stale Copilot artifacts and launches:
 
-2. Or build and install manually:
+   ```bash
+   gh copilot -- --plugin-dir dist/copilot/base --plugin-dir dist/copilot/dev
+   ```
+
+   This path does not mutate installed-plugin state or register `rp1-local`. Set `PLUGIN_UTILS=1 just copilot` only when you intentionally need the internal-only `rp1-utils` plugin; `rp1-base` and `rp1-dev` remain the required MVP plugins.
+
+2. Use the install-like path before release or when validating the supported user experience:
 
    ```bash
    just build-copilot
    ./bin/rp1 install copilot --yes --artifacts-dir dist/copilot
+   ./bin/rp1 verify copilot
    gh copilot
    ```
 
-3. Skills are installed to `~/.config/github-copilot/skills/rp1-*/` and agents to `~/.config/github-copilot/agents/`.
+   Release readiness requires the native install to succeed and `rp1 verify copilot` to report a healthy native state. Use this path to validate discovery and verification, not just file generation.
+
+   Clean success signals for this path:
+
+   - `gh copilot -- plugin list` shows `rp1-base@rp1-local` and `rp1-dev@rp1-local`
+   - `rp1 verify copilot` reports `healthy_native`
+   - `mixed_native_and_legacy` means the native install works, but legacy cleanup is still required before sign-off
+
+3. Do not use legacy Copilot success signals such as `~/.config/github-copilot/skills/` or `~/.config/github-copilot/agents/`. The supported install surface is the native marketplace flow above.
 
 **General Testing Steps:**
 
