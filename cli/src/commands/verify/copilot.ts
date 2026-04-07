@@ -3,137 +3,101 @@
  * Verifies rp1 plugins are correctly installed in GitHub Copilot CLI.
  */
 
-import { existsSync } from "node:fs";
-import { readdir } from "node:fs/promises";
 import { Command } from "commander";
-import * as E from "fp-ts/lib/Either.js";
 import type { Logger } from "../../../shared/logger.js";
-import {
-	checkCopilotInstalled,
-	getCopilotPaths,
-} from "../../install/copilot/prerequisites.js";
+import { verifyCopilotInstallation } from "../../install/copilot/index.js";
 import { colorFns } from "../../lib/colors.js";
 
 const { green, yellow, red, dim, bold, cyan } = colorFns;
 
-interface CopilotVerifyReport {
-	readonly ghInstalled: boolean;
-	readonly ghVersion: string;
-	readonly skillsFound: number;
-	readonly agentsFound: number;
-	readonly issues: readonly string[];
-}
-
 /**
  * Execute Copilot CLI verification.
- * Checks gh CLI availability, skills dirs, and agent files.
+ * Checks native install state, staged marketplace artifacts, and legacy footprints.
  */
 export const executeVerifyCopilot = async (
 	_logger: Logger,
 ): Promise<boolean> => {
 	console.log(bold("\nVerifying Copilot CLI Plugins\n"));
 
-	const paths = getCopilotPaths();
-	const issues: string[] = [];
+	const result = await verifyCopilotInstallation();
+	const stateLabel =
+		result.state === "healthy_native"
+			? green("healthy_native")
+			: result.state === "mixed_native_and_legacy"
+				? yellow("mixed_native_and_legacy")
+				: red(result.state);
+	const ghLabel = result.ghInstalled
+		? green(result.ghVersion ?? "unknown")
+		: red("not found");
+	const pluginListLabel = result.pluginListAvailable
+		? green("available")
+		: yellow("unavailable");
 
-	// 1. Check GitHub CLI is installed
-	const ghResult = await checkCopilotInstalled()();
-	let ghInstalled = false;
-	let ghVersion = "not found";
+	console.log(`State: ${stateLabel}`);
+	console.log(`GitHub CLI: ${ghLabel}`);
+	console.log(`Plugin List: ${pluginListLabel}`);
+	console.log("");
+	console.log("Plugins:");
 
-	if (E.isRight(ghResult)) {
-		ghInstalled = true;
-		ghVersion = ghResult.right.value ?? "unknown";
-	} else {
-		issues.push("GitHub CLI (gh) not found in PATH");
-	}
+	for (const plugin of result.plugins) {
+		const status = plugin.installed
+			? green("[OK]")
+			: plugin.required
+				? red("[MISS]")
+				: yellow("[WARN]");
+		const version = plugin.version ?? plugin.expectedVersion ?? "not reported";
+		const nativeLocation = plugin.nativeInstalledLocation ?? "not found";
+		const marketplaceLocation = plugin.marketplaceLocation ?? "not found";
 
-	// 2. Check skills directories
-	let skillsFound = 0;
-	if (existsSync(paths.skillsDir)) {
-		try {
-			const entries = await readdir(paths.skillsDir, { withFileTypes: true });
-			for (const entry of entries) {
-				if (entry.isDirectory() && entry.name.startsWith("rp1-")) {
-					skillsFound++;
-				}
-			}
-			if (skillsFound === 0) {
-				issues.push(`No rp1-* skill directories found in ${paths.skillsDir}`);
-			}
-		} catch {
-			issues.push(`Cannot read skills dir: ${paths.skillsDir}`);
+		console.log(`  ${status} ${plugin.name} (${dim(version)})`);
+		console.log(dim(`       native: ${nativeLocation}`));
+		console.log(dim(`       staged: ${marketplaceLocation}`));
+
+		for (const issue of plugin.issues) {
+			console.log(yellow(`       - ${issue}`));
 		}
-	} else {
-		issues.push(`Skills directory missing: ${paths.skillsDir}`);
 	}
 
-	// 3. Check agent files
-	let agentsFound = 0;
-	if (existsSync(paths.agentsDir)) {
-		try {
-			const entries = await readdir(paths.agentsDir);
-			agentsFound = entries.filter((e) => e.endsWith(".md")).length;
-		} catch {
-			issues.push(`Cannot read agents dir: ${paths.agentsDir}`);
+	if (result.legacyFootprints.length > 0) {
+		console.log("");
+		console.log(yellow("Legacy Footprints:"));
+		for (const footprint of result.legacyFootprints) {
+			console.log(yellow(`  - ${footprint}`));
 		}
-	} else {
-		issues.push(`Agents directory missing: ${paths.agentsDir}`);
 	}
 
-	const report: CopilotVerifyReport = {
-		ghInstalled,
-		ghVersion,
-		skillsFound,
-		agentsFound,
-		issues,
-	};
-
-	// Display table
-	const W = 18;
-	console.log(`+--------------+-${"-".repeat(W)}-+--------+`);
-	console.log(`| Component    | ${"Value".padEnd(W)} | Status |`);
-	console.log(`+--------------+-${"-".repeat(W)}-+--------+`);
-
-	// GitHub CLI
-	const versionStr = ghVersion.padEnd(W);
-	console.log(
-		`| GitHub CLI   | ${versionStr} | ${ghInstalled ? green("  OK  ") : red(" MISS ")} |`,
-	);
-
-	// Skills
-	const skillStr = `${skillsFound} dirs`.padEnd(W);
-	const skillOk = skillsFound > 0;
-	console.log(
-		`| Skills       | ${skillStr} | ${skillOk ? green("  OK  ") : red(" MISS ")} |`,
-	);
-
-	// Agents
-	const agentStr = `${agentsFound} files`.padEnd(W);
-	const agentOk = agentsFound > 0;
-	console.log(
-		`| Agents       | ${agentStr} | ${agentOk ? green("  OK  ") : yellow(" WARN ")} |`,
-	);
-
-	console.log(`+--------------+-${"-".repeat(W)}-+--------+`);
-
-	if (report.issues.length > 0) {
-		console.log(yellow("\nIssues Found:"));
-		for (const issue of report.issues) {
+	if (result.issues.length > 0) {
+		console.log("");
+		console.log(yellow("Issues Found:"));
+		for (const issue of result.issues) {
 			console.log(yellow(`  - ${issue}`));
 		}
 	}
 
-	const healthy = ghInstalled && skillOk;
-	if (healthy) {
-		console.log(green(bold("\nAll components installed")));
+	if (result.remediation.length > 0) {
+		console.log("");
+		console.log(dim("Remediation:"));
+		for (const step of result.remediation) {
+			console.log(dim(`  - ${step}`));
+		}
+	}
+
+	if (result.verified) {
+		console.log(green(bold("\nCopilot native installation verified")));
+		if (result.state === "mixed_native_and_legacy") {
+			console.log(
+				yellow(
+					"Native plugins are installed, but legacy Copilot files still need cleanup.",
+				),
+			);
+		}
 		return true;
 	}
 
-	console.log(red(bold("\nInstallation incomplete")));
-	console.log(dim("\nRemediation:"));
-	console.log(dim("  Install missing components with:"));
-	console.log(cyan("    rp1 install copilot"));
+	console.log(red(bold("\nCopilot installation needs attention")));
+	if (result.remediation.length === 0) {
+		console.log(cyan("  rp1 install copilot"));
+	}
 	return false;
 };
 

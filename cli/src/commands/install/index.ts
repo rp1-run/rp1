@@ -19,6 +19,7 @@ import type { VerificationResult } from "../../init/models.js";
 import {
 	verifyClaudeCodePlugins,
 	verifyCodexPlugins,
+	verifyCopilotPlugins,
 	verifyOpenCodePlugins,
 } from "../../init/steps/verification.js";
 import { colorFns } from "../../lib/colors.js";
@@ -58,6 +59,8 @@ async function runPostInstallVerification(
 			result = await verifyClaudeCodePlugins();
 		} else if (toolId === "codex") {
 			result = await verifyCodexPlugins();
+		} else if (toolId === "copilot") {
+			result = await verifyCopilotPlugins();
 		} else if (toolId === "opencode") {
 			result = await verifyOpenCodePlugins();
 		}
