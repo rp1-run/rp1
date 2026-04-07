@@ -32,7 +32,7 @@ function renderPermissions(directive: string, platform: BuildPlatform): string {
 		case "codex":
 			return `Use the sandbox execution policy to ${directive}`;
 		case "copilot":
-			return `Use the \`allowed-tools\` YAML frontmatter field to ${directive}. List permitted tools by their Copilot CLI names (e.g., \`run_terminal_command\`, \`edit_file\`).`;
+			return `Use the \`allowed-tools\` YAML frontmatter field to ${directive}. Prefer Copilot permission patterns such as \`shell(rp1:*)\`, \`read\`, and \`write\`.`;
 	}
 }
 

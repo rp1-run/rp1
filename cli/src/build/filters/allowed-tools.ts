@@ -57,6 +57,72 @@ const toCopilotArray = (
 	return mapped;
 };
 
+const toCopilotShellPattern = (pattern: string): string => {
+	const trimmed = pattern.trim();
+	const wildcardStem = trimmed.match(/^([^\s]+)\s+\*$/);
+	if (wildcardStem) {
+		return `${wildcardStem[1]}:*`;
+	}
+	return trimmed;
+};
+
+/**
+ * Transform allowed-tools for Copilot skills: emit Copilot CLI permission
+ * patterns rather than custom-agent tool names.
+ *
+ * Copilot skill `allowed-tools` follows the CLI allow/deny syntax documented
+ * as `Kind(argument)`, for example `shell(git:*)`, `read`, or `write`.
+ */
+export const copilotPermissionPatternsFilter = (
+	allowedTools: string,
+): readonly string[] => {
+	const tools = allowedTools.split(",").map((t) => t.trim());
+	const mapped: string[] = [];
+
+	for (const tool of tools) {
+		const parenMatch = tool.match(/^([A-Za-z]+)\((.+)\)$/);
+		const baseName = parenMatch ? parenMatch[1] : tool;
+
+		switch (baseName) {
+			case "Bash":
+				mapped.push(
+					parenMatch
+						? `shell(${toCopilotShellPattern(parenMatch[2])})`
+						: "shell",
+				);
+				break;
+			case "Read":
+			case "Grep":
+			case "Glob":
+				mapped.push("read");
+				break;
+			case "Write":
+			case "Edit":
+				mapped.push("write");
+				break;
+			case "WebFetch":
+				mapped.push("url");
+				break;
+			case "WebSearch":
+			case "Task":
+			case "Skill":
+			case "AskUserQuestion":
+			case "TodoWrite":
+			case "SlashCommand":
+			case "NotebookEdit":
+			case "BashOutput":
+			case "KillShell":
+			case "EnterPlanMode":
+			case "ExitPlanMode":
+				break;
+			default:
+				mapped.push(tool);
+		}
+	}
+
+	return [...new Set(mapped)];
+};
+
 /**
  * Transform allowed-tools for Codex: map tool names through the registry,
  * filter out null-mapped tools, preserve parenthesized patterns.

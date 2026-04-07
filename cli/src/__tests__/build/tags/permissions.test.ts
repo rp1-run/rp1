@@ -44,11 +44,13 @@ describe("permissions tag", () => {
 		expect(output).toContain("restrict shell access");
 	});
 
-	test("Copilot: references allowed-tools YAML frontmatter with Copilot tool names", async () => {
+	test("Copilot: references allowed-tools YAML frontmatter with permission patterns", async () => {
 		const output = await render(template, "copilot");
 		expect(output).toContain("allowed-tools");
 		expect(output).toContain("YAML frontmatter");
-		expect(output).toContain("run_terminal_command");
+		expect(output).toContain("shell(rp1:*)");
+		expect(output).toContain("read");
+		expect(output).toContain("write");
 		expect(output).toContain("restrict shell access");
 	});
 

@@ -5,7 +5,7 @@ mode: subagent
 model: {{ artifact.model }}
 {%- endif %}
 tools:
-  bash: {% if artifact.tools contains "Bash" %}true{% else %}false{% endif %}
+  bash: {% if artifact.tools contains "Bash" or artifact.tools contains "Bash(rp1 *)" %}true{% else %}false{% endif %}
   write: {% if artifact.tools contains "Write" %}true{% else %}false{% endif %}
   edit: {% if artifact.tools contains "Edit" %}true{% else %}false{% endif %}
 ---

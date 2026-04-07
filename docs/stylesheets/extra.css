@@ -191,6 +191,11 @@
   mask-image: url("../assets/brands/lobehub-openai.svg");
 }
 
+.md-typeset .platform-logo--copilot {
+  -webkit-mask-image: url("../assets/brands/lobehub-github-copilot.svg");
+  mask-image: url("../assets/brands/lobehub-github-copilot.svg");
+}
+
 .md-typeset .platform-card p {
   margin: 0.25rem 0;
 }

@@ -1,7 +1,7 @@
 ---
 name: feature-architect
 description: Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester.
-tools: Read, Write, Glob
+tools: Read, Write, Glob, Bash(rp1 *)
 model: inherit
 skills: rp1-base:mermaid
 arguments:

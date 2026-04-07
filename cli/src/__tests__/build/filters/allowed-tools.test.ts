@@ -7,7 +7,10 @@
 import { describe, expect, test } from "bun:test";
 import { codexRegistry } from "../../../build/codex/registry.js";
 import { copilotRegistry } from "../../../build/copilot/registry.js";
-import { allowedToolsFilter } from "../../../build/filters/allowed-tools.js";
+import {
+	allowedToolsFilter,
+	copilotPermissionPatternsFilter,
+} from "../../../build/filters/allowed-tools.js";
 import { defaultRegistry } from "../../../build/registry.js";
 
 describe("allowed_tools filter", () => {
@@ -149,6 +152,34 @@ describe("allowed_tools filter", () => {
 				copilotRegistry,
 			);
 			expect(result).toEqual(["read_file", "CustomTool"]);
+		});
+	});
+
+	describe("copilot skill permissions", () => {
+		test("maps Bash wildcard patterns to shell permission stems", () => {
+			expect(copilotPermissionPatternsFilter("Bash(rp1 *)")).toEqual([
+				"shell(rp1:*)",
+			]);
+		});
+
+		test("maps read and write capabilities to Copilot permission kinds", () => {
+			expect(
+				copilotPermissionPatternsFilter("Read, Grep, Glob, Write, Edit"),
+			).toEqual(["read", "write"]);
+		});
+
+		test("deduplicates repeated permissions and filters non-permission tools", () => {
+			expect(
+				copilotPermissionPatternsFilter(
+					"Bash(rp1 *), Bash(rp1 *), Task, Skill, AskUserQuestion",
+				),
+			).toEqual(["shell(rp1:*)"]);
+		});
+
+		test("passes through unknown permission entries", () => {
+			expect(
+				copilotPermissionPatternsFilter("CustomMCP(create_issue)"),
+			).toEqual(["CustomMCP(create_issue)"]);
 		});
 	});
 });

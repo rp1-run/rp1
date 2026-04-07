@@ -372,6 +372,24 @@ describeWithLiquid("template rendering", () => {
 			expect(result.trim()).toBe(readGolden("opencode-agent.md").trim());
 		});
 
+		test("treats patterned Bash tools as shell-capable", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("opencode/agent", {
+				platform: "opencode",
+				artifact: {
+					type: "agent",
+					name: "scoped-bash-agent",
+					description: "Agent with scoped Bash permissions",
+					model: "inherit",
+					tools: ["Read", "Bash(rp1 *)"],
+					content: "Agent content.",
+				},
+			});
+			expect(result).toContain("bash: true");
+			expect(result).toContain("write: false");
+			expect(result).toContain("edit: false");
+		});
+
 		test("renders agent with inherit model (model omitted)", async () => {
 			const engine = createTestEngine();
 			const result = await engine.renderFile("opencode/agent", {
@@ -610,6 +628,26 @@ describeWithLiquid("template rendering", () => {
 			expect(result).not.toContain("bash:");
 		});
 
+		test("renders scoped terminal approvals for patterned Bash tools", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("copilot/agent", {
+				platform: "copilot",
+				pluginName: "dev",
+				namespacedPluginName: "rp1-dev",
+				artifact: {
+					type: "agent",
+					name: "emit-agent",
+					description: "Runs rp1 agent-tools commands",
+					model: "inherit",
+					tools: ["Read", "Bash", "Bash(rp1 *)"],
+					content: "Agent content.",
+				},
+			});
+			expect(result).toContain("- read_file");
+			expect(result).toContain("- run_terminal_command");
+			expect(result).toContain("- run_terminal_command(rp1 *)");
+		});
+
 		test("renders empty tool array when all tools are filtered out", async () => {
 			const engine = createTestEngine();
 			const result = await engine.renderFile("copilot/agent", {
@@ -626,6 +664,61 @@ describeWithLiquid("template rendering", () => {
 				},
 			});
 			expect(result).toContain("tools: []");
+		});
+	});
+
+	describe("copilot/skill.liquid", () => {
+		test("renders Copilot skill allowed-tools as permission patterns", async () => {
+			const engine = createTestEngine();
+			engine.registerFilter("copilot_permissions", (value: string) => {
+				if (!value) return [];
+				const tools = value.split(",").map((t: string) => t.trim());
+				const mapped: string[] = [];
+				for (const tool of tools) {
+					const parenMatch = tool.match(/^([A-Za-z]+)\((.+)\)$/);
+					const base = parenMatch ? parenMatch[1] : tool;
+					switch (base) {
+						case "Bash":
+							mapped.push(
+								parenMatch
+									? `shell(${parenMatch[2].replace(/^([^\s]+)\s+\*$/, "$1:*")})`
+									: "shell",
+							);
+							break;
+						case "Read":
+						case "Grep":
+						case "Glob":
+							mapped.push("read");
+							break;
+						case "Write":
+						case "Edit":
+							mapped.push("write");
+							break;
+						default:
+							break;
+					}
+				}
+				return [...new Set(mapped)];
+			});
+			const result = await engine.renderFile("copilot/skill", {
+				platform: "copilot",
+				pluginName: "base",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "skill",
+					namespacedName: "rp1-knowledge-load",
+					description: "Load project knowledge",
+					allowedTools: "Bash(echo *), Bash(rp1 *), Read, Edit",
+					content: "Skill content.",
+					supportingFiles: [],
+				},
+			});
+			expect(result).toContain("allowed-tools:");
+			expect(result).toContain("- shell(echo:*)");
+			expect(result).toContain("- shell(rp1:*)");
+			expect(result).toContain("- read");
+			expect(result).toContain("- write");
+			expect(result).not.toContain("run_terminal_command");
 		});
 	});
 

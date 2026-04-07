@@ -128,16 +128,18 @@ Copilot CLI uses its own tool names. rp1's build pipeline translates tool refere
 
 | rp1 Abstract | Copilot CLI |
 |--------------|-------------|
-| Read | `read_file` |
-| Write | `write_file` |
-| Edit | `edit_file` |
-| Grep | `grep_search` |
-| Glob | `file_search` |
-| Bash | `run_terminal_command` |
-| Task | `create_agent` |
-| Skill | `run_skill` |
-| WebFetch | `fetch_url` |
+| Read | `read` / `view` |
+| Write | `edit` |
+| Edit | `edit` |
+| Grep | `grep` / `search` |
+| Glob | `glob` / `search` |
+| Bash | `bash` / `shell` / `execute` |
+| Task | `task` / `agent` |
+| Skill | `skill` |
+| WebFetch | `web_fetch` |
 | AskUserQuestion | `ask_user` |
+
+Skill pre-approval uses Copilot permission patterns rather than agent tool names. For example, `Bash(rp1 *)` becomes `shell(rp1:*)` in generated `allowed-tools`.
 
 ## Updating
 

@@ -2,7 +2,7 @@
 name: {{ artifact.namespacedName | escape_yaml }}
 description: {{ artifact.description | escape_yaml }}
 {%- if artifact.allowedTools %}
-{%- assign tools = artifact.allowedTools | allowed_tools: platform %}
+{%- assign tools = artifact.allowedTools | copilot_permissions %}
 allowed-tools:
 {%- for tool in tools %}
   - {{ tool }}
