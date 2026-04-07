@@ -51,6 +51,7 @@ import { checkRp1Readiness } from "./steps/readiness.js";
 import { displaySummary, generateNextSteps } from "./steps/summary.js";
 import {
 	verifyClaudeCodePlugins,
+	verifyCopilotPlugins,
 	verifyOpenCodePlugins,
 } from "./steps/verification.js";
 import {
@@ -564,6 +565,11 @@ export function executeInit(
 										logger.warn(
 											`Plugin installation failed for ${result.toolName}: ${errorMsg}`,
 										);
+										allActions.push({
+											type: "plugin_install_failed",
+											name: result.toolId,
+											error: errorMsg,
+										});
 										allWarnings.push(
 											`Plugin installation failed for ${result.toolName}: ${errorMsg}`,
 										);
@@ -624,6 +630,8 @@ export function executeInit(
 								verificationResult = await verifyClaudeCodePlugins();
 							} else if (detected.tool.id === "opencode") {
 								verificationResult = await verifyOpenCodePlugins();
+							} else if (detected.tool.id === "copilot") {
+								verificationResult = await verifyCopilotPlugins();
 							}
 
 							if (verificationResult) {

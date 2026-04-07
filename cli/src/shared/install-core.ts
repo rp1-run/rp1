@@ -432,7 +432,7 @@ const installForTool = (
 					...baseResult,
 					success: true,
 					pluginsInstalled: result.pluginsInstalled,
-					warnings: [],
+					warnings: result.warnings,
 				}),
 			),
 			TE.orElse(
@@ -472,7 +472,7 @@ const detectToolsWithValidation = (
 				const detection = result.right;
 				if (detection.detected.length === 0) {
 					throw new Error(
-						"No agentic tools detected. Install Claude Code or OpenCode first.",
+						"No supported agentic tools detected. Install a supported tool first.",
 					);
 				}
 				return detection;
@@ -523,7 +523,7 @@ export const installAllDetectedTools = (
  * Install plugins for a specific tool by ID.
  * Useful for `rp1 install <tool>` commands.
  *
- * @param toolId - The tool ID ("claude-code", "opencode", or "codex")
+ * @param toolId - The tool ID ("claude-code", "opencode", "codex", or "copilot")
  * @param registry - The tools registry to get tool metadata
  * @param ctx - Installation context
  * @returns TaskEither with ToolInstallResult

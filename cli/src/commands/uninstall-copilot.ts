@@ -25,8 +25,9 @@ export const uninstallCopilotCommand = new Command("copilot")
 		"after",
 		`
 Removes rp1 content from your Copilot CLI environment:
-  - Removes rp1-* skill directories from ~/.config/github-copilot/skills/
-  - Removes rp1-managed agent files from ~/.config/github-copilot/agents/
+  - Uninstalls rp1 native plugins from GitHub Copilot CLI
+  - Removes the rp1-local marketplace and ~/.rp1/copilot/marketplace
+  - Cleans up rp1-only legacy files under ~/.config/github-copilot/
   - Preserves all non-rp1 content
 
 Examples:
@@ -71,7 +72,14 @@ Examples:
 			process.exit(getExitCode(result.left));
 		}
 
-		const { skillsRemoved, agentsRemoved } = result.right;
+		const {
+			pluginsUninstalled,
+			marketplaceRemoved,
+			marketplaceDeleted,
+			skillsRemoved,
+			agentsRemoved,
+			legacyConfigRemoved,
+		} = result.right;
 
 		if (dryRun) {
 			console.log("");
@@ -80,15 +88,40 @@ Examples:
 		}
 
 		console.log("");
-		if (skillsRemoved > 0 || agentsRemoved) {
+		if (
+			pluginsUninstalled.length > 0 ||
+			marketplaceRemoved ||
+			marketplaceDeleted ||
+			skillsRemoved > 0 ||
+			agentsRemoved ||
+			legacyConfigRemoved
+		) {
 			logger.success(bold("rp1 has been removed from Copilot CLI"));
+			if (pluginsUninstalled.length > 0) {
+				console.log(
+					dim(`  Uninstalled plugins: ${pluginsUninstalled.join(", ")}`),
+				);
+			}
+			if (marketplaceRemoved) {
+				console.log(dim("  Removed Copilot marketplace registration"));
+			}
+			if (marketplaceDeleted) {
+				console.log(dim("  Removed ~/.rp1/copilot/marketplace"));
+			}
 			if (skillsRemoved > 0) {
-				console.log(dim(`  Removed ${skillsRemoved} skill directories`));
+				console.log(
+					dim(
+						`  Removed ${skillsRemoved} legacy skill director${skillsRemoved === 1 ? "y" : "ies"}`,
+					),
+				);
 			}
 			if (agentsRemoved) {
-				console.log(dim("  Removed rp1 agent files"));
+				console.log(dim("  Removed legacy rp1 agent files"));
+			}
+			if (legacyConfigRemoved) {
+				console.log(dim("  Removed empty legacy Copilot config directory"));
 			}
 		} else {
-			console.log("No rp1 content found in Copilot CLI environment.");
+			console.log("No rp1 Copilot content found in the current environment.");
 		}
 	});

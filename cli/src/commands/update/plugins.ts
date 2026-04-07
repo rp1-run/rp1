@@ -23,6 +23,19 @@ import {
 const VALID_TOOLS = ["claude-code", "opencode", "codex", "copilot"] as const;
 type ValidTool = (typeof VALID_TOOLS)[number];
 
+const formatToolList = (toolNames: readonly string[]): string => {
+	if (toolNames.length === 0) {
+		return "your agentic tools";
+	}
+	if (toolNames.length === 1) {
+		return toolNames[0];
+	}
+	if (toolNames.length === 2) {
+		return `${toolNames[0]} and ${toolNames[1]}`;
+	}
+	return `${toolNames.slice(0, -1).join(", ")}, and ${toolNames.at(-1)}`;
+};
+
 /**
  * Format output for plugin update result.
  */
@@ -174,6 +187,8 @@ Examples:
 			console.log(bold("\nDry run mode - showing what would be done:\n"));
 		}
 
+		let restartTargets: string[] = [];
+
 		if (targetTool === "all") {
 			// Update all detected tools
 			console.log("Detecting installed tools...");
@@ -185,6 +200,9 @@ Examples:
 			}
 
 			formatUpdateAllResult(result.right, isTTY);
+			restartTargets = result.right.results
+				.filter((toolResult) => toolResult.success)
+				.map((toolResult) => toolResult.toolName);
 
 			// Exit with error if any failed
 			if (result.right.installed < result.right.results.length) {
@@ -202,6 +220,7 @@ Examples:
 
 			console.log("");
 			formatPluginUpdateResult(result.right, isTTY);
+			restartTargets = result.right.success ? [result.right.toolName] : [];
 
 			if (!result.right.success) {
 				process.exit(1);
@@ -212,7 +231,7 @@ Examples:
 			console.log("");
 			console.log(
 				dim(
-					"Please restart Claude Code or OpenCode to use the updated plugins.",
+					`Please restart ${formatToolList(restartTargets)} to use the updated plugins.`,
 				),
 			);
 		}
