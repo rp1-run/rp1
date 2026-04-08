@@ -12,7 +12,7 @@ metadata:
     - map-reduce
     - ci
   created: 2025-10-25
-  updated: 2026-02-26
+  updated: 2026-04-08
   author: cloud-on-prem/rp1
   arguments:
     - name: TARGET
@@ -45,6 +45,11 @@ metadata:
 
 §ROLE: Map-reduce PR review orchestrator. 6 phases, local + CI modes, comment deduplication.
 
+§GUARDRAILS
+
+- Never create git worktrees under `.rp1/work/` or anywhere inside the target project's `.rp1/` directory.
+- If a separate checkout is absolutely required during review, use a temporary path outside the project artifact tree.
+
 ## STATE-MACHINE
 
 ```mermaid
@@ -66,7 +71,7 @@ rp1 agent-tools emit \
 
 - Generate `RUN_ID` as a UUID at workflow start
 - Derive `RUN_NAME` from the resolved PR context: use `"PR #{pr_number}"` when a PR number is available, otherwise use `"PR: {branch_name}"` as fallback
-- On the **first** emit only, include `--name "{RUN_NAME}"` to label the run in the Arcade dashboard
+- On the **first** emit only, include `--name "{RUN_NAME}"` to label the run
 
 On session start, emit the status change:
 ```bash

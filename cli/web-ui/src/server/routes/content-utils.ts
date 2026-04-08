@@ -1,4 +1,4 @@
-import { readdir, stat } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import type { FileWatcherPool } from "../file-watcher";
 import { parseCanonicalProjectSectionPath } from "../project-paths";
@@ -108,6 +108,9 @@ export async function buildFileTree(
 			const entryRelativePath = join(relativePath, entry.name);
 
 			if (entry.isDirectory()) {
+				if (await isGitWorktreeRoot(entryPath)) {
+					continue;
+				}
 				const subTree = await buildFileTree(entryPath, entryRelativePath);
 				if (subTree) {
 					children.push(subTree);
@@ -139,6 +142,30 @@ export async function buildFileTree(
 		};
 	} catch {
 		return null;
+	}
+}
+
+async function isGitWorktreeRoot(dirPath: string): Promise<boolean> {
+	try {
+		const gitPath = join(dirPath, ".git");
+		const gitStat = await stat(gitPath);
+
+		if (!gitStat.isFile()) {
+			return false;
+		}
+
+		const gitPointer = await readFile(gitPath, "utf-8");
+		if (!gitPointer.startsWith("gitdir:")) {
+			return false;
+		}
+
+		const gitDir = resolve(
+			dirPath,
+			gitPointer.slice("gitdir:".length).trim(),
+		).replaceAll("\\", "/");
+		return gitDir.includes("/.git/worktrees/");
+	} catch {
+		return false;
 	}
 }
 
