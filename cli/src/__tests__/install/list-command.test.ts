@@ -3,10 +3,17 @@
  * Verifies JSON output schema/content and that table output is unaffected.
  */
 
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import * as TE from "fp-ts/lib/TaskEither.js";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { join } from "node:path";
 import { createLogger } from "../../../shared/logger.js";
-import { expectTaskRight } from "../helpers/fp-ts-helpers.js";
+import { executeList } from "../../install/command.js";
+import {
+	cleanupTempDir,
+	createTempDir,
+	expectTaskRight,
+	withEnvOverride,
+	writeFixture,
+} from "../helpers/index.js";
 
 const logger = createLogger({ level: "error", color: false });
 
@@ -23,31 +30,47 @@ const mockSkills = [
 	},
 ];
 
-mock.module("../../install/verifier.js", () => ({
-	listInstalledSkills: () => TE.right(mockSkills),
-	verifyInstallation: () => TE.right({}),
-}));
-
-const { executeList } = await import("../../install/command.js");
+const skillContent = (description: string): string => `---
+description: "${description}"
+---
+`;
 
 describe("executeList", () => {
 	let consoleLogs: string[];
 	let originalLog: typeof console.log;
+	let tempDir: string;
+	let restoreHome: (() => void) | undefined;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		consoleLogs = [];
 		originalLog = console.log;
 		console.log = (...args: unknown[]) => {
 			consoleLogs.push(args.map(String).join(" "));
 		};
+
+		tempDir = await createTempDir("list-command-test");
+		restoreHome = withEnvOverride("HOME", tempDir);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		console.log = originalLog;
+		restoreHome?.();
+		await cleanupTempDir(tempDir);
 	});
 
 	describe("--json output", () => {
 		test("outputs valid JSON array with name, description, and plugin fields", async () => {
+			await writeFixture(
+				tempDir,
+				join(".codex", "skills", "rp1-build", "SKILL.md"),
+				skillContent(mockSkills[0]?.description ?? "No description"),
+			);
+			await writeFixture(
+				tempDir,
+				join(".codex", "skills", "rp1-pr-review", "SKILL.md"),
+				skillContent(mockSkills[1]?.description ?? "No description"),
+			);
+
 			await expectTaskRight(executeList([], logger, { json: true }));
 
 			expect(consoleLogs).toHaveLength(1);
@@ -71,6 +94,12 @@ describe("executeList", () => {
 		});
 
 		test("does not include table header or formatting in JSON mode", async () => {
+			await writeFixture(
+				tempDir,
+				join(".codex", "skills", "rp1-build", "SKILL.md"),
+				skillContent(mockSkills[0]?.description ?? "No description"),
+			);
+
 			await expectTaskRight(executeList([], logger, { json: true }));
 
 			expect(consoleLogs).toHaveLength(1);
@@ -81,6 +110,12 @@ describe("executeList", () => {
 
 	describe("table output (default)", () => {
 		test("renders table with skills when json flag is not set", async () => {
+			await writeFixture(
+				tempDir,
+				join(".codex", "skills", "rp1-build", "SKILL.md"),
+				skillContent(mockSkills[0]?.description ?? "No description"),
+			);
+
 			await expectTaskRight(executeList([], logger));
 
 			const output = consoleLogs.join("\n");
@@ -88,46 +123,27 @@ describe("executeList", () => {
 			expect(output).toContain("Description");
 			expect(output).toContain("rp1-build");
 			expect(output).toContain("End-to-end feature workflow");
-			expect(output).toContain("Total: 2 skills");
+			expect(output).toContain("Total: 1 skills");
 		});
 
 		test("table output is unchanged when json option is explicitly false", async () => {
+			await writeFixture(
+				tempDir,
+				join(".codex", "skills", "rp1-build", "SKILL.md"),
+				skillContent(mockSkills[0]?.description ?? "No description"),
+			);
+
 			await expectTaskRight(executeList([], logger, { json: false }));
 
 			const output = consoleLogs.join("\n");
 			expect(output).toContain("┌");
 			expect(output).toContain("rp1-build");
-			expect(output).toContain("Total: 2 skills");
+			expect(output).toContain("Total: 1 skills");
 		});
-	});
-});
-
-describe("executeList with empty skills", () => {
-	let consoleLogs: string[];
-	let originalLog: typeof console.log;
-
-	beforeEach(() => {
-		consoleLogs = [];
-		originalLog = console.log;
-		console.log = (...args: unknown[]) => {
-			consoleLogs.push(args.map(String).join(" "));
-		};
-	});
-
-	afterEach(() => {
-		console.log = originalLog;
 	});
 
 	test("--json outputs empty array when no skills installed", async () => {
-		mock.module("../../install/verifier.js", () => ({
-			listInstalledSkills: () => TE.right([]),
-			verifyInstallation: () => TE.right({}),
-		}));
-		const { executeList: executeListEmpty } = await import(
-			"../../install/command.js"
-		);
-
-		await expectTaskRight(executeListEmpty([], logger, { json: true }));
+		await expectTaskRight(executeList([], logger, { json: true }));
 
 		expect(consoleLogs).toHaveLength(1);
 		const parsed = JSON.parse(consoleLogs[0]);

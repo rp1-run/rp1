@@ -69,6 +69,52 @@ const checkFileHealth = async (filePath: string): Promise<string[]> => {
 	return issues;
 };
 
+type InstalledSkill = {
+	plugin: string;
+	name: string;
+	description: string;
+};
+
+const readInstalledSkillsFromDir = async (
+	skillsDir: string,
+): Promise<InstalledSkill[]> => {
+	const skills: InstalledSkill[] = [];
+
+	try {
+		const entries = await readdir(skillsDir, { withFileTypes: true });
+
+		for (const entry of entries) {
+			if (!entry.isDirectory() || !entry.name.startsWith("rp1-")) {
+				continue;
+			}
+
+			const skillFile = join(skillsDir, entry.name, "SKILL.md");
+			let description = "No description";
+
+			try {
+				const content = await readFile(skillFile, "utf-8");
+				if (content.startsWith("---")) {
+					const parts = content.split("---", 3);
+					if (parts.length >= 3) {
+						const frontmatter = parseYaml(parts[1]) as Record<string, unknown>;
+						description = String(frontmatter.description ?? "No description");
+					}
+				}
+			} catch {
+				continue;
+			}
+
+			skills.push({ plugin: "rp1", name: entry.name, description });
+		}
+	} catch {
+		// Skills directory doesn't exist
+	}
+
+	return skills;
+};
+
+const getUserHomeDir = (): string => process.env.HOME ?? homedir();
+
 /**
  * Verify rp1 installation health.
  */
@@ -259,57 +305,28 @@ export const verifyInstallation = (
  */
 export const listInstalledSkills = (): TE.TaskEither<
 	CLIError,
-	Array<{ plugin: string; name: string; description: string }>
+	InstalledSkill[]
 > =>
 	TE.tryCatch(
 		async () => {
-			const skillsDir = join(homedir(), ".config", "opencode", "skills");
-			const skills: Array<{
-				plugin: string;
-				name: string;
-				description: string;
-			}> = [];
+			const home = getUserHomeDir();
+			const discoveredSkills = await Promise.all([
+				readInstalledSkillsFromDir(join(home, ".config", "opencode", "skills")),
+				readInstalledSkillsFromDir(join(home, ".codex", "skills")),
+			]);
+			const dedupedSkills = new Map<string, InstalledSkill>();
 
-			try {
-				const entries = await readdir(skillsDir, { withFileTypes: true });
-
-				for (const entry of entries) {
-					if (!entry.isDirectory() || !entry.name.startsWith("rp1-")) {
-						continue;
+			for (const skills of discoveredSkills) {
+				for (const skill of skills) {
+					if (!dedupedSkills.has(skill.name)) {
+						dedupedSkills.set(skill.name, skill);
 					}
-
-					const skillFile = join(skillsDir, entry.name, "SKILL.md");
-					let description = "No description";
-
-					try {
-						const content = await readFile(skillFile, "utf-8");
-						if (content.startsWith("---")) {
-							const parts = content.split("---", 3);
-							if (parts.length >= 3) {
-								const frontmatter = parseYaml(parts[1]) as Record<
-									string,
-									unknown
-								>;
-								description = String(
-									frontmatter.description ?? "No description",
-								);
-							}
-						}
-					} catch {
-						continue;
-					}
-
-					// Determine plugin from skill name prefix pattern
-					// Skills are prefixed rp1-{name}, plugin is inferred from available metadata
-					const plugin = "rp1";
-
-					skills.push({ plugin, name: entry.name, description });
 				}
-			} catch {
-				// Skills directory doesn't exist
 			}
 
-			return skills.sort((a, b) => a.name.localeCompare(b.name));
+			return [...dedupedSkills.values()].sort((a, b) =>
+				a.name.localeCompare(b.name),
+			);
 		},
 		(e) => verificationError(`Failed to list skills: ${e}`, []),
 	);

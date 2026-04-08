@@ -4,9 +4,17 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { join } from "node:path";
 
 import { isHealthy, type VerificationReport } from "../../install/models.js";
-import { cleanupTempDir, createTempDir } from "../helpers/index.js";
+import { listInstalledSkills } from "../../install/verifier.js";
+import {
+	cleanupTempDir,
+	createTempDir,
+	expectTaskRight,
+	withEnvOverride,
+	writeFixture,
+} from "../helpers/index.js";
 
 describe("verifier", () => {
 	let tempDir: string;
@@ -313,6 +321,65 @@ describe("verifier", () => {
 
 			expect(report.pluginsFound).toBe(0);
 			expect(isHealthy(report)).toBe(true);
+		});
+	});
+
+	describe("listInstalledSkills", () => {
+		test("includes skills installed in the Codex skills directory", async () => {
+			const restoreHome = withEnvOverride("HOME", tempDir);
+
+			try {
+				await writeFixture(
+					tempDir,
+					join(".codex", "skills", "rp1-guide", "SKILL.md"),
+					`---
+description: "Ask about rp1 capabilities, discover skills, and get workflow guidance."
+---
+`,
+				);
+
+				const skills = await expectTaskRight(listInstalledSkills());
+
+				expect(skills).toEqual([
+					{
+						plugin: "rp1",
+						name: "rp1-guide",
+						description:
+							"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+					},
+				]);
+			} finally {
+				restoreHome();
+			}
+		});
+
+		test("deduplicates skills found in both OpenCode and Codex directories", async () => {
+			const restoreHome = withEnvOverride("HOME", tempDir);
+
+			try {
+				const skillContent = `---
+description: "Ask about rp1 capabilities, discover skills, and get workflow guidance."
+---
+`;
+
+				await writeFixture(
+					tempDir,
+					join(".config", "opencode", "skills", "rp1-guide", "SKILL.md"),
+					skillContent,
+				);
+				await writeFixture(
+					tempDir,
+					join(".codex", "skills", "rp1-guide", "SKILL.md"),
+					skillContent,
+				);
+
+				const skills = await expectTaskRight(listInstalledSkills());
+
+				expect(skills).toHaveLength(1);
+				expect(skills[0]?.name).toBe("rp1-guide");
+			} finally {
+				restoreHome();
+			}
 		});
 	});
 });
