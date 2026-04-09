@@ -250,6 +250,8 @@ RUN_ID={RUN_ID}
 
 ## §PHASE-4: Finalization
 
+**Phase handoff rule**: After §PHASE-3 completes successfully, do not register artifacts, do not emit final output, and do not stop. First evaluate §4.2. When `AFK=false` AND `CONFIRM_PLAN=true`, the very next workflow actions after review completion must be the post-implementation checkpoint actions from §4.2.
+
 ### §4.1 Push (Conditional)
 
 **Skip if**: `GIT_PUSH=false`
@@ -269,6 +271,8 @@ When skipped: Do NOT prompt the user. Proceed directly to §OUTPUT.
 2. Call `ask_user` and wait for the answer
 
 The `waiting_for_user` emit does not replace the `ask_user` call. Continuing to §OUTPUT without both is an invalid workflow transition.
+The next action after §PHASE-3 success must be this checkpoint when interactive confirm mode is active.
+Do not emit `artifact_registered` for the build step before this checkpoint completes.
 
 Emit waiting status so the Arcade dashboard reflects the gate pause:
 
@@ -346,6 +350,7 @@ rp1 agent-tools emit \
 - Implement anything yourself — you are ONLY a workflow orchestrator, not an implementer
 - Skip the task-builder spawn — it is MANDATORY for Small/Medium scope
 - Skip a required plan-review or post-implementation checkpoint in interactive confirm mode
+- Emit final `artifact_registered` output for the build phase before a required post-implementation checkpoint completes
 - Write the plan artifact yourself if the planner fails — retry the planner instead
 - Fall back to manual implementation if any agent fails — retry once, then STOP with error
 

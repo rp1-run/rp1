@@ -38,6 +38,7 @@ providers:
         - Glob
         - Grep
         - Bash
+        - AskUserQuestion
         - Skill
 prompts:
   - file://prompt.txt
