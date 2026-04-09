@@ -27,13 +27,13 @@
     },
     "rp1-dev:speedrun@claude-code": {
       "platform": "claude-code",
-      "prompt_hash": "sha256:1bbf7e47b01e848e53e12537d6e54a14839a24137e31a21f32976e48edf86cac",
-      "deps_hash": "sha256:bbed4df8ef04b6fdddf7b040cdc867a910c0460304df50b6bb5bd9913c0b3a67",
+      "prompt_hash": "sha256:e77fd7013c094e363fa28c83db1adc9338eb43a70fde5a10e784f1f7cdd29536",
+      "deps_hash": "sha256:cf434004d07505167ed96da73971c9e12ecbcf774d6011e044c7dbae2519bc2a",
       "version": "1.1.0",
       "last_eval": {
         "passed": true,
-        "timestamp": "2026-04-06T02:19:08.963Z",
-        "git_commit": "0e44e5dd",
+        "timestamp": "2026-04-09T05:11:28.849Z",
+        "git_commit": "802f4cc5",
         "result_file": "output/rp1-dev-speedrun.json"
       }
     }
@@ -81,8 +81,8 @@
     "dist/claude-code/dev/agents/build-fast-planner.md": "sha256:7d891e8d93436d2dc6e9746975a989425206dd81c30d76630c3caf68d0e7d86d",
     "dist/claude-code/dev/agents/task-builder.md": "sha256:e58aa191d72496366eb3ee63db7cfcd26e2ddf10c0016dfbad267f7ca2d4e0cb",
     "dist/claude-code/dev/agents/task-reviewer.md": "sha256:0fadeb1df1e6d118b66af555bd50ef7fbb17dfc45af79255946d5d86c2749134",
-    "dist/claude-code/dev/skills/speedrun/SKILL.md": "sha256:1bbf7e47b01e848e53e12537d6e54a14839a24137e31a21f32976e48edf86cac",
-    "dist/claude-code/dev/agents/speedrun-builder.md": "sha256:d1dd7c725c7ce35eaf8d734b3f813c9b127cc09b942bcbb7e49ad7312c5d6390",
+    "dist/claude-code/dev/skills/speedrun/SKILL.md": "sha256:e77fd7013c094e363fa28c83db1adc9338eb43a70fde5a10e784f1f7cdd29536",
+    "dist/claude-code/dev/agents/speedrun-builder.md": "sha256:492f0208ff2f373fc5fb6419ee3b9bdbfd67c3b1d3113225c883313be1f21650",
     "dist/claude-code/dev/skills/build/SKILL.md": "sha256:cb04a29c780743334dabdb7ec8a990d5cd9e4266914f87928e2ac9bbce6d37c0",
     "dist/claude-code/dev/agents/build-artifact-detector.md": "sha256:a60981c2e8406da858eb01301761deaa4fdd761c3e9479c54fa40e684e7c61bd",
     "dist/claude-code/dev/agents/feature-requirement-gatherer.md": "sha256:b031f29ff7bf42bc8c3290c75e9ef0704b94ff5462f1c1e6d8ffba171556b5a2",
