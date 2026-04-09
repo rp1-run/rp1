@@ -12,14 +12,15 @@ rp1 migrate
 
 ## Description
 
-The `rp1 migrate` command transitions an existing rp1 project to the project-local directory model and ensures managed stanza content is up to date. It performs six steps, all idempotent:
+The `rp1 migrate` command transitions an existing rp1 project to the project-local directory model and ensures managed stanza content is up to date. It performs seven steps, all idempotent:
 
 1. **Creates `.rp1/project_id`** with a new UUID if the file does not already exist.
 2. **Creates `.rp1/work/`** directory if it does not already exist.
 3. **Moves legacy work artifacts** from `~/.rp1/work/<normalized-project-key>` into `.rp1/work/`, merging without overwriting existing files.
 4. **Updates `.gitignore`** to include work directory ignore rules and ensure `.rp1/project_id` is not ignored.
-5. **Backfills `project_id`** in Arcade database records (runs, artifacts, tasks) that match this project's root path.
-6. **Upgrades stale stanza content** in `CLAUDE.md`, `AGENTS.md`, and `.gitignore` to the latest fence version (see [Fence Versioning](fence-versioning.md)).
+5. **Repairs Arcade metadata** for runs, artifacts, tasks, and notifications whose canonical project identity matches this project.
+6. **Moves misplaced project-local artifacts** from previously mis-resolved `.rp1` roots into this project's canonical `.rp1/` directory when the source files can be found safely.
+7. **Upgrades stale stanza content** in `CLAUDE.md`, `AGENTS.md`, and `.gitignore` to the latest fence version (see [Fence Versioning](fence-versioning.md)).
 
 The command is fully automatic with no interactive prompts. It is safe to run multiple times -- subsequent runs detect that migration has already been completed and report no changes.
 
@@ -54,7 +55,8 @@ Migration complete for /Users/dev/myproject
   Created .rp1/work/
   Moved 12 file(s) from /Users/dev/.rp1/work/Users-dev-myproject
   Updated .gitignore (added 3 rule(s))
-  Backfilled project_id in 5 run(s), 3 artifact(s), 2 task(s)
+  Repaired Arcade metadata in 5 run(s), 3 artifact(s), 2 task(s), 4 notification(s)
+  Moved 3 misplaced artifact file(s) into .rp1/
   Updated CLAUDE.md stanza (v0.6.0 -> v0.7.1)
   Updated AGENTS.md stanza (v0.6.0 -> v0.7.1)
 ```

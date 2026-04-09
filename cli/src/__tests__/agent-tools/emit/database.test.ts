@@ -497,6 +497,40 @@ describe("emit database", () => {
 			expect(second.featureId).toBe("feat-1");
 		});
 
+		test("repairs mismatched directory metadata on subsequent emits", async () => {
+			const dbPath = join(tempDir, "run-repair.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const projectRoot = join(tempDir, "run-repair-project");
+			const wrongRoot = join(tempDir, "wrong-run-root");
+
+			await mkdir(join(projectRoot, ".rp1"), { recursive: true });
+			writeFileSync(join(projectRoot, ".rp1", "project_id"), "project-uuid");
+
+			insertRun(db, {
+				id: "run-repair",
+				flow: "build",
+				featureId: "feat-1",
+				projectPath: projectRoot,
+				rp1ProjectRoot: wrongRoot,
+				rp1KbRoot: join(wrongRoot, ".rp1", "context"),
+				rp1WorkRoot: join(wrongRoot, ".rp1", "work"),
+				projectId: "wrong-uuid",
+			});
+
+			const repaired = insertRun(db, {
+				id: "run-repair",
+				flow: "build",
+				featureId: "feat-1",
+				projectPath: projectRoot,
+			});
+
+			expect(repaired.projectPath).toBe(projectRoot);
+			expect(repaired.rp1ProjectRoot).toBe(projectRoot);
+			expect(repaired.rp1KbRoot).toBe(join(projectRoot, ".rp1", "context"));
+			expect(repaired.rp1WorkRoot).toBe(join(projectRoot, ".rp1", "work"));
+			expect(repaired.projectId).toBe("project-uuid");
+		});
+
 		test("creates a new run with name when provided", async () => {
 			const dbPath = join(tempDir, "insert-run-name.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));

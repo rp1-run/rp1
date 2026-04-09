@@ -815,7 +815,7 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 
 	if (existing) {
 		const updates: string[] = [];
-		const params: Record<string, string> = { $id: input.id };
+		const params: Record<string, string | null> = { $id: input.id };
 
 		if (existing.flow === "unknown" && input.flow !== "unknown") {
 			updates.push("flow = $flow");
@@ -839,24 +839,29 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 
 		const directories = resolveRunDirectories(input);
 
-		if (existing.rp1_project_root == null && directories.rp1ProjectRoot) {
+		if (existing.project_path !== input.projectPath) {
+			updates.push("project_path = $projectPath");
+			params.$projectPath = input.projectPath;
+		}
+
+		if (existing.rp1_project_root !== directories.rp1ProjectRoot) {
 			updates.push("rp1_project_root = $rp1ProjectRoot");
 			params.$rp1ProjectRoot = directories.rp1ProjectRoot;
 		}
 
-		if (existing.rp1_kb_root == null && directories.rp1KbRoot) {
+		if (existing.rp1_kb_root !== directories.rp1KbRoot) {
 			updates.push("rp1_kb_root = $rp1KbRoot");
 			params.$rp1KbRoot = directories.rp1KbRoot;
 		}
 
-		if (existing.rp1_work_root == null && directories.rp1WorkRoot) {
+		if (existing.rp1_work_root !== directories.rp1WorkRoot) {
 			updates.push("rp1_work_root = $rp1WorkRoot");
 			params.$rp1WorkRoot = directories.rp1WorkRoot;
 		}
 
-		if (existing.project_id == null && directories.projectId) {
+		if (existing.project_id !== (directories.projectId ?? null)) {
 			updates.push("project_id = $projectId");
-			params.$projectId = directories.projectId;
+			params.$projectId = directories.projectId ?? null;
 		}
 
 		if (updates.length > 0) {
