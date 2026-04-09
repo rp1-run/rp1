@@ -1,5 +1,5 @@
 /**
- * Unit tests for L007-L012: source-level argument validation rules.
+ * Unit tests for L007-L014: source-level argument validation rules.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -321,6 +321,39 @@ describe("L012: circular implies chain", () => {
 		expect(
 			diagnostics.filter((d) => d.rule === "L012").length,
 		).toBeGreaterThanOrEqual(1);
+	});
+});
+
+describe("L014: parameterized skills must use resolve-args directories", () => {
+	test("errors when a parameterized skill body calls rp1-root-dir", () => {
+		const metadata = makeMetadata({
+			arguments: [makeArg({ name: "FEATURE_ID", required: true })],
+		});
+		const body =
+			"## Step\n\nRun `rp1 agent-tools rp1-root-dir` and extract projectRoot.";
+		const diagnostics = lintSkillArguments(metadata, body, "test.md");
+		const l014 = diagnostics.filter((d) => d.rule === "L014");
+		expect(l014.length).toBe(1);
+		expect(l014[0].severity).toBe("error");
+		expect(l014[0].message).toContain("rp1-root-dir");
+		expect(l014[0].suggestion).toContain("projectRoot");
+	});
+
+	test("does not error when skill has no structured arguments", () => {
+		const metadata = makeMetadata({});
+		const body = "Run `rp1 agent-tools rp1-root-dir`.";
+		const diagnostics = lintSkillArguments(metadata, body, "test.md");
+		expect(diagnostics.filter((d) => d.rule === "L014").length).toBe(0);
+	});
+
+	test("does not error when parameterized skill uses generated directories only", () => {
+		const metadata = makeMetadata({
+			arguments: [makeArg({ name: "FEATURE_ID", required: true })],
+		});
+		const body =
+			"Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values.";
+		const diagnostics = lintSkillArguments(metadata, body, "test.md");
+		expect(diagnostics.filter((d) => d.rule === "L014").length).toBe(0);
 	});
 });
 

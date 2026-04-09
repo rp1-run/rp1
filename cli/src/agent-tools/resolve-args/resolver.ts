@@ -3,6 +3,7 @@
  * Implements 5-layer merge, implies chain resolution, and unresolved detection.
  */
 
+import path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -11,7 +12,10 @@ import {
 	parseUserFacing,
 	toCanonicalString,
 } from "../../../shared/canonical-name.js";
-import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
+import {
+	type ResolvedDirectorySet,
+	resolveDirectorySet,
+} from "../../../shared/directory-resolution.js";
 import type { CLIError } from "../../../shared/errors.js";
 import {
 	notFoundError,
@@ -27,6 +31,7 @@ import type {
 	ResolveArgsInput,
 	ResolvedArgs,
 	ResolvedArgumentValues,
+	ResolvedDirectories,
 } from "./models.js";
 import { resolveSchemaFromNameOrPath } from "./schema-lookup.js";
 
@@ -308,6 +313,44 @@ export const resolveImpliesChains = (
 	}
 };
 
+const buildFallbackDirectories = (projectRoot: string): ResolvedDirectories => {
+	const resolvedProjectRoot = path.resolve(projectRoot);
+
+	return {
+		projectRoot: resolvedProjectRoot,
+		projectId: undefined,
+		kbRoot: path.join(resolvedProjectRoot, ".rp1", "context"),
+		workRoot: path.join(resolvedProjectRoot, ".rp1", "work"),
+		isWorktree: false,
+		status: "uninitialized",
+		nextStepCommand: "rp1 init",
+	};
+};
+
+const mapResolvedDirectories = (
+	directories: ResolvedDirectorySet,
+): ResolvedDirectories => ({
+	projectRoot: directories.projectRoot,
+	projectId: directories.projectId,
+	kbRoot: directories.kbRoot,
+	workRoot: directories.workRoot,
+	isWorktree: directories.isWorktree,
+	worktreeName: directories.worktreeName,
+	status: directories.projectId === undefined ? "legacy" : "initialized",
+	...(directories.projectId === undefined && {
+		nextStepCommand: "rp1 migrate" as const,
+	}),
+});
+
+const resolveDirectories = (projectRoot: string): ResolvedDirectories =>
+	pipe(
+		resolveDirectorySet(projectRoot),
+		E.match(
+			() => buildFallbackDirectories(projectRoot),
+			(directories) => mapResolvedDirectories(directories),
+		),
+	);
+
 /**
  * Resolve arguments using the 5-layer merge precedence.
  *
@@ -331,6 +374,8 @@ export const resolveArgs = (
 			canonicalName = parsed.right;
 		}
 	}
+
+	const directories = resolveDirectories(input.project_root);
 
 	return pipe(
 		// Resolve schema file path from name or direct path
@@ -361,6 +406,7 @@ export const resolveArgs = (
 			if (schema.arguments.length === 0 && schema.environment.length === 0) {
 				return TE.right<CLIError, ResolvedArgs>({
 					arguments: {},
+					directories,
 					environment: {},
 					unresolved: [],
 				});
@@ -380,16 +426,9 @@ export const resolveArgs = (
 					const skillName = canonicalName
 						? toCanonicalString(canonicalName)
 						: extractNameFromPath(resolvedPath);
-					const settingsProjectRoot = pipe(
-						resolveDirectorySet(input.project_root),
-						E.match(
-							() => input.project_root,
-							(directories) => directories.projectRoot,
-						),
-					);
 					const settingsDefaults = await loadArgumentDefaultsForSkill(
 						skillName,
-						settingsProjectRoot,
+						directories.projectRoot,
 					);
 
 					// Merge all layers per argument
@@ -452,6 +491,7 @@ export const resolveArgs = (
 
 					return {
 						arguments: resolved as ResolvedArgumentValues,
+						directories,
 						environment: {},
 						unresolved,
 					};

@@ -13,7 +13,7 @@ metadata:
     - core
     - parallel
   created: 2025-10-25
-  updated: 2026-04-03
+  updated: 2026-04-09
   author: cloud-on-prem/rp1
   arguments:
     - name: FEATURE_ID
@@ -35,7 +35,7 @@ metadata:
 
 ## §CTX
 
-- Run `rp1 agent-tools rp1-root-dir` once. Extract `projectRoot`, `kbRoot`, `workRoot`.
+- Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Resolve Arguments step.
 - KB outputs live under `kbRoot`:
   - `index.md`
   - `concept_map.md`
@@ -70,7 +70,7 @@ metadata:
 
 ### 1. Detect Mode
 
-1. Resolve directories via `rp1-root-dir`. Create `kbRoot` if missing.
+1. Use the pre-resolved directories. Create `kbRoot` if missing.
 2. If `FEATURE_ID` is non-empty:
    - Set `MODE=FEATURE_LEARNING`.
    - Search, in order:

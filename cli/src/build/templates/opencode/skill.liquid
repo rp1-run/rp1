@@ -38,17 +38,22 @@ Run the argument resolver to obtain all parameter values:
 rp1 agent-tools resolve-args --name {{ namespacedPluginName }}:{{ artifact.name }} --args "$ARGUMENTS"
 ```
 
-Parse the JSON response. Extract values from `data.arguments`:
+Parse the JSON response. Extract values from `data.arguments` and `data.directories`:
 
 | Variable | Source |
 |----------|--------|
 {%- for arg in artifact.metadata.arguments %}
 | {{ arg.name }} | `data.arguments.{{ arg.name }}` |
 {%- endfor %}
+| projectRoot | `data.directories.projectRoot` |
+| kbRoot | `data.directories.kbRoot` |
+| workRoot | `data.directories.workRoot` |
+| rp1DirectoryStatus | `data.directories.status` |
+| rp1NextStepCommand | `data.directories.nextStepCommand` |
 
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
-Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+Use these resolved values for all subsequent steps. Do not call `rp1-root-dir`, re-derive project directories, or re-parse arguments.
 {%- endif %}
 
 ## Host Context
