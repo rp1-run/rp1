@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
-import { mkdir, realpath, rm } from "node:fs/promises";
+import { mkdir, realpath, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
@@ -152,6 +152,66 @@ describe("directory resolution", () => {
 		if (E.isRight(result)) return;
 
 		expect(result.left._tag).toBe("NotFoundError");
+	});
+
+	test("does not auto-discover the home directory as a project root", async () => {
+		const fakeHome = join(tempBase, "fake-home");
+		const nestedPathUnderHome = join(fakeHome, "scratch", "app");
+		const originalHome = process.env.HOME;
+
+		await mkdir(join(fakeHome, ".rp1"), { recursive: true });
+		writeFileSync(
+			join(fakeHome, ".rp1", "project_id"),
+			"880e8400-e29b-41d4-a716-446655440000",
+		);
+		await mkdir(nestedPathUnderHome, { recursive: true });
+
+		process.env.HOME = fakeHome;
+
+		try {
+			const result = resolveDirectorySet(nestedPathUnderHome);
+			expect(E.isLeft(result)).toBe(true);
+			if (E.isRight(result)) return;
+
+			expect(result.left._tag).toBe("NotFoundError");
+		} finally {
+			if (originalHome === undefined) {
+				delete process.env.HOME;
+			} else {
+				process.env.HOME = originalHome;
+			}
+		}
+	});
+
+	test("does not auto-discover the home directory when HOME is a symlink alias", async () => {
+		const fakeHome = join(tempBase, "real-home");
+		const aliasedHome = join(tempBase, "alias-home");
+		const nestedPathUnderHome = join(fakeHome, "scratch", "app");
+		const originalHome = process.env.HOME;
+
+		await mkdir(join(fakeHome, ".rp1"), { recursive: true });
+		writeFileSync(
+			join(fakeHome, ".rp1", "project_id"),
+			"890e8400-e29b-41d4-a716-446655440000",
+		);
+		await mkdir(nestedPathUnderHome, { recursive: true });
+		await symlink(fakeHome, aliasedHome);
+
+		process.env.HOME = aliasedHome;
+
+		try {
+			const result = resolveDirectorySet(nestedPathUnderHome);
+			expect(E.isLeft(result)).toBe(true);
+			if (E.isRight(result)) return;
+
+			expect(result.left._tag).toBe("NotFoundError");
+		} finally {
+			if (originalHome === undefined) {
+				delete process.env.HOME;
+			} else {
+				process.env.HOME = originalHome;
+			}
+		}
 	});
 
 	test("RP1_PROJECT_ROOT env var is ignored", () => {

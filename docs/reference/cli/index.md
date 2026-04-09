@@ -36,6 +36,8 @@ rp1 derives its directories from the project root:
 - Knowledge base: `.rp1/context/`
 - Work artifacts: `.rp1/work/`
 
+The home directory is not auto-discovered as a project root.
+
 ---
 
 ## Installation

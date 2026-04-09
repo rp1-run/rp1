@@ -148,5 +148,67 @@ describe("rp1-root-dir resolver", () => {
 
 			expect(resolved._tag).toBe("Left");
 		});
+
+		test("does not treat HOME as the active project root", async () => {
+			const fakeHome = join(tempBase, "fake-home");
+			const nestedPathUnderHome = join(fakeHome, "scratch", "app");
+			const originalHome = process.env.HOME;
+
+			await mkdir(join(fakeHome, ".rp1"), { recursive: true });
+			writeFileSync(
+				join(fakeHome, ".rp1", "project_id"),
+				"990e8400-e29b-41d4-a716-446655440000",
+			);
+			await mkdir(nestedPathUnderHome, { recursive: true });
+
+			process.env.HOME = fakeHome;
+
+			try {
+				const result = resolveRp1Root(nestedPathUnderHome);
+				const resolved = await result();
+
+				expect(resolved._tag).toBe("Left");
+			} finally {
+				if (originalHome === undefined) {
+					delete process.env.HOME;
+				} else {
+					process.env.HOME = originalHome;
+				}
+			}
+		});
+	});
+
+	describe("strict project identity mode", () => {
+		test("suggests rp1 init when no rp1 project exists", async () => {
+			const result = resolveRp1Root(nonGitDir, { requireProjectId: true });
+			const resolved = await result();
+
+			expect(resolved._tag).toBe("Left");
+			if (resolved._tag !== "Left") return;
+
+			expect(resolved.left._tag).toBe("NotFoundError");
+			if (resolved.left._tag !== "NotFoundError") return;
+
+			expect(resolved.left.suggestion).toContain("rp1 init");
+		});
+
+		test("suggests rp1 migrate for legacy .rp1 directories without project_id", async () => {
+			const legacyProjectRoot = join(tempBase, "legacy-project");
+			await mkdir(join(legacyProjectRoot, ".rp1"), { recursive: true });
+
+			const result = resolveRp1Root(legacyProjectRoot, {
+				requireProjectId: true,
+			});
+			const resolved = await result();
+
+			expect(resolved._tag).toBe("Left");
+			if (resolved._tag !== "Left") return;
+
+			expect(resolved.left._tag).toBe("NotFoundError");
+			if (resolved.left._tag !== "NotFoundError") return;
+
+			expect(resolved.left.suggestion).toContain("rp1 migrate");
+			expect(resolved.left.suggestion).toContain(legacyProjectRoot);
+		});
 	});
 });
