@@ -28,6 +28,9 @@ Thorough code review that understands what your PR is trying to accomplish and c
 
 The `pr-review` command performs comprehensive code review by first understanding what your PR is trying to accomplish (from the description or linked issues), then reviewing each changed file against that intent. Findings are synthesized into an overall assessment with specific, actionable feedback.
 
+!!! warning "Worktree Safety"
+    Do not create git worktrees under `.rp1/work/` while running PR reviews. Arcade treats `.rp1/work/` as artifact storage, and nested worktrees can make the project file browser unusable. If a separate checkout is unavoidable, place it outside `.rp1/`.
+
 ## Parameters
 
 | Parameter | Position | Required | Default | Description |

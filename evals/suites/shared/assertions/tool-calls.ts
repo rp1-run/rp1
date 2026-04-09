@@ -4,7 +4,7 @@
  */
 
 import { execSync } from "node:child_process";
-import type { CanonicalTool } from "../tool-names.js";
+import { type CanonicalTool, toCanonical } from "../tool-names.ts";
 
 interface GradingResult {
 	pass: boolean;
@@ -115,6 +115,9 @@ export interface ToolCall {
 	readonly name: string;
 	readonly canonical?: CanonicalTool;
 	input: unknown;
+	readonly output?: unknown;
+	readonly is_error?: boolean;
+	readonly parentToolUseId?: string | null;
 	readonly source?: "stream_event" | "assistant" | "opencode";
 }
 
@@ -123,8 +126,8 @@ export interface ToolCall {
  */
 export interface ProviderMetadata {
 	readonly toolCalls: readonly ToolCall[];
-	readonly bashCommands: readonly string[];
-	readonly toolCallCount: number;
+	readonly bashCommands?: readonly string[];
+	readonly toolCallCount?: number;
 }
 
 /**
@@ -146,9 +149,31 @@ export type AssertionFunction = (
 
 /**
  * Get tool calls from the provider metadata.
+ * Computes canonical names on-the-fly when not already provided.
  */
 function getToolCalls(context: ToolCallEvalContext): readonly ToolCall[] {
-	return context.providerResponse?.metadata?.toolCalls ?? [];
+	const raw = context.providerResponse?.metadata?.toolCalls ?? [];
+	return raw.map((tc) => ({
+		...tc,
+		canonical: tc.canonical ?? toCanonical(tc.name),
+	}));
+}
+
+/**
+ * Derive bash commands from provider metadata.
+ * Uses pre-computed bashCommands when available (custom provider),
+ * otherwise extracts commands from Bash tool calls (stock provider).
+ */
+export function getBashCommands(
+	context: ToolCallEvalContext,
+): readonly string[] {
+	if (context.providerResponse?.metadata?.bashCommands) {
+		return context.providerResponse.metadata.bashCommands;
+	}
+	return getToolCalls(context)
+		.filter((tc) => tc.name === "Bash" || tc.name === "bash")
+		.map((tc) => (tc.input as { command?: string })?.command ?? "")
+		.filter((cmd) => cmd.length > 0);
 }
 
 /**
@@ -505,6 +530,157 @@ export function assertCanonicalToolCall(
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// ParentToolUseId filtering helpers (orchestrator vs sub-agent)
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Filter tool calls to top-level orchestrator calls only.
+ * Returns calls where parentToolUseId is null or undefined (not nested).
+ */
+export function getOrchestratorToolCalls(
+	context: ToolCallEvalContext,
+): readonly ToolCall[] {
+	return getToolCalls(context).filter(
+		(tc) => tc.parentToolUseId === null || tc.parentToolUseId === undefined,
+	);
+}
+
+/**
+ * Filter tool calls to nested sub-agent calls only.
+ * Returns calls where parentToolUseId is a non-null string.
+ */
+export function getSubAgentToolCalls(
+	context: ToolCallEvalContext,
+): readonly ToolCall[] {
+	return getToolCalls(context).filter(
+		(tc) => tc.parentToolUseId !== null && tc.parentToolUseId !== undefined,
+	);
+}
+
+/**
+ * Assert a tool was called at orchestrator level (parentToolUseId is null/undefined).
+ */
+export function assertOrchestratorToolCall<T extends ToolName>(
+	toolName: T,
+	matcher?: Matcher<ToolInputMap[T]>,
+): AssertionFunction {
+	return (_output: string, context: ToolCallEvalContext): GradingResult => {
+		const toolCalls = getOrchestratorToolCalls(context);
+
+		if (toolCalls.length === 0) {
+			return {
+				pass: false,
+				score: 0,
+				reason: "No orchestrator-level tool calls found",
+			};
+		}
+
+		const matchingCall = toolCalls.find((tc) =>
+			matchesToolCall(tc, toolName, matcher),
+		);
+
+		if (matchingCall) {
+			const matcherDesc =
+				matcher !== undefined ? ` matching ${String(matcher)}` : "";
+			return {
+				pass: true,
+				score: 1,
+				reason: `Found orchestrator-level ${toolName} tool call${matcherDesc}`,
+			};
+		}
+
+		const toolNameCalls = toolCalls.filter(
+			(tc) => tc.name.toLowerCase() === toolName.toLowerCase(),
+		);
+		const matcherDesc =
+			matcher !== undefined ? ` matching ${String(matcher)}` : "";
+
+		if (toolNameCalls.length === 0) {
+			return {
+				pass: false,
+				score: 0,
+				reason: `No orchestrator-level ${toolName} tool calls found. Orchestrator calls: ${toolCalls.length}`,
+			};
+		}
+
+		return {
+			pass: false,
+			score: 0,
+			reason: `Found ${toolNameCalls.length} orchestrator-level ${toolName} call(s), but none${matcherDesc}`,
+		};
+	};
+}
+
+/**
+ * Assert a tool was called only by sub-agents (parentToolUseId is not null).
+ */
+export function assertSubAgentOnlyToolCall<T extends ToolName>(
+	toolName: T,
+	matcher?: Matcher<ToolInputMap[T]>,
+): AssertionFunction {
+	return (_output: string, context: ToolCallEvalContext): GradingResult => {
+		const subAgentCalls = getSubAgentToolCalls(context);
+
+		if (subAgentCalls.length === 0) {
+			return {
+				pass: false,
+				score: 0,
+				reason: "No sub-agent-level tool calls found",
+			};
+		}
+
+		const matchingCall = subAgentCalls.find((tc) =>
+			matchesToolCall(tc, toolName, matcher),
+		);
+
+		if (matchingCall) {
+			const orchestratorCalls = getOrchestratorToolCalls(context);
+			const orchestratorMatch = orchestratorCalls.find((tc) =>
+				matchesToolCall(tc, toolName, matcher),
+			);
+
+			if (orchestratorMatch) {
+				const matcherDesc =
+					matcher !== undefined ? ` matching ${String(matcher)}` : "";
+				return {
+					pass: false,
+					score: 0,
+					reason: `${toolName}${matcherDesc} was called at both orchestrator and sub-agent level`,
+				};
+			}
+
+			const matcherDesc =
+				matcher !== undefined ? ` matching ${String(matcher)}` : "";
+			return {
+				pass: true,
+				score: 1,
+				reason: `Found sub-agent-only ${toolName} tool call${matcherDesc}`,
+			};
+		}
+
+		const toolNameCalls = subAgentCalls.filter(
+			(tc) => tc.name.toLowerCase() === toolName.toLowerCase(),
+		);
+		const matcherDesc =
+			matcher !== undefined ? ` matching ${String(matcher)}` : "";
+
+		if (toolNameCalls.length === 0) {
+			return {
+				pass: false,
+				score: 0,
+				reason: `No sub-agent-level ${toolName} tool calls found. Sub-agent calls: ${subAgentCalls.length}`,
+			};
+		}
+
+		return {
+			pass: false,
+			score: 0,
+			reason: `Found ${toolNameCalls.length} sub-agent-level ${toolName} call(s), but none${matcherDesc}`,
+		};
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Domain-specific assertions (rp1 workflow patterns)
 // ─────────────────────────────────────────────────────────────────────
 
@@ -678,7 +854,7 @@ export function assertNoProhibitedCommands(
 	const rules = prohibited ?? defaults;
 
 	return (_output, context) => {
-		const cmds = context.providerResponse?.metadata?.bashCommands ?? [];
+		const cmds = getBashCommands(context);
 		for (const { pattern, label } of rules) {
 			const found = cmds.find((c) => pattern.test(c));
 			if (found)
@@ -757,6 +933,60 @@ export const assertSpeedrunBuilderSpawned =
 export const assertBuildFastPlannerSpawned =
 	assertSubagentSpawned("build-fast-planner");
 
+/** Assert speedrun-builder was spawned at orchestrator level (parentToolUseId is null/undefined). */
+export const assertOrchestratorSpawnedSpeedrunBuilder: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const orchestratorCalls = getOrchestratorToolCalls(context);
+	const subagentNames = ["Task", "task", "Agent", "agent"];
+	const found = orchestratorCalls.some(
+		(tc) =>
+			subagentNames.includes(tc.name) &&
+			JSON.stringify(tc.input).includes("speedrun-builder"),
+	);
+	if (!found) {
+		return {
+			pass: false,
+			score: 0,
+			reason:
+				"No orchestrator-level speedrun-builder spawn found (checked parentToolUseId)",
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "speedrun-builder spawned at orchestrator level",
+	};
+};
+
+/** Assert speedrun-builder was spawned at orchestrator level (parentToolUseId is null/undefined). */
+export const assertOrchestratorSpawnedSpeedrunBuilder: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const orchestratorCalls = getOrchestratorToolCalls(context);
+	const subagentNames = ["Task", "task", "Agent", "agent"];
+	const found = orchestratorCalls.some(
+		(tc) =>
+			subagentNames.includes(tc.name) &&
+			JSON.stringify(tc.input).includes("speedrun-builder"),
+	);
+	if (!found) {
+		return {
+			pass: false,
+			score: 0,
+			reason:
+				"No orchestrator-level speedrun-builder spawn found (checked parentToolUseId)",
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "speedrun-builder spawned at orchestrator level",
+	};
+};
+
 /** Assert artifact-detector spawned first. */
 export const assertArtifactDetectorFirst =
 	assertFirstSubagent("artifact-detector");
@@ -771,6 +1001,278 @@ export const assertBuildProhibited = assertNoProhibitedCommands([
 	{ pattern: /\bgit\s+rebase\b/, label: "git rebase" },
 	{ pattern: /\bgit\s+init\b/, label: "git init" },
 ]);
+
+/** Assert no build-fast-planner or task-builder subagent was spawned. */
+export const assertNoBuildFastAgents: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const tcs = getToolCalls(context);
+	const subagentNames = ["Task", "task", "Agent", "agent"];
+	const buildFastAgents = tcs.filter((tc) => {
+		if (!subagentNames.includes(tc.name)) return false;
+		const input = JSON.stringify(tc.input);
+		return (
+			input.includes("build-fast-planner") || input.includes("task-builder")
+		);
+	});
+	if (buildFastAgents.length > 0) {
+		const names = buildFastAgents
+			.map((tc) => {
+				const input = JSON.stringify(tc.input);
+				if (input.includes("build-fast-planner")) return "build-fast-planner";
+				return "task-builder";
+			})
+			.join(", ");
+		return {
+			pass: false,
+			score: 0,
+			reason: `Found build-fast agent(s) spawned: ${names}`,
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "No build-fast-planner or task-builder spawned",
+	};
+};
+
+/** Assert AskUserQuestion was called with commit/refine/new/exit options (post-build prompt). Cross-provider: matches both AskUserQuestion and question. */
+export const assertPostBuildPromptOptions: AssertionFunction = (
+	output,
+	context,
+) => {
+	const tcs = getToolCalls(context);
+	const askCalls = tcs.filter(
+		(tc) => tc.name === "AskUserQuestion" || tc.canonical === "ask_user",
+	);
+	const expectedOptions = ["commit", "refine", "new", "exit"];
+	const MIN_MATCH = 3;
+
+	// Check AskUserQuestion tool calls first
+	for (const tc of askCalls) {
+		const input = JSON.stringify(tc.input).toLowerCase();
+		const matched = expectedOptions.filter((opt) => input.includes(opt));
+		if (matched.length >= MIN_MATCH) {
+			return {
+				pass: true,
+				score: 1,
+				reason: `Post-build prompt found via AskUserQuestion (matched: ${matched.join(", ")})`,
+			};
+		}
+	}
+
+	// Fallback: check text output for post-build option keywords
+	const outputLower = (typeof output === "string" ? output : "").toLowerCase();
+	const outputMatched = expectedOptions.filter((opt) =>
+		outputLower.includes(opt),
+	);
+	if (outputMatched.length >= MIN_MATCH) {
+		return {
+			pass: true,
+			score: 1,
+			reason: `Post-build prompt found in text output (matched: ${outputMatched.join(", ")})`,
+		};
+	}
+
+	const askSummary = askCalls
+		.map((tc) => {
+			const matched = expectedOptions.filter((opt) =>
+				JSON.stringify(tc.input).toLowerCase().includes(opt),
+			);
+			return `[${matched.join(",")}]`;
+		})
+		.join(", ");
+	return {
+		pass: false,
+		score: 0,
+		reason: `Post-build prompt needs ${MIN_MATCH}+ of [${expectedOptions.join("/")}]. Found ${askCalls.length} AskUserQuestion(s)${askSummary ? ` matching: ${askSummary}` : ""}, output matched: [${outputMatched.join(",")}]`,
+	};
+};
+
+/** Assert Read tool was called on a `.rp1/context/` path (KB load). */
+export const assertKBLoad: AssertionFunction = (_output, context) => {
+	const tcs = getToolCalls(context);
+	const kbReads = tcs.filter((tc) => {
+		if (tc.name !== "Read" && tc.canonical !== "read") return false;
+		const input = tc.input as { file_path?: string };
+		return input.file_path?.includes(".rp1/context/") ?? false;
+	});
+	if (kbReads.length === 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "No Read tool call on .rp1/context/ path found (KB not loaded)",
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: `KB loaded: ${kbReads.length} Read call(s) on .rp1/context/ paths`,
+	};
+};
+
+/** Assert status_change emit with redirect was called (scope redirect). */
+export const assertScopeRedirectStatus: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const cmds = getBashCommands(context);
+	const found = cmds.some(
+		(cmd) =>
+			cmd.includes("rp1 agent-tools emit") &&
+			cmd.includes("--type status_change") &&
+			cmd.includes("redirect"),
+	);
+	if (!found) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "No status_change emit with redirect found in bash commands",
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "Scope redirect status_change emit found",
+	};
+};
+
+/** Assert no build-fast-planner or task-builder subagent was spawned. */
+export const assertNoBuildFastAgents: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const tcs = getToolCalls(context);
+	const subagentNames = ["Task", "task", "Agent", "agent"];
+	const buildFastAgents = tcs.filter((tc) => {
+		if (!subagentNames.includes(tc.name)) return false;
+		const input = JSON.stringify(tc.input);
+		return (
+			input.includes("build-fast-planner") || input.includes("task-builder")
+		);
+	});
+	if (buildFastAgents.length > 0) {
+		const names = buildFastAgents
+			.map((tc) => {
+				const input = JSON.stringify(tc.input);
+				if (input.includes("build-fast-planner")) return "build-fast-planner";
+				return "task-builder";
+			})
+			.join(", ");
+		return {
+			pass: false,
+			score: 0,
+			reason: `Found build-fast agent(s) spawned: ${names}`,
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "No build-fast-planner or task-builder spawned",
+	};
+};
+
+/** Assert AskUserQuestion was called with commit/refine/new/exit options (post-build prompt). Cross-provider: matches both AskUserQuestion and question. */
+export const assertPostBuildPromptOptions: AssertionFunction = (
+	output,
+	context,
+) => {
+	const tcs = getToolCalls(context);
+	const askCalls = tcs.filter(
+		(tc) => tc.name === "AskUserQuestion" || tc.canonical === "ask_user",
+	);
+	const expectedOptions = ["commit", "refine", "new", "exit"];
+	const MIN_MATCH = 3;
+
+	// Check AskUserQuestion tool calls first
+	for (const tc of askCalls) {
+		const input = JSON.stringify(tc.input).toLowerCase();
+		const matched = expectedOptions.filter((opt) => input.includes(opt));
+		if (matched.length >= MIN_MATCH) {
+			return {
+				pass: true,
+				score: 1,
+				reason: `Post-build prompt found via AskUserQuestion (matched: ${matched.join(", ")})`,
+			};
+		}
+	}
+
+	// Fallback: check text output for post-build option keywords
+	const outputLower = (typeof output === "string" ? output : "").toLowerCase();
+	const outputMatched = expectedOptions.filter((opt) =>
+		outputLower.includes(opt),
+	);
+	if (outputMatched.length >= MIN_MATCH) {
+		return {
+			pass: true,
+			score: 1,
+			reason: `Post-build prompt found in text output (matched: ${outputMatched.join(", ")})`,
+		};
+	}
+
+	const askSummary = askCalls
+		.map((tc) => {
+			const matched = expectedOptions.filter((opt) =>
+				JSON.stringify(tc.input).toLowerCase().includes(opt),
+			);
+			return `[${matched.join(",")}]`;
+		})
+		.join(", ");
+	return {
+		pass: false,
+		score: 0,
+		reason: `Post-build prompt needs ${MIN_MATCH}+ of [${expectedOptions.join("/")}]. Found ${askCalls.length} AskUserQuestion(s)${askSummary ? ` matching: ${askSummary}` : ""}, output matched: [${outputMatched.join(",")}]`,
+	};
+};
+
+/** Assert Read tool was called on a `.rp1/context/` path (KB load). */
+export const assertKBLoad: AssertionFunction = (_output, context) => {
+	const tcs = getToolCalls(context);
+	const kbReads = tcs.filter((tc) => {
+		if (tc.name !== "Read" && tc.canonical !== "read") return false;
+		const input = tc.input as { file_path?: string };
+		return input.file_path?.includes(".rp1/context/") ?? false;
+	});
+	if (kbReads.length === 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "No Read tool call on .rp1/context/ path found (KB not loaded)",
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: `KB loaded: ${kbReads.length} Read call(s) on .rp1/context/ paths`,
+	};
+};
+
+/** Assert status_change emit with redirect was called (scope redirect). */
+export const assertScopeRedirectStatus: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const cmds = getBashCommands(context);
+	const found = cmds.some(
+		(cmd) =>
+			cmd.includes("rp1 agent-tools emit") &&
+			cmd.includes("--type status_change") &&
+			cmd.includes("redirect"),
+	);
+	if (!found) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "No status_change emit with redirect found in bash commands",
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "Scope redirect status_change emit found",
+	};
+};
 
 /** Assert a general sub-agent was spawned (not a named rp1-dev agent like build-fast-planner or task-builder). */
 export const assertGeneralSubagentSpawned: AssertionFunction = (

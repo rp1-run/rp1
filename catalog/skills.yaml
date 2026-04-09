@@ -292,8 +292,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:pr-comment-deduplicator,rp1-dev:pr-comment-poster,rp1-dev:pr-review-reporter,rp1-dev:pr-review-splitter,rp1-dev:pr-review-synthesizer,rp1-dev:pr-sub-reviewer,rp1-dev:pr-visualizer]
     skills_that_i_use: [rp1-dev:pr-visual]
-    last_update: "2026-04-08"
-    last_checksum: e9d4ba337341406879a0b29567cb89134dc695258de3f122994d0b390563101d
+    last_update: "2026-04-09"
+    last_checksum: b51e8ea11dec1c3a3593aa417ab4596fed316c3a41d03823b407ffc2f4ef1384
   - name: rp1-dev:pr-visual
     description: Transform pull request diffs into Mermaid diagrams for visual code review and change understanding.
     plugin: dev

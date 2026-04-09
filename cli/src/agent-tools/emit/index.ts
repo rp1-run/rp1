@@ -467,6 +467,7 @@ export const executeEmit = (
 						}),
 						TE.chainFirst(({ event, runStatus, notification }) =>
 							TE.fromTask(async () => {
+								if (process.env.RP1_EVAL_MODE === "true") return;
 								await notifyDaemon(input, run, runStatus, event.id);
 								if (notification) {
 									await notifyDaemonNotification(notification);
