@@ -116,6 +116,31 @@
   color: var(--md-default-bg-color);
 }
 
+/* Discord button */
+.md-typeset .md-button--discord {
+  border-color: #5865F2;
+  color: #5865F2;
+  background-color: transparent;
+}
+
+.md-typeset .md-button--discord:hover {
+  border-color: #5865F2;
+  background-color: #5865F2;
+  color: #fff;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--discord {
+  border-color: #7289da;
+  color: #7289da;
+  background-color: transparent;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--discord:hover {
+  border-color: #5865F2;
+  background-color: #5865F2;
+  color: #fff;
+}
+
 /* Simple grid layout (Stripe-style) */
 .md-typeset .grid {
   display: grid;

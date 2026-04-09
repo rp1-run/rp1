@@ -29,4 +29,11 @@
       trackEvent('github_click', { page: location.pathname, href: link.href });
     }
   });
+
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest('a[href^="https://discord.gg"]');
+    if (link) {
+      trackEvent('discord_click', { page: location.pathname, href: link.href });
+    }
+  });
 })();
