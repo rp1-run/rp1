@@ -211,8 +211,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:build-fast-planner,rp1-dev:task-builder,rp1-dev:task-reviewer]
     skills_that_i_use: [rp1-base:self-update,rp1-dev:arcade-collab,rp1-dev:build]
-    last_update: "2026-04-08"
-    last_checksum: 63c0fbc4881179e321d044a4ff3c0cb25df5c22f7251e9495b8d3e116224547f
+    last_update: "2026-04-10"
+    last_checksum: a292ccf75cb3f099e81cf159e203a3cbce3ea72c10ed0584da46ad68354f758c
   - name: rp1-dev:build
     description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
     plugin: dev
