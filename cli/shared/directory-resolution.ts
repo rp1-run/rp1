@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import type { CLIError } from "./errors.js";
@@ -15,6 +16,11 @@ export interface ResolvedDirectorySet {
 	readonly workRoot: string;
 	readonly isWorktree: boolean;
 	readonly worktreeName?: string;
+}
+
+export interface DirectoryResolutionOptions {
+	readonly allowHomeProjectRoot?: boolean;
+	readonly requireProjectId?: boolean;
 }
 
 interface GitContext {
@@ -55,18 +61,45 @@ const hasProjectIdFile = (targetPath: string): boolean =>
 const hasRp1Directory = (targetPath: string): boolean =>
 	isDirectory(path.join(targetPath, ".rp1"));
 
+const canonicalizePathForComparison = (targetPath: string): string => {
+	const resolvedPath = path.resolve(targetPath);
+	try {
+		return realpathSync(resolvedPath);
+	} catch {
+		return resolvedPath;
+	}
+};
+
+const getUserHomeDirectory = (): string =>
+	canonicalizePathForComparison(process.env.HOME ?? homedir());
+
+const canAutoDiscoverProjectRoot = (
+	targetPath: string,
+	options: DirectoryResolutionOptions,
+): boolean =>
+	options.allowHomeProjectRoot === true ||
+	canonicalizePathForComparison(targetPath) !== getUserHomeDirectory();
+
 const walkUpToProjectRoot = (
 	startPath: string,
+	options: DirectoryResolutionOptions,
 ): { root: string; hasProjectId: boolean } | undefined => {
 	let current = path.resolve(startPath);
 	let fallbackRp1Dir: string | undefined;
 
 	while (true) {
-		if (hasProjectIdFile(current)) {
+		if (
+			hasProjectIdFile(current) &&
+			canAutoDiscoverProjectRoot(current, options)
+		) {
 			return { root: current, hasProjectId: true };
 		}
 
-		if (fallbackRp1Dir === undefined && hasRp1Directory(current)) {
+		if (
+			fallbackRp1Dir === undefined &&
+			hasRp1Directory(current) &&
+			canAutoDiscoverProjectRoot(current, options)
+		) {
 			fallbackRp1Dir = current;
 		}
 
@@ -86,6 +119,12 @@ const walkUpToProjectRoot = (
 
 	return undefined;
 };
+
+const missingProjectIdError = (projectRoot: string): CLIError =>
+	notFoundError(
+		".rp1/project_id",
+		`Found a legacy rp1 project at ${projectRoot}. Run 'rp1 migrate' from that project root to create .rp1/project_id.`,
+	);
 
 const execGit = (cwd: string, args: readonly string[]): string =>
 	execFileSync("git", [...args], {
@@ -154,6 +193,7 @@ const buildDirectorySet = (params: {
 
 export const resolveDirectorySet = (
 	startPath: string = process.cwd(),
+	options: DirectoryResolutionOptions = {},
 ): E.Either<CLIError, ResolvedDirectorySet> => {
 	const resolvedStartPath = path.resolve(startPath);
 
@@ -177,6 +217,13 @@ export const resolveDirectorySet = (
 				hasProjectIdFile(commonDirProjectRoot) ||
 				hasRp1Directory(commonDirProjectRoot)
 			) {
+				if (
+					options.requireProjectId === true &&
+					!hasProjectIdFile(commonDirProjectRoot)
+				) {
+					return E.left(missingProjectIdError(commonDirProjectRoot));
+				}
+
 				if (!hasProjectIdFile(commonDirProjectRoot)) {
 					console.warn(
 						`[rp1] Found .rp1/ directory at ${commonDirProjectRoot} without project_id. Run 'rp1 migrate' to create one.`,
@@ -197,8 +244,12 @@ export const resolveDirectorySet = (
 	// Phase 2: Walk up directory tree to find .rp1/project_id.
 	// Only reached for non-worktree contexts or worktrees whose main repo
 	// lacks an .rp1 directory.
-	const walkedResult = walkUpToProjectRoot(resolvedStartPath);
+	const walkedResult = walkUpToProjectRoot(resolvedStartPath, options);
 	if (walkedResult) {
+		if (options.requireProjectId === true && !walkedResult.hasProjectId) {
+			return E.left(missingProjectIdError(walkedResult.root));
+		}
+
 		return E.right(
 			buildDirectorySet({
 				projectRoot: walkedResult.root,

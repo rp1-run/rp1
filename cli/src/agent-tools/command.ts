@@ -247,7 +247,9 @@ Description:
 Resolution order:
   1. Walk up from current directory to find .rp1/project_id
   2. Git worktree detection via git-common-dir (maps to main repo)
-  3. Fall back to .rp1/ directory without project_id (with warning)
+  3. If a legacy .rp1/ directory exists without project_id, fail with a
+     suggestion to run 'rp1 migrate'
+  4. If no rp1 project exists, fail with a suggestion to run 'rp1 init'
 
 Output:
   JSON with resolved directories and detection metadata:
