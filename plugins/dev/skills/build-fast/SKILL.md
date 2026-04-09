@@ -177,8 +177,11 @@ Present the plan review to the user:
 
 **Files**: {files_affected}
 
+**Mandatory checkpoint**: The very next action must be the `ask_user` call below. Do NOT start §PHASE-2 until the user has answered. Do NOT skip this gate when `AFK=false` and `CONFIRM_PLAN=true`.
+
 {% ask_user "Proceed with plan?", options: "Continue", "Revise", "Review feedback from Arcade", "Stop" %}
 
+**On "Continue"**: Proceed to §PHASE-2.
 **On "Revise"**: Prompt for feedback, re-invoke §PHASE-1 with feedback appended to DEVELOPMENT_REQUEST.
 **On "Review feedback from Arcade"**: Load the `arcade-collab` skill (`/rp1-dev:arcade-collab`), then call `rp1 agent-tools feedback read --run-id {RUN_ID} --status open`. If feedback exists, process it per the collaboration loop in the skill. After all feedback is processed, return to this gate and re-present the same options.
 **On "Stop"**: Output "Build fast cancelled. Artifact preserved at {artifact_path}" and STOP.
@@ -272,6 +275,8 @@ Present the post-implementation checkpoint to the user:
 **Artifact**: {artifact_path}
 
 Review the changes.
+
+**Mandatory checkpoint**: The very next action must be the `ask_user` call below. Do NOT continue to §OUTPUT until the user has answered. Do NOT skip this gate when `AFK=false` and `CONFIRM_PLAN=true`.
 
 {% ask_user "Continue or make additional changes?", options: "Done", "Add/Edit", "Review feedback from Arcade" %}
 
