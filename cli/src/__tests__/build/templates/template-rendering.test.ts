@@ -189,6 +189,7 @@ describeWithLiquid("template rendering", () => {
 			const engine = createTestEngine();
 			const result = await engine.renderFile("opencode/skill", {
 				platform: "opencode",
+				namespacedPluginName: "rp1-base",
 				artifact: {
 					type: "skill",
 					namespacedName: "rp1-base-knowledge-build",
@@ -201,6 +202,41 @@ describeWithLiquid("template rendering", () => {
 				pluginName: "base",
 			});
 			expect(result.trim()).toBe(readGolden("opencode-skill.md").trim());
+		});
+
+		test("injects resolve-args directory guidance for parameterized skills", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("opencode/skill", {
+				platform: "opencode",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "skill",
+					name: "knowledge-build",
+					namespacedName: "rp1-base-knowledge-build",
+					description: "Build knowledge base artifacts",
+					allowedTools: "Bash, Read",
+					content: "Skill content.",
+					metadata: {
+						arguments: [
+							{
+								name: "FEATURE_ID",
+								type: "string",
+								required: false,
+								description: "Feature identifier",
+							},
+						],
+					},
+					supportingFiles: [],
+				},
+				pluginName: "base",
+			});
+			expect(result).toContain(
+				"Extract values from `data.arguments` and `data.directories`",
+			);
+			expect(result).toContain(
+				"| projectRoot | `data.directories.projectRoot` |",
+			);
+			expect(result).toContain("Do not call `rp1-root-dir`");
 		});
 
 		test("renders skill without allowed-tools", async () => {
@@ -263,6 +299,7 @@ describeWithLiquid("template rendering", () => {
 			const engine = createTestEngine();
 			const result = await engine.renderFile("codex/skill", {
 				platform: "codex",
+				namespacedPluginName: "rp1-dev",
 				artifact: {
 					type: "skill",
 					namespacedName: "rp1-dev-build",
@@ -282,6 +319,39 @@ describeWithLiquid("template rendering", () => {
 				pluginName: "dev",
 			});
 			expect(result.trim()).toBe(readGolden("codex-skill.md").trim());
+		});
+
+		test("injects resolve-args directory guidance for parameterized skills", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("codex/skill", {
+				platform: "codex",
+				namespacedPluginName: "rp1-dev",
+				artifact: {
+					type: "skill",
+					name: "build",
+					namespacedName: "rp1-dev-build",
+					description: "Build plugin artifacts",
+					allowedTools: "Bash(echo *)",
+					content: "Codex skill content.",
+					metadata: {
+						arguments: [
+							{
+								name: "FEATURE_ID",
+								type: "string",
+								required: true,
+								description: "Feature identifier",
+							},
+						],
+					},
+					supportingFiles: [],
+				},
+				pluginName: "dev",
+			});
+			expect(result).toContain(
+				"Extract values from `data.arguments` and `data.directories`",
+			);
+			expect(result).toContain("| kbRoot | `data.directories.kbRoot` |");
+			expect(result).toContain("Do not call `rp1-root-dir`");
 		});
 	});
 
@@ -423,6 +493,7 @@ describeWithLiquid("template rendering", () => {
 			const engine = createTestEngine();
 			const result = await engine.renderFile("claude-code/skill", {
 				platform: "claude-code",
+				namespacedPluginName: "rp1-base",
 				artifact: {
 					type: "skill",
 					namespacedName: "rp1-base-knowledge-build",
@@ -443,6 +514,39 @@ describeWithLiquid("template rendering", () => {
 			expect(result).toContain("allowed-tools: Bash(echo *), Read, Edit");
 			expect(result).toContain("rp1-base:knowledge-load");
 			expect(result).toContain("version: 1.0.0");
+		});
+
+		test("injects resolve-args directory guidance for parameterized skills", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("claude-code/skill", {
+				platform: "claude-code",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "skill",
+					name: "knowledge-build",
+					namespacedName: "rp1-base-knowledge-build",
+					description: "Build knowledge base artifacts",
+					allowedTools: "Bash(echo *), Read, Edit",
+					content: "Skill content.",
+					metadata: {
+						arguments: [
+							{
+								name: "FEATURE_ID",
+								type: "string",
+								required: false,
+								description: "Feature identifier",
+							},
+						],
+					},
+					supportingFiles: [],
+				},
+				pluginName: "base",
+			});
+			expect(result).toContain(
+				"Extract values from `data.arguments` and `data.directories`",
+			);
+			expect(result).toContain("| workRoot | `data.directories.workRoot` |");
+			expect(result).toContain("Do not call `rp1-root-dir`");
 		});
 	});
 

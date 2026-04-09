@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,7 +15,12 @@ import {
 	resolveSchemaFromNameOrPath,
 } from "../../../agent-tools/resolve-args/schema-lookup.js";
 import type { ArgumentDefinition } from "../../../build/models.js";
-import { writeFixture } from "../../helpers/index.js";
+import {
+	createInitialCommit,
+	createTestWorktree,
+	initTestRepo,
+	writeFixture,
+} from "../../helpers/index.js";
 
 /** True when dist/ bundle manifests exist (i.e. a build has been run). */
 // Test file is at cli/src/__tests__/agent-tools/resolve-args/ — 5 levels up to repo root
@@ -210,6 +215,15 @@ description: "A skill with no arguments for testing purposes"
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
 			expect(result.right.arguments).toEqual({});
+			expect(result.right.directories).toEqual({
+				projectRoot: tempDir,
+				projectId: undefined,
+				kbRoot: join(tempDir, ".rp1", "context"),
+				workRoot: join(tempDir, ".rp1", "work"),
+				isWorktree: false,
+				status: "uninitialized",
+				nextStepCommand: "rp1 init",
+			});
 			expect(result.right.environment).toEqual({});
 			expect(result.right.unresolved).toEqual([]);
 		}
@@ -571,6 +585,200 @@ metadata:
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
 			expect(result.right.arguments.FEATURE_ID).toBe("from-project-settings");
+			expect(result.right.directories).toEqual({
+				projectRoot: tempDir,
+				projectId: "project-123",
+				kbRoot: join(tempDir, ".rp1", "context"),
+				workRoot: join(tempDir, ".rp1", "work"),
+				isWorktree: false,
+				status: "initialized",
+			});
+		}
+	});
+
+	test("returns migrate guidance when project_root points at a legacy .rp1 directory", async () => {
+		const legacyProjectRoot = join(tempDir, "legacy-project");
+		const nestedDir = join(legacyProjectRoot, "packages", "app");
+
+		await mkdir(join(legacyProjectRoot, ".rp1"), { recursive: true });
+		await mkdir(nestedDir, { recursive: true });
+
+		const schemaPath = await createSkillFile(
+			tempDir,
+			`---
+name: test-skill
+description: "A test skill with structured arguments for validation"
+metadata:
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: false
+      description: "Feature identifier"
+---
+# Test skill
+`,
+		);
+
+		const result = await resolveArgs({
+			schema_path: schemaPath,
+			raw_args: "",
+			project_root: nestedDir,
+		})();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.directories).toEqual({
+				projectRoot: legacyProjectRoot,
+				projectId: undefined,
+				kbRoot: join(legacyProjectRoot, ".rp1", "context"),
+				workRoot: join(legacyProjectRoot, ".rp1", "work"),
+				isWorktree: false,
+				status: "legacy",
+				nextStepCommand: "rp1 migrate",
+			});
+		}
+	});
+
+	test("returns init guidance when project_root is not an rp1 project", async () => {
+		const nestedDir = join(tempDir, "scratch", "app");
+		await mkdir(nestedDir, { recursive: true });
+
+		const schemaPath = await createSkillFile(
+			tempDir,
+			`---
+name: test-skill
+description: "A test skill with structured arguments for validation"
+metadata:
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: false
+      description: "Feature identifier"
+---
+# Test skill
+`,
+		);
+
+		const result = await resolveArgs({
+			schema_path: schemaPath,
+			raw_args: "",
+			project_root: nestedDir,
+		})();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.directories).toEqual({
+				projectRoot: nestedDir,
+				projectId: undefined,
+				kbRoot: join(nestedDir, ".rp1", "context"),
+				workRoot: join(nestedDir, ".rp1", "work"),
+				isWorktree: false,
+				status: "uninitialized",
+				nextStepCommand: "rp1 init",
+			});
+		}
+	});
+
+	test("does not treat the home directory as an initialized project", async () => {
+		const fakeHome = join(tempDir, "fake-home");
+		const nestedPathUnderHome = join(fakeHome, "scratch", "app");
+		const originalHome = process.env.HOME;
+
+		await writeFixture(fakeHome, ".rp1/project_id", "project-123");
+		await mkdir(nestedPathUnderHome, { recursive: true });
+
+		const schemaPath = await createSkillFile(
+			tempDir,
+			`---
+name: test-skill
+description: "A test skill with structured arguments for validation"
+metadata:
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: false
+      description: "Feature identifier"
+---
+# Test skill
+`,
+		);
+
+		process.env.HOME = fakeHome;
+
+		try {
+			const result = await resolveArgs({
+				schema_path: schemaPath,
+				raw_args: "",
+				project_root: nestedPathUnderHome,
+			})();
+
+			expect(E.isRight(result)).toBe(true);
+			if (E.isRight(result)) {
+				expect(result.right.directories).toEqual({
+					projectRoot: nestedPathUnderHome,
+					projectId: undefined,
+					kbRoot: join(nestedPathUnderHome, ".rp1", "context"),
+					workRoot: join(nestedPathUnderHome, ".rp1", "work"),
+					isWorktree: false,
+					status: "uninitialized",
+					nextStepCommand: "rp1 init",
+				});
+			}
+		} finally {
+			if (originalHome === undefined) {
+				delete process.env.HOME;
+			} else {
+				process.env.HOME = originalHome;
+			}
+		}
+	});
+
+	test("surfaces canonical worktree directories when project_root is a linked worktree", async () => {
+		const mainRepoRoot = join(tempDir, "worktree-main");
+		const linkedWorktreePath = join(tempDir, "linked-worktree");
+
+		await mkdir(join(mainRepoRoot, ".rp1"), { recursive: true });
+		await writeFile(join(mainRepoRoot, ".rp1", "project_id"), "project-123");
+		await initTestRepo(mainRepoRoot);
+		await createInitialCommit(mainRepoRoot);
+		await createTestWorktree(mainRepoRoot, linkedWorktreePath, "test-branch");
+		const canonicalMainRepoRoot = await realpath(mainRepoRoot).catch(
+			() => mainRepoRoot,
+		);
+
+		const schemaPath = await createSkillFile(
+			tempDir,
+			`---
+name: test-skill
+description: "A test skill with structured arguments for validation"
+metadata:
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: false
+      description: "Feature identifier"
+---
+# Test skill
+`,
+		);
+
+		const result = await resolveArgs({
+			schema_path: schemaPath,
+			raw_args: "",
+			project_root: linkedWorktreePath,
+		})();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.directories).toEqual({
+				projectRoot: canonicalMainRepoRoot,
+				projectId: "project-123",
+				kbRoot: join(canonicalMainRepoRoot, ".rp1", "context"),
+				workRoot: join(canonicalMainRepoRoot, ".rp1", "work"),
+				isWorktree: true,
+				worktreeName: "test-branch",
+				status: "initialized",
+			});
 		}
 	});
 

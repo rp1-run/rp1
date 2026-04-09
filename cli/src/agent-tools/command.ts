@@ -309,7 +309,7 @@ agentToolsCommand
 	.option("-a, --args <args>", "Raw argument string from invocation")
 	.option(
 		"-p, --project-root <path>",
-		"Project root directory for settings lookup",
+		"Path used to anchor directory resolution and settings lookup",
 	)
 	.addHelpText(
 		"after",
@@ -334,11 +334,11 @@ Input (CLI flags or JSON via stdin/file):
   - name: Skill/agent namespace (e.g., "rp1-dev:build")
   - schema_path: Direct path to SKILL.md or agent .md file
   - raw_args: Raw argument string from invocation
-  - project_root: Project root directory (for settings lookup)
+  - project_root: Path used to anchor directory resolution and settings lookup
 
 Output:
-  JSON ToolResult with resolved arguments, an environment placeholder object,
-  and an unresolved list.
+  JSON ToolResult with resolved arguments, resolved directories, an
+  environment placeholder object, and an unresolved list.
 
 Examples:
   rp1 agent-tools resolve-args --name rp1-dev:build --args "my-feature --afk"
