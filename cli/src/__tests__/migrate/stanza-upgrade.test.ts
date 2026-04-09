@@ -141,6 +141,29 @@ describe("stanza-upgrade", () => {
 		expect(result.filesScanned).toBe(3);
 	});
 
+	test("preserves the Codex AGENTS.md template flavor during upgrades", () => {
+		writeFileSync(
+			join(tempDir, "AGENTS.md"),
+			[
+				"<!-- rp1:start:v0.1.0 -->",
+				"## Codex agent conventions",
+				"",
+				"Legacy codex text",
+				"<!-- rp1:end:v0.1.0 -->",
+			].join("\n"),
+		);
+
+		const result = upgradeStanzas(tempDir);
+
+		expect(result.filesUpgraded).toHaveLength(1);
+		expect(result.filesUpgraded[0].file).toBe("AGENTS.md");
+
+		const updated = readFileSync(join(tempDir, "AGENTS.md"), "utf-8");
+		expect(updated).toContain("## Codex agent conventions");
+		expect(updated).not.toContain("## rp1 Skill Awareness");
+		expect(updated).toContain(`<!-- rp1:start:v${LATEST_FENCE_VERSION} -->`);
+	});
+
 	test("scans exactly 3 known files", () => {
 		mkdirSync(join(tempDir, ".rp1"), { recursive: true });
 

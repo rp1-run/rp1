@@ -36,7 +36,11 @@ import {
 	validateShellFencing,
 	wrapWithShellFence,
 } from "../shell-fence.js";
-import { AGENTS_TEMPLATE, CLAUDE_CODE_TEMPLATE } from "../templates/index.js";
+import {
+	getInstructionFiles,
+	getPrimaryInstructionTemplateTarget,
+	resolveInstructionTemplate,
+} from "../templates/index.js";
 import type { DetectedTool } from "../tool-detector.js";
 
 // ============================================================================
@@ -219,7 +223,7 @@ export async function createSettingsFiles(
 async function injectIntoFile(
 	cwd: string,
 	file: string,
-	template: string,
+	detectedTool: DetectedTool | null,
 	logger: Logger,
 ): Promise<InitAction | null> {
 	const filePath = path.resolve(cwd, file);
@@ -238,6 +242,14 @@ async function injectIntoFile(
 	if (!validation.valid) {
 		throw new Error(`Invalid fencing in ${file}: ${validation.error}`);
 	}
+
+	const template =
+		file === "CLAUDE.md" || file === "AGENTS.md"
+			? resolveInstructionTemplate(file, {
+					detectedTool,
+					existingContent,
+				})
+			: "";
 
 	if (hasFencedContent(existingContent)) {
 		logger.info(`Updating: ${filePath}`);
@@ -279,9 +291,8 @@ export async function injectInstructions(
 
 	// If neither exists, create the primary tool's file or default to CLAUDE.md
 	if (!claudeExists && !agentsExists) {
-		const primaryFile = detectedTool?.tool.instruction_file ?? "CLAUDE.md";
-		const template =
-			primaryFile === "CLAUDE.md" ? CLAUDE_CODE_TEMPLATE : AGENTS_TEMPLATE;
+		const { file: primaryFile, template } =
+			getPrimaryInstructionTemplateTarget(detectedTool);
 		const filePath = path.resolve(cwd, primaryFile);
 		const linesInjected = countLines(template);
 
@@ -293,16 +304,10 @@ export async function injectInstructions(
 		return { actions, instructionFile: primaryFile };
 	}
 
-	// Inject into all existing instruction files
-	const instructionFiles: Array<{ file: string; template: string }> = [
-		{ file: "CLAUDE.md", template: CLAUDE_CODE_TEMPLATE },
-		{ file: "AGENTS.md", template: AGENTS_TEMPLATE },
-	];
-
 	let primaryFile: string | null = null;
 
-	for (const { file, template } of instructionFiles) {
-		const action = await injectIntoFile(cwd, file, template, logger);
+	for (const file of getInstructionFiles()) {
+		const action = await injectIntoFile(cwd, file, detectedTool, logger);
 		if (action) {
 			actions.push(action);
 			if (!primaryFile) {

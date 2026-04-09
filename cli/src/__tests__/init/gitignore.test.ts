@@ -5,6 +5,7 @@ import type { Logger } from "../../../shared/logger.js";
 import { buildManagedGitignoreContent } from "../../init/gitignore.js";
 import { InitProgress } from "../../init/progress.js";
 import { configureGitignore } from "../../init/steps/project-setup.js";
+import { LATEST_FENCE_VERSION } from "../../lib/fence-version.js";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
 
 const createMockLogger = (): Logger => ({
@@ -92,8 +93,10 @@ describe("init gitignore generation", () => {
 		const secondPass = await readFile(join(tempDir, ".gitignore"), "utf-8");
 
 		expect(secondPass).toBe(firstPass);
-		expect(secondPass.match(/# rp1:start/g)?.length).toBe(1);
-		expect(secondPass.match(/# rp1:end/g)?.length).toBe(1);
+		expect(secondPass.match(/# rp1:start:v/g)?.length).toBe(1);
+		expect(secondPass.match(/# rp1:end:v/g)?.length).toBe(1);
+		expect(secondPass).toContain(`# rp1:start:v${LATEST_FENCE_VERSION}`);
+		expect(secondPass).toContain(`# rp1:end:v${LATEST_FENCE_VERSION}`);
 		expect(secondPass).toContain("!.rp1/project_id");
 		expect(secondPass).toContain(".rp1/settings.toml");
 	});

@@ -12,10 +12,7 @@ import {
 	hasShellFencedContent,
 	replaceShellFencedContent,
 } from "../init/shell-fence.js";
-import {
-	AGENTS_TEMPLATE,
-	CLAUDE_CODE_TEMPLATE,
-} from "../init/templates/generated.js";
+import { resolveInstructionTemplate } from "../init/templates/index.js";
 import { LATEST_FENCE_VERSION } from "../lib/fence-version.js";
 import { compareVersions } from "../lib/version.js";
 
@@ -37,7 +34,7 @@ interface UpgradeSpec {
 	readonly file: string;
 	readonly versionExtractor: (content: string) => string | null;
 	readonly hasFence: (content: string) => boolean;
-	readonly getTemplate: () => string;
+	readonly getTemplate: (content: string) => string;
 	readonly replacer: (
 		content: string,
 		newContent: string,
@@ -58,21 +55,23 @@ const UPGRADE_SPECS: readonly UpgradeSpec[] = [
 		file: "CLAUDE.md",
 		versionExtractor: extractFenceVersion,
 		hasFence: hasFencedContent,
-		getTemplate: () => CLAUDE_CODE_TEMPLATE,
+		getTemplate: (content) =>
+			resolveInstructionTemplate("CLAUDE.md", { existingContent: content }),
 		replacer: replaceFencedContent,
 	},
 	{
 		file: "AGENTS.md",
 		versionExtractor: extractFenceVersion,
 		hasFence: hasFencedContent,
-		getTemplate: () => AGENTS_TEMPLATE,
+		getTemplate: (content) =>
+			resolveInstructionTemplate("AGENTS.md", { existingContent: content }),
 		replacer: replaceFencedContent,
 	},
 	{
 		file: ".gitignore",
 		versionExtractor: extractShellFenceVersion,
 		hasFence: hasShellFencedContent,
-		getTemplate: getGitignoreTemplate,
+		getTemplate: () => getGitignoreTemplate(),
 		replacer: replaceShellFencedContent,
 	},
 ];
@@ -114,7 +113,7 @@ export function upgradeStanzas(projectRoot: string): StanzaUpgradeResult {
 				continue;
 			}
 
-			const template = spec.getTemplate();
+			const template = spec.getTemplate(content);
 			if (!template) {
 				errors.push({
 					file: spec.file,

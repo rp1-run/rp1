@@ -9,7 +9,28 @@ import {
 	AGENTS_TEMPLATE,
 	CLAUDE_CODE_TEMPLATE,
 	CODEX_TEMPLATE,
+	getPrimaryInstructionTemplateTarget,
+	resolveInstructionTemplate,
 } from "../../init/templates/index.js";
+import type { DetectedTool } from "../../init/tool-detector.js";
+
+const createDetectedTool = (
+	id: "claude-code" | "opencode" | "codex",
+	instructionFile: "CLAUDE.md" | "AGENTS.md",
+): DetectedTool => ({
+	tool: {
+		id,
+		name: id,
+		binary: id,
+		min_version: "1.0.0",
+		instruction_file: instructionFile,
+		install_url: `https://${id}.example.com`,
+		plugin_install_cmd: null,
+		capabilities: [],
+	},
+	version: "1.0.0",
+	meetsMinVersion: true,
+});
 
 describe("templates", () => {
 	describe("CLAUDE_CODE_TEMPLATE", () => {
@@ -162,6 +183,43 @@ describe("templates", () => {
 			expect(CODEX_TEMPLATE).toContain("rp1 Knowledge Base");
 			expect(CODEX_TEMPLATE).toContain("Loading rules");
 			expect(CODEX_TEMPLATE).not.toContain("rp1 Skill Awareness");
+		});
+	});
+
+	describe("template resolution", () => {
+		test("defaults to the Claude template when no tool is detected", () => {
+			expect(getPrimaryInstructionTemplateTarget(null)).toEqual({
+				file: "CLAUDE.md",
+				template: CLAUDE_CODE_TEMPLATE,
+			});
+		});
+
+		test("uses the Codex template for Codex AGENTS.md files", () => {
+			const codex = createDetectedTool("codex", "AGENTS.md");
+
+			expect(getPrimaryInstructionTemplateTarget(codex)).toEqual({
+				file: "AGENTS.md",
+				template: CODEX_TEMPLATE,
+			});
+			expect(
+				resolveInstructionTemplate("AGENTS.md", { detectedTool: codex }),
+			).toBe(CODEX_TEMPLATE);
+		});
+
+		test("uses the generic AGENTS template for OpenCode AGENTS.md files", () => {
+			const opencode = createDetectedTool("opencode", "AGENTS.md");
+
+			expect(
+				resolveInstructionTemplate("AGENTS.md", { detectedTool: opencode }),
+			).toBe(AGENTS_TEMPLATE);
+		});
+
+		test("preserves Codex AGENTS.md flavor when refreshing existing content", () => {
+			const existingContent = `# Project\n\n<!-- rp1:start:v0.1.0 -->\n## Codex agent conventions\n<!-- rp1:end:v0.1.0 -->`;
+
+			expect(resolveInstructionTemplate("AGENTS.md", { existingContent })).toBe(
+				CODEX_TEMPLATE,
+			);
 		});
 	});
 });
