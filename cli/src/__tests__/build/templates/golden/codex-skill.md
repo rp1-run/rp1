@@ -27,4 +27,9 @@ metadata:
 
 ---
 
+
+## Host Context
+
+`CURRENT_HOST` is `codex` for this prompt. Use it directly for host-specific decisions. Do not infer the host from the runtime environment.
+
 Codex skill content with $rp1-base-knowledge-build reference.

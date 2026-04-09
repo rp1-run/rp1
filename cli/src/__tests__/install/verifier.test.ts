@@ -4,6 +4,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { isHealthy, type VerificationReport } from "../../install/models.js";
@@ -342,10 +343,16 @@ description: "Ask about rp1 capabilities, discover skills, and get workflow guid
 
 				expect(skills).toEqual([
 					{
-						plugin: "rp1",
-						name: "rp1-guide",
+						plugin: "base",
+						name: "guide",
 						description:
 							"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+						canonical_name: "base:guide",
+						user_facing_name: "rp1-base:guide",
+						installed_platforms: ["codex"],
+						invocations: {
+							codex: "$rp1-guide",
+						},
 					},
 				]);
 			} finally {
@@ -376,7 +383,70 @@ description: "Ask about rp1 capabilities, discover skills, and get workflow guid
 				const skills = await expectTaskRight(listInstalledSkills());
 
 				expect(skills).toHaveLength(1);
-				expect(skills[0]?.name).toBe("rp1-guide");
+				expect(skills[0]?.name).toBe("guide");
+				expect(skills[0]?.installed_platforms).toEqual(["opencode", "codex"]);
+				expect(skills[0]?.invocations.opencode).toBe("/rp1-guide");
+				expect(skills[0]?.invocations.codex).toBe("$rp1-guide");
+			} finally {
+				restoreHome();
+			}
+		});
+
+		test("includes skills installed in Claude Code plugins", async () => {
+			const restoreHome = withEnvOverride("HOME", tempDir);
+
+			try {
+				const pluginDir = join(tempDir, ".claude", "plugins");
+				const installPath = join(pluginDir, "rp1-base@rp1-run");
+				await writeFixture(
+					tempDir,
+					join(
+						".claude",
+						"plugins",
+						"rp1-base@rp1-run",
+						"skills",
+						"guide",
+						"SKILL.md",
+					),
+					`---
+description: "Ask about rp1 capabilities, discover skills, and get workflow guidance."
+---
+`,
+				);
+				await writeFile(
+					join(pluginDir, "installed_plugins.json"),
+					JSON.stringify(
+						{
+							version: 1,
+							plugins: {
+								"rp1-base@rp1-run": [
+									{
+										installPath,
+									},
+								],
+							},
+						},
+						null,
+						2,
+					),
+				);
+
+				const skills = await expectTaskRight(listInstalledSkills());
+
+				expect(skills).toEqual([
+					{
+						plugin: "base",
+						name: "guide",
+						description:
+							"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+						canonical_name: "base:guide",
+						user_facing_name: "rp1-base:guide",
+						installed_platforms: ["claude-code"],
+						invocations: {
+							"claude-code": "/guide",
+						},
+					},
+				]);
 			} finally {
 				restoreHome();
 			}

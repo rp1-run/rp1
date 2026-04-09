@@ -21,13 +21,25 @@ Discover rp1 skills, get workflow guidance, and ask questions about rp1 capabili
 === "OpenCode"
 
     ```bash
-    /rp1-base-guide
+    /rp1-guide
     ```
 
     With a question:
 
     ```bash
-    /rp1-base-guide "what can rp1 do for documentation?"
+    /rp1-guide "what can rp1 do for documentation?"
+    ```
+
+=== "Codex"
+
+    ```bash
+    $rp1-guide
+    ```
+
+    With a question:
+
+    ```bash
+    $rp1-guide "what can rp1 do for documentation?"
     ```
 
 ## Description
@@ -37,7 +49,7 @@ The `guide` skill helps you discover and use rp1 capabilities. It operates in tw
 - **No question**: Shows a capability overview of all installed skills organized by category.
 - **With question**: Classifies your question and answers from the appropriate source (skill catalog, workflow patterns, or reference docs).
 
-The skill dynamically validates that suggested skills are actually installed using `rp1 list --json`, so recommendations always reflect your current setup.
+The skill dynamically validates suggested skills using `rp1 list --json`. That output includes canonical skill identity, the hosts where each skill is installed, and host-specific invocation strings, so recommendations reflect your current setup and the tool you're using.
 
 ## Arguments
 
@@ -71,7 +83,13 @@ When you ask a question, the skill classifies it into one of six categories and 
 === "OpenCode"
 
     ```bash
-    /rp1-base-guide
+    /rp1-guide
+    ```
+
+=== "Codex"
+
+    ```bash
+    $rp1-guide
     ```
 
 Shows all installed skills grouped by category (development, investigation, quality, review, documentation, knowledge, strategy, planning, prompt) with one-line descriptions and workflow indicators.
@@ -104,7 +122,7 @@ Provides a side-by-side comparison covering purpose, scope, workflow phases, and
 
 When the skill recommends a command, each suggestion includes:
 
-1. **Skill name** with `/` prefix
+1. **Host-specific invocation** for the tool you are using
 2. **One sentence** explaining why it fits your situation
 3. **Invocation offer** with pre-filled parameters inferred from context
 

@@ -441,6 +441,7 @@ describeWithLiquid("template rendering", () => {
 			});
 			expect(result).toContain("name: rp1-base-knowledge-build");
 			expect(result).toContain("allowed-tools: Bash(echo *), Read, Edit");
+			expect(result).toContain("`CURRENT_HOST` is `claude-code`");
 			expect(result).toContain("rp1-base:knowledge-load");
 			expect(result).toContain("version: 1.0.0");
 		});
@@ -460,9 +461,8 @@ describeWithLiquid("template rendering", () => {
 					content: "Agent content with rp1-base:agent reference.",
 				},
 			});
-			expect(result.trim()).toBe(
-				"Agent content with rp1-base:agent reference.",
-			);
+			expect(result).toContain("`CURRENT_HOST` is `claude-code`");
+			expect(result).toContain("Agent content with rp1-base:agent reference.");
 		});
 	});
 

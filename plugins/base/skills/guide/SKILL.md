@@ -36,7 +36,7 @@ If QUESTION is empty or omitted, provide a concise capability overview:
 
 1. Read `CATALOG.md` (companion doc, same directory as this skill).
 2. Run `rp1 list --json` to get installed skills.
-3. Present a summary organized by category showing only installed skills:
+3. Present a summary organized by category showing only skills installed on `CURRENT_HOST`:
    - Category name and when to use it
    - Skill names with one-line descriptions
    - Highlight workflow skills (marked in catalog)
@@ -84,13 +84,27 @@ Classification rules:
 
 ## 4. Dynamic Validation
 
-Before presenting any skill recommendation, validate it is installed:
+Before presenting any skill recommendation, validate it is installed for `CURRENT_HOST`.
 
 ```
 rp1 list --json
 ```
 
-Parse the JSON array. Each entry has `name`, `description`, and `plugin` fields. Only recommend skills that appear in this list. If a skill from CATALOG.md or WORKFLOWS.md is not installed, note it as unavailable and suggest `rp1 install {plugin}` if the plugin is missing.
+Parse the JSON array. Each entry includes:
+
+- `name`: Platform-neutral skill name (for example `guide`)
+- `description`
+- `plugin`: Plugin id (`base`, `dev`, or `utils`)
+- `canonical_name`: Canonical skill id (`base:guide`)
+- `user_facing_name`: Canonical user-facing name (`rp1-base:guide`)
+- `installed_platforms`: Hosts where this skill is installed (`claude-code`, `opencode`, `codex`)
+- `invocations`: Host-specific invocation strings for installed hosts
+
+`CURRENT_HOST` is injected into this built skill by the build pipeline and will be one of `claude-code`, `opencode`, or `codex`. Use `CURRENT_HOST` directly when filtering and presenting skills:
+
+- Only recommend skills whose `installed_platforms` includes `CURRENT_HOST`.
+- Use `invocations[CURRENT_HOST]` when presenting or invoking a skill.
+- If a skill exists in `CATALOG.md` or `WORKFLOWS.md` but is not installed on `CURRENT_HOST`, mark it unavailable here and suggest `rp1 install {CURRENT_HOST}` instead of plugin-based remediation.
 
 Run this validation once per invocation. Cache the result for the duration of the response.
 
@@ -98,11 +112,11 @@ Run this validation once per invocation. Cache the result for the duration of th
 
 When recommending a skill, use this format for each suggestion:
 
-**`/skill-name`** -- One sentence explaining why this skill fits the user's situation.
-> Want me to run it? I can invoke `/skill-name` with [inferred parameters, if any].
+**`<host-specific invocation>`** -- One sentence explaining why this skill fits the user's situation.
+> Want me to run it? I can invoke `<host-specific invocation>` with [inferred parameters, if any].
 
 Rules:
-- Include the skill name with `/` prefix.
+- Use `invocations[CURRENT_HOST]`.
 - One sentence of relevance, grounded in what the user asked or described.
 - Offer to invoke. Pre-fill parameters you can infer from context (e.g., a feature ID mentioned in the conversation, a file path, a branch name).
 - Wait for user confirmation before invoking. Never auto-invoke.
@@ -113,7 +127,7 @@ Rules:
 When the user accepts an invocation offer:
 
 1. Confirm the parameters you will use.
-2. Invoke the skill using the SlashCommand tool or by telling the user the exact command to run.
+2. Invoke the skill using `invocations[CURRENT_HOST]`, or tell the user the exact command to run.
 3. Do not invoke skills the user has not confirmed.
 
 ## 7. Response Style

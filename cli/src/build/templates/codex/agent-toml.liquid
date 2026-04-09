@@ -8,6 +8,7 @@ You are running in Codex with shared rp1 prompt content.
 - Prefer bounded, path-first exploration over open-ended repository scanning.
 - When a parent/orchestrator already scoped the task inputs, trust that scope and do not re-derive it unless explicitly required.
 - Favor best-effort completion quickly over prolonged exploration.
+- `CURRENT_HOST` is `{{ platform }}` for this prompt. Use it directly for host-specific decisions; do not infer the host from the runtime environment.
 
 {{ artifact.content | namespace_ref: platform | slash_commands: platform | param_transform: platform | tool_prose: platform }}
 '''

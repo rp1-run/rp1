@@ -19,13 +19,21 @@ const logger = createLogger({ level: "error", color: false });
 
 const mockSkills = [
 	{
-		plugin: "rp1",
-		name: "rp1-build",
+		plugin: "dev",
+		name: "build",
+		canonical_name: "dev:build",
+		user_facing_name: "rp1-dev:build",
+		installed_platforms: ["codex"],
+		invocations: { codex: "$rp1-build" },
 		description: "End-to-end feature workflow",
 	},
 	{
-		plugin: "rp1",
-		name: "rp1-pr-review",
+		plugin: "dev",
+		name: "pr-review",
+		canonical_name: "dev:pr-review",
+		user_facing_name: "rp1-dev:pr-review",
+		installed_platforms: ["codex"],
+		invocations: { codex: "$rp1-pr-review" },
 		description: "PR review with CI support",
 	},
 ];
@@ -59,7 +67,7 @@ describe("executeList", () => {
 	});
 
 	describe("--json output", () => {
-		test("outputs valid JSON array with name, description, and plugin fields", async () => {
+		test("outputs valid JSON array with canonical identity and host invocations", async () => {
 			await writeFixture(
 				tempDir,
 				join(".codex", "skills", "rp1-build", "SKILL.md"),
@@ -82,15 +90,27 @@ describe("executeList", () => {
 				expect(skill).toHaveProperty("name");
 				expect(skill).toHaveProperty("description");
 				expect(skill).toHaveProperty("plugin");
+				expect(skill).toHaveProperty("canonical_name");
+				expect(skill).toHaveProperty("user_facing_name");
+				expect(skill).toHaveProperty("installed_platforms");
+				expect(skill).toHaveProperty("invocations");
 				expect(typeof skill.name).toBe("string");
 				expect(typeof skill.description).toBe("string");
 				expect(typeof skill.plugin).toBe("string");
+				expect(typeof skill.canonical_name).toBe("string");
+				expect(typeof skill.user_facing_name).toBe("string");
+				expect(Array.isArray(skill.installed_platforms)).toBe(true);
+				expect(typeof skill.invocations).toBe("object");
 			}
 
-			expect(parsed[0].name).toBe("rp1-build");
+			expect(parsed[0].name).toBe("build");
 			expect(parsed[0].description).toBe("End-to-end feature workflow");
-			expect(parsed[0].plugin).toBe("rp1");
-			expect(parsed[1].name).toBe("rp1-pr-review");
+			expect(parsed[0].plugin).toBe("dev");
+			expect(parsed[0].canonical_name).toBe("dev:build");
+			expect(parsed[0].user_facing_name).toBe("rp1-dev:build");
+			expect(parsed[0].installed_platforms).toEqual(["codex"]);
+			expect(parsed[0].invocations.codex).toBe("$rp1-build");
+			expect(parsed[1].name).toBe("pr-review");
 		});
 
 		test("does not include table header or formatting in JSON mode", async () => {
@@ -121,7 +141,7 @@ describe("executeList", () => {
 			const output = consoleLogs.join("\n");
 			expect(output).toContain("Skill");
 			expect(output).toContain("Description");
-			expect(output).toContain("rp1-build");
+			expect(output).toContain("rp1-dev:build");
 			expect(output).toContain("End-to-end feature workflow");
 			expect(output).toContain("Total: 1 skills");
 		});
@@ -137,7 +157,7 @@ describe("executeList", () => {
 
 			const output = consoleLogs.join("\n");
 			expect(output).toContain("┌");
-			expect(output).toContain("rp1-build");
+			expect(output).toContain("rp1-dev:build");
 			expect(output).toContain("Total: 1 skills");
 		});
 	});

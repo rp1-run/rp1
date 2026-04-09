@@ -110,7 +110,8 @@ export const formatCheckOutputJson = (
 
 /**
  * Format check-update result for shell hooks.
- * Returns a single-line message when an update is available, otherwise null.
+ * Returns a single-line status message when version status is available,
+ * otherwise null on error.
  */
 export const formatCheckOutputHookText = (
 	result: Awaited<ReturnType<typeof checkForUpdate>>,

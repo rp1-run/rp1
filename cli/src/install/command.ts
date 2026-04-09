@@ -584,7 +584,7 @@ export const executeList = (
 			);
 
 			for (const skill of skills) {
-				const name = skill.name.padEnd(39);
+				const name = skill.user_facing_name.padEnd(39);
 				const desc = skill.description.slice(0, 58).padEnd(58);
 				console.log(`│ ${name} │ ${desc} │`);
 			}

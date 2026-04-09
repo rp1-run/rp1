@@ -300,7 +300,12 @@ export const deprecatedCheckUpdate = createDeprecatedCommand(
 	async (_options, command: Command) => {
 		// Import version check logic to maintain backward compatibility
 		const { checkForUpdate } = await import("../../lib/version.js");
-		const { getColorFns } = await import("../../lib/colors.js");
+		const { checkFenceStaleness } = await import("../../lib/fence-check.js");
+		const {
+			formatCheckOutput,
+			formatCheckOutputHookText,
+			formatCheckOutputJson,
+		} = await import("../update/index.js");
 
 		const { logger, isTTY } = getContext(command);
 		const opts = command.opts();
@@ -308,6 +313,19 @@ export const deprecatedCheckUpdate = createDeprecatedCommand(
 		// Parse options (maintain backward compatibility with original command)
 		const timeoutMs = Number.parseInt(opts.timeout ?? "5000", 10);
 		const ttlHours = Number.parseInt(opts.cacheTtl ?? "24", 10);
+		if (opts.json && opts.format) {
+			console.error("Error: --json and --format cannot be used together.");
+			process.exit(1);
+		}
+
+		if (
+			opts.format !== undefined &&
+			opts.format !== "human" &&
+			opts.format !== "hook-text"
+		) {
+			console.error("Error: Invalid format. Use 'human' or 'hook-text'.");
+			process.exit(1);
+		}
 
 		// Validate numeric options
 		if (Number.isNaN(timeoutMs) || timeoutMs <= 0) {
@@ -339,55 +357,25 @@ export const deprecatedCheckUpdate = createDeprecatedCommand(
 
 		try {
 			const result = await checkForUpdate(checkOptions);
+			let fenceResult = null;
+			try {
+				fenceResult = checkFenceStaleness(process.cwd());
+			} catch {
+				// Fence check is best-effort; do not block version output
+			}
 
 			// Output result based on format
 			if (opts.json) {
-				// JSON output format (snake_case for API consistency)
-				console.log(
-					JSON.stringify(
-						{
-							current_version: result.currentVersion,
-							latest_version: result.latestVersion,
-							update_available: result.updateAvailable,
-							release_url: result.releaseUrl,
-							error: result.error,
-							cached: result.cached,
-							cache_age_hours: result.cacheAgeHours,
-							cache_expires_in_hours: result.cacheExpiresInHours,
-						},
-						null,
-						2,
-					),
-				);
+				formatCheckOutputJson(result, fenceResult);
+			} else if (opts.format === "hook-text") {
+				const message = formatCheckOutputHookText(result, fenceResult);
+				if (message) {
+					console.log(message);
+					process.exit(0);
+				}
+				process.exit(result.error && !result.latestVersion ? 2 : 1);
 			} else {
-				// Human-readable format
-				const { green, yellow, cyan, bold, dim: dimFn } = getColorFns(isTTY);
-
-				console.log(`rp1 ${bold(`v${result.currentVersion}`)} is installed.`);
-
-				if (result.error) {
-					console.log("");
-					console.log(`${yellow("Warning:")} ${result.error}`);
-				} else if (result.updateAvailable && result.latestVersion) {
-					console.log("");
-					console.log(
-						`${green("A new version is available:")} ${bold(`v${result.latestVersion}`)}`,
-					);
-					console.log("");
-					console.log(`Run '${cyan("rp1 update")}' to update.`);
-				} else if (result.latestVersion) {
-					console.log("");
-					console.log(green("You are up to date!"));
-				}
-
-				if (result.cached && result.cacheAgeHours !== null) {
-					console.log("");
-					const ageFormatted =
-						result.cacheAgeHours < 1
-							? `${Math.round(result.cacheAgeHours * 60)} minutes`
-							: `${result.cacheAgeHours.toFixed(1)} hours`;
-					console.log(dimFn(`(cached ${ageFormatted} ago)`));
-				}
+				formatCheckOutput(result, isTTY, fenceResult);
 			}
 
 			// Exit code handling
@@ -426,6 +414,7 @@ export const deprecatedCheckUpdate = createDeprecatedCommand(
 
 deprecatedCheckUpdate
 	.option("--json", "Output result as JSON", false)
+	.option("--format <format>", "Output format: human or hook-text")
 	.option("--timeout <ms>", "API timeout in milliseconds", "5000")
 	.option("--force", "Bypass cache and force fresh check", false)
 	.option("--cache-ttl <hours>", "Cache TTL in hours", "24");

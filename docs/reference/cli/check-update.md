@@ -89,10 +89,22 @@ project. Fields:
 ### Hook-text output
 
 The `hook-text` format produces a single compact line for use in shell hooks
-and prompts. When stale fences are detected, it appends a stanza suffix:
+and prompts. When an update is available, it emits an actionable update line:
 
 ```
-rp1 v0.7.1 available (current: v0.7.0) | stanza update: run rp1 migrate
+rp1 update available: v0.7.0 -> v0.7.1 | Run /self-update to update
+```
+
+When no update is available, it emits the current running version instead:
+
+```
+rp1 is running v0.7.1
+```
+
+When stale fences are detected, it appends a stanza suffix to either form:
+
+```
+rp1 is running v0.7.1 | stanza update: run rp1 migrate
 ```
 
 ## Examples
@@ -109,9 +121,9 @@ rp1 check-update --format hook-text  # Single-line for shell hooks
 
 | Code | Meaning |
 |------|---------|
-| 0 | Check completed successfully |
-| 1 | Error prevented the check, or no update available in hook-text mode |
-| 2 | Error in hook-text mode when version could not be determined |
+| 0 | Check completed successfully and emitted status output when requested |
+| 1 | The check failed, or hook-text output could not be emitted after a partial version lookup |
+| 2 | Hook-text mode failed before version status could be determined |
 
 ## See Also
 
