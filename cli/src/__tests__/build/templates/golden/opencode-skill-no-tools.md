@@ -1,6 +1,7 @@
 ---
 name: rp1-base-simple-skill
 description: A simple skill without tools
+
 metadata:
   rp1:
     plugin: base

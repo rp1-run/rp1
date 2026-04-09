@@ -9,6 +9,7 @@ allowed-tools:
 
   - Read
 
+
 metadata:
   rp1:
     plugin: base

@@ -8,6 +8,7 @@ import {
 	assertNoCanonicalToolCall,
 	assertNoGitPushToolCall,
 	assertNoToolCall,
+	assertOrchestratorSpawnedSpeedrunBuilder,
 	assertOutputContains,
 	assertPostBuildPromptOptions,
 	assertToolCall,
@@ -483,6 +484,26 @@ describe("getOrchestratorToolCalls", () => {
 		]);
 		const calls = getOrchestratorToolCalls(ctx);
 		expect(calls.length).toBe(0);
+	});
+});
+
+describe("assertOrchestratorSpawnedSpeedrunBuilder", () => {
+	test("passes when speedrun-builder is spawned by the orchestrator", () => {
+		const ctx = makeStockContext([
+			tc("Task", { agent: "speedrun-builder" }, undefined, null),
+			tc("Task", { agent: "other-agent" }, undefined, "parent-1"),
+		]);
+		const result = assertOrchestratorSpawnedSpeedrunBuilder("", ctx);
+		expect(result.pass).toBe(true);
+	});
+
+	test("fails when speedrun-builder only appears in sub-agent calls", () => {
+		const ctx = makeStockContext([
+			tc("Task", { agent: "speedrun-builder" }, undefined, "parent-1"),
+		]);
+		const result = assertOrchestratorSpawnedSpeedrunBuilder("", ctx);
+		expect(result.pass).toBe(false);
+		expect(result.reason).toContain("No orchestrator-level");
 	});
 });
 
