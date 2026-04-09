@@ -19,6 +19,7 @@
   <!-- x-release-please-end -->
   <a href="https://rp1.run"><img src="https://img.shields.io/badge/docs-rp1.run-blue" alt="Docs"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg" alt="License"></a>
+  <a href="https://discord.gg/cjmqWGb5q"><img src="https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
 <p align="center">
