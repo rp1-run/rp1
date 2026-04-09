@@ -4,8 +4,11 @@ description: {{ artifact.description | escape_yaml }}
 {%- if artifact.allowedTools %}
 allowed-tools: {{ artifact.allowedTools | allowed_tools: platform | escape_yaml }}
 {%- endif %}
-{%- if artifact.metadata %}
 metadata:
+  rp1:
+    plugin: {{ pluginName }}
+    name: {{ artifact.name }}
+{%- if artifact.metadata %}
 {%- if artifact.metadata.version %}
   version: {{ artifact.metadata.version }}
 {%- endif %}

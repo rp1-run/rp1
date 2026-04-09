@@ -4,8 +4,11 @@ description: Build plugin artifacts
 
 allowed-tools: "functions.exec_command(echo *)"
 
-
 metadata:
+  rp1:
+    plugin: dev
+    name: build
+
 
   version: 1.0.0
 

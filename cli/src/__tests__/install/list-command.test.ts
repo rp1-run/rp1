@@ -38,8 +38,16 @@ const mockSkills = [
 	},
 ];
 
-const skillContent = (description: string): string => `---
+const skillContent = (
+	description: string,
+	plugin: string,
+	name: string,
+): string => `---
 description: "${description}"
+metadata:
+  rp1:
+    plugin: "${plugin}"
+    name: "${name}"
 ---
 `;
 
@@ -71,12 +79,20 @@ describe("executeList", () => {
 			await writeFixture(
 				tempDir,
 				join(".codex", "skills", "rp1-build", "SKILL.md"),
-				skillContent(mockSkills[0]?.description ?? "No description"),
+				skillContent(
+					mockSkills[0]?.description ?? "No description",
+					mockSkills[0]?.plugin ?? "unknown",
+					mockSkills[0]?.name ?? "unknown",
+				),
 			);
 			await writeFixture(
 				tempDir,
 				join(".codex", "skills", "rp1-pr-review", "SKILL.md"),
-				skillContent(mockSkills[1]?.description ?? "No description"),
+				skillContent(
+					mockSkills[1]?.description ?? "No description",
+					mockSkills[1]?.plugin ?? "unknown",
+					mockSkills[1]?.name ?? "unknown",
+				),
 			);
 
 			await expectTaskRight(executeList([], logger, { json: true }));
@@ -117,7 +133,11 @@ describe("executeList", () => {
 			await writeFixture(
 				tempDir,
 				join(".codex", "skills", "rp1-build", "SKILL.md"),
-				skillContent(mockSkills[0]?.description ?? "No description"),
+				skillContent(
+					mockSkills[0]?.description ?? "No description",
+					mockSkills[0]?.plugin ?? "unknown",
+					mockSkills[0]?.name ?? "unknown",
+				),
 			);
 
 			await expectTaskRight(executeList([], logger, { json: true }));
@@ -133,7 +153,11 @@ describe("executeList", () => {
 			await writeFixture(
 				tempDir,
 				join(".codex", "skills", "rp1-build", "SKILL.md"),
-				skillContent(mockSkills[0]?.description ?? "No description"),
+				skillContent(
+					mockSkills[0]?.description ?? "No description",
+					mockSkills[0]?.plugin ?? "unknown",
+					mockSkills[0]?.name ?? "unknown",
+				),
 			);
 
 			await expectTaskRight(executeList([], logger));
@@ -150,7 +174,11 @@ describe("executeList", () => {
 			await writeFixture(
 				tempDir,
 				join(".codex", "skills", "rp1-build", "SKILL.md"),
-				skillContent(mockSkills[0]?.description ?? "No description"),
+				skillContent(
+					mockSkills[0]?.description ?? "No description",
+					mockSkills[0]?.plugin ?? "unknown",
+					mockSkills[0]?.name ?? "unknown",
+				),
 			);
 
 			await expectTaskRight(executeList([], logger, { json: false }));

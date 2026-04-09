@@ -8,8 +8,11 @@ allowed-tools:
   - {{ tool }}
 {%- endfor %}
 {%- endif -%}
-{%- if artifact.metadata and artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
 metadata:
+  rp1:
+    plugin: {{ pluginName }}
+    name: {{ artifact.name }}
+{%- if artifact.metadata and artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
   arguments:
 {{ artifact.metadata.arguments | to_yaml: 4 }}
 {%- if artifact.metadata.environment and artifact.metadata.environment.size > 0 %}

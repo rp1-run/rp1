@@ -335,6 +335,10 @@ describe("verifier", () => {
 					join(".codex", "skills", "rp1-guide", "SKILL.md"),
 					`---
 description: "Ask about rp1 capabilities, discover skills, and get workflow guidance."
+metadata:
+  rp1:
+    plugin: "base"
+    name: "guide"
 ---
 `,
 				);
@@ -366,6 +370,10 @@ description: "Ask about rp1 capabilities, discover skills, and get workflow guid
 			try {
 				const skillContent = `---
 description: "Ask about rp1 capabilities, discover skills, and get workflow guidance."
+metadata:
+  rp1:
+    plugin: "base"
+    name: "guide"
 ---
 `;
 
@@ -410,6 +418,10 @@ description: "Ask about rp1 capabilities, discover skills, and get workflow guid
 					),
 					`---
 description: "Ask about rp1 capabilities, discover skills, and get workflow guidance."
+metadata:
+  rp1:
+    plugin: "base"
+    name: "guide"
 ---
 `,
 				);
