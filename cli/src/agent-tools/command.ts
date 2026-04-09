@@ -506,7 +506,10 @@ const emitCommand = agentToolsCommand
 	)
 	.option("--unit <unit>", "Task/unit identifier")
 	.option("--data <json>", "JSON payload for the event")
-	.option("--project <path>", "Project path (defaults to cwd)")
+	.option(
+		"--project <path>",
+		"Absolute project path override (otherwise auto-resolved from the active rp1 project)",
+	)
 	.option("--name <name>", "Human-readable name for the run (set-once)")
 	.option(
 		"--harness <name>",
@@ -542,7 +545,12 @@ Arguments:
   --step <step>        Workflow step name (required for status_change, subflow_registered)
   --unit <unit>        Task/unit identifier (optional)
   --data <json>        JSON payload (optional, content depends on event type)
-  --project <path>     Absolute path to project root (optional, defaults to cwd)
+  --project <path>     Absolute path to project root (optional override)
+
+Project Resolution:
+  If --project is omitted, emit resolves the active rp1 project from the
+  current directory. If no project exists, run 'rp1 init'. If a legacy
+  .rp1/ directory exists without project_id, run 'rp1 migrate'.
 
 Output:
   JSON ToolResult with:
