@@ -15,13 +15,13 @@
     },
     "rp1-dev:build-fast@claude-code": {
       "platform": "claude-code",
-      "prompt_hash": "sha256:42d435b7ca8f696f7b8e1acb7c71ed5f2fef236cc2a2b80db95d4465cfc1f123",
-      "deps_hash": "sha256:f5e0f2b4f630c5206e7a7df5c6b877eb5a76bcf8f8a52e0613f78262f7edc8a6",
+      "prompt_hash": "sha256:f444b183c20e52c2498d343eaed7ecdde183af313a25174cf47157dadb0222c9",
+      "deps_hash": "sha256:576caafe8df985e3b82b1f1317e67a398abfb8519b603a1cce2d22872d36c17e",
       "version": "3.0.0",
       "last_eval": {
         "passed": true,
-        "timestamp": "2026-04-09T21:15:35.652Z",
-        "git_commit": "d0cc8e29",
+        "timestamp": "2026-04-09T21:42:39.212Z",
+        "git_commit": "bf5e0dc8",
         "result_file": "output/rp1-dev-build-fast.json"
       }
     },
@@ -77,7 +77,7 @@
     "cli/dist/claude-code/dev/agents/comment-cleaner.md": "sha256:800dae18626e99a3bb049d49c70c63866dd2e43b3d1e68c70f3a59b62b4a4465",
     "cli/dist/claude-code/dev/agents/build-verify-aggregator.md": "sha256:1795be632e3e27765c48c3a7a2ec0cdd8bb973250c56ab6021276614101b86bc",
     "cli/dist/claude-code/dev/agents/feature-archiver.md": "sha256:f42c24e35090a6d8b2d44bef8d71064ec736bda289f8e263e9e61430448d9b4d",
-    "dist/claude-code/dev/skills/build-fast/SKILL.md": "sha256:42d435b7ca8f696f7b8e1acb7c71ed5f2fef236cc2a2b80db95d4465cfc1f123",
+    "dist/claude-code/dev/skills/build-fast/SKILL.md": "sha256:f444b183c20e52c2498d343eaed7ecdde183af313a25174cf47157dadb0222c9",
     "dist/claude-code/dev/agents/build-fast-planner.md": "sha256:3e16bb23407b3cbb2e91d62e140ed21adddafedf6e141c538528e1b349e59b00",
     "dist/claude-code/dev/agents/task-builder.md": "sha256:e8800251fb4d2b72eead2bfa9a9620a4802d488cb33a02054c1a08aeabbf26d2",
     "dist/claude-code/dev/agents/task-reviewer.md": "sha256:2c5abe1151cb153016f1d88b9b72e8b701fabb80b1b9c62b6f3cb0830899c0c3",
