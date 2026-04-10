@@ -342,3 +342,30 @@ export const renderCatalogMarkdown = (
 
 	return lines.join("\n");
 };
+
+export const renderInitSkillAwarenessBlock = (
+	entries: readonly CatalogRenderableEntry[],
+): string => {
+	const lines: string[] = [];
+	lines.push("### Skill Categories");
+	lines.push("| Category | Skills | Suggest When |");
+	lines.push("|----------|--------|--------------|");
+
+	const groupedEntries = groupCatalogEntriesByCategory(entries);
+
+	for (const category of CATEGORY_ORDER) {
+		const categoryEntries = groupedEntries.get(category);
+		if (!categoryEntries || categoryEntries.length === 0) {
+			continue;
+		}
+
+		const skillNames = categoryEntries
+			.map((entry) => `/${entry.name}`)
+			.join(", ");
+		lines.push(
+			`| ${CATEGORY_LABELS[category]} | ${skillNames} | ${CATEGORY_TRIGGERS[category]} |`,
+		);
+	}
+
+	return lines.join("\n");
+};

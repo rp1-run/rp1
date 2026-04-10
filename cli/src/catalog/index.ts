@@ -19,5 +19,6 @@ export {
 	getCatalogPluginsForScope,
 	groupCatalogEntriesByCategory,
 	renderCatalogMarkdown,
+	renderInitSkillAwarenessBlock,
 	selectCatalogEntriesByCanonicalNames,
 } from "./registry.js";

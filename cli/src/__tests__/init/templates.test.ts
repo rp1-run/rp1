@@ -5,6 +5,12 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+	collectScopedCatalogRegistry,
+	renderInitSkillAwarenessBlock,
+} from "../../catalog/index.js";
 import {
 	AGENTS_TEMPLATE,
 	CLAUDE_CODE_TEMPLATE,
@@ -31,6 +37,11 @@ const createDetectedTool = (
 	version: "1.0.0",
 	meetsMinVersion: true,
 });
+
+const PROJECT_ROOT = resolve(
+	dirname(fileURLToPath(import.meta.url)),
+	"../../../..",
+);
 
 describe("templates", () => {
 	describe("CLAUDE_CODE_TEMPLATE", () => {
@@ -65,18 +76,15 @@ describe("templates", () => {
 			expect(CLAUDE_CODE_TEMPLATE).toContain("Suggestion Rules");
 		});
 
-		test("ambient block includes all skill categories", () => {
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Development");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("/build");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Investigation");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("/code-investigate");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Quality");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Review");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Documentation");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Knowledge");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Strategy");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Planning");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Prompt");
+		test("ambient block matches the distributable registry rendering", async () => {
+			const { entries } = await collectScopedCatalogRegistry(
+				PROJECT_ROOT,
+				"distributable",
+			);
+			const expectedBlock = renderInitSkillAwarenessBlock(entries);
+
+			expect(CLAUDE_CODE_TEMPLATE).toContain(expectedBlock);
+			expect(AGENTS_TEMPLATE).toContain(expectedBlock);
 		});
 
 		test("ambient block includes suggestion rules", () => {

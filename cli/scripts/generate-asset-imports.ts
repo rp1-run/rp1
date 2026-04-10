@@ -21,6 +21,10 @@ import { dirname, join, relative, resolve } from "node:path";
 import { Liquid } from "liquidjs";
 import { parse as parseYaml } from "yaml";
 import type { BundleManifest } from "../src/build/models.js";
+import {
+	collectScopedCatalogRegistry,
+	renderInitSkillAwarenessBlock,
+} from "../src/catalog/index.js";
 
 // Determine ROOT and CLI_DIR based on file structure detection
 function findRootDir(): { root: string; cli: string } {
@@ -310,6 +314,16 @@ export const TOOLS_REGISTRY = ${JSON.stringify(registry, null, "\t")} as const;
  */
 async function generateInitTemplates(): Promise<void> {
 	const templateSource = await readFile(INIT_TEMPLATE, "utf-8");
+	const { entries, errors } = await collectScopedCatalogRegistry(
+		ROOT_DIR,
+		"distributable",
+	);
+
+	for (const error of errors) {
+		console.warn(`Warning: ${error}`);
+	}
+
+	const skillAwarenessBlock = renderInitSkillAwarenessBlock(entries);
 
 	const engine = new Liquid({
 		strictVariables: true,
@@ -322,6 +336,7 @@ async function generateInitTemplates(): Promise<void> {
 	for (const platform of platforms) {
 		rendered[platform] = await engine.parseAndRender(templateSource, {
 			platform,
+			skillAwarenessBlock,
 		});
 	}
 

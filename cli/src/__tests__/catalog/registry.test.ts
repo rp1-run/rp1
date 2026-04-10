@@ -10,6 +10,7 @@ import {
 	getCatalogDistributionScope,
 	getCatalogPluginsForScope,
 	renderCatalogMarkdown,
+	renderInitSkillAwarenessBlock,
 	selectCatalogEntriesByCanonicalNames,
 } from "../../catalog/index.js";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
@@ -177,5 +178,17 @@ describe("catalog registry", () => {
 		expect(renderedCatalog).toContain("| `/build` | dev |");
 		expect(renderedCatalog).toContain("| `/alpha` | base |");
 		expect(renderedCatalog).not.toContain("tersify-prompt");
+	});
+
+	test("renders init skill awareness block from distributable registry entries", async () => {
+		const { entries } = await collectCatalogRegistry(tempDir);
+		const renderedBlock = renderInitSkillAwarenessBlock(
+			filterCatalogEntriesByScope(entries, "distributable"),
+		);
+
+		expect(renderedBlock).toContain("### Skill Categories");
+		expect(renderedBlock).toContain("| Development | /build |");
+		expect(renderedBlock).toContain("| Knowledge | /alpha |");
+		expect(renderedBlock).not.toContain("tersify-prompt");
 	});
 });
