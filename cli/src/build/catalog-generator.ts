@@ -2,19 +2,22 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
 	type CatalogRenderableEntry,
-	collectCatalogRegistry,
+	collectScopedCatalogRegistry,
 	renderCatalogMarkdown,
 } from "../catalog/index.js";
 
 export type CatalogEntry = CatalogRenderableEntry;
 
 /**
- * Scan all plugin skill directories and collect catalog entries.
+ * Collect distributable guide catalog entries from the shared registry.
  */
 export const collectCatalogEntries = async (
 	projectRoot: string,
 ): Promise<{ entries: CatalogEntry[]; errors: string[] }> => {
-	const { entries, errors } = await collectCatalogRegistry(projectRoot);
+	const { entries, errors } = await collectScopedCatalogRegistry(
+		projectRoot,
+		"distributable",
+	);
 	return {
 		entries: entries.map((entry) => ({
 			name: entry.name,
@@ -35,7 +38,7 @@ export const renderCatalog = (entries: readonly CatalogEntry[]): string =>
 	renderCatalogMarkdown(entries);
 
 /**
- * Generate CATALOG.md at the target path from all plugin skill frontmatter.
+ * Generate CATALOG.md at the target path from distributable registry entries.
  * Returns the list of errors encountered during parsing (non-fatal).
  */
 export const generateCatalog = async (

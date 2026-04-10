@@ -141,6 +141,7 @@ describe("catalog-generator", () => {
 			const plugins = new Set(entries.map((e) => e.plugin));
 			expect(plugins.has("base")).toBe(true);
 			expect(plugins.has("dev")).toBe(true);
+			expect(plugins.has("utils")).toBe(false);
 
 			const workflows = entries.filter((e) => e.isWorkflow);
 			expect(workflows.length).toBeGreaterThan(0);
@@ -174,7 +175,7 @@ describe("catalog-generator", () => {
 			await mkdir(join(tempDir, "plugins", "dev", "skills", "beta"), {
 				recursive: true,
 			});
-			await mkdir(join(tempDir, "plugins", "utils", "skills"), {
+			await mkdir(join(tempDir, "plugins", "utils", "skills", "gamma"), {
 				recursive: true,
 			});
 
@@ -196,6 +197,15 @@ describe("catalog-generator", () => {
 					true,
 				),
 			);
+			await writeFile(
+				join(tempDir, "plugins", "utils", "skills", "gamma", "SKILL.md"),
+				SKILL_FRONTMATTER(
+					"gamma",
+					"Gamma prompt utility for internal use.",
+					"prompt",
+					false,
+				),
+			);
 
 			const outputPath = join(
 				tempDir,
@@ -208,6 +218,7 @@ describe("catalog-generator", () => {
 			const { entries } = await generateCatalog(tempDir, outputPath);
 
 			expect(entries).toHaveLength(2);
+			expect(entries.map((entry) => entry.name)).not.toContain("gamma");
 
 			const content = await readFile(outputPath, "utf-8");
 			expect(content).toContain("# rp1 Skill Catalog");
@@ -215,6 +226,8 @@ describe("catalog-generator", () => {
 			expect(content).toContain("## Knowledge");
 			expect(content).toContain("| `/beta` | dev |");
 			expect(content).toContain("| `/alpha` | base |");
+			expect(content).not.toContain("| `/gamma` | utils |");
+			expect(content).not.toContain("## Prompt");
 		});
 
 		test("idempotent generation produces identical output", async () => {
