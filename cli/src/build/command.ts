@@ -43,6 +43,8 @@ import type {
 	BundleAssetEntry,
 	BundlePluginAssets,
 	OpenCodePluginAsset,
+	SkillCategory,
+	SkillMetadata,
 } from "./models.js";
 import { parseAgent, parseSkill } from "./parser.js";
 import type {
@@ -446,6 +448,25 @@ const getOpenCodePluginName = (pluginName: string): string => {
 	return `rp1-${pluginName}-hooks`;
 };
 
+const LEGACY_OPEN_CODE_SKILL_CATEGORY: Readonly<Record<string, SkillCategory>> =
+	{
+		base: "knowledge",
+		dev: "development",
+		utils: "prompt",
+	};
+
+const ensureOpenCodeDiscoveryMetadata = (
+	pluginName: string,
+	metadata: SkillMetadata | undefined,
+): SkillMetadata => ({
+	...(metadata ?? {}),
+	category:
+		metadata?.category ??
+		LEGACY_OPEN_CODE_SKILL_CATEGORY[pluginName] ??
+		"development",
+	isWorkflow: metadata?.isWorkflow ?? false,
+});
+
 /**
  * Unified build result for all platforms. Platforms that do not produce
  * bundle assets return empty arrays.
@@ -561,6 +582,11 @@ export const buildPlatformPlugin = async (
 		const processedContent = preprocessResult.right;
 
 		const namespacedSkillDir = `${definition.naming.skillDirPrefix}${ccSkill.name}`;
+		const skillMetadata = withDerivedArgumentHint(ccSkill.metadata);
+		const renderedSkillMetadata =
+			platform === "opencode"
+				? ensureOpenCodeDiscoveryMetadata(pluginName, skillMetadata)
+				: skillMetadata;
 
 		let ctx: Record<string, unknown> = buildTemplateContext(
 			platform,
@@ -573,7 +599,7 @@ export const buildPlatformPlugin = async (
 				description: ccSkill.description,
 				allowedTools: ccSkill.allowedTools,
 				content: processedContent,
-				metadata: withDerivedArgumentHint(ccSkill.metadata),
+				metadata: renderedSkillMetadata,
 				supportingFiles: ccSkill.supportingFiles,
 			},
 			registry,

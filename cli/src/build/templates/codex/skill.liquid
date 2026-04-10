@@ -11,10 +11,10 @@ metadata:
 {%- if artifact.metadata %}
 {%- if artifact.metadata.category %}
   category: {{ artifact.metadata.category }}
-{%- endif %}
+{%- endif -%}
 {%- if artifact.metadata.isWorkflow != nil %}
   is_workflow: {{ artifact.metadata.isWorkflow }}
-{%- endif %}
+{%- endif -%}
 {%- if artifact.metadata.version %}
   version: {{ artifact.metadata.version }}
 {%- endif %}
@@ -33,6 +33,7 @@ metadata:
 {%- if artifact.metadata.argumentHint %}
   argument-hint: "{{ artifact.metadata.argumentHint }}"
 {%- endif %}
+{%- capture trailing_metadata -%}
 {%- if artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
   arguments:
 {{ artifact.metadata.arguments | to_yaml: 4 }}
@@ -41,6 +42,8 @@ metadata:
   environment:
 {{ artifact.metadata.environment | to_yaml: 4 }}
 {%- endif -%}
+{%- endcapture -%}
+{{- trailing_metadata | rstrip -}}
 {%- endif %}
 ---
 {%- if artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
