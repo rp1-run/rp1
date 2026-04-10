@@ -39,9 +39,7 @@ describe("getDistPluginPath", () => {
 	});
 
 	test("returns correct path for codex", () => {
-		expect(getDistPluginPath("codex", "rp1-utils")).toBe(
-			"dist/codex/utils",
-		);
+		expect(getDistPluginPath("codex", "rp1-utils")).toBe("dist/codex/utils");
 	});
 });
 
@@ -69,9 +67,7 @@ prompt: Build fast
 `;
 		const refs = parseAgentRefs(content, "opencode");
 
-		expect(refs).toEqual([
-			"dist/opencode/dev/agents/build-fast-executor.md",
-		]);
+		expect(refs).toEqual(["dist/opencode/dev/agents/build-fast-executor.md"]);
 	});
 
 	test("extracts multiple Task references", () => {
@@ -86,9 +82,7 @@ prompt: Analyze
 `;
 		const refs = parseAgentRefs(content, "claude-code");
 
-		expect(refs).toContain(
-			"dist/claude-code/dev/agents/feature-architect.md",
-		);
+		expect(refs).toContain("dist/claude-code/dev/agents/feature-architect.md");
 		expect(refs).toContain("dist/claude-code/base/agents/kb-analyzer.md");
 		expect(refs).toHaveLength(2);
 	});
@@ -131,9 +125,7 @@ prompt: Build
 `;
 		const refs = parseAgentRefs(content, "claude-code");
 
-		expect(refs).toContain(
-			"dist/claude-code/dev/agents/feature-architect.md",
-		);
+		expect(refs).toContain("dist/claude-code/dev/agents/feature-architect.md");
 		expect(refs).toContain("dist/claude-code/dev/agents/task-builder.md");
 		expect(refs).toHaveLength(2);
 	});

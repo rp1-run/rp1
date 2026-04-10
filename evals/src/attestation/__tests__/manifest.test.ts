@@ -185,8 +185,7 @@ describe("manifest", () => {
 				schema_version: "2.0.0",
 				skills: {},
 				files: {
-					"dist/claude-code/base/skills/existing/SKILL.md":
-						"sha256:preserved",
+					"dist/claude-code/base/skills/existing/SKILL.md": "sha256:preserved",
 				},
 			};
 
@@ -388,8 +387,7 @@ describe("manifest", () => {
 					},
 				},
 				files: {
-					"dist/claude-code/dev/skills/build-fast/SKILL.md":
-						"sha256:abc123",
+					"dist/claude-code/dev/skills/build-fast/SKILL.md": "sha256:abc123",
 					"dist/claude-code/dev/agents/fast-builder.md": "sha256:xyz789",
 				},
 			};

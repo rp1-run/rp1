@@ -632,8 +632,7 @@ describe("assertPostBuildPromptOptions", () => {
 
 	test("falls back to text output when no AskUserQuestion", () => {
 		const ctx = makeStockContext([tc("Bash", { command: "ls" })]);
-		const output =
-			"Options:\n- Commit & move on\n- Refine\n- New task\n- Exit";
+		const output = "Options:\n- Commit & move on\n- Refine\n- New task\n- Exit";
 		const result = assertPostBuildPromptOptions(output, ctx);
 		expect(result.pass).toBe(true);
 		expect(result.reason).toContain("text output");
