@@ -12,6 +12,7 @@ import type { Logger } from "../../../shared/logger.js";
 import {
 	executeUninstall,
 	type UninstallConfig,
+	type UninstallDeps,
 } from "../../uninstall/index.js";
 
 /**
@@ -29,11 +30,26 @@ const createMockLogger = (): Logger => ({
 	box: () => {},
 });
 
+const createTestUninstallDeps = (
+	overrides: Partial<UninstallDeps> = {},
+): UninstallDeps => ({
+	isClaudeCodeAvailable: async () => false,
+	uninstallClaudePlugins: async () => [],
+	...overrides,
+});
+
+const logger = createMockLogger();
+const nonInteractivePromptOptions = { isTTY: false };
+const defaultTestDeps = createTestUninstallDeps();
+
+const runUninstall = (
+	config: UninstallConfig,
+	deps: UninstallDeps = defaultTestDeps,
+) => executeUninstall(config, logger, nonInteractivePromptOptions, deps)();
+
 describe("uninstall", () => {
 	let tempDir: string;
 	let originalCwd: string;
-	const logger = createMockLogger();
-	const nonInteractivePromptOptions = { isTTY: false };
 
 	beforeEach(async () => {
 		originalCwd = process.cwd();
@@ -72,11 +88,7 @@ More content.
 				yes: true,
 				scope: "user",
 			};
-			const result = await executeUninstall(
-				config,
-				logger,
-				nonInteractivePromptOptions,
-			)();
+			const result = await runUninstall(config);
 
 			expect(E.isRight(result)).toBe(true);
 			if (E.isRight(result)) {
@@ -109,11 +121,7 @@ Some rp1 content.
 				yes: true,
 				scope: "user",
 			};
-			const result = await executeUninstall(
-				config,
-				logger,
-				nonInteractivePromptOptions,
-			)();
+			const result = await runUninstall(config);
 
 			expect(E.isRight(result)).toBe(true);
 			const newContent = await fs.readFile(agentsPath, "utf-8");
@@ -140,11 +148,7 @@ dist/
 				yes: true,
 				scope: "user",
 			};
-			const result = await executeUninstall(
-				config,
-				logger,
-				nonInteractivePromptOptions,
-			)();
+			const result = await runUninstall(config);
 
 			expect(E.isRight(result)).toBe(true);
 			const newContent = await fs.readFile(gitignorePath, "utf-8");
@@ -168,11 +172,7 @@ Only rp1 content here.
 				yes: true,
 				scope: "user",
 			};
-			const result = await executeUninstall(
-				config,
-				logger,
-				nonInteractivePromptOptions,
-			)();
+			const result = await runUninstall(config);
 
 			expect(E.isRight(result)).toBe(true);
 			if (E.isRight(result)) {
@@ -202,11 +202,7 @@ Content.
 				yes: true,
 				scope: "user",
 			};
-			const result = await executeUninstall(
-				config,
-				logger,
-				nonInteractivePromptOptions,
-			)();
+			const result = await runUninstall(config);
 
 			expect(E.isRight(result)).toBe(true);
 			const newContent = await fs.readFile(claudePath, "utf-8");
@@ -216,23 +212,45 @@ Content.
 
 	describe("no changes scenario", () => {
 		test("reports no changes when no rp1 content exists and Claude unavailable", async () => {
-			// This test verifies behavior when Claude CLI is not available
-			// Since we can't easily mock exec, we just verify the function completes successfully
-			// The actual "no_changes" action only fires when Claude is also unavailable
 			const config: UninstallConfig = {
 				dryRun: false,
 				yes: true,
 				scope: "user",
 			};
-			const result = await executeUninstall(
-				config,
-				logger,
-				nonInteractivePromptOptions,
-			)();
+			const result = await runUninstall(config);
 
 			expect(E.isRight(result)).toBe(true);
-			// When Claude is available, it will try to uninstall plugins even without content
-			// This is expected behavior
+			if (E.isRight(result)) {
+				expect(result.right.actions).toEqual([
+					{ type: "no_changes", component: "project" },
+				]);
+			}
+		});
+
+		test("records Claude plugin cleanup when Claude is available", async () => {
+			const config: UninstallConfig = {
+				dryRun: false,
+				yes: true,
+				scope: "user",
+			};
+			const result = await runUninstall(
+				config,
+				createTestUninstallDeps({
+					isClaudeCodeAvailable: async () => true,
+					uninstallClaudePlugins: async () => [
+						{ type: "plugin_uninstalled", name: "rp1-dev" },
+						{ type: "plugin_uninstalled", name: "rp1-base" },
+					],
+				}),
+			);
+
+			expect(E.isRight(result)).toBe(true);
+			if (E.isRight(result)) {
+				expect(result.right.actions).toEqual([
+					{ type: "plugin_uninstalled", name: "rp1-dev" },
+					{ type: "plugin_uninstalled", name: "rp1-base" },
+				]);
+			}
 		});
 
 		test("handles CLAUDE.md without rp1 content", async () => {
@@ -248,11 +266,7 @@ No rp1 content here.
 				yes: true,
 				scope: "user",
 			};
-			const result = await executeUninstall(
-				config,
-				logger,
-				nonInteractivePromptOptions,
-			)();
+			const result = await runUninstall(config);
 
 			expect(E.isRight(result)).toBe(true);
 			const newContent = await fs.readFile(claudePath, "utf-8");
@@ -278,11 +292,7 @@ No rp1 content here.
 				yes: true,
 				scope: "user",
 			};
-			const result = await executeUninstall(
-				config,
-				logger,
-				nonInteractivePromptOptions,
-			)();
+			const result = await runUninstall(config);
 
 			expect(E.isRight(result)).toBe(true);
 			if (E.isRight(result)) {
