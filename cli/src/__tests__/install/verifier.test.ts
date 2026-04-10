@@ -17,14 +17,79 @@ import {
 	writeFixture,
 } from "../helpers/index.js";
 
+const installedSkillContent = (
+	description: string,
+	plugin: string,
+	name: string,
+): string => `---
+description: "${description}"
+metadata:
+  rp1:
+    plugin: "${plugin}"
+    name: "${name}"
+---
+`;
+
+const projectSkillContent = (
+	name: string,
+	description: string,
+	category: string,
+	isWorkflow: boolean,
+	args: readonly string[] = [],
+): string => {
+	const argumentBlock =
+		args.length === 0
+			? ""
+			: `\n  arguments:\n${args
+					.map(
+						(arg) =>
+							`    - name: ${arg}\n      type: string\n      required: false\n      description: "${arg} argument"`,
+					)
+					.join("\n")}`;
+
+	return `---
+name: "${name}"
+description: "${description}"
+metadata:
+  category: ${category}
+  is_workflow: ${isWorkflow}${argumentBlock}
+---
+
+# ${name}
+
+Skill body.
+`;
+};
+
+const writeProjectSkill = async (
+	rootDir: string,
+	plugin: string,
+	name: string,
+	description: string,
+	category: string,
+	isWorkflow: boolean,
+	args: readonly string[] = [],
+): Promise<void> => {
+	await writeFixture(
+		rootDir,
+		join("plugins", plugin, "skills", name, "SKILL.md"),
+		projectSkillContent(name, description, category, isWorkflow, args),
+	);
+};
+
 describe("verifier", () => {
 	let tempDir: string;
+	let originalCwd: string;
 
 	beforeEach(async () => {
 		tempDir = await createTempDir("verifier-test");
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+		await writeFixture(tempDir, join(".rp1", "project_id"), "test-project-id");
 	});
 
 	afterEach(async () => {
+		process.chdir(originalCwd);
 		await cleanupTempDir(tempDir);
 	});
 
@@ -330,17 +395,23 @@ describe("verifier", () => {
 			const restoreHome = withEnvOverride("HOME", tempDir);
 
 			try {
+				await writeProjectSkill(
+					tempDir,
+					"base",
+					"guide",
+					"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+					"knowledge",
+					false,
+					["QUESTION"],
+				);
 				await writeFixture(
 					tempDir,
 					join(".codex", "skills", "rp1-guide", "SKILL.md"),
-					`---
-description: "Ask about rp1 capabilities, discover skills, and get workflow guidance."
-metadata:
-  rp1:
-    plugin: "base"
-    name: "guide"
----
-`,
+					installedSkillContent(
+						"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+						"base",
+						"guide",
+					),
 				);
 
 				const skills = await expectTaskRight(listInstalledSkills());
@@ -353,6 +424,9 @@ metadata:
 							"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
 						canonical_name: "base:guide",
 						user_facing_name: "rp1-base:guide",
+						category: "knowledge",
+						is_workflow: false,
+						key_args: ["QUESTION"],
 						installed_platforms: ["codex"],
 						invocations: {
 							codex: "$rp1-guide",
@@ -368,14 +442,20 @@ metadata:
 			const restoreHome = withEnvOverride("HOME", tempDir);
 
 			try {
-				const skillContent = `---
-description: "Ask about rp1 capabilities, discover skills, and get workflow guidance."
-metadata:
-  rp1:
-    plugin: "base"
-    name: "guide"
----
-`;
+				await writeProjectSkill(
+					tempDir,
+					"base",
+					"guide",
+					"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+					"knowledge",
+					false,
+					["QUESTION"],
+				);
+				const skillContent = installedSkillContent(
+					"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+					"base",
+					"guide",
+				);
 
 				await writeFixture(
 					tempDir,
@@ -392,6 +472,9 @@ metadata:
 
 				expect(skills).toHaveLength(1);
 				expect(skills[0]?.name).toBe("guide");
+				expect(skills[0]?.category).toBe("knowledge");
+				expect(skills[0]?.is_workflow).toBe(false);
+				expect(skills[0]?.key_args).toEqual(["QUESTION"]);
 				expect(skills[0]?.installed_platforms).toEqual(["opencode", "codex"]);
 				expect(skills[0]?.invocations.opencode).toBe("/rp1-guide");
 				expect(skills[0]?.invocations.codex).toBe("$rp1-guide");
@@ -406,6 +489,15 @@ metadata:
 			try {
 				const pluginDir = join(tempDir, ".claude", "plugins");
 				const installPath = join(pluginDir, "rp1-base@rp1-run");
+				await writeProjectSkill(
+					tempDir,
+					"base",
+					"guide",
+					"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+					"knowledge",
+					false,
+					["QUESTION"],
+				);
 				await writeFixture(
 					tempDir,
 					join(
@@ -416,14 +508,11 @@ metadata:
 						"guide",
 						"SKILL.md",
 					),
-					`---
-description: "Ask about rp1 capabilities, discover skills, and get workflow guidance."
-metadata:
-  rp1:
-    plugin: "base"
-    name: "guide"
----
-`,
+					installedSkillContent(
+						"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+						"base",
+						"guide",
+					),
 				);
 				await writeFile(
 					join(pluginDir, "installed_plugins.json"),
@@ -453,9 +542,59 @@ metadata:
 							"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
 						canonical_name: "base:guide",
 						user_facing_name: "rp1-base:guide",
+						category: "knowledge",
+						is_workflow: false,
+						key_args: ["QUESTION"],
 						installed_platforms: ["claude-code"],
 						invocations: {
 							"claude-code": "/guide",
+						},
+					},
+				]);
+			} finally {
+				restoreHome();
+			}
+		});
+
+		test("includes registry metadata for installed internal skills when present", async () => {
+			const restoreHome = withEnvOverride("HOME", tempDir);
+
+			try {
+				await writeProjectSkill(
+					tempDir,
+					"utils",
+					"tersify-prompt",
+					"Rewrite an agent prompt to be maximally terse while preserving intent.",
+					"prompt",
+					false,
+					["PROMPT"],
+				);
+				await writeFixture(
+					tempDir,
+					join(".codex", "skills", "rp1-tersify-prompt", "SKILL.md"),
+					installedSkillContent(
+						"Rewrite an agent prompt to be maximally terse while preserving intent.",
+						"utils",
+						"tersify-prompt",
+					),
+				);
+
+				const skills = await expectTaskRight(listInstalledSkills());
+
+				expect(skills).toEqual([
+					{
+						plugin: "utils",
+						name: "tersify-prompt",
+						description:
+							"Rewrite an agent prompt to be maximally terse while preserving intent.",
+						canonical_name: "utils:tersify-prompt",
+						user_facing_name: "rp1-utils:tersify-prompt",
+						category: "prompt",
+						is_workflow: false,
+						key_args: ["PROMPT"],
+						installed_platforms: ["codex"],
+						invocations: {
+							codex: "$rp1-tersify-prompt",
 						},
 					},
 				]);

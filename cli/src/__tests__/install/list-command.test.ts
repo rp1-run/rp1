@@ -51,10 +51,42 @@ metadata:
 ---
 `;
 
+const projectSkillContent = (
+	name: string,
+	description: string,
+	category: string,
+	isWorkflow: boolean,
+	args: readonly string[] = [],
+): string => {
+	const argumentBlock =
+		args.length === 0
+			? ""
+			: `\n  arguments:\n${args
+					.map(
+						(arg) =>
+							`    - name: ${arg}\n      type: string\n      required: false\n      description: "${arg} argument"`,
+					)
+					.join("\n")}`;
+
+	return `---
+name: "${name}"
+description: "${description}"
+metadata:
+  category: ${category}
+  is_workflow: ${isWorkflow}${argumentBlock}
+---
+
+# ${name}
+
+Skill body.
+`;
+};
+
 describe("executeList", () => {
 	let consoleLogs: string[];
 	let originalLog: typeof console.log;
 	let tempDir: string;
+	let originalCwd: string;
 	let restoreHome: (() => void) | undefined;
 
 	beforeEach(async () => {
@@ -65,17 +97,43 @@ describe("executeList", () => {
 		};
 
 		tempDir = await createTempDir("list-command-test");
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
 		restoreHome = withEnvOverride("HOME", tempDir);
+		await writeFixture(tempDir, join(".rp1", "project_id"), "test-project-id");
 	});
 
 	afterEach(async () => {
 		console.log = originalLog;
+		process.chdir(originalCwd);
 		restoreHome?.();
 		await cleanupTempDir(tempDir);
 	});
 
 	describe("--json output", () => {
 		test("outputs valid JSON array with canonical identity and host invocations", async () => {
+			await writeFixture(
+				tempDir,
+				join("plugins", "dev", "skills", "build", "SKILL.md"),
+				projectSkillContent(
+					"build",
+					"End-to-end feature workflow",
+					"development",
+					true,
+					["FEATURE_ID", "AFK"],
+				),
+			);
+			await writeFixture(
+				tempDir,
+				join("plugins", "dev", "skills", "pr-review", "SKILL.md"),
+				projectSkillContent(
+					"pr-review",
+					"PR review with CI support",
+					"review",
+					true,
+					["PR_NUMBER"],
+				),
+			);
 			await writeFixture(
 				tempDir,
 				join(".codex", "skills", "rp1-build", "SKILL.md"),
@@ -108,6 +166,9 @@ describe("executeList", () => {
 				expect(skill).toHaveProperty("plugin");
 				expect(skill).toHaveProperty("canonical_name");
 				expect(skill).toHaveProperty("user_facing_name");
+				expect(skill).toHaveProperty("category");
+				expect(skill).toHaveProperty("is_workflow");
+				expect(skill).toHaveProperty("key_args");
 				expect(skill).toHaveProperty("installed_platforms");
 				expect(skill).toHaveProperty("invocations");
 				expect(typeof skill.name).toBe("string");
@@ -115,6 +176,9 @@ describe("executeList", () => {
 				expect(typeof skill.plugin).toBe("string");
 				expect(typeof skill.canonical_name).toBe("string");
 				expect(typeof skill.user_facing_name).toBe("string");
+				expect(typeof skill.category).toBe("string");
+				expect(typeof skill.is_workflow).toBe("boolean");
+				expect(Array.isArray(skill.key_args)).toBe(true);
 				expect(Array.isArray(skill.installed_platforms)).toBe(true);
 				expect(typeof skill.invocations).toBe("object");
 			}
@@ -124,12 +188,29 @@ describe("executeList", () => {
 			expect(parsed[0].plugin).toBe("dev");
 			expect(parsed[0].canonical_name).toBe("dev:build");
 			expect(parsed[0].user_facing_name).toBe("rp1-dev:build");
+			expect(parsed[0].category).toBe("development");
+			expect(parsed[0].is_workflow).toBe(true);
+			expect(parsed[0].key_args).toEqual(["FEATURE_ID", "AFK"]);
 			expect(parsed[0].installed_platforms).toEqual(["codex"]);
 			expect(parsed[0].invocations.codex).toBe("$rp1-build");
 			expect(parsed[1].name).toBe("pr-review");
+			expect(parsed[1].category).toBe("review");
+			expect(parsed[1].is_workflow).toBe(true);
+			expect(parsed[1].key_args).toEqual(["PR_NUMBER"]);
 		});
 
 		test("does not include table header or formatting in JSON mode", async () => {
+			await writeFixture(
+				tempDir,
+				join("plugins", "dev", "skills", "build", "SKILL.md"),
+				projectSkillContent(
+					"build",
+					"End-to-end feature workflow",
+					"development",
+					true,
+					["FEATURE_ID", "AFK"],
+				),
+			);
 			await writeFixture(
 				tempDir,
 				join(".codex", "skills", "rp1-build", "SKILL.md"),
@@ -152,6 +233,17 @@ describe("executeList", () => {
 		test("renders table with skills when json flag is not set", async () => {
 			await writeFixture(
 				tempDir,
+				join("plugins", "dev", "skills", "build", "SKILL.md"),
+				projectSkillContent(
+					"build",
+					"End-to-end feature workflow",
+					"development",
+					true,
+					["FEATURE_ID", "AFK"],
+				),
+			);
+			await writeFixture(
+				tempDir,
 				join(".codex", "skills", "rp1-build", "SKILL.md"),
 				skillContent(
 					mockSkills[0]?.description ?? "No description",
@@ -171,6 +263,17 @@ describe("executeList", () => {
 		});
 
 		test("table output is unchanged when json option is explicitly false", async () => {
+			await writeFixture(
+				tempDir,
+				join("plugins", "dev", "skills", "build", "SKILL.md"),
+				projectSkillContent(
+					"build",
+					"End-to-end feature workflow",
+					"development",
+					true,
+					["FEATURE_ID", "AFK"],
+				),
+			);
 			await writeFixture(
 				tempDir,
 				join(".codex", "skills", "rp1-build", "SKILL.md"),

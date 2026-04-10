@@ -17,11 +17,17 @@ import {
 } from "../../shared/canonical-name.js";
 import type { CLIError } from "../../shared/errors.js";
 import { verificationError } from "../../shared/errors.js";
+import { resolveRp1Root } from "../agent-tools/rp1-root-dir/resolver.js";
 import {
+	type AssetEntry,
 	collectPlatformPlugins,
 	getBundledAssets,
 	hasBundledAssets,
+	readEmbeddedFile,
 } from "../assets/index.js";
+import type { SkillCategory } from "../build/models.js";
+import { parseSkill } from "../build/parser.js";
+import { collectCatalogRegistry } from "../catalog/index.js";
 import { getClaudePluginDirs } from "../shared/paths.js";
 import { getDefaultArtifactsDir } from "./installer.js";
 import { discoverPlugins, getAllArtifactNames } from "./manifest.js";
@@ -92,6 +98,9 @@ type InstalledSkill = {
 	description: string;
 	canonical_name: string;
 	user_facing_name: string;
+	category?: SkillCategory;
+	is_workflow?: boolean;
+	key_args?: string[];
 	installed_platforms: InstalledPlatform[];
 	invocations: Partial<Record<InstalledPlatform, string>>;
 };
@@ -111,10 +120,28 @@ type SkillCatalogEntry = {
 	name: string;
 };
 
+type InstalledSkillDiscoveryMetadata = {
+	category: SkillCategory;
+	is_workflow: boolean;
+	key_args: string[];
+};
+
 const INSTALLED_PLATFORM_ORDER: readonly InstalledPlatform[] = [
 	"claude-code",
 	"opencode",
 	"codex",
+];
+
+const VALID_SKILL_CATEGORIES: readonly SkillCategory[] = [
+	"development",
+	"investigation",
+	"quality",
+	"review",
+	"documentation",
+	"knowledge",
+	"strategy",
+	"planning",
+	"prompt",
 ];
 
 const isInstalledPlatform = (value: string): value is InstalledPlatform =>
@@ -147,6 +174,18 @@ const getInstalledNameFromAssetEntry = (entryName: string): string | null => {
 	const normalized = entryName.replaceAll("\\", "/");
 	const parts = normalized.split("/");
 	return parts.at(-1) === "SKILL.md" ? (parts.at(-2) ?? null) : null;
+};
+
+const getCandidateArtifactsRoots = (): string[] => {
+	const moduleDir = dirname(fileURLToPath(import.meta.url));
+	const roots = new Set<string>();
+	const defaultArtifactsDir = getDefaultArtifactsDir();
+	if (defaultArtifactsDir) {
+		roots.add(dirname(defaultArtifactsDir));
+	}
+	roots.add(join(moduleDir, "..", "..", "..", "dist"));
+	roots.add(join(process.cwd(), "dist"));
+	return [...roots];
 };
 
 const buildSkillCatalogFromBundledAssets = (): Map<
@@ -196,16 +235,8 @@ const buildSkillCatalogFromArtifacts = async (): Promise<
 	Map<string, SkillCatalogEntry>
 > => {
 	const catalog = new Map<string, SkillCatalogEntry>();
-	const moduleDir = dirname(fileURLToPath(import.meta.url));
-	const candidateRoots = new Set<string>();
-	const defaultArtifactsDir = getDefaultArtifactsDir();
-	if (defaultArtifactsDir) {
-		candidateRoots.add(dirname(defaultArtifactsDir));
-	}
-	candidateRoots.add(join(moduleDir, "..", "..", "..", "dist"));
-	candidateRoots.add(join(process.cwd(), "dist"));
 
-	for (const artifactsRoot of candidateRoots) {
+	for (const artifactsRoot of getCandidateArtifactsRoots()) {
 		if (!existsSync(artifactsRoot)) {
 			continue;
 		}
@@ -263,6 +294,51 @@ const parseFrontmatter = (content: string): Record<string, unknown> | null => {
 const getDescriptionFromFrontmatter = (
 	frontmatter: Record<string, unknown> | null,
 ): string => String(frontmatter?.description ?? "No description");
+
+const getSkillNameFromFrontmatter = (
+	frontmatter: Record<string, unknown> | null,
+): string | null =>
+	typeof frontmatter?.name === "string" ? frontmatter.name : null;
+
+const isSkillCategory = (value: unknown): value is SkillCategory =>
+	typeof value === "string" &&
+	VALID_SKILL_CATEGORIES.includes(value as SkillCategory);
+
+const extractDiscoveryMetadataFromFrontmatter = (
+	frontmatter: Record<string, unknown> | null,
+): InstalledSkillDiscoveryMetadata | null => {
+	const metadata =
+		frontmatter?.metadata && typeof frontmatter.metadata === "object"
+			? (frontmatter.metadata as Record<string, unknown>)
+			: null;
+	if (!metadata) {
+		return null;
+	}
+
+	const category = metadata?.category;
+	if (!isSkillCategory(category)) {
+		return null;
+	}
+
+	const rawArguments = Array.isArray(metadata.arguments)
+		? metadata.arguments
+		: [];
+	const keyArgs = rawArguments.flatMap((argument) => {
+		if (typeof argument !== "object" || argument === null) {
+			return [];
+		}
+
+		const name = (argument as Record<string, unknown>).name;
+		return typeof name === "string" ? [name] : [];
+	});
+
+	return {
+		category,
+		is_workflow:
+			typeof metadata.is_workflow === "boolean" ? metadata.is_workflow : false,
+		key_args: keyArgs,
+	};
+};
 
 const extractCanonicalNameFromFrontmatter = (
 	frontmatter: Record<string, unknown> | null,
@@ -453,6 +529,177 @@ const readClaudeInstalledSkills = async (
 };
 
 const getUserHomeDir = (): string => process.env.HOME ?? homedir();
+
+const buildRuntimeSkillMetadataLookupFromProject = async (): Promise<
+	Map<string, InstalledSkillDiscoveryMetadata>
+> => {
+	const resolvedRoot = await resolveRp1Root(process.cwd())();
+	if (E.isLeft(resolvedRoot)) {
+		return new Map();
+	}
+
+	const { entries } = await collectCatalogRegistry(
+		resolvedRoot.right.projectRoot,
+	);
+	return new Map(
+		entries.map((entry) => [
+			entry.canonicalName,
+			{
+				category: entry.category,
+				is_workflow: entry.isWorkflow,
+				key_args: [...entry.keyArgs],
+			},
+		]),
+	);
+};
+
+const buildRuntimeSkillMetadataLookupFromArtifacts = async (): Promise<
+	Map<string, InstalledSkillDiscoveryMetadata>
+> => {
+	const lookup = new Map<string, InstalledSkillDiscoveryMetadata>();
+
+	for (const artifactsRoot of getCandidateArtifactsRoots()) {
+		if (!existsSync(artifactsRoot)) {
+			continue;
+		}
+
+		for (const platform of INSTALLED_PLATFORM_ORDER) {
+			const platformArtifactsDir = join(artifactsRoot, platform);
+			if (!existsSync(platformArtifactsDir)) {
+				continue;
+			}
+
+			const manifests = await discoverPlugins(platformArtifactsDir)();
+			if (E.isLeft(manifests)) {
+				continue;
+			}
+
+			for (const manifest of manifests.right) {
+				const pluginName = normalizePluginName(manifest.plugin);
+
+				for (const skillDirName of manifest.skills) {
+					const skillDir = join(
+						platformArtifactsDir,
+						manifest.plugin,
+						"skills",
+						skillDirName,
+					);
+					const skill = await parseSkill(skillDir)();
+					if (E.isLeft(skill)) {
+						continue;
+					}
+
+					const metadata = skill.right.metadata;
+					if (!metadata?.category) {
+						continue;
+					}
+
+					const canonicalName = toCanonicalString({
+						plugin: pluginName,
+						artifact: skill.right.name,
+					});
+					if (lookup.has(canonicalName)) {
+						continue;
+					}
+
+					lookup.set(canonicalName, {
+						category: metadata.category,
+						is_workflow: metadata.isWorkflow ?? false,
+						key_args: (metadata.arguments ?? []).map(
+							(argument) => argument.name,
+						),
+					});
+				}
+			}
+		}
+	}
+
+	return lookup;
+};
+
+const readAssetEntryContent = async (
+	entry: AssetEntry,
+): Promise<string | null> => {
+	if (typeof entry.content === "string") {
+		return entry.content;
+	}
+	if (!entry.path) {
+		return null;
+	}
+
+	const content = await readEmbeddedFile(entry.path);
+	return E.isRight(content) ? content.right : null;
+};
+
+const buildRuntimeSkillMetadataLookupFromBundledAssets = async (): Promise<
+	Map<string, InstalledSkillDiscoveryMetadata>
+> => {
+	if (!hasBundledAssets()) {
+		return new Map();
+	}
+
+	const bundledAssets = getBundledAssets();
+	if (E.isLeft(bundledAssets)) {
+		return new Map();
+	}
+
+	const lookup = new Map<string, InstalledSkillDiscoveryMetadata>();
+
+	for (const platform of Object.values(bundledAssets.right.platforms)) {
+		if (!platform) {
+			continue;
+		}
+
+		for (const plugin of collectPlatformPlugins(platform)) {
+			const pluginName = normalizePluginName(plugin.name);
+
+			for (const skill of plugin.skills) {
+				const content = await readAssetEntryContent(skill);
+				if (!content) {
+					continue;
+				}
+
+				const frontmatter = parseFrontmatter(content);
+				const name = getSkillNameFromFrontmatter(frontmatter);
+				const metadata = extractDiscoveryMetadataFromFrontmatter(frontmatter);
+				if (!name || !metadata) {
+					continue;
+				}
+
+				const canonicalName = toCanonicalString({
+					plugin: pluginName,
+					artifact: name,
+				});
+				if (!lookup.has(canonicalName)) {
+					lookup.set(canonicalName, metadata);
+				}
+			}
+		}
+	}
+
+	return lookup;
+};
+
+const buildRuntimeSkillMetadataLookup = async (): Promise<
+	ReadonlyMap<string, InstalledSkillDiscoveryMetadata>
+> => {
+	const [projectLookup, artifactsLookup, bundledLookup] = await Promise.all([
+		buildRuntimeSkillMetadataLookupFromProject(),
+		buildRuntimeSkillMetadataLookupFromArtifacts(),
+		buildRuntimeSkillMetadataLookupFromBundledAssets(),
+	]);
+
+	const lookup = new Map<string, InstalledSkillDiscoveryMetadata>();
+	for (const source of [projectLookup, artifactsLookup, bundledLookup]) {
+		for (const [canonicalName, metadata] of source) {
+			if (!lookup.has(canonicalName)) {
+				lookup.set(canonicalName, metadata);
+			}
+		}
+	}
+
+	return lookup;
+};
 
 /**
  * Verify rp1 installation health.
@@ -650,6 +897,7 @@ export const listInstalledSkills = (): TE.TaskEither<
 		async () => {
 			const home = getUserHomeDir();
 			const skillCatalog = await buildSkillCatalog();
+			const skillMetadataLookup = await buildRuntimeSkillMetadataLookup();
 			const discoveredSkills = await Promise.all([
 				readClaudeInstalledSkills(home, skillCatalog),
 				readInstalledSkillsFromDir(
@@ -667,6 +915,7 @@ export const listInstalledSkills = (): TE.TaskEither<
 
 			for (const skills of discoveredSkills) {
 				for (const skill of skills) {
+					const skillMetadata = skillMetadataLookup.get(skill.canonicalName);
 					const existing = dedupedSkills.get(skill.canonicalName);
 					if (!existing) {
 						dedupedSkills.set(skill.canonicalName, {
@@ -675,6 +924,7 @@ export const listInstalledSkills = (): TE.TaskEither<
 							description: skill.description,
 							canonical_name: skill.canonicalName,
 							user_facing_name: skill.userFacingName,
+							...(skillMetadata ?? {}),
 							installed_platforms: [skill.platform],
 							invocations: {
 								[skill.platform]: skill.invocation,
