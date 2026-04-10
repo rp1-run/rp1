@@ -167,10 +167,72 @@ Content.`;
 			}
 		});
 
+		test("requires discovery metadata for skills", () => {
+			const content = `---
+name: valid-skill
+description: This description has at least 20 characters
+metadata:
+  version: 1.0.0
+---
+Content.`;
+			const result = validateSkillSchema(content, "test.md");
+
+			const error = expectLeft(result);
+			expect(error._tag).toBe("ValidationError");
+			if (error._tag === "ValidationError") {
+				expect(error.level).toBe("L2");
+				expect(error.message).toContain("metadata.category");
+				expect(error.message).toContain("metadata.is_workflow");
+			}
+		});
+
+		test("rejects invalid metadata.category values", () => {
+			const content = `---
+name: valid-skill
+description: This description has at least 20 characters
+metadata:
+  category: unsupported
+  is_workflow: false
+---
+Content.`;
+			const result = validateSkillSchema(content, "test.md");
+
+			const error = expectLeft(result);
+			expect(error._tag).toBe("ValidationError");
+			if (error._tag === "ValidationError") {
+				expect(error.level).toBe("L2");
+				expect(error.message).toContain("metadata.category");
+				expect(error.message).toContain("development");
+			}
+		});
+
+		test("rejects non-boolean metadata.is_workflow", () => {
+			const content = `---
+name: valid-skill
+description: This description has at least 20 characters
+metadata:
+  category: development
+  is_workflow: "yes"
+---
+Content.`;
+			const result = validateSkillSchema(content, "test.md");
+
+			const error = expectLeft(result);
+			expect(error._tag).toBe("ValidationError");
+			if (error._tag === "ValidationError") {
+				expect(error.level).toBe("L2");
+				expect(error.message).toContain("metadata.is_workflow");
+				expect(error.message).toContain("boolean");
+			}
+		});
+
 		test("accepts skill with description >= 20 chars", () => {
 			const content = `---
 name: valid-skill
 description: This description has at least 20 characters
+metadata:
+  category: development
+  is_workflow: false
 ---
 Content.`;
 			const result = validateSkillSchema(content, "test.md");
@@ -217,6 +279,9 @@ Content.`;
 			const shortDesc = `---
 name: test
 description: Short
+metadata:
+  category: development
+  is_workflow: false
 ---
 Content.`;
 			const l2Result = validateSkill(shortDesc, "test.md");

@@ -191,4 +191,41 @@ describe("catalog registry", () => {
 		expect(renderedBlock).toContain("| Knowledge | /alpha |");
 		expect(renderedBlock).not.toContain("tersify-prompt");
 	});
+
+	test("reports missing discovery metadata instead of silently omitting skills", async () => {
+		const brokenSkillDir = join(
+			tempDir,
+			"plugins",
+			"dev",
+			"skills",
+			"broken-discovery",
+		);
+		await mkdir(brokenSkillDir, { recursive: true });
+		await writeFile(
+			join(brokenSkillDir, "SKILL.md"),
+			`---
+name: broken-discovery
+description: "Broken skill that is missing required discovery metadata."
+allowed-tools: Bash(echo *)
+metadata:
+  version: 1.0.0
+  created: 2026-01-01
+  author: test
+---
+
+# broken-discovery
+
+Skill content here.
+`,
+		);
+
+		const { entries, errors } = await collectCatalogRegistry(tempDir);
+
+		expect(entries.map((entry) => entry.canonicalName)).not.toContain(
+			"dev:broken-discovery",
+		);
+		expect(errors).toContain(
+			`Invalid discovery metadata in ${join(brokenSkillDir, "SKILL.md")}: missing or invalid metadata.category, metadata.is_workflow`,
+		);
+	});
 });

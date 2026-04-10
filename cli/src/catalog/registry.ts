@@ -256,6 +256,7 @@ export const collectCatalogRegistry = async (
 		const skillDirs = await listSkillDirectories(projectRoot, plugin);
 
 		for (const skillDir of skillDirs) {
+			const skillMdPath = join(skillDir, "SKILL.md");
 			const result = await parseSkill(skillDir)();
 			if (E.isLeft(result)) {
 				errors.push(
@@ -265,8 +266,19 @@ export const collectCatalogRegistry = async (
 			}
 
 			const skill = result.right;
-			const category = skill.metadata?.category;
-			if (!category) {
+			const metadata = skill.metadata;
+			const missingDiscoveryFields = [
+				metadata?.category === undefined ? "metadata.category" : null,
+				metadata?.isWorkflow === undefined ? "metadata.is_workflow" : null,
+			].filter((field): field is string => field !== null);
+			if (
+				!metadata ||
+				metadata.category === undefined ||
+				metadata.isWorkflow === undefined
+			) {
+				errors.push(
+					`Invalid discovery metadata in ${skillMdPath}: missing or invalid ${missingDiscoveryFields.join(", ")}`,
+				);
 				continue;
 			}
 
@@ -277,8 +289,8 @@ export const collectCatalogRegistry = async (
 					skillDir,
 					skill.name,
 					skill.description,
-					category,
-					skill.metadata?.isWorkflow ?? false,
+					metadata.category,
+					metadata.isWorkflow,
 					argumentDefs,
 				),
 			);

@@ -217,6 +217,45 @@ describe("catalog maintenance", () => {
 		);
 	});
 
+	test("surfaces missing discovery metadata through catalog-check", async () => {
+		await writeCatalogArtifacts(tempDir);
+		await mkdir(join(tempDir, "plugins", "dev", "skills", "broken"), {
+			recursive: true,
+		});
+		await writeFile(
+			join(tempDir, "plugins", "dev", "skills", "broken", "SKILL.md"),
+			`---
+name: broken
+description: "Broken skill that is missing required discovery metadata."
+allowed-tools: Bash(echo *)
+metadata:
+  version: 1.0.0
+  created: 2026-01-01
+  author: test
+---
+
+# broken
+
+Skill content here.
+`,
+		);
+
+		const result = await checkCatalogArtifacts(tempDir);
+
+		expect(result.issues).toContainEqual(
+			expect.objectContaining({
+				relativePath: "catalog-registry",
+				message: expect.stringContaining("metadata.category"),
+			}),
+		);
+		expect(result.issues).toContainEqual(
+			expect.objectContaining({
+				relativePath: "catalog-registry",
+				message: expect.stringContaining("metadata.is_workflow"),
+			}),
+		);
+	});
+
 	test("preserves the agent freshness guarantee through the transitional artifact", async () => {
 		await writeCatalogArtifacts(tempDir);
 
