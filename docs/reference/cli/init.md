@@ -60,6 +60,12 @@ rp1 adds project guidance to the instruction file your host uses:
 - OpenCode: `AGENTS.md`
 - Codex: `AGENTS.md`
 
+These instruction files are generated from pre-rendered templates. For Claude
+Code and OpenCode, the ambient `rp1 Skill Awareness` block is rendered from the
+same distributable skill registry that feeds the guide catalog, so onboarding
+guidance stays aligned with discovery surfaces. Codex intentionally omits that
+ambient block and keeps only Codex-specific conventions.
+
 ### Git ignore defaults
 
 The recommended setup keeps the knowledge base shareable while treating local

@@ -109,7 +109,9 @@ rp1 list
 rp1 list --json
 ```
 
-`--json` emits one object per canonical skill with these fields:
+`--json` emits one object per canonical installed skill. Alongside identity and
+host-install details, it includes the registry-backed discovery metadata used by
+guide and init:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -118,8 +120,14 @@ rp1 list --json
 | `plugin` | `string` | Plugin id such as `base`, `dev`, or `utils` |
 | `canonical_name` | `string` | Canonical id such as `base:guide` |
 | `user_facing_name` | `string` | User-facing canonical id such as `rp1-base:guide` |
+| `category` | `string` | Canonical discovery category such as `knowledge` or `review` |
+| `is_workflow` | `boolean` | Whether the skill is a workflow-style orchestrator |
+| `key_args` | `string[]` | Primary argument names from `SKILL.md` frontmatter |
 | `installed_platforms` | `string[]` | Hosts where the skill is installed |
 | `invocations` | `object` | Host-specific invocation strings keyed by platform |
+
+These discovery fields are additive. Existing consumers remain compatible if
+they ignore keys they do not use.
 
 ## Typical Locations
 

@@ -602,5 +602,42 @@ describe("verifier", () => {
 				restoreHome();
 			}
 		});
+
+		test("leaves additive discovery metadata unset when the canonical skill is not in the registry", async () => {
+			const restoreHome = withEnvOverride("HOME", tempDir);
+
+			try {
+				await writeFixture(
+					tempDir,
+					join(".codex", "skills", "rp1-shadow-skill", "SKILL.md"),
+					installedSkillContent(
+						"Installed skill without matching registry metadata.",
+						"base",
+						"shadow-skill",
+					),
+				);
+
+				const skills = await expectTaskRight(listInstalledSkills());
+
+				expect(skills).toEqual([
+					{
+						plugin: "base",
+						name: "shadow-skill",
+						description: "Installed skill without matching registry metadata.",
+						canonical_name: "base:shadow-skill",
+						user_facing_name: "rp1-base:shadow-skill",
+						installed_platforms: ["codex"],
+						invocations: {
+							codex: "$rp1-shadow-skill",
+						},
+					},
+				]);
+				expect(skills[0]).not.toHaveProperty("category");
+				expect(skills[0]).not.toHaveProperty("is_workflow");
+				expect(skills[0]).not.toHaveProperty("key_args");
+			} finally {
+				restoreHome();
+			}
+		});
 	});
 });

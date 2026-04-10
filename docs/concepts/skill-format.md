@@ -44,6 +44,10 @@ metadata:
 
 Classifies the skill for catalog grouping and ambient awareness. Used by the build pipeline to generate the skill catalog and the ambient suggestion table in instruction files.
 
+This field also feeds the canonical discovery registry, so `guide/CATALOG.md`,
+generated init awareness, and runtime `rp1 list --json` enrichment all derive
+their category facts from the same value.
+
 - **Type**: enum
 - **Required**: Yes (for all skills)
 - **Allowed values**:
@@ -63,6 +67,10 @@ Classifies the skill for catalog grouping and ambient awareness. Used by the bui
 ### `is_workflow`
 
 Distinguishes workflow-orchestrating skills from single-purpose skills. Workflow skills coordinate multiple sub-agents or phases to deliver an end-to-end outcome. The ambient awareness block uses this to surface workflow suggestions appropriately.
+
+This flag is part of the canonical discovery registry and flows through to
+generated catalog views and runtime listing, so keep it aligned with the skill's
+actual orchestration behavior.
 
 - **Type**: boolean
 - **Required**: Yes (for all skills)

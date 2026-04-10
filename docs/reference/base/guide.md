@@ -49,6 +49,11 @@ The `guide` skill helps you discover and use rp1 capabilities. It operates in tw
 - **No question**: Shows a capability overview of all installed skills organized by category.
 - **With question**: Classifies your question and answers from the appropriate source (skill catalog, workflow patterns, or reference docs).
 
+Its factual catalog companion, `plugins/base/skills/guide/CATALOG.md`, is a
+generated view of the canonical skill registry for the distributable inventory
+(`base` and `dev`). The guide prompt and `WORKFLOWS.md` remain authored so
+recommendation logic and multi-skill guidance stay curated.
+
 The skill dynamically validates suggested skills using `rp1 list --json`. That output includes canonical skill identity, the hosts where each skill is installed, and host-specific invocation strings, so recommendations reflect your current setup and the tool you're using.
 
 ## Arguments
