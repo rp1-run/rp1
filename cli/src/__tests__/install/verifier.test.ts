@@ -4,7 +4,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { isHealthy, type VerificationReport } from "../../install/models.js";
@@ -29,6 +29,42 @@ metadata:
     name: "${name}"
 ---
 `;
+
+const generatedSkillContent = (
+	renderedName: string,
+	description: string,
+	plugin: string,
+	name: string,
+	category: string,
+	isWorkflow: boolean,
+	args: readonly string[] = [],
+): string => {
+	const argumentBlock =
+		args.length === 0
+			? ""
+			: `\n  arguments:\n${args
+					.map(
+						(arg) =>
+							`    - name: ${arg}\n      type: string\n      required: false\n      description: "${arg} argument"`,
+					)
+					.join("\n")}`;
+
+	return `---
+name: "${renderedName}"
+description: "${description}"
+metadata:
+  rp1:
+    plugin: "${plugin}"
+    name: "${name}"
+  category: ${category}
+  is_workflow: ${isWorkflow}${argumentBlock}
+---
+
+# ${name}
+
+Generated skill body.
+`;
+};
 
 const projectSkillContent = (
 	name: string,
@@ -599,6 +635,84 @@ describe("verifier", () => {
 					},
 				]);
 			} finally {
+				restoreHome();
+			}
+		});
+
+		test("includes discovery metadata outside an rp1 repo when it is only available from built artifacts", async () => {
+			const restoreHome = withEnvOverride("HOME", tempDir);
+			const outsideDir = join(tempDir, "outside");
+
+			try {
+				await mkdir(outsideDir, { recursive: true });
+				process.chdir(outsideDir);
+				await writeFixture(
+					outsideDir,
+					join("dist", "codex", "rp1-base", "manifest.json"),
+					JSON.stringify(
+						{
+							plugin: "rp1-base",
+							version: "1.0.0",
+							opencode_version_tested: "0.9.0",
+							artifacts: {
+								commands: [],
+								agents: [],
+								skills: ["rp1-synthetic-skill"],
+							},
+						},
+						null,
+						2,
+					),
+				);
+				await writeFixture(
+					outsideDir,
+					join(
+						"dist",
+						"codex",
+						"rp1-base",
+						"skills",
+						"rp1-synthetic-skill",
+						"SKILL.md",
+					),
+					generatedSkillContent(
+						"rp1-synthetic-skill",
+						"Synthetic skill used to verify artifact metadata lookup.",
+						"base",
+						"synthetic-skill",
+						"quality",
+						true,
+						["TARGET"],
+					),
+				);
+				await writeFixture(
+					tempDir,
+					join(".codex", "skills", "rp1-synthetic-skill", "SKILL.md"),
+					installedSkillContent(
+						"Synthetic skill used to verify artifact metadata lookup.",
+						"base",
+						"synthetic-skill",
+					),
+				);
+
+				const skills = await expectTaskRight(listInstalledSkills());
+
+				expect(skills).toContainEqual({
+					plugin: "base",
+					name: "synthetic-skill",
+					description:
+						"Synthetic skill used to verify artifact metadata lookup.",
+					canonical_name: "base:synthetic-skill",
+					user_facing_name: "rp1-base:synthetic-skill",
+					category: "quality",
+					is_workflow: true,
+					key_args: ["TARGET"],
+					installed_platforms: ["codex"],
+					invocations: {
+						codex: "$rp1-synthetic-skill",
+					},
+				});
+			} finally {
+				process.chdir(tempDir);
 				restoreHome();
 			}
 		});

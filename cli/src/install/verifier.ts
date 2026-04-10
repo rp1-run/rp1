@@ -382,6 +382,22 @@ const extractCanonicalNameFromContent = (
 	};
 };
 
+const resolveLookupCanonicalName = (
+	plugin: string,
+	frontmatter: Record<string, unknown> | null,
+	renderedName: string,
+): string => {
+	const explicitCanonical = extractCanonicalNameFromFrontmatter(frontmatter);
+	if (explicitCanonical) {
+		return toCanonicalString(explicitCanonical);
+	}
+
+	return toCanonicalString({
+		plugin,
+		artifact: renderedName.replace(/^rp1-/, ""),
+	});
+};
+
 const resolveCanonicalName = (
 	platform: InstalledPlatform,
 	installedName: string,
@@ -589,15 +605,21 @@ const buildRuntimeSkillMetadataLookupFromArtifacts = async (): Promise<
 						continue;
 					}
 
+					const skillFile = join(skillDir, "SKILL.md");
+					const frontmatter = parseFrontmatter(
+						await readFile(skillFile, "utf-8"),
+					);
+
 					const metadata = skill.right.metadata;
 					if (!metadata?.category) {
 						continue;
 					}
 
-					const canonicalName = toCanonicalString({
-						plugin: pluginName,
-						artifact: skill.right.name,
-					});
+					const canonicalName = resolveLookupCanonicalName(
+						pluginName,
+						frontmatter,
+						skill.right.name,
+					);
 					if (lookup.has(canonicalName)) {
 						continue;
 					}
@@ -666,10 +688,11 @@ const buildRuntimeSkillMetadataLookupFromBundledAssets = async (): Promise<
 					continue;
 				}
 
-				const canonicalName = toCanonicalString({
-					plugin: pluginName,
-					artifact: name,
-				});
+				const canonicalName = resolveLookupCanonicalName(
+					pluginName,
+					frontmatter,
+					name,
+				);
 				if (!lookup.has(canonicalName)) {
 					lookup.set(canonicalName, metadata);
 				}

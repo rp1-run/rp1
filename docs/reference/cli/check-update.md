@@ -62,7 +62,7 @@ When all fences are current or no project exists, the section is omitted.
   "current_version": "0.7.0",
   "latest_version": "0.7.1",
   "update_available": true,
-  "release_url": "https://github.com/AgenticBrowser/rp1/releases/tag/v0.7.1",
+  "release_url": "https://github.com/rp1-run/rp1/releases/tag/v0.7.1",
   "error": null,
   "cached": true,
   "cache_age_hours": 0.5,
