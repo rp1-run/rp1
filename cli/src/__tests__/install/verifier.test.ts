@@ -4,18 +4,128 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import { isHealthy, type VerificationReport } from "../../install/models.js";
-import { cleanupTempDir, createTempDir } from "../helpers/index.js";
+import { listInstalledSkills } from "../../install/verifier.js";
+import {
+	cleanupTempDir,
+	createTempDir,
+	expectTaskRight,
+	withEnvOverride,
+	writeFixture,
+} from "../helpers/index.js";
+
+const installedSkillContent = (
+	description: string,
+	plugin: string,
+	name: string,
+): string => `---
+description: "${description}"
+metadata:
+  rp1:
+    plugin: "${plugin}"
+    name: "${name}"
+---
+`;
+
+const generatedSkillContent = (
+	renderedName: string,
+	description: string,
+	plugin: string,
+	name: string,
+	category: string,
+	isWorkflow: boolean,
+	args: readonly string[] = [],
+): string => {
+	const argumentBlock =
+		args.length === 0
+			? ""
+			: `\n  arguments:\n${args
+					.map(
+						(arg) =>
+							`    - name: ${arg}\n      type: string\n      required: false\n      description: "${arg} argument"`,
+					)
+					.join("\n")}`;
+
+	return `---
+name: "${renderedName}"
+description: "${description}"
+metadata:
+  rp1:
+    plugin: "${plugin}"
+    name: "${name}"
+  category: ${category}
+  is_workflow: ${isWorkflow}${argumentBlock}
+---
+
+# ${name}
+
+Generated skill body.
+`;
+};
+
+const projectSkillContent = (
+	name: string,
+	description: string,
+	category: string,
+	isWorkflow: boolean,
+	args: readonly string[] = [],
+): string => {
+	const argumentBlock =
+		args.length === 0
+			? ""
+			: `\n  arguments:\n${args
+					.map(
+						(arg) =>
+							`    - name: ${arg}\n      type: string\n      required: false\n      description: "${arg} argument"`,
+					)
+					.join("\n")}`;
+
+	return `---
+name: "${name}"
+description: "${description}"
+metadata:
+  category: ${category}
+  is_workflow: ${isWorkflow}${argumentBlock}
+---
+
+# ${name}
+
+Skill body.
+`;
+};
+
+const writeProjectSkill = async (
+	rootDir: string,
+	plugin: string,
+	name: string,
+	description: string,
+	category: string,
+	isWorkflow: boolean,
+	args: readonly string[] = [],
+): Promise<void> => {
+	await writeFixture(
+		rootDir,
+		join("plugins", plugin, "skills", name, "SKILL.md"),
+		projectSkillContent(name, description, category, isWorkflow, args),
+	);
+};
 
 describe("verifier", () => {
 	let tempDir: string;
+	let originalCwd: string;
 
 	beforeEach(async () => {
 		tempDir = await createTempDir("verifier-test");
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+		await writeFixture(tempDir, join(".rp1", "project_id"), "test-project-id");
 	});
 
 	afterEach(async () => {
+		process.chdir(originalCwd);
 		await cleanupTempDir(tempDir);
 	});
 
@@ -313,6 +423,335 @@ describe("verifier", () => {
 
 			expect(report.pluginsFound).toBe(0);
 			expect(isHealthy(report)).toBe(true);
+		});
+	});
+
+	describe("listInstalledSkills", () => {
+		test("includes skills installed in the Codex skills directory", async () => {
+			const restoreHome = withEnvOverride("HOME", tempDir);
+
+			try {
+				await writeProjectSkill(
+					tempDir,
+					"base",
+					"guide",
+					"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+					"knowledge",
+					false,
+					["QUESTION"],
+				);
+				await writeFixture(
+					tempDir,
+					join(".codex", "skills", "rp1-guide", "SKILL.md"),
+					installedSkillContent(
+						"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+						"base",
+						"guide",
+					),
+				);
+
+				const skills = await expectTaskRight(listInstalledSkills());
+
+				expect(skills).toEqual([
+					{
+						plugin: "base",
+						name: "guide",
+						description:
+							"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+						canonical_name: "base:guide",
+						user_facing_name: "rp1-base:guide",
+						category: "knowledge",
+						is_workflow: false,
+						key_args: ["QUESTION"],
+						installed_platforms: ["codex"],
+						invocations: {
+							codex: "$rp1-guide",
+						},
+					},
+				]);
+			} finally {
+				restoreHome();
+			}
+		});
+
+		test("deduplicates skills found in both OpenCode and Codex directories", async () => {
+			const restoreHome = withEnvOverride("HOME", tempDir);
+
+			try {
+				await writeProjectSkill(
+					tempDir,
+					"base",
+					"guide",
+					"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+					"knowledge",
+					false,
+					["QUESTION"],
+				);
+				const skillContent = installedSkillContent(
+					"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+					"base",
+					"guide",
+				);
+
+				await writeFixture(
+					tempDir,
+					join(".config", "opencode", "skills", "rp1-guide", "SKILL.md"),
+					skillContent,
+				);
+				await writeFixture(
+					tempDir,
+					join(".codex", "skills", "rp1-guide", "SKILL.md"),
+					skillContent,
+				);
+
+				const skills = await expectTaskRight(listInstalledSkills());
+
+				expect(skills).toHaveLength(1);
+				expect(skills[0]?.name).toBe("guide");
+				expect(skills[0]?.category).toBe("knowledge");
+				expect(skills[0]?.is_workflow).toBe(false);
+				expect(skills[0]?.key_args).toEqual(["QUESTION"]);
+				expect(skills[0]?.installed_platforms).toEqual(["opencode", "codex"]);
+				expect(skills[0]?.invocations.opencode).toBe("/rp1-guide");
+				expect(skills[0]?.invocations.codex).toBe("$rp1-guide");
+			} finally {
+				restoreHome();
+			}
+		});
+
+		test("includes skills installed in Claude Code plugins", async () => {
+			const restoreHome = withEnvOverride("HOME", tempDir);
+
+			try {
+				const pluginDir = join(tempDir, ".claude", "plugins");
+				const installPath = join(pluginDir, "rp1-base@rp1-run");
+				await writeProjectSkill(
+					tempDir,
+					"base",
+					"guide",
+					"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+					"knowledge",
+					false,
+					["QUESTION"],
+				);
+				await writeFixture(
+					tempDir,
+					join(
+						".claude",
+						"plugins",
+						"rp1-base@rp1-run",
+						"skills",
+						"guide",
+						"SKILL.md",
+					),
+					installedSkillContent(
+						"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+						"base",
+						"guide",
+					),
+				);
+				await writeFile(
+					join(pluginDir, "installed_plugins.json"),
+					JSON.stringify(
+						{
+							version: 1,
+							plugins: {
+								"rp1-base@rp1-run": [
+									{
+										installPath,
+									},
+								],
+							},
+						},
+						null,
+						2,
+					),
+				);
+
+				const skills = await expectTaskRight(listInstalledSkills());
+
+				expect(skills).toEqual([
+					{
+						plugin: "base",
+						name: "guide",
+						description:
+							"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+						canonical_name: "base:guide",
+						user_facing_name: "rp1-base:guide",
+						category: "knowledge",
+						is_workflow: false,
+						key_args: ["QUESTION"],
+						installed_platforms: ["claude-code"],
+						invocations: {
+							"claude-code": "/guide",
+						},
+					},
+				]);
+			} finally {
+				restoreHome();
+			}
+		});
+
+		test("includes registry metadata for installed internal skills when present", async () => {
+			const restoreHome = withEnvOverride("HOME", tempDir);
+
+			try {
+				await writeProjectSkill(
+					tempDir,
+					"utils",
+					"tersify-prompt",
+					"Rewrite an agent prompt to be maximally terse while preserving intent.",
+					"prompt",
+					false,
+					["PROMPT"],
+				);
+				await writeFixture(
+					tempDir,
+					join(".codex", "skills", "rp1-tersify-prompt", "SKILL.md"),
+					installedSkillContent(
+						"Rewrite an agent prompt to be maximally terse while preserving intent.",
+						"utils",
+						"tersify-prompt",
+					),
+				);
+
+				const skills = await expectTaskRight(listInstalledSkills());
+
+				expect(skills).toEqual([
+					{
+						plugin: "utils",
+						name: "tersify-prompt",
+						description:
+							"Rewrite an agent prompt to be maximally terse while preserving intent.",
+						canonical_name: "utils:tersify-prompt",
+						user_facing_name: "rp1-utils:tersify-prompt",
+						category: "prompt",
+						is_workflow: false,
+						key_args: ["PROMPT"],
+						installed_platforms: ["codex"],
+						invocations: {
+							codex: "$rp1-tersify-prompt",
+						},
+					},
+				]);
+			} finally {
+				restoreHome();
+			}
+		});
+
+		test("includes discovery metadata outside an rp1 repo when it is only available from built artifacts", async () => {
+			const restoreHome = withEnvOverride("HOME", tempDir);
+			const outsideDir = join(tempDir, "outside");
+
+			try {
+				await mkdir(outsideDir, { recursive: true });
+				process.chdir(outsideDir);
+				await writeFixture(
+					outsideDir,
+					join("dist", "codex", "rp1-base", "manifest.json"),
+					JSON.stringify(
+						{
+							plugin: "rp1-base",
+							version: "1.0.0",
+							opencode_version_tested: "0.9.0",
+							artifacts: {
+								commands: [],
+								agents: [],
+								skills: ["rp1-synthetic-skill"],
+							},
+						},
+						null,
+						2,
+					),
+				);
+				await writeFixture(
+					outsideDir,
+					join(
+						"dist",
+						"codex",
+						"rp1-base",
+						"skills",
+						"rp1-synthetic-skill",
+						"SKILL.md",
+					),
+					generatedSkillContent(
+						"rp1-synthetic-skill",
+						"Synthetic skill used to verify artifact metadata lookup.",
+						"base",
+						"synthetic-skill",
+						"quality",
+						true,
+						["TARGET"],
+					),
+				);
+				await writeFixture(
+					tempDir,
+					join(".codex", "skills", "rp1-synthetic-skill", "SKILL.md"),
+					installedSkillContent(
+						"Synthetic skill used to verify artifact metadata lookup.",
+						"base",
+						"synthetic-skill",
+					),
+				);
+
+				const skills = await expectTaskRight(listInstalledSkills());
+
+				expect(skills).toContainEqual({
+					plugin: "base",
+					name: "synthetic-skill",
+					description:
+						"Synthetic skill used to verify artifact metadata lookup.",
+					canonical_name: "base:synthetic-skill",
+					user_facing_name: "rp1-base:synthetic-skill",
+					category: "quality",
+					is_workflow: true,
+					key_args: ["TARGET"],
+					installed_platforms: ["codex"],
+					invocations: {
+						codex: "$rp1-synthetic-skill",
+					},
+				});
+			} finally {
+				process.chdir(tempDir);
+				restoreHome();
+			}
+		});
+
+		test("leaves additive discovery metadata unset when the canonical skill is not in the registry", async () => {
+			const restoreHome = withEnvOverride("HOME", tempDir);
+
+			try {
+				await writeFixture(
+					tempDir,
+					join(".codex", "skills", "rp1-shadow-skill", "SKILL.md"),
+					installedSkillContent(
+						"Installed skill without matching registry metadata.",
+						"base",
+						"shadow-skill",
+					),
+				);
+
+				const skills = await expectTaskRight(listInstalledSkills());
+
+				expect(skills).toEqual([
+					{
+						plugin: "base",
+						name: "shadow-skill",
+						description: "Installed skill without matching registry metadata.",
+						canonical_name: "base:shadow-skill",
+						user_facing_name: "rp1-base:shadow-skill",
+						installed_platforms: ["codex"],
+						invocations: {
+							codex: "$rp1-shadow-skill",
+						},
+					},
+				]);
+				expect(skills[0]).not.toHaveProperty("category");
+				expect(skills[0]).not.toHaveProperty("is_workflow");
+				expect(skills[0]).not.toHaveProperty("key_args");
+			} finally {
+				restoreHome();
+			}
 		});
 	});
 });

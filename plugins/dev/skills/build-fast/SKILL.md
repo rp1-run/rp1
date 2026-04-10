@@ -3,6 +3,8 @@ name: build-fast
 description: "Quick-iteration development for small/medium scope changes with persistent artifacts and optional review."
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
+  category: development
+  is_workflow: true
   version: 3.0.0
   tags:
     - core
@@ -151,6 +153,12 @@ Output the planner's `redirect_message` and STOP.
 
 When skipped: Do NOT prompt the user. Proceed directly to §PHASE-2.
 
+**Interactive confirm mode rule**: When `AFK=false` AND `CONFIRM_PLAN=true`, this checkpoint is REQUIRED. Before entering §PHASE-2, you must complete both actions below in order:
+1. Emit `waiting_for_user` for the plan gate
+2. Call `ask_user` and wait for the answer
+
+The `waiting_for_user` emit does not replace the `ask_user` call. Continuing to §PHASE-2 without both is an invalid workflow transition.
+
 Emit waiting status so the Arcade dashboard reflects the gate pause:
 
 ```bash
@@ -175,11 +183,16 @@ Present the plan review to the user:
 
 **Files**: {files_affected}
 
+**Mandatory checkpoint**: The very next action must be the `ask_user` call below. Do NOT start §PHASE-2 until the user has answered. Do NOT skip this gate when `AFK=false` and `CONFIRM_PLAN=true`.
+
 {% ask_user "Proceed with plan?", options: "Continue", "Revise", "Review feedback from Arcade", "Stop" %}
 
+**On "Continue"**: Proceed to §PHASE-2.
 **On "Revise"**: Prompt for feedback, re-invoke §PHASE-1 with feedback appended to DEVELOPMENT_REQUEST.
 **On "Review feedback from Arcade"**: Load the `arcade-collab` skill (`/rp1-dev:arcade-collab`), then call `rp1 agent-tools feedback read --run-id {RUN_ID} --status open`. If feedback exists, process it per the collaboration loop in the skill. After all feedback is processed, return to this gate and re-present the same options.
 **On "Stop"**: Output "Build fast cancelled. Artifact preserved at {artifact_path}" and STOP.
+
+**Transition guard**: If `AFK=false` AND `CONFIRM_PLAN=true`, do not enter §PHASE-2 unless this checkpoint produced both a `waiting_for_user` emit and an `ask_user` answer in the current run.
 
 ## §PHASE-2: Execution
 
@@ -237,6 +250,8 @@ RUN_ID={RUN_ID}
 
 ## §PHASE-4: Finalization
 
+**Phase handoff rule**: After §PHASE-3 completes successfully, do not register artifacts, do not emit final output, and do not stop. First evaluate §4.2. When `AFK=false` AND `CONFIRM_PLAN=true`, the very next workflow actions after review completion must be the post-implementation checkpoint actions from §4.2.
+
 ### §4.1 Push (Conditional)
 
 **Skip if**: `GIT_PUSH=false`
@@ -250,6 +265,14 @@ git push -u origin {branch}
 **SKIP ENTIRELY if**: `AFK=true` OR `CONFIRM_PLAN=false`
 
 When skipped: Do NOT prompt the user. Proceed directly to §OUTPUT.
+
+**Interactive confirm mode rule**: When `AFK=false` AND `CONFIRM_PLAN=true`, this checkpoint is REQUIRED. Before entering §OUTPUT, you must complete both actions below in order:
+1. Emit `waiting_for_user` for the post-implementation gate
+2. Call `ask_user` and wait for the answer
+
+The `waiting_for_user` emit does not replace the `ask_user` call. Continuing to §OUTPUT without both is an invalid workflow transition.
+The next action after §PHASE-3 success must be this checkpoint when interactive confirm mode is active.
+Do not emit `artifact_registered` for the build step before this checkpoint completes.
 
 Emit waiting status so the Arcade dashboard reflects the gate pause:
 
@@ -271,11 +294,15 @@ Present the post-implementation checkpoint to the user:
 
 Review the changes.
 
+**Mandatory checkpoint**: The very next action must be the `ask_user` call below. Do NOT continue to §OUTPUT until the user has answered. Do NOT skip this gate when `AFK=false` and `CONFIRM_PLAN=true`.
+
 {% ask_user "Continue or make additional changes?", options: "Done", "Add/Edit", "Review feedback from Arcade" %}
 
 **On "Add/Edit"**: Prompt for additional request, re-invoke §PHASE-2 with new request appended.
 **On "Review feedback from Arcade"**: Load the `arcade-collab` skill (`/rp1-dev:arcade-collab`), then call `rp1 agent-tools feedback read --run-id {RUN_ID} --status open`. If feedback exists, process it per the collaboration loop in the skill. After all feedback is processed, return to this gate and re-present the same options.
 **On "Done"**: Continue to output.
+
+**Transition guard**: If `AFK=false` AND `CONFIRM_PLAN=true`, do not enter §OUTPUT unless this checkpoint produced both a `waiting_for_user` emit and an `ask_user` answer in the current run.
 
 ## §OUTPUT
 
@@ -314,6 +341,7 @@ rp1 agent-tools emit \
 - Spawn agents for every phase (planner, task-builder, reviewer)
 - Wait for each spawned agent to complete before proceeding
 - Prompt user for interactions (when not AFK)
+- Treat interactive checkpoints as hard gates when `AFK=false` AND `CONFIRM_PLAN=true`
 - Register artifact via `rp1 agent-tools emit --type artifact_registered` in §OUTPUT — this is REQUIRED
 
 **DO NOT** (hard constraints — never violate these):
@@ -321,6 +349,8 @@ rp1 agent-tools emit \
 - Read source code files to understand the task — subagents handle their own context
 - Implement anything yourself — you are ONLY a workflow orchestrator, not an implementer
 - Skip the task-builder spawn — it is MANDATORY for Small/Medium scope
+- Skip a required plan-review or post-implementation checkpoint in interactive confirm mode
+- Emit final `artifact_registered` output for the build phase before a required post-implementation checkpoint completes
 - Write the plan artifact yourself if the planner fails — retry the planner instead
 - Fall back to manual implementation if any agent fails — retry once, then STOP with error
 

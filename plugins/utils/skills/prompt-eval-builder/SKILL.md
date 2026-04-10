@@ -1,6 +1,9 @@
 ---
 name: prompt-eval-builder
 description: Domain knowledge for extracting eval assertions and generating test invocation prompts from command/agent specs. Used for building promptfoo evaluation configs.
+metadata:
+  category: prompt
+  is_workflow: false
 ---
 
 # Prompt Eval Builder

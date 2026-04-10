@@ -2,6 +2,8 @@
 name: strategize
 description: "Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs."
 metadata:
+  category: strategy
+  is_workflow: false
   version: 2.0.0
   tags:
     - planning

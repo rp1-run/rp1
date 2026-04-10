@@ -191,6 +191,7 @@ describeWithLiquid("template rendering", () => {
 				platform: "opencode",
 				artifact: {
 					type: "skill",
+					name: "knowledge-build",
 					namespacedName: "rp1-base-knowledge-build",
 					description: "Build knowledge base artifacts",
 					allowedTools: "Bash, Read",
@@ -209,6 +210,7 @@ describeWithLiquid("template rendering", () => {
 				platform: "opencode",
 				artifact: {
 					type: "skill",
+					name: "simple-skill",
 					namespacedName: "rp1-base-simple-skill",
 					description: "A simple skill without tools",
 					content: "Simple skill content.",
@@ -265,6 +267,7 @@ describeWithLiquid("template rendering", () => {
 				platform: "codex",
 				artifact: {
 					type: "skill",
+					name: "build",
 					namespacedName: "rp1-dev-build",
 					description: "Build plugin artifacts",
 					allowedTools: "Bash(echo *)",
@@ -425,6 +428,7 @@ describeWithLiquid("template rendering", () => {
 				platform: "claude-code",
 				artifact: {
 					type: "skill",
+					name: "knowledge-build",
 					namespacedName: "rp1-base-knowledge-build",
 					description: "Build knowledge base artifacts",
 					allowedTools: "Bash(echo *), Read, Edit",
@@ -441,8 +445,11 @@ describeWithLiquid("template rendering", () => {
 			});
 			expect(result).toContain("name: rp1-base-knowledge-build");
 			expect(result).toContain("allowed-tools: Bash(echo *), Read, Edit");
+			expect(result).toContain("`CURRENT_HOST` is `claude-code`");
 			expect(result).toContain("rp1-base:knowledge-load");
 			expect(result).toContain("version: 1.0.0");
+			expect(result).toContain("plugin: base");
+			expect(result).toContain("name: knowledge-build");
 		});
 	});
 
@@ -460,9 +467,8 @@ describeWithLiquid("template rendering", () => {
 					content: "Agent content with rp1-base:agent reference.",
 				},
 			});
-			expect(result.trim()).toBe(
-				"Agent content with rp1-base:agent reference.",
-			);
+			expect(result).toContain("`CURRENT_HOST` is `claude-code`");
+			expect(result).toContain("Agent content with rp1-base:agent reference.");
 		});
 	});
 

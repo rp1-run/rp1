@@ -18,6 +18,7 @@ import {
 	loadToolsRegistry,
 	type ToolsRegistry,
 } from "../../../config/supported-tools.js";
+import { LATEST_FENCE_VERSION } from "../../../lib/fence-version.js";
 import {
 	type InstallContext,
 	installAllDetectedTools,
@@ -56,6 +57,7 @@ import {
 	hasShellFencedContent,
 	replaceShellFencedContent,
 	validateShellFencing,
+	wrapWithShellFence,
 } from "../../shell-fence.js";
 import { performHealthCheck } from "../../steps/health-check.js";
 import { checkPluginsInstalled } from "../../steps/plugin-installation.js";
@@ -69,8 +71,9 @@ import {
 	verifyOpenCodePlugins,
 } from "../../steps/verification.js";
 import {
-	AGENTS_TEMPLATE,
-	CLAUDE_CODE_TEMPLATE,
+	getInstructionFiles,
+	getPrimaryInstructionTemplateTarget,
+	resolveInstructionTemplate,
 } from "../../templates/index.js";
 import {
 	type DetectedTool,
@@ -550,12 +553,6 @@ export const useStepExecution = ({
 		async (addAct: AddActivityFn): Promise<void> => {
 			const ctx = contextRef.current;
 
-			// Define all instruction files to check
-			const instructionFiles: Array<{ file: string; template: string }> = [
-				{ file: "CLAUDE.md", template: CLAUDE_CODE_TEMPLATE },
-				{ file: "AGENTS.md", template: AGENTS_TEMPLATE },
-			];
-
 			const claudePath = path.resolve(ctx.cwd, "CLAUDE.md");
 			const agentsPath = path.resolve(ctx.cwd, "AGENTS.md");
 
@@ -564,21 +561,19 @@ export const useStepExecution = ({
 
 			// If neither exists, create the primary tool's file or default to CLAUDE.md
 			if (!claudeExists && !agentsExists) {
-				const primaryFile =
-					ctx.primaryTool?.tool.instruction_file ?? "CLAUDE.md";
-				const template =
-					primaryFile === "CLAUDE.md" ? CLAUDE_CODE_TEMPLATE : AGENTS_TEMPLATE;
+				const { file: primaryFile, template } =
+					getPrimaryInstructionTemplateTarget(ctx.primaryTool);
 				const filePath = path.resolve(ctx.cwd, primaryFile);
 
 				addAct("instruction-injection", `Creating ${primaryFile}...`, "info");
-				const content = `${wrapWithFence(template)}\n`;
+				const content = `${wrapWithFence(template, LATEST_FENCE_VERSION)}\n`;
 				await writeFileContent(filePath, content);
 				addAct("instruction-injection", `Created ${primaryFile}`, "success");
 				return;
 			}
 
 			// Inject into all existing instruction files
-			for (const { file, template } of instructionFiles) {
+			for (const file of getInstructionFiles()) {
 				const filePath = path.resolve(ctx.cwd, file);
 				const exists = await fileExists(filePath);
 
@@ -598,12 +593,25 @@ export const useStepExecution = ({
 					throw new Error(`Invalid fencing in ${file}: ${validation.error}`);
 				}
 
+				const template = resolveInstructionTemplate(file, {
+					detectedTool: ctx.primaryTool,
+					existingContent,
+				});
+
 				if (hasFencedContent(existingContent)) {
-					const newContent = replaceFencedContent(existingContent, template);
+					const newContent = replaceFencedContent(
+						existingContent,
+						template,
+						LATEST_FENCE_VERSION,
+					);
 					await writeFileContent(filePath, newContent);
 					addAct("instruction-injection", `Updated ${file}`, "success");
 				} else {
-					const newContent = appendFencedContent(existingContent, template);
+					const newContent = appendFencedContent(
+						existingContent,
+						template,
+						LATEST_FENCE_VERSION,
+					);
 					await writeFileContent(filePath, newContent);
 					addAct("instruction-injection", `Appended to ${file}`, "success");
 				}
@@ -647,7 +655,7 @@ export const useStepExecution = ({
 			const exists = await fileExists(gitignorePath);
 
 			if (!exists) {
-				const content = `# rp1:start\n${gitignoreContent}\n# rp1:end\n`;
+				const content = `${wrapWithShellFence(gitignoreContent, LATEST_FENCE_VERSION)}\n`;
 				await writeFileContent(gitignorePath, content);
 				addAct("gitignore-config", "Created .gitignore", "success");
 				return;
@@ -667,6 +675,7 @@ export const useStepExecution = ({
 				const newContent = replaceShellFencedContent(
 					existingContent,
 					gitignoreContent,
+					LATEST_FENCE_VERSION,
 				);
 				await writeFileContent(gitignorePath, newContent);
 				addAct("gitignore-config", "Updated .gitignore", "success");
@@ -674,6 +683,7 @@ export const useStepExecution = ({
 				const newContent = appendShellFencedContent(
 					existingContent,
 					gitignoreContent,
+					LATEST_FENCE_VERSION,
 				);
 				await writeFileContent(gitignorePath, newContent);
 				addAct(

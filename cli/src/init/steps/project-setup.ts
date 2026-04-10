@@ -16,6 +16,7 @@ import { formatError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import type { PromptOptions } from "../../../shared/prompts.js";
 import { selectOption } from "../../../shared/prompts.js";
+import { LATEST_FENCE_VERSION } from "../../lib/fence-version.js";
 import {
 	appendFencedContent,
 	hasFencedContent,
@@ -33,8 +34,13 @@ import {
 	hasShellFencedContent,
 	replaceShellFencedContent,
 	validateShellFencing,
+	wrapWithShellFence,
 } from "../shell-fence.js";
-import { AGENTS_TEMPLATE, CLAUDE_CODE_TEMPLATE } from "../templates/index.js";
+import {
+	getInstructionFiles,
+	getPrimaryInstructionTemplateTarget,
+	resolveInstructionTemplate,
+} from "../templates/index.js";
 import type { DetectedTool } from "../tool-detector.js";
 
 // ============================================================================
@@ -217,7 +223,7 @@ export async function createSettingsFiles(
 async function injectIntoFile(
 	cwd: string,
 	file: string,
-	template: string,
+	detectedTool: DetectedTool | null,
 	logger: Logger,
 ): Promise<InitAction | null> {
 	const filePath = path.resolve(cwd, file);
@@ -237,15 +243,31 @@ async function injectIntoFile(
 		throw new Error(`Invalid fencing in ${file}: ${validation.error}`);
 	}
 
+	const template =
+		file === "CLAUDE.md" || file === "AGENTS.md"
+			? resolveInstructionTemplate(file, {
+					detectedTool,
+					existingContent,
+				})
+			: "";
+
 	if (hasFencedContent(existingContent)) {
 		logger.info(`Updating: ${filePath}`);
-		const newContent = replaceFencedContent(existingContent, template);
+		const newContent = replaceFencedContent(
+			existingContent,
+			template,
+			LATEST_FENCE_VERSION,
+		);
 		await writeFileContent(filePath, newContent);
 		logger.success(`Updated ${file}`);
 		return { type: "updated_file", path: filePath };
 	}
 	logger.info(`Appending to: ${filePath}`);
-	const newContent = appendFencedContent(existingContent, template);
+	const newContent = appendFencedContent(
+		existingContent,
+		template,
+		LATEST_FENCE_VERSION,
+	);
 	await writeFileContent(filePath, newContent);
 	logger.success(`Appended to ${file}`);
 	return { type: "updated_file", path: filePath };
@@ -269,30 +291,23 @@ export async function injectInstructions(
 
 	// If neither exists, create the primary tool's file or default to CLAUDE.md
 	if (!claudeExists && !agentsExists) {
-		const primaryFile = detectedTool?.tool.instruction_file ?? "CLAUDE.md";
-		const template =
-			primaryFile === "CLAUDE.md" ? CLAUDE_CODE_TEMPLATE : AGENTS_TEMPLATE;
+		const { file: primaryFile, template } =
+			getPrimaryInstructionTemplateTarget(detectedTool);
 		const filePath = path.resolve(cwd, primaryFile);
 		const linesInjected = countLines(template);
 
 		logger.info(`Creating: ${filePath}`);
-		const content = `${wrapWithFence(template)}\n`;
+		const content = `${wrapWithFence(template, LATEST_FENCE_VERSION)}\n`;
 		await writeFileContent(filePath, content);
 		actions.push({ type: "created_file", path: filePath });
 		logger.success(`Created ${primaryFile} with ${linesInjected} lines`);
 		return { actions, instructionFile: primaryFile };
 	}
 
-	// Inject into all existing instruction files
-	const instructionFiles: Array<{ file: string; template: string }> = [
-		{ file: "CLAUDE.md", template: CLAUDE_CODE_TEMPLATE },
-		{ file: "AGENTS.md", template: AGENTS_TEMPLATE },
-	];
-
 	let primaryFile: string | null = null;
 
-	for (const { file, template } of instructionFiles) {
-		const action = await injectIntoFile(cwd, file, template, logger);
+	for (const file of getInstructionFiles()) {
+		const action = await injectIntoFile(cwd, file, detectedTool, logger);
 		if (action) {
 			actions.push(action);
 			if (!primaryFile) {
@@ -362,7 +377,7 @@ export async function configureGitignore(
 
 	if (!exists) {
 		logger.info(`Creating: ${gitignorePath}`);
-		const content = `# rp1:start\n${gitignoreContent}\n# rp1:end\n`;
+		const content = `${wrapWithShellFence(gitignoreContent, LATEST_FENCE_VERSION)}\n`;
 		await writeFileContent(gitignorePath, content);
 		actions.push({ type: "created_file", path: gitignorePath });
 		logger.success("Created .gitignore with rp1 entries");
@@ -384,6 +399,7 @@ export async function configureGitignore(
 		const newContent = replaceShellFencedContent(
 			existingContent,
 			gitignoreContent,
+			LATEST_FENCE_VERSION,
 		);
 		await writeFileContent(gitignorePath, newContent);
 		actions.push({ type: "updated_file", path: gitignorePath });
@@ -393,6 +409,7 @@ export async function configureGitignore(
 		const newContent = appendShellFencedContent(
 			existingContent,
 			gitignoreContent,
+			LATEST_FENCE_VERSION,
 		);
 		await writeFileContent(gitignorePath, newContent);
 		actions.push({ type: "updated_file", path: gitignorePath });

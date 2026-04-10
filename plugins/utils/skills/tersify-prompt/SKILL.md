@@ -2,6 +2,8 @@
 name: tersify-prompt
 description: "Rewrites agent-instruction prompts to be maximally terse while preserving full intent."
 metadata:
+  category: prompt
+  is_workflow: false
   version: 1.0.0
   tags:
     - prompt-engineering

@@ -4,8 +4,17 @@ description: {{ artifact.description | escape_yaml }}
 {%- if artifact.allowedTools %}
 allowed-tools: {{ artifact.allowedTools | allowed_tools: platform | escape_yaml }}
 {%- endif %}
-{%- if artifact.metadata %}
 metadata:
+  rp1:
+    plugin: {{ pluginName }}
+    name: {{ artifact.name }}
+{%- if artifact.metadata %}
+{%- if artifact.metadata.category %}
+  category: {{ artifact.metadata.category }}
+{%- endif -%}
+{%- if artifact.metadata.isWorkflow != nil %}
+  is_workflow: {{ artifact.metadata.isWorkflow }}
+{%- endif -%}
 {%- if artifact.metadata.version %}
   version: {{ artifact.metadata.version }}
 {%- endif %}
@@ -24,6 +33,7 @@ metadata:
 {%- if artifact.metadata.argumentHint %}
   argument-hint: "{{ artifact.metadata.argumentHint }}"
 {%- endif %}
+{%- capture trailing_metadata -%}
 {%- if artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
   arguments:
 {{ artifact.metadata.arguments | to_yaml: 4 }}
@@ -32,6 +42,8 @@ metadata:
   environment:
 {{ artifact.metadata.environment | to_yaml: 4 }}
 {%- endif -%}
+{%- endcapture -%}
+{{- trailing_metadata | rstrip -}}
 {%- endif %}
 ---
 {%- if artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
@@ -55,5 +67,10 @@ Parse the JSON response. Extract values from `data.arguments`:
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
-{% endif %}
+{%- endif %}
+
+## Host Context
+
+`CURRENT_HOST` is `{{ platform }}` for this prompt. Use it directly for host-specific decisions. Do not infer the host from the runtime environment.
+
 {{ artifact.content | namespace_ref: platform | slash_commands: platform | param_transform: platform | tool_prose: platform }}

@@ -65,7 +65,12 @@ rp1 automatically checks for updates when you start a new session in Claude Code
 - Run `/self-update` to update rp1 when a new version is available
 - Restart Claude Code or OpenCode after updating to use the new version
 
-## Skills (3)
+## Skills (4)
+
+### guide
+Discover rp1 skills, get workflow guidance, and ask questions about rp1 capabilities. Accepts an optional freeform question; omitting it shows a capability overview of all installed skills organized by category.
+
+**Invocation**: `/guide` or `/guide "your question"`
 
 ### maestro (Retired)
 

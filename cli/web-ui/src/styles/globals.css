@@ -826,6 +826,7 @@
 .rp1-notification-toast {
   pointer-events: auto;
   display: flex;
+  align-items: stretch;
   width: 320px;
   border-radius: 4px;
   border: 1px solid hsl(var(--border));
@@ -833,12 +834,21 @@
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.08),
     0 4px 12px rgba(0, 0, 0, 0.04);
-  cursor: pointer;
   overflow: hidden;
-  outline: none;
 }
 
-.rp1-notification-toast:focus-visible {
+.rp1-notification-action {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rp1-notification-action:focus-visible {
   outline: 2px solid hsl(var(--accent));
   outline-offset: 1px;
 }
@@ -874,6 +884,8 @@
 }
 
 .rp1-notification-close {
+  align-self: center;
+  margin-right: 12px;
   flex-shrink: 0;
   display: flex;
   align-items: center;

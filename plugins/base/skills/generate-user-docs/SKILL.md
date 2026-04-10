@@ -3,6 +3,8 @@ name: generate-user-docs
 description: "Synchronizes user-facing documentation with the current knowledge base through validate -> stale gate -> scan -> approval -> process orchestration."
 allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git *), Bash(mkdir *), Read, Write, Glob
 metadata:
+  category: documentation
+  is_workflow: true
   version: 2.1.0
   tags:
     - documentation

@@ -21,6 +21,8 @@ import {
 	createSettingsFiles,
 	injectInstructions,
 } from "../../init/steps/project-setup.js";
+import type { DetectedTool } from "../../init/tool-detector.js";
+import { LATEST_FENCE_VERSION } from "../../lib/fence-version.js";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
 
 // ============================================================================
@@ -65,6 +67,26 @@ async function readFileIfExists(filePath: string): Promise<string | null> {
 	} catch {
 		return null;
 	}
+}
+
+function createDetectedTool(
+	id: "claude-code" | "opencode" | "codex",
+	instructionFile: "CLAUDE.md" | "AGENTS.md",
+): DetectedTool {
+	return {
+		tool: {
+			id,
+			name: id,
+			binary: id,
+			min_version: "1.0.0",
+			instruction_file: instructionFile,
+			install_url: `https://${id}.example.com`,
+			plugin_install_cmd: null,
+			capabilities: [],
+		},
+		version: "1.0.0",
+		meetsMinVersion: true,
+	};
 }
 
 // ============================================================================
@@ -512,8 +534,8 @@ describe("init-install separation", () => {
 			expect(updatedContent).not.toContain("Old instructions.");
 
 			// Should still have fence markers with new content
-			expect(updatedContent).toContain("<!-- rp1:start -->");
-			expect(updatedContent).toContain("<!-- rp1:end -->");
+			expect(updatedContent).toMatch(/<!-- rp1:start(:\S+)? -->/);
+			expect(updatedContent).toMatch(/<!-- rp1:end(:\S+)? -->/);
 		});
 
 		test("fenced content is appended when no markers exist in file", async () => {
@@ -532,8 +554,8 @@ describe("init-install separation", () => {
 			expect(updatedContent).toContain("Existing content only.");
 
 			// Fenced content appended
-			expect(updatedContent).toContain("<!-- rp1:start -->");
-			expect(updatedContent).toContain("<!-- rp1:end -->");
+			expect(updatedContent).toMatch(/<!-- rp1:start(:\S+)? -->/);
+			expect(updatedContent).toMatch(/<!-- rp1:end(:\S+)? -->/);
 		});
 
 		test("instruction file is created with fenced content when it does not exist", async () => {
@@ -545,8 +567,45 @@ describe("init-install separation", () => {
 			// Default (no detected tool) creates CLAUDE.md
 			const content = await readFileIfExists(join(tempDir, "CLAUDE.md"));
 			expect(content).not.toBeNull();
-			expect(content).toContain("<!-- rp1:start -->");
-			expect(content).toContain("<!-- rp1:end -->");
+			expect(content).toContain(`<!-- rp1:start:v${LATEST_FENCE_VERSION} -->`);
+			expect(content).toContain(`<!-- rp1:end:v${LATEST_FENCE_VERSION} -->`);
+		});
+
+		test("codex init creates AGENTS.md with Codex conventions", async () => {
+			const logger = createMockLogger();
+
+			await injectInstructions(
+				tempDir,
+				createDetectedTool("codex", "AGENTS.md"),
+				logger,
+			);
+
+			const content = await readFile(join(tempDir, "AGENTS.md"), "utf-8");
+
+			expect(content).toContain("## Codex agent conventions");
+			expect(content).not.toContain("## rp1 Skill Awareness");
+			expect(content).toContain(`<!-- rp1:start:v${LATEST_FENCE_VERSION} -->`);
+		});
+
+		test("codex refresh updates existing AGENTS.md with the Codex template", async () => {
+			await writeFile(
+				join(tempDir, "AGENTS.md"),
+				"# Existing instructions\n",
+				"utf-8",
+			);
+
+			const logger = createMockLogger();
+			await injectInstructions(
+				tempDir,
+				createDetectedTool("codex", "AGENTS.md"),
+				logger,
+			);
+
+			const content = await readFile(join(tempDir, "AGENTS.md"), "utf-8");
+
+			expect(content).toContain("Existing instructions");
+			expect(content).toContain("## Codex agent conventions");
+			expect(content).not.toContain("## rp1 Skill Awareness");
 		});
 
 		test("refresh replaces only fenced content, not user content between files", async () => {

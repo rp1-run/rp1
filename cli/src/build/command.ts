@@ -30,6 +30,7 @@ import { extractStateMachineMermaid } from "../agent-tools/state-machine/extract
 import { serializeStateMachine } from "../agent-tools/state-machine/serialization.js";
 import { parseAndTransform } from "../agent-tools/state-machine/transform.js";
 import { colorFns } from "../lib/colors.js";
+import { generateCatalog } from "./catalog-generator.js";
 import { validateCodexSkill } from "./codex/validator.js";
 import { type LintDiagnostic, lintArtifact } from "./lint/index.js";
 import {
@@ -42,6 +43,8 @@ import type {
 	BundleAssetEntry,
 	BundlePluginAssets,
 	OpenCodePluginAsset,
+	SkillCategory,
+	SkillMetadata,
 } from "./models.js";
 import { parseAgent, parseSkill } from "./parser.js";
 import type {
@@ -207,9 +210,7 @@ const findProjectRoot = async (startPath: string): Promise<string> => {
 			if (pluginsStat.isDirectory()) {
 				return current;
 			}
-		} catch {
-			// Continue searching
-		}
+		} catch {}
 		current = dirname(current);
 	}
 
@@ -286,9 +287,7 @@ const getSkillDirs = async (skillsDir: string): Promise<string[]> => {
 				try {
 					await stat(skillMd);
 					dirs.push(join(skillsDir, entry.name));
-				} catch {
-					// No SKILL.md, skip
-				}
+				} catch {}
 			}
 		}
 		return dirs.sort();
@@ -312,9 +311,7 @@ const collectAllFiles = async (dir: string, prefix = ""): Promise<string[]> => {
 				files.push(relPath);
 			}
 		}
-	} catch {
-		// Directory doesn't exist
-	}
+	} catch {}
 	return files;
 };
 
@@ -332,9 +329,7 @@ const copySupportingFiles = async (
 		await mkdir(dirname(destPath), { recursive: true });
 		try {
 			await copyFile(srcPath, destPath);
-		} catch {
-			// File might not exist, skip
-		}
+		} catch {}
 	}
 };
 
@@ -440,9 +435,7 @@ const collectOpenCodePluginFiles = async (
 
 	try {
 		await collectFiles(openCodeDir, "");
-	} catch {
-		// Directory doesn't exist or is not readable
-	}
+	} catch {}
 
 	return entries;
 };
@@ -454,6 +447,25 @@ const collectOpenCodePluginFiles = async (
 const getOpenCodePluginName = (pluginName: string): string => {
 	return `rp1-${pluginName}-hooks`;
 };
+
+const LEGACY_OPEN_CODE_SKILL_CATEGORY: Readonly<Record<string, SkillCategory>> =
+	{
+		base: "knowledge",
+		dev: "development",
+		utils: "prompt",
+	};
+
+const ensureOpenCodeDiscoveryMetadata = (
+	pluginName: string,
+	metadata: SkillMetadata | undefined,
+): SkillMetadata => ({
+	...(metadata ?? {}),
+	category:
+		metadata?.category ??
+		LEGACY_OPEN_CODE_SKILL_CATEGORY[pluginName] ??
+		"development",
+	isWorkflow: metadata?.isWorkflow ?? false,
+});
 
 /**
  * Unified build result for all platforms. Platforms that do not produce
@@ -500,7 +512,6 @@ export const buildPlatformPlugin = async (
 
 	const spinner = createSpinner(!jsonOutput && (process.stdout.isTTY ?? false));
 
-	// Build hook context for lifecycle hooks
 	const hookCtx: HookContext = {
 		projectRoot,
 		pluginName,
@@ -515,7 +526,6 @@ export const buildPlatformPlugin = async (
 		jsonOutput,
 	};
 
-	// Initialize platform-specific state via preparePlugin hook
 	let buildState: PlatformBuildState = {};
 	if (definition.hooks?.preparePlugin) {
 		buildState = await definition.hooks.preparePlugin(hookCtx);
@@ -524,9 +534,7 @@ export const buildPlatformPlugin = async (
 	if (!lintOnly) {
 		try {
 			await rm(pluginOutputDir, { recursive: true, force: true });
-		} catch {
-			// Directory might not exist
-		}
+		} catch {}
 
 		await mkdir(join(pluginOutputDir, "agents"), { recursive: true });
 		await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
@@ -537,10 +545,6 @@ export const buildPlatformPlugin = async (
 		const mode = lintOnly ? " (lint)" : "";
 		spinner.start(`Building ${pluginName} plugin${platformLabel}${mode}...`);
 	}
-
-	// -----------------------------------------------------------------------
-	// Build skills
-	// -----------------------------------------------------------------------
 
 	const skillsDir = join(pluginDir, "skills");
 	const skillDirs = await getSkillDirs(skillsDir);
@@ -578,6 +582,11 @@ export const buildPlatformPlugin = async (
 		const processedContent = preprocessResult.right;
 
 		const namespacedSkillDir = `${definition.naming.skillDirPrefix}${ccSkill.name}`;
+		const skillMetadata = withDerivedArgumentHint(ccSkill.metadata);
+		const renderedSkillMetadata =
+			platform === "opencode"
+				? ensureOpenCodeDiscoveryMetadata(pluginName, skillMetadata)
+				: skillMetadata;
 
 		let ctx: Record<string, unknown> = buildTemplateContext(
 			platform,
@@ -590,7 +599,7 @@ export const buildPlatformPlugin = async (
 				description: ccSkill.description,
 				allowedTools: ccSkill.allowedTools,
 				content: processedContent,
-				metadata: withDerivedArgumentHint(ccSkill.metadata),
+				metadata: renderedSkillMetadata,
 				supportingFiles: ccSkill.supportingFiles,
 			},
 			registry,
@@ -704,10 +713,6 @@ export const buildPlatformPlugin = async (
 			});
 		}
 	}
-
-	// -----------------------------------------------------------------------
-	// Build agents
-	// -----------------------------------------------------------------------
 
 	const agentsDir = join(pluginDir, "agents");
 	const agentFiles = await getMarkdownFiles(agentsDir);
@@ -857,10 +862,6 @@ export const buildPlatformPlugin = async (
 		}
 	}
 
-	// -----------------------------------------------------------------------
-	// Post-plugin build hook
-	// -----------------------------------------------------------------------
-
 	if (!lintOnly && definition.hooks?.postPluginBuild) {
 		const hookResult = await definition.hooks.postPluginBuild(
 			pluginOutputDir,
@@ -877,10 +878,6 @@ export const buildPlatformPlugin = async (
 			}
 		}
 	}
-
-	// -----------------------------------------------------------------------
-	// Copy verbatim directories (e.g., .claude-plugin, hooks)
-	// -----------------------------------------------------------------------
 
 	if (!lintOnly && definition.copyDirs) {
 		for (const dir of definition.copyDirs) {
@@ -907,15 +904,9 @@ export const buildPlatformPlugin = async (
 						}
 					}
 				}
-			} catch {
-				// Directory doesn't exist -- skip
-			}
+			} catch {}
 		}
 	}
-
-	// -----------------------------------------------------------------------
-	// OpenCode-specific: copy platform plugin files and collect assets
-	// -----------------------------------------------------------------------
 
 	let hasOpenCodePlugin = false;
 	let openCodePluginAsset: OpenCodePluginAsset | undefined;
@@ -934,10 +925,6 @@ export const buildPlatformPlugin = async (
 			};
 		}
 	}
-
-	// -----------------------------------------------------------------------
-	// Write manifest
-	// -----------------------------------------------------------------------
 
 	if (!lintOnly) {
 		const manifestSkillNames = skillNames;
@@ -971,10 +958,6 @@ export const buildPlatformPlugin = async (
 			);
 		}
 	}
-
-	// -----------------------------------------------------------------------
-	// Summary output
-	// -----------------------------------------------------------------------
 
 	if (!jsonOutput) {
 		const hasErrors = errors.length > 0;
@@ -1039,11 +1022,9 @@ const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
 	const { bold, green, cyan, yellow, boldGreen } = colorFns;
 	console.log(`\n${boldGreen("✓ Build complete!")}\n`);
 
-	// Calculate column widths
 	const pluginCol = 12;
 	const numCol = 10;
 
-	// Header
 	console.log(
 		bold(
 			`${"Plugin".padEnd(pluginCol)}${"Agents".padStart(numCol)}${"Skills".padStart(numCol)}`,
@@ -1051,7 +1032,6 @@ const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
 	);
 	console.log("-".repeat(pluginCol + numCol * 2));
 
-	// Rows
 	for (const summary of summaries) {
 		console.log(
 			cyan(`rp1-${summary.plugin.padEnd(pluginCol - 4)}`) +
@@ -1062,7 +1042,6 @@ const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
 
 	console.log(`\nOutput directory: ${cyan(resolve(outputPath))}`);
 
-	// Show errors if any
 	const allErrors = summaries.flatMap((s) => s.errors);
 	if (allErrors.length > 0) {
 		console.log(`\n${yellow(`⚠ ${allErrors.length} errors occurred:`)}`);
@@ -1110,7 +1089,6 @@ const buildPlatformArtifacts = async (
 		pluginAssets.set(pluginName, result.assets);
 	}
 
-	// Generate bundle manifest for platforms that produce bundle assets
 	if (
 		definition.producesBundleAssets &&
 		!config.lintOnly &&
@@ -1177,7 +1155,6 @@ export const executeBuild = (
 					const ccOutputPath = deriveCCOutputDir(outputPath);
 					const codexOutputPath = deriveCodexOutputDir(outputPath);
 
-					// Resolve platforms to build
 					const platformsToBuild: Array<{
 						platform: BuildPlatform;
 						outputPath: string;
@@ -1203,6 +1180,22 @@ export const executeBuild = (
 					if (!config.jsonOutput) {
 						for (const { platform, outputPath: op } of platformsToBuild) {
 							logger.debug(`${platform} output directory: ${op}`);
+						}
+					}
+
+					// Generate CATALOG.md from skill frontmatter before platform builds
+					// so it is picked up as a supporting file of the guide skill.
+					if (!config.lintOnly) {
+						const catalogResult = await generateCatalog(projectRoot);
+						if (catalogResult.errors.length > 0 && !config.jsonOutput) {
+							for (const err of catalogResult.errors) {
+								logger.warn(`Catalog: ${err}`);
+							}
+						}
+						if (!config.jsonOutput) {
+							logger.debug(
+								`Generated CATALOG.md with ${catalogResult.entries.length} skills`,
+							);
 						}
 					}
 

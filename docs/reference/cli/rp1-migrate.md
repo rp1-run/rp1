@@ -1,6 +1,6 @@
 # rp1 migrate
 
-Migrates an existing rp1 project to the project-local directory model.
+Migrates an existing rp1 project to the project-local directory model and upgrades stale stanza content.
 
 ---
 
@@ -12,13 +12,14 @@ rp1 migrate
 
 ## Description
 
-The `rp1 migrate` command transitions an existing rp1 project to the project-local directory model. It performs five steps, all idempotent:
+The `rp1 migrate` command transitions an existing rp1 project to the project-local directory model and ensures managed stanza content is up to date. It performs six steps, all idempotent:
 
 1. **Creates `.rp1/project_id`** with a new UUID if the file does not already exist.
 2. **Creates `.rp1/work/`** directory if it does not already exist.
 3. **Moves legacy work artifacts** from `~/.rp1/work/<normalized-project-key>` into `.rp1/work/`, merging without overwriting existing files.
 4. **Updates `.gitignore`** to include work directory ignore rules and ensure `.rp1/project_id` is not ignored.
 5. **Backfills `project_id`** in Arcade database records (runs, artifacts, tasks) that match this project's root path.
+6. **Upgrades stale stanza content** in `CLAUDE.md`, `AGENTS.md`, and `.gitignore` to the latest fence version (see [Fence Versioning](fence-versioning.md)).
 
 The command is fully automatic with no interactive prompts. It is safe to run multiple times -- subsequent runs detect that migration has already been completed and report no changes.
 
@@ -54,6 +55,8 @@ Migration complete for /Users/dev/myproject
   Moved 12 file(s) from /Users/dev/.rp1/work/Users-dev-myproject
   Updated .gitignore (added 3 rule(s))
   Backfilled project_id in 5 run(s), 3 artifact(s), 2 task(s)
+  Updated CLAUDE.md stanza (v0.6.0 -> v0.7.1)
+  Updated AGENTS.md stanza (v0.6.0 -> v0.7.1)
 ```
 
 When run on an already-migrated project:
@@ -66,6 +69,7 @@ Migration complete for /Users/dev/myproject
   No legacy work directory found
   .gitignore already up to date
   No database records to backfill
+  Stanza content already up to date
 ```
 
 ## Examples
@@ -93,6 +97,16 @@ git add .rp1/project_id
 git commit -m "chore: add rp1 project identity"
 ```
 
+## Stanza Upgrades
+
+When rp1 releases new stanza content (the managed blocks inside `CLAUDE.md`, `AGENTS.md`, and `.gitignore`), migrate detects outdated fence markers and replaces the fenced content with the latest templates. Content you have written outside the fence markers is never modified.
+
+- **Legacy unversioned markers** (e.g., `<!-- rp1:start -->`) are treated as version `0.0.0` and always upgraded.
+- **Already-current files** are skipped (the command is idempotent).
+- Each upgraded file reports its version transition in the output (e.g., `v0.6.0 -> v0.7.1`).
+
+See [Fence Versioning](fence-versioning.md) for details on the version scheme.
+
 ## Error Handling
 
 | Error | Cause | Resolution |
@@ -103,4 +117,5 @@ git commit -m "chore: add rp1 project identity"
 ## Related
 
 - [`rp1 init`](init.md) - Initialize a new rp1 project (creates `.rp1/project_id` automatically)
+- [Fence Versioning](fence-versioning.md) - How fence version markers work
 - [The .rp1 Directory](../../getting-started/rp1-directory.md) - Directory structure overview

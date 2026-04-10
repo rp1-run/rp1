@@ -2,6 +2,8 @@
 name: fix-mermaid
 description: "Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates syntax, and auto-repairs common errors."
 metadata:
+  category: documentation
+  is_workflow: false
   version: 1.0.0
   tags:
     - documentation

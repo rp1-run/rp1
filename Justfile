@@ -474,11 +474,11 @@ eval-view:
 # Catalogue
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Generate catalog/skills.yaml and catalog/agents.yaml from plugin sources
+# Generate registry-backed discovery views and the transitional agent catalog
 catalog-generate:
     ./scripts/generate-catalog.sh
 
-# Verify catalogue is up-to-date with plugin sources
+# Verify approved discovery views and the transitional agent catalog
 catalog-check:
     ./scripts/check-catalog.sh
 

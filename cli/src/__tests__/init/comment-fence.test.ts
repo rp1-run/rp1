@@ -7,11 +7,13 @@ import { describe, expect, test } from "bun:test";
 import {
 	appendFencedContent,
 	extractFencedContent,
+	extractFenceVersion,
 	findFencedContent,
 	hasFencedContent,
 	replaceFencedContent,
 	validateFencing,
 	wrapWithFence,
+	wrapWithVersionedFence,
 } from "../../init/comment-fence.js";
 
 describe("comment-fence", () => {
@@ -41,6 +43,66 @@ describe("comment-fence", () => {
 			const result = findFencedContent(content);
 
 			expect(result).toBeNull();
+		});
+
+		test("finds versioned markers and extracts version", () => {
+			const content =
+				"before\n<!-- rp1:start:v0.7.1 -->\nmiddle\n<!-- rp1:end:v0.7.1 -->\nafter";
+			const result = findFencedContent(content);
+
+			expect(result).not.toBeNull();
+			expect(result?.version).toBe("0.7.1");
+			expect(result?.start).toBe(7);
+		});
+
+		test("returns version null for legacy markers", () => {
+			const content =
+				"before\n<!-- rp1:start -->\nmiddle\n<!-- rp1:end -->\nafter";
+			const result = findFencedContent(content);
+
+			expect(result).not.toBeNull();
+			expect(result?.version).toBeNull();
+		});
+
+		test("handles prerelease version markers", () => {
+			const content =
+				"<!-- rp1:start:v1.0.0-beta.1 -->\ncontent\n<!-- rp1:end:v1.0.0-beta.1 -->";
+			const result = findFencedContent(content);
+
+			expect(result).not.toBeNull();
+			expect(result?.version).toBe("1.0.0-beta.1");
+		});
+
+		test("treats malformed version as no version (null)", () => {
+			const content =
+				"<!-- rp1:start:vnotaversion -->\ncontent\n<!-- rp1:end:vnotaversion -->";
+			const result = findFencedContent(content);
+
+			expect(result).toBeNull();
+		});
+	});
+
+	describe("extractFenceVersion", () => {
+		test("returns semver string for versioned markers", () => {
+			const content =
+				"<!-- rp1:start:v1.2.3 -->\ncontent\n<!-- rp1:end:v1.2.3 -->";
+			expect(extractFenceVersion(content)).toBe("1.2.3");
+		});
+
+		test("returns null for legacy unversioned markers", () => {
+			const content = "<!-- rp1:start -->\ncontent\n<!-- rp1:end -->";
+			expect(extractFenceVersion(content)).toBeNull();
+		});
+
+		test("returns null when no markers present", () => {
+			const content = "Just plain markdown content.";
+			expect(extractFenceVersion(content)).toBeNull();
+		});
+
+		test("returns version with prerelease suffix", () => {
+			const content =
+				"<!-- rp1:start:v2.0.0-rc.1 -->\ncontent\n<!-- rp1:end:v2.0.0-rc.1 -->";
+			expect(extractFenceVersion(content)).toBe("2.0.0-rc.1");
 		});
 	});
 
@@ -76,6 +138,30 @@ describe("comment-fence", () => {
 			expect(result).toContain("## Footer");
 			expect(result).toContain("replaced");
 		});
+
+		test("replaces with versioned markers when version provided", () => {
+			const original =
+				"before\n<!-- rp1:start -->\nold\n<!-- rp1:end -->\nafter";
+			const result = replaceFencedContent(original, "new content", "0.7.1");
+
+			expect(result).toContain("<!-- rp1:start:v0.7.1 -->");
+			expect(result).toContain("<!-- rp1:end:v0.7.1 -->");
+			expect(result).toContain("new content");
+			expect(result).toContain("before");
+			expect(result).toContain("after");
+		});
+
+		test("preserves user content outside versioned fence on replace", () => {
+			const original =
+				"# My custom header\n\n<!-- rp1:start:v0.6.0 -->\nold managed\n<!-- rp1:end:v0.6.0 -->\n\nMy custom footer";
+			const result = replaceFencedContent(original, "new managed", "0.7.1");
+
+			expect(result).toContain("# My custom header");
+			expect(result).toContain("My custom footer");
+			expect(result).toContain("new managed");
+			expect(result).not.toContain("old managed");
+			expect(result).toContain("<!-- rp1:start:v0.7.1 -->");
+		});
 	});
 
 	describe("appendFencedContent", () => {
@@ -107,6 +193,24 @@ describe("comment-fence", () => {
 
 			expect(result).toBe(
 				"<!-- rp1:start -->\ncontent with spaces\n<!-- rp1:end -->",
+			);
+		});
+
+		test("produces versioned markers when version provided", () => {
+			const result = wrapWithFence("content", "0.7.1");
+
+			expect(result).toBe(
+				"<!-- rp1:start:v0.7.1 -->\ncontent\n<!-- rp1:end:v0.7.1 -->",
+			);
+		});
+	});
+
+	describe("wrapWithVersionedFence", () => {
+		test("produces versioned markers", () => {
+			const result = wrapWithVersionedFence("content", "1.0.0");
+
+			expect(result).toBe(
+				"<!-- rp1:start:v1.0.0 -->\ncontent\n<!-- rp1:end:v1.0.0 -->",
 			);
 		});
 	});
@@ -192,6 +296,21 @@ after`;
 
 			expect(result.valid).toBe(false);
 			expect(result.error).toContain("Multiple");
+		});
+
+		test("returns valid for versioned markers", () => {
+			const content =
+				"<!-- rp1:start:v0.7.1 -->\ncontent\n<!-- rp1:end:v0.7.1 -->";
+			const result = validateFencing(content);
+
+			expect(result.valid).toBe(true);
+		});
+
+		test("returns valid for mixed legacy and versioned end marker", () => {
+			const content = "<!-- rp1:start -->\ncontent\n<!-- rp1:end:v0.7.1 -->";
+			const result = validateFencing(content);
+
+			expect(result.valid).toBe(true);
 		});
 	});
 });

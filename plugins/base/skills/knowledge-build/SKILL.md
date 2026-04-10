@@ -3,6 +3,8 @@ name: knowledge-build
 description: "Orchestrates parallel KB generation using spatial analysis and a map-reduce architecture with incremental and feature-learning modes."
 allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git *), Bash(jq *), Bash(wc *), Bash(mkdir *)
 metadata:
+  category: knowledge
+  is_workflow: true
   version: 2.2.1
   tags:
     - documentation

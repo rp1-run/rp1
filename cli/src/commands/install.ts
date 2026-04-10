@@ -93,21 +93,25 @@ Examples:
 
 export const listCommand = new Command("list")
 	.description("List installed rp1 skills")
+	.option("--json", "Output as JSON array for machine consumption")
 	.addHelpText(
 		"after",
 		`
 Examples:
-  rp1 list                                List all installed commands
+  rp1 list                                List all installed skills
+  rp1 list --json                         Output as JSON array
 `,
 	)
-	.action(async (_options, command) => {
+	.action(async (options, command) => {
 		const logger = command.parent?._logger as Logger;
 		if (!logger) {
 			console.error("Logger not initialized");
 			process.exit(1);
 		}
 
-		const result = await executeList([], logger)();
+		const result = await executeList([], logger, {
+			json: options.json,
+		})();
 
 		if (E.isLeft(result)) {
 			console.error(formatError(result.left, process.stderr.isTTY ?? false));

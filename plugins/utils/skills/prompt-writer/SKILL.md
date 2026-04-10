@@ -1,6 +1,9 @@
 ---
 name: prompt-writer
 description: Write maximally terse agent prompts from scratch. Use when creating new agent specs, command prompts, or instruction sets. Teaches structure-first composition with compression-by-default patterns.
+metadata:
+  category: prompt
+  is_workflow: false
 ---
 
 # Prompt Writer - Terse Prompt Authoring

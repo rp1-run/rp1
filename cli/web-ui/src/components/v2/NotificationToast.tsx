@@ -98,21 +98,10 @@ export function NotificationContainer() {
 	);
 
 	const handleDismiss = useCallback(
-		(e: React.MouseEvent, id: number) => {
-			e.stopPropagation();
+		(id: number) => {
 			removeToast(id);
 		},
 		[removeToast],
-	);
-
-	const handleKeyDown = useCallback(
-		(e: React.KeyboardEvent, toast: Toast) => {
-			if (e.key === "Enter" || e.key === " ") {
-				e.preventDefault();
-				handleClick(toast);
-			}
-		},
-		[handleClick],
 	);
 
 	if (toasts.length === 0) return null;
@@ -128,28 +117,32 @@ export function NotificationContainer() {
 							? `rp1-toast-out ${EXIT_ANIMATION_MS}ms ease-in forwards`
 							: "rp1-toast-in 200ms ease-out",
 					}}
-					onClick={() => handleClick(toast)}
-					onKeyDown={(e) => handleKeyDown(e, toast)}
-					role="button"
-					tabIndex={0}
-					aria-label={
-						toast.route ? `${toast.message}. Click to navigate.` : toast.message
-					}
 				>
 					<div className="rp1-notification-accent" />
-					<div className="rp1-notification-body">
-						<div className="rp1-notification-header">
-							<span className="rp1-notification-title">{toast.message}</span>
-							<button
-								type="button"
-								className="rp1-notification-close"
-								onClick={(e) => handleDismiss(e, toast.id)}
-								aria-label="Dismiss notification"
-							>
-								&times;
-							</button>
+					<button
+						type="button"
+						className="rp1-notification-action"
+						onClick={() => handleClick(toast)}
+						aria-label={
+							toast.route
+								? `${toast.message}. Click to navigate.`
+								: `${toast.message}. Dismiss notification.`
+						}
+					>
+						<div className="rp1-notification-body">
+							<div className="rp1-notification-header">
+								<span className="rp1-notification-title">{toast.message}</span>
+							</div>
 						</div>
-					</div>
+					</button>
+					<button
+						type="button"
+						className="rp1-notification-close"
+						onClick={() => handleDismiss(toast.id)}
+						aria-label="Dismiss notification"
+					>
+						&times;
+					</button>
 				</div>
 			))}
 		</output>

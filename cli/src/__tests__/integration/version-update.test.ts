@@ -424,6 +424,7 @@ describe("integration: version-update", () => {
 				});
 
 				const { stdout, exitCode } = await runCliCommand([
+					"--",
 					"update",
 					"--check",
 					"--format",
@@ -438,22 +439,27 @@ describe("integration: version-update", () => {
 		);
 
 		test(
-			"rp1 check-update --format hook-text exits 1 with empty stdout when no update exists",
+			"rp1 check-update --format hook-text prints current version and exits 0 when no update exists",
 			async () => {
+				const packageJson = JSON.parse(
+					await readFile(join(CLI_ROOT, "package.json"), "utf-8"),
+				) as { version: string };
+
 				await writeTestCache({
-					latestVersion: "0.6.5",
-					releaseUrl: "https://github.com/rp1-run/rp1/releases/tag/v0.6.5",
+					latestVersion: packageJson.version,
+					releaseUrl: `https://github.com/rp1-run/rp1/releases/tag/v${packageJson.version}`,
 					ttlHours: 24,
 				});
 
 				const { stdout, exitCode } = await runCliCommand([
+					"--",
 					"check-update",
 					"--format",
 					"hook-text",
 				]);
 
-				expect(exitCode).toBe(1);
-				expect(stdout).toBe("");
+				expect(exitCode).toBe(0);
+				expect(stdout).toContain("rp1 is running v");
 			},
 			{ timeout: 30000 },
 		);

@@ -35,6 +35,15 @@ const execAsync = promisify(exec);
 
 const COMMAND_TIMEOUT = 30000;
 
+export interface UninstallDeps {
+	readonly isClaudeCodeAvailable: () => Promise<boolean>;
+	readonly uninstallClaudePlugins: (
+		scope: string,
+		dryRun: boolean,
+		logger: Logger,
+	) => Promise<UninstallAction[]>;
+}
+
 /**
  * Check if a file exists.
  */
@@ -258,6 +267,11 @@ async function uninstallClaudePlugins(
 	return actions;
 }
 
+const defaultUninstallDeps: UninstallDeps = {
+	isClaudeCodeAvailable,
+	uninstallClaudePlugins,
+};
+
 /**
  * Execute the full uninstall workflow.
  */
@@ -265,6 +279,7 @@ export function executeUninstall(
 	config: UninstallConfig,
 	logger: Logger,
 	promptOptions: PromptOptions,
+	deps: UninstallDeps = defaultUninstallDeps,
 ): TE.TaskEither<CLIError, UninstallResult> {
 	return pipe(
 		TE.tryCatch(
@@ -300,7 +315,7 @@ export function executeUninstall(
 					if (content && hasShellFencedContent(content)) hasRp1Content = true;
 				}
 
-				const claudeAvailable = await isClaudeCodeAvailable();
+				const claudeAvailable = await deps.isClaudeCodeAvailable();
 
 				if (!hasRp1Dir && !hasRp1Content && !claudeAvailable) {
 					logger.info("No rp1 installation found in this directory.");
@@ -368,7 +383,7 @@ export function executeUninstall(
 
 				// Step 3: Uninstall Claude Code plugins
 				if (claudeAvailable) {
-					const pluginActions = await uninstallClaudePlugins(
+					const pluginActions = await deps.uninstallClaudePlugins(
 						config.scope,
 						config.dryRun,
 						logger,

@@ -545,15 +545,29 @@ export const executeVerify = (
 	);
 };
 
+export interface ListOptions {
+	readonly json?: boolean;
+}
+
 export const executeList = (
 	_args: string[],
 	_logger: Logger,
+	options?: ListOptions,
 ): TE.TaskEither<CLIError, void> => {
-	console.log(bold("\n📋 Installed rp1 Skills\n"));
+	const jsonOutput = options?.json ?? false;
+
+	if (!jsonOutput) {
+		console.log(bold("\n📋 Installed rp1 Skills\n"));
+	}
 
 	return pipe(
 		listInstalledSkills(),
 		TE.map((skills) => {
+			if (jsonOutput) {
+				console.log(JSON.stringify(skills));
+				return;
+			}
+
 			if (skills.length === 0) {
 				console.log(yellow("No rp1 skills found"));
 				return;
@@ -570,7 +584,7 @@ export const executeList = (
 			);
 
 			for (const skill of skills) {
-				const name = skill.name.padEnd(39);
+				const name = skill.user_facing_name.padEnd(39);
 				const desc = skill.description.slice(0, 58).padEnd(58);
 				console.log(`│ ${name} │ ${desc} │`);
 			}

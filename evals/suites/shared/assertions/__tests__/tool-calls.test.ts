@@ -8,6 +8,7 @@ import {
 	assertNoCanonicalToolCall,
 	assertNoGitPushToolCall,
 	assertNoToolCall,
+	assertOrchestratorSpawnedSpeedrunBuilder,
 	assertOutputContains,
 	assertPostBuildPromptOptions,
 	assertToolCall,
@@ -486,6 +487,26 @@ describe("getOrchestratorToolCalls", () => {
 	});
 });
 
+describe("assertOrchestratorSpawnedSpeedrunBuilder", () => {
+	test("passes when speedrun-builder is spawned by the orchestrator", () => {
+		const ctx = makeStockContext([
+			tc("Task", { agent: "speedrun-builder" }, undefined, null),
+			tc("Task", { agent: "other-agent" }, undefined, "parent-1"),
+		]);
+		const result = assertOrchestratorSpawnedSpeedrunBuilder("", ctx);
+		expect(result.pass).toBe(true);
+	});
+
+	test("fails when speedrun-builder only appears in sub-agent calls", () => {
+		const ctx = makeStockContext([
+			tc("Task", { agent: "speedrun-builder" }, undefined, "parent-1"),
+		]);
+		const result = assertOrchestratorSpawnedSpeedrunBuilder("", ctx);
+		expect(result.pass).toBe(false);
+		expect(result.reason).toContain("No orchestrator-level");
+	});
+});
+
 describe("getSubAgentToolCalls", () => {
 	test("returns calls with string parentToolUseId", () => {
 		const ctx = makeStockContext([
@@ -611,8 +632,7 @@ describe("assertPostBuildPromptOptions", () => {
 
 	test("falls back to text output when no AskUserQuestion", () => {
 		const ctx = makeStockContext([tc("Bash", { command: "ls" })]);
-		const output =
-			"Options:\n- Commit & move on\n- Refine\n- New task\n- Exit";
+		const output = "Options:\n- Commit & move on\n- Refine\n- New task\n- Exit";
 		const result = assertPostBuildPromptOptions(output, ctx);
 		expect(result.pass).toBe(true);
 		expect(result.reason).toContain("text output");

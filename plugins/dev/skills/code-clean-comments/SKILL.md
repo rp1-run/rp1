@@ -2,6 +2,8 @@
 name: code-clean-comments
 description: "Systematically removes unnecessary comments from code using git-scoped file detection."
 metadata:
+  category: quality
+  is_workflow: false
   version: 3.0.0
   tags:
     - code

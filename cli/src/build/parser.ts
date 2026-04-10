@@ -17,6 +17,7 @@ import type {
 	ClaudeCodeCommand,
 	ClaudeCodeSkill,
 	EnvironmentDefinition,
+	SkillCategory,
 	SkillMetadata,
 } from "./models.js";
 
@@ -157,7 +158,6 @@ export const parseAgent = (
 				);
 			}
 
-			// Handle tools as list or comma-separated string
 			let tools: string[] = [];
 			const toolsRaw = metadata.tools;
 			if (Array.isArray(toolsRaw)) {
@@ -166,14 +166,12 @@ export const parseAgent = (
 				tools = toolsRaw.split(",").map((t) => t.trim());
 			}
 
-			// Parse and validate arguments if present
 			const argsResult = parseArgumentDefinitions(metadata.arguments, filePath);
 			if (E.isLeft(argsResult)) {
 				return TE.left(argsResult.left);
 			}
 			const parsedArgs = argsResult.right;
 
-			// Parse and validate environment if present
 			const envResult = parseEnvironmentDefinitions(
 				metadata.environment,
 				filePath,
@@ -227,7 +225,6 @@ const parseArgumentDefinition = (
 
 	const obj = raw as Record<string, unknown>;
 
-	// Required fields
 	if (typeof obj.name !== "string" || obj.name.length === 0) {
 		return E.left(
 			parseError(
@@ -276,7 +273,6 @@ const parseArgumentDefinition = (
 		);
 	}
 
-	// Build the validated definition
 	const def: ArgumentDefinition = {
 		name: obj.name,
 		type: obj.type as ArgumentType,
@@ -414,19 +410,40 @@ const extractSkillMetadata = (
 
 	const meta = raw as Record<string, unknown>;
 
-	// Parse and validate arguments if present
 	const argsResult = parseArgumentDefinitions(meta.arguments, filePath);
 	if (E.isLeft(argsResult)) {
 		return argsResult;
 	}
 	const parsedArgs = argsResult.right;
 
-	// Parse and validate environment if present
 	const envResult = parseEnvironmentDefinitions(meta.environment, filePath);
 	if (E.isLeft(envResult)) {
 		return envResult;
 	}
 	const parsedEnv = envResult.right;
+
+	const VALID_CATEGORIES: readonly SkillCategory[] = [
+		"development",
+		"investigation",
+		"quality",
+		"review",
+		"documentation",
+		"knowledge",
+		"strategy",
+		"planning",
+		"prompt",
+	];
+
+	const categoryRaw = meta.category;
+	const category: SkillCategory | undefined =
+		typeof categoryRaw === "string" &&
+		VALID_CATEGORIES.includes(categoryRaw as SkillCategory)
+			? (categoryRaw as SkillCategory)
+			: undefined;
+
+	const isWorkflowRaw = meta.is_workflow;
+	const isWorkflow: boolean | undefined =
+		typeof isWorkflowRaw === "boolean" ? isWorkflowRaw : undefined;
 
 	const result: SkillMetadata = {
 		version: typeof meta.version === "string" ? meta.version : undefined,
@@ -443,9 +460,10 @@ const extractSkillMetadata = (
 			: undefined,
 		...(parsedArgs.length > 0 && { arguments: parsedArgs }),
 		...(parsedEnv.length > 0 && { environment: parsedEnv }),
+		...(category !== undefined && { category }),
+		...(isWorkflow !== undefined && { isWorkflow }),
 	};
 
-	// Return undefined if all fields are undefined (no meaningful metadata)
 	const hasAnyField = Object.values(result).some((v) => v !== undefined);
 	return E.right(hasAnyField ? result : undefined);
 };

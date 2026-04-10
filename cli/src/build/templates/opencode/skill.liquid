@@ -7,16 +7,26 @@ allowed-tools:
 {%- for tool in tools %}
   - {{ tool }}
 {%- endfor %}
+{%- endif %}
+metadata:
+  rp1:
+    plugin: {{ pluginName }}
+    name: {{ artifact.name }}
+{%- if artifact.metadata.category %}
+  category: {{ artifact.metadata.category }}
+{%- endif -%}
+{%- if artifact.metadata.isWorkflow != nil %}
+  is_workflow: {{ artifact.metadata.isWorkflow }}
 {%- endif -%}
 {%- if artifact.metadata and artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
-metadata:
   arguments:
 {{ artifact.metadata.arguments | to_yaml: 4 }}
 {%- if artifact.metadata.environment and artifact.metadata.environment.size > 0 %}
   environment:
 {{ artifact.metadata.environment | to_yaml: 4 }}
 {%- endif -%}
-{%- endif %}
+{%- endif -%}
+
 ---
 {%- if artifact.metadata and artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
 
@@ -39,5 +49,10 @@ Parse the JSON response. Extract values from `data.arguments`:
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
-{% endif %}
+{%- endif %}
+
+## Host Context
+
+`CURRENT_HOST` is `{{ platform }}` for this prompt. Use it directly for host-specific decisions. Do not infer the host from the runtime environment.
+
 {{ artifact.content | namespace_ref: platform | slash_commands: platform }}

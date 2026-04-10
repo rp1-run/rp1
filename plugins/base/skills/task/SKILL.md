@@ -3,6 +3,8 @@ name: task
 description: "Discover and manage queued tasks for agent execution"
 allowed-tools: Bash(rp1 *)
 metadata:
+  category: development
+  is_workflow: false
   version: 1.0.0
   tags:
     - core

@@ -121,6 +121,13 @@ describe("migrate", () => {
 				legacyWork: { legacyPath: "/old/path", filesMoved: 3, filesSkipped: 1 },
 				gitignore: { updated: true, rulesAdded: ["!.rp1/", ".rp1/*"] },
 				dbBackfill: { runsUpdated: 2, artifactsUpdated: 1, tasksUpdated: 0 },
+				stanzaUpgrade: {
+					filesUpgraded: [],
+					filesAlreadyCurrent: [],
+					filesScanned: 0,
+					filesNotFound: [],
+					errors: [],
+				},
 			});
 
 			expect(summary).toContain("Created .rp1/project_id");

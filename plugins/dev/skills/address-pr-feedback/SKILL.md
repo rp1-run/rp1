@@ -3,6 +3,8 @@ name: address-pr-feedback
 description: "Unified PR feedback workflow - collect, triage, and fix review comments in a single command."
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
+  category: review
+  is_workflow: false
   version: 2.0.0
   tags:
     - pr

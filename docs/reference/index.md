@@ -42,6 +42,7 @@ maintenance workflows.
 | [`strategize`](base/strategize.md) | Holistic strategic analysis with trade-off recommendations |
 | [`analyse-security`](base/analyse-security.md) | Comprehensive security validation and vulnerability scanning |
 | [`fix-mermaid`](base/fix-mermaid.md) | Validate and repair Mermaid diagrams in markdown docs |
+| [`guide`](base/guide.md) | Discover skills, get workflow guidance, and ask about rp1 capabilities |
 | [`self-update`](base/self-update.md) | Update rp1 and refresh installed plugins |
 
 [:octicons-arrow-right-24: Base Plugin Reference](base/index.md)

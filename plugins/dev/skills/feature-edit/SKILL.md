@@ -2,6 +2,8 @@
 name: feature-edit
 description: "Incorporates mid-stream changes into feature documentation with validation and propagation."
 metadata:
+  category: development
+  is_workflow: false
   version: 1.0.0
   tags:
     - feature

@@ -2,6 +2,8 @@
 name: project-birds-eye-view
 description: "Generates comprehensive project overview documents with diagrams for new developers using internal knowledge base and codebase context."
 metadata:
+  category: documentation
+  is_workflow: false
   version: 2.0.0
   tags:
     - documentation

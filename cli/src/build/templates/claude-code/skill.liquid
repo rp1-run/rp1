@@ -4,8 +4,17 @@ description: {{ artifact.description | escape_yaml }}
 {%- if artifact.allowedTools %}
 allowed-tools: {{ artifact.allowedTools | allowed_tools: platform }}
 {%- endif %}
-{%- if artifact.metadata %}
 metadata:
+  rp1:
+    plugin: {{ pluginName }}
+    name: {{ artifact.name }}
+{%- if artifact.metadata %}
+{%- if artifact.metadata.category %}
+  category: {{ artifact.metadata.category }}
+{%- endif %}
+{%- if artifact.metadata.isWorkflow != nil %}
+  is_workflow: {{ artifact.metadata.isWorkflow }}
+{%- endif %}
 {%- if artifact.metadata.version %}
   version: {{ artifact.metadata.version }}
 {%- endif %}
@@ -56,5 +65,9 @@ If `data.unresolved` is non-empty, warn the user about missing required argument
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
 {%- endif %}
+
+## Host Context
+
+`CURRENT_HOST` is `{{ platform }}` for this prompt. Use it directly for host-specific decisions. Do not infer the host from the runtime environment.
 
 {{ artifact.content | namespace_ref: platform | slash_commands: platform }}

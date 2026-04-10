@@ -2,6 +2,8 @@
 name: code-check
 description: "Fast code hygiene validation (lints, formatters, tests, coverage) for quick development loop feedback."
 metadata:
+  category: quality
+  is_workflow: false
   version: 2.0.0
   tags:
     - testing

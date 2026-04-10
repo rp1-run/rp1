@@ -7,6 +7,82 @@ import * as E from "fp-ts/lib/Either.js";
 import { parse as parseYaml } from "yaml";
 import type { CLIError } from "../../shared/errors.js";
 import { validationError } from "../../shared/errors.js";
+import type { SkillCategory } from "./models.js";
+
+const VALID_SKILL_CATEGORIES: readonly SkillCategory[] = [
+	"development",
+	"investigation",
+	"quality",
+	"review",
+	"documentation",
+	"knowledge",
+	"strategy",
+	"planning",
+	"prompt",
+];
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
+const hasOwn = (value: Record<string, unknown>, key: string): boolean =>
+	Object.hasOwn(value, key);
+
+const validateSkillDiscoveryMetadata = (
+	metadata: Record<string, unknown>,
+	file: string,
+): E.Either<CLIError, void> => {
+	const skillMetadata = isRecord(metadata.metadata) ? metadata.metadata : null;
+	if (!skillMetadata) {
+		return E.left(
+			validationError(
+				file,
+				"L2",
+				"Missing required fields: metadata.category, metadata.is_workflow",
+			),
+		);
+	}
+
+	const missingFields = [
+		!hasOwn(skillMetadata, "category") ? "metadata.category" : null,
+		!hasOwn(skillMetadata, "is_workflow") ? "metadata.is_workflow" : null,
+	].filter((field): field is string => field !== null);
+
+	if (missingFields.length > 0) {
+		return E.left(
+			validationError(
+				file,
+				"L2",
+				`Missing required fields: ${missingFields.join(", ")}`,
+			),
+		);
+	}
+
+	const category = skillMetadata.category;
+	if (
+		typeof category !== "string" ||
+		!VALID_SKILL_CATEGORIES.includes(category as SkillCategory)
+	) {
+		return E.left(
+			validationError(
+				file,
+				"L2",
+				`Field 'metadata.category' must be one of: ${VALID_SKILL_CATEGORIES.join(", ")}`,
+			),
+		);
+	}
+
+	if (typeof skillMetadata.is_workflow !== "boolean") {
+		return E.left(
+			validationError(
+				file,
+				"L2",
+				"Field 'metadata.is_workflow' must be boolean",
+			),
+		);
+	}
+
+	return E.right(undefined);
+};
 
 /**
  * Extract frontmatter from content.
@@ -248,6 +324,14 @@ export const validateSkillSchema = (
 				`Description too short (must be >= 20 chars): '${description}' (length: ${description.length})`,
 			),
 		);
+	}
+
+	const discoveryMetadataResult = validateSkillDiscoveryMetadata(
+		metadata,
+		file,
+	);
+	if (E.isLeft(discoveryMetadataResult)) {
+		return discoveryMetadataResult;
 	}
 
 	return E.right(undefined);

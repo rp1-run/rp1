@@ -3,6 +3,8 @@ name: pr-visual
 description: "Transform pull request diffs into Mermaid diagrams for visual code review and change understanding."
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
+  category: review
+  is_workflow: false
   version: 3.1.0
   tags:
     - pr
