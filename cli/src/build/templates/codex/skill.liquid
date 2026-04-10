@@ -9,6 +9,12 @@ metadata:
     plugin: {{ pluginName }}
     name: {{ artifact.name }}
 {%- if artifact.metadata %}
+{%- if artifact.metadata.category %}
+  category: {{ artifact.metadata.category }}
+{%- endif %}
+{%- if artifact.metadata.isWorkflow != nil %}
+  is_workflow: {{ artifact.metadata.isWorkflow }}
+{%- endif %}
 {%- if artifact.metadata.version %}
   version: {{ artifact.metadata.version }}
 {%- endif %}
