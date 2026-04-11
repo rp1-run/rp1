@@ -239,12 +239,13 @@ RUN_ID={RUN_ID}
 If `status` = "FAILURE":
 
 1. Extract `issues` and `summary` from reviewer response
-2. Re-spawn task-builder with feedback:
+2. Re-spawn task-builder with feedback. If `GIT_COMMIT=true`, set `REWRITE_COMMITS=true` so the builder can amend the prior commit into proper atomic format:
 
 {% dispatch_agent "rp1-dev:task-builder" %}
 QUICK_BUILD_PATH={workRoot}/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
+REWRITE_COMMITS=true
 PREVIOUS_FEEDBACK={reviewer summary and issues}
 WORKFLOW=build-fast
 RUN_ID={RUN_ID}

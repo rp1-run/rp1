@@ -28,6 +28,11 @@ arguments:
     required: false
     default: "None"
     description: "Review feedback from prior attempt"
+  - name: REWRITE_COMMITS
+    type: boolean
+    required: false
+    default: false
+    description: "When true, amend prior commit to rewrite into atomic format (set by orchestrator on retry)"
   - name: WORKFLOW
     type: string
     required: false
@@ -65,6 +70,10 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 <previous_feedback>
 {{PREVIOUS_FEEDBACK from prompt}}
 </previous_feedback>
+
+<rewrite_commits>
+{{REWRITE_COMMITS from prompt}}
+</rewrite_commits>
 
 **Mode Detection**:
 
@@ -225,13 +234,23 @@ This is the default. Most runs skip this section entirely.
 
 **Only when `GIT_COMMIT` is exactly `true`**, create an atomic commit:
 
+**If `REWRITE_COMMITS` is `true`** (retry with commit rewrite requested):
+
+1. `git add <source code files you created or modified>`
+2. Amend the prior commit to produce a clean atomic commit:
+   - Quick-build: `git commit --amend -m "feat(quick-build): implement {TASK_IDS} - {brief}"`
+   - Feature: `git commit --amend -m "feat({FEATURE_ID}): implement {TASK_ID} - {brief}"`
+3. Record SHA: `COMMIT_SHA=$(git rev-parse HEAD)`
+
+**Otherwise** (first attempt, normal flow):
+
 1. `git add <source code files you created or modified>`
 2. Commit w/ conventional format:
    - Quick-build: `git commit -m "feat(quick-build): implement {TASK_IDS} - {brief}"`
    - Feature: `git commit -m "feat({FEATURE_ID}): implement {TASK_ID} - {brief}"`
 3. Record SHA: `COMMIT_SHA=$(git rev-parse HEAD)`
 
-Commit rules: only source code files you modified, no `.rp1/` work files, no unrelated files, no amend, one commit per task.
+Commit rules: only source code files you modified, no `.rp1/` work files, no unrelated files, one commit per task. Amend is only permitted when `REWRITE_COMMITS=true`.
 
 ## 4. Task File Update
 
