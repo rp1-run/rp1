@@ -335,4 +335,36 @@ esac
 		);
 		expect(gitLog).toContain(`-C ${REPO_ROOT} commit -m`);
 	});
+
+	test("stores promptfoo state in repo-local work dir for evals and host view", async () => {
+		const evalRunLocal = await runCommand("just", ["--show", "eval-run-local"], {
+			cwd: REPO_ROOT,
+			env: {
+				...process.env,
+				NO_COLOR: "1",
+			},
+		});
+		const evalView = await runCommand("just", ["--show", "eval-view"], {
+			cwd: REPO_ROOT,
+			env: {
+				...process.env,
+				NO_COLOR: "1",
+			},
+		});
+
+		expect(evalRunLocal.exitCode).toBe(0);
+		expect(evalView.exitCode).toBe(0);
+		expect(evalRunLocal.stdout).toContain(
+			'promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/work/promptfoo}"',
+		);
+		expect(evalRunLocal.stdout).toContain(
+			'export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"',
+		);
+		expect(evalView.stdout).toContain(
+			'promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/work/promptfoo}"',
+		);
+		expect(evalView.stdout).toContain(
+			'export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"',
+		);
+	});
 });

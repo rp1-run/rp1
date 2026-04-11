@@ -445,6 +445,10 @@ eval-run-local *args:
     repo_root="$(pwd)"
     export PATH="${repo_root}/bin:$PATH"
     evals_dir="${repo_root}/evals"
+    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/work/promptfoo}"
+
+    mkdir -p "$promptfoo_config_dir"
+    export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"
 
     # Parse flags
     suite=""
@@ -538,6 +542,13 @@ eval-status:
 
 # View eval results in browser
 eval-view:
+    #!/usr/bin/env bash
+    set -e
+    repo_root="$(pwd)"
+    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/work/promptfoo}"
+
+    mkdir -p "$promptfoo_config_dir"
+    export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"
     cd evals && bunx promptfoo view -n
 
 # ─────────────────────────────────────────────────────────────────────────────
