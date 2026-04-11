@@ -1,7 +1,9 @@
 # Keyboard Shortcuts
 
-Arcade supports keyboard navigation for efficient workflow management.
-Vim-style keys operate in parallel with arrow keys, requiring no mode toggle.
+Arcade supports keyboard navigation for efficient workflow management,
+including shell-level shortcuts for opening and closing the notifications
+drawer. Vim-style keys operate in parallel with arrow keys, requiring no mode
+toggle.
 
 For an overview of Arcade surfaces, see [Arcade](index.md).
 
@@ -28,12 +30,29 @@ The palette includes navigation items (Home, Runs, Projects) and actions (Toggle
 | Shortcut | Action |
 |----------|--------|
 | Cmd+K / Ctrl+K | Open command palette |
+| Cmd+B / Ctrl+B | Open or close the notifications drawer |
+| Cmd+\\ / Ctrl+\\ | Open or close the notifications drawer (alternate) |
 | ? | Toggle shortcut help overlay |
 | / | Focus search input on current view |
 | Escape | Dismiss topmost overlay or blur focus |
-| Cmd+\\ / Ctrl+\\ | Toggle sidebar collapse |
 
-Modifier-key shortcuts (Cmd+K, Cmd+\\) fire regardless of whether a text input is focused. Single-key shortcuts (?, /, g) are suppressed when a text input is focused.
+Modifier-key shortcuts (Cmd+K, Cmd+B, Cmd+\\) fire regardless of whether a
+text input is focused. Single-key shortcuts (?, /, g) are suppressed when a
+text input is focused.
+
+---
+
+## Notifications Drawer
+
+Press **Cmd+B** (macOS) or **Ctrl+B** (other platforms) to open the
+notifications drawer from the current page. **Cmd+\\** / **Ctrl+\\** provides
+the same behavior as an alternate shortcut.
+
+- The drawer opens on top of the current page instead of navigating away.
+- The same shortcut closes the drawer if it is already open.
+- **Escape** also closes the drawer.
+- On desktop, the drawer matches the bell trigger in the top-right breadcrumb
+  bar. On narrow layouts, it matches the bell action in the bottom navigation.
 
 ---
 
@@ -43,11 +62,12 @@ Press **g** followed by a second key within 500ms to jump to a section.
 
 | Chord | Destination |
 |-------|-------------|
-| g then h | Home (/) |
-| g then r | Runs (/runs) |
+| g then h | Activity (/) |
+| g then r | Activity (alternate alias) |
 | g then p | Projects (/projects) |
 
-Chords always navigate to the index route. Waiting longer than 500ms cancels the chord.
+Each chord jumps directly to its mapped section. Waiting longer than 500ms
+cancels the chord.
 
 ---
 
@@ -106,7 +126,8 @@ Vim keys and single-key shortcuts are automatically disabled when focus is in a 
 - Textareas
 - Contenteditable elements
 
-Arrow keys continue to work normally in text fields. Modifier-key shortcuts (Cmd+K, Cmd+\\) always fire regardless of focus.
+Arrow keys continue to work normally in text fields. Modifier-key shortcuts
+(Cmd+K, Cmd+B, Cmd+\\) always fire regardless of focus.
 
 ### Virtualized Lists
 
@@ -120,20 +141,23 @@ Keyboard navigation automatically scrolls virtualized lists to keep the selected
 
 ## Context-Specific Shortcuts
 
-### Run Detail View
-
-| Key | Action |
-|-----|--------|
-| Escape | Return to runs list |
-| `h` or Arrow Left | Return to runs list |
-
 ### Artifact Viewer
 
 | Shortcut | Action |
 |----------|--------|
-| Cmd+\\ / Ctrl+\\ | Toggle navigation sidebar |
-| Cmd+Enter / Ctrl+Enter | Submit annotation (when input focused) |
-| Escape | Close popover |
+| `e` | Toggle table of contents |
+| `c` | Copy artifact content |
+| `[` | Previous artifact |
+| `]` | Next artifact |
+| `h` or Arrow Left | Return to run detail |
+
+### File Browser
+
+| Shortcut | Action |
+|----------|--------|
+| `e` | Toggle table of contents |
+| `c` | Copy file content |
+| `h` or Arrow Left | Return to project view |
 
 ---
 

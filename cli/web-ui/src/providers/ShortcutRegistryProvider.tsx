@@ -45,14 +45,14 @@ const GLOBAL_SHORTCUTS: ShortcutDefinition[] = [
 	},
 	{
 		key: "Cmd+B",
-		label: "Toggle Sidebar",
-		description: "Show or hide the sidebar",
+		label: "Notifications",
+		description: "Show or hide the notifications drawer",
 		action: () => {},
 	},
 	{
 		key: "Cmd+\\",
-		label: "Toggle Sidebar",
-		description: "Show or hide the sidebar (alternate)",
+		label: "Notifications",
+		description: "Show or hide the notifications drawer (alternate)",
 		action: () => {},
 	},
 	{

@@ -3,8 +3,9 @@ import type { NavigateFunction } from "react-router-dom";
 import { isTextInputElement } from "@/lib/keyboard";
 
 export interface UseGlobalShortcutsOptions {
+	activeOverlay: "none" | "command-palette" | "notifications";
 	onOpenCommandPalette: () => void;
-	onCloseCommandPalette: () => void;
+	onCloseOverlay: () => void;
 	onToggleShortcutHelp: () => void;
 	onToggleSidebar: () => void;
 	onFocusSearch: () => void;
@@ -21,8 +22,9 @@ const CHORD_TARGETS: Record<string, string> = {
 };
 
 export function useGlobalShortcuts({
+	activeOverlay,
 	onOpenCommandPalette,
-	onCloseCommandPalette,
+	onCloseOverlay,
 	onToggleShortcutHelp,
 	onToggleSidebar,
 	onFocusSearch,
@@ -47,18 +49,10 @@ export function useGlobalShortcuts({
 
 			if (isMod && e.key === "k") {
 				e.preventDefault();
-				if (isOverlayOpen) {
-					onCloseCommandPalette();
+				if (activeOverlay === "command-palette") {
+					onCloseOverlay();
 				} else {
 					onOpenCommandPalette();
-				}
-				return;
-			}
-
-			if (isOverlayOpen) {
-				if (e.key === "Escape") {
-					e.preventDefault();
-					onCloseCommandPalette();
 				}
 				return;
 			}
@@ -66,6 +60,14 @@ export function useGlobalShortcuts({
 			if (isMod && (e.key === "\\" || e.key === "b")) {
 				e.preventDefault();
 				onToggleSidebar();
+				return;
+			}
+
+			if (isOverlayOpen) {
+				if (e.key === "Escape") {
+					e.preventDefault();
+					onCloseOverlay();
+				}
 				return;
 			}
 
@@ -121,9 +123,10 @@ export function useGlobalShortcuts({
 			}
 		};
 	}, [
+		activeOverlay,
 		isOverlayOpen,
 		onOpenCommandPalette,
-		onCloseCommandPalette,
+		onCloseOverlay,
 		onToggleShortcutHelp,
 		onToggleSidebar,
 		onFocusSearch,

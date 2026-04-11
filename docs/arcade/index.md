@@ -1,7 +1,8 @@
 # Arcade
 
-Arcade is rp1's browser UI for monitoring runs, opening artifacts, and working
-through feedback without losing the surrounding workflow context.
+Arcade is rp1's browser UI for monitoring runs, checking notifications,
+opening artifacts, and working through feedback without losing the surrounding
+workflow context.
 
 ![Arcade annotations view showing comments attached to an artifact with surrounding workflow context](../assets/screens/arcade/annotations.png)
 
@@ -21,9 +22,10 @@ your browser.
 
 ## Main Surfaces
 
-### Home dashboard
+### Activity dashboard
 
-The home dashboard shows what needs attention across your projects.
+The activity dashboard keeps run monitoring separate from persistent
+notifications so the main page stays easy to scan.
 
 Typical sections:
 
@@ -31,6 +33,21 @@ Typical sections:
 - **Needs review** - completed work that needs a decision
 - **Failed** - workflows that need intervention
 - **Running** - active workflows still progressing
+
+Persistent notifications no longer appear as standalone items on this page.
+Open the notifications drawer from the shell when you need approvals, failures,
+or other notification records.
+
+### Notifications drawer
+
+The notifications drawer gives you a dedicated inbox without forcing a page
+change.
+
+- On desktop, open it from the bell trigger in the top-right breadcrumb bar.
+- On narrow layouts, use the matching bell action in the bottom navigation.
+- The drawer stays on top of the current page, groups items by urgency, lets
+  you follow linked runs or projects, and lets you dismiss notifications in
+  place.
 
 ### Runs list
 

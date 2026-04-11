@@ -5,11 +5,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { CommandPalette } from "@/components/v2/CommandPalette";
 import { IconRail } from "@/components/v2/IconRail";
 import { MobileTabBar } from "@/components/v2/MobileTabBar";
+import { NotificationsSidebar } from "@/components/v2/NotificationsSidebar";
 import { NotificationContainer } from "@/components/v2/NotificationToast";
+import { NotificationTrigger } from "@/components/v2/NotificationTrigger";
 import { ShortcutHelpOverlay } from "@/components/v2/ShortcutHelpOverlay";
 import { TerminalBreadcrumb } from "@/components/v2/TerminalBreadcrumb";
 import { BreadcrumbProvider } from "@/hooks/useBreadcrumbContext";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
+import { useNotifications } from "@/hooks/useNotifications";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import {
 	pageTransition,
@@ -33,12 +36,16 @@ function isFullHeightRoute(pathname: string): boolean {
 	return false;
 }
 
+type ActiveOverlay = "none" | "command-palette" | "notifications";
+
 export function AppLayout() {
-	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+	const [activeOverlay, setActiveOverlay] = useState<ActiveOverlay>("none");
 	const shortcutHelpOpen = false;
 	const location = useLocation();
 	const navigate = useNavigate();
 	const isFullHeight = isFullHeightRoute(location.pathname);
+	const { notifications, summary, isLoading, error, dismissNotification } =
+		useNotifications();
 
 	const animationKey =
 		location.pathname.match(/^\/runs\/[^/]+/)?.[0] ??
@@ -48,14 +55,14 @@ export function AppLayout() {
 	const reducedMotion = usePrefersReducedMotion();
 	const variants = reducedMotion ? pageVariantsReduced : pageVariants;
 	const transition = reducedMotion ? pageTransitionReduced : pageTransition;
-	const isOverlayOpen = commandPaletteOpen || shortcutHelpOpen;
+	const isOverlayOpen = activeOverlay !== "none" || shortcutHelpOpen;
 
 	const handleOpenCommandPalette = useCallback(() => {
-		setCommandPaletteOpen(true);
+		setActiveOverlay("command-palette");
 	}, []);
 
-	const handleCloseCommandPalette = useCallback(() => {
-		setCommandPaletteOpen(false);
+	const handleCloseActiveOverlay = useCallback(() => {
+		setActiveOverlay("none");
 	}, []);
 
 	const handleToggleShortcutHelp = useCallback(() => {}, []);
@@ -64,13 +71,18 @@ export function AppLayout() {
 		window.dispatchEvent(new CustomEvent("rp1:focus-search"));
 	}, []);
 
-	const handleToggleSidebar = useCallback(() => {}, []);
+	const handleToggleNotifications = useCallback(() => {
+		setActiveOverlay((current) =>
+			current === "notifications" ? "none" : "notifications",
+		);
+	}, []);
 
 	useGlobalShortcuts({
+		activeOverlay,
 		onOpenCommandPalette: handleOpenCommandPalette,
-		onCloseCommandPalette: handleCloseCommandPalette,
+		onCloseOverlay: handleCloseActiveOverlay,
 		onToggleShortcutHelp: handleToggleShortcutHelp,
-		onToggleSidebar: handleToggleSidebar,
+		onToggleSidebar: handleToggleNotifications,
 		onFocusSearch: handleFocusSearch,
 		isOverlayOpen,
 		navigate,
@@ -83,7 +95,15 @@ export function AppLayout() {
 					<IconRail className="hidden md:flex" />
 
 					<div className="flex flex-1 flex-col overflow-hidden">
-						<TerminalBreadcrumb />
+						<TerminalBreadcrumb
+							action={
+								<NotificationTrigger
+									summary={summary}
+									open={activeOverlay === "notifications"}
+									onClick={handleToggleNotifications}
+								/>
+							}
+						/>
 						{isFullHeight ? (
 							<main className="flex-1 overflow-hidden">
 								<AnimatePresence mode="wait">
@@ -124,11 +144,35 @@ export function AppLayout() {
 					<MobileTabBar
 						className="fixed inset-x-0 bottom-0 md:hidden"
 						onOpenCommandPalette={handleOpenCommandPalette}
+						notificationAction={
+							<NotificationTrigger
+								summary={summary}
+								open={activeOverlay === "notifications"}
+								onClick={handleToggleNotifications}
+								className="h-11 w-11"
+							/>
+						}
 					/>
 
 					<CommandPalette
-						open={commandPaletteOpen}
-						onOpenChange={setCommandPaletteOpen}
+						open={activeOverlay === "command-palette"}
+						onOpenChange={(open) => {
+							setActiveOverlay((current) => {
+								if (open) {
+									return "command-palette";
+								}
+
+								return current === "command-palette" ? "none" : current;
+							});
+						}}
+					/>
+					<NotificationsSidebar
+						open={activeOverlay === "notifications"}
+						onClose={handleCloseActiveOverlay}
+						notifications={notifications}
+						isLoading={isLoading}
+						error={error}
+						onDismissNotification={dismissNotification}
 					/>
 				</div>
 				<ShortcutHelpOverlay />

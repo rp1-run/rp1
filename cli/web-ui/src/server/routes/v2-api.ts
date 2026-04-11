@@ -670,6 +670,135 @@ function runRecordToListRun(
 	};
 }
 
+type NotificationAttentionLevel = "action_required" | "attention" | "info";
+
+interface NotificationListItem {
+	readonly id: number;
+	readonly message: string;
+	readonly sourceType: NotificationRecord["sourceType"];
+	readonly sourceId: string | null;
+	readonly route: string | null;
+	readonly projectId: string | null;
+	readonly createdAt: string;
+	readonly harness: string | null;
+	readonly runCommand: string | null;
+	readonly runName: string | null;
+	readonly projectName: string | null;
+	readonly attentionLevel: NotificationAttentionLevel;
+}
+
+interface NotificationsSummary {
+	readonly totalCount: number;
+	readonly actionRequiredCount: number;
+	readonly attentionCount: number;
+	readonly informationalCount: number;
+}
+
+interface NotificationsListResponse {
+	readonly notifications: readonly NotificationListItem[];
+	readonly total: number;
+	readonly summary: NotificationsSummary;
+}
+
+function deriveNotificationAttentionLevel(
+	notification: Pick<NotificationRecord, "sourceType" | "message">,
+): NotificationAttentionLevel {
+	if (notification.sourceType === "agent") {
+		return "action_required";
+	}
+
+	if (
+		notification.sourceType === "run" &&
+		notification.message.endsWith(" failed")
+	) {
+		return "attention";
+	}
+
+	return "info";
+}
+
+function resolveNotificationProjectName(
+	projectLookup: ReturnType<typeof buildProjectLookup>,
+	projectId: string | null,
+): string | null {
+	if (!projectId) {
+		return null;
+	}
+
+	return projectLookup.byId.get(projectId)?.name ?? null;
+}
+
+function notificationRecordToListItem(
+	db: Database,
+	projectLookup: ReturnType<typeof buildProjectLookup>,
+	notification: NotificationRecord,
+): NotificationListItem {
+	let harness: string | null = null;
+	let runCommand: string | null = null;
+	let runName: string | null = null;
+	let projectName: string | null = resolveNotificationProjectName(
+		projectLookup,
+		notification.projectId,
+	);
+
+	if (notification.sourceId) {
+		const run = getRunById(db, notification.sourceId);
+		if (run) {
+			harness = run.harness;
+			runCommand = `/${run.flow}`;
+			runName = run.name ?? null;
+			const project =
+				findProjectByIdentity(projectLookup, run) ??
+				fallbackProjectFromRun(run);
+			projectName = project.name;
+		}
+	}
+
+	return {
+		id: notification.id,
+		message: notification.message,
+		sourceType: notification.sourceType,
+		sourceId: notification.sourceId,
+		route: notification.route,
+		projectId: notification.projectId,
+		createdAt: notification.createdAt,
+		harness,
+		runCommand,
+		runName,
+		projectName,
+		attentionLevel: deriveNotificationAttentionLevel(notification),
+	};
+}
+
+function summarizeNotifications(
+	notifications: readonly Pick<NotificationRecord, "sourceType" | "message">[],
+): NotificationsSummary {
+	let actionRequiredCount = 0;
+	let attentionCount = 0;
+	let informationalCount = 0;
+
+	for (const notification of notifications) {
+		switch (deriveNotificationAttentionLevel(notification)) {
+			case "action_required":
+				actionRequiredCount += 1;
+				break;
+			case "attention":
+				attentionCount += 1;
+				break;
+			case "info":
+				informationalCount += 1;
+				break;
+		}
+	}
+
+	return {
+		totalCount: notifications.length,
+		actionRequiredCount,
+		attentionCount,
+		informationalCount,
+	};
+}
+
 /**
  * Build a fully-populated Run object for the detail view.
  * Derives steps from status_change events, includes artifacts with docId,
@@ -1563,18 +1692,27 @@ export async function handleV2NotificationsListRequest(
 
 		const db = await getDb();
 		const result = listNotifications(db, { projectId, limit, offset });
+		const projects = await getAllProjects();
+		const projectLookup = buildProjectLookup(projects);
 
-		const notifications = result.notifications.map((n) => ({
-			id: n.id,
-			message: n.message,
-			sourceType: n.sourceType,
-			sourceId: n.sourceId,
-			route: n.route,
-			projectId: n.projectId,
-			createdAt: n.createdAt,
-		}));
+		const summaryRecords =
+			offset > 0 || result.notifications.length < result.total
+				? listNotifications(db, {
+						projectId,
+						limit: Math.max(result.total, 1),
+						offset: 0,
+					}).notifications
+				: result.notifications;
 
-		return jsonResponse({ notifications, total: result.total });
+		const response: NotificationsListResponse = {
+			notifications: result.notifications.map((notification) =>
+				notificationRecordToListItem(db, projectLookup, notification),
+			),
+			total: result.total,
+			summary: summarizeNotifications(summaryRecords),
+		};
+
+		return jsonResponse(response);
 	} catch (error) {
 		return errorResponse(`Failed to fetch notifications: ${String(error)}`);
 	}
@@ -1655,9 +1793,8 @@ export async function handleV2NotificationNotifyRequest(
 }
 
 /**
- * GET /api/v2/feed - unified activity feed (runs + notifications, chronologically interleaved).
- * Queries both tables, merges by timestamp, and applies pagination to the combined result.
- * When a status filter is active, notifications are still included alongside filtered runs.
+ * GET /api/v2/feed - run activity feed only.
+ * Returns runs ordered by latest activity time with filtering and pagination.
  */
 export async function handleV2FeedRequest(req: Request): Promise<Response> {
 	try {
@@ -1725,69 +1862,6 @@ export async function handleV2FeedRequest(req: Request): Promise<Response> {
 			});
 		}
 
-		const notifProjectId = dbProjectIdFilter ?? undefined;
-		const notifResult = listNotifications(db, {
-			projectId: notifProjectId,
-			limit: 200,
-			offset: 0,
-		});
-
-		let notifItems: Array<{
-			type: "notification";
-			id: number;
-			timestamp: string;
-			notification: Omit<NotificationRecord, "dismissed"> & {
-				harness: string | null;
-				runCommand: string | null;
-				runName: string | null;
-				projectName: string | null;
-			};
-		}> = notifResult.notifications.map((n) => {
-			let harness: string | null = null;
-			let runCommand: string | null = null;
-			let runName: string | null = null;
-			let projectName: string | null = null;
-
-			if (n.sourceId) {
-				const run = getRunById(db, n.sourceId);
-				if (run) {
-					harness = run.harness;
-					runCommand = `/${run.flow}`;
-					runName = run.name ?? null;
-					const project =
-						findProjectByIdentity(projectLookup, run) ??
-						fallbackProjectFromRun(run);
-					projectName = project.name;
-				}
-			} else if (n.projectId) {
-				for (const [, project] of projectLookup.byId) {
-					if (project.id === n.projectId) {
-						projectName = project.name;
-						break;
-					}
-				}
-			}
-
-			return {
-				type: "notification" as const,
-				id: n.id,
-				timestamp: n.createdAt,
-				notification: {
-					id: n.id,
-					message: n.message,
-					sourceType: n.sourceType,
-					sourceId: n.sourceId,
-					route: n.route,
-					projectId: n.projectId,
-					createdAt: n.createdAt,
-					harness,
-					runCommand,
-					runName,
-					projectName,
-				},
-			};
-		});
-
 		if (dateRange !== "all") {
 			const now = Date.now();
 			const ranges: Record<string, number> = {
@@ -1800,22 +1874,16 @@ export async function handleV2FeedRequest(req: Request): Promise<Response> {
 				runItems = runItems.filter(
 					(item) => now - new Date(item.timestamp).getTime() <= range,
 				);
-				notifItems = notifItems.filter(
-					(item) => now - new Date(item.timestamp).getTime() <= range,
-				);
 			}
 		}
 
-		type FeedItem = (typeof runItems)[number] | (typeof notifItems)[number];
-
-		const allItems: FeedItem[] = [...runItems, ...notifItems];
-		allItems.sort(
+		runItems.sort(
 			(a, b) =>
 				new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
 		);
 
-		const total = allItems.length;
-		const paged = allItems.slice(offset, offset + limit);
+		const total = runItems.length;
+		const paged = runItems.slice(offset, offset + limit);
 
 		return jsonResponse({ items: paged, total });
 	} catch (error) {

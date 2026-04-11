@@ -24,6 +24,11 @@ export function Drawer({
 	const drawerRef = useRef<HTMLDivElement>(null);
 	const previousActiveElement = useRef<HTMLElement | null>(null);
 	const titleId = useId();
+	const transform = open
+		? "translateX(0)"
+		: side === "left"
+			? "translateX(-100%)"
+			: "translateX(100%)";
 
 	// Handle escape key
 	useEffect(() => {
@@ -111,15 +116,11 @@ export function Drawer({
 				aria-labelledby={title ? titleId : undefined}
 				aria-label={title ? undefined : "Drawer"}
 				onKeyDown={handleKeyDown}
+				style={{ transform }}
 				className={cn(
 					"fixed z-50 flex flex-col bg-background shadow-lg transition-transform duration-200 ease-in-out",
 					side === "left" && "inset-y-0 left-0 w-80 max-w-[85vw]",
 					side === "right" && "inset-y-0 right-0 w-80 max-w-[85vw]",
-					open
-						? "translate-x-0"
-						: side === "left"
-							? "-translate-x-full"
-							: "translate-x-full",
 					className,
 				)}
 			>

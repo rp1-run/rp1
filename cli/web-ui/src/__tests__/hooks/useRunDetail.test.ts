@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { Run, RunEvent } from "@/types/runs";
 import type { EventNotificationMessage } from "@/types/websocket";
 
@@ -9,18 +9,25 @@ let eventListeners: EventCallback[] = [];
 let mockWsStatus = "connected";
 let runResponse: Run;
 let fetchMock: ReturnType<typeof mock>;
+let useRunDetailImportVersion = 0;
 
-mock.module("@/providers/WebSocketProvider", () => ({
-	useWebSocket: () => ({
-		onEventNotification: (cb: EventCallback) => {
-			eventListeners.push(cb);
-			return () => {
-				eventListeners = eventListeners.filter((l) => l !== cb);
-			};
-		},
-		status: mockWsStatus,
-	}),
-}));
+async function loadUseRunDetail() {
+	mock.module("@/providers/WebSocketProvider", () => ({
+		useWebSocket: () => ({
+			onEventNotification: (cb: EventCallback) => {
+				eventListeners.push(cb);
+				return () => {
+					eventListeners = eventListeners.filter((l) => l !== cb);
+				};
+			},
+			status: mockWsStatus,
+		}),
+	}));
+
+	return import(
+		`../../hooks/useRunDetail.ts?use-run-detail-test=${++useRunDetailImportVersion}`
+	);
+}
 
 function emitEvent(msg: EventNotificationMessage) {
 	for (const listener of eventListeners) {
@@ -59,6 +66,7 @@ const baseRun: Run = {
 };
 
 beforeEach(() => {
+	mock.restore();
 	eventListeners = [];
 	mockWsStatus = "connected";
 	runResponse = { ...baseRun };
@@ -76,9 +84,15 @@ beforeEach(() => {
 	globalThis.fetch = fetchMock as unknown as typeof fetch;
 });
 
+afterEach(() => {
+	cleanup();
+	eventListeners = [];
+	mock.restore();
+});
+
 describe("useRunDetail", () => {
 	test("waiting_for_user event sets status to waiting and appends event", async () => {
-		const { useRunDetail } = await import("../../hooks/useRunDetail");
+		const { useRunDetail } = await loadUseRunDetail();
 		const { result } = renderHook(() => useRunDetail("run-1"));
 
 		await waitFor(() => {
@@ -113,7 +127,7 @@ describe("useRunDetail", () => {
 	});
 
 	test("btw_update event appends event without changing status", async () => {
-		const { useRunDetail } = await import("../../hooks/useRunDetail");
+		const { useRunDetail } = await loadUseRunDetail();
 		const { result } = renderHook(() => useRunDetail("run-1"));
 
 		await waitFor(() => {
@@ -146,7 +160,7 @@ describe("useRunDetail", () => {
 	});
 
 	test("subflow_registered event triggers refetch without inline handling", async () => {
-		const { useRunDetail } = await import("../../hooks/useRunDetail");
+		const { useRunDetail } = await loadUseRunDetail();
 		const { result } = renderHook(() => useRunDetail("run-1"));
 
 		await waitFor(() => {
@@ -174,7 +188,7 @@ describe("useRunDetail", () => {
 	});
 
 	test("annotation_updated event triggers refetch without inline handling", async () => {
-		const { useRunDetail } = await import("../../hooks/useRunDetail");
+		const { useRunDetail } = await loadUseRunDetail();
 		const { result } = renderHook(() => useRunDetail("run-1"));
 
 		await waitFor(() => {
@@ -202,7 +216,7 @@ describe("useRunDetail", () => {
 	});
 
 	test("ignores websocket events for a different run in the same project and feature", async () => {
-		const { useRunDetail } = await import("../../hooks/useRunDetail");
+		const { useRunDetail } = await loadUseRunDetail();
 		const { result } = renderHook(() => useRunDetail("run-1"));
 
 		await waitFor(() => {
@@ -243,7 +257,7 @@ describe("useRunDetail", () => {
 			],
 		};
 
-		const { useRunDetail } = await import("../../hooks/useRunDetail");
+		const { useRunDetail } = await loadUseRunDetail();
 		const { result } = renderHook(() => useRunDetail("run-1"));
 
 		await waitFor(() => {
