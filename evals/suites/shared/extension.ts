@@ -85,11 +85,9 @@ function resetWorkspace(workspaceDir: string, remoteDir: string): void {
 
 	mkdirSync(workspaceDir, { recursive: true });
 
-	// Copy fixture project if it exists, otherwise create minimal structure
 	try {
 		copyDirSync(FIXTURE_DIR, workspaceDir);
 	} catch {
-		// Fallback: create minimal bun project structure
 		mkdirSync(`${workspaceDir}/.rp1/context`, { recursive: true });
 		mkdirSync(`${workspaceDir}/src`, { recursive: true });
 		writeFileSync(`${workspaceDir}/README.md`, "# Test Project\n");
@@ -178,7 +176,6 @@ function resetWorkspace(workspaceDir: string, remoteDir: string): void {
 		stdio: "pipe",
 	});
 
-	// Push to local remote to establish tracking
 	execSync("git push -u origin main", {
 		cwd: workspaceDir,
 		stdio: "pipe",
@@ -289,7 +286,6 @@ export async function extensionHook(
 		context.test.options = context.test.options ?? {};
 		context.test.options.working_dir = workspaceDir;
 
-		// Inject paths into vars for assertion use
 		context.test.vars.EVAL_BASE_DIR = baseDir;
 		context.test.vars.WORKSPACE_DIR = workspaceDir;
 		context.test.vars.REMOTE_DIR = remoteDir;
