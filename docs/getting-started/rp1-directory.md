@@ -50,6 +50,8 @@ This file is:
 
 rp1 discovers your project by walking up the directory tree from the current working directory, looking for `.rp1/project_id`. This means you can run rp1 commands from any subdirectory within your project.
 
+rp1 does not auto-discover your home directory as a project root. If you want rp1 in a specific project, run `rp1 init` from that project directory rather than relying on a home-level `.rp1/` marker.
+
 If `.rp1/project_id` is not found but `.rp1/` exists (pre-migration project), rp1 still functions but logs a warning recommending `rp1 migrate`.
 
 For git worktrees, rp1 resolves back to the main worktree's `.rp1/` directory so all worktrees share the same project identity, knowledge base, and work artifacts.

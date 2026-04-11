@@ -16,7 +16,7 @@ import {
 	VALID_EVENT_TYPES,
 	VALID_STATUSES,
 } from "../../../shared/events.js";
-import { type ResolvedProjectPath, resolveProjectPath } from "../git.js";
+import type { ResolvedProjectPath } from "../git.js";
 import { resolveRp1Root } from "../rp1-root-dir/resolver.js";
 import type { EmitInput } from "./models.js";
 
@@ -293,10 +293,9 @@ export const validatePayloadShape = (
  * Resolve the project path for an emit event.
  *
  * When --project is explicitly provided, validates and resolves it via git
- * worktree normalization. When omitted, uses the same resolution chain as
- * `rp1 agent-tools rp1-root-dir`: project-root discovery → git common-dir → cwd.
- * This ensures emit records are attributed to the correct project regardless
- * of worktree context.
+ * worktree normalization. When omitted, requires the current directory to
+ * resolve to a real rp1 project with `.rp1/project_id`, matching
+ * `rp1 agent-tools rp1-root-dir`.
  */
 const validateProjectPath = (
 	project: string | undefined,
@@ -307,21 +306,23 @@ const validateProjectPath = (
 				usageError(`Project path must be absolute. Received: ${project}`),
 			);
 		}
-		return resolveProjectPath(project);
+		return pipe(
+			resolveRp1Root(project, { requireProjectId: true }),
+			TE.map(
+				(result): ResolvedProjectPath => ({
+					projectPath: result.projectRoot,
+					worktreePath: result.isWorktree ? project : undefined,
+				}),
+			),
+		);
 	}
 
 	return pipe(
-		resolveRp1Root(),
+		resolveRp1Root(process.cwd(), { requireProjectId: true }),
 		TE.map(
 			(result): ResolvedProjectPath => ({
 				projectPath: result.projectRoot,
 				worktreePath: result.isWorktree ? process.cwd() : undefined,
-			}),
-		),
-		TE.orElse(() =>
-			TE.right<CLIError, ResolvedProjectPath>({
-				projectPath: process.cwd(),
-				worktreePath: undefined,
 			}),
 		),
 	);

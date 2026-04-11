@@ -11,6 +11,8 @@
  * L011: Implies references non-existent argument
  * L012: Circular implies chain
  * L013: Hand-written Resolve Arguments section alongside arguments (skill only)
+ * L014: Parameterized skill body manually calls rp1-root-dir instead of using
+ *       the generated Resolve Arguments directory values
  */
 
 import { validateImpliesChains } from "../../arguments.js";
@@ -19,6 +21,8 @@ import type { LintDiagnostic } from "../index.js";
 
 const PARAMETERS_HEADING_RE = /^#{1,3}\s+(?:0\.\s+)?Parameters\s*$/m;
 const RESOLVE_ARGS_HEADING_RE = /^#{1,3}\s+(?:0\.\s+)?Resolve\s+Arguments\s*$/m;
+const RP1_ROOT_DIR_RE =
+	/\brp1(?:\s+agent-tools)?\s+rp1-root-dir\b|\brp1-root-dir\b/m;
 
 /**
  * Validate argument definitions for enum/implies issues (L010-L012).
@@ -123,6 +127,32 @@ function lintResolveArgsHeading(
 }
 
 /**
+ * Check parameterized skill bodies for manual rp1-root-dir calls (L014).
+ * Parameterized skills already receive canonical directories from the
+ * generated Resolve Arguments section.
+ */
+function lintManualDirectoryResolution(
+	body: string,
+	hasArguments: boolean,
+	file: string,
+): LintDiagnostic[] {
+	if (!hasArguments) return [];
+	if (!RP1_ROOT_DIR_RE.test(body)) return [];
+
+	return [
+		{
+			rule: "L014",
+			severity: "error",
+			message:
+				"parameterized skill manually re-resolves directories via 'rp1-root-dir'. Use the generated Resolve Arguments directory values instead.",
+			file,
+			suggestion:
+				"Remove the 'rp1-root-dir' call and use the generated `projectRoot`, `kbRoot`, and `workRoot` values from the Resolve Arguments section.",
+		},
+	];
+}
+
+/**
  * Run source-level argument validation rules (L007-L013) on a parsed skill.
  *
  * @param metadata - Parsed SkillMetadata (may be undefined for skills without metadata)
@@ -166,6 +196,7 @@ export function lintSkillArguments(
 
 	diagnostics.push(...lintParametersHeading(body, hasArguments, file));
 	diagnostics.push(...lintResolveArgsHeading(body, hasArguments, file));
+	diagnostics.push(...lintManualDirectoryResolution(body, hasArguments, file));
 
 	if (hasArguments && metadata?.arguments) {
 		diagnostics.push(...lintArgumentDefinitions(metadata.arguments, file));

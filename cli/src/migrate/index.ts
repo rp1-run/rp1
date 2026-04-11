@@ -58,7 +58,7 @@ export const executeMigrate = async (
 
 	const gitignore = updateGitignore(projectRoot);
 
-	const dbBackfill = backfillProjectId(projectRoot, projectId);
+	const dbBackfill = await backfillProjectId(projectRoot, projectId);
 
 	const stanzaUpgrade = upgradeStanzas(projectRoot);
 
@@ -117,11 +117,17 @@ export const formatMigrateSummary = (result: MigrateResult): string => {
 	const totalDbUpdated =
 		result.dbBackfill.runsUpdated +
 		result.dbBackfill.artifactsUpdated +
-		result.dbBackfill.tasksUpdated;
+		result.dbBackfill.tasksUpdated +
+		result.dbBackfill.notificationsUpdated;
 	if (totalDbUpdated > 0) {
 		lines.push(
-			`  Backfilled project_id in ${result.dbBackfill.runsUpdated} run(s), ${result.dbBackfill.artifactsUpdated} artifact(s), ${result.dbBackfill.tasksUpdated} task(s)`,
+			`  Repaired Arcade metadata in ${result.dbBackfill.runsUpdated} run(s), ${result.dbBackfill.artifactsUpdated} artifact(s), ${result.dbBackfill.tasksUpdated} task(s), ${result.dbBackfill.notificationsUpdated} notification(s)`,
 		);
+		if (result.dbBackfill.artifactFilesMoved > 0) {
+			lines.push(
+				`  Moved ${result.dbBackfill.artifactFilesMoved} misplaced artifact file(s) into .rp1/`,
+			);
+		}
 	} else {
 		lines.push("  No database records to backfill");
 	}

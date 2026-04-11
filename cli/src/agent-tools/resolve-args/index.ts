@@ -1,7 +1,7 @@
 /**
  * resolve-args tool entry point.
- * Resolves structured arguments for skills and agents by merging
- * user input with settings files and schema defaults.
+ * Resolves structured arguments plus canonical project directories for skills
+ * and agents by merging user input with settings files and schema defaults.
  */
 
 import * as E from "fp-ts/lib/Either.js";
@@ -95,7 +95,7 @@ export const execute = (
 registerTool({
 	name: TOOL_NAME,
 	description:
-		"Resolve structured arguments for skills and agents from schema, settings, and user input",
+		"Resolve structured arguments and canonical project directories for skills and agents",
 	execute,
 });
 

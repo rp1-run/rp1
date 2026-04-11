@@ -12,8 +12,9 @@ Migrates an existing rp1 project to the project-local directory model:
   2. Creates .rp1/work/ directory if missing
   3. Moves legacy work artifacts from ~/.rp1/work/<key> into .rp1/work/
   4. Updates .gitignore with work ignore and project_id un-ignore rules
-  5. Backfills project_id in Arcade database records
-  6. Upgrades stale stanza content in CLAUDE.md, AGENTS.md, .gitignore
+  5. Repairs Arcade run/artifact/task/notification project identity metadata
+  6. Moves misplaced project-local artifacts into the canonical .rp1 directory when possible
+  7. Upgrades stale stanza content in CLAUDE.md, AGENTS.md, .gitignore
 
 The command is idempotent: running it multiple times produces no changes.
 

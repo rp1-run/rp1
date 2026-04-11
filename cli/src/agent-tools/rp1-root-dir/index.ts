@@ -31,7 +31,7 @@ export const execute = (
 	_options: ToolOptions,
 ): TE.TaskEither<CLIError, ToolResult<Rp1RootResult>> =>
 	pipe(
-		resolveRp1Root(),
+		resolveRp1Root(process.cwd(), { requireProjectId: true }),
 		TE.map((data) => successResult(TOOL_NAME, data)),
 	);
 

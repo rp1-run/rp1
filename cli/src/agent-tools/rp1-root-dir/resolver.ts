@@ -6,12 +6,21 @@ import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
 import type { CLIError } from "../../../shared/errors.js";
 import type { Rp1RootResult } from "./models.js";
 
+export interface Rp1RootResolutionOptions {
+	readonly requireProjectId?: boolean;
+	readonly allowHomeProjectRoot?: boolean;
+}
+
 export const resolveRp1Root = (
 	cwd: string = process.cwd(),
+	options: Rp1RootResolutionOptions = {},
 ): TE.TaskEither<CLIError, Rp1RootResult> =>
 	TE.fromEither(
 		pipe(
-			resolveDirectorySet(cwd),
+			resolveDirectorySet(cwd, {
+				requireProjectId: options.requireProjectId,
+				allowHomeProjectRoot: options.allowHomeProjectRoot,
+			}),
 			E.map(
 				(directories: ResolvedDirectorySet): Rp1RootResult => ({
 					projectRoot: directories.projectRoot,

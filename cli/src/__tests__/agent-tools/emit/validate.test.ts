@@ -4,21 +4,41 @@
  * and per-type payload shape validation.
  */
 
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { VALID_EVENT_TYPES } from "../../../../shared/events.js";
 import {
 	validateEmitOptions,
 	validatePayloadShape,
 } from "../../../agent-tools/emit/validate.js";
 import {
+	createInitialCommit,
+	createTestWorktree,
 	expectLeft,
 	expectRight,
+	expectTaskLeft,
 	expectTaskRight,
 	getErrorMessage,
+	initTestRepo,
 	withEnvOverride,
 } from "../../helpers/index.js";
 
 describe("emit validation", () => {
+	let tempDir: string;
+	let originalCwd: string;
+
+	beforeEach(async () => {
+		tempDir = await mkdtemp(join(tmpdir(), "emit-validate-test-"));
+		originalCwd = process.cwd();
+	});
+
+	afterEach(async () => {
+		process.chdir(originalCwd);
+		await rm(tempDir, { recursive: true, force: true });
+	});
+
 	describe("validatePayloadShape", () => {
 		describe("status_change", () => {
 			test("accepts valid status_change payload", () => {
@@ -284,6 +304,95 @@ describe("emit validation", () => {
 			// not necessarily cwd if cwd is a subdirectory
 			expect(result.projectPath).toBeTruthy();
 			expect(typeof result.projectPath).toBe("string");
+		});
+
+		test("fails with rp1 init guidance when --project is omitted outside an rp1 project", async () => {
+			const nonProjectDir = join(tempDir, "scratch");
+			await mkdir(nonProjectDir, { recursive: true });
+			process.chdir(nonProjectDir);
+
+			const error = await expectTaskLeft(
+				validateEmitOptions({
+					type: "status_change",
+					runId: "test-run-missing-project",
+					workflow: "build",
+					step: "plan",
+					data: '{"status": "running"}',
+				}),
+			);
+
+			expect(error._tag).toBe("NotFoundError");
+			if (error._tag !== "NotFoundError") return;
+
+			expect(error.suggestion).toContain("rp1 init");
+		});
+
+		test("fails with rp1 migrate guidance when --project is omitted inside a legacy project", async () => {
+			const legacyProjectRoot = join(tempDir, "legacy-project");
+			const nestedDir = join(legacyProjectRoot, "packages", "app");
+			await mkdir(join(legacyProjectRoot, ".rp1"), { recursive: true });
+			await mkdir(nestedDir, { recursive: true });
+			process.chdir(nestedDir);
+
+			const error = await expectTaskLeft(
+				validateEmitOptions({
+					type: "status_change",
+					runId: "test-run-legacy-project",
+					workflow: "build",
+					step: "plan",
+					data: '{"status": "running"}',
+				}),
+			);
+
+			expect(error._tag).toBe("NotFoundError");
+			if (error._tag !== "NotFoundError") return;
+
+			expect(error.suggestion).toContain("rp1 migrate");
+			expect(error.suggestion).toContain(legacyProjectRoot);
+		});
+
+		test("resolves the main repo root when --project is omitted from a worktree", async () => {
+			const mainRepoRoot = join(tempDir, "main-repo");
+			const worktreePath = join(tempDir, "linked-worktree");
+			await mkdir(join(mainRepoRoot, ".rp1"), { recursive: true });
+			await writeFile(join(mainRepoRoot, ".rp1", "project_id"), "project-123");
+			await initTestRepo(mainRepoRoot);
+			await createInitialCommit(mainRepoRoot);
+			await createTestWorktree(mainRepoRoot, worktreePath, "emit-test-branch");
+			const canonicalMainRepoRoot = await realpath(mainRepoRoot).catch(
+				() => mainRepoRoot,
+			);
+			process.chdir(worktreePath);
+
+			const result = await expectTaskRight(
+				validateEmitOptions({
+					type: "status_change",
+					runId: "test-run-worktree",
+					workflow: "build",
+					step: "plan",
+					data: '{"status": "running"}',
+				}),
+			);
+
+			expect(result.projectPath).toBe(canonicalMainRepoRoot);
+		});
+
+		test("fails when --project points to a non-rp1 directory", async () => {
+			const nonProjectDir = join(tempDir, "not-an-rp1-project");
+			await mkdir(nonProjectDir, { recursive: true });
+
+			const error = await expectTaskLeft(
+				validateEmitOptions({
+					type: "status_change",
+					runId: "test-run-non-rp1",
+					workflow: "build",
+					step: "plan",
+					data: '{"status": "running"}',
+					project: nonProjectDir,
+				}),
+			);
+
+			expect(error._tag).toBe("NotFoundError");
 		});
 
 		test("explicit --project takes precedence over RP1_ROOT env var", async () => {

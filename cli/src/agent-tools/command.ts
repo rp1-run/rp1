@@ -247,7 +247,9 @@ Description:
 Resolution order:
   1. Walk up from current directory to find .rp1/project_id
   2. Git worktree detection via git-common-dir (maps to main repo)
-  3. Fall back to .rp1/ directory without project_id (with warning)
+  3. If a legacy .rp1/ directory exists without project_id, fail with a
+     suggestion to run 'rp1 migrate'
+  4. If no rp1 project exists, fail with a suggestion to run 'rp1 init'
 
 Output:
   JSON with resolved directories and detection metadata:
@@ -307,7 +309,7 @@ agentToolsCommand
 	.option("-a, --args <args>", "Raw argument string from invocation")
 	.option(
 		"-p, --project-root <path>",
-		"Project root directory for settings lookup",
+		"Path used to anchor directory resolution and settings lookup",
 	)
 	.addHelpText(
 		"after",
@@ -332,11 +334,11 @@ Input (CLI flags or JSON via stdin/file):
   - name: Skill/agent namespace (e.g., "rp1-dev:build")
   - schema_path: Direct path to SKILL.md or agent .md file
   - raw_args: Raw argument string from invocation
-  - project_root: Project root directory (for settings lookup)
+  - project_root: Path used to anchor directory resolution and settings lookup
 
 Output:
-  JSON ToolResult with resolved arguments, an environment placeholder object,
-  and an unresolved list.
+  JSON ToolResult with resolved arguments, resolved directories, an
+  environment placeholder object, and an unresolved list.
 
 Examples:
   rp1 agent-tools resolve-args --name rp1-dev:build --args "my-feature --afk"
@@ -504,7 +506,10 @@ const emitCommand = agentToolsCommand
 	)
 	.option("--unit <unit>", "Task/unit identifier")
 	.option("--data <json>", "JSON payload for the event")
-	.option("--project <path>", "Project path (defaults to cwd)")
+	.option(
+		"--project <path>",
+		"Absolute project path override (otherwise auto-resolved from the active rp1 project)",
+	)
 	.option("--name <name>", "Human-readable name for the run (set-once)")
 	.option(
 		"--harness <name>",
@@ -540,7 +545,12 @@ Arguments:
   --step <step>        Workflow step name (required for status_change, subflow_registered)
   --unit <unit>        Task/unit identifier (optional)
   --data <json>        JSON payload (optional, content depends on event type)
-  --project <path>     Absolute path to project root (optional, defaults to cwd)
+  --project <path>     Absolute path to project root (optional override)
+
+Project Resolution:
+  If --project is omitted, emit resolves the active rp1 project from the
+  current directory. If no project exists, run 'rp1 init'. If a legacy
+  .rp1/ directory exists without project_id, run 'rp1 migrate'.
 
 Output:
   JSON ToolResult with:
