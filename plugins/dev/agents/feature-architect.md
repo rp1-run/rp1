@@ -412,7 +412,7 @@ Do NOT include `artifacts.hypotheses` when `flagged_hypotheses` is empty or when
 }
 ```
 
-**CRITICAL**: This agent does NOT spawn hypothesis-tester. It creates `hypotheses.md` (§9.1) but the caller (build.md) handles hypothesis validation dispatch based on `artifacts.hypotheses` presence.
+**CRITICAL**: This agent does NOT spawn hypothesis-tester. It creates `hypotheses.md` (§9.1) but the caller (build.md) handles hypothesis validation dispatch based on whether `hypotheses.md` exists on disk after this agent completes.
 
 ## §13 Anti-Loop
 
