@@ -210,11 +210,13 @@ rp1 agent-tools emit \
 FEATURE_ID={FEATURE_ID}, AFK={AFK}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, UPDATE_MODE={design.md exists}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-If `flagged_hypotheses` non-empty:
+After feature-architect completes, check whether `.rp1/work/features/{FEATURE_ID}/hypotheses.md` exists on disk. If it exists:
 
 {% dispatch_agent "rp1-dev:hypothesis-tester" %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
+
+If the file does not exist, skip hypothesis validation regardless of `flagged_hypotheses` or `artifacts.hypotheses` in the response.
 
 {% dispatch_agent "rp1-dev:feature-tasker" %}
 FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE={UPDATE_MODE}, WORKFLOW=build, RUN_ID={RUN_ID}

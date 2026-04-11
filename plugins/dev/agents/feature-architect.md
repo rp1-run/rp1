@@ -282,6 +282,51 @@ rp1 agent-tools emit \
 
 If either command fails, log a warning (`[feature-architect] Failed to register artifact {path}: {error}`) and continue without blocking.
 
+## §9.1 Hypothesis Document Creation
+
+After artifact registration, if `flagged_hypotheses[]` is non-empty, persist the hypotheses to disk. When `flagged_hypotheses[]` is empty, skip this section entirely -- do NOT create `hypotheses.md`.
+
+1. Write `.rp1/work/features/{FEATURE_ID}/hypotheses.md` using the format below.
+2. Register the artifact (skip if WORKFLOW is empty).
+3. Add `"hypotheses"` to the `artifacts` map in the completion JSON (§12).
+
+**Document Format**:
+
+```markdown
+# Hypothesis Document: {FEATURE_ID}
+**Version**: 1.0.0 | **Created**: {timestamp} | **Status**: PENDING
+
+## Hypotheses
+### HYP-001: {Title}
+**Risk Level**: HIGH|MEDIUM|LOW
+**Status**: PENDING
+**Statement**: {from flagged_hypotheses[].statement}
+**Context**: {from flagged_hypotheses[].context}
+**Validation Criteria**:
+- CONFIRM if: {from flagged_hypotheses[].validation_criteria.confirm}
+- REJECT if: {from flagged_hypotheses[].validation_criteria.reject}
+**Suggested Method**: CODE_EXPERIMENT|CODEBASE_ANALYSIS|EXTERNAL_RESEARCH
+```
+
+**Suggested Method Derivation**:
+
+| Hypothesis Context | Method |
+|--------------------|--------|
+| Runtime behavior | `CODE_EXPERIMENT` |
+| Existing codebase patterns | `CODEBASE_ANALYSIS` |
+| Third-party capabilities | `EXTERNAL_RESEARCH` |
+
+**Artifact Registration** (skip if WORKFLOW is empty):
+
+```bash
+rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
+  --type artifact_registered \
+  --run-id {RUN_ID} \
+  --step design \
+  --data '{"path": "features/{FEATURE_ID}/hypotheses.md", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
+```
+
 ## §10 Scope Changes (Addendum)
 
 When user requests scope changes during session:
@@ -309,12 +354,35 @@ Before finalizing design.md, validate all Mermaid diagrams via rp1-base:mermaid 
 
 Output JSON completion contract:
 
+Default (no hypotheses):
+
 ```json
 {
   "status": "success",
   "artifacts": {
     "design": ".rp1/work/features/{FEATURE_ID}/design.md",
     "decisions": ".rp1/work/features/{FEATURE_ID}/design-decisions.md"
+  },
+  "flagged_hypotheses": [],
+  "afk_decisions": [
+    {
+      "point": "[decision point]",
+      "choice": "[selected option]",
+      "rationale": "[why chosen]"
+    }
+  ]
+}
+```
+
+When `flagged_hypotheses` is non-empty and `hypotheses.md` was created (see §9.1), add the key to `artifacts`:
+
+```json
+{
+  "status": "success",
+  "artifacts": {
+    "design": ".rp1/work/features/{FEATURE_ID}/design.md",
+    "decisions": ".rp1/work/features/{FEATURE_ID}/design-decisions.md",
+    "hypotheses": ".rp1/work/features/{FEATURE_ID}/hypotheses.md"
   },
   "flagged_hypotheses": [
     {
@@ -328,16 +396,11 @@ Output JSON completion contract:
         "reject": "[evidence to reject]"
       }
     }
-  ],
-  "afk_decisions": [
-    {
-      "point": "[decision point]",
-      "choice": "[selected option]",
-      "rationale": "[why chosen]"
-    }
   ]
 }
 ```
+
+Do NOT include `artifacts.hypotheses` when `flagged_hypotheses` is empty or when `hypotheses.md` was not created. The build orchestrator checks file existence on disk, not this key, so emitting it without the file causes a false-positive dispatch.
 
 **Error output**:
 
@@ -349,7 +412,7 @@ Output JSON completion contract:
 }
 ```
 
-**CRITICAL**: This agent does NOT spawn hypothesis-tester. Caller (build.md) handles hypothesis validation based on `flagged_hypotheses` array.
+**CRITICAL**: This agent does NOT spawn hypothesis-tester. It creates `hypotheses.md` (§9.1) but the caller (build.md) handles hypothesis validation dispatch based on whether `hypotheses.md` exists on disk after this agent completes.
 
 ## §13 Anti-Loop
 
@@ -369,4 +432,4 @@ Output JSON completion contract:
 2. Output error JSON
 3. STOP
 
-**Execute**: Load KB -> Read requirements -> Analyze -> Generate design.md -> Generate design-decisions.md -> Output JSON -> STOP.
+**Execute**: Load KB -> Read requirements -> Analyze -> Generate design.md -> Generate design-decisions.md -> Create hypotheses.md (if flagged) -> Register artifacts -> Output JSON -> STOP.
