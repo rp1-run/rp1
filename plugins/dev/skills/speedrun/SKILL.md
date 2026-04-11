@@ -5,6 +5,9 @@ allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git *), Bash(mkdir *)
 metadata:
   category: development
   is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args: []
   version: 1.1.0
   tags:
     - core
@@ -36,7 +39,7 @@ Interactive speedrun loop for rapid, small changes. Delegates each request to a 
 
 **This command ONLY orchestrates. It does NOT implement code.**
 
-**First emit**: Include `--name "{RUN_NAME}"` on the first emit call to label the run in the Arcade dashboard. Derive `RUN_NAME` from the initial request: a brief summary (max 60 chars) prefixed with `"Feature: "`. Generate `RUN_ID` as a UUID at session start. Capture `DATESTAMP=$(date +%Y-%m-%d)` once at session start for use in session log paths. Initialize `TASK_COUNT=0` at session start.
+**First emit**: Include `--name "{RUN_NAME}"` on the first emit call to label the run in the Arcade dashboard. Derive `RUN_NAME` from the initial request: a brief summary (max 60 chars) prefixed with `"Feature: "`. Use the `RUN_ID` from the generated Workflow Bootstrap section. Capture `DATESTAMP=$(date +%Y-%m-%d)` once at session start for use in session log paths. Initialize `TASK_COUNT=0` at session start.
 
 On session start, emit the status change:
 ```bash
@@ -201,7 +204,7 @@ Clear REQUEST, update session log with status "skipped" (see §1.8), then loop t
 
 ### 1.8 Session Log Update
 
-After every task resolution (commit, skip, or refine cycle completion), write or append to the session log file at `.rp1/work/speedrun/{DATESTAMP}-{RUN_ID}/session-log.md`.
+After every task resolution (commit, skip, or refine cycle completion), write or append to the session log file at `{workRoot}/speedrun/{DATESTAMP}-{RUN_ID}/session-log.md`.
 
 The log file uses this format:
 
@@ -253,7 +256,7 @@ Speedrun session ended.
 - Track task count
 
 **YOU MUST NOT**:
-- Read/write/edit any code files (except the session log at `.rp1/work/speedrun/{DATESTAMP}-{RUN_ID}/session-log.md`)
+- Read/write/edit any code files (except the session log at `{workRoot}/speedrun/{DATESTAMP}-{RUN_ID}/session-log.md`)
 - Load KB files
 - Run quality checks
 - Make any implementation decisions

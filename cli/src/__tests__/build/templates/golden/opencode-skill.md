@@ -14,9 +14,7 @@ metadata:
   rp1:
     plugin: base
     name: knowledge-build
-
 ---
-
 
 ## Host Context
 

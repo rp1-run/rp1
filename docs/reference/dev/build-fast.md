@@ -26,9 +26,13 @@ Quick-iteration development for small, well-scoped tasks using the [command-agen
 
 ## Description
 
-The `build-fast` command handles development requests that don't warrant the full feature workflow. It assesses request scope and either implements the changes (for small/medium scope) or redirects to `/build` (for large scope).
+The `build-fast` command handles development requests that don't warrant the
+full feature workflow. It assesses request scope and either implements the
+changes (for small/medium scope) or redirects to `/build` (for large scope).
 
-By default, changes are made in your current working directory without any git operations. Use `--git-*` flags to enable commits or pushing.
+Every invocation starts a fresh tracked run. Implementation changes happen in
+your current checkout, while workflow artifacts are stored under the canonical
+project work root. Use `--git-*` flags to enable commits or pushing.
 
 This command uses the [skill-agent pattern](../../concepts/command-agent-pattern.md)
 with scope gating and AFK mode support.
@@ -92,7 +96,8 @@ For automation scenarios (CI, scripts), use the `--afk` flag:
 | Commit message | Generate from request |
 | Dirty state | Commit with WIP message |
 
-All auto-decisions are logged in the summary artifact with "(AFK auto)" prefix.
+All auto-decisions are logged in the quick-build artifact with "(AFK auto)"
+prefix.
 
 ## Confirm Mode
 
@@ -121,7 +126,7 @@ After planning, before implementation begins:
 
 **Scope**: Medium
 **Estimated Effort**: 3 hours
-**Artifact**: quick-builds/20260201-143022-refactor-payment/plan.md
+**Artifact**: .rp1/work/quick-builds/2026-02-01-refactor-payment-1.md
 
 **Tasks**:
 1. Extract payment validation logic
@@ -144,7 +149,7 @@ After implementation completes:
 ## Implementation Complete
 
 **Branch**: quick-build-refactor-payment
-**Artifact**: quick-builds/20260201-143022-refactor-payment/plan.md
+**Artifact**: .rp1/work/quick-builds/2026-02-01-refactor-payment-1.md
 
 Review the changes, then:
 1. "Done" - Finish workflow
@@ -220,29 +225,15 @@ Review the changes, then:
 
 ## Workflow
 
-The command executes in four phases:
+The command uses one fresh run per invocation, then moves through bootstrap,
+planning, build, and review/finalization:
 
-### Phase 1: Planning
-
-1. **KB loading** - Progressively loads knowledge base based on request type
-2. **Scope assessment** - Categorizes as Small, Medium, or Large
-3. **Large scope redirect** - Redirects to `/build` with options (if scope is Large)
-4. **Plan review checkpoint** - Presents plan for approval (if `--confirm-plan` specified)
-
-### Phase 2: Execution
-
-5. **Task execution** - Code changes following codebase patterns
-6. **Quality checks** - Format, lint, test
-
-### Phase 3: Review (Optional)
-
-7. **Task review** - Validates implementation against requirements (if `--review` specified)
-8. **Retry on failure** - Re-executes tasks with reviewer feedback (max 1 retry)
-
-### Phase 4: Finalization
-
-9. **Push** - Push branch to remote (if `--git-push` specified)
-10. **Post-implementation checkpoint** - Opportunity for additional changes (if `--confirm-plan` specified)
+| Phase | What Happens |
+|------|---------------|
+| Bootstrap | Resolves canonical `projectRoot`, `kbRoot`, and `workRoot`, then creates a new `build-fast` run. Unlike `/build`, `build-fast` never resumes an earlier run. |
+| Plan | Loads KB context, assesses scope, creates a quick-build artifact for Small/Medium requests, and optionally pauses for plan confirmation. Large requests stop here with a redirect to `/build`. |
+| Build | Delegates the planned work to `task-builder` using the quick-build artifact as the source of truth. |
+| Review / Finalize | Optionally runs `task-reviewer`, retries once on failure, optionally pushes, and optionally pauses for a post-implementation checkpoint before final output. |
 
 ## KB Loading
 
@@ -269,25 +260,27 @@ By default, `build-fast` makes changes in your current working directory without
 
 ## Output
 
-### Summary Artifact
+### Quick Build Artifact
 
-After completing a task, the command generates a summary document at:
+For Small and Medium requests, `build-fast-planner` writes one canonical
+artifact:
 
 ```
-.rp1/work/quick-builds/{YYYYMMDD-HHMMSS-slug}/summary.md
+.rp1/work/quick-builds/{yyyy-mm-dd}-{slug}-{n}.md
 ```
 
-This provides:
+This file is the workflow's source of truth and includes:
 
 - Original request documentation
-- Files modified with change descriptions
-- Key implementation decisions
-- Verification steps performed
-- Notes and follow-up considerations
+- Scope assessment and implementation approach
+- Task checklist for `task-builder`
+- Implementation summary
+- Verification notes (when review is enabled)
 
 ### Large Scope Redirect
 
-When scope is assessed as Large:
+When scope is assessed as Large, `build-fast` stops before writing a quick-build
+artifact and returns a redirect to `/build`:
 
 ```
 ## REQUEST EXCEEDS SCOPE

@@ -80,9 +80,9 @@ agents:
     plugin: dev
     last_checksum: 6ebf6ec3db2cd50cc84129db88f1c0bab7bd53f304d8fc60ba272f31d7c214f4
   - name: rp1-dev:build-artifact-detector
-    description: "Determines workflow start_step by checking existing feature artifacts and resolving run resume state"
+    description: "Determines workflow start_step by checking existing feature artifacts using bootstrap-provided run context"
     plugin: dev
-    last_checksum: 5bb90fa45d194b9b345b0338a0f7bb11658b8a300c655a6f44b6bcb699189eec
+    last_checksum: 8539a28e380e947169e891f71fb2f0b7406cd788b7611e3f5e83454cce7ffd63
   - name: rp1-dev:build-fast-planner
     description: "Quick-iteration workflow planner. Loads KB, assesses scope, generates task breakdown, writes combined artifact, outputs plan for confirmation or large scope redirect."
     plugin: dev

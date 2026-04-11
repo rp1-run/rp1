@@ -25,7 +25,7 @@ import {
 	hasBundledAssets,
 	readEmbeddedFile,
 } from "../assets/index.js";
-import type { SkillCategory } from "../build/models.js";
+import type { SkillCategory, WorkflowRunPolicy } from "../build/models.js";
 import { parseSkill } from "../build/parser.js";
 import { collectCatalogRegistry } from "../catalog/index.js";
 import { getClaudePluginDirs } from "../shared/paths.js";
@@ -101,6 +101,8 @@ type InstalledSkill = {
 	category?: SkillCategory;
 	is_workflow?: boolean;
 	key_args?: string[];
+	run_policy?: WorkflowRunPolicy;
+	identity_args?: string[];
 	installed_platforms: InstalledPlatform[];
 	invocations: Partial<Record<InstalledPlatform, string>>;
 };
@@ -124,6 +126,8 @@ type InstalledSkillDiscoveryMetadata = {
 	category: SkillCategory;
 	is_workflow: boolean;
 	key_args: string[];
+	run_policy?: WorkflowRunPolicy;
+	identity_args?: string[];
 };
 
 const INSTALLED_PLATFORM_ORDER: readonly InstalledPlatform[] = [
@@ -142,6 +146,11 @@ const VALID_SKILL_CATEGORIES: readonly SkillCategory[] = [
 	"strategy",
 	"planning",
 	"prompt",
+];
+
+const VALID_WORKFLOW_RUN_POLICIES: readonly WorkflowRunPolicy[] = [
+	"fresh",
+	"resumable",
 ];
 
 const isInstalledPlatform = (value: string): value is InstalledPlatform =>
@@ -304,6 +313,41 @@ const isSkillCategory = (value: unknown): value is SkillCategory =>
 	typeof value === "string" &&
 	VALID_SKILL_CATEGORIES.includes(value as SkillCategory);
 
+const isWorkflowRunPolicy = (value: unknown): value is WorkflowRunPolicy =>
+	typeof value === "string" &&
+	VALID_WORKFLOW_RUN_POLICIES.includes(value as WorkflowRunPolicy);
+
+const extractWorkflowDiscoveryMetadata = (
+	metadata: Record<string, unknown>,
+): Pick<InstalledSkillDiscoveryMetadata, "run_policy" | "identity_args"> => {
+	const workflow =
+		metadata.workflow && typeof metadata.workflow === "object"
+			? (metadata.workflow as Record<string, unknown>)
+			: null;
+	if (!workflow) {
+		return {};
+	}
+
+	const runPolicy = isWorkflowRunPolicy(workflow.run_policy)
+		? workflow.run_policy
+		: undefined;
+
+	const hasIdentityArgs = Object.hasOwn(workflow, "identity_args");
+	const identityArgsRaw = workflow.identity_args;
+	const identityArgs = Array.isArray(identityArgsRaw)
+		? identityArgsRaw.every((value) => typeof value === "string")
+			? identityArgsRaw.map(String)
+			: undefined
+		: !hasIdentityArgs && runPolicy === "fresh"
+			? []
+			: undefined;
+
+	return {
+		...(runPolicy !== undefined && { run_policy: runPolicy }),
+		...(identityArgs !== undefined && { identity_args: identityArgs }),
+	};
+};
+
 const extractDiscoveryMetadataFromFrontmatter = (
 	frontmatter: Record<string, unknown> | null,
 ): InstalledSkillDiscoveryMetadata | null => {
@@ -337,6 +381,7 @@ const extractDiscoveryMetadataFromFrontmatter = (
 		is_workflow:
 			typeof metadata.is_workflow === "boolean" ? metadata.is_workflow : false,
 		key_args: keyArgs,
+		...extractWorkflowDiscoveryMetadata(metadata),
 	};
 };
 
@@ -566,6 +611,10 @@ const buildRuntimeSkillMetadataLookupFromProject = async (): Promise<
 				category: entry.category,
 				is_workflow: entry.isWorkflow,
 				key_args: [...entry.keyArgs],
+				...(entry.runPolicy !== undefined && {
+					run_policy: entry.runPolicy,
+					identity_args: [...(entry.identityArgs ?? [])],
+				}),
 			},
 		]),
 	);
@@ -632,6 +681,10 @@ const buildRuntimeSkillMetadataLookupFromArtifacts = async (): Promise<
 						key_args: (metadata.arguments ?? []).map(
 							(argument) => argument.name,
 						),
+						...(metadata.workflow?.runPolicy !== undefined && {
+							run_policy: metadata.workflow.runPolicy,
+							identity_args: [...(metadata.workflow.identityArgs ?? [])],
+						}),
 					});
 				}
 			}

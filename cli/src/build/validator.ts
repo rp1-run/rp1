@@ -7,7 +7,7 @@ import * as E from "fp-ts/lib/Either.js";
 import { parse as parseYaml } from "yaml";
 import type { CLIError } from "../../shared/errors.js";
 import { validationError } from "../../shared/errors.js";
-import type { SkillCategory } from "./models.js";
+import type { SkillCategory, WorkflowRunPolicy } from "./models.js";
 
 const VALID_SKILL_CATEGORIES: readonly SkillCategory[] = [
 	"development",
@@ -21,11 +21,136 @@ const VALID_SKILL_CATEGORIES: readonly SkillCategory[] = [
 	"prompt",
 ];
 
+const VALID_WORKFLOW_RUN_POLICIES: readonly WorkflowRunPolicy[] = [
+	"fresh",
+	"resumable",
+];
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
 const hasOwn = (value: Record<string, unknown>, key: string): boolean =>
 	Object.hasOwn(value, key);
+
+const getDeclaredArgumentNames = (
+	skillMetadata: Record<string, unknown>,
+): Set<string> =>
+	new Set(
+		(Array.isArray(skillMetadata.arguments)
+			? skillMetadata.arguments
+			: []
+		).flatMap((argument) => {
+			if (!isRecord(argument)) {
+				return [];
+			}
+
+			return typeof argument.name === "string" ? [argument.name] : [];
+		}),
+	);
+
+const validateTrackedWorkflowMetadata = (
+	skillMetadata: Record<string, unknown>,
+	file: string,
+): E.Either<CLIError, void> => {
+	if (skillMetadata.is_workflow !== true) {
+		return E.right(undefined);
+	}
+
+	const workflowMetadata = isRecord(skillMetadata.workflow)
+		? skillMetadata.workflow
+		: null;
+	if (!workflowMetadata) {
+		return E.left(
+			validationError(
+				file,
+				"L2",
+				"Missing required field: metadata.workflow.run_policy",
+			),
+		);
+	}
+
+	const runPolicy = workflowMetadata.run_policy;
+	if (typeof runPolicy !== "string") {
+		return E.left(
+			validationError(
+				file,
+				"L2",
+				"Missing required field: metadata.workflow.run_policy",
+			),
+		);
+	}
+
+	if (!VALID_WORKFLOW_RUN_POLICIES.includes(runPolicy as WorkflowRunPolicy)) {
+		return E.left(
+			validationError(
+				file,
+				"L2",
+				`Field 'metadata.workflow.run_policy' must be one of: ${VALID_WORKFLOW_RUN_POLICIES.join(", ")}`,
+			),
+		);
+	}
+
+	const hasIdentityArgs = hasOwn(workflowMetadata, "identity_args");
+	const identityArgsRaw = workflowMetadata.identity_args;
+
+	if (runPolicy === "fresh") {
+		if (!hasIdentityArgs) {
+			return E.right(undefined);
+		}
+
+		if (!Array.isArray(identityArgsRaw) || identityArgsRaw.length > 0) {
+			return E.left(
+				validationError(
+					file,
+					"L2",
+					"Field 'metadata.workflow.identity_args' must be omitted or an empty array when 'metadata.workflow.run_policy' is 'fresh'",
+				),
+			);
+		}
+
+		return E.right(undefined);
+	}
+
+	if (!Array.isArray(identityArgsRaw) || identityArgsRaw.length === 0) {
+		return E.left(
+			validationError(
+				file,
+				"L2",
+				"Field 'metadata.workflow.identity_args' must be a non-empty array when 'metadata.workflow.run_policy' is 'resumable'",
+			),
+		);
+	}
+
+	if (
+		!identityArgsRaw.every(
+			(value) => typeof value === "string" && value.length > 0,
+		)
+	) {
+		return E.left(
+			validationError(
+				file,
+				"L2",
+				"Field 'metadata.workflow.identity_args' must contain only non-empty argument names",
+			),
+		);
+	}
+
+	const declaredArgumentNames = getDeclaredArgumentNames(skillMetadata);
+	const unknownIdentityArgs = identityArgsRaw.filter(
+		(argument) => !declaredArgumentNames.has(argument),
+	);
+	if (unknownIdentityArgs.length > 0) {
+		return E.left(
+			validationError(
+				file,
+				"L2",
+				`Field 'metadata.workflow.identity_args' references unknown arguments: ${unknownIdentityArgs.join(", ")}`,
+			),
+		);
+	}
+
+	return E.right(undefined);
+};
 
 const validateSkillDiscoveryMetadata = (
 	metadata: Record<string, unknown>,
@@ -79,6 +204,14 @@ const validateSkillDiscoveryMetadata = (
 				"Field 'metadata.is_workflow' must be boolean",
 			),
 		);
+	}
+
+	const workflowMetadataResult = validateTrackedWorkflowMetadata(
+		skillMetadata,
+		file,
+	);
+	if (E.isLeft(workflowMetadataResult)) {
+		return workflowMetadataResult;
 	}
 
 	return E.right(undefined);

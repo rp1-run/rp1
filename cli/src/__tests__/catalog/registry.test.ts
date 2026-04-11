@@ -21,23 +21,45 @@ const SKILL_FRONTMATTER = (
 	category: string,
 	isWorkflow: boolean,
 	args: readonly string[] = [],
-) => `---
+	runPolicy?: "fresh" | "resumable",
+	identityArgs?: readonly string[],
+) => {
+	const workflowBlock = runPolicy
+		? `  workflow:\n    run_policy: ${runPolicy}\n${
+				identityArgs
+					? `    identity_args:\n${identityArgs.map((arg) => `      - ${arg}`).join("\n")}\n`
+					: runPolicy === "fresh"
+						? "    identity_args: []\n"
+						: ""
+			}`
+		: "";
+	const argumentBlock =
+		args.length > 0
+			? `  arguments:\n${args
+					.map(
+						(arg) =>
+							`    - name: ${arg}\n      type: string\n      required: false\n      description: "${arg} argument"`,
+					)
+					.join("\n")}\n`
+			: "";
+
+	return `---
 name: ${name}
 description: "${description}"
 allowed-tools: Bash(echo *)
 metadata:
   category: ${category}
   is_workflow: ${isWorkflow}
-  version: 1.0.0
+${workflowBlock}  version: 1.0.0
   created: 2026-01-01
   author: test
-${args.length > 0 ? "  arguments:\n" : ""}${args.map((arg) => `    - name: ${arg}\n      type: string\n      required: false\n      description: "${arg} argument"`).join("\n")}
----
+${argumentBlock}---
 
 # ${name}
 
 Skill content here.
 `;
+};
 
 describe("catalog registry", () => {
 	let tempDir: string;
@@ -76,6 +98,8 @@ describe("catalog registry", () => {
 				"development",
 				true,
 				["FEATURE_ID", "AFK"],
+				"resumable",
+				["FEATURE_ID"],
 			),
 		);
 		await writeFile(
@@ -109,6 +133,8 @@ describe("catalog registry", () => {
 		expect(buildSkill?.category).toBe("development");
 		expect(buildSkill?.isWorkflow).toBe(true);
 		expect(buildSkill?.keyArgs).toEqual(["FEATURE_ID", "AFK"]);
+		expect(buildSkill?.runPolicy).toBe("resumable");
+		expect(buildSkill?.identityArgs).toEqual(["FEATURE_ID"]);
 		expect(buildSkill?.argumentDefs.map((argument) => argument.name)).toEqual([
 			"FEATURE_ID",
 			"AFK",
@@ -175,6 +201,9 @@ describe("catalog registry", () => {
 		expect(renderedCatalog).toContain("# rp1 Skill Catalog");
 		expect(renderedCatalog).toContain("## Development");
 		expect(renderedCatalog).toContain("## Knowledge");
+		expect(renderedCatalog).toContain("| Run Policy | Identity Args |");
+		expect(renderedCatalog).toContain("| `/build` | dev |");
+		expect(renderedCatalog).toContain("| resumable | `FEATURE_ID` |");
 		expect(renderedCatalog).toContain("| `/build` | dev |");
 		expect(renderedCatalog).toContain("| `/alpha` | base |");
 		expect(renderedCatalog).not.toContain("tersify-prompt");

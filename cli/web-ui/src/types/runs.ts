@@ -10,6 +10,7 @@ import type {
 	ArtifactType,
 	EventType as SharedEventType,
 	Status,
+	WorkflowRunPolicy,
 } from "../../../shared/events";
 
 export type { ArtifactType };
@@ -22,6 +23,11 @@ export type StepStatus = Status;
 
 /** Event type for the run event stream -- canonical shared EventType */
 export type EventType = SharedEventType;
+
+export type RunInvocationDecision =
+	| "created_new_run"
+	| "matched_non_terminal_run"
+	| "legacy_backfill_resume";
 
 /** A workflow step within a run */
 export interface Step {
@@ -64,6 +70,20 @@ export interface RunEvent {
 	readonly metadata: Readonly<Record<string, unknown>> | null;
 }
 
+export interface RunInvocationContext {
+	readonly workflowName: string;
+	readonly runPolicy: WorkflowRunPolicy;
+	readonly decision: RunInvocationDecision;
+	readonly projectIdentity: string;
+	readonly canonicalProjectRoot: string;
+	readonly requestedProjectRoot: string;
+	readonly isWorktree: boolean;
+	readonly worktreeName?: string;
+	readonly workIdentity?: string;
+	readonly identityValues?: Readonly<Record<string, string | boolean>>;
+	readonly harness?: string | null;
+}
+
 /** An agent run with all associated data */
 export interface Run {
 	readonly id: string;
@@ -84,6 +104,7 @@ export interface Run {
 	readonly completedAt: string | null;
 	readonly error: string | null;
 	readonly agentSteps: Readonly<Record<string, readonly AgentTask[]>> | null;
+	readonly invocation?: RunInvocationContext;
 	readonly subflows?: Readonly<Record<string, string>>;
 }
 

@@ -57,6 +57,8 @@ const projectSkillContent = (
 	category: string,
 	isWorkflow: boolean,
 	args: readonly string[] = [],
+	runPolicy?: "fresh" | "resumable",
+	identityArgs?: readonly string[],
 ): string => {
 	const argumentBlock =
 		args.length === 0
@@ -68,12 +70,22 @@ const projectSkillContent = (
 					)
 					.join("\n")}`;
 
+	const workflowBlock = runPolicy
+		? `\n  workflow:\n    run_policy: ${runPolicy}${
+				identityArgs
+					? `\n    identity_args:\n${identityArgs.map((arg) => `      - ${arg}`).join("\n")}`
+					: runPolicy === "fresh"
+						? "\n    identity_args: []"
+						: ""
+			}`
+		: "";
+
 	return `---
 name: "${name}"
 description: "${description}"
 metadata:
   category: ${category}
-  is_workflow: ${isWorkflow}${argumentBlock}
+  is_workflow: ${isWorkflow}${workflowBlock}${argumentBlock}
 ---
 
 # ${name}
@@ -121,6 +133,8 @@ describe("executeList", () => {
 					"development",
 					true,
 					["FEATURE_ID", "AFK"],
+					"resumable",
+					["FEATURE_ID"],
 				),
 			);
 			await writeFixture(
@@ -132,6 +146,8 @@ describe("executeList", () => {
 					"review",
 					true,
 					["PR_NUMBER"],
+					"fresh",
+					[],
 				),
 			);
 			await writeFixture(
@@ -169,6 +185,8 @@ describe("executeList", () => {
 				expect(skill).toHaveProperty("category");
 				expect(skill).toHaveProperty("is_workflow");
 				expect(skill).toHaveProperty("key_args");
+				expect(skill).toHaveProperty("run_policy");
+				expect(skill).toHaveProperty("identity_args");
 				expect(skill).toHaveProperty("installed_platforms");
 				expect(skill).toHaveProperty("invocations");
 				expect(typeof skill.name).toBe("string");
@@ -178,7 +196,9 @@ describe("executeList", () => {
 				expect(typeof skill.user_facing_name).toBe("string");
 				expect(typeof skill.category).toBe("string");
 				expect(typeof skill.is_workflow).toBe("boolean");
+				expect(typeof skill.run_policy).toBe("string");
 				expect(Array.isArray(skill.key_args)).toBe(true);
+				expect(Array.isArray(skill.identity_args)).toBe(true);
 				expect(Array.isArray(skill.installed_platforms)).toBe(true);
 				expect(typeof skill.invocations).toBe("object");
 			}
@@ -191,12 +211,16 @@ describe("executeList", () => {
 			expect(parsed[0].category).toBe("development");
 			expect(parsed[0].is_workflow).toBe(true);
 			expect(parsed[0].key_args).toEqual(["FEATURE_ID", "AFK"]);
+			expect(parsed[0].run_policy).toBe("resumable");
+			expect(parsed[0].identity_args).toEqual(["FEATURE_ID"]);
 			expect(parsed[0].installed_platforms).toEqual(["codex"]);
 			expect(parsed[0].invocations.codex).toBe("$rp1-build");
 			expect(parsed[1].name).toBe("pr-review");
 			expect(parsed[1].category).toBe("review");
 			expect(parsed[1].is_workflow).toBe(true);
 			expect(parsed[1].key_args).toEqual(["PR_NUMBER"]);
+			expect(parsed[1].run_policy).toBe("fresh");
+			expect(parsed[1].identity_args).toEqual([]);
 		});
 
 		test("does not include table header or formatting in JSON mode", async () => {
@@ -209,6 +233,8 @@ describe("executeList", () => {
 					"development",
 					true,
 					["FEATURE_ID", "AFK"],
+					"resumable",
+					["FEATURE_ID"],
 				),
 			);
 			await writeFixture(
@@ -240,6 +266,8 @@ describe("executeList", () => {
 					"development",
 					true,
 					["FEATURE_ID", "AFK"],
+					"resumable",
+					["FEATURE_ID"],
 				),
 			);
 			await writeFixture(

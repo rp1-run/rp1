@@ -14,6 +14,7 @@ import { incompleteDispatchRule } from "../../../build/lint/rules/incomplete-dis
 import { nullToolInProseRule } from "../../../build/lint/rules/null-tool-in-prose.js";
 import { nullToolRefsRule } from "../../../build/lint/rules/null-tool-refs.js";
 import { orphanedPlatformRule } from "../../../build/lint/rules/orphaned-platform.js";
+import { trackedWorkflowBootstrapRule } from "../../../build/lint/rules/tracked-workflow-bootstrap.js";
 import { unresolvedTagsRule } from "../../../build/lint/rules/unresolved-tags.js";
 
 describe("lintArtifact integration", () => {
@@ -24,6 +25,7 @@ describe("lintArtifact integration", () => {
 		registerLintRule(incompleteDispatchRule);
 		registerLintRule(unresolvedTagsRule);
 		registerLintRule(nullToolInProseRule);
+		registerLintRule(trackedWorkflowBootstrapRule);
 	});
 
 	afterEach(() => {
@@ -60,6 +62,10 @@ describe("lintArtifact integration", () => {
 
 	test("multiple violations across different rules", () => {
 		const content = [
+			"---",
+			"metadata:",
+			"  is_workflow: true",
+			"---",
 			"Use TodoWrite to track progress.",
 			'{% if platform == "codex" %}',
 			"Codex block.",
@@ -74,6 +80,7 @@ describe("lintArtifact integration", () => {
 		expect(rules).toContain("L001");
 		expect(rules).toContain("L002");
 		expect(rules).toContain("L004");
+		expect(rules).toContain("L007");
 	});
 
 	test("hasErrors is true when errors exist", () => {

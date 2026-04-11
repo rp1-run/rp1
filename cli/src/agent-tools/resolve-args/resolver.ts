@@ -342,7 +342,7 @@ const mapResolvedDirectories = (
 	}),
 });
 
-const resolveDirectories = (projectRoot: string): ResolvedDirectories =>
+export const resolveDirectories = (projectRoot: string): ResolvedDirectories =>
 	pipe(
 		resolveDirectorySet(projectRoot),
 		E.match(

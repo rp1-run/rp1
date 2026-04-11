@@ -5,6 +5,10 @@ allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: development
   is_workflow: true
+  workflow:
+    run_policy: resumable
+    identity_args:
+      - FEATURE_ID
   version: 3.0.0
   tags:
     - core
@@ -76,24 +80,22 @@ metadata:
 
 ## §CTX
 
-Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Resolve Arguments step. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
+Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
 
 **Feature dir**: `{workRoot}/features/{FEATURE_ID}/`
 
 ## §0-FIRST-ACTION
 
-**FIRST tool call MUST be:**
+After the generated Workflow Bootstrap section resolves `RUN_ID`, `RUN_RESUMED`, and the canonical directories, the first prompt-authored action MUST be:
 
 {% dispatch_agent "rp1-dev:build-artifact-detector" %}
-FEATURE_ID={FEATURE_ID}, WORKFLOW_TYPE=build
+FEATURE_ID={FEATURE_ID}, WORKFLOW_TYPE=build, RUN_ID={RUN_ID}, RUN_RESUMED={RUN_RESUMED}, WORK_ROOT={workRoot}
 {% enddispatch_agent %}
 
 Do NOT read files, load KB, or analyze requirements before this completes.
-Parse response: extract `start_step` (1-6), `artifacts` status, `run_id`, and `resumed`.
+Parse response: extract `start_step` (1-6), `artifacts` status, and optional `unregistered_artifacts`.
 
-**Run ID Resolution**: Use the `run_id` from the artifact-detector response for all subsequent emits. If `resumed` is `true`, the detector found a resumable run and the returned `run_id` is the existing run. If `resumed` is `false`, the detector created a new run. Either way, set `RUN_ID = run_id` from the response. Do NOT generate a new UUID.
-
-**Artifact Reconciliation**: If `resumed` is `true` and `unregistered_artifacts` is present and non-empty, register each artifact under the resumed run:
+**Artifact Reconciliation**: If `RUN_RESUMED` is `true` and `unregistered_artifacts` is present and non-empty, register each artifact under the resumed run:
 
 ```bash
 rp1 agent-tools emit \
@@ -141,7 +143,7 @@ rp1 agent-tools emit \
   --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
 
-`RUN_ID` comes from the artifact-detector (§0-FIRST-ACTION). Do NOT generate a new UUID.
+`RUN_ID` comes from the generated Workflow Bootstrap section. Do NOT override it.
 
 ## §PROGRESS
 

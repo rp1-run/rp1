@@ -5,6 +5,9 @@ allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: planning
   is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args: []
   version: 2.0.0
   tags:
     - planning
@@ -55,7 +58,7 @@ rp1 agent-tools emit \
   --data '{"status": "running"}'
 ```
 
-- Generate `RUN_ID` as a UUID at workflow start
+- `RUN_ID` comes from the generated Workflow Bootstrap section
 - Derive `RUN_NAME`: use `"Blueprint: {PRD_NAME}"` when PRD_NAME is provided, otherwise use `"Blueprint: main"`
 
 **State Progression Protocol**:
@@ -74,7 +77,7 @@ rp1 agent-tools emit \
 
 ## §CTX
 
-Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Resolve Arguments step. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
+Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
 
 **Doc Hierarchy**:
 1. **Charter** (`{kbRoot}/charter.md`) - Project-level: problem/context, users, business rationale, scope guardrails, success criteria

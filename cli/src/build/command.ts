@@ -14,7 +14,7 @@ import {
 	stat,
 	writeFile,
 } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -588,6 +588,17 @@ export const buildPlatformPlugin = async (
 				? ensureOpenCodeDiscoveryMetadata(pluginName, skillMetadata)
 				: skillMetadata;
 
+		const skillSchemaPath = relative(projectRoot, join(skillDir, "SKILL.md"))
+			.split("\\")
+			.join("/");
+		const workflowTarget =
+			ccSkill.metadata?.isWorkflow === true
+				? {
+						name: ccSkill.name,
+						schemaPath: skillSchemaPath,
+					}
+				: undefined;
+
 		let ctx: Record<string, unknown> = buildTemplateContext(
 			platform,
 			pluginName,
@@ -596,6 +607,8 @@ export const buildPlatformPlugin = async (
 				type: "skill",
 				name: ccSkill.name,
 				namespacedName: namespacedSkillDir,
+				schemaPath: skillSchemaPath,
+				workflowTarget,
 				description: ccSkill.description,
 				allowedTools: ccSkill.allowedTools,
 				content: processedContent,

@@ -5,10 +5,12 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { resolveDirectorySet } from "../../shared/directory-resolution.js";
+import type { WorkflowRunPolicy } from "../../shared/events.js";
 import {
 	getArtifactByDocId,
 	getArtifactsForRun,
 	resolveArtifactPathForRun,
+	type WorkflowRunDecision,
 } from "../agent-tools/emit/database.js";
 
 export interface DbBackfillResult {
@@ -21,11 +23,16 @@ export interface DbBackfillResult {
 
 interface RunBackfillRow {
 	readonly id: string;
+	readonly flow: string;
+	readonly feature_id: string | null;
 	readonly project_path: string;
 	readonly rp1_project_root: string | null;
 	readonly rp1_kb_root: string | null;
 	readonly rp1_work_root: string | null;
 	readonly project_id: string | null;
+	readonly run_policy: WorkflowRunPolicy | null;
+	readonly work_identity: string | null;
+	readonly bootstrap_context: string | null;
 }
 
 interface TaskBackfillRow {
@@ -33,6 +40,50 @@ interface TaskBackfillRow {
 	readonly project_path: string | null;
 	readonly project_id: string | null;
 }
+
+interface HistoricalWorkflowBackfill {
+	readonly runPolicy: WorkflowRunPolicy;
+	readonly identityArgs: readonly string[];
+}
+
+interface RunBootstrapBackfill {
+	readonly runPolicy: WorkflowRunPolicy;
+	readonly workIdentity: string | null;
+	readonly bootstrapContext: string;
+}
+
+const HISTORICAL_WORKFLOW_BACKFILLS: Readonly<
+	Record<string, HistoricalWorkflowBackfill>
+> = {
+	build: {
+		runPolicy: "resumable",
+		identityArgs: ["FEATURE_ID"],
+	},
+	"build-fast": {
+		runPolicy: "fresh",
+		identityArgs: [],
+	},
+	blueprint: {
+		runPolicy: "fresh",
+		identityArgs: [],
+	},
+	"pr-review": {
+		runPolicy: "fresh",
+		identityArgs: [],
+	},
+	speedrun: {
+		runPolicy: "fresh",
+		identityArgs: [],
+	},
+	"knowledge-build": {
+		runPolicy: "fresh",
+		identityArgs: [],
+	},
+	"generate-user-docs": {
+		runPolicy: "fresh",
+		identityArgs: [],
+	},
+};
 
 const GIT_ENV_VARS_TO_CLEAR = [
 	"GIT_DIR",
@@ -146,6 +197,259 @@ const belongsToProject = (
 		canonicalizePath(resolved.right.projectRoot) ===
 		canonicalizePath(targetProjectRoot)
 	);
+};
+
+const matchesCandidatePath = (
+	recordPath: string | null,
+	candidateProjectPaths: readonly string[],
+): boolean => {
+	if (!recordPath) {
+		return false;
+	}
+
+	const resolved = resolve(recordPath);
+	const canonical = canonicalizePath(recordPath);
+	return candidateProjectPaths.some((candidatePath) => {
+		const resolvedCandidate = resolve(candidatePath);
+		const canonicalCandidate = canonicalizePath(candidatePath);
+		return (
+			resolved === resolvedCandidate ||
+			canonical === canonicalCandidate ||
+			resolved.startsWith(`${resolvedCandidate}/`) ||
+			canonical.startsWith(`${canonicalCandidate}/`)
+		);
+	});
+};
+
+const asObject = (value: unknown): Readonly<Record<string, unknown>> | null =>
+	typeof value === "object" && value !== null && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: null;
+
+const parseJsonSafe = (
+	value: string | null,
+): Readonly<Record<string, unknown>> | null => {
+	if (!value) {
+		return null;
+	}
+
+	try {
+		return JSON.parse(value) as Record<string, unknown>;
+	} catch {
+		return null;
+	}
+};
+
+const isWorkflowRunDecision = (value: unknown): value is WorkflowRunDecision =>
+	value === "created_new_run" ||
+	value === "matched_non_terminal_run" ||
+	value === "legacy_backfill_resume";
+
+const normalizeRunValue = (
+	value: string | null | undefined,
+): string | undefined => {
+	if (typeof value !== "string") {
+		return undefined;
+	}
+
+	const trimmed = value.trim();
+	return trimmed.length > 0 && trimmed !== "unknown" ? trimmed : undefined;
+};
+
+const selectRequestedProjectRoot = (
+	run: RunBackfillRow,
+	canonicalProjectRoot: string,
+	candidateProjectPaths: readonly string[],
+	targetProjectRoot: string,
+): string => {
+	if (
+		belongsToProject(run.project_path, canonicalProjectRoot) ||
+		matchesCandidatePath(run.project_path, candidateProjectPaths)
+	) {
+		return resolve(run.project_path);
+	}
+
+	if (
+		belongsToProject(run.rp1_project_root, canonicalProjectRoot) ||
+		matchesCandidatePath(run.rp1_project_root, candidateProjectPaths)
+	) {
+		return resolve(run.rp1_project_root ?? targetProjectRoot);
+	}
+
+	return targetProjectRoot;
+};
+
+const deriveHistoricalIdentity = (
+	run: RunBackfillRow,
+	identityArgs: readonly string[],
+): {
+	readonly identityValues: Record<string, string | boolean>;
+	readonly workIdentity?: string;
+} | null => {
+	const identityValues: Record<string, string | boolean> = {};
+
+	for (const argName of identityArgs) {
+		switch (argName) {
+			case "FEATURE_ID": {
+				const featureId = normalizeRunValue(run.feature_id);
+				if (!featureId) {
+					return null;
+				}
+				identityValues[argName] = featureId;
+				break;
+			}
+			default:
+				return null;
+		}
+	}
+
+	return {
+		identityValues,
+		workIdentity:
+			identityArgs.length > 0
+				? identityArgs
+						.map((argName) => `${argName}=${String(identityValues[argName])}`)
+						.join("|")
+				: undefined,
+	};
+};
+
+const deriveInvocationDetails = (
+	requestedProjectRoot: string,
+	canonicalProjectRoot: string,
+): { readonly isWorktree: boolean; readonly worktreeName?: string } => {
+	const resolved = resolveDirectorySet(requestedProjectRoot);
+	if (
+		E.isLeft(resolved) ||
+		canonicalizePath(resolved.right.projectRoot) !== canonicalProjectRoot
+	) {
+		return { isWorktree: false };
+	}
+
+	return {
+		isWorktree: resolved.right.isWorktree,
+		worktreeName: resolved.right.worktreeName,
+	};
+};
+
+const buildHistoricalBootstrapContext = (params: {
+	readonly workflowName: string;
+	readonly workflow: HistoricalWorkflowBackfill;
+	readonly targetDirectories: {
+		readonly projectRoot: string;
+		readonly kbRoot: string;
+		readonly workRoot: string;
+		readonly projectId: string;
+	};
+	readonly projectIdentity: string;
+	readonly requestedProjectRoot: string;
+	readonly invocation: {
+		readonly isWorktree: boolean;
+		readonly worktreeName?: string;
+	};
+	readonly decision: WorkflowRunDecision;
+	readonly identityValues: Readonly<Record<string, string | boolean>>;
+	readonly workIdentity: string | null;
+}): string =>
+	JSON.stringify({
+		workflow: {
+			name: params.workflowName,
+			runPolicy: params.workflow.runPolicy,
+			identityArgs: params.workflow.identityArgs,
+		},
+		directories: {
+			projectRoot: params.targetDirectories.projectRoot,
+			kbRoot: params.targetDirectories.kbRoot,
+			workRoot: params.targetDirectories.workRoot,
+		},
+		trace: {
+			projectIdentity: params.projectIdentity,
+			workIdentity: params.workIdentity,
+			identityValues: params.identityValues,
+			requestedProjectRoot: params.requestedProjectRoot,
+			canonicalProjectRoot: params.targetDirectories.projectRoot,
+			isWorktree: params.invocation.isWorktree,
+			...(params.invocation.worktreeName
+				? { worktreeName: params.invocation.worktreeName }
+				: {}),
+		},
+		run: {
+			decision: params.decision,
+		},
+	});
+
+const deriveRunBootstrapBackfill = (
+	run: RunBackfillRow,
+	params: {
+		readonly canonicalProjectRoot: string;
+		readonly candidateProjectPaths: readonly string[];
+		readonly targetDirectories: {
+			readonly projectRoot: string;
+			readonly kbRoot: string;
+			readonly workRoot: string;
+			readonly projectId: string;
+		};
+	},
+): RunBootstrapBackfill | null => {
+	const workflow = HISTORICAL_WORKFLOW_BACKFILLS[run.flow];
+	if (!workflow) {
+		return null;
+	}
+
+	const identity = deriveHistoricalIdentity(run, workflow.identityArgs);
+	if (identity === null) {
+		return null;
+	}
+
+	const existingContext = parseJsonSafe(run.bootstrap_context);
+	const existingTrace = asObject(existingContext?.trace);
+	const existingRun = asObject(existingContext?.run);
+	const existingRequestedProjectRoot = existingTrace?.requestedProjectRoot;
+	const existingWorktreeName = existingTrace?.worktreeName;
+	const requestedProjectRoot =
+		typeof existingRequestedProjectRoot === "string" &&
+		existingRequestedProjectRoot.length > 0
+			? existingRequestedProjectRoot
+			: selectRequestedProjectRoot(
+					run,
+					params.canonicalProjectRoot,
+					params.candidateProjectPaths,
+					params.targetDirectories.projectRoot,
+				);
+	const derivedInvocation = deriveInvocationDetails(
+		requestedProjectRoot,
+		params.canonicalProjectRoot,
+	);
+	const invocation = {
+		isWorktree:
+			derivedInvocation.isWorktree || existingTrace?.isWorktree === true,
+		worktreeName:
+			derivedInvocation.worktreeName ??
+			(typeof existingWorktreeName === "string" &&
+			existingWorktreeName.length > 0
+				? existingWorktreeName
+				: undefined),
+	};
+	const decision = isWorkflowRunDecision(existingRun?.decision)
+		? existingRun.decision
+		: "created_new_run";
+	const workIdentity = identity.workIdentity ?? null;
+
+	return {
+		runPolicy: workflow.runPolicy,
+		workIdentity,
+		bootstrapContext: buildHistoricalBootstrapContext({
+			workflowName: run.flow,
+			workflow,
+			targetDirectories: params.targetDirectories,
+			projectIdentity: params.targetDirectories.projectId,
+			requestedProjectRoot,
+			invocation,
+			decision,
+			identityValues: identity.identityValues,
+			workIdentity,
+		}),
+	};
 };
 
 const getStoredRunDirectories = (run: RunBackfillRow) => {
@@ -359,6 +663,31 @@ export const backfillProjectId = async (
 		ensureColumn("artifacts", "project_id");
 		ensureColumn("tasks", "project_id");
 
+		const runColumns = db.prepare("PRAGMA table_info(runs)").all() as {
+			name: string;
+		}[];
+		const runColumnNames = new Set(runColumns.map((column) => column.name));
+		if (!runColumnNames.has("run_policy")) {
+			db.exec(
+				"ALTER TABLE runs ADD COLUMN run_policy TEXT DEFAULT NULL CHECK(run_policy IN ('fresh', 'resumable'))",
+			);
+		}
+		if (!runColumnNames.has("work_identity")) {
+			db.exec("ALTER TABLE runs ADD COLUMN work_identity TEXT DEFAULT NULL");
+		}
+		if (!runColumnNames.has("bootstrap_context")) {
+			db.exec(
+				"ALTER TABLE runs ADD COLUMN bootstrap_context TEXT DEFAULT NULL",
+			);
+		}
+
+		db.exec(
+			"CREATE INDEX IF NOT EXISTS idx_runs_project_work_identity_status ON runs(project_id, flow, work_identity, status)",
+		);
+		db.exec(
+			"CREATE INDEX IF NOT EXISTS idx_runs_root_work_identity_status ON runs(rp1_project_root, flow, work_identity, status)",
+		);
+
 		const rp1ProjectRootFilter = buildProjectPathWhereClause(
 			"rp1_project_root",
 			candidateProjectPaths,
@@ -366,7 +695,7 @@ export const backfillProjectId = async (
 
 		const runRows = db
 			.prepare(
-				`SELECT id, project_path, rp1_project_root, rp1_kb_root, rp1_work_root, project_id
+				`SELECT id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root, rp1_work_root, project_id, run_policy, work_identity, bootstrap_context
 				 FROM runs
 				 WHERE (${projectPathFilter.clause})
 				    OR project_id = ?
@@ -380,22 +709,6 @@ export const backfillProjectId = async (
 				...rp1ProjectRootFilter.params,
 			) as RunBackfillRow[];
 
-		const matchesCandidatePath = (recordPath: string | null): boolean => {
-			if (!recordPath) return false;
-			const resolved = resolve(recordPath);
-			const canonical = canonicalizePath(recordPath);
-			return candidateProjectPaths.some((cp) => {
-				const resolvedCp = resolve(cp);
-				const canonicalCp = canonicalizePath(cp);
-				return (
-					resolved === resolvedCp ||
-					canonical === canonicalCp ||
-					resolved.startsWith(`${resolvedCp}/`) ||
-					canonical.startsWith(`${canonicalCp}/`)
-				);
-			});
-		};
-
 		let runsUpdated = 0;
 		let artifactsUpdated = 0;
 		let tasksUpdated = 0;
@@ -406,13 +719,23 @@ export const backfillProjectId = async (
 			if (
 				!belongsToProject(run.project_path, canonicalProjectRoot) &&
 				!belongsToProject(run.rp1_project_root, canonicalProjectRoot) &&
-				!matchesCandidatePath(run.project_path) &&
-				!matchesCandidatePath(run.rp1_project_root)
+				!matchesCandidatePath(run.project_path, candidateProjectPaths) &&
+				!matchesCandidatePath(run.rp1_project_root, candidateProjectPaths)
 			) {
 				continue;
 			}
 
 			const storedDirectories = getStoredRunDirectories(run);
+			const runBootstrapBackfill = deriveRunBootstrapBackfill(run, {
+				canonicalProjectRoot,
+				candidateProjectPaths,
+				targetDirectories,
+			});
+			const nextRunPolicy = runBootstrapBackfill?.runPolicy ?? run.run_policy;
+			const nextWorkIdentity =
+				runBootstrapBackfill?.workIdentity ?? run.work_identity;
+			const nextBootstrapContext =
+				runBootstrapBackfill?.bootstrapContext ?? run.bootstrap_context;
 			const needsRunRepair =
 				run.project_path !== targetDirectories.projectRoot ||
 				canonicalizePath(storedDirectories.projectRoot) !==
@@ -422,6 +745,10 @@ export const backfillProjectId = async (
 				canonicalizePath(storedDirectories.workRoot) !==
 					canonicalizePath(targetDirectories.workRoot) ||
 				run.project_id !== projectId;
+			const needsDeterministicBackfill =
+				nextRunPolicy !== run.run_policy ||
+				nextWorkIdentity !== run.work_identity ||
+				nextBootstrapContext !== run.bootstrap_context;
 
 			const runArtifacts = getArtifactsForRun(db, run.id);
 			const needsArtifactRepair =
@@ -443,14 +770,17 @@ export const backfillProjectId = async (
 				artifactFilesMoved += artifactRepair.artifactFilesMoved;
 			}
 
-			if (needsRunRepair) {
+			if (needsRunRepair || needsDeterministicBackfill) {
 				db.prepare(
 					`UPDATE runs
 					 SET project_path = $projectPath,
 					     rp1_project_root = $rp1ProjectRoot,
 					     rp1_kb_root = $rp1KbRoot,
 					     rp1_work_root = $rp1WorkRoot,
-					     project_id = $projectId
+					     project_id = $projectId,
+					     run_policy = $runPolicy,
+					     work_identity = $workIdentity,
+					     bootstrap_context = $bootstrapContext
 					 WHERE id = $id`,
 				).run({
 					$id: run.id,
@@ -459,6 +789,9 @@ export const backfillProjectId = async (
 					$rp1KbRoot: targetDirectories.kbRoot,
 					$rp1WorkRoot: targetDirectories.workRoot,
 					$projectId: projectId,
+					$runPolicy: nextRunPolicy,
+					$workIdentity: nextWorkIdentity,
+					$bootstrapContext: nextBootstrapContext,
 				});
 				runsUpdated++;
 			}
@@ -501,7 +834,7 @@ export const backfillProjectId = async (
 
 			if (
 				!belongsToProject(artifact.project_path, canonicalProjectRoot) &&
-				!matchesCandidatePath(artifact.project_path)
+				!matchesCandidatePath(artifact.project_path, candidateProjectPaths)
 			) {
 				continue;
 			}
@@ -540,7 +873,7 @@ export const backfillProjectId = async (
 		for (const task of taskRows) {
 			if (
 				!belongsToProject(task.project_path, canonicalProjectRoot) &&
-				!matchesCandidatePath(task.project_path)
+				!matchesCandidatePath(task.project_path, candidateProjectPaths)
 			) {
 				continue;
 			}

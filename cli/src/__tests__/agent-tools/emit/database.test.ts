@@ -22,6 +22,7 @@ import {
 	deleteAnnotation,
 	deriveRunStatus,
 	findOrCreateRun,
+	findOrCreateWorkflowRun,
 	getActiveRunsSnapshot,
 	getAnnotationById,
 	getAnnotationsForDocId,
@@ -87,7 +88,7 @@ describe("emit database", () => {
 			expect(tableNames).toContain("schema_version");
 		});
 
-		test("schema_version is set to 10", async () => {
+		test("schema_version is set to 11", async () => {
 			const dbPath = join(tempDir, "version-test.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -95,7 +96,7 @@ describe("emit database", () => {
 				version: number;
 			};
 
-			expect(row.version).toBe(10);
+			expect(row.version).toBe(11);
 		});
 
 		test("artifacts table includes subflow column", async () => {
@@ -140,6 +141,9 @@ describe("emit database", () => {
 			expect(columnNames).toContain("rp1_project_root");
 			expect(columnNames).toContain("rp1_kb_root");
 			expect(columnNames).toContain("rp1_work_root");
+			expect(columnNames).toContain("run_policy");
+			expect(columnNames).toContain("work_identity");
+			expect(columnNames).toContain("bootstrap_context");
 		});
 
 		test("migrates v1 schema to add status and author columns", async () => {
@@ -233,7 +237,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(10);
+			expect(versionRow.version).toBe(11);
 		});
 
 		test("migrates v2 schema to add subflow column to artifacts", async () => {
@@ -324,7 +328,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(10);
+			expect(versionRow.version).toBe(11);
 		});
 
 		test("v3 to v4 migration adds baseline column and cleans orphaned edit-diff annotations", async () => {
@@ -411,7 +415,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(10);
+			expect(versionRow.version).toBe(11);
 
 			const annotations = db.prepare("SELECT * FROM annotations").all() as {
 				content: string;
@@ -419,6 +423,155 @@ describe("emit database", () => {
 			}[];
 			expect(annotations).toHaveLength(1);
 			expect(annotations[0].content).toBe("user note");
+		});
+
+		test("migrates v10 schema to add workflow bootstrap columns and lookup indexes", async () => {
+			const dbPath = join(tempDir, "migration-v10-test.db");
+
+			const { Database } = await import("bun:sqlite");
+			const rawDb = new Database(dbPath, { create: true });
+			rawDb.exec("PRAGMA journal_mode = WAL;");
+			rawDb.exec("PRAGMA foreign_keys = ON;");
+			rawDb.exec(`
+				CREATE TABLE schema_version (version INTEGER NOT NULL);
+				INSERT INTO schema_version (version) VALUES (10);
+				CREATE TABLE runs (
+					id TEXT PRIMARY KEY NOT NULL,
+					flow TEXT NOT NULL,
+					feature_id TEXT NOT NULL,
+					project_path TEXT NOT NULL,
+					rp1_project_root TEXT NOT NULL,
+					rp1_kb_root TEXT NOT NULL,
+					rp1_work_root TEXT NOT NULL,
+					project_id TEXT DEFAULT NULL,
+					name TEXT DEFAULT NULL,
+					harness TEXT DEFAULT NULL,
+					status TEXT NOT NULL DEFAULT 'not_started',
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE events (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					run_id TEXT NOT NULL REFERENCES runs(id),
+					type TEXT NOT NULL,
+					step TEXT,
+					unit TEXT,
+					data TEXT,
+					parent_step_id TEXT,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE artifacts (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					doc_id TEXT UNIQUE NOT NULL,
+					run_id TEXT REFERENCES runs(id),
+					path TEXT NOT NULL,
+					type TEXT NOT NULL DEFAULT 'other',
+					storage_root TEXT NOT NULL DEFAULT 'work_dir',
+					project_path TEXT NOT NULL,
+					project_id TEXT DEFAULT NULL,
+					feature TEXT NOT NULL,
+					step TEXT,
+					subflow INTEGER NOT NULL DEFAULT 0,
+					baseline TEXT DEFAULT NULL,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE annotations (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					doc_id TEXT NOT NULL REFERENCES artifacts(doc_id),
+					run_id TEXT REFERENCES runs(id),
+					content TEXT NOT NULL,
+					data TEXT,
+					parent_id INTEGER REFERENCES annotations(id),
+					status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'resolved')),
+					author TEXT NOT NULL DEFAULT 'user',
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE tasks (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					type TEXT NOT NULL,
+					description TEXT NOT NULL,
+					status TEXT NOT NULL DEFAULT 'pending',
+					payload TEXT,
+					project_path TEXT,
+					project_id TEXT DEFAULT NULL,
+					result TEXT,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE notifications (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					message TEXT NOT NULL,
+					source_type TEXT NOT NULL DEFAULT 'run',
+					source_id TEXT,
+					route TEXT,
+					project_id TEXT,
+					dismissed INTEGER NOT NULL DEFAULT 0,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+			`);
+
+			rawDb
+				.prepare(
+					`INSERT INTO runs (
+						id, flow, feature_id, project_path, rp1_project_root,
+						rp1_kb_root, rp1_work_root, project_id, name, harness
+					) VALUES (
+						$id, $flow, $featureId, $projectPath, $rp1ProjectRoot,
+						$rp1KbRoot, $rp1WorkRoot, $projectId, $name, $harness
+					)`,
+				)
+				.run({
+					$id: "pre-v11-run",
+					$flow: "build",
+					$featureId: "feat-migrated",
+					$projectPath: "/project/migrated",
+					$rp1ProjectRoot: "/project/migrated",
+					$rp1KbRoot: "/project/migrated/.rp1/context",
+					$rp1WorkRoot: "/project/migrated/.rp1/work",
+					$projectId: "project-migrated-id",
+					$name: "build",
+					$harness: "codex",
+				});
+			rawDb.close();
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const runColumns = db.prepare("PRAGMA table_info(runs)").all() as {
+				name: string;
+			}[];
+			const runColumnNames = runColumns.map((c) => c.name);
+
+			expect(runColumnNames).toContain("run_policy");
+			expect(runColumnNames).toContain("work_identity");
+			expect(runColumnNames).toContain("bootstrap_context");
+
+			const indexes = db.prepare("PRAGMA index_list(runs)").all() as {
+				name: string;
+			}[];
+			const indexNames = indexes.map((index) => index.name);
+
+			expect(indexNames).toContain("idx_runs_project_work_identity_status");
+			expect(indexNames).toContain("idx_runs_root_work_identity_status");
+
+			const row = db
+				.prepare(
+					"SELECT run_policy, work_identity, bootstrap_context FROM runs WHERE id = ?",
+				)
+				.get("pre-v11-run") as {
+				run_policy: string | null;
+				work_identity: string | null;
+				bootstrap_context: string | null;
+			} | null;
+
+			expect(row?.run_policy).toBeNull();
+			expect(row?.work_identity).toBeNull();
+			expect(row?.bootstrap_context).toBeNull();
+
+			const versionRow = db
+				.prepare("SELECT version FROM schema_version")
+				.get() as { version: number };
+			expect(versionRow.version).toBe(11);
 		});
 
 		test("foreign key constraints are enforced", async () => {
@@ -626,6 +779,34 @@ describe("emit database", () => {
 			});
 
 			expect(second.name).toBe("Preserved Name");
+		});
+
+		test("does not downgrade bootstrap metadata when later inserts omit workflow context", async () => {
+			const dbPath = join(tempDir, "insert-run-preserve-bootstrap.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-bootstrap-preserve",
+				flow: "build",
+				featureId: "feat-bootstrap",
+				projectPath: "/project",
+				runPolicy: "resumable",
+				workIdentity: "FEATURE_ID=feat-bootstrap",
+				bootstrapContext: '{"run":{"decision":"created_new_run"}}',
+			});
+
+			const second = insertRun(db, {
+				id: "run-bootstrap-preserve",
+				flow: "unknown",
+				featureId: "unknown",
+				projectPath: "/project",
+			});
+
+			expect(second.flow).toBe("build");
+			expect(second.featureId).toBe("feat-bootstrap");
+			expect(second.runPolicy).toBe("resumable");
+			expect(second.workIdentity).toBe("FEATURE_ID=feat-bootstrap");
+			expect(second.bootstrapContext).toContain("created_new_run");
 		});
 	});
 
@@ -1852,6 +2033,217 @@ describe("emit database", () => {
 				.prepare("SELECT flow FROM runs WHERE id = ?")
 				.get("run-legacy") as { flow: string } | null;
 			expect(row?.flow).toBe("build");
+		});
+	});
+
+	describe("findOrCreateWorkflowRun", () => {
+		test("resumes resumable runs by canonical project identity and work identity", async () => {
+			const dbPath = join(tempDir, "workflow-run-resume.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-workflow-active",
+				flow: "build",
+				featureId: "feat-bootstrap",
+				projectPath: "/project/bootstrap",
+				rp1ProjectRoot: "/project/bootstrap",
+				rp1KbRoot: "/project/bootstrap/.rp1/context",
+				rp1WorkRoot: "/project/bootstrap/.rp1/work",
+				projectId: "project-bootstrap-id",
+				runPolicy: "resumable",
+				workIdentity: "FEATURE_ID=feat-bootstrap",
+				bootstrapContext: '{"run":{"decision":"created_new_run"}}',
+			});
+
+			insertEvent(db, {
+				runId: "run-workflow-active",
+				type: "status_change",
+				step: "requirements",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-workflow-active");
+
+			const result = findOrCreateWorkflowRun(db, {
+				flow: "build",
+				featureId: "feat-bootstrap",
+				projectPath: "/project/bootstrap",
+				rp1ProjectRoot: "/project/bootstrap",
+				rp1KbRoot: "/project/bootstrap/.rp1/context",
+				rp1WorkRoot: "/project/bootstrap/.rp1/work",
+				projectId: "project-bootstrap-id",
+				runPolicy: "resumable",
+				workIdentity: "FEATURE_ID=feat-bootstrap",
+				bootstrapContext: '{"run":{"decision":"matched_non_terminal_run"}}',
+				harness: "codex",
+			});
+
+			expect(result.run.id).toBe("run-workflow-active");
+			expect(result.resumed).toBe(true);
+			expect(result.decision).toBe("matched_non_terminal_run");
+
+			const row = db
+				.prepare(
+					"SELECT run_policy, work_identity, bootstrap_context, harness FROM runs WHERE id = ?",
+				)
+				.get("run-workflow-active") as {
+				run_policy: string | null;
+				work_identity: string | null;
+				bootstrap_context: string | null;
+				harness: string | null;
+			} | null;
+
+			expect(row?.run_policy).toBe("resumable");
+			expect(row?.work_identity).toBe("FEATURE_ID=feat-bootstrap");
+			expect(row?.bootstrap_context).toContain("matched_non_terminal_run");
+			expect(row?.harness).toBe("codex");
+		});
+
+		test("always creates a new run for fresh workflows", async () => {
+			const dbPath = join(tempDir, "workflow-run-fresh.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const first = findOrCreateWorkflowRun(db, {
+				flow: "build-fast",
+				featureId: "unknown",
+				projectPath: "/project/fresh",
+				rp1ProjectRoot: "/project/fresh",
+				rp1KbRoot: "/project/fresh/.rp1/context",
+				rp1WorkRoot: "/project/fresh/.rp1/work",
+				projectId: "project-fresh-id",
+				runPolicy: "fresh",
+				bootstrapContext: '{"run":{"decision":"created_new_run"}}',
+				harness: "codex",
+			});
+
+			insertEvent(db, {
+				runId: first.run.id,
+				type: "status_change",
+				step: "request",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, first.run.id);
+
+			const second = findOrCreateWorkflowRun(db, {
+				flow: "build-fast",
+				featureId: "unknown",
+				projectPath: "/project/fresh",
+				rp1ProjectRoot: "/project/fresh",
+				rp1KbRoot: "/project/fresh/.rp1/context",
+				rp1WorkRoot: "/project/fresh/.rp1/work",
+				projectId: "project-fresh-id",
+				runPolicy: "fresh",
+				bootstrapContext: '{"run":{"decision":"created_new_run"}}',
+				harness: "codex",
+			});
+
+			expect(first.resumed).toBe(false);
+			expect(second.resumed).toBe(false);
+			expect(second.run.id).not.toBe(first.run.id);
+		});
+
+		test("backfills legacy build rows resumed through feature compatibility lookup", async () => {
+			const dbPath = join(tempDir, "workflow-run-legacy.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-legacy-build",
+				flow: "unknown",
+				featureId: "feat-legacy-bootstrap",
+				projectPath: "/project/legacy-bootstrap",
+				rp1ProjectRoot: "/project/legacy-bootstrap",
+				rp1KbRoot: "/project/legacy-bootstrap/.rp1/context",
+				rp1WorkRoot: "/project/legacy-bootstrap/.rp1/work",
+			});
+
+			insertEvent(db, {
+				runId: "run-legacy-build",
+				type: "status_change",
+				step: "requirements",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-legacy-build");
+
+			const result = findOrCreateWorkflowRun(db, {
+				flow: "build",
+				featureId: "feat-legacy-bootstrap",
+				projectPath: "/project/legacy-bootstrap",
+				rp1ProjectRoot: "/project/legacy-bootstrap",
+				rp1KbRoot: "/project/legacy-bootstrap/.rp1/context",
+				rp1WorkRoot: "/project/legacy-bootstrap/.rp1/work",
+				runPolicy: "resumable",
+				projectId: "legacy-project-id",
+				workIdentity: "FEATURE_ID=feat-legacy-bootstrap",
+				bootstrapContext: '{"run":{"decision":"legacy_backfill_resume"}}',
+				harness: "codex",
+			});
+
+			expect(result.run.id).toBe("run-legacy-build");
+			expect(result.resumed).toBe(true);
+			expect(result.decision).toBe("legacy_backfill_resume");
+
+			const row = db
+				.prepare(
+					"SELECT flow, run_policy, work_identity, bootstrap_context FROM runs WHERE id = ?",
+				)
+				.get("run-legacy-build") as {
+				flow: string;
+				run_policy: string | null;
+				work_identity: string | null;
+				bootstrap_context: string | null;
+			} | null;
+
+			expect(row?.flow).toBe("build");
+			expect(row?.run_policy).toBe("resumable");
+			expect(row?.work_identity).toBe("FEATURE_ID=feat-legacy-bootstrap");
+			expect(row?.bootstrap_context).toContain("legacy_backfill_resume");
+		});
+
+		test("ignores terminal resumable matches and creates a new run", async () => {
+			const dbPath = join(tempDir, "workflow-run-terminal.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-workflow-completed",
+				flow: "build",
+				featureId: "feat-terminal",
+				projectPath: "/project/terminal",
+				rp1ProjectRoot: "/project/terminal",
+				rp1KbRoot: "/project/terminal/.rp1/context",
+				rp1WorkRoot: "/project/terminal/.rp1/work",
+				projectId: "project-terminal-id",
+				runPolicy: "resumable",
+				workIdentity: "FEATURE_ID=feat-terminal",
+				bootstrapContext: '{"run":{"decision":"created_new_run"}}',
+			});
+
+			insertEvent(db, {
+				runId: "run-workflow-completed",
+				type: "status_change",
+				step: "task-builder:completed",
+				data: JSON.stringify({ status: "completed" }),
+			});
+			deriveRunStatus(db, "run-workflow-completed");
+
+			const result = findOrCreateWorkflowRun(db, {
+				flow: "build",
+				featureId: "feat-terminal",
+				projectPath: "/project/terminal",
+				rp1ProjectRoot: "/project/terminal",
+				rp1KbRoot: "/project/terminal/.rp1/context",
+				rp1WorkRoot: "/project/terminal/.rp1/work",
+				projectId: "project-terminal-id",
+				runPolicy: "resumable",
+				workIdentity: "FEATURE_ID=feat-terminal",
+				bootstrapContext: '{"run":{"decision":"created_new_run"}}',
+				harness: "codex",
+			});
+
+			expect(result.run.id).not.toBe("run-workflow-completed");
+			expect(result.resumed).toBe(false);
+			expect(result.decision).toBe("created_new_run");
+
+			const completedRun = getRunById(db, "run-workflow-completed");
+			expect(completedRun?.status).toBe("completed");
 		});
 	});
 

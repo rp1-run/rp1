@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
 	closeDatabase,
+	findOrCreateWorkflowRun,
 	getEmitDatabase,
 	resetInstance,
 } from "../../agent-tools/emit/database.js";
@@ -479,6 +480,208 @@ describe("migrate", () => {
 			expect(runRow.project_path).toBe(result.projectRoot);
 			expect(runRow.rp1_project_root).toBe(result.projectRoot);
 			expect(runRow.project_id).toBe(result.projectId);
+		});
+
+		test("backfills deterministic bootstrap fields for previous tracked workflow runs when migration can derive them safely", async () => {
+			const repoDir = join(tempDir, "legacy-build-repo");
+			const worktreeDir = join(tempDir, "legacy-build-worktree");
+
+			await mkdir(repoDir, { recursive: true });
+			await initTestRepo(repoDir);
+			await createInitialCommit(repoDir);
+			await mkdir(join(repoDir, ".rp1"), { recursive: true });
+			await createTestWorktree(repoDir, worktreeDir, "feature/legacy-build");
+
+			const db = await expectTaskRight(getEmitDatabase(process.env.RP1_DB!));
+			db.prepare(
+				`INSERT INTO runs (
+					id, flow, feature_id, project_path, rp1_project_root,
+					rp1_kb_root, rp1_work_root, project_id,
+					run_policy, work_identity, bootstrap_context
+				) VALUES (
+					$id, $flow, $featureId, $projectPath, $rp1ProjectRoot,
+					$rp1KbRoot, $rp1WorkRoot, $projectId,
+					$runPolicy, $workIdentity, $bootstrapContext
+				)`,
+			).run({
+				$id: "legacy-build-run",
+				$flow: "build",
+				$featureId: "legacy-feature",
+				$projectPath: worktreeDir,
+				$rp1ProjectRoot: worktreeDir,
+				$rp1KbRoot: join(worktreeDir, ".rp1", "context"),
+				$rp1WorkRoot: join(worktreeDir, ".rp1", "work"),
+				$projectId: null,
+				$runPolicy: null,
+				$workIdentity: null,
+				$bootstrapContext: null,
+			});
+
+			const result = await executeMigrate(worktreeDir);
+			const canonicalRepoRoot = realpathSync(repoDir);
+
+			const runRow = db
+				.prepare(
+					"SELECT project_path, rp1_project_root, project_id, run_policy, work_identity, bootstrap_context FROM runs WHERE id = $id",
+				)
+				.get({ $id: "legacy-build-run" }) as {
+				project_path: string;
+				rp1_project_root: string;
+				project_id: string;
+				run_policy: string | null;
+				work_identity: string | null;
+				bootstrap_context: string | null;
+			};
+
+			expect(runRow.project_path).toBe(canonicalRepoRoot);
+			expect(runRow.rp1_project_root).toBe(canonicalRepoRoot);
+			expect(runRow.project_id).toBe(result.projectId);
+			expect(runRow.run_policy).toBe("resumable");
+			expect(runRow.work_identity).toBe("FEATURE_ID=legacy-feature");
+
+			const bootstrapContext = JSON.parse(runRow.bootstrap_context ?? "{}") as {
+				workflow?: {
+					name?: string;
+					runPolicy?: string;
+					identityArgs?: string[];
+				};
+				trace?: {
+					projectIdentity?: string;
+					workIdentity?: string | null;
+					identityValues?: Record<string, string | boolean>;
+					requestedProjectRoot?: string;
+					canonicalProjectRoot?: string;
+					isWorktree?: boolean;
+				};
+				run?: {
+					decision?: string;
+				};
+			};
+
+			expect(bootstrapContext.workflow?.name).toBe("build");
+			expect(bootstrapContext.workflow?.runPolicy).toBe("resumable");
+			expect(bootstrapContext.workflow?.identityArgs).toEqual(["FEATURE_ID"]);
+			expect(bootstrapContext.trace?.projectIdentity).toBe(result.projectId);
+			expect(bootstrapContext.trace?.workIdentity).toBe(
+				"FEATURE_ID=legacy-feature",
+			);
+			expect(bootstrapContext.trace?.identityValues).toEqual({
+				FEATURE_ID: "legacy-feature",
+			});
+			expect(bootstrapContext.trace?.requestedProjectRoot).toBe(worktreeDir);
+			expect(bootstrapContext.trace?.canonicalProjectRoot).toBe(
+				canonicalRepoRoot,
+			);
+			expect(bootstrapContext.trace?.isWorktree).toBe(true);
+			expect(bootstrapContext.run?.decision).toBe("created_new_run");
+
+			const resumableResult = findOrCreateWorkflowRun(db, {
+				flow: "build",
+				featureId: "legacy-feature",
+				projectPath: canonicalRepoRoot,
+				rp1ProjectRoot: canonicalRepoRoot,
+				rp1KbRoot: join(canonicalRepoRoot, ".rp1", "context"),
+				rp1WorkRoot: join(canonicalRepoRoot, ".rp1", "work"),
+				projectId: result.projectId,
+				runPolicy: "resumable",
+				workIdentity: "FEATURE_ID=legacy-feature",
+				bootstrapContext: runRow.bootstrap_context ?? "{}",
+				harness: "codex",
+			});
+
+			expect(resumableResult.run.id).toBe("legacy-build-run");
+			expect(resumableResult.resumed).toBe(true);
+			expect(resumableResult.decision).toBe("matched_non_terminal_run");
+		});
+
+		test("keeps partially backfillable previous runs eligible for legacy resume compatibility after migration", async () => {
+			await mkdir(join(tempDir, ".rp1"), { recursive: true });
+
+			const db = await expectTaskRight(getEmitDatabase(process.env.RP1_DB!));
+			db.prepare(
+				`INSERT INTO runs (
+					id, flow, feature_id, project_path, rp1_project_root,
+					rp1_kb_root, rp1_work_root, project_id,
+					run_policy, work_identity, bootstrap_context
+				) VALUES (
+					$id, $flow, $featureId, $projectPath, $rp1ProjectRoot,
+					$rp1KbRoot, $rp1WorkRoot, $projectId,
+					$runPolicy, $workIdentity, $bootstrapContext
+				)`,
+			).run({
+				$id: "legacy-compat-run",
+				$flow: "unknown",
+				$featureId: "legacy-feature",
+				$projectPath: tempDir,
+				$rp1ProjectRoot: tempDir,
+				$rp1KbRoot: join(tempDir, ".rp1", "context"),
+				$rp1WorkRoot: join(tempDir, ".rp1", "work"),
+				$projectId: null,
+				$runPolicy: null,
+				$workIdentity: null,
+				$bootstrapContext: null,
+			});
+
+			const result = await executeMigrate(tempDir);
+
+			const migratedRun = db
+				.prepare(
+					"SELECT project_id, run_policy, work_identity, bootstrap_context FROM runs WHERE id = $id",
+				)
+				.get({ $id: "legacy-compat-run" }) as {
+				project_id: string | null;
+				run_policy: string | null;
+				work_identity: string | null;
+				bootstrap_context: string | null;
+			};
+
+			expect(migratedRun.project_id).toBe(result.projectId);
+			expect(migratedRun.run_policy).toBeNull();
+			expect(migratedRun.work_identity).toBeNull();
+			expect(migratedRun.bootstrap_context).toBeNull();
+
+			const resumeResult = findOrCreateWorkflowRun(db, {
+				flow: "build",
+				featureId: "legacy-feature",
+				projectPath: tempDir,
+				rp1ProjectRoot: tempDir,
+				rp1KbRoot: join(tempDir, ".rp1", "context"),
+				rp1WorkRoot: join(tempDir, ".rp1", "work"),
+				projectId: result.projectId,
+				runPolicy: "resumable",
+				workIdentity: "FEATURE_ID=legacy-feature",
+				bootstrapContext: JSON.stringify({
+					workflow: {
+						name: "build",
+						runPolicy: "resumable",
+						identityArgs: ["FEATURE_ID"],
+					},
+					run: {
+						decision: "legacy_backfill_resume",
+					},
+				}),
+				harness: "codex",
+			});
+
+			expect(resumeResult.run.id).toBe("legacy-compat-run");
+			expect(resumeResult.resumed).toBe(true);
+			expect(resumeResult.decision).toBe("legacy_backfill_resume");
+
+			const repairedRun = db
+				.prepare(
+					"SELECT flow, run_policy, work_identity, bootstrap_context FROM runs WHERE id = $id",
+				)
+				.get({ $id: "legacy-compat-run" }) as {
+				flow: string;
+				run_policy: string | null;
+				work_identity: string | null;
+				bootstrap_context: string | null;
+			};
+
+			expect(repairedRun.flow).toBe("build");
+			expect(repairedRun.run_policy).toBe("resumable");
+			expect(repairedRun.work_identity).toBe("FEATURE_ID=legacy-feature");
+			expect(repairedRun.bootstrap_context).toContain("legacy_backfill_resume");
 		});
 	});
 

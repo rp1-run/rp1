@@ -327,6 +327,70 @@ Skill content with metadata.`,
 			}
 		});
 
+		test("extracts workflow metadata from tracked workflow frontmatter", async () => {
+			const tempDir = await createTempDir("parser-skill-workflow");
+			try {
+				const skillDir = `${tempDir}/workflow-skill`;
+				await writeFixture(
+					tempDir,
+					"workflow-skill/SKILL.md",
+					`---
+name: workflow-skill
+description: "A tracked workflow skill with resumable identity metadata"
+metadata:
+  category: development
+  is_workflow: true
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "Feature identifier"
+  workflow:
+    run_policy: resumable
+    identity_args:
+      - FEATURE_ID
+---
+Workflow content.`,
+				);
+
+				const result = await expectTaskRight(parseSkill(skillDir));
+
+				expect(result.metadata?.isWorkflow).toBe(true);
+				expect(result.metadata?.workflow?.runPolicy).toBe("resumable");
+				expect(result.metadata?.workflow?.identityArgs).toEqual(["FEATURE_ID"]);
+			} finally {
+				await cleanupTempDir(tempDir);
+			}
+		});
+
+		test("normalizes fresh workflow metadata to an empty identity arg list", async () => {
+			const tempDir = await createTempDir("parser-skill-fresh-workflow");
+			try {
+				const skillDir = `${tempDir}/fresh-workflow-skill`;
+				await writeFixture(
+					tempDir,
+					"fresh-workflow-skill/SKILL.md",
+					`---
+name: fresh-workflow-skill
+description: "A tracked workflow skill with always-new execution policy"
+metadata:
+  category: development
+  is_workflow: true
+  workflow:
+    run_policy: fresh
+---
+Workflow content.`,
+				);
+
+				const result = await expectTaskRight(parseSkill(skillDir));
+
+				expect(result.metadata?.workflow?.runPolicy).toBe("fresh");
+				expect(result.metadata?.workflow?.identityArgs).toEqual([]);
+			} finally {
+				await cleanupTempDir(tempDir);
+			}
+		});
+
 		test("backward compat: skills without metadata map parse without error", async () => {
 			const fixturePath = getFixturePath("valid-plugin", "skill/sample-skill");
 			const result = await expectTaskRight(parseSkill(fixturePath));

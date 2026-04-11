@@ -67,6 +67,7 @@ process.on("SIGINT", () => {
 import "./mmd-validate/index.js";
 import "./resolve-args/index.js";
 import "./rp1-root-dir/index.js";
+import "./workflow-bootstrap/index.js";
 import "./comment-extract/index.js";
 import "./emit/index.js";
 import "./feedback/index.js";
@@ -105,6 +106,7 @@ Available Tools:
   mmd-validate      Validate Mermaid diagram syntax
   resolve-args      Resolve structured arguments from schema, settings, and user input
   rp1-root-dir      Resolve project, KB, and work directories with worktree detection
+  workflow-bootstrap Resolve canonical tracked-workflow bootstrap context and run selection
   comment-extract   Extract comments from git-changed files
   emit              Record events for the rp1 workflow event system
   feedback          Read, resolve, reply to, and accept feedback from the Arcade
@@ -379,6 +381,134 @@ Examples:
 				source = "stdin";
 			} else {
 				// Fall back to file/stdin input
+				const inputResult = await readInput(options.file)();
+
+				if (E.isLeft(inputResult)) {
+					console.error(
+						createErrorResponse(toolName, formatError(inputResult.left, false)),
+					);
+					process.exit(1);
+				}
+
+				content = inputResult.right.content;
+				source = inputResult.right.source;
+			}
+
+			const tool = getTool(toolName);
+			if (!tool) {
+				console.error(
+					createErrorResponse(toolName, "Tool not found in registry"),
+				);
+				process.exit(1);
+			}
+
+			const toolOptions: ToolOptions = {
+				inputSource: source,
+				filePath: options.file,
+			};
+
+			const result = await tool.execute(content, toolOptions)();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+/**
+ * workflow-bootstrap subcommand.
+ * Resolves canonical tracked-workflow startup context and run selection.
+ */
+agentToolsCommand
+	.command("workflow-bootstrap")
+	.description(
+		"Resolve canonical tracked-workflow bootstrap context and deterministic run selection",
+	)
+	.option("-f, --file <path>", "Read JSON input from file instead of stdin")
+	.option("-n, --name <name>", "Generated workflow name (e.g., build)")
+	.option(
+		"-s, --schema-path <path>",
+		"Generated workflow schema path (e.g., plugins/dev/skills/build/SKILL.md)",
+	)
+	.option("-a, --args <args>", "Raw argument string from invocation")
+	.option(
+		"-p, --project-root <path>",
+		"Path used to anchor canonical directory resolution (defaults to cwd)",
+	)
+	.option(
+		"--harness <name>",
+		"Harness/platform name (e.g., claude-code, codex, opencode)",
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Resolves one canonical tracked-workflow bootstrap contract before the workflow
+  emits progress or registers artifacts. The tool validates the generated
+  workflow target contract, resolves arguments and canonical directories, then
+  deterministically creates or resumes the backing run.
+
+Input (CLI flags or JSON via stdin/file):
+  - name: Generated workflow name (required)
+  - schema_path: Generated workflow schema path (required)
+  - raw_args: Raw argument string from invocation
+  - project_root: Requested invocation path used to discover canonical roots
+  - harness: Optional harness/platform override
+
+Output:
+  JSON ToolResult with canonical arguments, directories, workflow metadata,
+  run selection, and debug-safe invocation trace data.
+
+Examples:
+  rp1 agent-tools workflow-bootstrap \\
+    --name build \\
+    --schema-path plugins/dev/skills/build/SKILL.md \\
+    --args "my-feature --afk" \\
+    --project-root /path/to/project \\
+    --harness codex
+  echo '{"name":"build","schema_path":"plugins/dev/skills/build/SKILL.md","raw_args":"my-feature"}' | rp1 agent-tools workflow-bootstrap
+  rp1 agent-tools workflow-bootstrap -f input.json
+`,
+	)
+	.action(
+		async (options: {
+			file?: string;
+			name?: string;
+			schemaPath?: string;
+			args?: string;
+			projectRoot?: string;
+			harness?: string;
+		}): Promise<void> => {
+			const toolName = "workflow-bootstrap";
+
+			let content: string;
+			let source: "file" | "stdin" = "stdin";
+
+			if (options.name || options.schemaPath) {
+				const input: Record<string, string> = {};
+				if (options.name) {
+					input.name = options.name;
+				}
+				if (options.schemaPath) {
+					input.schema_path = options.schemaPath;
+				}
+				if (options.args) {
+					input.raw_args = options.args;
+				}
+				if (options.projectRoot) {
+					input.project_root = options.projectRoot;
+				}
+				if (options.harness) {
+					input.harness = options.harness;
+				}
+				content = JSON.stringify(input);
+			} else {
 				const inputResult = await readInput(options.file)();
 
 				if (E.isLeft(inputResult)) {

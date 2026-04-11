@@ -38,6 +38,8 @@ const generatedSkillContent = (
 	category: string,
 	isWorkflow: boolean,
 	args: readonly string[] = [],
+	runPolicy?: "fresh" | "resumable",
+	identityArgs?: readonly string[],
 ): string => {
 	const argumentBlock =
 		args.length === 0
@@ -49,6 +51,16 @@ const generatedSkillContent = (
 					)
 					.join("\n")}`;
 
+	const workflowBlock = runPolicy
+		? `\n  workflow:\n    run_policy: ${runPolicy}${
+				identityArgs
+					? `\n    identity_args:\n${identityArgs.map((arg) => `      - ${arg}`).join("\n")}`
+					: runPolicy === "fresh"
+						? "\n    identity_args: []"
+						: ""
+			}`
+		: "";
+
 	return `---
 name: "${renderedName}"
 description: "${description}"
@@ -57,7 +69,7 @@ metadata:
     plugin: "${plugin}"
     name: "${name}"
   category: ${category}
-  is_workflow: ${isWorkflow}${argumentBlock}
+  is_workflow: ${isWorkflow}${workflowBlock}${argumentBlock}
 ---
 
 # ${name}
@@ -72,6 +84,8 @@ const projectSkillContent = (
 	category: string,
 	isWorkflow: boolean,
 	args: readonly string[] = [],
+	runPolicy?: "fresh" | "resumable",
+	identityArgs?: readonly string[],
 ): string => {
 	const argumentBlock =
 		args.length === 0
@@ -83,12 +97,22 @@ const projectSkillContent = (
 					)
 					.join("\n")}`;
 
+	const workflowBlock = runPolicy
+		? `\n  workflow:\n    run_policy: ${runPolicy}${
+				identityArgs
+					? `\n    identity_args:\n${identityArgs.map((arg) => `      - ${arg}`).join("\n")}`
+					: runPolicy === "fresh"
+						? "\n    identity_args: []"
+						: ""
+			}`
+		: "";
+
 	return `---
 name: "${name}"
 description: "${description}"
 metadata:
   category: ${category}
-  is_workflow: ${isWorkflow}${argumentBlock}
+  is_workflow: ${isWorkflow}${workflowBlock}${argumentBlock}
 ---
 
 # ${name}
@@ -105,11 +129,21 @@ const writeProjectSkill = async (
 	category: string,
 	isWorkflow: boolean,
 	args: readonly string[] = [],
+	runPolicy?: "fresh" | "resumable",
+	identityArgs?: readonly string[],
 ): Promise<void> => {
 	await writeFixture(
 		rootDir,
 		join("plugins", plugin, "skills", name, "SKILL.md"),
-		projectSkillContent(name, description, category, isWorkflow, args),
+		projectSkillContent(
+			name,
+			description,
+			category,
+			isWorkflow,
+			args,
+			runPolicy,
+			identityArgs,
+		),
 	);
 };
 
@@ -682,6 +716,8 @@ describe("verifier", () => {
 						"quality",
 						true,
 						["TARGET"],
+						"resumable",
+						["TARGET"],
 					),
 				);
 				await writeFixture(
@@ -706,6 +742,8 @@ describe("verifier", () => {
 					category: "quality",
 					is_workflow: true,
 					key_args: ["TARGET"],
+					run_policy: "resumable",
+					identity_args: ["TARGET"],
 					installed_platforms: ["codex"],
 					invocations: {
 						codex: "$rp1-synthetic-skill",

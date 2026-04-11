@@ -19,6 +19,7 @@ import { missingEmitHarnessRule } from "./rules/missing-emit-harness.js";
 import { nullToolInProseRule } from "./rules/null-tool-in-prose.js";
 import { nullToolRefsRule } from "./rules/null-tool-refs.js";
 import { orphanedPlatformRule } from "./rules/orphaned-platform.js";
+import { trackedWorkflowBootstrapRule } from "./rules/tracked-workflow-bootstrap.js";
 import { unresolvedTagsRule } from "./rules/unresolved-tags.js";
 
 // ---------------------------------------------------------------------------
@@ -116,3 +117,4 @@ registerLintRule(incompleteDispatchRule);
 registerLintRule(unresolvedTagsRule);
 registerLintRule(nullToolInProseRule);
 registerLintRule(missingEmitHarnessRule);
+registerLintRule(trackedWorkflowBootstrapRule);

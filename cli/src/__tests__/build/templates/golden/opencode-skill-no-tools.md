@@ -6,9 +6,7 @@ metadata:
   rp1:
     plugin: base
     name: simple-skill
-
 ---
-
 
 ## Host Context
 

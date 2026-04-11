@@ -44,6 +44,17 @@ import {
 
 const TOOL_NAME = "emit";
 
+const resolveRequestedWorkflow = (input: EmitInput): string => {
+	if (typeof input.workflow === "string" && input.workflow.length > 0) {
+		return input.workflow;
+	}
+
+	return typeof input.data.workflow === "string" &&
+		input.data.workflow.length > 0
+		? input.data.workflow
+		: "unknown";
+};
+
 /**
  * Classify a file path to an artifact type based on extension.
  */
@@ -220,6 +231,24 @@ const handleArtifactRegistration = (
 			: storageRoot === "project"
 				? resolve(run.rp1ProjectRoot, filePath)
 				: resolve(run.rp1WorkRoot, filePath);
+	const normalizedStorage = normalizeArtifactStorage(
+		filePath,
+		run,
+		storageRoot,
+	);
+
+	if (
+		(storageRoot === "project" || storageRoot === "work_dir") &&
+		normalizedStorage.storageRoot === "absolute"
+	) {
+		const canonicalRoot =
+			storageRoot === "project" ? run.rp1ProjectRoot : run.rp1WorkRoot;
+		return TE.left(
+			runtimeError(
+				`Artifact path "${filePath}" escapes the canonical ${storageRoot} root (${canonicalRoot}). Use storageRoot "absolute" for external artifacts.`,
+			),
+		);
+	}
 
 	const docIdTask = pipe(
 		resolveDocId(absolutePath),
@@ -237,11 +266,6 @@ const handleArtifactRegistration = (
 					const artifactType =
 						(input.data.type as string) ?? classifyArtifactType(filePath);
 					const feature = (input.data.feature as string) ?? "unknown";
-					const normalizedStorage = normalizeArtifactStorage(
-						filePath,
-						run,
-						storageRoot,
-					);
 
 					const artifactInput: ArtifactInput = {
 						docId: docIdResult.docId,
@@ -381,10 +405,11 @@ export const executeEmit = (
 			if (directories._tag === "Left") {
 				return TE.left(directories.left);
 			}
+			const requestedWorkflow = resolveRequestedWorkflow(input);
 
 			const run = insertRun(db, {
 				id: input.runId,
-				flow: (input.data.workflow as string) ?? "unknown",
+				flow: requestedWorkflow,
 				featureId: (input.data.feature as string) ?? "unknown",
 				projectPath: input.projectPath,
 				rp1ProjectRoot: directories.right.projectRoot,
@@ -450,7 +475,9 @@ export const executeEmit = (
 										run.projectId,
 										run.flow !== "unknown"
 											? run.flow
-											: (input.workflow ?? null),
+											: requestedWorkflow !== "unknown"
+												? requestedWorkflow
+												: null,
 										input.step ?? null,
 										input.data,
 									);

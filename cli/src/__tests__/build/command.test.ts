@@ -30,6 +30,23 @@ const noopLogger: Logger = {
 
 const opencodeDef = PLATFORM_DEFINITIONS.get("opencode")!;
 const claudeCodeDef = PLATFORM_DEFINITIONS.get("claude-code")!;
+const codexDef = PLATFORM_DEFINITIONS.get("codex")!;
+
+const extractBootstrapTarget = (
+	content: string,
+): { readonly name: string; readonly schemaPath: string } => {
+	const nameMatch = content.match(/--name\s+([^\s\\]+)/);
+	const schemaPathMatch = content.match(/--schema-path\s+([^\s\\]+)/);
+
+	if (!nameMatch?.[1] || !schemaPathMatch?.[1]) {
+		throw new Error("Missing generated workflow bootstrap target");
+	}
+
+	return {
+		name: nameMatch[1],
+		schemaPath: schemaPathMatch[1],
+	};
+};
 
 describe("buildPlatformPlugin (opencode)", () => {
 	let tempDir: string;
@@ -225,6 +242,84 @@ Prompt writer skill content.
 		expect(
 			result.assets.skills.some((s) => s.name.startsWith("rp1-prompt-writer/")),
 		).toBe(true);
+	});
+
+	test("renders stable workflow target inputs across supported hosts", async () => {
+		const projectRoot = join(tempDir, "project-workflow-targets");
+
+		await writeFixture(
+			projectRoot,
+			"plugins/dev/.claude-plugin/plugin.json",
+			JSON.stringify({ version: "1.0.0" }),
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/dev/skills/build-fast/SKILL.md",
+			`---
+name: build-fast
+description: "Fast tracked workflow that exercises generated bootstrap targets"
+metadata:
+  category: development
+  is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args: []
+---
+
+Workflow content.
+`,
+		);
+
+		const opencodeOut = join(outputDir, "workflow-targets-opencode");
+		const codexOut = join(outputDir, "workflow-targets-codex");
+		const claudeOut = join(outputDir, "workflow-targets-claude");
+
+		await buildPlatformPlugin(
+			"dev",
+			projectRoot,
+			opencodeOut,
+			opencodeDef,
+			noopLogger,
+			true,
+		);
+		await buildPlatformPlugin(
+			"dev",
+			projectRoot,
+			codexOut,
+			codexDef,
+			noopLogger,
+			true,
+		);
+		await buildPlatformPlugin(
+			"dev",
+			projectRoot,
+			claudeOut,
+			claudeCodeDef,
+			noopLogger,
+			true,
+		);
+
+		const opencodeSkill = await readFile(
+			join(opencodeOut, "dev", "skills", "rp1-build-fast", "SKILL.md"),
+			"utf-8",
+		);
+		const codexSkill = await readFile(
+			join(codexOut, "dev", "skills", "rp1-build-fast", "SKILL.md"),
+			"utf-8",
+		);
+		const claudeSkill = await readFile(
+			join(claudeOut, "dev", "skills", "build-fast", "SKILL.md"),
+			"utf-8",
+		);
+
+		const expectedTarget = {
+			name: "build-fast",
+			schemaPath: "plugins/dev/skills/build-fast/SKILL.md",
+		};
+
+		expect(extractBootstrapTarget(opencodeSkill)).toEqual(expectedTarget);
+		expect(extractBootstrapTarget(codexSkill)).toEqual(expectedTarget);
+		expect(extractBootstrapTarget(claudeSkill)).toEqual(expectedTarget);
 	});
 });
 

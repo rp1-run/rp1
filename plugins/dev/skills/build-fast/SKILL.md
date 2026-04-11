@@ -5,6 +5,9 @@ allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: development
   is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args: []
   version: 3.0.0
   tags:
     - core
@@ -72,7 +75,7 @@ Quick-iteration workflow for focused changes. Three-phase execution: plan -> bui
 
 ## §CTX
 
-Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Resolve Arguments step. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
+Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
 
 ## §VERSION-GATE
 
@@ -116,7 +119,7 @@ rp1 agent-tools emit \
   --data '{"status": "running"}'
 ```
 
-- Generate `RUN_ID` as a UUID at workflow start
+- `RUN_ID` comes from the generated Workflow Bootstrap section
 - Derive `RUN_NAME` from the development request: a brief summary (max 60 chars) prefixed with `"Feature: "` (e.g., `"Feature: Add logout button to navbar"`)
 
 **State Progression Protocol**:

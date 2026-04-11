@@ -5,6 +5,9 @@ allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git *), Bash(jq *), Bash(wc *), B
 metadata:
   category: knowledge
   is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args: []
   version: 2.2.1
   tags:
     - documentation
@@ -31,11 +34,11 @@ metadata:
 
 # Knowledge Build
 
-§ROLE: KB orchestrator. Update `.rp1/context/`, not `.rp1/work/`.
+§ROLE: KB orchestrator. Update `kbRoot`, not `workRoot`.
 
 ## §CTX
 
-- Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Resolve Arguments step.
+- Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section.
 - KB outputs live under `kbRoot`:
   - `index.md`
   - `concept_map.md`

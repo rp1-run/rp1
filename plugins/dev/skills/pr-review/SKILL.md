@@ -5,6 +5,9 @@ allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: review
   is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args: []
   version: 4.0.0
   tags:
     - review
@@ -47,7 +50,7 @@ metadata:
 
 §ROLE: Map-reduce PR review orchestrator. 6 phases, local + CI modes, comment deduplication.
 
-§CTX: Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Resolve Arguments step. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
+§CTX: Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
 
 §GUARDRAILS
 
@@ -73,7 +76,7 @@ rp1 agent-tools emit \
   --data '{"status": "running"}'
 ```
 
-- Generate `RUN_ID` as a UUID at workflow start
+- `RUN_ID` comes from the generated Workflow Bootstrap section
 - Derive `RUN_NAME` from the resolved PR context: use `"PR #{pr_number}"` when a PR number is available, otherwise use `"PR: {branch_name}"` as fallback
 - On the **first** emit only, include `--name "{RUN_NAME}"` to label the run
 

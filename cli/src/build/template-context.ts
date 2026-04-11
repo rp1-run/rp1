@@ -35,10 +35,18 @@ export type CodexRoleType = "worker" | "explorer" | "reviewer" | "default";
 // ---------------------------------------------------------------------------
 
 /** Data for a skill artifact passed into the template context. */
+export interface SkillWorkflowTarget {
+	readonly name: string;
+	readonly schemaPath: string;
+}
+
+/** Data for a skill artifact passed into the template context. */
 export interface SkillArtifactData {
 	readonly type: "skill";
 	readonly name: string;
 	readonly namespacedName: string; // e.g. "rp1-base-knowledge-build"
+	readonly schemaPath?: string; // project-relative source SKILL.md path
+	readonly workflowTarget?: SkillWorkflowTarget; // canonical tracked-workflow target
 	readonly description: string;
 	readonly allowedTools?: string; // raw CC format (comma-separated string)
 	readonly content: string; // post-conditional-processing

@@ -17,6 +17,7 @@ import type {
 	EventType,
 	RunRecord,
 	Status,
+	WorkflowRunPolicy,
 } from "../../../shared/events.js";
 import {
 	getLogicalStepKey,
@@ -25,7 +26,8 @@ import {
 import { readProjectId } from "../../../shared/project-id.js";
 
 /** Default database file location. Override with RP1_DB env var. */
-const DEFAULT_DB_PATH = process.env.RP1_DB ?? join(homedir(), ".rp1", "rp1.db");
+const getDefaultDbPath = (): string =>
+	process.env.RP1_DB ?? join(homedir(), ".rp1", "rp1.db");
 
 /** Schema DDL for rp1.db (version 1, clean start) */
 const SCHEMA_SQL = `
@@ -35,7 +37,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (10);
+INSERT INTO schema_version (version) VALUES (11);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -46,6 +48,10 @@ CREATE TABLE IF NOT EXISTS runs (
     rp1_kb_root TEXT NOT NULL,
     rp1_work_root TEXT NOT NULL,
     project_id TEXT DEFAULT NULL,
+    run_policy TEXT DEFAULT NULL
+        CHECK(run_policy IN ('fresh', 'resumable')),
+    work_identity TEXT DEFAULT NULL,
+    bootstrap_context TEXT DEFAULT NULL,
     name TEXT DEFAULT NULL,
     harness TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'not_started'
@@ -59,6 +65,8 @@ CREATE INDEX IF NOT EXISTS idx_runs_feature ON runs(project_path, feature_id);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
 CREATE INDEX IF NOT EXISTS idx_runs_feature_status ON runs(project_path, feature_id, status);
 CREATE INDEX IF NOT EXISTS idx_runs_project_id ON runs(project_id);
+CREATE INDEX IF NOT EXISTS idx_runs_project_work_identity_status ON runs(project_id, flow, work_identity, status);
+CREATE INDEX IF NOT EXISTS idx_runs_root_work_identity_status ON runs(rp1_project_root, flow, work_identity, status);
 
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -184,8 +192,36 @@ export interface RunInput {
 	readonly rp1KbRoot?: string;
 	readonly rp1WorkRoot?: string;
 	readonly projectId?: string;
+	readonly runPolicy?: WorkflowRunPolicy;
+	readonly workIdentity?: string;
+	readonly bootstrapContext?: string;
 	readonly name?: string;
 	readonly harness?: string;
+}
+
+export type WorkflowRunDecision =
+	| "created_new_run"
+	| "matched_non_terminal_run"
+	| "legacy_backfill_resume";
+
+export interface WorkflowRunInput {
+	readonly flow: string;
+	readonly featureId: string;
+	readonly projectPath: string;
+	readonly rp1ProjectRoot: string;
+	readonly rp1KbRoot: string;
+	readonly rp1WorkRoot: string;
+	readonly projectId?: string;
+	readonly runPolicy: WorkflowRunPolicy;
+	readonly workIdentity?: string;
+	readonly bootstrapContext: string;
+	readonly harness?: string;
+}
+
+export interface WorkflowRunResult {
+	readonly run: RunRecord;
+	readonly resumed: boolean;
+	readonly decision: WorkflowRunDecision;
 }
 
 /** Input for inserting an event */
@@ -292,6 +328,9 @@ interface RunRow {
 	rp1_kb_root: string | null;
 	rp1_work_root: string | null;
 	project_id: string | null;
+	run_policy: WorkflowRunPolicy | null;
+	work_identity: string | null;
+	bootstrap_context: string | null;
 	name: string | null;
 	harness: string | null;
 	status: string;
@@ -395,6 +434,9 @@ const runRowToRecord = (row: RunRow): RunRecord => ({
 	rp1KbRoot: row.rp1_kb_root ?? defaultKbRoot(row.project_path),
 	rp1WorkRoot: row.rp1_work_root ?? defaultWorkRoot(row.project_path),
 	projectId: row.project_id ?? null,
+	runPolicy: row.run_policy ?? null,
+	workIdentity: row.work_identity ?? null,
+	bootstrapContext: row.bootstrap_context ?? null,
 	status: row.status as Status,
 	name: row.name ?? null,
 	harness: row.harness ?? null,
@@ -753,6 +795,40 @@ const applyMigrations = (db: Database): void => {
 
 		db.prepare("UPDATE schema_version SET version = 10").run();
 	}
+
+	const postV10Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV10Version?.version ?? 10) < 11) {
+		const runColumns = db.prepare("PRAGMA table_info(runs)").all() as {
+			name: string;
+		}[];
+		const runColumnNames = new Set(runColumns.map((c) => c.name));
+
+		if (!runColumnNames.has("run_policy")) {
+			db.exec(
+				"ALTER TABLE runs ADD COLUMN run_policy TEXT DEFAULT NULL CHECK(run_policy IN ('fresh', 'resumable'))",
+			);
+		}
+		if (!runColumnNames.has("work_identity")) {
+			db.exec("ALTER TABLE runs ADD COLUMN work_identity TEXT DEFAULT NULL");
+		}
+		if (!runColumnNames.has("bootstrap_context")) {
+			db.exec(
+				"ALTER TABLE runs ADD COLUMN bootstrap_context TEXT DEFAULT NULL",
+			);
+		}
+
+		db.exec(
+			"CREATE INDEX IF NOT EXISTS idx_runs_project_work_identity_status ON runs(project_id, flow, work_identity, status)",
+		);
+		db.exec(
+			"CREATE INDEX IF NOT EXISTS idx_runs_root_work_identity_status ON runs(rp1_project_root, flow, work_identity, status)",
+		);
+
+		db.prepare("UPDATE schema_version SET version = 11").run();
+	}
 };
 
 /**
@@ -760,7 +836,7 @@ const applyMigrations = (db: Database): void => {
  * Initializes schema on first connection and cleans up legacy status.db.
  */
 export const getEmitDatabase = (
-	dbPath: string = DEFAULT_DB_PATH,
+	dbPath: string = getDefaultDbPath(),
 ): TE.TaskEither<CLIError, Database> =>
 	TE.tryCatch(
 		async () => {
@@ -837,6 +913,30 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 			params.$harness = input.harness;
 		}
 
+		if (
+			input.runPolicy !== undefined &&
+			existing.run_policy !== input.runPolicy
+		) {
+			updates.push("run_policy = $runPolicy");
+			params.$runPolicy = input.runPolicy;
+		}
+
+		if (
+			input.workIdentity !== undefined &&
+			existing.work_identity !== input.workIdentity
+		) {
+			updates.push("work_identity = $workIdentity");
+			params.$workIdentity = input.workIdentity;
+		}
+
+		if (
+			input.bootstrapContext !== undefined &&
+			existing.bootstrap_context !== input.bootstrapContext
+		) {
+			updates.push("bootstrap_context = $bootstrapContext");
+			params.$bootstrapContext = input.bootstrapContext;
+		}
+
 		const directories = resolveRunDirectories(input);
 
 		if (existing.project_path !== input.projectPath) {
@@ -883,11 +983,13 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 		.prepare(
 			`INSERT INTO runs (
 			    id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root,
-			    rp1_work_root, project_id, name, harness
+			    rp1_work_root, project_id, run_policy, work_identity,
+			    bootstrap_context, name, harness
 			 )
 			 VALUES (
 			    $id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbRoot,
-			    $rp1WorkRoot, $projectId, $name, $harness
+			    $rp1WorkRoot, $projectId, $runPolicy, $workIdentity,
+			    $bootstrapContext, $name, $harness
 			 )
 			 RETURNING *`,
 		)
@@ -900,11 +1002,112 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 			$rp1KbRoot: directories.rp1KbRoot,
 			$rp1WorkRoot: directories.rp1WorkRoot,
 			$projectId: directories.projectId ?? null,
+			$runPolicy: input.runPolicy ?? null,
+			$workIdentity: input.workIdentity ?? null,
+			$bootstrapContext: input.bootstrapContext ?? null,
 			$name: input.name ?? null,
 			$harness: input.harness ?? null,
 		}) as RunRow;
 
 	return runRowToRecord(row);
+};
+
+const findWorkflowRunByIdentity = (
+	db: Database,
+	input: WorkflowRunInput,
+): RunRow | null => {
+	return db
+		.prepare(
+			`SELECT * FROM runs
+			 WHERE (
+			        project_id = $projectId
+			     OR (project_id IS NULL AND rp1_project_root = $rp1ProjectRoot)
+			   )
+			   AND flow = $flow
+			   AND work_identity = $workIdentity
+			   AND status NOT IN ('completed', 'failed', 'skipped')
+			 ORDER BY created_at DESC
+			 LIMIT 1`,
+		)
+		.get({
+			$projectId: input.projectId ?? null,
+			$rp1ProjectRoot: input.rp1ProjectRoot,
+			$flow: input.flow,
+			$workIdentity: input.workIdentity ?? null,
+		}) as RunRow | null;
+};
+
+const findLegacyWorkflowRun = (
+	db: Database,
+	input: WorkflowRunInput,
+): RunRow | null => {
+	if (input.flow !== "build" || input.featureId === "unknown") {
+		return null;
+	}
+
+	return db
+		.prepare(
+			`SELECT * FROM runs
+			 WHERE (
+			        project_id = $projectId
+			     OR (project_id IS NULL AND rp1_project_root = $rp1ProjectRoot)
+			   )
+			   AND feature_id = $featureId
+			   AND (flow = $flow OR flow = 'unknown')
+			   AND status NOT IN ('completed', 'failed', 'skipped')
+			 ORDER BY created_at DESC
+			 LIMIT 1`,
+		)
+		.get({
+			$projectId: input.projectId ?? null,
+			$rp1ProjectRoot: input.rp1ProjectRoot,
+			$featureId: input.featureId,
+			$flow: input.flow,
+		}) as RunRow | null;
+};
+
+export const findOrCreateWorkflowRun = (
+	db: Database,
+	input: WorkflowRunInput,
+): WorkflowRunResult => {
+	const createOrUpdateRun = (
+		runId: string,
+		decision: WorkflowRunDecision,
+		resumed: boolean,
+	): WorkflowRunResult => ({
+		run: insertRun(db, {
+			id: runId,
+			flow: input.flow,
+			featureId: input.featureId,
+			projectPath: input.projectPath,
+			rp1ProjectRoot: input.rp1ProjectRoot,
+			rp1KbRoot: input.rp1KbRoot,
+			rp1WorkRoot: input.rp1WorkRoot,
+			projectId: input.projectId,
+			runPolicy: input.runPolicy,
+			workIdentity: input.workIdentity,
+			bootstrapContext: input.bootstrapContext,
+			harness: input.harness,
+		}),
+		resumed,
+		decision,
+	});
+
+	if (input.runPolicy === "fresh") {
+		return createOrUpdateRun(crypto.randomUUID(), "created_new_run", false);
+	}
+
+	const existing = findWorkflowRunByIdentity(db, input);
+	if (existing) {
+		return createOrUpdateRun(existing.id, "matched_non_terminal_run", true);
+	}
+
+	const legacy = findLegacyWorkflowRun(db, input);
+	if (legacy) {
+		return createOrUpdateRun(legacy.id, "legacy_backfill_resume", true);
+	}
+
+	return createOrUpdateRun(crypto.randomUUID(), "created_new_run", false);
 };
 
 /**

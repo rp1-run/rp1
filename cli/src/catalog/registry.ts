@@ -8,7 +8,11 @@ import {
 	toUserFacing,
 } from "../../shared/canonical-name.js";
 import { formatError } from "../../shared/errors.js";
-import type { ArgumentDefinition, SkillCategory } from "../build/models.js";
+import type {
+	ArgumentDefinition,
+	SkillCategory,
+	WorkflowRunPolicy,
+} from "../build/models.js";
 import { parseSkill } from "../build/parser.js";
 
 export type CatalogDistributionScope = "distributable" | "internal";
@@ -21,6 +25,8 @@ export interface CatalogRenderableEntry {
 	readonly category: SkillCategory;
 	readonly isWorkflow: boolean;
 	readonly keyArgs: readonly string[];
+	readonly runPolicy?: WorkflowRunPolicy;
+	readonly identityArgs?: readonly string[];
 }
 
 export interface CatalogRegistryEntry extends CatalogRenderableEntry {
@@ -149,6 +155,8 @@ const toRegistryEntry = (
 	category: SkillCategory,
 	isWorkflow: boolean,
 	argumentDefs: readonly ArgumentDefinition[],
+	runPolicy?: WorkflowRunPolicy,
+	identityArgs?: readonly string[],
 ): CatalogRegistryEntry => {
 	const canonicalName = toCanonicalString({ plugin, artifact: name });
 
@@ -161,6 +169,8 @@ const toRegistryEntry = (
 		category,
 		isWorkflow,
 		keyArgs: argumentDefs.map((argument) => argument.name),
+		...(runPolicy !== undefined && { runPolicy }),
+		...(identityArgs !== undefined && { identityArgs }),
 		argumentDefs,
 		distributionScope: DISTRIBUTABLE_PLUGIN_NAME_SET.has(plugin)
 			? "distributable"
@@ -292,6 +302,8 @@ export const collectCatalogRegistry = async (
 					metadata.category,
 					metadata.isWorkflow,
 					argumentDefs,
+					metadata.workflow?.runPolicy,
+					metadata.workflow?.identityArgs,
 				),
 			);
 		}
@@ -337,15 +349,24 @@ export const renderCatalogMarkdown = (
 		lines.push("");
 		lines.push(`> **Suggest when**: ${CATEGORY_TRIGGERS[category]}`);
 		lines.push("");
-		lines.push("| Skill | Plugin | Description | Key Args | Workflow |");
-		lines.push("|-------|--------|-------------|----------|----------|");
+		lines.push(
+			"| Skill | Plugin | Description | Key Args | Workflow | Run Policy | Identity Args |",
+		);
+		lines.push(
+			"|-------|--------|-------------|----------|----------|------------|---------------|",
+		);
 
 		for (const entry of categoryEntries) {
 			const workflow = entry.isWorkflow ? "Yes" : "";
 			const args =
 				entry.keyArgs.length > 0 ? `\`${entry.keyArgs.join("`, `")}\`` : "";
+			const runPolicy = entry.runPolicy ?? "";
+			const identityArgs =
+				entry.identityArgs && entry.identityArgs.length > 0
+					? `\`${entry.identityArgs.join("`, `")}\``
+					: "";
 			lines.push(
-				`| \`/${entry.name}\` | ${entry.plugin} | ${entry.description} | ${args} | ${workflow} |`,
+				`| \`/${entry.name}\` | ${entry.plugin} | ${entry.description} | ${args} | ${workflow} | ${runPolicy} | ${identityArgs} |`,
 			);
 		}
 

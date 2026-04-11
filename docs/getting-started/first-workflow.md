@@ -77,7 +77,17 @@ Future rp1 skills use this knowledge base to understand your codebase context, m
 
 ## Ready to Ship? Start Here
 
-The **recommended next step** is to build a feature. This is rp1's flagship workflow - from requirements to deployed code.
+The **recommended next step** is to pick the delivery workflow that matches your
+scope:
+
+| If you want to... | Start with |
+|-------------------|------------|
+| Run a multi-step feature workflow that you can resume later by feature id | `build` |
+| Make a small or medium one-off change with a lightweight plan artifact | `build-fast` |
+
+`build` is rp1's flagship workflow. It reuses the active run for the same
+feature when possible. `build-fast` always starts fresh and stores its plan
+under `.rp1/work/quick-builds/`.
 
 [Start Feature Development :material-arrow-right:](../guides/feature-development.md){ .md-button .md-button--primary }
 

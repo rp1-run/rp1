@@ -77,6 +77,47 @@ actual orchestration behavior.
 - **Default**: `false`
 - **Set to `true` for**: Skills that orchestrate multi-step workflows, spawn sub-agents in sequence, or manage lifecycle phases (e.g., `build`, `build-fast`, `speedrun`, `blueprint`, `generate-user-docs`, `knowledge-build`, `pr-review`).
 
+### `workflow`
+
+Nested tracked-workflow metadata. Use this block only when
+`metadata.is_workflow: true`.
+
+These fields drive build validation, template-injected
+`workflow-bootstrap` guidance, runtime run selection, and the workflow facts
+exposed by `rp1 list --json`.
+
+- **Type**: object
+- **Required**: Yes when `metadata.is_workflow: true`
+- **Omit for**: Non-workflow skills
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `run_policy` | enum | Yes | Whether the workflow always starts fresh or may resume an existing run |
+| `identity_args` | array of strings | `resumable`: Yes, `fresh`: No | Declared argument names that define work identity for resumable workflows |
+
+Rules:
+
+- `run_policy` must be `fresh` or `resumable`.
+- `run_policy: fresh` always creates a new run. Omit `identity_args` or set it
+  to `[]`.
+- `run_policy: resumable` requires a non-empty `identity_args` list.
+- Every `identity_args` entry must match a declared
+  `metadata.arguments[*].name`.
+- Tracked workflow prompts must use the generated bootstrap section instead of
+  hand-authored `RUN_ID` generation or direct `emit resume-run` calls.
+
+Example:
+
+```yaml
+metadata:
+  category: development
+  is_workflow: true
+  workflow:
+    run_policy: resumable
+    identity_args:
+      - FEATURE_ID
+```
+
 ### `version`
 
 Semantic version of the skill.

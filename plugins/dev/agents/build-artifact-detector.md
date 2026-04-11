@@ -1,6 +1,6 @@
 ---
 name: build-artifact-detector
-description: Determines workflow start_step by checking existing feature artifacts and resolving run resume state
+description: Determines workflow start_step by checking existing feature artifacts using bootstrap-provided run context
 tools: Read, Bash(rp1 *)
 model: inherit
 arguments:
@@ -13,16 +13,31 @@ arguments:
     required: false
     default: "build"
     description: "Workflow type for resume matching (e.g., build, build-fast, blueprint, pr-review)"
+  - name: RUN_ID
+    type: string
+    required: true
+    description: "Run ID returned by workflow-bootstrap"
+  - name: RUN_RESUMED
+    type: boolean
+    required: true
+    description: "Whether workflow-bootstrap resumed an existing run"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by workflow-bootstrap"
 ---
 
 # Build Artifact Detector
 
-Determines which build step to start from by checking artifact existence and validity. Also resolves run-ID resumability by extracting `rp1_run_id` from artifact YAML frontmatter and verifying resumable state in the database.
+Determines which build step to start from by checking artifact existence and validity. The parent tracked workflow already resolved run reuse through workflow bootstrap, so this agent only consumes the provided canonical run context.
 
 **CRITICAL**: Output ONLY JSON. No explanations, no progress updates.
 
 <feature_id>$1</feature_id>
 <workflow_type>$2</workflow_type>
+<run_id>$3</run_id>
+<run_resumed>$4</run_resumed>
+<work_root>$5</work_root>
 
 ## 1. Detection Algorithm
 
@@ -30,21 +45,21 @@ Check artifacts in order. First failing check determines `start_step`.
 
 ### Step 1: Requirements
 
-Read `.rp1/work/features/{FEATURE_ID}/requirements.md`
+Read `{WORK_ROOT}/features/{FEATURE_ID}/requirements.md`
 
 - **Valid if**: Contains `## 5. Functional Requirements`
 - **Missing/invalid**: `start_step = 1`, STOP
 
 ### Step 2: Design
 
-Read `.rp1/work/features/{FEATURE_ID}/design.md`
+Read `{WORK_ROOT}/features/{FEATURE_ID}/design.md`
 
 - **Valid if**: Contains `## 2. Architecture`
 - **Missing/invalid**: `start_step = 2`, STOP
 
 ### Step 3: Tasks
 
-Read `.rp1/work/features/{FEATURE_ID}/tasks.md`
+Read `{WORK_ROOT}/features/{FEATURE_ID}/tasks.md`
 
 - **Valid if**: Contains task entries (`- [ ]` or `- [x]`)
 - **Missing/no entries**: `start_step = 3`, STOP
@@ -58,7 +73,7 @@ Check tasks.md for pending tasks.
 
 ### Step 5: Verification
 
-Glob `.rp1/work/features/{FEATURE_ID}/feature_verify_report*.md`, read most recent.
+Glob `{WORK_ROOT}/features/{FEATURE_ID}/feature_verify_report*.md`, read most recent.
 
 - **Verified if**: Contains BOTH `Overall Status: VERIFIED` AND `Ready for Merge: YES`
 - **Not verified**: `start_step = 5`, STOP
@@ -67,49 +82,18 @@ Glob `.rp1/work/features/{FEATURE_ID}/feature_verify_report*.md`, read most rece
 
 All checks passed: `start_step = 6`
 
-## 2. Run ID Resolution
+## 2. Run Context
 
-After determining `start_step`, resolve the run ID for resume. This is workflow-agnostic: any workflow type that produces artifacts with `rp1_run_id` frontmatter can participate.
+Use the bootstrap-provided run context directly:
 
-### 2.1 Extract from Frontmatter
+- `run_id = {RUN_ID}`
+- `resumed = {RUN_RESUMED}`
 
-Scan the YAML frontmatter of each artifact read during step detection (requirements.md, design.md, tasks.md). Look for the `rp1_run_id` field. Use the first non-empty value found.
+Do NOT extract `rp1_run_id` frontmatter and do NOT call `rp1 agent-tools emit resume-run`.
 
-Frontmatter is the YAML block between the opening `---` and closing `---` at the top of the file. Example:
+### 2.1 Artifact Reconciliation (Best-Effort)
 
-```yaml
----
-rp1_doc_id: abc123
-rp1_run_id: 550e8400-e29b-41d4-a716-446655440000
----
-```
-
-### 2.2 Verify Resumable State
-
-If an `rp1_run_id` was found in frontmatter, verify it is resumable by calling:
-
-```bash
-rp1 agent-tools emit resume-run --feature {FEATURE_ID} --flow {WORKFLOW_TYPE}
-```
-
-Parse the JSON output. The response contains `runId` and `resumed` fields.
-
-- If the returned `runId` matches the frontmatter `rp1_run_id` and `resumed` is `true`: the run is resumable. Set `run_id` to that value, `resumed` to `true`.
-- If the returned `runId` differs from the frontmatter value or `resumed` is `false`: the frontmatter run was terminal. Use the returned `runId` and `resumed` value from the command output.
-
-### 2.3 Fallback: No Frontmatter
-
-If no `rp1_run_id` was found in any artifact frontmatter, fall back to the DB resume lookup:
-
-```bash
-rp1 agent-tools emit resume-run --feature {FEATURE_ID} --flow {WORKFLOW_TYPE}
-```
-
-Use the returned `runId` and `resumed` values directly.
-
-### 2.4 Artifact Reconciliation (Best-Effort)
-
-When `resumed` is `true`, scan the feature directory `.rp1/work/features/{FEATURE_ID}/` for `.md` files that may not be registered under the resumed run. Report these as `unregistered_artifacts` using work-root-relative paths so the calling skill can register them directly.
+When `resumed` is `true`, scan the feature directory `{WORK_ROOT}/features/{FEATURE_ID}/` for `.md` files that may not be registered under the resumed run. Report these as `unregistered_artifacts` using work-root-relative paths so the calling skill can register them directly.
 
 This is best-effort. If scanning fails, omit the `unregistered_artifacts` field and continue.
 
@@ -135,8 +119,8 @@ Return ONLY this JSON:
 
 **Fields**:
 - `start_step`: 1-6, first failing check
-- `run_id`: UUID of the run to use for all subsequent emits
-- `resumed`: `true` if reusing an existing run, `false` if a new run was created
+- `run_id`: The bootstrap-provided UUID the parent workflow must keep using
+- `resumed`: The bootstrap-provided resumable-state flag
 - `artifacts`: Per-artifact status with reasons
 - `unregistered_artifacts`: (optional) List of work-root-relative `.md` paths found on disk but potentially not registered under the resumed run. Only present when `resumed` is `true`.
 

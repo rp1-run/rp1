@@ -18,7 +18,7 @@ The `rp1 migrate` command transitions an existing rp1 project to the project-loc
 2. **Creates `.rp1/work/`** directory if it does not already exist.
 3. **Moves legacy work artifacts** from `~/.rp1/work/<normalized-project-key>` into `.rp1/work/`, merging without overwriting existing files.
 4. **Updates `.gitignore`** to include work directory ignore rules and ensure `.rp1/project_id` is not ignored.
-5. **Repairs Arcade metadata** for runs, artifacts, tasks, and notifications whose canonical project identity matches this project.
+5. **Repairs Arcade metadata** for runs, artifacts, tasks, and notifications whose canonical project identity matches this project, including deterministic workflow fields when they can be derived safely.
 6. **Moves misplaced project-local artifacts** from previously mis-resolved `.rp1` roots into this project's canonical `.rp1/` directory when the source files can be found safely.
 7. **Upgrades stale stanza content** in `CLAUDE.md`, `AGENTS.md`, and `.gitignore` to the latest fence version (see [Fence Versioning](fence-versioning.md)).
 
@@ -43,6 +43,22 @@ The command computes the legacy external work path using the same normalization 
 - Existing files in `.rp1/work/` are never overwritten (merge without overwrite).
 - Symlinks pointing outside expected directories are skipped for safety.
 - Cross-device moves are handled automatically (copy + delete fallback when `rename()` fails with `EXDEV`).
+
+## Previous Runs
+
+`rp1 migrate` also repairs older tracked-workflow rows conservatively:
+
+- When the command can safely derive workflow identity, it backfills the run
+  onto the canonical project root and adds deterministic fields such as
+  `run_policy`, `work_identity`, and `bootstrap_context`.
+- Older `/build` runs with a known `feature_id` become resumable again as
+  `FEATURE_ID=<value>`, even if they were originally created from a linked
+  worktree.
+- When the history is incomplete, migrate leaves those deterministic fields
+  empty instead of guessing.
+- Those partially repaired rows still remain eligible for legacy resume
+  compatibility. The next matching resumable workflow can repair the row in
+  place when it resumes it.
 
 ## Output
 
