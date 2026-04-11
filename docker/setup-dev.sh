@@ -31,11 +31,24 @@ echo ""
 echo "━━━ rp1 dev container setup ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
+ensure_writable_dir() {
+    local dir="$1"
+    mkdir -p "$dir"
+    if [ -w "$dir" ]; then
+        return
+    fi
+
+    echo "Fixing permissions for $dir..."
+    sudo mkdir -p "$dir"
+    sudo chown -R rp1user:rp1user "$dir"
+}
+
 echo "[1/4] Installing CLI dependencies..."
 cd /src/rp1/cli && bun install
 echo ""
 
 echo "[2/4] Installing eval dependencies..."
+ensure_writable_dir /src/rp1/evals/node_modules
 cd /src/rp1/evals && bun install --frozen-lockfile
 echo ""
 
