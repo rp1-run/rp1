@@ -164,4 +164,58 @@ describe("NotificationsSidebar", () => {
 
 		expect(screen.getByText("No notifications right now.")).toBeTruthy();
 	});
+
+	test("catches dismiss failures without leaking the rejection", async () => {
+		const warnMock = mock(() => {});
+		const originalWarn = console.warn;
+		console.warn = warnMock as typeof console.warn;
+
+		try {
+			const dismissMock = mock(() =>
+				Promise.reject(new Error("dismissal failed")),
+			);
+			const NotificationsSidebar = await loadNotificationsSidebar();
+
+			render(
+				<MemoryRouter>
+					<NotificationsSidebar
+						open={true}
+						onClose={() => {}}
+						onDismissNotification={dismissMock}
+						isLoading={false}
+						error={null}
+						notifications={[
+							{
+								id: 1,
+								message: "Approval needed",
+								sourceType: "agent",
+								sourceId: "run-1",
+								route: "/runs/run-1",
+								projectId: "proj-1",
+								createdAt: "2026-04-11T00:00:00.000Z",
+								harness: "codex",
+								runCommand: "/build",
+								runName: "Sidebar Build",
+								projectName: "Alpha Project",
+								attentionLevel: "action_required",
+							},
+						]}
+					/>
+				</MemoryRouter>,
+			);
+
+			fireEvent.click(
+				screen.getByRole("button", {
+					name: "Dismiss notification: Approval needed",
+				}),
+			);
+
+			await waitFor(() => {
+				expect(dismissMock).toHaveBeenCalledWith(1);
+				expect(warnMock).toHaveBeenCalledWith("Error: dismissal failed");
+			});
+		} finally {
+			console.warn = originalWarn;
+		}
+	});
 });

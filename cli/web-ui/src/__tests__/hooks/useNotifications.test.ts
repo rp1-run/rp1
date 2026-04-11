@@ -14,6 +14,7 @@ let reconnectListeners: ReconnectCallback[] = [];
 let notifications: NotificationListItem[] = [];
 let fetchMock: ReturnType<typeof mock>;
 let useNotificationsImportVersion = 0;
+let currentProjectId: string | null = null;
 
 function createNotification(
 	id: number,
@@ -68,7 +69,10 @@ function summarizeNotifications(
 	};
 }
 
-function createNotificationsPageResponse(page: NotificationListItem[]) {
+function createNotificationsPageResponse(
+	page: NotificationListItem[],
+	allItems: NotificationListItem[] = notifications,
+) {
 	return {
 		ok: true,
 		status: 200,
@@ -76,8 +80,8 @@ function createNotificationsPageResponse(page: NotificationListItem[]) {
 		json: () =>
 			Promise.resolve({
 				notifications: page,
-				total: notifications.length,
-				summary: summarizeNotifications(notifications),
+				total: allItems.length,
+				summary: summarizeNotifications(allItems),
 			}),
 	};
 }
@@ -101,6 +105,7 @@ async function loadUseNotifications() {
 					);
 				};
 			},
+			projectId: currentProjectId,
 		}),
 	}));
 
@@ -113,6 +118,7 @@ beforeEach(() => {
 	mock.restore();
 	notificationListeners = [];
 	reconnectListeners = [];
+	currentProjectId = null;
 	notifications = [
 		createNotification(7, {
 			message: "Approval needed",
@@ -140,11 +146,19 @@ beforeEach(() => {
 			url.pathname === "/api/v2/notifications" &&
 			init?.method === undefined
 		) {
+			const projectId = url.searchParams.get("projectId");
+			const matchingNotifications = projectId
+				? notifications.filter(
+						(notification) => notification.projectId === projectId,
+					)
+				: notifications;
 			const limit = Number.parseInt(url.searchParams.get("limit") ?? "50", 10);
 			const offset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
-			const page = notifications.slice(offset, offset + limit);
+			const page = matchingNotifications.slice(offset, offset + limit);
 
-			return Promise.resolve(createNotificationsPageResponse(page));
+			return Promise.resolve(
+				createNotificationsPageResponse(page, matchingNotifications),
+			);
 		}
 
 		throw new Error(`Unexpected fetch request: ${String(input)}`);
@@ -336,5 +350,52 @@ describe("useNotifications", () => {
 			{ method: "POST" },
 		);
 		expect(fetchMock).toHaveBeenCalledTimes(3);
+	});
+
+	test("refetches notifications with the current websocket project scope", async () => {
+		notifications = [
+			createNotification(1, {
+				projectId: "proj-1",
+				projectName: "Alpha Project",
+			}),
+			createNotification(2, {
+				projectId: "proj-2",
+				projectName: "Beta Project",
+				message: "Scoped notification",
+			}),
+		];
+
+		const { useNotifications } = await loadUseNotifications();
+		const { result, rerender } = renderHook(() => useNotifications());
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+		expect(result.current.notifications).toHaveLength(2);
+
+		currentProjectId = "proj-2";
+		rerender();
+
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenNthCalledWith(
+				2,
+				"/api/v2/notifications?limit=50&offset=0&projectId=proj-2",
+			);
+		});
+		await waitFor(() => {
+			expect(result.current.notifications).toEqual([
+				expect.objectContaining({
+					id: 2,
+					projectId: "proj-2",
+					message: "Scoped notification",
+				}),
+			]);
+		});
+		expect(result.current.summary).toEqual({
+			totalCount: 1,
+			actionRequiredCount: 0,
+			attentionCount: 0,
+			informationalCount: 1,
+		});
 	});
 });

@@ -115,6 +115,8 @@ export function NotificationsSidebar({
 
 			try {
 				await onDismissNotification(notificationId);
+			} catch (dismissError) {
+				console.warn(String(dismissError));
 			} finally {
 				setDismissingIds((current) =>
 					current.filter((id) => id !== notificationId),

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import { useReconnectRecovery } from "./useReconnectRecovery";
 
@@ -57,11 +57,17 @@ function getResponseErrorMessage(response: Response, prefix: string): string {
 	return `${prefix}: ${response.statusText || `HTTP ${response.status}`}`;
 }
 
-function buildNotificationsUrl(offset: number): string {
+function buildNotificationsUrl(
+	offset: number,
+	projectId: string | null,
+): string {
 	const params = new URLSearchParams({
 		limit: String(NOTIFICATIONS_PAGE_SIZE),
 		offset: String(offset),
 	});
+	if (projectId) {
+		params.set("projectId", projectId);
+	}
 
 	return `/api/v2/notifications?${params.toString()}`;
 }
@@ -75,10 +81,14 @@ export function useNotifications(): UseNotificationsResult {
 	);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
-	const { onNotification } = useWebSocket();
+	const latestRequestIdRef = useRef(0);
+	const { onNotification, projectId } = useWebSocket();
 
 	const fetchNotifications = useCallback(
 		async ({ showLoading = false }: { showLoading?: boolean } = {}) => {
+			const requestId = ++latestRequestIdRef.current;
+			const currentProjectId = projectId;
+
 			if (showLoading) {
 				setIsLoading(true);
 			}
@@ -90,7 +100,9 @@ export function useNotifications(): UseNotificationsResult {
 				let nextSummary = EMPTY_NOTIFICATIONS_SUMMARY;
 
 				do {
-					const response = await fetch(buildNotificationsUrl(offset));
+					const response = await fetch(
+						buildNotificationsUrl(offset, currentProjectId),
+					);
 					if (!response.ok) {
 						throw new Error(
 							getResponseErrorMessage(
@@ -104,6 +116,9 @@ export function useNotifications(): UseNotificationsResult {
 					if (offset === 0) {
 						total = data.total;
 						nextSummary = data.summary;
+						if (requestId !== latestRequestIdRef.current) {
+							return;
+						}
 						setSummary(data.summary);
 					}
 
@@ -121,22 +136,28 @@ export function useNotifications(): UseNotificationsResult {
 					);
 				}
 
+				if (requestId !== latestRequestIdRef.current) {
+					return;
+				}
 				setNotifications(allNotifications);
 				setSummary(nextSummary);
 				setError(null);
 			} catch (fetchError) {
+				if (requestId !== latestRequestIdRef.current) {
+					return;
+				}
 				setError(
 					fetchError instanceof Error
 						? fetchError
 						: new Error(String(fetchError)),
 				);
 			} finally {
-				if (showLoading) {
+				if (showLoading && requestId === latestRequestIdRef.current) {
 					setIsLoading(false);
 				}
 			}
 		},
-		[],
+		[projectId],
 	);
 
 	useEffect(() => {
