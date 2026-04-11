@@ -24,6 +24,8 @@ docker_run_args=(
     linux/arm64
     -v
     "${repo_root}:/src/rp1"
+    -v
+    "rp1-dev-evals-node_modules:/src/rp1/evals/node_modules"
 )
 
 if [ -t 0 ] && [ -t 1 ]; then

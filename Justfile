@@ -20,6 +20,7 @@ start-docker-stable:
         --platform linux/arm64 \
         -p 17710:7710 \
         -v "$(pwd)":/src/rp1 \
+        -v rp1-dev-evals-node_modules:/src/rp1/evals/node_modules \
         -e ANTHROPIC_API_KEY \
         -e OPENAI_API_KEY \
         -e GITHUB_TOKEN \
@@ -36,6 +37,7 @@ start-docker-dev:
         --platform linux/arm64 \
         -p 17710:7710 \
         -v "$(pwd)":/src/rp1 \
+        -v rp1-dev-evals-node_modules:/src/rp1/evals/node_modules \
         -e ANTHROPIC_API_KEY \
         -e OPENAI_API_KEY \
         -e GITHUB_TOKEN \

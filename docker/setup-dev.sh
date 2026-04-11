@@ -31,11 +31,15 @@ echo ""
 echo "━━━ rp1 dev container setup ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-echo "[1/3] Installing CLI dependencies..."
+echo "[1/4] Installing CLI dependencies..."
 cd /src/rp1/cli && bun install
 echo ""
 
-echo "[2/3] Building rp1 from local source..."
+echo "[2/4] Installing eval dependencies..."
+cd /src/rp1/evals && bun install --frozen-lockfile
+echo ""
+
+echo "[3/4] Building rp1 from local source..."
 # Bun's --compile uses atomic rename which fails on virtiofs mounts.
 # Build to a local tmp dir first, then copy the binary to the mount.
 BUILD_TMP=$(mktemp -d)
@@ -67,7 +71,7 @@ fi
 echo "rp1 binary: $(rp1 --version)"
 echo ""
 
-echo "[3/3] Installing plugins to detected platforms..."
+echo "[4/4] Installing plugins to detected platforms..."
 rp1 install -y || echo "Warning: plugin install failed (no harness CLIs detected). Install Claude Code or OpenCode, then run 'rp1 install -y'."
 echo ""
 

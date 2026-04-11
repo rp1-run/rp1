@@ -138,6 +138,7 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 		expect(runArgs).toContain("linux/arm64");
 		expect(runArgs).toContain("-v");
 		expect(runArgs).toContain(`${REPO_ROOT}:/src/rp1`);
+		expect(runArgs).toContain("rp1-dev-evals-node_modules:/src/rp1/evals/node_modules");
 		expect(runArgs).toContain("ANTHROPIC_API_KEY");
 		expect(runArgs).toContain("GITHUB_TOKEN");
 		expect(runArgs).not.toContain("OPENAI_API_KEY");
@@ -170,6 +171,9 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 		expect(result.stdout).toContain("docker run --rm -it");
 		expect(result.stdout).toContain("-p 17710:7710");
 		expect(result.stdout).toContain('$(pwd)":/src/rp1');
+		expect(result.stdout).toContain(
+			"rp1-dev-evals-node_modules:/src/rp1/evals/node_modules",
+		);
 		expect(result.stdout).toContain("rp1-dev");
 	});
 });
