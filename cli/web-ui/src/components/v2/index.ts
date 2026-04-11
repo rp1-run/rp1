@@ -60,6 +60,14 @@ export {
 	type MobileTabBarProps,
 } from "./MobileTabBar";
 export { NewUpdatesChip, type NewUpdatesChipProps } from "./NewUpdatesChip";
+export {
+	NotificationsSidebar,
+	type NotificationsSidebarProps,
+} from "./NotificationsSidebar";
+export {
+	NotificationTrigger,
+	type NotificationTriggerProps,
+} from "./NotificationTrigger";
 export { RunCard, type RunCardProps } from "./RunCard";
 export { Select, type SelectProps } from "./Select";
 export {

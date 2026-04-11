@@ -1,4 +1,5 @@
 import { SquareKanban } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { HarnessIcon } from "@/components/v2/HarnessIcon";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
@@ -7,6 +8,7 @@ import { cn } from "@/lib/utils";
 
 export interface TerminalBreadcrumbProps {
 	className?: string;
+	action?: ReactNode;
 }
 
 export interface BreadcrumbSegment {
@@ -22,7 +24,10 @@ export function buildSegments(pathname: string): BreadcrumbSegment[] {
 	}));
 }
 
-export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
+export function TerminalBreadcrumb({
+	className,
+	action,
+}: TerminalBreadcrumbProps) {
 	const { pathname } = useLocation();
 	const navigate = useNavigate();
 	const { projectName, projectId, runInfo } = useBreadcrumbContext();
@@ -32,13 +37,13 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 			<nav
 				aria-label="Run info"
 				className={cn(
-					"flex items-center justify-center border-b px-4 py-1.5 min-h-8 type-body",
+					"grid min-h-8 grid-cols-[1fr_auto_1fr] items-center border-b px-4 py-1.5 type-body",
 					"border-border",
 					"text-fg-ghost",
 					className,
 				)}
 			>
-				<div className="flex items-center gap-3">
+				<div className="col-start-2 flex items-center gap-3">
 					<span className="type-secondary tabular-nums text-fg-ghost">
 						{formatRelativeTime(runInfo.startedAt)}
 					</span>
@@ -64,6 +69,9 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 						{runInfo.projectName}
 					</span>
 				</div>
+				{action ? (
+					<div className="col-start-3 justify-self-end">{action}</div>
+				) : null}
 			</nav>
 		);
 	}
@@ -73,7 +81,7 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 			<nav
 				aria-label="Breadcrumb"
 				className={cn(
-					"flex items-center border-b px-4 py-1.5 min-h-8 type-body",
+					"flex min-h-8 items-center justify-between border-b px-4 py-1.5 type-body",
 					"border-border",
 					"text-fg-ghost",
 					className,
@@ -86,6 +94,7 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 					<SquareKanban className="h-3 w-3" strokeWidth={1.5} />
 					{projectName}
 				</Link>
+				{action ? <div className="flex items-center">{action}</div> : null}
 			</nav>
 		);
 	}
@@ -103,7 +112,7 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 		<nav
 			aria-label="Breadcrumb"
 			className={cn(
-				"flex items-center border-b px-4 py-1.5 min-h-8 type-body",
+				"flex min-h-8 items-center justify-between border-b px-4 py-1.5 type-body",
 				"border-border",
 				"text-fg-ghost",
 				className,
@@ -114,6 +123,7 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 					{pageLabel}
 				</span>
 			)}
+			{action ? <div className="flex items-center">{action}</div> : null}
 		</nav>
 	);
 }

@@ -2,6 +2,8 @@
 
 The dashboard provides a glanceable status view for monitoring AI agent runs
 across all your projects. Access it at `/` when Arcade is running.
+Persistent notifications now live in a dedicated shell drawer instead of being
+mixed into the main activity page.
 
 **Time to orient**: Under 30 seconds to understand what needs attention.
 
@@ -64,9 +66,12 @@ If your dashboard shows no runs, ensure that:
 
 ---
 
-## Home Dashboard (Now View)
+## Activity Dashboard (`/`)
 
-The home dashboard (`/`) shows what needs your attention across all projects. Runs are grouped into four sections displayed in priority order:
+The activity dashboard (`/`) shows what needs your attention across all
+projects. It keeps the main page focused on run state, while approvals,
+failures, and other persistent notification records live in the notifications
+drawer. Runs are grouped into four sections displayed in priority order:
 
 | Section | Description | Default State |
 |---------|-------------|---------------|
@@ -190,27 +195,35 @@ Task-batch events show a summary like "12 tasks completed in Build step" rather 
 
 ## Navigation
 
-### Sidebar
+Arcade keeps run navigation and persistent notifications separate so you can
+stay on the current page while checking what needs attention.
 
-The left sidebar provides navigation between views:
+### Desktop shell
 
-| Item | Route | Description |
-|------|-------|-------------|
-| Home | `/` | Attention dashboard |
-| Runs | `/runs` | All runs list |
-| Projects | `/projects` | Project list |
+| Surface | Behavior |
+|---------|----------|
+| Left icon rail | Navigate between Activity (`/`) and Projects (`/projects`) |
+| Breadcrumb bar | Shows the current page, project, or run context |
+| Top-right bell trigger | Opens or closes the notifications drawer without navigating away |
 
-The sidebar can collapse to icon-only mode for more content space.
+### Narrow layouts
 
-### Header
+| Surface | Behavior |
+|---------|----------|
+| Bottom activity button | Opens the activity dashboard |
+| Bottom projects button | Opens the projects view |
+| Bottom bell trigger | Opens or closes the notifications drawer |
+| Bottom command button | Opens the command palette |
 
-The header displays:
+### Notifications drawer behavior
 
-- Logo and branding
-- Project switcher dropdown
-- WebSocket connection status indicator
-- Theme toggle (dark/light)
-- Help button (links to documentation)
+- Opens as a right-side drawer over the current page.
+- Groups active notifications into **Action required**, **Attention**, and
+  **Informational**.
+- Opens linked runs or projects, then closes the drawer when a notification has
+  a destination.
+- Lets you dismiss persistent notifications directly from the drawer.
+- Closes with `Escape`, `Cmd/Ctrl+B`, or `Cmd/Ctrl+\`.
 
 ---
 
@@ -222,18 +235,19 @@ The dashboard supports a comprehensive keyboard-first interaction model. See [Ke
 
 | Shortcut | Action |
 |----------|--------|
-| `Cmd/Ctrl + K` | Open command palette |
+| `Cmd/Ctrl + K` | Open or close command palette |
+| `Cmd/Ctrl + B` | Open or close the notifications drawer |
+| `Cmd/Ctrl + \` | Open or close the notifications drawer (alternate) |
 | `?` | Toggle shortcut help overlay |
 | `/` | Focus search input |
-| `Escape` | Dismiss overlay or blur focus |
-| `Cmd/Ctrl + \` | Toggle sidebar collapse |
+| `Escape` | Close the active overlay, or blur the focused element if no overlay is open |
 
 ### Go-To Chords
 
 | Chord | Destination |
 |-------|-------------|
-| `g` then `h` | Home |
-| `g` then `r` | Runs |
+| `g` then `h` | Activity dashboard |
+| `g` then `r` | Activity dashboard (alternate alias) |
 | `g` then `p` | Projects |
 
 ### List Navigation
@@ -248,12 +262,6 @@ The dashboard supports a comprehensive keyboard-first interaction model. See [Ke
 | `Escape` | Clear selection |
 
 Keyboard navigation uses the roving tabindex pattern for accessibility.
-
-### Run Detail
-
-| Key | Action |
-|-----|--------|
-| `Escape` | Return to runs list |
 
 ---
 

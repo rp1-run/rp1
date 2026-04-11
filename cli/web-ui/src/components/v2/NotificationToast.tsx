@@ -14,6 +14,10 @@ interface Toast {
 const AUTO_DISMISS_MS = 6000;
 const EXIT_ANIMATION_MS = 200;
 
+function getDismissErrorMessage(response: Response): string {
+	return `Failed to dismiss notification: ${response.statusText || `HTTP ${response.status}`}`;
+}
+
 export function NotificationContainer() {
 	const [toasts, setToasts] = useState<readonly Toast[]>([]);
 	const timersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(
@@ -36,9 +40,20 @@ export function NotificationContainer() {
 				return;
 			}
 
-			setToasts((prev) =>
-				prev.map((t) => (t.id === id ? { ...t, exiting: true } : t)),
-			);
+			let shouldAnimateExit = false;
+			setToasts((prev) => {
+				const toast = prev.find((candidate) => candidate.id === id);
+				if (!toast || toast.exiting) {
+					return prev;
+				}
+
+				shouldAnimateExit = true;
+				return prev.map((t) => (t.id === id ? { ...t, exiting: true } : t));
+			});
+
+			if (!shouldAnimateExit) {
+				return;
+			}
 
 			setTimeout(() => {
 				setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -60,22 +75,27 @@ export function NotificationContainer() {
 
 	useEffect(() => {
 		const unsubscribe = onNotification((msg: NotificationMessage) => {
-			if (msg.type !== "notification:created") return;
+			if (msg.type === "notification:created") {
+				const notification = msg.notification;
+				const toast: Toast = {
+					id: notification.id,
+					message: notification.message,
+					route: notification.route,
+					exiting: false,
+				};
 
-			const notification = msg.notification;
-			const toast: Toast = {
-				id: notification.id,
-				message: notification.message,
-				route: notification.route,
-				exiting: false,
-			};
+				setToasts((prev) => [...prev, toast]);
+				scheduleAutoDismiss(notification.id);
+				return;
+			}
 
-			setToasts((prev) => [...prev, toast]);
-			scheduleAutoDismiss(notification.id);
+			if (msg.type === "notification:dismissed") {
+				removeToast(msg.notificationId);
+			}
 		});
 
 		return unsubscribe;
-	}, [onNotification, scheduleAutoDismiss]);
+	}, [onNotification, removeToast, scheduleAutoDismiss]);
 
 	useEffect(() => {
 		const currentTimers = timersRef.current;
@@ -98,8 +118,20 @@ export function NotificationContainer() {
 	);
 
 	const handleDismiss = useCallback(
-		(id: number) => {
-			removeToast(id);
+		async (id: number) => {
+			try {
+				const response = await fetch(`/api/v2/notifications/${id}/dismiss`, {
+					method: "POST",
+				});
+
+				if (!response.ok) {
+					throw new Error(getDismissErrorMessage(response));
+				}
+
+				removeToast(id);
+			} catch (error) {
+				console.warn(String(error));
+			}
 		},
 		[removeToast],
 	);
@@ -119,26 +151,38 @@ export function NotificationContainer() {
 					}}
 				>
 					<div className="rp1-notification-accent" />
-					<button
-						type="button"
-						className="rp1-notification-action"
-						onClick={() => handleClick(toast)}
-						aria-label={
-							toast.route
-								? `${toast.message}. Click to navigate.`
-								: `${toast.message}. Dismiss notification.`
-						}
-					>
-						<div className="rp1-notification-body">
-							<div className="rp1-notification-header">
-								<span className="rp1-notification-title">{toast.message}</span>
+					{toast.route ? (
+						<button
+							type="button"
+							className="rp1-notification-action"
+							onClick={() => handleClick(toast)}
+							aria-label={`${toast.message}. Click to navigate.`}
+						>
+							<div className="rp1-notification-body">
+								<div className="rp1-notification-header">
+									<span className="rp1-notification-title">
+										{toast.message}
+									</span>
+								</div>
+							</div>
+						</button>
+					) : (
+						<div className="rp1-notification-action">
+							<div className="rp1-notification-body">
+								<div className="rp1-notification-header">
+									<span className="rp1-notification-title">
+										{toast.message}
+									</span>
+								</div>
 							</div>
 						</div>
-					</button>
+					)}
 					<button
 						type="button"
 						className="rp1-notification-close"
-						onClick={() => handleDismiss(toast.id)}
+						onClick={() => {
+							void handleDismiss(toast.id);
+						}}
 						aria-label="Dismiss notification"
 					>
 						&times;

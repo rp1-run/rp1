@@ -1,4 +1,5 @@
 import { Activity, Command, SquareKanban } from "lucide-react";
+import type { ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -17,11 +18,13 @@ const TAB_ITEMS: readonly TabItem[] = [
 export interface MobileTabBarProps {
 	className?: string;
 	onOpenCommandPalette: () => void;
+	notificationAction?: ReactNode;
 }
 
 export function MobileTabBar({
 	className,
 	onOpenCommandPalette,
+	notificationAction,
 }: MobileTabBarProps) {
 	const location = useLocation();
 
@@ -54,6 +57,7 @@ export function MobileTabBar({
 					</NavLink>
 				);
 			})}
+			{notificationAction ? notificationAction : null}
 			<button
 				type="button"
 				onClick={onOpenCommandPalette}

@@ -37,9 +37,9 @@ describe("formatRelativeTime", () => {
 		expect(formatRelativeTime(dateMinusHours(23))).toBe("23h ago");
 	});
 
-	test("returns 'yesterday' at the 24-hour boundary", () => {
-		expect(formatRelativeTime(dateMinusHours(24))).toBe("yesterday");
-		expect(formatRelativeTime(dateMinusDays(1))).toBe("yesterday");
+	test("returns '1d ago' at the 24-hour boundary", () => {
+		expect(formatRelativeTime(dateMinusHours(24))).toBe("1d ago");
+		expect(formatRelativeTime(dateMinusDays(1))).toBe("1d ago");
 	});
 
 	test("returns days ago for 2-6 days", () => {

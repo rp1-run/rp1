@@ -669,7 +669,7 @@ describe("handleV2WorkflowsListRequest", () => {
 
 		const prReviewWorkflow = body.workflows.find((w) => w.name === "pr-review");
 		expect(prReviewWorkflow).toBeDefined();
-		expect(prReviewWorkflow?.stateCount).toBe(4);
+		expect(prReviewWorkflow?.stateCount).toBe(2);
 	});
 
 	test("each workflow entry has the expected shape", async () => {
@@ -788,12 +788,10 @@ describe("handleV2WorkflowDetailRequest", () => {
 		};
 
 		expect(body.name).toBe("pr-review");
-		expect(body.states).toHaveLength(4);
+		expect(body.states).toHaveLength(2);
 		expect(body.orderedSteps.map((s) => s.id)).toEqual([
-			"split",
-			"review",
-			"synthesize",
-			"post",
+			"reviewing",
+			"posting",
 		]);
 	});
 

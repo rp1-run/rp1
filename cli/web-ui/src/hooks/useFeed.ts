@@ -3,20 +3,6 @@ import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Run, RunsFilter } from "@/types/runs";
 import { useReconnectRecovery } from "./useReconnectRecovery";
 
-interface NotificationFeedRecord {
-	readonly id: number;
-	readonly message: string;
-	readonly sourceType: string;
-	readonly sourceId: string | null;
-	readonly route: string | null;
-	readonly projectId: string | null;
-	readonly createdAt: string;
-	readonly harness: string | null;
-	readonly runCommand: string | null;
-	readonly runName: string | null;
-	readonly projectName: string | null;
-}
-
 export interface RunFeedItem {
 	readonly type: "run";
 	readonly id: string;
@@ -24,14 +10,7 @@ export interface RunFeedItem {
 	readonly run: Run;
 }
 
-export interface NotificationFeedItem {
-	readonly type: "notification";
-	readonly id: number;
-	readonly timestamp: string;
-	readonly notification: NotificationFeedRecord;
-}
-
-export type FeedItem = RunFeedItem | NotificationFeedItem;
+export type FeedItem = RunFeedItem;
 
 interface FeedResponse {
 	items: FeedItem[];
@@ -82,8 +61,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 	const [total, setTotal] = useState(0);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
-	const { onEventNotification, onNotification, subscribeToAttention } =
-		useWebSocket();
+	const { subscribeToAttention } = useWebSocket();
 
 	const { status, projectId, dateRange, limit, offset } = options;
 
@@ -125,18 +103,6 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 		});
 		return unsubscribe;
 	}, [subscribeToAttention, fetchFeed]);
-
-	useEffect(() => {
-		return onEventNotification(() => {
-			fetchFeed();
-		});
-	}, [onEventNotification, fetchFeed]);
-
-	useEffect(() => {
-		return onNotification(() => {
-			fetchFeed();
-		});
-	}, [onNotification, fetchFeed]);
 
 	useReconnectRecovery(fetchFeed);
 
