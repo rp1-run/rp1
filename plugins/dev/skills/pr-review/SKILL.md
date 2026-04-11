@@ -309,7 +309,7 @@ Parse `units`, store counts. Fail -> Abort w/ error.
      --type artifact_registered \
      --run-id {RUN_ID} \
      --step posting \
-     --data '{"path": "{REPORT_PATH}", "feature": "{review_id}", "storageRoot": "project", "format": "markdown"}'
+     --data '{"path": "{REPORT_PATH}", "feature": "{review_id}", "storageRoot": "absolute", "format": "markdown"}'
    ```
 
 ### P5: Comment Posting (CI Only)
