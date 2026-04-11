@@ -187,6 +187,13 @@ For the full pattern and command examples, see [docs/concepts/state-machines.md]
 - Use fp-ts pragmatically; prefer clear `match`, `map`, `flatMap`, and `isLeft` flows over overengineered abstractions.
 - For frontend work in `cli/web-ui/`, use `frontend-design` and `playwright-cli`; run `just serve-web-ui` before browser validation and use `/tmp` for temporary screenshots.
 
+## Commit discipline
+
+- When making commits, stage only the intended changes and verify the worktree state before committing.
+- Use Conventional Commits for every commit message: `<type>(<optional-scope>): <imperative summary>`.
+- Prefer scopes when they add clarity, such as `feat(web-ui): move notifications into dedicated sidebar` or `docs(agent): require conventional commits`.
+- Do not use vague commit messages like `updates`, `fix stuff`, or `wip` for final commits.
+
 ## Delivery checklist
 
 After changes:

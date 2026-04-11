@@ -1,5 +1,10 @@
 @AGENTS.md
 
+## Commit Discipline
+
+- Always use Conventional Commits for final commit messages: `<type>(<optional-scope>): <imperative summary>`.
+- Stage only the intended changes for each commit and avoid catch-all commit messages like `wip` or `updates`.
+
 <!-- rp1:start:v0.7.1 -->
 ## rp1 Knowledge Base
 
