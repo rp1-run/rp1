@@ -238,4 +238,101 @@ printf '%s\n' "$@" > "\${DOCKER_STUB_LOG_DIR}/\${kind}-args.txt"
 			expect(runArgs).toContain(`${gitCommonDir}:${gitCommonDir}`);
 		}
 	});
+
+	test("keeps eval commits on the host when --commit is requested", async () => {
+		const stubRoot = await createTempDir("rp1-docker-host-commit-");
+		const binDir = join(stubRoot, "bin");
+		const logDir = join(stubRoot, "logs");
+		const dockerStubPath = join(binDir, "docker");
+		const gitStubPath = join(binDir, "git");
+		const gitLogPath = join(logDir, "git.log");
+
+		await mkdir(binDir, { recursive: true });
+		await mkdir(logDir, { recursive: true });
+		await writeFile(
+			dockerStubPath,
+			`#!/usr/bin/env bash
+set -euo pipefail
+kind="$1"
+shift || true
+printf '%s\n' "$@" > "\${DOCKER_STUB_LOG_DIR}/\${kind}-args.txt"
+if [ "$kind" = "run" ]; then
+    previous=""
+    for arg in "$@"; do
+        if [ "$previous" = "-e" ] && [[ "$arg" == RP1_EVAL_PASSED_SUITES_FILE=* ]]; then
+            host_relative_path="\${arg#RP1_EVAL_PASSED_SUITES_FILE=/src/rp1/}"
+            mkdir -p "$(dirname "$PWD/\${host_relative_path}")"
+            printf 'output/rp1-dev-build-fast.json\n' > "$PWD/\${host_relative_path}"
+        fi
+        previous="$arg"
+    done
+fi
+env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
+`,
+			"utf-8",
+		);
+		await writeFile(
+			gitStubPath,
+			`#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "\${GIT_STUB_LOG}"
+if [ "$1" = "-C" ]; then
+    shift 2
+fi
+case "$1" in
+    rev-parse)
+        case "$2" in
+            --is-inside-work-tree)
+                echo true
+                ;;
+            --git-dir|--git-common-dir)
+                echo .git
+                ;;
+        esac
+        ;;
+    add)
+        ;;
+    diff)
+        exit 1
+        ;;
+    commit)
+        ;;
+esac
+`,
+			"utf-8",
+		);
+		await chmod(dockerStubPath, 0o755);
+		await chmod(gitStubPath, 0o755);
+
+		const result = await runCommand(
+			"bash",
+			[EVAL_LAUNCHER_PATH, "rp1-dev/build-fast", "--attest", "--commit"],
+			{
+				cwd: REPO_ROOT,
+				env: {
+					...process.env,
+					PATH: `${binDir}:${process.env.PATH ?? ""}`,
+					DOCKER_STUB_LOG_DIR: logDir,
+					GIT_STUB_LOG: gitLogPath,
+				},
+			},
+		);
+
+		expect(result.exitCode).toBe(0);
+
+		const runArgs = await readArgsFile(join(logDir, "run-args.txt"));
+		const gitLog = await readFile(gitLogPath, "utf-8");
+
+		expect(runArgs).toContain("--attest");
+		expect(runArgs).not.toContain("--commit");
+		expect(runArgs.some((arg) =>
+			arg.startsWith("RP1_EVAL_PASSED_SUITES_FILE=/src/rp1/.rp1/tmp/eval-run-outputs."),
+		)).toBe(true);
+
+		expect(gitLog).toContain(`-C ${REPO_ROOT} add evals/attestation.json`);
+		expect(gitLog).toContain(
+			`-C ${REPO_ROOT} add evals/output/rp1-dev-build-fast.json`,
+		);
+		expect(gitLog).toContain(`-C ${REPO_ROOT} commit -m`);
+	});
 });

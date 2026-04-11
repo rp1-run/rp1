@@ -430,7 +430,7 @@ eval-setup:
 #   just eval-run                          # run all suites in Docker (claude harness)
 #   just eval-run rp1-dev/build-fast       # run a specific suite in Docker
 #   just eval-run --harness=opencode       # run all with opencode in Docker
-#   just eval-run --attest --commit        # run all, attest passing, commit
+#   just eval-run --attest --commit        # run all in Docker, then commit on host
 #   just eval-run --platform=opencode      # attest for opencode platform
 #   just eval-run-local rp1-dev/build-fast # run inside the current environment
 
@@ -452,6 +452,7 @@ eval-run-local *args:
     platform="claude-code"
     attest=false
     do_commit=false
+    passed_suites_file="${RP1_EVAL_PASSED_SUITES_FILE:-}"
     verbose_flag=""
     for arg in {{args}}; do
         case "$arg" in
@@ -463,6 +464,10 @@ eval-run-local *args:
             *) suite="$arg" ;;
         esac
     done
+
+    if [ -n "$passed_suites_file" ]; then
+        : > "$passed_suites_file"
+    fi
 
     # Collect suite configs to run
     if [ -n "$suite" ]; then
@@ -491,6 +496,9 @@ eval-run-local *args:
         echo "=== ${suite_path} (harness: ${harness}) ==="
         if cd "${evals_dir}" && bunx promptfoo eval -c "suites/${suite_path}/evals.yaml" --output "${output_file}" $verbose_flag $provider_flag; then
             passed_suites="${passed_suites} ${output_file}"
+            if [ -n "$passed_suites_file" ]; then
+                printf '%s\n' "${output_file}" >> "$passed_suites_file"
+            fi
             cd "${repo_root}"
         else
             echo "FAILED: ${suite_path}"
@@ -509,18 +517,8 @@ eval-run-local *args:
         done
     fi
 
-    # Commit attestation changes and eval output files
-    if [ "$do_commit" = "true" ] && [ "$attest" = "true" ]; then
-        git add evals/attestation.json
-        for output in $passed_suites; do
-            git add "evals/${output}"
-        done
-        if git diff --cached --quiet 2>/dev/null; then
-            echo "No attestation changes to commit"
-        else
-            git commit -m "$(printf 'chore: attest evals\n\nGenerated with AI\n\nCo-Authored-By: rp1 <bot@rp1.run>')"
-            echo "Attestation committed"
-        fi
+    if [ "$do_commit" = "true" ]; then
+        echo "--commit is handled by the host eval-run wrapper; skipping in-container commit"
     fi
 
     if [ "$failed" = "1" ]; then echo "Some evals FAILED"; exit 1; fi

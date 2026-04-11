@@ -4,8 +4,28 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+container_args=()
 forwarded_env=()
 worktree_git_mounts=()
+do_commit=false
+attest=false
+host_commit_outputs_file=""
+container_commit_outputs_file=""
+
+for arg in "$@"; do
+    case "$arg" in
+        --commit)
+            do_commit=true
+            ;;
+        --attest)
+            attest=true
+            container_args+=("$arg")
+            ;;
+        *)
+            container_args+=("$arg")
+            ;;
+    esac
+done
 
 abs_path() {
     local target="$1"
@@ -64,6 +84,42 @@ add_env_if_set OPENAI_API_KEY
 add_env_if_set GITHUB_TOKEN
 add_worktree_git_mounts
 
+host_commit_eval_results() {
+    local outputs_file="$1"
+
+    git -C "$repo_root" add evals/attestation.json
+
+    if [ -f "$outputs_file" ]; then
+        while IFS= read -r output; do
+            [ -n "$output" ] || continue
+            git -C "$repo_root" add "evals/${output}"
+        done < "$outputs_file"
+    fi
+
+    if git -C "$repo_root" diff --cached --quiet 2>/dev/null; then
+        echo "No attestation changes to commit"
+        return
+    fi
+
+    git -C "$repo_root" commit -m "$(printf 'chore: attest evals\n\nGenerated with AI\n\nCo-Authored-By: rp1 <bot@rp1.run>')"
+    echo "Attestation committed"
+}
+
+cleanup() {
+    if [ -n "$host_commit_outputs_file" ] && [ -f "$host_commit_outputs_file" ]; then
+        rm -f "$host_commit_outputs_file"
+    fi
+}
+
+if [ "$do_commit" = "true" ] && [ "$attest" = "true" ]; then
+    mkdir -p "$repo_root/.rp1/tmp"
+    host_commit_outputs_file="$(mktemp "$repo_root/.rp1/tmp/eval-run-outputs.XXXXXX")"
+    container_commit_outputs_file="/src/rp1/.rp1/tmp/$(basename "$host_commit_outputs_file")"
+    forwarded_env+=(-e "RP1_EVAL_PASSED_SUITES_FILE=${container_commit_outputs_file}")
+fi
+
+trap cleanup EXIT
+
 docker_run_args=(
     run
     --rm
@@ -89,7 +145,7 @@ docker_run_args+=(
     -lc
     'cd /src/rp1 && just eval-run-local "$@"'
     --
-    "$@"
+    "${container_args[@]}"
 )
 
 echo "Building dev image (cached layers reused)..."
@@ -100,4 +156,16 @@ echo "Building dev image (cached layers reused)..."
 
 echo "Starting dockerized eval run..."
 cd "$repo_root"
-exec env -u RP1_DB -u RP1_EVAL_MODE docker "${docker_run_args[@]}"
+if env -u RP1_DB -u RP1_EVAL_MODE docker "${docker_run_args[@]}"; then
+    docker_exit=0
+else
+    docker_exit=$?
+fi
+
+if [ "$do_commit" = "true" ] && [ "$attest" = "true" ]; then
+    host_commit_eval_results "$host_commit_outputs_file"
+elif [ "$do_commit" = "true" ]; then
+    echo "--commit requested without --attest; skipping commit"
+fi
+
+exit "$docker_exit"
