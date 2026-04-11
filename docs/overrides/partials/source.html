@@ -1,0 +1,12 @@
+<a href="https://discord.gg/XUqc4zcX26" title="Join our Discord" class="rp1-discord-badge" target="_blank" rel="noopener">
+  <img src="https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white&style=flat" alt="Discord" loading="lazy" />
+</a>
+<a href="{{ config.repo_url }}" title="{{ lang.t('source') }}" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    {% set icon = config.theme.icon.repo or "fontawesome/brands/git-alt" %}
+    {% include ".icons/" ~ icon ~ ".svg" %}
+  </div>
+  <div class="md-source__repository">
+    {{ config.repo_name }}
+  </div>
+</a>
