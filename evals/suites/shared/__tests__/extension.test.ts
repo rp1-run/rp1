@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { extensionHook } from "../extension.ts";
 
 interface HookContext {
@@ -103,6 +103,34 @@ describe("extensionHook", () => {
 			expect(existsSync(context.test.vars.REMOTE_DIR)).toBe(true);
 		} finally {
 			await cleanupContext(context);
+		}
+	});
+
+	test("preserves failed workspaces when debug preservation is enabled", async () => {
+		process.env.PRESERVE_EVAL_WORKSPACES = "true";
+
+		const context = createContext("preserved failed eval");
+		context.result = {
+			success: false,
+		};
+
+		try {
+			await extensionHook("beforeEach", context);
+
+			const baseDir = context.test.vars.EVAL_BASE_DIR;
+
+			expect(existsSync(baseDir)).toBe(true);
+
+			await extensionHook("afterEach", context);
+
+			expect(existsSync(baseDir)).toBe(true);
+		} finally {
+			if (context.test.vars.EVAL_BASE_DIR) {
+				rmSync(context.test.vars.EVAL_BASE_DIR, {
+					recursive: true,
+					force: true,
+				});
+			}
 		}
 	});
 });
