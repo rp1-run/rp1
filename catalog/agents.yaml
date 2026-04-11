@@ -118,7 +118,7 @@ agents:
   - name: rp1-dev:feature-architect
     description: "Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester."
     plugin: dev
-    last_checksum: 8ea0015515a649a1aed68db98741938c6f82431560ffb6c3025aebd5855200a8
+    last_checksum: d13c84faee05cf44ea2e9370b5e8990ee201dd51a76be6d45660ca6fe57c5923
   - name: rp1-dev:feature-archiver
     description: "Archives completed features to .rp1/work/archives/features/ or restores archived features back to active features directory"
     plugin: dev
@@ -142,7 +142,7 @@ agents:
   - name: rp1-dev:hypothesis-tester
     description: "Validates design hypotheses through code experiments, codebase analysis, and external research"
     plugin: dev
-    last_checksum: 9c4df7012f0b4f600ec6c29778993a3590efa60a54e0f4f6e59570391b04f609
+    last_checksum: 65abdf21898ecbd2451f716de47ab7a122e1c2b69274a13d49f1b5653dd325e5
   - name: rp1-dev:pr-comment-deduplicator
     description: "Deduplicates PR review comments against existing bot and human comments"
     plugin: dev
