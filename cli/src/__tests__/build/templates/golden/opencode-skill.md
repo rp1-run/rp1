@@ -16,6 +16,7 @@ metadata:
     name: knowledge-build
 ---
 
+
 ## Host Context
 
 `CURRENT_HOST` is `opencode` for this prompt. Use it directly for host-specific decisions. Do not infer the host from the runtime environment.

@@ -301,6 +301,30 @@ describeWithLiquid("template rendering", () => {
 				readGolden("opencode-skill-no-tools.md").trim(),
 			);
 		});
+
+		test("keeps the closing frontmatter delimiter on its own line for low-metadata skills", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("opencode/skill", {
+				platform: "opencode",
+				artifact: {
+					type: "skill",
+					name: "analyse-security",
+					namespacedName: "rp1-analyse-security",
+					description:
+						"Performs thorough security validation of features including vulnerability scans.",
+					content: "Skill content.",
+					metadata: {
+						category: "strategy",
+						isWorkflow: false,
+					},
+					supportingFiles: [],
+				},
+				pluginName: "base",
+			});
+			expect(result).toMatch(
+				/is_workflow: false\n(?:\n)*---\n(?:\n)*## Host Context/,
+			);
+		});
 	});
 
 	describe("opencode/agent.liquid", () => {
@@ -441,6 +465,31 @@ describeWithLiquid("template rendering", () => {
 			expect(result).toContain("| RUN_RESUMED | `data.run.resumed` |");
 			expect(result).toContain("Do not call `resolve-args`");
 			expect(result).not.toContain("Run the argument resolver");
+		});
+
+		test("keeps the closing frontmatter delimiter on its own line for low-metadata skills", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("codex/skill", {
+				platform: "codex",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "skill",
+					name: "analyse-security",
+					namespacedName: "rp1-analyse-security",
+					description:
+						"Performs thorough security validation of features including vulnerability scans.",
+					content: "Skill content.",
+					metadata: {
+						category: "strategy",
+						isWorkflow: false,
+					},
+					supportingFiles: [],
+				},
+				pluginName: "base",
+			});
+			expect(result).toMatch(
+				/is_workflow: false\n(?:\n)*---\n(?:\n)*## Host Context/,
+			);
 		});
 	});
 

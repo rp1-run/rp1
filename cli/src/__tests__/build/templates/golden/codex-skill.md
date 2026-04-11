@@ -12,23 +12,20 @@ metadata:
 
   version: 1.0.0
 
-
   tags:
 
     - workflow
 
 
-
   created: 2026-01-01
 
-
   author: cloud-on-prem/rp1
-
 
   argument-hint: "<feature-id>"
 
 
 ---
+
 
 ## Host Context
 
