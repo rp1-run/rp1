@@ -82,8 +82,16 @@ interface SkippedAndPredecessorResult {
 
 /**
  * Check for flow mismatch between the stored run and the provided workflow.
- * Rejects when the run has flow "unknown" and --workflow provides a different value.
+ * Rejects when the run has flow "unknown" and --workflow provides a different
+ * value, except for first-class workflow state transitions that can safely
+ * backfill the legacy unknown flow.
  */
+const canBackfillLegacyUnknownFlow = (input: EmitInput): boolean =>
+	input.type === "status_change" &&
+	typeof input.step === "string" &&
+	input.step.length > 0 &&
+	!isNamespacedStep(input.step);
+
 const checkFlowMismatch = (
 	run: RunRecord,
 	input: EmitInput,
@@ -91,7 +99,8 @@ const checkFlowMismatch = (
 	if (
 		run.flow === "unknown" &&
 		input.workflow !== undefined &&
-		input.workflow !== "unknown"
+		input.workflow !== "unknown" &&
+		!canBackfillLegacyUnknownFlow(input)
 	) {
 		return TE.left(
 			runtimeError(
