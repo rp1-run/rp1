@@ -91,7 +91,8 @@ just serve-docs
 | Recipe | Description |
 |--------|-------------|
 | `eval-setup` | One-time setup: install eval dependencies |
-| `eval-run suite` | Run evaluation suite (e.g., `just eval-run rp1-dev/build`) |
+| `eval-run suite` | Run evaluation suite inside Docker (e.g., `just eval-run rp1-dev/build`) |
+| `eval-run-local suite` | Container-only eval entrypoint for use from inside `rp1-dev` |
 | `eval-attest file` | Generate attestation from eval output |
 | `eval-verify` | Verify all attestations are current |
 | `eval-status` | Show commands needing re-attestation |
@@ -102,7 +103,7 @@ just serve-docs
 # First time only
 just eval-setup
 
-# Run evals and generate attestation
+# Supported host entrypoint: run evals in the rp1-dev Docker container
 just eval-run rp1-dev/build
 just eval-attest output/rp1-dev-build-2026-01-23T10-30-00.json
 
@@ -110,6 +111,12 @@ just eval-attest output/rp1-dev-build-2026-01-23T10-30-00.json
 just eval-verify
 just eval-status
 ```
+
+`just eval-run` is the supported public entrypoint. It builds and launches the existing `rp1-dev` Docker image, mounts the repo at `/src/rp1`, forwards the credential allowlist (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GITHUB_TOKEN`), and runs `just eval-run-local ...` inside the container with `RP1_EVAL_DOCKER=1`. The default headless path does not publish Arcade on host port `7710`, and it does not mount host `~/.rp1` or other host rp1 config directories into the container.
+
+`just eval-run-local` is the container-only entrypoint. Use it only after you are already inside the dev container, or from other in-container automation, so eval execution does not recursively start Docker again.
+
+`just eval-view` remains a host-side promptfoo viewer command. Use it to inspect local eval output files after a run; it is unchanged by the Dockerized launcher.
 
 ## Project Structure
 
@@ -1007,6 +1014,17 @@ What it does:
 The shell prompt shows `[rp1-dev]` to indicate the active scenario. Changes to local files on the host are reflected inside the container without restart (bind mount).
 
 **Note**: The dev image includes Node.js, Claude Code, OpenCode, and Codex CLIs so that `rp1 install -y` can detect and install plugins to all platforms.
+
+### Debugging Dockerized Evals
+
+Use the interactive dev container when you need to inspect a failing dockerized eval without touching the host runtime:
+
+```bash
+just start-docker-dev
+PRESERVE_EVAL_WORKSPACES=true just eval-run-local rp1-dev/build-fast
+```
+
+This keeps the eval execution inside the container while preserving failed workspaces under `/tmp/rp1-evals/*` for inspection. If you need Arcade during debugging, start it inside the container with `rp1 arcade` and open `http://localhost:17710` on the host. The interactive Docker flow keeps the host default Arcade port `7710` free, while `just eval-view` remains available on the host for promptfoo result browsing.
 
 ### Environment Variables
 
