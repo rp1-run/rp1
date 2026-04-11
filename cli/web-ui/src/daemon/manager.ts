@@ -246,11 +246,12 @@ function getRp1Executable(): string {
 async function spawnDaemon(port: number): Promise<number> {
 	const rp1Path = getRp1Executable();
 
+	const { RP1_DB: _db, RP1_EVAL_MODE: _eval, ...cleanEnv } = process.env;
 	const proc = spawn(rp1Path, ["_daemon-server", "--port", String(port)], {
 		detached: true,
 		stdio: "ignore",
 		env: {
-			...process.env,
+			...cleanEnv,
 			RP1_DAEMON_MODE: "true",
 		},
 	});

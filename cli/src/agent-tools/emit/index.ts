@@ -373,8 +373,19 @@ const notifyDaemonNotification = async (
  */
 export const executeEmit = (
 	input: EmitInput,
-): TE.TaskEither<CLIError, ToolResult<EmitResult>> =>
-	pipe(
+): TE.TaskEither<CLIError, ToolResult<EmitResult>> => {
+	if (process.env.RP1_EVAL_MODE === "true") {
+		return TE.right(
+			successResult(TOOL_NAME, {
+				eventId: 0,
+				runId: input.runId,
+				type: input.type,
+				runStatus: "running" as const,
+			}),
+		);
+	}
+
+	return pipe(
 		getEmitDatabase(),
 		TE.chain((db) => {
 			const directories = resolveDirectorySet(input.projectPath);
@@ -506,6 +517,7 @@ export const executeEmit = (
 			);
 		}),
 	);
+};
 
 /**
  * Main execute function for tool registration.

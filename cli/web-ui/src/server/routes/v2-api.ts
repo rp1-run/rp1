@@ -997,6 +997,7 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
 		const toRuns = (records: readonly RunRecordWithLastEvent[]): Run[] => {
 			const runs: Run[] = [];
 			for (const record of records) {
+				if (isEvalRunRecord(record)) continue;
 				const project =
 					findProjectByIdentity(projectLookup, record) ??
 					fallbackProjectFromRun(record);
