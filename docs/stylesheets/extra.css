@@ -330,17 +330,16 @@
 }
 
 .md-source--discord {
-  font-size: 0.65rem;
+  min-width: 0;
+  width: 2.4rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.md-source--discord .md-source__repository__label {
-  display: inline;
-}
-
-@media (max-width: 768px) {
-  .md-source--discord .md-source__repository__label {
-    display: none;
-  }
+.md-source--discord .md-source__icon {
+  margin: 0;
 }
 
 /* Discord CTA button */
