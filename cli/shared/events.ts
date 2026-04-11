@@ -60,6 +60,8 @@ export const VALID_ARTIFACT_TYPES: readonly ArtifactType[] = [
 	"other",
 ] as const;
 
+export type WorkflowRunPolicy = "fresh" | "resumable";
+
 /** Per-type payload interfaces */
 
 export interface StatusChangePayload {
@@ -142,6 +144,9 @@ export interface RunRecord {
 	readonly rp1KbRoot: string;
 	readonly rp1WorkRoot: string;
 	readonly projectId: string | null;
+	readonly runPolicy: WorkflowRunPolicy | null;
+	readonly workIdentity: string | null;
+	readonly bootstrapContext: string | null;
 	readonly status: Status;
 	readonly name: string | null;
 	readonly harness: string | null;

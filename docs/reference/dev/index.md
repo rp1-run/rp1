@@ -89,7 +89,11 @@ flowchart LR
     UR -->|Done| A[Archive]
 ```
 
-The skill handles all steps automatically with smart resumption -- it detects existing artifacts and continues from where you left off.
+`/build` is resumable: rp1 reuses an active non-terminal run only when the
+canonical project and `FEATURE_ID` match, then continues from the first
+incomplete step in the canonical feature directory. `build-fast` uses the same
+bootstrap contract, but always starts a fresh run and writes its plan under
+`.rp1/work/quick-builds/`.
 
 | Step | What Happens | Artifact |
 |------|--------------|----------|

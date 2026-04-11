@@ -19,6 +19,8 @@ import type {
 	EnvironmentDefinition,
 	SkillCategory,
 	SkillMetadata,
+	WorkflowMetadata,
+	WorkflowRunPolicy,
 } from "./models.js";
 
 /**
@@ -32,6 +34,51 @@ const normalizeDate = (value: unknown): string => {
 		return value;
 	}
 	return String(value);
+};
+
+const VALID_WORKFLOW_RUN_POLICIES: readonly WorkflowRunPolicy[] = [
+	"fresh",
+	"resumable",
+];
+
+const extractWorkflowMetadata = (
+	raw: unknown,
+): WorkflowMetadata | undefined => {
+	if (
+		raw === null ||
+		raw === undefined ||
+		typeof raw !== "object" ||
+		Array.isArray(raw)
+	) {
+		return undefined;
+	}
+
+	const workflow = raw as Record<string, unknown>;
+	const runPolicyRaw = workflow.run_policy;
+	const runPolicy: WorkflowRunPolicy | undefined =
+		typeof runPolicyRaw === "string" &&
+		VALID_WORKFLOW_RUN_POLICIES.includes(runPolicyRaw as WorkflowRunPolicy)
+			? (runPolicyRaw as WorkflowRunPolicy)
+			: undefined;
+
+	const hasIdentityArgs = Object.hasOwn(workflow, "identity_args");
+	const identityArgsRaw = workflow.identity_args;
+	const identityArgs: readonly string[] | undefined = Array.isArray(
+		identityArgsRaw,
+	)
+		? identityArgsRaw.every((value) => typeof value === "string")
+			? identityArgsRaw.map(String)
+			: undefined
+		: !hasIdentityArgs && runPolicy === "fresh"
+			? []
+			: undefined;
+
+	const normalized: WorkflowMetadata = {
+		...(runPolicy !== undefined && { runPolicy }),
+		...(identityArgs !== undefined && { identityArgs }),
+	};
+
+	return Object.keys(normalized).length > 0 ? normalized : undefined;
 };
 
 /**
@@ -444,6 +491,7 @@ const extractSkillMetadata = (
 	const isWorkflowRaw = meta.is_workflow;
 	const isWorkflow: boolean | undefined =
 		typeof isWorkflowRaw === "boolean" ? isWorkflowRaw : undefined;
+	const workflow = extractWorkflowMetadata(meta.workflow);
 
 	const result: SkillMetadata = {
 		version: typeof meta.version === "string" ? meta.version : undefined,
@@ -462,33 +510,33 @@ const extractSkillMetadata = (
 		...(parsedEnv.length > 0 && { environment: parsedEnv }),
 		...(category !== undefined && { category }),
 		...(isWorkflow !== undefined && { isWorkflow }),
+		...(workflow !== undefined && { workflow }),
 	};
 
 	const hasAnyField = Object.values(result).some((v) => v !== undefined);
 	return E.right(hasAnyField ? result : undefined);
 };
 
-/**
- * Parse Claude Code skill from SKILL.md + supporting files.
- */
-export const parseSkill = (
-	skillDir: string,
-): TE.TaskEither<CLIError, ClaudeCodeSkill> =>
+const parseSkillFileCore = (
+	skillMdPath: string,
+	errorContext: string,
+): TE.TaskEither<
+	CLIError,
+	{
+		readonly name: string;
+		readonly description: string;
+		readonly allowedTools?: string;
+		readonly content: string;
+		readonly metadata?: SkillMetadata;
+	}
+> =>
 	pipe(
 		TE.tryCatch(
-			async () => {
-				const skillMdPath = join(skillDir, "SKILL.md");
-				const content = await readFile(skillMdPath, "utf-8");
-				return { content, skillMdPath };
-			},
-			(e) => parseError(skillDir, `Failed to read SKILL.md: ${e}`),
+			() => readFile(skillMdPath, "utf-8"),
+			(e) => parseError(errorContext, `Failed to read SKILL.md: ${e}`),
 		),
-		TE.chain(({ content, skillMdPath }) =>
-			pipe(
-				extractFrontmatter(content, skillMdPath),
-				TE.fromEither,
-				TE.map(({ metadata, body }) => ({ metadata, body, skillMdPath })),
-			),
+		TE.chain((content) =>
+			pipe(extractFrontmatter(content, skillMdPath), TE.fromEither),
 		),
 		TE.chain(({ metadata, body }) => {
 			const name = metadata.name;
@@ -501,43 +549,71 @@ export const parseSkill = (
 				);
 				return TE.left(
 					parseError(
-						skillDir,
+						errorContext,
 						`Missing required fields: ${missing.join(", ")}`,
 					),
 				);
 			}
 
-			// Validate description length (Anthropic Skills v1.0 requirement)
 			const descStr = String(description);
 			if (descStr.length < 20) {
 				return TE.left(
 					parseError(
-						skillDir,
+						errorContext,
 						`Skill description must be >= 20 characters, got ${descStr.length}: ${descStr}`,
 					),
 				);
 			}
 
-			// Extract allowed-tools as string (Claude Code format: comma-separated)
 			const allowedToolsStr =
 				typeof allowedTools === "string" ? allowedTools : undefined;
 
-			// Extract rp1-specific metadata from the nested `metadata` map
-			const metadataResult = extractSkillMetadata(metadata.metadata, skillDir);
+			const metadataResult = extractSkillMetadata(
+				metadata.metadata,
+				errorContext,
+			);
 			if (E.isLeft(metadataResult)) {
 				return TE.left(metadataResult.left);
 			}
-			const skillMetadata = metadataResult.right;
 
 			return TE.right({
 				name: String(name),
 				description: descStr,
 				allowedTools: allowedToolsStr,
-				skillMetadata,
-				body,
+				content: body,
+				metadata: metadataResult.right,
 			});
 		}),
-		TE.chain(({ name, description, allowedTools, skillMetadata, body }) =>
+	);
+
+/**
+ * Parse only the workflow-relevant fields from a specific SKILL.md file path.
+ */
+export const parseSkillSchemaFile = (
+	skillMdPath: string,
+): TE.TaskEither<
+	CLIError,
+	Pick<ClaudeCodeSkill, "name" | "description" | "allowedTools" | "metadata">
+> =>
+	pipe(
+		parseSkillFileCore(skillMdPath, skillMdPath),
+		TE.map(({ name, description, allowedTools, metadata }) => ({
+			name,
+			description,
+			allowedTools,
+			metadata,
+		})),
+	);
+
+/**
+ * Parse Claude Code skill from SKILL.md + supporting files.
+ */
+export const parseSkill = (
+	skillDir: string,
+): TE.TaskEither<CLIError, ClaudeCodeSkill> =>
+	pipe(
+		parseSkillFileCore(join(skillDir, "SKILL.md"), skillDir),
+		TE.chain(({ name, description, allowedTools, content, metadata }) =>
 			pipe(
 				TE.tryCatch(
 					async () => {
@@ -555,9 +631,9 @@ export const parseSkill = (
 					name,
 					description,
 					allowedTools,
-					content: body,
+					content,
 					supportingFiles,
-					metadata: skillMetadata,
+					metadata,
 				})),
 			),
 		),

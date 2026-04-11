@@ -26,12 +26,16 @@ End-to-end feature workflow orchestrator. Runs the complete 6-step lifecycle (re
 
 ## Description
 
-The `build` command is the **primary entry point** for feature development. It orchestrates all workflow steps automatically with smart resumption — detecting existing artifacts and continuing from where you left off.
+The `build` command is the **primary entry point** for feature development. It
+is the only tracked workflow that currently uses resumable run policy, so rp1
+can reopen the active run for the same `FEATURE_ID` and continue from the right
+step.
 
 ### Key Features
 
 - **Single command**: No need to run individual steps manually
-- **Smart resumption**: Detects existing artifacts and resumes from the right step
+- **Deterministic resumption**: Reuses only non-terminal `build` runs for the
+  same canonical project and `FEATURE_ID`
 - **AFK mode**: Run autonomously without user interaction
 - **Safe defaults**: No git operations unless explicitly requested via flags
 - **Opt-in git operations**: Use `--git-*` flags for commit, push, PR
@@ -113,7 +117,20 @@ In AFK mode:
 
 ## Smart Resumption
 
-The command detects existing artifacts and resumes from the appropriate step:
+`build` uses workflow bootstrap before it inspects feature artifacts:
+
+1. rp1 resolves the canonical `projectRoot`, `kbRoot`, and `workRoot`.
+2. If the project already has a non-terminal `build` run for the same
+   `FEATURE_ID`, that run is resumed. Terminal runs are never reopened
+   automatically.
+3. `build-artifact-detector` then reads `features/<feature-id>/` under the
+   canonical work root and chooses the first incomplete step.
+
+This means linked-worktree invocations still reuse the owning repository's run
+and keep artifacts under the owning repository's `.rp1/work/`.
+
+After the run is selected, the workflow resumes from the appropriate step based
+on the feature artifacts it finds:
 
 | Existing Artifacts | Resumes From |
 |-------------------|--------------|
@@ -232,7 +249,10 @@ If you stopped at a gate, resuming `/build` continues from the next stage.
 
 ## Output
 
-**Location:** `.rp1/work/features/<feature-id>/`
+**Location:** `{workRoot}/features/<feature-id>/`
+
+In a standard checkout this is `.rp1/work/features/<feature-id>/`. In a linked
+worktree, rp1 still uses the owning repository's canonical work root.
 
 **Contents:**
 

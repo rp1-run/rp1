@@ -13,6 +13,17 @@ metadata:
   created: 2025-10-29
   updated: 2026-02-26
   author: cloud-on-prem/rp1
+  arguments:
+    - name: PROJECT_CONTEXT
+      type: string
+      required: false
+      default: ""
+      description: "Optional project context for the documenter"
+    - name: FOCUS_AREAS
+      type: string
+      required: false
+      default: "all"
+      description: "Optional focus areas for the documenter"
   sub_agents:
     - "rp1-base:project-documenter"
 ---
@@ -24,7 +35,10 @@ This command invokes the **project-documenter** sub-agent to generate project ov
 Invoke the project-documenter agent:
 
 {% dispatch_agent "rp1-base:project-documenter" %}
-
+PROJECT_CONTEXT: {PROJECT_CONTEXT}
+FOCUS_AREAS: {FOCUS_AREAS}
+KB_ROOT: {kbRoot}
+{% enddispatch_agent %}
 The agent will:
 
 - Load internal knowledge base

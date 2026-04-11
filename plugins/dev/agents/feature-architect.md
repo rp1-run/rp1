@@ -19,6 +19,14 @@ arguments:
     required: false
     default: false
     description: "Design iteration mode"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root returned by the parent workflow bootstrap"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by the parent workflow bootstrap"
   - name: WORKFLOW
     type: string
     required: false
@@ -40,21 +48,23 @@ arguments:
 <feature_id>$1</feature_id>
 <afk_mode>$2</afk_mode>
 <update_mode>$3</update_mode>
-**Feature dir**: `.rp1/work/features/{FEATURE_ID}/`
+<kb_root>{{KB_ROOT from prompt}}</kb_root>
+<work_root>{{WORK_ROOT from prompt}}</work_root>
+**Feature dir**: `{WORK_ROOT}/features/{FEATURE_ID}/`
 
 ## §1 KB Loading
 
 Read via Read tool:
 
-1. `.rp1/context/index.md` - project structure, domain
-2. `.rp1/context/patterns.md` - tech patterns, naming, impl patterns
-3. `.rp1/context/architecture.md` - arch patterns, layers, integration
+1. `{KB_ROOT}/index.md` - project structure, domain
+2. `{KB_ROOT}/patterns.md` - tech patterns, naming, impl patterns
+3. `{KB_ROOT}/architecture.md` - arch patterns, layers, integration
 
 If KB missing: warn, continue w/ codebase analysis fallback.
 
 ## §2 Requirements Loading
 
-Read `.rp1/work/features/{FEATURE_ID}/requirements.md`.
+Read `{WORK_ROOT}/features/{FEATURE_ID}/requirements.md`.
 
 **Validation**: Missing requirements.md -> exit with error JSON:
 
@@ -64,7 +74,7 @@ Read `.rp1/work/features/{FEATURE_ID}/requirements.md`.
 
 ## §3 Mode Detection
 
-Check if `.rp1/work/features/{FEATURE_ID}/design.md` exists:
+Check if `{WORK_ROOT}/features/{FEATURE_ID}/design.md` exists:
 
 - Exists: `UPDATE_MODE = true` (design iteration)
 - Not exists: `UPDATE_MODE = false` (fresh design)
@@ -129,7 +139,7 @@ When requirements don't specify tech choices:
 
 ## §7 Design Output
 
-Write to `.rp1/work/features/{FEATURE_ID}/design.md`.
+Write to `{WORK_ROOT}/features/{FEATURE_ID}/design.md`.
 
 **Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in the YAML frontmatter block. This enables run resumability. Use the `rp1_` prefix consistent with `rp1_doc_id`.
 
@@ -223,7 +233,7 @@ Each test MUST trace to app requirement, not library feature.
 
 ## §8 Decisions Output
 
-Write to `.rp1/work/features/{FEATURE_ID}/design-decisions.md`:
+Write to `{WORK_ROOT}/features/{FEATURE_ID}/design-decisions.md`:
 
 Log of all major technology/architecture decisions w/ rationales.
 

@@ -7,6 +7,7 @@ import {
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { ArtifactViewerPanel } from "@/components/v2/ArtifactViewerPanel";
+import { RunInvocationCard } from "@/components/v2/RunInvocationCard";
 import { VerticalStepList } from "@/components/v2/VerticalStepList";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useRunDetail } from "@/hooks/useRunDetail";
@@ -257,6 +258,8 @@ export function RunDetailPage() {
 
 	return (
 		<div className="flex h-full flex-col">
+			<RunInvocationCard invocation={run.invocation} />
+
 			{/* Desktop: two-panel resizable layout */}
 			<div className="hidden md:flex flex-1 min-h-0">
 				<ResizablePanelGroup direction="horizontal">

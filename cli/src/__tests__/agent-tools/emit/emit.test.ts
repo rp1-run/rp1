@@ -23,7 +23,9 @@ import { executeEmit } from "../../../agent-tools/emit/index.js";
 import type { EmitInput } from "../../../agent-tools/emit/models.js";
 import {
 	createTempDir,
+	expectTaskLeft,
 	expectTaskRight,
+	getErrorMessage,
 	writeFixture,
 } from "../../helpers/index.js";
 
@@ -141,6 +143,58 @@ describe("emit end-to-end", () => {
 			expect(run?.rp1KbRoot).toBe(join(projectRoot, ".rp1", "context"));
 			expect(run?.rp1WorkRoot).toBe(join(projectRoot, ".rp1", "work"));
 		});
+
+		test("prefers input.workflow over payload workflow when creating a run", async () => {
+			const runId = `run-workflow-precedence-${Date.now()}`;
+			const input = makeInput({
+				type: "btw_update",
+				runId,
+				workflow: "build-fast",
+				data: {
+					message: "workflow precedence",
+					workflow: "build",
+					feature: "feat",
+				},
+			});
+
+			await expectTaskRight(executeEmit(input));
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const run = getRunById(db, runId);
+
+			expect(run?.flow).toBe("build-fast");
+		});
+
+		test("rejects workflow mismatches before mutating legacy unknown-flow runs", async () => {
+			const runId = `run-unknown-flow-${Date.now()}`;
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: runId,
+				flow: "unknown",
+				featureId: "feat",
+				projectPath: tempDir,
+			});
+
+			const error = await expectTaskLeft(
+				executeEmit(
+					makeInput({
+						type: "btw_update",
+						runId,
+						workflow: "build",
+						data: {
+							message: "should fail before mutating run flow",
+							feature: "feat",
+						},
+					}),
+				),
+			);
+
+			expect(getErrorMessage(error)).toContain(
+				`run "${runId}" has flow "unknown" but --workflow "build" was provided`,
+			);
+			expect(getRunById(db, runId)?.flow).toBe("unknown");
+		});
 	});
 
 	describe("artifact_registered events", () => {
@@ -247,6 +301,58 @@ describe("emit end-to-end", () => {
 			expect(result.data.docId).toBe("doc-relative-frontmatter");
 			expect(artifact?.storageRoot).toBe("work_dir");
 			expect(artifact?.path).toBe("features/test-feat/design.md");
+		});
+
+		test("rejects project-root artifacts that escape the canonical project root", async () => {
+			const projectRoot = join(tempDir, "project-escape-project");
+			await writeFixture(projectRoot, ".rp1/project_id", "test-project-escape");
+
+			const error = await expectTaskLeft(
+				executeEmit(
+					makeInput({
+						type: "artifact_registered",
+						step: "design",
+						projectPath: projectRoot,
+						data: {
+							path: "../outside.md",
+							feature: "test-feat",
+							storageRoot: "project",
+							type: "markdown",
+							workflow: "build",
+						},
+					}),
+				),
+			);
+
+			expect(getErrorMessage(error)).toContain(
+				"escapes the canonical project root",
+			);
+		});
+
+		test("rejects work-dir artifacts that escape the canonical work root", async () => {
+			const projectRoot = join(tempDir, "project-escape-work");
+			await writeFixture(projectRoot, ".rp1/project_id", "test-work-escape");
+
+			const error = await expectTaskLeft(
+				executeEmit(
+					makeInput({
+						type: "artifact_registered",
+						step: "design",
+						projectPath: projectRoot,
+						data: {
+							path: "../outside.md",
+							feature: "test-feat",
+							storageRoot: "work_dir",
+							type: "markdown",
+							workflow: "build",
+						},
+					}),
+				),
+			);
+
+			expect(getErrorMessage(error)).toContain(
+				"escapes the canonical work_dir root",
+			);
 		});
 	});
 

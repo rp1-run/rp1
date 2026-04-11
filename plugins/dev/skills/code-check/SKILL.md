@@ -13,6 +13,22 @@ metadata:
   created: 2025-11-08
   updated: 2026-02-26
   author: cloud-on-prem/rp1
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: false
+      default: ""
+      description: "Optional feature identifier for work-root-scoped reports"
+    - name: TEST_SCOPE
+      type: string
+      required: false
+      default: "all"
+      description: "Optional test scope override"
+    - name: COVERAGE_TARGET
+      type: string
+      required: false
+      default: "80"
+      description: "Optional coverage target percentage"
   sub_agents:
     - "rp1-dev:code-checker"
 ---
@@ -24,7 +40,12 @@ Performs fast code hygiene checks during development including linters, formatte
 Invoke the code-checker agent:
 
 {% dispatch_agent "rp1-dev:code-checker" %}
-
+FEATURE_ID: {FEATURE_ID}
+TEST_SCOPE: {TEST_SCOPE}
+COVERAGE_TARGET: {COVERAGE_TARGET}
+KB_ROOT: {kbRoot}
+WORK_ROOT: {workRoot}
+{% enddispatch_agent %}
 The agent will:
 
 - Auto-detect build tools (Rust, JS/TS, Python, Go, Java, Kotlin, Ruby)

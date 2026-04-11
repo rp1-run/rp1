@@ -26,7 +26,7 @@ allowed-tools: Bash(echo *)
 metadata:
   category: ${category}
   is_workflow: ${isWorkflow}
-  version: 1.0.0
+${isWorkflow ? "  workflow:\n    run_policy: fresh\n    identity_args: []\n" : ""}  version: 1.0.0
   created: 2026-01-01
   author: test
 ---
@@ -47,6 +47,8 @@ describe("catalog-generator", () => {
 					category: "development",
 					isWorkflow: true,
 					keyArgs: ["FEATURE_ID", "AFK"],
+					runPolicy: "resumable",
+					identityArgs: ["FEATURE_ID"],
 				},
 				{
 					name: "speedrun",
@@ -55,6 +57,8 @@ describe("catalog-generator", () => {
 					category: "development",
 					isWorkflow: true,
 					keyArgs: [],
+					runPolicy: "fresh",
+					identityArgs: [],
 				},
 				{
 					name: "code-check",
@@ -71,15 +75,17 @@ describe("catalog-generator", () => {
 			expect(result).toContain("# rp1 Skill Catalog");
 			expect(result).toContain("## Development");
 			expect(result).toContain("## Quality");
-			expect(result).toContain("| Key Args |");
 			expect(result).toContain(
-				"| `/build` | dev | End-to-end feature workflow. | `FEATURE_ID`, `AFK` | Yes |",
+				"| Key Args | Workflow | Run Policy | Identity Args |",
 			);
 			expect(result).toContain(
-				"| `/speedrun` | dev | Quick iteration loop. |  | Yes |",
+				"| `/build` | dev | End-to-end feature workflow. | `FEATURE_ID`, `AFK` | Yes | resumable | `FEATURE_ID` |",
 			);
 			expect(result).toContain(
-				"| `/code-check` | dev | Fast code hygiene validation. | `TARGET` |  |",
+				"| `/speedrun` | dev | Quick iteration loop. |  | Yes | fresh |  |",
+			);
+			expect(result).toContain(
+				"| `/code-check` | dev | Fast code hygiene validation. | `TARGET` |  |  |  |",
 			);
 		});
 

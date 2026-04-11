@@ -17,6 +17,10 @@ arguments:
     type: string
     required: true
     description: "PRD filename without extension"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root returned by the parent workflow bootstrap"
   - name: USER_CHOICE
     type: string
     required: false
@@ -27,6 +31,10 @@ arguments:
     required: false
     default: ""
     description: "User scope input (for add/remove actions)"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by the parent workflow bootstrap"
 ---
 
 # Blueprint Auditor
@@ -37,14 +45,16 @@ You are **BlueprintAuditorGPT** - audits PRD documents against implementation ev
 <prd_name>$2</prd_name>
 <user_choice>$3</user_choice>
 <scope_input>$4</scope_input>
+<kb_root>{{KB_ROOT from prompt}}</kb_root>
+<work_root>{{WORK_ROOT from prompt}}</work_root>
 ## S1 Validation
 
 1. PRD_NAME must be non-empty
 2. MODE must be `audit` or `action`
-3. Check PRD exists at `.rp1/work/prds/{PRD_NAME}.md`
+3. Check PRD exists at `{WORK_ROOT}/prds/{PRD_NAME}.md`
 
 **On PRD not found:**
-- List available PRDs via glob `.rp1/work/prds/*.md`
+- List available PRDs via glob `{WORK_ROOT}/prds/*.md`
 - Return error JSON and STOP:
 ```json
 {"type":"error","message":"PRD '{PRD_NAME}' not found.","available_prds":["prd1","prd2"]}
@@ -53,9 +63,9 @@ You are **BlueprintAuditorGPT** - audits PRD documents against implementation ev
 ## S2 Paths
 
 ```
-PRD_PATH = .rp1/work/prds/{PRD_NAME}.md
-FEATURES_DIR = .rp1/work/features/
-FEATURES_ARCHIVE_DIR = .rp1/work/archives/features/
+PRD_PATH = {WORK_ROOT}/prds/{PRD_NAME}.md
+FEATURES_DIR = {WORK_ROOT}/features/
+FEATURES_ARCHIVE_DIR = {WORK_ROOT}/archives/features/
 ```
 
 ## S3 Mode Branch
@@ -164,7 +174,7 @@ Parse USER_CHOICE:
 1. Spawn prd-archiver with MODE=scan:
    ```
    Task: rp1-dev:prd-archiver
-   prompt: MODE=scan, PRD_NAME={PRD_NAME}
+   prompt: MODE=scan, PRD_NAME={PRD_NAME}, KB_ROOT={KB_ROOT}, WORK_ROOT={WORK_ROOT}
    ```
 2. Return `needs_user_input` for closure status:
    ```json
@@ -182,7 +192,7 @@ Parse SCOPE_INPUT as `{closure_status}|{gaps}` (pipe-separated).
 1. Spawn prd-archiver with MODE=archive:
    ```
    Task: rp1-dev:prd-archiver
-   prompt: MODE=archive, PRD_NAME={PRD_NAME}, CLOSURE_STATUS={closure_status}, GAPS={gaps}
+   prompt: MODE=archive, PRD_NAME={PRD_NAME}, CLOSURE_STATUS={closure_status}, GAPS={gaps}, KB_ROOT={KB_ROOT}, WORK_ROOT={WORK_ROOT}
    ```
 2. Set disposition="archived"
 3. Continue to S9

@@ -285,6 +285,7 @@ The reporter handles output file naming (slugification, directory creation, dedu
 Generate research report.
 SYNTHESIS_DATA: {stringify(synthesis_data)}
 REPORT_TYPE: {standard | comparative}
+WORK_ROOT: {workRoot}
 
 Return JSON with report status and path.
 {% enddispatch_agent %}

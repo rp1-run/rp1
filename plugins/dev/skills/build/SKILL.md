@@ -5,6 +5,10 @@ allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: development
   is_workflow: true
+  workflow:
+    run_policy: resumable
+    identity_args:
+      - FEATURE_ID
   version: 3.0.0
   tags:
     - core
@@ -76,24 +80,22 @@ metadata:
 
 ## §CTX
 
-Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Resolve Arguments step. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
+Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
 
 **Feature dir**: `{workRoot}/features/{FEATURE_ID}/`
 
 ## §0-FIRST-ACTION
 
-**FIRST tool call MUST be:**
+After the generated Workflow Bootstrap section resolves `RUN_ID`, `RUN_RESUMED`, and the canonical directories, the first prompt-authored action MUST be:
 
 {% dispatch_agent "rp1-dev:build-artifact-detector" %}
-FEATURE_ID={FEATURE_ID}, WORKFLOW_TYPE=build
+FEATURE_ID={FEATURE_ID}, WORKFLOW_TYPE=build, RUN_ID={RUN_ID}, RUN_RESUMED={RUN_RESUMED}, WORK_ROOT={workRoot}
 {% enddispatch_agent %}
 
 Do NOT read files, load KB, or analyze requirements before this completes.
-Parse response: extract `start_step` (1-6), `artifacts` status, `run_id`, and `resumed`.
+Parse response: extract `start_step` (1-6), `artifacts` status, and optional `unregistered_artifacts`.
 
-**Run ID Resolution**: Use the `run_id` from the artifact-detector response for all subsequent emits. If `resumed` is `true`, the detector found a resumable run and the returned `run_id` is the existing run. If `resumed` is `false`, the detector created a new run. Either way, set `RUN_ID = run_id` from the response. Do NOT generate a new UUID.
-
-**Artifact Reconciliation**: If `resumed` is `true` and `unregistered_artifacts` is present and non-empty, register each artifact under the resumed run:
+**Artifact Reconciliation**: If `RUN_RESUMED` is `true` and `unregistered_artifacts` is present and non-empty, register each artifact under the resumed run:
 
 ```bash
 rp1 agent-tools emit \
@@ -141,7 +143,7 @@ rp1 agent-tools emit \
   --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
 
-`RUN_ID` comes from the artifact-detector (§0-FIRST-ACTION). Do NOT generate a new UUID.
+`RUN_ID` comes from the generated Workflow Bootstrap section. Do NOT override it.
 
 ## §PROGRESS
 
@@ -165,7 +167,7 @@ AFK mode: skip all prompts, auto-select defaults, retry once on failure, auto-ar
 **Skip if**: start_step > 1. **Spawn agent — do NOT gather requirements yourself:**
 
 {% dispatch_agent "rp1-dev:feature-requirement-gatherer" %}
-FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 Validate the response before continuing:
@@ -205,17 +207,17 @@ rp1 agent-tools emit \
 **Skip if**: start_step > 2. **Spawn agent — do NOT design yourself:**
 
 {% dispatch_agent "rp1-dev:feature-architect" %}
-FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, AFK={AFK}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, UPDATE_MODE={design.md exists}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 If `flagged_hypotheses` non-empty:
 
 {% dispatch_agent "rp1-dev:hypothesis-tester" %}
-FEATURE_ID={FEATURE_ID}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:feature-tasker" %}
-FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE={UPDATE_MODE}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 **Checkpoint** (skip if AFK):
@@ -248,7 +250,7 @@ rp1 agent-tools emit \
 **Skip if**: start_step > 3. **Spawn agent:**
 
 {% dispatch_agent "rp1-dev:feature-tasker" %}
-FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=false, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 **Checkpoint** (skip if AFK):
@@ -299,14 +301,27 @@ Extract `task_units` array.
 For each task unit, run builder then reviewer:
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, FEEDBACK={feedback}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:task-reviewer" %}
-FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-Loop logic: attempt=1, max=2. If reviewer reports SUCCESS: move to next unit. If FAILURE and attempt < max: pass feedback to builder, retry. Else: escalate (AFK: mark blocked; Interactive: prompt user).
+Loop logic: attempt=1, max=2. If reviewer reports SUCCESS: move to next unit.
+
+If FAILURE and attempt < max:
+
+1. Extract `issues` and `summary` from reviewer response.
+2. Re-spawn task-builder with review feedback. If `GIT_COMMIT=true`, pass `REWRITE_COMMITS=true` so the builder amends the prior commit into a clean atomic rewrite:
+
+{% dispatch_agent "rp1-dev:task-builder" %}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, REWRITE_COMMITS={GIT_COMMIT}, PREVIOUS_FEEDBACK={reviewer summary and issues}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
+
+3. Re-run task-reviewer for the same task unit.
+
+Else: escalate (AFK: mark blocked; Interactive: prompt user).
 
 ### §4.3 Post-Build
 
@@ -345,11 +360,11 @@ rp1 agent-tools emit \
 **Skip if**: start_step > 5. **Invoke ALL THREE in SINGLE response:**
 
 {% dispatch_agent "rp1-dev:code-checker" %}
-FEATURE_ID={FEATURE_ID}, BRANCH={branch}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:feature-verifier" %}
-FEATURE_ID={FEATURE_ID}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:comment-cleaner" %}
@@ -411,7 +426,7 @@ On Review feedback from Arcade: load `arcade-collab` skill, process all feedback
 ### Archive (skip if "Do nothing")
 
 {% dispatch_agent "rp1-dev:feature-archiver" %}
-MODE=archive, FEATURE_ID={FEATURE_ID}, SKIP_DOC_CHECK=false
+MODE=archive, FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, SKIP_DOC_CHECK=false
 {% enddispatch_agent %}
 
 ## §TERMINAL-STATES

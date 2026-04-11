@@ -62,13 +62,13 @@ Launch the bug investigator with a description of the issue:
 === "Claude Code"
 
     ```bash
-    /code-investigate "API timeout on /api/orders endpoint during peak hours, returning 504 errors intermittently"
+    /code-investigate --issue-id api-timeout-orders "API timeout on /api/orders endpoint during peak hours, returning 504 errors intermittently"
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev-code-investigate "API timeout on /api/orders endpoint during peak hours, returning 504 errors intermittently"
+    /rp1-dev-code-investigate --issue-id api-timeout-orders "API timeout on /api/orders endpoint during peak hours, returning 504 errors intermittently"
     ```
 
 **What happens:**
@@ -257,7 +257,7 @@ Files to Modify:
 - src/db/queries/orderQueries.ts (primary fix)
 - migrations/xxx_add_compound_index.sql (secondary fix)
 
-Output: .rp1/work/investigations/api-timeout-orders/report.md
+Output: .rp1/work/issues/api-timeout-orders/investigation_report.md
 ```
 
 !!! tip "Checkpoint"
@@ -275,7 +275,7 @@ If the fix is straightforward, implement it directly:
 
 ```bash
 /build-fast "Fix the N+1 query" \
-  .rp1/work/investigations/api-timeout-orders/report.md
+  .rp1/work/issues/api-timeout-orders/investigation_report.md
 ```
 
 ### Option B: Formal Feature
@@ -284,7 +284,7 @@ For larger fixes, use the feature workflow:
 
 ```bash
 /build fix-orders-performance \
-  .rp1/work/investigations/api-timeout-orders/report.md
+  .rp1/work/issues/api-timeout-orders/investigation_report.md
 ```
 
 ### Option C: Further Investigation
@@ -293,7 +293,7 @@ If the root cause isn't clear, investigate specific areas:
 
 ```bash
 /code-investigate "Deep dive into connection pool behavior" \
-  .rp1/work/investigations/api-timeout-orders/report.md
+  .rp1/work/issues/api-timeout-orders/investigation_report.md
 ```
 
 ### Option D: Deep Research
@@ -302,7 +302,7 @@ If the issue spans multiple repositories, external services, or requires broader
 
 ```bash
 /deep-research "How does payment service interact with orders API?" \
-  .rp1/work/investigations/api-timeout-orders/report.md
+  .rp1/work/issues/api-timeout-orders/investigation_report.md
 ```
 
 This is useful for cross-service communication, third-party integrations, or understanding external systems. See [Deep Research](../reference/base/deep-research.md) for more details.

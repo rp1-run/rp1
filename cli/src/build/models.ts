@@ -75,6 +75,13 @@ export type SkillCategory =
 	| "planning"
 	| "prompt";
 
+export type WorkflowRunPolicy = "fresh" | "resumable";
+
+export interface WorkflowMetadata {
+	readonly runPolicy?: WorkflowRunPolicy;
+	readonly identityArgs?: readonly string[];
+}
+
 export interface SkillMetadata {
 	readonly version?: string;
 	readonly tags?: readonly string[];
@@ -87,6 +94,7 @@ export interface SkillMetadata {
 	readonly environment?: readonly EnvironmentDefinition[];
 	readonly category?: SkillCategory;
 	readonly isWorkflow?: boolean;
+	readonly workflow?: WorkflowMetadata;
 }
 
 /**

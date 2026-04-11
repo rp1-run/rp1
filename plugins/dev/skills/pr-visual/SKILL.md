@@ -73,7 +73,7 @@ Emit `visualize` running. Spawn the pr-visualizer agent:
 
 {% dispatch_agent "rp1-dev:pr-visualizer" %}
 PR_BRANCH={PR_BRANCH}, BASE_BRANCH={BASE_BRANCH}, REVIEW_DEPTH={REVIEW_DEPTH},
-FOCUS_AREAS={FOCUS_AREAS}, STANDALONE=true
+FOCUS_AREAS={FOCUS_AREAS}, STANDALONE=true, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}
 {% enddispatch_agent %}
 
 Wait for completion. Extract the artifact path from agent output.

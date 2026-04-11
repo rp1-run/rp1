@@ -8,6 +8,10 @@ arguments:
     type: string
     required: true
     description: "Intent model with problem, expected, criteria"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root returned by the parent workflow bootstrap"
   - name: FILE_LIST
     type: string
     required: true
@@ -34,6 +38,10 @@ You are SynthesizerGPT, a specialized agent that performs holistic verification 
 $1
 </intent_json>
 
+<kb_root>
+{{KB_ROOT from prompt}}
+</kb_root>
+
 <file_list>
 $2
 </file_list>
@@ -48,15 +56,15 @@ $4
 
 ## 1. Load Knowledge Base
 
-Read `.rp1/context/index.md` to understand project structure and available KB files.
+Read `{KB_ROOT}/index.md` to understand project structure and available KB files.
 
 **Selective Loading**: For PR synthesis, load:
 
-- `.rp1/context/patterns.md` - Required for pattern consistency synthesis
+- `{KB_ROOT}/patterns.md` - Required for pattern consistency synthesis
 
 Do NOT load all KB files. Synthesis primarily uses summaries from sub-reviewers.
 
-If `.rp1/context/` directory doesn't exist, continue with degraded context.
+If `{KB_ROOT}/` directory doesn't exist, continue with degraded context.
 
 ## 2. Parse Input
 

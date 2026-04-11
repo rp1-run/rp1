@@ -46,6 +46,8 @@ Archives completed PRD docs from active -> archives dir with associated features
 {% dispatch_agent "rp1-dev:prd-archiver" %}
 MODE: scan
 PRD_NAME: {PRD_NAME}
+KB_ROOT: {kbRoot}
+WORK_ROOT: {workRoot}
 {% enddispatch_agent %}
 
 ### Step 2: Handle Scan Response
@@ -94,6 +96,8 @@ MODE: archive
 PRD_NAME: {PRD_NAME}
 CLOSURE_STATUS: {complete|partial}
 GAPS: {user-provided gaps or empty}
+KB_ROOT: {kbRoot}
+WORK_ROOT: {workRoot}
 {% enddispatch_agent %}
 
 ### Step 5: Report

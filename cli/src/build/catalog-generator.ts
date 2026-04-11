@@ -26,6 +26,8 @@ export const collectCatalogEntries = async (
 			category: entry.category,
 			isWorkflow: entry.isWorkflow,
 			keyArgs: entry.keyArgs,
+			runPolicy: entry.runPolicy,
+			identityArgs: entry.identityArgs,
 		})),
 		errors,
 	};

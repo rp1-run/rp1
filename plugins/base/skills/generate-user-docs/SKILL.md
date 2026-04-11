@@ -5,6 +5,9 @@ allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git *), Bash(mkdir *), Read, Writ
 metadata:
   category: documentation
   is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args: []
   version: 2.1.0
   tags:
     - documentation
@@ -20,11 +23,11 @@ metadata:
 
 # Generate User Docs
 
-§ROLE: User-doc sync orchestrator. Reconcile user-facing docs against `.rp1/context/` in one scan pass and one process pass.
+§ROLE: User-doc sync orchestrator. Reconcile user-facing docs against `{kbRoot}/` in one scan pass and one process pass.
 
 §OBJ
 - Sync docs to current KB facts
-- Keep orchestration state under `.rp1/work/`
+- Keep orchestration state under `{workRoot}/`
 - Delegate file-level scan/process only
 - Ask approval exactly once after scan
 - If the KB is stale but structurally valid, require one explicit pre-scan decision gate
@@ -48,12 +51,12 @@ metadata:
 - Do NOT treat diffs inside the docs being reconciled as KB-staleness signals for this run
 
 §PATHS
-- Generate `RUN_ID` as UUID
+- Use the `RUN_ID` from the generated Workflow Bootstrap section
 - Derive `RUN_NAME` as `"Docs: sync user docs"` (max 60 chars)
 - Set `DATESTAMP` to the current date in `YYYY-MM-DD`
 - Set `SESSION_DIR=docs-sync/{DATESTAMP}-{RUN_ID}`
 - Set `SCAN_RESULTS_REL={SESSION_DIR}/scan_results.json`
-- Set `SCAN_RESULTS_PATH=.rp1/work/{SCAN_RESULTS_REL}`
+- Set `SCAN_RESULTS_PATH={workRoot}/{SCAN_RESULTS_REL}`
 
 ## STATE-MACHINE
 
@@ -184,7 +187,7 @@ Log the inferred style in one short block.
 
 ### 2. Validate KB
 
-Use Glob to confirm `.rp1/context/state.json` exists.
+Use Glob to confirm `{kbRoot}/state.json` exists.
 If missing:
 - Output:
   ```
@@ -195,7 +198,7 @@ If missing:
 - Transition to `failed`
 - STOP
 
-Read `.rp1/context/state.json`.
+Read `{kbRoot}/state.json`.
 Extract:
 - `generated_at`
 - `git_commit`
@@ -332,7 +335,7 @@ If `STALE_CHANGES` is non-empty:
 
 Create the session directory:
 ```bash
-mkdir -p .rp1/work/{SESSION_DIR}
+mkdir -p {workRoot}/{SESSION_DIR}
 ```
 
 Batch `DOC_FILES` into groups of 5.
@@ -342,7 +345,7 @@ Spawn one background `rp1-base:scribe` per batch:
 {% dispatch_agent "rp1-base:scribe", background %}
 MODE: scan
 FILES: {actual JSON array of project-relative paths for this batch}
-KB_INDEX_PATH: .rp1/context/index.md
+KB_INDEX_PATH: {kbRoot}/index.md
 
 Task: return JSON only with:
 - `mode`
@@ -469,7 +472,7 @@ If `APPROVAL == "No"`:
   ```
   Documentation update cancelled.
 
-  Scan results preserved at: .rp1/work/{SCAN_RESULTS_REL}
+  Scan results preserved at: {workRoot}/{SCAN_RESULTS_REL}
   ```
 - Transition to `cancelled`
 - STOP
@@ -486,7 +489,7 @@ Spawn one background `rp1-base:scribe` per batch:
 {% dispatch_agent "rp1-base:scribe", background %}
 MODE: process
 FILES: {actual JSON array of project-relative paths for this batch}
-SCAN_RESULTS_PATH: .rp1/work/{SCAN_RESULTS_REL}
+SCAN_RESULTS_PATH: {workRoot}/{SCAN_RESULTS_REL}
 STYLE: {actual JSON.stringify(STYLE_CONFIG)}
 
 Task: return JSON only with:
@@ -554,7 +557,7 @@ Changes applied:
 - Sections fixed: {total_sections_fixed}
 - Total edits: {total_edits_applied}
 
-Scan results: .rp1/work/{SCAN_RESULTS_REL}
+Scan results: {workRoot}/{SCAN_RESULTS_REL}
 
 Git-ready: docs: sync {files_succeeded + files_partial} files with KB ({total_edits_applied} edits)
 ```

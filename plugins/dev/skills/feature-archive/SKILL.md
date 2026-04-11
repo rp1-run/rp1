@@ -47,6 +47,7 @@ Archives completed feature docs from active -> archives dir.
 MODE: archive
 FEATURE_ID: {FEATURE_ID}
 SKIP_DOC_CHECK: false
+WORK_ROOT: {workRoot}
 {% enddispatch_agent %}
 
 ### Step 2: Handle Response

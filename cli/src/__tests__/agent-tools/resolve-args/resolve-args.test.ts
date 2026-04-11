@@ -130,6 +130,34 @@ describe("parseRawArgs", () => {
 			GIT_COMMIT: true,
 		});
 	});
+
+	test("captures variadic positional input across multiple words", () => {
+		const variadicSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "PROBLEM_STATEMENT",
+				type: "string",
+				required: true,
+				variadic: true,
+				description: "Problem statement",
+			},
+			{
+				name: "ISSUE_ID",
+				type: "string",
+				required: false,
+				description: "Issue identifier",
+			},
+		];
+
+		const result = parseRawArgs(
+			"running evals clobber the arcade UI --issue-id running-evals",
+			variadicSchema,
+		);
+
+		expect(result).toEqual({
+			PROBLEM_STATEMENT: "running evals clobber the arcade UI",
+			ISSUE_ID: "running-evals",
+		});
+	});
 });
 
 describe("resolveImpliesChains", () => {
@@ -383,6 +411,46 @@ metadata:
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
 			expect(result.right.arguments.MODE).toBe("custom");
+		}
+	});
+
+	test("resolves variadic required arguments from freeform prose", async () => {
+		const schemaPath = await createSkillFile(
+			tempDir,
+			`---
+name: test-skill
+description: "A test skill with variadic freeform input"
+metadata:
+  arguments:
+    - name: PROBLEM_STATEMENT
+      type: string
+      required: true
+      variadic: true
+      description: "Problem statement"
+    - name: ISSUE_ID
+      type: string
+      required: false
+      default: ""
+      description: "Issue identifier"
+---
+# Test skill
+`,
+		);
+
+		const result = await resolveArgs({
+			schema_path: schemaPath,
+			raw_args:
+				"running evals clobber our arcade UI until the daemon restarts --issue-id running-evals",
+			project_root: tempDir,
+		})();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.arguments.PROBLEM_STATEMENT).toBe(
+				"running evals clobber our arcade UI until the daemon restarts",
+			);
+			expect(result.right.arguments.ISSUE_ID).toBe("running-evals");
+			expect(result.right.unresolved).toEqual([]);
 		}
 	});
 

@@ -15,6 +15,14 @@ arguments:
     required: false
     default: ""
     description: "User context"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root returned by the parent workflow bootstrap"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by the parent workflow bootstrap"
 ---
 
 # Blueprint Wizard - PRD Creation (Stateless)
@@ -25,7 +33,9 @@ You are BlueprintGPT, stateless product strategist. Analyzes PRD state, returns 
 
 <prd_name>$1</prd_name>
 <extra_context>$2</extra_context>
-**Paths**: PRD=`.rp1/work/prds/{PRD_NAME}.md`, Charter=`.rp1/context/charter.md`
+<kb_root>{{KB_ROOT from prompt}}</kb_root>
+<work_root>{{WORK_ROOT from prompt}}</work_root>
+**Paths**: PRD=`{WORK_ROOT}/prds/{PRD_NAME}.md`, Charter=`{KB_ROOT}/charter.md`
 
 ## §CTX
 

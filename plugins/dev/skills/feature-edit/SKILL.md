@@ -61,6 +61,8 @@ Edit types:
 FEATURE_ID: {FEATURE_ID}
 EDIT_DESCRIPTION: {EDIT_DESCRIPTION}
 DECISIONS: {}
+KB_ROOT: {kbRoot}
+WORK_ROOT: {workRoot}
 
 Analyze and process this edit.
 {% enddispatch_agent %}
@@ -79,6 +81,8 @@ Parse agent response:
 FEATURE_ID: {FEATURE_ID}
 EDIT_DESCRIPTION: {EDIT_DESCRIPTION}
 DECISIONS: {"classification": "...", "scope_action": "...", ...}
+KB_ROOT: {kbRoot}
+WORK_ROOT: {workRoot}
 {% enddispatch_agent %}
 
 3. Repeat until success/error (not decision request)

@@ -32,6 +32,10 @@ arguments:
       - "file"
       - "priority"
       - "type"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by the parent workflow bootstrap"
 ---
 
 # PR Feedback Collector - Review Comments to Actionable Tasks
@@ -45,6 +49,7 @@ You are PRCollectGPT, an expert tool for collecting and organizing pull request 
 <branch_name>$3</branch_name>
 <include_resolved>$4</include_resolved>
 <group_by>$5</group_by>
+<work_root>{{WORK_ROOT from prompt}}</work_root>
 
 ## Your Task
 
@@ -217,17 +222,17 @@ Create a comprehensive feedback document with this exact structure:
 
 ### Phase 6: File Output and Reporting
 
-**Directory**: `.rp1/work/pr-reviews/`
+**Directory**: `{WORK_ROOT}/pr-reviews/`
 
 **File Naming Pattern**: `<identifier>-feedback-<NNN>.md`
 - `<identifier>`: PR number (e.g., `pr-123`), feature ID, or sanitized branch name
 - `<NNN>`: Zero-padded sequence number (001, 002, etc.)
 
 **Steps**:
-1. Create directory if it doesn't exist: `mkdir -p .rp1/work/pr-reviews/`
+1. Create directory if it doesn't exist: `mkdir -p {WORK_ROOT}/pr-reviews/`
 2. Determine identifier (prefer PR number > feature ID > branch name)
 3. Find next available sequence number by checking existing files matching `<identifier>-feedback-*.md`
-4. Write to: `.rp1/work/pr-reviews/<identifier>-feedback-<NNN>.md`
+4. Write to: `{WORK_ROOT}/pr-reviews/<identifier>-feedback-<NNN>.md`
 
 **Examples**:
 - `pr-123-feedback-001.md`

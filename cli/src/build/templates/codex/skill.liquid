@@ -11,42 +11,96 @@ metadata:
 {%- if artifact.metadata %}
 {%- if artifact.metadata.category %}
   category: {{ artifact.metadata.category }}
-{%- endif -%}
+{% endif -%}
 {%- if artifact.metadata.isWorkflow != nil %}
   is_workflow: {{ artifact.metadata.isWorkflow }}
-{%- endif -%}
+{% endif -%}
+{%- if artifact.metadata.workflow and artifact.metadata.workflow.runPolicy %}
+  workflow:
+    run_policy: {{ artifact.metadata.workflow.runPolicy }}
+{%- if artifact.metadata.workflow.identityArgs != nil %}
+{%- if artifact.metadata.workflow.identityArgs.size > 0 %}
+    identity_args:
+{%- for arg in artifact.metadata.workflow.identityArgs %}
+      - {{ arg }}
+{%- endfor %}
+{%- else %}
+    identity_args: []
+{% endif %}
+{% endif %}
+{% endif -%}
 {%- if artifact.metadata.version %}
   version: {{ artifact.metadata.version }}
-{%- endif %}
+{% endif -%}
 {%- if artifact.metadata.tags and artifact.metadata.tags.size > 0 %}
   tags:
 {%- for tag in artifact.metadata.tags %}
     - {{ tag }}
 {%- endfor %}
-{%- endif %}
+{% endif -%}
 {%- if artifact.metadata.created %}
   created: {{ artifact.metadata.created }}
-{%- endif %}
+{% endif -%}
 {%- if artifact.metadata.author %}
   author: {{ artifact.metadata.author }}
-{%- endif %}
+{% endif -%}
 {%- if artifact.metadata.argumentHint %}
   argument-hint: "{{ artifact.metadata.argumentHint }}"
-{%- endif %}
+{% endif -%}
 {%- capture trailing_metadata -%}
 {%- if artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
   arguments:
 {{ artifact.metadata.arguments | to_yaml: 4 }}
-{%- endif -%}
+{% endif -%}
 {%- if artifact.metadata.environment and artifact.metadata.environment.size > 0 %}
   environment:
 {{ artifact.metadata.environment | to_yaml: 4 }}
-{%- endif -%}
+{% endif -%}
 {%- endcapture -%}
-{{- trailing_metadata | rstrip -}}
+{{ trailing_metadata | rstrip }}
 {%- endif %}
 ---
+{% if artifact.metadata and artifact.metadata.isWorkflow == true %}
+
+## 0. Workflow Bootstrap
+
+Before any shell command that may change the working directory, run the tracked workflow bootstrap tool:
+
+```bash
+rp1 agent-tools workflow-bootstrap \
+  --name {{ artifact.workflowTarget.name }} \
+  --schema-path {{ artifact.workflowTarget.schemaPath }} \
+{% if artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}  --args "the arguments provided by the user in their prompt" \
+{% endif %}  --project-root "$PWD" \
+  --harness {{ platform }}
+```
+
+Parse the JSON response. Extract values from `data.arguments`, `data.directories`, `data.workflow`, `data.run`, and `data.trace`:
+
+| Variable | Source |
+|----------|--------|
 {%- if artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
+{%- for arg in artifact.metadata.arguments %}
+| {{ arg.name }} | `data.arguments.{{ arg.name }}` |
+{%- endfor %}
+{%- endif %}
+| RUN_ID | `data.run.runId` |
+| RUN_RESUMED | `data.run.resumed` |
+| RUN_DECISION | `data.run.decision` |
+| projectRoot | `data.directories.projectRoot` |
+| kbRoot | `data.directories.kbRoot` |
+| workRoot | `data.directories.workRoot` |
+| rp1DirectoryStatus | `data.directories.status` |
+| rp1NextStepCommand | `data.directories.nextStepCommand` |
+| workflowName | `data.workflow.name` |
+| workflowRunPolicy | `data.workflow.runPolicy` |
+| requestedProjectRoot | `data.trace.requestedProjectRoot` |
+| canonicalProjectRoot | `data.trace.canonicalProjectRoot` |
+
+If workflow bootstrap fails, required arguments remain unresolved, or `rp1DirectoryStatus` is not `initialized`, warn the user about the tool error and stop.
+
+Use `RUN_ID` for all subsequent emits and artifact registrations. Use the returned canonical directories for all subsequent paths. Do not call `resolve-args`, do not call `rp1-root-dir`, do not generate a UUID, and do not call `emit resume-run` directly.
+{% elsif artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
 
 ## 0. Resolve Arguments
 
@@ -72,7 +126,7 @@ Parse the JSON response. Extract values from `data.arguments` and `data.director
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not call `rp1-root-dir`, re-derive project directories, or re-parse arguments.
-{%- endif %}
+{% endif %}
 
 ## Host Context
 

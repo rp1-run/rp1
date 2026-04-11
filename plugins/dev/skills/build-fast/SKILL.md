@@ -5,6 +5,9 @@ allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: development
   is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args: []
   version: 3.0.0
   tags:
     - core
@@ -72,7 +75,7 @@ Quick-iteration workflow for focused changes. Three-phase execution: plan -> bui
 
 ## §CTX
 
-Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Resolve Arguments step. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
+Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
 
 ## §VERSION-GATE
 
@@ -116,7 +119,7 @@ rp1 agent-tools emit \
   --data '{"status": "running"}'
 ```
 
-- Generate `RUN_ID` as a UUID at workflow start
+- `RUN_ID` comes from the generated Workflow Bootstrap section
 - Derive `RUN_NAME` from the development request: a brief summary (max 60 chars) prefixed with `"Feature: "` (e.g., `"Feature: Add logout button to navbar"`)
 
 **State Progression Protocol**:
@@ -138,7 +141,7 @@ rp1 agent-tools emit \
 **Spawn agent**:
 
 {% dispatch_agent "rp1-dev:build-fast-planner" %}
-DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, WORKFLOW=build-fast, RUN_ID={RUN_ID}
+DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, WORKFLOW=build-fast, RUN_ID={RUN_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}
 {% enddispatch_agent %}
 
 **Parse response**: Extract `scope`, `plan_summary`, `files_affected`, `reasoning`, `artifact_path`, `artifact_relative_path`, `task_count`, `task_ids`.
@@ -207,6 +210,8 @@ Present the plan review to the user:
 **You MUST spawn task-builder here.** Do not implement the tasks yourself.
 
 {% dispatch_agent "rp1-dev:task-builder" %}
+KB_ROOT={kbRoot}
+WORK_ROOT={workRoot}
 QUICK_BUILD_PATH={workRoot}/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
@@ -225,6 +230,8 @@ RUN_ID={RUN_ID}
 **You MUST use `subagent_type: rp1-dev:task-reviewer`** — do not use `general-purpose` or any other agent type.
 
 {% dispatch_agent "rp1-dev:task-reviewer" %}
+KB_ROOT={kbRoot}
+WORK_ROOT={workRoot}
 QUICK_BUILD_PATH={workRoot}/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
@@ -239,12 +246,15 @@ RUN_ID={RUN_ID}
 If `status` = "FAILURE":
 
 1. Extract `issues` and `summary` from reviewer response
-2. Re-spawn task-builder with feedback:
+2. Re-spawn task-builder with feedback. If `GIT_COMMIT=true`, set `REWRITE_COMMITS=true` so the builder can amend the prior commit into proper atomic format:
 
 {% dispatch_agent "rp1-dev:task-builder" %}
+KB_ROOT={kbRoot}
+WORK_ROOT={workRoot}
 QUICK_BUILD_PATH={workRoot}/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
+REWRITE_COMMITS=true
 PREVIOUS_FEEDBACK={reviewer summary and issues}
 WORKFLOW=build-fast
 RUN_ID={RUN_ID}

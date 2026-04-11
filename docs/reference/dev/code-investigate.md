@@ -22,6 +22,8 @@ Systematic bug investigation through evidence-based analysis and hypothesis test
 
 The `code-investigate` command performs systematic investigation of bugs and issues. It follows an evidence-based approach: gathering information, forming hypotheses, testing them, and documenting findings without making permanent code changes.
 
+Pass the bug description as freeform text. If you want a stable workspace slug, add `--issue-id <slug>`.
+
 ## Investigation Process
 
 1. **Evidence Gathering** - Collect logs, reproduction steps, symptoms
@@ -49,13 +51,27 @@ The `code-investigate` command performs systematic investigation of bugs and iss
 === "Claude Code"
 
     ```bash
-    /code-investigate
+    /code-investigate "API timeout on /api/orders during peak hours"
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev-code-investigate
+    /rp1-dev-code-investigate "API timeout on /api/orders during peak hours"
+    ```
+
+### Investigate with an Explicit Issue ID
+
+=== "Claude Code"
+
+    ```bash
+    /code-investigate --issue-id api-timeout-orders "API timeout on /api/orders during peak hours"
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-dev-code-investigate --issue-id api-timeout-orders "API timeout on /api/orders during peak hours"
     ```
 
 The command will prompt you for:
@@ -78,7 +94,7 @@ Evidence:
 Recommended Fix:
 Add mutex to protect shared state in src/handlers/queue.ts:45
 
-Report: .rp1/work/investigation-report.md
+Report: .rp1/work/issues/api-timeout-orders/investigation_report.md
 ```
 
 ## Related Commands

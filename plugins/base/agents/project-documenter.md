@@ -14,6 +14,10 @@ arguments:
     required: false
     default: "all"
     description: "Doc focus areas"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root returned by the parent workflow bootstrap"
 ---
 
 # Project Documenter Agent
@@ -30,23 +34,27 @@ $1
 $2
 </focus_areas>
 
+<kb_root>
+{{KB_ROOT from prompt}}
+</kb_root>
+
 ## §CONFIG
 
 | Param | Value |
 |-------|-------|
-| **KB_ROOT** | `.rp1/context` |
-| **CONTEXT_DIR** | `.rp1/context/` |
-| **OUTPUT_FILE** | `.rp1/context/birds-eye-view.md` |
+| **KB_ROOT** | `{KB_ROOT}` |
+| **CONTEXT_DIR** | `{KB_ROOT}/` |
+| **OUTPUT_FILE** | `{KB_ROOT}/birds-eye-view.md` |
 
 ## §PROC
 
-1. **Load KB**: Read from `.rp1/context/`:
+1. **Load KB**: Read from `{KB_ROOT}/`:
    - `index.md`, `architecture.md`, `interaction-model.md`, `modules.md`, `concept_map.md`, `patterns.md`, `dependencies.md` (if exists)
    - If dir missing → warn user: run `/knowledge-build` first
 2. **Analyze**: Determine available info vs TBD
 3. **Explore**: If needed, examine READMEs, API specs, schemas, code via Glob/Grep/Read
 4. **Generate**: Create doc per §OUT format
-5. **Validate**: Run `rp1 agent-tools mmd-validate .rp1/context/birds-eye-view.md` → fix invalid diagrams (max 3 iterations)
+5. **Validate**: Run `rp1 agent-tools mmd-validate {KB_ROOT}/birds-eye-view.md` → fix invalid diagrams (max 3 iterations)
 
 ## §DO
 
@@ -62,7 +70,7 @@ $2
 - Fence w/ ` ```mermaid `
 
 **Diagram Validation** (after writing output):
-1. Run: `rp1 agent-tools mmd-validate .rp1/context/birds-eye-view.md`
+1. Run: `rp1 agent-tools mmd-validate {KB_ROOT}/birds-eye-view.md`
 2. Parse JSON: if `success: false`, extract `data.diagrams[].errors[]`
 3. Fix each error by category:
    - `ARROW_SYNTAX`: Use `-->` not `->`

@@ -166,7 +166,7 @@ const parseFrontmatter = (
 
 /**
  * Parse raw argument string into positional and named values.
- * Supports positional args mapped to required string args in order,
+ * Supports positional args mapped to required/variadic string args in order,
  * and --flag or --key value patterns.
  */
 export const parseRawArgs = (
@@ -190,9 +190,10 @@ export const parseRawArgs = (
 		}
 	}
 
-	// Ordered list of positional (required string) arguments
+	// Ordered list of positional string arguments. Optional strings are named-only
+	// unless explicitly marked variadic.
 	const positionalArgs = schema.filter(
-		(a) => a.type === "string" && a.required,
+		(a) => a.type === "string" && (a.required || a.variadic),
 	);
 
 	let positionalIndex = 0;
@@ -232,12 +233,28 @@ export const parseRawArgs = (
 				}
 			}
 		} else {
+			const positionalArg = positionalArgs[positionalIndex];
+
+			if (positionalArg?.variadic) {
+				const chunks = [token];
+				i++;
+
+				while (i < tokens.length && !tokens[i].startsWith("--")) {
+					chunks.push(tokens[i]);
+					i++;
+				}
+
+				result[positionalArg.name] = chunks.join(" ");
+				positionalIndex++;
+				continue;
+			}
+
 			// Check for alias match
 			const aliasTarget = aliasMap.get(token.toLowerCase());
 			if (aliasTarget) {
 				result[aliasTarget] = true;
-			} else if (positionalIndex < positionalArgs.length) {
-				result[positionalArgs[positionalIndex].name] = token;
+			} else if (positionalArg) {
+				result[positionalArg.name] = token;
 				positionalIndex++;
 			}
 			i++;
@@ -342,7 +359,7 @@ const mapResolvedDirectories = (
 	}),
 });
 
-const resolveDirectories = (projectRoot: string): ResolvedDirectories =>
+export const resolveDirectories = (projectRoot: string): ResolvedDirectories =>
 	pipe(
 		resolveDirectorySet(projectRoot),
 		E.match(

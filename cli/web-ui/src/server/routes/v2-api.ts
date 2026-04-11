@@ -56,6 +56,7 @@ import type {
 	AttentionData,
 	Run,
 	RunEvent,
+	RunInvocationContext,
 	RunStatus,
 	Step,
 	StepStatus,
@@ -174,6 +175,182 @@ function parseJsonSafe(
 	} catch {
 		return null;
 	}
+}
+
+function asObject(value: unknown): Readonly<Record<string, unknown>> | null {
+	return typeof value === "object" && value !== null && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: null;
+}
+
+function isRunInvocationPolicy(
+	value: unknown,
+): value is RunInvocationContext["runPolicy"] {
+	return value === "fresh" || value === "resumable";
+}
+
+function isRunInvocationDecision(
+	value: unknown,
+): value is RunInvocationContext["decision"] {
+	return (
+		value === "created_new_run" ||
+		value === "matched_non_terminal_run" ||
+		value === "legacy_backfill_resume"
+	);
+}
+
+function isSensitiveInvocationKey(key: string): boolean {
+	const normalized = key.toLowerCase();
+	return (
+		normalized.includes("token") ||
+		normalized.includes("secret") ||
+		normalized.includes("password") ||
+		normalized.includes("passwd") ||
+		normalized.includes("credential") ||
+		normalized.includes("auth") ||
+		normalized.includes("cookie") ||
+		normalized.includes("session") ||
+		normalized.includes("api_key") ||
+		normalized.includes("api-key")
+	);
+}
+
+function sanitizeInvocationIdentityValues(
+	identityArgs: readonly string[],
+	rawIdentityValues: unknown,
+): Readonly<Record<string, string | boolean>> | undefined {
+	const identityValues = asObject(rawIdentityValues);
+	if (!identityValues) return undefined;
+
+	const sanitized = Object.fromEntries(
+		identityArgs.flatMap((argName) => {
+			const value = identityValues[argName];
+			if (typeof value !== "string" && typeof value !== "boolean") {
+				return [];
+			}
+
+			return [
+				[
+					argName,
+					typeof value === "string" && isSensitiveInvocationKey(argName)
+						? "[redacted]"
+						: value,
+				],
+			];
+		}),
+	) as Record<string, string | boolean>;
+
+	return Object.keys(sanitized).length > 0 ? sanitized : undefined;
+}
+
+function buildDisplayWorkIdentity(
+	identityArgs: readonly string[],
+	identityValues: Readonly<Record<string, string | boolean>> | undefined,
+	rawWorkIdentity: unknown,
+): string | undefined {
+	if (identityArgs.length === 0) return undefined;
+
+	if (
+		identityValues &&
+		identityArgs.every((argName) => identityValues[argName] !== undefined)
+	) {
+		return identityArgs
+			.map((argName) => `${argName}=${String(identityValues[argName])}`)
+			.join("|");
+	}
+
+	return typeof rawWorkIdentity === "string" &&
+		rawWorkIdentity.length > 0 &&
+		identityArgs.every((argName) => !isSensitiveInvocationKey(argName))
+		? rawWorkIdentity
+		: undefined;
+}
+
+function parseRunInvocationContext(
+	record: RunRecord,
+): RunInvocationContext | undefined {
+	const bootstrapContext = parseJsonSafe(record.bootstrapContext);
+	if (!bootstrapContext) return undefined;
+
+	const workflow = asObject(bootstrapContext.workflow);
+	const directories = asObject(bootstrapContext.directories);
+	const trace = asObject(bootstrapContext.trace);
+	const run = asObject(bootstrapContext.run);
+
+	if (!workflow || !trace || !run) {
+		return undefined;
+	}
+
+	const workflowName =
+		typeof workflow.name === "string" && workflow.name.length > 0
+			? workflow.name
+			: null;
+	const runPolicy = workflow.runPolicy;
+	const decision = run.decision;
+	const identityArgs =
+		Array.isArray(workflow.identityArgs) &&
+		workflow.identityArgs.every((value) => typeof value === "string")
+			? workflow.identityArgs
+			: [];
+
+	if (
+		!workflowName ||
+		!isRunInvocationPolicy(runPolicy) ||
+		!isRunInvocationDecision(decision)
+	) {
+		return undefined;
+	}
+
+	const canonicalProjectRoot =
+		typeof trace.canonicalProjectRoot === "string" &&
+		trace.canonicalProjectRoot.length > 0
+			? trace.canonicalProjectRoot
+			: typeof directories?.projectRoot === "string" &&
+					directories.projectRoot.length > 0
+				? directories.projectRoot
+				: record.rp1ProjectRoot;
+
+	const requestedProjectRoot =
+		typeof trace.requestedProjectRoot === "string" &&
+		trace.requestedProjectRoot.length > 0
+			? trace.requestedProjectRoot
+			: canonicalProjectRoot;
+
+	const identityValues = sanitizeInvocationIdentityValues(
+		identityArgs,
+		trace.identityValues,
+	);
+	const workIdentity = buildDisplayWorkIdentity(
+		identityArgs,
+		identityValues,
+		trace.workIdentity,
+	);
+	const worktreeName =
+		typeof trace.worktreeName === "string" && trace.worktreeName.length > 0
+			? trace.worktreeName
+			: undefined;
+	const harness =
+		typeof trace.harness === "string" && trace.harness.length > 0
+			? trace.harness
+			: record.harness;
+
+	return {
+		workflowName,
+		runPolicy,
+		decision,
+		projectIdentity:
+			typeof trace.projectIdentity === "string" &&
+			trace.projectIdentity.length > 0
+				? trace.projectIdentity
+				: (record.projectId ?? record.rp1ProjectRoot),
+		canonicalProjectRoot,
+		requestedProjectRoot,
+		isWorktree: trace.isWorktree === true,
+		...(worktreeName ? { worktreeName } : {}),
+		...(workIdentity ? { workIdentity } : {}),
+		...(identityValues ? { identityValues } : {}),
+		...(harness ? { harness } : {}),
+	};
 }
 
 function getEffectiveLogicalStepEvents(
@@ -894,6 +1071,7 @@ async function buildDetailedRun(
 				: null,
 		error,
 		agentSteps,
+		invocation: parseRunInvocationContext(record),
 		subflows:
 			subflows && Object.keys(subflows).length > 0 ? subflows : undefined,
 	};

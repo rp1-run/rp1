@@ -26,6 +26,7 @@ import {
 	deriveRunStatus,
 	type EventInput,
 	getEmitDatabase,
+	getRunById,
 	getSkippableSteps,
 	getStepStatuses,
 	insertEvent,
@@ -43,6 +44,17 @@ import {
 } from "./step-validation.js";
 
 const TOOL_NAME = "emit";
+
+const resolveRequestedWorkflow = (input: EmitInput): string => {
+	if (typeof input.workflow === "string" && input.workflow.length > 0) {
+		return input.workflow;
+	}
+
+	return typeof input.data.workflow === "string" &&
+		input.data.workflow.length > 0
+		? input.data.workflow
+		: "unknown";
+};
 
 /**
  * Classify a file path to an artifact type based on extension.
@@ -70,8 +82,16 @@ interface SkippedAndPredecessorResult {
 
 /**
  * Check for flow mismatch between the stored run and the provided workflow.
- * Rejects when the run has flow "unknown" and --workflow provides a different value.
+ * Rejects when the run has flow "unknown" and --workflow provides a different
+ * value, except for first-class workflow state transitions that can safely
+ * backfill the legacy unknown flow.
  */
+const canBackfillLegacyUnknownFlow = (input: EmitInput): boolean =>
+	input.type === "status_change" &&
+	typeof input.step === "string" &&
+	input.step.length > 0 &&
+	!isNamespacedStep(input.step);
+
 const checkFlowMismatch = (
 	run: RunRecord,
 	input: EmitInput,
@@ -79,7 +99,8 @@ const checkFlowMismatch = (
 	if (
 		run.flow === "unknown" &&
 		input.workflow !== undefined &&
-		input.workflow !== "unknown"
+		input.workflow !== "unknown" &&
+		!canBackfillLegacyUnknownFlow(input)
 	) {
 		return TE.left(
 			runtimeError(
@@ -220,6 +241,24 @@ const handleArtifactRegistration = (
 			: storageRoot === "project"
 				? resolve(run.rp1ProjectRoot, filePath)
 				: resolve(run.rp1WorkRoot, filePath);
+	const normalizedStorage = normalizeArtifactStorage(
+		filePath,
+		run,
+		storageRoot,
+	);
+
+	if (
+		(storageRoot === "project" || storageRoot === "work_dir") &&
+		normalizedStorage.storageRoot === "absolute"
+	) {
+		const canonicalRoot =
+			storageRoot === "project" ? run.rp1ProjectRoot : run.rp1WorkRoot;
+		return TE.left(
+			runtimeError(
+				`Artifact path "${filePath}" escapes the canonical ${storageRoot} root (${canonicalRoot}). Use storageRoot "absolute" for external artifacts.`,
+			),
+		);
+	}
 
 	const docIdTask = pipe(
 		resolveDocId(absolutePath),
@@ -237,11 +276,6 @@ const handleArtifactRegistration = (
 					const artifactType =
 						(input.data.type as string) ?? classifyArtifactType(filePath);
 					const feature = (input.data.feature as string) ?? "unknown";
-					const normalizedStorage = normalizeArtifactStorage(
-						filePath,
-						run,
-						storageRoot,
-					);
 
 					const artifactInput: ArtifactInput = {
 						docId: docIdResult.docId,
@@ -362,8 +396,8 @@ const notifyDaemonNotification = async (
 /**
  * Main emit execution pipeline.
  * Handles all 6 event types through a unified flow:
- * 1. Ensure run exists (auto-create if needed)
- * 2. Flow-mismatch check
+ * 1. Flow-mismatch check for any existing run
+ * 2. Ensure run exists (auto-create if needed)
  * 3. Step validation against state machine
  * 4. Handle type-specific pre-processing (skipped steps + predecessor completion, artifacts, annotations)
  * 5. Insert event
@@ -381,126 +415,136 @@ export const executeEmit = (
 			if (directories._tag === "Left") {
 				return TE.left(directories.left);
 			}
-
-			const run = insertRun(db, {
-				id: input.runId,
-				flow: (input.data.workflow as string) ?? "unknown",
-				featureId: (input.data.feature as string) ?? "unknown",
-				projectPath: input.projectPath,
-				rp1ProjectRoot: directories.right.projectRoot,
-				rp1KbRoot: directories.right.kbRoot,
-				rp1WorkRoot: directories.right.workRoot,
-				projectId: directories.right.projectId,
-				name: input.name,
-				harness:
-					input.harness ??
-					(input.data.harness as string) ??
-					process.env.RP1_HARNESS ??
-					undefined,
-			});
-
-			const now = new Date().toISOString();
+			const requestedWorkflow = resolveRequestedWorkflow(input);
+			const existingRun = getRunById(db, input.runId);
 
 			return pipe(
-				checkFlowMismatch(run, input),
-				TE.chain(() => validateStepAgainstStateMachine(input, run)),
-				TE.chain(() =>
+				existingRun
+					? checkFlowMismatch(existingRun, input)
+					: TE.right(undefined),
+				TE.map(() =>
+					insertRun(db, {
+						id: input.runId,
+						flow: requestedWorkflow,
+						featureId: (input.data.feature as string) ?? "unknown",
+						projectPath: input.projectPath,
+						rp1ProjectRoot: directories.right.projectRoot,
+						rp1KbRoot: directories.right.kbRoot,
+						rp1WorkRoot: directories.right.workRoot,
+						projectId: directories.right.projectId,
+						name: input.name,
+						harness:
+							input.harness ??
+							(input.data.harness as string) ??
+							process.env.RP1_HARNESS ??
+							undefined,
+					}),
+				),
+				TE.chain((run) =>
 					pipe(
-						TE.Do,
-						TE.bind("skippedResult", () =>
-							handleSkippedSteps(input, run.flow, now),
-						),
-						TE.bind("docId", () => handleArtifactRegistration(input, run)),
-						TE.chainFirst(() => handleAnnotation(input)),
-						TE.chain(({ skippedResult, docId }) => {
-							const eventData = { ...input.data };
-							if (docId) {
-								eventData.docId = docId;
-							}
-
-							const parentStepId =
-								input.type === "subflow_registered"
-									? (input.data.parentStepId as string)
-									: undefined;
-
+						validateStepAgainstStateMachine(input, run),
+						TE.chain(() => {
+							const now = new Date().toISOString();
 							return pipe(
-								getEmitDatabase(),
-								TE.map((db) => {
-									const eventInput: EventInput = {
-										runId: input.runId,
-										type: input.type,
-										step: input.step,
-										unit: input.unit,
-										data: JSON.stringify(eventData),
-										parentStepId,
-									};
+								TE.Do,
+								TE.bind("skippedResult", () =>
+									handleSkippedSteps(input, run.flow, now),
+								),
+								TE.bind("docId", () => handleArtifactRegistration(input, run)),
+								TE.chainFirst(() => handleAnnotation(input)),
+								TE.chain(({ skippedResult, docId }) => {
+									const eventData = { ...input.data };
+									if (docId) {
+										eventData.docId = docId;
+									}
 
-									const event = insertEvent(db, eventInput);
-									const runStatus = deriveRunStatus(
-										db,
-										input.runId,
-										input.closeRun,
+									const parentStepId =
+										input.type === "subflow_registered"
+											? (input.data.parentStepId as string)
+											: undefined;
+
+									return pipe(
+										getEmitDatabase(),
+										TE.map((db) => {
+											const eventInput: EventInput = {
+												runId: input.runId,
+												type: input.type,
+												step: input.step,
+												unit: input.unit,
+												data: JSON.stringify(eventData),
+												parentStepId,
+											};
+
+											const event = insertEvent(db, eventInput);
+											const runStatus = deriveRunStatus(
+												db,
+												input.runId,
+												input.closeRun,
+											);
+
+											const notification = maybeGenerateNotification(
+												db,
+												input.runId,
+												runStatus,
+												input.type,
+												run.projectId,
+												run.flow !== "unknown"
+													? run.flow
+													: requestedWorkflow !== "unknown"
+														? requestedWorkflow
+														: null,
+												input.step ?? null,
+												input.data,
+											);
+
+											return {
+												event,
+												runStatus,
+												skippedResult,
+												docId,
+												notification,
+											};
+										}),
 									);
-
-									const notification = maybeGenerateNotification(
-										db,
-										input.runId,
-										runStatus,
-										input.type,
-										run.projectId,
-										run.flow !== "unknown"
-											? run.flow
-											: (input.workflow ?? null),
-										input.step ?? null,
-										input.data,
-									);
-
-									return {
+								}),
+								TE.chainFirst(({ event, runStatus, notification }) =>
+									TE.fromTask(async () => {
+										if (process.env.RP1_EVAL_MODE === "true") return;
+										await notifyDaemon(input, run, runStatus, event.id);
+										if (notification) {
+											await notifyDaemonNotification(notification);
+										}
+									}),
+								),
+								TE.map(
+									({
 										event,
 										runStatus,
 										skippedResult,
 										docId,
-										notification,
-									};
-								}),
+									}): ToolResult<EmitResult> => {
+										const result: EmitResult = {
+											eventId: event.id,
+											runId: input.runId,
+											type: input.type,
+											...(docId !== undefined ? { docId } : {}),
+											...(skippedResult.skippedSteps.length > 0
+												? { skippedSteps: skippedResult.skippedSteps }
+												: {}),
+											...(skippedResult.completedPredecessors.length > 0
+												? {
+														completedPredecessors:
+															skippedResult.completedPredecessors,
+													}
+												: {}),
+											runStatus,
+										};
+
+										return successResult(TOOL_NAME, result);
+									},
+								),
 							);
 						}),
-						TE.chainFirst(({ event, runStatus, notification }) =>
-							TE.fromTask(async () => {
-								if (process.env.RP1_EVAL_MODE === "true") return;
-								await notifyDaemon(input, run, runStatus, event.id);
-								if (notification) {
-									await notifyDaemonNotification(notification);
-								}
-							}),
-						),
-						TE.map(
-							({
-								event,
-								runStatus,
-								skippedResult,
-								docId,
-							}): ToolResult<EmitResult> => {
-								const result: EmitResult = {
-									eventId: event.id,
-									runId: input.runId,
-									type: input.type,
-									...(docId !== undefined ? { docId } : {}),
-									...(skippedResult.skippedSteps.length > 0
-										? { skippedSteps: skippedResult.skippedSteps }
-										: {}),
-									...(skippedResult.completedPredecessors.length > 0
-										? {
-												completedPredecessors:
-													skippedResult.completedPredecessors,
-											}
-										: {}),
-									runStatus,
-								};
-
-								return successResult(TOOL_NAME, result);
-							},
-						),
 					),
 				),
 			);

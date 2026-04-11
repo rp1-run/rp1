@@ -5,6 +5,9 @@ allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: review
   is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args: []
   version: 4.0.0
   tags:
     - review
@@ -47,7 +50,7 @@ metadata:
 
 §ROLE: Map-reduce PR review orchestrator. 6 phases, local + CI modes, comment deduplication.
 
-§CTX: Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Resolve Arguments step. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
+§CTX: Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
 
 §GUARDRAILS
 
@@ -73,7 +76,7 @@ rp1 agent-tools emit \
   --data '{"status": "running"}'
 ```
 
-- Generate `RUN_ID` as a UUID at workflow start
+- `RUN_ID` comes from the generated Workflow Bootstrap section
 - Derive `RUN_NAME` from the resolved PR context: use `"PR #{pr_number}"` when a PR number is available, otherwise use `"PR: {branch_name}"` as fallback
 - On the **first** emit only, include `--name "{RUN_NAME}"` to label the run
 
@@ -225,6 +228,8 @@ Generate PR visualization.
   BASE_BRANCH: {{base_branch}}
   REVIEW_DEPTH: quick
   STANDALONE: false
+  KB_ROOT: {kbRoot}
+  WORK_ROOT: {workRoot}
 {% enddispatch_agent %}
 
 Capture `VISUAL_CONTENT` (raw markdown with Mermaid diagrams)
@@ -252,6 +257,7 @@ Parse `units`, store counts. Fail -> Abort w/ error.
    {% dispatch_agent "rp1-dev:pr-sub-reviewer" %}
    Analyze review unit across 5 dimensions.
      UNIT_JSON: {{stringify(unit_with_diff)}}
+     KB_ROOT: {kbRoot}
      INTENT_JSON: {{stringify(intent_model)}}
      PR_FILES: {{stringify(file_list)}}
      Return JSON with findings and summary.
@@ -269,6 +275,7 @@ Parse `units`, store counts. Fail -> Abort w/ error.
    {% dispatch_agent "rp1-dev:pr-review-synthesizer" %}
    Perform holistic verification.
      INTENT_JSON: {{stringify(intent_model)}}
+     KB_ROOT: {kbRoot}
      FILE_LIST: {{stringify(file_list)}}
      SUMMARIES_JSON: {{stringify(all_summaries)}}
      FINDINGS_SUMMARY: {{stringify(findings_summary)}}

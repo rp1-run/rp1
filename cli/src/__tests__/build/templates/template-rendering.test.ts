@@ -240,6 +240,49 @@ describeWithLiquid("template rendering", () => {
 			expect(result).toContain("Do not call `rp1-root-dir`");
 		});
 
+		test("injects workflow-bootstrap guidance for tracked workflows", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("opencode/skill", {
+				platform: "opencode",
+				namespacedPluginName: "rp1-dev",
+				artifact: {
+					type: "skill",
+					name: "build-fast",
+					namespacedName: "rp1-dev-build-fast",
+					schemaPath: "plugins/dev/skills/build-fast/SKILL.md",
+					workflowTarget: {
+						name: "build-fast",
+						schemaPath: "plugins/dev/skills/build-fast/SKILL.md",
+					},
+					description: "Build fast workflow",
+					allowedTools: "Bash(echo *)",
+					content: "Workflow content.",
+					metadata: {
+						isWorkflow: true,
+						arguments: [
+							{
+								name: "DEVELOPMENT_REQUEST",
+								type: "string",
+								required: true,
+								description: "Development request",
+							},
+						],
+					},
+					supportingFiles: [],
+				},
+				pluginName: "dev",
+			});
+			expect(result).toContain("## 0. Workflow Bootstrap");
+			expect(result).toContain("rp1 agent-tools workflow-bootstrap");
+			expect(result).toContain("--name build-fast");
+			expect(result).toContain(
+				"--schema-path plugins/dev/skills/build-fast/SKILL.md",
+			);
+			expect(result).toContain("| RUN_ID | `data.run.runId` |");
+			expect(result).toContain("do not call `emit resume-run` directly");
+			expect(result).not.toContain("Run the argument resolver");
+		});
+
 		test("renders skill without allowed-tools", async () => {
 			const engine = createTestEngine();
 			const result = await engine.renderFile("opencode/skill", {
@@ -256,6 +299,30 @@ describeWithLiquid("template rendering", () => {
 			});
 			expect(result.trim()).toBe(
 				readGolden("opencode-skill-no-tools.md").trim(),
+			);
+		});
+
+		test("keeps the closing frontmatter delimiter on its own line for low-metadata skills", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("opencode/skill", {
+				platform: "opencode",
+				artifact: {
+					type: "skill",
+					name: "analyse-security",
+					namespacedName: "rp1-analyse-security",
+					description:
+						"Performs thorough security validation of features including vulnerability scans.",
+					content: "Skill content.",
+					metadata: {
+						category: "strategy",
+						isWorkflow: false,
+					},
+					supportingFiles: [],
+				},
+				pluginName: "base",
+			});
+			expect(result).toMatch(
+				/is_workflow: false\n(?:\n)*---\n(?:\n)*## Host Context/,
 			);
 		});
 	});
@@ -355,6 +422,78 @@ describeWithLiquid("template rendering", () => {
 			);
 			expect(result).toContain("| kbRoot | `data.directories.kbRoot` |");
 			expect(result).toContain("Do not call `rp1-root-dir`");
+		});
+
+		test("injects workflow-bootstrap guidance for tracked workflows", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("codex/skill", {
+				platform: "codex",
+				namespacedPluginName: "rp1-dev",
+				artifact: {
+					type: "skill",
+					name: "build",
+					namespacedName: "rp1-dev-build",
+					schemaPath: "plugins/dev/skills/build/SKILL.md",
+					workflowTarget: {
+						name: "build",
+						schemaPath: "plugins/dev/skills/build/SKILL.md",
+					},
+					description: "Build workflow",
+					allowedTools: "Bash(echo *)",
+					content: "Codex workflow content.",
+					metadata: {
+						isWorkflow: true,
+						arguments: [
+							{
+								name: "FEATURE_ID",
+								type: "string",
+								required: true,
+								description: "Feature identifier",
+							},
+						],
+					},
+					supportingFiles: [],
+				},
+				pluginName: "dev",
+			});
+			expect(result).toContain("## 0. Workflow Bootstrap");
+			expect(result).toContain("rp1 agent-tools workflow-bootstrap");
+			expect(result).toContain("--name build");
+			expect(result).toContain(
+				"--schema-path plugins/dev/skills/build/SKILL.md",
+			);
+			expect(result).toContain(
+				'--args "the arguments provided by the user in their prompt"',
+			);
+			expect(result).toContain("| RUN_RESUMED | `data.run.resumed` |");
+			expect(result).toContain("Do not call `resolve-args`");
+			expect(result).not.toContain("$ARGUMENTS");
+			expect(result).not.toContain("Run the argument resolver");
+		});
+
+		test("keeps the closing frontmatter delimiter on its own line for low-metadata skills", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("codex/skill", {
+				platform: "codex",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "skill",
+					name: "analyse-security",
+					namespacedName: "rp1-analyse-security",
+					description:
+						"Performs thorough security validation of features including vulnerability scans.",
+					content: "Skill content.",
+					metadata: {
+						category: "strategy",
+						isWorkflow: false,
+					},
+					supportingFiles: [],
+				},
+				pluginName: "base",
+			});
+			expect(result).toMatch(
+				/is_workflow: false\n(?:\n)*---\n(?:\n)*## Host Context/,
+			);
 		});
 	});
 
@@ -554,6 +693,41 @@ describeWithLiquid("template rendering", () => {
 			);
 			expect(result).toContain("| workRoot | `data.directories.workRoot` |");
 			expect(result).toContain("Do not call `rp1-root-dir`");
+		});
+
+		test("injects workflow-bootstrap guidance for tracked workflows", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("claude-code/skill", {
+				platform: "claude-code",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "skill",
+					name: "generate-user-docs",
+					namespacedName: "rp1-base-generate-user-docs",
+					schemaPath: "plugins/base/skills/generate-user-docs/SKILL.md",
+					workflowTarget: {
+						name: "generate-user-docs",
+						schemaPath: "plugins/base/skills/generate-user-docs/SKILL.md",
+					},
+					description: "Docs workflow",
+					allowedTools: "Bash(echo *), Read",
+					content: "Workflow content.",
+					metadata: {
+						isWorkflow: true,
+					},
+					supportingFiles: [],
+				},
+				pluginName: "base",
+			});
+			expect(result).toContain("## 0. Workflow Bootstrap");
+			expect(result).toContain("rp1 agent-tools workflow-bootstrap");
+			expect(result).toContain(
+				"--schema-path plugins/base/skills/generate-user-docs/SKILL.md",
+			);
+			expect(result).toContain(
+				"| workflowRunPolicy | `data.workflow.runPolicy` |",
+			);
+			expect(result).toContain("do not call `emit resume-run` directly");
 		});
 	});
 

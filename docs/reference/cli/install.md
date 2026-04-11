@@ -123,6 +123,8 @@ guide and init:
 | `category` | `string` | Canonical discovery category such as `knowledge` or `review` |
 | `is_workflow` | `boolean` | Whether the skill is a workflow-style orchestrator |
 | `key_args` | `string[]` | Primary argument names from `SKILL.md` frontmatter |
+| `run_policy` | `string` | Workflow run policy (`fresh` or `resumable`) when the skill is a tracked workflow |
+| `identity_args` | `string[]` | Workflow identity arguments. `[]` for fresh workflows; argument names for resumable workflows |
 | `installed_platforms` | `string[]` | Hosts where the skill is installed |
 | `invocations` | `object` | Host-specific invocation strings keyed by platform |
 

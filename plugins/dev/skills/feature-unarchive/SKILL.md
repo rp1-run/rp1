@@ -55,4 +55,5 @@ Execute the feature-archiver agent to restore the specified archived feature.
 
 MODE: unarchive
 FEATURE_ID: {FEATURE_ID}
+WORK_ROOT: {workRoot}
 {% enddispatch_agent %}

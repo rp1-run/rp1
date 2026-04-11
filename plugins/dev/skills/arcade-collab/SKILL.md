@@ -71,6 +71,8 @@ Route to the `feature-editor` agent with the annotation content as the edit desc
 {% dispatch_agent "rp1-dev:feature-editor" %}
 FEATURE_ID: {FEATURE_ID}
 EDIT_DESCRIPTION: {annotation content from the feedback item}
+KB_ROOT: {kbRoot}
+WORK_ROOT: {workRoot}
 {% enddispatch_agent %}
 
 After the agent completes, resolve the annotation with a reply describing what changed:
@@ -93,6 +95,8 @@ When the user directly edited a requirements or design file:
    {% dispatch_agent "rp1-dev:feature-editor" %}
    FEATURE_ID: {FEATURE_ID}
    EDIT_DESCRIPTION: "User directly edited {artifactPath}. Changes: {summary of patch}. Propagate to downstream artifacts."
+   KB_ROOT: {kbRoot}
+   WORK_ROOT: {workRoot}
    {% enddispatch_agent %}
 
 ### 4.3 Code Feedback (Annotations)

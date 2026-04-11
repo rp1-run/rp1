@@ -112,7 +112,7 @@ These friction points compound. What starts as minor inconvenience becomes signi
 === "With rp1"
 
     ```bash
-    /code-investigate login-bug "Users report intermittent login failures"
+    /code-investigate --issue-id login-bug "Users report intermittent login failures"
 
     # What happens:
     # - KB provides auth architecture understanding

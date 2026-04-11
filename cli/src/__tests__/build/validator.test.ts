@@ -239,6 +239,99 @@ Content.`;
 
 			expect(E.isRight(result)).toBe(true);
 		});
+
+		test("rejects tracked workflows without metadata.workflow.run_policy", () => {
+			const content = `---
+name: tracked-workflow
+description: This description has at least 20 characters
+metadata:
+  category: development
+  is_workflow: true
+---
+Content.`;
+			const result = validateSkillSchema(content, "test.md");
+
+			const error = expectLeft(result);
+			expect(error._tag).toBe("ValidationError");
+			if (error._tag === "ValidationError") {
+				expect(error.level).toBe("L2");
+				expect(error.message).toContain("metadata.workflow.run_policy");
+			}
+		});
+
+		test("rejects resumable workflows with identity args that are not declared arguments", () => {
+			const content = `---
+name: tracked-workflow
+description: This description has at least 20 characters
+metadata:
+  category: development
+  is_workflow: true
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "Feature identifier"
+  workflow:
+    run_policy: resumable
+    identity_args:
+      - RUN_ID
+---
+Content.`;
+			const result = validateSkillSchema(content, "test.md");
+
+			const error = expectLeft(result);
+			expect(error._tag).toBe("ValidationError");
+			if (error._tag === "ValidationError") {
+				expect(error.message).toContain("metadata.workflow.identity_args");
+				expect(error.message).toContain("RUN_ID");
+			}
+		});
+
+		test("rejects fresh workflows with non-empty identity args", () => {
+			const content = `---
+name: tracked-workflow
+description: This description has at least 20 characters
+metadata:
+  category: development
+  is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args:
+      - FEATURE_ID
+---
+Content.`;
+			const result = validateSkillSchema(content, "test.md");
+
+			const error = expectLeft(result);
+			expect(error._tag).toBe("ValidationError");
+			if (error._tag === "ValidationError") {
+				expect(error.message).toContain("metadata.workflow.identity_args");
+				expect(error.message).toContain("fresh");
+			}
+		});
+
+		test("accepts tracked workflows with valid resumable metadata", () => {
+			const content = `---
+name: tracked-workflow
+description: This description has at least 20 characters
+metadata:
+  category: development
+  is_workflow: true
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "Feature identifier"
+  workflow:
+    run_policy: resumable
+    identity_args:
+      - FEATURE_ID
+---
+Content.`;
+			const result = validateSkillSchema(content, "test.md");
+
+			expect(E.isRight(result)).toBe(true);
+		});
 	});
 
 	describe("combined validation", () => {

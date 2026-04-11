@@ -9,6 +9,14 @@ arguments:
     required: false
     default: ""
     description: "Feature ID (required unless QUICK_BUILD_PATH set)"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root returned by the parent workflow bootstrap"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by the parent workflow bootstrap"
   - name: QUICK_BUILD_PATH
     type: string
     required: false
@@ -28,6 +36,11 @@ arguments:
     required: false
     default: "None"
     description: "Review feedback from prior attempt"
+  - name: REWRITE_COMMITS
+    type: boolean
+    required: false
+    default: false
+    description: "When true, amend prior commit to rewrite into atomic format (set by orchestrator on retry)"
   - name: WORKFLOW
     type: string
     required: false
@@ -50,6 +63,14 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 {{FEATURE_ID from prompt}}
 </feature_id>
 
+<kb_root>
+{{KB_ROOT from prompt}}
+</kb_root>
+
+<work_root>
+{{WORK_ROOT from prompt}}
+</work_root>
+
 <quick_build_path>
 {{QUICK_BUILD_PATH from prompt}}
 </quick_build_path>
@@ -66,6 +87,10 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 {{PREVIOUS_FEEDBACK from prompt}}
 </previous_feedback>
 
+<rewrite_commits>
+{{REWRITE_COMMITS from prompt}}
+</rewrite_commits>
+
 **Mode Detection**:
 
 - If QUICK_BUILD_PATH is not empty: Quick-build mode (read from artifact)
@@ -78,7 +103,7 @@ Use `<thinking>` blocks for analysis.
 
 ### 1.1 KB Files
 
-Read from `.rp1/context/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`
+Read from `{KB_ROOT}/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`
 
 If missing: warn, continue.
 
@@ -95,7 +120,7 @@ No separate requirements.md or design.md for quick-builds (all context is in the
 
 **ELSE** (Feature mode):
 
-Read from `.rp1/work/features/{FEATURE_ID}/`:
+Read from `{WORK_ROOT}/features/{FEATURE_ID}/`:
 
 - `requirements.md`: reqs + acceptance criteria
 - `design.md`: tech specs
@@ -225,13 +250,23 @@ This is the default. Most runs skip this section entirely.
 
 **Only when `GIT_COMMIT` is exactly `true`**, create an atomic commit:
 
+**If `REWRITE_COMMITS` is `true`** (retry with commit rewrite requested):
+
+1. `git add <source code files you created or modified>`
+2. Amend the prior commit to produce a clean atomic commit:
+   - Quick-build: `git commit --amend -m "feat(quick-build): implement {TASK_IDS} - {brief}"`
+   - Feature: `git commit --amend -m "feat({FEATURE_ID}): implement {TASK_ID} - {brief}"`
+3. Record SHA: `COMMIT_SHA=$(git rev-parse HEAD)`
+
+**Otherwise** (first attempt, normal flow):
+
 1. `git add <source code files you created or modified>`
 2. Commit w/ conventional format:
    - Quick-build: `git commit -m "feat(quick-build): implement {TASK_IDS} - {brief}"`
    - Feature: `git commit -m "feat({FEATURE_ID}): implement {TASK_ID} - {brief}"`
 3. Record SHA: `COMMIT_SHA=$(git rev-parse HEAD)`
 
-Commit rules: only source code files you modified, no `.rp1/` work files, no unrelated files, no amend, one commit per task.
+Commit rules: only source code files you modified, no `.rp1/` work files, no unrelated files, one commit per task. Amend is only permitted when `REWRITE_COMMITS=true`.
 
 ## 4. Task File Update
 
