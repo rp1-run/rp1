@@ -213,7 +213,7 @@ const moveFile = async (
 const repairArtifactsForRun = async (
 	db: import("bun:sqlite").Database,
 	run: RunBackfillRow,
-	artifacts: readonly ReturnType<typeof getArtifactsForRun>,
+	artifacts: ReturnType<typeof getArtifactsForRun>,
 	target: {
 		readonly projectRoot: string;
 		readonly kbRoot: string;
