@@ -141,7 +141,7 @@ rp1 agent-tools emit \
 **Spawn agent**:
 
 {% dispatch_agent "rp1-dev:build-fast-planner" %}
-DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, WORKFLOW=build-fast, RUN_ID={RUN_ID}
+DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, WORKFLOW=build-fast, RUN_ID={RUN_ID}, WORK_ROOT={workRoot}
 {% enddispatch_agent %}
 
 **Parse response**: Extract `scope`, `plan_summary`, `files_affected`, `reasoning`, `artifact_path`, `artifact_relative_path`, `task_count`, `task_ids`.

@@ -7,6 +7,10 @@ arguments:
     type: string
     required: true
     description: "Freeform development request"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by the parent workflow bootstrap"
   - name: WORKFLOW
     type: string
     required: false
@@ -26,6 +30,10 @@ Analyze request, load KB, assess scope, generate task breakdown. Write combined 
 <request>
 {{REQUEST from prompt}}
 </request>
+
+<work_root>
+{{WORK_ROOT from prompt}}
+</work_root>
 
 ## 1. KB Loading
 
@@ -91,27 +99,30 @@ If scope is Small or Medium, generate task breakdown:
 
 **Skip if scope = Large** (no artifact written).
 
+Use `WORK_ROOT` for all quick-build artifact filesystem operations. Never write to a relative `.rp1/work/` path based on the current checkout.
+
 ### 4.1 Generate Filename
 
 1. Generate slug from REQUEST: 2-4 word kebab-case (e.g., "fix-auth-validation", "add-logging-module")
 2. Get current date: `yyyy-mm-dd` format
-3. Check for existing files matching pattern `{date}-{slug}-*.md` in `.rp1/work/quick-builds/`
+3. Check for existing files matching pattern `{date}-{slug}-*.md` in `{WORK_ROOT}/quick-builds/`
 4. Determine suffix `n`:
    - If no match: n=1
    - If matches exist: n = highest existing suffix + 1
 
 Filename: `{yyyy-mm-dd}-{slug}-{n}.md`
-Full path: `.rp1/work/quick-builds/{filename}`
+Display path: `.rp1/work/quick-builds/{filename}`
+Full path on disk: `{WORK_ROOT}/quick-builds/{filename}`
 
 ### 4.2 Create Directory
 
 ```bash
-mkdir -p ".rp1/work/quick-builds"
+mkdir -p "{WORK_ROOT}/quick-builds"
 ```
 
 ### 4.3 Write Artifact
 
-Write file with this structure:
+Write the file to `{WORK_ROOT}/quick-builds/{filename}` with this structure:
 
 ```markdown
 # Quick Build: {Feature Slug Title Case}
