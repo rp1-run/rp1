@@ -210,7 +210,7 @@ rp1 agent-tools emit \
 FEATURE_ID={FEATURE_ID}, AFK={AFK}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, UPDATE_MODE={design.md exists}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-If `flagged_hypotheses` non-empty:
+If `artifacts.hypotheses` is present in the feature-architect response:
 
 {% dispatch_agent "rp1-dev:hypothesis-tester" %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
