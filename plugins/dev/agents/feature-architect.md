@@ -354,6 +354,28 @@ Before finalizing design.md, validate all Mermaid diagrams via rp1-base:mermaid 
 
 Output JSON completion contract:
 
+Default (no hypotheses):
+
+```json
+{
+  "status": "success",
+  "artifacts": {
+    "design": ".rp1/work/features/{FEATURE_ID}/design.md",
+    "decisions": ".rp1/work/features/{FEATURE_ID}/design-decisions.md"
+  },
+  "flagged_hypotheses": [],
+  "afk_decisions": [
+    {
+      "point": "[decision point]",
+      "choice": "[selected option]",
+      "rationale": "[why chosen]"
+    }
+  ]
+}
+```
+
+When `flagged_hypotheses` is non-empty and `hypotheses.md` was created (see §9.1), add the key to `artifacts`:
+
 ```json
 {
   "status": "success",
@@ -374,18 +396,11 @@ Output JSON completion contract:
         "reject": "[evidence to reject]"
       }
     }
-  ],
-  "afk_decisions": [
-    {
-      "point": "[decision point]",
-      "choice": "[selected option]",
-      "rationale": "[why chosen]"
-    }
   ]
 }
 ```
 
-The `artifacts.hypotheses` key is present only when `flagged_hypotheses` is non-empty and `hypotheses.md` was created (see §9.1). When `flagged_hypotheses` is empty, the `artifacts` map contains only `design` and `decisions`.
+Do NOT include `artifacts.hypotheses` when `flagged_hypotheses` is empty or when `hypotheses.md` was not created. The build orchestrator checks file existence on disk, not this key, so emitting it without the file causes a false-positive dispatch.
 
 **Error output**:
 
