@@ -16,7 +16,7 @@ import {
 	VALID_EVENT_TYPES,
 	VALID_STATUSES,
 } from "../../../shared/events.js";
-import { type ResolvedProjectPath, resolveProjectPath } from "../git.js";
+import type { ResolvedProjectPath } from "../git.js";
 import { resolveRp1Root } from "../rp1-root-dir/resolver.js";
 import type { EmitInput } from "./models.js";
 
@@ -306,7 +306,15 @@ const validateProjectPath = (
 				usageError(`Project path must be absolute. Received: ${project}`),
 			);
 		}
-		return resolveProjectPath(project);
+		return pipe(
+			resolveRp1Root(project, { requireProjectId: true }),
+			TE.map(
+				(result): ResolvedProjectPath => ({
+					projectPath: result.projectRoot,
+					worktreePath: result.isWorktree ? project : undefined,
+				}),
+			),
+		);
 	}
 
 	return pipe(

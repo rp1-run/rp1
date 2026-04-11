@@ -74,15 +74,17 @@ rp1 agent-tools emit \
 
 ## §CTX
 
+Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Resolve Arguments step. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
+
 **Doc Hierarchy**:
-1. **Charter** (`.rp1/context/charter.md`) - Project-level: problem/context, users, business rationale, scope guardrails, success criteria
-2. **PRDs** (`.rp1/work/prds/<name>.md`) - Surface-specific: overview, in/out scope, requirements, dependencies, timeline. Inherit from charter, link back, no duplication.
+1. **Charter** (`{kbRoot}/charter.md`) - Project-level: problem/context, users, business rationale, scope guardrails, success criteria
+2. **PRDs** (`{workRoot}/prds/<name>.md`) - Surface-specific: overview, in/out scope, requirements, dependencies, timeline. Inherit from charter, link back, no duplication.
 
 ## §PROC
 
 ### Step 1: Mode Detection
 
-Read `.rp1/context/charter.md`:
+Read `{kbRoot}/charter.md`:
 
 | Condition | Mode | Message |
 |-----------|------|---------|
@@ -127,7 +129,7 @@ Read `.rp1/context/charter.md`:
 question_number = 0
 loop:
   1. {% dispatch_agent "rp1-dev:charter-interviewer" %}
-     CHARTER_PATH=.rp1/context/charter.md, MODE={mode}
+     CHARTER_PATH={kbRoot}/charter.md, MODE={mode}
      {% enddispatch_agent %}
 
   2. Parse JSON response
@@ -155,7 +157,7 @@ loop:
           --type artifact_registered \
           --run-id {RUN_ID} \
           --step charter \
-          --data '{"path": ".rp1/context/charter.md", "feature": "blueprint", "storageRoot": "project"}'
+          --data '{"path": "{kbRoot}/charter.md", "feature": "blueprint", "storageRoot": "project"}'
         ```
         Output: "Charter complete! Proceeding to PRD creation..."
         break -> Step 4
@@ -192,11 +194,11 @@ loop:
 `PRD_NAME = PRD_NAME || "main"`
 
 #### 4.2 Init PRD
-Create `.rp1/work/prds/{PRD_NAME}.md`:
+Create `{workRoot}/prds/{PRD_NAME}.md`:
 ```markdown
 # PRD: {PRD_NAME}
 
-**Charter**: [Project Charter](.rp1/context/charter.md)
+**Charter**: [Project Charter]({kbRoot}/charter.md)
 **Version**: 1.0.0
 **Status**: Draft
 **Created**: {YYYY-MM-DD}
@@ -214,7 +216,7 @@ Create `.rp1/work/prds/{PRD_NAME}.md`:
 
 #### 4.3 PRD Loop
 
-PRD_PATH = `.rp1/work/prds/{PRD_NAME}.md`
+PRD_PATH = `{workRoot}/prds/{PRD_NAME}.md`
 question_count = 0
 
 loop:
@@ -268,7 +270,7 @@ loop:
 PRD created!
 
 Created:
-- .rp1/work/prds/{PRD_NAME}.md
+- {workRoot}/prds/{PRD_NAME}.md
 
 Next Steps:
 - Create features: /rp1-dev:build <feature-id>

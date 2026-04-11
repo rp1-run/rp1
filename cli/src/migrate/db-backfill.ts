@@ -319,18 +319,50 @@ export const backfillProjectId = async (
 	);
 
 	try {
-		const ensureProjectIdColumn = (table: string) => {
+		const ensureColumn = (table: string, column: string) => {
 			const cols = db.prepare(`PRAGMA table_info(${table})`).all() as {
 				name: string;
 			}[];
-			if (!cols.some((c) => c.name === "project_id")) {
-				db.exec(`ALTER TABLE ${table} ADD COLUMN project_id TEXT DEFAULT NULL`);
+			if (!cols.some((c) => c.name === column)) {
+				db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} TEXT DEFAULT NULL`);
 			}
 		};
 
-		ensureProjectIdColumn("runs");
-		ensureProjectIdColumn("artifacts");
-		ensureProjectIdColumn("tasks");
+		const hasTable = (table: string): boolean =>
+			db
+				.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
+				.get(table) !== null;
+
+		const renameColumnIfNeeded = (
+			table: string,
+			oldName: string,
+			newName: string,
+		) => {
+			const cols = db.prepare(`PRAGMA table_info(${table})`).all() as {
+				name: string;
+			}[];
+			const colNames = new Set(cols.map((c) => c.name));
+			if (colNames.has(oldName) && !colNames.has(newName)) {
+				db.exec(`ALTER TABLE ${table} RENAME COLUMN ${oldName} TO ${newName}`);
+			}
+		};
+
+		// Ensure runs table has the columns this backfill needs (pre-v7 DBs
+		// lack rp1_project_root; pre-v8 DBs use rp1_kb_dir / rp1_work_dir)
+		ensureColumn("runs", "rp1_project_root");
+		renameColumnIfNeeded("runs", "rp1_kb_dir", "rp1_kb_root");
+		renameColumnIfNeeded("runs", "rp1_work_dir", "rp1_work_root");
+		ensureColumn("runs", "rp1_kb_root");
+		ensureColumn("runs", "rp1_work_root");
+
+		ensureColumn("runs", "project_id");
+		ensureColumn("artifacts", "project_id");
+		ensureColumn("tasks", "project_id");
+
+		const rp1ProjectRootFilter = buildProjectPathWhereClause(
+			"rp1_project_root",
+			candidateProjectPaths,
+		);
 
 		const runRows = db
 			.prepare(
@@ -338,13 +370,31 @@ export const backfillProjectId = async (
 				 FROM runs
 				 WHERE (${projectPathFilter.clause})
 				    OR project_id = ?
-				    OR rp1_project_root = ?`,
+				    OR rp1_project_root = ?
+				    OR (${rp1ProjectRootFilter.clause})`,
 			)
 			.all(
 				...projectPathFilter.params,
 				projectId,
 				targetDirectories.projectRoot,
+				...rp1ProjectRootFilter.params,
 			) as RunBackfillRow[];
+
+		const matchesCandidatePath = (recordPath: string | null): boolean => {
+			if (!recordPath) return false;
+			const resolved = resolve(recordPath);
+			const canonical = canonicalizePath(recordPath);
+			return candidateProjectPaths.some((cp) => {
+				const resolvedCp = resolve(cp);
+				const canonicalCp = canonicalizePath(cp);
+				return (
+					resolved === resolvedCp ||
+					canonical === canonicalCp ||
+					resolved.startsWith(`${resolvedCp}/`) ||
+					canonical.startsWith(`${canonicalCp}/`)
+				);
+			});
+		};
 
 		let runsUpdated = 0;
 		let artifactsUpdated = 0;
@@ -353,7 +403,12 @@ export const backfillProjectId = async (
 		let artifactFilesMoved = 0;
 
 		for (const run of runRows) {
-			if (!belongsToProject(run.project_path, canonicalProjectRoot)) {
+			if (
+				!belongsToProject(run.project_path, canonicalProjectRoot) &&
+				!belongsToProject(run.rp1_project_root, canonicalProjectRoot) &&
+				!matchesCandidatePath(run.project_path) &&
+				!matchesCandidatePath(run.rp1_project_root)
+			) {
 				continue;
 			}
 
@@ -408,19 +463,21 @@ export const backfillProjectId = async (
 				runsUpdated++;
 			}
 
-			const notificationResult = db
-				.prepare(
-					`UPDATE notifications
-					 SET project_id = $projectId
-					 WHERE source_id = $runId
-					   AND source_type IN ('run', 'agent')
-					   AND COALESCE(project_id, '') <> $projectId`,
-				)
-				.run({
-					$projectId: projectId,
-					$runId: run.id,
-				});
-			notificationsUpdated += notificationResult.changes;
+			if (hasTable("notifications")) {
+				const notificationResult = db
+					.prepare(
+						`UPDATE notifications
+						 SET project_id = $projectId
+						 WHERE source_id = $runId
+						   AND source_type IN ('run', 'agent')
+						   AND COALESCE(project_id, '') <> $projectId`,
+					)
+					.run({
+						$projectId: projectId,
+						$runId: run.id,
+					});
+				notificationsUpdated += notificationResult.changes;
+			}
 		}
 
 		const artifactRows = db
@@ -442,7 +499,10 @@ export const backfillProjectId = async (
 				continue;
 			}
 
-			if (!belongsToProject(artifact.project_path, canonicalProjectRoot)) {
+			if (
+				!belongsToProject(artifact.project_path, canonicalProjectRoot) &&
+				!matchesCandidatePath(artifact.project_path)
+			) {
 				continue;
 			}
 
@@ -478,7 +538,10 @@ export const backfillProjectId = async (
 			.all(...projectPathFilter.params, projectId) as TaskBackfillRow[];
 
 		for (const task of taskRows) {
-			if (!belongsToProject(task.project_path, canonicalProjectRoot)) {
+			if (
+				!belongsToProject(task.project_path, canonicalProjectRoot) &&
+				!matchesCandidatePath(task.project_path)
+			) {
 				continue;
 			}
 

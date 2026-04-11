@@ -118,6 +118,89 @@ describe("migrate", () => {
 			expect(existsSync(join(worktreeDir, ".rp1"))).toBe(false);
 		});
 
+		test("handles older DB schema without notifications table or renamed columns", async () => {
+			await mkdir(join(tempDir, ".rp1"), { recursive: true });
+
+			// Create a DB with an older schema (pre-v8: rp1_kb_dir / rp1_work_dir
+			// instead of rp1_kb_root / rp1_work_root, and no notifications table)
+			const { Database } = require("bun:sqlite");
+			const oldDb = new Database(process.env.RP1_DB!, { create: true });
+			oldDb.exec("PRAGMA journal_mode = WAL");
+			oldDb.exec(`
+				CREATE TABLE schema_version (version INTEGER NOT NULL);
+				INSERT INTO schema_version VALUES (7);
+
+				CREATE TABLE runs (
+					id TEXT PRIMARY KEY,
+					flow TEXT NOT NULL DEFAULT '',
+					feature_id TEXT,
+					project_path TEXT NOT NULL,
+					rp1_project_root TEXT,
+					rp1_kb_dir TEXT,
+					rp1_work_dir TEXT,
+					status TEXT NOT NULL DEFAULT 'running',
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					name TEXT
+				);
+
+				CREATE TABLE events (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					run_id TEXT NOT NULL,
+					type TEXT NOT NULL,
+					step TEXT,
+					unit TEXT,
+					data TEXT NOT NULL DEFAULT '{}',
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					FOREIGN KEY (run_id) REFERENCES runs(id) ON DELETE CASCADE
+				);
+
+				CREATE TABLE artifacts (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					doc_id TEXT NOT NULL UNIQUE,
+					run_id TEXT,
+					path TEXT NOT NULL,
+					type TEXT NOT NULL DEFAULT 'markdown',
+					project_path TEXT NOT NULL DEFAULT '',
+					feature TEXT,
+					step TEXT,
+					storage_root TEXT NOT NULL DEFAULT 'work_dir',
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					FOREIGN KEY (run_id) REFERENCES runs(id) ON DELETE CASCADE
+				);
+
+				CREATE TABLE tasks (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					type TEXT NOT NULL DEFAULT '',
+					description TEXT NOT NULL DEFAULT '',
+					project_path TEXT
+				);
+			`);
+
+			oldDb
+				.prepare(
+					`INSERT INTO runs (id, flow, project_path, rp1_project_root, rp1_kb_dir, rp1_work_dir)
+				 VALUES ($id, $flow, $projectPath, $rp1ProjectRoot, $rp1KbDir, $rp1WorkDir)`,
+				)
+				.run({
+					$id: "old-schema-run",
+					$flow: "build",
+					$projectPath: tempDir,
+					$rp1ProjectRoot: tempDir,
+					$rp1KbDir: join(tempDir, ".rp1", "context"),
+					$rp1WorkDir: join(tempDir, ".rp1", "work"),
+				});
+
+			oldDb.close();
+
+			// executeMigrate should not crash on this older schema
+			const result = await executeMigrate(tempDir);
+
+			expect(result.projectIdCreated).toBe(true);
+			expect(result.dbBackfill.runsUpdated).toBeGreaterThanOrEqual(0);
+		});
+
 		test("repairs contaminated Arcade metadata and moves misplaced work artifacts", async () => {
 			await mkdir(join(tempDir, ".rp1"), { recursive: true });
 			const db = await expectTaskRight(getEmitDatabase(process.env.RP1_DB!));
@@ -343,6 +426,59 @@ describe("migrate", () => {
 				),
 			).toBe(true);
 			expect(existsSync(wrongArtifactPath)).toBe(false);
+		});
+
+		test("repairs fully contaminated rows where rp1_project_root matches a candidate path", async () => {
+			const repoDir = join(tempDir, "full-contam-repo");
+			const worktreeDir = join(tempDir, "full-contam-worktree");
+
+			await mkdir(repoDir, { recursive: true });
+			await initTestRepo(repoDir);
+			await createInitialCommit(repoDir);
+			await mkdir(join(repoDir, ".rp1"), { recursive: true });
+			await createTestWorktree(repoDir, worktreeDir, "feature/full-contam");
+
+			const db = await expectTaskRight(getEmitDatabase(process.env.RP1_DB!));
+
+			// Insert a fully contaminated row: project_path and rp1_project_root
+			// both point to the worktree, and project_id is wrong. The only way
+			// to find this row is by matching rp1_project_root against worktree
+			// candidate paths.
+			db.prepare(
+				`INSERT INTO runs (
+					id, flow, feature_id, project_path, rp1_project_root,
+					rp1_kb_root, rp1_work_root, project_id
+				) VALUES (
+					$id, $flow, $featureId, $projectPath, $rp1ProjectRoot,
+					$rp1KbRoot, $rp1WorkRoot, $projectId
+				)`,
+			).run({
+				$id: "full-contam-run",
+				$flow: "build",
+				$featureId: "contam-feature",
+				$projectPath: worktreeDir,
+				$rp1ProjectRoot: worktreeDir,
+				$rp1KbRoot: join(worktreeDir, ".rp1", "context"),
+				$rp1WorkRoot: join(worktreeDir, ".rp1", "work"),
+				$projectId: "wrong-id",
+			});
+
+			const result = await executeMigrate(repoDir);
+
+			expect(result.dbBackfill.runsUpdated).toBe(1);
+
+			const runRow = db
+				.prepare(
+					"SELECT project_path, rp1_project_root, project_id FROM runs WHERE id = $id",
+				)
+				.get({ $id: "full-contam-run" }) as {
+				project_path: string;
+				rp1_project_root: string;
+				project_id: string;
+			};
+			expect(runRow.project_path).toBe(result.projectRoot);
+			expect(runRow.rp1_project_root).toBe(result.projectRoot);
+			expect(runRow.project_id).toBe(result.projectId);
 		});
 	});
 

@@ -70,6 +70,10 @@ metadata:
 
 Quick-iteration workflow for focused changes. Three-phase execution: plan -> build -> [review].
 
+## §CTX
+
+Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Resolve Arguments step. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
+
 ## §VERSION-GATE
 
 **If** `RP1_VERSION` < 0.3.3 **then** STOP execution with message:
@@ -203,7 +207,7 @@ Present the plan review to the user:
 **You MUST spawn task-builder here.** Do not implement the tasks yourself.
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-QUICK_BUILD_PATH=.rp1/work/{artifact_relative_path}
+QUICK_BUILD_PATH={workRoot}/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
 WORKFLOW=build-fast
@@ -221,7 +225,7 @@ RUN_ID={RUN_ID}
 **You MUST use `subagent_type: rp1-dev:task-reviewer`** — do not use `general-purpose` or any other agent type.
 
 {% dispatch_agent "rp1-dev:task-reviewer" %}
-QUICK_BUILD_PATH=.rp1/work/{artifact_relative_path}
+QUICK_BUILD_PATH={workRoot}/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
 WORKFLOW=build-fast
@@ -238,7 +242,7 @@ If `status` = "FAILURE":
 2. Re-spawn task-builder with feedback:
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-QUICK_BUILD_PATH=.rp1/work/{artifact_relative_path}
+QUICK_BUILD_PATH={workRoot}/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
 PREVIOUS_FEEDBACK={reviewer summary and issues}

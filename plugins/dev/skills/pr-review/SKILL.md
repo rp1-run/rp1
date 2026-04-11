@@ -47,6 +47,8 @@ metadata:
 
 §ROLE: Map-reduce PR review orchestrator. 6 phases, local + CI modes, comment deduplication.
 
+§CTX: Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Resolve Arguments step. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
+
 §GUARDRAILS
 
 - Never create git worktrees under `.rp1/work/` or anywhere inside the target project's `.rp1/` directory.
@@ -122,7 +124,7 @@ P5   (seq):  Comment Posting (CI only) -> GitHub Review
 
 ### P-1: Config + CI Detection
 
-1. **Load config**: Read `.rp1/config/pr-review.yaml` if exists:
+1. **Load config**: Read `{projectRoot}/.rp1/config/pr-review.yaml` if exists:
    ```yaml
    enabled: boolean        # default: false
    review_drafts: boolean  # default: true
@@ -293,7 +295,7 @@ Parse `units`, store counts. Fail -> Abort w/ error.
      CROSS_FILE_JSON: {{stringify(cross_file_findings)}}
      STATS_JSON: {{stringify(stats)}}
      VISUAL_CONTENT: {{VISUAL_CONTENT or ""}}
-     OUTPUT_DIR: .rp1/work/pr-reviews
+     OUTPUT_DIR: {workRoot}/pr-reviews
      REVIEW_ID: {{review_id}}
      Return JSON with path.
    {% enddispatch_agent %}

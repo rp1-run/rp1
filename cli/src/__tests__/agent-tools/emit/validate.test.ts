@@ -377,6 +377,24 @@ describe("emit validation", () => {
 			expect(result.projectPath).toBe(canonicalMainRepoRoot);
 		});
 
+		test("fails when --project points to a non-rp1 directory", async () => {
+			const nonProjectDir = join(tempDir, "not-an-rp1-project");
+			await mkdir(nonProjectDir, { recursive: true });
+
+			const error = await expectTaskLeft(
+				validateEmitOptions({
+					type: "status_change",
+					runId: "test-run-non-rp1",
+					workflow: "build",
+					step: "plan",
+					data: '{"status": "running"}',
+					project: nonProjectDir,
+				}),
+			);
+
+			expect(error._tag).toBe("NotFoundError");
+		});
+
 		test("explicit --project takes precedence over RP1_ROOT env var", async () => {
 			const restore = withEnvOverride("RP1_ROOT", "/tmp/env-override/.rp1");
 			try {
