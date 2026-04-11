@@ -329,17 +329,14 @@
   align-items: center;
 }
 
-.md-source--discord {
-  min-width: 0;
-  width: 2.4rem;
-  padding: 0;
+.rp1-discord-badge {
   display: flex;
   align-items: center;
-  justify-content: center;
 }
 
-.md-source--discord .md-source__icon {
-  margin: 0;
+.rp1-discord-badge img {
+  height: 20px;
+  border-radius: 3px;
 }
 
 /* Discord CTA button */
