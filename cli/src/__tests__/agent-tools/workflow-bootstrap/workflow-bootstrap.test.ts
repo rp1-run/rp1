@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
 	closeDatabase,
 	getEmitDatabase,
@@ -19,6 +22,22 @@ import {
 	expectTaskRight,
 	getErrorMessage,
 } from "../../helpers/index.js";
+
+const repoRoot = join(
+	dirname(fileURLToPath(import.meta.url)),
+	"..",
+	"..",
+	"..",
+	"..",
+	"..",
+);
+const hasDevDist = existsSync(
+	join(repoRoot, "dist", "claude-code", "bundle-manifest.json"),
+);
+const testIfDist = hasDevDist ? test : test.skip;
+const localBinaryPath = join(repoRoot, "bin", "rp1");
+const hasLocalBinary = existsSync(localBinaryPath);
+const testIfBinary = hasLocalBinary ? test : test.skip;
 
 describe("workflow-bootstrap", () => {
 	let tempDir: string;
@@ -409,4 +428,84 @@ metadata:
 
 		expect(getErrorMessage(error)).toContain("Workflow target mismatch");
 	});
+
+	testIfDist(
+		"resolves installed workflow schemas when the project checkout lacks the source prompt tree",
+		async () => {
+			await writeProjectId(tempDir, "project-installed-bootstrap-id");
+
+			const result = await expectTaskRight(
+				execute(
+					JSON.stringify({
+						name: "speedrun",
+						schema_path: "plugins/dev/skills/speedrun/SKILL.md",
+						raw_args: "add a simple hello world script at src/hello.ts",
+						project_root: tempDir,
+						harness: "claude-code",
+					}),
+					{ inputSource: "stdin" },
+				),
+			);
+
+			expect(result.data.workflow.name).toBe("speedrun");
+			expect(result.data.workflow.runPolicy).toBe("fresh");
+			expect(result.data.arguments.REQUEST).toBe(
+				"add a simple hello world script at src/hello.ts",
+			);
+			expect(result.data.directories.projectRoot).toBe(tempDir);
+			expect(result.data.trace.harness).toBe("claude-code");
+		},
+	);
+
+	testIfBinary(
+		"bootstraps installed workflow schemas through the built binary",
+		async () => {
+			await writeProjectId(tempDir, "project-binary-bootstrap-id");
+
+			const input = JSON.stringify({
+				name: "speedrun",
+				schema_path: "plugins/dev/skills/speedrun/SKILL.md",
+				raw_args: "add a simple hello world script at src/hello.ts",
+				project_root: tempDir,
+				harness: "claude-code",
+			});
+
+			const proc = spawnSync(
+				localBinaryPath,
+				["agent-tools", "workflow-bootstrap"],
+				{
+					cwd: repoRoot,
+					input,
+					encoding: "utf-8",
+					env: {
+						...process.env,
+						RP1_DB: dbPath,
+					},
+				},
+			);
+
+			const stdout = proc.stdout;
+			const stderr = proc.stderr;
+
+			expect(proc.status).toBe(0);
+			expect(stderr).toBe("");
+
+			const parsed = JSON.parse(stdout) as {
+				success: boolean;
+				data: {
+					workflow: { name: string; runPolicy: string };
+					arguments: { REQUEST: string };
+					directories: { projectRoot: string };
+				};
+			};
+
+			expect(parsed.success).toBe(true);
+			expect(parsed.data.workflow.name).toBe("speedrun");
+			expect(parsed.data.workflow.runPolicy).toBe("fresh");
+			expect(parsed.data.arguments.REQUEST).toBe(
+				"add a simple hello world script at src/hello.ts",
+			);
+			expect(parsed.data.directories.projectRoot).toBe(tempDir);
+		},
+	);
 });

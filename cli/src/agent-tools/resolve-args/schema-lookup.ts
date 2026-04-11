@@ -85,15 +85,34 @@ const findInPlugin = (
  * Searches all platforms for a matching plugin and artifact.
  * Returns the embedded blob path on success.
  */
+const orderPlatformEntries = <T extends { 0: string }>(
+	entries: readonly T[],
+	platformHint?: string,
+): readonly T[] => {
+	if (!platformHint) return entries;
+
+	const preferred = entries.filter(
+		([platformName]) => platformName === platformHint,
+	);
+	const remaining = entries.filter(
+		([platformName]) => platformName !== platformHint,
+	);
+	return [...preferred, ...remaining];
+};
+
 const findInBundledManifest = (
 	name: CanonicalName,
+	platformHint?: string,
 ): E.Either<CLIError, string> => {
 	const pluginName = toPluginName(name);
 
 	const assetsResult = getBundledAssets();
 	if (assetsResult._tag === "Left") return assetsResult;
 
-	for (const platform of Object.values(assetsResult.right.platforms)) {
+	for (const [, platform] of orderPlatformEntries(
+		Object.entries(assetsResult.right.platforms),
+		platformHint,
+	)) {
 		if (!platform) continue;
 		const plugin = collectPlatformPlugins(platform).find(
 			(p) => p.name === pluginName,
@@ -145,6 +164,7 @@ interface DiskManifest {
  */
 const findInDevManifests = async (
 	name: CanonicalName,
+	platformHint?: string,
 ): Promise<string | null> => {
 	const pluginName = toPluginName(name);
 	const repoRoot = getRepoRoot();
@@ -158,7 +178,10 @@ const findInDevManifests = async (
 		return null;
 	}
 
-	for (const platformDir of platformDirs) {
+	for (const platformDir of orderPlatformEntries(
+		platformDirs.map((platformDir) => [platformDir] as const),
+		platformHint,
+	).map(([platformDir]) => platformDir)) {
 		const manifestPath = join(distDir, platformDir, "bundle-manifest.json");
 		let manifest: DiskManifest;
 		try {
@@ -209,16 +232,17 @@ const fileExists = async (path: string): Promise<boolean> => {
  */
 export const resolveSchemaPath = (
 	name: CanonicalName,
+	platformHint?: string,
 ): TE.TaskEither<CLIError, string> => {
 	// Production: use embedded manifest
 	if (hasBundledAssets()) {
-		return TE.fromEither(findInBundledManifest(name));
+		return TE.fromEither(findInBundledManifest(name, platformHint));
 	}
 
 	// Development: read bundle-manifest.json from dist/
 	return TE.tryCatch(
 		async () => {
-			const result = await findInDevManifests(name);
+			const result = await findInDevManifests(name, platformHint);
 			if (result) return result;
 
 			throw new Error(

@@ -3,6 +3,8 @@ import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
+import type { CanonicalName } from "../../../shared/canonical-name.js";
+import { parseUserFacing } from "../../../shared/canonical-name.js";
 import type { CLIError } from "../../../shared/errors.js";
 import {
 	notFoundError,
@@ -10,7 +12,7 @@ import {
 	usageError,
 } from "../../../shared/errors.js";
 import type { ClaudeCodeSkill } from "../../build/models.js";
-import { parseSkill } from "../../build/parser.js";
+import { parseSkillSchemaFile } from "../../build/parser.js";
 import {
 	findOrCreateWorkflowRun,
 	getEmitDatabase,
@@ -20,6 +22,7 @@ import { registerTool, type ToolOptions } from "../index.js";
 import type { ToolResult } from "../models.js";
 import { successResult } from "../output.js";
 import { resolveArgs, resolveDirectories } from "../resolve-args/resolver.js";
+import { resolveSchemaPath } from "../resolve-args/schema-lookup.js";
 import type {
 	WorkflowBootstrapInput,
 	WorkflowBootstrapResult,
@@ -126,13 +129,31 @@ const findInvokingCheckoutRoot = (startPath: string): string | undefined => {
 	}
 };
 
+const parseCanonicalNameFromSchemaPath = (
+	schemaPath: string,
+): CanonicalName | null => {
+	const normalized = schemaPath.replace(/\\/g, "/");
+	const match = normalized.match(
+		/(?:^|\/)plugins\/([^/]+)\/skills\/([^/]+)\/SKILL\.md$/,
+	);
+
+	if (!match?.[1] || !match?.[2]) {
+		return null;
+	}
+
+	return {
+		plugin: match[1].replace(/^rp1-/, ""),
+		artifact: match[2].replace(/^rp1-/, ""),
+	};
+};
+
 const resolveBootstrapSchemaPath = (
 	schemaPath: string,
 	requestedProjectRoot: string,
 	directories: ReturnType<typeof resolveDirectories>,
-): string => {
+): string | null => {
 	if (isAbsolute(schemaPath)) {
-		return schemaPath;
+		return existsSync(schemaPath) ? schemaPath : null;
 	}
 
 	if (directories.isWorktree) {
@@ -145,27 +166,38 @@ const resolveBootstrapSchemaPath = (
 		}
 	}
 
-	return resolve(directories.projectRoot, schemaPath);
+	const projectSchemaPath = resolve(directories.projectRoot, schemaPath);
+	return existsSync(projectSchemaPath) ? projectSchemaPath : null;
 };
 
-const requireBootstrapSchemaPath = (
-	resolvedSchemaPath: string,
-): E.Either<CLIError, string> =>
-	existsSync(resolvedSchemaPath)
-		? E.right(resolvedSchemaPath)
-		: E.left(
-				notFoundError(
-					resolvedSchemaPath,
-					"Tracked workflow bootstrap requires the generated schema_path to point to an existing source SKILL.md.",
-				),
-			);
+const resolveInstalledBootstrapSchemaPath = (
+	input: WorkflowBootstrapInput,
+): TE.TaskEither<CLIError, string> => {
+	const parsedName = parseUserFacing(input.name);
+	if (E.isRight(parsedName)) {
+		return resolveSchemaPath(parsedName.right, input.harness);
+	}
+
+	const canonicalFromPath = parseCanonicalNameFromSchemaPath(input.schema_path);
+	if (canonicalFromPath) {
+		return resolveSchemaPath(canonicalFromPath, input.harness);
+	}
+
+	return TE.left(
+		notFoundError(
+			input.schema_path,
+			"Tracked workflow bootstrap could not resolve the generated schema_path from the project checkout or installed workflow manifests.",
+		),
+	);
+};
 
 const requireWorkflowTargetMatch = (
 	input: WorkflowBootstrapInput,
-	skill: ClaudeCodeSkill,
+	skill: Pick<ClaudeCodeSkill, "name" | "metadata">,
 	resolvedSchemaPath: string,
 ): E.Either<CLIError, WorkflowBootstrapWorkflow> => {
-	if (basename(resolvedSchemaPath) !== "SKILL.md") {
+	const resolvedSchemaBasename = basename(resolvedSchemaPath);
+	if (!/^SKILL(?:-[^.]+)?\.md$/.test(resolvedSchemaBasename)) {
 		return E.left(
 			usageError(
 				`workflow-bootstrap only supports tracked skill schemas, received ${resolvedSchemaPath}`,
@@ -353,18 +385,20 @@ export const execute = (
 		TE.bind(
 			"resolvedSchemaPath",
 			({ input, directories, requestedProjectRoot }) =>
-				TE.fromEither(
-					requireBootstrapSchemaPath(
-						resolveBootstrapSchemaPath(
-							input.schema_path,
-							requestedProjectRoot,
-							directories,
-						),
+				pipe(
+					resolveBootstrapSchemaPath(
+						input.schema_path,
+						requestedProjectRoot,
+						directories,
 					),
+					(resolvedSchemaPath) =>
+						resolvedSchemaPath
+							? TE.right<CLIError, string>(resolvedSchemaPath)
+							: resolveInstalledBootstrapSchemaPath(input),
 				),
 		),
 		TE.bind("skill", ({ resolvedSchemaPath }) =>
-			parseSkill(dirname(resolvedSchemaPath)),
+			parseSkillSchemaFile(resolvedSchemaPath),
 		),
 		TE.bind("workflow", ({ input, skill, resolvedSchemaPath }) =>
 			TE.fromEither(
