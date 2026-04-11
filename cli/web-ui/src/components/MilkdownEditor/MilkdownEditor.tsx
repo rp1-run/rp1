@@ -70,11 +70,9 @@ function replaceContentWithPreservedSelection(
 	content: ProseNode,
 	selection: ProseSelection,
 ): void {
-	const transaction = view.state.tr.replace(
-		0,
-		view.state.doc.content.size,
-		new Slice(content.content, 0, 0),
-	);
+	const transaction = view.state.tr
+		.replace(0, view.state.doc.content.size, new Slice(content.content, 0, 0))
+		.setMeta("addToHistory", false);
 	const preservedSelection = createPreservedSelection(
 		transaction.doc,
 		selection,
@@ -92,6 +90,7 @@ function MilkdownEditorInner({
 	const viewRef = useRef<EditorView | undefined>(undefined);
 	const latestMarkdownRef = useRef(content);
 	const isApplyingExternalUpdateRef = useRef(false);
+	const externalUpdateFrameRef = useRef<number | null>(null);
 	const onContentChangeRef = useRef(onContentChange);
 
 	const [highlightConfig, setHighlightConfig] = useState<{
@@ -122,6 +121,14 @@ function MilkdownEditorInner({
 	useEffect(() => {
 		onContentChangeRef.current = onContentChange;
 	}, [onContentChange]);
+
+	useEffect(() => {
+		return () => {
+			if (externalUpdateFrameRef.current !== null) {
+				cancelAnimationFrame(externalUpdateFrameRef.current);
+			}
+		};
+	}, []);
 
 	const onChange = useCallback(
 		(_ctx: unknown, markdown: string, prevMarkdown: string) => {
@@ -184,6 +191,11 @@ function MilkdownEditorInner({
 		const view = viewRef.current;
 		if (!view) return;
 
+		if (externalUpdateFrameRef.current !== null) {
+			cancelAnimationFrame(externalUpdateFrameRef.current);
+			externalUpdateFrameRef.current = null;
+		}
+
 		isApplyingExternalUpdateRef.current = true;
 		try {
 			const previousSelection = view.state.selection;
@@ -211,7 +223,10 @@ function MilkdownEditorInner({
 			});
 			latestMarkdownRef.current = content;
 		} finally {
-			isApplyingExternalUpdateRef.current = false;
+			externalUpdateFrameRef.current = requestAnimationFrame(() => {
+				externalUpdateFrameRef.current = null;
+				isApplyingExternalUpdateRef.current = false;
+			});
 		}
 	}, [content, getEditor, loading]);
 

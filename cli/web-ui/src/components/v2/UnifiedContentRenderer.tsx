@@ -134,9 +134,14 @@ function MarkdownEditorWithSave({
 		path,
 		docId ?? "",
 	].join("::");
+	const previousContentIdentityRef = useRef(contentIdentity);
 
 	useEffect(() => {
-		void contentIdentity;
+		if (previousContentIdentityRef.current === contentIdentity) {
+			return;
+		}
+
+		previousContentIdentityRef.current = contentIdentity;
 		if (saveTimerRef.current) {
 			clearTimeout(saveTimerRef.current);
 			saveTimerRef.current = null;

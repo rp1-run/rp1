@@ -128,6 +128,7 @@ export function FileBrowserPage() {
 	const fetchContent = useCallback(
 		async (preserveScroll = false) => {
 			if (!selectedPath || !projectId) {
+				savedScrollState.current = null;
 				setContent(null);
 				setContentLoading(false);
 				setContentError(null);
@@ -142,6 +143,7 @@ export function FileBrowserPage() {
 			}
 
 			if (!preserveScroll) {
+				savedScrollState.current = null;
 				setContentLoading(true);
 				setHeadings([]);
 				setActiveHeadingId(null);
@@ -162,10 +164,18 @@ export function FileBrowserPage() {
 					throw new Error(`Failed to fetch content: ${response.statusText}`);
 				}
 				const data = (await response.json()) as FileContent;
-				setContent((current) =>
-					isSameFileContent(current, data) ? current : data,
-				);
+				setContent((current) => {
+					if (isSameFileContent(current, data)) {
+						if (preserveScroll) {
+							savedScrollState.current = null;
+						}
+						return current;
+					}
+
+					return data;
+				});
 			} catch (err) {
+				savedScrollState.current = null;
 				setContentError(err instanceof Error ? err.message : String(err));
 				setContent(null);
 			} finally {

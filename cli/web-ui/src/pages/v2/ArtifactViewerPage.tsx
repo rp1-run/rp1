@@ -296,10 +296,12 @@ export function ArtifactViewerPage() {
 	const fetchArtifactContentWithScrollPreservation = useCallback(
 		async (preserveScroll: boolean) => {
 			if (!run || !selectedArtifactPath) {
+				savedScrollState.current = null;
 				setArtifactContent(null);
 				return;
 			}
 			if (!selectedArtifact) {
+				savedScrollState.current = null;
 				setContentError("Artifact not found");
 				setArtifactContent(null);
 				return;
@@ -313,6 +315,7 @@ export function ArtifactViewerPage() {
 			}
 
 			if (!preserveScroll) {
+				savedScrollState.current = null;
 				setContentLoading(true);
 				// Clear headings when loading new artifact (they'll be repopulated by MarkdownViewer if applicable)
 				setHeadings([]);
@@ -344,10 +347,18 @@ export function ArtifactViewerPage() {
 					content: data.content,
 					docId: selectedArtifact.docId,
 				};
-				setArtifactContent((current) =>
-					isSameArtifactContent(current, nextContent) ? current : nextContent,
-				);
+				setArtifactContent((current) => {
+					if (isSameArtifactContent(current, nextContent)) {
+						if (preserveScroll) {
+							savedScrollState.current = null;
+						}
+						return current;
+					}
+
+					return nextContent;
+				});
 			} catch (err) {
+				savedScrollState.current = null;
 				setContentError(err instanceof Error ? err.message : String(err));
 				setArtifactContent(null);
 			} finally {
