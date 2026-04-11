@@ -13,6 +13,7 @@ Skip the iteration loops. Keep work attached to projects, artifacts, and feedbac
 
 [:fontawesome-solid-terminal: Get Started](getting-started/installation.md){ .md-button .md-button--primary }
 [:fontawesome-brands-github: View on GitHub](https://github.com/rp1-run/rp1){ .md-button .md-button--github }
+[:fontawesome-brands-discord: Join Discord](https://discord.gg/XUqc4zcX26){ .md-button .md-button--discord }
 
 <div class="carousel-container">
   <div class="splide" id="hero-carousel" aria-label="Product Screenshots">

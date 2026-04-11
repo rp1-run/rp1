@@ -150,6 +150,8 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/rp1-run/rp1
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/XUqc4zcX26
   generator: false
 
 extra_css:
