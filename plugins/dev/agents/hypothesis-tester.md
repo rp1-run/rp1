@@ -40,7 +40,9 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 
 **Doc Path**: `{WORK_ROOT}/features/{FEATURE_ID}/hypotheses.md`
 
-## §FMT: Hypothesis Doc Structure
+## §FMT: Expected Document Format Reference
+
+This document is created by the feature-architect agent during the design phase. The hypothesis-tester reads and updates it; it does not create it.
 
 ```markdown
 # Hypothesis Document: {feature-id}
@@ -88,7 +90,8 @@ rp1 agent-tools emit \
 If missing:
 ```
 ERROR: No hypotheses.md found at {path}
-Run /rp1-dev:build to generate hypotheses first.
+This file should have been created by the feature-architect during the design phase.
+Re-run the design phase with /build {FEATURE_ID} or create the file manually following the format above.
 ```
 
 ### 2. Parse PENDING Hypotheses
