@@ -429,6 +429,76 @@ metadata:
 		expect(getErrorMessage(error)).toContain("Workflow target mismatch");
 	});
 
+	test("normalizes installed skill names to the canonical workflow id", async () => {
+		await writeProjectId();
+		const installedSkillPath = join(
+			tempDir,
+			"installed",
+			"rp1-build",
+			"SKILL.md",
+		);
+		await mkdir(dirname(installedSkillPath), { recursive: true });
+		await writeFile(
+			installedSkillPath,
+			`---
+name: rp1-build
+description: "Bootstrap test workflow for deterministic tracked runs"
+metadata:
+  category: development
+  is_workflow: true
+  workflow:
+    run_policy: resumable
+    identity_args:
+      - FEATURE_ID
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "Feature identifier"
+---
+# Build
+`,
+		);
+
+		const canonicalResult = await expectTaskRight(
+			execute(
+				JSON.stringify({
+					name: "build",
+					schema_path: installedSkillPath,
+					raw_args: "feat-installed-schema",
+					project_root: tempDir,
+					harness: "codex",
+				}),
+				{ inputSource: "stdin" },
+			),
+		);
+
+		const stalePromptResult = await expectTaskRight(
+			execute(
+				JSON.stringify({
+					name: "rp1-build",
+					schema_path: installedSkillPath,
+					raw_args: "feat-installed-schema",
+					project_root: tempDir,
+					harness: "codex",
+				}),
+				{ inputSource: "stdin" },
+			),
+		);
+
+		expect(canonicalResult.data.workflow.name).toBe("build");
+		expect(stalePromptResult.data.workflow.name).toBe("build");
+		expect(stalePromptResult.data.run.runId).toBe(
+			canonicalResult.data.run.runId,
+		);
+		expect(stalePromptResult.data.run.resumed).toBe(true);
+
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const run = getRunById(db, canonicalResult.data.run.runId);
+		expect(run?.flow).toBe("build");
+		expect(run?.workIdentity).toBe("FEATURE_ID=feat-installed-schema");
+	});
+
 	testIfDist(
 		"resolves installed workflow schemas when the project checkout lacks the source prompt tree",
 		async () => {

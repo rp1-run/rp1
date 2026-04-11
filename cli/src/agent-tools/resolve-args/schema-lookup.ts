@@ -85,7 +85,7 @@ const findInPlugin = (
  * Searches all platforms for a matching plugin and artifact.
  * Returns the embedded blob path on success.
  */
-const orderPlatformEntries = <T extends { 0: string }>(
+const orderPlatformEntries = <T extends readonly [string, ...unknown[]]>(
 	entries: readonly T[],
 	platformHint?: string,
 ): readonly T[] => {

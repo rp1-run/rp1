@@ -147,6 +147,15 @@ const parseCanonicalNameFromSchemaPath = (
 	};
 };
 
+const canonicalizeWorkflowName = (name: string): string => {
+	const parsed = parseUserFacing(name);
+	if (E.isRight(parsed)) {
+		return parsed.right.artifact;
+	}
+
+	return name.replace(/^rp1-/, "");
+};
+
 const resolveBootstrapSchemaPath = (
 	schemaPath: string,
 	requestedProjectRoot: string,
@@ -196,6 +205,8 @@ const requireWorkflowTargetMatch = (
 	skill: Pick<ClaudeCodeSkill, "name" | "metadata">,
 	resolvedSchemaPath: string,
 ): E.Either<CLIError, WorkflowBootstrapWorkflow> => {
+	const requestedWorkflowName = canonicalizeWorkflowName(input.name);
+	const resolvedWorkflowName = canonicalizeWorkflowName(skill.name);
 	const resolvedSchemaBasename = basename(resolvedSchemaPath);
 	if (!/^SKILL(?:-[^.]+)?\.md$/.test(resolvedSchemaBasename)) {
 		return E.left(
@@ -206,7 +217,7 @@ const requireWorkflowTargetMatch = (
 		);
 	}
 
-	if (skill.name !== input.name) {
+	if (resolvedWorkflowName !== requestedWorkflowName) {
 		return E.left(
 			usageError(
 				`Workflow target mismatch: generated name "${input.name}" does not match schema name "${skill.name}"`,
@@ -233,7 +244,7 @@ const requireWorkflowTargetMatch = (
 	if (runPolicy === "resumable" && identityArgs.length === 0) {
 		return E.left(
 			usageError(
-				`Tracked workflow "${skill.name}" is resumable but has no identity arguments`,
+				`Tracked workflow "${requestedWorkflowName}" is resumable but has no identity arguments`,
 				"Declare metadata.workflow.identity_args for resumable workflows.",
 			),
 		);
@@ -242,14 +253,14 @@ const requireWorkflowTargetMatch = (
 	if (runPolicy === "fresh" && identityArgs.length > 0) {
 		return E.left(
 			usageError(
-				`Tracked workflow "${skill.name}" is fresh but declares identity arguments`,
+				`Tracked workflow "${requestedWorkflowName}" is fresh but declares identity arguments`,
 				"Remove metadata.workflow.identity_args from fresh workflows.",
 			),
 		);
 	}
 
 	return E.right({
-		name: skill.name,
+		name: requestedWorkflowName,
 		schemaPath: input.schema_path,
 		runPolicy,
 		identityArgs,
