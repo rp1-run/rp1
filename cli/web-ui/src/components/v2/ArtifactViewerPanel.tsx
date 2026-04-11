@@ -38,12 +38,7 @@ function ArtifactViewerInner({
 	runId,
 	subflowDiagram,
 }: ArtifactViewerPanelProps) {
-	const [content, setContentRaw] = useState<string | null>(null);
-	const [contentRevision, setContentRevision] = useState(0);
-	const setContent = useCallback((c: string | null) => {
-		setContentRaw(c);
-		setContentRevision((r) => r + 1);
-	}, []);
+	const [content, setContent] = useState<string | null>(null);
 	const [contentLoading, setContentLoading] = useState(false);
 	const [contentError, setContentError] = useState<string | null>(null);
 	const [headings, setHeadings] = useState<readonly HeadingEntry[]>([]);
@@ -101,7 +96,9 @@ function ArtifactViewerInner({
 					throw new Error(errorMessage);
 				}
 				const data = (await response.json()) as { content: string };
-				setContent(data.content);
+				setContent((current) =>
+					current === data.content ? current : data.content,
+				);
 			} catch (err) {
 				setContentError(err instanceof Error ? err.message : String(err));
 				setContent(null);
@@ -111,7 +108,7 @@ function ArtifactViewerInner({
 				}
 			}
 		},
-		[artifactPath, runId, setContent],
+		[artifactPath, runId],
 	);
 
 	useEffect(() => {
@@ -286,7 +283,6 @@ function ArtifactViewerInner({
 						viewportRef={scrollViewportRef}
 					>
 						<ContentPanel
-							key={contentRevision}
 							content={content}
 							path={selectedArtifact?.path ?? null}
 							isLoading={contentLoading}

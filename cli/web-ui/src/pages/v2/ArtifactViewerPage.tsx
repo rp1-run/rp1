@@ -58,6 +58,19 @@ interface ArtifactContent {
 	docId?: string;
 }
 
+function isSameArtifactContent(
+	left: ArtifactContent | null,
+	right: ArtifactContent | null,
+): boolean {
+	if (left === right) return true;
+	if (!left || !right) return false;
+	return (
+		left.path === right.path &&
+		left.content === right.content &&
+		left.docId === right.docId
+	);
+}
+
 /**
  * Annotation toggle button component (must be inside AnnotationProvider).
  * Only shows when sidebar is closed - provides a way to open it.
@@ -326,11 +339,14 @@ export function ArtifactViewerPage() {
 					throw new Error(errorMessage);
 				}
 				const data = (await response.json()) as { content: string };
-				setArtifactContent({
-					path: selectedArtifactPath,
+				const nextContent = {
+					path: selectedArtifact.path,
 					content: data.content,
 					docId: selectedArtifact.docId,
-				});
+				};
+				setArtifactContent((current) =>
+					isSameArtifactContent(current, nextContent) ? current : nextContent,
+				);
 			} catch (err) {
 				setContentError(err instanceof Error ? err.message : String(err));
 				setArtifactContent(null);
@@ -368,14 +384,14 @@ export function ArtifactViewerPage() {
 	}, [artifactContent]);
 
 	useEffect(() => {
-		if (!selectedArtifactPath || !run) return;
+		if (!selectedArtifact) return;
 
-		const normalizedPath = selectedArtifactPath.replace(/^\.rp1\//, "");
+		const normalizedPath = selectedArtifact.path.replace(/^\.rp1\//, "");
 
 		const unsubscribe = onFileChange((msg) => {
 			if (
 				msg.changeType === "modify" &&
-				(msg.path === selectedArtifactPath || msg.path === normalizedPath)
+				(msg.path === selectedArtifact.path || msg.path === normalizedPath)
 			) {
 				fetchArtifactContentWithScrollPreservation(true);
 			}
@@ -383,8 +399,7 @@ export function ArtifactViewerPage() {
 
 		return unsubscribe;
 	}, [
-		selectedArtifactPath,
-		run,
+		selectedArtifact,
 		onFileChange,
 		fetchArtifactContentWithScrollPreservation,
 	]);
