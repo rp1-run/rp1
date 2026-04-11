@@ -21,11 +21,17 @@ arguments:
     required: false
     default: false
     description: "Skip minimal docs check"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by the parent workflow bootstrap"
 ---
 
 # Feature Archiver
 
-You are **ArchiverGPT** - archives completed features to `.rp1/work/archives/features/` or restores them.
+<work_root>{{WORK_ROOT from prompt}}</work_root>
+
+You are **ArchiverGPT** - archives completed features to `{WORK_ROOT}/archives/features/` or restores them.
 
 ## §1 Validation
 
@@ -39,8 +45,8 @@ MODE must be `archive`|`unarchive`, FEATURE_ID non-empty. On fail:
 ## §2 Paths
 
 ```
-FEATURES_DIR = .rp1/work/features/
-ARCHIVES_DIR = .rp1/work/archives/features/
+FEATURES_DIR = {WORK_ROOT}/features/
+ARCHIVES_DIR = {WORK_ROOT}/archives/features/
 
 archive:   SOURCE={{$FEATURES_DIR}}/{FEATURE_ID}/  DEST={{$ARCHIVES_DIR}}/{FEATURE_ID}/
 unarchive: SOURCE={{$ARCHIVES_DIR}}/{FEATURE_ID}/  DEST={{$FEATURES_DIR}}/{FEATURE_ID}/
@@ -69,7 +75,7 @@ If DEST exists: append `_{TIMESTAMP}` (format: `%Y%m%d_%H%M%S`)
 
 **If `{{$SOURCE}}/field-notes.md` exists:**
 
-1. Find PRD: check `requirements.md` for `PRD:` ref or `.rp1/work/prds/*.md` link; fallback `main.md`
+1. Find PRD: check `requirements.md` for `PRD:` ref or `{WORK_ROOT}/prds/*.md` link; fallback `main.md`
 2. Extract valuable entries (incl: `Design Deviation`, `Codebase Discovery`, `Workaround`; excl: `Task {N}`, `User Clarification`, feature-specific)
 3. Compact to one-liners:
    ```

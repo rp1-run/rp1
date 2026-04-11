@@ -18,6 +18,14 @@ arguments:
     required: false
     default: false
     description: "Skip user prompts, auto-select defaults"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root returned by the parent workflow bootstrap"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by the parent workflow bootstrap"
   - name: WORKFLOW
     type: string
     required: false
@@ -37,14 +45,16 @@ Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
 <feature_id>$1</feature_id>
 <requirements>$2</requirements>
 <afk_mode>$3</afk_mode>
+<kb_root>{{KB_ROOT from prompt}}</kb_root>
+<work_root>{{WORK_ROOT from prompt}}</work_root>
 <workflow>$WORKFLOW</workflow>
 <run_id>$RUN_ID</run_id>
 
-**Feature dir**: `.rp1/work/features/{FEATURE_ID}/`
+**Feature dir**: `{WORK_ROOT}/features/{FEATURE_ID}/`
 
 **Constraint**: WHAT not HOW. No tech impl, arch, or code. Focus on business needs.
 **Hard Boundaries**:
-- Only create or update `.rp1/work/features/{FEATURE_ID}/requirements.md`.
+- Only create or update `{WORK_ROOT}/features/{FEATURE_ID}/requirements.md`.
 - Do not edit source code, tests, docs outside the feature directory, or any build artifacts.
 - Do not run git commands, stage files, create commits, or claim implementation/test completion.
 - If the provided input is a bug report, audit, or research doc with proposed fixes, translate it into business requirements and acceptance criteria only.
@@ -53,8 +63,8 @@ Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
 
 Read via Read tool:
 
-1. `.rp1/context/index.md` - project structure, domain
-2. `.rp1/context/concept_map.md` - domain terminology
+1. `{KB_ROOT}/index.md` - project structure, domain
+2. `{KB_ROOT}/concept_map.md` - domain terminology
 
 If KB missing: warn, continue w/ best-effort.
 
@@ -63,8 +73,8 @@ If KB missing: warn, continue w/ best-effort.
 Check for project ctx:
 
 0. Requirements: Read REQUIREMENTS input param
-1. Charter: `.rp1/context/charter.md`
-2. PRDs: `.rp1/work/prds/*.md`
+1. Charter: `{KB_ROOT}/charter.md`
+2. PRDs: `{WORK_ROOT}/prds/*.md`
 
 | Mode | PRD Action |
 |------|------------|
@@ -122,7 +132,7 @@ Each requirement MUST include:
 
 ## 5. Output Template
 
-Write to `.rp1/work/features/{FEATURE_ID}/requirements.md`.
+Write to `{WORK_ROOT}/features/{FEATURE_ID}/requirements.md`.
 
 **Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in the YAML frontmatter block. This enables run resumability. Use the `rp1_` prefix consistent with `rp1_doc_id`.
 

@@ -24,6 +24,14 @@ arguments:
     required: false
     default: ""
     description: "Report output dir (derived from feature if empty)"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root returned by the parent workflow bootstrap"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by the parent workflow bootstrap"
 ---
 
 # Code Checker Agent
@@ -33,11 +41,13 @@ arguments:
 <feature_id>$1</feature_id>
 <test_scope>$2</test_scope>
 <coverage_target>$3</coverage_target>
-<report_directory>$4 (default: `.rp1/work/features/{FEATURE_ID}/` if FEATURE_ID, else `.rp1/work/`)</report_directory>
+<report_directory>$4 (default: `{WORK_ROOT}/features/{FEATURE_ID}/` if FEATURE_ID, else `{WORK_ROOT}/`)</report_directory>
+<kb_root>{{KB_ROOT from prompt}}</kb_root>
+<work_root>{{WORK_ROOT from prompt}}</work_root>
 
 ## §CTX
 
-Read `.rp1/context/index.md` for project structure. Do NOT load additional KB files. If `.rp1/context/` missing → continue w/o KB.
+Read `{KB_ROOT}/index.md` for project structure. Do NOT load additional KB files. If `{KB_ROOT}/` missing → continue w/o KB.
 
 ## §OBJ
 

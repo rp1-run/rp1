@@ -7,6 +7,10 @@ arguments:
     type: string
     required: true
     description: "Freeform development request"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root returned by the parent workflow bootstrap"
   - name: WORK_ROOT
     type: string
     required: true
@@ -31,6 +35,10 @@ Analyze request, load KB, assess scope, generate task breakdown. Write combined 
 {{REQUEST from prompt}}
 </request>
 
+<kb_root>
+{{KB_ROOT from prompt}}
+</kb_root>
+
 <work_root>
 {{WORK_ROOT from prompt}}
 </work_root>
@@ -52,7 +60,7 @@ Default: Feature (if no match).
 
 ### 1.2 Load KB Files
 
-Always read: `.rp1/context/index.md`
+Always read: `{KB_ROOT}/index.md`
 
 Then by type:
 

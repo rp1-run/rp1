@@ -47,6 +47,8 @@ Audits PRD documents against implementation evidence, identifies stale or comple
 {% dispatch_agent "rp1-dev:blueprint-auditor" %}
 MODE: audit
 PRD_NAME: {PRD_NAME}
+KB_ROOT: {kbRoot}
+WORK_ROOT: {workRoot}
 {% enddispatch_agent %}
 
 ### Step 2: Handle Audit Response

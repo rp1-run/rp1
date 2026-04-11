@@ -228,6 +228,8 @@ Generate PR visualization.
   BASE_BRANCH: {{base_branch}}
   REVIEW_DEPTH: quick
   STANDALONE: false
+  KB_ROOT: {kbRoot}
+  WORK_ROOT: {workRoot}
 {% enddispatch_agent %}
 
 Capture `VISUAL_CONTENT` (raw markdown with Mermaid diagrams)
@@ -255,6 +257,7 @@ Parse `units`, store counts. Fail -> Abort w/ error.
    {% dispatch_agent "rp1-dev:pr-sub-reviewer" %}
    Analyze review unit across 5 dimensions.
      UNIT_JSON: {{stringify(unit_with_diff)}}
+     KB_ROOT: {kbRoot}
      INTENT_JSON: {{stringify(intent_model)}}
      PR_FILES: {{stringify(file_list)}}
      Return JSON with findings and summary.
@@ -272,6 +275,7 @@ Parse `units`, store counts. Fail -> Abort w/ error.
    {% dispatch_agent "rp1-dev:pr-review-synthesizer" %}
    Perform holistic verification.
      INTENT_JSON: {{stringify(intent_model)}}
+     KB_ROOT: {kbRoot}
      FILE_LIST: {{stringify(file_list)}}
      SUMMARIES_JSON: {{stringify(all_summaries)}}
      FINDINGS_SUMMARY: {{stringify(findings_summary)}}

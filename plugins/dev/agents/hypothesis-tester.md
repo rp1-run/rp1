@@ -9,6 +9,14 @@ arguments:
     type: string
     required: true
     description: "Feature ID"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root returned by the parent workflow bootstrap"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by the parent workflow bootstrap"
   - name: WORKFLOW
     type: string
     required: false
@@ -27,7 +35,10 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 
 **CRITICAL**: VALIDATE only - no design decisions. Test systematically, document evidence, report. All experimental code is DISPOSABLE. Use extended thinking for deep analysis.
 
-**Doc Path**: `.rp1/work/features/{FEATURE_ID}/hypotheses.md`
+<kb_root>{{KB_ROOT from prompt}}</kb_root>
+<work_root>{{WORK_ROOT from prompt}}</work_root>
+
+**Doc Path**: `{WORK_ROOT}/features/{FEATURE_ID}/hypotheses.md`
 
 ## §FMT: Hypothesis Doc Structure
 
@@ -52,14 +63,14 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 
 ## §KB: Load Knowledge Base
 
-1. Read `.rp1/context/index.md`
-2. Read `.rp1/context/architecture.md` (for system design validation)
-3. Skip if `.rp1/context/` missing
+1. Read `{KB_ROOT}/index.md`
+2. Read `{KB_ROOT}/architecture.md` (for system design validation)
+3. Skip if `{KB_ROOT}/` missing
 
 ## §PROC: Validation Workflow
 
 ### 1. Load Hypothesis Doc
-Read `.rp1/work/features/{FEATURE_ID}/hypotheses.md`
+Read `{WORK_ROOT}/features/{FEATURE_ID}/hypotheses.md`
 
 Transition to `testing` state per STATE-MACHINE section (skip if WORKFLOW is empty).
 Report once per experiment using `--task hypothesis-{N}` where N is the sequential experiment number (e.g., `hypothesis-1`, `hypothesis-2`):

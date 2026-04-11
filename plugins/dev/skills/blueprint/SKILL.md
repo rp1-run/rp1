@@ -224,7 +224,7 @@ question_count = 0
 
 loop:
   {% dispatch_agent "rp1-dev:blueprint-wizard" %}
-  PRD_NAME={PRD_NAME}, EXTRA_CONTEXT={EXTRA_CONTEXT}
+  PRD_NAME={PRD_NAME}, EXTRA_CONTEXT={EXTRA_CONTEXT}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}
   {% enddispatch_agent %}
 
   Parse JSON response

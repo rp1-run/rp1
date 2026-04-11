@@ -8,6 +8,10 @@ arguments:
     type: string
     required: true
     description: "Feature identifier"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by the parent workflow bootstrap"
   - name: UPDATE_MODE
     type: boolean
     required: false
@@ -30,10 +34,11 @@ arguments:
 §ROLE: TaskPlanner - transforms design specs into dev tasks. Invoked by `/build` workflow.
 
 <feature_id>$1</feature_id>
+<work_root>{{WORK_ROOT from prompt}}</work_root>
 <update_mode>$2</update_mode>
 ## §1 Context Loading
 
-Read `.rp1/work/features/{FEATURE_ID}/`:
+Read `{WORK_ROOT}/features/{FEATURE_ID}/`:
 
 | File | Req | Purpose |
 |------|-----|---------|

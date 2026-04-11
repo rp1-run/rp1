@@ -9,6 +9,14 @@ arguments:
     required: false
     default: ""
     description: "Feature ID (required unless QUICK_BUILD_PATH set)"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root returned by the parent workflow bootstrap"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by the parent workflow bootstrap"
   - name: QUICK_BUILD_PATH
     type: string
     required: false
@@ -55,6 +63,14 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 {{FEATURE_ID from prompt}}
 </feature_id>
 
+<kb_root>
+{{KB_ROOT from prompt}}
+</kb_root>
+
+<work_root>
+{{WORK_ROOT from prompt}}
+</work_root>
+
 <quick_build_path>
 {{QUICK_BUILD_PATH from prompt}}
 </quick_build_path>
@@ -87,7 +103,7 @@ Use `<thinking>` blocks for analysis.
 
 ### 1.1 KB Files
 
-Read from `.rp1/context/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`
+Read from `{KB_ROOT}/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`
 
 If missing: warn, continue.
 
@@ -104,7 +120,7 @@ No separate requirements.md or design.md for quick-builds (all context is in the
 
 **ELSE** (Feature mode):
 
-Read from `.rp1/work/features/{FEATURE_ID}/`:
+Read from `{WORK_ROOT}/features/{FEATURE_ID}/`:
 
 - `requirements.md`: reqs + acceptance criteria
 - `design.md`: tech specs

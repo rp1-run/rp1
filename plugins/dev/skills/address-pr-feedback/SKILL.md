@@ -85,6 +85,7 @@ Invoke the pr-feedback-collector agent to gather and classify PR comments:
 {% dispatch_agent "rp1-dev:pr-feedback-collector" %}
 FEATURE_ID: {FEATURE_ID or derived from PR}
 PR_NUMBER: {PR_IDENTIFIER if numeric, else auto-detect}
+WORK_ROOT: {workRoot}
 {% enddispatch_agent %}
 
 Wait for collection to complete. The agent produces `.rp1/work/pr-reviews/{identifier}-feedback-{NNN}.md`.

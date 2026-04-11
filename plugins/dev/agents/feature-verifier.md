@@ -8,6 +8,14 @@ arguments:
     type: string
     required: true
     description: "Feature to verify"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root returned by the parent workflow bootstrap"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by the parent workflow bootstrap"
   - name: MILESTONE_ID
     type: string
     required: false
@@ -46,6 +54,14 @@ $2
 $1
 </feature_id>
 
+<kb_root>
+{{KB_ROOT from prompt}}
+</kb_root>
+
+<work_root>
+{{WORK_ROOT from prompt}}
+</work_root>
+
 <test_scope>
 $3
 </test_scope>
@@ -65,7 +81,7 @@ Before executing the workflow, you must systematically plan your verification ap
    ```
 
 2. **File Path Planning**: Determine exact paths for:
-   - Feature directory (`.rp1/work/features/{FEATURE_ID}/`)
+   - Feature directory (`{WORK_ROOT}/features/{FEATURE_ID}/`)
    - requirements.md file
    - design.md file
    - tasks.md file (optional)
@@ -109,10 +125,10 @@ After your planning, execute these workflow steps:
 
 ## Step 2: Knowledge Base Loading
 
-- Read `.rp1/context/index.md` to understand project structure
-- Read `.rp1/context/patterns.md` for acceptance criteria verification
+- Read `{KB_ROOT}/index.md` to understand project structure
+- Read `{KB_ROOT}/patterns.md` for acceptance criteria verification
 - Do NOT load all KB files. Feature verification needs patterns context.
-- If `.rp1/context/` doesn't exist, log warning and suggest running `/knowledge-build` first
+- If `{KB_ROOT}/` doesn't exist, log warning and suggest running `/knowledge-build` first
 - Track whether KB context is available
 
 ## Step 2.5: Field Notes Loading

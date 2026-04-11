@@ -9,6 +9,14 @@ arguments:
     required: false
     default: ""
     description: "Feature identifier (mutually exclusive with QUICK_BUILD_PATH)"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root returned by the parent workflow bootstrap"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by the parent workflow bootstrap"
   - name: QUICK_BUILD_PATH
     type: string
     required: false
@@ -49,6 +57,14 @@ The orchestrator provides these parameters in the prompt:
 {{FEATURE_ID from prompt}}
 </feature_id>
 
+<kb_root>
+{{KB_ROOT from prompt}}
+</kb_root>
+
+<work_root>
+{{WORK_ROOT from prompt}}
+</work_root>
+
 <quick_build_path>
 {{QUICK_BUILD_PATH from prompt}}
 </quick_build_path>
@@ -67,7 +83,7 @@ Load verification context. Use `<thinking>` blocks for analysis.
 
 ### 1.1 Selective KB Loading
 
-Read these files from `.rp1/context/` (if they exist):
+Read these files from `{KB_ROOT}/` (if they exist):
 
 | File | Purpose |
 |------|---------|
@@ -92,7 +108,7 @@ Read the quick-build artifact at `{QUICK_BUILD_PATH}`:
 
 **Else** (feature mode):
 
-Read these files from `.rp1/work/features/{FEATURE_ID}/`:
+Read these files from `{WORK_ROOT}/features/{FEATURE_ID}/`:
 
 | File | Purpose |
 |------|---------|

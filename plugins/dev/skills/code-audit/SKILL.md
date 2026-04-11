@@ -13,6 +13,26 @@ metadata:
   created: 2025-10-25
   updated: 2026-02-26
   author: cloud-on-prem/rp1
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: false
+      default: ""
+      description: "Optional feature identifier to focus the audit"
+    - name: AUDIT_SCOPE
+      type: string
+      required: false
+      default: "full"
+      description: "Optional audit scope"
+    - name: PATTERN_STRICTNESS
+      type: enum
+      required: false
+      default: "standard"
+      description: "Pattern strictness level"
+      enum_values:
+        - "relaxed"
+        - "standard"
+        - "strict"
   sub_agents:
     - "rp1-dev:code-auditor"
 ---
@@ -24,7 +44,11 @@ This command invokes the **code-auditor** sub-agent for pattern and quality anal
 Invoke the code-auditor agent:
 
 {% dispatch_agent "rp1-dev:code-auditor" %}
-
+FEATURE_ID: {FEATURE_ID}
+AUDIT_SCOPE: {AUDIT_SCOPE}
+PATTERN_STRICTNESS: {PATTERN_STRICTNESS}
+KB_ROOT: {kbRoot}
+{% enddispatch_agent %}
 The agent will:
 - Discover existing project patterns and conventions
 - Detect pattern violations and inconsistencies

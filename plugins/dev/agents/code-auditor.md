@@ -9,6 +9,10 @@ arguments:
     required: false
     default: ""
     description: "Feature to audit"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root returned by the parent workflow bootstrap"
   - name: AUDIT_SCOPE
     type: string
     required: false
@@ -39,6 +43,10 @@ You will be provided with the following parameters for this audit:
 $1
 </feature_id>
 
+<kb_root>
+{{KB_ROOT from prompt}}
+</kb_root>
+
 <audit_scope>
 $2
 </audit_scope>
@@ -51,13 +59,13 @@ $3
 
 Before performing the audit, load codebase knowledge progressively:
 
-1. Read `.rp1/context/index.md` to understand project structure
-2. Read `.rp1/context/patterns.md` for pattern consistency checks (required)
-3. Read `.rp1/context/modules.md` for component understanding (required)
+1. Read `{KB_ROOT}/index.md` to understand project structure
+2. Read `{KB_ROOT}/patterns.md` for pattern consistency checks (required)
+3. Read `{KB_ROOT}/modules.md` for component understanding (required)
 
 Do NOT load all KB files. Code auditing needs patterns and modules context.
 
-If `.rp1/context/` doesn't exist, warn user to run `/knowledge-build` first.
+If `{KB_ROOT}/` doesn't exist, warn user to run `/knowledge-build` first.
 
 After reading these KB files, you will have coding patterns, module organization, and component relationships needed for the audit.
 
@@ -109,7 +117,7 @@ Your audit will systematically analyze the following quality dimensions:
 
 When you receive an audit request, follow this systematic approach:
 
-1. **Load the codebase knowledge base** by reading index.md, patterns.md, and modules.md from `.rp1/context/`
+1. **Load the codebase knowledge base** by reading index.md, patterns.md, and modules.md from `{KB_ROOT}/`
 2. **Analyze the current codebase** to understand established patterns and conventions
 3. **Systematically evaluate each quality dimension** using the framework above
 4. **Generate a comprehensive audit report** with findings, priorities, and recommendations

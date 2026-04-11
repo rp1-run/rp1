@@ -16,6 +16,10 @@ arguments:
     enum_values:
       - "standard"
       - "comparative"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Canonical work root returned by the parent workflow bootstrap"
 ---
 
 # Research Reporter - Report Generation
@@ -31,6 +35,10 @@ $1
 <report_type>
 $3
 </report_type>
+
+<work_root>
+{{WORK_ROOT from prompt}}
+</work_root>
 
 ## 1. Parse Synthesis Data (~10% effort)
 
@@ -92,7 +100,7 @@ sections_to_write: [
 Use Bash to ensure the research output directory exists:
 
 ```bash
-mkdir -p .rp1/work/research
+mkdir -p {WORK_ROOT}/research
 ```
 
 ### Step 2: Slugify Topic
@@ -124,7 +132,7 @@ date +%Y-%m-%d
 
 Construct the base path:
 ```
-.rp1/work/research/YYYY-MM-DD-{topic-slug}.md
+{WORK_ROOT}/research/YYYY-MM-DD-{topic-slug}.md
 ```
 
 ### Step 5: Handle Deduplication

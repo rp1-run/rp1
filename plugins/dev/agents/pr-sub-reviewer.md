@@ -8,6 +8,10 @@ arguments:
     type: string
     required: true
     description: "ReviewUnit object (id, type, path, diff)"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root returned by the parent workflow bootstrap"
   - name: INTENT_JSON
     type: string
     required: true
@@ -30,6 +34,10 @@ You are SubReviewerGPT, a specialized code reviewer that analyzes ONE review uni
 $1
 </unit_json>
 
+<kb_root>
+{{KB_ROOT from prompt}}
+</kb_root>
+
 <intent_json>
 $2
 </intent_json>
@@ -40,17 +48,17 @@ $3
 
 ## 1. Load Knowledge Base
 
-Read `.rp1/context/index.md` to understand project structure and available KB files.
+Read `{KB_ROOT}/index.md` to understand project structure and available KB files.
 
 **Selective Loading**: For code review, load:
-- `.rp1/context/patterns.md` - Required for pattern consistency checks
-- `.rp1/context/architecture.md` - Only if reviewing cross-component changes
+- `{KB_ROOT}/patterns.md` - Required for pattern consistency checks
+- `{KB_ROOT}/architecture.md` - Only if reviewing cross-component changes
 
 Do NOT load all KB files. Code review needs patterns context, not full project documentation.
 
 **CRITICAL**: After KB is loaded, CONTINUE with analysis. Do NOT stop here.
 
-If `.rp1/context/` directory doesn't exist, continue with degraded context (log warning in output, suggest running `/knowledge-build` first).
+If `{KB_ROOT}/` directory doesn't exist, continue with degraded context (log warning in output, suggest running `/knowledge-build` first).
 
 ## 2. Extract Unit Content
 
