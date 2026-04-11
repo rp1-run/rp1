@@ -69,7 +69,7 @@ Pick the workflow that matches the outcome you want. RP1 keeps the artifact trai
   <div class="try-card">
     <p class="try-card-title">Investigate a bug</p>
     <p>Move from a vague failure to an evidence-backed root cause instead of bouncing through ad hoc prompts.</p>
-    <pre><code class="language-bash">/code-investigate "bug-123" "Login fails"</code></pre>
+    <pre><code class="language-bash">/code-investigate --issue-id login-fails "Login fails intermittently in production"</code></pre>
   </div>
   <div class="try-card">
     <p class="try-card-title">Build project context</p>

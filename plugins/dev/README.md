@@ -98,7 +98,7 @@ The `/build` command orchestrates the complete 6-step feature development pipeli
 
 ### Code Quality (5)
 - `/code-check [feature-id]` - Fast code hygiene validation (lints, formatters, tests, coverage)
-- `/code-investigate [problem-description...]` - Bug investigation and root cause analysis
+- `/code-investigate [problem-description...] [--issue-id slug]` - Bug investigation and root cause analysis
 - `/code-audit [feature-id]` - Code quality and pattern analysis
 - `/code-clean-comments` - Remove unnecessary comments
 - `/build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-commit] [--git-push]` - Quick iteration development with scope gating and optional review
@@ -109,7 +109,7 @@ The `/build` command orchestrates the complete 6-step feature development pipeli
 /build-fast "Add input validation" --confirm-plan    # Review plan before implementation
 /build-fast "Refactor auth module" --review          # Enable task-reviewer validation
 /build-fast "Update API endpoints" --confirm-plan --review  # Both checkpoints
-/code-investigate "Users report timeout errors on large file uploads"
+/code-investigate --issue-id upload-timeouts "Users report timeout errors on large file uploads"
 ```
 
 **Build-fast flags**:
@@ -206,4 +206,3 @@ Current: 3.0.0
 ## Requires
 
 - rp1-base >= 2.0.0
-

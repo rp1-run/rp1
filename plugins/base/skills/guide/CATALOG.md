@@ -23,7 +23,7 @@
 
 | Skill | Plugin | Description | Key Args | Workflow | Run Policy | Identity Args |
 |-------|--------|-------------|----------|----------|------------|---------------|
-| `/code-investigate` | dev | Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes. | `ISSUE_ID` |  |  |  |
+| `/code-investigate` | dev | Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes. | `PROBLEM_STATEMENT`, `ISSUE_ID` |  |  |  |
 | `/validate-hypothesis` | dev | Validate design hypotheses via code experiments, codebase analysis, and external research. | `FEATURE_ID` |  |  |  |
 
 ## Quality
