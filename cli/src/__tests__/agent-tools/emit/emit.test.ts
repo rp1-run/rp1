@@ -164,6 +164,37 @@ describe("emit end-to-end", () => {
 
 			expect(run?.flow).toBe("build-fast");
 		});
+
+		test("rejects workflow mismatches before mutating legacy unknown-flow runs", async () => {
+			const runId = `run-unknown-flow-${Date.now()}`;
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: runId,
+				flow: "unknown",
+				featureId: "feat",
+				projectPath: tempDir,
+			});
+
+			const error = await expectTaskLeft(
+				executeEmit(
+					makeInput({
+						type: "btw_update",
+						runId,
+						workflow: "build",
+						data: {
+							message: "should fail before mutating run flow",
+							feature: "feat",
+						},
+					}),
+				),
+			);
+
+			expect(getErrorMessage(error)).toContain(
+				`run "${runId}" has flow "unknown" but --workflow "build" was provided`,
+			);
+			expect(getRunById(db, runId)?.flow).toBe("unknown");
+		});
 	});
 
 	describe("artifact_registered events", () => {

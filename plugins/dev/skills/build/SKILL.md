@@ -301,14 +301,27 @@ Extract `task_units` array.
 For each task unit, run builder then reviewer:
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, FEEDBACK={feedback}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:task-reviewer" %}
 FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-Loop logic: attempt=1, max=2. If reviewer reports SUCCESS: move to next unit. If FAILURE and attempt < max: pass feedback to builder, retry. If retrying and `GIT_COMMIT=true`, set `REWRITE_COMMITS=true` so the builder can amend the prior commit into proper atomic format. Else: escalate (AFK: mark blocked; Interactive: prompt user).
+Loop logic: attempt=1, max=2. If reviewer reports SUCCESS: move to next unit.
+
+If FAILURE and attempt < max:
+
+1. Extract `issues` and `summary` from reviewer response.
+2. Re-spawn task-builder with review feedback. If `GIT_COMMIT=true`, pass `REWRITE_COMMITS=true` so the builder amends the prior commit into a clean atomic rewrite:
+
+{% dispatch_agent "rp1-dev:task-builder" %}
+FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, REWRITE_COMMITS={GIT_COMMIT}, PREVIOUS_FEEDBACK={reviewer summary and issues}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
+
+3. Re-run task-reviewer for the same task unit.
+
+Else: escalate (AFK: mark blocked; Interactive: prompt user).
 
 ### §4.3 Post-Build
 

@@ -70,7 +70,7 @@ Before any shell command that may change the working directory, run the tracked 
 rp1 agent-tools workflow-bootstrap \
   --name {{ artifact.workflowTarget.name }} \
   --schema-path {{ artifact.workflowTarget.schemaPath }} \
-{% if artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}  --args "$ARGUMENTS" \
+{% if artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}  --args "the arguments provided by the user in their prompt" \
 {% endif %}  --project-root "$PWD" \
   --harness {{ platform }}
 ```

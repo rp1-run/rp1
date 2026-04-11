@@ -462,8 +462,12 @@ describeWithLiquid("template rendering", () => {
 			expect(result).toContain(
 				"--schema-path plugins/dev/skills/build/SKILL.md",
 			);
+			expect(result).toContain(
+				'--args "the arguments provided by the user in their prompt"',
+			);
 			expect(result).toContain("| RUN_RESUMED | `data.run.resumed` |");
 			expect(result).toContain("Do not call `resolve-args`");
+			expect(result).not.toContain("$ARGUMENTS");
 			expect(result).not.toContain("Run the argument resolver");
 		});
 
