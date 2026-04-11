@@ -398,4 +398,74 @@ describe("useNotifications", () => {
 			informationalCount: 1,
 		});
 	});
+
+	test("clears loading when a background refresh settles after an overlapping visible load", async () => {
+		notifications = [];
+		let resolveInitialRequest!: (
+			value: ReturnType<typeof createNotificationsPageResponse>,
+		) => void;
+		const initialRequest = new Promise<
+			ReturnType<typeof createNotificationsPageResponse>
+		>((resolve) => {
+			resolveInitialRequest = resolve;
+		});
+		let requestCount = 0;
+
+		fetchMock = mock((input: RequestInfo | URL, init?: RequestInit) => {
+			const url = new URL(String(input), "http://localhost");
+			if (
+				url.pathname === "/api/v2/notifications" &&
+				init?.method === undefined
+			) {
+				requestCount += 1;
+
+				if (requestCount === 1) {
+					return initialRequest;
+				}
+
+				return Promise.resolve(createNotificationsPageResponse([]));
+			}
+
+			throw new Error(`Unexpected fetch request: ${String(input)}`);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { useNotifications } = await loadUseNotifications();
+		const { result } = renderHook(() => useNotifications());
+
+		await waitFor(() => {
+			expect(notificationListeners).toHaveLength(1);
+		});
+		expect(result.current.isLoading).toBe(true);
+
+		act(() => {
+			for (const listener of notificationListeners) {
+				listener({
+					type: "notification:dismissed",
+					notificationId: 7,
+				});
+			}
+		});
+
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+		});
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+		expect(result.current.notifications).toEqual([]);
+		expect(result.current.summary).toEqual({
+			totalCount: 0,
+			actionRequiredCount: 0,
+			attentionCount: 0,
+			informationalCount: 0,
+		});
+
+		await act(async () => {
+			resolveInitialRequest(createNotificationsPageResponse([]));
+		});
+
+		expect(result.current.isLoading).toBe(false);
+	});
 });

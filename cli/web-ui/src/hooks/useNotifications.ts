@@ -81,6 +81,7 @@ export function useNotifications(): UseNotificationsResult {
 	);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
+	const loadingRequestIdRef = useRef<number | null>(null);
 	const latestRequestIdRef = useRef(0);
 	const { onNotification, projectId } = useWebSocket();
 
@@ -90,6 +91,7 @@ export function useNotifications(): UseNotificationsResult {
 			const currentProjectId = projectId;
 
 			if (showLoading) {
+				loadingRequestIdRef.current = requestId;
 				setIsLoading(true);
 			}
 
@@ -152,7 +154,13 @@ export function useNotifications(): UseNotificationsResult {
 						: new Error(String(fetchError)),
 				);
 			} finally {
-				if (showLoading && requestId === latestRequestIdRef.current) {
+				const loadingRequestId = loadingRequestIdRef.current;
+				if (
+					loadingRequestId !== null &&
+					requestId >= loadingRequestId &&
+					requestId === latestRequestIdRef.current
+				) {
+					loadingRequestIdRef.current = null;
 					setIsLoading(false);
 				}
 			}
