@@ -357,17 +357,23 @@ eval-setup:
     cd evals && bun install --frozen-lockfile
 
 # Directory structure: evals/suites/{plugin}/{suite}/evals.yaml
-# Default harness: claude code. Override with --harness=opencode.
+# Public entrypoint runs inside Docker via rp1-dev. Use eval-run-local only
+# from inside the container.
 #
 # Examples:
-#   just eval-run                          # run all suites (claude harness)
-#   just eval-run rp1-dev/build-fast       # run specific suite
-#   just eval-run --harness=opencode       # run all with opencode
+#   just eval-run                          # run all suites in Docker (claude harness)
+#   just eval-run rp1-dev/build-fast       # run a specific suite in Docker
+#   just eval-run --harness=opencode       # run all with opencode in Docker
 #   just eval-run --attest --commit        # run all, attest passing, commit
 #   just eval-run --platform=opencode      # attest for opencode platform
+#   just eval-run-local rp1-dev/build-fast # run inside the current environment
 
-# Run eval suites. Optional: suite path, --harness=opencode, --platform=<platform>, --attest, --commit, --verbose
+# Run eval suites in Docker. Optional: suite path, --harness=opencode, --platform=<platform>, --attest, --commit, --verbose
 eval-run *args:
+    ./docker/eval-run.sh {{args}}
+
+# Run eval suites in the current environment. Container-only entrypoint for Dockerized evals.
+eval-run-local *args:
     #!/usr/bin/env bash
     set -e
     repo_root="$(pwd)"

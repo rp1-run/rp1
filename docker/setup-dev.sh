@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # setup-dev.sh — Bootstrap the Active Developer container from mounted rp1 source.
 # Runs automatically when the dev container starts. Builds the local rp1
-# binary, installs plugins to all harness platforms, then drops into zsh.
+# binary, installs plugins to all harness platforms, then runs the requested
+# command or drops into zsh.
 
 set -euo pipefail
-
-# ── Verify mount ────────────────────────────────────────────────────────────
 
 if [ ! -d "/src/rp1" ]; then
     echo ""
@@ -32,13 +31,9 @@ echo ""
 echo "━━━ rp1 dev container setup ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# ── Install CLI dependencies ────────────────────────────────────────────────
-
 echo "[1/3] Installing CLI dependencies..."
 cd /src/rp1/cli && bun install
 echo ""
-
-# ── Build local rp1 binary ──────────────────────────────────────────────────
 
 echo "[2/3] Building rp1 from local source..."
 # Bun's --compile uses atomic rename which fails on virtiofs mounts.
@@ -59,8 +54,6 @@ cd /src/rp1
 rm -rf "$BUILD_TMP"
 echo ""
 
-# ── Ensure binary is on PATH ────────────────────────────────────────────────
-
 export PATH="/src/rp1/bin:$PATH"
 
 if ! command -v rp1 &>/dev/null; then
@@ -74,14 +67,9 @@ fi
 echo "rp1 binary: $(rp1 --version)"
 echo ""
 
-# ── Install plugins to detected harness platforms ─────────────────────────
-
 echo "[3/3] Installing plugins to detected platforms..."
-# Install to whichever harness CLIs are available; skip if none found
 rp1 install -y || echo "Warning: plugin install failed (no harness CLIs detected). Install Claude Code or OpenCode, then run 'rp1 install -y'."
 echo ""
-
-# ── Done ────────────────────────────────────────────────────────────────────
 
 echo "━━━ Setup complete ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
@@ -90,6 +78,8 @@ echo "  mount:  /src/rp1"
 echo "  target: ~/target/zod-to-json-schema"
 echo ""
 
-# ── Drop into zsh ───────────────────────────────────────────────────────────
+if [ "$#" -gt 0 ]; then
+    exec "$@"
+fi
 
 exec zsh

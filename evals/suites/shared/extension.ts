@@ -85,11 +85,9 @@ function resetWorkspace(workspaceDir: string, remoteDir: string): void {
 
 	mkdirSync(workspaceDir, { recursive: true });
 
-	// Copy fixture project if it exists, otherwise create minimal structure
 	try {
 		copyDirSync(FIXTURE_DIR, workspaceDir);
 	} catch {
-		// Fallback: create minimal bun project structure
 		mkdirSync(`${workspaceDir}/.rp1/context`, { recursive: true });
 		mkdirSync(`${workspaceDir}/src`, { recursive: true });
 		writeFileSync(`${workspaceDir}/README.md`, "# Test Project\n");
@@ -178,7 +176,6 @@ function resetWorkspace(workspaceDir: string, remoteDir: string): void {
 		stdio: "pipe",
 	});
 
-	// Push to local remote to establish tracking
 	execSync("git push -u origin main", {
 		cwd: workspaceDir,
 		stdio: "pipe",
@@ -253,6 +250,10 @@ interface TestContext {
 	};
 }
 
+function shouldUseDockerEvalDefaults(): boolean {
+	return process.env.RP1_EVAL_DOCKER === "1";
+}
+
 export async function extensionHook(
 	hookName: string,
 	context: TestContext,
@@ -271,12 +272,13 @@ export async function extensionHook(
 		const count = getCommitCount(workspaceDir);
 		const remoteHead = getRemoteHead(remoteDir);
 
-		// Isolate eval DB writes from production ~/.rp1/rp1.db
-		// Single shared DB for all eval runs (no per-test DB needed)
-		process.env.RP1_DB = join(EVAL_BASE_DIR, "rp1.db");
-
-		// Signal eval mode to prevent project registry pollution
-		process.env.RP1_EVAL_MODE = "true";
+		if (shouldUseDockerEvalDefaults()) {
+			delete process.env.RP1_DB;
+			delete process.env.RP1_EVAL_MODE;
+		} else {
+			process.env.RP1_DB = join(EVAL_BASE_DIR, "rp1.db");
+			process.env.RP1_EVAL_MODE = "true";
+		}
 
 		// Inject working_dir for stock provider
 		// test.options is spread flat into prompt.config, which the provider
@@ -284,7 +286,6 @@ export async function extensionHook(
 		context.test.options = context.test.options ?? {};
 		context.test.options.working_dir = workspaceDir;
 
-		// Inject paths into vars for assertion use
 		context.test.vars.EVAL_BASE_DIR = baseDir;
 		context.test.vars.WORKSPACE_DIR = workspaceDir;
 		context.test.vars.REMOTE_DIR = remoteDir;
