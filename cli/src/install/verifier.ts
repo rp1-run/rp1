@@ -549,7 +549,9 @@ const getUserHomeDir = (): string => process.env.HOME ?? homedir();
 const buildRuntimeSkillMetadataLookupFromProject = async (): Promise<
 	Map<string, InstalledSkillDiscoveryMetadata>
 > => {
-	const resolvedRoot = await resolveRp1Root(process.cwd())();
+	const resolvedRoot = await resolveRp1Root(process.cwd(), {
+		allowHomeProjectRoot: true,
+	})();
 	if (E.isLeft(resolvedRoot)) {
 		return new Map();
 	}
