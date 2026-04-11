@@ -322,6 +322,52 @@
   margin: 0 0.45rem;
 }
 
+/* Discord header link */
+.md-header__source {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.md-source--discord {
+  font-size: 0.65rem;
+}
+
+.md-source--discord .md-source__repository__label {
+  display: inline;
+}
+
+@media (max-width: 768px) {
+  .md-source--discord .md-source__repository__label {
+    display: none;
+  }
+}
+
+/* Discord CTA button */
+.md-typeset .md-button--discord {
+  border-color: #5865F2;
+  color: #5865F2;
+  background-color: transparent;
+}
+
+.md-typeset .md-button--discord:hover {
+  border-color: #5865F2;
+  background-color: #5865F2;
+  color: #ffffff;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--discord {
+  border-color: #7289DA;
+  color: #7289DA;
+  background-color: transparent;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--discord:hover {
+  border-color: #7289DA;
+  background-color: #7289DA;
+  color: #ffffff;
+}
+
 /* Mermaid diagram centering */
 .md-typeset .mermaid {
   text-align: center;
