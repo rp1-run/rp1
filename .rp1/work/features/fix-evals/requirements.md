@@ -242,10 +242,10 @@ It does not change prompt or command compatibility requirements; the change is s
 - **New Tasks Required**: Not recorded because `tasks.md` is missing; implementation must explicitly verify restart/shutdown isolation, runtime-local PID and registry ownership, eval-only port ownership, and recovery-state scoping.
 
 ### Related Sections
-- `REQ-004: Independent Evaluation Sessions`
-- `REQ-005: Interactive Surface Protection`
-- `REQ-006: Runtime Identification`
-- `REQ-007: Safe Evaluation Cleanup`
+- `REQ-004: Host Daemon Non-Interference`
+- `REQ-005: Reuse Existing Docker Infrastructure`
+- `REQ-006: Debuggable Containerized Evals`
+- `REQ-007: Safe Cleanup`
 - `6.2 Security Requirements`
 
 ---
