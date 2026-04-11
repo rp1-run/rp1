@@ -13,14 +13,46 @@ default:
 start-docker-stable:
     #!/usr/bin/env bash
     set -e
+    repo_root="$(pwd)"
+    worktree_git_mounts=()
+    abs_path() {
+        local target="$1"
+        if [ -d "$target" ]; then
+            (
+                cd "$target"
+                pwd -P
+            )
+            return
+        fi
+
+        local dir
+        dir="$(dirname "$target")"
+        (
+            cd "$dir"
+            printf '%s/%s\n' "$(pwd -P)" "$(basename "$target")"
+        )
+    }
+    if git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        git_dir="$(git -C "$repo_root" rev-parse --git-dir)"
+        git_common_dir="$(git -C "$repo_root" rev-parse --git-common-dir)"
+        git_dir_abs="$(cd "$repo_root" && abs_path "$git_dir")"
+        git_common_dir_abs="$(cd "$repo_root" && abs_path "$git_common_dir")"
+        if [ "$git_dir_abs" != "$git_common_dir_abs" ]; then
+            worktree_git_mounts+=(
+                -v "${repo_root}:${repo_root}"
+                -v "${git_common_dir_abs}:${git_common_dir_abs}"
+            )
+        fi
+    fi
     echo "Building stable image (cached layers reused)..."
     docker build --platform linux/arm64 --target stable -t rp1-stable -f docker/Dockerfile .
     echo "Starting stable container (clean room — run test-install.sh to install rp1)..."
     docker run --rm -it \
         --platform linux/arm64 \
         -p 17710:7710 \
-        -v "$(pwd)":/src/rp1 \
+        -v "${repo_root}":/src/rp1 \
         -v rp1-dev-evals-node_modules:/src/rp1/evals/node_modules \
+        "${worktree_git_mounts[@]}" \
         -e ANTHROPIC_API_KEY \
         -e OPENAI_API_KEY \
         -e GITHUB_TOKEN \
@@ -30,14 +62,46 @@ start-docker-stable:
 start-docker-dev:
     #!/usr/bin/env bash
     set -e
+    repo_root="$(pwd)"
+    worktree_git_mounts=()
+    abs_path() {
+        local target="$1"
+        if [ -d "$target" ]; then
+            (
+                cd "$target"
+                pwd -P
+            )
+            return
+        fi
+
+        local dir
+        dir="$(dirname "$target")"
+        (
+            cd "$dir"
+            printf '%s/%s\n' "$(pwd -P)" "$(basename "$target")"
+        )
+    }
+    if git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        git_dir="$(git -C "$repo_root" rev-parse --git-dir)"
+        git_common_dir="$(git -C "$repo_root" rev-parse --git-common-dir)"
+        git_dir_abs="$(cd "$repo_root" && abs_path "$git_dir")"
+        git_common_dir_abs="$(cd "$repo_root" && abs_path "$git_common_dir")"
+        if [ "$git_dir_abs" != "$git_common_dir_abs" ]; then
+            worktree_git_mounts+=(
+                -v "${repo_root}:${repo_root}"
+                -v "${git_common_dir_abs}:${git_common_dir_abs}"
+            )
+        fi
+    fi
     echo "Building dev image (cached layers reused)..."
     docker build --platform linux/arm64 --target dev -t rp1-dev -f docker/Dockerfile .
     echo "Starting dev container with local source mounted..."
     docker run --rm -it \
         --platform linux/arm64 \
         -p 17710:7710 \
-        -v "$(pwd)":/src/rp1 \
+        -v "${repo_root}":/src/rp1 \
         -v rp1-dev-evals-node_modules:/src/rp1/evals/node_modules \
+        "${worktree_git_mounts[@]}" \
         -e ANTHROPIC_API_KEY \
         -e OPENAI_API_KEY \
         -e GITHUB_TOKEN \

@@ -69,6 +69,15 @@ async function readArgsFile(path: string): Promise<string[]> {
 		.filter((line) => line.length > 0);
 }
 
+async function getGitRevParse(arg: string): Promise<string> {
+	const result = await runCommand("git", ["rev-parse", arg], {
+		cwd: REPO_ROOT,
+		env: process.env,
+	});
+	expect(result.exitCode).toBe(0);
+	return resolve(REPO_ROOT, result.stdout.trim());
+}
+
 afterEach(async () => {
 	await Promise.all(
 		tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
@@ -152,6 +161,14 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 		expect(runArgs).toContain("--harness=opencode");
 		expect(runArgs).not.toContain("-p");
 		expect(runArgs).not.toContain("17710:7710");
+
+		const gitDir = await getGitRevParse("--git-dir");
+		const gitCommonDir = await getGitRevParse("--git-common-dir");
+		if (gitDir !== gitCommonDir) {
+			expect(runArgs).toContain(`${REPO_ROOT}:${REPO_ROOT}`);
+			expect(runArgs).toContain(`${gitCommonDir}:${gitCommonDir}`);
+		}
+
 		expect(runEnv).toContain("ANTHROPIC_API_KEY=anthropic-test");
 		expect(runEnv).toContain("GITHUB_TOKEN=github-test");
 		expect(runEnv).not.toContain("RP1_DB=/tmp/host-rp1.db");
@@ -159,21 +176,66 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 	});
 
 	test("keeps the interactive debug recipe on host port 17710", async () => {
-		const result = await runCommand("just", ["--show", "start-docker-dev"], {
+		const stubRoot = await createTempDir("rp1-docker-dev-recipe-");
+		const binDir = join(stubRoot, "bin");
+		const logDir = join(stubRoot, "logs");
+		const dockerStubPath = join(binDir, "docker");
+
+		await mkdir(binDir, { recursive: true });
+		await mkdir(logDir, { recursive: true });
+		await writeFile(
+			dockerStubPath,
+			`#!/usr/bin/env bash
+set -euo pipefail
+kind="$1"
+shift || true
+printf '%s\n' "$@" > "\${DOCKER_STUB_LOG_DIR}/\${kind}-args.txt"
+`,
+			"utf-8",
+		);
+		await chmod(dockerStubPath, 0o755);
+
+		const result = await runCommand("just", ["start-docker-dev"], {
 			cwd: REPO_ROOT,
 			env: {
 				...process.env,
+				PATH: `${binDir}:${process.env.PATH ?? ""}`,
+				DOCKER_STUB_LOG_DIR: logDir,
 				NO_COLOR: "1",
 			},
 		});
 
 		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toContain("docker run --rm -it");
-		expect(result.stdout).toContain("-p 17710:7710");
-		expect(result.stdout).toContain('$(pwd)":/src/rp1');
-		expect(result.stdout).toContain(
+
+		const buildArgs = await readArgsFile(join(logDir, "build-args.txt"));
+		const runArgs = await readArgsFile(join(logDir, "run-args.txt"));
+
+		expect(buildArgs).toEqual([
+			"--platform",
+			"linux/arm64",
+			"--target",
+			"dev",
+			"-t",
+			"rp1-dev",
+			"-f",
+			"docker/Dockerfile",
+			".",
+		]);
+		expect(runArgs).toContain("--rm");
+		expect(runArgs).toContain("-it");
+		expect(runArgs).toContain("-p");
+		expect(runArgs).toContain("17710:7710");
+		expect(runArgs).toContain(`${REPO_ROOT}:/src/rp1`);
+		expect(runArgs).toContain(
 			"rp1-dev-evals-node_modules:/src/rp1/evals/node_modules",
 		);
-		expect(result.stdout).toContain("rp1-dev");
+		expect(runArgs).toContain("rp1-dev");
+
+		const gitDir = await getGitRevParse("--git-dir");
+		const gitCommonDir = await getGitRevParse("--git-common-dir");
+		if (gitDir !== gitCommonDir) {
+			expect(runArgs).toContain(`${REPO_ROOT}:${REPO_ROOT}`);
+			expect(runArgs).toContain(`${gitCommonDir}:${gitCommonDir}`);
+		}
 	});
 });
