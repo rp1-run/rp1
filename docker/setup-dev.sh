@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # setup-dev.sh — Bootstrap the Active Developer container from mounted rp1 source.
 # Runs automatically when the dev container starts. Builds the local rp1
-# binary, installs plugins to all harness platforms, then drops into zsh.
+# binary, installs plugins to all harness platforms, then runs the requested
+# command or drops into zsh.
 
 set -euo pipefail
 
@@ -90,6 +91,10 @@ echo "  mount:  /src/rp1"
 echo "  target: ~/target/zod-to-json-schema"
 echo ""
 
-# ── Drop into zsh ───────────────────────────────────────────────────────────
+# ── Hand off to requested command or zsh ───────────────────────────────────
+
+if [ "$#" -gt 0 ]; then
+    exec "$@"
+fi
 
 exec zsh

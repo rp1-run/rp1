@@ -253,6 +253,10 @@ interface TestContext {
 	};
 }
 
+function shouldUseDockerEvalDefaults(): boolean {
+	return process.env.RP1_EVAL_DOCKER === "1";
+}
+
 export async function extensionHook(
 	hookName: string,
 	context: TestContext,
@@ -271,12 +275,13 @@ export async function extensionHook(
 		const count = getCommitCount(workspaceDir);
 		const remoteHead = getRemoteHead(remoteDir);
 
-		// Isolate eval DB writes from production ~/.rp1/rp1.db
-		// Single shared DB for all eval runs (no per-test DB needed)
-		process.env.RP1_DB = join(EVAL_BASE_DIR, "rp1.db");
-
-		// Signal eval mode to prevent project registry pollution
-		process.env.RP1_EVAL_MODE = "true";
+		if (shouldUseDockerEvalDefaults()) {
+			delete process.env.RP1_DB;
+			delete process.env.RP1_EVAL_MODE;
+		} else {
+			process.env.RP1_DB = join(EVAL_BASE_DIR, "rp1.db");
+			process.env.RP1_EVAL_MODE = "true";
+		}
 
 		// Inject working_dir for stock provider
 		// test.options is spread flat into prompt.config, which the provider
