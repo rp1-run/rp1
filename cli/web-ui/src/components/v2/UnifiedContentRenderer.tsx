@@ -20,6 +20,7 @@ type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 const SAVE_DEBOUNCE_MS = 1000;
 const SAVE_INDICATOR_DURATION_MS = 2000;
+const LOCAL_SAVE_ECHO_TTL_MS = 10000;
 
 interface UnifiedContentRendererProps {
 	readonly content: string;
@@ -114,6 +115,7 @@ function MarkdownEditorWithSave({
 	readonly onSaveStatusChange?: (status: SaveStatus) => void;
 }) {
 	const [_saveStatus, setSaveStatusRaw] = useState<SaveStatus>("idle");
+	const [resolvedContent, setResolvedContent] = useState(content);
 	const setSaveStatus = useCallback(
 		(status: SaveStatus) => {
 			setSaveStatusRaw(status);
@@ -123,10 +125,68 @@ function MarkdownEditorWithSave({
 	);
 	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const indicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const latestEditorContentRef = useRef(content);
+	const pendingLocalSavesRef = useRef<Map<string, number>>(new Map());
+	const contentIdentity = [
+		runId ?? "",
+		projectId ?? "",
+		filePath ?? "",
+		path,
+		docId ?? "",
+	].join("::");
+	const previousContentIdentityRef = useRef(contentIdentity);
+
+	useEffect(() => {
+		if (previousContentIdentityRef.current === contentIdentity) {
+			return;
+		}
+
+		previousContentIdentityRef.current = contentIdentity;
+		if (saveTimerRef.current) {
+			clearTimeout(saveTimerRef.current);
+			saveTimerRef.current = null;
+		}
+		if (indicatorTimerRef.current) {
+			clearTimeout(indicatorTimerRef.current);
+			indicatorTimerRef.current = null;
+		}
+		setSaveStatus("idle");
+		latestEditorContentRef.current = content;
+		pendingLocalSavesRef.current.clear();
+		setResolvedContent(content);
+	}, [content, contentIdentity, setSaveStatus]);
+
+	useEffect(() => {
+		setResolvedContent((currentResolvedContent) => {
+			if (content === currentResolvedContent) {
+				pendingLocalSavesRef.current.delete(content);
+				return currentResolvedContent;
+			}
+
+			const cutoff = Date.now() - LOCAL_SAVE_ECHO_TTL_MS;
+			for (const [pendingContent, startedAt] of pendingLocalSavesRef.current) {
+				if (startedAt < cutoff) {
+					pendingLocalSavesRef.current.delete(pendingContent);
+				}
+			}
+
+			if (pendingLocalSavesRef.current.has(content)) {
+				pendingLocalSavesRef.current.delete(content);
+				return currentResolvedContent;
+			}
+
+			if (content === latestEditorContentRef.current) {
+				return content;
+			}
+
+			latestEditorContentRef.current = content;
+			return content;
+		});
+	}, [content]);
 
 	const { body: editorContent, frontmatter } = useMemo(
-		() => stripFrontmatter(content),
-		[content],
+		() => stripFrontmatter(resolvedContent),
+		[resolvedContent],
 	);
 	const editorContainerRef = useRef<HTMLElement>(null);
 	const gutterRef = useRef<HTMLDivElement>(null);
@@ -138,14 +198,20 @@ function MarkdownEditorWithSave({
 		(markdown: string) => {
 			if (!canSave) return;
 
+			const fullContent = restoreFrontmatter(frontmatter, markdown);
+			latestEditorContentRef.current = fullContent;
+
 			if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 			if (indicatorTimerRef.current) clearTimeout(indicatorTimerRef.current);
 
 			saveTimerRef.current = setTimeout(async () => {
+				pendingLocalSavesRef.current.set(fullContent, Date.now());
+				setResolvedContent((current) =>
+					current === fullContent ? current : fullContent,
+				);
 				setSaveStatus("saving");
 				try {
 					let response: Response;
-					const fullContent = restoreFrontmatter(frontmatter, markdown);
 
 					if (runId) {
 						response = await fetch(`/api/v2/runs/${runId}/artifacts/save`, {
@@ -165,11 +231,13 @@ function MarkdownEditorWithSave({
 					}
 
 					if (!response.ok) {
+						pendingLocalSavesRef.current.delete(fullContent);
 						setSaveStatus("error");
 					} else {
 						setSaveStatus("saved");
 					}
 				} catch {
+					pendingLocalSavesRef.current.delete(fullContent);
 					setSaveStatus("error");
 				}
 

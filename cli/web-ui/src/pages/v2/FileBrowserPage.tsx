@@ -37,6 +37,19 @@ import type { FileContent } from "../../server/routes/content-utils";
 
 const STORAGE_KEY_TOC_COLLAPSED = "rp1-file-browser-toc-collapsed";
 
+function isSameFileContent(
+	left: FileContent | null,
+	right: FileContent | null,
+): boolean {
+	if (left === right) return true;
+	if (!left || !right) return false;
+	return (
+		left.path === right.path &&
+		left.content === right.content &&
+		left.mimeType === right.mimeType
+	);
+}
+
 export function FileBrowserPage() {
 	const { projectId, "*": filePath } = useParams<{
 		projectId: string;
@@ -54,12 +67,7 @@ export function FileBrowserPage() {
 	} = useProjectFileTree(projectId);
 	const { setProjectId, onTreeChange, onFileChange } = useWebSocket();
 
-	const [content, setContentRaw] = useState<FileContent | null>(null);
-	const [contentRevision, setContentRevision] = useState(0);
-	const setContent = useCallback((c: FileContent | null) => {
-		setContentRaw(c);
-		if (c !== null) setContentRevision((r) => r + 1);
-	}, []);
+	const [content, setContent] = useState<FileContent | null>(null);
 	const [contentLoading, setContentLoading] = useState(false);
 	const [contentError, setContentError] = useState<string | null>(null);
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -120,6 +128,7 @@ export function FileBrowserPage() {
 	const fetchContent = useCallback(
 		async (preserveScroll = false) => {
 			if (!selectedPath || !projectId) {
+				savedScrollState.current = null;
 				setContent(null);
 				setContentLoading(false);
 				setContentError(null);
@@ -134,6 +143,7 @@ export function FileBrowserPage() {
 			}
 
 			if (!preserveScroll) {
+				savedScrollState.current = null;
 				setContentLoading(true);
 				setHeadings([]);
 				setActiveHeadingId(null);
@@ -154,8 +164,18 @@ export function FileBrowserPage() {
 					throw new Error(`Failed to fetch content: ${response.statusText}`);
 				}
 				const data = (await response.json()) as FileContent;
-				setContent(data);
+				setContent((current) => {
+					if (isSameFileContent(current, data)) {
+						if (preserveScroll) {
+							savedScrollState.current = null;
+						}
+						return current;
+					}
+
+					return data;
+				});
 			} catch (err) {
+				savedScrollState.current = null;
 				setContentError(err instanceof Error ? err.message : String(err));
 				setContent(null);
 			} finally {
@@ -163,7 +183,7 @@ export function FileBrowserPage() {
 				setIsRefreshing(false);
 			}
 		},
-		[selectedPath, projectId, setContent],
+		[selectedPath, projectId],
 	);
 
 	useEffect(() => {
@@ -434,7 +454,6 @@ export function FileBrowserPage() {
 
 					<ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
 						<ContentPanel
-							key={contentRevision}
 							content={content?.content ?? null}
 							path={selectedPath ?? null}
 							isLoading={contentLoading}
@@ -557,7 +576,6 @@ export function FileBrowserPage() {
 							viewportRef={scrollViewportRef}
 						>
 							<ContentPanel
-								key={contentRevision}
 								content={content?.content ?? null}
 								path={selectedPath ?? null}
 								isLoading={contentLoading}

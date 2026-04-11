@@ -58,6 +58,19 @@ interface ArtifactContent {
 	docId?: string;
 }
 
+function isSameArtifactContent(
+	left: ArtifactContent | null,
+	right: ArtifactContent | null,
+): boolean {
+	if (left === right) return true;
+	if (!left || !right) return false;
+	return (
+		left.path === right.path &&
+		left.content === right.content &&
+		left.docId === right.docId
+	);
+}
+
 /**
  * Annotation toggle button component (must be inside AnnotationProvider).
  * Only shows when sidebar is closed - provides a way to open it.
@@ -283,10 +296,12 @@ export function ArtifactViewerPage() {
 	const fetchArtifactContentWithScrollPreservation = useCallback(
 		async (preserveScroll: boolean) => {
 			if (!run || !selectedArtifactPath) {
+				savedScrollState.current = null;
 				setArtifactContent(null);
 				return;
 			}
 			if (!selectedArtifact) {
+				savedScrollState.current = null;
 				setContentError("Artifact not found");
 				setArtifactContent(null);
 				return;
@@ -300,6 +315,7 @@ export function ArtifactViewerPage() {
 			}
 
 			if (!preserveScroll) {
+				savedScrollState.current = null;
 				setContentLoading(true);
 				// Clear headings when loading new artifact (they'll be repopulated by MarkdownViewer if applicable)
 				setHeadings([]);
@@ -326,12 +342,23 @@ export function ArtifactViewerPage() {
 					throw new Error(errorMessage);
 				}
 				const data = (await response.json()) as { content: string };
-				setArtifactContent({
-					path: selectedArtifactPath,
+				const nextContent = {
+					path: selectedArtifact.path,
 					content: data.content,
 					docId: selectedArtifact.docId,
+				};
+				setArtifactContent((current) => {
+					if (isSameArtifactContent(current, nextContent)) {
+						if (preserveScroll) {
+							savedScrollState.current = null;
+						}
+						return current;
+					}
+
+					return nextContent;
 				});
 			} catch (err) {
+				savedScrollState.current = null;
 				setContentError(err instanceof Error ? err.message : String(err));
 				setArtifactContent(null);
 			} finally {
@@ -368,14 +395,14 @@ export function ArtifactViewerPage() {
 	}, [artifactContent]);
 
 	useEffect(() => {
-		if (!selectedArtifactPath || !run) return;
+		if (!selectedArtifact) return;
 
-		const normalizedPath = selectedArtifactPath.replace(/^\.rp1\//, "");
+		const normalizedPath = selectedArtifact.path.replace(/^\.rp1\//, "");
 
 		const unsubscribe = onFileChange((msg) => {
 			if (
 				msg.changeType === "modify" &&
-				(msg.path === selectedArtifactPath || msg.path === normalizedPath)
+				(msg.path === selectedArtifact.path || msg.path === normalizedPath)
 			) {
 				fetchArtifactContentWithScrollPreservation(true);
 			}
@@ -383,8 +410,7 @@ export function ArtifactViewerPage() {
 
 		return unsubscribe;
 	}, [
-		selectedArtifactPath,
-		run,
+		selectedArtifact,
 		onFileChange,
 		fetchArtifactContentWithScrollPreservation,
 	]);
