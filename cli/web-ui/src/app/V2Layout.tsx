@@ -44,8 +44,14 @@ export function AppLayout() {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const isFullHeight = isFullHeightRoute(location.pathname);
-	const { notifications, summary, isLoading, error, dismissNotification } =
-		useNotifications();
+	const {
+		notifications,
+		summary,
+		isLoading,
+		error,
+		dismissNotification,
+		dismissAllNotifications,
+	} = useNotifications();
 
 	const animationKey =
 		location.pathname.match(/^\/runs\/[^/]+/)?.[0] ??
@@ -173,6 +179,7 @@ export function AppLayout() {
 						isLoading={isLoading}
 						error={error}
 						onDismissNotification={dismissNotification}
+						onDismissAllNotifications={dismissAllNotifications}
 					/>
 				</div>
 				<ShortcutHelpOverlay />

@@ -47,6 +47,7 @@ describe("NotificationsSidebar", () => {
 
 	test("renders grouped notifications with separate open and dismiss controls", async () => {
 		const dismissMock = mock(() => Promise.resolve());
+		const dismissAllMock = mock(() => Promise.resolve());
 		const closeMock = mock(() => {});
 		const NotificationsSidebar = await loadNotificationsSidebar();
 
@@ -62,6 +63,7 @@ describe("NotificationsSidebar", () => {
 									open={true}
 									onClose={closeMock}
 									onDismissNotification={dismissMock}
+									onDismissAllNotifications={dismissAllMock}
 									isLoading={false}
 									error={null}
 									notifications={[
@@ -139,6 +141,7 @@ describe("NotificationsSidebar", () => {
 					open={true}
 					onClose={() => {}}
 					onDismissNotification={() => Promise.resolve()}
+					onDismissAllNotifications={() => Promise.resolve()}
 					isLoading={true}
 					error={null}
 					notifications={[]}
@@ -155,6 +158,7 @@ describe("NotificationsSidebar", () => {
 					open={true}
 					onClose={() => {}}
 					onDismissNotification={() => Promise.resolve()}
+					onDismissAllNotifications={() => Promise.resolve()}
 					isLoading={false}
 					error={null}
 					notifications={[]}
@@ -182,6 +186,7 @@ describe("NotificationsSidebar", () => {
 						open={true}
 						onClose={() => {}}
 						onDismissNotification={dismissMock}
+						onDismissAllNotifications={() => Promise.resolve()}
 						isLoading={false}
 						error={null}
 						notifications={[
@@ -217,5 +222,45 @@ describe("NotificationsSidebar", () => {
 		} finally {
 			console.warn = originalWarn;
 		}
+	});
+
+	test("dismisses all notifications from the sidebar action", async () => {
+		const dismissAllMock = mock(() => Promise.resolve());
+		const NotificationsSidebar = await loadNotificationsSidebar();
+
+		render(
+			<MemoryRouter>
+				<NotificationsSidebar
+					open={true}
+					onClose={() => {}}
+					onDismissNotification={() => Promise.resolve()}
+					onDismissAllNotifications={dismissAllMock}
+					isLoading={false}
+					error={null}
+					notifications={[
+						{
+							id: 1,
+							message: "Approval needed",
+							sourceType: "agent",
+							sourceId: "run-1",
+							route: "/runs/run-1",
+							projectId: "proj-1",
+							createdAt: "2026-04-11T00:00:00.000Z",
+							harness: "codex",
+							runCommand: "/build",
+							runName: "Sidebar Build",
+							projectName: "Alpha Project",
+							attentionLevel: "action_required",
+						},
+					]}
+				/>
+			</MemoryRouter>,
+		);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "Read all" }));
+		});
+
+		expect(dismissAllMock).toHaveBeenCalledTimes(1);
 	});
 });

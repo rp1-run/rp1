@@ -1,6 +1,7 @@
 import { Bell, Loader2, NotebookTabs, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import type {
 	NotificationAttentionLevel,
@@ -17,6 +18,7 @@ export interface NotificationsSidebarProps {
 	readonly isLoading: boolean;
 	readonly error: Error | null;
 	readonly onDismissNotification: (id: number) => Promise<void>;
+	readonly onDismissAllNotifications: () => Promise<void>;
 	readonly className?: string;
 }
 
@@ -76,10 +78,12 @@ export function NotificationsSidebar({
 	isLoading,
 	error,
 	onDismissNotification,
+	onDismissAllNotifications,
 	className,
 }: NotificationsSidebarProps) {
 	const navigate = useNavigate();
 	const [dismissingIds, setDismissingIds] = useState<readonly number[]>([]);
+	const [isDismissingAll, setIsDismissingAll] = useState(false);
 	const groups = useMemo(
 		() => buildNotificationGroups(notifications),
 		[notifications],
@@ -126,6 +130,18 @@ export function NotificationsSidebar({
 		[onDismissNotification],
 	);
 
+	const handleDismissAll = useCallback(async () => {
+		setIsDismissingAll(true);
+
+		try {
+			await onDismissAllNotifications();
+		} catch (dismissError) {
+			console.warn(String(dismissError));
+		} finally {
+			setIsDismissingAll(false);
+		}
+	}, [onDismissAllNotifications]);
+
 	return (
 		<Drawer
 			open={open}
@@ -159,6 +175,23 @@ export function NotificationsSidebar({
 				</div>
 			) : (
 				<div className="flex flex-col gap-6 px-4 py-4">
+					<div className="flex items-center justify-end">
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							onClick={() => void handleDismissAll()}
+							disabled={isDismissingAll || dismissingIds.length > 0}
+						>
+							{isDismissingAll ? (
+								<Loader2
+									className="mr-2 h-4 w-4 animate-spin"
+									aria-hidden="true"
+								/>
+							) : null}
+							Read all
+						</Button>
+					</div>
 					{groups.map((group) => (
 						<section
 							key={group.level}
@@ -260,7 +293,7 @@ export function NotificationsSidebar({
 												onClick={() => void handleDismiss(notification.id)}
 												className="shrink-0 rounded p-1 text-fg-ghost transition-colors duration-150 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border disabled:cursor-not-allowed disabled:opacity-50"
 												aria-label={`Dismiss notification: ${notification.message}`}
-												disabled={isDismissing}
+												disabled={isDismissing || isDismissingAll}
 											>
 												<X
 													className="h-4 w-4"

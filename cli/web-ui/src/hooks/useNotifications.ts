@@ -44,6 +44,7 @@ export interface UseNotificationsResult {
 	error: Error | null;
 	refetch: () => void;
 	dismissNotification: (id: number) => Promise<void>;
+	dismissAllNotifications: () => Promise<void>;
 }
 
 export const EMPTY_NOTIFICATIONS_SUMMARY: NotificationsSummary = {
@@ -189,19 +190,22 @@ export function useNotifications(): UseNotificationsResult {
 		void fetchNotifications({ showLoading: true });
 	}, [fetchNotifications]);
 
+	const dismissNotificationRequest = useCallback(async (id: number) => {
+		const response = await fetch(`/api/v2/notifications/${id}/dismiss`, {
+			method: "POST",
+		});
+
+		if (!response.ok) {
+			throw new Error(
+				getResponseErrorMessage(response, "Failed to dismiss notification"),
+			);
+		}
+	}, []);
+
 	const dismissNotification = useCallback(
 		async (id: number) => {
 			try {
-				const response = await fetch(`/api/v2/notifications/${id}/dismiss`, {
-					method: "POST",
-				});
-
-				if (!response.ok) {
-					throw new Error(
-						getResponseErrorMessage(response, "Failed to dismiss notification"),
-					);
-				}
-
+				await dismissNotificationRequest(id);
 				setError(null);
 				await fetchNotifications();
 			} catch (dismissError) {
@@ -213,8 +217,31 @@ export function useNotifications(): UseNotificationsResult {
 				throw nextError;
 			}
 		},
-		[fetchNotifications],
+		[dismissNotificationRequest, fetchNotifications],
 	);
+
+	const dismissAllNotifications = useCallback(async () => {
+		if (notifications.length === 0) {
+			return;
+		}
+
+		try {
+			await Promise.all(
+				notifications.map((notification) =>
+					dismissNotificationRequest(notification.id),
+				),
+			);
+			setError(null);
+			await fetchNotifications();
+		} catch (dismissError) {
+			const nextError =
+				dismissError instanceof Error
+					? dismissError
+					: new Error(String(dismissError));
+			setError(nextError);
+			throw nextError;
+		}
+	}, [dismissNotificationRequest, fetchNotifications, notifications]);
 
 	return {
 		notifications,
@@ -223,5 +250,6 @@ export function useNotifications(): UseNotificationsResult {
 		error,
 		refetch,
 		dismissNotification,
+		dismissAllNotifications,
 	};
 }

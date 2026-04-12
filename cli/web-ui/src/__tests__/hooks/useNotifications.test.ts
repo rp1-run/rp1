@@ -142,6 +142,15 @@ beforeEach(() => {
 			});
 		}
 
+		if (url.pathname === "/api/v2/notifications/8/dismiss") {
+			return Promise.resolve({
+				ok: true,
+				status: 200,
+				statusText: "OK",
+				json: () => Promise.resolve({ dismissed: true }),
+			});
+		}
+
 		if (
 			url.pathname === "/api/v2/notifications" &&
 			init?.method === undefined
@@ -350,6 +359,45 @@ describe("useNotifications", () => {
 			{ method: "POST" },
 		);
 		expect(fetchMock).toHaveBeenCalledTimes(3);
+	});
+
+	test("dismisses all loaded notifications and refreshes once", async () => {
+		notifications = [
+			createNotification(7, {
+				message: "Approval needed",
+				attentionLevel: "action_required",
+			}),
+			createNotification(8, {
+				message: "Build completed",
+			}),
+		];
+
+		const { useNotifications } = await loadUseNotifications();
+		const { result } = renderHook(() => useNotifications());
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		await act(async () => {
+			await result.current.dismissAllNotifications();
+		});
+
+		expect(fetchMock).toHaveBeenCalledTimes(4);
+		expect(fetchMock).toHaveBeenNthCalledWith(
+			2,
+			"/api/v2/notifications/7/dismiss",
+			{ method: "POST" },
+		);
+		expect(fetchMock).toHaveBeenNthCalledWith(
+			3,
+			"/api/v2/notifications/8/dismiss",
+			{ method: "POST" },
+		);
+		expect(fetchMock).toHaveBeenNthCalledWith(
+			4,
+			"/api/v2/notifications?limit=50&offset=0",
+		);
 	});
 
 	test("refetches notifications with the current websocket project scope", async () => {
