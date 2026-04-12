@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c '${RP1_BINARY:-rp1} arcade --no-open >/dev/null 2>&1; printf \"{\\\"systemMessage\\\":\\\"🕹️ rp1 Arcade is live at http://localhost:7710\\\"}\"'",
+            "command": "bash -c '${RP1_BINARY:-rp1} arcade --no-open --format hook-json 2>/dev/null || true'",
             "statusMessage": "Starting rp1 Arcade",
             "timeout": 10
           }

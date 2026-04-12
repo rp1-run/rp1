@@ -12,6 +12,7 @@ export interface ContentPanelProps {
 	readonly error: string | null;
 	readonly emptyMessage?: string;
 	readonly frontmatter?: Record<string, unknown>;
+	readonly showFrontmatter?: boolean;
 	readonly isRefreshing?: boolean;
 	readonly onHeadingsExtracted?: (headings: HeadingEntry[]) => void;
 	readonly onSaveStatusChange?: (status: SaveStatus) => void;
@@ -30,6 +31,7 @@ export function ContentPanel({
 	error,
 	emptyMessage = "No content to display.",
 	frontmatter,
+	showFrontmatter = false,
 	isRefreshing,
 	onHeadingsExtracted,
 	runId,
@@ -66,6 +68,7 @@ export function ContentPanel({
 					content={content}
 					path={path}
 					frontmatter={frontmatter}
+					showFrontmatter={showFrontmatter}
 					isRefreshing={isRefreshing}
 					onHeadingsExtracted={onHeadingsExtracted}
 					onSaveStatusChange={onSaveStatusChange}

@@ -5,7 +5,7 @@ import {
 	buildProjectLookup,
 	findProjectByIdentity,
 } from "./server/project-lookup";
-import { getAllProjects } from "./server/registry";
+import { getAllProjects, pruneStaleProjects } from "./server/registry";
 import { WebSocketHub } from "./server/websocket";
 
 export interface ServerOptions {
@@ -186,6 +186,10 @@ export function createServer(options: ServerOptions) {
 
 	runStartupRecovery(websocketHub).catch((err) => {
 		console.warn("[recovery] Startup recovery failed:", err);
+	});
+
+	pruneStaleProjects().catch((err) => {
+		console.warn("[startup] Stale project pruning failed:", err);
 	});
 
 	console.log(`rp1 Web UI server started`);

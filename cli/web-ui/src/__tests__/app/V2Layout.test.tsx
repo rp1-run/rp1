@@ -10,6 +10,7 @@ import { createElement, type ReactNode } from "react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 
 let dismissNotificationMock = mock(async (_id: number) => {});
+let dismissAllNotificationsMock = mock(async () => {});
 let notificationsState = {
 	notifications: [
 		{
@@ -37,6 +38,7 @@ let notificationsState = {
 	error: null as Error | null,
 	refetch: () => {},
 	dismissNotification: async (id: number) => dismissNotificationMock(id),
+	dismissAllNotifications: async () => dismissAllNotificationsMock(),
 };
 let v2LayoutImportVersion = 0;
 
@@ -156,6 +158,7 @@ describe("AppLayout notifications shell wiring", () => {
 		mock.restore();
 		document.body.innerHTML = "";
 		dismissNotificationMock = mock(async (_id: number) => {});
+		dismissAllNotificationsMock = mock(async () => {});
 		notificationsState = {
 			notifications: [
 				{
@@ -183,6 +186,7 @@ describe("AppLayout notifications shell wiring", () => {
 			error: null,
 			refetch: () => {},
 			dismissNotification: async (id: number) => dismissNotificationMock(id),
+			dismissAllNotifications: async () => dismissAllNotificationsMock(),
 		};
 	});
 

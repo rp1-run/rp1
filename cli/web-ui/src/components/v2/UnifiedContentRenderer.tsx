@@ -26,6 +26,7 @@ interface UnifiedContentRendererProps {
 	readonly content: string;
 	readonly path: string;
 	readonly frontmatter?: Record<string, unknown>;
+	readonly showFrontmatter?: boolean;
 	readonly isRefreshing?: boolean;
 	readonly onHeadingsExtracted?: (headings: HeadingEntry[]) => void;
 	readonly onSaveStatusChange?: (status: SaveStatus) => void;
@@ -98,6 +99,7 @@ import { restoreFrontmatter, stripFrontmatter } from "@/lib/frontmatter";
 function MarkdownEditorWithSave({
 	content,
 	path,
+	showFrontmatter = false,
 	runId,
 	docId,
 	projectId,
@@ -107,6 +109,7 @@ function MarkdownEditorWithSave({
 }: {
 	readonly content: string;
 	readonly path: string;
+	readonly showFrontmatter?: boolean;
 	readonly runId?: string;
 	readonly docId?: string;
 	readonly projectId?: string;
@@ -264,7 +267,9 @@ function MarkdownEditorWithSave({
 				aria-hidden="true"
 			/>
 			<div className="flex-1 min-w-0 relative">
-				{frontmatter && <FrontmatterBlock raw={frontmatter} />}
+				{showFrontmatter && frontmatter && (
+					<FrontmatterBlock raw={frontmatter} />
+				)}
 				<article ref={editorContainerRef}>
 					<MilkdownEditor
 						ref={editorRef}
@@ -291,6 +296,7 @@ export function UnifiedContentRenderer({
 	content,
 	path,
 	frontmatter: _frontmatter,
+	showFrontmatter = false,
 	isRefreshing,
 	onHeadingsExtracted: _onHeadingsExtracted,
 	onSaveStatusChange,
@@ -316,6 +322,7 @@ export function UnifiedContentRenderer({
 				<MarkdownEditorWithSave
 					content={content}
 					path={path}
+					showFrontmatter={showFrontmatter}
 					runId={runId}
 					docId={docId}
 					projectId={projectId}

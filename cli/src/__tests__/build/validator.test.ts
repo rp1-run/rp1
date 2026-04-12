@@ -226,6 +226,30 @@ Content.`;
 			}
 		});
 
+		test("rejects non-boolean metadata.arcade_tracked", () => {
+			const content = `---
+name: valid-skill
+description: This description has at least 20 characters
+metadata:
+  category: development
+  is_workflow: true
+  arcade_tracked: "no"
+  workflow:
+    run_policy: fresh
+    identity_args: []
+---
+Content.`;
+			const result = validateSkillSchema(content, "test.md");
+
+			const error = expectLeft(result);
+			expect(error._tag).toBe("ValidationError");
+			if (error._tag === "ValidationError") {
+				expect(error.level).toBe("L2");
+				expect(error.message).toContain("metadata.arcade_tracked");
+				expect(error.message).toContain("boolean");
+			}
+		});
+
 		test("accepts skill with description >= 20 chars", () => {
 			const content = `---
 name: valid-skill
@@ -233,6 +257,24 @@ description: This description has at least 20 characters
 metadata:
   category: development
   is_workflow: false
+---
+Content.`;
+			const result = validateSkillSchema(content, "test.md");
+
+			expect(E.isRight(result)).toBe(true);
+		});
+
+		test("accepts boolean metadata.arcade_tracked", () => {
+			const content = `---
+name: valid-skill
+description: This description has at least 20 characters
+metadata:
+  category: knowledge
+  is_workflow: true
+  arcade_tracked: false
+  workflow:
+    run_policy: fresh
+    identity_args: []
 ---
 Content.`;
 			const result = validateSkillSchema(content, "test.md");

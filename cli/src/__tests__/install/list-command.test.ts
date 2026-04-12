@@ -168,6 +168,51 @@ describe("executeList", () => {
 					mockSkills[1]?.name ?? "unknown",
 				),
 			);
+			// Runtime metadata lookup scans dist/{platform}/{plugin}/ for
+			// manifest.json + SKILL.md files. Without these, metadata fields
+			// like category and is_workflow are absent.
+			await writeFixture(
+				tempDir,
+				join("dist", "codex", "dev", "manifest.json"),
+				JSON.stringify({
+					plugin: "dev",
+					version: "0.1.0",
+					artifacts: { skills: ["build", "pr-review"] },
+				}),
+			);
+			await writeFixture(
+				tempDir,
+				join("dist", "codex", "dev", "skills", "build", "SKILL.md"),
+				projectSkillContent(
+					"build",
+					"End-to-end feature workflow",
+					"development",
+					true,
+					[
+						"FEATURE_ID",
+						"REQUIREMENTS",
+						"AFK",
+						"GIT_COMMIT",
+						"GIT_PUSH",
+						"GIT_PR",
+					],
+					"resumable",
+					["FEATURE_ID"],
+				),
+			);
+			await writeFixture(
+				tempDir,
+				join("dist", "codex", "dev", "skills", "pr-review", "SKILL.md"),
+				projectSkillContent(
+					"pr-review",
+					"PR review with CI support",
+					"review",
+					true,
+					["TARGET", "BASE_BRANCH", "SKIP_VISUAL"],
+					"fresh",
+					[],
+				),
+			);
 
 			await expectTaskRight(executeList([], logger, { json: true }));
 
@@ -210,7 +255,14 @@ describe("executeList", () => {
 			expect(parsed[0].user_facing_name).toBe("rp1-dev:build");
 			expect(parsed[0].category).toBe("development");
 			expect(parsed[0].is_workflow).toBe(true);
-			expect(parsed[0].key_args).toEqual(["FEATURE_ID", "AFK"]);
+			expect(parsed[0].key_args).toEqual([
+				"FEATURE_ID",
+				"REQUIREMENTS",
+				"AFK",
+				"GIT_COMMIT",
+				"GIT_PUSH",
+				"GIT_PR",
+			]);
 			expect(parsed[0].run_policy).toBe("resumable");
 			expect(parsed[0].identity_args).toEqual(["FEATURE_ID"]);
 			expect(parsed[0].installed_platforms).toEqual(["codex"]);
@@ -218,7 +270,11 @@ describe("executeList", () => {
 			expect(parsed[1].name).toBe("pr-review");
 			expect(parsed[1].category).toBe("review");
 			expect(parsed[1].is_workflow).toBe(true);
-			expect(parsed[1].key_args).toEqual(["PR_NUMBER"]);
+			expect(parsed[1].key_args).toEqual([
+				"TARGET",
+				"BASE_BRANCH",
+				"SKIP_VISUAL",
+			]);
 			expect(parsed[1].run_policy).toBe("fresh");
 			expect(parsed[1].identity_args).toEqual([]);
 		});

@@ -48,6 +48,11 @@ import {
 	loadStateMachine,
 } from "../../../../src/agent-tools/state-machine/index.js";
 import type { OrderedStep } from "../../../../src/agent-tools/state-machine/models.js";
+import {
+	buildRuntimeSkillMetadataLookup,
+	type InstalledSkillDiscoveryMetadata,
+} from "../../../../src/install/verifier.js";
+import { logDaemonEvent } from "../../daemon/diagnostics";
 import type { V2Project } from "../../types/projects";
 import type {
 	AgentTask,
@@ -115,6 +120,43 @@ function humanizeFeatureName(featureId: string): string {
 		.split("-")
 		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
 		.join(" ");
+}
+
+let runtimeSkillMetadataLookupPromise: Promise<
+	ReadonlyMap<string, InstalledSkillDiscoveryMetadata>
+> | null = null;
+
+async function getRuntimeSkillMetadataLookup(): Promise<
+	ReadonlyMap<string, InstalledSkillDiscoveryMetadata>
+> {
+	if (!runtimeSkillMetadataLookupPromise) {
+		runtimeSkillMetadataLookupPromise = buildRuntimeSkillMetadataLookup().catch(
+			() => {
+				runtimeSkillMetadataLookupPromise = null;
+				return new Map<string, InstalledSkillDiscoveryMetadata>();
+			},
+		);
+	}
+
+	return runtimeSkillMetadataLookupPromise;
+}
+
+export function isActivityTrackedFlow(
+	flow: string,
+	skillMetadataLookup: ReadonlyMap<
+		string,
+		Pick<InstalledSkillDiscoveryMetadata, "arcade_tracked">
+	>,
+): boolean {
+	const matchingMetadata = [...skillMetadataLookup.entries()]
+		.filter(([canonicalName]) => canonicalName.split(":").at(-1) === flow)
+		.map(([, metadata]) => metadata);
+
+	if (matchingMetadata.length === 0) {
+		return true;
+	}
+
+	return matchingMetadata.some((metadata) => metadata.arcade_tracked !== false);
 }
 
 /**
@@ -1693,8 +1735,12 @@ export async function handleV2HealthRequest(
  * POST /api/v2/shutdown - graceful daemon shutdown.
  */
 export async function handleV2ShutdownRequest(
+	req: Request,
 	ctx: ApiContext,
 ): Promise<Response> {
+	logDaemonEvent("shutdown_endpoint_hit", {
+		userAgent: req.headers.get("user-agent") ?? "",
+	});
 	if (ctx.shutdownCallback) {
 		setTimeout(() => ctx.shutdownCallback?.(), 100);
 	}
@@ -1988,6 +2034,7 @@ export async function handleV2FeedRequest(req: Request): Promise<Response> {
 		const db = await getDb();
 		const projects = await getAllProjects();
 		const projectLookup = buildProjectLookup(projects);
+		const skillMetadataLookup = await getRuntimeSkillMetadataLookup();
 
 		let projectPathFilter: string | undefined;
 		let dbProjectIdFilter: string | undefined;
@@ -2028,6 +2075,7 @@ export async function handleV2FeedRequest(req: Request): Promise<Response> {
 		}> = [];
 		for (const record of runsResult.records) {
 			if (isEvalRunRecord(record)) continue;
+			if (!isActivityTrackedFlow(record.flow, skillMetadataLookup)) continue;
 			const project =
 				findProjectByIdentity(projectLookup, record) ??
 				fallbackProjectFromRun(record);

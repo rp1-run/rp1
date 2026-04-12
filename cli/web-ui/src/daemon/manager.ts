@@ -5,8 +5,8 @@
 
 import { execSync, spawn } from "node:child_process";
 import { readFile, unlink, writeFile } from "node:fs/promises";
-import { pruneStaleProjects } from "../server/registry";
 import { ensureConfigDir, getPidFilePath } from "./config-dir";
+import { logDaemonEvent } from "./diagnostics";
 import {
 	checkHealth,
 	createConnection,
@@ -245,6 +245,7 @@ function getRp1Executable(): string {
  */
 async function spawnDaemon(port: number): Promise<number> {
 	const rp1Path = getRp1Executable();
+	logDaemonEvent("spawn_requested", { port, rp1Path });
 
 	const proc = spawn(rp1Path, ["_daemon-server", "--port", String(port)], {
 		detached: true,
@@ -262,6 +263,8 @@ async function spawnDaemon(port: number): Promise<number> {
 	if (!pid) {
 		throw new Error("Failed to spawn daemon process");
 	}
+
+	logDaemonEvent("spawned", { port, daemonPid: pid });
 
 	return pid;
 }
@@ -284,6 +287,13 @@ export async function ensureDaemon(
 
 			if (health) {
 				if (cliVersion && shouldRestartForVersion(health, cliVersion)) {
+					logDaemonEvent("restart_for_version", {
+						requestedPort: port,
+						daemonPort: pidData.port,
+						daemonPid: pidData.pid,
+						daemonVersion: health.version,
+						cliVersion,
+					});
 					console.error(
 						`[rp1] Daemon version ${health.version} differs from CLI ${cliVersion}. Restarting...`,
 					);
@@ -327,6 +337,11 @@ export async function ensureDaemon(
 		// Port occupied by non-daemon process — kill it and reclaim
 		const ownerPid = resolvePortOwnerPid(port);
 		if (ownerPid) {
+			logDaemonEvent("reclaiming_port", {
+				port,
+				ownerPid,
+				reason: "health_check_failed",
+			});
 			try {
 				process.kill(ownerPid, "SIGTERM");
 			} catch {
@@ -363,9 +378,6 @@ export async function ensureDaemon(
 		);
 	}
 
-	// Prune stale projects on fresh daemon start (non-blocking)
-	pruneStaleProjects().catch(() => {});
-
 	return { connection: conn, wasRunning: false };
 }
 
@@ -378,6 +390,11 @@ export async function stopDaemon(): Promise<boolean> {
 	if (!pidData) {
 		return false;
 	}
+
+	logDaemonEvent("stop_requested", {
+		port: pidData.port,
+		daemonPid: pidData.pid,
+	});
 
 	const conn = createConnection(pidData.port);
 	await stopDaemonIpc(conn);

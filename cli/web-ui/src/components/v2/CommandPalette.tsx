@@ -1,6 +1,13 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "framer-motion";
-import { FileText, Home, Moon, RefreshCw, SquareKanban } from "lucide-react";
+import {
+	FileText,
+	Home,
+	List,
+	Moon,
+	NotebookTabs,
+	RefreshCw,
+} from "lucide-react";
 import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -27,6 +34,7 @@ import {
 	staggerItem,
 	staggerItemReduced,
 } from "@/lib/motion-config";
+import { useShortcutRegistry } from "@/providers/ShortcutRegistryProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 
 export interface CommandPaletteProps {
@@ -42,7 +50,7 @@ const navigationIcons: Record<string, React.ReactNode> = {
 		<FileText className="mr-2 h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
 	),
 	"nav-projects": (
-		<SquareKanban
+		<NotebookTabs
 			className="mr-2 h-4 w-4"
 			strokeWidth={1.5}
 			aria-hidden="true"
@@ -164,7 +172,9 @@ function AnimatedCommandDialog({
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 	const navigate = useNavigate();
 	const { toggleTheme } = useTheme();
+	const registry = useShortcutRegistry();
 	const reducedMotion = usePrefersReducedMotion();
+	const contextualCommands = registry.contextualShortcuts?.commands ?? [];
 
 	const executeCommand = useCallback(
 		(command: CommandType) => {
@@ -183,6 +193,14 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 			onOpenChange(false);
 		},
 		[navigate, toggleTheme, onOpenChange],
+	);
+
+	const executeContextualCommand = useCallback(
+		(action: () => void) => {
+			action();
+			onOpenChange(false);
+		},
+		[onOpenChange],
 	);
 
 	return (
@@ -241,6 +259,31 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 							</motion.div>
 						))}
 					</CommandGroup>
+					{registry.contextualShortcuts && contextualCommands.length > 0 && (
+						<CommandGroup heading={registry.contextualShortcuts.viewLabel}>
+							{contextualCommands.map((cmd) => (
+								<motion.div
+									key={cmd.id}
+									variants={reducedMotion ? staggerItemReduced : staggerItem}
+								>
+									<CommandItem
+										value={`${cmd.label} ${cmd.description} ${(cmd.keywords ?? []).join(" ")}`}
+										onSelect={() => executeContextualCommand(cmd.action)}
+									>
+										<List
+											className="mr-2 h-4 w-4"
+											strokeWidth={1.5}
+											aria-hidden="true"
+										/>
+										<span>{cmd.label}</span>
+										{cmd.shortcutHint && (
+											<CommandShortcut>{cmd.shortcutHint}</CommandShortcut>
+										)}
+									</CommandItem>
+								</motion.div>
+							))}
+						</CommandGroup>
+					)}
 				</motion.div>
 			</CommandList>
 		</AnimatedCommandDialog>

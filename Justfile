@@ -7,8 +7,8 @@ default:
 # ─────────────────────────────────────────────────────────────────────────────
 # Docker Environment
 # ─────────────────────────────────────────────────────────────────────────────
-
 # Start the Stable Tester container (clean room with harness CLIs, no rp1 installed)
+
 # Use test-install.sh inside the container to simulate installation
 start-docker-stable:
     #!/usr/bin/env bash
@@ -131,15 +131,25 @@ build-web-ui:
     cd cli/web-ui && bun run build
 
 # Clear web-ui cache (needed when testing local builds)
+
 # Stops the production daemon first if running, since it serves assets from this cache
 clean-web-ui-cache:
     #!/usr/bin/env bash
     set -e
-    pid_file="${HOME}/Library/Application Support/rp1/daemon.pid"
+    if [ "$(uname)" = "Darwin" ]; then
+        config_dir="${HOME}/Library/Application Support/rp1"
+    else
+        config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/rp1"
+    fi
+    pid_file="${config_dir}/daemon.pid"
+    restart_marker="${config_dir}/restart-arcade-after-install"
+    mkdir -p "$config_dir"
+    rm -f "$restart_marker"
     if [ -f "$pid_file" ]; then
         daemon_pid=$(sed -n '2p' "$pid_file")
         if [ -n "$daemon_pid" ] && kill -0 "$daemon_pid" 2>/dev/null; then
             echo "Stopping production daemon (PID $daemon_pid) before clearing web-ui cache..."
+            touch "$restart_marker"
             curl -sf -X POST http://127.0.0.1:7710/api/v2/shutdown >/dev/null 2>&1 || true
             kill "$daemon_pid" 2>/dev/null || true
             for i in $(seq 1 30); do
@@ -152,6 +162,7 @@ clean-web-ui-cache:
     rm -rf ~/.rp1/web-ui/
 
 # Build the local binary with -dev version suffix
+
 # RP1_BUILD_INTERNAL=1 includes utils (internal-only plugin) in the dev build
 build-local-dev: build-web-ui clean-web-ui-cache
     cd cli && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
@@ -256,14 +267,28 @@ fix-evals:
 
 # Full local install: remove stable + build + install to all platforms
 install: rm-stable build
-    @echo ""
-    @echo "━━━ Installing to all platforms ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo ""
-    @./bin/rp1 install -y
+    @#!/usr/bin/env bash
+    @set -e
+    @if [ "$(uname)" = "Darwin" ]; then \
+        config_dir="${HOME}/Library/Application Support/rp1"; \
+    else \
+        config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/rp1"; \
+    fi; \
+    restart_marker="${config_dir}/restart-arcade-after-install"; \
+    echo ""; \
+    echo "━━━ Installing to all platforms ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+    echo ""; \
+    ./bin/rp1 install -y; \
+    if [ -f "$restart_marker" ]; then \
+        echo ""; \
+        echo "Restarting Arcade daemon..."; \
+        ./bin/rp1 arcade --daemon-only --no-open >/dev/null 2>&1 || true; \
+        rm -f "$restart_marker"; \
+    fi
 
 # Run local binary with args
 run *args: build
-    ./bin/rp1 {{args}}
+    ./bin/rp1 {{ args }}
 
 # Install to OpenCode
 install-opencode:
@@ -436,7 +461,7 @@ eval-setup:
 
 # Run eval suites in Docker. Optional: suite path, --harness=opencode, --platform=<platform>, --attest, --commit, --verbose
 eval-run *args:
-    ./docker/eval-run.sh {{args}}
+    ./docker/eval-run.sh {{ args }}
 
 # Run eval suites in the current environment. Container-only entrypoint for Dockerized evals.
 eval-run-local *args:
@@ -458,7 +483,7 @@ eval-run-local *args:
     do_commit=false
     passed_suites_file="${RP1_EVAL_PASSED_SUITES_FILE:-}"
     verbose_flag=""
-    for arg in {{args}}; do
+    for arg in {{ args }}; do
         case "$arg" in
             --harness=*) harness="${arg#--harness=}" ;;
             --platform=*) platform="${arg#--platform=}" ;;
@@ -530,7 +555,7 @@ eval-run-local *args:
 
 # Generate attestation from eval output file
 eval-attest output-file:
-    bun run evals/src/attestation/cli.ts attest-from-output evals/output/{{output-file}}
+    bun run evals/src/attestation/cli.ts attest-from-output evals/output/{{ output-file }}
 
 # Verify all attestations are current
 eval-verify:
@@ -566,14 +591,14 @@ catalog-check:
 # ─────────────────────────────────────────────────────────────────────────────
 # Beta Release
 # ─────────────────────────────────────────────────────────────────────────────
-
 # Build and publish a beta release via GoReleaser.
+
 # Usage: just beta-release v0.7.0-beta.1
 beta-release version:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    version="{{version}}"
+    version="{{ version }}"
     repo_root=$(git rev-parse --show-toplevel)
     beta_branch="beta-release"
     original_branch=$(git branch --show-current)

@@ -1,5 +1,5 @@
 import { ArrowLeft, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
 	ResizableHandle,
@@ -10,6 +10,7 @@ import { ArtifactViewerPanel } from "@/components/v2/ArtifactViewerPanel";
 import { RunInvocationCard } from "@/components/v2/RunInvocationCard";
 import { VerticalStepList } from "@/components/v2/VerticalStepList";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
+import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import {
 	commandToWorkflowName,
@@ -19,6 +20,11 @@ import { resolveRunDisplayName } from "@/lib/run-display";
 import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Artifact, Step } from "@/types/runs";
+
+const STORAGE_KEY_RUN_DETAIL_METADATA_VISIBLE =
+	"rp1-run-detail-metadata-visible";
+const STORAGE_KEY_ARTIFACT_FRONTMATTER_VISIBLE =
+	"rp1-artifact-frontmatter-visible";
 
 function MobileStepSelector({
 	steps,
@@ -57,6 +63,19 @@ export function RunDetailPage() {
 	const { runId, stepId: urlStepId, docId: urlDocId } = useParams();
 	const navigate = useNavigate();
 	const { run, isLoading, error, refetch } = useRunDetail(runId);
+	const [showMetadata, setShowMetadata] = useState<boolean>(() => {
+		if (typeof window === "undefined") return false;
+		return (
+			sessionStorage.getItem(STORAGE_KEY_RUN_DETAIL_METADATA_VISIBLE) === "true"
+		);
+	});
+	const [showFrontmatter, setShowFrontmatter] = useState<boolean>(() => {
+		if (typeof window === "undefined") return false;
+		return (
+			sessionStorage.getItem(STORAGE_KEY_ARTIFACT_FRONTMATTER_VISIBLE) ===
+			"true"
+		);
+	});
 
 	const workflowName = useMemo(
 		() => (run ? commandToWorkflowName(run.command) : null),
@@ -92,6 +111,32 @@ export function RunDetailPage() {
 
 	const { setActiveArtifact, setProject, setRunInfo } = useBreadcrumbContext();
 	const { setProjectId } = useWebSocket();
+
+	const handleToggleMetadata = useCallback(() => {
+		setShowMetadata((prev) => {
+			const next = !prev;
+			if (typeof window !== "undefined") {
+				sessionStorage.setItem(
+					STORAGE_KEY_RUN_DETAIL_METADATA_VISIBLE,
+					String(next),
+				);
+			}
+			return next;
+		});
+	}, []);
+
+	const handleToggleFrontmatter = useCallback(() => {
+		setShowFrontmatter((prev) => {
+			const next = !prev;
+			if (typeof window !== "undefined") {
+				sessionStorage.setItem(
+					STORAGE_KEY_ARTIFACT_FRONTMATTER_VISIBLE,
+					String(next),
+				);
+			}
+			return next;
+		});
+	}, []);
 
 	useEffect(() => {
 		if (run?.projectName && run?.projectId) {
@@ -206,6 +251,41 @@ export function RunDetailPage() {
 		};
 	}, [runId, setActiveArtifact]);
 
+	useContextualShortcuts({
+		viewId: "run-detail",
+		viewLabel: "Run Detail",
+		shortcuts: [],
+		commands: [
+			...(run?.invocation
+				? [
+						{
+							id: "toggle-run-metadata",
+							label: showMetadata ? "Hide Debug Info" : "Show Debug Info",
+							description: showMetadata
+								? "Hide invocation metadata for this run"
+								: "Show invocation metadata for this run",
+							keywords: ["debug", "invocation", "metadata", "run details"],
+							action: handleToggleMetadata,
+						},
+					]
+				: []),
+			...(selectedArtifact
+				? [
+						{
+							id: "toggle-run-frontmatter",
+							label: showFrontmatter ? "Hide Frontmatter" : "Show Frontmatter",
+							description: showFrontmatter
+								? "Hide frontmatter in the current artifact viewer"
+								: "Show frontmatter in the current artifact viewer",
+							keywords: ["frontmatter", "metadata", "yaml", "artifact"],
+							action: handleToggleFrontmatter,
+						},
+					]
+				: []),
+		],
+		enabled: !!run,
+	});
+
 	if (isLoading || isWorkflowLoading) {
 		return (
 			<div className="flex h-full items-center justify-center">
@@ -258,7 +338,7 @@ export function RunDetailPage() {
 
 	return (
 		<div className="flex h-full flex-col">
-			<RunInvocationCard invocation={run.invocation} />
+			{showMetadata && <RunInvocationCard invocation={run.invocation} />}
 
 			{/* Desktop: two-panel resizable layout */}
 			<div className="hidden md:flex flex-1 min-h-0">
@@ -293,6 +373,7 @@ export function RunDetailPage() {
 							onArtifactSelect={handleArtifactSelect}
 							runId={runId}
 							subflowDiagram={subflowDiagram}
+							showFrontmatter={showFrontmatter}
 						/>
 					</ResizablePanel>
 				</ResizablePanelGroup>
@@ -314,6 +395,7 @@ export function RunDetailPage() {
 						onArtifactSelect={handleArtifactSelect}
 						runId={runId}
 						subflowDiagram={subflowDiagram}
+						showFrontmatter={showFrontmatter}
 					/>
 				</div>
 			</div>

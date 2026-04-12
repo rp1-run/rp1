@@ -363,6 +363,35 @@ Workflow content.`,
 			}
 		});
 
+		test("extracts arcade tracking metadata when declared", async () => {
+			const tempDir = await createTempDir("parser-skill-arcade-tracked");
+			try {
+				const skillDir = `${tempDir}/arcade-hidden-skill`;
+				await writeFixture(
+					tempDir,
+					"arcade-hidden-skill/SKILL.md",
+					`---
+name: arcade-hidden-skill
+description: "A tracked workflow skill hidden from the Arcade activity feed"
+metadata:
+  category: knowledge
+  is_workflow: true
+  arcade_tracked: false
+  workflow:
+    run_policy: fresh
+    identity_args: []
+---
+Workflow content.`,
+				);
+
+				const result = await expectTaskRight(parseSkill(skillDir));
+
+				expect(result.metadata?.arcadeTracked).toBe(false);
+			} finally {
+				await cleanupTempDir(tempDir);
+			}
+		});
+
 		test("normalizes fresh workflow metadata to an empty identity arg list", async () => {
 			const tempDir = await createTempDir("parser-skill-fresh-workflow");
 			try {

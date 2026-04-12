@@ -8,7 +8,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { isHealthy, type VerificationReport } from "../../install/models.js";
-import { listInstalledSkills } from "../../install/verifier.js";
+import {
+	buildRuntimeSkillMetadataLookup,
+	listInstalledSkills,
+} from "../../install/verifier.js";
 import {
 	cleanupTempDir,
 	createTempDir,
@@ -37,6 +40,7 @@ const generatedSkillContent = (
 	name: string,
 	category: string,
 	isWorkflow: boolean,
+	arcadeTracked: boolean | undefined = undefined,
 	args: readonly string[] = [],
 	runPolicy?: "fresh" | "resumable",
 	identityArgs?: readonly string[],
@@ -69,7 +73,9 @@ metadata:
     plugin: "${plugin}"
     name: "${name}"
   category: ${category}
-  is_workflow: ${isWorkflow}${workflowBlock}${argumentBlock}
+  is_workflow: ${isWorkflow}${
+		arcadeTracked !== undefined ? `\n  arcade_tracked: ${arcadeTracked}` : ""
+	}${workflowBlock}${argumentBlock}
 ---
 
 # ${name}
@@ -78,68 +84,55 @@ Generated skill body.
 `;
 };
 
-const projectSkillContent = (
-	name: string,
-	description: string,
-	category: string,
-	isWorkflow: boolean,
-	args: readonly string[] = [],
-	runPolicy?: "fresh" | "resumable",
-	identityArgs?: readonly string[],
-): string => {
-	const argumentBlock =
-		args.length === 0
-			? ""
-			: `\n  arguments:\n${args
-					.map(
-						(arg) =>
-							`    - name: ${arg}\n      type: string\n      required: false\n      description: "${arg} argument"`,
-					)
-					.join("\n")}`;
-
-	const workflowBlock = runPolicy
-		? `\n  workflow:\n    run_policy: ${runPolicy}${
-				identityArgs
-					? `\n    identity_args:\n${identityArgs.map((arg) => `      - ${arg}`).join("\n")}`
-					: runPolicy === "fresh"
-						? "\n    identity_args: []"
-						: ""
-			}`
-		: "";
-
-	return `---
-name: "${name}"
-description: "${description}"
-metadata:
-  category: ${category}
-  is_workflow: ${isWorkflow}${workflowBlock}${argumentBlock}
----
-
-# ${name}
-
-Skill body.
-`;
-};
-
-const writeProjectSkill = async (
-	rootDir: string,
+const artifactManifestContent = (
 	plugin: string,
+	skills: readonly string[],
+): string =>
+	JSON.stringify(
+		{
+			plugin: `rp1-${plugin}`,
+			version: "1.0.0",
+			opencode_version_tested: "0.9.0",
+			artifacts: {
+				commands: [],
+				agents: [],
+				skills,
+			},
+		},
+		null,
+		2,
+	);
+
+const writeArtifactSkill = async (
+	rootDir: string,
+	platform: "claude-code" | "opencode" | "codex",
+	plugin: string,
+	renderedName: string,
 	name: string,
 	description: string,
 	category: string,
 	isWorkflow: boolean,
+	arcadeTracked: boolean | undefined = undefined,
 	args: readonly string[] = [],
 	runPolicy?: "fresh" | "resumable",
 	identityArgs?: readonly string[],
 ): Promise<void> => {
 	await writeFixture(
 		rootDir,
-		join("plugins", plugin, "skills", name, "SKILL.md"),
-		projectSkillContent(
-			name,
+		join("dist", platform, plugin, "manifest.json"),
+		artifactManifestContent(plugin, [renderedName]),
+	);
+	await writeFixture(
+		rootDir,
+		join("dist", platform, plugin, "skills", renderedName, "SKILL.md"),
+		generatedSkillContent(
+			renderedName,
 			description,
+			plugin,
+			name,
 			category,
 			isWorkflow,
+			arcadeTracked,
 			args,
 			runPolicy,
 			identityArgs,
@@ -463,25 +456,28 @@ describe("verifier", () => {
 	describe("listInstalledSkills", () => {
 		test("includes skills installed in the Codex skills directory", async () => {
 			const restoreHome = withEnvOverride("HOME", tempDir);
+			const skillName = "artifact-guide";
+			const renderedName = "rp1-artifact-guide";
+			const description =
+				"Ask about rp1 capabilities, discover skills, and get workflow guidance.";
 
 			try {
-				await writeProjectSkill(
+				await writeArtifactSkill(
 					tempDir,
+					"codex",
 					"base",
-					"guide",
-					"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+					renderedName,
+					skillName,
+					description,
 					"knowledge",
+					false,
 					false,
 					["QUESTION"],
 				);
 				await writeFixture(
 					tempDir,
-					join(".codex", "skills", "rp1-guide", "SKILL.md"),
-					installedSkillContent(
-						"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
-						"base",
-						"guide",
-					),
+					join(".codex", "skills", renderedName, "SKILL.md"),
+					installedSkillContent(description, "base", skillName),
 				);
 
 				const skills = await expectTaskRight(listInstalledSkills());
@@ -489,17 +485,17 @@ describe("verifier", () => {
 				expect(skills).toEqual([
 					{
 						plugin: "base",
-						name: "guide",
-						description:
-							"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
-						canonical_name: "base:guide",
-						user_facing_name: "rp1-base:guide",
+						name: skillName,
+						description,
+						canonical_name: `base:${skillName}`,
+						user_facing_name: `rp1-base:${skillName}`,
 						category: "knowledge",
 						is_workflow: false,
+						arcade_tracked: false,
 						key_args: ["QUESTION"],
 						installed_platforms: ["codex"],
 						invocations: {
-							codex: "$rp1-guide",
+							codex: `$${renderedName}`,
 						},
 					},
 				]);
@@ -510,44 +506,51 @@ describe("verifier", () => {
 
 		test("deduplicates skills found in both OpenCode and Codex directories", async () => {
 			const restoreHome = withEnvOverride("HOME", tempDir);
+			const skillName = "artifact-guide";
+			const renderedName = "rp1-artifact-guide";
+			const description =
+				"Ask about rp1 capabilities, discover skills, and get workflow guidance.";
 
 			try {
-				await writeProjectSkill(
+				await writeArtifactSkill(
 					tempDir,
+					"codex",
 					"base",
-					"guide",
-					"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+					renderedName,
+					skillName,
+					description,
 					"knowledge",
 					false,
+					undefined,
 					["QUESTION"],
 				);
 				const skillContent = installedSkillContent(
-					"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+					description,
 					"base",
-					"guide",
+					skillName,
 				);
 
 				await writeFixture(
 					tempDir,
-					join(".config", "opencode", "skills", "rp1-guide", "SKILL.md"),
+					join(".config", "opencode", "skills", renderedName, "SKILL.md"),
 					skillContent,
 				);
 				await writeFixture(
 					tempDir,
-					join(".codex", "skills", "rp1-guide", "SKILL.md"),
+					join(".codex", "skills", renderedName, "SKILL.md"),
 					skillContent,
 				);
 
 				const skills = await expectTaskRight(listInstalledSkills());
 
 				expect(skills).toHaveLength(1);
-				expect(skills[0]?.name).toBe("guide");
+				expect(skills[0]?.name).toBe(skillName);
 				expect(skills[0]?.category).toBe("knowledge");
 				expect(skills[0]?.is_workflow).toBe(false);
 				expect(skills[0]?.key_args).toEqual(["QUESTION"]);
 				expect(skills[0]?.installed_platforms).toEqual(["opencode", "codex"]);
-				expect(skills[0]?.invocations.opencode).toBe("/rp1-guide");
-				expect(skills[0]?.invocations.codex).toBe("$rp1-guide");
+				expect(skills[0]?.invocations.opencode).toBe(`/${renderedName}`);
+				expect(skills[0]?.invocations.codex).toBe(`$${renderedName}`);
 			} finally {
 				restoreHome();
 			}
@@ -555,17 +558,24 @@ describe("verifier", () => {
 
 		test("includes skills installed in Claude Code plugins", async () => {
 			const restoreHome = withEnvOverride("HOME", tempDir);
+			const skillName = "artifact-claude-guide";
+			const renderedName = "artifact-claude-guide";
+			const description =
+				"Ask about rp1 capabilities, discover skills, and get workflow guidance.";
 
 			try {
 				const pluginDir = join(tempDir, ".claude", "plugins");
 				const installPath = join(pluginDir, "rp1-base@rp1-run");
-				await writeProjectSkill(
+				await writeArtifactSkill(
 					tempDir,
+					"claude-code",
 					"base",
-					"guide",
-					"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
+					renderedName,
+					skillName,
+					description,
 					"knowledge",
 					false,
+					undefined,
 					["QUESTION"],
 				);
 				await writeFixture(
@@ -575,14 +585,10 @@ describe("verifier", () => {
 						"plugins",
 						"rp1-base@rp1-run",
 						"skills",
-						"guide",
+						renderedName,
 						"SKILL.md",
 					),
-					installedSkillContent(
-						"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
-						"base",
-						"guide",
-					),
+					installedSkillContent(description, "base", skillName),
 				);
 				await writeFile(
 					join(pluginDir, "installed_plugins.json"),
@@ -607,17 +613,16 @@ describe("verifier", () => {
 				expect(skills).toEqual([
 					{
 						plugin: "base",
-						name: "guide",
-						description:
-							"Ask about rp1 capabilities, discover skills, and get workflow guidance.",
-						canonical_name: "base:guide",
-						user_facing_name: "rp1-base:guide",
+						name: skillName,
+						description,
+						canonical_name: `base:${skillName}`,
+						user_facing_name: `rp1-base:${skillName}`,
 						category: "knowledge",
 						is_workflow: false,
 						key_args: ["QUESTION"],
 						installed_platforms: ["claude-code"],
 						invocations: {
-							"claude-code": "/guide",
+							"claude-code": `/${skillName}`,
 						},
 					},
 				]);
@@ -626,27 +631,30 @@ describe("verifier", () => {
 			}
 		});
 
-		test("includes registry metadata for installed internal skills when present", async () => {
+		test("includes packaged metadata for installed internal skills when present", async () => {
 			const restoreHome = withEnvOverride("HOME", tempDir);
+			const skillName = "artifact-tersify-prompt";
+			const renderedName = "rp1-artifact-tersify-prompt";
+			const description =
+				"Rewrite an agent prompt to be maximally terse while preserving intent.";
 
 			try {
-				await writeProjectSkill(
+				await writeArtifactSkill(
 					tempDir,
+					"codex",
 					"utils",
-					"tersify-prompt",
-					"Rewrite an agent prompt to be maximally terse while preserving intent.",
+					renderedName,
+					skillName,
+					description,
 					"prompt",
 					false,
+					undefined,
 					["PROMPT"],
 				);
 				await writeFixture(
 					tempDir,
-					join(".codex", "skills", "rp1-tersify-prompt", "SKILL.md"),
-					installedSkillContent(
-						"Rewrite an agent prompt to be maximally terse while preserving intent.",
-						"utils",
-						"tersify-prompt",
-					),
+					join(".codex", "skills", renderedName, "SKILL.md"),
+					installedSkillContent(description, "utils", skillName),
 				);
 
 				const skills = await expectTaskRight(listInstalledSkills());
@@ -654,17 +662,16 @@ describe("verifier", () => {
 				expect(skills).toEqual([
 					{
 						plugin: "utils",
-						name: "tersify-prompt",
-						description:
-							"Rewrite an agent prompt to be maximally terse while preserving intent.",
-						canonical_name: "utils:tersify-prompt",
-						user_facing_name: "rp1-utils:tersify-prompt",
+						name: skillName,
+						description,
+						canonical_name: `utils:${skillName}`,
+						user_facing_name: `rp1-utils:${skillName}`,
 						category: "prompt",
 						is_workflow: false,
 						key_args: ["PROMPT"],
 						installed_platforms: ["codex"],
 						invocations: {
-							codex: "$rp1-tersify-prompt",
+							codex: `$${renderedName}`,
 						},
 					},
 				]);
@@ -680,45 +687,19 @@ describe("verifier", () => {
 			try {
 				await mkdir(outsideDir, { recursive: true });
 				process.chdir(outsideDir);
-				await writeFixture(
+				await writeArtifactSkill(
 					outsideDir,
-					join("dist", "codex", "rp1-base", "manifest.json"),
-					JSON.stringify(
-						{
-							plugin: "rp1-base",
-							version: "1.0.0",
-							opencode_version_tested: "0.9.0",
-							artifacts: {
-								commands: [],
-								agents: [],
-								skills: ["rp1-synthetic-skill"],
-							},
-						},
-						null,
-						2,
-					),
-				);
-				await writeFixture(
-					outsideDir,
-					join(
-						"dist",
-						"codex",
-						"rp1-base",
-						"skills",
-						"rp1-synthetic-skill",
-						"SKILL.md",
-					),
-					generatedSkillContent(
-						"rp1-synthetic-skill",
-						"Synthetic skill used to verify artifact metadata lookup.",
-						"base",
-						"synthetic-skill",
-						"quality",
-						true,
-						["TARGET"],
-						"resumable",
-						["TARGET"],
-					),
+					"codex",
+					"base",
+					"rp1-synthetic-skill",
+					"synthetic-skill",
+					"Synthetic skill used to verify artifact metadata lookup.",
+					"quality",
+					true,
+					false,
+					["TARGET"],
+					"resumable",
+					["TARGET"],
 				);
 				await writeFixture(
 					tempDir,
@@ -741,6 +722,7 @@ describe("verifier", () => {
 					user_facing_name: "rp1-base:synthetic-skill",
 					category: "quality",
 					is_workflow: true,
+					arcade_tracked: false,
 					key_args: ["TARGET"],
 					run_policy: "resumable",
 					identity_args: ["TARGET"],
@@ -755,7 +737,7 @@ describe("verifier", () => {
 			}
 		});
 
-		test("leaves additive discovery metadata unset when the canonical skill is not in the registry", async () => {
+		test("leaves additive discovery metadata unset when the canonical skill is not in packaged metadata", async () => {
 			const restoreHome = withEnvOverride("HOME", tempDir);
 
 			try {
@@ -790,6 +772,52 @@ describe("verifier", () => {
 			} finally {
 				restoreHome();
 			}
+		});
+	});
+
+	describe("buildRuntimeSkillMetadataLookup", () => {
+		test("fills missing discovery fields from later artifact sources", async () => {
+			const description =
+				"Synthetic multi-platform skill used to verify artifact metadata merging.";
+			await writeArtifactSkill(
+				tempDir,
+				"codex",
+				"base",
+				"rp1-multi-platform-skill",
+				"multi-platform-skill",
+				description,
+				"knowledge",
+				true,
+				undefined,
+				["FEATURE_ID"],
+				"fresh",
+				[],
+			);
+			await writeArtifactSkill(
+				tempDir,
+				"opencode",
+				"base",
+				"rp1-multi-platform-skill",
+				"multi-platform-skill",
+				description,
+				"knowledge",
+				true,
+				false,
+				["FEATURE_ID"],
+				"fresh",
+				[],
+			);
+
+			const lookup = await buildRuntimeSkillMetadataLookup();
+
+			expect(lookup.get("base:multi-platform-skill")).toEqual({
+				category: "knowledge",
+				is_workflow: true,
+				arcade_tracked: false,
+				key_args: ["FEATURE_ID"],
+				run_policy: "fresh",
+				identity_args: [],
+			});
 		});
 	});
 });

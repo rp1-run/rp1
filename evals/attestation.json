@@ -3,13 +3,13 @@
   "skills": {
     "rp1-dev:build@claude-code": {
       "platform": "claude-code",
-      "prompt_hash": "sha256:03fbb9f129dd296396a2c2c28b1759f73216e400ffffa21062e28295b69b0334",
-      "deps_hash": "sha256:01de834903140b26f83d2dce20f1da60739dde1003aea305424f1ddbc95d9e3e",
+      "prompt_hash": "sha256:69f9abf29dabeb1d6492a044ee474d30f99d23b1e356b1f3186df1f0c7823e54",
+      "deps_hash": "sha256:49fb8fd6ed88d002e4cb95e1dd798b08ba8de11a664d9bfe78c01ceefb6a723b",
       "version": "3.0.0",
       "last_eval": {
         "passed": true,
-        "timestamp": "2026-04-11T12:43:45.482Z",
-        "git_commit": "eb001431",
+        "timestamp": "2026-04-12T05:04:07.417Z",
+        "git_commit": "43b35db5",
         "result_file": "output/rp1-dev-build.json"
       }
     },
@@ -83,7 +83,7 @@
     "dist/claude-code/dev/agents/task-reviewer.md": "sha256:6ca997261c536bcdf7724e8d5a4e35f2eb88d0de908d53fa999731dc7395b255",
     "dist/claude-code/dev/skills/speedrun/SKILL.md": "sha256:845f3a3307bf0debaccecd33c1d26c57f93001bb87d87ee122bffb53f0806865",
     "dist/claude-code/dev/agents/speedrun-builder.md": "sha256:492f0208ff2f373fc5fb6419ee3b9bdbfd67c3b1d3113225c883313be1f21650",
-    "dist/claude-code/dev/skills/build/SKILL.md": "sha256:03fbb9f129dd296396a2c2c28b1759f73216e400ffffa21062e28295b69b0334",
+    "dist/claude-code/dev/skills/build/SKILL.md": "sha256:69f9abf29dabeb1d6492a044ee474d30f99d23b1e356b1f3186df1f0c7823e54",
     "dist/claude-code/dev/agents/build-artifact-detector.md": "sha256:d73645562c4455dfe9e92fd82aff5bfeb0763044ea913d13f379416e3120f034",
     "dist/claude-code/dev/agents/feature-requirement-gatherer.md": "sha256:6545245852ee4edb7aa224ea43730a37eecd6c9c0c163e6926235e381ced691b",
     "dist/claude-code/dev/agents/feature-architect.md": "sha256:9d2bbbd36787c4362c282534bcfb0f6b624f517a4d2bc2e4e3080aa9bf1dd4c2",

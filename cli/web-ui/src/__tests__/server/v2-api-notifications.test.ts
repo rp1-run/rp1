@@ -114,7 +114,7 @@ describe("handleV2NotificationsListRequest", () => {
 			projectId: "project-uuid-1",
 		});
 		insertNotification(db, {
-			message: "build: Approval needed",
+			message: "Approval needed",
 			sourceType: "agent",
 			sourceId: "run-failed",
 			route: "/runs/run-failed",
@@ -161,7 +161,7 @@ describe("handleV2NotificationsListRequest", () => {
 		});
 
 		const agentNotification = body.notifications.find(
-			(notification) => notification.message === "build: Approval needed",
+			(notification) => notification.message === "Approval needed",
 		);
 		expect(agentNotification?.attentionLevel).toBe("action_required");
 

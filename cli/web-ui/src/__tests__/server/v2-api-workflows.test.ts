@@ -23,6 +23,7 @@ import {
 	deriveStepsFromMachine,
 	handleV2WorkflowDetailRequest,
 	handleV2WorkflowsListRequest,
+	isActivityTrackedFlow,
 } from "../../server/routes/v2-api.js";
 
 const buildMmd = `stateDiagram-v2
@@ -87,6 +88,29 @@ describe("commandToWorkflowName", () => {
 		expect(commandToWorkflowName("")).toBeNull();
 		expect(commandToWorkflowName("build")).toBeNull();
 		expect(commandToWorkflowName("/")).toBeNull();
+	});
+});
+
+describe("isActivityTrackedFlow", () => {
+	test("defaults to tracked when no skill metadata matches the flow", () => {
+		expect(isActivityTrackedFlow("unknown-flow", new Map())).toBe(true);
+	});
+
+	test("hides flows when every matching skill explicitly disables arcade tracking", () => {
+		const lookup = new Map([
+			["base:knowledge-build", { arcade_tracked: false }],
+		]);
+
+		expect(isActivityTrackedFlow("knowledge-build", lookup)).toBe(false);
+	});
+
+	test("keeps flows visible when any matching skill remains tracked", () => {
+		const lookup = new Map([
+			["base:knowledge-build", { arcade_tracked: false }],
+			["dev:knowledge-build", { arcade_tracked: true }],
+		]);
+
+		expect(isActivityTrackedFlow("knowledge-build", lookup)).toBe(true);
 	});
 });
 

@@ -150,7 +150,7 @@ describe("buildPlatformPlugin (codex) integration", () => {
 		expect(manifest.installation.configFile).toBe("~/.codex/config.toml");
 	}, 30000);
 
-	test("copies codex-hooks.json with user-facing SessionStart messages only", async () => {
+	test("copies codex-hooks.json with hook-safe SessionStart commands", async () => {
 		const outputPath = join(tempDir, "hooks-output");
 		await buildPlatformPlugin(
 			"base",
@@ -176,14 +176,24 @@ describe("buildPlatformPlugin (codex) integration", () => {
 		const sessionStartHooks = parsed.hooks?.SessionStart ?? [];
 		expect(sessionStartHooks.length).toBeGreaterThan(0);
 
+		let sawArcadeHook = false;
 		for (const entry of sessionStartHooks) {
 			for (const hook of entry.hooks ?? []) {
 				const command = hook.command ?? "";
+				if (command.includes("arcade")) {
+					sawArcadeHook = true;
+					expect(command).toContain("--format hook-json");
+					expect(command).not.toContain('printf "{\\"systemMessage\\"');
+					continue;
+				}
+
 				expect(command).toContain('\\"systemMessage\\":');
 				expect(command).not.toContain("hookSpecificOutput");
 				expect(command).not.toContain("additionalContext");
 			}
 		}
+
+		expect(sawArcadeHook).toBe(true);
 	}, 30000);
 
 	test("transforms namespace references in skill content outside code blocks", async () => {

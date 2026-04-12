@@ -166,7 +166,7 @@ async function handleV2ApiRequest(
 
 	if (pathname === "/api/v2/shutdown" && method === "POST") {
 		const { handleV2ShutdownRequest } = await import("./routes/v2-api");
-		return handleV2ShutdownRequest(apiContext);
+		return handleV2ShutdownRequest(req, apiContext);
 	}
 
 	if (pathname === "/api/v2/status/notify" && method === "POST") {

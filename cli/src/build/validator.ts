@@ -206,6 +206,19 @@ const validateSkillDiscoveryMetadata = (
 		);
 	}
 
+	if (
+		hasOwn(skillMetadata, "arcade_tracked") &&
+		typeof skillMetadata.arcade_tracked !== "boolean"
+	) {
+		return E.left(
+			validationError(
+				file,
+				"L2",
+				"Field 'metadata.arcade_tracked' must be boolean",
+			),
+		);
+	}
+
 	const workflowMetadataResult = validateTrackedWorkflowMetadata(
 		skillMetadata,
 		file,

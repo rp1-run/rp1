@@ -7,12 +7,16 @@ import {
 	useRef,
 	useState,
 } from "react";
-import type { ShortcutDefinition } from "@/hooks/useContextualShortcuts";
+import type {
+	CommandDefinition,
+	ShortcutDefinition,
+} from "@/hooks/useContextualShortcuts";
 
 export interface ContextualShortcutGroup {
 	viewId: string;
 	viewLabel: string;
 	shortcuts: ShortcutDefinition[];
+	commands: CommandDefinition[];
 }
 
 export interface ShortcutRegistryApi {
@@ -20,6 +24,7 @@ export interface ShortcutRegistryApi {
 		viewId: string,
 		viewLabel: string,
 		shortcuts: ShortcutDefinition[],
+		commands?: CommandDefinition[],
 	) => void;
 	unregisterContextual: (viewId: string) => void;
 }
@@ -119,8 +124,13 @@ export function ShortcutRegistryProvider({
 		useState<ContextualShortcutGroup | null>(null);
 
 	const registerContextual = useCallback(
-		(viewId: string, viewLabel: string, shortcuts: ShortcutDefinition[]) => {
-			setContextualShortcuts({ viewId, viewLabel, shortcuts });
+		(
+			viewId: string,
+			viewLabel: string,
+			shortcuts: ShortcutDefinition[],
+			commands: CommandDefinition[] = [],
+		) => {
+			setContextualShortcuts({ viewId, viewLabel, shortcuts, commands });
 		},
 		[],
 	);

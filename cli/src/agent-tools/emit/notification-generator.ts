@@ -35,15 +35,11 @@ const buildStatusMessage = (
 
 /**
  * Build a notification message for a waiting_for_user event.
- * Combines workflow context with the agent's prompt, truncated.
+ * Uses the agent's prompt directly; workflow context is surfaced separately
+ * in notification metadata/UI.
  */
-const buildWaitingMessage = (
-	workflow: string | null,
-	prompt: string,
-): string => {
-	const prefix = workflow && workflow !== "unknown" ? `${workflow}: ` : "";
-	return truncateMessage(`${prefix}${prompt}`, MAX_MESSAGE_LENGTH);
-};
+const buildWaitingMessage = (prompt: string): string =>
+	truncateMessage(prompt, MAX_MESSAGE_LENGTH);
 
 /**
  * Conditionally generate a notification based on the event type and status.
@@ -71,7 +67,7 @@ export const maybeGenerateNotification = (
 	if (eventType === "waiting_for_user") {
 		const prompt =
 			(eventData?.prompt as string) ?? "Agent is waiting for input";
-		const message = buildWaitingMessage(workflow, prompt);
+		const message = buildWaitingMessage(prompt);
 
 		return insertNotification(db, {
 			message,

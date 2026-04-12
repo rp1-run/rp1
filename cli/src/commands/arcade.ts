@@ -2,12 +2,16 @@ import { spawn } from "node:child_process";
 import { statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import chalk from "chalk";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import type * as T from "fp-ts/lib/Task.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
-import { type ArcadeConfig, loadArcadeConfig } from "../../shared/config.js";
+import {
+	type ArcadeConfig,
+	loadArcadeConfig,
+	parseArcadeArgs,
+} from "../../shared/config.js";
 import {
 	type CLIError,
 	formatError,
@@ -18,6 +22,15 @@ import {
 } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
 import { isBun } from "../../shared/runtime.js";
+
+type ArcadeOutputFormat = "text" | "hook-json";
+
+interface ArcadeStartResult {
+	readonly projectId: string;
+	readonly projectName: string;
+	readonly url: string;
+	readonly wasRunning: boolean;
+}
 
 const directoryExists = (path: string): boolean => {
 	try {
@@ -86,6 +99,40 @@ const openBrowser =
 	};
 
 /**
+ * Start or connect to the daemon, then register the current project.
+ */
+const startArcade = async (
+	config: ArcadeConfig,
+	cliVersion?: string,
+): Promise<ArcadeStartResult> => {
+	const { ensureDaemon, registerProjectWithDaemon } = await import(
+		"../../web-ui/src/daemon/index.js"
+	);
+
+	const { connection, wasRunning } = await ensureDaemon(
+		config.port,
+		cliVersion,
+	);
+	const { project, url } = await registerProjectWithDaemon(
+		connection,
+		config.rp1Root,
+	);
+
+	return {
+		projectId: project.id,
+		projectName: project.name,
+		url,
+		wasRunning,
+	};
+};
+
+export function formatArcadeHookPayload(url: string): string {
+	return JSON.stringify({
+		systemMessage: `🕹️ rp1 Arcade is live at ${url}`,
+	});
+}
+
+/**
  * Execute with daemon support - start daemon if needed, register project, open browser.
  */
 const executeWithDaemon = (
@@ -95,13 +142,9 @@ const executeWithDaemon = (
 ): TE.TaskEither<CLIError, void> =>
 	tryCatchTE(
 		async () => {
-			const { ensureDaemon, registerProjectWithDaemon } = await import(
-				"../../web-ui/src/daemon/index.js"
-			);
-
 			logger.debug("Ensuring daemon is running...");
-			const { connection, wasRunning } = await ensureDaemon(
-				config.port,
+			const { projectId, projectName, url, wasRunning } = await startArcade(
+				config,
 				cliVersion,
 			);
 
@@ -112,12 +155,7 @@ const executeWithDaemon = (
 			}
 
 			logger.debug(`Registering project: ${config.rp1Root}`);
-			const { project, url } = await registerProjectWithDaemon(
-				connection,
-				config.rp1Root,
-			);
-
-			logger.info(`Project registered: ${project.name} (${project.id})`);
+			logger.info(`Project registered: ${projectName} (${projectId})`);
 
 			if (config.openBrowser) {
 				logger.debug("Opening browser...");
@@ -128,6 +166,43 @@ const executeWithDaemon = (
 			}
 		},
 		(e) => runtimeError(`Failed to start arcade: ${e}`),
+	);
+
+const hookOutputCommand = (
+	config: ArcadeConfig,
+	cliVersion?: string,
+): TE.TaskEither<CLIError, void> =>
+	tryCatchTE(
+		async () => {
+			// Hook mode should be side-effect-light: if a healthy daemon is already
+			// serving, reuse it instead of forcing the dev-build restart path.
+			const { url } = await startArcade(config, cliVersion);
+			console.log(formatArcadeHookPayload(url));
+		},
+		(e) => runtimeError(`Failed to format arcade hook output: ${e}`),
+	);
+
+const ensureDaemonOnlyCommand = (
+	port: number,
+	logger: Logger,
+	cliVersion?: string,
+): TE.TaskEither<CLIError, void> =>
+	tryCatchTE(
+		async () => {
+			const { ensureDaemon } = await import("../../web-ui/src/daemon/index.js");
+
+			logger.debug(
+				"Ensuring daemon is running without project registration...",
+			);
+			const { wasRunning } = await ensureDaemon(port, cliVersion);
+
+			if (wasRunning) {
+				logger.info(`Daemon already running on port ${port}`);
+			} else {
+				logger.info(`Started daemon on port ${port}`);
+			}
+		},
+		(e) => runtimeError(`Failed to ensure daemon: ${e}`),
 	);
 
 /**
@@ -207,7 +282,13 @@ const restartDaemonCommand = (
 
 const execute = (
 	args: string[],
-	options: { stop?: boolean; status?: boolean; restart?: boolean },
+	options: {
+		stop?: boolean;
+		status?: boolean;
+		restart?: boolean;
+		daemonOnly?: boolean;
+		format?: ArcadeOutputFormat;
+	},
 	logger: Logger,
 	cliVersion?: string,
 ): TE.TaskEither<CLIError, void> => {
@@ -227,6 +308,16 @@ const execute = (
 		);
 	}
 
+	if (options.daemonOnly) {
+		return pipe(
+			parseArcadeArgs(args),
+			TE.fromEither,
+			TE.chain((config) =>
+				ensureDaemonOnlyCommand(config.port, logger, cliVersion),
+			),
+		);
+	}
+
 	return pipe(
 		loadArcadeConfig(args),
 		TE.fromEither,
@@ -242,7 +333,11 @@ const execute = (
 				TE.map(() => config),
 			),
 		),
-		TE.chain((config) => executeWithDaemon(config, logger, cliVersion)),
+		TE.chain((config) =>
+			options.format === "hook-json"
+				? hookOutputCommand(config, cliVersion)
+				: executeWithDaemon(config, logger, cliVersion),
+		),
 	);
 };
 
@@ -254,6 +349,13 @@ export const arcadeCommand = new Command("arcade")
 	.option("--stop", "Stop the background daemon")
 	.option("--status", "Show daemon status")
 	.option("--restart", "Restart the daemon")
+	.addOption(new Option("--daemon-only").hideHelp())
+	.addOption(
+		new Option("--format <format>")
+			.choices(["text", "hook-json"])
+			.default("text")
+			.hideHelp(),
+	)
 	.addHelpText(
 		"after",
 		`
@@ -322,6 +424,8 @@ Note: This command requires Bun runtime. Install from https://bun.sh
 				stop: options.stop,
 				status: options.status,
 				restart: options.restart,
+				daemonOnly: options.daemonOnly,
+				format: options.format as ArcadeOutputFormat,
 			},
 			logger,
 			cliVersion,

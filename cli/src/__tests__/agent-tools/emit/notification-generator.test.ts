@@ -217,7 +217,7 @@ describe("notification-generator", () => {
 			expect(result).not.toBeNull();
 			expect(result!.sourceType).toBe("agent");
 			expect(result!.message).toBe(
-				"build: Code audit found 3 issues -- review recommended",
+				"Code audit found 3 issues -- review recommended",
 			);
 			expect(result!.sourceId).toBe("run-8");
 			expect(result!.route).toBe("/runs/run-8");

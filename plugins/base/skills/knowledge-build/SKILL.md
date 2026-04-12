@@ -5,6 +5,7 @@ allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git *), Bash(jq *), Bash(wc *), B
 metadata:
   category: knowledge
   is_workflow: true
+  arcade_tracked: false
   workflow:
     run_policy: fresh
     identity_args: []

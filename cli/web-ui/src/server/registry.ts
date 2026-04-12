@@ -105,14 +105,42 @@ function slugify(input: string): string {
 
 /**
  * Check if a path contains a valid .rp1 directory.
+ * Only returns false when the path genuinely does not exist (ENOENT).
+ * Transient I/O errors are re-thrown so callers can decide how to handle them
+ * rather than silently treating the project as invalid.
  */
 export async function isValidProject(projectPath: string): Promise<boolean> {
 	try {
 		const rp1Path = `${projectPath}/.rp1`;
 		const stats = await stat(rp1Path);
 		return stats.isDirectory();
-	} catch {
-		return false;
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+			return false;
+		}
+		throw error;
+	}
+}
+
+/**
+ * In-process async mutex to serialize registry mutations.
+ * Prevents read-modify-write races between concurrent async operations
+ * (e.g., pruneStaleProjects running during a registerProject call).
+ */
+let _lockQueue: Promise<void> = Promise.resolve();
+
+async function withRegistryLock<T>(fn: () => Promise<T>): Promise<T> {
+	let release!: () => void;
+	const gate = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	const previous = _lockQueue;
+	_lockQueue = gate;
+	await previous;
+	try {
+		return await fn();
+	} finally {
+		release();
 	}
 }
 
@@ -221,68 +249,70 @@ export async function registerProject(
 		? resolved.right.projectRoot
 		: projectPath;
 
-	const registry = await loadRegistry();
-	const existingIds = new Set(Object.keys(registry.projects));
-	const uuid = readProjectId(normalizedPath);
+	return withRegistryLock(async () => {
+		const registry = await loadRegistry();
+		const existingIds = new Set(Object.keys(registry.projects));
+		const uuid = readProjectId(normalizedPath);
 
-	const existing = Object.values(registry.projects).find(
-		(p) => p.path === normalizedPath,
-	);
+		const existing = Object.values(registry.projects).find(
+			(p) => p.path === normalizedPath,
+		);
 
-	const now = new Date().toISOString();
-	const available = await isValidProject(normalizedPath);
+		const now = new Date().toISOString();
+		const available = await isValidProject(normalizedPath);
 
-	if (existing) {
-		const needsRekey = uuid && existing.id !== uuid;
-		const updatedId = uuid ?? existing.id;
-		const updated: ProjectEntry = {
-			...existing,
-			id: updatedId,
-			projectId: uuid ?? existing.projectId,
+		if (existing) {
+			const needsRekey = uuid && existing.id !== uuid;
+			const updatedId = uuid ?? existing.id;
+			const updated: ProjectEntry = {
+				...existing,
+				id: updatedId,
+				projectId: uuid ?? existing.projectId,
+				lastAccessedAt: now,
+				available,
+			};
+
+			const projects = { ...registry.projects };
+			if (needsRekey) {
+				delete projects[existing.id];
+			}
+			projects[updatedId] = updated;
+
+			const updatedRegistry: ProjectRegistry = {
+				...registry,
+				lastInvoked: updatedId,
+				projects,
+			};
+
+			await saveRegistry(updatedRegistry);
+			return updated;
+		}
+
+		const id = uuid ?? generateProjectId(normalizedPath, existingIds);
+		const name = getProjectName(normalizedPath);
+
+		const entry: ProjectEntry = {
+			id,
+			projectId: uuid,
+			path: normalizedPath,
+			name,
+			addedAt: now,
 			lastAccessedAt: now,
 			available,
 		};
 
-		const projects = { ...registry.projects };
-		if (needsRekey) {
-			delete projects[existing.id];
-		}
-		projects[updatedId] = updated;
-
 		const updatedRegistry: ProjectRegistry = {
 			...registry,
-			lastInvoked: updatedId,
-			projects,
+			lastInvoked: id,
+			projects: {
+				...registry.projects,
+				[id]: entry,
+			},
 		};
 
 		await saveRegistry(updatedRegistry);
-		return updated;
-	}
-
-	const id = uuid ?? generateProjectId(normalizedPath, existingIds);
-	const name = getProjectName(normalizedPath);
-
-	const entry: ProjectEntry = {
-		id,
-		projectId: uuid,
-		path: normalizedPath,
-		name,
-		addedAt: now,
-		lastAccessedAt: now,
-		available,
-	};
-
-	const updatedRegistry: ProjectRegistry = {
-		...registry,
-		lastInvoked: id,
-		projects: {
-			...registry.projects,
-			[id]: entry,
-		},
-	};
-
-	await saveRegistry(updatedRegistry);
-	return entry;
+		return entry;
+	});
 }
 
 /**
@@ -290,23 +320,25 @@ export async function registerProject(
  * Returns true if the project was found and removed.
  */
 export async function removeProject(projectId: string): Promise<boolean> {
-	const registry = await loadRegistry();
+	return withRegistryLock(async () => {
+		const registry = await loadRegistry();
 
-	if (!registry.projects[projectId]) {
-		return false;
-	}
+		if (!registry.projects[projectId]) {
+			return false;
+		}
 
-	const { [projectId]: _removed, ...remainingProjects } = registry.projects;
+		const { [projectId]: _removed, ...remainingProjects } = registry.projects;
 
-	const updatedRegistry: ProjectRegistry = {
-		...registry,
-		lastInvoked:
-			registry.lastInvoked === projectId ? null : registry.lastInvoked,
-		projects: remainingProjects,
-	};
+		const updatedRegistry: ProjectRegistry = {
+			...registry,
+			lastInvoked:
+				registry.lastInvoked === projectId ? null : registry.lastInvoked,
+			projects: remainingProjects,
+		};
 
-	await saveRegistry(updatedRegistry);
-	return true;
+		await saveRegistry(updatedRegistry);
+		return true;
+	});
 }
 
 /**
@@ -340,26 +372,28 @@ export async function getLastInvokedProjectId(): Promise<string | null> {
  * Marks projects as unavailable if their .rp1/ directory is missing.
  */
 export async function refreshProjectAvailability(): Promise<void> {
-	const registry = await loadRegistry();
-	const updates: Record<string, ProjectEntry> = {};
-	let hasChanges = false;
+	return withRegistryLock(async () => {
+		const registry = await loadRegistry();
+		const updates: Record<string, ProjectEntry> = {};
+		let hasChanges = false;
 
-	for (const project of Object.values(registry.projects)) {
-		const available = await isValidProject(project.path);
-		if (available !== project.available) {
-			updates[project.id] = { ...project, available };
-			hasChanges = true;
-		} else {
-			updates[project.id] = project;
+		for (const project of Object.values(registry.projects)) {
+			const available = await isValidProject(project.path);
+			if (available !== project.available) {
+				updates[project.id] = { ...project, available };
+				hasChanges = true;
+			} else {
+				updates[project.id] = project;
+			}
 		}
-	}
 
-	if (hasChanges) {
-		await saveRegistry({
-			...registry,
-			projects: updates,
-		});
-	}
+		if (hasChanges) {
+			await saveRegistry({
+				...registry,
+				projects: updates,
+			});
+		}
+	});
 }
 
 /**
@@ -367,55 +401,59 @@ export async function refreshProjectAvailability(): Promise<void> {
  * Returns the number of projects removed.
  */
 export async function pruneStaleProjects(): Promise<number> {
-	const registry = await loadRegistry();
-	const remaining: Record<string, ProjectEntry> = {};
-	let pruned = 0;
+	return withRegistryLock(async () => {
+		const registry = await loadRegistry();
+		const remaining: Record<string, ProjectEntry> = {};
+		let pruned = 0;
 
-	for (const [id, project] of Object.entries(registry.projects)) {
-		const available = await isValidProject(project.path);
-		if (available) {
-			remaining[id] = project;
-		} else {
-			pruned++;
+		for (const [id, project] of Object.entries(registry.projects)) {
+			const available = await isValidProject(project.path);
+			if (available) {
+				remaining[id] = project;
+			} else {
+				pruned++;
+			}
 		}
-	}
 
-	if (pruned > 0) {
-		await saveRegistry({
-			...registry,
-			lastInvoked:
-				registry.lastInvoked && remaining[registry.lastInvoked]
-					? registry.lastInvoked
-					: null,
-			projects: remaining,
-		});
-	}
+		if (pruned > 0) {
+			await saveRegistry({
+				...registry,
+				lastInvoked:
+					registry.lastInvoked && remaining[registry.lastInvoked]
+						? registry.lastInvoked
+						: null,
+				projects: remaining,
+			});
+		}
 
-	return pruned;
+		return pruned;
+	});
 }
 
 /**
  * Set a project as the last invoked.
  */
 export async function setLastInvoked(projectId: string): Promise<void> {
-	const registry = await loadRegistry();
+	return withRegistryLock(async () => {
+		const registry = await loadRegistry();
 
-	if (!registry.projects[projectId]) {
-		throw new Error(`Project ${projectId} not found in registry`);
-	}
+		if (!registry.projects[projectId]) {
+			throw new Error(`Project ${projectId} not found in registry`);
+		}
 
-	const now = new Date().toISOString();
-	const project = registry.projects[projectId];
+		const now = new Date().toISOString();
+		const project = registry.projects[projectId];
 
-	await saveRegistry({
-		...registry,
-		lastInvoked: projectId,
-		projects: {
-			...registry.projects,
-			[projectId]: {
-				...project,
-				lastAccessedAt: now,
+		await saveRegistry({
+			...registry,
+			lastInvoked: projectId,
+			projects: {
+				...registry.projects,
+				[projectId]: {
+					...project,
+					lastAccessedAt: now,
+				},
 			},
-		},
+		});
 	});
 }

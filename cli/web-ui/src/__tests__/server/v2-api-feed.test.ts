@@ -124,7 +124,7 @@ describe("handleV2FeedRequest", () => {
 		deriveRunStatus(db, "run-latest");
 
 		insertNotification(db, {
-			message: "build: Approval needed",
+			message: "Approval needed",
 			sourceType: "agent",
 			sourceId: "run-earlier",
 			route: "/runs/run-earlier",

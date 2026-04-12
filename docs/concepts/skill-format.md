@@ -118,6 +118,31 @@ metadata:
       - FEATURE_ID
 ```
 
+### `arcade_tracked`
+
+Controls whether runs for this skill should appear in the Arcade Activity feed.
+This only affects feed visibility. It does not disable tracked workflow
+bootstrap, run creation, emits, or artifact registration.
+
+Use it when a skill still benefits from workflow state or run records, but its
+runs would be noise in the user-facing Activity stream.
+
+- **Type**: boolean
+- **Required**: No
+- **Default**: `true`
+
+Example:
+
+```yaml
+metadata:
+  category: knowledge
+  is_workflow: true
+  arcade_tracked: false
+  workflow:
+    run_policy: fresh
+    identity_args: []
+```
+
 ### `version`
 
 Semantic version of the skill.

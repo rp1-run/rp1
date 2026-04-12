@@ -8,10 +8,20 @@ export interface ShortcutDefinition {
 	action: () => void;
 }
 
+export interface CommandDefinition {
+	id: string;
+	label: string;
+	description: string;
+	keywords?: readonly string[];
+	shortcutHint?: string;
+	action: () => void;
+}
+
 export interface UseContextualShortcutsOptions {
 	viewId: string;
 	viewLabel: string;
 	shortcuts: ShortcutDefinition[];
+	commands?: CommandDefinition[];
 	enabled?: boolean;
 }
 
@@ -43,6 +53,7 @@ export function useContextualShortcuts({
 	viewId,
 	viewLabel,
 	shortcuts,
+	commands = [],
 	enabled = true,
 }: UseContextualShortcutsOptions): void {
 	const api = useContext(ShortcutRegistryApiContext);
@@ -52,12 +63,12 @@ export function useContextualShortcuts({
 	useEffect(() => {
 		if (!api || !enabled) return;
 
-		api.registerContextual(viewId, viewLabel, shortcutsRef.current);
+		api.registerContextual(viewId, viewLabel, shortcuts, commands);
 
 		return () => {
 			api.unregisterContextual(viewId);
 		};
-	}, [api, viewId, viewLabel, enabled]);
+	}, [api, viewId, viewLabel, shortcuts, commands, enabled]);
 
 	useEffect(() => {
 		if (!enabled) return;

@@ -1,4 +1,4 @@
-import { SquareKanban } from "lucide-react";
+import { NotebookTabs } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { HarnessIcon } from "@/components/v2/HarnessIcon";
@@ -65,7 +65,7 @@ export function TerminalBreadcrumb({
 						className="flex items-center gap-1 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer"
 						aria-label={`Open project ${runInfo.projectName}`}
 					>
-						<SquareKanban className="h-3 w-3" strokeWidth={1.5} />
+						<NotebookTabs className="h-3 w-3" strokeWidth={1.5} />
 						{runInfo.projectName}
 					</span>
 				</div>
@@ -91,7 +91,7 @@ export function TerminalBreadcrumb({
 					to={`/projects/${projectId}`}
 					className="flex items-center gap-1 type-secondary italic text-fg-ghost transition-colors duration-150 hover:text-fg-muted"
 				>
-					<SquareKanban className="h-3 w-3" strokeWidth={1.5} />
+					<NotebookTabs className="h-3 w-3" strokeWidth={1.5} />
 					{projectName}
 				</Link>
 				{action ? <div className="flex items-center">{action}</div> : null}

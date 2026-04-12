@@ -46,7 +46,7 @@
 | `/address-pr-feedback` | dev | Unified PR feedback workflow - collect, triage, and fix review comments in a single command. | `PR_IDENTIFIER`, `FEATURE_ID`, `AFK` |  |  |  |
 | `/arcade-collab` | dev | Structured guidance for agents to read, classify, and act on user feedback (annotations and direct file edits) from the Arcade. |  |  |  |  |
 | `/pr-review` | dev | Intent-aware map-reduce PR review with CI/CD support, confidence gating, and intelligent comment deduplication. | `TARGET`, `BASE_BRANCH`, `SKIP_VISUAL` | Yes | fresh |  |
-| `/pr-visual` | dev | Transform pull request diffs into Mermaid diagrams for visual code review and change understanding. | `PR_BRANCH`, `BASE_BRANCH`, `REVIEW_DEPTH`, `FOCUS_AREAS` |  |  |  |
+| `/pr-visual` | dev | Transform pull request diffs into Mermaid diagrams for visual code review and change understanding. | `PR_BRANCH`, `BASE_BRANCH`, `REVIEW_DEPTH`, `FOCUS_AREAS` | Yes | fresh |  |
 
 ## Documentation
 
@@ -80,7 +80,7 @@
 | Skill | Plugin | Description | Key Args | Workflow | Run Policy | Identity Args |
 |-------|--------|-------------|----------|----------|------------|---------------|
 | `/analyse-security` | base | Performs thorough security validation of features including vulnerability scans, authentication/authorization verification, compliance assessment, and penetration testing. |  |  |  |  |
-| `/deep-research` | base | Autonomous deep research on codebases and technical topics with structured report output via map-reduce explorer architecture. | `RESEARCH_TOPIC` |  |  |  |
+| `/deep-research` | base | Autonomous deep research on codebases and technical topics with structured report output via map-reduce explorer architecture. | `RESEARCH_TOPIC` | Yes | fresh |  |
 | `/strategize` | base | Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs. |  |  |  |  |
 
 ## Planning

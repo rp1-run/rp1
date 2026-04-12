@@ -8,7 +8,7 @@ metadata:
   workflow:
     run_policy: fresh
     identity_args: []
-  version: 4.0.0
+  version: 4.1.0
   tags:
     - review
     - pr
@@ -17,7 +17,7 @@ metadata:
     - map-reduce
     - ci
   created: 2025-10-25
-  updated: 2026-04-08
+  updated: 2026-04-12
   author: cloud-on-prem/rp1
   arguments:
     - name: TARGET
@@ -222,6 +222,24 @@ Skip if `CI_MODE=true`.
 **Spawn** (if not skipped):
 Background mode: local=true, CI=false
 
+First, register visual generation as a subflow under `reviewing` and mark it running:
+```bash
+rp1 agent-tools emit \
+  --workflow pr-review \
+  --type subflow_registered \
+  --run-id {RUN_ID} \
+  --step reviewing \
+  --data '{"parentStepId":"reviewing","subflowName":"visual-generation","diagram":"flowchart TD\n  A[Start] --> B[Generate Visuals]\n  B --> C[Return Markdown]"}'
+
+rp1 agent-tools emit \
+  --workflow pr-review \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step reviewing \
+  --unit visual-generation \
+  --data '{"status":"running"}'
+```
+
 {% dispatch_agent "rp1-dev:pr-visualizer" %}
 Generate PR visualization.
   PR_BRANCH: {{pr_branch}}
@@ -232,7 +250,23 @@ Generate PR visualization.
   WORK_ROOT: {workRoot}
 {% enddispatch_agent %}
 
-Capture `VISUAL_CONTENT` (raw markdown with Mermaid diagrams)
+Capture `VISUAL_CONTENT` (raw markdown with Mermaid diagrams).
+
+If the visualizer fails or returns unusable output:
+- Emit `reviewing` / `visual-generation` with `{"status":"failed"}`
+- Set `VISUAL_CONTENT=""`
+- Continue to P1 without blocking the review
+
+After the visualizer returns, mark the subflow unit completed:
+```bash
+rp1 agent-tools emit \
+  --workflow pr-review \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step reviewing \
+  --unit visual-generation \
+  --data '{"status":"completed"}'
+```
 
 ### P1: Splitting
 

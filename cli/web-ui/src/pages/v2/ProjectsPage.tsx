@@ -1,4 +1,4 @@
-import { AlertCircle, FolderOpen, Play, SquareKanban } from "lucide-react";
+import { AlertCircle, FolderOpen, NotebookTabs, Play } from "lucide-react";
 import { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
@@ -206,7 +206,7 @@ export function ProjectsPage() {
 		<div className="mx-auto max-w-2xl px-6 py-8">
 			<header className="mb-6">
 				<h1 className="flex items-center gap-2 type-title text-fg">
-					<SquareKanban className="h-4 w-4" strokeWidth={1.5} />
+					<NotebookTabs className="h-4 w-4" strokeWidth={1.5} />
 					Projects
 				</h1>
 			</header>

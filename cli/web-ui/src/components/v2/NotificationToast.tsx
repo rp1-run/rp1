@@ -84,8 +84,19 @@ export function NotificationContainer() {
 					exiting: false,
 				};
 
-				setToasts((prev) => [...prev, toast]);
-				scheduleAutoDismiss(notification.id);
+				let shouldScheduleAutoDismiss = false;
+				setToasts((prev) => {
+					if (prev.some((candidate) => candidate.id === notification.id)) {
+						return prev;
+					}
+
+					shouldScheduleAutoDismiss = true;
+					return [...prev, toast];
+				});
+
+				if (shouldScheduleAutoDismiss) {
+					scheduleAutoDismiss(notification.id);
+				}
 				return;
 			}
 
