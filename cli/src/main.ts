@@ -55,6 +55,9 @@ const isDaemonServerCommand = (): boolean => {
 const handleDaemonServerCommand = async (): Promise<void> => {
 	const { createServer } = await import("../web-ui/src/server.js");
 	const { getWebUIDir, getBundledAssets } = await import("./assets/index.js");
+	const { logDaemonError, logDaemonEvent } = await import(
+		"../web-ui/src/daemon/diagnostics.js"
+	);
 	const E = await import("fp-ts/lib/Either.js");
 
 	const args = process.argv.slice(2);
@@ -98,12 +101,40 @@ const handleDaemonServerCommand = async (): Promise<void> => {
 		version,
 	});
 
+	logDaemonEvent("daemon_started", {
+		port,
+		projectPath: process.cwd(),
+		version,
+		ppid: process.ppid,
+		execPath: process.execPath,
+	});
+
+	process.on("unhandledRejection", (reason) => {
+		logDaemonError("unhandled_rejection", reason);
+	});
+
+	process.on("uncaughtException", (error) => {
+		logDaemonError("uncaught_exception", error);
+		stop();
+		process.exit(1);
+	});
+
+	process.on("beforeExit", (code) => {
+		logDaemonEvent("before_exit", { code });
+	});
+
+	process.on("exit", (code) => {
+		logDaemonEvent("exit", { code });
+	});
+
 	process.on("SIGINT", () => {
+		logDaemonEvent("signal", { signal: "SIGINT" });
 		stop();
 		process.exit(0);
 	});
 
 	process.on("SIGTERM", () => {
+		logDaemonEvent("signal", { signal: "SIGTERM" });
 		stop();
 		process.exit(0);
 	});

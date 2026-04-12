@@ -48,6 +48,7 @@ import {
 	loadStateMachine,
 } from "../../../../src/agent-tools/state-machine/index.js";
 import type { OrderedStep } from "../../../../src/agent-tools/state-machine/models.js";
+import { logDaemonEvent } from "../../daemon/diagnostics";
 import type { V2Project } from "../../types/projects";
 import type {
 	AgentTask,
@@ -1693,8 +1694,12 @@ export async function handleV2HealthRequest(
  * POST /api/v2/shutdown - graceful daemon shutdown.
  */
 export async function handleV2ShutdownRequest(
+	req: Request,
 	ctx: ApiContext,
 ): Promise<Response> {
+	logDaemonEvent("shutdown_endpoint_hit", {
+		userAgent: req.headers.get("user-agent") ?? "",
+	});
 	if (ctx.shutdownCallback) {
 		setTimeout(() => ctx.shutdownCallback?.(), 100);
 	}
