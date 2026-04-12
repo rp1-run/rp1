@@ -115,10 +115,12 @@ mock.module("@/components/v2/TableOfContents", () => ({
 mock.module("@/components/v2/ContentPanel", () => ({
 	ContentPanel: ({
 		content,
+		error,
 		isLoading,
 		showFrontmatter,
 	}: {
 		content?: string | null;
+		error?: string | null;
 		isLoading?: boolean;
 		showFrontmatter?: boolean;
 	}) => (
@@ -126,10 +128,12 @@ mock.module("@/components/v2/ContentPanel", () => ({
 			data-testid="file-panel"
 			data-loading={String(isLoading ?? false)}
 			data-content={content ?? ""}
+			data-error={error ?? ""}
 		>
 			<div data-testid="file-panel-frontmatter">
 				{String(showFrontmatter ?? false)}
 			</div>
+			<div data-testid="file-panel-error">{error ?? ""}</div>
 			<div data-testid="file-panel-content">{content ?? ""}</div>
 		</div>
 	),
@@ -256,5 +260,22 @@ describe("FileBrowserPage", () => {
 			"# Hello",
 		);
 		expect(screen.getByTestId("file-panel").dataset.loading).toBe("false");
+	});
+
+	test("surfaces initial fetch failures as an error when no cached content exists", async () => {
+		global.fetch = mock(async () => ({
+			ok: false,
+			status: 500,
+			statusText: "Internal Server Error",
+		})) as unknown as typeof fetch;
+
+		await renderFileBrowser();
+
+		await waitFor(() => {
+			expect(screen.getByTestId("file-panel").dataset.loading).toBe("false");
+			expect(screen.getByTestId("file-panel-error").textContent).toBe(
+				"Failed to fetch content: Internal Server Error",
+			);
+		});
 	});
 });

@@ -204,9 +204,9 @@ export function FileBrowserPage() {
 					message.startsWith("File not found:") ||
 					message.startsWith("Project unavailable:");
 
-				if (isTerminalError) {
+				if (isTerminalError || cachedContent === null) {
 					savedScrollState.current = null;
-					if (contentCacheKey) {
+					if (isTerminalError && contentCacheKey) {
 						fileBrowserContentCache.delete(contentCacheKey);
 					}
 					setContentError(message);

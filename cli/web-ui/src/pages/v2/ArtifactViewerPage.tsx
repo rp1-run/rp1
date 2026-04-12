@@ -38,12 +38,14 @@ import { NewUpdatesChip } from "@/components/v2/NewUpdatesChip";
 import { TableOfContents } from "@/components/v2/TableOfContents";
 import { UnifiedContentRenderer } from "@/components/v2/UnifiedContentRenderer";
 import { useAnnotations } from "@/hooks/useAnnotations";
+import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useFollowMode } from "@/hooks/useFollowMode";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import { useRunDetail } from "@/hooks/useRunDetail";
+import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
 import { resolveRunDisplayName } from "@/lib/run-display";
 
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
@@ -155,7 +157,8 @@ export function ArtifactViewerPage() {
 	const { runId, "*": artifactPathParam } = useParams();
 	const navigate = useNavigate();
 	const { run, isLoading, error, refetch } = useRunDetail(runId);
-	const { onFileChange } = useWebSocket();
+	const { setActiveArtifact, setProject, setRunInfo } = useBreadcrumbContext();
+	const { onFileChange, setProjectId } = useWebSocket();
 	const isMobile = useIsMobile();
 
 	const [artifactContent, setArtifactContent] =
@@ -219,6 +222,54 @@ export function ArtifactViewerPage() {
 			null
 		);
 	}, [run, selectedArtifactPath]);
+	const workspaceSubtitle = useMemo(() => {
+		if (!run) return null;
+		const artifactName = selectedArtifact?.path.split("/").at(-1) ?? null;
+		return artifactName ?? run.projectName;
+	}, [run, selectedArtifact]);
+
+	useEffect(() => {
+		if (run?.projectName && run?.projectId) {
+			setProject(run.projectId, run.projectName);
+			setProjectId(run.projectId);
+		}
+
+		return () => {
+			setProject(null, null);
+			setProjectId(null);
+		};
+	}, [run?.projectId, run?.projectName, setProject, setProjectId]);
+
+	useEffect(() => {
+		if (run) {
+			setRunInfo({
+				startedAt: run.startedAt,
+				harness: run.harness,
+				command: run.command,
+				displayName: resolveRunDisplayName(run) || run.command,
+				projectName: run.projectName,
+				projectId: run.projectId,
+			});
+		}
+
+		return () => {
+			setRunInfo(null);
+		};
+	}, [run, setRunInfo]);
+
+	useEffect(() => {
+		if (selectedArtifact && runId) {
+			setActiveArtifact(runId, selectedArtifact.path);
+		} else {
+			setActiveArtifact(runId ?? "", null);
+		}
+	}, [selectedArtifact, runId, setActiveArtifact]);
+
+	useEffect(() => {
+		return () => {
+			setActiveArtifact(runId ?? "", null);
+		};
+	}, [runId, setActiveArtifact]);
 
 	const handleToggleTocCollapse = useCallback(() => {
 		setTocCollapsed((prev) => {
@@ -499,6 +550,15 @@ export function ArtifactViewerPage() {
 		};
 	}, [handleKeyDown]);
 
+	const { workspaceCommands } = useWorkspaceDescriptor({
+		title: run ? resolveRunDisplayName(run) || run.command : null,
+		subtitle: workspaceSubtitle,
+		projectId: run?.projectId ?? null,
+		unavailable:
+			!isLoading &&
+			(error?.message === "Run not found" || (!error && run === null)),
+	});
+
 	useContextualShortcuts({
 		viewId: "artifact-viewer",
 		viewLabel: "Artifact Viewer",
@@ -550,19 +610,22 @@ export function ArtifactViewerPage() {
 				},
 			},
 		],
-		commands: selectedArtifactPath
-			? [
-					{
-						id: "toggle-artifact-frontmatter",
-						label: showFrontmatter ? "Hide Frontmatter" : "Show Frontmatter",
-						description: showFrontmatter
-							? "Hide frontmatter in the current artifact viewer"
-							: "Show frontmatter in the current artifact viewer",
-						keywords: ["frontmatter", "metadata", "yaml", "artifact"],
-						action: handleToggleFrontmatter,
-					},
-				]
-			: [],
+		commands: [
+			...workspaceCommands,
+			...(selectedArtifactPath
+				? [
+						{
+							id: "toggle-artifact-frontmatter",
+							label: showFrontmatter ? "Hide Frontmatter" : "Show Frontmatter",
+							description: showFrontmatter
+								? "Hide frontmatter in the current artifact viewer"
+								: "Show frontmatter in the current artifact viewer",
+							keywords: ["frontmatter", "metadata", "yaml", "artifact"],
+							action: handleToggleFrontmatter,
+						},
+					]
+				: []),
+		],
 		enabled: !!run,
 	});
 

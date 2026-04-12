@@ -123,8 +123,8 @@ function ArtifactViewerInner({
 				const isTerminalError =
 					message.startsWith("Artifact not found:") ||
 					message.startsWith("Run not found");
-				if (isTerminalError) {
-					if (artifactCacheKey) {
+				if (isTerminalError || cachedContent === null) {
+					if (isTerminalError && artifactCacheKey) {
 						artifactContentCache.delete(artifactCacheKey);
 					}
 					setContentError(message);
