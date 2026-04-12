@@ -45,6 +45,7 @@ describe("WorkspaceTabStrip", () => {
 				openWorkspace: (_targetRoute: string) => {},
 				activateWorkspace: activateWorkspaceMock,
 				closeWorkspace: closeWorkspaceMock,
+				updateWorkspaceMetadata: () => {},
 			}),
 		}));
 

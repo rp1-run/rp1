@@ -4,6 +4,7 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -32,10 +33,20 @@ export interface WorkspaceTabsState {
 	readonly lastDurableRoute: string;
 }
 
+export interface WorkspaceTabMetadata {
+	readonly title: string;
+	readonly subtitle: string | null;
+	readonly projectId: string | null;
+}
+
 interface WorkspaceTabsContextValue extends WorkspaceTabsState {
 	readonly openWorkspace: (targetRoute: string) => void;
 	readonly activateWorkspace: (key: string) => void;
 	readonly closeWorkspace: (key: string) => void;
+	readonly updateWorkspaceMetadata: (
+		key: string,
+		metadata: WorkspaceTabMetadata,
+	) => void;
 }
 
 interface StoredWorkspaceTabsState {
@@ -202,6 +213,37 @@ function getCloseNavigationTarget(
 	return remainingTabs[fallbackIndex]?.currentPath ?? lastDurableRoute;
 }
 
+function updateWorkspaceTabMetadata(
+	tabs: readonly WorkspaceTab[],
+	key: string,
+	metadata: WorkspaceTabMetadata,
+): readonly WorkspaceTab[] {
+	const existingIndex = tabs.findIndex((tab) => tab.key === key);
+	if (existingIndex < 0) {
+		return tabs;
+	}
+
+	const existingTab = tabs[existingIndex]!;
+	const nextTab: WorkspaceTab = {
+		...existingTab,
+		title: metadata.title,
+		subtitle: metadata.subtitle,
+		projectId: metadata.projectId,
+	};
+
+	if (
+		existingTab.title === nextTab.title &&
+		existingTab.subtitle === nextTab.subtitle &&
+		existingTab.projectId === nextTab.projectId
+	) {
+		return tabs;
+	}
+
+	const nextTabs = [...tabs];
+	nextTabs[existingIndex] = nextTab;
+	return nextTabs;
+}
+
 export function WorkspaceTabsProvider({
 	children,
 }: {
@@ -223,7 +265,7 @@ export function WorkspaceTabsProvider({
 		sessionStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
 	}, [state]);
 
-	useEffect(() => {
+	useLayoutEffect(() => {
 		const currentPath = createCurrentPath(
 			location.pathname,
 			location.search,
@@ -327,6 +369,27 @@ export function WorkspaceTabsProvider({
 		[navigate],
 	);
 
+	const updateWorkspaceMetadata = useCallback(
+		(key: string, metadata: WorkspaceTabMetadata) => {
+			setState((current) => {
+				const nextTabs = updateWorkspaceTabMetadata(
+					current.tabs,
+					key,
+					metadata,
+				);
+				if (nextTabs === current.tabs) {
+					return current;
+				}
+
+				return {
+					...current,
+					tabs: nextTabs,
+				};
+			});
+		},
+		[],
+	);
+
 	const value = useMemo<WorkspaceTabsContextValue>(
 		() => ({
 			tabs: state.tabs,
@@ -335,8 +398,15 @@ export function WorkspaceTabsProvider({
 			openWorkspace,
 			activateWorkspace,
 			closeWorkspace,
+			updateWorkspaceMetadata,
 		}),
-		[state, openWorkspace, activateWorkspace, closeWorkspace],
+		[
+			state,
+			openWorkspace,
+			activateWorkspace,
+			closeWorkspace,
+			updateWorkspaceMetadata,
+		],
 	);
 
 	return (

@@ -31,6 +31,7 @@ import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useProjectFileTree } from "@/hooks/useProjectFileTree";
 import { useProjects } from "@/hooks/useProjects";
 import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
+import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 
 import type { FileContent } from "../../server/routes/content-utils";
@@ -107,6 +108,7 @@ export function FileBrowserPage() {
 		: null;
 	const projectName = project?.name ?? projectId ?? null;
 	const projectPath = project?.path ?? null;
+	const selectedFileName = selectedPath?.split("/").at(-1) ?? null;
 
 	useEffect(() => {
 		if (projectId) {
@@ -373,6 +375,18 @@ export function FileBrowserPage() {
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [handleKeyDown]);
 
+	const { workspaceCommands } = useWorkspaceDescriptor({
+		title:
+			projectName && projectId ? `${projectName} files` : (projectName ?? null),
+		subtitle: selectedFileName,
+		projectId: projectId ?? null,
+		unavailable:
+			!treeLoading &&
+			typeof treeError === "string" &&
+			(treeError.includes("Project unavailable") ||
+				treeError.includes("Not Found")),
+	});
+
 	useContextualShortcuts({
 		viewId: "file-browser",
 		viewLabel: "File Browser",
@@ -396,20 +410,23 @@ export function FileBrowserPage() {
 				},
 			},
 		],
-		commands: selectedPath
-			? [
-					{
-						id: "toggle-file-frontmatter",
-						label: showFrontmatter ? "Hide Frontmatter" : "Show Frontmatter",
-						description: showFrontmatter
-							? "Hide frontmatter in the current file viewer"
-							: "Show frontmatter in the current file viewer",
-						keywords: ["frontmatter", "metadata", "yaml", "file"],
-						action: handleToggleFrontmatter,
-					},
-				]
-			: [],
-		enabled: !!selectedPath,
+		commands: [
+			...workspaceCommands,
+			...(selectedPath
+				? [
+						{
+							id: "toggle-file-frontmatter",
+							label: showFrontmatter ? "Hide Frontmatter" : "Show Frontmatter",
+							description: showFrontmatter
+								? "Hide frontmatter in the current file viewer"
+								: "Show frontmatter in the current file viewer",
+							keywords: ["frontmatter", "metadata", "yaml", "file"],
+							action: handleToggleFrontmatter,
+						},
+					]
+				: []),
+		],
+		enabled: !!projectId,
 	});
 
 	const liveRegion = (

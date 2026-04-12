@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { WorkspaceTabsProvider } from "@/hooks/useWorkspaceTabs";
 import type { ShortcutRegistryData } from "@/providers/ShortcutRegistryProvider";
 import {
 	ShortcutRegistryProvider,
@@ -131,19 +132,21 @@ async function renderRunDetail() {
 
 	return render(
 		<MemoryRouter initialEntries={["/runs/run-1/step/build/artifact/doc-1"]}>
-			<ShortcutRegistryProvider>
-				<Routes>
-					<Route
-						path="/runs/:runId/step/:stepId/artifact/:docId"
-						element={
-							<>
-								<RegistryProbe />
-								<RunDetailPage />
-							</>
-						}
-					/>
-				</Routes>
-			</ShortcutRegistryProvider>
+			<WorkspaceTabsProvider>
+				<ShortcutRegistryProvider>
+					<Routes>
+						<Route
+							path="/runs/:runId/step/:stepId/artifact/:docId"
+							element={
+								<>
+									<RegistryProbe />
+									<RunDetailPage />
+								</>
+							}
+						/>
+					</Routes>
+				</ShortcutRegistryProvider>
+			</WorkspaceTabsProvider>
 		</MemoryRouter>,
 	);
 }
@@ -174,7 +177,21 @@ describe("RunDetailPage", () => {
 		}
 
 		await waitFor(() => {
-			expect(latestRegistry?.contextualShortcuts?.commands.length).toBe(2);
+			expect(
+				latestRegistry?.contextualShortcuts?.commands.some(
+					(command) => command.id === "toggle-run-metadata",
+				),
+			).toBe(true);
+			expect(
+				latestRegistry?.contextualShortcuts?.commands.some(
+					(command) => command.id === "toggle-run-frontmatter",
+				),
+			).toBe(true);
+			expect(
+				latestRegistry?.contextualShortcuts?.commands.some(
+					(command) => command.id === "close-workspace",
+				),
+			).toBe(true);
 		});
 
 		const metadataCommand = latestRegistry?.contextualShortcuts?.commands.find(
@@ -187,6 +204,11 @@ describe("RunDetailPage", () => {
 
 		expect(metadataCommand).toBeTruthy();
 		expect(frontmatterCommand).toBeTruthy();
+		expect(
+			latestRegistry?.contextualShortcuts?.commands.some(
+				(command) => command.id === "close-workspace",
+			),
+		).toBe(true);
 
 		act(() => {
 			metadataCommand?.action();

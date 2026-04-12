@@ -3,7 +3,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { RunCard } from "@/components/v2/RunCard";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
+import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
+import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { V2Project } from "@/types/projects";
@@ -112,6 +114,13 @@ export function ProjectOverviewPage() {
 		return () => setBreadcrumbProject(null, null);
 	}, [projectId, project?.name, setBreadcrumbProject, project]);
 
+	const { workspaceCommands } = useWorkspaceDescriptor({
+		title: project?.name ?? null,
+		subtitle: project?.path ?? null,
+		projectId: projectId ?? null,
+		unavailable: !isLoading && (notFound || project?.available === false),
+	});
+
 	const fetchData = useCallback(async () => {
 		if (!projectId) return;
 
@@ -214,6 +223,14 @@ export function ProjectOverviewPage() {
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [runs, selectedIndex, handleRunClick, handleDrillOut]);
+
+	useContextualShortcuts({
+		viewId: "project-overview",
+		viewLabel: "Project Overview",
+		shortcuts: [],
+		commands: [...workspaceCommands],
+		enabled: !!projectId,
+	});
 
 	if (isLoading) {
 		return (

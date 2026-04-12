@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { WorkspaceTabsProvider } from "@/hooks/useWorkspaceTabs";
 import type { ShortcutRegistryData } from "@/providers/ShortcutRegistryProvider";
 import {
 	ShortcutRegistryProvider,
@@ -131,19 +132,21 @@ async function renderFileBrowser() {
 
 	return render(
 		<MemoryRouter initialEntries={["/projects/proj-1/files/docs/test.md"]}>
-			<ShortcutRegistryProvider>
-				<Routes>
-					<Route
-						path="/projects/:projectId/files/*"
-						element={
-							<>
-								<RegistryProbe />
-								<FileBrowserPage />
-							</>
-						}
-					/>
-				</Routes>
-			</ShortcutRegistryProvider>
+			<WorkspaceTabsProvider>
+				<ShortcutRegistryProvider>
+					<Routes>
+						<Route
+							path="/projects/:projectId/files/*"
+							element={
+								<>
+									<RegistryProbe />
+									<FileBrowserPage />
+								</>
+							}
+						/>
+					</Routes>
+				</ShortcutRegistryProvider>
+			</WorkspaceTabsProvider>
 		</MemoryRouter>,
 	);
 }
@@ -176,14 +179,20 @@ describe("FileBrowserPage", () => {
 		const firstRender = await renderFileBrowser();
 
 		await waitFor(() => {
-			expect(latestRegistry?.contextualShortcuts?.commands.length).toBe(1);
+			expect(
+				latestRegistry?.contextualShortcuts?.commands.some(
+					(candidate) => candidate.id === "toggle-file-frontmatter",
+				),
+			).toBe(true);
 		});
 
 		expect(screen.getByTestId("file-panel-frontmatter").textContent).toBe(
 			"false",
 		);
 
-		const command = latestRegistry?.contextualShortcuts?.commands[0];
+		const command = latestRegistry?.contextualShortcuts?.commands.find(
+			(candidate) => candidate.id === "toggle-file-frontmatter",
+		);
 		expect(command?.id).toBe("toggle-file-frontmatter");
 
 		act(() => {
