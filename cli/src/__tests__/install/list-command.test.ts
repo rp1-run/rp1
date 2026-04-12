@@ -168,6 +168,51 @@ describe("executeList", () => {
 					mockSkills[1]?.name ?? "unknown",
 				),
 			);
+			// Runtime metadata lookup scans dist/{platform}/{plugin}/ for
+			// manifest.json + SKILL.md files. Without these, metadata fields
+			// like category and is_workflow are absent.
+			await writeFixture(
+				tempDir,
+				join("dist", "codex", "dev", "manifest.json"),
+				JSON.stringify({
+					plugin: "dev",
+					version: "0.1.0",
+					artifacts: { skills: ["build", "pr-review"] },
+				}),
+			);
+			await writeFixture(
+				tempDir,
+				join("dist", "codex", "dev", "skills", "build", "SKILL.md"),
+				projectSkillContent(
+					"build",
+					"End-to-end feature workflow",
+					"development",
+					true,
+					[
+						"FEATURE_ID",
+						"REQUIREMENTS",
+						"AFK",
+						"GIT_COMMIT",
+						"GIT_PUSH",
+						"GIT_PR",
+					],
+					"resumable",
+					["FEATURE_ID"],
+				),
+			);
+			await writeFixture(
+				tempDir,
+				join("dist", "codex", "dev", "skills", "pr-review", "SKILL.md"),
+				projectSkillContent(
+					"pr-review",
+					"PR review with CI support",
+					"review",
+					true,
+					["TARGET", "BASE_BRANCH", "SKIP_VISUAL"],
+					"fresh",
+					[],
+				),
+			);
 
 			await expectTaskRight(executeList([], logger, { json: true }));
 
