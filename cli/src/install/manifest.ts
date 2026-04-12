@@ -3,7 +3,7 @@
  */
 
 import { readdir, readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
@@ -50,6 +50,7 @@ export const loadManifest = (
 			}
 
 			return TE.right({
+				directoryName: basename(dirname(manifestPath)),
 				plugin: String(data.plugin),
 				version: String(data.version),
 				opencodeVersionTested: String(data.opencode_version_tested),
@@ -88,6 +89,7 @@ export const discoverPlugins = (
 
 						const artifacts = (data.artifacts ?? {}) as Record<string, unknown>;
 						plugins.push({
+							directoryName: entry,
 							plugin: String(data.plugin),
 							version: String(data.version),
 							opencodeVersionTested: String(data.opencode_version_tested),

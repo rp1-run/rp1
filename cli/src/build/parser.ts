@@ -491,6 +491,9 @@ const extractSkillMetadata = (
 	const isWorkflowRaw = meta.is_workflow;
 	const isWorkflow: boolean | undefined =
 		typeof isWorkflowRaw === "boolean" ? isWorkflowRaw : undefined;
+	const arcadeTrackedRaw = meta.arcade_tracked;
+	const arcadeTracked: boolean | undefined =
+		typeof arcadeTrackedRaw === "boolean" ? arcadeTrackedRaw : undefined;
 	const workflow = extractWorkflowMetadata(meta.workflow);
 
 	const result: SkillMetadata = {
@@ -510,6 +513,7 @@ const extractSkillMetadata = (
 		...(parsedEnv.length > 0 && { environment: parsedEnv }),
 		...(category !== undefined && { category }),
 		...(isWorkflow !== undefined && { isWorkflow }),
+		...(arcadeTracked !== undefined && { arcadeTracked }),
 		...(workflow !== undefined && { workflow }),
 	};
 

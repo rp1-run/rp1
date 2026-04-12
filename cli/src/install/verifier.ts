@@ -17,7 +17,6 @@ import {
 } from "../../shared/canonical-name.js";
 import type { CLIError } from "../../shared/errors.js";
 import { verificationError } from "../../shared/errors.js";
-import { resolveRp1Root } from "../agent-tools/rp1-root-dir/resolver.js";
 import {
 	type AssetEntry,
 	collectPlatformPlugins,
@@ -27,7 +26,6 @@ import {
 } from "../assets/index.js";
 import type { SkillCategory, WorkflowRunPolicy } from "../build/models.js";
 import { parseSkill } from "../build/parser.js";
-import { collectCatalogRegistry } from "../catalog/index.js";
 import { getClaudePluginDirs } from "../shared/paths.js";
 import { getDefaultArtifactsDir } from "./installer.js";
 import { discoverPlugins, getAllArtifactNames } from "./manifest.js";
@@ -100,6 +98,7 @@ type InstalledSkill = {
 	user_facing_name: string;
 	category?: SkillCategory;
 	is_workflow?: boolean;
+	arcade_tracked?: boolean;
 	key_args?: string[];
 	run_policy?: WorkflowRunPolicy;
 	identity_args?: string[];
@@ -122,9 +121,10 @@ type SkillCatalogEntry = {
 	name: string;
 };
 
-type InstalledSkillDiscoveryMetadata = {
+export type InstalledSkillDiscoveryMetadata = {
 	category: SkillCategory;
 	is_workflow: boolean;
+	arcade_tracked?: boolean;
 	key_args: string[];
 	run_policy?: WorkflowRunPolicy;
 	identity_args?: string[];
@@ -195,6 +195,28 @@ const getCandidateArtifactsRoots = (): string[] => {
 	roots.add(join(moduleDir, "..", "..", "..", "dist"));
 	roots.add(join(process.cwd(), "dist"));
 	return [...roots];
+};
+
+const mergeDiscoveryMetadata = (
+	existing: InstalledSkillDiscoveryMetadata | undefined,
+	incoming: InstalledSkillDiscoveryMetadata,
+): InstalledSkillDiscoveryMetadata => {
+	if (!existing) {
+		return incoming;
+	}
+
+	return {
+		category: existing.category,
+		is_workflow: existing.is_workflow,
+		arcade_tracked:
+			existing.arcade_tracked !== undefined
+				? existing.arcade_tracked
+				: incoming.arcade_tracked,
+		key_args:
+			existing.key_args.length > 0 ? existing.key_args : incoming.key_args,
+		run_policy: existing.run_policy ?? incoming.run_policy,
+		identity_args: existing.identity_args ?? incoming.identity_args,
+	};
 };
 
 const buildSkillCatalogFromBundledAssets = (): Map<
@@ -380,6 +402,9 @@ const extractDiscoveryMetadataFromFrontmatter = (
 		category,
 		is_workflow:
 			typeof metadata.is_workflow === "boolean" ? metadata.is_workflow : false,
+		...(typeof metadata.arcade_tracked === "boolean" && {
+			arcade_tracked: metadata.arcade_tracked,
+		}),
 		key_args: keyArgs,
 		...extractWorkflowDiscoveryMetadata(metadata),
 	};
@@ -591,35 +616,6 @@ const readClaudeInstalledSkills = async (
 
 const getUserHomeDir = (): string => process.env.HOME ?? homedir();
 
-const buildRuntimeSkillMetadataLookupFromProject = async (): Promise<
-	Map<string, InstalledSkillDiscoveryMetadata>
-> => {
-	const resolvedRoot = await resolveRp1Root(process.cwd(), {
-		allowHomeProjectRoot: true,
-	})();
-	if (E.isLeft(resolvedRoot)) {
-		return new Map();
-	}
-
-	const { entries } = await collectCatalogRegistry(
-		resolvedRoot.right.projectRoot,
-	);
-	return new Map(
-		entries.map((entry) => [
-			entry.canonicalName,
-			{
-				category: entry.category,
-				is_workflow: entry.isWorkflow,
-				key_args: [...entry.keyArgs],
-				...(entry.runPolicy !== undefined && {
-					run_policy: entry.runPolicy,
-					identity_args: [...(entry.identityArgs ?? [])],
-				}),
-			},
-		]),
-	);
-};
-
 const buildRuntimeSkillMetadataLookupFromArtifacts = async (): Promise<
 	Map<string, InstalledSkillDiscoveryMetadata>
 > => {
@@ -645,9 +641,10 @@ const buildRuntimeSkillMetadataLookupFromArtifacts = async (): Promise<
 				const pluginName = normalizePluginName(manifest.plugin);
 
 				for (const skillDirName of manifest.skills) {
+					const pluginDir = manifest.directoryName ?? manifest.plugin;
 					const skillDir = join(
 						platformArtifactsDir,
-						manifest.plugin,
+						pluginDir,
 						"skills",
 						skillDirName,
 					);
@@ -671,13 +668,12 @@ const buildRuntimeSkillMetadataLookupFromArtifacts = async (): Promise<
 						frontmatter,
 						skill.right.name,
 					);
-					if (lookup.has(canonicalName)) {
-						continue;
-					}
-
-					lookup.set(canonicalName, {
+					const incomingMetadata: InstalledSkillDiscoveryMetadata = {
 						category: metadata.category,
 						is_workflow: metadata.isWorkflow ?? false,
+						...(metadata.arcadeTracked !== undefined && {
+							arcade_tracked: metadata.arcadeTracked,
+						}),
 						key_args: (metadata.arguments ?? []).map(
 							(argument) => argument.name,
 						),
@@ -685,7 +681,11 @@ const buildRuntimeSkillMetadataLookupFromArtifacts = async (): Promise<
 							run_policy: metadata.workflow.runPolicy,
 							identity_args: [...(metadata.workflow.identityArgs ?? [])],
 						}),
-					});
+					};
+					lookup.set(
+						canonicalName,
+						mergeDiscoveryMetadata(lookup.get(canonicalName), incomingMetadata),
+					);
 				}
 			}
 		}
@@ -758,21 +758,23 @@ const buildRuntimeSkillMetadataLookupFromBundledAssets = async (): Promise<
 	return lookup;
 };
 
-const buildRuntimeSkillMetadataLookup = async (): Promise<
+export const buildRuntimeSkillMetadataLookup = async (): Promise<
 	ReadonlyMap<string, InstalledSkillDiscoveryMetadata>
 > => {
-	const [projectLookup, artifactsLookup, bundledLookup] = await Promise.all([
-		buildRuntimeSkillMetadataLookupFromProject(),
+	// Runtime discovery intentionally reads only packaged metadata.
+	// Source SKILL.md files are build-time inputs, not a runtime authority.
+	const [artifactsLookup, bundledLookup] = await Promise.all([
 		buildRuntimeSkillMetadataLookupFromArtifacts(),
 		buildRuntimeSkillMetadataLookupFromBundledAssets(),
 	]);
 
 	const lookup = new Map<string, InstalledSkillDiscoveryMetadata>();
-	for (const source of [projectLookup, artifactsLookup, bundledLookup]) {
+	for (const source of [artifactsLookup, bundledLookup]) {
 		for (const [canonicalName, metadata] of source) {
-			if (!lookup.has(canonicalName)) {
-				lookup.set(canonicalName, metadata);
-			}
+			lookup.set(
+				canonicalName,
+				mergeDiscoveryMetadata(lookup.get(canonicalName), metadata),
+			);
 		}
 	}
 

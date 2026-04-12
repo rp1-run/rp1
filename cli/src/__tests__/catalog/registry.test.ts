@@ -20,6 +20,7 @@ const SKILL_FRONTMATTER = (
 	description: string,
 	category: string,
 	isWorkflow: boolean,
+	arcadeTracked?: boolean,
 	args: readonly string[] = [],
 	runPolicy?: "fresh" | "resumable",
 	identityArgs?: readonly string[],
@@ -50,7 +51,7 @@ allowed-tools: Bash(echo *)
 metadata:
   category: ${category}
   is_workflow: ${isWorkflow}
-${workflowBlock}  version: 1.0.0
+${arcadeTracked !== undefined ? `  arcade_tracked: ${arcadeTracked}\n` : ""}${workflowBlock}  version: 1.0.0
   created: 2026-01-01
   author: test
 ${argumentBlock}---
@@ -87,6 +88,7 @@ describe("catalog registry", () => {
 				"Alpha skill for knowledge management coverage.",
 				"knowledge",
 				false,
+				undefined,
 				["TOPIC"],
 			),
 		);
@@ -97,6 +99,7 @@ describe("catalog registry", () => {
 				"Build workflow for development feature delivery.",
 				"development",
 				true,
+				false,
 				["FEATURE_ID", "AFK"],
 				"resumable",
 				["FEATURE_ID"],
@@ -109,6 +112,7 @@ describe("catalog registry", () => {
 				"Tersify prompt skill for prompt editing coverage.",
 				"prompt",
 				false,
+				undefined,
 				["PROMPT"],
 			),
 		);
@@ -132,6 +136,7 @@ describe("catalog registry", () => {
 		expect(buildSkill?.plugin).toBe("dev");
 		expect(buildSkill?.category).toBe("development");
 		expect(buildSkill?.isWorkflow).toBe(true);
+		expect(buildSkill?.arcadeTracked).toBe(false);
 		expect(buildSkill?.keyArgs).toEqual(["FEATURE_ID", "AFK"]);
 		expect(buildSkill?.runPolicy).toBe("resumable");
 		expect(buildSkill?.identityArgs).toEqual(["FEATURE_ID"]);

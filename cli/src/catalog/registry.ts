@@ -24,6 +24,7 @@ export interface CatalogRenderableEntry {
 	readonly description: string;
 	readonly category: SkillCategory;
 	readonly isWorkflow: boolean;
+	readonly arcadeTracked?: boolean;
 	readonly keyArgs: readonly string[];
 	readonly runPolicy?: WorkflowRunPolicy;
 	readonly identityArgs?: readonly string[];
@@ -154,6 +155,7 @@ const toRegistryEntry = (
 	description: string,
 	category: SkillCategory,
 	isWorkflow: boolean,
+	arcadeTracked: boolean | undefined,
 	argumentDefs: readonly ArgumentDefinition[],
 	runPolicy?: WorkflowRunPolicy,
 	identityArgs?: readonly string[],
@@ -168,6 +170,7 @@ const toRegistryEntry = (
 		description,
 		category,
 		isWorkflow,
+		...(arcadeTracked !== undefined && { arcadeTracked }),
 		keyArgs: argumentDefs.map((argument) => argument.name),
 		...(runPolicy !== undefined && { runPolicy }),
 		...(identityArgs !== undefined && { identityArgs }),
@@ -301,6 +304,7 @@ export const collectCatalogRegistry = async (
 					skill.description,
 					metadata.category,
 					metadata.isWorkflow,
+					metadata.arcadeTracked,
 					argumentDefs,
 					metadata.workflow?.runPolicy,
 					metadata.workflow?.identityArgs,
