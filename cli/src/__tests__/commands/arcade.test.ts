@@ -9,6 +9,12 @@ describe("arcade command", () => {
 		expect(arcadeCommand.name()).toBe("arcade");
 	});
 
+	test("includes hidden daemon-only mode for internal flows", () => {
+		expect(
+			arcadeCommand.options.some((option) => option.long === "--daemon-only"),
+		).toBe(true);
+	});
+
 	test("formats hook payload with the resolved arcade url", () => {
 		expect(
 			formatArcadeHookPayload("http://127.0.0.1:7710/projects/test-id"),

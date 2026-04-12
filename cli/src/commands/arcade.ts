@@ -7,7 +7,11 @@ import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import type * as T from "fp-ts/lib/Task.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
-import { type ArcadeConfig, loadArcadeConfig } from "../../shared/config.js";
+import {
+	type ArcadeConfig,
+	loadArcadeConfig,
+	parseArcadeArgs,
+} from "../../shared/config.js";
 import {
 	type CLIError,
 	formatError,
@@ -177,6 +181,29 @@ const hookOutputCommand = (
 		(e) => runtimeError(`Failed to format arcade hook output: ${e}`),
 	);
 
+const ensureDaemonOnlyCommand = (
+	port: number,
+	logger: Logger,
+	cliVersion?: string,
+): TE.TaskEither<CLIError, void> =>
+	tryCatchTE(
+		async () => {
+			const { ensureDaemon } = await import("../../web-ui/src/daemon/index.js");
+
+			logger.debug(
+				"Ensuring daemon is running without project registration...",
+			);
+			const { wasRunning } = await ensureDaemon(port, cliVersion);
+
+			if (wasRunning) {
+				logger.info(`Daemon already running on port ${port}`);
+			} else {
+				logger.info(`Started daemon on port ${port}`);
+			}
+		},
+		(e) => runtimeError(`Failed to ensure daemon: ${e}`),
+	);
+
 /**
  * Stop the daemon.
  */
@@ -258,6 +285,7 @@ const execute = (
 		stop?: boolean;
 		status?: boolean;
 		restart?: boolean;
+		daemonOnly?: boolean;
 		format?: ArcadeOutputFormat;
 	},
 	logger: Logger,
@@ -276,6 +304,16 @@ const execute = (
 			loadArcadeConfig(args),
 			TE.fromEither,
 			TE.chain((config) => restartDaemonCommand(config.port, logger)),
+		);
+	}
+
+	if (options.daemonOnly) {
+		return pipe(
+			parseArcadeArgs(args),
+			TE.fromEither,
+			TE.chain((config) =>
+				ensureDaemonOnlyCommand(config.port, logger, cliVersion),
+			),
 		);
 	}
 
@@ -310,6 +348,7 @@ export const arcadeCommand = new Command("arcade")
 	.option("--stop", "Stop the background daemon")
 	.option("--status", "Show daemon status")
 	.option("--restart", "Restart the daemon")
+	.addOption(new Option("--daemon-only").hideHelp())
 	.addOption(
 		new Option("--format <format>")
 			.choices(["text", "hook-json"])
@@ -384,6 +423,7 @@ Note: This command requires Bun runtime. Install from https://bun.sh
 				stop: options.stop,
 				status: options.status,
 				restart: options.restart,
+				daemonOnly: options.daemonOnly,
 				format: options.format as ArcadeOutputFormat,
 			},
 			logger,
