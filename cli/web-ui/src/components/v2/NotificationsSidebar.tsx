@@ -71,6 +71,17 @@ function headingClassForLevel(level: NotificationAttentionLevel): string {
 	}
 }
 
+function itemClassForLevel(level: NotificationAttentionLevel): string {
+	switch (level) {
+		case "action_required":
+			return "bg-accent-ghost hover:bg-accent-ghost focus-within:bg-accent-ghost";
+		case "attention":
+			return "bg-accent-ghost/70 hover:bg-accent-ghost focus-within:bg-accent-ghost";
+		case "info":
+			return "bg-surface/60 hover:bg-surface focus-within:bg-surface";
+	}
+}
+
 export function NotificationsSidebar({
 	open,
 	onClose,
@@ -174,7 +185,7 @@ export function NotificationsSidebar({
 					</p>
 				</div>
 			) : (
-				<div className="flex flex-col gap-6 px-4 py-4">
+				<div className="flex flex-col gap-lg px-md py-md">
 					<div className="flex items-center justify-end">
 						<Button
 							type="button"
@@ -196,9 +207,9 @@ export function NotificationsSidebar({
 						<section
 							key={group.level}
 							aria-labelledby={`notifications-group-${group.level}`}
-							className="flex flex-col gap-3"
+							className="flex flex-col gap-sm"
 						>
-							<div className="flex items-center justify-between">
+							<div className="flex items-center justify-between px-xs">
 								<h3
 									id={`notifications-group-${group.level}`}
 									className={cn(
@@ -213,41 +224,35 @@ export function NotificationsSidebar({
 								</span>
 							</div>
 
-							<div className="flex flex-col gap-3">
+							<div className="flex flex-col gap-xs">
 								{group.items.map((notification) => {
 									const isDismissing = dismissingIds.includes(notification.id);
 									return (
 										<div
 											key={notification.id}
-											className="flex items-start gap-3 rounded-[var(--radius)] border border-border/70 bg-background px-3 py-3"
+											className={cn(
+												"group grid grid-cols-[minmax(0,1fr)_auto] items-start gap-sm rounded-[var(--radius)] px-3 py-3 transition-colors duration-150",
+												itemClassForLevel(notification.attentionLevel),
+											)}
 										>
-											<span
-												className={cn(
-													"mt-2 h-2 w-2 shrink-0 rounded-full",
-													accentClassForLevel(notification.attentionLevel),
-												)}
-												aria-hidden="true"
-											/>
-
-											<div className="min-w-0 flex-1">
-												<div className="mb-2 flex min-w-0 items-center gap-2 text-fg-ghost">
+											<div className="min-w-0">
+												<div className="flex min-w-0 items-center gap-2 text-fg-ghost">
+													<span
+														className={cn(
+															"h-2 w-2 shrink-0 rounded-full",
+															accentClassForLevel(notification.attentionLevel),
+														)}
+														aria-hidden="true"
+													/>
 													<span className="type-secondary tabular-nums">
 														{formatRelativeTime(notification.createdAt)}
 													</span>
 													{notification.harness ? (
-														<HarnessIcon
-															harness={notification.harness}
-															size={14}
-														/>
-													) : null}
-													{notification.runCommand ? (
-														<span className="type-secondary font-medium text-fg">
-															{notification.runCommand}
-														</span>
-													) : null}
-													{notification.runName ? (
-														<span className="truncate type-secondary text-fg-muted">
-															{notification.runName}
+														<span className="inline-flex w-[14px] shrink-0 items-center justify-center">
+															<HarnessIcon
+																harness={notification.harness}
+																size={14}
+															/>
 														</span>
 													) : null}
 												</div>
@@ -256,18 +261,33 @@ export function NotificationsSidebar({
 													<button
 														type="button"
 														onClick={() => handleOpenRoute(notification)}
-														className="w-full text-left transition-colors duration-150 hover:text-fg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+														className="mt-2 block w-full text-left transition-colors duration-150 hover:text-fg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
 														aria-label={`Open notification: ${notification.message}`}
 													>
-														<p className="type-body text-fg">
+														<p className="type-body leading-relaxed text-fg">
 															{notification.message}
 														</p>
 													</button>
 												) : (
-													<p className="type-body text-fg">
+													<p className="mt-2 type-body leading-relaxed text-fg">
 														{notification.message}
 													</p>
 												)}
+
+												{notification.runCommand || notification.runName ? (
+													<div className="mt-2 flex min-w-0 items-center gap-2 text-fg-ghost">
+														{notification.runCommand ? (
+															<span className="shrink-0 type-secondary font-medium text-fg">
+																{notification.runCommand}
+															</span>
+														) : null}
+														{notification.runName ? (
+															<span className="min-w-0 truncate type-secondary text-fg-muted">
+																{notification.runName}
+															</span>
+														) : null}
+													</div>
+												) : null}
 
 												{notification.projectId && notification.projectName ? (
 													<button
@@ -275,7 +295,7 @@ export function NotificationsSidebar({
 														onClick={() =>
 															handleOpenProject(notification.projectId!)
 														}
-														className="mt-3 inline-flex items-center gap-1 type-secondary italic text-fg-ghost transition-colors duration-150 hover:text-fg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+														className="mt-2 inline-flex items-center gap-1 type-secondary italic text-fg-ghost transition-colors duration-150 hover:text-fg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
 														aria-label={`Open project ${notification.projectName}`}
 													>
 														<NotebookTabs
@@ -291,7 +311,7 @@ export function NotificationsSidebar({
 											<button
 												type="button"
 												onClick={() => void handleDismiss(notification.id)}
-												className="shrink-0 rounded p-1 text-fg-ghost transition-colors duration-150 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border disabled:cursor-not-allowed disabled:opacity-50"
+												className="mt-0.5 shrink-0 rounded p-1 text-fg-ghost transition-colors duration-150 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border disabled:cursor-not-allowed disabled:opacity-50"
 												aria-label={`Dismiss notification: ${notification.message}`}
 												disabled={isDismissing || isDismissingAll}
 											>
