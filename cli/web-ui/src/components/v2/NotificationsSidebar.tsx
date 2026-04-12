@@ -1,12 +1,12 @@
 import { Bell, Loader2, NotebookTabs, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import type {
 	NotificationAttentionLevel,
 	NotificationListItem,
 } from "@/hooks/useNotifications";
+import { useWorkspaceTabs } from "@/hooks/useWorkspaceTabs";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { HarnessIcon } from "./HarnessIcon";
@@ -92,7 +92,7 @@ export function NotificationsSidebar({
 	onDismissAllNotifications,
 	className,
 }: NotificationsSidebarProps) {
-	const navigate = useNavigate();
+	const { openWorkspace } = useWorkspaceTabs();
 	const [dismissingIds, setDismissingIds] = useState<readonly number[]>([]);
 	const [isDismissingAll, setIsDismissingAll] = useState(false);
 	const groups = useMemo(
@@ -106,18 +106,18 @@ export function NotificationsSidebar({
 				return;
 			}
 
-			navigate(notification.route);
+			openWorkspace(notification.route);
 			onClose();
 		},
-		[navigate, onClose],
+		[openWorkspace, onClose],
 	);
 
 	const handleOpenProject = useCallback(
 		(projectId: string) => {
-			navigate(`/projects/${projectId}`);
+			openWorkspace(`/projects/${projectId}`);
 			onClose();
 		},
-		[navigate, onClose],
+		[openWorkspace, onClose],
 	);
 
 	const handleDismiss = useCallback(

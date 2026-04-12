@@ -1,5 +1,6 @@
 import { NotebookTabs } from "lucide-react";
 import type React from "react";
+import { useWorkspaceTabs } from "@/hooks/useWorkspaceTabs";
 import { resolveRunDisplayName } from "@/lib/run-display";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,8 @@ export function RunCard({
 	showProject = true,
 	className,
 }: RunCardProps) {
+	const { openWorkspace } = useWorkspaceTabs();
+
 	const handleKeyDown = (event: React.KeyboardEvent) => {
 		if (onClick && (event.key === "Enter" || event.key === " ")) {
 			event.preventDefault();
@@ -84,12 +87,12 @@ export function RunCard({
 					tabIndex={0}
 					onClick={(e) => {
 						e.stopPropagation();
-						window.location.href = `/projects/${run.projectId}`;
+						openWorkspace(`/projects/${run.projectId}`);
 					}}
 					onKeyDown={(e) => {
 						if (e.key === "Enter") {
 							e.stopPropagation();
-							window.location.href = `/projects/${run.projectId}`;
+							openWorkspace(`/projects/${run.projectId}`);
 						}
 					}}
 					className="ml-auto shrink-0 flex items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer"

@@ -8,6 +8,11 @@ import {
 	waitFor,
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import {
+	WORKSPACE_TABS_STORAGE_KEY,
+	type WorkspaceTab,
+	WorkspaceTabsProvider,
+} from "@/hooks/useWorkspaceTabs";
 
 let notificationsSidebarImportVersion = 0;
 
@@ -29,15 +34,36 @@ async function loadNotificationsSidebar() {
 	return NotificationsSidebar;
 }
 
+function setStoredState(state: {
+	readonly tabs: readonly WorkspaceTab[];
+	readonly activeKey: string | null;
+	readonly lastDurableRoute: string;
+}) {
+	sessionStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+}
+
+function renderWithWorkspaceTabs(
+	children: JSX.Element,
+	initialEntries: readonly string[] = ["/"],
+) {
+	return render(
+		<MemoryRouter initialEntries={[...initialEntries]}>
+			<WorkspaceTabsProvider>{children}</WorkspaceTabsProvider>
+		</MemoryRouter>,
+	);
+}
+
 describe("NotificationsSidebar", () => {
 	beforeEach(() => {
 		mock.restore();
 		document.body.innerHTML = "";
+		sessionStorage.clear();
 	});
 
 	afterEach(() => {
 		cleanup();
 		mock.restore();
+		sessionStorage.clear();
 	});
 
 	function LocationProbe() {
@@ -51,57 +77,73 @@ describe("NotificationsSidebar", () => {
 		const closeMock = mock(() => {});
 		const NotificationsSidebar = await loadNotificationsSidebar();
 
-		render(
-			<MemoryRouter initialEntries={["/"]}>
-				<Routes>
-					<Route
-						path="*"
-						element={
-							<>
-								<LocationProbe />
-								<NotificationsSidebar
-									open={true}
-									onClose={closeMock}
-									onDismissNotification={dismissMock}
-									onDismissAllNotifications={dismissAllMock}
-									isLoading={false}
-									error={null}
-									notifications={[
-										{
-											id: 1,
-											message: "Approval needed",
-											sourceType: "agent",
-											sourceId: "run-1",
-											route: "/runs/run-1",
-											projectId: "proj-1",
-											createdAt: "2026-04-11T00:00:00.000Z",
-											harness: "codex",
-											runCommand: "/build",
-											runName: "Sidebar Build",
-											projectName: "Alpha Project",
-											attentionLevel: "action_required",
-										},
-										{
-											id: 2,
-											message: "Verify completed",
-											sourceType: "run",
-											sourceId: "run-2",
-											route: "/runs/run-2",
-											projectId: "proj-1",
-											createdAt: "2026-04-11T00:02:00.000Z",
-											harness: "claude-code",
-											runCommand: "/verify",
-											runName: "Sidebar Verify",
-											projectName: "Alpha Project",
-											attentionLevel: "info",
-										},
-									]}
-								/>
-							</>
-						}
-					/>
-				</Routes>
-			</MemoryRouter>,
+		setStoredState({
+			tabs: [
+				{
+					key: "run:run-1",
+					kind: "run",
+					currentPath: "/runs/run-1/step/build",
+					rootPath: "/runs/run-1",
+					title: "Run one",
+					subtitle: null,
+					projectId: null,
+					lastVisitedAt: 1,
+				},
+			],
+			activeKey: null,
+			lastDurableRoute: "/",
+		});
+
+		renderWithWorkspaceTabs(
+			<Routes>
+				<Route
+					path="*"
+					element={
+						<>
+							<LocationProbe />
+							<NotificationsSidebar
+								open={true}
+								onClose={closeMock}
+								onDismissNotification={dismissMock}
+								onDismissAllNotifications={dismissAllMock}
+								isLoading={false}
+								error={null}
+								notifications={[
+									{
+										id: 1,
+										message: "Approval needed",
+										sourceType: "agent",
+										sourceId: "run-1",
+										route: "/runs/run-1",
+										projectId: "proj-1",
+										createdAt: "2026-04-11T00:00:00.000Z",
+										harness: "codex",
+										runCommand: "/build",
+										runName: "Sidebar Build",
+										projectName: "Alpha Project",
+										attentionLevel: "action_required",
+									},
+									{
+										id: 2,
+										message: "Verify completed",
+										sourceType: "run",
+										sourceId: "run-2",
+										route: "/runs/run-2",
+										projectId: "proj-1",
+										createdAt: "2026-04-11T00:02:00.000Z",
+										harness: "claude-code",
+										runCommand: "/verify",
+										runName: "Sidebar Verify",
+										projectName: "Alpha Project",
+										attentionLevel: "info",
+									},
+								]}
+							/>
+						</>
+					}
+				/>
+			</Routes>,
+			["/"],
 		);
 
 		expect(screen.getByRole("dialog", { name: "Notifications" })).toBeTruthy();
@@ -116,7 +158,7 @@ describe("NotificationsSidebar", () => {
 
 		await waitFor(() => {
 			expect(screen.getByTestId("location-probe").textContent).toBe(
-				"/runs/run-1",
+				"/runs/run-1/step/build",
 			);
 		});
 		expect(closeMock).toHaveBeenCalledTimes(1);
@@ -135,18 +177,16 @@ describe("NotificationsSidebar", () => {
 	test("shows loading and empty states inside the drawer", async () => {
 		const NotificationsSidebar = await loadNotificationsSidebar();
 
-		const { rerender } = render(
-			<MemoryRouter>
-				<NotificationsSidebar
-					open={true}
-					onClose={() => {}}
-					onDismissNotification={() => Promise.resolve()}
-					onDismissAllNotifications={() => Promise.resolve()}
-					isLoading={true}
-					error={null}
-					notifications={[]}
-				/>
-			</MemoryRouter>,
+		const { rerender } = renderWithWorkspaceTabs(
+			<NotificationsSidebar
+				open={true}
+				onClose={() => {}}
+				onDismissNotification={() => Promise.resolve()}
+				onDismissAllNotifications={() => Promise.resolve()}
+				isLoading={true}
+				error={null}
+				notifications={[]}
+			/>,
 		);
 
 		expect(screen.getByRole("dialog", { name: "Notifications" })).toBeTruthy();
@@ -154,15 +194,17 @@ describe("NotificationsSidebar", () => {
 
 		rerender(
 			<MemoryRouter>
-				<NotificationsSidebar
-					open={true}
-					onClose={() => {}}
-					onDismissNotification={() => Promise.resolve()}
-					onDismissAllNotifications={() => Promise.resolve()}
-					isLoading={false}
-					error={null}
-					notifications={[]}
-				/>
+				<WorkspaceTabsProvider>
+					<NotificationsSidebar
+						open={true}
+						onClose={() => {}}
+						onDismissNotification={() => Promise.resolve()}
+						onDismissAllNotifications={() => Promise.resolve()}
+						isLoading={false}
+						error={null}
+						notifications={[]}
+					/>
+				</WorkspaceTabsProvider>
 			</MemoryRouter>,
 		);
 
@@ -180,33 +222,31 @@ describe("NotificationsSidebar", () => {
 			);
 			const NotificationsSidebar = await loadNotificationsSidebar();
 
-			render(
-				<MemoryRouter>
-					<NotificationsSidebar
-						open={true}
-						onClose={() => {}}
-						onDismissNotification={dismissMock}
-						onDismissAllNotifications={() => Promise.resolve()}
-						isLoading={false}
-						error={null}
-						notifications={[
-							{
-								id: 1,
-								message: "Approval needed",
-								sourceType: "agent",
-								sourceId: "run-1",
-								route: "/runs/run-1",
-								projectId: "proj-1",
-								createdAt: "2026-04-11T00:00:00.000Z",
-								harness: "codex",
-								runCommand: "/build",
-								runName: "Sidebar Build",
-								projectName: "Alpha Project",
-								attentionLevel: "action_required",
-							},
-						]}
-					/>
-				</MemoryRouter>,
+			renderWithWorkspaceTabs(
+				<NotificationsSidebar
+					open={true}
+					onClose={() => {}}
+					onDismissNotification={dismissMock}
+					onDismissAllNotifications={() => Promise.resolve()}
+					isLoading={false}
+					error={null}
+					notifications={[
+						{
+							id: 1,
+							message: "Approval needed",
+							sourceType: "agent",
+							sourceId: "run-1",
+							route: "/runs/run-1",
+							projectId: "proj-1",
+							createdAt: "2026-04-11T00:00:00.000Z",
+							harness: "codex",
+							runCommand: "/build",
+							runName: "Sidebar Build",
+							projectName: "Alpha Project",
+							attentionLevel: "action_required",
+						},
+					]}
+				/>,
 			);
 
 			fireEvent.click(
@@ -228,33 +268,31 @@ describe("NotificationsSidebar", () => {
 		const dismissAllMock = mock(() => Promise.resolve());
 		const NotificationsSidebar = await loadNotificationsSidebar();
 
-		render(
-			<MemoryRouter>
-				<NotificationsSidebar
-					open={true}
-					onClose={() => {}}
-					onDismissNotification={() => Promise.resolve()}
-					onDismissAllNotifications={dismissAllMock}
-					isLoading={false}
-					error={null}
-					notifications={[
-						{
-							id: 1,
-							message: "Approval needed",
-							sourceType: "agent",
-							sourceId: "run-1",
-							route: "/runs/run-1",
-							projectId: "proj-1",
-							createdAt: "2026-04-11T00:00:00.000Z",
-							harness: "codex",
-							runCommand: "/build",
-							runName: "Sidebar Build",
-							projectName: "Alpha Project",
-							attentionLevel: "action_required",
-						},
-					]}
-				/>
-			</MemoryRouter>,
+		renderWithWorkspaceTabs(
+			<NotificationsSidebar
+				open={true}
+				onClose={() => {}}
+				onDismissNotification={() => Promise.resolve()}
+				onDismissAllNotifications={dismissAllMock}
+				isLoading={false}
+				error={null}
+				notifications={[
+					{
+						id: 1,
+						message: "Approval needed",
+						sourceType: "agent",
+						sourceId: "run-1",
+						route: "/runs/run-1",
+						projectId: "proj-1",
+						createdAt: "2026-04-11T00:00:00.000Z",
+						harness: "codex",
+						runCommand: "/build",
+						runName: "Sidebar Build",
+						projectName: "Alpha Project",
+						attentionLevel: "action_required",
+					},
+				]}
+			/>,
 		);
 
 		await act(async () => {

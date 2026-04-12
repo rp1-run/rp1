@@ -6,6 +6,7 @@ import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
+import { useWorkspaceTabs } from "@/hooks/useWorkspaceTabs";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { V2Project } from "@/types/projects";
@@ -98,6 +99,7 @@ function Breadcrumb({ projectName }: { projectName: string | null }) {
 export function ProjectOverviewPage() {
 	const { projectId } = useParams<{ projectId: string }>();
 	const navigate = useNavigate();
+	const { openWorkspace } = useWorkspaceTabs();
 
 	const [project, setProject] = useState<V2Project | null>(null);
 	const [runs, setRuns] = useState<Run[]>([]);
@@ -165,10 +167,15 @@ export function ProjectOverviewPage() {
 
 	const handleRunClick = useCallback(
 		(run: Run) => {
-			navigate(`/runs/${run.id}`);
+			openWorkspace(`/runs/${run.id}`);
 		},
-		[navigate],
+		[openWorkspace],
 	);
+
+	const handleFilesClick = useCallback(() => {
+		if (!projectId) return;
+		openWorkspace(`/projects/${projectId}/files`);
+	}, [openWorkspace, projectId]);
 
 	const handleDrillOut = useCallback(() => {
 		navigate("/projects");
@@ -275,13 +282,14 @@ export function ProjectOverviewPage() {
 					</p>
 				</div>
 
-				<Link
-					to={`/projects/${projectId}/files`}
-					className="text-fg-ghost transition-colors duration-150 hover:text-fg"
+				<button
+					type="button"
+					onClick={handleFilesClick}
+					className="cursor-pointer border-none bg-transparent p-0 text-fg-ghost transition-colors duration-150 hover:text-fg"
 					aria-label="Browse files"
 				>
 					<FolderOpen className="h-4 w-4" strokeWidth={1.5} />
-				</Link>
+				</button>
 			</header>
 
 			<div className="flex items-center gap-3 type-secondary text-fg-muted">

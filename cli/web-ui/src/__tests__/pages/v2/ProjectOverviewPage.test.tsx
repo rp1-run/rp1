@@ -1,8 +1,18 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { cleanup, render, screen } from "@testing-library/react";
+import {
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { WorkspaceTabsProvider } from "@/hooks/useWorkspaceTabs";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import {
+	WORKSPACE_TABS_STORAGE_KEY,
+	type WorkspaceTab,
+	WorkspaceTabsProvider,
+} from "@/hooks/useWorkspaceTabs";
 import type { ShortcutRegistryData } from "@/providers/ShortcutRegistryProvider";
 import {
 	ShortcutRegistryProvider,
@@ -43,13 +53,28 @@ function RegistryProbe() {
 	return null;
 }
 
-async function renderProjectOverview() {
+function LocationProbe() {
+	const location = useLocation();
+	return <span data-testid="location-probe">{location.pathname}</span>;
+}
+
+function setStoredState(state: {
+	readonly tabs: readonly WorkspaceTab[];
+	readonly activeKey: string | null;
+	readonly lastDurableRoute: string;
+}) {
+	sessionStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+}
+
+async function renderProjectOverview(
+	initialEntries: readonly string[] = ["/projects/proj-1"],
+) {
 	const { ProjectOverviewPage } = await import(
 		`../../../pages/v2/ProjectOverviewPage.tsx?project-overview-test=${++importVersion}`
 	);
 
 	return render(
-		<MemoryRouter initialEntries={["/projects/proj-1"]}>
+		<MemoryRouter initialEntries={[...initialEntries]}>
 			<WorkspaceTabsProvider>
 				<ShortcutRegistryProvider>
 					<Routes>
@@ -58,10 +83,16 @@ async function renderProjectOverview() {
 							element={
 								<>
 									<RegistryProbe />
+									<LocationProbe />
 									<ProjectOverviewPage />
 								</>
 							}
 						/>
+						<Route
+							path="/projects/:projectId/files/*"
+							element={<LocationProbe />}
+						/>
+						<Route path="/runs/:runId/*" element={<LocationProbe />} />
 					</Routes>
 				</ShortcutRegistryProvider>
 			</WorkspaceTabsProvider>
@@ -123,5 +154,102 @@ describe("ProjectOverviewPage", () => {
 		expect(latestRegistry?.contextualShortcuts?.viewId).toBe(
 			"project-overview",
 		);
+	});
+
+	test("reopens an existing run workspace from recent runs", async () => {
+		setStoredState({
+			tabs: [
+				{
+					key: "run:run-1",
+					kind: "run",
+					currentPath: "/runs/run-1/step/build",
+					rootPath: "/runs/run-1",
+					title: "Run one",
+					subtitle: null,
+					projectId: null,
+					lastVisitedAt: 1,
+				},
+			],
+			activeKey: null,
+			lastDurableRoute: "/projects",
+		});
+		global.fetch = mock(async (input: RequestInfo | URL) => {
+			const url = String(input);
+			if (url.includes("/api/v2/projects/proj-1") && !url.includes("runs?")) {
+				return {
+					ok: true,
+					status: 200,
+					json: async () => ({
+						id: "proj-1",
+						name: "Project One",
+						path: "/repo/project-one",
+						available: true,
+						runCount: 3,
+						lastActivityAt: "2026-04-12T00:00:00.000Z",
+					}),
+				} satisfies Partial<Response>;
+			}
+
+			return {
+				ok: true,
+				status: 200,
+				json: async () => ({
+					runs: [
+						{
+							id: "run-1",
+							command: "/build",
+							status: "running",
+							projectId: "proj-1",
+							projectName: "Project One",
+							harness: "codex",
+							startedAt: "2026-04-12T00:00:00.000Z",
+							lastEventAt: "2026-04-12T00:00:00.000Z",
+						},
+					],
+					total: 1,
+				}),
+			} satisfies Partial<Response>;
+		}) as unknown as typeof fetch;
+
+		await renderProjectOverview();
+
+		fireEvent.click(await screen.findByRole("button", { name: "Run" }));
+
+		await waitFor(() => {
+			expect(screen.getByTestId("location-probe").textContent).toBe(
+				"/runs/run-1/step/build",
+			);
+		});
+	});
+
+	test("reopens an existing files workspace from the browse files action", async () => {
+		setStoredState({
+			tabs: [
+				{
+					key: "files:proj-1",
+					kind: "files",
+					currentPath: "/projects/proj-1/files/src/index.ts",
+					rootPath: "/projects/proj-1/files",
+					title: "Project One files",
+					subtitle: "index.ts",
+					projectId: "proj-1",
+					lastVisitedAt: 1,
+				},
+			],
+			activeKey: null,
+			lastDurableRoute: "/projects",
+		});
+
+		await renderProjectOverview();
+
+		fireEvent.click(
+			await screen.findByRole("button", { name: "Browse files" }),
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("location-probe").textContent).toBe(
+				"/projects/proj-1/files/src/index.ts",
+			);
+		});
 	});
 });
