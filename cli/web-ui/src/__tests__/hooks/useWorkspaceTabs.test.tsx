@@ -133,6 +133,19 @@ describe("useWorkspaceTabs", () => {
 		});
 	});
 
+	test("keeps the full route path, including search and hash, as the workspace current path", async () => {
+		renderHarness(["/runs/run-2/step/test/artifact/doc-9?view=raw#section-1"]);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("active-key").textContent).toBe("run:run-2");
+		});
+
+		expect(parseTabs()[0]).toMatchObject({
+			currentPath: "/runs/run-2/step/test/artifact/doc-9?view=raw#section-1",
+			rootPath: "/runs/run-2",
+		});
+	});
+
 	test("reopens an existing workspace at its stored path", async () => {
 		setStoredState({
 			tabs: [
@@ -162,6 +175,24 @@ describe("useWorkspaceTabs", () => {
 				"/runs/run-1/step/build",
 			);
 		});
+	});
+
+	test("falls back to the default durable route when stored durable state is invalid", async () => {
+		sessionStorage.setItem(
+			WORKSPACE_TABS_STORAGE_KEY,
+			JSON.stringify({
+				tabs: [],
+				activeKey: null,
+				lastDurableRoute: "/settings",
+			}),
+		);
+
+		renderHarness(["/settings"]);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("last-durable-route").textContent).toBe("/");
+		});
+		expect(screen.getByTestId("active-key").textContent).toBe("null");
 	});
 
 	test("closes the active workspace to the nearest remaining tab", async () => {
@@ -201,6 +232,49 @@ describe("useWorkspaceTabs", () => {
 		await waitFor(() => {
 			expect(screen.getByTestId("location").textContent).toBe("/runs/run-1");
 		});
+		expect(parseTabs().map((tab) => tab.key)).toEqual(["run:run-1"]);
+	});
+
+	test("removes an inactive workspace without changing the active route", async () => {
+		setStoredState({
+			tabs: [
+				{
+					key: "run:run-1",
+					kind: "run",
+					currentPath: "/runs/run-1/step/build?view=raw#artifact",
+					rootPath: "/runs/run-1",
+					title: "Run one",
+					subtitle: null,
+					projectId: null,
+					lastVisitedAt: 1,
+				},
+				{
+					key: "run:run-2",
+					kind: "run",
+					currentPath: "/runs/run-2",
+					rootPath: "/runs/run-2",
+					title: "Run two",
+					subtitle: null,
+					projectId: null,
+					lastVisitedAt: 2,
+				},
+			],
+			activeKey: "run:run-1",
+			lastDurableRoute: "/projects",
+		});
+
+		renderHarness(["/runs/run-1/step/build?view=raw#artifact"]);
+
+		act(() => {
+			fireEvent.click(screen.getByRole("button", { name: "close-run-2" }));
+		});
+
+		await waitFor(() => {
+			expect(screen.getByTestId("location").textContent).toBe(
+				"/runs/run-1/step/build?view=raw#artifact",
+			);
+		});
+		expect(screen.getByTestId("active-key").textContent).toBe("run:run-1");
 		expect(parseTabs().map((tab) => tab.key)).toEqual(["run:run-1"]);
 	});
 

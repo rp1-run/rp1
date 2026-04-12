@@ -19,6 +19,27 @@ describe("workspace route normalization", () => {
 		expect(isDurableWorkspaceRoute("/projects")).toBe(true);
 	});
 
+	test("treats runs index as durable and ignores query, hash, and trailing slashes", () => {
+		expect(normalizeWorkspaceRoute("/runs")).toEqual({
+			type: "durable",
+			durableRoute: "activity",
+			rootPath: "/",
+		});
+		expect(
+			normalizeWorkspaceRoute(
+				"/projects/proj-1/files/src/index.ts/?line=12#L12",
+			),
+		).toEqual({
+			type: "workspace",
+			key: "files:proj-1",
+			kind: "files",
+			rootPath: "/projects/proj-1/files",
+			title: "proj-1 files",
+			subtitle: null,
+			projectId: "proj-1",
+		});
+	});
+
 	test("classifies run workspaces across nested routes", () => {
 		expect(
 			normalizeWorkspaceRoute("/runs/run-42/step/build/artifact/doc-1"),
