@@ -11,8 +11,8 @@
     "docs/"
   ],
   "generated_at": "2026-04-12T00:00:00Z",
-  "git_commit": "9f8313662db6b11d91a4dc138c7371e004d1a3d8",
-  "files_analyzed": 286,
+  "git_commit": "c0e31eb1b9bcebe4720181365667bf38fa435ea6",
+  "files_analyzed": 919,
   "languages": [
     "TypeScript",
     "TSX",
@@ -26,7 +26,7 @@
   ],
   "metrics": {
     "modules": 22,
-    "components": 11,
-    "concepts": 33
+    "components": 12,
+    "concepts": 36
   }
 }
