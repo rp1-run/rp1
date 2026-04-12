@@ -118,7 +118,7 @@ Findings are filtered by confidence level:
 | 🛑 `block` | Critical problems found |
 
 !!! info "Visual PR Workflow"
-    For complex PRs (significant architectural changes or cross-cutting concerns), the review automatically triggers [`pr-visual`](pr-visual.md) in parallel with sub-reviewers, creating diagrams that help you understand the PR at a glance.
+    For complex PRs (significant architectural changes or cross-cutting concerns), the review runs visual generation as a subflow inside the parent `pr-review` run while using the same underlying diagram generator as [`pr-visual`](pr-visual.md).
 
 ## Examples
 

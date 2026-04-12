@@ -22,6 +22,8 @@ See what your PR changes at a glance with auto-generated architecture and flow d
 
 The `pr-visual` command generates Mermaid diagrams from PR diffs to help understand code changes visually. It creates architecture diagrams, flow charts, and dependency graphs showing what changed and how components interact.
 
+Runs are tracked in Arcade Activity, including the visualization phase and the final diagram artifact. When `pr-review` needs visuals, it uses the same generator internally as a subflow of the parent review run rather than creating a second top-level `pr-visual` run.
+
 ## Parameters
 
 | Parameter | Position | Required | Default | Description |

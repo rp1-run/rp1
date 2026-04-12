@@ -4,15 +4,18 @@ description: "Transform pull request diffs into Mermaid diagrams for visual code
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: review
-  is_workflow: false
-  version: 3.1.0
+  is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args: []
+  version: 3.2.0
   tags:
     - pr
     - review
     - analysis
     - code
   created: 2025-10-25
-  updated: 2026-03-25
+  updated: 2026-04-12
   author: cloud-on-prem/rp1
   arguments:
     - name: PR_BRANCH
@@ -54,8 +57,6 @@ stateDiagram-v2
     visualize --> [*] : done
 ```
 
-Generate `RUN_ID` as UUID at start.
-
 **On each phase transition**, report via:
 ```
 rp1 agent-tools emit \
@@ -66,6 +67,9 @@ rp1 agent-tools emit \
   --step {STATE} \
   --data '{"status": "{running|completed}", "branch": "{PR_BRANCH}"}'
 ```
+
+- `RUN_ID` comes from the generated Workflow Bootstrap section
+- Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section
 
 ## §1 Visualize
 
