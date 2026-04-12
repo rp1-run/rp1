@@ -27,7 +27,7 @@ metadata:
 Invokes **hypothesis-tester** agent to validate design assumptions.
 
 ## Prerequisites
-- `.rp1/work/features/{FEATURE_ID}/hypotheses.md` MUST exist
+- `{workRoot}/features/{FEATURE_ID}/hypotheses.md` MUST exist
 - Created by the feature-architect agent during the design phase when high-risk assumptions are identified
 
 ## Execution

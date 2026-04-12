@@ -39,6 +39,10 @@ Use this skill when:
 
 ## How to Use Templates
 
+Before writing generated KB files in a worktree or nested checkout, resolve the
+canonical KB root first, for example with `rp1 agent-tools rp1-root-dir`, and
+treat the returned `kbRoot` as `<resolved kbRoot>` in the examples below.
+
 ### Single Project Structure
 
 For standard single-project repositories:
@@ -58,7 +62,7 @@ For standard single-project repositories:
 **Using Templates**:
 1. Read template: `templates/single-project/index.md`
 2. Fill in placeholders with project-specific information
-3. Write to target location: `.rp1/context/index.md`
+3. Write to target location: `<resolved kbRoot>/index.md`
 4. Repeat for each template
 
 **Template Placeholders**:
@@ -121,7 +125,7 @@ filled = filled.replace("[Date]", current_date)
 # ... more replacements
 
 # Write to target location
-write_file(f".rp1/context/index.md", filled)
+write_file(f"{resolved_kb_root}/index.md", filled)
 ```
 
 **Step 3: Generate Diagrams**
@@ -352,14 +356,15 @@ Extract data from each sub-agent's JSON output:
 After writing concept_map.md, architecture.md, modules.md, patterns.md, calculate line counts:
 
 ```bash
-wc -l .rp1/context/concept_map.md
-wc -l .rp1/context/architecture.md
-wc -l .rp1/context/interaction-model.md
-wc -l .rp1/context/modules.md
-wc -l .rp1/context/patterns.md
+KB_ROOT="<resolved kbRoot>"
+wc -l "$KB_ROOT/concept_map.md"
+wc -l "$KB_ROOT/architecture.md"
+wc -l "$KB_ROOT/interaction-model.md"
+wc -l "$KB_ROOT/modules.md"
+wc -l "$KB_ROOT/patterns.md"
 # For monorepo, also:
-wc -l .rp1/context/dependencies.md
-wc -l .rp1/context/technology-matrix.md
+wc -l "$KB_ROOT/dependencies.md"
+wc -l "$KB_ROOT/technology-matrix.md"
 ```
 
 ### Template Placeholder Mapping

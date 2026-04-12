@@ -76,7 +76,7 @@ Determine the repository type based on these indicators:
 
 ## Loading Strategies by Repository Type
 
-All relevant files are in .rp1/context/
+All relevant files are under `{kbRoot}/`
 
 **Single Project**:
 
@@ -216,7 +216,7 @@ READY [monorepo: 2 projects - rp1-base, rp1-dev]
 
 ```
 Now analyzing parameters...
-I see that the KB root is at .rp1/context/...
+I see that the KB root is at {kbRoot}/...
 Loading index.md file...
 File loaded successfully, now parsing...
 Extracting repository structure...
@@ -240,13 +240,13 @@ etc. (too verbose!)
 ```markdown
 ## 1. Load Knowledge Base
 
-Read `.rp1/context/index.md` to understand project structure and available KB files.
+Read `{kbRoot}/index.md` to understand project structure and available KB files.
 
 **Selective Loading**: Based on your task, load additional files as needed:
-- For pattern consistency checks -> Read `.rp1/context/patterns.md`
-- For architecture understanding -> Read `.rp1/context/architecture.md`
-- For interaction / UX / surface semantics -> Read `.rp1/context/interaction-model.md`
-- For component details -> Read `.rp1/context/modules.md`
+- For pattern consistency checks -> Read `{kbRoot}/patterns.md`
+- For architecture understanding -> Read `{kbRoot}/architecture.md`
+- For interaction / UX / surface semantics -> Read `{kbRoot}/interaction-model.md`
+- For component details -> Read `{kbRoot}/modules.md`
 
 Do NOT load all KB files unless performing holistic analysis.
 ```
@@ -256,15 +256,15 @@ Do NOT load all KB files unless performing holistic analysis.
 ```markdown
 ## 1. Load Knowledge Base
 
-Read all markdown files from `.rp1/context/*.md`:
-- `.rp1/context/index.md` - Project overview
-- `.rp1/context/architecture.md` - System design
-- `.rp1/context/interaction-model.md` - Cross-surface interaction semantics
-- `.rp1/context/modules.md` - Component breakdown
-- `.rp1/context/concept_map.md` - Domain terminology
-- `.rp1/context/patterns.md` - Code conventions
+Read all markdown files from `{kbRoot}/*.md`:
+- `{kbRoot}/index.md` - Project overview
+- `{kbRoot}/architecture.md` - System design
+- `{kbRoot}/interaction-model.md` - Cross-surface interaction semantics
+- `{kbRoot}/modules.md` - Component breakdown
+- `{kbRoot}/concept_map.md` - Domain terminology
+- `{kbRoot}/patterns.md` - Code conventions
 
-If `.rp1/context/` doesn't exist, warn user to run `/knowledge-build` first.
+If `{kbRoot}/` doesn't exist, warn user to run `/knowledge-build` first.
 ```
 
 ### Task-to-KB-Files Mapping
@@ -287,7 +287,7 @@ Always use direct Read tool calls:
 
 ```markdown
 # CORRECT (in subagent)
-Read `.rp1/context/index.md`
+Read `{kbRoot}/index.md`
 
 # INCORRECT (causes subagent to exit)
 Run `/knowledge-load`
