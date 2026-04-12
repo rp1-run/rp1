@@ -210,7 +210,14 @@ describe("executeList", () => {
 			expect(parsed[0].user_facing_name).toBe("rp1-dev:build");
 			expect(parsed[0].category).toBe("development");
 			expect(parsed[0].is_workflow).toBe(true);
-			expect(parsed[0].key_args).toEqual(["FEATURE_ID", "AFK"]);
+			expect(parsed[0].key_args).toEqual([
+				"FEATURE_ID",
+				"REQUIREMENTS",
+				"AFK",
+				"GIT_COMMIT",
+				"GIT_PUSH",
+				"GIT_PR",
+			]);
 			expect(parsed[0].run_policy).toBe("resumable");
 			expect(parsed[0].identity_args).toEqual(["FEATURE_ID"]);
 			expect(parsed[0].installed_platforms).toEqual(["codex"]);
@@ -218,7 +225,11 @@ describe("executeList", () => {
 			expect(parsed[1].name).toBe("pr-review");
 			expect(parsed[1].category).toBe("review");
 			expect(parsed[1].is_workflow).toBe(true);
-			expect(parsed[1].key_args).toEqual(["PR_NUMBER"]);
+			expect(parsed[1].key_args).toEqual([
+				"TARGET",
+				"BASE_BRANCH",
+				"SKIP_VISUAL",
+			]);
 			expect(parsed[1].run_policy).toBe("fresh");
 			expect(parsed[1].identity_args).toEqual([]);
 		});
