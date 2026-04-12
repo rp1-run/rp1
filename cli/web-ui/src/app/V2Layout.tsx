@@ -14,6 +14,7 @@ import { BreadcrumbProvider } from "@/hooks/useBreadcrumbContext";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { WorkspaceTabsProvider } from "@/hooks/useWorkspaceTabs";
 import {
 	pageTransition,
 	pageTransitionReduced,
@@ -96,39 +97,23 @@ export function AppLayout() {
 
 	return (
 		<BreadcrumbProvider>
-			<ShortcutRegistryProvider>
-				<div className="flex h-screen bg-background">
-					<IconRail className="hidden md:flex" />
+			<WorkspaceTabsProvider>
+				<ShortcutRegistryProvider>
+					<div className="flex h-screen bg-background">
+						<IconRail className="hidden md:flex" />
 
-					<div className="flex flex-1 flex-col overflow-hidden">
-						<TerminalBreadcrumb
-							action={
-								<NotificationTrigger
-									summary={summary}
-									open={activeOverlay === "notifications"}
-									onClick={handleToggleNotifications}
-								/>
-							}
-						/>
-						{isFullHeight ? (
-							<main className="flex-1 overflow-hidden">
-								<AnimatePresence mode="wait">
-									<motion.div
-										key={animationKey}
-										variants={variants}
-										initial="initial"
-										animate="animate"
-										exit="exit"
-										transition={transition}
-										className="h-full"
-									>
-										<Outlet />
-									</motion.div>
-								</AnimatePresence>
-							</main>
-						) : (
-							<main className="flex-1 overflow-hidden">
-								<ScrollArea className="h-full">
+						<div className="flex flex-1 flex-col overflow-hidden">
+							<TerminalBreadcrumb
+								action={
+									<NotificationTrigger
+										summary={summary}
+										open={activeOverlay === "notifications"}
+										onClick={handleToggleNotifications}
+									/>
+								}
+							/>
+							{isFullHeight ? (
+								<main className="flex-1 overflow-hidden">
 									<AnimatePresence mode="wait">
 										<motion.div
 											key={animationKey}
@@ -137,54 +122,72 @@ export function AppLayout() {
 											animate="animate"
 											exit="exit"
 											transition={transition}
-											className="p-6"
+											className="h-full"
 										>
 											<Outlet />
 										</motion.div>
 									</AnimatePresence>
-								</ScrollArea>
-							</main>
-						)}
+								</main>
+							) : (
+								<main className="flex-1 overflow-hidden">
+									<ScrollArea className="h-full">
+										<AnimatePresence mode="wait">
+											<motion.div
+												key={animationKey}
+												variants={variants}
+												initial="initial"
+												animate="animate"
+												exit="exit"
+												transition={transition}
+												className="p-6"
+											>
+												<Outlet />
+											</motion.div>
+										</AnimatePresence>
+									</ScrollArea>
+								</main>
+							)}
+						</div>
+
+						<MobileTabBar
+							className="fixed inset-x-0 bottom-0 md:hidden"
+							onOpenCommandPalette={handleOpenCommandPalette}
+							notificationAction={
+								<NotificationTrigger
+									summary={summary}
+									open={activeOverlay === "notifications"}
+									onClick={handleToggleNotifications}
+									className="h-11 w-11"
+								/>
+							}
+						/>
+
+						<CommandPalette
+							open={activeOverlay === "command-palette"}
+							onOpenChange={(open) => {
+								setActiveOverlay((current) => {
+									if (open) {
+										return "command-palette";
+									}
+
+									return current === "command-palette" ? "none" : current;
+								});
+							}}
+						/>
+						<NotificationsSidebar
+							open={activeOverlay === "notifications"}
+							onClose={handleCloseActiveOverlay}
+							notifications={notifications}
+							isLoading={isLoading}
+							error={error}
+							onDismissNotification={dismissNotification}
+							onDismissAllNotifications={dismissAllNotifications}
+						/>
 					</div>
-
-					<MobileTabBar
-						className="fixed inset-x-0 bottom-0 md:hidden"
-						onOpenCommandPalette={handleOpenCommandPalette}
-						notificationAction={
-							<NotificationTrigger
-								summary={summary}
-								open={activeOverlay === "notifications"}
-								onClick={handleToggleNotifications}
-								className="h-11 w-11"
-							/>
-						}
-					/>
-
-					<CommandPalette
-						open={activeOverlay === "command-palette"}
-						onOpenChange={(open) => {
-							setActiveOverlay((current) => {
-								if (open) {
-									return "command-palette";
-								}
-
-								return current === "command-palette" ? "none" : current;
-							});
-						}}
-					/>
-					<NotificationsSidebar
-						open={activeOverlay === "notifications"}
-						onClose={handleCloseActiveOverlay}
-						notifications={notifications}
-						isLoading={isLoading}
-						error={error}
-						onDismissNotification={dismissNotification}
-						onDismissAllNotifications={dismissAllNotifications}
-					/>
-				</div>
-				<ShortcutHelpOverlay />
-				<NotificationContainer />
-			</ShortcutRegistryProvider>
+					<ShortcutHelpOverlay />
+					<NotificationContainer />
+				</ShortcutRegistryProvider>
+			</WorkspaceTabsProvider>
 		</BreadcrumbProvider>
 	);
 }
