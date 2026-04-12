@@ -36,6 +36,7 @@ import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { FileContent } from "../../server/routes/content-utils";
 
 const STORAGE_KEY_TOC_COLLAPSED = "rp1-file-browser-toc-collapsed";
+const STORAGE_KEY_FRONTMATTER_VISIBLE = "rp1-file-browser-frontmatter-visible";
 
 function isSameFileContent(
 	left: FileContent | null,
@@ -77,6 +78,10 @@ export function FileBrowserPage() {
 		if (typeof window === "undefined") return true;
 		const stored = sessionStorage.getItem(STORAGE_KEY_TOC_COLLAPSED);
 		return stored === null ? true : stored === "true";
+	});
+	const [showFrontmatter, setShowFrontmatter] = useState<boolean>(() => {
+		if (typeof window === "undefined") return false;
+		return sessionStorage.getItem(STORAGE_KEY_FRONTMATTER_VISIBLE) === "true";
 	});
 	const [sidebarDrawerOpen, setSidebarDrawerOpen] = useState(false);
 	const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
@@ -252,6 +257,16 @@ export function FileBrowserPage() {
 		});
 	}, []);
 
+	const handleToggleFrontmatter = useCallback(() => {
+		setShowFrontmatter((prev) => {
+			const next = !prev;
+			if (typeof window !== "undefined") {
+				sessionStorage.setItem(STORAGE_KEY_FRONTMATTER_VISIBLE, String(next));
+			}
+			return next;
+		});
+	}, []);
+
 	const handleTocNavigate = useCallback((id: string) => {
 		const element = document.getElementById(id);
 		if (!element) return;
@@ -381,6 +396,19 @@ export function FileBrowserPage() {
 				},
 			},
 		],
+		commands: selectedPath
+			? [
+					{
+						id: "toggle-file-frontmatter",
+						label: showFrontmatter ? "Hide Frontmatter" : "Show Frontmatter",
+						description: showFrontmatter
+							? "Hide frontmatter in the current file viewer"
+							: "Show frontmatter in the current file viewer",
+						keywords: ["frontmatter", "metadata", "yaml", "file"],
+						action: handleToggleFrontmatter,
+					},
+				]
+			: [],
 		enabled: !!selectedPath,
 	});
 
@@ -460,6 +488,7 @@ export function FileBrowserPage() {
 							error={contentError}
 							emptyMessage="Select a file from the sidebar to view its contents."
 							frontmatter={content?.frontmatter}
+							showFrontmatter={showFrontmatter}
 							isRefreshing={isRefreshing}
 							onHeadingsExtracted={handleHeadingsExtracted}
 							scrollViewportRef={scrollViewportRef}
@@ -582,6 +611,7 @@ export function FileBrowserPage() {
 								error={contentError}
 								emptyMessage="Select a file from the sidebar to view its contents."
 								frontmatter={content?.frontmatter}
+								showFrontmatter={showFrontmatter}
 								isRefreshing={isRefreshing}
 								onHeadingsExtracted={handleHeadingsExtracted}
 								scrollViewportRef={scrollViewportRef}

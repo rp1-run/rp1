@@ -51,6 +51,7 @@ import { useWebSocket } from "@/providers/WebSocketProvider";
 
 const STORAGE_KEY_TOC_COLLAPSED = "rp1-toc-collapsed";
 const STORAGE_KEY_ANNOTATIONS_COLLAPSED = "rp1-annotations-collapsed";
+const STORAGE_KEY_FRONTMATTER_VISIBLE = "rp1-artifact-frontmatter-visible";
 
 interface ArtifactContent {
 	path: string;
@@ -169,6 +170,10 @@ export function ArtifactViewerPage() {
 		// Default to collapsed (hidden) unless explicitly set to false
 		return stored === null ? true : stored === "true";
 	});
+	const [showFrontmatter, setShowFrontmatter] = useState<boolean>(() => {
+		if (typeof window === "undefined") return false;
+		return sessionStorage.getItem(STORAGE_KEY_FRONTMATTER_VISIBLE) === "true";
+	});
 	const [annotationSidebarOpen, setAnnotationSidebarOpen] = useState<boolean>(
 		() => {
 			if (typeof window === "undefined") return false;
@@ -242,6 +247,16 @@ export function ArtifactViewerPage() {
 		if (typeof window !== "undefined") {
 			sessionStorage.setItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED, String(!open));
 		}
+	}, []);
+
+	const handleToggleFrontmatter = useCallback(() => {
+		setShowFrontmatter((prev) => {
+			const next = !prev;
+			if (typeof window !== "undefined") {
+				sessionStorage.setItem(STORAGE_KEY_FRONTMATTER_VISIBLE, String(next));
+			}
+			return next;
+		});
 	}, []);
 
 	const handleArtifactSelect = useCallback(
@@ -535,6 +550,19 @@ export function ArtifactViewerPage() {
 				},
 			},
 		],
+		commands: selectedArtifactPath
+			? [
+					{
+						id: "toggle-artifact-frontmatter",
+						label: showFrontmatter ? "Hide Frontmatter" : "Show Frontmatter",
+						description: showFrontmatter
+							? "Hide frontmatter in the current artifact viewer"
+							: "Show frontmatter in the current artifact viewer",
+						keywords: ["frontmatter", "metadata", "yaml", "artifact"],
+						action: handleToggleFrontmatter,
+					},
+				]
+			: [],
 		enabled: !!run,
 	});
 
@@ -612,6 +640,7 @@ export function ArtifactViewerPage() {
 				<UnifiedContentRenderer
 					content={artifactContent.content}
 					path={artifactContent.path}
+					showFrontmatter={showFrontmatter}
 					onHeadingsExtracted={handleHeadingsExtracted}
 					runId={runId}
 					docId={artifactContent.docId}

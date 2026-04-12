@@ -24,6 +24,7 @@ export interface ArtifactViewerPanelProps {
 	readonly onArtifactSelect?: (artifact: Artifact) => void;
 	readonly runId?: string;
 	readonly subflowDiagram?: string | null;
+	readonly showFrontmatter?: boolean;
 }
 
 function getFileName(path: string): string {
@@ -37,6 +38,7 @@ function ArtifactViewerInner({
 	onArtifactSelect,
 	runId,
 	subflowDiagram,
+	showFrontmatter = false,
 }: ArtifactViewerPanelProps) {
 	const [content, setContent] = useState<string | null>(null);
 	const [contentLoading, setContentLoading] = useState(false);
@@ -298,6 +300,7 @@ function ArtifactViewerInner({
 							onSaveStatusChange={setSaveStatus}
 							runId={runId}
 							docId={selectedArtifact?.docId}
+							showFrontmatter={showFrontmatter}
 							scrollViewportRef={scrollViewportRef}
 						/>
 					</ScrollArea>
