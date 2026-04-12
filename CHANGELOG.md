@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.7.2](https://github.com/rp1-run/rp1/compare/v0.7.1...v0.7.2) (2026-04-12)
+
+
+### Features
+
+* add /guide meta-skill and stanza version markers ([#309](https://github.com/rp1-run/rp1/issues/309)) ([fcca67a](https://github.com/rp1-run/rp1/commit/fcca67a3eda2220db6823a298b986c2eb7c7500d))
+* add Discord button to docs site ([#319](https://github.com/rp1-run/rp1/issues/319)) ([6050230](https://github.com/rp1-run/rp1/commit/6050230f90bb4c8f83d8670d3b1dfec862a1f8e5))
+* **cli:** implement deterministic workflow bootstrap ([#318](https://github.com/rp1-run/rp1/issues/318)) ([490cb76](https://github.com/rp1-run/rp1/commit/490cb7613b245b0404a3e4b52dd18dcfe6fa849e))
+* **evals:** replace custom Claude provider with stock promptfoo Claude Agent SDK ([#307](https://github.com/rp1-run/rp1/issues/307)) ([b21cf35](https://github.com/rp1-run/rp1/commit/b21cf35dfd1a15ab581543af00f7cec064a3de03))
+* **evals:** run evals in dockerized rp1-dev environment ([#322](https://github.com/rp1-run/rp1/issues/322)) ([3e05164](https://github.com/rp1-run/rp1/commit/3e0516475f1b9e46dec30746fe34fb213120ec24))
+* **web-ui:** add workspace tabs shell ([#325](https://github.com/rp1-run/rp1/issues/325)) ([562fe1d](https://github.com/rp1-run/rp1/commit/562fe1ddbe720e5c5d040572bc03cff8d198793d))
+* **web-ui:** move notifications into dedicated sidebar ([#317](https://github.com/rp1-run/rp1/issues/317)) ([3276078](https://github.com/rp1-run/rp1/commit/327607812a57a42333beeaa9db034bb1b82d0f65))
+
+
+### Bug Fixes
+
+* **cli:** harden rp1 directory resolution and repair Arcade metadata ([#314](https://github.com/rp1-run/rp1/issues/314)) ([cf05995](https://github.com/rp1-run/rp1/commit/cf05995a9c4ec4e8f04ba6d690b4c0fa00a4b23c))
+* **docker:** commit eval attestations on host ([5706c7d](https://github.com/rp1-run/rp1/commit/5706c7d51ce1637f659ed13c4415261520291d0c))
+* **docker:** isolate eval node_modules in container ([e024706](https://github.com/rp1-run/rp1/commit/e0247061456776b27c95b20fe4f1ef777b6b3746))
+* **docker:** mount worktree git metadata for evals ([c74ffd2](https://github.com/rp1-run/rp1/commit/c74ffd2a2b57f3f9a6601e65ec46e4ef06f1958e))
+* **docker:** repair eval volume ownership ([7636add](https://github.com/rp1-run/rp1/commit/7636add7affce735edfe043c38b802213d369884))
+* establish hypothesis document ownership in build workflow ([#316](https://github.com/rp1-run/rp1/issues/316)) ([4355ac3](https://github.com/rp1-run/rp1/commit/4355ac30d244964d3def45ad50f04a2f5c3130ae))
+* **evals:** build ([#323](https://github.com/rp1-run/rp1/issues/323)) ([9f83136](https://github.com/rp1-run/rp1/commit/9f8313662db6b11d91a4dc138c7371e004d1a3d8))
+* **evals:** share promptfoo history with host view ([74b1b24](https://github.com/rp1-run/rp1/commit/74b1b245991ce88d052fe97effdb8c5049d8953c))
+* **promptfoo-claude:** migrate evals to stock Claude provider ([#310](https://github.com/rp1-run/rp1/issues/310)) ([7656fe1](https://github.com/rp1-run/rp1/commit/7656fe14c2fb78a1a3dbddad2f6512838a694031))
+* **registry:** eliminate cross-process race + arcade polish ([#324](https://github.com/rp1-run/rp1/issues/324)) ([c0e31eb](https://github.com/rp1-run/rp1/commit/c0e31eb1b9bcebe4720181365667bf38fa435ea6))
+* skip nested worktrees in Arcade file trees ([#312](https://github.com/rp1-run/rp1/issues/312)) ([ceff54f](https://github.com/rp1-run/rp1/commit/ceff54fd565d56cf72d4670e7b1d4d5e52fee814))
+* **web-ui:** preserve Milkdown cursor across refreshes ([#321](https://github.com/rp1-run/rp1/issues/321)) ([405ba9f](https://github.com/rp1-run/rp1/commit/405ba9f94491d6bf47ab2f8d40a7c3b601090285))
+
 ## [0.7.1](https://github.com/rp1-run/rp1/compare/v0.7.0...v0.7.1) (2026-04-05)
 
 
