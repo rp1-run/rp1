@@ -5,6 +5,7 @@ allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: knowledge
   is_workflow: false
+  arcade_tracked: false
   version: 2.1.0
   tags:
     - core
