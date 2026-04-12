@@ -1,4 +1,4 @@
-import { Activity, SquareKanban } from "lucide-react";
+import { Activity, NotebookTabs } from "lucide-react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import {
 	Tooltip,
@@ -17,7 +17,7 @@ interface NavItem {
 
 const NAV_ITEMS: readonly NavItem[] = [
 	{ to: "/", label: "Activity", icon: Activity },
-	{ to: "/projects", label: "Projects", icon: SquareKanban, matchPrefix: true },
+	{ to: "/projects", label: "Projects", icon: NotebookTabs, matchPrefix: true },
 ] as const;
 
 export interface IconRailProps {

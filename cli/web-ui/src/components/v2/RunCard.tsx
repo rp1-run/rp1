@@ -1,4 +1,4 @@
-import { SquareKanban } from "lucide-react";
+import { NotebookTabs } from "lucide-react";
 import type React from "react";
 import { resolveRunDisplayName } from "@/lib/run-display";
 import { formatRelativeTime } from "@/lib/time";
@@ -95,7 +95,7 @@ export function RunCard({
 					className="ml-auto shrink-0 flex items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer"
 					aria-label={`Open project ${run.projectName}`}
 				>
-					<SquareKanban className="h-3 w-3" strokeWidth={1.5} />
+					<NotebookTabs className="h-3 w-3" strokeWidth={1.5} />
 					{run.projectName}
 				</span>
 			)}

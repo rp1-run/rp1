@@ -3,8 +3,8 @@ import {
 	ChevronRight,
 	Clock,
 	FileBox,
-	FolderKanban,
 	Home,
+	NotebookTabs,
 	Pin,
 	Search,
 	Settings,
@@ -62,7 +62,7 @@ const allNavItems: NavItem[] = [
 	{
 		to: "/projects",
 		label: "Projects",
-		icon: <FolderKanban className="h-5 w-5" />,
+		icon: <NotebookTabs className="h-5 w-5" />,
 		shortcutHint: "g p",
 		badgeKey: "projects",
 	},

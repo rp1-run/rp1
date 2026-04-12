@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Activity, SlidersHorizontal, SquareKanban } from "lucide-react";
+import { Activity, NotebookTabs, SlidersHorizontal } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { FilterBar } from "@/components/v2/FilterBar";
@@ -138,7 +138,7 @@ function FeedEntry({
 				className="ml-auto shrink-0 flex items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer bg-transparent border-none p-0"
 				aria-label={`Open project ${run.projectName}`}
 			>
-				<SquareKanban className="h-3 w-3" strokeWidth={1.5} />
+				<NotebookTabs className="h-3 w-3" strokeWidth={1.5} />
 				{run.projectName}
 			</button>
 

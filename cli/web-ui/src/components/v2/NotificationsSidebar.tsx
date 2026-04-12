@@ -1,4 +1,4 @@
-import { Bell, Loader2, SquareKanban, X } from "lucide-react";
+import { Bell, Loader2, NotebookTabs, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Drawer } from "@/components/ui/drawer";
@@ -245,7 +245,7 @@ export function NotificationsSidebar({
 														className="mt-3 inline-flex items-center gap-1 type-secondary italic text-fg-ghost transition-colors duration-150 hover:text-fg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
 														aria-label={`Open project ${notification.projectName}`}
 													>
-														<SquareKanban
+														<NotebookTabs
 															className="h-3 w-3"
 															strokeWidth={1.5}
 															aria-hidden="true"

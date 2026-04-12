@@ -5,8 +5,8 @@ import {
 	Home,
 	List,
 	Moon,
+	NotebookTabs,
 	RefreshCw,
-	SquareKanban,
 } from "lucide-react";
 import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
@@ -50,7 +50,7 @@ const navigationIcons: Record<string, React.ReactNode> = {
 		<FileText className="mr-2 h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
 	),
 	"nav-projects": (
-		<SquareKanban
+		<NotebookTabs
 			className="mr-2 h-4 w-4"
 			strokeWidth={1.5}
 			aria-hidden="true"
