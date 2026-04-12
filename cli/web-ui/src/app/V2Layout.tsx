@@ -134,7 +134,7 @@ export function AppLayout() {
 						<IconRail className="hidden md:flex" />
 
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-							<TerminalBreadcrumb
+							<WorkspaceTabStrip
 								action={
 									<NotificationTrigger
 										summary={summary}
@@ -143,7 +143,7 @@ export function AppLayout() {
 									/>
 								}
 							/>
-							<WorkspaceTabStrip />
+							<TerminalBreadcrumb />
 							{isFullHeight ? (
 								<main className="min-h-0 flex-1 overflow-hidden">
 									<AnimatePresence mode="wait">

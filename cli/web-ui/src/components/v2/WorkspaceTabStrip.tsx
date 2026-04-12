@@ -1,4 +1,5 @@
 import { Activity, FolderOpen, NotebookTabs, X } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useWorkspaceTabs, type WorkspaceTab } from "@/hooks/useWorkspaceTabs";
@@ -51,7 +52,15 @@ function WorkspaceKindIcon({ kind }: Pick<WorkspaceTab, "kind">) {
 	}
 }
 
-export function WorkspaceTabStrip() {
+export interface WorkspaceTabStripProps {
+	action?: ReactNode;
+	className?: string;
+}
+
+export function WorkspaceTabStrip({
+	action,
+	className,
+}: WorkspaceTabStripProps = {}) {
 	const { tabs, activeKey, activateWorkspace, closeWorkspace } =
 		useWorkspaceTabs();
 	const reducedMotion = usePrefersReducedMotion();
@@ -68,7 +77,9 @@ export function WorkspaceTabStrip() {
 		});
 	}, [activeKey, reducedMotion]);
 
-	if (tabs.length === 0) {
+	const hasTabs = tabs.length > 0;
+
+	if (!hasTabs && !action) {
 		return null;
 	}
 
@@ -167,79 +178,95 @@ export function WorkspaceTabStrip() {
 	};
 
 	return (
-		<nav
-			aria-label="Open workspaces"
-			className="border-b border-border/50 bg-surface-void"
+		<div
+			className={cn(
+				"flex min-h-11 items-center gap-3 border-b border-border/50 bg-surface-void px-3 py-2 md:px-4",
+				className,
+			)}
 		>
-			<div className="overflow-x-auto px-3 py-2 md:px-4">
-				<div className="flex min-w-max items-center gap-2">
-					{tabs.map((tab) => {
-						const isActive = tab.key === activeKey;
+			{hasTabs ? (
+				<nav
+					aria-label="Open workspaces"
+					className="min-w-0 flex-1 overflow-x-auto"
+				>
+					<div className="flex min-w-max items-center gap-2">
+						{tabs.map((tab) => {
+							const isActive = tab.key === activeKey;
 
-						return (
-							<div
-								key={tab.key}
-								className={cn(
-									"group flex max-w-[13rem] shrink-0 items-center gap-1 rounded-md border px-2 py-1 md:max-w-[18rem]",
-									isActive
-										? "border-border bg-surface text-fg"
-										: "border-transparent bg-transparent text-fg-muted hover:border-border/60 hover:bg-muted/30 hover:text-fg",
-								)}
-							>
-								<button
-									type="button"
-									ref={(node) => {
-										if (node) {
-											itemRefs.current.set(tab.key, node);
-											return;
-										}
-
-										itemRefs.current.delete(tab.key);
-									}}
-									onClick={() => activateWorkspace(tab.key)}
-									onKeyDown={(event) => handleNavigationKey(event, tab)}
+							return (
+								<div
+									key={tab.key}
 									className={cn(
-										"flex min-w-0 flex-1 items-center gap-1.5 rounded-sm bg-transparent text-left",
-										"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
-									)}
-									aria-current={isActive ? "page" : undefined}
-									aria-label={
-										tab.subtitle ? `${tab.title}, ${tab.subtitle}` : tab.title
-									}
-								>
-									<WorkspaceKindIcon kind={tab.kind} />
-									<span className="truncate type-secondary font-medium">
-										{tab.title}
-									</span>
-									{tab.subtitle ? (
-										<span className="hidden truncate type-secondary text-fg-ghost md:inline">
-											{tab.subtitle}
-										</span>
-									) : null}
-								</button>
-								<button
-									type="button"
-									onClick={() => closeAndRefocus(tab)}
-									onKeyDown={(event) => handleCloseKey(event, tab)}
-									className={cn(
-										"shrink-0 rounded-sm p-1 text-fg-ghost hover:text-fg",
-										"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
-										reducedMotion
-											? ""
-											: "transition-[opacity,color] duration-150",
+										"group flex max-w-[13rem] shrink-0 items-center gap-1 rounded-md border px-2 py-1 md:max-w-[18rem]",
 										isActive
-											? "opacity-100"
-											: "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
+											? "border-border bg-surface text-fg"
+											: "border-transparent bg-transparent text-fg-muted hover:border-border/60 hover:bg-muted/30 hover:text-fg",
 									)}
-									aria-label={`Close ${tab.title}`}
 								>
-									<X className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
-								</button>
-							</div>
-						);
-					})}
-				</div>
-			</div>
-		</nav>
+									<button
+										type="button"
+										ref={(node) => {
+											if (node) {
+												itemRefs.current.set(tab.key, node);
+												return;
+											}
+
+											itemRefs.current.delete(tab.key);
+										}}
+										onClick={() => activateWorkspace(tab.key)}
+										onKeyDown={(event) => handleNavigationKey(event, tab)}
+										className={cn(
+											"flex min-w-0 flex-1 items-center gap-1.5 rounded-sm bg-transparent text-left",
+											"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
+										)}
+										aria-current={isActive ? "page" : undefined}
+										aria-label={
+											tab.subtitle ? `${tab.title}, ${tab.subtitle}` : tab.title
+										}
+									>
+										<WorkspaceKindIcon kind={tab.kind} />
+										<span className="truncate type-secondary font-medium">
+											{tab.title}
+										</span>
+										{tab.subtitle ? (
+											<span className="hidden truncate type-secondary text-fg-ghost md:inline">
+												{tab.subtitle}
+											</span>
+										) : null}
+									</button>
+									<button
+										type="button"
+										onClick={() => closeAndRefocus(tab)}
+										onKeyDown={(event) => handleCloseKey(event, tab)}
+										className={cn(
+											"shrink-0 rounded-sm p-1 text-fg-ghost hover:text-fg",
+											"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
+											reducedMotion
+												? ""
+												: "transition-[opacity,color] duration-150",
+											isActive
+												? "opacity-100"
+												: "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
+										)}
+										aria-label={`Close ${tab.title}`}
+									>
+										<X
+											className="h-3 w-3"
+											strokeWidth={1.5}
+											aria-hidden="true"
+										/>
+									</button>
+								</div>
+							);
+						})}
+					</div>
+				</nav>
+			) : (
+				<div className="flex-1" aria-hidden="true" />
+			)}
+			{action ? (
+				<div className="flex shrink-0 items-center">{action}</div>
+			) : null}
+		</div>
 	);
 }

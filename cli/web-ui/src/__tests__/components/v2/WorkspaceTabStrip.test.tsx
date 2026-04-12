@@ -6,6 +6,7 @@ import {
 	screen,
 	waitFor,
 } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import {
 	WORKSPACE_TABS_STORAGE_KEY,
@@ -58,7 +59,12 @@ function LocationProbe() {
 	return <span data-testid="location-probe">{location.pathname}</span>;
 }
 
-async function renderStrip(initialEntries: readonly string[]) {
+async function renderStrip(
+	initialEntries: readonly string[],
+	options: {
+		action?: ReactNode;
+	} = {},
+) {
 	mock.module("@/hooks/usePrefersReducedMotion", () => ({
 		usePrefersReducedMotion: () => prefersReducedMotion,
 	}));
@@ -70,7 +76,7 @@ async function renderStrip(initialEntries: readonly string[]) {
 	return render(
 		<MemoryRouter initialEntries={[...initialEntries]}>
 			<WorkspaceTabsProvider>
-				<WorkspaceTabStrip />
+				<WorkspaceTabStrip action={options.action} />
 				<Routes>
 					<Route path="/" element={<LocationProbe />} />
 					<Route path="/runs/:runId/*" element={<LocationProbe />} />
@@ -208,5 +214,16 @@ describe("WorkspaceTabStrip", () => {
 				expect.objectContaining({ behavior: "smooth" }),
 			);
 		});
+	});
+
+	test("keeps the top bar visible for actions even when there are no open tabs", async () => {
+		await renderStrip(["/"], {
+			action: <button type="button">Notifications</button>,
+		});
+
+		expect(screen.getByRole("button", { name: "Notifications" })).toBeTruthy();
+		expect(
+			screen.queryByRole("navigation", { name: "Open workspaces" }),
+		).toBeNull();
 	});
 });
