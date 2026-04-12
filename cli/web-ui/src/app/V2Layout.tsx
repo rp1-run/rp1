@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CommandPalette } from "@/components/v2/CommandPalette";
@@ -22,6 +22,7 @@ import {
 	pageVariants,
 	pageVariantsReduced,
 } from "@/lib/motion-config";
+import { normalizeWorkspaceRoute } from "@/lib/workspace-routes";
 import { ShortcutRegistryProvider } from "@/providers/ShortcutRegistryProvider";
 
 const FULL_HEIGHT_ROUTES = ["/runs/"];
@@ -39,6 +40,14 @@ function isFullHeightRoute(pathname: string): boolean {
 }
 
 type ActiveOverlay = "none" | "command-palette" | "notifications";
+
+function createCurrentPath(
+	pathname: string,
+	search: string,
+	hash: string,
+): string {
+	return `${pathname}${search}${hash}`;
+}
 
 export function AppLayout() {
 	const [activeOverlay, setActiveOverlay] = useState<ActiveOverlay>("none");
@@ -59,11 +68,32 @@ export function AppLayout() {
 		location.pathname.match(/^\/runs\/[^/]+/)?.[0] ??
 		location.pathname.match(/^\/projects\/[^/]+\/files/)?.[0] ??
 		location.pathname;
+	const currentRoute = useMemo(
+		() =>
+			normalizeWorkspaceRoute(
+				createCurrentPath(location.pathname, location.search, location.hash),
+			),
+		[location.hash, location.pathname, location.search],
+	);
+	const previousRouteRef = useRef(currentRoute);
 
 	const reducedMotion = usePrefersReducedMotion();
-	const variants = reducedMotion ? pageVariantsReduced : pageVariants;
-	const transition = reducedMotion ? pageTransitionReduced : pageTransition;
+	const skipWorkspaceTransition =
+		previousRouteRef.current.type === "workspace" &&
+		currentRoute.type === "workspace";
+	const variants =
+		reducedMotion || skipWorkspaceTransition
+			? pageVariantsReduced
+			: pageVariants;
+	const transition =
+		reducedMotion || skipWorkspaceTransition
+			? pageTransitionReduced
+			: pageTransition;
 	const isOverlayOpen = activeOverlay !== "none" || shortcutHelpOpen;
+
+	useEffect(() => {
+		previousRouteRef.current = currentRoute;
+	}, [currentRoute]);
 
 	const handleOpenCommandPalette = useCallback(() => {
 		setActiveOverlay("command-palette");

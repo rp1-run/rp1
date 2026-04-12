@@ -38,6 +38,7 @@ import type { FileContent } from "../../server/routes/content-utils";
 
 const STORAGE_KEY_TOC_COLLAPSED = "rp1-file-browser-toc-collapsed";
 const STORAGE_KEY_FRONTMATTER_VISIBLE = "rp1-file-browser-frontmatter-visible";
+const fileBrowserContentCache = new Map<string, FileContent>();
 
 function isSameFileContent(
 	left: FileContent | null,
@@ -60,6 +61,8 @@ export function FileBrowserPage() {
 	const navigate = useNavigate();
 	const isMobile = useIsMobile();
 	const selectedPath = filePath || null;
+	const contentCacheKey =
+		projectId && selectedPath ? `${projectId}:${selectedPath}` : null;
 
 	const {
 		tree,
@@ -69,8 +72,15 @@ export function FileBrowserPage() {
 	} = useProjectFileTree(projectId);
 	const { setProjectId, onTreeChange, onFileChange } = useWebSocket();
 
-	const [content, setContent] = useState<FileContent | null>(null);
-	const [contentLoading, setContentLoading] = useState(false);
+	const [content, setContent] = useState<FileContent | null>(() =>
+		contentCacheKey
+			? (fileBrowserContentCache.get(contentCacheKey) ?? null)
+			: null,
+	);
+	const [contentLoading, setContentLoading] = useState(
+		() =>
+			contentCacheKey !== null && !fileBrowserContentCache.has(contentCacheKey),
+	);
 	const [contentError, setContentError] = useState<string | null>(null);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [headings, setHeadings] = useState<readonly HeadingEntry[]>([]);
@@ -149,7 +159,11 @@ export function FileBrowserPage() {
 				};
 			}
 
-			if (!preserveScroll) {
+			const cachedContent = contentCacheKey
+				? (fileBrowserContentCache.get(contentCacheKey) ?? null)
+				: null;
+
+			if (!preserveScroll && cachedContent === null) {
 				savedScrollState.current = null;
 				setContentLoading(true);
 				setHeadings([]);
@@ -171,6 +185,9 @@ export function FileBrowserPage() {
 					throw new Error(`Failed to fetch content: ${response.statusText}`);
 				}
 				const data = (await response.json()) as FileContent;
+				if (contentCacheKey) {
+					fileBrowserContentCache.set(contentCacheKey, data);
+				}
 				setContent((current) => {
 					if (isSameFileContent(current, data)) {
 						if (preserveScroll) {
@@ -182,20 +199,41 @@ export function FileBrowserPage() {
 					return data;
 				});
 			} catch (err) {
-				savedScrollState.current = null;
-				setContentError(err instanceof Error ? err.message : String(err));
-				setContent(null);
+				const message = err instanceof Error ? err.message : String(err);
+				const isTerminalError =
+					message.startsWith("File not found:") ||
+					message.startsWith("Project unavailable:");
+
+				if (isTerminalError) {
+					savedScrollState.current = null;
+					if (contentCacheKey) {
+						fileBrowserContentCache.delete(contentCacheKey);
+					}
+					setContentError(message);
+					setContent(null);
+				}
 			} finally {
 				setContentLoading(false);
 				setIsRefreshing(false);
 			}
 		},
-		[selectedPath, projectId],
+		[selectedPath, projectId, contentCacheKey],
 	);
 
 	useEffect(() => {
-		fetchContent(false);
-	}, [fetchContent]);
+		if (!contentCacheKey) {
+			setContent(null);
+			setContentLoading(false);
+			setContentError(null);
+			return;
+		}
+
+		const cachedContent = fileBrowserContentCache.get(contentCacheKey) ?? null;
+		setContent(cachedContent);
+		setContentLoading(cachedContent === null);
+		setContentError(null);
+		void fetchContent(false);
+	}, [contentCacheKey, fetchContent]);
 
 	useReconnectRecovery(() => fetchContent(true));
 

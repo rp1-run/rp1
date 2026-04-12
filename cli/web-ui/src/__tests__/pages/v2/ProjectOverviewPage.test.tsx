@@ -6,7 +6,7 @@ import {
 	screen,
 	waitFor,
 } from "@testing-library/react";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import {
 	WORKSPACE_TABS_STORAGE_KEY,
@@ -73,6 +73,16 @@ async function renderProjectOverview(
 		`../../../pages/v2/ProjectOverviewPage.tsx?project-overview-test=${++importVersion}`
 	);
 
+	return renderProjectOverviewWithComponent(
+		ProjectOverviewPage,
+		initialEntries,
+	);
+}
+
+function renderProjectOverviewWithComponent(
+	ProjectOverviewPage: ComponentType,
+	initialEntries: readonly string[] = ["/projects/proj-1"],
+) {
 	return render(
 		<MemoryRouter initialEntries={[...initialEntries]}>
 			<WorkspaceTabsProvider>
@@ -251,5 +261,27 @@ describe("ProjectOverviewPage", () => {
 				"/projects/proj-1/files/src/index.ts",
 			);
 		});
+	});
+
+	test("reuses cached project data when the workspace remounts", async () => {
+		const { ProjectOverviewPage } = await import(
+			`../../../pages/v2/ProjectOverviewPage.tsx?project-overview-cache-test=${++importVersion}`
+		);
+
+		const firstRender = renderProjectOverviewWithComponent(ProjectOverviewPage);
+		expect(
+			await screen.findByRole("heading", { name: "Project One" }),
+		).toBeTruthy();
+
+		firstRender.unmount();
+
+		global.fetch = mock(
+			() => new Promise<Response>(() => {}),
+		) as unknown as typeof fetch;
+
+		renderProjectOverviewWithComponent(ProjectOverviewPage);
+
+		expect(screen.getByRole("heading", { name: "Project One" })).toBeTruthy();
+		expect(screen.queryByText("...")).toBeNull();
 	});
 });

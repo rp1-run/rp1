@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { WorkspaceTabsProvider } from "@/hooks/useWorkspaceTabs";
 import type { ShortcutRegistryData } from "@/providers/ShortcutRegistryProvider";
@@ -113,9 +113,24 @@ mock.module("@/components/v2/TableOfContents", () => ({
 }));
 
 mock.module("@/components/v2/ContentPanel", () => ({
-	ContentPanel: ({ showFrontmatter }: { showFrontmatter?: boolean }) => (
-		<div data-testid="file-panel-frontmatter">
-			{String(showFrontmatter ?? false)}
+	ContentPanel: ({
+		content,
+		isLoading,
+		showFrontmatter,
+	}: {
+		content?: string | null;
+		isLoading?: boolean;
+		showFrontmatter?: boolean;
+	}) => (
+		<div
+			data-testid="file-panel"
+			data-loading={String(isLoading ?? false)}
+			data-content={content ?? ""}
+		>
+			<div data-testid="file-panel-frontmatter">
+				{String(showFrontmatter ?? false)}
+			</div>
+			<div data-testid="file-panel-content">{content ?? ""}</div>
 		</div>
 	),
 }));
@@ -130,6 +145,10 @@ async function renderFileBrowser() {
 		`../../../pages/v2/FileBrowserPage.tsx?file-browser-test=${++importVersion}`
 	);
 
+	return renderFileBrowserWithComponent(FileBrowserPage);
+}
+
+function renderFileBrowserWithComponent(FileBrowserPage: ComponentType) {
 	return render(
 		<MemoryRouter initialEntries={["/projects/proj-1/files/docs/test.md"]}>
 			<WorkspaceTabsProvider>
@@ -211,5 +230,31 @@ describe("FileBrowserPage", () => {
 		expect(screen.getByTestId("file-panel-frontmatter").textContent).toBe(
 			"true",
 		);
+	});
+
+	test("reuses cached content when the file workspace remounts", async () => {
+		const { FileBrowserPage } = await import(
+			`../../../pages/v2/FileBrowserPage.tsx?file-browser-cache-test=${++importVersion}`
+		);
+
+		const firstRender = renderFileBrowserWithComponent(FileBrowserPage);
+		await waitFor(() => {
+			expect(screen.getByTestId("file-panel-content").textContent).toContain(
+				"# Hello",
+			);
+		});
+
+		firstRender.unmount();
+
+		global.fetch = mock(
+			() => new Promise<Response>(() => {}),
+		) as unknown as typeof fetch;
+
+		renderFileBrowserWithComponent(FileBrowserPage);
+
+		expect(screen.getByTestId("file-panel-content").textContent).toContain(
+			"# Hello",
+		);
+		expect(screen.getByTestId("file-panel").dataset.loading).toBe("false");
 	});
 });

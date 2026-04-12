@@ -19,6 +19,13 @@ interface RunsResponse {
 	total: number;
 }
 
+interface ProjectOverviewCacheEntry {
+	readonly project: V2Project;
+	readonly runs: readonly Run[];
+}
+
+const projectOverviewCache = new Map<string, ProjectOverviewCacheEntry>();
+
 function LoadingSkeleton() {
 	return (
 		<div className="space-y-6">
@@ -100,10 +107,15 @@ export function ProjectOverviewPage() {
 	const { projectId } = useParams<{ projectId: string }>();
 	const navigate = useNavigate();
 	const { openWorkspace } = useWorkspaceTabs();
+	const cachedEntry = projectId
+		? (projectOverviewCache.get(projectId) ?? null)
+		: null;
 
-	const [project, setProject] = useState<V2Project | null>(null);
-	const [runs, setRuns] = useState<Run[]>([]);
-	const [isLoading, setIsLoading] = useState(true);
+	const [project, setProject] = useState<V2Project | null>(
+		cachedEntry?.project ?? null,
+	);
+	const [runs, setRuns] = useState<Run[]>(() => [...(cachedEntry?.runs ?? [])]);
+	const [isLoading, setIsLoading] = useState(cachedEntry === null);
 	const [error, setError] = useState<Error | null>(null);
 	const [notFound, setNotFound] = useState(false);
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -127,7 +139,6 @@ export function ProjectOverviewPage() {
 		if (!projectId) return;
 
 		try {
-			setIsLoading(true);
 			setError(null);
 			setNotFound(false);
 
@@ -137,7 +148,10 @@ export function ProjectOverviewPage() {
 			]);
 
 			if (projectRes.status === 404) {
+				projectOverviewCache.delete(projectId);
 				setNotFound(true);
+				setProject(null);
+				setRuns([]);
 				return;
 			}
 
@@ -151,17 +165,44 @@ export function ProjectOverviewPage() {
 			if (runsRes.ok) {
 				const runsData = (await runsRes.json()) as RunsResponse;
 				setRuns(runsData.runs);
+				projectOverviewCache.set(projectId, {
+					project: projectData,
+					runs: runsData.runs,
+				});
+				return;
 			}
+
+			projectOverviewCache.set(projectId, {
+				project: projectData,
+				runs: projectOverviewCache.get(projectId)?.runs ?? [],
+			});
 		} catch (err) {
-			setError(err instanceof Error ? err : new Error(String(err)));
+			if (!projectOverviewCache.has(projectId)) {
+				setError(err instanceof Error ? err : new Error(String(err)));
+			}
 		} finally {
 			setIsLoading(false);
 		}
 	}, [projectId]);
 
 	useEffect(() => {
-		fetchData();
-	}, [fetchData]);
+		if (!projectId) {
+			setProject(null);
+			setRuns([]);
+			setError(null);
+			setNotFound(false);
+			setIsLoading(false);
+			return;
+		}
+
+		const nextCachedEntry = projectOverviewCache.get(projectId) ?? null;
+		setProject(nextCachedEntry?.project ?? null);
+		setRuns([...(nextCachedEntry?.runs ?? [])]);
+		setError(null);
+		setNotFound(false);
+		setIsLoading(nextCachedEntry === null);
+		void fetchData();
+	}, [projectId, fetchData]);
 
 	useReconnectRecovery(fetchData);
 
