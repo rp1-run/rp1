@@ -10,6 +10,7 @@ import { NotificationContainer } from "@/components/v2/NotificationToast";
 import { NotificationTrigger } from "@/components/v2/NotificationTrigger";
 import { ShortcutHelpOverlay } from "@/components/v2/ShortcutHelpOverlay";
 import { TerminalBreadcrumb } from "@/components/v2/TerminalBreadcrumb";
+import { WorkspaceTabStrip } from "@/components/v2/WorkspaceTabStrip";
 import { BreadcrumbProvider } from "@/hooks/useBreadcrumbContext";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -102,7 +103,7 @@ export function AppLayout() {
 					<div className="flex h-screen bg-background">
 						<IconRail className="hidden md:flex" />
 
-						<div className="flex flex-1 flex-col overflow-hidden">
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 							<TerminalBreadcrumb
 								action={
 									<NotificationTrigger
@@ -112,8 +113,9 @@ export function AppLayout() {
 									/>
 								}
 							/>
+							<WorkspaceTabStrip />
 							{isFullHeight ? (
-								<main className="flex-1 overflow-hidden">
+								<main className="min-h-0 flex-1 overflow-hidden">
 									<AnimatePresence mode="wait">
 										<motion.div
 											key={animationKey}
@@ -129,7 +131,7 @@ export function AppLayout() {
 									</AnimatePresence>
 								</main>
 							) : (
-								<main className="flex-1 overflow-hidden">
+								<main className="min-h-0 flex-1 overflow-hidden">
 									<ScrollArea className="h-full">
 										<AnimatePresence mode="wait">
 											<motion.div
