@@ -133,6 +133,43 @@ describe("NotificationContainer", () => {
 		expect(actionButton.contains(dismissButton)).toBe(false);
 	});
 
+	test("deduplicates identical notification:created events", async () => {
+		await renderNotificationContainer();
+
+		act(() => {
+			emitNotification({
+				type: "notification:created",
+				notification: {
+					id: 11,
+					message: "Only once",
+					sourceType: "run",
+					sourceId: "run-11",
+					route: "/runs/run-11",
+					projectId: "proj-1",
+					createdAt: "2026-04-10T00:00:00Z",
+				},
+			});
+			emitNotification({
+				type: "notification:created",
+				notification: {
+					id: 11,
+					message: "Only once",
+					sourceType: "run",
+					sourceId: "run-11",
+					route: "/runs/run-11",
+					projectId: "proj-1",
+					createdAt: "2026-04-10T00:00:00Z",
+				},
+			});
+		});
+
+		expect(
+			screen.getAllByRole("button", {
+				name: "Only once. Click to navigate.",
+			}),
+		).toHaveLength(1);
+	});
+
 	test("navigates from the action button and dismisses from the close button", async () => {
 		await renderNotificationContainer();
 
