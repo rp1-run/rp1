@@ -202,18 +202,27 @@ stay on the current page while checking what needs attention.
 
 | Surface | Behavior |
 |---------|----------|
-| Left icon rail | Navigate between Activity (`/`) and Projects (`/projects`) |
-| Breadcrumb bar | Shows the current page, project, or run context |
+| Left icon rail | Durable navigation for Activity (`/`) and Projects (`/projects`); these destinations are never closeable workspace tabs |
+| Breadcrumb bar | Shows the current page, project, or run context for the active durable destination or workspace |
+| Workspace strip | Shows closable run, project overview, and file-browser workspaces under the breadcrumb bar; reopening an existing workspace focuses the existing tab and restores its last route |
 | Top-right bell trigger | Opens or closes the notifications drawer without navigating away |
 
 ### Narrow layouts
 
 | Surface | Behavior |
 |---------|----------|
-| Bottom activity button | Opens the activity dashboard |
-| Bottom projects button | Opens the projects view |
+| Bottom activity button | Opens the activity dashboard as durable navigation, not a closable workspace |
+| Bottom projects button | Opens the projects view as durable navigation, not a closable workspace |
+| Workspace strip above page content | Shows open run, project overview, and file-browser workspaces in a horizontal strip while keeping the bottom bar reserved for durable navigation |
 | Bottom bell trigger | Opens or closes the notifications drawer |
 | Bottom command button | Opens the command palette |
+
+### Workspace behavior
+
+- Eligible workspaces are run detail, project overview, and project file browser routes.
+- Individual files stay inside a project file-browser workspace and do not become top-level tabs.
+- Reopening an already open workspace returns you to that existing tab instead of creating a duplicate.
+- Closing the active workspace moves to the nearest remaining workspace, or back to the last durable route if no workspaces remain.
 
 ### Notifications drawer behavior
 
@@ -230,6 +239,11 @@ stay on the current page while checking what needs attention.
 ## Keyboard Shortcuts
 
 The dashboard supports a comprehensive keyboard-first interaction model. See [Keyboard Shortcuts](keyboard-shortcuts.md) for the full reference.
+
+Workspace tabs do not add new global single-key shortcuts in v1. The existing
+shell shortcuts continue to own durable navigation, while workspace navigation
+uses natural focus movement inside the strip plus contextual command-palette
+actions on active workspace pages.
 
 ### Global
 
@@ -250,6 +264,22 @@ The dashboard supports a comprehensive keyboard-first interaction model. See [Ke
 | `g` then `r` | Activity dashboard (alternate alias) |
 | `g` then `p` | Projects |
 
+These chords continue to target durable shell destinations only. They do not
+open, close, or cycle workspace tabs.
+
+### Workspace Strip
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Move focus into the open-workspaces strip when tabs are present |
+| `Arrow Left` / `Arrow Right` | Move focus across adjacent workspace tabs |
+| `Home` / `End` | Jump focus to the first or last workspace tab |
+| `Enter` / `Space` | Activate the focused workspace tab |
+| `Delete` / `Backspace` | Close the focused workspace tab |
+
+Active workspace pages also register `Previous Workspace`, `Next Workspace`,
+and `Close Workspace` actions in the command palette.
+
 ### List Navigation
 
 | Key | Action |
@@ -262,6 +292,31 @@ The dashboard supports a comprehensive keyboard-first interaction model. See [Ke
 | `Escape` | Clear selection |
 
 Keyboard navigation uses the roving tabindex pattern for accessibility.
+
+---
+
+## Tabs Verification Gate
+
+Tabs UI changes are not considered release-ready without live browser
+verification against the real Arcade app.
+
+1. Start the actual UI with `just serve-web-ui`.
+2. Use `playwright-cli` against the running app, not a mocked component harness.
+3. Validate both a desktop-sized viewport and a mobile-sized viewport.
+4. Capture screenshots or snapshots under `/tmp` as review evidence.
+5. Treat any failed browser scenario as release-blocking until it is fixed and
+   revalidated.
+
+Minimum browser coverage for tabs work:
+
+- Open run, project overview, and file-browser workspaces from their existing entry points.
+- Reopen an already open workspace and confirm the existing tab is focused instead of duplicated.
+- Switch among open tabs and confirm the breadcrumb and shared chrome update immediately.
+- Close inactive and active tabs while keeping durable navigation available.
+- Reload on an eligible workspace and confirm the route and active tab are preserved.
+- Use browser back and forward across workspace transitions and confirm the visible state stays aligned with the URL.
+- Verify keyboard-only tab focus, activation, and close behavior.
+- Verify the mobile layout keeps the bottom durable navigation separate from the workspace strip.
 
 ---
 
