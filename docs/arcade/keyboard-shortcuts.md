@@ -21,7 +21,10 @@ Press **Cmd+K** (macOS) or **Ctrl+K** (other platforms) to open the command pale
 | Enter | Select highlighted item |
 | Escape | Close the palette |
 
-The palette includes navigation items (Home, Runs, Projects) and actions (Toggle Theme, Refresh Data).
+The palette includes navigation items (Home, Runs, Projects), shell actions
+(Toggle Theme, Refresh Data), and workspace actions such as **Previous
+Workspace**, **Next Workspace**, and **Close Workspace** when a run, project
+overview, or file-browser workspace is active.
 
 ---
 
@@ -69,11 +72,40 @@ Press **g** followed by a second key within 500ms to jump to a section.
 Each chord jumps directly to its mapped section. Waiting longer than 500ms
 cancels the chord.
 
+These chords continue to target durable shell destinations only. Workspace tabs
+do not add new global single-key shortcuts in v1.
+
+---
+
+## Workspace Strip
+
+When run, project overview, or file-browser workspaces are open, Arcade shows a
+horizontal **Open workspaces** strip above the page content. It uses normal
+focus order and route navigation rather than hidden tab panels.
+
+| Key | Action |
+|-----|--------|
+| Tab | Move focus into the workspace strip |
+| Arrow Left | Move focus to the previous workspace tab |
+| Arrow Right | Move focus to the next workspace tab |
+| Home | Jump focus to the first workspace tab |
+| End | Jump focus to the last workspace tab |
+| Enter / Space | Activate the focused workspace tab |
+| Delete / Backspace | Close the focused workspace tab |
+
+The close button on each workspace follows the same Arrow, Home, End, Enter,
+Space, Delete, and Backspace behavior so keyboard users can close tabs without
+leaving the strip.
+
 ---
 
 ## List Navigation
 
 Navigate runs, artifacts, and attention items using these keys.
+
+These bindings continue to apply to list and drill-navigation surfaces. The
+workspace strip uses the horizontal behavior above instead of introducing new
+global `h`/`l` tab shortcuts.
 
 ### Movement
 

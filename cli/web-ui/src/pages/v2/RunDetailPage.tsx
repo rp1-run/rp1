@@ -16,6 +16,7 @@ import {
 	commandToWorkflowName,
 	useWorkflowSteps,
 } from "@/hooks/useWorkflowSteps";
+import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
 import { resolveRunDisplayName } from "@/lib/run-display";
 import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/providers/WebSocketProvider";
@@ -89,6 +90,11 @@ export function RunDetailPage() {
 		if (!urlDocId || !run) return null;
 		return run.artifacts.find((a) => a.docId === urlDocId) ?? null;
 	}, [urlDocId, run]);
+	const workspaceSubtitle = useMemo(() => {
+		if (!run) return null;
+		const artifactName = selectedArtifact?.path.split("/").at(-1) ?? null;
+		return artifactName ?? run.projectName;
+	}, [run, selectedArtifact]);
 
 	const displaySteps = useMemo<readonly Step[]>(() => {
 		return run ? run.steps : [];
@@ -251,11 +257,21 @@ export function RunDetailPage() {
 		};
 	}, [runId, setActiveArtifact]);
 
+	const { workspaceCommands } = useWorkspaceDescriptor({
+		title: run ? resolveRunDisplayName(run) || run.command : null,
+		subtitle: workspaceSubtitle,
+		projectId: run?.projectId ?? null,
+		unavailable:
+			!isLoading &&
+			(error?.message === "Run not found" || (!error && run === null)),
+	});
+
 	useContextualShortcuts({
 		viewId: "run-detail",
 		viewLabel: "Run Detail",
 		shortcuts: [],
 		commands: [
+			...workspaceCommands,
 			...(run?.invocation
 				? [
 						{
@@ -283,7 +299,7 @@ export function RunDetailPage() {
 					]
 				: []),
 		],
-		enabled: !!run,
+		enabled: !!runId,
 	});
 
 	if (isLoading || isWorkflowLoading) {

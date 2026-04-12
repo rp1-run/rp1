@@ -12,6 +12,8 @@ import type {
 	EventNotificationMessage,
 } from "@/types/websocket";
 
+const runDetailCache = new Map<string, Run>();
+
 interface UseRunDetailResult {
 	run: Run | null;
 	isLoading: boolean;
@@ -20,8 +22,12 @@ interface UseRunDetailResult {
 }
 
 export function useRunDetail(runId: string | undefined): UseRunDetailResult {
-	const [run, setRun] = useState<Run | null>(null);
-	const [isLoading, setIsLoading] = useState(true);
+	const [run, setRun] = useState<Run | null>(() =>
+		runId ? (runDetailCache.get(runId) ?? null) : null,
+	);
+	const [isLoading, setIsLoading] = useState(() =>
+		runId ? !runDetailCache.has(runId) : false,
+	);
 	const [error, setError] = useState<Error | null>(null);
 	const { onEventNotification, status: wsStatus } = useWebSocket();
 	const prevWsStatusRef = useRef<ConnectionStatus>(wsStatus);
@@ -38,6 +44,7 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 			const response = await fetch(`/api/v2/runs/${runId}`);
 			if (!response.ok) {
 				if (response.status === 404) {
+					runDetailCache.delete(runId);
 					throw new Error("Run not found");
 				}
 				throw new Error(`Failed to fetch run: ${response.statusText}`);
@@ -45,20 +52,43 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 			const runData = (await response.json()) as Run;
 			setRun(runData);
 			runRef.current = runData;
+			runDetailCache.set(runId, runData);
 			setError(null);
 		} catch (err) {
-			setError(err instanceof Error ? err : new Error(String(err)));
-			setRun(null);
-			runRef.current = null;
+			const nextError = err instanceof Error ? err : new Error(String(err));
+			const shouldKeepStaleRun =
+				runRef.current !== null && nextError.message !== "Run not found";
+			if (!shouldKeepStaleRun) {
+				setError(nextError);
+				setRun(null);
+				runRef.current = null;
+			}
 		} finally {
 			setIsLoading(false);
 		}
 	}, [runId]);
 
 	useEffect(() => {
-		setIsLoading(true);
-		fetchRun();
-	}, [fetchRun]);
+		if (!runId) {
+			setRun(null);
+			runRef.current = null;
+			setError(null);
+			setIsLoading(false);
+			return;
+		}
+
+		const cachedRun = runDetailCache.get(runId) ?? null;
+		setRun(cachedRun);
+		runRef.current = cachedRun;
+		setError(null);
+		setIsLoading(cachedRun === null);
+		void fetchRun();
+	}, [runId, fetchRun]);
+
+	useEffect(() => {
+		if (!runId || !run) return;
+		runDetailCache.set(runId, run);
+	}, [runId, run]);
 
 	const debouncedFetchRef = useRef<ReturnType<typeof setTimeout>>();
 

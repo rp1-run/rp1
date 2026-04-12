@@ -7,7 +7,7 @@
 
 ## Project Summary
 
-rp1 is a Bun/TypeScript CLI and plugin monorepo for authoring, building, and running AI agent workflows across Claude Code, OpenCode, and Codex. It combines markdown-defined skills and agents, tracked runtime state with deterministic workflow bootstrap, the Arcade dashboard with notifications, a multi-platform build pipeline, catalog-driven skill discovery, and a progressively loaded knowledge base.
+rp1 is a Bun/TypeScript CLI and plugin monorepo for authoring, building, and running AI agent workflows across Claude Code, OpenCode, and Codex. It combines markdown-defined skills and agents, tracked runtime state with deterministic workflow bootstrap, the Arcade dashboard with notifications and contextual commands, a multi-platform build pipeline with arcade tracking controls, catalog-driven skill discovery, and a progressively loaded knowledge base.
 
 ## Quick Reference
 
@@ -23,11 +23,11 @@ rp1 is a Bun/TypeScript CLI and plugin monorepo for authoring, building, and run
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | 133 | System design, layers, data flow, integrations |
-| interaction-model.md | 154 | Cross-surface semantics, workflow states, notifications, accessibility |
-| modules.md | 119 | Module boundaries, responsibilities, dependency highlights |
+| architecture.md | 102 | System design, layers, data flow, integrations |
+| interaction-model.md | 89 | Cross-surface semantics, workflow states, notifications, accessibility |
+| modules.md | 87 | Module boundaries, responsibilities, dependency highlights |
 | patterns.md | 81 | Code conventions, workflow idioms, extension patterns |
-| concept_map.md | 142 | Domain concepts, terminology, bounded contexts |
+| concept_map.md | 113 | Domain concepts, terminology, bounded contexts |
 
 ## Task-Based Loading
 
@@ -52,13 +52,13 @@ cli/
 ├── src/               # CLI commands, agent-tools, build pipeline, init/install flows
 │   ├── commands/      # User-facing CLI commands including build, migrate, and arcade
 │   ├── agent-tools/   # Workflow protocol tools (emit, workflow-bootstrap, resolve-args, feedback, root-dir, etc.)
-│   ├── build/         # Multi-platform artifact build pipeline
+│   ├── build/         # Multi-platform artifact build pipeline with arcade tracking
 │   ├── catalog/       # Skill/agent catalog registry with distribution scoping
 │   ├── install/       # Host-tool installation and verification
 │   ├── migrate/       # Project migration with stanza upgrades and DB backfill
 │   └── init/          # Project initialization with versioned fence markers and Ink UI
 ├── shared/            # Errors, fp-ts helpers, events, logging, directory resolution
-└── web-ui/            # Arcade dashboard SPA with notifications sidebar, and Bun HTTP/WS server
+└── web-ui/            # Arcade dashboard SPA with notifications, contextual commands, and Bun HTTP/WS server
 plugins/
 ├── base/              # KB, docs sync, writing, research, strategy, security, guide meta-skill
 ├── dev/               # Build workflows, blueprinting, PR review, feature delivery

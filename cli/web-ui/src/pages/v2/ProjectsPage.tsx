@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { useProjects, type V2Project } from "@/hooks/useProjects";
 import { useRuns } from "@/hooks/useRuns";
+import { useWorkspaceTabs } from "@/hooks/useWorkspaceTabs";
 import { cn } from "@/lib/utils";
 
 function LoadingSkeleton() {
@@ -121,13 +122,14 @@ function ProjectRow({
 
 export function ProjectsPage() {
 	const navigate = useNavigate();
+	const { openWorkspace } = useWorkspaceTabs();
 	const { projects, isLoading, error, refetch } = useProjects();
 
 	const handleProjectClick = useCallback(
 		(project: V2Project) => {
-			navigate(`/projects/${project.id}`);
+			openWorkspace(`/projects/${project.id}`);
 		},
-		[navigate],
+		[openWorkspace],
 	);
 
 	const handleDrillOut = useCallback(() => {
@@ -234,7 +236,7 @@ export function ProjectsPage() {
 								}}
 								onFilesClick={(e) => {
 									e.stopPropagation();
-									navigate(`/projects/${project.id}/files`);
+									openWorkspace(`/projects/${project.id}/files`);
 								}}
 							/>
 						</li>

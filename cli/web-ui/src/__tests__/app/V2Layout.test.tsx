@@ -147,6 +147,29 @@ async function renderLayout() {
 	return render(<RouterProvider router={router} />);
 }
 
+async function renderLayoutAt(initialEntry: string) {
+	installLayoutMocks();
+	const { AppLayout } = await import(
+		`../../app/V2Layout.tsx?v2-layout-test=${++v2LayoutImportVersion}`
+	);
+	const router = createMemoryRouter(
+		[
+			{
+				path: "/",
+				element: <AppLayout />,
+				children: [
+					{ index: true, element: <div>Activity page</div> },
+					{ path: "projects", element: <div>Projects page</div> },
+					{ path: "runs/:runId", element: <div>Run detail page</div> },
+				],
+			},
+		],
+		{ initialEntries: [initialEntry] },
+	);
+
+	return render(<RouterProvider router={router} />);
+}
+
 function getNotificationTriggers(): HTMLButtonElement[] {
 	return screen.getAllByRole("button", {
 		name: /^Open notifications\./i,
@@ -285,5 +308,18 @@ describe("AppLayout notifications shell wiring", () => {
 			}
 			expect(document.activeElement).toBe(desktopTrigger);
 		});
+	});
+
+	test("renders the workspace strip alongside durable shell navigation for open workspaces", async () => {
+		await renderLayoutAt("/runs/run-1");
+
+		expect(
+			screen.getByRole("navigation", { name: "Open workspaces" }),
+		).toBeTruthy();
+		expect(screen.getByRole("button", { name: "Run run-1" })).toBeTruthy();
+		expect(
+			screen.getByRole("navigation", { name: "Mobile navigation" }),
+		).toBeTruthy();
+		expect(screen.getByTestId("icon-rail")).toBeTruthy();
 	});
 });

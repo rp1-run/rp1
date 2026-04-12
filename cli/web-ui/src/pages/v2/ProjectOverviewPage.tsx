@@ -3,7 +3,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { RunCard } from "@/components/v2/RunCard";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
+import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
+import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
+import { useWorkspaceTabs } from "@/hooks/useWorkspaceTabs";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { V2Project } from "@/types/projects";
@@ -15,6 +18,13 @@ interface RunsResponse {
 	runs: Run[];
 	total: number;
 }
+
+interface ProjectOverviewCacheEntry {
+	readonly project: V2Project;
+	readonly runs: readonly Run[];
+}
+
+const projectOverviewCache = new Map<string, ProjectOverviewCacheEntry>();
 
 function LoadingSkeleton() {
 	return (
@@ -96,10 +106,16 @@ function Breadcrumb({ projectName }: { projectName: string | null }) {
 export function ProjectOverviewPage() {
 	const { projectId } = useParams<{ projectId: string }>();
 	const navigate = useNavigate();
+	const { openWorkspace } = useWorkspaceTabs();
+	const cachedEntry = projectId
+		? (projectOverviewCache.get(projectId) ?? null)
+		: null;
 
-	const [project, setProject] = useState<V2Project | null>(null);
-	const [runs, setRuns] = useState<Run[]>([]);
-	const [isLoading, setIsLoading] = useState(true);
+	const [project, setProject] = useState<V2Project | null>(
+		cachedEntry?.project ?? null,
+	);
+	const [runs, setRuns] = useState<Run[]>(() => [...(cachedEntry?.runs ?? [])]);
+	const [isLoading, setIsLoading] = useState(cachedEntry === null);
 	const [error, setError] = useState<Error | null>(null);
 	const [notFound, setNotFound] = useState(false);
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -112,11 +128,17 @@ export function ProjectOverviewPage() {
 		return () => setBreadcrumbProject(null, null);
 	}, [projectId, project?.name, setBreadcrumbProject, project]);
 
+	const { workspaceCommands } = useWorkspaceDescriptor({
+		title: project?.name ?? null,
+		subtitle: project?.path ?? null,
+		projectId: projectId ?? null,
+		unavailable: !isLoading && (notFound || project?.available === false),
+	});
+
 	const fetchData = useCallback(async () => {
 		if (!projectId) return;
 
 		try {
-			setIsLoading(true);
 			setError(null);
 			setNotFound(false);
 
@@ -126,7 +148,10 @@ export function ProjectOverviewPage() {
 			]);
 
 			if (projectRes.status === 404) {
+				projectOverviewCache.delete(projectId);
 				setNotFound(true);
+				setProject(null);
+				setRuns([]);
 				return;
 			}
 
@@ -140,26 +165,58 @@ export function ProjectOverviewPage() {
 			if (runsRes.ok) {
 				const runsData = (await runsRes.json()) as RunsResponse;
 				setRuns(runsData.runs);
+				projectOverviewCache.set(projectId, {
+					project: projectData,
+					runs: runsData.runs,
+				});
+				return;
 			}
+
+			projectOverviewCache.set(projectId, {
+				project: projectData,
+				runs: projectOverviewCache.get(projectId)?.runs ?? [],
+			});
 		} catch (err) {
-			setError(err instanceof Error ? err : new Error(String(err)));
+			if (!projectOverviewCache.has(projectId)) {
+				setError(err instanceof Error ? err : new Error(String(err)));
+			}
 		} finally {
 			setIsLoading(false);
 		}
 	}, [projectId]);
 
 	useEffect(() => {
-		fetchData();
-	}, [fetchData]);
+		if (!projectId) {
+			setProject(null);
+			setRuns([]);
+			setError(null);
+			setNotFound(false);
+			setIsLoading(false);
+			return;
+		}
+
+		const nextCachedEntry = projectOverviewCache.get(projectId) ?? null;
+		setProject(nextCachedEntry?.project ?? null);
+		setRuns([...(nextCachedEntry?.runs ?? [])]);
+		setError(null);
+		setNotFound(false);
+		setIsLoading(nextCachedEntry === null);
+		void fetchData();
+	}, [projectId, fetchData]);
 
 	useReconnectRecovery(fetchData);
 
 	const handleRunClick = useCallback(
 		(run: Run) => {
-			navigate(`/runs/${run.id}`);
+			openWorkspace(`/runs/${run.id}`);
 		},
-		[navigate],
+		[openWorkspace],
 	);
+
+	const handleFilesClick = useCallback(() => {
+		if (!projectId) return;
+		openWorkspace(`/projects/${projectId}/files`);
+	}, [openWorkspace, projectId]);
 
 	const handleDrillOut = useCallback(() => {
 		navigate("/projects");
@@ -215,6 +272,14 @@ export function ProjectOverviewPage() {
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [runs, selectedIndex, handleRunClick, handleDrillOut]);
 
+	useContextualShortcuts({
+		viewId: "project-overview",
+		viewLabel: "Project Overview",
+		shortcuts: [],
+		commands: [...workspaceCommands],
+		enabled: !!projectId,
+	});
+
 	if (isLoading) {
 		return (
 			<div className="mx-auto max-w-2xl px-6 py-8 space-y-6">
@@ -258,13 +323,14 @@ export function ProjectOverviewPage() {
 					</p>
 				</div>
 
-				<Link
-					to={`/projects/${projectId}/files`}
-					className="text-fg-ghost transition-colors duration-150 hover:text-fg"
+				<button
+					type="button"
+					onClick={handleFilesClick}
+					className="cursor-pointer border-none bg-transparent p-0 text-fg-ghost transition-colors duration-150 hover:text-fg"
 					aria-label="Browse files"
 				>
 					<FolderOpen className="h-4 w-4" strokeWidth={1.5} />
-				</Link>
+				</button>
 			</header>
 
 			<div className="flex items-center gap-3 type-secondary text-fg-muted">

@@ -1,85 +1,57 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { cleanup, renderHook, waitFor } from "@testing-library/react";
 
-type ReconnectCallback = () => void;
+let useProjectFileTreeImportVersion = 0;
 
-let reconnectListeners: ReconnectCallback[] = [];
-let fetchMock: ReturnType<typeof mock>;
-let fetchCount = 0;
+async function loadUseProjectFileTree() {
+	mock.module("../../hooks/useReconnectRecovery", () => ({
+		useReconnectRecovery: () => {},
+	}));
 
-mock.module("@/providers/WebSocketProvider", () => ({
-	useWebSocket: () => ({
-		subscribeToReconnect: (cb: ReconnectCallback) => {
-			reconnectListeners.push(cb);
-			return () => {
-				reconnectListeners = reconnectListeners.filter(
-					(listener) => listener !== cb,
-				);
-			};
-		},
-	}),
-}));
-
-function emitReconnect() {
-	for (const listener of reconnectListeners) {
-		listener();
-	}
+	return import(
+		`../../hooks/useProjectFileTree.ts?use-project-file-tree-test=${++useProjectFileTreeImportVersion}`
+	);
 }
 
-beforeEach(() => {
-	reconnectListeners = [];
-	fetchCount = 0;
-
-	fetchMock = mock(() => {
-		fetchCount += 1;
-		if (fetchCount === 1) {
-			return Promise.resolve({
-				ok: false,
-				statusText: "Service Unavailable",
-				status: 503,
-			});
-		}
-
-		return Promise.resolve({
+describe("useProjectFileTree", () => {
+	beforeEach(() => {
+		mock.restore();
+		global.fetch = mock(async () => ({
 			ok: true,
-			json: () =>
-				Promise.resolve([
-					{
-						name: "context",
-						path: ".rp1/context",
-						type: "directory",
-						children: [],
-					},
-				]),
-		});
+			json: async () => [
+				{
+					name: "docs",
+					path: "docs",
+					type: "directory",
+					children: [],
+				},
+			],
+		})) as unknown as typeof fetch;
 	});
 
-	globalThis.fetch = fetchMock as unknown as typeof fetch;
-});
+	afterEach(() => {
+		cleanup();
+		mock.restore();
+	});
 
-describe("useProjectFileTree", () => {
-	test("recovers automatically after websocket reconnect", async () => {
-		const { useProjectFileTree } = await import(
-			"../../hooks/useProjectFileTree"
-		);
-		const { result } = renderHook(() => useProjectFileTree("proj-1"));
-
-		await waitFor(() => {
-			expect(result.current.loading).toBe(false);
-		});
-		expect(result.current.error).toBe(
-			"Failed to fetch file tree: Service Unavailable",
-		);
-		expect(result.current.tree).toEqual([]);
-
-		act(() => {
-			emitReconnect();
-		});
+	test("reuses cached tree data across remounts without returning to loading", async () => {
+		const { useProjectFileTree } = await loadUseProjectFileTree();
+		const firstRender = renderHook(() => useProjectFileTree("proj-1"));
 
 		await waitFor(() => {
-			expect(result.current.error).toBeNull();
-			expect(result.current.tree).toHaveLength(1);
+			expect(firstRender.result.current.loading).toBe(false);
 		});
-		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(firstRender.result.current.tree).toHaveLength(1);
+
+		firstRender.unmount();
+
+		global.fetch = mock(
+			() => new Promise<Response>(() => {}),
+		) as unknown as typeof fetch;
+
+		const secondRender = renderHook(() => useProjectFileTree("proj-1"));
+
+		expect(secondRender.result.current.loading).toBe(false);
+		expect(secondRender.result.current.tree).toHaveLength(1);
 	});
 });

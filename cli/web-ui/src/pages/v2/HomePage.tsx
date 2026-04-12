@@ -1,12 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Activity, NotebookTabs, SlidersHorizontal } from "lucide-react";
 import { useCallback, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { FilterBar } from "@/components/v2/FilterBar";
 import { HarnessIcon } from "@/components/v2/HarnessIcon";
 import type { FeedItem } from "@/hooks/useFeed";
 import { useFeed } from "@/hooks/useFeed";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { useWorkspaceTabs } from "@/hooks/useWorkspaceTabs";
 import { resolveRunDisplayName } from "@/lib/run-display";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -148,7 +149,7 @@ function FeedEntry({
 }
 
 export function HomePage() {
-	const navigate = useNavigate();
+	const { openWorkspace } = useWorkspaceTabs();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const reducedMotion = usePrefersReducedMotion();
 
@@ -193,16 +194,16 @@ export function HomePage() {
 
 	const handleRunClick = useCallback(
 		(runId: string) => {
-			navigate(`/runs/${runId}`);
+			openWorkspace(`/runs/${runId}`);
 		},
-		[navigate],
+		[openWorkspace],
 	);
 
 	const handleProjectClick = useCallback(
 		(projectId: string) => {
-			navigate(`/projects/${projectId}`);
+			openWorkspace(`/projects/${projectId}`);
 		},
-		[navigate],
+		[openWorkspace],
 	);
 
 	const renderFeedItem = useCallback(

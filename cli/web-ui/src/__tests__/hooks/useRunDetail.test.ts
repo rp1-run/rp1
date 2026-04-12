@@ -241,6 +241,27 @@ describe("useRunDetail", () => {
 		expect(result.current.run?.events).toHaveLength(0);
 	});
 
+	test("reuses cached run data across remounts without returning to loading", async () => {
+		const { useRunDetail } = await loadUseRunDetail();
+		const firstRender = renderHook(() => useRunDetail("run-1"));
+
+		await waitFor(() => {
+			expect(firstRender.result.current.isLoading).toBe(false);
+		});
+		expect(firstRender.result.current.run?.id).toBe("run-1");
+
+		firstRender.unmount();
+
+		globalThis.fetch = mock(
+			() => new Promise<Response>(() => {}),
+		) as unknown as typeof fetch;
+
+		const secondRender = renderHook(() => useRunDetail("run-1"));
+
+		expect(secondRender.result.current.run?.id).toBe("run-1");
+		expect(secondRender.result.current.isLoading).toBe(false);
+	});
+
 	test("reconciled artifact updates local state without refetching the run", async () => {
 		runResponse = {
 			...baseRun,

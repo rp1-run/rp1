@@ -17,6 +17,8 @@ import { useWebSocket } from "@/providers/WebSocketProvider";
 
 import type { Artifact, Step } from "@/types/runs";
 
+const artifactContentCache = new Map<string, string>();
+
 export interface ArtifactViewerPanelProps {
 	readonly step: Step | null;
 	readonly artifacts: readonly Artifact[];
@@ -40,8 +42,18 @@ function ArtifactViewerInner({
 	subflowDiagram,
 	showFrontmatter = false,
 }: ArtifactViewerPanelProps) {
-	const [content, setContent] = useState<string | null>(null);
-	const [contentLoading, setContentLoading] = useState(false);
+	const artifactPath = selectedArtifact?.path ?? null;
+	const artifactCacheKey =
+		runId && artifactPath ? `${runId}:${artifactPath}` : null;
+	const [content, setContent] = useState<string | null>(() =>
+		artifactCacheKey
+			? (artifactContentCache.get(artifactCacheKey) ?? null)
+			: null,
+	);
+	const [contentLoading, setContentLoading] = useState(
+		() =>
+			artifactCacheKey !== null && !artifactContentCache.has(artifactCacheKey),
+	);
 	const [contentError, setContentError] = useState<string | null>(null);
 	const [headings, setHeadings] = useState<readonly HeadingEntry[]>([]);
 	const [annotationSidebarOpen, setAnnotationSidebarOpen] = useState(false);
@@ -64,8 +76,6 @@ function ArtifactViewerInner({
 		setShowSubflow(shouldShowSubflow);
 	}, [shouldShowSubflow]);
 
-	const artifactPath = selectedArtifact?.path ?? null;
-
 	const fetchContent = useCallback(
 		async (preserveScroll: boolean) => {
 			if (!artifactPath || !runId) {
@@ -73,7 +83,11 @@ function ArtifactViewerInner({
 				return;
 			}
 
-			if (!preserveScroll) {
+			const cachedContent = artifactCacheKey
+				? (artifactContentCache.get(artifactCacheKey) ?? null)
+				: null;
+
+			if (!preserveScroll && cachedContent === null) {
 				setContentLoading(true);
 				setHeadings([]);
 			}
@@ -98,24 +112,47 @@ function ArtifactViewerInner({
 					throw new Error(errorMessage);
 				}
 				const data = (await response.json()) as { content: string };
+				if (artifactCacheKey) {
+					artifactContentCache.set(artifactCacheKey, data.content);
+				}
 				setContent((current) =>
 					current === data.content ? current : data.content,
 				);
 			} catch (err) {
-				setContentError(err instanceof Error ? err.message : String(err));
-				setContent(null);
+				const message = err instanceof Error ? err.message : String(err);
+				const isTerminalError =
+					message.startsWith("Artifact not found:") ||
+					message.startsWith("Run not found");
+				if (isTerminalError || cachedContent === null) {
+					if (isTerminalError && artifactCacheKey) {
+						artifactContentCache.delete(artifactCacheKey);
+					}
+					setContentError(message);
+					setContent(null);
+				}
 			} finally {
 				if (!preserveScroll) {
 					setContentLoading(false);
 				}
 			}
 		},
-		[artifactPath, runId],
+		[artifactPath, artifactCacheKey, runId],
 	);
 
 	useEffect(() => {
-		fetchContent(false);
-	}, [fetchContent]);
+		if (!artifactCacheKey) {
+			setContent(null);
+			setContentLoading(false);
+			setContentError(null);
+			return;
+		}
+
+		const cachedContent = artifactContentCache.get(artifactCacheKey) ?? null;
+		setContent(cachedContent);
+		setContentLoading(cachedContent === null);
+		setContentError(null);
+		void fetchContent(false);
+	}, [artifactCacheKey, fetchContent]);
 
 	useEffect(() => {
 		if (!artifactPath || !runId) return;

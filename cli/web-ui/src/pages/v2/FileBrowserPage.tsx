@@ -31,12 +31,14 @@ import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useProjectFileTree } from "@/hooks/useProjectFileTree";
 import { useProjects } from "@/hooks/useProjects";
 import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
+import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 
 import type { FileContent } from "../../server/routes/content-utils";
 
 const STORAGE_KEY_TOC_COLLAPSED = "rp1-file-browser-toc-collapsed";
 const STORAGE_KEY_FRONTMATTER_VISIBLE = "rp1-file-browser-frontmatter-visible";
+const fileBrowserContentCache = new Map<string, FileContent>();
 
 function isSameFileContent(
 	left: FileContent | null,
@@ -59,6 +61,8 @@ export function FileBrowserPage() {
 	const navigate = useNavigate();
 	const isMobile = useIsMobile();
 	const selectedPath = filePath || null;
+	const contentCacheKey =
+		projectId && selectedPath ? `${projectId}:${selectedPath}` : null;
 
 	const {
 		tree,
@@ -68,8 +72,15 @@ export function FileBrowserPage() {
 	} = useProjectFileTree(projectId);
 	const { setProjectId, onTreeChange, onFileChange } = useWebSocket();
 
-	const [content, setContent] = useState<FileContent | null>(null);
-	const [contentLoading, setContentLoading] = useState(false);
+	const [content, setContent] = useState<FileContent | null>(() =>
+		contentCacheKey
+			? (fileBrowserContentCache.get(contentCacheKey) ?? null)
+			: null,
+	);
+	const [contentLoading, setContentLoading] = useState(
+		() =>
+			contentCacheKey !== null && !fileBrowserContentCache.has(contentCacheKey),
+	);
 	const [contentError, setContentError] = useState<string | null>(null);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [headings, setHeadings] = useState<readonly HeadingEntry[]>([]);
@@ -107,6 +118,7 @@ export function FileBrowserPage() {
 		: null;
 	const projectName = project?.name ?? projectId ?? null;
 	const projectPath = project?.path ?? null;
+	const selectedFileName = selectedPath?.split("/").at(-1) ?? null;
 
 	useEffect(() => {
 		if (projectId) {
@@ -147,7 +159,11 @@ export function FileBrowserPage() {
 				};
 			}
 
-			if (!preserveScroll) {
+			const cachedContent = contentCacheKey
+				? (fileBrowserContentCache.get(contentCacheKey) ?? null)
+				: null;
+
+			if (!preserveScroll && cachedContent === null) {
 				savedScrollState.current = null;
 				setContentLoading(true);
 				setHeadings([]);
@@ -169,6 +185,9 @@ export function FileBrowserPage() {
 					throw new Error(`Failed to fetch content: ${response.statusText}`);
 				}
 				const data = (await response.json()) as FileContent;
+				if (contentCacheKey) {
+					fileBrowserContentCache.set(contentCacheKey, data);
+				}
 				setContent((current) => {
 					if (isSameFileContent(current, data)) {
 						if (preserveScroll) {
@@ -180,20 +199,41 @@ export function FileBrowserPage() {
 					return data;
 				});
 			} catch (err) {
-				savedScrollState.current = null;
-				setContentError(err instanceof Error ? err.message : String(err));
-				setContent(null);
+				const message = err instanceof Error ? err.message : String(err);
+				const isTerminalError =
+					message.startsWith("File not found:") ||
+					message.startsWith("Project unavailable:");
+
+				if (isTerminalError || cachedContent === null) {
+					savedScrollState.current = null;
+					if (isTerminalError && contentCacheKey) {
+						fileBrowserContentCache.delete(contentCacheKey);
+					}
+					setContentError(message);
+					setContent(null);
+				}
 			} finally {
 				setContentLoading(false);
 				setIsRefreshing(false);
 			}
 		},
-		[selectedPath, projectId],
+		[selectedPath, projectId, contentCacheKey],
 	);
 
 	useEffect(() => {
-		fetchContent(false);
-	}, [fetchContent]);
+		if (!contentCacheKey) {
+			setContent(null);
+			setContentLoading(false);
+			setContentError(null);
+			return;
+		}
+
+		const cachedContent = fileBrowserContentCache.get(contentCacheKey) ?? null;
+		setContent(cachedContent);
+		setContentLoading(cachedContent === null);
+		setContentError(null);
+		void fetchContent(false);
+	}, [contentCacheKey, fetchContent]);
 
 	useReconnectRecovery(() => fetchContent(true));
 
@@ -373,6 +413,18 @@ export function FileBrowserPage() {
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [handleKeyDown]);
 
+	const { workspaceCommands } = useWorkspaceDescriptor({
+		title:
+			projectName && projectId ? `${projectName} files` : (projectName ?? null),
+		subtitle: selectedFileName,
+		projectId: projectId ?? null,
+		unavailable:
+			!treeLoading &&
+			typeof treeError === "string" &&
+			(treeError.includes("Project unavailable") ||
+				treeError.includes("Not Found")),
+	});
+
 	useContextualShortcuts({
 		viewId: "file-browser",
 		viewLabel: "File Browser",
@@ -396,20 +448,23 @@ export function FileBrowserPage() {
 				},
 			},
 		],
-		commands: selectedPath
-			? [
-					{
-						id: "toggle-file-frontmatter",
-						label: showFrontmatter ? "Hide Frontmatter" : "Show Frontmatter",
-						description: showFrontmatter
-							? "Hide frontmatter in the current file viewer"
-							: "Show frontmatter in the current file viewer",
-						keywords: ["frontmatter", "metadata", "yaml", "file"],
-						action: handleToggleFrontmatter,
-					},
-				]
-			: [],
-		enabled: !!selectedPath,
+		commands: [
+			...workspaceCommands,
+			...(selectedPath
+				? [
+						{
+							id: "toggle-file-frontmatter",
+							label: showFrontmatter ? "Hide Frontmatter" : "Show Frontmatter",
+							description: showFrontmatter
+								? "Hide frontmatter in the current file viewer"
+								: "Show frontmatter in the current file viewer",
+							keywords: ["frontmatter", "metadata", "yaml", "file"],
+							action: handleToggleFrontmatter,
+						},
+					]
+				: []),
+		],
+		enabled: !!projectId,
 	});
 
 	const liveRegion = (

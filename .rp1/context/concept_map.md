@@ -5,138 +5,109 @@
 
 ## Core Concepts
 
-| Concept | Type | Meaning |
-|---------|------|---------|
-| Plugin | entity | Capability pack such as `rp1-base`, `rp1-dev`, or `rp1-utils` that groups skills and agents under a namespace and enforces dependency direction. |
-| Skill | entity | User-facing workflow entry point defined by `SKILL.md` with typed arguments, optional state machine, event emission, and platform-tagged behavior. Each skill declares `metadata.category` and `metadata.is_workflow` for discovery registry enrollment. |
-| Agent | entity | Focused worker that receives pre-resolved parameters from a parent skill and performs bounded execution in a single pass. |
-| Run | entity | Tracked workflow execution identified by `run-id`, governed by a `run_policy` (fresh or resumable), and advanced through explicit step and status events. Resumable runs carry `workIdentity` and `bootstrapContext` for identity-based matching. |
-| Event | entity | Typed record emitted against a run to drive workflow state, waiting gates, artifact registration, and dashboard updates. Six event types: `status_change`, `artifact_registered`, `annotation_updated`, `waiting_for_user`, `btw_update`, `subflow_registered`. |
-| Artifact | artifact | Registered output file with explicit `storageRoot` routing for project, work, or absolute paths. Classified by type: markdown, code, diagram, diff, report, or other. |
-| Annotation | entity | Threaded inline feedback attached to an artifact for review, reply, and resolution workflows. |
-| State Machine | entity | `stateDiagram-v2` workflow graph whose state IDs must align with emitted step names. Parsed into states, transitions, initial states, and terminal states for validation. |
-| Knowledge Base | resource | Structured project documentation under `.rp1/context/`, loaded progressively and treated as the repo knowledge source for KB-aware workflows. |
-| Platform Tag | entity | Semantic Liquid tag such as `dispatch_agent`, `ask_user`, `edit_model`, or `plan_tool` that the build pipeline renders per host. |
-| CanonicalName | entity | Normalized `plugin:artifact` identity used to translate namespaces across Claude Code, OpenCode, and Codex. Expressed as both canonical (`base:guide`) and user-facing (`rp1-base:guide`) forms. |
-| Project | entity | Registered workspace identified by `project_id`, resolved via directory walk-up or git worktree common-dir, that defines project, KB, and work roots. |
-| Task Queue | entity | Persistent work queue for cross-agent coordination with pending, in-progress, completed, failed, and cancelled states. |
-| PR Review | workflow | Map-reduce pull request analysis workflow with CI awareness (GitHub Actions, Buildkite, GitLab), configurable verdict modes, confidence gating, and GitHub integration. |
-| Attestation | artifact | Content-addressable evaluation record linking prompt and dependency hashes to pass/fail results per platform (claude-code, opencode, codex). |
-| Spatial Analyzer | workflow | KB discovery agent that ranks files and maps repository areas to downstream KB sections. |
-| Content Workflow | workflow | Tracked writing workflow that normalizes a request, persists a brief, asks only blocking questions, drafts, reviews, and finalizes a document. |
-| Content Brief | artifact | Durable brief artifact that separates verified facts, editorial decisions, open questions, and Q&A history for a writing run. |
-| Documentation Synchronization | workflow | Two-pass workflow that discovers user docs, validates KB currency, scans sections, requests one approval gate, and processes updates against KB-backed facts. |
-| Scan Results | artifact | Intermediate artifact bridging documentation scan and process phases with KB status, inferred style, per-file section classifications, and errors. |
-| Scribe | agent | File-level documentation worker that executes scan or process batches and returns strict JSON-only results. |
-| Prompt Authoring Workflow | workflow | Tracked workflow that authors or rewrites prompts, classifies the target, loads companion references, and validates rp1 conventions before review. |
-| Prompt Authoring Corpus | resource | On-demand reference set of patterns, templates, and rp1-specific authoring rules used to synthesize terse prompts. |
-| Workflow Bootstrap | entity | Auto-injected initialization step for tracked workflows that resolves arguments, resolves or resumes a run, and returns a composite result with arguments, directories, workflow metadata, run identity, and trace context. |
-| Discovery Registry | entity | Canonical skill catalog built from frontmatter metadata at build time. Drives `guide/CATALOG.md`, init skill-awareness blocks, `rp1 list --json` enrichment, and ambient suggestion tables from a single source of truth. |
-| Guide | skill | Interactive skill-discovery entry point that loads companion catalog and workflow docs, classifies user intent, validates installed skills per host, and offers to invoke recommended skills. |
-| Fence Versioning | mechanism | Versioned markers (`<!-- rp1:start v=X.Y.Z -->` / `# rp1:start v=X.Y.Z`) embedded in instruction files (CLAUDE.md, AGENTS.md, .gitignore) that enable staleness detection and guided `rp1 migrate` upgrades. |
-| Builder-Reviewer | pattern | Adversarial cooperation architecture where a builder agent implements code and a separate reviewer agent verifies it, with one retry cycle and fail-safe escalation to the user. |
-| Stateless Agent | pattern | Interview-style agent whose accumulated state lives in a visible file-based scratch pad rather than conversation context, enabling session-independent resumability. |
+| Concept | Type | Description |
+|---------|------|-------------|
+| Plugin | entity | Capability pack (`rp1-base`, `rp1-dev`, `rp1-utils`) grouping skills and agents under a namespace with enforced dependency direction |
+| Skill | entity | User-facing workflow entry point defined by `SKILL.md` with typed arguments, optional state machine, event emission, and platform-tagged behavior. Declares `metadata.category` and `metadata.is_workflow` for discovery registry enrollment |
+| Agent | entity | Focused worker receiving pre-resolved parameters from a parent skill for bounded single-pass execution |
+| Run | entity | Tracked workflow execution identified by `run-id`, governed by `run_policy` (fresh/resumable), advanced through explicit step and status events. Resumable runs carry `workIdentity` for identity-based matching |
+| Event | entity | Typed record emitted against a run: `status_change`, `artifact_registered`, `annotation_updated`, `waiting_for_user`, `btw_update`, `subflow_registered` |
+| Artifact | artifact | Registered output file with explicit `storageRoot` routing (project, work_dir, absolute). Types: markdown, code, diagram, diff, report, other |
+| Annotation | entity | Threaded inline feedback on an artifact for review, reply, and resolution. Anchored by text-selection, hidden-anchor, or line-based positions |
+| State Machine | entity | Mermaid `stateDiagram-v2` workflow graph whose state IDs must align with emitted step names. Parsed for validation |
+| Knowledge Base | resource | Structured project docs under `.rp1/context/`, loaded progressively as the repo knowledge source for KB-aware workflows |
+| Platform Tag | entity | Semantic Liquid tag (`dispatch_agent`, `ask_user`, `edit_model`, `plan_tool`) rendered per host by the build pipeline |
+| CanonicalName | entity | Normalized `plugin:artifact` identity translating namespaces across Claude Code, OpenCode, and Codex |
+| Project | entity | Registered workspace identified by `project_id`, resolved via directory walk-up or git worktree common-dir |
+| Task Queue | entity | Persistent work queue for cross-agent coordination with pending, in-progress, completed, failed, and cancelled states |
+| Notification | entity | System-generated message surfaced in Arcade, triggered by run status changes (completed/failed) or `waiting_for_user` events. Deduplicated per source |
+| Workflow Bootstrap | entity | Auto-injected initialization step resolving arguments, directories, and run identity in one atomic call |
+| Discovery Registry | entity | Canonical skill catalog built from frontmatter at build time. Drives CATALOG.md, init awareness blocks, `rp1 list --json`, and ambient suggestions |
+| Arcade Tracked | mechanism | Optional `metadata.arcade_tracked` boolean controlling Activity feed visibility without disabling workflow mechanics |
+| Platform Definition | entity | Data-driven build configuration capturing platform-varying behavior: registry, templates, naming, lifecycle hooks |
+| Subflow | entity | Nested workflow registered within a parent run via `subflow_registered` event type |
 
-## Terminology Glossary
+## Key Terminology
 
-| Term | Meaning |
-|------|---------|
-| `run-id` | UUID that identifies a workflow execution across status changes, gates, artifacts, and dashboard views. |
-| `storageRoot` | Explicit artifact root selector: `work_dir`, `project`, or `absolute`. |
-| Namespaced Step | Sub-agent step name prefixed with `agent-name:` to avoid collisions with parent workflow states. Logical step keys collapse the namespace for Arcade grouping. |
-| `SKILL.md` | Canonical skill file format with YAML frontmatter and workflow body. |
-| Resolve Args | Auto-injected argument-resolution step that merges user input, settings, env fallbacks, and schema defaults for `metadata.arguments`. Returns resolved arguments, canonical directories, and environment. |
-| Progressive Disclosure | Load `index.md` first, then widen only to the KB or reference files needed for the current task. |
-| Bayesian Reconciliation | KB update method that treats existing documentation as prior hypotheses and revises only where new evidence justifies it. |
-| Novelty Scan | Explicit post-reconciliation search for materially new concepts not already modeled in the prior KB. |
-| Diff Frontier | Changed-file frontier used to bias incremental KB analysis toward recently edited areas before widening locally. |
-| Document Kind | Requested or inferred document shape that selects the default structure, such as `auto`, `blog-post`, `technical-proposal`, or `feedback`. |
-| Source Hierarchy | Writing evidence order: user input, existing target doc, local project sources and KB, then external sources only when explicitly requested. |
-| Section Scenario | Doc-sync classification for a section: `verify`, `add`, or `fix`. |
-| `kb_match` | Reference from a user-doc section to a KB section, encoded as `file:line` or `file:start-end`. |
-| `scan_results.json` | Bridge artifact that carries KB status, inferred style, per-file section classifications, and scan errors into the process phase. |
-| Stale KB Gate | Explicit pre-scan decision when the KB is behind `HEAD` but still structurally readable. |
-| Review Marker | Inline HTML comment inserted when doc verification cannot confidently resolve a claim. |
-| `list_marker` | Canonical unordered-list style field; `list_style` is retained only as a compatibility alias. |
-| Companion Files | Prompt-writer support docs loaded on demand: `PATTERNS.md`, `TEMPLATES.md`, and `RP1-AUTHORING.md`. |
-| Prompt Complexity Band | Simple, moderate, or complex size bucket that guides template selection in prompt authoring. |
-| Shell-Safe Formatting | Prompt-authoring rule set that avoids shell-expansion hazards before text reaches the target host. |
-| `run_policy` | Workflow lifecycle selector: `fresh` always creates a new run; `resumable` matches an existing non-terminal run by `identity_args` values. |
-| `identity_args` | Subset of declared skill arguments whose values form the `workIdentity` key for resumable run matching. |
-| `workIdentity` | Composite key derived from `identity_args` values, stored on the run record and used to match subsequent invocations to an existing non-terminal run. |
-| Skill Category | Nine-value enum (`development`, `investigation`, `quality`, `review`, `documentation`, `knowledge`, `strategy`, `planning`, `prompt`) that classifies skills for catalog grouping and ambient awareness. |
-| `is_workflow` | Boolean frontmatter flag distinguishing workflow-orchestrating skills from single-purpose skills. Flows into catalog views and runtime listing. |
-| Run Invocation Context | Dashboard-surfaced metadata showing how a run was created: workflow name, run policy, decision (`created_new_run`, `matched_non_terminal_run`, `legacy_backfill_resume`), project identity, and worktree state. |
-| Logical Step Key | Collapsed step identifier for dashboard grouping: non-namespaced steps keep their ID; namespaced lifecycle steps collapse to the namespace prefix, optionally suffixed with `::unit`. |
-| Fence Marker | Versioned delimiter (HTML comment or shell comment) that brackets rp1-managed content in instruction files for staleness detection and safe upgrade. |
-| `LATEST_FENCE_VERSION` | Semver constant shipped with the CLI build; instruction file fence markers are stale when their version is older. |
-| Distribution Scope | Catalog classification: `distributable` (base, dev plugins, visible to end users) or `internal` (utils plugin, not in public catalog). |
-| ToolResult Envelope | Standard `{ success, tool, data, errors? }` JSON structure wrapping all agent-tool outputs for consistent AI-agent parsing. |
-| Confidence Gating | PR review threshold: 65%+ includes a finding; 40-64% triggers investigation for critical/high findings; below 40% excludes. |
-| Verdict Mode | PR review submission strategy: `auto` (severity-derived), `approve`, `request_changes`, or `comment`. |
+| Term | Definition |
+|------|------------|
+| run-id | UUID identifying a workflow execution across status changes, gates, artifacts, and dashboard views |
+| storageRoot | Artifact root selector: `work_dir`, `project`, or `absolute` |
+| Namespaced Step | Sub-agent step name prefixed with `agent-name:` to avoid collisions with parent workflow states |
+| run_policy | Workflow lifecycle selector: `fresh` always creates a new run; `resumable` matches existing non-terminal run by `identity_args` |
+| identity_args | Subset of declared skill arguments whose values form the `workIdentity` key for resumable run matching |
+| workIdentity | Composite key from `identity_args` values, stored on the run record for subsequent invocation matching |
+| Skill Category | Nine-value enum (`development`, `investigation`, `quality`, `review`, `documentation`, `knowledge`, `strategy`, `planning`, `prompt`) for catalog grouping |
+| is_workflow | Boolean frontmatter flag distinguishing workflow-orchestrating skills from single-purpose skills |
+| arcade_tracked | Optional boolean metadata field controlling Arcade Activity feed visibility. Defaults to true |
+| Resolve Args | Auto-injected argument-resolution step merging user input, settings, env fallbacks, and schema defaults |
+| Progressive Disclosure | Load `index.md` first, then only the KB files needed for the current task |
+| Bayesian Reconciliation | KB update method treating existing docs as prior hypotheses, revising only where new evidence justifies it |
+| Fence Marker | Versioned delimiter bracketing rp1-managed content in instruction files for staleness detection and upgrade |
+| Distribution Scope | Catalog classification: `distributable` (base, dev) or `internal` (utils) |
+| ToolResult Envelope | Standard `{ success, tool, data, errors? }` JSON structure wrapping all agent-tool outputs |
+| Confidence Gating | PR review threshold: 65%+ includes; 40-64% investigates critical/high; below 40% excludes |
+| Anchor | Position binding for an annotation: `text-selection`, `hidden-anchor`, or `line` |
+| Document Kind | Requested or inferred document shape selecting default structure (auto, blog-post, technical-proposal, feedback) |
+| Section Scenario | Doc-sync classification for a section: `verify`, `add`, or `fix` |
+| Logical Step Key | Collapsed step identifier for dashboard grouping: non-namespaced steps keep their ID; namespaced lifecycle steps collapse to namespace prefix |
 
-## Key Relationships
+## Relationships
 
-| From | Relation | To | Meaning |
-|------|----------|----|---------|
-| Plugin | contains | Skill | Plugins package user-facing workflows under a namespace. |
-| Plugin | contains | Agent | Plugins package focused workers alongside skills. |
-| Skill | delegates to | Agent | Skills orchestrate work and hand bounded tasks to agents. |
-| Skill | embeds | State Machine | Tracked skills declare workflow states in Mermaid and mirror them with emitted steps. |
-| Skill | enrolls in | Discovery Registry | Every skill with `category` and `is_workflow` metadata is collected into the canonical catalog. |
-| State Machine | governs | Run | Run progression is validated against declared states and transitions. |
-| Run | contains | Event | Runs are materialized through emitted workflow events. |
-| Run | produces | Artifact | Workflows register generated files as run artifacts. |
-| Run | carries | Run Invocation Context | Dashboard displays how each run was created, resumed, or matched. |
-| Artifact | anchors | Annotation | Feedback threads attach to specific artifact locations. |
-| Knowledge Base | grounds | Documentation Synchronization | User-doc reconciliation treats the KB as the fact source for scan and fix decisions. |
-| Knowledge Base | informs | Content Workflow | Repo-specific writing loads `index.md` first and then only the KB slices needed for the draft. |
-| Documentation Synchronization | dispatches | Scribe | The orchestrator delegates scan and process batches to scribe workers. |
-| Documentation Synchronization | produces | Scan Results | The scan phase persists an intermediate artifact that bridges into processing. |
-| Content Workflow | produces | Content Brief | Each writing run creates and maintains a durable brief as workflow state. |
-| Prompt Authoring Workflow | loads | Prompt Authoring Corpus | Prompt-writer pulls in templates, patterns, and rp1 authoring rules on demand. |
-| Platform Tag | transforms | Skill | Build-time rendering converts semantic tags into host-specific instructions. |
-| Spatial Analyzer | maps for | Knowledge Base | Spatial analysis routes repository evidence into downstream KB sections. |
-| Attestation | validates | Skill | Attestations tie prompt content hashes to evaluation outcomes for release gating. |
-| Task Queue | coordinates | Agent | Persistent tasks provide a shared handoff mechanism for agents. |
-| Discovery Registry | generates | Guide | The guide skill loads auto-generated `CATALOG.md` and `WORKFLOWS.md` from registry data. |
-| Discovery Registry | generates | Init Templates | The init workflow injects a registry-derived skill-awareness table into instruction files. |
-| Workflow Bootstrap | initializes | Run | Bootstrap resolves arguments, resolves directories, and creates or resumes a run in one step. |
-| Fence Versioning | gates | Project Migration | Stale fence markers trigger `rp1 migrate` to upgrade instruction file content. |
-| Builder-Reviewer | quality-gates | Agent | Builder implements, reviewer verifies, with one retry and user escalation. |
+```text
+Plugin ──contains──> Skill, Agent
+Skill ──delegates to──> Agent
+Skill ──embeds──> State Machine
+Skill ──enrolls in──> Discovery Registry
+Skill ──declares──> Arcade Tracked
+State Machine ──governs──> Run
+Run ──contains──> Event
+Run ──produces──> Artifact
+Run ──triggers──> Notification
+Artifact ──anchors──> Annotation
+Knowledge Base ──grounds──> Documentation Synchronization
+Knowledge Base ──informs──> Content Workflow
+Workflow Bootstrap ──initializes──> Run
+Platform Definition ──configures──> Build Template Context
+Discovery Registry ──generates──> Guide, Init Wizard
+Arcade Tracked ──filters──> Run (Activity feed visibility)
+Attestation ──validates──> Skill
+```
+
+## Agent Patterns
+
+| Pattern | Context | Application |
+|---------|---------|-------------|
+| Constitutional Prompting | All agent execution | Expert knowledge, codebase context, anti-loop directives, and output contracts in structured markdown |
+| Map-Reduce | KB generation, PR review | Spatial analyzer maps work to parallel units; orchestrator reduces results |
+| Skill-Agent Delegation | All workflow entry points | Skill interprets request, loads context, delegates bounded work to agents |
+| Builder-Reviewer | Feature implementation | Builder implements, reviewer verifies; one retry cycle with user escalation |
+| Stateless Agent | Blueprint charter creation | State persisted in visible file-based scratch pad for session-independent resumability |
+| Data-Driven Platform Build | Multi-platform artifacts | PlatformDefinition entries capture all platform-varying behavior |
+| Notification Auto-Generation | Emit pipeline | Status changes and waiting_for_user events auto-generate deduplicated notifications |
 
 ## Bounded Contexts
 
-| Context | Scope | Key Concepts | Boundary |
-|---------|-------|--------------|----------|
-| Knowledge Management | `rp1-base` | Knowledge Base, Spatial Analyzer, Progressive Disclosure, Bayesian Reconciliation | Owns `.rp1/context` generation and freshness signals; does not directly edit user-facing docs. |
-| Documentation Production | `rp1-base` | Content Workflow, Content Brief, Documentation Synchronization, Scan Results, Scribe | Owns user-facing doc creation and KB-backed reconciliation, persisting workflow state in `.rp1/work/`. |
-| Prompt Tooling | `rp1-utils` | Prompt Authoring Workflow, Prompt Authoring Corpus, Shell-Safe Formatting | Owns prompt synthesis, rewrite guidance, rp1 authoring conventions, and reusable prompt templates and patterns. |
-| Feature Delivery | `rp1-dev` | PR Review, Task Queue, Builder-Reviewer | Owns implementation and review workflows for product changes. |
-| Runtime Services | `cli/src` | Project, Run, Event, Workflow Bootstrap, Resolve Args, CLI entrypoints | Owns command registration, runtime detection, agent-tools plumbing, install/update/init flows, and top-level CLI execution. |
-| Dashboard | `cli/web-ui` | Arcade, Run, Artifact, Annotation, Run Invocation Context, Notifications | Owns live visualization, feedback threads, run invocation tracing, and waiting-gate visibility for active workflows. |
-| Quality Assurance | `evals/` | Attestation | Owns prompt verification and release-gating evidence. |
-| Platform Abstraction | build pipeline | Platform Tag, CanonicalName | Owns host-specific rendering and namespace translation so one prompt source can target multiple agent hosts. |
-| Discovery | `cli/src/catalog`, `guide` skill | Discovery Registry, Guide, Skill Category, Distribution Scope | Owns the single-source-of-truth skill catalog derived from frontmatter metadata, plus generated catalog views, init awareness blocks, and the interactive guide skill. |
-| Project Lifecycle | `cli/src/init`, `cli/src/migrate` | Fence Versioning, Init Wizard, Project Migration | Owns project initialization, instruction-file fencing, staleness detection, and guided migration upgrades. |
+| Context | Scope | Key Concepts |
+|---------|-------|-------------|
+| Knowledge Management | rp1-base | Knowledge Base, Spatial Analyzer, Progressive Disclosure |
+| Documentation Production | rp1-base | Content Workflow, Documentation Synchronization, Scribe |
+| Prompt Tooling | rp1-utils | Prompt Authoring Workflow, Shell-Safe Formatting |
+| Feature Delivery | rp1-dev | PR Review, Task Queue, Builder-Reviewer |
+| Runtime Services | cli/src | Project, Run, Event, Workflow Bootstrap, Notification |
+| Dashboard | cli/web-ui | Arcade, Artifact, Annotation, Run Invocation Context |
+| Platform Abstraction | build pipeline | Platform Tag, CanonicalName, Platform Definition |
+| Discovery | cli/catalog | Discovery Registry, Guide, Skill Category, Arcade Tracked |
+| Project Lifecycle | cli/init, cli/migrate | Fence Versioning, Init Wizard, Project Migration |
+| Quality Assurance | evals/ | Attestation |
 
 ## Cross-Cutting Concerns
 
-- **Fact grounding**: Writing workflows use a source hierarchy, treat the KB as the truth source for doc reconciliation, and insert review markers instead of inventing unsupported claims.
-- **Explicit human gates**: `waiting_for_user` is emitted before clarification, approval, or stale-KB decisions so pauses are visible in both the host tool and Arcade.
-- **Traceable intermediate state**: Resumable intermediates such as `brief.md` and `scan_results.json` persist under `.rp1/work/` instead of living only in prompt context.
-- **Style normalization**: Doc-sync infers dominant style once, normalizes to canonical fields such as `list_marker`, and applies them consistently during edits.
-- **State and step discipline**: Mermaid states, emitted step names, namespaced sub-agent steps, logical step keys, and terminal completion semantics stay aligned.
-- **Configuration resolution**: Typed `metadata.arguments` plus auto-injected `resolve-args` replace manual parameter parsing in tracked skills. Workflow bootstrap unifies argument resolution, directory resolution, and run creation into a single atomic step.
-- **Shell-safe prompt rendering**: Prompt-authoring guidance avoids text patterns that would be expanded or misparsed by the shell.
-- **Platform portability**: Semantic platform tags and canonical naming let one authored workflow target Claude Code, OpenCode, and Codex without duplicating prompt sources.
-- **Single-source discovery**: Skill category, workflow flag, and argument metadata in frontmatter drive all downstream catalog views, avoiding hand-maintained inventory tables that drift.
-- **Fence-versioned instruction files**: rp1-managed stanzas in CLAUDE.md, AGENTS.md, and .gitignore carry version markers so the CLI can detect staleness and offer guided upgrades.
-- **Standard tool envelope**: All agent-tools return a `ToolResult<T>` JSON envelope (`success`, `tool`, `data`, optional `errors`) for predictable AI-agent parsing.
-
-## Cross-References
-
-- **System topology**: See [architecture.md](architecture.md)
-- **Component inventory**: See [modules.md](modules.md)
-- **Implementation idioms**: See [patterns.md](patterns.md)
-- **Surface behavior**: See [interaction-model.md](interaction-model.md)
+- **Fact grounding**: Writing workflows use source hierarchy with KB as truth source
+- **Human gates**: `waiting_for_user` emitted before prompts, visible in host tool and Arcade
+- **Traceable state**: Intermediates (`brief.md`, `scan_results.json`) persist under `.rp1/work/`
+- **State discipline**: Mermaid states, emitted steps, namespaced sub-agent steps, and logical step keys stay aligned
+- **Configuration resolution**: `resolve-args` + `workflow-bootstrap` unify argument, directory, and run creation
+- **Platform portability**: Semantic tags and data-driven definitions let one prompt target multiple hosts
+- **Single-source discovery**: Frontmatter metadata drives all catalog views, avoiding drift
+- **Standard tool envelope**: All agent-tools return `ToolResult<T>` JSON for predictable AI-agent parsing
