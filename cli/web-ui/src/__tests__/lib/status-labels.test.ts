@@ -3,7 +3,7 @@ import { VALID_STATUSES } from "../../../../shared/events";
 import { getStatusLabel, STATUS_LABELS } from "../../lib/status-labels";
 
 describe("STATUS_LABELS", () => {
-	test("covers all 6 canonical statuses", () => {
+	test("covers all canonical statuses", () => {
 		expect(Object.keys(STATUS_LABELS).sort()).toEqual(
 			[...VALID_STATUSES].sort(),
 		);
@@ -13,8 +13,11 @@ describe("STATUS_LABELS", () => {
 		expect(STATUS_LABELS.not_started).toBe("Not Started");
 		expect(STATUS_LABELS.running).toBe("Running");
 		expect(STATUS_LABELS.waiting).toBe("Waiting");
+		expect(STATUS_LABELS.inactive).toBe("Inactive");
 		expect(STATUS_LABELS.completed).toBe("Completed");
 		expect(STATUS_LABELS.failed).toBe("Failed");
+		expect(STATUS_LABELS.cancelled).toBe("Cancelled");
+		expect(STATUS_LABELS.abandoned).toBe("Abandoned");
 		expect(STATUS_LABELS.skipped).toBe("Skipped");
 	});
 });

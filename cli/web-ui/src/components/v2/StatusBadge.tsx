@@ -52,12 +52,27 @@ const statusConfigs: Record<Status, StatusConfig> = {
 		colorClass: "text-status-waiting",
 		bgClass: "bg-status-waiting/15",
 	},
+	inactive: {
+		icon: CircleDot,
+		colorClass: "text-muted-foreground",
+		bgClass: "bg-muted/50",
+	},
 	completed: {
 		icon: Check,
 		colorClass: "text-status-completed",
 		bgClass: "bg-status-completed/15",
 	},
 	failed: {
+		icon: X,
+		colorClass: "text-status-failed",
+		bgClass: "bg-status-failed/15",
+	},
+	cancelled: {
+		icon: MinusCircle,
+		colorClass: "text-muted-foreground",
+		bgClass: "bg-muted/50",
+	},
+	abandoned: {
 		icon: X,
 		colorClass: "text-status-failed",
 		bgClass: "bg-status-failed/15",

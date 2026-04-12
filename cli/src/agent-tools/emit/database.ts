@@ -20,6 +20,10 @@ import type {
 	WorkflowRunPolicy,
 } from "../../../shared/events.js";
 import {
+	RUN_STATUS_CHECK_STATUSES,
+	TERMINAL_RUN_STATUSES,
+} from "../../../shared/events.js";
+import {
 	getLogicalStepKey,
 	isNamespacedLifecycleStep,
 } from "../../../shared/logical-step.js";
@@ -28,6 +32,10 @@ import { readProjectId } from "../../../shared/project-id.js";
 /** Default database file location. Override with RP1_DB env var. */
 const getDefaultDbPath = (): string =>
 	process.env.RP1_DB ?? join(homedir(), ".rp1", "rp1.db");
+
+const RUN_STATUS_CHECK_SQL = RUN_STATUS_CHECK_STATUSES.map(
+	(status) => `'${status}'`,
+).join(", ");
 
 /** Schema DDL for rp1.db (version 1, clean start) */
 const SCHEMA_SQL = `
@@ -55,7 +63,7 @@ CREATE TABLE IF NOT EXISTS runs (
     name TEXT DEFAULT NULL,
     harness TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'not_started'
-        CHECK(status IN ('not_started', 'running', 'waiting', 'completed', 'failed', 'skipped')),
+        CHECK(status IN (${RUN_STATUS_CHECK_SQL})),
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
@@ -63,6 +71,7 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE INDEX IF NOT EXISTS idx_runs_project ON runs(project_path);
 CREATE INDEX IF NOT EXISTS idx_runs_feature ON runs(project_path, feature_id);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
+CREATE INDEX IF NOT EXISTS idx_runs_status_updated ON runs(status, updated_at);
 CREATE INDEX IF NOT EXISTS idx_runs_feature_status ON runs(project_path, feature_id, status);
 CREATE INDEX IF NOT EXISTS idx_runs_project_id ON runs(project_id);
 CREATE INDEX IF NOT EXISTS idx_runs_project_work_identity_status ON runs(project_id, flow, work_identity, status);
@@ -183,7 +192,10 @@ CREATE TABLE IF NOT EXISTS project_registry_meta (
 `;
 
 /** Terminal statuses that indicate a run is no longer active */
-const TERMINAL_STATUSES: readonly Status[] = ["completed", "failed", "skipped"];
+const NON_RESUMABLE_RUN_STATUSES: readonly Status[] = [
+	...TERMINAL_RUN_STATUSES,
+	"skipped",
+];
 
 /** Cached database connection (singleton pattern). */
 let dbInstance: Database | null = null;
@@ -877,6 +889,95 @@ const applyMigrations = (db: Database): void => {
 
 		db.prepare("UPDATE schema_version SET version = 12").run();
 	}
+
+	const postV11Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV11Version?.version ?? 11) < 12) {
+		db.exec("PRAGMA foreign_keys = OFF");
+		try {
+			db.exec("BEGIN TRANSACTION");
+			db.exec(`
+				CREATE TABLE runs_v12 (
+					id TEXT PRIMARY KEY NOT NULL,
+					flow TEXT NOT NULL,
+					feature_id TEXT NOT NULL,
+					project_path TEXT NOT NULL,
+					rp1_project_root TEXT NOT NULL,
+					rp1_kb_root TEXT NOT NULL,
+					rp1_work_root TEXT NOT NULL,
+					project_id TEXT DEFAULT NULL,
+					run_policy TEXT DEFAULT NULL
+						CHECK(run_policy IN ('fresh', 'resumable')),
+					work_identity TEXT DEFAULT NULL,
+					bootstrap_context TEXT DEFAULT NULL,
+					name TEXT DEFAULT NULL,
+					harness TEXT DEFAULT NULL,
+					status TEXT NOT NULL DEFAULT 'not_started'
+						CHECK(status IN (${RUN_STATUS_CHECK_SQL})),
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+
+				INSERT INTO runs_v12 (
+					id,
+					flow,
+					feature_id,
+					project_path,
+					rp1_project_root,
+					rp1_kb_root,
+					rp1_work_root,
+					project_id,
+					run_policy,
+					work_identity,
+					bootstrap_context,
+					name,
+					harness,
+					status,
+					created_at,
+					updated_at
+				)
+				SELECT
+					id,
+					flow,
+					feature_id,
+					project_path,
+					rp1_project_root,
+					rp1_kb_root,
+					rp1_work_root,
+					project_id,
+					run_policy,
+					work_identity,
+					bootstrap_context,
+					name,
+					harness,
+					status,
+					created_at,
+					updated_at
+				FROM runs;
+
+				DROP TABLE runs;
+				ALTER TABLE runs_v12 RENAME TO runs;
+
+				CREATE INDEX idx_runs_project ON runs(project_path);
+				CREATE INDEX idx_runs_feature ON runs(project_path, feature_id);
+				CREATE INDEX idx_runs_status ON runs(status);
+				CREATE INDEX idx_runs_status_updated ON runs(status, updated_at);
+				CREATE INDEX idx_runs_feature_status ON runs(project_path, feature_id, status);
+				CREATE INDEX idx_runs_project_id ON runs(project_id);
+				CREATE INDEX idx_runs_project_work_identity_status ON runs(project_id, flow, work_identity, status);
+				CREATE INDEX idx_runs_root_work_identity_status ON runs(rp1_project_root, flow, work_identity, status);
+			`);
+			db.prepare("UPDATE schema_version SET version = 12").run();
+			db.exec("COMMIT");
+		} catch (error) {
+			db.exec("ROLLBACK");
+			throw error;
+		} finally {
+			db.exec("PRAGMA foreign_keys = ON");
+		}
+	}
 };
 
 /**
@@ -1166,7 +1267,9 @@ export const findOrCreateRun = (
 	db: Database,
 	input: ResumeRunInput,
 ): ResumeRunResult => {
-	const terminalPlaceholders = TERMINAL_STATUSES.map(() => "?").join(", ");
+	const terminalPlaceholders = NON_RESUMABLE_RUN_STATUSES.map(() => "?").join(
+		", ",
+	);
 
 	const existing = db
 		.prepare(
@@ -1182,7 +1285,7 @@ export const findOrCreateRun = (
 			input.featureId,
 			input.flow,
 			input.projectPath,
-			...TERMINAL_STATUSES,
+			...NON_RESUMABLE_RUN_STATUSES,
 		) as RunRow | null;
 
 	if (existing) {
@@ -1202,7 +1305,7 @@ export const findOrCreateRun = (
 		.get(
 			input.featureId,
 			input.projectPath,
-			...TERMINAL_STATUSES,
+			...NON_RESUMABLE_RUN_STATUSES,
 		) as RunRow | null;
 
 	if (legacyUnknown) {
@@ -1571,7 +1674,9 @@ export interface ActiveRunSnapshot {
  * Build a snapshot of all active (non-terminal) runs with their steps and artifacts.
  */
 export const getActiveRunsSnapshot = (db: Database): ActiveRunSnapshot[] => {
-	const terminalPlaceholders = TERMINAL_STATUSES.map(() => "?").join(", ");
+	const terminalPlaceholders = NON_RESUMABLE_RUN_STATUSES.map(() => "?").join(
+		", ",
+	);
 
 	const runRows = db
 		.prepare(
@@ -1579,7 +1684,7 @@ export const getActiveRunsSnapshot = (db: Database): ActiveRunSnapshot[] => {
 			 WHERE status NOT IN (${terminalPlaceholders})
 			 ORDER BY created_at DESC`,
 		)
-		.all(...TERMINAL_STATUSES) as RunRow[];
+		.all(...NON_RESUMABLE_RUN_STATUSES) as RunRow[];
 
 	return runRows.map((runRow) => {
 		const steps = getStepStatuses(db, runRow.id);

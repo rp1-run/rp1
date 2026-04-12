@@ -144,6 +144,13 @@ describe("emit database", () => {
 			expect(columnNames).toContain("run_policy");
 			expect(columnNames).toContain("work_identity");
 			expect(columnNames).toContain("bootstrap_context");
+
+			const indexes = db.prepare("PRAGMA index_list(runs)").all() as {
+				name: string;
+			}[];
+			expect(indexes.map((index) => index.name)).toContain(
+				"idx_runs_status_updated",
+			);
 		});
 
 		test("migrates v1 schema to add status and author columns", async () => {
@@ -423,6 +430,157 @@ describe("emit database", () => {
 			}[];
 			expect(annotations).toHaveLength(1);
 			expect(annotations[0].content).toBe("user note");
+		});
+
+		test("migrates v11 schema to widen runs status constraint and preserve legacy run rows", async () => {
+			const dbPath = join(tempDir, "migration-v11-test.db");
+
+			const { Database } = await import("bun:sqlite");
+			const rawDb = new Database(dbPath, { create: true });
+			rawDb.exec("PRAGMA journal_mode = WAL;");
+			rawDb.exec("PRAGMA foreign_keys = ON;");
+			rawDb.exec(`
+				CREATE TABLE schema_version (version INTEGER NOT NULL);
+				INSERT INTO schema_version (version) VALUES (11);
+				CREATE TABLE runs (
+					id TEXT PRIMARY KEY NOT NULL,
+					flow TEXT NOT NULL,
+					feature_id TEXT NOT NULL,
+					project_path TEXT NOT NULL,
+					rp1_project_root TEXT NOT NULL,
+					rp1_kb_root TEXT NOT NULL,
+					rp1_work_root TEXT NOT NULL,
+					project_id TEXT DEFAULT NULL,
+					run_policy TEXT DEFAULT NULL CHECK(run_policy IN ('fresh', 'resumable')),
+					work_identity TEXT DEFAULT NULL,
+					bootstrap_context TEXT DEFAULT NULL,
+					name TEXT DEFAULT NULL,
+					harness TEXT DEFAULT NULL,
+					status TEXT NOT NULL DEFAULT 'not_started'
+						CHECK(status IN ('not_started', 'running', 'waiting', 'completed', 'failed', 'skipped')),
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE INDEX idx_runs_project ON runs(project_path);
+				CREATE INDEX idx_runs_feature ON runs(project_path, feature_id);
+				CREATE INDEX idx_runs_status ON runs(status);
+				CREATE INDEX idx_runs_feature_status ON runs(project_path, feature_id, status);
+				CREATE INDEX idx_runs_project_id ON runs(project_id);
+				CREATE INDEX idx_runs_project_work_identity_status ON runs(project_id, flow, work_identity, status);
+				CREATE INDEX idx_runs_root_work_identity_status ON runs(rp1_project_root, flow, work_identity, status);
+				CREATE TABLE events (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					run_id TEXT NOT NULL REFERENCES runs(id),
+					type TEXT NOT NULL,
+					step TEXT,
+					unit TEXT,
+					data TEXT,
+					parent_step_id TEXT,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE artifacts (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					doc_id TEXT UNIQUE NOT NULL,
+					run_id TEXT REFERENCES runs(id),
+					path TEXT NOT NULL,
+					type TEXT NOT NULL DEFAULT 'other',
+					storage_root TEXT NOT NULL DEFAULT 'work_dir',
+					project_path TEXT NOT NULL,
+					project_id TEXT DEFAULT NULL,
+					feature TEXT NOT NULL,
+					step TEXT,
+					subflow INTEGER NOT NULL DEFAULT 0,
+					baseline TEXT DEFAULT NULL,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE annotations (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					doc_id TEXT NOT NULL REFERENCES artifacts(doc_id),
+					run_id TEXT REFERENCES runs(id),
+					content TEXT NOT NULL,
+					data TEXT,
+					parent_id INTEGER REFERENCES annotations(id),
+					status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'resolved')),
+					author TEXT NOT NULL DEFAULT 'user',
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE tasks (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					type TEXT NOT NULL,
+					description TEXT NOT NULL,
+					status TEXT NOT NULL DEFAULT 'pending',
+					payload TEXT,
+					project_path TEXT,
+					project_id TEXT DEFAULT NULL,
+					result TEXT,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE notifications (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					message TEXT NOT NULL,
+					source_type TEXT NOT NULL DEFAULT 'run',
+					source_id TEXT,
+					route TEXT,
+					project_id TEXT,
+					dismissed INTEGER NOT NULL DEFAULT 0,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+			`);
+			rawDb.exec(`
+				INSERT INTO runs (
+					id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root, rp1_work_root, status
+				) VALUES
+					('legacy-running', 'build', 'feat', '/project', '/project', '/project/.rp1/context', '/project/.rp1/work', 'running'),
+					('legacy-skipped', 'build', 'feat', '/project', '/project', '/project/.rp1/context', '/project/.rp1/work', 'skipped');
+			`);
+			rawDb.close();
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const versionRow = db
+				.prepare("SELECT version FROM schema_version")
+				.get() as { version: number };
+			expect(versionRow.version).toBe(12);
+
+			const indexes = db.prepare("PRAGMA index_list(runs)").all() as {
+				name: string;
+			}[];
+			expect(indexes.map((index) => index.name)).toContain(
+				"idx_runs_status_updated",
+			);
+
+			const rows = db
+				.prepare("SELECT id, status FROM runs ORDER BY id ASC")
+				.all() as {
+				id: string;
+				status: string;
+			}[];
+			expect(rows).toEqual([
+				{ id: "legacy-running", status: "running" },
+				{ id: "legacy-skipped", status: "skipped" },
+			]);
+
+			expect(() => {
+				db.prepare(
+					`INSERT INTO runs (
+						id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root, rp1_work_root, status
+					) VALUES (
+						'inactive-run', 'build', 'feat', '/project', '/project', '/project/.rp1/context', '/project/.rp1/work', 'inactive'
+					)`,
+				).run();
+			}).not.toThrow();
+
+			expect(() => {
+				db.prepare(
+					`INSERT INTO runs (
+						id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root, rp1_work_root, status
+					) VALUES (
+						'cancelled-run', 'build', 'feat', '/project', '/project', '/project/.rp1/context', '/project/.rp1/work', 'cancelled'
+					)`,
+				).run();
+			}).not.toThrow();
 		});
 
 		test("migrates v10 schema to add workflow bootstrap columns and lookup indexes", async () => {
