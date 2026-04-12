@@ -5,7 +5,6 @@
 
 import { execSync, spawn } from "node:child_process";
 import { readFile, unlink, writeFile } from "node:fs/promises";
-import { pruneStaleProjects } from "../server/registry";
 import { ensureConfigDir, getPidFilePath } from "./config-dir";
 import { logDaemonEvent } from "./diagnostics";
 import {
@@ -378,9 +377,6 @@ export async function ensureDaemon(
 			"Daemon started but failed to become healthy within timeout",
 		);
 	}
-
-	// Prune stale projects on fresh daemon start (non-blocking)
-	pruneStaleProjects().catch(() => {});
 
 	return { connection: conn, wasRunning: false };
 }

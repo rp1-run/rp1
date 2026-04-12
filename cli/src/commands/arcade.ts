@@ -170,12 +170,13 @@ const executeWithDaemon = (
 
 const hookOutputCommand = (
 	config: ArcadeConfig,
+	cliVersion?: string,
 ): TE.TaskEither<CLIError, void> =>
 	tryCatchTE(
 		async () => {
 			// Hook mode should be side-effect-light: if a healthy daemon is already
 			// serving, reuse it instead of forcing the dev-build restart path.
-			const { url } = await startArcade(config, undefined);
+			const { url } = await startArcade(config, cliVersion);
 			console.log(formatArcadeHookPayload(url));
 		},
 		(e) => runtimeError(`Failed to format arcade hook output: ${e}`),
