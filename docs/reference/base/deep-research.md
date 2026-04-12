@@ -22,6 +22,8 @@ Autonomous deep research on codebases and technical topics using a map-reduce ar
 
 The `deep-research` command performs comprehensive research on your codebase, multiple projects, or technical topics. It uses a map-reduce architecture to parallelize exploration and produce a synthesized research report.
 
+Runs are tracked in Arcade Activity, including step progress and the final report artifact.
+
 The workflow:
 
 1. **Intent Clarification**: Parses your research topic to understand scope and questions

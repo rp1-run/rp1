@@ -4,15 +4,18 @@ description: "Autonomous deep research on codebases and technical topics with st
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: strategy
-  is_workflow: false
-  version: 1.1.0
+  is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args: []
+  version: 1.2.0
   tags:
     - research
     - analysis
     - exploration
     - core
   created: 2025-12-16
-  updated: 2026-02-26
+  updated: 2026-04-12
   author: cloud-on-prem/rp1
   arguments:
     - name: RESEARCH_TOPIC
@@ -53,7 +56,7 @@ rp1 agent-tools emit \
   --data '{"status": "running"}'
 ```
 
-- Generate `RUN_ID` as a UUID at workflow start
+- `RUN_ID` comes from the generated Workflow Bootstrap section
 
 **State Progression Protocol**:
 1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
@@ -70,6 +73,8 @@ rp1 agent-tools emit \
 --step report --data '{"status": "running"}'        # synthesis done, entering report phase
 --step report --data '{"status": "completed"}'      # report work finished, workflow done
 ```
+
+Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section. Do not re-resolve directories manually, do not call `resolve-args`, and do not generate a UUID manually.
 
 ## 1. Intent Clarification (~15% effort)
 
