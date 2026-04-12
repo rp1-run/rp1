@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Activity, FolderOpen, NotebookTabs, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useWorkspaceTabs, type WorkspaceTab } from "@/hooks/useWorkspaceTabs";
@@ -20,6 +20,35 @@ function getNextFocusableKey(
 	}
 
 	return tabs[nextIndex]?.key ?? null;
+}
+
+function WorkspaceKindIcon({ kind }: Pick<WorkspaceTab, "kind">) {
+	switch (kind) {
+		case "run":
+			return (
+				<Activity
+					className="h-3.5 w-3.5 shrink-0"
+					strokeWidth={1.5}
+					aria-hidden="true"
+				/>
+			);
+		case "project":
+			return (
+				<NotebookTabs
+					className="h-3.5 w-3.5 shrink-0"
+					strokeWidth={1.5}
+					aria-hidden="true"
+				/>
+			);
+		case "files":
+			return (
+				<FolderOpen
+					className="h-3.5 w-3.5 shrink-0"
+					strokeWidth={1.5}
+					aria-hidden="true"
+				/>
+			);
+	}
 }
 
 export function WorkspaceTabStrip() {
@@ -178,6 +207,7 @@ export function WorkspaceTabStrip() {
 										tab.subtitle ? `${tab.title}, ${tab.subtitle}` : tab.title
 									}
 								>
+									<WorkspaceKindIcon kind={tab.kind} />
 									<span className="truncate type-secondary font-medium">
 										{tab.title}
 									</span>
