@@ -130,6 +130,11 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 						const nextStatus = newStatus as RunStatus | undefined;
 						const isTerminal =
 							nextStatus != null && TERMINAL_RUN_STATUSES.has(nextStatus);
+						const shouldClearLifecycleMessage =
+							nextStatus !== undefined &&
+							nextStatus !== prev.status &&
+							statusMessage === undefined &&
+							nextStatus !== "failed";
 
 						return {
 							...prev,
@@ -142,6 +147,12 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 								statusMessage,
 								...(nextStatus === "failed" ? { error: statusMessage } : {}),
 							}),
+							...(shouldClearLifecycleMessage
+								? {
+										statusMessage: null,
+										error: null,
+									}
+								: {}),
 							...(isTerminal ? { completedAt: msg.createdAt } : {}),
 						};
 					});

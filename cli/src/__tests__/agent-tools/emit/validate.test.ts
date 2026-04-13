@@ -89,6 +89,13 @@ describe("emit validation", () => {
 					expectRight(result);
 				}
 			});
+
+			test("accepts run-only statuses for step-less lifecycle changes", () => {
+				for (const status of ["inactive", "cancelled", "abandoned"]) {
+					const result = validatePayloadShape("status_change", { status });
+					expectRight(result);
+				}
+			});
 		});
 
 		describe("artifact_registered", () => {
@@ -445,6 +452,24 @@ describe("emit validation", () => {
 			if (result._tag === "Left") {
 				expect(getErrorMessage(result.left)).toContain("--workflow");
 			}
+		});
+
+		test("rejects run-only statuses on step-scoped status_change events", async () => {
+			const error = await expectTaskLeft(
+				validateEmitOptions({
+					type: "status_change",
+					runId: "test-run-step-status",
+					workflow: "build",
+					step: "build",
+					data: '{"status": "cancelled"}',
+					project: process.cwd(),
+				}),
+			);
+
+			expect(getErrorMessage(error)).toContain("cancelled");
+			expect(getErrorMessage(error)).toContain(
+				"not_started, running, waiting, completed, failed, skipped",
+			);
 		});
 	});
 });

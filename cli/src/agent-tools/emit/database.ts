@@ -209,6 +209,7 @@ const WAITING_CLEAR_STATUSES = new Set<Status>([
 	"cancelled",
 	"abandoned",
 ]);
+const TERMINAL_OVERRIDE_STEP_STATUSES = new Set<Status>(["running", "waiting"]);
 const END_RUN_OUTCOMES = ["cancelled", "abandoned"] as const;
 const INACTIVE_AFTER_MS = 24 * 60 * 60 * 1000;
 
@@ -1667,6 +1668,24 @@ const maxWaitClearingEventId = (
 		0,
 	);
 
+const maxWaitClearingRowId = (rows: readonly StepStatusRow[]): number =>
+	rows.reduce(
+		(maxEventId, row) =>
+			WAITING_CLEAR_STATUSES.has(row.status as Status)
+				? Math.max(maxEventId, row.id)
+				: maxEventId,
+		0,
+	);
+
+const collapseLiveStepStatuses = (
+	entries: readonly StepStatusProjection[],
+): StepStatusProjection[] =>
+	entries.map((entry) =>
+		TERMINAL_OVERRIDE_STEP_STATUSES.has(entry.status)
+			? { ...entry, status: "completed" }
+			: entry,
+	);
+
 const deriveProjectedStatus = (
 	entries: readonly StepStatusProjection[],
 	waitingActive: boolean,
@@ -1736,22 +1755,23 @@ const getRunLifecycleProjection = (
 		latestWaitingEvent.id >
 			Math.max(
 				maxWaitClearingEventId(baseEntries),
+				maxWaitClearingRowId(statusRows),
 				latestInactiveOverride?.id ?? 0,
 				latestManualTerminal?.id ?? 0,
 			);
 
-	const effectiveSteps = waitingActive
+	const projectedSteps = waitingActive
 		? overlayWaitingStep(baseEntries, latestWaitingEvent)
 		: baseEntries;
 
 	if (latestManualTerminal != null) {
 		return {
 			derivedStatus: latestManualTerminal.status as Status,
-			effectiveSteps,
+			effectiveSteps: collapseLiveStepStatuses(projectedSteps),
 		};
 	}
 
-	const latestBaseEventId = effectiveSteps.reduce(
+	const latestBaseEventId = projectedSteps.reduce(
 		(maxEventId, entry) => Math.max(maxEventId, entry.eventId),
 		0,
 	);
@@ -1763,13 +1783,13 @@ const getRunLifecycleProjection = (
 	) {
 		return {
 			derivedStatus: "inactive",
-			effectiveSteps,
+			effectiveSteps: collapseLiveStepStatuses(projectedSteps),
 		};
 	}
 
 	return {
-		derivedStatus: deriveProjectedStatus(effectiveSteps, waitingActive),
-		effectiveSteps,
+		derivedStatus: deriveProjectedStatus(projectedSteps, waitingActive),
+		effectiveSteps: projectedSteps,
 	};
 };
 

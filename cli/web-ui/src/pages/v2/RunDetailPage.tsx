@@ -263,12 +263,19 @@ export function RunDetailPage() {
 		if (steps.length === 0) return;
 
 		if (!urlStepId) {
+			const currentStep =
+				run.currentStep != null
+					? (steps.find((step) => step.id === run.currentStep) ?? null)
+					: null;
+			const waitingStep = steps.find((step) => step.status === "waiting");
 			const runningStep = steps.find((s) => s.status === "running");
 			const completedSteps = steps.filter((s) => s.status === "completed");
 			const completedWithArtifacts = completedSteps.filter((s) =>
 				run.artifacts.some((a) => a.step === s.id),
 			);
 			const targetStep =
+				currentStep ??
+				waitingStep ??
 				runningStep ??
 				(completedWithArtifacts.length > 0
 					? completedWithArtifacts[completedWithArtifacts.length - 1]

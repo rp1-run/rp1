@@ -15,6 +15,7 @@ import {
 	type Status,
 	VALID_EVENT_TYPES,
 	VALID_STATUSES,
+	VALID_STEP_STATUSES,
 } from "../../../shared/events.js";
 import type { ResolvedProjectPath } from "../git.js";
 import { resolveRp1Root } from "../rp1-root-dir/resolver.js";
@@ -96,6 +97,7 @@ const parseJsonPayload = (
 
 const validateStatusChangePayload = (
 	data: Record<string, unknown>,
+	step?: string,
 ): E.Either<CLIError, Record<string, unknown>> => {
 	if (!data.status) {
 		return E.left(
@@ -105,10 +107,12 @@ const validateStatusChangePayload = (
 		);
 	}
 
-	if (!VALID_STATUSES.includes(data.status as Status)) {
+	const validStatuses = step == null ? VALID_STATUSES : VALID_STEP_STATUSES;
+
+	if (!validStatuses.includes(data.status as Status)) {
 		return E.left(
 			usageError(
-				`Invalid status value: '${String(data.status)}'. Must be one of: ${VALID_STATUSES.join(", ")}`,
+				`Invalid status value: '${String(data.status)}'. Must be one of: ${validStatuses.join(", ")}`,
 			),
 		);
 	}
@@ -272,10 +276,11 @@ const validateSubflowRegisteredPayload = (
 export const validatePayloadShape = (
 	type: EventType,
 	data: Record<string, unknown>,
+	step?: string,
 ): E.Either<CLIError, Record<string, unknown>> => {
 	switch (type) {
 		case "status_change":
-			return validateStatusChangePayload(data);
+			return validateStatusChangePayload(data, step);
 		case "artifact_registered":
 			return validateArtifactRegisteredPayload(data);
 		case "annotation_updated":
@@ -358,8 +363,8 @@ export const validateEmitOptions = (
 		TE.bind("step", ({ type }) =>
 			TE.fromEither(validateStepForType(type, options.step)),
 		),
-		TE.bind("data", ({ type, rawData }) =>
-			TE.fromEither(validatePayloadShape(type, rawData)),
+		TE.bind("data", ({ type, rawData, step }) =>
+			TE.fromEither(validatePayloadShape(type, rawData, step)),
 		),
 		TE.bind("resolved", () => validateProjectPath(options.project)),
 		TE.map(

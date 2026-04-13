@@ -1469,6 +1469,42 @@ describe("emit database", () => {
 			expect(status).toBe("running");
 		});
 
+		test("newer namespaced child activity clears the waiting overlay", async () => {
+			const dbPath = join(tempDir, "derive-waiting-cleared-child.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-waiting-cleared-child",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-waiting-cleared-child",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-waiting-cleared-child",
+				type: "waiting_for_user",
+				step: "build",
+				data: JSON.stringify({ prompt: "Need approval" }),
+			});
+			insertEvent(db, {
+				runId: "run-waiting-cleared-child",
+				type: "status_change",
+				step: "task-builder:building",
+				unit: "T1",
+				data: JSON.stringify({ status: "running" }),
+			});
+
+			const status = deriveRunStatus(db, "run-waiting-cleared-child");
+
+			expect(status).toBe("running");
+		});
+
 		test("derives completed when all steps are completed or skipped", async () => {
 			const dbPath = join(tempDir, "derive-completed.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
@@ -1995,6 +2031,43 @@ describe("emit database", () => {
 				{
 					step: "build",
 					status: "waiting",
+					concreteStep: "build",
+					unit: null,
+				},
+			]);
+		});
+
+		test("collapses live step statuses after a stepless terminal run override", async () => {
+			const dbPath = join(tempDir, "effective-step-statuses-cancelled.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-effective-cancelled",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-effective-cancelled",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			expectRight(
+				endRun(db, {
+					runId: "run-effective-cancelled",
+					outcome: "cancelled",
+					message: "Stopped intentionally",
+				}),
+			);
+
+			const statuses = getEffectiveStepStatuses(db, "run-effective-cancelled");
+
+			expect(statuses).toEqual([
+				{
+					step: "build",
+					status: "completed",
 					concreteStep: "build",
 					unit: null,
 				},

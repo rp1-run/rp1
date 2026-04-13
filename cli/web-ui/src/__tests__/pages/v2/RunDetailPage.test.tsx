@@ -8,7 +8,7 @@ import {
 	waitFor,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { WorkspaceTabsProvider } from "@/hooks/useWorkspaceTabs";
 import type { ShortcutRegistryData } from "@/providers/ShortcutRegistryProvider";
 import {
@@ -19,6 +19,7 @@ import type { Run } from "@/types/runs";
 
 let importVersion = 0;
 let latestRegistry: ShortcutRegistryData | null = null;
+let latestPath: string | null = null;
 const refetchMock = mock(() => {});
 let fetchMock: ReturnType<typeof mock>;
 
@@ -134,20 +135,48 @@ function RegistryProbe() {
 	return null;
 }
 
-async function renderRunDetail() {
+function LocationProbe() {
+	latestPath = useLocation().pathname;
+	return null;
+}
+
+async function renderRunDetail(
+	initialEntry = "/runs/run-1/step/build/artifact/doc-1",
+) {
 	const { RunDetailPage } = await import(
 		`../../../pages/v2/RunDetailPage.tsx?run-detail-test=${++importVersion}`
 	);
 
 	return render(
-		<MemoryRouter initialEntries={["/runs/run-1/step/build/artifact/doc-1"]}>
+		<MemoryRouter initialEntries={[initialEntry]}>
 			<WorkspaceTabsProvider>
 				<ShortcutRegistryProvider>
 					<Routes>
 						<Route
+							path="/runs/:runId"
+							element={
+								<>
+									<LocationProbe />
+									<RegistryProbe />
+									<RunDetailPage />
+								</>
+							}
+						/>
+						<Route
+							path="/runs/:runId/step/:stepId"
+							element={
+								<>
+									<LocationProbe />
+									<RegistryProbe />
+									<RunDetailPage />
+								</>
+							}
+						/>
+						<Route
 							path="/runs/:runId/step/:stepId/artifact/:docId"
 							element={
 								<>
+									<LocationProbe />
 									<RegistryProbe />
 									<RunDetailPage />
 								</>
@@ -166,6 +195,7 @@ describe("RunDetailPage", () => {
 		document.body.innerHTML = "";
 		sessionStorage.clear();
 		latestRegistry = null;
+		latestPath = null;
 		fetchMock = mock(() =>
 			Promise.resolve({
 				ok: true,
@@ -266,5 +296,50 @@ describe("RunDetailPage", () => {
 			});
 		});
 		expect(refetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("prefers the current waiting step over historical completed artifacts when landing on the run root", async () => {
+		run = {
+			...run,
+			status: "waiting",
+			currentStep: "review",
+			steps: [
+				{
+					id: "build",
+					name: "Build",
+					status: "completed",
+					startedAt: "2026-04-12T00:00:00.000Z",
+					completedAt: "2026-04-12T00:10:00.000Z",
+					taskCount: 5,
+					completedTaskCount: 5,
+				},
+				{
+					id: "review",
+					name: "Review",
+					status: "waiting",
+					startedAt: "2026-04-12T00:10:00.000Z",
+					completedAt: null,
+					taskCount: null,
+					completedTaskCount: null,
+				},
+			],
+			artifacts: [
+				{
+					docId: "doc-build",
+					path: ".rp1/work/features/feature-1/design.md",
+					absolutePath: "/repo/.rp1/work/features/feature-1/design.md",
+					type: "markdown",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "build",
+				},
+			],
+		};
+
+		await renderRunDetail("/runs/run-1");
+
+		await waitFor(() => {
+			expect(latestPath).toBe("/runs/run-1/step/review");
+		});
 	});
 });
