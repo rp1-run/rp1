@@ -250,7 +250,16 @@ export interface InactiveRunReclassification {
 	readonly previousStatus: Status;
 	readonly runStatus: Status;
 	readonly eventId: number;
+	readonly createdAt: string;
+	readonly data: typeof INACTIVE_REAPER_STATUS_CHANGE;
 }
+
+export const INACTIVE_REAPER_STATUS_CHANGE = {
+	status: "inactive",
+	message: "No workflow activity recorded for 24 hours",
+	actor: "system",
+	source: "inactivity_reaper",
+} as const;
 
 /** Input for creating or retrieving a run */
 export interface RunInput {
@@ -1893,12 +1902,7 @@ export const reclassifyInactiveRuns = (
 		const event = insertEvent(db, {
 			runId: row.id,
 			type: "status_change",
-			data: JSON.stringify({
-				status: "inactive",
-				message: "No workflow activity recorded for 24 hours",
-				actor: "system",
-				source: "inactivity_reaper",
-			}),
+			data: JSON.stringify(INACTIVE_REAPER_STATUS_CHANGE),
 			createdAt: nowIso,
 		});
 
@@ -1908,6 +1912,8 @@ export const reclassifyInactiveRuns = (
 			previousStatus: row.status as Status,
 			runStatus,
 			eventId: event.id,
+			createdAt: nowIso,
+			data: INACTIVE_REAPER_STATUS_CHANGE,
 		};
 	});
 };

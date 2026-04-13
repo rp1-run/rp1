@@ -4,6 +4,7 @@ import {
 	beforeAll,
 	describe,
 	expect,
+	mock,
 	test,
 } from "bun:test";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -50,6 +51,7 @@ async function setupProject(tempDir: string, suffix: string) {
 	return {
 		db,
 		projectId: `project-uuid-${suffix}`,
+		registryProjectId: `project-${suffix}`,
 		projectRoot,
 	};
 }
@@ -238,5 +240,70 @@ describe("handleV2FeedRequest", () => {
 			},
 		});
 		expect(body.items[0]?.run.status).toBe("failed");
+	});
+
+	test("broadcasts stale run inactivity when feed reads trigger reclassification", async () => {
+		const { db, projectId, projectRoot, registryProjectId } =
+			await setupProject(tempDir, "stale-feed");
+
+		insertRun(db, {
+			id: "run-feed-stale",
+			flow: "build",
+			featureId: "notifications-sidebar",
+			projectPath: projectRoot,
+			projectId,
+			name: "Stale Feed Run",
+			harness: "codex",
+		});
+		insertEvent(db, {
+			runId: "run-feed-stale",
+			type: "status_change",
+			step: "build",
+			data: JSON.stringify({ status: "running" }),
+			createdAt: "2026-04-10T01:00:00.000Z",
+		});
+		deriveRunStatus(db, "run-feed-stale");
+		db.prepare("UPDATE runs SET updated_at = ? WHERE id = ?").run(
+			"2026-04-10T01:00:00.000Z",
+			"run-feed-stale",
+		);
+
+		const websocketHub = {
+			broadcastEvent: mock(
+				(
+					_projectKey: string,
+					_eventId: number,
+					_eventType: string,
+					_runId: string,
+					_featureId: string,
+					_step: string | null,
+					_data: Record<string, unknown> | null,
+					_createdAt: string,
+				) => {},
+			),
+		};
+
+		const response = await handleV2FeedRequest(
+			new Request("http://localhost/api/v2/feed"),
+			{ websocketHub } as never,
+		);
+
+		expect(response.status).toBe(200);
+		expect(websocketHub.broadcastEvent).toHaveBeenCalledTimes(1);
+		expect(websocketHub.broadcastEvent).toHaveBeenCalledWith(
+			registryProjectId,
+			expect.any(Number),
+			"status_change",
+			"run-feed-stale",
+			"notifications-sidebar",
+			null,
+			expect.objectContaining({
+				status: "inactive",
+				message: "No workflow activity recorded for 24 hours",
+				actor: "system",
+				source: "inactivity_reaper",
+			}),
+			expect.any(String),
+		);
 	});
 });

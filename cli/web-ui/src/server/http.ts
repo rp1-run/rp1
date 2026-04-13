@@ -176,7 +176,7 @@ async function handleV2ApiRequest(
 
 	if (pathname === "/api/v2/runs/attention" && method === "GET") {
 		const { handleV2RunsAttentionRequest } = await import("./routes/v2-api");
-		return handleV2RunsAttentionRequest();
+		return handleV2RunsAttentionRequest(apiContext);
 	}
 
 	// Artifact patch endpoint (must match before general artifact routes)
@@ -225,12 +225,12 @@ async function handleV2ApiRequest(
 	if (runDetailMatch && method === "GET") {
 		const { handleV2RunDetailRequest } = await import("./routes/v2-api");
 		const runId = decodeURIComponent(runDetailMatch[1]);
-		return handleV2RunDetailRequest(runId);
+		return handleV2RunDetailRequest(runId, apiContext);
 	}
 
 	if (pathname === "/api/v2/runs" && method === "GET") {
 		const { handleV2RunsListRequest } = await import("./routes/v2-api");
-		return handleV2RunsListRequest(req);
+		return handleV2RunsListRequest(req, apiContext);
 	}
 
 	// V2 project file browsing routes (must match before project detail)
@@ -392,7 +392,7 @@ async function handleV2ApiRequest(
 
 	if (pathname === "/api/v2/feed" && method === "GET") {
 		const { handleV2FeedRequest } = await import("./routes/v2-api");
-		return handleV2FeedRequest(req);
+		return handleV2FeedRequest(req, apiContext);
 	}
 
 	if (pathname === "/api/v2/annotations" && method === "GET") {

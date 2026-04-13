@@ -215,6 +215,90 @@ describe("V2 runs API", () => {
 		expect(detailBody.completedAt).toBeNull();
 	});
 
+	test("broadcasts inactivity reclassification events from list, attention, and detail reads", async () => {
+		const { db, projectId, projectRoot, registryProjectId } =
+			await setupProject(tempDir, "stale-broadcast");
+
+		const insertStaleRun = (runId: string, step: string) => {
+			insertRun(db, {
+				id: runId,
+				flow: "build",
+				featureId: "state-fixes",
+				projectPath: projectRoot,
+				projectId,
+				name: runId,
+				harness: "codex",
+			});
+			insertEvent(db, {
+				runId,
+				type: "status_change",
+				step,
+				data: JSON.stringify({ status: "running" }),
+				createdAt: "2026-04-10T01:00:00.000Z",
+			});
+			deriveRunStatus(db, runId);
+			db.prepare("UPDATE runs SET updated_at = ? WHERE id = ?").run(
+				"2026-04-10T01:00:00.000Z",
+				runId,
+			);
+		};
+
+		const websocketHub = {
+			broadcastEvent: mock(
+				(
+					_projectKey: string,
+					_eventId: number,
+					_eventType: string,
+					_runId: string,
+					_featureId: string,
+					_step: string | null,
+					_data: Record<string, unknown> | null,
+					_createdAt: string,
+				) => {},
+			),
+		};
+
+		insertStaleRun("run-list-stale", "build");
+		const listResponse = await handleV2RunsListRequest(
+			new Request("http://localhost/api/v2/runs"),
+			{ websocketHub } as never,
+		);
+		expect(listResponse.status).toBe(200);
+
+		insertStaleRun("run-attention-stale", "verify");
+		const attentionResponse = await handleV2RunsAttentionRequest({
+			websocketHub,
+		} as never);
+		expect(attentionResponse.status).toBe(200);
+
+		insertStaleRun("run-detail-stale", "review");
+		const detailResponse = await handleV2RunDetailRequest("run-detail-stale", {
+			websocketHub,
+		} as never);
+		expect(detailResponse.status).toBe(200);
+
+		expect(websocketHub.broadcastEvent).toHaveBeenCalledTimes(3);
+		expect(
+			websocketHub.broadcastEvent.mock.calls.map((call) => call[3]),
+		).toEqual(["run-list-stale", "run-attention-stale", "run-detail-stale"]);
+
+		for (const call of websocketHub.broadcastEvent.mock.calls) {
+			expect(call?.[0]).toBe(registryProjectId);
+			expect(call?.[2]).toBe("status_change");
+			expect(call?.[5]).toBeNull();
+			expect(call?.[6]).toEqual(
+				expect.objectContaining({
+					status: "inactive",
+					message: "No workflow activity recorded for 24 hours",
+					actor: "system",
+					source: "inactivity_reaper",
+				}),
+			);
+			expect(typeof call?.[1]).toBe("number");
+			expect(typeof call?.[7]).toBe("string");
+		}
+	});
+
 	test("ends a live run through the dedicated endpoint and broadcasts the lifecycle event", async () => {
 		const { db, projectId, projectRoot, registryProjectId } =
 			await setupProject(tempDir, "end");

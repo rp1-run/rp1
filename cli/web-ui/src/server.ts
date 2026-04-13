@@ -1,6 +1,7 @@
 import { readDaemonState, writeDaemonState } from "./daemon/config-dir";
 import { FileWatcherPool } from "./server/file-watcher";
 import { startServer } from "./server/http";
+import { reclassifyInactiveRunsWithBroadcast } from "./server/inactive-runs";
 import {
 	buildProjectLookup,
 	findProjectByIdentity,
@@ -158,7 +159,6 @@ export function createServer(options: ServerOptions) {
 			getEventsSince,
 			getActiveRunsSnapshot,
 			getMaxEventId,
-			reclassifyInactiveRuns,
 		} = await import("../../src/agent-tools/emit/database");
 		const { isLeft } = await import("fp-ts/lib/Either.js");
 
@@ -176,7 +176,11 @@ export function createServer(options: ServerOptions) {
 			getEventsSince: (afterId: number, limit?: number) =>
 				getEventsSince(db, afterId, limit),
 			getActiveRunsSnapshot: () => {
-				reclassifyInactiveRuns(db);
+				void reclassifyInactiveRunsWithBroadcast(db, websocketHub).catch(
+					(error) => {
+						console.warn("[replay] Failed to broadcast inactive runs:", error);
+					},
+				);
 				return getActiveRunsSnapshot(db);
 			},
 			getMaxEventId: () => getMaxEventId(db),

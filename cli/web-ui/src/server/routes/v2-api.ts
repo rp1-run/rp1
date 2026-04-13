@@ -38,7 +38,6 @@ import {
 	getRunById,
 	getRunsByAttentionStatus,
 	listRuns,
-	reclassifyInactiveRuns,
 	resolveArtifactPathForRun,
 } from "../../../../src/agent-tools/emit/database.js";
 import {
@@ -70,6 +69,7 @@ import type {
 	Step,
 	StepStatus,
 } from "../../types/runs";
+import { reclassifyInactiveRunsWithBroadcast } from "../inactive-runs";
 import { buildProjectLookup, findProjectByIdentity } from "../project-lookup";
 import {
 	findArtifactByRequestedPath,
@@ -1137,7 +1137,10 @@ async function buildDetailedRun(
  * GET /api/v2/runs - paginated list with filters.
  * Queries the runs table in rp1.db for canonical status values.
  */
-export async function handleV2RunsListRequest(req: Request): Promise<Response> {
+export async function handleV2RunsListRequest(
+	req: Request,
+	ctx?: ApiContext,
+): Promise<Response> {
 	const url = new URL(req.url);
 	const params = url.searchParams;
 
@@ -1150,7 +1153,7 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 
 	try {
 		const db = await getDb();
-		reclassifyInactiveRuns(db);
+		await reclassifyInactiveRunsWithBroadcast(db, ctx?.websocketHub);
 		const projects = await getAllProjects(db);
 		const projectLookup = buildProjectLookup(projects);
 
@@ -1221,10 +1224,12 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
  * GET /api/v2/runs/attention - grouped by attention state.
  * Queries the runs table grouped by waiting/failed/running canonical statuses.
  */
-export async function handleV2RunsAttentionRequest(): Promise<Response> {
+export async function handleV2RunsAttentionRequest(
+	ctx?: ApiContext,
+): Promise<Response> {
 	try {
 		const db = await getDb();
-		reclassifyInactiveRuns(db);
+		await reclassifyInactiveRunsWithBroadcast(db, ctx?.websocketHub);
 		const projects = await getAllProjects(db);
 		const projectLookup = buildProjectLookup(projects);
 
@@ -1259,10 +1264,11 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
  */
 export async function handleV2RunDetailRequest(
 	runId: string,
+	ctx?: ApiContext,
 ): Promise<Response> {
 	try {
 		const db = await getDb();
-		reclassifyInactiveRuns(db);
+		await reclassifyInactiveRunsWithBroadcast(db, ctx?.websocketHub);
 		const record = getRunById(db, runId);
 
 		if (!record) {
@@ -2150,7 +2156,10 @@ export async function handleV2NotificationNotifyRequest(
  * GET /api/v2/feed - run activity feed only.
  * Returns runs ordered by latest activity time with filtering and pagination.
  */
-export async function handleV2FeedRequest(req: Request): Promise<Response> {
+export async function handleV2FeedRequest(
+	req: Request,
+	ctx?: ApiContext,
+): Promise<Response> {
 	try {
 		const url = new URL(req.url);
 		const params = url.searchParams;
@@ -2162,7 +2171,7 @@ export async function handleV2FeedRequest(req: Request): Promise<Response> {
 		const offset = Number.parseInt(params.get("offset") ?? "0", 10);
 
 		const db = await getDb();
-		reclassifyInactiveRuns(db);
+		await reclassifyInactiveRunsWithBroadcast(db, ctx?.websocketHub);
 		const projects = await getAllProjects(db);
 		const projectLookup = buildProjectLookup(projects);
 		const skillMetadataLookup = await getRuntimeSkillMetadataLookup();
