@@ -25,8 +25,13 @@ The `self-update` command detects your rp1 installation method and runs the appr
 command. It supports automatic updates for Homebrew and Scoop installations, and provides manual
 instructions for other installation methods.
 
-After a successful CLI update, the command prompts you to update plugins for all detected agentic
-tools (Claude Code, OpenCode). You can also update plugins separately with `rp1 update plugins`.
+`rp1 update` now runs a coordinated lifecycle:
+- stop the Arcade daemon first when it is already running
+- update the rp1 binary
+- relaunch post-update work in the freshly installed binary
+- refresh plugins for all detected tools
+- run project migrations when the current directory is an rp1 project
+- restore the Arcade daemon after the update finishes
 
 ## Options
 
@@ -136,13 +141,8 @@ For manual installations or when automatic update fails, download the latest ver
 
 ## Plugin Updates
 
-After updating the CLI, the command prompts you to update plugins for all detected agentic tools:
-
-```
-Would you like to update rp1 plugins as well? (y/N)
-```
-
-If you confirm (or use `-y`), the command detects installed tools and updates their plugins:
+After the binary step, `rp1 update` automatically detects installed tools and refreshes their
+plugins:
 
 ```
 Updating plugins for all detected tools...
@@ -154,7 +154,7 @@ Claude Code: Plugins updated
 OpenCode: Plugins updated
 ```
 
-You can also update plugins independently:
+You can also refresh plugins independently:
 
 ```bash
 rp1 update plugins                  # Update all detected tools

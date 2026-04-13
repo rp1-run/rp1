@@ -1,6 +1,6 @@
 ---
 name: self-update
-description: "Update rp1 CLI and all plugins to the latest version."
+description: "Update rp1 and run the full post-update lifecycle."
 metadata:
   category: knowledge
   is_workflow: false
@@ -16,18 +16,18 @@ metadata:
 
 # Self-Update Command
 
-Update rp1 CLI to the latest version and update all installed plugins.
+Update rp1 using the unified lifecycle command. `rp1 update` now coordinates:
+- CLI self-update
+- plugin refresh for all detected tools using the latest installer logic
+- project migrations when the current directory is an rp1 project
+- Arcade daemon stop/restart when Arcade was already running
 
 ## Execution
 
-Run the following commands sequentially via Bash:
+Run the following command via Bash:
 
 ```bash
-# 1. Update the CLI itself
 rp1 update
-
-# 2. Update all plugins
-rp1 update plugins all
 ```
 
 ## Interpreting Results
@@ -61,7 +61,7 @@ Please download the latest version from:
 https://github.com/rp1-run/rp1/releases/latest
 ```
 
-**Report to user**: Explain that they need to update the CLI manually and provide the GitHub releases link. Continue with plugin update.
+**Report to user**: Explain that they need to update the CLI manually and provide the GitHub releases link. `rp1 update` may still refresh plugins and run migrations with the currently installed binary, but the CLI binary itself still requires manual replacement.
 
 #### Error (Exit Code 1)
 
@@ -72,12 +72,13 @@ Error: brew upgrade failed: Permission denied
 
 **Report to user**: Show the error message and suggest checking permissions or trying manual update.
 
-### Plugin Update (`rp1 update plugins all`)
+### Unified Lifecycle (`rp1 update`)
 
-After CLI update, the plugin update command will:
+After the binary step, the same command continues by:
 
-1. Detect all installed agentic tools (Claude Code, OpenCode)
-2. Update plugins for each detected tool
+1. Refreshing plugins for all detected agentic tools
+2. Running project migrations when applicable
+3. Restoring the Arcade daemon if it was running before update
 
 Example output:
 ```
@@ -91,7 +92,7 @@ Updating plugins for OpenCode...
 Successfully updated plugins for OpenCode
 ```
 
-**Report to user**: Confirm which tools had their plugins updated.
+**Report to user**: Confirm which tools were refreshed and whether migrations ran.
 
 ## Restart Reminder
 
@@ -103,7 +104,6 @@ This is important because the updated CLI and plugins will not take effect until
 
 ## Notes
 
-- `rp1 update` handles CLI self-update using the appropriate package manager (Homebrew, Scoop, or manual)
-- `rp1 update plugins all` updates plugins for all detected agentic tools
-- The plugin command ensures both CLI and plugins are updated together
-- Both commands are safe to run even if already on the latest version
+- `rp1 update` handles the full lifecycle using the appropriate package manager (Homebrew, Scoop, or manual)
+- `rp1 update plugins` remains available for plugin-only repair or targeted tool refresh
+- The command is safe to run even if you are already on the latest version

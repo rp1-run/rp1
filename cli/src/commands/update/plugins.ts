@@ -26,7 +26,7 @@ type ValidTool = (typeof VALID_TOOLS)[number];
 /**
  * Format output for plugin update result.
  */
-const formatPluginUpdateResult = (
+export const formatPluginUpdateResult = (
 	result: ToolInstallResult,
 	isTTY: boolean,
 ): void => {
@@ -54,7 +54,7 @@ const formatPluginUpdateResult = (
 /**
  * Format output for update all result.
  */
-const formatUpdateAllResult = (
+export const formatUpdateAllResult = (
 	result: InstallAllResult,
 	isTTY: boolean,
 ): void => {

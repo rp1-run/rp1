@@ -12,15 +12,11 @@
 
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
-import { formatError } from "../../../shared/errors.js";
+import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
+import { formatError, getExitCode } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import { loadToolsRegistry } from "../../config/supported-tools.js";
-import { updatePlugin } from "../../install/claudecode/installer.js";
-import {
-	isStale,
-	type PlatformVersions,
-	readAllVersionMarkers,
-} from "../../install/version-marker.js";
+import { detectTools } from "../../init/tool-detector.js";
 import { DEFAULT_TTL_HOURS, writeCache } from "../../lib/cache.js";
 import { getColorFns } from "../../lib/colors.js";
 import {
@@ -38,11 +34,17 @@ import {
 	getDisplayVersion,
 	getInstalledVersion,
 } from "../../lib/version.js";
+import { executeMigrate, formatMigrateSummary } from "../../migrate/index.js";
 import {
 	type InstallContext,
-	installForSpecificTool,
+	installAllDetectedTools,
 } from "../../shared/install-core.js";
-import { pluginsSubcommand } from "./plugins.js";
+import { formatUpdateAllResult, pluginsSubcommand } from "./plugins.js";
+import {
+	isPostSelfUpdateProcess,
+	readPostSelfUpdateState,
+	relaunchPostSelfUpdate,
+} from "./post-self-update.js";
 
 /**
  * GitHub releases URL for manual installation instructions.
@@ -196,7 +198,11 @@ export const executeSelfUpdate = async (
 	options: { dryRun: boolean; force: boolean },
 	logger: Logger | undefined,
 	isTTY: boolean,
-): Promise<{ success: boolean; exitCode: number }> => {
+): Promise<{
+	success: boolean;
+	exitCode: number;
+	updatedBinary: boolean;
+}> => {
 	const { green, yellow, cyan, dim } = getColorFns(isTTY);
 
 	logger?.debug(
@@ -224,7 +230,7 @@ export const executeSelfUpdate = async (
 		console.log(`  1. Visit: ${cyan(GITHUB_RELEASES_URL)}`);
 		console.log("  2. Download the latest release for your platform");
 		console.log("  3. Replace your current rp1 binary");
-		return { success: false, exitCode: 2 };
+		return { success: false, exitCode: 2, updatedBinary: false };
 	}
 
 	console.log(green(`${methodName} installation detected`));
@@ -249,7 +255,7 @@ export const executeSelfUpdate = async (
 			console.log(
 				dim("Use --force to reinstall the current version if needed."),
 			);
-			return { success: true, exitCode: 0 };
+			return { success: true, exitCode: 0, updatedBinary: false };
 		}
 
 		if (versionCheck.updateAvailable && versionCheck.latestVersion) {
@@ -268,7 +274,7 @@ export const executeSelfUpdate = async (
 		console.log(`  Installation method: ${methodName}`);
 		console.log(`  Current version: v${currentVersion}`);
 		console.log(`  Update command: ${updateCmd}`);
-		return { success: true, exitCode: 0 };
+		return { success: true, exitCode: 0, updatedBinary: false };
 	}
 
 	// Step 4: Run the update
@@ -286,7 +292,7 @@ export const executeSelfUpdate = async (
 		console.log("");
 		console.log("You can try updating manually:");
 		console.log(`  ${updateCmd}`);
-		return { success: false, exitCode: 1 };
+		return { success: false, exitCode: 1, updatedBinary: false };
 	}
 
 	// Step 5: Update cache with new version to suppress update banner
@@ -323,90 +329,127 @@ export const executeSelfUpdate = async (
 		console.log(green("Update completed successfully"));
 	}
 
-	return { success: true, exitCode: 0 };
+	return { success: true, exitCode: 0, updatedBinary: true };
+};
+
+const noopLogger: Logger = {
+	trace: () => {},
+	debug: () => {},
+	info: () => {},
+	warn: () => {},
+	error: () => {},
+	start: () => {},
+	success: () => {},
+	fail: () => {},
+	box: () => {},
+};
+
+interface UpdateArcadeState {
+	readonly daemonWasRunning: boolean;
+	readonly daemonPort?: number;
+}
+
+interface PostUpdatePhaseResult {
+	readonly success: boolean;
+	readonly exitCode: number;
+}
+
+/**
+ * Stop the Arcade daemon before any mutating update work begins.
+ */
+const stopArcadeBeforeUpdate = async (
+	logger: Logger,
+	isTTY: boolean,
+): Promise<UpdateArcadeState> => {
+	const { green, bold, dim } = getColorFns(isTTY);
+	const { getStatus, stopDaemon } = await import(
+		"../../../web-ui/src/daemon/index.js"
+	);
+
+	console.log("");
+	console.log(bold("Preparing Arcade daemon..."));
+
+	const status = await getStatus();
+	if (!status.running) {
+		console.log(dim("Arcade daemon is not running."));
+		return { daemonWasRunning: false };
+	}
+
+	logger.debug(
+		`Stopping Arcade daemon before update (port=${status.port ?? "unknown"})`,
+	);
+	const stopped = await stopDaemon();
+	if (!stopped) {
+		throw new Error("Failed to stop the running Arcade daemon.");
+	}
+
+	console.log(green("Arcade daemon stopped."));
+	return {
+		daemonWasRunning: true,
+		daemonPort: status.port,
+	};
 };
 
 /**
- * Known platforms for staleness detection.
- * Order determines display order in status output.
+ * Restart the Arcade daemon if it was running before the update began.
  */
-const KNOWN_PLATFORMS = ["claude-code", "opencode", "codex"] as const;
+const restartArcadeAfterUpdate = async (
+	state: UpdateArcadeState,
+	logger: Logger,
+	isTTY: boolean,
+): Promise<PostUpdatePhaseResult> => {
+	const { green, bold, dim } = getColorFns(isTTY);
+
+	if (!state.daemonWasRunning) {
+		console.log("");
+		console.log(
+			dim("Arcade daemon was not running before update. Skipping restart."),
+		);
+		return { success: true, exitCode: 0 };
+	}
+
+	console.log("");
+	console.log(bold("Restarting Arcade daemon..."));
+
+	try {
+		const { ensureDaemon } = await import(
+			"../../../web-ui/src/daemon/index.js"
+		);
+		const result = await ensureDaemon(state.daemonPort, getInstalledVersion());
+		logger.debug(
+			`Arcade daemon ready after update (port=${result.connection.port}, reused=${result.wasRunning})`,
+		);
+		console.log(
+			green(`Arcade daemon ready on port ${result.connection.port}.`),
+		);
+		return { success: true, exitCode: 0 };
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		console.error(`Failed to restart Arcade daemon: ${message}`);
+		return { success: false, exitCode: 1 };
+	}
+};
 
 /**
- * Check plugin staleness via version markers and reinstall stale platforms.
- * Reads the centralized version markers file and compares each platform's
- * installed version against the current binary version. Stale platforms
- * are automatically re-extracted and reinstalled from the binary.
- *
- * For Claude Code, additionally runs `claude plugin update` after reinstall
- * to ensure Claude picks up the new plugin files.
- *
- * @param options - Update options (dryRun)
- * @param logger - Logger instance
- * @param isTTY - Whether running in TTY mode
+ * Update plugins for all detected tools using the standard install/update path.
  */
-const checkAndReinstallStalePlugins = async (
+const updateDetectedPlugins = async (
 	options: { dryRun: boolean; yes: boolean },
 	logger: Logger,
 	isTTY: boolean,
-): Promise<void> => {
-	const { green, yellow, bold, dim } = getColorFns(isTTY);
-	const currentVersion = getInstalledVersion();
+): Promise<PostUpdatePhaseResult> => {
+	const { bold, dim } = getColorFns(isTTY);
+	const registry = await loadToolsRegistry();
+	const detection = await detectTools(registry)();
 
 	console.log("");
-	console.log(bold("Checking plugin staleness..."));
+	console.log(bold("Updating plugins for detected tools..."));
 
-	const markersResult = await readAllVersionMarkers()();
-
-	if (E.isLeft(markersResult)) {
+	if (E.isRight(detection) && detection.right.detected.length === 0) {
 		console.log(
-			yellow("Warning: Could not read version markers. Skipping plugin check."),
+			dim("No installed agentic tools detected. Skipping plugin refresh."),
 		);
-		logger.debug(
-			`Version marker read failed: ${formatError(markersResult.left, false)}`,
-		);
-		return;
-	}
-
-	const markers: PlatformVersions = markersResult.right;
-	const stalePlatforms: string[] = [];
-	const upToDatePlatforms: string[] = [];
-
-	for (const platform of KNOWN_PLATFORMS) {
-		const marker = markers[platform] ?? null;
-		if (isStale(marker, currentVersion)) {
-			stalePlatforms.push(platform);
-		} else {
-			upToDatePlatforms.push(platform);
-		}
-	}
-
-	if (stalePlatforms.length === 0) {
-		console.log(green("All platform plugins are up to date."));
-		console.log("");
-		for (const platform of upToDatePlatforms) {
-			console.log(
-				dim(
-					`  ${platform}: v${markers[platform]?.version ?? "unknown"} (current)`,
-				),
-			);
-		}
-		return;
-	}
-
-	console.log("");
-	console.log(
-		`Stale plugins detected for: ${stalePlatforms.map((p) => bold(p)).join(", ")}`,
-	);
-
-	if (options.dryRun) {
-		console.log("");
-		console.log("Dry run mode - would reinstall plugins for:");
-		for (const platform of stalePlatforms) {
-			const markerVersion = markers[platform]?.version ?? "none";
-			console.log(`  ${platform}: ${markerVersion} -> ${currentVersion}`);
-		}
-		return;
+		return { success: true, exitCode: 0 };
 	}
 
 	const ctx: InstallContext = {
@@ -416,57 +459,69 @@ const checkAndReinstallStalePlugins = async (
 		skipPrompt: options.yes || !isTTY,
 	};
 
-	const registry = await loadToolsRegistry();
-
-	console.log("");
-	console.log(bold("Reinstalling stale plugins..."));
-	console.log("");
-
-	for (const platform of stalePlatforms) {
-		const markerVersion = markers[platform]?.version ?? "none";
-		console.log(
-			`Updating ${platform} plugins (${markerVersion} -> ${currentVersion})...`,
-		);
-
-		const result = await installForSpecificTool(platform, registry, ctx)();
-
-		if (E.isLeft(result)) {
-			console.log(yellow(`  ${platform}: Failed to reinstall`));
-			logger.debug(`  Error: ${formatError(result.left, false)}`);
-			continue;
-		}
-
-		if (result.right.success) {
-			console.log(green(`  ${platform}: Plugins reinstalled`));
-
-			if (platform === "claude-code") {
-				console.log(dim("  Running claude plugin update..."));
-				for (const pluginName of ["rp1-base", "rp1-dev"]) {
-					const updateResult = await updatePlugin(
-						pluginName,
-						"user",
-						logger,
-						options.dryRun,
-						isTTY,
-					)();
-					if (E.isLeft(updateResult)) {
-						logger.debug(
-							`  claude plugin update for ${pluginName} failed: ${formatError(updateResult.left, false)}`,
-						);
-					}
-				}
-			}
-		} else {
-			console.log(yellow(`  ${platform}: Reinstall failed`));
-			if (result.right.error) {
-				logger.debug(`  Error: ${formatError(result.right.error, false)}`);
-			}
-		}
+	const result = await installAllDetectedTools(registry, ctx)();
+	if (E.isLeft(result)) {
+		console.error(formatError(result.left, isTTY));
+		return {
+			success: false,
+			exitCode: getExitCode(result.left),
+		};
 	}
 
+	formatUpdateAllResult(result.right, isTTY);
+
+	if (result.right.installed < result.right.results.length) {
+		return { success: false, exitCode: 1 };
+	}
+
+	return { success: true, exitCode: 0 };
+};
+
+/**
+ * Run project migrations after plugin refresh. This is best-effort when the
+ * current working directory is not an rp1 project.
+ */
+const runProjectMigrations = async (
+	cwd: string,
+	options: { dryRun: boolean },
+	isTTY: boolean,
+): Promise<PostUpdatePhaseResult> => {
+	const { bold, dim } = getColorFns(isTTY);
+	const directories = resolveDirectorySet(cwd);
+
 	console.log("");
-	for (const platform of upToDatePlatforms) {
-		console.log(dim(`  ${platform}: Already up to date`));
+	console.log(
+		bold(
+			options.dryRun
+				? "Checking project migrations..."
+				: "Running project migrations...",
+		),
+	);
+
+	if (E.isLeft(directories)) {
+		console.log(
+			dim(
+				"No rp1 project detected from current directory. Skipping migrations.",
+			),
+		);
+		return { success: true, exitCode: 0 };
+	}
+
+	if (options.dryRun) {
+		console.log(
+			dim(`Would run project migrations for ${directories.right.projectRoot}.`),
+		);
+		return { success: true, exitCode: 0 };
+	}
+
+	try {
+		const result = await executeMigrate(cwd);
+		console.log(formatMigrateSummary(result));
+		return { success: true, exitCode: 0 };
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		console.error(`Migration failed: ${message}`);
+		return { success: false, exitCode: 1 };
 	}
 };
 
@@ -491,6 +546,11 @@ export const executeUpdateAction = async (
 	isTTY: boolean,
 ): Promise<void> => {
 	const { dim } = getColorFns(isTTY);
+	const resumingPostSelfUpdate = isPostSelfUpdateProcess();
+	const lifecycleLogger = logger ?? noopLogger;
+	let arcadeState: UpdateArcadeState = resumingPostSelfUpdate
+		? readPostSelfUpdateState()
+		: { daemonWasRunning: false };
 
 	logger?.debug(
 		`Update action starting (check=${options.check}, dry-run=${options.dryRun}, force=${options.force}, yes=${options.yes}, json=${options.json}, format=${options.format})`,
@@ -577,48 +637,98 @@ export const executeUpdateAction = async (
 		}
 	}
 
-	// Standard update flow: self-update then check plugin staleness
-	const updateResult = await executeSelfUpdate(
-		{ dryRun: options.dryRun, force: options.force },
-		logger,
-		isTTY,
-	);
-
-	// If self-update had a hard failure (not manual-install), exit immediately
-	if (!updateResult.success && updateResult.exitCode !== 2) {
-		process.exit(updateResult.exitCode);
+	if (!options.dryRun && !resumingPostSelfUpdate) {
+		try {
+			arcadeState = await stopArcadeBeforeUpdate(lifecycleLogger, isTTY);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			console.error(`Failed to prepare Arcade daemon: ${message}`);
+			process.exit(1);
+		}
 	}
 
-	// Check plugin staleness and reinstall if needed.
-	// This runs for both successful updates AND manual installs (exitCode 2),
-	// so curl/direct-download users still get plugin staleness checks.
-	if (logger) {
-		await checkAndReinstallStalePlugins(
-			{ dryRun: options.dryRun, yes: options.yes },
+	let updateResult: {
+		success: boolean;
+		exitCode: number;
+		updatedBinary: boolean;
+	} = {
+		success: true,
+		exitCode: 0,
+		updatedBinary: false,
+	};
+
+	if (!resumingPostSelfUpdate) {
+		// Standard update flow: self-update, then continue with the same
+		// lifecycle in the freshly installed binary if the executable changed.
+		updateResult = await executeSelfUpdate(
+			{ dryRun: options.dryRun, force: options.force },
 			logger,
 			isTTY,
 		);
-	}
 
-	// Check fence staleness and report if stale
-	try {
-		const fenceResult = checkFenceStaleness(process.cwd());
-		if (fenceResult.hasProject && fenceResult.staleFiles.length > 0) {
-			const { yellow, cyan } = getColorFns(isTTY);
-			const currentDisplay = fenceResult.oldestVersion ?? "0.0.0";
-			console.log("");
-			console.log(
-				`${yellow("Stanza configuration is outdated")} (v${currentDisplay} -> v${fenceResult.latestFenceVersion}).`,
-			);
-			console.log(`  Outdated: ${fenceResult.staleFiles.join(", ")}`);
-			console.log(`  Run '${cyan("rp1 migrate")}' to update.`);
+		if (!updateResult.success && updateResult.exitCode !== 2) {
+			if (!options.dryRun) {
+				await restartArcadeAfterUpdate(arcadeState, lifecycleLogger, isTTY);
+			}
+			process.exit(updateResult.exitCode);
 		}
-	} catch {
-		// Fence check is best-effort; do not block update output
+
+		if (updateResult.updatedBinary) {
+			console.log("");
+			console.log("Relaunching updated rp1 for post-update lifecycle...");
+
+			const handoff = relaunchPostSelfUpdate({
+				yes: options.yes,
+				state: arcadeState,
+			});
+			if (!handoff.success && handoff.error) {
+				console.error(
+					`Failed to relaunch updated rp1 for post-update lifecycle: ${handoff.error}`,
+				);
+				if (!options.dryRun) {
+					await restartArcadeAfterUpdate(arcadeState, lifecycleLogger, isTTY);
+				}
+			}
+			process.exit(handoff.exitCode);
+		}
 	}
 
-	// If self-update required manual intervention (manual install), exit
-	// after plugin checks have completed
+	const pluginResult = await updateDetectedPlugins(
+		{ dryRun: options.dryRun, yes: options.yes },
+		lifecycleLogger,
+		isTTY,
+	);
+	let migrationResult: PostUpdatePhaseResult;
+	if (pluginResult.success) {
+		migrationResult = await runProjectMigrations(
+			process.cwd(),
+			{ dryRun: options.dryRun },
+			isTTY,
+		);
+	} else {
+		console.log("");
+		console.log("Skipping project migrations because plugin refresh failed.");
+		migrationResult = {
+			success: false,
+			exitCode: pluginResult.exitCode,
+		};
+	}
+	const restartResult = options.dryRun
+		? { success: true, exitCode: 0 }
+		: await restartArcadeAfterUpdate(arcadeState, lifecycleLogger, isTTY);
+
+	const postUpdateFailed =
+		!pluginResult.success || !migrationResult.success || !restartResult.success;
+	const postUpdateExitCode = !pluginResult.success
+		? pluginResult.exitCode
+		: !migrationResult.success
+			? migrationResult.exitCode
+			: restartResult.exitCode;
+
+	if (postUpdateFailed) {
+		process.exit(postUpdateExitCode || 1);
+	}
+
 	if (!updateResult.success || updateResult.exitCode !== 0) {
 		process.exit(updateResult.exitCode);
 	}
@@ -668,7 +778,7 @@ Options:
   -y, --yes  Skip all confirmation prompts
 
 Examples:
-  rp1 update                   Update CLI, then prompt for plugin update
+  rp1 update                   Update CLI, plugins, migrations, and Arcade lifecycle
   rp1 update --check           Check if updates are available
   rp1 update --check --json    Check for updates with JSON output
   rp1 update --check --format hook-text  Emit shell-friendly hook text

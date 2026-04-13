@@ -22,6 +22,23 @@ interface FileTreeNodeProps {
 	projectPath?: string | null;
 }
 
+export const getCopyableFilePath = (
+	projectPath: string | null | undefined,
+	filePath: string,
+): string => {
+	if (!projectPath) {
+		return filePath;
+	}
+
+	const separator = projectPath.includes("\\") ? "\\" : "/";
+	const normalizedProjectPath = projectPath.replace(/[\\/]+$/, "");
+	const normalizedFilePath = filePath
+		.replace(/^[\\/]+/, "")
+		.replace(/[\\/]/g, separator);
+
+	return `${normalizedProjectPath}${separator}${normalizedFilePath}`;
+};
+
 export function FileTreeNode({
 	node,
 	depth,
@@ -117,12 +134,10 @@ export function FileTreeNode({
 				{!isDirectory ? (
 					<button
 						type="button"
-						title={projectPath ? `${projectPath}/.rp1/${node.path}` : node.path}
+						title={getCopyableFilePath(projectPath, node.path)}
 						onClick={(e) => {
 							e.stopPropagation();
-							const fullPath = projectPath
-								? `${projectPath}/.rp1/${node.path}`
-								: node.path;
+							const fullPath = getCopyableFilePath(projectPath, node.path);
 							navigator.clipboard.writeText(fullPath).then(() => {
 								setCopied(true);
 								setTimeout(() => setCopied(false), 2000);
