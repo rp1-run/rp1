@@ -698,11 +698,21 @@ export const executeUpdateAction = async (
 		lifecycleLogger,
 		isTTY,
 	);
-	const migrationResult = await runProjectMigrations(
-		process.cwd(),
-		{ dryRun: options.dryRun },
-		isTTY,
-	);
+	let migrationResult: PostUpdatePhaseResult;
+	if (pluginResult.success) {
+		migrationResult = await runProjectMigrations(
+			process.cwd(),
+			{ dryRun: options.dryRun },
+			isTTY,
+		);
+	} else {
+		console.log("");
+		console.log("Skipping project migrations because plugin refresh failed.");
+		migrationResult = {
+			success: false,
+			exitCode: pluginResult.exitCode,
+		};
+	}
 	const restartResult = options.dryRun
 		? { success: true, exitCode: 0 }
 		: await restartArcadeAfterUpdate(arcadeState, lifecycleLogger, isTTY);
@@ -715,12 +725,12 @@ export const executeUpdateAction = async (
 			? migrationResult.exitCode
 			: restartResult.exitCode;
 
-	if (!updateResult.success || updateResult.exitCode !== 0) {
-		process.exit(updateResult.exitCode);
-	}
-
 	if (postUpdateFailed) {
 		process.exit(postUpdateExitCode || 1);
+	}
+
+	if (!updateResult.success || updateResult.exitCode !== 0) {
+		process.exit(updateResult.exitCode);
 	}
 
 	console.log("");

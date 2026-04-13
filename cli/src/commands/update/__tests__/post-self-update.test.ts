@@ -6,6 +6,7 @@ import {
 	POST_SELF_UPDATE_ENV,
 	readPostSelfUpdateState,
 	relaunchPostSelfUpdate,
+	resolvePostSelfUpdateCommand,
 } from "../post-self-update.js";
 
 type SpawnSyncImpl = NonNullable<
@@ -38,6 +39,29 @@ describe("post-self-update handoff", () => {
 			daemonWasRunning: false,
 			daemonPort: undefined,
 		});
+	});
+
+	test("uses explicit relaunch path when provided", () => {
+		expect(
+			resolvePostSelfUpdateCommand({ execPath: "/opt/homebrew/bin/rp1" }),
+		).toBe("/opt/homebrew/bin/rp1");
+	});
+
+	test("falls back to rp1 in source-run environments", () => {
+		const originalExecPath = process.execPath;
+		Object.defineProperty(process, "execPath", {
+			value: "/opt/homebrew/bin/bun",
+			configurable: true,
+		});
+
+		try {
+			expect(resolvePostSelfUpdateCommand()).toBe("rp1");
+		} finally {
+			Object.defineProperty(process, "execPath", {
+				value: originalExecPath,
+				configurable: true,
+			});
+		}
 	});
 
 	test("relaunches update with yes flag and environment marker", () => {

@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import path from "node:path";
 
 export const POST_SELF_UPDATE_ENV = "RP1_POST_SELF_UPDATE";
 export const POST_SELF_UPDATE_DAEMON_WAS_RUNNING_ENV =
@@ -49,6 +50,21 @@ export const readPostSelfUpdateState = (
 	};
 };
 
+const isRp1ExecutablePath = (value: string): boolean => {
+	const executable = path.basename(value).toLowerCase();
+	return executable === "rp1" || executable === "rp1.exe";
+};
+
+export const resolvePostSelfUpdateCommand = (options?: {
+	readonly execPath?: string;
+}): string => {
+	if (options?.execPath) {
+		return options.execPath;
+	}
+
+	return isRp1ExecutablePath(process.execPath) ? process.execPath : "rp1";
+};
+
 /**
  * Relaunch `rp1 update` from the freshly installed binary so post-update work
  * runs with the new code instead of the process image that was already in
@@ -66,7 +82,7 @@ export const relaunchPostSelfUpdate = (options?: {
 		args.push("--yes");
 	}
 
-	const execPath = options?.execPath ?? process.execPath;
+	const execPath = resolvePostSelfUpdateCommand(options);
 	const env = {
 		...(options?.env ?? process.env),
 		[POST_SELF_UPDATE_ENV]: "1",
