@@ -1807,7 +1807,6 @@ describe("emit database", () => {
 			});
 			deriveRunStatus(db, "run-older");
 
-			// Small delay to ensure different created_at timestamps
 			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			insertRun(db, {
@@ -3612,9 +3611,6 @@ describe("emit database", () => {
 				closeDatabase();
 				resetInstance();
 
-				// We need to re-import or use the default path behavior
-				// The DEFAULT_DB_PATH is set at module load time, so we test
-				// by passing the path directly
 				const db = await expectTaskRight(getEmitDatabase(customPath));
 				expect(db).toBeDefined();
 				expect(existsSync(customPath)).toBe(true);

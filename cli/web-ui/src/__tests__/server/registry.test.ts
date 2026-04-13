@@ -213,7 +213,6 @@ describe("registry (DB-backed)", () => {
 			const first = await registerProject(db, projDir);
 			const firstAddedAt = first.addedAt;
 
-			// Small delay to ensure different timestamp
 			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			const second = await registerProject(db, projDir);
@@ -631,7 +630,6 @@ describe("registry (DB-backed)", () => {
 			expect(projects).toHaveLength(1);
 			expect(projects[0].id).toBe("existing");
 
-			// Clean up
 			try {
 				const { unlink } = await import("node:fs/promises");
 				await unlink(jsonPath);
