@@ -1722,7 +1722,7 @@ export async function handleV2HealthRequest(
 	}
 
 	const db = await getDb();
-	const projectCount = getProjectCount(db);
+	const projectCount = await getProjectCount(db);
 	const uptime = Math.floor((Date.now() - ctx.startTime) / 1000);
 
 	return jsonResponse({

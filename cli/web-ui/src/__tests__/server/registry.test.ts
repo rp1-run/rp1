@@ -70,7 +70,7 @@ import {
 
 const REGISTRY_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS projects (
-    id TEXT NOT NULL,
+    id TEXT NOT NULL UNIQUE,
     project_id TEXT,
     path TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -252,6 +252,28 @@ describe("registry (DB-backed)", () => {
 
 			const entry = await registerProject(db, projDir);
 			expect(entry.available).toBe(false);
+		});
+
+		test("assigns unique ids when two paths share the same project_id", async () => {
+			const uuid = "shared-uuid-1234-5678-abcd-ef1234567890";
+
+			const projA = join(tempRoot, "dup-id-a");
+			mkdirSync(join(projA, ".rp1"), { recursive: true });
+			writeFileSync(join(projA, ".rp1", "project_id"), uuid);
+
+			const projB = join(tempRoot, "dup-id-b");
+			mkdirSync(join(projB, ".rp1"), { recursive: true });
+			writeFileSync(join(projB, ".rp1", "project_id"), uuid);
+
+			const entryA = await registerProject(db, projA);
+			const entryB = await registerProject(db, projB);
+
+			expect(entryA.id).not.toBe(entryB.id);
+			expect(entryA.path).toBe(projA);
+			expect(entryB.path).toBe(projB);
+
+			const allProjects = await getAllProjects(db);
+			expect(allProjects).toHaveLength(2);
 		});
 	});
 
@@ -439,15 +461,15 @@ describe("registry (DB-backed)", () => {
 	});
 
 	describe("getProjectCount", () => {
-		test("returns 0 for empty table", () => {
-			expect(getProjectCount(db)).toBe(0);
+		test("returns 0 for empty table", async () => {
+			expect(await getProjectCount(db)).toBe(0);
 		});
 
-		test("returns correct count", () => {
+		test("returns correct count", async () => {
 			insertProject(db, { id: "p1", path: "/a", name: "a" });
 			insertProject(db, { id: "p2", path: "/b", name: "b" });
 
-			expect(getProjectCount(db)).toBe(2);
+			expect(await getProjectCount(db)).toBe(2);
 		});
 	});
 
@@ -684,6 +706,36 @@ describe("registry (DB-backed)", () => {
 
 			expect(existsSync(jsonPath)).toBe(false);
 		});
+
+		test("concurrent callers await the same hydration run", async () => {
+			const jsonPath = join(mockConfigDir, "projects.json");
+			await writeFile(
+				jsonPath,
+				JSON.stringify({
+					projects: {
+						"concurrent-proj": {
+							id: "concurrent-proj",
+							path: "/test/concurrent",
+							name: "concurrent",
+							addedAt: "2026-01-01T00:00:00.000Z",
+							lastAccessedAt: "2026-01-01T00:00:00.000Z",
+						},
+					},
+				}),
+			);
+
+			await Promise.all([
+				ensureHydrated(db),
+				ensureHydrated(db),
+				ensureHydrated(db),
+			]);
+
+			const projects = db.prepare("SELECT * FROM projects").all() as {
+				id: string;
+			}[];
+			expect(projects).toHaveLength(1);
+			expect(projects[0].id).toBe("concurrent-proj");
+		});
 	});
 
 	describe("worktree path resolution", () => {
@@ -824,7 +876,7 @@ describe("registry (DB-backed)", () => {
 			const lastInvoked = await getLastInvokedProjectId(db);
 			expect(lastInvoked).toBeNull();
 
-			expect(getProjectCount(db)).toBe(0);
+			expect(await getProjectCount(db)).toBe(0);
 
 			const removed = await removeProject(db, "nonexistent");
 			expect(removed).toBe(false);

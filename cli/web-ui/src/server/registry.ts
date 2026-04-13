@@ -125,17 +125,21 @@ export function getProjectName(projectPath: string): string {
 	return basename(projectPath);
 }
 
-let _hydrated = false;
+let _hydrationPromise: Promise<void> | null = null;
 
 /**
  * One-time bootstrap hydration from projects.json into the DB.
  * Runs once per process lifetime. Only hydrates when the projects table is empty
  * and a projects.json file exists. Handles missing or corrupt files silently.
+ * Uses a promise guard so concurrent callers await the same hydration run.
  */
 export async function ensureHydrated(db: Database): Promise<void> {
-	if (_hydrated) return;
-	_hydrated = true;
+	if (_hydrationPromise) return _hydrationPromise;
+	_hydrationPromise = doHydrate(db);
+	return _hydrationPromise;
+}
 
+async function doHydrate(db: Database): Promise<void> {
 	const row = db.prepare("SELECT COUNT(*) as count FROM projects").get() as {
 		count: number;
 	};
@@ -202,7 +206,7 @@ export async function ensureHydrated(db: Database): Promise<void> {
  * Reset hydration state. Exported for test use only.
  */
 export function _resetHydrated(): void {
-	_hydrated = false;
+	_hydrationPromise = null;
 }
 
 /**
@@ -272,7 +276,10 @@ export async function registerProject(
 				(r) => r.id,
 			),
 		);
-		const id = uuid ?? generateProjectId(normalizedPath, existingIds);
+		const id =
+			uuid && !existingIds.has(uuid)
+				? uuid
+				: generateProjectId(normalizedPath, existingIds);
 		const name = getProjectName(normalizedPath);
 
 		db.prepare(
@@ -461,9 +468,11 @@ export async function setLastInvoked(
 
 /**
  * Get the total number of registered projects.
- * Synchronous helper for the health endpoint.
+ * Ensures hydration has completed before reading the count.
  */
-export function getProjectCount(db: Database): number {
+export async function getProjectCount(db: Database): Promise<number> {
+	await ensureHydrated(db);
+
 	const row = db.prepare("SELECT COUNT(*) as count FROM projects").get() as {
 		count: number;
 	};

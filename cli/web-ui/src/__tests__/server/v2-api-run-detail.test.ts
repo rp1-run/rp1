@@ -22,7 +22,7 @@ import {
 mock.module("../../server/registry.js", () => ({
 	getAllProjects: async () => [],
 	getProject: async () => null,
-	getProjectCount: () => 0,
+	getProjectCount: async () => 0,
 	isValidProject: async () => false,
 	registerProject: async () => {
 		throw new Error("registerProject should not be called in run detail tests");

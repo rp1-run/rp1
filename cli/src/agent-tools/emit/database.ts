@@ -163,7 +163,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at
 CREATE INDEX IF NOT EXISTS idx_notifications_project_dismissed ON notifications(project_id, dismissed, created_at);
 
 CREATE TABLE IF NOT EXISTS projects (
-    id TEXT NOT NULL,
+    id TEXT NOT NULL UNIQUE,
     project_id TEXT,
     path TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -856,7 +856,7 @@ const applyMigrations = (db: Database): void => {
 	if ((postV11Version?.version ?? 11) < 12) {
 		db.exec(`
 			CREATE TABLE IF NOT EXISTS projects (
-				id TEXT NOT NULL,
+				id TEXT NOT NULL UNIQUE,
 				project_id TEXT,
 				path TEXT NOT NULL,
 				name TEXT NOT NULL,
