@@ -146,11 +146,25 @@ describe("tracked workflow lifecycle prompts", () => {
 		const attestation = manifest.skills?.["rp1-dev:build-fast@claude-code"];
 
 		expect(attestation).toBeDefined();
+		if (!attestation) {
+			throw new Error("Missing attestation for rp1-dev:build-fast@claude-code");
+		}
 
-		const hashes = await computeAllHashes(skillPath);
-		expect(hashes.find((hash) => hash.path === skillPath)?.hash).toBe(
-			attestation?.prompt_hash,
-		);
-		expect(computeDepsHash(hashes)).toBe(attestation?.deps_hash);
+		const previousCwd = process.cwd();
+		process.chdir(REPO_ROOT);
+		try {
+			const hashes = await computeAllHashes(skillPath);
+			const skillHash = hashes.find((hash) => hash.path === skillPath);
+
+			expect(skillHash).toBeDefined();
+			if (!skillHash) {
+				throw new Error(`Missing hash for ${skillPath}`);
+			}
+
+			expect(skillHash.hash).toBe(attestation.prompt_hash);
+			expect(computeDepsHash(hashes)).toBe(attestation.deps_hash);
+		} finally {
+			process.chdir(previousCwd);
+		}
 	});
 });
