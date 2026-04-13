@@ -56,13 +56,6 @@ export function getPidFilePath(): string {
 }
 
 /**
- * Get the path to the project registry file.
- */
-export function getRegistryPath(): string {
-	return join(getConfigDir(), "projects.json");
-}
-
-/**
  * Daemon state file shape for tracking recovery state across restarts.
  */
 export interface DaemonState {
