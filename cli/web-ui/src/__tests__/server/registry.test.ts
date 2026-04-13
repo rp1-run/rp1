@@ -30,6 +30,30 @@ mock.module("../../daemon/config-dir", () => ({
 	},
 }));
 
+let resolveOverride:
+	| ((startPath: string) => { _tag: string; right?: unknown; left?: unknown })
+	| null = null;
+
+mock.module("../../../../shared/directory-resolution.js", () => ({
+	resolveDirectorySet: (
+		startPath: string = process.cwd(),
+		_options?: unknown,
+	) => {
+		if (resolveOverride) return resolveOverride(startPath);
+		return {
+			_tag: "Right",
+			right: {
+				projectRoot: startPath,
+				projectId: undefined,
+				kbRoot: `${startPath}/.rp1/context`,
+				workRoot: `${startPath}/.rp1/work`,
+				isWorktree: false,
+			},
+		};
+	},
+	normalizeProjectKey: (key: string) => key,
+}));
+
 import {
 	_resetHydrated,
 	ensureHydrated,
@@ -113,6 +137,7 @@ describe("registry (DB-backed)", () => {
 	});
 
 	afterEach(() => {
+		resolveOverride = null;
 		db.close();
 	});
 
@@ -660,6 +685,136 @@ describe("registry (DB-backed)", () => {
 			await ensureHydrated(db);
 
 			expect(existsSync(jsonPath)).toBe(false);
+		});
+	});
+
+	describe("worktree path resolution", () => {
+		test("stores main work tree root when called with linked worktree path", async () => {
+			const mainRepoDir = join(tempRoot, "wt-main-1");
+			const worktreeDir = join(tempRoot, "wt-linked-1");
+			mkdirSync(join(mainRepoDir, ".rp1"), { recursive: true });
+			mkdirSync(worktreeDir, { recursive: true });
+
+			resolveOverride = (startPath: string) => {
+				if (startPath === worktreeDir) {
+					return {
+						_tag: "Right",
+						right: {
+							projectRoot: mainRepoDir,
+							projectId: undefined,
+							kbRoot: `${mainRepoDir}/.rp1/context`,
+							workRoot: `${mainRepoDir}/.rp1/work`,
+							isWorktree: true,
+							worktreeName: "feature-branch",
+						},
+					};
+				}
+				return {
+					_tag: "Right",
+					right: {
+						projectRoot: startPath,
+						projectId: undefined,
+						kbRoot: `${startPath}/.rp1/context`,
+						workRoot: `${startPath}/.rp1/work`,
+						isWorktree: false,
+					},
+				};
+			};
+
+			const entry = await registerProject(db, worktreeDir);
+
+			expect(entry.path).toBe(mainRepoDir);
+			expect(entry.name).toBe("wt-main-1");
+
+			const row = db
+				.prepare("SELECT path FROM projects WHERE id = ?")
+				.get(entry.id) as { path: string };
+			expect(row.path).toBe(mainRepoDir);
+		});
+
+		test("resolves subdirectory within worktree to main work tree root", async () => {
+			const mainRepoDir = join(tempRoot, "wt-main-2");
+			const subDir = join(tempRoot, "wt-linked-2", "src", "components");
+			mkdirSync(join(mainRepoDir, ".rp1"), { recursive: true });
+			mkdirSync(subDir, { recursive: true });
+
+			resolveOverride = (startPath: string) => {
+				if (startPath === subDir) {
+					return {
+						_tag: "Right",
+						right: {
+							projectRoot: mainRepoDir,
+							projectId: undefined,
+							kbRoot: `${mainRepoDir}/.rp1/context`,
+							workRoot: `${mainRepoDir}/.rp1/work`,
+							isWorktree: true,
+							worktreeName: "feature-branch",
+						},
+					};
+				}
+				return {
+					_tag: "Right",
+					right: {
+						projectRoot: startPath,
+						projectId: undefined,
+						kbRoot: `${startPath}/.rp1/context`,
+						workRoot: `${startPath}/.rp1/work`,
+						isWorktree: false,
+					},
+				};
+			};
+
+			const entry = await registerProject(db, subDir);
+
+			expect(entry.path).toBe(mainRepoDir);
+			expect(entry.name).toBe("wt-main-2");
+
+			const allProjects = await getAllProjects(db);
+			expect(allProjects).toHaveLength(1);
+			expect(allProjects[0].path).toBe(mainRepoDir);
+		});
+
+		test("deduplicates registration from worktree and main repo", async () => {
+			const mainRepoDir = join(tempRoot, "wt-main-3");
+			const worktreeDir = join(tempRoot, "wt-linked-3");
+			mkdirSync(join(mainRepoDir, ".rp1"), { recursive: true });
+			mkdirSync(worktreeDir, { recursive: true });
+
+			resolveOverride = (startPath: string) => {
+				if (startPath === worktreeDir) {
+					return {
+						_tag: "Right",
+						right: {
+							projectRoot: mainRepoDir,
+							projectId: undefined,
+							kbRoot: `${mainRepoDir}/.rp1/context`,
+							workRoot: `${mainRepoDir}/.rp1/work`,
+							isWorktree: true,
+							worktreeName: "feature-branch",
+						},
+					};
+				}
+				return {
+					_tag: "Right",
+					right: {
+						projectRoot: startPath,
+						projectId: undefined,
+						kbRoot: `${startPath}/.rp1/context`,
+						workRoot: `${startPath}/.rp1/work`,
+						isWorktree: false,
+					},
+				};
+			};
+
+			const firstEntry = await registerProject(db, mainRepoDir);
+			const secondEntry = await registerProject(db, worktreeDir);
+
+			expect(firstEntry.path).toBe(mainRepoDir);
+			expect(secondEntry.path).toBe(mainRepoDir);
+			expect(secondEntry.id).toBe(firstEntry.id);
+
+			const allProjects = await getAllProjects(db);
+			expect(allProjects).toHaveLength(1);
 		});
 	});
 
