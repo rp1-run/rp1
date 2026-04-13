@@ -172,9 +172,25 @@ P5   (seq):  Comment Posting (CI only) -> GitHub Review
 Skip if `CI_MODE=true`.
 
 1. `git status --porcelain`
-2. If non-empty -> {% ask_user "Stash and continue?", options: "Stash and continue", "Abort" %}
+2. If non-empty:
+   ```bash
+   rp1 agent-tools emit \
+     --workflow pr-review \
+     --type waiting_for_user \
+     --run-id {RUN_ID} \
+     --step reviewing \
+     --data '{"prompt": "Stash local changes and continue, or abort the review?", "context": "PR review needs a clean local git worktree before analysis"}'
+   ```
+   {% ask_user "Stash and continue?", options: "Stash and continue", "Abort" %}
 3. Stash: `git stash push -m "rp1-pr-review-auto-stash"`, set `STASHED=true`
-   Abort: Exit "Review cancelled."
+   Abort:
+   ```bash
+   rp1 agent-tools emit end-run \
+     --run-id {RUN_ID} \
+     --outcome cancelled \
+     --reason "User aborted review instead of stashing local changes"
+   ```
+   Exit "Review cancelled."
 
 ### P0: Input Resolution + Intent
 

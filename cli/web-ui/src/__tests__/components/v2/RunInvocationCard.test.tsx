@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, test } from "bun:test";
+import { cleanup, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import type { RunInvocationContext } from "@/types/runs";
 import { RunInvocationCard } from "../../../components/v2/RunInvocationCard";
@@ -17,6 +17,10 @@ const baseInvocation: RunInvocationContext = {
 	identityValues: { FEATURE_ID: "feat-ui" },
 	harness: "codex",
 };
+
+afterEach(() => {
+	cleanup();
+});
 
 describe("RunInvocationCard", () => {
 	test("renders the invocation details when context exists", () => {

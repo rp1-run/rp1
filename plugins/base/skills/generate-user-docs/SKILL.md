@@ -96,7 +96,7 @@ rp1 agent-tools emit \
 **State progression**:
 - Enter `discover`, `validate_kb`, `stale_kb_gate`, `scan`, `approve`, `process`, and `finalize` with `{"status": "running"}`
 - Enter `failed` with `{"status": "failed"}`
-- Enter `cancelled` with `{"status": "skipped"}`
+- Use `emit end-run --run-id {RUN_ID} --outcome cancelled --reason "..."` for intentional stops from `stale_kb_gate` or `approve`. Do not use `skipped` as the run-level cancellation status.
 - Finish `finalize` with `{"status": "completed"}`
 
 {% plan_tool "Track workflow: discover, validate_kb, stale_kb_gate, scan, approve, process, finalize. Keep exactly one step in progress." %}
@@ -319,7 +319,13 @@ If `STALE_CHANGES` is non-empty:
 
     Rebuild the KB with /rp1-base:knowledge-build, then re-run this command.
     ```
-  - Transition to `cancelled`
+  - End the run explicitly:
+    ```bash
+    rp1 agent-tools emit end-run \
+      --run-id {RUN_ID} \
+      --outcome cancelled \
+      --reason "User chose to rebuild the KB before scanning docs"
+    ```
   - STOP
 - If `KB_DECISION == "Cancel"`:
   - Output:
@@ -328,7 +334,13 @@ If `STALE_CHANGES` is non-empty:
 
     KB is stale by {COMMITS_SINCE_KB} commits.
     ```
-  - Transition to `cancelled`
+  - End the run explicitly:
+    ```bash
+    rp1 agent-tools emit end-run \
+      --run-id {RUN_ID} \
+      --outcome cancelled \
+      --reason "User cancelled docs sync at the stale KB gate"
+    ```
   - STOP
 
 ### 3. Scan
@@ -474,7 +486,13 @@ If `APPROVAL == "No"`:
 
   Scan results preserved at: {workRoot}/{SCAN_RESULTS_REL}
   ```
-- Transition to `cancelled`
+- End the run explicitly:
+  ```bash
+  rp1 agent-tools emit end-run \
+    --run-id {RUN_ID} \
+    --outcome cancelled \
+    --reason "User declined to apply documentation updates after the scan"
+  ```
 - STOP
 
 If `APPROVAL == "Yes"`, continue.

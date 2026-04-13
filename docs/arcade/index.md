@@ -8,15 +8,14 @@ workflow context.
 
 ## Launch Arcade
 
-Arcade normally starts automatically when your coding agent session starts.
-If that does not happen for some reason, start it manually:
+Start Arcade with:
 
 ```bash
 rp1 arcade
 ```
 
-Run that from any project directory. The local server opens the Arcade UI in
-your browser.
+Run that from any project directory. By default it opens the browser on
+`http://localhost:7710`.
 
 ---
 
@@ -24,26 +23,29 @@ your browser.
 
 ### Activity dashboard
 
-The activity dashboard keeps run monitoring separate from persistent
-notifications so the main page stays easy to scan.
+The activity dashboard is a reverse-chronological feed of tracked runs. It
+keeps run monitoring separate from persistent notifications so the main page
+stays easy to scan.
 
-Typical sections:
+Each row shows:
 
-- **Waiting for you** - workflows paused for input
-- **Needs review** - completed work that needs a decision
-- **Failed** - workflows that need intervention
-- **Running** - active workflows still progressing
+- latest activity time
+- canonical run status
+- harness icon
+- invoked command and run display name
+- quick project shortcut
 
-Persistent notifications no longer appear as standalone items on this page.
-Open the notifications drawer from the shell when you need approvals, failures,
-or other notification records.
+Use the filter toggle on `/` to scope by status, project, or time range.
+Persistent notifications do not appear as standalone feed rows; open the
+notifications drawer from the shell when you need approvals, failures, or other
+notification records.
 
 ### Notifications drawer
 
 The notifications drawer gives you a dedicated inbox without forcing a page
 change.
 
-- On desktop, open it from the bell trigger in the top-right breadcrumb bar.
+- On desktop, open it from the bell trigger at the right edge of the workspace bar.
 - On narrow layouts, use the matching bell action in the bottom navigation.
 - The drawer stays on top of the current page, groups items by urgency, lets
   you follow linked runs or projects, and lets you dismiss notifications in
@@ -51,18 +53,18 @@ change.
 
 ### Runs list
 
-The runs list shows tracked workflows with filters for project, status, and
-time range.
+The current shell does not have a separate runs-list route. `/runs` redirects
+to `/`, and the home activity feed is the filtered run list.
 
 ### Run detail
 
 The run detail view shows:
 
 - current workflow status
-- the step timeline
+- the step list for the selected run
 - nested agent activity when a workflow delegates work
-- registered artifacts
-- the chronological event stream
+- execution-flow and artifact tabs for the selected step
+- inline annotation access on the selected artifact
 
 ### Artifacts and annotations
 
@@ -97,4 +99,4 @@ losing context.
 
 - [Feature Development Guide](../guides/feature-development.md)
 - [PR Review Guide](../guides/pr-review.md)
-- [Reference Overview](index.md)
+- [Reference Overview](../reference/index.md)

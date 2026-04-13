@@ -151,7 +151,6 @@ export function createServer(options: ServerOptions) {
 		version,
 	});
 
-	// Wire up replay provider for WebSocket reconnect replay
 	const setupReplayProvider = async () => {
 		const {
 			getEmitDatabase,
@@ -159,6 +158,7 @@ export function createServer(options: ServerOptions) {
 			getEventsSince,
 			getActiveRunsSnapshot,
 			getMaxEventId,
+			reclassifyInactiveRuns,
 		} = await import("../../src/agent-tools/emit/database");
 		const { isLeft } = await import("fp-ts/lib/Either.js");
 
@@ -175,7 +175,10 @@ export function createServer(options: ServerOptions) {
 			countEventsSince: (afterId: number) => countEventsSince(db, afterId),
 			getEventsSince: (afterId: number, limit?: number) =>
 				getEventsSince(db, afterId, limit),
-			getActiveRunsSnapshot: () => getActiveRunsSnapshot(db),
+			getActiveRunsSnapshot: () => {
+				reclassifyInactiveRuns(db);
+				return getActiveRunsSnapshot(db);
+			},
 			getMaxEventId: () => getMaxEventId(db),
 		});
 	};

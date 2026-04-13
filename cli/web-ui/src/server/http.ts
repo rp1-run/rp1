@@ -214,6 +214,13 @@ async function handleV2ApiRequest(
 		return handleV2ArtifactContentRequest(runId, artifactPath, apiContext);
 	}
 
+	const runEndMatch = pathname.match(/^\/api\/v2\/runs\/([^/]+)\/end$/);
+	if (runEndMatch && method === "POST") {
+		const { handleV2RunEndRequest } = await import("./routes/v2-api");
+		const runId = decodeURIComponent(runEndMatch[1]);
+		return handleV2RunEndRequest(runId, req, apiContext);
+	}
+
 	const runDetailMatch = pathname.match(/^\/api\/v2\/runs\/([^/]+)$/);
 	if (runDetailMatch && method === "GET") {
 		const { handleV2RunDetailRequest } = await import("./routes/v2-api");
@@ -280,7 +287,6 @@ async function handleV2ApiRequest(
 		return handleV2ProjectRegisterRequest(req, apiContext);
 	}
 
-	// Workflow state machine API routes
 	const workflowDetailMatch = pathname.match(/^\/api\/v2\/workflows\/([^/]+)$/);
 	if (workflowDetailMatch && method === "GET") {
 		const { handleV2WorkflowDetailRequest } = await import("./routes/v2-api");
@@ -293,13 +299,11 @@ async function handleV2ApiRequest(
 		return handleV2WorkflowsListRequest();
 	}
 
-	// Annotation API routes
 	const annotationApiContext = {
 		projectPath,
 		websocketHub: apiContext.websocketHub,
 	};
 
-	// POST /api/v2/annotations/:id/replies - add reply (most specific first)
 	const replyMatch = pathname.match(
 		/^\/api\/v2\/annotations\/([^/]+)\/replies$/,
 	);
@@ -311,7 +315,6 @@ async function handleV2ApiRequest(
 		return handleAnnotationReplyRequest(id, req, annotationApiContext);
 	}
 
-	// POST /api/v2/annotations/:id/resolve - mark resolved
 	const resolveMatch = pathname.match(
 		/^\/api\/v2\/annotations\/([^/]+)\/resolve$/,
 	);
@@ -323,7 +326,6 @@ async function handleV2ApiRequest(
 		return handleAnnotationResolveRequest(id, annotationApiContext);
 	}
 
-	// POST /api/v2/annotations/:id/reopen - reopen annotation
 	const reopenMatch = pathname.match(
 		/^\/api\/v2\/annotations\/([^/]+)\/reopen$/,
 	);
@@ -335,7 +337,6 @@ async function handleV2ApiRequest(
 		return handleAnnotationReopenRequest(id, annotationApiContext);
 	}
 
-	// GET/PATCH/DELETE /api/v2/annotations/:id - single annotation operations
 	const annotationDetailMatch = pathname.match(
 		/^\/api\/v2\/annotations\/([^/]+)$/,
 	);
@@ -364,9 +365,6 @@ async function handleV2ApiRequest(
 		}
 	}
 
-	// Notification API routes
-
-	// POST /api/v2/notifications/notify - receive from CLI (most specific first)
 	if (pathname === "/api/v2/notifications/notify" && method === "POST") {
 		const { handleV2NotificationNotifyRequest } = await import(
 			"./routes/v2-api"
@@ -374,7 +372,6 @@ async function handleV2ApiRequest(
 		return handleV2NotificationNotifyRequest(req, apiContext);
 	}
 
-	// POST /api/v2/notifications/:id/dismiss
 	const notifDismissMatch = pathname.match(
 		/^\/api\/v2\/notifications\/(\d+)\/dismiss$/,
 	);
@@ -386,7 +383,6 @@ async function handleV2ApiRequest(
 		return handleV2NotificationDismissRequest(notificationId, apiContext);
 	}
 
-	// GET /api/v2/notifications - list
 	if (pathname === "/api/v2/notifications" && method === "GET") {
 		const { handleV2NotificationsListRequest } = await import(
 			"./routes/v2-api"
@@ -394,13 +390,11 @@ async function handleV2ApiRequest(
 		return handleV2NotificationsListRequest(req);
 	}
 
-	// GET /api/v2/feed - unified activity feed
 	if (pathname === "/api/v2/feed" && method === "GET") {
 		const { handleV2FeedRequest } = await import("./routes/v2-api");
 		return handleV2FeedRequest(req);
 	}
 
-	// GET /api/v2/annotations - list annotations
 	if (pathname === "/api/v2/annotations" && method === "GET") {
 		const { handleAnnotationsListRequest } = await import(
 			"./routes/annotations-api"
@@ -408,7 +402,6 @@ async function handleV2ApiRequest(
 		return handleAnnotationsListRequest(req, annotationApiContext);
 	}
 
-	// POST /api/v2/annotations - create annotation
 	if (pathname === "/api/v2/annotations" && method === "POST") {
 		const { handleAnnotationCreateRequest } = await import(
 			"./routes/annotations-api"

@@ -13,6 +13,7 @@ import { join, resolve } from "node:path";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../../../");
 const EVAL_LAUNCHER_PATH = join(REPO_ROOT, "docker", "eval-run.sh");
+const PROMPTFOO_CONFIG_DIR_SNIPPET = `promptfoo_config_dir="\${PROMPTFOO_CONFIG_DIR:-\${repo_root}/.rp1/work/promptfoo}"`;
 
 let tempDirs: string[] = [];
 
@@ -147,7 +148,9 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 		expect(runArgs).toContain("linux/arm64");
 		expect(runArgs).toContain("-v");
 		expect(runArgs).toContain(`${REPO_ROOT}:/src/rp1`);
-		expect(runArgs).toContain("rp1-dev-evals-node_modules:/src/rp1/evals/node_modules");
+		expect(runArgs).toContain(
+			"rp1-dev-evals-node_modules:/src/rp1/evals/node_modules",
+		);
 		expect(runArgs).toContain("ANTHROPIC_API_KEY");
 		expect(runArgs).toContain("GITHUB_TOKEN");
 		expect(runArgs).not.toContain("OPENAI_API_KEY");
@@ -325,9 +328,13 @@ esac
 
 		expect(runArgs).toContain("--attest");
 		expect(runArgs).not.toContain("--commit");
-		expect(runArgs.some((arg) =>
-			arg.startsWith("RP1_EVAL_PASSED_SUITES_FILE=/src/rp1/.rp1/tmp/eval-run-outputs."),
-		)).toBe(true);
+		expect(
+			runArgs.some((arg) =>
+				arg.startsWith(
+					"RP1_EVAL_PASSED_SUITES_FILE=/src/rp1/.rp1/tmp/eval-run-outputs.",
+				),
+			),
+		).toBe(true);
 
 		expect(gitLog).toContain(`-C ${REPO_ROOT} add evals/attestation.json`);
 		expect(gitLog).toContain(
@@ -337,13 +344,17 @@ esac
 	});
 
 	test("stores promptfoo state in repo-local work dir for evals and host view", async () => {
-		const evalRunLocal = await runCommand("just", ["--show", "eval-run-local"], {
-			cwd: REPO_ROOT,
-			env: {
-				...process.env,
-				NO_COLOR: "1",
+		const evalRunLocal = await runCommand(
+			"just",
+			["--show", "eval-run-local"],
+			{
+				cwd: REPO_ROOT,
+				env: {
+					...process.env,
+					NO_COLOR: "1",
+				},
 			},
-		});
+		);
 		const evalView = await runCommand("just", ["--show", "eval-view"], {
 			cwd: REPO_ROOT,
 			env: {
@@ -354,15 +365,11 @@ esac
 
 		expect(evalRunLocal.exitCode).toBe(0);
 		expect(evalView.exitCode).toBe(0);
-		expect(evalRunLocal.stdout).toContain(
-			'promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/work/promptfoo}"',
-		);
+		expect(evalRunLocal.stdout).toContain(PROMPTFOO_CONFIG_DIR_SNIPPET);
 		expect(evalRunLocal.stdout).toContain(
 			'export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"',
 		);
-		expect(evalView.stdout).toContain(
-			'promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/work/promptfoo}"',
-		);
+		expect(evalView.stdout).toContain(PROMPTFOO_CONFIG_DIR_SNIPPET);
 		expect(evalView.stdout).toContain(
 			'export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"',
 		);

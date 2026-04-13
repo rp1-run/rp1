@@ -18,12 +18,14 @@ import {
 	getEmitDatabase,
 	getEventsSince,
 	getMaxEventId,
+	getRunById,
 	insertEvent,
 	insertRun,
+	reclassifyInactiveRuns,
 	resetInstance,
 	upsertArtifact,
 } from "../../../agent-tools/emit/database.js";
-import { executeEmit } from "../../../agent-tools/emit/index.js";
+import { executeEmit, executeEndRun } from "../../../agent-tools/emit/index.js";
 import type { EmitInput } from "../../../agent-tools/emit/models.js";
 import { createTempDir, expectTaskRight } from "../../helpers/index.js";
 
@@ -150,6 +152,169 @@ describe("Phase 2 integration: write-ahead durability", () => {
 
 		expect(row.status).toBe("completed");
 	});
+
+	test("emit end-run persists a stepless terminal lifecycle event", async () => {
+		const runId = `run-end-${Date.now()}`;
+
+		await expectTaskRight(
+			executeEmit(
+				makeInput({
+					type: "status_change",
+					runId,
+					step: "build",
+					data: { status: "running", workflow: "build", feature: "feat" },
+				}),
+			),
+		);
+
+		const result = await expectTaskRight(
+			executeEndRun({
+				runId,
+				outcome: "abandoned",
+				reason: "No longer needed",
+			}),
+		);
+
+		expect(result.success).toBe(true);
+		expect(result.data.runStatus).toBe("abandoned");
+
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const row = db
+			.prepare(
+				`SELECT step, unit, json_extract(data, '$.status') as status
+				 FROM events
+				 WHERE id = $id`,
+			)
+			.get({ $id: result.data.eventId }) as {
+			step: string | null;
+			unit: string | null;
+			status: string;
+		} | null;
+
+		expect(row).not.toBeNull();
+		expect(row?.step).toBeNull();
+		expect(row?.unit).toBeNull();
+		expect(row?.status).toBe("abandoned");
+	});
+
+	test("waiting_for_user persists waiting run status until new workflow progress arrives", async () => {
+		const runId = `run-waiting-${Date.now()}`;
+
+		const runningResult = await expectTaskRight(
+			executeEmit(
+				makeInput({
+					type: "status_change",
+					runId,
+					step: "build",
+					data: { status: "running", workflow: "build", feature: "feat" },
+				}),
+			),
+		);
+		expect(runningResult.data.runStatus).toBe("running");
+
+		const waitingResult = await expectTaskRight(
+			executeEmit(
+				makeInput({
+					type: "waiting_for_user",
+					runId,
+					step: "build",
+					data: { workflow: "build", feature: "feat", prompt: "Need approval" },
+				}),
+			),
+		);
+		expect(waitingResult.data.runStatus).toBe("waiting");
+
+		let db = await expectTaskRight(getEmitDatabase(dbPath));
+		let run = getRunById(db, runId);
+		expect(run?.status).toBe("waiting");
+
+		let snapshot = getActiveRunsSnapshot(db);
+		expect(
+			snapshot
+				.find((record) => record.id === runId)
+				?.steps.some(
+					(step) => step.step === "build" && step.status === "waiting",
+				),
+		).toBe(true);
+
+		const resumedResult = await expectTaskRight(
+			executeEmit(
+				makeInput({
+					type: "status_change",
+					runId,
+					step: "verify",
+					data: { status: "running", workflow: "build", feature: "feat" },
+				}),
+			),
+		);
+		expect(resumedResult.data.runStatus).toBe("running");
+
+		db = await expectTaskRight(getEmitDatabase(dbPath));
+		run = getRunById(db, runId);
+		expect(run?.status).toBe("running");
+
+		snapshot = getActiveRunsSnapshot(db);
+		expect(
+			snapshot
+				.find((record) => record.id === runId)
+				?.steps.some(
+					(step) => step.step === "verify" && step.status === "running",
+				),
+		).toBe(true);
+	});
+
+	test("inactive reclassification is cleared by newer executeEmit workflow progress", async () => {
+		const runId = `run-inactive-${Date.now()}`;
+
+		await expectTaskRight(
+			executeEmit(
+				makeInput({
+					type: "status_change",
+					runId,
+					step: "build",
+					data: { status: "running", workflow: "build", feature: "feat" },
+				}),
+			),
+		);
+
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		db.prepare("UPDATE runs SET updated_at = ? WHERE id = ?").run(
+			"2026-04-10T00:00:00.000Z",
+			runId,
+		);
+
+		const reclassified = reclassifyInactiveRuns(
+			db,
+			new Date("2026-04-13T12:00:00.000Z"),
+		);
+		expect(reclassified).toHaveLength(1);
+		expect(reclassified[0]).toMatchObject({
+			runId,
+			previousStatus: "running",
+			runStatus: "inactive",
+		});
+		expect(getRunById(db, runId)?.status).toBe("inactive");
+		expect(
+			getActiveRunsSnapshot(db).find((record) => record.id === runId),
+		).toBeUndefined();
+
+		const resumedResult = await expectTaskRight(
+			executeEmit(
+				makeInput({
+					type: "status_change",
+					runId,
+					step: "verify",
+					data: { status: "running", workflow: "build", feature: "feat" },
+				}),
+			),
+		);
+		expect(resumedResult.data.runStatus).toBe("running");
+
+		expect(getRunById(db, runId)?.status).toBe("running");
+		expect(
+			getActiveRunsSnapshot(db).find((record) => record.id === runId),
+		).toBeDefined();
+	});
 });
 
 describe("Phase 2 integration: run resumption end-to-end", () => {
@@ -215,6 +380,41 @@ describe("Phase 2 integration: run resumption end-to-end", () => {
 		await expectTaskRight(executeEmit(input1));
 
 		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const result = findOrCreateRun(db, {
+			flow: "build",
+			featureId,
+			projectPath: tempDir,
+		});
+
+		expect(result.runId).not.toBe(runId);
+		expect(result.resumed).toBe(false);
+	});
+
+	test("resume-run creates a new run after a previous run is cancelled via end-run", async () => {
+		const runId = `run-cancelled-${Date.now()}`;
+		const featureId = "feat-cancelled-e2e";
+
+		await expectTaskRight(
+			executeEmit({
+				type: "status_change",
+				runId,
+				step: "requirements",
+				data: { status: "running", workflow: "build", feature: featureId },
+				projectPath: tempDir,
+			}),
+		);
+
+		await expectTaskRight(
+			executeEndRun({
+				runId,
+				outcome: "cancelled",
+				reason: "Superseded by a newer run",
+			}),
+		);
+
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		expect(getRunById(db, runId)?.status).toBe("cancelled");
+
 		const result = findOrCreateRun(db, {
 			flow: "build",
 			featureId,

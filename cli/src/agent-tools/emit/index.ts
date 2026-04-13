@@ -24,7 +24,9 @@ import {
 	type ArtifactInput,
 	type ArtifactStorageRoot,
 	deriveRunStatus,
+	type EndRunOutcome,
 	type EventInput,
+	endRun,
 	getEmitDatabase,
 	getRunById,
 	getSkippableSteps,
@@ -78,6 +80,12 @@ const classifyArtifactType = (filePath: string): string => {
 interface SkippedAndPredecessorResult {
 	readonly skippedSteps: readonly string[];
 	readonly completedPredecessors: readonly string[];
+}
+
+interface EndRunExecutionInput {
+	readonly runId: string;
+	readonly outcome: EndRunOutcome;
+	readonly reason?: string;
 }
 
 /**
@@ -549,6 +557,84 @@ export const executeEmit = (
 				),
 			);
 		}),
+	);
+
+export const executeEndRun = (
+	input: EndRunExecutionInput,
+): TE.TaskEither<CLIError, ToolResult<EmitResult>> =>
+	pipe(
+		getEmitDatabase(),
+		TE.chain((db) =>
+			pipe(
+				TE.fromEither(
+					endRun(db, {
+						runId: input.runId,
+						outcome: input.outcome,
+						message: input.reason,
+						actor: "user",
+					}),
+				),
+				TE.map(({ event, run, runStatus }) => {
+					const eventData: Record<string, unknown> = {
+						status: input.outcome,
+						actor: "user",
+						source: "manual_end",
+						feature: run.featureId,
+					};
+					if (input.reason) {
+						eventData.message = input.reason;
+					}
+
+					const notification = maybeGenerateNotification(
+						db,
+						input.runId,
+						runStatus,
+						"status_change",
+						run.projectId,
+						run.flow !== "unknown" ? run.flow : null,
+						null,
+						eventData,
+					);
+
+					return {
+						event,
+						run,
+						runStatus,
+						notification,
+						eventData,
+					};
+				}),
+				TE.chainFirst(({ event, run, runStatus, notification, eventData }) =>
+					TE.fromTask(async () => {
+						if (process.env.RP1_EVAL_MODE === "true") return;
+						await notifyDaemon(
+							{
+								type: "status_change",
+								runId: input.runId,
+								workflow: run.flow,
+								data: eventData,
+								projectPath: run.projectPath,
+							},
+							run,
+							runStatus,
+							event.id,
+						);
+						if (notification) {
+							await notifyDaemonNotification(notification);
+						}
+					}),
+				),
+				TE.map(
+					({ event, runStatus }): ToolResult<EmitResult> =>
+						successResult(TOOL_NAME, {
+							eventId: event.id,
+							runId: input.runId,
+							type: "status_change",
+							runStatus,
+						}),
+				),
+			),
+		),
 	);
 
 /**

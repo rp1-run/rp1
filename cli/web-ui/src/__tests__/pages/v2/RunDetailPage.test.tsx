@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+	act,
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { WorkspaceTabsProvider } from "@/hooks/useWorkspaceTabs";
@@ -12,6 +19,8 @@ import type { Run } from "@/types/runs";
 
 let importVersion = 0;
 let latestRegistry: ShortcutRegistryData | null = null;
+const refetchMock = mock(() => {});
+let fetchMock: ReturnType<typeof mock>;
 
 const breadcrumbApi = {
 	setActiveArtifact: mock(() => {}),
@@ -23,7 +32,7 @@ const webSocketApi = {
 	setProjectId: mock(() => {}),
 };
 
-const run: Run = {
+let run: Run = {
 	id: "run-1",
 	projectId: "proj-1",
 	projectName: "Project One",
@@ -81,7 +90,7 @@ mock.module("@/hooks/useRunDetail", () => ({
 		run,
 		isLoading: false,
 		error: null,
-		refetch: mock(() => {}),
+		refetch: refetchMock,
 	}),
 }));
 
@@ -157,10 +166,23 @@ describe("RunDetailPage", () => {
 		document.body.innerHTML = "";
 		sessionStorage.clear();
 		latestRegistry = null;
+		fetchMock = mock(() =>
+			Promise.resolve({
+				ok: true,
+				json: () => Promise.resolve({ runStatus: "cancelled" }),
+			}),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
 		breadcrumbApi.setActiveArtifact.mockClear();
 		breadcrumbApi.setProject.mockClear();
 		breadcrumbApi.setRunInfo.mockClear();
 		webSocketApi.setProjectId.mockClear();
+		refetchMock.mockClear();
+		run = {
+			...run,
+			status: "running",
+			statusMessage: null,
+		};
 	});
 
 	afterEach(() => {
@@ -229,5 +251,20 @@ describe("RunDetailPage", () => {
 		for (const panel of screen.getAllByTestId("artifact-panel-frontmatter")) {
 			expect(panel.textContent).toBe("true");
 		}
+	});
+
+	test("posts explicit end-run actions from the detail header", async () => {
+		await renderRunDetail();
+
+		fireEvent.click(screen.getByRole("button", { name: "Cancel Run" }));
+
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledWith("/api/v2/runs/run-1/end", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ outcome: "cancelled" }),
+			});
+		});
+		expect(refetchMock).toHaveBeenCalledTimes(1);
 	});
 });

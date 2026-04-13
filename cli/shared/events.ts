@@ -141,11 +141,20 @@ export const VALID_ARTIFACT_TYPES: readonly ArtifactType[] = [
 
 export type WorkflowRunPolicy = "fresh" | "resumable";
 
+export type StatusChangeActor = "user" | "system" | "agent";
+
+export type StatusChangeSource =
+	| "workflow"
+	| "manual_end"
+	| "inactivity_reaper";
+
 /** Per-type payload interfaces */
 
 export interface StatusChangePayload {
 	readonly status: Status;
 	readonly message?: string;
+	readonly actor?: StatusChangeActor;
+	readonly source?: StatusChangeSource;
 }
 
 export interface ArtifactRegisteredPayload {

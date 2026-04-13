@@ -47,31 +47,46 @@ The first step with any existing codebase is building a **knowledge base**. This
 
 ### Expected Output
 
-After the command completes, you'll see:
+After the command completes, the final report ends with a summary like:
 
 ```
-READY [monorepo: 2 projects]
+Knowledge Base Generated Successfully
+Repository: single-project
+Files Analyzed: 142
+
+Files Written:
+- .rp1/context/index.md
+- .rp1/context/concept_map.md
+- .rp1/context/architecture.md
+- .rp1/context/interaction-model.md
+- .rp1/context/modules.md
+- .rp1/context/patterns.md
 ```
 
-or for a single project:
+If nothing changed since the last successful build, you'll instead see a short
+up-to-date message such as:
 
 ```
-READY [single-project]
+KB is up-to-date (commit a1b2c3d). No regeneration needed.
 ```
 
 ---
 
 ## What Just Happened?
 
-The `knowledge-build` skill analyzed your codebase and created knowledge base files in `.rp1/context/`.
+The `knowledge-build` skill analyzed your codebase and updated the knowledge
+base files in `.rp1/context/`.
 
 !!! info "KB File Reference"
     See [What's in the Knowledge Base?](../concepts/knowledge-aware-agents.md#whats-in-the-knowledge-base) for the complete list of generated files and their purposes.
 
-Future rp1 skills use this knowledge base to understand your codebase context, making their outputs more accurate and relevant.
+Future rp1 skills use this knowledge base automatically to understand your
+codebase context, making their outputs more accurate and relevant. This is a
+passive workflow, so it does not create an Arcade run.
 
 !!! tip "Incremental Updates"
-    First builds take 10-15 minutes for large projects. Subsequent runs are incremental and complete in 2-5 minutes.
+    First builds take 10-15 minutes for large projects. Subsequent runs are
+    incremental and usually complete in 2-5 minutes.
 
 ---
 

@@ -21,6 +21,7 @@ import {
 	countEventsSince,
 	deleteAnnotation,
 	deriveRunStatus,
+	endRun,
 	findOrCreateRun,
 	findOrCreateWorkflowRun,
 	getActiveRunsSnapshot,
@@ -29,6 +30,7 @@ import {
 	getAnnotationsForRun,
 	getArtifactByDocId,
 	getArtifactsForRun,
+	getEffectiveStepStatuses,
 	getEmitDatabase,
 	getEventsForRun,
 	getEventsSince,
@@ -42,13 +44,14 @@ import {
 	insertRun,
 	listRuns,
 	normalizeArtifactStorage,
+	reclassifyInactiveRuns,
 	resetInstance,
 	resolveArtifactPathForRun,
 	updateAnnotation,
 	upsertAnnotation,
 	upsertArtifact,
 } from "../../../agent-tools/emit/database.js";
-import { expectTaskRight } from "../../helpers/index.js";
+import { expectRight, expectTaskRight } from "../../helpers/index.js";
 
 describe("emit database", () => {
 	let tempDir: string;
@@ -551,6 +554,16 @@ describe("emit database", () => {
 				"idx_runs_status_updated",
 			);
 
+			const runsTableSql = db
+				.prepare(
+					"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'runs'",
+				)
+				.get() as { sql: string } | null;
+			expect(runsTableSql?.sql).toContain("'inactive'");
+			expect(runsTableSql?.sql).toContain("'cancelled'");
+			expect(runsTableSql?.sql).toContain("'abandoned'");
+			expect(runsTableSql?.sql).toContain("'skipped'");
+
 			const rows = db
 				.prepare("SELECT id, status FROM runs ORDER BY id ASC")
 				.all() as {
@@ -578,6 +591,16 @@ describe("emit database", () => {
 						id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root, rp1_work_root, status
 					) VALUES (
 						'cancelled-run', 'build', 'feat', '/project', '/project', '/project/.rp1/context', '/project/.rp1/work', 'cancelled'
+					)`,
+				).run();
+			}).not.toThrow();
+
+			expect(() => {
+				db.prepare(
+					`INSERT INTO runs (
+						id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root, rp1_work_root, status
+					) VALUES (
+						'abandoned-run', 'build', 'feat', '/project', '/project', '/project/.rp1/context', '/project/.rp1/work', 'abandoned'
 					)`,
 				).run();
 			}).not.toThrow();
@@ -1382,6 +1405,70 @@ describe("emit database", () => {
 			expect(status).toBe("waiting");
 		});
 
+		test("persists waiting when waiting_for_user is newer than workflow progress", async () => {
+			const dbPath = join(tempDir, "derive-waiting-overlay.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-waiting-overlay",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-waiting-overlay",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-waiting-overlay",
+				type: "waiting_for_user",
+				step: "build",
+				data: JSON.stringify({ prompt: "Need approval" }),
+			});
+
+			const status = deriveRunStatus(db, "run-waiting-overlay");
+
+			expect(status).toBe("waiting");
+		});
+
+		test("newer workflow progress clears the waiting overlay", async () => {
+			const dbPath = join(tempDir, "derive-waiting-cleared.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-waiting-cleared",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-waiting-cleared",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-waiting-cleared",
+				type: "waiting_for_user",
+				step: "build",
+				data: JSON.stringify({ prompt: "Need approval" }),
+			});
+			insertEvent(db, {
+				runId: "run-waiting-cleared",
+				type: "status_change",
+				step: "verify",
+				data: JSON.stringify({ status: "running" }),
+			});
+
+			const status = deriveRunStatus(db, "run-waiting-cleared");
+
+			expect(status).toBe("running");
+		});
+
 		test("derives completed when all steps are completed or skipped", async () => {
 			const dbPath = join(tempDir, "derive-completed.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
@@ -1575,6 +1662,36 @@ describe("emit database", () => {
 			expect(status).toBe("completed");
 		});
 
+		test("child failures after parent completion do not fail the parent run", async () => {
+			const dbPath = join(tempDir, "derive-late-child-failure.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-late-child-failure",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-late-child-failure",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "completed" }),
+			});
+			insertEvent(db, {
+				runId: "run-late-child-failure",
+				type: "status_change",
+				step: "task-reviewer:failed",
+				unit: "T4",
+				data: JSON.stringify({ status: "failed" }),
+			});
+
+			const status = deriveRunStatus(db, "run-late-child-failure");
+
+			expect(status).toBe("completed");
+		});
+
 		test("keeps units independent within the same sub-agent namespace", async () => {
 			const dbPath = join(tempDir, "derive-logical-units.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
@@ -1636,6 +1753,44 @@ describe("emit database", () => {
 
 			expect(status).toBe("completed");
 			expect(completionEvents).toHaveLength(1);
+		});
+
+		test("manual end-run remains sticky after later workflow events", async () => {
+			const dbPath = join(tempDir, "derive-sticky-end-run.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-sticky-end-run",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-sticky-end-run",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+
+			expectRight(
+				endRun(db, {
+					runId: "run-sticky-end-run",
+					outcome: "cancelled",
+					message: "Stopped intentionally",
+				}),
+			);
+
+			insertEvent(db, {
+				runId: "run-sticky-end-run",
+				type: "status_change",
+				step: "verify",
+				data: JSON.stringify({ status: "running" }),
+			});
+
+			const status = deriveRunStatus(db, "run-sticky-end-run");
+
+			expect(status).toBe("cancelled");
 		});
 	});
 
@@ -1806,6 +1961,172 @@ describe("emit database", () => {
 			expect(buildStep?.status).toBe("completed");
 			expect(verifyStep?.status).toBe("running");
 			expect(statuses).toHaveLength(2);
+		});
+	});
+
+	describe("getEffectiveStepStatuses", () => {
+		test("projects waiting onto the current workflow step", async () => {
+			const dbPath = join(tempDir, "effective-step-statuses-waiting.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-effective-waiting",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-effective-waiting",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-effective-waiting",
+				type: "waiting_for_user",
+				step: "build",
+				data: JSON.stringify({ prompt: "Need approval" }),
+			});
+
+			const statuses = getEffectiveStepStatuses(db, "run-effective-waiting");
+
+			expect(statuses).toEqual([
+				{
+					step: "build",
+					status: "waiting",
+					concreteStep: "build",
+					unit: null,
+				},
+			]);
+		});
+	});
+
+	describe("inactive reclassification", () => {
+		test("reclassifies stale running runs to inactive and lets new activity revive them", async () => {
+			const dbPath = join(tempDir, "inactive-reclassify.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-inactive",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+			insertEvent(db, {
+				runId: "run-inactive",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-inactive");
+
+			db.prepare("UPDATE runs SET updated_at = ? WHERE id = ?").run(
+				"2026-04-10T00:00:00.000Z",
+				"run-inactive",
+			);
+
+			const reclassified = reclassifyInactiveRuns(
+				db,
+				new Date("2026-04-13T12:00:00.000Z"),
+			);
+
+			expect(reclassified).toHaveLength(1);
+			expect(reclassified[0]).toMatchObject({
+				runId: "run-inactive",
+				previousStatus: "running",
+				runStatus: "inactive",
+			});
+
+			let run = getRunById(db, "run-inactive");
+			expect(run?.status).toBe("inactive");
+
+			insertEvent(db, {
+				runId: "run-inactive",
+				type: "status_change",
+				step: "verify",
+				data: JSON.stringify({ status: "running" }),
+			});
+
+			expect(deriveRunStatus(db, "run-inactive")).toBe("running");
+			run = getRunById(db, "run-inactive");
+			expect(run?.status).toBe("running");
+		});
+	});
+
+	describe("endRun", () => {
+		test("writes a stepless cancelled lifecycle event", async () => {
+			const dbPath = join(tempDir, "end-run-cancelled.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-end-run",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+			insertEvent(db, {
+				runId: "run-end-run",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-end-run");
+
+			const result = expectRight(
+				endRun(db, {
+					runId: "run-end-run",
+					outcome: "cancelled",
+					message: "Superseded by a newer run",
+				}),
+			);
+
+			expect(result.runStatus).toBe("cancelled");
+
+			const events = getEventsForRun(db, "run-end-run");
+			const terminalEvent = events.at(-1);
+
+			expect(terminalEvent?.step).toBeNull();
+			expect(terminalEvent?.unit).toBeNull();
+			expect(terminalEvent?.data).not.toBeNull();
+			expect(JSON.parse(terminalEvent?.data ?? "{}")).toMatchObject({
+				status: "cancelled",
+				message: "Superseded by a newer run",
+				actor: "user",
+				source: "manual_end",
+			});
+		});
+
+		test("rejects runs that are already terminal", async () => {
+			const dbPath = join(tempDir, "end-run-terminal.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-end-run-terminal",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+			insertEvent(db, {
+				runId: "run-end-run-terminal",
+				type: "status_change",
+				step: "verify",
+				data: JSON.stringify({ status: "completed" }),
+			});
+			deriveRunStatus(db, "run-end-run-terminal");
+
+			const result = endRun(db, {
+				runId: "run-end-run-terminal",
+				outcome: "abandoned",
+			});
+
+			expect(result._tag).toBe("Left");
+			if (result._tag === "Left") {
+				expect(result.left._tag).toBe("RuntimeError");
+				if (result.left._tag === "RuntimeError") {
+					expect(result.left.message).toContain("already terminal");
+				}
+			}
 		});
 	});
 
@@ -2019,6 +2340,65 @@ describe("emit database", () => {
 
 			expect(result.runId).not.toBe("run-done");
 			expect(result.resumed).toBe(false);
+		});
+
+		test("creates a new run after a previous run is cancelled", async () => {
+			const dbPath = join(tempDir, "resume-cancelled.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-cancelled",
+				flow: "build",
+				featureId: "feat-cancelled",
+				projectPath: "/project/cancelled",
+			});
+			insertEvent(db, {
+				runId: "run-cancelled",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-cancelled");
+			expectRight(
+				endRun(db, {
+					runId: "run-cancelled",
+					outcome: "cancelled",
+				}),
+			);
+
+			const result = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-cancelled",
+				projectPath: "/project/cancelled",
+			});
+
+			expect(result.runId).not.toBe("run-cancelled");
+			expect(result.resumed).toBe(false);
+		});
+
+		test("resumes legacy skipped runs because skipped is no longer terminal", async () => {
+			const dbPath = join(tempDir, "resume-skipped.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-skipped",
+				flow: "build",
+				featureId: "feat-skipped",
+				projectPath: "/project/skipped",
+			});
+
+			db.prepare("UPDATE runs SET status = 'skipped' WHERE id = ?").run(
+				"run-skipped",
+			);
+
+			const result = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-skipped",
+				projectPath: "/project/skipped",
+			});
+
+			expect(result.runId).toBe("run-skipped");
+			expect(result.resumed).toBe(true);
 		});
 
 		test("creates new run when no runs exist for feature", async () => {
@@ -2402,6 +2782,47 @@ describe("emit database", () => {
 			const completedRun = getRunById(db, "run-workflow-completed");
 			expect(completedRun?.status).toBe("completed");
 		});
+
+		test("resumes skipped workflow rows because skipped is no longer terminal", async () => {
+			const dbPath = join(tempDir, "workflow-run-skipped.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-workflow-skipped",
+				flow: "build",
+				featureId: "feat-skipped",
+				projectPath: "/project/skipped",
+				rp1ProjectRoot: "/project/skipped",
+				rp1KbRoot: "/project/skipped/.rp1/context",
+				rp1WorkRoot: "/project/skipped/.rp1/work",
+				projectId: "project-skipped-id",
+				runPolicy: "resumable",
+				workIdentity: "FEATURE_ID=feat-skipped",
+				bootstrapContext: '{"run":{"decision":"created_new_run"}}',
+			});
+
+			db.prepare("UPDATE runs SET status = 'skipped' WHERE id = ?").run(
+				"run-workflow-skipped",
+			);
+
+			const result = findOrCreateWorkflowRun(db, {
+				flow: "build",
+				featureId: "feat-skipped",
+				projectPath: "/project/skipped",
+				rp1ProjectRoot: "/project/skipped",
+				rp1KbRoot: "/project/skipped/.rp1/context",
+				rp1WorkRoot: "/project/skipped/.rp1/work",
+				projectId: "project-skipped-id",
+				runPolicy: "resumable",
+				workIdentity: "FEATURE_ID=feat-skipped",
+				bootstrapContext: '{"run":{"decision":"matched_non_terminal_run"}}',
+				harness: "codex",
+			});
+
+			expect(result.run.id).toBe("run-workflow-skipped");
+			expect(result.resumed).toBe(true);
+			expect(result.decision).toBe("matched_non_terminal_run");
+		});
 	});
 
 	describe("legacy cleanup", () => {
@@ -2746,6 +3167,59 @@ describe("emit database", () => {
 
 			expect(doneRun).toBeUndefined();
 			expect(activeRun).toBeDefined();
+		});
+
+		test("excludes inactive runs from the live snapshot", async () => {
+			const dbPath = join(tempDir, "snapshot-inactive.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-snap-inactive",
+				flow: "build",
+				featureId: "feat-inactive",
+				projectPath: "/p/snap",
+			});
+			insertEvent(db, {
+				runId: "run-snap-inactive",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-snap-inactive");
+			db.prepare("UPDATE runs SET updated_at = ? WHERE id = ?").run(
+				"2026-04-10T00:00:00.000Z",
+				"run-snap-inactive",
+			);
+			reclassifyInactiveRuns(db, new Date("2026-04-13T12:00:00.000Z"));
+
+			insertRun(db, {
+				id: "run-snap-waiting",
+				flow: "build",
+				featureId: "feat-waiting",
+				projectPath: "/p/snap",
+			});
+			insertEvent(db, {
+				runId: "run-snap-waiting",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-snap-waiting",
+				type: "waiting_for_user",
+				step: "build",
+				data: JSON.stringify({ prompt: "Need review" }),
+			});
+			deriveRunStatus(db, "run-snap-waiting");
+
+			const snapshot = getActiveRunsSnapshot(db);
+
+			expect(
+				snapshot.find((run) => run.id === "run-snap-inactive"),
+			).toBeUndefined();
+			expect(
+				snapshot.find((run) => run.id === "run-snap-waiting"),
+			).toBeDefined();
 		});
 
 		test("returns empty array when no active runs exist", async () => {

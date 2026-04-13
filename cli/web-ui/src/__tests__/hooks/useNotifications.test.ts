@@ -10,11 +10,11 @@ type NotificationCallback = (msg: NotificationMessage) => void;
 type ReconnectCallback = () => void;
 
 let notificationListeners: NotificationCallback[] = [];
-let reconnectListeners: ReconnectCallback[] = [];
 let notifications: NotificationListItem[] = [];
 let fetchMock: ReturnType<typeof mock>;
 let useNotificationsImportVersion = 0;
 let currentProjectId: string | null = null;
+let reconnectRecovery: ReconnectCallback | null = null;
 
 function createNotification(
 	id: number,
@@ -97,16 +97,15 @@ async function loadUseNotifications() {
 					);
 				};
 			},
-			subscribeToReconnect: (callback: ReconnectCallback) => {
-				reconnectListeners.push(callback);
-				return () => {
-					reconnectListeners = reconnectListeners.filter(
-						(listener) => listener !== callback,
-					);
-				};
-			},
 			projectId: currentProjectId,
 		}),
+	}));
+	mock.module("../../hooks/useReconnectRecovery.ts", () => ({
+		useReconnectRecovery: (recover: () => void | Promise<void>) => {
+			reconnectRecovery = () => {
+				void recover();
+			};
+		},
 	}));
 
 	return import(
@@ -117,7 +116,7 @@ async function loadUseNotifications() {
 beforeEach(() => {
 	mock.restore();
 	notificationListeners = [];
-	reconnectListeners = [];
+	reconnectRecovery = null;
 	currentProjectId = null;
 	notifications = [
 		createNotification(7, {
@@ -179,7 +178,6 @@ beforeEach(() => {
 afterEach(() => {
 	cleanup();
 	notificationListeners = [];
-	reconnectListeners = [];
 	mock.restore();
 });
 
@@ -240,9 +238,8 @@ describe("useNotifications", () => {
 		});
 
 		act(() => {
-			for (const listener of reconnectListeners) {
-				listener();
-			}
+			expect(reconnectRecovery).not.toBeNull();
+			reconnectRecovery?.();
 		});
 
 		await waitFor(() => {

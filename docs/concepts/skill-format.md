@@ -189,7 +189,16 @@ Each argument object:
 | `default` | any | No | Default value when not provided |
 | `variadic` | boolean | No | Accept remaining positional input as this argument |
 | `aliases` | array | No | Alternative phrasings that resolve to this argument |
+| `implies` | array | No | Argument names that should also resolve when this argument is enabled |
 | `enum_values` | array | No | Allowed values (required when `type` is `enum`) |
+| `source` | object | No | External source for the value. Currently supports `{ env: "ENV_VAR" }` |
+
+`implies` is most useful for cascading boolean flags such as `GIT_PR`
+automatically implying `GIT_PUSH` and `GIT_COMMIT`.
+
+Use `source: { env: "ENV_VAR" }` when an argument should read from the
+environment during `resolve-args` instead of relying only on direct user input
+or schema defaults.
 
 ### `sub_agents`
 

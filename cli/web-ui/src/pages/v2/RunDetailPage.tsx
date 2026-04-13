@@ -1,6 +1,7 @@
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import {
 	ResizableHandle,
 	ResizablePanel,
@@ -8,6 +9,7 @@ import {
 } from "@/components/ui/resizable";
 import { ArtifactViewerPanel } from "@/components/v2/ArtifactViewerPanel";
 import { RunInvocationCard } from "@/components/v2/RunInvocationCard";
+import { StatusBadge } from "@/components/v2/StatusBadge";
 import { VerticalStepList } from "@/components/v2/VerticalStepList";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
@@ -26,6 +28,12 @@ const STORAGE_KEY_RUN_DETAIL_METADATA_VISIBLE =
 	"rp1-run-detail-metadata-visible";
 const STORAGE_KEY_ARTIFACT_FRONTMATTER_VISIBLE =
 	"rp1-artifact-frontmatter-visible";
+const TERMINAL_RUN_STATUSES = new Set([
+	"completed",
+	"failed",
+	"cancelled",
+	"abandoned",
+]);
 
 function MobileStepSelector({
 	steps,
@@ -64,6 +72,10 @@ export function RunDetailPage() {
 	const { runId, stepId: urlStepId, docId: urlDocId } = useParams();
 	const navigate = useNavigate();
 	const { run, isLoading, error, refetch } = useRunDetail(runId);
+	const [endingOutcome, setEndingOutcome] = useState<
+		"cancelled" | "abandoned" | null
+	>(null);
+	const [endRunError, setEndRunError] = useState<string | null>(null);
 	const [showMetadata, setShowMetadata] = useState<boolean>(() => {
 		if (typeof window === "undefined") return false;
 		return (
@@ -104,6 +116,13 @@ export function RunDetailPage() {
 		if (!selectedStepId || !run) return null;
 		return run.steps.find((s) => s.id === selectedStepId) ?? null;
 	}, [selectedStepId, run]);
+	const currentStepName = useMemo(() => {
+		if (!run?.currentStep) return null;
+		return (
+			run.steps.find((step) => step.id === run.currentStep)?.name ??
+			run.currentStep
+		);
+	}, [run]);
 
 	const stepArtifacts = useMemo(() => {
 		if (!selectedStepId || !run) return [];
@@ -143,6 +162,45 @@ export function RunDetailPage() {
 			return next;
 		});
 	}, []);
+
+	const handleEndRun = useCallback(
+		async (outcome: "cancelled" | "abandoned") => {
+			if (!runId) return;
+
+			setEndingOutcome(outcome);
+			setEndRunError(null);
+
+			try {
+				const response = await fetch(`/api/v2/runs/${runId}/end`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ outcome }),
+				});
+
+				if (!response.ok) {
+					let message = `Failed to end run: ${response.statusText}`;
+					try {
+						const errorBody = (await response.json()) as { error?: string };
+						if (typeof errorBody.error === "string") {
+							message = errorBody.error;
+						}
+					} catch {
+						// Ignore body parse failures and fall back to status text
+					}
+					throw new Error(message);
+				}
+
+				refetch();
+			} catch (err) {
+				setEndRunError(
+					err instanceof Error ? err.message : "Failed to end run",
+				);
+			} finally {
+				setEndingOutcome(null);
+			}
+		},
+		[runId, refetch],
+	);
 
 	useEffect(() => {
 		if (run?.projectName && run?.projectId) {
@@ -352,11 +410,58 @@ export function RunDetailPage() {
 		);
 	}
 
+	const canEndRun = !TERMINAL_RUN_STATUSES.has(run.status);
+	const statusMessage = run.statusMessage ?? run.error;
+
 	return (
 		<div className="flex h-full flex-col">
 			{showMetadata && <RunInvocationCard invocation={run.invocation} />}
 
-			{/* Desktop: two-panel resizable layout */}
+			<div className="border-b border-border bg-surface-base/60 px-md py-sm">
+				<div className="flex flex-col gap-sm lg:flex-row lg:items-start lg:justify-between">
+					<div className="min-w-0 space-y-2">
+						<div className="flex flex-wrap items-center gap-sm">
+							<StatusBadge status={run.status} size="sm" />
+							{currentStepName && (
+								<span className="type-secondary text-fg-ghost">
+									Current step: {currentStepName}
+								</span>
+							)}
+						</div>
+						{statusMessage && (
+							<p className="type-secondary text-fg-muted">{statusMessage}</p>
+						)}
+					</div>
+
+					{canEndRun && (
+						<div className="flex flex-wrap items-center gap-xs">
+							<Button
+								type="button"
+								size="sm"
+								variant="outline"
+								disabled={endingOutcome !== null}
+								onClick={() => handleEndRun("abandoned")}
+							>
+								{endingOutcome === "abandoned" ? "Abandoning..." : "Abandon"}
+							</Button>
+							<Button
+								type="button"
+								size="sm"
+								variant="destructive"
+								disabled={endingOutcome !== null}
+								onClick={() => handleEndRun("cancelled")}
+							>
+								{endingOutcome === "cancelled" ? "Cancelling..." : "Cancel Run"}
+							</Button>
+						</div>
+					)}
+				</div>
+
+				{endRunError && (
+					<p className="pt-xs type-secondary text-failure">{endRunError}</p>
+				)}
+			</div>
+
 			<div className="hidden md:flex flex-1 min-h-0">
 				<ResizablePanelGroup direction="horizontal">
 					<ResizablePanel
@@ -395,7 +500,6 @@ export function RunDetailPage() {
 				</ResizablePanelGroup>
 			</div>
 
-			{/* Mobile: stacked layout with horizontal step selector */}
 			<div className="flex flex-col flex-1 min-h-0 md:hidden">
 				<MobileStepSelector
 					steps={displaySteps}

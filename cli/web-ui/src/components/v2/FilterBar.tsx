@@ -23,9 +23,12 @@ type StatusTab = RunStatus | "all";
 const STATUS_TABS: { value: StatusTab; label: string }[] = [
 	{ value: "all", label: "All" },
 	{ value: "running", label: getStatusLabel("running") },
+	{ value: "waiting", label: getStatusLabel("waiting") },
+	{ value: "inactive", label: getStatusLabel("inactive") },
 	{ value: "completed", label: getStatusLabel("completed") },
 	{ value: "failed", label: getStatusLabel("failed") },
-	{ value: "waiting", label: getStatusLabel("waiting") },
+	{ value: "cancelled", label: getStatusLabel("cancelled") },
+	{ value: "abandoned", label: getStatusLabel("abandoned") },
 ];
 
 const DATE_RANGES: { value: RunsFilter["dateRange"]; label: string }[] = [
@@ -95,11 +98,11 @@ export function FilterBar({
 	];
 
 	return (
-		<div className={cn("flex items-center gap-1 flex-nowrap", className)}>
+		<div className={cn("flex flex-wrap items-center gap-1", className)}>
 			<div
 				role="tablist"
 				aria-label="Filter by status"
-				className="flex shrink-0 items-center gap-1"
+				className="flex shrink-0 flex-wrap items-center gap-1"
 			>
 				{STATUS_TABS.map((tab) => (
 					<button

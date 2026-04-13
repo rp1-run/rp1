@@ -3,13 +3,43 @@
  * Tests emptyManifest, updateManifest, and round-trip serialization.
  */
 
-import { describe, expect, test } from "bun:test";
-import { emptyManifest, migrateV1ToV2, updateManifest } from "../manifest.js";
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+	emptyManifest,
+	loadManifest,
+	migrateV1ToV2,
+	saveManifest,
+	updateManifest,
+} from "../manifest.js";
 import type {
 	AttestationManifest,
 	HashResult,
 	SkillAttestation,
 } from "../types.js";
+
+const originalCwd = process.cwd();
+let tempDirs: string[] = [];
+
+async function createManifestWorkspace() {
+	const root = await mkdtemp(join(tmpdir(), "rp1-manifest-"));
+	tempDirs.push(root);
+	await mkdir(join(root, "evals"), { recursive: true });
+	return {
+		root,
+		manifestPath: join(root, "evals", "attestation.json"),
+	};
+}
+
+afterEach(async () => {
+	process.chdir(originalCwd);
+	await Promise.all(
+		tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
+	);
+	tempDirs = [];
+});
 
 describe("manifest", () => {
 	describe("emptyManifest", () => {
@@ -46,6 +76,80 @@ describe("manifest", () => {
 			const manifest2 = emptyManifest();
 
 			expect(manifest1).toEqual(manifest2);
+		});
+	});
+
+	describe("loadManifest", () => {
+		test("returns an empty manifest when attestation.json is missing", async () => {
+			const { root } = await createManifestWorkspace();
+			process.chdir(root);
+
+			const result = await loadManifest()();
+
+			expect(result._tag).toBe("Right");
+			if (result._tag === "Left") {
+				throw result.left;
+			}
+			expect(result.right).toEqual(emptyManifest());
+		});
+
+		test("migrates v1 manifests to v2 when loading from disk", async () => {
+			const { root, manifestPath } = await createManifestWorkspace();
+			process.chdir(root);
+
+			const v1Manifest: AttestationManifest = {
+				schema_version: "1.0.0",
+				skills: {
+					"rp1-dev:build-fast": {
+						platform: "claude-code",
+						prompt_hash: "sha256:abc123",
+						deps_hash: "sha256:def456",
+						version: "1.0.0",
+						last_eval: {
+							passed: true,
+							timestamp: "2026-01-18T12:00:00Z",
+							git_commit: "abc1234",
+							result_file: "output/test-result.json",
+						},
+					},
+				},
+				files: {
+					"plugins/dev/skills/build-fast/SKILL.md": "sha256:abc123",
+				},
+			};
+
+			await writeFile(
+				manifestPath,
+				JSON.stringify(v1Manifest, null, 2),
+				"utf-8",
+			);
+
+			const result = await loadManifest()();
+
+			expect(result._tag).toBe("Right");
+			if (result._tag === "Left") {
+				throw result.left;
+			}
+			expect(result.right).toEqual(migrateV1ToV2(v1Manifest));
+		});
+	});
+
+	describe("saveManifest", () => {
+		test("writes pretty-printed JSON with a trailing newline", async () => {
+			const { root, manifestPath } = await createManifestWorkspace();
+			process.chdir(root);
+			const manifest = emptyManifest();
+
+			const result = await saveManifest(manifest)();
+
+			expect(result._tag).toBe("Right");
+			if (result._tag === "Left") {
+				throw result.left;
+			}
+
+			const saved = await readFile(manifestPath, "utf-8");
+			expect(saved.endsWith("\n")).toBe(true);
+			expect(JSON.parse(saved)).toEqual(manifest);
 		});
 	});
 
