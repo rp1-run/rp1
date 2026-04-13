@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (12);
+INSERT INTO schema_version (version) VALUES (13);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -954,16 +954,16 @@ const applyMigrations = (db: Database): void => {
 		db.prepare("UPDATE schema_version SET version = 12").run();
 	}
 
-	const postV11Version = db
+	const postV12Version = db
 		.prepare("SELECT version FROM schema_version LIMIT 1")
 		.get() as { version: number } | null;
 
-	if ((postV11Version?.version ?? 11) < 12) {
+	if ((postV12Version?.version ?? 12) < 13) {
 		db.exec("PRAGMA foreign_keys = OFF");
 		try {
 			db.exec("BEGIN TRANSACTION");
 			db.exec(`
-				CREATE TABLE runs_v12 (
+				CREATE TABLE runs_v13 (
 					id TEXT PRIMARY KEY NOT NULL,
 					flow TEXT NOT NULL,
 					feature_id TEXT NOT NULL,
@@ -984,7 +984,7 @@ const applyMigrations = (db: Database): void => {
 					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 				);
 
-				INSERT INTO runs_v12 (
+				INSERT INTO runs_v13 (
 					id,
 					flow,
 					feature_id,
@@ -1022,7 +1022,7 @@ const applyMigrations = (db: Database): void => {
 				FROM runs;
 
 				DROP TABLE runs;
-				ALTER TABLE runs_v12 RENAME TO runs;
+				ALTER TABLE runs_v13 RENAME TO runs;
 
 				CREATE INDEX idx_runs_project ON runs(project_path);
 				CREATE INDEX idx_runs_feature ON runs(project_path, feature_id);
@@ -1033,7 +1033,7 @@ const applyMigrations = (db: Database): void => {
 				CREATE INDEX idx_runs_project_work_identity_status ON runs(project_id, flow, work_identity, status);
 				CREATE INDEX idx_runs_root_work_identity_status ON runs(rp1_project_root, flow, work_identity, status);
 			`);
-			db.prepare("UPDATE schema_version SET version = 12").run();
+			db.prepare("UPDATE schema_version SET version = 13").run();
 			db.exec("COMMIT");
 		} catch (error) {
 			db.exec("ROLLBACK");

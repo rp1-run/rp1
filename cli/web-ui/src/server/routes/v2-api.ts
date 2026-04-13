@@ -1345,7 +1345,7 @@ export async function handleV2RunEndRequest(
 		}
 
 		const { event, run, runStatus } = result.right;
-		const projects = await getAllProjects();
+		const projects = await getAllProjects(db);
 		const projectLookup = buildProjectLookup(projects);
 		const project =
 			findProjectByIdentity(projectLookup, run) ?? fallbackProjectFromRun(run);

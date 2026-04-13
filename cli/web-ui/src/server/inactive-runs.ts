@@ -22,7 +22,7 @@ export async function reclassifyInactiveRunsWithBroadcast(
 		return reclassified;
 	}
 
-	const projects = await getAllProjects();
+	const projects = await getAllProjects(db);
 	const projectLookup = buildProjectLookup(projects);
 
 	for (const reclassification of reclassified) {
