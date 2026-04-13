@@ -36,6 +36,28 @@ import { readProjectId } from "../../../shared/project-id.js";
 const getDefaultDbPath = (): string =>
 	process.env.RP1_DB ?? join(homedir(), ".rp1", "rp1.db");
 
+/** Projects schema DDL — shared across SCHEMA_SQL, migration v12, and ensureProjectsTables. */
+const PROJECTS_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS projects (
+    id TEXT NOT NULL UNIQUE,
+    project_id TEXT,
+    path TEXT NOT NULL,
+    name TEXT NOT NULL,
+    added_at TEXT NOT NULL,
+    last_accessed_at TEXT NOT NULL,
+    available INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_path ON projects(path);
+CREATE INDEX IF NOT EXISTS idx_projects_project_id ON projects(project_id);
+CREATE INDEX IF NOT EXISTS idx_projects_last_accessed ON projects(last_accessed_at);
+
+CREATE TABLE IF NOT EXISTS project_registry_meta (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT
+);
+`;
+
 const RUN_STATUS_CHECK_SQL = RUN_STATUS_CHECK_STATUSES.map(
 	(status) => `'${status}'`,
 ).join(", ");
@@ -174,24 +196,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_project ON notifications(project_id
 CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at);
 CREATE INDEX IF NOT EXISTS idx_notifications_project_dismissed ON notifications(project_id, dismissed, created_at);
 
-CREATE TABLE IF NOT EXISTS projects (
-    id TEXT NOT NULL UNIQUE,
-    project_id TEXT,
-    path TEXT NOT NULL,
-    name TEXT NOT NULL,
-    added_at TEXT NOT NULL,
-    last_accessed_at TEXT NOT NULL,
-    available INTEGER NOT NULL DEFAULT 1
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_path ON projects(path);
-CREATE INDEX IF NOT EXISTS idx_projects_project_id ON projects(project_id);
-CREATE INDEX IF NOT EXISTS idx_projects_last_accessed ON projects(last_accessed_at);
-
-CREATE TABLE IF NOT EXISTS project_registry_meta (
-    key TEXT PRIMARY KEY NOT NULL,
-    value TEXT
-);
+${PROJECTS_SCHEMA_SQL}
 `;
 
 /** Terminal statuses that indicate a run is no longer active */
@@ -930,27 +935,7 @@ const applyMigrations = (db: Database): void => {
 		.get() as { version: number } | null;
 
 	if ((postV11Version?.version ?? 11) < 12) {
-		db.exec(`
-			CREATE TABLE IF NOT EXISTS projects (
-				id TEXT NOT NULL UNIQUE,
-				project_id TEXT,
-				path TEXT NOT NULL,
-				name TEXT NOT NULL,
-				added_at TEXT NOT NULL,
-				last_accessed_at TEXT NOT NULL,
-				available INTEGER NOT NULL DEFAULT 1
-			);
-
-			CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_path ON projects(path);
-			CREATE INDEX IF NOT EXISTS idx_projects_project_id ON projects(project_id);
-			CREATE INDEX IF NOT EXISTS idx_projects_last_accessed ON projects(last_accessed_at);
-
-			CREATE TABLE IF NOT EXISTS project_registry_meta (
-				key TEXT PRIMARY KEY NOT NULL,
-				value TEXT
-			);
-		`);
-
+		db.exec(PROJECTS_SCHEMA_SQL);
 		db.prepare("UPDATE schema_version SET version = 12").run();
 	}
 
@@ -1050,24 +1035,7 @@ const applyMigrations = (db: Database): void => {
  * created (e.g. migration ran during branch testing then tables were lost).
  */
 const ensureProjectsTables = (db: Database): void => {
-	db.exec(`
-		CREATE TABLE IF NOT EXISTS projects (
-			id TEXT NOT NULL UNIQUE,
-			project_id TEXT,
-			path TEXT NOT NULL,
-			name TEXT NOT NULL,
-			added_at TEXT NOT NULL,
-			last_accessed_at TEXT NOT NULL,
-			available INTEGER NOT NULL DEFAULT 1
-		);
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_path ON projects(path);
-		CREATE INDEX IF NOT EXISTS idx_projects_project_id ON projects(project_id);
-		CREATE INDEX IF NOT EXISTS idx_projects_last_accessed ON projects(last_accessed_at);
-		CREATE TABLE IF NOT EXISTS project_registry_meta (
-			key TEXT PRIMARY KEY NOT NULL,
-			value TEXT
-		);
-	`);
+	db.exec(PROJECTS_SCHEMA_SQL);
 };
 
 /**
