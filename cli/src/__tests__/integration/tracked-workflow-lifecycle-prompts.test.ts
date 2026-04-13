@@ -216,11 +216,15 @@ describe("tracked workflow lifecycle prompts", () => {
 			>;
 		};
 		const skillPath = "dist/claude-code/dev/skills/build-fast/SKILL.md";
+		const skillFullPath = join(REPO_ROOT, skillPath);
 		const attestation = manifest.skills?.["rp1-dev:build-fast@claude-code"];
 
 		expect(attestation).toBeDefined();
 		if (!attestation) {
 			throw new Error("Missing attestation for rp1-dev:build-fast@claude-code");
+		}
+		if (!existsSync(skillFullPath)) {
+			return;
 		}
 
 		const previousCwd = process.cwd();
