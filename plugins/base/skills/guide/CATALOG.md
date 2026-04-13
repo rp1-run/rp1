@@ -71,7 +71,7 @@
 | `/knowledge-base-templates` | base | Provides reusable templates for generating comprehensive codebase knowledge bases including architecture diagrams, concept maps, and module documentation. Supports both single-project and monorepo structures. Use when creating project documentation, knowledge bases, or when user mentions KB templates, codebase documentation, or project documentation structure. |  |  |  |  |
 | `/knowledge-build` | base | Orchestrates parallel KB generation using spatial analysis and a map-reduce architecture with incremental and feature-learning modes. | `FEATURE_ID` | Yes | fresh |  |
 | `/knowledge-load` | base | Ingests and prepares codebase documentation, builds internal knowledge graphs, and creates optimized context representations for downstream analysis tasks. | `LOAD_MODE` |  |  |  |
-| `/self-update` | base | Update rp1 CLI and all plugins to the latest version. |  |  |  |  |
+| `/self-update` | base | Update rp1 and run the full post-update lifecycle. |  |  |  |  |
 
 ## Strategy
 
