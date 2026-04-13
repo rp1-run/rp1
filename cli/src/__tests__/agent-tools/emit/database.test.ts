@@ -88,7 +88,7 @@ describe("emit database", () => {
 			expect(tableNames).toContain("schema_version");
 		});
 
-		test("schema_version is set to 11", async () => {
+		test("schema_version is set to 12", async () => {
 			const dbPath = join(tempDir, "version-test.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -96,7 +96,7 @@ describe("emit database", () => {
 				version: number;
 			};
 
-			expect(row.version).toBe(11);
+			expect(row.version).toBe(12);
 		});
 
 		test("artifacts table includes subflow column", async () => {
@@ -237,7 +237,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(11);
+			expect(versionRow.version).toBe(12);
 		});
 
 		test("migrates v2 schema to add subflow column to artifacts", async () => {
@@ -328,7 +328,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(11);
+			expect(versionRow.version).toBe(12);
 		});
 
 		test("v3 to v4 migration adds baseline column and cleans orphaned edit-diff annotations", async () => {
@@ -415,7 +415,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(11);
+			expect(versionRow.version).toBe(12);
 
 			const annotations = db.prepare("SELECT * FROM annotations").all() as {
 				content: string;
@@ -571,7 +571,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(11);
+			expect(versionRow.version).toBe(12);
 		});
 
 		test("foreign key constraints are enforced", async () => {
@@ -1807,7 +1807,6 @@ describe("emit database", () => {
 			});
 			deriveRunStatus(db, "run-older");
 
-			// Small delay to ensure different created_at timestamps
 			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			insertRun(db, {
@@ -3612,9 +3611,6 @@ describe("emit database", () => {
 				closeDatabase();
 				resetInstance();
 
-				// We need to re-import or use the default path behavior
-				// The DEFAULT_DB_PATH is set at module load time, so we test
-				// by passing the path directly
 				const db = await expectTaskRight(getEmitDatabase(customPath));
 				expect(db).toBeDefined();
 				expect(existsSync(customPath)).toBe(true);

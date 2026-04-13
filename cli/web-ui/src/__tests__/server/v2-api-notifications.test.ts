@@ -17,7 +17,6 @@ import {
 	resetInstance,
 } from "../../../../src/agent-tools/emit/database.js";
 import { insertNotification } from "../../../../src/agent-tools/emit/notification-database.js";
-import { saveRegistry } from "../../server/registry.js";
 import { handleV2NotificationsListRequest } from "../../server/routes/v2-api.js";
 
 describe("handleV2NotificationsListRequest", () => {
@@ -57,23 +56,23 @@ describe("handleV2NotificationsListRequest", () => {
 
 		process.env.HOME = homeDir;
 		await mkdir(projectRoot, { recursive: true });
-		await saveRegistry({
-			version: 1,
-			lastInvoked: "project-alpha",
-			projects: {
-				"project-alpha": {
-					id: "project-alpha",
-					projectId: "project-uuid-1",
-					path: projectRoot,
-					name: "Alpha Project",
-					addedAt: now,
-					lastAccessedAt: now,
-					available: true,
-				},
-			},
-		});
 
 		const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+		db.prepare(
+			"INSERT INTO projects (id, project_id, path, name, added_at, last_accessed_at, available) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		).run(
+			"project-alpha",
+			"project-uuid-1",
+			projectRoot,
+			"Alpha Project",
+			now,
+			now,
+			1,
+		);
+		db.prepare(
+			"INSERT OR REPLACE INTO project_registry_meta (key, value) VALUES ('last_invoked_project_id', ?)",
+		).run("project-alpha");
 
 		insertRun(db, {
 			id: "run-failed",

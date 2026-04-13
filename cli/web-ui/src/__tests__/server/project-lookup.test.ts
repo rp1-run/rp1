@@ -58,4 +58,46 @@ describe("project-lookup", () => {
 
 		expect(project?.id).toBe("legacy-project");
 	});
+
+	test("clones sharing projectId resolve independently by path", () => {
+		const clones: readonly ProjectEntry[] = [
+			{
+				id: "shared-uuid",
+				projectId: "shared-uuid",
+				path: "/repo/clone-a",
+				name: "clone-a",
+				addedAt: "2026-04-01T00:00:00.000Z",
+				lastAccessedAt: "2026-04-01T00:00:00.000Z",
+				available: true,
+			},
+			{
+				id: "clone-b-slug",
+				projectId: "shared-uuid",
+				path: "/repo/clone-b",
+				name: "clone-b",
+				addedAt: "2026-04-01T00:00:00.000Z",
+				lastAccessedAt: "2026-04-01T00:00:00.000Z",
+				available: true,
+			},
+		];
+
+		const lookup = buildProjectLookup(clones);
+
+		const a = findProjectByIdentity(lookup, {
+			projectId: "shared-uuid",
+			rp1ProjectRoot: "/repo/clone-a",
+		});
+		expect(a?.id).toBe("shared-uuid");
+
+		const b = findProjectByIdentity(lookup, {
+			projectId: "shared-uuid",
+			rp1ProjectRoot: "/repo/clone-b",
+		});
+		expect(b?.id).toBe("clone-b-slug");
+
+		const byProjectIdOnly = findProjectByIdentity(lookup, {
+			projectId: "shared-uuid",
+		});
+		expect(byProjectIdOnly).toBeUndefined();
+	});
 });

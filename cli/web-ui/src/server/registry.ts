@@ -1,19 +1,15 @@
 /**
  * Project registry for multi-project support.
- * Handles persistent storage of registered rp1 projects with atomic file operations.
+ * DB-backed storage layer using the rp1.db projects and project_registry_meta tables.
  */
 
-import { readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
-import { basename, dirname } from "node:path";
+import type { Database } from "bun:sqlite";
+import { readFile, stat, unlink } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
 import { readProjectId } from "../../../shared/project-id.js";
-import { ensureConfigDir, getRegistryPath } from "../daemon/config-dir";
-
-/**
- * Registry file version for future migrations.
- */
-const REGISTRY_VERSION = 1;
+import { getConfigDir } from "../daemon/config-dir";
 
 /**
  * Single project entry in the registry.
@@ -37,26 +33,25 @@ export interface ProjectEntry {
 	readonly activeFeatureCount?: number;
 }
 
-/**
- * Root registry structure stored in projects.json.
- */
-export interface ProjectRegistry {
-	/** Schema version for migrations */
-	readonly version: number;
-	/** Project ID of last invoked project (for default selection) */
-	readonly lastInvoked: string | null;
-	/** Map of project ID to project entry */
-	readonly projects: Record<string, ProjectEntry>;
+interface ProjectRow {
+	id: string;
+	project_id: string | null;
+	path: string;
+	name: string;
+	added_at: string;
+	last_accessed_at: string;
+	available: number;
 }
 
-/**
- * Create an empty registry.
- */
-function createEmptyRegistry(): ProjectRegistry {
+function rowToEntry(row: ProjectRow): ProjectEntry {
 	return {
-		version: REGISTRY_VERSION,
-		lastInvoked: null,
-		projects: {},
+		id: row.id,
+		projectId: row.project_id ?? undefined,
+		path: row.path,
+		name: row.name,
+		addedAt: row.added_at,
+		lastAccessedAt: row.last_accessed_at,
+		available: row.available === 1,
 	};
 }
 
@@ -123,28 +118,6 @@ export async function isValidProject(projectPath: string): Promise<boolean> {
 }
 
 /**
- * In-process async mutex to serialize registry mutations.
- * Prevents read-modify-write races between concurrent async operations
- * (e.g., pruneStaleProjects running during a registerProject call).
- */
-let _lockQueue: Promise<void> = Promise.resolve();
-
-async function withRegistryLock<T>(fn: () => Promise<T>): Promise<T> {
-	let release!: () => void;
-	const gate = new Promise<void>((resolve) => {
-		release = resolve;
-	});
-	const previous = _lockQueue;
-	_lockQueue = gate;
-	await previous;
-	try {
-		return await fn();
-	} finally {
-		release();
-	}
-}
-
-/**
  * Get project display name from directory name.
  * Always uses directory name for consistency and clarity.
  */
@@ -152,308 +125,357 @@ export function getProjectName(projectPath: string): string {
 	return basename(projectPath);
 }
 
+let _hydrationPromise: Promise<void> | null = null;
+
 /**
- * Load registry from disk, creating empty if missing or corrupted.
+ * One-time bootstrap hydration from projects.json into the DB.
+ * Runs once per process lifetime. Only hydrates when the projects table is empty
+ * and a projects.json file exists. Handles missing or corrupt files silently.
+ * Uses a promise guard so concurrent callers await the same hydration run.
  */
-export async function loadRegistry(): Promise<ProjectRegistry> {
-	const registryPath = getRegistryPath();
+export async function ensureHydrated(db: Database): Promise<void> {
+	if (_hydrationPromise) return _hydrationPromise;
+	_hydrationPromise = doHydrate(db);
+	return _hydrationPromise;
+}
+
+async function doHydrate(db: Database): Promise<void> {
+	const row = db.prepare("SELECT COUNT(*) as count FROM projects").get() as {
+		count: number;
+	};
+	if (row.count > 0) return;
+
+	const registryPath = join(getConfigDir(), "projects.json");
 
 	try {
 		const content = await readFile(registryPath, "utf-8");
-		const parsed = JSON.parse(content) as ProjectRegistry;
+		const parsed = JSON.parse(content) as {
+			lastInvoked?: string | null;
+			projects?: Record<
+				string,
+				{
+					id: string;
+					projectId?: string;
+					path: string;
+					name: string;
+					addedAt: string;
+					lastAccessedAt: string;
+					available?: boolean;
+				}
+			>;
+		};
 
-		// Basic validation
-		if (
-			typeof parsed.version !== "number" ||
-			typeof parsed.projects !== "object"
-		) {
-			console.warn("Registry file corrupted, creating new registry");
-			return createEmptyRegistry();
+		if (parsed.projects && typeof parsed.projects === "object") {
+			const insertStmt = db.prepare(
+				"INSERT OR IGNORE INTO projects (id, project_id, path, name, added_at, last_accessed_at, available) VALUES (?, ?, ?, ?, ?, ?, ?)",
+			);
+
+			for (const entry of Object.values(parsed.projects)) {
+				insertStmt.run(
+					entry.id,
+					entry.projectId ?? null,
+					entry.path,
+					entry.name,
+					entry.addedAt,
+					entry.lastAccessedAt,
+					entry.available !== false ? 1 : 0,
+				);
+			}
+
+			if (parsed.lastInvoked) {
+				db.prepare(
+					"INSERT OR REPLACE INTO project_registry_meta (key, value) VALUES ('last_invoked_project_id', ?)",
+				).run(parsed.lastInvoked);
+			}
 		}
 
-		return parsed;
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-			// File doesn't exist yet
-			return createEmptyRegistry();
-		}
-
-		console.warn("Failed to read registry, creating new:", error);
-		return createEmptyRegistry();
-	}
-}
-
-/**
- * Save registry to disk atomically using temp file + rename.
- */
-export async function saveRegistry(registry: ProjectRegistry): Promise<void> {
-	await ensureConfigDir();
-
-	const registryPath = getRegistryPath();
-	const tempPath = `${registryPath}.tmp.${Date.now()}`;
-
-	try {
-		// Write to temp file
-		await writeFile(tempPath, JSON.stringify(registry, null, 2), {
-			mode: 0o600,
-		});
-
-		// Atomic rename
-		await rename(tempPath, registryPath);
-	} catch (error) {
 		try {
-			await unlink(tempPath);
-		} catch {}
-		throw error;
+			await unlink(registryPath);
+		} catch (unlinkError) {
+			console.warn(
+				"[registry] Could not delete projects.json after migration:",
+				unlinkError,
+			);
+		}
+	} catch {
+		// File missing, corrupt, or unreadable -- silently continue with empty registry
 	}
 }
 
 /**
- * Check if the current process is running in eval mode.
- * Eval workspaces should not pollute the project registry.
+ * Reset hydration state. Exported for test use only.
  */
-function isEvalContext(projectPath: string): boolean {
-	if (process.env.RP1_EVAL_MODE === "true") return true;
-	// Also guard against eval workspace paths directly
-	return (
-		projectPath.startsWith("/tmp/rp1-evals/") ||
-		projectPath.startsWith("/private/tmp/rp1-evals/")
-	);
+export function _resetHydrated(): void {
+	_hydrationPromise = null;
 }
 
 /**
  * Register a project in the registry.
  * Returns the project entry with its assigned ID.
- * Skips registration for eval workspaces to prevent registry pollution.
+ * Normalizes paths through resolveDirectorySet so worktrees resolve
+ * to the main repo path instead of being registered as separate projects.
  */
 export async function registerProject(
+	db: Database,
 	projectPath: string,
 ): Promise<ProjectEntry> {
-	if (isEvalContext(projectPath)) {
-		const now = new Date().toISOString();
-		return {
-			id: "eval-workspace",
-			projectId: undefined,
-			path: projectPath,
-			name: "eval-workspace",
-			addedAt: now,
-			lastAccessedAt: now,
-			available: false,
-		};
-	}
+	await ensureHydrated(db);
 
-	// Normalize path through directory resolution so worktrees resolve
-	// to the main repo path instead of being registered as separate projects.
 	const resolved = resolveDirectorySet(projectPath);
 	const normalizedPath = E.isRight(resolved)
 		? resolved.right.projectRoot
 		: projectPath;
 
-	return withRegistryLock(async () => {
-		const registry = await loadRegistry();
-		const existingIds = new Set(Object.keys(registry.projects));
-		const uuid = readProjectId(normalizedPath);
+	const available = await isValidProject(normalizedPath);
+	const uuid = readProjectId(normalizedPath);
+	const now = new Date().toISOString();
 
-		const existing = Object.values(registry.projects).find(
-			(p) => p.path === normalizedPath,
-		);
-
-		const now = new Date().toISOString();
-		const available = await isValidProject(normalizedPath);
+	const doRegister = db.transaction(() => {
+		const existing = db
+			.prepare("SELECT * FROM projects WHERE path = ?")
+			.get(normalizedPath) as ProjectRow | null;
 
 		if (existing) {
-			const needsRekey = uuid && existing.id !== uuid;
+			const needsRekey = !!(uuid && existing.id !== uuid);
 			const updatedId = uuid ?? existing.id;
-			const updated: ProjectEntry = {
-				...existing,
-				id: updatedId,
-				projectId: uuid ?? existing.projectId,
-				lastAccessedAt: now,
-				available,
-			};
+			const updatedProjectId = uuid ?? existing.project_id;
 
-			const projects = { ...registry.projects };
 			if (needsRekey) {
-				delete projects[existing.id];
+				db.prepare(
+					"UPDATE projects SET id = ?, project_id = ?, last_accessed_at = ?, available = ? WHERE path = ?",
+				).run(
+					updatedId,
+					updatedProjectId,
+					now,
+					available ? 1 : 0,
+					normalizedPath,
+				);
+			} else {
+				db.prepare(
+					"UPDATE projects SET project_id = ?, last_accessed_at = ?, available = ? WHERE path = ?",
+				).run(updatedProjectId, now, available ? 1 : 0, normalizedPath);
 			}
-			projects[updatedId] = updated;
 
-			const updatedRegistry: ProjectRegistry = {
-				...registry,
-				lastInvoked: updatedId,
-				projects,
-			};
+			db.prepare(
+				"INSERT OR REPLACE INTO project_registry_meta (key, value) VALUES ('last_invoked_project_id', ?)",
+			).run(updatedId);
 
-			await saveRegistry(updatedRegistry);
-			return updated;
+			return rowToEntry({
+				id: updatedId,
+				project_id: updatedProjectId,
+				path: normalizedPath,
+				name: existing.name,
+				added_at: existing.added_at,
+				last_accessed_at: now,
+				available: available ? 1 : 0,
+			});
 		}
 
-		const id = uuid ?? generateProjectId(normalizedPath, existingIds);
+		const existingIds = new Set(
+			(db.prepare("SELECT id FROM projects").all() as { id: string }[]).map(
+				(r) => r.id,
+			),
+		);
+		const id =
+			uuid && !existingIds.has(uuid)
+				? uuid
+				: generateProjectId(normalizedPath, existingIds);
 		const name = getProjectName(normalizedPath);
 
-		const entry: ProjectEntry = {
+		db.prepare(
+			"INSERT INTO projects (id, project_id, path, name, added_at, last_accessed_at, available) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		).run(id, uuid ?? null, normalizedPath, name, now, now, available ? 1 : 0);
+
+		db.prepare(
+			"INSERT OR REPLACE INTO project_registry_meta (key, value) VALUES ('last_invoked_project_id', ?)",
+		).run(id);
+
+		return rowToEntry({
 			id,
-			projectId: uuid,
+			project_id: uuid ?? null,
 			path: normalizedPath,
 			name,
-			addedAt: now,
-			lastAccessedAt: now,
-			available,
-		};
-
-		const updatedRegistry: ProjectRegistry = {
-			...registry,
-			lastInvoked: id,
-			projects: {
-				...registry.projects,
-				[id]: entry,
-			},
-		};
-
-		await saveRegistry(updatedRegistry);
-		return entry;
+			added_at: now,
+			last_accessed_at: now,
+			available: available ? 1 : 0,
+		});
 	});
+
+	return doRegister();
 }
 
 /**
  * Remove a project from the registry by ID.
  * Returns true if the project was found and removed.
  */
-export async function removeProject(projectId: string): Promise<boolean> {
-	return withRegistryLock(async () => {
-		const registry = await loadRegistry();
+export async function removeProject(
+	db: Database,
+	projectId: string,
+): Promise<boolean> {
+	await ensureHydrated(db);
 
-		if (!registry.projects[projectId]) {
-			return false;
-		}
+	const result = db.prepare("DELETE FROM projects WHERE id = ?").run(projectId);
 
-		const { [projectId]: _removed, ...remainingProjects } = registry.projects;
+	if (result.changes === 0) return false;
 
-		const updatedRegistry: ProjectRegistry = {
-			...registry,
-			lastInvoked:
-				registry.lastInvoked === projectId ? null : registry.lastInvoked,
-			projects: remainingProjects,
-		};
+	const meta = db
+		.prepare(
+			"SELECT value FROM project_registry_meta WHERE key = 'last_invoked_project_id'",
+		)
+		.get() as { value: string | null } | null;
 
-		await saveRegistry(updatedRegistry);
-		return true;
-	});
+	if (meta?.value === projectId) {
+		db.prepare(
+			"DELETE FROM project_registry_meta WHERE key = 'last_invoked_project_id'",
+		).run();
+	}
+
+	return true;
 }
 
 /**
  * Get a project by ID.
  */
 export async function getProject(
+	db: Database,
 	projectId: string,
 ): Promise<ProjectEntry | null> {
-	const registry = await loadRegistry();
-	return registry.projects[projectId] ?? null;
+	await ensureHydrated(db);
+
+	const row = db
+		.prepare("SELECT * FROM projects WHERE id = ?")
+		.get(projectId) as ProjectRow | null;
+
+	return row ? rowToEntry(row) : null;
 }
 
 /**
  * Get all registered projects.
  */
-export async function getAllProjects(): Promise<ProjectEntry[]> {
-	const registry = await loadRegistry();
-	return Object.values(registry.projects);
+export async function getAllProjects(db: Database): Promise<ProjectEntry[]> {
+	await ensureHydrated(db);
+
+	const rows = db.prepare("SELECT * FROM projects").all() as ProjectRow[];
+
+	return rows.map(rowToEntry);
 }
 
 /**
  * Get the last invoked project ID.
  */
-export async function getLastInvokedProjectId(): Promise<string | null> {
-	const registry = await loadRegistry();
-	return registry.lastInvoked;
+export async function getLastInvokedProjectId(
+	db: Database,
+): Promise<string | null> {
+	await ensureHydrated(db);
+
+	const row = db
+		.prepare(
+			"SELECT value FROM project_registry_meta WHERE key = 'last_invoked_project_id'",
+		)
+		.get() as { value: string | null } | null;
+
+	return row?.value ?? null;
 }
 
 /**
  * Update availability status for all projects.
  * Marks projects as unavailable if their .rp1/ directory is missing.
  */
-export async function refreshProjectAvailability(): Promise<void> {
-	return withRegistryLock(async () => {
-		const registry = await loadRegistry();
-		const updates: Record<string, ProjectEntry> = {};
-		let hasChanges = false;
+export async function refreshProjectAvailability(db: Database): Promise<void> {
+	await ensureHydrated(db);
 
-		for (const project of Object.values(registry.projects)) {
-			const available = await isValidProject(project.path);
-			if (available !== project.available) {
-				updates[project.id] = { ...project, available };
-				hasChanges = true;
-			} else {
-				updates[project.id] = project;
-			}
-		}
+	const rows = db.prepare("SELECT * FROM projects").all() as ProjectRow[];
 
-		if (hasChanges) {
-			await saveRegistry({
-				...registry,
-				projects: updates,
-			});
+	for (const row of rows) {
+		const available = await isValidProject(row.path);
+		const currentAvailable = row.available === 1;
+
+		if (available !== currentAvailable) {
+			db.prepare("UPDATE projects SET available = ? WHERE path = ?").run(
+				available ? 1 : 0,
+				row.path,
+			);
 		}
-	});
+	}
 }
 
 /**
  * Prune projects whose paths no longer exist on disk.
  * Returns the number of projects removed.
  */
-export async function pruneStaleProjects(): Promise<number> {
-	return withRegistryLock(async () => {
-		const registry = await loadRegistry();
-		const remaining: Record<string, ProjectEntry> = {};
-		let pruned = 0;
+export async function pruneStaleProjects(db: Database): Promise<number> {
+	await ensureHydrated(db);
 
-		for (const [id, project] of Object.entries(registry.projects)) {
-			const available = await isValidProject(project.path);
-			if (available) {
-				remaining[id] = project;
-			} else {
-				pruned++;
-			}
+	const rows = db.prepare("SELECT * FROM projects").all() as ProjectRow[];
+
+	let pruned = 0;
+	const prunedIds = new Set<string>();
+
+	for (const row of rows) {
+		const available = await isValidProject(row.path);
+		if (!available) {
+			db.prepare("DELETE FROM projects WHERE path = ?").run(row.path);
+			prunedIds.add(row.id);
+			pruned++;
 		}
+	}
 
-		if (pruned > 0) {
-			await saveRegistry({
-				...registry,
-				lastInvoked:
-					registry.lastInvoked && remaining[registry.lastInvoked]
-						? registry.lastInvoked
-						: null,
-				projects: remaining,
-			});
+	if (pruned > 0) {
+		const meta = db
+			.prepare(
+				"SELECT value FROM project_registry_meta WHERE key = 'last_invoked_project_id'",
+			)
+			.get() as { value: string | null } | null;
+
+		if (meta?.value && prunedIds.has(meta.value)) {
+			db.prepare(
+				"DELETE FROM project_registry_meta WHERE key = 'last_invoked_project_id'",
+			).run();
 		}
+	}
 
-		return pruned;
-	});
+	return pruned;
 }
 
 /**
  * Set a project as the last invoked.
  */
-export async function setLastInvoked(projectId: string): Promise<void> {
-	return withRegistryLock(async () => {
-		const registry = await loadRegistry();
+export async function setLastInvoked(
+	db: Database,
+	projectId: string,
+): Promise<void> {
+	await ensureHydrated(db);
 
-		if (!registry.projects[projectId]) {
-			throw new Error(`Project ${projectId} not found in registry`);
-		}
+	const exists = db
+		.prepare("SELECT id FROM projects WHERE id = ?")
+		.get(projectId) as { id: string } | null;
 
-		const now = new Date().toISOString();
-		const project = registry.projects[projectId];
+	if (!exists) {
+		throw new Error(`Project ${projectId} not found in registry`);
+	}
 
-		await saveRegistry({
-			...registry,
-			lastInvoked: projectId,
-			projects: {
-				...registry.projects,
-				[projectId]: {
-					...project,
-					lastAccessedAt: now,
-				},
-			},
-		});
-	});
+	const now = new Date().toISOString();
+
+	db.prepare(
+		"INSERT OR REPLACE INTO project_registry_meta (key, value) VALUES ('last_invoked_project_id', ?)",
+	).run(projectId);
+
+	db.prepare("UPDATE projects SET last_accessed_at = ? WHERE id = ?").run(
+		now,
+		projectId,
+	);
+}
+
+/**
+ * Get the total number of registered projects.
+ * Ensures hydration has completed before reading the count.
+ */
+export async function getProjectCount(db: Database): Promise<number> {
+	await ensureHydrated(db);
+
+	const row = db.prepare("SELECT COUNT(*) as count FROM projects").get() as {
+		count: number;
+	};
+
+	return row.count;
 }

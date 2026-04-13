@@ -9,7 +9,6 @@ export {
 	getConfigDir,
 	getDaemonStatePath,
 	getPidFilePath,
-	getRegistryPath,
 	readDaemonState,
 	writeDaemonState,
 } from "./config-dir";
