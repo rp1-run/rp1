@@ -24,14 +24,14 @@ import { settingsCommand } from "./commands/settings.js";
 import { uninstallCommand } from "./commands/uninstall.js";
 import { updateCommand } from "./commands/update/index.js";
 import { verifyCommand } from "./commands/verify/index.js";
+import { isTopLevelCommandInvocation } from "./lib/command-routing.js";
 
 /**
  * Check if agent-tools command is being invoked.
  * Used for lazy loading to avoid loading puppeteer at CLI startup.
  */
 const isAgentToolsCommand = (): boolean => {
-	const args = process.argv.slice(2);
-	return args.length > 0 && args[0] === "agent-tools";
+	return isTopLevelCommandInvocation(process.argv.slice(2), "agent-tools");
 };
 
 /**
@@ -39,8 +39,7 @@ const isAgentToolsCommand = (): boolean => {
  * Used for spawning the web UI daemon server.
  */
 const isDaemonServerCommand = (): boolean => {
-	const args = process.argv.slice(2);
-	return args.length > 0 && args[0] === "_daemon-server";
+	return isTopLevelCommandInvocation(process.argv.slice(2), "_daemon-server");
 };
 
 /**

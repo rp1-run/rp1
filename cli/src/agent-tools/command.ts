@@ -384,7 +384,7 @@ Examples:
 				const inputResult = await readInput(options.file)();
 
 				if (E.isLeft(inputResult)) {
-					console.error(
+					console.log(
 						createErrorResponse(toolName, formatError(inputResult.left, false)),
 					);
 					process.exit(1);
@@ -396,7 +396,7 @@ Examples:
 
 			const tool = getTool(toolName);
 			if (!tool) {
-				console.error(
+				console.log(
 					createErrorResponse(toolName, "Tool not found in registry"),
 				);
 				process.exit(1);
@@ -410,7 +410,7 @@ Examples:
 			const result = await tool.execute(content, toolOptions)();
 
 			if (E.isLeft(result)) {
-				console.error(
+				console.log(
 					createErrorResponse(toolName, formatError(result.left, false)),
 				);
 				process.exit(1);
@@ -512,7 +512,7 @@ Examples:
 				const inputResult = await readInput(options.file)();
 
 				if (E.isLeft(inputResult)) {
-					console.error(
+					console.log(
 						createErrorResponse(toolName, formatError(inputResult.left, false)),
 					);
 					process.exit(1);
@@ -524,7 +524,7 @@ Examples:
 
 			const tool = getTool(toolName);
 			if (!tool) {
-				console.error(
+				console.log(
 					createErrorResponse(toolName, "Tool not found in registry"),
 				);
 				process.exit(1);
@@ -538,7 +538,7 @@ Examples:
 			const result = await tool.execute(content, toolOptions)();
 
 			if (E.isLeft(result)) {
-				console.error(
+				console.log(
 					createErrorResponse(toolName, formatError(result.left, false)),
 				);
 				process.exit(1);
