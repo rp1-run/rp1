@@ -81,8 +81,8 @@ import {
 import {
 	getAllProjects,
 	getProject,
+	getProjectCount,
 	isValidProject,
-	loadRegistry,
 	type ProjectEntry,
 	registerProject,
 	removeProject,
@@ -1136,7 +1136,7 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 
 	try {
 		const db = await getDb();
-		const projects = await getAllProjects();
+		const projects = await getAllProjects(db);
 		const projectLookup = buildProjectLookup(projects);
 
 		let projectPathFilter: string | undefined;
@@ -1209,7 +1209,7 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 export async function handleV2RunsAttentionRequest(): Promise<Response> {
 	try {
 		const db = await getDb();
-		const projects = await getAllProjects();
+		const projects = await getAllProjects(db);
 		const projectLookup = buildProjectLookup(projects);
 
 		const attentionRuns = getRunsByAttentionStatus(db);
@@ -1252,7 +1252,7 @@ export async function handleV2RunDetailRequest(
 			return errorResponse(`Run not found: ${runId}`, 404);
 		}
 
-		const projects = await getAllProjects();
+		const projects = await getAllProjects(db);
 		const projectLookup = buildProjectLookup(projects);
 		const project =
 			findProjectByIdentity(projectLookup, record) ??
@@ -1282,7 +1282,7 @@ export async function handleV2ArtifactContentRequest(
 			return errorResponse(`Run not found: ${runId}`, 404);
 		}
 
-		const projects = await getAllProjects();
+		const projects = await getAllProjects(db);
 		const projectLookup = buildProjectLookup(projects);
 		const project =
 			findProjectByIdentity(projectLookup, record) ??
@@ -1412,7 +1412,7 @@ export async function handleV2ArtifactContentRequest(
 export async function handleV2ProjectsListRequest(): Promise<Response> {
 	try {
 		const db = await getDb();
-		const projects = await getAllProjects();
+		const projects = await getAllProjects(db);
 		const projectPaths = projects.map((p) => p.path);
 
 		const statsMap = getEmitProjectRunStats(db, projectPaths);
@@ -1450,13 +1450,13 @@ export async function handleV2ProjectDetailRequest(
 	projectId: string,
 ): Promise<Response> {
 	try {
-		const project = await getProject(projectId);
+		const db = await getDb();
+		const project = await getProject(db, projectId);
 
 		if (!project) {
 			return errorResponse(`Project not found: ${projectId}`, 404);
 		}
 
-		const db = await getDb();
 		const statsMap = getEmitProjectRunStats(db, [project.path]);
 		const stats = statsMap.get(project.path);
 
@@ -1564,7 +1564,8 @@ export async function handleV2ProjectFilesRequest(
 	projectId: string,
 ): Promise<Response> {
 	try {
-		const project = await getProject(projectId);
+		const db = await getDb();
+		const project = await getProject(db, projectId);
 
 		if (!project) {
 			return errorResponse(`Project not found: ${projectId}`, 404);
@@ -1599,7 +1600,8 @@ export async function handleV2ProjectContentRequest(
 	filePath: string,
 ): Promise<Response> {
 	try {
-		const project = await getProject(projectId);
+		const db = await getDb();
+		const project = await getProject(db, projectId);
 
 		if (!project) {
 			return errorResponse(`Project not found: ${projectId}`, 404);
@@ -1657,7 +1659,8 @@ export async function handleV2ProjectContentSaveRequest(
 	req: Request,
 ): Promise<Response> {
 	try {
-		const project = await getProject(projectId);
+		const db = await getDb();
+		const project = await getProject(db, projectId);
 
 		if (!project) {
 			return errorResponse(`Project not found: ${projectId}`, 404);
@@ -1718,8 +1721,8 @@ export async function handleV2HealthRequest(
 		}
 	}
 
-	const registry = await loadRegistry();
-	const projectCount = Object.keys(registry.projects).length;
+	const db = await getDb();
+	const projectCount = getProjectCount(db);
 	const uptime = Math.floor((Date.now() - ctx.startTime) / 1000);
 
 	return jsonResponse({
@@ -1809,7 +1812,8 @@ export async function handleV2StatusNotifyRequest(
 			);
 		}
 
-		const projects = await getAllProjects();
+		const db = await getDb();
+		const projects = await getAllProjects(db);
 		const projectLookup = buildProjectLookup(projects);
 		const project = findProjectByIdentity(projectLookup, {
 			projectId,
@@ -1868,7 +1872,8 @@ export async function handleV2ProjectRegisterRequest(
 			);
 		}
 
-		const project = await registerProject(projectPath);
+		const db = await getDb();
+		const project = await registerProject(db, projectPath);
 		ctx.websocketHub?.broadcastProjectsChanged();
 
 		const url = `http://127.0.0.1:${ctx.port}/projects/${project.id}`;
@@ -1887,7 +1892,8 @@ export async function handleV2ProjectDeleteRequest(
 	ctx: ApiContext,
 ): Promise<Response> {
 	try {
-		const removed = await removeProject(projectId);
+		const db = await getDb();
+		const removed = await removeProject(db, projectId);
 
 		if (!removed) {
 			return errorResponse(`Project not found: ${projectId}`, 404);
@@ -1916,7 +1922,7 @@ export async function handleV2NotificationsListRequest(
 
 		const db = await getDb();
 		const result = listNotifications(db, { projectId, limit, offset });
-		const projects = await getAllProjects();
+		const projects = await getAllProjects(db);
 		const projectLookup = buildProjectLookup(projects);
 
 		const summaryRecords =
@@ -2032,7 +2038,7 @@ export async function handleV2FeedRequest(req: Request): Promise<Response> {
 		const offset = Number.parseInt(params.get("offset") ?? "0", 10);
 
 		const db = await getDb();
-		const projects = await getAllProjects();
+		const projects = await getAllProjects(db);
 		const projectLookup = buildProjectLookup(projects);
 		const skillMetadataLookup = await getRuntimeSkillMetadataLookup();
 

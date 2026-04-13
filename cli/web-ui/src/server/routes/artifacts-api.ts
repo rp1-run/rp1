@@ -307,7 +307,7 @@ export async function handleArtifactSaveRequest(
 			return errorResponse(`Run not found: ${runId}`, 404);
 		}
 
-		const projects = await dependencies.getAllProjects();
+		const projects = await dependencies.getAllProjects(db);
 		const project = findProjectByPathSet(
 			projects,
 			getEffectiveProjectPath(record),
@@ -496,7 +496,7 @@ export async function handleArtifactPatchRequest(
 			apiContext?.websocketHub &&
 			resolveArtifactAbsolutePath(directories, artifactRecord) !== resolvedPath
 		) {
-			const projects = await dependencies.getAllProjects();
+			const projects = await dependencies.getAllProjects(db);
 			const project = run
 				? findProjectByPathSet(
 						projects,

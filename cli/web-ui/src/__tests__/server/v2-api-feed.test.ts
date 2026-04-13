@@ -19,7 +19,6 @@ import {
 	resetInstance,
 } from "../../../../src/agent-tools/emit/database.js";
 import { insertNotification } from "../../../../src/agent-tools/emit/notification-database.js";
-import { saveRegistry } from "../../server/registry.js";
 import { handleV2FeedRequest } from "../../server/routes/v2-api.js";
 
 async function setupProject(tempDir: string, suffix: string) {
@@ -30,23 +29,23 @@ async function setupProject(tempDir: string, suffix: string) {
 
 	process.env.HOME = homeDir;
 	await mkdir(projectRoot, { recursive: true });
-	await saveRegistry({
-		version: 1,
-		lastInvoked: `project-${suffix}`,
-		projects: {
-			[`project-${suffix}`]: {
-				id: `project-${suffix}`,
-				projectId: `project-uuid-${suffix}`,
-				path: projectRoot,
-				name: `Project ${suffix}`,
-				addedAt: now,
-				lastAccessedAt: now,
-				available: true,
-			},
-		},
-	});
 
 	const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+	db.prepare(
+		"INSERT INTO projects (id, project_id, path, name, added_at, last_accessed_at, available) VALUES (?, ?, ?, ?, ?, ?, ?)",
+	).run(
+		`project-${suffix}`,
+		`project-uuid-${suffix}`,
+		projectRoot,
+		`Project ${suffix}`,
+		now,
+		now,
+		1,
+	);
+	db.prepare(
+		"INSERT OR REPLACE INTO project_registry_meta (key, value) VALUES ('last_invoked_project_id', ?)",
+	).run(`project-${suffix}`);
 
 	return {
 		db,

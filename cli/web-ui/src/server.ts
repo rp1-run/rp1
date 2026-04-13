@@ -54,7 +54,7 @@ async function runStartupRecovery(websocketHub: WebSocketHub): Promise<void> {
 		return;
 	}
 
-	const projects = await getAllProjects();
+	const projects = await getAllProjects(db);
 	const projectLookup = buildProjectLookup(projects);
 	const runCache = new Map<
 		string,
@@ -188,7 +188,20 @@ export function createServer(options: ServerOptions) {
 		console.warn("[recovery] Startup recovery failed:", err);
 	});
 
-	pruneStaleProjects().catch((err) => {
+	(async () => {
+		const { isLeft } = await import("fp-ts/lib/Either.js");
+		const { getEmitDatabase } = await import(
+			"../../src/agent-tools/emit/database"
+		);
+		const dbResult = await getEmitDatabase()();
+		if (isLeft(dbResult)) {
+			console.warn(
+				"[startup] Could not open database for stale project pruning",
+			);
+			return;
+		}
+		await pruneStaleProjects(dbResult.right);
+	})().catch((err) => {
 		console.warn("[startup] Stale project pruning failed:", err);
 	});
 
