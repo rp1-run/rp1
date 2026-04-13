@@ -1045,6 +1045,32 @@ const applyMigrations = (db: Database): void => {
 };
 
 /**
+ * Idempotent guard: ensure projects and project_registry_meta tables exist.
+ * Needed for DBs that reached schema version 12 without the tables being
+ * created (e.g. migration ran during branch testing then tables were lost).
+ */
+const ensureProjectsTables = (db: Database): void => {
+	db.exec(`
+		CREATE TABLE IF NOT EXISTS projects (
+			id TEXT NOT NULL UNIQUE,
+			project_id TEXT,
+			path TEXT NOT NULL,
+			name TEXT NOT NULL,
+			added_at TEXT NOT NULL,
+			last_accessed_at TEXT NOT NULL,
+			available INTEGER NOT NULL DEFAULT 1
+		);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_path ON projects(path);
+		CREATE INDEX IF NOT EXISTS idx_projects_project_id ON projects(project_id);
+		CREATE INDEX IF NOT EXISTS idx_projects_last_accessed ON projects(last_accessed_at);
+		CREATE TABLE IF NOT EXISTS project_registry_meta (
+			key TEXT PRIMARY KEY NOT NULL,
+			value TEXT
+		);
+	`);
+};
+
+/**
  * Get or create the emit database connection.
  * Initializes schema on first connection and cleans up legacy status.db.
  */
@@ -1080,6 +1106,7 @@ export const getEmitDatabase = (
 					"CREATE INDEX IF NOT EXISTS idx_runs_feature_status ON runs(project_path, feature_id, status);",
 				);
 				applyMigrations(db);
+				ensureProjectsTables(db);
 			}
 
 			cleanupLegacyDb(dbPath);
