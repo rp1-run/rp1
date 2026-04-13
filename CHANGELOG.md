@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.3](https://github.com/rp1-run/rp1/compare/v0.7.2...v0.7.3) (2026-04-13)
+
+
+### Features
+
+* **state-fixes:** roll out tracked workflow lifecycle states ([#328](https://github.com/rp1-run/rp1/issues/328)) ([8d4c0a7](https://github.com/rp1-run/rp1/commit/8d4c0a704804d9b1f9d8985288eaefa7a58d78e0))
+
+
+### Bug Fixes
+
+* **cli:** harden update lifecycle and routing ([#326](https://github.com/rp1-run/rp1/issues/326)) ([e259378](https://github.com/rp1-run/rp1/commit/e25937842fd97f098deafbe2253b1d1bcf134635))
+* **registry:** migrate project registry from file to DB-backed storage ([#329](https://github.com/rp1-run/rp1/issues/329)) ([e8c20fb](https://github.com/rp1-run/rp1/commit/e8c20fbf2647e2cea325f9afe85ffca55fcd63d9))
+
 ## [0.7.2](https://github.com/rp1-run/rp1/compare/v0.7.1...v0.7.2) (2026-04-12)
 
 
