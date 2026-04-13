@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (11);
+INSERT INTO schema_version (version) VALUES (12);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -161,6 +161,25 @@ CREATE INDEX IF NOT EXISTS idx_notifications_dismissed ON notifications(dismisse
 CREATE INDEX IF NOT EXISTS idx_notifications_project ON notifications(project_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at);
 CREATE INDEX IF NOT EXISTS idx_notifications_project_dismissed ON notifications(project_id, dismissed, created_at);
+
+CREATE TABLE IF NOT EXISTS projects (
+    id TEXT NOT NULL,
+    project_id TEXT,
+    path TEXT NOT NULL,
+    name TEXT NOT NULL,
+    added_at TEXT NOT NULL,
+    last_accessed_at TEXT NOT NULL,
+    available INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_path ON projects(path);
+CREATE INDEX IF NOT EXISTS idx_projects_project_id ON projects(project_id);
+CREATE INDEX IF NOT EXISTS idx_projects_last_accessed ON projects(last_accessed_at);
+
+CREATE TABLE IF NOT EXISTS project_registry_meta (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT
+);
 `;
 
 /** Terminal statuses that indicate a run is no longer active */
@@ -828,6 +847,35 @@ const applyMigrations = (db: Database): void => {
 		);
 
 		db.prepare("UPDATE schema_version SET version = 11").run();
+	}
+
+	const postV11Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV11Version?.version ?? 11) < 12) {
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS projects (
+				id TEXT NOT NULL,
+				project_id TEXT,
+				path TEXT NOT NULL,
+				name TEXT NOT NULL,
+				added_at TEXT NOT NULL,
+				last_accessed_at TEXT NOT NULL,
+				available INTEGER NOT NULL DEFAULT 1
+			);
+
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_path ON projects(path);
+			CREATE INDEX IF NOT EXISTS idx_projects_project_id ON projects(project_id);
+			CREATE INDEX IF NOT EXISTS idx_projects_last_accessed ON projects(last_accessed_at);
+
+			CREATE TABLE IF NOT EXISTS project_registry_meta (
+				key TEXT PRIMARY KEY NOT NULL,
+				value TEXT
+			);
+		`);
+
+		db.prepare("UPDATE schema_version SET version = 12").run();
 	}
 };
 
