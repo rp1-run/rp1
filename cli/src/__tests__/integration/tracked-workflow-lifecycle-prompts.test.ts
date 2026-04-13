@@ -1,20 +1,74 @@
 import { describe, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
-import * as A from "fp-ts/Array";
-import { pipe } from "fp-ts/function";
-import * as TE from "fp-ts/TaskEither";
-import { buildDependencyGraph } from "../../../../evals/src/attestation/deps-graph.ts";
-import {
-	computeDepsHash,
-	computePromptHash,
-} from "../../../../evals/src/attestation/prompt-hash.ts";
-import { expectTaskRight } from "../helpers/index.js";
 
 const REPO_ROOT = join(import.meta.dir, "..", "..", "..", "..");
 const PLUGINS_ROOT = join(REPO_ROOT, "plugins");
 const DIST_CLAUDE_ROOT = join(REPO_ROOT, "dist", "claude-code");
+const FRONTMATTER_REGEX = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
+const TASK_PATTERN = /(?:Task|subagent_type):\s*(\w+-\w+):(\w[\w-]*)/g;
+const SKILL_PATTERN = /[Ss]kill[:\s]+`?(\w+-\w+):(\w[\w-]*)`?/g;
+const PLUGIN_PATHS: Record<string, string> = {
+	"rp1-base": "base",
+	"rp1-dev": "dev",
+	"rp1-utils": "utils",
+};
+
+interface HashResult {
+	readonly path: string;
+	readonly hash: string;
+}
+
+const stripFrontmatter = (content: string): string =>
+	content.replace(FRONTMATTER_REGEX, "");
+
+const computePromptHash = async (filePath: string): Promise<HashResult> => {
+	const content = await readPrompt(filePath);
+	const body = stripFrontmatter(content);
+	const hash = createHash("sha256").update(body).digest("hex");
+	return {
+		path: filePath,
+		hash: `sha256:${hash}`,
+	};
+};
+
+const computeDepsHash = (fileHashes: readonly HashResult[]): string => {
+	const combined = [...fileHashes]
+		.sort((a, b) => a.path.localeCompare(b.path))
+		.map((hash) => hash.hash)
+		.join("|");
+	return `sha256:${createHash("sha256").update(combined).digest("hex")}`;
+};
+
+const parseAgentRefs = (content: string): string[] => {
+	const refs = new Set<string>();
+
+	for (const match of content.matchAll(TASK_PATTERN)) {
+		const [, plugin, agent] = match;
+		const pluginDir = PLUGIN_PATHS[plugin];
+		if (pluginDir) {
+			refs.add(`dist/claude-code/${pluginDir}/agents/${agent}.md`);
+		}
+	}
+
+	return [...refs];
+};
+
+const parseSkillRefs = (content: string): string[] => {
+	const refs = new Set<string>();
+
+	for (const match of content.matchAll(SKILL_PATTERN)) {
+		const [, plugin, skill] = match;
+		const pluginDir = PLUGIN_PATHS[plugin];
+		if (pluginDir) {
+			refs.add(`dist/claude-code/${pluginDir}/skills/${skill}/SKILL.md`);
+		}
+	}
+
+	return [...refs];
+};
 
 const readPrompt = (relativePath: string): Promise<string> =>
 	readFile(join(REPO_ROOT, relativePath), "utf-8");
@@ -56,18 +110,37 @@ const listTrackedWorkflowSkills = async (
 	return trackedSkills.sort();
 };
 
-const computeAllHashes = async (skillPath: string) => {
-	const graph = await expectTaskRight(
-		buildDependencyGraph(skillPath, "claude-code"),
-	);
+const collectDependencyPaths = async (skillPath: string): Promise<string[]> => {
+	const visited = new Set<string>();
+	const hashes: string[] = [];
+	const queue = [skillPath];
 
-	return expectTaskRight(
-		pipe(
-			[graph.skillPath, ...graph.agents, ...graph.skills],
-			A.map(computePromptHash),
-			A.sequence(TE.ApplicativePar),
-		),
-	);
+	while (queue.length > 0) {
+		const currentPath = queue.shift();
+		if (!currentPath || visited.has(currentPath)) {
+			continue;
+		}
+
+		visited.add(currentPath);
+		hashes.push(currentPath);
+
+		const content = await readPrompt(currentPath);
+		for (const ref of [
+			...parseAgentRefs(content),
+			...parseSkillRefs(content),
+		]) {
+			if (!visited.has(ref)) {
+				queue.push(ref);
+			}
+		}
+	}
+
+	return hashes;
+};
+
+const computeAllHashes = async (skillPath: string): Promise<HashResult[]> => {
+	const dependencyPaths = await collectDependencyPaths(skillPath);
+	return Promise.all(dependencyPaths.map((path) => computePromptHash(path)));
 };
 
 describe("tracked workflow lifecycle prompts", () => {
