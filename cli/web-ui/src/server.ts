@@ -1,6 +1,7 @@
 import { readDaemonState, writeDaemonState } from "./daemon/config-dir";
 import { FileWatcherPool } from "./server/file-watcher";
 import { startServer } from "./server/http";
+import { reclassifyInactiveRunsWithBroadcast } from "./server/inactive-runs";
 import {
 	buildProjectLookup,
 	findProjectByIdentity,
@@ -151,7 +152,6 @@ export function createServer(options: ServerOptions) {
 		version,
 	});
 
-	// Wire up replay provider for WebSocket reconnect replay
 	const setupReplayProvider = async () => {
 		const {
 			getEmitDatabase,
@@ -175,7 +175,14 @@ export function createServer(options: ServerOptions) {
 			countEventsSince: (afterId: number) => countEventsSince(db, afterId),
 			getEventsSince: (afterId: number, limit?: number) =>
 				getEventsSince(db, afterId, limit),
-			getActiveRunsSnapshot: () => getActiveRunsSnapshot(db),
+			getActiveRunsSnapshot: () => {
+				void reclassifyInactiveRunsWithBroadcast(db, websocketHub).catch(
+					(error) => {
+						console.warn("[replay] Failed to broadcast inactive runs:", error);
+					},
+				);
+				return getActiveRunsSnapshot(db);
+			},
 			getMaxEventId: () => getMaxEventId(db),
 		});
 	};

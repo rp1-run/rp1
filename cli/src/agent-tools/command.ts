@@ -5,7 +5,7 @@
 
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
-import { formatError } from "../../shared/errors.js";
+import { formatError, usageError } from "../../shared/errors.js";
 import { VALID_EVENT_TYPES } from "../../shared/events.js";
 import { executeExtract } from "./comment-extract/index.js";
 import {
@@ -13,7 +13,7 @@ import {
 	findOrCreateRun,
 	getEmitDatabase,
 } from "./emit/database.js";
-import { executeEmit } from "./emit/index.js";
+import { executeEmit, executeEndRun } from "./emit/index.js";
 import {
 	type EmitCommandOptions,
 	validateEmitOptions,
@@ -50,7 +50,6 @@ import {
 } from "./task/index.js";
 import { VALID_TASK_STATUSES } from "./task/models.js";
 
-// Register process exit handlers for graceful cleanup
 const cleanupAndExit = () => {
 	closeEmitDatabase();
 };
@@ -362,7 +361,6 @@ Examples:
 			let content: string;
 			let source: "file" | "stdin" = "stdin";
 
-			// If CLI flags provide name or schema-path, build JSON input from flags
 			if (options.name || options.schemaPath) {
 				const input: Record<string, string> = {};
 				if (options.schemaPath) {
@@ -380,7 +378,6 @@ Examples:
 				content = JSON.stringify(input);
 				source = "stdin";
 			} else {
-				// Fall back to file/stdin input
 				const inputResult = await readInput(options.file)();
 
 				if (E.isLeft(inputResult)) {
@@ -665,8 +662,15 @@ Description:
     btw_update            Send an informational update message
     subflow_registered    Register a subflow under a parent step
 
+  Subcommands:
+    resume-run            Reuse the latest compatible non-terminal run
+    end-run               End a live run as cancelled or abandoned
+
   Runs are auto-created on first emit if the run-id does not exist.
   Skipped-step detection automatically marks prior unreported steps as skipped.
+  Use 'emit end-run' for intentional terminal outcomes. Generic status_change
+  events still require --step and are reserved for workflow-step lifecycle
+  updates plus force-complete flows via --close-run.
 
 Arguments:
   --type <type>        Event type (required): ${VALID_EVENT_TYPES.join(", ")}
@@ -788,7 +792,8 @@ Description:
   or creates a new one if none exists. This enables skills to resume an
   existing run rather than creating duplicates.
 
-  Terminal statuses are: completed, failed, skipped.
+  Terminal statuses are: completed, failed, cancelled, abandoned.
+  Legacy skipped runs remain resumable.
   Non-terminal runs are returned in order of most recently created.
 
 Options:
@@ -871,6 +876,75 @@ Examples:
 					},
 				}),
 			);
+			process.exit(0);
+		},
+	);
+
+emitCommand
+	.command("end-run")
+	.description("End a live run as cancelled or abandoned")
+	.requiredOption("--run-id <id>", "Workflow run ID (UUID)")
+	.requiredOption(
+		"--outcome <outcome>",
+		"Terminal outcome (cancelled, abandoned)",
+	)
+	.option("--reason <message>", "Optional explanation for why work stopped")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Ends an in-progress run with an explicit terminal outcome. This writes a
+  stepless status_change event so the run ends without overloading a workflow
+  step or using skipped as a cancellation signal.
+
+Options:
+  --run-id <id>           Workflow run UUID (required)
+  --outcome <outcome>     Terminal outcome: cancelled or abandoned
+  --reason <message>      Optional operator-visible explanation
+
+Examples:
+  rp1 agent-tools emit end-run \\
+    --run-id "550e8400-e29b-41d4-a716-446655440000" \\
+    --outcome cancelled \\
+    --reason "Superseded by a newer run"
+`,
+	)
+	.action(
+		async (options: {
+			runId: string;
+			outcome: string;
+			reason?: string;
+		}): Promise<void> => {
+			const toolName = "emit";
+			if (options.outcome !== "cancelled" && options.outcome !== "abandoned") {
+				console.error(
+					createErrorResponse(
+						toolName,
+						formatError(
+							usageError(
+								`Invalid end-run outcome: '${options.outcome}'. Must be one of: cancelled, abandoned`,
+							),
+							false,
+						),
+					),
+				);
+				process.exit(1);
+			}
+
+			const result = await executeEndRun({
+				runId: options.runId,
+				outcome: options.outcome,
+				reason: options.reason,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
 			process.exit(0);
 		},
 	);

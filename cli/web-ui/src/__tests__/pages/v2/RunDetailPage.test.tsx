@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+	act,
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { WorkspaceTabsProvider } from "@/hooks/useWorkspaceTabs";
 import type { ShortcutRegistryData } from "@/providers/ShortcutRegistryProvider";
 import {
@@ -12,6 +19,9 @@ import type { Run } from "@/types/runs";
 
 let importVersion = 0;
 let latestRegistry: ShortcutRegistryData | null = null;
+let latestPath: string | null = null;
+const refetchMock = mock(() => {});
+let fetchMock: ReturnType<typeof mock>;
 
 const breadcrumbApi = {
 	setActiveArtifact: mock(() => {}),
@@ -23,7 +33,7 @@ const webSocketApi = {
 	setProjectId: mock(() => {}),
 };
 
-const run: Run = {
+let run: Run = {
 	id: "run-1",
 	projectId: "proj-1",
 	projectName: "Project One",
@@ -81,7 +91,7 @@ mock.module("@/hooks/useRunDetail", () => ({
 		run,
 		isLoading: false,
 		error: null,
-		refetch: mock(() => {}),
+		refetch: refetchMock,
 	}),
 }));
 
@@ -125,20 +135,48 @@ function RegistryProbe() {
 	return null;
 }
 
-async function renderRunDetail() {
+function LocationProbe() {
+	latestPath = useLocation().pathname;
+	return null;
+}
+
+async function renderRunDetail(
+	initialEntry = "/runs/run-1/step/build/artifact/doc-1",
+) {
 	const { RunDetailPage } = await import(
 		`../../../pages/v2/RunDetailPage.tsx?run-detail-test=${++importVersion}`
 	);
 
 	return render(
-		<MemoryRouter initialEntries={["/runs/run-1/step/build/artifact/doc-1"]}>
+		<MemoryRouter initialEntries={[initialEntry]}>
 			<WorkspaceTabsProvider>
 				<ShortcutRegistryProvider>
 					<Routes>
 						<Route
+							path="/runs/:runId"
+							element={
+								<>
+									<LocationProbe />
+									<RegistryProbe />
+									<RunDetailPage />
+								</>
+							}
+						/>
+						<Route
+							path="/runs/:runId/step/:stepId"
+							element={
+								<>
+									<LocationProbe />
+									<RegistryProbe />
+									<RunDetailPage />
+								</>
+							}
+						/>
+						<Route
 							path="/runs/:runId/step/:stepId/artifact/:docId"
 							element={
 								<>
+									<LocationProbe />
 									<RegistryProbe />
 									<RunDetailPage />
 								</>
@@ -157,10 +195,24 @@ describe("RunDetailPage", () => {
 		document.body.innerHTML = "";
 		sessionStorage.clear();
 		latestRegistry = null;
+		latestPath = null;
+		fetchMock = mock(() =>
+			Promise.resolve({
+				ok: true,
+				json: () => Promise.resolve({ runStatus: "cancelled" }),
+			}),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
 		breadcrumbApi.setActiveArtifact.mockClear();
 		breadcrumbApi.setProject.mockClear();
 		breadcrumbApi.setRunInfo.mockClear();
 		webSocketApi.setProjectId.mockClear();
+		refetchMock.mockClear();
+		run = {
+			...run,
+			status: "running",
+			statusMessage: null,
+		};
 	});
 
 	afterEach(() => {
@@ -229,5 +281,65 @@ describe("RunDetailPage", () => {
 		for (const panel of screen.getAllByTestId("artifact-panel-frontmatter")) {
 			expect(panel.textContent).toBe("true");
 		}
+	});
+
+	test("posts explicit end-run actions from the detail header", async () => {
+		await renderRunDetail();
+
+		fireEvent.click(screen.getByRole("button", { name: "Cancel Run" }));
+
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledWith("/api/v2/runs/run-1/end", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ outcome: "cancelled" }),
+			});
+		});
+		expect(refetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("prefers the current waiting step over historical completed artifacts when landing on the run root", async () => {
+		run = {
+			...run,
+			status: "waiting",
+			currentStep: "review",
+			steps: [
+				{
+					id: "build",
+					name: "Build",
+					status: "completed",
+					startedAt: "2026-04-12T00:00:00.000Z",
+					completedAt: "2026-04-12T00:10:00.000Z",
+					taskCount: 5,
+					completedTaskCount: 5,
+				},
+				{
+					id: "review",
+					name: "Review",
+					status: "waiting",
+					startedAt: "2026-04-12T00:10:00.000Z",
+					completedAt: null,
+					taskCount: null,
+					completedTaskCount: null,
+				},
+			],
+			artifacts: [
+				{
+					docId: "doc-build",
+					path: ".rp1/work/features/feature-1/design.md",
+					absolutePath: "/repo/.rp1/work/features/feature-1/design.md",
+					type: "markdown",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "build",
+				},
+			],
+		};
+
+		await renderRunDetail("/runs/run-1");
+
+		await waitFor(() => {
+			expect(latestPath).toBe("/runs/run-1/step/review");
+		});
 	});
 });

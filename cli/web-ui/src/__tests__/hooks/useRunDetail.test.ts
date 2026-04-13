@@ -115,6 +115,7 @@ describe("useRunDetail", () => {
 		});
 
 		expect(result.current.run?.status).toBe("waiting");
+		expect(result.current.run?.steps[0]?.status).toBe("waiting");
 		const waitingEvents = result.current.run?.events.filter(
 			(e: RunEvent) => e.type === "waiting_for_user",
 		);
@@ -314,5 +315,77 @@ describe("useRunDetail", () => {
 
 		await new Promise((resolve) => setTimeout(resolve, 650));
 		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("run-level cancelled status changes stay on the current step and trigger a terminal refetch", async () => {
+		const { useRunDetail } = await loadUseRunDetail();
+		const { result } = renderHook(() => useRunDetail("run-1"));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		act(() => {
+			emitEvent({
+				type: "event:notification",
+				eventId: 700,
+				eventType: "status_change",
+				runId: "run-1",
+				projectId: "proj-1",
+				featureId: "feat-1",
+				step: null,
+				data: {
+					status: "cancelled",
+					message: "Stopped intentionally",
+					source: "manual_end",
+				},
+				createdAt: "2026-03-15T01:30:00Z",
+			});
+		});
+
+		expect(result.current.run?.status).toBe("cancelled");
+		expect(result.current.run?.currentStep).toBe("design");
+		expect(result.current.run?.statusMessage).toBe("Stopped intentionally");
+		expect(result.current.run?.completedAt).toBe("2026-03-15T01:30:00Z");
+
+		await new Promise((resolve) => setTimeout(resolve, 1100));
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	test("status changes without a new message clear stale lifecycle text", async () => {
+		runResponse = {
+			...baseRun,
+			status: "inactive",
+			statusMessage: "No activity for 24 hours",
+			error: "No activity for 24 hours",
+		};
+
+		const { useRunDetail } = await loadUseRunDetail();
+		const { result } = renderHook(() => useRunDetail("run-1"));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+		expect(result.current.run?.statusMessage).toBe("No activity for 24 hours");
+
+		act(() => {
+			emitEvent({
+				type: "event:notification",
+				eventId: 800,
+				eventType: "status_change",
+				runId: "run-1",
+				projectId: "proj-1",
+				featureId: "feat-1",
+				step: "design",
+				data: {
+					status: "running",
+				},
+				createdAt: "2026-03-15T01:35:00Z",
+			});
+		});
+
+		expect(result.current.run?.status).toBe("running");
+		expect(result.current.run?.statusMessage).toBeNull();
+		expect(result.current.run?.error).toBeNull();
 	});
 });

@@ -3,10 +3,26 @@
  * Tests frontmatter stripping and hash computation for attestation system.
  */
 
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { computeDepsHash, stripFrontmatter } from "../prompt-hash.js";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+	computeDepsHash,
+	computePromptHash,
+	stripFrontmatter,
+} from "../prompt-hash.js";
 import type { HashResult } from "../types.js";
+
+let tempDirs: string[] = [];
+
+afterEach(async () => {
+	await Promise.all(
+		tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
+	);
+	tempDirs = [];
+});
 
 describe("prompt-hash", () => {
 	describe("stripFrontmatter", () => {
@@ -93,6 +109,55 @@ name: test
 			const result = stripFrontmatter(content);
 
 			expect(result).toBe("");
+		});
+	});
+
+	describe("computePromptHash", () => {
+		test("hashes the markdown body after stripping frontmatter", async () => {
+			const dir = await mkdtemp(join(tmpdir(), "rp1-prompt-hash-"));
+			tempDirs.push(dir);
+			const filePath = join(dir, "SKILL.md");
+			const content = `---
+name: test-skill
+---
+
+# Body
+
+Prompt text.`;
+			const body = `
+# Body
+
+Prompt text.`;
+			await writeFile(filePath, content, "utf-8");
+
+			const result = await computePromptHash(filePath)();
+
+			expect(result._tag).toBe("Right");
+			if (result._tag === "Left") {
+				throw result.left;
+			}
+
+			expect(result.right).toEqual({
+				path: filePath,
+				hash: `sha256:${createHash("sha256").update(body).digest("hex")}`,
+				content_length: body.length,
+			});
+		});
+
+		test("returns a contextual error when the prompt file cannot be read", async () => {
+			const missingPath = join(
+				tmpdir(),
+				`rp1-prompt-hash-missing-${Date.now()}`,
+				"SKILL.md",
+			);
+
+			const result = await computePromptHash(missingPath)();
+
+			expect(result._tag).toBe("Left");
+			if (result._tag === "Right") {
+				throw new Error("Expected computePromptHash to fail");
+			}
+			expect(result.left.message).toContain(`Failed to hash ${missingPath}`);
 		});
 	});
 

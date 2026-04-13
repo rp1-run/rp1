@@ -1,39 +1,17 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 
 type ReconnectCallback = () => void;
 type ProjectsChangedCallback = () => void;
 
-let reconnectListeners: ReconnectCallback[] = [];
 let projectsChangedListeners: ProjectsChangedCallback[] = [];
 let fetchMock: ReturnType<typeof mock>;
 let fetchCount = 0;
-
-mock.module("@/providers/WebSocketProvider", () => ({
-	useWebSocket: () => ({
-		subscribeToReconnect: (cb: ReconnectCallback) => {
-			reconnectListeners.push(cb);
-			return () => {
-				reconnectListeners = reconnectListeners.filter(
-					(listener) => listener !== cb,
-				);
-			};
-		},
-		onProjectsChange: (cb: ProjectsChangedCallback) => {
-			projectsChangedListeners.push(cb);
-			return () => {
-				projectsChangedListeners = projectsChangedListeners.filter(
-					(listener) => listener !== cb,
-				);
-			};
-		},
-	}),
-}));
+let reconnectRecovery: ReconnectCallback | null = null;
+let useProjectsImportVersion = 0;
 
 function emitReconnect() {
-	for (const listener of reconnectListeners) {
-		listener();
-	}
+	reconnectRecovery?.();
 }
 
 function emitProjectsChanged() {
@@ -42,9 +20,36 @@ function emitProjectsChanged() {
 	}
 }
 
+async function loadUseProjects() {
+	mock.module("@/providers/WebSocketProvider", () => ({
+		useWebSocket: () => ({
+			onProjectsChange: (cb: ProjectsChangedCallback) => {
+				projectsChangedListeners.push(cb);
+				return () => {
+					projectsChangedListeners = projectsChangedListeners.filter(
+						(listener) => listener !== cb,
+					);
+				};
+			},
+		}),
+	}));
+	mock.module("../../hooks/useReconnectRecovery.ts", () => ({
+		useReconnectRecovery: (recover: () => void | Promise<void>) => {
+			reconnectRecovery = () => {
+				void recover();
+			};
+		},
+	}));
+
+	return import(
+		`../../hooks/useProjects.ts?use-projects-test=${++useProjectsImportVersion}`
+	);
+}
+
 beforeEach(() => {
-	reconnectListeners = [];
+	mock.restore();
 	projectsChangedListeners = [];
+	reconnectRecovery = null;
 	fetchCount = 0;
 
 	fetchMock = mock(() => {
@@ -77,9 +82,16 @@ beforeEach(() => {
 	globalThis.fetch = fetchMock as unknown as typeof fetch;
 });
 
+afterEach(() => {
+	cleanup();
+	projectsChangedListeners = [];
+	reconnectRecovery = null;
+	mock.restore();
+});
+
 describe("useProjects", () => {
 	test("recovers automatically after websocket reconnect", async () => {
-		const { useProjects } = await import("../../hooks/useProjects");
+		const { useProjects } = await loadUseProjects();
 		const { result } = renderHook(() => useProjects());
 
 		await waitFor(() => {
@@ -91,6 +103,7 @@ describe("useProjects", () => {
 		expect(result.current.projects).toEqual([]);
 
 		act(() => {
+			expect(reconnectRecovery).not.toBeNull();
 			emitReconnect();
 		});
 
@@ -144,7 +157,7 @@ describe("useProjects", () => {
 		});
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-		const { useProjects } = await import("../../hooks/useProjects");
+		const { useProjects } = await loadUseProjects();
 		const { result } = renderHook(() => useProjects());
 
 		await waitFor(() => {

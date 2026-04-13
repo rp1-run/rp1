@@ -20,9 +20,12 @@ function StatusDot({ status }: { status: RunStatus }) {
 	const dotClass = cn(
 		"h-2 w-2 shrink-0 rounded-full",
 		status === "running" && "bg-accent-amber animate-status-pulse",
-		status === "completed" && "bg-fg-ghost",
-		status === "failed" && "bg-failure",
 		status === "waiting" && "bg-accent-amber",
+		status === "completed" && "bg-status-completed",
+		status === "failed" && "bg-failure",
+		status === "abandoned" && "bg-failure",
+		status === "inactive" && "bg-muted-foreground",
+		status === "cancelled" && "bg-muted-foreground",
 		status === "not_started" && "bg-fg-ghost",
 		status === "skipped" && "bg-fg-ghost",
 	);

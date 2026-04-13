@@ -16,6 +16,7 @@ import type {
 	RunRecord,
 	Status,
 } from "../../../../shared/events.js";
+import { isTerminalRunStatus } from "../../../../shared/events.js";
 import {
 	getLogicalStepDisplayId,
 	getLogicalStepKey,
@@ -28,13 +29,14 @@ import type {
 	StepStatusEntry,
 } from "../../../../src/agent-tools/emit/database.js";
 import {
+	endRun,
 	getArtifactsForRun,
+	getEffectiveStepStatuses,
 	getEmitDatabase,
 	getProjectRunStats as getEmitProjectRunStats,
 	getEventsForRun,
 	getRunById,
 	getRunsByAttentionStatus,
-	getStepStatuses,
 	listRuns,
 	resolveArtifactPathForRun,
 } from "../../../../src/agent-tools/emit/database.js";
@@ -42,6 +44,7 @@ import {
 	dismissNotification,
 	listNotifications,
 } from "../../../../src/agent-tools/emit/notification-database.js";
+import { maybeGenerateNotification } from "../../../../src/agent-tools/emit/notification-generator.js";
 import {
 	deriveOrderedSteps,
 	listWorkflows,
@@ -66,6 +69,7 @@ import type {
 	Step,
 	StepStatus,
 } from "../../types/runs";
+import { reclassifyInactiveRunsWithBroadcast } from "../inactive-runs";
 import { buildProjectLookup, findProjectByIdentity } from "../project-lookup";
 import {
 	findArtifactByRequestedPath,
@@ -217,6 +221,22 @@ function parseJsonSafe(
 	} catch {
 		return null;
 	}
+}
+
+function getRunLevelStatusMessage(
+	events: readonly EventRecord[],
+	status: Status,
+): string | null {
+	for (const event of [...events].reverse()) {
+		if (event.type !== "status_change" || event.step != null) continue;
+		const data = parseJsonSafe(event.data);
+		if (data?.status !== status || typeof data?.message !== "string") {
+			continue;
+		}
+		return data.message;
+	}
+
+	return null;
 }
 
 function asObject(value: unknown): Readonly<Record<string, unknown>> | null {
@@ -563,7 +583,6 @@ async function getSubflowDiagrams(
 ): Promise<Readonly<Record<string, string>>> {
 	const subflows: Record<string, string> = {};
 
-	// Source 1: artifact-based subflow diagrams (requires subflow flag on artifact)
 	for (const artifact of artifacts) {
 		if (!artifact.subflow || !artifact.step) continue;
 
@@ -583,7 +602,6 @@ async function getSubflowDiagrams(
 		}
 	}
 
-	// Source 2: derive from subflow_registered events (primary path)
 	for (const event of events) {
 		if (event.type !== "subflow_registered" || !event.step) continue;
 		if (subflows[event.step]) continue; // artifact source takes priority
@@ -880,10 +898,7 @@ function runRecordToListRun(
 		events: [],
 		startedAt: record.createdAt,
 		lastEventAt: record.lastEventAt ?? record.createdAt,
-		completedAt:
-			record.status === "completed" || record.status === "failed"
-				? record.updatedAt
-				: null,
+		completedAt: isTerminalRunStatus(record.status) ? record.updatedAt : null,
 		error: null,
 		agentSteps: null,
 	};
@@ -1031,7 +1046,7 @@ async function buildDetailedRun(
 	const command = `/${record.flow}`;
 	const directories = getRunDirectories(record);
 
-	const stepStatuses = getStepStatuses(db, record.id);
+	const stepStatuses = getEffectiveStepStatuses(db, record.id);
 	const events = getEventsForRun(db, record.id);
 	const artifactRecords = getArtifactsForRun(db, record.id);
 
@@ -1055,6 +1070,7 @@ async function buildDetailedRun(
 	const runEvents = events.map(eventRecordToRunEvent);
 	const agentSteps = deriveAgentSteps(events);
 	const subflows = await getSubflowDiagrams(artifacts, events, directories);
+	const statusMessage = getRunLevelStatusMessage(events, record.status);
 
 	let currentStep: string | null = null;
 	for (const step of [...steps].reverse()) {
@@ -1107,11 +1123,9 @@ async function buildDetailedRun(
 		events: runEvents,
 		startedAt: record.createdAt,
 		lastEventAt: events[events.length - 1]?.createdAt ?? record.createdAt,
-		completedAt:
-			record.status === "completed" || record.status === "failed"
-				? record.updatedAt
-				: null,
+		completedAt: isTerminalRunStatus(record.status) ? record.updatedAt : null,
 		error,
+		statusMessage,
 		agentSteps,
 		invocation: parseRunInvocationContext(record),
 		subflows:
@@ -1123,7 +1137,10 @@ async function buildDetailedRun(
  * GET /api/v2/runs - paginated list with filters.
  * Queries the runs table in rp1.db for canonical status values.
  */
-export async function handleV2RunsListRequest(req: Request): Promise<Response> {
+export async function handleV2RunsListRequest(
+	req: Request,
+	ctx?: ApiContext,
+): Promise<Response> {
 	const url = new URL(req.url);
 	const params = url.searchParams;
 
@@ -1136,6 +1153,7 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 
 	try {
 		const db = await getDb();
+		await reclassifyInactiveRunsWithBroadcast(db, ctx?.websocketHub);
 		const projects = await getAllProjects(db);
 		const projectLookup = buildProjectLookup(projects);
 
@@ -1206,9 +1224,12 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
  * GET /api/v2/runs/attention - grouped by attention state.
  * Queries the runs table grouped by waiting/failed/running canonical statuses.
  */
-export async function handleV2RunsAttentionRequest(): Promise<Response> {
+export async function handleV2RunsAttentionRequest(
+	ctx?: ApiContext,
+): Promise<Response> {
 	try {
 		const db = await getDb();
+		await reclassifyInactiveRunsWithBroadcast(db, ctx?.websocketHub);
 		const projects = await getAllProjects(db);
 		const projectLookup = buildProjectLookup(projects);
 
@@ -1243,9 +1264,11 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
  */
 export async function handleV2RunDetailRequest(
 	runId: string,
+	ctx?: ApiContext,
 ): Promise<Response> {
 	try {
 		const db = await getDb();
+		await reclassifyInactiveRunsWithBroadcast(db, ctx?.websocketHub);
 		const record = getRunById(db, runId);
 
 		if (!record) {
@@ -1262,6 +1285,114 @@ export async function handleV2RunDetailRequest(
 		return jsonResponse(run);
 	} catch (error) {
 		return errorResponse(`Failed to fetch run: ${String(error)}`);
+	}
+}
+
+/**
+ * POST /api/v2/runs/:id/end - intentionally stop a live run.
+ */
+export async function handleV2RunEndRequest(
+	runId: string,
+	req: Request,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		let body: { outcome?: string; reason?: string };
+		try {
+			body = (await req.json()) as { outcome?: string; reason?: string };
+		} catch {
+			return errorResponse("Malformed JSON body", 400);
+		}
+
+		if (body.outcome !== "cancelled" && body.outcome !== "abandoned") {
+			return errorResponse(
+				'Missing or invalid "outcome": expected "cancelled" or "abandoned"',
+				400,
+			);
+		}
+
+		if (body.reason !== undefined && typeof body.reason !== "string") {
+			return errorResponse('Invalid "reason": expected string', 400);
+		}
+
+		const outcome = body.outcome;
+		const reason =
+			typeof body.reason === "string" && body.reason.trim().length > 0
+				? body.reason.trim()
+				: undefined;
+		const db = await getDb();
+		const existingRun = getRunById(db, runId);
+		if (!existingRun) {
+			return errorResponse(`Run not found: ${runId}`, 404);
+		}
+
+		if (isTerminalRunStatus(existingRun.status)) {
+			return errorResponse(
+				`Run "${runId}" is already terminal (${existingRun.status}) and cannot be ended again`,
+				409,
+			);
+		}
+
+		const result = endRun(db, {
+			runId,
+			outcome,
+			message: reason,
+			actor: "user",
+		});
+
+		if (E.isLeft(result)) {
+			return errorResponse(formatError(result.left, false), 400);
+		}
+
+		const { event, run, runStatus } = result.right;
+		const projects = await getAllProjects(db);
+		const projectLookup = buildProjectLookup(projects);
+		const project =
+			findProjectByIdentity(projectLookup, run) ?? fallbackProjectFromRun(run);
+
+		const eventData: Record<string, unknown> = {
+			status: outcome,
+			actor: "user",
+			source: "manual_end",
+		};
+		if (reason) {
+			eventData.message = reason;
+		}
+
+		const notification = maybeGenerateNotification(
+			db,
+			run.id,
+			runStatus,
+			"status_change",
+			run.projectId,
+			run.flow !== "unknown" ? run.flow : null,
+			null,
+			eventData,
+		);
+
+		ctx.websocketHub?.broadcastEvent(
+			project.id,
+			event.id,
+			"status_change",
+			run.id,
+			run.featureId,
+			null,
+			eventData,
+			event.createdAt,
+		);
+
+		if (notification) {
+			ctx.websocketHub?.broadcastNotificationCreated(notification);
+		}
+
+		return jsonResponse({
+			runId: run.id,
+			eventId: event.id,
+			runStatus,
+			...(notification ? { notificationId: notification.id } : {}),
+		});
+	} catch (error) {
+		return errorResponse(`Failed to end run: ${String(error)}`);
 	}
 }
 
@@ -1429,7 +1560,6 @@ export async function handleV2ProjectsListRequest(): Promise<Response> {
 			};
 		});
 
-		// Sort by latest activity descending; projects with no activity sink to the bottom
 		v2Projects.sort((a, b) => {
 			if (!a.lastActivityAt && !b.lastActivityAt) return 0;
 			if (!a.lastActivityAt) return 1;
@@ -2026,7 +2156,10 @@ export async function handleV2NotificationNotifyRequest(
  * GET /api/v2/feed - run activity feed only.
  * Returns runs ordered by latest activity time with filtering and pagination.
  */
-export async function handleV2FeedRequest(req: Request): Promise<Response> {
+export async function handleV2FeedRequest(
+	req: Request,
+	ctx?: ApiContext,
+): Promise<Response> {
 	try {
 		const url = new URL(req.url);
 		const params = url.searchParams;
@@ -2038,6 +2171,7 @@ export async function handleV2FeedRequest(req: Request): Promise<Response> {
 		const offset = Number.parseInt(params.get("offset") ?? "0", 10);
 
 		const db = await getDb();
+		await reclassifyInactiveRunsWithBroadcast(db, ctx?.websocketHub);
 		const projects = await getAllProjects(db);
 		const projectLookup = buildProjectLookup(projects);
 		const skillMetadataLookup = await getRuntimeSkillMetadataLookup();

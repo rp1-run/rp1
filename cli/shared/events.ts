@@ -11,18 +11,97 @@ export type Status =
 	| "not_started"
 	| "running"
 	| "waiting"
+	| "inactive"
 	| "completed"
 	| "failed"
+	| "cancelled"
+	| "abandoned"
 	| "skipped";
 
 export const VALID_STATUSES: readonly Status[] = [
 	"not_started",
 	"running",
 	"waiting",
+	"inactive",
+	"completed",
+	"failed",
+	"cancelled",
+	"abandoned",
+	"skipped",
+] as const;
+
+export const VALID_RUN_STATUSES = [
+	"not_started",
+	"running",
+	"waiting",
+	"inactive",
+	"completed",
+	"failed",
+	"cancelled",
+	"abandoned",
+] as const satisfies readonly Status[];
+
+export type RunStatus = (typeof VALID_RUN_STATUSES)[number];
+
+export const VALID_STEP_STATUSES = [
+	"not_started",
+	"running",
+	"waiting",
 	"completed",
 	"failed",
 	"skipped",
-] as const;
+] as const satisfies readonly Status[];
+
+export type StepStatus = (typeof VALID_STEP_STATUSES)[number];
+
+export const RUN_STATUS_CHECK_STATUSES = [
+	...VALID_RUN_STATUSES,
+	"skipped",
+] as const satisfies readonly Status[];
+
+export const TERMINAL_RUN_STATUSES = [
+	"completed",
+	"failed",
+	"cancelled",
+	"abandoned",
+] as const satisfies readonly RunStatus[];
+
+export type TerminalRunStatus = (typeof TERMINAL_RUN_STATUSES)[number];
+
+export const LIVE_ATTENTION_STATUSES = [
+	"not_started",
+	"running",
+	"waiting",
+] as const satisfies readonly RunStatus[];
+
+export type LiveAttentionStatus = (typeof LIVE_ATTENTION_STATUSES)[number];
+
+const validStatusSet = new Set<Status>(VALID_STATUSES);
+const validRunStatusSet = new Set<RunStatus>(VALID_RUN_STATUSES);
+const validStepStatusSet = new Set<StepStatus>(VALID_STEP_STATUSES);
+const terminalRunStatusSet = new Set<TerminalRunStatus>(TERMINAL_RUN_STATUSES);
+const liveAttentionStatusSet = new Set<LiveAttentionStatus>(
+	LIVE_ATTENTION_STATUSES,
+);
+
+export const isValidStatus = (value: string): value is Status =>
+	validStatusSet.has(value as Status);
+
+export const isValidRunStatus = (value: string): value is RunStatus =>
+	validRunStatusSet.has(value as RunStatus);
+
+export const isValidStepStatus = (value: string): value is StepStatus =>
+	validStepStatusSet.has(value as StepStatus);
+
+export const isTerminalRunStatus = (
+	value: string,
+): value is TerminalRunStatus =>
+	terminalRunStatusSet.has(value as TerminalRunStatus);
+
+export const isLiveAttentionStatus = (
+	value: string,
+): value is LiveAttentionStatus =>
+	liveAttentionStatusSet.has(value as LiveAttentionStatus);
 
 /** The 6 supported event types */
 export type EventType =
@@ -62,11 +141,20 @@ export const VALID_ARTIFACT_TYPES: readonly ArtifactType[] = [
 
 export type WorkflowRunPolicy = "fresh" | "resumable";
 
+export type StatusChangeActor = "user" | "system" | "agent";
+
+export type StatusChangeSource =
+	| "workflow"
+	| "manual_end"
+	| "inactivity_reaper";
+
 /** Per-type payload interfaces */
 
 export interface StatusChangePayload {
 	readonly status: Status;
 	readonly message?: string;
+	readonly actor?: StatusChangeActor;
+	readonly source?: StatusChangeSource;
 }
 
 export interface ArtifactRegisteredPayload {

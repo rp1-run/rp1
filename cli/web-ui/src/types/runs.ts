@@ -103,6 +103,7 @@ export interface Run {
 	readonly lastEventAt?: string | null;
 	readonly completedAt: string | null;
 	readonly error: string | null;
+	readonly statusMessage?: string | null;
 	readonly agentSteps: Readonly<Record<string, readonly AgentTask[]>> | null;
 	readonly invocation?: RunInvocationContext;
 	readonly subflows?: Readonly<Record<string, string>>;

@@ -9,6 +9,7 @@ import { existsSync, unlinkSync } from "node:fs";
 import { mkdir, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import * as E from "fp-ts/lib/Either.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { runtimeError } from "../../../shared/errors.js";
@@ -20,6 +21,12 @@ import type {
 	WorkflowRunPolicy,
 } from "../../../shared/events.js";
 import {
+	isTerminalRunStatus,
+	LIVE_ATTENTION_STATUSES,
+	RUN_STATUS_CHECK_STATUSES,
+	TERMINAL_RUN_STATUSES,
+} from "../../../shared/events.js";
+import {
 	getLogicalStepKey,
 	isNamespacedLifecycleStep,
 } from "../../../shared/logical-step.js";
@@ -29,6 +36,10 @@ import { readProjectId } from "../../../shared/project-id.js";
 const getDefaultDbPath = (): string =>
 	process.env.RP1_DB ?? join(homedir(), ".rp1", "rp1.db");
 
+const RUN_STATUS_CHECK_SQL = RUN_STATUS_CHECK_STATUSES.map(
+	(status) => `'${status}'`,
+).join(", ");
+
 /** Schema DDL for rp1.db (version 1, clean start) */
 const SCHEMA_SQL = `
 PRAGMA foreign_keys = ON;
@@ -37,7 +48,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (12);
+INSERT INTO schema_version (version) VALUES (13);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -55,7 +66,7 @@ CREATE TABLE IF NOT EXISTS runs (
     name TEXT DEFAULT NULL,
     harness TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'not_started'
-        CHECK(status IN ('not_started', 'running', 'waiting', 'completed', 'failed', 'skipped')),
+        CHECK(status IN (${RUN_STATUS_CHECK_SQL})),
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
@@ -63,6 +74,7 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE INDEX IF NOT EXISTS idx_runs_project ON runs(project_path);
 CREATE INDEX IF NOT EXISTS idx_runs_feature ON runs(project_path, feature_id);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
+CREATE INDEX IF NOT EXISTS idx_runs_status_updated ON runs(status, updated_at);
 CREATE INDEX IF NOT EXISTS idx_runs_feature_status ON runs(project_path, feature_id, status);
 CREATE INDEX IF NOT EXISTS idx_runs_project_id ON runs(project_id);
 CREATE INDEX IF NOT EXISTS idx_runs_project_work_identity_status ON runs(project_id, flow, work_identity, status);
@@ -183,7 +195,23 @@ CREATE TABLE IF NOT EXISTS project_registry_meta (
 `;
 
 /** Terminal statuses that indicate a run is no longer active */
-const TERMINAL_STATUSES: readonly Status[] = ["completed", "failed", "skipped"];
+const NON_RESUMABLE_RUN_STATUSES: readonly Status[] = TERMINAL_RUN_STATUSES;
+const NON_RESUMABLE_RUN_STATUS_PLACEHOLDERS = NON_RESUMABLE_RUN_STATUSES.map(
+	() => "?",
+).join(", ");
+const ACTIVE_SNAPSHOT_RUN_STATUSES: readonly Status[] = LIVE_ATTENTION_STATUSES;
+const ACTIVE_SNAPSHOT_RUN_STATUS_PLACEHOLDERS =
+	ACTIVE_SNAPSHOT_RUN_STATUSES.map(() => "?").join(", ");
+const WAITING_CLEAR_STATUSES = new Set<Status>([
+	"running",
+	"completed",
+	"failed",
+	"cancelled",
+	"abandoned",
+]);
+const TERMINAL_OVERRIDE_STEP_STATUSES = new Set<Status>(["running", "waiting"]);
+const END_RUN_OUTCOMES = ["cancelled", "abandoned"] as const;
+const INACTIVE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 /** Cached database connection (singleton pattern). */
 let dbInstance: Database | null = null;
@@ -200,6 +228,38 @@ export interface ResumeRunResult {
 	readonly runId: string;
 	readonly resumed: boolean;
 }
+
+export type EndRunOutcome = (typeof END_RUN_OUTCOMES)[number];
+
+export interface EndRunInput {
+	readonly runId: string;
+	readonly outcome: EndRunOutcome;
+	readonly message?: string;
+	readonly actor?: "user" | "system" | "agent";
+	readonly createdAt?: string;
+}
+
+export interface EndRunResult {
+	readonly event: EventRecord;
+	readonly run: RunRecord;
+	readonly runStatus: Status;
+}
+
+export interface InactiveRunReclassification {
+	readonly runId: string;
+	readonly previousStatus: Status;
+	readonly runStatus: Status;
+	readonly eventId: number;
+	readonly createdAt: string;
+	readonly data: typeof INACTIVE_REAPER_STATUS_CHANGE;
+}
+
+export const INACTIVE_REAPER_STATUS_CHANGE = {
+	status: "inactive",
+	message: "No workflow activity recorded for 24 hours",
+	actor: "system",
+	source: "inactivity_reaper",
+} as const;
 
 /** Input for creating or retrieving a run */
 export interface RunInput {
@@ -406,6 +466,22 @@ interface StepStatusRow {
 interface LogicalStepStatusEntry extends StepStatusEntry {
 	readonly concreteStep: string;
 	readonly unit: string | null;
+}
+
+interface StepStatusProjection extends LogicalStepStatusEntry {
+	readonly eventId: number;
+}
+
+interface WaitingEventRow {
+	id: number;
+	step: string | null;
+	created_at: string;
+}
+
+interface RunLevelStatusRow {
+	id: number;
+	status: string;
+	created_at: string;
 }
 
 const NON_TERMINAL_STATUSES = new Set<Status>([
@@ -877,6 +953,95 @@ const applyMigrations = (db: Database): void => {
 
 		db.prepare("UPDATE schema_version SET version = 12").run();
 	}
+
+	const postV12Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV12Version?.version ?? 12) < 13) {
+		db.exec("PRAGMA foreign_keys = OFF");
+		try {
+			db.exec("BEGIN TRANSACTION");
+			db.exec(`
+				CREATE TABLE runs_v13 (
+					id TEXT PRIMARY KEY NOT NULL,
+					flow TEXT NOT NULL,
+					feature_id TEXT NOT NULL,
+					project_path TEXT NOT NULL,
+					rp1_project_root TEXT NOT NULL,
+					rp1_kb_root TEXT NOT NULL,
+					rp1_work_root TEXT NOT NULL,
+					project_id TEXT DEFAULT NULL,
+					run_policy TEXT DEFAULT NULL
+						CHECK(run_policy IN ('fresh', 'resumable')),
+					work_identity TEXT DEFAULT NULL,
+					bootstrap_context TEXT DEFAULT NULL,
+					name TEXT DEFAULT NULL,
+					harness TEXT DEFAULT NULL,
+					status TEXT NOT NULL DEFAULT 'not_started'
+						CHECK(status IN (${RUN_STATUS_CHECK_SQL})),
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+
+				INSERT INTO runs_v13 (
+					id,
+					flow,
+					feature_id,
+					project_path,
+					rp1_project_root,
+					rp1_kb_root,
+					rp1_work_root,
+					project_id,
+					run_policy,
+					work_identity,
+					bootstrap_context,
+					name,
+					harness,
+					status,
+					created_at,
+					updated_at
+				)
+				SELECT
+					id,
+					flow,
+					feature_id,
+					project_path,
+					rp1_project_root,
+					rp1_kb_root,
+					rp1_work_root,
+					project_id,
+					run_policy,
+					work_identity,
+					bootstrap_context,
+					name,
+					harness,
+					status,
+					created_at,
+					updated_at
+				FROM runs;
+
+				DROP TABLE runs;
+				ALTER TABLE runs_v13 RENAME TO runs;
+
+				CREATE INDEX idx_runs_project ON runs(project_path);
+				CREATE INDEX idx_runs_feature ON runs(project_path, feature_id);
+				CREATE INDEX idx_runs_status ON runs(status);
+				CREATE INDEX idx_runs_status_updated ON runs(status, updated_at);
+				CREATE INDEX idx_runs_feature_status ON runs(project_path, feature_id, status);
+				CREATE INDEX idx_runs_project_id ON runs(project_id);
+				CREATE INDEX idx_runs_project_work_identity_status ON runs(project_id, flow, work_identity, status);
+				CREATE INDEX idx_runs_root_work_identity_status ON runs(rp1_project_root, flow, work_identity, status);
+			`);
+			db.prepare("UPDATE schema_version SET version = 13").run();
+			db.exec("COMMIT");
+		} catch (error) {
+			db.exec("ROLLBACK");
+			throw error;
+		} finally {
+			db.exec("PRAGMA foreign_keys = ON");
+		}
+	}
 };
 
 /**
@@ -1068,21 +1233,22 @@ const findWorkflowRunByIdentity = (
 		.prepare(
 			`SELECT * FROM runs
 			 WHERE (
-			        project_id = $projectId
-			     OR (project_id IS NULL AND rp1_project_root = $rp1ProjectRoot)
+			        project_id = ?
+			     OR (project_id IS NULL AND rp1_project_root = ?)
 			   )
-			   AND flow = $flow
-			   AND work_identity = $workIdentity
-			   AND status NOT IN ('completed', 'failed', 'skipped')
+			   AND flow = ?
+			   AND work_identity = ?
+			   AND status NOT IN (${NON_RESUMABLE_RUN_STATUS_PLACEHOLDERS})
 			 ORDER BY created_at DESC
 			 LIMIT 1`,
 		)
-		.get({
-			$projectId: input.projectId ?? null,
-			$rp1ProjectRoot: input.rp1ProjectRoot,
-			$flow: input.flow,
-			$workIdentity: input.workIdentity ?? null,
-		}) as RunRow | null;
+		.get(
+			input.projectId ?? null,
+			input.rp1ProjectRoot,
+			input.flow,
+			input.workIdentity ?? null,
+			...NON_RESUMABLE_RUN_STATUSES,
+		) as RunRow | null;
 };
 
 const findLegacyWorkflowRun = (
@@ -1097,21 +1263,22 @@ const findLegacyWorkflowRun = (
 		.prepare(
 			`SELECT * FROM runs
 			 WHERE (
-			        project_id = $projectId
-			     OR (project_id IS NULL AND rp1_project_root = $rp1ProjectRoot)
+			        project_id = ?
+			     OR (project_id IS NULL AND rp1_project_root = ?)
 			   )
-			   AND feature_id = $featureId
-			   AND (flow = $flow OR flow = 'unknown')
-			   AND status NOT IN ('completed', 'failed', 'skipped')
+			   AND feature_id = ?
+			   AND (flow = ? OR flow = 'unknown')
+			   AND status NOT IN (${NON_RESUMABLE_RUN_STATUS_PLACEHOLDERS})
 			 ORDER BY created_at DESC
 			 LIMIT 1`,
 		)
-		.get({
-			$projectId: input.projectId ?? null,
-			$rp1ProjectRoot: input.rp1ProjectRoot,
-			$featureId: input.featureId,
-			$flow: input.flow,
-		}) as RunRow | null;
+		.get(
+			input.projectId ?? null,
+			input.rp1ProjectRoot,
+			input.featureId,
+			input.flow,
+			...NON_RESUMABLE_RUN_STATUSES,
+		) as RunRow | null;
 };
 
 export const findOrCreateWorkflowRun = (
@@ -1166,15 +1333,13 @@ export const findOrCreateRun = (
 	db: Database,
 	input: ResumeRunInput,
 ): ResumeRunResult => {
-	const terminalPlaceholders = TERMINAL_STATUSES.map(() => "?").join(", ");
-
 	const existing = db
 		.prepare(
 			`SELECT * FROM runs
 			 WHERE feature_id = ?
 			   AND flow = ?
 			   AND project_path = ?
-			   AND status NOT IN (${terminalPlaceholders})
+			   AND status NOT IN (${NON_RESUMABLE_RUN_STATUS_PLACEHOLDERS})
 			 ORDER BY created_at DESC
 			 LIMIT 1`,
 		)
@@ -1182,7 +1347,7 @@ export const findOrCreateRun = (
 			input.featureId,
 			input.flow,
 			input.projectPath,
-			...TERMINAL_STATUSES,
+			...NON_RESUMABLE_RUN_STATUSES,
 		) as RunRow | null;
 
 	if (existing) {
@@ -1195,14 +1360,14 @@ export const findOrCreateRun = (
 			 WHERE feature_id = ?
 			   AND flow = 'unknown'
 			   AND project_path = ?
-			   AND status NOT IN (${terminalPlaceholders})
+			   AND status NOT IN (${NON_RESUMABLE_RUN_STATUS_PLACEHOLDERS})
 			 ORDER BY created_at DESC
 			 LIMIT 1`,
 		)
 		.get(
 			input.featureId,
 			input.projectPath,
-			...TERMINAL_STATUSES,
+			...NON_RESUMABLE_RUN_STATUSES,
 		) as RunRow | null;
 
 	if (legacyUnknown) {
@@ -1363,11 +1528,8 @@ export const upsertAnnotation = (
  * Query the latest status_change event per logical work item for a run.
  * Returns the most recent status for each unique logical step key.
  */
-export const getStepStatuses = (
-	db: Database,
-	runId: string,
-): StepStatusEntry[] => {
-	const rows = db
+const getStatusChangeRows = (db: Database, runId: string): StepStatusRow[] =>
+	db
 		.prepare(
 			`SELECT id, step, unit, json_extract(data, '$.status') as status
 			 FROM events
@@ -1376,15 +1538,31 @@ export const getStepStatuses = (
 		)
 		.all({ $runId: runId }) as StepStatusRow[];
 
-	const latestByLogicalKey = new Map<string, LogicalStepStatusEntry>();
+const getRunLevelStatusRows = (
+	db: Database,
+	runId: string,
+): RunLevelStatusRow[] =>
+	db
+		.prepare(
+			`SELECT id, json_extract(data, '$.status') as status, created_at
+			 FROM events
+			 WHERE run_id = $runId
+			   AND type = 'status_change'
+			   AND step IS NULL
+			   AND unit IS NULL
+			 ORDER BY id ASC`,
+		)
+		.all({ $runId: runId }) as RunLevelStatusRow[];
+
+const buildDiagnosticStepStatusProjections = (
+	rows: readonly StepStatusRow[],
+): StepStatusProjection[] => {
+	const latestByLogicalKey = new Map<string, StepStatusProjection>();
 	let activeWorkflowStep: string | null = null;
 
 	for (const row of rows) {
 		const status = row.status as Status;
 
-		// When a parent workflow step is active, namespaced sub-step events
-		// must not override the parent's status. Sub-tasks are tracked
-		// separately via deriveAgentSteps in the web UI.
 		if (isNamespacedLifecycleStep(row.step) && activeWorkflowStep) {
 			continue;
 		}
@@ -1396,6 +1574,7 @@ export const getStepStatuses = (
 			status,
 			concreteStep: row.step,
 			unit: row.unit,
+			eventId: row.id,
 		});
 
 		if (isNamespacedLifecycleStep(row.step)) {
@@ -1410,6 +1589,245 @@ export const getStepStatuses = (
 	}
 
 	return Array.from(latestByLogicalKey.values());
+};
+
+const buildWorkflowStepStatusProjections = (
+	rows: readonly StepStatusRow[],
+): StepStatusProjection[] => {
+	const latestByStep = new Map<string, StepStatusProjection>();
+
+	for (const row of rows) {
+		if (row.unit != null || isNamespacedLifecycleStep(row.step)) {
+			continue;
+		}
+
+		latestByStep.set(row.step, {
+			step: row.step,
+			status: row.status as Status,
+			concreteStep: row.step,
+			unit: null,
+			eventId: row.id,
+		});
+	}
+
+	return Array.from(latestByStep.values());
+};
+
+const getLatestWaitingEvent = (
+	db: Database,
+	runId: string,
+): WaitingEventRow | null =>
+	db
+		.prepare(
+			`SELECT id, step, created_at
+			 FROM events
+			 WHERE run_id = $runId AND type = 'waiting_for_user'
+			 ORDER BY id DESC
+			 LIMIT 1`,
+		)
+		.get({ $runId: runId }) as WaitingEventRow | null;
+
+const overlayWaitingStep = (
+	entries: readonly StepStatusProjection[],
+	waitingEvent: WaitingEventRow | null,
+): StepStatusProjection[] => {
+	if (waitingEvent?.step == null) {
+		return [...entries];
+	}
+
+	const waitingStepKey = getLogicalStepKey(waitingEvent.step, null);
+	const index = entries.findIndex(
+		(entry) =>
+			entry.step === waitingStepKey || entry.concreteStep === waitingEvent.step,
+	);
+
+	const waitingEntry: StepStatusProjection =
+		index >= 0
+			? {
+					...entries[index],
+					status: "waiting",
+					concreteStep: waitingEvent.step,
+					eventId: waitingEvent.id,
+				}
+			: {
+					step: waitingStepKey,
+					status: "waiting",
+					concreteStep: waitingEvent.step,
+					unit: null,
+					eventId: waitingEvent.id,
+				};
+
+	if (index < 0) {
+		return [...entries, waitingEntry];
+	}
+
+	return entries.map((entry, entryIndex) =>
+		entryIndex === index ? waitingEntry : entry,
+	);
+};
+
+const maxWaitClearingEventId = (
+	entries: readonly StepStatusProjection[],
+): number =>
+	entries.reduce(
+		(maxEventId, entry) =>
+			WAITING_CLEAR_STATUSES.has(entry.status)
+				? Math.max(maxEventId, entry.eventId)
+				: maxEventId,
+		0,
+	);
+
+const maxWaitClearingRowId = (rows: readonly StepStatusRow[]): number =>
+	rows.reduce(
+		(maxEventId, row) =>
+			WAITING_CLEAR_STATUSES.has(row.status as Status)
+				? Math.max(maxEventId, row.id)
+				: maxEventId,
+		0,
+	);
+
+const collapseLiveStepStatuses = (
+	entries: readonly StepStatusProjection[],
+): StepStatusProjection[] =>
+	entries.map((entry) =>
+		TERMINAL_OVERRIDE_STEP_STATUSES.has(entry.status)
+			? { ...entry, status: "completed" }
+			: entry,
+	);
+
+const deriveProjectedStatus = (
+	entries: readonly StepStatusProjection[],
+	waitingActive: boolean,
+): Status => {
+	if (waitingActive) {
+		return "waiting";
+	}
+
+	if (entries.length === 0) {
+		return "not_started";
+	}
+
+	const statuses = entries.map((entry) => entry.status);
+
+	if (statuses.includes("failed")) {
+		return "failed";
+	}
+	if (statuses.includes("running")) {
+		return "running";
+	}
+	if (statuses.includes("waiting")) {
+		return "waiting";
+	}
+	if (
+		statuses.every((status) => status === "completed" || status === "skipped")
+	) {
+		return "completed";
+	}
+
+	return "not_started";
+};
+
+const stripStepStatusProjection = ({
+	eventId: _eventId,
+	...entry
+}: StepStatusProjection): StepStatusEntry => entry;
+
+const getRunLifecycleProjection = (
+	db: Database,
+	runId: string,
+): {
+	readonly derivedStatus: Status;
+	readonly effectiveSteps: readonly StepStatusProjection[];
+} => {
+	const statusRows = getStatusChangeRows(db, runId);
+	const runLevelStatusRows = getRunLevelStatusRows(db, runId);
+	const diagnosticEntries = buildDiagnosticStepStatusProjections(statusRows);
+	const workflowEntries = buildWorkflowStepStatusProjections(statusRows);
+	const baseEntries =
+		workflowEntries.length > 0 ? workflowEntries : diagnosticEntries;
+
+	const latestManualTerminal =
+		[...runLevelStatusRows]
+			.reverse()
+			.find(
+				(row) => row.status === "cancelled" || row.status === "abandoned",
+			) ?? null;
+
+	const latestInactiveOverride =
+		[...runLevelStatusRows]
+			.reverse()
+			.find((row) => row.status === "inactive") ?? null;
+
+	const latestWaitingEvent = getLatestWaitingEvent(db, runId);
+	const waitingActive =
+		latestWaitingEvent != null &&
+		latestWaitingEvent.id >
+			Math.max(
+				maxWaitClearingEventId(baseEntries),
+				maxWaitClearingRowId(statusRows),
+				latestInactiveOverride?.id ?? 0,
+				latestManualTerminal?.id ?? 0,
+			);
+
+	const projectedSteps = waitingActive
+		? overlayWaitingStep(baseEntries, latestWaitingEvent)
+		: baseEntries;
+
+	if (latestManualTerminal != null) {
+		return {
+			derivedStatus: latestManualTerminal.status as Status,
+			effectiveSteps: collapseLiveStepStatuses(projectedSteps),
+		};
+	}
+
+	const latestBaseEventId = projectedSteps.reduce(
+		(maxEventId, entry) => Math.max(maxEventId, entry.eventId),
+		0,
+	);
+
+	if (
+		latestInactiveOverride != null &&
+		latestInactiveOverride.id >
+			Math.max(latestBaseEventId, latestWaitingEvent?.id ?? 0)
+	) {
+		return {
+			derivedStatus: "inactive",
+			effectiveSteps: collapseLiveStepStatuses(projectedSteps),
+		};
+	}
+
+	return {
+		derivedStatus: deriveProjectedStatus(projectedSteps, waitingActive),
+		effectiveSteps: projectedSteps,
+	};
+};
+
+export const getStepStatuses = (
+	db: Database,
+	runId: string,
+): StepStatusEntry[] =>
+	buildDiagnosticStepStatusProjections(getStatusChangeRows(db, runId)).map(
+		stripStepStatusProjection,
+	);
+
+export const getEffectiveStepStatuses = (
+	db: Database,
+	runId: string,
+): StepStatusEntry[] =>
+	getRunLifecycleProjection(db, runId).effectiveSteps.map(
+		stripStepStatusProjection,
+	);
+
+const persistRunStatus = (
+	db: Database,
+	runId: string,
+	status: Status,
+): void => {
+	db.prepare(
+		`UPDATE runs
+		 SET status = $status, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+		 WHERE id = $runId`,
+	).run({ $status: status, $runId: runId });
 };
 
 /**
@@ -1427,9 +1845,15 @@ export const deriveRunStatus = (
 	closeRun = false,
 ): Status => {
 	if (closeRun) {
-		const stepStatuses = getStepStatuses(db, runId);
+		const stepStatuses = new Map<string, StepStatusEntry>();
+		for (const entry of getStepStatuses(db, runId)) {
+			stepStatuses.set(entry.step, entry);
+		}
+		for (const entry of getEffectiveStepStatuses(db, runId)) {
+			stepStatuses.set(entry.step, entry);
+		}
 		const now = new Date().toISOString();
-		for (const entry of stepStatuses) {
+		for (const entry of stepStatuses.values()) {
 			if (
 				entry.status === "running" ||
 				entry.status === "waiting" ||
@@ -1447,34 +1871,96 @@ export const deriveRunStatus = (
 		}
 	}
 
-	const stepStatuses = getStepStatuses(db, runId);
+	const projection = getRunLifecycleProjection(db, runId);
+	persistRunStatus(db, runId, projection.derivedStatus);
+	return projection.derivedStatus;
+};
 
-	if (stepStatuses.length === 0) {
-		return "not_started";
+export const reclassifyInactiveRuns = (
+	db: Database,
+	now: Date = new Date(),
+): InactiveRunReclassification[] => {
+	const nowIso = now.toISOString();
+	const cutoffIso = new Date(
+		new Date(nowIso).getTime() - INACTIVE_AFTER_MS,
+	).toISOString();
+
+	const staleRuns = db
+		.prepare(
+			`SELECT id, status
+			 FROM runs
+			 WHERE status IN ('running', 'not_started')
+			   AND updated_at <= $cutoff
+			 ORDER BY updated_at ASC, id ASC`,
+		)
+		.all({ $cutoff: cutoffIso }) as {
+		id: string;
+		status: string;
+	}[];
+
+	return staleRuns.map((row) => {
+		const event = insertEvent(db, {
+			runId: row.id,
+			type: "status_change",
+			data: JSON.stringify(INACTIVE_REAPER_STATUS_CHANGE),
+			createdAt: nowIso,
+		});
+
+		const runStatus = deriveRunStatus(db, row.id);
+		return {
+			runId: row.id,
+			previousStatus: row.status as Status,
+			runStatus,
+			eventId: event.id,
+			createdAt: nowIso,
+			data: INACTIVE_REAPER_STATUS_CHANGE,
+		};
+	});
+};
+
+export const endRun = (
+	db: Database,
+	input: EndRunInput,
+): E.Either<CLIError, EndRunResult> => {
+	const run = getRunById(db, input.runId);
+	if (run == null) {
+		return E.left(runtimeError(`Run "${input.runId}" was not found`));
 	}
 
-	const statuses = stepStatuses.map((s) => s.status);
-
-	let derived: Status;
-	if (statuses.includes("failed")) {
-		derived = "failed";
-	} else if (statuses.includes("running")) {
-		derived = "running";
-	} else if (statuses.includes("waiting")) {
-		derived = "waiting";
-	} else if (statuses.every((s) => s === "completed" || s === "skipped")) {
-		derived = "completed";
-	} else {
-		derived = "not_started";
+	if (isTerminalRunStatus(run.status)) {
+		return E.left(
+			runtimeError(
+				`Run "${input.runId}" is already terminal (${run.status}) and cannot be ended again`,
+			),
+		);
 	}
 
-	db.prepare(
-		`UPDATE runs
-		 SET status = $status, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-		 WHERE id = $runId`,
-	).run({ $status: derived, $runId: runId });
+	const event = insertEvent(db, {
+		runId: input.runId,
+		type: "status_change",
+		data: JSON.stringify({
+			status: input.outcome,
+			...(input.message ? { message: input.message } : {}),
+			actor: input.actor ?? "user",
+			source: "manual_end",
+		}),
+		createdAt: input.createdAt,
+	});
 
-	return derived;
+	const runStatus = deriveRunStatus(db, input.runId);
+	const updatedRun = getRunById(db, input.runId);
+
+	if (updatedRun == null) {
+		return E.left(
+			runtimeError(`Run "${input.runId}" disappeared after end-run projection`),
+		);
+	}
+
+	return E.right({
+		event,
+		run: updatedRun,
+		runStatus,
+	});
 };
 
 /**
@@ -1568,21 +2054,19 @@ export interface ActiveRunSnapshot {
 }
 
 /**
- * Build a snapshot of all active (non-terminal) runs with their steps and artifacts.
+ * Build a snapshot of all live runs with their steps and artifacts.
  */
 export const getActiveRunsSnapshot = (db: Database): ActiveRunSnapshot[] => {
-	const terminalPlaceholders = TERMINAL_STATUSES.map(() => "?").join(", ");
-
 	const runRows = db
 		.prepare(
 			`SELECT * FROM runs
-			 WHERE status NOT IN (${terminalPlaceholders})
+			 WHERE status IN (${ACTIVE_SNAPSHOT_RUN_STATUS_PLACEHOLDERS})
 			 ORDER BY created_at DESC`,
 		)
-		.all(...TERMINAL_STATUSES) as RunRow[];
+		.all(...ACTIVE_SNAPSHOT_RUN_STATUSES) as RunRow[];
 
 	return runRows.map((runRow) => {
-		const steps = getStepStatuses(db, runRow.id);
+		const steps = getEffectiveStepStatuses(db, runRow.id);
 
 		const artifactRows = db
 			.prepare("SELECT * FROM artifacts WHERE run_id = $runId")

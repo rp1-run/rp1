@@ -684,7 +684,7 @@ describe("integration: version-update", () => {
 					"--dry-run",
 				]);
 
-				expect([0, 2]).toContain(exitCode);
+				expect([0, 1, 2]).toContain(exitCode);
 
 				const output = stdout + stderr;
 
@@ -696,7 +696,6 @@ describe("integration: version-update", () => {
 					output.includes("manual");
 				expect(hasDetectionResult).toBe(true);
 
-				// For dry-run with package manager, should show what would be done
 				if (
 					exitCode === 0 &&
 					output.includes("Dry run mode - showing what would be done")
@@ -704,6 +703,15 @@ describe("integration: version-update", () => {
 					expect(output).toContain("Installation method:");
 					expect(output).toContain("Current version:");
 					expect(output).toContain("Update command:");
+				}
+
+				if (exitCode === 1) {
+					expect(output).toContain("Updating plugins for detected tools...");
+					expect(output).toContain("Plugin Update Summary");
+				}
+
+				if (exitCode === 2) {
+					expect(output).toContain("github.com/rp1-run/rp1/releases");
 				}
 			},
 			{ timeout: 30000 },
@@ -745,14 +753,19 @@ describe("integration: version-update", () => {
 			async () => {
 				const startTime = Date.now();
 
-				const { exitCode } = await runCliCommand(["self-update", "--dry-run"]);
+				const { stdout, stderr, exitCode } = await runCliCommand([
+					"self-update",
+					"--dry-run",
+				]);
 
 				const endTime = Date.now();
 				const duration = endTime - startTime;
+				const output = stdout + stderr;
 
 				expect(duration).toBeLessThan(15000);
-
-				expect([0, 2]).toContain(exitCode);
+				expect([0, 1, 2]).toContain(exitCode);
+				expect(output).not.toContain("Updating rp1...");
+				expect(output).not.toContain("Successfully updated rp1");
 			},
 			{ timeout: 30000 },
 		);

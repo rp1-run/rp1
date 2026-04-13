@@ -39,7 +39,12 @@ export class DownsamplingService {
 	}
 
 	shouldDownsample(run: Run): boolean {
-		if (run.status !== "completed" && run.status !== "failed") {
+		if (
+			run.status !== "completed" &&
+			run.status !== "failed" &&
+			run.status !== "cancelled" &&
+			run.status !== "abandoned"
+		) {
 			return false;
 		}
 

@@ -197,7 +197,14 @@ Present the plan review to the user:
 **On "Continue"**: Proceed to §PHASE-2.
 **On "Revise"**: Prompt for feedback, re-invoke §PHASE-1 with feedback appended to DEVELOPMENT_REQUEST.
 **On "Review feedback from Arcade"**: Load the `arcade-collab` skill (`/rp1-dev:arcade-collab`), then call `rp1 agent-tools feedback read --run-id {RUN_ID} --status open`. If feedback exists, process it per the collaboration loop in the skill. After all feedback is processed, return to this gate and re-present the same options.
-**On "Stop"**: Output "Build fast cancelled. Artifact preserved at {artifact_path}" and STOP.
+**On "Stop"**:
+```bash
+rp1 agent-tools emit end-run \
+  --run-id {RUN_ID} \
+  --outcome cancelled \
+  --reason "User stopped during the build-fast plan review checkpoint"
+```
+Output "Build fast cancelled. Artifact preserved at {artifact_path}" and STOP.
 
 **Transition guard**: If `AFK=false` AND `CONFIRM_PLAN=true`, do not enter §PHASE-2 unless this checkpoint produced both a `waiting_for_user` emit and an `ask_user` answer in the current run.
 

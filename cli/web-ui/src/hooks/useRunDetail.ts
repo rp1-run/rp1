@@ -21,6 +21,13 @@ interface UseRunDetailResult {
 	refetch: () => void;
 }
 
+const TERMINAL_RUN_STATUSES = new Set<RunStatus>([
+	"completed",
+	"failed",
+	"cancelled",
+	"abandoned",
+]);
+
 export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 	const [run, setRun] = useState<Run | null>(() =>
 		runId ? (runDetailCache.get(runId) ?? null) : null,
@@ -106,6 +113,8 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 				const data = msg.data as Record<string, unknown> | null;
 				const newStatus = data?.status as string | undefined;
 				const step = msg.step;
+				const statusMessage =
+					typeof data?.message === "string" ? data.message : undefined;
 
 				if (step || newStatus) {
 					setRun((prev) => {
@@ -118,18 +127,40 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 							);
 						}
 
+						const nextStatus = newStatus as RunStatus | undefined;
+						const isTerminal =
+							nextStatus != null && TERMINAL_RUN_STATUSES.has(nextStatus);
+						const shouldClearLifecycleMessage =
+							nextStatus !== undefined &&
+							nextStatus !== prev.status &&
+							statusMessage === undefined &&
+							nextStatus !== "failed";
+
 						return {
 							...prev,
 							steps: updatedSteps,
-							...(step !== undefined && { currentStep: step }),
-							...(newStatus !== undefined && {
-								status: newStatus as RunStatus,
+							...(step ? { currentStep: step } : {}),
+							...(nextStatus !== undefined && {
+								status: nextStatus,
 							}),
+							...(statusMessage !== undefined && {
+								statusMessage,
+								...(nextStatus === "failed" ? { error: statusMessage } : {}),
+							}),
+							...(shouldClearLifecycleMessage
+								? {
+										statusMessage: null,
+										error: null,
+									}
+								: {}),
+							...(isTerminal ? { completedAt: msg.createdAt } : {}),
 						};
 					});
 				}
 
-				const isTerminal = newStatus === "completed" || newStatus === "failed";
+				const isTerminal =
+					newStatus !== undefined &&
+					TERMINAL_RUN_STATUSES.has(newStatus as RunStatus);
 				if (isTerminal) {
 					setTimeout(fetchRun, 1000);
 				}
@@ -195,7 +226,13 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 					if (!prev) return null;
 					return {
 						...prev,
+						steps: prev.steps.map((step) =>
+							msg.step && step.id === msg.step
+								? { ...step, status: "waiting" as StepStatus }
+								: step,
+						),
 						status: "waiting" as RunStatus,
+						currentStep: msg.step ?? prev.currentStep,
 						events: [...prev.events, waitingEvent],
 					};
 				});

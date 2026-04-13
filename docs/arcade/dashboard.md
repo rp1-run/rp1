@@ -1,9 +1,10 @@
 # Arcade Dashboard
 
-The dashboard provides a glanceable status view for monitoring AI agent runs
-across all your projects. Access it at `/` when Arcade is running.
-Persistent notifications now live in a dedicated shell drawer instead of being
-mixed into the main activity page.
+The dashboard is Arcade's browser shell for monitoring tracked runs across your
+registered projects. The home route `/` is the activity feed, while run
+details, project overviews, and project file browsers open as workspaces inside
+the same shell. Persistent notifications live in a dedicated drawer instead of
+appearing as rows in the main feed.
 
 **Time to orient**: Under 30 seconds to understand what needs attention.
 
@@ -11,154 +12,165 @@ mixed into the main activity page.
 
 ## Accessing the Dashboard
 
-Arcade normally starts automatically when your coding agent session starts.
-If it does not, start it manually with `rp1 arcade`:
+Start Arcade with `rp1 arcade`:
 
 ```bash
 rp1 arcade
-# Opens http://localhost:7710
+# Opens http://localhost:7710 by default
 ```
 
-You can run that command from any project directory.
+Run that command from any project directory. Arcade opens the browser unless
+you pass `--no-open`, and each project you launch from becomes available in the
+Projects view.
 
 ---
 
 ## Data Sources
 
-The dashboard displays real data from your local rp1 installation. All run data is sourced from the status database at `~/.rp1/rp1.db`, which is populated when AI agents report their progress using the `emit` agent tool.
+The dashboard displays real data from your local rp1 installation. Run, event,
+artifact, annotation, and notification data all come from the global emit
+database at `~/.rp1/rp1.db`, then Arcade combines that with its local project
+registry before serving `/api/v2/feed`, `/api/v2/runs`, and `/api/v2/projects`.
 
 ### How Runs Are Populated
 
-When an agent (or any workflow) reports status via `rp1 agent-tools emit`, a record is written to `rp1.db`. The API queries this database to populate the dashboard:
+When a workflow reports status via `rp1 agent-tools emit`, Arcade turns those
+records into feed rows, run detail pages, notifications, and project summaries:
 
-1. **Agent executes workflow** - Agents call `rp1 agent-tools emit` at key milestones (feature started, task in progress, completed, failed)
-2. **Status stored in database** - Each update creates a record in `~/.rp1/rp1.db` with run ID, step, status, and event data
-3. **API queries database** - The `/api/v2/runs` endpoint queries the database for the latest status per feature
-4. **Dashboard displays runs** - The UI renders runs grouped by their current status
+1. **Workflow emits canonical events** - Skills and agents call `rp1 agent-tools emit` with status changes, `waiting_for_user`, artifact registrations, and related events.
+2. **Emit updates `rp1.db`** - The emit pipeline stores events and derives canonical run and step statuses in `~/.rp1/rp1.db`.
+3. **Arcade filters for tracked activity** - The feed skips eval runs and flows whose skill metadata sets `arcade_tracked: false`.
+4. **The shell renders current state** - The home feed, run detail workspace, notifications drawer, and project pages all read from those derived records.
 
 ### Status Value Mappings
 
-The status database stores granular status values that are mapped to dashboard display statuses:
+Arcade no longer maps legacy display-only buckets such as `needs-review` or
+`started`/`in_progress`. The V2 UI reads canonical shared statuses directly:
 
-| Database Status | Dashboard Status | Description |
-|-----------------|------------------|-------------|
-| `started` | Running | Initial execution state |
-| `in_progress` | Running | Active work in progress |
-| `waiting-input` | Waiting | Agent blocked, needs user input |
-| `needs-review` | Needs Review | Work complete, awaiting review |
-| `completed` | Completed | Success terminal state |
-| `failed` | Failed | Error terminal state |
+| Canonical Status | Meaning in Arcade |
+|------------------|-------------------|
+| `running` | A run or step is actively executing |
+| `waiting` | Execution is paused for user input |
+| `inactive` | The inactivity reaper marked the run idle |
+| `completed` | The run finished successfully |
+| `failed` | The run ended with an error |
+| `cancelled` | The user intentionally stopped the run |
+| `abandoned` | The run was intentionally ended without completion |
 
-The dashboard groups runs into attention sections based on these mapped statuses:
-
-- **Waiting for you** - Runs with `waiting-input` status
-- **Needs review** - Runs with `needs-review` status
-- **Failed** - Runs with `failed` status
-- **Running** - Runs with `started` or `in_progress` status
+Step rows also use `not_started` and `skipped` where appropriate.
 
 ### Empty Dashboard
 
-If your dashboard shows no runs, ensure that:
+If the activity feed is empty, Arcade shows `No activity yet.` with a link to
+the first-workflow guide. If you expected runs to appear, check that:
 
-1. Agents are reporting progress via `rp1 agent-tools emit` with validated state machine transitions
-2. The status database exists at `~/.rp1/rp1.db`
-3. The project is registered (runs are filtered by registered projects)
+1. Workflows are reporting progress through `rp1 agent-tools emit`
+2. The emit database exists at `~/.rp1/rp1.db`
+3. The flow is activity-tracked (`metadata.arcade_tracked` was not set to `false`)
+4. The project was launched in Arcade and therefore appears in the local project registry
 
 ---
 
 ## Activity Dashboard (`/`)
 
-The activity dashboard (`/`) shows what needs your attention across all
-projects. It keeps the main page focused on run state, while approvals,
-failures, and other persistent notification records live in the notifications
-drawer. Runs are grouped into four sections displayed in priority order:
+The home route `/` is a reverse-chronological activity feed of tracked runs.
+The `Runs` navigation command and `/runs` route both land here. Persistent
+notifications stay in the drawer, so the page itself stays focused on run
+activity.
 
-| Section | Description | Default State |
-|---------|-------------|---------------|
-| **Waiting for you** | Runs blocked waiting for user input | Always expanded |
-| **Needs review** | Completed runs with artifacts to review | Always expanded |
-| **Failed** | Runs that encountered errors | Always expanded |
-| **Running** | Active runs in progress | Collapsed |
+Each feed row shows:
 
-Each run item displays:
-
-- Status badge with color and icon
-- Project and feature name
-- Command that was invoked
-- Current step (for running items)
-- Relative timestamp ("2 min ago")
+- A status dot using the canonical run status
+- Relative activity time based on the latest event
+- Harness icon
+- Invoked command
+- Resolved run display name
+- A project shortcut button on the right
 
 Click any item to view full run details.
 
 ### Empty State
 
-When nothing needs attention, you'll see a calm message: "Nothing needs your attention. All your agent runs are proceeding smoothly."
+When there is no feed data, Arcade shows `No activity yet.` and a link to the
+first-workflow guide.
 
 ### Refresh
 
-Click the Refresh button in the header to manually fetch updated data. The dashboard also receives real-time updates via WebSocket when runs change status.
+There is no dedicated refresh button on the home page. The feed updates through
+WebSocket attention signals, and reconnect recovery refetches the feed after a
+socket interruption.
 
 ---
 
 ## Runs List
 
-The runs list (`/runs`) shows all agent runs with filtering capabilities.
+There is no separate runs-list page in the current shell. `/runs` redirects to
+`/`, and the activity feed is the filtered run list.
 
 ### Filters
 
 | Filter | Options |
 |--------|---------|
-| **Status** | All, Running, Completed, Failed, Waiting |
-| **Project** | Dropdown of registered projects |
-| **Date Range** | Today, This Week, This Month, All Time |
+| **Status tabs** | All, Running, Waiting, Inactive, Completed, Failed, Cancelled, Abandoned |
+| **Project select** | Registered projects from `/api/v2/projects` |
+| **Date range** | All Time, Today, This Week, This Month |
 
-Filters combine with AND logic. Clear all filters with the "Clear filters" button.
+Filters combine with AND logic. When any filter is active, Arcade shows a clear
+button next to the selectors.
 
-Filter state syncs to URL parameters for shareable links.
+Only the project filter currently syncs into the URL query string as
+`?projectId=...`.
 
 ### Project-Scoped View
 
-Navigate to `/projects/:projectId/runs` to view runs filtered to a specific project.
+Open `/projects/:projectId` for a project overview with recent runs and a file
+browser workspace. If you want the activity feed scoped to a project, open
+`/?projectId=<projectId>` or use the project button on a feed row.
 
 ---
 
 ## Run Detail
 
-The run detail view (`/runs/:runId`) shows complete information about a single run.
+The run detail workspace (`/runs/:runId` and deeper step or artifact routes)
+combines step selection with artifact viewing for a single run.
 
 ### Header
 
-- Large status badge
-- Command invoked (e.g., `/build`, `/pr-review`)
-- Feature/branch name
-- Started time and duration
-- Breadcrumb navigation: Project > Feature > Run
+- Status badge
+- Current-step label when a step is active
+- Status or error message when the run reported one
+- `Abandon` and `Cancel Run` actions while the run is still live
+- Optional invocation metadata, exposed through a contextual command rather than shown by default
 
 ### Step Timeline
 
-Horizontal timeline showing workflow progression:
+Run detail uses a vertical step list rather than the old horizontal timeline.
+Each row shows:
 
-| Step State | Visual |
-|------------|--------|
-| Completed | Green checkmark |
-| Current | Blue filled circle (animated for running) |
-| Pending | Gray empty circle |
-| Failed | Red X |
+| Step Detail | Behavior |
+|-------------|----------|
+| Status dot | Reflects canonical step status (`running`, `waiting`, `completed`, `failed`, `not_started`, `skipped`) |
+| Duration | Shown when Arcade knows the step start time |
+| Artifact count | Displayed on the right side of the step row |
+| Selection | Choosing a step updates the right-hand viewer to that step's execution flow or artifacts |
+| Retry marker | Repeated step names get a back-edge marker so retries are visible |
 
 ### Agent Sub-State Panel
 
-When a workflow step has associated agent activity, the step timeline displays a nested agent activity panel below the workflow diagram. This provides hierarchical visibility into what agents are doing within each phase.
+When a step has subflow activity, the step list can expand into nested per-task
+state under that step. This provides hierarchical visibility into what the
+delegated agent work is doing inside the parent workflow phase.
 
 **What it shows**:
-- Agent name (humanized, e.g., "Task Builder" for `task-builder`)
-- Current agent step and status badge
-- Per-task tracking: individual task IDs (e.g., T1, T2) with independent state per task
+- Task identifiers and agent ids emitted for that step
+- Per-task status values such as running, waiting, completed, and failed
+- Collapsed summary chips that count active, waiting, done, and failed work
 
 **Behavior**:
-- Steps with active (running) agents are auto-expanded
-- Steps without agent activity render identically to before (no visual change)
-- Updates in real-time via the existing WebSocket mechanism
-- Each task within an agent progresses through the agent's state machine independently
+- Selecting a composite step lets you expand or collapse its nested task list
+- Steps without agent activity behave like normal workflow rows
+- Collapsed rows show summary chips instead of the full nested task list
+- Each task within an agent progresses independently through its own state machine
 
 **Example**: During a `build` workflow's "build" phase, you might see:
 - `task-builder`: building (T2) -- with T1 shown as completed
@@ -168,44 +180,37 @@ rp1 records while a run is in progress.
 
 ### Artifacts Panel
 
-Lists files produced or updated during the run:
+The right-hand viewer is step-centric:
 
-- File type icons (markdown, diff, code, etc.)
-- File path
-- "New" badge for newly created artifacts
-
-Click an artifact to open the file path.
+- A selected step can expose an `Execution Flow` Mermaid diagram, step artifacts, or both
+- Artifact tabs let you switch files, copy the absolute path, and open inline annotations
+- Markdown artifacts can expose a table of contents and optional frontmatter view
+- Steps with no artifacts show an empty-state message instead of a separate panel
 
 ### Event Stream
 
-Collapsible panel showing the chronological event log:
-
-| Event Type | Description |
-|------------|-------------|
-| step-start | Step began execution |
-| step-complete | Step finished |
-| warning | Non-fatal warning |
-| error | Error occurred |
-| artifact-updated | File was created/modified |
-| task-batch | Summary of completed tasks |
-
-Task-batch events show a summary like "12 tasks completed in Build step" rather than individual task events.
+The current V2 run detail view does not render a standalone event-log panel.
+Live status changes, waiting states, artifact registrations, and subflow
+updates are reflected through the step list and artifact viewer instead.
 
 ---
 
 ## Navigation
 
-Arcade keeps run navigation and persistent notifications separate so you can
-stay on the current page while checking what needs attention.
+Arcade separates durable shell destinations from closable workspaces. Activity
+(`/`) and Projects (`/projects`) stay pinned in the shell, while run detail,
+project overview, and project file-browser routes open as workspaces. The
+workspace strip sits above the breadcrumb, and the breadcrumb reflects the
+currently active durable route or workspace.
 
 ### Desktop shell
 
 | Surface | Behavior |
 |---------|----------|
 | Left icon rail | Durable navigation for Activity (`/`) and Projects (`/projects`); these destinations are never closeable workspace tabs |
+| Workspace strip | Shows closable run, project overview, and file-browser workspaces above the breadcrumb bar; reopening an existing workspace focuses the existing tab and restores its last route |
 | Breadcrumb bar | Shows the current page, project, or run context for the active durable destination or workspace |
-| Workspace strip | Shows closable run, project overview, and file-browser workspaces under the breadcrumb bar; reopening an existing workspace focuses the existing tab and restores its last route |
-| Top-right bell trigger | Opens or closes the notifications drawer without navigating away |
+| Right-side bell trigger | Opens or closes the notifications drawer from the right edge of the workspace bar without navigating away |
 
 ### Narrow layouts
 
@@ -213,7 +218,7 @@ stay on the current page while checking what needs attention.
 |---------|----------|
 | Bottom activity button | Opens the activity dashboard as durable navigation, not a closable workspace |
 | Bottom projects button | Opens the projects view as durable navigation, not a closable workspace |
-| Workspace strip above page content | Shows open run, project overview, and file-browser workspaces in a horizontal strip while keeping the bottom bar reserved for durable navigation |
+| Workspace strip above page content | Shows open run, project overview, and file-browser workspaces in a horizontal strip above the breadcrumb and page content while keeping the bottom bar reserved for durable navigation |
 | Bottom bell trigger | Opens or closes the notifications drawer |
 | Bottom command button | Opens the command palette |
 
@@ -282,16 +287,19 @@ and `Close Workspace` actions in the command palette.
 
 ### List Navigation
 
+These bindings apply on list-driven surfaces such as Projects and Project
+Overview. The workspace strip uses its own horizontal key handling, and the
+home activity feed remains click-first today.
+
 | Key | Action |
 |-----|--------|
-| `j` / `Arrow Down` | Select next item |
-| `k` / `Arrow Up` | Select previous item |
-| `l` / `Arrow Right` | Drill into item |
-| `h` / `Arrow Left` | Drill out to parent |
-| `Enter` | Open selected item |
-| `Escape` | Clear selection |
+| `j` / `Arrow Down` | Select next row |
+| `k` / `Arrow Up` | Select previous row |
+| `l` / `Arrow Right` / `Enter` | Open the selected project or run |
+| `h` / `Arrow Left` | Drill back to the parent durable route |
 
-Keyboard navigation uses the roving tabindex pattern for accessibility.
+Keyboard navigation on those list views is implemented directly in the page
+surface rather than via a hidden global mode switch.
 
 ---
 
@@ -333,22 +341,24 @@ Toggle between themes using the sun/moon button in the header. Your preference i
 
 ### Status Colors
 
-| Status | Color |
-|--------|-------|
-| Queued | Muted gray |
-| Running | Blue |
-| Waiting | Amber |
-| Completed | Green |
-| Failed | Red |
-| Needs Review | Mauve |
+| Status Family | Color Treatment |
+|---------------|-----------------|
+| `not_started`, `inactive`, `cancelled`, `skipped` | Muted neutral |
+| `running`, `waiting` | Amber accent |
+| `completed` | Green accent |
+| `failed`, `abandoned` | Red accent |
 
 ---
 
 ## Real-time Updates
 
-The dashboard maintains a WebSocket connection for real-time updates. When an agent run changes status, the UI updates automatically without page refresh.
+Arcade maintains a WebSocket connection for live updates. When a tracked run or
+notification changes, the feed and open workspaces update without a full page
+reload.
 
-If the WebSocket disconnects, the connection status indicator shows "reconnecting" and a 5-second polling fallback activates. Updates resume normally when the connection is restored.
+If the socket disconnects, the shell switches into reconnecting mode and a
+5-second polling fallback keeps the feed current until the connection is
+restored.
 
 ---
 

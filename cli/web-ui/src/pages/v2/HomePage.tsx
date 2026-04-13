@@ -9,6 +9,7 @@ import { useFeed } from "@/hooks/useFeed";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useWorkspaceTabs } from "@/hooks/useWorkspaceTabs";
 import { resolveRunDisplayName } from "@/lib/run-display";
+import { getStatusLabel } from "@/lib/status-labels";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Run, RunsFilter } from "@/types/runs";
@@ -34,12 +35,39 @@ function StatusDot({ status }: { status: Run["status"] }) {
 			/>
 		);
 	}
+	if (status === "abandoned") {
+		return (
+			<span
+				role="img"
+				className="inline-block h-[6px] w-[6px] rounded-full bg-failure"
+				aria-label="Abandoned"
+			/>
+		);
+	}
 	if (status === "waiting") {
 		return (
 			<span
 				role="img"
 				className="inline-block h-[6px] w-[6px] rounded-full bg-accent-amber"
 				aria-label="Waiting"
+			/>
+		);
+	}
+	if (status === "completed") {
+		return (
+			<span
+				role="img"
+				className="inline-block h-[6px] w-[6px] rounded-full bg-status-completed"
+				aria-label="Completed"
+			/>
+		);
+	}
+	if (status === "inactive" || status === "cancelled") {
+		return (
+			<span
+				role="img"
+				className="inline-block h-[6px] w-[6px] rounded-full bg-muted-foreground"
+				aria-label={getStatusLabel(status)}
 			/>
 		);
 	}
@@ -78,8 +106,17 @@ function FeedEntry({
 	onProjectClick: (projectId: string) => void;
 	reducedMotion: boolean;
 }) {
-	const isWaiting = run.status === "waiting";
 	const latestEventAt = run.lastEventAt ?? run.startedAt;
+	const statusLabel =
+		run.status === "running" ? null : getStatusLabel(run.status).toLowerCase();
+	const statusToneClass =
+		run.status === "waiting"
+			? "text-accent-amber"
+			: run.status === "failed" || run.status === "abandoned"
+				? "text-failure"
+				: run.status === "completed"
+					? "text-status-completed"
+					: "text-fg-ghost";
 
 	return (
 		<motion.div
@@ -99,7 +136,7 @@ function FeedEntry({
 				"transition-colors duration-150",
 				"hover:bg-surface",
 				"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
-				isWaiting && "bg-accent-ghost",
+				run.status === "waiting" && "bg-accent-ghost",
 			)}
 		>
 			<StatusDot status={run.status} />
@@ -120,8 +157,10 @@ function FeedEntry({
 				{resolveRunDisplayName(run) || run.command}
 			</span>
 
-			{isWaiting && (
-				<span className="shrink-0 type-caption text-accent-amber">waiting</span>
+			{statusLabel && (
+				<span className={cn("shrink-0 type-caption", statusToneClass)}>
+					{statusLabel}
+				</span>
 			)}
 
 			<button
