@@ -14,12 +14,12 @@ conditions:
 
     **Validation Summary**:
 
-    | Dimension | Status |
-    |-----------|--------|
-    | Discipline | PASS |
-    | Accuracy | PASS |
-    | Completeness | PASS |
-    | Quality | PASS |
+    | Dimension | Status | Notes |
+    |-----------|--------|-------|
+    | Discipline | PASS | |
+    | Accuracy | PASS | |
+    | Completeness | PASS | |
+    | Quality | PASS | |
     | Testing | PASS | N/A |
     | Commit | PASS | N/A |
     | Comments | PASS | N/A |

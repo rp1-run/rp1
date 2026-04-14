@@ -1,6 +1,6 @@
 ---
 scope: workRoot
-path_pattern: "research/{TOPIC_SLUG}.md"
+path_pattern: "research/{YYYY-MM-DD}-{TOPIC_SLUG}.md"
 producer: research-reporter
 type: document
 description: "Structured research report generated from synthesis data by /deep-research. Path uses date prefix and topic slug."

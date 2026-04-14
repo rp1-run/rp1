@@ -228,7 +228,7 @@ If abort: output cancellation, stop w/o changes.
 
 **Content guidance**:
 - Determine next edit number by scanning docs for `## EDIT-` patterns, incrementing highest.
-- Type is one of: REQUIREMENT_CHANGE, SCOPE_EXPANSION, SCOPE_REDUCTION, DISCOVERY, CONCERN, ASSUMPTION_CHANGE, PIVOT.
+- Type is one of: REQUIREMENT_CHANGE, DISCOVERY, CONCERN, ASSUMPTION_CHANGE, PIVOT.
 - Impact Analysis lists completed/in-progress tasks affected and new tasks required.
 
 **7.3** Append marker to requirements.md (always)
