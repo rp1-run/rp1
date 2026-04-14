@@ -1,12 +1,20 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { useSyncExternalStore } from "react";
+import { liveRunIndex } from "@/lib/live-run-index";
 import type { Run, RunEvent } from "@/types/runs";
-import type { EventNotificationMessage } from "@/types/websocket";
+import type {
+	EventNotificationMessage,
+	StateSnapshotMessage,
+} from "@/types/websocket";
 
 type EventCallback = (msg: EventNotificationMessage) => void;
+type SnapshotCallback = (msg: StateSnapshotMessage) => void;
 
 let eventListeners: EventCallback[] = [];
+let snapshotListeners: SnapshotCallback[] = [];
 let mockWsStatus = "connected";
+let mockSocketProjectId: string | null = null;
 let runResponse: Run;
 let fetchMock: ReturnType<typeof mock>;
 let useRunDetailImportVersion = 0;
@@ -20,8 +28,24 @@ async function loadUseRunDetail() {
 					eventListeners = eventListeners.filter((l) => l !== cb);
 				};
 			},
+			onStateSnapshot: (cb: SnapshotCallback) => {
+				snapshotListeners.push(cb);
+				return () => {
+					snapshotListeners = snapshotListeners.filter((l) => l !== cb);
+				};
+			},
+			projectId: mockSocketProjectId,
 			status: mockWsStatus,
 		}),
+	}));
+	mock.module("../../hooks/useLiveRunIndex.ts", () => ({
+		useLiveRunIndexBridge: () => {},
+		useLiveRunIndexSnapshot: () =>
+			useSyncExternalStore(
+				liveRunIndex.subscribe,
+				liveRunIndex.getSnapshot,
+				liveRunIndex.getSnapshot,
+			),
 	}));
 
 	return import(
@@ -31,6 +55,12 @@ async function loadUseRunDetail() {
 
 function emitEvent(msg: EventNotificationMessage) {
 	for (const listener of eventListeners) {
+		listener(msg);
+	}
+}
+
+function emitSnapshot(msg: StateSnapshotMessage) {
+	for (const listener of snapshotListeners) {
 		listener(msg);
 	}
 }
@@ -67,8 +97,11 @@ const baseRun: Run = {
 
 beforeEach(() => {
 	mock.restore();
+	liveRunIndex.clear();
 	eventListeners = [];
+	snapshotListeners = [];
 	mockWsStatus = "connected";
+	mockSocketProjectId = null;
 	runResponse = { ...baseRun };
 
 	fetchMock = mock((url: string) => {
@@ -86,7 +119,9 @@ beforeEach(() => {
 
 afterEach(() => {
 	cleanup();
+	liveRunIndex.clear();
 	eventListeners = [];
+	snapshotListeners = [];
 	mock.restore();
 });
 
@@ -387,5 +422,76 @@ describe("useRunDetail", () => {
 		expect(result.current.run?.status).toBe("running");
 		expect(result.current.run?.statusMessage).toBeNull();
 		expect(result.current.run?.error).toBeNull();
+	});
+
+	test("state snapshots trigger bounded run reconciliation", async () => {
+		const { useRunDetail } = await loadUseRunDetail();
+		const { result } = renderHook(() => useRunDetail("run-1"));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		runResponse = {
+			...baseRun,
+			status: "completed",
+			completedAt: "2026-03-15T01:40:00Z",
+		};
+
+		act(() => {
+			emitSnapshot({
+				type: "state:snapshot",
+				lastEventId: 900,
+				runs: [
+					{
+						id: "run-1",
+						flow: "build",
+						featureId: "feat-1",
+						projectPath: "/tmp/project",
+						status: "running",
+						steps: [{ step: "design", status: "running" }],
+						artifacts: [],
+					},
+				],
+			});
+		});
+
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+		});
+		await waitFor(() => {
+			expect(result.current.run?.status).toBe("completed");
+		});
+	});
+
+	test("state snapshots that exclude the active run do not refetch on an unscoped socket", async () => {
+		const { useRunDetail } = await loadUseRunDetail();
+		const { result } = renderHook(() => useRunDetail("run-1"));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+
+		act(() => {
+			emitSnapshot({
+				type: "state:snapshot",
+				lastEventId: 901,
+				runs: [
+					{
+						id: "run-2",
+						flow: "build",
+						featureId: "feat-2",
+						projectPath: "/tmp/other-project",
+						status: "running",
+						steps: [{ step: "review", status: "running" }],
+						artifacts: [],
+					},
+				],
+			});
+		});
+
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(result.current.run?.status).toBe("running");
 	});
 });

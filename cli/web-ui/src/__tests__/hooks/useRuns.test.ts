@@ -5,7 +5,7 @@ import { liveRunIndex } from "@/lib/live-run-index";
 import type { Run } from "@/types/runs";
 
 let fetchMock: ReturnType<typeof mock>;
-let useFeedImportVersion = 0;
+let useRunsImportVersion = 0;
 
 function buildRun(overrides: Partial<Run> = {}): Run {
 	return {
@@ -31,12 +31,11 @@ function buildRun(overrides: Partial<Run> = {}): Run {
 	};
 }
 
-async function loadUseFeed() {
+async function loadUseRuns() {
 	mock.module("../../hooks/useReconnectRecovery.ts", () => ({
 		useReconnectRecovery: () => {},
 	}));
 	mock.module("../../hooks/useLiveRunIndex.ts", () => ({
-		useLiveRunIndexBridge: () => {},
 		useLiveRunIndexSnapshot: () =>
 			useSyncExternalStore(
 				liveRunIndex.subscribe,
@@ -46,7 +45,7 @@ async function loadUseFeed() {
 	}));
 
 	return import(
-		`../../hooks/useFeed.ts?use-feed-test=${++useFeedImportVersion}`
+		`../../hooks/useRuns.ts?use-runs-test=${++useRunsImportVersion}`
 	);
 }
 
@@ -59,14 +58,7 @@ beforeEach(() => {
 			ok: true,
 			json: () =>
 				Promise.resolve({
-					items: [
-						{
-							type: "run",
-							id: "run-1",
-							timestamp: "2026-04-10T00:05:00.000Z",
-							run: buildRun(),
-						},
-					],
+					runs: [buildRun()],
 					total: 1,
 				}),
 		}),
@@ -80,43 +72,39 @@ afterEach(() => {
 	mock.restore();
 });
 
-describe("useFeed", () => {
-	test("patches known runs in place and inserts newly matching runs without refetching", async () => {
-		const { useFeed } = await loadUseFeed();
-		const { result } = renderHook(() => useFeed({ limit: 25, offset: 0 }));
+describe("useRuns", () => {
+	test("updates the loaded collection from live state without refetching", async () => {
+		const { useRuns } = await loadUseRuns();
+		const { result } = renderHook(() =>
+			useRuns({ status: "running", limit: 25, offset: 0 }),
+		);
 
 		await waitFor(() => {
 			expect(result.current.isLoading).toBe(false);
 		});
 
-		expect(result.current.items).toHaveLength(1);
-		expect(result.current.items[0]?.run.status).toBe("running");
+		expect(result.current.runs.map((run: Run) => run.id)).toEqual(["run-1"]);
 		expect(result.current.total).toBe(1);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 
 		liveRunIndex.upsertRuns([
 			buildRun({
 				id: "run-1",
-				status: "waiting",
-				currentStep: "review",
+				status: "completed",
+				completedAt: "2026-04-10T00:06:00.000Z",
 				lastEventAt: "2026-04-10T00:06:00.000Z",
 			}),
 			buildRun({
 				id: "run-2",
-				name: "Fresh Run",
 				lastEventAt: "2026-04-10T00:07:00.000Z",
 			}),
 		]);
 
 		await waitFor(() => {
-			expect(result.current.items).toHaveLength(2);
+			expect(result.current.runs.map((run: Run) => run.id)).toEqual(["run-2"]);
 		});
 
-		expect(result.current.items.map((item: { id: string }) => item.id)).toEqual(
-			["run-2", "run-1"],
-		);
-		expect(result.current.items[1]?.run.status).toBe("waiting");
-		expect(result.current.total).toBe(2);
+		expect(result.current.total).toBe(1);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 });

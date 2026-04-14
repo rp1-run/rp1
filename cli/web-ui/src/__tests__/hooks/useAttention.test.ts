@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { useSyncExternalStore } from "react";
 import { liveRunIndex } from "@/lib/live-run-index";
 import type { Run } from "@/types/runs";
 
 let fetchMock: ReturnType<typeof mock>;
-let useFeedImportVersion = 0;
+let useAttentionImportVersion = 0;
 
 function buildRun(overrides: Partial<Run> = {}): Run {
 	return {
@@ -16,7 +16,7 @@ function buildRun(overrides: Partial<Run> = {}): Run {
 		featureName: "Test Feature",
 		name: null,
 		command: "/build",
-		status: "running",
+		status: "waiting",
 		harness: "codex",
 		currentStep: null,
 		steps: [],
@@ -31,7 +31,7 @@ function buildRun(overrides: Partial<Run> = {}): Run {
 	};
 }
 
-async function loadUseFeed() {
+async function loadUseAttention() {
 	mock.module("../../hooks/useReconnectRecovery.ts", () => ({
 		useReconnectRecovery: () => {},
 	}));
@@ -46,7 +46,7 @@ async function loadUseFeed() {
 	}));
 
 	return import(
-		`../../hooks/useFeed.ts?use-feed-test=${++useFeedImportVersion}`
+		`../../hooks/useAttention.ts?use-attention-test=${++useAttentionImportVersion}`
 	);
 }
 
@@ -59,15 +59,9 @@ beforeEach(() => {
 			ok: true,
 			json: () =>
 				Promise.resolve({
-					items: [
-						{
-							type: "run",
-							id: "run-1",
-							timestamp: "2026-04-10T00:05:00.000Z",
-							run: buildRun(),
-						},
-					],
-					total: 1,
+					waiting: [buildRun()],
+					failed: [],
+					running: [],
 				}),
 		}),
 	);
@@ -80,43 +74,46 @@ afterEach(() => {
 	mock.restore();
 });
 
-describe("useFeed", () => {
-	test("patches known runs in place and inserts newly matching runs without refetching", async () => {
-		const { useFeed } = await loadUseFeed();
-		const { result } = renderHook(() => useFeed({ limit: 25, offset: 0 }));
+describe("useAttention", () => {
+	test("derives updated attention group membership from the live run index", async () => {
+		const { useAttention } = await loadUseAttention();
+		const { result } = renderHook(() => useAttention());
 
 		await waitFor(() => {
 			expect(result.current.isLoading).toBe(false);
 		});
 
-		expect(result.current.items).toHaveLength(1);
-		expect(result.current.items[0]?.run.status).toBe("running");
-		expect(result.current.total).toBe(1);
+		expect(result.current.data?.waiting.map((run: Run) => run.id)).toEqual([
+			"run-1",
+		]);
+		expect(result.current.data?.running).toEqual([]);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 
-		liveRunIndex.upsertRuns([
-			buildRun({
-				id: "run-1",
-				status: "waiting",
-				currentStep: "review",
-				lastEventAt: "2026-04-10T00:06:00.000Z",
-			}),
-			buildRun({
-				id: "run-2",
-				name: "Fresh Run",
-				lastEventAt: "2026-04-10T00:07:00.000Z",
-			}),
-		]);
-
-		await waitFor(() => {
-			expect(result.current.items).toHaveLength(2);
+		act(() => {
+			liveRunIndex.upsertRuns([
+				buildRun({
+					id: "run-1",
+					status: "failed",
+					lastEventAt: "2026-04-10T00:06:00.000Z",
+				}),
+				buildRun({
+					id: "run-2",
+					status: "running",
+					lastEventAt: "2026-04-10T00:07:00.000Z",
+				}),
+			]);
 		});
 
-		expect(result.current.items.map((item: { id: string }) => item.id)).toEqual(
-			["run-2", "run-1"],
-		);
-		expect(result.current.items[1]?.run.status).toBe("waiting");
-		expect(result.current.total).toBe(2);
+		await waitFor(() => {
+			expect(result.current.data?.failed.map((run: Run) => run.id)).toEqual([
+				"run-1",
+			]);
+		});
+
+		expect(result.current.data?.waiting).toEqual([]);
+		expect(result.current.data?.running.map((run: Run) => run.id)).toEqual([
+			"run-2",
+		]);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 });

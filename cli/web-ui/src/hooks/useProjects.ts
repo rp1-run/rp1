@@ -3,9 +3,14 @@
  * Used by ProjectsPage for displaying registered projects.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { liveRunIndex } from "@/lib/live-run-index";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { V2Project } from "@/types/projects";
+import {
+	useLiveRunIndexBridge,
+	useLiveRunIndexSnapshot,
+} from "./useLiveRunIndex";
 import { useReconnectRecovery } from "./useReconnectRecovery";
 
 export type { V2Project };
@@ -21,11 +26,44 @@ interface UseProjectsReturn {
 	refetch: () => void;
 }
 
+function sortProjects(projects: readonly V2Project[]): V2Project[] {
+	return [...projects].sort((a, b) => {
+		if (!a.lastActivityAt && !b.lastActivityAt) return 0;
+		if (!a.lastActivityAt) return 1;
+		if (!b.lastActivityAt) return -1;
+		return b.lastActivityAt.localeCompare(a.lastActivityAt);
+	});
+}
+
+function areProjectsEqual(
+	current: readonly V2Project[],
+	next: readonly V2Project[],
+): boolean {
+	if (current.length !== next.length) {
+		return false;
+	}
+
+	return current.every((project, index) => {
+		const candidate = next[index];
+		return (
+			project.id === candidate?.id &&
+			project.name === candidate?.name &&
+			project.path === candidate?.path &&
+			project.available === candidate?.available &&
+			project.runCount === candidate?.runCount &&
+			project.lastActivityAt === candidate?.lastActivityAt
+		);
+	});
+}
+
 export function useProjects(): UseProjectsReturn {
 	const [projects, setProjects] = useState<V2Project[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
+	const knownRunIdsByProjectRef = useRef<Map<string, Set<string>>>(new Map());
 	const { onProjectsChange } = useWebSocket();
+	useLiveRunIndexBridge();
+	const liveSnapshot = useLiveRunIndexSnapshot();
 
 	const fetchProjects = useCallback(async () => {
 		try {
@@ -36,15 +74,13 @@ export function useProjects(): UseProjectsReturn {
 			}
 
 			const data = (await response.json()) as ProjectsResponse;
-			const sorted = [...data.projects].sort((a, b) => {
-				// Projects with no activity sink to the bottom
-				if (!a.lastActivityAt && !b.lastActivityAt) return 0;
-				if (!a.lastActivityAt) return 1;
-				if (!b.lastActivityAt) return -1;
-				// Most recent activity first
-				return b.lastActivityAt.localeCompare(a.lastActivityAt);
-			});
-			setProjects(sorted);
+			knownRunIdsByProjectRef.current = new Map(
+				data.projects.map((project) => [
+					project.id,
+					new Set(liveRunIndex.getProjectRunIds(project.id)),
+				]),
+			);
+			setProjects(sortProjects(data.projects));
 			setError(null);
 		} catch (err) {
 			setError(err instanceof Error ? err : new Error(String(err)));
@@ -62,6 +98,56 @@ export function useProjects(): UseProjectsReturn {
 			void fetchProjects();
 		});
 	}, [fetchProjects, onProjectsChange]);
+
+	useEffect(() => {
+		if (isLoading || projects.length === 0) {
+			return;
+		}
+
+		void liveSnapshot;
+		const nextProjects = sortProjects(
+			projects.map((project) => {
+				const knownRunIds =
+					knownRunIdsByProjectRef.current.get(project.id) ?? new Set<string>();
+				const liveRunIds = liveRunIndex.getProjectRunIds(project.id);
+				let nextRunCount = project.runCount;
+
+				for (const runId of liveRunIds) {
+					if (knownRunIds.has(runId)) {
+						continue;
+					}
+					knownRunIds.add(runId);
+					nextRunCount += 1;
+				}
+
+				knownRunIdsByProjectRef.current.set(project.id, knownRunIds);
+
+				const liveActivity = liveRunIndex.getLastActivityAt(project.id);
+				const nextLastActivityAt =
+					liveActivity &&
+					(!project.lastActivityAt || liveActivity > project.lastActivityAt)
+						? liveActivity
+						: project.lastActivityAt;
+
+				if (
+					nextRunCount === project.runCount &&
+					nextLastActivityAt === project.lastActivityAt
+				) {
+					return project;
+				}
+
+				return {
+					...project,
+					runCount: nextRunCount,
+					lastActivityAt: nextLastActivityAt,
+				};
+			}),
+		);
+
+		if (!areProjectsEqual(projects, nextProjects)) {
+			setProjects(nextProjects);
+		}
+	}, [isLoading, liveSnapshot, projects]);
 
 	useReconnectRecovery(fetchProjects);
 

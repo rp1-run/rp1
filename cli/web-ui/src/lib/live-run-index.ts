@@ -220,7 +220,24 @@ export function createLiveRunIndex(
 	const queuedEventsByRun = new Map<string, EventNotificationMessage[]>();
 	const pendingHydrations = new Map<string, Promise<Run | null>>();
 
+	function buildSnapshot(): LiveRunIndexState {
+		return {
+			runsById: new Map(runsById),
+			runsByProject: new Map(
+				Array.from(runsByProject.entries(), ([projectId, runIds]) => [
+					projectId,
+					new Set(runIds),
+				]),
+			),
+			lastEventIdByProject: new Map(lastEventIdByProject),
+			lastActivityAtByProject: new Map(lastActivityAtByProject),
+		};
+	}
+
+	let snapshotCache = buildSnapshot();
+
 	function emitChange() {
+		snapshotCache = buildSnapshot();
 		for (const listener of listeners) {
 			listener();
 		}
@@ -350,17 +367,7 @@ export function createLiveRunIndex(
 			return lastActivityAtByProject.get(projectId) ?? null;
 		},
 		getSnapshot() {
-			return {
-				runsById: new Map(runsById),
-				runsByProject: new Map(
-					Array.from(runsByProject.entries(), ([projectId, runIds]) => [
-						projectId,
-						new Set(runIds),
-					]),
-				),
-				lastEventIdByProject: new Map(lastEventIdByProject),
-				lastActivityAtByProject: new Map(lastActivityAtByProject),
-			};
+			return snapshotCache;
 		},
 		upsertRun(run: Run) {
 			storeRun(run);
@@ -388,6 +395,11 @@ export function createLiveRunIndex(
 			return nextPending;
 		},
 		async applyEvent(message: EventNotificationMessage) {
+			const currentEventId = lastEventIdByProject.get(message.projectId);
+			if (currentEventId != null && currentEventId >= message.eventId) {
+				return;
+			}
+
 			noteProjectCursor(message.projectId, message.eventId);
 			noteProjectActivity(message.projectId, message.createdAt);
 
@@ -412,6 +424,11 @@ export function createLiveRunIndex(
 			await nextPending;
 		},
 		applySnapshot(projectId: string, message: StateSnapshotMessage) {
+			const currentEventId = lastEventIdByProject.get(projectId);
+			if (currentEventId != null && currentEventId >= message.lastEventId) {
+				return;
+			}
+
 			noteProjectCursor(projectId, message.lastEventId);
 
 			const snapshotRunIds = new Set(message.runs.map((run) => run.id));
