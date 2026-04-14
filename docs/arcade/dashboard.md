@@ -97,8 +97,14 @@ first-workflow guide.
 ### Refresh
 
 There is no dedicated refresh button on the home page. The feed updates through
-WebSocket attention signals, and reconnect recovery refetches the feed after a
-socket interruption.
+project-scoped workflow events emitted through `rp1 agent-tools emit`, so the
+browser patches only the affected run rows, project summaries, attention
+groups, and open run workspaces during normal operation.
+
+Broad collection refetches are reserved for recovery cases such as reconnecting
+after a replay gap that requires snapshot reconciliation, or for an explicit
+manual reload. File watching still refreshes artifact and file content, but it
+is not the normal path for workflow-status visibility.
 
 ---
 
@@ -352,13 +358,22 @@ Toggle between themes using the sun/moon button in the header. Your preference i
 
 ## Real-time Updates
 
-Arcade maintains a WebSocket connection for live updates. When a tracked run or
-notification changes, the feed and open workspaces update without a full page
-reload.
+Arcade maintains a project-scoped WebSocket connection for live workflow
+activity. When a tracked workflow calls `rp1 agent-tools emit`, the daemon
+broadcasts the emitted event, Arcade advances its per-project `lastEventId`
+cursor, and the UI applies the change through targeted run hydration instead of
+refreshing the whole shell.
 
-If the socket disconnects, the shell switches into reconnecting mode and a
-5-second polling fallback keeps the feed current until the connection is
-restored.
+During reconnect, the browser resends that cursor so the daemon can replay
+missed events or send a bounded snapshot when the gap is too large. That keeps
+run detail, the activity feed, project summaries, and the notifications drawer
+aligned with the persisted emit history without treating broad refresh as the
+primary user path.
+
+If the socket disconnects completely, the shell switches into reconnecting mode
+and the 5-second polling loop remains a recovery-only fallback until the live
+event stream is healthy again. File watching remains scoped to artifact and
+file-content freshness.
 
 ---
 
