@@ -144,37 +144,20 @@ Track:
 
 Generate `{{$PRD_ARCHIVE_DIR}}/closure_summary.md`:
 
-```markdown
-# Closure Summary: {PRD Title}
+### Template Loading
 
-**PRD**: {PRD_NAME}
-**Archived**: {ISO date YYYY-MM-DD}
-**Status**: {Complete | Partial}
-**Archived By**: rp1 /blueprint-archive
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `prd-archiver` and **Artifact** = `closure-summary.md`.
+2. Read the template file at the listed **Template Path**.
+3. Use template structure for the closure summary. Fill placeholders per guidance below.
 
-## Associated Features
+If the template frontmatter includes an `emit_hint`, use it for artifact registration.
 
-| Feature | Status | Archive Location |
-|---------|--------|------------------|
-| {feature-id} | Archived | archives/features/{feature-id}/ |
-| {feature-id} | In Progress | features/{feature-id}/ (not archived) |
+### Content Guidance
 
-## Objectives Summary
-
-{First 2-3 sentences from PRD Overview}
-
-## Gaps (Partial Closure Only)
-
-{GAPS parameter content, or omit section if CLOSURE_STATUS=complete}
-
-## KB Update Status
-
-{PRD concepts found in KB | Suggest running /knowledge-build}
-
-## Original Location
-
-- PRD: prds/{PRD_NAME}.md
-```
+- **Associated Features**: Table listing each feature with status (Archived/In Progress) and archive location.
+- **Objectives Summary**: First 2-3 sentences from PRD Overview.
+- **Gaps section**: Include only if CLOSURE_STATUS=partial; use GAPS parameter content.
+- **KB Update Status**: Note whether PRD concepts were found in KB, or suggest `/knowledge-build`.
 
 ## S11 Output
 

@@ -251,67 +251,18 @@ If no manual items needed, return empty array:
 }
 ```
 
-## Required Report Format
+## Report Template Loading
 
-Your final report must follow this exact structure:
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `feature-verifier` and **Artifact** = `verification-report.md`.
+2. Read the template file at the listed **Template Path**.
+3. Use template structure for the report. Fill placeholders per guidance below.
 
-```markdown
-# Feature Verification Report #{report_number}
+### Content Guidance
 
-**Generated**: {current_timestamp}
-**Feature ID**: {feature_id}
-**Verification Scope**: {test_scope}
-**KB Context**: {✅ Loaded | ⚠️ Not loaded}
-**Field Notes**: {✅ Available | ⚠️ Not available}
-
-## Executive Summary
-- Overall Status: {✅ VERIFIED | ⚠️ PARTIAL | ❌ NOT VERIFIED}
-- Acceptance Criteria: {verified_count}/{total_count} verified ({percentage}%)
-- Implementation Quality: {HIGH | MEDIUM | LOW}
-- Ready for Merge: {YES | NO}
-
-## Field Notes Context
-**Field Notes Available**: {✅ Yes | ⚠️ No}
-
-### Documented Deviations
-{List deviations from design that were documented in field-notes.md, or "None" if no field notes}
-
-### Undocumented Deviations
-{List deviations that were NOT documented - require attention, or "None found"}
-
-## Acceptance Criteria Verification
-
-### REQ-001: {requirement_title}
-**AC-001**: {acceptance_criterion_description}
-- Status: {✅ VERIFIED | ⚠️ PARTIAL | ❌ NOT VERIFIED | ⚡ INTENTIONAL DEVIATION}
-- Implementation: {file_path}:{line_numbers} - {function/method_name}
-- Evidence: {specific_code_evidence_or_explanation}
-- Field Notes: {reference to relevant field note if applicable, or "N/A"}
-- Issues: {any_problems_found}
-
-{repeat_for_each_criterion}
-
-## Implementation Gap Analysis
-### Missing Implementations
-- {list_of_unimplemented_criteria}
-
-### Partial Implementations
-- {list_of_partially_implemented_criteria_with_specific_gaps}
-
-### Implementation Issues
-- {list_of_incorrectly_implemented_criteria}
-
-## Code Quality Assessment
-{analysis_of_implementation_quality_patterns_and_consistency}
-
-## Recommendations
-1. {specific_actionable_recommendation_1}
-2. {specific_actionable_recommendation_2}
-{continue_numbering}
-
-## Verification Evidence
-{detailed_code_references_and_snippets_supporting_the_verification_status}
-```
+- **Report numbering**: Scan for existing `feature_verification_*.md` files to determine the next report number.
+- **Verification statuses**: Use the status markers defined in Step 5 (VERIFIED, PARTIAL, NOT VERIFIED, INTENTIONAL DEVIATION).
+- **Field Notes context**: Include documented vs undocumented deviations sections.
+- **Evidence**: Include specific file paths, line numbers, function names, and code snippets supporting each status.
 
 ## STATE-MACHINE
 

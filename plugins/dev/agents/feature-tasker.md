@@ -254,107 +254,39 @@ List uncovered design sections -> new tasks: T{max_id + 1}...
 
 ## §5 Output
 
+### Template Loading
+
+For each artifact below, read `rp1-base:artifact-templates` SKILL.md to find the template row, then read the template file at the listed path:
+
+- `tasks.md` (Producer: `feature-tasker`)
+- `tracker.md` (Producer: `feature-tasker`)
+
+Use each template's structure for the corresponding output. Fill placeholders per guidance below.
+
+### Content Guidance
+
+**tasks.md** (Small Scope):
+- **Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id`.
+- Task format per §3.3 with 4-space indent and blank lines between fields.
+- DAG ordering per §3.6.
+- Include Task Subflow mermaid diagram generated from DAG_STATE (or sequential chain if DAG_STATE = null). Same logic as §6.0 diagram generation.
+- Include Implementation DAG section copied from design.md if DAG_STATE exists; omit if null.
+- User Docs section per §3.5 if DOC_IMPACTS non-empty.
+
+**tracker.md** (Large Scope):
+- **Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id`.
+- Include Task Subflow diagram at milestone level.
+- Milestone Summary table links to milestone-{N}.md files.
+
 ### 5.1 Small Scope (tasks.md)
 
-**Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in the YAML frontmatter block. This enables run resumability. Use the `rp1_` prefix consistent with `rp1_doc_id`.
-
-```markdown
----
-rp1_run_id: {RUN_ID}
----
-# Development Tasks: [Feature Name]
-
-**Feature ID**: {FEATURE_ID}
-**Status**: Not Started
-**Progress**: 0% (0 of [X] tasks)
-**Estimated Effort**: [X] days
-**Started**: [Date]
-
-## Overview
-[Brief from design]
-
-## Implementation DAG
-[If DAG_STATE exists - copy from design.md per §3.6]
-[Omit section if DAG_STATE = null]
-
-## Task Subflow
-
-```mermaid
-stateDiagram-v2
-    [*] --> T1
-    T1 : Task 1 description
-    [*] --> T2
-    T2 : Task 2 description
-    T1 --> T3
-    T2 --> T3
-    T3 : Task 3 description
-    T3 --> [*]
-```
-
-[Generate from DAG_STATE if exists; otherwise sequential chain. Same logic as §6.0 diagram generation.]
-
-## Task Breakdown
-
-### [Category per parallel group]
-[Tasks per §3.3, ordered per §3.6]
-
-### User Docs
-[If DOC_IMPACTS - per §3.5]
-
-## Acceptance Criteria Checklist
-[All from requirements.md w/ checkboxes]
-
-## Definition of Done
-- [ ] All tasks completed
-- [ ] All AC verified
-- [ ] Code reviewed
-- [ ] Docs updated
-```
+Write to `{WORK_ROOT}/features/{FEATURE_ID}/tasks.md` using the `tasks.md` template loaded above.
 
 ### 5.2 Large Scope
 
-**tracker.md** (include `rp1_run_id` frontmatter same as small scope):
-```markdown
----
-rp1_run_id: {RUN_ID}
----
-# Feature Development Tracker: [Feature Name]
+**tracker.md**: Write to `{WORK_ROOT}/features/{FEATURE_ID}/tracker.md` using the `tracker.md` template loaded above.
 
-**Feature ID**: {FEATURE_ID}
-**Total Milestones**: [N]
-**Status**: Not Started
-**Started**: [Date]
-**Target Completion**: [Date]
-
-## Overview
-[Brief]
-
-## Milestone Summary
-| Milestone | Title | Status | Progress | Target |
-|-----------|-------|--------|----------|--------|
-| [M1](milestone-1.md) | [Title] | Not Started | 0% | [Date] |
-
-## Task Subflow
-
-```mermaid
-stateDiagram-v2
-    [*] --> M1
-    M1 : Milestone 1
-    M1 --> M2
-    M2 : Milestone 2
-    M2 --> [*]
-```
-
-[Overall milestone-level subflow diagram. Generate from DAG_STATE if exists; otherwise sequential chain.]
-
-## Acceptance Criteria Coverage
-[All criteria w/ milestone mapping]
-
-## Dependencies and Risks
-[External deps, blockers]
-```
-
-**milestone-{N}.md**:
+**milestone-{N}.md** (no centralized template -- use inline format):
 ```markdown
 # Milestone [N]: [Title]
 

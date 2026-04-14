@@ -293,26 +293,16 @@ Mark each task complete in the Tasks section: `- [ ]` -> `- [x]`
 
 **ELSE** (Feature mode):
 
-Add immediately after task line (4-space indent, blank lines between sections). Include the `**Execution Flow**` mermaid block after the summary fields (generated per Section 3.4):
+Add immediately after task line (4-space indent, blank lines between sections).
 
-```markdown
-- [x] **T1**: Task description `[complexity:medium]`
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `task-builder` and **Artifact** = `implementation-summary`.
+2. Read the section template at the listed **Template Path** (under `templates/_sections/`).
+3. Fill placeholders per guidance below. **Append** the filled section after the task line in tasks.md -- do not create a standalone document.
 
-    **Implementation Summary**:
-
-    - **Files**: `src/file1.ts`, `src/file2.ts`
-    - **Approach**: [brief description; keep it terse]
-    - **Deviations**: None | [deviation + justification]
-    - **Tests**: [X/Y passing]
-
-    **Execution Flow**:
-
-    ```mermaid
-    stateDiagram-v2
-        [*] --> T1_description
-        T1_description --> [*]
-    ```
-```
+**Content guidance**:
+- Use 4-space indentation for all summary content (nests under task checkbox line).
+- Blank lines between major sections (Implementation Summary, Execution Flow).
+- Include the `**Execution Flow**` mermaid block after summary fields (generated per Section 3.4).
 
 ### 4.3 Update Progress
 

@@ -470,6 +470,7 @@ fix(commands): resolve argument parsing
    - Structured `arguments` and `environment` in frontmatter (not hand-written parameter tables)
    - Structured workflow with pseudocode
    - Anti-loop directives
+   - **Artifact output**: Producer agents must use the two-hop template loading pattern from `rp1-base:artifact-templates` -- read the SKILL.md index to find the template row, then read the template file. Do not embed inline output templates. See [AGENTS.md](AGENTS.md#artifact-templates) for variant details.
 4. **Use proper namespace prefixes**:
    - Commands: `/rp1-base:command` or `/rp1-dev:command`
    - Skills: `rp1-base:skill-name` (all skills in base)

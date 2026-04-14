@@ -148,17 +148,13 @@ Return `needs_user_input` JSON:
 }
 ```
 
-Then output audit table for display:
+Then output audit table for display. Load the canonical format:
 
-```markdown
-## PRD Audit Results: {title}
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `blueprint-auditor` and **Artifact** = `prd-audit-results.md`.
+2. Read the template file at the listed **Template Path**.
+3. Use template structure for the audit results display. Fill with phase statuses and evidence from S6 classification.
 
-| Phase | Status | Evidence |
-|-------|--------|----------|
-| {id}: {title} | {status} | {evidence} |
-
-**Summary**: {complete}/{total} phases complete ({pct}%)
-```
+If the template frontmatter includes an `emit_hint`, use it for artifact registration.
 
 Then STOP.
 

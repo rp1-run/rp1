@@ -353,11 +353,20 @@ Any of these trigger FAILURE:
 - `blocking`: Causes FAILURE, must be fixed
 - `suggestion`: Does not cause FAILURE, nice-to-have improvement
 
-## 5. Task File Update (On FAILURE Only)
+## 5. Task File Update
 
-If verdict is FAILURE:
+### Template Loading
 
-### 5.1 Unmark Task
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `task-reviewer` and **Artifact** = `verification`.
+2. Read the section template at the listed **Template Path** (under `templates/_sections/`).
+3. The template contains both SUCCESS and FAILURE variants. Apply the appropriate variant based on the verdict. **Append** the filled section to tasks.md -- do not create a standalone document.
+
+**Content guidance**:
+- Use 4-space indentation AND blank lines between major sections (Implementation Summary, Validation Summary).
+- On SUCCESS: use ✅ for PASS, ⏭️ for N/A. This provides clear traceability of what was verified.
+- On FAILURE: include dimension tag and description for each issue. Guidance must be actionable.
+
+### 5.1 On FAILURE: Unmark Task
 
 Change checkbox from `- [x]` back to `- [ ]`:
 
@@ -365,49 +374,15 @@ Change checkbox from `- [x]` back to `- [ ]`:
 - [ ] **T1**: Task description `[complexity:medium]`
 ```
 
-### 5.2 Add Review Feedback
+### 5.2 On FAILURE: Add Review Feedback
 
-Add feedback block after the builder's implementation summary:
-
-```markdown
-  **Review Feedback** (Attempt N):
-  - **Status**: FAILURE
-  - **Issues**:
-    - [discipline] Scope violation description
-    - [accuracy] Implementation error description
-  - **Guidance**: Specific instructions for retry builder
-```
+Apply the **On FAILURE** variant from the loaded template. Append after the builder's implementation summary.
 
 The guidance MUST be actionable—tell the builder exactly what to fix.
 
-## 5.5 Task File Update (On SUCCESS)
+## 5.5 On SUCCESS: Add Validation Summary
 
-If verdict is SUCCESS, add a validation summary after the implementation summary:
-
-```markdown
-- [x] **T1**: Task description `[complexity:medium]`
-
-    **Implementation Summary**:
-
-    - **Files**: ...
-    - **Approach**: ...
-
-    **Validation Summary**:
-
-    | Dimension | Status |
-    |-----------|--------|
-    | Discipline | ✅ PASS |
-    | Accuracy | ✅ PASS |
-    | Completeness | ✅ PASS |
-    | Quality | ✅ PASS |
-    | Testing | ✅ PASS |
-    | Commit | ✅ PASS |
-    | Comments | ✅ PASS |
-```
-
-**IMPORTANT**: Use 4-space indentation AND blank lines between major sections (Implementation Summary, Validation Summary). This ensures proper markdown nesting.
-
-Use ✅ for PASS, ⏭️ for N/A. This provides clear traceability of what was verified.
+Apply the **On SUCCESS** variant from the loaded template. Append after the builder's implementation summary.
 
 ### 5.6 Quick-Build Verification Section
 

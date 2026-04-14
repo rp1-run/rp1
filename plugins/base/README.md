@@ -95,9 +95,11 @@ Generates browser-viewable HTML previews from markdown, plain text, and Mermaid 
 **Returns**: File path to generated HTML, status, diagram fix counters
 
 ### artifact-templates
-Agent-only reference skill providing canonical output templates for all rp1 artifacts (requirements, design, tasks, reports, KB docs). Not user-invocable -- agents read the index to find the right template, then read the template file via the Read tool.
+Centralized output templates for all rp1 artifacts (requirements, design, tasks, reports, KB docs). All 20 producer agents across `rp1-base` and `rp1-dev` read their output format from this skill at runtime via a two-hop flow: read the SKILL.md index to locate the template row by producer name, then read the template file at the discovered path. Not user-invocable.
 
-**Invocation**: Agent-only reference (not user-invocable)
+Templates cover four producer types: single-document (14 agents), multi-document (2 agents), section-type (3 agents), and format-reference (1 agent). Section templates under `templates/_sections/` describe content appended to existing files rather than standalone documents.
+
+**Invocation**: Agent-only reference (not user-invocable). See [AGENTS.md](../../AGENTS.md#artifact-templates) for authoring guidance.
 
 ## Used By
 

@@ -40,28 +40,13 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 
 **Doc Path**: `{WORK_ROOT}/features/{FEATURE_ID}/hypotheses.md`
 
-## §FMT: Expected Document Format Reference
+## §FMT: Document Format Reference
 
-This document is created by the feature-architect agent during the design phase. The hypothesis-tester reads and updates it; it does not create it.
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `hypothesis-tester` and **Artifact** = `hypothesis-document.md`.
+2. Read the template file at the listed **Template Path** for format reference.
+3. When updating the document, maintain the template's structure. Append findings to the `## Validation Findings` section.
 
-```markdown
-# Hypothesis Document: {feature-id}
-**Version**: 1.0.0 | **Created**: {timestamp} | **Status**: PENDING|VALIDATED
-
-## Hypotheses
-### HYP-001: {Title}
-**Risk Level**: HIGH|MEDIUM|LOW
-**Status**: PENDING|CONFIRMED|REJECTED|CONFIRMED_BY_USER
-**Statement**: {assumption}
-**Context**: {design relevance}
-**Validation Criteria**:
-- CONFIRM if: {criteria}
-- REJECT if: {criteria}
-**Suggested Method**: CODE_EXPERIMENT|CODEBASE_ANALYSIS|EXTERNAL_RESEARCH
-
-## Validation Findings
-(Tester appends here)
-```
+This agent reads and updates existing documents -- it does not create them. The initial document is created by feature-architect.
 
 ## §KB: Load Knowledge Base
 

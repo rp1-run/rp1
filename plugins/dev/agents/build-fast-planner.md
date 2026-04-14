@@ -130,36 +130,19 @@ mkdir -p "{WORK_ROOT}/quick-builds"
 
 ### 4.3 Write Artifact
 
-Write the file to `{WORK_ROOT}/quick-builds/{filename}` with this structure:
+Write the file to `{WORK_ROOT}/quick-builds/{filename}`.
 
-```markdown
-# Quick Build: {Feature Slug Title Case}
+#### Template Loading
 
-**Created**: {ISO timestamp}
-**Request**: {original REQUEST}
-**Scope**: {Small | Medium}
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `build-fast-planner` and **Artifact** = `quick-build.md`.
+2. Read the template file at the listed **Template Path**.
+3. Use template structure for the artifact. Fill placeholders per guidance below.
 
-## Plan
+#### Content Guidance
 
-**Reasoning**: {why this scope assessment - files, systems, risk}
-**Files Affected**: {list of files or patterns}
-**Approach**: {2-4 sentence summary of implementation approach}
-**Estimated Effort**: {hours estimate}
-
-## Tasks
-
-- [ ] **T1**: {description} `[complexity:simple|medium]`
-- [ ] **T2**: {description} `[complexity:simple|medium]`
-{... up to 5 tasks}
-
-## Implementation Summary
-
-{To be added by task-builder}
-
-## Verification
-
-{To be added by task-reviewer if --review flag used}
-```
+- **Plan section**: Include reasoning (scope assessment), files affected, approach (2-4 sentences), estimated effort.
+- **Tasks section**: Max 5 tasks, each with description + complexity tag (`simple` or `medium`).
+- **Implementation Summary / Verification**: Left for task-builder and task-reviewer to fill.
 
 ### 4.4 Artifact Registration
 

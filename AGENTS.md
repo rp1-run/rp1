@@ -150,16 +150,26 @@ Add `Bash(printf *)` only when the skill actually needs it.
 
 ## Artifact templates
 
-Agents that produce structured markdown artifacts (requirements, design docs, task lists, reports, KB files) should read the canonical template from the `rp1-base:artifact-templates` skill rather than embedding output formats inline.
+Agents that produce structured markdown artifacts (requirements, design docs, task lists, reports, KB files) must read the canonical template from the `rp1-base:artifact-templates` skill rather than embedding output formats inline. All 20 producer agents use this pattern.
 
-**Discovery flow** (two Read calls):
+**Two-hop discovery flow** (two Read calls):
 
 1. Read `plugins/base/skills/artifact-templates/SKILL.md` -- scan the Template Index table for the matching producer and artifact name.
 2. Read the template file at the path listed in the index -- it contains YAML frontmatter with routing metadata (`scope`, `path_pattern`, `emit_hint`) and the markdown body with placeholder patterns.
 
-The agent fills placeholders (`{FEATURE_ID}`, `{Date}`, `[Feature Title]`, etc.) and writes the artifact to the location specified by `scope` + `path_pattern`. If the template includes an `emit_hint`, use it to register the artifact via `rp1 agent-tools emit`.
+The agent fills placeholders (`{FEATURE_ID}`, `{Date}`, `[Feature Title]`, etc.) and writes the artifact to the location specified by `scope` + `path_pattern`. If the template includes an `emit_hint` and the agent has no existing emit logic, use it to register the artifact via `rp1 agent-tools emit`.
 
-Section-level templates (type `section`) describe content appended to existing artifacts rather than standalone files. They are listed in the same index table and stored under `templates/_sections/`.
+### Instruction variants
+
+Choose the variant that matches the agent's output type:
+
+**Variant A -- Single-document producer** (14 agents): Insert a "Template Loading" section before the output section. Remove inline template blocks. Retain content guidance (how to fill placeholders, conditional sections, business rules).
+
+**Variant B -- Multi-document producer** (2 agents: feature-architect, feature-tasker): Same as Variant A but the instruction lists multiple template lookups, one per artifact. Each artifact gets its own template read instruction.
+
+**Variant C -- Section-type producer** (3 agents: feature-editor, task-builder, task-reviewer): The instruction specifies the section template path from `templates/_sections/` and explicitly states append semantics -- append to existing file, not create standalone document. The template `type: section` frontmatter reinforces this.
+
+**Variant D -- Format reference** (1 agent: hypothesis-tester): The agent reads and updates existing documents, not creates them. The instruction reads the template for format verification while preserving the agent's append-findings workflow.
 
 ## State machines
 
