@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/tooltip";
 import { AnnotationPopover } from "@/components/v2/AnnotationPopover";
 import { useAnnotations } from "@/hooks/useAnnotations";
+import { useAutoGrowTextarea } from "@/hooks/useAutoGrowTextarea";
 import type { SelectionPosition } from "@/hooks/useTextSelection";
 import {
 	renderMermaidSvg,
@@ -61,6 +62,8 @@ function DiagramAnnotationPopover({
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const popoverRef = useRef<HTMLDivElement>(null);
 	const { createAnnotation, docId, runId } = useAnnotationContextSafe();
+
+	useAutoGrowTextarea(textareaRef, content);
 
 	useEffect(() => {
 		textareaRef.current?.focus();

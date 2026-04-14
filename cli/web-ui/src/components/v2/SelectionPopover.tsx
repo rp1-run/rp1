@@ -6,6 +6,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useAutoGrowTextarea } from "@/hooks/useAutoGrowTextarea";
 import { useDismiss } from "@/hooks/useDismiss";
 import type { SelectionPosition } from "@/hooks/useTextSelection";
 import {
@@ -45,6 +46,8 @@ export function SelectionPopover({
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const popoverRef = useRef<HTMLDivElement>(null);
 	const { createAnnotation, docId, runId } = useAnnotationContext();
+
+	useAutoGrowTextarea(textareaRef, content);
 
 	useEffect(() => {
 		textareaRef.current?.focus();
