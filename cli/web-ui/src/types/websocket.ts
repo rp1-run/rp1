@@ -163,3 +163,6 @@ export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
 /** Callback type for state snapshot updates */
 export type StateSnapshotCallback = (msg: StateSnapshotMessage) => void;
+
+/** Callback type for state snapshot updates */
+export type StateSnapshotCallback = (msg: StateSnapshotMessage) => void;
