@@ -10,6 +10,12 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+	Dialog,
+	DialogClose,
+	DialogOverlay,
+	DialogPortal,
+} from "@/components/ui/dialog";
+import {
 	ResizableHandle,
 	ResizablePanel,
 	ResizablePanelGroup,
@@ -82,6 +88,9 @@ export function RunDetailPage() {
 		"cancelled" | "abandoned" | null
 	>(null);
 	const [endRunError, setEndRunError] = useState<string | null>(null);
+	const [confirmAction, setConfirmAction] = useState<
+		"cancelled" | "abandoned" | null
+	>(null);
 	const [showMetadata, setShowMetadata] = useState<boolean>(() => {
 		if (typeof window === "undefined") return false;
 		return (
@@ -282,7 +291,7 @@ export function RunDetailPage() {
 								title="Abandon Run"
 								aria-label="Abandon Run"
 								disabled={endingOutcome !== null}
-								onClick={() => handleEndRun("abandoned")}
+								onClick={() => setConfirmAction("abandoned")}
 								className="text-fg-muted hover:text-fg transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none"
 							>
 								<Ban size={16} strokeWidth={1.5} />
@@ -292,7 +301,7 @@ export function RunDetailPage() {
 								title="Cancel Run"
 								aria-label="Cancel Run"
 								disabled={endingOutcome !== null}
-								onClick={() => handleEndRun("cancelled")}
+								onClick={() => setConfirmAction("cancelled")}
 								className="text-fg-muted hover:text-accent-amber transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none"
 							>
 								<OctagonX size={16} strokeWidth={1.5} />
@@ -306,14 +315,7 @@ export function RunDetailPage() {
 			setHeaderLeft(null);
 			setHeaderRight(null);
 		};
-	}, [
-		run,
-		currentStepName,
-		endingOutcome,
-		handleEndRun,
-		setHeaderLeft,
-		setHeaderRight,
-	]);
+	}, [run, currentStepName, endingOutcome, setHeaderLeft, setHeaderRight]);
 
 	const handleStepSelect = useCallback(
 		(stepId: string) => {
@@ -577,6 +579,48 @@ export function RunDetailPage() {
 					/>
 				</div>
 			</div>
+
+			<Dialog
+				open={confirmAction !== null}
+				onOpenChange={(open) => {
+					if (!open) setConfirmAction(null);
+				}}
+			>
+				<DialogPortal>
+					<DialogOverlay className="bg-black/50" />
+					<div className="fixed inset-0 z-50 flex items-center justify-center">
+						<div className="w-full max-w-sm rounded border border-border bg-surface p-lg shadow-sm">
+							<p className="font-mono text-[13px] text-fg">
+								{confirmAction === "abandoned"
+									? "Abandon this run? Progress will be marked as abandoned."
+									: "Cancel this run? The running process will be stopped."}
+							</p>
+							<div className="mt-md flex justify-end gap-sm">
+								<DialogClose asChild>
+									<button
+										type="button"
+										className="rounded px-sm py-xs font-mono text-[12px] text-fg-ghost hover:text-fg transition-colors duration-150"
+									>
+										Dismiss
+									</button>
+								</DialogClose>
+								<button
+									type="button"
+									className="rounded px-sm py-xs font-mono text-[12px] text-accent-amber hover:text-fg transition-colors duration-150"
+									onClick={() => {
+										if (confirmAction) {
+											handleEndRun(confirmAction);
+										}
+										setConfirmAction(null);
+									}}
+								>
+									Confirm
+								</button>
+							</div>
+						</div>
+					</div>
+				</DialogPortal>
+			</Dialog>
 		</div>
 	);
 }
