@@ -93,12 +93,17 @@ export function startServer(config: ServerConfig): AppServer {
 				const lastEventId = ws.data.lastEventId;
 				websocketHub.addClient(ws, projectId, lastEventId);
 				if (projectId && fileWatcherPool) {
-					const { getProject } = require("./registry");
-					getProject(projectId).then((project: { path: string } | null) => {
-						if (project) {
-							fileWatcherPool.acquireWatcher(projectId, project.path);
-						}
-					});
+					import("../../../src/agent-tools/emit/database.js").then(
+						async ({ getEmitDatabase }) => {
+							const dbResult = await getEmitDatabase()();
+							if (dbResult._tag === "Left") return;
+							const { getProject } = await import("./registry");
+							const project = await getProject(dbResult.right, projectId);
+							if (project) {
+								fileWatcherPool!.acquireWatcher(projectId, project.path);
+							}
+						},
+					);
 				}
 			},
 			message(ws: ServerWebSocket<WebSocketData>, message) {
