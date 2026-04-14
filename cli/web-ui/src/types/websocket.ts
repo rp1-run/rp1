@@ -161,8 +161,5 @@ export type ServerMessage =
 /** WebSocket connection status */
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
-/** Callback type for attention updates */
-export type AttentionCallback = () => void;
-
 /** Callback type for state snapshot updates */
 export type StateSnapshotCallback = (msg: StateSnapshotMessage) => void;

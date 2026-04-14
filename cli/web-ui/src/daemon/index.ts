@@ -14,7 +14,6 @@ export {
 } from "./config-dir";
 
 export {
-	type ArtifactNotifyPayload,
 	checkHealth,
 	createConnection,
 	type DaemonConnection,
@@ -24,14 +23,11 @@ export {
 	getDaemonStatus,
 	type HealthResponse,
 	type NotificationNotifyPayload,
-	notifyArtifactChange,
 	notifyEvent,
 	notifyNotification,
-	notifyStatusChange,
 	type RegisterResponse,
 	registerProjectWithDaemon,
 	stopDaemon as stopDaemonViaIpc,
-	type WorkflowNotifyContext,
 } from "./ipc";
 
 export {

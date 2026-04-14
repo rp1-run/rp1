@@ -10,7 +10,6 @@ import {
 
 import type {
 	AnnotationMessage,
-	AttentionCallback,
 	ConnectionStatus,
 	EventNotificationMessage,
 	EventReplayMessage,
@@ -50,7 +49,6 @@ interface WebSocketContextValue {
 		callback: (msg: AnnotationMessage) => void,
 	) => () => void;
 	onNotification: (callback: (msg: NotificationMessage) => void) => () => void;
-	subscribeToAttention: (callback: AttentionCallback) => () => void;
 	subscribeToReconnect: (callback: () => void) => () => void;
 }
 
@@ -59,7 +57,6 @@ const WebSocketContext = createContext<WebSocketContextValue | null>(null);
 const INITIAL_RECONNECT_DELAY = 2000;
 const MAX_RECONNECT_DELAY = 30000;
 const RECONNECT_BACKOFF_FACTOR = 2;
-const POLLING_INTERVAL = 5000;
 const LAST_EVENT_ID_STORAGE_PREFIX = "rp1:last-event-id:";
 
 interface WebSocketProviderProps {
@@ -72,9 +69,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	const wsRef = useRef<WebSocket | null>(null);
 	const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY);
 	const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-		null,
-	);
-	const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
 		null,
 	);
 	const mountedRef = useRef(true);
@@ -100,7 +94,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	>(new Set());
 	const snapshotListenersRef = useRef<Set<StateSnapshotCallback>>(new Set());
 	const subscriptionsRef = useRef<Set<string>>(new Set());
-	const attentionListenersRef = useRef<Set<AttentionCallback>>(new Set());
 	const reconnectListenersRef = useRef<Set<() => void>>(new Set());
 	const notifyReconnectRef = useRef(false);
 
@@ -192,35 +185,13 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	);
 
 	const emitEventNotification = useCallback(
-		(message: EventNotificationMessage, notifyAttention: boolean) => {
+		(message: EventNotificationMessage) => {
 			for (const listener of eventNotificationListenersRef.current) {
 				listener(message);
-			}
-			if (notifyAttention) {
-				for (const callback of attentionListenersRef.current) {
-					callback();
-				}
 			}
 		},
 		[],
 	);
-
-	const startPollingFallback = useCallback(() => {
-		if (pollingIntervalRef.current) return;
-
-		pollingIntervalRef.current = setInterval(() => {
-			for (const callback of attentionListenersRef.current) {
-				callback();
-			}
-		}, POLLING_INTERVAL);
-	}, []);
-
-	const stopPollingFallback = useCallback(() => {
-		if (pollingIntervalRef.current) {
-			clearInterval(pollingIntervalRef.current);
-			pollingIntervalRef.current = null;
-		}
-	}, []);
 
 	useEffect(() => {
 		mountedRef.current = true;
@@ -256,7 +227,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				}
 				setStatus("connected");
 				reconnectDelayRef.current = INITIAL_RECONNECT_DELAY;
-				stopPollingFallback();
 
 				for (const path of subscriptionsRef.current) {
 					ws.send(JSON.stringify({ type: "subscribe", path }));
@@ -275,7 +245,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				setStatus("disconnected");
 				wsRef.current = null;
 				notifyReconnectRef.current = true;
-				startPollingFallback();
 				scheduleReconnect();
 			};
 
@@ -309,7 +278,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 					break;
 				case "event:notification":
 					advanceLastEventId(message.projectId, message.eventId);
-					emitEventNotification(message, true);
+					emitEventNotification(message);
 					break;
 				case "event:replay": {
 					const normalizedMessage = normalizeReplayMessage(
@@ -321,7 +290,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 							normalizedMessage.projectId,
 							normalizedMessage.eventId,
 						);
-						emitEventNotification(normalizedMessage, false);
+						emitEventNotification(normalizedMessage);
 					}
 					break;
 				}
@@ -377,7 +346,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 
 		return () => {
 			mountedRef.current = false;
-			stopPollingFallback();
 			if (reconnectTimeoutRef.current) {
 				clearTimeout(reconnectTimeoutRef.current);
 				reconnectTimeoutRef.current = null;
@@ -389,8 +357,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 		};
 	}, [
 		projectId,
-		startPollingFallback,
-		stopPollingFallback,
 		advanceLastEventId,
 		emitEventNotification,
 		normalizeReplayMessage,
@@ -478,13 +444,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 		[],
 	);
 
-	const subscribeToAttention = useCallback((callback: AttentionCallback) => {
-		attentionListenersRef.current.add(callback);
-		return () => {
-			attentionListenersRef.current.delete(callback);
-		};
-	}, []);
-
 	const subscribeToReconnect = useCallback((callback: () => void) => {
 		reconnectListenersRef.current.add(callback);
 		return () => {
@@ -511,7 +470,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				onProjectsChange,
 				onAnnotationMessage,
 				onNotification,
-				subscribeToAttention,
 				subscribeToReconnect,
 			}}
 		>
