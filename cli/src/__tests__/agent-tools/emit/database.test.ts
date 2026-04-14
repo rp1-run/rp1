@@ -38,6 +38,7 @@ import {
 	getProjectRunStats,
 	getRunById,
 	getRunsByAttentionStatus,
+	getRunWithLastEventById,
 	getSkippableSteps,
 	getStepStatuses,
 	insertEvent,
@@ -3525,6 +3526,67 @@ describe("emit database", () => {
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
 			const run = getRunById(db, "nonexistent");
+
+			expect(run).toBeNull();
+		});
+	});
+
+	describe("getRunWithLastEventById", () => {
+		test("returns a run with the latest event timestamp used by list views", async () => {
+			const dbPath = join(tempDir, "get-run-with-last-event.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-summary",
+				flow: "build",
+				featureId: "feat-summary",
+				projectPath: "/p/summary",
+			});
+			db.prepare("UPDATE runs SET created_at = $createdAt WHERE id = $id").run({
+				$createdAt: "2026-03-01T00:00:00.000Z",
+				$id: "run-summary",
+			});
+			insertEvent(db, {
+				runId: "run-summary",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+				createdAt: "2026-03-02T00:00:00.000Z",
+			});
+
+			const run = getRunWithLastEventById(db, "run-summary");
+
+			expect(run).not.toBeNull();
+			expect(run?.id).toBe("run-summary");
+			expect(run?.lastEventAt).toBe("2026-03-02T00:00:00.000Z");
+		});
+
+		test("falls back to created_at when the run has no events", async () => {
+			const dbPath = join(tempDir, "get-run-with-last-event-no-events.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-summary-no-events",
+				flow: "build",
+				featureId: "feat-summary",
+				projectPath: "/p/summary",
+			});
+			db.prepare("UPDATE runs SET created_at = $createdAt WHERE id = $id").run({
+				$createdAt: "2026-03-03T00:00:00.000Z",
+				$id: "run-summary-no-events",
+			});
+
+			const run = getRunWithLastEventById(db, "run-summary-no-events");
+
+			expect(run).not.toBeNull();
+			expect(run?.lastEventAt).toBe("2026-03-03T00:00:00.000Z");
+		});
+
+		test("returns null for missing ID", async () => {
+			const dbPath = join(tempDir, "get-run-with-last-event-missing.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const run = getRunWithLastEventById(db, "nonexistent");
 
 			expect(run).toBeNull();
 		});

@@ -37,6 +37,7 @@ import {
 	getEventsForRun,
 	getRunById,
 	getRunsByAttentionStatus,
+	getRunWithLastEventById,
 	listRuns,
 	resolveArtifactPathForRun,
 } from "../../../../src/agent-tools/emit/database.js";
@@ -1255,6 +1256,35 @@ export async function handleV2RunsAttentionRequest(
 		return jsonResponse(attention);
 	} catch (error) {
 		return errorResponse(`Failed to fetch attention data: ${String(error)}`);
+	}
+}
+
+/**
+ * GET /api/v2/runs/:id/summary - lightweight list-view run shape for targeted hydration.
+ * Run ID is a native UUID from the runs table.
+ */
+export async function handleV2RunSummaryRequest(
+	runId: string,
+	ctx?: ApiContext,
+): Promise<Response> {
+	try {
+		const db = await getDb();
+		await reclassifyInactiveRunsWithBroadcast(db, ctx?.websocketHub);
+		const record = getRunWithLastEventById(db, runId);
+
+		if (!record || isEvalRunRecord(record)) {
+			return errorResponse(`Run not found: ${runId}`, 404);
+		}
+
+		const projects = await getAllProjects(db);
+		const projectLookup = buildProjectLookup(projects);
+		const project =
+			findProjectByIdentity(projectLookup, record) ??
+			fallbackProjectFromRun(record);
+
+		return jsonResponse(runRecordToListRun(record, project));
+	} catch (error) {
+		return errorResponse(`Failed to fetch run summary: ${String(error)}`);
 	}
 }
 

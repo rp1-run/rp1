@@ -23,6 +23,7 @@ import {
 import {
 	handleV2RunDetailRequest,
 	handleV2RunEndRequest,
+	handleV2RunSummaryRequest,
 	handleV2RunsAttentionRequest,
 	handleV2RunsListRequest,
 } from "../../server/routes/v2-api.js";
@@ -295,6 +296,65 @@ describe("V2 runs API", () => {
 			expect(typeof call?.[1]).toBe("number");
 			expect(typeof call?.[7]).toBe("string");
 		}
+	});
+
+	test("returns the same lightweight run shape and project identity as the list view", async () => {
+		const { db, projectId, projectRoot, registryProjectId } =
+			await setupProject(tempDir, "summary");
+
+		insertRun(db, {
+			id: "run-summary",
+			flow: "build",
+			featureId: "targeted-hydration",
+			projectPath: projectRoot,
+			projectId,
+			name: "Summary Run",
+			harness: "codex",
+		});
+		insertEvent(db, {
+			runId: "run-summary",
+			type: "status_change",
+			step: "build",
+			data: JSON.stringify({ status: "running" }),
+			createdAt: "2026-04-12T02:00:00.000Z",
+		});
+		deriveRunStatus(db, "run-summary");
+
+		const listResponse = await handleV2RunsListRequest(
+			new Request("http://localhost/api/v2/runs"),
+		);
+		const listBody = (await listResponse.json()) as {
+			runs: Array<Record<string, unknown>>;
+		};
+		const listRun = listBody.runs.find((run) => run.id === "run-summary");
+
+		expect(listResponse.status).toBe(200);
+		expect(listRun).toBeDefined();
+		if (!listRun) {
+			throw new Error("Expected run-summary in list response");
+		}
+
+		const summaryResponse = await handleV2RunSummaryRequest("run-summary");
+		const summaryBody = (await summaryResponse.json()) as Record<
+			string,
+			unknown
+		>;
+
+		expect(summaryResponse.status).toBe(200);
+		expect(summaryBody).toEqual(listRun);
+		expect(summaryBody.projectId).toBe(registryProjectId);
+		expect(summaryBody.projectName).toBe("Project summary");
+		expect(summaryBody.lastEventAt).toBe("2026-04-12T02:00:00.000Z");
+	});
+
+	test("returns 404 when the run summary does not exist", async () => {
+		await setupProject(tempDir, "summary-missing");
+
+		const response = await handleV2RunSummaryRequest("missing-run");
+		const body = (await response.json()) as { error: string };
+
+		expect(response.status).toBe(404);
+		expect(body.error).toContain("Run not found");
 	});
 
 	test("ends a live run through the dedicated endpoint and broadcasts the lifecycle event", async () => {
