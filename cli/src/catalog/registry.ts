@@ -35,6 +35,7 @@ export interface CatalogRegistryEntry extends CatalogRenderableEntry {
 	readonly userFacingName: string;
 	readonly argumentDefs: readonly ArgumentDefinition[];
 	readonly distributionScope: CatalogDistributionScope;
+	readonly userInvocable: boolean;
 	readonly sourcePath: string;
 }
 
@@ -156,6 +157,7 @@ const toRegistryEntry = (
 	category: SkillCategory,
 	isWorkflow: boolean,
 	arcadeTracked: boolean | undefined,
+	userInvocable: boolean,
 	argumentDefs: readonly ArgumentDefinition[],
 	runPolicy?: WorkflowRunPolicy,
 	identityArgs?: readonly string[],
@@ -178,6 +180,7 @@ const toRegistryEntry = (
 		distributionScope: DISTRIBUTABLE_PLUGIN_NAME_SET.has(plugin)
 			? "distributable"
 			: "internal",
+		userInvocable,
 		sourcePath: join(skillDir, "SKILL.md"),
 	};
 };
@@ -296,6 +299,7 @@ export const collectCatalogRegistry = async (
 			}
 
 			const argumentDefs = [...(skill.metadata?.arguments ?? [])];
+			const userInvocable = metadata.userInvocable !== false;
 			entries.push(
 				toRegistryEntry(
 					plugin,
@@ -305,6 +309,7 @@ export const collectCatalogRegistry = async (
 					metadata.category,
 					metadata.isWorkflow,
 					metadata.arcadeTracked,
+					userInvocable,
 					argumentDefs,
 					metadata.workflow?.runPolicy,
 					metadata.workflow?.identityArgs,
@@ -319,13 +324,20 @@ export const collectCatalogRegistry = async (
 	};
 };
 
+export const filterUserInvocableEntries = (
+	entries: readonly CatalogRegistryEntry[],
+): CatalogRegistryEntry[] =>
+	entries.filter((entry) => entry.userInvocable !== false);
+
 export const collectScopedCatalogRegistry = async (
 	projectRoot: string,
 	scope: CatalogScope,
 ): Promise<CollectedCatalogRegistry> => {
 	const { entries, errors } = await collectCatalogRegistry(projectRoot);
 	return {
-		entries: filterCatalogEntriesByScope(entries, scope),
+		entries: filterUserInvocableEntries(
+			filterCatalogEntriesByScope(entries, scope),
+		),
 		errors,
 	};
 };

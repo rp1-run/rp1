@@ -6,6 +6,7 @@ import {
 	collectCatalogRegistry,
 	collectScopedCatalogRegistry,
 	filterCatalogEntriesByScope,
+	filterUserInvocableEntries,
 	findCatalogEntryByCanonicalName,
 	getCatalogDistributionScope,
 	getCatalogPluginsForScope,
@@ -24,6 +25,7 @@ const SKILL_FRONTMATTER = (
 	args: readonly string[] = [],
 	runPolicy?: "fresh" | "resumable",
 	identityArgs?: readonly string[],
+	userInvocable?: boolean,
 ) => {
 	const workflowBlock = runPolicy
 		? `  workflow:\n    run_policy: ${runPolicy}\n${
@@ -51,7 +53,7 @@ allowed-tools: Bash(echo *)
 metadata:
   category: ${category}
   is_workflow: ${isWorkflow}
-${arcadeTracked !== undefined ? `  arcade_tracked: ${arcadeTracked}\n` : ""}${workflowBlock}  version: 1.0.0
+${arcadeTracked !== undefined ? `  arcade_tracked: ${arcadeTracked}\n` : ""}${userInvocable !== undefined ? `  user_invocable: ${userInvocable}\n` : ""}${workflowBlock}  version: 1.0.0
   created: 2026-01-01
   author: test
 ${argumentBlock}---
@@ -224,6 +226,125 @@ describe("catalog registry", () => {
 		expect(renderedBlock).toContain("| Development | /build |");
 		expect(renderedBlock).toContain("| Knowledge | /alpha |");
 		expect(renderedBlock).not.toContain("tersify-prompt");
+	});
+
+	test("defaults userInvocable to true when user_invocable is absent from metadata", async () => {
+		const { entries } = await collectCatalogRegistry(tempDir);
+
+		for (const entry of entries) {
+			expect(entry.userInvocable).toBe(true);
+		}
+	});
+
+	test("extracts user_invocable false and excludes entry from scoped catalog views", async () => {
+		const agentOnlySkillDir = join(
+			tempDir,
+			"plugins",
+			"base",
+			"skills",
+			"agent-ref",
+		);
+		await mkdir(agentOnlySkillDir, { recursive: true });
+		await writeFile(
+			join(agentOnlySkillDir, "SKILL.md"),
+			SKILL_FRONTMATTER(
+				"agent-ref",
+				"Agent-only reference skill not for users.",
+				"knowledge",
+				false,
+				undefined,
+				[],
+				undefined,
+				undefined,
+				false,
+			),
+		);
+
+		const { entries } = await collectCatalogRegistry(tempDir);
+		const agentRefEntry = entries.find(
+			(entry) => entry.canonicalName === "base:agent-ref",
+		);
+		expect(agentRefEntry).toBeDefined();
+		expect(agentRefEntry?.userInvocable).toBe(false);
+
+		const scopedResult = await collectScopedCatalogRegistry(
+			tempDir,
+			"distributable",
+		);
+		expect(
+			scopedResult.entries.find(
+				(entry) => entry.canonicalName === "base:agent-ref",
+			),
+		).toBeUndefined();
+	});
+
+	test("filterUserInvocableEntries removes non-user-invocable entries while keeping others", async () => {
+		const agentOnlySkillDir = join(
+			tempDir,
+			"plugins",
+			"base",
+			"skills",
+			"hidden",
+		);
+		await mkdir(agentOnlySkillDir, { recursive: true });
+		await writeFile(
+			join(agentOnlySkillDir, "SKILL.md"),
+			SKILL_FRONTMATTER(
+				"hidden",
+				"Hidden skill for internal agent use only.",
+				"knowledge",
+				false,
+				undefined,
+				[],
+				undefined,
+				undefined,
+				false,
+			),
+		);
+
+		const { entries } = await collectCatalogRegistry(tempDir);
+		const filtered = filterUserInvocableEntries(entries);
+
+		expect(entries.some((e) => e.canonicalName === "base:hidden")).toBe(true);
+		expect(filtered.some((e) => e.canonicalName === "base:hidden")).toBe(false);
+		expect(filtered.length).toBe(entries.length - 1);
+	});
+
+	test("non-user-invocable entries are excluded from rendered catalog markdown", async () => {
+		const agentOnlySkillDir = join(
+			tempDir,
+			"plugins",
+			"base",
+			"skills",
+			"templates",
+		);
+		await mkdir(agentOnlySkillDir, { recursive: true });
+		await writeFile(
+			join(agentOnlySkillDir, "SKILL.md"),
+			SKILL_FRONTMATTER(
+				"templates",
+				"Agent-only template reference not shown to users.",
+				"knowledge",
+				false,
+				undefined,
+				[],
+				undefined,
+				undefined,
+				false,
+			),
+		);
+
+		const scopedResult = await collectScopedCatalogRegistry(
+			tempDir,
+			"distributable",
+		);
+		const catalog = renderCatalogMarkdown(scopedResult.entries);
+		const awareness = renderInitSkillAwarenessBlock(scopedResult.entries);
+
+		expect(catalog).not.toContain("/templates");
+		expect(awareness).not.toContain("/templates");
+		expect(catalog).toContain("/alpha");
+		expect(awareness).toContain("/alpha");
 	});
 
 	test("reports missing discovery metadata instead of silently omitting skills", async () => {

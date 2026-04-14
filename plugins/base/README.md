@@ -94,10 +94,10 @@ Generates browser-viewable HTML previews from markdown, plain text, and Mermaid 
 
 **Returns**: File path to generated HTML, status, diagram fix counters
 
-### knowledge-base-templates
-Provides reusable templates for generating comprehensive codebase knowledge bases. Supports both single-project and monorepo structures with architecture diagrams, concept maps, and module documentation.
+### artifact-templates
+Agent-only reference skill providing canonical output templates for all rp1 artifacts (requirements, design, tasks, reports, KB docs). Not user-invocable -- agents read the index to find the right template, then read the template file via the Read tool.
 
-**Invocation**: Use the Skill tool with `skill: "rp1-base:knowledge-base-templates"`
+**Invocation**: Agent-only reference (not user-invocable)
 
 ## Used By
 

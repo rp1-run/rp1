@@ -170,12 +170,12 @@ describe("parseSkillRefs", () => {
 		const content = `
 # Agent
 
-Use the skill: rp1-base:knowledge-base-templates
+Use the skill: rp1-base:artifact-templates
 `;
 		const refs = parseSkillRefs(content, "claude-code");
 
 		expect(refs).toEqual([
-			"dist/claude-code/base/skills/knowledge-base-templates/SKILL.md",
+			"dist/claude-code/base/skills/artifact-templates/SKILL.md",
 		]);
 	});
 
@@ -183,12 +183,12 @@ Use the skill: rp1-base:knowledge-base-templates
 		const content = `
 # Agent
 
-Use the skill: rp1-base:knowledge-base-templates
+Use the skill: rp1-base:artifact-templates
 `;
 		const refs = parseSkillRefs(content, "opencode");
 
 		expect(refs).toEqual([
-			"dist/opencode/base/skills/rp1-knowledge-base-templates/SKILL.md",
+			"dist/opencode/base/skills/rp1-artifact-templates/SKILL.md",
 		]);
 	});
 
@@ -217,13 +217,13 @@ Use worktree-workflow skill \`rp1-dev:worktree-workflow\`
 	test("extracts multiple skill references", () => {
 		const content = `
 skill: rp1-base:mermaid
-Skill rp1-base:knowledge-base-templates
+Skill rp1-base:artifact-templates
 `;
 		const refs = parseSkillRefs(content, "claude-code");
 
 		expect(refs).toContain("dist/claude-code/base/skills/mermaid/SKILL.md");
 		expect(refs).toContain(
-			"dist/claude-code/base/skills/knowledge-base-templates/SKILL.md",
+			"dist/claude-code/base/skills/artifact-templates/SKILL.md",
 		);
 		expect(refs).toHaveLength(2);
 	});
@@ -320,7 +320,6 @@ Content.
 		await mkdir(join(distBase, "skills/mermaid"), { recursive: true });
 		await mkdir(join(distDev, "skills/build-cmd"), { recursive: true });
 
-		// Create skill that references an agent
 		const skillPath = join(distDev, "skills/build-cmd/SKILL.md");
 		await writeFile(
 			skillPath,
@@ -335,7 +334,6 @@ Task: rp1-base:kb-builder
 `,
 		);
 
-		// Create agent that references a skill
 		const agentPath = join(distBase, "agents/kb-builder.md");
 		await writeFile(
 			agentPath,
@@ -367,7 +365,6 @@ Content.
 			expect(result.right.skill).toBe("build-cmd");
 			expect(result.right.skillPath).toBe(skillPath);
 			expect(result.right.platform).toBe("claude-code");
-			// Agent path is derived from dist paths
 			expect(result.right.agents).toEqual([
 				"dist/claude-code/base/agents/kb-builder.md",
 			]);

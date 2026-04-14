@@ -95,6 +95,7 @@ export interface SkillMetadata {
 	readonly category?: SkillCategory;
 	readonly isWorkflow?: boolean;
 	readonly arcadeTracked?: boolean;
+	readonly userInvocable?: boolean;
 	readonly workflow?: WorkflowMetadata;
 }
 

@@ -148,6 +148,19 @@ Add `Bash(printf *)` only when the skill actually needs it.
 
 `allowed-tools` is required on skills, not on agent files. Subagents inherit Bash permissions from the invoking skill.
 
+## Artifact templates
+
+Agents that produce structured markdown artifacts (requirements, design docs, task lists, reports, KB files) should read the canonical template from the `rp1-base:artifact-templates` skill rather than embedding output formats inline.
+
+**Discovery flow** (two Read calls):
+
+1. Read `plugins/base/skills/artifact-templates/SKILL.md` -- scan the Template Index table for the matching producer and artifact name.
+2. Read the template file at the path listed in the index -- it contains YAML frontmatter with routing metadata (`scope`, `path_pattern`, `emit_hint`) and the markdown body with placeholder patterns.
+
+The agent fills placeholders (`{FEATURE_ID}`, `{Date}`, `[Feature Title]`, etc.) and writes the artifact to the location specified by `scope` + `path_pattern`. If the template includes an `emit_hint`, use it to register the artifact via `rp1 agent-tools emit`.
+
+Section-level templates (type `section`) describe content appended to existing artifacts rather than standalone files. They are listed in the same index table and stored under `templates/_sections/`.
+
 ## State machines
 
 Skills and agents may opt into workflow state tracking by adding a `## STATE-MACHINE` section with a `stateDiagram-v2` Mermaid block.

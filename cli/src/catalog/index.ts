@@ -25,6 +25,7 @@ export {
 	collectCatalogRegistry,
 	collectScopedCatalogRegistry,
 	filterCatalogEntriesByScope,
+	filterUserInvocableEntries,
 	findCatalogEntryByCanonicalName,
 	getCatalogDistributionScope,
 	getCatalogPluginsForScope,

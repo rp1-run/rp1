@@ -143,6 +143,29 @@ metadata:
     identity_args: []
 ```
 
+### `user_invocable`
+
+Controls whether the skill appears in user-facing catalog views. When set to
+`false`, the skill is excluded from `CATALOG.md` generation, init awareness
+blocks, and `rp1 list` output. The skill still exists in the plugin directory
+and can be read by agents via the Read tool at runtime.
+
+Use it for agent-only reference skills that provide data or templates for other
+agents to consume but should not be offered to users as slash commands.
+
+- **Type**: boolean
+- **Required**: No
+- **Default**: `true`
+
+Example:
+
+```yaml
+metadata:
+  category: knowledge
+  is_workflow: false
+  user_invocable: false
+```
+
 ### `version`
 
 Semantic version of the skill.

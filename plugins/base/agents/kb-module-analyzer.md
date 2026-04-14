@@ -380,7 +380,7 @@ Define module boundaries:
       "public_api": {
         "commands": ["knowledge-build", "knowledge-load", "strategize"],
         "agents": ["knowledge-builder", "project-documenter"],
-        "skills": ["mermaid", "markdown-preview", "knowledge-base-templates"]
+        "skills": ["mermaid", "markdown-preview", "artifact-templates"]
       },
       "contracts": "Commands must use namespace prefix /rp1-base:*"
     }
