@@ -35,8 +35,8 @@ Templates contain YAML frontmatter with routing metadata and a markdown body wit
 | hypothesis-tester | hypothesis-document.md | document | workRoot | features/{FEATURE_ID}/hypotheses.md | templates/hypothesis-tester/hypothesis-document.md |
 | research-reporter | research-report.md | document | workRoot | research/{TOPIC}/report.md | templates/research-reporter/research-report.md |
 | security-validator | security-report.md | document | workRoot | security/{FEATURE_ID}/report.md | templates/security-validator/security-report.md |
-| pr-review-reporter | pr-review-report.md | document | workRoot | pr-reviews/{PR_NUMBER}/report.md | templates/pr-review-reporter/pr-review-report.md |
-| pr-feedback-collector | pr-feedback-tasks.md | document | workRoot | pr-reviews/{PR_NUMBER}/feedback-tasks.md | templates/pr-feedback-collector/pr-feedback-tasks.md |
+| pr-review-reporter | pr-review-report.md | document | workRoot | pr-reviews/{REVIEW_ID}-review-{NNN}.md | templates/pr-review-reporter/pr-review-report.md |
+| pr-feedback-collector | pr-feedback-tasks.md | document | workRoot | pr-reviews/{IDENTIFIER}-feedback-{NNN}.md | templates/pr-feedback-collector/pr-feedback-tasks.md |
 | code-auditor | audit-report.md | document | workRoot | audits/{SCOPE}/report.md | templates/code-auditor/audit-report.md |
 | bug-investigator | investigation-report.md | document | workRoot | investigations/{BUG_ID}/report.md | templates/bug-investigator/investigation-report.md |
 | build-fast-planner | quick-build.md | document | workRoot | quick-builds/{ID}/quick-build.md | templates/build-fast-planner/quick-build.md |
