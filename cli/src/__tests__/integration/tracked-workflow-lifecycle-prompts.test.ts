@@ -206,7 +206,7 @@ describe("tracked workflow lifecycle prompts", () => {
 		expect(content).toContain("resume instruction");
 	});
 
-	test("keeps the build-fast Claude bundle attestation metadata valid", async () => {
+	test("keeps tracked Claude workflow bundle attestations exact", async () => {
 		const manifest = JSON.parse(await readPrompt("evals/attestation.json")) as {
 			skills?: Record<
 				string,
@@ -216,33 +216,49 @@ describe("tracked workflow lifecycle prompts", () => {
 				}
 			>;
 		};
-		const skillPath = "dist/claude-code/dev/skills/build-fast/SKILL.md";
-		const skillFullPath = join(REPO_ROOT, skillPath);
-		const attestation = manifest.skills?.["rp1-dev:build-fast@claude-code"];
-
-		expect(attestation).toBeDefined();
-		if (!attestation) {
-			throw new Error("Missing attestation for rp1-dev:build-fast@claude-code");
-		}
-		if (!existsSync(skillFullPath)) {
-			return;
-		}
+		const trackedBundles = [
+			{
+				manifestKey: "rp1-dev:build@claude-code",
+				skillPath: "dist/claude-code/dev/skills/build/SKILL.md",
+			},
+			{
+				manifestKey: "rp1-dev:build-fast@claude-code",
+				skillPath: "dist/claude-code/dev/skills/build-fast/SKILL.md",
+			},
+			{
+				manifestKey: "rp1-dev:speedrun@claude-code",
+				skillPath: "dist/claude-code/dev/skills/speedrun/SKILL.md",
+			},
+		] as const;
 
 		const previousCwd = process.cwd();
 		process.chdir(REPO_ROOT);
 		try {
-			const hashes = await computeAllHashes(skillPath);
-			const skillHash = hashes.find((hash) => hash.path === skillPath);
+			for (const { manifestKey, skillPath } of trackedBundles) {
+				const skillFullPath = join(REPO_ROOT, skillPath);
+				const attestation = manifest.skills?.[manifestKey];
 
-			expect(skillHash).toBeDefined();
-			if (!skillHash) {
-				throw new Error(`Missing hash for ${skillPath}`);
+				expect(attestation).toBeDefined();
+				if (!attestation) {
+					throw new Error(`Missing attestation for ${manifestKey}`);
+				}
+				if (!existsSync(skillFullPath)) {
+					continue;
+				}
+
+				const hashes = await computeAllHashes(skillPath);
+				const skillHash = hashes.find((hash) => hash.path === skillPath);
+
+				expect(skillHash).toBeDefined();
+				if (!skillHash) {
+					throw new Error(`Missing hash for ${skillPath}`);
+				}
+
+				expect(attestation.prompt_hash).toMatch(SHA256_REGEX);
+				expect(attestation.deps_hash).toMatch(SHA256_REGEX);
+				expect(skillHash.hash).toBe(attestation.prompt_hash);
+				expect(computeDepsHash(hashes)).toBe(attestation.deps_hash);
 			}
-
-			expect(attestation.prompt_hash).toMatch(SHA256_REGEX);
-			expect(attestation.deps_hash).toMatch(SHA256_REGEX);
-			expect(skillHash.hash).toMatch(SHA256_REGEX);
-			expect(computeDepsHash(hashes)).toMatch(SHA256_REGEX);
 		} finally {
 			process.chdir(previousCwd);
 		}

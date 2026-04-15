@@ -83,6 +83,8 @@ Return `needs_phase_planning` and STOP when the requirements describe:
 - initiative-sized scope that would require the user to choose between distinct next-step feature handoffs
 
 Do NOT trigger phase planning when the work is broad but still one cohesive feature with one user-facing outcome.
+Do NOT trigger phase planning from routing provenance alone. Treat `## Planning Traceability`, source-artifact references, stable phase IDs, and embedded `PHASE_PLAN_PATH=... PHASE_ID=...` commands as metadata for the current child slice, not evidence that the requirements still describe multiple phases.
+If the requirements already contain resolved child-phase provenance, redirect only when the substantive requirements body outside that provenance still describes multiple independently valuable phases, releases, or handoffs.
 
 When redirecting:
 

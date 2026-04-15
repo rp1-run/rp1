@@ -197,6 +197,7 @@ Write to `{WORK_ROOT}/features/{FEATURE_ID}/requirements.md`.
 - Requirements use REQ-ID format with priority, user type, rationale, acceptance criteria.
 - User stories use STORY-ID format with As a/I want/So that + GIVEN/WHEN/THEN.
 - When phase context is resolved, add `## Planning Traceability` with the source artifact title/path, parent phase ID/title, manual verification expectation, and the selected next-step provenance.
+- Keep `## Planning Traceability` strictly as provenance metadata for the current child feature. Do not restate multi-phase sequencing, release plans, or handoff decisions as active scope requirements inside that section.
 - When phase context is not resolved, omit `## Planning Traceability` entirely.
 - Legacy inline handoff tokens are routing metadata, not business requirements; do not leave them inside the prose requirements body.
 - AFK Mode sections are appended when AFK_MODE=true (see template conditions).

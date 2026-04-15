@@ -171,6 +171,12 @@ describe("phase planning prompt contracts", () => {
 		const buildSkill = await readProjectFile(
 			"plugins/dev/skills/build/SKILL.md",
 		);
+		const featureArchitect = await readProjectFile(
+			"plugins/dev/agents/feature-architect.md",
+		);
+		const requirementGatherer = await readProjectFile(
+			"plugins/dev/agents/feature-requirement-gatherer.md",
+		);
 
 		expect(buildSkill).toContain("- name: PHASE_PLAN_PATH");
 		expect(buildSkill).toContain("- name: PHASE_ID");
@@ -181,6 +187,15 @@ describe("phase planning prompt contracts", () => {
 		expect(buildSkill).toContain("do NOT run `hypothesis-tester`");
 		expect(buildSkill).toContain(
 			"Scope exceeds a single feature. Run /phase-plan before resuming delivery.",
+		);
+		expect(featureArchitect).toContain(
+			"Do NOT trigger phase planning from routing provenance alone.",
+		);
+		expect(featureArchitect).toContain(
+			"If the requirements already contain resolved child-phase provenance",
+		);
+		expect(requirementGatherer).toContain(
+			"Keep `## Planning Traceability` strictly as provenance metadata for the current child feature.",
 		);
 	});
 
@@ -215,6 +230,37 @@ describe("phase planning prompt contracts", () => {
 		expect(phasePlanTemplate).toContain("Manual Checks");
 		expect(phasePlanTemplate).toContain(
 			"PHASE_PLAN_PATH={PHASE_PLAN_DIR}/{PHASE_PLAN_FILENAME} PHASE_ID=P1",
+		);
+		expect(phasePlanTemplate).toContain("| P{N} |");
+		expect(phasePlanTemplate).toContain("### P{N}: [Phase Title]");
+		expect(phasePlanTemplate).toContain("PHASE_ID=P{N}");
+		expect(phasePlanTemplate).toContain(
+			"Repeat the `P{N}` section once per additional phase (`P3`, `P4`, ...).",
+		);
+	});
+
+	test("build treats task and requirements status error payloads as blocking failures", async () => {
+		const buildSkill = await readProjectFile(
+			"plugins/dev/skills/build/SKILL.md",
+		);
+
+		expect(buildSkill).toContain(
+			'If the response is valid JSON with `"status": "error"`, treat it as an intentional requirements-step failure.',
+		);
+		expect(buildSkill).toContain(
+			"abort the build on `requirements`, and do NOT retry it as a generic contract failure",
+		);
+		expect(buildSkill).toContain(
+			"Validate the `feature-tasker` response before the design checkpoint:",
+		);
+		expect(buildSkill).toContain(
+			"abort the build on `design`, and do NOT continue to §STEP-3, build, verify, or archive.",
+		);
+		expect(buildSkill).toContain(
+			"abort the build on `tasks`, and do NOT continue to §STEP-4.",
+		);
+		expect(buildSkill).toContain(
+			"Do not infer success from prior design-step task generation.",
 		);
 	});
 

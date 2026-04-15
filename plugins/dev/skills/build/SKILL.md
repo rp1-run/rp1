@@ -185,7 +185,9 @@ If phase-plan handoff tokens remain embedded inside `REQUIREMENTS` using the leg
 
 Validate the response before continuing:
 
+- First attempt to parse the response as JSON.
 - Accept only the documented completion contract from `feature-requirement-gatherer`: JSON with `"status": "success"` and an `"artifact"` path ending in `features/{FEATURE_ID}/requirements.md`, or a text line matching `Requirements completed:` followed by a path ending in `features/{FEATURE_ID}/requirements.md`.
+- If the response is valid JSON with `"status": "error"`, treat it as an intentional requirements-step failure. Surface the agent-provided `error` or `message`, abort the build on `requirements`, and do NOT retry it as a generic contract failure.
 - Treat any response that mentions commits, source-code edits, tests, verification, unrelated file paths, or implementation completion as a contract failure.
 - On contract failure: retry step 1 once with an explicit reminder that the agent may only write `requirements.md` and must not implement anything.
 - If the retry also fails, abort the build as failed. Do not continue to design, build, verify, or archive based on non-compliant output.
@@ -279,6 +281,12 @@ If the file does not exist, skip hypothesis validation regardless of `flagged_hy
 FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE={UPDATE_MODE}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
+Validate the `feature-tasker` response before the design checkpoint:
+
+- Accept the documented success contract only when the response starts with `Task planning completed:` or `Task update completed:` and references `.rp1/work/features/{FEATURE_ID}/`.
+- If the response is valid JSON with `"status": "error"`, treat it as an intentional task-generation failure. Surface the agent-provided `message` or `error`, abort the build on `design`, and do NOT continue to §STEP-3, build, verify, or archive.
+- Treat malformed output or unrelated implementation/test summaries as a failure. Do not silently continue without a confirmed `tasks.md` result.
+
 **Checkpoint** (skip if AFK):
 
 ```bash
@@ -311,6 +319,12 @@ rp1 agent-tools emit \
 {% dispatch_agent "rp1-dev:feature-tasker" %}
 FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=false, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
+
+Validate the `feature-tasker` response before continuing:
+
+- Accept the documented success contract only when the response starts with `Task planning completed:` or `Task update completed:` and references `.rp1/work/features/{FEATURE_ID}/`.
+- If the response is valid JSON with `"status": "error"`, treat it as an intentional tasks-step failure. Surface the agent-provided `message` or `error`, abort the build on `tasks`, and do NOT continue to §STEP-4.
+- Treat malformed output or unrelated implementation/test summaries as a failure. Do not infer success from prior design-step task generation.
 
 **Checkpoint** (skip if AFK):
 

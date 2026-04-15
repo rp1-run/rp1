@@ -17,6 +17,7 @@ conditions:
   - "If SOURCE_KIND=prd, resolve PHASE_PLAN_DIR to prds and PHASE_PLAN_FILENAME to {SOURCE_BASENAME}-phase-plan.md"
   - "If SOURCE_KIND=feature-requirements, resolve PHASE_PLAN_DIR to features/{FEATURE_ID} and PHASE_PLAN_FILENAME to phase-plan.md"
   - "Stable phase IDs use P1, P2, ... and appear consistently in summary rows, phase headings, child handoff commands, and traceability"
+  - "Repeat the Phase Summary rows, Phase Details sections, Child Feature Handoff rows, and Delivery Mapping rows for every stable phase ID through P{PHASE_COUNT}"
   - "Child handoff rows default to type=feature; work-package is optional only when the slice is not an independent feature"
   - "When manual verification is not required, state Manual Verification Expected as No and Manual Checks as None"
 ---
@@ -46,6 +47,9 @@ plan_status: {PLAN_STATUS}
 |----------|-------|--------------------------------|---------------|------------------------------|
 | P1 | {Phase title} | {Value delivered or primary risk retired} | {Observable completion signal} | Yes / No |
 | P2 | {Phase title} | {Value delivered or primary risk retired} | {Observable completion signal} | Yes / No |
+| P{N} | {Phase title} | {Value delivered or primary risk retired} | {Observable completion signal} | Yes / No |
+
+Repeat the `P{N}` row pattern once per additional phase (`P3`, `P4`, ...).
 
 ## Phase Details
 
@@ -96,12 +100,41 @@ plan_status: {PLAN_STATUS}
 |------|----|-------|-------|-----------------------|
 | feature | {FEATURE_ID} | {Child feature title} | {Independent execution scope} | `/build {child-feature-request} PHASE_PLAN_PATH={PHASE_PLAN_DIR}/{PHASE_PLAN_FILENAME} PHASE_ID=P2` |
 
+### P{N}: [Phase Title]
+**Value Delivered / Risk Retired**: {What this slice unlocks or de-risks}
+
+**Included Now**:
+- {Scope delivered in this phase}
+
+**Deferred Scope**:
+- {Explicitly deferred work}
+
+**Exit Criteria**:
+- {Observable readiness condition}
+
+**Manual Verification Expected**: Yes / No
+
+**Manual Checks**:
+- {Human check or "None"}
+
+**Child Feature Handoff**:
+
+| Type | ID | Title | Scope | Recommended Next Step |
+|------|----|-------|-------|-----------------------|
+| feature | {FEATURE_ID} | {Child feature title} | {Independent execution scope} | `/build {child-feature-request} PHASE_PLAN_PATH={PHASE_PLAN_DIR}/{PHASE_PLAN_FILENAME} PHASE_ID=P{N}` |
+| work-package | {WORK_PACKAGE_ID} | {Optional work package title} | {Scoped follow-up when not a full feature} | `{manual follow-up or delegated execution path}` |
+
+Repeat the `P{N}` section once per additional phase (`P3`, `P4`, ...).
+
 ## Delivery Mapping
 
 | Phase ID | Child ID | Recommended Command | Notes |
 |----------|----------|---------------------|-------|
 | P1 | {FEATURE_ID} | `/build {child-feature-request} PHASE_PLAN_PATH={PHASE_PLAN_DIR}/{PHASE_PLAN_FILENAME} PHASE_ID=P1` | {Why this is the right next step now} |
 | P2 | {FEATURE_ID} | `/build {child-feature-request} PHASE_PLAN_PATH={PHASE_PLAN_DIR}/{PHASE_PLAN_FILENAME} PHASE_ID=P2` | {Why this is the right next step now} |
+| P{N} | {FEATURE_ID} | `/build {child-feature-request} PHASE_PLAN_PATH={PHASE_PLAN_DIR}/{PHASE_PLAN_FILENAME} PHASE_ID=P{N}` | {Why this is the right next step now} |
+
+Repeat the `P{N}` row pattern once per additional phase (`P3`, `P4`, ...).
 
 ## Traceability
 
