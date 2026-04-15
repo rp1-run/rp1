@@ -13,7 +13,10 @@
 import type { Liquid } from "liquidjs";
 import type { PlatformRegistry } from "../models.js";
 import type { BuildPlatform } from "../template-context.js";
-import { allowedToolsFilter } from "./allowed-tools.js";
+import {
+	allowedToolsFilter,
+	copilotPermissionPatternsFilter,
+} from "./allowed-tools.js";
 import { escapeToml } from "./escape-toml.js";
 import { escapeYaml } from "./escape-yaml.js";
 import { namespaceRef } from "./namespace-ref.js";
@@ -26,6 +29,7 @@ import { toolProse } from "./tool-prose.js";
 
 export {
 	allowedToolsFilter,
+	copilotPermissionPatternsFilter,
 	escapeToml,
 	escapeYaml,
 	namespaceRef,
@@ -68,6 +72,10 @@ export function registerFilters(liquid: Liquid): void {
 			const registry = this.context.get(["registry"]) as PlatformRegistry;
 			return allowedToolsFilter(allowedTools, platform, registry);
 		},
+	);
+
+	liquid.registerFilter("copilot_permissions", (allowedTools: string) =>
+		copilotPermissionPatternsFilter(allowedTools),
 	);
 
 	liquid.registerFilter("escape_yaml", (value: string) => escapeYaml(value));

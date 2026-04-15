@@ -20,6 +20,7 @@ Supported targets:
 - Claude Code
 - OpenCode
 - Codex
+- Copilot CLI
 
 ## Subcommands
 
@@ -51,6 +52,24 @@ Installs rp1 into Codex. This writes:
 - agents to `~/.codex/agents/rp1/`
 - the rp1-managed section in `~/.codex/config.toml`
 
+### `install copilot`
+
+```bash
+rp1 install copilot [options]
+```
+
+Installs rp1 into GitHub Copilot CLI using the native marketplace flow. rp1 stages a local marketplace, registers it as `rp1-local`, and then installs or updates the required Copilot plugins from that marketplace.
+
+This writes:
+
+- local marketplace metadata to `~/.rp1/copilot/marketplace/marketplace.json`
+- staged plugin roots to `~/.rp1/copilot/marketplace/plugins/rp1-*`
+- native installed plugins to `~/.copilot/installed-plugins/rp1-local/rp1-*`
+
+Unsupported legacy paths under `~/.config/github-copilot/` are not a valid install target.
+
+Requires the GitHub CLI (`gh`) version 2.74.0 or later with `gh copilot -- plugin --help` available.
+
 ### `install all`
 
 ```bash
@@ -76,6 +95,7 @@ Detects installed tools and installs rp1 to every supported one it finds.
 rp1 install claude-code
 rp1 install opencode
 rp1 install codex
+rp1 install copilot
 ```
 
 ### Install everywhere detected
@@ -88,6 +108,7 @@ rp1 install all
 
 ```bash
 rp1 install codex --dry-run
+rp1 install copilot --dry-run
 ```
 
 ## Verification
@@ -98,7 +119,10 @@ After installation, verify the target host:
 rp1 verify claude-code
 rp1 verify opencode
 rp1 verify codex
+rp1 verify copilot
 ```
+
+For Copilot, the clean success signal is `healthy_native`. A `mixed_native_and_legacy` result means the native install works, but old rp1 files still need cleanup under `~/.config/github-copilot/`.
 
 ## Listing Installed Skills
 
@@ -138,6 +162,9 @@ they ignore keys they do not use.
 | OpenCode | `~/.config/opencode/plugins/` |
 | Codex skills | `~/.codex/skills/` |
 | Codex agents | `~/.codex/agents/rp1/` |
+| Copilot CLI staged marketplace | `~/.rp1/copilot/marketplace/` |
+| Copilot CLI native installed plugins | `~/.copilot/installed-plugins/rp1-local/` |
+| Copilot CLI legacy leftovers | `~/.config/github-copilot/` |
 
 ## Troubleshooting
 
@@ -149,13 +176,16 @@ Confirm the host is installed and on your `PATH`:
 which claude
 which opencode
 which codex
+which gh         # For Copilot CLI
+gh copilot -- plugin --help
 ```
 
 ### Plugins do not appear after install
 
 1. Restart the host tool
 2. Run the matching `rp1 verify ...` command
-3. Check the install location for the host you are using
+3. For Copilot, confirm `gh copilot -- plugin list` includes `rp1-base@rp1-local` and `rp1-dev@rp1-local`
+4. Do not use `~/.config/github-copilot/...` as a Copilot success signal
 
 ### Permission denied
 
@@ -164,6 +194,7 @@ Confirm you can write to the relevant configuration directory:
 ```bash
 ls -la ~/.config/opencode/
 ls -la ~/.codex/
+ls -la ~/.rp1/copilot/
 ```
 
 ## See Also

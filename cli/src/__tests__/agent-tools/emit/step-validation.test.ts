@@ -842,7 +842,7 @@ describe("predecessor auto-completion", () => {
 		expect(reqStatus?.status).toBe("running");
 	});
 
-	test("does not trigger predecessor completion for non-running status", async () => {
+	test("triggers predecessor completion for completed status", async () => {
 		const runId = `run-pred-complete-${Date.now()}`;
 
 		const input1: EmitInput = {
@@ -865,7 +865,12 @@ describe("predecessor auto-completion", () => {
 		};
 		const result = await expectTaskRight(executeEmit(input2));
 
-		expect(result.data.completedPredecessors).toBeUndefined();
+		expect(result.data.completedPredecessors).toContain("requirements");
+
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const statuses = getStepStatuses(db, runId);
+		const reqStatus = statuses.find((s) => s.step === "requirements");
+		expect(reqStatus?.status).toBe("completed");
 	});
 
 	test("auto-completed events have timestamps before the current event", async () => {

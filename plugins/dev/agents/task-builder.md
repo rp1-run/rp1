@@ -1,7 +1,7 @@
 ---
 name: task-builder
 description: Implements assigned task(s) w/ full context, writes summaries to the resolved task file. Uses extended thinking (or ultrathink).
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, Bash(rp1 *)
 model: inherit
 arguments:
   - name: FEATURE_ID

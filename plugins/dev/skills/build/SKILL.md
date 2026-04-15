@@ -457,6 +457,17 @@ rp1 agent-tools emit \
 
 Output: Feature ID, step status table (1-6), artifacts created.
 
+**Emit archive running** before registering artifacts:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step archive \
+  --data '{"status": "running", "feature": "{FEATURE_ID}"}'
+```
+
 **Emit completed status** after registering all artifacts:
 
 ```bash

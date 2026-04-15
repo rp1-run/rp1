@@ -44,6 +44,16 @@ describe("permissions tag", () => {
 		expect(output).toContain("restrict shell access");
 	});
 
+	test("Copilot: references allowed-tools YAML frontmatter with permission patterns", async () => {
+		const output = await render(template, "copilot");
+		expect(output).toContain("allowed-tools");
+		expect(output).toContain("YAML frontmatter");
+		expect(output).toContain("shell(rp1:*)");
+		expect(output).toContain("read");
+		expect(output).toContain("write");
+		expect(output).toContain("restrict shell access");
+	});
+
 	test("renders consistently across all platforms", async () => {
 		const directive = "control file system access";
 		const t = `{% permissions "${directive}" %}`;
@@ -51,9 +61,11 @@ describe("permissions tag", () => {
 		const cc = await render(t, "claude-code");
 		const oc = await render(t, "opencode");
 		const cx = await render(t, "codex");
+		const cp = await render(t, "copilot");
 
 		expect(cc).toContain(directive);
 		expect(oc).toContain(directive);
 		expect(cx).toContain(directive);
+		expect(cp).toContain(directive);
 	});
 });

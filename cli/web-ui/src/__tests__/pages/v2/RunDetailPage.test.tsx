@@ -23,10 +23,19 @@ let latestPath: string | null = null;
 const refetchMock = mock(() => {});
 let fetchMock: ReturnType<typeof mock>;
 
+let headerRightContent: ReactNode = null;
+
 const breadcrumbApi = {
 	setActiveArtifact: mock(() => {}),
 	setProject: mock(() => {}),
 	setRunInfo: mock(() => {}),
+	headerLeft: null as ReactNode,
+	headerRight: null as ReactNode,
+	setHeaderLeft: mock(() => {}),
+	setHeaderRight: mock((node: ReactNode) => {
+		headerRightContent = node;
+		breadcrumbApi.headerRight = node;
+	}),
 };
 
 const webSocketApi = {
@@ -206,6 +215,9 @@ describe("RunDetailPage", () => {
 		breadcrumbApi.setActiveArtifact.mockClear();
 		breadcrumbApi.setProject.mockClear();
 		breadcrumbApi.setRunInfo.mockClear();
+		breadcrumbApi.setHeaderLeft.mockClear();
+		breadcrumbApi.setHeaderRight.mockClear();
+		headerRightContent = null;
 		webSocketApi.setProjectId.mockClear();
 		refetchMock.mockClear();
 		run = {
@@ -286,7 +298,17 @@ describe("RunDetailPage", () => {
 	test("posts explicit end-run actions from the detail header", async () => {
 		await renderRunDetail();
 
-		fireEvent.click(screen.getByRole("button", { name: "Cancel Run" }));
+		await waitFor(() => {
+			expect(breadcrumbApi.setHeaderRight).toHaveBeenCalled();
+		});
+
+		const headerRight = headerRightContent;
+		expect(headerRight).toBeTruthy();
+
+		const { container } = render(<>{headerRight}</>);
+		const cancelButton = container.querySelector("[aria-label='Cancel Run']");
+		expect(cancelButton).toBeTruthy();
+		fireEvent.click(cancelButton!);
 
 		await waitFor(() => {
 			expect(fetchMock).toHaveBeenCalledWith("/api/v2/runs/run-1/end", {

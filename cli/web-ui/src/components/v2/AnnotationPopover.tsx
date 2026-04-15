@@ -6,6 +6,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useAutoGrowTextarea } from "@/hooks/useAutoGrowTextarea";
 import { useDismiss } from "@/hooks/useDismiss";
 import type { SelectionPosition } from "@/hooks/useTextSelection";
 import { needsTruncation, truncateContent } from "@/lib/content-truncation";
@@ -94,6 +95,8 @@ export function AnnotationPopover({
 
 	const { resolveAnnotation, reopenAnnotation, deleteAnnotation, addReply } =
 		useAnnotationContext();
+
+	useAutoGrowTextarea(textareaRef, replyText);
 
 	const toggleExpanded = useCallback((id: string) => {
 		setExpandedComments((prev) => {

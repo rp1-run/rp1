@@ -4,7 +4,7 @@
 
 - [Bun](https://bun.sh/) v1.1+ (primary runtime and package manager)
 - [Just](https://github.com/casey/just) (command runner)
-- [Claude Code](https://claude.ai/code) or [OpenCode](https://opencode.ai/) (for testing plugins)
+- [Claude Code](https://claude.ai/code), [OpenCode](https://opencode.ai/), [Codex](https://github.com/openai/codex), or [GitHub Copilot CLI](https://docs.github.com/copilot/using-github-copilot/using-github-copilot-in-the-command-line) (for testing plugins)
 - Python 3.10+ with `uvx` (for documentation only)
 
 ## Quick Start
@@ -32,6 +32,8 @@ All development commands use [Just](https://github.com/casey/just). Run `just` t
 |--------|-------------|
 | `build` | Build everything for local testing |
 | `build-opencode` | Transform Claude Code plugins to OpenCode format |
+| `build-codex` | Transform Claude Code plugins to Codex format |
+| `build-copilot` | Transform Claude Code plugins to Copilot CLI format |
 | `build-web-ui` | Bundle the React web-ui with Vite |
 | `build-local-dev` | Build binary with `-dev` version suffix |
 | `clean-web-ui-cache` | Clear `~/.rp1/web-ui/` cache |
@@ -62,6 +64,7 @@ All development commands use [Just](https://github.com/casey/just). Run `just` t
 | `run *args` | Build and run local binary with arguments |
 | `install-opencode` | Install to OpenCode |
 | `install-codex` | Install to Codex |
+| `copilot` | Launch Copilot with local `--plugin-dir` artifacts |
 | `rm-stable` | Remove stable rp1 from all platforms |
 
 ### Web-UI Development
@@ -595,6 +598,41 @@ These agents run `/rp1-base:knowledge-load` as their first step to receive compr
    curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
    ```
 
+**For Copilot CLI:**
+
+1. Use the fast development loop while iterating on Copilot behavior:
+
+   ```bash
+   just copilot
+   ```
+
+   This auto-builds stale Copilot artifacts and launches:
+
+   ```bash
+   gh copilot -- --plugin-dir dist/copilot/base --plugin-dir dist/copilot/dev
+   ```
+
+   This path does not mutate installed-plugin state or register `rp1-local`. Set `PLUGIN_UTILS=1 just copilot` only when you intentionally need the internal-only `rp1-utils` plugin; `rp1-base` and `rp1-dev` remain the required MVP plugins.
+
+2. Use the install-like path before release or when validating the supported user experience:
+
+   ```bash
+   just build-copilot
+   ./bin/rp1 install copilot --yes --artifacts-dir dist/copilot
+   ./bin/rp1 verify copilot
+   gh copilot
+   ```
+
+   Release readiness requires the native install to succeed and `rp1 verify copilot` to report a healthy native state. Use this path to validate discovery and verification, not just file generation.
+
+   Clean success signals for this path:
+
+   - `gh copilot -- plugin list` shows `rp1-base@rp1-local` and `rp1-dev@rp1-local`
+   - `rp1 verify copilot` reports `healthy_native`
+   - `mixed_native_and_legacy` means the native install works, but legacy cleanup is still required before sign-off
+
+3. Do not use legacy Copilot success signals such as `~/.config/github-copilot/skills/` or `~/.config/github-copilot/agents/`. The supported install surface is the native marketplace flow above.
+
 **General Testing Steps:**
 
    1. Test the specific command/agent you modified
@@ -646,8 +684,8 @@ The `cli/` directory contains a unified TypeScript CLI built with:
 
 Key modules:
 
-- `cli/src/build/`: Claude Code → OpenCode artifact transformation
-- `cli/src/install/`: OpenCode installation management
+- `cli/src/build/`: Multi-platform artifact transformation (OpenCode, Codex, Copilot CLI)
+- `cli/src/install/`: Platform installation management (OpenCode, Codex, Copilot CLI)
 - `cli/web-ui/`: Documentation viewer with live reload
 
 ### Cross-Plugin Dependencies
@@ -814,7 +852,7 @@ This deletes all `fake-`-prefixed rows from the status database (annotations, ar
 
 ## Adding a New Platform
 
-The build pipeline is data-driven via `PlatformDefinition` entries. Adding support for a new AI coding platform (e.g., Cursor, Copilot) requires creating configuration and templates -- no changes to the generic build loop (`buildPlatformPlugin()`) or asset embedding script (`generate-asset-imports.ts`).
+The build pipeline is data-driven via `PlatformDefinition` entries. Adding support for a new AI coding platform (e.g., Cursor) requires creating configuration and templates -- no changes to the generic build loop (`buildPlatformPlugin()`) or asset embedding script (`generate-asset-imports.ts`). The Copilot CLI platform (`cli/src/build/copilot/`) is a real worked example of this process.
 
 ### Files to Create or Modify
 
@@ -832,7 +870,7 @@ The build pipeline is data-driven via `PlatformDefinition` entries. Adding suppo
 **1. Extend the `BuildPlatform` type** in `cli/src/build/template-context.ts`:
 
 ```typescript
-export type BuildPlatform = "opencode" | "codex" | "claude-code" | "cursor";
+export type BuildPlatform = "opencode" | "codex" | "claude-code" | "copilot" | "cursor";
 ```
 
 **2. Create a platform registry** in `cli/src/build/<platform>/registry.ts`. The registry maps abstract tool names (Read, Write, Bash, etc.) to the platform's concrete tool names:
@@ -849,7 +887,7 @@ export const cursorRegistry: PlatformRegistry = {
 };
 ```
 
-See `cli/src/build/registry.ts` (OpenCode), `cli/src/build/claude-code/registry.ts`, or `cli/src/build/codex/registry.ts` for examples.
+See `cli/src/build/registry.ts` (OpenCode), `cli/src/build/claude-code/registry.ts`, `cli/src/build/codex/registry.ts`, or `cli/src/build/copilot/registry.ts` for examples.
 
 **3. Create LiquidJS templates** in `cli/src/build/templates/<platform>/`:
 
@@ -956,7 +994,7 @@ A containerized environment for testing rp1 against a real TypeScript codebase (
 
 ### Stable Tester (Clean Room)
 
-Starts a **clean room** container with all harness CLIs (Claude Code, OpenCode, Codex) pre-installed but **no rp1**. Use `test-install.sh` inside the container to simulate the user installation experience. Your local rp1 source is mounted read-only at `/src/rp1`.
+Starts a **clean room** container with all harness CLIs (Claude Code, OpenCode, Codex, Copilot CLI) pre-installed but **no rp1**. Use `test-install.sh` inside the container to simulate the user installation experience. Your local rp1 source is mounted read-only at `/src/rp1`.
 
 ```bash
 just start-docker-stable

@@ -41,6 +41,11 @@ import {
 	type InstallArgs,
 	type InstallOptions,
 } from "../install/command.js";
+import {
+	getDefaultCopilotArtifactsDir,
+	installCopilot,
+} from "../install/copilot/index.js";
+import type { CopilotInstallResult } from "../install/copilot/models.js";
 import { writeVersionMarker } from "../install/version-marker.js";
 import { getInstalledVersion } from "../lib/version.js";
 
@@ -248,6 +253,85 @@ const installCodexFromBundled = (
 };
 
 /**
+ * Install rp1 plugins to Copilot CLI.
+ * When running from a bundled binary, extracts Copilot assets from the embedded
+ * manifest to a temp staging directory before installing. When not bundled,
+ * uses the existing dist/ or artifactsDir path (dev mode).
+ * Writes a version marker after successful install.
+ *
+ * @param config - Optional configuration for artifacts directory, etc.
+ * @param ctx - Installation context with logger, TTY info, etc.
+ * @returns TaskEither with CopilotInstallResult on success or CLIError on failure
+ */
+export const installCopilotPlugins = (
+	config: Partial<{ artifactsDir: string | null }>,
+	ctx: InstallContext,
+): TE.TaskEither<CLIError, CopilotInstallResult> => {
+	if (config.artifactsDir == null && hasBundledAssets()) {
+		return installCopilotFromBundled(ctx);
+	}
+
+	const artifactsDir =
+		config.artifactsDir ?? getDefaultCopilotArtifactsDir() ?? "dist/copilot";
+
+	return pipe(
+		installCopilot(
+			{
+				artifactsDir,
+				dryRun: ctx.dryRun,
+				yes: ctx.skipPrompt,
+			},
+			ctx,
+		),
+		TE.chainFirst(() => writeVersionMarker("copilot", getInstalledVersion())),
+	);
+};
+
+/**
+ * Install Copilot plugins from bundled binary assets.
+ * Extracts to a temp staging directory, installs from there, then cleans up.
+ */
+const installCopilotFromBundled = (
+	ctx: InstallContext,
+): TE.TaskEither<CLIError, CopilotInstallResult> => {
+	const stagingDir = join(tmpdir(), `rp1-copilot-extract-${Date.now()}`);
+
+	const cleanupStaging = TE.tryCatch(
+		() => rm(stagingDir, { recursive: true, force: true }),
+		() => usageError("cleanup", "Failed to clean up staging directory"),
+	);
+
+	return pipe(
+		extractPlatformAssets({
+			platform: "copilot",
+			targetDir: stagingDir,
+		}),
+		TE.chain(() =>
+			pipe(
+				installCopilot(
+					{
+						artifactsDir: stagingDir,
+						dryRun: ctx.dryRun,
+						yes: ctx.skipPrompt,
+					},
+					ctx,
+				),
+				TE.chainFirst(() =>
+					writeVersionMarker("copilot", getInstalledVersion()),
+				),
+				TE.chainFirst(() => cleanupStaging),
+			),
+		),
+		TE.orElse((error) =>
+			pipe(
+				cleanupStaging,
+				TE.chain(() => TE.left<CLIError, CopilotInstallResult>(error)),
+			),
+		),
+	);
+};
+
+/**
  * Install plugins for a single detected tool.
  * Routes to the appropriate installation function based on tool ID.
  * This function never fails - errors are captured in the result.
@@ -340,6 +424,30 @@ const installForTool = (
 		);
 	}
 
+	if (tool.tool.id === "copilot") {
+		return pipe(
+			installCopilotPlugins({}, ctx),
+			TE.map(
+				(result): ToolInstallResult => ({
+					...baseResult,
+					success: true,
+					pluginsInstalled: result.pluginsInstalled,
+					warnings: result.warnings,
+				}),
+			),
+			TE.orElse(
+				(error): TE.TaskEither<CLIError, ToolInstallResult> =>
+					TE.right({
+						...baseResult,
+						success: false,
+						pluginsInstalled: [],
+						warnings: [],
+						error,
+					}),
+			),
+		);
+	}
+
 	// Unknown tool - return failure result
 	return TE.right({
 		...baseResult,
@@ -364,7 +472,7 @@ const detectToolsWithValidation = (
 				const detection = result.right;
 				if (detection.detected.length === 0) {
 					throw new Error(
-						"No agentic tools detected. Install Claude Code or OpenCode first.",
+						"No supported agentic tools detected. Install a supported tool first.",
 					);
 				}
 				return detection;
@@ -415,7 +523,7 @@ export const installAllDetectedTools = (
  * Install plugins for a specific tool by ID.
  * Useful for `rp1 install <tool>` commands.
  *
- * @param toolId - The tool ID ("claude-code", "opencode", or "codex")
+ * @param toolId - The tool ID ("claude-code", "opencode", "codex", or "copilot")
  * @param registry - The tools registry to get tool metadata
  * @param ctx - Installation context
  * @returns TaskEither with ToolInstallResult

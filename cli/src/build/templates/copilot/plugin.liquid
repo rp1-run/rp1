@@ -1,0 +1,10 @@
+{
+  "name": "{{ namespacedPluginName }}",
+  "description": "{{ artifact.description | escape_toml }}",
+  "version": "{{ pluginVersion }}",
+  "author": "rp1",
+  "skills": "skills/",
+  "agents": "agents/"{% if artifact.hooksPath %},
+  "hooks": "{{ artifact.hooksPath }}"
+{%- endif %}
+}

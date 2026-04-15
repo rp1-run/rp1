@@ -1,7 +1,7 @@
 ---
 name: project-documenter
 description: Generates comprehensive project overview documents with diagrams for new developers using internal knowledge base and codebase context
-tools: Read, Write, Grep, Glob, Skill, Bash
+tools: Read, Write, Grep, Glob, Skill, Bash, Bash(rp1 *)
 model: inherit
 arguments:
   - name: PROJECT_CONTEXT

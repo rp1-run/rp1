@@ -99,4 +99,32 @@ describe("param_transform filter", () => {
 			);
 		});
 	});
+
+	describe("copilot (model-parsed recovery, same as codex)", () => {
+		test("replaces $1 with instructional text", () => {
+			const content = "The feature ID is $1.";
+			const result = paramTransform(content, "copilot");
+			expect(result).toContain(
+				"the value of the first argument (extracted from the user's prompt)",
+			);
+			expect(result).not.toContain("$1");
+		});
+
+		test("replaces $ARGUMENTS with descriptive prose", () => {
+			const content = "Process $ARGUMENTS as input.";
+			const result = paramTransform(content, "copilot");
+			expect(result).toContain(
+				"the arguments provided by the user in their prompt",
+			);
+			expect(result).not.toContain("$ARGUMENTS");
+		});
+
+		test("preserves references inside code blocks", () => {
+			const content = ["Use $1 outside.", "```", "echo $1", "```"].join("\n");
+
+			const result = paramTransform(content, "copilot");
+			expect(result).toContain("first argument");
+			expect(result).toContain("echo $1");
+		});
+	});
 });

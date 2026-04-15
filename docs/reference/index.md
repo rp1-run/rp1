@@ -12,7 +12,7 @@ assistant session.
 | Command | Description |
 |---------|-------------|
 | [`init`](cli/init.md) | Initialize rp1 in a project with guided setup |
-| [`install`](cli/install.md) | Install plugins for Claude Code, OpenCode, or Codex |
+| [`install`](cli/install.md) | Install plugins for Claude Code, OpenCode, Codex, or Copilot CLI |
 | [`update`](cli/update.md) | Update the rp1 CLI and installed plugins |
 | [`rp1 migrate`](cli/rp1-migrate.md) | Migrate older projects into the project-local `.rp1/` layout |
 
@@ -112,6 +112,17 @@ The workflow stays the same across hosts. Only the command syntax changes:
     $rp1-dev-build my-feature
     $rp1-base-knowledge-build
     ```
+
+=== "Copilot CLI"
+
+    rp1 skills are installed with an `rp1-` prefix under `~/.config/github-copilot/skills/`:
+
+    ```bash
+    /rp1-dev-build my-feature
+    /rp1-base-knowledge-build
+    ```
+
+    Copilot CLI discovers skills from its configured skills directory. Parameters are passed inline and resolved via model-parsed recovery.
 
 ---
 

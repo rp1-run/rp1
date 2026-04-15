@@ -8,7 +8,7 @@ hide:
 
 Professional development workflows for AI coding assistants.
 Skip the iteration loops. Keep work attached to projects, artifacts, and feedback instead of ephemeral sessions.
-40 workflow skills. 51 specialized agents. Use the same workflows in **Claude Code**, **OpenCode**, and **Codex**, then review them in **Arcade**.
+40 workflow skills. 51 specialized agents. Use the same workflows in **Claude Code**, **OpenCode**, **Codex**, and **GitHub Copilot CLI**, then review them in **Arcade**.
 
 
 [:fontawesome-solid-terminal: Get Started](getting-started/installation.md){ .md-button .md-button--primary }
@@ -44,7 +44,7 @@ Skip the iteration loops. Keep work attached to projects, artifacts, and feedbac
 
 ## Start with an outcome
 
-Pick the workflow that matches the outcome you want. RP1 keeps the artifact trail and review loop intact across Claude Code, OpenCode, and Codex.
+Pick the workflow that matches the outcome you want. RP1 keeps the artifact trail and review loop intact across Claude Code, OpenCode, Codex, and GitHub Copilot CLI.
 
 <div class="try-grid">
   <div class="try-card">
@@ -98,6 +98,10 @@ Pick the workflow that matches the outcome you want. RP1 keeps the artifact trai
     <div>
       <strong>Codex</strong><br>
       <code>$rp1-dev-build "user-auth"</code>
+    </div>
+    <div>
+      <strong>GitHub Copilot CLI</strong><br>
+      <code>/rp1-dev-build "user-auth"</code>
     </div>
   </div>
   <p class="try-hosts-links">
@@ -157,7 +161,7 @@ Automatic hypothesis testing catches bad assumptions early. Design decisions get
 
 :fontawesome-solid-shuffle: **Switch harnesses without switching costs**
 
-rp1 keeps the workflow layer stable across Claude Code, OpenCode, and Codex. The syntax adapts to each host, but the workflow, artifacts, and review loop stay the same.
+rp1 keeps the workflow layer stable across Claude Code, OpenCode, Codex, and GitHub Copilot CLI. The syntax adapts to each host, but the workflow, artifacts, and review loop stay the same.
 
 [See the same workflows on every host :material-arrow-right:](reference/dev/index.md)
 
@@ -217,7 +221,7 @@ Keep the workflow layer stable while frontier models and host tools keep changin
 
 :fontawesome-solid-shuffle: **Same Workflows, Different Hosts**
 
-Use rp1 from Claude Code, OpenCode, or Codex without rewriting how your team works.
+Use rp1 from Claude Code, OpenCode, Codex, or GitHub Copilot CLI without rewriting how your team works.
 
 </div>
 
@@ -302,6 +306,16 @@ Get new developers productive on your codebase fast. Knowledge base + guided exp
 <span class="platform-logo platform-logo--codex" aria-hidden="true"></span>
 
 **Codex**
+
+[Setup guide :material-arrow-right:](getting-started/installation.md)
+
+</div>
+
+<div class="platform-card" markdown>
+
+<span class="platform-logo platform-logo--copilot" aria-hidden="true"></span>
+
+**GitHub Copilot**
 
 [Setup guide :material-arrow-right:](getting-started/installation.md)
 

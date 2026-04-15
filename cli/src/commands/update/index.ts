@@ -736,7 +736,7 @@ export const executeUpdateAction = async (
 	console.log("");
 	console.log(
 		dim(
-			"Please restart Claude Code, OpenCode, or Codex to use the new version.",
+			"Please restart Claude Code, OpenCode, Codex, or Copilot CLI to use the new version.",
 		),
 	);
 	process.exit(0);

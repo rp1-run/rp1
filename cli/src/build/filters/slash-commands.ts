@@ -8,6 +8,7 @@
  * | claude-code | Passthrough (no transformation)                             |
  * | opencode    | `/rp1-base:cmd` -> `command_invoke("rp1-base:cmd")`        |
  * | codex       | `/skill-name` -> `$rp1-{plugin}-{skill-name}` (skill map)  |
+ * | copilot     | `/rp1-base:cmd` -> `/rp1-base/cmd` (slash separator)       |
  *
  * Wraps the existing transformSlashCommandCalls() from transformations.ts
  * and transformPlainSlashCommands() from codex/transformations.ts.
@@ -35,6 +36,33 @@ const transformSlashCommandCalls = (content: string): string => {
 		const plugin = match[1];
 		const command = match[2];
 		const replacement = `command_invoke("rp1-${plugin}:${command}")`;
+		result =
+			result.slice(0, matchIndex) +
+			replacement +
+			result.slice(matchIndex + match[0].length);
+	}
+
+	return result;
+};
+
+/**
+ * Transform namespaced slash-command invocations to Copilot's / separator format.
+ * Preserves code examples (does not transform inside code blocks).
+ * /rp1-base:cmd -> /rp1-base/cmd
+ */
+const transformSlashCommandsToCopilot = (content: string): string => {
+	const slashPattern = /\/rp1-(base|dev|utils):([a-z-]+)/g;
+
+	const matches = findMatchesOutsideCodeBlocks(slashPattern, content);
+
+	let result = content;
+	for (let i = matches.length - 1; i >= 0; i--) {
+		const match = matches[i];
+		const matchIndex = match.index;
+		if (matchIndex === undefined) continue;
+		const plugin = match[1];
+		const command = match[2];
+		const replacement = `/rp1-${plugin}/${command}`;
 		result =
 			result.slice(0, matchIndex) +
 			replacement +
@@ -111,5 +139,7 @@ export const slashCommands = (
 				content,
 				skillMap ?? new Map<string, string>(),
 			);
+		case "copilot":
+			return transformSlashCommandsToCopilot(content);
 	}
 };

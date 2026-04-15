@@ -128,6 +128,34 @@ const createTestEngine = () => {
 			}
 			return mapped.join(", ");
 		}
+		if (platform === "copilot") {
+			const tools = value.split(",").map((t: string) => t.trim());
+			const mapped: string[] = [];
+			const copilotToolMappings: Record<string, string | null> = {
+				Bash: "run_terminal_command",
+				Read: "read_file",
+				Write: "write_file",
+				Edit: "edit_file",
+				Grep: "grep_search",
+				Glob: "file_search",
+				WebSearch: null,
+				TodoWrite: null,
+			};
+			for (const tool of tools) {
+				const parenMatch = tool.match(/^([A-Za-z]+)\((.+)\)$/);
+				const baseName = parenMatch ? parenMatch[1] : tool;
+				const mappedTool = copilotToolMappings[baseName];
+				if (mappedTool === null) continue;
+				if (mappedTool === undefined) {
+					mapped.push(tool);
+				} else if (parenMatch) {
+					mapped.push(`${mappedTool}(${parenMatch[2]})`);
+				} else {
+					mapped.push(mappedTool);
+				}
+			}
+			return mapped;
+		}
 		return value;
 	});
 
@@ -344,6 +372,24 @@ describeWithLiquid("template rendering", () => {
 			expect(result.trim()).toBe(readGolden("opencode-agent.md").trim());
 		});
 
+		test("treats patterned Bash tools as shell-capable", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("opencode/agent", {
+				platform: "opencode",
+				artifact: {
+					type: "agent",
+					name: "scoped-bash-agent",
+					description: "Agent with scoped Bash permissions",
+					model: "inherit",
+					tools: ["Read", "Bash(rp1 *)"],
+					content: "Agent content.",
+				},
+			});
+			expect(result).toContain("bash: true");
+			expect(result).toContain("write: false");
+			expect(result).toContain("edit: false");
+		});
+
 		test("renders agent with inherit model (model omitted)", async () => {
 			const engine = createTestEngine();
 			const result = await engine.renderFile("opencode/agent", {
@@ -556,6 +602,191 @@ describeWithLiquid("template rendering", () => {
 		});
 	});
 
+	describe("copilot/agent.liquid", () => {
+		test("renders native agent frontmatter with namespaced id and mapped tools", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("copilot/agent", {
+				platform: "copilot",
+				pluginName: "base",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "agent",
+					name: "task-builder",
+					description: "Builds the requested task",
+					model: "inherit",
+					tools: ["Bash", "Read", "WebSearch"],
+					content: "Agent content.",
+				},
+			});
+			expect(result).toContain("name: rp1-base-task-builder");
+			expect(result).toContain("description: Builds the requested task");
+			expect(result).toContain("- run_terminal_command");
+			expect(result).toContain("- read_file");
+			expect(result).not.toContain("WebSearch");
+			expect(result).not.toContain("mode:");
+			expect(result).not.toContain("model:");
+			expect(result).not.toContain("bash:");
+		});
+
+		test("renders scoped terminal approvals for patterned Bash tools", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("copilot/agent", {
+				platform: "copilot",
+				pluginName: "dev",
+				namespacedPluginName: "rp1-dev",
+				artifact: {
+					type: "agent",
+					name: "emit-agent",
+					description: "Runs rp1 agent-tools commands",
+					model: "inherit",
+					tools: ["Read", "Bash", "Bash(rp1 *)"],
+					content: "Agent content.",
+				},
+			});
+			expect(result).toContain("- read_file");
+			expect(result).toContain("- run_terminal_command");
+			expect(result).toContain("- run_terminal_command(rp1 *)");
+		});
+
+		test("renders empty tool array when all tools are filtered out", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("copilot/agent", {
+				platform: "copilot",
+				pluginName: "base",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "agent",
+					name: "no-tools",
+					description: "No supported tools",
+					model: "inherit",
+					tools: ["WebSearch", "TodoWrite"],
+					content: "Agent content.",
+				},
+			});
+			expect(result).toContain("tools: []");
+		});
+	});
+
+	describe("copilot/skill.liquid", () => {
+		test("renders Copilot skill allowed-tools as permission patterns", async () => {
+			const engine = createTestEngine();
+			engine.registerFilter("copilot_permissions", (value: string) => {
+				if (!value) return [];
+				const tools = value.split(",").map((t: string) => t.trim());
+				const mapped: string[] = [];
+				for (const tool of tools) {
+					const parenMatch = tool.match(/^([A-Za-z]+)\((.+)\)$/);
+					const base = parenMatch ? parenMatch[1] : tool;
+					switch (base) {
+						case "Bash":
+							mapped.push(
+								parenMatch
+									? `shell(${parenMatch[2].replace(/^([^\s]+)\s+\*$/, "$1:*")})`
+									: "shell",
+							);
+							break;
+						case "Read":
+						case "Grep":
+						case "Glob":
+							mapped.push("read");
+							break;
+						case "Write":
+						case "Edit":
+							mapped.push("write");
+							break;
+						default:
+							break;
+					}
+				}
+				return [...new Set(mapped)];
+			});
+			const result = await engine.renderFile("copilot/skill", {
+				platform: "copilot",
+				pluginName: "base",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "skill",
+					namespacedName: "rp1-knowledge-load",
+					description: "Load project knowledge",
+					allowedTools: "Bash(echo *), Bash(rp1 *), Read, Edit",
+					content: "Skill content.",
+					supportingFiles: [],
+				},
+			});
+			expect(result).toContain("allowed-tools:");
+			expect(result).toContain("- shell(echo:*)");
+			expect(result).toContain("- shell(rp1:*)");
+			expect(result).toContain("- read");
+			expect(result).toContain("- write");
+			expect(result).not.toContain("run_terminal_command");
+		});
+	});
+
+	describe("copilot/plugin.liquid", () => {
+		test("renders native plugin.json fields", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("copilot/plugin", {
+				platform: "copilot",
+				pluginName: "base",
+				pluginVersion: "1.2.3",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					description: "Base plugin for Copilot",
+					skills: ["rp1-knowledge-build"],
+					agents: ["rp1-base-task-builder"],
+				},
+			});
+			const manifest = JSON.parse(result);
+			expect(manifest.name).toBe("rp1-base");
+			expect(manifest.description).toBe("Base plugin for Copilot");
+			expect(manifest.version).toBe("1.2.3");
+			expect(manifest.author).toBe("rp1");
+			expect(manifest.skills).toBe("skills/");
+			expect(manifest.agents).toBe("agents/");
+			expect(manifest.hooks).toBeUndefined();
+		});
+
+		test("includes hooks only when provided", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("copilot/plugin", {
+				platform: "copilot",
+				pluginName: "base",
+				pluginVersion: "1.2.3",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					description: "Base plugin for Copilot",
+					skills: [],
+					agents: [],
+					hooksPath: "hooks/copilot-hooks.json",
+				},
+			});
+			const manifest = JSON.parse(result);
+			expect(manifest.hooks).toBe("hooks/copilot-hooks.json");
+		});
+	});
+
+	describe("copilot/readme.liquid", () => {
+		test("renders generated Copilot README content", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("copilot/readme", {
+				platform: "copilot",
+				pluginName: "base",
+				pluginVersion: "1.2.3",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					description: "Base plugin for Copilot",
+					skills: ["rp1-knowledge-build"],
+					agents: ["rp1-base-task-builder"],
+				},
+			});
+			expect(result).toContain("# rp1-base");
+			expect(result).toContain("Base plugin for Copilot");
+			expect(result).toContain("`rp1-knowledge-build`");
+			expect(result).toContain("`rp1-base-task-builder`");
+			expect(result).toContain("Version: `1.2.3`");
+		});
+	});
+
 	describe("opencode/manifest.liquid", () => {
 		test("renders valid manifest JSON", async () => {
 			const engine = createTestEngine();
@@ -627,6 +858,37 @@ describeWithLiquid("template rendering", () => {
 			expect(manifest.artifacts.agents).toEqual(["agent1", "agent2"]);
 			expect(manifest.installation.skillsDir).toBe("~/.codex/skills/");
 			expect(manifest.installation.configFile).toBe("~/.codex/config.toml");
+		});
+	});
+
+	describe("copilot/manifest.liquid", () => {
+		test("renders native Copilot manifest metadata without legacy paths", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("copilot/manifest", {
+				platform: "copilot",
+				pluginName: "base",
+				namespacedPluginName: "rp1-base",
+				version: "1.0.0",
+				buildTimestamp: "2026-01-01T00:00:00.000Z",
+				artifact: {
+					type: "manifest",
+					skills: ["rp1-knowledge-build"],
+					agents: ["rp1-base-task-builder"],
+					commands: [],
+				},
+			});
+			const manifest = JSON.parse(result);
+			expect(manifest.plugin).toBe("base");
+			expect(manifest.nativePluginName).toBe("rp1-base");
+			expect(manifest.copilotVersionTested).toBe("2.74.x");
+			expect(manifest.installation.method).toBe("native-plugin-marketplace");
+			expect(manifest.installation.marketplaceDir).toBe(
+				"~/.rp1/copilot/marketplace",
+			);
+			expect(manifest.installation.installedPluginsDir).toBe(
+				"~/.copilot/installed-plugins/",
+			);
+			expect(JSON.stringify(manifest)).not.toContain("github-copilot");
 		});
 	});
 

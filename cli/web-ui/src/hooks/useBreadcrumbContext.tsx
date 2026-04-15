@@ -16,9 +16,13 @@ interface BreadcrumbContextValue {
 	readonly projectName: string | null;
 	readonly projectId: string | null;
 	readonly runInfo: RunInfo | null;
+	readonly headerLeft: ReactNode | null;
+	readonly headerRight: ReactNode | null;
 	readonly setActiveArtifact: (runId: string, path: string | null) => void;
 	readonly setProject: (id: string | null, name: string | null) => void;
 	readonly setRunInfo: (info: RunInfo | null) => void;
+	readonly setHeaderLeft: (node: ReactNode | null) => void;
+	readonly setHeaderRight: (node: ReactNode | null) => void;
 }
 
 const BreadcrumbContext = createContext<BreadcrumbContextValue>({
@@ -27,9 +31,13 @@ const BreadcrumbContext = createContext<BreadcrumbContextValue>({
 	projectName: null,
 	projectId: null,
 	runInfo: null,
+	headerLeft: null,
+	headerRight: null,
 	setActiveArtifact: () => {},
 	setProject: () => {},
 	setRunInfo: () => {},
+	setHeaderLeft: () => {},
+	setHeaderRight: () => {},
 });
 
 export function BreadcrumbProvider({
@@ -42,6 +50,8 @@ export function BreadcrumbProvider({
 	const [projectName, setProjectName] = useState<string | null>(null);
 	const [projectId, setProjectId] = useState<string | null>(null);
 	const [runInfo, setRunInfoState] = useState<RunInfo | null>(null);
+	const [headerLeft, setHeaderLeftState] = useState<ReactNode | null>(null);
+	const [headerRight, setHeaderRightState] = useState<ReactNode | null>(null);
 
 	const setActiveArtifact = useCallback((rid: string, path: string | null) => {
 		setRunId(rid);
@@ -57,6 +67,14 @@ export function BreadcrumbProvider({
 		setRunInfoState(info);
 	}, []);
 
+	const setHeaderLeft = useCallback((node: ReactNode | null) => {
+		setHeaderLeftState(node);
+	}, []);
+
+	const setHeaderRight = useCallback((node: ReactNode | null) => {
+		setHeaderRightState(node);
+	}, []);
+
 	return (
 		<BreadcrumbContext.Provider
 			value={{
@@ -65,9 +83,13 @@ export function BreadcrumbProvider({
 				projectName,
 				projectId,
 				runInfo,
+				headerLeft,
+				headerRight,
 				setActiveArtifact,
 				setProject,
 				setRunInfo,
+				setHeaderLeft,
+				setHeaderRight,
 			}}
 		>
 			{children}

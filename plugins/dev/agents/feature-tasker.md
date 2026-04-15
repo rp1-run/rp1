@@ -1,7 +1,7 @@
 ---
 name: feature-tasker
 description: Generates development tasks from design specifications with support for incremental updates that preserve completed work
-tools: Read, Write, Glob
+tools: Read, Write, Glob, Bash(rp1 *)
 model: inherit
 arguments:
   - name: FEATURE_ID

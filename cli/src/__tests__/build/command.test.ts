@@ -31,6 +31,7 @@ const noopLogger: Logger = {
 const opencodeDef = PLATFORM_DEFINITIONS.get("opencode")!;
 const claudeCodeDef = PLATFORM_DEFINITIONS.get("claude-code")!;
 const codexDef = PLATFORM_DEFINITIONS.get("codex")!;
+const copilotDef = PLATFORM_DEFINITIONS.get("copilot")!;
 
 const extractBootstrapTarget = (
 	content: string,
@@ -435,5 +436,170 @@ Sample content.
 		} finally {
 			delete process.env.RP1_BUILD_INTERNAL;
 		}
+	});
+});
+
+describe("buildPlatformPlugin (copilot)", () => {
+	let tempDir: string;
+	let outputDir: string;
+
+	beforeAll(async () => {
+		tempDir = await createTempDir("build-cmd-copilot");
+		await assertTestIsolation(tempDir);
+		outputDir = join(tempDir, "output");
+	});
+
+	afterAll(async () => {
+		await cleanupTempDir(tempDir);
+	});
+
+	test("writes native Copilot plugin artifacts and namespaced .agent.md files", async () => {
+		const projectRoot = join(tempDir, "project-copilot-native");
+
+		await writeFixture(
+			projectRoot,
+			"plugins/base/.claude-plugin/plugin.json",
+			JSON.stringify({
+				name: "rp1-base",
+				description: "Base workflows for Copilot",
+				version: "1.2.3",
+			}),
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/skills/knowledge-build/SKILL.md",
+			`---
+name: knowledge-build
+description: "Build knowledge base artifacts for downstream workflows"
+---
+
+Knowledge build content.
+`,
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/agents/task-builder.md",
+			`---
+name: task-builder
+description: "Builds feature tasks from a tracked task list"
+tools: Bash, Read, WebSearch
+model: inherit
+---
+
+Task builder content.
+`,
+		);
+
+		const out = join(outputDir, "copilot-native");
+		const result = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			out,
+			copilotDef,
+			noopLogger,
+			true,
+		);
+
+		expect(result.summary.skills).toBe(1);
+		expect(result.summary.agents).toBe(1);
+		expect(
+			result.assets.agents.some((agent) =>
+				agent.path.endsWith("base/agents/rp1-base-task-builder.agent.md"),
+			),
+		).toBe(true);
+		expect(result.assets.verbatimFiles.map((file) => file.path).sort()).toEqual(
+			["base/README.md", "base/plugin.json"],
+		);
+
+		const agentPath = join(
+			out,
+			"base",
+			"agents",
+			"rp1-base-task-builder.agent.md",
+		);
+		const agentContent = await readFile(agentPath, "utf-8");
+		expect(agentContent).toContain("name: rp1-base-task-builder");
+		expect(agentContent).toContain("- run_terminal_command");
+		expect(agentContent).toContain("- read_file");
+		expect(agentContent).not.toContain("WebSearch");
+
+		const pluginJson = JSON.parse(
+			await readFile(join(out, "base", "plugin.json"), "utf-8"),
+		);
+		expect(pluginJson.name).toBe("rp1-base");
+		expect(pluginJson.description).toBe("Base workflows for Copilot");
+		expect(pluginJson.skills).toBe("skills/");
+		expect(pluginJson.agents).toBe("agents/");
+		expect(pluginJson.hooks).toBeUndefined();
+
+		const readme = await readFile(join(out, "base", "README.md"), "utf-8");
+		expect(readme).toContain("# rp1-base");
+		expect(readme).toContain("`rp1-knowledge-build`");
+		expect(readme).toContain("`rp1-base-task-builder`");
+
+		const manifest = JSON.parse(
+			await readFile(join(out, "base", "manifest.json"), "utf-8"),
+		);
+		expect(manifest.nativePluginName).toBe("rp1-base");
+		expect(manifest.installation.method).toBe("native-plugin-marketplace");
+		expect(JSON.stringify(manifest)).not.toContain("github-copilot");
+	});
+
+	test("copies optional Copilot hooks and exposes them in plugin.json", async () => {
+		const projectRoot = join(tempDir, "project-copilot-hooks");
+
+		await writeFixture(
+			projectRoot,
+			"plugins/base/.claude-plugin/plugin.json",
+			JSON.stringify({
+				name: "rp1-base",
+				description: "Base workflows for Copilot",
+				version: "1.2.3",
+			}),
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/skills/sample/SKILL.md",
+			`---
+name: sample
+description: "Sample skill with enough text to pass build validation"
+---
+
+Sample skill content.
+`,
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/hooks/copilot-hooks.json",
+			JSON.stringify({
+				hooks: {
+					SessionStart: [{ command: "echo start" }],
+				},
+			}),
+		);
+
+		const out = join(outputDir, "copilot-hooks");
+		const result = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			out,
+			copilotDef,
+			noopLogger,
+			true,
+		);
+
+		expect(result.assets.verbatimFiles.map((file) => file.path).sort()).toEqual(
+			["base/README.md", "base/hooks/copilot-hooks.json", "base/plugin.json"],
+		);
+
+		const pluginJson = JSON.parse(
+			await readFile(join(out, "base", "plugin.json"), "utf-8"),
+		);
+		expect(pluginJson.hooks).toBe("hooks/copilot-hooks.json");
+
+		const hooksContent = JSON.parse(
+			await readFile(join(out, "base", "hooks", "copilot-hooks.json"), "utf-8"),
+		);
+		expect(hooksContent.hooks.SessionStart[0].command).toBe("echo start");
 	});
 });

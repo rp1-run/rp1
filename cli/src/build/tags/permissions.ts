@@ -31,6 +31,8 @@ function renderPermissions(directive: string, platform: BuildPlatform): string {
 			return `Use the permission map with tool-level granularity to ${directive}`;
 		case "codex":
 			return `Use the sandbox execution policy to ${directive}`;
+		case "copilot":
+			return `Use the \`allowed-tools\` YAML frontmatter field to ${directive}. Prefer Copilot permission patterns such as \`shell(rp1:*)\`, \`read\`, and \`write\`.`;
 	}
 }
 

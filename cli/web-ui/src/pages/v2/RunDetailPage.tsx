@@ -1,7 +1,20 @@
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import {
+	AlertCircle,
+	ArrowLeft,
+	Ban,
+	Check,
+	Loader2,
+	OctagonX,
+	RefreshCw,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogClose,
+	DialogOverlay,
+	DialogPortal,
+} from "@/components/ui/dialog";
 import {
 	ResizableHandle,
 	ResizablePanel,
@@ -9,7 +22,6 @@ import {
 } from "@/components/ui/resizable";
 import { ArtifactViewerPanel } from "@/components/v2/ArtifactViewerPanel";
 import { RunInvocationCard } from "@/components/v2/RunInvocationCard";
-import { StatusBadge } from "@/components/v2/StatusBadge";
 import { VerticalStepList } from "@/components/v2/VerticalStepList";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
@@ -76,6 +88,9 @@ export function RunDetailPage() {
 		"cancelled" | "abandoned" | null
 	>(null);
 	const [endRunError, setEndRunError] = useState<string | null>(null);
+	const [confirmAction, setConfirmAction] = useState<
+		"cancelled" | "abandoned" | null
+	>(null);
 	const [showMetadata, setShowMetadata] = useState<boolean>(() => {
 		if (typeof window === "undefined") return false;
 		return (
@@ -134,7 +149,13 @@ export function RunDetailPage() {
 		return run.subflows[selectedStepId] ?? null;
 	}, [selectedStepId, run?.subflows]);
 
-	const { setActiveArtifact, setProject, setRunInfo } = useBreadcrumbContext();
+	const {
+		setActiveArtifact,
+		setProject,
+		setRunInfo,
+		setHeaderLeft,
+		setHeaderRight,
+	} = useBreadcrumbContext();
 	const { setProjectId } = useWebSocket();
 
 	const handleToggleMetadata = useCallback(() => {
@@ -228,6 +249,73 @@ export function RunDetailPage() {
 			setRunInfo(null);
 		};
 	}, [run, setRunInfo]);
+
+	useEffect(() => {
+		if (run) {
+			const canEnd = !TERMINAL_RUN_STATUSES.has(run.status);
+
+			const statusIndicator =
+				run.status === "running" ? (
+					<Loader2
+						size={16}
+						strokeWidth={1.5}
+						className="animate-spin text-fg-muted"
+					/>
+				) : run.status === "completed" ? (
+					<Check size={16} strokeWidth={1.5} className="text-fg-ghost" />
+				) : run.status === "failed" || run.status === "abandoned" ? (
+					<AlertCircle
+						size={16}
+						strokeWidth={1.5}
+						className="text-accent-amber"
+					/>
+				) : run.status === "waiting" ? (
+					<span className="flex items-center justify-center h-4 w-4">
+						<span className="h-2 w-2 rounded-full bg-accent-amber animate-pulse" />
+					</span>
+				) : null;
+
+			setHeaderLeft(null);
+			setHeaderRight(
+				<>
+					{statusIndicator}
+					{currentStepName && (
+						<span className="type-secondary text-fg-ghost">
+							Current step: {currentStepName}
+						</span>
+					)}
+					{canEnd && (
+						<>
+							<button
+								type="button"
+								title="Abandon Run"
+								aria-label="Abandon Run"
+								disabled={endingOutcome !== null}
+								onClick={() => setConfirmAction("abandoned")}
+								className="text-fg-muted hover:text-fg transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none"
+							>
+								<Ban size={16} strokeWidth={1.5} />
+							</button>
+							<button
+								type="button"
+								title="Cancel Run"
+								aria-label="Cancel Run"
+								disabled={endingOutcome !== null}
+								onClick={() => setConfirmAction("cancelled")}
+								className="text-fg-muted hover:text-accent-amber transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none"
+							>
+								<OctagonX size={16} strokeWidth={1.5} />
+							</button>
+						</>
+					)}
+				</>,
+			);
+		}
+		return () => {
+			setHeaderLeft(null);
+			setHeaderRight(null);
+		};
+	}, [run, currentStepName, endingOutcome, setHeaderLeft, setHeaderRight]);
 
 	const handleStepSelect = useCallback(
 		(stepId: string) => {
@@ -417,57 +505,22 @@ export function RunDetailPage() {
 		);
 	}
 
-	const canEndRun = !TERMINAL_RUN_STATUSES.has(run.status);
 	const statusMessage = run.statusMessage ?? run.error;
 
 	return (
 		<div className="flex h-full flex-col">
 			{showMetadata && <RunInvocationCard invocation={run.invocation} />}
 
-			<div className="border-b border-border bg-surface-base/60 px-md py-sm">
-				<div className="flex flex-col gap-sm lg:flex-row lg:items-start lg:justify-between">
-					<div className="min-w-0 space-y-2">
-						<div className="flex flex-wrap items-center gap-sm">
-							<StatusBadge status={run.status} size="sm" />
-							{currentStepName && (
-								<span className="type-secondary text-fg-ghost">
-									Current step: {currentStepName}
-								</span>
-							)}
-						</div>
-						{statusMessage && (
-							<p className="type-secondary text-fg-muted">{statusMessage}</p>
-						)}
-					</div>
-
-					{canEndRun && (
-						<div className="flex flex-wrap items-center gap-xs">
-							<Button
-								type="button"
-								size="sm"
-								variant="outline"
-								disabled={endingOutcome !== null}
-								onClick={() => handleEndRun("abandoned")}
-							>
-								{endingOutcome === "abandoned" ? "Abandoning..." : "Abandon"}
-							</Button>
-							<Button
-								type="button"
-								size="sm"
-								variant="destructive"
-								disabled={endingOutcome !== null}
-								onClick={() => handleEndRun("cancelled")}
-							>
-								{endingOutcome === "cancelled" ? "Cancelling..." : "Cancel Run"}
-							</Button>
-						</div>
+			{(statusMessage || endRunError) && (
+				<div className="border-b border-border px-md py-sm">
+					{statusMessage && (
+						<p className="type-secondary text-fg-muted">{statusMessage}</p>
+					)}
+					{endRunError && (
+						<p className="pt-xs type-secondary text-failure">{endRunError}</p>
 					)}
 				</div>
-
-				{endRunError && (
-					<p className="pt-xs type-secondary text-failure">{endRunError}</p>
-				)}
-			</div>
+			)}
 
 			<div className="hidden md:flex flex-1 min-h-0">
 				<ResizablePanelGroup direction="horizontal">
@@ -526,6 +579,48 @@ export function RunDetailPage() {
 					/>
 				</div>
 			</div>
+
+			<Dialog
+				open={confirmAction !== null}
+				onOpenChange={(open) => {
+					if (!open) setConfirmAction(null);
+				}}
+			>
+				<DialogPortal>
+					<DialogOverlay className="bg-black/50" />
+					<div className="fixed inset-0 z-50 flex items-center justify-center">
+						<div className="w-full max-w-sm rounded border border-border bg-surface p-lg shadow-sm">
+							<p className="font-mono text-[13px] text-fg">
+								{confirmAction === "abandoned"
+									? "Abandon this run? Progress will be marked as abandoned."
+									: "Cancel this run? The running process will be stopped."}
+							</p>
+							<div className="mt-md flex justify-end gap-sm">
+								<DialogClose asChild>
+									<button
+										type="button"
+										className="rounded px-sm py-xs font-mono text-[12px] text-fg-ghost hover:text-fg transition-colors duration-150"
+									>
+										Dismiss
+									</button>
+								</DialogClose>
+								<button
+									type="button"
+									className="rounded px-sm py-xs font-mono text-[12px] text-accent-amber hover:text-fg transition-colors duration-150"
+									onClick={() => {
+										if (confirmAction) {
+											handleEndRun(confirmAction);
+										}
+										setConfirmAction(null);
+									}}
+								>
+									Confirm
+								</button>
+							</div>
+						</div>
+					</div>
+				</DialogPortal>
+			</Dialog>
 		</div>
 	);
 }

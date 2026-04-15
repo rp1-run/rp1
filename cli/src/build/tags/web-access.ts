@@ -65,6 +65,17 @@ function renderCodex(capability: WebCapability, directive: string): string {
 	}
 }
 
+function renderCopilot(capability: WebCapability, directive: string): string {
+	switch (capability) {
+		case "fetch":
+			return `fetch_url: ${directive}`;
+		case "search":
+			return `fetch_url: ${directive}\nNote: Web search is not available on Copilot CLI. Use fetch_url with a known URL as an alternative where possible.`;
+		case "both":
+			return `fetch_url: ${directive}\nNote: Web search is not available on Copilot CLI. Only fetch_url is supported.`;
+	}
+}
+
 function renderWebAccess(
 	capability: WebCapability,
 	directive: string,
@@ -77,6 +88,8 @@ function renderWebAccess(
 			return renderOC(capability, directive);
 		case "codex":
 			return renderCodex(capability, directive);
+		case "copilot":
+			return renderCopilot(capability, directive);
 	}
 }
 

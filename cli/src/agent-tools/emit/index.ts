@@ -173,9 +173,10 @@ const handleSkippedSteps = (
 					const status = (input.data.status as string) ?? "";
 					const isStepLevel = !input.unit;
 					const isRunning = status === "running";
+					const isCompleted = status === "completed";
 					const isNamespaced = isNamespacedStep(currentStep);
 
-					if (isStepLevel && isRunning && !isNamespaced) {
+					if (isStepLevel && (isRunning || isCompleted) && !isNamespaced) {
 						const predecessors = getTransitivePredecessors(
 							machine,
 							currentStep,

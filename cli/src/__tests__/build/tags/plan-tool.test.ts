@@ -39,6 +39,13 @@ describe("plan_tool tag", () => {
 			const output = await render(template, "codex");
 			expect(output).toBe("update_plan: Track implementation progress");
 		});
+
+		test("Copilot: renders directive with no-tool note", async () => {
+			const output = await render(template, "copilot");
+			expect(output).toContain("Track implementation progress");
+			expect(output).toContain("No dedicated planning tool");
+			expect(output).toContain("markdown file");
+		});
 	});
 
 	describe("planning mode directive", () => {
@@ -69,6 +76,15 @@ describe("plan_tool tag", () => {
 			const output = await render(template, "codex");
 			expect(output).not.toContain("EnterPlanMode");
 			expect(output).toContain("update_plan:");
+		});
+
+		test("Copilot: does not include plan mode constructs", async () => {
+			const template = '{% plan_tool "Enter planning mode to create a plan" %}';
+			const output = await render(template, "copilot");
+			expect(output).not.toContain("EnterPlanMode");
+			expect(output).not.toContain("ExitPlanMode");
+			expect(output).not.toContain("TodoWrite");
+			expect(output).toContain("No dedicated planning tool");
 		});
 
 		test("CC: no plan mode guidance for non-planning directives", async () => {

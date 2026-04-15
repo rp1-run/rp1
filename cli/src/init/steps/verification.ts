@@ -7,6 +7,10 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { REQUIRED_PLUGINS } from "../../assets/reader.js";
+import {
+	summarizeCopilotVerification,
+	verifyCopilotInstallation,
+} from "../../install/copilot/index.js";
 import type { PlatformVersions } from "../../install/version-marker.js";
 import { CLAUDE_PLUGIN_DIRS } from "../../shared/paths.js";
 import type {
@@ -110,6 +114,39 @@ export async function verifyOpenCodePlugins(
 		plugins,
 		issues,
 	};
+}
+
+/**
+ * Verify GitHub Copilot CLI plugin installation.
+ * Reuses the native Copilot verifier and adapts it to the shared init contract.
+ *
+ * @param callbacks - Optional callbacks for reporting progress to UI
+ * @returns VerificationResult with plugin statuses and any issues found
+ */
+export async function verifyCopilotPlugins(
+	callbacks?: StepCallbacks,
+): Promise<VerificationResult> {
+	callbacks?.onActivity("Checking Copilot CLI plugins", "info");
+
+	const result = summarizeCopilotVerification(
+		await verifyCopilotInstallation(),
+	);
+
+	if (result.verified) {
+		callbacks?.onActivity("Copilot plugins verified", "success");
+	} else {
+		const missingCount = result.plugins.filter(
+			(plugin) => !plugin.installed,
+		).length;
+		callbacks?.onActivity(
+			missingCount > 0
+				? `${missingCount} Copilot plugin(s) not verified`
+				: "Copilot plugin verification failed",
+			"warning",
+		);
+	}
+
+	return result;
 }
 
 /**

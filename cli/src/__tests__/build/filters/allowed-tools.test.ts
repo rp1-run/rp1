@@ -6,7 +6,11 @@
 
 import { describe, expect, test } from "bun:test";
 import { codexRegistry } from "../../../build/codex/registry.js";
-import { allowedToolsFilter } from "../../../build/filters/allowed-tools.js";
+import { copilotRegistry } from "../../../build/copilot/registry.js";
+import {
+	allowedToolsFilter,
+	copilotPermissionPatternsFilter,
+} from "../../../build/filters/allowed-tools.js";
 import { defaultRegistry } from "../../../build/registry.js";
 
 describe("allowed_tools filter", () => {
@@ -97,6 +101,85 @@ describe("allowed_tools filter", () => {
 		test("maps Edit to functions.apply_patch", () => {
 			const result = allowedToolsFilter("Edit", "codex", codexRegistry);
 			expect(result).toBe("functions.apply_patch");
+		});
+	});
+
+	describe("copilot (map through registry to array)", () => {
+		test("maps tool names to Copilot equivalents as array", () => {
+			const result = allowedToolsFilter(
+				"Bash, Read, Edit",
+				"copilot",
+				copilotRegistry,
+			);
+			expect(result).toEqual([
+				"run_terminal_command",
+				"read_file",
+				"edit_file",
+			]);
+		});
+
+		test("filters out null-mapped tools", () => {
+			const result = allowedToolsFilter(
+				"Read, WebSearch, TodoWrite, Edit",
+				"copilot",
+				copilotRegistry,
+			);
+			expect(result).toEqual(["read_file", "edit_file"]);
+		});
+
+		test("handles parenthesized tool patterns", () => {
+			const result = allowedToolsFilter(
+				"Bash(echo *), Read",
+				"copilot",
+				copilotRegistry,
+			);
+			expect(result).toEqual(["run_terminal_command(echo *)", "read_file"]);
+		});
+
+		test("returns empty array when all tools are filtered out", () => {
+			const result = allowedToolsFilter(
+				"WebSearch, TodoWrite",
+				"copilot",
+				copilotRegistry,
+			);
+			expect(result).toEqual([]);
+		});
+
+		test("passes through unknown tools as-is", () => {
+			const result = allowedToolsFilter(
+				"Read, CustomTool",
+				"copilot",
+				copilotRegistry,
+			);
+			expect(result).toEqual(["read_file", "CustomTool"]);
+		});
+	});
+
+	describe("copilot skill permissions", () => {
+		test("maps Bash wildcard patterns to shell permission stems", () => {
+			expect(copilotPermissionPatternsFilter("Bash(rp1 *)")).toEqual([
+				"shell(rp1:*)",
+			]);
+		});
+
+		test("maps read and write capabilities to Copilot permission kinds", () => {
+			expect(
+				copilotPermissionPatternsFilter("Read, Grep, Glob, Write, Edit"),
+			).toEqual(["read", "write"]);
+		});
+
+		test("deduplicates repeated permissions and filters non-permission tools", () => {
+			expect(
+				copilotPermissionPatternsFilter(
+					"Bash(rp1 *), Bash(rp1 *), Task, Skill, AskUserQuestion",
+				),
+			).toEqual(["shell(rp1:*)"]);
+		});
+
+		test("passes through unknown permission entries", () => {
+			expect(
+				copilotPermissionPatternsFilter("CustomMCP(create_issue)"),
+			).toEqual(["CustomMCP(create_issue)"]);
 		});
 	});
 });

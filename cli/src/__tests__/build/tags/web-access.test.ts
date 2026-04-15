@@ -86,6 +86,38 @@ describe("web_access tag", () => {
 		});
 	});
 
+	describe("copilot: search capability (degradation)", () => {
+		const template =
+			'{% web_access "search", "Look up the latest documentation" %}';
+
+		test("renders fetch_url with degradation note for search", async () => {
+			const output = await render(template, "copilot");
+			expect(output).toContain("fetch_url: Look up the latest documentation");
+			expect(output).toContain("Web search is not available on Copilot CLI");
+		});
+	});
+
+	describe("copilot: fetch capability", () => {
+		const template = '{% web_access "fetch", "Download the API response" %}';
+
+		test("renders fetch_url without degradation note", async () => {
+			const output = await render(template, "copilot");
+			expect(output).toBe("fetch_url: Download the API response");
+			expect(output).not.toContain("not available");
+		});
+	});
+
+	describe("copilot: both capability", () => {
+		const template = '{% web_access "both", "Search and fetch resources" %}';
+
+		test("renders fetch_url with degradation note for search", async () => {
+			const output = await render(template, "copilot");
+			expect(output).toContain("fetch_url: Search and fetch resources");
+			expect(output).toContain("Web search is not available on Copilot CLI");
+			expect(output).toContain("Only fetch_url is supported");
+		});
+	});
+
 	describe("invalid capability fallback", () => {
 		test("falls back to search for unknown capability", async () => {
 			const template = '{% web_access "invalid", "Do something" %}';

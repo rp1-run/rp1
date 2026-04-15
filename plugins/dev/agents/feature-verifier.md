@@ -1,7 +1,7 @@
 ---
 name: feature-verifier
 description: Verifies feature acceptance criteria and requirements mapping with full KB context awareness for comprehensive feature validation before merge
-tools: Read, Write, Bash
+tools: Read, Write, Bash, Bash(rp1 *)
 model: inherit
 arguments:
   - name: FEATURE_ID

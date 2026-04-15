@@ -198,13 +198,25 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 		plugin_install_cmd: "claude plugin install {plugin}",
 		capabilities: ["plugins", "slash-commands", "agents", "skills"],
 	},
+	copilot: {
+		id: "copilot",
+		name: "GitHub Copilot CLI",
+		enabled: true,
+		binary: "gh",
+		min_version: "2.74.0",
+		instruction_file: "AGENTS.md",
+		install_url:
+			"https://docs.github.com/copilot/using-github-copilot/using-github-copilot-in-the-command-line",
+		plugin_install_cmd: null,
+		capabilities: ["skills", "agents", "slash-commands"],
+	},
 };
 
 // ---------------------------------------------------------------------------
 // Imports for registries and platform-specific modules
 // ---------------------------------------------------------------------------
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { toUserFacing } from "../../shared/canonical-name.js";
@@ -214,6 +226,7 @@ import { mapAgentToRoleType } from "./codex/role-mapper.js";
 import { discoverSkillMap } from "./codex/skill-map.js";
 import { validateSubAgents } from "./codex/sub-agent-validator.js";
 import { validateCodexToml } from "./codex/validator.js";
+import { copilotRegistry } from "./copilot/registry.js";
 import { defaultRegistry } from "./registry.js";
 import { transformNamespace } from "./tags/index.js";
 import { buildTemplateContext } from "./template-context.js";
@@ -404,6 +417,199 @@ const opencodePreparePlugin = async (
 ): Promise<PlatformBuildState> => ({});
 
 // ---------------------------------------------------------------------------
+// Copilot hook implementations
+// ---------------------------------------------------------------------------
+
+const copilotPreparePlugin = async (
+	_ctx: HookContext,
+): Promise<PlatformBuildState> => ({});
+
+interface CopilotPluginMetadata {
+	readonly description: string;
+}
+
+const getDefaultCopilotDescription = (pluginName: string): string =>
+	pluginName === "base"
+		? "Core knowledge management and workflow support for GitHub Copilot"
+		: pluginName === "dev"
+			? "Development workflow automation for GitHub Copilot"
+			: "Prompt-authoring and utility workflows for GitHub Copilot";
+
+const readCopilotPluginMetadata = async (
+	hookCtx: HookContext,
+): Promise<CopilotPluginMetadata> => {
+	const sourcePluginPath = join(
+		hookCtx.projectRoot,
+		"plugins",
+		hookCtx.pluginName,
+		".claude-plugin",
+		"plugin.json",
+	);
+
+	try {
+		const content = await readFile(sourcePluginPath, "utf-8");
+		const parsed = JSON.parse(content) as { description?: unknown };
+		if (
+			typeof parsed.description === "string" &&
+			parsed.description.length > 0
+		) {
+			return { description: parsed.description };
+		}
+	} catch {
+		// Fall back to a generated description if source metadata is unavailable.
+	}
+
+	return {
+		description: getDefaultCopilotDescription(hookCtx.pluginName),
+	};
+};
+
+const listCopilotSkillNames = async (outputDir: string): Promise<string[]> => {
+	try {
+		const entries = await readdir(join(outputDir, "skills"), {
+			withFileTypes: true,
+		});
+		return entries
+			.filter((entry) => entry.isDirectory())
+			.map((entry) => entry.name)
+			.sort((a, b) => a.localeCompare(b));
+	} catch {
+		return [];
+	}
+};
+
+const listCopilotAgentNames = async (outputDir: string): Promise<string[]> => {
+	try {
+		const entries = await readdir(join(outputDir, "agents"), {
+			withFileTypes: true,
+		});
+		return entries
+			.filter((entry) => entry.isFile() && entry.name.endsWith(".agent.md"))
+			.map((entry) => entry.name.replace(/\.agent\.md$/, ""))
+			.sort((a, b) => a.localeCompare(b));
+	} catch {
+		return [];
+	}
+};
+
+const buildCopilotTemplateBaseContext = (
+	hookCtx: HookContext,
+): Record<string, unknown> => ({
+	platform: hookCtx.platform,
+	platformConfig: hookCtx.platformConfig,
+	pluginName: hookCtx.pluginName,
+	pluginVersion: hookCtx.pluginVersion,
+	namespacedPluginName: `rp1-${hookCtx.pluginName}`,
+	registry: hookCtx.registry,
+	buildTimestamp: new Date().toISOString(),
+	version: hookCtx.cliVersion,
+});
+
+const copilotPostPluginBuild = async (
+	outputDir: string,
+	_state: PlatformBuildState,
+	hookCtx: HookContext,
+): Promise<PostBuildResult> => {
+	const errors: string[] = [];
+	const warnings: string[] = [];
+	const verbatimFiles: { name: string; path: string }[] = [];
+
+	const { description } = await readCopilotPluginMetadata(hookCtx);
+	const [skillNames, agentNames] = await Promise.all([
+		listCopilotSkillNames(outputDir),
+		listCopilotAgentNames(outputDir),
+	]);
+
+	let hooksPath: string | undefined;
+	const hooksSource = join(
+		hookCtx.projectRoot,
+		"plugins",
+		hookCtx.pluginName,
+		"hooks",
+		"copilot-hooks.json",
+	);
+
+	try {
+		const hooksContent = await readFile(hooksSource, "utf-8");
+		try {
+			JSON.parse(hooksContent);
+			const hooksOutputDir = join(outputDir, "hooks");
+			hooksPath = "hooks/copilot-hooks.json";
+			await mkdir(hooksOutputDir, { recursive: true });
+			await writeFile(join(hooksOutputDir, "copilot-hooks.json"), hooksContent);
+			verbatimFiles.push({
+				name: "copilot-hooks.json",
+				path: hooksPath,
+			});
+		} catch (error) {
+			errors.push(
+				`Invalid Copilot hooks file at ${hooksSource}: ${String(error)}`,
+			);
+		}
+	} catch (error) {
+		const code = (error as NodeJS.ErrnoException).code;
+		if (code !== "ENOENT") {
+			errors.push(
+				`Failed to read Copilot hooks file at ${hooksSource}: ${String(error)}`,
+			);
+		}
+	}
+
+	const renderTemplate = async (
+		template: string,
+		filePath: string,
+		artifact: Record<string, unknown>,
+		validateJson = false,
+	): Promise<void> => {
+		const renderResult = await hookCtx.engine.render(template, {
+			...buildCopilotTemplateBaseContext(hookCtx),
+			artifact,
+		});
+
+		if (E.isLeft(renderResult)) {
+			const { formatError } = await import("../../shared/errors.js");
+			errors.push(formatError(renderResult.left, false));
+			return;
+		}
+
+		if (validateJson) {
+			try {
+				JSON.parse(renderResult.right);
+			} catch (error) {
+				errors.push(`Invalid Copilot JSON emitted for ${filePath}: ${error}`);
+				return;
+			}
+		}
+
+		await writeFile(join(outputDir, filePath), renderResult.right);
+		verbatimFiles.push({
+			name: filePath.split("/").at(-1) ?? filePath,
+			path: filePath,
+		});
+	};
+
+	await renderTemplate(
+		"copilot/plugin",
+		"plugin.json",
+		{
+			description,
+			skills: skillNames,
+			agents: agentNames,
+			hooksPath,
+		},
+		true,
+	);
+
+	await renderTemplate("copilot/readme", "README.md", {
+		description,
+		skills: skillNames,
+		agents: agentNames,
+	});
+
+	return { errors, warnings, verbatimFiles };
+};
+
+// ---------------------------------------------------------------------------
 // Platform definitions
 // ---------------------------------------------------------------------------
 
@@ -474,6 +680,28 @@ const codexPlatform: PlatformDefinition = {
 	producesBundleAssets: true,
 };
 
+const copilotPlatform: PlatformDefinition = {
+	id: "copilot",
+	registry: copilotRegistry,
+	config: platformConfigs.copilot,
+	templates: {
+		skill: "copilot/skill",
+		agent: "copilot/agent",
+		manifest: "copilot/manifest",
+	},
+	naming: {
+		skillDirPrefix: "rp1-",
+		agentFileName: (pluginName: string, agentName: string) =>
+			`rp1-${pluginName}-${agentName}`,
+		agentExtension: ".agent.md",
+	},
+	hooks: {
+		preparePlugin: copilotPreparePlugin,
+		postPluginBuild: copilotPostPluginBuild,
+	},
+	producesBundleAssets: true,
+};
+
 // ---------------------------------------------------------------------------
 // Platform definitions map
 // ---------------------------------------------------------------------------
@@ -485,6 +713,7 @@ export const PLATFORM_DEFINITIONS: ReadonlyMap<
 	["opencode", opencodePlatform],
 	["claude-code", claudeCodePlatform],
 	["codex", codexPlatform],
+	["copilot", copilotPlatform],
 ]);
 
 /**

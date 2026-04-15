@@ -12,7 +12,8 @@ Before installing rp1, make sure you have:
 - **One supported host tool**:
   [Claude Code](https://claude.ai/code),
   [OpenCode](https://github.com/opencode-ai/opencode), or
-  [Codex](https://github.com/openai/codex)
+  [Codex](https://github.com/openai/codex), or
+  [GitHub Copilot CLI](https://docs.github.com/copilot/using-github-copilot/using-github-copilot-in-the-command-line)
 - **A repository** where you want to use rp1
 
 ---
@@ -81,6 +82,7 @@ rp1 init
 |------|----------|------------------|-------------------------------|
 | Claude Code | Yes | `CLAUDE.md` | Automatic |
 | OpenCode | Yes | `AGENTS.md` | Automatic |
+| GitHub Copilot CLI | Yes | `AGENTS.md` | Automatic |
 | Codex | Yes | `AGENTS.md` | Run `rp1 install codex` after `init` |
 
 For non-interactive setup:
@@ -99,6 +101,7 @@ If `init` did not install the host automatically, install it manually:
 rp1 install claude-code
 rp1 install opencode
 rp1 install codex
+rp1 install copilot
 ```
 
 You can verify the result at any time:
@@ -107,6 +110,7 @@ You can verify the result at any time:
 rp1 verify claude-code
 rp1 verify opencode
 rp1 verify codex
+rp1 verify copilot
 ```
 
 Useful install locations:
@@ -116,6 +120,10 @@ Useful install locations:
 | OpenCode | `~/.config/opencode/plugins/` |
 | Codex skills | `~/.codex/skills/` |
 | Codex agents | `~/.codex/agents/rp1/` |
+| Copilot staged marketplace | `~/.rp1/copilot/marketplace/` |
+| Copilot native installed plugins | `~/.copilot/installed-plugins/rp1-local/` |
+
+For Copilot, the clean success signal is `rp1 verify copilot` reporting `healthy_native`. You can also confirm `gh copilot -- plugin list` shows `rp1-base@rp1-local` and `rp1-dev@rp1-local`. If verification reports `mixed_native_and_legacy`, the native install works but old legacy rp1 files still need cleanup.
 
 ---
 
@@ -123,7 +131,7 @@ Useful install locations:
 
 After installation or updates, restart the host so it reloads rp1.
 
-This applies to Claude Code, OpenCode, and Codex.
+This applies to Claude Code, OpenCode, Codex, and GitHub Copilot CLI.
 
 ---
 
@@ -150,6 +158,12 @@ generic assumptions.
     $rp1-base-knowledge-build
     ```
 
+=== "GitHub Copilot CLI"
+
+    ```bash
+    /rp1-base-knowledge-build
+    ```
+
 This creates `.rp1/context/`, which the rest of the workflows use for
 project-aware execution.
 
@@ -159,11 +173,11 @@ project-aware execution.
 
 After the KB is built, most users continue with one of these:
 
-| Goal | Claude Code | OpenCode | Codex |
-|------|-------------|----------|-------|
-| Start a feature | `/build my-feature` | `/rp1-dev-build my-feature` | `$rp1-dev-build my-feature` |
-| Quick task | `/build-fast "..."` | `/rp1-dev-build-fast "..."` | `$rp1-dev-build-fast "..."` |
-| Review a PR | `/pr-review` | `/rp1-dev-pr-review` | `$rp1-dev-pr-review` |
+| Goal | Claude Code | OpenCode | Codex | GitHub Copilot CLI |
+|------|-------------|----------|-------|--------------------|
+| Start a feature | `/build my-feature` | `/rp1-dev-build my-feature` | `$rp1-dev-build my-feature` | `/rp1-dev-build my-feature` |
+| Quick task | `/build-fast "..."` | `/rp1-dev-build-fast "..."` | `$rp1-dev-build-fast "..."` | `/rp1-dev-build-fast "..."` |
+| Review a PR | `/pr-review` | `/rp1-dev-pr-review` | `$rp1-dev-pr-review` | `/rp1-dev-pr-review` |
 
 ---
 
@@ -190,6 +204,7 @@ Check directory ownership:
 ```bash
 ls -la ~/.config/opencode/
 ls -la ~/.codex/
+ls -la ~/.rp1/copilot/
 ```
 
 ### KB build takes a while
