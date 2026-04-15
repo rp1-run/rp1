@@ -276,7 +276,8 @@ Created:
 - {workRoot}/prds/{PRD_NAME}.md
 
 Next Steps:
-- Create features: /rp1-dev:build <feature-id>
+- For a single feature: /rp1-dev:build <feature-id>
+- For initiative-sized work: /rp1-dev:phase-plan prds/{PRD_NAME}.md
 - Add more surfaces: /rp1-dev:blueprint mobile-app
 ```
 
@@ -288,5 +289,6 @@ Next Steps:
 
 ## §NEXT
 
-- `/rp1-dev:build <feature-id>` - Build specific features
+- `/rp1-dev:phase-plan prds/{PRD_NAME}.md` - Decompose a large PRD into delivery phases before feature execution
+- `/rp1-dev:build <feature-id>` - Build a single feature directly when the PRD already maps to one delivery slice
 - Features can associate w/ parent PRD for context inheritance

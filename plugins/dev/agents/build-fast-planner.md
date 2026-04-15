@@ -84,6 +84,15 @@ Analyze REQUEST against these criteria:
 | Risk | Low | Medium | High |
 | Hours | <2 | 2-8 | >8 |
 
+### 2.1 Large-Scope Classification
+
+When the request is Large, distinguish between:
+
+- **Large single feature**: still one cohesive user-facing outcome, but too much work for `/build-fast`
+- **Initiative-sized / phase-plan input**: multiple independently valuable features or work packages, explicit sequencing across phases/releases/rollouts, or scope that would force a later choice between distinct child-feature handoffs
+
+Do NOT classify broad-but-cohesive work as phase-planning input unless it clearly spans more than one downstream feature.
+
 ## 3. Task Breakdown (Small/Medium Only)
 
 If scope is Small or Medium, generate task breakdown:
@@ -169,15 +178,24 @@ If scope = Large, output:
 {
   "scope": "Large",
   "redirect": true,
+  "redirect_target": "phase-plan" | "build",
+  "redirect_command": "/phase-plan <prd-or-requirements-source>" | "/build {suggested-feature-id}",
   "reasoning": "[one line explaining why]",
   "files_affected": "[estimate or N/A]",
   "plan_summary": null,
   "artifact_path": null,
   "task_count": 0,
   "task_ids": null,
-  "redirect_message": "## REQUEST EXCEEDS SCOPE\n\n**Request**: [summary]\n**Estimated Effort**: [hours]\n\n**Why This Needs /build**:\n- [reason 1]\n- [reason 2]\n\n**Options**:\n1. **Reduce scope**: [minimal viable change]\n2. **Phase it**: [breakdown]\n3. **Use full workflow**: Run `/build {feature-id}`\n\n**Recommended Quick Win**: [simplest alternative]"
+  "redirect_message": "## REQUEST EXCEEDS /build-fast SCOPE\n\n**Request**: [summary]\n**Estimated Effort**: [hours]\n\n**Recommended Path**: [redirect_command]\n\n**Why**:\n- [reason 1]\n- [reason 2]\n\n**Next**:\n- [phase-plan path: use a completed PRD or oversized requirements artifact as the source]\n- [build path: use /build for a single large feature]\n- [reduce scope path: smallest viable quick-build alternative]\n\n**Recommended Quick Win**: [simplest alternative]"
 }
 ```
+
+Large-scope redirect rules:
+
+- If the request is initiative-sized, set `redirect_target` to `phase-plan`, set `redirect_command` to `/phase-plan <prd-or-requirements-source>`, and make the message explain that `/phase-plan` needs a completed PRD or oversized `requirements.md` artifact as its source.
+- If the request is still one cohesive feature, set `redirect_target` to `build`, set `redirect_command` to `/build {suggested-feature-id}`, and keep the guidance focused on the full feature workflow.
+- If the user does not appear to have a valid planning source for `/phase-plan` yet, tell them to create that source first instead of inventing milestone or tracker guidance.
+- Never recommend legacy `tracker.md` or `milestone-*.md` outputs for new work.
 
 ### 5.2 Small/Medium Scope (With Artifact)
 

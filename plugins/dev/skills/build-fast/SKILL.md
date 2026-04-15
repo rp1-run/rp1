@@ -144,7 +144,7 @@ rp1 agent-tools emit \
 DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, WORKFLOW=build-fast, RUN_ID={RUN_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}
 {% enddispatch_agent %}
 
-**Parse response**: Extract `scope`, `plan_summary`, `files_affected`, `reasoning`, `artifact_path`, `artifact_relative_path`, `task_count`, `task_ids`.
+**Parse response**: Extract `scope`, `plan_summary`, `files_affected`, `reasoning`, `artifact_path`, `artifact_relative_path`, `task_count`, `task_ids`, plus optional `redirect_target` and `redirect_command`.
 
 **If planner fails or returns an error**: Retry the planner once. If it fails again, use a `general-purpose` agent with the same prompt to generate the plan and artifact. Never skip planning — always produce an artifact before §PHASE-2.
 
@@ -153,6 +153,12 @@ DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, WORKFLOW=build-fast, RUN_ID={RUN_ID},
 If `scope` = "Large":
 
 Output the planner's `redirect_message` and STOP.
+
+Interpret the planner redirect before stopping:
+
+- `redirect_target = "phase-plan"` means the request is initiative-sized or spans multiple independently valuable delivery slices. Treat `/phase-plan` as the supported next step. Do NOT redirect to legacy tracker or milestone workflows.
+- `redirect_target = "build"` means the request is still one feature, but too large for `/build-fast`. Treat `/build` as the supported next step.
+- If `redirect_target` is missing, preserve the planner's `redirect_message` as-is and STOP without inventing alternate routing.
 
 ### §1.2 Plan Review Checkpoint
 
