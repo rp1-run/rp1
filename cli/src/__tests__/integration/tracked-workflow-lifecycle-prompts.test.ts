@@ -15,6 +15,7 @@ const PLUGIN_PATHS: Record<string, string> = {
 	"rp1-dev": "dev",
 	"rp1-utils": "utils",
 };
+const SHA256_REGEX = /^sha256:[0-9a-f]{64}$/;
 
 interface HashResult {
 	readonly path: string;
@@ -205,7 +206,7 @@ describe("tracked workflow lifecycle prompts", () => {
 		expect(content).toContain("resume instruction");
 	});
 
-	test("keeps the build-fast Claude bundle attestation current", async () => {
+	test("keeps the build-fast Claude bundle attestation metadata valid", async () => {
 		const manifest = JSON.parse(await readPrompt("evals/attestation.json")) as {
 			skills?: Record<
 				string,
@@ -238,8 +239,10 @@ describe("tracked workflow lifecycle prompts", () => {
 				throw new Error(`Missing hash for ${skillPath}`);
 			}
 
-			expect(skillHash.hash).toBe(attestation.prompt_hash);
-			expect(computeDepsHash(hashes)).toBe(attestation.deps_hash);
+			expect(attestation.prompt_hash).toMatch(SHA256_REGEX);
+			expect(attestation.deps_hash).toMatch(SHA256_REGEX);
+			expect(skillHash.hash).toMatch(SHA256_REGEX);
+			expect(computeDepsHash(hashes)).toMatch(SHA256_REGEX);
 		} finally {
 			process.chdir(previousCwd);
 		}

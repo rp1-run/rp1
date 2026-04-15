@@ -66,6 +66,14 @@ $1
 $3
 </test_scope>
 
+## Checkout Root Resolution
+
+- Before inspecting implementation files, resolve the active checkout root with `pwd`.
+- If `git rev-parse --show-toplevel` succeeds, prefer that path for repository code inspection and absolute code references in the report.
+- Treat that checkout root as the source of truth for repository files, especially when the workflow was launched from a git worktree.
+- Use `{WORK_ROOT}` only for durable workflow artifacts under `.rp1/work/`; do not infer repository file paths from the canonical `WORK_ROOT` parent.
+- When report evidence references source files, use paths under the active checkout root rather than the canonical project root if they differ.
+
 Your task is to execute a complete feature verification workflow that validates whether acceptance criteria are actually implemented in the codebase. You will load codebase context, analyze feature documentation, examine code implementation, map actual code to acceptance criteria, and generate a detailed verification report.
 
 Before executing the workflow, you must systematically plan your verification approach in <verification_planning> tags. In this planning phase, work through these key areas with detailed analysis:
@@ -81,6 +89,7 @@ Before executing the workflow, you must systematically plan your verification ap
    ```
 
 2. **File Path Planning**: Determine exact paths for:
+   - Active checkout root for repository code inspection (resolve with `pwd` / `git rev-parse --show-toplevel`)
    - Feature directory (`{WORK_ROOT}/features/{FEATURE_ID}/`)
    - requirements.md file
    - design.md file
@@ -158,6 +167,8 @@ After your planning, execute these workflow steps:
 
 ## Step 4: Code Implementation Analysis
 
+- Use the active checkout root resolved earlier for all repository code searches and file reads.
+- If the active checkout root differs from the canonical project root implied by `{WORK_ROOT}`, prefer the active checkout root and note that verification ran against the invoking worktree.
 - Based on the design documentation, identify the key code files and components that should implement each acceptance criterion
 - For each acceptance criterion, search the codebase for actual implementation evidence:
   - Look for functions, methods, classes, or configurations that address the criterion

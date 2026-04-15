@@ -74,12 +74,20 @@ This returns a JSON manifest with all comment locations, file paths, line number
 
 From the JSON output, check `lines_added`. If > 1500:
 
-```
-ERROR: Scope too large ({N} lines added).
-For large changes, use /build workflow which includes comment cleanup.
-```
+- Do NOT fail the run.
+- Do NOT modify any files.
+- Output this warning summary and STOP:
 
-Exit without processing.
+```
+## Comment Check Complete
+
+**Scope**: {scope}
+**Status**: WARN
+**Reason**: Scope too large ({N} lines added); skipping automatic comment cleanup for this run.
+**Files processed**: 0
+**Comments removed**: 0
+**Comments preserved**: 0
+```
 
 ### 1.3 Parse Comment Manifest
 
