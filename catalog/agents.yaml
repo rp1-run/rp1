@@ -118,7 +118,7 @@ agents:
   - name: rp1-dev:feature-architect
     description: "Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester."
     plugin: dev
-    last_checksum: 955b1b0a44b363350457ca970d0922ce313119f369d363afb2b082afc7653dff
+    last_checksum: e0a20d7e0a8b5026878c11034b2f95c09acff22293b2160f26858cc1283c9f05
   - name: rp1-dev:feature-archiver
     description: "Archives completed features to .rp1/work/archives/features/ or restores archived features back to active features directory"
     plugin: dev
@@ -130,7 +130,7 @@ agents:
   - name: rp1-dev:feature-requirement-gatherer
     description: "Transforms high-level feature concepts into structured requirements specifications. Invoked by /build workflow."
     plugin: dev
-    last_checksum: 442b413388b83ef81887f8132a36936c44677f80fa91bc8b2aebf69657597491
+    last_checksum: 1e676c094a570eb40b7acd96bd52b8afc42f56a00fc2ba8939d02d745d45606e
   - name: rp1-dev:feature-tasker
     description: "Generates development tasks from design specifications with support for incremental updates that preserve completed work"
     plugin: dev
