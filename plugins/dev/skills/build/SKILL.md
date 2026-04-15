@@ -223,7 +223,51 @@ rp1 agent-tools emit \
 FEATURE_ID={FEATURE_ID}, AFK={AFK}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, UPDATE_MODE={design.md exists}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-After feature-architect completes, check whether `{workRoot}/features/{FEATURE_ID}/hypotheses.md` exists on disk. If it exists:
+Parse the response as JSON.
+
+- Accept `status = "success"` to continue with design follow-on work.
+- Accept `status = "needs_phase_planning"` as an oversized-scope redirect. In that case, do NOT run `hypothesis-tester`, do NOT run `feature-tasker`, do NOT continue to §STEP-3, and do NOT generate legacy `tracker.md` or `milestone-*.md` guidance.
+- Treat `status = "error"` or malformed output as a design-step failure. Abort the build instead of guessing.
+
+### §2.1 Oversized Scope Redirect
+
+If `status = "needs_phase_planning"`:
+
+1. Extract `reason`, `source_relative_path`, and `redirect_command`.
+2. Emit a waiting event so the run clearly stops on the design step:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type waiting_for_user \
+  --run-id {RUN_ID} \
+  --step design \
+  --data '{"prompt": "Scope exceeds a single feature. Run /phase-plan before resuming delivery.", "context": "{redirect_command}"}'
+```
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step design \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}"}'
+```
+
+3. Output:
+
+```markdown
+## Build Redirected
+
+**Feature**: {FEATURE_ID}
+**Reason**: {reason}
+**Source Artifact**: {source_relative_path}
+**Next**: Run `{redirect_command}`
+```
+
+4. STOP.
+
+After a `success` response, check whether `{workRoot}/features/{FEATURE_ID}/hypotheses.md` exists on disk. If it exists:
 
 {% dispatch_agent "rp1-dev:hypothesis-tester" %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}

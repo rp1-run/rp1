@@ -72,6 +72,27 @@ Read `{WORK_ROOT}/features/{FEATURE_ID}/requirements.md`.
 {"status": "error", "message": "Requirements document required. Run /build Step 1 first."}
 ```
 
+### §2.1 Oversized Scope Gate
+
+Before design generation, classify whether the requirements still fit a single feature.
+
+Return `needs_phase_planning` and STOP when the requirements describe:
+
+- multiple independently valuable child features or work packages
+- explicit sequencing across phases, releases, or rollout slices
+- initiative-sized scope that would require the user to choose between distinct next-step feature handoffs
+
+Do NOT trigger phase planning when the work is broad but still one cohesive feature with one user-facing outcome.
+
+When redirecting:
+
+- do NOT write `design.md`, `design-decisions.md`, or `hypotheses.md`
+- do NOT register design artifacts
+- do NOT soften the recommendation with legacy `tracker.md` or `milestone-*.md` guidance
+- set `source_artifact` to `.rp1/work/features/{FEATURE_ID}/requirements.md`
+- set `source_relative_path` to `features/{FEATURE_ID}/requirements.md`
+- set `redirect_command` to `/phase-plan features/{FEATURE_ID}/requirements.md` and append ` --afk` when `AFK_MODE=true`
+
 ## §3 Mode Detection
 
 Check if `{WORK_ROOT}/features/{FEATURE_ID}/design.md` exists:
@@ -87,7 +108,7 @@ Before output, perform analysis in `<design_thinking>` tags:
 
 | Step | Analysis |
 |------|----------|
-| 1 | Extract functional/non-functional reqs systematically |
+| 1 | Confirm single-feature fit vs needs_phase_planning before drafting design |
 | 2 | CRITICAL - analyze codebase patterns: arch, data access, API, frontend, testing |
 | 3 | Per requirement: specified vs needs decision. List gaps, prioritize alignment w/ existing stack |
 | 4 | Step-by-step high-level approach following existing patterns |
@@ -138,6 +159,8 @@ When requirements don't specify tech choices:
 **AFK Logging**: Record all auto-selected decisions in `afk_decisions[]` for output contract.
 
 ## §7 Design Output
+
+Only continue when §2.1 classified the work as a single feature.
 
 Write to `{WORK_ROOT}/features/{FEATURE_ID}/design.md`.
 
@@ -292,6 +315,22 @@ Before finalizing design.md, validate all Mermaid diagrams via rp1-base:mermaid 
 
 Output JSON completion contract:
 
+Oversized scope redirect:
+
+```json
+{
+  "status": "needs_phase_planning",
+  "message": "Requirements span multiple independently valuable features. Use /phase-plan before /build continues.",
+  "reason": "[why this exceeds a single feature]",
+  "source_artifact": ".rp1/work/features/{FEATURE_ID}/requirements.md",
+  "source_relative_path": "features/{FEATURE_ID}/requirements.md",
+  "redirect_command": "/phase-plan features/{FEATURE_ID}/requirements.md",
+  "artifacts": {},
+  "flagged_hypotheses": [],
+  "afk_decisions": []
+}
+```
+
 Default (no hypotheses):
 
 ```json
@@ -370,4 +409,4 @@ Do NOT include `artifacts.hypotheses` when `flagged_hypotheses` is empty or when
 2. Output error JSON
 3. STOP
 
-**Execute**: Load KB -> Read requirements -> Analyze -> Generate design.md -> Generate design-decisions.md -> Create hypotheses.md (if flagged) -> Register artifacts -> Output JSON -> STOP.
+**Execute**: Load KB -> Read requirements -> Check oversized scope gate -> [redirect JSON OR analyze -> generate design.md -> generate design-decisions.md -> create hypotheses.md (if flagged) -> register artifacts -> output JSON] -> STOP.

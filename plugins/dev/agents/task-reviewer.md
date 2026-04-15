@@ -113,7 +113,13 @@ Read these files from `{WORK_ROOT}/features/{FEATURE_ID}/`:
 | File | Purpose |
 |------|---------|
 | `design.md` | Technical specifications to verify against |
-| `tasks.md` or `milestone-{N}.md` | Task list with builder's implementation summary |
+| resolved task file | `tasks.md` by default, or `milestone-{N}.md` when all requested task IDs use the same legacy dotted root `T{N}.{M}` and that milestone file exists |
+
+Legacy task file resolution rules:
+
+- If all `TASK_IDS` match the same `T{N}.{M}` root and `{WORK_ROOT}/features/{FEATURE_ID}/milestone-{N}.md` exists, review that milestone file.
+- Otherwise review `{WORK_ROOT}/features/{FEATURE_ID}/tasks.md`.
+- Mixed milestone roots are invalid; fail instead of guessing.
 
 ### 1.3 Builder's Implementation Summary
 
@@ -359,7 +365,7 @@ Any of these trigger FAILURE:
 
 1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `task-reviewer` and **Artifact** = `verification`.
 2. Read the section template at the listed **Template Path** (under `templates/_sections/`).
-3. The template contains both SUCCESS and FAILURE variants. Apply the appropriate variant based on the verdict. **Append** the filled section to tasks.md -- do not create a standalone document.
+3. The template contains both SUCCESS and FAILURE variants. Apply the appropriate variant based on the verdict. **Append** the filled section to the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) -- do not create a standalone document.
 
 **Content guidance**:
 - Use 4-space indentation AND blank lines between major sections (Implementation Summary, Validation Summary).

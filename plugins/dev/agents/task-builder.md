@@ -1,6 +1,6 @@
 ---
 name: task-builder
-description: Implements assigned task(s) w/ full context, writes summaries to tasks.md. Uses extended thinking (or ultrathink).
+description: Implements assigned task(s) w/ full context, writes summaries to the resolved task file. Uses extended thinking (or ultrathink).
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: inherit
 arguments:
@@ -94,7 +94,7 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 **Mode Detection**:
 
 - If QUICK_BUILD_PATH is not empty: Quick-build mode (read from artifact)
-- Else if FEATURE_ID is not empty: Feature mode (read from tasks.md)
+- Else if FEATURE_ID is not empty: Feature mode (read from the resolved feature task file)
 - If both set or both empty: validation error
 
 ## 1. Context Loading
@@ -124,8 +124,14 @@ Read from `{WORK_ROOT}/features/{FEATURE_ID}/`:
 
 - `requirements.md`: reqs + acceptance criteria
 - `design.md`: tech specs
-- `tasks.md` or `milestone-{N}.md`: task list
+- resolved task file: `tasks.md` by default, or `milestone-{N}.md` when all requested task IDs use the legacy dotted form `T{N}.{M}` and that milestone file exists
 - `field-notes.md` (if exists): prior learnings
+
+Legacy task file resolution rules:
+
+- If all `TASK_IDS` match the same `T{N}.{M}` root and `{WORK_ROOT}/features/{FEATURE_ID}/milestone-{N}.md` exists, use that milestone file.
+- Otherwise use `{WORK_ROOT}/features/{FEATURE_ID}/tasks.md`.
+- Mixed milestone roots are invalid; exit with an error instead of guessing.
 
 ### 1.3 Previous Feedback
 
@@ -214,7 +220,7 @@ After implementing all assigned tasks, embed a `stateDiagram-v2` fenced mermaid 
 
 1. Generate the diagram content using actual task IDs as state names and task descriptions as labels. For single tasks, produce a simple `[*] --> TaskState --> [*]` diagram.
 
-2. **Feature mode**: Embed the diagram in `tasks.md` as an `**Execution Flow**` block after the implementation summary for the last task in the batch (see Section 4.2 for placement).
+2. **Feature mode**: Embed the diagram in the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) as an `**Execution Flow**` block after the implementation summary for the last task in the batch (see Section 4.2 for placement).
 
    **Quick-build mode**: Embed the diagram in the quick-build artifact after the Implementation Summary table.
 
@@ -226,7 +232,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step task-builder:building \
-  --data '{"path": "features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}", "subflow": true, "storageRoot": "work_dir"}'
+  --data '{"path": "{resolved task file relative path}", "feature": "{FEATURE_ID}", "subflow": true, "storageRoot": "work_dir"}'
 ```
 
 ### 3.5 Scope Verification
@@ -297,7 +303,7 @@ Add immediately after task line (4-space indent, blank lines between sections).
 
 1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `task-builder` and **Artifact** = `implementation-summary`.
 2. Read the section template at the listed **Template Path** (under `templates/_sections/`).
-3. Fill placeholders per guidance below. **Append** the filled section after the task line in tasks.md -- do not create a standalone document.
+3. Fill placeholders per guidance below. **Append** the filled section after the task line in the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) -- do not create a standalone document.
 
 **Content guidance**:
 - Use 4-space indentation for all summary content (nests under task checkbox line).
