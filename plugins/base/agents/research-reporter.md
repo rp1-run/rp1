@@ -247,122 +247,25 @@ For failed diagrams, create a fallback block:
 
 **Goal**: Assemble all sections into the final report markdown.
 
-### Report Template
+### Template Loading
 
-Generate report following this structure:
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `research-reporter` and **Artifact** = `research-report.md`.
+2. Read the template file at the listed **Template Path**.
+3. Use template structure for output. Fill placeholders per guidance below.
 
-```markdown
-# Research Report: {topic}
+If the template frontmatter includes an `emit_hint` and this agent has no existing emit logic, use it for artifact registration.
 
-**Generated**: {YYYY-MM-DD HH:MM}
-**Scope**: {scope}
-**Projects Analyzed**: {comma-separated project list}
-**KB Status**: {kb status per project from metadata}
+### Content Guidance
 
-## Executive Summary
-
-{executive_summary from synthesis}
-
-## Research Questions
-
-{numbered list of research_questions}
-
-## Findings
-
-{for each finding, generate finding section}
-
-## Comparative Analysis
-
-{only if scope is multi-project - include comparison table}
-
-## Recommendations
-
-{for each recommendation, generate recommendation section}
-
-## Diagrams
-
-{for each diagram, embed validated mermaid or fallback}
-
-## Sources
-
-### Codebase References
-{list of codebase sources}
-
-### External Sources
-{list of external sources with URLs}
-
-## Methodology
-
-{methodology section with metadata}
-```
-
-### Section Templates
-
-**Finding Section**:
-```markdown
-### Finding {n}: {title}
-
-**Category**: {category}
-**Confidence**: {confidence}
-
-{description}
-
-**Evidence**:
-{for each evidence item}
-- `{location}` - {snippet excerpt}
-```
-
-**Comparative Analysis Section** (multi-project only):
-```markdown
-## Comparative Analysis
-
-| Aspect | {Project A} | {Project B} | Analysis |
-|--------|-------------|-------------|----------|
-{for each row in comparison_table}
-| {aspect} | {project_a} | {project_b} | {analysis} |
-```
-
-**Recommendation Section**:
-```markdown
-### Recommendation {n}: {action}
-
-**Priority**: {priority}
-**Rationale**: {rationale}
-**Implementation Notes**: {implementation_notes}
-```
-
-**Diagram Section**:
-```markdown
-### {title}
-
-{description}
-
-\`\`\`mermaid
-{validated_mermaid_code}
-\`\`\`
-```
-
-**Methodology Section**:
-```markdown
-## Methodology
-
-- **Exploration Mode**: Multi-agent parallel
-- **Explorers Spawned**: {metadata.explorers_spawned}
-- **KB Files Loaded**: {kb_files_list or "none available"}
-- **Files Explored**: {metadata.files_explored}
-- **Web Searches**: {metadata.web_searches}
-- **Analysis Mode**: Ultrathink synthesis
-```
-
-### Formatting Rules
-
-1. **Findings**: Number findings F-001, F-002, etc. in section headers
-2. **Evidence**: Format code evidence as `file:line`, URLs as links
-3. **Confidence**: Display as badge-like text (High | Medium | Low)
-4. **Category**: Capitalize first letter (Architecture, Pattern, Implementation, Integration, Performance)
-5. **Dates**: Use ISO format YYYY-MM-DD HH:MM
-6. **Code snippets**: Wrap in backticks, max 10 lines
-7. **Tables**: Ensure proper markdown table alignment
+- **Comparative Analysis**: Include only if scope is multi-project (with comparison table).
+- **Findings**: Number F-001, F-002, etc. in section headers.
+- **Evidence**: Format code evidence as `file:line`, URLs as links.
+- **Confidence**: Display as badge-like text (High | Medium | Low).
+- **Category**: Capitalize first letter (Architecture, Pattern, Implementation, Integration, Performance).
+- **Dates**: Use ISO format YYYY-MM-DD HH:MM.
+- **Code snippets**: Wrap in backticks, max 10 lines.
+- **Diagrams**: Embed validated mermaid or fallback description for failed diagrams.
+- **Methodology**: Include explorer count, KB status, files explored, web searches from metadata.
 
 ## 5. Write Output (~10% effort)
 

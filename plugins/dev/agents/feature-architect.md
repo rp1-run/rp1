@@ -141,55 +141,32 @@ When requirements don't specify tech choices:
 
 Write to `{WORK_ROOT}/features/{FEATURE_ID}/design.md`.
 
-**Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in the YAML frontmatter block. This enables run resumability. Use the `rp1_` prefix consistent with `rp1_doc_id`.
+### Template Loading
 
-```yaml
----
-rp1_run_id: {RUN_ID}
----
-```
+For each artifact below, read `rp1-base:artifact-templates` SKILL.md to find the template row, then read the template file at the listed path:
 
-| # | Section | Diagram (if valuable) |
-|---|---------|----------------------|
-| 1 | Design Overview | High-Level Architecture (graph TB/LR) |
-| 2 | Architecture | Component/Sequence diagrams as needed |
-| 3 | Detailed Design | Data Model if data changes |
-| 4 | Technology Stack | - |
-| 5 | Implementation Plan | - |
-| 6 | Implementation DAG | See §7.1 format (skip if single-component) |
-| 7 | Testing Strategy | w/ Test Value Assessment |
-| 8 | Deployment Design | - |
-| 9 | Documentation Impact | See format below |
-| 10 | Design Decisions Log | - |
+- `design.md` (Producer: `feature-architect`)
+- `design-decisions.md` (Producer: `feature-architect`)
+- `hypothesis-document.md` (Producer: `hypothesis-tester`) -- only if hypotheses are flagged (see §9.1)
 
-**Diagram Selection**:
+Use each template's structure for the corresponding output. Fill placeholders per guidance below.
 
-- Simple (single component): Architecture only
-- API/integration: Architecture + Sequence
-- Data-heavy: Architecture + Data Model
-- Complex multi-system: 3-4 as needed
+### Content Guidance
 
-**Test Value Assessment**:
+**design.md**:
+- **Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id`.
+- **Diagram Selection**: Simple (arch only), API/integration (arch + sequence), data-heavy (arch + data model), complex (3-4 as needed).
+- **Test Value Assessment**: Design tests only for business logic, component integration, app-specific error handling, API contracts, app-unique data transforms. Avoid library/framework/language primitive testing. Each test MUST trace to app requirement, not library feature.
+- **Documentation Impact**: Use table format with Type|Target|Section|KB Source|Rationale columns.
+- **Implementation DAG**: Include for 2+ components. Use Parallel Groups + Dependencies + Critical Path format (see §7.1).
 
-| Valuable (design for) | Avoid (do NOT design for) |
-|-----------------------|--------------------------|
-| Business logic | Library behavior verification |
-| Component integration | Framework feature validation |
-| App-specific error handling | Language primitive testing |
-| API contract verification | Third-party API behavior |
-| App-unique data transforms | - |
+**design-decisions.md**:
+- Log all major technology/architecture decisions with rationales and alternatives.
+- AFK Mode: Append auto-selected technology decisions section when AFK_MODE=true.
 
-Each test MUST trace to app requirement, not library feature.
-
-**Documentation Impact Format**:
-
-```markdown
-## Documentation Impact
-
-| Type | Target | Section | KB Source | Rationale |
-|------|--------|---------|-----------|-----------|
-| add/edit/remove | path/file.md | section | {kb_file}:{anchor} | reason |
-```
+**hypothesis-document.md** (if flagged):
+- Created only when design contains uncertain assumptions needing validation.
+- Follow template for hypothesis structure (HYP-ID, risk level, status, validation criteria, suggested method).
 
 ### §7.1 Implementation DAG Format
 
@@ -233,32 +210,11 @@ Each test MUST trace to app requirement, not library feature.
 
 ## §8 Decisions Output
 
-Write to `{WORK_ROOT}/features/{FEATURE_ID}/design-decisions.md`:
+Write to `{WORK_ROOT}/features/{FEATURE_ID}/design-decisions.md`.
 
-Log of all major technology/architecture decisions w/ rationales.
+Use the `design-decisions.md` template loaded in §7. Log all major technology/architecture decisions with rationales and alternatives.
 
-```markdown
-# Design Decisions: [Feature Title]
-
-**Feature ID**: {FEATURE_ID}
-**Created**: [Date]
-
-## Decision Log
-
-| ID | Decision | Choice | Rationale | Alternatives Considered |
-|----|----------|--------|-----------|------------------------|
-| D1 | [decision] | [choice] | [why] | [alternatives] |
-```
-
-**AFK Mode**: Append section:
-
-```markdown
-## AFK Mode: Auto-Selected Technology Decisions
-
-| Decision | Choice | Source | Rationale |
-|----------|--------|--------|-----------|
-| {decision} | {choice} | {KB/codebase/default} | {why} |
-```
+**AFK Mode**: When AFK_MODE=true, append an "AFK Mode: Auto-Selected Technology Decisions" section with Decision|Choice|Source|Rationale columns.
 
 ## §9 Artifact Registration
 
@@ -286,27 +242,9 @@ If either command fails, log a warning (`[feature-architect] Failed to register 
 
 After artifact registration, if `flagged_hypotheses[]` is non-empty, persist the hypotheses to disk. When `flagged_hypotheses[]` is empty, skip this section entirely -- do NOT create `hypotheses.md`.
 
-1. Write `.rp1/work/features/{FEATURE_ID}/hypotheses.md` using the format below.
+1. Write `.rp1/work/features/{FEATURE_ID}/hypotheses.md` using the `hypothesis-document.md` template loaded in §7.
 2. Register the artifact (skip if WORKFLOW is empty).
 3. Add `"hypotheses"` to the `artifacts` map in the completion JSON (§12).
-
-**Document Format**:
-
-```markdown
-# Hypothesis Document: {FEATURE_ID}
-**Version**: 1.0.0 | **Created**: {timestamp} | **Status**: PENDING
-
-## Hypotheses
-### HYP-001: {Title}
-**Risk Level**: HIGH|MEDIUM|LOW
-**Status**: PENDING
-**Statement**: {from flagged_hypotheses[].statement}
-**Context**: {from flagged_hypotheses[].context}
-**Validation Criteria**:
-- CONFIRM if: {from flagged_hypotheses[].validation_criteria.confirm}
-- REJECT if: {from flagged_hypotheses[].validation_criteria.reject}
-**Suggested Method**: CODE_EXPERIMENT|CODEBASE_ANALYSIS|EXTERNAL_RESEARCH
-```
 
 **Suggested Method Derivation**:
 

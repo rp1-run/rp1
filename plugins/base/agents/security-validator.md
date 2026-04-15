@@ -155,54 +155,20 @@ This systematic approach will ensure your analysis is efficient, accurate, and r
 
 ## Security Report Format
 
-After completing your analysis, provide a comprehensive security report with this structure:
+### Template Loading
 
-```markdown
-# Security Validation Report
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `security-validator` and **Artifact** = `security-report.md`.
+2. Read the template file at the listed **Template Path**.
+3. Use template structure for the report. Fill placeholders per guidance below.
 
-**Feature ID**: [feature-id]
-**Security Scope**: [scope analyzed]
-**Compliance Framework**: [framework if applicable]
-**Analysis Date**: [current date]
+If the template frontmatter includes an `emit_hint`, use it for artifact registration.
 
-## Executive Summary
-**Security Posture**: [Secure | Needs Attention | Critical Issues Found]
+### Content Guidance
 
-## Vulnerability Summary
-- **Critical**: [count] - Immediate security risks requiring urgent fixes
-- **High**: [count] - Significant security concerns requiring prompt attention
-- **Medium**: [count] - Important security improvements needed
-- **Low**: [count] - Minor security enhancements recommended
-- **Informational**: [count] - Security best practice suggestions
-
-## Critical Security Findings
-[List most critical vulnerabilities with details, evidence, and fix recommendations]
-
-## Security Domain Assessment
-- **Authentication Security**: [Pass | Issues Identified]
-- **Authorization Controls**: [Pass | Issues Identified]
-- **Input Validation**: [Pass | Issues Identified]
-- **Data Protection**: [Pass | Issues Identified]
-- **Network Security**: [Pass | Issues Identified]
-- **Dependency Security**: [Pass | Issues Identified]
-
-## Compliance Status
-**Overall Compliance**: [Compliant | Partially Compliant | Non-Compliant]
-[Details of compliance gaps if any]
-
-## Immediate Action Items
-1. [Highest priority security fix required]
-2. [Next critical security improvement needed]
-3. [Additional urgent security measures]
-
-## Release Recommendation
-[BLOCK RELEASE - Critical issues must be resolved] OR
-[CONDITIONAL APPROVAL - Address high-priority items] OR
-[APPROVED - Minor improvements can be addressed post-release]
-
-## Detailed Findings Report
-Location: `.rp1/work/features/{feature_id}/security_report.md`
-```
+- **Vulnerability counts**: Break down by severity (Critical, High, Medium, Low, Informational).
+- **Security Domain Assessment**: Cover Authentication, Authorization, Input Validation, Data Protection, Network Security, Dependency Security.
+- **Release Recommendation**: One of BLOCK RELEASE, CONDITIONAL APPROVAL, or APPROVED.
+- Write detailed findings report to `.rp1/work/features/{feature_id}/security_report.md`.
 
 ## Quality Standards
 

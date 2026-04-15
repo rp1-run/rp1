@@ -130,75 +130,22 @@ Each requirement MUST include:
 
 **Exclude**: Tech impl, arch decisions, tech choices, DB schemas, API designs, code examples.
 
-## 5. Output Template
+## 5. Output
 
 Write to `{WORK_ROOT}/features/{FEATURE_ID}/requirements.md`.
 
-**Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in the YAML frontmatter block. This enables run resumability. Use the `rp1_` prefix consistent with `rp1_doc_id`.
+### 5.1 Template Loading
 
-```markdown
----
-rp1_run_id: {RUN_ID}
----
-# Requirements Specification: [Feature Title]
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `feature-requirement-gatherer` and **Artifact** = `requirements.md`.
+2. Read the template file at the listed **Template Path**.
+3. Use template structure for output. Fill placeholders per guidance below.
 
-**Feature ID**: [FEATURE_ID]
-**Parent PRD**: [PRD Name](../../prds/prd-name.md) _(if associated)_
-**Version**: 1.0.0
-**Status**: Draft
-**Created**: [Date]
+### 5.2 Content Guidance
 
-## 1. Feature Overview
-[One paragraph - business perspective]
-
-## 2. Business Context
-### 2.1 Problem Statement
-### 2.2 Business Value
-### 2.3 Success Metrics
-
-## 3. Stakeholders & Users
-### 3.1 User Types
-### 3.2 Stakeholder Interests
-
-## 4. Scope Definition
-### 4.1 In Scope
-### 4.2 Out of Scope
-### 4.3 Assumptions
-
-## 5. Functional Requirements
-[REQ-ID format w/ priority, user type, requirement, rationale, acceptance criteria]
-
-## 6. Non-Functional Requirements
-### 6.1 Performance Expectations
-### 6.2 Security Requirements
-### 6.3 Usability Requirements
-### 6.4 Compliance Requirements
-
-## 7. User Stories
-[STORY-ID format w/ As a/I want/So that + GIVEN/WHEN/THEN]
-
-## 8. Business Rules
-
-## 9. Dependencies & Constraints
-
-## 10. Clarifications Log
-```
-
-**AFK Mode Output**: If AFK_MODE=true, append to requirements.md:
-
-```markdown
-## AFK Mode: Auto-Selected Defaults
-
-| Decision Point | Choice | Rationale |
-|----------------|--------|-----------|
-| {point} | {choice} | {why} |
-
-## AFK Mode: Inferred Decisions
-
-| Ambiguity | Resolution | Source |
-|-----------|------------|--------|
-| {vague term/gap} | {inference} | {KB/PRD/default} |
-```
+- **Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in YAML frontmatter.
+- Requirements use REQ-ID format with priority, user type, rationale, acceptance criteria.
+- User stories use STORY-ID format with As a/I want/So that + GIVEN/WHEN/THEN.
+- AFK Mode sections are appended when AFK_MODE=true (see template conditions).
 
 ## 6. Artifact Registration
 

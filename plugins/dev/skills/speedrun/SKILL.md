@@ -206,20 +206,17 @@ Clear REQUEST, update session log with status "skipped" (see §1.8), then loop t
 
 After every task resolution (commit, skip, or refine cycle completion), write or append to the session log file at `{workRoot}/speedrun/{DATESTAMP}-{RUN_ID}/session-log.md`.
 
-The log file uses this format:
+#### Template Loading
 
-```markdown
-# Speedrun Session Log
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `speedrun` and **Artifact** = `session-log.md`.
+2. Read the template file at the listed **Template Path**.
+3. Use template structure for the session log. Fill per guidance below.
 
-| # | Request | Change | Status |
-|---|---------|--------|--------|
-| 1 | {brief summary of what was requested} | {brief summary of what builder changed} | committed |
-| 2 | {brief summary of what was requested} | {brief summary of what builder changed} | skipped |
-```
+#### Content Guidance
 
-- **Request**: 1-line summary of the user's request for this task
+- **Request**: 1-line summary of the user's request for this task.
 - **Change**: 1-line summary of what the builder actually did (from builder output). Use "N/A" if skipped before build.
-- **Status**: `committed`, `skipped`, or `refined` (refined = was refined then committed)
+- **Status**: `committed`, `skipped`, or `refined` (refined = was refined then committed).
 
 Create the directory if it does not exist (`mkdir -p`). Rewrite the entire file each time (header + all rows) so it stays consistent.
 

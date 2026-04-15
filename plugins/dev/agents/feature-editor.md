@@ -220,33 +220,16 @@ If abort: output cancellation, stop w/o changes.
 - Scan all docs for `## EDIT-` patterns
 - Find highest, increment by 1, pad to 3 digits
 
-**7.2** Change marker template:
-```markdown
----
+**7.2** Change marker:
 
-## EDIT-{NNN}: {Title from edit}
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `feature-editor` and **Artifact** = `edit-marker`.
+2. Read the section template at the listed **Template Path**.
+3. Fill placeholders per guidance below. **Append** the filled marker to requirements.md (always) and design.md (if design implications exist).
 
-**Date**: {YYYY-MM-DD}
-**Type**: {REQUIREMENT_CHANGE|DISCOVERY|CONCERN|ASSUMPTION_CHANGE|PIVOT}
-**Status**: Applied
-
-### Context
-{Why edit made}
-
-### Change Summary
-{What added/modified}
-
-### Impact Analysis
-- **Completed Tasks Affected**: {List or "None"}
-- **In-Progress Tasks Affected**: {List or "None"}
-- **New Tasks Required**: {List or "None"}
-
-### Related Sections
-- {Links to related reqs if applicable}
-- {Links to related design if applicable}
-
----
-```
+**Content guidance**:
+- Determine next edit number by scanning docs for `## EDIT-` patterns, incrementing highest.
+- Type is one of: REQUIREMENT_CHANGE, DISCOVERY, CONCERN, ASSUMPTION_CHANGE, PIVOT.
+- Impact Analysis lists completed/in-progress tasks affected and new tasks required.
 
 **7.3** Append marker to requirements.md (always)
 

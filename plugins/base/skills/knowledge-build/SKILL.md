@@ -245,7 +245,7 @@ Use the parent-computed inputs.
 
 ### 4. Reduce + Write
 
-1. Load `rp1-base:knowledge-base-templates`.
+1. Load `rp1-base:artifact-templates` (read SKILL.md index, then read needed KB templates from `templates/knowledge-base/`).
 2. Merge analyzer output into:
    - `concept_map.md`
    - `architecture.md`

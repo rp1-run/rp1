@@ -494,6 +494,9 @@ const extractSkillMetadata = (
 	const arcadeTrackedRaw = meta.arcade_tracked;
 	const arcadeTracked: boolean | undefined =
 		typeof arcadeTrackedRaw === "boolean" ? arcadeTrackedRaw : undefined;
+	const userInvocableRaw = meta.user_invocable;
+	const userInvocable: boolean | undefined =
+		typeof userInvocableRaw === "boolean" ? userInvocableRaw : undefined;
 	const workflow = extractWorkflowMetadata(meta.workflow);
 
 	const result: SkillMetadata = {
@@ -514,6 +517,7 @@ const extractSkillMetadata = (
 		...(category !== undefined && { category }),
 		...(isWorkflow !== undefined && { isWorkflow }),
 		...(arcadeTracked !== undefined && { arcadeTracked }),
+		...(userInvocable !== undefined && { userInvocable }),
 		...(workflow !== undefined && { workflow }),
 	};
 
@@ -621,7 +625,6 @@ export const parseSkill = (
 			pipe(
 				TE.tryCatch(
 					async () => {
-						// Find all files in skill directory recursively, excluding SKILL.md
 						// (SKILL.md is generated with transformations, not copied verbatim)
 						const allFiles = await findFilesRecursive(skillDir);
 						const supportingFiles = allFiles

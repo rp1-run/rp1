@@ -1,0 +1,71 @@
+---
+scope: "-"
+path_pattern: "(agent-determined)"
+producer: prompt-eval-builder
+type: document
+description: "promptfoo evaluation config template for building eval assertion suites. Used by the prompt-eval-builder agent."
+strictness: flexible
+---
+
+# ============================================================
+# EXTRACTION NOTES
+# ============================================================
+# Source: {SOURCE_NAME}
+# Generated: {timestamp}
+#
+# Rubric sections generated:
+#   - REQUIRED: {count} items
+#   - PROHIBITED: {count} items
+#   - EDGE CASES: {count} items (if any)
+#
+# Assertion types:
+#   - [llm-rubric] {scenario_name}: behavioral verification
+#   - [programmatic] {function}: from "{complex_requirement}" (if any)
+#
+# Skipped (redundant/trivial):
+#   - {reason}
+# ============================================================
+
+description: "Evals for {prompt_name}"
+
+prompts:
+  - "{{PROMPT_CONTENT}}"
+
+defaultTest:
+  vars:
+    REQUEST: "{plausible_sample_request}"
+    SOME_FLAG: true
+    OTHER_FLAG: false
+
+tests:
+  - description: "{scenario_name}"
+    assert:
+      # LLM rubric (default assertion type for behavioral verification)
+      - type: llm-rubric
+        value: |
+          Evaluate the agent execution. Check the output text AND the Metadata JSON section.
+
+          REQUIRED (all must pass):
+          1. {behavioral_requirement_1}
+          2. {behavioral_requirement_2}
+
+          PROHIBITED (fail if any present in Metadata bashCommands):
+          - {prohibited_command_1}
+
+      # Built-in types for simple checks
+      - type: contains
+        value: "{expected_output}"
+
+  - description: "{different_vars_scenario}"
+    vars:
+      SOME_FLAG: false
+    assert:
+      - type: llm-rubric
+        value: |
+          Evaluate whether the agent respected the SOME_FLAG=false flag.
+
+          REQUIRED:
+          - {expected_behavior_description}
+
+          PASS if: {pass_condition}
+          FAIL if: {fail_condition}

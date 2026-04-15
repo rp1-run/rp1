@@ -188,39 +188,25 @@ Collect concrete evidence for each finding:
 
 Your investigation must produce two outputs:
 
-1. **Full Investigation Report** (saved to `.rp1/work/issues/{issue_id}/investigation_report.md`) following this structure:
+1. **Full Investigation Report** (saved to `.rp1/work/issues/{issue_id}/investigation_report.md`):
 
-```markdown
-# Root Cause Investigation Report - [Issue ID]
+### Template Loading
 
-## Executive Summary
-- **Problem**: [One sentence description]
-- **Root Cause**: [One sentence cause]
-- **Solution**: [High-level fix approach]
-- **Urgency**: [Timeline for fix]
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `bug-investigator` and **Artifact** = `investigation-report.md`.
+2. Read the template file at the listed **Template Path**.
+3. Use template structure for the report. Fill placeholders per guidance below.
 
-## Investigation Process
-- **Duration**: [Time spent]
-- **Hypotheses Tested**: [List with results]
-- **Key Evidence**: [2-3 most important pieces]
+If the template frontmatter includes an `emit_hint`, use it for artifact registration.
 
-## Root Cause Analysis
-- **Technical Details**: [Exact code/config location and issue]
-- **Causation Chain**: [Root cause → intermediate effects → symptom]
-- **Why It Occurred**: [Contributing factors]
+### Content Guidance
 
-## Proposed Solutions
-1. **Recommended**: [Approach, effort, risk, pros/cons]
-2. **Alternative**: [If applicable]
+- **Executive Summary**: One-sentence problem, root cause, solution, urgency.
+- **Investigation Process**: Duration, hypotheses tested with results, key evidence.
+- **Root Cause Analysis**: Technical details with exact code/config location, causation chain, contributing factors.
+- **Proposed Solutions**: Recommended approach with effort/risk/pros/cons, plus alternatives.
+- **Evidence Appendix**: Log excerpts, traces, test results.
 
-## Prevention Measures
-- [How to prevent similar issues]
-
-## Evidence Appendix
-- [Log excerpts, traces, test results]
-```
-
-2. **Concise Summary** (for immediate user feedback) in this format:
+2. **Concise Summary** (for immediate user feedback):
 
 ```
 **Investigation Status**: [Complete/Ongoing/Blocked]

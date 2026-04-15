@@ -147,45 +147,13 @@ All sections done:
 {"type":"success","message":"PRD created successfully!","prd_content":"...","metadata":{"prd_path":".rp1/work/prds/{PRD_NAME}.md","sections_completed":5}}
 ```
 
-**PRD Template**:
-```markdown
-# PRD: {Surface Name}
+**PRD Template Loading**:
 
-**Charter**: [Project Charter](.rp1/context/charter.md)
-**Version**: 1.0.0
-**Status**: Complete
-**Created**: {Date}
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `blueprint-wizard` and **Artifact** = `prd.md`.
+2. Read the template file at the listed **Template Path**.
+3. Use template structure for `prd_content`. Fill sections from interview Q&A per section mapping (S1->Surface Overview, S2->Scope, S3->Requirements, S4->Dependencies, S5->Timeline).
 
-## Surface Overview
-{From Section 1}
-
-## Scope
-### In Scope
-{From Section 2}
-
-### Out of Scope
-{From Section 2}
-
-## Requirements
-### Functional Requirements
-{From Section 3}
-
-### Non-Functional Requirements
-{From Section 3}
-
-## Dependencies & Constraints
-{From Section 4}
-
-## Milestones & Timeline
-{From Section 5}
-
-## Open Questions
-{Any unresolved items}
-
-## Assumptions & Risks
-| ID | Assumption | Risk if Wrong | Charter Ref |
-|----|------------|---------------|-------------|
-```
+If the template frontmatter includes an `emit_hint`, use it for artifact registration.
 
 ### uncertainty
 ```json

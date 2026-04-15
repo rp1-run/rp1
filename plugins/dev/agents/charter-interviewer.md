@@ -287,7 +287,11 @@ Return when charter is complete. Check success conditions from gap analysis:
 }
 ```
 
-**Include charter_content**: Synthesize all Q&A answers into structured charter sections for the caller to write. Each section should be well-formed markdown ready to insert into charter.md.
+**Charter Template Loading**: Before populating `charter_content`:
+
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `charter-interviewer` and **Artifact** = `charter.md`.
+2. Read the template file at the listed **Template Path**.
+3. Use the template's section structure when synthesizing `charter_content` fields. Each field should produce well-formed markdown matching the corresponding template section, ready for the caller to write to charter.md.
 
 ### 3.3 skip Response
 

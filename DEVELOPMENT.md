@@ -160,7 +160,7 @@ The project is split into two plugins:
 
 - 6 commands: Knowledge, docs, strategy, security, content writing
 - 4 agents: knowledge-builder, project-documenter, strategic-advisor, security-validator
-- 4 skills: mermaid, markdown-preview, knowledge-base-templates, code-comments (shared)
+- 4 skills: mermaid, markdown-preview, artifact-templates, code-comments (shared)
 - No dependencies
 
 **rp1-dev** (Development):
@@ -470,6 +470,7 @@ fix(commands): resolve argument parsing
    - Structured `arguments` and `environment` in frontmatter (not hand-written parameter tables)
    - Structured workflow with pseudocode
    - Anti-loop directives
+   - **Artifact output**: Producer agents must use the two-hop template loading pattern from `rp1-base:artifact-templates` -- read the SKILL.md index to find the template row, then read the template file. Do not embed inline output templates. See [AGENTS.md](AGENTS.md#artifact-templates) for variant details.
 4. **Use proper namespace prefixes**:
    - Commands: `/rp1-base:command` or `/rp1-dev:command`
    - Skills: `rp1-base:skill-name` (all skills in base)
@@ -629,7 +630,7 @@ When adding or modifying features:
   - Base: 12 agents
   - Dev: 33 agents
   - Utils: 4 agents
-  - mermaid, markdown-preview, knowledge-base-templates, code-comments
+  - mermaid, markdown-preview, artifact-templates, code-comments
 
 Commands delegate to agents via Claude Code's Task tool, ensuring only relevant context is loaded.
 

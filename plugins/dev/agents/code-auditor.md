@@ -137,88 +137,19 @@ Your analysis should be thorough and systematic to ensure accuracy and reliabili
 
 ## Output Format
 
-Provide a comprehensive audit report with the following structure:
+### Template Loading
 
-**Executive Summary**
+1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `code-auditor` and **Artifact** = `audit-report.md`.
+2. Read the template file at the listed **Template Path**.
+3. Use template structure for the report. Fill placeholders per guidance below.
 
-- Overall quality score and key metrics
-- Critical issues requiring immediate attention
-- Summary of findings by category
+If the template frontmatter includes an `emit_hint`, use it for artifact registration.
 
-**Detailed Findings by Category**
+### Content Guidance
 
-- Pattern Consistency violations with specific examples
-- Comment Quality issues with locations and recommendations
-- Code Duplication instances with refactoring suggestions
-- Documentation Drift problems with required updates
-- Code Structure issues with organizational improvements
-
-**Prioritized Recommendations**
-
-- Critical issues (must fix before release)
-- High priority improvements (next sprint)
-- Medium priority enhancements (future iterations)
-- Long-term process improvements
-
-**Quality Metrics Dashboard**
-
-- Scores for each quality dimension
-- Comparison against target thresholds
-- Trend analysis and improvement tracking
-
-For each violation or issue you identify, include:
-
-- Specific file locations and line numbers
-- Code examples showing the problem
-- Explanation of why it violates established patterns
-- Recommended fix with example implementation
-- Estimated effort and impact assessment
-
-Example report structure:
-
-```markdown
-# Comprehensive Code Quality Audit Report
-
-**Feature**: [Feature Name]
-**Audit Date**: [Date]
-**Overall Quality Score**: X/100
-
-## Executive Summary
-[Brief overview of key findings and critical issues]
-
-## Critical Issues (Must Fix)
-### CRITICAL-001: [Issue Title]
-**Location**: [file:line]
-**Impact**: [Description of impact]
-**Current Code**:
-```[language]
-[problematic code example]
-```
-
-**Recommended Fix**:
-
-```[language]
-[corrected code example]
-```
-
-**Effort**: [time estimate]
-
-## Quality Metrics Dashboard
-
-| Category | Score | Issues | Priority |
-|----------|-------|--------|----------|
-| Pattern Consistency | X/100 | N violations | High/Medium/Low |
-| Comment Quality | X/100 | N issues | High/Medium/Low |
-| Code Duplication | X/100 | N instances | High/Medium/Low |
-| Documentation Drift | X/100 | N problems | High/Medium/Low |
-| Code Structure | X/100 | N issues | High/Medium/Low |
-
-## Recommendations
-
-[Prioritized list of actions organized by timeline]
-
-```
-
-Remember: Focus on maintainability, consistency, and adherence to project standards. Identify technical debt and quality issues that will impact long-term maintenance. Be specific, actionable, and provide clear examples.
+- **Quality Metrics Dashboard**: Score each dimension (Pattern Consistency, Comment Quality, Code Duplication, Documentation Drift, Code Structure) out of 100.
+- **Findings**: For each violation include specific file:line locations, code examples, explanation of pattern violation, recommended fix, effort estimate.
+- **Prioritized Recommendations**: Group by Critical (must fix before release), High (next sprint), Medium (future), Long-term.
+- Focus on maintainability, consistency, and adherence to project standards. Be specific and actionable.
 
 Your final output should consist only of the comprehensive audit report in the format specified above, and should not duplicate or rehash any of the detailed analysis work you performed in your thinking block.
