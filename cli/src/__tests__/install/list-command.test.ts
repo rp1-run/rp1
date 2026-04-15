@@ -191,6 +191,8 @@ describe("executeList", () => {
 					[
 						"FEATURE_ID",
 						"REQUIREMENTS",
+						"PHASE_PLAN_PATH",
+						"PHASE_ID",
 						"AFK",
 						"GIT_COMMIT",
 						"GIT_PUSH",
