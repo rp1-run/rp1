@@ -642,7 +642,7 @@ export const buildPlatformPlugin = async (
 		const skillContent = injectEmitHarness(renderResult.right, platform);
 
 		const validateResult =
-			platform === "codex"
+			platform === "codex" || platform === "copilot"
 				? validateCodexSkill(skillContent, `${namespacedSkillDir}/SKILL.md`)
 				: validateSkill(skillContent, `${namespacedSkillDir}/SKILL.md`);
 		if (E.isLeft(validateResult)) {

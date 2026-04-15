@@ -21,20 +21,26 @@ export interface PlatformVersions {
 	readonly [platform: string]: VersionMarker;
 }
 
-const getVersionFilePath = (): string =>
-	join(process.env.HOME ?? homedir(), ".rp1", "platform-versions.json");
+const getVersionFilePath = (homeOverride?: string): string =>
+	join(
+		homeOverride ?? process.env.HOME ?? homedir(),
+		".rp1",
+		"platform-versions.json",
+	);
 
 /**
  * Write a version marker for a specific platform into the centralized file.
  * Reads the existing file (if any), updates the entry, and writes back atomically.
+ * @param homeOverride - Override the home directory (for testing).
  */
 export const writeVersionMarker = (
 	platform: string,
 	version: string,
+	homeOverride?: string,
 ): TE.TaskEither<CLIError, void> =>
 	TE.tryCatch(
 		async () => {
-			const filePath = getVersionFilePath();
+			const filePath = getVersionFilePath(homeOverride);
 			const existing = await readExistingMarkers(filePath);
 			const updated: PlatformVersions = {
 				...existing,
@@ -60,13 +66,17 @@ export const writeVersionMarker = (
 /**
  * Read the version marker for a specific platform from the centralized file.
  * Returns null if the file is missing or the platform has no entry.
+ * @param homeOverride - Override the home directory (for testing).
  */
 export const readVersionMarker = (
 	platform: string,
+	homeOverride?: string,
 ): TE.TaskEither<CLIError, VersionMarker | null> =>
 	TE.tryCatch(
 		async () => {
-			const markers = await readExistingMarkers(getVersionFilePath());
+			const markers = await readExistingMarkers(
+				getVersionFilePath(homeOverride),
+			);
 			return markers[platform] ?? null;
 		},
 		(e) =>
@@ -79,13 +89,13 @@ export const readVersionMarker = (
 /**
  * Read all platform version markers from the centralized file.
  * Returns an empty object if the file does not exist.
+ * @param homeOverride - Override the home directory (for testing).
  */
-export const readAllVersionMarkers = (): TE.TaskEither<
-	CLIError,
-	PlatformVersions
-> =>
+export const readAllVersionMarkers = (
+	homeOverride?: string,
+): TE.TaskEither<CLIError, PlatformVersions> =>
 	TE.tryCatch(
-		async () => readExistingMarkers(getVersionFilePath()),
+		async () => readExistingMarkers(getVersionFilePath(homeOverride)),
 		(e) =>
 			installError("version-marker", `Failed to read version markers: ${e}`),
 	);
