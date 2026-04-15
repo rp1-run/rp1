@@ -4,6 +4,7 @@
  */
 
 import { afterEach, describe, expect, mock, test } from "bun:test";
+import { join } from "node:path";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { Logger } from "../../../shared/logger.js";
 import type {
@@ -11,7 +12,12 @@ import type {
 	ToolsRegistry,
 } from "../../config/supported-tools.js";
 import type { InstallContext } from "../../shared/install-core.js";
-import { expectTaskRight } from "../helpers/index.js";
+import {
+	cleanupTempDir,
+	createTempDir,
+	expectTaskRight,
+	withEnvOverride,
+} from "../helpers/index.js";
 
 // Create mock logger
 const createMockLogger = (): Logger => ({
@@ -376,109 +382,124 @@ describe("install-core Copilot flows", () => {
 
 	test("installCopilotPlugins passes explicit Copilot artifacts through the shared install path", async () => {
 		const installCalls: Array<{ config: unknown; ctx: InstallContext }> = [];
-		const versionMarkerCalls: Array<{ platform: string; version: string }> = [];
+		const homeDir = await createTempDir("install-core-copilot-explicit");
+		const restoreHome = withEnvOverride("HOME", homeDir);
 
-		mock.module("../../install/copilot/index.js", () => ({
-			getDefaultCopilotArtifactsDir: () => "/mock/default-copilot",
-			installCopilot: (config: unknown, ctx: InstallContext) => {
-				installCalls.push({ config, ctx });
-				return TE.right({
-					marketplaceAdded: true,
-					pluginsInstalled: ["rp1-base", "rp1-dev"],
-					warnings: [],
-				});
-			},
-		}));
-		mock.module("../../install/version-marker.js", () => ({
-			writeVersionMarker: (platform: string, version: string) => {
-				versionMarkerCalls.push({ platform, version });
-				return TE.right(undefined);
-			},
-		}));
-		mock.module("../../lib/version.js", () => ({
-			getInstalledVersion: () => "9.9.9",
-		}));
-
-		const installCore = (await import(
-			`../../shared/install-core.js?copilot-explicit=${Date.now()}`
-		)) as typeof import("../../shared/install-core.js");
-		const result = await expectTaskRight(
-			installCore.installCopilotPlugins(
-				{ artifactsDir: "/tmp/copilot-artifacts" },
-				createMockContext({ dryRun: false, skipPrompt: true }),
-			),
-		);
-
-		expect(result.pluginsInstalled).toEqual(["rp1-base", "rp1-dev"]);
-		expect(result.warnings).toEqual([]);
-		expect(installCalls).toEqual([
-			{
-				config: {
-					artifactsDir: "/tmp/copilot-artifacts",
-					dryRun: false,
-					yes: true,
+		try {
+			mock.module("../../install/copilot/index.js", () => ({
+				getDefaultCopilotArtifactsDir: () => "/mock/default-copilot",
+				installCopilot: (config: unknown, ctx: InstallContext) => {
+					installCalls.push({ config, ctx });
+					return TE.right({
+						marketplaceAdded: true,
+						pluginsInstalled: ["rp1-base", "rp1-dev"],
+						warnings: [],
+					});
 				},
-				ctx: expect.objectContaining({
-					dryRun: false,
-					isTTY: false,
-					skipPrompt: true,
-				}),
-			},
-		]);
-		expect(versionMarkerCalls).toEqual([
-			{ platform: "copilot", version: "9.9.9" },
-		]);
+			}));
+			mock.module("../../lib/version.js", () => ({
+				getInstalledVersion: () => "9.9.9",
+			}));
+
+			const installCore = (await import(
+				`../../shared/install-core.js?copilot-explicit=${Date.now()}`
+			)) as typeof import("../../shared/install-core.js");
+			const result = await expectTaskRight(
+				installCore.installCopilotPlugins(
+					{ artifactsDir: "/tmp/copilot-artifacts" },
+					createMockContext({ dryRun: false, skipPrompt: true }),
+				),
+			);
+
+			expect(result.pluginsInstalled).toEqual(["rp1-base", "rp1-dev"]);
+			expect(result.warnings).toEqual([]);
+			expect(installCalls).toEqual([
+				{
+					config: {
+						artifactsDir: "/tmp/copilot-artifacts",
+						dryRun: false,
+						yes: true,
+					},
+					ctx: expect.objectContaining({
+						dryRun: false,
+						isTTY: false,
+						skipPrompt: true,
+					}),
+				},
+			]);
+
+			const markerFile = join(homeDir, ".rp1", "platform-versions.json");
+			const markers = JSON.parse(await Bun.file(markerFile).text()) as Record<
+				string,
+				{ version: string }
+			>;
+			expect(markers.copilot?.version).toBe("9.9.9");
+		} finally {
+			restoreHome();
+			await cleanupTempDir(homeDir);
+		}
 	});
 
 	test("installForSpecificTool routes Copilot updates through the shared default artifacts path", async () => {
 		const installCalls: Array<{ config: unknown; ctx: InstallContext }> = [];
+		const homeDir = await createTempDir("install-core-copilot-specific");
+		const restoreHome = withEnvOverride("HOME", homeDir);
 
-		mock.module("../../install/copilot/index.js", () => ({
-			getDefaultCopilotArtifactsDir: () => "/mock/default-copilot",
-			installCopilot: (config: unknown, ctx: InstallContext) => {
-				installCalls.push({ config, ctx });
-				return TE.right({
-					marketplaceAdded: true,
-					pluginsInstalled: ["rp1-base", "rp1-dev"],
-					warnings: ["restart Copilot"],
-				});
-			},
-		}));
-		mock.module("../../install/version-marker.js", () => ({
-			writeVersionMarker: () => TE.right(undefined),
-		}));
-		mock.module("../../lib/version.js", () => ({
-			getInstalledVersion: () => "9.9.9",
-		}));
-
-		const installCore = (await import(
-			`../../shared/install-core.js?copilot-specific=${Date.now()}`
-		)) as typeof import("../../shared/install-core.js");
-		const result = await expectTaskRight(
-			installCore.installForSpecificTool(
-				"copilot",
-				createCopilotRegistry(),
-				createMockContext({ dryRun: false, skipPrompt: true }),
-			),
-		);
-
-		expect(result.toolId).toBe("copilot");
-		expect(result.toolName).toBe("GitHub Copilot CLI");
-		expect(result.pluginsInstalled).toEqual(["rp1-base", "rp1-dev"]);
-		expect(result.warnings).toEqual(["restart Copilot"]);
-		expect(installCalls).toEqual([
-			{
-				config: {
-					artifactsDir: "/mock/default-copilot",
-					dryRun: false,
-					yes: true,
+		try {
+			mock.module("../../install/copilot/index.js", () => ({
+				getDefaultCopilotArtifactsDir: () => "/mock/default-copilot",
+				installCopilot: (config: unknown, ctx: InstallContext) => {
+					installCalls.push({ config, ctx });
+					return TE.right({
+						marketplaceAdded: true,
+						pluginsInstalled: ["rp1-base", "rp1-dev"],
+						warnings: ["restart Copilot"],
+					});
 				},
-				ctx: expect.objectContaining({
-					dryRun: false,
-					isTTY: false,
-					skipPrompt: true,
-				}),
-			},
-		]);
+			}));
+			mock.module("../../lib/version.js", () => ({
+				getInstalledVersion: () => "9.9.9",
+			}));
+
+			const installCore = (await import(
+				`../../shared/install-core.js?copilot-specific=${Date.now()}`
+			)) as typeof import("../../shared/install-core.js");
+			const result = await expectTaskRight(
+				installCore.installForSpecificTool(
+					"copilot",
+					createCopilotRegistry(),
+					createMockContext({ dryRun: false, skipPrompt: true }),
+				),
+			);
+
+			expect(result.toolId).toBe("copilot");
+			expect(result.toolName).toBe("GitHub Copilot CLI");
+			expect(result.pluginsInstalled).toEqual(["rp1-base", "rp1-dev"]);
+			expect(result.warnings).toEqual(["restart Copilot"]);
+			expect(installCalls).toEqual([
+				{
+					config: {
+						artifactsDir: "/mock/default-copilot",
+						dryRun: false,
+						yes: true,
+					},
+					ctx: expect.objectContaining({
+						dryRun: false,
+						isTTY: false,
+						skipPrompt: true,
+					}),
+				},
+			]);
+
+			const markerFile = join(homeDir, ".rp1", "platform-versions.json");
+			const markers = JSON.parse(await Bun.file(markerFile).text()) as Record<
+				string,
+				{ version: string }
+			>;
+			expect(markers.copilot?.version).toBe("9.9.9");
+		} finally {
+			restoreHome();
+			await cleanupTempDir(homeDir);
+		}
 	});
 });
