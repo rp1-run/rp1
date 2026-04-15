@@ -55,6 +55,8 @@ Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the gen
 
 `UPDATE_CONTEXT` is optional revision guidance for refreshing an existing phase plan.
 
+This workflow is single-pass. It does not emit `waiting_for_user` for source ambiguity. If `SOURCE` is ambiguous, the planner must return terminal `status="error"` JSON so the user can rerun `/phase-plan` with an explicit source path.
+
 ## STATE-MACHINE
 
 ```mermaid
@@ -141,6 +143,8 @@ Parse the JSON response. Accept only this completion contract:
 
 If the agent returns `status=error`, omits any required field, or references files outside the source artifact and the source-adjacent phase plan, emit `failed` and stop.
 
+For `status="error"` responses, treat this as a terminal workflow result, not an interactive pause. Surface the planner's `message`. If the response includes `candidate_paths`, list them and tell the user to rerun `/phase-plan` with one explicit source path.
+
 ### 2. Publish the Phase Plan
 
 After a valid success response, transition to `publish`:
@@ -190,6 +194,23 @@ Output:
 **Source Kind**: {source_kind}
 **Phases**: {phase_ids joined by ", "}
 ```
+
+### Error Output
+
+When the planner returns `status="error"`, output:
+
+```markdown
+## Phase Plan Failed
+
+**Reason**: {message}
+**Candidates**:
+- {candidate_paths[0]}
+- {candidate_paths[1]}
+
+**Next**: Re-run `/phase-plan` with one explicit source path from the list above.
+```
+
+Omit the `Candidates` block when `candidate_paths` is absent or empty.
 
 ## §RULES
 

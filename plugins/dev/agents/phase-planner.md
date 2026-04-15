@@ -83,7 +83,7 @@ Resolve `SOURCE` to exactly one supported planning source.
 - Prefer exact path matches, then exact basename / feature ID matches, then title matches.
 - If multiple candidates remain:
   - `AFK_MODE=true`: pick the strongest match, document the choice in `afk_decisions[]`
-  - `AFK_MODE=false`: ask the user to choose the source before proceeding
+  - `AFK_MODE=false`: do NOT ask a follow-up question. Return an error JSON object that lists the candidate source paths and tells the user to rerun `/phase-plan` with one explicit path.
 - If no supported source resolves, return:
 
 ```json
@@ -244,7 +244,8 @@ Return only JSON.
   "message": "{description}",
   "source_path": null,
   "artifact_path": null,
-  "afk_decisions": []
+  "afk_decisions": [],
+  "candidate_paths": ["prds/example.md", "features/example/requirements.md"]
 }
 ```
 
@@ -260,4 +261,4 @@ Single pass only:
 6. Refresh the source backlink section
 7. Return JSON
 
-Do not ask for clarification unless source selection is ambiguous and `AFK_MODE=false`. Do not iterate after writing.
+Do not ask for clarification. On ambiguous source selection with `AFK_MODE=false`, return an error JSON object with `candidate_paths` and rerun guidance instead of prompting. Do not iterate after writing.

@@ -146,7 +146,7 @@ agents:
   - name: rp1-dev:phase-planner
     description: "Decomposes a planning source into a source-adjacent phase-plan artifact and refreshes source backlinks."
     plugin: dev
-    last_checksum: 9c60b8bf1f46865f5250c01ace9ca7cfe3695689ef06fb2ce38baf5ecc9e5a12
+    last_checksum: 8d052903777edd761d0f65552a8d917d9cf95f7bf11552498bc2d85045834cbe
   - name: rp1-dev:pr-comment-deduplicator
     description: "Deduplicates PR review comments against existing bot and human comments"
     plugin: dev

@@ -217,6 +217,33 @@ describe("phase planning prompt contracts", () => {
 		);
 	});
 
+	test("phase-plan treats ambiguous source resolution as terminal error guidance", async () => {
+		const phasePlanner = await readProjectFile(
+			"plugins/dev/agents/phase-planner.md",
+		);
+		const phasePlanSkill = await readProjectFile(
+			"plugins/dev/skills/phase-plan/SKILL.md",
+		);
+
+		expect(phasePlanner).toContain(
+			"`AFK_MODE=false`: do NOT ask a follow-up question.",
+		);
+		expect(phasePlanner).toContain("candidate_paths");
+		expect(phasePlanner).toContain(
+			"return an error JSON object with `candidate_paths` and rerun guidance instead of prompting.",
+		);
+		expect(phasePlanSkill).toContain(
+			"This workflow is single-pass. It does not emit `waiting_for_user` for source ambiguity.",
+		);
+		expect(phasePlanSkill).toContain(
+			'For `status="error"` responses, treat this as a terminal workflow result, not an interactive pause.',
+		);
+		expect(phasePlanSkill).toContain("## Phase Plan Failed");
+		expect(phasePlanSkill).toContain(
+			"Re-run `/phase-plan` with one explicit source path from the list above.",
+		);
+	});
+
 	test("phase-plan template keeps durable handoff fields", async () => {
 		const phasePlanTemplate = await readProjectFile(
 			"plugins/base/skills/artifact-templates/templates/phase-planner/phase-plan.md",
