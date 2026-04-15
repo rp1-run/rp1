@@ -6,7 +6,7 @@
  * then exercise executeEmit which reuses the cached singleton.
  */
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -116,6 +116,56 @@ describe("emit end-to-end", () => {
 			const result = await expectTaskRight(executeEmit(input));
 
 			expect(result.data.runStatus).toBe("running");
+		});
+
+		test("forwards the emitted event and generated notification to the daemon when available", async () => {
+			const notifyEventMock = mock(async () => true);
+			const notifyNotificationMock = mock(async () => true);
+			mock.module("../../../../web-ui/src/daemon/index.js", () => ({
+				connectToDaemon: async () => ({
+					port: 6710,
+					baseUrl: "http://127.0.0.1:6710",
+				}),
+				notifyEvent: notifyEventMock,
+				notifyNotification: notifyNotificationMock,
+			}));
+
+			const input = makeInput({
+				type: "status_change",
+				step: "build",
+				data: { status: "completed", workflow: "build", feature: "feat" },
+			});
+
+			const result = await expectTaskRight(executeEmit(input));
+
+			expect(notifyEventMock).toHaveBeenCalledTimes(1);
+			expect(notifyEventMock).toHaveBeenCalledWith(
+				expect.objectContaining({
+					port: 6710,
+					baseUrl: "http://127.0.0.1:6710",
+				}),
+				expect.objectContaining({
+					eventType: "status_change",
+					eventId: result.data.eventId,
+					runId: input.runId,
+					projectPath: tempDir,
+					featureId: "feat",
+					step: "build",
+				}),
+			);
+
+			expect(notifyNotificationMock).toHaveBeenCalledTimes(1);
+			expect(notifyNotificationMock).toHaveBeenCalledWith(
+				expect.objectContaining({
+					port: 6710,
+					baseUrl: "http://127.0.0.1:6710",
+				}),
+				expect.objectContaining({
+					sourceType: "run",
+					sourceId: input.runId,
+					route: `/runs/${input.runId}`,
+				}),
+			);
 		});
 
 		test("persists resolved directory metadata on the run", async () => {

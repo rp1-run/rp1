@@ -10,13 +10,14 @@ import {
 
 import type {
 	AnnotationMessage,
-	AttentionCallback,
 	ConnectionStatus,
 	EventNotificationMessage,
+	EventReplayMessage,
 	FileChangedMessage,
 	NotificationMessage,
 	ProjectsChangedMessage,
 	ServerMessage,
+	StateSnapshotCallback,
 	TreeChangedMessage,
 } from "../types/websocket";
 
@@ -25,6 +26,7 @@ export type {
 	EventNotificationMessage,
 	FileChangedMessage,
 	NotificationMessage,
+	StateSnapshotMessage,
 	TreeChangedMessage,
 } from "../types/websocket";
 
@@ -39,6 +41,7 @@ interface WebSocketContextValue {
 	onEventNotification: (
 		callback: (msg: EventNotificationMessage) => void,
 	) => () => void;
+	onStateSnapshot: (callback: StateSnapshotCallback) => () => void;
 	onProjectsChange: (
 		callback: (msg: ProjectsChangedMessage) => void,
 	) => () => void;
@@ -46,7 +49,6 @@ interface WebSocketContextValue {
 		callback: (msg: AnnotationMessage) => void,
 	) => () => void;
 	onNotification: (callback: (msg: NotificationMessage) => void) => () => void;
-	subscribeToAttention: (callback: AttentionCallback) => () => void;
 	subscribeToReconnect: (callback: () => void) => () => void;
 }
 
@@ -55,7 +57,7 @@ const WebSocketContext = createContext<WebSocketContextValue | null>(null);
 const INITIAL_RECONNECT_DELAY = 2000;
 const MAX_RECONNECT_DELAY = 30000;
 const RECONNECT_BACKOFF_FACTOR = 2;
-const POLLING_INTERVAL = 5000;
+const LAST_EVENT_ID_STORAGE_PREFIX = "rp1:last-event-id:";
 
 interface WebSocketProviderProps {
 	children: ReactNode;
@@ -69,11 +71,9 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
 		null,
 	);
-	const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
-		null,
-	);
 	const mountedRef = useRef(true);
 	const projectIdRef = useRef<string | null>(null);
+	const lastEventIdByProjectRef = useRef<Map<string, number>>(new Map());
 	const fileChangeListenersRef = useRef<Set<(msg: FileChangedMessage) => void>>(
 		new Set(),
 	);
@@ -92,27 +92,106 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	const notificationListenersRef = useRef<
 		Set<(msg: NotificationMessage) => void>
 	>(new Set());
+	const snapshotListenersRef = useRef<Set<StateSnapshotCallback>>(new Set());
 	const subscriptionsRef = useRef<Set<string>>(new Set());
-	const attentionListenersRef = useRef<Set<AttentionCallback>>(new Set());
 	const reconnectListenersRef = useRef<Set<() => void>>(new Set());
 	const notifyReconnectRef = useRef(false);
 
-	const startPollingFallback = useCallback(() => {
-		if (pollingIntervalRef.current) return;
-
-		pollingIntervalRef.current = setInterval(() => {
-			for (const callback of attentionListenersRef.current) {
-				callback();
+	const readStoredLastEventId = useCallback(
+		(targetProjectId: string): number | null => {
+			const cached = lastEventIdByProjectRef.current.get(targetProjectId);
+			if (cached != null) {
+				return cached;
 			}
-		}, POLLING_INTERVAL);
-	}, []);
 
-	const stopPollingFallback = useCallback(() => {
-		if (pollingIntervalRef.current) {
-			clearInterval(pollingIntervalRef.current);
-			pollingIntervalRef.current = null;
-		}
-	}, []);
+			try {
+				const storedValue = sessionStorage.getItem(
+					`${LAST_EVENT_ID_STORAGE_PREFIX}${targetProjectId}`,
+				);
+				if (storedValue == null) {
+					return null;
+				}
+				const parsedValue = Number.parseInt(storedValue, 10);
+				if (Number.isNaN(parsedValue)) {
+					return null;
+				}
+				lastEventIdByProjectRef.current.set(targetProjectId, parsedValue);
+				return parsedValue;
+			} catch {
+				return null;
+			}
+		},
+		[],
+	);
+
+	const advanceLastEventId = useCallback(
+		(targetProjectId: string, eventId: number) => {
+			const currentValue = readStoredLastEventId(targetProjectId);
+			if (currentValue != null && currentValue >= eventId) {
+				return;
+			}
+
+			lastEventIdByProjectRef.current.set(targetProjectId, eventId);
+			try {
+				sessionStorage.setItem(
+					`${LAST_EVENT_ID_STORAGE_PREFIX}${targetProjectId}`,
+					String(eventId),
+				);
+			} catch {}
+		},
+		[readStoredLastEventId],
+	);
+
+	const parseReplayEventData = useCallback(
+		(rawData: string | null): Record<string, unknown> | null => {
+			if (rawData == null) {
+				return null;
+			}
+
+			try {
+				const parsed = JSON.parse(rawData) as unknown;
+				return parsed !== null && typeof parsed === "object"
+					? (parsed as Record<string, unknown>)
+					: null;
+			} catch {
+				return null;
+			}
+		},
+		[],
+	);
+
+	const normalizeReplayMessage = useCallback(
+		(
+			message: EventReplayMessage,
+			targetProjectId: string | null,
+		): EventNotificationMessage | null => {
+			if (targetProjectId == null) {
+				return null;
+			}
+
+			return {
+				type: "event:notification",
+				eventId: message.event.id,
+				eventType: message.event.eventType,
+				runId: message.event.runId,
+				projectId: targetProjectId,
+				featureId: "",
+				step: message.event.step,
+				data: parseReplayEventData(message.event.data),
+				createdAt: message.event.createdAt,
+			};
+		},
+		[parseReplayEventData],
+	);
+
+	const emitEventNotification = useCallback(
+		(message: EventNotificationMessage) => {
+			for (const listener of eventNotificationListenersRef.current) {
+				listener(message);
+			}
+		},
+		[],
+	);
 
 	useEffect(() => {
 		mountedRef.current = true;
@@ -127,9 +206,18 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 
 			const currentProjectId = projectIdRef.current;
 			const wsProto = window.location.protocol === "https:" ? "wss" : "ws";
-			const wsUrl = currentProjectId
-				? `${wsProto}://${window.location.host}/ws?projectId=${encodeURIComponent(currentProjectId)}`
-				: `${wsProto}://${window.location.host}/ws`;
+			const wsUrl = (() => {
+				const query = new URLSearchParams();
+				if (currentProjectId) {
+					query.set("projectId", currentProjectId);
+					const lastEventId = readStoredLastEventId(currentProjectId);
+					if (lastEventId != null) {
+						query.set("lastEventId", String(lastEventId));
+					}
+				}
+				const queryString = query.toString();
+				return `${wsProto}://${window.location.host}/ws${queryString ? `?${queryString}` : ""}`;
+			})();
 			const ws = new WebSocket(wsUrl);
 
 			ws.onopen = () => {
@@ -139,7 +227,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				}
 				setStatus("connected");
 				reconnectDelayRef.current = INITIAL_RECONNECT_DELAY;
-				stopPollingFallback();
 
 				for (const path of subscriptionsRef.current) {
 					ws.send(JSON.stringify({ type: "subscribe", path }));
@@ -158,7 +245,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				setStatus("disconnected");
 				wsRef.current = null;
 				notifyReconnectRef.current = true;
-				startPollingFallback();
 				scheduleReconnect();
 			};
 
@@ -191,11 +277,29 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 					}
 					break;
 				case "event:notification":
-					for (const listener of eventNotificationListenersRef.current) {
-						listener(message);
+					advanceLastEventId(message.projectId, message.eventId);
+					emitEventNotification(message);
+					break;
+				case "event:replay": {
+					const normalizedMessage = normalizeReplayMessage(
+						message,
+						projectIdRef.current,
+					);
+					if (normalizedMessage) {
+						advanceLastEventId(
+							normalizedMessage.projectId,
+							normalizedMessage.eventId,
+						);
+						emitEventNotification(normalizedMessage);
 					}
-					for (const callback of attentionListenersRef.current) {
-						callback();
+					break;
+				}
+				case "state:snapshot":
+					if (projectIdRef.current != null) {
+						advanceLastEventId(projectIdRef.current, message.lastEventId);
+					}
+					for (const listener of snapshotListenersRef.current) {
+						listener(message);
 					}
 					break;
 				case "projects:changed":
@@ -242,7 +346,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 
 		return () => {
 			mountedRef.current = false;
-			stopPollingFallback();
 			if (reconnectTimeoutRef.current) {
 				clearTimeout(reconnectTimeoutRef.current);
 				reconnectTimeoutRef.current = null;
@@ -252,7 +355,13 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				wsRef.current = null;
 			}
 		};
-	}, [projectId, startPollingFallback, stopPollingFallback]);
+	}, [
+		projectId,
+		advanceLastEventId,
+		emitEventNotification,
+		normalizeReplayMessage,
+		readStoredLastEventId,
+	]);
 
 	const subscribe = useCallback((path: string) => {
 		subscriptionsRef.current.add(path);
@@ -318,6 +427,13 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 		[],
 	);
 
+	const onStateSnapshot = useCallback((callback: StateSnapshotCallback) => {
+		snapshotListenersRef.current.add(callback);
+		return () => {
+			snapshotListenersRef.current.delete(callback);
+		};
+	}, []);
+
 	const onProjectsChange = useCallback(
 		(callback: (msg: ProjectsChangedMessage) => void) => {
 			projectsChangeListenersRef.current.add(callback);
@@ -327,13 +443,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 		},
 		[],
 	);
-
-	const subscribeToAttention = useCallback((callback: AttentionCallback) => {
-		attentionListenersRef.current.add(callback);
-		return () => {
-			attentionListenersRef.current.delete(callback);
-		};
-	}, []);
 
 	const subscribeToReconnect = useCallback((callback: () => void) => {
 		reconnectListenersRef.current.add(callback);
@@ -357,10 +466,10 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				onFileChange,
 				onTreeChange,
 				onEventNotification,
+				onStateSnapshot,
 				onProjectsChange,
 				onAnnotationMessage,
 				onNotification,
-				subscribeToAttention,
 				subscribeToReconnect,
 			}}
 		>

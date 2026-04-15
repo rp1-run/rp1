@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { liveRunIndex } from "@/lib/live-run-index";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type {
 	Artifact,
@@ -10,7 +11,12 @@ import type {
 import type {
 	ConnectionStatus,
 	EventNotificationMessage,
+	StateSnapshotMessage,
 } from "@/types/websocket";
+import {
+	useLiveRunIndexBridge,
+	useLiveRunIndexSnapshot,
+} from "./useLiveRunIndex";
 
 const runDetailCache = new Map<string, Run>();
 
@@ -28,6 +34,38 @@ const TERMINAL_RUN_STATUSES = new Set<RunStatus>([
 	"abandoned",
 ]);
 
+function mergeLiveRunSummary(run: Run, summary: Run): Run {
+	return {
+		...run,
+		projectId: summary.projectId,
+		projectName: summary.projectName,
+		featureId: summary.featureId,
+		featureName: summary.featureName,
+		name: summary.name ?? run.name,
+		command: summary.command,
+		status: summary.status,
+		harness: summary.harness ?? run.harness,
+		currentStep: summary.currentStep ?? run.currentStep,
+		startedAt: summary.startedAt,
+		lastEventAt: summary.lastEventAt ?? run.lastEventAt ?? run.startedAt,
+		completedAt: summary.completedAt ?? run.completedAt,
+		statusMessage: summary.statusMessage ?? run.statusMessage ?? null,
+		error: summary.error ?? run.error,
+	};
+}
+
+function snapshotMayAffectRun(
+	currentRun: Run,
+	socketProjectId: string | null,
+	message: StateSnapshotMessage,
+): boolean {
+	if (message.runs.some((snapshotRun) => snapshotRun.id === currentRun.id)) {
+		return true;
+	}
+
+	return socketProjectId === currentRun.projectId;
+}
+
 export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 	const [run, setRun] = useState<Run | null>(() =>
 		runId ? (runDetailCache.get(runId) ?? null) : null,
@@ -36,9 +74,16 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 		runId ? !runDetailCache.has(runId) : false,
 	);
 	const [error, setError] = useState<Error | null>(null);
-	const { onEventNotification, status: wsStatus } = useWebSocket();
+	const {
+		onEventNotification,
+		onStateSnapshot,
+		projectId: socketProjectId,
+		status: wsStatus,
+	} = useWebSocket();
 	const prevWsStatusRef = useRef<ConnectionStatus>(wsStatus);
 	const runRef = useRef<Run | null>(null);
+	useLiveRunIndexBridge();
+	const liveSnapshot = useLiveRunIndexSnapshot();
 
 	const fetchRun = useCallback(async () => {
 		if (!runId) {
@@ -60,6 +105,7 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 			setRun(runData);
 			runRef.current = runData;
 			runDetailCache.set(runId, runData);
+			liveRunIndex.upsertRun(runData);
 			setError(null);
 		} catch (err) {
 			const nextError = err instanceof Error ? err : new Error(String(err));
@@ -96,6 +142,10 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 		if (!runId || !run) return;
 		runDetailCache.set(runId, run);
 	}, [runId, run]);
+
+	useEffect(() => {
+		runRef.current = run;
+	}, [run]);
 
 	const debouncedFetchRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -271,6 +321,65 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 			clearTimeout(debouncedFetchRef.current);
 		};
 	}, [runId, onEventNotification, fetchRun]);
+
+	useEffect(() => {
+		if (!runId) {
+			return;
+		}
+
+		void liveSnapshot;
+		const currentRun = runRef.current;
+		if (!currentRun) {
+			return;
+		}
+
+		const liveSummary = liveRunIndex.getRun(runId);
+		if (!liveSummary) {
+			return;
+		}
+
+		setRun((prev) => {
+			if (!prev) {
+				return prev;
+			}
+
+			const nextRun = mergeLiveRunSummary(prev, liveSummary);
+			if (
+				nextRun.projectName === prev.projectName &&
+				nextRun.featureName === prev.featureName &&
+				nextRun.name === prev.name &&
+				nextRun.command === prev.command &&
+				nextRun.status === prev.status &&
+				nextRun.harness === prev.harness &&
+				nextRun.currentStep === prev.currentStep &&
+				nextRun.lastEventAt === prev.lastEventAt &&
+				nextRun.completedAt === prev.completedAt &&
+				nextRun.statusMessage === prev.statusMessage &&
+				nextRun.error === prev.error
+			) {
+				return prev;
+			}
+
+			return nextRun;
+		});
+	}, [liveSnapshot, runId]);
+
+	useEffect(() => {
+		if (!runId) {
+			return;
+		}
+
+		return onStateSnapshot((message) => {
+			const currentRun = runRef.current;
+			if (
+				!currentRun ||
+				!snapshotMayAffectRun(currentRun, socketProjectId, message)
+			) {
+				return;
+			}
+			void fetchRun();
+		});
+	}, [fetchRun, onStateSnapshot, runId, socketProjectId]);
 
 	// Reconnection reconciliation: when the WebSocket transitions from
 	// disconnected/connecting to connected, refetch the full run state to

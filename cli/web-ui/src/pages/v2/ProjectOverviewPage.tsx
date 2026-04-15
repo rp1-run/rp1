@@ -1,12 +1,17 @@
 import { AlertCircle, ChevronRight, FolderOpen } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { RunCard } from "@/components/v2/RunCard";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
+import {
+	useLiveRunIndexBridge,
+	useLiveRunIndexSnapshot,
+} from "@/hooks/useLiveRunIndex";
 import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
 import { useWorkspaceTabs } from "@/hooks/useWorkspaceTabs";
+import { liveRunIndex } from "@/lib/live-run-index";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { V2Project } from "@/types/projects";
@@ -25,6 +30,25 @@ interface ProjectOverviewCacheEntry {
 }
 
 const projectOverviewCache = new Map<string, ProjectOverviewCacheEntry>();
+const RECENT_RUN_LIMIT = 5;
+
+function activityTimestamp(run: Run): string {
+	return run.lastEventAt ?? run.startedAt;
+}
+
+function sortRunsByActivity(runs: readonly Run[]): Run[] {
+	return [...runs].sort((a, b) =>
+		activityTimestamp(b).localeCompare(activityTimestamp(a)),
+	);
+}
+
+function areRunsEqual(current: readonly Run[], next: readonly Run[]): boolean {
+	if (current.length !== next.length) {
+		return false;
+	}
+
+	return current.every((run, index) => run === next[index]);
+}
 
 function LoadingSkeleton() {
 	return (
@@ -120,6 +144,14 @@ export function ProjectOverviewPage() {
 	const [notFound, setNotFound] = useState(false);
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 	const { setProject: setBreadcrumbProject } = useBreadcrumbContext();
+	const knownRunIdsRef = useRef<Set<string>>(
+		new Set([
+			...(cachedEntry?.runs.map((run) => run.id) ?? []),
+			...(projectId ? liveRunIndex.getProjectRunIds(projectId) : []),
+		]),
+	);
+	useLiveRunIndexBridge();
+	const liveSnapshot = useLiveRunIndexSnapshot();
 
 	useEffect(() => {
 		if (project && projectId) {
@@ -144,7 +176,7 @@ export function ProjectOverviewPage() {
 
 			const [projectRes, runsRes] = await Promise.all([
 				fetch(`/api/v2/projects/${projectId}`),
-				fetch(`/api/v2/runs?projectId=${projectId}&limit=5`),
+				fetch(`/api/v2/runs?projectId=${projectId}&limit=${RECENT_RUN_LIMIT}`),
 			]);
 
 			if (projectRes.status === 404) {
@@ -164,14 +196,25 @@ export function ProjectOverviewPage() {
 
 			if (runsRes.ok) {
 				const runsData = (await runsRes.json()) as RunsResponse;
-				setRuns(runsData.runs);
+				liveRunIndex.upsertRuns(runsData.runs);
+				const nextRuns = sortRunsByActivity(
+					runsData.runs.map((run) => liveRunIndex.getRun(run.id) ?? run),
+				);
+				setRuns(nextRuns);
+				knownRunIdsRef.current = new Set([
+					...nextRuns.map((run) => run.id),
+					...liveRunIndex.getProjectRunIds(projectId),
+				]);
 				projectOverviewCache.set(projectId, {
 					project: projectData,
-					runs: runsData.runs,
+					runs: nextRuns,
 				});
 				return;
 			}
 
+			knownRunIdsRef.current = new Set(
+				liveRunIndex.getProjectRunIds(projectId),
+			);
 			projectOverviewCache.set(projectId, {
 				project: projectData,
 				runs: projectOverviewCache.get(projectId)?.runs ?? [],
@@ -192,12 +235,17 @@ export function ProjectOverviewPage() {
 			setError(null);
 			setNotFound(false);
 			setIsLoading(false);
+			knownRunIdsRef.current = new Set();
 			return;
 		}
 
 		const nextCachedEntry = projectOverviewCache.get(projectId) ?? null;
 		setProject(nextCachedEntry?.project ?? null);
 		setRuns([...(nextCachedEntry?.runs ?? [])]);
+		knownRunIdsRef.current = new Set([
+			...(nextCachedEntry?.runs.map((run) => run.id) ?? []),
+			...liveRunIndex.getProjectRunIds(projectId),
+		]);
 		setError(null);
 		setNotFound(false);
 		setIsLoading(nextCachedEntry === null);
@@ -205,6 +253,61 @@ export function ProjectOverviewPage() {
 	}, [projectId, fetchData]);
 
 	useReconnectRecovery(fetchData);
+
+	useEffect(() => {
+		if (!projectId || project === null || isLoading) {
+			return;
+		}
+
+		void liveSnapshot;
+		const liveActivity = liveRunIndex.getLastActivityAt(projectId);
+		const projectRuns = liveRunIndex.getRunsForProject(projectId);
+		const knownRunIds = knownRunIdsRef.current;
+
+		let nextRunCount = project.runCount;
+		for (const liveRun of projectRuns) {
+			if (knownRunIds.has(liveRun.id)) {
+				continue;
+			}
+			knownRunIds.add(liveRun.id);
+			nextRunCount += 1;
+		}
+
+		const nextProject =
+			nextRunCount === project.runCount &&
+			(!liveActivity ||
+				(project.lastActivityAt && liveActivity <= project.lastActivityAt))
+				? project
+				: {
+						...project,
+						runCount: nextRunCount,
+						lastActivityAt:
+							liveActivity &&
+							(!project.lastActivityAt || liveActivity > project.lastActivityAt)
+								? liveActivity
+								: project.lastActivityAt,
+					};
+
+		const mergedRuns = sortRunsByActivity([
+			...runs.map((run) => liveRunIndex.getRun(run.id) ?? run),
+			...projectRuns.filter(
+				(liveRun) => !runs.some((run) => run.id === liveRun.id),
+			),
+		]).slice(0, RECENT_RUN_LIMIT);
+
+		if (nextProject !== project) {
+			setProject(nextProject);
+		}
+
+		if (!areRunsEqual(runs, mergedRuns)) {
+			setRuns(mergedRuns);
+		}
+
+		projectOverviewCache.set(projectId, {
+			project: nextProject,
+			runs: mergedRuns,
+		});
+	}, [isLoading, liveSnapshot, project, projectId, runs]);
 
 	const handleRunClick = useCallback(
 		(run: Run) => {

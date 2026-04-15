@@ -2215,6 +2215,36 @@ export const getRunById = (db: Database, runId: string): RunRecord | null => {
 };
 
 /**
+ * Get a single run with the latest event timestamp used by list views.
+ */
+export const getRunWithLastEventById = (
+	db: Database,
+	runId: string,
+): RunRecordWithLastEvent | null => {
+	const row = db
+		.prepare(
+			`SELECT runs.*,
+			        COALESCE(latest_events.last_event_at, runs.created_at) AS last_event_at
+			 FROM runs
+			 LEFT JOIN (
+			     SELECT run_id, MAX(created_at) AS last_event_at
+			     FROM events
+			     GROUP BY run_id
+			 ) AS latest_events ON latest_events.run_id = runs.id
+			 WHERE runs.id = $id
+			 LIMIT 1`,
+		)
+		.get({ $id: runId }) as (RunRow & { last_event_at: string }) | null;
+
+	return row
+		? {
+				...runRowToRecord(row),
+				lastEventAt: row.last_event_at,
+			}
+		: null;
+};
+
+/**
  * Get all events for a run, ordered chronologically.
  */
 export const getEventsForRun = (db: Database, runId: string): EventRecord[] => {
