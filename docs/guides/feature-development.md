@@ -9,6 +9,7 @@ Build your first feature with rp1's complete development workflow. This tutorial
 ## What You'll Learn
 
 - How rp1's 6-step feature workflow connects together
+- When to phase-plan before starting `/build`
 - Using `/build` as the single entry point for feature development
 - How the builder-reviewer architecture ensures implementation quality
 - The artifacts produced at each step
@@ -35,24 +36,24 @@ Build your first feature with rp1's complete development workflow. This tutorial
 
 ---
 
-## When to Use /build vs /build-fast
+## When to Use /phase-plan vs /build vs /build-fast
 
 Choose the right command based on task complexity:
 
-| Criteria | /build | /build-fast |
-|----------|--------|-------------|
-| **Complexity** | Multi-component features | Single-focus changes |
-| **Documentation** | Full artifacts (requirements, design, tasks) | Quick-build summary (what was done, how it was verified) |
-| **Scope** | Cross-cutting, architectural | Well-defined, isolated |
-| **Planning needed** | Yes - requirements + design | No - direct implementation |
-| **Examples** | New authentication system, API redesign | Bug fix, add config option, small refactor |
+| Criteria | /phase-plan | /build | /build-fast |
+|----------|-------------|--------|-------------|
+| **Complexity** | Initiative-sized, phased, or multi-feature | Multi-component single feature | Single-focus changes |
+| **Primary input** | Completed PRD or oversized `requirements.md` | Feature ID plus feature requirements | Freeform development request |
+| **Documentation** | `phase-plan.md` plus source backlinks | Full feature artifacts (`requirements`, `design`, `tasks`) | Quick-build summary |
+| **Scope** | Multiple independently valuable delivery slices | One independently executable feature | Well-defined, isolated |
+| **Examples** | Rollout plan, platform migration phases, large PRD handoff | New authentication feature, API redesign | Bug fix, config option, small refactor |
 
 **Decision flow**:
 
-1. Can you describe the task in one sentence? → Consider `/build-fast`
-2. Does it touch multiple components or systems? → Use `/build`
-3. Does it require architectural decisions? → Use `/build`
-4. Is it a bug fix or isolated enhancement? → Use `/build-fast`
+1. Do you already have a completed PRD or oversized `requirements.md`? If not, create one before phase planning.
+2. Does the work split into multiple independently valuable features or rollout slices? → Use `/phase-plan`
+3. Is the request still one feature, but it touches multiple components or needs design work? → Use `/build`
+4. Is it a bug fix or isolated enhancement you can describe quickly? → Use `/build-fast`
 
 !!! tip "When in doubt"
     Start with `/build-fast`. If scope grows during implementation, the command will suggest switching to the full workflow.
@@ -62,6 +63,22 @@ Choose the right command based on task complexity:
     ```
 
     [Learn more about build-fast :material-arrow-right:](../reference/dev/build-fast.md)
+
+### When to Insert /phase-plan
+
+Run `/phase-plan` when a PRD or oversized feature requirements artifact is too
+large for one clean `/build` run. The workflow writes a durable `phase-plan.md`
+next to the source artifact, then gives you child-feature handoffs to feed into
+`/build`.
+
+```bash
+/phase-plan prds/auth-overhaul.md
+```
+
+Each child feature later resumes the normal tracked delivery flow through
+`/build`, optionally carrying `PHASE_PLAN_PATH=...` and `PHASE_ID=...` so the
+feature's `requirements.md` records its parent phase and manual verification
+expectations.
 
 ---
 

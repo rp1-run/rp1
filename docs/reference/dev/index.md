@@ -15,6 +15,7 @@ Build features with full workflow orchestration.
 |---------|-------------|
 | [`build`](build.md) | **Primary skill** -- End-to-end feature workflow (requirements -> design -> build -> verify -> archive) |
 | [`build-fast`](build-fast.md) | Quick iteration for small, well-scoped tasks |
+| [`phase-plan`](phase-plan.md) | Decompose a completed PRD or oversized requirements artifact into delivery phases |
 | [`validate-hypothesis`](validate-hypothesis.md) | Test design assumptions through experiments |
 
 ### Blueprint & Planning
@@ -24,6 +25,7 @@ Start projects with structured documentation.
 | Skill | Description |
 |---------|-------------|
 | [`blueprint`](blueprint.md) | Create project charter and PRD documents |
+| [`phase-plan`](phase-plan.md) | Turn a large PRD or oversized requirements artifact into child-feature handoffs |
 | [`blueprint-archive`](blueprint-archive.md) | Archive completed blueprints |
 | [`blueprint-audit`](blueprint-audit.md) | Audit PRDs against implementation status |
 
@@ -76,11 +78,15 @@ Use the same workflow on every host:
 | OpenCode | `/rp1-dev-build my-feature` |
 | Codex | `$rp1-dev-build my-feature` |
 
-`/build` is the primary entry point for large or multi-step feature work:
+`/build` is the primary entry point for large or multi-step feature work, and
+`/phase-plan` sits just ahead of it when a planning source is too large for one
+independent feature:
 
 ```mermaid
 flowchart LR
-    R[Requirements] --> D[Design]
+    P[Phase Plan]
+    P --> R[Requirements]
+    R --> D[Design]
     D --> B[Build]
     B --> V[Verify]
     V --> UR[User Review]
@@ -109,6 +115,7 @@ bootstrap contract, but always starts a fresh run and writes its plan under
 
 | Use Case | Skill |
 |----------|---------|
+| Initiative-sized work, phased rollout, or multiple child features | `/phase-plan` |
 | Multi-component features, architectural changes | `/build` |
 | Bug fixes, small enhancements, isolated changes | `/build-fast` |
 
