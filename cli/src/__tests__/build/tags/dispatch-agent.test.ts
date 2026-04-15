@@ -108,6 +108,47 @@ describe("dispatch_agent tag", () => {
 			});
 		});
 
+		describe("copilot (foreground)", () => {
+			test("renders create_agent format with Copilot namespace", async () => {
+				const output = await render(template, "copilot");
+				expect(output).toContain("create_agent:");
+				expect(output).toContain("agent_type: rp1-dev/code-writer");
+				expect(output).toContain('prompt: "Write the implementation"');
+			});
+
+			test("uses slash namespace format", async () => {
+				const output = await render(template, "copilot");
+				expect(output).toContain("rp1-dev/code-writer");
+				expect(output).not.toContain("rp1-dev:code-writer");
+				expect(output).not.toContain("@rp1-dev/");
+			});
+
+			test("includes file-backed artifact read instructions", async () => {
+				const output = await render(template, "copilot");
+				expect(output).toContain("Wait for the agent to complete");
+				expect(output).toContain(".rp1/work/agent-output/");
+				expect(output).toContain("rp1-dev-code-writer.json");
+			});
+		});
+
+		describe("copilot (background)", () => {
+			const bgTemplate =
+				'{% dispatch_agent "rp1-dev:code-writer", "Write code", background %}';
+
+			test("renders create_agent with background indicator", async () => {
+				const output = await render(bgTemplate, "copilot");
+				expect(output).toContain("create_agent (background):");
+				expect(output).toContain("agent_type: rp1-dev/code-writer");
+			});
+
+			test("includes continue-working and artifact file instructions", async () => {
+				const output = await render(bgTemplate, "copilot");
+				expect(output).toContain("This agent runs in the background");
+				expect(output).toContain(".rp1/work/agent-output/");
+				expect(output).not.toContain("Wait for the agent to complete");
+			});
+		});
+
 		describe("all plugin prefixes", () => {
 			test("handles rp1-base: prefix", async () => {
 				const t = '{% dispatch_agent "rp1-base:knowledge-load", "Load KB" %}';
@@ -120,6 +161,9 @@ describe("dispatch_agent tag", () => {
 
 				const cx = await render(t, "codex");
 				expect(cx).toContain("rp1-base-knowledge-load");
+
+				const cp = await render(t, "copilot");
+				expect(cp).toContain("rp1-base/knowledge-load");
 			});
 
 			test("handles rp1-utils: prefix", async () => {
@@ -133,6 +177,9 @@ describe("dispatch_agent tag", () => {
 
 				const cx = await render(t, "codex");
 				expect(cx).toContain("rp1-utils-tersify-prompt");
+
+				const cp = await render(t, "copilot");
+				expect(cp).toContain("rp1-utils/tersify-prompt");
 			});
 		});
 	});
@@ -176,6 +223,16 @@ FEATURE_ID=my-feature, AFK=false, UPDATE_MODE=false, RP1_ROOT=/path/to/root
 				expect(output).toContain("fork_context: false");
 				expect(output).toContain("FEATURE_ID=my-feature");
 				expect(output).toContain("Wait for the spawned agent to complete");
+			});
+		});
+
+		describe("copilot", () => {
+			test("renders create_agent with Copilot namespace and multi-line prompt", async () => {
+				const output = await render(blockTemplate, "copilot");
+				expect(output).toContain("create_agent:");
+				expect(output).toContain("agent_type: rp1-dev/feature-architect");
+				expect(output).toContain("FEATURE_ID=my-feature");
+				expect(output).toContain(".rp1/work/agent-output/");
 			});
 		});
 

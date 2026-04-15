@@ -1,7 +1,7 @@
 ---
 name: mermaid-fixer
 description: Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates each diagram, attempts automatic repair (up to 3 iterations), and inserts placeholders for unfixable diagrams.
-tools: Read, Write, Edit, Bash
+tools: Read, Write, Edit, Bash, Bash(rp1 *)
 model: inherit
 arguments:
   - name: INPUT_PATH

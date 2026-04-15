@@ -49,6 +49,36 @@ describe("ask_user tag", () => {
 		});
 	});
 
+	describe("copilot without options", () => {
+		const template = '{% ask_user "What is your preference?" %}';
+
+		test("renders ask_user format", async () => {
+			const output = await render(template, "copilot");
+			expect(output).toBe('ask_user: "What is your preference?"');
+		});
+	});
+
+	describe("copilot with options", () => {
+		const template = '{% ask_user "Pick one", options: "Yes", "No", "Maybe" %}';
+
+		test("renders ask_user with options list", async () => {
+			const output = await render(template, "copilot");
+			expect(output).toContain('ask_user: "Pick one"');
+			expect(output).toContain("Options:");
+			expect(output).toContain("- Yes");
+			expect(output).toContain("- No");
+			expect(output).toContain("- Maybe");
+		});
+
+		test("does not include Codex-specific sections", async () => {
+			const output = await render(template, "copilot");
+			expect(output).not.toContain("request_user_input");
+			expect(output).not.toContain("**Checkpoint**:");
+			expect(output).not.toContain("**Plain-text fallback**:");
+			expect(output).not.toContain("subagent contexts");
+		});
+	});
+
 	describe("with options", () => {
 		const template = '{% ask_user "Pick one", options: "Yes", "No", "Maybe" %}';
 

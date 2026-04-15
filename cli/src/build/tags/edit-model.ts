@@ -31,6 +31,8 @@ function renderEditModel(directive: string, platform: BuildPlatform): string {
 			return `Use the edit_file tool (exact string replacement) to ${directive}`;
 		case "codex":
 			return `Use the apply_patch tool (unified diff format) to ${directive}`;
+		case "copilot":
+			return `Use the edit_file tool (exact string replacement) to ${directive}. Provide old_string and new_string parameters for precise replacements.`;
 	}
 }
 

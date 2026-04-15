@@ -28,11 +28,11 @@ describe("verify command structure", () => {
 			expect(description.toLowerCase()).toContain("verify");
 		});
 
-		test("has three subcommands", async () => {
+		test("has four subcommands", async () => {
 			const { verifyCommand } = await import("../index.js");
 
 			const subcommands = verifyCommand.commands;
-			expect(subcommands.length).toBe(3);
+			expect(subcommands.length).toBe(4);
 		});
 
 		test("includes claude-code subcommand", async () => {
@@ -62,6 +62,15 @@ describe("verify command structure", () => {
 			expect(subcommand).toBeDefined();
 		});
 
+		test("includes copilot subcommand", async () => {
+			const { verifyCommand } = await import("../index.js");
+
+			const subcommand = verifyCommand.commands.find(
+				(c) => c.name() === "copilot",
+			);
+			expect(subcommand).toBeDefined();
+		});
+
 		test("help text includes subcommand list", async () => {
 			const { verifyCommand } = await import("../index.js");
 
@@ -70,6 +79,7 @@ describe("verify command structure", () => {
 			expect(helpInfo).toContain("claude-code");
 			expect(helpInfo).toContain("opencode");
 			expect(helpInfo).toContain("codex");
+			expect(helpInfo).toContain("copilot");
 		});
 	});
 
@@ -156,5 +166,17 @@ describe("verify command re-exports", () => {
 		const verifyModule = await import("../index.js");
 
 		expect(verifyModule.verifyOpenCodeSubcommand).toBeDefined();
+	});
+
+	test("re-exports verifyCopilotSubcommand", async () => {
+		const verifyModule = await import("../index.js");
+
+		expect(verifyModule.verifyCopilotSubcommand).toBeDefined();
+	});
+
+	test("re-exports executeVerifyCopilot", async () => {
+		const verifyModule = await import("../index.js");
+
+		expect(typeof verifyModule.executeVerifyCopilot).toBe("function");
 	});
 });

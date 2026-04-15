@@ -21,6 +21,7 @@ import type {
 import { runAllPrerequisiteChecks as defaultRunAllPrerequisiteChecks } from "../../install/claudecode/prerequisites.js";
 import {
 	type InstallContext,
+	installCopilotPlugins as sharedInstallCopilotPlugins,
 	installOpenCodePlugins as sharedInstallOpenCodePlugins,
 } from "../../shared/install-core.js";
 import type {
@@ -31,6 +32,7 @@ import type {
 import { type DetectedTool, detectTools } from "../tool-detector.js";
 import {
 	verifyClaudeCodePlugins,
+	verifyCopilotPlugins,
 	verifyOpenCodePlugins,
 } from "./verification.js";
 
@@ -85,6 +87,13 @@ export interface PluginsInstalledResult {
 	readonly detected: DetectedTool[];
 }
 
+export interface CheckPluginsInstalledDeps {
+	readonly detectTools?: typeof detectTools;
+	readonly verifyClaudeCodePlugins?: typeof verifyClaudeCodePlugins;
+	readonly verifyOpenCodePlugins?: typeof verifyOpenCodePlugins;
+	readonly verifyCopilotPlugins?: typeof verifyCopilotPlugins;
+}
+
 /**
  * Check whether rp1 plugins are installed on all detected platforms.
  * Detects available tools via the registry, then runs the corresponding
@@ -97,8 +106,16 @@ export interface PluginsInstalledResult {
  */
 export async function checkPluginsInstalled(
 	registry: ToolsRegistry,
+	deps: CheckPluginsInstalledDeps = {},
 ): Promise<PluginsInstalledResult> {
-	const detectionResult = await detectTools(registry)();
+	const runDetectTools = deps.detectTools ?? detectTools;
+	const runVerifyClaudeCodePlugins =
+		deps.verifyClaudeCodePlugins ?? verifyClaudeCodePlugins;
+	const runVerifyOpenCodePlugins =
+		deps.verifyOpenCodePlugins ?? verifyOpenCodePlugins;
+	const runVerifyCopilotPlugins =
+		deps.verifyCopilotPlugins ?? verifyCopilotPlugins;
+	const detectionResult = await runDetectTools(registry)();
 
 	// detectTools never fails (returns Right), but handle defensively
 	if (E.isLeft(detectionResult)) {
@@ -120,12 +137,17 @@ export async function checkPluginsInstalled(
 		}
 
 		if (detectedTool.tool.id === "claude-code") {
-			const result = await verifyClaudeCodePlugins();
+			const result = await runVerifyClaudeCodePlugins();
 			if (!result.verified) {
 				allInstalled = false;
 			}
 		} else if (detectedTool.tool.id === "opencode") {
-			const result = await verifyOpenCodePlugins();
+			const result = await runVerifyOpenCodePlugins();
+			if (!result.verified) {
+				allInstalled = false;
+			}
+		} else if (detectedTool.tool.id === "copilot") {
+			const result = await runVerifyCopilotPlugins();
 			if (!result.verified) {
 				allInstalled = false;
 			}
@@ -233,8 +255,7 @@ export const executePluginInstallation = async (
 		return { actions, result: null };
 	}
 
-	// Check for supported tools (Claude Code and OpenCode)
-	const supportedTools = ["claude-code", "opencode"];
+	const supportedTools = ["claude-code", "opencode", "copilot"];
 	if (!supportedTools.includes(detectedTool.tool.id)) {
 		// Unsupported tools require manual installation
 		logger.info(
@@ -353,6 +374,23 @@ async function executeInstallationForTool(
 				success: true,
 				pluginsInstalled: [...openCodeResult.right.pluginsInstalled],
 				warnings: [...openCodeResult.right.warnings],
+			});
+		}
+	} else if (detectedTool.tool.id === "copilot") {
+		const copilotResult = await sharedInstallCopilotPlugins({}, ctx)();
+
+		if (E.isLeft(copilotResult)) {
+			resultEither = E.right({
+				success: false,
+				pluginsInstalled: [],
+				warnings: [],
+				error: copilotResult.left,
+			});
+		} else {
+			resultEither = E.right({
+				success: true,
+				pluginsInstalled: [...copilotResult.right.pluginsInstalled],
+				warnings: [...copilotResult.right.warnings],
 			});
 		}
 	} else {

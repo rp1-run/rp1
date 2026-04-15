@@ -43,6 +43,14 @@ function renderOpenCode(question: string, options: readonly string[]): string {
 	return output;
 }
 
+function renderCopilot(question: string, options: readonly string[]): string {
+	let output = `ask_user: "${question}"`;
+	if (options.length > 0) {
+		output += `\nOptions:\n${options.map((o) => `- ${o}`).join("\n")}`;
+	}
+	return output;
+}
+
 function renderCodex(question: string, options: readonly string[]): string {
 	const optionsList =
 		options.length > 0 ? options : ["(provide appropriate options)"];
@@ -84,6 +92,8 @@ function renderAskUser(
 			return renderOpenCode(question, options);
 		case "codex":
 			return renderCodex(question, options);
+		case "copilot":
+			return renderCopilot(question, options);
 	}
 }
 

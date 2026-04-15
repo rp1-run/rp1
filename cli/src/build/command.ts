@@ -64,7 +64,7 @@ import { createTemplateEngine } from "./template-engine.js";
 import { injectEmitHarness } from "./transforms.js";
 import { validateAgent, validateSkill } from "./validator.js";
 
-const VALID_PLATFORMS = ["opencode", "codex", "claude-code", "all"];
+const VALID_PLATFORMS = ["opencode", "codex", "claude-code", "copilot", "all"];
 
 /**
  * Format a lint diagnostic into a human-readable string.
@@ -130,29 +130,39 @@ export const parseBuildArgs = (
 			if (!value || !VALID_PLATFORMS.includes(value)) {
 				return E.left(
 					usageError(
-						"--platform must be 'opencode', 'codex', 'claude-code', or 'all'",
+						"--platform must be 'opencode', 'codex', 'claude-code', 'copilot', or 'all'",
 					),
 				);
 			}
 			(
 				config as {
-					platform: "opencode" | "codex" | "claude-code" | "all";
+					platform: "opencode" | "codex" | "claude-code" | "copilot" | "all";
 				}
-			).platform = value as "opencode" | "codex" | "claude-code" | "all";
+			).platform = value as
+				| "opencode"
+				| "codex"
+				| "claude-code"
+				| "copilot"
+				| "all";
 		} else if (arg.startsWith("--platform=")) {
 			const value = arg.slice("--platform=".length);
 			if (!VALID_PLATFORMS.includes(value)) {
 				return E.left(
 					usageError(
-						"--platform must be 'opencode', 'codex', 'claude-code', or 'all'",
+						"--platform must be 'opencode', 'codex', 'claude-code', 'copilot', or 'all'",
 					),
 				);
 			}
 			(
 				config as {
-					platform: "opencode" | "codex" | "claude-code" | "all";
+					platform: "opencode" | "codex" | "claude-code" | "copilot" | "all";
 				}
-			).platform = value as "opencode" | "codex" | "claude-code" | "all";
+			).platform = value as
+				| "opencode"
+				| "codex"
+				| "claude-code"
+				| "copilot"
+				| "all";
 		} else if (arg === "--json") {
 			(config as { jsonOutput: boolean }).jsonOutput = true;
 		} else if (arg === "--lint") {
@@ -179,7 +189,7 @@ ${bold("Usage:")}
 ${bold("Options:")}
   -o, --output-dir <dir>       Output directory (default: dist/opencode/)
   -p, --plugin <name>          Build specific plugin (base, dev, utils, or all)
-  --platform <name>            Target platform (opencode, codex, claude-code, or all)
+  --platform <name>            Target platform (opencode, codex, claude-code, copilot, or all)
   --json                       Output results as JSON for CI/CD
   --lint                       Run build pipeline with lint validation only (no file output)
   -h, --help                   Show this help message
@@ -1029,6 +1039,16 @@ export const deriveCodexOutputDir = (opencodeOutputDir: string): string => {
 };
 
 /**
+ * Derive Copilot output directory from the OpenCode output directory.
+ * Maps "dist/opencode" to "dist/copilot".
+ */
+export const deriveCopilotOutputDir = (opencodeOutputDir: string): string => {
+	const normalized = opencodeOutputDir.replace(/\/+$/, "");
+	const parent = dirname(normalized);
+	return join(parent, "copilot");
+};
+
+/**
  * Print build summary table.
  */
 const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
@@ -1167,6 +1187,7 @@ export const executeBuild = (
 					const outputPath = resolve(projectRoot, config.outputDir);
 					const ccOutputPath = deriveCCOutputDir(outputPath);
 					const codexOutputPath = deriveCodexOutputDir(outputPath);
+					const copilotOutputPath = deriveCopilotOutputDir(outputPath);
 
 					const platformsToBuild: Array<{
 						platform: BuildPlatform;
@@ -1177,6 +1198,7 @@ export const executeBuild = (
 									{ platform: "opencode", outputPath },
 									{ platform: "claude-code", outputPath: ccOutputPath },
 									{ platform: "codex", outputPath: codexOutputPath },
+									{ platform: "copilot", outputPath: copilotOutputPath },
 								]
 							: [
 									{
@@ -1186,7 +1208,9 @@ export const executeBuild = (
 												? ccOutputPath
 												: config.platform === "codex"
 													? codexOutputPath
-													: outputPath,
+													: config.platform === "copilot"
+														? copilotOutputPath
+														: outputPath,
 									},
 								];
 

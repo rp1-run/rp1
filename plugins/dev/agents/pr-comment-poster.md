@@ -1,7 +1,7 @@
 ---
 name: pr-comment-poster
 description: Posts PR review comments via github-pr agent-tools
-tools: Read, Bash
+tools: Read, Bash, Bash(rp1 *)
 model: inherit
 arguments:
   - name: OWNER

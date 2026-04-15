@@ -16,6 +16,7 @@ import {
 	verifyClaudeCodeSubcommand,
 } from "./claude-code.js";
 import { executeVerifyCodex, verifyCodexSubcommand } from "./codex.js";
+import { executeVerifyCopilot, verifyCopilotSubcommand } from "./copilot.js";
 import { executeVerifyOpenCode, verifyOpenCodeSubcommand } from "./opencode.js";
 
 const { bold, dim } = colorFns;
@@ -33,12 +34,14 @@ Subcommands:
   claude-code    Verify plugins in Claude Code
   opencode       Verify plugins in OpenCode
   codex          Verify plugins in Codex CLI
+  copilot        Verify plugins in GitHub Copilot CLI
 
 Examples:
   rp1 verify                Verify all platforms
   rp1 verify claude-code    Verify Claude Code installation
   rp1 verify opencode       Verify OpenCode installation
   rp1 verify codex          Verify Codex CLI installation
+  rp1 verify copilot        Verify Copilot CLI installation
 `,
 	)
 	.action(async (_options, command) => {
@@ -62,6 +65,13 @@ Examples:
 			platforms.push({
 				name: "Codex CLI",
 				run: () => executeVerifyCodex(logger),
+			});
+		}
+
+		if (isToolEnabled(TOOLS_REGISTRY as ToolsRegistry, "copilot")) {
+			platforms.push({
+				name: "Copilot CLI",
+				run: () => executeVerifyCopilot(logger),
 			});
 		}
 
@@ -94,10 +104,27 @@ if (!codexVerifyEnabled) {
 	});
 }
 
+const copilotVerifyEnabled = isToolEnabled(
+	TOOLS_REGISTRY as ToolsRegistry,
+	"copilot",
+);
+verifyCommand.addCommand(verifyCopilotSubcommand, {
+	hidden: !copilotVerifyEnabled,
+});
+if (!copilotVerifyEnabled) {
+	verifyCopilotSubcommand.action(async () => {
+		process.exit(1);
+	});
+}
+
 // Export subcommands for direct access if needed
 export {
 	executeVerifyClaudeCode,
 	verifyClaudeCodeSubcommand,
 } from "./claude-code.js";
 export { executeVerifyCodex, verifyCodexSubcommand } from "./codex.js";
+export {
+	executeVerifyCopilot,
+	verifyCopilotSubcommand,
+} from "./copilot.js";
 export { executeVerifyOpenCode, verifyOpenCodeSubcommand } from "./opencode.js";

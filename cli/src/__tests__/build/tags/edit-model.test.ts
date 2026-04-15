@@ -45,6 +45,15 @@ describe("edit_model tag", () => {
 		);
 	});
 
+	test("Copilot: renders edit_file tool with parameter guidance", async () => {
+		const output = await render(template, "copilot");
+		expect(output).toContain("edit_file tool");
+		expect(output).toContain("exact string replacement");
+		expect(output).toContain("modify the configuration file");
+		expect(output).toContain("old_string");
+		expect(output).toContain("new_string");
+	});
+
 	test("renders consistently across all platforms", async () => {
 		const directive = "update the import statements";
 		const t = `{% edit_model "${directive}" %}`;
@@ -52,13 +61,16 @@ describe("edit_model tag", () => {
 		const cc = await render(t, "claude-code");
 		const oc = await render(t, "opencode");
 		const cx = await render(t, "codex");
+		const cp = await render(t, "copilot");
 
 		expect(cc).toContain("Edit tool");
 		expect(oc).toContain("edit_file tool");
 		expect(cx).toContain("apply_patch tool");
+		expect(cp).toContain("edit_file tool");
 
 		expect(cc).toContain(directive);
 		expect(oc).toContain(directive);
 		expect(cx).toContain(directive);
+		expect(cp).toContain(directive);
 	});
 });

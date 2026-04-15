@@ -11,6 +11,7 @@ import {
 import { colorFns } from "../lib/colors.js";
 import { executeUninstall, type UninstallConfig } from "../uninstall/index.js";
 import { uninstallCodexCommand } from "./uninstall-codex.js";
+import { uninstallCopilotCommand } from "./uninstall-copilot.js";
 
 const { bold, dim, cyan } = colorFns;
 
@@ -127,6 +128,19 @@ uninstallCommand.addCommand(uninstallCodexCommand, {
 });
 if (!codexUninstallEnabled) {
 	uninstallCodexCommand.action(async () => {
+		process.exit(1);
+	});
+}
+
+const copilotUninstallEnabled = isToolEnabled(
+	TOOLS_REGISTRY as ToolsRegistry,
+	"copilot",
+);
+uninstallCommand.addCommand(uninstallCopilotCommand, {
+	hidden: !copilotUninstallEnabled,
+});
+if (!copilotUninstallEnabled) {
+	uninstallCopilotCommand.action(async () => {
 		process.exit(1);
 	});
 }

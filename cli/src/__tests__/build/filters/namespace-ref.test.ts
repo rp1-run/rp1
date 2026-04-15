@@ -106,4 +106,28 @@ describe("namespace_ref filter", () => {
 			expect(namespaceRef(content, "codex")).toBe(content);
 		});
 	});
+
+	describe("copilot (colon to slash)", () => {
+		test("replaces rp1-base: with rp1-base/", () => {
+			const content = "Use rp1-base:knowledge-load for context.";
+			expect(namespaceRef(content, "copilot")).toBe(
+				"Use rp1-base/knowledge-load for context.",
+			);
+		});
+
+		test("replaces rp1-dev: with rp1-dev/", () => {
+			const content = "Use rp1-dev:build to implement.";
+			expect(namespaceRef(content, "copilot")).toBe(
+				"Use rp1-dev/build to implement.",
+			);
+		});
+
+		test("transforms multiple namespace references", () => {
+			const content =
+				"First rp1-base:cmd1, then rp1-dev:cmd2, and rp1-utils:cmd3.";
+			expect(namespaceRef(content, "copilot")).toBe(
+				"First rp1-base/cmd1, then rp1-dev/cmd2, and rp1-utils/cmd3.",
+			);
+		});
+	});
 });

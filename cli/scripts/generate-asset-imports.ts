@@ -17,7 +17,7 @@
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
-import { dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import type { BundleManifest } from "../src/build/models.js";
 import {
@@ -79,6 +79,7 @@ interface AssetImport {
 	varName: string;
 	importPath: string;
 	outputName: string;
+	fileName?: string;
 	category:
 		| "agent"
 		| "skill"
@@ -163,6 +164,7 @@ function collectPlatformAssets(platform: DiscoveredPlatform): AssetImport[] {
 				varName: toVarName(`${platformPrefix}_${pluginName}_agent`, agent.name),
 				importPath: getImportPath(fullPath),
 				outputName: agent.name,
+				fileName: basename(agent.path),
 				category: "agent",
 				plugin: pluginName,
 				platform: platform.name,
@@ -342,7 +344,7 @@ function generatePlatformBlock(
 	platformAssets: AssetImport[],
 ): string {
 	const formatEntry = (a: AssetImport): string =>
-		`{ name: "${a.outputName}", path: ${a.varName} }`;
+		`{ name: "${a.outputName}", path: ${a.varName}${a.fileName ? `, fileName: "${a.fileName}"` : ""} }`;
 
 	const formatStateMachineEntry = (a: AssetImport): string =>
 		a.inlineContent

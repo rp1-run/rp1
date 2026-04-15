@@ -5,14 +5,14 @@
  */
 
 import { copyFile, mkdir, readdir, stat, writeFile } from "node:fs/promises";
-import { dirname, extname, join } from "node:path";
-import * as E from "fp-ts/lib/Either.js";
+import { basename, dirname, extname, join } from "node:path";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
 import { installError } from "../../shared/errors.js";
 import type {
 	AssetEntry,
+	BundledAssets,
 	BundledPlatform,
 	BundledPlugin,
 	PluginKey,
@@ -87,9 +87,12 @@ const extractBundledPlugin = async (
 	for (const agent of plugin.agents) {
 		// Codex agents are TOML files with a plugin-prefixed name (e.g., rp1-base-agent-name.toml)
 		const agentFileName =
-			platform === "codex"
-				? `${plugin.name}-${agent.name}.toml`
-				: `${agent.name}.md`;
+			agent.fileName ??
+			(agent.path.length > 0
+				? basename(agent.path)
+				: platform === "codex"
+					? `${plugin.name}-${agent.name}.toml`
+					: `${agent.name}.md`);
 		const destPath = join(pluginDir, "agents", agentFileName);
 		await writeAssetEntry(agent, destPath);
 		filesExtracted++;
@@ -184,19 +187,15 @@ export const extractPlatformAssets = (
 	pipe(hasBundledAssets() ? extractFromEmbedded(opts) : extractFromDist(opts));
 
 /**
- * Extract assets from the embedded manifest (bundled binary mode).
+ * Extract assets from an already-loaded bundled manifest.
+ * Exported to let tests exercise bundled extraction without module-level mocks.
  */
-const extractFromEmbedded = (
+export const extractPlatformAssetsFromManifest = (
 	opts: ExtractOptions,
+	assets: BundledAssets,
 ): TE.TaskEither<CLIError, ExtractionResult> =>
 	TE.tryCatch(
 		async () => {
-			const assetsResult = getBundledAssets();
-			if (E.isLeft(assetsResult)) {
-				throw new Error("Failed to load embedded manifest");
-			}
-
-			const assets = assetsResult.right;
 			const platform = assets.platforms[opts.platform];
 			if (!platform) {
 				throw new Error(
@@ -241,6 +240,17 @@ const extractFromEmbedded = (
 				"extract-assets",
 				`Failed to extract ${opts.platform} assets from embedded manifest: ${e}`,
 			),
+	);
+
+/**
+ * Extract assets from the embedded manifest (bundled binary mode).
+ */
+const extractFromEmbedded = (
+	opts: ExtractOptions,
+): TE.TaskEither<CLIError, ExtractionResult> =>
+	pipe(
+		TE.fromEither(getBundledAssets()),
+		TE.chain((assets) => extractPlatformAssetsFromManifest(opts, assets)),
 	);
 
 /**

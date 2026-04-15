@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
+import type { BundledAssets } from "../../assets/reader.js";
+import { extractPlatformAssetsFromManifest } from "../../install/asset-extractor.js";
 import {
 	cleanupTempDir,
 	createTempDir,
@@ -213,6 +215,65 @@ describe("asset-extractor", () => {
 			} finally {
 				process.chdir(origCwd);
 			}
+		});
+	});
+
+	describe("bundled extraction", () => {
+		test("preserves Copilot .agent.md filenames from embedded assets", async () => {
+			const targetDir = join(tempDir, "output");
+			const bundledAssets: BundledAssets = {
+				platforms: {
+					copilot: {
+						plugins: {
+							base: {
+								name: "rp1-base",
+								commands: [],
+								agents: [
+									{
+										name: "rp1-base-task-builder",
+										path: "/tmp/bun-embedded-blob-12345",
+										content: "# bundled agent",
+										fileName: "rp1-base-task-builder.agent.md",
+									},
+								],
+								skills: [],
+								stateMachines: [],
+								verbatimFiles: [],
+							},
+							dev: {
+								name: "rp1-dev",
+								commands: [],
+								agents: [],
+								skills: [],
+								stateMachines: [],
+								verbatimFiles: [],
+							},
+						},
+					},
+				},
+				webui: [],
+				version: "0.0.0-test",
+				buildTimestamp: "2026-04-07T00:00:00Z",
+			};
+
+			const result = await expectTaskRight(
+				extractPlatformAssetsFromManifest(
+					{
+						platform: "copilot",
+						targetDir,
+						plugins: ["base"],
+					},
+					bundledAssets,
+				),
+			);
+
+			expect(result.pluginsExtracted).toEqual(["rp1-base"]);
+
+			const agentContent = await readFile(
+				join(targetDir, "base", "agents", "rp1-base-task-builder.agent.md"),
+				"utf-8",
+			);
+			expect(agentContent).toBe("# bundled agent");
 		});
 	});
 });

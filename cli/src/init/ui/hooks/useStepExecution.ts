@@ -68,6 +68,7 @@ import {
 import { generateNextSteps } from "../../steps/summary.js";
 import {
 	verifyClaudeCodePlugins,
+	verifyCopilotPlugins,
 	verifyOpenCodePlugins,
 } from "../../steps/verification.js";
 import {
@@ -835,6 +836,8 @@ export const useStepExecution = ({
 						verificationResult = await verifyClaudeCodePlugins();
 					} else if (detected.tool.id === "opencode") {
 						verificationResult = await verifyOpenCodePlugins();
+					} else if (detected.tool.id === "copilot") {
+						verificationResult = await verifyCopilotPlugins();
 					}
 
 					if (verificationResult) {

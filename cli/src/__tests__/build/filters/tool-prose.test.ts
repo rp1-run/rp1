@@ -6,6 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import { claudeCodeRegistry } from "../../../build/claude-code/registry.js";
 import { codexRegistry } from "../../../build/codex/registry.js";
+import { copilotRegistry } from "../../../build/copilot/registry.js";
 import { toolProse } from "../../../build/filters/tool-prose.js";
 import { defaultRegistry } from "../../../build/registry.js";
 
@@ -100,6 +101,50 @@ describe("tool_prose filter", () => {
 			const input = "Use AskUserQuestion for user input.";
 			const result = toolProse(input, "opencode", defaultRegistry);
 			expect(result).toBe("Use ask_user for user input.");
+		});
+	});
+
+	describe("copilot", () => {
+		test("rewrites AskUserQuestion to Copilot equivalent", () => {
+			const input = "Use AskUserQuestion for user input.";
+			const result = toolProse(input, "copilot", copilotRegistry);
+			expect(result).toBe("Use ask_user for user input.");
+		});
+
+		test("rewrites Edit to Copilot equivalent", () => {
+			const input = "Use Edit to modify the file.";
+			const result = toolProse(input, "copilot", copilotRegistry);
+			expect(result).toBe("Use edit_file to modify the file.");
+		});
+
+		test("rewrites Read to Copilot equivalent", () => {
+			const input = "Use Read to view the file.";
+			const result = toolProse(input, "copilot", copilotRegistry);
+			expect(result).toBe("Use read_file to view the file.");
+		});
+
+		test("replaces WebSearch with not-available fallback", () => {
+			const input = "Use WebSearch to look up docs.";
+			const result = toolProse(input, "copilot", copilotRegistry);
+			expect(result).toBe("Use web searching (not available) to look up docs.");
+		});
+
+		test("replaces TodoWrite with not-available fallback", () => {
+			const input = "Call TodoWrite to track tasks.";
+			const result = toolProse(input, "copilot", copilotRegistry);
+			expect(result).toBe("Call task tracking (not available) to track tasks.");
+		});
+
+		test("leaves SlashCommand unchanged (null-mapped, no fallback)", () => {
+			const input = "Use SlashCommand to invoke.";
+			const result = toolProse(input, "copilot", copilotRegistry);
+			expect(result).toBe(input);
+		});
+
+		test("rewrites WebFetch to Copilot equivalent", () => {
+			const input = "Use WebFetch to download.";
+			const result = toolProse(input, "copilot", copilotRegistry);
+			expect(result).toBe("Use fetch_url to download.");
 		});
 	});
 });
