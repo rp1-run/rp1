@@ -15,7 +15,7 @@ metadata:
     - feature
     - orchestration
   created: 2025-12-30
-  updated: 2026-02-26
+  updated: 2026-04-15
   author: cloud-on-prem/rp1
   arguments:
     - name: FEATURE_ID
@@ -28,6 +28,16 @@ metadata:
       default: ""
       description: "Raw requirements text"
       variadic: true
+    - name: PHASE_PLAN_PATH
+      type: string
+      required: false
+      default: ""
+      description: "Optional phase-plan artifact path for child-feature traceability"
+    - name: PHASE_ID
+      type: string
+      required: false
+      default: ""
+      description: "Optional parent phase identifier for child-feature traceability"
     - name: AFK
       type: boolean
       required: false
@@ -167,8 +177,11 @@ AFK mode: skip all prompts, auto-select defaults, retry once on failure, auto-ar
 **Skip if**: start_step > 1. **Spawn agent — do NOT gather requirements yourself:**
 
 {% dispatch_agent "rp1-dev:feature-requirement-gatherer" %}
-FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, PHASE_PLAN_PATH={PHASE_PLAN_PATH}, PHASE_ID={PHASE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
+
+If `PHASE_PLAN_PATH` and `PHASE_ID` were passed explicitly, forward them unchanged.
+If phase-plan handoff tokens remain embedded inside `REQUIREMENTS` using the legacy `PHASE_PLAN_PATH=... PHASE_ID=...` form, leave them untouched so `feature-requirement-gatherer` can normalize them before writing `requirements.md`.
 
 Validate the response before continuing:
 

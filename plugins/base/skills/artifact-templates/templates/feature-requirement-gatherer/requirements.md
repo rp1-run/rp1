@@ -15,6 +15,7 @@ emit_hint: |
 conditions:
   - "If AFK_MODE=true, append AFK Mode sections (see end of template)"
   - "If RUN_ID is non-empty, include rp1_run_id in YAML frontmatter"
+  - "If phase context is resolved from PHASE_PLAN_PATH + PHASE_ID, include the optional Planning Traceability section; otherwise omit it"
 ---
 
 ---
@@ -27,6 +28,16 @@ rp1_run_id: {RUN_ID}
 **Version**: 1.0.0
 **Status**: Draft
 **Created**: {Date}
+
+## Planning Traceability
+| Field | Value |
+|-------|-------|
+| Source Artifact Title | {PLANNING_SOURCE_TITLE} |
+| Source Artifact Path | `{PLANNING_SOURCE_PATH}` |
+| Parent Phase ID | {PHASE_ID} |
+| Parent Phase Title | {PHASE_TITLE} |
+| Manual Verification Expected | {PHASE_MANUAL_VERIFICATION_EXPECTED} |
+| Recommended Next Step | `{PHASE_RECOMMENDED_NEXT_STEP}` |
 
 ## 1. Feature Overview
 [One paragraph - business perspective]
