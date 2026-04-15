@@ -15,7 +15,7 @@ metadata:
     - feature
     - orchestration
   created: 2025-12-30
-  updated: 2026-02-26
+  updated: 2026-04-15
   author: cloud-on-prem/rp1
   arguments:
     - name: FEATURE_ID
@@ -28,6 +28,16 @@ metadata:
       default: ""
       description: "Raw requirements text"
       variadic: true
+    - name: PHASE_PLAN_PATH
+      type: string
+      required: false
+      default: ""
+      description: "Optional phase-plan artifact path for child-feature traceability"
+    - name: PHASE_ID
+      type: string
+      required: false
+      default: ""
+      description: "Optional parent phase identifier for child-feature traceability"
     - name: AFK
       type: boolean
       required: false
@@ -167,12 +177,17 @@ AFK mode: skip all prompts, auto-select defaults, retry once on failure, auto-ar
 **Skip if**: start_step > 1. **Spawn agent — do NOT gather requirements yourself:**
 
 {% dispatch_agent "rp1-dev:feature-requirement-gatherer" %}
-FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, PHASE_PLAN_PATH={PHASE_PLAN_PATH}, PHASE_ID={PHASE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
+
+If `PHASE_PLAN_PATH` and `PHASE_ID` were passed explicitly, forward them unchanged.
+If phase-plan handoff tokens remain embedded inside `REQUIREMENTS` using the legacy `PHASE_PLAN_PATH=... PHASE_ID=...` form, leave them untouched so `feature-requirement-gatherer` can normalize them before writing `requirements.md`.
 
 Validate the response before continuing:
 
+- First attempt to parse the response as JSON.
 - Accept only the documented completion contract from `feature-requirement-gatherer`: JSON with `"status": "success"` and an `"artifact"` path ending in `features/{FEATURE_ID}/requirements.md`, or a text line matching `Requirements completed:` followed by a path ending in `features/{FEATURE_ID}/requirements.md`.
+- If the response is valid JSON with `"status": "error"`, treat it as an intentional requirements-step failure. Surface the agent-provided `error` or `message`, abort the build on `requirements`, and do NOT retry it as a generic contract failure.
 - Treat any response that mentions commits, source-code edits, tests, verification, unrelated file paths, or implementation completion as a contract failure.
 - On contract failure: retry step 1 once with an explicit reminder that the agent may only write `requirements.md` and must not implement anything.
 - If the retry also fails, abort the build as failed. Do not continue to design, build, verify, or archive based on non-compliant output.
@@ -210,7 +225,51 @@ rp1 agent-tools emit \
 FEATURE_ID={FEATURE_ID}, AFK={AFK}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, UPDATE_MODE={design.md exists}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-After feature-architect completes, check whether `{workRoot}/features/{FEATURE_ID}/hypotheses.md` exists on disk. If it exists:
+Parse the response as JSON.
+
+- Accept `status = "success"` to continue with design follow-on work.
+- Accept `status = "needs_phase_planning"` as an oversized-scope redirect. In that case, do NOT run `hypothesis-tester`, do NOT run `feature-tasker`, do NOT continue to §STEP-3, and do NOT generate legacy `tracker.md` or `milestone-*.md` guidance.
+- Treat `status = "error"` or malformed output as a design-step failure. Abort the build instead of guessing.
+
+### §2.1 Oversized Scope Redirect
+
+If `status = "needs_phase_planning"`:
+
+1. Extract `reason`, `source_relative_path`, and `redirect_command`.
+2. Emit a waiting event so the run clearly stops on the design step:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type waiting_for_user \
+  --run-id {RUN_ID} \
+  --step design \
+  --data '{"prompt": "Scope exceeds a single feature. Run /phase-plan before resuming delivery.", "context": "{redirect_command}"}'
+```
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step design \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}"}'
+```
+
+3. Output:
+
+```markdown
+## Build Redirected
+
+**Feature**: {FEATURE_ID}
+**Reason**: {reason}
+**Source Artifact**: {source_relative_path}
+**Next**: Run `{redirect_command}`
+```
+
+4. STOP.
+
+After a `success` response, check whether `{workRoot}/features/{FEATURE_ID}/hypotheses.md` exists on disk. If it exists:
 
 {% dispatch_agent "rp1-dev:hypothesis-tester" %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
@@ -221,6 +280,12 @@ If the file does not exist, skip hypothesis validation regardless of `flagged_hy
 {% dispatch_agent "rp1-dev:feature-tasker" %}
 FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE={UPDATE_MODE}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
+
+Validate the `feature-tasker` response before the design checkpoint:
+
+- Accept the documented success contract only when the response starts with `Task planning completed:` or `Task update completed:` and references `.rp1/work/features/{FEATURE_ID}/`.
+- If the response is valid JSON with `"status": "error"`, treat it as an intentional task-generation failure. Surface the agent-provided `message` or `error`, abort the build on `design`, and do NOT continue to §STEP-3, build, verify, or archive.
+- Treat malformed output or unrelated implementation/test summaries as a failure. Do not silently continue without a confirmed `tasks.md` result.
 
 **Checkpoint** (skip if AFK):
 
@@ -254,6 +319,12 @@ rp1 agent-tools emit \
 {% dispatch_agent "rp1-dev:feature-tasker" %}
 FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=false, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
+
+Validate the `feature-tasker` response before continuing:
+
+- Accept the documented success contract only when the response starts with `Task planning completed:` or `Task update completed:` and references `.rp1/work/features/{FEATURE_ID}/`.
+- If the response is valid JSON with `"status": "error"`, treat it as an intentional tasks-step failure. Surface the agent-provided `message` or `error`, abort the build on `tasks`, and do NOT continue to §STEP-4.
+- Treat malformed output or unrelated implementation/test summaries as a failure. Do not infer success from prior design-step task generation.
 
 **Checkpoint** (skip if AFK):
 

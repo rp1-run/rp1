@@ -191,6 +191,8 @@ describe("executeList", () => {
 					[
 						"FEATURE_ID",
 						"REQUIREMENTS",
+						"PHASE_PLAN_PATH",
+						"PHASE_ID",
 						"AFK",
 						"GIT_COMMIT",
 						"GIT_PUSH",
@@ -258,6 +260,8 @@ describe("executeList", () => {
 			expect(parsed[0].key_args).toEqual([
 				"FEATURE_ID",
 				"REQUIREMENTS",
+				"PHASE_PLAN_PATH",
+				"PHASE_ID",
 				"AFK",
 				"GIT_COMMIT",
 				"GIT_PUSH",

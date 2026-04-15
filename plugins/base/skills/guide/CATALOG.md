@@ -10,11 +10,12 @@
 |-------|--------|-------------|----------|----------|------------|---------------|
 | `/task` | base | Discover and manage queued tasks for agent execution | `OPERATION` |  |  |  |
 | `/bootstrap` | dev | Bootstrap a new project with charter discovery and tech stack scaffolding for greenfield development. | `PROJECT_NAME` |  |  |  |
-| `/build` | dev | End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command. | `FEATURE_ID`, `REQUIREMENTS`, `AFK`, `GIT_COMMIT`, `GIT_PUSH`, `GIT_PR` | Yes | resumable | `FEATURE_ID` |
+| `/build` | dev | End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command. | `FEATURE_ID`, `REQUIREMENTS`, `PHASE_PLAN_PATH`, `PHASE_ID`, `AFK`, `GIT_COMMIT`, `GIT_PUSH`, `GIT_PR` | Yes | resumable | `FEATURE_ID` |
 | `/build-fast` | dev | Quick-iteration development for small/medium scope changes with persistent artifacts and optional review. | `DEVELOPMENT_REQUEST`, `AFK`, `CONFIRM_PLAN`, `REVIEW`, `GIT_COMMIT`, `GIT_PUSH` | Yes | fresh |  |
 | `/feature-archive` | dev | Archives a completed feature to the archives directory with optional documentation validation. | `FEATURE_ID` |  |  |  |
 | `/feature-edit` | dev | Incorporates mid-stream changes into feature documentation with validation and propagation. | `FEATURE_ID`, `EDIT_DESCRIPTION` |  |  |  |
 | `/feature-unarchive` | dev | Restores an archived feature from the archives directory back to the active features directory. | `FEATURE_ID` |  |  |  |
+| `/phase-plan` | dev | Decompose a completed PRD or oversized requirements artifact into durable delivery phases. | `SOURCE`, `UPDATE_CONTEXT`, `AFK` | Yes | fresh |  |
 | `/speedrun` | dev | Interactive speedrun loop for small, low-risk changes. Delegates each request to a general sub-agent. Redirects larger work to /build-fast or /build. | `REQUEST`, `AFK` | Yes | fresh |  |
 
 ## Investigation

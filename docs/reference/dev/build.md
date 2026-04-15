@@ -9,19 +9,19 @@ End-to-end feature workflow orchestrator. Runs the complete 6-step lifecycle (re
 === "Claude Code"
 
     ```bash
-    /build <feature-id> [requirements...] [--afk] [--git-commit] [--git-push] [--git-pr]
+    /build <feature-id> [requirements...] [PHASE_PLAN_PATH=...] [PHASE_ID=...] [--afk] [--git-commit] [--git-push] [--git-pr]
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev-build <feature-id> [requirements...] [--afk] [--git-commit] [--git-push] [--git-pr]
+    /rp1-dev-build <feature-id> [requirements...] [PHASE_PLAN_PATH=...] [PHASE_ID=...] [--afk] [--git-commit] [--git-push] [--git-pr]
     ```
 
 === "Codex"
 
     ```bash
-    $rp1-dev-build <feature-id> [requirements...] [--afk] [--git-commit] [--git-push] [--git-pr]
+    $rp1-dev-build <feature-id> [requirements...] [PHASE_PLAN_PATH=...] [PHASE_ID=...] [--afk] [--git-commit] [--git-push] [--git-pr]
     ```
 
 ## Description
@@ -29,7 +29,9 @@ End-to-end feature workflow orchestrator. Runs the complete 6-step lifecycle (re
 The `build` command is the **primary entry point** for feature development. It
 is the only tracked workflow that currently uses resumable run policy, so rp1
 can reopen the active run for the same `FEATURE_ID` and continue from the right
-step.
+step. When the request expands beyond a single independently executable
+feature, `/build` stops and redirects to `/phase-plan` instead of generating
+new tracker or milestone artifacts.
 
 ### Key Features
 
@@ -47,10 +49,24 @@ step.
 |-----------|----------|----------|---------|-------------|
 | `FEATURE_ID` | `$1` | Yes | - | Feature identifier (used for directory and branch names) |
 | `REQUIREMENTS` | `$2` | No | `""` | Initial requirements text or context |
+| `PHASE_PLAN_PATH` | inline token | No | `""` | Optional phase-plan artifact path copied from a child handoff |
+| `PHASE_ID` | inline token | No | `""` | Optional parent phase ID copied from a child handoff |
 | `--afk` | flag | No | `false` | Non-interactive mode (auto-proceed, no prompts) |
 | `--git-commit` | flag | No | `false` | Commit changes after build |
 | `--git-push` | flag | No | `false` | Push branch to remote |
 | `--git-pr` | flag | No | `false` | Create PR (implies --git-push and --git-commit) |
+
+### Optional Phase Context
+
+When a child feature comes from `phase-plan.md`, append the handoff tokens to
+the request or pass them through host-specific argument binding:
+
+```bash
+/build auth-session-hardening "Add session expiry telemetry" PHASE_PLAN_PATH=prds/auth-overhaul-phase-plan.md PHASE_ID=P2
+```
+
+`/build` preserves those values into `requirements.md` as a durable
+`## Planning Traceability` section instead of leaving them as freeform prose.
 
 ## Workflow Steps
 
@@ -65,6 +81,19 @@ The command orchestrates these steps:
 | 4.1 User Review | Manual verification checkpoint | User decision |
 | 5. Follow-up | Add more work if needed | Loops to Build |
 | 6. Archive | Store completed feature | Archived artifacts |
+
+### Oversized Scope Redirect
+
+After `requirements.md` is written, `feature-architect` checks whether the work
+still fits one feature. If the result is `needs_phase_planning`, `/build`:
+
+- stops before design, task generation, and implementation
+- tells you to run `/phase-plan features/<feature-id>/requirements.md`
+- preserves the generated `requirements.md` so phase planning has a concrete
+  source artifact to work from
+
+This is the supported path for initiative-sized work. rp1 no longer revives
+new `tracker.md` or `milestone-*.md` artifacts for that redirect.
 
 ## Interactive Mode (Default)
 
@@ -142,6 +171,10 @@ on the feature artifacts it finds:
 
 If you stopped at a gate, resuming `/build` continues from the next stage.
 
+If the previous run stopped with an oversized-scope redirect, resume only after
+you have either narrowed the feature back to single-feature scope or created a
+phase plan from the saved `requirements.md`.
+
 ## Examples
 
 ### Start a New Feature
@@ -207,6 +240,26 @@ If you stopped at a gate, resuming `/build` continues from the next stage.
 !!! note "Your code is safe"
     Even in AFK mode, git operations remain opt-in through `--git-*` flags.
 
+### Start a Child Feature from a Phase Plan
+
+=== "Claude Code"
+
+    ```bash
+    /build auth-session-hardening "Add session expiry telemetry" PHASE_PLAN_PATH=prds/auth-overhaul-phase-plan.md PHASE_ID=P2
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-dev-build auth-session-hardening "Add session expiry telemetry" PHASE_PLAN_PATH=prds/auth-overhaul-phase-plan.md PHASE_ID=P2
+    ```
+
+=== "Codex"
+
+    ```bash
+    $rp1-dev-build auth-session-hardening "Add session expiry telemetry" PHASE_PLAN_PATH=prds/auth-overhaul-phase-plan.md PHASE_ID=P2
+    ```
+
 ### With PR Creation
 
 === "Claude Code"
@@ -257,6 +310,7 @@ worktree, rp1 still uses the owning repository's canonical work root.
 **Contents:**
 
 - `requirements.md` - Feature requirements
+  - includes `## Planning Traceability` when phase context is supplied
 - `design.md` - Technical design
 - `tasks.md` - Implementation tasks
 - `verification-report.md` - Verification results
@@ -266,6 +320,7 @@ worktree, rp1 still uses the owning repository's canonical work root.
 
 | Command | When to Use |
 |---------|-------------|
+| [`phase-plan`](phase-plan.md) | Initiative-sized work that needs durable delivery slices before feature execution |
 | [`build-fast`](build-fast.md) | Small, well-scoped tasks that don't need full planning |
 | [`feature-edit`](feature-edit.md) | Mid-stream changes during build |
 | [`feature-unarchive`](feature-unarchive.md) | Restore archived features |

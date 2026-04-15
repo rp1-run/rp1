@@ -6,19 +6,22 @@ Common multi-skill sequences in rp1. Each workflow describes when to use it, the
 
 **When**: Building a new feature end-to-end -- from idea through implementation to merge.
 
-**Sequence**: `/blueprint` -> `/build` -> `/pr-review` -> `/address-pr-feedback`
+**Sequence**: `/blueprint` -> `/phase-plan` (when needed) -> `/build` -> `/pr-review` -> `/address-pr-feedback`
 
 | Step | Skill | Input | Output |
 |------|-------|-------|--------|
 | 1 | `/blueprint` | Project vision, feature idea | Charter + PRD in `.rp1/work/blueprints/` |
-| 2 | `/build {feature-id}` | PRD or freeform requirements | Requirements, design, tasks, implemented code, verified feature |
-| 3 | `/pr-review` | Branch with changes | Review comments posted to PR |
-| 4 | `/address-pr-feedback` | PR with review comments | Resolved comments, updated code |
+| 2 | `/phase-plan <source>` | Completed PRD or oversized requirements artifact | Durable delivery phases with child-feature handoffs |
+| 3 | `/build {feature-id}` | Single feature requirements or exact child handoff command from `/phase-plan` | Requirements, design, tasks, implemented code, verified feature |
+| 4 | `/pr-review` | Branch with changes | Review comments posted to PR |
+| 5 | `/address-pr-feedback` | PR with review comments | Resolved comments, updated code |
 
 **How they chain**:
 
-- `/blueprint` produces a PRD that defines scope. Pass the PRD content or its key points as the `REQUIREMENTS` argument to `/build`.
-- `/build` runs six internal phases (requirements -> design -> tasks -> build -> verify -> archive). It spawns sub-agents for each phase and manages checkpoints between them. The output is a working implementation on a feature branch.
+- `/blueprint` produces a PRD that defines scope. If the PRD already maps cleanly to one delivery slice, continue directly to `/build`.
+- Use `/phase-plan` when the PRD or requirements artifact spans multiple independently valuable features, rollout slices, or delivery phases. It creates the durable handoff between planning and feature execution. Pass an explicit PRD path or oversized `requirements.md` path as the source; if a basename or title is ambiguous, rerun with one explicit source path.
+- After `/phase-plan`, invoke child delivery with the exact emitted handoff command, for example `/build auth-session-hardening PHASE_PLAN_PATH=prds/auth-overhaul-phase-plan.md PHASE_ID=P2`. The `PHASE_PLAN_PATH` and `PHASE_ID` arguments preserve planning traceability for the child feature.
+- `/build` runs six internal phases (requirements -> design -> tasks -> build -> verify -> archive). It spawns sub-agents for each phase and manages checkpoints between them. The output is a working implementation on a feature branch, and oversized scope is redirected to `/phase-plan` instead of reviving legacy tracker or milestone planning.
 - After pushing the branch and opening a PR, `/pr-review` performs map-reduce analysis: splits the diff into review units, analyzes each in parallel, synthesizes findings, deduplicates comments, and posts them.
 - `/address-pr-feedback` collects the posted review comments, triages them by priority, and fixes them in sequence.
 
@@ -38,7 +41,7 @@ Common multi-skill sequences in rp1. Each workflow describes when to use it, the
 
 | Phase | What happens |
 |-------|-------------|
-| Plan | Planner agent analyzes the request, determines scope (small/medium/large), and writes a plan artifact. Large scope redirects to `/build`. |
+| Plan | Planner agent analyzes the request, determines scope and delivery fit, and writes a plan artifact. Initiative-sized scope redirects to `/phase-plan`; single-feature large scope redirects to `/build`. |
 | Build | Task-builder agent implements the plan. |
 | Review | Optional (`--review` flag). Task-reviewer validates the implementation against the plan. |
 
@@ -50,7 +53,7 @@ Common multi-skill sequences in rp1. Each workflow describes when to use it, the
 
 **Sequence**: Interactive loop of request -> implement -> next request.
 
-Each iteration delegates to a general sub-agent. If the request is too large, it redirects to `/build-fast` or `/build`. The session stays open for multiple tasks.
+Each iteration delegates to a general sub-agent. If the request is too large, it redirects to `/build-fast`, `/build`, or `/phase-plan` based on whether the work is medium, a single large feature, or an initiative that needs phased planning. The session stays open for multiple tasks.
 
 ### Choosing between them
 
@@ -59,6 +62,7 @@ Each iteration delegates to a general sub-agent. If the request is too large, it
 | Need traceability or plan review | `/build-fast` |
 | Multiple small changes in one session | `/speedrun` |
 | Change spans multiple files with dependencies | `/build-fast --review` |
+| Request spans multiple features or phased rollout slices | `/phase-plan` |
 | Single-line fix or config tweak | `/speedrun` |
 
 ## Code Quality Pipeline
@@ -121,17 +125,19 @@ Each iteration delegates to a general sub-agent. If the request is too large, it
 
 **When**: Starting a new project or defining a new feature area before implementation.
 
-**Sequence**: `/blueprint` -> `/build`
+**Sequence**: `/blueprint` -> [`/phase-plan`] -> `/build`
 
 | Step | Skill | Input | Output |
 |------|-------|-------|--------|
 | 1 | `/blueprint` | Project vision or feature idea | Charter + PRD |
-| 2 | `/build {feature-id}` | PRD content as requirements | Implemented feature |
+| 2 | `/phase-plan <source>` | Large PRD or oversized requirements artifact | Phase plan with child-feature handoffs |
+| 3 | `/build {feature-id}` | PRD content or exact child handoff command from `/phase-plan` | Implemented feature |
 
 **How they chain**:
 
 - `/blueprint` runs a guided interview to produce planning documents. It detects whether a project charter exists; if not, it creates one first via `charter-interviewer`, then moves to PRD creation via `blueprint-wizard`. The PRD defines scope, requirements, and success criteria.
-- Pass the PRD content (or its key requirements) to `/build` as the `REQUIREMENTS` argument. `/build` takes over from there with its six-phase pipeline.
+- If the PRD represents a single feature, pass the PRD content (or its key requirements) to `/build` as the `REQUIREMENTS` argument.
+- If the PRD is initiative-sized, run `/phase-plan` against that PRD first, then run the exact emitted child-feature handoff command from the phase plan. Do not drop the `PHASE_PLAN_PATH=... PHASE_ID=...` arguments when continuing into `/build`.
 
 **Related skills**:
 

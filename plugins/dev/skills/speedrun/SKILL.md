@@ -97,7 +97,11 @@ Before delegating, assess the request:
 **If Medium or Large**: Do NOT delegate. Instead:
 
 1. Rewrite the user's raw request into a clean, standalone description (1-2 sentences, specific and actionable). This is the **polished request** — it should make sense to someone with no prior context, not just echo the user's words back.
-2. Output the redirect in this exact format:
+2. Distinguish the redirect target:
+   - **Medium scope** -> `/build-fast`
+   - **Large single feature** -> `/build`
+   - **Initiative-sized / phased / multi-feature work** -> `/phase-plan`
+3. Output the redirect in this exact format:
 
 ~~~markdown
 ---
@@ -114,15 +118,21 @@ For medium scope (2-8h):
 /rp1-dev:build-fast "{polished request}"
 ```
 
-For large scope (>8h):
+For large single-feature scope (>8h):
 ```
 /rp1-dev:build "{suggested-feature-id}"
+```
+
+For initiative-sized scope (multiple independently valuable features, explicit rollout phases, or distinct child-feature handoffs):
+```
+/rp1-dev:phase-plan <prd-or-requirements-source>
 ```
 
 ---
 ~~~
 
 The polished request inserted into the commands must be the cleaned-up version, NOT the user's raw input. Transform vague or conversational input into a concise, actionable prompt that a downstream workflow can act on without further clarification.
+When recommending `/phase-plan`, explain that the command expects a completed PRD or oversized `requirements.md` artifact as its source. Do not mention legacy tracker or milestone workflows.
 
 Then loop to §1.5 (Post-Build Prompt) so the user can submit a smaller request or exit.
 

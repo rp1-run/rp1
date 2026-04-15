@@ -45,7 +45,7 @@ Read `{WORK_ROOT}/features/{FEATURE_ID}/`:
 | `design.md` | Yes | Tech specs |
 | `requirements.md` | Yes | Business reqs + AC |
 | `tasks.md` | If UPDATE | Existing tasks |
-| `tracker.md` | If UPDATE | Existing milestones |
+| `tracker.md` / `milestone-{N}.md` | No | Legacy read-only context only; never update or emit |
 
 **Validation**:
 - Missing `design.md` -> exit: "Design document required. Run /build first."
@@ -86,22 +86,13 @@ List + number: components, services, endpoints, DB changes, UI elements.
 
 ### 2.2 Classify
 
-**Default**: Flat task list. Milestones ONLY for manual gates.
+This agent only emits `tasks.md` for feature-sized scope.
 
-| Scope | When |
-|-------|------|
-| Flat | Single component, auto-verifiable |
-| Milestones | Manual gate, human approval, cross-team handoff w/ wait |
+Set `SCOPE_FIT = "feature"` unless the design still clearly describes multiple independently valuable child features or phased rollout slices. When that happens:
 
-**Manual ONLY when automation impossible**: physical HW, external UI, subjective judgment.
-
-**NOT manual** (validator handles): API responses, DB state, UI renders, errors, perf benchmarks.
-
-### 2.3 Override
-`$2 = milestones` -> document: `**Milestone Rationale**: [gate]`
-
-### 2.4 Output
-`SCOPE_TYPE = "large" | "small"`
+- return an error instead of generating task artifacts
+- direct the caller to `/phase-plan`
+- do NOT generate or update `tracker.md` or `milestone-*.md`
 
 ## §3 Task Generation
 
@@ -235,11 +226,9 @@ List uncovered design sections -> new tasks: T{max_id + 1}...
 | Removed | ID NOT reused |
 | New | Next sequential |
 
-### 4.7 Milestone Update
-1. Load `tracker.md`
-2. Per `milestone-{N}.md`: apply §4.4, scoped IDs (T1.1, T1.2)
-3. Update progress %
-4. Update tracker
+### 4.7 Legacy Tracker Handling
+
+If legacy `tracker.md` or `milestone-{N}.md` files exist, treat them as read-only historical context. Do not edit them, do not mirror updates into them, and do not emit them as outputs.
 
 ### 4.8 Summary
 ```
@@ -259,13 +248,12 @@ List uncovered design sections -> new tasks: T{max_id + 1}...
 For each artifact below, read `rp1-base:artifact-templates` SKILL.md to find the template row, then read the template file at the listed path:
 
 - `tasks.md` (Producer: `feature-tasker`)
-- `tracker.md` (Producer: `feature-tasker`)
 
-Use each template's structure for the corresponding output. Fill placeholders per guidance below.
+Use the template structure exactly.
 
 ### Content Guidance
 
-**tasks.md** (Small Scope):
+**tasks.md**:
 - **Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id`.
 - Task format per §3.3 with 4-space indent and blank lines between fields.
 - DAG ordering per §3.6.
@@ -273,51 +261,15 @@ Use each template's structure for the corresponding output. Fill placeholders pe
 - Include Implementation DAG section copied from design.md if DAG_STATE exists; omit if null.
 - User Docs section per §3.5 if DOC_IMPACTS non-empty.
 
-**tracker.md** (Large Scope):
-- **Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id`.
-- Include Task Subflow diagram at milestone level.
-- Milestone Summary table links to milestone-{N}.md files.
+If `SCOPE_FIT != "feature"`, exit with:
 
-### 5.1 Small Scope (tasks.md)
+```json
+{"status": "error", "message": "Oversized scope requires /phase-plan before task generation. feature-tasker must not emit tracker.md or milestone artifacts."}
+```
+
+### 5.1 Write `tasks.md`
 
 Write to `{WORK_ROOT}/features/{FEATURE_ID}/tasks.md` using the `tasks.md` template loaded above.
-
-### 5.2 Large Scope
-
-**tracker.md**: Write to `{WORK_ROOT}/features/{FEATURE_ID}/tracker.md` using the `tracker.md` template loaded above.
-
-**milestone-{N}.md** (no centralized template -- use inline format):
-```markdown
-# Milestone [N]: [Title]
-
-**Status**: Not Started
-**Progress**: 0% (0 of [X] tasks)
-**Target Date**: [Date]
-
-## Objectives
-[What milestone accomplishes]
-
-## Tasks
-
-### [Category]
-[Tasks w/ T[N].[M] IDs]
-
-## Task Subflow
-
-```mermaid
-stateDiagram-v2
-    [*] --> T1_1
-    T1_1 : Task 1.1 description
-    T1_1 --> T1_2
-    T1_2 : Task 1.2 description
-    T1_2 --> [*]
-```
-
-[Per-milestone task subflow diagram. Generate from milestone task dependencies.]
-
-## Definition of Done
-[Completion criteria]
-```
 
 ## §6 Artifact Registration
 
@@ -325,11 +277,11 @@ After writing task artifacts, register them so the Web UI can display them. Skip
 
 ### §6.0 Subflow Diagram
 
-The subflow diagram is embedded inline as a fenced mermaid code block in the parent markdown file (per §5.1 `## Task Subflow` for small scope, §5.2 for large scope). No standalone `.mmd` file is created. Artifact registration for the subflow is merged into §6.1 via the `"subflow": true` flag.
+The subflow diagram is embedded inline as a fenced mermaid code block in `tasks.md`. No standalone `.mmd` file is created. Artifact registration for the subflow is merged into §6.1 via the `"subflow": true` flag.
 
 ### §6.1 Task Artifacts
 
-**Small scope** (tasks.md):
+Register `tasks.md`:
 
 ```bash
 rp1 agent-tools emit \
@@ -340,28 +292,6 @@ rp1 agent-tools emit \
   --data '{"path": "features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}", "subflow": true, "storageRoot": "work_dir"}'
 ```
 
-**Large scope** (tracker.md + milestone files):
-
-```bash
-rp1 agent-tools emit \
-  --workflow {WORKFLOW} \
-  --type artifact_registered \
-  --run-id {RUN_ID} \
-  --step tasks \
-  --data '{"path": "features/{FEATURE_ID}/tracker.md", "feature": "{FEATURE_ID}", "subflow": true, "storageRoot": "work_dir"}'
-```
-
-Also register each `milestone-{N}.md` written:
-
-```bash
-rp1 agent-tools emit \
-  --workflow {WORKFLOW} \
-  --type artifact_registered \
-  --run-id {RUN_ID} \
-  --step tasks \
-  --data '{"path": "features/{FEATURE_ID}/milestone-{N}.md", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
-```
-
 If any command fails, log a warning (`[feature-tasker] Failed to register artifact {path}: {error}`) and continue without blocking.
 
 ## §7 Completion Output
@@ -370,11 +300,11 @@ If any command fails, log a warning (`[feature-tasker] Failed to register artifa
 ```
 Task planning completed: `.rp1/work/features/{FEATURE_ID}/`
 
-**Generated**: [tasks.md | tracker.md + milestone-*.md]
+**Generated**: tasks.md
 
 **Summary**:
 - Total tasks: [N]
-- Scope: [small|large]
+- Scope: feature
 - Effort: [X] days
 
 **Next**: Proceed to build phase

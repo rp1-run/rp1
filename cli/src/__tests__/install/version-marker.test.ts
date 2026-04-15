@@ -1,10 +1,10 @@
 /**
  * Unit tests for install/version-marker.ts - Centralized version marker module.
- * Tests write/read round-trips, multi-platform isolation, and staleness detection.
+ * Tests direct write/read round-trips, multi-platform isolation, and staleness detection.
  *
- * Write tests use Bun.write directly to create version marker files, then
- * verify reads through the module functions. This avoids flaky interactions
- * between fp-ts TaskEither, node:fs/promises, and Bun's async runtime in CI.
+ * Most read-path tests seed JSON directly to keep fixtures compact. Dedicated
+ * write-path tests below exercise writeVersionMarker(..., homeOverride)
+ * end-to-end so merge and overwrite regressions fail coverage.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -16,6 +16,7 @@ import {
 	readAllVersionMarkers,
 	readVersionMarker,
 	type VersionMarker,
+	writeVersionMarker,
 } from "../../install/version-marker.js";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
 
@@ -107,6 +108,44 @@ describe("version-marker", () => {
 		await cleanupTempDir(dir);
 	});
 
+	test("writeVersionMarker writes to the overridden home directory", async () => {
+		const dir = await createTempDir("vm-write-override");
+
+		const writeResult = await writeVersionMarker("codex", "0.7.0", dir)();
+		expect(writeResult._tag).toBe("Right");
+
+		const filePath = join(dir, ".rp1", "platform-versions.json");
+		const content = JSON.parse(
+			await Bun.file(filePath).text(),
+		) as PlatformVersions;
+		expect(content.codex).toBeDefined();
+		expect(content.codex?.version).toBe("0.7.0");
+		expect(content.codex?.platform).toBe("codex");
+		expect(typeof content.codex?.installedAt).toBe("string");
+
+		await cleanupTempDir(dir);
+	});
+
+	test("writeVersionMarker merges with existing platform entries", async () => {
+		const dir = await createTempDir("vm-write-merge");
+		await writeMarkerFile(dir, {
+			"claude-code": marker("claude-code", "0.6.5"),
+		});
+
+		const writeResult = await writeVersionMarker("opencode", "0.7.0", dir)();
+		expect(writeResult._tag).toBe("Right");
+
+		const readResult = await readAllVersionMarkers(dir)();
+		expect(readResult._tag).toBe("Right");
+		if (readResult._tag === "Right") {
+			expect(readResult.right["claude-code"]?.version).toBe("0.6.5");
+			expect(readResult.right.opencode?.version).toBe("0.7.0");
+			expect(readResult.right.opencode?.platform).toBe("opencode");
+		}
+
+		await cleanupTempDir(dir);
+	});
+
 	test("readVersionMarker reads the latest version for a platform", async () => {
 		const dir = await createTempDir("vm-overwrite");
 		// Simulate overwrite by writing the final state directly
@@ -119,6 +158,33 @@ describe("version-marker", () => {
 		if (readResult._tag === "Right") {
 			expect(readResult.right!.version).toBe("0.6.5");
 		}
+		await cleanupTempDir(dir);
+	});
+
+	test("writeVersionMarker overwrites an existing platform entry while preserving others", async () => {
+		const dir = await createTempDir("vm-write-overwrite");
+		const oldInstalledAt = "2026-01-01T00:00:00.000Z";
+		await writeMarkerFile(dir, {
+			opencode: {
+				version: "0.6.4",
+				installedAt: oldInstalledAt,
+				platform: "opencode",
+			},
+			codex: marker("codex", "0.6.5"),
+		});
+
+		const writeResult = await writeVersionMarker("opencode", "0.7.1", dir)();
+		expect(writeResult._tag).toBe("Right");
+
+		const readResult = await readAllVersionMarkers(dir)();
+		expect(readResult._tag).toBe("Right");
+		if (readResult._tag === "Right") {
+			expect(readResult.right.opencode?.version).toBe("0.7.1");
+			expect(readResult.right.opencode?.platform).toBe("opencode");
+			expect(readResult.right.opencode?.installedAt).not.toBe(oldInstalledAt);
+			expect(readResult.right.codex?.version).toBe("0.6.5");
+		}
+
 		await cleanupTempDir(dir);
 	});
 

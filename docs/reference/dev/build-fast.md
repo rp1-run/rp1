@@ -28,7 +28,9 @@ Quick-iteration development for small, well-scoped tasks using the [command-agen
 
 The `build-fast` command handles development requests that don't warrant the
 full feature workflow. It assesses request scope and either implements the
-changes (for small/medium scope) or redirects to `/build` (for large scope).
+changes (for small/medium scope), redirects to `/build` for a large single
+feature, or redirects to `/phase-plan` for initiative-sized work that needs
+durable phase planning first.
 
 Every invocation starts a fresh tracked run. Implementation changes happen in
 your current checkout, while workflow artifacts are stored under the canonical
@@ -60,7 +62,8 @@ The command assesses request complexity before execution:
 |-------|-------|----------|
 | Small | <2 | Implements changes |
 | Medium | 2-8 | Implements changes |
-| Large | >8 | Redirects to `/build` |
+| Large single feature | >8 | Redirects to `/build` |
+| Initiative-sized / phased rollout | Varies | Redirects to `/phase-plan` |
 
 **Assessment criteria**:
 
@@ -231,7 +234,7 @@ planning, build, and review/finalization:
 | Phase | What Happens |
 |------|---------------|
 | Bootstrap | Resolves canonical `projectRoot`, `kbRoot`, and `workRoot`, then creates a new `build-fast` run. Unlike `/build`, `build-fast` never resumes an earlier run. |
-| Plan | Loads KB context, assesses scope, creates a quick-build artifact for Small/Medium requests, and optionally pauses for plan confirmation. Large requests stop here with a redirect to `/build`. |
+| Plan | Loads KB context, assesses scope, creates a quick-build artifact for Small/Medium requests, and optionally pauses for plan confirmation. Large single-feature requests stop here with a redirect to `/build`; initiative-sized requests stop here with a redirect to `/phase-plan`. |
 | Build | Delegates the planned work to `task-builder` using the quick-build artifact as the source of truth. |
 | Review / Finalize | Optionally runs `task-reviewer`, retries once on failure, optionally pushes, and optionally pauses for a post-implementation checkpoint before final output. |
 
@@ -277,24 +280,36 @@ This file is the workflow's source of truth and includes:
 - Implementation summary
 - Verification notes (when review is enabled)
 
-### Large Scope Redirect
+### Large and Initiative Redirects
 
-When scope is assessed as Large, `build-fast` stops before writing a quick-build
-artifact and returns a redirect to `/build`:
+When scope exceeds `build-fast`, the workflow stops before writing a quick-build
+artifact:
+
+- If the request is still one cohesive feature, the redirect points to `/build`.
+- If the request spans multiple independently valuable slices, rollout phases,
+  or child-feature handoffs, the redirect points to `/phase-plan`.
+
+For `/phase-plan`, the redirect expects a completed PRD or oversized
+`requirements.md` artifact as its source. If you do not have that artifact yet,
+create it first instead of trying to phase-plan directly from freeform request
+text.
+
+Typical redirect shapes:
 
 ```
-## REQUEST EXCEEDS SCOPE
+## REQUEST EXCEEDS /build-fast SCOPE
 
 Request: [summary]
 Estimated Effort: [hours]
 
-Why This Needs /build:
-- [reasons]
+Recommended Path: /build {feature-id}
 
-Options:
-1. Reduce scope: [minimal solution]
-2. Phase it: [breakdown]
-3. Use full workflow: Run /build {feature-id}
+- or -
+
+Recommended Path: /phase-plan <prd-or-requirements-source>
+
+Why:
+- [reasons]
 
 Recommended Quick Win: [simplest valuable alternative]
 ```
@@ -302,4 +317,5 @@ Recommended Quick Win: [simplest valuable alternative]
 ## Related Commands
 
 - [`build`](build.md) - For larger features requiring full workflow
+- [`phase-plan`](phase-plan.md) - For initiative-sized work that needs durable child-feature handoffs
 - [`code-check`](code-check.md) - Verify changes

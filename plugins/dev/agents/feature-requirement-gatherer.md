@@ -18,6 +18,16 @@ arguments:
     required: false
     default: false
     description: "Skip user prompts, auto-select defaults"
+  - name: PHASE_PLAN_PATH
+    type: string
+    required: false
+    default: ""
+    description: "Optional phase-plan artifact path for child-feature traceability"
+  - name: PHASE_ID
+    type: string
+    required: false
+    default: ""
+    description: "Optional parent phase identifier for child-feature traceability"
   - name: KB_ROOT
     type: string
     required: true
@@ -44,6 +54,8 @@ Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
 
 <feature_id>$1</feature_id>
 <requirements>$2</requirements>
+<phase_plan_path>{{PHASE_PLAN_PATH from prompt}}</phase_plan_path>
+<phase_id>{{PHASE_ID from prompt}}</phase_id>
 <afk_mode>$3</afk_mode>
 <kb_root>{{KB_ROOT from prompt}}</kb_root>
 <work_root>{{WORK_ROOT from prompt}}</work_root>
@@ -68,7 +80,46 @@ Read via Read tool:
 
 If KB missing: warn, continue w/ best-effort.
 
-## 2. PRD Detection
+## 2. Phase Context Resolution
+
+Resolve optional parent-phase context before PRD matching or ambiguity analysis.
+
+### 2.1 Accepted Inputs
+
+- Explicit prompt args:
+  - `PHASE_PLAN_PATH`
+  - `PHASE_ID`
+- Legacy inline handoff tokens embedded inside `REQUIREMENTS`:
+  - `PHASE_PLAN_PATH=...`
+  - `PHASE_ID=...`
+
+### 2.2 Resolution Rules
+
+1. Prefer explicit prompt args when they are non-empty.
+2. Otherwise, scan `REQUIREMENTS` for legacy inline tokens and strip only those tokens from the freeform requirements text before further analysis.
+3. Activate phase traceability only when both normalized values are present. If neither is present, continue normally and omit `## Planning Traceability`.
+4. Accept either:
+   - work-root-relative phase-plan paths such as `features/{FEATURE_ID}/phase-plan.md` or `prds/example-phase-plan.md`
+   - `.rp1/work/...` paths; convert them to work-root-relative paths for reads while preserving `.rp1/work/...` display paths for output
+5. Treat any path outside `{WORK_ROOT}` as invalid.
+
+### 2.3 Phase Plan Loading
+
+When both values are present:
+
+1. Read the resolved phase-plan artifact.
+2. Resolve the selected phase section for `PHASE_ID`.
+3. Extract the durable handoff fields needed for `requirements.md`:
+   - source planning artifact title
+   - source planning artifact path
+   - parent phase ID
+   - parent phase title
+   - manual verification expectation from the selected phase
+   - recommended next-step provenance for the child feature; prefer the child handoff row whose `ID` matches `{FEATURE_ID}`, otherwise use the selected phase's main feature handoff or delivery-mapping row for `PHASE_ID`
+4. If the selected phase context points to a PRD source, use that source as the associated Parent PRD instead of heuristic PRD matching.
+5. If explicit or inline phase context was supplied but the phase plan cannot be read or the phase cannot be resolved, return an error JSON object instead of silently dropping traceability.
+
+## 3. PRD Detection
 
 Check for project ctx:
 
@@ -88,9 +139,9 @@ If PRD selected:
 
 No charter/PRD: display tip, continue (non-blocking).
 
-## 3. Ambiguity Resolution
+## 4. Ambiguity Resolution
 
-### 3.1 Detection
+### 4.1 Detection
 
 Scan inputs for:
 
@@ -99,7 +150,7 @@ Scan inputs for:
 - Undefined scope: "etc.", "various features"
 - Conflicting requirements
 
-### 3.2 Question Framework
+### 4.2 Question Framework
 
 | Category | Focus |
 |----------|-------|
@@ -108,14 +159,14 @@ Scan inputs for:
 | CONSTRAINTS | Performance, compliance, business rules |
 | SCOPE | Included/excluded, MVP def, dependencies |
 
-### 3.3 Resolution
+### 4.3 Resolution
 
 | Mode | Action |
 |------|--------|
 | Interactive (AFK=false) | Prompt the user for clarification |
 | AFK (AFK=true) | Infer from KB ctx, PRD constraints. Apply conservative defaults. Log all inferences. |
 
-## 4. Requirements Structure
+## 5. Requirements Structure
 
 Each requirement MUST include:
 
@@ -130,24 +181,28 @@ Each requirement MUST include:
 
 **Exclude**: Tech impl, arch decisions, tech choices, DB schemas, API designs, code examples.
 
-## 5. Output
+## 6. Output
 
 Write to `{WORK_ROOT}/features/{FEATURE_ID}/requirements.md`.
 
-### 5.1 Template Loading
+### 6.1 Template Loading
 
 1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `feature-requirement-gatherer` and **Artifact** = `requirements.md`.
 2. Read the template file at the listed **Template Path**.
 3. Use template structure for output. Fill placeholders per guidance below.
 
-### 5.2 Content Guidance
+### 6.2 Content Guidance
 
 - **Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in YAML frontmatter.
 - Requirements use REQ-ID format with priority, user type, rationale, acceptance criteria.
 - User stories use STORY-ID format with As a/I want/So that + GIVEN/WHEN/THEN.
+- When phase context is resolved, add `## Planning Traceability` with the source artifact title/path, parent phase ID/title, manual verification expectation, and the selected next-step provenance.
+- Keep `## Planning Traceability` strictly as provenance metadata for the current child feature. Do not restate multi-phase sequencing, release plans, or handoff decisions as active scope requirements inside that section.
+- When phase context is not resolved, omit `## Planning Traceability` entirely.
+- Legacy inline handoff tokens are routing metadata, not business requirements; do not leave them inside the prose requirements body.
 - AFK Mode sections are appended when AFK_MODE=true (see template conditions).
 
-## 6. Artifact Registration
+## 7. Artifact Registration
 
 After writing `requirements.md`, register it so the Web UI can display it. Skip if WORKFLOW is empty (standalone invocation).
 
@@ -162,7 +217,7 @@ rp1 agent-tools emit \
 
 If the command fails, log a warning (`[feature-requirement-gatherer] Failed to register artifact features/{FEATURE_ID}/requirements.md: {error}`) and continue without blocking.
 
-## 7. Completion Output
+## 8. Completion Output
 
 Return JSON completion contract:
 
@@ -196,16 +251,17 @@ Requirements completed: .rp1/work/features/{FEATURE_ID}/requirements.md
 
 Return only the JSON object or the single text line above. Do not include implementation summaries, commit hashes, test results, or unrelated file references.
 
-## 8. Anti-Loop Directive
+## 9. Anti-Loop Directive
 
 **EXECUTE IMMEDIATELY**: NO clarification requests, NO iteration, NO waiting.
 
 1. Read KB files (index.md, concept_map.md)
-2. Detect PRDs, select per mode
-3. Identify ambiguities, resolve per mode
-4. Generate requirements.md
-5. Output completion JSON
-6. STOP
+2. Resolve optional phase context and strip legacy handoff tokens from `REQUIREMENTS` when present
+3. Detect PRDs, select per mode
+4. Identify ambiguities, resolve per mode
+5. Generate requirements.md
+6. Output completion JSON
+7. STOP
 
 Ambiguous input -> infer conservative defaults, document in output.
 Missing KB -> warn, continue w/ best-effort.
