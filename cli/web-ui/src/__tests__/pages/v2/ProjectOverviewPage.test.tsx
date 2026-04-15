@@ -7,12 +7,14 @@ import {
 	waitFor,
 } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
+import { useSyncExternalStore } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import {
 	WORKSPACE_TABS_STORAGE_KEY,
 	type WorkspaceTab,
 	WorkspaceTabsProvider,
 } from "@/hooks/useWorkspaceTabs";
+import { liveRunIndex } from "@/lib/live-run-index";
 import type { ShortcutRegistryData } from "@/providers/ShortcutRegistryProvider";
 import {
 	ShortcutRegistryProvider,
@@ -32,6 +34,16 @@ mock.module("@/hooks/useBreadcrumbContext", () => ({
 
 mock.module("@/hooks/useReconnectRecovery", () => ({
 	useReconnectRecovery: () => {},
+}));
+
+mock.module("@/hooks/useLiveRunIndex", () => ({
+	useLiveRunIndexBridge: () => {},
+	useLiveRunIndexSnapshot: () =>
+		useSyncExternalStore(
+			liveRunIndex.subscribe,
+			liveRunIndex.getSnapshot,
+			liveRunIndex.getSnapshot,
+		),
 }));
 
 mock.module("@/components/v2/RunCard", () => ({
@@ -113,6 +125,7 @@ function renderProjectOverviewWithComponent(
 describe("ProjectOverviewPage", () => {
 	beforeEach(() => {
 		mock.restore();
+		liveRunIndex.clear();
 		document.body.innerHTML = "";
 		sessionStorage.clear();
 		latestRegistry = null;
@@ -147,6 +160,7 @@ describe("ProjectOverviewPage", () => {
 
 	afterEach(() => {
 		cleanup();
+		liveRunIndex.clear();
 		mock.restore();
 	});
 
@@ -207,13 +221,23 @@ describe("ProjectOverviewPage", () => {
 					runs: [
 						{
 							id: "run-1",
-							command: "/build",
-							status: "running",
 							projectId: "proj-1",
 							projectName: "Project One",
+							featureId: "feat-1",
+							featureName: "Feature One",
+							name: "Run one",
+							command: "/build",
+							status: "running",
 							harness: "codex",
+							currentStep: null,
+							steps: [],
+							artifacts: [],
+							events: [],
 							startedAt: "2026-04-12T00:00:00.000Z",
 							lastEventAt: "2026-04-12T00:00:00.000Z",
+							completedAt: null,
+							error: null,
+							agentSteps: null,
 						},
 					],
 					total: 1,
@@ -283,5 +307,177 @@ describe("ProjectOverviewPage", () => {
 
 		expect(screen.getByRole("heading", { name: "Project One" })).toBeTruthy();
 		expect(screen.queryByText("...")).toBeNull();
+	});
+
+	test("merges newly active project runs into the recent list without refetching", async () => {
+		global.fetch = mock(async (input: RequestInfo | URL) => {
+			const url = String(input);
+			if (url.includes("/api/v2/projects/proj-1") && !url.includes("runs?")) {
+				return {
+					ok: true,
+					status: 200,
+					json: async () => ({
+						id: "proj-1",
+						name: "Project One",
+						path: "/repo/project-one",
+						available: true,
+						runCount: 3,
+						lastActivityAt: "2026-04-12T00:00:00.000Z",
+					}),
+				} satisfies Partial<Response>;
+			}
+
+			return {
+				ok: true,
+				status: 200,
+				json: async () => ({
+					runs: [
+						{
+							id: "run-1",
+							projectId: "proj-1",
+							projectName: "Project One",
+							featureId: "feat-1",
+							featureName: "Feature One",
+							name: "Initial Run",
+							command: "/build",
+							status: "running",
+							harness: "codex",
+							currentStep: null,
+							steps: [],
+							artifacts: [],
+							events: [],
+							startedAt: "2026-04-12T00:00:00.000Z",
+							lastEventAt: "2026-04-12T00:00:00.000Z",
+							completedAt: null,
+							error: null,
+							agentSteps: null,
+						},
+					],
+					total: 1,
+				}),
+			} satisfies Partial<Response>;
+		}) as unknown as typeof fetch;
+
+		const { ProjectOverviewPage } = await import(
+			`../../../pages/v2/ProjectOverviewPage.tsx?project-overview-live-test=${++importVersion}`
+		);
+		renderProjectOverviewWithComponent(ProjectOverviewPage);
+
+		expect(
+			await screen.findByRole("heading", { name: "Project One" }),
+		).toBeTruthy();
+		expect(global.fetch).toHaveBeenCalledTimes(2);
+
+		liveRunIndex.upsertRun({
+			id: "run-2",
+			projectId: "proj-1",
+			projectName: "Project One",
+			featureId: "feat-1",
+			featureName: "Feature One",
+			name: "Live Run",
+			command: "/build",
+			status: "running",
+			harness: "codex",
+			currentStep: null,
+			steps: [],
+			artifacts: [],
+			events: [],
+			startedAt: "2026-04-12T00:05:00.000Z",
+			lastEventAt: "2026-04-12T00:05:00.000Z",
+			completedAt: null,
+			error: null,
+			agentSteps: null,
+		});
+
+		await waitFor(() => {
+			expect(screen.getByText("4 runs")).toBeTruthy();
+		});
+		expect(global.fetch).toHaveBeenCalledTimes(2);
+	});
+
+	test("counts newly discovered older runs without replacing the project activity timestamp", async () => {
+		global.fetch = mock(async (input: RequestInfo | URL) => {
+			const url = String(input);
+			if (url.includes("/api/v2/projects/proj-1") && !url.includes("runs?")) {
+				return {
+					ok: true,
+					status: 200,
+					json: async () => ({
+						id: "proj-1",
+						name: "Project One",
+						path: "/repo/project-one",
+						available: true,
+						runCount: 3,
+						lastActivityAt: "2026-04-12T00:00:00.000Z",
+					}),
+				} satisfies Partial<Response>;
+			}
+
+			return {
+				ok: true,
+				status: 200,
+				json: async () => ({
+					runs: [
+						{
+							id: "run-1",
+							projectId: "proj-1",
+							projectName: "Project One",
+							featureId: "feat-1",
+							featureName: "Feature One",
+							name: "Initial Run",
+							command: "/build",
+							status: "running",
+							harness: "codex",
+							currentStep: null,
+							steps: [],
+							artifacts: [],
+							events: [],
+							startedAt: "2026-04-12T00:00:00.000Z",
+							lastEventAt: "2026-04-12T00:00:00.000Z",
+							completedAt: null,
+							error: null,
+							agentSteps: null,
+						},
+					],
+					total: 1,
+				}),
+			} satisfies Partial<Response>;
+		}) as unknown as typeof fetch;
+
+		const { ProjectOverviewPage } = await import(
+			`../../../pages/v2/ProjectOverviewPage.tsx?project-overview-older-run-test=${++importVersion}`
+		);
+		renderProjectOverviewWithComponent(ProjectOverviewPage);
+
+		expect(
+			await screen.findByRole("heading", { name: "Project One" }),
+		).toBeTruthy();
+		expect(global.fetch).toHaveBeenCalledTimes(2);
+
+		liveRunIndex.upsertRun({
+			id: "run-older",
+			projectId: "proj-1",
+			projectName: "Project One",
+			featureId: "feat-1",
+			featureName: "Feature One",
+			name: "Older Run",
+			command: "/build",
+			status: "completed",
+			harness: "codex",
+			currentStep: null,
+			steps: [],
+			artifacts: [],
+			events: [],
+			startedAt: "2026-04-11T00:00:00.000Z",
+			lastEventAt: "2026-04-11T00:05:00.000Z",
+			completedAt: "2026-04-11T00:05:00.000Z",
+			error: null,
+			agentSteps: null,
+		});
+
+		await waitFor(() => {
+			expect(screen.getByText("4 runs")).toBeTruthy();
+		});
+		expect(global.fetch).toHaveBeenCalledTimes(2);
 	});
 });

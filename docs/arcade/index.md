@@ -27,6 +27,12 @@ The activity dashboard is a reverse-chronological feed of tracked runs. It
 keeps run monitoring separate from persistent notifications so the main page
 stays easy to scan.
 
+Workflow activity shows up here because workflows emit canonical events through
+`rp1 agent-tools emit`. Arcade consumes that event stream over WebSocket,
+hydrates only the affected runs and project summaries, and keeps file watching
+scoped to artifact or file-content views instead of using file changes as the
+normal status-refresh mechanism.
+
 Each row shows:
 
 - latest activity time
@@ -40,6 +46,10 @@ Persistent notifications do not appear as standalone feed rows; open the
 notifications drawer from the shell when you need approvals, failures, or other
 notification records.
 
+If the socket reconnects after a gap, Arcade resumes from the saved
+project-scoped cursor so missed workflow events can be replayed or reconciled
+from a bounded snapshot before the feed falls back to broader recovery.
+
 ### Notifications drawer
 
 The notifications drawer gives you a dedicated inbox without forcing a page
@@ -50,6 +60,12 @@ change.
 - The drawer stays on top of the current page, groups items by urgency, lets
   you follow linked runs or projects, and lets you dismiss notifications in
   place.
+- Notification delivery stays aligned with the same emit-driven live-update
+  path as the rest of Arcade, so approval, failure, and completion signals
+  follow the affected run without requiring a broad page refresh.
+- Reconnect recovery uses the saved WebSocket cursor plus persisted run state
+  to catch up after missed live traffic; manual reload is a fallback, not the
+  normal path.
 
 ### Runs list
 

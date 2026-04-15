@@ -221,6 +221,13 @@ async function handleV2ApiRequest(
 		return handleV2RunEndRequest(runId, req, apiContext);
 	}
 
+	const runSummaryMatch = pathname.match(/^\/api\/v2\/runs\/([^/]+)\/summary$/);
+	if (runSummaryMatch && method === "GET") {
+		const { handleV2RunSummaryRequest } = await import("./routes/v2-api");
+		const runId = decodeURIComponent(runSummaryMatch[1]);
+		return handleV2RunSummaryRequest(runId, apiContext);
+	}
+
 	const runDetailMatch = pathname.match(/^\/api\/v2\/runs\/([^/]+)$/);
 	if (runDetailMatch && method === "GET") {
 		const { handleV2RunDetailRequest } = await import("./routes/v2-api");

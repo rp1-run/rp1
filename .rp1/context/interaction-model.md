@@ -1,7 +1,7 @@
 # rp1 - Interaction Model
 
 **Project**: rp1
-**Analysis Date**: 2026-04-12
+**Analysis Date**: 2026-04-14
 **Surfaces**: CLI, Host Tool Integration, Arcade Web UI, Agent Tools CLI, Reference Docs, Init Wizard
 
 ## Experience Principles
@@ -52,9 +52,11 @@
 | Workflow gate | Phase needs user choice | Emit waiting_for_user -> Arcade shows pause -> Host tool asks -> Answer resumes/revises/cancels |
 | Artifact registration | Workflow creates durable output | Emit artifact_registered with storageRoot -> Arcade resolves and shows file |
 | Annotation feedback | User comments/edits artifact in Arcade | Runtime persists change -> Agents read via feedback read -> Replies update UI via WebSocket |
-| Notification lifecycle | Events produce notifications | WebSocket delivery -> Toast auto-dismiss (6s) with dedup guard -> Sidebar grouped by attention -> Individual dismiss via X, bulk via "Read all" |
+| Notification lifecycle | Events produce notifications | Emitted workflow events and notifications arrive over the project WebSocket -> Toast auto-dismiss (6s) with dedup guard -> Sidebar grouped by attention -> Individual dismiss via X, bulk via "Read all" |
 | Contextual command registration | View mounts with commands | ShortcutRegistryProvider stores view commands -> Command palette shows view-labeled group -> User executes -> Cleanup on unmount |
-| Activity feed refresh | WebSocket attention signal or reconnect | Auto-refresh without manual polling |
+| Emit-driven run projection | `event:notification` or `event:replay` arrives for a project | Browser stores `lastEventId`, reduces the event through `LiveRunIndex`, and patches only the affected run detail, feed rows, attention groups, and project summaries |
+| Snapshot reconciliation | Reconnect gap is too large for replay | Browser reconnects with the saved project cursor -> Server sends `state:snapshot` -> Client replaces the project's active-run subset and only refetches visible collections whose membership may now be stale |
+| Recovery fallback | Live socket is disconnected or replay was missed entirely | Persisted REST state plus disconnected-only polling restore the latest run truth without treating broad refresh as the normal workflow-status path |
 
 ## Keyboard & Command System
 
@@ -73,7 +75,9 @@
 | Skill invocation syntax | Claude Code uses short slash commands; OpenCode uses rp1-prefixed names |
 | Execution vs observability | Host tools do the work; Agent Tools carry protocol; Arcade shows passive status |
 | Responsive layout | Desktop: icon-rail sidebar + resizable panels. Mobile: bottom tab bar + drawers |
-| Notification delivery | Arcade: real-time toasts with dedup + dismissible sidebar. Host tools: inline gates |
+| Workflow freshness source | Arcade: emitted workflow events hydrate `LiveRunIndex`, run detail, and attention/project surfaces via project-scoped `lastEventId` cursors. Host tools: inline gates still come from the emitting workflow |
+| Notification delivery | Arcade: real-time toasts with dedup + dismissible sidebar driven by the same emit stream. Host tools: inline gates |
+| Recovery semantics | Arcade reconnects with its saved cursor, replays missed events when possible, and falls back to bounded snapshot reconciliation or persisted REST recovery only when needed |
 | Run invocation context | Hidden by default, toggled via contextual command; shows workflow, run policy, worktree state |
 | Daemon lifecycle modes | Full mode (register + browser), daemon-only (start without project), hook-json (structured output for hooks) |
 

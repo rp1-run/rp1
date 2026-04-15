@@ -1,7 +1,7 @@
 # Implementation Patterns
 
 **Project**: rp1
-**Last Updated**: 2026-04-12
+**Last Updated**: 2026-04-14
 
 ## Naming Conventions
 
@@ -49,14 +49,19 @@
 
 - **Database**: SQLite via `bun:sqlite` for runs, events, artifacts, annotations, notifications. Upsert semantics; dedup via `hasNotificationForSource`
 - **File I/O**: Atomic writes via temp-file + rename (registry `saveRegistry`); PID file with mode 0o600; diagnostic log uses `appendFileSync`
-- **HTTP clients**: Web-UI SPA fetches `/api/v2/` with paginated notification loading; daemon health checks use polling with configurable interval
+- **Workflow event transport**: `rp1 agent-tools emit` persists canonical workflow events, then the daemon relays typed project-scoped WebSocket envelopes for status-bearing and attention-bearing live updates
+- **HTTP clients**: Web-UI SPA seeds surfaces from `/api/v2/` and uses targeted hydration such as `GET /api/v2/runs/:id/summary`; reconnect polling stays limited to disconnected recovery instead of routine freshness
+- **Freshness split**: Workflow status and attention come from emitted event delivery plus replay/snapshot recovery; file watching remains responsible only for artifact and file-content freshness
 
 ## UI Patterns
 
 - **Contextual commands**: Views register `CommandDefinition[]` via `useContextualShortcuts` hook, surfaced in command palette alongside navigation/action commands
-- **SessionStorage persistence**: `showFrontmatter`/`showMetadata` use `useState` + `sessionStorage` for per-tab, per-view toggle persistence
+- **SessionStorage persistence**: `showFrontmatter`/`showMetadata` use `useState` + `sessionStorage` for per-tab, per-view toggle persistence; WebSocket cursors follow the same pattern with `rp1:last-event-id:{projectId}`
 - **Notification lifecycle**: Toasts auto-dismiss 6s with dedup guard; sidebar groups by attention level; "Read all" bulk dismiss
 - **Attention-level styling**: `itemClassForLevel` maps attention levels to differentiated background colors for visual triage
+- **LiveRunIndex projection**: Feed, runs, attention, project summaries, and run detail seed from REST, then project emitted workflow activity through a shared `LiveRunIndex` keyed by `runId` to patch only affected surfaces
+- **Snapshot reconciliation**: `state:snapshot` replaces the project's active-run subset and triggers bounded refetch only for currently visible collections whose membership may have changed
+- **Targeted hydration**: Unknown run events hydrate a single run summary before reducers apply queued updates, avoiding collection-wide invalidation for routine workflow activity
 
 ## Observability
 

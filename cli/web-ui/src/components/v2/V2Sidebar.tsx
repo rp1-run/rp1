@@ -89,6 +89,8 @@ const navItems = allNavItems.filter(
 );
 
 export function V2Sidebar({ collapsed, onToggle }: V2SidebarProps) {
+	const { data: attentionData } = useAttention();
+
 	return (
 		<aside
 			className={cn(
@@ -97,8 +99,8 @@ export function V2Sidebar({ collapsed, onToggle }: V2SidebarProps) {
 			)}
 		>
 			<SidebarHeader collapsed={collapsed} />
-			<SidebarQuickAccess collapsed={collapsed} />
-			<SidebarNavigation collapsed={collapsed} />
+			<SidebarQuickAccess collapsed={collapsed} attentionData={attentionData} />
+			<SidebarNavigation collapsed={collapsed} attentionData={attentionData} />
 			<SidebarFooter collapsed={collapsed} onToggle={onToggle} />
 		</aside>
 	);
@@ -169,12 +171,15 @@ function SidebarFooter({ collapsed, onToggle }: SidebarFooterProps) {
 
 interface SidebarQuickAccessProps {
 	collapsed: boolean;
+	attentionData: ReturnType<typeof useAttention>["data"];
 }
 
-function SidebarQuickAccess({ collapsed }: SidebarQuickAccessProps) {
+function SidebarQuickAccess({
+	collapsed,
+	attentionData,
+}: SidebarQuickAccessProps) {
 	const { recentRuns } = useRecentRuns();
 	const { pinnedProjects } = usePinnedProjects();
-	const { data: attentionData } = useAttention();
 
 	if (collapsed) return null;
 
@@ -287,11 +292,13 @@ function SidebarQuickAccess({ collapsed }: SidebarQuickAccessProps) {
 
 interface SidebarNavigationProps {
 	collapsed: boolean;
+	attentionData: ReturnType<typeof useAttention>["data"];
 }
 
-function SidebarNavigation({ collapsed }: SidebarNavigationProps) {
-	const { data: attentionData } = useAttention();
-
+function SidebarNavigation({
+	collapsed,
+	attentionData,
+}: SidebarNavigationProps) {
 	const badgeCounts = useMemo(() => {
 		if (!attentionData) return { home: 0, runs: 0, projects: 0 };
 

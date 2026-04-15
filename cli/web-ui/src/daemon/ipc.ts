@@ -109,67 +109,6 @@ export async function stopDaemon(conn: DaemonConnection): Promise<boolean> {
 }
 
 /**
- * Workflow context for enriched status notifications.
- * When present, the daemon enriches status_changed WebSocket events with step/runStatus fields.
- */
-export interface WorkflowNotifyContext {
-	readonly workflow: string;
-	readonly runId?: string;
-	readonly previousState?: string | null;
-	readonly newState: string;
-	readonly stepStatus?: string;
-}
-
-/**
- * Notify the daemon of a status update for immediate WebSocket broadcast.
- * Fails silently if daemon is not running - this is expected behavior.
- *
- * When workflowCtx is provided (state-machine-enabled workflows),
- * the daemon enriches the status_changed broadcast with step and runStatus fields.
- */
-export async function notifyStatusChange(
-	conn: DaemonConnection,
-	projectPath: string,
-	feature: string,
-	status: string,
-	workflowCtx?: WorkflowNotifyContext,
-): Promise<boolean> {
-	try {
-		const response = await fetch(`${conn.baseUrl}/api/v2/status/notify`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				projectPath,
-				feature,
-				status,
-				...(workflowCtx && {
-					workflow: workflowCtx.workflow,
-					runId: workflowCtx.runId,
-					previousState: workflowCtx.previousState,
-					newState: workflowCtx.newState,
-					stepStatus: workflowCtx.stepStatus,
-				}),
-			}),
-			signal: AbortSignal.timeout(1000), // Short timeout - fire and forget
-		});
-		return response.ok;
-	} catch {
-		// Daemon not running or unresponsive - this is fine
-		return false;
-	}
-}
-
-/**
- * Artifact notification payload for real-time WebSocket broadcast.
- */
-export interface ArtifactNotifyPayload {
-	readonly path: string;
-	readonly type: string;
-	readonly step: string | null;
-	readonly runId: string | null;
-}
-
-/**
  * Typed event notification payload for the new event-sourced IPC format.
  * Uses `type: "event"` as discriminator to distinguish from legacy formats.
  */
@@ -185,34 +124,6 @@ export interface EventNotificationPayload {
 	readonly step: string | null;
 	readonly data: Record<string, unknown> | null;
 	readonly createdAt: string;
-}
-
-/**
- * Notify the daemon of an artifact registration for immediate WebSocket broadcast.
- * Fails silently if daemon is not running - this is expected behavior.
- */
-export async function notifyArtifactChange(
-	conn: DaemonConnection,
-	projectPath: string,
-	feature: string,
-	artifact: ArtifactNotifyPayload,
-): Promise<boolean> {
-	try {
-		const response = await fetch(`${conn.baseUrl}/api/v2/status/notify`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				type: "artifact",
-				projectPath,
-				feature,
-				artifact,
-			}),
-			signal: AbortSignal.timeout(1000),
-		});
-		return response.ok;
-	} catch {
-		return false;
-	}
 }
 
 /**
