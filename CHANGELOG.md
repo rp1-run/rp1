@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.7.4](https://github.com/rp1-run/rp1/compare/v0.7.3...v0.7.4) (2026-04-15)
+
+
+### Features
+
+* add GitHub Copilot CLI support ([#311](https://github.com/rp1-run/rp1/issues/311)) ([5c97bf4](https://github.com/rp1-run/rp1/commit/5c97bf416e42a27a3303f3fd6a55bfae80739050))
+* **emit-daemon:** add emit-driven live updates for Arcade ([#333](https://github.com/rp1-run/rp1/issues/333)) ([605e532](https://github.com/rp1-run/rp1/commit/605e532435ef8c088fadf93903f81690f0ed13d2))
+* **feature-slicer:** add phase-plan workflow and traceable delivery handoff ([#337](https://github.com/rp1-run/rp1/issues/337)) ([0d7e765](https://github.com/rp1-run/rp1/commit/0d7e7657722985461c00dc2730020d3af0db7198))
+* **templates:** unified artifact-templates skill ([#331](https://github.com/rp1-run/rp1/issues/331)) ([8d49c6e](https://github.com/rp1-run/rp1/commit/8d49c6eef1eb32e01918c51144f6f1fb6e939ef9))
+
+
+### Bug Fixes
+
+* **build:** fix copilot skill validation and version-marker CI failures ([#335](https://github.com/rp1-run/rp1/issues/335)) ([1e0d968](https://github.com/rp1-run/rp1/commit/1e0d9683f8408c3500b15af310743f83135e8e78))
+* **web-ui:** UI fixes and emit state completion bug ([#332](https://github.com/rp1-run/rp1/issues/332)) ([6a2b382](https://github.com/rp1-run/rp1/commit/6a2b382abf0cca958b4f54fa58613bc93c4cd72f))
+
 ## [0.7.3](https://github.com/rp1-run/rp1/compare/v0.7.2...v0.7.3) (2026-04-13)
 
 
