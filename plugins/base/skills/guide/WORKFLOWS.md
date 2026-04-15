@@ -12,14 +12,15 @@ Common multi-skill sequences in rp1. Each workflow describes when to use it, the
 |------|-------|-------|--------|
 | 1 | `/blueprint` | Project vision, feature idea | Charter + PRD in `.rp1/work/blueprints/` |
 | 2 | `/phase-plan <source>` | Completed PRD or oversized requirements artifact | Durable delivery phases with child-feature handoffs |
-| 3 | `/build {feature-id}` | Single feature requirements or selected phase handoff | Requirements, design, tasks, implemented code, verified feature |
+| 3 | `/build {feature-id}` | Single feature requirements or exact child handoff command from `/phase-plan` | Requirements, design, tasks, implemented code, verified feature |
 | 4 | `/pr-review` | Branch with changes | Review comments posted to PR |
 | 5 | `/address-pr-feedback` | PR with review comments | Resolved comments, updated code |
 
 **How they chain**:
 
 - `/blueprint` produces a PRD that defines scope. If the PRD already maps cleanly to one delivery slice, continue directly to `/build`.
-- Use `/phase-plan` when the PRD or requirements artifact spans multiple independently valuable features, rollout slices, or delivery phases. It creates the durable handoff between planning and feature execution.
+- Use `/phase-plan` when the PRD or requirements artifact spans multiple independently valuable features, rollout slices, or delivery phases. It creates the durable handoff between planning and feature execution. Pass an explicit PRD path or oversized `requirements.md` path as the source; if a basename or title is ambiguous, rerun with one explicit source path.
+- After `/phase-plan`, invoke child delivery with the exact emitted handoff command, for example `/build auth-session-hardening PHASE_PLAN_PATH=prds/auth-overhaul-phase-plan.md PHASE_ID=P2`. The `PHASE_PLAN_PATH` and `PHASE_ID` arguments preserve planning traceability for the child feature.
 - `/build` runs six internal phases (requirements -> design -> tasks -> build -> verify -> archive). It spawns sub-agents for each phase and manages checkpoints between them. The output is a working implementation on a feature branch, and oversized scope is redirected to `/phase-plan` instead of reviving legacy tracker or milestone planning.
 - After pushing the branch and opening a PR, `/pr-review` performs map-reduce analysis: splits the diff into review units, analyzes each in parallel, synthesizes findings, deduplicates comments, and posts them.
 - `/address-pr-feedback` collects the posted review comments, triages them by priority, and fixes them in sequence.
@@ -130,13 +131,13 @@ Each iteration delegates to a general sub-agent. If the request is too large, it
 |------|-------|-------|--------|
 | 1 | `/blueprint` | Project vision or feature idea | Charter + PRD |
 | 2 | `/phase-plan <source>` | Large PRD or oversized requirements artifact | Phase plan with child-feature handoffs |
-| 3 | `/build {feature-id}` | PRD content or selected phase handoff | Implemented feature |
+| 3 | `/build {feature-id}` | PRD content or exact child handoff command from `/phase-plan` | Implemented feature |
 
 **How they chain**:
 
 - `/blueprint` runs a guided interview to produce planning documents. It detects whether a project charter exists; if not, it creates one first via `charter-interviewer`, then moves to PRD creation via `blueprint-wizard`. The PRD defines scope, requirements, and success criteria.
 - If the PRD represents a single feature, pass the PRD content (or its key requirements) to `/build` as the `REQUIREMENTS` argument.
-- If the PRD is initiative-sized, run `/phase-plan` against that PRD first, then feed the resulting child-feature handoffs into `/build`.
+- If the PRD is initiative-sized, run `/phase-plan` against that PRD first, then run the exact emitted child-feature handoff command from the phase plan. Do not drop the `PHASE_PLAN_PATH=... PHASE_ID=...` arguments when continuing into `/build`.
 
 **Related skills**:
 

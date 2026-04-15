@@ -244,6 +244,25 @@ describe("phase planning prompt contracts", () => {
 		);
 	});
 
+	test("guide workflow docs keep the compact phase handoff contract", async () => {
+		const guideWorkflows = await readProjectFile(
+			"plugins/base/skills/guide/WORKFLOWS.md",
+		);
+
+		expect(guideWorkflows).toContain(
+			"Pass an explicit PRD path or oversized `requirements.md` path as the source; if a basename or title is ambiguous, rerun with one explicit source path.",
+		);
+		expect(guideWorkflows).toContain(
+			"/build auth-session-hardening PHASE_PLAN_PATH=prds/auth-overhaul-phase-plan.md PHASE_ID=P2",
+		);
+		expect(guideWorkflows).toContain(
+			"The `PHASE_PLAN_PATH` and `PHASE_ID` arguments preserve planning traceability for the child feature.",
+		);
+		expect(guideWorkflows).toContain(
+			"Do not drop the `PHASE_PLAN_PATH=... PHASE_ID=...` arguments when continuing into `/build`.",
+		);
+	});
+
 	test("phase-plan template keeps durable handoff fields", async () => {
 		const phasePlanTemplate = await readProjectFile(
 			"plugins/base/skills/artifact-templates/templates/phase-planner/phase-plan.md",
