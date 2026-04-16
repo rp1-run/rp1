@@ -17,6 +17,7 @@ import {
 	formatError,
 	getExitCode,
 	notFoundError,
+	portInUseError,
 	runtimeError,
 	tryCatchTE,
 } from "../../shared/errors.js";
@@ -29,6 +30,8 @@ interface ArcadeStartResult {
 	readonly projectId: string;
 	readonly projectName: string;
 	readonly url: string;
+	readonly action: "reused" | "started" | "replaced";
+	readonly reason?: string;
 	readonly wasRunning: boolean;
 }
 
@@ -109,7 +112,7 @@ const startArcade = async (
 		"../../web-ui/src/daemon/index.js"
 	);
 
-	const { connection, wasRunning } = await ensureDaemon(
+	const { connection, action, reason, wasRunning } = await ensureDaemon(
 		config.port,
 		cliVersion,
 	);
@@ -122,6 +125,8 @@ const startArcade = async (
 		projectId: project.id,
 		projectName: project.name,
 		url,
+		action,
+		reason,
 		wasRunning,
 	};
 };
@@ -133,6 +138,46 @@ export function formatArcadeHookPayload(url: string): string {
 }
 
 /**
+ * Map daemon errors to CLIErrors, converting port conflicts to PortInUseError.
+ * Uses duck-typing to avoid eager import of the Bun-dependent daemon module.
+ */
+const mapDaemonError =
+	(context: string) =>
+	(e: unknown): CLIError => {
+		if (
+			e instanceof Error &&
+			e.name === "DaemonPortConflictError" &&
+			"port" in e &&
+			typeof (e as Record<string, unknown>).port === "number"
+		) {
+			return portInUseError((e as { port: number }).port);
+		}
+		return runtimeError(`${context}: ${e}`);
+	};
+
+/**
+ * Format a human-readable lifecycle action message for daemon operations.
+ */
+export function formatLifecycleAction(
+	action: "reused" | "started" | "replaced",
+	port: number,
+	reason?: string,
+): string {
+	switch (action) {
+		case "reused":
+			return `Reused daemon on port ${port}`;
+		case "started":
+			return `Started daemon on port ${port}`;
+		case "replaced": {
+			const reasonSuffix = reason
+				? ` (reason: ${reason.replace(/_/g, " ")})`
+				: "";
+			return `Replaced daemon on port ${port}${reasonSuffix}`;
+		}
+	}
+}
+
+/**
  * Execute with daemon support - start daemon if needed, register project, open browser.
  */
 const executeWithDaemon = (
@@ -140,70 +185,51 @@ const executeWithDaemon = (
 	logger: Logger,
 	cliVersion?: string,
 ): TE.TaskEither<CLIError, void> =>
-	tryCatchTE(
-		async () => {
-			logger.debug("Ensuring daemon is running...");
-			const { projectId, projectName, url, wasRunning } = await startArcade(
-				config,
-				cliVersion,
-			);
+	tryCatchTE(async () => {
+		logger.debug("Ensuring daemon is running...");
+		const { projectId, projectName, url, action, reason } = await startArcade(
+			config,
+			cliVersion,
+		);
 
-			if (wasRunning) {
-				logger.debug(`Connected to existing daemon on port ${config.port}`);
-			} else {
-				logger.info(`Started daemon on port ${config.port}`);
-			}
+		logger.info(formatLifecycleAction(action, config.port, reason));
 
-			logger.debug(`Registering project: ${config.rp1Root}`);
-			logger.info(`Project registered: ${projectName} (${projectId})`);
+		logger.debug(`Registering project: ${config.rp1Root}`);
+		logger.info(`Project registered: ${projectName} (${projectId})`);
 
-			if (config.openBrowser) {
-				logger.debug("Opening browser...");
-				await openBrowser(url, logger)();
-				logger.info(`Opened ${url}`);
-			} else {
-				logger.info(`Server running at ${url}`);
-			}
-		},
-		(e) => runtimeError(`Failed to start arcade: ${e}`),
-	);
+		if (config.openBrowser) {
+			logger.debug("Opening browser...");
+			await openBrowser(url, logger)();
+			logger.info(`Opened ${url}`);
+		} else {
+			logger.info(`Server running at ${url}`);
+		}
+	}, mapDaemonError("Failed to start arcade"));
 
 const hookOutputCommand = (
 	config: ArcadeConfig,
 	cliVersion?: string,
 ): TE.TaskEither<CLIError, void> =>
-	tryCatchTE(
-		async () => {
-			// Hook mode should be side-effect-light: if a healthy daemon is already
-			// serving, reuse it instead of forcing the dev-build restart path.
-			const { url } = await startArcade(config, cliVersion);
-			console.log(formatArcadeHookPayload(url));
-		},
-		(e) => runtimeError(`Failed to format arcade hook output: ${e}`),
-	);
+	tryCatchTE(async () => {
+		// Hook mode should be side-effect-light: if a healthy daemon is already
+		// serving, reuse it instead of forcing the dev-build restart path.
+		const { url } = await startArcade(config, cliVersion);
+		console.log(formatArcadeHookPayload(url));
+	}, mapDaemonError("Failed to format arcade hook output"));
 
 const ensureDaemonOnlyCommand = (
 	port: number,
 	logger: Logger,
 	cliVersion?: string,
 ): TE.TaskEither<CLIError, void> =>
-	tryCatchTE(
-		async () => {
-			const { ensureDaemon } = await import("../../web-ui/src/daemon/index.js");
+	tryCatchTE(async () => {
+		const { ensureDaemon } = await import("../../web-ui/src/daemon/index.js");
 
-			logger.debug(
-				"Ensuring daemon is running without project registration...",
-			);
-			const { wasRunning } = await ensureDaemon(port, cliVersion);
+		logger.debug("Ensuring daemon is running without project registration...");
+		const { action, reason } = await ensureDaemon(port, cliVersion);
 
-			if (wasRunning) {
-				logger.info(`Daemon already running on port ${port}`);
-			} else {
-				logger.info(`Started daemon on port ${port}`);
-			}
-		},
-		(e) => runtimeError(`Failed to ensure daemon: ${e}`),
-	);
+		logger.info(formatLifecycleAction(action, port, reason));
+	}, mapDaemonError("Failed to ensure daemon"));
 
 /**
  * Stop the daemon.
@@ -214,9 +240,9 @@ const stopDaemonCommand = (logger: Logger): TE.TaskEither<CLIError, void> =>
 			const { stopDaemon } = await import("../../web-ui/src/daemon/index.js");
 
 			logger.debug("Stopping daemon...");
-			const stopped = await stopDaemon();
+			const result = await stopDaemon();
 
-			if (stopped) {
+			if (result.action === "stopped") {
 				logger.info("Daemon stopped successfully");
 			} else {
 				logger.info("No daemon running");
@@ -266,19 +292,15 @@ const statusCommand = (_logger: Logger): TE.TaskEither<CLIError, void> =>
 const restartDaemonCommand = (
 	port: number,
 	logger: Logger,
+	cliVersion?: string,
 ): TE.TaskEither<CLIError, void> =>
-	tryCatchTE(
-		async () => {
-			const { restartDaemon } = await import(
-				"../../web-ui/src/daemon/index.js"
-			);
+	tryCatchTE(async () => {
+		const { restartDaemon } = await import("../../web-ui/src/daemon/index.js");
 
-			logger.debug("Restarting daemon...");
-			await restartDaemon(port);
-			logger.info(`Daemon restarted on port ${port}`);
-		},
-		(e) => runtimeError(`Failed to restart daemon: ${e}`),
-	);
+		logger.debug("Restarting daemon...");
+		const { action, reason } = await restartDaemon(port, cliVersion);
+		logger.info(formatLifecycleAction(action, port, reason));
+	}, mapDaemonError("Failed to restart daemon"));
 
 const execute = (
 	args: string[],
@@ -304,7 +326,9 @@ const execute = (
 		return pipe(
 			loadArcadeConfig(args),
 			TE.fromEither,
-			TE.chain((config) => restartDaemonCommand(config.port, logger)),
+			TE.chain((config) =>
+				restartDaemonCommand(config.port, logger, cliVersion),
+			),
 		);
 	}
 

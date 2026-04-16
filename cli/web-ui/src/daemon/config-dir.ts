@@ -56,6 +56,22 @@ export function getPidFilePath(): string {
 }
 
 /**
+ * Get the path to the lifecycle lock directory.
+ * Used by lifecycle-lock.ts for cross-process daemon mutation serialization.
+ */
+export function getLifecycleLockPath(): string {
+	return join(getConfigDir(), "daemon.lifecycle.lock");
+}
+
+/**
+ * Get the path to the restart-arcade-after-install marker file.
+ * Written by the install preparation helper and read by the post-install flow.
+ */
+export function getRestartMarkerPath(): string {
+	return join(getConfigDir(), "restart-arcade-after-install");
+}
+
+/**
  * Daemon state file shape for tracking recovery state across restarts.
  */
 export interface DaemonState {

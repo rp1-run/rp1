@@ -8,11 +8,12 @@ export {
 	ensureConfigDir,
 	getConfigDir,
 	getDaemonStatePath,
+	getLifecycleLockPath,
 	getPidFilePath,
+	getRestartMarkerPath,
 	readDaemonState,
 	writeDaemonState,
 } from "./config-dir";
-
 export {
 	checkHealth,
 	createConnection,
@@ -29,10 +30,21 @@ export {
 	registerProjectWithDaemon,
 	stopDaemon as stopDaemonViaIpc,
 } from "./ipc";
+export {
+	acquireLifecycleLock,
+	type LockAcquireOptions,
+	type LockMetadata,
+	withLifecycleLock,
+} from "./lifecycle-lock";
 
 export {
 	connectToDaemon,
+	type DaemonLifecycleReason,
+	DaemonPortConflictError,
+	type DaemonStartAction,
 	type DaemonStartResult,
+	type DaemonStopAction,
+	type DaemonStopResult,
 	ensureDaemon,
 	forceKillProcess,
 	getStatus,

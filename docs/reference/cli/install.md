@@ -111,6 +111,38 @@ rp1 install codex --dry-run
 rp1 install copilot --dry-run
 ```
 
+## Contributor Local Install (`just install`)
+
+Contributors building rp1 locally use `just install` to compile and install a
+fresh binary and its assets. When Arcade is already running, the install flow
+handles daemon replacement automatically:
+
+1. **Before build** -- the install recipe stops the active daemon through the
+   shared lifecycle manager and records the port it was serving on.
+2. **Build and install** -- the web UI cache is cleared and the new binary is
+   compiled and installed to all detected host tools.
+3. **After install** -- if Arcade was running before the install, the new
+   `./bin/rp1` binary restarts the daemon on the previously recorded port.
+   If Arcade was not running, no daemon is started as a side effect.
+
+This means you do not need to manually stop and restart Arcade around
+`just install`. The flow preserves the prior port so browser tabs and
+bookmarks continue to work.
+
+### What you should see
+
+| Before install | After install |
+|----------------|---------------|
+| Arcade was running on port 7710 | Arcade is restarted on port 7710 using the new build |
+| Arcade was running on port 8080 | Arcade is restarted on port 8080 using the new build |
+| Arcade was not running | No daemon is started; the install completes cleanly |
+
+### Manual recovery
+
+Under normal conditions no manual steps are needed. If an install is
+interrupted mid-flow, the next `just install` or `rp1 arcade` call detects
+and cleans up stale restart markers and daemon state automatically.
+
 ## Verification
 
 After installation, verify the target host:
