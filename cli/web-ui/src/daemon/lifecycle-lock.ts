@@ -48,8 +48,11 @@ export interface LockAcquireOptions {
 
 /**
  * Default timeout for waiting to acquire the lock.
+ * Must exceed the worst-case lifecycle operation time (~10s for stop +
+ * health-wait) so a second caller waiting on a legitimately-held lock
+ * does not time out spuriously.
  */
-const DEFAULT_WAIT_TIMEOUT_MS = 10_000;
+const DEFAULT_WAIT_TIMEOUT_MS = 30_000;
 
 /**
  * Default polling interval when waiting for the lock.
