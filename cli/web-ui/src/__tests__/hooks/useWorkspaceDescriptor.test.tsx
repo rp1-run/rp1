@@ -21,7 +21,7 @@ function setStoredState(state: {
 	readonly activeKey: string | null;
 	readonly lastDurableRoute: string;
 }) {
-	sessionStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+	localStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
 }
 
 function DescriptorHarness({
@@ -84,12 +84,12 @@ function renderHarness(
 
 describe("useWorkspaceDescriptor", () => {
 	beforeEach(() => {
-		sessionStorage.clear();
+		localStorage.clear();
 	});
 
 	afterEach(() => {
 		cleanup();
-		sessionStorage.clear();
+		localStorage.clear();
 	});
 
 	test("publishes metadata and exposes adjacent workspace commands", async () => {

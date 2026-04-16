@@ -48,7 +48,7 @@ function setStoredState(state: {
 	readonly activeKey: string | null;
 	readonly lastDurableRoute: string;
 }) {
-	sessionStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+	localStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
 }
 
 function parseTabs(): WorkspaceTab[] {
@@ -69,12 +69,12 @@ function renderHarness(initialEntries: readonly string[]) {
 
 describe("useWorkspaceTabs", () => {
 	beforeEach(() => {
-		sessionStorage.clear();
+		localStorage.clear();
 	});
 
 	afterEach(() => {
 		cleanup();
-		sessionStorage.clear();
+		localStorage.clear();
 	});
 
 	test("hydrates and deduplicates stored workspaces", async () => {
@@ -178,7 +178,7 @@ describe("useWorkspaceTabs", () => {
 	});
 
 	test("falls back to the default durable route when stored durable state is invalid", async () => {
-		sessionStorage.setItem(
+		localStorage.setItem(
 			WORKSPACE_TABS_STORAGE_KEY,
 			JSON.stringify({
 				tabs: [],
@@ -307,5 +307,134 @@ describe("useWorkspaceTabs", () => {
 		});
 		expect(parseTabs()).toEqual([]);
 		expect(screen.getByTestId("active-key").textContent).toBe("null");
+	});
+
+	test("merges tabs from a storage event while preserving the local activeKey", async () => {
+		setStoredState({
+			tabs: [
+				{
+					key: "run:run-1",
+					kind: "run",
+					currentPath: "/runs/run-1",
+					rootPath: "/runs/run-1",
+					title: "Run one",
+					subtitle: null,
+					projectId: null,
+					lastVisitedAt: 1,
+				},
+			],
+			activeKey: "run:run-1",
+			lastDurableRoute: "/projects",
+		});
+
+		renderHarness(["/runs/run-1"]);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("active-key").textContent).toBe("run:run-1");
+		});
+
+		act(() => {
+			const remoteState = JSON.stringify({
+				tabs: [
+					{
+						key: "run:run-1",
+						kind: "run",
+						currentPath: "/runs/run-1",
+						rootPath: "/runs/run-1",
+						title: "Run one",
+						subtitle: null,
+						projectId: null,
+						lastVisitedAt: 1,
+					},
+					{
+						key: "run:run-3",
+						kind: "run",
+						currentPath: "/runs/run-3",
+						rootPath: "/runs/run-3",
+						title: "Run three",
+						subtitle: null,
+						projectId: null,
+						lastVisitedAt: 5,
+					},
+				],
+				activeKey: "run:run-3",
+				lastDurableRoute: "/",
+			});
+
+			window.dispatchEvent(
+				new StorageEvent("storage", {
+					key: WORKSPACE_TABS_STORAGE_KEY,
+					newValue: remoteState,
+					storageArea: localStorage,
+				}),
+			);
+		});
+
+		await waitFor(() => {
+			expect(parseTabs()).toHaveLength(2);
+		});
+		expect(parseTabs().map((tab) => tab.key)).toEqual([
+			"run:run-1",
+			"run:run-3",
+		]);
+		expect(screen.getByTestId("active-key").textContent).toBe("run:run-1");
+	});
+
+	test("uses the tab with the higher lastVisitedAt when merging conflicts from storage events", async () => {
+		setStoredState({
+			tabs: [
+				{
+					key: "run:run-1",
+					kind: "run",
+					currentPath: "/runs/run-1/step/build",
+					rootPath: "/runs/run-1",
+					title: "Run one",
+					subtitle: null,
+					projectId: null,
+					lastVisitedAt: 10,
+				},
+			],
+			activeKey: "run:run-1",
+			lastDurableRoute: "/projects",
+		});
+
+		renderHarness(["/runs/run-1/step/build"]);
+
+		await waitFor(() => {
+			expect(parseTabs()[0]?.currentPath).toBe("/runs/run-1/step/build");
+		});
+
+		act(() => {
+			const remoteState = JSON.stringify({
+				tabs: [
+					{
+						key: "run:run-1",
+						kind: "run",
+						currentPath: "/runs/run-1/step/test",
+						rootPath: "/runs/run-1",
+						title: "Run one",
+						subtitle: null,
+						projectId: null,
+						lastVisitedAt: 5,
+					},
+				],
+				activeKey: "run:run-1",
+				lastDurableRoute: "/",
+			});
+
+			window.dispatchEvent(
+				new StorageEvent("storage", {
+					key: WORKSPACE_TABS_STORAGE_KEY,
+					newValue: remoteState,
+					storageArea: localStorage,
+				}),
+			);
+		});
+
+		await waitFor(() => {
+			const tabs = parseTabs();
+			expect(tabs).toHaveLength(1);
+			expect(tabs[0]?.currentPath).toBe("/runs/run-1/step/build");
+		});
 	});
 });

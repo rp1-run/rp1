@@ -52,7 +52,7 @@ function setStoredState(state: {
 	readonly activeKey: string | null;
 	readonly lastDurableRoute: string;
 }) {
-	sessionStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+	localStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
 }
 
 async function renderProjectsPage(
@@ -91,13 +91,13 @@ describe("ProjectsPage", () => {
 	beforeEach(() => {
 		mock.restore();
 		document.body.innerHTML = "";
-		sessionStorage.clear();
+		localStorage.clear();
 	});
 
 	afterEach(() => {
 		cleanup();
 		mock.restore();
-		sessionStorage.clear();
+		localStorage.clear();
 	});
 
 	test("opens the selected project overview from the project row", async () => {

@@ -56,6 +56,7 @@ interface StoredWorkspaceTabsState {
 }
 
 export const WORKSPACE_TABS_STORAGE_KEY = "rp1-workspace-tabs:v1";
+const BROADCAST_CHANNEL_NAME = "rp1-workspace-tabs";
 
 const DEFAULT_STATE: WorkspaceTabsState = {
 	tabs: [],
@@ -140,7 +141,7 @@ function loadWorkspaceTabsState(): WorkspaceTabsState {
 	if (typeof window === "undefined") return DEFAULT_STATE;
 
 	try {
-		const raw = sessionStorage.getItem(WORKSPACE_TABS_STORAGE_KEY);
+		const raw = localStorage.getItem(WORKSPACE_TABS_STORAGE_KEY);
 		if (!raw) return DEFAULT_STATE;
 
 		const parsed = JSON.parse(raw) as StoredWorkspaceTabsState;
@@ -253,6 +254,7 @@ export function WorkspaceTabsProvider({
 		loadWorkspaceTabsState(),
 	);
 	const stateRef = useRef(state);
+	const channelRef = useRef<BroadcastChannel | null>(null);
 	const location = useLocation();
 	const navigate = useNavigate();
 
@@ -262,8 +264,72 @@ export function WorkspaceTabsProvider({
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
-		sessionStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+		localStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+		channelRef.current?.postMessage(state.tabs);
 	}, [state]);
+
+	useEffect(() => {
+		if (typeof BroadcastChannel === "undefined") return;
+
+		const channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+		channelRef.current = channel;
+
+		channel.onmessage = (event: MessageEvent) => {
+			if (!Array.isArray(event.data)) return;
+			const remoteTabs = dedupeTabs(
+				(event.data as unknown[]).map(sanitizeStoredTab).filter(isWorkspaceTab),
+			);
+
+			setState((current) => {
+				const mergedTabs = dedupeTabs([...remoteTabs, ...current.tabs]);
+				if (
+					mergedTabs.length === current.tabs.length &&
+					mergedTabs.every((tab, i) => tab === current.tabs[i])
+				) {
+					return current;
+				}
+				return { ...current, tabs: mergedTabs };
+			});
+		};
+
+		return () => {
+			channel.close();
+			channelRef.current = null;
+		};
+	}, []);
+
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+
+		const handleStorage = (event: StorageEvent) => {
+			if (event.key !== WORKSPACE_TABS_STORAGE_KEY || !event.newValue) return;
+
+			try {
+				const parsed = JSON.parse(event.newValue) as StoredWorkspaceTabsState;
+				const remoteTabs = Array.isArray(parsed.tabs)
+					? dedupeTabs(
+							parsed.tabs.map(sanitizeStoredTab).filter(isWorkspaceTab),
+						)
+					: [];
+
+				setState((current) => {
+					const mergedTabs = dedupeTabs([...remoteTabs, ...current.tabs]);
+					if (
+						mergedTabs.length === current.tabs.length &&
+						mergedTabs.every((tab, i) => tab === current.tabs[i])
+					) {
+						return current;
+					}
+					return { ...current, tabs: mergedTabs };
+				});
+			} catch {
+				// Ignore malformed storage events
+			}
+		};
+
+		window.addEventListener("storage", handleStorage);
+		return () => window.removeEventListener("storage", handleStorage);
+	}, []);
 
 	useLayoutEffect(() => {
 		const currentPath = createCurrentPath(

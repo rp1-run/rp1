@@ -51,7 +51,7 @@ function setStoredState(state: {
 	readonly activeKey: string | null;
 	readonly lastDurableRoute: string;
 }) {
-	sessionStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+	localStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
 }
 
 function LocationProbe() {
@@ -92,7 +92,7 @@ describe("WorkspaceTabStrip", () => {
 		mock.restore();
 		scrollIntoViewMock.mockClear();
 		prefersReducedMotion = true;
-		sessionStorage.clear();
+		localStorage.clear();
 		HTMLElement.prototype.scrollIntoView =
 			scrollIntoViewMock as typeof HTMLElement.prototype.scrollIntoView;
 		window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
@@ -104,7 +104,7 @@ describe("WorkspaceTabStrip", () => {
 	afterEach(() => {
 		cleanup();
 		mock.restore();
-		sessionStorage.clear();
+		localStorage.clear();
 		window.requestAnimationFrame = originalRequestAnimationFrame;
 		HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
 	});

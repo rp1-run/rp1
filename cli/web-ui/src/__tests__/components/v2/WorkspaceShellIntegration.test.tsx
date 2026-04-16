@@ -30,7 +30,7 @@ function setStoredState(state: {
 	readonly activeKey: string | null;
 	readonly lastDurableRoute: string;
 }) {
-	sessionStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+	localStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
 }
 
 function LocationProbe() {
@@ -115,12 +115,12 @@ async function renderShell(initialEntries: readonly string[]) {
 
 describe("workspace shell integration", () => {
 	beforeEach(() => {
-		sessionStorage.clear();
+		localStorage.clear();
 	});
 
 	afterEach(() => {
 		cleanup();
-		sessionStorage.clear();
+		localStorage.clear();
 	});
 
 	test("keeps breadcrumb chrome synchronized with the active workspace tab", async () => {

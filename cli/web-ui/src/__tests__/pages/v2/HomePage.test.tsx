@@ -74,7 +74,7 @@ function setStoredState(state: {
 	readonly activeKey: string | null;
 	readonly lastDurableRoute: string;
 }) {
-	sessionStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+	localStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
 }
 
 function LocationProbe() {
@@ -119,13 +119,13 @@ describe("HomePage", () => {
 	beforeEach(() => {
 		mock.restore();
 		document.body.innerHTML = "";
-		sessionStorage.clear();
+		localStorage.clear();
 	});
 
 	afterEach(() => {
 		cleanup();
 		mock.restore();
-		sessionStorage.clear();
+		localStorage.clear();
 	});
 
 	test("reopens an existing run workspace from the activity feed entry", async () => {

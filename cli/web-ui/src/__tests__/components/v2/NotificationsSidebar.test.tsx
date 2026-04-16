@@ -39,7 +39,7 @@ function setStoredState(state: {
 	readonly activeKey: string | null;
 	readonly lastDurableRoute: string;
 }) {
-	sessionStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+	localStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
 }
 
 function renderWithWorkspaceTabs(
@@ -57,13 +57,13 @@ describe("NotificationsSidebar", () => {
 	beforeEach(() => {
 		mock.restore();
 		document.body.innerHTML = "";
-		sessionStorage.clear();
+		localStorage.clear();
 	});
 
 	afterEach(() => {
 		cleanup();
 		mock.restore();
-		sessionStorage.clear();
+		localStorage.clear();
 	});
 
 	function LocationProbe() {

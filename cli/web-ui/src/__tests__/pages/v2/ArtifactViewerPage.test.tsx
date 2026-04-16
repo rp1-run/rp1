@@ -214,7 +214,7 @@ function RegistryProbe() {
 }
 
 function readStoredTabs() {
-	const raw = sessionStorage.getItem(WORKSPACE_TABS_STORAGE_KEY);
+	const raw = localStorage.getItem(WORKSPACE_TABS_STORAGE_KEY);
 	return raw
 		? (JSON.parse(raw) as {
 				tabs: Array<{ title: string; subtitle: string | null }>;
@@ -252,7 +252,7 @@ describe("ArtifactViewerPage", () => {
 	beforeEach(() => {
 		mock.restore();
 		document.body.innerHTML = "";
-		sessionStorage.clear();
+		localStorage.clear();
 		latestRegistry = null;
 		breadcrumbApi.setActiveArtifact.mockClear();
 		breadcrumbApi.setProject.mockClear();
