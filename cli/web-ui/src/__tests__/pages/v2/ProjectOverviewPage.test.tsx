@@ -75,7 +75,17 @@ function setStoredState(state: {
 	readonly activeKey: string | null;
 	readonly lastDurableRoute: string;
 }) {
-	localStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+	localStorage.setItem(
+		WORKSPACE_TABS_STORAGE_KEY,
+		JSON.stringify({ tabs: state.tabs }),
+	);
+	sessionStorage.setItem(
+		"rp1-workspace-session:v1",
+		JSON.stringify({
+			activeKey: state.activeKey,
+			lastDurableRoute: state.lastDurableRoute,
+		}),
+	);
 }
 
 async function renderProjectOverview(
@@ -128,6 +138,7 @@ describe("ProjectOverviewPage", () => {
 		liveRunIndex.clear();
 		document.body.innerHTML = "";
 		localStorage.clear();
+		sessionStorage.clear();
 		latestRegistry = null;
 		breadcrumbApi.setProject.mockClear();
 		global.fetch = mock(async (input: RequestInfo | URL) => {

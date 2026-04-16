@@ -48,7 +48,17 @@ function setStoredState(state: {
 	readonly activeKey: string | null;
 	readonly lastDurableRoute: string;
 }) {
-	localStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+	localStorage.setItem(
+		WORKSPACE_TABS_STORAGE_KEY,
+		JSON.stringify({ tabs: state.tabs }),
+	);
+	sessionStorage.setItem(
+		"rp1-workspace-session:v1",
+		JSON.stringify({
+			activeKey: state.activeKey,
+			lastDurableRoute: state.lastDurableRoute,
+		}),
+	);
 }
 
 function parseTabs(): WorkspaceTab[] {
@@ -70,11 +80,13 @@ function renderHarness(initialEntries: readonly string[]) {
 describe("useWorkspaceTabs", () => {
 	beforeEach(() => {
 		localStorage.clear();
+		sessionStorage.clear();
 	});
 
 	afterEach(() => {
 		cleanup();
 		localStorage.clear();
+		sessionStorage.clear();
 	});
 
 	test("hydrates and deduplicates stored workspaces", async () => {
@@ -180,8 +192,11 @@ describe("useWorkspaceTabs", () => {
 	test("falls back to the default durable route when stored durable state is invalid", async () => {
 		localStorage.setItem(
 			WORKSPACE_TABS_STORAGE_KEY,
+			JSON.stringify({ tabs: [] }),
+		);
+		sessionStorage.setItem(
+			"rp1-workspace-session:v1",
 			JSON.stringify({
-				tabs: [],
 				activeKey: null,
 				lastDurableRoute: "/settings",
 			}),
@@ -309,7 +324,7 @@ describe("useWorkspaceTabs", () => {
 		expect(screen.getByTestId("active-key").textContent).toBe("null");
 	});
 
-	test("merges tabs from a storage event while preserving the local activeKey", async () => {
+	test("adopts remote tabs from a storage event while preserving the local activeKey", async () => {
 		setStoredState({
 			tabs: [
 				{
@@ -357,8 +372,6 @@ describe("useWorkspaceTabs", () => {
 						lastVisitedAt: 5,
 					},
 				],
-				activeKey: "run:run-3",
-				lastDurableRoute: "/",
 			});
 
 			window.dispatchEvent(
@@ -380,28 +393,38 @@ describe("useWorkspaceTabs", () => {
 		expect(screen.getByTestId("active-key").textContent).toBe("run:run-1");
 	});
 
-	test("uses the tab with the higher lastVisitedAt when merging conflicts from storage events", async () => {
+	test("removes tabs that were closed in another browser tab via storage event", async () => {
 		setStoredState({
 			tabs: [
 				{
 					key: "run:run-1",
 					kind: "run",
-					currentPath: "/runs/run-1/step/build",
+					currentPath: "/runs/run-1",
 					rootPath: "/runs/run-1",
 					title: "Run one",
 					subtitle: null,
 					projectId: null,
-					lastVisitedAt: 10,
+					lastVisitedAt: 1,
+				},
+				{
+					key: "run:run-2",
+					kind: "run",
+					currentPath: "/runs/run-2",
+					rootPath: "/runs/run-2",
+					title: "Run two",
+					subtitle: null,
+					projectId: null,
+					lastVisitedAt: 2,
 				},
 			],
 			activeKey: "run:run-1",
 			lastDurableRoute: "/projects",
 		});
 
-		renderHarness(["/runs/run-1/step/build"]);
+		renderHarness(["/runs/run-1"]);
 
 		await waitFor(() => {
-			expect(parseTabs()[0]?.currentPath).toBe("/runs/run-1/step/build");
+			expect(parseTabs()).toHaveLength(2);
 		});
 
 		act(() => {
@@ -410,16 +433,14 @@ describe("useWorkspaceTabs", () => {
 					{
 						key: "run:run-1",
 						kind: "run",
-						currentPath: "/runs/run-1/step/test",
+						currentPath: "/runs/run-1",
 						rootPath: "/runs/run-1",
 						title: "Run one",
 						subtitle: null,
 						projectId: null,
-						lastVisitedAt: 5,
+						lastVisitedAt: 1,
 					},
 				],
-				activeKey: "run:run-1",
-				lastDurableRoute: "/",
 			});
 
 			window.dispatchEvent(
@@ -432,9 +453,9 @@ describe("useWorkspaceTabs", () => {
 		});
 
 		await waitFor(() => {
-			const tabs = parseTabs();
-			expect(tabs).toHaveLength(1);
-			expect(tabs[0]?.currentPath).toBe("/runs/run-1/step/build");
+			expect(parseTabs()).toHaveLength(1);
 		});
+		expect(parseTabs().map((tab) => tab.key)).toEqual(["run:run-1"]);
+		expect(screen.getByTestId("active-key").textContent).toBe("run:run-1");
 	});
 });

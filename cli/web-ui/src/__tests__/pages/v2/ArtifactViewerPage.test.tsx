@@ -253,6 +253,7 @@ describe("ArtifactViewerPage", () => {
 		mock.restore();
 		document.body.innerHTML = "";
 		localStorage.clear();
+		sessionStorage.clear();
 		latestRegistry = null;
 		breadcrumbApi.setActiveArtifact.mockClear();
 		breadcrumbApi.setProject.mockClear();

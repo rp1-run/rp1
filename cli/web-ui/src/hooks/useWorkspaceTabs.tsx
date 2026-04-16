@@ -56,6 +56,7 @@ interface StoredWorkspaceTabsState {
 }
 
 export const WORKSPACE_TABS_STORAGE_KEY = "rp1-workspace-tabs:v1";
+const SESSION_STATE_KEY = "rp1-workspace-session:v1";
 const BROADCAST_CHANNEL_NAME = "rp1-workspace-tabs";
 
 const DEFAULT_STATE: WorkspaceTabsState = {
@@ -142,21 +143,34 @@ function loadWorkspaceTabsState(): WorkspaceTabsState {
 
 	try {
 		const raw = localStorage.getItem(WORKSPACE_TABS_STORAGE_KEY);
-		if (!raw) return DEFAULT_STATE;
-
-		const parsed = JSON.parse(raw) as StoredWorkspaceTabsState;
-		const parsedTabs = Array.isArray(parsed.tabs)
-			? dedupeTabs(parsed.tabs.map(sanitizeStoredTab).filter(isWorkspaceTab))
+		const parsedTabs = raw
+			? (() => {
+					const parsed = JSON.parse(raw) as StoredWorkspaceTabsState;
+					return Array.isArray(parsed.tabs)
+						? dedupeTabs(
+								parsed.tabs.map(sanitizeStoredTab).filter(isWorkspaceTab),
+							)
+						: [];
+				})()
 			: [];
+
+		const sessionRaw = sessionStorage.getItem(SESSION_STATE_KEY);
+		const session = sessionRaw
+			? (JSON.parse(sessionRaw) as {
+					activeKey?: unknown;
+					lastDurableRoute?: unknown;
+				})
+			: {};
+
 		const normalizedDurableRoute =
-			typeof parsed.lastDurableRoute === "string" &&
-			normalizeWorkspaceRoute(parsed.lastDurableRoute).type === "durable"
-				? parsed.lastDurableRoute
+			typeof session.lastDurableRoute === "string" &&
+			normalizeWorkspaceRoute(session.lastDurableRoute).type === "durable"
+				? session.lastDurableRoute
 				: "/";
 		const activeKey =
-			typeof parsed.activeKey === "string" &&
-			parsedTabs.some((tab) => tab.key === parsed.activeKey)
-				? parsed.activeKey
+			typeof session.activeKey === "string" &&
+			parsedTabs.some((tab) => tab.key === session.activeKey)
+				? session.activeKey
 				: null;
 
 		return {
@@ -264,7 +278,17 @@ export function WorkspaceTabsProvider({
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
-		localStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+		localStorage.setItem(
+			WORKSPACE_TABS_STORAGE_KEY,
+			JSON.stringify({ tabs: state.tabs }),
+		);
+		sessionStorage.setItem(
+			SESSION_STATE_KEY,
+			JSON.stringify({
+				activeKey: state.activeKey,
+				lastDurableRoute: state.lastDurableRoute,
+			}),
+		);
 		channelRef.current?.postMessage(state.tabs);
 	}, [state]);
 
@@ -281,14 +305,13 @@ export function WorkspaceTabsProvider({
 			);
 
 			setState((current) => {
-				const mergedTabs = dedupeTabs([...remoteTabs, ...current.tabs]);
 				if (
-					mergedTabs.length === current.tabs.length &&
-					mergedTabs.every((tab, i) => tab === current.tabs[i])
+					remoteTabs.length === current.tabs.length &&
+					remoteTabs.every((tab, i) => tab.key === current.tabs[i]?.key)
 				) {
 					return current;
 				}
-				return { ...current, tabs: mergedTabs };
+				return { ...current, tabs: remoteTabs };
 			});
 		};
 
@@ -313,14 +336,13 @@ export function WorkspaceTabsProvider({
 					: [];
 
 				setState((current) => {
-					const mergedTabs = dedupeTabs([...remoteTabs, ...current.tabs]);
 					if (
-						mergedTabs.length === current.tabs.length &&
-						mergedTabs.every((tab, i) => tab === current.tabs[i])
+						remoteTabs.length === current.tabs.length &&
+						remoteTabs.every((tab, i) => tab.key === current.tabs[i]?.key)
 					) {
 						return current;
 					}
-					return { ...current, tabs: mergedTabs };
+					return { ...current, tabs: remoteTabs };
 				});
 			} catch {
 				// Ignore malformed storage events
