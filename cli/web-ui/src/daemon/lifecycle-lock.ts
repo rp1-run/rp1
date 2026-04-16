@@ -9,6 +9,7 @@ import {
 	mkdirSync,
 	readFileSync,
 	rmSync,
+	statSync,
 	writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -59,6 +60,13 @@ const DEFAULT_POLL_INTERVAL_MS = 200;
  * Default age threshold beyond which a held lock is considered stale.
  */
 const DEFAULT_STALE_LOCK_TIMEOUT_MS = 30_000;
+
+/**
+ * Grace period (ms) for a newly-created lock dir before treating missing
+ * metadata as corruption.  Covers the brief window between the winning
+ * process's mkdir and its owner.json write.
+ */
+const LOCK_METADATA_GRACE_MS = 2_000;
 
 /**
  * Name of the metadata file written inside the lock directory.
@@ -228,7 +236,21 @@ export async function acquireLifecycleLock(
 
 		if (!existing && existsSync(lockPath)) {
 			// Lock directory exists but metadata is missing or unreadable.
-			// Treat as a corrupted lock and recover.
+			// Check whether the directory was just created — the winning
+			// process may still be writing owner.json.
+			try {
+				const stat = statSync(lockPath);
+				const ageMs = Date.now() - (stat.birthtimeMs ?? stat.ctimeMs);
+				if (ageMs < LOCK_METADATA_GRACE_MS) {
+					// Recently created — wait for metadata rather than stealing.
+					await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+					continue;
+				}
+			} catch {
+				// Lock dir removed between existsSync and statSync — retry.
+				continue;
+			}
+			// Old and still no metadata — genuinely corrupted.
 			logDaemonEvent("lifecycle_lock_recovered", {
 				reason: "missing_metadata",
 			});

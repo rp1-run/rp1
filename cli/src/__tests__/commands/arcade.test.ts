@@ -49,19 +49,19 @@ describe("formatLifecycleAction", () => {
 
 	test("reports replaced daemon with version_mismatch reason", () => {
 		expect(formatLifecycleAction("replaced", 7710, "version_mismatch")).toBe(
-			"Replaced daemon on port 7710 (reason: version mismatch)",
+			"Replaced daemon on port 7710 (version mismatch)",
 		);
 	});
 
 	test("reports replaced daemon with unhealthy_daemon reason", () => {
 		expect(formatLifecycleAction("replaced", 9090, "unhealthy_daemon")).toBe(
-			"Replaced daemon on port 9090 (reason: unhealthy daemon)",
+			"Replaced daemon on port 9090 (unhealthy daemon)",
 		);
 	});
 
 	test("reports replaced daemon with stale_pid reason", () => {
 		expect(formatLifecycleAction("replaced", 7710, "stale_pid")).toBe(
-			"Replaced daemon on port 7710 (reason: stale pid)",
+			"Replaced daemon on port 7710 (stale pid)",
 		);
 	});
 
@@ -71,11 +71,16 @@ describe("formatLifecycleAction", () => {
 		expect(msg).not.toContain("missing_pid");
 	});
 
-	test("reason is ignored for reused and started actions", () => {
-		// formatLifecycleAction only appends reason for "replaced".
-		expect(formatLifecycleAction("reused", 7710, "stale_pid")).toBe(
-			"Reused daemon on port 7710",
+	test("reused action includes reason when present", () => {
+		expect(formatLifecycleAction("reused", 7710, "missing_pid")).toBe(
+			"Reused daemon on port 7710 (missing pid)",
 		);
+		expect(formatLifecycleAction("reused", 7710, "stale_pid")).toBe(
+			"Reused daemon on port 7710 (stale pid)",
+		);
+	});
+
+	test("started action never includes reason", () => {
 		expect(formatLifecycleAction("started", 7710, "missing_pid")).toBe(
 			"Started daemon on port 7710",
 		);

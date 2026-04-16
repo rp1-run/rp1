@@ -6,10 +6,11 @@
  * curl, and kill commands.
  *
  * Behavior:
- *   - If a daemon is running, stops it through the lifecycle manager and writes
- *     the prior port to the restart marker so the post-install step can restore
- *     Arcade on the same port with the newly built binary.
- *   - If no daemon is running, removes any stale restart marker so the
+ *   - Calls stopDaemon() (which acquires the lifecycle lock internally) to
+ *     cleanly shut down any running daemon.
+ *   - If the daemon was stopped, writes the prior port to the restart marker
+ *     so the post-install step can restore Arcade on the same port.
+ *   - If no daemon was running, removes any stale restart marker so the
  *     post-install step does not start a surprise background daemon.
  *
  * Exit codes:
@@ -17,12 +18,13 @@
  *   1 - unexpected error during preparation
  */
 
-import { existsSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import {
 	ensureConfigDir,
+	getPidFilePath,
 	getRestartMarkerPath,
 } from "../web-ui/src/daemon/config-dir";
-import { getStatus, stopDaemon } from "../web-ui/src/daemon/manager";
+import { stopDaemon } from "../web-ui/src/daemon/manager";
 
 const DEFAULT_PORT = 7710;
 
@@ -31,29 +33,26 @@ async function main(): Promise<void> {
 
 	const markerPath = getRestartMarkerPath();
 
-	// Detect whether a daemon is currently serving.
-	const status = await getStatus(DEFAULT_PORT);
+	// Read the port from the PID file before stopping so we know which port
+	// to restore after install.  This read is unlocked — the subsequent
+	// stopDaemon() call re-checks under the lifecycle lock.
+	let port = DEFAULT_PORT;
+	try {
+		const pidContent = readFileSync(getPidFilePath(), "utf-8");
+		const parsed = Number.parseInt(pidContent.trim().split("\n")[0], 10);
+		if (!Number.isNaN(parsed)) port = parsed;
+	} catch {
+		// No PID file or unreadable — use default port.
+	}
 
-	if (status.running) {
-		const port = status.port ?? DEFAULT_PORT;
-		console.error(
-			`Stopping production daemon on port ${port} before install...`,
-		);
+	// stopDaemon() acquires the lifecycle lock internally, so the entire
+	// probe-and-stop sequence is atomic with respect to other callers.
+	const result = await stopDaemon(port);
 
-		const result = await stopDaemon(port);
-
-		if (result.action === "stopped") {
-			// Record the port so the post-install step can restore Arcade.
-			writeFileSync(markerPath, String(port), { mode: 0o600 });
-			console.error(`Daemon stopped. Restart marker written (port ${port}).`);
-		} else {
-			// stopDaemon returned not_running despite getStatus saying running.
-			// Race condition — another process may have stopped it. Clear marker.
-			removeMarker(markerPath);
-			console.error("Daemon was no longer running when stop was attempted.");
-		}
+	if (result.action === "stopped") {
+		writeFileSync(markerPath, String(port), { mode: 0o600 });
+		console.error(`Daemon stopped. Restart marker written (port ${port}).`);
 	} else {
-		// No daemon running — remove any stale marker from a prior interrupted install.
 		removeMarker(markerPath);
 		console.error("No daemon running. Stale marker cleared.");
 	}

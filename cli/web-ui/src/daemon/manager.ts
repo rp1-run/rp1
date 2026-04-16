@@ -254,6 +254,37 @@ async function isPortAvailable(port: number): Promise<boolean> {
 }
 
 /**
+ * Wait for a port to become free by polling isPortAvailable.
+ * Returns true if the port became available within the timeout.
+ */
+async function waitForPortFree(
+	port: number,
+	timeoutMs: number,
+): Promise<boolean> {
+	const start = Date.now();
+	while (Date.now() - start < timeoutMs) {
+		if (await isPortAvailable(port)) return true;
+		await new Promise((resolve) =>
+			setTimeout(resolve, PROCESS_EXIT_POLL_INTERVAL_MS),
+		);
+	}
+	return isPortAvailable(port);
+}
+
+/**
+ * Stop an untracked daemon via IPC and wait for the port to free.
+ * Used when resolvePortOwnerPid returns null (Windows, no lsof).
+ * Returns true if the port became free within the grace period.
+ */
+async function stopUntrackedDaemon(
+	conn: DaemonConnection,
+	port: number,
+): Promise<boolean> {
+	await stopDaemonIpc(conn);
+	return waitForPortFree(port, STOP_GRACEFUL_TIMEOUT_MS);
+}
+
+/**
  * Wait for the daemon to become healthy.
  */
 async function waitForHealth(
@@ -478,6 +509,14 @@ export async function ensureDaemon(
 							const realPid = resolvePortOwnerPid(port);
 							if (realPid) {
 								await stopDaemonProcess({ port, pid: realPid });
+							} else {
+								// No PID available — IPC shutdown + wait for port to free.
+								const freed = await stopUntrackedDaemon(conn, port);
+								if (!freed) {
+									throw new Error(
+										`Failed to stop untracked daemon on port ${port} for version replacement`,
+									);
+								}
 							}
 							reason = "version_mismatch";
 							replacing = true;
@@ -573,8 +612,11 @@ export async function stopDaemon(
 					await stopDaemonProcess({ port, pid: realPid });
 					return { action: "stopped" as const };
 				}
-				// Could not resolve PID — attempt IPC shutdown only.
-				await stopDaemonIpc(conn);
+				// Could not resolve PID — IPC shutdown + wait for port to free.
+				const freed = await stopUntrackedDaemon(conn, port);
+				if (!freed) {
+					logDaemonEvent("stop_port_still_occupied", { port });
+				}
 				return { action: "stopped" as const };
 			}
 
@@ -661,7 +703,12 @@ export async function restartDaemon(
 					if (realPid) {
 						await stopDaemonProcess({ port, pid: realPid });
 					} else {
-						await stopDaemonIpc(conn);
+						const freed = await stopUntrackedDaemon(conn, port);
+						if (!freed) {
+							throw new Error(
+								`Failed to stop untracked daemon on port ${port} for restart`,
+							);
+						}
 					}
 				}
 			}

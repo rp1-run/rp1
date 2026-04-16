@@ -33,6 +33,8 @@ interface ArcadeStartResult {
 	readonly action: "reused" | "started" | "replaced";
 	readonly reason?: string;
 	readonly wasRunning: boolean;
+	/** The port the daemon is actually listening on (may differ from requested). */
+	readonly daemonPort: number;
 }
 
 const directoryExists = (path: string): boolean => {
@@ -128,6 +130,7 @@ const startArcade = async (
 		action,
 		reason,
 		wasRunning,
+		daemonPort: connection.port,
 	};
 };
 
@@ -163,17 +166,14 @@ export function formatLifecycleAction(
 	port: number,
 	reason?: string,
 ): string {
+	const reasonSuffix = reason ? ` (${reason.replace(/_/g, " ")})` : "";
 	switch (action) {
 		case "reused":
-			return `Reused daemon on port ${port}`;
+			return `Reused daemon on port ${port}${reasonSuffix}`;
 		case "started":
 			return `Started daemon on port ${port}`;
-		case "replaced": {
-			const reasonSuffix = reason
-				? ` (reason: ${reason.replace(/_/g, " ")})`
-				: "";
+		case "replaced":
 			return `Replaced daemon on port ${port}${reasonSuffix}`;
-		}
 	}
 }
 
@@ -187,12 +187,10 @@ const executeWithDaemon = (
 ): TE.TaskEither<CLIError, void> =>
 	tryCatchTE(async () => {
 		logger.debug("Ensuring daemon is running...");
-		const { projectId, projectName, url, action, reason } = await startArcade(
-			config,
-			cliVersion,
-		);
+		const { projectId, projectName, url, action, reason, daemonPort } =
+			await startArcade(config, cliVersion);
 
-		logger.info(formatLifecycleAction(action, config.port, reason));
+		logger.info(formatLifecycleAction(action, daemonPort, reason));
 
 		logger.debug(`Registering project: ${config.rp1Root}`);
 		logger.info(`Project registered: ${projectName} (${projectId})`);
@@ -226,9 +224,9 @@ const ensureDaemonOnlyCommand = (
 		const { ensureDaemon } = await import("../../web-ui/src/daemon/index.js");
 
 		logger.debug("Ensuring daemon is running without project registration...");
-		const { action, reason } = await ensureDaemon(port, cliVersion);
+		const { connection, action, reason } = await ensureDaemon(port, cliVersion);
 
-		logger.info(formatLifecycleAction(action, port, reason));
+		logger.info(formatLifecycleAction(action, connection.port, reason));
 	}, mapDaemonError("Failed to ensure daemon"));
 
 /**
@@ -298,8 +296,11 @@ const restartDaemonCommand = (
 		const { restartDaemon } = await import("../../web-ui/src/daemon/index.js");
 
 		logger.debug("Restarting daemon...");
-		const { action, reason } = await restartDaemon(port, cliVersion);
-		logger.info(formatLifecycleAction(action, port, reason));
+		const { connection, action, reason } = await restartDaemon(
+			port,
+			cliVersion,
+		);
+		logger.info(formatLifecycleAction(action, connection.port, reason));
 	}, mapDaemonError("Failed to restart daemon"));
 
 const execute = (

@@ -294,7 +294,7 @@ install: rm-stable build
         if [ -z "$port" ]; then port=7710; fi; \
         echo ""; \
         echo "Restarting Arcade daemon on port ${port}..."; \
-        ./bin/rp1 arcade --daemon-only --port "$port" --no-open >/dev/null 2>&1 || true; \
+        ./bin/rp1 arcade --daemon-only --port "$port" --no-open 2>&1 || echo "Warning: daemon restart failed (port ${port} may be in use)"; \
         rm -f "$restart_marker"; \
     fi
 
