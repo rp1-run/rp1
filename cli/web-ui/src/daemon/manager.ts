@@ -1,6 +1,7 @@
 /**
  * Daemon lifecycle manager.
  * Handles starting, stopping, and connecting to the background daemon service.
+ * All lifecycle mutations execute under the config-dir lifecycle lock.
  */
 
 import { execSync, spawn } from "node:child_process";
@@ -16,6 +17,7 @@ import {
 	type HealthResponse,
 	stopDaemon as stopDaemonIpc,
 } from "./ipc";
+import { withLifecycleLock } from "./lifecycle-lock";
 
 /**
  * Check if a running daemon needs restart based on version.
@@ -40,11 +42,57 @@ interface PidFileData {
 }
 
 /**
- * Result of daemon start operation.
+ * Explicit lifecycle action for daemon start operations.
+ */
+export type DaemonStartAction = "reused" | "started" | "replaced";
+
+/**
+ * Explicit lifecycle action for daemon stop operations.
+ */
+export type DaemonStopAction = "stopped" | "not_running";
+
+/**
+ * Reason tag explaining why a lifecycle action was taken.
+ */
+export type DaemonLifecycleReason =
+	| "stale_pid"
+	| "missing_pid"
+	| "version_mismatch"
+	| "unhealthy_daemon";
+
+/**
+ * Result of daemon start operation with explicit lifecycle action.
  */
 export interface DaemonStartResult {
 	readonly connection: DaemonConnection;
+	readonly action: DaemonStartAction;
+	readonly reason?: DaemonLifecycleReason;
+	/** Derived from action for backward compatibility: true when action is "reused" or "replaced". */
 	readonly wasRunning: boolean;
+}
+
+/**
+ * Result of daemon stop operation with explicit lifecycle action.
+ */
+export interface DaemonStopResult {
+	readonly action: DaemonStopAction;
+}
+
+/**
+ * Error thrown when the requested port is occupied by a non-rp1 process.
+ * Arcade command converts this to a PortInUseError CLIError for user-facing output.
+ */
+export class DaemonPortConflictError extends Error {
+	readonly port: number;
+
+	constructor(port: number) {
+		super(
+			`Port ${port} is in use by a non-rp1 process. ` +
+				`Use a different port or stop the process occupying port ${port}.`,
+		);
+		this.name = "DaemonPortConflictError";
+		this.port = port;
+	}
 }
 
 /**
@@ -206,6 +254,37 @@ async function isPortAvailable(port: number): Promise<boolean> {
 }
 
 /**
+ * Wait for a port to become free by polling isPortAvailable.
+ * Returns true if the port became available within the timeout.
+ */
+async function waitForPortFree(
+	port: number,
+	timeoutMs: number,
+): Promise<boolean> {
+	const start = Date.now();
+	while (Date.now() - start < timeoutMs) {
+		if (await isPortAvailable(port)) return true;
+		await new Promise((resolve) =>
+			setTimeout(resolve, PROCESS_EXIT_POLL_INTERVAL_MS),
+		);
+	}
+	return isPortAvailable(port);
+}
+
+/**
+ * Stop an untracked daemon via IPC and wait for the port to free.
+ * Used when resolvePortOwnerPid returns null (Windows, no lsof).
+ * Returns true if the port became free within the grace period.
+ */
+async function stopUntrackedDaemon(
+	conn: DaemonConnection,
+	port: number,
+): Promise<boolean> {
+	await stopDaemonIpc(conn);
+	return waitForPortFree(port, STOP_GRACEFUL_TIMEOUT_MS);
+}
+
+/**
  * Wait for the daemon to become healthy.
  */
 async function waitForHealth(
@@ -270,132 +349,10 @@ async function spawnDaemon(port: number): Promise<number> {
 }
 
 /**
- * Ensure daemon is running, starting it if necessary.
- * Restarts the daemon if the version has changed or if running a dev build.
- * Returns connection to the daemon.
+ * Stop a daemon process using IPC shutdown then signal escalation.
+ * Used internally for replacement and stop flows.
  */
-export async function ensureDaemon(
-	port: number = DEFAULT_PORT,
-	cliVersion?: string,
-): Promise<DaemonStartResult> {
-	const pidData = await readPidFile();
-
-	if (pidData) {
-		if (isProcessRunning(pidData.pid)) {
-			const conn = createConnection(pidData.port);
-			const health = await checkHealth(conn);
-
-			if (health) {
-				if (cliVersion && shouldRestartForVersion(health, cliVersion)) {
-					logDaemonEvent("restart_for_version", {
-						requestedPort: port,
-						daemonPort: pidData.port,
-						daemonPid: pidData.pid,
-						daemonVersion: health.version,
-						cliVersion,
-					});
-					console.error(
-						`[rp1] Daemon version ${health.version} differs from CLI ${cliVersion}. Restarting...`,
-					);
-					await stopDaemon();
-				} else {
-					if (pidData.port !== port) {
-						console.error(
-							`[rp1] Daemon already running on port ${pidData.port} (requested ${port}). Using existing daemon.`,
-						);
-					}
-					return { connection: conn, wasRunning: true };
-				}
-			} else {
-				const healthy = await waitForHealth(conn, 2000);
-				if (healthy) {
-					if (pidData.port !== port) {
-						console.error(
-							`[rp1] Daemon already running on port ${pidData.port} (requested ${port}). Using existing daemon.`,
-						);
-					}
-					return { connection: conn, wasRunning: true };
-				}
-			}
-		}
-
-		await removePidFile();
-	}
-
-	const portAvailable = await isPortAvailable(port);
-	if (!portAvailable) {
-		const conn = createConnection(port);
-		const health = await checkHealth(conn);
-		if (health) {
-			const realPid = resolvePortOwnerPid(port);
-			if (realPid) {
-				await writePidFile({ port, pid: realPid });
-			}
-			return { connection: conn, wasRunning: true };
-		}
-
-		// Port occupied by non-daemon process — kill it and reclaim
-		const ownerPid = resolvePortOwnerPid(port);
-		if (ownerPid) {
-			logDaemonEvent("reclaiming_port", {
-				port,
-				ownerPid,
-				reason: "health_check_failed",
-			});
-			try {
-				process.kill(ownerPid, "SIGTERM");
-			} catch {
-				// Process may have already exited
-			}
-			const exited = await waitForProcessExit(
-				ownerPid,
-				STOP_GRACEFUL_TIMEOUT_MS,
-			);
-			if (!exited) {
-				forceKillProcess(ownerPid);
-				await waitForProcessExit(ownerPid, STOP_KILL_TIMEOUT_MS);
-			}
-		}
-
-		const portFreed = await isPortAvailable(port);
-		if (!portFreed) {
-			throw new Error(
-				`Port ${port} is in use and could not be reclaimed. Try a different port.`,
-			);
-		}
-	}
-
-	const pid = await spawnDaemon(port);
-	await writePidFile({ port, pid });
-
-	const conn = createConnection(port);
-	const healthy = await waitForHealth(conn);
-
-	if (!healthy) {
-		await removePidFile();
-		throw new Error(
-			"Daemon started but failed to become healthy within timeout",
-		);
-	}
-
-	return { connection: conn, wasRunning: false };
-}
-
-/**
- * Stop the running daemon with SIGTERM -> SIGKILL escalation.
- */
-export async function stopDaemon(): Promise<boolean> {
-	const pidData = await readPidFile();
-
-	if (!pidData) {
-		return false;
-	}
-
-	logDaemonEvent("stop_requested", {
-		port: pidData.port,
-		daemonPid: pidData.pid,
-	});
-
+async function stopDaemonProcess(pidData: PidFileData): Promise<void> {
 	const conn = createConnection(pidData.port);
 	await stopDaemonIpc(conn);
 
@@ -418,43 +375,376 @@ export async function stopDaemon(): Promise<boolean> {
 	}
 
 	await removePidFile();
-	return true;
+}
+
+/**
+ * Build a DaemonStartResult with derived wasRunning field.
+ */
+function makeStartResult(
+	connection: DaemonConnection,
+	action: DaemonStartAction,
+	reason?: DaemonLifecycleReason,
+): DaemonStartResult {
+	return {
+		connection,
+		action,
+		reason,
+		wasRunning: action !== "started",
+	};
+}
+
+/**
+ * Resolve the default CLI version for lock metadata when not provided.
+ */
+function resolveLockVersion(cliVersion?: string): string {
+	return cliVersion ?? "unknown";
+}
+
+/**
+ * Ensure daemon is running, starting it if necessary.
+ * Executes under the lifecycle lock so all state reads happen after acquisition.
+ * Restarts the daemon if the version has changed or if running a dev build.
+ * Returns connection to the daemon with explicit lifecycle action.
+ */
+export async function ensureDaemon(
+	port: number = DEFAULT_PORT,
+	cliVersion?: string,
+): Promise<DaemonStartResult> {
+	return withLifecycleLock(
+		{
+			operation: "ensureDaemon",
+			port,
+			cliVersion: resolveLockVersion(cliVersion),
+		},
+		async () => {
+			// Step 1: Read PID file under lock and probe health.
+			const pidData = await readPidFile();
+			let reason: DaemonLifecycleReason | undefined;
+			let replacing = false;
+
+			if (pidData) {
+				if (isProcessRunning(pidData.pid)) {
+					const conn = createConnection(pidData.port);
+					const health = await checkHealth(conn);
+
+					if (health) {
+						// Step 2: Healthy and tracked daemon found.
+						if (cliVersion && shouldRestartForVersion(health, cliVersion)) {
+							logDaemonEvent("restart_for_version", {
+								requestedPort: port,
+								daemonPort: pidData.port,
+								daemonPid: pidData.pid,
+								daemonVersion: health.version,
+								cliVersion,
+							});
+							console.error(
+								`[rp1] Daemon version ${health.version} differs from CLI ${cliVersion}. Replacing...`,
+							);
+							await stopDaemonProcess(pidData);
+							reason = "version_mismatch";
+							replacing = true;
+						} else {
+							// Compatible and healthy → reuse.
+							if (pidData.port !== port) {
+								console.error(
+									`[rp1] Daemon already running on port ${pidData.port} (requested ${port}). Using existing daemon.`,
+								);
+							}
+							logDaemonEvent("daemon_reused", {
+								port: pidData.port,
+								pid: pidData.pid,
+							});
+							return makeStartResult(conn, "reused");
+						}
+					} else {
+						// Process running but health check failed — wait briefly.
+						const healthy = await waitForHealth(conn, 2000);
+						if (healthy) {
+							if (pidData.port !== port) {
+								console.error(
+									`[rp1] Daemon already running on port ${pidData.port} (requested ${port}). Using existing daemon.`,
+								);
+							}
+							logDaemonEvent("daemon_reused", {
+								port: pidData.port,
+								pid: pidData.pid,
+								afterWait: true,
+							});
+							return makeStartResult(conn, "reused");
+						}
+						// Still unhealthy → stop and replace.
+						logDaemonEvent("replacing_unhealthy_daemon", {
+							port: pidData.port,
+							pid: pidData.pid,
+						});
+						await stopDaemonProcess(pidData);
+						reason = "unhealthy_daemon";
+						replacing = true;
+					}
+				} else {
+					// PID file exists but process is gone → stale PID.
+					logDaemonEvent("stale_pid_cleanup", {
+						port: pidData.port,
+						pid: pidData.pid,
+					});
+					await removePidFile();
+					reason = "stale_pid";
+				}
+			}
+
+			// Step 3: If not replacing, check whether the port is available.
+			if (!replacing) {
+				const portFree = await isPortAvailable(port);
+				if (!portFree) {
+					// Port is occupied — check if a healthy rp1 daemon is on it.
+					const conn = createConnection(port);
+					const health = await checkHealth(conn);
+
+					if (health) {
+						// Step 3a: Healthy rp1 daemon on port without PID tracking → repair ownership.
+						const repairReason = reason ?? "missing_pid";
+
+						if (cliVersion && shouldRestartForVersion(health, cliVersion)) {
+							// Incompatible version — stop the untracked daemon and replace.
+							const realPid = resolvePortOwnerPid(port);
+							if (realPid) {
+								await stopDaemonProcess({ port, pid: realPid });
+							} else {
+								// No PID available — IPC shutdown + wait for port to free.
+								const freed = await stopUntrackedDaemon(conn, port);
+								if (!freed) {
+									throw new Error(
+										`Failed to stop untracked daemon on port ${port} for version replacement`,
+									);
+								}
+							}
+							reason = "version_mismatch";
+							replacing = true;
+						} else {
+							// Compatible — repair PID file and reuse.
+							const realPid = resolvePortOwnerPid(port);
+							if (realPid) {
+								await writePidFile({ port, pid: realPid });
+								logDaemonEvent("pid_repaired", {
+									port,
+									pid: realPid,
+									reason: repairReason,
+								});
+							}
+							logDaemonEvent("daemon_reused", {
+								port,
+								reason: repairReason,
+								repaired: true,
+							});
+							return makeStartResult(conn, "reused", repairReason);
+						}
+					} else {
+						// Step 5: Port occupied by a non-rp1 process → raise PortInUseError.
+						logDaemonEvent("foreign_port_conflict", { port });
+						throw new DaemonPortConflictError(port);
+					}
+				}
+			}
+
+			// Step 6: Spawn a new daemon, wait for health, and write the PID file.
+			const pid = await spawnDaemon(port);
+			await writePidFile({ port, pid });
+
+			const conn = createConnection(port);
+			const healthy = await waitForHealth(conn);
+
+			if (!healthy) {
+				await removePidFile();
+				throw new Error(
+					"Daemon started but failed to become healthy within timeout",
+				);
+			}
+
+			const action: DaemonStartAction = replacing ? "replaced" : "started";
+			logDaemonEvent(replacing ? "daemon_replaced" : "daemon_started", {
+				port,
+				pid,
+				reason,
+			});
+			return makeStartResult(conn, action, reason);
+		},
+	);
+}
+
+/**
+ * Stop the running daemon with SIGTERM -> SIGKILL escalation.
+ * Executes under the lifecycle lock. Recovers from stale or missing PID state
+ * by probing the default port for a live rp1 daemon.
+ */
+export async function stopDaemon(
+	port: number = DEFAULT_PORT,
+): Promise<DaemonStopResult> {
+	return withLifecycleLock(
+		{
+			operation: "stopDaemon",
+			port,
+			cliVersion: "unknown",
+		},
+		async () => {
+			const pidData = await readPidFile();
+
+			if (pidData) {
+				logDaemonEvent("stop_requested", {
+					port: pidData.port,
+					daemonPid: pidData.pid,
+				});
+				await stopDaemonProcess(pidData);
+				return { action: "stopped" as const };
+			}
+
+			// No PID file — attempt recovery by probing the port for a live rp1 daemon.
+			const conn = createConnection(port);
+			const health = await checkHealth(conn);
+
+			if (health) {
+				const realPid = resolvePortOwnerPid(port);
+				if (realPid) {
+					logDaemonEvent("stop_requested", {
+						port,
+						daemonPid: realPid,
+						recoveredFromMissingPid: true,
+					});
+					await stopDaemonProcess({ port, pid: realPid });
+					return { action: "stopped" as const };
+				}
+				// Could not resolve PID — IPC shutdown + wait for port to free.
+				const freed = await stopUntrackedDaemon(conn, port);
+				if (!freed) {
+					logDaemonEvent("stop_port_still_occupied", { port });
+				}
+				return { action: "stopped" as const };
+			}
+
+			return { action: "not_running" as const };
+		},
+	);
 }
 
 /**
  * Get status of the daemon.
+ * Recovers from stale or missing PID state by probing the port for a live daemon.
  */
-export async function getStatus(): Promise<DaemonStatus> {
+export async function getStatus(
+	port: number = DEFAULT_PORT,
+): Promise<DaemonStatus> {
 	const pidData = await readPidFile();
 
-	if (!pidData) {
-		return { running: false };
+	if (pidData) {
+		if (!isProcessRunning(pidData.pid)) {
+			await removePidFile();
+			// Fall through to port-based recovery below.
+		} else {
+			const conn = createConnection(pidData.port);
+			return getDaemonStatus(conn);
+		}
 	}
 
-	if (!isProcessRunning(pidData.pid)) {
-		await removePidFile();
-		return { running: false };
+	// Recovery fallback: probe the port for a live rp1 daemon.
+	const conn = createConnection(port);
+	const health = await checkHealth(conn);
+
+	if (health) {
+		// Repair PID file so subsequent calls have accurate tracking.
+		const realPid = resolvePortOwnerPid(port);
+		if (realPid) {
+			await writePidFile({ port, pid: realPid });
+			logDaemonEvent("pid_repaired", {
+				port,
+				pid: realPid,
+				reason: "status_recovery",
+			});
+		}
+		return getDaemonStatus(conn);
 	}
 
-	const conn = createConnection(pidData.port);
-	return getDaemonStatus(conn);
+	return { running: false };
 }
 
 /**
  * Restart the daemon. Ensures old process is fully terminated before starting new one.
+ * Executes under the lifecycle lock.
  */
 export async function restartDaemon(
 	port: number = DEFAULT_PORT,
 	cliVersion?: string,
 ): Promise<DaemonStartResult> {
-	const pidData = await readPidFile();
-	await stopDaemon();
+	return withLifecycleLock(
+		{
+			operation: "restartDaemon",
+			port,
+			cliVersion: resolveLockVersion(cliVersion),
+		},
+		async () => {
+			const pidData = await readPidFile();
 
-	if (pidData && isProcessRunning(pidData.pid)) {
-		await waitForProcessExit(pidData.pid, STOP_KILL_TIMEOUT_MS);
-	}
+			if (pidData) {
+				logDaemonEvent("stop_requested", {
+					port: pidData.port,
+					daemonPid: pidData.pid,
+					reason: "restart",
+				});
+				await stopDaemonProcess(pidData);
 
-	return ensureDaemon(port, cliVersion);
+				if (isProcessRunning(pidData.pid)) {
+					await waitForProcessExit(pidData.pid, STOP_KILL_TIMEOUT_MS);
+				}
+			} else {
+				// Recovery: probe the port for an untracked daemon.
+				const conn = createConnection(port);
+				const health = await checkHealth(conn);
+
+				if (health) {
+					const realPid = resolvePortOwnerPid(port);
+					if (realPid) {
+						await stopDaemonProcess({ port, pid: realPid });
+					} else {
+						const freed = await stopUntrackedDaemon(conn, port);
+						if (!freed) {
+							throw new Error(
+								`Failed to stop untracked daemon on port ${port} for restart`,
+							);
+						}
+					}
+				}
+			}
+
+			// Spawn new daemon directly (no nested lock via ensureDaemon).
+			const portFree = await isPortAvailable(port);
+			if (!portFree) {
+				const conn = createConnection(port);
+				const health = await checkHealth(conn);
+				if (!health) {
+					throw new DaemonPortConflictError(port);
+				}
+				// If somehow still a healthy rp1 daemon, treat as replacement.
+			}
+
+			const pid = await spawnDaemon(port);
+			await writePidFile({ port, pid });
+
+			const conn = createConnection(port);
+			const healthy = await waitForHealth(conn);
+
+			if (!healthy) {
+				await removePidFile();
+				throw new Error(
+					"Daemon started but failed to become healthy within timeout",
+				);
+			}
+
+			logDaemonEvent("daemon_replaced", {
+				port,
+				pid,
+				reason: "restart",
+			});
+			return makeStartResult(conn, "replaced");
+		},
+	);
 }
 
 /**

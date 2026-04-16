@@ -136,33 +136,12 @@ build-web-ui:
 
 # Clear web-ui cache (needed when testing local builds)
 
-# Stops the production daemon first if running, since it serves assets from this cache
+# Stops the production daemon first if running, since it serves assets from this cache.
+# Delegates daemon handling to the shared lifecycle manager via a Bun helper script.
 clean-web-ui-cache:
     #!/usr/bin/env bash
     set -e
-    if [ "$(uname)" = "Darwin" ]; then
-        config_dir="${HOME}/Library/Application Support/rp1"
-    else
-        config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/rp1"
-    fi
-    pid_file="${config_dir}/daemon.pid"
-    restart_marker="${config_dir}/restart-arcade-after-install"
-    mkdir -p "$config_dir"
-    rm -f "$restart_marker"
-    if [ -f "$pid_file" ]; then
-        daemon_pid=$(sed -n '2p' "$pid_file")
-        if [ -n "$daemon_pid" ] && kill -0 "$daemon_pid" 2>/dev/null; then
-            echo "Stopping production daemon (PID $daemon_pid) before clearing web-ui cache..."
-            touch "$restart_marker"
-            curl -sf -X POST http://127.0.0.1:7710/api/v2/shutdown >/dev/null 2>&1 || true
-            kill "$daemon_pid" 2>/dev/null || true
-            for i in $(seq 1 30); do
-                kill -0 "$daemon_pid" 2>/dev/null || break
-                sleep 0.1
-            done
-            rm -f "$pid_file"
-        fi
-    fi
+    cd cli && bun run scripts/prepare-local-install-daemon.ts
     rm -rf ~/.rp1/web-ui/
 
 # Build the local binary with -dev version suffix
@@ -311,9 +290,11 @@ install: rm-stable build
     echo ""; \
     ./bin/rp1 install -y; \
     if [ -f "$restart_marker" ]; then \
+        port=$(cat "$restart_marker" 2>/dev/null | tr -d '[:space:]'); \
+        if [ -z "$port" ]; then port=7710; fi; \
         echo ""; \
-        echo "Restarting Arcade daemon..."; \
-        ./bin/rp1 arcade --daemon-only --no-open >/dev/null 2>&1 || true; \
+        echo "Restarting Arcade daemon on port ${port}..."; \
+        ./bin/rp1 arcade --daemon-only --port "$port" --no-open 2>&1 || echo "Warning: daemon restart failed (port ${port} may be in use)"; \
         rm -f "$restart_marker"; \
     fi
 

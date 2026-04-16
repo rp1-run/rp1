@@ -17,6 +17,61 @@ rp1 arcade
 Run that from any project directory. By default it opens the browser on
 `http://localhost:7710`.
 
+### Daemon lifecycle
+
+Arcade runs as a single background daemon per user environment. Every launch
+path -- `rp1 arcade`, hooks, `just install` -- converges on one authoritative
+daemon rather than allowing duplicates. You do not need to worry about
+leftover processes or manual cleanup during normal use.
+
+When you run `rp1 arcade`, the daemon manager resolves the current state and
+reports one of three outcomes:
+
+| Outcome | When it happens | CLI feedback |
+|---------|-----------------|--------------|
+| **Reused** | A healthy, compatible daemon is already running on the requested port | `Reused daemon on port 7710` |
+| **Started** | No daemon was running; a new one is launched | `Started daemon on port 7710` |
+| **Replaced** | A daemon was running but is unhealthy or from an incompatible version | `Replaced daemon on port 7710 (reason: version mismatch)` |
+
+Replacement reasons include `version mismatch`, `unhealthy daemon`,
+`stale pid`, and `missing pid`. These appear in the CLI output and in
+`daemon.log` so you can verify exactly what happened without inspecting PID
+files or process tables.
+
+### Port conflicts
+
+If the requested port is occupied by a non-rp1 process, Arcade raises an
+actionable error instead of terminating the other process:
+
+```
+Port 7710 is in use by a non-rp1 process.
+Use a different port or stop the process occupying port 7710.
+```
+
+Use `--port` to pick a different port:
+
+```bash
+rp1 arcade --port 8080
+```
+
+### Stale state recovery
+
+If a previous daemon crashed or its PID file became stale, the next launch
+detects and repairs the ownership state automatically. You do not need to
+delete PID files or restart markers manually -- the daemon manager handles
+recovery as part of normal startup.
+
+### Other lifecycle commands
+
+```bash
+rp1 arcade --status     # Show whether the daemon is running
+rp1 arcade --stop       # Stop the daemon
+rp1 arcade --restart    # Restart the daemon
+```
+
+These commands are idempotent. Repeating them does not accumulate extra
+processes or stale state.
+
 ---
 
 ## Main Surfaces
