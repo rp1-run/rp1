@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.5](https://github.com/rp1-run/rp1/compare/v0.7.4...v0.7.5) (2026-04-16)
+
+
+### Features
+
+* **daemon:** add cross-process lifecycle lock and harden daemon mutations ([#339](https://github.com/rp1-run/rp1/issues/339)) ([a86c60e](https://github.com/rp1-run/rp1/commit/a86c60e52938a2ebe2720e4d9c619f76ccded907))
+* **web-ui:** sync workspace tabs across browser tabs ([#338](https://github.com/rp1-run/rp1/issues/338)) ([ad03c8e](https://github.com/rp1-run/rp1/commit/ad03c8e37a9f250ae7fa1b0182e3a18e39fc3449))
+
 ## [0.7.4](https://github.com/rp1-run/rp1/compare/v0.7.3...v0.7.4) (2026-04-15)
 
 
