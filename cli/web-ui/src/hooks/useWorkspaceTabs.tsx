@@ -56,6 +56,8 @@ interface StoredWorkspaceTabsState {
 }
 
 export const WORKSPACE_TABS_STORAGE_KEY = "rp1-workspace-tabs:v1";
+const SESSION_STATE_KEY = "rp1-workspace-session:v1";
+const BROADCAST_CHANNEL_NAME = "rp1-workspace-tabs";
 
 const DEFAULT_STATE: WorkspaceTabsState = {
 	tabs: [],
@@ -140,22 +142,35 @@ function loadWorkspaceTabsState(): WorkspaceTabsState {
 	if (typeof window === "undefined") return DEFAULT_STATE;
 
 	try {
-		const raw = sessionStorage.getItem(WORKSPACE_TABS_STORAGE_KEY);
-		if (!raw) return DEFAULT_STATE;
-
-		const parsed = JSON.parse(raw) as StoredWorkspaceTabsState;
-		const parsedTabs = Array.isArray(parsed.tabs)
-			? dedupeTabs(parsed.tabs.map(sanitizeStoredTab).filter(isWorkspaceTab))
+		const raw = localStorage.getItem(WORKSPACE_TABS_STORAGE_KEY);
+		const parsedTabs = raw
+			? (() => {
+					const parsed = JSON.parse(raw) as StoredWorkspaceTabsState;
+					return Array.isArray(parsed.tabs)
+						? dedupeTabs(
+								parsed.tabs.map(sanitizeStoredTab).filter(isWorkspaceTab),
+							)
+						: [];
+				})()
 			: [];
+
+		const sessionRaw = sessionStorage.getItem(SESSION_STATE_KEY);
+		const session = sessionRaw
+			? (JSON.parse(sessionRaw) as {
+					activeKey?: unknown;
+					lastDurableRoute?: unknown;
+				})
+			: {};
+
 		const normalizedDurableRoute =
-			typeof parsed.lastDurableRoute === "string" &&
-			normalizeWorkspaceRoute(parsed.lastDurableRoute).type === "durable"
-				? parsed.lastDurableRoute
+			typeof session.lastDurableRoute === "string" &&
+			normalizeWorkspaceRoute(session.lastDurableRoute).type === "durable"
+				? session.lastDurableRoute
 				: "/";
 		const activeKey =
-			typeof parsed.activeKey === "string" &&
-			parsedTabs.some((tab) => tab.key === parsed.activeKey)
-				? parsed.activeKey
+			typeof session.activeKey === "string" &&
+			parsedTabs.some((tab) => tab.key === session.activeKey)
+				? session.activeKey
 				: null;
 
 		return {
@@ -253,6 +268,7 @@ export function WorkspaceTabsProvider({
 		loadWorkspaceTabsState(),
 	);
 	const stateRef = useRef(state);
+	const channelRef = useRef<BroadcastChannel | null>(null);
 	const location = useLocation();
 	const navigate = useNavigate();
 
@@ -262,8 +278,80 @@ export function WorkspaceTabsProvider({
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
-		sessionStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+		localStorage.setItem(
+			WORKSPACE_TABS_STORAGE_KEY,
+			JSON.stringify({ tabs: state.tabs }),
+		);
+		sessionStorage.setItem(
+			SESSION_STATE_KEY,
+			JSON.stringify({
+				activeKey: state.activeKey,
+				lastDurableRoute: state.lastDurableRoute,
+			}),
+		);
+		channelRef.current?.postMessage(state.tabs);
 	}, [state]);
+
+	useEffect(() => {
+		if (typeof BroadcastChannel === "undefined") return;
+
+		const channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+		channelRef.current = channel;
+
+		channel.onmessage = (event: MessageEvent) => {
+			if (!Array.isArray(event.data)) return;
+			const remoteTabs = dedupeTabs(
+				(event.data as unknown[]).map(sanitizeStoredTab).filter(isWorkspaceTab),
+			);
+
+			setState((current) => {
+				if (
+					remoteTabs.length === current.tabs.length &&
+					remoteTabs.every((tab, i) => tab.key === current.tabs[i]?.key)
+				) {
+					return current;
+				}
+				return { ...current, tabs: remoteTabs };
+			});
+		};
+
+		return () => {
+			channel.close();
+			channelRef.current = null;
+		};
+	}, []);
+
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+
+		const handleStorage = (event: StorageEvent) => {
+			if (event.key !== WORKSPACE_TABS_STORAGE_KEY || !event.newValue) return;
+
+			try {
+				const parsed = JSON.parse(event.newValue) as StoredWorkspaceTabsState;
+				const remoteTabs = Array.isArray(parsed.tabs)
+					? dedupeTabs(
+							parsed.tabs.map(sanitizeStoredTab).filter(isWorkspaceTab),
+						)
+					: [];
+
+				setState((current) => {
+					if (
+						remoteTabs.length === current.tabs.length &&
+						remoteTabs.every((tab, i) => tab.key === current.tabs[i]?.key)
+					) {
+						return current;
+					}
+					return { ...current, tabs: remoteTabs };
+				});
+			} catch {
+				// Ignore malformed storage events
+			}
+		};
+
+		window.addEventListener("storage", handleStorage);
+		return () => window.removeEventListener("storage", handleStorage);
+	}, []);
 
 	useLayoutEffect(() => {
 		const currentPath = createCurrentPath(

@@ -189,7 +189,7 @@ export function WorkspaceTabStrip({
 					aria-label="Open workspaces"
 					className="min-w-0 flex-1 overflow-x-auto"
 				>
-					<div className="flex min-w-max items-center gap-2">
+					<div className="flex items-center gap-1">
 						{tabs.map((tab) => {
 							const isActive = tab.key === activeKey;
 
@@ -197,7 +197,7 @@ export function WorkspaceTabStrip({
 								<div
 									key={tab.key}
 									className={cn(
-										"group flex max-w-[13rem] shrink-0 items-center gap-1 rounded-md border px-2 py-1 md:max-w-[18rem]",
+										"group flex min-w-[5rem] max-w-[13rem] items-center gap-1 rounded-md border px-2 py-1 md:min-w-[7rem] md:max-w-[18rem]",
 										isActive
 											? "border-border bg-surface text-fg"
 											: "border-transparent bg-transparent text-fg-muted hover:border-border/60 hover:bg-muted/30 hover:text-fg",

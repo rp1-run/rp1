@@ -48,7 +48,17 @@ function setStoredState(state: {
 	readonly activeKey: string | null;
 	readonly lastDurableRoute: string;
 }) {
-	sessionStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(state));
+	localStorage.setItem(
+		WORKSPACE_TABS_STORAGE_KEY,
+		JSON.stringify({ tabs: state.tabs }),
+	);
+	sessionStorage.setItem(
+		"rp1-workspace-session:v1",
+		JSON.stringify({
+			activeKey: state.activeKey,
+			lastDurableRoute: state.lastDurableRoute,
+		}),
+	);
 }
 
 function parseTabs(): WorkspaceTab[] {
@@ -69,11 +79,13 @@ function renderHarness(initialEntries: readonly string[]) {
 
 describe("useWorkspaceTabs", () => {
 	beforeEach(() => {
+		localStorage.clear();
 		sessionStorage.clear();
 	});
 
 	afterEach(() => {
 		cleanup();
+		localStorage.clear();
 		sessionStorage.clear();
 	});
 
@@ -178,10 +190,13 @@ describe("useWorkspaceTabs", () => {
 	});
 
 	test("falls back to the default durable route when stored durable state is invalid", async () => {
-		sessionStorage.setItem(
+		localStorage.setItem(
 			WORKSPACE_TABS_STORAGE_KEY,
+			JSON.stringify({ tabs: [] }),
+		);
+		sessionStorage.setItem(
+			"rp1-workspace-session:v1",
 			JSON.stringify({
-				tabs: [],
 				activeKey: null,
 				lastDurableRoute: "/settings",
 			}),
@@ -307,5 +322,140 @@ describe("useWorkspaceTabs", () => {
 		});
 		expect(parseTabs()).toEqual([]);
 		expect(screen.getByTestId("active-key").textContent).toBe("null");
+	});
+
+	test("adopts remote tabs from a storage event while preserving the local activeKey", async () => {
+		setStoredState({
+			tabs: [
+				{
+					key: "run:run-1",
+					kind: "run",
+					currentPath: "/runs/run-1",
+					rootPath: "/runs/run-1",
+					title: "Run one",
+					subtitle: null,
+					projectId: null,
+					lastVisitedAt: 1,
+				},
+			],
+			activeKey: "run:run-1",
+			lastDurableRoute: "/projects",
+		});
+
+		renderHarness(["/runs/run-1"]);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("active-key").textContent).toBe("run:run-1");
+		});
+
+		act(() => {
+			const remoteState = JSON.stringify({
+				tabs: [
+					{
+						key: "run:run-1",
+						kind: "run",
+						currentPath: "/runs/run-1",
+						rootPath: "/runs/run-1",
+						title: "Run one",
+						subtitle: null,
+						projectId: null,
+						lastVisitedAt: 1,
+					},
+					{
+						key: "run:run-3",
+						kind: "run",
+						currentPath: "/runs/run-3",
+						rootPath: "/runs/run-3",
+						title: "Run three",
+						subtitle: null,
+						projectId: null,
+						lastVisitedAt: 5,
+					},
+				],
+			});
+
+			window.dispatchEvent(
+				new StorageEvent("storage", {
+					key: WORKSPACE_TABS_STORAGE_KEY,
+					newValue: remoteState,
+					storageArea: localStorage,
+				}),
+			);
+		});
+
+		await waitFor(() => {
+			expect(parseTabs()).toHaveLength(2);
+		});
+		expect(parseTabs().map((tab) => tab.key)).toEqual([
+			"run:run-1",
+			"run:run-3",
+		]);
+		expect(screen.getByTestId("active-key").textContent).toBe("run:run-1");
+	});
+
+	test("removes tabs that were closed in another browser tab via storage event", async () => {
+		setStoredState({
+			tabs: [
+				{
+					key: "run:run-1",
+					kind: "run",
+					currentPath: "/runs/run-1",
+					rootPath: "/runs/run-1",
+					title: "Run one",
+					subtitle: null,
+					projectId: null,
+					lastVisitedAt: 1,
+				},
+				{
+					key: "run:run-2",
+					kind: "run",
+					currentPath: "/runs/run-2",
+					rootPath: "/runs/run-2",
+					title: "Run two",
+					subtitle: null,
+					projectId: null,
+					lastVisitedAt: 2,
+				},
+			],
+			activeKey: "run:run-1",
+			lastDurableRoute: "/projects",
+		});
+
+		renderHarness(["/runs/run-1"]);
+
+		await waitFor(() => {
+			expect(parseTabs()).toHaveLength(2);
+		});
+
+		act(() => {
+			const remoteState = JSON.stringify({
+				tabs: [
+					{
+						key: "run:run-1",
+						kind: "run",
+						currentPath: "/runs/run-1",
+						rootPath: "/runs/run-1",
+						title: "Run one",
+						subtitle: null,
+						projectId: null,
+						lastVisitedAt: 1,
+					},
+				],
+			});
+
+			window.dispatchEvent(
+				new StorageEvent("storage", {
+					key: WORKSPACE_TABS_STORAGE_KEY,
+					newValue: remoteState,
+					storageArea: localStorage,
+				}),
+			);
+		});
+
+		await waitFor(() => {
+			expect(parseTabs()).toHaveLength(1);
+		});
+		expect(parseTabs().map((tab) => tab.key)).toEqual(["run:run-1"]);
+		expect(screen.getByTestId("active-key").textContent).toBe("run:run-1");
 	});
 });
