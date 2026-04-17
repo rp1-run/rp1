@@ -1,7 +1,7 @@
 # Implementation Patterns
 
 **Project**: rp1
-**Last Updated**: 2026-04-14
+**Last Updated**: 2026-04-17
 
 ## Naming Conventions
 
@@ -69,6 +69,14 @@
 - **Daemon diagnostics**: Append-only NDJSON to `daemon.log` via `logDaemonEvent` with structured event/data fields; failures silently swallowed
 - **Correlation**: `runId`, `projectId`, and source IDs in notification and event records
 
+## Progressive-Disclosure Pipeline
+
+- Skills with large instruction sets split content into subdirectories (`references/`, `pipeline/`) loaded on demand
+- Entry-point SKILL.md contains a manifest table mapping companion files to load conditions
+- Pipeline stages are standalone `.md` files with consistent structure (Purpose, Input, Process, Output)
+- Agents execute stages sequentially, accumulating context across stages in conversation state
+- Exemplar: `prompt-writer` with three reference layers (`references/`) and six pipeline stages (`pipeline/`)
+
 ## Extension Points
 
 - Commands registered centrally via `program.addCommand` in `main.ts`
@@ -76,6 +84,7 @@
 - Build pipeline uses LiquidJS templates with registered lint rules and filters
 - State machines declared in `stateDiagram-v2` blocks with auto-skip and auto-complete
 - Views register contextual commands via `useContextualShortcuts` hook for command palette integration
+- Prompt pipeline stages loaded progressively via companion reference files in skill subdirectories (`prompt-writer` as first exemplar)
 
 ## Testing
 

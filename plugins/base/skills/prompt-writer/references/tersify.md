@@ -1,21 +1,8 @@
----
-name: prompt-writer
-description: Write maximally terse agent prompts from scratch. Use when creating new agent specs, command prompts, or instruction sets. Teaches structure-first composition with compression-by-default patterns.
-metadata:
-  category: prompt
-  is_workflow: false
----
+# Tersify -- Compression Discipline and Style Rules
 
-# Prompt Writer - Terse Prompt Authoring
+Reference layer for prompt-writer pipeline. Contains the complete terse prompt authoring guide: structure-first composition with compression-by-default patterns.
 
-Guide for writing maximally terse agent prompts without post-hoc compression. Applies compression-by-default principles at authoring time.
-
-## When to Use
-
-- Creating new agent specifications
-- Writing command/skill prompts
-- Drafting instruction sets for AI agents
-- Authoring system prompts
+Load this file when writing or validating prompt style via direct `/prompt-writer` invocation or the prompt-validation pipeline stage.
 
 ## Core Principles
 
@@ -27,30 +14,30 @@ Guide for writing maximally terse agent prompts without post-hoc compression. Ap
 
 **Do not tersify already terse content**: This is not a golfing exercise. If content is already concise, keep as is.
 
-## §1 Section Patterns
+## Section Patterns
 
 Use terse section headers. Pick from:
 
 | Header | Purpose |
 |--------|---------|
-| §ROLE | Agent identity/persona |
-| §OBJ | Goals/objectives |
-| §CTX | Context/assumptions |
-| §IN | Input format/params |
-| §OUT | Output format/deliverables |
-| §TOOLS | Available tools/resources |
-| §DO | Required behaviors |
-| §DONT | Prohibited behaviors |
-| §PROC | Step-by-step procedure |
-| §FMT | Format/style rules |
-| §CHK | Acceptance criteria/checks |
-| §LEG | Legend for abbreviations |
+| ROLE | Agent identity/persona |
+| OBJ | Goals/objectives |
+| CTX | Context/assumptions |
+| IN | Input format/params |
+| OUT | Output format/deliverables |
+| TOOLS | Available tools/resources |
+| DO | Required behaviors |
+| DONT | Prohibited behaviors |
+| PROC | Step-by-step procedure |
+| FMT | Format/style rules |
+| CHK | Acceptance criteria/checks |
+| LEG | Legend for abbreviations |
 
 Not all sections needed. Use only what's required.
 
-## §2 Composition Tactics
+## Composition Tactics
 
-### 2.1 Prefer Structure Over Prose
+### Prefer Structure Over Prose
 
 ```markdown
 # BAD (prose)
@@ -58,14 +45,14 @@ You should first analyze the input, then validate it against the schema,
 and finally transform it into the output format while logging any errors.
 
 # GOOD (structured)
-§PROC
+PROC
 1. Analyze input
 2. Validate vs schema
-3. Transform → output fmt
+3. Transform -> output fmt
 4. Log errors
 ```
 
-### 2.2 Use Bullet Fragments
+### Use Bullet Fragments
 
 ```markdown
 # BAD
@@ -79,7 +66,7 @@ and finally transform it into the output format while logging any errors.
 - Handle missing fields gracefully
 ```
 
-### 2.3 Key:Value for Parameters
+### Key:Value for Parameters
 
 ```markdown
 # BAD
@@ -88,7 +75,7 @@ The input parameter should be a file path. The mode can be either
 milliseconds with a default of 5000.
 
 # GOOD
-§IN
+IN
 | Param | Type | Default | Note |
 |-------|------|---------|------|
 | input | path | (req) | File to process |
@@ -96,7 +83,7 @@ milliseconds with a default of 5000.
 | timeout | ms | 5000 | Max wait |
 ```
 
-### 2.4 Compact Operators
+### Compact Operators
 
 Use freely: `->`, `:`, `/`, `w/`, `w/o`, `>=`, `<=`, `==`, `!=`, `incl`, `excl`, `+`, `&`
 
@@ -108,7 +95,7 @@ Transform the input to the output format without including timestamps
 Input -> output fmt w/o timestamps
 ```
 
-## §3 Abbreviation Policy
+## Abbreviation Policy
 
 ### Safe Abbreviations (use freely)
 
@@ -116,20 +103,20 @@ Input -> output fmt w/o timestamps
 
 ### Legend Rule
 
-If using non-standard abbreviations, add §LEG section:
+If using non-standard abbreviations, add LEG section:
 
 ```markdown
-§LEG
+LEG
 - AC = acceptance criteria
 - KB = knowledge base
 - PR = pull request
 ```
 
-Limit: ≤8 entries. If more needed, spell out.
+Limit: <=8 entries. If more needed, spell out.
 
-## §4 Normative Language
+## Normative Language
 
-Keep EXACT—no symbols, no softening:
+Keep EXACT -- no symbols, no softening:
 
 | Word | Meaning |
 |------|---------|
@@ -147,7 +134,7 @@ Users are required to provide auth tokens (REQUIRED!)
 Users MUST provide auth tokens
 ```
 
-## §5 Symbolic Encoding
+## Symbolic Encoding
 
 When clearer + shorter, encode as:
 
@@ -158,21 +145,12 @@ When clearer + shorter, encode as:
 
 ```markdown
 # Instead of prose describing a flow:
-§PROC (mermaid)
-​```mermaid
-stateDiagram-v2
-  [*] --> Parse
-  Parse --> Validate
-  Validate --> Transform: valid
-  Validate --> Error: invalid
-  Transform --> [*]
-  Error --> [*]
-​```
+PROC (mermaid)
 ```
 
 Only when it REDUCES confusion. Don't force diagrams.
 
-## §6 Anti-Patterns
+## Anti-Patterns
 
 | Pattern | Problem | Fix |
 |---------|---------|-----|
@@ -184,7 +162,7 @@ Only when it REDUCES confusion. Don't force diagrams.
 | Meta-commentary | "This section describes..." | Just describe |
 | Backtick key-value | BACKTICK x BACKTICK=value causes shell expansion | Use `x=value` or prose |
 
-## §6.1 Shell-Safe Formatting
+## Shell-Safe Formatting
 
 **CRITICAL**: Prompts are processed through shell expansion. Certain patterns cause parse errors.
 
@@ -196,17 +174,15 @@ Only when it REDUCES confusion. Don't force diagrams.
 | BACKTICK ! BACKTICK=blocked | ! executed as history expansion | "blocked not found" |
 | DOLLAR(cmd)=value | Command substitution | Executes cmd |
 
-(BACKTICK = the ` character, DOLLAR = the $ character)
+(BACKTICK = the `` ` `` character, DOLLAR = the `$` character)
 
 ### Safe Alternatives
 
 **BAD** (causes shell expansion errors):
 
 ```
-- [status]: [BACKTICK] [BACKTICK]=pending, [BACKTICK]x[BACKTICK]=done, [BACKTICK]![BACKTICK]=blocked
+- [status]: BACKTICK BACKTICK=pending, BACKTICK x BACKTICK=done, BACKTICK ! BACKTICK=blocked
 ```
-
-(where [BACKTICK] represents the ` character)
 
 **GOOD** (no backticks around values in key=value patterns):
 
@@ -228,34 +204,34 @@ When writing key=value mappings:
 - Use descriptive words (`space`, `empty`) or omit backticks entirely
 - Backticks inside code blocks (triple-backtick fences) are safe
 
-## §7 Quick Reference
+## Quick Reference
 
 ```
 SKELETON
-─────────
-§ROLE: [identity - 1 line]
+---------
+ROLE: [identity - 1 line]
 
-§OBJ: [goals - bullets]
+OBJ: [goals - bullets]
 
-§IN: [params - table]
+IN: [params - table]
 
-§OUT: [format - example]
+OUT: [format - example]
 
-§PROC:
+PROC:
 1. Step
 2. Step
 3. Step
 
-§DO: [required - bullets]
-§DONT: [prohibited - bullets]
+DO: [required - bullets]
+DONT: [prohibited - bullets]
 
-§CHK: [criteria - checklist]
+CHK: [criteria - checklist]
 ```
 
-## §8 Examples
+## Examples
 
-See TEMPLATES.md for complete prompt templates at different complexity levels.
 See PATTERNS.md for common domain-specific patterns (agents, commands, tools).
+See TEMPLATES.md for complete prompt templates at different complexity levels.
 
 ## Validation Checklist
 
@@ -266,7 +242,7 @@ Before finalizing prompt:
 - [ ] Normative words preserved exactly
 - [ ] Literals/paths/names verbatim
 - [ ] No redundancy/repetition
-- [ ] Abbreviations obvious or in §LEG
+- [ ] Abbreviations obvious or in LEG
 - [ ] Symbolics only where clearer
-- [ ] ≤300 lines for simple, ≤500 for complex
-- [ ] No shell-unsafe patterns (see §6.1)
+- [ ] <=300 lines for simple, <=500 for complex
+- [ ] No shell-unsafe patterns (see Shell-Safe Formatting)

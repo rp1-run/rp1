@@ -1,0 +1,1 @@
+/rp1-base:create-prompt "{{PROMPT_NAME}}" "{{DESCRIPTION}}"{% if AGENT_TYPE %} --agent-type={{AGENT_TYPE}}{% endif %}{% if AFK %} --afk{% endif %}

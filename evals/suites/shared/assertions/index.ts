@@ -27,6 +27,7 @@ export {
 	assertNoWriteEdit,
 	// Output assertions
 	assertOutputContains,
+	assertPipelineRunnerSpawned,
 	assertPostImplCheckpoint,
 	assertSubagentSpawned,
 	// Pre-built instances for YAML file:// references
