@@ -5,7 +5,7 @@ import {
 	beforeEach,
 	describe,
 	expect,
-	mock,
+	spyOn,
 	test,
 } from "bun:test";
 import { mkdir, rm } from "node:fs/promises";
@@ -18,19 +18,10 @@ import {
 	insertRun,
 	resetInstance,
 } from "../../../../src/agent-tools/emit/database.js";
-
-mock.module("../../server/registry.js", () => ({
-	getAllProjects: async () => [],
-	getProject: async () => null,
-	getProjectCount: async () => 0,
-	isValidProject: async () => false,
-	registerProject: async () => {
-		throw new Error("registerProject should not be called in run detail tests");
-	},
-	removeProject: async () => undefined,
-}));
-
+import * as registry from "../../server/registry.js";
 import { handleV2RunDetailRequest } from "../../server/routes/v2-api.js";
+
+const registrySpies: Array<{ mockRestore: () => void }> = [];
 
 describe("handleV2RunDetailRequest", () => {
 	let tempDir: string;
@@ -43,6 +34,18 @@ describe("handleV2RunDetailRequest", () => {
 		tempDir = join(tmpdir(), `v2-run-detail-test-${Date.now()}`);
 		await mkdir(tempDir, { recursive: true });
 		originalDbEnv = process.env.RP1_DB;
+		registrySpies.push(
+			spyOn(registry, "getAllProjects").mockImplementation(async () => []),
+			spyOn(registry, "getProject").mockImplementation(async () => null),
+			spyOn(registry, "getProjectCount").mockImplementation(async () => 0),
+			spyOn(registry, "isValidProject").mockImplementation(async () => false),
+			spyOn(registry, "registerProject").mockImplementation(async () => {
+				throw new Error(
+					"registerProject should not be called in run detail tests",
+				);
+			}),
+			spyOn(registry, "removeProject").mockImplementation(async () => false),
+		);
 	});
 
 	beforeEach(async () => {
@@ -68,6 +71,10 @@ describe("handleV2RunDetailRequest", () => {
 			process.env.RP1_DB = originalDbEnv;
 		}
 		await rm(tempDir, { recursive: true, force: true });
+		for (const spy of registrySpies) {
+			spy.mockRestore();
+		}
+		registrySpies.length = 0;
 	});
 
 	test("serializes invocation context from bootstrap data and redacts unsafe identity values", async () => {

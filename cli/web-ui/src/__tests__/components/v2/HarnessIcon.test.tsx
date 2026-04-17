@@ -1,22 +1,41 @@
-import { describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { render } from "@testing-library/react";
 import { createElement } from "react";
 
-mock.module("@lobehub/icons", () => ({
-	Claude: ({ size }: { size?: number }) =>
-		createElement("svg", { "data-icon": "Claude", "data-size": size }),
-	GithubCopilot: ({ size }: { size?: number }) =>
-		createElement("svg", { "data-icon": "GithubCopilot", "data-size": size }),
-	OpenAI: ({ size }: { size?: number }) =>
-		createElement("svg", { "data-icon": "OpenAI", "data-size": size }),
-	OpenCode: ({ size }: { size?: number }) =>
-		createElement("svg", { "data-icon": "OpenCode", "data-size": size }),
-}));
+let harnessIconImportVersion = 0;
 
-const { HarnessIcon } = await import("../../../components/v2/HarnessIcon");
+async function loadHarnessIcon() {
+	mock.module("@lobehub/icons", () => ({
+		Claude: ({ size }: { size?: number }) =>
+			createElement("svg", { "data-icon": "Claude", "data-size": size }),
+		GithubCopilot: ({ size }: { size?: number }) =>
+			createElement("svg", {
+				"data-icon": "GithubCopilot",
+				"data-size": size,
+			}),
+		OpenAI: ({ size }: { size?: number }) =>
+			createElement("svg", { "data-icon": "OpenAI", "data-size": size }),
+		OpenCode: ({ size }: { size?: number }) =>
+			createElement("svg", { "data-icon": "OpenCode", "data-size": size }),
+	}));
+
+	const { HarnessIcon } = await import(
+		`../../../components/v2/HarnessIcon.tsx?harness-icon-test=${++harnessIconImportVersion}`
+	);
+
+	return HarnessIcon as (props: {
+		harness: string;
+		size?: number;
+	}) => JSX.Element;
+}
 
 describe("HarnessIcon", () => {
-	test("renders the GithubCopilot icon for copilot harnesses", () => {
+	beforeEach(() => {
+		mock.restore();
+	});
+
+	test("renders the GithubCopilot icon for copilot harnesses", async () => {
+		const HarnessIcon = await loadHarnessIcon();
 		const { container } = render(
 			createElement(HarnessIcon, { harness: "copilot", size: 16 }),
 		);
