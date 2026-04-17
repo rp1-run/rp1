@@ -29,6 +29,7 @@ export interface ResolvedDirectories {
 	readonly projectId: string | undefined;
 	readonly kbRoot: string;
 	readonly workRoot: string;
+	readonly codeRoot: string;
 	readonly isWorktree: boolean;
 	readonly worktreeName?: string;
 	readonly status: ResolvedDirectoryStatus;

@@ -14,6 +14,7 @@ export interface ResolvedDirectorySet {
 	readonly projectId: string | undefined;
 	readonly kbRoot: string;
 	readonly workRoot: string;
+	readonly codeRoot: string;
 	readonly isWorktree: boolean;
 	readonly worktreeName?: string;
 }
@@ -175,6 +176,7 @@ export { normalizeProjectKey };
 
 const buildDirectorySet = (params: {
 	projectRoot: string;
+	codeRoot: string;
 	isWorktree: boolean;
 	worktreeName?: string;
 }): ResolvedDirectorySet => {
@@ -186,6 +188,7 @@ const buildDirectorySet = (params: {
 		projectId,
 		kbRoot: path.join(projectRoot, ".rp1", "context"),
 		workRoot: path.join(projectRoot, ".rp1", "work"),
+		codeRoot: path.resolve(params.codeRoot),
 		isWorktree: params.isWorktree,
 		worktreeName: params.worktreeName,
 	};
@@ -233,6 +236,7 @@ export const resolveDirectorySet = (
 				return E.right(
 					buildDirectorySet({
 						projectRoot: commonDirProjectRoot,
+						codeRoot: gitContext.topLevel,
 						isWorktree: true,
 						worktreeName: gitContext.branch,
 					}),
@@ -253,6 +257,7 @@ export const resolveDirectorySet = (
 		return E.right(
 			buildDirectorySet({
 				projectRoot: walkedResult.root,
+				codeRoot: walkedResult.root,
 				isWorktree: false,
 			}),
 		);

@@ -248,6 +248,7 @@ description: "A skill with no arguments for testing purposes"
 				projectId: undefined,
 				kbRoot: join(tempDir, ".rp1", "context"),
 				workRoot: join(tempDir, ".rp1", "work"),
+				codeRoot: tempDir,
 				isWorktree: false,
 				status: "uninitialized",
 				nextStepCommand: "rp1 init",
@@ -658,6 +659,7 @@ metadata:
 				projectId: "project-123",
 				kbRoot: join(tempDir, ".rp1", "context"),
 				workRoot: join(tempDir, ".rp1", "work"),
+				codeRoot: tempDir,
 				isWorktree: false,
 				status: "initialized",
 			});
@@ -700,6 +702,7 @@ metadata:
 				projectId: undefined,
 				kbRoot: join(legacyProjectRoot, ".rp1", "context"),
 				workRoot: join(legacyProjectRoot, ".rp1", "work"),
+				codeRoot: legacyProjectRoot,
 				isWorktree: false,
 				status: "legacy",
 				nextStepCommand: "rp1 migrate",
@@ -740,6 +743,7 @@ metadata:
 				projectId: undefined,
 				kbRoot: join(nestedDir, ".rp1", "context"),
 				workRoot: join(nestedDir, ".rp1", "work"),
+				codeRoot: nestedDir,
 				isWorktree: false,
 				status: "uninitialized",
 				nextStepCommand: "rp1 init",
@@ -787,6 +791,7 @@ metadata:
 					projectId: undefined,
 					kbRoot: join(nestedPathUnderHome, ".rp1", "context"),
 					workRoot: join(nestedPathUnderHome, ".rp1", "work"),
+					codeRoot: nestedPathUnderHome,
 					isWorktree: false,
 					status: "uninitialized",
 					nextStepCommand: "rp1 init",
@@ -813,6 +818,9 @@ metadata:
 		const canonicalMainRepoRoot = await realpath(mainRepoRoot).catch(
 			() => mainRepoRoot,
 		);
+		const canonicalLinkedWorktreePath = await realpath(
+			linkedWorktreePath,
+		).catch(() => linkedWorktreePath);
 
 		const schemaPath = await createSkillFile(
 			tempDir,
@@ -843,6 +851,7 @@ metadata:
 				projectId: "project-123",
 				kbRoot: join(canonicalMainRepoRoot, ".rp1", "context"),
 				workRoot: join(canonicalMainRepoRoot, ".rp1", "work"),
+				codeRoot: canonicalLinkedWorktreePath,
 				isWorktree: true,
 				worktreeName: "test-branch",
 				status: "initialized",

@@ -27,6 +27,7 @@ export const resolveRp1Root = (
 					projectId: directories.projectId,
 					kbRoot: directories.kbRoot,
 					workRoot: directories.workRoot,
+					codeRoot: directories.codeRoot,
 					isWorktree: directories.isWorktree,
 					worktreeName: directories.worktreeName,
 				}),
