@@ -306,6 +306,32 @@ function sanitizeInvocationIdentityValues(
 	return Object.keys(sanitized).length > 0 ? sanitized : undefined;
 }
 
+function sanitizeInvocationArguments(
+	rawArguments: unknown,
+): Readonly<Record<string, string | boolean>> | undefined {
+	const args = asObject(rawArguments);
+	if (!args) return undefined;
+
+	const sanitized = Object.fromEntries(
+		Object.entries(args).flatMap(([key, value]) => {
+			if (typeof value !== "string" && typeof value !== "boolean") {
+				return [];
+			}
+
+			return [
+				[
+					key,
+					typeof value === "string" && isSensitiveInvocationKey(key)
+						? "[redacted]"
+						: value,
+				],
+			];
+		}),
+	) as Record<string, string | boolean>;
+
+	return Object.keys(sanitized).length > 0 ? sanitized : undefined;
+}
+
 function buildDisplayWorkIdentity(
 	identityArgs: readonly string[],
 	identityValues: Readonly<Record<string, string | boolean>> | undefined,
@@ -396,6 +422,9 @@ function parseRunInvocationContext(
 		typeof trace.harness === "string" && trace.harness.length > 0
 			? trace.harness
 			: record.harness;
+	const sanitizedArguments = sanitizeInvocationArguments(
+		bootstrapContext.arguments,
+	);
 
 	return {
 		workflowName,
@@ -413,6 +442,7 @@ function parseRunInvocationContext(
 		...(workIdentity ? { workIdentity } : {}),
 		...(identityValues ? { identityValues } : {}),
 		...(harness ? { harness } : {}),
+		...(sanitizedArguments ? { arguments: sanitizedArguments } : {}),
 	};
 }
 
