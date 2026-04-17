@@ -11,7 +11,7 @@ arguments:
   - name: DESCRIPTION
     type: string
     required: true
-    description: "Description of the skill to create"
+    description: "Description of the skill or agent to create"
   - name: AGENT_TYPE
     type: enum
     required: false
@@ -22,6 +22,10 @@ arguments:
       - "orchestrator"
       - "interactive-skill"
       - "kb-investigator"
+  - name: PROJECT_ROOT
+    type: string
+    required: true
+    description: "Absolute project root path from orchestrator"
 ---
 
 # Prompt Pipeline Runner
@@ -42,24 +46,32 @@ arguments:
 {{AGENT_TYPE from prompt}}
 </agent_type>
 
+<project_root>
+{{PROJECT_ROOT from prompt}}
+</project_root>
+
 ## CONFIG
 
-All pipeline inputs ship as packaged companion files of the `rp1-base:prompt-writer` skill. Read them via the paths declared in that skill's SKILL.md manifest -- the Agent Skills harness resolves `references/...` and `pipeline/...` relative to the skill directory regardless of install location. Do NOT reconstruct absolute paths.
+| Param | Value |
+|-------|-------|
+| **SKILL_DIR** | `{PROJECT_ROOT}/plugins/base/skills/prompt-writer` |
+| **REFS_DIR** | `{SKILL_DIR}/references` |
+| **PIPE_DIR** | `{SKILL_DIR}/pipeline` |
 
 ## PROC
 
 ### Stage 0: Discover File Manifest
 
-1. Read the `rp1-base:prompt-writer` skill's SKILL.md.
-2. Parse its file manifest tables (Reference Layers, Companion Files, Pipeline Stages) to confirm all companion files exist and note their purposes.
-3. Follow the **Pipeline Execution** loading instructions from that SKILL.md for stage ordering.
+1. Read `{SKILL_DIR}/SKILL.md`
+2. Parse the file manifest tables (Reference Layers, Companion Files, Pipeline Stages) to confirm all companion files exist and note their purposes
+3. Follow the **Pipeline Execution** loading instructions from SKILL.md for stage ordering
 
-Execute all six stages in the exact order below. Do NOT skip, reorder, or parallelize stages. All file paths below are relative to the `rp1-base:prompt-writer` skill directory as declared in its SKILL.md manifest.
+Execute all six stages in the exact order below. Do NOT skip, reorder, or parallelize stages.
 
 ### Stage 1: Constitutional Checklist
 
-1. Read `references/constitution.md`
-2. Read `pipeline/constitutional-checklist.md`
+1. Read `{REFS_DIR}/constitution.md`
+2. Read `{PIPE_DIR}/constitutional-checklist.md`
 3. Follow the Process section exactly:
    - Look up the AGENT_TYPE profile to identify applicable primitives
    - For each applicable primitive, generate a constitutional directive tailored to DESCRIPTION
@@ -69,7 +81,7 @@ Execute all six stages in the exact order below. Do NOT skip, reorder, or parall
 
 ### Stage 2: Fallibilist Overlay
 
-1. Read `pipeline/fallibilist-overlay.md`
+1. Read `{PIPE_DIR}/fallibilist-overlay.md`
 2. Follow the Process section exactly:
    - Inject ALL five overlay clauses (unconditional -- no selection, no filtering)
    - Clauses: conjectural wording, exposed to refutation, hard-to-vary preference, non-self-immunization, preserve error correction
@@ -78,8 +90,8 @@ Execute all six stages in the exact order below. Do NOT skip, reorder, or parall
 
 ### Stage 3: Epistemic Stance
 
-1. Read `references/epistemology.md`
-2. Read `pipeline/epistemic-stance.md`
+1. Read `{REFS_DIR}/epistemology.md`
+2. Read `{PIPE_DIR}/epistemic-stance.md`
 3. Follow the Process section exactly:
    - Analyze DESCRIPTION to determine problem domain
    - Select primary stance from six options using the selection guidance
@@ -90,7 +102,7 @@ Execute all six stages in the exact order below. Do NOT skip, reorder, or parall
 
 ### Stage 4: Popper Patterns
 
-1. Read `pipeline/popper-patterns.md`
+1. Read `{PIPE_DIR}/popper-patterns.md`
 2. Follow the Process section exactly:
    - Review all 11 patterns in the library
    - Select 3-7 patterns based on DESCRIPTION, epistemic stance, and AGENT_TYPE
@@ -100,7 +112,7 @@ Execute all six stages in the exact order below. Do NOT skip, reorder, or parall
 
 ### Stage 5: Confidence Schema
 
-1. Read `pipeline/confidence-schema.md`
+1. Read `{PIPE_DIR}/confidence-schema.md`
 2. Follow the Process section exactly:
    - Embed the 5-level ordinal scale (Speculative through Settled)
    - Include the migration table mapping legacy rp1 idioms
@@ -110,8 +122,8 @@ Execute all six stages in the exact order below. Do NOT skip, reorder, or parall
 
 ### Stage 6: Prompt Validation
 
-1. Read `references/tersify.md`
-2. Read `pipeline/prompt-validation.md`
+1. Read `{REFS_DIR}/tersify.md`
+2. Read `{PIPE_DIR}/prompt-validation.md`
 3. Follow the Process section exactly:
    - **Phase 1**: Assemble accumulated Stages 1-5 output into a complete prompt draft with YAML frontmatter, all constitutional directives, overlay, stance, patterns, and confidence schema
    - **Phase 2**: Run 3-axis validation (style, constitutional, epistemic) per the check tables in the stage file
@@ -124,7 +136,7 @@ Execute all six stages in the exact order below. Do NOT skip, reorder, or parall
 - **All-or-nothing**: Produce ALL three artifacts or FAIL. Do NOT return partial results (BR-03).
 - **No cross-plugin calls**: Do NOT reference or invoke any rp1-utils or rp1-dev command or skill (AC-05.3).
 - **No agent spawning**: Do NOT spawn other agents or invoke skills.
-- **Stage integrity**: Each stage MUST read its corresponding file from the `rp1-base:prompt-writer` skill as declared in its manifest. Do NOT substitute, paraphrase, or skip file reads.
+- **Stage integrity**: Each stage MUST read its corresponding file from `{PIPE_DIR}/`. Do NOT substitute, paraphrase, or skip file reads.
 - **Accumulation**: Each stage builds on the accumulated context from all previous stages. Do NOT discard intermediate state.
 - **Fallibilist overlay is unconditional**: Always apply all five clauses regardless of agent type or stance (BR-04).
 - **Normative language**: Preserve MUST/SHOULD/MAY exactly as written in reference files.
@@ -180,7 +192,7 @@ providers:
   - file://../../providers/codex.yaml
 
 prompts:
-  - file://./SKILL.md
+  - file://./{PROMPT_NAME}/SKILL.md
 
 tests:
   # Constitutional assertions
