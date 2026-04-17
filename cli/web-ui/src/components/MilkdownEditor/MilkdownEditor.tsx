@@ -30,6 +30,7 @@ import {
 	useState,
 } from "react";
 import { getHighlighter, normalizeLanguage } from "../../lib/shiki";
+import { createLinkClickPlugin } from "./link-click-plugin";
 import { createMermaidPlugin } from "./mermaid-plugin";
 
 import "@milkdown/kit/prose/view/style/prosemirror.css";
@@ -163,7 +164,8 @@ function MilkdownEditorInner({
 				.use(gfm)
 				.use(history)
 				.use(listener)
-				.use(createMermaidPlugin());
+				.use(createMermaidPlugin())
+				.use(createLinkClickPlugin());
 
 			// Note: mermaid NodeView must come after commonmark (needs code_block schema)
 

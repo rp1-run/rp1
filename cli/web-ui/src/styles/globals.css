@@ -739,6 +739,11 @@
 
 }
 
+/* Override contenteditable cursor: text for links in the Milkdown editor */
+.milkdown-editor-root .ProseMirror a {
+  cursor: pointer !important;
+}
+
 /* Active annotation highlight via CSS Custom Highlight API */
 ::highlight(active-annotation) {
   background-color: hsl(var(--accent) / 0.15);
