@@ -240,6 +240,19 @@ The Markdown body after the frontmatter `---` delimiter contains the skill's ins
 - Companion doc references (loaded via progressive disclosure)
 - Terse section headers (`## Configuration`, `## Workflow`, etc.)
 
+## Directory Resolution
+
+Skills and agents discover project directories at runtime via `rp1 agent-tools rp1-root-dir`, which returns:
+
+| Field | Description |
+|-------|-------------|
+| `projectRoot` | The project root (directory containing `.rp1/project_id`) |
+| `kbRoot` | Always `<projectRoot>/.rp1/context` |
+| `workRoot` | Always `<projectRoot>/.rp1/work` |
+| `codeRoot` | The directory for source-code reads and writes. Equals the worktree filesystem path in git worktree contexts; equals `projectRoot` otherwise. |
+
+In non-worktree projects, `codeRoot` and `projectRoot` are identical. In worktree contexts, `codeRoot` points to the worktree where the user invoked the command, while `projectRoot`, `kbRoot`, and `workRoot` continue to resolve against the canonical main repository (where `.rp1/` lives). Code-writing agents use `codeRoot` for all source-file operations so that edits land in the correct working tree.
+
 ## Example
 
 ```yaml

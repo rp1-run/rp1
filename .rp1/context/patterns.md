@@ -52,6 +52,7 @@
 - **Workflow event transport**: `rp1 agent-tools emit` persists canonical workflow events, then the daemon relays typed project-scoped WebSocket envelopes for status-bearing and attention-bearing live updates
 - **HTTP clients**: Web-UI SPA seeds surfaces from `/api/v2/` and uses targeted hydration such as `GET /api/v2/runs/:id/summary`; reconnect polling stays limited to disconnected recovery instead of routine freshness
 - **Freshness split**: Workflow status and attention come from emitted event delivery plus replay/snapshot recovery; file watching remains responsible only for artifact and file-content freshness
+- **Directory-scoped agent I/O**: Code-writing agents resolve source-file paths against `codeRoot` (the worktree path when in a worktree, `projectRoot` otherwise). Work-artifact reads and writes use `workRoot` and KB reads use `kbRoot`, both of which always point to the canonical `.rp1/` tree. This separation ensures edits land in the user's active working tree while Arcade-visible artifacts remain at the shared canonical location
 
 ## UI Patterns
 

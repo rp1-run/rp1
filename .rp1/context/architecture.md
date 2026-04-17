@@ -54,6 +54,7 @@ flowchart TB
 | Cross-Process Registry Serialization | `withRegistryLock` async mutex serializes all registry mutations preventing race conditions |
 | Daemon Diagnostics Logging | Structured NDJSON log entries to `daemon.log` for post-mortem debugging |
 | Git Worktree-Aware Project Resolution | Project resolution derives paths from repo identity; guards against home-directory adoption |
+| Worktree-Aware Code Editing (CODE_ROOT) | Code-writing agents receive an explicit `codeRoot` directory for source-file reads and writes. In worktree contexts `codeRoot` equals the worktree path; in standard repos it equals `projectRoot`. Work artifacts continue to use `workRoot` (canonical `.rp1/work/`) and KB reads use `kbRoot`, keeping Arcade visibility intact while edits land in the user's active worktree |
 | Versioned Stanza Markers | Instruction-file stanzas carry version stamps for staleness detection and `rp1 migrate` upgrades |
 | Dockerized Eval Execution | Prompt evals run inside Docker containers isolating harness CLIs and dependencies |
 
