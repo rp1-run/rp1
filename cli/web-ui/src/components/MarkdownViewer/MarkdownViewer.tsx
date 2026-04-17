@@ -342,7 +342,7 @@ export function MarkdownViewer({
 	}, [headingIdPrefix]);
 
 	return (
-		<div className="relative flex gap-3">
+		<div className="relative flex gap-3 min-w-0 max-w-full">
 			{/* Annotation gutter - visual column for indicators */}
 			<div
 				ref={gutterRef}

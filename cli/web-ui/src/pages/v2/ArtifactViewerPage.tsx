@@ -971,7 +971,7 @@ export function ArtifactViewerPage() {
 				<ResizableHandle withHandle aria-label="Resize sidebar" />
 
 				<ResizablePanel defaultSize={55} minSize={40}>
-					<main className="relative flex h-full flex-col overflow-hidden">
+					<main className="relative flex h-full flex-col overflow-hidden min-w-0">
 						<div
 							className="flex h-10 items-center justify-end gap-2 border-b px-4"
 							role="toolbar"
@@ -1014,7 +1014,7 @@ export function ArtifactViewerPage() {
 							viewportRef={scrollViewportRef}
 						>
 							<article
-								className="p-6"
+								className="p-6 min-w-0 max-w-full"
 								onScroll={handleScroll as unknown as React.UIEventHandler}
 								aria-label={
 									selectedArtifactPath

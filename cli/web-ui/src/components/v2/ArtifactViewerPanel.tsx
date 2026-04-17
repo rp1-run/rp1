@@ -212,7 +212,7 @@ function ArtifactViewerInner({
 	const showTocToggle = headings.length > 0 && !tocOpen;
 
 	return (
-		<div className="flex h-full flex-col overflow-hidden">
+		<div className="flex h-full flex-col overflow-hidden min-w-0">
 			<div className="shrink-0 px-4 md:px-[40px] pt-[24px] pb-[16px]">
 				<div className="flex items-center justify-between">
 					<h2 className="type-secondary text-fg-muted">{step.name}</h2>
@@ -303,10 +303,10 @@ function ArtifactViewerInner({
 				)}
 			</div>
 
-			<div className="flex flex-1 min-h-0 overflow-hidden">
+			<div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
 				{showSubflow && hasSubflow ? (
 					<ScrollArea
-						className="flex-1 min-h-0 max-w-full overflow-hidden"
+						className="flex-1 min-h-0 min-w-0"
 						viewportRef={scrollViewportRef}
 					>
 						<div className="px-4 md:px-[40px] py-4">
@@ -318,7 +318,7 @@ function ArtifactViewerInner({
 					</ScrollArea>
 				) : (
 					<ScrollArea
-						className="flex-1 min-h-0 max-w-full overflow-hidden"
+						className="flex-1 min-h-0 min-w-0"
 						viewportRef={scrollViewportRef}
 					>
 						<ContentPanel

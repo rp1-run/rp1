@@ -623,7 +623,7 @@ export function FileBrowserPage() {
 				<ResizableHandle aria-label="Resize file tree" />
 
 				<ResizablePanel defaultSize={isMarkdown ? 55 : 67} minSize={40}>
-					<main className="relative flex h-full flex-col overflow-hidden">
+					<main className="relative flex h-full flex-col overflow-hidden min-w-0">
 						<div
 							className="flex h-10 items-center justify-end gap-2 px-4"
 							role="toolbar"

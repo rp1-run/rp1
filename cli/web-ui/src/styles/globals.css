@@ -148,6 +148,8 @@
   /* Markdown content styles */
   .markdown-content {
     @apply max-w-none;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
   .markdown-content > *:first-child {
@@ -393,6 +395,9 @@
     padding: 16px;
     outline: none;
     min-height: 200px;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
   .milkdown-editor-root .ProseMirror-selectednode {
@@ -679,6 +684,8 @@
     border-collapse: collapse;
     min-width: 100%;
     margin: 16px 0;
+    display: block;
+    overflow-x: auto;
   }
 
   .milkdown-editor-root .ProseMirror thead {
