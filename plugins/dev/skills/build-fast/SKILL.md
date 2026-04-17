@@ -75,7 +75,7 @@ Quick-iteration workflow for focused changes. Three-phase execution: plan -> bui
 
 ## §CTX
 
-Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
+Use the pre-resolved `projectRoot`, `kbRoot`, `workRoot`, and `codeRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
 
 ## §VERSION-GATE
 
@@ -225,6 +225,7 @@ Output "Build fast cancelled. Artifact preserved at {artifact_path}" and STOP.
 {% dispatch_agent "rp1-dev:task-builder" %}
 KB_ROOT={kbRoot}
 WORK_ROOT={workRoot}
+CODE_ROOT={codeRoot}
 QUICK_BUILD_PATH={workRoot}/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
@@ -264,6 +265,7 @@ If `status` = "FAILURE":
 {% dispatch_agent "rp1-dev:task-builder" %}
 KB_ROOT={kbRoot}
 WORK_ROOT={workRoot}
+CODE_ROOT={codeRoot}
 QUICK_BUILD_PATH={workRoot}/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
