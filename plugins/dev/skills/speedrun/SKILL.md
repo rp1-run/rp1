@@ -158,6 +158,7 @@ Implement the following change in the codebase:
 {REQUEST}
 
 Code edits directory: {codeRoot}
+Canonical project root: {projectRoot}
 
 Keep changes minimal and focused. Run any relevant lint/format/test
 checks after making changes. Do NOT commit.

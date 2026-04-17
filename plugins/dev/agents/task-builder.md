@@ -17,6 +17,11 @@ arguments:
     type: string
     required: true
     description: "Canonical work root returned by the parent workflow bootstrap"
+  - name: CODE_ROOT
+    type: string
+    required: false
+    default: ""
+    description: "Root directory for source-code reads and writes (worktree-aware)"
   - name: QUICK_BUILD_PATH
     type: string
     required: false
@@ -71,6 +76,10 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 {{WORK_ROOT from prompt}}
 </work_root>
 
+<code_root>
+{{CODE_ROOT from prompt}}
+</code_root>
+
 <quick_build_path>
 {{QUICK_BUILD_PATH from prompt}}
 </quick_build_path>
@@ -96,6 +105,23 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 - If QUICK_BUILD_PATH is not empty: Quick-build mode (read from artifact)
 - Else if FEATURE_ID is not empty: Feature mode (read from the resolved feature task file)
 - If both set or both empty: validation error
+
+## Code Root Directive
+
+**CRITICAL**: When `CODE_ROOT` is non-empty, it is the authoritative base directory for ALL source-code operations.
+
+- **Source-file reads**: Resolve relative file paths (e.g., `cli/src/foo.ts`) against `CODE_ROOT`, not against WORK_ROOT, KB_ROOT, or cwd.
+- **Source-file writes/edits**: All `Read`, `Edit`, `Write` of source code use `CODE_ROOT`-prefixed absolute paths.
+- **Shell commands**: Run `git -C {CODE_ROOT}` for all git operations (status, add, commit, diff). Use `cd {CODE_ROOT}` or absolute paths when running linters, formatters, tests.
+- **Work artifacts**: Continue using `WORK_ROOT` and `KB_ROOT` for `.rp1/` reads and writes. CODE_ROOT does NOT affect artifact paths.
+- **Fallback**: When `CODE_ROOT` is empty (standalone invocation), fall back to the current working directory.
+
+**Observability** (MUST do at start of implementation):
+
+Log the code-editing directory at normal log level before any source-file operation. Determine worktree context by comparing CODE_ROOT to the canonical project root (WORK_ROOT with the `/.rp1/work` suffix stripped):
+
+- **Non-worktree** (CODE_ROOT equals canonical project root): `[task-builder] Code edits target: {CODE_ROOT}`
+- **Worktree** (CODE_ROOT differs from canonical project root): `[task-builder] Code edits target: {CODE_ROOT} (worktree; canonical project at {canonical project root})`
 
 ## 1. Context Loading
 
@@ -175,7 +201,7 @@ In `<thinking>`, analyze:
 
 Per task:
 
-1. Navigate to code files
+1. Navigate to code files (resolve paths against CODE_ROOT per Code Root Directive)
 2. Use LSP if available
 3. Implement per design specs exactly
 4. Match codebase patterns (naming, structure, error handling)
@@ -255,6 +281,8 @@ This is the default. Most runs skip this section entirely.
 ---
 
 **Only when `GIT_COMMIT` is exactly `true`**, create an atomic commit:
+
+**When CODE_ROOT is non-empty**, prefix all git commands below with `git -C {CODE_ROOT}`.
 
 **If `REWRITE_COMMITS` is `true`** (retry with commit rewrite requested):
 
