@@ -363,6 +363,7 @@ const buildBootstrapContext = (params: {
 			projectRoot: params.directories.projectRoot,
 			kbRoot: params.directories.kbRoot,
 			workRoot: params.directories.workRoot,
+			codeRoot: params.directories.codeRoot,
 		},
 		trace: {
 			projectIdentity: params.trace.projectIdentity,
