@@ -171,7 +171,7 @@ Each iteration delegates to a general sub-agent. If the request is too large, it
 
 | Step | Skill | Input | Output |
 |------|-------|-------|--------|
-| 1 | `/create-prompt` | `PROMPT_NAME`, `DESCRIPTION`, optional `AGENT_TYPE` | Governed skill/agent scaffold plus promptfoo eval scaffold and confidence/epistemic report |
+| 1 | `/create-prompt` | `PROMPT_NAME`, `DESCRIPTION`, optional `AGENT_TYPE` | Governed SKILL.md scaffold plus promptfoo eval scaffold and confidence/epistemic report (Phase 1 is skill-only; agent-file output is out of scope) |
 | 2 | `/tersify-prompt` | Verbose prompt text | Maximally compressed prompt preserving full intent |
 
 **How they chain**:

@@ -12,7 +12,7 @@ The agent MUST have the following before executing this stage:
 
 | Field | Source | Description |
 |-------|--------|-------------|
-| DESCRIPTION | User input | Natural-language description of the skill/agent being created |
+| DESCRIPTION | User input | Natural-language description of the skill being created |
 | AGENT_TYPE | User input | Agent-type profile |
 | Constitutional directives | Stage 1 output | Tailored governance directives |
 | Fallibilist overlay | Stage 2 output | Five unconditional overlay clauses |

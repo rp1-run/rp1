@@ -1,7 +1,7 @@
 ---
 name: create-prompt
 description: "Create a governed prompt with constitutional primitives, epistemic stance, and eval scaffold."
-allowed-tools: Bash(echo *), Bash(rp1 *)
+allowed-tools: Bash(echo *), Bash(rp1 *), Bash(mkdir *), Write, Task
 metadata:
   category: prompt
   is_workflow: true
@@ -23,13 +23,13 @@ metadata:
     - name: DESCRIPTION
       type: string
       required: true
-      description: "Description of the skill or agent to create"
+      description: "Description of the skill to create"
       variadic: true
     - name: AGENT_TYPE
       type: enum
       required: false
       default: "leaf-worker"
-      description: "Agent-type profile for constitutional filtering"
+      description: "Constitutional profile for primitive filtering (names the agent role the skill plays, not the artifact kind; output is always a SKILL.md)"
       enum_values:
         - leaf-worker
         - orchestrator
@@ -118,7 +118,7 @@ The agent executes the six-stage prompt-writer pipeline in fixed order (constitu
 
 **Parse response**: The agent returns three artifacts as fenced content blocks:
 
-1. **Ready-to-run prompt** -- SKILL.md content with frontmatter and governed prompt body
+1. **Ready-to-run skill** -- SKILL.md content with skill-shaped frontmatter and governed prompt body (the pipeline emits SKILL.md only; agent-file output is out of scope for Phase 1)
 2. **Eval scaffold** -- promptfoo YAML configuration
 3. **Confidence report** -- Markdown report with per-stage scoring
 
@@ -209,7 +209,7 @@ rp1 agent-tools emit \
 **DO**:
 - Spawn `prompt-pipeline-runner` for all prompt creation work
 - Wait for the agent to complete before writing artifacts
-- Write all three artifacts to `{cwd}/{PROMPT_NAME}/`
+- Write all three artifacts to `{projectRoot}/{PROMPT_NAME}/` (anchored at the project root, not the shell `cwd`)
 - Emit `artifact_registered` for each artifact after writing
 - Follow the state machine transitions exactly
 

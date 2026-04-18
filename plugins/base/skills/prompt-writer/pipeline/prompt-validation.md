@@ -13,7 +13,7 @@ The agent MUST have the following before executing this stage:
 | Field | Source | Description |
 |-------|--------|-------------|
 | PROMPT_NAME | User input | Kebab-case name for the prompt being created |
-| DESCRIPTION | User input | Natural-language description of the skill/agent |
+| DESCRIPTION | User input | Natural-language description of the skill |
 | AGENT_TYPE | User input | Agent-type profile |
 | Constitutional directives | Stage 1 output | Tailored governance directives with applicable primitive list |
 | Fallibilist overlay | Stage 2 output | Five unconditional overlay clauses |
@@ -26,7 +26,7 @@ The agent MUST have the following before executing this stage:
 
 ### Phase 1: Assemble the Prompt Draft
 
-Before validation, the agent MUST have assembled the accumulated outputs from Stages 1-5 into a complete prompt draft. The draft should be a valid SKILL.md (or agent .md) with:
+Before validation, the agent MUST have assembled the accumulated outputs from Stages 1-5 into a complete SKILL.md prompt draft. The draft must have:
 - YAML frontmatter (name, description, category, allowed-tools, metadata as appropriate)
 - Constitutional directives integrated as structural sections
 - Fallibilist overlay embedded as a governance section
@@ -117,7 +117,7 @@ allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: {appropriate category}
   arguments:
-    # As appropriate for the described skill/agent
+    # As appropriate for the described skill
 ---
 ```
 

@@ -11,7 +11,7 @@ arguments:
   - name: DESCRIPTION
     type: string
     required: true
-    description: "Description of the skill or agent to create"
+    description: "Description of the skill to create (skill-only; agent-file output is out of scope)"
   - name: AGENT_TYPE
     type: enum
     required: false
@@ -159,7 +159,7 @@ allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: {appropriate category}
   arguments:
-    # Arguments as appropriate for the described skill/agent
+    # Arguments as appropriate for the described skill
 ---
 
 {Complete prompt body with:

@@ -18,6 +18,7 @@ interface EvalContext {
 		GIT_COUNT_BEFORE?: string;
 		GIT_HEAD_BEFORE?: string;
 		PROMPT_NAME?: string;
+		AGENT_TYPE?: string;
 	};
 }
 
@@ -1011,6 +1012,278 @@ export const assertCreatePromptFilesOnDisk: AssertionFunction = (
 		pass: true,
 		score: 1,
 		reason: `All three create-prompt artifacts present at ${dir}`,
+	};
+};
+
+/**
+ * Read a generated create-prompt artifact from {WORKSPACE_DIR}/{PROMPT_NAME}/.
+ * Returns the file contents, or null if missing/unreadable.
+ */
+function readCreatePromptArtifact(
+	context: EvalContext,
+	fileName: string,
+): string | null {
+	const workspaceDir = context.vars?.WORKSPACE_DIR as string | undefined;
+	const promptName = context.vars?.PROMPT_NAME as string | undefined;
+	if (!workspaceDir || !promptName) return null;
+	const path = `${workspaceDir}/${promptName}/${fileName}`;
+	try {
+		return execSync(`cat "${path}"`, { stdio: "pipe" }).toString();
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Constitutional applicability set per AGENT_TYPE profile. Must track Stage 1
+ * (constitutional-checklist) exactly; add primitives here when Stage 1 changes.
+ */
+const PROFILE_APPLICABLE: Record<string, readonly string[]> = {
+	"leaf-worker": [
+		"anti-loop",
+		"output discipline",
+		"role",
+		"scope limits",
+		"error degradation",
+		"truth constraints",
+		"transition guards",
+	],
+	orchestrator: [
+		"role",
+		"scope limits",
+		"orchestrator purity",
+		"error degradation",
+		"transition guards",
+	],
+	"interactive-skill": [
+		"output discipline",
+		"role",
+		"scope limits",
+		"exploration bounds",
+		"anti-bias",
+	],
+	"kb-investigator": [
+		"role",
+		"error degradation",
+		"exploration bounds",
+		"anti-bias",
+		"truth constraints",
+	],
+};
+
+/** Loose lower-case substring check (each primitive's distinctive word). */
+function matchesPrimitive(body: string, primitive: string): boolean {
+	const normalized = body.toLowerCase();
+	switch (primitive) {
+		case "anti-loop":
+			return /anti-?loop/.test(normalized);
+		case "output discipline":
+			return /output\s+discipline/.test(normalized);
+		case "role":
+			return /\brole\b/.test(normalized);
+		case "scope limits":
+			return /scope\s+(limits|bound)/.test(normalized);
+		case "error degradation":
+			return /error\s+(degradation|handling)/.test(normalized);
+		case "truth constraints":
+			return /truth\s+constraint/.test(normalized);
+		case "transition guards":
+			return /transition\s+guard/.test(normalized);
+		case "orchestrator purity":
+			return /orchestrator\s+purity/.test(normalized);
+		case "exploration bounds":
+			return /exploration\s+bound/.test(normalized);
+		case "anti-bias":
+			return /anti-?bias/.test(normalized);
+		default:
+			return normalized.includes(primitive.toLowerCase());
+	}
+}
+
+/**
+ * Assert the generated SKILL.md contains a directive for every primitive in
+ * the Stage-1 applicable set for the test's AGENT_TYPE, and carries fallibilist
+ * overlay markers. Reads the actual file -- does not trust the agent's reply.
+ */
+export const assertCreatePromptConstitutional: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const contents = readCreatePromptArtifact(context, "SKILL.md");
+	if (contents === null) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "Generated SKILL.md not readable at {WORKSPACE_DIR}/{PROMPT_NAME}/SKILL.md",
+		};
+	}
+	if (!/^---\s*$/m.test(contents)) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "Generated SKILL.md missing YAML frontmatter",
+		};
+	}
+	const agentType =
+		(context.vars?.AGENT_TYPE as string | undefined) ?? "leaf-worker";
+	const applicable = PROFILE_APPLICABLE[agentType];
+	if (!applicable) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `Unknown AGENT_TYPE in test: ${agentType}`,
+		};
+	}
+	const missing = applicable.filter((p) => !matchesPrimitive(contents, p));
+	if (missing.length > 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `SKILL.md missing directives for ${agentType} primitives: ${missing.join(", ")}`,
+		};
+	}
+	const overlayMarkers = [
+		/conjectur/i,
+		/refut/i,
+		/hard-?to-?vary/i,
+		/self-?immun/i,
+		/error-?correction/i,
+	];
+	const overlayHits = overlayMarkers.filter((rx) => rx.test(contents)).length;
+	if (overlayHits < 3) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `SKILL.md missing fallibilist overlay markers (found ${overlayHits}/5 of: conjectural, refut, hard-to-vary, self-immun, error-correction)`,
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: `SKILL.md covers all ${applicable.length} applicable primitives for ${agentType} and carries fallibilist overlay`,
+	};
+};
+
+/**
+ * Assert the generated evals.yaml uses the documented contract: inline
+ * providers (not nonexistent external YAML refs), sibling SKILL.md prompt
+ * path, and a tests array.
+ */
+export const assertCreatePromptStructural: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const contents = readCreatePromptArtifact(context, "evals.yaml");
+	if (contents === null) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "Generated evals.yaml not readable",
+		};
+	}
+	const requiredKeys = ["description:", "providers:", "prompts:", "tests:"];
+	const missingKeys = requiredKeys.filter((k) => !contents.includes(k));
+	if (missingKeys.length > 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `evals.yaml missing top-level keys: ${missingKeys.join(", ")}`,
+		};
+	}
+	if (!/file:\/\/\.\/SKILL\.md/.test(contents)) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "evals.yaml does not reference the sibling `file://./SKILL.md` prompt",
+		};
+	}
+	if (/file:\/\/[^"\n]*providers[^"\n]*\.yaml/.test(contents)) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "evals.yaml uses nonexistent external provider YAML refs; providers must be inline",
+		};
+	}
+	if (!/\bid:\s*anthropic:/.test(contents)) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "evals.yaml does not declare an inline provider with `id: anthropic:...`",
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "evals.yaml uses sibling SKILL.md ref and inline providers",
+	};
+};
+
+/**
+ * Assert the generated confidence-report.md declares an epistemic stance,
+ * embeds the 5-level confidence vocabulary, and scores every pipeline stage.
+ */
+export const assertCreatePromptEpistemic: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const contents = readCreatePromptArtifact(context, "confidence-report.md");
+	if (contents === null) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "Generated confidence-report.md not readable",
+		};
+	}
+	const stances = [
+		/fallibilist\s+empirical/i,
+		/interpretivism/i,
+		/phenomenology/i,
+		/constructivism/i,
+		/pragmatism/i,
+		/compare-?mode/i,
+	];
+	if (!stances.some((rx) => rx.test(contents))) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "confidence-report.md does not name one of the six epistemic stances",
+		};
+	}
+	const confidenceLevels = [
+		/\bspeculative\b/i,
+		/\bprovisional\b/i,
+		/\bsupported\b/i,
+		/well-?established/i,
+		/\bsettled\b/i,
+	];
+	const levelHits = confidenceLevels.filter((rx) => rx.test(contents)).length;
+	if (levelHits < 3) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `confidence-report.md missing confidence vocabulary (found ${levelHits}/5 of Speculative, Provisional, Supported, Well-established, Settled)`,
+		};
+	}
+	const stages = [
+		"constitutional-checklist",
+		"fallibilist-overlay",
+		"epistemic-stance",
+		"popper-patterns",
+		"confidence-schema",
+		"prompt-validation",
+	];
+	const missingStages = stages.filter((s) => !contents.includes(s));
+	if (missingStages.length > 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `confidence-report.md missing stage scores for: ${missingStages.join(", ")}`,
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "confidence-report.md declares stance, 5-level schema, and all six stage scores",
 	};
 };
 
