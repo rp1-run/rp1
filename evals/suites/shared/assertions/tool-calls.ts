@@ -1035,6 +1035,23 @@ function readCreatePromptArtifact(
 }
 
 /**
+ * The full constitutional primitive vocabulary (from constitution.md). Adding
+ * a primitive here requires updating PROFILE_APPLICABLE and Stage 1.
+ */
+const ALL_PRIMITIVES = [
+	"anti-loop",
+	"output discipline",
+	"role",
+	"scope limits",
+	"error degradation",
+	"truth constraints",
+	"transition guards",
+	"orchestrator purity",
+	"exploration bounds",
+	"anti-bias",
+] as const;
+
+/**
  * Constitutional applicability set per AGENT_TYPE profile. Must track Stage 1
  * (constitutional-checklist) exactly; add primitives here when Stage 1 changes.
  */
@@ -1142,25 +1159,42 @@ export const assertCreatePromptConstitutional: AssertionFunction = (
 			reason: `SKILL.md missing directives for ${agentType} primitives: ${missing.join(", ")}`,
 		};
 	}
-	const overlayMarkers = [
-		/conjectur/i,
-		/refut/i,
-		/hard-?to-?vary/i,
-		/self-?immun/i,
-		/error-?correction/i,
-	];
-	const overlayHits = overlayMarkers.filter((rx) => rx.test(contents)).length;
-	if (overlayHits < 3) {
+	// Stage 6 non-overreach check: primitives NOT in the profile's applicable
+	// set must NOT appear in the generated body. Catches the opposite failure
+	// mode from the missing-primitive check above.
+	const applicableSet = new Set(applicable);
+	const forbidden = ALL_PRIMITIVES.filter((p) => !applicableSet.has(p));
+	const overreach = forbidden.filter((p) => matchesPrimitive(contents, p));
+	if (overreach.length > 0) {
 		return {
 			pass: false,
 			score: 0,
-			reason: `SKILL.md missing fallibilist overlay markers (found ${overlayHits}/5 of: conjectural, refut, hard-to-vary, self-immun, error-correction)`,
+			reason: `SKILL.md overreaches ${agentType} profile with primitives outside the applicable set: ${overreach.join(", ")}`,
+		};
+	}
+	// Stage 2 + Stage 6 require ALL five fallibilist overlay clauses
+	// (conjectural, refut, hard-to-vary, self-immun, error-correction).
+	const overlayMarkers: Array<{ name: string; rx: RegExp }> = [
+		{ name: "conjectural", rx: /conjectur/i },
+		{ name: "refut", rx: /refut/i },
+		{ name: "hard-to-vary", rx: /hard-?to-?vary/i },
+		{ name: "self-immun", rx: /self-?immun/i },
+		{ name: "error-correction", rx: /error-?correction/i },
+	];
+	const missingOverlay = overlayMarkers
+		.filter(({ rx }) => !rx.test(contents))
+		.map(({ name }) => name);
+	if (missingOverlay.length > 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `SKILL.md missing fallibilist overlay clauses (Stage 2 requires all five): ${missingOverlay.join(", ")}`,
 		};
 	}
 	return {
 		pass: true,
 		score: 1,
-		reason: `SKILL.md covers all ${applicable.length} applicable primitives for ${agentType} and carries fallibilist overlay`,
+		reason: `SKILL.md covers all ${applicable.length} applicable primitives for ${agentType}, omits out-of-profile primitives, and carries all five overlay clauses`,
 	};
 };
 
@@ -1249,19 +1283,22 @@ export const assertCreatePromptEpistemic: AssertionFunction = (
 			reason: "confidence-report.md does not name one of the six epistemic stances",
 		};
 	}
-	const confidenceLevels = [
-		/\bspeculative\b/i,
-		/\bprovisional\b/i,
-		/\bsupported\b/i,
-		/well-?established/i,
-		/\bsettled\b/i,
+	// Stage 5 + Stage 6 require the full 5-level confidence scale.
+	const confidenceLevels: Array<{ name: string; rx: RegExp }> = [
+		{ name: "Speculative", rx: /\bspeculative\b/i },
+		{ name: "Provisional", rx: /\bprovisional\b/i },
+		{ name: "Supported", rx: /\bsupported\b/i },
+		{ name: "Well-established", rx: /well-?established/i },
+		{ name: "Settled", rx: /\bsettled\b/i },
 	];
-	const levelHits = confidenceLevels.filter((rx) => rx.test(contents)).length;
-	if (levelHits < 3) {
+	const missingLevels = confidenceLevels
+		.filter(({ rx }) => !rx.test(contents))
+		.map(({ name }) => name);
+	if (missingLevels.length > 0) {
 		return {
 			pass: false,
 			score: 0,
-			reason: `confidence-report.md missing confidence vocabulary (found ${levelHits}/5 of Speculative, Provisional, Supported, Well-established, Settled)`,
+			reason: `confidence-report.md missing confidence levels (Stage 5 requires all five): ${missingLevels.join(", ")}`,
 		};
 	}
 	const stages = [
