@@ -57,7 +57,7 @@ Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the gen
 
 **Prompt-writer skill dir**: `{projectRoot}/plugins/base/skills/prompt-writer/`
 
-**Output dir**: `{cwd}/{PROMPT_NAME}/` (created by this orchestrator before writing artifacts)
+**Output dir**: `{projectRoot}/{PROMPT_NAME}/` (anchored at the project root so artifacts register under the same path they are written to, regardless of the shell `cwd`). The orchestrator creates this directory before writing artifacts.
 
 ## STATE-MACHINE
 
@@ -129,16 +129,16 @@ Validate the response:
 
 ## §STEP-2: Artifact Output
 
-Create the output directory and write artifacts:
+Create the output directory and write artifacts. Anchor all paths at `{projectRoot}` so the write path matches the `storageRoot: project` registration in §STEP-3, regardless of the shell `cwd`.
 
 ```bash
-mkdir -p {cwd}/{PROMPT_NAME}
+mkdir -p {projectRoot}/{PROMPT_NAME}
 ```
 
 Write the three artifacts to disk:
-- `{cwd}/{PROMPT_NAME}/SKILL.md` -- Ready-to-run prompt
-- `{cwd}/{PROMPT_NAME}/evals.yaml` -- Eval scaffold
-- `{cwd}/{PROMPT_NAME}/confidence-report.md` -- Confidence/epistemic report
+- `{projectRoot}/{PROMPT_NAME}/SKILL.md` -- Ready-to-run prompt
+- `{projectRoot}/{PROMPT_NAME}/evals.yaml` -- Eval scaffold
+- `{projectRoot}/{PROMPT_NAME}/confidence-report.md` -- Confidence/epistemic report
 
 Register each artifact:
 

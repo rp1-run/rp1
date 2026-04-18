@@ -17,6 +17,7 @@ interface EvalContext {
 		WORKSPACE_DIR?: string;
 		GIT_COUNT_BEFORE?: string;
 		GIT_HEAD_BEFORE?: string;
+		PROMPT_NAME?: string;
 	};
 }
 
@@ -929,6 +930,131 @@ export const assertBuildFastPlannerSpawned =
 export const assertPipelineRunnerSpawned = assertSubagentSpawned(
 	"prompt-pipeline-runner",
 );
+
+/** Assert prompt-pipeline-runner was spawned at orchestrator level (not from a nested sub-agent). */
+export const assertOrchestratorSpawnedPipelineRunner: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const orchestratorCalls = getOrchestratorToolCalls(context);
+	const subagentNames = ["Task", "task", "Agent", "agent"];
+	const found = orchestratorCalls.some(
+		(tc) =>
+			subagentNames.includes(tc.name) &&
+			JSON.stringify(tc.input).includes("prompt-pipeline-runner"),
+	);
+	if (!found) {
+		return {
+			pass: false,
+			score: 0,
+			reason:
+				"No orchestrator-level prompt-pipeline-runner spawn found (checked parentToolUseId)",
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "prompt-pipeline-runner spawned at orchestrator level",
+	};
+};
+
+/**
+ * Assert that the three mandatory /create-prompt artifacts exist on disk at
+ * {WORKSPACE_DIR}/{PROMPT_NAME}/ and contain their required structural markers:
+ * SKILL.md with YAML frontmatter, evals.yaml with a sibling `file://./SKILL.md`
+ * prompts ref, confidence-report.md with a stage-scoring section.
+ */
+export const assertCreatePromptFilesOnDisk: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const workspaceDir = context.vars?.WORKSPACE_DIR as string | undefined;
+	const promptName = context.vars?.PROMPT_NAME as string | undefined;
+	if (!workspaceDir) {
+		return { pass: false, score: 0, reason: "WORKSPACE_DIR not set in vars" };
+	}
+	if (!promptName) {
+		return { pass: false, score: 0, reason: "PROMPT_NAME not set in vars" };
+	}
+	const dir = `${workspaceDir}/${promptName}`;
+	const required = [
+		{ name: "SKILL.md", marker: /^---\s*$/m },
+		{ name: "evals.yaml", marker: /file:\/\/\.\/SKILL\.md/ },
+		{ name: "confidence-report.md", marker: /stage/i },
+	];
+	const missing: string[] = [];
+	for (const { name, marker } of required) {
+		const path = `${dir}/${name}`;
+		try {
+			execSync(`test -f "${path}"`, { stdio: ["pipe", "pipe", "pipe"] });
+		} catch {
+			missing.push(`${name} (missing file)`);
+			continue;
+		}
+		try {
+			const contents = execSync(`cat "${path}"`, { stdio: "pipe" }).toString();
+			if (!marker.test(contents)) {
+				missing.push(`${name} (missing marker ${marker})`);
+			}
+		} catch {
+			missing.push(`${name} (unreadable)`);
+		}
+	}
+	if (missing.length > 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `create-prompt artifacts incomplete: ${missing.join(", ")}`,
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: `All three create-prompt artifacts present at ${dir}`,
+	};
+};
+
+/**
+ * Assert that /create-prompt registered all three mandatory artifacts
+ * (SKILL.md, evals.yaml, confidence-report.md) via `rp1 agent-tools emit
+ * --type artifact_registered`. Any one missing fails the assertion.
+ */
+export const assertCreatePromptThreeArtifacts: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const tcs = getToolCalls(context);
+	const emits = tcs.filter(
+		(tc) =>
+			tc.name === "Bash" &&
+			typeof (tc.input as { command?: unknown }).command === "string" &&
+			(tc.input as { command: string }).command.includes(
+				"rp1 agent-tools emit",
+			) &&
+			(tc.input as { command: string }).command.includes(
+				"--type artifact_registered",
+			),
+	);
+	const expected = ["SKILL.md", "evals.yaml", "confidence-report.md"];
+	const missing = expected.filter(
+		(name) =>
+			!emits.some((tc) =>
+				(tc.input as { command: string }).command.includes(name),
+			),
+	);
+	if (missing.length > 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `Missing artifact_registered emit for: ${missing.join(", ")}`,
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "All three create-prompt artifacts registered",
+	};
+};
 
 /** Assert speedrun-builder was spawned at orchestrator level (parentToolUseId is null/undefined). */
 export const assertOrchestratorSpawnedSpeedrunBuilder: AssertionFunction = (

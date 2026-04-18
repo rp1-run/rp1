@@ -145,8 +145,6 @@ function applyRunDetailMocks() {
 	}));
 }
 
-applyRunDetailMocks();
-
 function RegistryProbe() {
 	latestRegistry = useShortcutRegistry();
 	return null;

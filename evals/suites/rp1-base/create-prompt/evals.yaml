@@ -1,8 +1,13 @@
 # create-prompt Orchestrator Evaluation Suite
 #
 # Regression eval for /rp1-base:create-prompt pipeline.
-# Validates: pipeline-runner delegation, event emissions, three-artifact output,
-# constitutional/epistemic/structural quality of generated prompts.
+# Validates:
+#   - orchestrator spawns prompt-pipeline-runner at top level (not nested)
+#   - all three mandatory artifacts (SKILL.md, evals.yaml, confidence-report.md)
+#     are written to disk AND registered via `rp1 agent-tools emit`
+#   - generated SKILL.md and eval scaffold match contract (frontmatter,
+#     sibling prompts path, inline providers)
+#   - constitutional filtering is applied per AGENT_TYPE profile
 #
 # Run: just eval-run rp1-base/create-prompt
 description: "rp1-base:create-prompt pipeline evaluation"
@@ -54,81 +59,89 @@ defaultTest:
 tests:
   # ─────────────────────────────────────────────────────────────────────
   # Test 1: Default pipeline execution with leaf-worker profile
-  # Validates: orchestrator spawns pipeline-runner, emits events,
-  # produces three artifacts with correct governance for leaf workers
+  # Validates: orchestrator-level pipeline-runner spawn, status events,
+  # all three artifacts registered AND written to disk, constitutional
+  # governance for leaf workers
   # ─────────────────────────────────────────────────────────────────────
   - description: "default_leaf_worker_pipeline"
     threshold: 0.6
     assert:
-      # Deterministic: pipeline-runner agent spawned
+      # Deterministic: pipeline-runner spawned from the orchestrator
+      # (not from a nested sub-agent), enforcing BR-01
       - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertPipelineRunnerSpawned
+        value: file://../../shared/assertions/tool-calls.ts:assertOrchestratorSpawnedPipelineRunner
       # Deterministic: workflow status emitted
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate
-      # Deterministic: artifact registration for output files
+      # Deterministic: all three artifacts registered (BR-03 all-or-nothing)
       - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptThreeArtifacts
+      # Deterministic: all three artifacts actually written to disk with
+      # required structural markers (FR-02 contract: ready-to-run skill,
+      # eval scaffold referencing sibling SKILL.md, confidence report)
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptFilesOnDisk
       # Deterministic: no user interaction in AFK mode
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertNoAskUser
-      # Constitutional primitive presence (leaf-worker profile)
+      # Constitutional: grade the GENERATED SKILL.md file contents against the
+      # leaf-worker applicable-primitive set from Stage 1
       - type: llm-rubric
         value: |
-          Evaluate the agent's output for constitutional governance quality.
-          The agent was asked to create a governed prompt for a leaf-worker agent
-          that validates YAML configuration files.
+          Read the file at {{WORKSPACE_DIR}}/{{PROMPT_NAME}}/SKILL.md and grade
+          its constitutional governance against the leaf-worker profile.
 
-          REQUIRED (all must pass for constitutional axis):
-          1. The generated prompt or output references governance primitives applicable
-             to a leaf-worker profile: at minimum anti-loop, output discipline, role,
-             scope limits, error degradation, and truth constraints
-          2. Each governance primitive is expressed as a directive or section in the
-             prompt (not just listed — it must be actionable guidance)
+          REQUIRED (all must pass):
+          1. The SKILL.md body contains directives corresponding to every primitive
+             in the Stage 1 leaf-worker applicable set: anti-loop, output discipline,
+             role, scope limits, error degradation, truth constraints, transition guards.
+          2. Each primitive is expressed as an actionable directive or section
+             (not a mere mention in prose).
           3. The fallibilist overlay is present: conjectural wording, exposed-to-refutation,
-             or similar Popper-Deutsch language appears in the generated prompt
+             hard-to-vary preference, non-self-immunization, preserve error-correction.
 
-          PASS if: Constitutional primitives for leaf-worker are present and actionable
-          FAIL if: Missing multiple governance primitives or primitives are merely listed
-                   without actionable directives
-      # Structural assertions: SKILL.md frontmatter and required sections
+          PASS only if all three requirements are satisfied in the generated SKILL.md.
+      # Structural: grade the GENERATED eval scaffold matches the contract
       - type: llm-rubric
         value: |
-          Evaluate the structural quality of the generated prompt artifact.
-          The pipeline should produce a ready-to-run SKILL.md prompt.
+          Read the file at {{WORKSPACE_DIR}}/{{PROMPT_NAME}}/evals.yaml and grade
+          its structural correctness.
 
-          REQUIRED (all must pass for structural axis):
-          1. Output contains or references a generated prompt with YAML frontmatter
-             (delimited by --- markers) including at minimum: name and description fields
-          2. The generated prompt has identifiable sections (not a flat wall of text)
-          3. Output mentions or contains an eval scaffold (promptfoo YAML configuration)
-          4. Output mentions or contains a confidence/epistemic report
+          REQUIRED (all must pass):
+          1. The file is valid YAML with top-level keys `description`, `providers`,
+             `prompts`, `tests`.
+          2. `prompts:` references the SIBLING generated skill via `file://./SKILL.md`
+             (NOT `file://./{{PROMPT_NAME}}/SKILL.md` and NOT any nested path).
+          3. `providers:` is declared inline (not pointing at `../../providers/*.yaml`
+             which do not exist in the repo).
+          4. `tests:` includes at least one constitutional, one structural, and one
+             epistemic assertion.
 
-          PASS if: All three output artifacts are present or clearly referenced
-          FAIL if: Any of the three mandatory artifacts (prompt, eval scaffold,
-                   confidence report) is missing or mentioned as failed
-      # Epistemic assertions: stance declaration and confidence schema
+          PASS only if all four requirements hold.
+      # Epistemic: grade the GENERATED confidence report
       - type: llm-rubric
         value: |
-          Evaluate the epistemic quality of the generated prompt.
+          Read the file at {{WORKSPACE_DIR}}/{{PROMPT_NAME}}/confidence-report.md
+          and grade its epistemic completeness.
 
-          REQUIRED (all must pass for epistemic axis):
-          1. The generated prompt declares an epistemic stance (one of: Fallibilist
-             Empirical, Interpretivism, Phenomenology, Constructivism, Pragmatism,
-             Compare-Mode) or references an epistemic contract
-          2. A confidence schema or confidence vocabulary is embedded or referenced
-             in the generated prompt (the 5-level scale: Speculative, Provisional,
-             Supported, Well-established, Settled — or equivalent)
-          3. The confidence report includes scoring or assessment from pipeline stages
+          REQUIRED (all must pass):
+          1. The report names an epistemic stance from the six in epistemology.md:
+             Fallibilist Empirical, Interpretivism, Phenomenology, Constructivism,
+             Pragmatism, or Compare-Mode.
+          2. The report embeds or references the 5-level confidence schema
+             (Speculative, Provisional, Supported, Well-established, Settled) with
+             marking requirements.
+          3. The report scores the prompt against each pipeline stage
+             (constitutional-checklist, fallibilist-overlay, epistemic-stance,
+             popper-patterns, confidence-schema, prompt-validation).
 
-          PASS if: Epistemic stance is declared, confidence schema is present
-          FAIL if: No epistemic stance declared or confidence schema entirely absent
+          PASS only if all three requirements hold.
 
   # ─────────────────────────────────────────────────────────────────────
   # Test 2: Orchestrator agent-type profile
   # Validates: constitutional filtering produces orchestrator-specific
-  # governance (orchestrator purity, transition guards) instead of
-  # leaf-worker primitives (exploration bounds, anti-bias)
+  # governance and OMITS primitives outside the orchestrator profile
+  # (exploration bounds, anti-bias, exploration bounds are leaf/interactive only)
   # ─────────────────────────────────────────────────────────────────────
   - description: "orchestrator_profile_governance"
     vars:
@@ -138,38 +151,33 @@ tests:
     threshold: 0.6
     assert:
       - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertPipelineRunnerSpawned
+        value: file://../../shared/assertions/tool-calls.ts:assertOrchestratorSpawnedPipelineRunner
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate
       - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptThreeArtifacts
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptFilesOnDisk
       - type: llm-rubric
         value: |
-          Evaluate the agent's output for orchestrator-specific constitutional governance.
-          The agent was asked to create a governed prompt for an ORCHESTRATOR agent
-          that coordinates a multi-step code review pipeline.
+          Read the GENERATED file at {{WORKSPACE_DIR}}/{{PROMPT_NAME}}/SKILL.md.
+          The target profile is `orchestrator`.
 
           REQUIRED (all must pass):
-          1. The generated prompt includes orchestrator purity directive — the orchestrator
-             should coordinate and delegate, never inline implementation logic
-          2. The generated prompt includes transition guards — explicit state transition
-             validation for pipeline steps
-          3. The generated prompt includes role definition and scope limits
-          4. The generated prompt includes error degradation handling
-          5. The governance primitives are filtered for the orchestrator profile —
-             it should NOT prominently feature exploration bounds or anti-bias
-             (those are for interactive-skill and kb-investigator profiles)
+          1. Contains an orchestrator-purity directive (coordinate + delegate;
+             never inline implementation logic).
+          2. Contains transition-guard directives for pipeline step transitions.
+          3. Contains role and scope-limits directives.
+          4. Contains an error-degradation directive.
+          5. DOES NOT prominently feature exploration-bounds or anti-bias
+             (those primitives are outside the orchestrator profile in Stage 1).
 
-          PASS if: Orchestrator-specific governance is present and correctly filtered
-          FAIL if: Missing orchestrator purity or transition guards, or includes
-                   prominent leaf-worker-only primitives
+          PASS only if all five conditions hold in the generated SKILL.md.
 
   # ─────────────────────────────────────────────────────────────────────
-  # Test 3: Validation deficiency detection
-  # Validates: the prompt-validation stage catches governance gaps and
-  # reports actionable deficiency descriptions (AC-06.3)
-  # Uses a deliberately vague description to increase likelihood of
-  # validation findings in the confidence report
+  # Test 3: Validation completeness on vague input
+  # Validates: the prompt-validation stage still produces a six-stage
+  # confidence report even when the DESCRIPTION is minimal
   # ─────────────────────────────────────────────────────────────────────
   - description: "validation_report_completeness"
     vars:
@@ -179,26 +187,25 @@ tests:
     threshold: 0.5
     assert:
       - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertOrchestratorSpawnedPipelineRunner
+      - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate
       - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptThreeArtifacts
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptFilesOnDisk
       - type: llm-rubric
         value: |
-          Evaluate the validation and confidence report output for completeness.
-          The agent was asked to create a governed prompt for "a simple utility agent"
-          — a deliberately vague description. The pipeline should still complete and
-          the confidence report should cover all six stages.
+          Read the GENERATED file at
+          {{WORKSPACE_DIR}}/{{PROMPT_NAME}}/confidence-report.md.
 
           REQUIRED (all must pass):
-          1. Output references or includes a confidence/epistemic report
-          2. The report or output references assessment from multiple pipeline stages
-             (constitutional-checklist, fallibilist-overlay, epistemic-stance,
-             popper-patterns, confidence-schema, prompt-validation)
-          3. The validation axis results are present — at minimum style, constitutional,
-             and epistemic axes are mentioned with pass/fail or scoring
-          4. If any validation deficiency was found, the description identifies:
-             (a) which axis failed, and (b) what specific element is missing or weak
+          1. Covers all six pipeline stages (constitutional-checklist,
+             fallibilist-overlay, epistemic-stance, popper-patterns,
+             confidence-schema, prompt-validation).
+          2. Lists validation axis results (style, constitutional, epistemic)
+             with pass/fail or scoring.
+          3. Any reported deficiency names (a) the axis and (b) what specific
+             element is missing or weak (actionable, not vague).
 
-          PASS if: Confidence report covers all six stages with actionable detail
-          FAIL if: Report is missing, covers fewer than 3 stages, or deficiencies
-                   lack axis identification
+          PASS only if all three conditions hold in the generated report.

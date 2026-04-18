@@ -182,21 +182,30 @@ A promptfoo YAML configuration for testing the generated prompt. Include:
 - Epistemic assertions (stance declared, confidence schema present)
 - Test invocation prompts derived from DESCRIPTION
 
+`evals.yaml` is written alongside `SKILL.md` in the same directory, so the `prompts:` reference is a relative sibling path. The `providers:` block is inline and follows the pattern in `evals/suites/rp1-dev/build-fast/evals.yaml`. Users can override the harness via `EVAL_HARNESS=opencode` when running `just eval-run`.
+
 ````
 <<<EVAL
 description: "Eval suite for {PROMPT_NAME}"
 
+evaluateOptions:
+  maxConcurrency: 4
+
 providers:
-  - file://../../providers/claude-code.yaml
-  - file://../../providers/opencode.yaml
-  - file://../../providers/codex.yaml
+  - id: anthropic:claude-agent-sdk
+    label: rp1-agentic-eval
+    config:
+      model: haiku
+      permission_mode: bypassPermissions
+      allow_dangerously_skip_permissions: true
+      max_turns: 30
 
 prompts:
-  - file://./{PROMPT_NAME}/SKILL.md
+  - file://./SKILL.md
 
 tests:
   # Constitutional assertions
-  {One test per applicable governance primitive}
+  {One test per applicable governance primitive -- omit primitives the agent-type profile filtered out in stage 1}
 
   # Structural assertions
   {Frontmatter validity, required sections}

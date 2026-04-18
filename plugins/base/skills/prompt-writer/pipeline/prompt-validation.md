@@ -56,15 +56,27 @@ Run validation on all three axes. Each axis produces a pass/fail verdict with sp
 
 #### Axis 2: Constitutional Validation
 
-**Validate against** the applicable primitive set from Stage 1:
+**Validate against** the applicable primitive set produced by Stage 1 for the current `AGENT_TYPE`.
+
+The Stage 1 profile map determines which primitives apply; Stage 6 MUST NOT require primitives that Stage 1 omitted for the profile. For reference, Stage 1's profile filter is:
+
+| Profile | Applicable primitives |
+|---------|----------------------|
+| `leaf-worker` | Anti-loop, Output discipline, Role, Scope limits, Error degradation, Truth constraints, Transition guards |
+| `orchestrator` | Role, Scope limits, Orchestrator purity, Error degradation, Transition guards |
+| `interactive-skill` | Output discipline, Role, Scope limits, Exploration bounds, Anti-bias |
+| `kb-investigator` | Role, Error degradation, Exploration bounds, Anti-bias, Truth constraints |
+
+The axis runs two checks in every case, plus primitive-level checks keyed off the filtered set:
 
 | Check | Rule | Fail If |
 |-------|------|---------|
-| Primitive coverage | Every applicable primitive for the AGENT_TYPE profile has a corresponding section or directive in the prompt | Any applicable primitive is missing |
-| Directive integrity | Each directive preserves the core constraint from constitution.md | Directive is present but weakened, hedged, or contradicted |
-| Role declaration | Prompt starts with a clear ROLE section | No role declaration or role is ambiguous |
-| Scope boundaries | Explicit scope limits present (what agent does / does not do) | No scope boundary or boundary is vague |
-| Error handling | Error degradation directive present with structured error format | No error handling or unstructured error handling |
+| Role declaration | Prompt starts with a clear ROLE section (Role is applicable for every profile) | No role declaration or role is ambiguous |
+| Directive integrity | Each directive from Stage 1 preserves the core constraint from constitution.md | Any Stage 1 directive is present but weakened, hedged, or contradicted |
+| Primitive coverage | For every primitive in the Stage 1 applicable set, a corresponding section or directive exists in the prompt | Any Stage 1 primitive is missing from the prompt |
+| Primitive non-overreach | The prompt MUST NOT add directives for primitives that Stage 1 filtered out for this profile | The prompt invokes a primitive not in the Stage 1 applicable set |
+
+Concretely: do NOT fail a profile that omits `Scope limits` (e.g. `kb-investigator`) for lacking a scope-boundary directive, and do NOT fail a profile that omits `Error degradation` (e.g. `interactive-skill`) for lacking a structured-error directive. Those are handled by the primitive-coverage check, which reads the Stage 1 set dynamically.
 
 #### Axis 3: Epistemic Validation
 
@@ -115,16 +127,25 @@ Followed by the full prompt body with all constitutional, epistemic, and style r
 
 A promptfoo configuration for testing the generated prompt. Structure:
 
+The eval scaffold is written alongside the generated `SKILL.md` in the same `{PROMPT_NAME}/` directory, so the `prompts:` reference is a sibling (`file://./SKILL.md`). Providers are declared inline; override the harness at runtime via `EVAL_HARNESS=opencode`.
+
 ```yaml
 description: "Eval suite for {PROMPT_NAME}"
 
+evaluateOptions:
+  maxConcurrency: 4
+
 providers:
-  - file://../../providers/claude-code.yaml
-  - file://../../providers/opencode.yaml
-  - file://../../providers/codex.yaml
+  - id: anthropic:claude-agent-sdk
+    label: rp1-agentic-eval
+    config:
+      model: haiku
+      permission_mode: bypassPermissions
+      allow_dangerously_skip_permissions: true
+      max_turns: 30
 
 prompts:
-  - file://./{PROMPT_NAME}/SKILL.md
+  - file://./SKILL.md
 
 tests:
   # Constitutional assertions - one per applicable primitive

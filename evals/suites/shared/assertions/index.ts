@@ -11,6 +11,8 @@ export {
 	assertAskUserCheckpoint,
 	assertBuildProhibited,
 	assertCanonicalToolCall,
+	assertCreatePromptFilesOnDisk,
+	assertCreatePromptThreeArtifacts,
 	assertDefaultProhibited,
 	assertFileExists,
 	assertFirstSubagent,
@@ -25,6 +27,7 @@ export {
 	assertNoProhibitedCommands,
 	assertNoToolCall,
 	assertNoWriteEdit,
+	assertOrchestratorSpawnedPipelineRunner,
 	// Output assertions
 	assertOutputContains,
 	assertPipelineRunnerSpawned,

@@ -167,14 +167,15 @@ Each iteration delegates to a general sub-agent. If the request is too large, it
 
 **When**: Writing or improving agent prompts and skill definitions.
 
-**Sequence**: `/prompt-writer` -> `/tersify-prompt`
+**Sequence**: `/create-prompt` -> (optional) `/tersify-prompt`
 
 | Step | Skill | Input | Output |
 |------|-------|-------|--------|
-| 1 | `/prompt-writer` | Prompt requirements or existing prompt to rewrite | New or rewritten prompt following rp1 patterns |
+| 1 | `/create-prompt` | `PROMPT_NAME`, `DESCRIPTION`, optional `AGENT_TYPE` | Governed skill/agent scaffold plus promptfoo eval scaffold and confidence/epistemic report |
 | 2 | `/tersify-prompt` | Verbose prompt text | Maximally compressed prompt preserving full intent |
 
 **How they chain**:
 
-- `/prompt-writer` handles both new prompts and rewrites. It loads patterns, templates, and rp1-specific authoring conventions from a companion reference pack. Output follows the canonical SKILL.md format with proper frontmatter.
-- `/tersify-prompt` compresses the output further by applying token-efficient rewrites. Useful when the prompt needs to fit within tight context budgets.
+- `/create-prompt` is the primary entry point. It runs the six-stage prompt-writer pipeline (constitutional-checklist → fallibilist-overlay → epistemic-stance → popper-patterns → confidence-schema → prompt-validation) and writes three artifacts to `{projectRoot}/{PROMPT_NAME}/`: a ready-to-run SKILL.md, a promptfoo eval scaffold with inline providers, and a per-stage confidence/epistemic report. Constitutional filtering is driven by `AGENT_TYPE` (`leaf-worker`, `orchestrator`, `interactive-skill`, `kb-investigator`).
+- `/tersify-prompt` is an optional post-step that compresses any prompt (including `/create-prompt` output) by applying token-efficient rewrites. Useful when the prompt needs to fit within tight context budgets.
+- The `prompt-writer` skill is now a progressive-disclosure reference library consumed by `/create-prompt`; invoke it directly only if you need to read a specific reference (`references/constitution.md`, `references/epistemology.md`, `references/tersify.md`) or pipeline stage file.
