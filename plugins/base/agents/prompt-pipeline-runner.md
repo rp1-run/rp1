@@ -175,14 +175,16 @@ After completing all six stages, return EXACTLY three fenced artifact blocks. Th
 
 ### Artifact 1: Ready-to-Run Prompt
 
-The complete SKILL.md with YAML frontmatter and governed prompt body. Must include all constitutional directives, fallibilist overlay, epistemic stance, selected Popper-Deutsch patterns, and confidence schema integrated into a terse, well-structured prompt.
+The complete SKILL.md with YAML frontmatter and governed prompt body. Must include all constitutional directives, fallibilist overlay, epistemic stance, selected Popper-Deutsch patterns (empty set for `COMPLEXITY=simple`), and confidence schema integrated into a terse, well-structured prompt.
+
+**`allowed-tools` is derived from the Runtime Contract**, not hardcoded. Read the draft's `## Runtime Contract` section, extract the first token of each command line, and emit `Bash(<token> *)` for each unique token. Always include `Bash(echo *)` as a baseline. If the contract is `none`, the line is `Bash(echo *)` only. Append any additional tools the body invokes (Read, Write, Task, etc.) -- the frontmatter must truthfully reflect the body's runtime needs.
 
 ````
 <<<PROMPT
 ---
 name: {PROMPT_NAME}
 description: "{Concise description derived from DESCRIPTION}"
-allowed-tools: Bash(echo *), Bash(rp1 *)
+allowed-tools: {derived from Runtime Contract: e.g. "Bash(echo *)" for none, or "Bash(echo *), Bash(rp1 *), Bash(git *)" for a skill that uses rp1 and git}
 metadata:
   category: {appropriate category}
   arguments:
@@ -194,9 +196,10 @@ metadata:
  - Constitutional governance directives (from Stage 1)
  - Fallibilist overlay section (from Stage 2)
  - Epistemic stance declaration and contract (from Stage 3)
- - Injected Popper-Deutsch patterns (from Stage 4)
- - Confidence schema with marking requirements (from Stage 5)
- - Validated against all three axes (from Stage 6)}
+ - Injected Popper-Deutsch patterns (from Stage 4; omit when COMPLEXITY=simple)
+ - Confidence schema with marking requirements (from Stage 5; 3 levels when simple, 5 otherwise)
+ - ## Runtime Contract section listing external commands the skill invokes
+ - Validated against all four axes (from Stage 6)}
 PROMPT>>>
 ````
 
@@ -253,32 +256,34 @@ A structured markdown report scoring the prompt against each pipeline stage.
 <<<REPORT
 # Confidence & Epistemic Report: {PROMPT_NAME}
 
+**Complexity**: {COMPLEXITY}
+**Agent type**: {AGENT_TYPE}
+
 ## Pipeline Stage Scoring
 
 | Stage | Status | Score | Notes |
 |-------|--------|-------|-------|
-| Constitutional Checklist | {PASS/FAIL} | {applied}/{total} primitives | {Note} |
-| Fallibilist Overlay | {PASS/FAIL} | {present}/{5} clauses | {Note} |
+| Constitutional Checklist | {PASS/FAIL} | {applied}/{total} primitives for {AGENT_TYPE} | {Note} |
+| Fallibilist Overlay | {PASS/FAIL} | {present}/5 clauses (all five required) | {Note} |
 | Epistemic Stance | {PASS/FAIL} | {stance name} | {Note} |
-| Popper Patterns | {PASS/FAIL} | {selected}/{applied} | {Note} |
-| Confidence Schema | {PASS/FAIL} | {levels defined} | {Note} |
-| Prompt Validation | {PASS/FAIL} | {axes passed}/{3} axes | {Note} |
+| Popper Patterns | {PASS/FAIL or SKIPPED} | {selected} patterns (SKIPPED when COMPLEXITY=simple) | {Note} |
+| Confidence Schema | {PASS/FAIL} | {3 for simple, 5 for standard/complex} levels | {Note} |
+| Prompt Validation | {PASS/FAIL} | {axes passed}/4 axes | {Note} |
 
 ## Constitutional Governance Summary
 
-{Each applied primitive with tailored directive summary}
+{Each applied primitive with tailored directive summary. Primitives outside the AGENT_TYPE profile are absent by design.}
 
 ## Epistemic Posture
 
 **Stance**: {Selected stance}
 **Secondary influences**: {List or "None"}
-**Fallibilist overlay**: Applied (unconditional)
-**Popper patterns**: {Count} selected, {count} applied
+**Fallibilist overlay**: Applied (unconditional, all five clauses)
+**Popper patterns**: {Count selected; write "Skipped (COMPLEXITY=simple)" when applicable}
 
 ## Confidence Vocabulary
 
-**Scale**: 5-level ordinal (Speculative -> Settled)
-**Legacy mapping**: {Count} idioms mapped
+**Scale**: {3-level (simple) OR 5-level (standard/complex)}
 **Marking requirements**: {MUST/SHOULD/MAY summary}
 
 ## Validation Results
@@ -287,10 +292,18 @@ A structured markdown report scoring the prompt against each pipeline stage.
 {Pass/Fail per check with details}
 
 ### Constitutional Axis
-{Pass/Fail per check with details}
+{Pass/Fail per check with details, including the non-overreach check}
 
 ### Epistemic Axis
-{Pass/Fail per check with details}
+{Pass/Fail per check with details; Popper-patterns check is N/A when Stage 4 skipped}
+
+### Runtime Axis
+{Pass/Fail per check: Contract coverage, Grounding, State-machine declaration, Emit run-id, State-machine necessity}
+
+## Runtime Contract Verification
+
+{One row per command line from the `## Runtime Contract` section:
+command | --help exit code recorded during Phase 1.5 | rewrites performed (if any)}
 
 ## Deficiencies
 {Unresolved deficiencies with remediation notes, or "None"}
