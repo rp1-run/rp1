@@ -280,6 +280,39 @@ A structured report scoring the prompt against each pipeline stage and every val
 {List any unresolved deficiencies with remediation notes, or "None"}
 ```
 
+### Phase 4a: Pre-Emission Self-Check
+
+Before returning any artifact to the orchestrator, run these grep-style checks against the in-memory draft. Any failure triggers **regeneration of the affected artifact** (not the whole pipeline). Re-run Phase 4a after regeneration. Do NOT emit partial or substandard artifacts.
+
+**Artifact 1 (SKILL.md)**:
+
+| Check | Rule | Fails if |
+|-------|------|----------|
+| SKILL-1 | All five overlay markers are literal-present: `conjectur`, `refut`, `hard-to-vary`, `self-immun`, `error-correction` (case-insensitive) | Any marker absent |
+| SKILL-2 | Every primitive in the Stage 1 applicable set for AGENT_TYPE is literal-present by its distinctive phrase (`anti-loop`, `output discipline`, `role`, `scope limits`, `error degradation`, `truth constraint`, `transition guard`, `orchestrator purity`, `exploration bound`, `anti-bias`) | Any applicable primitive is missing |
+| SKILL-3 | `allowed-tools` line is present and derived from the Runtime Contract per the rule in Phase 4 | `allowed-tools` is hardcoded, missing, or omits a command that appears in the body |
+| SKILL-4 | `## Runtime Contract` section is present (reads `none` if no external commands) | Section missing |
+
+**Artifact 2 (evals.yaml)**:
+
+| Check | Rule | Fails if |
+|-------|------|----------|
+| EVAL-1 | Contains the literal string `file://./SKILL.md` | Uses a nested path, absolute path, or omits the prompts reference |
+| EVAL-2 | Contains `id: anthropic:` (inline provider) | Providers missing or reference external provider YAMLs |
+| EVAL-3 | All four top-level keys present: `description:`, `providers:`, `prompts:`, `tests:` | Any key missing |
+
+**Artifact 3 (confidence-report.md)**:
+
+| Check | Rule | Fails if |
+|-------|------|----------|
+| REPORT-1 | `## Complexity Classification` section present with a `**Complexity**: <value>` line | Section or line missing |
+| REPORT-2 | `## Pipeline Stage Scoring` table has one row per required stage: 6 rows for `standard`/`complex` (constitutional-checklist, fallibilist-overlay, epistemic-stance, popper-patterns, confidence-schema, prompt-validation), 5 rows for `simple` (popper-patterns omitted) | Missing any required row |
+| REPORT-3 | Every level from the active confidence scale is literal-present: `Speculative`, `Provisional`, `Supported`, `Well-established`, `Settled` for 5-level; `Speculative`, `Supported`, `Settled` for 3-level (simple) | Any level missing |
+| REPORT-4 | No unsubstituted template placeholders remain in the body: reject any of `{PASS/FAIL}`, `{Brief note}`, `{Note}`, `{stance name}`, `{applicable}`, `{total}`, `{present}`, `{selected}`, `{axes passed}`, `{Count}`, `{List or "None"}`, `{Pass/Fail per check with details}`, `{Each applied primitive...}`, or any literal `{...}` that is not a real variable name like `{PROMPT_NAME}` | Any placeholder remains |
+| REPORT-5 | `## Runtime Axis` subsection under Validation Results is present | Missing |
+
+**Regeneration protocol**: if a check fails, the runner rewrites the offending artifact section (not the whole artifact) and re-runs Phase 4a for that artifact. Maximum two rewrite attempts per artifact; if still failing, emit with a `## Pre-Emission Deficiencies` block at the top of the artifact listing the persistent failures.
+
 ## Output
 
 All three artifacts produced and returned to the calling orchestrator or pipeline-runner agent:

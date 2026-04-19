@@ -165,6 +165,7 @@ The effective complexity (not the incoming `COMPLEXITY`) governs Stage 4 skip, S
    - **Phase 2**: Run 4-axis validation (style, constitutional, epistemic, runtime) per the check tables in the stage file. The runtime axis verifies the `## Runtime Contract` section matches commands in the body AND state-machine consistency (see §STATE-MACHINE CONSISTENCY below).
    - **Phase 3**: Remediate any failures. Re-validate. Report persistent deficiencies.
    - **Phase 4**: Generate all three output artifacts per the stage's artifact specifications
+   - **Phase 4a (Pre-Emission Self-Check)**: before returning any artifact, run the grep-style content checks defined in `pipeline/prompt-validation.md`. These check that SKILL.md contains all five overlay markers and every applicable primitive; that evals.yaml contains `file://./SKILL.md` and `id: anthropic:` and all four top-level keys; that confidence-report.md has the Complexity Classification section, exactly N stage-scoring rows (N = 5 for simple, 6 for standard/complex), every level of the active scale, and zero unsubstituted placeholders like `{PASS/FAIL}`, `{Brief note}`, `{Note}`, `{axes passed}`. If any check fails, regenerate the affected artifact section (not the whole artifact) and re-run Phase 4a. Max two rewrite attempts per artifact. Do NOT emit partial or substandard artifacts.
 
 ## STATE-MACHINE CONSISTENCY (Stage 6, Runtime axis)
 
