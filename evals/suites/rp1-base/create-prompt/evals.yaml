@@ -142,3 +142,55 @@ tests:
         value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptStructural
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptEpistemic
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Test 4: COMPLEXITY=simple -- Stage 4 (popper-patterns) is skipped and
+  # Stage 5 emits the 3-level trim. Epistemic assertion reads COMPLEXITY
+  # from vars and adjusts its required level list.
+  # ─────────────────────────────────────────────────────────────────────
+  - description: "simple_complexity_trim"
+    vars:
+      PROMPT_NAME: "test-simple-wrapper"
+      DESCRIPTION: "A leaf-worker skill that wraps rp1 agent-tools mmd-validate to check mermaid blocks in a markdown file"
+      AGENT_TYPE: "leaf-worker"
+      COMPLEXITY: "simple"
+    threshold: 1.0
+    assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertOrchestratorSpawnedPipelineRunner
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptThreeArtifacts
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptFilesOnDisk
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptConstitutional
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptStructural
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptEpistemic
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Test 5: PLUGIN=rp1-base -- files must land under
+  # {WORKSPACE_DIR}/plugins/base/skills/{PROMPT_NAME}/, and registration
+  # paths must match (assertCreatePromptFilesOnDisk honors PLUGIN).
+  # ─────────────────────────────────────────────────────────────────────
+  - description: "plugin_direct_write_rp1_base"
+    vars:
+      PROMPT_NAME: "test-direct-writer"
+      DESCRIPTION: "A leaf-worker skill that validates YAML configuration files and reports structural errors"
+      AGENT_TYPE: "leaf-worker"
+      PLUGIN: "rp1-base"
+    threshold: 1.0
+    assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertOrchestratorSpawnedPipelineRunner
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptThreeArtifacts
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptFilesOnDisk
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptConstitutional
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptStructural
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptEpistemic

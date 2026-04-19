@@ -1,10 +1,10 @@
 # Stage: Prompt Validation
 
-Pipeline stage 6 of 6. Runs 3-axis validation on the complete prompt draft and produces the three output artifacts.
+Pipeline stage 6 of 6. Runs 4-axis validation on the complete prompt draft, grounds every referenced external command, and produces the three output artifacts.
 
 ## Purpose
 
-Validate the accumulated prompt draft against three axes (style, constitutional, epistemic). Report deficiencies with clear, actionable descriptions. If validation passes, finalize the three mandatory output artifacts: the ready-to-run prompt, the eval scaffold, and the confidence/epistemic report.
+Validate the accumulated prompt draft against four axes (style, constitutional, epistemic, runtime). Report deficiencies with clear, actionable descriptions. If validation passes, finalize the three mandatory output artifacts: the ready-to-run prompt, the eval scaffold, and the confidence/epistemic report.
 
 ## Input
 
@@ -31,12 +31,25 @@ Before validation, the agent MUST have assembled the accumulated outputs from St
 - Constitutional directives integrated as structural sections
 - Fallibilist overlay embedded as a governance section
 - Epistemic stance declared with contract
-- Selected Popper-Deutsch patterns injected at relevant points
+- Selected Popper-Deutsch patterns injected at relevant points (empty set when `COMPLEXITY=simple`)
 - Confidence schema embedded with marking requirements
+- A `## Runtime Contract` section listing every external shell command the generated skill invokes, one per line in its body form. The section reads `none` if the skill invokes no external commands.
 
-### Phase 2: Three-Axis Validation
+### Phase 1.5: Runtime Grounding
 
-Run validation on all three axes. Each axis produces a pass/fail verdict with specific deficiency descriptions for any failures.
+For each command listed in the `## Runtime Contract` section, execute it with `--help` (or an equivalent help flag for tools that use a different convention) via Bash and confirm exit code 0.
+
+| Outcome | Action |
+|---------|--------|
+| Exit 0 | The command path exists. Record as grounded. |
+| Non-zero exit | The command path does not exist. Rewrite the invocation in the draft body against the correct path (discovered by running `<parent> --help` and searching the sub-command list). Update the Runtime Contract section to match. |
+| No working path exists | Remove the invocation from the body entirely and re-draft the section that relied on it. |
+
+Re-run Phase 1.5 after any rewrite. Do NOT proceed to Phase 2 until every Runtime Contract line exits 0. This check is tool-agnostic -- it applies to any command, not only `rp1`.
+
+### Phase 2: Four-Axis Validation
+
+Run validation on all four axes. Each axis produces a pass/fail verdict with specific deficiency descriptions for any failures.
 
 #### Axis 1: Style Validation
 
@@ -87,9 +100,21 @@ Concretely: do NOT fail a profile that omits `Scope limits` (e.g. `kb-investigat
 | Stance declaration | Epistemic stance is explicitly named in the prompt | Stance is implied but not declared |
 | Epistemic contract | Full epistemic contract from Stage 3 is embedded | Contract is absent or incomplete |
 | Fallibilist overlay | All five overlay clauses are present | Any overlay clause is missing |
-| Popper patterns | All selected patterns from Stage 4 are injected | Any selected pattern is missing |
-| Confidence schema | 5-level scale is embedded with marking requirements | Scale or marking requirements absent |
+| Popper patterns | All selected patterns from Stage 4 are injected (`COMPLEXITY=simple` skips Stage 4; an empty selected set is valid) | Any selected pattern is missing (not applicable when Stage 4 was skipped) |
+| Confidence schema | The ordinal scale is embedded with marking requirements (5 levels for `standard`/`complex`; 3 levels for `simple`) | Scale or marking requirements absent |
 | Confidence in use | Prompt instructs the agent when and how to apply confidence levels | Schema present but no usage instructions |
+
+#### Axis 4: Runtime Validation
+
+| Check | Rule | Fail If |
+|-------|------|---------|
+| Contract coverage | Every external command that appears in the body also appears in the `## Runtime Contract` section, and vice versa | The two lists diverge |
+| Grounding | Every command in the Runtime Contract returned exit 0 from `--help` in Phase 1.5 | Any command was ungrounded and was not rewritten |
+| State-machine declaration | If the draft contains any `rp1 agent-tools emit --step X`, the draft also has a `## STATE-MACHINE` section with a `stateDiagram-v2` block that declares `X` as a state | `--step X` is emitted without a matching state declaration |
+| Emit run-id | Every `rp1 agent-tools emit` invocation includes `--run-id` | Any emit is missing `--run-id` |
+| State-machine necessity | If the skill is a one-shot wrapper with no workflow lifecycle (no `--step` emits anywhere), it MUST NOT include a `## STATE-MACHINE` block either | A state machine is declared but never referenced, or vice versa |
+
+Remediation for Axis 4: add the missing state-machine block + run-id, OR strip the emits and state-machine block entirely. Both directions are valid fixes.
 
 ### Phase 3: Report and Remediate
 

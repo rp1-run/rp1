@@ -19,6 +19,8 @@ interface EvalContext {
 		GIT_HEAD_BEFORE?: string;
 		PROMPT_NAME?: string;
 		AGENT_TYPE?: string;
+		COMPLEXITY?: string;
+		PLUGIN?: string;
 	};
 }
 
@@ -960,24 +962,27 @@ export const assertOrchestratorSpawnedPipelineRunner: AssertionFunction = (
 };
 
 /**
- * Assert that the three mandatory /create-prompt artifacts exist on disk at
- * {WORKSPACE_DIR}/{PROMPT_NAME}/ and contain their required structural markers:
- * SKILL.md with YAML frontmatter, evals.yaml with a sibling `file://./SKILL.md`
- * prompts ref, confidence-report.md with a stage-scoring section.
+ * Assert the three mandatory /create-prompt artifacts exist on disk at the
+ * PLUGIN-resolved directory and contain their required structural markers.
  */
 export const assertCreatePromptFilesOnDisk: AssertionFunction = (
 	_output,
 	context,
 ) => {
-	const workspaceDir = context.vars?.WORKSPACE_DIR as string | undefined;
-	const promptName = context.vars?.PROMPT_NAME as string | undefined;
-	if (!workspaceDir) {
+	if (!context.vars?.WORKSPACE_DIR) {
 		return { pass: false, score: 0, reason: "WORKSPACE_DIR not set in vars" };
 	}
-	if (!promptName) {
+	if (!context.vars?.PROMPT_NAME) {
 		return { pass: false, score: 0, reason: "PROMPT_NAME not set in vars" };
 	}
-	const dir = `${workspaceDir}/${promptName}`;
+	const dir = resolveCreatePromptDir(context);
+	if (!dir) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `Unrecognized PLUGIN=${context.vars?.PLUGIN}`,
+		};
+	}
 	const required = [
 		{ name: "SKILL.md", marker: /^---\s*$/m },
 		{ name: "evals.yaml", marker: /file:\/\/\.\/SKILL\.md/ },
@@ -1016,19 +1021,40 @@ export const assertCreatePromptFilesOnDisk: AssertionFunction = (
 };
 
 /**
- * Read a generated create-prompt artifact from {WORKSPACE_DIR}/{PROMPT_NAME}/.
- * Returns the file contents, or null if missing/unreadable.
+ * Resolve the directory create-prompt writes into, honoring PLUGIN.
+ * staging (default) -> {WORKSPACE_DIR}/{PROMPT_NAME}
+ * rp1-base  -> {WORKSPACE_DIR}/plugins/base/skills/{PROMPT_NAME}
+ * rp1-utils -> {WORKSPACE_DIR}/plugins/utils/skills/{PROMPT_NAME}
+ * rp1-dev   -> {WORKSPACE_DIR}/plugins/dev/skills/{PROMPT_NAME}
+ */
+function resolveCreatePromptDir(context: EvalContext): string | null {
+	const workspaceDir = context.vars?.WORKSPACE_DIR as string | undefined;
+	const promptName = context.vars?.PROMPT_NAME as string | undefined;
+	if (!workspaceDir || !promptName) return null;
+	const plugin = (context.vars?.PLUGIN as string | undefined) ?? "staging";
+	const pluginDir: Record<string, string> = {
+		staging: "",
+		"rp1-base": "plugins/base/skills/",
+		"rp1-utils": "plugins/utils/skills/",
+		"rp1-dev": "plugins/dev/skills/",
+	};
+	const subdir = pluginDir[plugin];
+	if (subdir === undefined) return null;
+	return `${workspaceDir}/${subdir}${promptName}`;
+}
+
+/**
+ * Read a generated create-prompt artifact. Directory is resolved by
+ * resolveCreatePromptDir (which honors PLUGIN). Returns null if missing.
  */
 function readCreatePromptArtifact(
 	context: EvalContext,
 	fileName: string,
 ): string | null {
-	const workspaceDir = context.vars?.WORKSPACE_DIR as string | undefined;
-	const promptName = context.vars?.PROMPT_NAME as string | undefined;
-	if (!workspaceDir || !promptName) return null;
-	const path = `${workspaceDir}/${promptName}/${fileName}`;
+	const dir = resolveCreatePromptDir(context);
+	if (!dir) return null;
 	try {
-		return execSync(`cat "${path}"`, { stdio: "pipe" }).toString();
+		return execSync(`cat "${dir}/${fileName}"`, { stdio: "pipe" }).toString();
 	} catch {
 		return null;
 	}
@@ -1283,33 +1309,54 @@ export const assertCreatePromptEpistemic: AssertionFunction = (
 			reason: "confidence-report.md does not name one of the six epistemic stances",
 		};
 	}
-	// Stage 5 + Stage 6 require the full 5-level confidence scale.
-	const confidenceLevels: Array<{ name: string; rx: RegExp }> = [
+	// COMPLEXITY gates the confidence-scale expectation. simple = 3 levels
+	// (Speculative, Supported, Settled). standard/complex = full 5 levels.
+	const complexity =
+		(context.vars?.COMPLEXITY as string | undefined) ?? "standard";
+	const fullScale: Array<{ name: string; rx: RegExp }> = [
 		{ name: "Speculative", rx: /\bspeculative\b/i },
 		{ name: "Provisional", rx: /\bprovisional\b/i },
 		{ name: "Supported", rx: /\bsupported\b/i },
 		{ name: "Well-established", rx: /well-?established/i },
 		{ name: "Settled", rx: /\bsettled\b/i },
 	];
-	const missingLevels = confidenceLevels
+	const simpleScale: Array<{ name: string; rx: RegExp }> = [
+		{ name: "Speculative", rx: /\bspeculative\b/i },
+		{ name: "Supported", rx: /\bsupported\b/i },
+		{ name: "Settled", rx: /\bsettled\b/i },
+	];
+	const requiredScale = complexity === "simple" ? simpleScale : fullScale;
+	const scaleLabel = complexity === "simple" ? "3-level (simple)" : "5-level";
+	const missingLevels = requiredScale
 		.filter(({ rx }) => !rx.test(contents))
 		.map(({ name }) => name);
 	if (missingLevels.length > 0) {
 		return {
 			pass: false,
 			score: 0,
-			reason: `confidence-report.md missing confidence levels (Stage 5 requires all five): ${missingLevels.join(", ")}`,
+			reason: `confidence-report.md missing confidence levels (${scaleLabel} required for COMPLEXITY=${complexity}): ${missingLevels.join(", ")}`,
 		};
 	}
-	const stages = [
-		"constitutional-checklist",
-		"fallibilist-overlay",
-		"epistemic-stance",
-		"popper-patterns",
-		"confidence-schema",
-		"prompt-validation",
-	];
-	const missingStages = stages.filter((s) => !contents.includes(s));
+	// Stage scoring: `simple` skips Stage 4 so popper-patterns scoring is not
+	// required. All other stages are still mandatory.
+	const requiredStages =
+		complexity === "simple"
+			? [
+					"constitutional-checklist",
+					"fallibilist-overlay",
+					"epistemic-stance",
+					"confidence-schema",
+					"prompt-validation",
+				]
+			: [
+					"constitutional-checklist",
+					"fallibilist-overlay",
+					"epistemic-stance",
+					"popper-patterns",
+					"confidence-schema",
+					"prompt-validation",
+				];
+	const missingStages = requiredStages.filter((s) => !contents.includes(s));
 	if (missingStages.length > 0) {
 		return {
 			pass: false,
@@ -1320,7 +1367,7 @@ export const assertCreatePromptEpistemic: AssertionFunction = (
 	return {
 		pass: true,
 		score: 1,
-		reason: "confidence-report.md declares stance, 5-level schema, and all six stage scores",
+		reason: `confidence-report.md declares stance, ${scaleLabel} schema, and all ${requiredStages.length} required stage scores`,
 	};
 };
 

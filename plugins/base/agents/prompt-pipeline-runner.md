@@ -1,7 +1,7 @@
 ---
 name: prompt-pipeline-runner
 description: Executes the six-stage prompt-writer pipeline and produces three mandatory output artifacts (ready-to-run prompt, eval scaffold, confidence report)
-tools: Read
+tools: Read, Bash
 model: inherit
 arguments:
   - name: PROMPT_NAME
@@ -22,6 +22,15 @@ arguments:
       - "orchestrator"
       - "interactive-skill"
       - "kb-investigator"
+  - name: COMPLEXITY
+    type: enum
+    required: false
+    default: "standard"
+    description: "Scaffolding size. Controls Stage 4 skip and Stage 5 scale trim."
+    enum_values:
+      - "simple"
+      - "standard"
+      - "complex"
   - name: PROJECT_ROOT
     type: string
     required: true
@@ -45,6 +54,10 @@ arguments:
 <agent_type>
 {{AGENT_TYPE from prompt}}
 </agent_type>
+
+<complexity>
+{{COMPLEXITY from prompt}}
+</complexity>
 
 <project_root>
 {{PROJECT_ROOT from prompt}}
@@ -103,19 +116,20 @@ Execute all six stages in the exact order below. Do NOT skip, reorder, or parall
 ### Stage 4: Popper Patterns
 
 1. Read `{PIPE_DIR}/popper-patterns.md`
-2. Follow the Process section exactly:
+2. If `COMPLEXITY=simple`: **skip this stage**. Emit zero patterns. Record the skip in the stage log and hand off to Stage 5 with no popper-patterns contribution.
+3. Otherwise follow the Process section exactly:
    - Review all 11 patterns in the library
-   - Select 3-7 patterns based on DESCRIPTION, epistemic stance, and AGENT_TYPE
+   - Select 3-5 (for `standard`) or 3-7 (for `complex`) patterns based on DESCRIPTION, epistemic stance, and AGENT_TYPE
    - Compose injectable directives tailored to DESCRIPTION for each selected pattern
    - Order from most universally applicable to most domain-specific
-3. **Accumulate**: previous context + selected Popper-Deutsch patterns
+4. **Accumulate**: previous context + selected Popper-Deutsch patterns (empty set for `simple`)
 
 ### Stage 5: Confidence Schema
 
 1. Read `{PIPE_DIR}/confidence-schema.md`
 2. Follow the Process section exactly:
-   - Embed the 5-level ordinal scale (Speculative through Settled)
-   - Include the migration table mapping legacy rp1 idioms
+   - For `COMPLEXITY=simple`: embed the 3-level trim (Speculative, Supported, Settled)
+   - For `standard`/`complex`: embed the full 5-level ordinal scale (Speculative through Settled)
    - Compose domain-specific examples for each level based on DESCRIPTION
    - Specify marking requirements (MUST/SHOULD/MAY) for the agent's domain
 3. **Accumulate**: previous context + confidence schema with marking requirements
@@ -125,10 +139,23 @@ Execute all six stages in the exact order below. Do NOT skip, reorder, or parall
 1. Read `{REFS_DIR}/tersify.md`
 2. Read `{PIPE_DIR}/prompt-validation.md`
 3. Follow the Process section exactly:
-   - **Phase 1**: Assemble accumulated Stages 1-5 output into a complete prompt draft with YAML frontmatter, all constitutional directives, overlay, stance, patterns, and confidence schema
-   - **Phase 2**: Run 3-axis validation (style, constitutional, epistemic) per the check tables in the stage file
+   - **Phase 1**: Assemble accumulated Stages 1-5 output into a complete prompt draft with YAML frontmatter, all constitutional directives, overlay, stance, patterns, and confidence schema. The draft MUST include a `## Runtime Contract` section listing every external shell command the generated skill plans to invoke (one per line, in the form that appears in the body). If the skill invokes no external commands, the section reads "none".
+   - **Phase 1.5 (Runtime Grounding)**: for each command line in the `## Runtime Contract` section, run it with `--help` via Bash and confirm exit code 0. Any non-zero exit signals the command path is wrong or the tool does not exist; rewrite the invocation in the draft against the correct path (e.g., `rp1 mmd-validate` -> `rp1 agent-tools mmd-validate`) or, if no working path is discoverable, remove the invocation from the body and re-draft the affected section. Re-run grounding until all contract lines return exit 0. This check is tool-agnostic -- it applies to any referenced command, not just `rp1`.
+   - **Phase 2**: Run 4-axis validation (style, constitutional, epistemic, runtime) per the check tables in the stage file. The runtime axis verifies the `## Runtime Contract` section matches commands in the body AND state-machine consistency (see §STATE-MACHINE CONSISTENCY below).
    - **Phase 3**: Remediate any failures. Re-validate. Report persistent deficiencies.
    - **Phase 4**: Generate all three output artifacts per the stage's artifact specifications
+
+## STATE-MACHINE CONSISTENCY (Stage 6, Runtime axis)
+
+When the generated draft emits `rp1 agent-tools emit --step X ...`:
+
+1. There MUST be a `## STATE-MACHINE` section in the draft with a ` ```mermaid\nstateDiagram-v2 ... ``` ` block that declares `X` as a state.
+2. Every `rp1 agent-tools emit` in the draft MUST include `--run-id {RUN_ID}` (literal placeholder or a resolved identifier).
+3. Every `--step` value must be declared in the state diagram. Bare step names without a corresponding state are rejected.
+
+If the skill has no reason for a state machine (e.g., a simple one-shot validator wrapper), it MUST NOT emit any `rp1 agent-tools emit --step ...` at all. State-machine scaffolding is only valid when the skill is a tracked workflow.
+
+A Stage 6 failure on the runtime axis is remediated by either adding the missing state-machine block + run-id, or stripping the emits entirely.
 
 ## HARD RULES
 
