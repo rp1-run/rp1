@@ -1311,8 +1311,26 @@ export const assertCreatePromptEpistemic: AssertionFunction = (
 	}
 	// COMPLEXITY gates the confidence-scale expectation. simple = 3 levels
 	// (Speculative, Supported, Settled). standard/complex = full 5 levels.
-	const complexity =
+	// When the incoming test var is `auto` (or unset), parse the effective
+	// complexity out of the Complexity Classification section of the
+	// generated report (the runner records it there in Stage 0.5).
+	const incomingComplexity =
 		(context.vars?.COMPLEXITY as string | undefined) ?? "standard";
+	let complexity = incomingComplexity;
+	if (incomingComplexity === "auto") {
+		const match = contents.match(
+			/\*\*Complexity\*\*:\s*(simple|standard|complex)\b/i,
+		);
+		if (!match) {
+			return {
+				pass: false,
+				score: 0,
+				reason:
+					"COMPLEXITY=auto but confidence-report.md has no `**Complexity**: <value>` line in the Complexity Classification section (runner Stage 0.5 did not record its decision)",
+			};
+		}
+		complexity = match[1].toLowerCase();
+	}
 	const fullScale: Array<{ name: string; rx: RegExp }> = [
 		{ name: "Speculative", rx: /\bspeculative\b/i },
 		{ name: "Provisional", rx: /\bprovisional\b/i },

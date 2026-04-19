@@ -144,6 +144,33 @@ tests:
         value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptEpistemic
 
   # ─────────────────────────────────────────────────────────────────────
+  # Test 4a: COMPLEXITY=auto on a clearly-simple DESCRIPTION. The runner's
+  # Stage 0.5 classifier must detect the "validator" + "wrapper" + "single-pass"
+  # keywords and pick `simple`. Epistemic assertion parses the effective
+  # complexity out of the report.
+  # ─────────────────────────────────────────────────────────────────────
+  - description: "auto_classifier_detects_simple"
+    vars:
+      PROMPT_NAME: "test-auto-simple"
+      DESCRIPTION: "A leaf-worker validator wrapper that scans a markdown file for mermaid code blocks and reports errors in a single-pass, read-only way"
+      AGENT_TYPE: "leaf-worker"
+      COMPLEXITY: "auto"
+    threshold: 1.0
+    assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertOrchestratorSpawnedPipelineRunner
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptThreeArtifacts
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptFilesOnDisk
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptConstitutional
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptStructural
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptEpistemic
+
+  # ─────────────────────────────────────────────────────────────────────
   # Test 4: COMPLEXITY=simple -- Stage 4 (popper-patterns) is skipped and
   # Stage 5 emits the 3-level trim. Epistemic assertion reads COMPLEXITY
   # from vars and adjusts its required level list.

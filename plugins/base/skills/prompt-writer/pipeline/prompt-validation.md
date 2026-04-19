@@ -225,8 +225,11 @@ A structured report scoring the prompt against each pipeline stage and every val
 ```markdown
 # Confidence & Epistemic Report: {PROMPT_NAME}
 
-**Complexity**: {COMPLEXITY}
 **Agent type**: {AGENT_TYPE}
+
+## Complexity Classification
+
+**Complexity**: {effective_complexity} ({"explicit" when incoming COMPLEXITY was simple/standard/complex; "auto-detected: <matched indicators>, word count <N>" when incoming was auto})
 
 ## Pipeline Stage Scoring
 

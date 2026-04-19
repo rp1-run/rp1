@@ -38,9 +38,10 @@ metadata:
     - name: COMPLEXITY
       type: enum
       required: false
-      default: "standard"
-      description: "Scaffolding size. simple = skip popper-patterns, trim confidence schema to 3 levels. standard = full pipeline. complex = full pipeline with wider pattern and stance exploration."
+      default: "auto"
+      description: "Scaffolding size. auto (default) = runner classifies DESCRIPTION and picks simple/standard/complex using keyword+word-count heuristics. simple = skip popper-patterns, trim confidence schema to 3 levels. standard = full pipeline. complex = full pipeline with wider pattern and stance exploration. Pass an explicit non-auto value to override the classifier."
       enum_values:
+        - auto
         - simple
         - standard
         - complex
@@ -226,9 +227,9 @@ rp1 agent-tools emit \
 
 **Prompt**: {PROMPT_NAME}
 **Agent Type**: {AGENT_TYPE}
-**Complexity**: {COMPLEXITY}
+**Complexity**: {effective_complexity from the confidence report's Complexity Classification section} ({"explicit" if COMPLEXITY was simple/standard/complex; "auto-detected" if COMPLEXITY was auto})
 **Target**: {PLUGIN} (written to `{REL_DIR}/`)
-**Pipeline**: constitutional-checklist -> fallibilist-overlay -> epistemic-stance -> popper-patterns{% if COMPLEXITY == "simple" %} (skipped){% endif %} -> confidence-schema -> prompt-validation
+**Pipeline**: constitutional-checklist -> fallibilist-overlay -> epistemic-stance -> popper-patterns{% if effective_complexity == "simple" %} (skipped){% endif %} -> confidence-schema -> prompt-validation
 
 **Artifacts**:
 - `{REL_DIR}/SKILL.md` -- Ready-to-run prompt with constitutional governance and epistemic stance

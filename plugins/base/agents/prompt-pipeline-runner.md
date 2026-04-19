@@ -25,9 +25,10 @@ arguments:
   - name: COMPLEXITY
     type: enum
     required: false
-    default: "standard"
-    description: "Scaffolding size. Controls Stage 4 skip and Stage 5 scale trim."
+    default: "auto"
+    description: "Scaffolding size. auto (default) classifies DESCRIPTION via deterministic heuristics in Stage 0.5. Explicit simple/standard/complex overrides the classifier."
     enum_values:
+      - "auto"
       - "simple"
       - "standard"
       - "complex"
@@ -81,6 +82,38 @@ arguments:
 
 Execute all six stages in the exact order below. Do NOT skip, reorder, or parallelize stages.
 
+### Stage 0.5: COMPLEXITY Classification
+
+If the incoming `COMPLEXITY` is `simple`, `standard`, or `complex`, record it as the **effective complexity** and skip to Stage 1. This lets callers override the classifier explicitly.
+
+If the incoming `COMPLEXITY` is `auto`, run this deterministic classifier on `DESCRIPTION`:
+
+1. **Normalize** `DESCRIPTION` to lowercase. Tokenize on whitespace to compute a `word_count`.
+
+2. **Scan for simple indicators** (case-insensitive substring match against the normalized DESCRIPTION). Any one hit classifies as `simple_candidate`:
+   - `wrapper`, `validator`, `checker`, `formatter`, `converter`, `linter`, `scanner`, `parser`
+   - `one-shot`, `single-shot`, `one shot`, `single shot`, `one-pass`, `single-pass`, `single pass`
+   - `read-only`, `pass-through`, `no side effects`, `no side-effects`
+   - Word count `<= 20`
+
+3. **Scan for complex indicators**. Any one hit classifies as `complex_candidate`:
+   - `orchestrat` (matches `orchestrate`, `orchestrator`, `orchestrating`)
+   - `coordinate`, `multi-step`, `multi-phase`, `multi step`, `multi phase`
+   - `pipeline` (when the described skill IS a pipeline, not just mentions one)
+   - `workflow`, `lifecycle`, `aggregate`, `aggregates`
+   - `dispatches`, `delegates to`, `sequence of`, `chain of`, `chains` (verb)
+   - Word count `> 60`
+
+4. **Resolve**:
+   - Both `simple_candidate` AND `complex_candidate` true -> **`standard`** (ambiguity wins toward the safe middle).
+   - Only `simple_candidate` -> **`simple`**.
+   - Only `complex_candidate` -> **`complex`**.
+   - Neither -> **`standard`**.
+
+5. **Record** the effective complexity AND the classifier inputs (which indicators matched, word count) for inclusion in the confidence report's Complexity Classification section. The final line in that section MUST read either `**Complexity**: X (auto-detected: <matched indicators or "no indicators">, word count Y)` or `**Complexity**: X (explicit)`.
+
+The effective complexity (not the incoming `COMPLEXITY`) governs Stage 4 skip, Stage 5 scale, and Stage 6 axis expectations for the rest of the run.
+
 ### Stage 1: Constitutional Checklist
 
 1. Read `{REFS_DIR}/constitution.md`
@@ -116,19 +149,19 @@ Execute all six stages in the exact order below. Do NOT skip, reorder, or parall
 ### Stage 4: Popper Patterns
 
 1. Read `{PIPE_DIR}/popper-patterns.md`
-2. If `COMPLEXITY=simple`: **skip this stage**. Emit zero patterns. Record the skip in the stage log and hand off to Stage 5 with no popper-patterns contribution.
+2. If the effective complexity from Stage 0.5 is `simple`: **skip this stage**. Emit zero patterns. Record the skip in the stage log and hand off to Stage 5 with no popper-patterns contribution.
 3. Otherwise follow the Process section exactly:
    - Review all 11 patterns in the library
    - Select 3-5 (for `standard`) or 3-7 (for `complex`) patterns based on DESCRIPTION, epistemic stance, and AGENT_TYPE
    - Compose injectable directives tailored to DESCRIPTION for each selected pattern
    - Order from most universally applicable to most domain-specific
-4. **Accumulate**: previous context + selected Popper-Deutsch patterns (empty set for `simple`)
+4. **Accumulate**: previous context + selected Popper-Deutsch patterns (empty set when simple)
 
 ### Stage 5: Confidence Schema
 
 1. Read `{PIPE_DIR}/confidence-schema.md`
 2. Follow the Process section exactly:
-   - For `COMPLEXITY=simple`: embed the 3-level trim (Speculative, Supported, Settled)
+   - If the effective complexity is `simple`: embed the 3-level trim (Speculative, Supported, Settled)
    - For `standard`/`complex`: embed the full 5-level ordinal scale (Speculative through Settled)
    - Compose domain-specific examples for each level based on DESCRIPTION
    - Specify marking requirements (MUST/SHOULD/MAY) for the agent's domain
@@ -256,8 +289,11 @@ A structured markdown report scoring the prompt against each pipeline stage.
 <<<REPORT
 # Confidence & Epistemic Report: {PROMPT_NAME}
 
-**Complexity**: {COMPLEXITY}
 **Agent type**: {AGENT_TYPE}
+
+## Complexity Classification
+
+**Complexity**: {effective_complexity} ({"explicit" when incoming COMPLEXITY was simple/standard/complex; otherwise "auto-detected: <comma-separated matched indicators or 'no indicators'>, word count <N>"})
 
 ## Pipeline Stage Scoring
 
