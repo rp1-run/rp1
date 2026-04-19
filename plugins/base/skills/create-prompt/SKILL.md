@@ -75,7 +75,7 @@ metadata:
 
 Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
 
-**Prompt-writer skill dir**: `{projectRoot}/plugins/base/skills/prompt-writer/`
+**Prompt-writer access**: the `prompt-pipeline-runner` agent invokes `rp1-base:prompt-writer` via the Skill tool to reach its reference and pipeline files. This orchestrator does not need to know prompt-writer's installed path -- the host resolves it by skill name.
 
 **Output dir** depends on `PLUGIN`:
 
@@ -140,10 +140,10 @@ rp1 agent-tools emit \
 **Spawn agent -- do NOT create prompt content yourself:**
 
 {% dispatch_agent "rp1-base:prompt-pipeline-runner" %}
-PROMPT_NAME={PROMPT_NAME}, DESCRIPTION={DESCRIPTION}, AGENT_TYPE={AGENT_TYPE}, COMPLEXITY={COMPLEXITY}, PROJECT_ROOT={projectRoot}
+PROMPT_NAME={PROMPT_NAME}, DESCRIPTION={DESCRIPTION}, AGENT_TYPE={AGENT_TYPE}, COMPLEXITY={COMPLEXITY}
 {% enddispatch_agent %}
 
-The agent executes the six-stage prompt-writer pipeline in fixed order (constitutional-checklist -> fallibilist-overlay -> epistemic-stance -> popper-patterns -> confidence-schema -> prompt-validation) via progressive disclosure. It reads each stage file from `plugins/base/skills/prompt-writer/pipeline/` and each reference file from `plugins/base/skills/prompt-writer/references/` on demand.
+The agent executes the six-stage prompt-writer pipeline in fixed order (constitutional-checklist -> fallibilist-overlay -> epistemic-stance -> popper-patterns -> confidence-schema -> prompt-validation) via progressive disclosure. It invokes `rp1-base:prompt-writer` via the Skill tool at Stage 0 and reads each stage/reference file via the paths in prompt-writer's manifest (`pipeline/*.md`, `references/*.md`).
 
 **Parse response**: The agent returns three artifacts as fenced content blocks:
 
