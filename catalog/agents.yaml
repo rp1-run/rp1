@@ -46,7 +46,7 @@ agents:
   - name: rp1-base:prompt-pipeline-runner
     description: "Executes the six-stage prompt-writer pipeline and produces three mandatory output artifacts (ready-to-run prompt, eval scaffold, confidence report)"
     plugin: base
-    last_checksum: 22dd9e4922c70b9fa17376a6dec0cc39e3094ddfc82cf13d019570409803d5a8
+    last_checksum: eb3f193318137ad665b5cd294c2e47c8c1ef5630a6e993bfba5df8f2bf96b09c
   - name: rp1-base:research-explorer
     description: "Deep exploration of codebases or web resources, returning structured JSON findings with evidence"
     plugin: base

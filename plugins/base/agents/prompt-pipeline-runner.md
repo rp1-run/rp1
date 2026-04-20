@@ -1,7 +1,7 @@
 ---
 name: prompt-pipeline-runner
 description: Executes the six-stage prompt-writer pipeline and produces three mandatory output artifacts (ready-to-run prompt, eval scaffold, confidence report)
-tools: Read
+tools: Read, Bash
 model: inherit
 arguments:
   - name: PROMPT_NAME
@@ -52,9 +52,25 @@ arguments:
 
 ## CONFIG
 
+**SKILL_DIR resolution** (run ONCE via Bash before any Read; keep the resolved absolute path for the remainder of the pipeline):
+
+```bash
+if [ -n "$CLAUDE_PLUGIN_ROOT" ] && [ -d "$CLAUDE_PLUGIN_ROOT/skills/prompt-writer" ]; then
+  SKILL_DIR="$CLAUDE_PLUGIN_ROOT/skills/prompt-writer"
+elif [ -d "{CODE_ROOT}/plugins/base/skills/prompt-writer" ]; then
+  SKILL_DIR="{CODE_ROOT}/plugins/base/skills/prompt-writer"
+else
+  echo "ERROR: cannot locate rp1-base:prompt-writer skill directory. Checked \$CLAUDE_PLUGIN_ROOT/skills/prompt-writer and {CODE_ROOT}/plugins/base/skills/prompt-writer." >&2
+  exit 1
+fi
+printf '%s\n' "$SKILL_DIR"
+```
+
+Substitute the printed path for `{SKILL_DIR}` wherever it appears below. If resolution fails, abort the pipeline with the error message — do not emit partial artifacts (BR-03).
+
 | Param | Value |
 |-------|-------|
-| **SKILL_DIR** | `{CODE_ROOT}/plugins/base/skills/prompt-writer` |
+| **SKILL_DIR** | resolved above (installed plugin path, else rp1 source tree) |
 | **REFS_DIR** | `{SKILL_DIR}/references` |
 | **PIPE_DIR** | `{SKILL_DIR}/pipeline` |
 

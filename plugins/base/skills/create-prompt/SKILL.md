@@ -55,7 +55,7 @@ metadata:
 
 Use the pre-resolved `projectRoot`, `kbRoot`, `workRoot`, and `codeRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
 
-**Prompt-writer skill dir**: `{codeRoot}/plugins/base/skills/prompt-writer/` (read from invoking checkout so worktree edits are respected)
+**Prompt-writer skill dir**: resolved by the pipeline-runner agent at runtime — `${CLAUDE_PLUGIN_ROOT}/skills/prompt-writer/` when invoked through an installed Claude Code plugin, falling back to `{codeRoot}/plugins/base/skills/prompt-writer/` for rp1 source-tree (dev) runs so worktree edits are respected. The orchestrator does not hardcode either path.
 
 **Output dir**: `{codeRoot}/{PROMPT_NAME}/` (created by this orchestrator before writing artifacts)
 
