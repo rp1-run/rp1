@@ -22,6 +22,7 @@ import {
 	getAnnotations,
 	reopenAnnotation,
 	resolveAnnotation,
+	runOrphanDetectionForDoc,
 	updateAnnotation,
 } from "../annotation-service";
 import type { WebSocketHub } from "../websocket";
@@ -231,6 +232,9 @@ export async function handleAnnotationCreateRequest(
 
 		ctx.websocketHub?.broadcastAnnotationCreated(annotation);
 
+		// Run orphan detection after creating a new annotation
+		await runOrphanDetectionForDoc(db, annotation.docId);
+
 		return jsonResponse(annotation, 201);
 	} catch (error) {
 		return handleServiceError(error);
@@ -296,6 +300,9 @@ export async function handleAnnotationUpdateRequest(
 
 		ctx.websocketHub?.broadcastAnnotationUpdated(annotation);
 
+		// Run orphan detection after updating an annotation
+		await runOrphanDetectionForDoc(db, annotation.docId);
+
 		return jsonResponse(annotation);
 	} catch (error) {
 		return handleServiceError(error);
@@ -314,6 +321,12 @@ export async function handleAnnotationResolveRequest(
 		resolveAnnotation(db, id);
 
 		ctx.websocketHub?.broadcastAnnotationResolved(id);
+
+		// Run orphan detection after resolving an annotation
+		const resolved = getAnnotation(db, id);
+		if (resolved) {
+			await runOrphanDetectionForDoc(db, resolved.docId);
+		}
 
 		return jsonResponse({ resolved: true });
 	} catch (error) {
@@ -335,6 +348,9 @@ export async function handleAnnotationReopenRequest(
 		const annotation = getAnnotation(db, id);
 		if (annotation) {
 			ctx.websocketHub?.broadcastAnnotationUpdated(annotation);
+
+			// Run orphan detection after reopening an annotation
+			await runOrphanDetectionForDoc(db, annotation.docId);
 		}
 
 		return jsonResponse({ reopened: true });
@@ -352,9 +368,19 @@ export async function handleAnnotationDeleteRequest(
 ): Promise<Response> {
 	try {
 		const db = await getDb();
+
+		// Capture docId before deletion for orphan detection
+		const toDelete = getAnnotation(db, id);
+		const docId = toDelete?.docId;
+
 		deleteAnnotation(db, id);
 
 		ctx.websocketHub?.broadcastAnnotationDeleted(id);
+
+		// Run orphan detection after deleting an annotation
+		if (docId) {
+			await runOrphanDetectionForDoc(db, docId);
+		}
 
 		return jsonResponse({ deleted: true });
 	} catch (error) {
@@ -388,6 +414,12 @@ export async function handleAnnotationReplyRequest(
 		const reply = addReply(db, id, replyRequest);
 
 		ctx.websocketHub?.broadcastAnnotationReplyAdded(id, reply);
+
+		// Run orphan detection after adding a reply
+		const parent = getAnnotation(db, id);
+		if (parent) {
+			await runOrphanDetectionForDoc(db, parent.docId);
+		}
 
 		return jsonResponse(reply, 201);
 	} catch (error) {

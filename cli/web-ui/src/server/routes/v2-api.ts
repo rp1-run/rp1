@@ -70,6 +70,7 @@ import type {
 	Step,
 	StepStatus,
 } from "../../types/runs";
+import { detectOrphanedAnnotations } from "../annotation-service";
 import { reclassifyInactiveRunsWithBroadcast } from "../inactive-runs";
 import { buildProjectLookup, findProjectByIdentity } from "../project-lookup";
 import {
@@ -1517,6 +1518,7 @@ export async function handleV2ArtifactContentRequest(
 				}
 
 				const content = await Bun.file(resolvedPath).text();
+				detectOrphanedAnnotations(db, artifactRecord.docId, content);
 				return jsonResponse({ content });
 			}
 		}
@@ -1527,6 +1529,9 @@ export async function handleV2ArtifactContentRequest(
 		);
 		if (scopedPath) {
 			const content = await Bun.file(scopedPath).text();
+			if (artifactRecord) {
+				detectOrphanedAnnotations(db, artifactRecord.docId, content);
+			}
 			return jsonResponse({ content });
 		}
 
@@ -1544,6 +1549,9 @@ export async function handleV2ArtifactContentRequest(
 			for (const candidate of fallbackCandidates) {
 				if (await Bun.file(candidate).exists()) {
 					const content = await Bun.file(candidate).text();
+					if (artifactRecord) {
+						detectOrphanedAnnotations(db, artifactRecord.docId, content);
+					}
 					return jsonResponse({ content });
 				}
 			}
@@ -1583,6 +1591,7 @@ export async function handleV2ArtifactContentRequest(
 					);
 				}
 				const content = await Bun.file(resolvedPath).text();
+				detectOrphanedAnnotations(db, artifactRow.doc_id, content);
 				return jsonResponse({ content });
 			}
 		}

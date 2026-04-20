@@ -15,6 +15,7 @@ import {
 	getAnnotationById,
 	getAnnotationsForDocId,
 	getAnnotationsForRun,
+	getArtifactByDocId,
 	upsertAnnotation,
 } from "../../../src/agent-tools/emit/database.js";
 import type {
@@ -27,6 +28,10 @@ import type {
 	LineAnchor,
 	TextSelectionAnchor,
 } from "../types/annotations";
+import {
+	resolveArtifactAbsolutePath,
+	resolveProjectDirectories,
+} from "./project-paths";
 
 /**
  * Error types for annotation operations.
@@ -470,6 +475,59 @@ export function detectOrphanedAnnotations(
 				data: JSON.stringify(updatedData),
 			});
 		}
+	}
+}
+
+/**
+ * Load the current file content for an artifact identified by doc_id.
+ * Looks up the artifact record, resolves its absolute path, and reads the file.
+ * Returns null if the artifact is not found or the file cannot be read.
+ */
+export async function loadContentForDocId(
+	db: Database,
+	docId: string,
+): Promise<string | null> {
+	const artifact = getArtifactByDocId(db, docId);
+	if (!artifact) {
+		return null;
+	}
+
+	const directories = resolveProjectDirectories(artifact.projectPath);
+	const absolutePath = resolveArtifactAbsolutePath(directories, artifact);
+
+	try {
+		const file = Bun.file(absolutePath);
+		if (!(await file.exists())) {
+			return null;
+		}
+		return await file.text();
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Run orphan detection for a given doc_id by loading the artifact's current
+ * file content and calling detectOrphanedAnnotations.
+ * Logs a warning and returns silently if content cannot be loaded.
+ */
+export async function runOrphanDetectionForDoc(
+	db: Database,
+	docId: string,
+): Promise<void> {
+	try {
+		const content = await loadContentForDocId(db, docId);
+		if (content === null) {
+			console.warn(
+				`[orphan-detection] Could not load content for doc ${docId}, skipping detection`,
+			);
+			return;
+		}
+		detectOrphanedAnnotations(db, docId, content);
+	} catch (error) {
+		console.warn(
+			`[orphan-detection] Failed for doc ${docId}: ${String(error)}`,
+		);
 	}
 }
 
