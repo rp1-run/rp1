@@ -35,6 +35,10 @@ metadata:
         - orchestrator
         - interactive-skill
         - kb-investigator
+    - name: OUTPUT_DIR
+      type: string
+      required: false
+      description: "Directory to write the new prompt into. Defaults to {codeRoot}/{PROMPT_NAME}/ when omitted. Absolute paths are used as-is; relative paths resolve against codeRoot."
     - name: AFK
       type: boolean
       required: false
@@ -55,9 +59,14 @@ metadata:
 
 Use the pre-resolved `projectRoot`, `kbRoot`, `workRoot`, and `codeRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
 
-**Prompt-writer skill dir**: resolved by the pipeline-runner agent at runtime — `${CLAUDE_PLUGIN_ROOT}/skills/prompt-writer/` when invoked through an installed Claude Code plugin, falling back to `{codeRoot}/plugins/base/skills/prompt-writer/` for rp1 source-tree (dev) runs so worktree edits are respected. The orchestrator does not hardcode either path.
+**Pipeline inputs**: The pipeline-runner agent reads stage and reference files directly from the `rp1-base:prompt-writer` skill via its packaged-skill manifest. The orchestrator passes no input paths.
 
-**Output dir**: `{codeRoot}/{PROMPT_NAME}/` (created by this orchestrator before writing artifacts)
+**Output dir (`OUT_DIR`)**: Resolve once, then use for every write and registration:
+- If `OUTPUT_DIR` is an absolute path -> `OUT_DIR = OUTPUT_DIR`
+- If `OUTPUT_DIR` is a relative path -> `OUT_DIR = {codeRoot}/{OUTPUT_DIR}`
+- If `OUTPUT_DIR` is empty/unset -> `OUT_DIR = {codeRoot}/{PROMPT_NAME}`
+
+Create `OUT_DIR` before writing artifacts.
 
 ## STATE-MACHINE
 
@@ -111,10 +120,10 @@ rp1 agent-tools emit \
 **Spawn agent -- do NOT create prompt content yourself:**
 
 {% dispatch_agent "rp1-base:prompt-pipeline-runner" %}
-PROMPT_NAME={PROMPT_NAME}, DESCRIPTION={DESCRIPTION}, AGENT_TYPE={AGENT_TYPE}, CODE_ROOT={codeRoot}
+PROMPT_NAME={PROMPT_NAME}, DESCRIPTION={DESCRIPTION}, AGENT_TYPE={AGENT_TYPE}
 {% enddispatch_agent %}
 
-The agent executes the six-stage prompt-writer pipeline in fixed order (constitutional-checklist -> fallibilist-overlay -> epistemic-stance -> popper-patterns -> confidence-schema -> prompt-validation) via progressive disclosure. It reads each stage file from `plugins/base/skills/prompt-writer/pipeline/` and each reference file from `plugins/base/skills/prompt-writer/references/` on demand.
+The agent executes the six-stage prompt-writer pipeline in fixed order (constitutional-checklist -> fallibilist-overlay -> epistemic-stance -> popper-patterns -> confidence-schema -> prompt-validation) via progressive disclosure. It reads stage and reference files from the `rp1-base:prompt-writer` packaged skill; the Agent Skills harness resolves those paths -- the orchestrator does not supply a skill directory.
 
 **Parse response**: The agent returns three artifacts as fenced content blocks:
 
@@ -129,18 +138,18 @@ Validate the response:
 
 ## §STEP-2: Artifact Output
 
-Create the output directory and write artifacts:
+Create the resolved output directory and write artifacts:
 
 ```bash
-mkdir -p {codeRoot}/{PROMPT_NAME}
+mkdir -p {OUT_DIR}
 ```
 
 Write the three artifacts to disk:
-- `{codeRoot}/{PROMPT_NAME}/SKILL.md` -- Ready-to-run prompt
-- `{codeRoot}/{PROMPT_NAME}/evals.yaml` -- Eval scaffold
-- `{codeRoot}/{PROMPT_NAME}/confidence-report.md` -- Confidence/epistemic report
+- `{OUT_DIR}/SKILL.md` -- Ready-to-run prompt
+- `{OUT_DIR}/evals.yaml` -- Eval scaffold
+- `{OUT_DIR}/confidence-report.md` -- Confidence/epistemic report
 
-Register each artifact using absolute paths so the registered path matches the on-disk location regardless of invoking cwd or worktree:
+Register each artifact using the absolute path of `OUT_DIR` so the registered path matches the on-disk location regardless of invoking cwd or worktree:
 
 ```bash
 rp1 agent-tools emit \
@@ -148,7 +157,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step pipeline_start \
-  --data '{"path": "{codeRoot}/{PROMPT_NAME}/SKILL.md", "prompt_name": "{PROMPT_NAME}", "storageRoot": "absolute"}'
+  --data '{"path": "{OUT_DIR}/SKILL.md", "prompt_name": "{PROMPT_NAME}", "storageRoot": "absolute"}'
 ```
 
 ```bash
@@ -157,7 +166,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step pipeline_start \
-  --data '{"path": "{codeRoot}/{PROMPT_NAME}/evals.yaml", "prompt_name": "{PROMPT_NAME}", "storageRoot": "absolute"}'
+  --data '{"path": "{OUT_DIR}/evals.yaml", "prompt_name": "{PROMPT_NAME}", "storageRoot": "absolute"}'
 ```
 
 ```bash
@@ -166,7 +175,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step pipeline_start \
-  --data '{"path": "{codeRoot}/{PROMPT_NAME}/confidence-report.md", "prompt_name": "{PROMPT_NAME}", "storageRoot": "absolute"}'
+  --data '{"path": "{OUT_DIR}/confidence-report.md", "prompt_name": "{PROMPT_NAME}", "storageRoot": "absolute"}'
 ```
 
 ## §STEP-3: Completion
@@ -191,14 +200,16 @@ rp1 agent-tools emit \
 **Agent Type**: {AGENT_TYPE}
 **Pipeline**: constitutional-checklist -> fallibilist-overlay -> epistemic-stance -> popper-patterns -> confidence-schema -> prompt-validation
 
+**Output directory**: {OUT_DIR}
+
 **Artifacts**:
-- `{PROMPT_NAME}/SKILL.md` -- Ready-to-run prompt with constitutional governance and epistemic stance
-- `{PROMPT_NAME}/evals.yaml` -- promptfoo eval scaffold with rubric and structural assertions
-- `{PROMPT_NAME}/confidence-report.md` -- Per-stage confidence scoring and epistemic decisions
+- `{OUT_DIR}/SKILL.md` -- Ready-to-run prompt with constitutional governance and epistemic stance
+- `{OUT_DIR}/evals.yaml` -- promptfoo eval scaffold with rubric and structural assertions
+- `{OUT_DIR}/confidence-report.md` -- Per-stage confidence scoring and epistemic decisions
 
 **Next Steps**:
-- Review the generated prompt in `{PROMPT_NAME}/SKILL.md`
-- Run evals: `promptfoo eval -c {PROMPT_NAME}/evals.yaml`
+- Review the generated prompt in `{OUT_DIR}/SKILL.md`
+- Run evals: `promptfoo eval -c {OUT_DIR}/evals.yaml`
 - Move the prompt to its target plugin directory when satisfied
 ```
 
@@ -209,7 +220,7 @@ rp1 agent-tools emit \
 **DO**:
 - Spawn `prompt-pipeline-runner` for all prompt creation work
 - Wait for the agent to complete before writing artifacts
-- Write all three artifacts to `{codeRoot}/{PROMPT_NAME}/`
+- Write all three artifacts to `{OUT_DIR}/` (resolved per §CTX: `OUTPUT_DIR` argument, else `{codeRoot}/{PROMPT_NAME}/`)
 - Emit `artifact_registered` for each artifact after writing
 - Follow the state machine transitions exactly
 

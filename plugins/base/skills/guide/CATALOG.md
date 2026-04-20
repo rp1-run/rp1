@@ -99,5 +99,5 @@
 
 | Skill | Plugin | Description | Key Args | Workflow | Run Policy | Identity Args |
 |-------|--------|-------------|----------|----------|------------|---------------|
-| `/create-prompt` | base | Create a governed prompt with constitutional primitives, epistemic stance, and eval scaffold. | `PROMPT_NAME`, `DESCRIPTION`, `AGENT_TYPE`, `AFK` | Yes | fresh |  |
+| `/create-prompt` | base | Create a governed prompt with constitutional primitives, epistemic stance, and eval scaffold. | `PROMPT_NAME`, `DESCRIPTION`, `AGENT_TYPE`, `OUTPUT_DIR`, `AFK` | Yes | fresh |  |
 | `/prompt-writer` | base | Write maximally terse agent prompts from scratch. Use when creating new agent specs, command prompts, or instruction sets. Teaches structure-first composition with compression-by-default patterns. Extended with constitutional governance, epistemic stance selection, and a six-stage prompt pipeline. |  |  |  |  |
