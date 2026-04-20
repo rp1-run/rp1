@@ -11,7 +11,7 @@ arguments:
   - name: DESCRIPTION
     type: string
     required: true
-    description: "Description of the skill or agent to create"
+    description: "Description of the skill to create"
   - name: AGENT_TYPE
     type: enum
     required: false
@@ -22,10 +22,10 @@ arguments:
       - "orchestrator"
       - "interactive-skill"
       - "kb-investigator"
-  - name: PROJECT_ROOT
+  - name: CODE_ROOT
     type: string
     required: true
-    description: "Absolute project root path from orchestrator"
+    description: "Absolute invoking-checkout path from orchestrator (worktree-aware)"
 ---
 
 # Prompt Pipeline Runner
@@ -46,15 +46,15 @@ arguments:
 {{AGENT_TYPE from prompt}}
 </agent_type>
 
-<project_root>
-{{PROJECT_ROOT from prompt}}
-</project_root>
+<code_root>
+{{CODE_ROOT from prompt}}
+</code_root>
 
 ## CONFIG
 
 | Param | Value |
 |-------|-------|
-| **SKILL_DIR** | `{PROJECT_ROOT}/plugins/base/skills/prompt-writer` |
+| **SKILL_DIR** | `{CODE_ROOT}/plugins/base/skills/prompt-writer` |
 | **REFS_DIR** | `{SKILL_DIR}/references` |
 | **PIPE_DIR** | `{SKILL_DIR}/pipeline` |
 
@@ -192,7 +192,7 @@ providers:
   - file://../../providers/codex.yaml
 
 prompts:
-  - file://./{PROMPT_NAME}/SKILL.md
+  - file://./SKILL.md
 
 tests:
   # Constitutional assertions

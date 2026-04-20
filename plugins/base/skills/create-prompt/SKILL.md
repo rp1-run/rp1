@@ -23,7 +23,7 @@ metadata:
     - name: DESCRIPTION
       type: string
       required: true
-      description: "Description of the skill or agent to create"
+      description: "Description of the skill to create"
       variadic: true
     - name: AGENT_TYPE
       type: enum
@@ -53,11 +53,11 @@ metadata:
 
 ## §CTX
 
-Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
+Use the pre-resolved `projectRoot`, `kbRoot`, `workRoot`, and `codeRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
 
-**Prompt-writer skill dir**: `{projectRoot}/plugins/base/skills/prompt-writer/`
+**Prompt-writer skill dir**: `{codeRoot}/plugins/base/skills/prompt-writer/` (read from invoking checkout so worktree edits are respected)
 
-**Output dir**: `{cwd}/{PROMPT_NAME}/` (created by this orchestrator before writing artifacts)
+**Output dir**: `{codeRoot}/{PROMPT_NAME}/` (created by this orchestrator before writing artifacts)
 
 ## STATE-MACHINE
 
@@ -111,7 +111,7 @@ rp1 agent-tools emit \
 **Spawn agent -- do NOT create prompt content yourself:**
 
 {% dispatch_agent "rp1-base:prompt-pipeline-runner" %}
-PROMPT_NAME={PROMPT_NAME}, DESCRIPTION={DESCRIPTION}, AGENT_TYPE={AGENT_TYPE}, PROJECT_ROOT={projectRoot}
+PROMPT_NAME={PROMPT_NAME}, DESCRIPTION={DESCRIPTION}, AGENT_TYPE={AGENT_TYPE}, CODE_ROOT={codeRoot}
 {% enddispatch_agent %}
 
 The agent executes the six-stage prompt-writer pipeline in fixed order (constitutional-checklist -> fallibilist-overlay -> epistemic-stance -> popper-patterns -> confidence-schema -> prompt-validation) via progressive disclosure. It reads each stage file from `plugins/base/skills/prompt-writer/pipeline/` and each reference file from `plugins/base/skills/prompt-writer/references/` on demand.
@@ -132,15 +132,15 @@ Validate the response:
 Create the output directory and write artifacts:
 
 ```bash
-mkdir -p {cwd}/{PROMPT_NAME}
+mkdir -p {codeRoot}/{PROMPT_NAME}
 ```
 
 Write the three artifacts to disk:
-- `{cwd}/{PROMPT_NAME}/SKILL.md` -- Ready-to-run prompt
-- `{cwd}/{PROMPT_NAME}/evals.yaml` -- Eval scaffold
-- `{cwd}/{PROMPT_NAME}/confidence-report.md` -- Confidence/epistemic report
+- `{codeRoot}/{PROMPT_NAME}/SKILL.md` -- Ready-to-run prompt
+- `{codeRoot}/{PROMPT_NAME}/evals.yaml` -- Eval scaffold
+- `{codeRoot}/{PROMPT_NAME}/confidence-report.md` -- Confidence/epistemic report
 
-Register each artifact:
+Register each artifact using absolute paths so the registered path matches the on-disk location regardless of invoking cwd or worktree:
 
 ```bash
 rp1 agent-tools emit \
@@ -148,7 +148,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step pipeline_start \
-  --data '{"path": "{PROMPT_NAME}/SKILL.md", "prompt_name": "{PROMPT_NAME}", "storageRoot": "project"}'
+  --data '{"path": "{codeRoot}/{PROMPT_NAME}/SKILL.md", "prompt_name": "{PROMPT_NAME}", "storageRoot": "absolute"}'
 ```
 
 ```bash
@@ -157,7 +157,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step pipeline_start \
-  --data '{"path": "{PROMPT_NAME}/evals.yaml", "prompt_name": "{PROMPT_NAME}", "storageRoot": "project"}'
+  --data '{"path": "{codeRoot}/{PROMPT_NAME}/evals.yaml", "prompt_name": "{PROMPT_NAME}", "storageRoot": "absolute"}'
 ```
 
 ```bash
@@ -166,7 +166,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step pipeline_start \
-  --data '{"path": "{PROMPT_NAME}/confidence-report.md", "prompt_name": "{PROMPT_NAME}", "storageRoot": "project"}'
+  --data '{"path": "{codeRoot}/{PROMPT_NAME}/confidence-report.md", "prompt_name": "{PROMPT_NAME}", "storageRoot": "absolute"}'
 ```
 
 ## §STEP-3: Completion
@@ -209,7 +209,7 @@ rp1 agent-tools emit \
 **DO**:
 - Spawn `prompt-pipeline-runner` for all prompt creation work
 - Wait for the agent to complete before writing artifacts
-- Write all three artifacts to `{cwd}/{PROMPT_NAME}/`
+- Write all three artifacts to `{codeRoot}/{PROMPT_NAME}/`
 - Emit `artifact_registered` for each artifact after writing
 - Follow the state machine transitions exactly
 
