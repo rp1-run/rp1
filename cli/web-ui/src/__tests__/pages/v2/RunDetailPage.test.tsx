@@ -95,49 +95,57 @@ let run: Run = {
 	},
 };
 
-mock.module("@/hooks/useRunDetail", () => ({
-	useRunDetail: () => ({
-		run,
-		isLoading: false,
-		error: null,
-		refetch: refetchMock,
-	}),
-}));
+function applyRunDetailMocks() {
+	mock.module("@/hooks/useRunDetail", () => ({
+		useRunDetail: () => ({
+			run,
+			isLoading: false,
+			error: null,
+			refetch: refetchMock,
+		}),
+	}));
 
-mock.module("@/hooks/useWorkflowSteps", () => ({
-	commandToWorkflowName: () => "build-fast",
-	useWorkflowSteps: () => ({ isLoading: false }),
-}));
+	mock.module("@/hooks/useWorkflowSteps", () => ({
+		commandToWorkflowName: () => "build-fast",
+		useWorkflowSteps: () => ({ isLoading: false }),
+	}));
 
-mock.module("@/hooks/useBreadcrumbContext", () => ({
-	useBreadcrumbContext: () => breadcrumbApi,
-}));
+	mock.module("@/hooks/useBreadcrumbContext", () => ({
+		useBreadcrumbContext: () => breadcrumbApi,
+	}));
 
-mock.module("@/providers/WebSocketProvider", () => ({
-	useWebSocket: () => webSocketApi,
-}));
+	mock.module("@/providers/WebSocketProvider", () => ({
+		useWebSocket: () => webSocketApi,
+	}));
 
-mock.module("@/components/ui/resizable", () => ({
-	ResizablePanelGroup: ({ children }: { children?: ReactNode }) => (
-		<div>{children}</div>
-	),
-	ResizablePanel: ({ children }: { children?: ReactNode }) => (
-		<div>{children}</div>
-	),
-	ResizableHandle: () => <div data-testid="resizable-handle" />,
-}));
+	mock.module("@/components/ui/resizable", () => ({
+		ResizablePanelGroup: ({ children }: { children?: ReactNode }) => (
+			<div>{children}</div>
+		),
+		ResizablePanel: ({ children }: { children?: ReactNode }) => (
+			<div>{children}</div>
+		),
+		ResizableHandle: () => <div data-testid="resizable-handle" />,
+	}));
 
-mock.module("@/components/v2/VerticalStepList", () => ({
-	VerticalStepList: () => <div data-testid="step-list">Step list</div>,
-}));
+	mock.module("@/components/v2/VerticalStepList", () => ({
+		VerticalStepList: () => <div data-testid="step-list">Step list</div>,
+	}));
 
-mock.module("@/components/v2/ArtifactViewerPanel", () => ({
-	ArtifactViewerPanel: ({ showFrontmatter }: { showFrontmatter?: boolean }) => (
-		<div data-testid="artifact-panel-frontmatter">
-			{String(showFrontmatter ?? false)}
-		</div>
-	),
-}));
+	mock.module("@/components/v2/ArtifactViewerPanel", () => ({
+		ArtifactViewerPanel: ({
+			showFrontmatter,
+		}: {
+			showFrontmatter?: boolean;
+		}) => (
+			<div data-testid="artifact-panel-frontmatter">
+				{String(showFrontmatter ?? false)}
+			</div>
+		),
+	}));
+}
+
+applyRunDetailMocks();
 
 function RegistryProbe() {
 	latestRegistry = useShortcutRegistry();
@@ -201,6 +209,7 @@ async function renderRunDetail(
 describe("RunDetailPage", () => {
 	beforeEach(() => {
 		mock.restore();
+		applyRunDetailMocks();
 		document.body.innerHTML = "";
 		sessionStorage.clear();
 		latestRegistry = null;
@@ -305,10 +314,22 @@ describe("RunDetailPage", () => {
 		const headerRight = headerRightContent;
 		expect(headerRight).toBeTruthy();
 
-		const { container } = render(<>{headerRight}</>);
-		const cancelButton = container.querySelector("[aria-label='Cancel Run']");
+		const headerContainer = render(headerRight).container;
+		const cancelButton = headerContainer.querySelector(
+			"[aria-label='Cancel Run']",
+		);
 		expect(cancelButton).toBeTruthy();
 		fireEvent.click(cancelButton!);
+
+		const confirmButton = await waitFor(() => {
+			const buttons = Array.from(document.body.querySelectorAll("button"));
+			const match = buttons.find((b) => b.textContent?.trim() === "Confirm") as
+				| HTMLButtonElement
+				| undefined;
+			expect(match).toBeTruthy();
+			return match!;
+		});
+		fireEvent.click(confirmButton);
 
 		await waitFor(() => {
 			expect(fetchMock).toHaveBeenCalledWith("/api/v2/runs/run-1/end", {

@@ -198,6 +198,7 @@ metadata:
 				projectRoot?: string;
 				kbRoot?: string;
 				workRoot?: string;
+				codeRoot?: string;
 			};
 		};
 
@@ -205,6 +206,7 @@ metadata:
 			projectRoot: tempDir,
 			kbRoot: join(tempDir, ".rp1", "context"),
 			workRoot: join(tempDir, ".rp1", "work"),
+			codeRoot: tempDir,
 		});
 	});
 
@@ -231,6 +233,9 @@ metadata:
 		const canonicalMainRepoRoot = await realpath(mainRepoRoot).catch(
 			() => mainRepoRoot,
 		);
+		const canonicalLinkedWorktreePath = await realpath(
+			linkedWorktreePath,
+		).catch(() => linkedWorktreePath);
 
 		const result = await expectTaskRight(
 			execute(
@@ -265,6 +270,7 @@ metadata:
 				projectRoot?: string;
 				kbRoot?: string;
 				workRoot?: string;
+				codeRoot?: string;
 			};
 		};
 
@@ -272,6 +278,7 @@ metadata:
 			projectRoot: canonicalMainRepoRoot,
 			kbRoot: join(canonicalMainRepoRoot, ".rp1", "context"),
 			workRoot: join(canonicalMainRepoRoot, ".rp1", "work"),
+			codeRoot: canonicalLinkedWorktreePath,
 		});
 	});
 

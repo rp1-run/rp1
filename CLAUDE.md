@@ -53,79 +53,49 @@ that an rp1 skill addresses, briefly suggest it.
 - For deeper questions about rp1, suggest the user invoke /guide.
 <!-- rp1:end:v0.7.1 -->
 
-<!-- 1up:start:0.1.0 -->
-# 1up -- Agent Quick Reference
+<!-- 1up:start:0.1.7 -->
+# 1up — Agent Quick Reference
 
-IMPORTANT: Prefer `1up` over Grep/rg for code exploration in this project.
-`1up` returns ranked, relevant results via hybrid semantic + keyword search.
-Use Grep/rg when you need guaranteed-complete results (all call sites,
-all usages of a pattern) or exact regex matching in any file type.
+## Tool Selection
 
-## Prerequisites
+Pick by what you know, not by habit:
 
-Check repository health before searching:
-```
-1up status
-```
-Confirm the project is initialized, the index is built, and `Last file check` is recent.
-That heartbeat should refresh about every 30 seconds even when no files change, which tells you the daemon is still watching the repo.
-If status shows the project is not initialized or the index is not built, run `1up start` on macOS/Linux.
-On Windows or other local-mode platforms, run `1up init` and then `1up index .`.
+| You know... | Use | Reason |
+|---|---|---|
+| Concept, not files/keywords | `1up search` | Semantic search needs no vocabulary |
+| Symbol/keyword name | `1up symbol -r` or `grep` | Literal match = precise, low noise |
+| Keyword, need ALL instances | `grep` | Guaranteed-complete, best signal:noise |
+| Nothing (new codebase) | `1up search` | Works w/o prior knowledge |
+
+**Sub-agents**: Include this section in sub-agent prompts.
+
+## Setup
+
+`1up status` before searching. Confirm index built + `Last file check` recent (~30s refresh). If not initialized: `1up start` (macOS/Linux) or `1up init && 1up index .`.
 
 ## Commands
 
-### Semantic Search
 ```
-1up search "<query>" -n 5
-```
-Hybrid search combining vector similarity and keyword matching. Use for natural-language queries like "how does authentication work" or "error handling in the API layer".
-
-### Symbol Lookup
-```
-1up symbol <name> [--references]
-```
-Find definitions (and optionally all usages) of functions, types, and variables by name. Supports fuzzy matching. Use `-r` to include call sites.
-
-### Code Context
-```
-1up context <file>:<line>
-```
-Retrieve the enclosing scope (function, class, block) around a specific file location. Useful for understanding code from a search hit or stack trace.
-
-### Structural Search
-```
-1up structural "<tree-sitter-query>" [--language <lang>]
-```
-AST-pattern search using tree-sitter S-expression queries. Use for precise structural matches like "all functions returning Result".
-
-## Global Flags
-
-- `--format plain|json|human` -- output format (default: plain). Use `json` for structured data.
-- `-v` / `-vv` -- increase verbosity.
-
-## Recommended Workflow
-
-1. `1up search` for broad exploration by meaning or intent.
-2. `1up symbol` when you know (or partially know) a name.
-3. `1up context` to read surrounding code at a file:line.
-4. `1up structural` for AST-level pattern matching.
-
-For exact string/regex matches (error codes, UUIDs, config keys) or non-code files, grep/rg is fine.
-
-## Search-then-Verify Rule
-
-Semantic search ranks by relevance and may omit lower-scored matches. Never conclude "only one place" or "only N callers" from search alone.
-
-After discovering a symbol via `1up search`, always verify all locations with:
-```
-1up symbol -r <name>
+1up search "<query>" -n 5          # semantic + keyword hybrid
+1up symbol <name> [-r]             # def lookup; -r = all references
+1up context <file>:<line>          # enclosing scope at location
+1up impact --from-symbol <name>    # blast radius from symbol
+1up impact --from-file <path>      # blast radius from file
+1up impact --from-segment <id>     # blast radius from segment
+1up structural "<ts-query>"        # tree-sitter AST pattern search
 ```
 
-## Tips
+Flags: `--format plain|json|human` (default: plain), `-v`/`-vv`.
 
-- The index updates automatically via a background daemon.
-- Plain output is tab-delimited and machine-friendly.
-- Search results include file path, line range, block type, and relevance score.
+## Workflow
 
-For full 1up usage details, load the **1up-search** skill.
-<!-- 1up:end:0.1.0 -->
+1. `search` — explore by meaning/intent
+2. `symbol` — known or partial name lookup
+3. `context` — read scope at file:line
+4. `impact` — dependency/blast-radius analysis
+5. `structural` — AST-level pattern matching
+
+## Search-then-Verify
+
+Semantic search ranks by relevance; may omit matches. Never conclude "only N callers" from search alone. Verify completeness w/ `1up symbol -r <name>` or `grep`.
+<!-- 1up:end:0.1.7 -->

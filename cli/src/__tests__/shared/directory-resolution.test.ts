@@ -109,6 +109,7 @@ describe("directory resolution", () => {
 		expect(result.right.projectId).toBe("550e8400-e29b-41d4-a716-446655440000");
 		expect(result.right.kbRoot).toBe(join(projectRoot, ".rp1", "context"));
 		expect(result.right.workRoot).toBe(join(projectRoot, ".rp1", "work"));
+		expect(result.right.codeRoot).toBe(projectRoot);
 	});
 
 	test("kbRoot is always projectRoot/.rp1/context", () => {
@@ -136,6 +137,7 @@ describe("directory resolution", () => {
 		expect(result.right.projectId).toBe("660e8400-e29b-41d4-a716-446655440000");
 		expect(result.right.isWorktree).toBe(true);
 		expect(result.right.worktreeName).toBe("test-branch");
+		expect(result.right.codeRoot).toBe(linkedWorktreePath);
 	});
 
 	test("returns error when no .rp1 directory exists in git repo", () => {
@@ -287,6 +289,7 @@ describe("directory resolution", () => {
 
 			expect(result.right.projectRoot).toBe(backcompatProject);
 			expect(result.right.projectId).toBeUndefined();
+			expect(result.right.codeRoot).toBe(backcompatProject);
 			expect(consoleSpy.warned).toBe(true);
 		} finally {
 			console.warn = origWarn;
@@ -314,10 +317,27 @@ describe("directory resolution", () => {
 			);
 			expect(result.right.isWorktree).toBe(true);
 			expect(result.right.worktreeName).toBe("test-branch");
+			expect(result.right.codeRoot).toBe(linkedWorktreePath);
 		} finally {
 			// Clean up the worktree-local .rp1 directory
 			await rm(worktreeRp1Dir, { recursive: true, force: true });
 		}
+	});
+
+	test("codeRoot is always an absolute path", () => {
+		const result = resolveDirectorySet(nestedPath);
+		expect(E.isRight(result)).toBe(true);
+		if (E.isLeft(result)) return;
+
+		expect(result.right.codeRoot).toMatch(/^\//);
+		expect(result.right.codeRoot).not.toContain("..");
+
+		const worktreeResult = resolveDirectorySet(linkedWorktreePath);
+		expect(E.isRight(worktreeResult)).toBe(true);
+		if (E.isLeft(worktreeResult)) return;
+
+		expect(worktreeResult.right.codeRoot).toMatch(/^\//);
+		expect(worktreeResult.right.codeRoot).not.toContain("..");
 	});
 
 	test("settings.toml directory overrides are ignored", async () => {

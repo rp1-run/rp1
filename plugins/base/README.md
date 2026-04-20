@@ -13,10 +13,10 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 - Content writing
 - Shared skills for all plugins
 
-**Agents**: 12 specialized agents (5 for KB generation, 2 for deep research, 5 for docs/strategy/security/validation/scribe)
-**Skills**: 15 (10 user-facing commands, 5 shared capabilities)
+**Agents**: 13 specialized agents (5 for KB generation, 2 for deep research, 6 for docs/strategy/security/validation/scribe/prompt pipeline)
+**Skills**: 17 (11 user-facing commands, 6 shared capabilities)
 
-## Commands (9)
+## Commands (10)
 
 ### Knowledge Management
 - `/knowledge-build` - Parallel KB generation using map-reduce architecture with 6 agents (includes pattern extraction)
@@ -44,6 +44,12 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
   - **Usage**: `/fix-mermaid path/to/file.md` or `/fix-mermaid -` for stdin
   - **Requires**: Node.js (npx fetches @mermaid-js/mermaid-cli automatically)
 
+### Prompt Engineering
+- `/create-prompt <PROMPT_NAME> <DESCRIPTION> [--agent-type leaf-worker|orchestrator|interactive-skill|kb-investigator]` - Create a governed prompt with constitutional primitives, epistemic stance, and eval scaffold. Walks the six-stage `prompt-writer` pipeline via a `prompt-pipeline-runner` agent, producing three output artifacts: a ready-to-run prompt, an eval scaffold, and a confidence/epistemic report.
+  - **Usage**: `/create-prompt my-agent "An agent that validates API responses against OpenAPI schemas"`
+  - **Output**: `{OUTPUT_DIR}/SKILL.md`, `evals.yaml`, `confidence-report.md` -- defaults to `{codeRoot}/{PROMPT_NAME}/` when `--output-dir` is omitted; pass `--output-dir <path>` to write elsewhere (absolute or relative to `codeRoot`).
+  - **Agent Types**: `leaf-worker` (default), `orchestrator`, `interactive-skill`, `kb-investigator`
+
 ### Maintenance
 - `/self-update` - Update rp1 to the latest version using your package manager (Homebrew, Scoop) or get manual instructions
 
@@ -65,7 +71,7 @@ rp1 automatically checks for updates when you start a new session in Claude Code
 - Run `/self-update` to update rp1 when a new version is available
 - Restart Claude Code or OpenCode after updating to use the new version
 
-## Skills (4)
+## Skills (5)
 
 ### guide
 Discover rp1 skills, get workflow guidance, and ask questions about rp1 capabilities. Accepts an optional freeform question; omitting it shows a capability overview of all installed skills organized by category.
@@ -93,6 +99,18 @@ Generates browser-viewable HTML previews from markdown, plain text, and Mermaid 
 - `title` (optional): HTML page title (default: "Markdown Preview")
 
 **Returns**: File path to generated HTML, status, diagram fix counters
+
+### prompt-writer
+Write maximally terse agent prompts with built-in constitutional governance and epistemic stance. Combines compression-by-default authoring, governance primitives, and epistemological foundations into a single progressive-disclosure skill with three reference layers (`epistemology.md`, `constitution.md`, `tersify.md`) and six pipeline stages.
+
+**Invocation**: `/prompt-writer` (direct style/compression guidance) or loaded on demand by `/create-prompt` for the full pipeline.
+
+**Reference Layers**:
+- `references/constitution.md` — 10 governance primitives with four agent-type profiles
+- `references/epistemology.md` — Six epistemic stances with composable contracts
+- `references/tersify.md` — Compression discipline, section patterns, style rules
+
+**Pipeline Stages**: constitutional-checklist, fallibilist-overlay, epistemic-stance, popper-patterns, confidence-schema, prompt-validation
 
 ### artifact-templates
 Centralized output templates for all rp1 artifacts (requirements, design, tasks, reports, KB docs). All 20 producer agents across `rp1-base` and `rp1-dev` read their output format from this skill at runtime via a two-hop flow: read the SKILL.md index to locate the template row by producer name, then read the template file at the discovered path. Not user-invocable.

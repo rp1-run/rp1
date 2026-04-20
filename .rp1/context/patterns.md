@@ -1,7 +1,7 @@
 # Implementation Patterns
 
 **Project**: rp1
-**Last Updated**: 2026-04-14
+**Last Updated**: 2026-04-17
 
 ## Naming Conventions
 
@@ -52,6 +52,7 @@
 - **Workflow event transport**: `rp1 agent-tools emit` persists canonical workflow events, then the daemon relays typed project-scoped WebSocket envelopes for status-bearing and attention-bearing live updates
 - **HTTP clients**: Web-UI SPA seeds surfaces from `/api/v2/` and uses targeted hydration such as `GET /api/v2/runs/:id/summary`; reconnect polling stays limited to disconnected recovery instead of routine freshness
 - **Freshness split**: Workflow status and attention come from emitted event delivery plus replay/snapshot recovery; file watching remains responsible only for artifact and file-content freshness
+- **Directory-scoped agent I/O**: Code-writing agents resolve source-file paths against `codeRoot` (the worktree path when in a worktree, `projectRoot` otherwise). Work-artifact reads and writes use `workRoot` and KB reads use `kbRoot`, both of which always point to the canonical `.rp1/` tree. This separation ensures edits land in the user's active working tree while Arcade-visible artifacts remain at the shared canonical location
 
 ## UI Patterns
 
@@ -69,6 +70,14 @@
 - **Daemon diagnostics**: Append-only NDJSON to `daemon.log` via `logDaemonEvent` with structured event/data fields; failures silently swallowed
 - **Correlation**: `runId`, `projectId`, and source IDs in notification and event records
 
+## Progressive-Disclosure Pipeline
+
+- Skills with large instruction sets split content into subdirectories (`references/`, `pipeline/`) loaded on demand
+- Entry-point SKILL.md contains a manifest table mapping companion files to load conditions
+- Pipeline stages are standalone `.md` files with consistent structure (Purpose, Input, Process, Output)
+- Agents execute stages sequentially, accumulating context across stages in conversation state
+- Exemplar: `prompt-writer` with three reference layers (`references/`) and six pipeline stages (`pipeline/`)
+
 ## Extension Points
 
 - Commands registered centrally via `program.addCommand` in `main.ts`
@@ -76,6 +85,7 @@
 - Build pipeline uses LiquidJS templates with registered lint rules and filters
 - State machines declared in `stateDiagram-v2` blocks with auto-skip and auto-complete
 - Views register contextual commands via `useContextualShortcuts` hook for command palette integration
+- Prompt pipeline stages loaded progressively via companion reference files in skill subdirectories (`prompt-writer` as first exemplar)
 
 ## Testing
 

@@ -7,12 +7,11 @@ Meta tools for rp1 developers: prompt engineering, agent refactoring, and workfl
 The `rp1-utils` plugin provides specialized tools for developing and maintaining the rp1 plugin system itself:
 
 - **Prompt tersification** - Compress agent prompts while preserving full intent
-- **Prompt authoring** - Write terse prompts from scratch using compression-by-default principles
 - **Agent refactoring** - Tools for optimizing constitutional agents
 
-**Commands**: 3 user-facing commands
+**Commands**: 2 user-facing commands
 **Agents**: 4 specialized agents
-**Skills**: 2 internal skills
+**Skills**: 1 internal skill
 
 ## Commands (2)
 
@@ -124,19 +123,7 @@ $2: source-name
 $3: .rp1
 ```
 
-## Skills (2)
-
-### prompt-writer
-Write maximally terse agent prompts from scratch using compression-by-default principles. Teaches structure-first composition with section patterns (§ROLE, §OBJ, §PROC, etc.), abbreviation policies, symbolic encoding, and anti-pattern avoidance.
-
-**Use when**: Creating new agent specs, command prompts, or instruction sets.
-
-**Invocation**: Use the Skill tool with `skill: "rp1-utils:prompt-writer"`
-
-**Includes**:
-- `SKILL.md` - Core authoring guidelines and validation checklist
-- `TEMPLATES.md` - Example prompts at simple/moderate/complex levels
-- `PATTERNS.md` - 10 reusable patterns (constitutional agent, map-reduce, state machine, etc.)
+## Skills (1)
 
 ### prompt-eval-builder
 Domain knowledge for extracting eval assertions and creating minimal test prompts from agent prompts. Used by `prompt-eval-extractor` and `eval-prompt-writer` agents.

@@ -200,8 +200,6 @@ function matchesToolCall<T extends ToolName>(
 		return matcher(input);
 	}
 
-	// For Bash, match against command field
-	// For others, match against JSON.stringify(input)
 	const targetString =
 		toolName === "Bash"
 			? ((input as BashToolInput).command ?? "")
@@ -529,9 +527,7 @@ export function assertCanonicalToolCall(
 	};
 }
 
-// ─────────────────────────────────────────────────────────────────────
 // ParentToolUseId filtering helpers (orchestrator vs sub-agent)
-// ─────────────────────────────────────────────────────────────────────
 
 /**
  * Filter tool calls to top-level orchestrator calls only.
@@ -680,9 +676,7 @@ export function assertSubAgentOnlyToolCall<T extends ToolName>(
 	};
 }
 
-// ─────────────────────────────────────────────────────────────────────
 // Domain-specific assertions (rp1 workflow patterns)
-// ─────────────────────────────────────────────────────────────────────
 
 /** Assert emit status_change was called with --run-id flag. */
 export const assertWorkStatusUpdate = assertToolCall(
@@ -915,9 +909,7 @@ export function assertNoCanonicalToolCall(
 	};
 }
 
-// ─────────────────────────────────────────────────────────────────────
 // Pre-built instances for YAML file:// references
-// ─────────────────────────────────────────────────────────────────────
 
 /** Assert task-builder subagent was spawned. */
 export const assertTaskBuilderSpawned = assertSubagentSpawned("task-builder");
@@ -932,6 +924,11 @@ export const assertSpeedrunBuilderSpawned =
 /** Assert build-fast-planner subagent was spawned. */
 export const assertBuildFastPlannerSpawned =
 	assertSubagentSpawned("build-fast-planner");
+
+/** Assert prompt-pipeline-runner subagent was spawned. */
+export const assertPipelineRunnerSpawned = assertSubagentSpawned(
+	"prompt-pipeline-runner",
+);
 
 /** Assert speedrun-builder was spawned at orchestrator level (parentToolUseId is null/undefined). */
 export const assertOrchestratorSpawnedSpeedrunBuilder: AssertionFunction = (
@@ -1022,7 +1019,6 @@ export const assertPostBuildPromptOptions: AssertionFunction = (
 	const expectedOptions = ["commit", "refine", "new", "exit"];
 	const MIN_MATCH = 3;
 
-	// Check AskUserQuestion tool calls first
 	for (const tc of askCalls) {
 		const input = JSON.stringify(tc.input).toLowerCase();
 		const matched = expectedOptions.filter((opt) => input.includes(opt));

@@ -98,6 +98,7 @@ describe("rp1-root-dir resolver", () => {
 			expect(result.projectId).toBe("aaa00000-0000-0000-0000-000000000001");
 			expect(result.kbRoot).toBe(join(standardRepoRoot, ".rp1", "context"));
 			expect(result.workRoot).toBe(join(standardRepoRoot, ".rp1", "work"));
+			expect(result.codeRoot).toBe(standardRepoRoot);
 			expect(result.worktreeName).toBeUndefined();
 		});
 
@@ -109,6 +110,7 @@ describe("rp1-root-dir resolver", () => {
 
 			expect(result.isWorktree).toBe(false);
 			expect(result.projectRoot).toBe(standardRepoRoot);
+			expect(result.codeRoot).toBe(standardRepoRoot);
 		});
 	});
 
@@ -120,6 +122,7 @@ describe("rp1-root-dir resolver", () => {
 			expect(result.projectRoot).toBe(worktreeRepoRoot);
 			expect(result.worktreeName).toBe("test-branch");
 			expect(result.projectId).toBe("bbb00000-0000-0000-0000-000000000002");
+			expect(result.codeRoot).toBe(linkedWorktreePath);
 		});
 
 		test("returns main repo projectRoot from linked worktree", async () => {
@@ -127,6 +130,7 @@ describe("rp1-root-dir resolver", () => {
 
 			expect(result.projectRoot).not.toContain("linked-worktree");
 			expect(result.projectRoot).toContain("worktree-main");
+			expect(result.codeRoot).toContain("linked-worktree");
 		});
 	});
 

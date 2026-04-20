@@ -63,13 +63,33 @@ mock.module("@/components/ui/command", () => ({
 	),
 }));
 
-mock.module("@radix-ui/react-dialog", () => ({
-	Root: ({ children }: { children?: ReactNode }) => children,
-	Portal: ({ children }: { children?: ReactNode }) => children,
-	Overlay: ({ children }: { children?: ReactNode }) => children,
-	Content: ({ children }: { children?: ReactNode }) => children,
-	Title: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-}));
+mock.module("@radix-ui/react-dialog", () => {
+	type StubComponent = {
+		(props: { children?: ReactNode }): ReactNode;
+		displayName?: string;
+	};
+	const makeStub = (
+		name: string,
+		wrap: "passthrough" | "div",
+	): StubComponent => {
+		const stub: StubComponent =
+			wrap === "div"
+				? ({ children }) => <div>{children}</div>
+				: ({ children }) => children;
+		stub.displayName = name;
+		return stub;
+	};
+	return {
+		Root: makeStub("Root", "passthrough"),
+		Trigger: makeStub("Trigger", "passthrough"),
+		Portal: makeStub("Portal", "passthrough"),
+		Overlay: makeStub("Overlay", "passthrough"),
+		Content: makeStub("Content", "passthrough"),
+		Close: makeStub("Close", "passthrough"),
+		Title: makeStub("Title", "div"),
+		Description: makeStub("Description", "div"),
+	};
+});
 
 mock.module("framer-motion", () => ({
 	motion: new Proxy(

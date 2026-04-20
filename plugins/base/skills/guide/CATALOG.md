@@ -92,3 +92,12 @@
 | `/blueprint` | dev | Guided wizard for project vision via two-tier docs (charter + PRDs) with stateless interview loops. | `PRD_NAME`, `EXTRA_CONTEXT` | Yes | fresh |  |
 | `/blueprint-archive` | dev | Archives a completed PRD to the archives directory with associated features and closure summary. | `PRD_NAME` |  |  |  |
 | `/blueprint-audit` | dev | Audits a PRD against implementation status and guides lifecycle decisions. | `PRD_NAME` |  |  |  |
+
+## Prompt
+
+> **Suggest when**: User authors, rewrites, or evaluates agent prompts
+
+| Skill | Plugin | Description | Key Args | Workflow | Run Policy | Identity Args |
+|-------|--------|-------------|----------|----------|------------|---------------|
+| `/create-prompt` | base | Create a governed prompt with constitutional primitives, epistemic stance, and eval scaffold. | `PROMPT_NAME`, `DESCRIPTION`, `AGENT_TYPE`, `OUTPUT_DIR`, `AFK` | Yes | fresh |  |
+| `/prompt-writer` | base | Write maximally terse agent prompts from scratch. Use when creating new agent specs, command prompts, or instruction sets. Teaches structure-first composition with compression-by-default patterns. Extended with constitutional governance, epistemic stance selection, and a six-stage prompt pipeline. |  |  |  |  |

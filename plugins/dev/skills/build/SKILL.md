@@ -90,7 +90,7 @@ metadata:
 
 ## §CTX
 
-Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
+Use the pre-resolved `projectRoot`, `kbRoot`, `workRoot`, and `codeRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
 
 **Feature dir**: `{workRoot}/features/{FEATURE_ID}/`
 
@@ -374,7 +374,7 @@ Extract `task_units` array.
 For each task unit, run builder then reviewer:
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:task-reviewer" %}
@@ -389,7 +389,7 @@ If FAILURE and attempt < max:
 2. Re-spawn task-builder with review feedback. If `GIT_COMMIT=true`, pass `REWRITE_COMMITS=true` so the builder amends the prior commit into a clean atomic rewrite:
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, REWRITE_COMMITS={GIT_COMMIT}, PREVIOUS_FEEDBACK={reviewer summary and issues}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, REWRITE_COMMITS={GIT_COMMIT}, PREVIOUS_FEEDBACK={reviewer summary and issues}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 3. Re-run task-reviewer for the same task unit.
@@ -433,11 +433,11 @@ rp1 agent-tools emit \
 **Skip if**: start_step > 5. **Invoke ALL THREE in SINGLE response:**
 
 {% dispatch_agent "rp1-dev:code-checker" %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:feature-verifier" %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:comment-cleaner" %}
