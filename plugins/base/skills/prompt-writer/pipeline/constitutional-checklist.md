@@ -12,7 +12,7 @@ The agent MUST have the following before executing this stage:
 
 | Field | Source | Description |
 |-------|--------|-------------|
-| DESCRIPTION | User input | Natural-language description of the skill/agent being created |
+| DESCRIPTION | User input | Natural-language description of the skill being created |
 | AGENT_TYPE | User input (default: leaf-worker) | One of: `leaf-worker`, `orchestrator`, `interactive-skill`, `kb-investigator` |
 | constitution.md | `references/constitution.md` | Loaded on demand at stage start |
 
@@ -31,7 +31,7 @@ The agent MUST have the following before executing this stage:
 
 3. **For each applicable primitive**, generate a constitutional directive tailored to the DESCRIPTION:
    - Read the primitive's Definition, Directive Pattern, and Exemplar from constitution.md
-   - Adapt the Directive Pattern to the specific skill/agent described by DESCRIPTION
+   - Adapt the Directive Pattern to the specific skill described by DESCRIPTION
    - Keep the directive concise -- use the terse style from `references/tersify.md` patterns
    - Preserve normative language exactly (MUST, MUST NOT, SHOULD, MAY)
    - Include the exemplar citation as a trailing comment: `<!-- exemplar: {agent path} -->`

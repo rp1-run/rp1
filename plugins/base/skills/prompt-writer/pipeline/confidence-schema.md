@@ -4,7 +4,7 @@ Pipeline stage 5 of 6. Defines and embeds the unified confidence ontology into t
 
 ## Purpose
 
-Embed the 5-level ordinal confidence scale into the generated prompt, providing a shared vocabulary for expressing uncertainty. Include the migration table that maps existing rp1 idioms (`BAYES`, `CONFIRM/REJECT`, categorical HIGH/MEDIUM/LOW, numeric 0-100%) into the shared vocabulary. The schema normalizes existing usage -- it does not deprecate it (BR-05).
+Embed the 5-level (or 3-level, for `COMPLEXITY=simple`) ordinal confidence scale into the generated prompt, providing a shared vocabulary for expressing uncertainty.
 
 ## Input
 
@@ -12,7 +12,7 @@ The agent MUST have the following before executing this stage:
 
 | Field | Source | Description |
 |-------|--------|-------------|
-| DESCRIPTION | User input | Natural-language description of the skill/agent being created |
+| DESCRIPTION | User input | Natural-language description of the skill being created |
 | AGENT_TYPE | User input | Agent-type profile |
 | Constitutional directives | Stage 1 output | Tailored governance directives |
 | Fallibilist overlay | Stage 2 output | Five unconditional overlay clauses |
@@ -33,23 +33,9 @@ The agent MUST have the following before executing this stage:
    | 4 | Well-established | Robust evidence from multiple sources. Claim has survived deliberate attempts at refutation. | Use for conclusions from thorough investigation, cross-validated findings, or proven patterns. |
    | 5 | Settled | Foundational knowledge that would require extraordinary evidence to overturn. | Use sparingly. Reserved for language semantics, mathematical truths, well-documented API contracts, or extensively validated patterns. |
 
-3. **Include the migration table** mapping existing rp1 idioms to the shared scale. This table enables agents familiar with legacy vocabulary to translate into the shared schema:
-
-   | Existing Idiom | Mapped Level | Notes |
-   |----------------|-------------|-------|
-   | `BAYES` (low posterior) | 1-2 | Speculative/Provisional depending on prior strength |
-   | `BAYES` (moderate posterior) | 3 | Supported |
-   | `BAYES` (high posterior) | 4-5 | Well-established/Settled depending on evidence robustness |
-   | `CONFIRM` | 4 | Well-established (hypothesis confirmed through testing) |
-   | `REJECT` | 1 | Speculative (hypothesis rejected, back to conjecture) |
-   | HIGH | 4 | Well-established |
-   | MEDIUM | 3 | Supported |
-   | LOW | 1-2 | Speculative/Provisional |
-   | 0-20% | 1 | Speculative |
-   | 20-40% | 2 | Provisional |
-   | 40-60% | 3 | Supported |
-   | 60-80% | 4 | Well-established |
-   | 80-100% | 5 | Settled |
+3. **Scale selection** based on COMPLEXITY:
+   - `simple`: emit a **3-level** trim (Speculative, Supported, Settled) -- sufficient for narrow, one-shot skills. Omit Provisional and Well-established.
+   - `standard` (default) and `complex`: emit the full 5-level scale.
 
 4. **Compose the confidence schema section** for the prompt. Adapt the scale to the agent's domain:
    - Include domain-specific examples for each level based on DESCRIPTION
@@ -64,6 +50,8 @@ The agent MUST have the following before executing this stage:
 ## Output
 
 Produce the following structured output for downstream stages:
+
+For `standard`/`complex`:
 
 ```markdown
 ## Confidence Schema
@@ -86,15 +74,30 @@ Produce the following structured output for downstream stages:
 - **Level 4 (Well-established)**: {domain-specific example}
 - **Level 5 (Settled)**: {domain-specific example}
 
-### Migration from Legacy Idioms
-
-{Migration table as above, included for reference by agents familiar with legacy vocabulary}
-
 ### Marking Requirements
 
 - MUST mark: {domain-specific list of claim types requiring confidence levels}
 - SHOULD mark: {domain-specific list}
 - MAY omit: {domain-specific list}
+```
+
+For `simple` (3-level trim):
+
+```markdown
+## Confidence Schema
+
+### 3-Level Ordinal Scale
+
+| Level | Label | Meaning |
+|-------|-------|---------|
+| 1 | Speculative | Unvalidated conjecture |
+| 3 | Supported | Evidence-backed, passed initial tests |
+| 5 | Settled | Foundational, requires extraordinary counter-evidence |
+
+### Marking Requirements
+
+- MUST mark: {narrow domain-specific list}
+- MAY omit: direct observations and procedural steps
 ```
 
 **Accumulated state** after this stage: Constitutional directives + Fallibilist overlay + Epistemic stance + Popper-Deutsch patterns + Confidence schema.

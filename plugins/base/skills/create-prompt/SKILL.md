@@ -1,7 +1,7 @@
 ---
 name: create-prompt
 description: "Create a governed prompt with constitutional primitives, epistemic stance, and eval scaffold."
-allowed-tools: Bash(echo *), Bash(rp1 *)
+allowed-tools: Bash(echo *), Bash(rp1 *), Bash(mkdir *), Write, Task
 metadata:
   category: prompt
   is_workflow: true
@@ -29,16 +29,32 @@ metadata:
       type: enum
       required: false
       default: "leaf-worker"
-      description: "Agent-type profile for constitutional filtering"
+      description: "Constitutional profile for primitive filtering (names the agent role the skill plays, not the artifact kind; output is always a SKILL.md)"
       enum_values:
         - leaf-worker
         - orchestrator
         - interactive-skill
         - kb-investigator
-    - name: OUTPUT_DIR
-      type: string
+    - name: COMPLEXITY
+      type: enum
       required: false
-      description: "Directory to write the new prompt into. Defaults to {codeRoot}/{PROMPT_NAME}/ when omitted. Absolute paths are used as-is; relative paths resolve against codeRoot."
+      default: "auto"
+      description: "Scaffolding size. auto (default) = runner classifies DESCRIPTION and picks simple/standard/complex using keyword+word-count heuristics. simple = skip popper-patterns, trim confidence schema to 3 levels. standard = full pipeline. complex = full pipeline with wider pattern and stance exploration. Pass an explicit non-auto value to override the classifier."
+      enum_values:
+        - auto
+        - simple
+        - standard
+        - complex
+    - name: PLUGIN
+      type: enum
+      required: false
+      default: "staging"
+      description: "Target plugin directory. staging (default) writes to {projectRoot}/{PROMPT_NAME}/ for manual review. Any other value writes directly under plugins/{PLUGIN}/skills/{PROMPT_NAME}/ so the build pipeline ingests the skill without a follow-up move."
+      enum_values:
+        - staging
+        - rp1-base
+        - rp1-utils
+        - rp1-dev
     - name: AFK
       type: boolean
       required: false
@@ -57,16 +73,20 @@ metadata:
 
 ## §CTX
 
-Use the pre-resolved `projectRoot`, `kbRoot`, `workRoot`, and `codeRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
+Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
 
-**Pipeline inputs**: The pipeline-runner agent reads stage and reference files directly from the `rp1-base:prompt-writer` skill via its packaged-skill manifest. The orchestrator passes no input paths.
+**Prompt-writer access**: the `prompt-pipeline-runner` agent invokes `rp1-base:prompt-writer` via the Skill tool to reach its reference and pipeline files. This orchestrator does not need to know prompt-writer's installed path -- the host resolves it by skill name.
 
-**Output dir (`OUT_DIR`)**: Resolve once, then use for every write and registration:
-- If `OUTPUT_DIR` is an absolute path -> `OUT_DIR = OUTPUT_DIR`
-- If `OUTPUT_DIR` is a relative path -> `OUT_DIR = {codeRoot}/{OUTPUT_DIR}`
-- If `OUTPUT_DIR` is empty/unset -> `OUT_DIR = {codeRoot}/{PROMPT_NAME}`
+**Output dir** depends on `PLUGIN`:
 
-Create `OUT_DIR` before writing artifacts.
+| `PLUGIN` | Output dir | When to use |
+|----------|-----------|-------------|
+| `staging` (default) | `{projectRoot}/{PROMPT_NAME}/` | You want a staging location for review before moving into a plugin tree. |
+| `rp1-base` | `{projectRoot}/plugins/base/skills/{PROMPT_NAME}/` | Emit directly into rp1-base so the build pipeline ingests it. |
+| `rp1-utils` | `{projectRoot}/plugins/utils/skills/{PROMPT_NAME}/` | Direct into rp1-utils. |
+| `rp1-dev` | `{projectRoot}/plugins/dev/skills/{PROMPT_NAME}/` | Direct into rp1-dev. |
+
+All paths anchor at `{projectRoot}` so the write path matches the registration path regardless of shell `cwd`. The orchestrator creates the directory before writing artifacts.
 
 ## STATE-MACHINE
 
@@ -120,14 +140,14 @@ rp1 agent-tools emit \
 **Spawn agent -- do NOT create prompt content yourself:**
 
 {% dispatch_agent "rp1-base:prompt-pipeline-runner" %}
-PROMPT_NAME={PROMPT_NAME}, DESCRIPTION={DESCRIPTION}, AGENT_TYPE={AGENT_TYPE}
+PROMPT_NAME={PROMPT_NAME}, DESCRIPTION={DESCRIPTION}, AGENT_TYPE={AGENT_TYPE}, COMPLEXITY={COMPLEXITY}
 {% enddispatch_agent %}
 
-The agent executes the six-stage prompt-writer pipeline in fixed order (constitutional-checklist -> fallibilist-overlay -> epistemic-stance -> popper-patterns -> confidence-schema -> prompt-validation) via progressive disclosure. It reads stage and reference files from the `rp1-base:prompt-writer` packaged skill; the Agent Skills harness resolves those paths -- the orchestrator does not supply a skill directory.
+The agent executes the six-stage prompt-writer pipeline in fixed order (constitutional-checklist -> fallibilist-overlay -> epistemic-stance -> popper-patterns -> confidence-schema -> prompt-validation) via progressive disclosure. It invokes `rp1-base:prompt-writer` via the Skill tool at Stage 0 and reads each stage/reference file via the paths in prompt-writer's manifest (`pipeline/*.md`, `references/*.md`).
 
 **Parse response**: The agent returns three artifacts as fenced content blocks:
 
-1. **Ready-to-run prompt** -- SKILL.md content with frontmatter and governed prompt body
+1. **Ready-to-run skill** -- SKILL.md content with skill-shaped frontmatter and governed prompt body (the pipeline emits SKILL.md only; agent-file output is out of scope for Phase 1)
 2. **Eval scaffold** -- promptfoo YAML configuration
 3. **Confidence report** -- Markdown report with per-stage scoring
 
@@ -138,18 +158,27 @@ Validate the response:
 
 ## §STEP-2: Artifact Output
 
-Create the resolved output directory and write artifacts:
+Resolve the output directory from `PLUGIN`:
+
+- `PLUGIN=staging` (default) -> `OUT_DIR = {projectRoot}/{PROMPT_NAME}`
+- `PLUGIN=rp1-base` -> `OUT_DIR = {projectRoot}/plugins/base/skills/{PROMPT_NAME}`
+- `PLUGIN=rp1-utils` -> `OUT_DIR = {projectRoot}/plugins/utils/skills/{PROMPT_NAME}`
+- `PLUGIN=rp1-dev` -> `OUT_DIR = {projectRoot}/plugins/dev/skills/{PROMPT_NAME}`
+
+Resolve `REL_DIR` as `OUT_DIR` with the `{projectRoot}/` prefix stripped -- this is the value used in the `path` field of `artifact_registered` events (with `storageRoot: project`).
+
+Create the output directory:
 
 ```bash
 mkdir -p {OUT_DIR}
 ```
 
-Write the three artifacts to disk:
+Write the three artifacts to disk at `{OUT_DIR}`:
 - `{OUT_DIR}/SKILL.md` -- Ready-to-run prompt
 - `{OUT_DIR}/evals.yaml` -- Eval scaffold
 - `{OUT_DIR}/confidence-report.md` -- Confidence/epistemic report
 
-Register each artifact using the absolute path of `OUT_DIR` so the registered path matches the on-disk location regardless of invoking cwd or worktree:
+Register each artifact:
 
 ```bash
 rp1 agent-tools emit \
@@ -157,7 +186,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step pipeline_start \
-  --data '{"path": "{OUT_DIR}/SKILL.md", "prompt_name": "{PROMPT_NAME}", "storageRoot": "absolute"}'
+  --data '{"path": "{REL_DIR}/SKILL.md", "prompt_name": "{PROMPT_NAME}", "storageRoot": "project"}'
 ```
 
 ```bash
@@ -166,7 +195,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step pipeline_start \
-  --data '{"path": "{OUT_DIR}/evals.yaml", "prompt_name": "{PROMPT_NAME}", "storageRoot": "absolute"}'
+  --data '{"path": "{REL_DIR}/evals.yaml", "prompt_name": "{PROMPT_NAME}", "storageRoot": "project"}'
 ```
 
 ```bash
@@ -175,7 +204,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step pipeline_start \
-  --data '{"path": "{OUT_DIR}/confidence-report.md", "prompt_name": "{PROMPT_NAME}", "storageRoot": "absolute"}'
+  --data '{"path": "{REL_DIR}/confidence-report.md", "prompt_name": "{PROMPT_NAME}", "storageRoot": "project"}'
 ```
 
 ## §STEP-3: Completion
@@ -198,19 +227,19 @@ rp1 agent-tools emit \
 
 **Prompt**: {PROMPT_NAME}
 **Agent Type**: {AGENT_TYPE}
-**Pipeline**: constitutional-checklist -> fallibilist-overlay -> epistemic-stance -> popper-patterns -> confidence-schema -> prompt-validation
-
-**Output directory**: {OUT_DIR}
+**Complexity**: {effective_complexity from the confidence report's Complexity Classification section} ({"explicit" if COMPLEXITY was simple/standard/complex; "auto-detected" if COMPLEXITY was auto})
+**Target**: {PLUGIN} (written to `{REL_DIR}/`)
+**Pipeline**: constitutional-checklist -> fallibilist-overlay -> epistemic-stance -> popper-patterns{% if effective_complexity == "simple" %} (skipped){% endif %} -> confidence-schema -> prompt-validation
 
 **Artifacts**:
-- `{OUT_DIR}/SKILL.md` -- Ready-to-run prompt with constitutional governance and epistemic stance
-- `{OUT_DIR}/evals.yaml` -- promptfoo eval scaffold with rubric and structural assertions
-- `{OUT_DIR}/confidence-report.md` -- Per-stage confidence scoring and epistemic decisions
+- `{REL_DIR}/SKILL.md` -- Ready-to-run prompt with constitutional governance and epistemic stance
+- `{REL_DIR}/evals.yaml` -- promptfoo eval scaffold with rubric and structural assertions
+- `{REL_DIR}/confidence-report.md` -- Per-stage confidence scoring and epistemic decisions
 
 **Next Steps**:
-- Review the generated prompt in `{OUT_DIR}/SKILL.md`
-- Run evals: `promptfoo eval -c {OUT_DIR}/evals.yaml`
-- Move the prompt to its target plugin directory when satisfied
+- Review the generated prompt in `{REL_DIR}/SKILL.md`
+- Run evals: `promptfoo eval -c {REL_DIR}/evals.yaml`
+{% if PLUGIN == "staging" %}- This is a staging location. Move the skill into a `plugins/*/skills/` directory (or rerun with `PLUGIN=rp1-base|rp1-utils|rp1-dev` next time) before the build pipeline can ingest it.{% else %}- The skill is already under `plugins/{PLUGIN}/skills/` and will be picked up on the next build.{% endif %}
 ```
 
 ## §ORCHESTRATOR-RULES
@@ -220,8 +249,8 @@ rp1 agent-tools emit \
 **DO**:
 - Spawn `prompt-pipeline-runner` for all prompt creation work
 - Wait for the agent to complete before writing artifacts
-- Write all three artifacts to `{OUT_DIR}/` (resolved per §CTX: `OUTPUT_DIR` argument, else `{codeRoot}/{PROMPT_NAME}/`)
-- Emit `artifact_registered` for each artifact after writing
+- Write all three artifacts to `{OUT_DIR}` as resolved from `PLUGIN` in §STEP-2 (anchored at the project root, not the shell `cwd`)
+- Emit `artifact_registered` for each artifact after writing, using the `{REL_DIR}` path so `storageRoot: project` registration matches the write path
 - Follow the state machine transitions exactly
 
 **DO NOT** (hard constraints -- never violate these):

@@ -590,6 +590,35 @@ eval-view:
     export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"
     cd evals && bunx promptfoo view -n
 
+# Kill any running promptfoo view server and start a fresh one so the
+# dashboard picks up evals written since the last start. `promptfoo view`
+# caches its in-memory result index at startup and does not invalidate on
+# new DB writes, so recent evals appear missing until the view is bounced.
+eval-dashboard-reload:
+    #!/usr/bin/env bash
+    set -e
+    repo_root="$(pwd)"
+    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/work/promptfoo}"
+    mkdir -p "$promptfoo_config_dir"
+    export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"
+
+    # Kill any existing `promptfoo view` processes (there can be more than one
+    # stacked on different ports). pkill returns 1 when nothing matches, which
+    # is fine for a reload from a cold state.
+    pkill -f "promptfoo view" 2>/dev/null || true
+    # Give the port a moment to release.
+    sleep 1
+
+    # Start the view server in the background. Output goes to a rotating log
+    # under the promptfoo config dir so it is trivially grep-able.
+    log_file="${promptfoo_config_dir}/logs/dashboard.log"
+    mkdir -p "$(dirname "$log_file")"
+    cd evals
+    nohup bunx promptfoo view -n >"$log_file" 2>&1 &
+    disown || true
+    echo "Dashboard restarting; log: $log_file"
+    echo "Default URL: http://localhost:15500/"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Catalogue
 # ─────────────────────────────────────────────────────────────────────────────

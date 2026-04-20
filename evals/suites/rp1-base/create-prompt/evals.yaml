@@ -1,8 +1,22 @@
 # create-prompt Orchestrator Evaluation Suite
 #
 # Regression eval for /rp1-base:create-prompt pipeline.
-# Validates: pipeline-runner delegation, event emissions, three-artifact output,
-# constitutional/epistemic/structural quality of generated prompts.
+# Validates:
+#   - orchestrator spawns prompt-pipeline-runner at top level (not nested)
+#   - all three mandatory artifacts (SKILL.md, evals.yaml, confidence-report.md)
+#     are registered via `rp1 agent-tools emit` AND written to disk
+#   - SKILL.md covers every applicable governance primitive for the AGENT_TYPE
+#     profile and carries the fallibilist overlay
+#   - evals.yaml matches the documented contract (inline providers,
+#     `file://./SKILL.md` sibling prompt path)
+#   - confidence-report.md names an epistemic stance, embeds the 5-level
+#     confidence vocabulary, and scores every one of the six pipeline stages
+#
+# Grading is deterministic: every assertion reads generated-file contents
+# from `{WORKSPACE_DIR}/{PROMPT_NAME}/` and checks structural patterns.
+# There are no llm-rubric assertions -- promptfoo does not auto-load file
+# contents into rubric prompts, so rubric-based content grading was a
+# false positive in earlier revisions.
 #
 # Run: just eval-run rp1-base/create-prompt
 description: "rp1-base:create-prompt pipeline evaluation"
@@ -54,151 +68,156 @@ defaultTest:
 tests:
   # ─────────────────────────────────────────────────────────────────────
   # Test 1: Default pipeline execution with leaf-worker profile
-  # Validates: orchestrator spawns pipeline-runner, emits events,
-  # produces three artifacts with correct governance for leaf workers
   # ─────────────────────────────────────────────────────────────────────
   - description: "default_leaf_worker_pipeline"
-    threshold: 0.6
+    threshold: 1.0
     assert:
-      # Deterministic: pipeline-runner agent spawned
       - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertPipelineRunnerSpawned
-      # Deterministic: workflow status emitted
+        value: file://../../shared/assertions/tool-calls.ts:assertOrchestratorSpawnedPipelineRunner
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate
-      # Deterministic: artifact registration for output files
       - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
-      # Deterministic: no user interaction in AFK mode
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptThreeArtifacts
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptFilesOnDisk
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertNoAskUser
-      # Constitutional primitive presence (leaf-worker profile)
-      - type: llm-rubric
-        value: |
-          Evaluate the agent's output for constitutional governance quality.
-          The agent was asked to create a governed prompt for a leaf-worker agent
-          that validates YAML configuration files.
-
-          REQUIRED (all must pass for constitutional axis):
-          1. The generated prompt or output references governance primitives applicable
-             to a leaf-worker profile: at minimum anti-loop, output discipline, role,
-             scope limits, error degradation, and truth constraints
-          2. Each governance primitive is expressed as a directive or section in the
-             prompt (not just listed — it must be actionable guidance)
-          3. The fallibilist overlay is present: conjectural wording, exposed-to-refutation,
-             or similar Popper-Deutsch language appears in the generated prompt
-
-          PASS if: Constitutional primitives for leaf-worker are present and actionable
-          FAIL if: Missing multiple governance primitives or primitives are merely listed
-                   without actionable directives
-      # Structural assertions: SKILL.md frontmatter and required sections
-      - type: llm-rubric
-        value: |
-          Evaluate the structural quality of the generated prompt artifact.
-          The pipeline should produce a ready-to-run SKILL.md prompt.
-
-          REQUIRED (all must pass for structural axis):
-          1. Output contains or references a generated prompt with YAML frontmatter
-             (delimited by --- markers) including at minimum: name and description fields
-          2. The generated prompt has identifiable sections (not a flat wall of text)
-          3. Output mentions or contains an eval scaffold (promptfoo YAML configuration)
-          4. Output mentions or contains a confidence/epistemic report
-
-          PASS if: All three output artifacts are present or clearly referenced
-          FAIL if: Any of the three mandatory artifacts (prompt, eval scaffold,
-                   confidence report) is missing or mentioned as failed
-      # Epistemic assertions: stance declaration and confidence schema
-      - type: llm-rubric
-        value: |
-          Evaluate the epistemic quality of the generated prompt.
-
-          REQUIRED (all must pass for epistemic axis):
-          1. The generated prompt declares an epistemic stance (one of: Fallibilist
-             Empirical, Interpretivism, Phenomenology, Constructivism, Pragmatism,
-             Compare-Mode) or references an epistemic contract
-          2. A confidence schema or confidence vocabulary is embedded or referenced
-             in the generated prompt (the 5-level scale: Speculative, Provisional,
-             Supported, Well-established, Settled — or equivalent)
-          3. The confidence report includes scoring or assessment from pipeline stages
-
-          PASS if: Epistemic stance is declared, confidence schema is present
-          FAIL if: No epistemic stance declared or confidence schema entirely absent
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptConstitutional
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptStructural
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptEpistemic
 
   # ─────────────────────────────────────────────────────────────────────
-  # Test 2: Orchestrator agent-type profile
-  # Validates: constitutional filtering produces orchestrator-specific
-  # governance (orchestrator purity, transition guards) instead of
-  # leaf-worker primitives (exploration bounds, anti-bias)
+  # Test 2: Orchestrator profile -- constitutional filter must include
+  # orchestrator purity + transition guards AND must NOT add primitives
+  # outside the orchestrator applicable set
   # ─────────────────────────────────────────────────────────────────────
   - description: "orchestrator_profile_governance"
     vars:
       PROMPT_NAME: "test-orchestrator"
       DESCRIPTION: "An orchestrator agent that coordinates a multi-step code review pipeline by dispatching reviewer sub-agents and aggregating their findings"
       AGENT_TYPE: "orchestrator"
-    threshold: 0.6
+    threshold: 1.0
     assert:
       - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertPipelineRunnerSpawned
+        value: file://../../shared/assertions/tool-calls.ts:assertOrchestratorSpawnedPipelineRunner
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate
       - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
-      - type: llm-rubric
-        value: |
-          Evaluate the agent's output for orchestrator-specific constitutional governance.
-          The agent was asked to create a governed prompt for an ORCHESTRATOR agent
-          that coordinates a multi-step code review pipeline.
-
-          REQUIRED (all must pass):
-          1. The generated prompt includes orchestrator purity directive — the orchestrator
-             should coordinate and delegate, never inline implementation logic
-          2. The generated prompt includes transition guards — explicit state transition
-             validation for pipeline steps
-          3. The generated prompt includes role definition and scope limits
-          4. The generated prompt includes error degradation handling
-          5. The governance primitives are filtered for the orchestrator profile —
-             it should NOT prominently feature exploration bounds or anti-bias
-             (those are for interactive-skill and kb-investigator profiles)
-
-          PASS if: Orchestrator-specific governance is present and correctly filtered
-          FAIL if: Missing orchestrator purity or transition guards, or includes
-                   prominent leaf-worker-only primitives
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptThreeArtifacts
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptFilesOnDisk
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptConstitutional
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptStructural
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptEpistemic
 
   # ─────────────────────────────────────────────────────────────────────
-  # Test 3: Validation deficiency detection
-  # Validates: the prompt-validation stage catches governance gaps and
-  # reports actionable deficiency descriptions (AC-06.3)
-  # Uses a deliberately vague description to increase likelihood of
-  # validation findings in the confidence report
+  # Test 3: kb-investigator profile on vague input -- confirms pipeline
+  # completes with minimal DESCRIPTION and stage-6 does NOT demand scope
+  # limits (kb-investigator profile omits them by design)
   # ─────────────────────────────────────────────────────────────────────
-  - description: "validation_report_completeness"
+  - description: "kb_investigator_vague_description"
     vars:
-      PROMPT_NAME: "test-validator-check"
-      DESCRIPTION: "A simple utility agent"
-      AGENT_TYPE: "leaf-worker"
-    threshold: 0.5
+      PROMPT_NAME: "test-kb-investigator"
+      DESCRIPTION: "A knowledge-base investigator that surfaces relevant prior decisions"
+      AGENT_TYPE: "kb-investigator"
+    threshold: 1.0
     assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertOrchestratorSpawnedPipelineRunner
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate
       - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
-      - type: llm-rubric
-        value: |
-          Evaluate the validation and confidence report output for completeness.
-          The agent was asked to create a governed prompt for "a simple utility agent"
-          — a deliberately vague description. The pipeline should still complete and
-          the confidence report should cover all six stages.
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptThreeArtifacts
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptFilesOnDisk
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptConstitutional
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptStructural
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptEpistemic
 
-          REQUIRED (all must pass):
-          1. Output references or includes a confidence/epistemic report
-          2. The report or output references assessment from multiple pipeline stages
-             (constitutional-checklist, fallibilist-overlay, epistemic-stance,
-             popper-patterns, confidence-schema, prompt-validation)
-          3. The validation axis results are present — at minimum style, constitutional,
-             and epistemic axes are mentioned with pass/fail or scoring
-          4. If any validation deficiency was found, the description identifies:
-             (a) which axis failed, and (b) what specific element is missing or weak
+  # ─────────────────────────────────────────────────────────────────────
+  # Test 4a: COMPLEXITY=auto on a clearly-simple DESCRIPTION. The runner's
+  # Stage 0.5 classifier must detect the "validator" + "wrapper" + "single-pass"
+  # keywords and pick `simple`. Epistemic assertion parses the effective
+  # complexity out of the report.
+  # ─────────────────────────────────────────────────────────────────────
+  - description: "auto_classifier_detects_simple"
+    vars:
+      PROMPT_NAME: "test-auto-simple"
+      DESCRIPTION: "A leaf-worker validator wrapper that scans a markdown file for mermaid code blocks and reports errors in a single-pass, read-only way"
+      AGENT_TYPE: "leaf-worker"
+      COMPLEXITY: "auto"
+    threshold: 1.0
+    assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertOrchestratorSpawnedPipelineRunner
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptThreeArtifacts
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptFilesOnDisk
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptConstitutional
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptStructural
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptEpistemic
 
-          PASS if: Confidence report covers all six stages with actionable detail
-          FAIL if: Report is missing, covers fewer than 3 stages, or deficiencies
-                   lack axis identification
+  # ─────────────────────────────────────────────────────────────────────
+  # Test 4: COMPLEXITY=simple -- Stage 4 (popper-patterns) is skipped and
+  # Stage 5 emits the 3-level trim. Epistemic assertion reads COMPLEXITY
+  # from vars and adjusts its required level list.
+  # ─────────────────────────────────────────────────────────────────────
+  - description: "simple_complexity_trim"
+    vars:
+      PROMPT_NAME: "test-simple-wrapper"
+      DESCRIPTION: "A leaf-worker skill that wraps rp1 agent-tools mmd-validate to check mermaid blocks in a markdown file"
+      AGENT_TYPE: "leaf-worker"
+      COMPLEXITY: "simple"
+    threshold: 1.0
+    assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertOrchestratorSpawnedPipelineRunner
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptThreeArtifacts
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptFilesOnDisk
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptConstitutional
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptStructural
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptEpistemic
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Test 5: PLUGIN=rp1-base -- files must land under
+  # {WORKSPACE_DIR}/plugins/base/skills/{PROMPT_NAME}/, and registration
+  # paths must match (assertCreatePromptFilesOnDisk honors PLUGIN).
+  # ─────────────────────────────────────────────────────────────────────
+  - description: "plugin_direct_write_rp1_base"
+    vars:
+      PROMPT_NAME: "test-direct-writer"
+      DESCRIPTION: "A leaf-worker skill that validates YAML configuration files and reports structural errors"
+      AGENT_TYPE: "leaf-worker"
+      PLUGIN: "rp1-base"
+    threshold: 1.0
+    assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertOrchestratorSpawnedPipelineRunner
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptThreeArtifacts
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptFilesOnDisk
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptConstitutional
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptStructural
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertCreatePromptEpistemic

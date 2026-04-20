@@ -6,13 +6,15 @@ Pipeline stage 4 of 6. Selects and injects Popper-Deutsch patterns relevant to t
 
 From the library of 11 Popper-Deutsch patterns, select and inject the patterns most relevant to the problem domain and the epistemic stance selected in Stage 3. Not all patterns apply to every agent -- selection is guided by domain fit and stance compatibility.
 
+**Skip this stage entirely when `COMPLEXITY=simple`.** Simple one-shot wrappers do not benefit from pattern injection; forcing patterns into narrow validators, converters, or formatters produces cargo-cult scaffolding. For `simple`, emit zero patterns and pass through to Stage 5 unchanged.
+
 ## Input
 
 The agent MUST have the following before executing this stage:
 
 | Field | Source | Description |
 |-------|--------|-------------|
-| DESCRIPTION | User input | Natural-language description of the skill/agent being created |
+| DESCRIPTION | User input | Natural-language description of the skill being created |
 | AGENT_TYPE | User input | Agent-type profile |
 | Constitutional directives | Stage 1 output | Tailored governance directives |
 | Fallibilist overlay | Stage 2 output | Five unconditional overlay clauses |
@@ -20,13 +22,15 @@ The agent MUST have the following before executing this stage:
 
 ## Process
 
-1. **Review the pattern library** below. Each pattern has domain-relevance and stance-affinity indicators.
+1. **If `COMPLEXITY=simple`**: skip this stage. Emit zero patterns, document the skip in the stage log, and hand off to Stage 5 with an empty popper-patterns contribution. Do not attempt to force patterns onto a narrow task.
 
-2. **Select applicable patterns** based on:
+2. **Review the pattern library** below. Each pattern has domain-relevance and stance-affinity indicators.
+
+3. **Select applicable patterns** based on:
    - The DESCRIPTION (what the agent does)
    - The selected epistemic stance (which patterns amplify that stance)
    - The AGENT_TYPE (some patterns are more relevant to certain profiles)
-   - Minimum: 3 patterns. Maximum: 7 patterns. Select for relevance, not completeness.
+   - For `standard`: 3-5 patterns. For `complex`: 3-7 patterns. Select for relevance, not completeness.
 
 3. **For each selected pattern**, compose a concise injectable directive tailored to DESCRIPTION.
 

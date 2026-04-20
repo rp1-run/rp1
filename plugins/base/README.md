@@ -47,7 +47,7 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 ### Prompt Engineering
 - `/create-prompt <PROMPT_NAME> <DESCRIPTION> [--agent-type leaf-worker|orchestrator|interactive-skill|kb-investigator]` - Create a governed prompt with constitutional primitives, epistemic stance, and eval scaffold. Walks the six-stage `prompt-writer` pipeline via a `prompt-pipeline-runner` agent, producing three output artifacts: a ready-to-run prompt, an eval scaffold, and a confidence/epistemic report.
   - **Usage**: `/create-prompt my-agent "An agent that validates API responses against OpenAPI schemas"`
-  - **Output**: `{OUTPUT_DIR}/SKILL.md`, `evals.yaml`, `confidence-report.md` -- defaults to `{codeRoot}/{PROMPT_NAME}/` when `--output-dir` is omitted; pass `--output-dir <path>` to write elsewhere (absolute or relative to `codeRoot`).
+  - **Output**: `{cwd}/{PROMPT_NAME}/SKILL.md`, `evals.yaml`, `confidence-report.md`
   - **Agent Types**: `leaf-worker` (default), `orchestrator`, `interactive-skill`, `kb-investigator`
 
 ### Maintenance

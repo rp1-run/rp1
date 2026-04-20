@@ -17,6 +17,10 @@ interface EvalContext {
 		WORKSPACE_DIR?: string;
 		GIT_COUNT_BEFORE?: string;
 		GIT_HEAD_BEFORE?: string;
+		PROMPT_NAME?: string;
+		AGENT_TYPE?: string;
+		COMPLEXITY?: string;
+		PLUGIN?: string;
 	};
 }
 
@@ -929,6 +933,503 @@ export const assertBuildFastPlannerSpawned =
 export const assertPipelineRunnerSpawned = assertSubagentSpawned(
 	"prompt-pipeline-runner",
 );
+
+/** Assert prompt-pipeline-runner was spawned at orchestrator level (not from a nested sub-agent). */
+export const assertOrchestratorSpawnedPipelineRunner: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const orchestratorCalls = getOrchestratorToolCalls(context);
+	const subagentNames = ["Task", "task", "Agent", "agent"];
+	const found = orchestratorCalls.some(
+		(tc) =>
+			subagentNames.includes(tc.name) &&
+			JSON.stringify(tc.input).includes("prompt-pipeline-runner"),
+	);
+	if (!found) {
+		return {
+			pass: false,
+			score: 0,
+			reason:
+				"No orchestrator-level prompt-pipeline-runner spawn found (checked parentToolUseId)",
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "prompt-pipeline-runner spawned at orchestrator level",
+	};
+};
+
+/**
+ * Assert the three mandatory /create-prompt artifacts exist on disk at the
+ * PLUGIN-resolved directory and contain their required structural markers.
+ */
+export const assertCreatePromptFilesOnDisk: AssertionFunction = (
+	_output,
+	context,
+) => {
+	if (!context.vars?.WORKSPACE_DIR) {
+		return { pass: false, score: 0, reason: "WORKSPACE_DIR not set in vars" };
+	}
+	if (!context.vars?.PROMPT_NAME) {
+		return { pass: false, score: 0, reason: "PROMPT_NAME not set in vars" };
+	}
+	const dir = resolveCreatePromptDir(context);
+	if (!dir) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `Unrecognized PLUGIN=${context.vars?.PLUGIN}`,
+		};
+	}
+	const required = [
+		{ name: "SKILL.md", marker: /^---\s*$/m },
+		{ name: "evals.yaml", marker: /file:\/\/\.\/SKILL\.md/ },
+		{ name: "confidence-report.md", marker: /stage/i },
+	];
+	const missing: string[] = [];
+	for (const { name, marker } of required) {
+		const path = `${dir}/${name}`;
+		try {
+			execSync(`test -f "${path}"`, { stdio: ["pipe", "pipe", "pipe"] });
+		} catch {
+			missing.push(`${name} (missing file)`);
+			continue;
+		}
+		try {
+			const contents = execSync(`cat "${path}"`, { stdio: "pipe" }).toString();
+			if (!marker.test(contents)) {
+				missing.push(`${name} (missing marker ${marker})`);
+			}
+		} catch {
+			missing.push(`${name} (unreadable)`);
+		}
+	}
+	if (missing.length > 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `create-prompt artifacts incomplete: ${missing.join(", ")}`,
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: `All three create-prompt artifacts present at ${dir}`,
+	};
+};
+
+/**
+ * Resolve the directory create-prompt writes into, honoring PLUGIN.
+ * staging (default) -> {WORKSPACE_DIR}/{PROMPT_NAME}
+ * rp1-base  -> {WORKSPACE_DIR}/plugins/base/skills/{PROMPT_NAME}
+ * rp1-utils -> {WORKSPACE_DIR}/plugins/utils/skills/{PROMPT_NAME}
+ * rp1-dev   -> {WORKSPACE_DIR}/plugins/dev/skills/{PROMPT_NAME}
+ */
+function resolveCreatePromptDir(context: EvalContext): string | null {
+	const workspaceDir = context.vars?.WORKSPACE_DIR as string | undefined;
+	const promptName = context.vars?.PROMPT_NAME as string | undefined;
+	if (!workspaceDir || !promptName) return null;
+	const plugin = (context.vars?.PLUGIN as string | undefined) ?? "staging";
+	const pluginDir: Record<string, string> = {
+		staging: "",
+		"rp1-base": "plugins/base/skills/",
+		"rp1-utils": "plugins/utils/skills/",
+		"rp1-dev": "plugins/dev/skills/",
+	};
+	const subdir = pluginDir[plugin];
+	if (subdir === undefined) return null;
+	return `${workspaceDir}/${subdir}${promptName}`;
+}
+
+/**
+ * Read a generated create-prompt artifact. Directory is resolved by
+ * resolveCreatePromptDir (which honors PLUGIN). Returns null if missing.
+ */
+function readCreatePromptArtifact(
+	context: EvalContext,
+	fileName: string,
+): string | null {
+	const dir = resolveCreatePromptDir(context);
+	if (!dir) return null;
+	try {
+		return execSync(`cat "${dir}/${fileName}"`, { stdio: "pipe" }).toString();
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * The full constitutional primitive vocabulary (from constitution.md). Adding
+ * a primitive here requires updating PROFILE_APPLICABLE and Stage 1.
+ */
+const ALL_PRIMITIVES = [
+	"anti-loop",
+	"output discipline",
+	"role",
+	"scope limits",
+	"error degradation",
+	"truth constraints",
+	"transition guards",
+	"orchestrator purity",
+	"exploration bounds",
+	"anti-bias",
+] as const;
+
+/**
+ * Constitutional applicability set per AGENT_TYPE profile. Must track Stage 1
+ * (constitutional-checklist) exactly; add primitives here when Stage 1 changes.
+ */
+const PROFILE_APPLICABLE: Record<string, readonly string[]> = {
+	"leaf-worker": [
+		"anti-loop",
+		"output discipline",
+		"role",
+		"scope limits",
+		"error degradation",
+		"truth constraints",
+		"transition guards",
+	],
+	orchestrator: [
+		"role",
+		"scope limits",
+		"orchestrator purity",
+		"error degradation",
+		"transition guards",
+	],
+	"interactive-skill": [
+		"output discipline",
+		"role",
+		"scope limits",
+		"exploration bounds",
+		"anti-bias",
+	],
+	"kb-investigator": [
+		"role",
+		"error degradation",
+		"exploration bounds",
+		"anti-bias",
+		"truth constraints",
+	],
+};
+
+/** Loose lower-case substring check (each primitive's distinctive word). */
+function matchesPrimitive(body: string, primitive: string): boolean {
+	const normalized = body.toLowerCase();
+	switch (primitive) {
+		case "anti-loop":
+			return /anti-?loop/.test(normalized);
+		case "output discipline":
+			return /output\s+discipline/.test(normalized);
+		case "role":
+			return /\brole\b/.test(normalized);
+		case "scope limits":
+			return /scope\s+(limits|bound)/.test(normalized);
+		case "error degradation":
+			return /error\s+(degradation|handling)/.test(normalized);
+		case "truth constraints":
+			return /truth\s+constraint/.test(normalized);
+		case "transition guards":
+			return /transition\s+guard/.test(normalized);
+		case "orchestrator purity":
+			return /orchestrator\s+purity/.test(normalized);
+		case "exploration bounds":
+			return /exploration\s+bound/.test(normalized);
+		case "anti-bias":
+			return /anti-?bias/.test(normalized);
+		default:
+			return normalized.includes(primitive.toLowerCase());
+	}
+}
+
+/**
+ * Assert the generated SKILL.md contains a directive for every primitive in
+ * the Stage-1 applicable set for the test's AGENT_TYPE, and carries fallibilist
+ * overlay markers. Reads the actual file -- does not trust the agent's reply.
+ */
+export const assertCreatePromptConstitutional: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const contents = readCreatePromptArtifact(context, "SKILL.md");
+	if (contents === null) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "Generated SKILL.md not readable at {WORKSPACE_DIR}/{PROMPT_NAME}/SKILL.md",
+		};
+	}
+	if (!/^---\s*$/m.test(contents)) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "Generated SKILL.md missing YAML frontmatter",
+		};
+	}
+	const agentType =
+		(context.vars?.AGENT_TYPE as string | undefined) ?? "leaf-worker";
+	const applicable = PROFILE_APPLICABLE[agentType];
+	if (!applicable) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `Unknown AGENT_TYPE in test: ${agentType}`,
+		};
+	}
+	const missing = applicable.filter((p) => !matchesPrimitive(contents, p));
+	if (missing.length > 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `SKILL.md missing directives for ${agentType} primitives: ${missing.join(", ")}`,
+		};
+	}
+	// Stage 6 non-overreach check: primitives NOT in the profile's applicable
+	// set must NOT appear in the generated body. Catches the opposite failure
+	// mode from the missing-primitive check above.
+	const applicableSet = new Set(applicable);
+	const forbidden = ALL_PRIMITIVES.filter((p) => !applicableSet.has(p));
+	const overreach = forbidden.filter((p) => matchesPrimitive(contents, p));
+	if (overreach.length > 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `SKILL.md overreaches ${agentType} profile with primitives outside the applicable set: ${overreach.join(", ")}`,
+		};
+	}
+	// Stage 2 + Stage 6 require ALL five fallibilist overlay clauses
+	// (conjectural, refut, hard-to-vary, self-immun, error-correction).
+	const overlayMarkers: Array<{ name: string; rx: RegExp }> = [
+		{ name: "conjectural", rx: /conjectur/i },
+		{ name: "refut", rx: /refut/i },
+		{ name: "hard-to-vary", rx: /hard-?to-?vary/i },
+		{ name: "self-immun", rx: /self-?immun/i },
+		{ name: "error-correction", rx: /error-?correction/i },
+	];
+	const missingOverlay = overlayMarkers
+		.filter(({ rx }) => !rx.test(contents))
+		.map(({ name }) => name);
+	if (missingOverlay.length > 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `SKILL.md missing fallibilist overlay clauses (Stage 2 requires all five): ${missingOverlay.join(", ")}`,
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: `SKILL.md covers all ${applicable.length} applicable primitives for ${agentType}, omits out-of-profile primitives, and carries all five overlay clauses`,
+	};
+};
+
+/**
+ * Assert the generated evals.yaml uses the documented contract: inline
+ * providers (not nonexistent external YAML refs), sibling SKILL.md prompt
+ * path, and a tests array.
+ */
+export const assertCreatePromptStructural: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const contents = readCreatePromptArtifact(context, "evals.yaml");
+	if (contents === null) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "Generated evals.yaml not readable",
+		};
+	}
+	const requiredKeys = ["description:", "providers:", "prompts:", "tests:"];
+	const missingKeys = requiredKeys.filter((k) => !contents.includes(k));
+	if (missingKeys.length > 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `evals.yaml missing top-level keys: ${missingKeys.join(", ")}`,
+		};
+	}
+	if (!/file:\/\/\.\/SKILL\.md/.test(contents)) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "evals.yaml does not reference the sibling `file://./SKILL.md` prompt",
+		};
+	}
+	if (/file:\/\/[^"\n]*providers[^"\n]*\.yaml/.test(contents)) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "evals.yaml uses nonexistent external provider YAML refs; providers must be inline",
+		};
+	}
+	if (!/\bid:\s*anthropic:/.test(contents)) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "evals.yaml does not declare an inline provider with `id: anthropic:...`",
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "evals.yaml uses sibling SKILL.md ref and inline providers",
+	};
+};
+
+/**
+ * Assert the generated confidence-report.md declares an epistemic stance,
+ * embeds the 5-level confidence vocabulary, and scores every pipeline stage.
+ */
+export const assertCreatePromptEpistemic: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const contents = readCreatePromptArtifact(context, "confidence-report.md");
+	if (contents === null) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "Generated confidence-report.md not readable",
+		};
+	}
+	const stances = [
+		/fallibilist\s+empirical/i,
+		/interpretivism/i,
+		/phenomenology/i,
+		/constructivism/i,
+		/pragmatism/i,
+		/compare-?mode/i,
+	];
+	if (!stances.some((rx) => rx.test(contents))) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "confidence-report.md does not name one of the six epistemic stances",
+		};
+	}
+	// COMPLEXITY gates the confidence-scale expectation. simple = 3 levels
+	// (Speculative, Supported, Settled). standard/complex = full 5 levels.
+	// When the incoming test var is `auto` (or unset), parse the effective
+	// complexity out of the Complexity Classification section of the
+	// generated report (the runner records it there in Stage 0.5).
+	const incomingComplexity =
+		(context.vars?.COMPLEXITY as string | undefined) ?? "standard";
+	let complexity = incomingComplexity;
+	if (incomingComplexity === "auto") {
+		const match = contents.match(
+			/\*\*Complexity\*\*:\s*(simple|standard|complex)\b/i,
+		);
+		if (!match) {
+			return {
+				pass: false,
+				score: 0,
+				reason:
+					"COMPLEXITY=auto but confidence-report.md has no `**Complexity**: <value>` line in the Complexity Classification section (runner Stage 0.5 did not record its decision)",
+			};
+		}
+		complexity = match[1].toLowerCase();
+	}
+	const fullScale: Array<{ name: string; rx: RegExp }> = [
+		{ name: "Speculative", rx: /\bspeculative\b/i },
+		{ name: "Provisional", rx: /\bprovisional\b/i },
+		{ name: "Supported", rx: /\bsupported\b/i },
+		{ name: "Well-established", rx: /well-?established/i },
+		{ name: "Settled", rx: /\bsettled\b/i },
+	];
+	const simpleScale: Array<{ name: string; rx: RegExp }> = [
+		{ name: "Speculative", rx: /\bspeculative\b/i },
+		{ name: "Supported", rx: /\bsupported\b/i },
+		{ name: "Settled", rx: /\bsettled\b/i },
+	];
+	const requiredScale = complexity === "simple" ? simpleScale : fullScale;
+	const scaleLabel = complexity === "simple" ? "3-level (simple)" : "5-level";
+	const missingLevels = requiredScale
+		.filter(({ rx }) => !rx.test(contents))
+		.map(({ name }) => name);
+	if (missingLevels.length > 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `confidence-report.md missing confidence levels (${scaleLabel} required for COMPLEXITY=${complexity}): ${missingLevels.join(", ")}`,
+		};
+	}
+	// Stage scoring: `simple` skips Stage 4 so popper-patterns scoring is not
+	// required. All other stages are still mandatory.
+	const requiredStages =
+		complexity === "simple"
+			? [
+					"constitutional-checklist",
+					"fallibilist-overlay",
+					"epistemic-stance",
+					"confidence-schema",
+					"prompt-validation",
+				]
+			: [
+					"constitutional-checklist",
+					"fallibilist-overlay",
+					"epistemic-stance",
+					"popper-patterns",
+					"confidence-schema",
+					"prompt-validation",
+				];
+	const missingStages = requiredStages.filter((s) => !contents.includes(s));
+	if (missingStages.length > 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `confidence-report.md missing stage scores for: ${missingStages.join(", ")}`,
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: `confidence-report.md declares stance, ${scaleLabel} schema, and all ${requiredStages.length} required stage scores`,
+	};
+};
+
+/**
+ * Assert that /create-prompt registered all three mandatory artifacts
+ * (SKILL.md, evals.yaml, confidence-report.md) via `rp1 agent-tools emit
+ * --type artifact_registered`. Any one missing fails the assertion.
+ */
+export const assertCreatePromptThreeArtifacts: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const tcs = getToolCalls(context);
+	const emits = tcs.filter(
+		(tc) =>
+			tc.name === "Bash" &&
+			typeof (tc.input as { command?: unknown }).command === "string" &&
+			(tc.input as { command: string }).command.includes(
+				"rp1 agent-tools emit",
+			) &&
+			(tc.input as { command: string }).command.includes(
+				"--type artifact_registered",
+			),
+	);
+	const expected = ["SKILL.md", "evals.yaml", "confidence-report.md"];
+	const missing = expected.filter(
+		(name) =>
+			!emits.some((tc) =>
+				(tc.input as { command: string }).command.includes(name),
+			),
+	);
+	if (missing.length > 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: `Missing artifact_registered emit for: ${missing.join(", ")}`,
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "All three create-prompt artifacts registered",
+	};
+};
 
 /** Assert speedrun-builder was spawned at orchestrator level (parentToolUseId is null/undefined). */
 export const assertOrchestratorSpawnedSpeedrunBuilder: AssertionFunction = (

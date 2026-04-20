@@ -13,7 +13,7 @@ The agent MUST have the following before executing this stage:
 | Field | Source | Description |
 |-------|--------|-------------|
 | Constitutional directives | Stage 1 output | Ordered list of governance directives tailored to the target agent |
-| DESCRIPTION | User input | Original description of the skill/agent being created |
+| DESCRIPTION | User input | Original description of the skill being created |
 | AGENT_TYPE | User input | Agent-type profile used in Stage 1 |
 
 ## Process
