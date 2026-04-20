@@ -5,7 +5,10 @@
 
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
-import { resolveInitDirectoryModel } from "../directory-model.js";
+import {
+	type InitDirectoryModel,
+	resolveInitDirectoryModel,
+} from "../directory-model.js";
 import type { StepCallbacks } from "../models.js";
 
 /**
@@ -63,10 +66,11 @@ async function isDirectory(dirPath: string): Promise<boolean> {
 export async function checkRp1Readiness(
 	cwd: string,
 	callbacks?: StepCallbacks,
+	directoriesOverride?: InitDirectoryModel,
 ): Promise<ReadinessResult> {
 	callbacks?.onActivity("Checking existing rp1 configuration", "info");
 
-	const directories = resolveInitDirectoryModel(cwd);
+	const directories = directoriesOverride ?? resolveInitDirectoryModel(cwd);
 	const rp1Dir = directories.rp1Dir;
 	const contextDir = directories.contextDir;
 	const kbFile = join(contextDir, "index.md");

@@ -46,6 +46,8 @@ export interface WizardState {
 	readonly error: string | null;
 	/** Plugin installation error message (if installation failed) */
 	readonly pluginInstallError: string | null;
+	/** Non-error cancellation reason (e.g. user chose to reuse an ancestor project). */
+	readonly cancellationReason: string | null;
 }
 
 /**
@@ -87,6 +89,10 @@ export type WizardAction =
 	| {
 			readonly type: "SET_PLUGIN_INSTALL_ERROR";
 			readonly error: string;
+	  }
+	| {
+			readonly type: "CANCEL_WIZARD";
+			readonly reason: string;
 	  };
 
 /**
@@ -172,6 +178,7 @@ const createInitialState = (): WizardState => ({
 	phase: "running",
 	error: null,
 	pluginInstallError: null,
+	cancellationReason: null,
 });
 
 /**
@@ -327,6 +334,36 @@ const wizardReducer = (
 			return {
 				...state,
 				pluginInstallError: action.error,
+			};
+		}
+
+		case "CANCEL_WIZARD": {
+			// Graceful early exit (e.g. user chose to reuse an ancestor project).
+			// Mark any still-pending steps as skipped so the UI renders cleanly
+			// and transition straight to the complete phase.
+			const cancelActivity: Activity = {
+				id: `cancel-${Date.now()}`,
+				message: action.reason,
+				type: "info",
+				timestamp: Date.now(),
+			};
+
+			const stepsAfterCancel = state.steps.map((step) => {
+				if (step.status === "pending" || step.status === "running") {
+					return {
+						...step,
+						status: "skipped" as StepStatus,
+						activities: [...step.activities, cancelActivity],
+					};
+				}
+				return step;
+			});
+
+			return {
+				...state,
+				steps: stepsAfterCancel,
+				phase: "complete",
+				cancellationReason: action.reason,
 			};
 		}
 

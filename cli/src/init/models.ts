@@ -179,6 +179,8 @@ export interface InitOptions {
 	readonly yes?: boolean;
 	/** Force interactive mode even without TTY (--interactive flag) */
 	readonly interactive?: boolean;
+	/** Force creating a nested project even when an ancestor project exists */
+	readonly forceNested?: boolean;
 }
 
 /**
@@ -259,6 +261,12 @@ export interface UserChoices {
 	 * - "exit": Cancel and let user navigate to correct project first
 	 */
 	readonly gitRootChoice?: "continue" | "exit";
+	/**
+	 * Choice for handling ancestor project detection.
+	 * - "use-existing": Use the ancestor project, do not init in cwd
+	 * - "create-nested": Create a nested project in cwd
+	 */
+	readonly ancestorProjectChoice?: "use-existing" | "create-nested";
 	/** Choice for re-initialization behavior */
 	readonly reinitChoice?: ReinitChoice;
 	/** Selected gitignore preset */

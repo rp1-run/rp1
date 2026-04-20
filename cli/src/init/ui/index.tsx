@@ -111,6 +111,7 @@ export const buildStateFromResult = (result: InitResult): WizardState => {
 		phase: "complete",
 		error: null,
 		pluginInstallError: null,
+		cancellationReason: null,
 	};
 };
 

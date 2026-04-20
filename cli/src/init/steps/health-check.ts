@@ -6,7 +6,10 @@
 import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { hasFencedContent } from "../comment-fence.js";
-import { resolveInitDirectoryModel } from "../directory-model.js";
+import {
+	type InitDirectoryModel,
+	resolveInitDirectoryModel,
+} from "../directory-model.js";
 import type { HealthReport, PluginStatus, StepCallbacks } from "../models.js";
 import { hasShellFencedContent } from "../shell-fence.js";
 import type { ReadinessResult } from "./readiness.js";
@@ -113,8 +116,9 @@ export async function performHealthCheck(
 	plugins: readonly PluginStatus[],
 	readiness?: ReadinessResult,
 	callbacks?: StepCallbacks,
+	directoriesOverride?: InitDirectoryModel,
 ): Promise<HealthReport> {
-	const directories = resolveInitDirectoryModel(cwd);
+	const directories = directoriesOverride ?? resolveInitDirectoryModel(cwd);
 	const rp1Dir = directories.rp1Dir;
 	const issues: string[] = [];
 

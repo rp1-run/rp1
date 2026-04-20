@@ -18,6 +18,7 @@ import type {
 } from "../models.js";
 import { FinalSummary } from "./components/FinalSummary.js";
 import {
+	ancestorProjectOptions,
 	gitignorePresetOptions,
 	gitRootOptions,
 	reinitOptions,
@@ -46,7 +47,12 @@ export interface InitWizardProps {
 /**
  * Type of prompt currently being displayed.
  */
-type PromptType = "git-root" | "reinit" | "gitignore" | null;
+type PromptType =
+	| "git-root"
+	| "reinit"
+	| "gitignore"
+	| "ancestor-project"
+	| null;
 
 /**
  * Steps that may require user prompts.
@@ -102,10 +108,19 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 	 * Handle prompt requests from step execution.
 	 * This allows steps to trigger prompts dynamically based on their results.
 	 */
+	const [promptAncestorRoot, setPromptAncestorRoot] = useState<
+		string | undefined
+	>(undefined);
+
 	const handlePromptRequest = useCallback(
-		(request: { type: "git-root" | "reinit" | "gitignore"; cwd?: string }) => {
+		(request: {
+			type: "git-root" | "reinit" | "gitignore" | "ancestor-project";
+			cwd?: string;
+			ancestorRoot?: string;
+		}) => {
 			setActivePrompt(request.type);
 			setPromptCwd(request.cwd);
+			setPromptAncestorRoot(request.ancestorRoot);
 			dispatch({ type: "SET_PHASE", phase: "prompting" });
 		},
 		[dispatch],
@@ -167,6 +182,9 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 			switch (activePrompt) {
 				case "git-root":
 					key = "gitRootChoice";
+					break;
+				case "ancestor-project":
+					key = "ancestorProjectChoice";
 					break;
 				case "reinit":
 					key = "reinitChoice";
@@ -295,14 +313,25 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 		if (state.phase === "complete") {
 			completedRef.current = true;
 
-			// Build the InitResult from wizard state
-			const result: InitResult = {
-				actions: [],
-				detectedTool: state.detectedTools[0] ?? null,
-				warnings: [],
-				healthReport: state.healthReport,
-				nextSteps: [],
-			};
+			// Build the InitResult from wizard state. If the wizard was
+			// cancelled gracefully (e.g. user reused an ancestor project),
+			// report a single `skipped` action instead of a blank result so
+			// the outer CLI can log why nothing was installed.
+			const result: InitResult = state.cancellationReason
+				? {
+						actions: [{ type: "skipped", reason: state.cancellationReason }],
+						detectedTool: null,
+						warnings: [],
+						healthReport: null,
+						nextSteps: [],
+					}
+				: {
+						actions: [],
+						detectedTool: state.detectedTools[0] ?? null,
+						warnings: [],
+						healthReport: state.healthReport,
+						nextSteps: [],
+					};
 
 			onComplete(result);
 
@@ -324,13 +353,36 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 		state.error,
 		state.detectedTools,
 		state.healthReport,
+		state.cancellationReason,
 		onComplete,
 		onError,
 		exit,
 	]);
 
-	// Render completion state using FinalSummary component
+	// Render completion state. A cancelled wizard (e.g. the user chose to
+	// reuse an ancestor project) renders a short notice instead of the
+	// normal FinalSummary, since no install actions took place.
 	if (state.phase === "complete") {
+		if (state.cancellationReason) {
+			return (
+				<Box flexDirection="column" paddingY={spacing.small}>
+					<WizardHeader
+						currentStep={state.currentStepIndex + 1}
+						totalSteps={state.steps.length}
+					/>
+					<StepList steps={state.steps} currentIndex={state.currentStepIndex} />
+					<Box
+						borderStyle="round"
+						borderColor={colors.info}
+						paddingX={spacing.medium}
+						paddingY={spacing.small}
+						marginTop={spacing.small}
+					>
+						<Text color={colors.info}>{state.cancellationReason}</Text>
+					</Box>
+				</Box>
+			);
+		}
 		return <FinalSummary state={state} />;
 	}
 
@@ -376,6 +428,29 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 							message={`Initialize rp1 in ${promptCwd ?? process.cwd()}?`}
 							options={gitRootOptions}
 							onSelect={handleChoice as (value: "continue" | "exit") => void}
+						/>
+					</Box>
+				);
+			case "ancestor-project":
+				return (
+					<Box flexDirection="column">
+						<Box marginBottom={spacing.small}>
+							<Text color={colors.dim}>
+								An rp1 project already exists at{" "}
+								{promptAncestorRoot ?? "an ancestor directory"}.
+							</Text>
+						</Box>
+						<SelectPrompt
+							message="What would you like to do?"
+							options={ancestorProjectOptions(
+								promptAncestorRoot ?? "ancestor",
+								promptCwd ?? process.cwd(),
+							)}
+							onSelect={
+								handleChoice as (
+									value: "use-existing" | "create-nested",
+								) => void
+							}
 						/>
 					</Box>
 				);
