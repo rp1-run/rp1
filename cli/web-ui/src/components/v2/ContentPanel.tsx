@@ -43,7 +43,7 @@ export function ContentPanel({
 }: ContentPanelProps) {
 	return (
 		<div
-			className="artifact-viewer-content max-w-full overflow-hidden break-words px-4 md:px-[40px]"
+			className="artifact-viewer-content max-w-full min-w-0 break-words px-4 md:px-[40px]"
 			style={{
 				paddingTop: "16px",
 				paddingBottom: "40px",

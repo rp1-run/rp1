@@ -260,7 +260,7 @@ function MarkdownEditorWithSave({
 	}, []);
 
 	return (
-		<div className="relative flex gap-3">
+		<div className="relative flex gap-3 min-w-0 max-w-full">
 			<div
 				ref={gutterRef}
 				className="w-5 flex-shrink-0 relative"

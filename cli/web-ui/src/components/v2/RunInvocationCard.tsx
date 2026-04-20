@@ -98,6 +98,24 @@ export function RunInvocationCard({
 						monospace
 					/>
 				</dl>
+				{invocation.arguments &&
+					Object.keys(invocation.arguments).length > 0 && (
+						<>
+							<h3 className="mt-md type-secondary text-fg-muted tracking-wider uppercase">
+								Arguments
+							</h3>
+							<dl className="mt-md grid gap-x-lg gap-y-md md:grid-cols-2 xl:grid-cols-3">
+								{Object.entries(invocation.arguments).map(([key, value]) => (
+									<InvocationField
+										key={key}
+										label={key}
+										value={String(value)}
+										monospace
+									/>
+								))}
+							</dl>
+						</>
+					)}
 			</div>
 		</section>
 	);

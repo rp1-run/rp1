@@ -16,6 +16,11 @@ const baseInvocation: RunInvocationContext = {
 	workIdentity: "FEATURE_ID=feat-ui",
 	identityValues: { FEATURE_ID: "feat-ui" },
 	harness: "codex",
+	arguments: {
+		FEATURE_ID: "feat-ui",
+		AFK: true,
+		API_TOKEN: "[redacted]",
+	},
 };
 
 afterEach(() => {
@@ -34,11 +39,27 @@ describe("RunInvocationCard", () => {
 		expect(screen.getByText("/repo/worktrees/feature")).toBeTruthy();
 		expect(screen.getByText("Linked worktree (feature)")).toBeTruthy();
 		expect(screen.getByText("FEATURE_ID=feat-ui")).toBeTruthy();
+
+		expect(screen.getByText("Arguments")).toBeTruthy();
+		expect(screen.getByText("FEATURE_ID")).toBeTruthy();
+		expect(screen.getByText("feat-ui")).toBeTruthy();
+		expect(screen.getByText("AFK")).toBeTruthy();
+		expect(screen.getByText("true")).toBeTruthy();
+		expect(screen.getByText("API_TOKEN")).toBeTruthy();
+		expect(screen.getByText("[redacted]")).toBeTruthy();
 	});
 
 	test("omits the invocation card when no context exists", () => {
 		render(createElement(RunInvocationCard, { invocation: undefined }));
 
 		expect(screen.queryByText("Invocation")).toBeNull();
+	});
+
+	test("omits the arguments section when arguments is undefined", () => {
+		const { arguments: _, ...noArgs } = baseInvocation;
+		render(createElement(RunInvocationCard, { invocation: noArgs }));
+
+		expect(screen.getByText("Invocation")).toBeTruthy();
+		expect(screen.queryByText("Arguments")).toBeNull();
 	});
 });

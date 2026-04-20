@@ -352,6 +352,7 @@ const buildBootstrapContext = (params: {
 	readonly directories: ReturnType<typeof resolveDirectories>;
 	readonly trace: WorkflowBootstrapTrace;
 	readonly decision: string;
+	readonly arguments?: Readonly<Record<string, string | boolean>>;
 }): string =>
 	JSON.stringify({
 		workflow: {
@@ -379,6 +380,10 @@ const buildBootstrapContext = (params: {
 		run: {
 			decision: params.decision,
 		},
+		...(params.arguments &&
+			Object.keys(params.arguments).length > 0 && {
+				arguments: params.arguments,
+			}),
 	});
 
 export const execute = (
@@ -463,6 +468,7 @@ export const execute = (
 					directories,
 					trace,
 					decision: "pending",
+					arguments: resolvedArgs.arguments,
 				});
 
 				const featureId = deriveFeatureId(resolvedArgs.arguments);
@@ -485,6 +491,7 @@ export const execute = (
 					directories,
 					trace,
 					decision: runResult.decision,
+					arguments: resolvedArgs.arguments,
 				});
 
 				insertRun(db, {

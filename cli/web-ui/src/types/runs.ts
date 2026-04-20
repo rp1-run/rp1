@@ -82,6 +82,7 @@ export interface RunInvocationContext {
 	readonly workIdentity?: string;
 	readonly identityValues?: Readonly<Record<string, string | boolean>>;
 	readonly harness?: string | null;
+	readonly arguments?: Readonly<Record<string, string | boolean>>;
 }
 
 /** An agent run with all associated data */
