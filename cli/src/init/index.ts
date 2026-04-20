@@ -23,10 +23,10 @@ import {
 	detectProjectContext,
 } from "./context-detector.js";
 import {
-	defaultInitDirectoryModel,
+	chooseInitDirectoryModel,
 	detectAncestorProject,
 	detectReinitState as detectSharedReinitState,
-	resolveInitDirectoryModel,
+	type InitDirectoryModel,
 } from "./directory-model.js";
 import { detectGitRoot, type GitRootResult } from "./git-root.js";
 import type {
@@ -262,12 +262,17 @@ async function handleAncestorProjectCheck(
 export async function detectReinitState(
 	cwd: string,
 	detectedToolInstructionFile: string | null,
+	directories?: InitDirectoryModel,
 ): Promise<ReinitState> {
-	return detectSharedReinitState(cwd, {
-		tool: {
-			instruction_file: detectedToolInstructionFile,
-		},
-	} as DetectedTool | null);
+	return detectSharedReinitState(
+		cwd,
+		{
+			tool: {
+				instruction_file: detectedToolInstructionFile,
+			},
+		} as DetectedTool | null,
+		directories,
+	);
 }
 
 /**
@@ -552,6 +557,11 @@ export function executeInit(
 					cwd = gitCheck.cwd;
 				}
 
+				// Resolve directories once, respecting forceLocalProject, and pass
+				// this through to every downstream helper so they don't re-resolve
+				// (and accidentally climb back to an ancestor project).
+				const directories = chooseInitDirectoryModel(cwd, forceLocalProject);
+
 				const contextResultEither = await detectProjectContext(cwd)();
 				const contextResult: ContextDetectionResult = E.isRight(
 					contextResultEither,
@@ -569,7 +579,7 @@ export function executeInit(
 				);
 
 				progress.startStep("reinit-check");
-				const reinitState = await detectReinitState(cwd, null);
+				const reinitState = await detectReinitState(cwd, null, directories);
 				const reinitCheck = await handleReinitCheck(
 					reinitState,
 					promptOptions,
@@ -600,7 +610,7 @@ export function executeInit(
 
 				const [toolResultEither, readinessResult] = await Promise.all([
 					detectTools(registry)(),
-					checkRp1Readiness(cwd),
+					checkRp1Readiness(cwd, undefined, directories),
 				]);
 
 				const toolDetectionResult = E.isRight(toolResultEither)
@@ -778,16 +788,21 @@ export function executeInit(
 
 				// --- Project setup ---
 				progress.startStep("directory-setup");
-				const directories = forceLocalProject
-					? defaultInitDirectoryModel(cwd)
-					: resolveInitDirectoryModel(cwd);
-				const dirActions = await createDirectoryStructure(cwd, logger);
+				const dirActions = await createDirectoryStructure(
+					cwd,
+					logger,
+					directories,
+				);
 				allActions.push(...dirActions);
 				await ensureProjectId(directories.projectRoot);
 				progress.completeStep();
 
 				progress.startStep("settings-setup");
-				const settingsActions = await createSettingsFiles(cwd, logger);
+				const settingsActions = await createSettingsFiles(
+					cwd,
+					logger,
+					directories,
+				);
 				allActions.push(...settingsActions);
 				progress.completeStep();
 
@@ -831,6 +846,8 @@ export function executeInit(
 						cwd,
 						pluginStatus,
 						readinessResult,
+						undefined,
+						directories,
 					);
 
 					if (healthReport.issues.length === 0) {

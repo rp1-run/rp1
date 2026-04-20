@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
+	defaultInitDirectoryModel,
 	detectAncestorProject,
 	detectReinitState,
 	resolveInitDirectoryModel,
@@ -108,6 +110,90 @@ describe("init directory model", () => {
 		// A stale .rp1/ dir without project_id should NOT trigger the ancestor prompt
 		expect(result.isAncestor).toBe(false);
 		expect(result.ancestorRoot).toBeUndefined();
+	});
+
+	test("detectAncestorProject does not flag a linked git worktree as an ancestor", async () => {
+		// Set up a main repo with a project_id, then create a linked worktree
+		// whose main repo is a *sibling* path rather than an ancestor. The
+		// resolver maps the worktree back to the main repo, but that is not a
+		// real ancestor of the worktree cwd, so the prompt must not fire.
+		const mainRepo = join(tempDir, "main-repo");
+		await mkdir(mainRepo, { recursive: true });
+		const gitEnv = {
+			...process.env,
+			GIT_AUTHOR_NAME: "rp1-test",
+			GIT_AUTHOR_EMAIL: "rp1-test@example.com",
+			GIT_COMMITTER_NAME: "rp1-test",
+			GIT_COMMITTER_EMAIL: "rp1-test@example.com",
+		};
+		const runGit = (cwd: string, args: string[]): void => {
+			execFileSync("git", args, { cwd, env: gitEnv, stdio: "ignore" });
+		};
+
+		runGit(mainRepo, ["init", "-q", "-b", "main"]);
+		await writeFile(join(mainRepo, "README.md"), "# main\n", "utf-8");
+		runGit(mainRepo, ["add", "README.md"]);
+		runGit(mainRepo, ["commit", "-q", "-m", "initial"]);
+
+		await mkdir(join(mainRepo, ".rp1"), { recursive: true });
+		await writeFile(join(mainRepo, ".rp1", "project_id"), "main-project-id");
+
+		const worktreePath = join(tempDir, "worktrees", "feature-x");
+		runGit(mainRepo, [
+			"worktree",
+			"add",
+			"-b",
+			"feature-x",
+			worktreePath,
+			"main",
+		]);
+
+		try {
+			const result = detectAncestorProject(worktreePath);
+			expect(result.isAncestor).toBe(false);
+			expect(result.ancestorRoot).toBeUndefined();
+		} finally {
+			// Best-effort cleanup of the linked worktree before the temp dir rm
+			try {
+				runGit(mainRepo, ["worktree", "remove", "--force", worktreePath]);
+			} catch {
+				// ignore
+			}
+		}
+	});
+
+	test("defaultInitDirectoryModel always targets cwd even inside a nested project", async () => {
+		const nestedDir = join(tempDir, "packages", "app");
+		await mkdir(join(tempDir, ".rp1"), { recursive: true });
+		await writeFile(join(tempDir, ".rp1", "project_id"), "project-123");
+		await mkdir(nestedDir, { recursive: true });
+
+		const directories = defaultInitDirectoryModel(nestedDir);
+
+		expect(directories.projectRoot).toBe(nestedDir);
+		expect(directories.rp1Dir).toBe(join(nestedDir, ".rp1"));
+	});
+
+	test("detectReinitState honors a forced-local directory model", async () => {
+		const nestedDir = join(tempDir, "packages", "app");
+		// Parent has an rp1 project, but the nested dir is empty.
+		await mkdir(join(tempDir, ".rp1"), { recursive: true });
+		await writeFile(join(tempDir, ".rp1", "project_id"), "project-123");
+		await mkdir(nestedDir, { recursive: true });
+
+		// Without override: climbs to parent and reports existing rp1 dir.
+		const climbed = await detectReinitState(nestedDir, null);
+		expect(climbed.hasRp1Dir).toBe(true);
+
+		// With forced-local override: must only look at the nested dir.
+		const local = await detectReinitState(
+			nestedDir,
+			null,
+			defaultInitDirectoryModel(nestedDir),
+		);
+		expect(local.hasRp1Dir).toBe(false);
+		expect(local.hasKBContent).toBe(false);
+		expect(local.hasWorkContent).toBe(false);
 	});
 
 	test("detects work content from .rp1/work directory", async () => {

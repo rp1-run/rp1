@@ -24,7 +24,10 @@ import {
 	validateFencing,
 	wrapWithFence,
 } from "../comment-fence.js";
-import { resolveInitDirectoryModel } from "../directory-model.js";
+import {
+	type InitDirectoryModel,
+	resolveInitDirectoryModel,
+} from "../directory-model.js";
 import { buildManagedGitignoreContent } from "../gitignore.js";
 import type { GitignorePreset, InitAction } from "../models.js";
 import type { InitProgress } from "../progress.js";
@@ -96,9 +99,10 @@ function countLines(content: string): number {
 export async function createDirectoryStructure(
 	cwd: string,
 	logger: Logger,
+	directoriesOverride?: InitDirectoryModel,
 ): Promise<InitAction[]> {
 	const actions: InitAction[] = [];
-	const directories = resolveInitDirectoryModel(cwd);
+	const directories = directoriesOverride ?? resolveInitDirectoryModel(cwd);
 	const { rp1Dir, contextDir, workDir } = directories;
 
 	if (!(await directoryExists(rp1Dir))) {
@@ -137,8 +141,12 @@ function resolveGlobalSettingsPath(): string {
 /**
  * Resolve the local settings file path.
  */
-function resolveLocalSettingsPath(cwd: string): string {
-	return path.join(resolveInitDirectoryModel(cwd).rp1Dir, "settings.toml");
+function resolveLocalSettingsPath(
+	cwd: string,
+	directoriesOverride?: InitDirectoryModel,
+): string {
+	const directories = directoriesOverride ?? resolveInitDirectoryModel(cwd);
+	return path.join(directories.rp1Dir, "settings.toml");
 }
 
 /**
@@ -173,6 +181,7 @@ async function createOrUpdateSettingsFile(
 export async function createSettingsFiles(
 	cwd: string,
 	logger: Logger,
+	directoriesOverride?: InitDirectoryModel,
 ): Promise<InitAction[]> {
 	const actions: InitAction[] = [];
 
@@ -196,7 +205,7 @@ export async function createSettingsFiles(
 	}
 
 	// Process local settings file
-	const localPath = resolveLocalSettingsPath(cwd);
+	const localPath = resolveLocalSettingsPath(cwd, directoriesOverride);
 	const localResult = await createOrUpdateSettingsFile(localPath);
 	actions.push(localResult.action);
 

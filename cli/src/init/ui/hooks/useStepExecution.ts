@@ -35,9 +35,10 @@ import {
 	type ProjectContext,
 } from "../../context-detector.js";
 import {
-	defaultInitDirectoryModel,
+	chooseInitDirectoryModel,
 	detectAncestorProject,
 	detectReinitState,
+	type InitDirectoryModel,
 	resolveInitDirectoryModel,
 } from "../../directory-model.js";
 import { detectGitRoot, type GitRootResult } from "../../git-root.js";
@@ -102,8 +103,12 @@ function resolveGlobalSettingsPath(): string {
 /**
  * Resolve the local settings file path.
  */
-function resolveLocalSettingsPath(cwd: string): string {
-	return path.join(resolveInitDirectoryModel(cwd).rp1Dir, "settings.toml");
+function resolveLocalSettingsPath(
+	cwd: string,
+	directoriesOverride?: InitDirectoryModel,
+): string {
+	const directories = directoriesOverride ?? resolveInitDirectoryModel(cwd);
+	return path.join(directories.rp1Dir, "settings.toml");
 }
 
 /**
@@ -136,6 +141,12 @@ interface ExecutionContext {
 	pluginStatus: readonly PluginStatus[];
 	healthReport: HealthReport | null;
 	forceLocalProject: boolean;
+	/**
+	 * Resolved directory model for this init run. Populated at the end of the
+	 * git-check step after any ancestor-project decision is made, so all
+	 * downstream helpers operate on the same project root.
+	 */
+	directories: InitDirectoryModel | null;
 	userChoices: {
 		gitRootChoice?: "continue" | "exit";
 		ancestorProjectChoice?: "use-existing" | "create-nested";
@@ -228,6 +239,7 @@ export const useStepExecution = ({
 		pluginStatus: [],
 		healthReport: null,
 		forceLocalProject: false,
+		directories: null,
 		userChoices: {},
 	});
 
@@ -355,18 +367,28 @@ export const useStepExecution = ({
 					}
 
 					if (ancestorChoice === undefined && options.yes) {
-						// Non-interactive default: use existing project
-						throw new Error(
-							`An rp1 project already exists at ${ancestorInfo.ancestorRoot}. ` +
+						// Non-interactive default: use existing project. This is a
+						// valid outcome, not a failure -- exit the wizard cleanly.
+						promptRequestedRef.current = true;
+						dispatch({
+							type: "CANCEL_WIZARD",
+							reason:
+								`An rp1 project already exists at ${ancestorInfo.ancestorRoot}. ` +
 								"Using existing project (non-interactive mode). " +
 								"To create a nested project here instead, re-run with --force-nested.",
-						);
+						});
+						return;
 					}
 
 					if (ancestorChoice === "use-existing") {
-						throw new Error(
-							`Using existing rp1 project at ${ancestorInfo.ancestorRoot}.`,
-						);
+						// User picked the valid "reuse ancestor" option -- this is a
+						// successful early exit, not an error.
+						promptRequestedRef.current = true;
+						dispatch({
+							type: "CANCEL_WIZARD",
+							reason: `Using existing rp1 project at ${ancestorInfo.ancestorRoot}.`,
+						});
+						return;
 					}
 
 					// create-nested
@@ -378,8 +400,17 @@ export const useStepExecution = ({
 					ctx.forceLocalProject = true;
 				}
 			}
+
+			// Finalize the directory model for the rest of the wizard. All
+			// downstream steps must use this instead of re-resolving from cwd,
+			// which would climb back to an ancestor project.
+			ctx.directories = chooseInitDirectoryModel(
+				ctx.cwd,
+				ctx.forceLocalProject,
+			);
 		},
 		[
+			dispatch,
 			state.userChoices.gitRootChoice,
 			state.userChoices.ancestorProjectChoice,
 			options.yes,
@@ -410,7 +441,11 @@ export const useStepExecution = ({
 				context: ctx.projectContext,
 			});
 
-			const reinitState = await detectReinitState(ctx.cwd, ctx.primaryTool);
+			const reinitState = await detectReinitState(
+				ctx.cwd,
+				ctx.primaryTool,
+				ctx.directories ?? undefined,
+			);
 			ctx.reinitState = reinitState;
 
 			if (!reinitState.hasRp1Dir && !reinitState.hasFencedContent) {
@@ -471,9 +506,10 @@ export const useStepExecution = ({
 	const executeDirectorySetup = useCallback(
 		async (addAct: AddActivityFn): Promise<void> => {
 			const ctx = contextRef.current;
-			const directories = ctx.forceLocalProject
-				? defaultInitDirectoryModel(ctx.cwd)
-				: resolveInitDirectoryModel(ctx.cwd);
+			const directories =
+				ctx.directories ??
+				chooseInitDirectoryModel(ctx.cwd, ctx.forceLocalProject);
+			ctx.directories = directories;
 
 			let created = 0;
 
@@ -541,7 +577,10 @@ export const useStepExecution = ({
 			}
 
 			// Create or merge local settings file
-			const localPath = resolveLocalSettingsPath(ctx.cwd);
+			const localPath = resolveLocalSettingsPath(
+				ctx.cwd,
+				ctx.directories ?? undefined,
+			);
 			if (!(await fileExists(localPath))) {
 				await writeFileContent(localPath, DEFAULT_SETTINGS_TEMPLATE);
 				addAct("settings-setup", "Created local settings file", "success");
@@ -572,7 +611,7 @@ export const useStepExecution = ({
 			// Run tool detection and readiness check in parallel
 			const [toolResultEither, readinessResult] = await Promise.all([
 				detectTools(ctx.registry)(),
-				checkRp1Readiness(ctx.cwd),
+				checkRp1Readiness(ctx.cwd, undefined, ctx.directories ?? undefined),
 			]);
 
 			const toolResult = E.isRight(toolResultEither)
@@ -948,6 +987,8 @@ export const useStepExecution = ({
 				ctx.cwd,
 				ctx.pluginStatus,
 				ctx.readinessResult ?? undefined,
+				undefined,
+				ctx.directories ?? undefined,
 			);
 
 			ctx.healthReport = healthReport;

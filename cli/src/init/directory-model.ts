@@ -49,8 +49,10 @@ export const resolveInitDirectoryModel = (cwd: string): InitDirectoryModel => {
  * Detect whether an ancestor directory (not cwd itself) has an rp1 project with a project_id.
  * Used by init to prompt when running in a subdirectory of an existing project.
  *
- * Only flags as ancestor when the resolved project root has a project_id file.
- * A stale .rp1/ directory without project_id does not trigger the ancestor prompt.
+ * Only flags as ancestor when:
+ * - The resolved project root is a true ancestor directory of cwd (not a sibling).
+ * - The ancestor has a project_id file (stale .rp1/ dirs alone do not count).
+ * - cwd is not inside a linked git worktree whose main repo resolves to a sibling path.
  */
 export const detectAncestorProject = (cwd: string): AncestorProjectInfo => {
 	const resolvedCwd = path.resolve(cwd);
@@ -60,20 +62,43 @@ export const detectAncestorProject = (cwd: string): AncestorProjectInfo => {
 		return { isAncestor: false, ancestorRoot: undefined };
 	}
 
-	const resolvedProjectRoot = path.resolve(result.right.projectRoot);
-
-	// Only flag as ancestor if:
-	// 1. The resolved root is genuinely a parent, not cwd itself
-	// 2. The ancestor has a project_id (not just a stale .rp1/ dir)
-	if (
-		resolvedProjectRoot !== resolvedCwd &&
-		result.right.projectId !== undefined
-	) {
-		return { isAncestor: true, ancestorRoot: resolvedProjectRoot };
+	// Linked git worktrees resolve to the main repo root, which can be a sibling
+	// path rather than an ancestor. Skip the prompt in that case.
+	if (result.right.isWorktree) {
+		return { isAncestor: false, ancestorRoot: undefined };
 	}
 
-	return { isAncestor: false, ancestorRoot: undefined };
+	const resolvedProjectRoot = path.resolve(result.right.projectRoot);
+
+	if (result.right.projectId === undefined) {
+		return { isAncestor: false, ancestorRoot: undefined };
+	}
+
+	// Require a true parent-of relationship: cwd must live inside projectRoot,
+	// not just be path-inequal to it.
+	const rootWithSep = resolvedProjectRoot.endsWith(path.sep)
+		? resolvedProjectRoot
+		: resolvedProjectRoot + path.sep;
+	if (!resolvedCwd.startsWith(rootWithSep)) {
+		return { isAncestor: false, ancestorRoot: undefined };
+	}
+
+	return { isAncestor: true, ancestorRoot: resolvedProjectRoot };
 };
+
+/**
+ * Return the InitDirectoryModel to use for a given init invocation.
+ * When forceLocalProject is true, always treat cwd as the project root
+ * (used after the user opts into a nested init). Otherwise use the
+ * ancestor-climbing resolver as before.
+ */
+export const chooseInitDirectoryModel = (
+	cwd: string,
+	forceLocalProject: boolean,
+): InitDirectoryModel =>
+	forceLocalProject
+		? defaultInitDirectoryModel(cwd)
+		: resolveInitDirectoryModel(cwd);
 
 async function fileExists(filePath: string): Promise<boolean> {
 	try {
@@ -124,8 +149,9 @@ async function hasAnyFiles(dirPath: string): Promise<boolean> {
 export async function detectReinitState(
 	cwd: string,
 	detectedTool: DetectedTool | null,
+	directoriesOverride?: InitDirectoryModel,
 ): Promise<ReinitState> {
-	const directories = resolveInitDirectoryModel(cwd);
+	const directories = directoriesOverride ?? resolveInitDirectoryModel(cwd);
 	const hasRp1Dir = await directoryExists(directories.rp1Dir);
 
 	let hasFenced = false;
