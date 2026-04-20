@@ -40,6 +40,10 @@ export const initCommand = new Command("init")
 		"-i, --interactive",
 		"Force interactive mode even without TTY (overrides --yes)",
 	)
+	.option(
+		"--force-nested",
+		"Create a nested project even when a parent directory has an rp1 project",
+	)
 	.addHelpText(
 		"after",
 		`
@@ -54,10 +58,16 @@ Non-interactive mode (--yes) behaviors:
   - Refreshes rp1 configuration idempotently (fenced content, directories, settings)
   - Silent operation except for errors and final summary
 
+Ancestor project detection:
+  When run in a subdirectory of an existing rp1 project, prompts whether to
+  use the existing project or create a nested one. In non-interactive mode,
+  defaults to using the existing project. Use --force-nested to override.
+
 Examples:
   rp1 init                    Interactive setup with prompts
   rp1 init --yes              Non-interactive with defaults (CI/automation)
   rp1 init --interactive      Force prompts even without TTY
+  rp1 init --force-nested     Create nested project under an existing one
 
 Exit codes:
   0    Success (including with warnings)
@@ -82,6 +92,7 @@ Exit codes:
 					{
 						yes: options.yes,
 						interactive: options.interactive,
+						forceNested: options.forceNested,
 					},
 					registry,
 				);
@@ -95,6 +106,7 @@ Exit codes:
 				{
 					yes: options.yes,
 					interactive: options.interactive,
+					forceNested: options.forceNested,
 				},
 				logger,
 			)();

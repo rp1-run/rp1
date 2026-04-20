@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
+	detectAncestorProject,
 	detectReinitState,
 	resolveInitDirectoryModel,
 } from "../../init/directory-model.js";
@@ -65,6 +66,48 @@ describe("init directory model", () => {
 				process.env.HOME = originalHome;
 			}
 		}
+	});
+
+	test("detectAncestorProject returns isAncestor when parent has project_id", async () => {
+		const nestedDir = join(tempDir, "packages", "app");
+		await mkdir(join(tempDir, ".rp1"), { recursive: true });
+		await writeFile(join(tempDir, ".rp1", "project_id"), "project-123");
+		await mkdir(nestedDir, { recursive: true });
+
+		const result = detectAncestorProject(nestedDir);
+
+		expect(result.isAncestor).toBe(true);
+		expect(result.ancestorRoot).toBe(tempDir);
+	});
+
+	test("detectAncestorProject returns false when cwd is the project root", async () => {
+		await mkdir(join(tempDir, ".rp1"), { recursive: true });
+		await writeFile(join(tempDir, ".rp1", "project_id"), "project-123");
+
+		const result = detectAncestorProject(tempDir);
+
+		expect(result.isAncestor).toBe(false);
+		expect(result.ancestorRoot).toBeUndefined();
+	});
+
+	test("detectAncestorProject returns false when no ancestor project exists", () => {
+		const result = detectAncestorProject(tempDir);
+
+		expect(result.isAncestor).toBe(false);
+		expect(result.ancestorRoot).toBeUndefined();
+	});
+
+	test("detectAncestorProject ignores ancestor with .rp1 dir but no project_id", async () => {
+		const nestedDir = join(tempDir, "packages", "app");
+		// Create .rp1/ directory without project_id (stale/legacy)
+		await mkdir(join(tempDir, ".rp1"), { recursive: true });
+		await mkdir(nestedDir, { recursive: true });
+
+		const result = detectAncestorProject(nestedDir);
+
+		// A stale .rp1/ dir without project_id should NOT trigger the ancestor prompt
+		expect(result.isAncestor).toBe(false);
+		expect(result.ancestorRoot).toBeUndefined();
 	});
 
 	test("detects work content from .rp1/work directory", async () => {

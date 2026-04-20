@@ -124,6 +124,26 @@ export const gitRootOptions: readonly SelectOption<"continue" | "exit">[] = [
 ];
 
 /**
+ * Options for ancestor project detection.
+ * Used when an ancestor directory already has an rp1 project.
+ */
+export const ancestorProjectOptions = (
+	ancestorRoot: string,
+	cwd: string,
+): readonly SelectOption<"use-existing" | "create-nested">[] => [
+	{
+		value: "use-existing",
+		label: "Use existing project",
+		description: `Keep using the rp1 project at ${ancestorRoot}`,
+	},
+	{
+		value: "create-nested",
+		label: "Create nested project here",
+		description: `Initialize a new rp1 project in ${cwd}`,
+	},
+];
+
+/**
  * Options for re-initialization behavior.
  * Used when rp1 is already configured in the project.
  */

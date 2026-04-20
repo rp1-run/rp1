@@ -35,6 +35,8 @@ import {
 	type ProjectContext,
 } from "../../context-detector.js";
 import {
+	defaultInitDirectoryModel,
+	detectAncestorProject,
 	detectReinitState,
 	resolveInitDirectoryModel,
 } from "../../directory-model.js";
@@ -133,8 +135,10 @@ interface ExecutionContext {
 	readinessResult: ReadinessResult | null;
 	pluginStatus: readonly PluginStatus[];
 	healthReport: HealthReport | null;
+	forceLocalProject: boolean;
 	userChoices: {
 		gitRootChoice?: "continue" | "exit";
+		ancestorProjectChoice?: "use-existing" | "create-nested";
 		reinitChoice?: ReinitChoice;
 		gitignorePreset?: GitignorePreset;
 	};
@@ -145,10 +149,12 @@ interface ExecutionContext {
  * When a step needs user input, it sets this in the context.
  */
 export interface PromptRequest {
-	readonly type: "git-root" | "reinit" | "gitignore";
+	readonly type: "git-root" | "reinit" | "gitignore" | "ancestor-project";
 	readonly resolve: (value: string) => void;
-	/** Current working directory (for git-root prompt) */
+	/** Current working directory (for git-root and ancestor-project prompts) */
 	readonly cwd?: string;
+	/** Ancestor project root (for ancestor-project prompt) */
+	readonly ancestorRoot?: string;
 }
 
 /**
@@ -221,6 +227,7 @@ export const useStepExecution = ({
 		readinessResult: null,
 		pluginStatus: [],
 		healthReport: null,
+		forceLocalProject: false,
 		userChoices: {},
 	});
 
@@ -321,8 +328,64 @@ export const useStepExecution = ({
 				// Default (continue): user confirmed this is the right directory
 				addAct("git-check", "Project root confirmed", "success");
 			}
+
+			// Check if an ancestor directory has an rp1 project
+			const ancestorInfo = detectAncestorProject(ctx.cwd);
+			if (ancestorInfo.isAncestor && ancestorInfo.ancestorRoot) {
+				// --force-nested bypasses the prompt entirely
+				if (options.forceNested) {
+					addAct(
+						"git-check",
+						`Ancestor project at ${ancestorInfo.ancestorRoot} (creating nested project via --force-nested)`,
+						"info",
+					);
+					ctx.forceLocalProject = true;
+				} else {
+					const ancestorChoice = state.userChoices.ancestorProjectChoice;
+
+					if (ancestorChoice === undefined && !options.yes && onPromptRequest) {
+						promptRequestedRef.current = true;
+						onPromptRequest({
+							type: "ancestor-project",
+							resolve: () => {},
+							cwd: ctx.cwd,
+							ancestorRoot: ancestorInfo.ancestorRoot,
+						});
+						return;
+					}
+
+					if (ancestorChoice === undefined && options.yes) {
+						// Non-interactive default: use existing project
+						throw new Error(
+							`An rp1 project already exists at ${ancestorInfo.ancestorRoot}. ` +
+								"Using existing project (non-interactive mode). " +
+								"To create a nested project here instead, re-run with --force-nested.",
+						);
+					}
+
+					if (ancestorChoice === "use-existing") {
+						throw new Error(
+							`Using existing rp1 project at ${ancestorInfo.ancestorRoot}.`,
+						);
+					}
+
+					// create-nested
+					addAct(
+						"git-check",
+						`Creating nested project (ancestor at ${ancestorInfo.ancestorRoot})`,
+						"info",
+					);
+					ctx.forceLocalProject = true;
+				}
+			}
 		},
-		[state.userChoices.gitRootChoice, options.yes, onPromptRequest],
+		[
+			state.userChoices.gitRootChoice,
+			state.userChoices.ancestorProjectChoice,
+			options.yes,
+			options.forceNested,
+			onPromptRequest,
+		],
 	);
 
 	/**
@@ -408,7 +471,9 @@ export const useStepExecution = ({
 	const executeDirectorySetup = useCallback(
 		async (addAct: AddActivityFn): Promise<void> => {
 			const ctx = contextRef.current;
-			const directories = resolveInitDirectoryModel(ctx.cwd);
+			const directories = ctx.forceLocalProject
+				? defaultInitDirectoryModel(ctx.cwd)
+				: resolveInitDirectoryModel(ctx.cwd);
 
 			let created = 0;
 

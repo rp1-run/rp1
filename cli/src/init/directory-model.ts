@@ -13,7 +13,7 @@ export interface InitDirectoryModel {
 	readonly workDir: string;
 }
 
-const defaultInitDirectoryModel = (cwd: string): InitDirectoryModel => {
+export const defaultInitDirectoryModel = (cwd: string): InitDirectoryModel => {
 	const projectRoot = path.resolve(cwd);
 	const rp1Dir = path.resolve(projectRoot, ".rp1");
 	return {
@@ -23,6 +23,13 @@ const defaultInitDirectoryModel = (cwd: string): InitDirectoryModel => {
 		workDir: path.join(rp1Dir, "work"),
 	};
 };
+
+export interface AncestorProjectInfo {
+	/** Whether the resolved project root is an ancestor directory (not cwd itself) */
+	readonly isAncestor: boolean;
+	/** The ancestor project root path (only meaningful when isAncestor is true) */
+	readonly ancestorRoot: string | undefined;
+}
 
 export const resolveInitDirectoryModel = (cwd: string): InitDirectoryModel => {
 	const result = resolveDirectorySet(cwd);
@@ -36,6 +43,36 @@ export const resolveInitDirectoryModel = (cwd: string): InitDirectoryModel => {
 		contextDir: path.resolve(result.right.kbRoot),
 		workDir: path.resolve(result.right.workRoot),
 	};
+};
+
+/**
+ * Detect whether an ancestor directory (not cwd itself) has an rp1 project with a project_id.
+ * Used by init to prompt when running in a subdirectory of an existing project.
+ *
+ * Only flags as ancestor when the resolved project root has a project_id file.
+ * A stale .rp1/ directory without project_id does not trigger the ancestor prompt.
+ */
+export const detectAncestorProject = (cwd: string): AncestorProjectInfo => {
+	const resolvedCwd = path.resolve(cwd);
+	const result = resolveDirectorySet(cwd);
+
+	if (E.isLeft(result)) {
+		return { isAncestor: false, ancestorRoot: undefined };
+	}
+
+	const resolvedProjectRoot = path.resolve(result.right.projectRoot);
+
+	// Only flag as ancestor if:
+	// 1. The resolved root is genuinely a parent, not cwd itself
+	// 2. The ancestor has a project_id (not just a stale .rp1/ dir)
+	if (
+		resolvedProjectRoot !== resolvedCwd &&
+		result.right.projectId !== undefined
+	) {
+		return { isAncestor: true, ancestorRoot: resolvedProjectRoot };
+	}
+
+	return { isAncestor: false, ancestorRoot: undefined };
 };
 
 async function fileExists(filePath: string): Promise<boolean> {

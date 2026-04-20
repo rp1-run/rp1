@@ -18,6 +18,7 @@ import type {
 } from "../models.js";
 import { FinalSummary } from "./components/FinalSummary.js";
 import {
+	ancestorProjectOptions,
 	gitignorePresetOptions,
 	gitRootOptions,
 	reinitOptions,
@@ -46,7 +47,12 @@ export interface InitWizardProps {
 /**
  * Type of prompt currently being displayed.
  */
-type PromptType = "git-root" | "reinit" | "gitignore" | null;
+type PromptType =
+	| "git-root"
+	| "reinit"
+	| "gitignore"
+	| "ancestor-project"
+	| null;
 
 /**
  * Steps that may require user prompts.
@@ -102,10 +108,19 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 	 * Handle prompt requests from step execution.
 	 * This allows steps to trigger prompts dynamically based on their results.
 	 */
+	const [promptAncestorRoot, setPromptAncestorRoot] = useState<
+		string | undefined
+	>(undefined);
+
 	const handlePromptRequest = useCallback(
-		(request: { type: "git-root" | "reinit" | "gitignore"; cwd?: string }) => {
+		(request: {
+			type: "git-root" | "reinit" | "gitignore" | "ancestor-project";
+			cwd?: string;
+			ancestorRoot?: string;
+		}) => {
 			setActivePrompt(request.type);
 			setPromptCwd(request.cwd);
+			setPromptAncestorRoot(request.ancestorRoot);
 			dispatch({ type: "SET_PHASE", phase: "prompting" });
 		},
 		[dispatch],
@@ -167,6 +182,9 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 			switch (activePrompt) {
 				case "git-root":
 					key = "gitRootChoice";
+					break;
+				case "ancestor-project":
+					key = "ancestorProjectChoice";
 					break;
 				case "reinit":
 					key = "reinitChoice";
@@ -376,6 +394,29 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 							message={`Initialize rp1 in ${promptCwd ?? process.cwd()}?`}
 							options={gitRootOptions}
 							onSelect={handleChoice as (value: "continue" | "exit") => void}
+						/>
+					</Box>
+				);
+			case "ancestor-project":
+				return (
+					<Box flexDirection="column">
+						<Box marginBottom={spacing.small}>
+							<Text color={colors.dim}>
+								An rp1 project already exists at{" "}
+								{promptAncestorRoot ?? "an ancestor directory"}.
+							</Text>
+						</Box>
+						<SelectPrompt
+							message="What would you like to do?"
+							options={ancestorProjectOptions(
+								promptAncestorRoot ?? "ancestor",
+								promptCwd ?? process.cwd(),
+							)}
+							onSelect={
+								handleChoice as (
+									value: "use-existing" | "create-nested",
+								) => void
+							}
 						/>
 					</Box>
 				);

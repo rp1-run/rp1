@@ -23,6 +23,8 @@ import {
 	detectProjectContext,
 } from "./context-detector.js";
 import {
+	defaultInitDirectoryModel,
+	detectAncestorProject,
 	detectReinitState as detectSharedReinitState,
 	resolveInitDirectoryModel,
 } from "./directory-model.js";
@@ -182,6 +184,75 @@ async function handleGitRootCheck(
 			);
 			return { proceed: false, cwd: gitResult.currentDir };
 	}
+}
+
+type AncestorProjectChoice = "use-existing" | "create-nested";
+
+/**
+ * Handle the case where an ancestor directory already has an rp1 project.
+ * Prompts the user to choose between using the existing project or creating a nested one.
+ *
+ * Non-interactive default: Uses existing project. The user can override with --force-nested.
+ */
+async function handleAncestorProjectCheck(
+	cwd: string,
+	ancestorRoot: string,
+	options: InitOptions,
+	promptOptions: PromptOptions,
+	logger: Logger,
+	progress: InitProgress,
+): Promise<{ proceed: boolean; forceLocal: boolean }> {
+	// --force-nested bypasses the prompt entirely
+	if (options.forceNested) {
+		logger.info(
+			`Ancestor rp1 project found at ${ancestorRoot}. Creating nested project here (--force-nested).`,
+		);
+		return { proceed: true, forceLocal: true };
+	}
+
+	// Non-interactive mode: default to using the existing project
+	if (!promptOptions.isTTY) {
+		logger.info(
+			`Ancestor rp1 project found at ${ancestorRoot}. Using existing project (non-interactive mode).`,
+		);
+		logger.info(
+			"To create a nested project here instead, re-run with --force-nested.",
+		);
+		return { proceed: false, forceLocal: false };
+	}
+
+	// Interactive mode: prompt the user
+	progress.pauseStep();
+
+	const choice = await selectOption<AncestorProjectChoice>(
+		`An rp1 project already exists at ${ancestorRoot}. What would you like to do?`,
+		[
+			{
+				value: "use-existing",
+				name: "Use existing project",
+				description: `Keep using the rp1 project at ${ancestorRoot}`,
+			},
+			{
+				value: "create-nested",
+				name: "Create nested project here",
+				description: `Initialize a new rp1 project in ${cwd}`,
+			},
+		],
+		promptOptions,
+	);
+
+	if (choice === null) {
+		// Prompt cancelled or non-interactive fallback
+		return { proceed: false, forceLocal: false };
+	}
+
+	if (choice === "use-existing") {
+		logger.info(`Using existing rp1 project at ${ancestorRoot}.`);
+		return { proceed: false, forceLocal: false };
+	}
+
+	// create-nested
+	return { proceed: true, forceLocal: true };
 }
 
 /**
@@ -439,9 +510,46 @@ export function executeInit(
 					};
 				}
 
-				const cwd = gitCheck.cwd;
+				let cwd = gitCheck.cwd;
+				let forceLocalProject = false;
 				if (gitCheck.warning) {
 					allWarnings.push(gitCheck.warning);
+				}
+
+				// Check if an ancestor directory has an rp1 project
+				const ancestorInfo = detectAncestorProject(cwd);
+				if (ancestorInfo.isAncestor && ancestorInfo.ancestorRoot) {
+					const ancestorCheck = await handleAncestorProjectCheck(
+						cwd,
+						ancestorInfo.ancestorRoot,
+						options,
+						promptOptions,
+						logger,
+						progress,
+					);
+
+					if (!ancestorCheck.proceed) {
+						return {
+							actions: [
+								{
+									type: "skipped",
+									reason: `Using existing rp1 project at ${ancestorInfo.ancestorRoot}`,
+								},
+							],
+							detectedTool: null,
+							warnings: [],
+							healthReport: null,
+							nextSteps: [],
+						};
+					}
+
+					forceLocalProject = ancestorCheck.forceLocal;
+				}
+
+				// If user chose to create a nested project, override cwd resolution
+				// so the rest of init operates on the local directory
+				if (forceLocalProject) {
+					cwd = gitCheck.cwd;
 				}
 
 				const contextResultEither = await detectProjectContext(cwd)();
@@ -670,7 +778,9 @@ export function executeInit(
 
 				// --- Project setup ---
 				progress.startStep("directory-setup");
-				const directories = resolveInitDirectoryModel(cwd);
+				const directories = forceLocalProject
+					? defaultInitDirectoryModel(cwd)
+					: resolveInitDirectoryModel(cwd);
 				const dirActions = await createDirectoryStructure(cwd, logger);
 				allActions.push(...dirActions);
 				await ensureProjectId(directories.projectRoot);
