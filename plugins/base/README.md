@@ -14,9 +14,9 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 - Shared skills for all plugins
 
 **Agents**: 13 specialized agents (5 for KB generation, 2 for deep research, 6 for docs/strategy/security/validation/scribe/prompt pipeline)
-**Skills**: 17 (11 user-facing commands, 6 shared capabilities)
+**Skills**: 15 (9 user-facing commands, 6 shared capabilities)
 
-## Commands (10)
+## Commands (9)
 
 ### Knowledge Management
 - `/knowledge-build` - Parallel KB generation using map-reduce architecture with 6 agents (includes pattern extraction)
@@ -43,12 +43,6 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 - `/fix-mermaid` - Validates and repairs Mermaid diagrams in markdown files. Scans for mermaid blocks, validates syntax using mermaid-cli, and auto-repairs common errors (up to 3 attempts per diagram). Unfixable diagrams get placeholder comments.
   - **Usage**: `/fix-mermaid path/to/file.md` or `/fix-mermaid -` for stdin
   - **Requires**: Node.js (npx fetches @mermaid-js/mermaid-cli automatically)
-
-### Prompt Engineering
-- `/create-prompt <PROMPT_NAME> <DESCRIPTION> [--agent-type leaf-worker|orchestrator|interactive-skill|kb-investigator]` - Create a governed prompt with constitutional primitives, epistemic stance, and eval scaffold. Walks the six-stage `prompt-writer` pipeline via a `prompt-pipeline-runner` agent, producing three output artifacts: a ready-to-run prompt, an eval scaffold, and a confidence/epistemic report.
-  - **Usage**: `/create-prompt my-agent "An agent that validates API responses against OpenAPI schemas"`
-  - **Output**: `{cwd}/{PROMPT_NAME}/SKILL.md`, `evals.yaml`, `confidence-report.md`
-  - **Agent Types**: `leaf-worker` (default), `orchestrator`, `interactive-skill`, `kb-investigator`
 
 ### Maintenance
 - `/self-update` - Update rp1 to the latest version using your package manager (Homebrew, Scoop) or get manual instructions
@@ -103,7 +97,7 @@ Generates browser-viewable HTML previews from markdown, plain text, and Mermaid 
 ### prompt-writer
 Write maximally terse agent prompts with built-in constitutional governance and epistemic stance. Combines compression-by-default authoring, governance primitives, and epistemological foundations into a single progressive-disclosure skill with three reference layers (`epistemology.md`, `constitution.md`, `tersify.md`) and six pipeline stages.
 
-**Invocation**: `/prompt-writer` (direct style/compression guidance) or loaded on demand by `/create-prompt` for the full pipeline.
+**Invocation**: `/prompt-writer` (direct style/compression guidance) or loaded on demand by `/build-prompt` for the full pipeline.
 
 **Reference Layers**:
 - `references/constitution.md` — 10 governance primitives with four agent-type profiles
