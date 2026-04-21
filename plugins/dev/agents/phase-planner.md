@@ -133,9 +133,42 @@ Plan in a `<phase_planning>` block before writing:
 1. Summarize the source objective and why decomposition is needed now.
 2. Identify the smallest independently valuable or risk-retiring slices.
 3. Limit phases to the fewest slices that preserve clear execution handoff. Prefer 2-5 phases. Use 1 only when further splitting would be artificial.
+
+### Slice Validity Rubric
+
+Every slice MUST pass all four. A fail → merge, split, or reorder before step 4.
+
+| # | Criterion | Pass | Fail signal |
+|---|-----------|------|-------------|
+| 1 | Framed | States the sub-problem it solves | Scope list, no "why" |
+| 2 | Independently deliverable | Ships user-visible value or validated learning alone | Value waits for a later phase |
+| 3 | Independently testable | Acceptance criteria verifiable w/o later slices | Tests need future features |
+| 4 | Stackable | Composes on prior slices; value gradient obvious | Reorder changes nothing |
+
+### Slicing Pattern
+
+Bad — horizontal layers (no slice ships value alone):
+
+| P | Scope |
+|---|-------|
+| P1 | data model |
+| P2 | API |
+| P3 | UI |
+
+Good — vertical slice per user outcome:
+
+| P | Scope | User sees |
+|---|-------|-----------|
+| P1 | email auth end-to-end | can sign in |
+| P2 | + OAuth provider | can sign in w/ Google |
+| P3 | + MFA | second factor on login |
+
+Stop-test: if halting after slice N leaves the user/system unchanged, the slice fails criterion 2.
+
 4. For each phase, define:
    - stable phase ID (`P1`, `P2`, ...)
    - phase title
+   - problem frame (sub-problem this phase addresses)
    - value delivered or primary risk retired
    - included now
    - deferred scope
@@ -147,6 +180,20 @@ Plan in a `<phase_planning>` block before writing:
 6. Every child handoff row must include a recommended next-step command using:
    - `/build {child-feature-request} PHASE_PLAN_PATH={ARTIFACT_RELATIVE_PATH} PHASE_ID=P{N}`
 7. Never depend on `tracker.md`, `milestone-*.md`, or any extra hierarchy to explain the plan.
+
+### §4.5 Self-Review Pass
+
+Before writing the artifact, re-mark each slice in the `<phase_planning>` block:
+
+```
+P{N} {title}
+  Framed:             ✓/✗
+  Indep. deliverable: ✓/✗
+  Indep. testable:    ✓/✗
+  Stackable:          ✓/✗
+```
+
+Any ✗ → merge, split, or reorder. Re-mark until all ✓. Required even for single-phase plans (confirms the phase is not artificially narrow).
 
 ### Child Feature ID Rules
 
@@ -176,9 +223,10 @@ These two reads are the only allowed scope exception outside `{KB_ROOT}` and `{W
   - `phase_count`
   - `plan_status`
 - Fill the required sections:
-  - `## Overview`
+  - `## Overview` — include the slicing rule used
+  - `## Initiative Framing` — **Problem** (user-visible), **Current State** (workaround/gap/absence), **Desired End-State** (user-visible "done" after all phases ship)
   - `## Phase Summary`
-  - `## Phase Details`
+  - `## Phase Details` — each phase starts with **Problem Frame** (sub-problem this phase addresses) before **Value Delivered / Risk Retired**
   - `## Delivery Mapping`
   - `## Traceability`
 - Keep `P1`, `P2`, ... consistent across summary rows, detail headings, child handoff commands, and traceability.
