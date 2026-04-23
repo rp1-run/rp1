@@ -34,6 +34,7 @@ Templates contain YAML frontmatter with routing metadata and a markdown body wit
 | feature-editor | edit-marker | section | workRoot | features/{FEATURE_ID}/requirements.md (append) | templates/_sections/edit-marker.md |
 | hypothesis-tester | hypothesis-document.md | document | workRoot | features/{FEATURE_ID}/hypotheses.md | templates/hypothesis-tester/hypothesis-document.md |
 | research-reporter | research-report.md | document | workRoot | research/{YYYY-MM-DD}-{TOPIC_SLUG}.md | templates/research-reporter/research-report.md |
+| project-documenter | birds-eye-view.md | document | workRoot | birds-eye/{YYYY-MM-DD}-{PROJECT_SLUG}.md | templates/project-documenter/birds-eye-view.md |
 | security-validator | security-report.md | document | workRoot | security/{FEATURE_ID}/report.md | templates/security-validator/security-report.md |
 | pr-review-reporter | pr-review-report.md | document | workRoot | pr-reviews/{REVIEW_ID}-review-{NNN}.md | templates/pr-review-reporter/pr-review-report.md |
 | pr-feedback-collector | pr-feedback-tasks.md | document | workRoot | pr-reviews/{IDENTIFIER}-feedback-{NNN}.md | templates/pr-feedback-collector/pr-feedback-tasks.md |
@@ -124,6 +125,8 @@ templates/
 +-- pr-feedback-collector/
 +-- pr-review-reporter/
 +-- prd-archiver/
++-- project-documenter/
+|   +-- birds-eye-view.md
 +-- prompt-eval-builder/
 +-- research-reporter/
 +-- security-validator/
