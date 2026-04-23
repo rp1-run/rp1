@@ -29,6 +29,8 @@ metadata:
 
 ## Host Context
 
-`CURRENT_HOST` is `codex` for this prompt. Use it directly for host-specific decisions. Do not infer the host from the runtime environment.
+Identify which AI coding harness is executing this prompt and assign `CURRENT_HOST` from: `claude-code`, `codex`, `gh-copilot`, `opencode`, `amp`, `unknown`. Default: `codex`.
+
+Use `CURRENT_HOST` for host-specific decisions and as the `--harness` value in all `rp1 agent-tools` commands.
 
 Codex skill content with $rp1-base-knowledge-build reference.

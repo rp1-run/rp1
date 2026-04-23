@@ -19,6 +19,7 @@ import {
 } from "./allowed-tools.js";
 import { escapeToml } from "./escape-toml.js";
 import { escapeYaml } from "./escape-yaml.js";
+import { harnessName } from "./harness-name.js";
 import { namespaceRef } from "./namespace-ref.js";
 import { paramTransform } from "./param-transform.js";
 import { roleType } from "./role-type.js";
@@ -32,6 +33,7 @@ export {
 	copilotPermissionPatternsFilter,
 	escapeToml,
 	escapeYaml,
+	harnessName,
 	namespaceRef,
 	paramTransform,
 	roleType,
@@ -81,6 +83,10 @@ export function registerFilters(liquid: Liquid): void {
 	liquid.registerFilter("escape_yaml", (value: string) => escapeYaml(value));
 
 	liquid.registerFilter("escape_toml", (value: string) => escapeToml(value));
+
+	liquid.registerFilter("harness_name", (platform: BuildPlatform) =>
+		harnessName(platform),
+	);
 
 	liquid.registerFilter(
 		"role_type",

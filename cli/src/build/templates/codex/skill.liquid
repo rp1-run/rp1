@@ -75,7 +75,7 @@ rp1 agent-tools workflow-bootstrap \
   --schema-path {{ artifact.workflowTarget.schemaPath }} \
 {% if artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}  --args "the arguments provided by the user in their prompt" \
 {% endif %}  --project-root "$PWD" \
-  --harness {{ platform }}
+  --harness $CURRENT_HOST
 ```
 
 Parse the JSON response. Extract values from `data.arguments`, `data.directories`, `data.workflow`, `data.run`, and `data.trace`:
@@ -132,8 +132,5 @@ If `data.unresolved` is non-empty, warn the user about missing required argument
 Use these resolved values for all subsequent steps. Do not call `rp1-root-dir`, re-derive project directories, or re-parse arguments.
 {% endif %}
 
-## Host Context
-
-`CURRENT_HOST` is `{{ platform }}` for this prompt. Use it directly for host-specific decisions. Do not infer the host from the runtime environment.
-
+{% render "shared/host-context", platform: platform %}
 {{ artifact.content | namespace_ref: platform | slash_commands: platform | param_transform: platform | tool_prose: platform }}

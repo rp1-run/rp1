@@ -10,8 +10,5 @@ tools:
   edit: {% if artifact.tools contains "Edit" %}true{% else %}false{% endif %}
 ---
 
-## Host Context
-
-`CURRENT_HOST` is `{{ platform }}` for this prompt. Use it directly for host-specific decisions. Do not infer the host from the runtime environment.
-
+{% render "shared/host-context", platform: platform %}
 {{ artifact.content | namespace_ref: platform | slash_commands: platform }}

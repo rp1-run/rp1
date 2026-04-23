@@ -10,15 +10,16 @@ import {
 import type { BuildPlatform } from "./template-context.js";
 
 /**
- * Inject `--harness <platform>` into `rp1 agent-tools emit` event commands
- * in rendered output so the harness column is populated in real workflow runs.
+ * Inject `--harness $CURRENT_HOST` into `rp1 agent-tools emit` event commands
+ * in rendered output so the model-populated harness variable flows through to
+ * real workflow runs.
  *
  * Only matches actual event invocations: `emit` followed by `--`, `\`, or EOL.
  * Excludes subcommands like `emit resume-run` and prose mentions.
  */
 export function injectEmitHarness(
 	content: string,
-	platform: BuildPlatform,
+	_platform: BuildPlatform,
 ): string {
 	const matches = findEmitEventCommands(content);
 	const emitToken = getEmitEventToken();
@@ -32,7 +33,7 @@ export function injectEmitHarness(
 
 		result =
 			result.slice(0, match.index) +
-			`${emitToken} --harness ${platform}` +
+			`${emitToken} --harness $CURRENT_HOST` +
 			result.slice(match.index + emitToken.length);
 	}
 
