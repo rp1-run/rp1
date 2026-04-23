@@ -73,11 +73,7 @@ RUN_ID: {{RUN_ID from prompt}}
 
 ## PROC
 
-1. **Resolve PROJECT_SLUG**: first match wins:
-   - `jq -r .name {CODE_ROOT}/package.json` (normalize: strip scope, kebab-case)
-   - `grep '^name' {CODE_ROOT}/pyproject.toml` (kebab-case)
-   - `basename $(git -C {CODE_ROOT} config --get remote.origin.url) .git`
-   - `basename {PROJECT_ROOT}`
+1. **Resolve PROJECT_SLUG**: inspect `{CODE_ROOT}` and produce a stable, kebab-case identifier for this project using whatever convention the repo itself declares (package manifest, git remote, directory name, KB `index.md` heading — whatever is most canonical for this ecosystem). Normalize: lowercase, kebab-case, strip scopes/prefixes, ≤50 chars. If nothing is canonical, fall back to `basename {PROJECT_ROOT}`. Report the choice and its source in §COMPLETION_REPORT so a reader can challenge it.
 2. **Resolve OUTPUT_FILE with dedup**: if `{WORK_ROOT}/birds-eye/{TODAY}-{PROJECT_SLUG}.md` exists, try `-2.md`, `-3.md`, … until unused. `mkdir -p {WORK_ROOT}/birds-eye`.
 3. **Load KB**: Read from `{KB_ROOT}/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`, `concept_map.md`, `interaction-model.md`, `dependencies.md` (if exists), `charter.md` (if exists — source for Architecture Decisions). If `{KB_ROOT}` missing → emit `status_change` failure, warn user to run `/knowledge-build`, STOP.
 4. **Explore codebase** (read-only): `{CODE_ROOT}/README*`, `package.json`, `pyproject.toml`, `Dockerfile*`, `docker-compose*.yml`, `.github/workflows/*`, `Cargo.toml`, `go.mod`, `tsconfig.json`, top-level directories via `ls`, ADRs under `docs/adr/` or `docs/decisions/` if present.
