@@ -143,9 +143,13 @@ describe("canonical root propagation", () => {
 				path: "plugins/base/agents/project-documenter.md",
 				expected: [
 					"{{KB_ROOT from prompt}}",
+					"{{WORK_ROOT from prompt}}",
+					"| OUTPUT_FILE | `{WORK_ROOT}/birds-eye/{TODAY}-{PROJECT_SLUG}.md` (n+1 dedup) |",
+				],
+				unexpected: [
+					"| **OUTPUT_FILE** | `.rp1/context/birds-eye-view.md` |",
 					"| **OUTPUT_FILE** | `{KB_ROOT}/birds-eye-view.md` |",
 				],
-				unexpected: ["| **OUTPUT_FILE** | `.rp1/context/birds-eye-view.md` |"],
 			},
 			{
 				path: "plugins/base/agents/research-reporter.md",
