@@ -43,7 +43,7 @@ arguments:
   - name: EXISTING
     type: string
     required: false
-    description: "Content of an existing prompt to improve. When provided, stages 1-5 produce governance directives and Stage 6 applies them as an improvement overlay."
+    description: "Path to an existing prompt file to improve. When non-empty, Stage 0 reads the file and uses its content as the improvement base for Stage 6."
   - name: BUDGET
     type: string
     required: false
@@ -77,9 +77,9 @@ arguments:
 {{TYPE from prompt}}
 </type>
 
-<existing>
+<existing_path>
 {{EXISTING from prompt}}
-</existing>
+</existing_path>
 
 <budget>
 {{BUDGET from prompt}}
@@ -96,6 +96,18 @@ Invoke the `rp1-base:prompt-writer` skill via the Skill tool. This loads prompt-
 - `PATTERNS.md`, `TEMPLATES.md`
 
 **DO NOT** reconstruct paths manually (no `{PROJECT_ROOT}/plugins/...`, no hardcoded absolute paths). The Skill invocation is the authoritative way to reach prompt-writer's adjacent files -- the host (Claude Code / OpenCode / Codex) resolves them against the skill's installed location for you. Every stage below references companion files by the manifest-relative path; follow those verbatim after the Skill invocation.
+
+### Stage 0.1: Load EXISTING content (improvement mode)
+
+If `{{EXISTING from prompt}}` is empty, **skip this stage** and proceed. Record mode as **New**.
+
+Otherwise:
+
+1. Read the file at the `EXISTING` path using the Read tool.
+2. Bind the file content to `EXISTING_CONTENT` for use by Stage 6 Phase 1 (improvement overlay base).
+3. If the file is missing, empty, or unreadable: FAIL the pipeline with an explicit error identifying the path. Do NOT continue.
+
+Record mode as **Improvement** for the confidence report.
 
 Execute all six stages in the exact order below. Do NOT skip, reorder, or parallelize stages.
 
@@ -200,7 +212,7 @@ Assemble accumulated Stages 1-5 output into a complete prompt draft.
 | `skill` | YAML frontmatter (`name`, `description`, `allowed-tools`, `metadata`) + governed prompt body. Include `## Runtime Contract` section listing external commands (or "none"). |
 | `prompt` | Clean markdown -- NO YAML frontmatter, NO rp1 skill scaffolding. Governance content integrated structurally as terse inline directives. Include `## Runtime Contract` only if the prompt invokes external commands. |
 
-When `EXISTING` content is provided: use the existing content as the assembly base. Stages 1-5 directives are applied as an improvement overlay -- restructure, inject missing governance, tighten language -- rather than building from scratch. The confidence report notes improvement mode and tracks changes.
+When Stage 0.1 loaded `EXISTING_CONTENT`: use that content as the assembly base. Stages 1-5 directives are applied as an improvement overlay -- restructure, inject missing governance, tighten language -- rather than building from scratch. The confidence report notes improvement mode and tracks changes.
 
 **Phase 1.5 -- Runtime Grounding** (TYPE=skill only): for each command in the `## Runtime Contract` section, run `--help` via Bash and confirm exit 0. Rewrite or remove failing invocations. Re-run until all lines pass.
 

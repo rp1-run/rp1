@@ -95,7 +95,7 @@ OUT_DIR = {workRoot}/prompts/{YYYY-MM-DD}-{PROMPT_NAME}/
 | `prompt` | `{PROMPT_NAME}.md` | `confidence-report.md` |
 | `skill` | `SKILL.md` | `confidence-report.md` |
 
-**EXISTING prompt handling**: When `EXISTING` is provided, read the file content and pass it to the pipeline runner as `EXISTING_CONTENT`. The original file is never modified. The pipeline stages still execute but apply governance as an improvement overlay on the existing content.
+**EXISTING prompt handling**: When `EXISTING` is provided, the path is passed through to the pipeline runner, which loads the file at Stage 0. The original file is never modified. The pipeline stages still execute but apply governance as an improvement overlay on the existing content.
 
 ## STATE-MACHINE
 
@@ -139,19 +139,13 @@ rp1 agent-tools emit \
   --data '{"status": "running", "prompt_name": "{PROMPT_NAME}", "type": "{TYPE}", "agent_type": "{AGENT_TYPE}"}'
 ```
 
-**If `EXISTING` is provided**, read the file:
-
-```bash
-EXISTING_CONTENT=$(cat "{EXISTING}")
-```
-
-Validate the file exists before proceeding. If the file is missing, abort with an error.
-
 **Spawn agent -- do NOT create prompt content yourself:**
 
 {% dispatch_agent "rp1-base:prompt-pipeline-runner" %}
-PROMPT_NAME={PROMPT_NAME}, DESCRIPTION={DESCRIPTION}, AGENT_TYPE={AGENT_TYPE}, COMPLEXITY={COMPLEXITY}, TYPE={TYPE}, EXISTING_CONTENT={EXISTING_CONTENT or empty}, BUDGET=0.15
+PROMPT_NAME={PROMPT_NAME}, DESCRIPTION={DESCRIPTION}, AGENT_TYPE={AGENT_TYPE}, COMPLEXITY={COMPLEXITY}, TYPE={TYPE}, EXISTING={EXISTING}, BUDGET=0.15
 {% enddispatch_agent %}
+
+When `EXISTING` is a non-empty path, the runner reads the file at Stage 0. If the path is invalid or the file cannot be read, the runner fails the pipeline -- do NOT retry.
 
 The agent executes the six-stage prompt-writer pipeline (constitutional-checklist -> fallibilist-overlay -> epistemic-stance -> popper-patterns -> confidence-schema -> prompt-validation) and enforces the 15% governance budget in Stage 6.
 
@@ -252,4 +246,4 @@ rp1 agent-tools emit \
 
 ## §ANTI-LOOP
 
-Single-pass. Parse args -> read EXISTING (if provided) -> spawn pipeline-runner -> write artifacts -> STOP.
+Single-pass. Parse args -> spawn pipeline-runner -> write artifacts -> STOP.
