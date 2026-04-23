@@ -1,10 +1,10 @@
 # Stage: Prompt Validation
 
-Pipeline stage 6 of 6. Runs 4-axis validation on the complete prompt draft, grounds every referenced external command, and produces the three output artifacts.
+Pipeline stage 6 of 6. Runs 4-axis validation on the complete prompt draft, grounds every referenced external command, and produces the two output artifacts.
 
 ## Purpose
 
-Validate the accumulated prompt draft against four axes (style, constitutional, epistemic, runtime). Report deficiencies with clear, actionable descriptions. If validation passes, finalize the three mandatory output artifacts: the ready-to-run prompt, the eval scaffold, and the confidence/epistemic report.
+Validate the accumulated prompt draft against four axes (style, constitutional, epistemic, runtime). Report deficiencies with clear, actionable descriptions. If validation passes, finalize the two mandatory output artifacts: the ready-to-run prompt (SKILL.md or standalone markdown per `TYPE`) and the confidence/epistemic report.
 
 ## Input
 
@@ -15,25 +15,35 @@ The agent MUST have the following before executing this stage:
 | PROMPT_NAME | User input | Kebab-case name for the prompt being created |
 | DESCRIPTION | User input | Natural-language description of the skill |
 | AGENT_TYPE | User input | Agent-type profile |
+| TYPE | User input | Output format: `skill` (SKILL.md with frontmatter) or `prompt` (standalone markdown) |
+| EXISTING_CONTENT | Stage 0.1 (optional) | File contents of the prompt being improved; absent in New mode |
 | Constitutional directives | Stage 1 output | Tailored governance directives with applicable primitive list |
 | Fallibilist overlay | Stage 2 output | Five unconditional overlay clauses |
 | Epistemic stance | Stage 3 output | Selected stance with contract |
 | Popper-Deutsch patterns | Stage 4 output | Selected patterns with injectable directives |
 | Confidence schema | Stage 5 output | 5-level scale with domain examples and marking requirements |
 | tersify.md | `references/tersify.md` | Loaded on demand for style validation |
+| budget.md | `references/budget.md` | Loaded for governance-ratio enforcement |
 
 ## Process
 
 ### Phase 1: Assemble the Prompt Draft
 
-Before validation, the agent MUST have assembled the accumulated outputs from Stages 1-5 into a complete SKILL.md prompt draft. The draft must have:
-- YAML frontmatter (name, description, category, allowed-tools, metadata as appropriate)
+Before validation, the agent MUST have assembled the accumulated outputs from Stages 1-5 into a complete prompt draft. The draft structure depends on `TYPE`:
+
+| TYPE | Format |
+|------|--------|
+| `skill` | SKILL.md with YAML frontmatter (`name`, `description`, `allowed-tools`, `metadata`) plus governed body and a `## Runtime Contract` section. |
+| `prompt` | Standalone markdown -- NO YAML frontmatter, NO rp1 skill scaffolding. Governance integrated as terse inline directives. Include `## Runtime Contract` only if the prompt invokes external commands. |
+
+In both formats the draft must have:
 - Constitutional directives integrated as structural sections
 - Fallibilist overlay embedded as a governance section
 - Epistemic stance declared with contract
 - Selected Popper-Deutsch patterns injected at relevant points (empty set when `COMPLEXITY=simple`)
 - Confidence schema embedded with marking requirements
-- A `## Runtime Contract` section listing every external shell command the generated skill invokes, one per line in its body form. The section reads `none` if the skill invokes no external commands.
+
+The `## Runtime Contract` section (when present) lists every external shell command the prompt invokes, one per line in its body form. The section reads `none` if there are no external commands.
 
 ### Phase 1.5: Runtime Grounding
 
@@ -128,13 +138,18 @@ Remediation for Axis 4: add the missing state-machine block + run-id, OR strip t
 
 ### Phase 4: Generate Output Artifacts
 
-Generate the three mandatory output artifacts (BR-03: all three are mandatory; fail if any cannot be generated):
+Generate the two mandatory output artifacts (both required; fail if either cannot be generated):
 
 #### Artifact 1: Ready-to-Run Prompt
 
-The validated prompt draft, formatted as a complete SKILL.md.
+The validated prompt draft. Output format depends on `TYPE`:
 
-**`allowed-tools` is derived from the Runtime Contract**, not hardcoded. Extract the first token of each command line in the `## Runtime Contract` section and emit `Bash(<token> *)` for each unique token. Always include `Bash(echo *)` as a baseline for output and diagnostics. If the Runtime Contract reads `none`, the tools line is just `Bash(echo *)`.
+| TYPE | Format |
+|------|--------|
+| `skill` | Complete SKILL.md with YAML frontmatter and `## Runtime Contract` section. |
+| `prompt` | Standalone markdown with no YAML frontmatter and no rp1 scaffolding; governance integrated inline. `## Runtime Contract` only if the prompt invokes external commands. |
+
+**TYPE=skill: `allowed-tools` is derived from the Runtime Contract**, not hardcoded. Extract the first token of each command line in the `## Runtime Contract` section and emit `Bash(<token> *)` for each unique token. Always include `Bash(echo *)` as a baseline for output and diagnostics. If the Runtime Contract reads `none`, the tools line is just `Bash(echo *)`.
 
 Example derivations:
 
@@ -146,6 +161,8 @@ Example derivations:
 | `git log --oneline -1 FILE`<br>`grep -n PATTERN FILE` | `Bash(echo *), Bash(git *), Bash(grep *)` |
 
 If the generated skill needs tools beyond `Bash(...)` (e.g. `Read`, `Write`, `Task`), add them to the line as well, matching the actual affordances the skill body invokes.
+
+**TYPE=skill structure**:
 
 ```yaml
 ---
@@ -161,71 +178,18 @@ metadata:
 
 Followed by the full prompt body with all constitutional, epistemic, and style requirements satisfied, plus the `## Runtime Contract` section that mirrors the commands used.
 
-#### Artifact 2: Eval Scaffold
+**TYPE=prompt structure**: clean markdown body beginning with a ROLE section. No YAML frontmatter. Governance content is integrated as terse inline directives rather than dedicated scaffolding sections. Include `## Runtime Contract` only if the body invokes external commands.
 
-A promptfoo configuration for testing the generated prompt. Structure:
+#### Artifact 2: Confidence/Epistemic Report
 
-The eval scaffold is written alongside the generated `SKILL.md` in the same `{PROMPT_NAME}/` directory, so the `prompts:` reference is a sibling (`file://./SKILL.md`). Providers are declared inline; override the harness at runtime via `EVAL_HARNESS=opencode`.
-
-```yaml
-description: "Eval suite for {PROMPT_NAME}"
-
-evaluateOptions:
-  maxConcurrency: 4
-
-providers:
-  - id: anthropic:claude-agent-sdk
-    label: rp1-agentic-eval
-    config:
-      model: haiku
-      permission_mode: bypassPermissions
-      allow_dangerously_skip_permissions: true
-      max_turns: 30
-
-prompts:
-  - file://./SKILL.md
-
-tests:
-  # Constitutional assertions - one per applicable primitive
-  - description: "Contains {primitive_name} governance directive"
-    assert:
-      - type: llm-rubric
-        value: "The prompt contains a clear {primitive_name} directive that {what it should do}"
-
-  # Structural assertions
-  - description: "Valid SKILL.md frontmatter"
-    assert:
-      - type: llm-rubric
-        value: "The prompt begins with valid YAML frontmatter containing name, description, and metadata fields"
-
-  # Epistemic assertions
-  - description: "Epistemic stance declared"
-    assert:
-      - type: llm-rubric
-        value: "The prompt explicitly declares its epistemic stance and includes an epistemic contract section"
-
-  - description: "Confidence schema present"
-    assert:
-      - type: llm-rubric
-        value: "The prompt includes a confidence level scale with at least 3 levels and specifies when to apply confidence marking"
-
-  # Test invocation prompts derived from DESCRIPTION
-  - description: "Handles typical use case"
-    vars:
-      input: "{Representative use case derived from DESCRIPTION}"
-    assert:
-      - type: llm-rubric
-        value: "The response follows the governance directives and epistemic stance declared in the prompt"
-```
-
-#### Artifact 3: Confidence/Epistemic Report
-
-A structured report scoring the prompt against each pipeline stage and every validation axis. The template reflects `COMPLEXITY`: `simple` records the Stage 4 skip and uses the 3-level confidence scale; `standard`/`complex` use the full 5-level scale and require per-pattern Popper scoring.
+A structured report scoring the prompt against each pipeline stage and every validation axis. The template reflects `COMPLEXITY`: `simple` records the Stage 4 skip and uses the 3-level confidence scale; `standard`/`complex` use the full 5-level scale and require per-pattern Popper scoring. The header carries `TYPE` (prompt or skill) and mode (New or Improvement, depending on whether Stage 0.1 loaded `EXISTING_CONTENT`).
 
 ```markdown
 # Confidence & Epistemic Report: {PROMPT_NAME}
 
 **Agent type**: {AGENT_TYPE}
+**Output type**: {TYPE}
+**Mode**: {New | Improvement (when EXISTING was provided)}
 
 ## Complexity Classification
 
@@ -284,24 +248,17 @@ A structured report scoring the prompt against each pipeline stage and every val
 
 Before returning any artifact to the orchestrator, run these grep-style checks against the in-memory draft. Any failure triggers **regeneration of the affected artifact** (not the whole pipeline). Re-run Phase 4a after regeneration. Do NOT emit partial or substandard artifacts.
 
-**Artifact 1 (SKILL.md)**:
+**Artifact 1 (prompt, TYPE-dependent)**:
 
 | Check | Rule | Fails if |
 |-------|------|----------|
-| SKILL-1 | All five overlay markers are literal-present: `conjectur`, `refut`, `hard-to-vary`, `self-immun`, `error-correction` (case-insensitive) | Any marker absent |
-| SKILL-2 | Every primitive in the Stage 1 applicable set for AGENT_TYPE is literal-present by its distinctive phrase (`anti-loop`, `output discipline`, `role`, `scope limits`, `error degradation`, `truth constraint`, `transition guard`, `orchestrator purity`, `exploration bound`, `anti-bias`) | Any applicable primitive is missing |
-| SKILL-3 | `allowed-tools` line is present and derived from the Runtime Contract per the rule in Phase 4 | `allowed-tools` is hardcoded, missing, or omits a command that appears in the body |
-| SKILL-4 | `## Runtime Contract` section is present (reads `none` if no external commands) | Section missing |
+| PROMPT-1 | All five overlay markers are literal-present: `conjectur`, `refut`, `hard-to-vary`, `self-immun`, `error-correction` (case-insensitive) | Any marker absent |
+| PROMPT-2 | Every primitive in the Stage 1 applicable set for AGENT_TYPE is literal-present by its distinctive phrase (`anti-loop`, `output discipline`, `role`, `scope limits`, `error degradation`, `truth constraint`, `transition guard`, `orchestrator purity`, `exploration bound`, `anti-bias`) | Any applicable primitive is missing |
+| PROMPT-3 (TYPE=skill only) | `allowed-tools` line is present and derived from the Runtime Contract per the rule in Phase 4 | `allowed-tools` is hardcoded, missing, or omits a command that appears in the body |
+| PROMPT-4 (TYPE=skill only) | `## Runtime Contract` section is present (reads `none` if no external commands) | Section missing |
+| PROMPT-5 (TYPE=prompt only) | Draft has NO YAML frontmatter block at the top and no `metadata:` / `allowed-tools:` scaffolding | Any rp1 frontmatter or scaffolding bled into a standalone-prompt output |
 
-**Artifact 2 (evals.yaml)**:
-
-| Check | Rule | Fails if |
-|-------|------|----------|
-| EVAL-1 | Contains the literal string `file://./SKILL.md` | Uses a nested path, absolute path, or omits the prompts reference |
-| EVAL-2 | Contains `id: anthropic:` (inline provider) | Providers missing or reference external provider YAMLs |
-| EVAL-3 | All four top-level keys present: `description:`, `providers:`, `prompts:`, `tests:` | Any key missing |
-
-**Artifact 3 (confidence-report.md)**:
+**Artifact 2 (confidence-report.md)**:
 
 | Check | Rule | Fails if |
 |-------|------|----------|
@@ -315,10 +272,9 @@ Before returning any artifact to the orchestrator, run these grep-style checks a
 
 ## Output
 
-All three artifacts produced and returned to the calling orchestrator or pipeline-runner agent:
+Both artifacts produced and returned to the calling orchestrator or pipeline-runner agent:
 
-1. **Ready-to-run prompt**: `{PROMPT_NAME}/SKILL.md`
-2. **Eval scaffold**: `{PROMPT_NAME}/evals.yaml`
-3. **Confidence report**: `{PROMPT_NAME}/confidence-report.md`
+1. **Ready-to-run prompt**: `{PROMPT_NAME}/SKILL.md` (when `TYPE=skill`) or `{PROMPT_NAME}/{PROMPT_NAME}.md` (when `TYPE=prompt`)
+2. **Confidence report**: `{PROMPT_NAME}/confidence-report.md`
 
-**Terminal stage**: This is the final pipeline stage. No downstream stages consume this output. The three artifacts are the pipeline's deliverables.
+**Terminal stage**: This is the final pipeline stage. No downstream stages consume this output. The two artifacts are the pipeline's deliverables.

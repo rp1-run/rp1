@@ -20,6 +20,8 @@ conditions:
   - "Repeat the Phase Summary rows, Phase Details sections, Child Feature Handoff rows, and Delivery Mapping rows for every stable phase ID through P{PHASE_COUNT}"
   - "Child handoff rows default to type=feature; work-package is optional only when the slice is not an independent feature"
   - "When manual verification is not required, state Manual Verification Expected as No and Manual Checks as None"
+  - "Initiative Framing section MUST capture the user-visible Problem, Current State, and Desired End-State for the whole initiative"
+  - "Each Phase Details section MUST start with Problem Frame stating the sub-problem that phase addresses before Value Delivered / Risk Retired"
 ---
 
 ---
@@ -41,6 +43,12 @@ plan_status: {PLAN_STATUS}
 ## Overview
 [Summarize the planning source, why phase decomposition is needed now, and the rule used to keep each phase as the smallest valuable or risk-reducing slice.]
 
+## Initiative Framing
+
+**Problem**: [User-visible problem this initiative solves]
+**Current State**: [Today's workaround, gap, or absence]
+**Desired End-State**: [User-visible "done" after all phases ship]
+
 ## Phase Summary
 
 | Phase ID | Phase | Value Delivered / Risk Retired | Exit Criteria | Manual Verification Expected |
@@ -54,6 +62,7 @@ Repeat the `P{N}` row pattern once per additional phase (`P3`, `P4`, ...).
 ## Phase Details
 
 ### P1: [Phase Title]
+**Problem Frame**: {Sub-problem this phase addresses}
 **Value Delivered / Risk Retired**: {What this slice unlocks or de-risks}
 
 **Included Now**:
@@ -78,6 +87,7 @@ Repeat the `P{N}` row pattern once per additional phase (`P3`, `P4`, ...).
 | work-package | {WORK_PACKAGE_ID} | {Optional work package title} | {Scoped follow-up when not a full feature} | `{manual follow-up or delegated execution path}` |
 
 ### P2: [Phase Title]
+**Problem Frame**: {Sub-problem this phase addresses}
 **Value Delivered / Risk Retired**: {What this slice unlocks or de-risks}
 
 **Included Now**:
@@ -101,6 +111,7 @@ Repeat the `P{N}` row pattern once per additional phase (`P3`, `P4`, ...).
 | feature | {FEATURE_ID} | {Child feature title} | {Independent execution scope} | `/build {child-feature-request} PHASE_PLAN_PATH={PHASE_PLAN_DIR}/{PHASE_PLAN_FILENAME} PHASE_ID=P2` |
 
 ### P{N}: [Phase Title]
+**Problem Frame**: {Sub-problem this phase addresses}
 **Value Delivered / Risk Retired**: {What this slice unlocks or de-risks}
 
 **Included Now**:

@@ -40,4 +40,5 @@ If `data.unresolved` is non-empty, warn the user about missing required argument
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
 {% endif %}
+{% render "shared/host-context", platform: platform %}
 {{ artifact.content | namespace_ref: platform | slash_commands: platform | param_transform: platform | tool_prose: platform }}

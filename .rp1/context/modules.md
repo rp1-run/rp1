@@ -44,7 +44,7 @@
 | daemon diagnostics | web-ui/daemon | Structured NDJSON logging for daemon lifecycle events to daemon.log |
 | arcade command | commands | CLI entry point with start/stop/status/restart, --daemon-only, --format hook-json modes |
 | install verifier | install | Cross-platform installation health check and skill discovery with arcade_tracked metadata |
-| create-prompt orchestrator | plugins/base | Workflow skill that walks the six-stage prompt-writer pipeline via prompt-pipeline-runner agent |
+| build-prompt orchestrator | plugins/utils | Workflow skill that walks the six-stage prompt-writer pipeline via prompt-pipeline-runner agent with budgeted governance |
 | prompt-pipeline-runner | plugins/base | Agent executing constitutional-checklist, fallibilist-overlay, epistemic-stance, popper-patterns, confidence-schema, prompt-validation stages |
 
 ## Dependency Highlights

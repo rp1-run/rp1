@@ -192,6 +192,19 @@ const createTestEngine = () => {
 			.join("\n");
 	});
 
+	engine.registerFilter("harness_name", (platform: string) => {
+		switch (platform) {
+			case "copilot":
+				return "gh-copilot";
+			case "claude-code":
+			case "codex":
+			case "opencode":
+				return platform;
+			default:
+				return "unknown";
+		}
+	});
+
 	engine.registerFilter("tool_prose", (content: string, platform: string) => {
 		if (platform === "codex") {
 			const mappings: Record<string, string> = {
@@ -917,7 +930,7 @@ describeWithLiquid("template rendering", () => {
 			});
 			expect(result).toContain("name: rp1-base-knowledge-build");
 			expect(result).toContain("allowed-tools: Bash(echo *), Read, Edit");
-			expect(result).toContain("`CURRENT_HOST` is `claude-code`");
+			expect(result).toContain("Default: `claude-code`");
 			expect(result).toContain("rp1-base:knowledge-load");
 			expect(result).toContain("version: 1.0.0");
 			expect(result).toContain("plugin: base");
@@ -1007,7 +1020,7 @@ describeWithLiquid("template rendering", () => {
 					content: "Agent content with rp1-base:agent reference.",
 				},
 			});
-			expect(result).toContain("`CURRENT_HOST` is `claude-code`");
+			expect(result).toContain("Default: `claude-code`");
 			expect(result).toContain("Agent content with rp1-base:agent reference.");
 		});
 	});
