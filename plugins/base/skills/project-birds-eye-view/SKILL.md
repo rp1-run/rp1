@@ -54,10 +54,12 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --workflow birds-eye-view \
   --type status_change \
   --run-id {RUN_ID} \
-  --name "Bird's-eye view: {PROJECT_SLUG}" \
+  --name "Bird's-eye view: {RUN_NAME}" \
   --step {CURRENT_STATE} \
   --data '{"status": "running"}'
 ```
+
+`RUN_NAME` is resolved once, up front, from `basename {projectRoot}` — it is stable before the sub-agent runs, so every emit (including the first) can carry it. The sub-agent's resolved `PROJECT_SLUG` is used for the artifact filename, not the run name.
 
 Terminal state `validate_diagrams` uses `--data '{"status": "completed"}'`.
 
@@ -70,8 +72,10 @@ Transition guards: state-machine transitions emitted per STATE-MACHINE; `RUN_ID`
 
 ## Dispatch
 
-1. Emit entry into `load_kb`.
-2. Invoke the project-documenter agent:
+1. Resolve `RUN_NAME` = `basename {projectRoot}`.
+2. Emit entry into `load_kb` with `{"status":"running"}`. Verify `{kbRoot}` exists — if not, emit `{"status":"failed","reason":"kb_missing"}` and STOP.
+3. Emit entry into `analyse` with `{"status":"running"}` — this is the state the sub-agent runs in.
+4. Invoke the project-documenter agent:
 
 {% dispatch_agent "rp1-base:project-documenter" %}
 PROJECT_CONTEXT: {PROJECT_CONTEXT}
@@ -83,7 +87,7 @@ CODE_ROOT: {codeRoot}
 RUN_ID: {RUN_ID}
 {% enddispatch_agent %}
 
-3. The agent returns `OUTPUT_PATH` (relative to workRoot) and `PROJECT_SLUG`. Register the artifact:
+5. The sub-agent returns `OUTPUT_PATH` (relative to workRoot) and `PROJECT_SLUG`. Emit entry into `generate` with `{"status":"running"}`, then register the artifact — `OUTPUT_PATH` is authoritative, including any n+1 dedup suffix:
 
 ```bash
 rp1 agent-tools emit --harness $CURRENT_HOST \
@@ -94,9 +98,9 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --data '{"path": "{OUTPUT_PATH}", "feature": "birds-eye", "storageRoot": "work_dir", "format": "markdown"}'
 ```
 
-4. Emit terminal `validate_diagrams` with `{"status":"completed"}`.
+6. Emit terminal `validate_diagrams` with `{"status":"completed"}`.
 
-The agent will load the KB, generate a 16-section arc42/C4-aligned document with per-claim provenance, emit up to 6 Mermaid diagrams (validated via `rp1 agent-tools mmd-validate`), and write to `{workRoot}/birds-eye/{YYYY-MM-DD}-{PROJECT_SLUG}.md` with n+1 dedup. It returns `OUTPUT_PATH` and `PROJECT_SLUG` to this dispatcher.
+The agent loads the KB, generates a 16-section arc42/C4-aligned document with per-claim provenance, emits up to 6 Mermaid diagrams (validated via `rp1 agent-tools mmd-validate`), and writes to `{workRoot}/birds-eye/{YYYY-MM-DD}-{PROJECT_SLUG}.md` with n+1 dedup. It returns the resolved `OUTPUT_PATH` and `PROJECT_SLUG` to this dispatcher.
 
 ## Runtime Contract
 
