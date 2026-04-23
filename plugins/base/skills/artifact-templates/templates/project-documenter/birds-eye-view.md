@@ -3,16 +3,13 @@ scope: workRoot
 path_pattern: "birds-eye/{YYYY-MM-DD}-{PROJECT_SLUG}.md"
 producer: project-documenter
 type: document
-description: "arc42/C4-aligned project overview artifact generated from KB + codebase by /project-birds-eye-view. 16 sections with per-claim provenance tags, snapshot metadata header, and conditional Reflexion appendix. Path uses date prefix and project slug with n+1 dedup."
+description: "arc42/C4-aligned project overview artifact generated from KB + codebase by /project-birds-eye-view. 16 sections with per-claim provenance tags, snapshot metadata header, and conditional Reflexion appendix. Path uses date prefix and project slug with n+1 dedup — registration MUST use the producer's resolved OUTPUT_PATH, not this pattern, because dedup suffixes (-2, -3, …) are assigned at write time."
 strictness: flexible
-emit_hint: |
-  rp1 agent-tools emit \
-    --harness $CURRENT_HOST \
-    --workflow birds-eye-view \
-    --type artifact_registered \
-    --run-id {RUN_ID} \
-    --step generate \
-    --data '{"path": "birds-eye/{YYYY-MM-DD}-{PROJECT_SLUG}.md", "feature": "birds-eye", "storageRoot": "work_dir", "format": "markdown"}'
+# No emit_hint: path_pattern is NOT safe to use directly for registration.
+# The `/project-birds-eye-view` dispatcher (or any caller) MUST register with the
+# OUTPUT_PATH returned by the project-documenter sub-agent, which includes any
+# n+1 dedup suffix that was actually assigned at write time. See
+# plugins/base/skills/project-birds-eye-view/SKILL.md for the canonical call.
 ---
 
 > **Snapshot** — generated {YYYY-MM-DD} from commit `{GIT_SHA}` in `{CODE_ROOT}`.

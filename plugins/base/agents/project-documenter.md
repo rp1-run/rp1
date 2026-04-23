@@ -78,7 +78,7 @@ RUN_ID: {{RUN_ID from prompt}}
 3. **Load KB**: Read from `{KB_ROOT}/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`, `concept_map.md`, `interaction-model.md`, `dependencies.md` (if exists), `charter.md` (if exists — source for Architecture Decisions). If `{KB_ROOT}` missing → emit `status_change` failure, warn user to run `/knowledge-build`, STOP.
 4. **Explore codebase** (read-only): `{CODE_ROOT}/README*`, `package.json`, `pyproject.toml`, `Dockerfile*`, `docker-compose*.yml`, `.github/workflows/*`, `Cargo.toml`, `go.mod`, `tsconfig.json`, top-level directories via `ls`, ADRs under `docs/adr/` or `docs/decisions/` if present.
 5. **Classify**: for each of the 16 sections, determine whether sufficient `[KB]` or `[CODE]` evidence exists. Sections 7, 9, 15 are **conditional** — omit entirely if no `[KB|CODE]` citation is reachable.
-6. **Generate** the document per §OUT with the §SNAPSHOT_HEADER at top.
+6. **Generate** the document per the template loaded from `rp1-base:artifact-templates` (see §Template Loading), filling placeholders per §Content Guidance.
 7. **Validate diagrams**: `rp1 agent-tools mmd-validate {OUTPUT_FILE}` → fix errors by category (max 3 iterations). If unfixable, report in §COMPLETION_REPORT.
 8. **Return** the relative output path (`birds-eye/{TODAY}-{PROJECT_SLUG}[-n].md`) and `PROJECT_SLUG` to the dispatcher.
 
@@ -138,83 +138,23 @@ If `{KB_ROOT}/architecture.md` or `{KB_ROOT}/modules.md` make structural claims 
 
 Emit §15 when ≥1 divergence is found. List convergences briefly (1 line each), divergences prominently (with recommended follow-up). Absences go into §13 Risks instead.
 
-## SNAPSHOT_HEADER
+## Template Loading
 
-The output file MUST begin with this block (populated from Stage 1–2 resolution + KB inspection):
+1. Read `rp1-base:artifact-templates` SKILL.md — locate the row where **Producer** = `project-documenter` and **Artifact** = `birds-eye-view.md`.
+2. Read the template file at the listed **Template Path**.
+3. Use the template structure for output. Fill placeholders per the content guidance below.
 
-```markdown
-> **Snapshot** — generated {TODAY} from commit `{GIT_SHA}` in `{CODE_ROOT}`.
-> KB files loaded: `index.md`, `architecture.md`, `modules.md`, `patterns.md`, `concept_map.md`, `interaction-model.md`{other optional files}.
-> KB last updated: {kb_meta_date_if_available} (from `{KB_ROOT}/meta.json` or mtime).
-> Coverage: {filled}/{total} sections, {conditional_emitted} conditional emitted, {gap_count} GAPs.
-> **This is a regenerated snapshot. The source of truth is `{KB_ROOT}/`.**
-> Regenerate via `/rp1-base:project-birds-eye-view` when KB changes materially.
-```
+The template owns the 16-section structure, the Snapshot-header block at the top, diagram placement, and section ordering. This agent does not duplicate that contract — when they drift, the template wins.
 
-## OUT
+## Content Guidance
 
-```markdown
-# {Project Name} — Bird's-Eye View
-
-{SNAPSHOT_HEADER block}
-
-## 0. Snapshot metadata
-(covered by SNAPSHOT_HEADER)
-
-## 1. TL;DR for a new dev
-5 bullets: (a) what it is, (b) who uses it, (c) how to run it, (d) where to look first, (e) what's weird.
-
-## 2. Business context & purpose
-2–3 sentences with provenance tags. Answers: why does this exist, what problem does it solve, what is the core value.
-
-## 3. System context (C4 L1)
-2–3 sentences describing external systems, users, integrations. Followed by a Mermaid flowchart diagram.
-
-## 4. Containers / Building blocks (C4 L2)
-2–3 sentences describing major runtime containers and their relationships. Followed by a Mermaid flowchart diagram.
-
-## 5. Tech stack & rationale
-2–3 sentences plus a table. Each stack entry: name, purpose, rationale (WHY this choice — tag `[KB]` for charter/ADR source, or `[GAP]` if no rationale found).
-
-| Technology | Purpose | Rationale |
-|------------|---------|-----------|
-| Bun 1.x | Runtime | [KB: charter.md:12] faster startup vs Node |
-| ... | ... | [GAP — no decision note] |
-
-## 6. Runtime view — 1 to 3 key scenarios
-2–3 sentences introducing the scenarios. Followed by a Mermaid sequenceDiagram for the single most load-bearing hot path. Narrative describes the lifecycle with provenance tags.
-
-## 7. Data model [conditional — emit only if evidence]
-2–3 sentences on principal entities. Followed by a Mermaid erDiagram.
-
-## 8. API / interface surface
-2–3 sentences on major public surfaces. Table: endpoint/CLI command/event, owning component, purpose. Provenance tagged.
-
-## 9. Deployment & environments [conditional — emit only if evidence]
-2–3 sentences on how it runs in production. Followed by a Mermaid flowchart if ≥3 deployment units.
-
-## 10. Architecture decisions
-Bulleted list of known decisions with rationale. Each entry cites `[KB]` (charter, ADR, PRD) or `[GAP — no decision recorded]`. This section is ALWAYS emitted, even if the list is entirely `[GAP]` entries — that absence is itself a finding.
-
-## 11. Getting started
-Ordered steps: install, run locally, run tests, ship a first change. Source: README, package scripts, justfile, Makefile. Every step with `[CODE]` or `[KB]` tag.
-
-## 12. Debugging & observability
-Where logs go, where traces go, where dashboards live, who to page. Likely many `[GAP]` tags on first generation — that is information, not failure.
-
-## 13. Risks, gaps, and what isn't covered
-Reframed from "Assumptions & Gaps". First-class risk register.
-- Known issues (from KB or TODO scan): `[KB]` / `[CODE]` tagged
-- Technical debt flagged in KB: `[KB]` tagged
-- Gaps that would most improve the overview: `[GAP]` tagged with "next read" pointers
-- Omitted conditional sections: `Omitted §7 {name} — {reason}` / `Omitted §9 …` / `Omitted §15 …`
-
-## 14. Glossary
-Domain terms extracted from `{KB_ROOT}/concept_map.md` or inferred from code. Each term: short definition + `[KB]` or `[CODE]` citation.
-
-## 15. Appendix: Intended vs observed architecture [conditional]
-Emit when ≥1 divergence found. Sections: Convergences (one-line bullets), **Divergences** (with recommended follow-up), Absences (with evidence that would close them).
-```
+- **Snapshot header** (top of file): populate `{YYYY-MM-DD}`, `{GIT_SHA}` (`git -C {CODE_ROOT} rev-parse --short HEAD`), KB files loaded (from §PROC step 3), KB last-updated date (from `{KB_ROOT}/meta.json` if present, else mtime), and the coverage tuple `{filled}/{total}/{conditional_emitted}/{gap_count}` computed from the classification in §PROC step 5.
+- **§1 TL;DR**: 5 bullets — what it is, who uses it, how to run it, where to look first, what's weird. Untagged.
+- **§2–§14**: every declarative sentence carries a `[KB|CODE|INFER|GAP]` tag per §PROVENANCE.
+- **§5 Tech stack**: name + purpose from `[CODE]` evidence; rationale from `[KB: charter.md|ADR|PRD]` or `[GAP — no decision note]`.
+- **§10 Architecture decisions**: ALWAYS emitted. A list of only `[GAP]` entries is itself a valid finding — do not skip.
+- **§13 Risks**: first-class register, not a footer. Include `Omitted §N … — <reason>` lines for every conditional section that was skipped.
+- **§15 Reflexion appendix**: see §REFLEXION_APPENDIX — emit only when ≥1 divergence is found.
 
 ## GOVERNANCE
 
@@ -224,7 +164,7 @@ Emit when ≥1 divergence found. Sections: Convergences (one-line bullets), **Di
 
 **Anti-loop**: Single-pass execution. No clarification, no iteration. Blocking issue → emit failure status, STOP. Mermaid validation loop is the sole exception (max 3 iterations).
 
-**Output discipline**: Output MUST conform to the 16-section structure in §OUT with SNAPSHOT_HEADER prepended. Conditional sections (§7, §9, §15) are either emitted fully or omitted entirely — never stubs.
+**Output discipline**: Output MUST conform to the 16-section structure defined by the loaded artifact template, with the Snapshot-header block at the top. Conditional sections (§7, §9, §15) are either emitted fully or omitted entirely — never stubs.
 
 **Truth constraints**: Generate ONLY from loaded KB + observed source + git metadata. Every claim in §2–§14 MUST carry a provenance tag per §PROVENANCE. Missing info → `[GAP]` tag with specific "what evidence would close it". Findings are conjectural — evidence suggests rather than asserts. Every significant claim MUST be refutable — state what would contradict it. Prefer hard-to-vary explanations where each detail is load-bearing. Do not self-immunize conclusions with unfalsifiable hedges. Preserve error-correction capacity: per-claim provenance tags let any reader challenge individual claims without dismissing the document.
 
