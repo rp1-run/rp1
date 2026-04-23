@@ -40,9 +40,9 @@ agents:
     plugin: base
     last_checksum: a44eea08914b9a5f5d66c4184c162fc93583c0a3d74bdda7a0d7799341501449
   - name: rp1-base:project-documenter
-    description: "Generates comprehensive project overview documents with diagrams for new developers using internal knowledge base and codebase context"
+    description: "Generates arc42/C4-aligned birds-eye-view documents with per-claim provenance and Reflexion appendix"
     plugin: base
-    last_checksum: b1e4c9e398dbc56543ec05bce0758788d913bfddb477f1a0d891ff1572d08592
+    last_checksum: db45a5e648d33e81fca088ed121a7433d42aea54347f80aefe9bccdce79e93f2
   - name: rp1-base:prompt-pipeline-runner
     description: "Executes the six-stage prompt-writer pipeline and produces two mandatory output artifacts (ready-to-run prompt, confidence report)"
     plugin: base
