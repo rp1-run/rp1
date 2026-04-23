@@ -17,7 +17,7 @@ Guide for writing maximally terse agent prompts with built-in constitutional gov
 - Writing command/skill prompts with governance built in
 - Drafting instruction sets for AI agents
 - Applying constitutional or epistemic review to existing prompts
-- Running the six-stage prompt pipeline via `/create-prompt`
+- Running the six-stage prompt pipeline via `/build-prompt`
 
 ## Core Principles
 
@@ -38,6 +38,7 @@ Guide for writing maximally terse agent prompts with built-in constitutional gov
 | `references/tersify.md` | Compression discipline, section patterns, abbreviation policy, style rules, validation checklist | Direct `/prompt-writer` invocation; prompt-validation pipeline stage |
 | `references/constitution.md` | 10 governance primitives (anti-loop, output discipline, role, scope limits, orchestrator purity, error degradation, exploration bounds, anti-bias, truth constraints, transition guards) + four agent-type profiles | Constitutional-checklist pipeline stage; standalone constitutional review |
 | `references/epistemology.md` | Six epistemic stances (Fallibilist Empirical, Interpretivism, Phenomenology, Constructivism, Pragmatism, Compare-Mode) with composable contracts | Epistemic-stance pipeline stage; standalone epistemic review |
+| `references/budget.md` | 15% aggregate governance cap, per-stage budget allocations, line classification rules, enforcement protocol | Pipeline execution (Stage 6 budget enforcement); standalone budget review |
 
 ### Companion Files
 
@@ -48,7 +49,7 @@ Guide for writing maximally terse agent prompts with built-in constitutional gov
 
 ### Pipeline Stages
 
-Six stages executed in fixed order by `/create-prompt` via the `prompt-pipeline-runner` agent. Each stage file follows a consistent structure: Purpose, Input, Process, Output.
+Six stages executed in fixed order by `/build-prompt` via the `prompt-pipeline-runner` agent. Each stage file follows a consistent structure: Purpose, Input, Process, Output.
 
 | File | Stage | Purpose | When to Load |
 |------|-------|---------|--------------|
@@ -72,7 +73,7 @@ When invoked as `/prompt-writer` for prompt authoring and style guidance:
 
 This provides the same terse prompt authoring guidance as the original prompt-writer. The reference layers and pipeline stages below are available as additional resources but are not required for this workflow.
 
-### Pipeline Execution (via /create-prompt)
+### Pipeline Execution (via /build-prompt)
 
 When the `prompt-pipeline-runner` agent executes the six-stage pipeline:
 
@@ -85,7 +86,7 @@ When the `prompt-pipeline-runner` agent executes the six-stage pipeline:
    - **Stage 5**: Read `pipeline/confidence-schema.md`
    - **Stage 6**: Read `references/tersify.md` then `pipeline/prompt-validation.md`
 3. Each stage's output accumulates and feeds the next stage
-4. After all stages: produce three output artifacts (prompt, eval scaffold, confidence report)
+4. After all stages: produce two output artifacts (prompt, confidence report)
 
 ### Standalone Stage Loading
 
@@ -102,8 +103,7 @@ Any individual stage can be loaded independently for targeted review:
 constitutional-checklist -> fallibilist-overlay -> epistemic-stance -> popper-patterns -> confidence-schema -> prompt-validation
 ```
 
-The pipeline produces three mandatory artifacts per run:
+The pipeline produces two mandatory artifacts per run:
 
-1. **Ready-to-run prompt** -- SKILL.md with frontmatter, constitutional directives, epistemic stance
-2. **Eval scaffold** -- promptfoo YAML config with rubric and structural assertions
-3. **Confidence report** -- Structured scoring from each pipeline stage
+1. **Ready-to-run prompt** -- SKILL.md (TYPE=skill) or standalone markdown (TYPE=prompt) with constitutional directives and epistemic stance, governed by the 15% budget cap
+2. **Confidence report** -- Structured scoring from each pipeline stage with budget compliance metrics

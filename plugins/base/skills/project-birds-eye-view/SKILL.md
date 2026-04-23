@@ -1,55 +1,109 @@
 ---
 name: project-birds-eye-view
-description: "Generates comprehensive project overview documents with diagrams for new developers using internal knowledge base and codebase context."
+description: Generates arc42/C4-aligned project overview artifacts with per-claim provenance, snapshot metadata, and Arcade-visible workflow tracking.
+allowed-tools: Bash(rp1 *), Bash(echo *)
 metadata:
   category: documentation
-  is_workflow: false
-  version: 2.0.0
+  is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args: []
+  version: 3.0.0
   tags:
     - documentation
     - analysis
     - onboarding
     - visualization
   created: 2025-10-29
-  updated: 2026-02-26
+  updated: 2026-04-23
   author: cloud-on-prem/rp1
   arguments:
     - name: PROJECT_CONTEXT
       type: string
       required: false
       default: ""
-      description: "Optional project context for the documenter"
+      description: Optional project context for the documenter
     - name: FOCUS_AREAS
       type: string
       required: false
-      default: "all"
-      description: "Optional focus areas for the documenter"
+      default: all
+      description: Optional focus areas for the documenter
   sub_agents:
-    - "rp1-base:project-documenter"
+    - rp1-base:project-documenter
 ---
 
 # Project Bird's-Eye View Generator
 
-This command invokes the **project-documenter** sub-agent to generate project overview documentation.
+ROLE: Workflow dispatcher. Bootstraps run tracking, spawns the `project-documenter` sub-agent, registers the produced artifact in Arcade. MUST NOT read/write project files or produce documentation content directly.
 
-Invoke the project-documenter agent:
+## STATE-MACHINE
+
+```mermaid
+stateDiagram-v2
+    [*] --> load_kb
+    load_kb --> analyse : kb_ready
+    analyse --> generate : analysis_complete
+    generate --> validate_diagrams : document_written
+    validate_diagrams --> [*] : done
+```
+
+On each phase transition, emit:
+
+```bash
+rp1 agent-tools emit --harness $CURRENT_HOST \
+  --workflow birds-eye-view \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --name "Bird's-eye view: {RUN_NAME}" \
+  --step {CURRENT_STATE} \
+  --data '{"status": "running"}'
+```
+
+`RUN_NAME` is resolved once, up front, from `basename {projectRoot}` — it is stable before the sub-agent runs, so every emit (including the first) can carry it. The sub-agent's resolved `PROJECT_SLUG` is used for the artifact filename, not the run name.
+
+Terminal state `validate_diagrams` uses `--data '{"status": "completed"}'`.
+
+## Governance
+
+Role: workflow dispatcher.
+Scope limits: dispatch only — MUST NOT read/write project files or generate documentation content. Sub-agent handles all content work.
+Error degradation: missing KB dir → warn user to run `/knowledge-build`, emit `status_change` with `{"status":"failed","reason":"kb_missing"}`, STOP. Sub-agent failure → propagate error, emit failure status, STOP. No retry loops.
+Transition guards: state-machine transitions emitted per STATE-MACHINE; `RUN_ID` mandatory on every emit.
+
+## Dispatch
+
+1. Resolve `RUN_NAME` = `basename {projectRoot}`.
+2. Emit entry into `load_kb` with `{"status":"running"}`. Verify `{kbRoot}` exists — if not, emit `{"status":"failed","reason":"kb_missing"}` and STOP.
+3. Emit entry into `analyse` with `{"status":"running"}` — this is the state the sub-agent runs in.
+4. Invoke the project-documenter agent:
 
 {% dispatch_agent "rp1-base:project-documenter" %}
 PROJECT_CONTEXT: {PROJECT_CONTEXT}
 FOCUS_AREAS: {FOCUS_AREAS}
 KB_ROOT: {kbRoot}
+WORK_ROOT: {workRoot}
+PROJECT_ROOT: {projectRoot}
+CODE_ROOT: {codeRoot}
+RUN_ID: {RUN_ID}
 {% enddispatch_agent %}
-The agent will:
 
-- Load internal knowledge base
-- Explore codebase for additional context
-- Generate comprehensive overview with diagrams
-- Include: Summary, System Context, Architecture, Modules, Data Model, Workflows, APIs
-- Create Mermaid diagrams (validated)
-- Mark unknowns as TBD
-- Save the output document
-- Report back with documentation summary
+5. The sub-agent returns `OUTPUT_PATH` (relative to workRoot) and `PROJECT_SLUG`. Emit entry into `generate` with `{"status":"running"}`, then register the artifact — `OUTPUT_PATH` is authoritative, including any n+1 dedup suffix:
 
-The agent follows strict rules: never invent facts, use only loaded sources and codebase exploration.
+```bash
+rp1 agent-tools emit --harness $CURRENT_HOST \
+  --workflow birds-eye-view \
+  --type artifact_registered \
+  --run-id {RUN_ID} \
+  --step generate \
+  --data '{"path": "{OUTPUT_PATH}", "feature": "birds-eye", "storageRoot": "work_dir", "format": "markdown"}'
+```
 
-The agent has access to all necessary tools and will handle the entire documentation workflow autonomously.
+6. Emit terminal `validate_diagrams` with `{"status":"completed"}`.
+
+The agent loads the KB, generates a 16-section arc42/C4-aligned document with per-claim provenance, emits up to 6 Mermaid diagrams (validated via `rp1 agent-tools mmd-validate`), and writes to `{workRoot}/birds-eye/{YYYY-MM-DD}-{PROJECT_SLUG}.md` with n+1 dedup. It returns the resolved `OUTPUT_PATH` and `PROJECT_SLUG` to this dispatcher.
+
+## Runtime Contract
+
+| Command | Purpose | Exit 0 required |
+|---------|---------|-----------------|
+| `rp1 agent-tools emit` | State + artifact tracking | yes |

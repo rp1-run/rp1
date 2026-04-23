@@ -2,11 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { injectEmitHarness } from "../../build/transforms.js";
 
 describe("injectEmitHarness", () => {
-	test("injects --harness after rp1 agent-tools emit with flags", () => {
+	test("injects --harness $CURRENT_HOST after rp1 agent-tools emit with flags", () => {
 		const input = `rp1 agent-tools emit --workflow build --type status_change`;
 		const result = injectEmitHarness(input, "codex");
 		expect(result).toBe(
-			`rp1 agent-tools emit --harness codex --workflow build --type status_change`,
+			`rp1 agent-tools emit --harness $CURRENT_HOST --workflow build --type status_change`,
 		);
 	});
 
@@ -15,7 +15,7 @@ describe("injectEmitHarness", () => {
   --workflow build \\
   --type status_change`;
 		const result = injectEmitHarness(input, "claude-code");
-		expect(result).toContain("rp1 agent-tools emit --harness claude-code \\");
+		expect(result).toContain("rp1 agent-tools emit --harness $CURRENT_HOST \\");
 	});
 
 	test("does not double-inject when --harness already present", () => {
@@ -40,11 +40,20 @@ Step 2:
 rp1 agent-tools emit --type artifact_registered`;
 		const result = injectEmitHarness(input, "opencode");
 		expect(result).toContain(
-			"rp1 agent-tools emit --harness opencode --type status_change",
+			"rp1 agent-tools emit --harness $CURRENT_HOST --type status_change",
 		);
 		expect(result).toContain(
-			"rp1 agent-tools emit --harness opencode --type artifact_registered",
+			"rp1 agent-tools emit --harness $CURRENT_HOST --type artifact_registered",
 		);
+	});
+
+	test("injects same $CURRENT_HOST regardless of platform argument", () => {
+		const input = `rp1 agent-tools emit --type status_change`;
+		const codex = injectEmitHarness(input, "codex");
+		const cc = injectEmitHarness(input, "claude-code");
+		const oc = injectEmitHarness(input, "opencode");
+		expect(codex).toBe(cc);
+		expect(cc).toBe(oc);
 	});
 
 	test("does not modify prose mentions", () => {
@@ -62,6 +71,6 @@ rp1 agent-tools emit --type artifact_registered`;
 	test("injects when emit is at end of line", () => {
 		const input = `rp1 agent-tools emit`;
 		const result = injectEmitHarness(input, "codex");
-		expect(result).toBe(`rp1 agent-tools emit --harness codex`);
+		expect(result).toBe(`rp1 agent-tools emit --harness $CURRENT_HOST`);
 	});
 });

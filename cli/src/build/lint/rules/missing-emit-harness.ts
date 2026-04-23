@@ -1,8 +1,9 @@
 /**
  * L006: Detect `rp1 agent-tools emit` event invocations missing `--harness`.
  *
- * The build pipeline's post-render transform injects `--harness <platform>`
- * into all emit event commands. If an emit call in compiled output lacks
+ * The build pipeline's post-render transform injects `--harness $CURRENT_HOST`
+ * into all emit event commands so the model-populated harness variable flows
+ * through to real workflow runs. If an emit call in compiled output lacks
  * `--harness`, it means the transform missed it or a new emit pattern was
  * introduced without coverage. This would leave the runs.harness column
  * NULL for real workflow runs.

@@ -130,6 +130,12 @@ build-codex:
 build-copilot:
     cd cli && bun run scripts/build-copilot.ts
 
+# Validate plugin builds on every platform (CI-oriented; no compile, no web-ui).
+# Catches platform-specific semantic-lint errors (L-rules) that single-platform
+# builds miss — e.g. OpenCode-only naming, Codex-only tool surfaces.
+build-plugins-check:
+    cd cli && bun run scripts/build-opencode.ts && bun run scripts/build-codex.ts && bun run scripts/build-claude-code.ts && bun run scripts/build-copilot.ts
+
 # Build the web-ui
 build-web-ui:
     cd cli/web-ui && bun run build

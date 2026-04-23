@@ -10,14 +10,14 @@ The `rp1-utils` plugin provides specialized tools for developing and maintaining
 - **Agent refactoring** - Tools for optimizing constitutional agents
 
 **Commands**: 2 user-facing commands
-**Agents**: 4 specialized agents
+**Agents**: 1 specialized agent
 **Skills**: 1 internal skill
 
 ## Commands (2)
 
 ### Prompt Engineering
 - `/tersify-prompt <file-path-or-prompt>` - Rewrite agent prompts to be maximally terse while preserving full intent
-- `/build-prompt-evals <file-or-prompt> [--output <dir>]` - Build eval assertions and minimal test prompt, then optimize with assertion resolution and scenario consolidation
+- `/build-prompt <PROMPT_NAME> <DESCRIPTION> [TYPE=prompt|skill] [--existing <path>] [--afk]` - Build a governed prompt or skill through the six-stage prompt-writer pipeline with budgeted governance
 
 #### tersify-prompt
 
@@ -31,106 +31,44 @@ The `rp1-utils` plugin provides specialized tools for developing and maintaining
 /tersify-prompt "You are a helpful assistant. Always be polite and thorough..."
 ```
 
-#### build-prompt-evals
+#### build-prompt
 
-Generates eval assertions (YAML) and minimal test prompts from prompt text, then optimizes the assertions. Full workflow:
-1. **Extraction**: Spawns prompt-eval-extractor to parse assertions and create test prompt
-2. **Optimization**: Spawns prompt-assertion-specialist to resolve placeholder assertions, consolidate scenarios, and document unresolved assertions
+Runs the six-stage prompt-writer pipeline (constitutional-checklist, fallibilist-overlay, epistemic-stance, popper-patterns, confidence-schema, prompt-validation) with a 15% governance budget cap, producing two artifacts: a ready-to-run prompt and a confidence report.
 
-**Outputs**:
-- `{basename}-evals.yaml` - promptfoo-compatible assertions (optimized)
-- `{basename}-eval-prompt.txt` - minimal test prompt for evaluation
-- `.rp1/work/notes/assertions-to-be-built-{timestamp}.md` - (if unresolved placeholders exist)
+**Arguments**:
+- `PROMPT_NAME` (required) - Name for the prompt (kebab-case, used as slug)
+- `DESCRIPTION` (required) - Description of the prompt or skill to create
+- `TYPE` - Output format: `prompt` (default, standalone markdown) or `skill` (SKILL.md with rp1 frontmatter)
+- `EXISTING` - Path to an existing prompt file to improve (original is not modified)
+- `AGENT_TYPE` - Constitutional profile: `leaf-worker` (default), `orchestrator`, `interactive-skill`, `kb-investigator`
+- `COMPLEXITY` - Scaffolding size: `auto` (default), `simple`, `standard`, `complex`
+- `AFK` - Non-interactive mode
 
-**Modes**:
-- **File mode**: Reads prompt file, outputs to same directory
-- **Inline mode**: Processes raw text, outputs to current directory
-- **Custom output**: Use `--output <dir>` to specify output directory
+**Output**: `{work_root}/prompts/{YYYY-MM-DD}-{slug}/` containing:
+- `{slug}.md` (TYPE=prompt) or `SKILL.md` (TYPE=skill)
+- `confidence-report.md`
 
 **Usage**:
 ```bash
-/build-prompt-evals plugins/dev/agents/task-builder.md
-/build-prompt-evals my-prompt.md --output evals/suites/my-plugin/
-/build-prompt-evals "Create a branch and commit changes"
+/build-prompt my-agent "An agent that validates API responses" TYPE=skill
+/build-prompt my-prompt "A prompt for code review" --existing path/to/prompt.md
+/build-prompt my-skill "A skill for data validation" TYPE=skill --afk
 ```
 
-## Agents (5)
+## Agents (1)
 
 | Agent | Purpose |
 |-------|---------|
-| dependency-chain-analyzer | Analyzes command/agent files to discover sub-agent and skill dependencies |
 | prompt-tersifier | Transforms agent-instruction prompts into maximally terse versions |
-| prompt-eval-extractor | Extracts evaluation assertions from prompt text for promptfoo |
-| eval-prompt-writer | Creates minimal test prompts optimized for evaluation |
-| prompt-assertion-specialist | Resolves placeholder assertions to implementations, consolidates scenarios |
-
-### dependency-chain-analyzer
-
-Parses command and agent files to extract sub-agent and skill dependencies for comprehensive eval coverage across dependency trees.
-
-**Input**: File path to a command or agent markdown file
-
-**Output**: JSON structure containing:
-
-```json
-{
-  "root": {
-    "path": "plugins/dev/commands/build-fast.md",
-    "name": "build-fast"
-  },
-  "agents": [
-    {"path": "plugins/dev/agents/task-builder.md", "plugin": "rp1-dev", "name": "task-builder"}
-  ],
-  "skills": [
-    {"path": "plugins/base/skills/prompt-writer/SKILL.md", "plugin": "rp1-base", "name": "prompt-writer"}
-  ],
-  "warnings": ["Agent not found: rp1-dev:missing-agent"]
-}
-```
-
-**Usage**: Invoked automatically by `build-prompt-evals` in file mode. Can also be spawned directly:
-
-```
-Task tool with subagent_type: rp1-utils:dependency-chain-analyzer
-$1: plugins/dev/commands/build-fast.md
-```
-
-**Detection Patterns**:
-- Task references: `Task: rp1-dev:agent-name`
-- Skill references: `Skill: rp1-base:skill-name`
-
-### prompt-assertion-specialist
-
-Optimizes eval configurations by resolving placeholder assertions to actual implementations, consolidating redundant test scenarios, and documenting assertions that require custom implementation.
-
-**Input**: Eval YAML config path, source name, project root
-
-**Processing**:
-1. Parse placeholder assertions (PLACEHOLDER:, TODO:, # PLACEHOLDER: markers)
-2. Resolve to promptfoo built-ins (contains, regex, llm-rubric, is-json, etc.)
-3. Resolve to shared assertions (assertToolCall, assertGitCommitToolCall, etc.)
-4. Consolidate scenarios with identical assertions
-5. Document unresolved placeholders with implementation specs
-
-**Output**: Optimized YAML config (overwrites input) + assertions-to-be-built.md if needed
-
-**Usage**: Invoked automatically by `build-prompt-evals` after extraction. Can also be spawned directly:
-
-```
-Task tool with subagent_type: rp1-utils:prompt-assertion-specialist
-$1: path/to/evals.yaml
-$2: source-name
-$3: .rp1
-```
 
 ## Skills (1)
 
 ### prompt-eval-builder
-Domain knowledge for extracting eval assertions and creating minimal test prompts from agent prompts. Used by `prompt-eval-extractor` and `eval-prompt-writer` agents.
+Domain knowledge for extracting eval assertions and creating minimal test prompts from agent prompts.
 
 **Use when**: Generating promptfoo evaluation configs or minimal test prompts from agent prompts.
 
-**Invocation**: Loaded automatically by the agents; use `/build-prompt-evals` command.
+**Invocation**: Loaded automatically by agents.
 
 **Includes**:
 - `SKILL.md` - Entry point and file manifest

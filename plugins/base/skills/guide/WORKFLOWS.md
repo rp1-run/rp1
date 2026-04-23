@@ -167,15 +167,15 @@ Each iteration delegates to a general sub-agent. If the request is too large, it
 
 **When**: Writing or improving agent prompts and skill definitions.
 
-**Sequence**: `/create-prompt` -> (optional) `/tersify-prompt`
+**Sequence**: `/build-prompt` -> (optional) `/tersify-prompt`
 
 | Step | Skill | Input | Output |
 |------|-------|-------|--------|
-| 1 | `/create-prompt` | `PROMPT_NAME`, `DESCRIPTION`, optional `AGENT_TYPE` | Governed SKILL.md scaffold plus promptfoo eval scaffold and confidence/epistemic report (Phase 1 is skill-only; agent-file output is out of scope) |
+| 1 | `/build-prompt` | `PROMPT_NAME`, `DESCRIPTION`, optional `TYPE`, `EXISTING`, `AGENT_TYPE` | Governed prompt or SKILL.md with budgeted governance content plus confidence report in `{work_root}/prompts/{YYYY-MM-DD}-{slug}/` |
 | 2 | `/tersify-prompt` | Verbose prompt text | Maximally compressed prompt preserving full intent |
 
 **How they chain**:
 
-- `/create-prompt` is the primary entry point. It runs the six-stage prompt-writer pipeline (constitutional-checklist → fallibilist-overlay → epistemic-stance → popper-patterns → confidence-schema → prompt-validation) and writes three artifacts to `{projectRoot}/{PROMPT_NAME}/`: a ready-to-run SKILL.md, a promptfoo eval scaffold with inline providers, and a per-stage confidence/epistemic report. Constitutional filtering is driven by `AGENT_TYPE` (`leaf-worker`, `orchestrator`, `interactive-skill`, `kb-investigator`).
-- `/tersify-prompt` is an optional post-step that compresses any prompt (including `/create-prompt` output) by applying token-efficient rewrites. Useful when the prompt needs to fit within tight context budgets.
-- The `prompt-writer` skill is now a progressive-disclosure reference library consumed by `/create-prompt`; invoke it directly only if you need to read a specific reference (`references/constitution.md`, `references/epistemology.md`, `references/tersify.md`) or pipeline stage file.
+- `/build-prompt` is the primary entry point. It runs the six-stage prompt-writer pipeline (constitutional-checklist, fallibilist-overlay, epistemic-stance, popper-patterns, confidence-schema, prompt-validation) with a 15% governance budget cap and writes two artifacts to `{work_root}/prompts/{YYYY-MM-DD}-{slug}/`: a ready-to-run prompt (`{slug}.md` when TYPE=prompt, `SKILL.md` when TYPE=skill) and a confidence report. Pass `EXISTING=path/to/prompt.md` to improve an existing prompt instead of starting from scratch. Constitutional filtering is driven by `AGENT_TYPE` (`leaf-worker`, `orchestrator`, `interactive-skill`, `kb-investigator`).
+- `/tersify-prompt` is an optional post-step that compresses any prompt (including `/build-prompt` output) by applying token-efficient rewrites. Useful when the prompt needs to fit within tight context budgets.
+- The `prompt-writer` skill is a progressive-disclosure reference library consumed by `/build-prompt`; invoke it directly only if you need to read a specific reference (`references/constitution.md`, `references/epistemology.md`, `references/tersify.md`, `references/budget.md`) or pipeline stage file.

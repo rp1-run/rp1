@@ -40,13 +40,13 @@ agents:
     plugin: base
     last_checksum: a44eea08914b9a5f5d66c4184c162fc93583c0a3d74bdda7a0d7799341501449
   - name: rp1-base:project-documenter
-    description: "Generates comprehensive project overview documents with diagrams for new developers using internal knowledge base and codebase context"
+    description: "Generates arc42/C4-aligned birds-eye-view documents with per-claim provenance and Reflexion appendix"
     plugin: base
-    last_checksum: b1e4c9e398dbc56543ec05bce0758788d913bfddb477f1a0d891ff1572d08592
+    last_checksum: f9ef93984a4d2fdab723afcac79398aa4a8098a0cdc31970f21a1f5d32157c52
   - name: rp1-base:prompt-pipeline-runner
-    description: "Executes the six-stage prompt-writer pipeline and produces three mandatory output artifacts (ready-to-run prompt, eval scaffold, confidence report)"
+    description: "Executes the six-stage prompt-writer pipeline and produces two mandatory output artifacts (ready-to-run prompt, confidence report)"
     plugin: base
-    last_checksum: 39ab16fdf9d7391446c749a272896eb28495a4c1b151d709aeca31e7dfc60252
+    last_checksum: 3463a883fa79290575a537f127deb8f0e5a7a4fe1d7a8a8997dd3876cd530b11
   - name: rp1-base:research-explorer
     description: "Deep exploration of codebases or web resources, returning structured JSON findings with evidence"
     plugin: base
@@ -150,7 +150,7 @@ agents:
   - name: rp1-dev:phase-planner
     description: "Decomposes a planning source into a source-adjacent phase-plan artifact and refreshes source backlinks."
     plugin: dev
-    last_checksum: 8d052903777edd761d0f65552a8d917d9cf95f7bf11552498bc2d85045834cbe
+    last_checksum: 3e00b1bd93f53ae21f9b22ae078e865ca25ed03ece6e7b03719965d081022638
   - name: rp1-dev:pr-comment-deduplicator
     description: "Deduplicates PR review comments against existing bot and human comments"
     plugin: dev
