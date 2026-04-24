@@ -8,6 +8,7 @@ type IntervalCallback = () => void;
 
 const originalWindowSetInterval = window.setInterval;
 const originalWindowClearInterval = window.clearInterval;
+const originalMathRandom = Math.random;
 
 let nextIntervalId = 1;
 let intervalCallbacks: Map<number, IntervalCallback>;
@@ -52,6 +53,7 @@ describe("ArtifactEmptyState", () => {
 	beforeEach(() => {
 		document.body.innerHTML = "";
 		prefersReducedMotion = false;
+		Math.random = () => 0;
 		installIntervalMocks();
 	});
 
@@ -59,9 +61,10 @@ describe("ArtifactEmptyState", () => {
 		cleanup();
 		window.setInterval = originalWindowSetInterval;
 		window.clearInterval = originalWindowClearInterval;
+		Math.random = originalMathRandom;
 	});
 
-	test("renders a centered ASCII visual with an accessible label", async () => {
+	test("renders a large centered SVG ASCII visual with an accessible label", async () => {
 		const { ArtifactEmptyState } = await loadComponent();
 
 		render(<ArtifactEmptyState />);
@@ -74,20 +77,43 @@ describe("ArtifactEmptyState", () => {
 		expect(status.className).toContain("items-center");
 		expect(status.className).toContain("justify-center");
 		expect(status.className).toContain("h-full");
-		expect(visual.textContent).toContain("+----------------+");
+		expect(visual.tagName.toLowerCase()).toBe("svg");
+		expect(visual.getAttribute("viewBox")).toBe("0 0 680 360");
+		expect(visual.querySelector("rect")).toBeNull();
+		expect(visual.textContent).toContain("artifact_registered");
+		expect(visual.textContent).toContain("watchArtifacts");
 		expect(visual.textContent).not.toContain("Waiting for artifacts");
-		expect(visual.parentElement?.className).toContain(
-			"w-[clamp(11rem,30%,26rem)]",
-		);
-		expect(visual.parentElement?.className).toContain("aspect-[4/3]");
+		expect(visual.querySelector('[data-segment-tone="cyan"]')).not.toBeNull();
+		expect(visual.querySelector('[data-segment-tone="lime"]')).not.toBeNull();
+		expect(visual.dataset.variantIndex).toBe("0");
+		expect(visual.getAttribute("class")).toContain("w-[90%]");
+		expect(visual.getAttribute("class")).toContain("aspect-[17/9]");
+		expect(visual.getAttribute("class")).toContain("max-w-none");
+		expect(visual.getAttribute("class")).not.toContain("border");
+		expect(visual.getAttribute("class")).not.toContain("bg-muted");
 	});
 
-	test("advances frames and stops after exactly five loops", async () => {
+	test("chooses one of ten code variants on mount", async () => {
+		Math.random = () => 0.999;
+		const { ArtifactEmptyState, ARTIFACT_EMPTY_STATE_VARIANT_COUNT } =
+			await loadComponent();
+
+		render(<ArtifactEmptyState />);
+
+		const visual = screen.getByTestId("artifact-empty-state-visual");
+
+		expect(ARTIFACT_EMPTY_STATE_VARIANT_COUNT).toBe(10);
+		expect(visual.dataset.variantIndex).toBe(
+			String(ARTIFACT_EMPTY_STATE_VARIANT_COUNT - 1),
+		);
+		expect(visual.textContent).toContain("compile artifact groups");
+	});
+
+	test("advances frames and loops continuously", async () => {
 		const {
 			ArtifactEmptyState,
 			ARTIFACT_EMPTY_STATE_FRAME_COUNT,
 			ARTIFACT_EMPTY_STATE_FRAME_INTERVAL_MS,
-			ARTIFACT_EMPTY_STATE_LOOP_COUNT,
 		} = await loadComponent();
 
 		render(<ArtifactEmptyState />);
@@ -103,33 +129,15 @@ describe("ArtifactEmptyState", () => {
 		expect(visual.dataset.animationState).toBe("running");
 		expect(visual.dataset.frameIndex).toBe("0");
 
-		act(() => {
-			callback?.();
-		});
-
-		expect(visual.dataset.frameIndex).toBe("1");
-
-		const remainingTicksBeforeCompletion =
-			ARTIFACT_EMPTY_STATE_FRAME_COUNT * ARTIFACT_EMPTY_STATE_LOOP_COUNT - 2;
-
-		for (let i = 0; i < remainingTicksBeforeCompletion; i += 1) {
+		for (let i = 0; i < ARTIFACT_EMPTY_STATE_FRAME_COUNT + 2; i += 1) {
 			act(() => {
 				callback?.();
 			});
 		}
 
-		expect(clearedIntervalIds).not.toContain(intervalId);
 		expect(visual.dataset.animationState).toBe("running");
-
-		act(() => {
-			callback?.();
-		});
-
-		expect(clearedIntervalIds).toContain(intervalId);
-		expect(visual.dataset.animationState).toBe("complete");
-		expect(visual.dataset.frameIndex).toBe(
-			String(ARTIFACT_EMPTY_STATE_FRAME_COUNT - 1),
-		);
+		expect(visual.dataset.frameIndex).toBe("2");
+		expect(clearedIntervalIds).not.toContain(intervalId);
 	});
 
 	test("shows the final static frame immediately for reduced motion", async () => {
@@ -142,7 +150,7 @@ describe("ArtifactEmptyState", () => {
 		const visual = screen.getByTestId("artifact-empty-state-visual");
 
 		expect(intervalCallbacks.size).toBe(0);
-		expect(visual.dataset.animationState).toBe("complete");
+		expect(visual.dataset.animationState).toBe("static");
 		expect(visual.dataset.frameIndex).toBe(
 			String(ARTIFACT_EMPTY_STATE_FRAME_COUNT - 1),
 		);
