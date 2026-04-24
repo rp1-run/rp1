@@ -81,8 +81,14 @@ describe("ArtifactEmptyState", () => {
 		expect(visual.getAttribute("viewBox")).toBe("0 0 680 360");
 		expect(visual.querySelector("rect")).toBeNull();
 		expect(visual.textContent).toContain("artifact_registered");
+		expect(visual.textContent).toContain(
+			"waiting for your workflow to produce an artifact",
+		);
 		expect(visual.textContent).toContain("watchArtifacts");
 		expect(visual.textContent).not.toContain("Waiting for artifacts");
+		expect(visual.querySelector("text")?.getAttribute("class")).toContain(
+			"text-[4.5px]",
+		);
 		expect(visual.querySelector('[data-segment-tone="cyan"]')).not.toBeNull();
 		expect(visual.querySelector('[data-segment-tone="lime"]')).not.toBeNull();
 		expect(visual.dataset.variantIndex).toBe("0");
@@ -126,6 +132,7 @@ describe("ArtifactEmptyState", () => {
 		expect(intervalDelays.get(intervalId)).toBe(
 			ARTIFACT_EMPTY_STATE_FRAME_INTERVAL_MS,
 		);
+		expect(ARTIFACT_EMPTY_STATE_FRAME_INTERVAL_MS).toBe(880);
 		expect(visual.dataset.animationState).toBe("running");
 		expect(visual.dataset.frameIndex).toBe("0");
 

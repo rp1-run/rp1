@@ -388,6 +388,31 @@ describe("RunDetailPage", () => {
 		expect(refetchMock).toHaveBeenCalledTimes(1);
 	});
 
+	test("shows run status messages inline in the detail header", async () => {
+		const message = "No workflow activity recorded for 24 hours";
+		run = {
+			...run,
+			statusMessage: message,
+		};
+
+		await renderRunDetail();
+
+		await waitFor(() => {
+			expect(breadcrumbApi.setHeaderRight).toHaveBeenCalled();
+		});
+
+		expect(screen.queryByText(message)).toBeNull();
+
+		const headerRight = headerRightContent;
+		expect(headerRight).toBeTruthy();
+
+		const headerContainer = render(headerRight).container;
+		const inlineMessage = headerContainer.querySelector(".italic");
+
+		expect(inlineMessage?.textContent).toBe(message);
+		expect(inlineMessage?.className).toContain("truncate");
+	});
+
 	test("passes all run artifacts into the aggregate right panel", async () => {
 		run = {
 			...run,

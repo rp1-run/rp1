@@ -146,6 +146,7 @@ export function RunDetailPage() {
 			run.currentStep
 		);
 	}, [run]);
+	const headerStatusMessage = run?.statusMessage ?? null;
 
 	const subflowDiagram = useMemo(() => {
 		if (!selectedStepId || !run?.subflows) return null;
@@ -287,6 +288,11 @@ export function RunDetailPage() {
 							Current step: {currentStepName}
 						</span>
 					)}
+					{headerStatusMessage && (
+						<span className="min-w-0 max-w-[42vw] truncate type-secondary italic text-fg-ghost">
+							{headerStatusMessage}
+						</span>
+					)}
 					{canEnd && (
 						<>
 							<button
@@ -318,7 +324,14 @@ export function RunDetailPage() {
 			setHeaderLeft(null);
 			setHeaderRight(null);
 		};
-	}, [run, currentStepName, endingOutcome, setHeaderLeft, setHeaderRight]);
+	}, [
+		run,
+		currentStepName,
+		headerStatusMessage,
+		endingOutcome,
+		setHeaderLeft,
+		setHeaderRight,
+	]);
 
 	const handleStepSelect = useCallback(
 		(stepId: string) => {
@@ -523,16 +536,17 @@ export function RunDetailPage() {
 		);
 	}
 
-	const statusMessage = run.statusMessage ?? run.error;
+	const bodyStatusMessage =
+		run.error && run.error !== headerStatusMessage ? run.error : null;
 
 	return (
 		<div className="flex h-full flex-col">
 			{showMetadata && <RunInvocationCard invocation={run.invocation} />}
 
-			{(statusMessage || endRunError) && (
+			{(bodyStatusMessage || endRunError) && (
 				<div className="border-b border-border px-md py-sm">
-					{statusMessage && (
-						<p className="type-secondary text-fg-muted">{statusMessage}</p>
+					{bodyStatusMessage && (
+						<p className="type-secondary text-fg-muted">{bodyStatusMessage}</p>
 					)}
 					{endRunError && (
 						<p className="pt-xs type-secondary text-failure">{endRunError}</p>

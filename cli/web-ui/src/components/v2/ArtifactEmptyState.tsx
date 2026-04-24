@@ -374,7 +374,7 @@ const ARTIFACT_EMPTY_STATE_FOOTERS = [
 
 export const ARTIFACT_EMPTY_STATE_VARIANT_COUNT = CODE_STREAM_VARIANTS.length;
 export const ARTIFACT_EMPTY_STATE_FRAME_COUNT = 6;
-export const ARTIFACT_EMPTY_STATE_FRAME_INTERVAL_MS = 440;
+export const ARTIFACT_EMPTY_STATE_FRAME_INTERVAL_MS = 880;
 
 const FINAL_FRAME_INDEX = ARTIFACT_EMPTY_STATE_FRAME_COUNT - 1;
 
@@ -405,6 +405,7 @@ const buildFrameLines = (
 		line(" rp1://arcade/artifacts"),
 		line(` $ ${variant.command}`),
 		line(""),
+		line("  // waiting for your workflow to produce an artifact", "green"),
 		...animatedLines,
 		line(""),
 		...(ARTIFACT_EMPTY_STATE_FOOTERS[frameIndex] ?? []),
@@ -473,8 +474,8 @@ export function ArtifactEmptyState({ className }: ArtifactEmptyStateProps) {
 					<text
 						key={`${index}-${line.map((item) => item.text).join("")}`}
 						x="2"
-						y={22 + index * 13}
-						className="font-mono text-[9px] leading-none"
+						y={14 + index * 7}
+						className="font-mono text-[4.5px] leading-none"
 						xmlSpace="preserve"
 					>
 						{line.map((item, segmentIndex) => (
