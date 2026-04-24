@@ -40,6 +40,15 @@ import { getTool, type ToolOptions } from "./index.js";
 import { readInput } from "./input.js";
 import { formatOutput } from "./output.js";
 import {
+	executeAdjourn as executeSocraticDuelAdjourn,
+	executeClaimTurn as executeSocraticDuelClaimTurn,
+	executeJoin as executeSocraticDuelJoin,
+	executeStatus as executeSocraticDuelStatus,
+	executeSubmitTurn as executeSocraticDuelSubmitTurn,
+	parseSubmitTurnInput,
+} from "./socratic-duel/index.js";
+import type { TerminalOutcome } from "./socratic-duel/models.js";
+import {
 	executeCancel as executeTaskCancel,
 	executeComplete as executeTaskComplete,
 	executeCreate as executeTaskCreate,
@@ -71,6 +80,7 @@ import "./comment-extract/index.js";
 import "./emit/index.js";
 import "./feedback/index.js";
 import "./github-pr/index.js";
+import "./socratic-duel/index.js";
 import "./task/index.js";
 
 /** Default timeout for tool execution in milliseconds */
@@ -110,6 +120,7 @@ Available Tools:
   emit              Record events for the rp1 workflow event system
   feedback          Read, resolve, reply to, and accept feedback from the Arcade
   github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
+  socratic-duel     Coordinate a bounded two-agent debate inside Markdown
   task              Manage task queue (create, list, pickup, complete, fail, cancel, get)
 
 Examples:
@@ -1247,6 +1258,210 @@ Examples:
 		console.log(formatOutput(result.right));
 		process.exit(0);
 	});
+
+const socraticDuelCommand = agentToolsCommand
+	.command("socratic-duel")
+	.description(
+		"Coordinate a bounded two-agent debate inside a local Markdown document",
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Provides deterministic coordination for the Socratic Duel workflow. The tool
+  validates the target Markdown file, registers participants, grants exclusive
+  turn leases, validates structured turns, appends to the managed Markdown
+  region, and records terminal outcomes.
+
+Subcommands:
+  join          Create or resume an active duel and register a participant
+  status        Show duel, participant, lease, turn, and region-hash status
+  claim-turn    Acquire the floor or receive bounded wait guidance
+  submit-turn   Validate and append a structured turn from stdin or file
+  adjourn       Record a permitted terminal outcome
+
+Examples:
+  rp1 agent-tools socratic-duel join --target /tmp/plan.md --participant-name codex --harness codex --model-id gpt-5
+  rp1 agent-tools socratic-duel claim-turn --duel-id <id> --participant-id <id>
+  rp1 agent-tools socratic-duel submit-turn --duel-id <id> --participant-id <id> --prior-region-hash sha256:... --turn-file turn.json
+`,
+	);
+
+socraticDuelCommand
+	.command("join")
+	.description("Create or resume an active duel and register a participant")
+	.requiredOption("--target <path>", "Absolute path to the Markdown target")
+	.requiredOption("--participant-name <name>", "Participant display name")
+	.requiredOption("--harness <name>", "Harness identity")
+	.option("--model-id <id>", "Model identity", "unknown-model")
+	.option("--run-id <id>", "Workflow run ID")
+	.action(
+		async (options: {
+			target: string;
+			participantName: string;
+			harness: string;
+			modelId: string;
+			runId?: string;
+		}): Promise<void> => {
+			const toolName = "socratic-duel";
+			const result = await executeSocraticDuelJoin({
+				targetPath: options.target,
+				participantName: options.participantName,
+				harness: options.harness,
+				modelId: options.modelId,
+				runId: options.runId,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(result.right.success ? 0 : 1);
+		},
+	);
+
+socraticDuelCommand
+	.command("status")
+	.description("Show duel status")
+	.option("--duel-id <id>", "Duel ID")
+	.option("--target <path>", "Absolute path to the Markdown target")
+	.action(
+		async (options: { duelId?: string; target?: string }): Promise<void> => {
+			const toolName = "socratic-duel";
+			const result = await executeSocraticDuelStatus({
+				duelId: options.duelId,
+				targetPath: options.target,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(result.right.success ? 0 : 1);
+		},
+	);
+
+socraticDuelCommand
+	.command("claim-turn")
+	.description("Acquire the floor or receive bounded wait guidance")
+	.requiredOption("--duel-id <id>", "Duel ID")
+	.requiredOption("--participant-id <id>", "Participant ID")
+	.action(
+		async (options: {
+			duelId: string;
+			participantId: string;
+		}): Promise<void> => {
+			const toolName = "socratic-duel";
+			const result = await executeSocraticDuelClaimTurn({
+				duelId: options.duelId,
+				participantId: options.participantId,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(result.right.success ? 0 : 1);
+		},
+	);
+
+socraticDuelCommand
+	.command("submit-turn")
+	.description("Validate and append a structured turn from stdin or file")
+	.requiredOption("--duel-id <id>", "Duel ID")
+	.requiredOption("--participant-id <id>", "Participant ID")
+	.option("--prior-region-hash <hash>", "Hash returned by claim-turn")
+	.option("--turn-file <path>", "Read turn JSON from a file")
+	.action(
+		async (options: {
+			duelId: string;
+			participantId: string;
+			priorRegionHash?: string;
+			turnFile?: string;
+		}): Promise<void> => {
+			const toolName = "socratic-duel";
+			const inputResult = await readInput(options.turnFile)();
+
+			if (E.isLeft(inputResult)) {
+				console.error(
+					createErrorResponse(toolName, formatError(inputResult.left, false)),
+				);
+				process.exit(1);
+			}
+
+			const parsedInput = parseSubmitTurnInput(
+				inputResult.right.content,
+				options.duelId,
+				options.participantId,
+				options.priorRegionHash,
+			);
+			if (!parsedInput.success) {
+				console.log(formatOutput(parsedInput));
+				process.exit(1);
+			}
+
+			const result = await executeSocraticDuelSubmitTurn(parsedInput.data)();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(result.right.success ? 0 : 1);
+		},
+	);
+
+socraticDuelCommand
+	.command("adjourn")
+	.description("Record a permitted terminal outcome")
+	.requiredOption("--duel-id <id>", "Duel ID")
+	.requiredOption(
+		"--outcome <outcome>",
+		"Terminal outcome (DISSENT, TIMEOUT, INVALIDATED)",
+	)
+	.option("--participant-id <id>", "Participant ID")
+	.option("--summary <text>", "Terminal summary", "")
+	.action(
+		async (options: {
+			duelId: string;
+			outcome: string;
+			participantId?: string;
+			summary: string;
+		}): Promise<void> => {
+			const toolName = "socratic-duel";
+			const result = await executeSocraticDuelAdjourn({
+				duelId: options.duelId,
+				participantId: options.participantId,
+				outcome: options.outcome as TerminalOutcome,
+				summary: options.summary,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(result.right.success ? 0 : 1);
+		},
+	);
 
 /**
  * task subcommand.
