@@ -40,6 +40,55 @@ const RUN_STATUS_CHECK_SQL = RUN_STATUS_CHECK_STATUSES.map(
 	(status) => `'${status}'`,
 ).join(", ");
 
+const SOCRATIC_DUEL_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS socratic_duels (
+    id TEXT PRIMARY KEY NOT NULL,
+    target_path TEXT NOT NULL,
+    target_key TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'ACTIVE'
+        CHECK(status IN ('ACTIVE', 'ACCEPTED_CONSENSUS', 'DISSENT', 'MAX_TURNS', 'TIMEOUT', 'INVALIDATED')),
+    max_turns INTEGER NOT NULL DEFAULT 6,
+    next_turn_number INTEGER NOT NULL DEFAULT 1,
+    current_owner_id TEXT DEFAULT NULL REFERENCES socratic_duel_participants(id) ON DELETE SET NULL,
+    lease_expires_at TEXT DEFAULT NULL,
+    candidate_convergence INTEGER NOT NULL DEFAULT 0 CHECK(candidate_convergence IN (0, 1)),
+    conclusion_summary TEXT DEFAULT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS socratic_duel_participants (
+    id TEXT PRIMARY KEY NOT NULL,
+    duel_id TEXT NOT NULL REFERENCES socratic_duels(id) ON DELETE CASCADE,
+    display_name TEXT NOT NULL,
+    harness TEXT NOT NULL,
+    model_id TEXT NOT NULL,
+    joined_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    last_seen_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS socratic_duel_turns (
+    id TEXT PRIMARY KEY NOT NULL,
+    duel_id TEXT NOT NULL REFERENCES socratic_duels(id) ON DELETE CASCADE,
+    turn_number INTEGER NOT NULL,
+    participant_id TEXT NOT NULL REFERENCES socratic_duel_participants(id) ON DELETE RESTRICT,
+    stance TEXT NOT NULL
+        CHECK(stance IN ('OPEN_TO_DEBATE', 'CONVERGING', 'ACCEPTING_CONSENSUS', 'DISSENTING', 'REVISING')),
+    turn_hash TEXT NOT NULL,
+    prior_region_hash TEXT NOT NULL,
+    content_json TEXT NOT NULL,
+    accepted_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_socratic_duels_target_status ON socratic_duels(target_key, status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_socratic_duels_active_target ON socratic_duels(target_key) WHERE status = 'ACTIVE';
+CREATE INDEX IF NOT EXISTS idx_socratic_duels_lease ON socratic_duels(status, current_owner_id, lease_expires_at);
+CREATE INDEX IF NOT EXISTS idx_socratic_duel_participants_duel ON socratic_duel_participants(duel_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_socratic_duel_participants_identity ON socratic_duel_participants(duel_id, display_name, harness, model_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_socratic_duel_turns_duel_turn ON socratic_duel_turns(duel_id, turn_number);
+CREATE INDEX IF NOT EXISTS idx_socratic_duel_turns_participant ON socratic_duel_turns(duel_id, participant_id, accepted_at);
+`;
+
 /** Schema DDL for rp1.db (version 1, clean start) */
 const SCHEMA_SQL = `
 PRAGMA foreign_keys = ON;
@@ -48,7 +97,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (13);
+INSERT INTO schema_version (version) VALUES (14);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -192,6 +241,8 @@ CREATE TABLE IF NOT EXISTS project_registry_meta (
     key TEXT PRIMARY KEY NOT NULL,
     value TEXT
 );
+
+${SOCRATIC_DUEL_SCHEMA_SQL}
 `;
 
 /** Terminal statuses that indicate a run is no longer active */
@@ -591,6 +642,10 @@ const cleanupLegacyDb = (dbPath: string): void => {
 			// Best-effort: skip if file is locked by another process
 		}
 	}
+};
+
+export const ensureSocraticDuelSchema = (db: Database): void => {
+	db.exec(SOCRATIC_DUEL_SCHEMA_SQL);
 };
 
 /**
@@ -1041,6 +1096,15 @@ const applyMigrations = (db: Database): void => {
 		} finally {
 			db.exec("PRAGMA foreign_keys = ON");
 		}
+	}
+
+	const postV13Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV13Version?.version ?? 13) < 14) {
+		ensureSocraticDuelSchema(db);
+		db.prepare("UPDATE schema_version SET version = 14").run();
 	}
 };
 
