@@ -20,7 +20,7 @@ import {
 	ResizablePanel,
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { ArtifactViewerPanel } from "@/components/v2/ArtifactViewerPanel";
+import { RunArtifactsPanel } from "@/components/v2/RunArtifactsPanel";
 import { RunInvocationCard } from "@/components/v2/RunInvocationCard";
 import { VerticalStepList } from "@/components/v2/VerticalStepList";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
@@ -31,6 +31,10 @@ import {
 	useWorkflowSteps,
 } from "@/hooks/useWorkflowSteps";
 import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
+import {
+	buildArtifactRoute,
+	groupArtifactsByWorkflowStep,
+} from "@/lib/artifact-groups";
 import { resolveRunDisplayName } from "@/lib/run-display";
 import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/providers/WebSocketProvider";
@@ -127,6 +131,10 @@ export function RunDetailPage() {
 		return run ? run.steps : [];
 	}, [run]);
 
+	const artifactGroups = useMemo(() => {
+		return run ? groupArtifactsByWorkflowStep(run.artifacts, run.steps) : [];
+	}, [run]);
+
 	const selectedStep = useMemo(() => {
 		if (!selectedStepId || !run) return null;
 		return run.steps.find((s) => s.id === selectedStepId) ?? null;
@@ -138,11 +146,6 @@ export function RunDetailPage() {
 			run.currentStep
 		);
 	}, [run]);
-
-	const stepArtifacts = useMemo(() => {
-		if (!selectedStepId || !run) return [];
-		return run.artifacts.filter((a) => a.step === selectedStepId);
-	}, [selectedStepId, run]);
 
 	const subflowDiagram = useMemo(() => {
 		if (!selectedStepId || !run?.subflows) return null;
@@ -325,7 +328,7 @@ export function RunDetailPage() {
 				if (!hasSubflow) {
 					const art = run.artifacts.find((a) => a.step === stepId && a.docId);
 					if (art) {
-						navigate(`/runs/${runId}/step/${stepId}/artifact/${art.docId}`);
+						navigate(buildArtifactRoute(runId, art));
 						return;
 					}
 				}
@@ -337,17 +340,32 @@ export function RunDetailPage() {
 
 	const handleArtifactSelect = useCallback(
 		(artifact: Artifact) => {
-			if (!runId || !selectedStepId) return;
-			navigate(
-				`/runs/${runId}/step/${selectedStepId}/artifact/${artifact.docId}`,
-			);
+			if (!runId) return;
+			navigate(buildArtifactRoute(runId, artifact));
 		},
-		[runId, selectedStepId, navigate],
+		[runId, navigate],
 	);
 
 	useEffect(() => {
 		if (!run || !runId) return;
 		const steps = run.steps;
+
+		if (!urlDocId) {
+			const contextualStepId = urlStepId ?? run.currentStep ?? null;
+			const contextualArtifact = contextualStepId
+				? run.artifacts.find((a) => a.step === contextualStepId && a.docId)
+				: null;
+			const defaultArtifact =
+				contextualArtifact ?? run.artifacts.find((a) => a.docId) ?? null;
+
+			if (defaultArtifact) {
+				navigate(buildArtifactRoute(runId, defaultArtifact), {
+					replace: true,
+				});
+				return;
+			}
+		}
+
 		if (steps.length === 0) return;
 
 		if (!urlStepId) {
@@ -374,7 +392,7 @@ export function RunDetailPage() {
 				(a) => a.step === targetStep.id && a.docId,
 			);
 			if (art) {
-				navigate(`/runs/${runId}/step/${targetStep.id}/artifact/${art.docId}`, {
+				navigate(buildArtifactRoute(runId, art), {
 					replace: true,
 				});
 			} else {
@@ -388,7 +406,7 @@ export function RunDetailPage() {
 			if (!hasSubflow) {
 				const art = run.artifacts.find((a) => a.step === urlStepId && a.docId);
 				if (art) {
-					navigate(`/runs/${runId}/step/${urlStepId}/artifact/${art.docId}`, {
+					navigate(buildArtifactRoute(runId, art), {
 						replace: true,
 					});
 				}
@@ -547,10 +565,10 @@ export function RunDetailPage() {
 					<ResizableHandle className="cursor-col-resize" />
 
 					<ResizablePanel defaultSize={78} minSize={40}>
-						<ArtifactViewerPanel
-							step={selectedStep}
-							artifacts={stepArtifacts}
+						<RunArtifactsPanel
+							artifactGroups={artifactGroups}
 							selectedArtifact={selectedArtifact}
+							selectedStep={selectedStep}
 							onArtifactSelect={handleArtifactSelect}
 							runId={runId}
 							subflowDiagram={subflowDiagram}
@@ -568,10 +586,10 @@ export function RunDetailPage() {
 				/>
 
 				<div className="flex-1 min-h-0 overflow-y-auto">
-					<ArtifactViewerPanel
-						step={selectedStep}
-						artifacts={stepArtifacts}
+					<RunArtifactsPanel
+						artifactGroups={artifactGroups}
 						selectedArtifact={selectedArtifact}
+						selectedStep={selectedStep}
 						onArtifactSelect={handleArtifactSelect}
 						runId={runId}
 						subflowDiagram={subflowDiagram}

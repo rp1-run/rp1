@@ -217,12 +217,10 @@ function OrphanedAnnotationItem({
 
 			{isThreadOpen && (
 				<div className="rp1-orphaned-thread mt-2 ml-4 border-t border-border pt-2">
-					{/* Full parent content when thread is open */}
 					<p className="whitespace-pre-wrap text-sm text-fg">
 						{annotation.content}
 					</p>
 
-					{/* Replies */}
 					{annotation.replies.length > 0 && (
 						<div className="mt-2 space-y-1">
 							{annotation.replies.map((reply) => {

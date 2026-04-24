@@ -29,6 +29,46 @@ mock.module("@/providers/AnnotationProvider", () => ({
 	AnnotationProvider: ({ children }: { children?: ReactNode }) => (
 		<>{children}</>
 	),
+	useAnnotationContext: () => ({
+		annotations: [],
+		isLoading: false,
+		error: null,
+		filter: { status: "all", author: null, dateRange: "all" },
+		selectedAnnotationId: null,
+		docId: null,
+		runId: null,
+		setFilter: () => {},
+		selectAnnotation: () => {},
+		createAnnotation: async () => {
+			throw new Error("createAnnotation is not used in this test");
+		},
+		resolveAnnotation: async () => {},
+		reopenAnnotation: async () => {},
+		deleteAnnotation: async () => {},
+		addReply: async () => {},
+		getAnnotationsForArtifact: () => [],
+		refetch: async () => {},
+	}),
+	useAnnotationContextSafe: () => ({
+		annotations: [],
+		isLoading: false,
+		error: null,
+		filter: { status: "all", author: null, dateRange: "all" },
+		selectedAnnotationId: null,
+		docId: null,
+		runId: null,
+		setFilter: () => {},
+		selectAnnotation: () => {},
+		createAnnotation: async () => {
+			throw new Error("createAnnotation is not used in this test");
+		},
+		resolveAnnotation: async () => {},
+		reopenAnnotation: async () => {},
+		deleteAnnotation: async () => {},
+		addReply: async () => {},
+		getAnnotationsForArtifact: () => [],
+		refetch: async () => {},
+	}),
 }));
 
 mock.module("@/providers/WebSocketProvider", () => ({

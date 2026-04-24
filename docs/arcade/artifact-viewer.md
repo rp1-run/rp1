@@ -10,17 +10,26 @@ the project artifacts list.
 
 ### From Run Details
 
-1. Navigate to a run in the dashboard
-2. Click any artifact in the Artifacts panel
-3. The artifact opens in the viewer
+1. Navigate to a run in the dashboard.
+2. Use the right panel to browse artifacts grouped by workflow step and
+   run-level scope.
+3. Click an artifact tab to open it without leaving the run context.
+
+The right panel lists all artifacts associated with the run, not only the
+currently selected step. Step-specific artifact shortcuts remain available from
+the step list, and they open the same right-panel viewer.
 
 ### Direct URL
 
 ```
 /runs/:runId/artifacts/:artifactPath
+/runs/:runId/step/:stepId/artifact/:docId
+/runs/:runId/artifact/:docId
 ```
 
-Where `:artifactPath` is the relative path to the artifact (e.g., `requirements.md`).
+Where `:artifactPath` is the relative path to the artifact (for example,
+`requirements.md`) and `:docId` is the registered artifact document ID used by
+run detail artifact tabs.
 
 ---
 

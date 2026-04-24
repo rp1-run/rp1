@@ -255,7 +255,6 @@ export async function handleAnnotationCreateRequest(
 
 		ctx.websocketHub?.broadcastAnnotationCreated(annotation);
 
-		// Run orphan detection after creating a new annotation
 		const flippedIds = await runOrphanDetectionForDoc(db, annotation.docId);
 		broadcastFlippedOrphanUpdates(db, ctx.websocketHub, flippedIds);
 
@@ -324,7 +323,6 @@ export async function handleAnnotationUpdateRequest(
 
 		ctx.websocketHub?.broadcastAnnotationUpdated(annotation);
 
-		// Run orphan detection after updating an annotation
 		const flippedIds = await runOrphanDetectionForDoc(db, annotation.docId);
 		broadcastFlippedOrphanUpdates(db, ctx.websocketHub, flippedIds);
 
@@ -347,7 +345,6 @@ export async function handleAnnotationResolveRequest(
 
 		ctx.websocketHub?.broadcastAnnotationResolved(id);
 
-		// Run orphan detection after resolving an annotation
 		const resolved = getAnnotation(db, id);
 		if (resolved) {
 			const flippedIds = await runOrphanDetectionForDoc(db, resolved.docId);
@@ -375,7 +372,6 @@ export async function handleAnnotationReopenRequest(
 		if (annotation) {
 			ctx.websocketHub?.broadcastAnnotationUpdated(annotation);
 
-			// Run orphan detection after reopening an annotation
 			const flippedIds = await runOrphanDetectionForDoc(db, annotation.docId);
 			broadcastFlippedOrphanUpdates(db, ctx.websocketHub, flippedIds);
 		}
@@ -404,7 +400,6 @@ export async function handleAnnotationDeleteRequest(
 
 		ctx.websocketHub?.broadcastAnnotationDeleted(id);
 
-		// Run orphan detection after deleting an annotation
 		if (docId) {
 			const flippedIds = await runOrphanDetectionForDoc(db, docId);
 			broadcastFlippedOrphanUpdates(db, ctx.websocketHub, flippedIds);
@@ -443,7 +438,6 @@ export async function handleAnnotationReplyRequest(
 
 		ctx.websocketHub?.broadcastAnnotationReplyAdded(id, reply);
 
-		// Run orphan detection after adding a reply
 		const parent = getAnnotation(db, id);
 		if (parent) {
 			const flippedIds = await runOrphanDetectionForDoc(db, parent.docId);

@@ -32,6 +32,10 @@ export const router = createBrowserRouter([
 				element: <RunDetailPage />,
 			},
 			{
+				path: "runs/:runId/artifact/:docId",
+				element: <RunDetailPage />,
+			},
+			{
 				path: "runs/:runId/step/:stepId/artifact",
 				element: <StepRedirect />,
 			},

@@ -630,11 +630,9 @@ describe("annotation-service (SQLite)", () => {
 				content: "Will come back",
 			});
 
-			// First orphan it
 			detectOrphanedAnnotations(db, "doc-1", "no match");
 			expect(getAnnotation(db, ann.id)?.orphaned).toBe(true);
 
-			// Now restore it
 			const flipped = detectOrphanedAnnotations(
 				db,
 				"doc-1",
