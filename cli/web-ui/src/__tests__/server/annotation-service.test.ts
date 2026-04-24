@@ -568,6 +568,82 @@ describe("annotation-service (SQLite)", () => {
 			expect(fetched1?.orphaned).toBe(true);
 			expect(fetched2?.orphaned).toBe(false);
 		});
+
+		test("returns IDs of annotations whose orphaned flag was flipped", () => {
+			const ann1 = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("hello"),
+				content: "Will be orphaned",
+			});
+			const ann2 = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("world"),
+				content: "Also orphaned",
+			});
+
+			const flipped = detectOrphanedAnnotations(db, "doc-1", "no match at all");
+			expect(flipped).toHaveLength(2);
+			expect(flipped).toContain(ann1.id);
+			expect(flipped).toContain(ann2.id);
+		});
+
+		test("returns empty array when no flags change", () => {
+			createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("present text"),
+				content: "Stays valid",
+			});
+
+			const flipped = detectOrphanedAnnotations(
+				db,
+				"doc-1",
+				"this has present text in it",
+			);
+			expect(flipped).toEqual([]);
+		});
+
+		test("returns only flipped IDs on partial change", () => {
+			const ann1 = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("hello"),
+				content: "Will be orphaned",
+			});
+			createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("goodbye"),
+				content: "Stays valid",
+			});
+
+			const flipped = detectOrphanedAnnotations(
+				db,
+				"doc-1",
+				"only goodbye here",
+			);
+			expect(flipped).toHaveLength(1);
+			expect(flipped).toContain(ann1.id);
+		});
+
+		test("returns IDs when un-orphaning", () => {
+			const ann = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("restorable"),
+				content: "Will come back",
+			});
+
+			// First orphan it
+			detectOrphanedAnnotations(db, "doc-1", "no match");
+			expect(getAnnotation(db, ann.id)?.orphaned).toBe(true);
+
+			// Now restore it
+			const flipped = detectOrphanedAnnotations(
+				db,
+				"doc-1",
+				"restorable content",
+			);
+			expect(flipped).toHaveLength(1);
+			expect(flipped).toContain(ann.id);
+			expect(getAnnotation(db, ann.id)?.orphaned).toBe(false);
+		});
 	});
 
 	describe("status transitions", () => {

@@ -5,7 +5,7 @@ import {
 	MessageSquare,
 	X,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import { needsTruncation, truncateContent } from "@/lib/content-truncation";
 import { formatRelativeTime } from "@/lib/time";
@@ -294,12 +294,27 @@ export function AnnotationSidebar({
 	const [expandedComments, setExpandedComments] = useState<Set<string>>(
 		new Set(),
 	);
+	const [orphanedExpandedComments, setOrphanedExpandedComments] = useState<
+		Set<string>
+	>(new Set());
 	const [openOrphanedThreads, setOpenOrphanedThreads] = useState<Set<string>>(
 		new Set(),
 	);
 
 	const toggleExpanded = useCallback((annotationId: string) => {
 		setExpandedComments((prev) => {
+			const next = new Set(prev);
+			if (next.has(annotationId)) {
+				next.delete(annotationId);
+			} else {
+				next.add(annotationId);
+			}
+			return next;
+		});
+	}, []);
+
+	const toggleOrphanedExpand = useCallback((annotationId: string) => {
+		setOrphanedExpandedComments((prev) => {
 			const next = new Set(prev);
 			if (next.has(annotationId)) {
 				next.delete(annotationId);
@@ -332,6 +347,33 @@ export function AnnotationSidebar({
 	} = useAnnotations({ artifactPath });
 
 	const { annotations: allAnnotations } = useAnnotationContext();
+
+	// Clean up stale orphaned-section state when annotations flip back to non-orphaned
+	const orphanedIds = useMemo(
+		() => new Set(groupedAnnotations.orphaned.map((a) => a.id)),
+		[groupedAnnotations.orphaned],
+	);
+
+	useEffect(() => {
+		setOrphanedExpandedComments((prev) => {
+			const next = new Set<string>();
+			for (const id of prev) {
+				if (orphanedIds.has(id)) {
+					next.add(id);
+				}
+			}
+			return next.size === prev.size ? prev : next;
+		});
+		setOpenOrphanedThreads((prev) => {
+			const next = new Set<string>();
+			for (const id of prev) {
+				if (orphanedIds.has(id)) {
+					next.add(id);
+				}
+			}
+			return next.size === prev.size ? prev : next;
+		});
+	}, [orphanedIds]);
 
 	const totalCount = useMemo(() => {
 		const artifactAnnotations = artifactPath
@@ -537,8 +579,8 @@ export function AnnotationSidebar({
 											annotation={annotation}
 											isThreadOpen={openOrphanedThreads.has(annotation.id)}
 											onToggleThread={() => toggleOrphanedThread(annotation.id)}
-											expandedComments={expandedComments}
-											onToggleExpand={toggleExpanded}
+											expandedComments={orphanedExpandedComments}
+											onToggleExpand={toggleOrphanedExpand}
 										/>
 									</li>
 								))}

@@ -70,7 +70,10 @@ import type {
 	Step,
 	StepStatus,
 } from "../../types/runs";
-import { detectOrphanedAnnotations } from "../annotation-service";
+import {
+	detectOrphanedAnnotations,
+	getAnnotation as getAnnotationById,
+} from "../annotation-service";
 import { reclassifyInactiveRunsWithBroadcast } from "../inactive-runs";
 import { buildProjectLookup, findProjectByIdentity } from "../project-lookup";
 import {
@@ -93,6 +96,7 @@ import {
 	registerProject,
 	removeProject,
 } from "../registry";
+import type { WebSocketHub } from "../websocket";
 import {
 	type ApiContext,
 	buildFileTree,
@@ -115,6 +119,26 @@ async function getDb(): Promise<Database> {
 		throw new Error(`Database unavailable: ${formatError(result.left, false)}`);
 	}
 	return result.right;
+}
+
+/**
+ * Broadcast annotation updates for IDs whose orphaned flag was flipped
+ * during orphan detection on the artifact-read path.
+ */
+function broadcastOrphanFlips(
+	db: Database,
+	websocketHub: WebSocketHub | undefined,
+	flippedIds: string[],
+): void {
+	if (!websocketHub || flippedIds.length === 0) {
+		return;
+	}
+	for (const id of flippedIds) {
+		const annotation = getAnnotationById(db, id);
+		if (annotation) {
+			websocketHub.broadcastAnnotationUpdated(annotation);
+		}
+	}
 }
 
 /**
@@ -1518,7 +1542,12 @@ export async function handleV2ArtifactContentRequest(
 				}
 
 				const content = await Bun.file(resolvedPath).text();
-				detectOrphanedAnnotations(db, artifactRecord.docId, content);
+				const flippedIds = detectOrphanedAnnotations(
+					db,
+					artifactRecord.docId,
+					content,
+				);
+				broadcastOrphanFlips(db, apiContext?.websocketHub, flippedIds);
 				return jsonResponse({ content });
 			}
 		}
@@ -1530,7 +1559,12 @@ export async function handleV2ArtifactContentRequest(
 		if (scopedPath) {
 			const content = await Bun.file(scopedPath).text();
 			if (artifactRecord) {
-				detectOrphanedAnnotations(db, artifactRecord.docId, content);
+				const flippedIds = detectOrphanedAnnotations(
+					db,
+					artifactRecord.docId,
+					content,
+				);
+				broadcastOrphanFlips(db, apiContext?.websocketHub, flippedIds);
 			}
 			return jsonResponse({ content });
 		}
@@ -1550,7 +1584,12 @@ export async function handleV2ArtifactContentRequest(
 				if (await Bun.file(candidate).exists()) {
 					const content = await Bun.file(candidate).text();
 					if (artifactRecord) {
-						detectOrphanedAnnotations(db, artifactRecord.docId, content);
+						const flippedIds = detectOrphanedAnnotations(
+							db,
+							artifactRecord.docId,
+							content,
+						);
+						broadcastOrphanFlips(db, apiContext?.websocketHub, flippedIds);
 					}
 					return jsonResponse({ content });
 				}
@@ -1591,7 +1630,12 @@ export async function handleV2ArtifactContentRequest(
 					);
 				}
 				const content = await Bun.file(resolvedPath).text();
-				detectOrphanedAnnotations(db, artifactRow.doc_id, content);
+				const flippedIds = detectOrphanedAnnotations(
+					db,
+					artifactRow.doc_id,
+					content,
+				);
+				broadcastOrphanFlips(db, apiContext?.websocketHub, flippedIds);
 				return jsonResponse({ content });
 			}
 		}
