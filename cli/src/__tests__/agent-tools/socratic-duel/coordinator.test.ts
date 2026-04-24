@@ -108,6 +108,35 @@ describe("socratic-duel lock coordinator", () => {
 		expect(E.isLeft(third)).toBe(true);
 	});
 
+	test("keeps participant status ordered by registration when timestamps tie", async () => {
+		const first = await joinParticipant("participant-a");
+		const second = await joinParticipant("participant-b");
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+		db.prepare(
+			`UPDATE socratic_duel_participants
+			 SET id = CASE id
+				 WHEN $firstId THEN 'z-first-participant'
+				 WHEN $secondId THEN 'a-second-participant'
+				 ELSE id
+			 END,
+			 joined_at = $joinedAt
+			 WHERE duel_id = $duelId`,
+		).run({
+			$duelId: first.duel_id,
+			$firstId: first.participant_id,
+			$secondId: second.participant_id,
+			$joinedAt: "2026-04-24T00:00:00.000Z",
+		});
+
+		const status = await expectTaskRight(
+			executeStatus({ duelId: first.duel_id }, dbPath),
+		);
+		expect(
+			status.data.participants.map((participant) => participant.id),
+		).toEqual(["z-first-participant", "a-second-participant"]);
+	});
+
 	test("grants one unexpired lock and tells the peer to wait", async () => {
 		const first = await joinParticipant("participant-a");
 		const second = await joinParticipant("participant-b");

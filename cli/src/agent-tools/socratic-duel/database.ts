@@ -178,7 +178,7 @@ const listParticipantsSync = (
 ): readonly ParticipantRecord[] => {
 	const rows = db
 		.prepare(
-			"SELECT * FROM socratic_duel_participants WHERE duel_id = $duelId ORDER BY joined_at ASC, id ASC",
+			"SELECT * FROM socratic_duel_participants WHERE duel_id = $duelId ORDER BY joined_at ASC, rowid ASC",
 		)
 		.all({ $duelId: duelId }) as ParticipantRow[];
 
