@@ -34,7 +34,7 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 ### Documentation & Strategy
 - `/project-birds-eye-view` - Generate project overview documentation for new developers
 - `/strategize` - Holistic system optimization with strategic recommendations
-- `/socratic-duel` - Bounded, evidence-driven two-agent debate inside a local Markdown document
+- `/socratic-duel` - Bounded, evidence-driven two-agent debate with agent-owned Markdown updates and backend locks only
 - `/write-content` - Interactive technical document creation
 
 ### Security

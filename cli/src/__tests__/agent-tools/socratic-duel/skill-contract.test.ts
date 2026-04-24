@@ -9,22 +9,22 @@ const skillPath = join(
 );
 
 describe("socratic-duel skill contract", () => {
-	test("declares the workflow state machine, coordinator commands, and absolute artifact payload", async () => {
+	test("declares agent-owned Markdown workflow and lock-only backend commands", async () => {
 		const content = await readFile(skillPath, "utf-8");
 
 		for (const transition of [
 			"[*] --> register",
-			"register --> wait_peer : peer_missing",
-			"register --> claim_turn : ready",
-			"wait_peer --> claim_turn : peer_ready",
-			"wait_peer --> adjourn : wait_timeout",
-			"claim_turn --> compose_turn : floor_acquired",
-			"claim_turn --> wait_turn : peer_has_floor",
-			"wait_turn --> claim_turn : retry",
+			"register --> load_template : registered",
+			"load_template --> wait_peer : peer_missing",
+			"load_template --> claim_lock : ready",
+			"status_check --> claim_lock : peer_ready",
+			"claim_lock --> compose_turn : lock_acquired",
+			"claim_lock --> wait_turn : peer_has_lock",
 			"wait_turn --> adjourn : wait_timeout",
-			"compose_turn --> submit_turn : turn_ready",
-			"submit_turn --> claim_turn : yielded",
-			"submit_turn --> adjourn : terminal",
+			"compose_turn --> update_markdown : turn_ready",
+			"update_markdown --> release_lock : markdown_updated",
+			"release_lock --> claim_lock : continue",
+			"release_lock --> adjourn : terminal",
 			"adjourn --> [*]",
 		]) {
 			expect(content).toContain(transition);
@@ -32,12 +32,25 @@ describe("socratic-duel skill contract", () => {
 
 		for (const command of [
 			"rp1 agent-tools socratic-duel join",
-			"rp1 agent-tools socratic-duel claim-turn",
-			"rp1 agent-tools socratic-duel submit-turn",
-			"adjourn` with `TIMEOUT`",
+			"rp1 agent-tools socratic-duel status",
+			"rp1 agent-tools socratic-duel claim-lock",
+			"refresh-lock",
+			"release-lock",
 		]) {
 			expect(content).toContain(command);
 		}
+
+		for (const backendExclusion of [
+			"Do not expect `rp1 agent-tools socratic-duel` to parse, render, validate, or update Markdown.",
+			"Do not ask the backend for candidate convergence, terminal content, turn numbers, prior-region hashes, or template text.",
+		]) {
+			expect(content).toContain(backendExclusion);
+		}
+
+		expect(content).toContain(
+			"Read `plugins/base/skills/artifact-templates/SKILL.md`",
+		);
+		expect(content).toContain("managed-debate-region");
 
 		expect(content).toContain("--type artifact_registered");
 		expect(content).toContain('"path":"{TARGET_PATH}"');

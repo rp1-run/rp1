@@ -93,10 +93,10 @@ describe("emit database", () => {
 			expect(tableNames).toContain("schema_version");
 			expect(tableNames).toContain("socratic_duels");
 			expect(tableNames).toContain("socratic_duel_participants");
-			expect(tableNames).toContain("socratic_duel_turns");
+			expect(tableNames).not.toContain("socratic_duel_turns");
 		});
 
-		test("schema_version is set to 14", async () => {
+		test("schema_version is set to 15", async () => {
 			const dbPath = join(tempDir, "version-test.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -104,7 +104,7 @@ describe("emit database", () => {
 				version: number;
 			};
 
-			expect(row.version).toBe(14);
+			expect(row.version).toBe(15);
 		});
 
 		test("artifacts table includes subflow column", async () => {
@@ -161,7 +161,7 @@ describe("emit database", () => {
 			);
 		});
 
-		test("creates Socratic Duel coordination columns and indexes", async () => {
+		test("creates Socratic Duel lock coordination columns and indexes", async () => {
 			const dbPath = join(tempDir, "socratic-duel-schema-test.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -173,9 +173,6 @@ describe("emit database", () => {
 			const participantColumns = db
 				.prepare("PRAGMA table_info(socratic_duel_participants)")
 				.all() as { name: string }[];
-			const turnColumns = db
-				.prepare("PRAGMA table_info(socratic_duel_turns)")
-				.all() as { name: string }[];
 
 			expect(duelColumns.map((column) => column.name)).toEqual(
 				expect.arrayContaining([
@@ -183,14 +180,19 @@ describe("emit database", () => {
 					"target_path",
 					"target_key",
 					"status",
-					"max_turns",
-					"next_turn_number",
 					"current_owner_id",
+					"lease_token",
 					"lease_expires_at",
-					"candidate_convergence",
-					"conclusion_summary",
 					"created_at",
 					"updated_at",
+				]),
+			);
+			expect(duelColumns.map((column) => column.name)).not.toEqual(
+				expect.arrayContaining([
+					"max_turns",
+					"next_turn_number",
+					"candidate_convergence",
+					"conclusion_summary",
 				]),
 			);
 			expect(participantColumns.map((column) => column.name)).toEqual(
@@ -204,19 +206,6 @@ describe("emit database", () => {
 					"last_seen_at",
 				]),
 			);
-			expect(turnColumns.map((column) => column.name)).toEqual(
-				expect.arrayContaining([
-					"id",
-					"duel_id",
-					"turn_number",
-					"participant_id",
-					"stance",
-					"turn_hash",
-					"prior_region_hash",
-					"content_json",
-					"accepted_at",
-				]),
-			);
 
 			const duelIndexes = db
 				.prepare("PRAGMA index_list(socratic_duels)")
@@ -225,9 +214,6 @@ describe("emit database", () => {
 			}[];
 			const participantIndexes = db
 				.prepare("PRAGMA index_list(socratic_duel_participants)")
-				.all() as { name: string }[];
-			const turnIndexes = db
-				.prepare("PRAGMA index_list(socratic_duel_turns)")
 				.all() as { name: string }[];
 
 			expect(duelIndexes.map((index) => index.name)).toEqual(
@@ -239,9 +225,6 @@ describe("emit database", () => {
 			);
 			expect(participantIndexes.map((index) => index.name)).toContain(
 				"idx_socratic_duel_participants_identity",
-			);
-			expect(turnIndexes.map((index) => index.name)).toContain(
-				"idx_socratic_duel_turns_duel_turn",
 			);
 		});
 
@@ -255,11 +238,11 @@ describe("emit database", () => {
 
 			const table = rawDb
 				.prepare(
-					"SELECT name FROM sqlite_master WHERE type='table' AND name='socratic_duel_turns'",
+					"SELECT name FROM sqlite_master WHERE type='table' AND name='socratic_duels'",
 				)
 				.get() as { name: string } | null;
 
-			expect(table?.name).toBe("socratic_duel_turns");
+			expect(table?.name).toBe("socratic_duels");
 			rawDb.close();
 		});
 
@@ -308,7 +291,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(14);
+			expect(versionRow.version).toBe(15);
 
 			const runRow = db
 				.prepare(
@@ -333,6 +316,137 @@ describe("emit database", () => {
 				)
 				.get() as { name: string } | null;
 			expect(duelTable?.name).toBe("socratic_duels");
+			const turnTable = db
+				.prepare(
+					"SELECT name FROM sqlite_master WHERE type='table' AND name='socratic_duel_turns'",
+				)
+				.get() as { name: string } | null;
+			expect(turnTable).toBeNull();
+		});
+
+		test("migrates v14 Socratic Duel content schema to lock-only schema", async () => {
+			const dbPath = join(tempDir, "migration-v14-socratic-duel-lock-test.db");
+			const { Database } = await import("bun:sqlite");
+			const rawDb = new Database(dbPath, { create: true });
+			rawDb.exec("PRAGMA journal_mode = WAL;");
+			rawDb.exec("PRAGMA foreign_keys = ON;");
+			rawDb.exec(`
+				CREATE TABLE schema_version (version INTEGER NOT NULL);
+				INSERT INTO schema_version (version) VALUES (14);
+				CREATE TABLE runs (
+					id TEXT PRIMARY KEY NOT NULL,
+					flow TEXT NOT NULL,
+					feature_id TEXT NOT NULL,
+					project_path TEXT NOT NULL,
+					rp1_project_root TEXT NOT NULL,
+					rp1_kb_root TEXT NOT NULL,
+					rp1_work_root TEXT NOT NULL,
+					project_id TEXT DEFAULT NULL,
+					run_policy TEXT DEFAULT NULL CHECK(run_policy IN ('fresh', 'resumable')),
+					work_identity TEXT DEFAULT NULL,
+					bootstrap_context TEXT DEFAULT NULL,
+					name TEXT DEFAULT NULL,
+					harness TEXT DEFAULT NULL,
+					status TEXT NOT NULL DEFAULT 'not_started',
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE socratic_duels (
+					id TEXT PRIMARY KEY NOT NULL,
+					target_path TEXT NOT NULL,
+					target_key TEXT NOT NULL,
+					status TEXT NOT NULL DEFAULT 'ACTIVE',
+					max_turns INTEGER NOT NULL DEFAULT 6,
+					next_turn_number INTEGER NOT NULL DEFAULT 1,
+					current_owner_id TEXT DEFAULT NULL,
+					lease_expires_at TEXT DEFAULT NULL,
+					candidate_convergence INTEGER NOT NULL DEFAULT 0,
+					conclusion_summary TEXT DEFAULT NULL,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE socratic_duel_participants (
+					id TEXT PRIMARY KEY NOT NULL,
+					duel_id TEXT NOT NULL,
+					display_name TEXT NOT NULL,
+					harness TEXT NOT NULL,
+					model_id TEXT NOT NULL,
+					joined_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					last_seen_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE socratic_duel_turns (
+					id TEXT PRIMARY KEY NOT NULL,
+					duel_id TEXT NOT NULL,
+					turn_number INTEGER NOT NULL,
+					participant_id TEXT NOT NULL,
+					stance TEXT NOT NULL,
+					turn_hash TEXT NOT NULL,
+					prior_region_hash TEXT NOT NULL,
+					content_json TEXT NOT NULL,
+					accepted_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				INSERT INTO socratic_duels (
+					id, target_path, target_key, status, current_owner_id, lease_expires_at
+				) VALUES (
+					'duel-v14', '/tmp/target.md', '/tmp/target.md', 'ACCEPTED_CONSENSUS',
+					'participant-v14', '2099-01-01T00:00:00.000Z'
+				);
+				INSERT INTO socratic_duel_participants (
+					id, duel_id, display_name, harness, model_id
+				) VALUES (
+					'participant-v14', 'duel-v14', 'Codex', 'codex', 'gpt-5'
+				);
+			`);
+			rawDb.close();
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const versionRow = db
+				.prepare("SELECT version FROM schema_version")
+				.get() as { version: number };
+			expect(versionRow.version).toBe(15);
+
+			const duelColumns = db
+				.prepare("PRAGMA table_info(socratic_duels)")
+				.all() as { name: string }[];
+			expect(duelColumns.map((column) => column.name)).toEqual(
+				expect.arrayContaining([
+					"id",
+					"target_path",
+					"target_key",
+					"status",
+					"current_owner_id",
+					"lease_token",
+					"lease_expires_at",
+				]),
+			);
+			expect(duelColumns.map((column) => column.name)).not.toContain(
+				"candidate_convergence",
+			);
+
+			const migratedDuel = db
+				.prepare(
+					"SELECT status, current_owner_id, lease_token, lease_expires_at FROM socratic_duels WHERE id = 'duel-v14'",
+				)
+				.get() as {
+				status: string;
+				current_owner_id: string | null;
+				lease_token: string | null;
+				lease_expires_at: string | null;
+			};
+			expect(migratedDuel).toEqual({
+				status: "CLOSED",
+				current_owner_id: null,
+				lease_token: null,
+				lease_expires_at: null,
+			});
+
+			const turnTable = db
+				.prepare(
+					"SELECT name FROM sqlite_master WHERE type='table' AND name='socratic_duel_turns'",
+				)
+				.get() as { name: string } | null;
+			expect(turnTable).toBeNull();
 		});
 
 		test("migrates v1 schema to add status and author columns", async () => {
@@ -426,7 +540,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(14);
+			expect(versionRow.version).toBe(15);
 		});
 
 		test("migrates v2 schema to add subflow column to artifacts", async () => {
@@ -517,7 +631,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(14);
+			expect(versionRow.version).toBe(15);
 		});
 
 		test("v3 to v4 migration adds baseline column and cleans orphaned edit-diff annotations", async () => {
@@ -604,7 +718,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(14);
+			expect(versionRow.version).toBe(15);
 
 			const annotations = db.prepare("SELECT * FROM annotations").all() as {
 				content: string;
@@ -724,7 +838,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(14);
+			expect(versionRow.version).toBe(15);
 
 			const indexes = db.prepare("PRAGMA index_list(runs)").all() as {
 				name: string;
@@ -931,7 +1045,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(14);
+			expect(versionRow.version).toBe(15);
 		});
 
 		test("foreign key constraints are enforced", async () => {

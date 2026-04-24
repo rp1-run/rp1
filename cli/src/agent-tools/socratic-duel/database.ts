@@ -6,28 +6,24 @@ import type { CLIError } from "../../../shared/errors.js";
 import { runtimeError } from "../../../shared/errors.js";
 import { ensureSocraticDuelSchema, getEmitDatabase } from "../emit/database.js";
 import type {
-	ClaimTurnInput,
+	ClaimLockInput,
 	DuelRecord,
 	DuelStatus,
 	JoinInput,
 	ParticipantRecord,
-	Stance,
-	TerminalOutcome,
-	TurnRecord,
+	RefreshLockInput,
+	ReleaseLockInput,
 } from "./models.js";
-import { LEASE_DURATION_MS, MAX_TURNS, RETRY_AFTER_SECONDS } from "./models.js";
+import { LEASE_DURATION_MS, RETRY_AFTER_SECONDS } from "./models.js";
 
 interface DuelRow {
 	id: string;
 	target_path: string;
 	target_key: string;
 	status: string;
-	max_turns: number;
-	next_turn_number: number;
 	current_owner_id: string | null;
+	lease_token: string | null;
 	lease_expires_at: string | null;
-	candidate_convergence: number;
-	conclusion_summary: string | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -42,18 +38,6 @@ interface ParticipantRow {
 	last_seen_at: string;
 }
 
-interface TurnRow {
-	id: string;
-	duel_id: string;
-	turn_number: number;
-	participant_id: string;
-	stance: string;
-	turn_hash: string;
-	prior_region_hash: string;
-	content_json: string;
-	accepted_at: string;
-}
-
 export interface JoinDuelResult {
 	readonly duel: DuelRecord;
 	readonly participant: ParticipantRecord;
@@ -63,33 +47,24 @@ export interface JoinDuelResult {
 export interface DuelSnapshot {
 	readonly duel: DuelRecord;
 	readonly participants: readonly ParticipantRecord[];
-	readonly turns: readonly TurnRecord[];
 }
 
-export interface ClaimDecision extends DuelSnapshot {
+export interface ClaimLockDecision extends DuelSnapshot {
 	readonly acquired: boolean;
 	readonly reason: string | null;
 	readonly retryAfterSeconds: number;
 	readonly waitUntil: string | null;
 }
 
-export interface PersistTurnInput {
-	readonly duelId: string;
-	readonly participantId: string;
-	readonly turnId: string;
-	readonly turnNumber: number;
-	readonly stance: Stance;
-	readonly turnHash: string;
-	readonly priorRegionHash: string;
-	readonly contentJson: string;
-	readonly status: DuelStatus;
-	readonly candidateConvergence: boolean;
-	readonly conclusionSummary: string | null;
+export interface RefreshLockDecision extends DuelSnapshot {
+	readonly refreshed: boolean;
+	readonly reason: string | null;
 }
 
-export interface TransactionalSideEffect {
-	readonly run: () => Promise<void>;
-	readonly rollback: () => Promise<void>;
+export interface ReleaseLockDecision extends DuelSnapshot {
+	readonly released: boolean;
+	readonly closed: boolean;
+	readonly reason: string | null;
 }
 
 const nowIso = (): string => new Date().toISOString();
@@ -97,20 +72,20 @@ const nowIso = (): string => new Date().toISOString();
 const leaseExpirationIso = (): string =>
 	new Date(Date.now() + LEASE_DURATION_MS).toISOString();
 
-const isUnexpired = (expiresAt: string | null): boolean =>
-	expiresAt !== null && Date.parse(expiresAt) > Date.now();
+export const isLeaseExpired = (expiresAt: string | null): boolean =>
+	expiresAt === null || Date.parse(expiresAt) <= Date.now();
+
+export const isLeaseActive = (expiresAt: string | null): boolean =>
+	!isLeaseExpired(expiresAt);
 
 const rowToDuel = (row: DuelRow): DuelRecord => ({
 	id: row.id,
 	targetPath: row.target_path,
 	targetKey: row.target_key,
 	status: row.status as DuelStatus,
-	maxTurns: row.max_turns,
-	nextTurnNumber: row.next_turn_number,
 	currentOwnerId: row.current_owner_id,
+	leaseToken: row.lease_token,
 	leaseExpiresAt: row.lease_expires_at,
-	candidateConvergence: row.candidate_convergence === 1,
-	conclusionSummary: row.conclusion_summary,
 	createdAt: row.created_at,
 	updatedAt: row.updated_at,
 });
@@ -123,18 +98,6 @@ const rowToParticipant = (row: ParticipantRow): ParticipantRecord => ({
 	modelId: row.model_id,
 	joinedAt: row.joined_at,
 	lastSeenAt: row.last_seen_at,
-});
-
-const rowToTurn = (row: TurnRow): TurnRecord => ({
-	id: row.id,
-	duelId: row.duel_id,
-	turnNumber: row.turn_number,
-	participantId: row.participant_id,
-	stance: row.stance as Stance,
-	turnHash: row.turn_hash,
-	priorRegionHash: row.prior_region_hash,
-	contentJson: row.content_json,
-	acceptedAt: row.accepted_at,
 });
 
 const withDb = <T>(
@@ -151,7 +114,7 @@ const withDb = <T>(
 				},
 				(error) =>
 					runtimeError(
-						`Socratic Duel database operation failed: ${error instanceof Error ? error.message : String(error)}`,
+						`Socratic Duel lock operation failed: ${error instanceof Error ? error.message : String(error)}`,
 					),
 			),
 		),
@@ -168,9 +131,6 @@ const transaction = <T>(db: Database, operation: () => T): T => {
 		throw error;
 	}
 };
-
-const errorMessage = (error: unknown): string =>
-	error instanceof Error ? error.message : String(error);
 
 const getDuelByIdSync = (db: Database, duelId: string): DuelRecord => {
 	const row = db
@@ -225,121 +185,65 @@ const listParticipantsSync = (
 	return rows.map(rowToParticipant);
 };
 
-const listTurnsSync = (db: Database, duelId: string): readonly TurnRecord[] => {
-	const rows = db
-		.prepare(
-			"SELECT * FROM socratic_duel_turns WHERE duel_id = $duelId ORDER BY turn_number ASC",
-		)
-		.all({ $duelId: duelId }) as TurnRow[];
-
-	return rows.map(rowToTurn);
-};
-
 const snapshotSync = (db: Database, duelId: string): DuelSnapshot => ({
 	duel: getDuelByIdSync(db, duelId),
 	participants: listParticipantsSync(db, duelId),
-	turns: listTurnsSync(db, duelId),
 });
 
-const persistAcceptedTurnSync = (
+const assertParticipantInDuel = (
 	db: Database,
-	input: PersistTurnInput,
-): DuelSnapshot => {
-	const duel = getDuelByIdSync(db, input.duelId);
-	if (
-		duel.currentOwnerId !== input.participantId ||
-		!isUnexpired(duel.leaseExpiresAt)
-	) {
-		throw new Error("Participant does not own an unexpired turn lease");
+	duelId: string,
+	participantId: string,
+): ParticipantRecord => {
+	const participant = getParticipantByIdSync(db, participantId);
+	if (participant.duelId !== duelId) {
+		throw new Error("Participant does not belong to this duel");
 	}
-	if (duel.nextTurnNumber !== input.turnNumber) {
-		throw new Error(
-			`Turn number mismatch: expected ${duel.nextTurnNumber}, received ${input.turnNumber}`,
-		);
-	}
+	return participant;
+};
 
-	db.prepare(
-		`INSERT INTO socratic_duel_turns (
-			id,
-			duel_id,
-			turn_number,
-			participant_id,
-			stance,
-			turn_hash,
-			prior_region_hash,
-			content_json
-		)
-		VALUES (
-			$id,
-			$duelId,
-			$turnNumber,
-			$participantId,
-			$stance,
-			$turnHash,
-			$priorRegionHash,
-			$contentJson
-		)`,
-	).run({
-		$id: input.turnId,
-		$duelId: input.duelId,
-		$turnNumber: input.turnNumber,
-		$participantId: input.participantId,
-		$stance: input.stance,
-		$turnHash: input.turnHash,
-		$priorRegionHash: input.priorRegionHash,
-		$contentJson: input.contentJson,
-	});
+const clearExpiredLockSync = (db: Database, duel: DuelRecord): void => {
+	if (!duel.currentOwnerId || isLeaseActive(duel.leaseExpiresAt)) {
+		return;
+	}
 
 	db.prepare(
 		`UPDATE socratic_duels
-		 SET status = $status,
-		     next_turn_number = next_turn_number + 1,
-		     current_owner_id = NULL,
+		 SET current_owner_id = NULL,
+		     lease_token = NULL,
 		     lease_expires_at = NULL,
-		     candidate_convergence = $candidateConvergence,
-		     conclusion_summary = $conclusionSummary,
 		     updated_at = $now
 		 WHERE id = $id`,
 	).run({
-		$id: input.duelId,
-		$status: input.status,
-		$candidateConvergence: input.candidateConvergence ? 1 : 0,
-		$conclusionSummary: input.conclusionSummary,
+		$id: duel.id,
 		$now: nowIso(),
 	});
-
-	return snapshotSync(db, input.duelId);
 };
 
 export const joinDuel = (
 	input: JoinInput,
 	targetKey: string,
 	canonicalTargetPath: string,
-	existingDuelId?: string,
 	dbPath?: string,
 ): TE.TaskEither<CLIError, JoinDuelResult> =>
 	withDb(dbPath, (db) =>
 		transaction(db, () => {
-			const activeDuel = getActiveDuelByTargetKeySync(db, targetKey);
-			let duel = activeDuel;
+			let duel = getActiveDuelByTargetKeySync(db, targetKey);
 
 			if (!duel) {
-				const duelId = existingDuelId ?? randomUUID();
+				const duelId = randomUUID();
 				db.prepare(
 					`INSERT INTO socratic_duels (
 						id,
 						target_path,
 						target_key,
-						status,
-						max_turns,
-						next_turn_number
+						status
 					)
-					VALUES ($id, $targetPath, $targetKey, 'ACTIVE', $maxTurns, 1)`,
+					VALUES ($id, $targetPath, $targetKey, 'ACTIVE')`,
 				).run({
 					$id: duelId,
 					$targetPath: canonicalTargetPath,
 					$targetKey: targetKey,
-					$maxTurns: MAX_TURNS,
 				});
 				duel = getDuelByIdSync(db, duelId);
 			}
@@ -420,39 +324,45 @@ export const getDuelSnapshot = (
 	duelId: string,
 	dbPath?: string,
 ): TE.TaskEither<CLIError, DuelSnapshot> =>
-	withDb(dbPath, (db) => snapshotSync(db, duelId));
+	withDb(dbPath, (db) =>
+		transaction(db, () => {
+			const duel = getDuelByIdSync(db, duelId);
+			clearExpiredLockSync(db, duel);
+			return snapshotSync(db, duelId);
+		}),
+	);
 
 export const getActiveDuelSnapshotByTargetKey = (
 	targetKey: string,
 	dbPath?: string,
 ): TE.TaskEither<CLIError, DuelSnapshot> =>
-	withDb(dbPath, (db) => {
-		const duel = getActiveDuelByTargetKeySync(db, targetKey);
-		if (!duel) {
-			throw new Error(`No active duel found for target: ${targetKey}`);
-		}
-
-		return snapshotSync(db, duel.id);
-	});
-
-export const claimTurn = (
-	input: ClaimTurnInput,
-	dbPath?: string,
-): TE.TaskEither<CLIError, ClaimDecision> =>
 	withDb(dbPath, (db) =>
 		transaction(db, () => {
-			const participant = getParticipantByIdSync(db, input.participantId);
-			let snapshot = snapshotSync(db, input.duelId);
-
-			if (participant.duelId !== input.duelId) {
-				throw new Error("Participant does not belong to this duel");
+			const duel = getActiveDuelByTargetKeySync(db, targetKey);
+			if (!duel) {
+				throw new Error(`No active duel found for target: ${targetKey}`);
 			}
+			clearExpiredLockSync(db, duel);
+			return snapshotSync(db, duel.id);
+		}),
+	);
+
+export const claimLock = (
+	input: ClaimLockInput,
+	dbPath?: string,
+): TE.TaskEither<CLIError, ClaimLockDecision> =>
+	withDb(dbPath, (db) =>
+		transaction(db, () => {
+			assertParticipantInDuel(db, input.duelId, input.participantId);
+			let snapshot = snapshotSync(db, input.duelId);
+			clearExpiredLockSync(db, snapshot.duel);
+			snapshot = snapshotSync(db, input.duelId);
 
 			if (snapshot.duel.status !== "ACTIVE") {
 				return {
 					...snapshot,
 					acquired: false,
-					reason: `Duel is terminal: ${snapshot.duel.status}`,
+					reason: `Duel lock context is closed`,
 					retryAfterSeconds: 0,
 					waitUntil: null,
 				};
@@ -468,71 +378,33 @@ export const claimTurn = (
 				};
 			}
 
-			const ownerId = snapshot.duel.currentOwnerId;
-			const leaseExpiresAt = snapshot.duel.leaseExpiresAt;
-			if (ownerId && isUnexpired(leaseExpiresAt)) {
-				if (ownerId === input.participantId) {
-					const nextLeaseExpiresAt = leaseExpirationIso();
-					db.prepare(
-						`UPDATE socratic_duels
-						 SET lease_expires_at = $leaseExpiresAt,
-						     updated_at = $now
-						 WHERE id = $id`,
-					).run({
-						$id: input.duelId,
-						$leaseExpiresAt: nextLeaseExpiresAt,
-						$now: nowIso(),
-					});
-					snapshot = snapshotSync(db, input.duelId);
-					return {
-						...snapshot,
-						acquired: true,
-						reason: null,
-						retryAfterSeconds: RETRY_AFTER_SECONDS,
-						waitUntil: nextLeaseExpiresAt,
-					};
-				}
-
+			if (snapshot.duel.currentOwnerId && snapshot.duel.leaseExpiresAt) {
 				return {
 					...snapshot,
 					acquired: false,
-					reason: "Peer owns an unexpired turn lease",
+					reason:
+						snapshot.duel.currentOwnerId === input.participantId
+							? "Participant already owns an active lock; use refresh-lock"
+							: "Peer owns an unexpired lock",
 					retryAfterSeconds: RETRY_AFTER_SECONDS,
-					waitUntil: leaseExpiresAt,
+					waitUntil: snapshot.duel.leaseExpiresAt,
 				};
 			}
 
-			const lastTurn = snapshot.turns.at(-1);
-			const expiredPeerLease =
-				ownerId !== null &&
-				ownerId !== input.participantId &&
-				leaseExpiresAt !== null &&
-				!isUnexpired(leaseExpiresAt);
-
-			if (
-				lastTurn?.participantId === input.participantId &&
-				!expiredPeerLease
-			) {
-				return {
-					...snapshot,
-					acquired: false,
-					reason: "Turn alternation requires the peer participant to continue",
-					retryAfterSeconds: RETRY_AFTER_SECONDS,
-					waitUntil: null,
-				};
-			}
-
-			const nextLeaseExpiresAt = leaseExpirationIso();
+			const leaseToken = randomUUID();
+			const leaseExpiresAt = leaseExpirationIso();
 			db.prepare(
 				`UPDATE socratic_duels
 				 SET current_owner_id = $ownerId,
+				     lease_token = $leaseToken,
 				     lease_expires_at = $leaseExpiresAt,
 				     updated_at = $now
 				 WHERE id = $id`,
 			).run({
 				$id: input.duelId,
 				$ownerId: input.participantId,
-				$leaseExpiresAt: nextLeaseExpiresAt,
+				$leaseToken: leaseToken,
+				$leaseExpiresAt: leaseExpiresAt,
 				$now: nowIso(),
 			});
 
@@ -540,119 +412,115 @@ export const claimTurn = (
 			return {
 				...snapshot,
 				acquired: true,
-				reason: expiredPeerLease ? "Peer lease expired" : null,
+				reason: null,
 				retryAfterSeconds: RETRY_AFTER_SECONDS,
-				waitUntil: nextLeaseExpiresAt,
+				waitUntil: leaseExpiresAt,
 			};
 		}),
 	);
 
-export const persistAcceptedTurn = (
-	input: PersistTurnInput,
+export const refreshLock = (
+	input: RefreshLockInput,
 	dbPath?: string,
-): TE.TaskEither<CLIError, DuelSnapshot> =>
-	withDb(dbPath, (db) =>
-		transaction(db, () => persistAcceptedTurnSync(db, input)),
-	);
-
-export const persistAcceptedTurnWithSideEffect = (
-	input: PersistTurnInput,
-	sideEffect: TransactionalSideEffect,
-	dbPath?: string,
-): TE.TaskEither<CLIError, DuelSnapshot> =>
-	pipe(
-		getEmitDatabase(dbPath),
-		TE.chain((db) =>
-			TE.tryCatch(
-				async () => {
-					ensureSocraticDuelSchema(db);
-					let sideEffectApplied = false;
-					db.exec("BEGIN TRANSACTION");
-					try {
-						const snapshot = persistAcceptedTurnSync(db, input);
-						await sideEffect.run();
-						sideEffectApplied = true;
-						db.exec("COMMIT");
-						return snapshot;
-					} catch (error) {
-						try {
-							db.exec("ROLLBACK");
-						} catch {}
-						if (sideEffectApplied) {
-							try {
-								await sideEffect.rollback();
-							} catch (rollbackError) {
-								throw new Error(
-									`${errorMessage(error)}; side-effect rollback failed: ${errorMessage(rollbackError)}`,
-								);
-							}
-						}
-						throw error;
-					}
-				},
-				(error) =>
-					runtimeError(
-						`Socratic Duel database operation failed: ${errorMessage(error)}`,
-					),
-			),
-		),
-	);
-
-export const adjournDuel = (
-	duelId: string,
-	participantId: string | undefined,
-	outcome: TerminalOutcome,
-	summary: string,
-	dbPath?: string,
-): TE.TaskEither<CLIError, DuelSnapshot> =>
+): TE.TaskEither<CLIError, RefreshLockDecision> =>
 	withDb(dbPath, (db) =>
 		transaction(db, () => {
-			const duel = getDuelByIdSync(db, duelId);
+			assertParticipantInDuel(db, input.duelId, input.participantId);
+			let snapshot = snapshotSync(db, input.duelId);
 
-			if (duel.status !== "ACTIVE") {
-				return snapshotSync(db, duelId);
+			if (snapshot.duel.status !== "ACTIVE") {
+				return {
+					...snapshot,
+					refreshed: false,
+					reason: "Duel lock context is closed",
+				};
 			}
-
 			if (
-				participantId &&
-				duel.currentOwnerId &&
-				duel.currentOwnerId !== participantId &&
-				isUnexpired(duel.leaseExpiresAt)
+				snapshot.duel.currentOwnerId !== input.participantId ||
+				snapshot.duel.leaseToken !== input.leaseToken
 			) {
-				throw new Error(
-					"Cannot adjourn while another participant owns the floor",
-				);
+				return {
+					...snapshot,
+					refreshed: false,
+					reason: "Participant does not own this lock token",
+				};
+			}
+			if (isLeaseExpired(snapshot.duel.leaseExpiresAt)) {
+				clearExpiredLockSync(db, snapshot.duel);
+				snapshot = snapshotSync(db, input.duelId);
+				return {
+					...snapshot,
+					refreshed: false,
+					reason: "Current lock has expired",
+				};
 			}
 
-			if (participantId) {
-				const participant = getParticipantByIdSync(db, participantId);
-				if (participant.duelId !== duelId) {
-					throw new Error("Participant does not belong to this duel");
+			const leaseExpiresAt = leaseExpirationIso();
+			db.prepare(
+				`UPDATE socratic_duels
+				 SET lease_expires_at = $leaseExpiresAt,
+				     updated_at = $now
+				 WHERE id = $id`,
+			).run({
+				$id: input.duelId,
+				$leaseExpiresAt: leaseExpiresAt,
+				$now: nowIso(),
+			});
+
+			snapshot = snapshotSync(db, input.duelId);
+			return { ...snapshot, refreshed: true, reason: null };
+		}),
+	);
+
+export const releaseLock = (
+	input: ReleaseLockInput,
+	dbPath?: string,
+): TE.TaskEither<CLIError, ReleaseLockDecision> =>
+	withDb(dbPath, (db) =>
+		transaction(db, () => {
+			assertParticipantInDuel(db, input.duelId, input.participantId);
+			let snapshot = snapshotSync(db, input.duelId);
+			const hasActiveOwner =
+				snapshot.duel.currentOwnerId !== null &&
+				isLeaseActive(snapshot.duel.leaseExpiresAt);
+
+			if (hasActiveOwner) {
+				if (
+					snapshot.duel.currentOwnerId !== input.participantId ||
+					!input.leaseToken ||
+					snapshot.duel.leaseToken !== input.leaseToken
+				) {
+					return {
+						...snapshot,
+						released: false,
+						closed: false,
+						reason: "Participant does not own this active lock",
+					};
 				}
+			} else {
+				clearExpiredLockSync(db, snapshot.duel);
 			}
 
 			db.prepare(
 				`UPDATE socratic_duels
 				 SET status = $status,
 				     current_owner_id = NULL,
+				     lease_token = NULL,
 				     lease_expires_at = NULL,
-				     conclusion_summary = $summary,
 				     updated_at = $now
 				 WHERE id = $id`,
 			).run({
-				$id: duelId,
-				$status: outcome,
-				$summary: summary,
+				$id: input.duelId,
+				$status: input.close ? "CLOSED" : snapshot.duel.status,
 				$now: nowIso(),
 			});
 
-			return snapshotSync(db, duelId);
+			snapshot = snapshotSync(db, input.duelId);
+			return {
+				...snapshot,
+				released: hasActiveOwner,
+				closed: snapshot.duel.status === "CLOSED",
+				reason: null,
+			};
 		}),
 	);
-
-export const invalidateDuel = (
-	duelId: string,
-	summary: string,
-	dbPath?: string,
-): TE.TaskEither<CLIError, DuelSnapshot> =>
-	adjournDuel(duelId, undefined, "INVALIDATED", summary, dbPath);

@@ -41,6 +41,7 @@ Templates contain YAML frontmatter with routing metadata and a markdown body wit
 | code-auditor | audit-report.md | document | workRoot | audits/{SCOPE}/report.md | templates/code-auditor/audit-report.md |
 | bug-investigator | investigation-report.md | document | workRoot | investigations/{BUG_ID}/report.md | templates/bug-investigator/investigation-report.md |
 | build-fast-planner | quick-build.md | document | workRoot | quick-builds/{ID}/quick-build.md | templates/build-fast-planner/quick-build.md |
+| socratic-duel | managed-debate-region | section | absolute | {TARGET_PATH} (managed region) | templates/socratic-duel/managed-debate-region.md |
 | phase-planner | phase-plan.md | document | workRoot | {PHASE_PLAN_DIR}/{PHASE_PLAN_FILENAME} | templates/phase-planner/phase-plan.md |
 | blueprint-wizard | prd.md | document | workRoot | prds/{PRD_NAME}.md | templates/blueprint-wizard/prd.md |
 | blueprint-auditor | prd-audit-results.md | document | workRoot | prds/{PRD_NAME}-audit.md | templates/blueprint-auditor/prd-audit-results.md |
@@ -130,5 +131,6 @@ templates/
 +-- prompt-eval-builder/
 +-- research-reporter/
 +-- security-validator/
++-- socratic-duel/
 +-- speedrun/
 ```

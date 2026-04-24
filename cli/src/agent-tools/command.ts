@@ -40,14 +40,12 @@ import { getTool, type ToolOptions } from "./index.js";
 import { readInput } from "./input.js";
 import { formatOutput } from "./output.js";
 import {
-	executeAdjourn as executeSocraticDuelAdjourn,
-	executeClaimTurn as executeSocraticDuelClaimTurn,
+	executeClaimLock as executeSocraticDuelClaimLock,
 	executeJoin as executeSocraticDuelJoin,
+	executeRefreshLock as executeSocraticDuelRefreshLock,
+	executeReleaseLock as executeSocraticDuelReleaseLock,
 	executeStatus as executeSocraticDuelStatus,
-	executeSubmitTurn as executeSocraticDuelSubmitTurn,
-	parseSubmitTurnInput,
 } from "./socratic-duel/index.js";
-import type { TerminalOutcome } from "./socratic-duel/models.js";
 import {
 	executeCancel as executeTaskCancel,
 	executeComplete as executeTaskComplete,
@@ -120,7 +118,7 @@ Available Tools:
   emit              Record events for the rp1 workflow event system
   feedback          Read, resolve, reply to, and accept feedback from the Arcade
   github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
-  socratic-duel     Coordinate a bounded two-agent debate inside Markdown
+  socratic-duel     Coordinate Socratic Duel participant locks and leases
   task              Manage task queue (create, list, pickup, complete, fail, cancel, get)
 
 Examples:
@@ -1261,29 +1259,29 @@ Examples:
 
 const socraticDuelCommand = agentToolsCommand
 	.command("socratic-duel")
-	.description(
-		"Coordinate a bounded two-agent debate inside a local Markdown document",
-	)
+	.description("Coordinate Socratic Duel participant locks and leases")
 	.addHelpText(
 		"after",
 		`
 Description:
-  Provides deterministic coordination for the Socratic Duel workflow. The tool
-  validates the target Markdown file, registers participants, grants exclusive
-  turn leases, validates structured turns, appends to the managed Markdown
-  region, and records terminal outcomes.
+  Provides deterministic lock coordination for the Socratic Duel workflow. The
+  tool validates the target Markdown path, registers participants, grants one
+  exclusive lock lease at a time, refreshes active leases, and releases or closes
+  lock contexts. Agents own document parsing, debate state, Markdown updates,
+  template selection, candidate convergence, and terminal summaries.
 
 Subcommands:
-  join          Create or resume an active duel and register a participant
-  status        Show duel, participant, lease, turn, and region-hash status
-  claim-turn    Acquire the floor or receive bounded wait guidance
-  submit-turn   Validate and append a structured turn from stdin or file
-  adjourn       Record a permitted terminal outcome
+  join          Create or resume an active lock context and register a participant
+  status        Show participant and lease status
+  claim-lock    Acquire the lock or receive bounded wait guidance
+  refresh-lock  Extend the current owner's lease
+  release-lock  Release the current lock, optionally closing the context
 
 Examples:
   rp1 agent-tools socratic-duel join --target /tmp/plan.md --participant-name codex --harness codex --model-id gpt-5
-  rp1 agent-tools socratic-duel claim-turn --duel-id <id> --participant-id <id>
-  rp1 agent-tools socratic-duel submit-turn --duel-id <id> --participant-id <id> --prior-region-hash sha256:... --turn-file turn.json
+  rp1 agent-tools socratic-duel claim-lock --duel-id <id> --participant-id <id>
+  rp1 agent-tools socratic-duel refresh-lock --duel-id <id> --participant-id <id> --lease-token <token>
+  rp1 agent-tools socratic-duel release-lock --duel-id <id> --participant-id <id> --lease-token <token>
 `,
 	);
 
@@ -1350,8 +1348,8 @@ socraticDuelCommand
 	);
 
 socraticDuelCommand
-	.command("claim-turn")
-	.description("Acquire the floor or receive bounded wait guidance")
+	.command("claim-lock")
+	.description("Acquire the lock or receive bounded wait guidance")
 	.requiredOption("--duel-id <id>", "Duel ID")
 	.requiredOption("--participant-id <id>", "Participant ID")
 	.action(
@@ -1360,7 +1358,7 @@ socraticDuelCommand
 			participantId: string;
 		}): Promise<void> => {
 			const toolName = "socratic-duel";
-			const result = await executeSocraticDuelClaimTurn({
+			const result = await executeSocraticDuelClaimLock({
 				duelId: options.duelId,
 				participantId: options.participantId,
 			})();
@@ -1378,41 +1376,23 @@ socraticDuelCommand
 	);
 
 socraticDuelCommand
-	.command("submit-turn")
-	.description("Validate and append a structured turn from stdin or file")
+	.command("refresh-lock")
+	.description("Refresh the current owner's lock lease")
 	.requiredOption("--duel-id <id>", "Duel ID")
 	.requiredOption("--participant-id <id>", "Participant ID")
-	.option("--prior-region-hash <hash>", "Hash returned by claim-turn")
-	.option("--turn-file <path>", "Read turn JSON from a file")
+	.requiredOption("--lease-token <token>", "Lease token returned by claim-lock")
 	.action(
 		async (options: {
 			duelId: string;
 			participantId: string;
-			priorRegionHash?: string;
-			turnFile?: string;
+			leaseToken: string;
 		}): Promise<void> => {
 			const toolName = "socratic-duel";
-			const inputResult = await readInput(options.turnFile)();
-
-			if (E.isLeft(inputResult)) {
-				console.error(
-					createErrorResponse(toolName, formatError(inputResult.left, false)),
-				);
-				process.exit(1);
-			}
-
-			const parsedInput = parseSubmitTurnInput(
-				inputResult.right.content,
-				options.duelId,
-				options.participantId,
-				options.priorRegionHash,
-			);
-			if (!parsedInput.success) {
-				console.log(formatOutput(parsedInput));
-				process.exit(1);
-			}
-
-			const result = await executeSocraticDuelSubmitTurn(parsedInput.data)();
+			const result = await executeSocraticDuelRefreshLock({
+				duelId: options.duelId,
+				participantId: options.participantId,
+				leaseToken: options.leaseToken,
+			})();
 
 			if (E.isLeft(result)) {
 				console.error(
@@ -1427,28 +1407,25 @@ socraticDuelCommand
 	);
 
 socraticDuelCommand
-	.command("adjourn")
-	.description("Record a permitted terminal outcome")
+	.command("release-lock")
+	.description("Release the current lock, optionally closing the context")
 	.requiredOption("--duel-id <id>", "Duel ID")
-	.requiredOption(
-		"--outcome <outcome>",
-		"Terminal outcome (DISSENT, TIMEOUT, INVALIDATED)",
-	)
-	.option("--participant-id <id>", "Participant ID")
-	.option("--summary <text>", "Terminal summary", "")
+	.requiredOption("--participant-id <id>", "Participant ID")
+	.option("--lease-token <token>", "Lease token returned by claim-lock")
+	.option("--close", "Close the lock context after releasing", false)
 	.action(
 		async (options: {
 			duelId: string;
-			outcome: string;
-			participantId?: string;
-			summary: string;
+			participantId: string;
+			leaseToken?: string;
+			close: boolean;
 		}): Promise<void> => {
 			const toolName = "socratic-duel";
-			const result = await executeSocraticDuelAdjourn({
+			const result = await executeSocraticDuelReleaseLock({
 				duelId: options.duelId,
 				participantId: options.participantId,
-				outcome: options.outcome as TerminalOutcome,
-				summary: options.summary,
+				leaseToken: options.leaseToken,
+				close: options.close,
 			})();
 
 			if (E.isLeft(result)) {

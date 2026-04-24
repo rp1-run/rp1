@@ -40,7 +40,7 @@ maintenance workflows.
 | [`project-birds-eye-view`](base/project-birds-eye-view.md) | Generate comprehensive project overview with diagrams |
 | [`write-content`](base/write-content.md) | Interactive technical content creation assistant |
 | [`strategize`](base/strategize.md) | Holistic strategic analysis with trade-off recommendations |
-| [`socratic-duel`](base/socratic-duel.md) | Strategy workflow for bounded two-agent debate in a local Markdown document |
+| [`socratic-duel`](base/socratic-duel.md) | Strategy workflow for agent-owned two-agent debate with backend locks only |
 | [`analyse-security`](base/analyse-security.md) | Comprehensive security validation and vulnerability scanning |
 | [`fix-mermaid`](base/fix-mermaid.md) | Validate and repair Mermaid diagrams in markdown docs |
 | [`guide`](base/guide.md) | Discover skills, get workflow guidance, and ask about rp1 capabilities |

@@ -19,11 +19,12 @@ describe("socratic-duel workflow visibility contract", () => {
 		expect(content).toContain("--unit participant:{participant_id}");
 		expect(content).toContain('"event":"participant_registered"');
 		expect(content).toContain('"event":"participant_waiting"');
-		expect(content).toContain('"event":"floor_acquired"');
+		expect(content).toContain('"event":"lock_acquired"');
+		expect(content).toContain('"event":"lock_released"');
 
 		expect(content).toContain("--unit turn:{turn_number}");
 		expect(content).toContain('"event":"turn_composing"');
-		expect(content).toContain('"event":"turn_submitted"');
+		expect(content).toContain('"event":"markdown_updated"');
 
 		expect(content).toContain("--type btw_update");
 		expect(content).toContain('"candidate_convergence":true');
