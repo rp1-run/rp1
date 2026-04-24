@@ -94,8 +94,6 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --data '{"status":"running","target":"{TARGET_PATH}"}'
 ```
 
-Terminal `adjourn` emits `{"status":"completed","outcome":"<OUTCOME>","target":"{TARGET_PATH}"}`.
-
 After `join` succeeds, register target artifact once:
 
 ```bash
@@ -107,9 +105,61 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --data '{"path":"{TARGET_PATH}","storageRoot":"absolute","type":"markdown"}'
 ```
 
-Participant-level emits use `--unit participant:{participant_id}` for registration, waiting, floor ownership, and timeout.
+Participant registration:
 
-Turn-level emits use `--unit turn:{turn_number}` for composition and submission.
+```bash
+rp1 agent-tools emit --harness $CURRENT_HOST \
+  --workflow socratic-duel \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step register \
+  --unit participant:{participant_id} \
+  --data '{"status":"completed","event":"participant_registered","duel_id":"{duel_id}","participant_id":"{participant_id}","participant_count":"{participant_count}","target":"{TARGET_PATH}"}'
+```
+
+Participant waiting and floor ownership:
+
+```bash
+rp1 agent-tools emit --harness $CURRENT_HOST \
+  --workflow socratic-duel \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step {WAIT_STEP} \
+  --unit participant:{participant_id} \
+  --data '{"status":"waiting","event":"participant_waiting","duel_id":"{duel_id}","reason":"{reason}","retry_after_seconds":"{retry_after_seconds}","wait_until":"{wait_until}","target":"{TARGET_PATH}"}'
+```
+
+```bash
+rp1 agent-tools emit --harness $CURRENT_HOST \
+  --workflow socratic-duel \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step claim_turn \
+  --unit participant:{participant_id} \
+  --data '{"status":"completed","event":"floor_acquired","duel_id":"{duel_id}","turn_number":"{turn_number}","lease_expires_at":"{lease_expires_at}","target":"{TARGET_PATH}"}'
+```
+
+Turn composition and submission:
+
+```bash
+rp1 agent-tools emit --harness $CURRENT_HOST \
+  --workflow socratic-duel \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step compose_turn \
+  --unit turn:{turn_number} \
+  --data '{"status":"running","event":"turn_composing","duel_id":"{duel_id}","participant_id":"{participant_id}","prior_region_hash":"{prior_region_hash}","target":"{TARGET_PATH}"}'
+```
+
+```bash
+rp1 agent-tools emit --harness $CURRENT_HOST \
+  --workflow socratic-duel \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step submit_turn \
+  --unit turn:{turn_number} \
+  --data '{"status":"completed","event":"turn_submitted","duel_id":"{duel_id}","participant_id":"{participant_id}","turn_hash":"{turn_hash}","candidate_convergence":"{candidate_convergence}","terminal_outcome":"{terminal_outcome}","target":"{TARGET_PATH}"}'
+```
 
 Candidate convergence emits `btw_update` only:
 
@@ -119,43 +169,54 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --type btw_update \
   --run-id {RUN_ID} \
   --step submit_turn \
-  --data '{"message":"Candidate convergence detected; duel remains active until explicit terminal criteria are met.","target":"{TARGET_PATH}"}'
+  --data '{"message":"Candidate convergence detected; duel remains active until explicit terminal criteria are met.","metadata":{"duel_id":"{duel_id}","turn_number":"{turn_number}","candidate_convergence":true,"target":"{TARGET_PATH}"}}'
+```
+
+Terminal `adjourn` distinguishes every outcome in event data:
+
+```bash
+rp1 agent-tools emit --harness $CURRENT_HOST \
+  --workflow socratic-duel \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step adjourn \
+  --data '{"status":"completed","outcome":"ACCEPTED_CONSENSUS|DISSENT|MAX_TURNS|TIMEOUT|INVALIDATED","duel_id":"{duel_id}","summary":"{summary}","target":"{TARGET_PATH}"}'
 ```
 
 §PROC
 
 1. **register**
    - Emit `register`.
-   - Run `rp1 agent-tools socratic-duel join` with target path, participant name, harness, model id, and `RUN_ID`.
+   - Run `rp1 agent-tools socratic-duel join --target "{TARGET_PATH}" --participant-name "{PARTICIPANT_NAME}" --harness "$CURRENT_HOST" --model-id "{MODEL_ID}" --run-id "{RUN_ID}"`.
    - If target is missing, unreadable, not absolute, or not Markdown: emit `adjourn` with `INVALIDATED`; stop without editing unrelated files.
-   - Parse tool JSON for `duel_id`, `participant_id`, `participant_count`, `status`, `next_step`.
-   - Register artifact and participant status.
+   - Parse tool result data for `duel_id`, `participant_id`, `participant_count`, `status`, `target_path`, and `next_step`.
+   - Register the absolute artifact and emit `participant_registered` with `--unit participant:{participant_id}`.
 
 2. **wait_peer**
-   - If fewer than 2 participants are registered, emit `wait_peer` with `--unit participant:{participant_id}`.
-   - Wait only within the tool's bounded guidance. If timeout expires, run `adjourn` with `TIMEOUT`.
+   - If fewer than 2 participants are registered, emit `participant_waiting` with `--step wait_peer` and `--unit participant:{participant_id}`.
+   - Wait only within the tool's bounded guidance. If timeout expires, run `adjourn` with `TIMEOUT`, then emit terminal `adjourn`.
    - If `AFK=false`, explain the wait briefly; do not ask open-ended questions.
 
 3. **claim_turn**
    - Emit `claim_turn` with `--unit participant:{participant_id}`.
-   - Run `rp1 agent-tools socratic-duel claim-turn`.
-   - If peer owns an unexpired lease, transition to `wait_turn`.
-   - If floor is acquired, capture `turn_number`, `prior_region_hash`, prior turns, and debate status.
+   - Run `rp1 agent-tools socratic-duel claim-turn --duel-id "{duel_id}" --participant-id "{participant_id}"`.
+   - If peer owns an unexpired lease, emit `participant_waiting` with `--step wait_turn`, then transition to `wait_turn`.
+   - If floor is acquired, capture `turn_number`, `prior_region_hash`, prior turns, and debate status; emit `floor_acquired` with `--unit participant:{participant_id}`.
 
 4. **wait_turn**
-   - Emit `wait_turn` with `--unit participant:{participant_id}`.
+   - Emit `participant_waiting` with `--step wait_turn` and `--unit participant:{participant_id}`.
    - Retry only according to bounded tool guidance.
-   - If timeout expires, run `adjourn` with `TIMEOUT`.
+   - If timeout expires, run `adjourn` with `TIMEOUT`, then emit terminal `adjourn`.
 
 5. **compose_turn**
-   - Emit `compose_turn` with `--unit turn:{turn_number}`.
+   - Emit `turn_composing` with `--unit turn:{turn_number}`.
    - Read the target document and current managed debate region only as needed.
    - Draft one structured turn matching §TURN_JSON.
    - Apply §TURN_RULES before submission. Revise locally if any rule fails.
 
 6. **submit_turn**
-   - Emit `submit_turn` with `--unit turn:{turn_number}`.
-   - Submit JSON via stdin or `--turn-file`; avoid fragile shell quoting for large turns.
+   - Submit JSON with `rp1 agent-tools socratic-duel submit-turn --duel-id "{duel_id}" --participant-id "{participant_id}" --prior-region-hash "{prior_region_hash}" --turn-file "{turn_file}"`; stdin is also valid. Avoid fragile shell quoting for large turns.
+   - If accepted, emit `turn_submitted` with `--unit turn:{turn_number}` using the tool's `turn_hash`, `candidate_convergence`, and `terminal_outcome`.
    - If accepted and non-terminal, yield and return to `claim_turn` only when the tool says this participant should continue.
    - If candidate convergence is true, emit `btw_update` but keep the duel active unless terminal criteria are met.
    - If accepted with terminal outcome, transition to `adjourn`.
@@ -163,7 +224,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
 
 7. **adjourn**
    - Use only explicit outcomes: `ACCEPTED_CONSENSUS`, `DISSENT`, `MAX_TURNS`, `TIMEOUT`, `INVALIDATED`.
-   - Emit terminal `adjourn`.
+   - Emit terminal `adjourn` with the exact outcome from `submit-turn` or `adjourn`.
    - Report the outcome and target path succinctly.
 
 §TURN_JSON
