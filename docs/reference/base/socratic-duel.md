@@ -64,11 +64,14 @@ Socratic Duel is intentionally bounded:
 | `TARGET_PATH` | Yes | - | Absolute path to the local Markdown document to debate |
 | `PARTICIPANT_NAME` | No | Host identity | Display identity recorded for this participant |
 | `MODEL_ID` | No | `unknown-model` | Model identity recorded with participant turns |
-| `AFK` | No | `false` | Use bounded non-interactive waiting |
 
 `TARGET_PATH` must be an absolute path to a readable `.md` or `.markdown`
 file. Missing, unreadable, relative, or non-Markdown paths invalidate the
 attempt without modifying unrelated files.
+
+Waiting is always bounded and non-interactive. If a peer has not joined or the
+peer owns the lock, the agent follows the workflow's retry guidance and exits
+with `TIMEOUT` when the bounded wait expires.
 
 ## Backend Lock Commands
 

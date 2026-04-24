@@ -33,15 +33,6 @@ metadata:
       required: false
       default: "unknown-model"
       description: "Model identity to record with participant turns"
-    - name: AFK
-      type: boolean
-      required: false
-      default: false
-      description: "Run with bounded non-interactive waiting"
-      aliases:
-        - "afk"
-        - "unattended"
-        - "no prompts"
 ---
 
 # Socratic Duel
@@ -68,6 +59,7 @@ metadata:
 - `PARTICIPANT_NAME`: if empty, use `CURRENT_HOST`.
 - `MODEL_ID`: if unknown, keep `unknown-model`; do not invent model metadata.
 - Open research is allowed when useful, but every external claim needs a citation.
+- Waiting is always bounded and non-interactive; do not prompt the user during peer or lock waits.
 - This base skill MUST NOT call rp1-dev commands or subagents.
 
 ## STATE-MACHINE
@@ -223,7 +215,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
    - If fewer than 2 participants are registered, emit `participant_waiting` with `--step wait_peer`.
    - Poll `rp1 agent-tools socratic-duel status --duel-id "{duel_id}"` only within bounded wait guidance.
    - If timeout expires, record `TIMEOUT` in the Markdown conclusion, run `release-lock --close` only if this participant owns a lock, then emit terminal `adjourn`.
-   - If `AFK=false`, explain the wait briefly; do not ask open-ended questions.
+   - If waiting, explain the bounded wait briefly; do not ask open-ended questions.
 
 4. **claim_lock**
    - Run `rp1 agent-tools socratic-duel claim-lock --duel-id "{duel_id}" --participant-id "{participant_id}"`.

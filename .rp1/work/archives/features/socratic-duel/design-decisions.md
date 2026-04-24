@@ -24,7 +24,7 @@ rp1_doc_id: 4660b783-5f41-4303-957c-205091e705eb
 
 ---
 
-## AFK Mode: Auto-Selected Technology Decisions
+## Auto-Selected Technology Decisions
 
 | Decision | Choice | Source | Rationale |
 |----------|--------|--------|-----------|

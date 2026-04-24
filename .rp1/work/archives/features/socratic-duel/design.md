@@ -104,7 +104,7 @@ Frontmatter:
   - `TARGET_PATH` required string, absolute Markdown path.
   - `PARTICIPANT_NAME` optional string, defaults to host identity.
   - `MODEL_ID` optional string, defaults to `unknown-model`.
-  - `AFK` optional boolean for bounded non-interactive waiting.
+  - Waiting is always bounded and non-interactive; there is no separate wait-control argument for this agent-to-agent workflow.
 
 The skill state machine:
 
