@@ -36,6 +36,19 @@ agents own Markdown parsing, local debate state, turn numbering, alternation,
 candidate convergence, evidence checks, terminal summaries, and template-based
 updates using the existing `rp1-base:artifact-templates` reference.
 
+## Design Boundary
+
+Socratic Duel deliberately keeps debate-state intelligence out of TypeScript.
+The backend is a lock service, not a debate engine. It stores participant
+identity, active/closed status, current lock owner, lease token, and lease
+expiry. It does not store turn bodies, candidate state, terminal summaries, or
+template-rendered Markdown.
+
+Agents derive all debate state from the target Markdown after acquiring the
+lock. They are responsible for detecting malformed managed regions, preserving
+accepted turns, applying the artifact template, and choosing terminal outcomes
+from the written debate record.
+
 Socratic Duel is intentionally bounded:
 
 - Exactly two active participants in v1
