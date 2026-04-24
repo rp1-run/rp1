@@ -21,6 +21,14 @@ export function initializeMermaid(isDark: boolean): void {
 	});
 }
 
+/**
+ * Mermaid renders escaped newlines as visible "\\n" text. Normalize them for
+ * display so older generated artifacts render with intended line breaks.
+ */
+export function normalizeMermaidEscapedNewlines(code: string): string {
+	return code.replace(/\\n/g, "<br>");
+}
+
 /** Render a Mermaid diagram and return the SVG string. */
 export async function renderMermaidSvg(
 	code: string,
@@ -28,7 +36,10 @@ export async function renderMermaidSvg(
 	isDark: boolean,
 ): Promise<string> {
 	initializeMermaid(isDark);
-	const { svg } = await mermaid.render(id, code);
+	const { svg } = await mermaid.render(
+		id,
+		normalizeMermaidEscapedNewlines(code),
+	);
 	return svg;
 }
 
