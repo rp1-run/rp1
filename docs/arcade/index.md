@@ -135,16 +135,16 @@ The run detail view shows:
 - the step list for the selected run
 - nested agent activity when a workflow delegates work
 - execution-flow context for the selected step
-- a right panel with all run artifacts grouped by workflow step or run-level scope
+- a right panel with a horizontal list of all run artifacts
 - inline annotation access on the selected artifact
 
 ### Artifacts and annotations
 
 Run details show artifacts in the right panel as soon as the run has any. You
 do not need to click through every step to find generated work: step-backed
-artifacts are grouped by their workflow step, and run-level artifacts appear in
-their own group. When a run has no artifacts yet, the panel shows an intentional
-waiting state instead of blank space.
+and run-level artifacts appear together in a single horizontal file list. When a
+run has no artifacts yet, the panel shows an intentional waiting state instead
+of blank space.
 
 The step list still keeps step-level context and artifact shortcuts for
 investigation. Selecting a step artifact updates the same right-panel viewer,

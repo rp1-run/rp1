@@ -24,32 +24,34 @@ function getFileName(path: string): string {
 	return path.split("/").pop() || path;
 }
 
-function countArtifacts(groups: readonly ArtifactGroup[]): number {
-	return groups.reduce((total, group) => total + group.artifacts.length, 0);
+function flattenArtifacts(
+	groups: readonly ArtifactGroup[],
+): readonly Artifact[] {
+	return groups.flatMap((group) => group.artifacts);
 }
 
-function findGroupForArtifact(
+function orderGroupsByActiveContext(
 	groups: readonly ArtifactGroup[],
 	artifact: Artifact | null,
-): ArtifactGroup | null {
-	if (!artifact) return null;
-	return (
-		groups.find((group) =>
-			group.artifacts.some((candidate) => candidate.docId === artifact.docId),
-		) ?? null
-	);
-}
-
-function findGroupForStep(
-	groups: readonly ArtifactGroup[],
 	step: Step | null,
-): ArtifactGroup | null {
-	if (!step) return null;
-	return groups.find((group) => group.stepId === step.id) ?? null;
-}
+): readonly ArtifactGroup[] {
+	const activeIndex = artifact
+		? groups.findIndex((group) =>
+				group.artifacts.some((candidate) => candidate.docId === artifact.docId),
+			)
+		: step
+			? groups.findIndex((group) => group.stepId === step.id)
+			: -1;
 
-function groupCountLabel(group: ArtifactGroup): string {
-	return `${group.artifacts.length}`;
+	if (activeIndex <= 0) {
+		return groups;
+	}
+
+	return [
+		groups[activeIndex],
+		...groups.slice(0, activeIndex),
+		...groups.slice(activeIndex + 1),
+	];
 }
 
 export function RunArtifactsPanel({
@@ -61,109 +63,58 @@ export function RunArtifactsPanel({
 	showFrontmatter = false,
 }: RunArtifactsPanelProps) {
 	const groups = artifactGroups.filter((group) => group.artifacts.length > 0);
-	const artifactCount = countArtifacts(groups);
+	const orderedGroups = orderGroupsByActiveContext(
+		groups,
+		selectedArtifact,
+		selectedStep,
+	);
+	const artifacts = flattenArtifacts(orderedGroups);
 
-	if (artifactCount === 0) {
+	if (artifacts.length === 0) {
 		return <ArtifactEmptyState />;
 	}
 
-	const selectedArtifactGroup = findGroupForArtifact(groups, selectedArtifact);
-	const selectedStepGroup = findGroupForStep(groups, selectedStep);
-	const activeGroup = selectedArtifactGroup ?? selectedStepGroup ?? groups[0];
-	const singleArtifact =
-		artifactCount === 1 ? (groups[0]?.artifacts[0] ?? null) : null;
-	const effectiveSelectedArtifact = selectedArtifact ?? singleArtifact;
-	const activeArtifacts = activeGroup?.artifacts ?? [];
-	const showGroupSelector = groups.length > 1;
-	const showArtifactTabs = artifactCount > 1 && activeArtifacts.length > 0;
-	const panelTitle =
-		artifactCount === 1 && singleArtifact
-			? getFileName(singleArtifact.path)
-			: "Artifacts";
+	const effectiveSelectedArtifact = selectedArtifact ?? artifacts[0] ?? null;
 
-	const renderGroupSelector = () => {
-		if (!showGroupSelector) return null;
-
-		return (
-			<div
-				role="tablist"
-				aria-label="Artifact groups"
-				className="mt-[10px] flex min-w-0 gap-xs overflow-x-auto whitespace-nowrap"
+	const renderArtifactList = () => (
+		<div className="min-w-0 flex-1 overflow-x-auto">
+			<ul
+				aria-label="Artifacts"
+				className="flex min-w-0 items-center gap-1 whitespace-nowrap"
 			>
-				{groups.map((group) => {
-					const isActive = activeGroup?.id === group.id;
-					const firstArtifact = group.artifacts[0];
-					return (
-						<button
-							key={group.id}
-							type="button"
-							role="tab"
-							aria-selected={isActive}
-							onClick={() => {
-								if (firstArtifact) onArtifactSelect?.(firstArtifact);
-							}}
-							className={cn(
-								"inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border px-2 type-secondary transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
-								isActive
-									? "border-border bg-surface text-fg"
-									: "border-transparent text-fg-ghost hover:bg-surface-base hover:text-fg",
-							)}
-						>
-							<span className="max-w-[10rem] truncate">{group.label}</span>
-							<span className="tabular-nums text-fg-ghost">
-								{groupCountLabel(group)}
-							</span>
-						</button>
-					);
-				})}
-			</div>
-		);
-	};
-
-	const renderArtifactTabs = () => {
-		if (!showArtifactTabs) return null;
-
-		return (
-			<div
-				role="tablist"
-				aria-label={`Artifacts in ${activeGroup.label}`}
-				className="mt-[10px] flex min-w-0 gap-[2px] overflow-x-auto whitespace-nowrap border-b border-border"
-			>
-				{activeArtifacts.map((artifact) => {
+				{artifacts.map((artifact) => {
 					const fileName = getFileName(artifact.path);
 					const isSelected =
 						effectiveSelectedArtifact?.docId === artifact.docId;
 
 					return (
-						<button
-							key={artifact.docId}
-							type="button"
-							role="tab"
-							aria-selected={isSelected}
-							title={artifact.absolutePath ?? artifact.path}
-							onClick={() => onArtifactSelect?.(artifact)}
-							className={cn(
-								"relative -mb-px inline-flex h-8 max-w-[14rem] shrink-0 items-center gap-1 rounded-t-sm border px-2.5 type-secondary transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
-								isSelected
-									? "border-border border-b-surface bg-surface text-fg font-medium"
-									: "border-transparent text-fg-ghost hover:bg-surface-base hover:text-fg",
-							)}
-						>
-							<FileText className="h-3 w-3 shrink-0" strokeWidth={1.5} />
-							<span className="min-w-0 truncate">{fileName}</span>
-						</button>
+						<li key={artifact.docId} className="shrink-0">
+							<button
+								type="button"
+								aria-current={isSelected ? "page" : undefined}
+								title={artifact.absolutePath ?? artifact.path}
+								onClick={() => onArtifactSelect?.(artifact)}
+								className={cn(
+									"inline-flex h-7 max-w-[14rem] items-center gap-1 rounded-sm px-2 type-secondary transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
+									isSelected
+										? "text-fg font-medium"
+										: "text-fg-ghost hover:bg-surface-base/70 hover:text-fg",
+								)}
+							>
+								<FileText className="h-3 w-3 shrink-0" strokeWidth={1.5} />
+								<span className="min-w-0 truncate">{fileName}</span>
+							</button>
+						</li>
 					);
 				})}
-			</div>
-		);
-	};
+			</ul>
+		</div>
+	);
 
 	const renderHeader = (controls: ArtifactContentSurfaceControls) => (
-		<div className="shrink-0 border-b border-border bg-surface-void/70 px-4 pt-[20px] pb-[14px] md:px-[40px]">
+		<div className="shrink-0 bg-surface-void/70 px-4 py-3 md:px-[40px]">
 			<div className="flex min-w-0 items-center justify-between gap-md">
-				<h2 className="type-secondary min-w-0 truncate text-fg-muted">
-					{panelTitle}
-				</h2>
+				{renderArtifactList()}
 				<div className="flex shrink-0 items-center gap-3">
 					<SaveStatusIndicator status={controls.saveStatus} />
 					{controls.showTableOfContentsToggle && (
@@ -185,9 +136,6 @@ export function RunArtifactsPanel({
 					)}
 				</div>
 			</div>
-
-			{renderGroupSelector()}
-			{renderArtifactTabs()}
 		</div>
 	);
 

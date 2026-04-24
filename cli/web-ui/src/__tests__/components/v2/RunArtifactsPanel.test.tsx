@@ -166,7 +166,7 @@ describe("RunArtifactsPanel", () => {
 		expect(screen.queryByTestId("artifact-content-surface")).toBeNull();
 	});
 
-	test("omits group and artifact chrome for a single artifact", async () => {
+	test("renders a single horizontal file list for a single artifact", async () => {
 		const onlyArtifact = artifact(
 			"doc-1",
 			"build",
@@ -179,18 +179,20 @@ describe("RunArtifactsPanel", () => {
 			selectedStep: step("build", "Build"),
 		});
 
-		expect(screen.getByRole("heading", { name: "tasks.md" })).toBeTruthy();
+		expect(screen.queryByRole("heading", { name: "Artifacts" })).toBeNull();
 		expect(screen.getByTestId("artifact-content-surface").dataset.docId).toBe(
 			"doc-1",
 		);
-		expect(
-			screen.queryByRole("tablist", { name: "Artifact groups" }),
-		).toBeNull();
+		const fileList = screen.getByRole("list", { name: "Artifacts" });
+		const fileButton = within(fileList).getByRole("button", {
+			name: /tasks\.md/,
+		});
+		expect(fileButton.getAttribute("aria-current")).toBe("page");
 		expect(screen.queryByRole("tab")).toBeNull();
 		expect(screen.getByLabelText("Toggle annotations")).toBeTruthy();
 	});
 
-	test("shows artifact tabs without a group selector for one multi-artifact group", async () => {
+	test("shows one file list for one multi-artifact group", async () => {
 		const firstArtifact = artifact(
 			"doc-1",
 			"build",
@@ -215,24 +217,55 @@ describe("RunArtifactsPanel", () => {
 			onArtifactSelect,
 		});
 
-		expect(
-			screen.queryByRole("tablist", { name: "Artifact groups" }),
-		).toBeNull();
+		expect(screen.queryByRole("tab")).toBeNull();
 
-		const tabs = screen.getByRole("tablist", { name: "Artifacts in Build" });
+		const fileList = screen.getByRole("list", { name: "Artifacts" });
 		expect(
-			within(tabs)
-				.getByRole("tab", { name: /summary\.md/ })
-				.getAttribute("aria-selected"),
-		).toBe("true");
+			within(fileList)
+				.getByRole("button", { name: /summary\.md/ })
+				.getAttribute("aria-current"),
+		).toBe("page");
 
-		fireEvent.click(within(tabs).getByRole("tab", { name: /report\.md/ }));
+		fireEvent.click(
+			within(fileList).getByRole("button", { name: /report\.md/ }),
+		);
 
 		expect(onArtifactSelect).toHaveBeenCalledTimes(1);
 		expect(selectedArtifacts).toEqual([secondArtifact]);
 	});
 
-	test("shows group selector and scoped tabs for multiple groups", async () => {
+	test("uses the first listed artifact when no selection is provided", async () => {
+		const firstArtifact = artifact(
+			"doc-1",
+			"build",
+			".rp1/work/features/example/summary.md",
+		);
+		const secondArtifact = artifact(
+			"doc-2",
+			"build",
+			".rp1/work/features/example/report.md",
+		);
+
+		await renderPanel({
+			artifactGroups: [
+				group("step:build", "Build", "build", [firstArtifact, secondArtifact]),
+			],
+			selectedArtifact: null,
+			selectedStep: step("build", "Build"),
+		});
+
+		const fileList = screen.getByRole("list", { name: "Artifacts" });
+		expect(
+			within(fileList)
+				.getByRole("button", { name: /summary\.md/ })
+				.getAttribute("aria-current"),
+		).toBe("page");
+		expect(screen.getByTestId("artifact-content-surface").dataset.docId).toBe(
+			"doc-1",
+		);
+	});
+
+	test("flattens multiple groups into one ordered file list", async () => {
 		const planArtifact = artifact(
 			"doc-plan",
 			"plan",
@@ -269,37 +302,70 @@ describe("RunArtifactsPanel", () => {
 			onArtifactSelect,
 		});
 
-		const groups = screen.getByRole("tablist", { name: "Artifact groups" });
-		expect(
-			within(groups)
-				.getByRole("tab", { name: /Build/ })
-				.getAttribute("aria-selected"),
-		).toBe("true");
-		expect(within(groups).getByRole("tab", { name: /Plan/ })).toBeTruthy();
-		expect(
-			within(groups).getByRole("tab", { name: /Run artifacts/ }),
-		).toBeTruthy();
+		expect(screen.queryByRole("tab")).toBeNull();
 
-		const buildTabs = screen.getByRole("tablist", {
-			name: "Artifacts in Build",
-		});
+		const fileList = screen.getByRole("list", { name: "Artifacts" });
+		const fileButtons = within(fileList).getAllByRole("button");
+		expect(fileButtons.map((button) => button.textContent)).toEqual([
+			"summary.md",
+			"report.md",
+			"requirements.md",
+			"tasks.md",
+		]);
 		expect(
-			within(buildTabs).getByRole("tab", { name: /summary\.md/ }),
-		).toBeTruthy();
-		expect(
-			within(buildTabs)
-				.getByRole("tab", { name: /report\.md/ })
-				.getAttribute("aria-selected"),
-		).toBe("true");
-		expect(screen.queryByRole("tab", { name: /requirements\.md/ })).toBeNull();
+			within(fileList)
+				.getByRole("button", { name: /report\.md/ })
+				.getAttribute("aria-current"),
+		).toBe("page");
 
-		fireEvent.click(within(groups).getByRole("tab", { name: /Plan/ }));
+		fireEvent.click(
+			within(fileList).getByRole("button", { name: /requirements\.md/ }),
+		);
 
 		expect(onArtifactSelect).toHaveBeenCalledTimes(1);
 		expect(selectedArtifacts).toEqual([planArtifact]);
 	});
 
-	test("keeps grouped tab rows accessible and connected to content", async () => {
+	test("orders the selected step group first when no artifact is selected", async () => {
+		const planArtifact = artifact(
+			"doc-plan",
+			"plan",
+			".rp1/work/features/example/requirements.md",
+		);
+		const buildSummary = artifact(
+			"doc-build-summary",
+			"build",
+			".rp1/work/features/example/summary.md",
+		);
+		const buildReport = artifact(
+			"doc-build-report",
+			"build",
+			".rp1/work/features/example/report.md",
+		);
+
+		await renderPanel({
+			artifactGroups: [
+				group("step:plan", "Plan", "plan", [planArtifact]),
+				group("step:build", "Build", "build", [buildSummary, buildReport]),
+			],
+			selectedArtifact: null,
+			selectedStep: step("build", "Build"),
+		});
+
+		const fileList = screen.getByRole("list", { name: "Artifacts" });
+		const fileButtons = within(fileList).getAllByRole("button");
+		expect(fileButtons.map((button) => button.textContent)).toEqual([
+			"summary.md",
+			"report.md",
+			"requirements.md",
+		]);
+		expect(fileButtons[0].getAttribute("aria-current")).toBe("page");
+		expect(screen.getByTestId("artifact-content-surface").dataset.docId).toBe(
+			"doc-build-summary",
+		);
+	});
+
+	test("keeps the file list accessible and connected to content", async () => {
 		const firstArtifact = artifact(
 			"doc-build-summary",
 			"build",
@@ -328,30 +394,21 @@ describe("RunArtifactsPanel", () => {
 			selectedStep: step("build", "Build Outputs"),
 		});
 
-		const groupTabs = screen.getByRole("tablist", {
-			name: "Artifact groups",
-		});
-		const artifactTabs = screen.getByRole("tablist", {
-			name: "Artifacts in Build Outputs",
-		});
-		const selectedGroupTab = within(groupTabs).getByRole("tab", {
-			name: /Build Outputs/,
-		});
-		const runGroupTab = within(groupTabs).getByRole("tab", {
-			name: /Run artifacts/,
-		});
-		const firstArtifactTab = within(artifactTabs).getByRole("tab", {
+		const fileList = screen.getByRole("list", { name: "Artifacts" });
+		const firstArtifactButton = within(fileList).getByRole("button", {
 			name: /build-summary-with-a-long-name\.md/,
 		});
-		const selectedArtifactTab = within(artifactTabs).getByRole("tab", {
+		const selectedArtifactButton = within(fileList).getByRole("button", {
 			name: /build-report-with-a-long-name\.md/,
 		});
+		const runArtifactButton = within(fileList).getByRole("button", {
+			name: /run-summary-with-a-long-name\.md/,
+		});
 
-		expect(selectedGroupTab.getAttribute("aria-selected")).toBe("true");
-		expect(runGroupTab.getAttribute("aria-selected")).toBe("false");
-		expect(firstArtifactTab.getAttribute("aria-selected")).toBe("false");
-		expect(selectedArtifactTab.getAttribute("aria-selected")).toBe("true");
-		expect(selectedArtifactTab.getAttribute("title")).toBe(
+		expect(firstArtifactButton.hasAttribute("aria-current")).toBe(false);
+		expect(runArtifactButton.hasAttribute("aria-current")).toBe(false);
+		expect(selectedArtifactButton.getAttribute("aria-current")).toBe("page");
+		expect(selectedArtifactButton.getAttribute("title")).toBe(
 			secondArtifact.absolutePath,
 		);
 		expect(screen.getByTestId("artifact-content-surface").dataset.docId).toBe(
