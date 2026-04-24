@@ -15,6 +15,7 @@ date.
 | [`project-birds-eye-view`](project-birds-eye-view.md) | Generate comprehensive project overview with diagrams |
 | [`write-content`](write-content.md) | Interactive technical content creation assistant |
 | [`strategize`](strategize.md) | Holistic strategic analysis with trade-off recommendations |
+| [`socratic-duel`](socratic-duel.md) | Bounded two-agent debate inside a local Markdown document |
 | [`analyse-security`](analyse-security.md) | Comprehensive security validation and vulnerability scanning |
 | [`fix-mermaid`](fix-mermaid.md) | Validate and repair Mermaid diagrams in markdown files |
 | [`self-update`](self-update.md) | Update rp1 to the latest version |
@@ -48,6 +49,7 @@ Generate comprehensive documentation for onboarding and communication.
 Deep analysis for strategy and security.
 
 - **[`strategize`](strategize.md)**: Provides strategic recommendations balancing cost, quality, and complexity
+- **[`socratic-duel`](socratic-duel.md)**: Runs a bounded, evidence-driven two-agent debate inside a local Markdown document
 - **[`analyse-security`](analyse-security.md)**: Comprehensive security validation and vulnerability detection
 
 ### Validation

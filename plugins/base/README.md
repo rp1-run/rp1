@@ -13,10 +13,10 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 - Content writing
 - Shared skills for all plugins
 
-**Agents**: 13 specialized agents (5 for KB generation, 2 for deep research, 6 for docs/strategy/security/validation/scribe/prompt pipeline)
-**Skills**: 15 (9 user-facing commands, 6 shared capabilities)
+**Agents**: 15 specialized agents across KB generation, deep research, documentation, strategy, security, validation, scribe, and prompt pipeline workflows
+**Skills**: 18 total skills, including 10 user-facing commands and shared capabilities
 
-## Commands (9)
+## Commands (10)
 
 ### Knowledge Management
 - `/knowledge-build` - Parallel KB generation using map-reduce architecture with 6 agents (includes pattern extraction)
@@ -34,6 +34,7 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 ### Documentation & Strategy
 - `/project-birds-eye-view` - Generate project overview documentation for new developers
 - `/strategize` - Holistic system optimization with strategic recommendations
+- `/socratic-duel` - Bounded, evidence-driven two-agent debate inside a local Markdown document
 - `/write-content` - Interactive technical document creation
 
 ### Security
@@ -65,7 +66,7 @@ rp1 automatically checks for updates when you start a new session in Claude Code
 - Run `/self-update` to update rp1 when a new version is available
 - Restart Claude Code or OpenCode after updating to use the new version
 
-## Skills (5)
+## Shared Capabilities
 
 ### guide
 Discover rp1 skills, get workflow guidance, and ask questions about rp1 capabilities. Accepts an optional freeform question; omitting it shows a capability overview of all installed skills organized by category.
