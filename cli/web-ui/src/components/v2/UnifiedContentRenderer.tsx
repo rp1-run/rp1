@@ -95,6 +95,10 @@ function FrontmatterBlock({ raw }: { readonly raw: string }) {
 }
 
 import { restoreFrontmatter, stripFrontmatter } from "@/lib/frontmatter";
+import {
+	restoreMarkdownHtmlComments,
+	stripMarkdownHtmlComments,
+} from "@/lib/markdown-comments";
 
 function MarkdownEditorWithSave({
 	content,
@@ -187,10 +191,16 @@ function MarkdownEditorWithSave({
 		});
 	}, [content]);
 
-	const { body: editorContent, frontmatter } = useMemo(
+	const { body: bodyWithoutFrontmatter, frontmatter } = useMemo(
 		() => stripFrontmatter(resolvedContent),
 		[resolvedContent],
 	);
+	const { body: editorContent, comments: hiddenHtmlComments } = useMemo(() => {
+		if (showFrontmatter) {
+			return { body: bodyWithoutFrontmatter, comments: [] };
+		}
+		return stripMarkdownHtmlComments(bodyWithoutFrontmatter);
+	}, [bodyWithoutFrontmatter, showFrontmatter]);
 	const editorContainerRef = useRef<HTMLElement>(null);
 	const gutterRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<MilkdownEditorHandle>(null);
@@ -201,7 +211,10 @@ function MarkdownEditorWithSave({
 		(markdown: string) => {
 			if (!canSave) return;
 
-			const fullContent = restoreFrontmatter(frontmatter, markdown);
+			const bodyWithComments = showFrontmatter
+				? markdown
+				: restoreMarkdownHtmlComments(hiddenHtmlComments, markdown);
+			const fullContent = restoreFrontmatter(frontmatter, bodyWithComments);
 			latestEditorContentRef.current = fullContent;
 
 			if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -249,7 +262,17 @@ function MarkdownEditorWithSave({
 				}, SAVE_INDICATOR_DURATION_MS);
 			}, SAVE_DEBOUNCE_MS);
 		},
-		[canSave, runId, projectId, filePath, path, frontmatter, setSaveStatus],
+		[
+			canSave,
+			runId,
+			projectId,
+			filePath,
+			path,
+			frontmatter,
+			showFrontmatter,
+			hiddenHtmlComments,
+			setSaveStatus,
+		],
 	);
 
 	useEffect(() => {

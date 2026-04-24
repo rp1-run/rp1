@@ -22,6 +22,7 @@ import {
 	getEditableText,
 	getEditableTextNodes,
 } from "@/lib/editable-text-nodes";
+import { stripMarkdownHtmlComments } from "@/lib/markdown-comments";
 import { cn } from "@/lib/utils";
 import { useAnnotationContextSafe } from "@/providers/AnnotationProvider";
 import type { Annotation } from "@/types/annotations";
@@ -320,7 +321,15 @@ export function MarkdownViewer({
 		return parts.join("/");
 	}, [path]);
 
-	const headings = useMemo(() => extractHeadings(content), [content]);
+	const displayContent = useMemo(() => {
+		if (showFrontmatter) return content;
+		return stripMarkdownHtmlComments(content).body;
+	}, [content, showFrontmatter]);
+
+	const headings = useMemo(
+		() => extractHeadings(displayContent),
+		[displayContent],
+	);
 
 	useEffect(() => {
 		if (onHeadingsExtracted) {
@@ -439,7 +448,7 @@ export function MarkdownViewer({
 						},
 					}}
 				>
-					{content}
+					{displayContent}
 				</ReactMarkdown>
 			</article>
 

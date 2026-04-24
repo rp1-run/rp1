@@ -93,7 +93,7 @@ Every declarative sentence in sections §2–§14 MUST carry one of:
 | `[INFER — <rationale>, refutable by <evidence>]` | Claim is synthesized; state what would disprove it |
 | `[GAP — <what evidence would close it>]` | Expected claim but no source found |
 
-Section §0 SHOULD omit tags (metadata). Section §1 MAY omit tags (TL;DR summary). Sections §2–§14: MUST tag every sentence. Section §15 uses convergence/divergence/absence labels (Murphy & Notkin terminology) with `[KB]` and `[CODE]` citations.
+YAML frontmatter SHOULD omit tags. Section §1 MAY omit tags (TL;DR summary). Sections §2–§14: MUST tag every sentence. Section §15 uses convergence/divergence/absence labels (Murphy & Notkin terminology) with `[KB]` and `[CODE]` citations.
 
 ## CONDITIONAL_SECTIONS
 
@@ -144,11 +144,11 @@ Emit §15 when ≥1 divergence is found. List convergences briefly (1 line each)
 2. Read the template file at the listed **Template Path**.
 3. Use the template structure for output. Fill placeholders per the content guidance below.
 
-The template owns the 16-section structure, the Snapshot-header block at the top, diagram placement, and section ordering. This agent does not duplicate that contract — when they drift, the template wins.
+The template owns the 16-section structure, the snapshot YAML frontmatter, diagram placement, and section ordering. This agent does not duplicate that contract — when they drift, the template wins.
 
 ## Content Guidance
 
-- **Snapshot header** (top of file): populate `{YYYY-MM-DD}`, `{GIT_SHA}` (`git -C {CODE_ROOT} rev-parse --short HEAD`), KB files loaded (from §PROC step 3), KB last-updated date (from `{KB_ROOT}/meta.json` if present, else mtime), and the coverage tuple `{filled}/{total}/{conditional_emitted}/{gap_count}` computed from the classification in §PROC step 5.
+- **Snapshot frontmatter** (top of file): populate `snapshot_generated` from `{YYYY-MM-DD}`, `snapshot_git_sha` from `git -C {CODE_ROOT} rev-parse --short HEAD`, `snapshot_code_root`, `snapshot_kb_root`, `snapshot_kb_files` from §PROC step 3, and `snapshot_coverage` from the classification tuple `{filled}/{total}/{conditional_emitted}/{gap_count}` computed in §PROC step 5. Snapshot metadata belongs only in YAML frontmatter, not in a visible quote block.
 - **§1 TL;DR**: 5 bullets — what it is, who uses it, how to run it, where to look first, what's weird. Untagged.
 - **§2–§14**: every declarative sentence carries a `[KB|CODE|INFER|GAP]` tag per §PROVENANCE.
 - **§5 Tech stack**: name + purpose from `[CODE]` evidence; rationale from `[KB: charter.md|ADR|PRD]` or `[GAP — no decision note]`.
@@ -164,7 +164,7 @@ The template owns the 16-section structure, the Snapshot-header block at the top
 
 **Anti-loop**: Single-pass execution. No clarification, no iteration. Blocking issue → emit failure status, STOP. Mermaid validation loop is the sole exception (max 3 iterations).
 
-**Output discipline**: Output MUST conform to the 16-section structure defined by the loaded artifact template, with the Snapshot-header block at the top. Conditional sections (§7, §9, §15) are either emitted fully or omitted entirely — never stubs.
+**Output discipline**: Output MUST conform to the 16-section structure defined by the loaded artifact template, with snapshot metadata in YAML frontmatter at the top. Conditional sections (§7, §9, §15) are either emitted fully or omitted entirely — never stubs.
 
 **Truth constraints**: Generate ONLY from loaded KB + observed source + git metadata. Every claim in §2–§14 MUST carry a provenance tag per §PROVENANCE. Missing info → `[GAP]` tag with specific "what evidence would close it". Findings are conjectural — evidence suggests rather than asserts. Every significant claim MUST be refutable — state what would contradict it. Prefer hard-to-vary explanations where each detail is load-bearing. Do not self-immunize conclusions with unfalsifiable hedges. Preserve error-correction capacity: per-claim provenance tags let any reader challenge individual claims without dismissing the document.
 

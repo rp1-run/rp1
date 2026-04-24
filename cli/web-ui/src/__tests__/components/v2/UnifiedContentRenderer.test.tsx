@@ -9,10 +9,17 @@ mock.module("@/components/MilkdownEditor/MilkdownEditor", () => ({
 		HTMLDivElement,
 		{
 			content: string;
+			onContentChange?: (markdown: string) => void;
 		}
-	>(({ content }, ref) => (
+	>(({ content, onContentChange }, ref) => (
 		<div ref={ref} data-testid="milkdown-editor">
 			{content}
+			<button
+				type="button"
+				onClick={() => onContentChange?.(content.replace("Visible", "Edited"))}
+			>
+				Edit
+			</button>
 		</div>
 	)),
 }));
@@ -68,5 +75,40 @@ describe("UnifiedContentRenderer", () => {
 		);
 
 		expect(screen.getByText("Frontmatter")).toBeTruthy();
+	});
+
+	test("hides markdown html comments by default", async () => {
+		const { UnifiedContentRenderer } = await import(
+			`../../../components/v2/UnifiedContentRenderer.tsx?renderer-test=${++importVersion}`
+		);
+
+		render(
+			<UnifiedContentRenderer
+				content={`# Hello\n\n<!-- internal metadata -->\n\nVisible`}
+				path="docs/test.md"
+			/>,
+		);
+
+		const editor = screen.getByTestId("milkdown-editor");
+		expect(editor.textContent).not.toContain("internal metadata");
+		expect(editor.textContent).toContain("Visible");
+	});
+
+	test("shows markdown html comments with frontmatter visibility enabled", async () => {
+		const { UnifiedContentRenderer } = await import(
+			`../../../components/v2/UnifiedContentRenderer.tsx?renderer-test=${++importVersion}`
+		);
+
+		render(
+			<UnifiedContentRenderer
+				content={`# Hello\n\n<!-- internal metadata -->\n\nVisible`}
+				path="docs/test.md"
+				showFrontmatter
+			/>,
+		);
+
+		expect(screen.getByTestId("milkdown-editor").textContent).toContain(
+			"internal metadata",
+		);
 	});
 });
