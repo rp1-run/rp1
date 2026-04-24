@@ -9,7 +9,7 @@ import {
 import type { ReactNode } from "react";
 import type { ArtifactContentSurfaceControls } from "@/components/v2/ArtifactContentSurface";
 import type { ArtifactGroup } from "@/lib/artifact-groups";
-import type { Artifact, Step } from "@/types/runs";
+import type { Artifact } from "@/types/runs";
 
 let importVersion = 0;
 
@@ -80,18 +80,6 @@ async function importPanel() {
 	);
 }
 
-function step(id: string, name: string): Step {
-	return {
-		id,
-		name,
-		status: "running",
-		startedAt: null,
-		completedAt: null,
-		taskCount: null,
-		completedTaskCount: null,
-	};
-}
-
 function artifact(
 	docId: string,
 	stepId: string | null,
@@ -125,12 +113,10 @@ function group(
 async function renderPanel({
 	artifactGroups,
 	selectedArtifact,
-	selectedStep = null,
 	onArtifactSelect,
 }: {
 	readonly artifactGroups: readonly ArtifactGroup[];
 	readonly selectedArtifact: Artifact | null;
-	readonly selectedStep?: Step | null;
 	readonly onArtifactSelect?: (artifact: Artifact) => void;
 }) {
 	const { RunArtifactsPanel } = await importPanel();
@@ -139,7 +125,6 @@ async function renderPanel({
 		<RunArtifactsPanel
 			artifactGroups={artifactGroups}
 			selectedArtifact={selectedArtifact}
-			selectedStep={selectedStep}
 			onArtifactSelect={onArtifactSelect}
 			runId="run-1"
 			subflowDiagram={null}
@@ -176,7 +161,6 @@ describe("RunArtifactsPanel", () => {
 		await renderPanel({
 			artifactGroups: [group("step:build", "Build", "build", [onlyArtifact])],
 			selectedArtifact: onlyArtifact,
-			selectedStep: step("build", "Build"),
 		});
 
 		expect(screen.queryByRole("heading", { name: "Artifacts" })).toBeNull();
@@ -213,7 +197,6 @@ describe("RunArtifactsPanel", () => {
 				group("step:build", "Build", "build", [firstArtifact, secondArtifact]),
 			],
 			selectedArtifact: firstArtifact,
-			selectedStep: step("build", "Build"),
 			onArtifactSelect,
 		});
 
@@ -251,7 +234,6 @@ describe("RunArtifactsPanel", () => {
 				group("step:build", "Build", "build", [firstArtifact, secondArtifact]),
 			],
 			selectedArtifact: null,
-			selectedStep: step("build", "Build"),
 		});
 
 		const fileList = screen.getByRole("list", { name: "Artifacts" });
@@ -298,7 +280,6 @@ describe("RunArtifactsPanel", () => {
 				group("run", "Run artifacts", null, [runArtifact]),
 			],
 			selectedArtifact: buildReport,
-			selectedStep: step("build", "Build"),
 			onArtifactSelect,
 		});
 
@@ -307,9 +288,9 @@ describe("RunArtifactsPanel", () => {
 		const fileList = screen.getByRole("list", { name: "Artifacts" });
 		const fileButtons = within(fileList).getAllByRole("button");
 		expect(fileButtons.map((button) => button.textContent)).toEqual([
+			"requirements.md",
 			"summary.md",
 			"report.md",
-			"requirements.md",
 			"tasks.md",
 		]);
 		expect(
@@ -326,7 +307,67 @@ describe("RunArtifactsPanel", () => {
 		expect(selectedArtifacts).toEqual([planArtifact]);
 	});
 
-	test("orders the selected step group first when no artifact is selected", async () => {
+	test("preserves file order when the selected artifact changes", async () => {
+		const planArtifact = artifact(
+			"doc-plan",
+			"plan",
+			".rp1/work/features/example/requirements.md",
+		);
+		const buildSummary = artifact(
+			"doc-build-summary",
+			"build",
+			".rp1/work/features/example/summary.md",
+		);
+		const buildReport = artifact(
+			"doc-build-report",
+			"build",
+			".rp1/work/features/example/report.md",
+		);
+		const artifactGroups = [
+			group("step:plan", "Plan", "plan", [planArtifact]),
+			group("step:build", "Build", "build", [buildSummary, buildReport]),
+		];
+		const { RunArtifactsPanel } = await importPanel();
+
+		const view = render(
+			<RunArtifactsPanel
+				artifactGroups={artifactGroups}
+				selectedArtifact={buildReport}
+				runId="run-1"
+			/>,
+		);
+
+		const fileList = screen.getByRole("list", { name: "Artifacts" });
+		const getOrder = () =>
+			within(fileList)
+				.getAllByRole("button")
+				.map((button) => button.textContent);
+
+		expect(getOrder()).toEqual(["requirements.md", "summary.md", "report.md"]);
+		expect(
+			within(fileList).getByRole("button", { name: /report\.md/ }).className,
+		).toContain("font-medium");
+		expect(
+			within(fileList).getByRole("button", { name: /summary\.md/ }).className,
+		).toContain("font-medium");
+
+		view.rerender(
+			<RunArtifactsPanel
+				artifactGroups={artifactGroups}
+				selectedArtifact={planArtifact}
+				runId="run-1"
+			/>,
+		);
+
+		expect(getOrder()).toEqual(["requirements.md", "summary.md", "report.md"]);
+		expect(
+			within(fileList)
+				.getByRole("button", { name: /requirements\.md/ })
+				.getAttribute("aria-current"),
+		).toBe("page");
+	});
+
+	test("uses the first workflow-ordered artifact when no artifact is selected", async () => {
 		const planArtifact = artifact(
 			"doc-plan",
 			"plan",
@@ -349,19 +390,18 @@ describe("RunArtifactsPanel", () => {
 				group("step:build", "Build", "build", [buildSummary, buildReport]),
 			],
 			selectedArtifact: null,
-			selectedStep: step("build", "Build"),
 		});
 
 		const fileList = screen.getByRole("list", { name: "Artifacts" });
 		const fileButtons = within(fileList).getAllByRole("button");
 		expect(fileButtons.map((button) => button.textContent)).toEqual([
+			"requirements.md",
 			"summary.md",
 			"report.md",
-			"requirements.md",
 		]);
 		expect(fileButtons[0].getAttribute("aria-current")).toBe("page");
 		expect(screen.getByTestId("artifact-content-surface").dataset.docId).toBe(
-			"doc-build-summary",
+			"doc-plan",
 		);
 	});
 
@@ -391,7 +431,6 @@ describe("RunArtifactsPanel", () => {
 				group("run", "Run artifacts", null, [runArtifact]),
 			],
 			selectedArtifact: secondArtifact,
-			selectedStep: step("build", "Build Outputs"),
 		});
 
 		const fileList = screen.getByRole("list", { name: "Artifacts" });

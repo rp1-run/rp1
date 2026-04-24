@@ -115,12 +115,23 @@ export function RunDetailPage() {
 	);
 	const { isLoading: isWorkflowLoading } = useWorkflowSteps(workflowName);
 
-	const selectedStepId = urlStepId ?? null;
-
 	const selectedArtifact = useMemo(() => {
 		if (!urlDocId || !run) return null;
 		return run.artifacts.find((a) => a.docId === urlDocId) ?? null;
 	}, [urlDocId, run]);
+	const routeFocusedStepId =
+		urlStepId ??
+		selectedArtifact?.step ??
+		run?.currentStep ??
+		run?.steps[0]?.id ??
+		null;
+	const [focusedStepId, setFocusedStepId] = useState<string | null>(null);
+	const selectedStepId = focusedStepId ?? routeFocusedStepId;
+
+	useEffect(() => {
+		setFocusedStepId(routeFocusedStepId);
+	}, [routeFocusedStepId]);
+
 	const workspaceSubtitle = useMemo(() => {
 		if (!run) return null;
 		const artifactName = selectedArtifact?.path.split("/").at(-1) ?? null;
@@ -135,10 +146,6 @@ export function RunDetailPage() {
 		return run ? groupArtifactsByWorkflowStep(run.artifacts, run.steps) : [];
 	}, [run]);
 
-	const selectedStep = useMemo(() => {
-		if (!selectedStepId || !run) return null;
-		return run.steps.find((s) => s.id === selectedStepId) ?? null;
-	}, [selectedStepId, run]);
 	const currentStepName = useMemo(() => {
 		if (!run?.currentStep) return null;
 		return (
@@ -333,27 +340,14 @@ export function RunDetailPage() {
 		setHeaderRight,
 	]);
 
-	const handleStepSelect = useCallback(
-		(stepId: string) => {
-			if (!runId) return;
-			if (run) {
-				const hasSubflow = run.subflows && run.subflows[stepId] !== undefined;
-				if (!hasSubflow) {
-					const art = run.artifacts.find((a) => a.step === stepId && a.docId);
-					if (art) {
-						navigate(buildArtifactRoute(runId, art));
-						return;
-					}
-				}
-			}
-			navigate(`/runs/${runId}/step/${stepId}`);
-		},
-		[run, runId, navigate],
-	);
+	const handleStepSelect = useCallback((stepId: string) => {
+		setFocusedStepId(stepId);
+	}, []);
 
 	const handleArtifactSelect = useCallback(
 		(artifact: Artifact) => {
 			if (!runId) return;
+			setFocusedStepId(artifact.step ?? null);
 			navigate(buildArtifactRoute(runId, artifact));
 		},
 		[runId, navigate],
@@ -363,25 +357,9 @@ export function RunDetailPage() {
 		if (!run || !runId) return;
 		const steps = run.steps;
 
-		if (!urlDocId) {
-			const contextualStepId = urlStepId ?? run.currentStep ?? null;
-			const contextualArtifact = contextualStepId
-				? run.artifacts.find((a) => a.step === contextualStepId && a.docId)
-				: null;
-			const defaultArtifact =
-				contextualArtifact ?? run.artifacts.find((a) => a.docId) ?? null;
-
-			if (defaultArtifact) {
-				navigate(buildArtifactRoute(runId, defaultArtifact), {
-					replace: true,
-				});
-				return;
-			}
-		}
-
 		if (steps.length === 0) return;
 
-		if (!urlStepId) {
+		if (!urlStepId && !urlDocId) {
 			const currentStep =
 				run.currentStep != null
 					? (steps.find((step) => step.id === run.currentStep) ?? null)
@@ -401,9 +379,10 @@ export function RunDetailPage() {
 					: completedSteps.length > 0
 						? completedSteps[completedSteps.length - 1]
 						: steps[0]);
-			const art = run.artifacts.find(
-				(a) => a.step === targetStep.id && a.docId,
-			);
+			const art =
+				run.artifacts.find((a) => a.step === targetStep.id && a.docId) ??
+				run.artifacts.find((a) => a.docId) ??
+				null;
 			if (art) {
 				navigate(buildArtifactRoute(runId, art), {
 					replace: true,
@@ -412,18 +391,6 @@ export function RunDetailPage() {
 				navigate(`/runs/${runId}/step/${targetStep.id}`, { replace: true });
 			}
 			return;
-		}
-
-		if (urlStepId && !urlDocId) {
-			const hasSubflow = run.subflows && run.subflows[urlStepId] !== undefined;
-			if (!hasSubflow) {
-				const art = run.artifacts.find((a) => a.step === urlStepId && a.docId);
-				if (art) {
-					navigate(buildArtifactRoute(runId, art), {
-						replace: true,
-					});
-				}
-			}
 		}
 	}, [run, runId, urlStepId, urlDocId, navigate]);
 
@@ -582,7 +549,6 @@ export function RunDetailPage() {
 						<RunArtifactsPanel
 							artifactGroups={artifactGroups}
 							selectedArtifact={selectedArtifact}
-							selectedStep={selectedStep}
 							onArtifactSelect={handleArtifactSelect}
 							runId={runId}
 							subflowDiagram={subflowDiagram}
@@ -603,7 +569,6 @@ export function RunDetailPage() {
 					<RunArtifactsPanel
 						artifactGroups={artifactGroups}
 						selectedArtifact={selectedArtifact}
-						selectedStep={selectedStep}
 						onArtifactSelect={handleArtifactSelect}
 						runId={runId}
 						subflowDiagram={subflowDiagram}

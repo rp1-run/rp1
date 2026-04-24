@@ -8,12 +8,11 @@ import { ArtifactEmptyState } from "@/components/v2/ArtifactEmptyState";
 import { SaveStatusIndicator } from "@/components/v2/UnifiedContentRenderer";
 import type { ArtifactGroup } from "@/lib/artifact-groups";
 import { cn } from "@/lib/utils";
-import type { Artifact, Step } from "@/types/runs";
+import type { Artifact } from "@/types/runs";
 
 export interface RunArtifactsPanelProps {
 	readonly artifactGroups: readonly ArtifactGroup[];
 	readonly selectedArtifact: Artifact | null;
-	readonly selectedStep: Step | null;
 	readonly onArtifactSelect?: (artifact: Artifact) => void;
 	readonly runId?: string;
 	readonly subflowDiagram?: string | null;
@@ -30,45 +29,15 @@ function flattenArtifacts(
 	return groups.flatMap((group) => group.artifacts);
 }
 
-function orderGroupsByActiveContext(
-	groups: readonly ArtifactGroup[],
-	artifact: Artifact | null,
-	step: Step | null,
-): readonly ArtifactGroup[] {
-	const activeIndex = artifact
-		? groups.findIndex((group) =>
-				group.artifacts.some((candidate) => candidate.docId === artifact.docId),
-			)
-		: step
-			? groups.findIndex((group) => group.stepId === step.id)
-			: -1;
-
-	if (activeIndex <= 0) {
-		return groups;
-	}
-
-	return [
-		groups[activeIndex],
-		...groups.slice(0, activeIndex),
-		...groups.slice(activeIndex + 1),
-	];
-}
-
 export function RunArtifactsPanel({
 	artifactGroups,
 	selectedArtifact,
-	selectedStep,
 	onArtifactSelect,
 	runId,
 	showFrontmatter = false,
 }: RunArtifactsPanelProps) {
 	const groups = artifactGroups.filter((group) => group.artifacts.length > 0);
-	const orderedGroups = orderGroupsByActiveContext(
-		groups,
-		selectedArtifact,
-		selectedStep,
-	);
-	const artifacts = flattenArtifacts(orderedGroups);
+	const artifacts = flattenArtifacts(groups);
 
 	if (artifacts.length === 0) {
 		return <ArtifactEmptyState />;
@@ -95,9 +64,9 @@ export function RunArtifactsPanel({
 								title={artifact.absolutePath ?? artifact.path}
 								onClick={() => onArtifactSelect?.(artifact)}
 								className={cn(
-									"inline-flex h-7 max-w-[14rem] items-center gap-1 rounded-sm px-2 type-secondary transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
+									"inline-flex h-7 max-w-[14rem] items-center gap-1 rounded-sm px-2 type-secondary font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
 									isSelected
-										? "text-fg font-medium"
+										? "text-fg"
 										: "text-fg-ghost hover:bg-surface-base/70 hover:text-fg",
 								)}
 							>

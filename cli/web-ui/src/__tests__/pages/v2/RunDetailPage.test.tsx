@@ -6,6 +6,7 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -48,9 +49,14 @@ interface RunArtifactsPanelMockProps {
 		readonly artifacts: readonly Artifact[];
 	}[];
 	readonly selectedArtifact: Artifact | null;
-	readonly selectedStep: Step | null;
 	readonly onArtifactSelect?: (artifact: Artifact) => void;
 	readonly showFrontmatter?: boolean;
+}
+
+interface VerticalStepListMockProps {
+	readonly steps: readonly Step[];
+	readonly selectedStepId: string | null;
+	readonly onStepSelect: (stepId: string) => void;
 }
 
 let run: Run = {
@@ -140,14 +146,30 @@ function applyRunDetailMocks() {
 	}));
 
 	mock.module("@/components/v2/VerticalStepList", () => ({
-		VerticalStepList: () => <div data-testid="step-list">Step list</div>,
+		VerticalStepList: ({
+			steps,
+			selectedStepId,
+			onStepSelect,
+		}: VerticalStepListMockProps) => (
+			<div data-testid="step-list" data-selected-step-id={selectedStepId ?? ""}>
+				{steps.map((step) => (
+					<button
+						key={step.id}
+						type="button"
+						aria-label={`Focus step ${step.name}`}
+						onClick={() => onStepSelect(step.id)}
+					>
+						{step.name}
+					</button>
+				))}
+			</div>
+		),
 	}));
 
 	mock.module("@/components/v2/RunArtifactsPanel", () => ({
 		RunArtifactsPanel: ({
 			artifactGroups,
 			selectedArtifact,
-			selectedStep,
 			onArtifactSelect,
 			showFrontmatter,
 		}: RunArtifactsPanelMockProps) => {
@@ -155,7 +177,6 @@ function applyRunDetailMocks() {
 			latestRunArtifactsPanelProps.push({
 				artifactGroups,
 				selectedArtifact,
-				selectedStep,
 				onArtifactSelect,
 				showFrontmatter,
 			});
@@ -166,7 +187,6 @@ function applyRunDetailMocks() {
 					data-artifact-count={String(artifacts.length)}
 					data-frontmatter={String(showFrontmatter ?? false)}
 					data-selected-artifact={selectedArtifact?.docId ?? ""}
-					data-selected-step={selectedStep?.id ?? ""}
 				>
 					{artifacts.map((artifact) => (
 						<button
@@ -535,6 +555,73 @@ describe("RunDetailPage", () => {
 		await waitFor(() => {
 			expect(latestPath).toBe("/runs/run-1/step/build/artifact/doc-build");
 		});
+	});
+
+	test("keeps the current artifact selected when focusing a workflow step", async () => {
+		run = {
+			...run,
+			steps: [
+				{
+					id: "build",
+					name: "Build",
+					status: "completed",
+					startedAt: "2026-04-12T00:00:00.000Z",
+					completedAt: "2026-04-12T00:10:00.000Z",
+					taskCount: 5,
+					completedTaskCount: 5,
+				},
+				{
+					id: "review",
+					name: "Review",
+					status: "running",
+					startedAt: "2026-04-12T00:10:00.000Z",
+					completedAt: null,
+					taskCount: null,
+					completedTaskCount: null,
+				},
+			],
+			artifacts: [
+				{
+					docId: "doc-1",
+					path: ".rp1/work/features/feature-1/tasks.md",
+					absolutePath: "/repo/.rp1/work/features/feature-1/tasks.md",
+					type: "markdown",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "build",
+				},
+				{
+					docId: "doc-review",
+					path: ".rp1/work/features/feature-1/review.md",
+					absolutePath: "/repo/.rp1/work/features/feature-1/review.md",
+					type: "markdown",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "review",
+				},
+			],
+		};
+
+		await renderRunDetail("/runs/run-1/step/build/artifact/doc-1");
+
+		await waitFor(() => {
+			expect(screen.getByTestId("step-list").dataset.selectedStepId).toBe(
+				"build",
+			);
+		});
+
+		const stepList = screen.getByTestId("step-list");
+		fireEvent.click(within(stepList).getByLabelText("Focus step Review"));
+
+		await waitFor(() => {
+			expect(screen.getByTestId("step-list").dataset.selectedStepId).toBe(
+				"review",
+			);
+		});
+		expect(latestPath).toBe("/runs/run-1/step/build/artifact/doc-1");
+		for (const panel of screen.getAllByTestId("artifact-panel-frontmatter")) {
+			expect(panel.dataset.selectedArtifact).toBe("doc-1");
+		}
 	});
 
 	test("uses artifact-origin navigation from the aggregate panel", async () => {
