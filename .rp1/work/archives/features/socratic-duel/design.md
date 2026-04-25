@@ -13,7 +13,7 @@ rp1_doc_id: ca59e513-e02c-4d89-9748-5cc988c096c1
 ## 1. Design Overview
 Socratic Duel is a tracked `rp1-base` strategy workflow for running a bounded, evidence-driven debate between two agents inside a local Markdown document.
 
-The implemented design uses a deliberately thin backend. `rp1 agent-tools socratic-duel` owns only participant registration and cross-process lock lease lifecycle. Lease tokens are owner-only capabilities returned only by successful `claim-lock` and `refresh-lock` calls, and closing requires the current unexpired owner token. Agents own the debate record itself: parsing the target Markdown, deriving local state, selecting templates, enforcing turn rules, updating the managed region, and deciding terminal outcomes.
+The implemented design uses a deliberately thin backend. `rp1 agent-tools socratic-duel` owns only participant registration and cross-process lock lease lifecycle. Lease tokens are owner-only capabilities returned only by successful `claim-lock` and `refresh-lock` calls, and closing requires the current unexpired owner token. A bounded timeout uses `claim-lock --for-timeout` to acquire the same kind of lease before writing a durable `TIMEOUT` conclusion and closing the context. Agents own the debate record itself: parsing the target Markdown, deriving local state, selecting templates, enforcing turn rules, updating the managed region, and deciding terminal outcomes.
 
 The target Markdown file is the debate source of truth. SQLite is only the lock service used to prevent simultaneous writes.
 
@@ -36,7 +36,7 @@ flowchart TB
 The feature has four responsibilities with a strict ownership boundary:
 
 - **Workflow prompt**: `plugins/base/skills/socratic-duel/SKILL.md` defines the tracked workflow, participant behavior, state machine, local Markdown stewardship, turn rules, terminal outcomes, and event emission protocol.
-- **Lock backend**: `cli/src/agent-tools/socratic-duel/` exposes `join`, `status`, `claim-lock`, `refresh-lock`, and `release-lock`. It validates readable/writable path and participant inputs, records participants, grants one active lease, clears expired leases, redacts lease tokens from status output, and closes the lock context only for the current unexpired owner token.
+- **Lock backend**: `cli/src/agent-tools/socratic-duel/` exposes `join`, `status`, `claim-lock`, `refresh-lock`, and `release-lock`. It validates readable/writable path and participant inputs, records participants, grants one active lease, clears expired leases, redacts lease tokens from status output, supports timeout lease acquisition when no active owner remains, and closes the lock context only for the current unexpired owner token.
 - **Template source**: `plugins/base/skills/artifact-templates/templates/socratic-duel/managed-debate-region.md` provides the managed-region shape. The agent reads and applies the template; TypeScript does not render it.
 - **Markdown record**: The target Markdown document contains the bounded debate region. Agents preserve surrounding content, append accepted turns, update participant/conclusion metadata, and detect local invalidation.
 
@@ -116,11 +116,11 @@ stateDiagram-v2
     load_template --> claim_lock : ready
     wait_peer --> status_check : retry
     status_check --> claim_lock : peer_ready
-    status_check --> adjourn : wait_timeout
+    status_check --> claim_lock : wait_timeout
     claim_lock --> compose_turn : lock_acquired
+    claim_lock --> update_markdown : timeout_lock_acquired
     claim_lock --> wait_turn : peer_has_lock
     wait_turn --> status_check : retry
-    wait_turn --> adjourn : wait_timeout
     compose_turn --> update_markdown : turn_ready
     update_markdown --> release_lock : markdown_updated
     release_lock --> wait_turn : yielded
@@ -142,7 +142,7 @@ The TypeScript backend is intentionally narrow:
 |---------|----------------|
 | `join` | Validate absolute Markdown target, create or resume an active lock context, and register one of two participants. |
 | `status` | Return participant count, active/closed status, current lock owner, and lease expiry while redacting the lease token. |
-| `claim-lock` | Atomically acquire the lock when two participants exist and no unexpired peer lock is active; only successful acquisition returns the lease token. |
+| `claim-lock` | Atomically acquire the lock when two participants exist and no unexpired peer lock is active; only successful acquisition returns the lease token. With `--for-timeout`, acquire the same lease for a bounded timeout conclusion when no active owner remains, including the no-peer case. |
 | `refresh-lock` | Extend the current participant's unexpired lease when the token matches; only successful refresh returns the token. |
 | `release-lock` | Release the current participant's lock and optionally close the context; close requires an active owned lease. |
 
@@ -160,7 +160,7 @@ After acquiring the lock, the agent:
 7. Appends at most one accepted turn while preserving all surrounding content.
 8. Releases the lock after the write, yielding to peer status checks. Terminal close happens only while still holding the active owner token.
 
-Timeout handling follows the same ownership rule. If a bounded wait expires, the agent may write a `TIMEOUT` conclusion only after acquiring the lock. If no lock can be acquired, it emits terminal workflow status without editing the Markdown or closing the backend context.
+Timeout handling follows the same ownership rule. If a bounded wait expires, the agent must use `claim-lock --for-timeout` to acquire a lease before writing a `TIMEOUT` conclusion. If a peer owns an unexpired lease, the agent continues bounded wait/status checks until expiry instead of declaring terminal status. The terminal `adjourn` event is emitted only after the Markdown conclusion is written and `release-lock --close` returns `closed: true`.
 
 The managed region is bounded by `rp1:socratic-duel` HTML comments. Accepted prior turns are append-only by prompt contract. Duplicate regions, malformed markers, duplicate or skipped turn numbers, prior-turn edits, unexpected concurrent changes, or lock ownership failures result in `INVALIDATED`.
 
@@ -256,6 +256,7 @@ No custom event types are required for v1.
 | `refresh-lock` requires owner and token | Integration | A peer cannot extend another participant's lease. |
 | `release-lock` requires active owner/token and can close only from that lease | Integration | Lock contexts clear safely and non-owners cannot terminate active contexts. |
 | Status and denied lock calls redact lease tokens | Integration | Lease tokens remain owner-only capabilities. |
+| Timeout lease can close a no-peer duel | Integration | Bounded waits produce durable Markdown outcomes and closed backend contexts without ownerless close. |
 | Participant ordering is deterministic | Unit/integration | Tied timestamps still produce stable participant ordering. |
 | Schema migration removes content state | Unit | Superseded turn/content tables are not required for the lock-only backend. |
 | Skill contract forbids backend content parsing | Unit | Prompt text preserves the agent-owned Markdown/template boundary. |
@@ -306,3 +307,4 @@ Rollback:
 | D7 | Debate budget | Hard v1 ceiling of 6 turns | Direct requirement and anti-sycophancy constraint. | Configurable turn budget; rejected for v1 because higher limits are explicitly out of bounds. |
 | D8 | Visibility | Existing `emit` event types with participant/turn units | Uses the current Arcade event model without adding custom event types. | New event type for duel turns; rejected because status/unit plus artifact registration covers v1 visibility. |
 | D9 | Lease authority | Lease tokens are owner-only and close requires an active owned lease | A token is the write capability; exposing it through status or allowing close without ownership lets peers terminate or mutate contexts they do not own. | Status-visible tokens or ownerless close; rejected because they break the lock contract. |
+| D10 | Timeout closure | `claim-lock --for-timeout` grants a normal lease for durable `TIMEOUT` conclusion writes when no active owner remains | This preserves no-write-without-lock while satisfying terminal outcome durability and same-path active-context closure. | Terminal event without Markdown/close; rejected because it creates split state. Ownerless close; rejected because it bypasses lease authority. |

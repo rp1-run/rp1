@@ -1281,6 +1281,7 @@ Subcommands:
 Examples:
   rp1 agent-tools socratic-duel join --target /tmp/plan.md --participant-name codex --harness codex --model-id gpt-5
   rp1 agent-tools socratic-duel claim-lock --duel-id <id> --participant-id <id>
+  rp1 agent-tools socratic-duel claim-lock --duel-id <id> --participant-id <id> --for-timeout
   rp1 agent-tools socratic-duel refresh-lock --duel-id <id> --participant-id <id> --lease-token <token>
   rp1 agent-tools socratic-duel release-lock --duel-id <id> --participant-id <id> --lease-token <token>
 `,
@@ -1356,15 +1357,22 @@ socraticDuelCommand
 	.description("Acquire the lock or receive bounded wait guidance")
 	.requiredOption("--duel-id <id>", "Duel ID")
 	.requiredOption("--participant-id <id>", "Participant ID")
+	.option(
+		"--for-timeout",
+		"Acquire a lock for writing a bounded-wait timeout conclusion",
+		false,
+	)
 	.action(
 		async (options: {
 			duelId: string;
 			participantId: string;
+			forTimeout: boolean;
 		}): Promise<void> => {
 			const toolName = "socratic-duel";
 			const result = await executeSocraticDuelClaimLock({
 				duelId: options.duelId,
 				participantId: options.participantId,
+				forTimeout: options.forTimeout,
 			})();
 
 			if (E.isLeft(result)) {

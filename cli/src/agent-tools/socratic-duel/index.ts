@@ -144,7 +144,7 @@ const claimNextStep = (
 		return "closed";
 	}
 	if (decision.acquired) {
-		return "compose_turn";
+		return decision.forTimeout ? "update_markdown" : "compose_turn";
 	}
 	return decision.participants.length < 2 ? "wait_peer" : "wait_turn";
 };

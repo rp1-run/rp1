@@ -71,11 +71,11 @@ stateDiagram-v2
     load_template --> claim_lock : ready
     wait_peer --> status_check : retry
     status_check --> claim_lock : peer_ready
-    status_check --> adjourn : wait_timeout
+    status_check --> claim_lock : wait_timeout
     claim_lock --> compose_turn : lock_acquired
+    claim_lock --> update_markdown : timeout_lock_acquired
     claim_lock --> wait_turn : peer_has_lock
     wait_turn --> status_check : retry
-    wait_turn --> adjourn : wait_timeout
     compose_turn --> update_markdown : turn_ready
     update_markdown --> release_lock : markdown_updated
     release_lock --> wait_turn : yielded
@@ -172,6 +172,8 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --data '{"status":"completed","event":"markdown_updated","duel_id":"{duel_id}","participant_id":"{participant_id}","candidate_convergence":"{candidate_convergence}","terminal_outcome":"{terminal_outcome}","target":"{TARGET_PATH}"}'
 ```
 
+Terminal conclusion Markdown updates use the same event with `--unit conclusion:{terminal_outcome}` when no new turn is appended.
+
 Candidate convergence emits `btw_update` only:
 
 ```bash
@@ -213,13 +215,15 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
 3. **wait_peer/status_check**
    - If fewer than 2 participants are registered, emit `participant_waiting` with `--step wait_peer`.
    - Poll `rp1 agent-tools socratic-duel status --duel-id "{duel_id}"` only within bounded wait guidance.
-   - If timeout expires, do not edit Markdown from `status` alone. First attempt `claim-lock` when the tool says no peer owns an unexpired lock and two participants are registered.
-   - If the timeout claim succeeds, record `TIMEOUT` in the Markdown conclusion while holding the returned `lease_token`, then run `release-lock --close` with that same token.
-   - If no lock can be acquired, emit terminal `adjourn` with `TIMEOUT` and stop without editing the Markdown or closing the lock context.
+   - If timeout expires, do not edit Markdown from `status` alone. First run `rp1 agent-tools socratic-duel claim-lock --duel-id "{duel_id}" --participant-id "{participant_id}" --for-timeout`.
+   - `--for-timeout` may acquire a lease after bounded waiting even if the second participant never joined, but it still refuses when a peer owns an unexpired lock.
+   - If the timeout claim succeeds, transition to `update_markdown`, record `TIMEOUT` in the Markdown conclusion while holding the returned `lease_token`, then run `release-lock --close` with that same token.
+   - If the timeout claim does not acquire a lock because a peer owns an unexpired lease, emit `participant_waiting` with the returned wait guidance and continue bounded `wait_turn/status_check`; do not emit terminal `adjourn`.
    - If waiting, explain the bounded wait briefly; do not ask open-ended questions.
 
 4. **claim_lock**
    - Run `rp1 agent-tools socratic-duel claim-lock --duel-id "{duel_id}" --participant-id "{participant_id}"`.
+   - Use `--for-timeout` only from the bounded timeout path. Do not use it for ordinary turn acquisition.
    - If peer owns an unexpired lock, emit `participant_waiting` with `--step wait_turn`, then transition to `wait_turn`.
    - If lock is acquired, capture `lease_token` and `lease_expires_at`; emit `lock_acquired`.
    - Never look for `lease_token` in `status`; only a successful `claim-lock` or `refresh-lock` result can provide a usable token.
@@ -236,10 +240,10 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
 6. **update_markdown**
    - Update only the managed region in `{TARGET_PATH}`. Preserve prefix and suffix byte-for-byte.
    - Add or update the participant table from local participant state plus backend participant identities.
-   - Append the new turn; never rewrite accepted prior turns except to restore exact template metadata before the first accepted turn.
+   - Append the new turn; never rewrite accepted prior turns except to restore exact template metadata before the first accepted turn. For a timeout lock, append no turn and update only the conclusion metadata/body with `TIMEOUT`.
    - Update candidate convergence and conclusion locally. Candidate convergence is advisory and never terminal by itself.
    - Re-read before writing if needed to confirm the lock owner still has the latest document version; if the managed region changed unexpectedly, stop with `INVALIDATED`.
-   - Emit `markdown_updated` with `--unit turn:{turn_number}`. Emit `btw_update` if candidate convergence is true and no terminal outcome exists.
+   - Emit `markdown_updated` with `--unit turn:{turn_number}` for turn writes or `--unit conclusion:{terminal_outcome}` for terminal conclusion-only writes. Emit `btw_update` if candidate convergence is true and no terminal outcome exists.
 
 7. **release_lock**
    - Non-terminal: run `rp1 agent-tools socratic-duel release-lock --duel-id "{duel_id}" --participant-id "{participant_id}" --lease-token "{lease_token}"`.
@@ -249,7 +253,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
    - If terminal, transition to `adjourn`.
 
 8. **adjourn**
-   - Emit terminal `adjourn` with the exact outcome and summary already written in Markdown, except timeout paths that could not acquire a lock must report `TIMEOUT` without claiming a Markdown update.
+   - Emit terminal `adjourn` with the exact outcome and summary already written in Markdown and, when applicable, after `release-lock --close` has returned `closed: true`.
    - Report the outcome and target path succinctly.
 
 §TURN_MARKDOWN

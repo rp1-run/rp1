@@ -51,6 +51,7 @@ export interface DuelSnapshot {
 
 export interface ClaimLockDecision extends DuelSnapshot {
 	readonly acquired: boolean;
+	readonly forTimeout: boolean;
 	readonly reason: string | null;
 	readonly retryAfterSeconds: number;
 	readonly waitUntil: string | null;
@@ -353,6 +354,7 @@ export const claimLock = (
 ): TE.TaskEither<CLIError, ClaimLockDecision> =>
 	withDb(dbPath, (db) =>
 		transaction(db, () => {
+			const forTimeout = input.forTimeout === true;
 			assertParticipantInDuel(db, input.duelId, input.participantId);
 			let snapshot = snapshotSync(db, input.duelId);
 			clearExpiredLockSync(db, snapshot.duel);
@@ -362,16 +364,18 @@ export const claimLock = (
 				return {
 					...snapshot,
 					acquired: false,
+					forTimeout,
 					reason: `Duel lock context is closed`,
 					retryAfterSeconds: 0,
 					waitUntil: null,
 				};
 			}
 
-			if (snapshot.participants.length < 2) {
+			if (snapshot.participants.length < 2 && !forTimeout) {
 				return {
 					...snapshot,
 					acquired: false,
+					forTimeout,
 					reason: "Waiting for a second participant",
 					retryAfterSeconds: RETRY_AFTER_SECONDS,
 					waitUntil: null,
@@ -382,6 +386,7 @@ export const claimLock = (
 				return {
 					...snapshot,
 					acquired: false,
+					forTimeout,
 					reason:
 						snapshot.duel.currentOwnerId === input.participantId
 							? "Participant already owns an active lock; use refresh-lock"
@@ -412,6 +417,7 @@ export const claimLock = (
 			return {
 				...snapshot,
 				acquired: true,
+				forTimeout,
 				reason: null,
 				retryAfterSeconds: RETRY_AFTER_SECONDS,
 				waitUntil: leaseExpiresAt,

@@ -36,6 +36,7 @@ export interface JoinInput {
 export interface ClaimLockInput {
 	readonly duelId: string;
 	readonly participantId: string;
+	readonly forTimeout?: boolean;
 }
 
 export interface RefreshLockInput {
@@ -86,7 +87,12 @@ export interface ClaimLockResult {
 	readonly retry_after_seconds: number;
 	readonly wait_until: string | null;
 	readonly reason: string | null;
-	readonly next_step: "compose_turn" | "wait_peer" | "wait_turn" | "closed";
+	readonly next_step:
+		| "compose_turn"
+		| "update_markdown"
+		| "wait_peer"
+		| "wait_turn"
+		| "closed";
 }
 
 export interface RefreshLockResult {

@@ -83,6 +83,48 @@ describe("socratic-duel lock coordinator", () => {
 		expect(status.data.lock.expired).toBe(false);
 	});
 
+	test("claims a timeout lease before closing a no-peer duel", async () => {
+		const first = await joinParticipant("participant-a");
+
+		const normalClaim = await claimLock(first.duel_id, first.participant_id);
+		expect(normalClaim.success).toBe(true);
+		expect(normalClaim.data.acquired).toBe(false);
+		expect(normalClaim.data.reason).toBe("Waiting for a second participant");
+		expect(normalClaim.data.lease_token).toBeNull();
+		expect(normalClaim.data.next_step).toBe("wait_peer");
+
+		const timeoutClaim = await expectTaskRight(
+			executeClaimLock(
+				{
+					duelId: first.duel_id,
+					participantId: first.participant_id,
+					forTimeout: true,
+				},
+				dbPath,
+			),
+		);
+		expect(timeoutClaim.success).toBe(true);
+		expect(timeoutClaim.data.acquired).toBe(true);
+		expect(typeof timeoutClaim.data.lease_token).toBe("string");
+		expect(timeoutClaim.data.owner_participant_id).toBe(first.participant_id);
+		expect(timeoutClaim.data.next_step).toBe("update_markdown");
+
+		const closed = await expectTaskRight(
+			executeReleaseLock(
+				{
+					duelId: first.duel_id,
+					participantId: first.participant_id,
+					leaseToken: timeoutClaim.data.lease_token ?? "",
+					close: true,
+				},
+				dbPath,
+			),
+		);
+		expect(closed.success).toBe(true);
+		expect(closed.data.closed).toBe(true);
+		expect(closed.data.status).toBe("CLOSED");
+	});
+
 	test("rejects invalid targets and a third participant", async () => {
 		const relativeTarget = await executeJoin(
 			{
@@ -164,6 +206,21 @@ describe("socratic-duel lock coordinator", () => {
 		expect(peerClaim.data.owner_participant_id).toBe(first.participant_id);
 		expect(peerClaim.data.reason).toBe("Peer owns an unexpired lock");
 		expect(peerClaim.data.next_step).toBe("wait_turn");
+
+		const peerTimeoutClaim = await expectTaskRight(
+			executeClaimLock(
+				{
+					duelId: first.duel_id,
+					participantId: second.participant_id,
+					forTimeout: true,
+				},
+				dbPath,
+			),
+		);
+		expect(peerTimeoutClaim.success).toBe(true);
+		expect(peerTimeoutClaim.data.acquired).toBe(false);
+		expect(peerTimeoutClaim.data.lease_token).toBeNull();
+		expect(peerTimeoutClaim.data.reason).toBe("Peer owns an unexpired lock");
 	});
 
 	test("refreshes only the current owner's matching lock token", async () => {

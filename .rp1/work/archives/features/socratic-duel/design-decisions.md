@@ -22,6 +22,7 @@ rp1_doc_id: 4660b783-5f41-4303-957c-205091e705eb
 | D9 | Visibility | Existing `emit` event types with participant/turn units | Uses the current Arcade event model without adding custom event types. | New event type for duel turns; rejected because status/unit plus artifact registration covers v1 visibility. |
 | D10 | Timeout default | 15-minute lock lease in v1 | Provides bounded waiting without making cross-harness handoffs too brittle. | Indefinite wait; rejected by requirements. Very short timeout; rejected as too fragile for manual cross-harness use. |
 | D11 | Lease capability visibility | Status and denied lock attempts redact lease tokens; close requires an active owned lease | The lease token is the write capability for the target document, so only successful owner acquisition/refresh may reveal it. Closing without current ownership would let peers terminate contexts they do not own. | Return token from status or allow ownerless `release-lock --close`; rejected because both break the lock-only safety contract. |
+| D12 | Timeout close path | `claim-lock --for-timeout` acquires a normal lease before writing `TIMEOUT` and closing | Requirements need durable Markdown terminal outcomes and closed active contexts; the timeout mode keeps that durable close tied to lease ownership even when no peer joined. | Emit terminal workflow status without Markdown/close; rejected as split state. Ownerless close; rejected because it bypasses lease authority. |
 
 ---
 
@@ -36,7 +37,8 @@ rp1_doc_id: 4660b783-5f41-4303-957c-205091e705eb
 | Coordination API | Lock-only `rp1 agent-tools socratic-duel` tool | Existing `task` and `emit` agent-tool patterns | The backend only needs to register participants and serialize write access. |
 | Turn limit | 6 total turns | Requirements REQ-004 | V1 explicitly caps debate at 3 turn pairs. |
 | Lock lease | 15 minutes | Conservative default | Meets bounded wait requirements while allowing cross-harness handoff time. |
-| Close authority | Active owner token | Lock service contract | Terminal Markdown writes and backend close must be tied to the same current lease; timeout paths that cannot acquire a lock emit terminal status without editing Markdown. |
+| Close authority | Active owner token | Lock service contract | Terminal Markdown writes and backend close must be tied to the same current lease; timeout paths acquire a timeout lease before writing and closing. |
+| Timeout lease | `claim-lock --for-timeout` | Lock service contract | Bounded waits can become durable `TIMEOUT` conclusions without backend debate-state ownership or ownerless close. |
 | Artifact registration | Absolute Markdown artifact | Existing `artifact_registered` storageRoot contract | Target documents may live outside `.rp1/work`, so `storageRoot: "absolute"` is required. |
 | Template source | `rp1-base:artifact-templates` | Artifact template contract | Agents should use the central managed-region template instead of backend template management. |
 | Test approach | Unit-heavy with focused integrations | KB `patterns.md:Testing` | Tests should cover lock behavior, schema migration, and prompt/template boundary contracts without testing agent semantic judgment in TypeScript. |

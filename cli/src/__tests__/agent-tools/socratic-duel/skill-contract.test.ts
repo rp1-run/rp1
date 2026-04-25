@@ -18,9 +18,10 @@ describe("socratic-duel skill contract", () => {
 			"load_template --> wait_peer : peer_missing",
 			"load_template --> claim_lock : ready",
 			"status_check --> claim_lock : peer_ready",
+			"status_check --> claim_lock : wait_timeout",
 			"claim_lock --> compose_turn : lock_acquired",
+			"claim_lock --> update_markdown : timeout_lock_acquired",
 			"claim_lock --> wait_turn : peer_has_lock",
-			"wait_turn --> adjourn : wait_timeout",
 			"compose_turn --> update_markdown : turn_ready",
 			"update_markdown --> release_lock : markdown_updated",
 			"release_lock --> wait_turn : yielded",
@@ -54,6 +55,8 @@ describe("socratic-duel skill contract", () => {
 		expect(content).toContain(
 			"only a successful `claim-lock` or `refresh-lock` result can provide a usable token",
 		);
+		expect(content).toContain("--for-timeout");
+		expect(content).toContain("--unit conclusion:{terminal_outcome}");
 
 		expect(content).toContain("--type artifact_registered");
 		expect(content).toContain('"path":"{TARGET_PATH}"');

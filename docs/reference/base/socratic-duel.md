@@ -72,8 +72,9 @@ paths invalidate the attempt without modifying unrelated files.
 Waiting is always bounded and non-interactive. If a peer has not joined or the
 peer owns the lock, the agent follows the workflow's retry guidance and exits
 with `TIMEOUT` when the bounded wait expires. Timeout Markdown conclusions are
-written only after acquiring the lock; otherwise the agent emits the terminal
-workflow event without editing the document or closing the context.
+written only after acquiring a timeout lease, and terminal workflow status is
+emitted only after the Markdown conclusion is written and the backend context is
+closed.
 
 ## Backend Lock Commands
 
@@ -83,7 +84,7 @@ The workflow uses these commands internally:
 |---------|----------------|
 | `join` | Create or resume an active lock context and register a participant |
 | `status` | Return participant count and current lock owner/expiry, with lease token redacted |
-| `claim-lock` | Acquire the exclusive document lock or receive wait guidance; only successful acquisition returns a lease token |
+| `claim-lock` | Acquire the exclusive document lock or receive wait guidance; only successful acquisition returns a lease token. `--for-timeout` acquires the same lease for a bounded-wait `TIMEOUT` conclusion when no active owner remains. |
 | `refresh-lock` | Extend the current owner's lease while composing or writing; only successful refresh returns the token |
 | `release-lock` | Release the lock, optionally closing the lock context with an active owned lease |
 
