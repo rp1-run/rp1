@@ -103,14 +103,14 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --data '{"status":"running","target":"{TARGET_PATH}","topic":"{TOPIC}"}'
 ```
 
-After `join` succeeds, register the debate artifact once using the path relative to `workRoot`:
+Emit `artifact_registered` exactly once, immediately after the first Write that creates `{debate_path}` (in `debating`). Path is relative to `workRoot`:
 
 ```bash
 rp1 agent-tools emit --harness $CURRENT_HOST \
   --workflow socratic-duel \
   --type artifact_registered \
   --run-id {RUN_ID} \
-  --step preparing \
+  --step debating \
   --data '{"path":"debates/{DEBATE_FILENAME}","storageRoot":"work_dir","type":"markdown","source_path":"{source_path}","topic":"{topic}","duel_id":"{duel_id}"}'
 ```
 
@@ -236,7 +236,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
        --run-id "{RUN_ID}"
      ```
    - Parse tool result data for `duel_id`, `participant_id`, `participant_count`, `status`, `source_path`, `topic`, `topic_slug`, `debate_path`, and `next_step`.
-   - Register the work-root debate artifact and emit `participant_registered` with `--unit participant:{participant_id}`.
+   - Emit `participant_registered` with `--unit participant:{participant_id}`. Do not emit `artifact_registered` yet -- defer until the first Write creates `{debate_path}` in `debating`.
    - Read `plugins/base/skills/artifact-templates/SKILL.md`.
    - Locate row where **Producer** = `socratic-duel` and **Artifact** = `debate-artifact.md`.
    - Read the listed template path under `plugins/base/skills/artifact-templates/`.
@@ -261,7 +261,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
    - Never look for `lease_token` in `status`; only a successful `claim-lock` or `refresh-lock` result can provide a usable token.
    - While composing or updating, run `refresh-lock` before the lease approaches expiry.
    - Read `{TARGET_PATH}` for evidence after acquiring the lock.
-   - Read `{debate_path}` if it exists. If missing, create it from the loaded `debate-artifact.md` template while holding the lease.
+   - Read `{debate_path}` if it exists. If missing, create it from the loaded `debate-artifact.md` template while holding the lease, then emit `artifact_registered` exactly once.
    - Derive local debate state from the debate artifact only: participants, prior turns, next turn number, latest stance per participant, candidate convergence, and terminal readiness.
    - Preserve accepted prior turns exactly. Duplicate/skipped turn numbers, changed prior accepted turns, malformed terminal metadata, or unsafe artifact structure mean `INVALIDATED`.
    - Enforce alternation locally. The same participant cannot append twice in a row unless peer timeout is explicitly recorded in the artifact.
@@ -298,7 +298,9 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
 Each accepted turn MUST include these headings:
 
 ```markdown
-#### Turn {N} - {Participant} ({Harness} / {Model}) - {STANCE}
+---
+
+## Turn {N} — {Participant} ({Harness} / {Model}) — {STANCE}
 
 **Position**
 ...

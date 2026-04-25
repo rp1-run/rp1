@@ -39,20 +39,7 @@ emit_hint: |
 |-------------|---------|-------|--------|
 {PARTICIPANT_ROWS}
 
-## Turns
-
 {TURN_SECTIONS}
-
-### Turn {TURN_NUMBER}: {PARTICIPANT_NAME}
-
-**Position**: {POSITION}
-**Counterpoint**: {COUNTERPOINT}
-**Agreement**: {AGREEMENT}
-**Novel Argument**: {NOVEL_ARGUMENT}
-**Unresolved Item**: {UNRESOLVED_ITEM}
-**Stance**: {STANCE}
-**Evidence**:
-- `{SOURCE_REFERENCE}` - {EVIDENCE_SUMMARY}
 
 ## Terminal Conclusion
 
