@@ -78,6 +78,8 @@ describe("socratic-duel lock coordinator", () => {
 		);
 		expect(status.data.participant_count).toBe(1);
 		expect(status.data.lock.owner_participant_id).toBeNull();
+		expect(status.data.lock.lease_token).toBeNull();
+		expect(status.data.duel.leaseToken).toBeNull();
 		expect(status.data.lock.expired).toBe(false);
 	});
 
@@ -148,9 +150,17 @@ describe("socratic-duel lock coordinator", () => {
 		expect(firstClaim.data.owner_participant_id).toBe(first.participant_id);
 		expect(firstClaim.data.next_step).toBe("compose_turn");
 
+		const status = await expectTaskRight(
+			executeStatus({ duelId: first.duel_id }, dbPath),
+		);
+		expect(status.data.lock.owner_participant_id).toBe(first.participant_id);
+		expect(status.data.lock.lease_token).toBeNull();
+		expect(status.data.duel.leaseToken).toBeNull();
+
 		const peerClaim = await claimLock(first.duel_id, second.participant_id);
 		expect(peerClaim.success).toBe(true);
 		expect(peerClaim.data.acquired).toBe(false);
+		expect(peerClaim.data.lease_token).toBeNull();
 		expect(peerClaim.data.owner_participant_id).toBe(first.participant_id);
 		expect(peerClaim.data.reason).toBe("Peer owns an unexpired lock");
 		expect(peerClaim.data.next_step).toBe("wait_turn");
@@ -174,6 +184,7 @@ describe("socratic-duel lock coordinator", () => {
 		);
 		expect(rejectedPeer.success).toBe(true);
 		expect(rejectedPeer.data.refreshed).toBe(false);
+		expect(rejectedPeer.data.lease_token).toBeNull();
 		expect(rejectedPeer.data.reason).toBe(
 			"Participant does not own this lock token",
 		);
@@ -227,11 +238,54 @@ describe("socratic-duel lock coordinator", () => {
 		expect(released.success).toBe(true);
 		expect(released.data.released).toBe(true);
 		expect(released.data.owner_participant_id).toBeNull();
-		expect(released.data.next_step).toBe("claim_lock");
+		expect(released.data.next_step).toBe("wait_turn");
 
 		const peerClaim = await claimLock(first.duel_id, second.participant_id);
 		expect(peerClaim.data.acquired).toBe(true);
 		expect(peerClaim.data.owner_participant_id).toBe(second.participant_id);
+	});
+
+	test("requires an active owned lease to close a lock context", async () => {
+		const first = await joinParticipant("participant-a");
+		const second = await joinParticipant("participant-b");
+
+		const noOwnerClose = await expectTaskRight(
+			executeReleaseLock(
+				{
+					duelId: first.duel_id,
+					participantId: first.participant_id,
+					close: true,
+				},
+				dbPath,
+			),
+		);
+		expect(noOwnerClose.success).toBe(true);
+		expect(noOwnerClose.data.closed).toBe(false);
+		expect(noOwnerClose.data.reason).toBe(
+			"Closing a duel requires an active lock owned by this participant",
+		);
+
+		const claim = await claimLock(first.duel_id, first.participant_id);
+		const peerClose = await expectTaskRight(
+			executeReleaseLock(
+				{
+					duelId: first.duel_id,
+					participantId: second.participant_id,
+					leaseToken: claim.data.lease_token ?? "",
+					close: true,
+				},
+				dbPath,
+			),
+		);
+
+		expect(peerClose.success).toBe(true);
+		expect(peerClose.data.released).toBe(false);
+		expect(peerClose.data.closed).toBe(false);
+		expect(peerClose.data.status).toBe("ACTIVE");
+		expect(peerClose.data.owner_participant_id).toBe(first.participant_id);
+		expect(peerClose.data.reason).toBe(
+			"Closing a duel requires an active lock owned by this participant",
+		);
 	});
 
 	test("lets a peer claim after lock expiry and rejects stale refresh", async () => {

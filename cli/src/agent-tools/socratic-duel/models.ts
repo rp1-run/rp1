@@ -107,7 +107,7 @@ export interface ReleaseLockResult {
 	readonly status: DuelStatus;
 	readonly owner_participant_id: string | null;
 	readonly reason: string | null;
-	readonly next_step: "claim_lock" | "closed";
+	readonly next_step: "claim_lock" | "wait_turn" | "closed";
 }
 
 export interface ValidationIssue {

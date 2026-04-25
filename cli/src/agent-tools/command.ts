@@ -1265,17 +1265,18 @@ const socraticDuelCommand = agentToolsCommand
 		`
 Description:
   Provides deterministic lock coordination for the Socratic Duel workflow. The
-  tool validates the target Markdown path, registers participants, grants one
-  exclusive lock lease at a time, refreshes active leases, and releases or closes
-  lock contexts. Agents own document parsing, debate state, Markdown updates,
-  template selection, candidate convergence, and terminal summaries.
+  tool validates the readable and writable target Markdown path, registers
+  participants, grants one exclusive lock lease at a time, refreshes active
+  leases, and releases or closes lock contexts. Closing requires the current
+  unexpired owner token. Agents own document parsing, debate state, Markdown
+  updates, template selection, candidate convergence, and terminal summaries.
 
 Subcommands:
   join          Create or resume an active lock context and register a participant
   status        Show participant and lease status
   claim-lock    Acquire the lock or receive bounded wait guidance
   refresh-lock  Extend the current owner's lease
-  release-lock  Release the current lock, optionally closing the context
+  release-lock  Release the current lock, optionally closing with an owned lease
 
 Examples:
   rp1 agent-tools socratic-duel join --target /tmp/plan.md --participant-name codex --harness codex --model-id gpt-5
@@ -1288,7 +1289,10 @@ Examples:
 socraticDuelCommand
 	.command("join")
 	.description("Create or resume an active duel and register a participant")
-	.requiredOption("--target <path>", "Absolute path to the Markdown target")
+	.requiredOption(
+		"--target <path>",
+		"Absolute path to the readable and writable Markdown target",
+	)
 	.requiredOption("--participant-name <name>", "Participant display name")
 	.requiredOption("--harness <name>", "Harness identity")
 	.option("--model-id <id>", "Model identity", "unknown-model")
@@ -1408,11 +1412,17 @@ socraticDuelCommand
 
 socraticDuelCommand
 	.command("release-lock")
-	.description("Release the current lock, optionally closing the context")
+	.description(
+		"Release the current lock, optionally closing with an owned lease",
+	)
 	.requiredOption("--duel-id <id>", "Duel ID")
 	.requiredOption("--participant-id <id>", "Participant ID")
 	.option("--lease-token <token>", "Lease token returned by claim-lock")
-	.option("--close", "Close the lock context after releasing", false)
+	.option(
+		"--close",
+		"Close the lock context after releasing an owned lease",
+		false,
+	)
 	.action(
 		async (options: {
 			duelId: string;

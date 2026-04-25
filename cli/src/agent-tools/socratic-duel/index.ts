@@ -160,12 +160,21 @@ const refreshNextStep = (
 
 const releaseNextStep = (
 	decision: ReleaseLockDecision,
-): ReleaseLockResult["next_step"] =>
-	decision.duel.status === "CLOSED" ? "closed" : "claim_lock";
+): ReleaseLockResult["next_step"] => {
+	if (decision.duel.status === "CLOSED") {
+		return "closed";
+	}
+	return decision.released ? "wait_turn" : "claim_lock";
+};
+
+const redactedDuel = (snapshot: DuelSnapshot): DuelSnapshot["duel"] => ({
+	...snapshot.duel,
+	leaseToken: null,
+});
 
 const lockStatus = (snapshot: DuelSnapshot): StatusResult["lock"] => ({
 	owner_participant_id: snapshot.duel.currentOwnerId,
-	lease_token: snapshot.duel.leaseToken,
+	lease_token: null,
 	lease_expires_at: snapshot.duel.leaseExpiresAt,
 	expired:
 		snapshot.duel.currentOwnerId !== null &&
@@ -243,7 +252,7 @@ export const executeStatus = (
 	TE.tryCatch(async () => {
 		const snapshot = await loadStatusSnapshot(input, dbPath);
 		return successResult(TOOL_NAME, {
-			duel: snapshot.duel,
+			duel: redactedDuel(snapshot),
 			participants: snapshot.participants,
 			participant_count: snapshot.participants.length,
 			lock: lockStatus(snapshot),
@@ -266,7 +275,7 @@ export const executeClaimLock = (
 			duel_id: decision.duel.id,
 			participant_id: input.participantId,
 			acquired: decision.acquired,
-			lease_token: decision.duel.leaseToken,
+			lease_token: decision.acquired ? decision.duel.leaseToken : null,
 			lease_expires_at: decision.duel.leaseExpiresAt,
 			owner_participant_id: decision.duel.currentOwnerId,
 			retry_after_seconds: decision.retryAfterSeconds,
@@ -291,7 +300,7 @@ export const executeRefreshLock = (
 			duel_id: decision.duel.id,
 			participant_id: input.participantId,
 			refreshed: decision.refreshed,
-			lease_token: decision.duel.leaseToken,
+			lease_token: decision.refreshed ? decision.duel.leaseToken : null,
 			lease_expires_at: decision.duel.leaseExpiresAt,
 			reason: decision.reason,
 			next_step: refreshNextStep(decision),

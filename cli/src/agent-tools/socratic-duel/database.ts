@@ -121,7 +121,7 @@ const withDb = <T>(
 	);
 
 const transaction = <T>(db: Database, operation: () => T): T => {
-	db.exec("BEGIN TRANSACTION");
+	db.exec("BEGIN IMMEDIATE TRANSACTION");
 	try {
 		const result = operation();
 		db.exec("COMMIT");
@@ -480,25 +480,56 @@ export const releaseLock = (
 		transaction(db, () => {
 			assertParticipantInDuel(db, input.duelId, input.participantId);
 			let snapshot = snapshotSync(db, input.duelId);
+			if (snapshot.duel.status !== "ACTIVE") {
+				return {
+					...snapshot,
+					released: false,
+					closed: snapshot.duel.status === "CLOSED",
+					reason: "Duel lock context is closed",
+				};
+			}
+
 			const hasActiveOwner =
 				snapshot.duel.currentOwnerId !== null &&
 				isLeaseActive(snapshot.duel.leaseExpiresAt);
+			const ownsActiveLock =
+				hasActiveOwner &&
+				snapshot.duel.currentOwnerId === input.participantId &&
+				input.leaseToken !== undefined &&
+				snapshot.duel.leaseToken === input.leaseToken;
 
-			if (hasActiveOwner) {
-				if (
-					snapshot.duel.currentOwnerId !== input.participantId ||
-					!input.leaseToken ||
-					snapshot.duel.leaseToken !== input.leaseToken
-				) {
-					return {
-						...snapshot,
-						released: false,
-						closed: false,
-						reason: "Participant does not own this active lock",
-					};
+			if (input.close && !ownsActiveLock) {
+				if (!hasActiveOwner) {
+					clearExpiredLockSync(db, snapshot.duel);
+					snapshot = snapshotSync(db, input.duelId);
 				}
-			} else {
+				return {
+					...snapshot,
+					released: false,
+					closed: false,
+					reason:
+						"Closing a duel requires an active lock owned by this participant",
+				};
+			}
+
+			if (hasActiveOwner && !ownsActiveLock) {
+				return {
+					...snapshot,
+					released: false,
+					closed: false,
+					reason: "Participant does not own this active lock",
+				};
+			}
+
+			if (!hasActiveOwner) {
 				clearExpiredLockSync(db, snapshot.duel);
+				snapshot = snapshotSync(db, input.duelId);
+				return {
+					...snapshot,
+					released: false,
+					closed: false,
+					reason: "No active lock to release",
+				};
 			}
 
 			db.prepare(

@@ -9,26 +9,26 @@ Run a bounded, evidence-driven two-agent debate in a local Markdown document wit
 === "Claude Code"
 
     ```bash
-    /socratic-duel TARGET_PATH=/absolute/path/to/document.md
+    /socratic-duel TARGET_PATH=/absolute/path/to/document.md PARTICIPANT_NAME=Claude
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-base-socratic-duel TARGET_PATH=/absolute/path/to/document.md
+    /rp1-base-socratic-duel TARGET_PATH=/absolute/path/to/document.md PARTICIPANT_NAME=OpenCode
     ```
 
 === "Codex"
 
     ```bash
-    $rp1-base-socratic-duel TARGET_PATH=/absolute/path/to/document.md
+    $rp1-base-socratic-duel TARGET_PATH=/absolute/path/to/document.md PARTICIPANT_NAME=Codex
     ```
 
 ## Description
 
 The `socratic-duel` workflow attaches one managed debate region to a readable
-local Markdown file. Two participants, usually from different AI harnesses,
-join the same duel by using the same absolute `TARGET_PATH`.
+and writable local Markdown file. Two participants, usually from different AI
+harnesses, join the same duel by using the same absolute `TARGET_PATH`.
 
 The backend tool is intentionally thin. `rp1 agent-tools socratic-duel`
 registers participants and controls one exclusive lock lease at a time. The
@@ -40,9 +40,9 @@ updates using the existing `rp1-base:artifact-templates` reference.
 
 Socratic Duel deliberately keeps debate-state intelligence out of TypeScript.
 The backend is a lock service, not a debate engine. It stores participant
-identity, active/closed status, current lock owner, lease token, and lease
-expiry. It does not store turn bodies, candidate state, terminal summaries, or
-template-rendered Markdown.
+identity, active/closed status, current lock owner, owner-only lease token, and
+lease expiry. Public status output redacts the token. It does not store turn
+bodies, candidate state, terminal summaries, or template-rendered Markdown.
 
 Agents derive all debate state from the target Markdown after acquiring the
 lock. They are responsible for detecting malformed managed regions, preserving
@@ -61,17 +61,19 @@ Socratic Duel is intentionally bounded:
 
 | Argument | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `TARGET_PATH` | Yes | - | Absolute path to the local Markdown document to debate |
-| `PARTICIPANT_NAME` | No | Host identity | Display identity recorded for this participant |
+| `TARGET_PATH` | Yes | - | Absolute path to the readable and writable local Markdown document to debate |
+| `PARTICIPANT_NAME` | Yes | - | Unique display identity recorded for this participant |
 | `MODEL_ID` | No | `unknown-model` | Model identity recorded with participant turns |
 
-`TARGET_PATH` must be an absolute path to a readable `.md` or `.markdown`
-file. Missing, unreadable, relative, or non-Markdown paths invalidate the
-attempt without modifying unrelated files.
+`TARGET_PATH` must be an absolute path to a readable and writable `.md` or
+`.markdown` file. Missing, unreadable, unwritable, relative, or non-Markdown
+paths invalidate the attempt without modifying unrelated files.
 
 Waiting is always bounded and non-interactive. If a peer has not joined or the
 peer owns the lock, the agent follows the workflow's retry guidance and exits
-with `TIMEOUT` when the bounded wait expires.
+with `TIMEOUT` when the bounded wait expires. Timeout Markdown conclusions are
+written only after acquiring the lock; otherwise the agent emits the terminal
+workflow event without editing the document or closing the context.
 
 ## Backend Lock Commands
 
@@ -80,10 +82,10 @@ The workflow uses these commands internally:
 | Command | Responsibility |
 |---------|----------------|
 | `join` | Create or resume an active lock context and register a participant |
-| `status` | Return participant count and current lock owner/expiry |
-| `claim-lock` | Acquire the exclusive document lock or receive wait guidance |
-| `refresh-lock` | Extend the current owner's lease while composing or writing |
-| `release-lock` | Release the lock, optionally closing the lock context |
+| `status` | Return participant count and current lock owner/expiry, with lease token redacted |
+| `claim-lock` | Acquire the exclusive document lock or receive wait guidance; only successful acquisition returns a lease token |
+| `refresh-lock` | Extend the current owner's lease while composing or writing; only successful refresh returns the token |
+| `release-lock` | Release the lock, optionally closing the lock context with an active owned lease |
 
 The backend does not parse or render Markdown, validate turn content, derive
 candidate convergence, choose terminal outcomes, or manage templates.

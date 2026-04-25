@@ -23,7 +23,7 @@ describe("socratic-duel skill contract", () => {
 			"wait_turn --> adjourn : wait_timeout",
 			"compose_turn --> update_markdown : turn_ready",
 			"update_markdown --> release_lock : markdown_updated",
-			"release_lock --> claim_lock : continue",
+			"release_lock --> wait_turn : yielded",
 			"release_lock --> adjourn : terminal",
 			"adjourn --> [*]",
 		]) {
@@ -51,6 +51,9 @@ describe("socratic-duel skill contract", () => {
 			"Read `plugins/base/skills/artifact-templates/SKILL.md`",
 		);
 		expect(content).toContain("managed-debate-region");
+		expect(content).toContain(
+			"only a successful `claim-lock` or `refresh-lock` result can provide a usable token",
+		);
 
 		expect(content).toContain("--type artifact_registered");
 		expect(content).toContain('"path":"{TARGET_PATH}"');

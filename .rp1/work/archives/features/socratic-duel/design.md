@@ -13,7 +13,7 @@ rp1_doc_id: ca59e513-e02c-4d89-9748-5cc988c096c1
 ## 1. Design Overview
 Socratic Duel is a tracked `rp1-base` strategy workflow for running a bounded, evidence-driven debate between two agents inside a local Markdown document.
 
-The implemented design uses a deliberately thin backend. `rp1 agent-tools socratic-duel` owns only participant registration and cross-process lock lease lifecycle. Agents own the debate record itself: parsing the target Markdown, deriving local state, selecting templates, enforcing turn rules, updating the managed region, and deciding terminal outcomes.
+The implemented design uses a deliberately thin backend. `rp1 agent-tools socratic-duel` owns only participant registration and cross-process lock lease lifecycle. Lease tokens are owner-only capabilities returned only by successful `claim-lock` and `refresh-lock` calls, and closing requires the current unexpired owner token. Agents own the debate record itself: parsing the target Markdown, deriving local state, selecting templates, enforcing turn rules, updating the managed region, and deciding terminal outcomes.
 
 The target Markdown file is the debate source of truth. SQLite is only the lock service used to prevent simultaneous writes.
 
@@ -36,7 +36,7 @@ flowchart TB
 The feature has four responsibilities with a strict ownership boundary:
 
 - **Workflow prompt**: `plugins/base/skills/socratic-duel/SKILL.md` defines the tracked workflow, participant behavior, state machine, local Markdown stewardship, turn rules, terminal outcomes, and event emission protocol.
-- **Lock backend**: `cli/src/agent-tools/socratic-duel/` exposes `join`, `status`, `claim-lock`, `refresh-lock`, and `release-lock`. It validates path and participant inputs, records participants, grants one active lease, clears expired leases, and closes the lock context.
+- **Lock backend**: `cli/src/agent-tools/socratic-duel/` exposes `join`, `status`, `claim-lock`, `refresh-lock`, and `release-lock`. It validates readable/writable path and participant inputs, records participants, grants one active lease, clears expired leases, redacts lease tokens from status output, and closes the lock context only for the current unexpired owner token.
 - **Template source**: `plugins/base/skills/artifact-templates/templates/socratic-duel/managed-debate-region.md` provides the managed-region shape. The agent reads and applies the template; TypeScript does not render it.
 - **Markdown record**: The target Markdown document contains the bounded debate region. Agents preserve surrounding content, append accepted turns, update participant/conclusion metadata, and detect local invalidation.
 
@@ -56,12 +56,12 @@ sequenceDiagram
     A->>T: read managed-debate-region template
     A->>L: claim-lock
     L->>D: grant or deny lease transactionally
-    L-->>A: lease_token or wait guidance
+    L-->>A: owner-only lease_token or wait guidance
     A->>M: read, parse, derive local state
     A->>M: update managed region
     A->>E: turn/markdown/terminal events
-    A->>L: release-lock, optionally close
-    L->>D: release or close lock context
+    A->>L: release-lock with owner token, optionally close
+    L->>D: release or close only if active owner
 ```
 
 ```mermaid
@@ -101,8 +101,8 @@ Frontmatter:
 - `metadata.workflow.run_policy: resumable`
 - `metadata.workflow.identity_args: ["TARGET_PATH"]`
 - Arguments:
-  - `TARGET_PATH` required string, absolute Markdown path.
-  - `PARTICIPANT_NAME` optional string, defaults to host identity.
+  - `TARGET_PATH` required string, absolute readable/writable Markdown path.
+  - `PARTICIPANT_NAME` required string, unique participant identity.
   - `MODEL_ID` optional string, defaults to `unknown-model`.
   - Waiting is always bounded and non-interactive; there is no separate wait-control argument for this agent-to-agent workflow.
 
@@ -123,7 +123,7 @@ stateDiagram-v2
     wait_turn --> adjourn : wait_timeout
     compose_turn --> update_markdown : turn_ready
     update_markdown --> release_lock : markdown_updated
-    release_lock --> claim_lock : continue
+    release_lock --> wait_turn : yielded
     release_lock --> adjourn : terminal
     adjourn --> [*]
 ```
@@ -141,10 +141,10 @@ The TypeScript backend is intentionally narrow:
 | Command | Responsibility |
 |---------|----------------|
 | `join` | Validate absolute Markdown target, create or resume an active lock context, and register one of two participants. |
-| `status` | Return participant count, active/closed status, current lock owner, lease token, and lease expiry. |
-| `claim-lock` | Atomically acquire the lock when two participants exist and no unexpired peer lock is active. |
-| `refresh-lock` | Extend the current participant's unexpired lease when the token matches. |
-| `release-lock` | Release the current participant's lock and optionally close the context. |
+| `status` | Return participant count, active/closed status, current lock owner, and lease expiry while redacting the lease token. |
+| `claim-lock` | Atomically acquire the lock when two participants exist and no unexpired peer lock is active; only successful acquisition returns the lease token. |
+| `refresh-lock` | Extend the current participant's unexpired lease when the token matches; only successful refresh returns the token. |
+| `release-lock` | Release the current participant's lock and optionally close the context; close requires an active owned lease. |
 
 The backend does not parse Markdown, render templates, persist turn content, track turn numbers, derive candidate convergence, validate debate semantics, or decide terminal outcomes.
 
@@ -158,7 +158,9 @@ After acquiring the lock, the agent:
 5. Creates or updates exactly one managed region.
 6. Derives local state from Markdown only: participants, accepted turns, next turn number, latest stance, candidate convergence, and terminal readiness.
 7. Appends at most one accepted turn while preserving all surrounding content.
-8. Releases or closes the lock after the write.
+8. Releases the lock after the write, yielding to peer status checks. Terminal close happens only while still holding the active owner token.
+
+Timeout handling follows the same ownership rule. If a bounded wait expires, the agent may write a `TIMEOUT` conclusion only after acquiring the lock. If no lock can be acquired, it emits terminal workflow status without editing the Markdown or closing the backend context.
 
 The managed region is bounded by `rp1:socratic-duel` HTML comments. Accepted prior turns are append-only by prompt contract. Duplicate regions, malformed markers, duplicate or skipped turn numbers, prior-turn edits, unexpected concurrent changes, or lock ownership failures result in `INVALIDATED`.
 
@@ -252,7 +254,8 @@ No custom event types are required for v1.
 | `join` rejects invalid targets or third participant | Integration | V1 target and participant boundaries are enforced. |
 | `claim-lock` grants one active lease | Integration | Only one participant owns the lock at a time. |
 | `refresh-lock` requires owner and token | Integration | A peer cannot extend another participant's lease. |
-| `release-lock` requires owner/token and can close | Integration | Lock contexts clear safely and terminal close is represented. |
+| `release-lock` requires active owner/token and can close only from that lease | Integration | Lock contexts clear safely and non-owners cannot terminate active contexts. |
+| Status and denied lock calls redact lease tokens | Integration | Lease tokens remain owner-only capabilities. |
 | Participant ordering is deterministic | Unit/integration | Tied timestamps still produce stable participant ordering. |
 | Schema migration removes content state | Unit | Superseded turn/content tables are not required for the lock-only backend. |
 | Skill contract forbids backend content parsing | Unit | Prompt text preserves the agent-owned Markdown/template boundary. |
@@ -302,3 +305,4 @@ Rollback:
 | D6 | Consensus policy | Explicit participant stances, no judge | Requirements reject third-party judge dependency and require evidence-backed participant acceptance. | LLM judge or similarity threshold; rejected because it risks false consensus and adds a cloud/model dependency. |
 | D7 | Debate budget | Hard v1 ceiling of 6 turns | Direct requirement and anti-sycophancy constraint. | Configurable turn budget; rejected for v1 because higher limits are explicitly out of bounds. |
 | D8 | Visibility | Existing `emit` event types with participant/turn units | Uses the current Arcade event model without adding custom event types. | New event type for duel turns; rejected because status/unit plus artifact registration covers v1 visibility. |
+| D9 | Lease authority | Lease tokens are owner-only and close requires an active owned lease | A token is the write capability; exposing it through status or allowing close without ownership lets peers terminate or mutate contexts they do not own. | Status-visible tokens or ownerless close; rejected because they break the lock contract. |

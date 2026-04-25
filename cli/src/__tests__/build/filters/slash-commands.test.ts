@@ -10,6 +10,7 @@ const skillMap: ReadonlyMap<string, string> = new Map([
 	["build", "dev"],
 	["build-fast", "dev"],
 	["speedrun", "dev"],
+	["socratic-duel", "base"],
 	["knowledge-build", "base"],
 	["knowledge-load", "base"],
 	["tersify-prompt", "utils"],
@@ -115,6 +116,15 @@ describe("slash_commands filter", () => {
 			const content = "Use /unknown-skill here.";
 			const result = slashCommands(content, "codex", skillMap);
 			expect(result).toBe("Use /unknown-skill here.");
+		});
+
+		test("preserves path segments that match skill names", () => {
+			const content =
+				"Read templates/socratic-duel/managed-debate-region.md, then run /socratic-duel.";
+			const result = slashCommands(content, "codex", skillMap);
+			expect(result).toBe(
+				"Read templates/socratic-duel/managed-debate-region.md, then run $rp1-base-socratic-duel.",
+			);
 		});
 
 		test("returns content unchanged with empty skill map", () => {

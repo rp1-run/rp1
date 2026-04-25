@@ -75,7 +75,7 @@ const transformSlashCommandsToCopilot = (content: string): string => {
 /**
  * Transform plain slash-command references to Codex $ mention syntax.
  * Uses longest-match-first sorting to prevent partial matches.
- * Negative lookahead prevents matching when followed by additional name characters.
+ * Negative lookahead prevents matching when followed by additional path or name characters.
  * Only transforms references outside code blocks.
  */
 const transformPlainSlashCommands = (
@@ -92,17 +92,22 @@ const transformPlainSlashCommands = (
 		name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
 	);
 	const pattern = new RegExp(
-		`\\/(${escapedNames.join("|")})(?![a-z0-9-])`,
+		`\\/(${escapedNames.join("|")})(?![a-z0-9-/])`,
 		"g",
 	);
 
 	const matches = findMatchesOutsideCodeBlocks(pattern, content);
+	const isEmbeddedPathSegment = (matchIndex: number): boolean => {
+		if (matchIndex === 0) return false;
+		return /[A-Za-z0-9._~:/-]/.test(content[matchIndex - 1] ?? "");
+	};
 
 	let result = content;
 	for (let i = matches.length - 1; i >= 0; i--) {
 		const match = matches[i];
 		const matchIndex = match.index;
 		if (matchIndex === undefined) continue;
+		if (isEmbeddedPathSegment(matchIndex)) continue;
 		const skillName = match[1];
 		const plugin = skillMap.get(skillName);
 		if (!plugin) continue;

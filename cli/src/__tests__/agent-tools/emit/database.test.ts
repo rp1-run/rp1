@@ -174,7 +174,8 @@ describe("emit database", () => {
 				.prepare("PRAGMA table_info(socratic_duel_participants)")
 				.all() as { name: string }[];
 
-			expect(duelColumns.map((column) => column.name)).toEqual(
+			const duelColumnNames = duelColumns.map((column) => column.name);
+			expect(duelColumnNames).toEqual(
 				expect.arrayContaining([
 					"id",
 					"target_path",
@@ -187,14 +188,14 @@ describe("emit database", () => {
 					"updated_at",
 				]),
 			);
-			expect(duelColumns.map((column) => column.name)).not.toEqual(
-				expect.arrayContaining([
-					"max_turns",
-					"next_turn_number",
-					"candidate_convergence",
-					"conclusion_summary",
-				]),
-			);
+			for (const forbiddenColumn of [
+				"max_turns",
+				"next_turn_number",
+				"candidate_convergence",
+				"conclusion_summary",
+			]) {
+				expect(duelColumnNames).not.toContain(forbiddenColumn);
+			}
 			expect(participantColumns.map((column) => column.name)).toEqual(
 				expect.arrayContaining([
 					"id",

@@ -22,12 +22,11 @@ metadata:
     - name: TARGET_PATH
       type: string
       required: true
-      description: "Absolute path to the local Markdown document to debate"
+      description: "Absolute path to the readable and writable local Markdown document to debate"
     - name: PARTICIPANT_NAME
       type: string
-      required: false
-      default: ""
-      description: "Display identity for this participant; defaults to the host identity"
+      required: true
+      description: "Unique display identity for this participant"
     - name: MODEL_ID
       type: string
       required: false
@@ -56,7 +55,7 @@ metadata:
 §CTX
 - Use generated Workflow Bootstrap values: `RUN_ID`, `projectRoot`, `workRoot`, `codeRoot`, resolved arguments.
 - Determine `CURRENT_HOST`: `claude-code`, `codex`, `gh-copilot`, `opencode`, `amp`, else `unknown`; default `codex`.
-- `PARTICIPANT_NAME`: if empty, use `CURRENT_HOST`.
+- `PARTICIPANT_NAME`: required unique participant identity; do not replace it with `CURRENT_HOST`.
 - `MODEL_ID`: if unknown, keep `unknown-model`; do not invent model metadata.
 - Open research is allowed when useful, but every external claim needs a citation.
 - Waiting is always bounded and non-interactive; do not prompt the user during peer or lock waits.
@@ -79,7 +78,7 @@ stateDiagram-v2
     wait_turn --> adjourn : wait_timeout
     compose_turn --> update_markdown : turn_ready
     update_markdown --> release_lock : markdown_updated
-    release_lock --> claim_lock : continue
+    release_lock --> wait_turn : yielded
     release_lock --> adjourn : terminal
     adjourn --> [*]
 ```
@@ -214,13 +213,16 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
 3. **wait_peer/status_check**
    - If fewer than 2 participants are registered, emit `participant_waiting` with `--step wait_peer`.
    - Poll `rp1 agent-tools socratic-duel status --duel-id "{duel_id}"` only within bounded wait guidance.
-   - If timeout expires, record `TIMEOUT` in the Markdown conclusion, run `release-lock --close` only if this participant owns a lock, then emit terminal `adjourn`.
+   - If timeout expires, do not edit Markdown from `status` alone. First attempt `claim-lock` when the tool says no peer owns an unexpired lock and two participants are registered.
+   - If the timeout claim succeeds, record `TIMEOUT` in the Markdown conclusion while holding the returned `lease_token`, then run `release-lock --close` with that same token.
+   - If no lock can be acquired, emit terminal `adjourn` with `TIMEOUT` and stop without editing the Markdown or closing the lock context.
    - If waiting, explain the bounded wait briefly; do not ask open-ended questions.
 
 4. **claim_lock**
    - Run `rp1 agent-tools socratic-duel claim-lock --duel-id "{duel_id}" --participant-id "{participant_id}"`.
    - If peer owns an unexpired lock, emit `participant_waiting` with `--step wait_turn`, then transition to `wait_turn`.
    - If lock is acquired, capture `lease_token` and `lease_expires_at`; emit `lock_acquired`.
+   - Never look for `lease_token` in `status`; only a successful `claim-lock` or `refresh-lock` result can provide a usable token.
    - While composing or updating, run `refresh-lock` before the lease approaches expiry.
 
 5. **compose_turn**
@@ -241,13 +243,13 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
 
 7. **release_lock**
    - Non-terminal: run `rp1 agent-tools socratic-duel release-lock --duel-id "{duel_id}" --participant-id "{participant_id}" --lease-token "{lease_token}"`.
-   - Terminal: run the same command with `--close` after writing the terminal conclusion.
+   - Terminal: run the same command with `--close` only after writing the terminal conclusion while holding the active lease.
    - Emit `lock_released`.
-   - If non-terminal, transition back to `claim_lock` only when the local Markdown state says this participant should continue.
+   - If non-terminal, transition to `wait_turn`; only return to `claim_lock` after later `status_check` and local Markdown state prove this participant is eligible to continue.
    - If terminal, transition to `adjourn`.
 
 8. **adjourn**
-   - Emit terminal `adjourn` with the exact outcome and summary already written in Markdown.
+   - Emit terminal `adjourn` with the exact outcome and summary already written in Markdown, except timeout paths that could not acquire a lock must report `TIMEOUT` without claiming a Markdown update.
    - Report the outcome and target path succinctly.
 
 §TURN_MARKDOWN
