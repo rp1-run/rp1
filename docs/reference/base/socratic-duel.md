@@ -1,89 +1,96 @@
 # socratic-duel
 
-Use Socratic Duel when you want two AI participants to pressure-test a local
-Markdown document and record the debate in a separate rp1 work artifact.
+Use Socratic Duel when you want two AI participants to challenge a Markdown
+document and save the debate as a separate note.
+
+It is useful for reviewing plans, designs, requirements, rollout proposals, and
+other documents where you want a second perspective before you act on them.
 
 ---
 
 ## What You Get
 
-Socratic Duel treats the target Markdown file as read-only source material.
-The durable debate record is written under `.rp1/work/debates/` with a
-date-and-topic filename such as:
+Point Socratic Duel at a local Markdown file. rp1 reads that file, starts or
+joins a two-participant debate, and saves the result in `.rp1/work/debates/`.
+
+Your original document stays unchanged. You do not need to prepare it, add
+markers, or make it writable.
+
+Debate files are named by date and topic, for example:
 
 ```text
 .rp1/work/debates/2026-04-25-rollout-plan.md
 ```
 
-A completed debate artifact reads like this:
+Each debate file includes:
 
-```markdown
-# Socratic Duel: Rollout Plan
+- A link back to the source document
+- The topic being debated
+- The two participants
+- Each participant turn
+- Evidence, agreements, disagreements, and unresolved items
+- The final outcome
 
-**Source**: `/Users/alex/project/decision.md`
+## Quick Start
 
-## Metadata
+Use launcher mode when you want rp1 to start both participants for you:
 
-| Field | Value |
-|-------|-------|
-| duel_id | duel_123 |
-| source_path | /Users/alex/project/decision.md |
-| topic | Rollout Plan |
-| topic_slug | rollout-plan |
-| status | ACCEPTED_CONSENSUS |
-| candidate_convergence | Yes |
+=== "Claude Code"
 
-## Participants
+    ```bash
+    /socratic-duel-run TARGET_PATH=/Users/alex/project/decision.md TOPIC="Rollout plan"
+    ```
 
-| Participant | Harness | Model |
-|-------------|---------|-------|
-| Claude | claude-code | claude-sonnet |
-| Codex | codex | gpt-5 |
+=== "OpenCode"
 
-## Turns
+    ```bash
+    /rp1-base-socratic-duel-run TARGET_PATH=/Users/alex/project/decision.md TOPIC="Rollout plan"
+    ```
 
-### Turn 1 - Claude (claude-code / claude-sonnet) - OPEN_TO_DEBATE
+=== "Codex"
 
-**Position**
-The proposal is directionally sound, but the rollout plan needs a sharper
-fallback path before adoption.
+    ```bash
+    $rp1-base-socratic-duel-run TARGET_PATH=/Users/alex/project/decision.md TOPIC="Rollout plan"
+    ```
 
-**Counterpoints**
-- Addresses: Rollout section
-  Claim: The current plan assumes migration failures are rare.
-  Support:
-    - File: docs/rollout.md
+When the run finishes, open the new file in `.rp1/work/debates/`.
 
-**Agreements**
-- The staged rollout is preferable to a single cutover.
+## Choosing A Topic
 
-**Novel Argument**
-The monitoring plan should include a user-visible rollback threshold.
+`TOPIC` is optional, but it is usually worth setting.
 
-Support:
-    - Principle: operational reversibility
+Use it to focus the debate on one part of a larger document:
 
-**Unresolved Items**
-- Define rollback threshold. (blocking)
-
-## Conclusion
-
-**Outcome**: ACCEPTED_CONSENSUS
-
-Both participants accept the revised direction: keep the staged rollout, add
-explicit rollback criteria, and assign an owner for response.
+```bash
+$rp1-base-socratic-duel-run TARGET_PATH=/Users/alex/project/architecture.md TOPIC="Migration fallback plan"
 ```
 
-The source document does not need `rp1:socratic-duel` boundary markers for
-normal recording, and Socratic Duel does not rewrite it.
+If you leave `TOPIC` out, Socratic Duel uses the first Markdown heading in the
+source file. If there is no heading, it uses the filename.
 
-## How To Use It
+## Launcher Mode
 
-### Direct Participant Mode
+Launcher mode is the simplest way to use Socratic Duel. The launcher starts two
+participant agents, waits for them to finish, and reports the outcome.
 
-Direct mode is useful when each participant is started explicitly. Run the
-command against the Markdown source document. Use the same `TARGET_PATH` and
-`TOPIC` for both participants.
+The launcher does not write debate turns itself. The debate content comes from
+the participant agents.
+
+Use launcher mode when:
+
+- You want one command to run the whole debate
+- Both participants can run from the tool you are using now
+- You do not need to coordinate separate tools manually
+
+## Direct Participant Mode
+
+Direct mode is for cases where you want to start each participant yourself, for
+example from two different tools or terminal sessions.
+
+Run the same command twice with the same `TARGET_PATH` and `TOPIC`, but with a
+different `PARTICIPANT_NAME`.
+
+First participant:
 
 === "Claude Code"
 
@@ -103,75 +110,51 @@ command against the Markdown source document. Use the same `TARGET_PATH` and
     $rp1-base-socratic-duel TARGET_PATH=/Users/alex/project/decision.md TOPIC="Rollout plan" PARTICIPANT_NAME=Codex MODEL_ID=gpt-5
     ```
 
-To join from a second harness, run the same command with the same `TARGET_PATH`
-and `TOPIC`, but a different `PARTICIPANT_NAME`.
+Second participant:
 
 ```bash
 $rp1-base-socratic-duel TARGET_PATH=/Users/alex/project/decision.md TOPIC="Rollout plan" PARTICIPANT_NAME=Codex MODEL_ID=gpt-5
 ```
 
-If `TOPIC` is omitted, Socratic Duel infers it from the first Markdown heading
-or the source filename. The inferred topic is stored in the debate artifact and
-used for resume identity.
+## What Happens During A Duel
 
-### Launcher Mode
+1. rp1 checks that `TARGET_PATH` points to a readable Markdown file.
+2. It creates or resumes the debate for that source file and topic.
+3. The participants read the source document.
+4. The participants add structured turns to the debate file.
+5. The debate ends with a final outcome.
+6. Arcade shows the run as finished instead of leaving it active.
 
-Launcher mode starts two participant subagents and waits for their
-participant-owned outcome. The launcher coordinates and reports only; it does
-not write debate turns, decide consensus, or close participant locks.
-
-=== "Claude Code"
-
-    ```bash
-    /socratic-duel-run TARGET_PATH=/Users/alex/project/decision.md TOPIC="Rollout plan" MODEL_ID=claude-sonnet
-    ```
-
-=== "OpenCode"
-
-    ```bash
-    /rp1-base-socratic-duel-run TARGET_PATH=/Users/alex/project/decision.md TOPIC="Rollout plan" MODEL_ID=opencode-model
-    ```
-
-=== "Codex"
-
-    ```bash
-    $rp1-base-socratic-duel-run TARGET_PATH=/Users/alex/project/decision.md TOPIC="Rollout plan" MODEL_ID=gpt-5
-    ```
-
-The launcher MVP is same-harness orchestration: both spawned participants run
-through the current host integration.
-
-## How It Plays Out
-
-1. Socratic Duel validates `TARGET_PATH` as an absolute readable Markdown file.
-2. It starts or resumes the active debate for the source path and topic.
-3. The first lease holder creates the debate artifact under `.rp1/work/debates/`
-   if it does not already exist.
-4. Participants read the source document for evidence and append structured
-   turns only to the debate artifact.
-5. The debate ends with an explicit terminal outcome in the artifact, and the
-   rp1 workflow run is closed.
-
-If a participant does not join or does not continue, waiting is bounded. When
-waiting expires, the debate artifact records a `TIMEOUT` conclusion.
+If the second participant never joins, or a participant stops responding, the
+duel times out and records that outcome in the debate file.
 
 ## Good Uses
 
-Socratic Duel is useful for:
+Socratic Duel works well for:
 
 - Reviewing plans before implementation
-- Testing design docs or requirements for weak assumptions
-- Comparing tradeoffs before choosing a technical direction
-- Focusing a debate on one section or topic in a larger document
-- Forcing a second participant to challenge an apparent consensus
+- Testing a design for weak assumptions
+- Comparing tradeoffs before choosing a direction
+- Focusing discussion on one section of a larger document
+- Challenging an apparent consensus before you commit to it
 
-It is not meant for open-ended chat or for rewriting the original document.
+It is not a general chat command, and it is not a document rewriter. Use the
+debate output as input for your next edit or decision.
 
-## Turn Expectations
+## What A Good Turn Includes
 
-Every accepted turn must include a stance, position, counterpoints, agreements,
-a novel argument, unresolved items, and support. Support can be a file
-reference, URL, or named reasoning principle such as `Principle: parsimony`.
+Each accepted turn should include:
+
+- A clear stance
+- A position
+- Counterpoints
+- Agreements
+- One new argument
+- Unresolved items
+- Supporting evidence
+
+Support can be a file reference, URL, or named reasoning principle such as
+`Principle: operational reversibility`.
 
 Valid stances are:
 
@@ -181,60 +164,53 @@ Valid stances are:
 - `DISSENTING`
 - `REVISING`
 
-A participant that accepts consensus still needs evidence and at least one
-scoped critique, limitation, or non-blocking unresolved item. Agreement without
-support is not enough. If a topic was supplied, claims, counterpoints, and
-unresolved items must stay focused on that topic.
+Even when a participant agrees, it should still explain the limits of that
+agreement and identify at least one risk, caveat, or remaining question.
 
 ## Outcomes
 
 | Outcome | Meaning |
 |---------|---------|
-| `ACCEPTED_CONSENSUS` | Latest turns from both participants explicitly accept consensus with adequate support |
-| `DISSENT` | Material disagreement or blocking unresolved items remain after both participants contributed |
-| `MAX_TURNS` | Turn 6 is accepted without consensus or dissent |
-| `TIMEOUT` | Bounded waiting expires without a valid continuation |
-| `INVALIDATED` | Input, artifact sequence, ownership, or prior-turn immutability validation fails |
-
-Arcade shows developer-facing progress such as Preparing, Waiting for
-participant, Debating, Closing, Completed, Dissent, Max turns, Timed out, or
-Invalidated. Lower-level lock and lease details remain available in event
-metadata for troubleshooting.
+| `ACCEPTED_CONSENSUS` | Both participants accept the direction with enough support |
+| `DISSENT` | A material disagreement or blocking unresolved item remains |
+| `MAX_TURNS` | The duel reached the turn limit without consensus or dissent |
+| `TIMEOUT` | A participant did not join or continue in time |
+| `INVALIDATED` | The duel could not safely continue because the sequence or inputs were invalid |
 
 ## Limits
 
-- Exactly two active participants in v1
-- At most 3 turn pairs, or 6 accepted turns total
-- One participant writes the debate artifact at a time
-- Candidate convergence is advisory and never ends the debate by itself
-- Source documents are read-only input during normal recording
-- Launcher mode is same-harness orchestration in the MVP
+- Exactly two active participants
+- Up to 6 accepted turns total
+- One debate file per source document and topic
+- The source document is only read, not edited
+- Launcher mode runs both participants from the tool you are using now
 
 ## Direct Participant Arguments
 
 | Argument | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `TARGET_PATH` | Yes | - | Absolute path to the readable local Markdown source document to debate |
-| `TOPIC` | No | Inferred from heading or filename | Optional topic focus used for artifact naming, resume identity, and turn scope |
-| `PARTICIPANT_NAME` | Yes | - | Unique display identity recorded for this participant |
-| `MODEL_ID` | No | `unknown-model` | Model identity recorded with participant turns |
+| `TARGET_PATH` | Yes | - | Absolute path to the local Markdown document to debate |
+| `TOPIC` | No | First heading or filename | Focus for the debate and debate filename |
+| `PARTICIPANT_NAME` | Yes | - | Display name for this participant |
+| `MODEL_ID` | No | `unknown-model` | Model name to record with participant turns |
 
-`TARGET_PATH` must be an absolute path to a readable `.md` or `.markdown` file.
-It does not need to be writable for normal debate recording.
+`TARGET_PATH` must point to a readable `.md` or `.markdown` file.
 
 ## Launcher Arguments
 
 | Argument | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `TARGET_PATH` | Yes | - | Absolute path to the readable local Markdown source document to debate |
-| `TOPIC` | No | Inferred from heading or filename | Optional topic focus passed to both participant subagents |
-| `MODEL_ID` | No | `unknown-model` | Model identity passed to both participant subagents |
+| `TARGET_PATH` | Yes | - | Absolute path to the local Markdown document to debate |
+| `TOPIC` | No | First heading or filename | Focus passed to both participants |
+| `MODEL_ID` | No | `unknown-model` | Model name passed to both participants |
 
-## Progress
+## Progress In Arcade
 
-rp1 shows preparing, participant waiting, debate progress, closing, and the
-final outcome while the debate is running. Terminal outcomes close the run so
-Arcade does not leave a finished debate in a running or waiting state.
+Arcade shows the duel moving through preparation, participant waiting, debate,
+closing, and the final outcome.
+
+If the duel finishes, the run is closed so it does not stay stuck as running or
+waiting.
 
 ## Related Commands
 
