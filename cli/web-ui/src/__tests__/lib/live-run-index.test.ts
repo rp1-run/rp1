@@ -41,7 +41,9 @@ function buildEvent(
 		runId: overrides.runId ?? "run-1",
 		projectId: overrides.projectId ?? "proj-1",
 		featureId: overrides.featureId ?? "emit-daemon",
+		runStatus: overrides.runStatus ?? null,
 		step: overrides.step ?? null,
+		unit: overrides.unit ?? null,
 		data: overrides.data ?? null,
 		createdAt: overrides.createdAt ?? "2026-04-14T00:05:00.000Z",
 	};
@@ -86,6 +88,7 @@ describe("LiveRunIndex", () => {
 				eventId: 12,
 				eventType: "status_change",
 				step: "ship",
+				runStatus: "completed",
 				data: { status: "completed", message: "Finished cleanly" },
 				createdAt: "2026-04-14T00:03:00.000Z",
 			}),
@@ -99,6 +102,64 @@ describe("LiveRunIndex", () => {
 			lastEventAt: "2026-04-14T00:03:00.000Z",
 			completedAt: "2026-04-14T00:03:00.000Z",
 			statusMessage: "Finished cleanly",
+		});
+	});
+
+	test("uses derived runStatus for Socratic unit events and terminal outcome labels", async () => {
+		const index = createLiveRunIndex();
+		index.upsertRun(
+			buildRun({
+				command: "/socratic-duel",
+				featureId: "socratic-duel",
+				featureName: "Socratic Duel",
+				name: "Socratic Duel",
+				currentStep: "debating",
+			}),
+		);
+
+		await index.applyEvent(
+			buildEvent({
+				eventId: 13,
+				eventType: "status_change",
+				runStatus: "running",
+				step: "debating",
+				unit: "turn:1",
+				data: {
+					status: "completed",
+					event: "artifact_updated",
+					terminal_outcome: null,
+				},
+				createdAt: "2026-04-14T00:04:00.000Z",
+			}),
+		);
+
+		expect(index.getRun("run-1")).toMatchObject({
+			status: "running",
+			currentStep: "debating",
+			completedAt: null,
+			statusMessage: "Debating",
+		});
+
+		await index.applyEvent(
+			buildEvent({
+				eventId: 14,
+				eventType: "status_change",
+				runStatus: "completed",
+				step: "completed",
+				data: {
+					status: "completed",
+					outcome: "DISSENT",
+					summary: "Material disagreement remains.",
+				},
+				createdAt: "2026-04-14T00:05:00.000Z",
+			}),
+		);
+
+		expect(index.getRun("run-1")).toMatchObject({
+			status: "completed",
+			currentStep: "completed",
+			completedAt: "2026-04-14T00:05:00.000Z",
+			statusMessage: "Dissent",
 		});
 	});
 
@@ -184,6 +245,7 @@ describe("LiveRunIndex", () => {
 				eventType: "status_change",
 				runId: "run-2",
 				step: "build",
+				runStatus: "running",
 				data: { status: "running" },
 				createdAt: "2026-04-14T00:02:00.000Z",
 			}),

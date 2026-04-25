@@ -8,6 +8,7 @@ import {
 	isTerminalRunStatus,
 	isValidRunStatus,
 } from "../../../shared/events";
+import { getSocraticDuelEventLabel } from "./socratic-duel-status";
 
 type Listener = () => void;
 
@@ -152,24 +153,36 @@ function reduceRun(run: Run, message: EventNotificationMessage): Run {
 			const data = message.data ?? {};
 			const rawStatus =
 				typeof data.status === "string" ? data.status : undefined;
-			const nextStatus =
-				rawStatus && isValidRunStatus(rawStatus) ? rawStatus : undefined;
-			const statusMessage =
+			const fallbackRunStatus =
+				!message.step &&
+				!message.unit &&
+				rawStatus &&
+				isValidRunStatus(rawStatus)
+					? rawStatus
+					: undefined;
+			const nextRunStatus =
+				message.runStatus && isValidRunStatus(message.runStatus)
+					? message.runStatus
+					: fallbackRunStatus;
+			const rawMessage =
 				typeof data.message === "string" ? data.message : undefined;
+			const statusMessage =
+				getSocraticDuelEventLabel(run.command, message.step, data) ??
+				rawMessage;
 			const shouldClearLifecycleMessage =
-				nextStatus !== undefined &&
-				nextStatus !== run.status &&
+				nextRunStatus !== undefined &&
+				nextRunStatus !== run.status &&
 				statusMessage === undefined &&
-				nextStatus !== "failed";
+				nextRunStatus !== "failed";
 
 			return {
 				...run,
 				lastEventAt: message.createdAt,
 				...(message.step ? { currentStep: message.step } : {}),
-				...(nextStatus !== undefined
+				...(nextRunStatus !== undefined
 					? {
-							status: nextStatus,
-							completedAt: isTerminalRunStatus(nextStatus)
+							status: nextRunStatus,
+							completedAt: isTerminalRunStatus(nextRunStatus)
 								? message.createdAt
 								: null,
 						}
@@ -177,7 +190,9 @@ function reduceRun(run: Run, message: EventNotificationMessage): Run {
 				...(statusMessage !== undefined
 					? {
 							statusMessage,
-							...(nextStatus === "failed" ? { error: statusMessage } : {}),
+							...(nextRunStatus === "failed" && rawMessage
+								? { error: rawMessage }
+								: {}),
 						}
 					: {}),
 				...(shouldClearLifecycleMessage
@@ -191,7 +206,10 @@ function reduceRun(run: Run, message: EventNotificationMessage): Run {
 		case "waiting_for_user":
 			return {
 				...run,
-				status: "waiting",
+				status:
+					message.runStatus && isValidRunStatus(message.runStatus)
+						? message.runStatus
+						: "waiting",
 				currentStep: message.step ?? run.currentStep,
 				lastEventAt: message.createdAt,
 				completedAt: null,

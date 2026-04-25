@@ -13,10 +13,10 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 - Content writing
 - Shared skills for all plugins
 
-**Agents**: 15 specialized agents across KB generation, deep research, documentation, strategy, security, validation, scribe, and prompt pipeline workflows
-**Skills**: 18 total skills, including 10 user-facing commands and shared capabilities
+**Agents**: 16 specialized agents across KB generation, deep research, documentation, strategy, security, validation, scribe, prompt pipeline, and Socratic Duel participant workflows
+**Skills**: 19 total skills, including 11 user-facing commands and shared capabilities
 
-## Commands (10)
+## Commands (11)
 
 ### Knowledge Management
 - `/knowledge-build` - Parallel KB generation using map-reduce architecture with 6 agents (includes pattern extraction)
@@ -34,7 +34,8 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 ### Documentation & Strategy
 - `/project-birds-eye-view` - Generate project overview documentation for new developers
 - `/strategize` - Holistic system optimization with strategic recommendations
-- `/socratic-duel` - Bounded, evidence-driven two-agent debate with agent-owned Markdown updates and backend locks only
+- `/socratic-duel` - Bounded, evidence-driven direct participant debate against a read-only Markdown source, recorded in a separate `.rp1/work/debates/` artifact
+- `/socratic-duel-run` - Same-harness launcher that starts two participant subagents while the launcher only coordinates and reports
 - `/write-content` - Interactive technical document creation
 
 ### Security

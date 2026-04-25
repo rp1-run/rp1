@@ -96,7 +96,7 @@ describe("emit database", () => {
 			expect(tableNames).not.toContain("socratic_duel_turns");
 		});
 
-		test("schema_version is set to 15", async () => {
+		test("schema_version is set to 16", async () => {
 			const dbPath = join(tempDir, "version-test.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -104,7 +104,7 @@ describe("emit database", () => {
 				version: number;
 			};
 
-			expect(row.version).toBe(15);
+			expect(row.version).toBe(16);
 		});
 
 		test("artifacts table includes subflow column", async () => {
@@ -180,6 +180,9 @@ describe("emit database", () => {
 					"id",
 					"target_path",
 					"target_key",
+					"topic",
+					"topic_slug",
+					"debate_path",
 					"status",
 					"current_owner_id",
 					"lease_token",
@@ -292,7 +295,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(15);
+			expect(versionRow.version).toBe(16);
 
 			const runRow = db
 				.prepare(
@@ -405,7 +408,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(15);
+			expect(versionRow.version).toBe(16);
 
 			const duelColumns = db
 				.prepare("PRAGMA table_info(socratic_duels)")
@@ -415,6 +418,9 @@ describe("emit database", () => {
 					"id",
 					"target_path",
 					"target_key",
+					"topic",
+					"topic_slug",
+					"debate_path",
 					"status",
 					"current_owner_id",
 					"lease_token",
@@ -448,6 +454,103 @@ describe("emit database", () => {
 				)
 				.get() as { name: string } | null;
 			expect(turnTable).toBeNull();
+		});
+
+		test("migrates v15 Socratic Duel rows to add nullable debate metadata", async () => {
+			const dbPath = join(
+				tempDir,
+				"migration-v15-socratic-duel-metadata-test.db",
+			);
+			const { Database } = await import("bun:sqlite");
+			const rawDb = new Database(dbPath, { create: true });
+			rawDb.exec("PRAGMA journal_mode = WAL;");
+			rawDb.exec("PRAGMA foreign_keys = ON;");
+			rawDb.exec(`
+				CREATE TABLE schema_version (version INTEGER NOT NULL);
+				INSERT INTO schema_version (version) VALUES (15);
+				CREATE TABLE runs (
+					id TEXT PRIMARY KEY NOT NULL,
+					flow TEXT NOT NULL,
+					feature_id TEXT NOT NULL,
+					project_path TEXT NOT NULL,
+					rp1_project_root TEXT NOT NULL,
+					rp1_kb_root TEXT NOT NULL,
+					rp1_work_root TEXT NOT NULL,
+					project_id TEXT DEFAULT NULL,
+					run_policy TEXT DEFAULT NULL CHECK(run_policy IN ('fresh', 'resumable')),
+					work_identity TEXT DEFAULT NULL,
+					bootstrap_context TEXT DEFAULT NULL,
+					name TEXT DEFAULT NULL,
+					harness TEXT DEFAULT NULL,
+					status TEXT NOT NULL DEFAULT 'not_started',
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE socratic_duels (
+					id TEXT PRIMARY KEY NOT NULL,
+					target_path TEXT NOT NULL,
+					target_key TEXT NOT NULL,
+					status TEXT NOT NULL DEFAULT 'ACTIVE',
+					current_owner_id TEXT DEFAULT NULL,
+					lease_token TEXT DEFAULT NULL,
+					lease_expires_at TEXT DEFAULT NULL,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE socratic_duel_participants (
+					id TEXT PRIMARY KEY NOT NULL,
+					duel_id TEXT NOT NULL,
+					display_name TEXT NOT NULL,
+					harness TEXT NOT NULL,
+					model_id TEXT NOT NULL,
+					joined_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					last_seen_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				INSERT INTO socratic_duels (
+					id, target_path, target_key, status, current_owner_id, lease_token, lease_expires_at
+				) VALUES (
+					'duel-v15', '/tmp/target.md', '/tmp/target.md', 'ACTIVE',
+					'participant-v15', 'lease-v15', '2099-01-01T00:00:00.000Z'
+				);
+				INSERT INTO socratic_duel_participants (
+					id, duel_id, display_name, harness, model_id
+				) VALUES (
+					'participant-v15', 'duel-v15', 'Codex', 'codex', 'gpt-5'
+				);
+			`);
+			rawDb.close();
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const versionRow = db
+				.prepare("SELECT version FROM schema_version")
+				.get() as { version: number };
+			expect(versionRow.version).toBe(16);
+
+			const migratedDuel = db
+				.prepare(
+					"SELECT target_path, target_key, status, current_owner_id, lease_token, topic, topic_slug, debate_path FROM socratic_duels WHERE id = 'duel-v15'",
+				)
+				.get() as {
+				target_path: string;
+				target_key: string;
+				status: string;
+				current_owner_id: string | null;
+				lease_token: string | null;
+				topic: string | null;
+				topic_slug: string | null;
+				debate_path: string | null;
+			};
+			expect(migratedDuel).toEqual({
+				target_path: "/tmp/target.md",
+				target_key: "/tmp/target.md",
+				status: "ACTIVE",
+				current_owner_id: "participant-v15",
+				lease_token: "lease-v15",
+				topic: null,
+				topic_slug: null,
+				debate_path: null,
+			});
 		});
 
 		test("migrates v1 schema to add status and author columns", async () => {
@@ -541,7 +644,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(15);
+			expect(versionRow.version).toBe(16);
 		});
 
 		test("migrates v2 schema to add subflow column to artifacts", async () => {
@@ -632,7 +735,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(15);
+			expect(versionRow.version).toBe(16);
 		});
 
 		test("v3 to v4 migration adds baseline column and cleans orphaned edit-diff annotations", async () => {
@@ -719,7 +822,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(15);
+			expect(versionRow.version).toBe(16);
 
 			const annotations = db.prepare("SELECT * FROM annotations").all() as {
 				content: string;
@@ -839,7 +942,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(15);
+			expect(versionRow.version).toBe(16);
 
 			const indexes = db.prepare("PRAGMA index_list(runs)").all() as {
 				name: string;
@@ -1046,7 +1149,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(15);
+			expect(versionRow.version).toBe(16);
 		});
 
 		test("foreign key constraints are enforced", async () => {

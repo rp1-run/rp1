@@ -1,5 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
@@ -20,6 +22,9 @@ interface DuelRow {
 	id: string;
 	target_path: string;
 	target_key: string;
+	topic: string | null;
+	topic_slug: string | null;
+	debate_path: string | null;
 	status: string;
 	current_owner_id: string | null;
 	lease_token: string | null;
@@ -42,6 +47,14 @@ export interface JoinDuelResult {
 	readonly duel: DuelRecord;
 	readonly participant: ParticipantRecord;
 	readonly participantCount: number;
+}
+
+export interface JoinDuelIdentity {
+	readonly targetKey: string;
+	readonly canonicalTargetPath: string;
+	readonly topic: string | null;
+	readonly topicSlug: string | null;
+	readonly debateDir: string | null;
 }
 
 export interface DuelSnapshot {
@@ -73,6 +86,14 @@ const nowIso = (): string => new Date().toISOString();
 const leaseExpirationIso = (): string =>
 	new Date(Date.now() + LEASE_DURATION_MS).toISOString();
 
+const localDateSlug = (): string => {
+	const date = new Date();
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, "0");
+	const day = String(date.getDate()).padStart(2, "0");
+	return `${year}-${month}-${day}`;
+};
+
 export const isLeaseExpired = (expiresAt: string | null): boolean =>
 	expiresAt === null || Date.parse(expiresAt) <= Date.now();
 
@@ -83,6 +104,9 @@ const rowToDuel = (row: DuelRow): DuelRecord => ({
 	id: row.id,
 	targetPath: row.target_path,
 	targetKey: row.target_key,
+	topic: row.topic,
+	topicSlug: row.topic_slug,
+	debatePath: row.debate_path,
 	status: row.status as DuelStatus,
 	currentOwnerId: row.current_owner_id,
 	leaseToken: row.lease_token,
@@ -158,6 +182,35 @@ const getActiveDuelByTargetKeySync = (
 	return row ? rowToDuel(row) : null;
 };
 
+const debatePathExistsSync = (db: Database, debatePath: string): boolean => {
+	const row = db
+		.prepare("SELECT id FROM socratic_duels WHERE debate_path = $debatePath")
+		.get({ $debatePath: debatePath }) as { id: string } | null;
+
+	return row !== null || existsSync(debatePath);
+};
+
+const allocateDebatePathSync = (
+	db: Database,
+	debateDir: string,
+	topicSlug: string,
+): string => {
+	const baseName = `${localDateSlug()}-${topicSlug}`;
+
+	for (let suffix = 0; suffix < 1000; suffix += 1) {
+		const candidate =
+			suffix === 0
+				? join(debateDir, `${baseName}.md`)
+				: join(debateDir, `${baseName}-${suffix + 1}.md`);
+
+		if (!debatePathExistsSync(db, candidate)) {
+			return candidate;
+		}
+	}
+
+	throw new Error(`Unable to allocate a unique debate path for ${baseName}`);
+};
+
 const getParticipantByIdSync = (
 	db: Database,
 	participantId: string,
@@ -223,28 +276,37 @@ const clearExpiredLockSync = (db: Database, duel: DuelRecord): void => {
 
 export const joinDuel = (
 	input: JoinInput,
-	targetKey: string,
-	canonicalTargetPath: string,
+	identity: JoinDuelIdentity,
 	dbPath?: string,
 ): TE.TaskEither<CLIError, JoinDuelResult> =>
 	withDb(dbPath, (db) =>
 		transaction(db, () => {
-			let duel = getActiveDuelByTargetKeySync(db, targetKey);
+			let duel = getActiveDuelByTargetKeySync(db, identity.targetKey);
 
 			if (!duel) {
 				const duelId = randomUUID();
+				const debatePath =
+					identity.debateDir && identity.topicSlug
+						? allocateDebatePathSync(db, identity.debateDir, identity.topicSlug)
+						: null;
 				db.prepare(
 					`INSERT INTO socratic_duels (
 						id,
 						target_path,
 						target_key,
+						topic,
+						topic_slug,
+						debate_path,
 						status
 					)
-					VALUES ($id, $targetPath, $targetKey, 'ACTIVE')`,
+					VALUES ($id, $targetPath, $targetKey, $topic, $topicSlug, $debatePath, 'ACTIVE')`,
 				).run({
 					$id: duelId,
-					$targetPath: canonicalTargetPath,
-					$targetKey: targetKey,
+					$targetPath: identity.canonicalTargetPath,
+					$targetKey: identity.targetKey,
+					$topic: identity.topic,
+					$topicSlug: identity.topicSlug,
+					$debatePath: debatePath,
 				});
 				duel = getDuelByIdSync(db, duelId);
 			}
@@ -303,14 +365,26 @@ export const joinDuel = (
 				participant = getParticipantByIdSync(db, participantId);
 			}
 
+			const debatePath =
+				duel.debatePath ??
+				(identity.debateDir && identity.topicSlug
+					? allocateDebatePathSync(db, identity.debateDir, identity.topicSlug)
+					: null);
+
 			db.prepare(
 				`UPDATE socratic_duels
 				 SET target_path = $targetPath,
+				     topic = COALESCE(topic, $topic),
+				     topic_slug = COALESCE(topic_slug, $topicSlug),
+				     debate_path = COALESCE(debate_path, $debatePath),
 				     updated_at = $now
 				 WHERE id = $id`,
 			).run({
 				$id: duel.id,
-				$targetPath: canonicalTargetPath,
+				$targetPath: identity.canonicalTargetPath,
+				$topic: identity.topic,
+				$topicSlug: identity.topicSlug,
+				$debatePath: debatePath,
 				$now: nowIso(),
 			});
 

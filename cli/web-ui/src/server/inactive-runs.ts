@@ -42,6 +42,8 @@ export async function reclassifyInactiveRunsWithBroadcast(
 			"status_change",
 			run.id,
 			run.featureId,
+			reclassification.runStatus,
+			null,
 			null,
 			reclassification.data,
 			reclassification.createdAt,

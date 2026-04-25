@@ -1,4 +1,5 @@
 import type { ServerWebSocket } from "bun";
+import type { Status } from "../../../shared/events.js";
 import type { Annotation, AnnotationReply } from "../types/annotations";
 
 export interface FileChangedMessage {
@@ -32,7 +33,9 @@ export interface EventNotificationMessage {
 	runId: string;
 	projectId: string;
 	featureId: string;
+	runStatus?: Status | null;
 	step: string | null;
+	unit?: string | null;
 	data: Record<string, unknown> | null;
 	createdAt: string;
 }
@@ -107,7 +110,9 @@ export interface EventReplayMessage {
 		id: number;
 		runId: string;
 		eventType: string;
+		runStatus?: Status | null;
 		step: string | null;
+		unit?: string | null;
 		data: string | null;
 		createdAt: string;
 	};
@@ -170,9 +175,11 @@ export interface ReplayProvider {
 		runId: string;
 		type: string;
 		step: string | null;
+		unit: string | null;
 		data: string | null;
 		createdAt: string;
 	}>;
+	getRunStatus?: (runId: string) => Status | null;
 	getActiveRunsSnapshot(): Array<{
 		id: string;
 		flow: string;
@@ -246,7 +253,10 @@ export class WebSocketHub {
 							id: event.id,
 							runId: event.runId,
 							eventType: event.type,
+							runStatus:
+								this.replayProvider.getRunStatus?.(event.runId) ?? null,
 							step: event.step,
+							unit: event.unit,
 							data: event.data,
 							createdAt: event.createdAt,
 						},
@@ -415,7 +425,9 @@ export class WebSocketHub {
 		eventType: string,
 		runId: string,
 		featureId: string,
+		runStatus: Status | null,
 		step: string | null,
+		unit: string | null,
 		data: Record<string, unknown> | null,
 		createdAt: string,
 	): void {
@@ -426,7 +438,9 @@ export class WebSocketHub {
 			runId,
 			projectId,
 			featureId,
+			runStatus,
 			step,
+			unit,
 			data,
 			createdAt,
 		};

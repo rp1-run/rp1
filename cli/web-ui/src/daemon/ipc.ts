@@ -3,6 +3,7 @@
  * Provides type-safe request/response handling for daemon operations.
  */
 
+import type { Status } from "../../../shared/events.js";
 import type { ProjectEntry } from "../server/registry";
 
 /**
@@ -121,7 +122,9 @@ export interface EventNotificationPayload {
 	readonly projectId?: string;
 	readonly rp1ProjectRoot?: string;
 	readonly featureId: string;
+	readonly runStatus?: Status | null;
 	readonly step: string | null;
+	readonly unit?: string | null;
 	readonly data: Record<string, unknown> | null;
 	readonly createdAt: string;
 }

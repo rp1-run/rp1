@@ -7,6 +7,9 @@ export interface DuelRecord {
 	readonly id: string;
 	readonly targetPath: string;
 	readonly targetKey: string;
+	readonly topic: string | null;
+	readonly topicSlug: string | null;
+	readonly debatePath: string | null;
 	readonly status: DuelStatus;
 	readonly currentOwnerId: string | null;
 	readonly leaseToken: string | null;
@@ -27,6 +30,8 @@ export interface ParticipantRecord {
 
 export interface JoinInput {
 	readonly targetPath: string;
+	readonly topic?: string;
+	readonly debateDir?: string;
 	readonly participantName: string;
 	readonly harness: string;
 	readonly modelId: string;
@@ -59,6 +64,10 @@ export interface JoinResult {
 	readonly status: DuelStatus;
 	readonly target_path: string;
 	readonly target_key: string;
+	readonly source_path: string;
+	readonly topic: string | null;
+	readonly topic_slug: string | null;
+	readonly debate_path: string | null;
 	readonly next_step: "wait_peer" | "claim_lock" | "closed";
 }
 
@@ -66,6 +75,11 @@ export interface StatusResult {
 	readonly duel: DuelRecord;
 	readonly participants: readonly ParticipantRecord[];
 	readonly participant_count: number;
+	readonly source_path: string;
+	readonly target_key: string;
+	readonly topic: string | null;
+	readonly topic_slug: string | null;
+	readonly debate_path: string | null;
 	readonly lock: LockStatus;
 	readonly next_step: "wait_peer" | "claim_lock" | "wait_turn" | "closed";
 }

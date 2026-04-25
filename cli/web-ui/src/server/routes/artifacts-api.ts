@@ -120,6 +120,8 @@ export function broadcastPathReconciliation(
 		runId,
 		featureId,
 		null,
+		null,
+		null,
 		{ docId, path: newPath, reconciled: true },
 		new Date().toISOString(),
 	);

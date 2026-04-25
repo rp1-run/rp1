@@ -45,6 +45,9 @@ CREATE TABLE IF NOT EXISTS socratic_duels (
     id TEXT PRIMARY KEY NOT NULL,
     target_path TEXT NOT NULL,
     target_key TEXT NOT NULL,
+    topic TEXT DEFAULT NULL,
+    topic_slug TEXT DEFAULT NULL,
+    debate_path TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'ACTIVE'
         CHECK(status IN ('ACTIVE', 'CLOSED')),
     current_owner_id TEXT DEFAULT NULL REFERENCES socratic_duel_participants(id) ON DELETE SET NULL,
@@ -79,7 +82,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (15);
+INSERT INTO schema_version (version) VALUES (16);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -626,8 +629,30 @@ const cleanupLegacyDb = (dbPath: string): void => {
 	}
 };
 
+const ensureSocraticDuelMetadataColumns = (db: Database): void => {
+	const columns = db.prepare("PRAGMA table_info(socratic_duels)").all() as {
+		name: string;
+	}[];
+	const columnNames = new Set(columns.map((column) => column.name));
+
+	if (!columnNames.has("topic")) {
+		db.exec("ALTER TABLE socratic_duels ADD COLUMN topic TEXT DEFAULT NULL");
+	}
+	if (!columnNames.has("topic_slug")) {
+		db.exec(
+			"ALTER TABLE socratic_duels ADD COLUMN topic_slug TEXT DEFAULT NULL",
+		);
+	}
+	if (!columnNames.has("debate_path")) {
+		db.exec(
+			"ALTER TABLE socratic_duels ADD COLUMN debate_path TEXT DEFAULT NULL",
+		);
+	}
+};
+
 export const ensureSocraticDuelSchema = (db: Database): void => {
 	db.exec(SOCRATIC_DUEL_SCHEMA_SQL);
+	ensureSocraticDuelMetadataColumns(db);
 };
 
 const migrateSocraticDuelLockSchema = (db: Database): void => {
@@ -1175,6 +1200,15 @@ const applyMigrations = (db: Database): void => {
 	if ((postV14Version?.version ?? 14) < 15) {
 		migrateSocraticDuelLockSchema(db);
 		db.prepare("UPDATE schema_version SET version = 15").run();
+	}
+
+	const postV15Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV15Version?.version ?? 15) < 16) {
+		ensureSocraticDuelSchema(db);
+		db.prepare("UPDATE schema_version SET version = 16").run();
 	}
 };
 

@@ -276,7 +276,9 @@ describe("handleV2FeedRequest", () => {
 					_eventType: string,
 					_runId: string,
 					_featureId: string,
+					_runStatus: string | null,
 					_step: string | null,
+					_unit: string | null,
 					_data: Record<string, unknown> | null,
 					_createdAt: string,
 				) => {},
@@ -296,6 +298,8 @@ describe("handleV2FeedRequest", () => {
 			"status_change",
 			"run-feed-stale",
 			"notifications-sidebar",
+			"inactive",
+			null,
 			null,
 			expect.objectContaining({
 				status: "inactive",

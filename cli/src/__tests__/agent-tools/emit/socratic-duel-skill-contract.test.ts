@@ -13,8 +13,9 @@ describe("socratic-duel workflow visibility contract", () => {
 		const content = await readFile(skillPath, "utf-8");
 
 		expect(content).toContain("--type artifact_registered");
-		expect(content).toContain('"storageRoot":"absolute"');
+		expect(content).toContain('"storageRoot":"work_dir"');
 		expect(content).toContain('"type":"markdown"');
+		expect(content).toContain('"path":"debates/{DEBATE_FILENAME}"');
 
 		expect(content).toContain("--unit participant:{participant_id}");
 		expect(content).toContain('"event":"participant_registered"');
@@ -24,7 +25,7 @@ describe("socratic-duel workflow visibility contract", () => {
 
 		expect(content).toContain("--unit turn:{turn_number}");
 		expect(content).toContain('"event":"turn_composing"');
-		expect(content).toContain('"event":"markdown_updated"');
+		expect(content).toContain('"event":"artifact_updated"');
 
 		expect(content).toContain("--type btw_update");
 		expect(content).toContain('"candidate_convergence":true');
@@ -41,5 +42,11 @@ describe("socratic-duel workflow visibility contract", () => {
 		]) {
 			expect(content).toContain(outcome);
 		}
+
+		expect(content).toContain("--step completed");
+		expect(content).toContain('"status":"completed"');
+		expect(content).toContain("--step invalidated");
+		expect(content).toContain('"status":"failed"');
+		expect(content).toContain("--close-run");
 	});
 });

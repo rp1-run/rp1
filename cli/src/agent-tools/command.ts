@@ -1265,11 +1265,12 @@ const socraticDuelCommand = agentToolsCommand
 		`
 Description:
   Provides deterministic lock coordination for the Socratic Duel workflow. The
-  tool validates the readable and writable target Markdown path, registers
-  participants, grants one exclusive lock lease at a time, refreshes active
-  leases, and releases or closes lock contexts. Closing requires the current
-  unexpired owner token. Agents own document parsing, debate state, Markdown
-  updates, template selection, candidate convergence, and terminal summaries.
+  tool validates the readable source Markdown path, registers participants,
+  allocates debate artifact paths when requested, grants one exclusive lock
+  lease at a time, refreshes active leases, and releases or closes lock
+  contexts. Closing requires the current unexpired owner token. Agents own
+  document parsing, debate state, Markdown updates, template selection,
+  candidate convergence, and terminal summaries.
 
 Subcommands:
   join          Create or resume an active lock context and register a participant
@@ -1279,7 +1280,7 @@ Subcommands:
   release-lock  Release the current lock, optionally closing with an owned lease
 
 Examples:
-  rp1 agent-tools socratic-duel join --target /tmp/plan.md --participant-name codex --harness codex --model-id gpt-5
+  rp1 agent-tools socratic-duel join --target /tmp/plan.md --topic "API shape" --debate-dir /tmp/debates --participant-name codex --harness codex --model-id gpt-5
   rp1 agent-tools socratic-duel claim-lock --duel-id <id> --participant-id <id>
   rp1 agent-tools socratic-duel claim-lock --duel-id <id> --participant-id <id> --for-timeout
   rp1 agent-tools socratic-duel refresh-lock --duel-id <id> --participant-id <id> --lease-token <token>
@@ -1292,8 +1293,10 @@ socraticDuelCommand
 	.description("Create or resume an active duel and register a participant")
 	.requiredOption(
 		"--target <path>",
-		"Absolute path to the readable and writable Markdown target",
+		"Absolute path to the readable Markdown source",
 	)
+	.option("--topic <topic>", "Effective debate topic")
+	.option("--debate-dir <path>", "Absolute directory for debate artifacts")
 	.requiredOption("--participant-name <name>", "Participant display name")
 	.requiredOption("--harness <name>", "Harness identity")
 	.option("--model-id <id>", "Model identity", "unknown-model")
@@ -1301,6 +1304,8 @@ socraticDuelCommand
 	.action(
 		async (options: {
 			target: string;
+			topic?: string;
+			debateDir?: string;
 			participantName: string;
 			harness: string;
 			modelId: string;
@@ -1309,6 +1314,8 @@ socraticDuelCommand
 			const toolName = "socratic-duel";
 			const result = await executeSocraticDuelJoin({
 				targetPath: options.target,
+				topic: options.topic,
+				debateDir: options.debateDir,
 				participantName: options.participantName,
 				harness: options.harness,
 				modelId: options.modelId,
@@ -1331,13 +1338,19 @@ socraticDuelCommand
 	.command("status")
 	.description("Show duel status")
 	.option("--duel-id <id>", "Duel ID")
-	.option("--target <path>", "Absolute path to the Markdown target")
+	.option("--target <path>", "Absolute path to the Markdown source")
+	.option("--topic <topic>", "Effective debate topic")
 	.action(
-		async (options: { duelId?: string; target?: string }): Promise<void> => {
+		async (options: {
+			duelId?: string;
+			target?: string;
+			topic?: string;
+		}): Promise<void> => {
 			const toolName = "socratic-duel";
 			const result = await executeSocraticDuelStatus({
 				duelId: options.duelId,
 				targetPath: options.target,
+				topic: options.topic,
 			})();
 
 			if (E.isLeft(result)) {

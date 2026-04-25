@@ -1,6 +1,6 @@
 import { constants } from "node:fs";
-import { access, realpath, stat } from "node:fs/promises";
-import { extname, isAbsolute } from "node:path";
+import { access, mkdir, realpath, stat } from "node:fs/promises";
+import { extname, isAbsolute, parse } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
@@ -39,6 +39,7 @@ const TOOL_NAME = "socratic-duel";
 interface StatusInput {
 	readonly duelId?: string;
 	readonly targetPath?: string;
+	readonly topic?: string;
 }
 
 const isCLIError = (error: unknown): error is CLIError =>
@@ -78,7 +79,7 @@ const validateTargetPath = async (
 		throw new Error(`Target path must be a Markdown file: ${targetPath}`);
 	}
 
-	await access(targetPath, constants.R_OK | constants.W_OK);
+	await access(targetPath, constants.R_OK);
 
 	const fileStat = await stat(targetPath);
 	if (!fileStat.isFile()) {
@@ -90,6 +91,95 @@ const validateTargetPath = async (
 		targetPath: canonicalPath,
 		targetKey: canonicalPath,
 	};
+};
+
+const topicSlug = (topic: string): string => {
+	const slug = topic
+		.normalize("NFKD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.replace(/-{2,}/g, "-");
+
+	return slug.length > 0 ? slug : "debate";
+};
+
+const effectiveTopic = (
+	topic: string | undefined,
+	targetPath: string,
+): string => {
+	const trimmedTopic = topic?.trim();
+	return trimmedTopic && trimmedTopic.length > 0
+		? trimmedTopic
+		: parse(targetPath).name;
+};
+
+const topicTargetKey = (sourceKey: string, slug: string): string =>
+	JSON.stringify([sourceKey, slug]);
+
+const validateDebateDir = async (
+	debateDir: string | undefined,
+): Promise<string | null> => {
+	if (!debateDir) {
+		return null;
+	}
+	if (!isAbsolute(debateDir)) {
+		throw new Error(`Debate directory must be absolute: ${debateDir}`);
+	}
+
+	await mkdir(debateDir, { recursive: true });
+	const dirStat = await stat(debateDir);
+	if (!dirStat.isDirectory()) {
+		throw new Error(`Debate directory must be a directory: ${debateDir}`);
+	}
+
+	return realpath(debateDir);
+};
+
+const resolveJoinIdentity = async (
+	input: JoinInput,
+): Promise<{
+	readonly targetKey: string;
+	readonly canonicalTargetPath: string;
+	readonly topic: string | null;
+	readonly topicSlug: string | null;
+	readonly debateDir: string | null;
+}> => {
+	const target = await validateTargetPath(input.targetPath);
+	const debateDir = await validateDebateDir(input.debateDir);
+
+	if (!debateDir) {
+		return {
+			targetKey: target.targetKey,
+			canonicalTargetPath: target.targetPath,
+			topic: null,
+			topicSlug: null,
+			debateDir: null,
+		};
+	}
+
+	const topic = effectiveTopic(input.topic, target.targetPath);
+	const slug = topicSlug(topic);
+	return {
+		targetKey: topicTargetKey(target.targetKey, slug),
+		canonicalTargetPath: target.targetPath,
+		topic,
+		topicSlug: slug,
+		debateDir,
+	};
+};
+
+const resolveStatusTargetKey = async (input: StatusInput): Promise<string> => {
+	if (!input.targetPath) {
+		throw new Error("Either duelId or targetPath is required");
+	}
+
+	const target = await validateTargetPath(input.targetPath);
+	const trimmedTopic = input.topic?.trim();
+	return trimmedTopic && trimmedTopic.length > 0
+		? topicTargetKey(target.targetKey, topicSlug(trimmedTopic))
+		: target.targetKey;
 };
 
 const validateParticipantFields = (
@@ -193,15 +283,8 @@ const loadStatusSnapshot = async (
 		return result.right;
 	}
 
-	if (!input.targetPath) {
-		throw new Error("Either duelId or targetPath is required");
-	}
-
-	const target = await validateTargetPath(input.targetPath);
-	const result = await getActiveDuelSnapshotByTargetKey(
-		target.targetKey,
-		dbPath,
-	)();
+	const targetKey = await resolveStatusTargetKey(input);
+	const result = await getActiveDuelSnapshotByTargetKey(targetKey, dbPath)();
 	if (E.isLeft(result)) {
 		throw result.left;
 	}
@@ -222,13 +305,8 @@ export const executeJoin = (
 			return issueResult(participantIssues, null as unknown as JoinResult);
 		}
 
-		const target = await validateTargetPath(input.targetPath);
-		const dbResult = await joinDuel(
-			input,
-			target.targetKey,
-			target.targetPath,
-			dbPath,
-		)();
+		const identity = await resolveJoinIdentity(input);
+		const dbResult = await joinDuel(input, identity, dbPath)();
 		if (E.isLeft(dbResult)) {
 			throw dbResult.left;
 		}
@@ -241,6 +319,10 @@ export const executeJoin = (
 			status: duel.status,
 			target_path: duel.targetPath,
 			target_key: duel.targetKey,
+			source_path: duel.targetPath,
+			topic: duel.topic,
+			topic_slug: duel.topicSlug,
+			debate_path: duel.debatePath,
 			next_step: joinNextStep(duel.status, participantCount),
 		});
 	}, toCLIError("Failed to join Socratic Duel lock context"));
@@ -255,6 +337,11 @@ export const executeStatus = (
 			duel: redactedDuel(snapshot),
 			participants: snapshot.participants,
 			participant_count: snapshot.participants.length,
+			source_path: snapshot.duel.targetPath,
+			target_key: snapshot.duel.targetKey,
+			topic: snapshot.duel.topic,
+			topic_slug: snapshot.duel.topicSlug,
+			debate_path: snapshot.duel.debatePath,
 			lock: lockStatus(snapshot),
 			next_step: nextStepForSnapshot(snapshot),
 		});

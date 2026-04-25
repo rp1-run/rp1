@@ -16,7 +16,10 @@ import type {
 	RunRecord,
 	Status,
 } from "../../../../shared/events.js";
-import { isTerminalRunStatus } from "../../../../shared/events.js";
+import {
+	isTerminalRunStatus,
+	isValidStatus,
+} from "../../../../shared/events.js";
 import {
 	getLogicalStepDisplayId,
 	getLogicalStepKey,
@@ -57,6 +60,12 @@ import {
 	type InstalledSkillDiscoveryMetadata,
 } from "../../../../src/install/verifier.js";
 import { logDaemonEvent } from "../../daemon/diagnostics";
+import {
+	getSocraticDuelEventLabel,
+	getSocraticDuelOutcomeLabel,
+	isSocraticDuelDisplayLabel,
+	isSocraticDuelFlow,
+} from "../../lib/socratic-duel-status";
 import type { V2Project } from "../../types/projects";
 import type {
 	AgentTask,
@@ -252,7 +261,13 @@ function parseJsonSafe(
 function getRunLevelStatusMessage(
 	events: readonly EventRecord[],
 	status: Status,
+	flow?: string,
 ): string | null {
+	if (flow && isSocraticDuelFlow(flow)) {
+		const socraticLabel = getSocraticDuelStatusMessage(events, flow);
+		if (socraticLabel) return socraticLabel;
+	}
+
 	for (const event of [...events].reverse()) {
 		if (event.type !== "status_change" || event.step != null) continue;
 		const data = parseJsonSafe(event.data);
@@ -263,6 +278,45 @@ function getRunLevelStatusMessage(
 	}
 
 	return null;
+}
+
+function getSocraticDuelStatusMessage(
+	events: readonly EventRecord[],
+	flow: string,
+): string | null {
+	for (const event of [...events].reverse()) {
+		if (event.type !== "status_change") continue;
+		const data = parseJsonSafe(event.data);
+		const outcomeLabel = getSocraticDuelOutcomeLabel(
+			data?.outcome ?? data?.terminal_outcome,
+		);
+		if (outcomeLabel) return outcomeLabel;
+	}
+
+	for (const event of [...events].reverse()) {
+		if (event.type !== "status_change") continue;
+		const label = getSocraticDuelEventLabel(
+			flow,
+			event.step,
+			parseJsonSafe(event.data),
+		);
+		if (label) return label;
+	}
+
+	return null;
+}
+
+function getListRunStatusMessage(
+	db: Database,
+	record: RunRecord,
+): string | null {
+	if (!isSocraticDuelFlow(record.flow)) return null;
+
+	const label = getSocraticDuelStatusMessage(
+		getEventsForRun(db, record.id),
+		record.flow,
+	);
+	return isSocraticDuelDisplayLabel(label) ? label : null;
 }
 
 function asObject(value: unknown): Readonly<Record<string, unknown>> | null {
@@ -937,6 +991,7 @@ async function deriveSteps(
 function runRecordToListRun(
 	record: RunRecordWithLastEvent,
 	project: ProjectEntry,
+	statusMessage: string | null = null,
 ): Run {
 	return {
 		id: record.id,
@@ -956,6 +1011,7 @@ function runRecordToListRun(
 		lastEventAt: record.lastEventAt ?? record.createdAt,
 		completedAt: isTerminalRunStatus(record.status) ? record.updatedAt : null,
 		error: null,
+		statusMessage,
 		agentSteps: null,
 	};
 }
@@ -1126,7 +1182,11 @@ async function buildDetailedRun(
 	const runEvents = events.map(eventRecordToRunEvent);
 	const agentSteps = deriveAgentSteps(events);
 	const subflows = await getSubflowDiagrams(artifacts, events, directories);
-	const statusMessage = getRunLevelStatusMessage(events, record.status);
+	const statusMessage = getRunLevelStatusMessage(
+		events,
+		record.status,
+		record.flow,
+	);
 
 	let currentStep: string | null = null;
 	for (const step of [...steps].reverse()) {
@@ -1248,7 +1308,13 @@ export async function handleV2RunsListRequest(
 			const project =
 				findProjectByIdentity(projectLookup, record) ??
 				fallbackProjectFromRun(record);
-			runs.push(runRecordToListRun(record, project));
+			runs.push(
+				runRecordToListRun(
+					record,
+					project,
+					getListRunStatusMessage(db, record),
+				),
+			);
 		}
 
 		let total = result.total;
@@ -1297,7 +1363,13 @@ export async function handleV2RunsAttentionRequest(
 				const project =
 					findProjectByIdentity(projectLookup, record) ??
 					fallbackProjectFromRun(record);
-				runs.push(runRecordToListRun(record, project));
+				runs.push(
+					runRecordToListRun(
+						record,
+						project,
+						getListRunStatusMessage(db, record),
+					),
+				);
 			}
 			return runs;
 		};
@@ -1337,7 +1409,9 @@ export async function handleV2RunSummaryRequest(
 			findProjectByIdentity(projectLookup, record) ??
 			fallbackProjectFromRun(record);
 
-		return jsonResponse(runRecordToListRun(record, project));
+		return jsonResponse(
+			runRecordToListRun(record, project, getListRunStatusMessage(db, record)),
+		);
 	} catch (error) {
 		return errorResponse(`Failed to fetch run summary: ${String(error)}`);
 	}
@@ -1461,6 +1535,8 @@ export async function handleV2RunEndRequest(
 			"status_change",
 			run.id,
 			run.featureId,
+			runStatus,
+			null,
 			null,
 			eventData,
 			event.createdAt,
@@ -2035,7 +2111,12 @@ export async function handleV2StatusNotifyRequest(
 		const rp1ProjectRoot = body.rp1ProjectRoot as string | undefined;
 		const projectPath = body.projectPath as string | undefined;
 		const featureId = body.featureId as string | undefined;
+		const runStatus =
+			typeof body.runStatus === "string" && isValidStatus(body.runStatus)
+				? body.runStatus
+				: undefined;
 		const step = (body.step as string | null) ?? null;
+		const unit = (body.unit as string | null) ?? null;
 		const data = (body.data as Record<string, unknown> | null) ?? null;
 		const createdAt = (body.createdAt as string) ?? new Date().toISOString();
 
@@ -2077,7 +2158,9 @@ export async function handleV2StatusNotifyRequest(
 			eventType,
 			runId,
 			featureId,
+			runStatus ?? null,
 			step,
+			unit,
 			data,
 			createdAt,
 		);
@@ -2332,7 +2415,11 @@ export async function handleV2FeedRequest(
 			const project =
 				findProjectByIdentity(projectLookup, record) ??
 				fallbackProjectFromRun(record);
-			const run = runRecordToListRun(record, project);
+			const run = runRecordToListRun(
+				record,
+				project,
+				getListRunStatusMessage(db, record),
+			);
 			runItems.push({
 				type: "run",
 				id: record.id,

@@ -250,7 +250,9 @@ describe("V2 runs API", () => {
 					_eventType: string,
 					_runId: string,
 					_featureId: string,
+					_runStatus: string | null,
 					_step: string | null,
+					_unit: string | null,
 					_data: Record<string, unknown> | null,
 					_createdAt: string,
 				) => {},
@@ -284,8 +286,10 @@ describe("V2 runs API", () => {
 		for (const call of websocketHub.broadcastEvent.mock.calls) {
 			expect(call?.[0]).toBe(registryProjectId);
 			expect(call?.[2]).toBe("status_change");
-			expect(call?.[5]).toBeNull();
-			expect(call?.[6]).toEqual(
+			expect(call?.[5]).toBe("inactive");
+			expect(call?.[6]).toBeNull();
+			expect(call?.[7]).toBeNull();
+			expect(call?.[8]).toEqual(
 				expect.objectContaining({
 					status: "inactive",
 					message: "No workflow activity recorded for 24 hours",
@@ -294,7 +298,7 @@ describe("V2 runs API", () => {
 				}),
 			);
 			expect(typeof call?.[1]).toBe("number");
-			expect(typeof call?.[7]).toBe("string");
+			expect(typeof call?.[9]).toBe("string");
 		}
 	});
 
@@ -393,7 +397,9 @@ describe("V2 runs API", () => {
 					_eventType: string,
 					_runId: string,
 					_featureId: string,
+					_runStatus: string | null,
 					_step: string | null,
+					_unit: string | null,
 					_data: Record<string, unknown> | null,
 					_createdAt: string,
 				) => {},
@@ -436,7 +442,9 @@ describe("V2 runs API", () => {
 			broadcastEventType,
 			broadcastRunId,
 			broadcastFeatureId,
+			broadcastRunStatus,
 			broadcastStep,
+			broadcastUnit,
 			broadcastData,
 			broadcastCreatedAt,
 		] = broadcastCall;
@@ -446,7 +454,9 @@ describe("V2 runs API", () => {
 		expect(broadcastEventType).toBe("status_change");
 		expect(broadcastRunId).toBe("run-live");
 		expect(broadcastFeatureId).toBe("state-fixes");
+		expect(broadcastRunStatus).toBe("cancelled");
 		expect(broadcastStep).toBeNull();
+		expect(broadcastUnit).toBeNull();
 		expect(broadcastData).toEqual(
 			expect.objectContaining({
 				status: "cancelled",

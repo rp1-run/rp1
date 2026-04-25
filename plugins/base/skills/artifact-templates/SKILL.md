@@ -42,6 +42,7 @@ Templates contain YAML frontmatter with routing metadata and a markdown body wit
 | bug-investigator | investigation-report.md | document | workRoot | investigations/{BUG_ID}/report.md | templates/bug-investigator/investigation-report.md |
 | build-fast-planner | quick-build.md | document | workRoot | quick-builds/{ID}/quick-build.md | templates/build-fast-planner/quick-build.md |
 | socratic-duel | managed-debate-region | section | absolute | {TARGET_PATH} (managed region) | templates/socratic-duel/managed-debate-region.md |
+| socratic-duel | debate-artifact.md | document | workRoot | debates/{YYYY-MM-DD}-{TOPIC_SLUG}{UNIQUE_SUFFIX}.md | templates/socratic-duel/debate-artifact.md |
 | phase-planner | phase-plan.md | document | workRoot | {PHASE_PLAN_DIR}/{PHASE_PLAN_FILENAME} | templates/phase-planner/phase-plan.md |
 | blueprint-wizard | prd.md | document | workRoot | prds/{PRD_NAME}.md | templates/blueprint-wizard/prd.md |
 | blueprint-auditor | prd-audit-results.md | document | workRoot | prds/{PRD_NAME}-audit.md | templates/blueprint-auditor/prd-audit-results.md |
@@ -67,6 +68,8 @@ Templates contain YAML frontmatter with routing metadata and a markdown body wit
 | knowledge-base | state.json | data | kbRoot | state.json | templates/knowledge-base/state.json |
 | knowledge-base | meta.json | data | kbRoot | meta.json | templates/knowledge-base/meta.json |
 | prompt-eval-builder | promptfoo-config | document | - | (agent-determined) | templates/prompt-eval-builder/promptfoo-config.yaml |
+
+For Socratic Duel, `managed-debate-region` is retained for legacy in-progress duels. New artifact-backed runs use `debate-artifact.md` under `workRoot`.
 
 ## Template Frontmatter Schema
 
@@ -132,5 +135,7 @@ templates/
 +-- research-reporter/
 +-- security-validator/
 +-- socratic-duel/
+|   +-- debate-artifact.md
+|   +-- managed-debate-region.md
 +-- speedrun/
 ```

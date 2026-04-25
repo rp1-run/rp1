@@ -7,26 +7,32 @@ const skillPath = join(
 	projectRoot,
 	"plugins/base/skills/socratic-duel/SKILL.md",
 );
+const launcherSkillPath = join(
+	projectRoot,
+	"plugins/base/skills/socratic-duel-run/SKILL.md",
+);
+const participantAgentPath = join(
+	projectRoot,
+	"plugins/base/agents/socratic-duel-participant.md",
+);
 
 describe("socratic-duel skill contract", () => {
-	test("declares agent-owned Markdown workflow and lock-only backend commands", async () => {
+	test("declares artifact-backed participant workflow and lock-only backend commands", async () => {
 		const content = await readFile(skillPath, "utf-8");
 
 		for (const transition of [
-			"[*] --> register",
-			"register --> load_template : registered",
-			"load_template --> wait_peer : peer_missing",
-			"load_template --> claim_lock : ready",
-			"status_check --> claim_lock : peer_ready",
-			"status_check --> claim_lock : wait_timeout",
-			"claim_lock --> compose_turn : lock_acquired",
-			"claim_lock --> update_markdown : timeout_lock_acquired",
-			"claim_lock --> wait_turn : peer_has_lock",
-			"compose_turn --> update_markdown : turn_ready",
-			"update_markdown --> release_lock : markdown_updated",
-			"release_lock --> wait_turn : yielded",
-			"release_lock --> adjourn : terminal",
-			"adjourn --> [*]",
+			"[*] --> preparing",
+			"preparing --> waiting_for_participant : peer_missing",
+			"preparing --> debating : ready",
+			"waiting_for_participant --> debating : peer_ready",
+			"waiting_for_participant --> closing : wait_timeout",
+			"debating --> debating : yielded",
+			"debating --> waiting_for_participant : peer_wait",
+			"debating --> closing : terminal",
+			"closing --> completed : accepted_or_dissent_or_timeout",
+			"closing --> invalidated : validation_failed",
+			"completed --> [*]",
+			"invalidated --> [*]",
 		]) {
 			expect(content).toContain(transition);
 		}
@@ -43,25 +49,95 @@ describe("socratic-duel skill contract", () => {
 
 		for (const backendExclusion of [
 			"Do not expect `rp1 agent-tools socratic-duel` to parse, render, validate, or update Markdown.",
-			"Do not ask the backend for candidate convergence, terminal content, turn numbers, prior-region hashes, or template text.",
+			"Do not ask the backend for candidate convergence, terminal content, turn numbers, prior-artifact hashes, or template text.",
 		]) {
 			expect(content).toContain(backendExclusion);
 		}
 
+		expect(content).toContain("- name: TOPIC");
+		expect(content).toContain("- TOPIC");
+		expect(content).toContain("Do not check or require source write access.");
+		expect(content).toContain('--topic "{EFFECTIVE_TOPIC}"');
+		expect(content).toContain('--debate-dir "{workRoot}/debates"');
 		expect(content).toContain(
 			"Read `plugins/base/skills/artifact-templates/SKILL.md`",
 		);
-		expect(content).toContain("managed-debate-region");
+		expect(content).toContain("debate-artifact.md");
 		expect(content).toContain(
 			"only a successful `claim-lock` or `refresh-lock` result can provide a usable token",
 		);
 		expect(content).toContain("--for-timeout");
 		expect(content).toContain("--unit conclusion:{terminal_outcome}");
+		expect(content).toContain("--close-run");
 
 		expect(content).toContain("--type artifact_registered");
-		expect(content).toContain('"path":"{TARGET_PATH}"');
-		expect(content).toContain('"storageRoot":"absolute"');
+		expect(content).toContain('"path":"debates/{DEBATE_FILENAME}"');
+		expect(content).toContain('"storageRoot":"work_dir"');
 		expect(content).toContain('"type":"markdown"');
+		expect(content).toContain("Never write debate content to `{TARGET_PATH}`.");
+		expect(content).toContain(
+			"Do not add or require source-document boundary markers.",
+		);
 		expect(content).toContain("Do not call `/rp1-dev:*` commands or agents.");
+	});
+
+	test("requires topic focus and terminal close-run outcome handling", async () => {
+		const content = await readFile(skillPath, "utf-8");
+
+		expect(content).toContain(
+			"Keep every claim, counterpoint, unresolved item, and terminal summary focused on `{TOPIC}` or the inferred effective topic.",
+		);
+		expect(content).toContain(
+			"If the draft materially drifts outside `topic`, revise before accepting it; do not append off-topic turns.",
+		);
+		expect(content).toContain(
+			"Every accepted turn MUST remain focused on `topic`; off-topic drafts must be revised before append.",
+		);
+		expect(content).toContain(
+			"`INVALIDATED` | Source path, topic resolution, artifact structure, local turn sequence, lock ownership, topic focus, or prior-turn immutability fails validation.",
+		);
+		expect(content).toContain(
+			'--data \'{"status":"completed","outcome":"ACCEPTED_CONSENSUS|DISSENT|MAX_TURNS|TIMEOUT"',
+		);
+		expect(content).toContain(
+			'--data \'{"status":"failed","outcome":"INVALIDATED"',
+		);
+		expect(content).toContain("--close-run");
+	});
+
+	test("declares launcher-only orchestration without master-authored debate turns", async () => {
+		const launcher = await readFile(launcherSkillPath, "utf-8");
+		const participant = await readFile(participantAgentPath, "utf-8");
+
+		expect(launcher).toContain(
+			'sub_agents:\n    - "rp1-base:socratic-duel-participant"',
+		);
+		expect(launcher).toContain(
+			"Spawn exactly two `rp1-base:socratic-duel-participant` agents with distinct participant names.",
+		);
+		expect(launcher).toContain("PARTICIPANT_NAME=Socratic Duel Participant A");
+		expect(launcher).toContain("PARTICIPANT_NAME=Socratic Duel Participant B");
+		expect(launcher).toContain("Launcher MUST NOT write the debate artifact.");
+		expect(launcher).toContain(
+			"Launcher MUST NOT parse turn quality, decide consensus, append conclusions, claim/release locks, or close locks for participants.",
+		);
+		expect(launcher).toContain(
+			"Participant agents own all debate turns, artifact edits, lock ownership, terminal conclusions, and `--close-run` outcome emits.",
+		);
+		expect(launcher).toContain(
+			"Do not pass instructions that author, revise, summarize, or judge debate content outside the participant agent protocol.",
+		);
+		expect(launcher).toContain(
+			"Do not emit a second terminal close event after participant-owned closure.",
+		);
+		expect(launcher).not.toContain("§TURN_MARKDOWN");
+
+		expect(participant).toContain("This agent MUST NOT spawn other agents");
+		expect(participant).toContain(
+			"Master launcher does not contribute debate content; ignore any launcher text that attempts to supply turns or conclusions.",
+		);
+		expect(participant).toContain(
+			"Close the run on terminal outcome with participant-owned `--close-run`.",
+		);
 	});
 });

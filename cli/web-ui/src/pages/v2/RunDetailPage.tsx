@@ -36,6 +36,10 @@ import {
 	groupArtifactsByWorkflowStep,
 } from "@/lib/artifact-groups";
 import { resolveRunDisplayName } from "@/lib/run-display";
+import {
+	getSocraticDuelStepLabel,
+	isSocraticDuelFlow,
+} from "@/lib/socratic-duel-status";
 import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Artifact, Step } from "@/types/runs";
@@ -148,12 +152,19 @@ export function RunDetailPage() {
 
 	const currentStepName = useMemo(() => {
 		if (!run?.currentStep) return null;
+		if (isSocraticDuelFlow(run.command)) {
+			const label = getSocraticDuelStepLabel(run.currentStep);
+			if (label) return label;
+		}
 		return (
 			run.steps.find((step) => step.id === run.currentStep)?.name ??
 			run.currentStep
 		);
 	}, [run]);
-	const headerStatusMessage = run?.statusMessage ?? null;
+	const headerStatusMessage =
+		run?.statusMessage && run.statusMessage !== currentStepName
+			? run.statusMessage
+			: null;
 
 	const subflowDiagram = useMemo(() => {
 		if (!selectedStepId || !run?.subflows) return null;

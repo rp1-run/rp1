@@ -176,7 +176,9 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				runId: message.event.runId,
 				projectId: targetProjectId,
 				featureId: "",
+				runStatus: message.event.runStatus ?? null,
 				step: message.event.step,
+				unit: message.event.unit ?? null,
 				data: parseReplayEventData(message.event.data),
 				createdAt: message.event.createdAt,
 			};

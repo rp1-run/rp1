@@ -81,7 +81,8 @@
 |-------|--------|-------------|----------|----------|------------|---------------|
 | `/analyse-security` | base | Performs thorough security validation of features including vulnerability scans, authentication/authorization verification, compliance assessment, and penetration testing. |  |  |  |  |
 | `/deep-research` | base | Autonomous deep research on codebases and technical topics with structured report output via map-reduce explorer architecture. | `RESEARCH_TOPIC` | Yes | fresh |  |
-| `/socratic-duel` | base | Run a bounded, evidence-driven two-agent debate in a local Markdown document with backend locks only. | `TARGET_PATH`, `PARTICIPANT_NAME`, `MODEL_ID` | Yes | resumable | `TARGET_PATH` |
+| `/socratic-duel` | base | Run a bounded, evidence-driven two-agent debate into a separate rp1 debate artifact with backend locks only. | `TARGET_PATH`, `TOPIC`, `PARTICIPANT_NAME`, `MODEL_ID` | Yes | resumable | `TARGET_PATH`, `TOPIC` |
+| `/socratic-duel-run` | base | Run Socratic Duel through two participant subagents while the launcher only coordinates and reports. | `TARGET_PATH`, `TOPIC`, `MODEL_ID` | Yes | fresh |  |
 | `/strategize` | base | Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs. |  |  |  |  |
 
 ## Planning

@@ -15,7 +15,8 @@ date.
 | [`project-birds-eye-view`](project-birds-eye-view.md) | Generate comprehensive project overview with diagrams |
 | [`write-content`](write-content.md) | Interactive technical content creation assistant |
 | [`strategize`](strategize.md) | Holistic strategic analysis with trade-off recommendations |
-| [`socratic-duel`](socratic-duel.md) | Agent-owned two-agent debate with backend locks only |
+| [`socratic-duel`](socratic-duel.md) | Direct two-agent debate recorded in a separate `.rp1/work/debates/` artifact |
+| [`socratic-duel-run`](socratic-duel.md#launcher-mode) | Same-harness launcher that delegates all debate turns to participant subagents |
 | [`analyse-security`](analyse-security.md) | Comprehensive security validation and vulnerability scanning |
 | [`fix-mermaid`](fix-mermaid.md) | Validate and repair Mermaid diagrams in markdown files |
 | [`self-update`](self-update.md) | Update rp1 to the latest version |
@@ -49,7 +50,8 @@ Generate comprehensive documentation for onboarding and communication.
 Deep analysis for strategy and security.
 
 - **[`strategize`](strategize.md)**: Provides strategic recommendations balancing cost, quality, and complexity
-- **[`socratic-duel`](socratic-duel.md)**: Runs a bounded, evidence-driven two-agent debate with agent-owned Markdown updates and backend locks only
+- **[`socratic-duel`](socratic-duel.md)**: Runs a bounded, evidence-driven two-agent debate against a read-only Markdown source and records turns in a separate debate artifact
+- **[`socratic-duel-run`](socratic-duel.md#launcher-mode)**: Launches two same-harness participant subagents while the launcher only coordinates and reports
 - **[`analyse-security`](analyse-security.md)**: Comprehensive security validation and vulnerability detection
 
 ### Validation

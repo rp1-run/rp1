@@ -1,5 +1,20 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	setSystemTime,
+	test,
+} from "bun:test";
+import {
+	chmod,
+	mkdir,
+	mkdtemp,
+	readFile,
+	realpath,
+	rm,
+	writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
@@ -21,15 +36,20 @@ describe("socratic-duel lock coordinator", () => {
 	let tempDir: string;
 	let dbPath: string;
 	let targetPath: string;
+	let debateDir: string;
 
 	beforeEach(async () => {
-		tempDir = await mkdtemp(join(tmpdir(), "socratic-duel-lock-"));
+		tempDir = await realpath(
+			await mkdtemp(join(tmpdir(), "socratic-duel-lock-")),
+		);
 		dbPath = join(tempDir, "rp1.db");
 		targetPath = join(tempDir, "target.md");
+		debateDir = join(tempDir, "debates");
 		await writeFile(targetPath, "# Target\n\nOriginal body.\n", "utf-8");
 	});
 
 	afterEach(async () => {
+		setSystemTime();
 		closeDatabase();
 		resetInstance();
 		await rm(tempDir, { recursive: true, force: true });
@@ -38,11 +58,14 @@ describe("socratic-duel lock coordinator", () => {
 	const joinParticipantForPath = async (
 		path: string,
 		participantName: string,
+		topic = "Target",
 	) => {
 		const result = await expectTaskRight(
 			executeJoin(
 				{
 					targetPath: path,
+					topic,
+					debateDir,
 					participantName,
 					harness: "test-harness",
 					modelId: "test-model",
@@ -55,8 +78,21 @@ describe("socratic-duel lock coordinator", () => {
 		return result.data;
 	};
 
-	const joinParticipant = async (participantName: string) =>
-		joinParticipantForPath(targetPath, participantName);
+	const joinParticipant = async (participantName: string, topic = "Target") =>
+		joinParticipantForPath(targetPath, participantName, topic);
+
+	const localDateSlug = (): string => {
+		const date = new Date();
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, "0");
+		const day = String(date.getDate()).padStart(2, "0");
+		return `${year}-${month}-${day}`;
+	};
+
+	const freezeDebateDate = (): string => {
+		setSystemTime(new Date(2026, 3, 25, 12, 0, 0));
+		return localDateSlug();
+	};
 
 	const claimLock = async (duelId: string, participantId: string) =>
 		expectTaskRight(executeClaimLock({ duelId, participantId }, dbPath));
@@ -71,16 +107,200 @@ describe("socratic-duel lock coordinator", () => {
 		expect(first.participant_count).toBe(1);
 		expect(resumed.participant_count).toBe(1);
 		expect(first.next_step).toBe("wait_peer");
+		expect(first.source_path).toBe(targetPath);
+		expect(first.topic).toBe("Target");
+		expect(first.topic_slug).toBe("target");
+		expect(first.debate_path).toMatch(
+			new RegExp(`${debateDir}/\\d{4}-\\d{2}-\\d{2}-target\\.md$`),
+		);
+		expect(first.target_key).toBe(
+			JSON.stringify([first.source_path, "target"]),
+		);
 		expect(await readFile(targetPath, "utf-8")).toBe(beforeJoin);
 
 		const status = await expectTaskRight(
 			executeStatus({ duelId: first.duel_id }, dbPath),
 		);
 		expect(status.data.participant_count).toBe(1);
+		expect(status.data.source_path).toBe(targetPath);
+		expect(status.data.topic).toBe("Target");
+		expect(status.data.topic_slug).toBe("target");
+		expect(status.data.debate_path).toBe(first.debate_path);
 		expect(status.data.lock.owner_participant_id).toBeNull();
 		expect(status.data.lock.lease_token).toBeNull();
 		expect(status.data.duel.leaseToken).toBeNull();
 		expect(status.data.lock.expired).toBe(false);
+	});
+
+	test("resumes by source plus topic and separates different topics", async () => {
+		const first = await joinParticipant("participant-a", "Focused Topic");
+		const resumed = await joinParticipant("participant-b", "Focused Topic");
+		const differentTopic = await joinParticipant(
+			"participant-a",
+			"Other Topic",
+		);
+
+		expect(resumed.duel_id).toBe(first.duel_id);
+		expect(resumed.debate_path).toBe(first.debate_path);
+		expect(differentTopic.duel_id).not.toBe(first.duel_id);
+		expect(differentTopic.debate_path).not.toBe(first.debate_path);
+
+		const status = await expectTaskRight(
+			executeStatus({ targetPath, topic: "Focused Topic" }, dbPath),
+		);
+		expect(status.data.duel.id).toBe(first.duel_id);
+		expect(status.data.topic_slug).toBe("focused-topic");
+	});
+
+	test("allocates a suffixed debate path when the date-topic file exists", async () => {
+		const debateDate = freezeDebateDate();
+		await mkdir(debateDir, { recursive: true });
+		await writeFile(
+			join(debateDir, `${debateDate}-collision-topic.md`),
+			"# Existing debate\n",
+			"utf-8",
+		);
+
+		const first = await joinParticipant("participant-a", "Collision Topic");
+
+		expect(first.debate_path).toBe(
+			join(debateDir, `${debateDate}-collision-topic-2.md`),
+		);
+	});
+
+	test("allocates a suffixed debate path when a prior closed duel owns the base path", async () => {
+		const debateDate = freezeDebateDate();
+		const first = await joinParticipant("participant-a", "Reusable Topic");
+		const second = await joinParticipant("participant-b", "Reusable Topic");
+		const claim = await claimLock(first.duel_id, first.participant_id);
+
+		const closed = await expectTaskRight(
+			executeReleaseLock(
+				{
+					duelId: first.duel_id,
+					participantId: first.participant_id,
+					leaseToken: claim.data.lease_token ?? "",
+					close: true,
+				},
+				dbPath,
+			),
+		);
+		expect(closed.data.closed).toBe(true);
+		expect(second.debate_path).toBe(first.debate_path);
+
+		const newRun = await joinParticipant("participant-a", "Reusable Topic");
+
+		expect(newRun.duel_id).not.toBe(first.duel_id);
+		expect(newRun.debate_path).toBe(
+			join(debateDir, `${debateDate}-reusable-topic-2.md`),
+		);
+	});
+
+	test("joins with a readable source that is not writable", async () => {
+		await chmod(targetPath, 0o444);
+		try {
+			const first = await joinParticipant("participant-a", "Read Only Source");
+
+			expect(first.topic_slug).toBe("read-only-source");
+			expect(first.debate_path).toMatch(
+				new RegExp(`${debateDir}/\\d{4}-\\d{2}-\\d{2}-read-only-source\\.md$`),
+			);
+		} finally {
+			await chmod(targetPath, 0o644);
+		}
+	});
+
+	test("reads legacy v15 active rows with nullable debate metadata after migration", async () => {
+		const { Database } = await import("bun:sqlite");
+		const rawDb = new Database(dbPath, { create: true });
+		rawDb.exec("PRAGMA journal_mode = WAL;");
+		rawDb.exec("PRAGMA foreign_keys = ON;");
+		rawDb.exec(`
+			CREATE TABLE schema_version (version INTEGER NOT NULL);
+			INSERT INTO schema_version (version) VALUES (15);
+			CREATE TABLE runs (
+				id TEXT PRIMARY KEY NOT NULL,
+				flow TEXT NOT NULL,
+				feature_id TEXT NOT NULL,
+				project_path TEXT NOT NULL,
+				rp1_project_root TEXT NOT NULL,
+				rp1_kb_root TEXT NOT NULL,
+				rp1_work_root TEXT NOT NULL,
+				project_id TEXT DEFAULT NULL,
+				run_policy TEXT DEFAULT NULL CHECK(run_policy IN ('fresh', 'resumable')),
+				work_identity TEXT DEFAULT NULL,
+				bootstrap_context TEXT DEFAULT NULL,
+				name TEXT DEFAULT NULL,
+				harness TEXT DEFAULT NULL,
+				status TEXT NOT NULL DEFAULT 'not_started',
+				created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+				updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+			);
+			CREATE TABLE socratic_duels (
+				id TEXT PRIMARY KEY NOT NULL,
+				target_path TEXT NOT NULL,
+				target_key TEXT NOT NULL,
+				status TEXT NOT NULL DEFAULT 'ACTIVE',
+				current_owner_id TEXT DEFAULT NULL,
+				lease_token TEXT DEFAULT NULL,
+				lease_expires_at TEXT DEFAULT NULL,
+				created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+				updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+			);
+			CREATE TABLE socratic_duel_participants (
+				id TEXT PRIMARY KEY NOT NULL,
+				duel_id TEXT NOT NULL,
+				display_name TEXT NOT NULL,
+				harness TEXT NOT NULL,
+				model_id TEXT NOT NULL,
+				joined_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+				last_seen_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+			);
+		`);
+		rawDb
+			.prepare(
+				`INSERT INTO socratic_duels (
+					id, target_path, target_key, status, current_owner_id, lease_token, lease_expires_at
+				) VALUES (
+					'duel-v15', $targetPath, $targetPath, 'ACTIVE',
+					'participant-v15', 'lease-v15', '2099-01-01T00:00:00.000Z'
+				)`,
+			)
+			.run({ $targetPath: targetPath });
+		rawDb
+			.prepare(
+				`INSERT INTO socratic_duel_participants (
+					id, duel_id, display_name, harness, model_id
+				) VALUES (
+					'participant-v15', 'duel-v15', 'Legacy Codex', 'codex', 'gpt-5'
+				)`,
+			)
+			.run();
+		rawDb.close();
+
+		const statusById = await expectTaskRight(
+			executeStatus({ duelId: "duel-v15" }, dbPath),
+		);
+		const statusByTarget = await expectTaskRight(
+			executeStatus({ targetPath }, dbPath),
+		);
+
+		expect(statusById.data.duel.id).toBe("duel-v15");
+		expect(statusByTarget.data.duel.id).toBe("duel-v15");
+		expect(statusById.data.source_path).toBe(targetPath);
+		expect(statusById.data.target_key).toBe(targetPath);
+		expect(statusById.data.topic).toBeNull();
+		expect(statusById.data.topic_slug).toBeNull();
+		expect(statusById.data.debate_path).toBeNull();
+		expect(statusById.data.lock.owner_participant_id).toBe("participant-v15");
+		expect(statusById.data.lock.lease_token).toBeNull();
+		expect(statusById.data.duel.leaseToken).toBeNull();
+		expect(statusById.data.participants).toEqual([
+			expect.objectContaining({
+				id: "participant-v15",
+				displayName: "Legacy Codex",
+			}),
+		]);
 	});
 
 	test("claims a timeout lease before closing a no-peer duel", async () => {
@@ -129,6 +349,8 @@ describe("socratic-duel lock coordinator", () => {
 		const relativeTarget = await executeJoin(
 			{
 				targetPath: "relative.md",
+				topic: "Target",
+				debateDir,
 				participantName: "participant-a",
 				harness: "test-harness",
 				modelId: "test-model",
@@ -142,6 +364,8 @@ describe("socratic-duel lock coordinator", () => {
 		const third = await executeJoin(
 			{
 				targetPath,
+				topic: "Target",
+				debateDir,
 				participantName: "participant-c",
 				harness: "test-harness",
 				modelId: "test-model",
