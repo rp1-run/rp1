@@ -38,19 +38,19 @@ Use launcher mode when you want rp1 to start both participants for you:
 === "Claude Code"
 
     ```bash
-    /socratic-duel-run TARGET_PATH=/Users/alex/project/decision.md TOPIC="Rollout plan"
+    /socratic-duel-run /Users/alex/project/decision.md --topic "Rollout plan"
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-base-socratic-duel-run TARGET_PATH=/Users/alex/project/decision.md TOPIC="Rollout plan"
+    /rp1-base-socratic-duel-run /Users/alex/project/decision.md --topic "Rollout plan"
     ```
 
 === "Codex"
 
     ```bash
-    $rp1-base-socratic-duel-run TARGET_PATH=/Users/alex/project/decision.md TOPIC="Rollout plan"
+    $rp1-base-socratic-duel-run /Users/alex/project/decision.md --topic "Rollout plan"
     ```
 
 When the run finishes, open the new file in `.rp1/work/debates/`.
@@ -62,7 +62,7 @@ When the run finishes, open the new file in `.rp1/work/debates/`.
 Use it to focus the debate on one part of a larger document:
 
 ```bash
-$rp1-base-socratic-duel-run TARGET_PATH=/Users/alex/project/architecture.md TOPIC="Migration fallback plan"
+$rp1-base-socratic-duel-run /Users/alex/project/architecture.md --topic "Migration fallback plan"
 ```
 
 If you leave `TOPIC` out, Socratic Duel uses the first Markdown heading in the
@@ -87,33 +87,33 @@ Use launcher mode when:
 Direct mode is for cases where you want to start each participant yourself, for
 example from two different tools or terminal sessions.
 
-Run the same command twice with the same `TARGET_PATH` and `TOPIC`, but with a
-different `PARTICIPANT_NAME`.
+Run the same command twice with the same target path and `--topic`, but with a
+different `--participant-name`.
 
 First participant:
 
 === "Claude Code"
 
     ```bash
-    /socratic-duel TARGET_PATH=/Users/alex/project/decision.md TOPIC="Rollout plan" PARTICIPANT_NAME=Claude MODEL_ID=claude-sonnet
+    /socratic-duel /Users/alex/project/decision.md --topic "Rollout plan" --participant-name Claude --model-id claude-sonnet
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-base-socratic-duel TARGET_PATH=/Users/alex/project/decision.md TOPIC="Rollout plan" PARTICIPANT_NAME=OpenCode MODEL_ID=opencode-model
+    /rp1-base-socratic-duel /Users/alex/project/decision.md --topic "Rollout plan" --participant-name OpenCode --model-id opencode-model
     ```
 
 === "Codex"
 
     ```bash
-    $rp1-base-socratic-duel TARGET_PATH=/Users/alex/project/decision.md TOPIC="Rollout plan" PARTICIPANT_NAME=Codex MODEL_ID=gpt-5
+    $rp1-base-socratic-duel /Users/alex/project/decision.md --topic "Rollout plan" --participant-name Codex --model-id gpt-5
     ```
 
 Second participant:
 
 ```bash
-$rp1-base-socratic-duel TARGET_PATH=/Users/alex/project/decision.md TOPIC="Rollout plan" PARTICIPANT_NAME=Codex MODEL_ID=gpt-5
+$rp1-base-socratic-duel /Users/alex/project/decision.md --topic "Rollout plan" --participant-name Codex --model-id gpt-5
 ```
 
 ## What Happens During A Duel
