@@ -203,7 +203,7 @@ export function ArtifactEmptyState({ className }: ArtifactEmptyStateProps) {
 			)}
 		>
 			<span className="sr-only">Creating artifacts</span>
-			<div className="h-full w-full max-w-[1400px]">
+			<div className="h-full w-full max-w-[700px] max-h-[400px]">
 				<svg
 					aria-hidden="true"
 					data-testid="artifact-empty-state-visual"
