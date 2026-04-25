@@ -6,6 +6,7 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -15,13 +16,14 @@ import {
 	ShortcutRegistryProvider,
 	useShortcutRegistry,
 } from "@/providers/ShortcutRegistryProvider";
-import type { Run } from "@/types/runs";
+import type { Artifact, Run, Step } from "@/types/runs";
 
 let importVersion = 0;
 let latestRegistry: ShortcutRegistryData | null = null;
 let latestPath: string | null = null;
 const refetchMock = mock(() => {});
 let fetchMock: ReturnType<typeof mock>;
+let latestRunArtifactsPanelProps: RunArtifactsPanelMockProps[] = [];
 
 let headerRightContent: ReactNode = null;
 
@@ -41,6 +43,21 @@ const breadcrumbApi = {
 const webSocketApi = {
 	setProjectId: mock(() => {}),
 };
+
+interface RunArtifactsPanelMockProps {
+	readonly artifactGroups: readonly {
+		readonly artifacts: readonly Artifact[];
+	}[];
+	readonly selectedArtifact: Artifact | null;
+	readonly onArtifactSelect?: (artifact: Artifact) => void;
+	readonly showFrontmatter?: boolean;
+}
+
+interface VerticalStepListMockProps {
+	readonly steps: readonly Step[];
+	readonly selectedStepId: string | null;
+	readonly onStepSelect: (stepId: string) => void;
+}
 
 let run: Run = {
 	id: "run-1",
@@ -129,19 +146,60 @@ function applyRunDetailMocks() {
 	}));
 
 	mock.module("@/components/v2/VerticalStepList", () => ({
-		VerticalStepList: () => <div data-testid="step-list">Step list</div>,
-	}));
-
-	mock.module("@/components/v2/ArtifactViewerPanel", () => ({
-		ArtifactViewerPanel: ({
-			showFrontmatter,
-		}: {
-			showFrontmatter?: boolean;
-		}) => (
-			<div data-testid="artifact-panel-frontmatter">
-				{String(showFrontmatter ?? false)}
+		VerticalStepList: ({
+			steps,
+			selectedStepId,
+			onStepSelect,
+		}: VerticalStepListMockProps) => (
+			<div data-testid="step-list" data-selected-step-id={selectedStepId ?? ""}>
+				{steps.map((step) => (
+					<button
+						key={step.id}
+						type="button"
+						aria-label={`Focus step ${step.name}`}
+						onClick={() => onStepSelect(step.id)}
+					>
+						{step.name}
+					</button>
+				))}
 			</div>
 		),
+	}));
+
+	mock.module("@/components/v2/RunArtifactsPanel", () => ({
+		RunArtifactsPanel: ({
+			artifactGroups,
+			selectedArtifact,
+			onArtifactSelect,
+			showFrontmatter,
+		}: RunArtifactsPanelMockProps) => {
+			const artifacts = artifactGroups.flatMap((group) => group.artifacts);
+			latestRunArtifactsPanelProps.push({
+				artifactGroups,
+				selectedArtifact,
+				onArtifactSelect,
+				showFrontmatter,
+			});
+
+			return (
+				<div
+					data-testid="artifact-panel-frontmatter"
+					data-artifact-count={String(artifacts.length)}
+					data-frontmatter={String(showFrontmatter ?? false)}
+					data-selected-artifact={selectedArtifact?.docId ?? ""}
+				>
+					{artifacts.map((artifact) => (
+						<button
+							key={artifact.docId}
+							type="button"
+							onClick={() => onArtifactSelect?.(artifact)}
+						>
+							{artifact.docId}
+						</button>
+					))}
+				</div>
+			);
+		},
 	}));
 }
 
@@ -197,6 +255,16 @@ async function renderRunDetail(
 								</>
 							}
 						/>
+						<Route
+							path="/runs/:runId/artifact/:docId"
+							element={
+								<>
+									<LocationProbe />
+									<RegistryProbe />
+									<RunDetailPage />
+								</>
+							}
+						/>
 					</Routes>
 				</ShortcutRegistryProvider>
 			</WorkspaceTabsProvider>
@@ -212,6 +280,7 @@ describe("RunDetailPage", () => {
 		sessionStorage.clear();
 		latestRegistry = null;
 		latestPath = null;
+		latestRunArtifactsPanelProps = [];
 		fetchMock = mock(() =>
 			Promise.resolve({
 				ok: true,
@@ -244,7 +313,7 @@ describe("RunDetailPage", () => {
 
 		expect(screen.queryByText("Invocation")).toBeNull();
 		for (const panel of screen.getAllByTestId("artifact-panel-frontmatter")) {
-			expect(panel.textContent).toBe("false");
+			expect(panel.dataset.frontmatter).toBe("false");
 		}
 
 		await waitFor(() => {
@@ -288,7 +357,7 @@ describe("RunDetailPage", () => {
 
 		expect(screen.getByText("Invocation")).toBeTruthy();
 		for (const panel of screen.getAllByTestId("artifact-panel-frontmatter")) {
-			expect(panel.textContent).toBe("true");
+			expect(panel.dataset.frontmatter).toBe("true");
 		}
 
 		firstRender.unmount();
@@ -298,7 +367,7 @@ describe("RunDetailPage", () => {
 
 		expect(screen.getByText("Invocation")).toBeTruthy();
 		for (const panel of screen.getAllByTestId("artifact-panel-frontmatter")) {
-			expect(panel.textContent).toBe("true");
+			expect(panel.dataset.frontmatter).toBe("true");
 		}
 	});
 
@@ -339,7 +408,111 @@ describe("RunDetailPage", () => {
 		expect(refetchMock).toHaveBeenCalledTimes(1);
 	});
 
-	test("prefers the current waiting step over historical completed artifacts when landing on the run root", async () => {
+	test("shows run status messages inline in the detail header", async () => {
+		const message = "No workflow activity recorded for 24 hours";
+		run = {
+			...run,
+			statusMessage: message,
+		};
+
+		await renderRunDetail();
+
+		await waitFor(() => {
+			expect(breadcrumbApi.setHeaderRight).toHaveBeenCalled();
+		});
+
+		expect(screen.queryByText(message)).toBeNull();
+
+		const headerRight = headerRightContent;
+		expect(headerRight).toBeTruthy();
+
+		const headerContainer = render(headerRight).container;
+		const inlineMessage = headerContainer.querySelector(".italic");
+
+		expect(inlineMessage?.textContent).toBe(message);
+		expect(inlineMessage?.className).toContain("truncate");
+	});
+
+	test("passes all run artifacts into the aggregate right panel", async () => {
+		run = {
+			...run,
+			artifacts: [
+				...run.artifacts,
+				{
+					docId: "doc-run",
+					path: ".rp1/work/brief.md",
+					absolutePath: "/repo/.rp1/work/brief.md",
+					type: "markdown",
+					updatedDuringRun: true,
+					isNew: false,
+					step: null,
+				},
+			],
+		};
+
+		await renderRunDetail("/runs/run-1/step/build/artifact/doc-1");
+
+		for (const panel of screen.getAllByTestId("artifact-panel-frontmatter")) {
+			expect(panel.dataset.artifactCount).toBe("2");
+			expect(panel.dataset.selectedArtifact).toBe("doc-1");
+		}
+	});
+
+	test("selects the current step artifact when landing on the run root", async () => {
+		run = {
+			...run,
+			status: "waiting",
+			currentStep: "review",
+			steps: [
+				{
+					id: "build",
+					name: "Build",
+					status: "completed",
+					startedAt: "2026-04-12T00:00:00.000Z",
+					completedAt: "2026-04-12T00:10:00.000Z",
+					taskCount: 5,
+					completedTaskCount: 5,
+				},
+				{
+					id: "review",
+					name: "Review",
+					status: "waiting",
+					startedAt: "2026-04-12T00:10:00.000Z",
+					completedAt: null,
+					taskCount: null,
+					completedTaskCount: null,
+				},
+			],
+			artifacts: [
+				{
+					docId: "doc-build",
+					path: ".rp1/work/features/feature-1/design.md",
+					absolutePath: "/repo/.rp1/work/features/feature-1/design.md",
+					type: "markdown",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "build",
+				},
+				{
+					docId: "doc-review",
+					path: ".rp1/work/features/feature-1/review.md",
+					absolutePath: "/repo/.rp1/work/features/feature-1/review.md",
+					type: "markdown",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "review",
+				},
+			],
+		};
+
+		await renderRunDetail("/runs/run-1");
+
+		await waitFor(() => {
+			expect(latestPath).toBe("/runs/run-1/step/review/artifact/doc-review");
+		});
+	});
+
+	test("falls back to the first run artifact when the current step has no artifact", async () => {
 		run = {
 			...run,
 			status: "waiting",
@@ -380,7 +553,111 @@ describe("RunDetailPage", () => {
 		await renderRunDetail("/runs/run-1");
 
 		await waitFor(() => {
-			expect(latestPath).toBe("/runs/run-1/step/review");
+			expect(latestPath).toBe("/runs/run-1/step/build/artifact/doc-build");
+		});
+	});
+
+	test("keeps the current artifact selected when focusing a workflow step", async () => {
+		run = {
+			...run,
+			steps: [
+				{
+					id: "build",
+					name: "Build",
+					status: "completed",
+					startedAt: "2026-04-12T00:00:00.000Z",
+					completedAt: "2026-04-12T00:10:00.000Z",
+					taskCount: 5,
+					completedTaskCount: 5,
+				},
+				{
+					id: "review",
+					name: "Review",
+					status: "running",
+					startedAt: "2026-04-12T00:10:00.000Z",
+					completedAt: null,
+					taskCount: null,
+					completedTaskCount: null,
+				},
+			],
+			artifacts: [
+				{
+					docId: "doc-1",
+					path: ".rp1/work/features/feature-1/tasks.md",
+					absolutePath: "/repo/.rp1/work/features/feature-1/tasks.md",
+					type: "markdown",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "build",
+				},
+				{
+					docId: "doc-review",
+					path: ".rp1/work/features/feature-1/review.md",
+					absolutePath: "/repo/.rp1/work/features/feature-1/review.md",
+					type: "markdown",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "review",
+				},
+			],
+		};
+
+		await renderRunDetail("/runs/run-1/step/build/artifact/doc-1");
+
+		await waitFor(() => {
+			expect(screen.getByTestId("step-list").dataset.selectedStepId).toBe(
+				"build",
+			);
+		});
+
+		const stepList = screen.getByTestId("step-list");
+		fireEvent.click(within(stepList).getByLabelText("Focus step Review"));
+
+		await waitFor(() => {
+			expect(screen.getByTestId("step-list").dataset.selectedStepId).toBe(
+				"review",
+			);
+		});
+		expect(latestPath).toBe("/runs/run-1/step/build/artifact/doc-1");
+		for (const panel of screen.getAllByTestId("artifact-panel-frontmatter")) {
+			expect(panel.dataset.selectedArtifact).toBe("doc-1");
+		}
+	});
+
+	test("uses artifact-origin navigation from the aggregate panel", async () => {
+		run = {
+			...run,
+			artifacts: [
+				{
+					docId: "doc-1",
+					path: ".rp1/work/features/feature-1/tasks.md",
+					absolutePath: "/repo/.rp1/work/features/feature-1/tasks.md",
+					type: "markdown",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "build",
+				},
+				{
+					docId: "doc-review",
+					path: ".rp1/work/features/feature-1/review.md",
+					absolutePath: "/repo/.rp1/work/features/feature-1/review.md",
+					type: "markdown",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "review",
+				},
+			],
+		};
+
+		await renderRunDetail("/runs/run-1/step/build/artifact/doc-1");
+
+		await waitFor(() => {
+			expect(screen.getAllByText("doc-review").length).toBeGreaterThan(0);
+		});
+		fireEvent.click(screen.getAllByText("doc-review")[0]);
+
+		await waitFor(() => {
+			expect(latestPath).toBe("/runs/run-1/step/review/artifact/doc-review");
 		});
 	});
 });

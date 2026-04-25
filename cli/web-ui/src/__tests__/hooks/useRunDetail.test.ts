@@ -352,6 +352,60 @@ describe("useRunDetail", () => {
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 
+	test("artifact registrations merge by docId before the debounced refetch", async () => {
+		runResponse = {
+			...baseRun,
+			artifacts: [
+				{
+					docId: "doc-1",
+					path: ".rp1/work/features/feat-1/tasks.md",
+					absolutePath: "/tmp/project/.rp1/work/features/feat-1/tasks.md",
+					type: "markdown",
+					updatedDuringRun: false,
+					isNew: false,
+					step: "design",
+				},
+			],
+		};
+
+		const { useRunDetail } = await loadUseRunDetail();
+		const { result } = renderHook(() => useRunDetail("run-1"));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		act(() => {
+			emitEvent({
+				type: "event:notification",
+				eventId: 650,
+				eventType: "artifact_registered",
+				runId: "run-1",
+				projectId: "proj-1",
+				featureId: "feat-1",
+				step: "design",
+				data: {
+					docId: "doc-1",
+					path: ".rp1/work/features/feat-1/tasks.updated.md",
+					type: "report",
+				},
+				createdAt: "2026-03-15T01:27:00Z",
+			});
+		});
+
+		expect(result.current.run?.artifacts).toHaveLength(1);
+		expect(result.current.run?.artifacts[0]).toMatchObject({
+			docId: "doc-1",
+			path: ".rp1/work/features/feat-1/tasks.updated.md",
+			absolutePath: "/tmp/project/.rp1/work/features/feat-1/tasks.md",
+			type: "report",
+			updatedDuringRun: true,
+			isNew: true,
+			step: "design",
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
 	test("run-level cancelled status changes stay on the current step and trigger a terminal refetch", async () => {
 		const { useRunDetail } = await loadUseRunDetail();
 		const { result } = renderHook(() => useRunDetail("run-1"));

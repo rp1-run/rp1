@@ -15,6 +15,9 @@ import {
 	getAnnotationById,
 	getAnnotationsForDocId,
 	getAnnotationsForRun,
+	getArtifactByDocId,
+	getRunById,
+	resolveArtifactPathForRun,
 	upsertAnnotation,
 } from "../../../src/agent-tools/emit/database.js";
 import type {
@@ -27,6 +30,10 @@ import type {
 	LineAnchor,
 	TextSelectionAnchor,
 } from "../types/annotations";
+import {
+	resolveArtifactAbsolutePath,
+	resolveProjectDirectories,
+} from "./project-paths";
 
 /**
  * Error types for annotation operations.
@@ -439,15 +446,18 @@ function escapeRegex(str: string): string {
 /**
  * Detect and mark orphaned annotations for a specific artifact by doc_id.
  * An annotation is orphaned when its anchor text can no longer be found in the content.
+ * Returns the list of annotation IDs whose orphaned flag was flipped in this pass.
  */
 export function detectOrphanedAnnotations(
 	db: Database,
 	docId: string,
 	content: string,
-): void {
+): string[] {
 	const records = getAnnotationsForDocId(db, docId).filter(
 		(r) => r.parentId === null,
 	);
+
+	const flippedIds: string[] = [];
 
 	for (const record of records) {
 		const data: AnnotationData | null = record.data
@@ -469,7 +479,101 @@ export function detectOrphanedAnnotations(
 			dbUpdateAnnotation(db, record.id, {
 				data: JSON.stringify(updatedData),
 			});
+			flippedIds.push(String(record.id));
 		}
+	}
+
+	return flippedIds;
+}
+
+/**
+ * Load the current file content for an artifact identified by doc_id.
+ * Looks up the artifact record, resolves its absolute path, and reads the file.
+ * Falls back to run-aware resolveArtifactPath when the direct path is missing
+ * (e.g. after archive or move operations).
+ * Returns null if the artifact is not found or the file cannot be read.
+ */
+export async function loadContentForDocId(
+	db: Database,
+	docId: string,
+): Promise<string | null> {
+	const artifact = getArtifactByDocId(db, docId);
+	if (!artifact) {
+		return null;
+	}
+
+	try {
+		// 1. Run-aware resolution: if the artifact belongs to a run, use
+		//    resolveArtifactPathForRun which honours the run's rp1ProjectRoot
+		//    and rp1WorkRoot (critical for non-default project roots).
+		if (artifact.runId) {
+			const run = getRunById(db, artifact.runId);
+			if (run) {
+				const runResolvedPath = await resolveArtifactPathForRun(db, run, {
+					docId: artifact.docId,
+					path: artifact.path,
+					storageRoot: artifact.storageRoot,
+				});
+				if (runResolvedPath) {
+					const runFile = Bun.file(runResolvedPath);
+					if (await runFile.exists()) {
+						return await runFile.text();
+					}
+				}
+			}
+		}
+
+		// 2. Direct path resolution using project directories.
+		const directories = resolveProjectDirectories(artifact.projectPath);
+		const absolutePath = resolveArtifactAbsolutePath(directories, artifact);
+		const file = Bun.file(absolutePath);
+		if (await file.exists()) {
+			return await file.text();
+		}
+
+		// 3. Fallback: dynamic-import resolveArtifactPath for moved/archived artifacts
+		if (artifact.path && artifact.storageRoot) {
+			const { resolveArtifactPath } = await import("./routes/artifacts-api");
+			const resolvedPath = await resolveArtifactPath(db, directories, {
+				docId: artifact.docId,
+				path: artifact.path,
+				storageRoot: artifact.storageRoot,
+			});
+			if (resolvedPath) {
+				return await Bun.file(resolvedPath).text();
+			}
+		}
+
+		return null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Run orphan detection for a given doc_id by loading the artifact's current
+ * file content and calling detectOrphanedAnnotations.
+ * Logs a warning and returns silently if content cannot be loaded.
+ * Returns the list of annotation IDs whose orphaned flag was flipped.
+ */
+export async function runOrphanDetectionForDoc(
+	db: Database,
+	docId: string,
+): Promise<string[]> {
+	try {
+		const content = await loadContentForDocId(db, docId);
+		if (content === null) {
+			console.warn(
+				`[orphan-detection] Could not load content for doc ${docId}, skipping detection`,
+			);
+			return [];
+		}
+		return detectOrphanedAnnotations(db, docId, content);
+	} catch (error) {
+		console.warn(
+			`[orphan-detection] Failed for doc ${docId}: ${String(error)}`,
+		);
+		return [];
 	}
 }
 

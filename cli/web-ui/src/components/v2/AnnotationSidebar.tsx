@@ -1,5 +1,11 @@
-import { AlertTriangle, Filter, MessageSquare, X } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import {
+	AlertTriangle,
+	CornerDownRight,
+	Filter,
+	MessageSquare,
+	X,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import { needsTruncation, truncateContent } from "@/lib/content-truncation";
 import { formatRelativeTime } from "@/lib/time";
@@ -115,6 +121,154 @@ function AnnotationItem({
 	);
 }
 
+/**
+ * Inline thread view for orphaned annotations.
+ * Since the anchor is missing or the thread is closed, clicking cannot scroll
+ * to an inline position. Instead, the full thread (parent + replies) is shown
+ * directly inside the sidebar card.
+ */
+interface OrphanedAnnotationItemProps {
+	annotation: Annotation;
+	isThreadOpen: boolean;
+	onToggleThread: () => void;
+	expandedComments: Set<string>;
+	onToggleExpand: (id: string) => void;
+}
+
+function OrphanedAnnotationItem({
+	annotation,
+	isThreadOpen,
+	onToggleThread,
+	expandedComments,
+	onToggleExpand,
+}: OrphanedAnnotationItemProps) {
+	const anchorPreview = getAnchorPreview(annotation);
+	const isResolved = annotation.status === "resolved";
+	const replyCount = annotation.replies.length;
+	const showTruncation = needsTruncation(annotation.content);
+	const isContentExpanded = expandedComments.has(annotation.id);
+	const displayContent = isContentExpanded
+		? annotation.content
+		: truncateContent(annotation.content);
+
+	return (
+		<div
+			className={cn(
+				"rp1-orphaned-card w-full rounded-md border px-2 py-1.5 text-left transition-colors",
+				isThreadOpen
+					? "border-border bg-muted/30"
+					: "border-transparent hover:border-border hover:bg-muted/50",
+				isResolved && "opacity-60",
+			)}
+		>
+			<button
+				type="button"
+				onClick={onToggleThread}
+				className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+			>
+				<div className="flex items-start gap-2">
+					<div
+						className={cn(
+							"mt-1.5 h-2 w-2 shrink-0 rounded-full",
+							isResolved ? "bg-terminal-green" : "bg-annotation-open",
+						)}
+						role="img"
+						aria-label={isResolved ? "Resolved" : "Open"}
+					/>
+					<div className="min-w-0 flex-1">
+						<p className="truncate text-xs text-muted-foreground">
+							{anchorPreview}
+						</p>
+						<p className="mt-0.5 whitespace-pre-wrap text-sm">
+							{displayContent}
+						</p>
+						<div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+							<span>{annotation.author}</span>
+							<span>-</span>
+							<span>{formatRelativeTime(annotation.createdAt)}</span>
+							{replyCount > 0 && (
+								<>
+									<span>-</span>
+									<span>
+										{replyCount} {replyCount === 1 ? "reply" : "replies"}
+									</span>
+								</>
+							)}
+						</div>
+						<p className="mt-1 text-xs text-status-warning">
+							{isResolved ? "Thread closed" : "Anchor no longer present"}
+						</p>
+					</div>
+				</div>
+			</button>
+
+			{showTruncation && !isThreadOpen && (
+				<button
+					type="button"
+					onClick={(e) => {
+						e.stopPropagation();
+						onToggleExpand(annotation.id);
+					}}
+					className="ml-4 mt-1 text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+				>
+					{isContentExpanded ? "Show less" : "Show more"}
+				</button>
+			)}
+
+			{isThreadOpen && (
+				<div className="rp1-orphaned-thread mt-2 ml-4 border-t border-border pt-2">
+					<p className="whitespace-pre-wrap text-sm text-fg">
+						{annotation.content}
+					</p>
+
+					{annotation.replies.length > 0 && (
+						<div className="mt-2 space-y-1">
+							{annotation.replies.map((reply) => {
+								const replyExpanded = expandedComments.has(reply.id);
+								const replyShowTruncation = needsTruncation(reply.content);
+								const replyDisplay = replyExpanded
+									? reply.content
+									: truncateContent(reply.content);
+
+								return (
+									<div key={reply.id} className="flex gap-2 py-1.5">
+										<CornerDownRight
+											className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground"
+											strokeWidth={1.5}
+											aria-hidden="true"
+										/>
+										<div className="min-w-0 flex-1">
+											<div className="flex items-center gap-2 text-xs text-muted-foreground">
+												<span className="text-foreground">{reply.author}</span>
+												<span>{formatRelativeTime(reply.createdAt)}</span>
+											</div>
+											<p className="mt-0.5 whitespace-pre-wrap text-sm">
+												{replyDisplay}
+											</p>
+											{replyShowTruncation && (
+												<button
+													type="button"
+													onClick={(e) => {
+														e.stopPropagation();
+														onToggleExpand(reply.id);
+													}}
+													className="text-xs text-muted-foreground hover:text-foreground transition-colors duration-150 mt-1"
+												>
+													{replyExpanded ? "Show less" : "Show more"}
+												</button>
+											)}
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					)}
+				</div>
+			)}
+		</div>
+	);
+}
+
 function getAnchorPreview(annotation: Annotation): string {
 	const anchor = annotation.anchor;
 	switch (anchor.type) {
@@ -138,9 +292,39 @@ export function AnnotationSidebar({
 	const [expandedComments, setExpandedComments] = useState<Set<string>>(
 		new Set(),
 	);
+	const [orphanedExpandedComments, setOrphanedExpandedComments] = useState<
+		Set<string>
+	>(new Set());
+	const [openOrphanedThreads, setOpenOrphanedThreads] = useState<Set<string>>(
+		new Set(),
+	);
 
 	const toggleExpanded = useCallback((annotationId: string) => {
 		setExpandedComments((prev) => {
+			const next = new Set(prev);
+			if (next.has(annotationId)) {
+				next.delete(annotationId);
+			} else {
+				next.add(annotationId);
+			}
+			return next;
+		});
+	}, []);
+
+	const toggleOrphanedExpand = useCallback((annotationId: string) => {
+		setOrphanedExpandedComments((prev) => {
+			const next = new Set(prev);
+			if (next.has(annotationId)) {
+				next.delete(annotationId);
+			} else {
+				next.add(annotationId);
+			}
+			return next;
+		});
+	}, []);
+
+	const toggleOrphanedThread = useCallback((annotationId: string) => {
+		setOpenOrphanedThreads((prev) => {
 			const next = new Set(prev);
 			if (next.has(annotationId)) {
 				next.delete(annotationId);
@@ -161,6 +345,33 @@ export function AnnotationSidebar({
 	} = useAnnotations({ artifactPath });
 
 	const { annotations: allAnnotations } = useAnnotationContext();
+
+	// Clean up stale orphaned-section state when annotations flip back to non-orphaned
+	const orphanedIds = useMemo(
+		() => new Set(groupedAnnotations.orphaned.map((a) => a.id)),
+		[groupedAnnotations.orphaned],
+	);
+
+	useEffect(() => {
+		setOrphanedExpandedComments((prev) => {
+			const next = new Set<string>();
+			for (const id of prev) {
+				if (orphanedIds.has(id)) {
+					next.add(id);
+				}
+			}
+			return next.size === prev.size ? prev : next;
+		});
+		setOpenOrphanedThreads((prev) => {
+			const next = new Set<string>();
+			for (const id of prev) {
+				if (orphanedIds.has(id)) {
+					next.add(id);
+				}
+			}
+			return next.size === prev.size ? prev : next;
+		});
+	}, [orphanedIds]);
 
 	const totalCount = useMemo(() => {
 		const artifactAnnotations = artifactPath
@@ -362,11 +573,12 @@ export function AnnotationSidebar({
 								</li>
 								{groupedAnnotations.orphaned.map((annotation) => (
 									<li key={annotation.id}>
-										<AnnotationItem
+										<OrphanedAnnotationItem
 											annotation={annotation}
-											onClick={() => handleAnnotationClick(annotation)}
-											isExpanded={expandedComments.has(annotation.id)}
-											onToggleExpand={() => toggleExpanded(annotation.id)}
+											isThreadOpen={openOrphanedThreads.has(annotation.id)}
+											onToggleThread={() => toggleOrphanedThread(annotation.id)}
+											expandedComments={orphanedExpandedComments}
+											onToggleExpand={toggleOrphanedExpand}
 										/>
 									</li>
 								))}

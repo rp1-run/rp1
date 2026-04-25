@@ -360,9 +360,80 @@
     color: var(--shiki-dark);
   }
 
-  .mermaid-svg svg {
+  :where(.mermaid-svg, .milkdown-mermaid-preview) {
+    --rp1-mermaid-text: hsl(var(--fg));
+    --rp1-mermaid-node-bg: hsl(var(--surface));
+    --rp1-mermaid-label-bg: hsl(var(--base));
+    --rp1-mermaid-border: hsl(var(--fg-muted) / 0.42);
+    --rp1-mermaid-line: hsl(var(--fg-muted) / 0.78);
+  }
+
+  :where(.mermaid-svg, .milkdown-mermaid-preview) svg {
     max-width: none;
+    color: var(--rp1-mermaid-text);
+  }
+
+  .mermaid-svg svg {
     overflow: visible;
+  }
+
+  :where(.mermaid-svg, .milkdown-mermaid-preview) svg
+    :is(
+      .edgeLabel .label,
+      .edgeLabel text,
+      .edgeLabel tspan,
+      .messageText,
+      .loopText,
+      .noteText,
+      .labelText,
+      .nodeLabel,
+      .classTitle,
+      .titleText,
+      .attribute-type,
+      .attribute-name,
+      .attribute-key,
+      .attribute-keys
+    ) {
+    fill: var(--rp1-mermaid-text) !important;
+    color: var(--rp1-mermaid-text) !important;
+  }
+
+  :where(.mermaid-svg, .milkdown-mermaid-preview) svg foreignObject,
+  :where(.mermaid-svg, .milkdown-mermaid-preview) svg foreignObject * {
+    color: var(--rp1-mermaid-text) !important;
+  }
+
+  :where(.mermaid-svg, .milkdown-mermaid-preview) svg
+    :is(.edgeLabel rect, .edgeLabel .label rect, .relationshipLabelBox) {
+    fill: var(--rp1-mermaid-label-bg) !important;
+    background-color: var(--rp1-mermaid-label-bg) !important;
+  }
+
+  :where(.mermaid-svg, .milkdown-mermaid-preview) svg
+    :is(
+      .flowchart-link,
+      .relationshipLine,
+      .messageLine0,
+      .messageLine1,
+      .transition,
+      .actor-line,
+      .loopLine,
+      .note-line
+    ) {
+    stroke: var(--rp1-mermaid-line) !important;
+  }
+
+  :where(.mermaid-svg, .milkdown-mermaid-preview) svg.erDiagram
+    .node
+    :is(rect, path[stroke="none"]) {
+    fill: var(--rp1-mermaid-node-bg) !important;
+    stroke: var(--rp1-mermaid-border) !important;
+  }
+
+  :where(.mermaid-svg, .milkdown-mermaid-preview) svg.erDiagram
+    .node
+    path:not([stroke="none"]) {
+    stroke: var(--rp1-mermaid-border) !important;
   }
 
   /* Artifact viewer panel: code blocks use void background */
@@ -660,6 +731,7 @@
   .milkdown-mermaid-preview svg {
     max-width: none;
     height: auto;
+    color: var(--rp1-mermaid-text);
   }
 
   .milkdown-mermaid-preview.mermaid-error {

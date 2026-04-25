@@ -66,6 +66,47 @@ function snapshotMayAffectRun(
 	return socketProjectId === currentRun.projectId;
 }
 
+function mergeArtifactRegistration(
+	artifacts: readonly Artifact[],
+	incoming: Artifact,
+): readonly Artifact[] {
+	const existingIndex = artifacts.findIndex(
+		(artifact) => artifact.docId === incoming.docId,
+	);
+
+	if (existingIndex === -1) {
+		return [...artifacts, incoming];
+	}
+
+	return artifacts.map((artifact, index) =>
+		index === existingIndex
+			? {
+					...artifact,
+					path: incoming.path,
+					type: incoming.type,
+					updatedDuringRun: true,
+					isNew: true,
+					step: artifact.step ?? incoming.step,
+				}
+			: artifact,
+	);
+}
+
+function updateReconciledArtifactPath(
+	artifacts: readonly Artifact[],
+	docId: string,
+	path: string,
+): readonly Artifact[] {
+	return artifacts.map((artifact) =>
+		artifact.docId === docId
+			? {
+					...artifact,
+					path,
+				}
+			: artifact,
+	);
+}
+
 export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 	const [run, setRun] = useState<Run | null>(() =>
 		runId ? (runDetailCache.get(runId) ?? null) : null,
@@ -218,6 +259,10 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 
 			if (msg.eventType === "artifact_registered") {
 				const data = msg.data as Record<string, unknown> | null;
+				const docId = typeof data?.docId === "string" ? data.docId : "";
+				const path = typeof data?.path === "string" ? data.path : "";
+
+				if (!docId || !path) return;
 
 				if (data?.reconciled) {
 					shouldRefetch = false;
@@ -225,21 +270,14 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 						if (!prev) return null;
 						return {
 							...prev,
-							artifacts: prev.artifacts.map((a) =>
-								a.docId === data.docId
-									? {
-											...a,
-											path: data.path as string,
-										}
-									: a,
+							artifacts: updateReconciledArtifactPath(
+								prev.artifacts,
+								docId,
+								path,
 							),
 						};
 					});
 				} else {
-					const docId = (data?.docId as string) ?? "";
-					const path = (data?.path as string) ?? "";
-					if (!docId || !path) return;
-
 					const newArtifact: Artifact = {
 						docId,
 						path,
@@ -254,7 +292,7 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 						if (!prev) return null;
 						return {
 							...prev,
-							artifacts: [...prev.artifacts, newArtifact],
+							artifacts: mergeArtifactRegistration(prev.artifacts, newArtifact),
 						};
 					});
 				}

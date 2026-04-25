@@ -20,7 +20,7 @@ import {
 	ResizablePanel,
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { ArtifactViewerPanel } from "@/components/v2/ArtifactViewerPanel";
+import { RunArtifactsPanel } from "@/components/v2/RunArtifactsPanel";
 import { RunInvocationCard } from "@/components/v2/RunInvocationCard";
 import { VerticalStepList } from "@/components/v2/VerticalStepList";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
@@ -31,6 +31,10 @@ import {
 	useWorkflowSteps,
 } from "@/hooks/useWorkflowSteps";
 import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
+import {
+	buildArtifactRoute,
+	groupArtifactsByWorkflowStep,
+} from "@/lib/artifact-groups";
 import { resolveRunDisplayName } from "@/lib/run-display";
 import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/providers/WebSocketProvider";
@@ -111,12 +115,23 @@ export function RunDetailPage() {
 	);
 	const { isLoading: isWorkflowLoading } = useWorkflowSteps(workflowName);
 
-	const selectedStepId = urlStepId ?? null;
-
 	const selectedArtifact = useMemo(() => {
 		if (!urlDocId || !run) return null;
 		return run.artifacts.find((a) => a.docId === urlDocId) ?? null;
 	}, [urlDocId, run]);
+	const routeFocusedStepId =
+		urlStepId ??
+		selectedArtifact?.step ??
+		run?.currentStep ??
+		run?.steps[0]?.id ??
+		null;
+	const [focusedStepId, setFocusedStepId] = useState<string | null>(null);
+	const selectedStepId = focusedStepId ?? routeFocusedStepId;
+
+	useEffect(() => {
+		setFocusedStepId(routeFocusedStepId);
+	}, [routeFocusedStepId]);
+
 	const workspaceSubtitle = useMemo(() => {
 		if (!run) return null;
 		const artifactName = selectedArtifact?.path.split("/").at(-1) ?? null;
@@ -127,10 +142,10 @@ export function RunDetailPage() {
 		return run ? run.steps : [];
 	}, [run]);
 
-	const selectedStep = useMemo(() => {
-		if (!selectedStepId || !run) return null;
-		return run.steps.find((s) => s.id === selectedStepId) ?? null;
-	}, [selectedStepId, run]);
+	const artifactGroups = useMemo(() => {
+		return run ? groupArtifactsByWorkflowStep(run.artifacts, run.steps) : [];
+	}, [run]);
+
 	const currentStepName = useMemo(() => {
 		if (!run?.currentStep) return null;
 		return (
@@ -138,11 +153,7 @@ export function RunDetailPage() {
 			run.currentStep
 		);
 	}, [run]);
-
-	const stepArtifacts = useMemo(() => {
-		if (!selectedStepId || !run) return [];
-		return run.artifacts.filter((a) => a.step === selectedStepId);
-	}, [selectedStepId, run]);
+	const headerStatusMessage = run?.statusMessage ?? null;
 
 	const subflowDiagram = useMemo(() => {
 		if (!selectedStepId || !run?.subflows) return null;
@@ -284,6 +295,11 @@ export function RunDetailPage() {
 							Current step: {currentStepName}
 						</span>
 					)}
+					{headerStatusMessage && (
+						<span className="min-w-0 max-w-[42vw] truncate type-secondary italic text-fg-ghost">
+							{headerStatusMessage}
+						</span>
+					)}
 					{canEnd && (
 						<>
 							<button
@@ -315,42 +331,35 @@ export function RunDetailPage() {
 			setHeaderLeft(null);
 			setHeaderRight(null);
 		};
-	}, [run, currentStepName, endingOutcome, setHeaderLeft, setHeaderRight]);
+	}, [
+		run,
+		currentStepName,
+		headerStatusMessage,
+		endingOutcome,
+		setHeaderLeft,
+		setHeaderRight,
+	]);
 
-	const handleStepSelect = useCallback(
-		(stepId: string) => {
-			if (!runId) return;
-			if (run) {
-				const hasSubflow = run.subflows && run.subflows[stepId] !== undefined;
-				if (!hasSubflow) {
-					const art = run.artifacts.find((a) => a.step === stepId && a.docId);
-					if (art) {
-						navigate(`/runs/${runId}/step/${stepId}/artifact/${art.docId}`);
-						return;
-					}
-				}
-			}
-			navigate(`/runs/${runId}/step/${stepId}`);
-		},
-		[run, runId, navigate],
-	);
+	const handleStepSelect = useCallback((stepId: string) => {
+		setFocusedStepId(stepId);
+	}, []);
 
 	const handleArtifactSelect = useCallback(
 		(artifact: Artifact) => {
-			if (!runId || !selectedStepId) return;
-			navigate(
-				`/runs/${runId}/step/${selectedStepId}/artifact/${artifact.docId}`,
-			);
+			if (!runId) return;
+			setFocusedStepId(artifact.step ?? null);
+			navigate(buildArtifactRoute(runId, artifact));
 		},
-		[runId, selectedStepId, navigate],
+		[runId, navigate],
 	);
 
 	useEffect(() => {
 		if (!run || !runId) return;
 		const steps = run.steps;
+
 		if (steps.length === 0) return;
 
-		if (!urlStepId) {
+		if (!urlStepId && !urlDocId) {
 			const currentStep =
 				run.currentStep != null
 					? (steps.find((step) => step.id === run.currentStep) ?? null)
@@ -370,29 +379,18 @@ export function RunDetailPage() {
 					: completedSteps.length > 0
 						? completedSteps[completedSteps.length - 1]
 						: steps[0]);
-			const art = run.artifacts.find(
-				(a) => a.step === targetStep.id && a.docId,
-			);
+			const art =
+				run.artifacts.find((a) => a.step === targetStep.id && a.docId) ??
+				run.artifacts.find((a) => a.docId) ??
+				null;
 			if (art) {
-				navigate(`/runs/${runId}/step/${targetStep.id}/artifact/${art.docId}`, {
+				navigate(buildArtifactRoute(runId, art), {
 					replace: true,
 				});
 			} else {
 				navigate(`/runs/${runId}/step/${targetStep.id}`, { replace: true });
 			}
 			return;
-		}
-
-		if (urlStepId && !urlDocId) {
-			const hasSubflow = run.subflows && run.subflows[urlStepId] !== undefined;
-			if (!hasSubflow) {
-				const art = run.artifacts.find((a) => a.step === urlStepId && a.docId);
-				if (art) {
-					navigate(`/runs/${runId}/step/${urlStepId}/artifact/${art.docId}`, {
-						replace: true,
-					});
-				}
-			}
 		}
 	}, [run, runId, urlStepId, urlDocId, navigate]);
 
@@ -505,16 +503,17 @@ export function RunDetailPage() {
 		);
 	}
 
-	const statusMessage = run.statusMessage ?? run.error;
+	const bodyStatusMessage =
+		run.error && run.error !== headerStatusMessage ? run.error : null;
 
 	return (
 		<div className="flex h-full flex-col">
 			{showMetadata && <RunInvocationCard invocation={run.invocation} />}
 
-			{(statusMessage || endRunError) && (
+			{(bodyStatusMessage || endRunError) && (
 				<div className="border-b border-border px-md py-sm">
-					{statusMessage && (
-						<p className="type-secondary text-fg-muted">{statusMessage}</p>
+					{bodyStatusMessage && (
+						<p className="type-secondary text-fg-muted">{bodyStatusMessage}</p>
 					)}
 					{endRunError && (
 						<p className="pt-xs type-secondary text-failure">{endRunError}</p>
@@ -547,9 +546,8 @@ export function RunDetailPage() {
 					<ResizableHandle className="cursor-col-resize" />
 
 					<ResizablePanel defaultSize={78} minSize={40}>
-						<ArtifactViewerPanel
-							step={selectedStep}
-							artifacts={stepArtifacts}
+						<RunArtifactsPanel
+							artifactGroups={artifactGroups}
 							selectedArtifact={selectedArtifact}
 							onArtifactSelect={handleArtifactSelect}
 							runId={runId}
@@ -568,9 +566,8 @@ export function RunDetailPage() {
 				/>
 
 				<div className="flex-1 min-h-0 overflow-y-auto">
-					<ArtifactViewerPanel
-						step={selectedStep}
-						artifacts={stepArtifacts}
+					<RunArtifactsPanel
+						artifactGroups={artifactGroups}
 						selectedArtifact={selectedArtifact}
 						onArtifactSelect={handleArtifactSelect}
 						runId={runId}

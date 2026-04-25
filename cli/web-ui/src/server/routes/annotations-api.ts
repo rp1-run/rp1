@@ -22,6 +22,7 @@ import {
 	getAnnotations,
 	reopenAnnotation,
 	resolveAnnotation,
+	runOrphanDetectionForDoc,
 	updateAnnotation,
 } from "../annotation-service";
 import type { WebSocketHub } from "../websocket";
@@ -85,6 +86,29 @@ function handleServiceError(error: unknown): Response {
 		}
 	}
 	return errorResponse(String(error), 500);
+}
+
+/**
+ * Broadcast annotation updates for any annotation IDs whose orphaned flag
+ * was flipped during orphan detection. Always broadcasts every flipped
+ * annotation (including the one the mutation just touched) so the client
+ * receives the reconciled `orphaned` flag. A duplicate event for an
+ * unchanged annotation is idempotent on the client side and cheap.
+ */
+function broadcastFlippedOrphanUpdates(
+	db: Database,
+	websocketHub: WebSocketHub | undefined,
+	flippedIds: string[],
+): void {
+	if (!websocketHub || flippedIds.length === 0) {
+		return;
+	}
+	for (const id of flippedIds) {
+		const annotation = getAnnotation(db, id);
+		if (annotation) {
+			websocketHub.broadcastAnnotationUpdated(annotation);
+		}
+	}
 }
 
 /**
@@ -231,6 +255,9 @@ export async function handleAnnotationCreateRequest(
 
 		ctx.websocketHub?.broadcastAnnotationCreated(annotation);
 
+		const flippedIds = await runOrphanDetectionForDoc(db, annotation.docId);
+		broadcastFlippedOrphanUpdates(db, ctx.websocketHub, flippedIds);
+
 		return jsonResponse(annotation, 201);
 	} catch (error) {
 		return handleServiceError(error);
@@ -296,6 +323,9 @@ export async function handleAnnotationUpdateRequest(
 
 		ctx.websocketHub?.broadcastAnnotationUpdated(annotation);
 
+		const flippedIds = await runOrphanDetectionForDoc(db, annotation.docId);
+		broadcastFlippedOrphanUpdates(db, ctx.websocketHub, flippedIds);
+
 		return jsonResponse(annotation);
 	} catch (error) {
 		return handleServiceError(error);
@@ -314,6 +344,12 @@ export async function handleAnnotationResolveRequest(
 		resolveAnnotation(db, id);
 
 		ctx.websocketHub?.broadcastAnnotationResolved(id);
+
+		const resolved = getAnnotation(db, id);
+		if (resolved) {
+			const flippedIds = await runOrphanDetectionForDoc(db, resolved.docId);
+			broadcastFlippedOrphanUpdates(db, ctx.websocketHub, flippedIds);
+		}
 
 		return jsonResponse({ resolved: true });
 	} catch (error) {
@@ -335,6 +371,9 @@ export async function handleAnnotationReopenRequest(
 		const annotation = getAnnotation(db, id);
 		if (annotation) {
 			ctx.websocketHub?.broadcastAnnotationUpdated(annotation);
+
+			const flippedIds = await runOrphanDetectionForDoc(db, annotation.docId);
+			broadcastFlippedOrphanUpdates(db, ctx.websocketHub, flippedIds);
 		}
 
 		return jsonResponse({ reopened: true });
@@ -352,9 +391,19 @@ export async function handleAnnotationDeleteRequest(
 ): Promise<Response> {
 	try {
 		const db = await getDb();
+
+		// Capture docId before deletion for orphan detection
+		const toDelete = getAnnotation(db, id);
+		const docId = toDelete?.docId;
+
 		deleteAnnotation(db, id);
 
 		ctx.websocketHub?.broadcastAnnotationDeleted(id);
+
+		if (docId) {
+			const flippedIds = await runOrphanDetectionForDoc(db, docId);
+			broadcastFlippedOrphanUpdates(db, ctx.websocketHub, flippedIds);
+		}
 
 		return jsonResponse({ deleted: true });
 	} catch (error) {
@@ -388,6 +437,12 @@ export async function handleAnnotationReplyRequest(
 		const reply = addReply(db, id, replyRequest);
 
 		ctx.websocketHub?.broadcastAnnotationReplyAdded(id, reply);
+
+		const parent = getAnnotation(db, id);
+		if (parent) {
+			const flippedIds = await runOrphanDetectionForDoc(db, parent.docId);
+			broadcastFlippedOrphanUpdates(db, ctx.websocketHub, flippedIds);
+		}
 
 		return jsonResponse(reply, 201);
 	} catch (error) {

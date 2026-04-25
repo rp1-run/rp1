@@ -73,7 +73,9 @@ export function TerminalBreadcrumb({
 					{runInfo.projectName}
 				</span>
 				{headerRight ? (
-					<div className="flex items-center gap-3 shrink-0">{headerRight}</div>
+					<div className="ml-auto flex min-w-0 items-center gap-3">
+						{headerRight}
+					</div>
 				) : null}
 				{action ? <div className="shrink-0">{action}</div> : null}
 			</nav>
