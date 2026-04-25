@@ -1,48 +1,165 @@
 # socratic-duel
 
-Run a bounded, evidence-driven two-participant debate in a local Markdown document.
+Use Socratic Duel when you want two AI participants to pressure-test a local
+Markdown document and leave the critique directly in that document.
 
 ---
 
-## Synopsis
+## What You Get
+
+Socratic Duel adds a debate section to the target Markdown file. The rest of
+the document is preserved. A completed debate reads like this:
+
+```markdown
+## Socratic Duel
+
+**Status**: ACCEPTED_CONSENSUS
+**Participants**: Claude, Codex
+**Candidate Convergence**: Yes
+
+### Turn 1 - Claude (claude-code / claude-sonnet) - OPEN_TO_DEBATE
+
+**Position**
+The proposal is directionally sound, but the rollout plan needs a sharper
+fallback path before adoption.
+
+**Counterpoints**
+- Addresses: Rollout section
+  Claim: The current plan assumes migration failures are rare.
+  Support:
+    - File: docs/rollout.md
+
+**Agreements**
+- The staged rollout is preferable to a single cutover.
+
+**Novel Argument**
+The monitoring plan should include a user-visible rollback threshold.
+
+Support:
+    - Principle: operational reversibility
+
+**Unresolved Items**
+- Define rollback threshold. (blocking)
+
+### Turn 2 - Codex (codex / gpt-5) - CONVERGING
+
+**Position**
+I agree with the staged rollout, and the rollback threshold should be added
+before approval.
+
+**Counterpoints**
+- Addresses: Turn 1
+  Claim: A manual threshold may be too slow during incident response.
+  Support:
+    - Principle: incident response latency
+
+**Agreements**
+- The proposal should proceed only after rollback criteria are explicit.
+
+**Novel Argument**
+The threshold should be paired with an owner and response window.
+
+Support:
+    - File: docs/oncall.md
+
+**Unresolved Items**
+- Choose the threshold value. (non-blocking)
+
+### Conclusion
+
+**Outcome**: ACCEPTED_CONSENSUS
+
+Both participants accept the revised direction: keep the staged rollout, add
+explicit rollback criteria, and assign an owner for response.
+```
+
+## How To Use It
+
+Run the command against the Markdown file you want reviewed. The first
+participant waits for a second participant when needed.
 
 === "Claude Code"
 
     ```bash
-    /socratic-duel TARGET_PATH=/absolute/path/to/document.md PARTICIPANT_NAME=Claude
+    /socratic-duel TARGET_PATH=/Users/alex/project/decision.md PARTICIPANT_NAME=Claude MODEL_ID=claude-sonnet
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-base-socratic-duel TARGET_PATH=/absolute/path/to/document.md PARTICIPANT_NAME=OpenCode
+    /rp1-base-socratic-duel TARGET_PATH=/Users/alex/project/decision.md PARTICIPANT_NAME=OpenCode MODEL_ID=opencode-model
     ```
 
 === "Codex"
 
     ```bash
-    $rp1-base-socratic-duel TARGET_PATH=/absolute/path/to/document.md PARTICIPANT_NAME=Codex
+    $rp1-base-socratic-duel TARGET_PATH=/Users/alex/project/decision.md PARTICIPANT_NAME=Codex MODEL_ID=gpt-5
     ```
 
-## Description
+To join from a second harness, run the same command with the same `TARGET_PATH`
+and a different `PARTICIPANT_NAME`.
 
-The `socratic-duel` workflow adds a clearly marked debate section to a readable
-and writable local Markdown file. Two participants use the same absolute
-`TARGET_PATH` to join the same debate and take turns critiquing, refining, and
-testing the document's ideas.
+```bash
+$rp1-base-socratic-duel TARGET_PATH=/Users/alex/project/decision.md PARTICIPANT_NAME=Codex MODEL_ID=gpt-5
+```
 
-The document remains the durable review surface. Participants preserve
-surrounding content, append structured turns inside the debate section, and end
-with an explicit outcome such as consensus, dissent, timeout, invalidation, or
-maximum turns reached.
+## How It Plays Out
 
-Socratic Duel is intentionally bounded:
+1. The first participant starts or resumes the debate for the target document.
+2. The second participant joins with the same `TARGET_PATH`.
+3. Participants take turns writing structured critiques into the debate section.
+4. The debate ends with an explicit outcome in the Markdown file.
+
+If a participant does not join or does not continue, waiting is bounded. When
+waiting expires, the document records a `TIMEOUT` conclusion.
+
+## Good Uses
+
+Socratic Duel is useful for:
+
+- Reviewing plans before implementation
+- Testing design docs or requirements for weak assumptions
+- Comparing tradeoffs before choosing a technical direction
+- Forcing a second participant to challenge an apparent consensus
+
+It is not meant for open-ended chat or for rewriting the original document
+outside the debate section.
+
+## Turn Expectations
+
+Every accepted turn must include a stance, position, counterpoints, agreements,
+a novel argument, unresolved items, and support. Support can be a file
+reference, URL, or named reasoning principle such as `Principle: parsimony`.
+
+Valid stances are:
+
+- `OPEN_TO_DEBATE`
+- `CONVERGING`
+- `ACCEPTING_CONSENSUS`
+- `DISSENTING`
+- `REVISING`
+
+A participant that accepts consensus still needs evidence and at least one
+scoped critique, limitation, or non-blocking unresolved item. Agreement without
+support is not enough.
+
+## Outcomes
+
+| Outcome | Meaning |
+|---------|---------|
+| `ACCEPTED_CONSENSUS` | Latest turns from both participants explicitly accept consensus with adequate support |
+| `DISSENT` | Material disagreement or blocking unresolved items remain after both participants contributed |
+| `MAX_TURNS` | Turn 6 is accepted without consensus or dissent |
+| `TIMEOUT` | Bounded waiting expires without a valid continuation |
+| `INVALIDATED` | Path, debate section, sequence, ownership, or prior-turn immutability validation fails |
+
+## Limits
 
 - Exactly two active participants in v1
 - At most 3 turn pairs, or 6 accepted turns total
 - One participant writes at a time
 - Candidate convergence is advisory and never ends the debate by itself
-- Accepted turns must include evidence-backed critique, agreement, novelty, and unresolved items
+- Text outside the debate section is preserved
 
 ## Arguments
 
@@ -56,85 +173,10 @@ Socratic Duel is intentionally bounded:
 `.markdown` file. Missing, unreadable, unwritable, relative, or non-Markdown
 paths invalidate the attempt without modifying unrelated files.
 
-Waiting is bounded and non-interactive. If a peer has not joined or currently
-has the turn, the participant waits according to the workflow's retry guidance.
-If waiting expires, the debate records a `TIMEOUT` conclusion in the Markdown
-file before the workflow completes.
+## Progress
 
-## Turn Protocol
-
-Each accepted turn is written into the managed debate section. A turn must
-include:
-
-| Section | Requirement |
-|---------|-------------|
-| `STANCE` | One of `OPEN_TO_DEBATE`, `CONVERGING`, `ACCEPTING_CONSENSUS`, `DISSENTING`, or `REVISING` |
-| `Position` | The participant's current position |
-| `Counterpoints` | Specific critiques that name the prior turn or section being addressed and include support |
-| `Agreements` | Scoped points of agreement |
-| `Novel Argument` | A supported claim not already present in prior turns |
-| `Unresolved Items` | Remaining issues, including whether each one is blocking |
-| `Stance Revision Support` | Evidence or reasoning required when changing stance |
-
-Support entries must be file references, URLs, or named reasoning principles
-such as `Principle: parsimony`. A participant that accepts consensus still has
-to provide evidence and scoped critique, limitation, or non-blocking unresolved
-items so agreement is not mere deference.
-
-## Managed Debate Section
-
-The workflow creates one clearly bounded section in the target Markdown file.
-It may update the section header, participant table, candidate convergence note,
-and conclusion. Accepted turn bodies are append-only.
-
-Surrounding document content is preserved. Duplicate debate sections, malformed
-markers, skipped or duplicate turn numbers, and edited prior turns are treated
-as invalidation conditions.
-
-## Terminal Outcomes
-
-| Outcome | Meaning |
-|---------|---------|
-| `ACCEPTED_CONSENSUS` | Latest turns from both participants explicitly accept consensus with adequate support |
-| `DISSENT` | Material disagreement or blocking unresolved items remain after both participants contributed |
-| `MAX_TURNS` | Turn 6 is accepted without consensus or dissent |
-| `TIMEOUT` | Bounded waiting expires without a valid continuation |
-| `INVALIDATED` | Path, managed section, sequence, ownership, or prior-turn immutability validation fails |
-
-## Progress Visibility
-
-Socratic Duel is a resumable tracked workflow. rp1 surfaces participant
-registration, waiting, turn progress, candidate convergence, and the terminal
-outcome so long-running cross-participant debates are observable without
-manually inspecting the file after every step.
-
-## Examples
-
-### Start the First Participant
-
-=== "Claude Code"
-
-    ```bash
-    /socratic-duel TARGET_PATH=/Users/alex/project/decision.md PARTICIPANT_NAME=Claude MODEL_ID=claude-sonnet
-    ```
-
-=== "Codex"
-
-    ```bash
-    $rp1-base-socratic-duel TARGET_PATH=/Users/alex/project/decision.md PARTICIPANT_NAME=Codex MODEL_ID=gpt-5
-    ```
-
-If no peer has joined yet, the participant waits only within the workflow's
-bounded guidance.
-
-### Join From a Second Harness
-
-Use the same absolute `TARGET_PATH` from the second harness. The workflow
-resumes the active debate instead of creating a separate participant set.
-
-```bash
-$rp1-base-socratic-duel TARGET_PATH=/Users/alex/project/decision.md PARTICIPANT_NAME=Codex MODEL_ID=gpt-5
-```
+rp1 shows participant registration, waiting, turn progress, candidate
+convergence, and the final outcome while the debate is running.
 
 ## Related Commands
 
