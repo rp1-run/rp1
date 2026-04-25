@@ -1,6 +1,6 @@
 # socratic-duel
 
-Run a bounded, evidence-driven two-agent debate in a local Markdown document with backend locks only.
+Run a bounded, evidence-driven two-participant debate in a local Markdown document.
 
 ---
 
@@ -26,35 +26,22 @@ Run a bounded, evidence-driven two-agent debate in a local Markdown document wit
 
 ## Description
 
-The `socratic-duel` workflow attaches one managed debate region to a readable
-and writable local Markdown file. Two participants, usually from different AI
-harnesses, join the same duel by using the same absolute `TARGET_PATH`.
+The `socratic-duel` workflow adds a clearly marked debate section to a readable
+and writable local Markdown file. Two participants use the same absolute
+`TARGET_PATH` to join the same debate and take turns critiquing, refining, and
+testing the document's ideas.
 
-The backend tool is intentionally thin. `rp1 agent-tools socratic-duel`
-registers participants and controls one exclusive lock lease at a time. The
-agents own Markdown parsing, local debate state, turn numbering, alternation,
-candidate convergence, evidence checks, terminal summaries, and template-based
-updates using the existing `rp1-base:artifact-templates` reference.
-
-## Design Boundary
-
-Socratic Duel deliberately keeps debate-state intelligence out of TypeScript.
-The backend is a lock service, not a debate engine. It stores participant
-identity, active/closed status, current lock owner, owner-only lease token, and
-lease expiry. Public status output redacts the token. It does not store turn
-bodies, candidate state, terminal summaries, or template-rendered Markdown.
-
-Agents derive all debate state from the target Markdown after acquiring the
-lock. They are responsible for detecting malformed managed regions, preserving
-accepted turns, applying the artifact template, and choosing terminal outcomes
-from the written debate record.
+The document remains the durable review surface. Participants preserve
+surrounding content, append structured turns inside the debate section, and end
+with an explicit outcome such as consensus, dissent, timeout, invalidation, or
+maximum turns reached.
 
 Socratic Duel is intentionally bounded:
 
 - Exactly two active participants in v1
 - At most 3 turn pairs, or 6 accepted turns total
-- One participant owns the document lock at a time
-- Candidate convergence is advisory and never closes the duel by itself
+- One participant writes at a time
+- Candidate convergence is advisory and never ends the debate by itself
 - Accepted turns must include evidence-backed critique, agreement, novelty, and unresolved items
 
 ## Arguments
@@ -69,32 +56,15 @@ Socratic Duel is intentionally bounded:
 `.markdown` file. Missing, unreadable, unwritable, relative, or non-Markdown
 paths invalidate the attempt without modifying unrelated files.
 
-Waiting is always bounded and non-interactive. If a peer has not joined or the
-peer owns the lock, the agent follows the workflow's retry guidance and exits
-with `TIMEOUT` when the bounded wait expires. Timeout Markdown conclusions are
-written only after acquiring a timeout lease, and terminal workflow status is
-emitted only after the Markdown conclusion is written and the backend context is
-closed.
-
-## Backend Lock Commands
-
-The workflow uses these commands internally:
-
-| Command | Responsibility |
-|---------|----------------|
-| `join` | Create or resume an active lock context and register a participant |
-| `status` | Return participant count and current lock owner/expiry, with lease token redacted |
-| `claim-lock` | Acquire the exclusive document lock or receive wait guidance; only successful acquisition returns a lease token. `--for-timeout` acquires the same lease for a bounded-wait `TIMEOUT` conclusion when no active owner remains. |
-| `refresh-lock` | Extend the current owner's lease while composing or writing; only successful refresh returns the token |
-| `release-lock` | Release the lock, optionally closing the lock context with an active owned lease |
-
-The backend does not parse or render Markdown, validate turn content, derive
-candidate convergence, choose terminal outcomes, or manage templates.
+Waiting is bounded and non-interactive. If a peer has not joined or currently
+has the turn, the participant waits according to the workflow's retry guidance.
+If waiting expires, the debate records a `TIMEOUT` conclusion in the Markdown
+file before the workflow completes.
 
 ## Turn Protocol
 
-Each accepted turn is written by the agent into the managed Markdown region. A
-turn must include:
+Each accepted turn is written into the managed debate section. A turn must
+include:
 
 | Section | Requirement |
 |---------|-------------|
@@ -111,16 +81,15 @@ such as `Principle: parsimony`. A participant that accepts consensus still has
 to provide evidence and scoped critique, limitation, or non-blocking unresolved
 items so agreement is not mere deference.
 
-## Managed Markdown Region
+## Managed Debate Section
 
-The agent creates one region bounded by `rp1:socratic-duel` HTML comments using
-the `managed-debate-region` template from `rp1-base:artifact-templates`. It may
-update the region header, participant table, candidate convergence note, and
-conclusion. Accepted turn bodies are append-only by prompt contract.
+The workflow creates one clearly bounded section in the target Markdown file.
+It may update the section header, participant table, candidate convergence note,
+and conclusion. Accepted turn bodies are append-only.
 
-Surrounding document content is preserved. Duplicate managed regions, malformed
+Surrounding document content is preserved. Duplicate debate sections, malformed
 markers, skipped or duplicate turn numbers, and edited prior turns are treated
-as invalidation conditions by the agent before releasing or closing the lock.
+as invalidation conditions.
 
 ## Terminal Outcomes
 
@@ -130,21 +99,14 @@ as invalidation conditions by the agent before releasing or closing the lock.
 | `DISSENT` | Material disagreement or blocking unresolved items remain after both participants contributed |
 | `MAX_TURNS` | Turn 6 is accepted without consensus or dissent |
 | `TIMEOUT` | Bounded waiting expires without a valid continuation |
-| `INVALIDATED` | Path, managed region, sequence, lock ownership, or prior-turn immutability validation fails |
+| `INVALIDATED` | Path, managed section, sequence, ownership, or prior-turn immutability validation fails |
 
-## Workflow Visibility
+## Progress Visibility
 
-Socratic Duel is a resumable tracked workflow. It emits:
-
-- `artifact_registered` for the absolute target Markdown file with `storageRoot: "absolute"`
-- Participant status with `--unit participant:{participant_id}`
-- Lock ownership, release, and waiting status for participants
-- Turn composition and Markdown update status with `--unit turn:{turn_number}`
-- `btw_update` when candidate convergence is detected
-- Terminal `adjourn` status with the exact outcome
-
-These events make registration, waiting, lock ownership, turn progress,
-candidate convergence, and terminal outcomes visible in Arcade run tracking.
+Socratic Duel is a resumable tracked workflow. rp1 surfaces participant
+registration, waiting, turn progress, candidate convergence, and the terminal
+outcome so long-running cross-participant debates are observable without
+manually inspecting the file after every step.
 
 ## Examples
 
@@ -167,8 +129,8 @@ bounded guidance.
 
 ### Join From a Second Harness
 
-Use the same absolute `TARGET_PATH` from the second harness. The lock service
-resumes the active context instead of creating a separate participant set.
+Use the same absolute `TARGET_PATH` from the second harness. The workflow
+resumes the active debate instead of creating a separate participant set.
 
 ```bash
 $rp1-base-socratic-duel TARGET_PATH=/Users/alex/project/decision.md PARTICIPANT_NAME=Codex MODEL_ID=gpt-5
