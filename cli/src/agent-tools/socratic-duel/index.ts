@@ -211,7 +211,10 @@ const nextStepForSnapshot = (
 	if (snapshot.participants.length < 2) {
 		return "wait_peer";
 	}
-	if (snapshot.duel.currentOwnerId) {
+	if (
+		snapshot.duel.currentOwnerId &&
+		!isLeaseExpired(snapshot.duel.leaseExpiresAt)
+	) {
 		return "wait_turn";
 	}
 	return "claim_lock";

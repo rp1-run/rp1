@@ -91,4 +91,24 @@ describe("getRunStatusLabel", () => {
 			).toBe(label);
 		}
 	});
+
+	test("shows labels for namespaced participant steps", () => {
+		expect(
+			getRunStatusLabel(
+				buildSocraticRun({
+					currentStep: "waiting_for_participant",
+					events: [
+						{
+							id: "event-participant-step",
+							type: "status_change",
+							message: "",
+							timestamp: "2026-04-14T00:00:00.000Z",
+							stepId: "socratic-duel-participant:debating",
+							metadata: { event: "turn_composing" },
+						},
+					],
+				}),
+			),
+		).toBe("Debating");
+	});
 });

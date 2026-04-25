@@ -206,7 +206,9 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 				const stepStatus = data?.status as string | undefined;
 				const step = msg.step;
 				const fallbackRunStatus =
-					!step && !msg.unit ? (stepStatus ?? null) : null;
+					(step === null || step === undefined) && msg.unit == null
+						? (stepStatus ?? null)
+						: null;
 				const nextStatus = (msg.runStatus ??
 					fallbackRunStatus) as RunStatus | null;
 				const rawStatusMessage =

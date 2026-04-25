@@ -40,6 +40,9 @@ const RUN_STATUS_CHECK_SQL = RUN_STATUS_CHECK_STATUSES.map(
 	(status) => `'${status}'`,
 ).join(", ");
 
+// Socratic Duel ownership is cyclic by design: participants belong to a duel,
+// and a duel's current owner points at one participant. SQLite permits the
+// forward reference; migrations validate the resulting graph with FK checks.
 const SOCRATIC_DUEL_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS socratic_duels (
     id TEXT PRIMARY KEY NOT NULL,
@@ -731,6 +734,18 @@ const migrateSocraticDuelLockSchema = (db: Database): void => {
 		throw error;
 	} finally {
 		db.exec("PRAGMA foreign_keys = ON");
+	}
+
+	const fkViolations = db.prepare("PRAGMA foreign_key_check").all() as {
+		table: string;
+		rowid: number;
+		parent: string;
+		fkid: number;
+	}[];
+	if (fkViolations.length > 0) {
+		throw new Error(
+			`Socratic Duel migration produced foreign key violations: ${JSON.stringify(fkViolations)}`,
+		);
 	}
 };
 

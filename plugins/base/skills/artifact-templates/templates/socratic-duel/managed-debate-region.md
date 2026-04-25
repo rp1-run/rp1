@@ -12,7 +12,7 @@ strictness: flexible
 
 **Status**: {STATUS}
 **Target**: `{TARGET_PATH}`
-**Max Turns**: 6
+**Max Turns**: {MAX_TURNS}
 **Candidate Convergence**: {CANDIDATE_CONVERGENCE}
 
 ### Participants

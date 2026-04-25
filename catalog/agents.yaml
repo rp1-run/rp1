@@ -66,7 +66,7 @@ agents:
   - name: rp1-base:socratic-duel-participant
     description: "Participates in a Socratic Duel run using pre-resolved launcher context and participant-owned artifact writes."
     plugin: base
-    last_checksum: e657f624d49bb36d5a97f5573641b843b8be3bdfbf1042cdb2889cb45079bd8c
+    last_checksum: b02c70155c0112d2a5f8e4060e701d21b3d44905c27eb4b7ccc7b0f8b3b5563f
   - name: rp1-base:strategic-advisor
     description: "Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs"
     plugin: base

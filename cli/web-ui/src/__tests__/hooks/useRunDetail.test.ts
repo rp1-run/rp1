@@ -442,6 +442,35 @@ describe("useRunDetail", () => {
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
+	test("empty-string step does not promote step status to run status", async () => {
+		const { useRunDetail } = await loadUseRunDetail();
+		const { result } = renderHook(() => useRunDetail("run-1"));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		act(() => {
+			emitEvent({
+				type: "event:notification",
+				eventId: 750,
+				eventType: "status_change",
+				runId: "run-1",
+				projectId: "proj-1",
+				featureId: "feat-1",
+				step: "",
+				data: {
+					status: "completed",
+				},
+				createdAt: "2026-03-15T01:32:00Z",
+			});
+		});
+
+		expect(result.current.run?.status).toBe("running");
+		expect(result.current.run?.currentStep).toBe("design");
+		expect(result.current.run?.completedAt).toBeNull();
+	});
+
 	test("status changes without a new message clear stale lifecycle text", async () => {
 		runResponse = {
 			...baseRun,

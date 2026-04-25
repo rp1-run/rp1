@@ -74,7 +74,7 @@ async function runStartupRecovery(websocketHub: WebSocketHub): Promise<void> {
 		if (!runInfo) {
 			const row = db
 				.prepare(
-					"SELECT project_path, rp1_project_root, project_id, feature_id FROM runs WHERE id = ?",
+					"SELECT project_path, rp1_project_root, project_id, feature_id, status FROM runs WHERE id = ?",
 				)
 				.get(event.runId) as {
 				project_path: string;

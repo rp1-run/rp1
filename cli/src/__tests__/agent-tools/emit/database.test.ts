@@ -230,6 +230,7 @@ describe("emit database", () => {
 			expect(participantIndexes.map((index) => index.name)).toContain(
 				"idx_socratic_duel_participants_identity",
 			);
+			expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
 		});
 
 		test("Socratic Duel schema helper is idempotent for coordinator modules", async () => {
@@ -447,6 +448,7 @@ describe("emit database", () => {
 				lease_token: null,
 				lease_expires_at: null,
 			});
+			expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
 
 			const turnTable = db
 				.prepare(
@@ -551,6 +553,7 @@ describe("emit database", () => {
 				topic_slug: null,
 				debate_path: null,
 			});
+			expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
 		});
 
 		test("migrates v1 schema to add status and author columns", async () => {

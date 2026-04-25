@@ -34,21 +34,23 @@ export function getRunStatusLabel(
 			return run.statusMessage;
 		}
 
-		for (const event of [...run.events].reverse()) {
+		let latestStepLabel: string | null = null;
+		for (let index = run.events.length - 1; index >= 0; index -= 1) {
+			const event = run.events[index];
+			if (!event) continue;
+
 			const outcomeLabel = getSocraticDuelOutcomeLabel(
 				event.metadata?.outcome ?? event.metadata?.terminal_outcome,
 			);
 			if (outcomeLabel) return outcomeLabel;
-		}
 
-		for (const event of [...run.events].reverse()) {
-			const label = getSocraticDuelEventLabel(
+			latestStepLabel ??= getSocraticDuelEventLabel(
 				run.command,
 				event.stepId,
 				event.metadata,
 			);
-			if (label) return label;
 		}
+		if (latestStepLabel) return latestStepLabel;
 
 		const stepLabel = getSocraticDuelEventLabel(
 			run.command,

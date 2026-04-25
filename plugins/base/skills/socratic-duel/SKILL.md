@@ -60,6 +60,7 @@ metadata:
 - Backend `status` is not debate truth. Treat the debate artifact as the debate record.
 - The source document is not the artifact. Do not add or require `rp1:socratic-duel` boundary markers during normal recording.
 - This base skill MUST NOT call rp1-dev commands or subagents.
+- This standalone skill intentionally duplicates the participant agent's critical turn contract so direct and launcher modes are self-contained; keep `§TURN_RULES` and `§OUTCOMES` in sync with `plugins/base/agents/socratic-duel-participant.md`.
 
 §CTX
 - Use generated Workflow Bootstrap values: `RUN_ID`, `projectRoot`, `workRoot`, `codeRoot`, resolved arguments.

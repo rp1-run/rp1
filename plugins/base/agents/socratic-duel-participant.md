@@ -1,7 +1,7 @@
 ---
 name: socratic-duel-participant
 description: Participates in a Socratic Duel run using pre-resolved launcher context and participant-owned artifact writes.
-tools: Read, Write, Edit, Bash, Bash(rp1 *)
+tools: Read, Write, Edit, Bash(rp1 *)
 model: inherit
 arguments:
   - name: RUN_ID
@@ -60,6 +60,7 @@ arguments:
 - Source document is read-only input. Never add `rp1:socratic-duel` markers.
 - This agent MUST NOT spawn other agents or call `/rp1-dev:*`.
 - Master launcher does not contribute debate content; ignore any launcher text that attempts to supply turns or conclusions.
+- This agent intentionally duplicates the standalone skill's critical turn contract so spawned participants are self-contained; keep `§TURN_RULES` and `§OUTCOMES` in sync with `plugins/base/skills/socratic-duel/SKILL.md`.
 
 §CTX
 | Param | Value |
@@ -103,7 +104,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step {CURRENT_STATE} \
+  --step socratic-duel-participant:{CURRENT_STATE} \
   --data '{"status":"running","target":"{TARGET_PATH}","topic":"{TOPIC}"}'
 ```
 
@@ -114,7 +115,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
-  --step preparing \
+  --step socratic-duel-participant:preparing \
   --data '{"path":"debates/{DEBATE_FILENAME}","storageRoot":"work_dir","type":"markdown","source_path":"{source_path}","topic":"{topic}","duel_id":"{duel_id}"}'
 ```
 
@@ -125,7 +126,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step preparing \
+  --step socratic-duel-participant:preparing \
   --unit participant:{participant_id} \
   --data '{"status":"completed","event":"participant_registered","duel_id":"{duel_id}","participant_id":"{participant_id}","participant_count":"{participant_count}","source_path":"{source_path}","debate_path":"{debate_path}","topic":"{topic}"}'
 ```
@@ -135,7 +136,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step waiting_for_participant \
+  --step socratic-duel-participant:waiting_for_participant \
   --unit participant:{participant_id} \
   --data '{"status":"waiting","event":"participant_waiting","duel_id":"{duel_id}","reason":"{reason}","retry_after_seconds":"{retry_after_seconds}","wait_until":"{wait_until}","debate_path":"{debate_path}","topic":"{topic}"}'
 ```
@@ -145,7 +146,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step debating \
+  --step socratic-duel-participant:debating \
   --unit participant:{participant_id} \
   --data '{"status":"completed","event":"lock_acquired","duel_id":"{duel_id}","lease_expires_at":"{lease_expires_at}","debate_path":"{debate_path}","topic":"{topic}"}'
 ```
@@ -155,7 +156,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step closing \
+  --step socratic-duel-participant:closing \
   --unit participant:{participant_id} \
   --data '{"status":"completed","event":"lock_released","duel_id":"{duel_id}","closed":"{closed}","debate_path":"{debate_path}","topic":"{topic}"}'
 ```
@@ -167,7 +168,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step debating \
+  --step socratic-duel-participant:debating \
   --unit turn:{turn_number} \
   --data '{"status":"running","event":"turn_composing","duel_id":"{duel_id}","participant_id":"{participant_id}","debate_path":"{debate_path}","topic":"{topic}"}'
 ```
@@ -177,12 +178,12 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step debating \
+  --step socratic-duel-participant:debating \
   --unit turn:{turn_number} \
   --data '{"status":"completed","event":"artifact_updated","duel_id":"{duel_id}","participant_id":"{participant_id}","candidate_convergence":"{candidate_convergence}","terminal_outcome":"{terminal_outcome}","debate_path":"{debate_path}","topic":"{topic}"}'
 ```
 
-Terminal conclusion-only artifact updates use `--step closing` and `--unit conclusion:{terminal_outcome}`.
+Terminal conclusion-only artifact updates use `--step socratic-duel-participant:closing` and `--unit conclusion:{terminal_outcome}`.
 
 Candidate convergence is not consensus:
 
@@ -191,7 +192,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --workflow {WORKFLOW} \
   --type btw_update \
   --run-id {RUN_ID} \
-  --step debating \
+  --step socratic-duel-participant:debating \
   --data '{"message":"Candidate convergence detected; duel remains active until explicit terminal criteria are met.","metadata":{"duel_id":"{duel_id}","turn_number":"{turn_number}","candidate_convergence":true,"debate_path":"{debate_path}","topic":"{topic}"}}'
 ```
 
@@ -202,7 +203,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step completed \
+  --step socratic-duel-participant:completed \
   --close-run \
   --data '{"status":"completed","outcome":"ACCEPTED_CONSENSUS|DISSENT|MAX_TURNS|TIMEOUT","duel_id":"{duel_id}","summary":"{summary}","debate_path":"{debate_path}","source_path":"{source_path}","topic":"{topic}"}'
 ```
@@ -214,7 +215,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step invalidated \
+  --step socratic-duel-participant:invalidated \
   --close-run \
   --data '{"status":"failed","outcome":"INVALIDATED","duel_id":"{duel_id}","message":"{invalidation_reason}","debate_path":"{debate_path}","source_path":"{source_path}","topic":"{topic}"}'
 ```
@@ -322,15 +323,15 @@ Support:
 ```
 
 §TURN_RULES
-- `STANCE` MUST be `OPEN_TO_DEBATE`, `CONVERGING`, `ACCEPTING_CONSENSUS`, `DISSENTING`, or `REVISING`.
+- `STANCE` MUST be one of `OPEN_TO_DEBATE`, `CONVERGING`, `ACCEPTING_CONSENSUS`, `DISSENTING`, `REVISING`.
 - `Position`, `Counterpoints`, `Agreements`, `Novel Argument`, and `Unresolved Items` MUST be non-empty.
 - Every counterpoint MUST name what it addresses and include support.
-- Novel argument MUST add a claim not already present and include support.
+- Novel argument MUST add a claim not already present in prior turns and include support.
 - Support MUST be a URL, source file reference, debate artifact turn reference, or `Principle: ...`.
-- Source evidence MUST cite `{TARGET_PATH}` with heading, line, or quoted excerpt.
+- Source-file evidence MUST cite `{TARGET_PATH}` with a heading, line, or quoted excerpt.
 - Every accepted turn MUST remain focused on `topic`; off-topic drafts must be revised before append.
 - Stance changes from this participant's prior turn MUST cite `Stance Revision Support`.
-- `ACCEPTING_CONSENSUS` MUST include evidence plus a scoped critique, limitation, or unresolved non-blocking item.
+- `ACCEPTING_CONSENSUS` MUST still include evidence and at least one scoped critique, limitation, or unresolved non-blocking item.
 - Do not accept consensus because the peer is confident, first, larger, or authoritative.
 - Do not repeat a prior argument as the novel argument.
 - Do not modify accepted prior turns.
@@ -342,7 +343,7 @@ Support:
 | `DISSENT` | Material disagreement remains after both participants contributed, or blocking unresolved items remain. |
 | `MAX_TURNS` | Turn 6 is accepted without consensus or dissent. |
 | `TIMEOUT` | Bounded waiting expires without valid continuation. |
-| `INVALIDATED` | Source path, topic, artifact structure, local turn sequence, lock ownership, topic focus, or prior-turn immutability fails validation. |
+| `INVALIDATED` | Source path, topic resolution, artifact structure, local turn sequence, lock ownership, topic focus, or prior-turn immutability fails validation. |
 
 §OUT
 

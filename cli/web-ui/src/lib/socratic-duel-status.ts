@@ -33,7 +33,11 @@ export function isSocraticDuelFlow(flowOrCommand: string | null | undefined) {
 export function getSocraticDuelStepLabel(
 	step: string | null | undefined,
 ): string | null {
-	return step ? (SOCRATIC_DUEL_STEP_LABELS[step] ?? null) : null;
+	if (!step) return null;
+	const normalizedStep = step.includes(":")
+		? step.slice(step.lastIndexOf(":") + 1)
+		: step;
+	return SOCRATIC_DUEL_STEP_LABELS[normalizedStep] ?? null;
 }
 
 export function getSocraticDuelOutcomeLabel(outcome: unknown): string | null {

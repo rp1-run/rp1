@@ -77,7 +77,7 @@ Each template file contains YAML frontmatter with these fields:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `scope` | enum | Yes | `workRoot` or `kbRoot` -- base directory for the artifact |
+| `scope` | enum | Yes | `workRoot`, `kbRoot`, or `absolute` -- base directory for the artifact; `absolute` uses `path_pattern` as a caller-resolved path |
 | `path_pattern` | string | Yes | Relative path from scope root with `{PLACEHOLDER}` variables |
 | `producer` | string | Yes | Canonical name of the agent or skill that produces this artifact |
 | `type` | enum | Yes | `document` (standalone file), `section` (appended to existing), or `data` (JSON/YAML) |
