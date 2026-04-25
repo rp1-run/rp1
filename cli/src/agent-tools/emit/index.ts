@@ -337,7 +337,7 @@ const handleAnnotation = (input: EmitInput): TE.TaskEither<CLIError, void> => {
 const notifyDaemon = async (
 	input: EmitInput,
 	run: Pick<RunRecord, "projectId" | "rp1ProjectRoot">,
-	_runStatus: Status,
+	runStatus: Status,
 	eventId: number,
 ): Promise<void> => {
 	try {
@@ -363,7 +363,9 @@ const notifyDaemon = async (
 				projectId: run.projectId ?? undefined,
 				rp1ProjectRoot: run.rp1ProjectRoot,
 				featureId,
+				runStatus,
 				step: input.step ?? null,
+				unit: input.unit ?? null,
 				data,
 				createdAt: new Date().toISOString(),
 			});

@@ -422,6 +422,7 @@ describe("useRunDetail", () => {
 				runId: "run-1",
 				projectId: "proj-1",
 				featureId: "feat-1",
+				runStatus: "cancelled",
 				step: null,
 				data: {
 					status: "cancelled",
@@ -439,6 +440,35 @@ describe("useRunDetail", () => {
 
 		await new Promise((resolve) => setTimeout(resolve, 1100));
 		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	test("empty-string step does not promote step status to run status", async () => {
+		const { useRunDetail } = await loadUseRunDetail();
+		const { result } = renderHook(() => useRunDetail("run-1"));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		act(() => {
+			emitEvent({
+				type: "event:notification",
+				eventId: 750,
+				eventType: "status_change",
+				runId: "run-1",
+				projectId: "proj-1",
+				featureId: "feat-1",
+				step: "",
+				data: {
+					status: "completed",
+				},
+				createdAt: "2026-03-15T01:32:00Z",
+			});
+		});
+
+		expect(result.current.run?.status).toBe("running");
+		expect(result.current.run?.currentStep).toBe("design");
+		expect(result.current.run?.completedAt).toBeNull();
 	});
 
 	test("status changes without a new message clear stale lifecycle text", async () => {
@@ -465,6 +495,7 @@ describe("useRunDetail", () => {
 				runId: "run-1",
 				projectId: "proj-1",
 				featureId: "feat-1",
+				runStatus: "running",
 				step: "design",
 				data: {
 					status: "running",
@@ -476,6 +507,84 @@ describe("useRunDetail", () => {
 		expect(result.current.run?.status).toBe("running");
 		expect(result.current.run?.statusMessage).toBeNull();
 		expect(result.current.run?.error).toBeNull();
+	});
+
+	test("Socratic unit status changes do not complete the run or step", async () => {
+		runResponse = {
+			...baseRun,
+			featureId: "socratic-duel",
+			featureName: "Socratic Duel",
+			command: "/socratic-duel",
+			currentStep: "debating",
+			steps: [
+				{
+					id: "debating",
+					name: "Debating",
+					status: "running",
+					startedAt: "2026-03-15T00:00:00Z",
+					completedAt: null,
+					taskCount: null,
+					completedTaskCount: null,
+				},
+			],
+		};
+
+		const { useRunDetail } = await loadUseRunDetail();
+		const { result } = renderHook(() => useRunDetail("run-1"));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		act(() => {
+			emitEvent({
+				type: "event:notification",
+				eventId: 850,
+				eventType: "status_change",
+				runId: "run-1",
+				projectId: "proj-1",
+				featureId: "socratic-duel",
+				runStatus: "running",
+				step: "debating",
+				unit: "turn:1",
+				data: {
+					status: "completed",
+					event: "artifact_updated",
+					terminal_outcome: null,
+				},
+				createdAt: "2026-03-15T01:37:00Z",
+			});
+		});
+
+		expect(result.current.run?.status).toBe("running");
+		expect(result.current.run?.currentStep).toBe("debating");
+		expect(result.current.run?.steps[0]?.status).toBe("running");
+		expect(result.current.run?.completedAt).toBeNull();
+		expect(result.current.run?.statusMessage).toBe("Debating");
+
+		act(() => {
+			emitEvent({
+				type: "event:notification",
+				eventId: 851,
+				eventType: "status_change",
+				runId: "run-1",
+				projectId: "proj-1",
+				featureId: "socratic-duel",
+				runStatus: "completed",
+				step: "completed",
+				data: {
+					status: "completed",
+					outcome: "DISSENT",
+					summary: "Material disagreement remains.",
+				},
+				createdAt: "2026-03-15T01:38:00Z",
+			});
+		});
+
+		expect(result.current.run?.status).toBe("completed");
+		expect(result.current.run?.currentStep).toBe("completed");
+		expect(result.current.run?.completedAt).toBe("2026-03-15T01:38:00Z");
+		expect(result.current.run?.statusMessage).toBe("Dissent");
 	});
 
 	test("state snapshots trigger bounded run reconciliation", async () => {

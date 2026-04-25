@@ -1157,7 +1157,8 @@ export const assertCreatePromptConstitutional: AssertionFunction = (
 		return {
 			pass: false,
 			score: 0,
-			reason: "Generated SKILL.md not readable at {WORKSPACE_DIR}/{PROMPT_NAME}/SKILL.md",
+			reason:
+				"Generated SKILL.md not readable at {WORKSPACE_DIR}/{PROMPT_NAME}/SKILL.md",
 		};
 	}
 	if (!/^---\s*$/m.test(contents)) {
@@ -1254,21 +1255,24 @@ export const assertCreatePromptStructural: AssertionFunction = (
 		return {
 			pass: false,
 			score: 0,
-			reason: "evals.yaml does not reference the sibling `file://./SKILL.md` prompt",
+			reason:
+				"evals.yaml does not reference the sibling `file://./SKILL.md` prompt",
 		};
 	}
 	if (/file:\/\/[^"\n]*providers[^"\n]*\.yaml/.test(contents)) {
 		return {
 			pass: false,
 			score: 0,
-			reason: "evals.yaml uses nonexistent external provider YAML refs; providers must be inline",
+			reason:
+				"evals.yaml uses nonexistent external provider YAML refs; providers must be inline",
 		};
 	}
 	if (!/\bid:\s*anthropic:/.test(contents)) {
 		return {
 			pass: false,
 			score: 0,
-			reason: "evals.yaml does not declare an inline provider with `id: anthropic:...`",
+			reason:
+				"evals.yaml does not declare an inline provider with `id: anthropic:...`",
 		};
 	}
 	return {
@@ -1306,7 +1310,8 @@ export const assertCreatePromptEpistemic: AssertionFunction = (
 		return {
 			pass: false,
 			score: 0,
-			reason: "confidence-report.md does not name one of the six epistemic stances",
+			reason:
+				"confidence-report.md does not name one of the six epistemic stances",
 		};
 	}
 	// COMPLEXITY gates the confidence-scale expectation. simple = 3 levels

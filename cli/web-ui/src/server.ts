@@ -1,3 +1,4 @@
+import type { Status } from "../../shared/events.js";
 import { readDaemonState, writeDaemonState } from "./daemon/config-dir";
 import { FileWatcherPool } from "./server/file-watcher";
 import { startServer } from "./server/http";
@@ -64,6 +65,7 @@ async function runStartupRecovery(websocketHub: WebSocketHub): Promise<void> {
 			rp1ProjectRoot: string | null;
 			projectId: string | null;
 			featureId: string;
+			status: Status;
 		}
 	>();
 
@@ -72,13 +74,14 @@ async function runStartupRecovery(websocketHub: WebSocketHub): Promise<void> {
 		if (!runInfo) {
 			const row = db
 				.prepare(
-					"SELECT project_path, rp1_project_root, project_id, feature_id FROM runs WHERE id = ?",
+					"SELECT project_path, rp1_project_root, project_id, feature_id, status FROM runs WHERE id = ?",
 				)
 				.get(event.runId) as {
 				project_path: string;
 				rp1_project_root: string | null;
 				project_id: string | null;
 				feature_id: string;
+				status: Status;
 			} | null;
 
 			if (!row) continue;
@@ -87,6 +90,7 @@ async function runStartupRecovery(websocketHub: WebSocketHub): Promise<void> {
 				rp1ProjectRoot: row.rp1_project_root,
 				projectId: row.project_id,
 				featureId: row.feature_id,
+				status: row.status,
 			};
 			runCache.set(event.runId, runInfo);
 		}
@@ -109,7 +113,9 @@ async function runStartupRecovery(websocketHub: WebSocketHub): Promise<void> {
 			event.type,
 			event.runId,
 			runInfo.featureId,
+			runInfo.status,
 			event.step,
+			event.unit,
 			data,
 			event.createdAt,
 		);
@@ -157,6 +163,7 @@ export function createServer(options: ServerOptions) {
 			getEmitDatabase,
 			countEventsSince,
 			getEventsSince,
+			getRunById,
 			getActiveRunsSnapshot,
 			getMaxEventId,
 		} = await import("../../src/agent-tools/emit/database");
@@ -175,6 +182,7 @@ export function createServer(options: ServerOptions) {
 			countEventsSince: (afterId: number) => countEventsSince(db, afterId),
 			getEventsSince: (afterId: number, limit?: number) =>
 				getEventsSince(db, afterId, limit),
+			getRunStatus: (runId: string) => getRunById(db, runId)?.status ?? null,
 			getActiveRunsSnapshot: () => {
 				void reclassifyInactiveRunsWithBroadcast(db, websocketHub).catch(
 					(error) => {

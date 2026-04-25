@@ -1,4 +1,5 @@
-import { FileText, List } from "lucide-react";
+import { Check, FileText, List } from "lucide-react";
+import { useState } from "react";
 import { AnnotationToggleBtn } from "@/components/v2/AnnotationToggleBtn";
 import {
 	ArtifactContentSurface,
@@ -36,6 +37,8 @@ export function RunArtifactsPanel({
 	runId,
 	showFrontmatter = false,
 }: RunArtifactsPanelProps) {
+	const [copiedPath, setCopiedPath] = useState<string | null>(null);
+
 	const groups = artifactGroups.filter((group) => group.artifacts.length > 0);
 	const artifacts = flattenArtifacts(groups);
 
@@ -44,6 +47,14 @@ export function RunArtifactsPanel({
 	}
 
 	const effectiveSelectedArtifact = selectedArtifact ?? artifacts[0] ?? null;
+
+	const handleCopyPath = (artifact: Artifact) => {
+		const absPath = artifact.absolutePath ?? artifact.path;
+		void navigator.clipboard.writeText(absPath).then(() => {
+			setCopiedPath(artifact.path);
+			setTimeout(() => setCopiedPath(null), 2000);
+		});
+	};
 
 	const renderArtifactList = () => (
 		<div className="min-w-0 flex-1 overflow-x-auto">
@@ -55,24 +66,45 @@ export function RunArtifactsPanel({
 					const fileName = getFileName(artifact.path);
 					const isSelected =
 						effectiveSelectedArtifact?.docId === artifact.docId;
+					const isCopied = copiedPath === artifact.path;
+					const IconComponent = isCopied ? Check : FileText;
+					const tooltipPath = artifact.absolutePath ?? artifact.path;
 
 					return (
 						<li key={artifact.docId} className="shrink-0">
-							<button
-								type="button"
-								aria-current={isSelected ? "page" : undefined}
-								title={artifact.absolutePath ?? artifact.path}
-								onClick={() => onArtifactSelect?.(artifact)}
+							<span
 								className={cn(
-									"inline-flex h-7 max-w-[14rem] items-center gap-1 rounded-sm px-2 type-secondary font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
+									"inline-flex h-7 max-w-[14rem] items-center gap-1 rounded-sm px-2 type-secondary font-medium transition-colors duration-150",
 									isSelected
 										? "text-fg"
 										: "text-fg-ghost hover:bg-surface-base/70 hover:text-fg",
 								)}
 							>
-								<FileText className="h-3 w-3 shrink-0" strokeWidth={1.5} />
-								<span className="min-w-0 truncate">{fileName}</span>
-							</button>
+								<button
+									type="button"
+									title={tooltipPath}
+									aria-label={`Copy path for ${fileName}`}
+									onClick={(e) => {
+										e.stopPropagation();
+										handleCopyPath(artifact);
+									}}
+									className="shrink-0 transition-colors duration-150 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+								>
+									<IconComponent
+										className="h-3 w-3 shrink-0"
+										strokeWidth={1.5}
+									/>
+								</button>
+								<button
+									type="button"
+									aria-current={isSelected ? "page" : undefined}
+									title={tooltipPath}
+									onClick={() => onArtifactSelect?.(artifact)}
+									className="min-w-0 truncate transition-colors duration-150 hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+								>
+									{fileName}
+								</button>
+							</span>
 						</li>
 					);
 				})}

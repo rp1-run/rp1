@@ -9,7 +9,7 @@ import { useFeed } from "@/hooks/useFeed";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useWorkspaceTabs } from "@/hooks/useWorkspaceTabs";
 import { resolveRunDisplayName } from "@/lib/run-display";
-import { getStatusLabel } from "@/lib/status-labels";
+import { getRunStatusLabel, getStatusLabel } from "@/lib/status-labels";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Run, RunsFilter } from "@/types/runs";
@@ -107,8 +107,11 @@ function FeedEntry({
 	reducedMotion: boolean;
 }) {
 	const latestEventAt = run.lastEventAt ?? run.startedAt;
+	const displayStatusLabel = getRunStatusLabel(run);
 	const statusLabel =
-		run.status === "running" ? null : getStatusLabel(run.status).toLowerCase();
+		run.status === "running" && displayStatusLabel === getStatusLabel("running")
+			? null
+			: displayStatusLabel.toLowerCase();
 	const statusToneClass =
 		run.status === "waiting"
 			? "text-accent-amber"

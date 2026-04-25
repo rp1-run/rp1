@@ -2,6 +2,7 @@ import { NotebookTabs } from "lucide-react";
 import type React from "react";
 import { useWorkspaceTabs } from "@/hooks/useWorkspaceTabs";
 import { resolveRunDisplayName } from "@/lib/run-display";
+import { getRunStatusLabel, getStatusLabel } from "@/lib/status-labels";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Run, RunStatus } from "@/types/runs";
@@ -42,6 +43,11 @@ export function RunCard({
 	className,
 }: RunCardProps) {
 	const { openWorkspace } = useWorkspaceTabs();
+	const displayStatusLabel = getRunStatusLabel(run);
+	const statusLabel =
+		run.status === "running" && displayStatusLabel === getStatusLabel("running")
+			? null
+			: displayStatusLabel.toLowerCase();
 
 	const handleKeyDown = (event: React.KeyboardEvent) => {
 		if (onClick && (event.key === "Enter" || event.key === " ")) {
@@ -82,6 +88,12 @@ export function RunCard({
 			<span className="truncate type-secondary text-fg-muted">
 				{resolveRunDisplayName(run) || run.command}
 			</span>
+
+			{showStatus && statusLabel && (
+				<span className="shrink-0 type-caption text-fg-ghost">
+					{statusLabel}
+				</span>
+			)}
 
 			{showProject && (
 				// biome-ignore lint/a11y/useSemanticElements: span with role="link" for project navigation within button row

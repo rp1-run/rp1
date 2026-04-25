@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { liveRunIndex } from "@/lib/live-run-index";
+import { getSocraticDuelEventLabel } from "@/lib/socratic-duel-status";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type {
 	Artifact,
@@ -202,27 +203,35 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 
 			if (msg.eventType === "status_change") {
 				const data = msg.data as Record<string, unknown> | null;
-				const newStatus = data?.status as string | undefined;
+				const stepStatus = data?.status as string | undefined;
 				const step = msg.step;
-				const statusMessage =
+				const fallbackRunStatus =
+					(step === null || step === undefined) && msg.unit == null
+						? (stepStatus ?? null)
+						: null;
+				const nextStatus = (msg.runStatus ??
+					fallbackRunStatus) as RunStatus | null;
+				const rawStatusMessage =
 					typeof data?.message === "string" ? data.message : undefined;
 
-				if (step || newStatus) {
+				if (step || stepStatus || nextStatus || rawStatusMessage) {
 					setRun((prev) => {
 						if (!prev) return null;
 
 						let updatedSteps = prev.steps;
-						if (step && newStatus) {
+						if (step && stepStatus && !msg.unit) {
 							updatedSteps = prev.steps.map((s) =>
-								s.id === step ? { ...s, status: newStatus as StepStatus } : s,
+								s.id === step ? { ...s, status: stepStatus as StepStatus } : s,
 							);
 						}
 
-						const nextStatus = newStatus as RunStatus | undefined;
 						const isTerminal =
 							nextStatus != null && TERMINAL_RUN_STATUSES.has(nextStatus);
+						const statusMessage =
+							getSocraticDuelEventLabel(prev.command, step, data) ??
+							rawStatusMessage;
 						const shouldClearLifecycleMessage =
-							nextStatus !== undefined &&
+							nextStatus !== null &&
 							nextStatus !== prev.status &&
 							statusMessage === undefined &&
 							nextStatus !== "failed";
@@ -231,12 +240,14 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 							...prev,
 							steps: updatedSteps,
 							...(step ? { currentStep: step } : {}),
-							...(nextStatus !== undefined && {
+							...(nextStatus !== null && {
 								status: nextStatus,
 							}),
 							...(statusMessage !== undefined && {
 								statusMessage,
-								...(nextStatus === "failed" ? { error: statusMessage } : {}),
+								...(nextStatus === "failed" && rawStatusMessage
+									? { error: rawStatusMessage }
+									: {}),
 							}),
 							...(shouldClearLifecycleMessage
 								? {
@@ -250,8 +261,7 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 				}
 
 				const isTerminal =
-					newStatus !== undefined &&
-					TERMINAL_RUN_STATUSES.has(newStatus as RunStatus);
+					nextStatus !== null && TERMINAL_RUN_STATUSES.has(nextStatus);
 				if (isTerminal) {
 					setTimeout(fetchRun, 1000);
 				}
@@ -319,7 +329,7 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 								? { ...step, status: "waiting" as StepStatus }
 								: step,
 						),
-						status: "waiting" as RunStatus,
+						status: (msg.runStatus ?? "waiting") as RunStatus,
 						currentStep: msg.step ?? prev.currentStep,
 						events: [...prev.events, waitingEvent],
 					};

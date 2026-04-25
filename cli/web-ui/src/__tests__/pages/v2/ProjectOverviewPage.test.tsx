@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
+	act,
 	cleanup,
 	fireEvent,
 	render,
@@ -85,6 +86,13 @@ function setStoredState(state: {
 			activeKey: state.activeKey,
 			lastDurableRoute: state.lastDurableRoute,
 		}),
+	);
+}
+
+function isProjectOverviewRequest(url: string): boolean {
+	return (
+		url.includes("/api/v2/projects/proj-1") ||
+		url.includes("/api/v2/runs?projectId=proj-1&limit=")
 	);
 }
 
@@ -321,8 +329,10 @@ describe("ProjectOverviewPage", () => {
 	});
 
 	test("merges newly active project runs into the recent list without refetching", async () => {
+		const requestUrls: string[] = [];
 		global.fetch = mock(async (input: RequestInfo | URL) => {
 			const url = String(input);
+			requestUrls.push(url);
 			if (url.includes("/api/v2/projects/proj-1") && !url.includes("runs?")) {
 				return {
 					ok: true,
@@ -377,38 +387,47 @@ describe("ProjectOverviewPage", () => {
 		expect(
 			await screen.findByRole("heading", { name: "Project One" }),
 		).toBeTruthy();
-		expect(global.fetch).toHaveBeenCalledTimes(2);
+		const initialProjectOverviewRequestCount = requestUrls.filter(
+			isProjectOverviewRequest,
+		).length;
+		expect(initialProjectOverviewRequestCount).toBe(2);
 
-		liveRunIndex.upsertRun({
-			id: "run-2",
-			projectId: "proj-1",
-			projectName: "Project One",
-			featureId: "feat-1",
-			featureName: "Feature One",
-			name: "Live Run",
-			command: "/build",
-			status: "running",
-			harness: "codex",
-			currentStep: null,
-			steps: [],
-			artifacts: [],
-			events: [],
-			startedAt: "2026-04-12T00:05:00.000Z",
-			lastEventAt: "2026-04-12T00:05:00.000Z",
-			completedAt: null,
-			error: null,
-			agentSteps: null,
+		act(() => {
+			liveRunIndex.upsertRun({
+				id: "run-2",
+				projectId: "proj-1",
+				projectName: "Project One",
+				featureId: "feat-1",
+				featureName: "Feature One",
+				name: "Live Run",
+				command: "/build",
+				status: "running",
+				harness: "codex",
+				currentStep: null,
+				steps: [],
+				artifacts: [],
+				events: [],
+				startedAt: "2026-04-12T00:05:00.000Z",
+				lastEventAt: "2026-04-12T00:05:00.000Z",
+				completedAt: null,
+				error: null,
+				agentSteps: null,
+			});
 		});
 
 		await waitFor(() => {
 			expect(screen.getByText("4 runs")).toBeTruthy();
 		});
-		expect(global.fetch).toHaveBeenCalledTimes(2);
+		expect(requestUrls.filter(isProjectOverviewRequest)).toHaveLength(
+			initialProjectOverviewRequestCount,
+		);
 	});
 
 	test("counts newly discovered older runs without replacing the project activity timestamp", async () => {
+		const requestUrls: string[] = [];
 		global.fetch = mock(async (input: RequestInfo | URL) => {
 			const url = String(input);
+			requestUrls.push(url);
 			if (url.includes("/api/v2/projects/proj-1") && !url.includes("runs?")) {
 				return {
 					ok: true,
@@ -463,32 +482,39 @@ describe("ProjectOverviewPage", () => {
 		expect(
 			await screen.findByRole("heading", { name: "Project One" }),
 		).toBeTruthy();
-		expect(global.fetch).toHaveBeenCalledTimes(2);
+		const initialProjectOverviewRequestCount = requestUrls.filter(
+			isProjectOverviewRequest,
+		).length;
+		expect(initialProjectOverviewRequestCount).toBe(2);
 
-		liveRunIndex.upsertRun({
-			id: "run-older",
-			projectId: "proj-1",
-			projectName: "Project One",
-			featureId: "feat-1",
-			featureName: "Feature One",
-			name: "Older Run",
-			command: "/build",
-			status: "completed",
-			harness: "codex",
-			currentStep: null,
-			steps: [],
-			artifacts: [],
-			events: [],
-			startedAt: "2026-04-11T00:00:00.000Z",
-			lastEventAt: "2026-04-11T00:05:00.000Z",
-			completedAt: "2026-04-11T00:05:00.000Z",
-			error: null,
-			agentSteps: null,
+		act(() => {
+			liveRunIndex.upsertRun({
+				id: "run-older",
+				projectId: "proj-1",
+				projectName: "Project One",
+				featureId: "feat-1",
+				featureName: "Feature One",
+				name: "Older Run",
+				command: "/build",
+				status: "completed",
+				harness: "codex",
+				currentStep: null,
+				steps: [],
+				artifacts: [],
+				events: [],
+				startedAt: "2026-04-11T00:00:00.000Z",
+				lastEventAt: "2026-04-11T00:05:00.000Z",
+				completedAt: "2026-04-11T00:05:00.000Z",
+				error: null,
+				agentSteps: null,
+			});
 		});
 
 		await waitFor(() => {
 			expect(screen.getByText("4 runs")).toBeTruthy();
 		});
-		expect(global.fetch).toHaveBeenCalledTimes(2);
+		expect(requestUrls.filter(isProjectOverviewRequest)).toHaveLength(
+			initialProjectOverviewRequestCount,
+		);
 	});
 });

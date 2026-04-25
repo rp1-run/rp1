@@ -40,6 +40,13 @@ import { getTool, type ToolOptions } from "./index.js";
 import { readInput } from "./input.js";
 import { formatOutput } from "./output.js";
 import {
+	executeClaimLock as executeSocraticDuelClaimLock,
+	executeJoin as executeSocraticDuelJoin,
+	executeRefreshLock as executeSocraticDuelRefreshLock,
+	executeReleaseLock as executeSocraticDuelReleaseLock,
+	executeStatus as executeSocraticDuelStatus,
+} from "./socratic-duel/index.js";
+import {
 	executeCancel as executeTaskCancel,
 	executeComplete as executeTaskComplete,
 	executeCreate as executeTaskCreate,
@@ -71,6 +78,7 @@ import "./comment-extract/index.js";
 import "./emit/index.js";
 import "./feedback/index.js";
 import "./github-pr/index.js";
+import "./socratic-duel/index.js";
 import "./task/index.js";
 
 /** Default timeout for tool execution in milliseconds */
@@ -110,6 +118,7 @@ Available Tools:
   emit              Record events for the rp1 workflow event system
   feedback          Read, resolve, reply to, and accept feedback from the Arcade
   github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
+  socratic-duel     Coordinate Socratic Duel participant locks and leases
   task              Manage task queue (create, list, pickup, complete, fail, cancel, get)
 
 Examples:
@@ -1247,6 +1256,220 @@ Examples:
 		console.log(formatOutput(result.right));
 		process.exit(0);
 	});
+
+const socraticDuelCommand = agentToolsCommand
+	.command("socratic-duel")
+	.description("Coordinate Socratic Duel participant locks and leases")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Provides deterministic lock coordination for the Socratic Duel workflow. The
+  tool validates the readable source Markdown path, registers participants,
+  allocates debate artifact paths when requested, grants one exclusive lock
+  lease at a time, refreshes active leases, and releases or closes lock
+  contexts. Closing requires the current unexpired owner token. Agents own
+  document parsing, debate state, Markdown updates, template selection,
+  candidate convergence, and terminal summaries.
+
+Subcommands:
+  join          Create or resume an active lock context and register a participant
+  status        Show participant and lease status
+  claim-lock    Acquire the lock or receive bounded wait guidance
+  refresh-lock  Extend the current owner's lease
+  release-lock  Release the current lock, optionally closing with an owned lease
+
+Examples:
+  rp1 agent-tools socratic-duel join --target /tmp/plan.md --topic "API shape" --debate-dir /tmp/debates --participant-name codex --harness codex --model-id gpt-5
+  rp1 agent-tools socratic-duel claim-lock --duel-id <id> --participant-id <id>
+  rp1 agent-tools socratic-duel claim-lock --duel-id <id> --participant-id <id> --for-timeout
+  rp1 agent-tools socratic-duel refresh-lock --duel-id <id> --participant-id <id> --lease-token <token>
+  rp1 agent-tools socratic-duel release-lock --duel-id <id> --participant-id <id> --lease-token <token>
+`,
+	);
+
+socraticDuelCommand
+	.command("join")
+	.description("Create or resume an active duel and register a participant")
+	.requiredOption(
+		"--target <path>",
+		"Absolute path to the readable Markdown source",
+	)
+	.option("--topic <topic>", "Effective debate topic")
+	.option("--debate-dir <path>", "Absolute directory for debate artifacts")
+	.requiredOption("--participant-name <name>", "Participant display name")
+	.requiredOption("--harness <name>", "Harness identity")
+	.option("--model-id <id>", "Model identity", "unknown-model")
+	.option("--run-id <id>", "Workflow run ID")
+	.action(
+		async (options: {
+			target: string;
+			topic?: string;
+			debateDir?: string;
+			participantName: string;
+			harness: string;
+			modelId: string;
+			runId?: string;
+		}): Promise<void> => {
+			const toolName = "socratic-duel";
+			const result = await executeSocraticDuelJoin({
+				targetPath: options.target,
+				topic: options.topic,
+				debateDir: options.debateDir,
+				participantName: options.participantName,
+				harness: options.harness,
+				modelId: options.modelId,
+				runId: options.runId,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(result.right.success ? 0 : 1);
+		},
+	);
+
+socraticDuelCommand
+	.command("status")
+	.description("Show duel status")
+	.option("--duel-id <id>", "Duel ID")
+	.option("--target <path>", "Absolute path to the Markdown source")
+	.option("--topic <topic>", "Effective debate topic")
+	.action(
+		async (options: {
+			duelId?: string;
+			target?: string;
+			topic?: string;
+		}): Promise<void> => {
+			const toolName = "socratic-duel";
+			const result = await executeSocraticDuelStatus({
+				duelId: options.duelId,
+				targetPath: options.target,
+				topic: options.topic,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(result.right.success ? 0 : 1);
+		},
+	);
+
+socraticDuelCommand
+	.command("claim-lock")
+	.description("Acquire the lock or receive bounded wait guidance")
+	.requiredOption("--duel-id <id>", "Duel ID")
+	.requiredOption("--participant-id <id>", "Participant ID")
+	.option(
+		"--for-timeout",
+		"Acquire a lock for writing a bounded-wait timeout conclusion",
+		false,
+	)
+	.action(
+		async (options: {
+			duelId: string;
+			participantId: string;
+			forTimeout: boolean;
+		}): Promise<void> => {
+			const toolName = "socratic-duel";
+			const result = await executeSocraticDuelClaimLock({
+				duelId: options.duelId,
+				participantId: options.participantId,
+				forTimeout: options.forTimeout,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(result.right.success ? 0 : 1);
+		},
+	);
+
+socraticDuelCommand
+	.command("refresh-lock")
+	.description("Refresh the current owner's lock lease")
+	.requiredOption("--duel-id <id>", "Duel ID")
+	.requiredOption("--participant-id <id>", "Participant ID")
+	.requiredOption("--lease-token <token>", "Lease token returned by claim-lock")
+	.action(
+		async (options: {
+			duelId: string;
+			participantId: string;
+			leaseToken: string;
+		}): Promise<void> => {
+			const toolName = "socratic-duel";
+			const result = await executeSocraticDuelRefreshLock({
+				duelId: options.duelId,
+				participantId: options.participantId,
+				leaseToken: options.leaseToken,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(result.right.success ? 0 : 1);
+		},
+	);
+
+socraticDuelCommand
+	.command("release-lock")
+	.description(
+		"Release the current lock, optionally closing with an owned lease",
+	)
+	.requiredOption("--duel-id <id>", "Duel ID")
+	.requiredOption("--participant-id <id>", "Participant ID")
+	.option("--lease-token <token>", "Lease token returned by claim-lock")
+	.option(
+		"--close",
+		"Close the lock context after releasing an owned lease",
+		false,
+	)
+	.action(
+		async (options: {
+			duelId: string;
+			participantId: string;
+			leaseToken?: string;
+			close: boolean;
+		}): Promise<void> => {
+			const toolName = "socratic-duel";
+			const result = await executeSocraticDuelReleaseLock({
+				duelId: options.duelId,
+				participantId: options.participantId,
+				leaseToken: options.leaseToken,
+				close: options.close,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(result.right.success ? 0 : 1);
+		},
+	);
 
 /**
  * task subcommand.

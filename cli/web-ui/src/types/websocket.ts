@@ -3,6 +3,7 @@
  * Uses the unified event:notification format for all status and artifact updates.
  */
 
+import type { Status } from "../../../shared/events";
 import type { Annotation, AnnotationReply } from "./annotations";
 
 /** File change notification */
@@ -39,7 +40,9 @@ export interface EventNotificationMessage {
 	runId: string;
 	projectId: string;
 	featureId: string;
+	runStatus?: Status | null;
 	step: string | null;
+	unit?: string | null;
 	data: Record<string, unknown> | null;
 	createdAt: string;
 }
@@ -51,7 +54,9 @@ export interface EventReplayMessage {
 		id: number;
 		runId: string;
 		eventType: string;
+		runStatus?: Status | null;
 		step: string | null;
+		unit?: string | null;
 		data: string | null;
 		createdAt: string;
 	};

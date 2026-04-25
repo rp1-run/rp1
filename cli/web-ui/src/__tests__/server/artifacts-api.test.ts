@@ -816,13 +816,24 @@ describe("broadcastPathReconciliation", () => {
 		);
 
 		expect(calls).toHaveLength(1);
-		const [projectId, _eventId, eventType, runId, featureId, step, data] =
-			calls[0];
+		const [
+			projectId,
+			_eventId,
+			eventType,
+			runId,
+			featureId,
+			runStatus,
+			step,
+			unit,
+			data,
+		] = calls[0];
 		expect(projectId).toBe("proj-1");
 		expect(eventType).toBe("artifact_registered");
 		expect(runId).toBe("run-1");
 		expect(featureId).toBe("feat-1");
+		expect(runStatus).toBeNull();
 		expect(step).toBeNull();
+		expect(unit).toBeNull();
 		expect(data).toEqual({
 			docId: "doc-1",
 			path: ".rp1/work/archives/features/feat-1/tasks.md",
@@ -924,12 +935,24 @@ describe("handleArtifactSaveRequest broadcasts after path reconciliation", () =>
 
 		expect(broadcastCalls.length).toBeGreaterThanOrEqual(1);
 		const call = broadcastCalls[0];
-		const [projectId, _eventId, eventType, callRunId, featureId, _step, data] =
-			call;
+		const [
+			projectId,
+			_eventId,
+			eventType,
+			callRunId,
+			featureId,
+			runStatus,
+			step,
+			unit,
+			data,
+		] = call;
 		expect(projectId).toBe("test-project");
 		expect(eventType).toBe("artifact_registered");
 		expect(callRunId).toBe(bcastRunId);
 		expect(featureId).toBe("feat-bcast");
+		expect(runStatus).toBeNull();
+		expect(step).toBeNull();
+		expect(unit).toBeNull();
 		expect((data as Record<string, unknown>).docId).toBe(bcastDocId);
 		expect((data as Record<string, unknown>).path).toBe(bcastArchivedPath);
 		expect((data as Record<string, unknown>).reconciled).toBe(true);

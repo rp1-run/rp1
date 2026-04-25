@@ -169,7 +169,7 @@ describe("RunArtifactsPanel", () => {
 		);
 		const fileList = screen.getByRole("list", { name: "Artifacts" });
 		const fileButton = within(fileList).getByRole("button", {
-			name: /tasks\.md/,
+			name: "tasks.md",
 		});
 		expect(fileButton.getAttribute("aria-current")).toBe("page");
 		expect(screen.queryByRole("tab")).toBeNull();
@@ -205,12 +205,12 @@ describe("RunArtifactsPanel", () => {
 		const fileList = screen.getByRole("list", { name: "Artifacts" });
 		expect(
 			within(fileList)
-				.getByRole("button", { name: /summary\.md/ })
+				.getByRole("button", { name: "summary.md" })
 				.getAttribute("aria-current"),
 		).toBe("page");
 
 		fireEvent.click(
-			within(fileList).getByRole("button", { name: /report\.md/ }),
+			within(fileList).getByRole("button", { name: "report.md" }),
 		);
 
 		expect(onArtifactSelect).toHaveBeenCalledTimes(1);
@@ -239,7 +239,7 @@ describe("RunArtifactsPanel", () => {
 		const fileList = screen.getByRole("list", { name: "Artifacts" });
 		expect(
 			within(fileList)
-				.getByRole("button", { name: /summary\.md/ })
+				.getByRole("button", { name: "summary.md" })
 				.getAttribute("aria-current"),
 		).toBe("page");
 		expect(screen.getByTestId("artifact-content-surface").dataset.docId).toBe(
@@ -286,8 +286,10 @@ describe("RunArtifactsPanel", () => {
 		expect(screen.queryByRole("tab")).toBeNull();
 
 		const fileList = screen.getByRole("list", { name: "Artifacts" });
-		const fileButtons = within(fileList).getAllByRole("button");
-		expect(fileButtons.map((button) => button.textContent)).toEqual([
+		const fileNameButtons = within(fileList)
+			.getAllByRole("button")
+			.filter((button) => button.textContent !== "");
+		expect(fileNameButtons.map((button) => button.textContent)).toEqual([
 			"requirements.md",
 			"summary.md",
 			"report.md",
@@ -295,12 +297,12 @@ describe("RunArtifactsPanel", () => {
 		]);
 		expect(
 			within(fileList)
-				.getByRole("button", { name: /report\.md/ })
+				.getByRole("button", { name: "report.md" })
 				.getAttribute("aria-current"),
 		).toBe("page");
 
 		fireEvent.click(
-			within(fileList).getByRole("button", { name: /requirements\.md/ }),
+			within(fileList).getByRole("button", { name: "requirements.md" }),
 		);
 
 		expect(onArtifactSelect).toHaveBeenCalledTimes(1);
@@ -341,14 +343,17 @@ describe("RunArtifactsPanel", () => {
 		const getOrder = () =>
 			within(fileList)
 				.getAllByRole("button")
+				.filter((button) => button.textContent !== "")
 				.map((button) => button.textContent);
 
 		expect(getOrder()).toEqual(["requirements.md", "summary.md", "report.md"]);
 		expect(
-			within(fileList).getByRole("button", { name: /report\.md/ }).className,
+			within(fileList).getByRole("button", { name: "report.md" }).parentElement
+				?.className,
 		).toContain("font-medium");
 		expect(
-			within(fileList).getByRole("button", { name: /summary\.md/ }).className,
+			within(fileList).getByRole("button", { name: "summary.md" }).parentElement
+				?.className,
 		).toContain("font-medium");
 
 		view.rerender(
@@ -362,7 +367,7 @@ describe("RunArtifactsPanel", () => {
 		expect(getOrder()).toEqual(["requirements.md", "summary.md", "report.md"]);
 		expect(
 			within(fileList)
-				.getByRole("button", { name: /requirements\.md/ })
+				.getByRole("button", { name: "requirements.md" })
 				.getAttribute("aria-current"),
 		).toBe("page");
 	});
@@ -393,13 +398,15 @@ describe("RunArtifactsPanel", () => {
 		});
 
 		const fileList = screen.getByRole("list", { name: "Artifacts" });
-		const fileButtons = within(fileList).getAllByRole("button");
-		expect(fileButtons.map((button) => button.textContent)).toEqual([
+		const fileNameButtons = within(fileList)
+			.getAllByRole("button")
+			.filter((button) => button.textContent !== "");
+		expect(fileNameButtons.map((button) => button.textContent)).toEqual([
 			"requirements.md",
 			"summary.md",
 			"report.md",
 		]);
-		expect(fileButtons[0].getAttribute("aria-current")).toBe("page");
+		expect(fileNameButtons[0].getAttribute("aria-current")).toBe("page");
 		expect(screen.getByTestId("artifact-content-surface").dataset.docId).toBe(
 			"doc-plan",
 		);
@@ -435,13 +442,13 @@ describe("RunArtifactsPanel", () => {
 
 		const fileList = screen.getByRole("list", { name: "Artifacts" });
 		const firstArtifactButton = within(fileList).getByRole("button", {
-			name: /build-summary-with-a-long-name\.md/,
+			name: "build-summary-with-a-long-name.md",
 		});
 		const selectedArtifactButton = within(fileList).getByRole("button", {
-			name: /build-report-with-a-long-name\.md/,
+			name: "build-report-with-a-long-name.md",
 		});
 		const runArtifactButton = within(fileList).getByRole("button", {
-			name: /run-summary-with-a-long-name\.md/,
+			name: "run-summary-with-a-long-name.md",
 		});
 
 		expect(firstArtifactButton.hasAttribute("aria-current")).toBe(false);

@@ -41,6 +41,8 @@ Templates contain YAML frontmatter with routing metadata and a markdown body wit
 | code-auditor | audit-report.md | document | workRoot | audits/{SCOPE}/report.md | templates/code-auditor/audit-report.md |
 | bug-investigator | investigation-report.md | document | workRoot | investigations/{BUG_ID}/report.md | templates/bug-investigator/investigation-report.md |
 | build-fast-planner | quick-build.md | document | workRoot | quick-builds/{ID}/quick-build.md | templates/build-fast-planner/quick-build.md |
+| socratic-duel | managed-debate-region | section | absolute | {TARGET_PATH} (managed region) | templates/socratic-duel/managed-debate-region.md |
+| socratic-duel | debate-artifact.md | document | workRoot | debates/{YYYY-MM-DD}-{TOPIC_SLUG}{UNIQUE_SUFFIX}.md | templates/socratic-duel/debate-artifact.md |
 | phase-planner | phase-plan.md | document | workRoot | {PHASE_PLAN_DIR}/{PHASE_PLAN_FILENAME} | templates/phase-planner/phase-plan.md |
 | blueprint-wizard | prd.md | document | workRoot | prds/{PRD_NAME}.md | templates/blueprint-wizard/prd.md |
 | blueprint-auditor | prd-audit-results.md | document | workRoot | prds/{PRD_NAME}-audit.md | templates/blueprint-auditor/prd-audit-results.md |
@@ -67,13 +69,15 @@ Templates contain YAML frontmatter with routing metadata and a markdown body wit
 | knowledge-base | meta.json | data | kbRoot | meta.json | templates/knowledge-base/meta.json |
 | prompt-eval-builder | promptfoo-config | document | - | (agent-determined) | templates/prompt-eval-builder/promptfoo-config.yaml |
 
+For Socratic Duel, `managed-debate-region` is retained for legacy in-progress duels. New artifact-backed runs use `debate-artifact.md` under `workRoot`.
+
 ## Template Frontmatter Schema
 
 Each template file contains YAML frontmatter with these fields:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `scope` | enum | Yes | `workRoot` or `kbRoot` -- base directory for the artifact |
+| `scope` | enum | Yes | `workRoot`, `kbRoot`, or `absolute` -- base directory for the artifact; `absolute` uses `path_pattern` as a caller-resolved path |
 | `path_pattern` | string | Yes | Relative path from scope root with `{PLACEHOLDER}` variables |
 | `producer` | string | Yes | Canonical name of the agent or skill that produces this artifact |
 | `type` | enum | Yes | `document` (standalone file), `section` (appended to existing), or `data` (JSON/YAML) |
@@ -130,5 +134,8 @@ templates/
 +-- prompt-eval-builder/
 +-- research-reporter/
 +-- security-validator/
++-- socratic-duel/
+|   +-- debate-artifact.md
+|   +-- managed-debate-region.md
 +-- speedrun/
 ```

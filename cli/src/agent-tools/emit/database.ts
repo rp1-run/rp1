@@ -40,6 +40,43 @@ const RUN_STATUS_CHECK_SQL = RUN_STATUS_CHECK_STATUSES.map(
 	(status) => `'${status}'`,
 ).join(", ");
 
+// Socratic Duel ownership is cyclic by design: participants belong to a duel,
+// and a duel's current owner points at one participant. SQLite permits the
+// forward reference; migrations validate the resulting graph with FK checks.
+const SOCRATIC_DUEL_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS socratic_duels (
+    id TEXT PRIMARY KEY NOT NULL,
+    target_path TEXT NOT NULL,
+    target_key TEXT NOT NULL,
+    topic TEXT DEFAULT NULL,
+    topic_slug TEXT DEFAULT NULL,
+    debate_path TEXT DEFAULT NULL,
+    status TEXT NOT NULL DEFAULT 'ACTIVE'
+        CHECK(status IN ('ACTIVE', 'CLOSED')),
+    current_owner_id TEXT DEFAULT NULL REFERENCES socratic_duel_participants(id) ON DELETE SET NULL,
+    lease_token TEXT DEFAULT NULL,
+    lease_expires_at TEXT DEFAULT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS socratic_duel_participants (
+    id TEXT PRIMARY KEY NOT NULL,
+    duel_id TEXT NOT NULL REFERENCES socratic_duels(id) ON DELETE CASCADE,
+    display_name TEXT NOT NULL,
+    harness TEXT NOT NULL,
+    model_id TEXT NOT NULL,
+    joined_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    last_seen_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_socratic_duels_target_status ON socratic_duels(target_key, status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_socratic_duels_active_target ON socratic_duels(target_key) WHERE status = 'ACTIVE';
+CREATE INDEX IF NOT EXISTS idx_socratic_duels_lease ON socratic_duels(status, current_owner_id, lease_expires_at);
+CREATE INDEX IF NOT EXISTS idx_socratic_duel_participants_duel ON socratic_duel_participants(duel_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_socratic_duel_participants_identity ON socratic_duel_participants(duel_id, display_name, harness, model_id);
+`;
+
 /** Schema DDL for rp1.db (version 1, clean start) */
 const SCHEMA_SQL = `
 PRAGMA foreign_keys = ON;
@@ -48,7 +85,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (13);
+INSERT INTO schema_version (version) VALUES (16);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -192,6 +229,8 @@ CREATE TABLE IF NOT EXISTS project_registry_meta (
     key TEXT PRIMARY KEY NOT NULL,
     value TEXT
 );
+
+${SOCRATIC_DUEL_SCHEMA_SQL}
 `;
 
 /** Terminal statuses that indicate a run is no longer active */
@@ -593,8 +632,125 @@ const cleanupLegacyDb = (dbPath: string): void => {
 	}
 };
 
+const ensureSocraticDuelMetadataColumns = (db: Database): void => {
+	const columns = db.prepare("PRAGMA table_info(socratic_duels)").all() as {
+		name: string;
+	}[];
+	const columnNames = new Set(columns.map((column) => column.name));
+
+	if (!columnNames.has("topic")) {
+		db.exec("ALTER TABLE socratic_duels ADD COLUMN topic TEXT DEFAULT NULL");
+	}
+	if (!columnNames.has("topic_slug")) {
+		db.exec(
+			"ALTER TABLE socratic_duels ADD COLUMN topic_slug TEXT DEFAULT NULL",
+		);
+	}
+	if (!columnNames.has("debate_path")) {
+		db.exec(
+			"ALTER TABLE socratic_duels ADD COLUMN debate_path TEXT DEFAULT NULL",
+		);
+	}
+};
+
+export const ensureSocraticDuelSchema = (db: Database): void => {
+	db.exec(SOCRATIC_DUEL_SCHEMA_SQL);
+	ensureSocraticDuelMetadataColumns(db);
+};
+
+const migrateSocraticDuelLockSchema = (db: Database): void => {
+	const duelTable = db
+		.prepare(
+			"SELECT name FROM sqlite_master WHERE type='table' AND name='socratic_duels'",
+		)
+		.get() as { name: string } | null;
+
+	if (!duelTable) {
+		ensureSocraticDuelSchema(db);
+		return;
+	}
+
+	db.exec("PRAGMA foreign_keys = OFF");
+	try {
+		db.exec("BEGIN TRANSACTION");
+		db.exec(`
+			DROP INDEX IF EXISTS idx_socratic_duels_target_status;
+			DROP INDEX IF EXISTS idx_socratic_duels_active_target;
+			DROP INDEX IF EXISTS idx_socratic_duels_lease;
+			DROP INDEX IF EXISTS idx_socratic_duel_participants_duel;
+			DROP INDEX IF EXISTS idx_socratic_duel_participants_identity;
+			DROP INDEX IF EXISTS idx_socratic_duel_turns_duel_turn;
+			DROP INDEX IF EXISTS idx_socratic_duel_turns_participant;
+
+			CREATE TABLE socratic_duels_v15 (
+				id TEXT PRIMARY KEY NOT NULL,
+				target_path TEXT NOT NULL,
+				target_key TEXT NOT NULL,
+				status TEXT NOT NULL DEFAULT 'ACTIVE'
+					CHECK(status IN ('ACTIVE', 'CLOSED')),
+				current_owner_id TEXT DEFAULT NULL REFERENCES socratic_duel_participants(id) ON DELETE SET NULL,
+				lease_token TEXT DEFAULT NULL,
+				lease_expires_at TEXT DEFAULT NULL,
+				created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+				updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+			);
+
+			INSERT INTO socratic_duels_v15 (
+				id,
+				target_path,
+				target_key,
+				status,
+				current_owner_id,
+				lease_token,
+				lease_expires_at,
+				created_at,
+				updated_at
+			)
+			SELECT
+				id,
+				target_path,
+				target_key,
+				CASE WHEN status = 'ACTIVE' THEN 'ACTIVE' ELSE 'CLOSED' END,
+				CASE WHEN status = 'ACTIVE' THEN current_owner_id ELSE NULL END,
+				CASE WHEN status = 'ACTIVE' AND current_owner_id IS NOT NULL THEN 'legacy-' || id ELSE NULL END,
+				CASE WHEN status = 'ACTIVE' THEN lease_expires_at ELSE NULL END,
+				created_at,
+				updated_at
+			FROM socratic_duels;
+
+			DROP TABLE socratic_duels;
+			ALTER TABLE socratic_duels_v15 RENAME TO socratic_duels;
+			DROP TABLE IF EXISTS socratic_duel_turns;
+
+			CREATE INDEX IF NOT EXISTS idx_socratic_duels_target_status ON socratic_duels(target_key, status);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_socratic_duels_active_target ON socratic_duels(target_key) WHERE status = 'ACTIVE';
+			CREATE INDEX IF NOT EXISTS idx_socratic_duels_lease ON socratic_duels(status, current_owner_id, lease_expires_at);
+			CREATE INDEX IF NOT EXISTS idx_socratic_duel_participants_duel ON socratic_duel_participants(duel_id);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_socratic_duel_participants_identity ON socratic_duel_participants(duel_id, display_name, harness, model_id);
+		`);
+		db.exec("COMMIT");
+	} catch (error) {
+		db.exec("ROLLBACK");
+		throw error;
+	} finally {
+		db.exec("PRAGMA foreign_keys = ON");
+	}
+
+	const fkViolations = db.prepare("PRAGMA foreign_key_check").all() as {
+		table: string;
+		rowid: number;
+		parent: string;
+		fkid: number;
+	}[];
+	if (fkViolations.length > 0) {
+		throw new Error(
+			`Socratic Duel migration produced foreign key violations: ${JSON.stringify(fkViolations)}`,
+		);
+	}
+};
+
 /**
- * Apply additive schema migrations based on the current schema version.
+ * Apply schema migrations based on the current schema version.
  * Each migration bumps the version to prevent re-application.
  */
 const applyMigrations = (db: Database): void => {
@@ -1041,6 +1197,33 @@ const applyMigrations = (db: Database): void => {
 		} finally {
 			db.exec("PRAGMA foreign_keys = ON");
 		}
+	}
+
+	const postV13Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV13Version?.version ?? 13) < 14) {
+		ensureSocraticDuelSchema(db);
+		db.prepare("UPDATE schema_version SET version = 14").run();
+	}
+
+	const postV14Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV14Version?.version ?? 14) < 15) {
+		migrateSocraticDuelLockSchema(db);
+		db.prepare("UPDATE schema_version SET version = 15").run();
+	}
+
+	const postV15Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV15Version?.version ?? 15) < 16) {
+		ensureSocraticDuelSchema(db);
+		db.prepare("UPDATE schema_version SET version = 16").run();
 	}
 };
 
