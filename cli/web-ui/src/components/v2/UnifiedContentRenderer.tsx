@@ -96,6 +96,7 @@ function FrontmatterBlock({ raw }: { readonly raw: string }) {
 
 import { restoreFrontmatter, stripFrontmatter } from "@/lib/frontmatter";
 import {
+	type HiddenMarkdownHtmlComment,
 	restoreMarkdownHtmlComments,
 	stripMarkdownHtmlComments,
 } from "@/lib/markdown-comments";
@@ -195,11 +196,17 @@ function MarkdownEditorWithSave({
 		() => stripFrontmatter(resolvedContent),
 		[resolvedContent],
 	);
-	const { body: editorContent, comments: hiddenHtmlComments } = useMemo(() => {
+	const hiddenHtmlCommentsRef = useRef<readonly HiddenMarkdownHtmlComment[]>(
+		[],
+	);
+	const { body: editorContent } = useMemo(() => {
 		if (showFrontmatter) {
-			return { body: bodyWithoutFrontmatter, comments: [] };
+			hiddenHtmlCommentsRef.current = [];
+			return { body: bodyWithoutFrontmatter };
 		}
-		return stripMarkdownHtmlComments(bodyWithoutFrontmatter);
+		const result = stripMarkdownHtmlComments(bodyWithoutFrontmatter);
+		hiddenHtmlCommentsRef.current = result.comments;
+		return { body: result.body };
 	}, [bodyWithoutFrontmatter, showFrontmatter]);
 	const editorContainerRef = useRef<HTMLElement>(null);
 	const gutterRef = useRef<HTMLDivElement>(null);
@@ -213,7 +220,7 @@ function MarkdownEditorWithSave({
 
 			const bodyWithComments = showFrontmatter
 				? markdown
-				: restoreMarkdownHtmlComments(hiddenHtmlComments, markdown);
+				: restoreMarkdownHtmlComments(hiddenHtmlCommentsRef.current, markdown);
 			const fullContent = restoreFrontmatter(frontmatter, bodyWithComments);
 			latestEditorContentRef.current = fullContent;
 
@@ -270,7 +277,6 @@ function MarkdownEditorWithSave({
 			path,
 			frontmatter,
 			showFrontmatter,
-			hiddenHtmlComments,
 			setSaveStatus,
 		],
 	);

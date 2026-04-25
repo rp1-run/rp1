@@ -4,13 +4,13 @@ export interface HiddenMarkdownHtmlComment {
 	readonly index: number;
 }
 
-const HTML_COMMENT_RE = /<!--[\s\S]*?-->/g;
 const FENCE_RE = /^ {0,3}(`{3,}|~{3,})/;
 
 export function stripMarkdownHtmlComments(markdown: string): {
 	readonly body: string;
 	readonly comments: readonly HiddenMarkdownHtmlComment[];
 } {
+	const htmlCommentRe = /<!--[\s\S]*?-->/g;
 	const fenceRanges = findFenceRanges(markdown);
 	const comments: HiddenMarkdownHtmlComment[] = [];
 	let body = "";
@@ -19,9 +19,8 @@ export function stripMarkdownHtmlComments(markdown: string): {
 	let commentIndex = 0;
 	let fenceIndex = 0;
 
-	HTML_COMMENT_RE.lastIndex = 0;
 	let match: RegExpExecArray | null;
-	while ((match = HTML_COMMENT_RE.exec(markdown)) !== null) {
+	while ((match = htmlCommentRe.exec(markdown)) !== null) {
 		const start = match.index;
 		const end = start + match[0].length;
 

@@ -75,18 +75,17 @@ export const findEscapedNewlineErrors = (
 	block: DiagramBlock,
 ): readonly DiagramError[] =>
 	block.content.split("\n").flatMap((line, offset): readonly DiagramError[] => {
-		const column = line.indexOf("\\n");
-		if (column === -1) return [];
-
-		return [
-			{
+		const errors: DiagramError[] = [];
+		for (const m of line.matchAll(/\\n/g)) {
+			errors.push({
 				diagramIndex: block.index,
 				message: ESCAPED_NEWLINE_MESSAGE,
 				line: block.startLine + offset,
-				column: column + 1,
+				column: m.index + 1,
 				context: line.slice(0, 80),
-			},
-		];
+			});
+		}
+		return errors;
 	});
 
 /**

@@ -175,6 +175,21 @@ describe("validator", () => {
 			expect(result[0].context).toBe('  A["First\\nSecond"] --> B');
 		});
 
+		test("flags multiple escaped newlines on the same line", () => {
+			const block: DiagramBlock = {
+				index: 0,
+				content: 'flowchart TD\n  A["One\\nTwo\\nThree"] --> B',
+				startLine: 10,
+				endLine: 11,
+			};
+
+			const result = findEscapedNewlineErrors(block);
+
+			expect(result).toHaveLength(2);
+			expect(result[0].column).toBe(9);
+			expect(result[1].column).toBe(14);
+		});
+
 		test("allows Mermaid source without escaped newlines", () => {
 			const block: DiagramBlock = {
 				index: 0,
