@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.7.6](https://github.com/rp1-run/rp1/compare/v0.7.5...v0.7.6) (2026-04-26)
+
+
+### Features
+
+* add codeRoot to bootstrap for worktree-aware code edits ([#343](https://github.com/rp1-run/rp1/issues/343)) ([d208e63](https://github.com/rp1-run/rp1/commit/d208e63df9aeb3a2277275d4817c387bbfbfeeaf))
+* **agent-tools:** add project-scoped work search ([#359](https://github.com/rp1-run/rp1/issues/359)) ([733c97b](https://github.com/rp1-run/rp1/commit/733c97b121d48ad5ae6e4b1e8e371c2cca9429da))
+* **arcade:** add macOS native shell ([#360](https://github.com/rp1-run/rp1/issues/360)) ([35b6837](https://github.com/rp1-run/rp1/commit/35b6837fd18428783422d6503e46a6f2952ee254))
+* **arcade:** replace artifact loading animation ([#351](https://github.com/rp1-run/rp1/issues/351)) ([3043ed4](https://github.com/rp1-run/rp1/commit/3043ed4fef9a9d2932c06196e615ec6faa25d12a))
+* **birds-eye-view:** arc42/C4 re-skeleton with provenance and Arcade artifact output ([#348](https://github.com/rp1-run/rp1/issues/348)) ([f64b3d3](https://github.com/rp1-run/rp1/commit/f64b3d3608fdab978e2629bf5b2f1147511fe4d7))
+* prompt pipeline simplification ([#347](https://github.com/rp1-run/rp1/issues/347)) ([a729164](https://github.com/rp1-run/rp1/commit/a729164f64895c8af18deb16a3d44b5a1b2d81f8))
+* **prompt-writer:** constitutional + epistemological prompting pipeline ([#342](https://github.com/rp1-run/rp1/issues/342)) ([7b9ba14](https://github.com/rp1-run/rp1/commit/7b9ba14b62617fe744f41d2e19ef1d87eb0785d2))
+* **security:** uplift analyse-security workflow ([#354](https://github.com/rp1-run/rp1/issues/354)) ([140fea1](https://github.com/rp1-run/rp1/commit/140fea13f237e91a9b14f8d2b531d88918a974b5))
+* **socratic-duel:** add lock-only debate workflow ([#350](https://github.com/rp1-run/rp1/issues/350)) ([c5b8ae3](https://github.com/rp1-run/rp1/commit/c5b8ae37010660d39ae6c2e0a456997985be5a48))
+* **web-ui:** improve Arcade artifact visibility during runs ([#346](https://github.com/rp1-run/rp1/issues/346)) ([f2a93c2](https://github.com/rp1-run/rp1/commit/f2a93c2fee7fc5153c19d2afb71322d739bce743))
+* **web-ui:** revamp Activity tab split layout ([#355](https://github.com/rp1-run/rp1/issues/355)) ([1567081](https://github.com/rp1-run/rp1/commit/15670813cba18269ed7fee7b76b1991eea6995da))
+
+
+### Bug Fixes
+
+* **birds-eye-view:** address PR [#348](https://github.com/rp1-run/rp1/issues/348) review (state emits, template authority, emit_hint) ([#349](https://github.com/rp1-run/rp1/issues/349)) ([a9f979e](https://github.com/rp1-run/rp1/commit/a9f979eb51ee71e42aed028f682f39fb2704c378))
+* **birds-eye:** review fixes, mermaid validator hardening, animation resize ([#352](https://github.com/rp1-run/rp1/issues/352)) ([63f4041](https://github.com/rp1-run/rp1/commit/63f4041ca4a59f0e85dd6cdb074a1919f9500893))
+* **comment-cleaner:** require manifest handoff ([#362](https://github.com/rp1-run/rp1/issues/362)) ([7b12b2b](https://github.com/rp1-run/rp1/commit/7b12b2b0f0b1038d296d40810f07f8f18db47660))
+* **init:** prompt when ancestor directory has an rp1 project ([#345](https://github.com/rp1-run/rp1/issues/345)) ([1dd07a6](https://github.com/rp1-run/rp1/commit/1dd07a6073946c7f3880bbe624446d734b2edcbc))
+* **native-app:** derive launch test CLI version ([#364](https://github.com/rp1-run/rp1/issues/364)) ([70efa6a](https://github.com/rp1-run/rp1/commit/70efa6a06f666fa8cd01a602366ca5dd1a794b99))
+* **pr-review:** close terminal completion run ([#358](https://github.com/rp1-run/rp1/issues/358)) ([7f90cb7](https://github.com/rp1-run/rp1/commit/7f90cb7c09d310c3307548920fe4b9ceec834d12))
+* **web-ui:** clarify Activity row selection ([#361](https://github.com/rp1-run/rp1/issues/361)) ([3433467](https://github.com/rp1-run/rp1/commit/343346739b043886621ed5f54219cfefc2e70f16))
+* **web-ui:** hide bootstrap-only activity runs ([#357](https://github.com/rp1-run/rp1/issues/357)) ([3048781](https://github.com/rp1-run/rp1/commit/30487811d7487eaf2e405122d03a02f627ef9875))
+* **web-ui:** isolate Activity preview artifacts ([#363](https://github.com/rp1-run/rp1/issues/363)) ([360c9a6](https://github.com/rp1-run/rp1/commit/360c9a6477c93786f46d2a2a07f772b59d19600c))
+* **web-ui:** make Activity project metadata inert ([#356](https://github.com/rp1-run/rp1/issues/356)) ([6b8fb66](https://github.com/rp1-run/rp1/commit/6b8fb667e45b90737f54928e5447a7be52290528))
+* **web-ui:** viewer overflow, clickable links, and debug args display ([#341](https://github.com/rp1-run/rp1/issues/341)) ([297d53c](https://github.com/rp1-run/rp1/commit/297d53cc40496c0cadb23231388080124b31a486))
+
 ## [0.7.5](https://github.com/rp1-run/rp1/compare/v0.7.4...v0.7.5) (2026-04-16)
 
 
