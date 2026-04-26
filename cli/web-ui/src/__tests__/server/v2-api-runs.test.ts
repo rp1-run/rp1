@@ -302,6 +302,60 @@ describe("V2 runs API", () => {
 		}
 	});
 
+	test("hides bootstrap-only phase-plan runs while returning normal workflow runs", async () => {
+		const { db, projectId, projectRoot } = await setupProject(
+			tempDir,
+			"bootstrap-list",
+		);
+
+		insertRun(db, {
+			id: "run-ghost-phase-plan",
+			flow: "phase-plan",
+			featureId: "phase-plan",
+			projectPath: projectRoot,
+			projectId,
+			name: "Ghost Phase Plan",
+			harness: "codex",
+			bootstrapContext: JSON.stringify({
+				run: { decision: "created_new_run" },
+			}),
+		});
+		db.prepare("UPDATE runs SET created_at = ? WHERE id = ?").run(
+			"2026-04-12T04:00:00.000Z",
+			"run-ghost-phase-plan",
+		);
+
+		insertRun(db, {
+			id: "run-normal-workflow",
+			flow: "build",
+			featureId: "hide-bootstrap-runs",
+			projectPath: projectRoot,
+			projectId,
+			name: "Normal Workflow",
+			harness: "codex",
+		});
+		insertEvent(db, {
+			runId: "run-normal-workflow",
+			type: "status_change",
+			step: "build",
+			data: JSON.stringify({ status: "running" }),
+			createdAt: "2026-04-12T03:00:00.000Z",
+		});
+		deriveRunStatus(db, "run-normal-workflow");
+
+		const response = await handleV2RunsListRequest(
+			new Request(`http://localhost/api/v2/runs?project_id=${projectId}`),
+		);
+		const body = (await response.json()) as {
+			runs: Array<{ id: string }>;
+			total: number;
+		};
+
+		expect(response.status).toBe(200);
+		expect(body.total).toBe(1);
+		expect(body.runs.map((run) => run.id)).toEqual(["run-normal-workflow"]);
+	});
+
 	test("returns the same lightweight run shape and project identity as the list view", async () => {
 		const { db, projectId, projectRoot, registryProjectId } =
 			await setupProject(tempDir, "summary");

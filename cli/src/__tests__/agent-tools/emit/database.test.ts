@@ -3877,6 +3877,136 @@ describe("emit database", () => {
 			expect(result.records[0].lastEventAt).toBe("2026-03-04T00:00:00.000Z");
 		});
 
+		test("can exclude bootstrap-only runs without changing direct lookup", async () => {
+			const dbPath = join(tempDir, "list-runs-bootstrap-only.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-bootstrap-only",
+				flow: "phase-plan",
+				featureId: "phase-plan",
+				projectPath: "/p",
+				bootstrapContext: JSON.stringify({
+					run: { decision: "created_new_run" },
+				}),
+			});
+			insertRun(db, {
+				id: "run-normal-no-events",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			const result = listRuns(db, { excludeBootstrapOnly: true });
+
+			expect(result.total).toBe(1);
+			expect(result.records.map((record) => record.id)).toEqual([
+				"run-normal-no-events",
+			]);
+			expect(getRunById(db, "run-bootstrap-only")?.bootstrapContext).toContain(
+				"created_new_run",
+			);
+			expect(listRuns(db).total).toBe(2);
+		});
+
+		test("keeps bootstrap-backed runs visible after they emit events", async () => {
+			const dbPath = join(tempDir, "list-runs-bootstrap-events.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-bootstrap-empty",
+				flow: "phase-plan",
+				featureId: "phase-plan",
+				projectPath: "/p",
+				bootstrapContext: JSON.stringify({
+					run: { decision: "created_new_run" },
+				}),
+			});
+			insertRun(db, {
+				id: "run-bootstrap-eventful",
+				flow: "phase-plan",
+				featureId: "phase-plan",
+				projectPath: "/p",
+				bootstrapContext: JSON.stringify({
+					run: { decision: "created_new_run" },
+				}),
+			});
+			insertEvent(db, {
+				runId: "run-bootstrap-eventful",
+				type: "status_change",
+				step: "planning",
+				data: JSON.stringify({ status: "running" }),
+				createdAt: "2026-03-05T00:00:00.000Z",
+			});
+
+			const result = listRuns(db, { excludeBootstrapOnly: true });
+
+			expect(result.total).toBe(1);
+			expect(result.records[0].id).toBe("run-bootstrap-eventful");
+			expect(result.records[0].lastEventAt).toBe("2026-03-05T00:00:00.000Z");
+		});
+
+		test("counts and paginates after excluding bootstrap-only runs", async () => {
+			const dbPath = join(tempDir, "list-runs-bootstrap-pagination.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const insertRunAt = (
+				id: string,
+				createdAt: string,
+				bootstrapContext?: string,
+			) => {
+				insertRun(db, {
+					id,
+					flow: "build",
+					featureId: "feat",
+					projectPath: "/p",
+					...(bootstrapContext !== undefined ? { bootstrapContext } : {}),
+				});
+				db.prepare(
+					"UPDATE runs SET created_at = $createdAt WHERE id = $id",
+				).run({
+					$createdAt: createdAt,
+					$id: id,
+				});
+			};
+
+			const bootstrapContext = JSON.stringify({
+				run: { decision: "created_new_run" },
+			});
+			insertRunAt(
+				"run-hidden-newer",
+				"2026-03-05T00:00:00.000Z",
+				bootstrapContext,
+			);
+			insertRunAt("run-visible-first", "2026-03-04T00:00:00.000Z");
+			insertRunAt(
+				"run-hidden-middle",
+				"2026-03-03T00:00:00.000Z",
+				bootstrapContext,
+			);
+			insertRunAt("run-visible-second", "2026-03-02T00:00:00.000Z");
+
+			const page1 = listRuns(db, {
+				excludeBootstrapOnly: true,
+				limit: 1,
+				offset: 0,
+			});
+			const page2 = listRuns(db, {
+				excludeBootstrapOnly: true,
+				limit: 1,
+				offset: 1,
+			});
+
+			expect(page1.total).toBe(2);
+			expect(page1.records.map((record) => record.id)).toEqual([
+				"run-visible-first",
+			]);
+			expect(page2.total).toBe(2);
+			expect(page2.records.map((record) => record.id)).toEqual([
+				"run-visible-second",
+			]);
+		});
+
 		test("supports pagination with limit and offset", async () => {
 			const dbPath = join(tempDir, "list-runs-page.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
