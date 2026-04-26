@@ -16,6 +16,32 @@ const PLUGIN_PATHS: Record<string, string> = {
 	"rp1-utils": "utils",
 };
 const SHA256_REGEX = /^sha256:[0-9a-f]{64}$/;
+const STANDARD_TERMINAL_WORKFLOW_CASES = [
+	{
+		path: "plugins/base/skills/deep-research/SKILL.md",
+		terminalStep: "report",
+	},
+	{
+		path: "plugins/dev/skills/address-pr-feedback/SKILL.md",
+		terminalStep: "fixing",
+	},
+	{
+		path: "plugins/dev/skills/blueprint/SKILL.md",
+		terminalStep: "prd",
+	},
+	{
+		path: "plugins/dev/skills/build-fast/SKILL.md",
+		terminalStep: "review",
+	},
+	{
+		path: "plugins/dev/skills/pr-review/SKILL.md",
+		terminalStep: "posting",
+	},
+	{
+		path: "plugins/utils/skills/build-prompt/SKILL.md",
+		terminalStep: "pipeline_complete",
+	},
+] as const;
 
 interface HashResult {
 	readonly path: string;
@@ -73,6 +99,9 @@ const parseSkillRefs = (content: string): string[] => {
 
 const readPrompt = (relativePath: string): Promise<string> =>
 	readFile(join(REPO_ROOT, relativePath), "utf-8");
+
+const escapeRegExp = (value: string): string =>
+	value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const collectSkillFiles = async (dir: string): Promise<string[]> => {
 	const entries = await readdir(dir, { withFileTypes: true });
@@ -206,19 +235,36 @@ describe("tracked workflow lifecycle prompts", () => {
 		expect(content).toContain("resume instruction");
 	});
 
-	test("closes pr-review on terminal posting completion", async () => {
-		const content = await readPrompt("plugins/dev/skills/pr-review/SKILL.md");
-		const terminalPostingLine = content
-			.split("\n")
-			.find(
-				(line) =>
-					line.includes("--workflow pr-review") &&
-					line.includes("--step posting") &&
-					line.includes('{"status": "completed"}'),
-			);
+	test("closes standard terminal workflow completions", async () => {
+		for (const { path, terminalStep } of STANDARD_TERMINAL_WORKFLOW_CASES) {
+			const content = await readPrompt(path);
+			const terminalGuidanceLine = content
+				.split("\n")
+				.find(
+					(line) =>
+						line.includes("For terminal states") &&
+						line.includes('{"status": "completed"}'),
+				);
 
-		expect(terminalPostingLine).toBeDefined();
-		expect(terminalPostingLine).toContain("--close-run");
+			expect(terminalGuidanceLine, path).toBeDefined();
+			expect(terminalGuidanceLine, path).toContain("--close-run");
+
+			const stepPattern = new RegExp(
+				`--step\\s+${escapeRegExp(terminalStep)}\\b`,
+				"g",
+			);
+			const completionSnippets = [...content.matchAll(stepPattern)]
+				.map((match) =>
+					content.slice(match.index ?? 0, (match.index ?? 0) + 400),
+				)
+				.filter((snippet) => snippet.includes('{"status": "completed"'));
+
+			expect(completionSnippets.length, path).toBeGreaterThan(0);
+			expect(
+				completionSnippets.some((snippet) => snippet.includes("--close-run")),
+				path,
+			).toBe(true);
+		}
 	});
 
 	test("keeps tracked Claude workflow bundle attestations exact", async () => {

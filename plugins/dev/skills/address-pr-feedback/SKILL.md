@@ -69,13 +69,13 @@ stateDiagram-v2
 **State Progression Protocol**:
 1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
 2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
-3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
+3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` and `--close-run` when the step's work finishes
 
 **Example sequence**:
 ```
 --workflow address-pr-feedback --step collecting --name "Feedback: PR #42" --data '{"status": "running"}'
 --workflow address-pr-feedback --step fixing --data '{"status": "running"}'
---workflow address-pr-feedback --step fixing --data '{"status": "completed"}'
+--workflow address-pr-feedback --step fixing --data '{"status": "completed"}' --close-run
 ```
 
 ## Phase 1: Collection

@@ -64,7 +64,7 @@ rp1 agent-tools emit \
 **State Progression Protocol**:
 1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
 2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
-3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
+3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` and `--close-run` when the step's work finishes
 4. On error, transition to the appropriate failure state in the graph
 
 **Example sequence** (with charter):
@@ -72,7 +72,7 @@ rp1 agent-tools emit \
 --workflow blueprint --step detect --name "Blueprint: mobile-app" --data '{"status": "running"}'   # first emit includes --name
 --workflow blueprint --step charter --data '{"status": "running"}'    # needs charter, entering charter phase
 --workflow blueprint --step prd --data '{"status": "running"}'        # charter done, entering prd phase
---workflow blueprint --step prd --data '{"status": "completed"}'      # prd done, workflow complete
+--workflow blueprint --step prd --data '{"status": "completed"}' --close-run      # prd done, workflow complete
 ```
 
 ## §CTX

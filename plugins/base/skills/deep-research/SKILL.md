@@ -61,7 +61,7 @@ rp1 agent-tools emit \
 **State Progression Protocol**:
 1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
 2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
-3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
+3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` and `--close-run` when the step's work finishes
 4. On error, transition to the appropriate failure state in the graph
 
 **Example sequence**:
@@ -71,7 +71,7 @@ rp1 agent-tools emit \
 --step explore --data '{"status": "running"}'       # plan ready, entering explore phase
 --step synthesize --data '{"status": "running"}'    # exploration done, entering synthesize phase
 --step report --data '{"status": "running"}'        # synthesis done, entering report phase
---step report --data '{"status": "completed"}'      # report work finished, workflow done
+--step report --data '{"status": "completed"}' --close-run      # report work finished, workflow done
 ```
 
 Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the generated Workflow Bootstrap section. Do not re-resolve directories manually, do not call `resolve-args`, and do not generate a UUID manually.
