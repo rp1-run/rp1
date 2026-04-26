@@ -164,6 +164,7 @@ describe("native launch state", () => {
 		expect(launchArcadeMock).toHaveBeenCalledWith({
 			projectPath: undefined,
 			rp1ExecutablePath: "/tmp/rp1",
+			cliVersion: "0.7.5-dev",
 			openProjectListWhenMissing: true,
 		});
 	});

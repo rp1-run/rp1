@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { BrowserWindow } from "electrobun/bun";
+import cliPackage from "../../../cli/package.json";
 import { type CLIError, formatError } from "../../../cli/shared/errors.js";
 import { launchArcade } from "../../../cli/src/arcade/launch.js";
 import {
@@ -29,6 +30,7 @@ const LAUNCH_VIEW_TEMPLATE = readFileSync(
 	resolve(import.meta.dir, "../views/launch/index.html"),
 	"utf8",
 );
+const CLI_VERSION = `${cliPackage.version}-dev`;
 const ARCADE_NAVIGATION_RULES = [
 	"^*",
 	"views://launch/*",
@@ -275,6 +277,7 @@ const launchNativeShell = async (
 	const result = await launchArcade({
 		projectPath: options.projectPath,
 		rp1ExecutablePath: executablePath,
+		cliVersion: CLI_VERSION,
 		openProjectListWhenMissing: true,
 	});
 
