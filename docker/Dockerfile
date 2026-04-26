@@ -42,8 +42,13 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
-# just (command runner)
-RUN curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+# just (command runner) — install from GitHub release directly since just.systems/install.sh is unreliable
+RUN JUST_VERSION=$(curl -sSf https://api.github.com/repos/casey/just/releases/latest | grep '"tag_name"' | cut -d'"' -f4) \
+    && curl -sSfL "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+       -o /tmp/just.tar.gz \
+    && tar -xzf /tmp/just.tar.gz -C /usr/local/bin just \
+    && rm /tmp/just.tar.gz \
+    && chmod +x /usr/local/bin/just
 
 # Non-root user
 RUN useradd -m -s /bin/zsh rp1user \
