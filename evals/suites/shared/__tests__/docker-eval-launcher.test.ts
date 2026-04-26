@@ -352,6 +352,13 @@ esac
 	});
 
 	test("uses host promptfoo home for evals and host view", async () => {
+		const evalRun = await runCommand("just", ["--show", "eval-run"], {
+			cwd: REPO_ROOT,
+			env: {
+				...process.env,
+				NO_COLOR: "1",
+			},
+		});
 		const evalRunLocal = await runCommand(
 			"just",
 			["--show", "eval-run-local"],
@@ -371,8 +378,12 @@ esac
 			},
 		});
 
+		expect(evalRun.exitCode).toBe(0);
 		expect(evalRunLocal.exitCode).toBe(0);
 		expect(evalView.exitCode).toBe(0);
+		expect(
+			(evalRun.stdout.match(/just eval-dashboard-reload/g) ?? []).length,
+		).toBe(2);
 		expect(evalRunLocal.stdout).toContain(PROMPTFOO_CONFIG_DIR_SNIPPET);
 		expect(evalRunLocal.stdout).toContain(
 			'export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"',
