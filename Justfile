@@ -480,8 +480,13 @@ eval-setup:
 #   just eval-run-local rp1-dev/build-fast # run inside the current environment
 
 # Run eval suites in Docker. Optional: suite path, --harness=opencode, --platform=<platform>, --attest, --commit, --verbose
+# After the Docker run exits, bounces the host-side promptfoo view daemon so the dashboard re-indexes the new evals.
 eval-run *args:
+    #!/usr/bin/env bash
     ./docker/eval-run.sh {{ args }}
+    eval_exit=$?
+    just eval-dashboard-reload
+    exit $eval_exit
 
 # Run eval suites in the current environment. Container-only entrypoint for Dockerized evals.
 eval-run-local *args:
