@@ -14,7 +14,6 @@ theme:
     text: JetBrains Mono
     code: JetBrains Mono
   palette:
-    # Light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
       primary: custom
@@ -22,7 +21,6 @@ theme:
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
-    # Dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: custom
@@ -117,6 +115,7 @@ nav:
       - socratic-duel: reference/base/socratic-duel.md
       - analyse-security: reference/base/analyse-security.md
       - fix-mermaid: reference/base/fix-mermaid.md
+      - work-search: reference/base/work-search.md
       - self-update: reference/base/self-update.md
     - Dev Plugin:
       - Overview: reference/dev/index.md

@@ -23,6 +23,14 @@ date.
 
 ---
 
+## Agent Tools
+
+| Tool | Description |
+|------|-------------|
+| [`work-search`](work-search.md) | Search project-scoped markdown work artifacts through `rp1 agent-tools work-search` |
+
+---
+
 ## Skill Categories
 
 ### Knowledge Management

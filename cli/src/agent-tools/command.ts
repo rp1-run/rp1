@@ -56,6 +56,10 @@ import {
 	executePickup as executeTaskPickup,
 } from "./task/index.js";
 import { VALID_TASK_STATUSES } from "./task/models.js";
+import {
+	WORK_SEARCH_DEFAULT_LIMIT,
+	WORK_SEARCH_MAX_LIMIT,
+} from "./work-search/models.js";
 
 const cleanupAndExit = () => {
 	closeEmitDatabase();
@@ -80,6 +84,7 @@ import "./feedback/index.js";
 import "./github-pr/index.js";
 import "./socratic-duel/index.js";
 import "./task/index.js";
+import "./work-search/index.js";
 
 /** Default timeout for tool execution in milliseconds */
 const DEFAULT_TIMEOUT = 30000;
@@ -120,6 +125,7 @@ Available Tools:
   github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
   socratic-duel     Coordinate Socratic Duel participant locks and leases
   task              Manage task queue (create, list, pickup, complete, fail, cancel, get)
+  work-search       Search project-scoped rp1 work artifacts
 
 Examples:
   rp1 agent-tools mmd-validate ./document.md
@@ -133,6 +139,7 @@ Examples:
   rp1 agent-tools feedback resolve 42 --reply "Applied fix"
   rp1 agent-tools task create --type check-annotations --description "Review open annotations"
   rp1 agent-tools task list --status pending
+  rp1 agent-tools work-search "phase plan" --limit 5
   rp1 agent-tools emit --type status_change --run-id <uuid> --step requirements --data '{"status": "running"}'
 `,
 	);
@@ -552,6 +559,103 @@ Examples:
 
 			console.log(formatOutput(result.right));
 			process.exit(0);
+		},
+	);
+
+/**
+ * work-search subcommand.
+ * Searches project-scoped rp1 work artifacts.
+ */
+agentToolsCommand
+	.command("work-search [query]")
+	.description("Search project-scoped rp1 work artifacts")
+	.option(
+		"--project <path>",
+		"Resolve and search an explicit rp1 project path instead of the active project",
+	)
+	.option(
+		"--limit <n>",
+		`Maximum number of results to return (default: ${WORK_SEARCH_DEFAULT_LIMIT}, max: ${WORK_SEARCH_MAX_LIMIT})`,
+		String(WORK_SEARCH_DEFAULT_LIMIT),
+	)
+	.option(
+		"--no-refresh",
+		"Search the existing sidecar index without refreshing",
+	)
+	.option(
+		"--refresh-only",
+		"Refresh the sidecar index without searching",
+		false,
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Searches markdown artifacts under the active project's .rp1/work directory.
+  By default the command refreshes the project-local sidecar index before
+  searching. Use --no-refresh to query the existing index, or --refresh-only
+  to refresh without requiring a search query.
+
+Options:
+  --project <path>    Explicit rp1 project path to resolve and search
+  --limit <n>         Maximum results (default: ${WORK_SEARCH_DEFAULT_LIMIT}, max: ${WORK_SEARCH_MAX_LIMIT})
+  --no-refresh        Skip refresh and search the existing sidecar index
+  --refresh-only      Refresh the sidecar index and return refresh stats only
+
+Output:
+  JSON ToolResult with:
+  - query: Query string, or null for --refresh-only
+  - project: projectId, projectRoot, and workRoot
+  - refresh: Refresh stats when refresh ran
+  - results: Ranked snippets with normalized work artifact paths and metadata
+
+Examples:
+  rp1 agent-tools work-search "persistent memory"
+  rp1 agent-tools work-search "phase plan" --limit 5
+  rp1 agent-tools work-search --refresh-only
+  rp1 agent-tools work-search "requirements" --project /path/to/project --no-refresh
+`,
+	)
+	.action(
+		async (
+			query: string | undefined,
+			options: {
+				project?: string;
+				limit: string;
+				refresh: boolean;
+				refreshOnly: boolean;
+			},
+		): Promise<void> => {
+			const toolName = "work-search";
+
+			const tool = getTool(toolName);
+			if (!tool) {
+				console.error(
+					createErrorResponse(toolName, "Tool not found in registry"),
+				);
+				process.exit(1);
+			}
+
+			const result = await tool.execute(
+				JSON.stringify({
+					query,
+					project: options.project,
+					limit: options.limit,
+					refresh: options.refresh !== false,
+					refreshOnly: options.refreshOnly,
+				}),
+				{ inputSource: "stdin" },
+			)();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(result.right.success ? 0 : 1);
 		},
 	);
 
