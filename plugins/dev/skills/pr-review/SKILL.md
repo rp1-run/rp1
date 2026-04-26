@@ -94,7 +94,7 @@ rp1 agent-tools emit \
 **State Progression Protocol**:
 1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
 2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
-3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
+3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` and `--close-run` when the step's work finishes
 4. On error, transition to the appropriate failure state in the graph
 
 **State mapping**:
@@ -105,7 +105,7 @@ rp1 agent-tools emit \
 ```
 --workflow pr-review --step reviewing --name "PR #42" --data '{"status": "running"}'   # first emit includes --name
 --workflow pr-review --step posting --data '{"status": "running"}'       # analysis done, entering posting phase
---workflow pr-review --step posting --data '{"status": "completed"}'     # posting done, workflow complete
+--workflow pr-review --step posting --data '{"status": "completed"}' --close-run     # posting done, workflow complete
 ```
 
 §ARCH

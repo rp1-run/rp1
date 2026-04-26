@@ -95,12 +95,13 @@ rp1 agent-tools emit \
   --data '{"path": "issues/{EFFECTIVE_ISSUE_ID}/investigation_report.md", "storageRoot": "work_dir", "format": "markdown"}'
 ```
 
-On completion, mark the step as completed:
+On completion, mark the step as completed with `--close-run`:
 ```bash
 rp1 agent-tools emit \
   --workflow code-investigate \
   --type status_change \
   --run-id {RUN_ID} \
   --step investigating \
+  --close-run \
   --data '{"status": "completed"}'
 ```

@@ -61,7 +61,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
 
 `RUN_NAME` is resolved once, up front, from `basename {projectRoot}` — it is stable before the sub-agent runs, so every emit (including the first) can carry it. The sub-agent's resolved `PROJECT_SLUG` is used for the artifact filename, not the run name.
 
-Terminal state `validate_diagrams` uses `--data '{"status": "completed"}'`.
+Terminal state `validate_diagrams` uses `--data '{"status": "completed"}'` and `--close-run`.
 
 ## Governance
 
@@ -98,7 +98,17 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --data '{"path": "{OUTPUT_PATH}", "feature": "birds-eye", "storageRoot": "work_dir", "format": "markdown"}'
 ```
 
-6. Emit terminal `validate_diagrams` with `{"status":"completed"}`.
+6. Emit terminal `validate_diagrams` with `{"status":"completed"}` and `--close-run`:
+
+```bash
+rp1 agent-tools emit --harness $CURRENT_HOST \
+  --workflow birds-eye-view \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step validate_diagrams \
+  --close-run \
+  --data '{"status":"completed"}'
+```
 
 The agent loads the KB, generates a 16-section arc42/C4-aligned document with per-claim provenance, emits up to 6 Mermaid diagrams (validated via `rp1 agent-tools mmd-validate`), and writes to `{workRoot}/birds-eye/{YYYY-MM-DD}-{PROJECT_SLUG}.md` with n+1 dedup. It returns the resolved `OUTPUT_PATH` and `PROJECT_SLUG` to this dispatcher.
 

@@ -123,7 +123,7 @@ rp1 agent-tools emit \
 **State Progression Protocol**:
 1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
 2. For non-terminal states: move to the NEXT state when done
-3. For terminal states (those with `-> [*]` transitions): report with `--data '{"status": "completed"}'`
+3. For terminal states (those with `-> [*]` transitions): report with `--data '{"status": "completed"}'` and `--close-run`
 
 ## §STEP-1: Pipeline Execution
 
@@ -203,6 +203,7 @@ rp1 agent-tools emit \
   --type status_change \
   --run-id {RUN_ID} \
   --step pipeline_complete \
+  --close-run \
   --data '{"status": "completed", "prompt_name": "{PROMPT_NAME}"}'
 ```
 
