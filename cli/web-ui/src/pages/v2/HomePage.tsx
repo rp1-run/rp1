@@ -1,11 +1,24 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Activity, NotebookTabs, SlidersHorizontal } from "lucide-react";
-import { type ReactNode, useCallback, useRef, useState } from "react";
+import {
+	Activity,
+	Maximize2,
+	NotebookTabs,
+	SlidersHorizontal,
+} from "lucide-react";
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { useSearchParams } from "react-router-dom";
 import { FilterBar } from "@/components/v2/FilterBar";
 import { HarnessIcon } from "@/components/v2/HarnessIcon";
+import { RunDetailSurface } from "@/components/v2/RunDetailSurface";
 import type { FeedItem } from "@/hooks/useFeed";
 import { useFeed } from "@/hooks/useFeed";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useWorkspaceTabs } from "@/hooks/useWorkspaceTabs";
 import { resolveRunDisplayName } from "@/lib/run-display";
@@ -240,17 +253,37 @@ function NoSelectedRunState() {
 	);
 }
 
-function SelectedRunPane() {
+function SelectedRunPane({
+	selectedRunId,
+	onExpand,
+}: {
+	selectedRunId: string | null;
+	onExpand: () => void;
+}) {
 	return (
 		<section
 			aria-label="Selected run"
 			className="hidden min-h-0 min-w-0 overflow-hidden rounded-[var(--radius)] border border-border bg-surface-void xl:flex xl:flex-col"
 		>
-			<header className="flex h-12 shrink-0 items-center border-b border-border px-4">
+			<header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
 				<h2 className="type-body font-medium text-fg">Run Preview</h2>
+				<button
+					type="button"
+					onClick={onExpand}
+					disabled={!selectedRunId}
+					className="flex h-7 w-7 items-center justify-center rounded text-fg-ghost transition-colors duration-150 hover:bg-surface hover:text-fg-muted disabled:pointer-events-none disabled:opacity-40"
+					aria-label="Expand selected run"
+					title="Expand selected run"
+				>
+					<Maximize2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+				</button>
 			</header>
 			<div className="min-h-0 flex-1 overflow-hidden">
-				<NoSelectedRunState />
+				{selectedRunId ? (
+					<RunDetailSurface runId={selectedRunId} mode="activity-preview" />
+				) : (
+					<NoSelectedRunState />
+				)}
 			</div>
 		</section>
 	);
@@ -339,11 +372,12 @@ export function HomePage() {
 	const { openWorkspace } = useWorkspaceTabs();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const reducedMotion = usePrefersReducedMotion();
+	const isWideActivityLayout = useMediaQuery("(min-width: 1280px)");
 	const activityRowRefs = useRef(new Map<string, HTMLDivElement>());
 
 	const initialProjectId = searchParams.get("projectId");
 	const [showFilters, setShowFilters] = useState(!!initialProjectId);
-	const [selectedRunId] = useState<string | null>(null);
+	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 	const [filters, setFilters] = useState<RunsFilter>({
 		status: "all",
 		projectId: initialProjectId,
@@ -381,6 +415,20 @@ export function HomePage() {
 		setPageSize((prev) => prev + PAGE_SIZE);
 	}, []);
 
+	useEffect(() => {
+		if (!isWideActivityLayout) return;
+		if (items.length === 0) {
+			setSelectedRunId(null);
+			return;
+		}
+
+		if (selectedRunId && items.some((item) => item.id === selectedRunId)) {
+			return;
+		}
+
+		setSelectedRunId(items[0]?.id ?? null);
+	}, [isWideActivityLayout, items, selectedRunId]);
+
 	const setActivityRowRef = useCallback(
 		(runId: string, node: HTMLDivElement | null) => {
 			if (node) {
@@ -394,10 +442,19 @@ export function HomePage() {
 
 	const handleRunClick = useCallback(
 		(runId: string) => {
+			if (isWideActivityLayout) {
+				setSelectedRunId(runId);
+				return;
+			}
 			openWorkspace(`/runs/${runId}`);
 		},
-		[openWorkspace],
+		[isWideActivityLayout, openWorkspace],
 	);
+
+	const handleExpandSelectedRun = useCallback(() => {
+		if (!selectedRunId) return;
+		openWorkspace(`/runs/${selectedRunId}`);
+	}, [openWorkspace, selectedRunId]);
 
 	const handleProjectClick = useCallback(
 		(projectId: string) => {
@@ -461,7 +518,10 @@ export function HomePage() {
 					</div>
 				</section>
 
-				<SelectedRunPane />
+				<SelectedRunPane
+					selectedRunId={selectedRunId}
+					onExpand={handleExpandSelectedRun}
+				/>
 			</div>
 		</div>
 	);
