@@ -306,7 +306,11 @@ function SelectedRunPane({
 			</header>
 			<div className="min-h-0 flex-1 overflow-hidden">
 				{selectedRunId ? (
-					<RunDetailSurface runId={selectedRunId} mode="activity-preview" />
+					<RunDetailSurface
+						key={selectedRunId}
+						runId={selectedRunId}
+						mode="activity-preview"
+					/>
 				) : (
 					<NoSelectedRunState />
 				)}

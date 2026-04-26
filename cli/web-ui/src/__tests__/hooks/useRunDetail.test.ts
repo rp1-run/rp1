@@ -53,6 +53,23 @@ async function loadUseRunDetail() {
 	);
 }
 
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason?: unknown) => void;
+	const promise = new Promise<T>((promiseResolve, promiseReject) => {
+		resolve = promiseResolve;
+		reject = promiseReject;
+	});
+	return { promise, resolve, reject };
+}
+
+function okRunResponse(run: Run): Response {
+	return {
+		ok: true,
+		json: async () => ({ ...run }),
+	} as Response;
+}
+
 function emitEvent(msg: EventNotificationMessage) {
 	for (const listener of eventListeners) {
 		listener(msg);
@@ -296,6 +313,77 @@ describe("useRunDetail", () => {
 
 		expect(secondRender.result.current.run?.id).toBe("run-1");
 		expect(secondRender.result.current.isLoading).toBe(false);
+	});
+
+	test("does not expose stale run data after the requested run changes", async () => {
+		const staleRunOneFetch = deferred<Response>();
+		const runTwoFetch = deferred<Response>();
+		const runOne = { ...baseRun, id: "run-1", name: "Run One" };
+		const staleRunOne = { ...baseRun, id: "run-1", name: "Stale Run One" };
+		const runTwo = {
+			...baseRun,
+			id: "run-2",
+			projectId: "proj-2",
+			projectName: "Second Project",
+			name: "Run Two",
+		};
+		let runOneRequestCount = 0;
+
+		fetchMock = mock((url: string) => {
+			if (url === "/api/v2/runs/run-1") {
+				runOneRequestCount += 1;
+				if (runOneRequestCount === 1) {
+					return Promise.resolve(okRunResponse(runOne));
+				}
+				return staleRunOneFetch.promise;
+			}
+			if (url === "/api/v2/runs/run-2") {
+				return runTwoFetch.promise;
+			}
+			return Promise.resolve({
+				ok: false,
+				status: 404,
+				statusText: "Not Found",
+			});
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { useRunDetail } = await loadUseRunDetail();
+		const { result, rerender } = renderHook(
+			({ id }: { readonly id: string }) => useRunDetail(id),
+			{ initialProps: { id: "run-1" } },
+		);
+
+		await waitFor(() => {
+			expect(result.current.run?.id).toBe("run-1");
+		});
+
+		act(() => {
+			result.current.refetch();
+		});
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+		});
+
+		rerender({ id: "run-2" });
+		expect(result.current.run).toBeNull();
+		expect(result.current.isLoading).toBe(true);
+
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledWith("/api/v2/runs/run-2");
+		});
+		runTwoFetch.resolve(okRunResponse(runTwo));
+
+		await waitFor(() => {
+			expect(result.current.run?.id).toBe("run-2");
+			expect(result.current.run?.name).toBe("Run Two");
+		});
+
+		staleRunOneFetch.resolve(okRunResponse(staleRunOne));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(result.current.run?.id).toBe("run-2");
+		expect(result.current.run?.name).toBe("Run Two");
 	});
 
 	test("reconciled artifact updates local state without refetching the run", async () => {

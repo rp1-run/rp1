@@ -64,18 +64,24 @@ function ArtifactContentSurfaceInner({
 	const [tocOpen, setTocOpen] = useState(false);
 	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
+	const activeArtifactCacheKeyRef = useRef<string | null>(artifactCacheKey);
 	const { onFileChange } = useWebSocket();
+	activeArtifactCacheKeyRef.current = artifactCacheKey;
 
 	const fetchContent = useCallback(
 		async (preserveScroll: boolean) => {
-			if (!artifactPath || !runId) {
+			const requestArtifactPath = artifactPath;
+			const requestCacheKey = artifactCacheKey;
+			const requestRunId = runId;
+			const isActiveArtifactRequest = () =>
+				activeArtifactCacheKeyRef.current === requestCacheKey;
+
+			if (!requestArtifactPath || !requestRunId || !requestCacheKey) {
 				setContent(null);
 				return;
 			}
 
-			const cachedContent = artifactCacheKey
-				? (artifactContentCache.get(artifactCacheKey) ?? null)
-				: null;
+			const cachedContent = artifactContentCache.get(requestCacheKey) ?? null;
 
 			if (!preserveScroll && cachedContent === null) {
 				setContentLoading(true);
@@ -85,8 +91,9 @@ function ArtifactContentSurfaceInner({
 
 			try {
 				const response = await fetch(
-					`/api/v2/runs/${runId}/artifacts/${encodeURIComponent(artifactPath)}`,
+					`/api/v2/runs/${requestRunId}/artifacts/${encodeURIComponent(requestArtifactPath)}`,
 				);
+				if (!isActiveArtifactRequest()) return;
 				if (!response.ok) {
 					let errorMessage = `Failed to fetch artifact: ${response.statusText}`;
 					try {
@@ -100,26 +107,26 @@ function ArtifactContentSurfaceInner({
 					throw new Error(errorMessage);
 				}
 				const data = (await response.json()) as { content: string };
-				if (artifactCacheKey) {
-					artifactContentCache.set(artifactCacheKey, data.content);
-				}
+				if (!isActiveArtifactRequest()) return;
+				artifactContentCache.set(requestCacheKey, data.content);
 				setContent((current) =>
 					current === data.content ? current : data.content,
 				);
 			} catch (err) {
+				if (!isActiveArtifactRequest()) return;
 				const message = err instanceof Error ? err.message : String(err);
 				const isTerminalError =
 					message.startsWith("Artifact not found:") ||
 					message.startsWith("Run not found");
 				if (isTerminalError || cachedContent === null) {
-					if (isTerminalError && artifactCacheKey) {
-						artifactContentCache.delete(artifactCacheKey);
+					if (isTerminalError) {
+						artifactContentCache.delete(requestCacheKey);
 					}
 					setContentError(message);
 					setContent(null);
 				}
 			} finally {
-				if (!preserveScroll) {
+				if (isActiveArtifactRequest() && !preserveScroll) {
 					setContentLoading(false);
 				}
 			}

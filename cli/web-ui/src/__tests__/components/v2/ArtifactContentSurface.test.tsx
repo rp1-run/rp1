@@ -31,6 +31,31 @@ const secondArtifact: Artifact = {
 	step: "review",
 };
 
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason?: unknown) => void;
+	const promise = new Promise<T>((promiseResolve, promiseReject) => {
+		resolve = promiseResolve;
+		reject = promiseReject;
+	});
+	return { promise, resolve, reject };
+}
+
+function contentResponse(content: string): Response {
+	return {
+		ok: true,
+		json: async () => ({ content }),
+	} as Response;
+}
+
+function artifactNotFoundResponse(path: string): Response {
+	return {
+		ok: false,
+		statusText: "Not Found",
+		json: async () => ({ error: `Artifact not found: ${path}` }),
+	} as Response;
+}
+
 interface MockContentPanelProps {
 	readonly content?: string | null;
 	readonly error?: string | null;
@@ -228,5 +253,50 @@ describe("ArtifactContentSurface", () => {
 			expect(screen.getByLabelText("Open table of contents")).toBeTruthy();
 			expect(screen.getByLabelText("Toggle annotations")).toBeTruthy();
 		});
+	});
+
+	test("ignores stale artifact fetch errors after the selected artifact changes", async () => {
+		const firstFetch = deferred<Response>();
+		const secondFetch = deferred<Response>();
+		global.fetch = mock((input: RequestInfo | URL) => {
+			const url = String(input);
+			if (url.includes(encodeURIComponent(firstArtifact.path))) {
+				return firstFetch.promise;
+			}
+			if (url.includes(encodeURIComponent(secondArtifact.path))) {
+				return secondFetch.promise;
+			}
+			return Promise.resolve(artifactNotFoundResponse(".rp1/work/unknown.md"));
+		}) as unknown as typeof fetch;
+
+		const { ArtifactContentSurface } = await importSurface();
+
+		const view = render(
+			<ArtifactContentSurface {...surfaceProps(firstArtifact)} />,
+		);
+
+		await waitFor(() => {
+			expect(global.fetch).toHaveBeenCalledTimes(1);
+		});
+
+		view.rerender(<ArtifactContentSurface {...surfaceProps(secondArtifact)} />);
+
+		await waitFor(() => {
+			expect(global.fetch).toHaveBeenCalledTimes(2);
+		});
+		secondFetch.resolve(contentResponse("# Second artifact"));
+
+		await waitFor(() => {
+			const panel = screen.getByTestId("artifact-content-panel");
+			expect(panel.dataset.content).toBe("# Second artifact");
+			expect(panel.dataset.error).toBe("");
+		});
+
+		firstFetch.resolve(artifactNotFoundResponse(firstArtifact.path));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		const panel = screen.getByTestId("artifact-content-panel");
+		expect(panel.dataset.content).toBe("# Second artifact");
+		expect(panel.dataset.error).toBe("");
 	});
 });
