@@ -13,6 +13,7 @@ import {
 	type WorkspaceTab,
 	WorkspaceTabsProvider,
 } from "@/hooks/useWorkspaceTabs";
+import type { Artifact, Run, Step } from "@/types/runs";
 
 let importVersion = 0;
 let wideActivityLayout = false;
@@ -58,6 +59,55 @@ function createFeedItem({
 	};
 }
 
+function createRunDetail(runId: string | undefined): Run | null {
+	const source = feedItems.find((item) => item.id === runId)?.run;
+	if (!source) return null;
+
+	const step: Step = {
+		id: "build",
+		name: "Build",
+		status: "running",
+		startedAt: source.startedAt,
+		completedAt: null,
+		taskCount: 1,
+		completedTaskCount: 0,
+	};
+	const artifact: Artifact = {
+		docId: `${source.id}-doc`,
+		path: `.rp1/work/features/${source.id}/tasks.md`,
+		absolutePath: `/repo/.rp1/work/features/${source.id}/tasks.md`,
+		type: "markdown",
+		updatedDuringRun: true,
+		isNew: false,
+		step: step.id,
+	};
+
+	return {
+		id: source.id,
+		projectId: source.projectId,
+		projectName: source.projectName,
+		featureId: "feature-1",
+		featureName: "Feature One",
+		name: source.name,
+		command: source.command,
+		status: "running",
+		harness: source.harness,
+		currentStep: step.id,
+		steps: [step],
+		artifacts: [artifact],
+		events: [],
+		startedAt: source.startedAt,
+		lastEventAt: source.lastEventAt,
+		completedAt: null,
+		error: null,
+		agentSteps: null,
+	};
+}
+
+function getPreviewText() {
+	return screen.getAllByTestId("run-detail-surface")[0]?.textContent;
+}
+
 function installHomePageMocks() {
 	mock.module("@/hooks/useFeed", () => ({
 		useFeed: () => ({
@@ -75,8 +125,52 @@ function installHomePageMocks() {
 		usePrefersReducedMotion: () => true,
 	}));
 
-	mock.module("@/components/v2/RunDetailSurface", () => ({
-		RunDetailSurface: ({ runId }: { readonly runId?: string }) => (
+	mock.module("@/hooks/useRunDetail", () => ({
+		useRunDetail: (runId: string | undefined) => ({
+			run: createRunDetail(runId),
+			isLoading: false,
+			error: null,
+			refetch: mock(() => {}),
+		}),
+	}));
+
+	mock.module("@/hooks/useWorkflowSteps", () => ({
+		commandToWorkflowName: () => "build-fast",
+		useWorkflowSteps: () => ({ isLoading: false }),
+	}));
+
+	mock.module("@/hooks/useBreadcrumbContext", () => ({
+		useBreadcrumbContext: () => ({
+			setActiveArtifact: mock(() => {}),
+			setProject: mock(() => {}),
+			setRunInfo: mock(() => {}),
+			setHeaderLeft: mock(() => {}),
+			setHeaderRight: mock(() => {}),
+		}),
+	}));
+
+	mock.module("@/providers/WebSocketProvider", () => ({
+		useWebSocket: () => ({
+			setProjectId: mock(() => {}),
+		}),
+	}));
+
+	mock.module("@/components/ui/resizable", () => ({
+		ResizablePanelGroup: ({ children }: { readonly children?: ReactNode }) => (
+			<div>{children}</div>
+		),
+		ResizablePanel: ({ children }: { readonly children?: ReactNode }) => (
+			<div>{children}</div>
+		),
+		ResizableHandle: () => <div data-testid="resizable-handle" />,
+	}));
+
+	mock.module("@/components/v2/VerticalStepList", () => ({
+		VerticalStepList: () => <div data-testid="step-list" />,
+	}));
+
+	mock.module("@/components/v2/RunArtifactsPanel", () => ({
+		RunArtifactsPanel: ({ runId }: { readonly runId?: string }) => (
 			<div data-testid="run-detail-surface">Preview {runId}</div>
 		),
 	}));
@@ -255,23 +349,83 @@ describe("HomePage", () => {
 		});
 	});
 
+	test("previews a clicked feed entry inline on wide layouts without leaving Activity", async () => {
+		wideActivityLayout = true;
+
+		await renderHomePage();
+
+		await waitFor(() => {
+			expect(getPreviewText()).toBe("Preview run-1");
+		});
+
+		fireEvent.click(screen.getByText("Build Two").closest('[role="button"]')!);
+
+		await waitFor(() => {
+			expect(getPreviewText()).toBe("Preview run-2");
+		});
+		expect(screen.getByTestId("location-probe").textContent).toBe("/");
+		expect(
+			screen
+				.getByText("Build Two")
+				.closest('[role="button"]')
+				?.getAttribute("aria-selected"),
+		).toBe("true");
+	});
+
+	test("expands the selected run by focusing its existing workspace tab", async () => {
+		wideActivityLayout = true;
+		setStoredState({
+			tabs: [
+				{
+					key: "run:run-1",
+					kind: "run",
+					currentPath: "/runs/run-1/step/build/artifact/doc-1",
+					rootPath: "/runs/run-1",
+					title: "Build One",
+					subtitle: "Project One",
+					projectId: "proj-1",
+					lastVisitedAt: 1,
+				},
+			],
+			activeKey: null,
+			lastDurableRoute: "/",
+		});
+
+		await renderHomePage();
+
+		await waitFor(() => {
+			expect(getPreviewText()).toBe("Preview run-1");
+		});
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "Expand selected run" }),
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("location-probe").textContent).toBe(
+				"/runs/run-1/step/build/artifact/doc-1",
+			);
+		});
+
+		const storedTabs = JSON.parse(
+			localStorage.getItem(WORKSPACE_TABS_STORAGE_KEY) ?? "{}",
+		) as { readonly tabs?: readonly WorkspaceTab[] };
+		expect(storedTabs.tabs?.map((tab) => tab.key)).toEqual(["run:run-1"]);
+	});
+
 	test("uses activity keyboard navigation to update the wide inline preview", async () => {
 		wideActivityLayout = true;
 
 		await renderHomePage();
 
 		await waitFor(() => {
-			expect(screen.getByTestId("run-detail-surface").textContent).toBe(
-				"Preview run-1",
-			);
+			expect(getPreviewText()).toBe("Preview run-1");
 		});
 
 		fireEvent.keyDown(document, { key: "j" });
 
 		await waitFor(() => {
-			expect(screen.getByTestId("run-detail-surface").textContent).toBe(
-				"Preview run-2",
-			);
+			expect(getPreviewText()).toBe("Preview run-2");
 		});
 		expect(
 			screen
@@ -283,25 +437,19 @@ describe("HomePage", () => {
 		fireEvent.keyDown(document, { key: "ArrowDown" });
 
 		await waitFor(() => {
-			expect(screen.getByTestId("run-detail-surface").textContent).toBe(
-				"Preview run-2",
-			);
+			expect(getPreviewText()).toBe("Preview run-2");
 		});
 
 		fireEvent.keyDown(document, { key: "k" });
 
 		await waitFor(() => {
-			expect(screen.getByTestId("run-detail-surface").textContent).toBe(
-				"Preview run-1",
-			);
+			expect(getPreviewText()).toBe("Preview run-1");
 		});
 
 		fireEvent.keyDown(document, { key: "ArrowUp" });
 
 		await waitFor(() => {
-			expect(screen.getByTestId("run-detail-surface").textContent).toBe(
-				"Preview run-1",
-			);
+			expect(getPreviewText()).toBe("Preview run-1");
 		});
 	});
 
@@ -323,9 +471,7 @@ describe("HomePage", () => {
 		await renderHomePage();
 
 		await waitFor(() => {
-			expect(screen.getByTestId("run-detail-surface").textContent).toBe(
-				"Preview run-1",
-			);
+			expect(getPreviewText()).toBe("Preview run-1");
 		});
 
 		const editor = document.createElement("div");
@@ -337,9 +483,7 @@ describe("HomePage", () => {
 
 		fireEvent.keyDown(editor, { key: "j" });
 
-		expect(screen.getByTestId("run-detail-surface").textContent).toBe(
-			"Preview run-1",
-		);
+		expect(getPreviewText()).toBe("Preview run-1");
 
 		const input = document.createElement("input");
 		input.type = "text";
@@ -348,9 +492,7 @@ describe("HomePage", () => {
 
 		fireEvent.keyDown(input, { key: "ArrowDown" });
 
-		expect(screen.getByTestId("run-detail-surface").textContent).toBe(
-			"Preview run-1",
-		);
+		expect(getPreviewText()).toBe("Preview run-1");
 	});
 
 	test("does not intercept navigation keys while shortcut guards have precedence", async () => {
@@ -359,9 +501,7 @@ describe("HomePage", () => {
 		await renderHomePage();
 
 		await waitFor(() => {
-			expect(screen.getByTestId("run-detail-surface").textContent).toBe(
-				"Preview run-1",
-			);
+			expect(getPreviewText()).toBe("Preview run-1");
 		});
 
 		const button = document.createElement("button");
@@ -369,16 +509,12 @@ describe("HomePage", () => {
 		button.focus();
 
 		fireEvent.keyDown(button, { key: "j", metaKey: true });
-		expect(screen.getByTestId("run-detail-surface").textContent).toBe(
-			"Preview run-1",
-		);
+		expect(getPreviewText()).toBe("Preview run-1");
 
 		document.body.dataset.chordPending = "g";
 		fireEvent.keyDown(button, { key: "j" });
 		delete document.body.dataset.chordPending;
-		expect(screen.getByTestId("run-detail-surface").textContent).toBe(
-			"Preview run-1",
-		);
+		expect(getPreviewText()).toBe("Preview run-1");
 
 		const dialog = document.createElement("div");
 		dialog.setAttribute("role", "dialog");
@@ -387,8 +523,6 @@ describe("HomePage", () => {
 
 		fireEvent.keyDown(button, { key: "j" });
 
-		expect(screen.getByTestId("run-detail-surface").textContent).toBe(
-			"Preview run-1",
-		);
+		expect(getPreviewText()).toBe("Preview run-1");
 	});
 });
