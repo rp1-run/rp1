@@ -242,6 +242,63 @@ describe("handleV2FeedRequest", () => {
 		expect(body.items[0]?.run.status).toBe("failed");
 	});
 
+	test("hides bootstrap-only phase-plan runs while returning normal workflow runs", async () => {
+		const { db, projectId, projectRoot } = await setupProject(
+			tempDir,
+			"bootstrap-feed",
+		);
+
+		insertRun(db, {
+			id: "run-ghost-phase-plan",
+			flow: "phase-plan",
+			featureId: "phase-plan",
+			projectPath: projectRoot,
+			projectId,
+			name: "Ghost Phase Plan",
+			harness: "codex",
+			bootstrapContext: JSON.stringify({
+				run: { decision: "created_new_run" },
+			}),
+		});
+		db.prepare("UPDATE runs SET created_at = ? WHERE id = ?").run(
+			"2026-04-10T06:00:00.000Z",
+			"run-ghost-phase-plan",
+		);
+
+		insertRun(db, {
+			id: "run-normal-workflow",
+			flow: "build",
+			featureId: "hide-bootstrap-runs",
+			projectPath: projectRoot,
+			projectId,
+			name: "Normal Workflow",
+			harness: "codex",
+		});
+		insertEvent(db, {
+			runId: "run-normal-workflow",
+			type: "status_change",
+			step: "build",
+			data: JSON.stringify({ status: "running" }),
+			createdAt: "2026-04-10T05:00:00.000Z",
+		});
+		deriveRunStatus(db, "run-normal-workflow");
+
+		const response = await handleV2FeedRequest(
+			new Request(`http://localhost/api/v2/feed?project_id=${projectId}`),
+		);
+
+		expect(response.status).toBe(200);
+
+		const body = (await response.json()) as {
+			items: Array<{ id: string; run: { id: string } }>;
+			total: number;
+		};
+
+		expect(body.total).toBe(1);
+		expect(body.items.map((item) => item.id)).toEqual(["run-normal-workflow"]);
+		expect(body.items[0]?.run.id).toBe("run-normal-workflow");
+	});
+
 	test("broadcasts stale run inactivity when feed reads trigger reclassification", async () => {
 		const { db, projectId, projectRoot, registryProjectId } =
 			await setupProject(tempDir, "stale-feed");
