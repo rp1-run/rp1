@@ -78,6 +78,90 @@ just serve-web-ui
 # Opens Vite at http://localhost:5173 (proxies to backend at :7710)
 ```
 
+### Native App Development
+
+Install the native app dependencies once before the first launch:
+
+```bash
+cd native-app
+bun install --no-save
+cd ..
+```
+
+| Recipe | Description |
+|--------|-------------|
+| `native-app-dev` | Build the local dev CLI and launch the macOS native Arcade shell on the registered projects route |
+| `native-app-dev PROJECT=/path/to/rp1-project` | Register and open a specific project directly in the native shell |
+| `native-app-dev RP1_EXECUTABLE=/absolute/path/to/rp1` | Launch with an explicit rp1 executable for daemon startup |
+| `build-native-app` | Build the macOS app bundle and bundle the local dev CLI without opening it |
+
+Use `native-app-dev` without a project to verify registered project selection,
+and use the `PROJECT` form to verify optional direct project launch. Browser
+Arcade remains the fallback path; after a native launch, run `./bin/rp1 arcade`
+from the same project directory to verify the browser flow still opens the
+project.
+
+For repeated launch checks where rebuilding would interfere with daemon reuse,
+build once with `just build-local-dev`, then run Electrobun directly:
+
+```bash
+cd native-app
+RP1_NATIVE_RP1_EXECUTABLE="$(pwd)/../bin/rp1" bun run dev -- --rp1-executable "$(pwd)/../bin/rp1"
+```
+
+To build the macOS app bundle without opening it:
+
+```bash
+just build-native-app
+```
+
+The recipe builds the local CLI, builds the Electrobun target, and copies the
+local `bin/rp1` into the app bundle. The generated app can then be opened later:
+
+```bash
+open -n "native-app/build/dev-macos-arm64/RP1 Arcade-dev.app"
+```
+
+For direct project launch from the built app, use environment variables with the
+bundle launcher. The dev Electrobun launcher does not forward `open --args`
+values into the Bun worker.
+
+```bash
+RP1_NATIVE_PROJECT_PATH="/path/to/rp1-project" \
+  "native-app/build/dev-macos-arm64/RP1 Arcade-dev.app/Contents/MacOS/launcher"
+```
+
+Native launch inputs:
+
+| Input | Purpose |
+|-------|---------|
+| `--project <path>` | Optional project to register and open directly |
+| `RP1_NATIVE_PROJECT_PATH` | Environment equivalent for the project path |
+| `--rp1-executable <path>` | Explicit `rp1` binary for daemon startup |
+| `RP1_NATIVE_RP1_EXECUTABLE` | Environment equivalent for the executable path |
+
+Native executable resolution checks explicit inputs first, then native bundle
+and development locations. Native launch does not silently depend on a user
+shell `PATH`; if resolution fails, the launch view shows the checked locations
+and override options.
+
+Manual verification on macOS:
+
+| Check | Command or setup | Expected result |
+|-------|------------------|-----------------|
+| Cold launch | Stop Arcade with `./bin/rp1 arcade --stop`, then run `just native-app-dev PROJECT=/path/to/rp1-project` | The daemon starts or is replaced and the native window loads the project route |
+| Warm launch | Start Arcade first, then run the direct Electrobun command above with optional `--project /path/to/rp1-project` | The existing compatible daemon is reused without a conflicting daemon |
+| No-path startup | Run `just native-app-dev` | The native window loads the registered projects route instead of requiring a launch-time path |
+| Registered project selection | Ensure at least one project is registered, run `just native-app-dev`, then select that project | The selected project opens in the native window through the existing Arcade project route |
+| Optional direct project launch | Run `just native-app-dev PROJECT=/path/to/rp1-project` | The project registers through Arcade if needed and the returned project URL loads |
+| Failure state | Use an invalid `PROJECT` path or non-executable `RP1_EXECUTABLE` | The launch view shows a clear failure instead of stale project content |
+| Browser fallback | From the same project directory, run `./bin/rp1 arcade` after native launch | Browser Arcade still opens the same project experience |
+
+This phase proves a macOS shell bootstrap only. It does not include signing,
+notarization, auto-update, production packaging, tray or menu controls, native
+notifications, route deep links, a native folder picker, or Linux and Windows
+parity.
+
 ### Documentation
 
 | Recipe | Description |

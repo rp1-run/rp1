@@ -11,6 +11,11 @@ import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { runtimeError } from "../../../shared/errors.js";
 import type { RunRecord, Status } from "../../../shared/events.js";
+import type {
+	DaemonConnection,
+	EventNotificationPayload,
+	NotificationNotifyPayload,
+} from "../../../web-ui/src/daemon/index.js";
 import { registerTool, type ToolOptions } from "../index.js";
 import type { ToolResult } from "../models.js";
 import { successResult } from "../output.js";
@@ -46,6 +51,34 @@ import {
 } from "./step-validation.js";
 
 const TOOL_NAME = "emit";
+
+interface EmitDaemonModule {
+	readonly connectToDaemon: () => Promise<DaemonConnection | null>;
+	readonly notifyEvent: (
+		conn: DaemonConnection,
+		payload: Omit<EventNotificationPayload, "type">,
+	) => Promise<boolean>;
+	readonly notifyNotification: (
+		conn: DaemonConnection,
+		notification: NotificationNotifyPayload["notification"],
+	) => Promise<boolean>;
+}
+
+const loadDefaultDaemonModule = async (): Promise<EmitDaemonModule> => {
+	const { connectToDaemon, notifyEvent, notifyNotification } = await import(
+		"../../../web-ui/src/daemon/index.js"
+	);
+
+	return { connectToDaemon, notifyEvent, notifyNotification };
+};
+
+let loadDaemonModule = loadDefaultDaemonModule;
+
+export const setEmitDaemonModuleLoaderForTesting = (
+	loader?: () => Promise<EmitDaemonModule>,
+): void => {
+	loadDaemonModule = loader ?? loadDefaultDaemonModule;
+};
 
 const resolveRequestedWorkflow = (input: EmitInput): string => {
 	if (typeof input.workflow === "string" && input.workflow.length > 0) {
@@ -341,9 +374,7 @@ const notifyDaemon = async (
 	eventId: number,
 ): Promise<void> => {
 	try {
-		const { connectToDaemon, notifyEvent } = await import(
-			"../../../web-ui/src/daemon/index.js"
-		);
+		const { connectToDaemon, notifyEvent } = await loadDaemonModule();
 
 		const conn = await connectToDaemon();
 		if (conn) {
@@ -383,9 +414,7 @@ const notifyDaemonNotification = async (
 	notification: NotificationRecord,
 ): Promise<void> => {
 	try {
-		const { connectToDaemon, notifyNotification } = await import(
-			"../../../web-ui/src/daemon/index.js"
-		);
+		const { connectToDaemon, notifyNotification } = await loadDaemonModule();
 
 		const conn = await connectToDaemon();
 		if (conn) {

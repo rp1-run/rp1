@@ -1,0 +1,21 @@
+{
+	"name": "@rp1-run/native-app",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "electrobun dev --watch",
+		"build:macos": "electrobun build --env=dev",
+		"check": "bun run typecheck && bun run test",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit --strict --skipLibCheck --target ES2022 --module ESNext --moduleResolution bundler --types bun-types electrobun.config.ts src/bun/index.ts"
+	},
+	"dependencies": {
+		"electrobun": "^1.15.1"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.1.14",
+		"@types/three": "^0.181.0",
+		"typescript": "^5.7.2"
+	}
+}

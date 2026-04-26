@@ -1,0 +1,316 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { BrowserWindow } from "electrobun/bun";
+import cliPackage from "../../../cli/package.json";
+import { type CLIError, formatError } from "../../../cli/shared/errors.js";
+import { launchArcade } from "../../../cli/src/arcade/launch.js";
+import {
+	DaemonExecutableResolutionError,
+	resolveDaemonExecutablePath,
+} from "../../../cli/web-ui/src/daemon/executable.js";
+
+type LaunchStatus = "loading" | "failure";
+type NativeWindow = InstanceType<typeof BrowserWindow>;
+
+interface LaunchOptions {
+	readonly projectPath?: string;
+	readonly rp1ExecutablePath?: string;
+	readonly environmentExecutablePath?: string;
+	readonly errors: readonly string[];
+}
+
+interface LaunchViewState {
+	readonly status: LaunchStatus;
+	readonly title: string;
+	readonly message: string;
+	readonly detail?: string;
+}
+
+const LAUNCH_VIEW_TEMPLATE = readFileSync(
+	resolve(import.meta.dir, "../views/launch/index.html"),
+	"utf8",
+);
+const CLI_VERSION = `${cliPackage.version}-dev`;
+const ARCADE_NAVIGATION_RULES = [
+	"^*",
+	"views://launch/*",
+	"http://127.0.0.1:*/*",
+	"http://localhost:*/*",
+	"http://[::1]:*/*",
+];
+
+const parseFlagValue = (
+	args: readonly string[],
+	index: number,
+	flag: string,
+): {
+	readonly value?: string;
+	readonly nextIndex: number;
+	readonly error?: string;
+} => {
+	const next = args[index + 1];
+	if (!next || next.startsWith("-")) {
+		return {
+			nextIndex: index,
+			error: `Missing value for ${flag}.`,
+		};
+	}
+
+	return {
+		value: next,
+		nextIndex: index + 1,
+	};
+};
+
+export const parseLaunchOptions = (
+	args: readonly string[] = process.argv.slice(2),
+	env: Record<string, string | undefined> = process.env,
+): LaunchOptions => {
+	const errors: string[] = [];
+	let projectPath: string | undefined;
+	let rp1ExecutablePath: string | undefined;
+
+	for (let index = 0; index < args.length; index++) {
+		const arg = args[index];
+
+		if (arg === "--project") {
+			const parsed = parseFlagValue(args, index, "--project");
+			if (parsed.error) {
+				errors.push(parsed.error);
+			}
+			if (parsed.value) {
+				projectPath = resolve(parsed.value);
+			}
+			index = parsed.nextIndex;
+		} else if (arg === "--rp1-executable") {
+			const parsed = parseFlagValue(args, index, "--rp1-executable");
+			if (parsed.error) {
+				errors.push(parsed.error);
+			}
+			if (parsed.value) {
+				rp1ExecutablePath = resolve(parsed.value);
+			}
+			index = parsed.nextIndex;
+		} else if (arg.startsWith("--project=")) {
+			const value = arg.slice("--project=".length).trim();
+			if (value.length === 0) {
+				errors.push("Missing value for --project.");
+			} else {
+				projectPath = resolve(value);
+			}
+		} else if (arg.startsWith("--rp1-executable=")) {
+			const value = arg.slice("--rp1-executable=".length).trim();
+			if (value.length === 0) {
+				errors.push("Missing value for --rp1-executable.");
+			} else {
+				rp1ExecutablePath = resolve(value);
+			}
+		}
+	}
+
+	const envProjectPath = env.RP1_NATIVE_PROJECT_PATH?.trim();
+	if (!projectPath && envProjectPath) {
+		projectPath = resolve(envProjectPath);
+	}
+
+	const environmentExecutablePath = env.RP1_NATIVE_RP1_EXECUTABLE?.trim();
+
+	return {
+		projectPath,
+		rp1ExecutablePath,
+		environmentExecutablePath: environmentExecutablePath
+			? resolve(environmentExecutablePath)
+			: undefined,
+		errors,
+	};
+};
+
+const escapeScriptJson = (value: LaunchViewState): string =>
+	JSON.stringify(value).replace(/</g, "\\u003c");
+
+const createLaunchViewHtml = (state: LaunchViewState): string => {
+	const stateScript = `<script>window.__RP1_LAUNCH_STATE__=${escapeScriptJson(state)};</script>`;
+	return LAUNCH_VIEW_TEMPLATE.replace("</head>", `${stateScript}</head>`);
+};
+
+const createInitialState = (options: LaunchOptions): LaunchViewState => {
+	const firstError = options.errors[0];
+	if (firstError) {
+		return {
+			status: "failure",
+			title: "Launch options need attention",
+			message: firstError,
+			detail:
+				"Use --project <path>, --rp1-executable <path>, RP1_NATIVE_PROJECT_PATH, or RP1_NATIVE_RP1_EXECUTABLE.",
+		};
+	}
+
+	if (!options.projectPath) {
+		return {
+			status: "loading",
+			title: "Opening RP1 Arcade",
+			message: "Loading registered projects.",
+			detail: "No project path supplied; opening the Arcade projects view.",
+		};
+	}
+
+	return {
+		status: "loading",
+		title: "Opening RP1 Arcade",
+		message: "Preparing the native shell.",
+		detail: options.projectPath,
+	};
+};
+
+const setNavigationRules = (window: NativeWindow): void => {
+	const webview = window.webview as {
+		setNavigationRules: (rules: string[]) => void;
+	};
+	webview.setNavigationRules([...ARCADE_NAVIGATION_RULES]);
+};
+
+const loadWindowUrl = (window: NativeWindow, url: string): void => {
+	const webview = window.webview as {
+		loadURL: (url: string) => void;
+	};
+	webview.loadURL(url);
+};
+
+const loadLaunchView = (window: NativeWindow, state: LaunchViewState): void => {
+	const webview = window.webview as {
+		loadHTML: (html: string) => void;
+	};
+	webview.loadHTML(createLaunchViewHtml(state));
+};
+
+const isLoopbackArcadeUrl = (url: string): boolean => {
+	try {
+		const parsed = new URL(url);
+		if (parsed.protocol !== "http:") return false;
+		return (
+			parsed.hostname === "127.0.0.1" ||
+			parsed.hostname === "localhost" ||
+			parsed.hostname === "[::1]" ||
+			parsed.hostname === "::1"
+		);
+	} catch {
+		return false;
+	}
+};
+
+const isCliError = (error: unknown): error is CLIError =>
+	typeof error === "object" &&
+	error !== null &&
+	"_tag" in error &&
+	typeof (error as { readonly _tag?: unknown })._tag === "string";
+
+const formatFailureState = (error: unknown): LaunchViewState => {
+	if (error instanceof DaemonExecutableResolutionError) {
+		return {
+			status: "failure",
+			title: "RP1 executable not found",
+			message:
+				"The native shell could not resolve an executable rp1 binary for daemon startup.",
+			detail: error.message,
+		};
+	}
+
+	if (error instanceof Error && error.name === "DaemonPortConflictError") {
+		return {
+			status: "failure",
+			title: "Arcade port is unavailable",
+			message:
+				"Another process is using the Arcade daemon port, so the native shell could not open Arcade.",
+			detail: error.message,
+		};
+	}
+
+	if (isCliError(error)) {
+		return {
+			status: "failure",
+			title:
+				error._tag === "NotFoundError"
+					? "Project cannot be opened"
+					: "Arcade launch failed",
+			message: formatError(error, false),
+		};
+	}
+
+	if (error instanceof Error) {
+		return {
+			status: "failure",
+			title: "Arcade launch failed",
+			message:
+				"The native shell could not start or connect to Arcade for this launch.",
+			detail: error.message,
+		};
+	}
+
+	return {
+		status: "failure",
+		title: "Arcade launch failed",
+		message:
+			"The native shell could not start or connect to Arcade for this launch.",
+	};
+};
+
+const resolveNativeExecutablePath = (options: LaunchOptions): string => {
+	const env = {
+		...process.env,
+		...(options.environmentExecutablePath
+			? { RP1_NATIVE_RP1_EXECUTABLE: options.environmentExecutablePath }
+			: {}),
+	};
+
+	return resolveDaemonExecutablePath({
+		explicitPath: options.rp1ExecutablePath,
+		native: true,
+		env,
+	});
+};
+
+const launchNativeShell = async (
+	window: NativeWindow,
+	options: LaunchOptions,
+): Promise<void> => {
+	const executablePath = resolveNativeExecutablePath(options);
+	const result = await launchArcade({
+		projectPath: options.projectPath,
+		rp1ExecutablePath: executablePath,
+		cliVersion: CLI_VERSION,
+		openProjectListWhenMissing: true,
+	});
+
+	if (!isLoopbackArcadeUrl(result.url)) {
+		throw new Error(`Arcade returned a non-loopback URL: ${result.url}`);
+	}
+
+	window.setTitle(
+		result.kind === "project"
+			? `RP1 Arcade - ${result.projectName}`
+			: "RP1 Arcade - Projects",
+	);
+	loadWindowUrl(window, result.url);
+};
+
+const launchOptions = parseLaunchOptions();
+const initialState = createInitialState(launchOptions);
+
+const mainWindow = new BrowserWindow({
+	title: "RP1 Arcade",
+	frame: {
+		width: 1280,
+		height: 860,
+		x: 80,
+		y: 80,
+	},
+});
+
+setNavigationRules(mainWindow);
+loadLaunchView(mainWindow, initialState);
+
+if (launchOptions.errors.length === 0) {
+	void launchNativeShell(mainWindow, launchOptions).catch((error) => {
+		loadLaunchView(mainWindow, formatFailureState(error));
+	});
+}
