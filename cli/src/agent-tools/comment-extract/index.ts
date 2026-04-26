@@ -22,8 +22,27 @@ import {
 import { loadChangeManifestScope } from "./manifest.js";
 import type { CommentExtractOptions, CommentExtractResult } from "./models.js";
 
-/** Tool name used for registration and output */
 const TOOL_NAME = "comment-extract";
+
+const PROTECTED_GENERATED_COMMENT_FILES = new Set([
+	"catalog/agents.yaml",
+	"cli/src/init/templates/generated.ts",
+]);
+
+const toPosixPath = (filePath: string): string =>
+	filePath.split(path.sep).join("/");
+
+const isProtectedGeneratedCommentFile = (
+	filePath: string,
+	cwd: string,
+): boolean => {
+	const absolutePath = path.isAbsolute(filePath)
+		? filePath
+		: path.join(cwd, filePath);
+	return PROTECTED_GENERATED_COMMENT_FILES.has(
+		toPosixPath(path.relative(cwd, absolutePath)),
+	);
+};
 
 /**
  * Execute comment extraction.
@@ -107,9 +126,6 @@ const performManifestExtraction = (
 		),
 	);
 
-/**
- * Perform the actual extraction after validation.
- */
 const performExtraction = (
 	options: CommentExtractOptions,
 	cwd: string,
@@ -133,18 +149,15 @@ const performExtraction = (
 			return TE.right(undefined);
 		}),
 		TE.chain(({ changedFiles, linesAdded, changedLines }) => {
-			// Filter to only files that exist
 			const existingFiles = changedFiles.files.filter((f) => {
 				const fullPath = path.isAbsolute(f) ? f : path.join(cwd, f);
-				return existsSync(fullPath);
+				return existsSync(fullPath) && !isProtectedGeneratedCommentFile(f, cwd);
 			});
 
-			// Resolve to absolute paths
 			const absoluteFiles = existingFiles.map((f) =>
 				path.isAbsolute(f) ? f : path.join(cwd, f),
 			);
 
-			// Convert changedLines keys to absolute paths if present
 			let absoluteChangedLines:
 				| ReadonlyMap<string, ReadonlySet<number>>
 				| undefined;
@@ -160,7 +173,6 @@ const performExtraction = (
 			return pipe(
 				extractCommentsFromFiles(absoluteFiles, absoluteChangedLines),
 				TE.map(({ comments, filesScanned }) => {
-					// Convert file paths back to relative for output
 					const relativeComments = comments.map((c) => ({
 						...c,
 						file: path.relative(cwd, c.file),
@@ -181,10 +193,6 @@ const performExtraction = (
 		}),
 	);
 
-/**
- * Main execute function for tool registration.
- * Parses input as JSON options.
- */
 const execute = (
 	input: string,
 	_options: ToolOptions,
@@ -208,7 +216,6 @@ const execute = (
 	return executeExtract(options);
 };
 
-/** Register this tool with the framework */
 registerTool({
 	name: TOOL_NAME,
 	description:

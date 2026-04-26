@@ -129,7 +129,7 @@ export const checkWritePermissions = (
  * Get the default OpenCode config directory.
  */
 export const getOpenCodeConfigDir = (): string =>
-	join(homedir(), ".config", "opencode");
+	join(process.env.HOME ?? homedir(), ".config", "opencode");
 
 /**
  * Get the default OpenCode config file path.
@@ -443,6 +443,17 @@ export interface DryRunValidationResult {
 	readonly blockers: readonly string[];
 }
 
+const prerequisiteFailureResult = (
+	check: string,
+	error: CLIError,
+): PrerequisiteResult => ({
+	check: error._tag === "PrerequisiteError" ? error.check : check,
+	passed: false,
+	message:
+		"message" in error ? error.message : `Could not complete ${check} check`,
+	severity: "blocker",
+});
+
 /**
  * Run all dry-run validation checks in sequence.
  * Checks package manager health, network connectivity, disk space, and fetches latest version.
@@ -469,7 +480,15 @@ export const runDryRunValidation = (): TE.TaskEither<
 				),
 			),
 		),
-		TE.bind("network", () => checkNetworkConnectivity()),
+		TE.bind("network", () =>
+			pipe(
+				checkNetworkConnectivity(),
+				TE.orElse(
+					(error): TE.TaskEither<CLIError, PrerequisiteResult> =>
+						TE.right(prerequisiteFailureResult("network-connectivity", error)),
+				),
+			),
+		),
 		TE.bind("diskSpace", () =>
 			pipe(
 				checkDiskSpace(),

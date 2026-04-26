@@ -23,6 +23,8 @@ import {
 	getErrorMessage,
 } from "../helpers/index.js";
 
+const originalFetch = globalThis.fetch;
+
 describe("prerequisites", () => {
 	let tempDir: string;
 
@@ -31,11 +33,11 @@ describe("prerequisites", () => {
 	});
 
 	afterEach(async () => {
+		globalThis.fetch = originalFetch;
 		await cleanupTempDir(tempDir);
 	});
 
 	describe("checkOpenCodeVersion", () => {
-		// Core version validation: minimum version boundary
 		test("accepts versions >= 0.8.0", () => {
 			const validVersions = [
 				"opencode 0.8.0",
@@ -56,7 +58,6 @@ describe("prerequisites", () => {
 			}
 		});
 
-		// Error path: old versions must fail with upgrade guidance
 		test("rejects versions < 0.8.0 with actionable error message", () => {
 			const oldVersions = [
 				"opencode 0.7.9",
@@ -69,7 +70,6 @@ describe("prerequisites", () => {
 				expect(E.isLeft(result)).toBe(true);
 				if (E.isLeft(result)) {
 					expect(getErrorMessage(result.left)).toContain("too old");
-					// suggestion field contains the actionable info
 					expect((result.left as { suggestion?: string }).suggestion).toContain(
 						"Minimum required: 0.8.0",
 					);
@@ -77,7 +77,6 @@ describe("prerequisites", () => {
 			}
 		});
 
-		// Edge case: newer versions pass but user is warned about potential issues
 		test("warns for untested versions > 0.9.x", () => {
 			const newVersions = ["opencode 0.10.0", "opencode 0.11.5"];
 
@@ -92,10 +91,7 @@ describe("prerequisites", () => {
 			}
 		});
 
-		// Robustness: handles various version string formats from opencode CLI
 		test("handles version string parsing (extracts last space-separated token)", () => {
-			// The function splits on whitespace and takes the last token
-			// This tests versions with leading text
 			const formatsWithVersion = [
 				{ input: "opencode 0.9.5", expectedVersion: "0.9.5" },
 				{ input: "0.9.5", expectedVersion: "0.9.5" },
@@ -111,7 +107,6 @@ describe("prerequisites", () => {
 			}
 		});
 
-		// Error path: garbage input must fail clearly
 		test("returns error for unparseable version strings", () => {
 			const invalidFormats = ["not-a-version", "opencode xyz"];
 
@@ -124,7 +119,6 @@ describe("prerequisites", () => {
 			}
 		});
 
-		// Stable major versions: 1.x+ should pass without compatibility warnings
 		test("1.x versions are accepted without warning", () => {
 			const result = checkOpenCodeVersion("opencode 1.0.0");
 			expect(E.isRight(result)).toBe(true);
@@ -136,7 +130,6 @@ describe("prerequisites", () => {
 	});
 
 	describe("checkWritePermissions", () => {
-		// Core functionality: write test must not leave artifacts behind
 		test("creates test file and cleans up successfully", async () => {
 			const result = await checkWritePermissions(tempDir)();
 
@@ -146,7 +139,6 @@ describe("prerequisites", () => {
 				expect(result.right.message).toContain("Write permissions OK");
 			}
 
-			// Verify test file was cleaned up (no .rp1-write-test file remaining)
 			const testFilePath = join(tempDir, ".rp1-write-test");
 			let fileExists = true;
 			try {
@@ -157,21 +149,17 @@ describe("prerequisites", () => {
 			expect(fileExists).toBe(false);
 		});
 
-		// Boundary: check should create missing dirs (first-time install)
 		test("creates target directory if missing", async () => {
 			const nestedDir = join(tempDir, "nested", "deep", "dir");
 			const result = await checkWritePermissions(nestedDir)();
 
 			expect(E.isRight(result)).toBe(true);
 
-			// Verify directory was created
 			const dirStat = await stat(nestedDir);
 			expect(dirStat.isDirectory()).toBe(true);
 		});
 
-		// Error path: system paths must fail with clear message
 		test("returns error for unwritable directory", async () => {
-			// Use an invalid path that can't be created
 			const invalidPath = "/nonexistent/root/path/that/cannot/be/created";
 			const result = await checkWritePermissions(invalidPath)();
 
@@ -183,7 +171,6 @@ describe("prerequisites", () => {
 	});
 
 	describe("checkPackageManagerHealth", () => {
-		// Integration test: verifies brew doctor check runs without crashing
 		test(
 			"returns result with passed status (P1)",
 			async () => {
@@ -200,7 +187,6 @@ describe("prerequisites", () => {
 	});
 
 	describe("checkNetworkConnectivity", () => {
-		// Integration test: handles both online/offline gracefully
 		test("returns result with check name (P1)", async () => {
 			const result = await checkNetworkConnectivity()();
 
@@ -217,7 +203,6 @@ describe("prerequisites", () => {
 	});
 
 	describe("checkDiskSpace", () => {
-		// Integration test: verifies disk space check returns valid structure
 		test("returns passed result with space info (P1)", async () => {
 			const result = await checkDiskSpace()();
 
@@ -229,7 +214,6 @@ describe("prerequisites", () => {
 			}
 		});
 
-		// API contract: custom threshold parameter is honored
 		test("accepts custom required bytes parameter", async () => {
 			const result = await checkDiskSpace(1024)();
 
@@ -241,7 +225,6 @@ describe("prerequisites", () => {
 	});
 
 	describe("fetchLatestVersion", () => {
-		// Integration test: fetches version from GitHub API
 		test("returns version string on success", async () => {
 			const result = await fetchLatestVersion()();
 
@@ -254,7 +237,6 @@ describe("prerequisites", () => {
 	});
 
 	describe("runDryRunValidation", () => {
-		// Integration test: verifies all prerequisite checks run and aggregate
 		test(
 			"aggregates results from all checks (P1)",
 			async () => {
@@ -274,7 +256,6 @@ describe("prerequisites", () => {
 			{ timeout: 45000 },
 		);
 
-		// Return structure contract: warnings and blockers arrays for UI
 		test(
 			"separates warnings from blockers",
 			async () => {
@@ -284,6 +265,30 @@ describe("prerequisites", () => {
 				if (E.isRight(result)) {
 					expect(Array.isArray(result.right.warnings)).toBe(true);
 					expect(Array.isArray(result.right.blockers)).toBe(true);
+				}
+			},
+			{ timeout: 45000 },
+		);
+
+		test(
+			"aggregates network failures as blockers",
+			async () => {
+				globalThis.fetch = (() =>
+					Promise.reject(new Error("offline"))) as unknown as typeof fetch;
+
+				const result = await runDryRunValidation()();
+
+				expect(E.isRight(result)).toBe(true);
+				if (E.isRight(result)) {
+					const network = result.right.results.find(
+						(r) => r.check === "network-connectivity",
+					);
+					expect(network?.passed).toBe(false);
+					expect(network?.severity).toBe("blocker");
+					expect(result.right.blockers).toContain(
+						"Cannot reach GitHub API: offline",
+					);
+					expect(result.right.latestVersion).toBeNull();
 				}
 			},
 			{ timeout: 45000 },

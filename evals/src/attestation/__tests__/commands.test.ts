@@ -3,11 +3,156 @@
  * Tests suite name extraction and pass rate detection.
  */
 
-import { describe, expect, test } from "bun:test";
-import { detectPassRate, extractSuiteFromFilename } from "../commands.js";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import * as E from "fp-ts/Either";
+import {
+	attestFromOutput,
+	detectPassRate,
+	extractSuiteFromFilename,
+} from "../commands.js";
+
+const evalRoot = join(import.meta.dirname, "..", "..", "..");
+const outputPath = "output/rp1-dev-coverage-skill.json";
+const skillPath = "dist/claude-code/dev/skills/coverage-skill/SKILL.md";
+const nestedManifestDir = join(evalRoot, "evals");
+
+async function writeJson(path: string, value: unknown): Promise<void> {
+	await mkdir(join(path, ".."), { recursive: true });
+	await writeFile(path, JSON.stringify(value, null, 2), "utf-8");
+}
+
+async function writePassingOutput(path: string): Promise<void> {
+	await writeJson(path, {
+		evalId: "coverage-skill",
+		results: {
+			version: 3,
+			timestamp: "2026-04-26T00:00:00.000Z",
+			prompts: [
+				{
+					id: "prompt-1",
+					metrics: {
+						score: 1,
+						testPassCount: 1,
+						testFailCount: 0,
+						testErrorCount: 0,
+					},
+				},
+			],
+		},
+	});
+}
+
+async function writeFailingOutput(path: string): Promise<void> {
+	await writeJson(path, {
+		evalId: "coverage-skill",
+		results: {
+			version: 3,
+			timestamp: "2026-04-26T00:00:00.000Z",
+			prompts: [
+				{
+					id: "prompt-1",
+					metrics: {
+						score: 0,
+						testPassCount: 0,
+						testFailCount: 1,
+						testErrorCount: 0,
+					},
+				},
+			],
+		},
+	});
+}
+
+async function writeSkillFile(): Promise<void> {
+	await mkdir(join(skillPath, ".."), { recursive: true });
+	await writeFile(
+		skillPath,
+		[
+			"---",
+			"name: coverage-skill",
+			"metadata:",
+			"  version: 1.2.3",
+			"---",
+			"",
+			"# Coverage Skill",
+			"",
+			"Standalone prompt body.",
+		].join("\n"),
+		"utf-8",
+	);
+}
+
+describe("attestFromOutput", () => {
+	const originalCwd = process.cwd();
+
+	beforeEach(async () => {
+		process.chdir(evalRoot);
+		await rm(outputPath, { force: true });
+		await rm(join(evalRoot, "dist"), { recursive: true, force: true });
+		await rm(nestedManifestDir, { recursive: true, force: true });
+	});
+
+	afterEach(async () => {
+		await rm(outputPath, { force: true });
+		await rm(join(evalRoot, "dist"), { recursive: true, force: true });
+		await rm(nestedManifestDir, { recursive: true, force: true });
+		process.chdir(originalCwd);
+	});
+
+	test("updates manifest from passing output", async () => {
+		await writePassingOutput(outputPath);
+		await writeSkillFile();
+
+		const result = await attestFromOutput(outputPath, "claude-code")();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.updated).toBe(true);
+			expect(result.right.message).toBe(
+				"Attestation updated for rp1-dev:coverage-skill@claude-code",
+			);
+		}
+
+		const manifest = JSON.parse(
+			await readFile(join(nestedManifestDir, "attestation.json"), "utf-8"),
+		);
+		const attestation = manifest.skills["rp1-dev:coverage-skill@claude-code"];
+
+		expect(attestation.version).toBe("1.2.3");
+		expect(attestation.platform).toBe("claude-code");
+		expect(attestation.last_eval.result_file).toBe(outputPath);
+		expect(attestation.last_eval.timestamp).toBe("2026-04-26T00:00:00.000Z");
+		expect(attestation.prompt_hash).toStartWith("sha256:");
+		expect(manifest.files[skillPath]).toBe(attestation.prompt_hash);
+	});
+
+	test("does not update manifest from failing output", async () => {
+		await writeFailingOutput(outputPath);
+
+		const result = await attestFromOutput(outputPath, "claude-code")();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.updated).toBe(false);
+			expect(result.right.message).toBe(
+				"Eval suite rp1-dev/coverage-skill did not pass (failures or errors detected). Attestation not updated.",
+			);
+		}
+	});
+
+	test("returns an error when output file is missing", async () => {
+		const result = await attestFromOutput(outputPath, "claude-code")();
+
+		expect(E.isLeft(result)).toBe(true);
+		if (E.isLeft(result)) {
+			expect(result.left.message).toContain("Output file not found");
+		}
+	});
+});
 
 describe("extractSuiteFromFilename", () => {
-	// Fixed filename format (no timestamp)
 	test("extracts suite from fixed filename without timestamp", () => {
 		const result = extractSuiteFromFilename("output/rp1-dev-build-fast.json");
 		expect(result).toBe("rp1-dev/build-fast");

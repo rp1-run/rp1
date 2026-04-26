@@ -160,7 +160,7 @@ export const checkCodexVersion = (
  * All paths use the user's home directory.
  */
 export const getCodexPaths = (): CodexPaths => {
-	const home = homedir();
+	const home = process.env.HOME ?? homedir();
 	return {
 		skillsDir: join(home, ".codex", "skills"),
 		configDir: join(home, ".codex"),

@@ -251,4 +251,3 @@ ls -la ~/.rp1/copilot/
 
 - [Installation Reference](../cli/install.md)
 - [Skill Invocation](../index.md#skill-invocation)
-- [DEVELOPMENT.md](../../../DEVELOPMENT.md) -- Developer guide with `just copilot` recipe

@@ -48,9 +48,7 @@ const findFiles = async (dir: string, pattern: RegExp): Promise<string[]> => {
 				results.push(fullPath);
 			}
 		}
-	} catch {
-		// Directory doesn't exist
-	}
+	} catch {}
 
 	return results;
 };
@@ -555,9 +553,7 @@ const readInstalledSkillsFromDir = async (
 				);
 			} catch {}
 		}
-	} catch {
-		// Skills directory doesn't exist
-	}
+	} catch {}
 
 	return skills;
 };
@@ -799,7 +795,7 @@ export const verifyInstallation = (
 ): TE.TaskEither<CLIError, VerificationReport> =>
 	TE.tryCatch(
 		async () => {
-			const configDir = join(homedir(), ".config", "opencode");
+			const configDir = join(getUserHomeDir(), ".config", "opencode");
 
 			try {
 				await stat(configDir);
@@ -811,7 +807,6 @@ export const verifyInstallation = (
 
 			const issues: string[] = [];
 
-			// Discover expected artifacts from manifests or use provided counts
 			let expectedAgents: Set<string> = new Set();
 			let expectedSkills: Set<string> = new Set();
 
@@ -839,7 +834,6 @@ export const verifyInstallation = (
 					? expectedSkills.size
 					: (expectedCounts?.skills ?? 0);
 
-			// Check agents
 			const agentDir = join(configDir, "agents");
 			const rp1Agents = await findFiles(agentDir, /\.md$/);
 			const agentsFound = rp1Agents.length;
@@ -864,19 +858,16 @@ export const verifyInstallation = (
 				);
 			}
 
-			// Validate agent files
 			for (const agentFile of rp1Agents) {
 				const fileIssues = await checkFileHealth(agentFile);
 				issues.push(...fileIssues);
 			}
 
-			// Check skills (namespaced under rp1-* directories)
 			const skillsDir = join(configDir, "skills");
 			let skillsFound = 0;
 			const missingSkillNames: string[] = [];
 
 			if (expectedSkills.size > 0) {
-				// Check each expected skill from manifest
 				for (const skillName of expectedSkills) {
 					const skillDir = join(skillsDir, skillName);
 					const skillFile = join(skillDir, "SKILL.md");
@@ -904,14 +895,10 @@ export const verifyInstallation = (
 
 								const fileIssues = await checkFileHealth(skillFile);
 								issues.push(...fileIssues);
-							} catch {
-								// Skill directory exists but no SKILL.md
-							}
+							} catch {}
 						}
 					}
-				} catch {
-					// Skills directory doesn't exist
-				}
+				} catch {}
 
 				if (skillsFound < skillsExpected) {
 					issues.push(
@@ -926,7 +913,6 @@ export const verifyInstallation = (
 				);
 			}
 
-			// Check plugins
 			const pluginDir = join(configDir, "plugins");
 			const expectedPlugins = ["rp1-base-hooks"];
 			let pluginsFound = 0;

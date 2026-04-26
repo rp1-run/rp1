@@ -7,12 +7,18 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Logger } from "../../../shared/logger.js";
-import { buildPlatformPlugin } from "../../build/command.js";
+import {
+	buildPlatformPlugin,
+	executeBuild,
+	parseBuildArgs,
+} from "../../build/command.js";
 import { PLATFORM_DEFINITIONS } from "../../build/platform-definitions.js";
 import {
 	assertTestIsolation,
 	cleanupTempDir,
 	createTempDir,
+	expectLeft,
+	expectRight,
 	writeFixture,
 } from "../helpers/index.js";
 
@@ -49,6 +55,67 @@ const extractBootstrapTarget = (
 	};
 };
 
+describe("parseBuildArgs", () => {
+	test("accepts equals and separated forms for output, plugin, platform, and mode flags", () => {
+		expect(
+			expectRight(
+				parseBuildArgs([
+					"--output-dir=dist/codex",
+					"--plugin",
+					"dev",
+					"--platform=codex",
+					"--json",
+					"--lint",
+				]),
+			),
+		).toEqual({
+			outputDir: "dist/codex",
+			plugin: "dev",
+			platform: "codex",
+			jsonOutput: true,
+			lintOnly: true,
+		});
+
+		expect(
+			expectRight(
+				parseBuildArgs(["-o", "out", "-p", "utils", "--platform", "copilot"]),
+			),
+		).toMatchObject({
+			outputDir: "out",
+			plugin: "utils",
+			platform: "copilot",
+		});
+	});
+
+	test("treats a positional argument as output directory", () => {
+		expect(expectRight(parseBuildArgs(["custom-output"]))).toMatchObject({
+			outputDir: "custom-output",
+			plugin: "all",
+			platform: "opencode",
+		});
+	});
+
+	test("rejects missing or unsupported plugin and platform values", () => {
+		expect(expectLeft(parseBuildArgs(["--output-dir"]))).toMatchObject({
+			_tag: "UsageError",
+		});
+		expect(expectLeft(parseBuildArgs(["--plugin", "unknown"]))).toMatchObject({
+			_tag: "UsageError",
+		});
+		expect(expectLeft(parseBuildArgs(["--plugin=unknown"]))).toMatchObject({
+			_tag: "UsageError",
+		});
+		expect(expectLeft(parseBuildArgs(["--platform", "unknown"]))).toMatchObject(
+			{
+				_tag: "UsageError",
+			},
+		);
+		expect(expectLeft(parseBuildArgs(["--platform=unknown"]))).toMatchObject({
+			_tag: "UsageError",
+		});
+	});
+});
+
 describe("buildPlatformPlugin (opencode)", () => {
 	let tempDir: string;
 	let outputDir: string;
@@ -66,7 +133,6 @@ describe("buildPlatformPlugin (opencode)", () => {
 	test("processes skills for non-base plugins (base-only guard removed)", async () => {
 		const projectRoot = join(tempDir, "project-dev-skills");
 
-		// Set up a "dev" plugin with skills/
 		await writeFixture(
 			projectRoot,
 			"plugins/dev/.claude-plugin/plugin.json",
@@ -139,7 +205,6 @@ Skill version of knowledge-load content.
 		expect(result.summary.skills).toBe(1);
 		expect(result.summary.commands).toBe(0);
 
-		// Verify the skill output file exists (namespaced with rp1- prefix)
 		const skillOutputPath = join(
 			out,
 			"base",
@@ -160,7 +225,6 @@ Skill version of knowledge-load content.
 			JSON.stringify({ version: "2.0.0" }),
 		);
 
-		// Two skills
 		await writeFixture(
 			projectRoot,
 			"plugins/base/skills/skill-a/SKILL.md",
@@ -194,12 +258,9 @@ Skill B content.
 			true,
 		);
 
-		// 2 skills
 		expect(result.summary.skills).toBe(2);
-		// 0 commands (no command fallback)
 		expect(result.summary.commands).toBe(0);
 
-		// Verify manifest file was written with correct counts
 		const manifestPath = join(out, "base", "manifest.json");
 		const manifestContent = JSON.parse(await readFile(manifestPath, "utf-8"));
 		expect(manifestContent.artifacts.skills).toEqual([
@@ -601,5 +662,94 @@ Sample skill content.
 			await readFile(join(out, "base", "hooks", "copilot-hooks.json"), "utf-8"),
 		);
 		expect(hooksContent.hooks.SessionStart[0].command).toBe("echo start");
+	});
+});
+
+describe("executeBuild", () => {
+	let tempDir: string;
+	let originalCwd: string;
+	const originalLog = console.log;
+	let logs: string[];
+
+	beforeAll(async () => {
+		tempDir = await createTempDir("build-execute");
+		await assertTestIsolation(tempDir);
+		originalCwd = process.cwd();
+		logs = [];
+		console.log = (...args: unknown[]) => {
+			logs.push(args.map(String).join(" "));
+		};
+	});
+
+	afterAll(async () => {
+		process.chdir(originalCwd);
+		console.log = originalLog;
+		await cleanupTempDir(tempDir);
+	});
+
+	test("builds all distributable plugins across platforms and emits JSON summary", async () => {
+		const projectRoot = join(tempDir, "project-all-platforms");
+		const outputDir = "dist/opencode";
+
+		for (const plugin of ["base", "dev"] as const) {
+			await writeFixture(
+				projectRoot,
+				`plugins/${plugin}/.claude-plugin/plugin.json`,
+				JSON.stringify({
+					name: `rp1-${plugin}`,
+					description: `${plugin} plugin used by executeBuild coverage`,
+					version: "1.0.0",
+				}),
+			);
+			await writeFixture(
+				projectRoot,
+				`plugins/${plugin}/skills/${plugin}-sample/SKILL.md`,
+				`---
+name: ${plugin}-sample
+description: "${plugin} sample skill with enough description text for validation"
+metadata:
+  category: development
+  is_workflow: false
+---
+
+${plugin} sample content.
+`,
+			);
+		}
+
+		process.chdir(projectRoot);
+		logs = [];
+
+		const result = await executeBuild(
+			[
+				"--platform",
+				"all",
+				"--plugin",
+				"all",
+				"--output-dir",
+				outputDir,
+				"--json",
+			],
+			noopLogger,
+		)();
+
+		expectRight(result);
+		const summary = JSON.parse(logs.at(-1) ?? "{}") as {
+			status: string;
+			skills: number;
+			errors: string[];
+		};
+		expect(summary.status).toBe("success");
+		expect(summary.skills).toBeGreaterThanOrEqual(8);
+		expect(summary.errors).toEqual([]);
+
+		const bundleManifest = JSON.parse(
+			await readFile(
+				join(projectRoot, "dist", "opencode", "bundle-manifest.json"),
+				"utf-8",
+			),
+		);
+		expect(bundleManifest.plugins.base).toBeDefined();
+		expect(bundleManifest.plugins.dev).toBeDefined();
 	});
 });

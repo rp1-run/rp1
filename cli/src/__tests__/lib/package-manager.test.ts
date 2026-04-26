@@ -14,14 +14,24 @@ import {
 	test,
 } from "bun:test";
 import * as childProcess from "node:child_process";
+import { mkdtemp, rm, stat } from "node:fs/promises";
 import * as os from "node:os";
+import { join } from "node:path";
+import { Readable } from "node:stream";
 import {
+	cleanupTempFile,
 	type DetectionResult,
 	detectInstallMethod,
+	downloadAndVerify,
 	type InstallMethod,
 	runUpdate,
 	type UpdateResult,
 } from "../../lib/package-manager.js";
+import {
+	expectTaskLeft,
+	expectTaskRight,
+	getErrorMessage,
+} from "../helpers/index.js";
 
 describe("package-manager", () => {
 	describe("detectInstallMethod", () => {
@@ -282,7 +292,7 @@ rp1 0.2.3 -> 0.3.0
 
 				expect(result.success).toBe(true);
 				expect(result.previousVersion).toBe("0.2.3");
-				expect(result.newVersion).toBeNull(); // Could not determine new version
+				expect(result.newVersion).toBeNull();
 				expect(result.error).toBeNull();
 			});
 
@@ -561,6 +571,82 @@ Removing old version
 
 			expect(successResult.success).toBe(true);
 			expect(failureResult.success).toBe(false);
+		});
+	});
+
+	describe("downloadAndVerify", () => {
+		const originalFetch = globalThis.fetch;
+		let tempDir: string;
+
+		beforeEach(async () => {
+			tempDir = await mkdtemp(join(os.tmpdir(), "rp1-binary-verify-"));
+		});
+
+		afterEach(async () => {
+			globalThis.fetch = originalFetch;
+			mock.restore();
+			await rm(tempDir, { recursive: true, force: true });
+		});
+
+		const mockFetchResponse = (response: {
+			ok: boolean;
+			status?: number;
+			statusText?: string;
+			body?: Readable | null;
+		}) => {
+			globalThis.fetch = mock(
+				async () => response as unknown as Response,
+			) as unknown as typeof fetch;
+		};
+
+		test("downloads a binary, executes it, and returns the parsed version", async () => {
+			const binaryPath = join(tempDir, "rp1");
+			mockFetchResponse({
+				ok: true,
+				body: Readable.from([
+					"#!/usr/bin/env sh\nprintf 'rp1 version 9.8.7\\n'\n",
+				]),
+			});
+
+			const result = await expectTaskRight(
+				downloadAndVerify("https://example.test/rp1", binaryPath),
+			);
+
+			expect(result).toEqual({ path: binaryPath, version: "9.8.7" });
+			const mode = (await stat(binaryPath)).mode;
+			expect(mode & 0o111).toBeGreaterThan(0);
+		});
+
+		test("returns HTTP download failures as runtime errors", async () => {
+			mockFetchResponse({
+				ok: false,
+				status: 503,
+				statusText: "Service Unavailable",
+				body: null,
+			});
+
+			const error = await expectTaskLeft(
+				downloadAndVerify("https://example.test/rp1", join(tempDir, "rp1")),
+			);
+
+			expect(getErrorMessage(error)).toContain("HTTP 503 Service Unavailable");
+		});
+
+		test("reports binary verification failures from non-version output", async () => {
+			const binaryPath = join(tempDir, "rp1-dev-build");
+			mockFetchResponse({
+				ok: true,
+				body: Readable.from([
+					"#!/usr/bin/env sh\nprintf 'rp1 development build\\n'\n",
+				]),
+			});
+
+			const error = await expectTaskLeft(
+				downloadAndVerify("https://example.test/rp1", binaryPath),
+			);
+
+			expect(getErrorMessage(error)).toContain("Could not parse version");
+			await cleanupTempFile(binaryPath);
 		});
 	});
 });

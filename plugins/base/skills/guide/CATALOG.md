@@ -48,6 +48,7 @@
 | `/arcade-collab` | dev | Structured guidance for agents to read, classify, and act on user feedback (annotations and direct file edits) from the Arcade. |  |  |  |  |
 | `/pr-review` | dev | Intent-aware map-reduce PR review with CI/CD support, confidence gating, and intelligent comment deduplication. | `TARGET`, `BASE_BRANCH`, `SKIP_VISUAL` | Yes | fresh |  |
 | `/pr-visual` | dev | Transform pull request diffs into Mermaid diagrams for visual code review and change understanding. | `PR_BRANCH`, `BASE_BRANCH`, `REVIEW_DEPTH`, `FOCUS_AREAS` | Yes | fresh |  |
+| `/pr-walkthrough` | dev | Generate an evidence-grounded markdown walkthrough for a pull request. | `TARGET`, `BASE_BRANCH` | Yes | fresh |  |
 
 ## Documentation
 

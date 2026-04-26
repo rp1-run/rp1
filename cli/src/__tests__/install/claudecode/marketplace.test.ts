@@ -6,15 +6,33 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
+import type { Logger } from "../../../../shared/logger.js";
 import {
 	createLocalMarketplace,
 	MARKETPLACE_NAME,
+	registerMarketplace,
 } from "../../../install/claudecode/marketplace.js";
 import {
 	cleanupTempDir,
 	createTempDir,
 	expectTaskRight,
 } from "../../helpers/index.js";
+
+const createCapturingLogger = (): { logger: Logger; messages: string[] } => {
+	const messages: string[] = [];
+	const logger: Logger = {
+		trace: () => {},
+		debug: (message: string) => messages.push(message),
+		info: (message: string) => messages.push(message),
+		warn: (message: string) => messages.push(message),
+		error: (message: string) => messages.push(message),
+		start: (message: string) => messages.push(message),
+		success: (message: string) => messages.push(message),
+		fail: (message: string) => messages.push(message),
+		box: (message: string) => messages.push(message),
+	};
+	return { logger, messages };
+};
 
 describe("marketplace", () => {
 	let tempDir: string;
@@ -132,6 +150,21 @@ describe("marketplace", () => {
 
 			const dirStat = await stat(join(marketplaceDir, ".claude-plugin"));
 			expect(dirStat.isDirectory()).toBe(true);
+		});
+	});
+
+	describe("registerMarketplace", () => {
+		test("dry-run reports the Claude marketplace command without executing it", async () => {
+			const { logger, messages } = createCapturingLogger();
+
+			const result = await expectTaskRight(
+				registerMarketplace("/tmp/rp1-claude-marketplace", logger, true, false),
+			);
+
+			expect(result).toBe(true);
+			expect(messages).toContain(
+				'[dry-run] Would execute: claude plugin marketplace add "/tmp/rp1-claude-marketplace"',
+			);
 		});
 	});
 });

@@ -81,6 +81,7 @@ The dev plugin provides development workflow capabilities: feature lifecycle, co
 | [`code-clean-comments`](dev/code-clean-comments.md) | Remove unnecessary code comments |
 | [`pr-review`](dev/pr-review.md) | Map-reduce PR review with confidence gating |
 | [`pr-visual`](dev/pr-visual.md) | Generate Mermaid diagrams from PR diffs |
+| [`pr-walkthrough`](dev/pr-walkthrough.md) | Generate markdown PR walkthroughs grounded in direct PR evidence |
 | [`address-pr-feedback`](dev/address-pr-feedback.md) | Collect, triage, and fix PR review comments |
 
 [:octicons-arrow-right-24: Dev Plugin Reference](dev/index.md)
@@ -141,6 +142,7 @@ Looking for something specific?
 - **Build a knowledge base**: [`knowledge-build`](base/knowledge-build.md)
 - **Start a new feature**: Use `/build` (orchestrates requirements, design, build, verify) - see [Feature Development Guide](../guides/feature-development.md)
 - **Review a PR**: [`pr-review`](dev/pr-review.md)
+- **Understand a PR**: [`pr-walkthrough`](dev/pr-walkthrough.md)
 - **Run code checks**: [`code-check`](dev/code-check.md)
 - **Security scan**: [`analyse-security`](base/analyse-security.md)
 - **Monitor agent progress**: [Arcade](../arcade/index.md)

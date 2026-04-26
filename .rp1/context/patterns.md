@@ -1,7 +1,7 @@
 # Implementation Patterns
 
 **Project**: rp1
-**Last Updated**: 2026-04-17
+**Last Updated**: 2026-04-26
 
 ## Naming Conventions
 
@@ -53,6 +53,13 @@
 - **HTTP clients**: Web-UI SPA seeds surfaces from `/api/v2/` and uses targeted hydration such as `GET /api/v2/runs/:id/summary`; reconnect polling stays limited to disconnected recovery instead of routine freshness
 - **Freshness split**: Workflow status and attention come from emitted event delivery plus replay/snapshot recovery; file watching remains responsible only for artifact and file-content freshness
 - **Directory-scoped agent I/O**: Code-writing agents resolve source-file paths against `codeRoot` (the worktree path when in a worktree, `projectRoot` otherwise). Work-artifact reads and writes use `workRoot` and KB reads use `kbRoot`, both of which always point to the canonical `.rp1/` tree. This separation ensures edits land in the user's active working tree while Arcade-visible artifacts remain at the shared canonical location
+
+## PR/Review Workflow Patterns
+
+- **Direct evidence source**: Review-orientation workflows should gather PR metadata, changed files, diffs, stats, and commits directly through `gh` and `git`; generated review artifacts are outputs, not source material for later synthesis
+- **Evidence IDs**: Walkthrough-style artifacts assign stable IDs such as `E-PR-###`, `E-FILE-###`, `E-DIFF-###`, and `E-COMMIT-###`, then cite those IDs inline for major purpose, change, reviewer-focus, and risk claims
+- **Markdown artifact registration**: Plain markdown review artifacts live under purpose-specific workRoot directories, such as `pr-walkthroughs/{REVIEW_ID}-walkthrough-{NNN}.md`, and register with `artifact_registered` using a relative path plus explicit `storageRoot: "work_dir"`
+- **Workflow separation**: `/pr-walkthrough` orients reviewers without posting comments or verdicts; `/pr-review` remains the verdict/finding workflow and `/pr-visual` remains the diagram generator
 
 ## UI Patterns
 

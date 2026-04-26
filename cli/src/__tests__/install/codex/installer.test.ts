@@ -1,15 +1,18 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { mkdir, readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-
+import * as E from "fp-ts/lib/Either.js";
+import * as TE from "fp-ts/lib/TaskEither.js";
 import {
 	backupCodexInstallation,
 	copyCodexAgents,
 	copyCodexSkills,
+	previewCodexInstallation,
 	uninstallCodex,
 	validateCodexArtifacts,
 } from "../../../install/codex/installer.js";
 import type { CodexPaths } from "../../../install/codex/models.js";
+import type { InstallContext } from "../../../shared/install-core.js";
 import {
 	cleanupTempDir,
 	createTempDir,
@@ -19,6 +22,26 @@ import {
 	writeFixture,
 } from "../../helpers/index.js";
 
+const createMockContext = (
+	overrides: Partial<InstallContext> = {},
+): InstallContext => ({
+	logger: {
+		trace: () => {},
+		debug: () => {},
+		info: () => {},
+		warn: () => {},
+		error: () => {},
+		start: () => {},
+		success: () => {},
+		fail: () => {},
+		box: () => {},
+	},
+	isTTY: false,
+	dryRun: false,
+	skipPrompt: true,
+	...overrides,
+});
+
 describe("codex installer", () => {
 	let tempDir: string;
 
@@ -27,8 +50,96 @@ describe("codex installer", () => {
 	});
 
 	afterEach(async () => {
+		mock.restore();
 		await cleanupTempDir(tempDir);
 	});
+
+	const writeCodexArtifacts = async (artifactsDir: string): Promise<void> => {
+		await writeFixture(
+			join(artifactsDir, "base"),
+			"skills/rp1-build/SKILL.md",
+			"build skill",
+		);
+		await writeFixture(
+			join(artifactsDir, "base"),
+			"agents/task-builder.toml",
+			'model = "o4-mini"',
+		);
+		await writeFixture(
+			join(artifactsDir, "base"),
+			"rp1-agents.toml",
+			'[agents.rp1-build]\nmodel = "o4-mini"\ndescription = "builder"',
+		);
+		await writeFixture(
+			join(artifactsDir, "base"),
+			"codex-hooks.json",
+			JSON.stringify({
+				hooks: {
+					SessionStart: [
+						{ command: "rp1 arcade --daemon-only" },
+						{ command: "rp1 update --check" },
+					],
+				},
+			}),
+		);
+		await writeFixture(
+			join(artifactsDir, "dev"),
+			"skills/rp1-review/SKILL.md",
+			"review skill",
+		);
+		await writeFixture(
+			join(artifactsDir, "dev"),
+			"agents/task-reviewer.toml",
+			'model = "o4-mini"',
+		);
+		await writeFixture(
+			join(artifactsDir, "dev"),
+			"rp1-agents.toml",
+			'[agents.rp1-review]\nmodel = "o4-mini"\ndescription = "reviewer"',
+		);
+	};
+
+	const mockCodexPrerequisites = (paths: CodexPaths): void => {
+		mock.module("../../../install/codex/prerequisites.js", () => ({
+			checkCodexInstalled: () =>
+				TE.right({
+					check: "codex-installed",
+					passed: true,
+					message: "Codex CLI found",
+					value: "codex-cli 0.125.0",
+				}),
+			checkCodexVersion: () =>
+				E.right({
+					check: "codex-version",
+					passed: true,
+					message: "Codex CLI version supported",
+					value: "0.125.0",
+				}),
+			checkWritePermissions: (targetDir: string) =>
+				TE.tryCatch(
+					async () => {
+						await mkdir(targetDir, { recursive: true });
+						return {
+							check: "write-permissions",
+							passed: true,
+							message: `Write permissions OK: ${targetDir}`,
+							value: targetDir,
+						};
+					},
+					() => ({
+						_tag: "PrerequisiteError" as const,
+						check: "write-permissions",
+						message: `Cannot write to ${targetDir}`,
+					}),
+				),
+			getCodexPaths: () => paths,
+		}));
+	};
+
+	const importMockedInstaller = async () =>
+		(await import(
+			`../../../install/codex/installer.js?mocked=${Date.now()}-${Math.random()}`
+		)) as typeof import("../../../install/codex/installer.js");
 
 	describe("validateCodexArtifacts", () => {
 		test("succeeds when all artifacts exist", async () => {
@@ -58,6 +169,31 @@ describe("codex installer", () => {
 				validateCodexArtifacts(artifactsDir),
 			);
 			expect(result).toHaveLength(2);
+		});
+
+		test("includes the optional utils plugin when complete artifacts exist", async () => {
+			const artifactsDir = join(tempDir, "artifacts");
+			await writeCodexArtifacts(artifactsDir);
+			await writeFixture(
+				join(artifactsDir, "utils"),
+				"skills/rp1-format/SKILL.md",
+				"format skill",
+			);
+			await writeFixture(
+				join(artifactsDir, "utils"),
+				"agents/format-helper.toml",
+				'model = "o4-mini"',
+			);
+
+			const result = await expectTaskRight(
+				validateCodexArtifacts(artifactsDir),
+			);
+
+			expect(result.map((dir) => dir.split("/").at(-1))).toEqual([
+				"base",
+				"dev",
+				"utils",
+			]);
 		});
 
 		test("fails when plugin directory missing", async () => {
@@ -419,6 +555,145 @@ describe("codex installer", () => {
 		});
 	});
 
+	describe("installCodex", () => {
+		test("dry run validates and previews artifacts without copying files", async () => {
+			const artifactsDir = join(tempDir, "artifacts");
+			await writeCodexArtifacts(artifactsDir);
+			const paths: CodexPaths = {
+				skillsDir: join(tempDir, "home", ".codex", "skills"),
+				configDir: join(tempDir, "home", ".codex"),
+				configFile: join(tempDir, "home", ".codex", "config.toml"),
+				backupDir: join(tempDir, "home", ".codex-rp1-backups"),
+				agentsDir: join(tempDir, "home", ".codex", "agents", "rp1"),
+			};
+			mockCodexPrerequisites(paths);
+
+			const { installCodex } = await importMockedInstaller();
+			const result = await expectTaskRight(
+				installCodex(
+					{ artifactsDir, dryRun: true, yes: true },
+					createMockContext({ skipPrompt: true }),
+				),
+			);
+
+			expect(result).toEqual({
+				skillsCopied: 0,
+				configMerged: false,
+				backupPath: null,
+				warnings: ["Dry run - no changes made"],
+				pluginsInstalled: ["rp1-base", "rp1-dev"],
+			});
+			await expect(
+				Bun.file(join(paths.skillsDir, "rp1-build", "SKILL.md")).exists(),
+			).resolves.toBe(false);
+		});
+
+		test("yes mode copies skills and agents, merges config, installs hooks, and preserves user hooks", async () => {
+			const artifactsDir = join(tempDir, "artifacts");
+			await writeCodexArtifacts(artifactsDir);
+			const paths: CodexPaths = {
+				skillsDir: join(tempDir, "home", ".codex", "skills"),
+				configDir: join(tempDir, "home", ".codex"),
+				configFile: join(tempDir, "home", ".codex", "config.toml"),
+				backupDir: join(tempDir, "home", ".codex-rp1-backups"),
+				agentsDir: join(tempDir, "home", ".codex", "agents", "rp1"),
+			};
+			await writeFixture(
+				join(tempDir, "home", ".codex"),
+				"config.toml",
+				'model = "gpt-5"\n',
+			);
+			await writeFixture(
+				join(tempDir, "home", ".codex"),
+				"hooks.json",
+				JSON.stringify({
+					hooks: {
+						SessionStart: [
+							{ command: "user setup" },
+							{ command: "rp1 update --check" },
+						],
+						Stop: [{ command: "user teardown" }],
+					},
+				}),
+			);
+			mockCodexPrerequisites(paths);
+
+			const { installCodex } = await importMockedInstaller();
+			const result = await expectTaskRight(
+				installCodex(
+					{ artifactsDir, dryRun: false, yes: true },
+					createMockContext({ skipPrompt: true }),
+				),
+			);
+
+			expect(result.skillsCopied).toBeGreaterThan(0);
+			expect(result.configMerged).toBe(true);
+			expect(result.backupPath).toContain("backup_");
+			expect(result.warnings).toEqual([]);
+			expect(result.pluginsInstalled).toEqual(["rp1-base", "rp1-dev"]);
+
+			await expect(
+				readFile(join(paths.skillsDir, "rp1-build", "SKILL.md"), "utf-8"),
+			).resolves.toBe("build skill");
+			await expect(
+				readFile(join(paths.agentsDir, "task-builder.toml"), "utf-8"),
+			).resolves.toContain('model = "o4-mini"');
+
+			const config = await readFile(paths.configFile, "utf-8");
+			expect(config).toContain('model = "gpt-5"');
+			expect(config).toContain("# rp1:start");
+			expect(config).toContain("[agents.rp1-build]");
+			expect(config).toContain("[agents.rp1-review]");
+
+			const hooks = JSON.parse(
+				await readFile(join(paths.configDir, "hooks.json"), "utf-8"),
+			) as { hooks: Record<string, Array<{ command: string }>> };
+			expect(hooks.hooks.SessionStart.map((entry) => entry.command)).toEqual([
+				"user setup",
+				"rp1 arcade --daemon-only",
+				"rp1 update --check",
+			]);
+			expect(hooks.hooks.Stop).toEqual([{ command: "user teardown" }]);
+		});
+	});
+
+	describe("previewCodexInstallation", () => {
+		const originalLog = console.log;
+
+		afterEach(() => {
+			console.log = originalLog;
+		});
+
+		test("prints planned skills, agents, and config changes from artifacts", async () => {
+			const artifactsDir = join(tempDir, "artifacts");
+			await writeCodexArtifacts(artifactsDir);
+			const paths: CodexPaths = {
+				skillsDir: join(tempDir, "home", ".codex", "skills"),
+				configDir: join(tempDir, "home", ".codex"),
+				configFile: join(tempDir, "home", ".codex", "config.toml"),
+				backupDir: join(tempDir, "home", ".codex-rp1-backups"),
+				agentsDir: join(tempDir, "home", ".codex", "agents", "rp1"),
+			};
+			await writeFixture(
+				join(tempDir, "home", ".codex"),
+				"config.toml",
+				'model = "gpt-5"\n',
+			);
+			const output: string[] = [];
+			console.log = (...args: unknown[]) => {
+				output.push(args.map(String).join(" "));
+			};
+
+			await expectTaskRight(previewCodexInstallation(artifactsDir, paths));
+
+			const rendered = output.join("\n");
+			expect(rendered).toContain("rp1-build");
+			expect(rendered).toContain("task-builder.toml");
+			expect(rendered).toContain("[agents.rp1-build]");
+			expect(rendered).toContain("Run without --dry-run");
+		});
+	});
+
 	describe("uninstallCodex", () => {
 		test("removes rp1 skill directories", async () => {
 			const paths: CodexPaths = {
@@ -573,6 +848,44 @@ describe("codex installer", () => {
 				agentsDirExists = false;
 			}
 			expect(agentsDirExists).toBe(false);
+		});
+
+		test("removes managed hooks while preserving user hooks", async () => {
+			const paths: CodexPaths = {
+				skillsDir: join(tempDir, "skills"),
+				configDir: join(tempDir, "codex"),
+				configFile: join(tempDir, "codex", "config.toml"),
+				backupDir: join(tempDir, "backups"),
+				agentsDir: join(tempDir, "codex", "agents", "rp1"),
+			};
+			await mkdir(paths.skillsDir, { recursive: true });
+			await writeFixture(
+				paths.configDir,
+				"hooks.json",
+				JSON.stringify({
+					hooks: {
+						SessionStart: [
+							{ command: "user setup" },
+							{ command: "rp1 arcade --daemon-only" },
+							{ command: "rp1 update --check" },
+						],
+						Stop: [{ command: "user teardown" }],
+					},
+				}),
+			);
+
+			const result = await expectTaskRight(uninstallCodex(paths, false));
+
+			expect(result).toEqual({
+				skillsRemoved: 0,
+				agentsRemoved: false,
+				configCleaned: false,
+			});
+			const hooks = JSON.parse(
+				await readFile(join(paths.configDir, "hooks.json"), "utf-8"),
+			) as { hooks: Record<string, Array<{ command: string }>> };
+			expect(hooks.hooks.SessionStart).toEqual([{ command: "user setup" }]);
+			expect(hooks.hooks.Stop).toEqual([{ command: "user teardown" }]);
 		});
 
 		test("does not error when agents directory does not exist", async () => {

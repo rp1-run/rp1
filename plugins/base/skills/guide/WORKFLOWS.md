@@ -87,20 +87,22 @@ Each iteration delegates to a general sub-agent. If the request is too large, it
 
 **When**: Reviewing a pull request and resolving feedback.
 
-**Sequence**: `/pr-review` -> `/address-pr-feedback`
+**Sequence**: optional `/pr-walkthrough` -> `/pr-review` -> `/address-pr-feedback`
 
 | Step | Skill | Input | Output |
 |------|-------|-------|--------|
+| 0 | `/pr-walkthrough [target]` | PR number, URL, or branch | Plain markdown walkthrough under `.rp1/work/pr-walkthroughs/` |
 | 1 | `/pr-review [target]` | PR number, URL, or branch | Review comments posted to the PR |
 | 2 | `/address-pr-feedback [pr]` | PR with review comments | Resolved comments, updated code |
 
 **How they chain**:
 
+- `/pr-walkthrough` is an optional orientation step. It gathers direct PR metadata, changed files, diffs, and commits, then registers a markdown-only walkthrough with evidence IDs. It does not use existing `pr-review` artifacts, post comments, or require slide rendering.
 - `/pr-review` splits the diff into logical review units, analyzes each in parallel with specialized sub-reviewers, synthesizes findings, deduplicates overlapping comments, and posts them to the PR. Includes optional visual diagram generation (`/pr-visual`).
 - `/address-pr-feedback` reads all unresolved review comments from the PR, triages them (must-fix vs. nice-to-have vs. dismiss), and fixes them in priority order. Supports `--afk` for unattended resolution.
 - After fixing, re-run `/pr-review` to verify the fixes if needed.
 
-**Standalone use**: `/pr-review` works independently for reviewing others' PRs. `/address-pr-feedback` works independently when you receive review comments from human reviewers.
+**Standalone use**: `/pr-walkthrough` works independently when you need a readable PR explanation before reviewing raw diffs. `/pr-review` works independently for reviewing others' PRs. `/address-pr-feedback` works independently when you receive review comments from human reviewers.
 
 ## Documentation Sync
 

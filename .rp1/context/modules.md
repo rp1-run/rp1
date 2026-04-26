@@ -23,7 +23,7 @@
 | web-ui/daemon | Daemon lifecycle manager with diagnostic logging and IPC | 4 |
 | web-ui/frontend | React SPA dashboard: pages, components, hooks, providers, motion | 190 |
 | plugins/base | KB, docs sync, writing, research, strategy, security, prompt authoring pipeline, guide meta-skill | 98 |
-| plugins/dev | Build workflows, blueprinting, PR review, feature delivery | 53 |
+| plugins/dev | Build workflows, blueprinting, PR review and walkthrough, feature delivery | 58 |
 | plugins/utils | Prompt tersification, eval helpers | 14 |
 | docs/reference | User-facing reference docs for CLI, plugins, web UI, platform tags | 36 |
 | evals | Prompt attestation with content-addressable hashing and dockerized execution | 26 |
@@ -44,6 +44,8 @@
 | daemon diagnostics | web-ui/daemon | Structured NDJSON logging for daemon lifecycle events to daemon.log |
 | arcade command | commands | CLI entry point with start/stop/status/restart, --daemon-only, --format hook-json modes |
 | install verifier | install | Cross-platform installation health check and skill discovery with arcade_tracked metadata |
+| pr-walkthrough | plugins/dev | Review workflow skill that resolves PR or branch targets, collects direct `gh`/`git` evidence, dispatches markdown synthesis, and registers a work artifact |
+| pr-walkthrough-reporter | plugins/dev | Agent that turns direct PR evidence into a plain markdown walkthrough with Evidence Index citations under `.rp1/work/pr-walkthroughs/` |
 | build-prompt orchestrator | plugins/utils | Workflow skill that walks the six-stage prompt-writer pipeline via prompt-pipeline-runner agent with budgeted governance |
 | prompt-pipeline-runner | plugins/base | Agent executing constitutional-checklist, fallibilist-overlay, epistemic-stance, popper-patterns, confidence-schema, prompt-validation stages |
 

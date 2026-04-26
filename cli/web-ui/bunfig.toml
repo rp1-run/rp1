@@ -3,3 +3,9 @@ registry = "https://registry.npmjs.org/"
 
 [test]
 preload = ["./src/__tests__/setup.ts"]
+coverageSkipTestFiles = true
+coverageThreshold = { line = 0.8 }
+coveragePathIgnorePatterns = [
+	"../shared/**",
+	"../src/**",
+]

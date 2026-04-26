@@ -282,6 +282,7 @@ See [Remote PR Review Guide](../../guides/remote-pr-review.md) for detailed setu
 
 ## Related Commands
 
+- [`pr-walkthrough`](pr-walkthrough.md) - Generate a markdown orientation artifact from direct PR evidence
 - [`pr-visual`](pr-visual.md) - Generate diagrams from PR
 - [`address-pr-feedback`](address-pr-feedback.md) - Collect and fix review comments
 
