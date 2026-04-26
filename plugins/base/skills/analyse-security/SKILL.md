@@ -1,6 +1,6 @@
 ---
 name: analyse-security
-description: "Performs tracked, evidence-bounded security posture assessment for a feature or target with standards mapping, scanner coverage, and registered report output."
+description: "Performs tracked, evidence-bounded security posture assessment for a project, sub-directory, module, concept, or feature topic with standards mapping and registered report output."
 allowed-tools: Bash(echo *), Bash(test *), Bash(rp1 *)
 metadata:
   category: strategy
@@ -18,15 +18,33 @@ metadata:
   updated: 2026-04-26
   author: cloud-on-prem/rp1
   arguments:
+    - name: TOPIC
+      type: string
+      required: false
+      default: ""
+      description: "Assessment topic: sub-directory path, concept, module, feature/topic slug, or empty for whole project"
+      aliases:
+        - "topic"
+        - "target"
+        - "target-path"
+        - "module"
     - name: FEATURE_ID
       type: string
-      required: true
-      description: "Feature identifier or stable target slug to assess"
+      required: false
+      default: ""
+      description: "Optional stable report slug; when omitted, the report slug is derived from TOPIC or defaults to project"
+      aliases:
+        - "feature-id"
+        - "report-id"
+        - "report-slug"
     - name: SECURITY_SCOPE
       type: enum
       required: false
       default: "full"
       description: "Security assessment scope"
+      aliases:
+        - "scope"
+        - "security-scope"
       enum_values:
         - "full"
         - "application"
@@ -40,6 +58,9 @@ metadata:
       required: false
       default: ""
       description: "Optional compliance or control framework focus"
+      aliases:
+        - "framework"
+        - "compliance-framework"
   sub_agents:
     - "rp1-base:security-validator"
 ---
@@ -47,6 +68,14 @@ metadata:
 # Analyse Security
 
 ROLE: Tracked workflow dispatcher. Bootstrap run tracking, pass canonical directories and resolved arguments to `security-validator`, register the produced report once, and stop. MUST NOT perform the security assessment directly.
+
+## Target Resolution
+
+Before emitting the first status:
+
+1. Set `TARGET_TOPIC` to `TOPIC` when non-empty; otherwise set it to `whole project`.
+2. Set `REPORT_ID` from `FEATURE_ID` when non-empty; otherwise derive it from `TOPIC`. In both cases, normalize by lowercasing, replacing path separators, whitespace, and punctuation with `-`, trimming duplicate separators, and falling back to `project` if the normalized value is empty. If `TOPIC` is empty and `FEATURE_ID` is empty, set `REPORT_ID` to `project`.
+3. Use `TARGET_TOPIC` as the assessment scope selector. `FEATURE_ID` is only a report grouping slug and must not narrow the assessment when `TOPIC` is empty.
 
 ## STATE-MACHINE
 
@@ -65,12 +94,12 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --workflow analyse-security \
   --type status_change \
   --run-id {RUN_ID} \
-  --name "Security assessment: {FEATURE_ID}" \
+  --name "Security assessment: {REPORT_ID}" \
   --step {CURRENT_STATE} \
-  --data '{"status":"running","feature":"{FEATURE_ID}","scope":"{SECURITY_SCOPE}"}'
+  --data '{"status":"running","target":"{TARGET_TOPIC}","reportId":"{REPORT_ID}","scope":"{SECURITY_SCOPE}"}'
 ```
 
-Terminal state `register` uses `--data '{"status":"completed","feature":"{FEATURE_ID}","scope":"{SECURITY_SCOPE}"}'`.
+Terminal state `register` uses `--data '{"status":"completed","target":"{TARGET_TOPIC}","reportId":"{REPORT_ID}","scope":"{SECURITY_SCOPE}"}'`.
 
 ## Governance
 
@@ -87,6 +116,8 @@ Artifact contract: exactly one `artifact_registered` event, after the validator 
 
 {% dispatch_agent "rp1-base:security-validator" %}
 FEATURE_ID: {FEATURE_ID}
+TOPIC: {TOPIC}
+REPORT_ID: {REPORT_ID}
 SECURITY_SCOPE: {SECURITY_SCOPE}
 COMPLIANCE_FRAMEWORK: {COMPLIANCE_FRAMEWORK}
 KB_ROOT: {kbRoot}
@@ -95,7 +126,7 @@ CODE_ROOT: {codeRoot}
 RUN_ID: {RUN_ID}
 {% enddispatch_agent %}
 
-4. The sub-agent writes `{workRoot}/security/{FEATURE_ID}/report.md` and returns `OUTPUT_PATH: security/{FEATURE_ID}/report.md`. If the sub-agent returns a different relative path under `security/{FEATURE_ID}/`, treat the returned value as authoritative.
+4. The sub-agent writes `{workRoot}/security/{REPORT_ID}/report.md` and returns `OUTPUT_PATH: security/{REPORT_ID}/report.md`. If the sub-agent returns a different relative path under `security/{REPORT_ID}/`, treat the returned value as authoritative.
 5. Emit `register` running, then register the report:
 
 ```bash
@@ -104,7 +135,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step register \
-  --data '{"path":"{OUTPUT_PATH}","feature":"{FEATURE_ID}","storageRoot":"work_dir","format":"markdown"}'
+  --data '{"path":"{OUTPUT_PATH}","feature":"{REPORT_ID}","target":"{TARGET_TOPIC}","storageRoot":"work_dir","format":"markdown"}'
 ```
 
 6. Emit `register` completed and report the final path to the user.

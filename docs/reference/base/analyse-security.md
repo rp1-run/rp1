@@ -1,6 +1,6 @@
 # analyse-security
 
-Performs tracked, evidence-bounded security posture assessment for a feature or target. It maps observations to modern security standards, records scanner coverage and gaps, and writes a canonical report artifact.
+Performs tracked, evidence-bounded security posture assessment for a whole project, sub-directory, concept, module, or feature topic. It maps observations to modern security standards, records scanner coverage and gaps, and writes a canonical report artifact.
 
 ---
 
@@ -9,18 +9,22 @@ Performs tracked, evidence-bounded security posture assessment for a feature or 
 === "Claude Code"
 
     ```bash
-    /analyse-security FEATURE_ID=<feature-id> [SECURITY_SCOPE=full] [COMPLIANCE_FRAMEWORK=""]
+    /analyse-security [--topic <path|concept|module>] [--feature-id <report-slug>] [--security-scope full] [--compliance-framework ""]
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-base-analyse-security FEATURE_ID=<feature-id> [SECURITY_SCOPE=full] [COMPLIANCE_FRAMEWORK=""]
+    /rp1-base-analyse-security [--topic <path|concept|module>] [--feature-id <report-slug>] [--security-scope full] [--compliance-framework ""]
     ```
 
 ## Description
 
-The `analyse-security` command starts a tracked workflow and delegates the assessment to the `security-validator` agent. The workflow resolves canonical project directories, passes the knowledge base, work root, code root, and run ID to the validator, and registers one report artifact in Arcade.
+The `analyse-security` command starts a tracked workflow and delegates the assessment to the `security-validator` agent. The workflow resolves canonical project directories, passes the knowledge base, work root, code root, topic, report ID, and run ID to the validator, and registers one report artifact in Arcade.
+
+`TOPIC` is the assessment target. It can be a sub-directory path such as `cli/web-ui`, a concept such as `workflow bootstrap`, a module name, or a feature/topic slug. When `TOPIC` is omitted, the command assesses the whole project. `FEATURE_ID` is optional and only controls the stable report slug; when omitted, the report slug is derived from `TOPIC` or defaults to `project`.
+
+The examples use flag-style arguments (`--topic cli/web-ui`). Named assignment form (`TOPIC=cli/web-ui`) is also supported by hosts that expose raw named arguments.
 
 The assessment uses NIST CSF 2.0 as the posture spine and maps findings to relevant standards such as OWASP ASVS, OWASP Top 10, OWASP API Top 10, CIS Controls and Benchmarks, NIST SSDF, SLSA, OpenSSF Scorecard, NIST SP 800-63 identity guidance, privacy controls, MITRE ATT&CK/D3FEND, NIST AI RMF, and OWASP LLM/agentic risk guidance when applicable.
 
@@ -40,7 +44,8 @@ It analyzes:
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `FEATURE_ID` | Yes | - | Feature identifier or stable target slug. Used in the report path. |
+| `TOPIC` | No | whole project | Assessment target: sub-directory path, concept, module, feature/topic slug, or empty for whole-project analysis. |
+| `FEATURE_ID` | No | derived | Optional stable report slug. When omitted, the report slug is derived from `TOPIC` or defaults to `project`. |
 | `SECURITY_SCOPE` | No | `full` | Assessment scope: `full`, `application`, `api`, `infrastructure`, `supply-chain`, `identity-privacy`, or `ai-agent`. |
 | `COMPLIANCE_FRAMEWORK` | No | empty | Optional framework focus, such as `OWASP ASVS`, `NIST CSF`, `SOC 2`, `PCI DSS`, `CIS`, or a project-specific control set. |
 
@@ -48,9 +53,9 @@ It analyzes:
 
 The command produces one registered security posture report:
 
-**Location:** `.rp1/work/security/{FEATURE_ID}/report.md`
+**Location:** `.rp1/work/security/{REPORT_ID}/report.md`
 
-**Artifact path:** `security/{FEATURE_ID}/report.md` with `storageRoot: "work_dir"`
+**Artifact path:** `security/{REPORT_ID}/report.md` with `storageRoot: "work_dir"`
 
 **Contents:**
 
@@ -89,18 +94,46 @@ Findings separate technical severity from contextual priority and confidence:
 
 ## Examples
 
-### Full Security Assessment
+### Whole-Project Security Assessment
 
 === "Claude Code"
 
     ```bash
-    /analyse-security FEATURE_ID=checkout-hardening
+    /analyse-security
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-base-analyse-security FEATURE_ID=checkout-hardening
+    /rp1-base-analyse-security
+    ```
+
+### Sub-Directory Assessment
+
+=== "Claude Code"
+
+    ```bash
+    /analyse-security --topic cli/web-ui --security-scope application
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-base-analyse-security --topic cli/web-ui --security-scope application
+    ```
+
+### Concept or Module Assessment
+
+=== "Claude Code"
+
+    ```bash
+    /analyse-security --topic "workflow bootstrap" --feature-id workflow-bootstrap
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-base-analyse-security --topic "workflow bootstrap" --feature-id workflow-bootstrap
     ```
 
 ### API-Focused Assessment
@@ -108,13 +141,13 @@ Findings separate technical severity from contextual priority and confidence:
 === "Claude Code"
 
     ```bash
-    /analyse-security FEATURE_ID=public-api-v2 SECURITY_SCOPE=api COMPLIANCE_FRAMEWORK="OWASP API Top 10 2023"
+    /analyse-security --topic public-api-v2 --security-scope api --compliance-framework "OWASP API Top 10 2023"
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-base-analyse-security FEATURE_ID=public-api-v2 SECURITY_SCOPE=api COMPLIANCE_FRAMEWORK="OWASP API Top 10 2023"
+    /rp1-base-analyse-security --topic public-api-v2 --security-scope api --compliance-framework "OWASP API Top 10 2023"
     ```
 
 **Example output:**
