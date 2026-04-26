@@ -667,20 +667,28 @@ agentToolsCommand
 	.command("comment-extract <scope> <base>")
 	.description("Extract comments from git-changed files")
 	.option("--line-scoped", "Only extract comments on changed lines", false)
+	.option(
+		"--change-manifest <path>",
+		"Extract only comments inside a change manifest boundary",
+	)
+	.option("--code-root <path>", "Source root for resolving manifest paths")
 	.addHelpText(
 		"after",
 		`
 Description:
-  Extracts comments from files changed in a git scope for analysis.
+  Extracts comments from files changed in a git scope or from owned
+  files and lines declared in a change manifest.
   Supports multiple languages including Python, JavaScript, TypeScript,
   Go, Rust, Java, C/C++, Ruby, PHP, and Shell scripts.
 
 Arguments:
-  scope    Git scope: "branch", "unstaged", or a commit range (e.g., "abc123..def456")
+  scope    Git scope: "branch", "unstaged", a commit range, or "manifest"
   base     Base branch for comparison (e.g., "main", "master")
 
 Options:
-  --line-scoped    Only include comments on lines that actually changed (for commit ranges)
+  --line-scoped              Only include comments on changed lines (for commit ranges)
+  --change-manifest <path>   JSON manifest with owned files and lines/hunks
+  --code-root <path>         Source root for resolving manifest paths
 
 Output:
   JSON with extraction results:
@@ -699,13 +707,20 @@ Examples:
 
   # Extract from commit range with line-scoped filtering
   rp1 agent-tools comment-extract "abc123..def456" main --line-scoped
+
+  # Extract from a change manifest boundary
+  rp1 agent-tools comment-extract manifest manifest --change-manifest .rp1/work/features/example/change-manifest-001.json --code-root .
 `,
 	)
 	.action(
 		async (
 			scope: string,
 			base: string,
-			options: { lineScoped: boolean },
+			options: {
+				lineScoped: boolean;
+				changeManifest?: string;
+				codeRoot?: string;
+			},
 		): Promise<void> => {
 			const toolName = "comment-extract";
 
@@ -713,6 +728,8 @@ Examples:
 				scope,
 				base,
 				lineScoped: options.lineScoped,
+				changeManifest: options.changeManifest,
+				codeRoot: options.codeRoot,
 			})();
 
 			if (E.isLeft(result)) {

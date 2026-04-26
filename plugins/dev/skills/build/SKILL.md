@@ -432,6 +432,8 @@ rp1 agent-tools emit \
 
 **Skip if**: start_step > 5. **Invoke ALL THREE in SINGLE response:**
 
+Use the durable cleaner hand-off manifest at `{workRoot}/features/{FEATURE_ID}/change-manifest-001.json`, or the highest numbered `change-manifest-*.json` path already produced by the build task handoff for this feature. Do not dispatch comment-cleaner with branch, unstaged, commit-range, base-branch, mode, or commit parameters; it must fail closed if the manifest is missing or invalid.
+
 {% dispatch_agent "rp1-dev:code-checker" %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}
 {% enddispatch_agent %}
@@ -441,7 +443,7 @@ FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={code
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:comment-cleaner" %}
-MODE=clean, SCOPE=branch, COMMIT_CHANGES={GIT_COMMIT}
+CHANGE_MANIFEST={workRoot}/features/{FEATURE_ID}/change-manifest-001.json, CODE_ROOT={codeRoot}
 {% enddispatch_agent %}
 
 Then aggregate:

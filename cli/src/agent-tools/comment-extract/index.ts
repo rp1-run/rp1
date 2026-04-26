@@ -19,6 +19,7 @@ import {
 	getLinesAdded,
 	isGitRepo,
 } from "./git-ops.js";
+import { loadChangeManifestScope } from "./manifest.js";
 import type { CommentExtractOptions, CommentExtractResult } from "./models.js";
 
 /** Tool name used for registration and output */
@@ -33,8 +34,16 @@ const TOOL_NAME = "comment-extract";
 export const executeExtract = (
 	options: CommentExtractOptions,
 	cwd: string = process.cwd(),
-): TE.TaskEither<CLIError, ToolResult<CommentExtractResult>> =>
-	pipe(
+): TE.TaskEither<CLIError, ToolResult<CommentExtractResult>> => {
+	if (options.changeManifest) {
+		return performManifestExtraction(options, cwd);
+	}
+	if (options.scope === "manifest") {
+		return TE.left(
+			runtimeError("Manifest scope requires a changeManifest path"),
+		);
+	}
+	return pipe(
 		isGitRepo(cwd),
 		TE.chain((isRepo) => {
 			if (!isRepo) {
@@ -60,6 +69,42 @@ export const executeExtract = (
 			}
 			return performExtraction(options, cwd);
 		}),
+	);
+};
+
+const performManifestExtraction = (
+	options: CommentExtractOptions,
+	cwd: string,
+): TE.TaskEither<CLIError, ToolResult<CommentExtractResult>> =>
+	pipe(
+		loadChangeManifestScope(
+			options.changeManifest ?? "",
+			options.codeRoot,
+			cwd,
+		),
+		TE.chain((manifestScope) =>
+			pipe(
+				extractCommentsFromFiles(manifestScope.files, manifestScope.ownedLines),
+				TE.map(({ comments, filesScanned }) => {
+					const relativeComments = comments.map((c) => ({
+						...c,
+						file: path.relative(manifestScope.codeRoot, c.file),
+					}));
+
+					const result: CommentExtractResult = {
+						scope: "manifest",
+						base: options.base,
+						filesScanned,
+						linesAdded: manifestScope.ownedLineCount,
+						lineScoped: true,
+						changeManifest: manifestScope.manifestPath,
+						comments: relativeComments,
+					};
+
+					return successResult(TOOL_NAME, result);
+				}),
+			),
+		),
 	);
 
 /**

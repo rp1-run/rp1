@@ -214,6 +214,24 @@ const y = 2;
 			expect(comments[1].line).toBe(4);
 		});
 
+		test("excludes multi-line comments not fully contained by lineFilter", async () => {
+			const filePath = await writeFixture(
+				tempDir,
+				"partial-multi.js",
+				`const x = 1;
+/*
+ * owned start only
+ */
+const y = 2;
+`,
+			);
+
+			const result = await extractComments(filePath, new Set([2]))();
+			const comments = expectRight(result);
+
+			expect(comments).toHaveLength(0);
+		});
+
 		test("handles TypeScript files", async () => {
 			const filePath = await writeFixture(
 				tempDir,

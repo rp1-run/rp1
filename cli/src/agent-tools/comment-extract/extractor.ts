@@ -98,6 +98,18 @@ const extractCommentsFromLines = (
 	const shouldInclude = (lineNum: number): boolean =>
 		lineFilter === undefined || lineFilter.has(lineNum);
 
+	const shouldIncludeRange = (start: number, end: number): boolean => {
+		if (lineFilter === undefined) {
+			return true;
+		}
+		for (let lineNum = start; lineNum <= end; lineNum++) {
+			if (!lineFilter.has(lineNum)) {
+				return false;
+			}
+		}
+		return true;
+	};
+
 	for (let i = 0; i < lines.length; i++) {
 		const lineNum = i + 1;
 		const line = lines[i];
@@ -106,7 +118,7 @@ const extractCommentsFromLines = (
 		if (inMulti && multiEnd) {
 			multiContent.push(line.trimEnd());
 			if (multiEnd.test(line)) {
-				if (shouldInclude(multiStart)) {
+				if (shouldIncludeRange(multiStart, lineNum)) {
 					comments.push({
 						file: filePath,
 						line: multiStart,

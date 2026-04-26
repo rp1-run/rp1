@@ -36,7 +36,7 @@
 | `/code-comments` | base | Extract comment locations from code files for analysis. Use when cleaning comments, auditing code documentation, or analyzing comment patterns. Supports Python, JavaScript, TypeScript, Go, Rust, Java, C/C++, Ruby, PHP, Shell scripts. Trigger terms - comments, extract comments, code comments, comment analysis, documentation audit, comment cleanup. |  |  |  |  |
 | `/code-audit` | dev | Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift. | `FEATURE_ID`, `AUDIT_SCOPE`, `PATTERN_STRICTNESS` |  |  |  |
 | `/code-check` | dev | Fast code hygiene validation (lints, formatters, tests, coverage) for quick development loop feedback. | `FEATURE_ID`, `TEST_SCOPE`, `COVERAGE_TARGET` |  |  |  |
-| `/code-clean-comments` | dev | Systematically removes unnecessary comments from code using git-scoped file detection. | `SCOPE`, `BASE_BRANCH` |  |  |  |
+| `/code-clean-comments` | dev | Systematically removes unnecessary comments from a user scope by first resolving it into a durable change manifest. | `SCOPE`, `CODE_ROOT` |  |  |  |
 
 ## Review
 
