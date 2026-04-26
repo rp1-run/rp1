@@ -120,9 +120,9 @@ agents:
     plugin: dev
     last_checksum: 06fc9021fe043da8369e8b54107297f5a77a827c8dc914856f06cd15c9c75669
   - name: rp1-dev:comment-cleaner
-    description: "Systematically removes unnecessary comments from code while preserving docstrings, critical logic explanations, and type directives"
+    description: "Systematically removes unnecessary comments from manifest-owned code lines while preserving docstrings, critical logic explanations, and type directives"
     plugin: dev
-    last_checksum: 96dae4f4eeddb0159e139bd3fd52f48d604e28dfdb5f45841fe054826f29c768
+    last_checksum: 159e43a54c12e7c0d84309c5a6146eb0e41d4ad3405b5b68f0eb35ce659df9a9
   - name: rp1-dev:feature-architect
     description: "Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester."
     plugin: dev

@@ -24,6 +24,7 @@ export interface CommentExtractResult {
 	readonly filesScanned: number;
 	readonly linesAdded: number;
 	readonly lineScoped?: boolean;
+	readonly changeManifest?: string;
 	readonly comments: readonly ExtractedComment[];
 }
 
@@ -34,4 +35,25 @@ export interface CommentExtractOptions {
 	readonly scope: string;
 	readonly base: string;
 	readonly lineScoped?: boolean;
+	readonly changeManifest?: string;
+	readonly codeRoot?: string;
+}
+
+export interface ChangeManifestFile {
+	readonly path: string;
+	readonly ownedLines?: readonly number[];
+	readonly ownedHunks?: readonly ChangeManifestHunk[];
+	readonly allowedOperations?: readonly string[];
+}
+
+export interface ChangeManifestHunk {
+	readonly startLine: number;
+	readonly endLine: number;
+}
+
+export interface ChangeManifest {
+	readonly version: 1;
+	readonly source?: string;
+	readonly codeRoot?: string;
+	readonly files: readonly ChangeManifestFile[];
 }
