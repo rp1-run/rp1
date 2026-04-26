@@ -377,10 +377,22 @@ esac
 				NO_COLOR: "1",
 			},
 		});
+		const evalDashboardReload = await runCommand(
+			"just",
+			["--show", "eval-dashboard-reload"],
+			{
+				cwd: REPO_ROOT,
+				env: {
+					...process.env,
+					NO_COLOR: "1",
+				},
+			},
+		);
 
 		expect(evalRun.exitCode).toBe(0);
 		expect(evalRunLocal.exitCode).toBe(0);
 		expect(evalView.exitCode).toBe(0);
+		expect(evalDashboardReload.exitCode).toBe(0);
 		expect(
 			(evalRun.stdout.match(/just eval-dashboard-reload/g) ?? []).length,
 		).toBe(2);
@@ -388,6 +400,10 @@ esac
 		expect(evalRunLocal.stdout).toContain(
 			'export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"',
 		);
+		expect(evalDashboardReload.stdout).toContain(
+			'const child = spawn("bunx", ["promptfoo", "view", "-n"], {',
+		);
+		expect(evalDashboardReload.stdout).toContain("detached: true");
 		expect(evalView.stdout).toContain(PROMPTFOO_CONFIG_DIR_SNIPPET);
 		expect(evalView.stdout).toContain(
 			'export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"',

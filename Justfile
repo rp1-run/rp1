@@ -621,13 +621,44 @@ eval-dashboard-reload:
     # Give the port a moment to release.
     sleep 1
 
-    # Start the view server in the background. Output goes to a rotating log
-    # under the promptfoo config dir so it is trivially grep-able.
+    # Start the view server as a detached child process. Plain shell
+    # backgrounding leaves promptfoo tied to the launching shell on macOS, so it
+    # can disappear as soon as just exits.
     log_file="${promptfoo_config_dir}/logs/dashboard.log"
     mkdir -p "$(dirname "$log_file")"
-    cd evals
-    nohup bunx promptfoo view -n >"$log_file" 2>&1 &
-    disown || true
+    PROMPTFOO_DASHBOARD_LOG="$log_file" bun --eval '
+    import { spawn } from "node:child_process";
+    import { closeSync, openSync } from "node:fs";
+
+    const logFile = process.env.PROMPTFOO_DASHBOARD_LOG;
+    if (!logFile) {
+        throw new Error("PROMPTFOO_DASHBOARD_LOG is required");
+    }
+
+    const logFd = openSync(logFile, "w");
+    const child = spawn("bunx", ["promptfoo", "view", "-n"], {
+        cwd: "evals",
+        detached: true,
+        env: process.env,
+        stdio: ["ignore", logFd, logFd],
+    });
+    child.unref();
+    closeSync(logFd);
+    '
+
+    dashboard_ready=false
+    for _ in {1..10}; do
+        if lsof -nP -iTCP:15500 -sTCP:LISTEN >/dev/null 2>&1; then
+            dashboard_ready=true
+            break
+        fi
+        sleep 1
+    done
+    if [ "$dashboard_ready" != "true" ]; then
+        echo "Dashboard failed to stay running; log: $log_file"
+        tail -n 40 "$log_file" 2>/dev/null || true
+        exit 0
+    fi
     echo "Dashboard restarting; log: $log_file"
     echo "Default URL: http://localhost:15500/"
 
