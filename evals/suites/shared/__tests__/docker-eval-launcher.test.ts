@@ -151,6 +151,10 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 		expect(runArgs).toContain(
 			"rp1-dev-evals-node_modules:/src/rp1/evals/node_modules",
 		);
+		const gitCommonDir = await getGitRevParse("--git-common-dir");
+		const mainWorktree = resolve(gitCommonDir, "..");
+		expect(runArgs).toContain(`${mainWorktree}/.promptfoo:/src/rp1/.promptfoo`);
+		expect(runArgs).toContain("PROMPTFOO_CONFIG_DIR=/src/rp1/.promptfoo");
 		expect(runArgs).toContain("ANTHROPIC_API_KEY");
 		expect(runArgs).toContain("GITHUB_TOKEN");
 		expect(runArgs).not.toContain("OPENAI_API_KEY");
@@ -166,7 +170,6 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 		expect(runArgs).not.toContain("17710:7710");
 
 		const gitDir = await getGitRevParse("--git-dir");
-		const gitCommonDir = await getGitRevParse("--git-common-dir");
 		if (gitDir !== gitCommonDir) {
 			expect(runArgs).toContain(`${REPO_ROOT}:${REPO_ROOT}`);
 			expect(runArgs).toContain(`${gitCommonDir}:${gitCommonDir}`);

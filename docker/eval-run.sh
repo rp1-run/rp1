@@ -7,10 +7,13 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 container_args=()
 forwarded_env=()
 worktree_git_mounts=()
+promptfoo_mounts=()
 do_commit=false
 attest=false
 host_commit_outputs_file=""
 container_commit_outputs_file=""
+host_promptfoo_config_dir=""
+container_promptfoo_config_dir="/src/rp1/.promptfoo"
 
 for arg in "$@"; do
     case "$arg" in
@@ -79,10 +82,35 @@ add_worktree_git_mounts() {
     )
 }
 
+setup_promptfoo_config_mount() {
+    local git_common_dir
+    local main_worktree
+
+    if [ -n "${PROMPTFOO_CONFIG_DIR-}" ]; then
+        case "$PROMPTFOO_CONFIG_DIR" in
+            /*) host_promptfoo_config_dir="$PROMPTFOO_CONFIG_DIR" ;;
+            *) host_promptfoo_config_dir="${repo_root}/${PROMPTFOO_CONFIG_DIR}" ;;
+        esac
+    else
+        git_common_dir="$(git -C "$repo_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+        main_worktree="${git_common_dir%/*}"
+        [ -z "$main_worktree" ] && main_worktree="$repo_root"
+        host_promptfoo_config_dir="${main_worktree}/.promptfoo"
+    fi
+
+    mkdir -p "$host_promptfoo_config_dir"
+    promptfoo_mounts+=(
+        -v
+        "${host_promptfoo_config_dir}:${container_promptfoo_config_dir}"
+    )
+    forwarded_env+=(-e "PROMPTFOO_CONFIG_DIR=${container_promptfoo_config_dir}")
+}
+
 add_env_if_set ANTHROPIC_API_KEY
 add_env_if_set OPENAI_API_KEY
 add_env_if_set GITHUB_TOKEN
 add_worktree_git_mounts
+setup_promptfoo_config_mount
 
 host_commit_eval_results() {
     local outputs_file="$1"
@@ -129,6 +157,7 @@ docker_run_args=(
     "${repo_root}:/src/rp1"
     -v
     "rp1-dev-evals-node_modules:/src/rp1/evals/node_modules"
+    "${promptfoo_mounts[@]}"
     "${worktree_git_mounts[@]}"
 )
 
