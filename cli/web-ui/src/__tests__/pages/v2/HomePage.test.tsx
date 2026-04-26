@@ -5,6 +5,7 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import { createElement, forwardRef, type ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -23,7 +24,7 @@ let feedItems: {
 		readonly id: string;
 		readonly name: string;
 		readonly command: string;
-		readonly status: string;
+		readonly status: Run["status"];
 		readonly harness: string;
 		readonly startedAt: string;
 		readonly lastEventAt: string;
@@ -37,11 +38,13 @@ function createFeedItem({
 	name,
 	projectId,
 	projectName,
+	status = "running",
 }: {
 	readonly id: string;
 	readonly name: string;
 	readonly projectId: string;
 	readonly projectName: string;
+	readonly status?: Run["status"];
 }) {
 	return {
 		id,
@@ -49,7 +52,7 @@ function createFeedItem({
 			id,
 			name,
 			command: "/build-fast",
-			status: "running",
+			status,
 			harness: "codex",
 			startedAt: "2026-04-12T00:00:00.000Z",
 			lastEventAt: "2026-04-12T00:05:00.000Z",
@@ -90,7 +93,7 @@ function createRunDetail(runId: string | undefined): Run | null {
 		featureName: "Feature One",
 		name: source.name,
 		command: source.command,
-		status: "running",
+		status: source.status,
 		harness: source.harness,
 		currentStep: step.id,
 		steps: [step],
@@ -106,6 +109,12 @@ function createRunDetail(runId: string | undefined): Run | null {
 
 function getPreviewText() {
 	return screen.getAllByTestId("run-detail-surface")[0]?.textContent;
+}
+
+function getActivityRow(name: string) {
+	const row = screen.getByText(name).closest('[role="button"]');
+	expect(row).not.toBeNull();
+	return row as HTMLElement;
 }
 
 function installHomePageMocks() {
@@ -370,6 +379,77 @@ describe("HomePage", () => {
 				.closest('[role="button"]')
 				?.getAttribute("aria-selected"),
 		).toBe("true");
+	});
+
+	test("uses full-row highlight only for selected activity entries", async () => {
+		wideActivityLayout = true;
+		feedItems = [
+			createFeedItem({
+				id: "run-1",
+				name: "Build One",
+				projectId: "proj-1",
+				projectName: "Project One",
+			}),
+			createFeedItem({
+				id: "run-2",
+				name: "Build Two",
+				projectId: "proj-2",
+				projectName: "Project Two",
+				status: "waiting",
+			}),
+		];
+
+		await renderHomePage();
+
+		await waitFor(() => {
+			expect(getActivityRow("Build One").getAttribute("aria-selected")).toBe(
+				"true",
+			);
+		});
+
+		const selectedRunningRow = getActivityRow("Build One");
+		const waitingRow = getActivityRow("Build Two");
+		expect(selectedRunningRow.classList.contains("bg-surface")).toBe(true);
+		expect(selectedRunningRow.classList.contains("ring-1")).toBe(true);
+		expect(selectedRunningRow.classList.contains("bg-accent-ghost")).toBe(
+			false,
+		);
+		expect(waitingRow.getAttribute("aria-selected")).toBe("false");
+		expect(waitingRow.classList.contains("bg-accent-ghost")).toBe(false);
+		expect(waitingRow.classList.contains("bg-surface")).toBe(false);
+		expect(waitingRow.classList.contains("ring-1")).toBe(false);
+		expect(
+			within(waitingRow)
+				.getByLabelText("Waiting")
+				.classList.contains("bg-accent-amber"),
+		).toBe(true);
+		expect(
+			within(waitingRow)
+				.getByText("waiting")
+				.classList.contains("text-accent-amber"),
+		).toBe(true);
+
+		fireEvent.click(waitingRow);
+
+		await waitFor(() => {
+			expect(getActivityRow("Build Two").getAttribute("aria-selected")).toBe(
+				"true",
+			);
+		});
+		const selectedWaitingRow = getActivityRow("Build Two");
+		expect(getActivityRow("Build One").getAttribute("aria-selected")).toBe(
+			"false",
+		);
+		expect(selectedWaitingRow.classList.contains("bg-surface")).toBe(true);
+		expect(selectedWaitingRow.classList.contains("ring-1")).toBe(true);
+		expect(selectedWaitingRow.classList.contains("bg-accent-ghost")).toBe(
+			false,
+		);
+		expect(
+			within(selectedWaitingRow)
+				.getByText("waiting")
+				.classList.contains("text-accent-amber"),
+		).toBe(true);
 	});
 
 	test("opens the project from the dedicated project area in the wide activity row", async () => {

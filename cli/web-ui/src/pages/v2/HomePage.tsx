@@ -189,7 +189,6 @@ function FeedEntry({
 				"transition-colors duration-150",
 				"hover:bg-surface",
 				"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
-				run.status === "waiting" && "bg-accent-ghost",
 				selected && "bg-surface ring-1 ring-border",
 			)}
 		>
