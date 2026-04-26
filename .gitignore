@@ -12,9 +12,6 @@ dist/
 # rp1 work directory (features, archives, scratch)
 .rp1/work/
 
-# Promptfoo eval history (per-repo SQLite DB and logs)
-.promptfoo/
-
 # MkDocs build output
 site/
 

@@ -13,7 +13,8 @@ import { join, resolve } from "node:path";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../../../");
 const EVAL_LAUNCHER_PATH = join(REPO_ROOT, "docker", "eval-run.sh");
-const PROMPTFOO_CONFIG_DIR_SNIPPET = `promptfoo_config_dir="\${PROMPTFOO_CONFIG_DIR:-\${main_worktree}/.promptfoo}"`;
+const PROMPTFOO_CONFIG_DIR_SNIPPET = `promptfoo_config_dir="\${PROMPTFOO_CONFIG_DIR:-\${HOME}/.promptfoo}"`;
+const HOST_PROMPTFOO_CONFIG_DIR = join(process.env.HOME ?? "", ".promptfoo");
 
 let tempDirs: string[] = [];
 
@@ -119,6 +120,7 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 					DOCKER_STUB_LOG_DIR: logDir,
 					ANTHROPIC_API_KEY: "anthropic-test",
 					GITHUB_TOKEN: "github-test",
+					PROMPTFOO_CONFIG_DIR: "",
 					RP1_DB: "/tmp/host-rp1.db",
 					RP1_EVAL_MODE: "true",
 				},
@@ -151,10 +153,12 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 		expect(runArgs).toContain(
 			"rp1-dev-evals-node_modules:/src/rp1/evals/node_modules",
 		);
-		const gitCommonDir = await getGitRevParse("--git-common-dir");
-		const mainWorktree = resolve(gitCommonDir, "..");
-		expect(runArgs).toContain(`${mainWorktree}/.promptfoo:/src/rp1/.promptfoo`);
-		expect(runArgs).toContain("PROMPTFOO_CONFIG_DIR=/src/rp1/.promptfoo");
+		expect(runArgs).toContain(
+			`${HOST_PROMPTFOO_CONFIG_DIR}:/home/rp1user/.promptfoo`,
+		);
+		expect(runArgs).toContain(
+			"PROMPTFOO_CONFIG_DIR=/home/rp1user/.promptfoo",
+		);
 		expect(runArgs).toContain("ANTHROPIC_API_KEY");
 		expect(runArgs).toContain("GITHUB_TOKEN");
 		expect(runArgs).not.toContain("OPENAI_API_KEY");
@@ -170,6 +174,7 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 		expect(runArgs).not.toContain("17710:7710");
 
 		const gitDir = await getGitRevParse("--git-dir");
+		const gitCommonDir = await getGitRevParse("--git-common-dir");
 		if (gitDir !== gitCommonDir) {
 			expect(runArgs).toContain(`${REPO_ROOT}:${REPO_ROOT}`);
 			expect(runArgs).toContain(`${gitCommonDir}:${gitCommonDir}`);
@@ -346,7 +351,7 @@ esac
 		expect(gitLog).toContain(`-C ${REPO_ROOT} commit -m`);
 	});
 
-	test("stores promptfoo state in repo-local work dir for evals and host view", async () => {
+	test("uses host promptfoo home for evals and host view", async () => {
 		const evalRunLocal = await runCommand(
 			"just",
 			["--show", "eval-run-local"],

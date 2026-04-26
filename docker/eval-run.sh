@@ -13,7 +13,7 @@ attest=false
 host_commit_outputs_file=""
 container_commit_outputs_file=""
 host_promptfoo_config_dir=""
-container_promptfoo_config_dir="/src/rp1/.promptfoo"
+container_promptfoo_config_dir="/home/rp1user/.promptfoo"
 
 for arg in "$@"; do
     case "$arg" in
@@ -83,19 +83,13 @@ add_worktree_git_mounts() {
 }
 
 setup_promptfoo_config_mount() {
-    local git_common_dir
-    local main_worktree
-
     if [ -n "${PROMPTFOO_CONFIG_DIR-}" ]; then
         case "$PROMPTFOO_CONFIG_DIR" in
             /*) host_promptfoo_config_dir="$PROMPTFOO_CONFIG_DIR" ;;
             *) host_promptfoo_config_dir="${repo_root}/${PROMPTFOO_CONFIG_DIR}" ;;
         esac
     else
-        git_common_dir="$(git -C "$repo_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
-        main_worktree="${git_common_dir%/*}"
-        [ -z "$main_worktree" ] && main_worktree="$repo_root"
-        host_promptfoo_config_dir="${main_worktree}/.promptfoo"
+        host_promptfoo_config_dir="${HOME}/.promptfoo"
     fi
 
     mkdir -p "$host_promptfoo_config_dir"
