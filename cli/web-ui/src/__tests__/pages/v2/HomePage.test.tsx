@@ -453,16 +453,12 @@ describe("HomePage", () => {
 		});
 	});
 
-	test("uses activity keyboard navigation to open a run workspace on narrow layouts", async () => {
+	test("does not use activity keyboard navigation on narrow layouts", async () => {
 		await renderHomePage();
 
 		fireEvent.keyDown(document, { key: "j" });
 
-		await waitFor(() => {
-			expect(screen.getByTestId("location-probe").textContent).toBe(
-				"/runs/run-1",
-			);
-		});
+		expect(screen.getByTestId("location-probe").textContent).toBe("/");
 	});
 
 	test("does not intercept editor or text-entry navigation keys", async () => {

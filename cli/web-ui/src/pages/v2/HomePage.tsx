@@ -483,7 +483,7 @@ export function HomePage() {
 	);
 
 	useEffect(() => {
-		if (items.length === 0) return;
+		if (!isWideActivityLayout || items.length === 0) return;
 
 		const handleKeyDown = (event: KeyboardEvent) => {
 			if (!ACTIVITY_NAVIGATION_KEYS.has(event.key)) return;
@@ -511,7 +511,7 @@ export function HomePage() {
 
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [handleRunClick, items, selectedRunId]);
+	}, [handleRunClick, isWideActivityLayout, items, selectedRunId]);
 
 	const handleExpandSelectedRun = useCallback(() => {
 		if (!selectedRunId) return;
