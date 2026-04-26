@@ -2291,6 +2291,7 @@ export interface ListRunsOptions {
 	readonly projectPaths?: readonly string[];
 	readonly projectId?: string;
 	readonly status?: Status;
+	readonly excludeBootstrapOnly?: boolean;
 	readonly limit?: number;
 	readonly offset?: number;
 }
@@ -2345,6 +2346,14 @@ export const listRuns = (
 	if (opts.status != null) {
 		conditions.push("status = ?");
 		filterValues.push(opts.status);
+	}
+	if (opts.excludeBootstrapOnly === true) {
+		conditions.push(
+			`(runs.bootstrap_context IS NULL OR EXISTS (
+				SELECT 1 FROM events
+				WHERE events.run_id = runs.id
+			))`,
+		);
 	}
 
 	const whereClause =

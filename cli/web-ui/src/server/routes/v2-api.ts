@@ -1298,6 +1298,7 @@ export async function handleV2RunsListRequest(
 			projectId: dbProjectIdFilter,
 			projectPath: dbProjectIdFilter ? undefined : projectPathFilter,
 			status: dbStatus,
+			excludeBootstrapOnly: true,
 			limit,
 			offset,
 		});
@@ -2399,6 +2400,7 @@ export async function handleV2FeedRequest(
 			status: dbStatus as
 				| import("../../../../shared/events.js").Status
 				| undefined,
+			excludeBootstrapOnly: true,
 			limit: 200,
 			offset: 0,
 		});
