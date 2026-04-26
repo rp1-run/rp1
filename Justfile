@@ -480,8 +480,14 @@ eval-setup:
 #   just eval-run-local rp1-dev/build-fast # run inside the current environment
 
 # Run eval suites in Docker. Optional: suite path, --harness=opencode, --platform=<platform>, --attest, --commit, --verbose
+# Bounces the host-side promptfoo view daemon before and after Docker so it watches the active eval DB and re-indexes final results.
 eval-run *args:
+    #!/usr/bin/env bash
+    just eval-dashboard-reload
     ./docker/eval-run.sh {{ args }}
+    eval_exit=$?
+    just eval-dashboard-reload
+    exit $eval_exit
 
 # Run eval suites in the current environment. Container-only entrypoint for Dockerized evals.
 eval-run-local *args:
@@ -490,7 +496,7 @@ eval-run-local *args:
     repo_root="$(pwd)"
     export PATH="${repo_root}/bin:$PATH"
     evals_dir="${repo_root}/evals"
-    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/work/promptfoo}"
+    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${HOME}/.promptfoo}"
 
     mkdir -p "$promptfoo_config_dir"
     export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"
@@ -590,7 +596,7 @@ eval-view:
     #!/usr/bin/env bash
     set -e
     repo_root="$(pwd)"
-    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/work/promptfoo}"
+    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${HOME}/.promptfoo}"
 
     mkdir -p "$promptfoo_config_dir"
     export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"
@@ -604,7 +610,7 @@ eval-dashboard-reload:
     #!/usr/bin/env bash
     set -e
     repo_root="$(pwd)"
-    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/work/promptfoo}"
+    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${HOME}/.promptfoo}"
     mkdir -p "$promptfoo_config_dir"
     export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"
 
@@ -615,13 +621,44 @@ eval-dashboard-reload:
     # Give the port a moment to release.
     sleep 1
 
-    # Start the view server in the background. Output goes to a rotating log
-    # under the promptfoo config dir so it is trivially grep-able.
+    # Start the view server as a detached child process. Plain shell
+    # backgrounding leaves promptfoo tied to the launching shell on macOS, so it
+    # can disappear as soon as just exits.
     log_file="${promptfoo_config_dir}/logs/dashboard.log"
     mkdir -p "$(dirname "$log_file")"
-    cd evals
-    nohup bunx promptfoo view -n >"$log_file" 2>&1 &
-    disown || true
+    PROMPTFOO_DASHBOARD_LOG="$log_file" bun --eval '
+    import { spawn } from "node:child_process";
+    import { closeSync, openSync } from "node:fs";
+
+    const logFile = process.env.PROMPTFOO_DASHBOARD_LOG;
+    if (!logFile) {
+        throw new Error("PROMPTFOO_DASHBOARD_LOG is required");
+    }
+
+    const logFd = openSync(logFile, "w");
+    const child = spawn("bunx", ["promptfoo", "view", "-n"], {
+        cwd: "evals",
+        detached: true,
+        env: process.env,
+        stdio: ["ignore", logFd, logFd],
+    });
+    child.unref();
+    closeSync(logFd);
+    '
+
+    dashboard_ready=false
+    for _ in {1..10}; do
+        if lsof -nP -iTCP:15500 -sTCP:LISTEN >/dev/null 2>&1; then
+            dashboard_ready=true
+            break
+        fi
+        sleep 1
+    done
+    if [ "$dashboard_ready" != "true" ]; then
+        echo "Dashboard failed to stay running; log: $log_file"
+        tail -n 40 "$log_file" 2>/dev/null || true
+        exit 0
+    fi
     echo "Dashboard restarting; log: $log_file"
     echo "Default URL: http://localhost:15500/"
 

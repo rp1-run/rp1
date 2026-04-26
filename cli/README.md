@@ -176,13 +176,32 @@ rp1 uninstall opencode
 
 Tools for AI agents (lazy-loaded to avoid startup overhead).
 
+| Command | Description |
+|---------|-------------|
+| `mmd-validate` | Validate Mermaid diagram syntax from a file or stdin |
+| `rp1-root-dir` | Resolve the current rp1 project, KB, and work directories |
+| `work-search` | Search project-scoped markdown artifacts under `.rp1/work` |
+
 ```bash
 # Validate Mermaid diagram syntax
 rp1 agent-tools mmd-validate ./document.md
 
 # Pipe diagram content
 cat diagram.mmd | rp1 agent-tools mmd-validate
+
+# Search prior work artifacts in the active project
+rp1 agent-tools work-search "phase plan" --limit 5
+
+# Refresh the work-search sidecar index without searching
+rp1 agent-tools work-search --refresh-only
 ```
+
+`work-search` refreshes the project-local `.rp1/search.db` sidecar index by
+default, searches only markdown work artifacts for the resolved project, and
+returns a JSON `ToolResult` with ranked snippets, normalized work paths, project
+scope, refresh stats, and artifact metadata. Use `--project <path>` to search an
+explicit rp1 project, `--no-refresh` to query an existing index, and
+`--limit <n>` to cap results (default 10, max 50).
 
 ## Global Options
 

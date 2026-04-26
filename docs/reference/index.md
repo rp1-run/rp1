@@ -47,6 +47,12 @@ maintenance workflows.
 | [`guide`](base/guide.md) | Discover skills, get workflow guidance, and ask about rp1 capabilities |
 | [`self-update`](base/self-update.md) | Update rp1 and refresh installed plugins |
 
+### Base Plugin Agent Tools
+
+| Tool | Description |
+|------|-------------|
+| [`work-search`](base/work-search.md) | Search project-scoped markdown work artifacts through `rp1 agent-tools work-search` |
+
 [:octicons-arrow-right-24: Base Plugin Reference](base/index.md)
 
 ---

@@ -14,7 +14,7 @@ providers:
   - id: anthropic:claude-agent-sdk
     label: rp1-agentic-eval
     config:
-      model: haiku
+      model: sonnet
       betas:
         - fast-mode-2026-02-01
       permission_mode: bypassPermissions
@@ -74,15 +74,15 @@ tests:
           Evaluate the agent's output text for quality and structure.
 
           REQUIRED (all must pass):
-          1. Output contains "Scope" section with scope classification (Small, Medium, or Large)
-          2. Output contains reasoning about files affected, systems involved, risk level, and estimated effort
+          1. Output contains scope classification (Small, Medium, or Large)
+          2. For Small/Medium scope: Output lists files changed/created or otherwise summarizes implementation changes
           3. For Small/Medium scope: Output contains "Build Fast Complete" section with request summary
           4. For Small/Medium scope: Output references artifact at .rp1/work/quick-builds/ with date-based filename pattern ({yyyy-mm-dd}-{slug}-{n}.md)
           5. For Small/Medium scope: Output contains "Quality" section (or similarly worded) showing format/lint/test status
-          6. Output indicates changes are uncommitted in working directory
+          6. Output is coherent and does not claim the implementation is incomplete or waiting on user input
 
-          PASS if: Output is well-structured with clear scope reasoning and completion summary
-          FAIL if: Missing scope classification, no completion summary, or incoherent output structure
+          PASS if: Output is well-structured with clear scope, artifact, change summary, and quality status
+          FAIL if: Missing scope classification, missing completion summary, missing artifact path, missing quality status, or incoherent output
   - description: "large_scope_redirect"
     vars:
       DEVELOPMENT_REQUEST: "rewrite the entire authentication system from scratch, migrate to a new database schema, and update all API endpoints to use GraphQL instead of REST"

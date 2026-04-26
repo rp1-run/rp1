@@ -13,7 +13,8 @@ import { join, resolve } from "node:path";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../../../");
 const EVAL_LAUNCHER_PATH = join(REPO_ROOT, "docker", "eval-run.sh");
-const PROMPTFOO_CONFIG_DIR_SNIPPET = `promptfoo_config_dir="\${PROMPTFOO_CONFIG_DIR:-\${repo_root}/.rp1/work/promptfoo}"`;
+const PROMPTFOO_CONFIG_DIR_SNIPPET = `promptfoo_config_dir="\${PROMPTFOO_CONFIG_DIR:-\${HOME}/.promptfoo}"`;
+const HOST_PROMPTFOO_CONFIG_DIR = join(process.env.HOME ?? "", ".promptfoo");
 
 let tempDirs: string[] = [];
 
@@ -119,6 +120,7 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 					DOCKER_STUB_LOG_DIR: logDir,
 					ANTHROPIC_API_KEY: "anthropic-test",
 					GITHUB_TOKEN: "github-test",
+					PROMPTFOO_CONFIG_DIR: "",
 					RP1_DB: "/tmp/host-rp1.db",
 					RP1_EVAL_MODE: "true",
 				},
@@ -150,6 +152,12 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 		expect(runArgs).toContain(`${REPO_ROOT}:/src/rp1`);
 		expect(runArgs).toContain(
 			"rp1-dev-evals-node_modules:/src/rp1/evals/node_modules",
+		);
+		expect(runArgs).toContain(
+			`${HOST_PROMPTFOO_CONFIG_DIR}:/home/rp1user/.promptfoo`,
+		);
+		expect(runArgs).toContain(
+			"PROMPTFOO_CONFIG_DIR=/home/rp1user/.promptfoo",
 		);
 		expect(runArgs).toContain("ANTHROPIC_API_KEY");
 		expect(runArgs).toContain("GITHUB_TOKEN");
@@ -343,7 +351,14 @@ esac
 		expect(gitLog).toContain(`-C ${REPO_ROOT} commit -m`);
 	});
 
-	test("stores promptfoo state in repo-local work dir for evals and host view", async () => {
+	test("uses host promptfoo home for evals and host view", async () => {
+		const evalRun = await runCommand("just", ["--show", "eval-run"], {
+			cwd: REPO_ROOT,
+			env: {
+				...process.env,
+				NO_COLOR: "1",
+			},
+		});
 		const evalRunLocal = await runCommand(
 			"just",
 			["--show", "eval-run-local"],
@@ -362,13 +377,33 @@ esac
 				NO_COLOR: "1",
 			},
 		});
+		const evalDashboardReload = await runCommand(
+			"just",
+			["--show", "eval-dashboard-reload"],
+			{
+				cwd: REPO_ROOT,
+				env: {
+					...process.env,
+					NO_COLOR: "1",
+				},
+			},
+		);
 
+		expect(evalRun.exitCode).toBe(0);
 		expect(evalRunLocal.exitCode).toBe(0);
 		expect(evalView.exitCode).toBe(0);
+		expect(evalDashboardReload.exitCode).toBe(0);
+		expect(
+			(evalRun.stdout.match(/just eval-dashboard-reload/g) ?? []).length,
+		).toBe(2);
 		expect(evalRunLocal.stdout).toContain(PROMPTFOO_CONFIG_DIR_SNIPPET);
 		expect(evalRunLocal.stdout).toContain(
 			'export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"',
 		);
+		expect(evalDashboardReload.stdout).toContain(
+			'const child = spawn("bunx", ["promptfoo", "view", "-n"], {',
+		);
+		expect(evalDashboardReload.stdout).toContain("detached: true");
 		expect(evalView.stdout).toContain(PROMPTFOO_CONFIG_DIR_SNIPPET);
 		expect(evalView.stdout).toContain(
 			'export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"',
