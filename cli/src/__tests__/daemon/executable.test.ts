@@ -94,10 +94,13 @@ describe("resolveDaemonExecutablePath", () => {
 		expect(resolved).toBe(bundled);
 	});
 
-	test("falls back to the development repository binary in native development", () => {
+	test("falls back to the development repository binary in native development", async () => {
+		const development = await executableFixture("development/rp1");
+
 		const resolved = resolveDaemonExecutablePath({
 			native: true,
 			env: {},
+			developmentExecutablePath: development,
 			processExecPath: join(
 				tempDir,
 				"NativeShell.app",
@@ -107,20 +110,22 @@ describe("resolveDaemonExecutablePath", () => {
 			),
 		});
 
-		expect(resolved.endsWith(join("bin", "rp1"))).toBe(true);
+		expect(resolved).toBe(development);
 	});
 
 	test("keeps the development repository binary ahead of compiled CLI fallback", async () => {
+		const development = await executableFixture("development/rp1");
 		await mkdir(join(tempDir, "compiled"), { recursive: true });
 		const compiled = await executableFixture("compiled/custom-rp1");
 
 		const resolved = resolveDaemonExecutablePath({
 			native: false,
 			env: {},
+			developmentExecutablePath: development,
 			processExecPath: compiled,
 		});
 
-		expect(resolved.endsWith(join("bin", "rp1"))).toBe(true);
+		expect(resolved).toBe(development);
 	});
 
 	test("uses PATH only for non-native CLI launches after bundled and development candidates", async () => {
@@ -131,12 +136,11 @@ describe("resolveDaemonExecutablePath", () => {
 			env: {
 				PATH: join(tempDir, "path-bin"),
 			},
+			developmentExecutablePath: join(tempDir, "missing-development", "rp1"),
 			processExecPath: join(tempDir, "node"),
 		});
 
-		expect(
-			resolved.endsWith(join("bin", "rp1")) || resolved === pathExecutable,
-		).toBe(true);
+		expect(resolved).toBe(pathExecutable);
 	});
 
 	test("reports a native explicit-path failure without falling back to PATH", async () => {

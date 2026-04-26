@@ -229,15 +229,21 @@ codex:
 
 # Launch the macOS native Arcade shell in Electrobun dev mode.
 # Omit PROJECT for registered projects, or pass PROJECT=/path for direct launch.
-native-app-dev *launch_args: build-local-dev
+native-app-dev project_arg="" rp1_arg="": build-local-dev
     #!/usr/bin/env bash
     set -euo pipefail
     repo_root="$(pwd)"
-    rp1_executable="{{ RP1_EXECUTABLE }}"
-    project_path="{{ PROJECT }}"
-    launch_args=( {{ launch_args }} )
+    default_rp1_executable={{ quote(RP1_EXECUTABLE) }}
+    rp1_executable="$default_rp1_executable"
+    project_path={{ quote(PROJECT) }}
+    project_arg={{ quote(project_arg) }}
+    rp1_arg={{ quote(rp1_arg) }}
 
-    for launch_arg in "${launch_args[@]}"; do
+    apply_native_app_arg() {
+        local launch_arg="$1"
+        if [ -z "$launch_arg" ]; then
+            return
+        fi
         case "$launch_arg" in
             PROJECT=*)
                 project_path="${launch_arg#PROJECT=}"
@@ -251,7 +257,10 @@ native-app-dev *launch_args: build-local-dev
                 exit 2
                 ;;
         esac
-    done
+    }
+
+    apply_native_app_arg "$project_arg"
+    apply_native_app_arg "$rp1_arg"
 
     if [[ "$rp1_executable" != /* ]]; then
         rp1_executable="${repo_root}/${rp1_executable}"
@@ -274,8 +283,8 @@ native-app-dev *launch_args: build-local-dev
 # Test
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Run all tests (CLI + evals)
-test: test-cli test-evals
+# Run all tests (CLI + native app + evals)
+test: test-cli test-native-app test-evals
 
 # Run CLI unit tests (fast)
 test-unit:
@@ -289,6 +298,10 @@ test-integration:
 test-cli:
     cd cli && bun run test
 
+# Run native app tests
+test-native-app:
+    cd native-app && bun run test
+
 # Run evals unit tests
 test-evals:
     cd evals && bun run test
@@ -298,11 +311,15 @@ test-evals:
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Lint and type check everything
-check: check-cli check-web-ui check-evals
+check: check-cli check-native-app check-web-ui check-evals
 
 # Lint and type check CLI
 check-cli:
     cd cli && bun run lint && bun run typecheck && bun run format
+
+# Type check native app
+check-native-app:
+    cd native-app && bun run typecheck
 
 # Type check web-ui
 check-web-ui:

@@ -6,6 +6,8 @@
 	"scripts": {
 		"dev": "electrobun dev --watch",
 		"build:macos": "electrobun build --env=dev",
+		"check": "bun run typecheck && bun run test",
+		"test": "bun test",
 		"typecheck": "tsc --noEmit --strict --skipLibCheck --target ES2022 --module ESNext --moduleResolution bundler --types bun-types electrobun.config.ts src/bun/index.ts"
 	},
 	"dependencies": {

@@ -21,6 +21,7 @@ export interface DaemonExecutableResolutionOptions {
 	readonly native?: boolean;
 	readonly env?: Record<string, string | undefined>;
 	readonly cwd?: string;
+	readonly developmentExecutablePath?: string;
 	readonly processExecPath?: string;
 	readonly platform?: NodeJS.Platform;
 }
@@ -160,6 +161,9 @@ export function resolveDaemonExecutablePath(
 	const native = options.native ?? false;
 	const env = options.env ?? process.env;
 	const cwd = options.cwd ?? process.cwd();
+	const developmentExecutablePath = options.developmentExecutablePath
+		? normalizeCandidatePath(options.developmentExecutablePath, cwd)
+		: join(moduleRepoRoot(), "bin", "rp1");
 	const processExecPath = options.processExecPath ?? process.execPath;
 	const platform = options.platform ?? process.platform;
 	const checkedLocations: CheckedDaemonExecutableLocation[] = [];
@@ -196,7 +200,7 @@ export function resolveDaemonExecutablePath(
 		},
 		{
 			source: "development",
-			path: join(moduleRepoRoot(), "bin", "rp1"),
+			path: developmentExecutablePath,
 		},
 	);
 
