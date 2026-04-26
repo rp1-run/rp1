@@ -19,7 +19,10 @@ import {
 	resetInstance,
 	upsertArtifact,
 } from "../../../agent-tools/emit/database.js";
-import { executeEmit } from "../../../agent-tools/emit/index.js";
+import {
+	executeEmit,
+	setEmitDaemonModuleLoaderForTesting,
+} from "../../../agent-tools/emit/index.js";
 import type { EmitInput } from "../../../agent-tools/emit/models.js";
 import {
 	createTempDir,
@@ -49,6 +52,7 @@ describe("emit end-to-end", () => {
 	});
 
 	afterEach(async () => {
+		setEmitDaemonModuleLoaderForTesting();
 		closeDatabase();
 		resetInstance();
 		await rm(tempDir, { recursive: true, force: true });
@@ -121,7 +125,7 @@ describe("emit end-to-end", () => {
 		test("forwards the emitted event and generated notification to the daemon when available", async () => {
 			const notifyEventMock = mock(async () => true);
 			const notifyNotificationMock = mock(async () => true);
-			mock.module("../../../../web-ui/src/daemon/index.js", () => ({
+			setEmitDaemonModuleLoaderForTesting(async () => ({
 				connectToDaemon: async () => ({
 					port: 6710,
 					baseUrl: "http://127.0.0.1:6710",
