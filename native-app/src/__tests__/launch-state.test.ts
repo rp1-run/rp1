@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import cliPackage from "../../../cli/package.json";
 
 class MockDaemonExecutableResolutionError extends Error {
 	readonly checkedLocations: readonly unknown[];
@@ -164,7 +165,7 @@ describe("native launch state", () => {
 		expect(launchArcadeMock).toHaveBeenCalledWith({
 			projectPath: undefined,
 			rp1ExecutablePath: "/tmp/rp1",
-			cliVersion: "0.7.5-dev",
+			cliVersion: `${cliPackage.version}-dev`,
 			openProjectListWhenMissing: true,
 		});
 	});
