@@ -195,7 +195,7 @@ function FeedEntry({
 		>
 			<StatusDot status={run.status} />
 
-			<div className="flex min-w-0 flex-1 items-center gap-3 xl:flex-col xl:items-stretch xl:gap-1">
+			<div className="flex min-w-0 flex-1 flex-col items-stretch gap-1">
 				<div className="flex min-w-0 flex-1 items-center gap-3 xl:gap-2">
 					<span className="w-[5.5em] shrink-0 text-right type-secondary tabular-nums text-fg-ghost xl:w-auto xl:text-left">
 						{formatRelativeTime(latestEventAt)}
@@ -238,7 +238,7 @@ function FeedEntry({
 					<NotebookTabs className="h-3.5 w-3.5" strokeWidth={1.5} />
 				</button>
 
-				<span className="pointer-events-none ml-auto flex min-w-0 max-w-full shrink-0 items-center gap-1 pl-4 pr-7 type-secondary italic text-fg-ghost xl:ml-0 xl:pl-0 xl:pr-0">
+				<span className="pointer-events-none flex min-w-0 max-w-full shrink-0 items-center gap-1 type-secondary italic text-fg-ghost">
 					<NotebookTabs className="h-3 w-3 shrink-0" strokeWidth={1.5} />
 					<span className="truncate">{run.projectName}</span>
 				</span>
