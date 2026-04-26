@@ -372,7 +372,7 @@ describe("HomePage", () => {
 		).toBe("true");
 	});
 
-	test("treats project metadata clicks as run selection in the wide activity row", async () => {
+	test("opens the project from the dedicated project area in the wide activity row", async () => {
 		wideActivityLayout = true;
 
 		await renderHomePage();
@@ -381,12 +381,15 @@ describe("HomePage", () => {
 			expect(getPreviewText()).toBe("Preview run-1");
 		});
 
-		fireEvent.click(screen.getByText("Project Two"));
+		fireEvent.click(
+			screen.getByRole("button", { name: "Open project Project Two" }),
+		);
 
 		await waitFor(() => {
-			expect(getPreviewText()).toBe("Preview run-2");
+			expect(screen.getByTestId("location-probe").textContent).toBe(
+				"/projects/proj-2",
+			);
 		});
-		expect(screen.getByTestId("location-probe").textContent).toBe("/");
 	});
 
 	test("expands the selected run by focusing its existing workspace tab", async () => {
