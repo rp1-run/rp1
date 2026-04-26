@@ -98,11 +98,11 @@ export function FilterBar({
 	];
 
 	return (
-		<div className={cn("flex flex-wrap items-center gap-1", className)}>
+		<div className={cn("flex w-full flex-col gap-2", className)}>
 			<div
 				role="tablist"
 				aria-label="Filter by status"
-				className="flex shrink-0 flex-wrap items-center gap-1"
+				className="-mx-0.5 flex max-w-full items-center gap-0.5 overflow-x-auto px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 			>
 				{STATUS_TABS.map((tab) => (
 					<button
@@ -112,7 +112,7 @@ export function FilterBar({
 						aria-selected={filters.status === tab.value}
 						onClick={() => handleStatusChange(tab.value)}
 						className={cn(
-							"px-2 py-1 rounded-md text-xs font-medium transition-colors duration-150",
+							"shrink-0 rounded-md px-1.5 py-1 text-[11px] font-medium leading-none transition-colors duration-150",
 							filters.status === tab.value
 								? "bg-surface text-fg"
 								: "text-fg-ghost hover:text-fg-muted hover:bg-surface/50",
@@ -123,41 +123,36 @@ export function FilterBar({
 				))}
 			</div>
 
-			<span
-				className="shrink-0 text-fg-ghost/40 select-none mx-1"
-				aria-hidden="true"
-			>
-				·
-			</span>
+			<div className="flex min-w-0 flex-wrap items-center gap-1.5">
+				<Select
+					size="sm"
+					value={filters.projectId ?? ""}
+					options={projectOptions}
+					onChange={(val) => handleProjectChange(val === "" ? null : val)}
+					placeholder="All Projects"
+					label="Filter by project"
+				/>
 
-			<Select
-				size="sm"
-				value={filters.projectId ?? ""}
-				options={projectOptions}
-				onChange={(val) => handleProjectChange(val === "" ? null : val)}
-				placeholder="All Projects"
-				label="Filter by project"
-			/>
+				<Select
+					size="sm"
+					value={filters.dateRange}
+					options={DATE_RANGES}
+					onChange={(val) => handleDateRangeChange(val)}
+					placeholder="All Time"
+					label="Filter by date range"
+				/>
 
-			<Select
-				size="sm"
-				value={filters.dateRange}
-				options={DATE_RANGES}
-				onChange={(val) => handleDateRangeChange(val)}
-				placeholder="All Time"
-				label="Filter by date range"
-			/>
-
-			{hasActiveFilters && (
-				<button
-					type="button"
-					onClick={handleClearFilters}
-					className="shrink-0 inline-flex items-center justify-center h-7 w-7 rounded-md text-fg-ghost transition-colors duration-150 hover:text-fg hover:bg-surface/50"
-					aria-label="Clear filters"
-				>
-					<X className="h-3.5 w-3.5" />
-				</button>
-			)}
+				{hasActiveFilters && (
+					<button
+						type="button"
+						onClick={handleClearFilters}
+						className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-ghost transition-colors duration-150 hover:bg-surface/50 hover:text-fg"
+						aria-label="Clear filters"
+					>
+						<X className="h-3.5 w-3.5" />
+					</button>
+				)}
+			</div>
 		</div>
 	);
 }

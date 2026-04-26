@@ -185,7 +185,7 @@ function FeedEntry({
 			variants={reducedMotion ? feedItemVariantsReduced : feedItemVariants}
 			transition={reducedMotion ? { duration: 0 } : feedItemTransition}
 			className={cn(
-				"flex w-full items-center gap-3 px-3 py-2.5 text-left rounded-[var(--radius)]",
+				"group flex w-full items-center gap-2.5 px-3 py-2.5 text-left rounded-[var(--radius)]",
 				"transition-colors duration-150",
 				"hover:bg-surface",
 				"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
@@ -195,52 +195,48 @@ function FeedEntry({
 		>
 			<StatusDot status={run.status} />
 
-			<div className="flex min-w-0 flex-1 items-center gap-3 xl:flex-col xl:items-stretch xl:gap-1">
-				<div className="flex min-w-0 flex-1 items-center gap-3 xl:gap-2">
-					<span className="w-[5.5em] shrink-0 text-right type-secondary tabular-nums text-fg-ghost xl:w-auto xl:text-left">
-						{formatRelativeTime(latestEventAt)}
+			<div className="flex min-w-0 flex-1 items-center gap-3 xl:gap-2">
+				<span className="w-[5.5em] shrink-0 text-right type-secondary tabular-nums text-fg-ghost xl:w-auto xl:text-left">
+					{formatRelativeTime(latestEventAt)}
+				</span>
+
+				<span className="inline-flex w-[14px] shrink-0 items-center justify-center">
+					<HarnessIcon harness={run.harness} size={14} />
+				</span>
+
+				<span className="shrink-0 type-body font-medium text-fg xl:min-w-0 xl:truncate">
+					{run.command}
+				</span>
+
+				<span className="min-w-0 flex-1 truncate type-secondary text-fg-muted">
+					{resolveRunDisplayName(run) || run.command}
+				</span>
+
+				{statusLabel && (
+					<span className={cn("shrink-0 type-caption", statusToneClass)}>
+						{statusLabel}
 					</span>
-
-					<span className="inline-flex w-[14px] shrink-0 items-center justify-center">
-						<HarnessIcon harness={run.harness} size={14} />
-					</span>
-
-					<span className="shrink-0 type-body font-medium text-fg xl:min-w-0 xl:truncate">
-						{run.command}
-					</span>
-
-					<span className="truncate type-secondary text-fg-muted">
-						{resolveRunDisplayName(run) || run.command}
-					</span>
-
-					{statusLabel && (
-						<span className={cn("shrink-0 type-caption", statusToneClass)}>
-							{statusLabel}
-						</span>
-					)}
-				</div>
-
-				<button
-					type="button"
-					onClick={(e) => {
-						e.stopPropagation();
-						onProjectClick(run.projectId);
-					}}
-					onKeyDown={(e) => {
-						if (e.key === "Enter" || e.key === " ") {
-							e.stopPropagation();
-							onProjectClick(run.projectId);
-						}
-					}}
-					className="ml-auto flex min-w-0 max-w-full shrink-0 items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer bg-transparent border-none p-0 xl:ml-0 xl:pl-0"
-					aria-label={`Open project ${run.projectName}`}
-				>
-					<NotebookTabs className="h-3 w-3 shrink-0" strokeWidth={1.5} />
-					<span className="truncate">{run.projectName}</span>
-				</button>
-
-				<span className="w-5 shrink-0 xl:hidden" aria-hidden="true" />
+				)}
 			</div>
+
+			<button
+				type="button"
+				onClick={(e) => {
+					e.stopPropagation();
+					onProjectClick(run.projectId);
+				}}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						e.stopPropagation();
+					}
+				}}
+				className="ml-auto flex h-7 min-w-[82px] max-w-[120px] shrink-0 items-center justify-end gap-1 rounded px-1.5 type-secondary italic text-fg-ghost transition-colors duration-150 hover:bg-surface hover:text-fg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+				aria-label={`Open project ${run.projectName}`}
+				title={`Open project ${run.projectName}`}
+			>
+				<span className="truncate">{run.projectName}</span>
+				<NotebookTabs className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+			</button>
 		</motion.div>
 	);
 }
@@ -550,7 +546,7 @@ export function HomePage() {
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto px-4 py-6 md:px-6 xl:overflow-hidden xl:py-4">
-			<div className="mx-auto h-full min-h-0 max-w-[640px] xl:grid xl:max-w-none xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)] xl:gap-4">
+			<div className="mx-auto h-full min-h-0 max-w-[640px] xl:grid xl:max-w-none xl:grid-cols-[minmax(360px,460px)_minmax(0,1fr)] xl:gap-4">
 				<section
 					aria-label="Activity feed"
 					className="min-h-0 xl:flex xl:flex-col xl:overflow-hidden xl:border-r xl:border-border xl:pr-4"

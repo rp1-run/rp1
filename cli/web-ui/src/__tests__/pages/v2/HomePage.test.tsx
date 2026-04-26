@@ -372,6 +372,26 @@ describe("HomePage", () => {
 		).toBe("true");
 	});
 
+	test("opens the project from the dedicated project area in the wide activity row", async () => {
+		wideActivityLayout = true;
+
+		await renderHomePage();
+
+		await waitFor(() => {
+			expect(getPreviewText()).toBe("Preview run-1");
+		});
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "Open project Project Two" }),
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("location-probe").textContent).toBe(
+				"/projects/proj-2",
+			);
+		});
+	});
+
 	test("expands the selected run by focusing its existing workspace tab", async () => {
 		wideActivityLayout = true;
 		setStoredState({
