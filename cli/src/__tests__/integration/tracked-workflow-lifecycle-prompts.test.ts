@@ -206,6 +206,21 @@ describe("tracked workflow lifecycle prompts", () => {
 		expect(content).toContain("resume instruction");
 	});
 
+	test("closes pr-review on terminal posting completion", async () => {
+		const content = await readPrompt("plugins/dev/skills/pr-review/SKILL.md");
+		const terminalPostingLine = content
+			.split("\n")
+			.find(
+				(line) =>
+					line.includes("--workflow pr-review") &&
+					line.includes("--step posting") &&
+					line.includes('{"status": "completed"}'),
+			);
+
+		expect(terminalPostingLine).toBeDefined();
+		expect(terminalPostingLine).toContain("--close-run");
+	});
+
 	test("keeps tracked Claude workflow bundle attestations exact", async () => {
 		const manifest = JSON.parse(await readPrompt("evals/attestation.json")) as {
 			skills?: Record<
