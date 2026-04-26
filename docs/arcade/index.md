@@ -17,19 +17,6 @@ rp1 arcade
 Run that from any project directory. By default it opens the browser on
 `http://localhost:7710`.
 
-### macOS native shell
-
-Arcade also has a development-ready macOS native shell for the bootstrap phase.
-It opens the existing Arcade UI inside an Electrobun window, reuses the same
-daemon lifecycle and project registry, opens the registered projects route when
-started without a project path, and keeps browser Arcade available as the
-fallback path. Developers can also pass a project path for direct launch through
-the existing registration flow.
-
-See [macOS Native Shell](native-app.md) for the development recipe, optional
-project argument, registered-project selection check, browser fallback check,
-and deferred production packaging scope.
-
 ### Daemon lifecycle
 
 Arcade runs as a single background daemon per user environment. Every launch
@@ -183,7 +170,6 @@ where annotation controls remain available for teams using Arcade annotations.
 - [Annotations](annotations.md) - Leave and resolve feedback
 - [Keyboard Shortcuts](keyboard-shortcuts.md) - Navigate quickly
 - [Settings](settings.md) - Configure the UI
-- [macOS Native Shell](native-app.md) - Launch Arcade from the development native app
 
 ---
 

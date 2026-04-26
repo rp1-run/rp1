@@ -159,6 +159,26 @@ clean-web-ui-cache:
 build-local-dev: build-web-ui clean-web-ui-cache
     cd cli && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
 
+# Build the macOS native Arcade shell target without opening it
+build-native-app: build-local-dev
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd native-app
+    bun run build:macos
+    app_path="$(find build -maxdepth 2 -name 'RP1 Arcade-dev.app' -print -quit)"
+    if [ -z "$app_path" ]; then
+        echo "Native app build finished, but no RP1 Arcade-dev.app was found under native-app/build."
+        exit 1
+    fi
+    cp ../bin/rp1 "${app_path}/Contents/MacOS/rp1"
+    chmod +x "${app_path}/Contents/MacOS/rp1"
+    echo "Built native app: native-app/${app_path}"
+    echo "Bundled local rp1 executable: native-app/${app_path}/Contents/MacOS/rp1"
+    echo "Run later with:"
+    echo "  open -n \"native-app/${app_path}\""
+    echo "Direct project launch:"
+    echo "  RP1_NATIVE_PROJECT_PATH=\"/path/to/rp1-project\" \"native-app/${app_path}/Contents/MacOS/launcher\""
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Dev Launch (per-platform with auto-build)
 # ─────────────────────────────────────────────────────────────────────────────

@@ -11,7 +11,8 @@ class MockDaemonExecutableResolutionError extends Error {
 }
 
 interface CapturedWindow {
-	readonly initialUrl: string;
+	readonly initialHtml: string;
+	readonly loadedHtml: string[];
 	readonly loadedUrls: string[];
 	readonly navigationRules: string[][];
 	title: string;
@@ -23,13 +24,15 @@ class MockBrowserWindow {
 	readonly webview: {
 		readonly setNavigationRules: (rules: string[]) => void;
 		readonly loadURL: (url: string) => void;
+		readonly loadHTML: (html: string) => void;
 	};
 
 	readonly captured: CapturedWindow;
 
-	constructor(options: { readonly title: string; readonly url: string }) {
+	constructor(options: { readonly title: string; readonly html: string }) {
 		this.captured = {
-			initialUrl: options.url,
+			initialHtml: options.html,
+			loadedHtml: [],
 			loadedUrls: [],
 			navigationRules: [],
 			title: options.title,
@@ -41,6 +44,9 @@ class MockBrowserWindow {
 			},
 			loadURL: (url: string) => {
 				this.captured.loadedUrls.push(url);
+			},
+			loadHTML: (html: string) => {
+				this.captured.loadedHtml.push(html);
 			},
 		};
 	}
@@ -78,8 +84,11 @@ const nextImportPath = (() => {
 	return () => `../bun/index.ts?test=${counter++}`;
 })();
 
-const parseLaunchViewUrl = (url: string): URLSearchParams =>
-	new URL(url).searchParams;
+const parseLaunchViewHtmlState = (html: string): Record<string, string> => {
+	const match = html.match(/window\.__RP1_LAUNCH_STATE__=(.*?);<\/script>/);
+	if (!match) throw new Error("Expected launch state script");
+	return JSON.parse(match[1] ?? "{}") as Record<string, string>;
+};
 
 const runNativeEntrypoint = async (
 	args: readonly string[] = [],
@@ -144,10 +153,10 @@ describe("native launch state", () => {
 
 	test("loads the project-list route when no project path is supplied", async () => {
 		const window = await runNativeEntrypoint();
-		const initialParams = parseLaunchViewUrl(window.initialUrl);
+		const initialState = parseLaunchViewHtmlState(window.initialHtml);
 
-		expect(initialParams.get("status")).toBe("loading");
-		expect(initialParams.get("message")).toBe("Loading registered projects.");
+		expect(initialState.status).toBe("loading");
+		expect(initialState.message).toBe("Loading registered projects.");
 		expect(window.navigationRules[0]).toContain("http://127.0.0.1:*/*");
 		expect(window.loadedUrls).toEqual(["http://127.0.0.1:7710/projects"]);
 		expect(window.title).toBe("RP1 Arcade - Projects");
@@ -160,11 +169,11 @@ describe("native launch state", () => {
 
 	test("renders option parsing failures before launching Arcade", async () => {
 		const window = await runNativeEntrypoint(["--project"]);
-		const initialParams = parseLaunchViewUrl(window.initialUrl);
+		const initialState = parseLaunchViewHtmlState(window.initialHtml);
 
-		expect(initialParams.get("status")).toBe("failure");
-		expect(initialParams.get("title")).toBe("Launch options need attention");
-		expect(initialParams.get("message")).toBe("Missing value for --project.");
+		expect(initialState.status).toBe("failure");
+		expect(initialState.title).toBe("Launch options need attention");
+		expect(initialState.message).toBe("Missing value for --project.");
 		expect(window.loadedUrls).toEqual([]);
 		expect(launchArcadeMock).not.toHaveBeenCalled();
 	});
@@ -177,12 +186,12 @@ describe("native launch state", () => {
 		});
 
 		const window = await runNativeEntrypoint();
-		const failureParams = parseLaunchViewUrl(window.loadedUrls.at(-1) ?? "");
+		const failureState = parseLaunchViewHtmlState(window.loadedHtml.at(-1) ?? "");
 
-		expect(failureParams.get("status")).toBe("failure");
-		expect(failureParams.get("title")).toBe("RP1 executable not found");
-		expect(failureParams.get("detail")).toContain("--rp1-executable");
-		expect(failureParams.get("detail")).toContain("RP1_NATIVE_RP1_EXECUTABLE");
+		expect(failureState.status).toBe("failure");
+		expect(failureState.title).toBe("RP1 executable not found");
+		expect(failureState.detail).toContain("--rp1-executable");
+		expect(failureState.detail).toContain("RP1_NATIVE_RP1_EXECUTABLE");
 	});
 
 	test("formats invalid project failures as project-open failures", async () => {
@@ -195,11 +204,11 @@ describe("native launch state", () => {
 		});
 
 		const window = await runNativeEntrypoint(["--project", "/tmp/not-rp1"]);
-		const failureParams = parseLaunchViewUrl(window.loadedUrls.at(-1) ?? "");
+		const failureState = parseLaunchViewHtmlState(window.loadedHtml.at(-1) ?? "");
 
-		expect(failureParams.get("status")).toBe("failure");
-		expect(failureParams.get("title")).toBe("Project cannot be opened");
-		expect(failureParams.get("message")).toContain(
+		expect(failureState.status).toBe("failure");
+		expect(failureState.title).toBe("Project cannot be opened");
+		expect(failureState.message).toContain(
 			".rp1 directory at /tmp/not-rp1 not found",
 		);
 	});
@@ -212,11 +221,11 @@ describe("native launch state", () => {
 		});
 
 		const window = await runNativeEntrypoint(["--project", "/tmp/project"]);
-		const failureParams = parseLaunchViewUrl(window.loadedUrls.at(-1) ?? "");
+		const failureState = parseLaunchViewHtmlState(window.loadedHtml.at(-1) ?? "");
 
-		expect(failureParams.get("status")).toBe("failure");
-		expect(failureParams.get("title")).toBe("Arcade port is unavailable");
-		expect(failureParams.get("detail")).toBe("Port 7710 is in use");
+		expect(failureState.status).toBe("failure");
+		expect(failureState.title).toBe("Arcade port is unavailable");
+		expect(failureState.detail).toBe("Port 7710 is in use");
 	});
 
 	test("formats daemon startup failures without loading stale project content", async () => {
@@ -225,14 +234,15 @@ describe("native launch state", () => {
 		});
 
 		const window = await runNativeEntrypoint(["--project", "/tmp/project"]);
-		const failureParams = parseLaunchViewUrl(window.loadedUrls.at(-1) ?? "");
+		const failureState = parseLaunchViewHtmlState(window.loadedHtml.at(-1) ?? "");
 
-		expect(failureParams.get("status")).toBe("failure");
-		expect(failureParams.get("title")).toBe("Arcade launch failed");
-		expect(failureParams.get("detail")).toBe(
+		expect(failureState.status).toBe("failure");
+		expect(failureState.title).toBe("Arcade launch failed");
+		expect(failureState.detail).toBe(
 			"Daemon started but failed to become healthy",
 		);
-		expect(window.loadedUrls).toHaveLength(1);
+		expect(window.loadedUrls).toHaveLength(0);
+		expect(window.loadedHtml).toHaveLength(1);
 	});
 
 	test("formats project registration failures as launch failures", async () => {
@@ -241,12 +251,12 @@ describe("native launch state", () => {
 		});
 
 		const window = await runNativeEntrypoint(["--project", "/tmp/project"]);
-		const failureParams = parseLaunchViewUrl(window.loadedUrls.at(-1) ?? "");
+		const failureState = parseLaunchViewHtmlState(window.loadedHtml.at(-1) ?? "");
 
-		expect(failureParams.get("status")).toBe("failure");
-		expect(failureParams.get("message")).toBe(
+		expect(failureState.status).toBe("failure");
+		expect(failureState.message).toBe(
 			"The native shell could not start or connect to Arcade for this launch.",
 		);
-		expect(failureParams.get("detail")).toBe("Project registration failed");
+		expect(failureState.detail).toBe("Project registration failed");
 	});
 });

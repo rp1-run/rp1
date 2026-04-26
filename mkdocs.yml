@@ -94,7 +94,6 @@ nav:
     - Artifact Viewer: arcade/artifact-viewer.md
     - Keyboard Shortcuts: arcade/keyboard-shortcuts.md
     - Settings: arcade/settings.md
-    - macOS Native Shell: arcade/native-app.md
   - Comparison:
     - Why rp1?: comparison/vs-raw-prompting.md
   - Reference:

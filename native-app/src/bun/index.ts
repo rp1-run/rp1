@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { BrowserWindow } from "electrobun/bun";
 import { type CLIError, formatError } from "../../../cli/shared/errors.js";
@@ -24,7 +25,10 @@ interface LaunchViewState {
 	readonly detail?: string;
 }
 
-const LAUNCH_VIEW_URL = "views://launch/index.html";
+const LAUNCH_VIEW_TEMPLATE = readFileSync(
+	resolve(import.meta.dir, "../views/launch/index.html"),
+	"utf8",
+);
 const ARCADE_NAVIGATION_RULES = [
 	"^*",
 	"views://launch/*",
@@ -119,18 +123,12 @@ export const parseLaunchOptions = (
 	};
 };
 
-const createLaunchViewUrl = (state: LaunchViewState): string => {
-	const params = new URLSearchParams({
-		status: state.status,
-		title: state.title,
-		message: state.message,
-	});
+const escapeScriptJson = (value: LaunchViewState): string =>
+	JSON.stringify(value).replace(/</g, "\\u003c");
 
-	if (state.detail) {
-		params.set("detail", state.detail);
-	}
-
-	return `${LAUNCH_VIEW_URL}?${params.toString()}`;
+const createLaunchViewHtml = (state: LaunchViewState): string => {
+	const stateScript = `<script>window.__RP1_LAUNCH_STATE__=${escapeScriptJson(state)};</script>`;
+	return LAUNCH_VIEW_TEMPLATE.replace("</head>", `${stateScript}</head>`);
 };
 
 const createInitialState = (options: LaunchOptions): LaunchViewState => {
@@ -174,6 +172,13 @@ const loadWindowUrl = (window: NativeWindow, url: string): void => {
 		loadURL: (url: string) => void;
 	};
 	webview.loadURL(url);
+};
+
+const loadLaunchView = (window: NativeWindow, state: LaunchViewState): void => {
+	const webview = window.webview as {
+		loadHTML: (html: string) => void;
+	};
+	webview.loadHTML(createLaunchViewHtml(state));
 };
 
 const isLoopbackArcadeUrl = (url: string): boolean => {
@@ -296,13 +301,13 @@ const mainWindow = new BrowserWindow({
 		x: 80,
 		y: 80,
 	},
-	url: createLaunchViewUrl(initialState),
+	html: createLaunchViewHtml(initialState),
 });
 
 setNavigationRules(mainWindow);
 
 if (launchOptions.errors.length === 0) {
 	void launchNativeShell(mainWindow, launchOptions).catch((error) => {
-		loadWindowUrl(mainWindow, createLaunchViewUrl(formatFailureState(error)));
+		loadLaunchView(mainWindow, formatFailureState(error));
 	});
 }

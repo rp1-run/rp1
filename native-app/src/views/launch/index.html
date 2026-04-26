@@ -137,11 +137,23 @@
 			<p id="detail" class="detail" hidden></p>
 		</main>
 		<script>
+			const injectedState =
+				typeof window.__RP1_LAUNCH_STATE__ === "object" &&
+				window.__RP1_LAUNCH_STATE__ !== null
+					? window.__RP1_LAUNCH_STATE__
+					: {};
 			const params = new URLSearchParams(window.location.search);
-			const status = params.get("status") === "failure" ? "failure" : "loading";
-			const title = params.get("title") || "Opening RP1 Arcade";
-			const message = params.get("message") || "Preparing the native shell.";
-			const detail = params.get("detail") || "";
+			const status =
+				injectedState.status === "failure" || params.get("status") === "failure"
+					? "failure"
+					: "loading";
+			const title =
+				injectedState.title || params.get("title") || "Opening RP1 Arcade";
+			const message =
+				injectedState.message ||
+				params.get("message") ||
+				"Preparing the native shell.";
+			const detail = injectedState.detail || params.get("detail") || "";
 
 			document.body.dataset.status = status;
 			document.getElementById("title").textContent = title;
