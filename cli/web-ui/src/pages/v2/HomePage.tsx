@@ -185,7 +185,7 @@ function FeedEntry({
 			variants={reducedMotion ? feedItemVariantsReduced : feedItemVariants}
 			transition={reducedMotion ? { duration: 0 } : feedItemTransition}
 			className={cn(
-				"flex w-full items-center gap-3 px-3 py-2.5 text-left rounded-[var(--radius)]",
+				"group relative flex w-full items-center gap-3 py-2.5 pl-3 pr-10 text-left rounded-[var(--radius)]",
 				"transition-colors duration-150",
 				"hover:bg-surface",
 				"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
@@ -229,15 +229,19 @@ function FeedEntry({
 					onKeyDown={(e) => {
 						if (e.key === "Enter" || e.key === " ") {
 							e.stopPropagation();
-							onProjectClick(run.projectId);
 						}
 					}}
-					className="ml-auto flex min-w-0 max-w-full shrink-0 items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer bg-transparent border-none p-0 xl:ml-0 xl:pl-0"
+					className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded text-fg-ghost transition-colors duration-150 hover:bg-surface hover:text-fg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
 					aria-label={`Open project ${run.projectName}`}
+					title={`Open project ${run.projectName}`}
 				>
+					<NotebookTabs className="h-3.5 w-3.5" strokeWidth={1.5} />
+				</button>
+
+				<span className="pointer-events-none ml-auto flex min-w-0 max-w-full shrink-0 items-center gap-1 pl-4 pr-7 type-secondary italic text-fg-ghost xl:ml-0 xl:pl-0 xl:pr-0">
 					<NotebookTabs className="h-3 w-3 shrink-0" strokeWidth={1.5} />
 					<span className="truncate">{run.projectName}</span>
-				</button>
+				</span>
 
 				<span className="w-5 shrink-0 xl:hidden" aria-hidden="true" />
 			</div>

@@ -372,6 +372,23 @@ describe("HomePage", () => {
 		).toBe("true");
 	});
 
+	test("treats project metadata clicks as run selection in the wide activity row", async () => {
+		wideActivityLayout = true;
+
+		await renderHomePage();
+
+		await waitFor(() => {
+			expect(getPreviewText()).toBe("Preview run-1");
+		});
+
+		fireEvent.click(screen.getByText("Project Two"));
+
+		await waitFor(() => {
+			expect(getPreviewText()).toBe("Preview run-2");
+		});
+		expect(screen.getByTestId("location-probe").textContent).toBe("/");
+	});
+
 	test("expands the selected run by focusing its existing workspace tab", async () => {
 		wideActivityLayout = true;
 		setStoredState({
