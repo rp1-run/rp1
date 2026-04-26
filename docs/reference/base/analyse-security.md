@@ -1,6 +1,6 @@
 # analyse-security
 
-Performs comprehensive security validation including vulnerability scanning, authentication/authorization verification, compliance assessment, and penetration testing.
+Performs tracked, evidence-bounded security posture assessment for a whole project, sub-directory, concept, module, or feature topic. It maps observations to modern security standards, records scanner coverage and gaps, and writes a canonical report artifact.
 
 ---
 
@@ -9,20 +9,26 @@ Performs comprehensive security validation including vulnerability scanning, aut
 === "Claude Code"
 
     ```bash
-    /analyse-security
+    /analyse-security [--topic <path|concept|module>] [--feature-id <report-slug>] [--security-scope full] [--compliance-framework ""]
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-base-analyse-security
+    /rp1-base-analyse-security [--topic <path|concept|module>] [--feature-id <report-slug>] [--security-scope full] [--compliance-framework ""]
     ```
 
 ## Description
 
-The `analyse-security` command performs thorough security validation of your codebase including vulnerability scans, authentication/authorization verification, compliance assessment, and penetration testing. It automatically detects and runs available security scanning tools and checks for common vulnerabilities.
+The `analyse-security` command starts a tracked workflow and delegates the assessment to the `security-validator` agent. The workflow resolves canonical project directories, passes the knowledge base, work root, code root, topic, report ID, and run ID to the validator, and registers one report artifact in Arcade.
 
-The command analyzes:
+`TOPIC` is the assessment target. It can be a sub-directory path such as `cli/web-ui`, a concept such as `workflow bootstrap`, a module name, or a feature/topic slug. When `TOPIC` is omitted, the command assesses the whole project. `FEATURE_ID` is optional and only controls the stable report slug; when omitted, the report slug is derived from `TOPIC` or defaults to `project`.
+
+The examples use flag-style arguments (`--topic cli/web-ui`). Named assignment form (`TOPIC=cli/web-ui`) is also supported by hosts that expose raw named arguments.
+
+The assessment uses NIST CSF 2.0 as the posture spine and maps findings to relevant standards such as OWASP ASVS, OWASP Top 10, OWASP API Top 10, CIS Controls and Benchmarks, NIST SSDF, SLSA, OpenSSF Scorecard, NIST SP 800-63 identity guidance, privacy controls, MITRE ATT&CK/D3FEND, NIST AI RMF, and OWASP LLM/agentic risk guidance when applicable.
+
+It analyzes:
 
 - **Vulnerability Scanning**: SQL injection, XSS, CSRF, and OWASP Top 10
 - **Authentication**: Token handling, session management, password policies
@@ -30,44 +36,67 @@ The command analyzes:
 - **Input Validation**: Data sanitization, type checking, boundary validation
 - **Dependency Security**: Known vulnerabilities in dependencies
 - **Data Protection**: Encryption, secrets management, data exposure
+- **Infrastructure and Supply Chain**: IaC, containers, CI/CD, SBOM/provenance, and build integrity
+- **Detection and Response**: Logging, alerting, incident handoff, and recovery evidence
+- **AI-Agent Risk**: Prompt injection, tool overreach, untrusted context, and data exfiltration when AI workflows are present
 
 ## Parameters
 
-Output paths are fixed relative to the project root:
-- Feature reports: `.rp1/work/features/{feature_id}/`
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `TOPIC` | No | whole project | Assessment target: sub-directory path, concept, module, feature/topic slug, or empty for whole-project analysis. |
+| `FEATURE_ID` | No | derived | Optional stable report slug. When omitted, the report slug is derived from `TOPIC` or defaults to `project`. |
+| `SECURITY_SCOPE` | No | `full` | Assessment scope: `full`, `application`, `api`, `infrastructure`, `supply-chain`, `identity-privacy`, or `ai-agent`. |
+| `COMPLIANCE_FRAMEWORK` | No | empty | Optional framework focus, such as `OWASP ASVS`, `NIST CSF`, `SOC 2`, `PCI DSS`, `CIS`, or a project-specific control set. |
 
 ## Output
 
-The command produces a security validation report:
+The command produces one registered security posture report:
 
-**Location:** `.rp1/work/features/{feature_id}/security_report.md`
+**Location:** `.rp1/work/security/{REPORT_ID}/report.md`
+
+**Artifact path:** `security/{REPORT_ID}/report.md` with `storageRoot: "work_dir"`
+
+The workflow verifies that this exact file exists before registering the artifact. If the validator fails to create the expected report path, the run fails instead of registering a broken Arcade artifact link.
 
 **Contents:**
 
 | Section | Description |
 |---------|-------------|
-| Executive Summary | Overall security posture and risk level |
-| Vulnerability Findings | Issues found with severity ratings |
-| Authentication Analysis | Auth implementation review |
-| Authorization Analysis | Access control review |
-| Dependency Audit | Vulnerable packages identified |
-| Recommendations | Prioritized remediation steps |
+| Executive Summary | Posture, release recommendation, confidence, and evidence boundary |
+| Scope and Assumptions | Assets in scope, exclusions, runtime access, credentials, and assumptions |
+| Standards Mapping | Control-family mapping across NIST, OWASP, CIS, SSDF/SLSA, privacy, identity, and AI risk |
+| Attack Surface Inventory | Entry points, trust boundaries, exposed data/capabilities, and evidence |
+| Evidence Register | Source, scanner, runtime, KB, and assumption evidence with limitations |
+| Tool Matrix | Scanner commands, versions, exit status, findings, and unavailable-tool gaps |
+| Coverage Matrix | What was checked, what was not, result, confidence, and refutation condition |
+| Findings | Severity, priority, confidence, controls, abuse case, remediation, and verification |
+| POA&M | Owner/action/SLO-oriented remediation plan |
+| Release Rationale | Decision, conditions, residual risk, and risk acceptance requirements |
+| Verification Plan | Follow-up checks and closure evidence |
 
 ## Severity Levels
 
-Findings are classified by severity:
+Findings separate technical severity from contextual priority and confidence:
 
-| Level | Description | Action Required |
-|-------|-------------|-----------------|
+| Severity | Description | Typical Action |
+|----------|-------------|----------------|
 | **Critical** | Immediate exploitation risk | Fix immediately |
 | **High** | Significant vulnerability | Fix within 1 week |
 | **Medium** | Moderate risk | Fix within 1 month |
 | **Low** | Minor issue | Fix when convenient |
-| **Info** | Best practice suggestion | Consider implementing |
+| **Informational** | Best practice suggestion or evidence note | Consider implementing |
+
+| Priority | Description |
+|----------|-------------|
+| **P0** | Blocking or urgent remediation |
+| **P1** | Required before release or with explicit exception |
+| **P2** | Planned remediation |
+| **P3** | Backlog hardening |
 
 ## Examples
 
-### Run Security Analysis
+### Whole-Project Security Assessment
 
 === "Claude Code"
 
@@ -81,40 +110,85 @@ Findings are classified by severity:
     /rp1-base-analyse-security
     ```
 
+### Sub-Directory Assessment
+
+=== "Claude Code"
+
+    ```bash
+    /analyse-security --topic cli/web-ui --security-scope application
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-base-analyse-security --topic cli/web-ui --security-scope application
+    ```
+
+### Concept or Module Assessment
+
+=== "Claude Code"
+
+    ```bash
+    /analyse-security --topic "workflow bootstrap" --feature-id workflow-bootstrap
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-base-analyse-security --topic "workflow bootstrap" --feature-id workflow-bootstrap
+    ```
+
+### API-Focused Assessment
+
+=== "Claude Code"
+
+    ```bash
+    /analyse-security --topic public-api-v2 --security-scope api --compliance-framework "OWASP API Top 10 2023"
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-base-analyse-security --topic public-api-v2 --security-scope api --compliance-framework "OWASP API Top 10 2023"
+    ```
+
 **Example output:**
 ```
-✅ Security Analysis Complete
+Security assessment complete
 
 Summary:
-- Overall Risk: MEDIUM
+- Recommendation: CONDITIONAL APPROVAL
+- Confidence: Medium
 - Critical: 0
-- High: 2
-- Medium: 5
-- Low: 8
+- High: 1
+- Medium: 3
+- Coverage gaps: 2
 
 High Priority Findings:
-1. [HIGH] Hardcoded API key in config/settings.py
+1. [HIGH/P1/MEDIUM] Hardcoded API key in config/settings.py
    - Line 45: API_KEY = "sk-..."
    - Recommendation: Move to environment variables
 
-2. [HIGH] SQL query vulnerable to injection
+2. [MEDIUM/P2/HIGH] SQL query lacks parameterization evidence
    - File: src/db/queries.py:123
    - Recommendation: Use parameterized queries
 
-Full report: .rp1/work/security-report.md
+Full report: .rp1/work/security/public-api-v2/report.md
 ```
 
 ## Security Tools Integration
 
-The command auto-detects and integrates with these tools when available:
+The validator auto-detects and runs tools that are already installed. It does not install missing tools. Missing tools are recorded as coverage gaps rather than treated as passing evidence.
 
-| Tool | Language | Type |
-|------|----------|------|
-| `npm audit` | JavaScript | Dependency scanning |
-| `pip-audit` | Python | Dependency scanning |
-| `cargo audit` | Rust | Dependency scanning |
-| `bandit` | Python | Static analysis |
-| `semgrep` | Multi-language | Pattern matching |
+| Tool Class | Examples |
+|------------|----------|
+| SAST | `semgrep`, `bandit`, `gosec`, language-native analyzers |
+| Dependency / SCA | `npm audit`, `bun audit`, `pip-audit`, `cargo audit`, `govulncheck`, `bundler-audit` |
+| Secrets | `gitleaks`, `trufflehog`, `detect-secrets`, targeted pattern scans |
+| IaC / Container | `checkov`, `tfsec`, `trivy`, `kubesec` |
+| SBOM / Provenance | `syft`, `grype`, OpenSSF Scorecard, SLSA metadata checks |
+| DAST / API | Safe local runtime checks only when a runnable target exists |
+| AI / Prompt | Manual or tool-assisted checks for prompt injection, tool permissions, and data exfiltration |
 
 !!! tip "Tool Installation"
     For more comprehensive scans, install security tools in your environment. The command works without them but provides deeper analysis when they're available.
@@ -122,7 +196,7 @@ The command auto-detects and integrates with these tools when available:
 ## Requirements
 
 !!! warning "Prerequisite"
-    The knowledge base should exist for full context-aware analysis. Run [`knowledge-build`](knowledge-build.md) first for best results.
+    The knowledge base must exist before the dispatcher invokes the validator. Run [`knowledge-build`](knowledge-build.md) first if `.rp1/context/` has not been generated.
 
 ## Related Commands
 
