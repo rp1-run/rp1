@@ -138,7 +138,7 @@ High Priority Findings:
    - File: src/db/queries.py:123
    - Recommendation: Use parameterized queries
 
-Full report: .rp1/work/security/checkout-hardening/report.md
+Full report: .rp1/work/security/public-api-v2/report.md
 ```
 
 ## Security Tools Integration
@@ -161,7 +161,7 @@ The validator auto-detects and runs tools that are already installed. It does no
 ## Requirements
 
 !!! warning "Prerequisite"
-    The knowledge base should exist for full context-aware analysis. Run [`knowledge-build`](knowledge-build.md) first for best results. If the KB is missing, the report will show degraded context and lower confidence.
+    The knowledge base must exist before the dispatcher invokes the validator. Run [`knowledge-build`](knowledge-build.md) first if `.rp1/context/` has not been generated.
 
 ## Related Commands
 

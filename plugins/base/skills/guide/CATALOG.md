@@ -79,7 +79,7 @@
 
 | Skill | Plugin | Description | Key Args | Workflow | Run Policy | Identity Args |
 |-------|--------|-------------|----------|----------|------------|---------------|
-| `/analyse-security` | base | Performs thorough security validation of features including vulnerability scans, authentication/authorization verification, compliance assessment, and penetration testing. | `FEATURE_ID`, `SECURITY_SCOPE`, `COMPLIANCE_FRAMEWORK` | Yes | fresh |  |
+| `/analyse-security` | base | Performs tracked, evidence-bounded security posture assessment for a feature or target with standards mapping, scanner coverage, and registered report output. | `FEATURE_ID`, `SECURITY_SCOPE`, `COMPLIANCE_FRAMEWORK` | Yes | fresh |  |
 | `/deep-research` | base | Autonomous deep research on codebases and technical topics with structured report output via map-reduce explorer architecture. | `RESEARCH_TOPIC` | Yes | fresh |  |
 | `/socratic-duel` | base | Run a bounded, evidence-driven two-agent debate into a separate rp1 debate artifact with backend locks only. | `TARGET_PATH`, `TOPIC`, `PARTICIPANT_NAME`, `MODEL_ID` | Yes | resumable | `TARGET_PATH`, `TOPIC` |
 | `/socratic-duel-run` | base | Run Socratic Duel through two participant subagents while the launcher only coordinates and reports. | `TARGET_PATH`, `TOPIC`, `MODEL_ID` | Yes | fresh |  |

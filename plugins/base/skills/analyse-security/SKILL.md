@@ -1,6 +1,6 @@
 ---
 name: analyse-security
-description: "Performs thorough security validation of features including vulnerability scans, authentication/authorization verification, compliance assessment, and penetration testing."
+description: "Performs tracked, evidence-bounded security posture assessment for a feature or target with standards mapping, scanner coverage, and registered report output."
 allowed-tools: Bash(echo *), Bash(test *), Bash(rp1 *)
 metadata:
   category: strategy

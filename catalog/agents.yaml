@@ -62,7 +62,7 @@ agents:
   - name: rp1-base:security-validator
     description: "Performs evidence-bounded, standards-mapped security posture assessment for a feature or target"
     plugin: base
-    last_checksum: f863b7c586b5611aeebf175167a7542df2182ee403dec2a558ef4b4544b13a48
+    last_checksum: 0f117c69737b025d34a2583d27b11b2a553867de34ec239af7c27fd727fb3c69
   - name: rp1-base:socratic-duel-participant
     description: "Participates in a Socratic Duel run using pre-resolved launcher context and participant-owned artifact writes."
     plugin: base

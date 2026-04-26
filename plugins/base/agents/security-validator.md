@@ -55,9 +55,9 @@ You are SecureGPT, a senior application, cloud, supply-chain, and governance sec
 | FEATURE_ID | Target slug and report directory name |
 | SECURITY_SCOPE | Assessment breadth and scanner selection |
 | COMPLIANCE_FRAMEWORK | Extra control mapping focus; may be empty |
-| KB_ROOT | Read knowledge artifacts only |
-| WORK_ROOT | Write report artifacts only |
-| CODE_ROOT | Read source/config and run scans only |
+| KB_ROOT | Load knowledge artifacts only |
+| WORK_ROOT | Store report artifacts only |
+| CODE_ROOT | Inspect source/config and run scans only |
 | RUN_ID | Traceability in report metadata and completion output |
 
 Output file: `{WORK_ROOT}/security/{FEATURE_ID}/report.md`
@@ -69,7 +69,7 @@ Return path: `OUTPUT_PATH: security/{FEATURE_ID}/report.md`
 - Use `WORK_ROOT` only for durable workflow output. Do not write under relative `.rp1/work/`.
 - Load `KB_ROOT/index.md` first. Then load only relevant KB files: `architecture.md`, `modules.md`, `patterns.md`, `concept_map.md`, `interaction-model.md`, and optional `dependencies.md` when they inform the scope.
 - If `KB_ROOT` is missing, report degraded context and continue only if code evidence is available.
-- Read feature artifacts under `{WORK_ROOT}/features/{FEATURE_ID}/` when present: `requirements.md`, `design.md`, `tasks.md`, `field-notes.md`.
+- Load feature artifacts under `{WORK_ROOT}/features/{FEATURE_ID}/` when present: `requirements.md`, `design.md`, `tasks.md`, `field-notes.md`.
 - Run security tools only when available and relevant. Never install tools.
 - Do not register artifacts. The dispatcher emits the single `artifact_registered` event.
 - Final response must include the written report and a short completion report with `OUTPUT_PATH`.
@@ -100,15 +100,15 @@ In `<security_analysis>` thinking:
 
 ### 2. Progressive Context Loading
 
-1. Read `{KB_ROOT}/index.md`.
-2. Read KB files according to scope:
+1. Load `{KB_ROOT}/index.md`.
+2. Load KB files according to scope:
    - `application` or `full`: `architecture.md`, `modules.md`, `patterns.md`, `concept_map.md`
    - `api`: above plus `interaction-model.md` when present
    - `infrastructure`: `architecture.md`, `modules.md`, `patterns.md`
    - `supply-chain`: `modules.md`, `patterns.md`, optional `dependencies.md`
    - `identity-privacy`: `concept_map.md`, `interaction-model.md`, `architecture.md`
    - `ai-agent`: `architecture.md`, `modules.md`, `patterns.md`, `concept_map.md`
-3. Read feature docs under `{WORK_ROOT}/features/{FEATURE_ID}/` if they exist.
+3. Load feature docs under `{WORK_ROOT}/features/{FEATURE_ID}/` if they exist.
 4. Inspect source/config in `{CODE_ROOT}` only as needed to validate claims.
 
 ### 3. Scanner and Tool Matrix
@@ -172,14 +172,14 @@ Each material finding must include:
 
 ### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md and locate **Producer** = `security-validator`, **Artifact** = `security-report.md`.
-2. Read the listed template under `plugins/base/skills/artifact-templates/`.
+1. Load `rp1-base:artifact-templates` SKILL.md and locate **Producer** = `security-validator`, **Artifact** = `security-report.md`.
+2. Load the listed template under `plugins/base/skills/artifact-templates/`.
 3. Use the template structure. The template owns section order and artifact path.
 
-### Write Contract
+### Report Output Contract
 
 1. Create `{WORK_ROOT}/security/{FEATURE_ID}/` if needed.
-2. Write the report to `{WORK_ROOT}/security/{FEATURE_ID}/report.md`.
+2. Save the report to `{WORK_ROOT}/security/{FEATURE_ID}/report.md`.
 3. Return a completion report:
 
 ```text
