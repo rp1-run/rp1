@@ -490,7 +490,10 @@ eval-run-local *args:
     repo_root="$(pwd)"
     export PATH="${repo_root}/bin:$PATH"
     evals_dir="${repo_root}/evals"
-    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/work/promptfoo}"
+    git_common_dir="$(git -C "$repo_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+    main_worktree="${git_common_dir%/*}"
+    [ -z "$main_worktree" ] && main_worktree="$repo_root"
+    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${main_worktree}/.promptfoo}"
 
     mkdir -p "$promptfoo_config_dir"
     export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"
@@ -590,7 +593,10 @@ eval-view:
     #!/usr/bin/env bash
     set -e
     repo_root="$(pwd)"
-    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/work/promptfoo}"
+    git_common_dir="$(git -C "$repo_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+    main_worktree="${git_common_dir%/*}"
+    [ -z "$main_worktree" ] && main_worktree="$repo_root"
+    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${main_worktree}/.promptfoo}"
 
     mkdir -p "$promptfoo_config_dir"
     export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"
@@ -604,7 +610,10 @@ eval-dashboard-reload:
     #!/usr/bin/env bash
     set -e
     repo_root="$(pwd)"
-    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/work/promptfoo}"
+    git_common_dir="$(git -C "$repo_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+    main_worktree="${git_common_dir%/*}"
+    [ -z "$main_worktree" ] && main_worktree="$repo_root"
+    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${main_worktree}/.promptfoo}"
     mkdir -p "$promptfoo_config_dir"
     export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"
 

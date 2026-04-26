@@ -117,9 +117,9 @@ just eval-status
 
 `just eval-run` is the supported public entrypoint. It builds and launches the existing `rp1-dev` Docker image, mounts the repo at `/src/rp1`, forwards the credential allowlist (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GITHUB_TOKEN`), and runs `just eval-run-local ...` inside the container with `RP1_EVAL_DOCKER=1`. The default headless path does not publish Arcade on host port `7710`, and it does not mount host `~/.rp1` or other host rp1 config directories into the container.
 
-`just eval-run-local` is the container-only entrypoint. Use it only after you are already inside the dev container, or from other in-container automation, so eval execution does not recursively start Docker again. When `--commit` is requested through the public `just eval-run` entrypoint, the Docker run only produces artifacts and attestation updates; the actual Git commit happens on the host after the container exits. Promptfoo state is written to `.rp1/work/promptfoo` so Dockerized eval runs and the host-side Promptfoo viewer share the same history database.
+`just eval-run-local` is the container-only entrypoint. Use it only after you are already inside the dev container, or from other in-container automation, so eval execution does not recursively start Docker again. When `--commit` is requested through the public `just eval-run` entrypoint, the Docker run only produces artifacts and attestation updates; the actual Git commit happens on the host after the container exits. Promptfoo state is written to `<main-worktree>/.promptfoo` so Dockerized eval runs and the host-side Promptfoo viewer share the same history database. The path resolves to the main worktree even when invoked from a linked worktree.
 
-`just eval-view` remains a host-side promptfoo viewer command. It uses the same repo-local Promptfoo config directory (`.rp1/work/promptfoo`) as the Dockerized eval runner, so Promptfoo Web sees evals produced inside Docker.
+`just eval-view` remains a host-side promptfoo viewer command. It uses the same Promptfoo config directory (`<main-worktree>/.promptfoo`) as the Dockerized eval runner, so Promptfoo Web sees evals produced inside Docker.
 
 ## Project Structure
 

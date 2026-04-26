@@ -13,7 +13,7 @@ import { join, resolve } from "node:path";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../../../");
 const EVAL_LAUNCHER_PATH = join(REPO_ROOT, "docker", "eval-run.sh");
-const PROMPTFOO_CONFIG_DIR_SNIPPET = `promptfoo_config_dir="\${PROMPTFOO_CONFIG_DIR:-\${repo_root}/.rp1/work/promptfoo}"`;
+const PROMPTFOO_CONFIG_DIR_SNIPPET = `promptfoo_config_dir="\${PROMPTFOO_CONFIG_DIR:-\${main_worktree}/.promptfoo}"`;
 
 let tempDirs: string[] = [];
 
