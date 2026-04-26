@@ -55,6 +55,20 @@ function mergeLiveRunSummary(run: Run, summary: Run): Run {
 	};
 }
 
+function getCachedRun(runId: string | undefined): Run | null {
+	if (!runId) return null;
+
+	const cachedRun = runDetailCache.get(runId) ?? null;
+	if (cachedRun?.id === runId) return cachedRun;
+	if (cachedRun) runDetailCache.delete(runId);
+	return null;
+}
+
+function cacheRunForId(runId: string, run: Run): void {
+	if (run.id !== runId) return;
+	runDetailCache.set(runId, run);
+}
+
 function snapshotMayAffectRun(
 	currentRun: Run,
 	socketProjectId: string | null,
@@ -109,11 +123,9 @@ function updateReconciledArtifactPath(
 }
 
 export function useRunDetail(runId: string | undefined): UseRunDetailResult {
-	const [run, setRun] = useState<Run | null>(() =>
-		runId ? (runDetailCache.get(runId) ?? null) : null,
-	);
+	const [run, setRun] = useState<Run | null>(() => getCachedRun(runId));
 	const [isLoading, setIsLoading] = useState(() =>
-		runId ? !runDetailCache.has(runId) : false,
+		runId ? getCachedRun(runId) === null : false,
 	);
 	const [error, setError] = useState<Error | null>(null);
 	const {
@@ -123,43 +135,63 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 		status: wsStatus,
 	} = useWebSocket();
 	const prevWsStatusRef = useRef<ConnectionStatus>(wsStatus);
+	const activeRunIdRef = useRef<string | null>(runId ?? null);
+	const fetchRequestIdRef = useRef(0);
 	const runRef = useRef<Run | null>(null);
+	activeRunIdRef.current = runId ?? null;
 	useLiveRunIndexBridge();
 	const liveSnapshot = useLiveRunIndexSnapshot();
 
 	const fetchRun = useCallback(async () => {
-		if (!runId) {
+		const requestedRunId = runId;
+		const requestId = ++fetchRequestIdRef.current;
+		const isActiveRequest = () =>
+			activeRunIdRef.current === requestedRunId &&
+			fetchRequestIdRef.current === requestId;
+
+		if (!requestedRunId) {
 			setRun(null);
+			runRef.current = null;
 			setIsLoading(false);
 			return;
 		}
 
 		try {
-			const response = await fetch(`/api/v2/runs/${runId}`);
+			const response = await fetch(`/api/v2/runs/${requestedRunId}`);
+			if (!isActiveRequest()) return;
 			if (!response.ok) {
 				if (response.status === 404) {
-					runDetailCache.delete(runId);
+					runDetailCache.delete(requestedRunId);
 					throw new Error("Run not found");
 				}
 				throw new Error(`Failed to fetch run: ${response.statusText}`);
 			}
 			const runData = (await response.json()) as Run;
+			if (!isActiveRequest()) return;
+			if (runData.id !== requestedRunId) {
+				throw new Error("Run response did not match requested run");
+			}
 			setRun(runData);
 			runRef.current = runData;
-			runDetailCache.set(runId, runData);
+			cacheRunForId(requestedRunId, runData);
 			liveRunIndex.upsertRun(runData);
 			setError(null);
 		} catch (err) {
+			if (!isActiveRequest()) return;
 			const nextError = err instanceof Error ? err : new Error(String(err));
+			const currentRun = runRef.current;
 			const shouldKeepStaleRun =
-				runRef.current !== null && nextError.message !== "Run not found";
+				currentRun?.id === requestedRunId &&
+				nextError.message !== "Run not found";
 			if (!shouldKeepStaleRun) {
 				setError(nextError);
 				setRun(null);
 				runRef.current = null;
 			}
 		} finally {
-			setIsLoading(false);
+			if (isActiveRequest()) {
+				setIsLoading(false);
+			}
 		}
 	}, [runId]);
 
@@ -172,7 +204,7 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 			return;
 		}
 
-		const cachedRun = runDetailCache.get(runId) ?? null;
+		const cachedRun = getCachedRun(runId);
 		setRun(cachedRun);
 		runRef.current = cachedRun;
 		setError(null);
@@ -181,13 +213,13 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 	}, [runId, fetchRun]);
 
 	useEffect(() => {
-		if (!runId || !run) return;
-		runDetailCache.set(runId, run);
+		if (!runId || !run || run.id !== runId) return;
+		cacheRunForId(runId, run);
 	}, [runId, run]);
 
 	useEffect(() => {
-		runRef.current = run;
-	}, [run]);
+		runRef.current = runId && run?.id === runId ? run : null;
+	}, [runId, run]);
 
 	const debouncedFetchRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -216,7 +248,7 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 
 				if (step || stepStatus || nextStatus || rawStatusMessage) {
 					setRun((prev) => {
-						if (!prev) return null;
+						if (!prev || prev.id !== runId) return prev;
 
 						let updatedSteps = prev.steps;
 						if (step && stepStatus && !msg.unit) {
@@ -277,7 +309,7 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 				if (data?.reconciled) {
 					shouldRefetch = false;
 					setRun((prev) => {
-						if (!prev) return null;
+						if (!prev || prev.id !== runId) return prev;
 						return {
 							...prev,
 							artifacts: updateReconciledArtifactPath(
@@ -299,7 +331,7 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 					};
 
 					setRun((prev) => {
-						if (!prev) return null;
+						if (!prev || prev.id !== runId) return prev;
 						return {
 							...prev,
 							artifacts: mergeArtifactRegistration(prev.artifacts, newArtifact),
@@ -321,7 +353,7 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 				};
 
 				setRun((prev) => {
-					if (!prev) return null;
+					if (!prev || prev.id !== runId) return prev;
 					return {
 						...prev,
 						steps: prev.steps.map((step) =>
@@ -349,7 +381,7 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 				};
 
 				setRun((prev) => {
-					if (!prev) return null;
+					if (!prev || prev.id !== runId) return prev;
 					return {
 						...prev,
 						events: [...prev.events, btwEvent],
@@ -387,7 +419,7 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 		}
 
 		setRun((prev) => {
-			if (!prev) {
+			if (!prev || prev.id !== runId) {
 				return prev;
 			}
 
@@ -448,10 +480,15 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 		fetchRun();
 	}, [fetchRun]);
 
+	const visibleRun = runId && run?.id === runId ? run : null;
+	const visibleError = run && runId && run.id !== runId ? null : error;
+	const visibleIsLoading =
+		runId && !visibleRun && !visibleError ? true : isLoading;
+
 	return {
-		run,
-		isLoading,
-		error,
+		run: visibleRun,
+		isLoading: visibleIsLoading,
+		error: visibleError,
 		refetch,
 	};
 }
