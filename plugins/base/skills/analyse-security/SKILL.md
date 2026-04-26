@@ -76,6 +76,7 @@ Before emitting the first status:
 1. Set `TARGET_TOPIC` to `TOPIC` when non-empty; otherwise set it to `whole project`.
 2. Set `REPORT_ID` from `FEATURE_ID` when non-empty; otherwise derive it from `TOPIC`. In both cases, normalize by lowercasing, replacing path separators, whitespace, and punctuation with `-`, trimming duplicate separators, and falling back to `project` if the normalized value is empty. If `TOPIC` is empty and `FEATURE_ID` is empty, set `REPORT_ID` to `project`.
 3. Use `TARGET_TOPIC` as the assessment scope selector. `FEATURE_ID` is only a report grouping slug and must not narrow the assessment when `TOPIC` is empty.
+4. Set `OUTPUT_PATH` to `security/{REPORT_ID}/report.md` and `OUTPUT_ABSOLUTE_PATH` to `{workRoot}/{OUTPUT_PATH}`.
 
 ## STATE-MACHINE
 
@@ -118,6 +119,8 @@ Artifact contract: exactly one `artifact_registered` event, after the validator 
 FEATURE_ID: {FEATURE_ID}
 TOPIC: {TOPIC}
 REPORT_ID: {REPORT_ID}
+OUTPUT_PATH: {OUTPUT_PATH}
+OUTPUT_ABSOLUTE_PATH: {OUTPUT_ABSOLUTE_PATH}
 SECURITY_SCOPE: {SECURITY_SCOPE}
 COMPLIANCE_FRAMEWORK: {COMPLIANCE_FRAMEWORK}
 KB_ROOT: {kbRoot}
@@ -126,8 +129,15 @@ CODE_ROOT: {codeRoot}
 RUN_ID: {RUN_ID}
 {% enddispatch_agent %}
 
-4. The sub-agent writes `{workRoot}/security/{REPORT_ID}/report.md` and returns `OUTPUT_PATH: security/{REPORT_ID}/report.md`. If the sub-agent returns a different relative path under `security/{REPORT_ID}/`, treat the returned value as authoritative.
-5. Emit `register` running, then register the report:
+4. The sub-agent must write exactly `{OUTPUT_ABSOLUTE_PATH}` and return exactly `OUTPUT_PATH: {OUTPUT_PATH}`. Do not infer, rewrite, or register any other path.
+5. Before artifact registration, verify the exact file exists:
+
+```bash
+test -f {OUTPUT_ABSOLUTE_PATH}
+```
+
+If the file is missing, emit failed status for `register`, report that the validator did not create `{OUTPUT_PATH}`, and stop without registering an artifact. This prevents Arcade from showing a broken artifact link.
+6. Emit `register` running, then register the report:
 
 ```bash
 rp1 agent-tools emit --harness $CURRENT_HOST \
@@ -138,7 +148,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --data '{"path":"{OUTPUT_PATH}","feature":"{REPORT_ID}","target":"{TARGET_TOPIC}","storageRoot":"work_dir","format":"markdown"}'
 ```
 
-6. Emit `register` completed and report the final path to the user.
+7. Emit `register` completed and report the final path to the user.
 
 ## Runtime Contract
 
@@ -146,3 +156,4 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
 |---------|---------|-----------------|
 | `rp1 agent-tools emit` | State and artifact tracking | yes |
 | `test -d {kbRoot}` | KB availability gate | yes |
+| `test -f {OUTPUT_ABSOLUTE_PATH}` | Artifact existence gate before registration | yes |

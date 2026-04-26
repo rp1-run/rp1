@@ -18,6 +18,14 @@ arguments:
     type: string
     required: true
     description: "Resolved report slug derived by the parent workflow"
+  - name: OUTPUT_PATH
+    type: string
+    required: true
+    description: "Required work-root-relative report path supplied by the parent workflow"
+  - name: OUTPUT_ABSOLUTE_PATH
+    type: string
+    required: true
+    description: "Required absolute report path supplied by the parent workflow"
   - name: SECURITY_SCOPE
     type: string
     required: false
@@ -55,6 +63,8 @@ You are SecureGPT, a senior application, cloud, supply-chain, and governance sec
 <feature_id>{{FEATURE_ID from prompt}}</feature_id>
 <topic>{{TOPIC from prompt}}</topic>
 <report_id>{{REPORT_ID from prompt}}</report_id>
+<output_path>{{OUTPUT_PATH from prompt}}</output_path>
+<output_absolute_path>{{OUTPUT_ABSOLUTE_PATH from prompt}}</output_absolute_path>
 <security_scope>{{SECURITY_SCOPE from prompt}}</security_scope>
 <compliance_framework>{{COMPLIANCE_FRAMEWORK from prompt}}</compliance_framework>
 <kb_root>{{KB_ROOT from prompt}}</kb_root>
@@ -67,6 +77,8 @@ You are SecureGPT, a senior application, cloud, supply-chain, and governance sec
 | TOPIC | Primary assessment target: sub-directory path, concept, module, feature/topic slug, or empty for whole project |
 | FEATURE_ID | Optional report grouping slug or compatibility label; not the scope selector |
 | REPORT_ID | Report directory name |
+| OUTPUT_PATH | Exact work-root-relative report path to return |
+| OUTPUT_ABSOLUTE_PATH | Exact absolute report path to create |
 | SECURITY_SCOPE | Assessment breadth and scanner selection |
 | COMPLIANCE_FRAMEWORK | Extra control mapping focus; may be empty |
 | KB_ROOT | Load knowledge artifacts only |
@@ -74,8 +86,8 @@ You are SecureGPT, a senior application, cloud, supply-chain, and governance sec
 | CODE_ROOT | Inspect source/config and run scans only |
 | RUN_ID | Traceability in report metadata and completion output |
 
-Output file: `{WORK_ROOT}/security/{REPORT_ID}/report.md`
-Return path: `OUTPUT_PATH: security/{REPORT_ID}/report.md`
+Output file: `{OUTPUT_ABSOLUTE_PATH}`
+Return path: `OUTPUT_PATH: {OUTPUT_PATH}`
 
 ## Operating Rules
 
@@ -90,7 +102,8 @@ Return path: `OUTPUT_PATH: security/{REPORT_ID}/report.md`
 - For feature-like topics, load matching feature artifacts under `{WORK_ROOT}/features/{TOPIC}/` or `{WORK_ROOT}/features/{FEATURE_ID}/` when present: `requirements.md`, `design.md`, `tasks.md`, `field-notes.md`.
 - Run security tools only when available and relevant. Never install tools.
 - Do not register artifacts. The dispatcher emits the single `artifact_registered` event.
-- Final response must include the written report and a short completion report with `OUTPUT_PATH`.
+- Create the report at exactly `OUTPUT_ABSOLUTE_PATH`. Do not use generic fallback names such as `security-validation-report.md`, and do not place the report directly under `{WORK_ROOT}/security/`.
+- Final response must include the written report and a short completion report with exactly `OUTPUT_PATH: {OUTPUT_PATH}`.
 
 ## Epistemic Stance: Fallibilist Empirical
 
@@ -196,12 +209,12 @@ Each material finding must include:
 
 ### Report Output Contract
 
-1. Create `{WORK_ROOT}/security/{REPORT_ID}/` if needed.
-2. Save the report to `{WORK_ROOT}/security/{REPORT_ID}/report.md`.
+1. Create the parent directory for `{OUTPUT_ABSOLUTE_PATH}` if needed.
+2. Save the report to exactly `{OUTPUT_ABSOLUTE_PATH}`.
 3. Return a completion report:
 
 ```text
-OUTPUT_PATH: security/{REPORT_ID}/report.md
+OUTPUT_PATH: {OUTPUT_PATH}
 RUN_ID: {RUN_ID}
 TOPIC: {TOPIC or "whole project"}
 REPORT_ID: {REPORT_ID}
