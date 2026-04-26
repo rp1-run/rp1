@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
-import { statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import chalk from "chalk";
 import { Command, Option } from "commander";
 import * as E from "fp-ts/lib/Either.js";
@@ -16,59 +15,18 @@ import {
 	type CLIError,
 	formatError,
 	getExitCode,
-	notFoundError,
 	portInUseError,
 	runtimeError,
 	tryCatchTE,
 } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
 import { isBun } from "../../shared/runtime.js";
+import {
+	type ArcadeProjectLaunchResult,
+	launchArcadeForProject,
+} from "../arcade/launch.js";
 
 type ArcadeOutputFormat = "text" | "hook-json";
-
-interface ArcadeStartResult {
-	readonly projectId: string;
-	readonly projectName: string;
-	readonly url: string;
-	readonly action: "reused" | "started" | "replaced";
-	readonly reason?: string;
-	readonly wasRunning: boolean;
-	/** The port the daemon is actually listening on (may differ from requested). */
-	readonly daemonPort: number;
-}
-
-const directoryExists = (path: string): boolean => {
-	try {
-		const stat = statSync(path);
-		return stat.isDirectory();
-	} catch {
-		return false;
-	}
-};
-
-const validateProject = (
-	projectPath: string,
-	logger: Logger,
-): TE.TaskEither<CLIError, string> => {
-	logger.debug(`Validating project structure at: ${projectPath}`);
-
-	const rp1Path = join(projectPath, ".rp1");
-	if (!directoryExists(rp1Path)) {
-		return TE.left(
-			notFoundError(
-				`.rp1 directory at ${projectPath}`,
-				"Make sure you are in an rp1 project directory or specify the correct path",
-			),
-		);
-	}
-
-	const contextPath = join(rp1Path, "context");
-	if (!directoryExists(contextPath)) {
-		logger.debug(`.rp1/context/ not found - KB may not be built yet`);
-	}
-
-	return TE.right(projectPath);
-};
 
 const openBrowser =
 	(url: string, logger: Logger): T.Task<void> =>
@@ -103,36 +61,15 @@ const openBrowser =
 		}
 	};
 
-/**
- * Start or connect to the daemon, then register the current project.
- */
 const startArcade = async (
 	config: ArcadeConfig,
 	cliVersion?: string,
-): Promise<ArcadeStartResult> => {
-	const { ensureDaemon, registerProjectWithDaemon } = await import(
-		"../../web-ui/src/daemon/index.js"
-	);
-
-	const { connection, action, reason, wasRunning } = await ensureDaemon(
-		config.port,
+): Promise<ArcadeProjectLaunchResult> =>
+	launchArcadeForProject({
+		projectPath: config.rp1Root,
+		port: config.port,
 		cliVersion,
-	);
-	const { project, url } = await registerProjectWithDaemon(
-		connection,
-		config.rp1Root,
-	);
-
-	return {
-		projectId: project.id,
-		projectName: project.name,
-		url,
-		action,
-		reason,
-		wasRunning,
-		daemonPort: connection.port,
-	};
-};
+	});
 
 export function formatArcadeHookPayload(url: string): string {
 	return JSON.stringify({
@@ -147,6 +84,9 @@ export function formatArcadeHookPayload(url: string): string {
 const mapDaemonError =
 	(context: string) =>
 	(e: unknown): CLIError => {
+		if (isCLIError(e)) {
+			return e;
+		}
 		if (
 			e instanceof Error &&
 			e.name === "DaemonPortConflictError" &&
@@ -157,6 +97,12 @@ const mapDaemonError =
 		}
 		return runtimeError(`${context}: ${e}`);
 	};
+
+const isCLIError = (error: unknown): error is CLIError =>
+	typeof error === "object" &&
+	error !== null &&
+	"_tag" in error &&
+	typeof (error as { _tag?: unknown })._tag === "string";
 
 /**
  * Format a human-readable lifecycle action message for daemon operations.
@@ -352,12 +298,6 @@ const execute = (
 			);
 			return TE.right(undefined);
 		}),
-		TE.chain((config) =>
-			pipe(
-				validateProject(config.rp1Root, logger),
-				TE.map(() => config),
-			),
-		),
 		TE.chain((config) =>
 			options.format === "hook-json"
 				? hookOutputCommand(config, cliVersion)
