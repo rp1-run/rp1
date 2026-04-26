@@ -130,6 +130,26 @@ global `h`/`l` tab shortcuts.
 | Enter | Open/select current item |
 | Escape | Clear selection |
 
+### Activity Feed
+
+The Activity feed supports inbox-style run triage with the same movement keys:
+
+| Key | Vim Key | Action |
+|-----|---------|--------|
+| Arrow Down | `j` | Select the next activity item |
+| Arrow Up | `k` | Select the previous activity item |
+| Enter / Space | - | Select the focused activity item |
+
+Selection clamps at the first and last rows. On wide screens, selection keeps
+the feed visible and updates the run preview beside it. On narrower screens,
+the same action opens or focuses the run's workspace tab instead of rendering a
+split preview.
+
+Activity keyboard navigation is disabled while focus is in a text input,
+textarea, or contenteditable editor. That includes Milkdown and ProseMirror
+artifact editors, so editor cursor movement and text entry take precedence over
+Activity row selection.
+
 ---
 
 ## Shortcut Help Overlay
@@ -149,7 +169,8 @@ Vim keys (`j`, `k`, `h`, `l`) work identically to their arrow key counterparts:
 
 ### Text Input Fields
 
-Vim keys and single-key shortcuts are automatically disabled when focus is in a text input field. This includes:
+Vim keys, Activity list movement keys, and single-key shortcuts are
+automatically disabled when focus is in a text input field. This includes:
 
 - Text inputs (`<input type="text">`)
 - Password fields
@@ -158,8 +179,9 @@ Vim keys and single-key shortcuts are automatically disabled when focus is in a 
 - Textareas
 - Contenteditable elements
 
-Arrow keys continue to work normally in text fields. Modifier-key shortcuts
-(Cmd+K, Cmd+B, Cmd+\\) always fire regardless of focus.
+Arrow keys continue to work normally inside those fields and editors for native
+cursor movement. Modifier-key shortcuts (Cmd+K, Cmd+B, Cmd+\\) always fire
+regardless of focus.
 
 ### Virtualized Lists
 

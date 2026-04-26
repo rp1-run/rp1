@@ -78,6 +78,17 @@ The `Runs` navigation command and `/runs` route both land here. Persistent
 notifications stay in the drawer, so the page itself stays focused on run
 activity.
 
+On wide screens, Activity behaves like a split inbox. Selecting a run keeps the
+feed visible on the left and opens a run preview on the right. The preview uses
+the same run-detail structure as a full run workspace: step navigation stays in
+one column, while execution flow and artifacts render in the detail column. Use
+the expand action in the preview header when you want to move the selected run
+into its own workspace tab.
+
+On narrower screens, Activity prioritizes readability over the split layout.
+Selecting a run opens or focuses that run's workspace tab instead of squeezing
+the feed and run detail into the same view.
+
 Each feed row shows:
 
 - A status dot using the canonical run status
@@ -87,7 +98,9 @@ Each feed row shows:
 - Resolved run display name
 - A project shortcut button on the right
 
-Click any item to view full run details.
+Click any item to select it. Wide layouts show the inline preview; narrow
+layouts open or focus the run workspace tab. The project shortcut remains a
+nested action that opens the project workspace without selecting the run row.
 
 ### Empty State
 
@@ -233,6 +246,7 @@ currently active durable route or workspace.
 - Eligible workspaces are run detail, project overview, and project file browser routes.
 - Individual files stay inside a project file-browser workspace and do not become top-level tabs.
 - Reopening an already open workspace returns you to that existing tab instead of creating a duplicate.
+- Expanding a run from the Activity preview uses the same workspace behavior, so an already open run tab is focused instead of duplicated.
 - Closing the active workspace moves to the nearest remaining workspace, or back to the last durable route if no workspaces remain.
 
 ### Notifications drawer behavior
@@ -293,19 +307,22 @@ and `Close Workspace` actions in the command palette.
 
 ### List Navigation
 
-These bindings apply on list-driven surfaces such as Projects and Project
-Overview. The workspace strip uses its own horizontal key handling, and the
-home activity feed remains click-first today.
+These bindings apply on list-driven surfaces such as Activity, Projects, and
+Project Overview. The workspace strip uses its own horizontal key handling.
+Activity navigation is active when focus is outside text inputs and
+contenteditable editors.
 
 | Key | Action |
 |-----|--------|
 | `j` / `Arrow Down` | Select next row |
 | `k` / `Arrow Up` | Select previous row |
-| `l` / `Arrow Right` / `Enter` | Open the selected project or run |
+| `l` / `Arrow Right` / `Enter` | Open the selected project or run where supported |
 | `h` / `Arrow Left` | Drill back to the parent durable route |
 
-Keyboard navigation on those list views is implemented directly in the page
-surface rather than via a hidden global mode switch.
+On Activity, moving selection updates the split preview on wide screens and
+opens or focuses the corresponding run workspace tab on narrow screens.
+Keyboard navigation on list views is implemented directly in the page surface
+rather than via a hidden global mode switch.
 
 ---
 

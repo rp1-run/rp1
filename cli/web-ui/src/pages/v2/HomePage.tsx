@@ -1,13 +1,27 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Activity, NotebookTabs, SlidersHorizontal } from "lucide-react";
-import { useCallback, useState } from "react";
+import {
+	Activity,
+	Maximize2,
+	NotebookTabs,
+	SlidersHorizontal,
+} from "lucide-react";
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { useSearchParams } from "react-router-dom";
 import { FilterBar } from "@/components/v2/FilterBar";
 import { HarnessIcon } from "@/components/v2/HarnessIcon";
+import { RunDetailSurface } from "@/components/v2/RunDetailSurface";
 import type { FeedItem } from "@/hooks/useFeed";
 import { useFeed } from "@/hooks/useFeed";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useWorkspaceTabs } from "@/hooks/useWorkspaceTabs";
+import { isTextInputElement } from "@/lib/keyboard";
 import { resolveRunDisplayName } from "@/lib/run-display";
 import { getRunStatusLabel, getStatusLabel } from "@/lib/status-labels";
 import { formatRelativeTime } from "@/lib/time";
@@ -15,6 +29,36 @@ import { cn } from "@/lib/utils";
 import type { Run, RunsFilter } from "@/types/runs";
 
 const PAGE_SIZE = 25;
+const ACTIVITY_NAVIGATION_KEYS = new Set(["ArrowDown", "j", "ArrowUp", "k"]);
+
+function hasOpenDialog(): boolean {
+	return Array.from(
+		document.querySelectorAll<HTMLElement>('[role="dialog"]'),
+	).some((dialog) => {
+		if (dialog.dataset.state === "closed") return false;
+		if (dialog.dataset.state === "open") return true;
+
+		const rect = dialog.getBoundingClientRect();
+		return (
+			rect.width > 0 &&
+			rect.height > 0 &&
+			rect.right > 0 &&
+			rect.bottom > 0 &&
+			rect.left < window.innerWidth &&
+			rect.top < window.innerHeight
+		);
+	});
+}
+
+function shouldIgnoreActivityNavigation(event: KeyboardEvent): boolean {
+	if (event.defaultPrevented) return true;
+	if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+		return true;
+	}
+	if (hasOpenDialog()) return true;
+	if (document.body.dataset.chordPending) return true;
+	return isTextInputElement(document.activeElement);
+}
 
 function StatusDot({ status }: { status: Run["status"] }) {
 	if (status === "running") {
@@ -97,11 +141,15 @@ const feedItemVariantsReduced = {
 
 function FeedEntry({
 	run,
+	selected,
+	entryRef,
 	onClick,
 	onProjectClick,
 	reducedMotion,
 }: {
 	run: Run;
+	selected: boolean;
+	entryRef: (node: HTMLDivElement | null) => void;
 	onClick: () => void;
 	onProjectClick: (projectId: string) => void;
 	reducedMotion: boolean;
@@ -123,8 +171,10 @@ function FeedEntry({
 
 	return (
 		<motion.div
+			ref={entryRef}
 			role="button"
 			tabIndex={0}
+			aria-selected={selected}
 			onClick={onClick}
 			onKeyDown={(e) => {
 				if (e.key === "Enter" || e.key === " ") {
@@ -140,53 +190,212 @@ function FeedEntry({
 				"hover:bg-surface",
 				"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
 				run.status === "waiting" && "bg-accent-ghost",
+				selected && "bg-surface ring-1 ring-border",
 			)}
 		>
 			<StatusDot status={run.status} />
 
-			<span className="w-[5.5em] shrink-0 text-right type-secondary tabular-nums text-fg-ghost">
-				{formatRelativeTime(latestEventAt)}
-			</span>
+			<div className="flex min-w-0 flex-1 items-center gap-3 xl:flex-col xl:items-stretch xl:gap-1">
+				<div className="flex min-w-0 flex-1 items-center gap-3 xl:gap-2">
+					<span className="w-[5.5em] shrink-0 text-right type-secondary tabular-nums text-fg-ghost xl:w-auto xl:text-left">
+						{formatRelativeTime(latestEventAt)}
+					</span>
 
-			<span className="inline-flex w-[14px] shrink-0 items-center justify-center">
-				<HarnessIcon harness={run.harness} size={14} />
-			</span>
+					<span className="inline-flex w-[14px] shrink-0 items-center justify-center">
+						<HarnessIcon harness={run.harness} size={14} />
+					</span>
 
-			<span className="shrink-0 type-body font-medium text-fg">
-				{run.command}
-			</span>
+					<span className="shrink-0 type-body font-medium text-fg xl:min-w-0 xl:truncate">
+						{run.command}
+					</span>
 
-			<span className="truncate type-secondary text-fg-muted">
-				{resolveRunDisplayName(run) || run.command}
-			</span>
+					<span className="truncate type-secondary text-fg-muted">
+						{resolveRunDisplayName(run) || run.command}
+					</span>
 
-			{statusLabel && (
-				<span className={cn("shrink-0 type-caption", statusToneClass)}>
-					{statusLabel}
-				</span>
-			)}
+					{statusLabel && (
+						<span className={cn("shrink-0 type-caption", statusToneClass)}>
+							{statusLabel}
+						</span>
+					)}
+				</div>
 
-			<button
-				type="button"
-				onClick={(e) => {
-					e.stopPropagation();
-					onProjectClick(run.projectId);
-				}}
-				onKeyDown={(e) => {
-					if (e.key === "Enter" || e.key === " ") {
+				<button
+					type="button"
+					onClick={(e) => {
 						e.stopPropagation();
 						onProjectClick(run.projectId);
-					}
-				}}
-				className="ml-auto shrink-0 flex items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer bg-transparent border-none p-0"
-				aria-label={`Open project ${run.projectName}`}
-			>
-				<NotebookTabs className="h-3 w-3" strokeWidth={1.5} />
-				{run.projectName}
-			</button>
+					}}
+					onKeyDown={(e) => {
+						if (e.key === "Enter" || e.key === " ") {
+							e.stopPropagation();
+							onProjectClick(run.projectId);
+						}
+					}}
+					className="ml-auto flex min-w-0 max-w-full shrink-0 items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer bg-transparent border-none p-0 xl:ml-0 xl:pl-0"
+					aria-label={`Open project ${run.projectName}`}
+				>
+					<NotebookTabs className="h-3 w-3 shrink-0" strokeWidth={1.5} />
+					<span className="truncate">{run.projectName}</span>
+				</button>
 
-			<span className="w-5 shrink-0" aria-hidden="true" />
+				<span className="w-5 shrink-0 xl:hidden" aria-hidden="true" />
+			</div>
 		</motion.div>
+	);
+}
+
+function EmptyActivityState() {
+	return (
+		<div className="flex flex-col items-center justify-center py-24 text-center xl:px-4 xl:py-16">
+			<Activity className="h-5 w-5 text-fg-ghost mb-4" strokeWidth={1.5} />
+			<p className="type-body text-fg-ghost mb-1">No activity yet.</p>
+			<p className="type-secondary text-fg-ghost mb-4">
+				Runs will appear here once you start your first workflow.
+			</p>
+			<a
+				href="https://rp1.run/getting-started/first-workflow/"
+				target="_blank"
+				rel="noopener noreferrer"
+				className="type-secondary text-fg-muted transition-colors duration-150 hover:text-fg underline underline-offset-2"
+			>
+				Get started with your first workflow
+			</a>
+		</div>
+	);
+}
+
+function LoadingActivityState() {
+	return (
+		<div className="flex items-center justify-center py-16">
+			<span className="type-body text-fg-ghost">Loading...</span>
+		</div>
+	);
+}
+
+function NoSelectedRunState() {
+	return (
+		<div className="flex h-full min-h-0 items-center justify-center px-6 text-center">
+			<div className="flex max-w-[280px] flex-col items-center">
+				<Activity className="mb-4 h-5 w-5 text-fg-ghost" strokeWidth={1.5} />
+				<p className="type-body text-fg-ghost">No run selected.</p>
+			</div>
+		</div>
+	);
+}
+
+function SelectedRunPane({
+	selectedRunId,
+	onExpand,
+}: {
+	selectedRunId: string | null;
+	onExpand: () => void;
+}) {
+	return (
+		<section
+			aria-label="Selected run"
+			className="hidden min-h-0 min-w-0 overflow-hidden rounded-[var(--radius)] border border-border bg-surface-void xl:flex xl:flex-col"
+		>
+			<header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
+				<h2 className="type-body font-medium text-fg">Run Preview</h2>
+				<button
+					type="button"
+					onClick={onExpand}
+					disabled={!selectedRunId}
+					className="flex h-7 w-7 items-center justify-center rounded text-fg-ghost transition-colors duration-150 hover:bg-surface hover:text-fg-muted disabled:pointer-events-none disabled:opacity-40"
+					aria-label="Expand selected run"
+					title="Expand selected run"
+				>
+					<Maximize2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+				</button>
+			</header>
+			<div className="min-h-0 flex-1 overflow-hidden">
+				{selectedRunId ? (
+					<RunDetailSurface runId={selectedRunId} mode="activity-preview" />
+				) : (
+					<NoSelectedRunState />
+				)}
+			</div>
+		</section>
+	);
+}
+
+function ActivityHeader({
+	showFilters,
+	onToggleFilters,
+}: {
+	showFilters: boolean;
+	onToggleFilters: () => void;
+}) {
+	return (
+		<header className="mb-6 px-3 flex items-center justify-between xl:mb-4 xl:shrink-0">
+			<h1 className="flex items-center gap-2 type-title text-fg">
+				<Activity className="h-4 w-4" strokeWidth={1.5} />
+				Activity
+			</h1>
+			<button
+				type="button"
+				onClick={onToggleFilters}
+				className={cn(
+					"flex h-7 w-7 items-center justify-center rounded transition-colors duration-150",
+					showFilters
+						? "text-fg bg-surface"
+						: "text-fg-ghost hover:text-fg-muted",
+				)}
+				aria-label={showFilters ? "Hide filters" : "Show filters"}
+				aria-expanded={showFilters}
+			>
+				<SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
+			</button>
+		</header>
+	);
+}
+
+function FeedList({
+	items,
+	hasMore,
+	isLoading,
+	renderFeedItem,
+	onLoadEarlier,
+}: {
+	items: readonly FeedItem[];
+	hasMore: boolean;
+	isLoading: boolean;
+	renderFeedItem: (item: FeedItem) => ReactNode;
+	onLoadEarlier: () => void;
+}) {
+	if (isLoading && items.length === 0) {
+		return <LoadingActivityState />;
+	}
+
+	if (items.length === 0) {
+		return <EmptyActivityState />;
+	}
+
+	return (
+		<>
+			<AnimatePresence initial={false}>
+				<motion.div
+					className="flex flex-col"
+					initial="initial"
+					animate="animate"
+				>
+					{items.map(renderFeedItem)}
+				</motion.div>
+			</AnimatePresence>
+
+			{hasMore && (
+				<div className="flex justify-center py-4">
+					<button
+						type="button"
+						onClick={onLoadEarlier}
+						className="type-secondary text-fg-ghost hover:text-fg-muted transition-colors duration-150"
+					>
+						Earlier
+					</button>
+				</div>
+			)}
+		</>
 	);
 }
 
@@ -194,9 +403,12 @@ export function HomePage() {
 	const { openWorkspace } = useWorkspaceTabs();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const reducedMotion = usePrefersReducedMotion();
+	const isWideActivityLayout = useMediaQuery("(min-width: 1280px)");
+	const activityRowRefs = useRef(new Map<string, HTMLDivElement>());
 
 	const initialProjectId = searchParams.get("projectId");
 	const [showFilters, setShowFilters] = useState(!!initialProjectId);
+	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 	const [filters, setFilters] = useState<RunsFilter>({
 		status: "all",
 		projectId: initialProjectId,
@@ -234,12 +446,77 @@ export function HomePage() {
 		setPageSize((prev) => prev + PAGE_SIZE);
 	}, []);
 
+	useEffect(() => {
+		if (!isWideActivityLayout) return;
+		if (items.length === 0) {
+			setSelectedRunId(null);
+			return;
+		}
+
+		if (selectedRunId && items.some((item) => item.id === selectedRunId)) {
+			return;
+		}
+
+		setSelectedRunId(items[0]?.id ?? null);
+	}, [isWideActivityLayout, items, selectedRunId]);
+
+	const setActivityRowRef = useCallback(
+		(runId: string, node: HTMLDivElement | null) => {
+			if (node) {
+				activityRowRefs.current.set(runId, node);
+				return;
+			}
+			activityRowRefs.current.delete(runId);
+		},
+		[],
+	);
+
 	const handleRunClick = useCallback(
 		(runId: string) => {
+			if (isWideActivityLayout) {
+				setSelectedRunId(runId);
+				return;
+			}
 			openWorkspace(`/runs/${runId}`);
 		},
-		[openWorkspace],
+		[isWideActivityLayout, openWorkspace],
 	);
+
+	useEffect(() => {
+		if (!isWideActivityLayout || items.length === 0) return;
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (!ACTIVITY_NAVIGATION_KEYS.has(event.key)) return;
+			if (shouldIgnoreActivityNavigation(event)) return;
+
+			const direction = event.key === "ArrowDown" || event.key === "j" ? 1 : -1;
+			const currentIndex = selectedRunId
+				? items.findIndex((item) => item.id === selectedRunId)
+				: -1;
+			const nextIndex =
+				currentIndex === -1
+					? direction > 0
+						? 0
+						: items.length - 1
+					: Math.min(Math.max(currentIndex + direction, 0), items.length - 1);
+			const nextItem = items[nextIndex];
+			if (!nextItem) return;
+
+			event.preventDefault();
+			handleRunClick(nextItem.id);
+			const nextRow = activityRowRefs.current.get(nextItem.id);
+			nextRow?.focus({ preventScroll: true });
+			nextRow?.scrollIntoView?.({ block: "nearest" });
+		};
+
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
+	}, [handleRunClick, isWideActivityLayout, items, selectedRunId]);
+
+	const handleExpandSelectedRun = useCallback(() => {
+		if (!selectedRunId) return;
+		openWorkspace(`/runs/${selectedRunId}`);
+	}, [openWorkspace, selectedRunId]);
 
 	const handleProjectClick = useCallback(
 		(projectId: string) => {
@@ -254,96 +531,59 @@ export function HomePage() {
 				<FeedEntry
 					key={`run-${item.id}`}
 					run={item.run}
+					selected={item.id === selectedRunId}
+					entryRef={(node) => setActivityRowRef(item.id, node)}
 					onClick={() => handleRunClick(item.id)}
 					onProjectClick={handleProjectClick}
 					reducedMotion={reducedMotion}
 				/>
 			);
 		},
-		[handleRunClick, handleProjectClick, reducedMotion],
+		[
+			handleRunClick,
+			handleProjectClick,
+			reducedMotion,
+			selectedRunId,
+			setActivityRowRef,
+		],
 	);
 
 	return (
-		<div className="h-full overflow-y-auto px-4 py-6 md:px-6">
-			<div className="mx-auto max-w-[640px]">
-				<header className="mb-6 px-3 flex items-center justify-between">
-					<h1 className="flex items-center gap-2 type-title text-fg">
-						<Activity className="h-4 w-4" strokeWidth={1.5} />
-						Activity
-					</h1>
-					<button
-						type="button"
-						onClick={() => setShowFilters((prev) => !prev)}
-						className={cn(
-							"flex h-7 w-7 items-center justify-center rounded transition-colors duration-150",
-							showFilters
-								? "text-fg bg-surface"
-								: "text-fg-ghost hover:text-fg-muted",
-						)}
-						aria-label={showFilters ? "Hide filters" : "Show filters"}
-						aria-expanded={showFilters}
-					>
-						<SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
-					</button>
-				</header>
+		<div className="h-full min-h-0 overflow-y-auto px-4 py-6 md:px-6 xl:overflow-hidden xl:py-4">
+			<div className="mx-auto h-full min-h-0 max-w-[640px] xl:grid xl:max-w-none xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)] xl:gap-4">
+				<section
+					aria-label="Activity feed"
+					className="min-h-0 xl:flex xl:flex-col xl:overflow-hidden xl:border-r xl:border-border xl:pr-4"
+				>
+					<ActivityHeader
+						showFilters={showFilters}
+						onToggleFilters={() => setShowFilters((prev) => !prev)}
+					/>
 
-				{showFilters && (
-					<div className="mb-4 px-3">
-						<FilterBar
-							filters={filters}
-							onFiltersChange={handleFiltersChange}
+					{showFilters && (
+						<div className="mb-4 px-3 xl:shrink-0">
+							<FilterBar
+								filters={filters}
+								onFiltersChange={handleFiltersChange}
+							/>
+						</div>
+					)}
+
+					<div className="xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1">
+						<FeedList
+							items={items}
+							hasMore={hasMore}
+							isLoading={isLoading}
+							renderFeedItem={renderFeedItem}
+							onLoadEarlier={handleLoadEarlier}
 						/>
 					</div>
-				)}
+				</section>
 
-				{isLoading && items.length === 0 ? (
-					<div className="flex items-center justify-center py-16">
-						<span className="type-body text-fg-ghost">Loading...</span>
-					</div>
-				) : items.length === 0 ? (
-					<div className="flex flex-col items-center justify-center py-24 text-center">
-						<Activity
-							className="h-5 w-5 text-fg-ghost mb-4"
-							strokeWidth={1.5}
-						/>
-						<p className="type-body text-fg-ghost mb-1">No activity yet.</p>
-						<p className="type-secondary text-fg-ghost mb-4">
-							Runs will appear here once you start your first workflow.
-						</p>
-						<a
-							href="https://rp1.run/getting-started/first-workflow/"
-							target="_blank"
-							rel="noopener noreferrer"
-							className="type-secondary text-fg-muted transition-colors duration-150 hover:text-fg underline underline-offset-2"
-						>
-							Get started with your first workflow
-						</a>
-					</div>
-				) : (
-					<>
-						<AnimatePresence initial={false}>
-							<motion.div
-								className="flex flex-col"
-								initial="initial"
-								animate="animate"
-							>
-								{items.map(renderFeedItem)}
-							</motion.div>
-						</AnimatePresence>
-
-						{hasMore && (
-							<div className="flex justify-center py-4">
-								<button
-									type="button"
-									onClick={handleLoadEarlier}
-									className="type-secondary text-fg-ghost hover:text-fg-muted transition-colors duration-150"
-								>
-									Earlier
-								</button>
-							</div>
-						)}
-					</>
-				)}
+				<SelectedRunPane
+					selectedRunId={selectedRunId}
+					onExpand={handleExpandSelectedRun}
+				/>
 			</div>
 		</div>
 	);
