@@ -78,6 +78,29 @@ just serve-web-ui
 # Opens Vite at http://localhost:5173 (proxies to backend at :7710)
 ```
 
+### Native App Development
+
+Install the native app dependencies once before the first launch:
+
+```bash
+cd native-app
+bun install --no-save
+cd ..
+```
+
+| Recipe | Description |
+|--------|-------------|
+| `native-app-dev` | Build the local dev CLI and launch the macOS native Arcade shell on the registered projects route |
+| `native-app-dev PROJECT=/path/to/rp1-project` | Register and open a specific project directly in the native shell |
+| `native-app-dev RP1_EXECUTABLE=/absolute/path/to/rp1` | Launch with an explicit rp1 executable for daemon startup |
+
+Use the no-path recipe to verify registered project selection, and the
+`PROJECT` recipe to verify optional direct project launch. Browser Arcade
+remains the fallback path; after a native launch, run `./bin/rp1 arcade` from
+the same project directory to verify the browser flow still opens the project.
+See [macOS Native Shell](docs/arcade/native-app.md) for the full manual
+verification matrix.
+
 ### Documentation
 
 | Recipe | Description |

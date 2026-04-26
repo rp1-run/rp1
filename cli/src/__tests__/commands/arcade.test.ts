@@ -16,6 +16,27 @@ describe("arcade command", () => {
 		).toBe(true);
 	});
 
+	test("keeps browser opening enabled by default with a no-open fallback", () => {
+		const noOpenOption = arcadeCommand.options.find(
+			(option) => option.long === "--no-open",
+		);
+
+		expect(noOpenOption).toBeDefined();
+		expect(
+			arcadeCommand.options.some((option) => option.long === "--open"),
+		).toBe(false);
+	});
+
+	test("keeps hook JSON as an explicit hidden output format", () => {
+		const formatOption = arcadeCommand.options.find(
+			(option) => option.long === "--format",
+		);
+
+		expect(formatOption?.argChoices).toEqual(["text", "hook-json"]);
+		expect(formatOption?.defaultValue).toBe("text");
+		expect(formatOption?.hidden).toBe(true);
+	});
+
 	test("formats hook payload with the resolved arcade url", () => {
 		expect(
 			formatArcadeHookPayload("http://127.0.0.1:7710/projects/test-id"),

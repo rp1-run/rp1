@@ -15,6 +15,13 @@ export {
 	writeDaemonState,
 } from "./config-dir";
 export {
+	type CheckedDaemonExecutableLocation,
+	DaemonExecutableResolutionError,
+	type DaemonExecutableResolutionOptions,
+	type DaemonExecutableSource,
+	resolveDaemonExecutablePath,
+} from "./executable";
+export {
 	checkHealth,
 	createConnection,
 	type DaemonConnection,
@@ -39,6 +46,7 @@ export {
 
 export {
 	connectToDaemon,
+	type DaemonEnsureOptions,
 	type DaemonLifecycleReason,
 	DaemonPortConflictError,
 	type DaemonStartAction,

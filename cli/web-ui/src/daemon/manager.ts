@@ -8,6 +8,7 @@ import { execSync, spawn } from "node:child_process";
 import { readFile, unlink, writeFile } from "node:fs/promises";
 import { ensureConfigDir, getPidFilePath } from "./config-dir";
 import { logDaemonEvent } from "./diagnostics";
+import { resolveDaemonExecutablePath } from "./executable";
 import {
 	checkHealth,
 	createConnection,
@@ -69,6 +70,11 @@ export interface DaemonStartResult {
 	readonly reason?: DaemonLifecycleReason;
 	/** Derived from action for backward compatibility: true when action is "reused" or "replaced". */
 	readonly wasRunning: boolean;
+}
+
+export interface DaemonEnsureOptions {
+	readonly cliVersion?: string;
+	readonly executablePath?: string;
 }
 
 /**
@@ -307,23 +313,15 @@ async function waitForHealth(
 }
 
 /**
- * Find the rp1 executable path.
- * Uses process.execPath for compiled binary, falls back to "rp1" in PATH.
- */
-function getRp1Executable(): string {
-	// If running as compiled binary, use the same executable
-	if (process.execPath.endsWith("rp1")) {
-		return process.execPath;
-	}
-	// Otherwise use rp1 from PATH (development mode)
-	return "rp1";
-}
-
-/**
  * Spawn a new daemon process.
  */
-async function spawnDaemon(port: number): Promise<number> {
-	const rp1Path = getRp1Executable();
+async function spawnDaemon(
+	port: number,
+	options: DaemonEnsureOptions,
+): Promise<number> {
+	const rp1Path = resolveDaemonExecutablePath({
+		explicitPath: options.executablePath,
+	});
 	logDaemonEvent("spawn_requested", { port, rp1Path });
 
 	const proc = spawn(rp1Path, ["_daemon-server", "--port", String(port)], {
@@ -400,6 +398,14 @@ function resolveLockVersion(cliVersion?: string): string {
 	return cliVersion ?? "unknown";
 }
 
+function normalizeEnsureOptions(
+	options?: DaemonEnsureOptions | string,
+): DaemonEnsureOptions {
+	return typeof options === "string"
+		? { cliVersion: options }
+		: (options ?? {});
+}
+
 /**
  * Ensure daemon is running, starting it if necessary.
  * Executes under the lifecycle lock so all state reads happen after acquisition.
@@ -408,13 +414,14 @@ function resolveLockVersion(cliVersion?: string): string {
  */
 export async function ensureDaemon(
 	port: number = DEFAULT_PORT,
-	cliVersion?: string,
+	options?: DaemonEnsureOptions | string,
 ): Promise<DaemonStartResult> {
+	const ensureOptions = normalizeEnsureOptions(options);
 	return withLifecycleLock(
 		{
 			operation: "ensureDaemon",
 			port,
-			cliVersion: resolveLockVersion(cliVersion),
+			cliVersion: resolveLockVersion(ensureOptions.cliVersion),
 		},
 		async () => {
 			// Step 1: Read PID file under lock and probe health.
@@ -429,16 +436,19 @@ export async function ensureDaemon(
 
 					if (health) {
 						// Step 2: Healthy and tracked daemon found.
-						if (cliVersion && shouldRestartForVersion(health, cliVersion)) {
+						if (
+							ensureOptions.cliVersion &&
+							shouldRestartForVersion(health, ensureOptions.cliVersion)
+						) {
 							logDaemonEvent("restart_for_version", {
 								requestedPort: port,
 								daemonPort: pidData.port,
 								daemonPid: pidData.pid,
 								daemonVersion: health.version,
-								cliVersion,
+								cliVersion: ensureOptions.cliVersion,
 							});
 							console.error(
-								`[rp1] Daemon version ${health.version} differs from CLI ${cliVersion}. Replacing...`,
+								`[rp1] Daemon version ${health.version} differs from CLI ${ensureOptions.cliVersion}. Replacing...`,
 							);
 							await stopDaemonProcess(pidData);
 							reason = "version_mismatch";
@@ -504,7 +514,10 @@ export async function ensureDaemon(
 						// Step 3a: Healthy rp1 daemon on port without PID tracking → repair ownership.
 						const repairReason = reason ?? "missing_pid";
 
-						if (cliVersion && shouldRestartForVersion(health, cliVersion)) {
+						if (
+							ensureOptions.cliVersion &&
+							shouldRestartForVersion(health, ensureOptions.cliVersion)
+						) {
 							// Incompatible version — stop the untracked daemon and replace.
 							const realPid = resolvePortOwnerPid(port);
 							if (realPid) {
@@ -547,7 +560,7 @@ export async function ensureDaemon(
 			}
 
 			// Step 6: Spawn a new daemon, wait for health, and write the PID file.
-			const pid = await spawnDaemon(port);
+			const pid = await spawnDaemon(port, ensureOptions);
 			await writePidFile({ port, pid });
 
 			const conn = createConnection(port);
@@ -671,13 +684,14 @@ export async function getStatus(
  */
 export async function restartDaemon(
 	port: number = DEFAULT_PORT,
-	cliVersion?: string,
+	options?: DaemonEnsureOptions | string,
 ): Promise<DaemonStartResult> {
+	const ensureOptions = normalizeEnsureOptions(options);
 	return withLifecycleLock(
 		{
 			operation: "restartDaemon",
 			port,
-			cliVersion: resolveLockVersion(cliVersion),
+			cliVersion: resolveLockVersion(ensureOptions.cliVersion),
 		},
 		async () => {
 			const pidData = await readPidFile();
@@ -724,7 +738,7 @@ export async function restartDaemon(
 				// If somehow still a healthy rp1 daemon, treat as replacement.
 			}
 
-			const pid = await spawnDaemon(port);
+			const pid = await spawnDaemon(port, ensureOptions);
 			await writePidFile({ port, pid });
 
 			const conn = createConnection(port);
