@@ -6,7 +6,10 @@
 
 import { describe, expect, test } from "bun:test";
 import type { DiagramBlock } from "../../../agent-tools/mmd-validate/models.js";
-import { parseErrorLocation } from "../../../agent-tools/mmd-validate/validator.js";
+import {
+	findEscapedNewlineErrors,
+	parseErrorLocation,
+} from "../../../agent-tools/mmd-validate/validator.js";
 
 describe("validator", () => {
 	describe("parseErrorLocation", () => {
@@ -150,6 +153,52 @@ describe("validator", () => {
 			const result = parseErrorLocation(error, block);
 
 			expect(result.line).toBe(12);
+		});
+	});
+
+	describe("findEscapedNewlineErrors", () => {
+		test("flags literal escaped newlines in diagram source", () => {
+			const block: DiagramBlock = {
+				index: 2,
+				content: 'flowchart TD\n  A["First\\nSecond"] --> B',
+				startLine: 20,
+				endLine: 21,
+			};
+
+			const result = findEscapedNewlineErrors(block);
+
+			expect(result).toHaveLength(1);
+			expect(result[0].diagramIndex).toBe(2);
+			expect(result[0].line).toBe(21);
+			expect(result[0].column).toBe(11);
+			expect(result[0].message).toContain("Escaped newline");
+			expect(result[0].context).toBe('  A["First\\nSecond"] --> B');
+		});
+
+		test("flags multiple escaped newlines on the same line", () => {
+			const block: DiagramBlock = {
+				index: 0,
+				content: 'flowchart TD\n  A["One\\nTwo\\nThree"] --> B',
+				startLine: 10,
+				endLine: 11,
+			};
+
+			const result = findEscapedNewlineErrors(block);
+
+			expect(result).toHaveLength(2);
+			expect(result[0].column).toBe(9);
+			expect(result[1].column).toBe(14);
+		});
+
+		test("allows Mermaid source without escaped newlines", () => {
+			const block: DiagramBlock = {
+				index: 0,
+				content: 'flowchart TD\n  A["First<br>Second"] --> B',
+				startLine: 1,
+				endLine: 2,
+			};
+
+			expect(findEscapedNewlineErrors(block)).toHaveLength(0);
 		});
 	});
 });

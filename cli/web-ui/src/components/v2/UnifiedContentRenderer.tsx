@@ -95,6 +95,11 @@ function FrontmatterBlock({ raw }: { readonly raw: string }) {
 }
 
 import { restoreFrontmatter, stripFrontmatter } from "@/lib/frontmatter";
+import {
+	type HiddenMarkdownHtmlComment,
+	restoreMarkdownHtmlComments,
+	stripMarkdownHtmlComments,
+} from "@/lib/markdown-comments";
 
 function MarkdownEditorWithSave({
 	content,
@@ -187,10 +192,22 @@ function MarkdownEditorWithSave({
 		});
 	}, [content]);
 
-	const { body: editorContent, frontmatter } = useMemo(
+	const { body: bodyWithoutFrontmatter, frontmatter } = useMemo(
 		() => stripFrontmatter(resolvedContent),
 		[resolvedContent],
 	);
+	const hiddenHtmlCommentsRef = useRef<readonly HiddenMarkdownHtmlComment[]>(
+		[],
+	);
+	const { body: editorContent } = useMemo(() => {
+		if (showFrontmatter) {
+			hiddenHtmlCommentsRef.current = [];
+			return { body: bodyWithoutFrontmatter };
+		}
+		const result = stripMarkdownHtmlComments(bodyWithoutFrontmatter);
+		hiddenHtmlCommentsRef.current = result.comments;
+		return { body: result.body };
+	}, [bodyWithoutFrontmatter, showFrontmatter]);
 	const editorContainerRef = useRef<HTMLElement>(null);
 	const gutterRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<MilkdownEditorHandle>(null);
@@ -201,7 +218,10 @@ function MarkdownEditorWithSave({
 		(markdown: string) => {
 			if (!canSave) return;
 
-			const fullContent = restoreFrontmatter(frontmatter, markdown);
+			const bodyWithComments = showFrontmatter
+				? markdown
+				: restoreMarkdownHtmlComments(hiddenHtmlCommentsRef.current, markdown);
+			const fullContent = restoreFrontmatter(frontmatter, bodyWithComments);
 			latestEditorContentRef.current = fullContent;
 
 			if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -249,7 +269,16 @@ function MarkdownEditorWithSave({
 				}, SAVE_INDICATOR_DURATION_MS);
 			}, SAVE_DEBOUNCE_MS);
 		},
-		[canSave, runId, projectId, filePath, path, frontmatter, setSaveStatus],
+		[
+			canSave,
+			runId,
+			projectId,
+			filePath,
+			path,
+			frontmatter,
+			showFrontmatter,
+			setSaveStatus,
+		],
 	);
 
 	useEffect(() => {

@@ -42,7 +42,7 @@ agents:
   - name: rp1-base:project-documenter
     description: "Generates arc42/C4-aligned birds-eye-view documents with per-claim provenance and Reflexion appendix"
     plugin: base
-    last_checksum: f9ef93984a4d2fdab723afcac79398aa4a8098a0cdc31970f21a1f5d32157c52
+    last_checksum: e0822f5f22a28afea0f8ee3e31483eb3be9f1537f48677b14a9ab474f2e4da9e
   - name: rp1-base:prompt-pipeline-runner
     description: "Executes the six-stage prompt-writer pipeline and produces two mandatory output artifacts (ready-to-run prompt, confidence report)"
     plugin: base

@@ -3,7 +3,7 @@ scope: workRoot
 path_pattern: "birds-eye/{YYYY-MM-DD}-{PROJECT_SLUG}.md"
 producer: project-documenter
 type: document
-description: "arc42/C4-aligned project overview artifact generated from KB + codebase by /project-birds-eye-view. 16 sections with per-claim provenance tags, snapshot metadata header, and conditional Reflexion appendix. Path uses date prefix and project slug with n+1 dedup — registration MUST use the producer's resolved OUTPUT_PATH, not this pattern, because dedup suffixes (-2, -3, …) are assigned at write time."
+description: "arc42/C4-aligned project overview artifact generated from KB + codebase by /project-birds-eye-view. 16 sections with per-claim provenance tags, snapshot metadata frontmatter, and conditional Reflexion appendix. Path uses date prefix and project slug with n+1 dedup — registration MUST use the producer's resolved OUTPUT_PATH, not this pattern, because dedup suffixes (-2, -3, …) are assigned at write time."
 strictness: flexible
 # No emit_hint: path_pattern is NOT safe to use directly for registration.
 # The `/project-birds-eye-view` dispatcher (or any caller) MUST register with the
@@ -11,11 +11,20 @@ strictness: flexible
 # n+1 dedup suffix that was actually assigned at write time. See
 # plugins/base/skills/project-birds-eye-view/SKILL.md for the canonical call.
 ---
-
-> **Snapshot** — generated {YYYY-MM-DD} from commit `{GIT_SHA}` in `{CODE_ROOT}`.
-> KB files loaded: {KB_FILES_WITH_VERSIONS}.
-> Coverage: {FILLED}/{TOTAL} sections, {CONDITIONAL_EMITTED} conditional emitted, {GAP_COUNT} GAPs.
-> **This is a regenerated snapshot. The source of truth is `{KB_ROOT}/`.** Regenerate via `/rp1-base:project-birds-eye-view` when KB changes materially.
+---
+snapshot_generated: "{YYYY-MM-DD}"
+snapshot_git_sha: "{GIT_SHA}"
+snapshot_code_root: "{CODE_ROOT}"
+snapshot_kb_root: "{KB_ROOT}"
+snapshot_kb_files: "{KB_FILES_WITH_VERSIONS}"
+snapshot_coverage:
+  filled: {FILLED}
+  total: {TOTAL}
+  conditional_emitted: {CONDITIONAL_EMITTED}
+  gaps: {GAP_COUNT}
+snapshot_source_of_truth: "{KB_ROOT}/"
+snapshot_regenerate_command: "/rp1-base:project-birds-eye-view"
+---
 
 # {Project Name} — Bird's-Eye View
 
