@@ -16,10 +16,18 @@ const PLUGIN_PATHS: Record<string, string> = {
 	"rp1-utils": "utils",
 };
 const SHA256_REGEX = /^sha256:[0-9a-f]{64}$/;
+const COMPLETED_STATUS_REGEX = /\{"status":\s*"completed"/;
+const FENCED_BLOCK_REGEX = /```[^\n]*\n([\s\S]*?)```/g;
+// Literal terminal-step workflows with prompt-owned completion emits. Excludes
+// custom lifecycle flows and parameterized terminal steps such as `{STATE}`.
 const STANDARD_TERMINAL_WORKFLOW_CASES = [
 	{
 		path: "plugins/base/skills/deep-research/SKILL.md",
 		terminalStep: "report",
+	},
+	{
+		path: "plugins/base/skills/project-birds-eye-view/SKILL.md",
+		terminalStep: "validate_diagrams",
 	},
 	{
 		path: "plugins/dev/skills/address-pr-feedback/SKILL.md",
@@ -32,6 +40,10 @@ const STANDARD_TERMINAL_WORKFLOW_CASES = [
 	{
 		path: "plugins/dev/skills/build-fast/SKILL.md",
 		terminalStep: "review",
+	},
+	{
+		path: "plugins/dev/skills/code-investigate/SKILL.md",
+		terminalStep: "investigating",
 	},
 	{
 		path: "plugins/dev/skills/pr-review/SKILL.md",
@@ -102,6 +114,9 @@ const readPrompt = (relativePath: string): Promise<string> =>
 
 const escapeRegExp = (value: string): string =>
 	value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const extractFencedBlocks = (content: string): string[] =>
+	[...content.matchAll(FENCED_BLOCK_REGEX)].map((match) => match[1] ?? "");
 
 const collectSkillFiles = async (dir: string): Promise<string[]> => {
 	const entries = await readdir(dir, { withFileTypes: true });
@@ -242,26 +257,32 @@ describe("tracked workflow lifecycle prompts", () => {
 				.split("\n")
 				.find(
 					(line) =>
-						line.includes("For terminal states") &&
-						line.includes('{"status": "completed"}'),
+						(line.includes("For terminal states") ||
+							line.includes("Terminal state") ||
+							line.includes("On completion")) &&
+						line.includes("--close-run"),
 				);
 
 			expect(terminalGuidanceLine, path).toBeDefined();
-			expect(terminalGuidanceLine, path).toContain("--close-run");
 
 			const stepPattern = new RegExp(
 				`--step\\s+${escapeRegExp(terminalStep)}\\b`,
-				"g",
 			);
-			const completionSnippets = [...content.matchAll(stepPattern)]
-				.map((match) =>
-					content.slice(match.index ?? 0, (match.index ?? 0) + 400),
-				)
-				.filter((snippet) => snippet.includes('{"status": "completed"'));
+			const terminalLines = content
+				.split("\n")
+				.filter(
+					(line) => stepPattern.test(line) && COMPLETED_STATUS_REGEX.test(line),
+				);
+			const terminalBlocks = extractFencedBlocks(content).filter(
+				(block) =>
+					stepPattern.test(block) && COMPLETED_STATUS_REGEX.test(block),
+			);
+			const terminalCommands =
+				terminalLines.length > 0 ? terminalLines : terminalBlocks;
 
-			expect(completionSnippets.length, path).toBeGreaterThan(0);
+			expect(terminalCommands.length, path).toBeGreaterThan(0);
 			expect(
-				completionSnippets.some((snippet) => snippet.includes("--close-run")),
+				terminalCommands.some((command) => command.includes("--close-run")),
 				path,
 			).toBe(true);
 		}
