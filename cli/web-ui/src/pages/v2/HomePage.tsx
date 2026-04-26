@@ -21,6 +21,7 @@ import { useFeed } from "@/hooks/useFeed";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useWorkspaceTabs } from "@/hooks/useWorkspaceTabs";
+import { isTextInputElement } from "@/lib/keyboard";
 import { resolveRunDisplayName } from "@/lib/run-display";
 import { getRunStatusLabel, getStatusLabel } from "@/lib/status-labels";
 import { formatRelativeTime } from "@/lib/time";
@@ -28,6 +29,36 @@ import { cn } from "@/lib/utils";
 import type { Run, RunsFilter } from "@/types/runs";
 
 const PAGE_SIZE = 25;
+const ACTIVITY_NAVIGATION_KEYS = new Set(["ArrowDown", "j", "ArrowUp", "k"]);
+
+function hasOpenDialog(): boolean {
+	return Array.from(
+		document.querySelectorAll<HTMLElement>('[role="dialog"]'),
+	).some((dialog) => {
+		if (dialog.dataset.state === "closed") return false;
+		if (dialog.dataset.state === "open") return true;
+
+		const rect = dialog.getBoundingClientRect();
+		return (
+			rect.width > 0 &&
+			rect.height > 0 &&
+			rect.right > 0 &&
+			rect.bottom > 0 &&
+			rect.left < window.innerWidth &&
+			rect.top < window.innerHeight
+		);
+	});
+}
+
+function shouldIgnoreActivityNavigation(event: KeyboardEvent): boolean {
+	if (event.defaultPrevented) return true;
+	if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+		return true;
+	}
+	if (hasOpenDialog()) return true;
+	if (document.body.dataset.chordPending) return true;
+	return isTextInputElement(document.activeElement);
+}
 
 function StatusDot({ status }: { status: Run["status"] }) {
 	if (status === "running") {
@@ -450,6 +481,37 @@ export function HomePage() {
 		},
 		[isWideActivityLayout, openWorkspace],
 	);
+
+	useEffect(() => {
+		if (items.length === 0) return;
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (!ACTIVITY_NAVIGATION_KEYS.has(event.key)) return;
+			if (shouldIgnoreActivityNavigation(event)) return;
+
+			const direction = event.key === "ArrowDown" || event.key === "j" ? 1 : -1;
+			const currentIndex = selectedRunId
+				? items.findIndex((item) => item.id === selectedRunId)
+				: -1;
+			const nextIndex =
+				currentIndex === -1
+					? direction > 0
+						? 0
+						: items.length - 1
+					: Math.min(Math.max(currentIndex + direction, 0), items.length - 1);
+			const nextItem = items[nextIndex];
+			if (!nextItem) return;
+
+			event.preventDefault();
+			handleRunClick(nextItem.id);
+			const nextRow = activityRowRefs.current.get(nextItem.id);
+			nextRow?.focus({ preventScroll: true });
+			nextRow?.scrollIntoView?.({ block: "nearest" });
+		};
+
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
+	}, [handleRunClick, items, selectedRunId]);
 
 	const handleExpandSelectedRun = useCallback(() => {
 		if (!selectedRunId) return;
