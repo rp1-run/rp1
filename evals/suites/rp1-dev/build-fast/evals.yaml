@@ -14,7 +14,7 @@ providers:
   - id: anthropic:claude-agent-sdk
     label: rp1-agentic-eval
     config:
-      model: haiku
+      model: sonnet
       betas:
         - fast-mode-2026-02-01
       permission_mode: bypassPermissions
