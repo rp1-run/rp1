@@ -11,7 +11,7 @@ class MockDaemonExecutableResolutionError extends Error {
 }
 
 interface CapturedWindow {
-	readonly initialHtml: string;
+	readonly initialHtml?: string;
 	readonly loadedHtml: string[];
 	readonly loadedUrls: string[];
 	readonly navigationRules: string[][];
@@ -29,7 +29,7 @@ class MockBrowserWindow {
 
 	readonly captured: CapturedWindow;
 
-	constructor(options: { readonly title: string; readonly html: string }) {
+	constructor(options: { readonly title: string; readonly html?: string }) {
 		this.captured = {
 			initialHtml: options.html,
 			loadedHtml: [],
@@ -153,8 +153,9 @@ describe("native launch state", () => {
 
 	test("loads the project-list route when no project path is supplied", async () => {
 		const window = await runNativeEntrypoint();
-		const initialState = parseLaunchViewHtmlState(window.initialHtml);
+		const initialState = parseLaunchViewHtmlState(window.loadedHtml[0] ?? "");
 
+		expect(window.initialHtml).toBeUndefined();
 		expect(initialState.status).toBe("loading");
 		expect(initialState.message).toBe("Loading registered projects.");
 		expect(window.navigationRules[0]).toContain("http://127.0.0.1:*/*");
@@ -169,8 +170,9 @@ describe("native launch state", () => {
 
 	test("renders option parsing failures before launching Arcade", async () => {
 		const window = await runNativeEntrypoint(["--project"]);
-		const initialState = parseLaunchViewHtmlState(window.initialHtml);
+		const initialState = parseLaunchViewHtmlState(window.loadedHtml[0] ?? "");
 
+		expect(window.initialHtml).toBeUndefined();
 		expect(initialState.status).toBe("failure");
 		expect(initialState.title).toBe("Launch options need attention");
 		expect(initialState.message).toBe("Missing value for --project.");
@@ -242,7 +244,7 @@ describe("native launch state", () => {
 			"Daemon started but failed to become healthy",
 		);
 		expect(window.loadedUrls).toHaveLength(0);
-		expect(window.loadedHtml).toHaveLength(1);
+		expect(window.loadedHtml).toHaveLength(2);
 	});
 
 	test("formats project registration failures as launch failures", async () => {

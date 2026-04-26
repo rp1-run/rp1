@@ -301,10 +301,10 @@ const mainWindow = new BrowserWindow({
 		x: 80,
 		y: 80,
 	},
-	html: createLaunchViewHtml(initialState),
 });
 
 setNavigationRules(mainWindow);
+loadLaunchView(mainWindow, initialState);
 
 if (launchOptions.errors.length === 0) {
 	void launchNativeShell(mainWindow, launchOptions).catch((error) => {
