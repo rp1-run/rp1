@@ -238,8 +238,7 @@ function FeedEntry({
 					<NotebookTabs className="h-3.5 w-3.5" strokeWidth={1.5} />
 				</button>
 
-				<span className="pointer-events-none flex min-w-0 max-w-full shrink-0 items-center gap-1 type-secondary italic text-fg-ghost">
-					<NotebookTabs className="h-3 w-3 shrink-0" strokeWidth={1.5} />
+				<span className="pointer-events-none flex min-w-0 max-w-full shrink-0 justify-end type-secondary italic text-fg-ghost text-right">
 					<span className="truncate">{run.projectName}</span>
 				</span>
 
