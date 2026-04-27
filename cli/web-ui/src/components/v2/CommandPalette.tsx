@@ -40,6 +40,7 @@ import { useShortcutRegistry } from "@/providers/ShortcutRegistryProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 
 declare const __RP1_WEB_UI_BUILD_TIME__: string | undefined;
+declare const __RP1_WEB_UI_GIT_COMMIT__: string | undefined;
 declare const __RP1_WEB_UI_VERSION__: string | undefined;
 
 export interface CommandPaletteProps {
@@ -52,6 +53,7 @@ type PaletteView = "commands" | "about";
 interface ClientBuildMetadata {
 	readonly buildTime: string;
 	readonly devBuild: boolean | undefined;
+	readonly gitCommit: string;
 	readonly mode: string;
 	readonly version: string;
 }
@@ -224,12 +226,34 @@ function getClientBuildMetadata(): ClientBuildMetadata {
 				? __RP1_WEB_UI_BUILD_TIME__
 				: "Unknown",
 		devBuild: typeof viteEnv?.DEV === "boolean" ? viteEnv.DEV : undefined,
+		gitCommit:
+			typeof __RP1_WEB_UI_GIT_COMMIT__ === "string"
+				? __RP1_WEB_UI_GIT_COMMIT__
+				: "Unknown",
 		mode: typeof viteEnv?.MODE === "string" ? viteEnv.MODE : "Unknown",
 		version:
 			typeof __RP1_WEB_UI_VERSION__ === "string"
 				? __RP1_WEB_UI_VERSION__
 				: "Unknown",
 	};
+}
+
+function formatBuildVersion(
+	version: string,
+	devBuild: boolean | undefined,
+	gitCommit: string,
+): string {
+	if (
+		!devBuild ||
+		version === "Unknown" ||
+		!gitCommit ||
+		gitCommit === "Unknown"
+	) {
+		return version;
+	}
+
+	const separator = version.includes("+") ? "." : "+";
+	return `${version}${separator}${gitCommit}`;
 }
 
 function formatBoolean(value: boolean | undefined): string {
@@ -303,13 +327,26 @@ function AboutPanel({ onClose }: { onClose: () => void }) {
 	}, []);
 
 	const rows: MetadataRow[] = [
-		{ label: "Web UI", value: clientBuild.version },
+		{
+			label: "Web UI",
+			value: formatBuildVersion(
+				clientBuild.version,
+				clientBuild.devBuild,
+				clientBuild.gitCommit,
+			),
+		},
 		{ label: "Build mode", value: clientBuild.mode },
 		{ label: "Dev build", value: formatBoolean(clientBuild.devBuild) },
 		{ label: "Build time", value: clientBuild.buildTime },
 		{
 			label: "Daemon",
-			value: loading ? "Loading..." : (health?.version ?? "Unknown"),
+			value: loading
+				? "Loading..."
+				: formatBuildVersion(
+						health?.version ?? "Unknown",
+						getDaemonDevBuild(health),
+						clientBuild.gitCommit,
+					),
 		},
 		{ label: "Daemon dev", value: formatBoolean(getDaemonDevBuild(health)) },
 		{
