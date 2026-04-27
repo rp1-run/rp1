@@ -164,6 +164,7 @@ build-native-app: build-local-dev
     #!/usr/bin/env bash
     set -euo pipefail
     cd native-app
+    bun install --frozen-lockfile
     bun run build:macos
     app_path="$(find build -maxdepth 2 -name 'RP1 Arcade-dev.app' -print -quit)"
     if [ -z "$app_path" ]; then
