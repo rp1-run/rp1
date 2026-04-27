@@ -38,7 +38,7 @@ cli/src/config/supported-tools.generated.ts
 bin/rp1
 
 # Native app build output
-native-app/build/
+native-app/
 
 # rp1:start:v0.7.1
 !.rp1/
