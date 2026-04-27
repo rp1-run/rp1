@@ -7,6 +7,7 @@ import { ShortcutRegistryProvider } from "@/providers/ShortcutRegistryProvider";
 
 let importVersion = 0;
 const toggleThemeMock = mock(() => {});
+const originalFetch = globalThis.fetch;
 
 mock.module("@/hooks/usePrefersReducedMotion", () => ({
 	usePrefersReducedMotion: () => true,
@@ -138,6 +139,7 @@ describe("CommandPalette", () => {
 
 	afterEach(() => {
 		cleanup();
+		globalThis.fetch = originalFetch;
 		mock.restore();
 	});
 
@@ -161,5 +163,52 @@ describe("CommandPalette", () => {
 		fireEvent.click(item);
 
 		expect(action).toHaveBeenCalledTimes(1);
+	});
+
+	test("opens About panel with build metadata", async () => {
+		const onOpenChange = mock(() => {});
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				new Response(
+					JSON.stringify({
+						status: "ok",
+						uptime: 3661,
+						port: 7710,
+						projectCount: 3,
+						isDev: false,
+						version: "0.7.6-dev",
+					}),
+					{ headers: { "Content-Type": "application/json" } },
+				),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { CommandPalette } = await import(
+			`../../../components/v2/CommandPalette.tsx?command-palette-test=${++importVersion}`
+		);
+
+		render(
+			<MemoryRouter>
+				<ShortcutRegistryProvider>
+					<CommandPalette open onOpenChange={onOpenChange} />
+				</ShortcutRegistryProvider>
+			</MemoryRouter>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: /^about$/i }));
+
+		expect(onOpenChange).not.toHaveBeenCalled();
+		expect(
+			await screen.findByRole("heading", { name: "About rp1" }),
+		).toBeTruthy();
+		expect(await screen.findByText("0.7.6-dev")).toBeTruthy();
+		expect(screen.getByText("7710")).toBeTruthy();
+		expect(screen.getByText("3")).toBeTruthy();
+		expect(screen.getByText("1h 1m")).toBeTruthy();
+		expect(fetchMock).toHaveBeenCalledWith(
+			"/api/v2/health",
+			expect.objectContaining({ signal: expect.any(AbortSignal) }),
+		);
 	});
 });

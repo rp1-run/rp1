@@ -1,9 +1,14 @@
 import path from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import pkg from "./package.json";
 
 export default defineConfig({
 	plugins: [react()],
+	define: {
+		__RP1_WEB_UI_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+		__RP1_WEB_UI_VERSION__: JSON.stringify(pkg.version),
+	},
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "./src"),

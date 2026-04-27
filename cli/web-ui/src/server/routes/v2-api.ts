@@ -2050,6 +2050,7 @@ export async function handleV2HealthRequest(
 		uptime,
 		port: ctx.port,
 		projectCount,
+		isDev: ctx.isDev ?? false,
 		...(ctx.version && { version: ctx.version }),
 	});
 }

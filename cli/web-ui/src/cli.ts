@@ -166,6 +166,7 @@ async function main(): Promise<void> {
 		port: args.port,
 		projectPath: args.projectPath,
 		isDev,
+		version: VERSION,
 	});
 
 	const url = `http://127.0.0.1:${args.port}`;
