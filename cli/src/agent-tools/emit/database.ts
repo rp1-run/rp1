@@ -2074,6 +2074,10 @@ export const reclassifyInactiveRuns = (
 			 FROM runs
 			 WHERE status IN ('running', 'not_started')
 			   AND updated_at <= $cutoff
+			   AND EXISTS (
+			       SELECT 1 FROM events
+			       WHERE events.run_id = runs.id
+			   )
 			 ORDER BY updated_at ASC, id ASC`,
 		)
 		.all({ $cutoff: cutoffIso }) as {

@@ -15,6 +15,7 @@ import {
 	closeDatabase,
 	deriveRunStatus,
 	getEmitDatabase,
+	getEventsForRun,
 	insertEvent,
 	insertRun,
 	resetInstance,
@@ -264,6 +265,10 @@ describe("handleV2FeedRequest", () => {
 			"2026-04-10T06:00:00.000Z",
 			"run-ghost-phase-plan",
 		);
+		db.prepare("UPDATE runs SET updated_at = ? WHERE id = ?").run(
+			"2026-04-10T06:00:00.000Z",
+			"run-ghost-phase-plan",
+		);
 
 		insertRun(db, {
 			id: "run-normal-workflow",
@@ -283,8 +288,13 @@ describe("handleV2FeedRequest", () => {
 		});
 		deriveRunStatus(db, "run-normal-workflow");
 
+		const websocketHub = {
+			broadcastEvent: mock(() => {}),
+		};
+
 		const response = await handleV2FeedRequest(
 			new Request(`http://localhost/api/v2/feed?project_id=${projectId}`),
+			{ websocketHub } as never,
 		);
 
 		expect(response.status).toBe(200);
@@ -297,6 +307,8 @@ describe("handleV2FeedRequest", () => {
 		expect(body.total).toBe(1);
 		expect(body.items.map((item) => item.id)).toEqual(["run-normal-workflow"]);
 		expect(body.items[0]?.run.id).toBe("run-normal-workflow");
+		expect(websocketHub.broadcastEvent).not.toHaveBeenCalled();
+		expect(getEventsForRun(db, "run-ghost-phase-plan")).toHaveLength(0);
 	});
 
 	test("broadcasts stale run inactivity when feed reads trigger reclassification", async () => {
