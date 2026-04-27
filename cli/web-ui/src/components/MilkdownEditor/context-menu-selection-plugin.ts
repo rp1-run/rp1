@@ -7,6 +7,11 @@ const contextMenuSelectionPluginKey = new PluginKey(
 );
 const PRESERVE_SELECTION_MS = 1000;
 
+interface PreservedContextMenuSelection {
+	readonly editorSelection: Selection;
+	readonly browserRange: Range | null;
+}
+
 export function isContextMenuPointerEvent(event: MouseEvent): boolean {
 	return event.button === 2 || (event.button === 0 && event.ctrlKey);
 }
@@ -41,6 +46,25 @@ export function getContextMenuSelectionToPreserve(
 	return selection;
 }
 
+function cloneBrowserSelectionRange(): Range | null {
+	const selection = window.getSelection();
+	if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+		return null;
+	}
+
+	return selection.getRangeAt(0).cloneRange();
+}
+
+function restoreBrowserSelectionRange(range: Range | null): void {
+	if (!range) return;
+
+	const selection = window.getSelection();
+	if (!selection) return;
+
+	selection.removeAllRanges();
+	selection.addRange(range);
+}
+
 function restoreSelection(view: EditorView, selection: Selection): void {
 	if (selection.empty) return;
 	const docSize = view.state.doc.content.size;
@@ -57,7 +81,7 @@ function restoreSelection(view: EditorView, selection: Selection): void {
 
 export const createContextMenuSelectionPlugin = () =>
 	$prose(() => {
-		let preservedSelection: Selection | null = null;
+		let preservedSelection: PreservedContextMenuSelection | null = null;
 		let clearTimer: ReturnType<typeof setTimeout> | null = null;
 
 		const clearPreservedSelection = () => {
@@ -69,7 +93,10 @@ export const createContextMenuSelectionPlugin = () =>
 		};
 
 		const preserveSelection = (selection: Selection) => {
-			preservedSelection = selection;
+			preservedSelection = {
+				editorSelection: selection,
+				browserRange: cloneBrowserSelectionRange(),
+			};
 			if (clearTimer) clearTimeout(clearTimer);
 			clearTimer = setTimeout(() => {
 				preservedSelection = null;
@@ -79,7 +106,8 @@ export const createContextMenuSelectionPlugin = () =>
 
 		const restorePreservedSelection = (view: EditorView): boolean => {
 			if (!preservedSelection) return false;
-			restoreSelection(view, preservedSelection);
+			restoreSelection(view, preservedSelection.editorSelection);
+			restoreBrowserSelectionRange(preservedSelection.browserRange);
 			return true;
 		};
 
@@ -95,6 +123,8 @@ export const createContextMenuSelectionPlugin = () =>
 						}
 
 						preserveSelection(selection);
+						event.preventDefault();
+						restorePreservedSelection(view);
 						return true;
 					},
 					mouseup(view: EditorView, event: MouseEvent) {
