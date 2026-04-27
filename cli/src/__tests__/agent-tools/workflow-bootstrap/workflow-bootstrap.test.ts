@@ -43,6 +43,7 @@ describe("workflow-bootstrap", () => {
 	let tempDir: string;
 	let dbPath: string;
 	let originalDbEnv: string | undefined;
+	let originalHomeEnv: string | undefined;
 
 	const writeProjectId = async (
 		projectRoot = tempDir,
@@ -120,10 +121,57 @@ metadata:
 		return skillPath;
 	};
 
+	const writeInstalledCodexWorkflowSkill = async (
+		artifact = "temporary-local-only",
+	): Promise<string> => {
+		const homeDir = join(tempDir, "home");
+		process.env.HOME = homeDir;
+		const skillPath = join(
+			homeDir,
+			".codex",
+			"skills",
+			`rp1-${artifact}`,
+			"SKILL.md",
+		);
+
+		await mkdir(dirname(skillPath), { recursive: true });
+		await writeFile(
+			skillPath,
+			`---
+name: rp1-${artifact}
+description: "Installed Codex workflow schema used for bootstrap fallback"
+metadata:
+  rp1:
+    plugin: dev
+    name: ${artifact}
+  category: review
+  is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args: []
+  arguments:
+    - name: TARGET
+      type: string
+      required: false
+      description: "PR number, PR URL, branch name, or empty for the current branch"
+    - name: BASE_BRANCH
+      type: string
+      required: false
+      default: main
+      description: "Diff base branch"
+---
+# Installed Workflow
+`,
+		);
+
+		return skillPath;
+	};
+
 	beforeEach(async () => {
 		tempDir = await createTempDir("workflow-bootstrap");
 		dbPath = join(tempDir, "rp1-test.db");
 		originalDbEnv = process.env.RP1_DB;
+		originalHomeEnv = process.env.HOME;
 		process.env.RP1_DB = dbPath;
 		closeDatabase();
 		resetInstance();
@@ -136,6 +184,11 @@ metadata:
 			delete process.env.RP1_DB;
 		} else {
 			process.env.RP1_DB = originalDbEnv;
+		}
+		if (originalHomeEnv === undefined) {
+			delete process.env.HOME;
+		} else {
+			process.env.HOME = originalHomeEnv;
 		}
 		await rm(tempDir, { recursive: true, force: true });
 	});
@@ -504,6 +557,33 @@ metadata:
 		const run = getRunById(db, canonicalResult.data.run.runId);
 		expect(run?.flow).toBe("build");
 		expect(run?.workIdentity).toBe("FEATURE_ID=feat-installed-schema");
+	});
+
+	test("falls back to the installed Codex skill schema when manifests do not know the workflow", async () => {
+		await writeProjectId(tempDir, "project-installed-codex-fallback-id");
+		await writeInstalledCodexWorkflowSkill();
+
+		const result = await expectTaskRight(
+			execute(
+				JSON.stringify({
+					name: "temporary-local-only",
+					schema_path: "plugins/dev/skills/temporary-local-only/SKILL.md",
+					raw_args: "https://github.com/squareup/cash-server/pull/83764",
+					project_root: tempDir,
+					harness: "codex",
+				}),
+				{ inputSource: "stdin" },
+			),
+		);
+
+		expect(result.data.workflow.name).toBe("temporary-local-only");
+		expect(result.data.workflow.runPolicy).toBe("fresh");
+		expect(result.data.arguments).toEqual({
+			TARGET: "https://github.com/squareup/cash-server/pull/83764",
+			BASE_BRANCH: "main",
+		});
+		expect(result.data.directories.projectRoot).toBe(tempDir);
+		expect(result.data.trace.harness).toBe("codex");
 	});
 
 	testIfDist(
