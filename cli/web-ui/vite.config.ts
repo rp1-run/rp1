@@ -2,7 +2,7 @@ import { execSync } from "node:child_process";
 import path from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
-import pkg from "./package.json";
+import { RP1_VERSION } from "./src/version";
 
 const getGitCommit = (): string => {
 	try {
@@ -20,7 +20,7 @@ export default defineConfig({
 	define: {
 		__RP1_WEB_UI_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
 		__RP1_WEB_UI_GIT_COMMIT__: JSON.stringify(getGitCommit()),
-		__RP1_WEB_UI_VERSION__: JSON.stringify(pkg.version),
+		__RP1_WEB_UI_VERSION__: JSON.stringify(RP1_VERSION),
 	},
 	resolve: {
 		alias: {

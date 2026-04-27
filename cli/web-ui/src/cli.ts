@@ -3,8 +3,8 @@ import { resolve } from "node:path";
 import { isLeft } from "./lib/fp";
 import { createServer } from "./server";
 import { formatProjectError, validateProject } from "./server/project";
+import { RP1_VERSION } from "./version";
 
-const VERSION = "0.1.0";
 const DEFAULT_PORT = 7710;
 
 interface CliArgs {
@@ -76,7 +76,7 @@ Examples:
 }
 
 function printVersion(): void {
-	console.log(`rp1-ui version ${VERSION}`);
+	console.log(`rp1-ui version ${RP1_VERSION}`);
 }
 
 async function checkPortAvailable(port: number): Promise<boolean> {
@@ -166,7 +166,7 @@ async function main(): Promise<void> {
 		port: args.port,
 		projectPath: args.projectPath,
 		isDev,
-		version: VERSION,
+		version: RP1_VERSION,
 	});
 
 	const url = `http://127.0.0.1:${args.port}`;

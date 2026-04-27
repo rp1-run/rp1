@@ -10,6 +10,7 @@ const toggleThemeMock = mock(() => {});
 const originalFetch = globalThis.fetch;
 const buildMetadataGlobals = globalThis as typeof globalThis & {
 	__RP1_WEB_UI_GIT_COMMIT__?: string;
+	__RP1_WEB_UI_VERSION__?: string;
 };
 
 mock.module("@/hooks/usePrefersReducedMotion", () => ({
@@ -139,6 +140,7 @@ describe("CommandPalette", () => {
 		document.body.innerHTML = "";
 		toggleThemeMock.mockClear();
 		delete buildMetadataGlobals.__RP1_WEB_UI_GIT_COMMIT__;
+		delete buildMetadataGlobals.__RP1_WEB_UI_VERSION__;
 	});
 
 	afterEach(() => {
@@ -146,6 +148,7 @@ describe("CommandPalette", () => {
 		globalThis.fetch = originalFetch;
 		mock.restore();
 		delete buildMetadataGlobals.__RP1_WEB_UI_GIT_COMMIT__;
+		delete buildMetadataGlobals.__RP1_WEB_UI_VERSION__;
 	});
 
 	test("renders contextual commands and executes them", async () => {
@@ -173,6 +176,7 @@ describe("CommandPalette", () => {
 	test("opens About panel with build metadata", async () => {
 		const onOpenChange = mock(() => {});
 		buildMetadataGlobals.__RP1_WEB_UI_GIT_COMMIT__ = "abc1234";
+		buildMetadataGlobals.__RP1_WEB_UI_VERSION__ = "0.7.6";
 		const fetchMock = mock(() =>
 			Promise.resolve(
 				new Response(
@@ -181,8 +185,8 @@ describe("CommandPalette", () => {
 						uptime: 3661,
 						port: 7710,
 						projectCount: 3,
-						isDev: false,
-						version: "0.7.6-dev",
+						isDev: true,
+						version: "0.1.0",
 					}),
 					{ headers: { "Content-Type": "application/json" } },
 				),
@@ -208,7 +212,12 @@ describe("CommandPalette", () => {
 		expect(
 			await screen.findByRole("heading", { name: "About rp1" }),
 		).toBeTruthy();
-		expect(await screen.findByText("0.7.6-dev+abc1234")).toBeTruthy();
+		expect(screen.getByText("rp1")).toBeTruthy();
+		expect(await screen.findByText("0.7.6+abc1234")).toBeTruthy();
+		expect(screen.queryByText(/0\.1\.0/)).toBeNull();
+		expect(screen.queryByText("Web UI")).toBeNull();
+		expect(screen.queryByText("Daemon")).toBeNull();
+		expect(screen.queryByText("Daemon dev")).toBeNull();
 		expect(screen.getByText("7710")).toBeTruthy();
 		expect(screen.getByText("3")).toBeTruthy();
 		expect(screen.getByText("1h 1m")).toBeTruthy();
@@ -220,6 +229,7 @@ describe("CommandPalette", () => {
 
 	test("keeps release About version unchanged when commit hash is available", async () => {
 		buildMetadataGlobals.__RP1_WEB_UI_GIT_COMMIT__ = "def5678";
+		buildMetadataGlobals.__RP1_WEB_UI_VERSION__ = "0.7.6";
 		globalThis.fetch = mock(() =>
 			Promise.resolve(
 				new Response(
@@ -251,6 +261,8 @@ describe("CommandPalette", () => {
 		fireEvent.click(screen.getByRole("button", { name: /^about$/i }));
 
 		expect(await screen.findByText("0.7.6")).toBeTruthy();
+		expect(screen.queryByText("Web UI")).toBeNull();
+		expect(screen.queryByText("Daemon")).toBeNull();
 		expect(screen.queryByText(/def5678/)).toBeNull();
 	});
 });

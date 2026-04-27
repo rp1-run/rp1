@@ -278,6 +278,13 @@ function getDaemonDevBuild(health: HealthMetadata | null): boolean | undefined {
 	return typeof health.isDev === "boolean" ? health.isDev : undefined;
 }
 
+function getRp1DevBuild(
+	clientBuild: ClientBuildMetadata,
+	health: HealthMetadata | null,
+): boolean | undefined {
+	return getDaemonDevBuild(health) ?? clientBuild.devBuild;
+}
+
 function AboutMetadataRow({ label, value }: MetadataRow) {
 	return (
 		<div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-t border-border/60 py-2 first:border-t-0">
@@ -299,6 +306,7 @@ function AboutPanel({ onClose }: { onClose: () => void }) {
 	const [health, setHealth] = useState<HealthMetadata | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const rp1DevBuild = getRp1DevBuild(clientBuild, health);
 
 	useEffect(() => {
 		const controller = new AbortController();
@@ -328,27 +336,16 @@ function AboutPanel({ onClose }: { onClose: () => void }) {
 
 	const rows: MetadataRow[] = [
 		{
-			label: "Web UI",
+			label: "rp1",
 			value: formatBuildVersion(
 				clientBuild.version,
-				clientBuild.devBuild,
+				rp1DevBuild,
 				clientBuild.gitCommit,
 			),
 		},
 		{ label: "Build mode", value: clientBuild.mode },
-		{ label: "Dev build", value: formatBoolean(clientBuild.devBuild) },
+		{ label: "Dev build", value: formatBoolean(rp1DevBuild) },
 		{ label: "Build time", value: clientBuild.buildTime },
-		{
-			label: "Daemon",
-			value: loading
-				? "Loading..."
-				: formatBuildVersion(
-						health?.version ?? "Unknown",
-						getDaemonDevBuild(health),
-						clientBuild.gitCommit,
-					),
-		},
-		{ label: "Daemon dev", value: formatBoolean(getDaemonDevBuild(health)) },
 		{
 			label: "API port",
 			value:
