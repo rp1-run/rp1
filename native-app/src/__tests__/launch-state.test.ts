@@ -20,6 +20,7 @@ interface CapturedWindow {
 }
 
 const capturedWindows: CapturedWindow[] = [];
+const capturedApplicationMenus: unknown[] = [];
 
 class MockBrowserWindow {
 	readonly webview: {
@@ -66,8 +67,14 @@ const launchArcadeMock = mock(async () => ({
 	wasRunning: false,
 	daemonPort: 7710,
 }));
+const setApplicationMenuMock = mock((menu: unknown) => {
+	capturedApplicationMenus.push(menu);
+});
 
 mock.module("electrobun/bun", () => ({
+	ApplicationMenu: {
+		setApplicationMenu: setApplicationMenuMock,
+	},
 	BrowserWindow: MockBrowserWindow,
 }));
 
@@ -135,8 +142,10 @@ const runNativeEntrypoint = async (
 describe("native launch state", () => {
 	beforeEach(() => {
 		capturedWindows.length = 0;
+		capturedApplicationMenus.length = 0;
 		resolveDaemonExecutablePathMock.mockClear();
 		launchArcadeMock.mockClear();
+		setApplicationMenuMock.mockClear();
 		resolveDaemonExecutablePathMock.mockImplementation(() => "/tmp/rp1");
 		launchArcadeMock.mockImplementation(async () => ({
 			kind: "project-list" as const,
@@ -150,6 +159,25 @@ describe("native launch state", () => {
 
 	afterEach(() => {
 		capturedWindows.length = 0;
+		capturedApplicationMenus.length = 0;
+	});
+
+	test("installs the standard macOS quit menu shortcut", async () => {
+		await runNativeEntrypoint();
+
+		expect(setApplicationMenuMock).toHaveBeenCalledTimes(1);
+		expect(capturedApplicationMenus[0]).toEqual([
+			{
+				label: "RP1 Arcade",
+				submenu: [
+					{
+						label: "Quit RP1 Arcade",
+						role: "quit",
+						accelerator: "Command+Q",
+					},
+				],
+			},
+		]);
 	});
 
 	test("loads the project-list route when no project path is supplied", async () => {

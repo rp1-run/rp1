@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { BrowserWindow } from "electrobun/bun";
+import {
+	ApplicationMenu,
+	BrowserWindow,
+	type ApplicationMenuItemConfig,
+} from "electrobun/bun";
 import cliPackage from "../../../cli/package.json";
 import { type CLIError, formatError } from "../../../cli/shared/errors.js";
 import { launchArcade } from "../../../cli/src/arcade/launch.js";
@@ -37,6 +41,18 @@ const ARCADE_NAVIGATION_RULES = [
 	"http://127.0.0.1:*/*",
 	"http://localhost:*/*",
 	"http://[::1]:*/*",
+];
+const APPLICATION_MENU: ApplicationMenuItemConfig[] = [
+	{
+		label: "RP1 Arcade",
+		submenu: [
+			{
+				label: "Quit RP1 Arcade",
+				role: "quit",
+				accelerator: "Command+Q",
+			},
+		],
+	},
 ];
 
 const parseFlagValue = (
@@ -295,6 +311,8 @@ const launchNativeShell = async (
 
 const launchOptions = parseLaunchOptions();
 const initialState = createInitialState(launchOptions);
+
+ApplicationMenu.setApplicationMenu(APPLICATION_MENU);
 
 const mainWindow = new BrowserWindow({
 	title: "RP1 Arcade",
