@@ -15,6 +15,17 @@ import {
 
 type LaunchStatus = "loading" | "failure";
 type NativeWindow = InstanceType<typeof BrowserWindow>;
+type NativeWebview = NativeWindow["webview"] & {
+	readonly executeJavascript?: (js: string) => void;
+	readonly on?: (
+		name:
+			| "did-commit-navigation"
+			| "did-navigate"
+			| "did-navigate-in-page"
+			| "dom-ready",
+		handler: (event: unknown) => void,
+	) => void;
+};
 
 interface LaunchOptions {
 	readonly projectPath?: string;
@@ -37,6 +48,7 @@ const LAUNCH_VIEW_TEMPLATE = readFileSync(
 const CLI_VERSION = `${cliPackage.version}-dev`;
 const APP_NAME = "rp1 Arcade";
 const WINDOW_TITLE = "🕹️ rp1 Arcade";
+const WEB_DOCUMENT_TITLE = APP_NAME;
 const OPENING_TITLE = `Opening ${APP_NAME}`;
 const ARCADE_NAVIGATION_RULES = [
 	"^*",
@@ -202,6 +214,48 @@ const loadLaunchView = (window: NativeWindow, state: LaunchViewState): void => {
 	webview.loadHTML(createLaunchViewHtml(state));
 };
 
+const pinDocumentTitleScript = (title: string): string => `
+(() => {
+	const title = ${JSON.stringify(title)};
+	const globalKey = "__RP1_NATIVE_TITLE_PINNED__";
+	if (window[globalKey] === title) {
+		document.title = title;
+		return;
+	}
+	window[globalKey] = title;
+	const applyTitle = () => {
+		if (document.title !== title) document.title = title;
+	};
+	applyTitle();
+	const titleElement =
+		document.querySelector("title") ||
+		document.head?.appendChild(document.createElement("title"));
+	if (titleElement) {
+		new MutationObserver(applyTitle).observe(titleElement, {
+			childList: true,
+			characterData: true,
+			subtree: true,
+		});
+	}
+})();
+`;
+
+const setVisibleWindowTitle = (window: NativeWindow): void => {
+	const webview = window.webview as NativeWebview;
+	webview.executeJavascript?.(pinDocumentTitleScript(WEB_DOCUMENT_TITLE));
+	window.setTitle(WINDOW_TITLE);
+};
+
+const pinVisibleWindowTitle = (window: NativeWindow): void => {
+	setVisibleWindowTitle(window);
+	const webview = window.webview as NativeWebview;
+	const restoreTitle = () => setVisibleWindowTitle(window);
+	webview.on?.("did-commit-navigation", restoreTitle);
+	webview.on?.("did-navigate", restoreTitle);
+	webview.on?.("did-navigate-in-page", restoreTitle);
+	webview.on?.("dom-ready", restoreTitle);
+};
+
 const isLoopbackArcadeUrl = (url: string): boolean => {
 	try {
 		const parsed = new URL(url);
@@ -304,7 +358,7 @@ const launchNativeShell = async (
 		throw new Error(`Arcade returned a non-loopback URL: ${result.url}`);
 	}
 
-	window.setTitle(WINDOW_TITLE);
+	setVisibleWindowTitle(window);
 	loadWindowUrl(window, result.url);
 };
 
@@ -323,6 +377,7 @@ const mainWindow = new BrowserWindow({
 	},
 });
 
+pinVisibleWindowTitle(mainWindow);
 setNavigationRules(mainWindow);
 loadLaunchView(mainWindow, initialState);
 

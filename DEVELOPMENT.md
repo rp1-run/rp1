@@ -115,8 +115,11 @@ To build the macOS app bundle without opening it:
 just build-native-app
 ```
 
-The recipe builds the local CLI, builds the Electrobun target, and copies the
-local `bin/rp1` into the app bundle. The generated app can then be opened later:
+The recipe builds the local CLI, removes stale native app outputs, builds the
+Electrobun stable target, copies the local `bin/rp1` into the app bundle,
+unregisters stale `RP1 Arcade-dev.app` entries with the same bundle id, and
+refreshes the macOS app registration for the generated bundle. The generated app
+can then be opened later:
 
 ```bash
 open -n "native-app/build/stable-macos-arm64/rp1 Arcade.app"

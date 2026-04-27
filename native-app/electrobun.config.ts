@@ -14,6 +14,7 @@ export default {
 			entrypoint: "src/bun/index.ts",
 		},
 		copy: {
+			"../bin/rp1": "../../MacOS/rp1",
 			"src/views/launch/index.html": "views/launch/index.html",
 		},
 		mac: {

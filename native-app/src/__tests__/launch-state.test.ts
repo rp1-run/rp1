@@ -13,9 +13,11 @@ class MockDaemonExecutableResolutionError extends Error {
 
 interface CapturedWindow {
 	readonly initialHtml?: string;
+	readonly executedScripts: string[];
 	readonly loadedHtml: string[];
 	readonly loadedUrls: string[];
 	readonly navigationRules: string[][];
+	readonly webviewHandlers: Record<string, Array<(event: unknown) => void>>;
 	title: string;
 }
 
@@ -24,9 +26,11 @@ const capturedApplicationMenus: unknown[] = [];
 
 class MockBrowserWindow {
 	readonly webview: {
+		readonly executeJavascript: (script: string) => void;
 		readonly setNavigationRules: (rules: string[]) => void;
 		readonly loadURL: (url: string) => void;
 		readonly loadHTML: (html: string) => void;
+		readonly on: (name: string, handler: (event: unknown) => void) => void;
 	};
 
 	readonly captured: CapturedWindow;
@@ -34,13 +38,18 @@ class MockBrowserWindow {
 	constructor(options: { readonly title: string; readonly html?: string }) {
 		this.captured = {
 			initialHtml: options.html,
+			executedScripts: [],
 			loadedHtml: [],
 			loadedUrls: [],
 			navigationRules: [],
+			webviewHandlers: {},
 			title: options.title,
 		};
 		capturedWindows.push(this.captured);
 		this.webview = {
+			executeJavascript: (script: string) => {
+				this.captured.executedScripts.push(script);
+			},
 			setNavigationRules: (rules: string[]) => {
 				this.captured.navigationRules.push(rules);
 			},
@@ -49,6 +58,11 @@ class MockBrowserWindow {
 			},
 			loadHTML: (html: string) => {
 				this.captured.loadedHtml.push(html);
+			},
+			on: (name: string, handler: (event: unknown) => void) => {
+				const handlers = this.captured.webviewHandlers[name] ?? [];
+				handlers.push(handler);
+				this.captured.webviewHandlers[name] = handlers;
 			},
 		};
 	}
@@ -196,6 +210,23 @@ describe("native launch state", () => {
 			cliVersion: `${cliPackage.version}-dev`,
 			openProjectListWhenMissing: true,
 		});
+	});
+
+	test("pins the visible title across webview navigations", async () => {
+		const window = await runNativeEntrypoint();
+		const domReadyHandlers = window.webviewHandlers["dom-ready"] ?? [];
+
+		expect(domReadyHandlers).toHaveLength(1);
+
+		window.title = "RP1 Arcade - Projects";
+		domReadyHandlers[0]?.({ detail: "http://127.0.0.1:7710/projects" });
+
+		expect(window.title).toBe("🕹️ rp1 Arcade");
+		expect(window.executedScripts.at(-1)).toContain(
+			"__RP1_NATIVE_TITLE_PINNED__",
+		);
+		expect(window.executedScripts.at(-1)).toContain("rp1 Arcade");
+		expect(window.executedScripts.at(-1)).not.toContain("🕹️ rp1 Arcade");
 	});
 
 	test("uses the app title for project launches", async () => {
