@@ -191,6 +191,23 @@ describe("native launch state", () => {
 					},
 				],
 			},
+			{
+				label: "Edit",
+				submenu: [
+					{ role: "undo", accelerator: "Command+Z" },
+					{ role: "redo", accelerator: "Shift+Command+Z" },
+					{ type: "separator" },
+					{ role: "cut", accelerator: "Command+X" },
+					{ role: "copy", accelerator: "Command+C" },
+					{ role: "paste", accelerator: "Command+V" },
+					{
+						role: "pasteAndMatchStyle",
+						accelerator: "Shift+Command+V",
+					},
+					{ type: "separator" },
+					{ role: "selectAll", accelerator: "Command+A" },
+				],
+			},
 		]);
 	});
 
