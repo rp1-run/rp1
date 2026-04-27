@@ -16,6 +16,7 @@ import {
 	deriveRunStatus,
 	getEmitDatabase,
 	getEventsForRun,
+	INACTIVE_REAPER_STATUS_CHANGE,
 	insertEvent,
 	insertRun,
 	resetInstance,
@@ -269,6 +270,12 @@ describe("handleV2FeedRequest", () => {
 			"2026-04-10T06:00:00.000Z",
 			"run-ghost-phase-plan",
 		);
+		insertEvent(db, {
+			runId: "run-ghost-phase-plan",
+			type: "status_change",
+			data: JSON.stringify(INACTIVE_REAPER_STATUS_CHANGE),
+			createdAt: "2026-04-11T06:00:00.000Z",
+		});
 
 		insertRun(db, {
 			id: "run-normal-workflow",
@@ -308,7 +315,7 @@ describe("handleV2FeedRequest", () => {
 		expect(body.items.map((item) => item.id)).toEqual(["run-normal-workflow"]);
 		expect(body.items[0]?.run.id).toBe("run-normal-workflow");
 		expect(websocketHub.broadcastEvent).not.toHaveBeenCalled();
-		expect(getEventsForRun(db, "run-ghost-phase-plan")).toHaveLength(0);
+		expect(getEventsForRun(db, "run-ghost-phase-plan")).toHaveLength(1);
 	});
 
 	test("broadcasts stale run inactivity when feed reads trigger reclassification", async () => {
