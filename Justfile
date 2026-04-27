@@ -166,9 +166,9 @@ build-native-app: build-local-dev
     cd native-app
     bun install --frozen-lockfile
     bun run build:macos
-    app_path="$(find build -maxdepth 2 -name 'RP1 Arcade-dev.app' -print -quit)"
+    app_path="$(find build -maxdepth 2 -name 'rp1 Arcade.app' -print -quit)"
     if [ -z "$app_path" ]; then
-        echo "Native app build finished, but no RP1 Arcade-dev.app was found under native-app/build."
+        echo "Native app build finished, but no rp1 Arcade.app was found under native-app/build."
         exit 1
     fi
     cp ../bin/rp1 "${app_path}/Contents/MacOS/rp1"

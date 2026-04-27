@@ -2,7 +2,7 @@ import type { ElectrobunConfig } from "electrobun";
 
 export default {
 	app: {
-		name: "RP1 Arcade",
+		name: "rp1 Arcade",
 		identifier: "run.rp1.arcade",
 		version: "0.1.0",
 	},

@@ -35,6 +35,9 @@ const LAUNCH_VIEW_TEMPLATE = readFileSync(
 	"utf8",
 );
 const CLI_VERSION = `${cliPackage.version}-dev`;
+const APP_NAME = "rp1 Arcade";
+const WINDOW_TITLE = "🕹️ rp1 Arcade";
+const OPENING_TITLE = `Opening ${APP_NAME}`;
 const ARCADE_NAVIGATION_RULES = [
 	"^*",
 	"views://launch/*",
@@ -44,10 +47,10 @@ const ARCADE_NAVIGATION_RULES = [
 ];
 const APPLICATION_MENU: ApplicationMenuItemConfig[] = [
 	{
-		label: "RP1 Arcade",
+		label: APP_NAME,
 		submenu: [
 			{
-				label: "Quit RP1 Arcade",
+				label: `Quit ${APP_NAME}`,
 				role: "quit",
 				accelerator: "Command+Q",
 			},
@@ -164,7 +167,7 @@ const createInitialState = (options: LaunchOptions): LaunchViewState => {
 	if (!options.projectPath) {
 		return {
 			status: "loading",
-			title: "Opening RP1 Arcade",
+			title: OPENING_TITLE,
 			message: "Loading registered projects.",
 			detail: "No project path supplied; opening the Arcade projects view.",
 		};
@@ -172,7 +175,7 @@ const createInitialState = (options: LaunchOptions): LaunchViewState => {
 
 	return {
 		status: "loading",
-		title: "Opening RP1 Arcade",
+		title: OPENING_TITLE,
 		message: "Preparing the native shell.",
 		detail: options.projectPath,
 	};
@@ -301,11 +304,7 @@ const launchNativeShell = async (
 		throw new Error(`Arcade returned a non-loopback URL: ${result.url}`);
 	}
 
-	window.setTitle(
-		result.kind === "project"
-			? `RP1 Arcade - ${result.projectName}`
-			: "RP1 Arcade - Projects",
-	);
+	window.setTitle(WINDOW_TITLE);
 	loadWindowUrl(window, result.url);
 };
 
@@ -315,7 +314,7 @@ const initialState = createInitialState(launchOptions);
 ApplicationMenu.setApplicationMenu(APPLICATION_MENU);
 
 const mainWindow = new BrowserWindow({
-	title: "RP1 Arcade",
+	title: WINDOW_TITLE,
 	frame: {
 		width: 1280,
 		height: 860,

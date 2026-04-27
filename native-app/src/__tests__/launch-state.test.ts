@@ -168,10 +168,10 @@ describe("native launch state", () => {
 		expect(setApplicationMenuMock).toHaveBeenCalledTimes(1);
 		expect(capturedApplicationMenus[0]).toEqual([
 			{
-				label: "RP1 Arcade",
+				label: "rp1 Arcade",
 				submenu: [
 					{
-						label: "Quit RP1 Arcade",
+						label: "Quit rp1 Arcade",
 						role: "quit",
 						accelerator: "Command+Q",
 					},
@@ -189,13 +189,32 @@ describe("native launch state", () => {
 		expect(initialState.message).toBe("Loading registered projects.");
 		expect(window.navigationRules[0]).toContain("http://127.0.0.1:*/*");
 		expect(window.loadedUrls).toEqual(["http://127.0.0.1:7710/projects"]);
-		expect(window.title).toBe("RP1 Arcade - Projects");
+		expect(window.title).toBe("🕹️ rp1 Arcade");
 		expect(launchArcadeMock).toHaveBeenCalledWith({
 			projectPath: undefined,
 			rp1ExecutablePath: "/tmp/rp1",
 			cliVersion: `${cliPackage.version}-dev`,
 			openProjectListWhenMissing: true,
 		});
+	});
+
+	test("uses the app title for project launches", async () => {
+		launchArcadeMock.mockImplementationOnce(async () => ({
+			kind: "project" as const,
+			projectId: "project-1",
+			projectName: "Example Project",
+			url: "http://127.0.0.1:7710/projects/project-1",
+			action: "started" as const,
+			wasRunning: false,
+			daemonPort: 7710,
+		}));
+
+		const window = await runNativeEntrypoint(["--project", "/tmp/project"]);
+
+		expect(window.loadedUrls).toEqual([
+			"http://127.0.0.1:7710/projects/project-1",
+		]);
+		expect(window.title).toBe("🕹️ rp1 Arcade");
 	});
 
 	test("renders option parsing failures before launching Arcade", async () => {

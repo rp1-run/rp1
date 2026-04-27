@@ -119,7 +119,7 @@ The recipe builds the local CLI, builds the Electrobun target, and copies the
 local `bin/rp1` into the app bundle. The generated app can then be opened later:
 
 ```bash
-open -n "native-app/build/dev-macos-arm64/RP1 Arcade-dev.app"
+open -n "native-app/build/stable-macos-arm64/rp1 Arcade.app"
 ```
 
 For direct project launch from the built app, use environment variables with the
@@ -128,7 +128,7 @@ values into the Bun worker.
 
 ```bash
 RP1_NATIVE_PROJECT_PATH="/path/to/rp1-project" \
-  "native-app/build/dev-macos-arm64/RP1 Arcade-dev.app/Contents/MacOS/launcher"
+  "native-app/build/stable-macos-arm64/rp1 Arcade.app/Contents/MacOS/launcher"
 ```
 
 Native launch inputs:
