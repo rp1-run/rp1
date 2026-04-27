@@ -160,7 +160,7 @@ build-local-dev: build-web-ui clean-web-ui-cache
     cd cli && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
 
 # Build the macOS native Arcade shell target without opening it
-build-native-app: build-local-dev
+build-native-app: install
     #!/usr/bin/env bash
     set -euo pipefail
     cd native-app
