@@ -3,6 +3,7 @@ import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 
 import {
+	checkCodexInstalled,
 	checkCodexVersion,
 	checkWritePermissions,
 	getCodexPaths,
@@ -22,6 +23,61 @@ describe("codex prerequisites", () => {
 
 	afterEach(async () => {
 		await cleanupTempDir(tempDir);
+	});
+
+	describe("checkCodexInstalled", () => {
+		const originalWhich = Bun.which;
+		const originalSpawn = Bun.spawn;
+
+		afterEach(() => {
+			Bun.which = originalWhich;
+			Bun.spawn = originalSpawn;
+		});
+
+		test("returns a prerequisite error when codex is not on PATH", async () => {
+			Bun.which = () => null;
+
+			const result = await checkCodexInstalled()();
+
+			expect(E.isLeft(result)).toBe(true);
+			if (E.isLeft(result)) {
+				expect(getErrorMessage(result.left)).toContain("Codex CLI not found");
+			}
+		});
+
+		test("reports the installed codex version from the binary", async () => {
+			Bun.which = () => join(tempDir, "bin", "codex");
+			Bun.spawn = (() => ({
+				exited: Promise.resolve(0),
+				stdout: new Response("codex-cli 0.125.0\n").body,
+				stderr: new Response("").body,
+			})) as unknown as typeof Bun.spawn;
+
+			const result = await checkCodexInstalled()();
+
+			expect(E.isRight(result)).toBe(true);
+			if (E.isRight(result)) {
+				expect(result.right.value).toBe("codex-cli 0.125.0");
+				expect(result.right.message).toContain("Codex CLI found");
+			}
+		});
+
+		test("keeps installation checks passing when version lookup fails", async () => {
+			Bun.which = () => join(tempDir, "bin", "codex");
+			Bun.spawn = (() => ({
+				exited: Promise.resolve(7),
+				stdout: new Response("").body,
+				stderr: new Response("version failed").body,
+			})) as unknown as typeof Bun.spawn;
+
+			const result = await checkCodexInstalled()();
+
+			expect(E.isRight(result)).toBe(true);
+			if (E.isRight(result)) {
+				expect(result.right.value).toBe("unknown");
+				expect(result.right.message).toContain("version unknown");
+			}
+		});
 	});
 
 	describe("checkCodexVersion", () => {

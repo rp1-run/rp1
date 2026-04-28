@@ -22,19 +22,10 @@ export interface VersionCache {
 	readonly ttlHours: number;
 }
 
-/**
- * Default cache TTL in hours.
- */
 export const DEFAULT_TTL_HOURS = 24;
 
-/**
- * Cache file name.
- */
 export const CACHE_FILE_NAME = "version-cache.json";
 
-/**
- * Configuration directory name.
- */
 export const CONFIG_DIR_NAME = "rp1";
 
 /**
@@ -42,7 +33,7 @@ export const CONFIG_DIR_NAME = "rp1";
  * Returns ~/.config/rp1/ on all platforms (XDG-compliant).
  */
 export const getConfigDir = (): string => {
-	const home = homedir();
+	const home = process.env.HOME ?? homedir();
 	return join(home, ".config", CONFIG_DIR_NAME);
 };
 

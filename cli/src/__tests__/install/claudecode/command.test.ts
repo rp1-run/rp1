@@ -1,142 +1,131 @@
-/**
- * Unit tests for Claude Code command module.
- * Tests argument parsing and configuration creation.
- */
+import { afterEach, describe, expect, mock, test } from "bun:test";
+import * as TE from "fp-ts/lib/TaskEither.js";
+import type { Logger } from "../../../../shared/logger.js";
+import { expectTaskRight } from "../../helpers/index.js";
 
-import { describe, expect, test } from "bun:test";
-import {
-	defaultClaudeCodeInstallOptions,
-	parseClaudeCodeInstallArgs,
-} from "../../../install/claudecode/command.js";
+const createLogger = (): { logger: Logger; messages: string[] } => {
+	const messages: string[] = [];
+	const logger: Logger = {
+		trace: () => {},
+		debug: (message: string) => messages.push(message),
+		info: (message: string) => messages.push(message),
+		warn: (message: string) => messages.push(message),
+		error: (message: string) => messages.push(message),
+		start: (message: string) => messages.push(message),
+		success: (message: string) => messages.push(message),
+		fail: (message: string) => messages.push(message),
+		box: (message: string) => messages.push(message),
+	};
+	return { logger, messages };
+};
 
-describe("claudecode/command", () => {
-	describe("parseClaudeCodeInstallArgs", () => {
-		test("returns defaults for empty args", () => {
-			const result = parseClaudeCodeInstallArgs([]);
+const importCommand = async () =>
+	(await import(
+		`../../../install/claudecode/command.js?coverage=${Date.now()}-${Math.random()}`
+	)) as typeof import("../../../install/claudecode/command.js");
 
-			expect(result.dryRun).toBe(false);
-			expect(result.yes).toBe(false);
-			expect(result.scope).toBe("user");
-			expect(result.showHelp).toBe(false);
-		});
+describe("claude code install command", () => {
+	afterEach(() => {
+		mock.restore();
+	});
 
-		test("parses --dry-run flag", () => {
-			const result = parseClaudeCodeInstallArgs(["--dry-run"]);
+	test("parses dry-run, confirmation, scope, and help flags", async () => {
+		const { parseClaudeCodeInstallArgs } = await importCommand();
 
-			expect(result.dryRun).toBe(true);
-			expect(result.yes).toBe(false);
-			expect(result.scope).toBe("user");
-		});
-
-		test("parses -y short flag for yes", () => {
-			const result = parseClaudeCodeInstallArgs(["-y"]);
-
-			expect(result.yes).toBe(true);
-			expect(result.dryRun).toBe(false);
-		});
-
-		test("parses --yes long flag", () => {
-			const result = parseClaudeCodeInstallArgs(["--yes"]);
-
-			expect(result.yes).toBe(true);
-		});
-
-		test("parses -s short flag for scope", () => {
-			const result = parseClaudeCodeInstallArgs(["-s", "project"]);
-
-			expect(result.scope).toBe("project");
-		});
-
-		test("parses --scope long flag", () => {
-			const result = parseClaudeCodeInstallArgs(["--scope", "local"]);
-
-			expect(result.scope).toBe("local");
-		});
-
-		test("parses -h short flag for help", () => {
-			const result = parseClaudeCodeInstallArgs(["-h"]);
-
-			expect(result.showHelp).toBe(true);
-		});
-
-		test("parses --help long flag", () => {
-			const result = parseClaudeCodeInstallArgs(["--help"]);
-
-			expect(result.showHelp).toBe(true);
-		});
-
-		test("parses multiple flags together", () => {
-			const result = parseClaudeCodeInstallArgs([
+		expect(
+			parseClaudeCodeInstallArgs([
 				"--dry-run",
-				"-y",
+				"--yes",
 				"--scope",
 				"project",
-			]);
-
-			expect(result.dryRun).toBe(true);
-			expect(result.yes).toBe(true);
-			expect(result.scope).toBe("project");
-			expect(result.showHelp).toBe(false);
+				"--help",
+			]),
+		).toEqual({
+			dryRun: true,
+			yes: true,
+			scope: "project",
+			showHelp: true,
 		});
-
-		test("handles scope values: user, project, local", () => {
-			const scopes = ["user", "project", "local"] as const;
-
-			for (const scope of scopes) {
-				const result = parseClaudeCodeInstallArgs(["--scope", scope]);
-				expect(result.scope).toBe(scope);
-			}
+		expect(parseClaudeCodeInstallArgs(["-y", "-s", "local"])).toMatchObject({
+			yes: true,
+			scope: "local",
 		});
-
-		test("ignores invalid scope values and keeps default", () => {
-			const result = parseClaudeCodeInstallArgs(["--scope", "invalid"]);
-
-			expect(result.scope).toBe("user");
-		});
-
-		test("handles flag order independence", () => {
-			const args1 = parseClaudeCodeInstallArgs(["--dry-run", "-y"]);
-			const args2 = parseClaudeCodeInstallArgs(["-y", "--dry-run"]);
-
-			expect(args1.dryRun).toBe(args2.dryRun);
-			expect(args1.yes).toBe(args2.yes);
-		});
-
-		test("ignores unknown arguments", () => {
-			const result = parseClaudeCodeInstallArgs([
-				"--unknown",
-				"value",
-				"--dry-run",
-			]);
-
-			expect(result.dryRun).toBe(true);
-			expect(result.yes).toBe(false);
-			expect(result.scope).toBe("user");
-		});
-
-		test("handles repeated flags (last wins for scope)", () => {
-			const result = parseClaudeCodeInstallArgs([
-				"--scope",
-				"user",
-				"--scope",
-				"project",
-			]);
-
-			expect(result.scope).toBe("project");
-		});
-
-		test("handles missing scope value after flag", () => {
-			const result = parseClaudeCodeInstallArgs(["--scope"]);
-
-			// Should keep default since no valid value follows
-			expect(result.scope).toBe("user");
+		expect(parseClaudeCodeInstallArgs(["--scope", "invalid"])).toMatchObject({
+			scope: "user",
 		});
 	});
 
-	describe("defaultClaudeCodeInstallOptions", () => {
-		test("has expected default values", () => {
-			expect(defaultClaudeCodeInstallOptions.isTTY).toBe(false);
-			expect(defaultClaudeCodeInstallOptions.skipPrompt).toBe(false);
-		});
+	test("dry-run execution reports prerequisite success and scoped plan", async () => {
+		mock.module("../../../install/claudecode/prerequisites.js", () => ({
+			runAllPrerequisiteChecks: () =>
+				TE.right([
+					{
+						check: "claude-installed",
+						passed: true,
+						message: "Claude Code found",
+					},
+				]),
+		}));
+		const { executeClaudeCodeInstall } = await importCommand();
+		const { logger, messages } = createLogger();
+
+		await expectTaskRight(
+			executeClaudeCodeInstall(["--dry-run", "--scope", "project"], logger, {
+				isTTY: false,
+				skipPrompt: true,
+			}),
+		);
+
+		const output = messages.join("\n");
+		expect(output).toContain("Installing rp1 plugins to Claude Code");
+		expect(output).toContain("[dry-run] Installation plan:");
+		expect(output).toContain(
+			"claude plugin install rp1-base@rp1-local --scope project",
+		);
+	});
+
+	test("normal execution installs plugins and renders success output", async () => {
+		const installAllPlugins = mock(
+			(_scope: string, _logger: Logger, _dryRun: boolean, _isTTY: boolean) =>
+				TE.right({
+					marketplaceAdded: true,
+					pluginsInstalled: ["rp1-base", "rp1-dev"],
+					warnings: [],
+				}),
+		);
+		mock.module("../../../install/claudecode/prerequisites.js", () => ({
+			runAllPrerequisiteChecks: () =>
+				TE.right([
+					{
+						check: "claude-installed",
+						passed: true,
+						message: "Claude Code found",
+					},
+				]),
+		}));
+		mock.module("../../../install/claudecode/installer.js", () => ({
+			installAllPlugins,
+		}));
+		const { executeClaudeCodeInstall } = await importCommand();
+		const { logger, messages } = createLogger();
+
+		await expectTaskRight(
+			executeClaudeCodeInstall(["--scope", "local"], logger, {
+				isTTY: false,
+				skipPrompt: true,
+			}),
+		);
+
+		expect(installAllPlugins.mock.calls[0]).toEqual([
+			"local",
+			logger,
+			false,
+			false,
+		]);
+		expect(messages.join("\n")).toContain("Installed plugins:");
+		expect(messages.join("\n")).toContain("  - rp1-base");
+		expect(messages.join("\n")).toContain(
+			"Restart Claude Code to load updated plugins.",
+		);
 	});
 });

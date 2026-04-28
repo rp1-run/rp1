@@ -68,8 +68,8 @@ Before any shell command that may change the working directory, run the tracked 
 
 ```bash
 rp1 agent-tools workflow-bootstrap \
-  --name {{ artifact.workflowTarget.name }} \
-  --schema-path {{ artifact.workflowTarget.schemaPath }} \
+  --name rp1-{{ pluginName }}:{{ artifact.name }} \
+  --schema-path "$HOME/.rp1/claude/plugins/{{ pluginName }}/skills/{{ artifact.name }}/SKILL.md" \
 {% if artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}  --args "$ARGUMENTS" \
 {% endif %}  --project-root "$PWD" \
   --harness $CURRENT_HOST

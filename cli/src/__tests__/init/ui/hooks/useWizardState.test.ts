@@ -8,11 +8,15 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { Text } from "ink";
+import { render } from "ink-testing-library";
+import React, { useEffect } from "react";
 import type { Activity, StepId, WizardStep } from "../../../../init/models.js";
 import {
 	getCompletedStepCount,
 	getCurrentStep,
 	isWizardComplete,
+	useWizardState,
 	WIZARD_STEPS,
 	type WizardState,
 } from "../../../../init/ui/hooks/useWizardState.js";
@@ -69,6 +73,28 @@ function addStepActivity(
 			: step,
 	);
 }
+
+const waitForInkUpdate = (): Promise<void> =>
+	new Promise((resolve) => setTimeout(resolve, 0));
+
+type WizardProbeSnapshot = {
+	readonly phase: string;
+	readonly currentStepId: string | undefined;
+	readonly summaryStatus?: string;
+	readonly registryStatus?: string;
+	readonly registryActivityCount?: number;
+	readonly toolCount?: number;
+	readonly healthKbExists?: boolean;
+	readonly projectContext?: string | null;
+	readonly gitRootChoice?: string;
+	readonly pluginInstallError?: string | null;
+	readonly cancellationReason?: string | null;
+	readonly pendingCount: number;
+	readonly error: string | null;
+	readonly toolDetectionStatus?: string;
+	readonly gitignoreStatus?: string;
+	readonly gitignoreActivityCount?: number;
+};
 
 describe("useWizardState", () => {
 	describe("WIZARD_STEPS constant", () => {
@@ -162,13 +188,11 @@ describe("useWizardState", () => {
 			let steps = createTestState().steps;
 			const stepIds = WIZARD_STEPS.map((s) => s.id);
 
-			// Mark various statuses that count as "done"
 			steps = updateStepStatus(steps, stepIds[0], "completed");
 			steps = updateStepStatus(steps, stepIds[1], "skipped");
 			steps = updateStepStatus(steps, stepIds[2], "completed");
 			steps = updateStepStatus(steps, stepIds[3], "failed");
 
-			// Mark remaining as completed
 			for (let i = 4; i < stepIds.length; i++) {
 				steps = updateStepStatus(steps, stepIds[i], "completed");
 			}
@@ -182,7 +206,6 @@ describe("useWizardState", () => {
 			for (const step of WIZARD_STEPS) {
 				steps = updateStepStatus(steps, step.id, "completed");
 			}
-			// Set one step back to running
 			steps = updateStepStatus(steps, "tool-detection", "running");
 
 			const state = createTestState({ steps });
@@ -471,6 +494,189 @@ describe("useWizardState", () => {
 				reinitChoice: "skip",
 				gitignorePreset: "track_all",
 			});
+		});
+	});
+
+	describe("hook reducer integration", () => {
+		test("dispatches wizard progress, metadata, and completion through the real reducer", async () => {
+			let latest: WizardProbeSnapshot | undefined;
+
+			const Probe = () => {
+				const [state, dispatch] = useWizardState();
+
+				useEffect(() => {
+					dispatch({ type: "START_STEP", stepId: "registry" });
+					dispatch({
+						type: "ADD_ACTIVITY",
+						stepId: "registry",
+						activity: {
+							id: "registry-loaded",
+							message: "Registry loaded",
+							type: "success",
+							timestamp: 1,
+						},
+					});
+					dispatch({ type: "COMPLETE_STEP", stepId: "registry" });
+					dispatch({
+						type: "SET_USER_CHOICE",
+						key: "gitRootChoice",
+						value: "continue",
+					});
+					dispatch({
+						type: "SET_DETECTED_TOOLS",
+						tools: [
+							{
+								tool: {
+									id: "codex",
+									name: "Codex CLI",
+									enabled: true,
+									binary: "codex",
+									min_version: "0.116.0",
+									instruction_file: "AGENTS.md",
+									install_url: "https://example.test/codex",
+									plugin_install_cmd: null,
+									capabilities: ["skills"],
+								},
+								version: "0.125.0",
+								meetsMinVersion: true,
+							},
+						],
+					});
+					dispatch({
+						type: "SET_HEALTH_REPORT",
+						report: {
+							rp1DirExists: true,
+							instructionFileValid: true,
+							gitignoreConfigured: true,
+							pluginsInstalled: true,
+							plugins: [],
+							issues: [],
+							kbExists: true,
+							charterExists: false,
+						},
+					});
+					dispatch({
+						type: "SET_PROJECT_CONTEXT",
+						context: "brownfield",
+					});
+					dispatch({
+						type: "SET_PLUGIN_INSTALL_ERROR",
+						error: "Plugin install skipped",
+					});
+					dispatch({ type: "SET_PHASE", phase: "prompting" });
+					dispatch({ type: "START_STEP", stepId: "summary" });
+					dispatch({ type: "COMPLETE_STEP", stepId: "summary" });
+				}, [dispatch]);
+
+				const registry = state.steps.find((step) => step.id === "registry");
+				const summary = state.steps.find((step) => step.id === "summary");
+				latest = {
+					phase: state.phase,
+					currentStepId: getCurrentStep(state)?.id,
+					summaryStatus: summary?.status,
+					registryStatus: registry?.status,
+					registryActivityCount: registry?.activities.length ?? 0,
+					toolCount: state.detectedTools.length,
+					healthKbExists: state.healthReport?.kbExists,
+					projectContext: state.projectContext,
+					gitRootChoice: state.userChoices.gitRootChoice,
+					pluginInstallError: state.pluginInstallError,
+					cancellationReason: state.cancellationReason,
+					pendingCount: state.steps.filter((step) => step.status === "pending")
+						.length,
+					error: state.error,
+				};
+
+				return React.createElement(Text, null, "wizard-probe");
+			};
+
+			const { unmount } = render(React.createElement(Probe));
+			await waitForInkUpdate();
+			await waitForInkUpdate();
+
+			expect(latest).toMatchObject({
+				phase: "complete",
+				currentStepId: "summary",
+				summaryStatus: "completed",
+				registryStatus: "completed",
+				registryActivityCount: 1,
+				toolCount: 1,
+				healthKbExists: true,
+				projectContext: "brownfield",
+				gitRootChoice: "continue",
+				pluginInstallError: "Plugin install skipped",
+				cancellationReason: null,
+				error: null,
+			});
+
+			unmount();
+		});
+
+		test("dispatches failures, invalid steps, skips, and cancellation through the real reducer", async () => {
+			let latest: WizardProbeSnapshot | undefined;
+
+			const Probe = () => {
+				const [state, dispatch] = useWizardState();
+
+				useEffect(() => {
+					dispatch({
+						type: "START_STEP",
+						stepId: "missing-step" as StepId,
+					});
+					dispatch({ type: "START_STEP", stepId: "tool-detection" });
+					dispatch({
+						type: "FAIL_STEP",
+						stepId: "tool-detection",
+						error: "Tool detection failed",
+					});
+					dispatch({
+						type: "SKIP_STEP",
+						stepId: "gitignore-config",
+						reason: "Existing ignore rules preserved",
+					});
+					dispatch({
+						type: "CANCEL_WIZARD",
+						reason: "Use ancestor project",
+					});
+				}, [dispatch]);
+
+				const toolDetection = state.steps.find(
+					(step) => step.id === "tool-detection",
+				);
+				const gitignore = state.steps.find(
+					(step) => step.id === "gitignore-config",
+				);
+				latest = {
+					phase: state.phase,
+					currentStepId: getCurrentStep(state)?.id,
+					toolDetectionStatus: toolDetection?.status,
+					gitignoreStatus: gitignore?.status,
+					gitignoreActivityCount: gitignore?.activities.length ?? 0,
+					cancellationReason: state.cancellationReason,
+					pendingCount: state.steps.filter((step) => step.status === "pending")
+						.length,
+					error: state.error,
+				};
+
+				return React.createElement(Text, null, "wizard-probe");
+			};
+
+			const { unmount } = render(React.createElement(Probe));
+			await waitForInkUpdate();
+			await waitForInkUpdate();
+
+			expect(latest).toMatchObject({
+				phase: "complete",
+				currentStepId: "tool-detection",
+				toolDetectionStatus: "failed",
+				gitignoreStatus: "skipped",
+				gitignoreActivityCount: 1,
+				cancellationReason: "Use ancestor project",
+				pendingCount: 0,
+				error: "Tool detection failed",
+			});
+
+			unmount();
 		});
 	});
 });

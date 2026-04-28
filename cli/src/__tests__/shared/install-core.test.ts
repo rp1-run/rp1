@@ -6,6 +6,7 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { join } from "node:path";
 import * as TE from "fp-ts/lib/TaskEither.js";
+import { type CLIError, installError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import type {
 	SupportedTool,
@@ -15,11 +16,14 @@ import type { InstallContext } from "../../shared/install-core.js";
 import {
 	cleanupTempDir,
 	createTempDir,
+	expectTaskLeft,
 	expectTaskRight,
+	getErrorMessage,
 	withEnvOverride,
 } from "../helpers/index.js";
 
-// Create mock logger
+type InstallCoreModule = typeof import("../../shared/install-core.js");
+
 const createMockLogger = (): Logger => ({
 	trace: () => {},
 	debug: () => {},
@@ -32,7 +36,6 @@ const createMockLogger = (): Logger => ({
 	box: () => {},
 });
 
-// Create mock context
 const createMockContext = (
 	overrides: Partial<InstallContext> = {},
 ): InstallContext => ({
@@ -43,7 +46,6 @@ const createMockContext = (
 	...overrides,
 });
 
-// Create mock tool definitions
 const createClaudeCodeTool = (): SupportedTool => ({
 	id: "claude-code",
 	name: "Claude Code",
@@ -81,14 +83,40 @@ const createCopilotTool = (): SupportedTool => ({
 	capabilities: ["plugins", "skills", "agents", "slash-commands"],
 });
 
+const createCodexTool = (): SupportedTool => ({
+	id: "codex",
+	name: "Codex CLI",
+	enabled: true,
+	binary: "codex",
+	min_version: "0.116.0",
+	instruction_file: "AGENTS.md",
+	install_url: "https://github.com/openai/codex",
+	plugin_install_cmd: null,
+	capabilities: ["skills", "agents"],
+});
+
 const createMockRegistry = (): ToolsRegistry => ({
 	version: "1.0.0",
 	tools: [createClaudeCodeTool(), createOpenCodeTool()],
 });
 
-const createCopilotRegistry = (): ToolsRegistry => ({
+const createInstallRoutingRegistry = (): ToolsRegistry => ({
 	version: "1.0.0",
-	tools: [createCopilotTool()],
+	tools: [
+		createClaudeCodeTool(),
+		createOpenCodeTool(),
+		createCodexTool(),
+		{ ...createCopilotTool(), enabled: false },
+	],
+});
+
+const createCodexRegistry = (): ToolsRegistry => ({
+	version: "1.0.0",
+	tools: [createCodexTool()],
+});
+
+afterEach(() => {
+	mock.restore();
 });
 
 describe("install-core module", () => {
@@ -115,7 +143,6 @@ describe("install-core module", () => {
 
 	describe("ToolInstallResult interface contract", () => {
 		test("result structure contains required fields", () => {
-			// This tests the type contract - results should have these fields
 			const result = {
 				toolId: "claude-code",
 				toolName: "Claude Code",
@@ -210,7 +237,6 @@ describe("install-core module", () => {
 
 describe("install-core function exports", () => {
 	test("module exports required functions", async () => {
-		// Dynamic import to test exports
 		const installCore = await import("../../shared/install-core.js");
 
 		expect(typeof installCore.installClaudeCodePlugins).toBe("function");
@@ -220,11 +246,8 @@ describe("install-core function exports", () => {
 	});
 
 	test("context interface is used by exported functions", () => {
-		// Type-level validation: verify context interface is compatible
-		// with the already imported InstallContext type
 		const ctx: InstallContext = createMockContext();
 
-		// Verify the context has all required fields
 		expect(ctx.logger).toBeDefined();
 		expect(typeof ctx.isTTY).toBe("boolean");
 		expect(typeof ctx.dryRun).toBe("boolean");
@@ -238,7 +261,6 @@ describe("install-core function signatures", () => {
 			"../../shared/install-core.js"
 		);
 
-		// Verify function can be called with expected arguments
 		// This is a type-level test - we don't execute the actual installation
 		expect(installClaudeCodePlugins.length).toBeGreaterThanOrEqual(0);
 	});
@@ -273,21 +295,18 @@ describe("install-core context variations", () => {
 		const ctx = createMockContext({ dryRun: true });
 
 		expect(ctx.dryRun).toBe(true);
-		// In dry-run mode, no actual installation should occur
 	});
 
 	test("context with TTY mode", () => {
 		const ctx = createMockContext({ isTTY: true });
 
 		expect(ctx.isTTY).toBe(true);
-		// In TTY mode, spinners and prompts may be displayed
 	});
 
 	test("context with skipPrompt mode", () => {
 		const ctx = createMockContext({ skipPrompt: true });
 
 		expect(ctx.skipPrompt).toBe(true);
-		// With skipPrompt, confirmation prompts are bypassed
 	});
 
 	test("context combines multiple flags", () => {
@@ -375,25 +394,103 @@ describe("install-core result handling", () => {
 	});
 });
 
-describe("install-core Copilot flows", () => {
-	afterEach(async () => {
-		mock.restore();
+describe("install-core tool routing", () => {
+	test("installClaudeCodePlugins runs prerequisites before installing plugins", async () => {
+		const calls: string[] = [];
+
+		mock.module("../../install/claudecode/prerequisites.js", () => ({
+			runAllPrerequisiteChecks: () => {
+				calls.push("prerequisites");
+				return TE.right([]);
+			},
+		}));
+		mock.module("../../install/claudecode/installer.js", () => ({
+			installAllPlugins: (
+				scope: string,
+				_logger: Logger,
+				dryRun: boolean,
+				isTTY: boolean,
+			) => {
+				calls.push(`install:${scope}:${dryRun}:${isTTY}`);
+				return TE.right({
+					marketplaceAdded: true,
+					pluginsInstalled: ["rp1-base", "rp1-dev"],
+					warnings: [],
+				});
+			},
+		}));
+
+		const installCore = (await import(
+			`../../shared/install-core.js?claude-route=${Date.now()}`
+		)) as InstallCoreModule;
+		const result = await expectTaskRight(
+			installCore.installClaudeCodePlugins(
+				"project",
+				createMockContext({ dryRun: true, isTTY: true }),
+			),
+		);
+
+		expect(result.pluginsInstalled).toEqual(["rp1-base", "rp1-dev"]);
+		expect(calls).toEqual(["prerequisites", "install:project:true:true"]);
 	});
 
-	test("installCopilotPlugins passes explicit Copilot artifacts through the shared install path", async () => {
+	test("installOpenCodePlugins forwards install flags and reports default dev plugins", async () => {
+		const installCalls: Array<{
+			args: readonly string[];
+			options: { isTTY: boolean; skipPrompt: boolean };
+		}> = [];
+
+		mock.module("../../install/command.js", () => ({
+			executeInstall: (
+				args: readonly string[],
+				_logger: Logger,
+				options: { isTTY: boolean; skipPrompt: boolean },
+			) => {
+				installCalls.push({ args, options });
+				return TE.right(undefined);
+			},
+		}));
+
+		const installCore = (await import(
+			`../../shared/install-core.js?opencode-route=${Date.now()}`
+		)) as InstallCoreModule;
+		const result = await expectTaskRight(
+			installCore.installOpenCodePlugins(
+				{ artifactsDir: "/tmp/opencode-artifacts" },
+				createMockContext({ dryRun: true, skipPrompt: true }),
+			),
+		);
+
+		expect(result.pluginsInstalled).toEqual(["rp1-base", "rp1-dev"]);
+		expect(installCalls).toEqual([
+			{
+				args: [
+					"--artifacts-dir",
+					"/tmp/opencode-artifacts",
+					"--dry-run",
+					"--yes",
+				],
+				options: { isTTY: false, skipPrompt: true },
+			},
+		]);
+	});
+
+	test("installForSpecificTool routes Codex through the default artifacts path", async () => {
 		const installCalls: Array<{ config: unknown; ctx: InstallContext }> = [];
-		const homeDir = await createTempDir("install-core-copilot-explicit");
+		const homeDir = await createTempDir("install-core-codex-specific");
 		const restoreHome = withEnvOverride("HOME", homeDir);
 
 		try {
-			mock.module("../../install/copilot/index.js", () => ({
-				getDefaultCopilotArtifactsDir: () => "/mock/default-copilot",
-				installCopilot: (config: unknown, ctx: InstallContext) => {
+			mock.module("../../install/codex/index.js", () => ({
+				getDefaultCodexArtifactsDir: () => "/mock/default-codex",
+				installCodex: (config: unknown, ctx: InstallContext) => {
 					installCalls.push({ config, ctx });
 					return TE.right({
-						marketplaceAdded: true,
-						pluginsInstalled: ["rp1-base", "rp1-dev"],
+						skillsCopied: 4,
+						configMerged: true,
+						backupPath: null,
 						warnings: [],
+						pluginsInstalled: ["rp1-base", "rp1-dev"],
 					});
 				},
 			}));
@@ -402,21 +499,22 @@ describe("install-core Copilot flows", () => {
 			}));
 
 			const installCore = (await import(
-				`../../shared/install-core.js?copilot-explicit=${Date.now()}`
-			)) as typeof import("../../shared/install-core.js");
+				`../../shared/install-core.js?codex-route=${Date.now()}`
+			)) as InstallCoreModule;
 			const result = await expectTaskRight(
-				installCore.installCopilotPlugins(
-					{ artifactsDir: "/tmp/copilot-artifacts" },
+				installCore.installForSpecificTool(
+					"codex",
+					createCodexRegistry(),
 					createMockContext({ dryRun: false, skipPrompt: true }),
 				),
 			);
 
+			expect(result.toolId).toBe("codex");
 			expect(result.pluginsInstalled).toEqual(["rp1-base", "rp1-dev"]);
-			expect(result.warnings).toEqual([]);
 			expect(installCalls).toEqual([
 				{
 					config: {
-						artifactsDir: "/tmp/copilot-artifacts",
+						artifactsDir: "/mock/default-codex",
 						dryRun: false,
 						yes: true,
 					},
@@ -433,14 +531,34 @@ describe("install-core Copilot flows", () => {
 				string,
 				{ version: string }
 			>;
-			expect(markers.copilot?.version).toBe("9.9.9");
+			expect(markers.codex?.version).toBe("9.9.9");
 		} finally {
 			restoreHome();
 			await cleanupTempDir(homeDir);
 		}
 	});
 
-	test("installForSpecificTool routes Copilot updates through the shared default artifacts path", async () => {
+	test("installForSpecificTool returns Codex installer failures as command errors", async () => {
+		mock.module("../../install/codex/index.js", () => ({
+			getDefaultCodexArtifactsDir: () => "/mock/default-codex",
+			installCodex: () => TE.left(installError("codex", "Codex failed")),
+		}));
+
+		const installCore = (await import(
+			`../../shared/install-core.js?codex-failure=${Date.now()}`
+		)) as InstallCoreModule;
+		const error = await expectTaskLeft(
+			installCore.installForSpecificTool(
+				"codex",
+				createCodexRegistry(),
+				createMockContext(),
+			),
+		);
+
+		expect(getErrorMessage(error as CLIError)).toContain("Codex failed");
+	});
+
+	test("installForSpecificTool routes Copilot through the default artifacts path", async () => {
 		const installCalls: Array<{ config: unknown; ctx: InstallContext }> = [];
 		const homeDir = await createTempDir("install-core-copilot-specific");
 		const restoreHome = withEnvOverride("HOME", homeDir);
@@ -451,8 +569,8 @@ describe("install-core Copilot flows", () => {
 				installCopilot: (config: unknown, ctx: InstallContext) => {
 					installCalls.push({ config, ctx });
 					return TE.right({
-						marketplaceAdded: true,
 						pluginsInstalled: ["rp1-base", "rp1-dev"],
+						backupPath: null,
 						warnings: ["restart Copilot"],
 					});
 				},
@@ -461,30 +579,33 @@ describe("install-core Copilot flows", () => {
 				getInstalledVersion: () => "9.9.9",
 			}));
 
+			const registry: ToolsRegistry = {
+				version: "1.0.0",
+				tools: [{ ...createCopilotTool(), enabled: true }],
+			};
 			const installCore = (await import(
-				`../../shared/install-core.js?copilot-specific=${Date.now()}`
-			)) as typeof import("../../shared/install-core.js");
+				`../../shared/install-core.js?copilot-route=${Date.now()}`
+			)) as InstallCoreModule;
 			const result = await expectTaskRight(
 				installCore.installForSpecificTool(
 					"copilot",
-					createCopilotRegistry(),
-					createMockContext({ dryRun: false, skipPrompt: true }),
+					registry,
+					createMockContext({ dryRun: true, skipPrompt: true }),
 				),
 			);
 
 			expect(result.toolId).toBe("copilot");
-			expect(result.toolName).toBe("GitHub Copilot CLI");
 			expect(result.pluginsInstalled).toEqual(["rp1-base", "rp1-dev"]);
 			expect(result.warnings).toEqual(["restart Copilot"]);
 			expect(installCalls).toEqual([
 				{
 					config: {
 						artifactsDir: "/mock/default-copilot",
-						dryRun: false,
+						dryRun: true,
 						yes: true,
 					},
 					ctx: expect.objectContaining({
-						dryRun: false,
+						dryRun: true,
 						isTTY: false,
 						skipPrompt: true,
 					}),
@@ -501,5 +622,187 @@ describe("install-core Copilot flows", () => {
 			restoreHome();
 			await cleanupTempDir(homeDir);
 		}
+	});
+
+	test("installForSpecificTool rejects unknown tools with enabled alternatives", async () => {
+		const installCore = await import("../../shared/install-core.js");
+
+		const error = (await expectTaskLeft(
+			installCore.installForSpecificTool(
+				"missing",
+				createInstallRoutingRegistry(),
+				createMockContext(),
+			),
+		)) as CLIError;
+
+		expect(getErrorMessage(error)).toContain("Unknown tool: missing");
+		expect(getErrorMessage(error)).toContain('"claude-code"');
+		expect(getErrorMessage(error)).not.toContain('"copilot"');
+	});
+
+	test("installForSpecificTool rejects disabled tools before installation", async () => {
+		const installCore = await import("../../shared/install-core.js");
+
+		const error = (await expectTaskLeft(
+			installCore.installForSpecificTool(
+				"copilot",
+				createInstallRoutingRegistry(),
+				createMockContext(),
+			),
+		)) as CLIError;
+
+		expect(getErrorMessage(error)).toContain("currently disabled");
+	});
+
+	test("installAllDetectedTools routes each detected host and reports unsupported tools without aborting", async () => {
+		const calls: string[] = [];
+		const fullRegistry: ToolsRegistry = {
+			version: "1.0.0",
+			tools: [
+				{ ...createClaudeCodeTool(), binary: "bun", min_version: "0.0.0" },
+				{ ...createOpenCodeTool(), binary: "bun", min_version: "0.0.0" },
+				{
+					id: "future-host",
+					name: "Future Host",
+					enabled: true,
+					binary: "bun",
+					min_version: "0.0.0",
+					instruction_file: "AGENTS.md",
+					install_url: "https://example.test/future",
+					plugin_install_cmd: null,
+					capabilities: ["plugins"],
+				},
+			],
+		};
+
+		mock.module("../../install/claudecode/prerequisites.js", () => ({
+			runAllPrerequisiteChecks: () => {
+				calls.push("claude:prerequisites");
+				return TE.right([]);
+			},
+		}));
+		mock.module("../../install/claudecode/installer.js", () => ({
+			installAllPlugins: () => {
+				calls.push("claude:install");
+				return TE.right({
+					marketplaceAdded: true,
+					pluginsInstalled: ["rp1-base", "rp1-dev"],
+					warnings: ["restart Claude Code"],
+				});
+			},
+		}));
+		mock.module("../../install/command.js", () => ({
+			executeInstall: (args: readonly string[]) => {
+				calls.push(`opencode:${args.join(" ")}`);
+				return TE.right(undefined);
+			},
+		}));
+
+		const installCore = (await import(
+			`../../shared/install-core.js?install-all=${Date.now()}`
+		)) as InstallCoreModule;
+		const result = await expectTaskRight(
+			installCore.installAllDetectedTools(
+				fullRegistry,
+				createMockContext({ dryRun: true, skipPrompt: true }),
+			),
+		);
+
+		expect(result.installed).toBe(2);
+		expect(result.results.map((entry) => entry.toolId)).toEqual([
+			"claude-code",
+			"opencode",
+			"future-host",
+		]);
+		expect(
+			result.results.find((entry) => entry.toolId === "future-host"),
+		).toMatchObject({
+			success: false,
+			warnings: ["Automated installation not supported for Future Host"],
+		});
+		expect(calls).toContain("claude:prerequisites");
+		expect(calls).toContain("claude:install");
+		expect(calls).toContain("opencode:--dry-run --yes");
+	});
+
+	test("installAllDetectedTools returns a detection error when no supported tools are installed", async () => {
+		const emptyRegistry: ToolsRegistry = { version: "1.0.0", tools: [] };
+		const installCore = await import("../../shared/install-core.js");
+		const error = await expectTaskLeft(
+			installCore.installAllDetectedTools(emptyRegistry, createMockContext()),
+		);
+
+		expect(getErrorMessage(error as CLIError)).toContain(
+			"No supported agentic tools detected",
+		);
+	});
+
+	test("installAllDetectedTools reports unsupported detected hosts without installer mocks", async () => {
+		const registry: ToolsRegistry = {
+			version: "1.0.0",
+			tools: [
+				{
+					id: "future-host",
+					name: "Future Host",
+					enabled: true,
+					binary: "bun",
+					min_version: "0.0.0",
+					instruction_file: "AGENTS.md",
+					install_url: "https://example.test/future",
+					plugin_install_cmd: null,
+					capabilities: ["plugins"],
+				},
+			],
+		};
+		const installCore = await import("../../shared/install-core.js");
+
+		const result = await expectTaskRight(
+			installCore.installAllDetectedTools(registry, createMockContext()),
+		);
+
+		expect(result.installed).toBe(0);
+		expect(result.results).toEqual([
+			expect.objectContaining({
+				toolId: "future-host",
+				toolName: "Future Host",
+				success: false,
+				warnings: ["Automated installation not supported for Future Host"],
+			}),
+		]);
+	});
+
+	test("installAllDetectedTools captures per-tool installer failures and continues", async () => {
+		const registry: ToolsRegistry = {
+			version: "1.0.0",
+			tools: [{ ...createCodexTool(), binary: "bun", min_version: "0.0.0" }],
+		};
+		mock.module("../../install/codex/index.js", () => ({
+			getDefaultCodexArtifactsDir: () => "/mock/codex",
+			installCodex: () => TE.left(installError("codex", "copy failed")),
+		}));
+		mock.module("../../install/version-marker.js", () => ({
+			writeVersionMarker: () => TE.right(undefined),
+		}));
+		mock.module("../../lib/version.js", () => ({
+			getInstalledVersion: () => "9.9.9",
+		}));
+
+		const installCore = (await import(
+			`../../shared/install-core.js?install-failure=${Date.now()}`
+		)) as InstallCoreModule;
+		const result = await expectTaskRight(
+			installCore.installAllDetectedTools(registry, createMockContext()),
+		);
+
+		expect(result.installed).toBe(0);
+		expect(result.results[0]).toMatchObject({
+			toolId: "codex",
+			success: false,
+			pluginsInstalled: [],
+			error: {
+				_tag: "InstallError",
+				message: "copy failed",
+			},
+		});
 	});
 });

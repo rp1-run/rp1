@@ -190,10 +190,10 @@ export const parseRawArgs = (
 		}
 	}
 
-	// Ordered list of positional string arguments. Optional strings are named-only
-	// unless explicitly marked variadic.
+	// Ordered list of positional scalar arguments. This mirrors generated
+	// argument hints where optional strings/enums render as positional tokens.
 	const positionalArgs = schema.filter(
-		(a) => a.type === "string" && (a.required || a.variadic),
+		(a) => a.type === "string" || a.type === "enum",
 	);
 
 	let positionalIndex = 0;

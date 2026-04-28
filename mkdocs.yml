@@ -134,6 +134,7 @@ nav:
       - code-clean-comments: reference/dev/code-clean-comments.md
       - pr-review: reference/dev/pr-review.md
       - pr-visual: reference/dev/pr-visual.md
+      - pr-walkthrough: reference/dev/pr-walkthrough.md
       - address-pr-feedback: reference/dev/address-pr-feedback.md
   - Troubleshooting: troubleshooting/index.md
   - Concepts:

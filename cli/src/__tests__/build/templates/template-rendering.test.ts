@@ -289,7 +289,7 @@ describeWithLiquid("template rendering", () => {
 				artifact: {
 					type: "skill",
 					name: "build-fast",
-					namespacedName: "rp1-dev-build-fast",
+					namespacedName: "rp1-build-fast",
 					schemaPath: "plugins/dev/skills/build-fast/SKILL.md",
 					workflowTarget: {
 						name: "build-fast",
@@ -315,9 +315,9 @@ describeWithLiquid("template rendering", () => {
 			});
 			expect(result).toContain("## 0. Workflow Bootstrap");
 			expect(result).toContain("rp1 agent-tools workflow-bootstrap");
-			expect(result).toContain("--name build-fast");
+			expect(result).toContain("--name rp1-dev:build-fast");
 			expect(result).toContain(
-				"--schema-path plugins/dev/skills/build-fast/SKILL.md",
+				'--schema-path "$HOME/.config/opencode/skills/rp1-build-fast/SKILL.md"',
 			);
 			expect(result).toContain("| RUN_ID | `data.run.runId` |");
 			expect(result).toContain("do not call `emit resume-run` directly");
@@ -491,7 +491,7 @@ describeWithLiquid("template rendering", () => {
 				artifact: {
 					type: "skill",
 					name: "build",
-					namespacedName: "rp1-dev-build",
+					namespacedName: "rp1-build",
 					schemaPath: "plugins/dev/skills/build/SKILL.md",
 					workflowTarget: {
 						name: "build",
@@ -517,9 +517,9 @@ describeWithLiquid("template rendering", () => {
 			});
 			expect(result).toContain("## 0. Workflow Bootstrap");
 			expect(result).toContain("rp1 agent-tools workflow-bootstrap");
-			expect(result).toContain("--name build");
+			expect(result).toContain("--name rp1-dev:build");
 			expect(result).toContain(
-				"--schema-path plugins/dev/skills/build/SKILL.md",
+				'--schema-path "$HOME/.codex/skills/rp1-build/SKILL.md"',
 			);
 			expect(result).toContain(
 				'--args "the arguments provided by the user in their prompt"',
@@ -978,7 +978,7 @@ describeWithLiquid("template rendering", () => {
 				artifact: {
 					type: "skill",
 					name: "generate-user-docs",
-					namespacedName: "rp1-base-generate-user-docs",
+					namespacedName: "generate-user-docs",
 					schemaPath: "plugins/base/skills/generate-user-docs/SKILL.md",
 					workflowTarget: {
 						name: "generate-user-docs",
@@ -996,8 +996,9 @@ describeWithLiquid("template rendering", () => {
 			});
 			expect(result).toContain("## 0. Workflow Bootstrap");
 			expect(result).toContain("rp1 agent-tools workflow-bootstrap");
+			expect(result).toContain("--name rp1-base:generate-user-docs");
 			expect(result).toContain(
-				"--schema-path plugins/base/skills/generate-user-docs/SKILL.md",
+				'--schema-path "$HOME/.rp1/claude/plugins/base/skills/generate-user-docs/SKILL.md"',
 			);
 			expect(result).toContain(
 				"| workflowRunPolicy | `data.workflow.runPolicy` |",

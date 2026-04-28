@@ -107,6 +107,43 @@ describe("parseRawArgs", () => {
 		expect(result).toEqual({ FEATURE_ID: "my-feature" });
 	});
 
+	test("parses optional positional string and enum arguments", () => {
+		const optionalSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "TARGET",
+				type: "string",
+				required: false,
+				description: "PR number, URL, or branch",
+			},
+			{
+				name: "BASE_BRANCH",
+				type: "string",
+				required: false,
+				default: "main",
+				description: "Base branch",
+			},
+			{
+				name: "REVIEW_DEPTH",
+				type: "enum",
+				required: false,
+				default: "standard",
+				description: "Review depth",
+				enum_values: ["quick", "standard", "detailed"],
+			},
+		];
+
+		const result = parseRawArgs(
+			"https://github.com/squareup/cash-server/pull/83764 main detailed",
+			optionalSchema,
+		);
+
+		expect(result).toEqual({
+			TARGET: "https://github.com/squareup/cash-server/pull/83764",
+			BASE_BRANCH: "main",
+			REVIEW_DEPTH: "detailed",
+		});
+	});
+
 	test("parses boolean flag", () => {
 		const result = parseRawArgs("my-feature --afk", schema);
 		expect(result).toEqual({ FEATURE_ID: "my-feature", AFK: true });

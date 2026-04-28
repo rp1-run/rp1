@@ -9,30 +9,12 @@ import {
 
 let testConfigDir: string;
 let lockPath: string;
+let manager: typeof import("../../../web-ui/src/daemon/manager.js");
 
-mock.module("../../../web-ui/src/daemon/config-dir.js", () => ({
-	getConfigDir: () => testConfigDir,
-	getLifecycleLockPath: () => lockPath,
-	getRestartMarkerPath: () =>
-		join(testConfigDir, "restart-arcade-after-install"),
-	ensureConfigDir: async () => {
-		await mkdir(testConfigDir, { recursive: true, mode: 0o700 });
-		return testConfigDir;
-	},
-	getPidFilePath: () => join(testConfigDir, "daemon.pid"),
-	getDaemonStatePath: () => join(testConfigDir, "daemon-state.json"),
-	readDaemonState: () => null,
-	writeDaemonState: () => {},
-}));
-
-mock.module("../../../web-ui/src/daemon/diagnostics.js", () => ({
-	logDaemonEvent: () => {},
-	logDaemonError: () => {},
-}));
-
-const { ensureDaemon, stopDaemon } = await import(
-	"../../../web-ui/src/daemon/manager.js"
-);
+const loadManager = async () =>
+	(await import(
+		`../../../web-ui/src/daemon/manager.js?manager-executable=${Date.now()}-${Math.random()}`
+	)) as typeof import("../../../web-ui/src/daemon/manager.js");
 
 const reservePort = (): number => {
 	const server = Bun.serve({
@@ -55,11 +37,33 @@ describe("daemon manager executable propagation", () => {
 		tempDir = await createTempDir("daemon-manager-executable");
 		testConfigDir = join(tempDir, "config");
 		lockPath = join(testConfigDir, "daemon.lifecycle.lock");
+
+		mock.module("../../../web-ui/src/daemon/config-dir.js", () => ({
+			getConfigDir: () => testConfigDir,
+			getLifecycleLockPath: () => lockPath,
+			getRestartMarkerPath: () =>
+				join(testConfigDir, "restart-arcade-after-install"),
+			ensureConfigDir: async () => {
+				await mkdir(testConfigDir, { recursive: true, mode: 0o700 });
+				return testConfigDir;
+			},
+			getPidFilePath: () => join(testConfigDir, "daemon.pid"),
+			getDaemonStatePath: () => join(testConfigDir, "daemon-state.json"),
+			readDaemonState: () => null,
+			writeDaemonState: () => {},
+		}));
+
+		mock.module("../../../web-ui/src/daemon/diagnostics.js", () => ({
+			logDaemonEvent: () => {},
+			logDaemonError: () => {},
+		}));
+
+		manager = await loadManager();
 	});
 
 	afterEach(async () => {
 		try {
-			await stopDaemon();
+			await manager.stopDaemon();
 		} catch {
 			await rm(lockPath, { recursive: true, force: true });
 		}
@@ -120,7 +124,7 @@ process.on("SIGTERM", () => {
 		const executablePath = await createFakeDaemonExecutable(markerPath);
 		const port = reservePort();
 
-		const result = await ensureDaemon(port, {
+		const result = await manager.ensureDaemon(port, {
 			cliVersion: "0.7.5-test",
 			executablePath,
 		});
