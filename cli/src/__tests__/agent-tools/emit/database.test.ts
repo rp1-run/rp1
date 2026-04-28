@@ -42,6 +42,7 @@ import {
 	getRunWithLastEventById,
 	getSkippableSteps,
 	getStepStatuses,
+	INACTIVE_REAPER_STATUS_CHANGE,
 	insertEvent,
 	insertRun,
 	listRuns,
@@ -2476,6 +2477,106 @@ describe("emit database", () => {
 	});
 
 	describe("inactive reclassification", () => {
+		test("skips stale bootstrap-only not_started runs with no events", async () => {
+			const dbPath = join(tempDir, "inactive-bootstrap-skip.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-bootstrap-only",
+				flow: "phase-plan",
+				featureId: "feat",
+				projectPath: "/p",
+				bootstrapContext: JSON.stringify({
+					run: { decision: "created_new_run" },
+				}),
+			});
+			db.prepare("UPDATE runs SET updated_at = ? WHERE id = ?").run(
+				"2026-04-10T00:00:00.000Z",
+				"run-bootstrap-only",
+			);
+
+			const reclassified = reclassifyInactiveRuns(
+				db,
+				new Date("2026-04-13T12:00:00.000Z"),
+			);
+
+			expect(reclassified).toEqual([]);
+			expect(getRunById(db, "run-bootstrap-only")?.status).toBe("not_started");
+			expect(getEventsForRun(db, "run-bootstrap-only")).toHaveLength(0);
+		});
+
+		test("skips stale bootstrap-only runs with only inactivity reaper events", async () => {
+			const dbPath = join(tempDir, "inactive-bootstrap-reaper-skip.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-bootstrap-reaper-only",
+				flow: "phase-plan",
+				featureId: "feat",
+				projectPath: "/p",
+				bootstrapContext: JSON.stringify({
+					run: { decision: "created_new_run" },
+				}),
+			});
+			insertEvent(db, {
+				runId: "run-bootstrap-reaper-only",
+				type: "status_change",
+				data: JSON.stringify(INACTIVE_REAPER_STATUS_CHANGE),
+				createdAt: "2026-04-11T00:00:00.000Z",
+			});
+			db.prepare("UPDATE runs SET updated_at = ? WHERE id = ?").run(
+				"2026-04-10T00:00:00.000Z",
+				"run-bootstrap-reaper-only",
+			);
+
+			const reclassified = reclassifyInactiveRuns(
+				db,
+				new Date("2026-04-13T12:00:00.000Z"),
+			);
+
+			expect(reclassified).toEqual([]);
+			expect(getEventsForRun(db, "run-bootstrap-reaper-only")).toHaveLength(1);
+		});
+
+		test("reclassifies stale not_started runs after workflow events exist", async () => {
+			const dbPath = join(tempDir, "inactive-not-started-events.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-not-started-with-event",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+			insertEvent(db, {
+				runId: "run-not-started-with-event",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "not_started" }),
+				createdAt: "2026-04-10T00:00:00.000Z",
+			});
+			deriveRunStatus(db, "run-not-started-with-event");
+			db.prepare("UPDATE runs SET updated_at = ? WHERE id = ?").run(
+				"2026-04-10T00:00:00.000Z",
+				"run-not-started-with-event",
+			);
+
+			const reclassified = reclassifyInactiveRuns(
+				db,
+				new Date("2026-04-13T12:00:00.000Z"),
+			);
+
+			expect(reclassified).toHaveLength(1);
+			expect(reclassified[0]).toMatchObject({
+				runId: "run-not-started-with-event",
+				previousStatus: "not_started",
+				runStatus: "inactive",
+			});
+			expect(getRunById(db, "run-not-started-with-event")?.status).toBe(
+				"inactive",
+			);
+		});
+
 		test("reclassifies stale running runs to inactive and lets new activity revive them", async () => {
 			const dbPath = join(tempDir, "inactive-reclassify.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
@@ -3944,6 +4045,56 @@ describe("emit database", () => {
 			expect(result.total).toBe(1);
 			expect(result.records[0].id).toBe("run-bootstrap-eventful");
 			expect(result.records[0].lastEventAt).toBe("2026-03-05T00:00:00.000Z");
+		});
+
+		test("excludes bootstrap-backed runs with only inactivity reaper events", async () => {
+			const dbPath = join(tempDir, "list-runs-bootstrap-reaper-only.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const bootstrapContext = JSON.stringify({
+				run: { decision: "created_new_run" },
+			});
+			insertRun(db, {
+				id: "run-bootstrap-reaper-only",
+				flow: "analyse-security",
+				featureId: "ui-audit",
+				projectPath: "/p",
+				bootstrapContext,
+			});
+			insertEvent(db, {
+				runId: "run-bootstrap-reaper-only",
+				type: "status_change",
+				data: JSON.stringify(INACTIVE_REAPER_STATUS_CHANGE),
+				createdAt: "2026-03-05T00:00:00.000Z",
+			});
+			insertRun(db, {
+				id: "run-bootstrap-real-event",
+				flow: "analyse-security",
+				featureId: "cli",
+				projectPath: "/p",
+				bootstrapContext,
+			});
+			insertEvent(db, {
+				runId: "run-bootstrap-real-event",
+				type: "status_change",
+				step: "scan",
+				data: JSON.stringify({ status: "running" }),
+				createdAt: "2026-03-04T00:00:00.000Z",
+			});
+			insertEvent(db, {
+				runId: "run-bootstrap-real-event",
+				type: "status_change",
+				data: JSON.stringify(INACTIVE_REAPER_STATUS_CHANGE),
+				createdAt: "2026-03-06T00:00:00.000Z",
+			});
+
+			const result = listRuns(db, { excludeBootstrapOnly: true });
+
+			expect(result.total).toBe(1);
+			expect(result.records.map((record) => record.id)).toEqual([
+				"run-bootstrap-real-event",
+			]);
+			expect(result.records[0].lastEventAt).toBe("2026-03-06T00:00:00.000Z");
 		});
 
 		test("counts and paginates after excluding bootstrap-only runs", async () => {

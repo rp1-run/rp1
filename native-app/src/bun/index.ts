@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { BrowserWindow } from "electrobun/bun";
+import {
+	ApplicationMenu,
+	BrowserWindow,
+	type ApplicationMenuItemConfig,
+} from "electrobun/bun";
 import cliPackage from "../../../cli/package.json";
 import { type CLIError, formatError } from "../../../cli/shared/errors.js";
 import { launchArcade } from "../../../cli/src/arcade/launch.js";
@@ -11,6 +15,17 @@ import {
 
 type LaunchStatus = "loading" | "failure";
 type NativeWindow = InstanceType<typeof BrowserWindow>;
+type NativeWebview = NativeWindow["webview"] & {
+	readonly executeJavascript?: (js: string) => void;
+	readonly on?: (
+		name:
+			| "did-commit-navigation"
+			| "did-navigate"
+			| "did-navigate-in-page"
+			| "dom-ready",
+		handler: (event: unknown) => void,
+	) => void;
+};
 
 interface LaunchOptions {
 	readonly projectPath?: string;
@@ -31,12 +46,42 @@ const LAUNCH_VIEW_TEMPLATE = readFileSync(
 	"utf8",
 );
 const CLI_VERSION = `${cliPackage.version}-dev`;
+const APP_NAME = "rp1 Arcade";
+const WINDOW_TITLE = "🕹️ rp1 Arcade";
+const WEB_DOCUMENT_TITLE = APP_NAME;
+const OPENING_TITLE = `Opening ${APP_NAME}`;
 const ARCADE_NAVIGATION_RULES = [
 	"^*",
 	"views://launch/*",
 	"http://127.0.0.1:*/*",
 	"http://localhost:*/*",
 	"http://[::1]:*/*",
+];
+const APPLICATION_MENU: ApplicationMenuItemConfig[] = [
+	{
+		label: APP_NAME,
+		submenu: [
+			{
+				label: `Quit ${APP_NAME}`,
+				role: "quit",
+				accelerator: "Command+Q",
+			},
+		],
+	},
+	{
+		label: "Edit",
+		submenu: [
+			{ role: "undo", accelerator: "Command+Z" },
+			{ role: "redo", accelerator: "Shift+Command+Z" },
+			{ type: "separator" },
+			{ role: "cut", accelerator: "Command+X" },
+			{ role: "copy", accelerator: "Command+C" },
+			{ role: "paste", accelerator: "Command+V" },
+			{ role: "pasteAndMatchStyle", accelerator: "Shift+Command+V" },
+			{ type: "separator" },
+			{ role: "selectAll", accelerator: "Command+A" },
+		],
+	},
 ];
 
 const parseFlagValue = (
@@ -148,7 +193,7 @@ const createInitialState = (options: LaunchOptions): LaunchViewState => {
 	if (!options.projectPath) {
 		return {
 			status: "loading",
-			title: "Opening RP1 Arcade",
+			title: OPENING_TITLE,
 			message: "Loading registered projects.",
 			detail: "No project path supplied; opening the Arcade projects view.",
 		};
@@ -156,7 +201,7 @@ const createInitialState = (options: LaunchOptions): LaunchViewState => {
 
 	return {
 		status: "loading",
-		title: "Opening RP1 Arcade",
+		title: OPENING_TITLE,
 		message: "Preparing the native shell.",
 		detail: options.projectPath,
 	};
@@ -181,6 +226,48 @@ const loadLaunchView = (window: NativeWindow, state: LaunchViewState): void => {
 		loadHTML: (html: string) => void;
 	};
 	webview.loadHTML(createLaunchViewHtml(state));
+};
+
+const pinDocumentTitleScript = (title: string): string => `
+(() => {
+	const title = ${JSON.stringify(title)};
+	const globalKey = "__RP1_NATIVE_TITLE_PINNED__";
+	if (window[globalKey] === title) {
+		document.title = title;
+		return;
+	}
+	window[globalKey] = title;
+	const applyTitle = () => {
+		if (document.title !== title) document.title = title;
+	};
+	applyTitle();
+	const titleElement =
+		document.querySelector("title") ||
+		document.head?.appendChild(document.createElement("title"));
+	if (titleElement) {
+		new MutationObserver(applyTitle).observe(titleElement, {
+			childList: true,
+			characterData: true,
+			subtree: true,
+		});
+	}
+})();
+`;
+
+const setVisibleWindowTitle = (window: NativeWindow): void => {
+	const webview = window.webview as NativeWebview;
+	webview.executeJavascript?.(pinDocumentTitleScript(WEB_DOCUMENT_TITLE));
+	window.setTitle(WINDOW_TITLE);
+};
+
+const pinVisibleWindowTitle = (window: NativeWindow): void => {
+	setVisibleWindowTitle(window);
+	const webview = window.webview as NativeWebview;
+	const restoreTitle = () => setVisibleWindowTitle(window);
+	webview.on?.("did-commit-navigation", restoreTitle);
+	webview.on?.("did-navigate", restoreTitle);
+	webview.on?.("did-navigate-in-page", restoreTitle);
+	webview.on?.("dom-ready", restoreTitle);
 };
 
 const isLoopbackArcadeUrl = (url: string): boolean => {
@@ -285,19 +372,17 @@ const launchNativeShell = async (
 		throw new Error(`Arcade returned a non-loopback URL: ${result.url}`);
 	}
 
-	window.setTitle(
-		result.kind === "project"
-			? `RP1 Arcade - ${result.projectName}`
-			: "RP1 Arcade - Projects",
-	);
+	setVisibleWindowTitle(window);
 	loadWindowUrl(window, result.url);
 };
 
 const launchOptions = parseLaunchOptions();
 const initialState = createInitialState(launchOptions);
 
+ApplicationMenu.setApplicationMenu(APPLICATION_MENU);
+
 const mainWindow = new BrowserWindow({
-	title: "RP1 Arcade",
+	title: WINDOW_TITLE,
 	frame: {
 		width: 1280,
 		height: 860,
@@ -306,6 +391,7 @@ const mainWindow = new BrowserWindow({
 	},
 });
 
+pinVisibleWindowTitle(mainWindow);
 setNavigationRules(mainWindow);
 loadLaunchView(mainWindow, initialState);
 

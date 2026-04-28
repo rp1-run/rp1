@@ -93,7 +93,7 @@ cd ..
 | `native-app-dev` | Build the local dev CLI and launch the macOS native Arcade shell on the registered projects route |
 | `native-app-dev PROJECT=/path/to/rp1-project` | Register and open a specific project directly in the native shell |
 | `native-app-dev RP1_EXECUTABLE=/absolute/path/to/rp1` | Launch with an explicit rp1 executable for daemon startup |
-| `build-native-app` | Build the macOS app bundle and bundle the local dev CLI without opening it |
+| `build-native-app` | Install the latest local CLI, build the macOS app bundle, and bundle the local dev CLI without opening it |
 
 Use `native-app-dev` without a project to verify registered project selection,
 and use the `PROJECT` form to verify optional direct project launch. Browser
@@ -115,11 +115,15 @@ To build the macOS app bundle without opening it:
 just build-native-app
 ```
 
-The recipe builds the local CLI, builds the Electrobun target, and copies the
-local `bin/rp1` into the app bundle. The generated app can then be opened later:
+The recipe runs the full local `just install` flow first so the installed CLI
+and Arcade daemon/cache use the latest build. It then removes stale native app
+outputs, builds the Electrobun stable target, copies the local `bin/rp1` into
+the app bundle, unregisters stale `RP1 Arcade-dev.app` entries with the same
+bundle id, and refreshes the macOS app registration for the generated bundle.
+The generated app can then be opened later:
 
 ```bash
-open -n "native-app/build/dev-macos-arm64/RP1 Arcade-dev.app"
+open -n "native-app/build/stable-macos-arm64/rp1 Arcade.app"
 ```
 
 For direct project launch from the built app, use environment variables with the
@@ -128,7 +132,7 @@ values into the Bun worker.
 
 ```bash
 RP1_NATIVE_PROJECT_PATH="/path/to/rp1-project" \
-  "native-app/build/dev-macos-arm64/RP1 Arcade-dev.app/Contents/MacOS/launcher"
+  "native-app/build/stable-macos-arm64/rp1 Arcade.app/Contents/MacOS/launcher"
 ```
 
 Native launch inputs:

@@ -28,7 +28,12 @@ import { cn } from "@/lib/utils";
 import { Collapsible } from "./Collapsible";
 import { KeyboardShortcutHint } from "./KeyboardShortcutHint";
 
-const APP_VERSION = "0.1.0";
+declare const __RP1_WEB_UI_VERSION__: string | undefined;
+
+const APP_VERSION =
+	typeof __RP1_WEB_UI_VERSION__ === "string"
+		? __RP1_WEB_UI_VERSION__
+		: "Unknown";
 
 export interface V2SidebarProps {
 	collapsed: boolean;

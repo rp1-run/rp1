@@ -42,6 +42,7 @@ export function startServer(config: ServerConfig): AppServer {
 	const apiContext: ApiContext = {
 		port,
 		startTime,
+		isDev,
 		version,
 		websocketHub,
 		fileWatcherPool,

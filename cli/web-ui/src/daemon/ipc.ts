@@ -14,6 +14,7 @@ export interface HealthResponse {
 	readonly uptime: number;
 	readonly port: number;
 	readonly projectCount: number;
+	readonly isDev?: boolean;
 	readonly version?: string;
 }
 

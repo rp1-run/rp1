@@ -30,6 +30,7 @@ import {
 	useState,
 } from "react";
 import { getHighlighter, normalizeLanguage } from "../../lib/shiki";
+import { createContextMenuSelectionPlugin } from "./context-menu-selection-plugin";
 import { createLinkClickPlugin } from "./link-click-plugin";
 import { createMermaidPlugin } from "./mermaid-plugin";
 
@@ -165,6 +166,7 @@ function MilkdownEditorInner({
 				.use(history)
 				.use(listener)
 				.use(createMermaidPlugin())
+				.use(createContextMenuSelectionPlugin())
 				.use(createLinkClickPlugin());
 
 			// Note: mermaid NodeView must come after commonmark (needs code_block schema)

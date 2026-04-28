@@ -208,8 +208,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 		const nextLoadedItems = currentItems
 			.map((item) => liveRunIndex.getRun(item.run.id) ?? item.run)
 			.filter((run) => matchesFeedFilters(run, filterOptions))
-			.map(toFeedItem)
-			.sort(compareFeedItems);
+			.map(toFeedItem);
 		for (const item of nextLoadedItems) {
 			knownMatchingRunIds.add(item.id);
 		}
@@ -237,7 +236,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 				knownMatchingRunIds.add(run.id);
 			}
 			addedCount = additions.length;
-			nextItems = [...nextLoadedItems, ...additions].sort(compareFeedItems);
+			nextItems = [...nextLoadedItems, ...additions];
 			if (limit !== undefined) {
 				nextItems = nextItems.slice(0, limit);
 			}

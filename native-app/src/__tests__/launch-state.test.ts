@@ -13,19 +13,24 @@ class MockDaemonExecutableResolutionError extends Error {
 
 interface CapturedWindow {
 	readonly initialHtml?: string;
+	readonly executedScripts: string[];
 	readonly loadedHtml: string[];
 	readonly loadedUrls: string[];
 	readonly navigationRules: string[][];
+	readonly webviewHandlers: Record<string, Array<(event: unknown) => void>>;
 	title: string;
 }
 
 const capturedWindows: CapturedWindow[] = [];
+const capturedApplicationMenus: unknown[] = [];
 
 class MockBrowserWindow {
 	readonly webview: {
+		readonly executeJavascript: (script: string) => void;
 		readonly setNavigationRules: (rules: string[]) => void;
 		readonly loadURL: (url: string) => void;
 		readonly loadHTML: (html: string) => void;
+		readonly on: (name: string, handler: (event: unknown) => void) => void;
 	};
 
 	readonly captured: CapturedWindow;
@@ -33,13 +38,18 @@ class MockBrowserWindow {
 	constructor(options: { readonly title: string; readonly html?: string }) {
 		this.captured = {
 			initialHtml: options.html,
+			executedScripts: [],
 			loadedHtml: [],
 			loadedUrls: [],
 			navigationRules: [],
+			webviewHandlers: {},
 			title: options.title,
 		};
 		capturedWindows.push(this.captured);
 		this.webview = {
+			executeJavascript: (script: string) => {
+				this.captured.executedScripts.push(script);
+			},
 			setNavigationRules: (rules: string[]) => {
 				this.captured.navigationRules.push(rules);
 			},
@@ -48,6 +58,11 @@ class MockBrowserWindow {
 			},
 			loadHTML: (html: string) => {
 				this.captured.loadedHtml.push(html);
+			},
+			on: (name: string, handler: (event: unknown) => void) => {
+				const handlers = this.captured.webviewHandlers[name] ?? [];
+				handlers.push(handler);
+				this.captured.webviewHandlers[name] = handlers;
 			},
 		};
 	}
@@ -66,8 +81,14 @@ const launchArcadeMock = mock(async () => ({
 	wasRunning: false,
 	daemonPort: 7710,
 }));
+const setApplicationMenuMock = mock((menu: unknown) => {
+	capturedApplicationMenus.push(menu);
+});
 
 mock.module("electrobun/bun", () => ({
+	ApplicationMenu: {
+		setApplicationMenu: setApplicationMenuMock,
+	},
 	BrowserWindow: MockBrowserWindow,
 }));
 
@@ -135,8 +156,10 @@ const runNativeEntrypoint = async (
 describe("native launch state", () => {
 	beforeEach(() => {
 		capturedWindows.length = 0;
+		capturedApplicationMenus.length = 0;
 		resolveDaemonExecutablePathMock.mockClear();
 		launchArcadeMock.mockClear();
+		setApplicationMenuMock.mockClear();
 		resolveDaemonExecutablePathMock.mockImplementation(() => "/tmp/rp1");
 		launchArcadeMock.mockImplementation(async () => ({
 			kind: "project-list" as const,
@@ -150,6 +173,42 @@ describe("native launch state", () => {
 
 	afterEach(() => {
 		capturedWindows.length = 0;
+		capturedApplicationMenus.length = 0;
+	});
+
+	test("installs the standard macOS quit menu shortcut", async () => {
+		await runNativeEntrypoint();
+
+		expect(setApplicationMenuMock).toHaveBeenCalledTimes(1);
+		expect(capturedApplicationMenus[0]).toEqual([
+			{
+				label: "rp1 Arcade",
+				submenu: [
+					{
+						label: "Quit rp1 Arcade",
+						role: "quit",
+						accelerator: "Command+Q",
+					},
+				],
+			},
+			{
+				label: "Edit",
+				submenu: [
+					{ role: "undo", accelerator: "Command+Z" },
+					{ role: "redo", accelerator: "Shift+Command+Z" },
+					{ type: "separator" },
+					{ role: "cut", accelerator: "Command+X" },
+					{ role: "copy", accelerator: "Command+C" },
+					{ role: "paste", accelerator: "Command+V" },
+					{
+						role: "pasteAndMatchStyle",
+						accelerator: "Shift+Command+V",
+					},
+					{ type: "separator" },
+					{ role: "selectAll", accelerator: "Command+A" },
+				],
+			},
+		]);
 	});
 
 	test("loads the project-list route when no project path is supplied", async () => {
@@ -161,13 +220,49 @@ describe("native launch state", () => {
 		expect(initialState.message).toBe("Loading registered projects.");
 		expect(window.navigationRules[0]).toContain("http://127.0.0.1:*/*");
 		expect(window.loadedUrls).toEqual(["http://127.0.0.1:7710/projects"]);
-		expect(window.title).toBe("RP1 Arcade - Projects");
+		expect(window.title).toBe("🕹️ rp1 Arcade");
 		expect(launchArcadeMock).toHaveBeenCalledWith({
 			projectPath: undefined,
 			rp1ExecutablePath: "/tmp/rp1",
 			cliVersion: `${cliPackage.version}-dev`,
 			openProjectListWhenMissing: true,
 		});
+	});
+
+	test("pins the visible title across webview navigations", async () => {
+		const window = await runNativeEntrypoint();
+		const domReadyHandlers = window.webviewHandlers["dom-ready"] ?? [];
+
+		expect(domReadyHandlers).toHaveLength(1);
+
+		window.title = "RP1 Arcade - Projects";
+		domReadyHandlers[0]?.({ detail: "http://127.0.0.1:7710/projects" });
+
+		expect(window.title).toBe("🕹️ rp1 Arcade");
+		expect(window.executedScripts.at(-1)).toContain(
+			"__RP1_NATIVE_TITLE_PINNED__",
+		);
+		expect(window.executedScripts.at(-1)).toContain("rp1 Arcade");
+		expect(window.executedScripts.at(-1)).not.toContain("🕹️ rp1 Arcade");
+	});
+
+	test("uses the app title for project launches", async () => {
+		launchArcadeMock.mockImplementationOnce(async () => ({
+			kind: "project" as const,
+			projectId: "project-1",
+			projectName: "Example Project",
+			url: "http://127.0.0.1:7710/projects/project-1",
+			action: "started" as const,
+			wasRunning: false,
+			daemonPort: 7710,
+		}));
+
+		const window = await runNativeEntrypoint(["--project", "/tmp/project"]);
+
+		expect(window.loadedUrls).toEqual([
+			"http://127.0.0.1:7710/projects/project-1",
+		]);
+		expect(window.title).toBe("🕹️ rp1 Arcade");
 	});
 
 	test("renders option parsing failures before launching Arcade", async () => {

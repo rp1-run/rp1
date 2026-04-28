@@ -65,4 +65,11 @@ export const commands: readonly Command[] = [
 		action: "refresh-data",
 		keywords: ["reload", "refetch", "update"],
 	},
+	{
+		id: "act-about",
+		label: "About",
+		category: "Actions",
+		action: "show-about",
+		keywords: ["version", "build", "metadata", "dev"],
+	},
 ] as const;

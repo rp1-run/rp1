@@ -300,6 +300,20 @@ export const INACTIVE_REAPER_STATUS_CHANGE = {
 	source: "inactivity_reaper",
 } as const;
 
+const NON_REAPER_EVENT_EXISTS_SQL = `EXISTS (
+	SELECT 1 FROM events
+	WHERE events.run_id = runs.id
+	  AND (
+		  CASE
+			  WHEN events.type = 'status_change'
+			   AND events.data IS NOT NULL
+			   AND json_valid(events.data)
+			  THEN COALESCE(json_extract(events.data, '$.source'), '')
+			  ELSE ''
+		  END
+	  ) != 'inactivity_reaper'
+)`;
+
 /** Input for creating or retrieving a run */
 export interface RunInput {
 	readonly id: string;
@@ -2074,6 +2088,7 @@ export const reclassifyInactiveRuns = (
 			 FROM runs
 			 WHERE status IN ('running', 'not_started')
 			   AND updated_at <= $cutoff
+			   AND ${NON_REAPER_EVENT_EXISTS_SQL}
 			 ORDER BY updated_at ASC, id ASC`,
 		)
 		.all({ $cutoff: cutoffIso }) as {
@@ -2349,10 +2364,7 @@ export const listRuns = (
 	}
 	if (opts.excludeBootstrapOnly === true) {
 		conditions.push(
-			`(runs.bootstrap_context IS NULL OR EXISTS (
-				SELECT 1 FROM events
-				WHERE events.run_id = runs.id
-			))`,
+			`(runs.bootstrap_context IS NULL OR ${NON_REAPER_EVENT_EXISTS_SQL})`,
 		);
 	}
 

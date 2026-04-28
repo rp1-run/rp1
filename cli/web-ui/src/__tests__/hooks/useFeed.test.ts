@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { useSyncExternalStore } from "react";
 import { liveRunIndex } from "@/lib/live-run-index";
 import type { Run } from "@/types/runs";
@@ -81,7 +81,7 @@ afterEach(() => {
 });
 
 describe("useFeed", () => {
-	test("patches known runs in place and inserts newly matching runs without refetching", async () => {
+	test("patches known runs in place and appends newly matching runs without refetching", async () => {
 		const { useFeed } = await loadUseFeed();
 		const { result } = renderHook(() => useFeed({ limit: 25, offset: 0 }));
 
@@ -94,29 +94,97 @@ describe("useFeed", () => {
 		expect(result.current.total).toBe(1);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 
-		liveRunIndex.upsertRuns([
-			buildRun({
-				id: "run-1",
-				status: "waiting",
-				currentStep: "review",
-				lastEventAt: "2026-04-10T00:06:00.000Z",
-			}),
-			buildRun({
-				id: "run-2",
-				name: "Fresh Run",
-				lastEventAt: "2026-04-10T00:07:00.000Z",
-			}),
-		]);
+		act(() => {
+			liveRunIndex.upsertRuns([
+				buildRun({
+					id: "run-1",
+					status: "waiting",
+					currentStep: "review",
+					lastEventAt: "2026-04-10T00:06:00.000Z",
+				}),
+				buildRun({
+					id: "run-2",
+					name: "Fresh Run",
+					lastEventAt: "2026-04-10T00:07:00.000Z",
+				}),
+			]);
+		});
 
 		await waitFor(() => {
 			expect(result.current.items).toHaveLength(2);
 		});
 
 		expect(result.current.items.map((item: { id: string }) => item.id)).toEqual(
-			["run-2", "run-1"],
+			["run-1", "run-2"],
+		);
+		expect(result.current.items[0]?.run.status).toBe("waiting");
+		expect(result.current.total).toBe(2);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("keeps existing feed order when live timestamps change", async () => {
+		fetchMock = mock(() =>
+			Promise.resolve({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						items: [
+							{
+								type: "run",
+								id: "run-1",
+								timestamp: "2026-04-10T00:10:00.000Z",
+								run: buildRun({
+									id: "run-1",
+									lastEventAt: "2026-04-10T00:10:00.000Z",
+								}),
+							},
+							{
+								type: "run",
+								id: "run-2",
+								timestamp: "2026-04-10T00:09:00.000Z",
+								run: buildRun({
+									id: "run-2",
+									lastEventAt: "2026-04-10T00:09:00.000Z",
+								}),
+							},
+						],
+						total: 2,
+					}),
+			}),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { useFeed } = await loadUseFeed();
+		const { result } = renderHook(() => useFeed({ limit: 25, offset: 0 }));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		expect(result.current.items.map((item: { id: string }) => item.id)).toEqual(
+			["run-1", "run-2"],
+		);
+
+		act(() => {
+			liveRunIndex.upsertRun(
+				buildRun({
+					id: "run-2",
+					status: "waiting",
+					lastEventAt: "2026-04-10T00:11:00.000Z",
+				}),
+			);
+		});
+
+		await waitFor(() => {
+			expect(result.current.items[1]?.timestamp).toBe(
+				"2026-04-10T00:11:00.000Z",
+			);
+		});
+
+		expect(result.current.items.map((item: { id: string }) => item.id)).toEqual(
+			["run-1", "run-2"],
 		);
 		expect(result.current.items[1]?.run.status).toBe("waiting");
-		expect(result.current.total).toBe(2);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 });
