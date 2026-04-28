@@ -1,8 +1,13 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Command } from "commander";
+import type { ArcadeLaunchOptions } from "../../arcade/launch.js";
+
+type ProjectLaunchOptions = ArcadeLaunchOptions & {
+	readonly projectPath: string;
+};
 
 class ProcessExit extends Error {
 	readonly code: number;
@@ -52,8 +57,26 @@ describe("arcade command actions", () => {
 		console.error = (...args: unknown[]) => {
 			errors.push(args.map(String).join(" "));
 		};
+	});
 
-		mock.module("../../../web-ui/src/daemon/index.js", () => ({
+	afterEach(async () => {
+		process.exit = originalExit;
+		console.log = originalLog;
+		console.error = originalError;
+		await rm(tempDir, { recursive: true, force: true });
+	});
+
+	const createProject = async (): Promise<string> => {
+		await mkdir(join(tempDir, ".rp1", "context"), { recursive: true });
+		await writeFile(join(tempDir, ".rp1", "project_id"), "project-1\n");
+		return tempDir;
+	};
+
+	const runArcade = async (args: readonly string[]) => {
+		const { createArcadeCommand } = await import(
+			`../../commands/arcade.js?arcade-actions=${Date.now()}-${Math.random()}`
+		);
+		const arcadeCommand = createArcadeCommand({
 			ensureDaemon: async (port: number) => {
 				daemonCalls.push({ kind: "ensure", port });
 				return {
@@ -64,14 +87,26 @@ describe("arcade command actions", () => {
 				};
 			},
 			getStatus: async () => status,
-			registerProjectWithDaemon: async (
-				connection: { port: number },
-				root: string,
-			) => {
-				daemonCalls.push({ kind: "register", port: connection.port, root });
+			launchArcadeForProject: async ({
+				projectPath,
+				port,
+			}: ProjectLaunchOptions) => {
+				const daemonPort = port ?? 7710;
+				daemonCalls.push({ kind: "ensure", port: daemonPort });
+				daemonCalls.push({
+					kind: "register",
+					port: daemonPort,
+					root: projectPath,
+				});
 				return {
-					project: { id: "project-1", name: "Fixture Project" },
-					url: `http://127.0.0.1:${connection.port}/projects/project-1`,
+					kind: "project" as const,
+					projectId: "project-1",
+					projectName: "Fixture Project",
+					url: `http://127.0.0.1:${daemonPort}/projects/project-1`,
+					action: "reused" as const,
+					reason: "missing_pid" as const,
+					wasRunning: true,
+					daemonPort,
 				};
 			},
 			restartDaemon: async (port: number) => {
@@ -84,25 +119,7 @@ describe("arcade command actions", () => {
 				};
 			},
 			stopDaemon: async () => ({ action: stoppedAction }),
-		}));
-	});
-
-	afterEach(async () => {
-		process.exit = originalExit;
-		console.log = originalLog;
-		console.error = originalError;
-		mock.restore();
-		await rm(tempDir, { recursive: true, force: true });
-	});
-
-	const createProject = async (): Promise<string> => {
-		await mkdir(join(tempDir, ".rp1", "context"), { recursive: true });
-		await writeFile(join(tempDir, ".rp1", "project_id"), "project-1\n");
-		return tempDir;
-	};
-
-	const runArcade = async (args: readonly string[]) => {
-		const { arcadeCommand } = await import("../../commands/arcade.js");
+		});
 		const parent = new Command("rp1");
 		parent.version("0.7.5");
 		Object.assign(parent, {
@@ -132,7 +149,7 @@ describe("arcade command actions", () => {
 		expect(infos).toContain(
 			"Server running at http://127.0.0.1:8123/projects/project-1",
 		);
-		expect(debugs.join("\n")).toContain("Validating project structure");
+		expect(debugs.join("\n")).toContain(`Registering project: ${projectRoot}`);
 	});
 
 	test("prints hook-json after registering the project", async () => {

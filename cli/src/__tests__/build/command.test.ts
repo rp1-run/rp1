@@ -43,15 +43,18 @@ const extractBootstrapTarget = (
 	content: string,
 ): { readonly name: string; readonly schemaPath: string } => {
 	const nameMatch = content.match(/--name\s+([^\s\\]+)/);
-	const schemaPathMatch = content.match(/--schema-path\s+([^\s\\]+)/);
+	const schemaPathMatch = content.match(
+		/--schema-path\s+(?:"([^"]+)"|([^\s\\]+))/,
+	);
 
-	if (!nameMatch?.[1] || !schemaPathMatch?.[1]) {
+	const schemaPath = schemaPathMatch?.[1] ?? schemaPathMatch?.[2];
+	if (!nameMatch?.[1] || !schemaPath) {
 		throw new Error("Missing generated workflow bootstrap target");
 	}
 
 	return {
 		name: nameMatch[1],
-		schemaPath: schemaPathMatch[1],
+		schemaPath,
 	};
 };
 
@@ -374,14 +377,18 @@ Workflow content.
 			"utf-8",
 		);
 
-		const expectedTarget = {
-			name: "build-fast",
-			schemaPath: "plugins/dev/skills/build-fast/SKILL.md",
-		};
-
-		expect(extractBootstrapTarget(opencodeSkill)).toEqual(expectedTarget);
-		expect(extractBootstrapTarget(codexSkill)).toEqual(expectedTarget);
-		expect(extractBootstrapTarget(claudeSkill)).toEqual(expectedTarget);
+		expect(extractBootstrapTarget(opencodeSkill)).toEqual({
+			name: "rp1-dev:build-fast",
+			schemaPath: "$HOME/.config/opencode/skills/rp1-build-fast/SKILL.md",
+		});
+		expect(extractBootstrapTarget(codexSkill)).toEqual({
+			name: "rp1-dev:build-fast",
+			schemaPath: "$HOME/.codex/skills/rp1-build-fast/SKILL.md",
+		});
+		expect(extractBootstrapTarget(claudeSkill)).toEqual({
+			name: "rp1-dev:build-fast",
+			schemaPath: "$HOME/.rp1/claude/plugins/dev/skills/build-fast/SKILL.md",
+		});
 	});
 });
 

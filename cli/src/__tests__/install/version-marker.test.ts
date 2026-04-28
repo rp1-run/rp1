@@ -10,15 +10,22 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import {
-	isStale,
-	type PlatformVersions,
-	readAllVersionMarkers,
-	readVersionMarker,
-	type VersionMarker,
-	writeVersionMarker,
+import type {
+	PlatformVersions,
+	VersionMarker,
 } from "../../install/version-marker.js";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
+
+type VersionMarkerModule = typeof import("../../install/version-marker.js");
+
+const {
+	isStale,
+	readAllVersionMarkers,
+	readVersionMarker,
+	writeVersionMarker,
+} = (await import(
+	`../../install/version-marker.js?version-marker-test=${Date.now()}`
+)) as VersionMarkerModule;
 
 /** Write a version marker file directly, bypassing the module's TE wrapper. */
 async function writeMarkerFile(

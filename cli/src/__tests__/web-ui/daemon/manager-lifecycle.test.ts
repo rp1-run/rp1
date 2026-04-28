@@ -136,12 +136,15 @@ describe("daemon manager lifecycle recovery", () => {
 		healthResponses = [healthy(0, "0.7.5")];
 
 		const manager = await loadManager();
-		const result = await manager.ensureDaemon(0, "0.7.5");
+		const result = await manager.ensureDaemon(0, {
+			cliVersion: "0.7.5",
+			executablePath: process.execPath,
+		});
 
 		expect(result.action).toBe("started");
 		expect(result.wasRunning).toBe(false);
 		expect(spawned).toEqual([
-			{ command: "rp1", args: ["_daemon-server", "--port", "0"] },
+			{ command: process.execPath, args: ["_daemon-server", "--port", "0"] },
 		]);
 		await expect(readFile(pidFilePath, "utf-8")).resolves.toBe("0\n4242\n");
 	});
@@ -190,7 +193,10 @@ describe("daemon manager lifecycle recovery", () => {
 		healthResponses = [healthy(0, "0.7.5")];
 
 		const manager = await loadManager();
-		const result = await manager.restartDaemon(0, "0.7.5");
+		const result = await manager.restartDaemon(0, {
+			cliVersion: "0.7.5",
+			executablePath: process.execPath,
+		});
 
 		expect(result.action).toBe("replaced");
 		expect(stoppedPorts).toEqual([7714]);

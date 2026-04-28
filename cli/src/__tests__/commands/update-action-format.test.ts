@@ -364,8 +364,9 @@ describe("update output formatting", () => {
 		expect(logs.join("\n")).toContain("Successfully updated rp1");
 	});
 
-	test("dry-run update reports plugin detection failure after self-update preview", async () => {
+	test("dry-run update skips plugin refresh when no tools are detected", async () => {
 		process.env.PATH = tempDir;
+		spyOn(Bun, "which").mockReturnValue(null);
 		spyOn(os, "platform").mockReturnValue("darwin");
 		mockExecSync((cmd: string) => {
 			if (cmd === "which brew") {
@@ -388,11 +389,14 @@ describe("update output formatting", () => {
 				undefined,
 				false,
 			),
-		).rejects.toMatchObject({ code: 1 });
+		).rejects.toMatchObject({ code: 0 });
 
 		const output = logs.join("\n");
 		expect(output).toContain("Dry run mode - showing what would be done");
 		expect(output).toContain("Updating plugins for detected tools");
-		expect(output).toContain("Skipping project migrations");
+		expect(output).toContain(
+			"No installed agentic tools detected. Skipping plugin refresh.",
+		);
+		expect(output).toContain("Checking project migrations");
 	});
 });

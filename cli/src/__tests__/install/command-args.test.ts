@@ -5,11 +5,12 @@ import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { type CLIError, formatError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
-import {
-	executeInstall,
-	executeVerify,
-	parseInstallArgs,
-} from "../../install/command.js";
+
+type InstallCommandModule = typeof import("../../install/command.js");
+
+const { executeInstall, executeVerify, parseInstallArgs } = (await import(
+	`../../install/command.js?command-args-test=${Date.now()}`
+)) as InstallCommandModule;
 
 const logger: Logger = {
 	trace: () => {},
