@@ -237,7 +237,9 @@ const claimNextStep = (
 		return "closed";
 	}
 	if (decision.acquired) {
-		return decision.forTimeout ? "update_markdown" : "compose_turn";
+		return decision.forTimeout && decision.participants.length < 2
+			? "update_markdown"
+			: "compose_turn";
 	}
 	return decision.participants.length < 2 ? "wait_peer" : "wait_turn";
 };
@@ -254,10 +256,7 @@ const refreshNextStep = (
 const releaseNextStep = (
 	decision: ReleaseLockDecision,
 ): ReleaseLockResult["next_step"] => {
-	if (decision.duel.status === "CLOSED") {
-		return "closed";
-	}
-	return decision.released ? "wait_turn" : "claim_lock";
+	return decision.nextStep;
 };
 
 const redactedDuel = (snapshot: DuelSnapshot): DuelSnapshot["duel"] => ({
@@ -364,6 +363,7 @@ export const executeClaimLock = (
 		return successResult(TOOL_NAME, {
 			duel_id: decision.duel.id,
 			participant_id: input.participantId,
+			participant_count: decision.participants.length,
 			acquired: decision.acquired,
 			lease_token: decision.acquired ? decision.duel.leaseToken : null,
 			lease_expires_at: decision.duel.leaseExpiresAt,
@@ -411,9 +411,11 @@ export const executeReleaseLock = (
 		return successResult(TOOL_NAME, {
 			duel_id: decision.duel.id,
 			participant_id: input.participantId,
+			participant_count: decision.participants.length,
 			released: decision.released,
 			closed: decision.closed,
 			status: decision.duel.status,
+			outcome: input.close ? (input.outcome ?? null) : null,
 			owner_participant_id: decision.duel.currentOwnerId,
 			reason: decision.reason,
 			next_step: releaseNextStep(decision),

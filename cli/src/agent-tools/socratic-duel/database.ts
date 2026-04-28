@@ -79,6 +79,7 @@ export interface ReleaseLockDecision extends DuelSnapshot {
 	readonly released: boolean;
 	readonly closed: boolean;
 	readonly reason: string | null;
+	readonly nextStep: "compose_turn" | "claim_lock" | "wait_turn" | "closed";
 }
 
 const nowIso = (): string => new Date().toISOString();
@@ -566,6 +567,7 @@ export const releaseLock = (
 					released: false,
 					closed: snapshot.duel.status === "CLOSED",
 					reason: "Duel lock context is closed",
+					nextStep: "closed",
 				};
 			}
 
@@ -589,6 +591,7 @@ export const releaseLock = (
 					closed: false,
 					reason:
 						"Closing a duel requires an active lock owned by this participant",
+					nextStep: "claim_lock",
 				};
 			}
 
@@ -598,6 +601,22 @@ export const releaseLock = (
 					released: false,
 					closed: false,
 					reason: "Participant does not own this active lock",
+					nextStep: "wait_turn",
+				};
+			}
+
+			if (
+				input.close &&
+				input.outcome === "TIMEOUT" &&
+				snapshot.participants.length >= 2
+			) {
+				return {
+					...snapshot,
+					released: false,
+					closed: false,
+					reason:
+						"TIMEOUT close rejected because a second participant is present; re-check status and continue debating",
+					nextStep: "compose_turn",
 				};
 			}
 
@@ -609,6 +628,7 @@ export const releaseLock = (
 					released: false,
 					closed: false,
 					reason: "No active lock to release",
+					nextStep: "claim_lock",
 				};
 			}
 
@@ -632,6 +652,7 @@ export const releaseLock = (
 				released: hasActiveOwner,
 				closed: snapshot.duel.status === "CLOSED",
 				reason: null,
+				nextStep: snapshot.duel.status === "CLOSED" ? "closed" : "wait_turn",
 			};
 		}),
 	);

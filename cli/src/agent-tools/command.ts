@@ -47,6 +47,10 @@ import {
 	executeStatus as executeSocraticDuelStatus,
 } from "./socratic-duel/index.js";
 import {
+	type TerminalOutcome,
+	VALID_TERMINAL_OUTCOMES,
+} from "./socratic-duel/models.js";
+import {
 	executeCancel as executeTaskCancel,
 	executeComplete as executeTaskComplete,
 	executeCreate as executeTaskCreate,
@@ -1406,6 +1410,7 @@ Examples:
   rp1 agent-tools socratic-duel claim-lock --duel-id <id> --participant-id <id> --for-timeout
   rp1 agent-tools socratic-duel refresh-lock --duel-id <id> --participant-id <id> --lease-token <token>
   rp1 agent-tools socratic-duel release-lock --duel-id <id> --participant-id <id> --lease-token <token>
+  rp1 agent-tools socratic-duel release-lock --duel-id <id> --participant-id <id> --lease-token <token> --close --outcome TIMEOUT
 `,
 	);
 
@@ -1565,19 +1570,43 @@ socraticDuelCommand
 		"Close the lock context after releasing an owned lease",
 		false,
 	)
+	.option(
+		"--outcome <outcome>",
+		`Terminal outcome when used with --close: ${VALID_TERMINAL_OUTCOMES.join(", ")}`,
+	)
 	.action(
 		async (options: {
 			duelId: string;
 			participantId: string;
 			leaseToken?: string;
 			close: boolean;
+			outcome?: string;
 		}): Promise<void> => {
 			const toolName = "socratic-duel";
+			if (
+				options.outcome !== undefined &&
+				!VALID_TERMINAL_OUTCOMES.includes(options.outcome as TerminalOutcome)
+			) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						formatError(
+							usageError(
+								`Invalid --outcome value: '${options.outcome}'. Must be one of: ${VALID_TERMINAL_OUTCOMES.join(", ")}`,
+							),
+							false,
+						),
+					),
+				);
+				process.exit(1);
+			}
+
 			const result = await executeSocraticDuelReleaseLock({
 				duelId: options.duelId,
 				participantId: options.participantId,
 				leaseToken: options.leaseToken,
 				close: options.close,
+				outcome: options.outcome as TerminalOutcome | undefined,
 			})();
 
 			if (E.isLeft(result)) {

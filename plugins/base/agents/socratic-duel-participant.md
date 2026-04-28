@@ -248,10 +248,12 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
 
 2. **waiting_for_participant**
    - Emit `participant_waiting`.
-   - Poll `rp1 agent-tools socratic-duel status --duel-id "{duel_id}"` only within bounded wait guidance.
+   - Poll `rp1 agent-tools socratic-duel status --duel-id "{duel_id}"` only within bounded wait guidance, using non-zero sleeps between attempts.
    - If a peer appears, transition to `debating`.
    - If waiting expires, run `claim-lock --for-timeout`.
-   - If timeout claim succeeds, transition to `closing`, write `TIMEOUT` conclusion while leased, then `release-lock --close`.
+   - If timeout claim succeeds, capture `lease_token`, `lease_expires_at`, and `participant_count`, then immediately re-run `rp1 agent-tools socratic-duel status --duel-id "{duel_id}"`.
+   - If the post-timeout-claim `status` shows `participant_count` is 2 or more, do not write a `TIMEOUT` conclusion; transition to `debating` while holding the lease and continue the duel using the existing `lease_token`.
+   - Only if the post-timeout-claim `status` still shows `participant_count` fewer than 2, transition to `closing`, write `TIMEOUT` conclusion while leased, then `release-lock --close --outcome TIMEOUT`.
    - If peer owns an unexpired lease, keep bounded waiting; do not emit terminal completion.
 
 3. **debating**
@@ -277,7 +279,8 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
    - Enter only while holding active `lease_token`.
    - Write terminal conclusion to `{debate_path}` while leased. For `TIMEOUT`, append no turn.
    - Conclusion includes exact outcome, closed timestamp, candidate convergence, reason, summary, source reference, and topic.
-   - Run `rp1 agent-tools socratic-duel release-lock --duel-id "{duel_id}" --participant-id "{participant_id}" --lease-token "{lease_token}" --close`.
+   - Run `rp1 agent-tools socratic-duel release-lock --duel-id "{duel_id}" --participant-id "{participant_id}" --lease-token "{lease_token}" --close --outcome "{terminal_outcome}"`.
+   - If close returns `closed:false`, do not emit terminal completion; re-run `status`, follow the returned `next_step`, and continue bounded coordination.
    - Emit `lock_released` with `closed:true`.
    - Emit `artifact_updated` with `--unit conclusion:{terminal_outcome}`.
    - If outcome is `INVALIDATED`, transition to `invalidated`; otherwise transition to `completed`.
@@ -370,6 +373,7 @@ Return JSON only:
 - Do not ask the backend for candidate convergence, terminal content, turn numbers, prior-artifact hashes, or template text.
 - Do not exceed 3 turn pairs or 6 total turns.
 - Do not continue after terminal outcome.
+- Do not write or close `TIMEOUT` after a timeout claim until a post-claim `status` re-check still shows fewer than 2 participants.
 - Do not release another participant's active lock.
 - Do not append debate content to the source document.
 - Do not append outside the debate artifact.

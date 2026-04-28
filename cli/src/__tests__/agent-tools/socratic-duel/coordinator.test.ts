@@ -325,6 +325,7 @@ describe("socratic-duel lock coordinator", () => {
 		);
 		expect(timeoutClaim.success).toBe(true);
 		expect(timeoutClaim.data.acquired).toBe(true);
+		expect(timeoutClaim.data.participant_count).toBe(1);
 		expect(typeof timeoutClaim.data.lease_token).toBe("string");
 		expect(timeoutClaim.data.owner_participant_id).toBe(first.participant_id);
 		expect(timeoutClaim.data.next_step).toBe("update_markdown");
@@ -336,13 +337,66 @@ describe("socratic-duel lock coordinator", () => {
 					participantId: first.participant_id,
 					leaseToken: timeoutClaim.data.lease_token ?? "",
 					close: true,
+					outcome: "TIMEOUT",
 				},
 				dbPath,
 			),
 		);
 		expect(closed.success).toBe(true);
 		expect(closed.data.closed).toBe(true);
+		expect(closed.data.participant_count).toBe(1);
+		expect(closed.data.outcome).toBe("TIMEOUT");
 		expect(closed.data.status).toBe("CLOSED");
+	});
+
+	test("refuses a TIMEOUT close when a peer joins after the timeout lease", async () => {
+		const first = await joinParticipant("participant-a");
+		const timeoutClaim = await expectTaskRight(
+			executeClaimLock(
+				{
+					duelId: first.duel_id,
+					participantId: first.participant_id,
+					forTimeout: true,
+				},
+				dbPath,
+			),
+		);
+		expect(timeoutClaim.data.acquired).toBe(true);
+		expect(timeoutClaim.data.participant_count).toBe(1);
+
+		await joinParticipant("participant-b");
+
+		const rejectedClose = await expectTaskRight(
+			executeReleaseLock(
+				{
+					duelId: first.duel_id,
+					participantId: first.participant_id,
+					leaseToken: timeoutClaim.data.lease_token ?? "",
+					close: true,
+					outcome: "TIMEOUT",
+				},
+				dbPath,
+			),
+		);
+
+		expect(rejectedClose.success).toBe(true);
+		expect(rejectedClose.data.participant_count).toBe(2);
+		expect(rejectedClose.data.released).toBe(false);
+		expect(rejectedClose.data.closed).toBe(false);
+		expect(rejectedClose.data.status).toBe("ACTIVE");
+		expect(rejectedClose.data.outcome).toBe("TIMEOUT");
+		expect(rejectedClose.data.owner_participant_id).toBe(first.participant_id);
+		expect(rejectedClose.data.reason).toContain(
+			"second participant is present",
+		);
+		expect(rejectedClose.data.next_step).toBe("compose_turn");
+
+		const status = await expectTaskRight(
+			executeStatus({ duelId: first.duel_id }, dbPath),
+		);
+		expect(status.data.participant_count).toBe(2);
+		expect(status.data.duel.status).toBe("ACTIVE");
+		expect(status.data.lock.owner_participant_id).toBe(first.participant_id);
 	});
 
 	test("rejects invalid targets and a third participant", async () => {
