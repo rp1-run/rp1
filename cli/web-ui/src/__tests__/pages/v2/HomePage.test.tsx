@@ -327,35 +327,17 @@ describe("HomePage", () => {
 		});
 	});
 
-	test("reopens an existing project workspace from the feed project action", async () => {
-		setStoredState({
-			tabs: [
-				{
-					key: "project:proj-1",
-					kind: "project",
-					currentPath: "/projects/proj-1?view=summary",
-					rootPath: "/projects/proj-1",
-					title: "Project One",
-					subtitle: null,
-					projectId: "proj-1",
-					lastVisitedAt: 1,
-				},
-			],
-			activeKey: null,
-			lastDurableRoute: "/",
-		});
-
+	test("renders project names in activity rows without a project action", async () => {
 		await renderHomePage();
 
-		fireEvent.click(
-			screen.getByRole("button", { name: "Open project Project One" }),
-		);
+		const row = getActivityRow("Build One");
 
-		await waitFor(() => {
-			expect(screen.getByTestId("location-probe").textContent).toBe(
-				"/projects/proj-1?view=summary",
-			);
-		});
+		expect(within(row).getByText("Project One").textContent).toBe(
+			"Project One",
+		);
+		expect(
+			within(row).queryByRole("button", { name: "Open project Project One" }),
+		).toBeNull();
 	});
 
 	test("previews a clicked feed entry inline on wide layouts without leaving Activity", async () => {
@@ -452,7 +434,7 @@ describe("HomePage", () => {
 		).toBe(true);
 	});
 
-	test("opens the project from the dedicated project area in the wide activity row", async () => {
+	test("keeps the wide activity row project name static", async () => {
 		wideActivityLayout = true;
 
 		await renderHomePage();
@@ -461,15 +443,14 @@ describe("HomePage", () => {
 			expect(getPreviewText()).toBe("Preview run-1");
 		});
 
-		fireEvent.click(
-			screen.getByRole("button", { name: "Open project Project Two" }),
-		);
+		const row = getActivityRow("Build Two");
 
-		await waitFor(() => {
-			expect(screen.getByTestId("location-probe").textContent).toBe(
-				"/projects/proj-2",
-			);
-		});
+		expect(within(row).getByText("Project Two").textContent).toBe(
+			"Project Two",
+		);
+		expect(
+			within(row).queryByRole("button", { name: "Open project Project Two" }),
+		).toBeNull();
 	});
 
 	test("expands the selected run by focusing its existing workspace tab", async () => {

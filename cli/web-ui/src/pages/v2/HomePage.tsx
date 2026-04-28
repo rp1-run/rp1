@@ -1,10 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import {
-	Activity,
-	Maximize2,
-	NotebookTabs,
-	SlidersHorizontal,
-} from "lucide-react";
+import { Activity, Maximize2, SlidersHorizontal } from "lucide-react";
 import {
 	type ReactNode,
 	useCallback,
@@ -144,14 +139,12 @@ function FeedEntry({
 	selected,
 	entryRef,
 	onClick,
-	onProjectClick,
 	reducedMotion,
 }: {
 	run: Run;
 	selected: boolean;
 	entryRef: (node: HTMLDivElement | null) => void;
 	onClick: () => void;
-	onProjectClick: (projectId: string) => void;
 	reducedMotion: boolean;
 }) {
 	const latestEventAt = run.lastEventAt ?? run.startedAt;
@@ -218,24 +211,12 @@ function FeedEntry({
 				)}
 			</div>
 
-			<button
-				type="button"
-				onClick={(e) => {
-					e.stopPropagation();
-					onProjectClick(run.projectId);
-				}}
-				onKeyDown={(e) => {
-					if (e.key === "Enter" || e.key === " ") {
-						e.stopPropagation();
-					}
-				}}
-				className="ml-auto flex h-7 min-w-[82px] max-w-[120px] shrink-0 items-center justify-end gap-1 rounded px-1.5 type-secondary italic text-fg-ghost transition-colors duration-150 hover:bg-surface hover:text-fg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
-				aria-label={`Open project ${run.projectName}`}
-				title={`Open project ${run.projectName}`}
+			<span
+				className="ml-auto min-w-[82px] max-w-[120px] shrink-0 truncate px-1.5 text-right type-secondary italic text-fg-ghost"
+				title={run.projectName}
 			>
-				<span className="truncate">{run.projectName}</span>
-				<NotebookTabs className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-			</button>
+				{run.projectName}
+			</span>
 		</motion.div>
 	);
 }
@@ -517,13 +498,6 @@ export function HomePage() {
 		openWorkspace(`/runs/${selectedRunId}`);
 	}, [openWorkspace, selectedRunId]);
 
-	const handleProjectClick = useCallback(
-		(projectId: string) => {
-			openWorkspace(`/projects/${projectId}`);
-		},
-		[openWorkspace],
-	);
-
 	const renderFeedItem = useCallback(
 		(item: FeedItem) => {
 			return (
@@ -533,18 +507,11 @@ export function HomePage() {
 					selected={item.id === selectedRunId}
 					entryRef={(node) => setActivityRowRef(item.id, node)}
 					onClick={() => handleRunClick(item.id)}
-					onProjectClick={handleProjectClick}
 					reducedMotion={reducedMotion}
 				/>
 			);
 		},
-		[
-			handleRunClick,
-			handleProjectClick,
-			reducedMotion,
-			selectedRunId,
-			setActivityRowRef,
-		],
+		[handleRunClick, reducedMotion, selectedRunId, setActivityRowRef],
 	);
 
 	return (
