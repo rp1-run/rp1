@@ -245,11 +245,13 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
 
 2. **waiting_for_participant**
    - Emit `participant_waiting` with `--unit participant:{participant_id}` and bounded wait guidance.
-   - Poll `rp1 agent-tools socratic-duel status --duel-id "{duel_id}"` only within bounded wait guidance.
+   - Poll `rp1 agent-tools socratic-duel status --duel-id "{duel_id}"` only within bounded wait guidance, using non-zero sleeps between attempts.
    - If a peer appears, transition to `debating`.
    - If timeout expires, do not edit the debate artifact from `status` alone. First run `rp1 agent-tools socratic-duel claim-lock --duel-id "{duel_id}" --participant-id "{participant_id}" --for-timeout`.
    - `--for-timeout` may acquire a lease after bounded waiting even if the second participant never joined, but it still refuses when a peer owns an unexpired lock.
-   - If the timeout claim succeeds, capture `lease_token`, transition to `closing`, create or append the debate artifact conclusion with `TIMEOUT` while holding that lease, then run `release-lock --close`.
+   - If the timeout claim succeeds, capture `lease_token`, `lease_expires_at`, and `participant_count`, then immediately re-run `rp1 agent-tools socratic-duel status --duel-id "{duel_id}"`.
+   - If the post-timeout-claim `status` shows `participant_count` is 2 or more, do not write a `TIMEOUT` conclusion; transition to `debating` while holding the lease and continue the duel using the existing `lease_token`.
+   - Only if the post-timeout-claim `status` still shows `participant_count` fewer than 2, transition to `closing`, create or append the debate artifact conclusion with `TIMEOUT` while holding that lease, then run `release-lock --close --outcome TIMEOUT`.
    - If the timeout claim does not acquire a lock because a peer owns an unexpired lease, emit `participant_waiting` with the returned wait guidance and continue bounded waiting; do not emit terminal completion.
    - If waiting, explain the bounded wait briefly; do not ask open-ended questions.
 
@@ -278,7 +280,8 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
    - Enter `closing` only while holding the active `lease_token` for terminal artifact writes.
    - Write the terminal conclusion to `{debate_path}` while holding the lease. For `TIMEOUT`, append no turn and update only the conclusion metadata/body.
    - Terminal conclusion must include the exact outcome, closed timestamp, candidate convergence, reason, summary, source reference, and topic.
-   - Run `rp1 agent-tools socratic-duel release-lock --duel-id "{duel_id}" --participant-id "{participant_id}" --lease-token "{lease_token}" --close`.
+   - Run `rp1 agent-tools socratic-duel release-lock --duel-id "{duel_id}" --participant-id "{participant_id}" --lease-token "{lease_token}" --close --outcome "{terminal_outcome}"`.
+   - If close returns `closed:false`, do not emit terminal completion; re-run `status`, follow the returned `next_step`, and continue bounded coordination.
    - Emit `lock_released` with `closed:true`.
    - Emit `artifact_updated` with `--unit conclusion:{terminal_outcome}`.
    - If the terminal outcome is `INVALIDATED`, transition to `invalidated`; otherwise transition to `completed`.
@@ -355,6 +358,7 @@ Support:
 - Do not ask the backend for candidate convergence, terminal content, turn numbers, prior-artifact hashes, or template text.
 - Do not exceed 3 turn pairs or 6 total turns.
 - Do not continue after terminal outcome.
+- Do not write or close `TIMEOUT` after a timeout claim until a post-claim `status` re-check still shows fewer than 2 participants.
 - Do not release another participant's active lock.
 - Do not append debate content to the source document.
 - Do not append outside the debate artifact.

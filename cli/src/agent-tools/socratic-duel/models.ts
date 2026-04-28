@@ -1,5 +1,15 @@
 export type DuelStatus = "ACTIVE" | "CLOSED";
 
+export const VALID_TERMINAL_OUTCOMES = [
+	"ACCEPTED_CONSENSUS",
+	"DISSENT",
+	"MAX_TURNS",
+	"TIMEOUT",
+	"INVALIDATED",
+] as const;
+
+export type TerminalOutcome = (typeof VALID_TERMINAL_OUTCOMES)[number];
+
 export const LEASE_DURATION_MS = 15 * 60 * 1000;
 export const RETRY_AFTER_SECONDS = 30;
 
@@ -55,6 +65,7 @@ export interface ReleaseLockInput {
 	readonly participantId: string;
 	readonly leaseToken?: string;
 	readonly close?: boolean;
+	readonly outcome?: TerminalOutcome;
 }
 
 export interface JoinResult {
@@ -94,6 +105,7 @@ export interface LockStatus {
 export interface ClaimLockResult {
 	readonly duel_id: string;
 	readonly participant_id: string;
+	readonly participant_count: number;
 	readonly acquired: boolean;
 	readonly lease_token: string | null;
 	readonly lease_expires_at: string | null;
@@ -122,12 +134,14 @@ export interface RefreshLockResult {
 export interface ReleaseLockResult {
 	readonly duel_id: string;
 	readonly participant_id: string;
+	readonly participant_count: number;
 	readonly released: boolean;
 	readonly closed: boolean;
 	readonly status: DuelStatus;
+	readonly outcome: TerminalOutcome | null;
 	readonly owner_participant_id: string | null;
 	readonly reason: string | null;
-	readonly next_step: "claim_lock" | "wait_turn" | "closed";
+	readonly next_step: "compose_turn" | "claim_lock" | "wait_turn" | "closed";
 }
 
 export interface ValidationIssue {

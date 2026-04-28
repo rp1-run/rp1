@@ -414,6 +414,22 @@ describe("agent-tools command adapter", () => {
 			1,
 		);
 		expect(errors.at(-1)).toContain("socratic-duel");
+
+		await expectExit(
+			[
+				"socratic-duel",
+				"release-lock",
+				"--duel-id",
+				"missing",
+				"--participant-id",
+				"p1",
+				"--close",
+				"--outcome",
+				"NOT_REAL",
+			],
+			1,
+		);
+		expect(errors.at(-1)).toContain("Invalid --outcome value");
 	});
 
 	test("socratic-duel command adapters run the join, status, claim, refresh, and release lifecycle", async () => {
@@ -527,5 +543,111 @@ describe("agent-tools command adapter", () => {
 		);
 		const released = lastOutput<{ data: { released: boolean } }>();
 		expect(released.data.released).toBe(true);
+	});
+
+	test("socratic-duel release-lock refuses TIMEOUT close after a late peer join", async () => {
+		tempDir = await mkdtemp(join(tmpdir(), "rp1-duel-timeout-command-"));
+		const targetPath = join(tempDir, "proposal.md");
+		const debateDir = join(tempDir, "debates");
+		await mkdir(debateDir, { recursive: true });
+		await writeFile(targetPath, "# Proposal\n\nInitial position.\n");
+
+		await expectExit(
+			[
+				"socratic-duel",
+				"join",
+				"--target",
+				targetPath,
+				"--topic",
+				"Timeout race",
+				"--debate-dir",
+				debateDir,
+				"--participant-name",
+				"codex",
+				"--harness",
+				"codex",
+				"--model-id",
+				"gpt-5",
+			],
+			0,
+		);
+		const joined = lastOutput<{
+			data: { duel_id: string; participant_id: string };
+		}>();
+
+		await expectExit(
+			[
+				"socratic-duel",
+				"claim-lock",
+				"--duel-id",
+				joined.data.duel_id,
+				"--participant-id",
+				joined.data.participant_id,
+				"--for-timeout",
+			],
+			0,
+		);
+		const timeoutClaim = lastOutput<{
+			data: {
+				lease_token: string;
+				participant_count: number;
+				next_step: string;
+			};
+		}>();
+		expect(timeoutClaim.data.participant_count).toBe(1);
+		expect(timeoutClaim.data.next_step).toBe("update_markdown");
+
+		await expectExit(
+			[
+				"socratic-duel",
+				"join",
+				"--target",
+				targetPath,
+				"--topic",
+				"Timeout race",
+				"--debate-dir",
+				debateDir,
+				"--participant-name",
+				"reviewer",
+				"--harness",
+				"codex",
+				"--model-id",
+				"gpt-5",
+			],
+			0,
+		);
+
+		await expectExit(
+			[
+				"socratic-duel",
+				"release-lock",
+				"--duel-id",
+				joined.data.duel_id,
+				"--participant-id",
+				joined.data.participant_id,
+				"--lease-token",
+				timeoutClaim.data.lease_token,
+				"--close",
+				"--outcome",
+				"TIMEOUT",
+			],
+			0,
+		);
+		const rejected = lastOutput<{
+			data: {
+				closed: boolean;
+				participant_count: number;
+				next_step: string;
+				outcome: string;
+				reason: string;
+				status: string;
+			};
+		}>();
+		expect(rejected.data.closed).toBe(false);
+		expect(rejected.data.participant_count).toBe(2);
+		expect(rejected.data.next_step).toBe("compose_turn");
+		expect(rejected.data.outcome).toBe("TIMEOUT");
+		expect(rejected.data.reason).toContain("second participant is present");
+		expect(rejected.data.status).toBe("ACTIVE");
 	});
 });

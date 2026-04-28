@@ -87,6 +87,12 @@ describe("socratic-duel skill contract", () => {
 			"only a successful `claim-lock` or `refresh-lock` result can provide a usable token",
 		);
 		expect(content).toContain("--for-timeout");
+		expect(content).toContain("using non-zero sleeps between attempts");
+		expect(content).toContain(
+			"post-timeout-claim `status` shows `participant_count` is 2 or more",
+		);
+		expect(content).toContain("release-lock --close --outcome TIMEOUT");
+		expect(content).toContain('--close --outcome "{terminal_outcome}"');
 		expect(content).toContain("--unit conclusion:{terminal_outcome}");
 		expect(content).toContain("--close-run");
 
@@ -161,6 +167,12 @@ describe("socratic-duel skill contract", () => {
 		expect(participant).toContain(
 			"Close the run on terminal outcome with participant-owned `--close-run`.",
 		);
+		expect(participant).toContain("using non-zero sleeps between attempts");
+		expect(participant).toContain(
+			"post-timeout-claim `status` shows `participant_count` is 2 or more",
+		);
+		expect(participant).toContain("release-lock --close --outcome TIMEOUT");
+		expect(participant).toContain('--close --outcome "{terminal_outcome}"');
 		for (const step of [
 			"preparing",
 			"waiting_for_participant",
