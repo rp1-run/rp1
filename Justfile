@@ -408,6 +408,22 @@ install: rm-stable build
     echo "━━━ Installing to all platforms ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
     echo ""; \
     ./bin/rp1 install -y; \
+    dev_bin="$(pwd -P)/bin/rp1"; \
+    shim_dir="${HOME}/.local/bin"; \
+    shim_path="${shim_dir}/rp1"; \
+    mkdir -p "$shim_dir"; \
+    install -m 0755 "$dev_bin" "$shim_path"; \
+    if [ ! -x "$shim_path" ]; then \
+        echo "Failed to install executable at ${shim_path}"; \
+        exit 1; \
+    fi; \
+    resolved="$(command -v rp1 || true)"; \
+    if [ "$resolved" != "$shim_path" ] && [ "$resolved" != "$dev_bin" ]; then \
+        echo "WARNING: rp1 currently resolves to ${resolved:-<not found>}, not ${shim_path}."; \
+        echo "Put ${shim_dir} before other rp1 locations in PATH for project workflows to use the installed dev binary."; \
+    fi; \
+    echo ""; \
+    echo "Installed local rp1 executable: ${shim_path}"; \
     if [ -f "$restart_marker" ]; then \
         port=$(cat "$restart_marker" 2>/dev/null | tr -d '[:space:]'); \
         if [ -z "$port" ]; then port=7710; fi; \

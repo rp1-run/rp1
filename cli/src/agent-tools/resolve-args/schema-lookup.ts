@@ -6,7 +6,6 @@
  */
 
 import { readFile, stat } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as E from "fp-ts/lib/Either.js";
@@ -227,178 +226,6 @@ const fileExists = async (path: string): Promise<boolean> => {
 	}
 };
 
-const KNOWN_SCHEMA_PLATFORMS = [
-	"claude-code",
-	"codex",
-	"opencode",
-	"copilot",
-] as const;
-
-type KnownSchemaPlatform = (typeof KNOWN_SCHEMA_PLATFORMS)[number];
-
-const normalizePlatformHint = (
-	platformHint?: string,
-): KnownSchemaPlatform | null => {
-	if (platformHint === "gh-copilot") return "copilot";
-	return KNOWN_SCHEMA_PLATFORMS.includes(platformHint as KnownSchemaPlatform)
-		? (platformHint as KnownSchemaPlatform)
-		: null;
-};
-
-const orderKnownPlatforms = (
-	platformHint?: string,
-): readonly KnownSchemaPlatform[] => {
-	const preferred = normalizePlatformHint(platformHint);
-	if (!preferred) return KNOWN_SCHEMA_PLATFORMS;
-
-	return [
-		preferred,
-		...KNOWN_SCHEMA_PLATFORMS.filter((platform) => platform !== preferred),
-	];
-};
-
-const installedSkillCandidatesForPlatform = (
-	name: CanonicalName,
-	platform: KnownSchemaPlatform,
-): readonly string[] => {
-	const home = process.env.HOME ?? homedir();
-	const prefixedArtifact = `rp1-${name.artifact}`;
-	const prefixedPlugin = `rp1-${name.plugin}`;
-
-	switch (platform) {
-		case "codex":
-			return [join(home, ".codex", "skills", prefixedArtifact, "SKILL.md")];
-		case "opencode":
-			return [
-				join(
-					home,
-					".config",
-					"opencode",
-					"skills",
-					prefixedArtifact,
-					"SKILL.md",
-				),
-			];
-		case "claude-code":
-			return [
-				join(
-					home,
-					".rp1",
-					"claude",
-					"plugins",
-					name.plugin,
-					"skills",
-					name.artifact,
-					"SKILL.md",
-				),
-			];
-		case "copilot":
-			return [
-				join(
-					home,
-					".rp1",
-					"copilot",
-					"marketplace",
-					"plugins",
-					prefixedPlugin,
-					"skills",
-					prefixedArtifact,
-					"SKILL.md",
-				),
-			];
-	}
-};
-
-const readInstalledSkillCanonicalName = async (
-	path: string,
-): Promise<CanonicalName | null> => {
-	try {
-		const content = await readFile(path, "utf-8");
-		if (!content.startsWith("---")) return null;
-
-		const parts = content.split("---");
-		if (parts.length < 3) return null;
-
-		const { parse: parseYaml } = await import("yaml");
-		const frontmatter = (parseYaml(parts[1]) ?? {}) as Record<string, unknown>;
-		const metadata =
-			frontmatter.metadata && typeof frontmatter.metadata === "object"
-				? (frontmatter.metadata as Record<string, unknown>)
-				: null;
-		const rp1 =
-			metadata?.rp1 && typeof metadata.rp1 === "object"
-				? (metadata.rp1 as Record<string, unknown>)
-				: null;
-
-		const plugin =
-			typeof rp1?.plugin === "string" ? rp1.plugin.replace(/^rp1-/, "") : null;
-		const artifact =
-			typeof rp1?.name === "string"
-				? rp1.name
-				: typeof rp1?.skill_name === "string"
-					? rp1.skill_name
-					: null;
-
-		return plugin && artifact ? { plugin, artifact } : null;
-	} catch {
-		return null;
-	}
-};
-
-const installedSkillMatchesCanonicalName = async (
-	path: string,
-	name: CanonicalName,
-): Promise<boolean> => {
-	const installedName = await readInstalledSkillCanonicalName(path);
-	if (!installedName) return true;
-
-	return (
-		installedName.plugin === name.plugin &&
-		installedName.artifact === name.artifact
-	);
-};
-
-const findInstalledSkillSchema = async (
-	name: CanonicalName,
-	platformHint?: string,
-): Promise<string | null> => {
-	for (const platform of orderKnownPlatforms(platformHint)) {
-		for (const candidate of installedSkillCandidatesForPlatform(
-			name,
-			platform,
-		)) {
-			if (
-				(await fileExists(candidate)) &&
-				(await installedSkillMatchesCanonicalName(candidate, name))
-			) {
-				return candidate;
-			}
-		}
-	}
-
-	return null;
-};
-
-const resolveInstalledSkillSchemaPath = (
-	name: CanonicalName,
-	platformHint?: string,
-): TE.TaskEither<CLIError, string> =>
-	TE.tryCatch(
-		async () => {
-			const result = await findInstalledSkillSchema(name, platformHint);
-			if (result) return result;
-
-			throw new Error(
-				`Could not find installed schema for "${toCanonicalString(name)}" in the standard host skill locations.`,
-			);
-		},
-		(err) =>
-			notFoundError(
-				toUserFacing(name),
-				err instanceof Error ? err.message : String(err),
-			),
-	);
-
 /**
  * Resolve a canonical name to a schema file path.
  * Uses the embedded manifest (production) or dist/ bundle-manifest.json files (development).
@@ -409,41 +236,25 @@ export const resolveSchemaPath = (
 ): TE.TaskEither<CLIError, string> => {
 	// Production: use embedded manifest
 	if (hasBundledAssets()) {
-		return pipe(
-			TE.fromEither(findInBundledManifest(name, platformHint)),
-			TE.orElse((bundledError) =>
-				pipe(
-					resolveInstalledSkillSchemaPath(name, platformHint),
-					TE.orElse(() => TE.left(bundledError)),
-				),
-			),
-		);
+		return TE.fromEither(findInBundledManifest(name, platformHint));
 	}
 
 	// Development: read bundle-manifest.json from dist/
-	return pipe(
-		TE.tryCatch(
-			async () => {
-				const result = await findInDevManifests(name, platformHint);
-				if (result) return result;
+	return TE.tryCatch(
+		async () => {
+			const result = await findInDevManifests(name, platformHint);
+			if (result) return result;
 
-				throw new Error(
-					`Could not find schema for "${toCanonicalString(name)}" in dist/ bundle manifests. ` +
-						"Ensure you have run a build first.",
-				);
-			},
-			(err) =>
-				notFoundError(
-					toUserFacing(name),
-					err instanceof Error ? err.message : String(err),
-				),
-		),
-		TE.orElse((devManifestError) =>
-			pipe(
-				resolveInstalledSkillSchemaPath(name, platformHint),
-				TE.orElse(() => TE.left(devManifestError)),
+			throw new Error(
+				`Could not find schema for "${toCanonicalString(name)}" in dist/ bundle manifests. ` +
+					"Ensure you have run a build first.",
+			);
+		},
+		(err) =>
+			notFoundError(
+				toUserFacing(name),
+				err instanceof Error ? err.message : String(err),
 			),
-		),
 	);
 };
 
