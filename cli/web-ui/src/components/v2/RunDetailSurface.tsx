@@ -3,8 +3,10 @@ import {
 	ArrowLeft,
 	Ban,
 	Check,
+	ListTodo,
 	Loader2,
 	OctagonX,
+	PanelLeft,
 	RefreshCw,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -171,6 +173,7 @@ export function RunDetailSurface({
 		);
 	});
 	const [previewDocId, setPreviewDocId] = useState<string | null>(null);
+	const [stepPanelOpen, setStepPanelOpen] = useState(false);
 
 	const workflowName = useMemo(
 		() => (run ? commandToWorkflowName(run.command) : null),
@@ -585,6 +588,17 @@ export function RunDetailSurface({
 	const bodyStatusMessage =
 		run.error && run.error !== headerStatusMessage ? run.error : null;
 
+	const artifactPanel = (
+		<RunArtifactsPanel
+			artifactGroups={artifactGroups}
+			selectedArtifact={selectedArtifact}
+			onArtifactSelect={handleArtifactSelect}
+			runId={runId}
+			subflowDiagram={subflowDiagram}
+			showFrontmatter={showFrontmatter}
+		/>
+	);
+
 	return (
 		<div className="flex h-full flex-col">
 			{showMetadata && <RunInvocationCard invocation={run.invocation} />}
@@ -601,40 +615,71 @@ export function RunDetailSurface({
 			)}
 
 			<div className="hidden md:flex flex-1 min-h-0">
-				<ResizablePanelGroup direction="horizontal">
-					<ResizablePanel
-						defaultSize={22}
-						minSize={15}
-						maxSize={50}
-						className="bg-surface-void"
-					>
-						<div className="h-full overflow-y-auto">
-							<VerticalStepList
-								harness={run.harness}
-								steps={displaySteps}
-								artifacts={run.artifacts}
-								agentSteps={run.agentSteps}
-								selectedStepId={selectedStepId}
-								onStepSelect={handleStepSelect}
-								onArtifactSelect={handleArtifactSelect}
-								workflowName={workflowName}
-							/>
-						</div>
-					</ResizablePanel>
+				{stepPanelOpen ? (
+					<ResizablePanelGroup direction="horizontal">
+						<ResizablePanel
+							defaultSize={22}
+							minSize={15}
+							maxSize={50}
+							className="bg-surface-void"
+						>
+							<div className="flex h-full flex-col">
+								<div className="flex h-10 shrink-0 items-center gap-sm pl-1.5 pr-md">
+									<button
+										type="button"
+										onClick={() => setStepPanelOpen(false)}
+										className="flex h-7 w-7 items-center justify-center rounded text-fg-ghost transition-colors duration-150 hover:bg-surface-base hover:text-fg"
+										aria-label="Collapse workflow steps"
+										aria-expanded="true"
+										title="Collapse workflow steps"
+									>
+										<PanelLeft className="h-4 w-4" strokeWidth={1.5} />
+									</button>
+									<span className="type-secondary font-medium uppercase text-fg-ghost">
+										Steps
+									</span>
+								</div>
+								<div className="min-h-0 flex-1 overflow-y-auto">
+									<VerticalStepList
+										harness={run.harness}
+										steps={displaySteps}
+										artifacts={run.artifacts}
+										agentSteps={run.agentSteps}
+										selectedStepId={selectedStepId}
+										onStepSelect={handleStepSelect}
+										onArtifactSelect={handleArtifactSelect}
+										workflowName={workflowName}
+									/>
+								</div>
+							</div>
+						</ResizablePanel>
 
-					<ResizableHandle className="cursor-col-resize" />
+						<ResizableHandle className="cursor-col-resize" />
 
-					<ResizablePanel defaultSize={78} minSize={40}>
-						<RunArtifactsPanel
-							artifactGroups={artifactGroups}
-							selectedArtifact={selectedArtifact}
-							onArtifactSelect={handleArtifactSelect}
-							runId={runId}
-							subflowDiagram={subflowDiagram}
-							showFrontmatter={showFrontmatter}
-						/>
-					</ResizablePanel>
-				</ResizablePanelGroup>
+						<ResizablePanel defaultSize={78} minSize={40}>
+							{artifactPanel}
+						</ResizablePanel>
+					</ResizablePanelGroup>
+				) : (
+					<div className="flex h-full min-w-0 flex-1">
+						<aside
+							aria-label="Workflow steps"
+							className="flex w-10 shrink-0 justify-center bg-surface-void py-sm"
+						>
+							<button
+								type="button"
+								onClick={() => setStepPanelOpen(true)}
+								className="flex h-7 w-7 items-center justify-center rounded text-fg-ghost transition-colors duration-150 hover:bg-surface-base hover:text-fg"
+								aria-label="Open workflow steps"
+								aria-expanded="false"
+								title="Open workflow steps"
+							>
+								<ListTodo className="h-4 w-4" strokeWidth={1.5} />
+							</button>
+						</aside>
+						<div className="min-w-0 flex-1">{artifactPanel}</div>
+					</div>
+				)}
 			</div>
 
 			<div className="flex flex-col flex-1 min-h-0 md:hidden">

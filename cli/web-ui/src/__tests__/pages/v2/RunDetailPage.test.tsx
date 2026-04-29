@@ -371,6 +371,30 @@ describe("RunDetailPage", () => {
 		}
 	});
 
+	test("collapses workflow steps by default and opens them on demand", async () => {
+		await renderRunDetail();
+
+		expect(screen.queryByTestId("step-list")).toBeNull();
+
+		const openStepsButton = screen.getByRole("button", {
+			name: "Open workflow steps",
+		});
+		expect(openStepsButton.getAttribute("aria-expanded")).toBe("false");
+
+		fireEvent.click(openStepsButton);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("step-list").dataset.selectedStepId).toBe(
+				"build",
+			);
+		});
+		expect(
+			screen
+				.getByRole("button", { name: "Collapse workflow steps" })
+				.getAttribute("aria-expanded"),
+		).toBe("true");
+	});
+
 	test("posts explicit end-run actions from the detail header", async () => {
 		await renderRunDetail();
 
@@ -603,6 +627,10 @@ describe("RunDetailPage", () => {
 		};
 
 		await renderRunDetail("/runs/run-1/step/build/artifact/doc-1");
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "Open workflow steps" }),
+		);
 
 		await waitFor(() => {
 			expect(screen.getByTestId("step-list").dataset.selectedStepId).toBe(
