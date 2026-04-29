@@ -120,22 +120,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
+      - name: Skip non-release PRs
+        if: ${{ github.event_name != 'pull_request' || github.head_ref != 'release-please--branches--main' }}
+        run: echo "Skipping attestation verification; evals only block the release-please PR."
+
       - uses: actions/checkout@v4
+        if: ${{ github.event_name == 'pull_request' && github.head_ref == 'release-please--branches--main' }}
 
       - uses: oven-sh/setup-bun@v2
+        if: ${{ github.event_name == 'pull_request' && github.head_ref == 'release-please--branches--main' }}
         with:
           bun-version: "1.3.5"
 
       - uses: extractions/setup-just@v2
+        if: ${{ github.event_name == 'pull_request' && github.head_ref == 'release-please--branches--main' }}
 
       - name: Install CLI dependencies
+        if: ${{ github.event_name == 'pull_request' && github.head_ref == 'release-please--branches--main' }}
         run: cd cli && bun install
 
       - name: Build platform artifacts
+        if: ${{ github.event_name == 'pull_request' && github.head_ref == 'release-please--branches--main' }}
         run: just build-claude-code
 
       - name: Install eval dependencies
+        if: ${{ github.event_name == 'pull_request' && github.head_ref == 'release-please--branches--main' }}
         run: cd evals && bun install
 
       - name: Verify attestations
+        if: ${{ github.event_name == 'pull_request' && github.head_ref == 'release-please--branches--main' }}
         run: just eval-verify
