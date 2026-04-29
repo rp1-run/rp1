@@ -1,7 +1,4 @@
-/**
- * Comment pattern definitions for various programming languages.
- * Maps file extensions to single-line and multi-line comment patterns.
- */
+import path from "node:path";
 
 /**
  * Comment pattern configuration for a file type.
@@ -69,10 +66,47 @@ export const PATTERNS: Readonly<Record<string, CommentPatterns>> = {
 	".php": { single: [/\/\//, /#/], multi: [[/\/\*/, /\*\//]] },
 };
 
+export const SUPPORTED_SOURCE_EXTENSIONS: readonly string[] =
+	Object.keys(PATTERNS);
+
+export const EXCLUDED_SOURCE_DIRECTORIES: readonly string[] = [
+	".git",
+	".next",
+	".rp1",
+	"build",
+	"coverage",
+	"dist",
+	"node_modules",
+	"vendor",
+];
+
+export const PROTECTED_GENERATED_SOURCE_PATHS: readonly string[] = [
+	"catalog/agents.yaml",
+	"cli/src/init/templates/generated.ts",
+];
+
+const normalizeRelativePath = (filePath: string): string =>
+	filePath.replace(/\\/g, "/").split(path.sep).join("/").replace(/^\.\//, "");
+
 /**
  * Check if a file extension is supported.
  */
 export const isSupportedExtension = (ext: string): boolean => ext in PATTERNS;
+
+export const isProtectedGeneratedPath = (filePath: string): boolean =>
+	PROTECTED_GENERATED_SOURCE_PATHS.includes(normalizeRelativePath(filePath));
+
+export const isExcludedSourcePath = (filePath: string): boolean => {
+	const segments = normalizeRelativePath(filePath).split("/");
+	return segments.some((segment) =>
+		EXCLUDED_SOURCE_DIRECTORIES.includes(segment),
+	);
+};
+
+export const isSupportedSourcePath = (filePath: string): boolean =>
+	isSupportedExtension(path.extname(filePath).toLowerCase()) &&
+	!isExcludedSourcePath(filePath) &&
+	!isProtectedGeneratedPath(filePath);
 
 /**
  * Get patterns for a file extension.

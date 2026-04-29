@@ -67,6 +67,7 @@ metadata:
     - "rp1-dev:build-fast-planner"
     - "rp1-dev:task-builder"
     - "rp1-dev:task-reviewer"
+    - "rp1-dev:comment-cleaner"
 ---
 
 # Build Fast Command
@@ -218,7 +219,19 @@ Output "Build fast cancelled. Artifact preserved at {artifact_path}" and STOP.
 
 **CRITICAL**: You are an orchestrator. You MUST delegate implementation to `task-builder` by spawning an agent. Do NOT write, edit, or create source code files yourself. Do NOT implement the plan directly. Your only job is to spawn agents and parse their responses.
 
-### §2.1 Task Execution
+### §2.1 Cleanup Manifest Baseline
+
+Before task-builder runs, snapshot the repository state that bounds build-owned cleanup:
+
+```bash
+rp1 agent-tools change-manifest snapshot \
+  --code-root "{codeRoot}" \
+  --out "{workRoot}/quick-builds/{RUN_ID}-change-manifest-baseline.json"
+```
+
+Parse the `ToolResult` envelope. If the command fails or returns malformed output, continue execution but record `cleanup_manifest_result` as skipped with `skipReason: "baseline_snapshot_failed"`, `files: 0`, `ownedLineCount: 0`, and `statusPath: "{workRoot}/quick-builds/{RUN_ID}-change-manifest-status.json"`. Do not dispatch `comment-cleaner` later unless a generated manifest result explicitly returns `status: "created"` and non-empty ownership.
+
+### §2.2 Task Execution
 
 **You MUST spawn task-builder here.** Do not implement the tasks yourself.
 
@@ -279,9 +292,51 @@ RUN_ID={RUN_ID}
 
 ## §PHASE-4: Finalization
 
-**Phase handoff rule**: After §PHASE-3 completes successfully, do not register artifacts, do not emit final output, and do not stop. First evaluate §4.2. When `AFK=false` AND `CONFIRM_PLAN=true`, the very next workflow actions after review completion must be the post-implementation checkpoint actions from §4.2.
+**Phase handoff rule**: After §PHASE-3 completes successfully, do not register artifacts, do not emit final output, and do not stop. First generate the cleanup manifest and run manifest-gated cleanup, then evaluate §4.4. When `AFK=false` AND `CONFIRM_PLAN=true`, the post-implementation checkpoint in §4.4 must run before §OUTPUT.
 
-### §4.1 Push (Conditional)
+### §4.1 Cleanup Manifest Generation
+
+After implementation and optional review finish, generate the durable cleanup handoff:
+
+```bash
+rp1 agent-tools change-manifest generate \
+  --code-root "{codeRoot}" \
+  --out "{workRoot}/quick-builds/{RUN_ID}-change-manifest-001.json" \
+  --status-out "{workRoot}/quick-builds/{RUN_ID}-change-manifest-status.json" \
+  --source build-fast \
+  --baseline "{workRoot}/quick-builds/{RUN_ID}-change-manifest-baseline.json"
+```
+
+Parse the `ToolResult` envelope into `cleanup_manifest_result`.
+
+- If `data.status == "created"` and `data.files > 0` and `data.ownedLineCount > 0`, dispatch `comment-cleaner` with `data.manifestPath` and `{codeRoot}`.
+- If `data.status == "skipped"`, keep `data.statusPath` and `data.skipReason` for final output. Do not ask `comment-cleaner` to infer scope.
+- If the tool fails or returns malformed output, set `cleanup_manifest_result` to a skipped warning with `skipReason: "change_manifest_generate_failed"`, `files: 0`, `ownedLineCount: 0`, and `statusPath: "{workRoot}/quick-builds/{RUN_ID}-change-manifest-status.json"`.
+
+### §4.2 Comment Cleanup
+
+If `cleanup_manifest_result` is created and non-empty:
+
+{% dispatch_agent "rp1-dev:comment-cleaner" %}
+CHANGE_MANIFEST={cleanup_manifest_result.data.manifestPath}, CODE_ROOT={codeRoot}
+{% enddispatch_agent %}
+
+Otherwise set the `comment_cleaner` result yourself:
+
+```json
+{
+  "status": "WARN",
+  "files_checked": 0,
+  "manifest_path": null,
+  "manifest_status_path": "{cleanup_manifest_result.data.statusPath}",
+  "skip_reason": "{cleanup_manifest_result.data.skipReason}",
+  "message": "Automatic comment cleanup skipped because no non-empty generated manifest was available."
+}
+```
+
+Do not dispatch comment-cleaner with branch, unstaged, commit-range, base-branch, mode, or commit parameters; the generated manifest is the only safe cleanup boundary.
+
+### §4.3 Push (Conditional)
 
 **Skip if**: `GIT_PUSH=false`
 
@@ -289,7 +344,7 @@ RUN_ID={RUN_ID}
 git push -u origin {branch}
 ```
 
-### §4.2 Post-Implementation Checkpoint
+### §4.4 Post-Implementation Checkpoint
 
 **SKIP ENTIRELY if**: `AFK=true` OR `CONFIRM_PLAN=false`
 
@@ -300,7 +355,7 @@ When skipped: Do NOT prompt the user. Proceed directly to §OUTPUT.
 2. Call `ask_user` and wait for the answer
 
 The `waiting_for_user` emit does not replace the `ask_user` call. Continuing to §OUTPUT without both is an invalid workflow transition.
-The next action after §PHASE-3 success must be this checkpoint when interactive confirm mode is active.
+The next action after manifest-gated cleanup must be this checkpoint when interactive confirm mode is active.
 Do not emit `artifact_registered` for the build step before this checkpoint completes.
 
 Emit waiting status so the Arcade dashboard reflects the gate pause:
@@ -360,6 +415,10 @@ rp1 agent-tools emit \
 
 **Quality**: {format/lint/test status from builder}
 **Review**: {PASSED | SKIPPED | FAILED+RETRIED} (based on REVIEW flag)
+**Comment Cleanup**: {comment_cleaner.status}
+**Cleanup Manifest**: {cleanup_manifest_result.data.manifestPath or "None"}
+**Cleanup Status**: {cleanup_manifest_result.data.statusPath}
+**Cleanup Skip Reason**: {cleanup_manifest_result.data.skipReason or "None"}
 ```
 
 ## §ORCHESTRATOR-RULES

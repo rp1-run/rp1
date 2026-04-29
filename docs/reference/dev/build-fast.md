@@ -36,6 +36,11 @@ Every invocation starts a fresh tracked run. Implementation changes happen in
 your current checkout, while workflow artifacts are stored under the canonical
 project work root. Use `--git-*` flags to enable commits or pushing.
 
+`build-fast` also snapshots the repository before implementation and resolves
+automatic comment cleanup through a generated change manifest after
+implementation and optional review. Cleanup runs only when that manifest is
+created and non-empty.
+
 This command uses the [skill-agent pattern](../../concepts/command-agent-pattern.md)
 with scope gating and AFK mode support.
 
@@ -235,8 +240,8 @@ planning, build, and review/finalization:
 |------|---------------|
 | Bootstrap | Resolves canonical `projectRoot`, `kbRoot`, and `workRoot`, then creates a new `build-fast` run. Unlike `/build`, `build-fast` never resumes an earlier run. |
 | Plan | Loads KB context, assesses scope, creates a quick-build artifact for Small/Medium requests, and optionally pauses for plan confirmation. Large single-feature requests stop here with a redirect to `/build`; initiative-sized requests stop here with a redirect to `/phase-plan`. |
-| Build | Delegates the planned work to `task-builder` using the quick-build artifact as the source of truth. |
-| Review / Finalize | Optionally runs `task-reviewer`, retries once on failure, optionally pushes, and optionally pauses for a post-implementation checkpoint before final output. |
+| Build | Snapshots the cleanup baseline, then delegates the planned work to `task-builder` using the quick-build artifact as the source of truth. |
+| Review / Finalize | Optionally runs `task-reviewer`, retries once on failure, generates the cleanup manifest, runs manifest-gated cleanup when safe, optionally pushes, and optionally pauses for a post-implementation checkpoint before final output. |
 
 ## KB Loading
 
@@ -279,6 +284,34 @@ This file is the workflow's source of truth and includes:
 - Task checklist for `task-builder`
 - Implementation summary
 - Verification notes (when review is enabled)
+
+### Comment Cleanup Output
+
+For Small and Medium requests, `build-fast` writes cleanup artifacts next to the
+quick-build artifact:
+
+- `{RUN_ID}-change-manifest-baseline.json` - repository state before
+  `task-builder` runs
+- `{RUN_ID}-change-manifest-001.json` - cleanup-owned files and line ranges,
+  when generated
+- `{RUN_ID}-change-manifest-status.json` - created/skipped status, file counts,
+  owned-line counts, dirty-path metadata, and skip reason
+
+The final output includes:
+
+| Field | Meaning |
+|-------|---------|
+| `Comment Cleanup` | Cleaner status, or `WARN` when cleanup was skipped before dispatch |
+| `Cleanup Manifest` | Generated manifest path, or `None` when skipped |
+| `Cleanup Status` | Status artifact path for created and skipped outcomes |
+| `Cleanup Skip Reason` | `None` when cleanup ran, otherwise the fail-closed reason |
+
+Common skip reasons include `no_supported_source_hunks`,
+`pre_existing_dirty_paths_overlap`, `missing_baseline`,
+`invalid_baseline`, `baseline_code_root_mismatch`,
+`scope_outside_code_root`, `invalid_scope`, and `unsupported_scope`.
+`build-fast` never asks `comment-cleaner` to infer scope from branch names,
+commit ranges, dirty labels, or task-builder-authored hunks.
 
 ### Large and Initiative Redirects
 

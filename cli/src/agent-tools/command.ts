@@ -7,6 +7,11 @@ import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError, usageError } from "../../shared/errors.js";
 import { VALID_EVENT_TYPES } from "../../shared/events.js";
+import {
+	CHANGE_MANIFEST_SOURCES,
+	executeChangeManifestSnapshot,
+	executeGenerateChangeManifest,
+} from "./change-manifest/index.js";
 import { executeExtract } from "./comment-extract/index.js";
 import {
 	closeDatabase as closeEmitDatabase,
@@ -123,6 +128,7 @@ Available Tools:
   resolve-args      Resolve structured arguments from schema, settings, and user input
   rp1-root-dir      Resolve project, KB, and work directories with worktree detection
   workflow-bootstrap Resolve canonical tracked-workflow bootstrap context and run selection
+  change-manifest  Create cleanup manifests from repository change evidence
   comment-extract   Extract comments from git-changed files
   emit              Record events for the rp1 workflow event system
   feedback          Read, resolve, reply to, and accept feedback from the Arcade
@@ -136,6 +142,8 @@ Examples:
   cat diagram.mmd | rp1 agent-tools mmd-validate
   echo "graph TD; A-->B" | rp1 agent-tools mmd-validate
   rp1 agent-tools rp1-root-dir
+  rp1 agent-tools change-manifest snapshot --code-root . --out .rp1/work/features/example/change-manifest-baseline.json
+  rp1 agent-tools change-manifest generate --code-root . --out .rp1/work/features/example/change-manifest-001.json --status-out .rp1/work/features/example/change-manifest-status.json --source build --baseline .rp1/work/features/example/change-manifest-baseline.json
   rp1 agent-tools comment-extract branch main
   rp1 agent-tools comment-extract unstaged main
   echo '{"owner":"org","repo":"repo","pr_number":123}' | rp1 agent-tools github-pr fetch-comments
@@ -650,6 +658,138 @@ Examples:
 				}),
 				{ inputSource: "stdin" },
 			)();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(result.right.success ? 0 : 1);
+		},
+	);
+
+/**
+ * change-manifest subcommand.
+ * Creates durable cleanup manifests from repository evidence.
+ */
+const changeManifestCommand = agentToolsCommand
+	.command("change-manifest")
+	.description("Create cleanup manifests from repository change evidence")
+	.addHelpText(
+		"after",
+		`
+Subcommands:
+  snapshot    Record the starting repository state for build-owned cleanup
+  generate    Create or skip a cleanup manifest from a baseline or user scope
+
+Examples:
+  rp1 agent-tools change-manifest snapshot --code-root . --out .rp1/work/features/example/change-manifest-baseline.json
+  rp1 agent-tools change-manifest generate --code-root . --out .rp1/work/features/example/change-manifest-001.json --status-out .rp1/work/features/example/change-manifest-status.json --source build --baseline .rp1/work/features/example/change-manifest-baseline.json
+`,
+	);
+
+changeManifestCommand
+	.command("snapshot")
+	.description("Record baseline HEAD and dirty paths")
+	.requiredOption("--code-root <path>", "Repository source root")
+	.requiredOption("--out <path>", "Baseline snapshot JSON path")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Records the current HEAD and dirty paths for later manifest generation.
+
+Output:
+  JSON ToolResult with snapshotPath, codeRoot, head, and dirtyPaths.
+
+Example:
+  rp1 agent-tools change-manifest snapshot \\
+    --code-root . \\
+    --out .rp1/work/features/example/change-manifest-baseline.json
+`,
+	)
+	.action(async (options: { codeRoot: string; out: string }): Promise<void> => {
+		const toolName = "change-manifest";
+		const result = await executeChangeManifestSnapshot({
+			codeRoot: options.codeRoot,
+			out: options.out,
+		})();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(result.right.success ? 0 : 1);
+	});
+
+changeManifestCommand
+	.command("generate")
+	.description("Create or skip a cleanup manifest")
+	.requiredOption("--code-root <path>", "Repository source root")
+	.requiredOption("--out <path>", "Change manifest JSON path")
+	.requiredOption("--status-out <path>", "Manifest status JSON path")
+	.requiredOption(
+		"--source <source>",
+		`Manifest source (${CHANGE_MANIFEST_SOURCES.join(", ")})`,
+	)
+	.option("--baseline <path>", "Baseline snapshot path for build-owned changes")
+	.option("--scope <scope>", "User cleanup scope for code-clean-comments")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Generates a manifest from either a build baseline or a code-clean-comments
+  user scope. Skipped outcomes still write --status-out with the reason.
+
+Options:
+  --baseline <path>   Required for source build or build-fast
+  --scope <scope>     Required for source code-clean-comments
+
+Output:
+  JSON ToolResult with status, manifestPath, statusPath, files,
+  ownedLineCount, and skipReason.
+
+Examples:
+  rp1 agent-tools change-manifest generate \\
+    --code-root . \\
+    --out .rp1/work/features/example/change-manifest-001.json \\
+    --status-out .rp1/work/features/example/change-manifest-status.json \\
+    --source build \\
+    --baseline .rp1/work/features/example/change-manifest-baseline.json
+
+  rp1 agent-tools change-manifest generate \\
+    --code-root . \\
+    --out .rp1/work/comment-cleanup/change-manifest-001.json \\
+    --status-out .rp1/work/comment-cleanup/change-manifest-status.json \\
+    --source code-clean-comments \\
+    --scope src/
+`,
+	)
+	.action(
+		async (options: {
+			codeRoot: string;
+			out: string;
+			statusOut: string;
+			source: string;
+			baseline?: string;
+			scope?: string;
+		}): Promise<void> => {
+			const toolName = "change-manifest";
+			const result = await executeGenerateChangeManifest({
+				codeRoot: options.codeRoot,
+				out: options.out,
+				statusOut: options.statusOut,
+				source: options.source,
+				baseline: options.baseline,
+				scope: options.scope,
+			})();
 
 			if (E.isLeft(result)) {
 				console.error(
