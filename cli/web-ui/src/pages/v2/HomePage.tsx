@@ -267,13 +267,30 @@ function SelectedRunPane({
 	selectedRunId: string | null;
 	onExpand: () => void;
 }) {
+	const [currentStepName, setCurrentStepName] = useState<{
+		readonly runId: string | null;
+		readonly name: string | null;
+	}>({ runId: null, name: null });
+	const handleCurrentStepNameChange = useCallback(
+		(name: string | null) => {
+			setCurrentStepName({ runId: selectedRunId, name });
+		},
+		[selectedRunId],
+	);
+	const previewTitle =
+		currentStepName.runId === selectedRunId && currentStepName.name
+			? `Current Step: ${currentStepName.name}`
+			: "Run Preview";
+
 	return (
 		<section
 			aria-label="Selected run"
 			className="hidden min-h-0 min-w-0 overflow-hidden rounded-[var(--radius)] border border-border bg-surface-void xl:flex xl:flex-col"
 		>
 			<header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
-				<h2 className="type-body font-medium text-fg">Run Preview</h2>
+				<h2 className="min-w-0 truncate type-body font-medium text-fg">
+					{previewTitle}
+				</h2>
 				<button
 					type="button"
 					onClick={onExpand}
@@ -291,6 +308,7 @@ function SelectedRunPane({
 						key={selectedRunId}
 						runId={selectedRunId}
 						mode="activity-preview"
+						onCurrentStepNameChange={handleCurrentStepNameChange}
 					/>
 				) : (
 					<NoSelectedRunState />

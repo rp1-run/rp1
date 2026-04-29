@@ -67,6 +67,7 @@ export interface RunDetailSurfaceProps {
 	readonly onRouteReplace?: (route: string) => void;
 	readonly onArtifactRouteSelect?: (route: string) => void;
 	readonly onBackToRuns?: () => void;
+	readonly onCurrentStepNameChange?: (name: string | null) => void;
 }
 
 export interface RunDetailTarget {
@@ -151,6 +152,7 @@ export function RunDetailSurface({
 	onRouteReplace,
 	onArtifactRouteSelect,
 	onBackToRuns,
+	onCurrentStepNameChange,
 }: RunDetailSurfaceProps) {
 	const { run, isLoading, error, refetch } = useRunDetail(runId);
 	const [endingOutcome, setEndingOutcome] = useState<
@@ -239,6 +241,12 @@ export function RunDetailSurface({
 			run.currentStep
 		);
 	}, [run]);
+
+	useEffect(() => {
+		onCurrentStepNameChange?.(currentStepName);
+		return () => onCurrentStepNameChange?.(null);
+	}, [currentStepName, onCurrentStepNameChange]);
+
 	const headerStatusMessage =
 		run?.statusMessage && run.statusMessage !== currentStepName
 			? run.statusMessage

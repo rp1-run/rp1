@@ -348,6 +348,12 @@ describe("HomePage", () => {
 		await waitFor(() => {
 			expect(getPreviewText()).toBe("Preview run-1");
 		});
+		await waitFor(() => {
+			expect(
+				screen.getByRole("heading", { name: "Current Step: Build" }),
+			).toBeTruthy();
+		});
+		expect(screen.queryByText("Run Preview")).toBeNull();
 
 		fireEvent.click(screen.getByText("Build Two").closest('[role="button"]')!);
 
