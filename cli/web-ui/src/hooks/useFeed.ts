@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	buildActivitySearchText,
+	normalizeActivitySearchTokens,
+} from "@/lib/activity-search-fields";
 import { liveRunIndex } from "@/lib/live-run-index";
-import { resolveRunDisplayName } from "@/lib/run-display";
-import { getRunCurrentStepLabel, getRunStatusLabel } from "@/lib/status-labels";
 import type { Run, RunsFilter } from "@/types/runs";
 import {
 	useLiveRunIndexBridge,
@@ -66,32 +68,11 @@ function isWithinDateRange(
 	return now - new Date(timestamp).getTime() <= ranges[dateRange];
 }
 
-function normalizeSearchTokens(search: string | null | undefined): string[] {
-	return search?.trim().toLowerCase().split(/\s+/).filter(Boolean) ?? [];
-}
-
 function matchesSearch(run: Run, search: string | null | undefined): boolean {
-	const tokens = normalizeSearchTokens(search);
+	const tokens = normalizeActivitySearchTokens(search);
 	if (tokens.length === 0) return true;
 
-	const searchableText = [
-		run.id,
-		run.command,
-		resolveRunDisplayName(run),
-		run.featureName,
-		run.featureId,
-		run.projectName,
-		run.status,
-		run.statusMessage,
-		run.harness,
-		run.currentStep,
-		getRunCurrentStepLabel(run),
-		getRunStatusLabel(run),
-	]
-		.filter((value): value is string => typeof value === "string")
-		.join(" ")
-		.toLowerCase();
-
+	const searchableText = buildActivitySearchText(run);
 	return tokens.every((token) => searchableText.includes(token));
 }
 
@@ -164,9 +145,9 @@ function buildQueryParams(options: UseFeedOptions): URLSearchParams {
 		params.set("offset", String(options.offset));
 	}
 
-	const search = options.search?.trim();
-	if (search) {
-		params.set("q", search);
+	const searchTokens = normalizeActivitySearchTokens(options.search);
+	if (searchTokens.length > 0 && options.search !== undefined) {
+		params.set("q", options.search.trim());
 	}
 
 	return params;
