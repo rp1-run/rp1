@@ -1,5 +1,5 @@
-import type { Run } from "@/types/runs";
 import type { Status } from "../../../shared/events";
+import type { Run } from "../types/runs";
 import {
 	getSocraticDuelEventLabel,
 	getSocraticDuelOutcomeLabel,

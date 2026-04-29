@@ -1,4 +1,4 @@
-import type { Run } from "@/types/runs";
+import type { Run } from "../types/runs";
 
 export interface RunDisplayTarget {
 	readonly name?: string | null;

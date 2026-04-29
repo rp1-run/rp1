@@ -1,6 +1,6 @@
-import { resolveRunDisplayName } from "@/lib/run-display";
-import { getRunCurrentStepLabel, getRunStatusLabel } from "@/lib/status-labels";
-import type { Run } from "@/types/runs";
+import type { Run } from "../types/runs";
+import { resolveRunDisplayName } from "./run-display";
+import { getRunCurrentStepLabel, getRunStatusLabel } from "./status-labels";
 
 export type ActivitySearchRunLike = Pick<
 	Run,
