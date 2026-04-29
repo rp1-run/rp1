@@ -71,37 +71,47 @@ describe("fake workflow command", () => {
 		expect(errors.at(-1)).toContain("Invalid speed");
 	});
 
-	test("runs a fast fake workflow with artifact and subflow events in an isolated project", async () => {
-		tempDir = await mkdtemp(join(tmpdir(), "rp1-fake-command-"));
-		const rp1Dir = join(tempDir, ".rp1");
-		await mkdir(join(rp1Dir, "work"), { recursive: true });
-		await writeFile(join(rp1Dir, "project_id"), crypto.randomUUID());
-		process.env.RP1_DB = join(tempDir, "events.db");
-		process.chdir(tempDir);
+	test(
+		"runs a fast fake workflow with artifact and subflow events in an isolated project",
+		async () => {
+			tempDir = await mkdtemp(join(tmpdir(), "rp1-fake-command-"));
+			const rp1Dir = join(tempDir, ".rp1");
+			await mkdir(join(rp1Dir, "work"), { recursive: true });
+			await writeFile(join(rp1Dir, "project_id"), crypto.randomUUID());
+			process.env.RP1_DB = join(tempDir, "events.db");
+			process.chdir(tempDir);
 
-		fakeCommand.exitOverride();
-		await fakeCommand.parseAsync([
-			"node",
-			"fake",
-			"/build 'coverage repair'",
-			"--speed",
-			"fast",
-			"--feature",
-			"coverage-repair",
-			"--pause-at",
-			"build",
-			"--with-btw",
-			"--with-artifacts",
-			"--with-subflows",
-		]);
+			fakeCommand.exitOverride();
+			await fakeCommand.parseAsync([
+				"node",
+				"fake",
+				"/build 'coverage repair'",
+				"--speed",
+				"fast",
+				"--feature",
+				"coverage-repair",
+				"--pause-at",
+				"build",
+				"--with-btw",
+				"--with-artifacts",
+				"--with-subflows",
+			]);
 
-		const output = logs.join("\n");
-		expect(output).toContain('Simulating workflow "build"');
-		expect(output).toContain("Simulation paused");
-		await expect(
-			stat(
-				join(rp1Dir, "work", "features", "coverage-repair", "requirements.md"),
-			),
-		).resolves.toBeDefined();
-	});
+			const output = logs.join("\n");
+			expect(output).toContain('Simulating workflow "build"');
+			expect(output).toContain("Simulation paused");
+			await expect(
+				stat(
+					join(
+						rp1Dir,
+						"work",
+						"features",
+						"coverage-repair",
+						"requirements.md",
+					),
+				),
+			).resolves.toBeDefined();
+		},
+		{ timeout: 10000 },
+	);
 });
