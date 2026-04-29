@@ -4,6 +4,7 @@
  * skipped-step detection, and legacy cleanup.
  */
 
+import type { Database } from "bun:sqlite";
 import {
 	afterAll,
 	afterEach,
@@ -19,6 +20,7 @@ import { dirname, join } from "node:path";
 import {
 	closeDatabase,
 	countEventsSince,
+	deleteActivitySearchRun,
 	deleteAnnotation,
 	deriveRunStatus,
 	endRun,
@@ -45,12 +47,15 @@ import {
 	INACTIVE_REAPER_STATUS_CHANGE,
 	insertEvent,
 	insertRun,
+	listActivitySearchRefreshCandidates,
 	listRuns,
 	normalizeArtifactStorage,
+	queryActivitySearchRuns,
 	reclassifyInactiveRuns,
 	resetInstance,
 	resolveArtifactPathForRun,
 	updateAnnotation,
+	upsertActivitySearchRun,
 	upsertAnnotation,
 	upsertArtifact,
 } from "../../../agent-tools/emit/database.js";
@@ -92,12 +97,13 @@ describe("emit database", () => {
 			expect(tableNames).toContain("annotations");
 			expect(tableNames).toContain("tasks");
 			expect(tableNames).toContain("schema_version");
+			expect(tableNames).toContain("activity_search_runs");
 			expect(tableNames).toContain("socratic_duels");
 			expect(tableNames).toContain("socratic_duel_participants");
 			expect(tableNames).not.toContain("socratic_duel_turns");
 		});
 
-		test("schema_version is set to 16", async () => {
+		test("schema_version is set to 17", async () => {
 			const dbPath = join(tempDir, "version-test.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -105,7 +111,57 @@ describe("emit database", () => {
 				version: number;
 			};
 
-			expect(row.version).toBe(16);
+			expect(row.version).toBe(17);
+		});
+
+		test("activity_search_runs table includes search columns, indexes, and run FK", async () => {
+			const dbPath = join(tempDir, "activity-search-schema-test.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const columns = db
+				.prepare("PRAGMA table_info(activity_search_runs)")
+				.all() as {
+				name: string;
+			}[];
+			expect(columns.map((column) => column.name)).toEqual(
+				expect.arrayContaining([
+					"run_id",
+					"project_id",
+					"project_root",
+					"flow",
+					"status",
+					"activity_at",
+					"source_event_id",
+					"source_run_updated_at",
+					"search_text",
+					"indexed_at",
+				]),
+			);
+
+			const indexes = db
+				.prepare("PRAGMA index_list(activity_search_runs)")
+				.all() as { name: string }[];
+			expect(indexes.map((index) => index.name)).toEqual(
+				expect.arrayContaining([
+					"idx_activity_search_project_activity",
+					"idx_activity_search_root_activity",
+					"idx_activity_search_status_activity",
+					"idx_activity_search_activity",
+				]),
+			);
+
+			const fks = db
+				.prepare("PRAGMA foreign_key_list(activity_search_runs)")
+				.all() as { table: string; from: string; to: string }[];
+			expect(fks).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						table: "runs",
+						from: "run_id",
+						to: "id",
+					}),
+				]),
+			);
 		});
 
 		test("artifacts table includes subflow column", async () => {
@@ -297,7 +353,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(16);
+			expect(versionRow.version).toBe(17);
 
 			const runRow = db
 				.prepare(
@@ -410,7 +466,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(16);
+			expect(versionRow.version).toBe(17);
 
 			const duelColumns = db
 				.prepare("PRAGMA table_info(socratic_duels)")
@@ -528,7 +584,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(16);
+			expect(versionRow.version).toBe(17);
 
 			const migratedDuel = db
 				.prepare(
@@ -555,6 +611,171 @@ describe("emit database", () => {
 				debate_path: null,
 			});
 			expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
+		});
+
+		test("migrates v16 schema to add activity search table without rewriting history rows", async () => {
+			const dbPath = join(tempDir, "migration-v16-activity-search-test.db");
+			const { Database } = await import("bun:sqlite");
+			const rawDb = new Database(dbPath, { create: true });
+			rawDb.exec("PRAGMA journal_mode = WAL;");
+			rawDb.exec("PRAGMA foreign_keys = ON;");
+			rawDb.exec(`
+				CREATE TABLE schema_version (version INTEGER NOT NULL);
+				INSERT INTO schema_version (version) VALUES (16);
+				CREATE TABLE runs (
+					id TEXT PRIMARY KEY NOT NULL,
+					flow TEXT NOT NULL,
+					feature_id TEXT NOT NULL,
+					project_path TEXT NOT NULL,
+					rp1_project_root TEXT NOT NULL,
+					rp1_kb_root TEXT NOT NULL,
+					rp1_work_root TEXT NOT NULL,
+					project_id TEXT DEFAULT NULL,
+					run_policy TEXT DEFAULT NULL CHECK(run_policy IN ('fresh', 'resumable')),
+					work_identity TEXT DEFAULT NULL,
+					bootstrap_context TEXT DEFAULT NULL,
+					name TEXT DEFAULT NULL,
+					harness TEXT DEFAULT NULL,
+					status TEXT NOT NULL DEFAULT 'not_started',
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE events (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					run_id TEXT NOT NULL REFERENCES runs(id),
+					type TEXT NOT NULL,
+					step TEXT,
+					unit TEXT,
+					data TEXT,
+					parent_step_id TEXT,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE artifacts (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					doc_id TEXT UNIQUE NOT NULL,
+					run_id TEXT REFERENCES runs(id),
+					path TEXT NOT NULL,
+					type TEXT NOT NULL DEFAULT 'other',
+					storage_root TEXT NOT NULL DEFAULT 'work_dir',
+					project_path TEXT NOT NULL,
+					project_id TEXT DEFAULT NULL,
+					feature TEXT NOT NULL,
+					step TEXT,
+					subflow INTEGER NOT NULL DEFAULT 0,
+					baseline TEXT DEFAULT NULL,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE annotations (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					doc_id TEXT NOT NULL REFERENCES artifacts(doc_id),
+					run_id TEXT REFERENCES runs(id),
+					content TEXT NOT NULL,
+					data TEXT,
+					parent_id INTEGER REFERENCES annotations(id),
+					status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'resolved')),
+					author TEXT NOT NULL DEFAULT 'user',
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE notifications (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					message TEXT NOT NULL,
+					source_type TEXT NOT NULL DEFAULT 'run',
+					source_id TEXT,
+					route TEXT,
+					project_id TEXT,
+					dismissed INTEGER NOT NULL DEFAULT 0,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				INSERT INTO runs (
+					id, flow, feature_id, project_path, rp1_project_root,
+					rp1_kb_root, rp1_work_root, project_id, status, created_at, updated_at
+				) VALUES (
+					'run-v16', 'build', 'feature-v16', '/project', '/project',
+					'/project/.rp1/context', '/project/.rp1/work', 'project-v16',
+					'completed', '2026-01-01T00:00:00.000Z', '2026-01-02T00:00:00.000Z'
+				);
+				INSERT INTO events (
+					run_id, type, step, data, created_at
+				) VALUES (
+					'run-v16', 'status_change', 'task', '{"status":"completed"}',
+					'2026-01-02T00:00:00.000Z'
+				);
+				INSERT INTO artifacts (
+					doc_id, run_id, path, project_path, project_id, feature
+				) VALUES (
+					'doc-v16', 'run-v16', 'features/feature-v16/tasks.md',
+					'/project', 'project-v16', 'feature-v16'
+				);
+				INSERT INTO annotations (
+					doc_id, run_id, content
+				) VALUES (
+					'doc-v16', 'run-v16', 'preserved note'
+				);
+				INSERT INTO notifications (
+					message, source_id, project_id
+				) VALUES (
+					'preserved notification', 'run-v16', 'project-v16'
+				);
+			`);
+			rawDb.close();
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const versionRow = db
+				.prepare("SELECT version FROM schema_version")
+				.get() as { version: number };
+			expect(versionRow.version).toBe(17);
+			expect(
+				db
+					.prepare(
+						"SELECT name FROM sqlite_master WHERE type='table' AND name='activity_search_runs'",
+					)
+					.get(),
+			).not.toBeNull();
+
+			const counts = {
+				runs: (
+					db.prepare("SELECT COUNT(*) AS count FROM runs").get() as {
+						count: number;
+					}
+				).count,
+				events: (
+					db.prepare("SELECT COUNT(*) AS count FROM events").get() as {
+						count: number;
+					}
+				).count,
+				artifacts: (
+					db.prepare("SELECT COUNT(*) AS count FROM artifacts").get() as {
+						count: number;
+					}
+				).count,
+				annotations: (
+					db.prepare("SELECT COUNT(*) AS count FROM annotations").get() as {
+						count: number;
+					}
+				).count,
+				notifications: (
+					db.prepare("SELECT COUNT(*) AS count FROM notifications").get() as {
+						count: number;
+					}
+				).count,
+			};
+			expect(counts).toEqual({
+				runs: 1,
+				events: 1,
+				artifacts: 1,
+				annotations: 1,
+				notifications: 1,
+			});
+
+			const runRow = db
+				.prepare("SELECT created_at, updated_at FROM runs WHERE id = 'run-v16'")
+				.get() as { created_at: string; updated_at: string };
+			expect(runRow).toEqual({
+				created_at: "2026-01-01T00:00:00.000Z",
+				updated_at: "2026-01-02T00:00:00.000Z",
+			});
 		});
 
 		test("migrates v1 schema to add status and author columns", async () => {
@@ -648,7 +869,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(16);
+			expect(versionRow.version).toBe(17);
 		});
 
 		test("migrates v2 schema to add subflow column to artifacts", async () => {
@@ -739,7 +960,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(16);
+			expect(versionRow.version).toBe(17);
 		});
 
 		test("v3 to v4 migration adds baseline column and cleans orphaned edit-diff annotations", async () => {
@@ -826,7 +1047,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(16);
+			expect(versionRow.version).toBe(17);
 
 			const annotations = db.prepare("SELECT * FROM annotations").all() as {
 				content: string;
@@ -946,7 +1167,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(16);
+			expect(versionRow.version).toBe(17);
 
 			const indexes = db.prepare("PRAGMA index_list(runs)").all() as {
 				name: string;
@@ -1153,7 +1374,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(16);
+			expect(versionRow.version).toBe(17);
 		});
 
 		test("foreign key constraints are enforced", async () => {
@@ -1476,6 +1697,244 @@ describe("emit database", () => {
 			});
 
 			expect(event.createdAt).toBe(customTime);
+		});
+	});
+
+	describe("activity search rows", () => {
+		const insertIndexedRun = (
+			db: Database,
+			input: {
+				readonly id: string;
+				readonly projectId: string;
+				readonly projectRoot: string;
+				readonly status: "completed" | "failed";
+				readonly activityAt: string;
+				readonly searchText: string;
+			},
+		): void => {
+			const run = insertRun(db, {
+				id: input.id,
+				flow: "build",
+				featureId: input.id,
+				projectPath: input.projectRoot,
+				rp1ProjectRoot: input.projectRoot,
+				rp1KbRoot: join(input.projectRoot, ".rp1", "context"),
+				rp1WorkRoot: join(input.projectRoot, ".rp1", "work"),
+				projectId: input.projectId,
+			});
+			upsertActivitySearchRun(db, {
+				runId: input.id,
+				projectId: input.projectId,
+				projectRoot: input.projectRoot,
+				flow: "build",
+				status: input.status,
+				activityAt: input.activityAt,
+				sourceEventId: null,
+				sourceRunUpdatedAt: run.updatedAt,
+				searchText: input.searchText,
+				indexedAt: "2026-01-10T00:00:00.000Z",
+			});
+		};
+
+		test("upserts, queries, paginates, and deletes activity search rows", async () => {
+			const dbPath = join(tempDir, "activity-search-accessors.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertIndexedRun(db, {
+				id: "run-alpha-new",
+				projectId: "project-a",
+				projectRoot: "/project/a",
+				status: "completed",
+				activityAt: "2026-01-04T00:00:00.000Z",
+				searchText: "alpha codex completed",
+			});
+			insertIndexedRun(db, {
+				id: "run-alpha-old",
+				projectId: "project-a",
+				projectRoot: "/project/a",
+				status: "completed",
+				activityAt: "2026-01-03T00:00:00.000Z",
+				searchText: "alpha codex second",
+			});
+			insertIndexedRun(db, {
+				id: "run-alpha-failed",
+				projectId: "project-a",
+				projectRoot: "/project/a",
+				status: "failed",
+				activityAt: "2026-01-02T00:00:00.000Z",
+				searchText: "alpha codex failed",
+			});
+			insertIndexedRun(db, {
+				id: "run-alpha-other-project",
+				projectId: "project-b",
+				projectRoot: "/project/b",
+				status: "completed",
+				activityAt: "2026-01-05T00:00:00.000Z",
+				searchText: "alpha codex other project",
+			});
+			insertIndexedRun(db, {
+				id: "run-literal-percent",
+				projectId: "project-a",
+				projectRoot: "/project/a",
+				status: "completed",
+				activityAt: "2026-01-01T00:00:00.000Z",
+				searchText: "literal 100% ready",
+			});
+			insertIndexedRun(db, {
+				id: "run-percent-word",
+				projectId: "project-a",
+				projectRoot: "/project/a",
+				status: "completed",
+				activityAt: "2026-01-01T00:00:01.000Z",
+				searchText: "literal 100 percent ready",
+			});
+
+			const paged = queryActivitySearchRuns(db, {
+				projectId: "project-a",
+				status: "completed",
+				tokens: ["ALPHA", "codex"],
+				limit: 1,
+				offset: 1,
+			});
+			expect(paged.total).toBe(2);
+			expect(paged.records.map((record) => record.runId)).toEqual([
+				"run-alpha-old",
+			]);
+
+			const rootScoped = queryActivitySearchRuns(db, {
+				projectRoot: "/project/a",
+				activityFrom: "2026-01-03T00:00:00.000Z",
+				tokens: ["alpha"],
+			});
+			expect(rootScoped.records.map((record) => record.runId)).toEqual([
+				"run-alpha-new",
+				"run-alpha-old",
+			]);
+
+			const literalPercent = queryActivitySearchRuns(db, {
+				projectId: "project-a",
+				tokens: ["100%"],
+			});
+			expect(literalPercent.records.map((record) => record.runId)).toEqual([
+				"run-literal-percent",
+			]);
+
+			expect(deleteActivitySearchRun(db, "run-literal-percent")).toBe(true);
+			expect(deleteActivitySearchRun(db, "run-literal-percent")).toBe(false);
+			expect(
+				queryActivitySearchRuns(db, {
+					projectId: "project-a",
+					tokens: ["100%"],
+				}).total,
+			).toBe(0);
+		});
+
+		test("detects missing and stale activity search rows from run and event sources", async () => {
+			const dbPath = join(tempDir, "activity-search-refresh-candidates.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const run = insertRun(db, {
+				id: "run-refresh",
+				flow: "build",
+				featureId: "feat-refresh",
+				projectPath: "/project/refresh",
+				rp1ProjectRoot: "/project/refresh",
+				rp1KbRoot: "/project/refresh/.rp1/context",
+				rp1WorkRoot: "/project/refresh/.rp1/work",
+				projectId: "project-refresh",
+			});
+			insertRun(db, {
+				id: "bootstrap-only",
+				flow: "build",
+				featureId: "bootstrap",
+				projectPath: "/project/refresh",
+				rp1ProjectRoot: "/project/refresh",
+				rp1KbRoot: "/project/refresh/.rp1/context",
+				rp1WorkRoot: "/project/refresh/.rp1/work",
+				projectId: "project-refresh",
+				bootstrapContext: '{"bootstrap":true}',
+			});
+			const firstEvent = insertEvent(db, {
+				runId: "run-refresh",
+				type: "status_change",
+				step: "task",
+				data: '{"status":"running"}',
+				createdAt: "2026-01-01T00:00:00.000Z",
+			});
+
+			expect(
+				listActivitySearchRefreshCandidates(db, {
+					projectId: "project-refresh",
+					excludeBootstrapOnly: true,
+				}).map((candidate) => ({
+					runId: candidate.run.id,
+					latestEventId: candidate.latestEventId,
+					activityAt: candidate.activityAt,
+					searchRow: candidate.searchRow,
+				})),
+			).toEqual([
+				{
+					runId: "run-refresh",
+					latestEventId: firstEvent.id,
+					activityAt: "2026-01-01T00:00:00.000Z",
+					searchRow: null,
+				},
+			]);
+
+			upsertActivitySearchRun(db, {
+				runId: "run-refresh",
+				projectId: "project-refresh",
+				projectRoot: "/project/refresh",
+				flow: "build",
+				status: "not_started",
+				activityAt: "2026-01-01T00:00:00.000Z",
+				sourceEventId: firstEvent.id,
+				sourceRunUpdatedAt: run.updatedAt,
+				searchText: "refresh row",
+			});
+			expect(
+				listActivitySearchRefreshCandidates(db, {
+					projectId: "project-refresh",
+					excludeBootstrapOnly: true,
+				}),
+			).toEqual([]);
+
+			const secondEvent = insertEvent(db, {
+				runId: "run-refresh",
+				type: "status_change",
+				step: "task",
+				data: '{"status":"completed"}',
+				createdAt: "2026-01-02T00:00:00.000Z",
+			});
+			expect(
+				listActivitySearchRefreshCandidates(db, {
+					projectId: "project-refresh",
+					excludeBootstrapOnly: true,
+				}).map((candidate) => candidate.latestEventId),
+			).toEqual([secondEvent.id]);
+
+			upsertActivitySearchRun(db, {
+				runId: "run-refresh",
+				projectId: "project-refresh",
+				projectRoot: "/project/refresh",
+				flow: "build",
+				status: "not_started",
+				activityAt: "2026-01-02T00:00:00.000Z",
+				sourceEventId: secondEvent.id,
+				sourceRunUpdatedAt: run.updatedAt,
+				searchText: "refresh row",
+			});
+			db.prepare("UPDATE runs SET updated_at = ? WHERE id = ?").run(
+				"2026-01-03T00:00:00.000Z",
+				"run-refresh",
+			);
+
+			expect(
+				listActivitySearchRefreshCandidates(db, {
+					projectId: "project-refresh",
+					activityFrom: "2026-01-02T00:00:00.000Z",
+					excludeBootstrapOnly: true,
+				}).map((candidate) => candidate.run.id),
+			).toEqual(["run-refresh"]);
 		});
 	});
 
