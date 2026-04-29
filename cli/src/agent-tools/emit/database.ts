@@ -427,6 +427,7 @@ export interface ActivitySearchScope {
 
 export interface ActivitySearchRefreshScope extends ActivitySearchScope {
 	readonly excludeBootstrapOnly?: boolean;
+	readonly forceRefresh?: boolean;
 	readonly limit?: number;
 }
 
@@ -2500,11 +2501,13 @@ export const listActivitySearchRefreshCandidates = (
 	db: Database,
 	opts: ActivitySearchRefreshScope = {},
 ): ActivitySearchRefreshCandidate[] => {
-	const conditions: string[] = [
-		`(activity_search_runs.run_id IS NULL
+	const conditions: string[] = opts.forceRefresh
+		? ["1 = 1"]
+		: [
+				`(activity_search_runs.run_id IS NULL
 		  OR activity_search_runs.source_run_updated_at IS NOT runs.updated_at
 		  OR COALESCE(activity_search_runs.source_event_id, -1) != COALESCE(latest_events.latest_event_id, -1))`,
-	];
+			];
 	const values: (string | number)[] = [];
 
 	appendRunActivitySearchScopeConditions(conditions, values, opts);

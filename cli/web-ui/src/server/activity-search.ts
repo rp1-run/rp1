@@ -190,6 +190,47 @@ function projectForRun(
 	);
 }
 
+function uniqueProjectEntries(projectLookup: ProjectLookup): ProjectEntry[] {
+	const projects = new Map<string, ProjectEntry>();
+	for (const project of projectLookup.byPath.values()) {
+		projects.set(project.path, project);
+	}
+	for (const project of projectLookup.byId.values()) {
+		projects.set(project.path, project);
+	}
+	return [...projects.values()];
+}
+
+function projectMatchesScope(
+	project: ProjectEntry,
+	scope: ActivitySearchScope,
+): boolean {
+	if (scope.projectRoot != null && project.path !== scope.projectRoot) {
+		return false;
+	}
+
+	if (
+		scope.projectId != null &&
+		project.id !== scope.projectId &&
+		project.projectId !== scope.projectId
+	) {
+		return false;
+	}
+
+	return true;
+}
+
+function projectNameMatchesTokens(
+	project: ProjectEntry,
+	tokens: readonly string[],
+): boolean {
+	const projectName = project.name.trim().toLowerCase();
+	return (
+		projectName.length > 0 &&
+		tokens.some((token) => projectName.includes(token))
+	);
+}
+
 function buildSearchTextRun(
 	db: Database,
 	projectLookup: ProjectLookup,
@@ -216,10 +257,12 @@ function buildSearchTextRun(
 function refreshActivitySearchRows(
 	opts: SearchActivityFeedRunsOptions,
 	scope: ActivitySearchScope,
+	forceRefresh = false,
 ): void {
 	const refreshScope: ActivitySearchRefreshScope = {
 		...scope,
 		excludeBootstrapOnly: true,
+		forceRefresh,
 	};
 	const candidates = listActivitySearchRefreshCandidates(opts.db, refreshScope);
 
@@ -255,6 +298,30 @@ function refreshActivitySearchRows(
 	}
 }
 
+function refreshProjectDisplayNameSearchRows(
+	opts: SearchActivityFeedRunsOptions,
+	scope: ActivitySearchScope,
+	tokens: readonly string[],
+): void {
+	for (const project of uniqueProjectEntries(opts.projectLookup)) {
+		if (
+			!projectMatchesScope(project, scope) ||
+			!projectNameMatchesTokens(project, tokens)
+		) {
+			continue;
+		}
+
+		refreshActivitySearchRows(
+			opts,
+			{
+				...scope,
+				projectRoot: project.path,
+			},
+			true,
+		);
+	}
+}
+
 function isVisibleActivityRun(
 	db: Database,
 	record: RunRecord,
@@ -277,6 +344,7 @@ export function searchActivityFeedRuns(
 
 	const scope = activitySearchScopeFromOptions(opts);
 	refreshActivitySearchRows(opts, scope);
+	refreshProjectDisplayNameSearchRows(opts, scope, tokens);
 
 	const matchingRows = queryActivitySearchRuns(opts.db, {
 		...scope,

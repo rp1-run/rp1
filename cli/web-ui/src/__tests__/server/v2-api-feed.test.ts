@@ -677,6 +677,73 @@ describe("handleV2FeedRequest", () => {
 		]);
 	});
 
+	test("refreshes indexed rows when only the project display name changes", async () => {
+		const { db, projectId, projectRoot, registryProjectId } =
+			await setupProject(tempDir, "project-name-refresh");
+
+		insertActivityRun(db, {
+			id: "run-project-name-refresh",
+			projectRoot,
+			projectId,
+			featureId: "stable-feature",
+			name: "Stable Run",
+			status: "completed",
+			step: "done",
+			eventAt: "2026-04-10T08:00:00.000Z",
+		});
+
+		const initialResponse = await handleV2FeedRequest(
+			new Request("http://localhost/api/v2/feed?q=stable%20run"),
+		);
+		expect(initialResponse.status).toBe(200);
+		expect(((await initialResponse.json()) as { total: number }).total).toBe(1);
+
+		const beforeRow = db
+			.prepare(
+				"SELECT source_event_id, source_run_updated_at, search_text FROM activity_search_runs WHERE run_id = ?",
+			)
+			.get("run-project-name-refresh") as {
+			source_event_id: number | null;
+			source_run_updated_at: string;
+			search_text: string;
+		};
+		expect(beforeRow.search_text).not.toContain("displayonly");
+
+		db.prepare("UPDATE projects SET name = $name WHERE id = $id").run({
+			$name: "DisplayOnly Project",
+			$id: registryProjectId,
+		});
+
+		const renamedResponse = await handleV2FeedRequest(
+			new Request("http://localhost/api/v2/feed?q=displayonly"),
+		);
+		expect(renamedResponse.status).toBe(200);
+
+		const renamedBody = (await renamedResponse.json()) as {
+			items: Array<{ id: string }>;
+			total: number;
+		};
+		expect(renamedBody.total).toBe(1);
+		expect(renamedBody.items.map((item) => item.id)).toEqual([
+			"run-project-name-refresh",
+		]);
+
+		const afterRow = db
+			.prepare(
+				"SELECT source_event_id, source_run_updated_at, search_text FROM activity_search_runs WHERE run_id = ?",
+			)
+			.get("run-project-name-refresh") as {
+			source_event_id: number | null;
+			source_run_updated_at: string;
+			search_text: string;
+		};
+		expect(afterRow.source_event_id).toBe(beforeRow.source_event_id);
+		expect(afterRow.source_run_updated_at).toBe(
+			beforeRow.source_run_updated_at,
+		);
+		expect(afterRow.search_text).toContain("displayonly project");
+	});
+
 	test("queries indexed search rows at 5000-run history scale", async () => {
 		const { db, projectId, projectRoot } = await setupProject(tempDir, "scale");
 		const insertRunStatement = db.prepare(
