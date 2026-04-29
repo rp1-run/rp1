@@ -81,6 +81,53 @@ afterEach(() => {
 });
 
 describe("useFeed", () => {
+	test("passes trimmed non-empty search queries to the feed API", async () => {
+		const { useFeed } = await loadUseFeed();
+		const { result } = renderHook(() =>
+			useFeed({
+				status: "running",
+				projectId: "proj-1",
+				dateRange: "week",
+				limit: 10,
+				offset: 5,
+				search: "  FE  codex  ",
+			}),
+		);
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		const url = new URL(
+			fetchMock.mock.calls[0]?.[0] as string,
+			"http://localhost",
+		);
+		expect(url.pathname).toBe("/api/v2/feed");
+		expect(url.searchParams.get("status")).toBe("running");
+		expect(url.searchParams.get("projectId")).toBe("proj-1");
+		expect(url.searchParams.get("dateRange")).toBe("week");
+		expect(url.searchParams.get("limit")).toBe("10");
+		expect(url.searchParams.get("offset")).toBe("5");
+		expect(url.searchParams.get("q")).toBe("FE  codex");
+	});
+
+	test("omits blank search query params", async () => {
+		const { useFeed } = await loadUseFeed();
+		const { result } = renderHook(() =>
+			useFeed({ limit: 25, search: " \t\n " }),
+		);
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		const url = new URL(
+			fetchMock.mock.calls[0]?.[0] as string,
+			"http://localhost",
+		);
+		expect(url.searchParams.has("q")).toBe(false);
+	});
+
 	test("patches known runs in place and appends newly matching runs without refetching", async () => {
 		const { useFeed } = await loadUseFeed();
 		const { result } = renderHook(() => useFeed({ limit: 25, offset: 0 }));
@@ -185,6 +232,73 @@ describe("useFeed", () => {
 			["run-1", "run-2"],
 		);
 		expect(result.current.items[1]?.run.status).toBe("waiting");
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("applies shared multi-token search semantics to live feed updates", async () => {
+		fetchMock = mock(() =>
+			Promise.resolve({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						items: [],
+						total: 0,
+					}),
+			}),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { useFeed } = await loadUseFeed();
+		const { result } = renderHook(() =>
+			useFeed({ limit: 25, offset: 0, search: "qa approval" }),
+		);
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		act(() => {
+			liveRunIndex.upsertRuns([
+				buildRun({
+					id: "run-live-match",
+					name: "Live Match",
+					currentStep: "qa_gate",
+					statusMessage: "Approval Needed",
+					lastEventAt: "2026-04-10T00:08:00.000Z",
+				}),
+				buildRun({
+					id: "run-live-partial",
+					name: "Live Partial",
+					currentStep: "qa_gate",
+					statusMessage: null,
+					lastEventAt: "2026-04-10T00:09:00.000Z",
+				}),
+				buildRun({
+					id: "run-live-payload-only",
+					name: "Payload Only",
+					events: [
+						{
+							id: "event-payload",
+							type: "status_change",
+							message: "approval payload",
+							timestamp: "2026-04-10T00:10:00.000Z",
+							stepId: null,
+							metadata: { message: "qa approval" },
+						},
+					],
+					lastEventAt: "2026-04-10T00:10:00.000Z",
+				}),
+			]);
+		});
+
+		await waitFor(() => {
+			expect(result.current.items).toHaveLength(1);
+		});
+
+		expect(result.current.items.map((item: { id: string }) => item.id)).toEqual(
+			["run-live-match"],
+		);
+		expect(result.current.total).toBe(1);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 });

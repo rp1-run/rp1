@@ -5,8 +5,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
 	closeDatabase,
+	deriveRunStatus,
 	findOrCreateWorkflowRun,
 	getEmitDatabase,
+	insertEvent,
+	insertRun,
 	resetInstance,
 } from "../../agent-tools/emit/database.js";
 import { updateGitignore } from "../../migrate/gitignore-update.js";
@@ -200,6 +203,154 @@ describe("migrate", () => {
 
 			expect(result.projectIdCreated).toBe(true);
 			expect(result.dbBackfill.runsUpdated).toBeGreaterThanOrEqual(0);
+		});
+
+		test("rebuilds missing and stale Activity search rows", async () => {
+			await mkdir(join(tempDir, ".rp1"), { recursive: true });
+			const db = await expectTaskRight(getEmitDatabase(process.env.RP1_DB!));
+
+			insertRun(db, {
+				id: "search-backfill-run",
+				flow: "build",
+				featureId: "search-backfill",
+				projectPath: tempDir,
+				name: "Search Backfill Run",
+				harness: "codex",
+			});
+			insertEvent(db, {
+				runId: "search-backfill-run",
+				type: "status_change",
+				step: "building",
+				data: JSON.stringify({ status: "completed" }),
+				createdAt: "2026-04-10T01:00:00.000Z",
+			});
+			deriveRunStatus(db, "search-backfill-run");
+
+			const first = await executeMigrate(tempDir);
+
+			expect(first.dbBackfill.activitySearchRowsCreated).toBe(1);
+			expect(first.dbBackfill.activitySearchRowsRefreshed).toBe(0);
+
+			const createdRow = db
+				.prepare(
+					"SELECT project_id, project_root, search_text FROM activity_search_runs WHERE run_id = $runId",
+				)
+				.get({ $runId: "search-backfill-run" }) as {
+				project_id: string;
+				project_root: string;
+				search_text: string;
+			};
+			expect(createdRow.project_id).toBe(first.projectId);
+			expect(createdRow.project_root).toBe(first.projectRoot);
+			expect(createdRow.search_text).toContain("search backfill run");
+
+			db.prepare(
+				"UPDATE runs SET feature_id = $featureId, name = $name, updated_at = $updatedAt WHERE id = $id",
+			).run({
+				$featureId: "refreshed-search-backfill",
+				$name: "Refreshed Search Backfill",
+				$updatedAt: "2026-04-10T02:00:00.000Z",
+				$id: "search-backfill-run",
+			});
+
+			const second = await executeMigrate(tempDir);
+
+			expect(second.dbBackfill.activitySearchRowsCreated).toBe(0);
+			expect(second.dbBackfill.activitySearchRowsRefreshed).toBe(1);
+
+			const refreshedRow = db
+				.prepare(
+					"SELECT search_text FROM activity_search_runs WHERE run_id = $runId",
+				)
+				.get({ $runId: "search-backfill-run" }) as {
+				search_text: string;
+			};
+			expect(refreshedRow.search_text).toContain("refreshed search backfill");
+		});
+
+		test("dry-run reports planned Activity search rows without creating search state", async () => {
+			await mkdir(join(tempDir, ".rp1"), { recursive: true });
+			const { Database } = require("bun:sqlite");
+			const oldDb = new Database(process.env.RP1_DB!, { create: true });
+			oldDb.exec(`
+				CREATE TABLE runs (
+					id TEXT PRIMARY KEY,
+					flow TEXT NOT NULL DEFAULT '',
+					feature_id TEXT,
+					project_path TEXT NOT NULL,
+					rp1_project_root TEXT,
+					status TEXT NOT NULL DEFAULT 'running',
+					created_at TEXT NOT NULL,
+					updated_at TEXT NOT NULL,
+					name TEXT,
+					harness TEXT
+				);
+
+				CREATE TABLE events (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					run_id TEXT NOT NULL,
+					type TEXT NOT NULL,
+					step TEXT,
+					data TEXT NOT NULL DEFAULT '{}',
+					created_at TEXT NOT NULL
+				);
+			`);
+			oldDb
+				.prepare(
+					`INSERT INTO runs (
+						id, flow, feature_id, project_path, rp1_project_root,
+						status, created_at, updated_at, name, harness
+					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				)
+				.run(
+					"dry-run-search",
+					"build",
+					"dry-run-search",
+					tempDir,
+					tempDir,
+					"completed",
+					"2026-04-10T01:00:00.000Z",
+					"2026-04-10T01:00:00.000Z",
+					"Dry Run Search",
+					"codex",
+				);
+			oldDb
+				.prepare(
+					"INSERT INTO events (run_id, type, step, data, created_at) VALUES (?, ?, ?, ?, ?)",
+				)
+				.run(
+					"dry-run-search",
+					"status_change",
+					"building",
+					JSON.stringify({ status: "completed" }),
+					"2026-04-10T01:00:00.000Z",
+				);
+			oldDb.close();
+
+			const result = await executeMigrate(tempDir, { dryRun: true });
+
+			expect(result.dryRun).toBe(true);
+			expect(result.dbBackfill.activitySearchRowsCreated).toBe(1);
+			expect(result.dbBackfill.activitySearchRowsRefreshed).toBe(0);
+			expect(existsSync(join(tempDir, ".rp1", "project_id"))).toBe(false);
+			expect(existsSync(join(tempDir, ".rp1", "work"))).toBe(false);
+
+			const inspectDb = new Database(process.env.RP1_DB!, {
+				readonly: true,
+				create: false,
+			});
+			const tableRow = inspectDb
+				.prepare(
+					"SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'activity_search_runs'",
+				)
+				.get() as { name: string } | null;
+			const runCount = inspectDb
+				.prepare("SELECT COUNT(*) AS count FROM runs")
+				.get() as { count: number };
+			inspectDb.close();
+
+			expect(tableRow).toBeNull();
+			expect(runCount.count).toBe(1);
 		});
 
 		test("repairs contaminated Arcade metadata and moves misplaced work artifacts", async () => {
@@ -716,6 +867,42 @@ describe("migrate", () => {
 			expect(summary).toContain("Updated .gitignore");
 			expect(summary).toContain("Repaired Arcade metadata");
 			expect(summary).toContain("Moved 2 misplaced artifact file(s)");
+		});
+
+		test("formats dry-run Activity search rebuild reporting", () => {
+			const summary = formatMigrateSummary({
+				dryRun: true,
+				projectRoot: tempDir,
+				projectId: "(generated on apply)",
+				projectIdCreated: true,
+				workDirCreated: true,
+				legacyWork: undefined,
+				gitignore: { updated: false, rulesAdded: [] },
+				dbBackfill: {
+					runsUpdated: 0,
+					artifactsUpdated: 0,
+					tasksUpdated: 0,
+					notificationsUpdated: 0,
+					artifactFilesMoved: 0,
+					activitySearchRowsCreated: 2,
+					activitySearchRowsRefreshed: 1,
+				},
+				stanzaUpgrade: {
+					filesUpgraded: [],
+					filesAlreadyCurrent: [],
+					filesScanned: 0,
+					filesNotFound: [],
+					errors: [],
+				},
+			});
+
+			expect(summary).toContain("Migration dry-run");
+			expect(summary).toContain(
+				"Would rebuild Activity search rows: 2 to create, 1 to refresh",
+			);
+			expect(summary).toContain(
+				"Would leave database history and files unchanged",
+			);
 		});
 	});
 
