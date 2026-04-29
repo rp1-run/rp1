@@ -128,11 +128,32 @@ function getActivityRow(name: string) {
 
 function installHomePageMocks() {
 	mock.module("@/hooks/useFeed", () => ({
-		useFeed: () => ({
-			items: feedItems,
-			total: feedItems.length,
-			isLoading: false,
-		}),
+		useFeed: (options?: { readonly search?: string }) => {
+			const search = options?.search?.trim().toLowerCase() ?? "";
+			const items = search
+				? feedItems.filter((item) =>
+						[
+							item.run.id,
+							item.run.name,
+							item.run.command,
+							item.run.featureName,
+							item.run.featureId,
+							item.run.projectName,
+							item.run.status,
+							item.run.currentStep,
+						]
+							.filter(Boolean)
+							.join(" ")
+							.toLowerCase()
+							.includes(search),
+					)
+				: feedItems;
+			return {
+				items,
+				total: items.length,
+				isLoading: false,
+			};
+		},
 	}));
 
 	mock.module("@/hooks/useMediaQuery", () => ({
@@ -353,6 +374,27 @@ describe("HomePage", () => {
 			within(row).queryByRole("button", { name: "Open project Project One" }),
 		).toBeNull();
 		expect(within(row).getByText("build").textContent).toBe("build");
+	});
+
+	test("filters activity rows from the search control", async () => {
+		await renderHomePage();
+
+		fireEvent.click(screen.getByRole("button", { name: "Show search" }));
+
+		const input = screen.getByRole("searchbox", { name: "Search activity" });
+		fireEvent.change(input, { target: { value: "Project Two" } });
+
+		await waitFor(() => {
+			expect(screen.queryByText("Build One")).toBeNull();
+			expect(screen.getByText("Build Two")).toBeTruthy();
+		});
+
+		fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+
+		await waitFor(() => {
+			expect(screen.getByText("Build One")).toBeTruthy();
+			expect(screen.getByText("Build Two")).toBeTruthy();
+		});
 	});
 
 	test("previews a clicked feed entry inline on wide layouts without leaving Activity", async () => {

@@ -246,6 +246,63 @@ describe("handleV2FeedRequest", () => {
 		expect(body.items[0]?.run.status).toBe("failed");
 	});
 
+	test("filters run activity with the search query", async () => {
+		const { db, projectId, projectRoot } = await setupProject(
+			tempDir,
+			"search",
+		);
+
+		insertRun(db, {
+			id: "run-docs",
+			flow: "build-fast",
+			featureId: "docs-search",
+			projectPath: projectRoot,
+			projectId,
+			name: "Docs Search Run",
+			harness: "codex",
+		});
+		insertEvent(db, {
+			runId: "run-docs",
+			type: "status_change",
+			step: "draft",
+			data: JSON.stringify({ status: "running" }),
+			createdAt: "2026-04-10T04:00:00.000Z",
+		});
+		deriveRunStatus(db, "run-docs");
+
+		insertRun(db, {
+			id: "run-review",
+			flow: "pr-review",
+			featureId: "review-search",
+			projectPath: projectRoot,
+			projectId,
+			name: "Review Search Run",
+			harness: "claude-code",
+		});
+		insertEvent(db, {
+			runId: "run-review",
+			type: "status_change",
+			step: "reviewing",
+			data: JSON.stringify({ status: "running" }),
+			createdAt: "2026-04-10T05:00:00.000Z",
+		});
+		deriveRunStatus(db, "run-review");
+
+		const response = await handleV2FeedRequest(
+			new Request("http://localhost/api/v2/feed?q=docs"),
+		);
+
+		expect(response.status).toBe(200);
+
+		const body = (await response.json()) as {
+			items: Array<{ id: string }>;
+			total: number;
+		};
+
+		expect(body.total).toBe(1);
+		expect(body.items.map((item) => item.id)).toEqual(["run-docs"]);
+	});
+
 	test("hides bootstrap-only phase-plan runs while returning normal workflow runs", async () => {
 		const { db, projectId, projectRoot } = await setupProject(
 			tempDir,

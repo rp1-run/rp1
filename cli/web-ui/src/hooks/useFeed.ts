@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { liveRunIndex } from "@/lib/live-run-index";
+import { resolveRunDisplayName } from "@/lib/run-display";
+import { getRunCurrentStepLabel, getRunStatusLabel } from "@/lib/status-labels";
 import type { Run, RunsFilter } from "@/types/runs";
 import {
 	useLiveRunIndexBridge,
@@ -24,6 +26,7 @@ interface FeedResponse {
 export interface UseFeedOptions extends Partial<RunsFilter> {
 	limit?: number;
 	offset?: number;
+	search?: string;
 }
 
 export interface UseFeedResult {
@@ -63,6 +66,35 @@ function isWithinDateRange(
 	return now - new Date(timestamp).getTime() <= ranges[dateRange];
 }
 
+function normalizeSearchTokens(search: string | null | undefined): string[] {
+	return search?.trim().toLowerCase().split(/\s+/).filter(Boolean) ?? [];
+}
+
+function matchesSearch(run: Run, search: string | null | undefined): boolean {
+	const tokens = normalizeSearchTokens(search);
+	if (tokens.length === 0) return true;
+
+	const searchableText = [
+		run.id,
+		run.command,
+		resolveRunDisplayName(run),
+		run.featureName,
+		run.featureId,
+		run.projectName,
+		run.status,
+		run.statusMessage,
+		run.harness,
+		run.currentStep,
+		getRunCurrentStepLabel(run),
+		getRunStatusLabel(run),
+	]
+		.filter((value): value is string => typeof value === "string")
+		.join(" ")
+		.toLowerCase();
+
+	return tokens.every((token) => searchableText.includes(token));
+}
+
 function matchesFeedFilters(run: Run, options: UseFeedOptions): boolean {
 	if (
 		options.status &&
@@ -76,7 +108,10 @@ function matchesFeedFilters(run: Run, options: UseFeedOptions): boolean {
 		return false;
 	}
 
-	return isWithinDateRange(activityTimestamp(run), options.dateRange);
+	return (
+		isWithinDateRange(activityTimestamp(run), options.dateRange) &&
+		matchesSearch(run, options.search)
+	);
 }
 
 function toFeedItem(run: Run): RunFeedItem {
@@ -129,6 +164,11 @@ function buildQueryParams(options: UseFeedOptions): URLSearchParams {
 		params.set("offset", String(options.offset));
 	}
 
+	const search = options.search?.trim();
+	if (search) {
+		params.set("q", search);
+	}
+
 	return params;
 }
 
@@ -141,7 +181,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 	useLiveRunIndexBridge();
 	const liveSnapshot = useLiveRunIndexSnapshot();
 
-	const { status, projectId, dateRange, limit, offset } = options;
+	const { status, projectId, dateRange, limit, offset, search } = options;
 
 	const fetchFeed = useCallback(async () => {
 		try {
@@ -151,6 +191,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 				dateRange,
 				limit,
 				offset,
+				search,
 			});
 			const url = `/api/v2/feed${params.toString() ? `?${params.toString()}` : ""}`;
 			const response = await fetch(url);
@@ -161,7 +202,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 
 			const data = (await response.json()) as FeedResponse;
 			liveRunIndex.upsertRuns(data.items.map((item) => item.run));
-			const filterOptions = { status, projectId, dateRange };
+			const filterOptions = { status, projectId, dateRange, search };
 			matchingRunIdsRef.current = new Set(
 				liveRunIndex
 					.getAllRuns()
@@ -182,7 +223,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 		} finally {
 			setIsLoading(false);
 		}
-	}, [status, projectId, dateRange, limit, offset]);
+	}, [status, projectId, dateRange, limit, offset, search]);
 
 	useEffect(() => {
 		setIsLoading(true);
@@ -195,7 +236,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 		}
 
 		void liveSnapshot;
-		const filterOptions = { status, projectId, dateRange };
+		const filterOptions = { status, projectId, dateRange, search };
 		const knownMatchingRunIds = matchingRunIdsRef.current;
 		for (const runId of [...knownMatchingRunIds]) {
 			const liveRun = liveRunIndex.getRun(runId);
@@ -258,6 +299,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 		status,
 		projectId,
 		dateRange,
+		search,
 		limit,
 		offset,
 	]);

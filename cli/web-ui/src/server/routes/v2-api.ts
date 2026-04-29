@@ -343,6 +343,37 @@ function getListRunCurrentStep(db: Database, record: RunRecord): string | null {
 	);
 }
 
+function normalizeSearchTokens(search: string | null | undefined): string[] {
+	return search?.trim().toLowerCase().split(/\s+/).filter(Boolean) ?? [];
+}
+
+function matchesRunSearch(run: Run, tokens: readonly string[]): boolean {
+	if (tokens.length === 0) return true;
+	const currentStepLabel = run.currentStep
+		? humanizeFeatureName(
+				getLogicalStepDisplayId(run.currentStep).replace(/_/g, "-"),
+			)
+		: null;
+	const searchableText = [
+		run.id,
+		run.command,
+		run.name,
+		run.featureName,
+		run.featureId,
+		run.projectName,
+		run.status,
+		run.statusMessage,
+		run.harness,
+		run.currentStep,
+		currentStepLabel,
+	]
+		.filter((value): value is string => typeof value === "string")
+		.join(" ")
+		.toLowerCase();
+
+	return tokens.every((token) => searchableText.includes(token));
+}
+
 function asObject(value: unknown): Readonly<Record<string, unknown>> | null {
 	return typeof value === "object" && value !== null && !Array.isArray(value)
 		? (value as Record<string, unknown>)
@@ -2397,6 +2428,9 @@ export async function handleV2FeedRequest(
 		const projectUuidFilter = params.get("project_id");
 		const statusFilter = params.get("status") as string | null;
 		const dateRange = params.get("dateRange") ?? "all";
+		const searchTokens = normalizeSearchTokens(
+			params.get("q") ?? params.get("search"),
+		);
 		const limit = Number.parseInt(params.get("limit") ?? "25", 10);
 		const offset = Number.parseInt(params.get("offset") ?? "0", 10);
 
@@ -2456,6 +2490,7 @@ export async function handleV2FeedRequest(
 				getListRunStatusMessage(db, record),
 				getListRunCurrentStep(db, record),
 			);
+			if (!matchesRunSearch(run, searchTokens)) continue;
 			runItems.push({
 				type: "run",
 				id: record.id,

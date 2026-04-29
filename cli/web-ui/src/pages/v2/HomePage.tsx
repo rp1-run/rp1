@@ -1,7 +1,14 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Activity, Maximize2, SlidersHorizontal } from "lucide-react";
+import {
+	Activity,
+	Maximize2,
+	Search,
+	SlidersHorizontal,
+	X,
+} from "lucide-react";
 import {
 	type ReactNode,
+	type Ref,
 	useCallback,
 	useEffect,
 	useRef,
@@ -232,7 +239,20 @@ function FeedEntry({
 	);
 }
 
-function EmptyActivityState() {
+function EmptyActivityState({
+	searchActive = false,
+}: {
+	searchActive?: boolean;
+}) {
+	if (searchActive) {
+		return (
+			<div className="flex flex-col items-center justify-center py-24 text-center xl:px-4 xl:py-16">
+				<Search className="h-5 w-5 text-fg-ghost mb-4" strokeWidth={1.5} />
+				<p className="type-body text-fg-ghost">No matching activity.</p>
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex flex-col items-center justify-center py-24 text-center xl:px-4 xl:py-16">
 			<Activity className="h-5 w-5 text-fg-ghost mb-4" strokeWidth={1.5} />
@@ -330,10 +350,14 @@ function SelectedRunPane({
 }
 
 function ActivityHeader({
+	showSearch,
 	showFilters,
+	onToggleSearch,
 	onToggleFilters,
 }: {
+	showSearch: boolean;
 	showFilters: boolean;
+	onToggleSearch: () => void;
 	onToggleFilters: () => void;
 }) {
 	return (
@@ -342,21 +366,85 @@ function ActivityHeader({
 				<Activity className="h-4 w-4" strokeWidth={1.5} />
 				Activity
 			</h1>
-			<button
-				type="button"
-				onClick={onToggleFilters}
-				className={cn(
-					"flex h-7 w-7 items-center justify-center rounded transition-colors duration-150",
-					showFilters
-						? "text-fg bg-surface"
-						: "text-fg-ghost hover:text-fg-muted",
-				)}
-				aria-label={showFilters ? "Hide filters" : "Show filters"}
-				aria-expanded={showFilters}
-			>
-				<SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
-			</button>
+			<div className="flex items-center gap-1">
+				<button
+					type="button"
+					onClick={onToggleSearch}
+					className={cn(
+						"flex h-7 w-7 items-center justify-center rounded transition-colors duration-150",
+						showSearch
+							? "text-fg bg-surface"
+							: "text-fg-ghost hover:text-fg-muted",
+					)}
+					aria-label={showSearch ? "Hide search" : "Show search"}
+					aria-expanded={showSearch}
+				>
+					<Search className="h-3.5 w-3.5" strokeWidth={1.5} />
+				</button>
+				<button
+					type="button"
+					onClick={onToggleFilters}
+					className={cn(
+						"flex h-7 w-7 items-center justify-center rounded transition-colors duration-150",
+						showFilters
+							? "text-fg bg-surface"
+							: "text-fg-ghost hover:text-fg-muted",
+					)}
+					aria-label={showFilters ? "Hide filters" : "Show filters"}
+					aria-expanded={showFilters}
+				>
+					<SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
+				</button>
+			</div>
 		</header>
+	);
+}
+
+function ActivitySearchBar({
+	value,
+	inputRef,
+	onChange,
+	onClear,
+}: {
+	value: string;
+	inputRef: Ref<HTMLInputElement>;
+	onChange: (value: string) => void;
+	onClear: () => void;
+}) {
+	return (
+		<div className="mb-4 px-3 xl:shrink-0">
+			<div className="relative flex items-center">
+				<Search
+					className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-fg-ghost"
+					strokeWidth={1.5}
+				/>
+				<input
+					ref={inputRef}
+					type="search"
+					value={value}
+					onChange={(event) => onChange(event.currentTarget.value)}
+					onKeyDown={(event) => {
+						if (event.key === "Escape") {
+							event.preventDefault();
+							onClear();
+						}
+					}}
+					className="h-8 w-full rounded-md border border-border bg-surface-void pl-8 pr-8 type-secondary text-fg outline-none transition-colors duration-150 placeholder:text-fg-ghost focus:border-fg-ghost [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
+					placeholder="Search activity"
+					aria-label="Search activity"
+				/>
+				{value && (
+					<button
+						type="button"
+						onClick={onClear}
+						className="absolute right-1.5 flex h-5 w-5 items-center justify-center rounded text-fg-ghost transition-colors duration-150 hover:bg-surface hover:text-fg"
+						aria-label="Clear search"
+					>
+						<X className="h-3 w-3" strokeWidth={1.5} />
+					</button>
+				)}
+			</div>
+		</div>
 	);
 }
 
@@ -364,12 +452,14 @@ function FeedList({
 	items,
 	hasMore,
 	isLoading,
+	searchActive,
 	renderFeedItem,
 	onLoadEarlier,
 }: {
 	items: readonly FeedItem[];
 	hasMore: boolean;
 	isLoading: boolean;
+	searchActive: boolean;
 	renderFeedItem: (item: FeedItem) => ReactNode;
 	onLoadEarlier: () => void;
 }) {
@@ -378,7 +468,7 @@ function FeedList({
 	}
 
 	if (items.length === 0) {
-		return <EmptyActivityState />;
+		return <EmptyActivityState searchActive={searchActive} />;
 	}
 
 	return (
@@ -414,8 +504,11 @@ export function HomePage() {
 	const reducedMotion = usePrefersReducedMotion();
 	const isWideActivityLayout = useMediaQuery("(min-width: 1280px)");
 	const activityRowRefs = useRef(new Map<string, HTMLDivElement>());
+	const searchInputRef = useRef<HTMLInputElement>(null);
 
 	const initialProjectId = searchParams.get("projectId");
+	const [showSearch, setShowSearch] = useState(false);
+	const [searchQuery, setSearchQuery] = useState("");
 	const [showFilters, setShowFilters] = useState(!!initialProjectId);
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 	const [filters, setFilters] = useState<RunsFilter>({
@@ -428,9 +521,11 @@ export function HomePage() {
 	const { items, total, isLoading } = useFeed({
 		...filters,
 		limit: pageSize,
+		search: searchQuery.trim() || undefined,
 	});
 
 	const hasMore = items.length < total;
+	const searchActive = searchQuery.trim().length > 0;
 
 	const handleFiltersChange = useCallback(
 		(newFilters: RunsFilter) => {
@@ -454,6 +549,33 @@ export function HomePage() {
 	const handleLoadEarlier = useCallback(() => {
 		setPageSize((prev) => prev + PAGE_SIZE);
 	}, []);
+
+	const handleToggleSearch = useCallback(() => {
+		if (showSearch) {
+			setSearchQuery("");
+			setPageSize(PAGE_SIZE);
+			setShowSearch(false);
+			return;
+		}
+		setShowSearch(true);
+	}, [showSearch]);
+
+	const handleSearchChange = useCallback((value: string) => {
+		setSearchQuery(value);
+		setPageSize(PAGE_SIZE);
+	}, []);
+
+	const handleClearSearch = useCallback(() => {
+		setSearchQuery("");
+		setPageSize(PAGE_SIZE);
+		searchInputRef.current?.focus();
+	}, []);
+
+	useEffect(() => {
+		if (showSearch) {
+			searchInputRef.current?.focus();
+		}
+	}, [showSearch]);
 
 	useEffect(() => {
 		if (!isWideActivityLayout) return;
@@ -551,9 +673,20 @@ export function HomePage() {
 					className="min-h-0 xl:flex xl:flex-col xl:overflow-hidden xl:border-r xl:border-border xl:pr-4"
 				>
 					<ActivityHeader
+						showSearch={showSearch}
 						showFilters={showFilters}
+						onToggleSearch={handleToggleSearch}
 						onToggleFilters={() => setShowFilters((prev) => !prev)}
 					/>
+
+					{showSearch && (
+						<ActivitySearchBar
+							value={searchQuery}
+							inputRef={searchInputRef}
+							onChange={handleSearchChange}
+							onClear={handleClearSearch}
+						/>
+					)}
 
 					{showFilters && (
 						<div className="mb-4 px-3 xl:shrink-0">
@@ -569,6 +702,7 @@ export function HomePage() {
 							items={items}
 							hasMore={hasMore}
 							isLoading={isLoading}
+							searchActive={searchActive}
 							renderFeedItem={renderFeedItem}
 							onLoadEarlier={handleLoadEarlier}
 						/>
