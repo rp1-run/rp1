@@ -3,13 +3,14 @@ import {
 	ArrowLeft,
 	Ban,
 	Check,
-	ListTodo,
 	Loader2,
 	OctagonX,
-	PanelLeft,
 	RefreshCw,
+	Workflow,
+	X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogClose,
@@ -21,6 +22,12 @@ import {
 	ResizablePanel,
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useRunDetail } from "@/hooks/useRunDetail";
@@ -103,6 +110,38 @@ function MobileStepSelector({
 				);
 			})}
 		</div>
+	);
+}
+
+function WorkflowStepsToggleButton({
+	onOpen,
+}: {
+	readonly onOpen: () => void;
+}) {
+	return (
+		<TooltipProvider>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8 relative"
+						onClick={onOpen}
+						aria-label="Open workflow steps"
+						aria-expanded="false"
+					>
+						<Workflow
+							className="h-4 w-4"
+							strokeWidth={1.5}
+							aria-hidden="true"
+						/>
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>
+					<p>Workflow steps</p>
+				</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
 	);
 }
 
@@ -596,6 +635,11 @@ export function RunDetailSurface({
 			runId={runId}
 			subflowDiagram={subflowDiagram}
 			showFrontmatter={showFrontmatter}
+			leadingControl={
+				stepPanelOpen ? undefined : (
+					<WorkflowStepsToggleButton onOpen={() => setStepPanelOpen(true)} />
+				)
+			}
 		/>
 	);
 
@@ -624,21 +668,26 @@ export function RunDetailSurface({
 							className="bg-surface-void"
 						>
 							<div className="flex h-full flex-col">
-								<div className="flex h-10 shrink-0 items-center gap-sm pl-1.5 pr-md">
+								<header className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2">
+									<div className="flex items-center gap-2">
+										<Workflow
+											className="h-3.5 w-3.5 text-fg-ghost"
+											strokeWidth={1.5}
+										/>
+										<h2 className="type-secondary text-fg-muted tracking-wider uppercase">
+											Steps
+										</h2>
+									</div>
 									<button
 										type="button"
 										onClick={() => setStepPanelOpen(false)}
-										className="flex h-7 w-7 items-center justify-center rounded text-fg-ghost transition-colors duration-150 hover:bg-surface-base hover:text-fg"
-										aria-label="Collapse workflow steps"
-										aria-expanded="true"
-										title="Collapse workflow steps"
+										className="text-fg-ghost transition-colors duration-150 hover:text-fg"
+										aria-label="Close workflow steps panel"
+										title="Close workflow steps panel"
 									>
-										<PanelLeft className="h-4 w-4" strokeWidth={1.5} />
+										<X className="h-3.5 w-3.5" strokeWidth={1.5} />
 									</button>
-									<span className="type-secondary font-medium uppercase text-fg-ghost">
-										Steps
-									</span>
-								</div>
+								</header>
 								<div className="min-h-0 flex-1 overflow-y-auto">
 									<VerticalStepList
 										harness={run.harness}
@@ -661,24 +710,7 @@ export function RunDetailSurface({
 						</ResizablePanel>
 					</ResizablePanelGroup>
 				) : (
-					<div className="flex h-full min-w-0 flex-1">
-						<aside
-							aria-label="Workflow steps"
-							className="flex w-10 shrink-0 justify-center bg-surface-void py-sm"
-						>
-							<button
-								type="button"
-								onClick={() => setStepPanelOpen(true)}
-								className="flex h-7 w-7 items-center justify-center rounded text-fg-ghost transition-colors duration-150 hover:bg-surface-base hover:text-fg"
-								aria-label="Open workflow steps"
-								aria-expanded="false"
-								title="Open workflow steps"
-							>
-								<ListTodo className="h-4 w-4" strokeWidth={1.5} />
-							</button>
-						</aside>
-						<div className="min-w-0 flex-1">{artifactPanel}</div>
-					</div>
+					<div className="min-w-0 flex-1 overflow-hidden">{artifactPanel}</div>
 				)}
 			</div>
 

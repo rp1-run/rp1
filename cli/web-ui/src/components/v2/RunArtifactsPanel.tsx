@@ -1,5 +1,5 @@
 import { Check, FileText, List } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { AnnotationToggleBtn } from "@/components/v2/AnnotationToggleBtn";
 import {
 	ArtifactContentSurface,
@@ -18,6 +18,7 @@ export interface RunArtifactsPanelProps {
 	readonly runId?: string;
 	readonly subflowDiagram?: string | null;
 	readonly showFrontmatter?: boolean;
+	readonly leadingControl?: ReactNode;
 }
 
 function getFileName(path: string): string {
@@ -36,14 +37,37 @@ export function RunArtifactsPanel({
 	onArtifactSelect,
 	runId,
 	showFrontmatter = false,
+	leadingControl,
 }: RunArtifactsPanelProps) {
 	const [copiedPath, setCopiedPath] = useState<string | null>(null);
 
 	const groups = artifactGroups.filter((group) => group.artifacts.length > 0);
 	const artifacts = flattenArtifacts(groups);
 
+	const renderLeadingControl = () =>
+		leadingControl ? (
+			<div className="flex shrink-0 items-center">{leadingControl}</div>
+		) : null;
+
+	const renderHeaderShell = (children: ReactNode) => (
+		<div className="shrink-0 bg-surface-void/70 px-4 py-3 md:px-[40px]">
+			<div className="flex min-w-0 items-center justify-between gap-md">
+				{children}
+			</div>
+		</div>
+	);
+
 	if (artifacts.length === 0) {
-		return <ArtifactEmptyState />;
+		if (!leadingControl) {
+			return <ArtifactEmptyState />;
+		}
+
+		return (
+			<div className="flex h-full min-w-0 flex-col overflow-hidden">
+				{renderHeaderShell(renderLeadingControl())}
+				<ArtifactEmptyState className="min-h-0 flex-1" />
+			</div>
+		);
 	}
 
 	const effectiveSelectedArtifact = selectedArtifact ?? artifacts[0] ?? null;
@@ -112,9 +136,10 @@ export function RunArtifactsPanel({
 		</div>
 	);
 
-	const renderHeader = (controls: ArtifactContentSurfaceControls) => (
-		<div className="shrink-0 bg-surface-void/70 px-4 py-3 md:px-[40px]">
-			<div className="flex min-w-0 items-center justify-between gap-md">
+	const renderHeader = (controls: ArtifactContentSurfaceControls) =>
+		renderHeaderShell(
+			<>
+				{renderLeadingControl()}
 				{renderArtifactList()}
 				<div className="flex shrink-0 items-center gap-3">
 					<SaveStatusIndicator status={controls.saveStatus} />
@@ -136,9 +161,8 @@ export function RunArtifactsPanel({
 						/>
 					)}
 				</div>
-			</div>
-		</div>
-	);
+			</>,
+		);
 
 	return (
 		<ArtifactContentSurface

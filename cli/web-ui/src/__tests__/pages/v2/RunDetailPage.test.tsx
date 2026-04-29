@@ -51,6 +51,7 @@ interface RunArtifactsPanelMockProps {
 	readonly selectedArtifact: Artifact | null;
 	readonly onArtifactSelect?: (artifact: Artifact) => void;
 	readonly showFrontmatter?: boolean;
+	readonly leadingControl?: ReactNode;
 }
 
 interface VerticalStepListMockProps {
@@ -172,6 +173,7 @@ function applyRunDetailMocks() {
 			selectedArtifact,
 			onArtifactSelect,
 			showFrontmatter,
+			leadingControl,
 		}: RunArtifactsPanelMockProps) => {
 			const artifacts = artifactGroups.flatMap((group) => group.artifacts);
 			latestRunArtifactsPanelProps.push({
@@ -188,6 +190,7 @@ function applyRunDetailMocks() {
 					data-frontmatter={String(showFrontmatter ?? false)}
 					data-selected-artifact={selectedArtifact?.docId ?? ""}
 				>
+					{leadingControl}
 					{artifacts.map((artifact) => (
 						<button
 							key={artifact.docId}
@@ -266,6 +269,22 @@ async function renderRunDetail(
 							}
 						/>
 					</Routes>
+				</ShortcutRegistryProvider>
+			</WorkspaceTabsProvider>
+		</MemoryRouter>,
+	);
+}
+
+async function renderRunPreview() {
+	const { RunDetailSurface } = await import(
+		`../../../components/v2/RunDetailSurface.tsx?run-preview-test=${++importVersion}`
+	);
+
+	return render(
+		<MemoryRouter initialEntries={["/"]}>
+			<WorkspaceTabsProvider>
+				<ShortcutRegistryProvider>
+					<RunDetailSurface runId="run-1" mode="activity-preview" />
 				</ShortcutRegistryProvider>
 			</WorkspaceTabsProvider>
 		</MemoryRouter>,
@@ -380,6 +399,14 @@ describe("RunDetailPage", () => {
 			name: "Open workflow steps",
 		});
 		expect(openStepsButton.getAttribute("aria-expanded")).toBe("false");
+		expect(openStepsButton.className).toContain("h-8");
+		expect(openStepsButton.className).toContain("w-8");
+		expect(openStepsButton.querySelector(".lucide-workflow")).toBeTruthy();
+		expect(openStepsButton.querySelector(".lucide-list-todo")).toBeNull();
+		expect(
+			document.body.querySelector("aside[aria-label='Workflow steps']"),
+		).toBeNull();
+		expect(openStepsButton.closest(".w-10")).toBeNull();
 
 		fireEvent.click(openStepsButton);
 
@@ -388,11 +415,57 @@ describe("RunDetailPage", () => {
 				"build",
 			);
 		});
+		expect(screen.getByText("Steps")).toBeTruthy();
+		expect(document.body.querySelector(".lucide-workflow")).toBeTruthy();
+		expect(document.body.querySelector(".lucide-panel-left")).toBeNull();
+
+		const closeStepsButton = screen.getByRole("button", {
+			name: "Close workflow steps panel",
+		});
+		expect(closeStepsButton.querySelector(".lucide-x")).toBeTruthy();
+
+		fireEvent.click(closeStepsButton);
+
+		await waitFor(() => {
+			expect(screen.queryByTestId("step-list")).toBeNull();
+		});
 		expect(
 			screen
-				.getByRole("button", { name: "Collapse workflow steps" })
-				.getAttribute("aria-expanded"),
-		).toBe("true");
+				.getByRole("button", { name: "Open workflow steps" })
+				.querySelector(".lucide-workflow"),
+		).toBeTruthy();
+	});
+
+	test("keeps the workflow steps affordance collapsed by default in the run preview", async () => {
+		await renderRunPreview();
+
+		expect(screen.queryByTestId("step-list")).toBeNull();
+
+		const openStepsButton = screen.getByRole("button", {
+			name: "Open workflow steps",
+		});
+		expect(openStepsButton.getAttribute("aria-expanded")).toBe("false");
+		expect(openStepsButton.className).toContain("h-8");
+		expect(openStepsButton.className).toContain("w-8");
+		expect(openStepsButton.querySelector(".lucide-workflow")).toBeTruthy();
+		expect(
+			document.body.querySelector("aside[aria-label='Workflow steps']"),
+		).toBeNull();
+
+		fireEvent.click(openStepsButton);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("step-list").dataset.selectedStepId).toBe(
+				"build",
+			);
+		});
+		expect(screen.getByText("Steps")).toBeTruthy();
+		expect(document.body.querySelector(".lucide-workflow")).toBeTruthy();
+		expect(
+			screen
+				.getByRole("button", { name: "Close workflow steps panel" })
+				.querySelector(".lucide-x"),
+		).toBeTruthy();
 	});
 
 	test("posts explicit end-run actions from the detail header", async () => {
