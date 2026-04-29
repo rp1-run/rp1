@@ -44,56 +44,42 @@ Create the manifest directory if needed:
 mkdir -p "{workRoot}/comment-clean-comments"
 ```
 
-Choose the next numbered manifest path:
+Choose the next numbered manifest/status path pair:
 
 ```text
 {workRoot}/comment-clean-comments/change-manifest-001.json
+{workRoot}/comment-clean-comments/change-manifest-status-001.json
 ```
 
-Increment the number if that file already exists.
+Increment the number if either file already exists. Set `resolved_change_manifest_path` and `resolved_change_manifest_status_path` to the selected pair.
 
-## 2. Resolve `SCOPE`
+## 2. Generate Manifest
 
-Supported scopes:
+Delegate all scope resolution to the typed generator:
 
-- Existing change-manifest JSON: validate it and use or copy it as the durable manifest.
-- File path under `CODE_ROOT`: create one manifest file entry with a full-file owned hunk.
-- Directory path under `CODE_ROOT`: create manifest entries for supported code files under that directory, excluding generated/dependency directories such as `.git`, `node_modules`, `dist`, `build`, `.next`, `coverage`, `.rp1`, and `vendor`.
-- Git range containing `..`: derive owned hunks from `git diff -U0 --no-color {SCOPE}`.
-- Git ref without `..`: derive owned hunks from `git diff -U0 --no-color {SCOPE}...HEAD`.
-
-If `SCOPE` cannot be resolved, or it resolves to zero owned files/hunks, fail closed and do not dispatch comment-cleaner.
-
-## 3. Manifest Schema
-
-Write durable JSON:
-
-```json
-{
-  "version": 1,
-  "source": "code-clean-comments",
-  "codeRoot": "{resolved_code_root}",
-  "scope": "{SCOPE}",
-  "files": [
-    {
-      "path": "relative/path/from/CODE_ROOT.ts",
-      "ownedHunks": [{ "startLine": 1, "endLine": 10 }],
-      "allowedOperations": ["remove_comments"]
-    }
-  ]
-}
+```bash
+rp1 agent-tools change-manifest generate \
+  --code-root "{resolved_code_root}" \
+  --out "{resolved_change_manifest_path}" \
+  --status-out "{resolved_change_manifest_status_path}" \
+  --source code-clean-comments \
+  --scope "{SCOPE}"
 ```
 
-Use relative file paths from `CODE_ROOT`. Hunks are inclusive line bounds in the current file. For full-file scopes, use one hunk from line 1 to the current line count. For git scopes, include only added/modified new-file hunk lines from the diff.
+Parse the `ToolResult` envelope into `cleanup_manifest_result`. The generator is responsible for existing manifest JSON, file, directory, git ref, and git range scopes. Do not inspect files, walk directories, parse git diffs, validate existing manifest JSON, or write manifest JSON yourself.
 
-## 4. Dispatch Cleaner
+If `cleanup_manifest_result.data.status != "created"`, `cleanup_manifest_result.data.files == 0`, `cleanup_manifest_result.data.ownedLineCount == 0`, or `cleanup_manifest_result.data.manifestPath` is missing, fail closed and do not dispatch `comment-cleaner`. Report the status path and skip reason instead.
 
-After writing and validating the manifest, invoke:
+If the tool fails or returns malformed output, fail closed and do not dispatch `comment-cleaner`. Report `change_manifest_generate_failed` with the intended status path.
+
+## 3. Dispatch Cleaner
+
+Only when the generated manifest is created and non-empty, invoke:
 
 {% dispatch_agent "rp1-dev:comment-cleaner" %}
-CHANGE_MANIFEST={resolved_change_manifest_path}, CODE_ROOT={resolved_code_root}
+CHANGE_MANIFEST={cleanup_manifest_result.data.manifestPath}, CODE_ROOT={resolved_code_root}
 {% enddispatch_agent %}
 
-## 5. Output
+## 4. Output
 
-Report the scope, manifest path, files covered, and comment-cleaner result. Do not stage or commit changes.
+Report the scope, cleanup status, manifest path when created, status path, files covered, skip reason when skipped, and comment-cleaner result when it ran. Do not stage or commit changes.

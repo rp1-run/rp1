@@ -41,6 +41,10 @@ Activate this skill when:
 
 ### Extract Comments from a Change Manifest
 
+Use a generated or validated change manifest as the cleanup boundary. This
+skill extracts comments inside that boundary; it does not decide which files or
+lines are cleanup-owned.
+
 ```bash
 # Required for comment-cleaner
 rp1 agent-tools comment-extract manifest manifest --change-manifest .rp1/work/features/example/change-manifest-001.json --code-root .
@@ -56,7 +60,6 @@ Manifest shape:
   "files": [
     {
       "path": "src/auth.ts",
-      "ownedLines": [12, 13],
       "ownedHunks": [{ "startLine": 20, "endLine": 28 }],
       "allowedOperations": ["remove_comments"]
     }
@@ -64,9 +67,17 @@ Manifest shape:
 }
 ```
 
-### Extract Comments from Git Scope
+Generated manifests can come from `/build`, `/build-fast`, or
+`/code-clean-comments`. Build workflows generate manifests from their recorded
+baseline; standalone cleanup uses `rp1 agent-tools change-manifest generate`
+with `--source code-clean-comments --scope ...` to convert file, directory,
+git ref, git range, or existing-manifest input into the same manifest shape.
 
-Git scopes remain available for audit/reporting use. Do not use them as a comment-cleaner cleanup boundary.
+### Audit-Only Git Scopes
+
+Git scopes remain available for audit/reporting use. Do not use them as a
+comment-cleaner cleanup boundary. For cleanup, first generate a change manifest
+and then extract with `--change-manifest`.
 
 ```bash
 rp1 agent-tools comment-extract branch main
@@ -107,7 +118,7 @@ rp1 agent-tools comment-extract "abc123..def456" main --line-scoped
 |-------|-------------|
 | `success` | Whether extraction completed successfully |
 | `tool` | Tool name (`comment-extract`) |
-| `data.scope` | The scope used (`manifest`, `branch`, `unstaged`, or commit range) |
+| `data.scope` | The extraction scope used (`manifest`, `branch`, `unstaged`, or commit range); only `manifest` is valid for cleanup |
 | `data.base` | Base branch for comparison, or `manifest` for manifest extraction |
 | `data.filesScanned` | Number of files processed |
 | `data.linesAdded` | Total lines added in diff, or manifest-owned line count |
@@ -154,6 +165,10 @@ This skill is used by the `comment-cleaner` agent to:
 1. Get a manifest-owned list of comments
 2. Avoid reading entire files for comment detection
 3. Process comments efficiently with context and line/hunk boundaries
+
+The `comment-cleaner` agent should call this skill through the manifest path it
+was given. It should not pass branch names, commit ranges, dirty-state labels,
+or task-builder-authored hunks as cleanup authority.
 
 ## Limitations
 

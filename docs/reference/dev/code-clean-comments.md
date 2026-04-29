@@ -27,15 +27,44 @@ Removes unnecessary comments from a scoped set of code changes while preserving 
 
 **Scope Options:**
 
-- `<file>` - A single file under `code-root`
-- `<directory>` - Supported code files under a directory
-- `<git-ref>` - Changes from the ref to `HEAD`
-- `<commit-range>` - Any valid git commit range (e.g., `HEAD~5..HEAD`, `abc123..def456`)
-- `<change-manifest.json>` - Existing manifest to validate and reuse
+- `<file>` - Generate a full-file manifest for one supported source file under
+  `code-root`
+- `<directory>` - Generate a manifest for supported source files under a
+  directory, excluding generated and dependency paths
+- `<git-ref>` - Generate a manifest from changes between the ref and `HEAD`
+- `<commit-range>` - Generate a manifest from any valid git commit range
+  (for example, `HEAD~5..HEAD` or `abc123..def456`)
+- `<change-manifest.json>` - Validate and reuse an existing manifest as the
+  cleanup boundary
 
 ## Description
 
-The `code-clean-comments` command first resolves the requested scope into a durable `change-manifest-*.json` artifact, then invokes the comment-cleaner agent with only `CHANGE_MANIFEST` and `CODE_ROOT`. The cleaner itself does not accept branch-wide or unstaged cleanup parameters directly.
+The `code-clean-comments` command first resolves the requested scope into a
+durable `change-manifest-*.json` artifact with
+`rp1 agent-tools change-manifest generate --source code-clean-comments`. It
+then invokes the comment-cleaner agent only when the manifest is created and
+non-empty.
+
+The cleaner receives only `CHANGE_MANIFEST` and `CODE_ROOT`. It does not accept
+branch-wide, unstaged, dirty-state, or commit-range cleanup parameters
+directly; those inputs must be converted into a manifest before cleanup can
+edit files.
+
+### Generated Artifacts
+
+Artifacts are written under the canonical work root:
+
+- `.rp1/work/comment-clean-comments/change-manifest-001.json` - cleanup-owned
+  files and line ranges, when generated
+- `.rp1/work/comment-clean-comments/change-manifest-status-001.json` -
+  created/skipped status, file counts, owned-line counts, and skip reason
+
+The number increments when either artifact already exists.
+
+If generation skips, no cleaner is dispatched. Common skip reasons include
+`no_supported_source_hunks`, `scope_outside_code_root`, `invalid_scope`, and
+`unsupported_scope`. Invalid, missing, empty, or outside-root manifests fail
+closed rather than widening cleanup authority.
 
 ## What's Preserved
 
@@ -97,6 +126,7 @@ Files scanned: 45
 Comments removed: 23
 Comments preserved: 67
 Manifest: .rp1/work/comment-clean-comments/change-manifest-001.json
+Manifest status: .rp1/work/comment-clean-comments/change-manifest-status-001.json
 
 Changes:
 - src/utils/helpers.ts: Removed 5 obvious comments
@@ -104,6 +134,17 @@ Changes:
 - src/models/user.ts: Removed 2 redundant docstrings
 
 Note: Run code-check to verify no issues introduced
+```
+
+**Skipped output includes:**
+
+```
+Comment Cleanup Skipped
+
+Scope: .
+Manifest: None
+Status: .rp1/work/comment-clean-comments/change-manifest-status-001.json
+Skip reason: no_supported_source_hunks
 ```
 
 ## Related Commands

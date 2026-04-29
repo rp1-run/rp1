@@ -369,7 +369,19 @@ TASKS: {implementation_tasks JSON}, MAX_SIMPLE_BATCH: 3, COMPLEX_ISOLATED: true
 
 Extract `task_units` array.
 
-### §4.2 Builder-Reviewer Loop
+### §4.2 Cleanup Manifest Baseline
+
+Before the first task-builder unit, snapshot the build-start repository state:
+
+```bash
+rp1 agent-tools change-manifest snapshot \
+  --code-root "{codeRoot}" \
+  --out "{workRoot}/features/{FEATURE_ID}/change-manifest-baseline.json"
+```
+
+Parse the `ToolResult` envelope. If the command fails or returns malformed output, continue the build but record `cleanup_manifest_result` as skipped with `skipReason: "baseline_snapshot_failed"`, `files: 0`, `ownedLineCount: 0`, and `statusPath: "{workRoot}/features/{FEATURE_ID}/change-manifest-status.json"`. Do not dispatch `comment-cleaner` later unless a generated manifest result explicitly returns `status: "created"` and non-empty ownership.
+
+### §4.3 Builder-Reviewer Loop
 
 For each task unit, run builder then reviewer:
 
@@ -396,7 +408,7 @@ FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={code
 
 Else: escalate (AFK: mark blocked; Interactive: prompt user).
 
-### §4.3 Post-Build
+### §4.4 Post-Build
 
 Doc tasks (TD*): build doc_scan_results.json, spawn scribe.
 
@@ -415,7 +427,26 @@ rp1 agent-tools emit \
 On Add Task: spawn builder+reviewer for ad-hoc TX-{timestamp} task, loop back.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
 
-### §4.4 Close Build Step
+### §4.5 Cleanup Manifest Generation
+
+After builders, reviewers, doc tasks, and any checkpoint-added tasks finish, generate the durable cleanup handoff before verification:
+
+```bash
+rp1 agent-tools change-manifest generate \
+  --code-root "{codeRoot}" \
+  --out "{workRoot}/features/{FEATURE_ID}/change-manifest-001.json" \
+  --status-out "{workRoot}/features/{FEATURE_ID}/change-manifest-status.json" \
+  --source build \
+  --baseline "{workRoot}/features/{FEATURE_ID}/change-manifest-baseline.json"
+```
+
+Parse the `ToolResult` envelope into `cleanup_manifest_result`.
+
+- If `data.status == "created"` and `data.files > 0` and `data.ownedLineCount > 0`, verification may dispatch `comment-cleaner` with `data.manifestPath` and `{codeRoot}`.
+- If `data.status == "skipped"`, keep `data.statusPath` and `data.skipReason` for the verify aggregator. Do not ask `comment-cleaner` to infer scope.
+- If the tool fails or returns malformed output, set `cleanup_manifest_result` to a skipped warning with `skipReason: "change_manifest_generate_failed"`, `files: 0`, `ownedLineCount: 0`, and `statusPath: "{workRoot}/features/{FEATURE_ID}/change-manifest-status.json"`.
+
+### §4.6 Close Build Step
 
 **Before transitioning to verify**, emit `build → completed` (required even if sub-tasks had retried/escalated failures):
 
@@ -430,9 +461,9 @@ rp1 agent-tools emit \
 
 ## §STEP-5: Verify
 
-**Skip if**: start_step > 5. **Invoke ALL THREE in SINGLE response:**
+**Skip if**: start_step > 5.
 
-Use the durable cleaner hand-off manifest at `{workRoot}/features/{FEATURE_ID}/change-manifest-001.json`, or the highest numbered `change-manifest-*.json` path already produced by the build task handoff for this feature. Do not dispatch comment-cleaner with branch, unstaged, commit-range, base-branch, mode, or commit parameters; it must fail closed if the manifest is missing or invalid.
+Invoke `code-checker` and `feature-verifier`. Include `comment-cleaner` only when `cleanup_manifest_result.data.status == "created"`, `cleanup_manifest_result.data.files > 0`, `cleanup_manifest_result.data.ownedLineCount > 0`, and `cleanup_manifest_result.data.manifestPath` is present. Do not dispatch comment-cleaner with branch, unstaged, commit-range, base-branch, mode, or commit parameters; the generated manifest is the only safe cleanup boundary.
 
 {% dispatch_agent "rp1-dev:code-checker" %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}
@@ -442,11 +473,26 @@ FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={code
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
+If `cleanup_manifest_result` is created and non-empty:
+
 {% dispatch_agent "rp1-dev:comment-cleaner" %}
-CHANGE_MANIFEST={workRoot}/features/{FEATURE_ID}/change-manifest-001.json, CODE_ROOT={codeRoot}
+CHANGE_MANIFEST={cleanup_manifest_result.data.manifestPath}, CODE_ROOT={codeRoot}
 {% enddispatch_agent %}
 
-Then aggregate:
+Otherwise set the `comment_cleaner` phase result yourself:
+
+```json
+{
+  "status": "WARN",
+  "files_checked": 0,
+  "manifest_path": null,
+  "manifest_status_path": "{cleanup_manifest_result.data.statusPath}",
+  "skip_reason": "{cleanup_manifest_result.data.skipReason}",
+  "message": "Automatic comment cleanup skipped because no non-empty generated manifest was available."
+}
+```
+
+Then aggregate with the real cleaner response or the synthetic warning result:
 
 {% dispatch_agent "rp1-dev:build-verify-aggregator" %}
 PHASE_RESULTS: { code_checker: {...}, feature_verifier: {...}, comment_cleaner: {...} }

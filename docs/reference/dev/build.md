@@ -42,6 +42,7 @@ new tracker or milestone artifacts.
 - **Safe defaults**: No git operations unless explicitly requested via flags
 - **Opt-in git operations**: Use `--git-*` flags for commit, push, PR
 - **Builder-reviewer architecture**: Quality-gated implementation with feedback loops
+- **Manifest-gated cleanup**: Automatic comment cleanup runs only from a generated change manifest
 
 ## Parameters
 
@@ -81,6 +82,37 @@ The command orchestrates these steps:
 | 4.1 User Review | Manual verification checkpoint | User decision |
 | 5. Follow-up | Add more work if needed | Loops to Build |
 | 6. Archive | Store completed feature | Archived artifacts |
+
+### Manifest-Gated Comment Cleanup
+
+During the build step, `/build` snapshots the repository state before the
+first `task-builder` unit runs. After builders, reviewers, doc tasks, and any
+checkpoint-added tasks finish, it generates the cleanup handoff before verify.
+
+The feature work directory can contain:
+
+- `change-manifest-baseline.json` - build-start `CODE_ROOT`, `HEAD`, and dirty
+  paths
+- `change-manifest-001.json` - cleanup-owned files and line ranges, when
+  supported changes are safe to classify
+- `change-manifest-status.json` - created/skipped status, file counts,
+  owned-line counts, dirty-path metadata, and skip reason
+
+Verify dispatches `comment-cleaner` only when the generated manifest is
+`created` and non-empty. The cleaner receives only `CHANGE_MANIFEST` and
+`CODE_ROOT`; `/build` does not pass branch names, commit ranges, dirty-state
+labels, or task-builder-authored hunks as cleanup scope.
+
+If manifest generation skips, verify records a warning result with
+`files_checked: 0`, the status artifact path, and the skip reason. Common skip
+reasons include `no_supported_source_hunks`,
+`pre_existing_dirty_paths_overlap`, `missing_baseline`,
+`invalid_baseline`, `baseline_code_root_mismatch`,
+`scope_outside_code_root`, `invalid_scope`, and `unsupported_scope`.
+
+Task builders do not calculate, merge, create, or hand off comment cleanup
+manifests. Review the generated manifest and status artifacts to audit why a
+file or line range was eligible for automatic cleanup.
 
 ### Oversized Scope Redirect
 
@@ -315,6 +347,9 @@ worktree, rp1 still uses the owning repository's canonical work root.
 - `tasks.md` - Implementation tasks
 - `verification-report.md` - Verification results
 - `field-notes.md` - Implementation notes (if any)
+- `change-manifest-baseline.json` - build-start cleanup baseline
+- `change-manifest-001.json` - generated cleanup boundary, when created
+- `change-manifest-status.json` - cleanup manifest status and skip reason
 
 ## Related Commands
 
