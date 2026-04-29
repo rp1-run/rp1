@@ -114,10 +114,12 @@ async function renderPanel({
 	artifactGroups,
 	selectedArtifact,
 	onArtifactSelect,
+	leadingControl,
 }: {
 	readonly artifactGroups: readonly ArtifactGroup[];
 	readonly selectedArtifact: Artifact | null;
 	readonly onArtifactSelect?: (artifact: Artifact) => void;
+	readonly leadingControl?: ReactNode;
 }) {
 	const { RunArtifactsPanel } = await importPanel();
 
@@ -129,6 +131,7 @@ async function renderPanel({
 			runId="run-1"
 			subflowDiagram={null}
 			showFrontmatter={true}
+			leadingControl={leadingControl}
 		/>,
 	);
 }
@@ -174,6 +177,37 @@ describe("RunArtifactsPanel", () => {
 		expect(fileButton.getAttribute("aria-current")).toBe("page");
 		expect(screen.queryByRole("tab")).toBeNull();
 		expect(screen.getByLabelText("Toggle annotations")).toBeTruthy();
+	});
+
+	test("keeps the optional leading control in the compact artifact header", async () => {
+		const onlyArtifact = artifact(
+			"doc-1",
+			"build",
+			".rp1/work/features/example/tasks.md",
+		);
+
+		await renderPanel({
+			artifactGroups: [group("step:build", "Build", "build", [onlyArtifact])],
+			selectedArtifact: onlyArtifact,
+			leadingControl: (
+				<button type="button" aria-label="Toggle workflow steps">
+					Workflow
+				</button>
+			),
+		});
+
+		const leadingControl = screen.getByRole("button", {
+			name: "Toggle workflow steps",
+		});
+		const headerShell =
+			leadingControl.parentElement?.parentElement?.parentElement;
+
+		expect(leadingControl.parentElement?.className).toContain("self-start");
+		expect(headerShell?.className).toContain("px-4");
+		expect(headerShell?.className).toContain("pt-3");
+		expect(headerShell?.className).toContain("pb-2");
+		expect(headerShell?.className).not.toContain("py-3");
+		expect(headerShell?.className).not.toContain("md:px-[40px]");
 	});
 
 	test("shows one file list for one multi-artifact group", async () => {

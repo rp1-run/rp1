@@ -6,6 +6,7 @@ import {
 	type ArtifactContentSurfaceControls,
 } from "@/components/v2/ArtifactContentSurface";
 import { ArtifactEmptyState } from "@/components/v2/ArtifactEmptyState";
+import { PANEL_HEADER_PADDING_CLASS } from "@/components/v2/PanelHeader";
 import { SaveStatusIndicator } from "@/components/v2/UnifiedContentRenderer";
 import type { ArtifactGroup } from "@/lib/artifact-groups";
 import { cn } from "@/lib/utils";
@@ -46,12 +47,14 @@ export function RunArtifactsPanel({
 
 	const renderLeadingControl = () =>
 		leadingControl ? (
-			<div className="flex shrink-0 items-center">{leadingControl}</div>
+			<div className="flex shrink-0 self-start">{leadingControl}</div>
 		) : null;
 
 	const renderHeaderShell = (children: ReactNode) => (
-		<div className="shrink-0 bg-surface-void/70 px-4 py-3 md:px-[40px]">
-			<div className="flex min-w-0 items-center justify-between gap-md">
+		<div
+			className={cn("shrink-0 bg-surface-void/70", PANEL_HEADER_PADDING_CLASS)}
+		>
+			<div className="flex min-w-0 items-center justify-between gap-3">
 				{children}
 			</div>
 		</div>

@@ -396,12 +396,16 @@ describe("RunDetailPage", () => {
 		expect(screen.queryByTestId("step-list")).toBeNull();
 
 		const openStepsButton = screen.getByRole("button", {
-			name: "Open workflow steps",
+			name: "Toggle workflow steps",
 		});
 		expect(openStepsButton.getAttribute("aria-expanded")).toBe("false");
-		expect(openStepsButton.className).toContain("h-8");
-		expect(openStepsButton.className).toContain("w-8");
+		expect(openStepsButton.className).toContain("text-fg-ghost");
+		expect(openStepsButton.className).not.toContain("h-8");
+		expect(openStepsButton.className).not.toContain("w-8");
 		expect(openStepsButton.querySelector(".lucide-workflow")).toBeTruthy();
+		expect(
+			openStepsButton.querySelector(".lucide-workflow")?.getAttribute("class"),
+		).toContain("h-3.5");
 		expect(openStepsButton.querySelector(".lucide-list-todo")).toBeNull();
 		expect(
 			document.body.querySelector("aside[aria-label='Workflow steps']"),
@@ -418,20 +422,27 @@ describe("RunDetailPage", () => {
 		expect(screen.getByText("Steps")).toBeTruthy();
 		expect(document.body.querySelector(".lucide-workflow")).toBeTruthy();
 		expect(document.body.querySelector(".lucide-panel-left")).toBeNull();
+		const expandedToggle = screen.getByRole("button", {
+			name: "Toggle workflow steps",
+		});
+		expect(expandedToggle.getAttribute("aria-expanded")).toBe("true");
+		expect(
+			expandedToggle.querySelector(".lucide-workflow")?.getAttribute("class"),
+		).toContain("h-3.5");
 
 		const closeStepsButton = screen.getByRole("button", {
 			name: "Close workflow steps panel",
 		});
 		expect(closeStepsButton.querySelector(".lucide-x")).toBeTruthy();
 
-		fireEvent.click(closeStepsButton);
+		fireEvent.click(expandedToggle);
 
 		await waitFor(() => {
 			expect(screen.queryByTestId("step-list")).toBeNull();
 		});
 		expect(
 			screen
-				.getByRole("button", { name: "Open workflow steps" })
+				.getByRole("button", { name: "Toggle workflow steps" })
 				.querySelector(".lucide-workflow"),
 		).toBeTruthy();
 	});
@@ -442,11 +453,12 @@ describe("RunDetailPage", () => {
 		expect(screen.queryByTestId("step-list")).toBeNull();
 
 		const openStepsButton = screen.getByRole("button", {
-			name: "Open workflow steps",
+			name: "Toggle workflow steps",
 		});
 		expect(openStepsButton.getAttribute("aria-expanded")).toBe("false");
-		expect(openStepsButton.className).toContain("h-8");
-		expect(openStepsButton.className).toContain("w-8");
+		expect(openStepsButton.className).toContain("text-fg-ghost");
+		expect(openStepsButton.className).not.toContain("h-8");
+		expect(openStepsButton.className).not.toContain("w-8");
 		expect(openStepsButton.querySelector(".lucide-workflow")).toBeTruthy();
 		expect(
 			document.body.querySelector("aside[aria-label='Workflow steps']"),
@@ -461,10 +473,24 @@ describe("RunDetailPage", () => {
 		});
 		expect(screen.getByText("Steps")).toBeTruthy();
 		expect(document.body.querySelector(".lucide-workflow")).toBeTruthy();
+		const expandedToggle = screen.getByRole("button", {
+			name: "Toggle workflow steps",
+		});
+		expect(expandedToggle.getAttribute("aria-expanded")).toBe("true");
+		const closeStepsButton = screen.getByRole("button", {
+			name: "Close workflow steps panel",
+		});
+		expect(closeStepsButton.querySelector(".lucide-x")).toBeTruthy();
+
+		fireEvent.click(closeStepsButton);
+
+		await waitFor(() => {
+			expect(screen.queryByTestId("step-list")).toBeNull();
+		});
 		expect(
 			screen
-				.getByRole("button", { name: "Close workflow steps panel" })
-				.querySelector(".lucide-x"),
+				.getByRole("button", { name: "Toggle workflow steps" })
+				.querySelector(".lucide-workflow"),
 		).toBeTruthy();
 	});
 
@@ -702,7 +728,7 @@ describe("RunDetailPage", () => {
 		await renderRunDetail("/runs/run-1/step/build/artifact/doc-1");
 
 		fireEvent.click(
-			screen.getByRole("button", { name: "Open workflow steps" }),
+			screen.getByRole("button", { name: "Toggle workflow steps" }),
 		);
 
 		await waitFor(() => {
