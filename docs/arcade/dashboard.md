@@ -110,6 +110,10 @@ box to find older tracked runs by visible Activity fields such as run id,
 workflow or command text, run display name, feature name or id, project name,
 status, status message, harness, or current step label.
 
+Search pagination is applied after Arcade finds the full matching set, so later
+pages can include older matching runs instead of only continuing through the
+recent browse window.
+
 Search still respects the same Activity visibility rules and filters as normal
 browsing. Project, status, and date filters compose with the query, while
 bootstrap-only runs, eval runs, and flows with `arcade_tracked: false` remain

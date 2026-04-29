@@ -1,7 +1,7 @@
 # Implementation Patterns
 
 **Project**: rp1
-**Last Updated**: 2026-04-26
+**Last Updated**: 2026-04-29
 
 ## Naming Conventions
 
@@ -68,6 +68,7 @@
 - **Notification lifecycle**: Toasts auto-dismiss 6s with dedup guard; sidebar groups by attention level; "Read all" bulk dismiss
 - **Attention-level styling**: `itemClassForLevel` maps attention levels to differentiated background colors for visual triage
 - **LiveRunIndex projection**: Feed, runs, attention, project summaries, and run detail seed from REST, then project emitted workflow activity through a shared `LiveRunIndex` keyed by `runId` to patch only affected surfaces
+- **Server-side Activity search projection**: Search feed requests refresh compact `activity_search_runs` rows, match normalized tokens against Activity-visible fields before pagination, then apply runtime visibility and reuse `runRecordToListRun` so search and browse keep the same feed item contract
 - **Snapshot reconciliation**: `state:snapshot` replaces the project's active-run subset and triggers bounded refetch only for currently visible collections whose membership may have changed
 - **Targeted hydration**: Unknown run events hydrate a single run summary before reducers apply queued updates, avoiding collection-wide invalidation for routine workflow activity
 

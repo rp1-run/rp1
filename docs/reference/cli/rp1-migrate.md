@@ -10,9 +10,15 @@ Migrates an existing rp1 project to the project-local directory model and upgrad
 rp1 migrate [--dry-run]
 ```
 
+## Options
+
+| Option | Description |
+|--------|-------------|
+| `--dry-run` | Preview migration actions without modifying files or database rows. The preview includes Activity search rows that would be created or refreshed. |
+
 ## Description
 
-The `rp1 migrate` command transitions an existing rp1 project to the project-local directory model and ensures managed stanza content is up to date. It performs seven steps, all idempotent:
+The `rp1 migrate` command transitions an existing rp1 project to the project-local directory model and ensures managed stanza content is up to date. It performs eight steps, all idempotent:
 
 1. **Creates `.rp1/project_id`** with a new UUID if the file does not already exist.
 2. **Creates `.rp1/work/`** directory if it does not already exist.
