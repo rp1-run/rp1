@@ -402,6 +402,7 @@ describe("V2 runs API", () => {
 		expect(summaryBody).toEqual(listRun);
 		expect(summaryBody.projectId).toBe(registryProjectId);
 		expect(summaryBody.projectName).toBe("Project summary");
+		expect(summaryBody.currentStep).toBe("build");
 		expect(summaryBody.lastEventAt).toBe("2026-04-12T02:00:00.000Z");
 	});
 

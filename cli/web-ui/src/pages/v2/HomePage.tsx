@@ -18,7 +18,11 @@ import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useWorkspaceTabs } from "@/hooks/useWorkspaceTabs";
 import { isTextInputElement } from "@/lib/keyboard";
 import { resolveRunDisplayName } from "@/lib/run-display";
-import { getRunStatusLabel, getStatusLabel } from "@/lib/status-labels";
+import {
+	getRunCurrentStepLabel,
+	getRunStatusLabel,
+	getStatusLabel,
+} from "@/lib/status-labels";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Run, RunsFilter } from "@/types/runs";
@@ -149,12 +153,13 @@ function FeedEntry({
 }) {
 	const latestEventAt = run.lastEventAt ?? run.startedAt;
 	const displayStatusLabel = getRunStatusLabel(run);
+	const currentStepLabel = getRunCurrentStepLabel(run);
 	const statusLabel =
 		run.status === "running" && displayStatusLabel === getStatusLabel("running")
-			? null
+			? currentStepLabel?.toLowerCase()
 			: displayStatusLabel.toLowerCase();
 	const statusToneClass =
-		run.status === "waiting"
+		run.status === "running" || run.status === "waiting"
 			? "text-accent-amber"
 			: run.status === "failed" || run.status === "abandoned"
 				? "text-failure"
@@ -178,7 +183,7 @@ function FeedEntry({
 			variants={reducedMotion ? feedItemVariantsReduced : feedItemVariants}
 			transition={reducedMotion ? { duration: 0 } : feedItemTransition}
 			className={cn(
-				"group flex w-full items-center gap-2.5 px-3 py-2.5 text-left rounded-[var(--radius)]",
+				"group grid w-full grid-cols-[auto_3.75rem_minmax(0,1fr)_6.75rem] items-center gap-2.5 px-3 py-2.5 text-left rounded-[var(--radius)] sm:grid-cols-[auto_3.75rem_minmax(0,1fr)_7.5rem]",
 				"transition-colors duration-150",
 				"hover:bg-surface",
 				"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
@@ -187,11 +192,11 @@ function FeedEntry({
 		>
 			<StatusDot status={run.status} />
 
-			<div className="flex min-w-0 flex-1 items-center gap-3 xl:gap-2">
-				<span className="w-[5.5em] shrink-0 text-right type-secondary tabular-nums text-fg-ghost xl:w-auto xl:text-left">
-					{formatRelativeTime(latestEventAt)}
-				</span>
+			<span className="min-w-0 text-right type-secondary tabular-nums text-fg-ghost">
+				{formatRelativeTime(latestEventAt)}
+			</span>
 
+			<div className="flex min-w-0 flex-1 items-center gap-3 xl:gap-2">
 				<span className="inline-flex w-[14px] shrink-0 items-center justify-center">
 					<HarnessIcon harness={run.harness} size={14} />
 				</span>
@@ -205,14 +210,20 @@ function FeedEntry({
 				</span>
 
 				{statusLabel && (
-					<span className={cn("shrink-0 type-caption", statusToneClass)}>
+					<span
+						className={cn(
+							"max-w-[7.5rem] shrink-0 truncate type-caption",
+							statusToneClass,
+						)}
+						title={statusLabel}
+					>
 						{statusLabel}
 					</span>
 				)}
 			</div>
 
 			<span
-				className="ml-auto min-w-[82px] max-w-[120px] shrink-0 truncate px-1.5 text-right type-secondary italic text-fg-ghost"
+				className="min-w-0 truncate px-1.5 text-right type-secondary italic text-fg-ghost"
 				title={run.projectName}
 			>
 				{run.projectName}
@@ -534,7 +545,7 @@ export function HomePage() {
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto px-4 py-6 md:px-6 xl:overflow-hidden xl:py-4">
-			<div className="mx-auto h-full min-h-0 max-w-[640px] xl:grid xl:max-w-none xl:grid-cols-[minmax(360px,460px)_minmax(0,1fr)] xl:gap-4">
+			<div className="mx-auto h-full min-h-0 max-w-[640px] xl:grid xl:max-w-none xl:grid-cols-[minmax(420px,560px)_minmax(0,1fr)] xl:gap-4">
 				<section
 					aria-label="Activity feed"
 					className="min-h-0 xl:flex xl:flex-col xl:overflow-hidden xl:border-r xl:border-border xl:pr-4"

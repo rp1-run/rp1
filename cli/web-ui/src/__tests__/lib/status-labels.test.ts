@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { VALID_STATUSES } from "../../../../shared/events";
 import {
+	getRunCurrentStepLabel,
 	getRunStatusLabel,
 	getStatusLabel,
 	STATUS_LABELS,
@@ -110,5 +111,37 @@ describe("getRunStatusLabel", () => {
 				}),
 			),
 		).toBe("Debating");
+	});
+});
+
+describe("getRunCurrentStepLabel", () => {
+	test("uses the matching workflow step name when available", () => {
+		expect(
+			getRunCurrentStepLabel({
+				command: "/build",
+				currentStep: "verify",
+				steps: [
+					{
+						id: "verify",
+						name: "Verify",
+						status: "running",
+						startedAt: "2026-04-12T00:00:00.000Z",
+						completedAt: null,
+						taskCount: null,
+						completedTaskCount: null,
+					},
+				],
+			}),
+		).toBe("Verify");
+	});
+
+	test("humanizes current step ids for lightweight list runs", () => {
+		expect(
+			getRunCurrentStepLabel({
+				command: "/build",
+				currentStep: "waiting_for_user",
+				steps: [],
+			}),
+		).toBe("Waiting For User");
 	});
 });

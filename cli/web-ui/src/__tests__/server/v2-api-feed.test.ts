@@ -148,6 +148,7 @@ describe("handleV2FeedRequest", () => {
 				run: {
 					id: string;
 					command: string;
+					currentStep: string | null;
 					status: string;
 				};
 			}>;
@@ -162,6 +163,7 @@ describe("handleV2FeedRequest", () => {
 			run: {
 				id: "run-latest",
 				command: "/verify",
+				currentStep: "verify",
 				status: "completed",
 			},
 		});

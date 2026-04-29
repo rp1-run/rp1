@@ -3,6 +3,7 @@ import type { Status } from "../../../shared/events";
 import {
 	getSocraticDuelEventLabel,
 	getSocraticDuelOutcomeLabel,
+	getSocraticDuelStepLabel,
 	isSocraticDuelDisplayLabel,
 	isSocraticDuelFlow,
 } from "./socratic-duel-status";
@@ -21,6 +22,31 @@ export const STATUS_LABELS: Record<Status, string> = {
 
 export function getStatusLabel(status: Status): string {
 	return STATUS_LABELS[status];
+}
+
+function formatStepLabel(stepId: string): string {
+	const displayId = stepId.includes(":")
+		? stepId.slice(stepId.lastIndexOf(":") + 1)
+		: stepId;
+	return displayId
+		.split(/[-_]/)
+		.filter(Boolean)
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(" ");
+}
+
+export function getRunCurrentStepLabel(
+	run: Pick<Run, "command" | "currentStep" | "steps">,
+): string | null {
+	if (!run.currentStep) return null;
+	if (isSocraticDuelFlow(run.command)) {
+		const label = getSocraticDuelStepLabel(run.currentStep);
+		if (label) return label;
+	}
+	return (
+		run.steps.find((step) => step.id === run.currentStep)?.name ??
+		formatStepLabel(run.currentStep)
+	);
 }
 
 export function getRunStatusLabel(

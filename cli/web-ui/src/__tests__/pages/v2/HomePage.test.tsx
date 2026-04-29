@@ -20,17 +20,7 @@ let importVersion = 0;
 let wideActivityLayout = false;
 let feedItems: {
 	readonly id: string;
-	readonly run: {
-		readonly id: string;
-		readonly name: string;
-		readonly command: string;
-		readonly status: Run["status"];
-		readonly harness: string;
-		readonly startedAt: string;
-		readonly lastEventAt: string;
-		readonly projectId: string;
-		readonly projectName: string;
-	};
+	readonly run: Run;
 }[] = [];
 
 function createFeedItem({
@@ -46,18 +36,37 @@ function createFeedItem({
 	readonly projectName: string;
 	readonly status?: Run["status"];
 }) {
+	const step: Step = {
+		id: "build",
+		name: "Build",
+		status,
+		startedAt: "2026-04-12T00:00:00.000Z",
+		completedAt: null,
+		taskCount: 1,
+		completedTaskCount: status === "completed" ? 1 : 0,
+	};
 	return {
 		id,
 		run: {
 			id,
+			projectId,
+			projectName,
+			featureId: "feature-1",
+			featureName: "Feature One",
 			name,
 			command: "/build-fast",
 			status,
 			harness: "codex",
+			currentStep: step.id,
+			steps: [step],
+			artifacts: [],
+			events: [],
 			startedAt: "2026-04-12T00:00:00.000Z",
 			lastEventAt: "2026-04-12T00:05:00.000Z",
-			projectId,
-			projectName,
+			completedAt: status === "completed" ? "2026-04-12T00:05:00.000Z" : null,
+			error: null,
+			statusMessage: null,
+			agentSteps: null,
 		},
 	};
 }
@@ -331,13 +340,19 @@ describe("HomePage", () => {
 		await renderHomePage();
 
 		const row = getActivityRow("Build One");
+		const projectName = within(row).getByText("Project One");
+		const rowChildren = Array.from(row.children);
 
-		expect(within(row).getByText("Project One").textContent).toBe(
-			"Project One",
+		expect(row.className).toContain(
+			"grid-cols-[auto_3.75rem_minmax(0,1fr)_6.75rem]",
 		);
+		expect(rowChildren[1]?.className).toContain("tabular-nums");
+		expect(projectName.textContent).toBe("Project One");
+		expect(projectName.classList.contains("truncate")).toBe(true);
 		expect(
 			within(row).queryByRole("button", { name: "Open project Project One" }),
 		).toBeNull();
+		expect(within(row).getByText("build").textContent).toBe("build");
 	});
 
 	test("previews a clicked feed entry inline on wide layouts without leaving Activity", async () => {

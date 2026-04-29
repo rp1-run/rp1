@@ -319,6 +319,30 @@ function getListRunStatusMessage(
 	return isSocraticDuelDisplayLabel(label) ? label : null;
 }
 
+function getCurrentStepFromStepStatuses(
+	stepStatuses: readonly StepStatusEntry[],
+): string | null {
+	for (const step of [...stepStatuses].reverse()) {
+		if (step.status === "running" || step.status === "waiting") {
+			return step.step;
+		}
+	}
+
+	for (const step of [...stepStatuses].reverse()) {
+		if (step.status !== "not_started") {
+			return step.step;
+		}
+	}
+
+	return null;
+}
+
+function getListRunCurrentStep(db: Database, record: RunRecord): string | null {
+	return getCurrentStepFromStepStatuses(
+		getEffectiveStepStatuses(db, record.id),
+	);
+}
+
 function asObject(value: unknown): Readonly<Record<string, unknown>> | null {
 	return typeof value === "object" && value !== null && !Array.isArray(value)
 		? (value as Record<string, unknown>)
@@ -992,6 +1016,7 @@ function runRecordToListRun(
 	record: RunRecordWithLastEvent,
 	project: ProjectEntry,
 	statusMessage: string | null = null,
+	currentStep: string | null = null,
 ): Run {
 	return {
 		id: record.id,
@@ -1003,7 +1028,7 @@ function runRecordToListRun(
 		command: `/${record.flow}`,
 		status: record.status,
 		harness: record.harness,
-		currentStep: null,
+		currentStep,
 		steps: [],
 		artifacts: [],
 		events: [],
@@ -1314,6 +1339,7 @@ export async function handleV2RunsListRequest(
 					record,
 					project,
 					getListRunStatusMessage(db, record),
+					getListRunCurrentStep(db, record),
 				),
 			);
 		}
@@ -1369,6 +1395,7 @@ export async function handleV2RunsAttentionRequest(
 						record,
 						project,
 						getListRunStatusMessage(db, record),
+						getListRunCurrentStep(db, record),
 					),
 				);
 			}
@@ -1411,7 +1438,12 @@ export async function handleV2RunSummaryRequest(
 			fallbackProjectFromRun(record);
 
 		return jsonResponse(
-			runRecordToListRun(record, project, getListRunStatusMessage(db, record)),
+			runRecordToListRun(
+				record,
+				project,
+				getListRunStatusMessage(db, record),
+				getListRunCurrentStep(db, record),
+			),
 		);
 	} catch (error) {
 		return errorResponse(`Failed to fetch run summary: ${String(error)}`);
@@ -2422,6 +2454,7 @@ export async function handleV2FeedRequest(
 				record,
 				project,
 				getListRunStatusMessage(db, record),
+				getListRunCurrentStep(db, record),
 			);
 			runItems.push({
 				type: "run",
