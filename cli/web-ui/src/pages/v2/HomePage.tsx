@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
 	Activity,
+	LoaderCircle,
 	Maximize2,
 	Search,
 	SlidersHorizontal,
@@ -274,9 +275,17 @@ function EmptyActivityState({
 
 function LoadingActivityState() {
 	return (
-		<div className="flex items-center justify-center py-16">
-			<span className="type-body text-fg-ghost">Loading...</span>
-		</div>
+		<output
+			aria-live="polite"
+			className="flex items-center justify-center gap-2 py-16"
+		>
+			<LoaderCircle
+				className="h-4 w-4 animate-spin text-fg-ghost"
+				strokeWidth={1.5}
+				aria-hidden="true"
+			/>
+			<span className="type-body text-fg-ghost">Loading activity...</span>
+		</output>
 	);
 }
 
@@ -402,11 +411,13 @@ function ActivityHeader({
 
 function ActivitySearchBar({
 	value,
+	isLoading,
 	inputRef,
 	onChange,
 	onClear,
 }: {
 	value: string;
+	isLoading: boolean;
 	inputRef: Ref<HTMLInputElement>;
 	onChange: (value: string) => void;
 	onClear: () => void;
@@ -414,14 +425,23 @@ function ActivitySearchBar({
 	return (
 		<div className="mb-4 px-3 xl:shrink-0">
 			<div className="relative flex items-center">
-				<Search
-					className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-fg-ghost"
-					strokeWidth={1.5}
-				/>
+				{isLoading ? (
+					<LoaderCircle
+						className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 animate-spin text-fg-ghost"
+						strokeWidth={1.5}
+						aria-hidden="true"
+					/>
+				) : (
+					<Search
+						className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-fg-ghost"
+						strokeWidth={1.5}
+					/>
+				)}
 				<input
 					ref={inputRef}
 					type="search"
 					value={value}
+					aria-busy={isLoading}
 					onChange={(event) => onChange(event.currentTarget.value)}
 					onKeyDown={(event) => {
 						if (event.key === "Escape") {
@@ -453,6 +473,7 @@ function FeedList({
 	hasMore,
 	isLoading,
 	searchActive,
+	showEmptyLoadingState,
 	renderFeedItem,
 	onLoadEarlier,
 }: {
@@ -460,11 +481,12 @@ function FeedList({
 	hasMore: boolean;
 	isLoading: boolean;
 	searchActive: boolean;
+	showEmptyLoadingState: boolean;
 	renderFeedItem: (item: FeedItem) => ReactNode;
 	onLoadEarlier: () => void;
 }) {
 	if (isLoading && items.length === 0) {
-		return <LoadingActivityState />;
+		return showEmptyLoadingState ? <LoadingActivityState /> : null;
 	}
 
 	if (items.length === 0) {
@@ -682,6 +704,7 @@ export function HomePage() {
 					{showSearch && (
 						<ActivitySearchBar
 							value={searchQuery}
+							isLoading={isLoading}
 							inputRef={searchInputRef}
 							onChange={handleSearchChange}
 							onClear={handleClearSearch}
@@ -703,6 +726,7 @@ export function HomePage() {
 							hasMore={hasMore}
 							isLoading={isLoading}
 							searchActive={searchActive}
+							showEmptyLoadingState={!showSearch}
 							renderFeedItem={renderFeedItem}
 							onLoadEarlier={handleLoadEarlier}
 						/>

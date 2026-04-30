@@ -18,6 +18,7 @@ import type { Artifact, Run, Step } from "@/types/runs";
 
 let importVersion = 0;
 let wideActivityLayout = false;
+let feedLoading = false;
 let feedItems: {
 	readonly id: string;
 	readonly run: Run;
@@ -151,7 +152,7 @@ function installHomePageMocks() {
 			return {
 				items,
 				total: items.length,
-				isLoading: false,
+				isLoading: feedLoading,
 			};
 		},
 	}));
@@ -305,6 +306,7 @@ describe("HomePage", () => {
 		localStorage.clear();
 		sessionStorage.clear();
 		wideActivityLayout = false;
+		feedLoading = false;
 		feedItems = [
 			createFeedItem({
 				id: "run-1",
@@ -394,6 +396,28 @@ describe("HomePage", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Build One")).toBeTruthy();
 			expect(screen.getByText("Build Two")).toBeTruthy();
+		});
+	});
+
+	test("uses the search input as the activity search progress indicator", async () => {
+		feedLoading = true;
+		await renderHomePage();
+
+		fireEvent.click(screen.getByRole("button", { name: "Show search" }));
+
+		const input = screen.getByRole("searchbox", { name: "Search activity" });
+		fireEvent.change(input, { target: { value: "Project Two" } });
+
+		await waitFor(() => {
+			expect(input.getAttribute("aria-busy")).toBe("true");
+			expect(screen.queryByText("Searching...")).toBeNull();
+		});
+
+		fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+
+		await waitFor(() => {
+			expect(input.getAttribute("aria-busy")).toBe("true");
+			expect(screen.queryByText("Updating activity...")).toBeNull();
 		});
 	});
 
