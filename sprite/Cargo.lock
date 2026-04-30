@@ -1786,8 +1786,11 @@ version = "0.1.0"
 dependencies = [
  "agent-client-protocol",
  "assert_cmd",
+ "crossterm",
  "predicates",
  "ratatui",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]

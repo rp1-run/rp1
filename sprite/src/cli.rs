@@ -1,6 +1,10 @@
 use std::{env, error::Error, fmt, io, io::Write, path::PathBuf, process::ExitCode};
 
-use crate::acp::{AcpConfigError, AgentLaunch};
+use crate::{
+    acp::{AcpConfigError, AgentLaunch},
+    session::{SessionController, SessionError, UiCommand},
+    ui::{self, UiError},
+};
 
 const HELP: &str = "\
 sprite - terminal ACP client for rp1 harness workflows
@@ -13,7 +17,7 @@ Usage:
 
 Commands:
   status    Print current client readiness
-  launch    Validate and prepare an ACP agent launch request
+  launch    Start an ACP terminal harness for an agent command
 ";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,6 +26,12 @@ enum Command {
     Version,
     Status,
     Launch(LaunchOptions),
+}
+
+#[derive(Debug)]
+pub enum CliAction {
+    Complete(ExitCode),
+    Launch(AgentLaunch),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,8 +48,9 @@ where
     Stdout: Write,
     Stderr: Write,
 {
-    match run_inner(args, &mut stdout, &mut stderr) {
-        Ok(code) => code,
+    match prepare(args, &mut stdout, &mut stderr) {
+        Ok(CliAction::Complete(code)) => code,
+        Ok(CliAction::Launch(_)) => ExitCode::SUCCESS,
         Err(error) => {
             let _ = writeln!(stderr, "error: {error}");
             ExitCode::FAILURE
@@ -47,11 +58,11 @@ where
     }
 }
 
-fn run_inner<I, S, Stdout, Stderr>(
+pub fn prepare<I, S, Stdout, Stderr>(
     args: I,
     stdout: &mut Stdout,
     _stderr: &mut Stderr,
-) -> Result<ExitCode, CliError>
+) -> Result<CliAction, CliError>
 where
     I: IntoIterator<Item = S>,
     S: Into<String>,
@@ -61,28 +72,58 @@ where
     match parse(args)? {
         Command::Help => {
             write!(stdout, "{HELP}")?;
-            Ok(ExitCode::SUCCESS)
+            Ok(CliAction::Complete(ExitCode::SUCCESS))
         }
         Command::Version => {
             writeln!(stdout, "sprite {}", env!("CARGO_PKG_VERSION"))?;
-            Ok(ExitCode::SUCCESS)
+            Ok(CliAction::Complete(ExitCode::SUCCESS))
         }
         Command::Status => {
             writeln!(stdout, "sprite: ready")?;
-            Ok(ExitCode::SUCCESS)
+            Ok(CliAction::Complete(ExitCode::SUCCESS))
         }
         Command::Launch(options) => {
             let workdir = absolute_workdir(options.workdir)?;
             let launch = AgentLaunch::new(options.command, options.args, workdir)?;
 
-            writeln!(
-                stdout,
-                "sprite: launch request prepared for {} in {}",
-                launch.command(),
-                launch.workdir().display()
-            )?;
-            Ok(ExitCode::SUCCESS)
+            Ok(CliAction::Launch(launch))
         }
+    }
+}
+
+pub async fn run_launch(launch: AgentLaunch) -> Result<ExitCode, CliError> {
+    let (controller, channels) = SessionController::new(launch);
+    let shutdown_tx = channels.commands.clone();
+    let controller_run = controller.run();
+    let ui_run = ui::run_terminal_harness(channels);
+
+    tokio::pin!(controller_run);
+    tokio::pin!(ui_run);
+
+    let mut controller_result = None;
+
+    loop {
+        tokio::select! {
+            ui_result = &mut ui_run => {
+                if controller_result.is_none() {
+                    let _ = shutdown_tx.send(UiCommand::Shutdown).await;
+                    controller_result = Some((&mut controller_run).await);
+                }
+
+                ui_result?;
+                return Ok(exit_code_for_controller(controller_result.as_ref()));
+            }
+            result = &mut controller_run, if controller_result.is_none() => {
+                controller_result = Some(result);
+            }
+        }
+    }
+}
+
+fn exit_code_for_controller(result: Option<&Result<(), SessionError>>) -> ExitCode {
+    match result {
+        Some(Err(_)) => ExitCode::FAILURE,
+        _ => ExitCode::SUCCESS,
     }
 }
 
@@ -161,12 +202,13 @@ fn absolute_workdir(workdir: Option<PathBuf>) -> Result<PathBuf, CliError> {
 }
 
 #[derive(Debug)]
-enum CliError {
+pub enum CliError {
     UnknownCommand(String),
     MissingValue(&'static str),
     MissingAgentCommand,
     Io(io::Error),
     Acp(AcpConfigError),
+    Ui(UiError),
 }
 
 impl fmt::Display for CliError {
@@ -177,6 +219,7 @@ impl fmt::Display for CliError {
             CliError::MissingAgentCommand => write!(formatter, "launch requires an agent command"),
             CliError::Io(error) => write!(formatter, "{error}"),
             CliError::Acp(error) => write!(formatter, "{error}"),
+            CliError::Ui(error) => write!(formatter, "{error}"),
         }
     }
 }
@@ -186,6 +229,7 @@ impl Error for CliError {
         match self {
             CliError::Io(error) => Some(error),
             CliError::Acp(error) => Some(error),
+            CliError::Ui(error) => Some(error),
             _ => None,
         }
     }
@@ -203,9 +247,18 @@ impl From<AcpConfigError> for CliError {
     }
 }
 
+impl From<UiError> for CliError {
+    fn from(error: UiError) -> Self {
+        Self::Ui(error)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::run;
+    use std::path::Path;
+
+    use super::{CliAction, exit_code_for_controller, prepare, run};
+    use crate::session::SessionError;
 
     #[test]
     fn help_is_default_command() {
@@ -229,5 +282,126 @@ mod tests {
         assert_eq!(code, std::process::ExitCode::FAILURE);
         assert!(stdout.is_empty());
         assert!(String::from_utf8(stderr).unwrap().contains("agent command"));
+    }
+
+    #[test]
+    fn version_is_a_synchronous_complete_action() {
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+
+        let action = prepare(["--version"], &mut stdout, &mut stderr).unwrap();
+
+        assert!(matches!(action, CliAction::Complete(_)));
+        assert!(String::from_utf8(stdout).unwrap().starts_with("sprite "));
+        assert!(stderr.is_empty());
+    }
+
+    #[test]
+    fn launch_returns_action_without_prepared_output() {
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+
+        let action = prepare(
+            [
+                "launch",
+                "--workdir",
+                "/tmp/project",
+                "bunx",
+                "--",
+                "@zed-industries/codex-acp",
+            ],
+            &mut stdout,
+            &mut stderr,
+        )
+        .unwrap();
+
+        let CliAction::Launch(launch) = action else {
+            panic!("expected launch action");
+        };
+
+        assert_eq!(launch.command(), "bunx");
+        assert_eq!(launch.args(), ["@zed-industries/codex-acp"]);
+        assert_eq!(launch.workdir(), Path::new("/tmp/project"));
+        assert!(stdout.is_empty());
+        assert!(stderr.is_empty());
+    }
+
+    #[test]
+    fn launch_parses_github_copilot_acp_reference_command() {
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+
+        let action = prepare(
+            [
+                "launch",
+                "--workdir",
+                "/tmp/project",
+                "gh",
+                "--",
+                "copilot",
+                "--",
+                "--acp",
+            ],
+            &mut stdout,
+            &mut stderr,
+        )
+        .unwrap();
+
+        let CliAction::Launch(launch) = action else {
+            panic!("expected launch action");
+        };
+
+        assert_eq!(launch.command(), "gh");
+        assert_eq!(launch.args(), ["copilot", "--", "--acp"]);
+        assert_eq!(launch.workdir(), Path::new("/tmp/project"));
+        assert!(stdout.is_empty());
+        assert!(stderr.is_empty());
+    }
+
+    #[test]
+    fn launch_normalizes_relative_workdir_for_reference_command() {
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        let cwd = std::env::current_dir().unwrap();
+
+        let action = prepare(
+            [
+                "launch",
+                "--workdir",
+                "relative-project",
+                "gh",
+                "--",
+                "copilot",
+                "--",
+                "--acp",
+            ],
+            &mut stdout,
+            &mut stderr,
+        )
+        .unwrap();
+
+        let CliAction::Launch(launch) = action else {
+            panic!("expected launch action");
+        };
+
+        assert_eq!(launch.command(), "gh");
+        assert_eq!(launch.args(), ["copilot", "--", "--acp"]);
+        assert_eq!(launch.workdir(), cwd.join("relative-project"));
+        assert!(stdout.is_empty());
+        assert!(stderr.is_empty());
+    }
+
+    #[test]
+    fn launch_exits_failure_when_controller_failed() {
+        let result = Err(SessionError::EventReceiverDropped);
+
+        assert_eq!(
+            exit_code_for_controller(Some(&result)),
+            std::process::ExitCode::FAILURE
+        );
+        assert_eq!(
+            exit_code_for_controller(None),
+            std::process::ExitCode::SUCCESS
+        );
     }
 }
