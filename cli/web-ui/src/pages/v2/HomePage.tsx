@@ -19,6 +19,7 @@ import { useSearchParams } from "react-router-dom";
 import { FilterBar } from "@/components/v2/FilterBar";
 import { HarnessIcon } from "@/components/v2/HarnessIcon";
 import { RunDetailSurface } from "@/components/v2/RunDetailSurface";
+import { TitleTooltip } from "@/components/v2/TitleTooltip";
 import type { FeedItem } from "@/hooks/useFeed";
 import { useFeed } from "@/hooks/useFeed";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -183,71 +184,73 @@ function FeedEntry({
 					: "text-fg-ghost";
 
 	return (
-		<motion.div
-			ref={entryRef}
-			role="button"
-			tabIndex={0}
-			aria-selected={selected}
-			title={activityTitle}
-			onClick={onClick}
-			onKeyDown={(e) => {
-				if (e.key === "Enter" || e.key === " ") {
-					e.preventDefault();
-					onClick();
-				}
-			}}
-			variants={reducedMotion ? feedItemVariantsReduced : feedItemVariants}
-			transition={reducedMotion ? { duration: 0 } : feedItemTransition}
-			className={cn(
-				"group grid w-full grid-cols-[auto_3.25rem_minmax(0,1fr)_6.75rem] items-center gap-2.5 px-3 py-2.5 text-left rounded-[var(--radius)] sm:grid-cols-[auto_3.25rem_minmax(0,1fr)_7.5rem]",
-				"transition-colors duration-150",
-				"hover:bg-surface",
-				"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
-				selected && "bg-surface ring-1 ring-border",
-			)}
-		>
-			<StatusDot status={run.status} />
-
-			<span
-				className="min-w-0 text-right type-secondary tabular-nums text-fg-ghost"
-				title={timeLabel}
-			>
-				{timeLabel}
-			</span>
-
-			<div className="flex min-w-0 flex-1 items-center gap-3 xl:gap-2">
-				<span className="inline-flex w-[14px] shrink-0 items-center justify-center">
-					<HarnessIcon harness={run.harness} size={14} />
-				</span>
-
-				<span className="shrink-0 type-body font-medium text-fg xl:min-w-0 xl:truncate">
-					{run.command}
-				</span>
-
-				<span className="min-w-0 flex-1 truncate type-secondary text-fg-muted">
-					{activityDisplayName}
-				</span>
-
-				{statusLabel && (
-					<span
-						className={cn(
-							"max-w-[7.5rem] shrink-0 truncate type-caption",
-							statusToneClass,
-						)}
-						title={statusLabel}
-					>
-						{statusLabel}
-					</span>
+		<TitleTooltip>
+			<motion.div
+				ref={entryRef}
+				role="button"
+				tabIndex={0}
+				title={activityTitle}
+				aria-selected={selected}
+				onClick={onClick}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						onClick();
+					}
+				}}
+				variants={reducedMotion ? feedItemVariantsReduced : feedItemVariants}
+				transition={reducedMotion ? { duration: 0 } : feedItemTransition}
+				className={cn(
+					"group grid w-full grid-cols-[auto_3.25rem_minmax(0,1fr)_6.75rem] items-center gap-2.5 px-3 py-2.5 text-left rounded-[var(--radius)] sm:grid-cols-[auto_3.25rem_minmax(0,1fr)_7.5rem]",
+					"transition-colors duration-150",
+					"hover:bg-surface",
+					"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
+					selected && "bg-surface ring-1 ring-border",
 				)}
-			</div>
-
-			<span
-				className="min-w-0 truncate px-1.5 text-right type-secondary italic text-fg-ghost"
-				title={run.projectName}
 			>
-				{run.projectName}
-			</span>
-		</motion.div>
+				<StatusDot status={run.status} />
+
+				<span
+					className="min-w-0 text-right type-secondary tabular-nums text-fg-ghost"
+					title={timeLabel}
+				>
+					{timeLabel}
+				</span>
+
+				<div className="flex min-w-0 flex-1 items-center gap-3 xl:gap-2">
+					<span className="inline-flex w-[14px] shrink-0 items-center justify-center">
+						<HarnessIcon harness={run.harness} size={14} />
+					</span>
+
+					<span className="shrink-0 type-body font-medium text-fg xl:min-w-0 xl:truncate">
+						{run.command}
+					</span>
+
+					<span className="min-w-0 flex-1 truncate type-secondary text-fg-muted">
+						{activityDisplayName}
+					</span>
+
+					{statusLabel && (
+						<span
+							className={cn(
+								"max-w-[7.5rem] shrink-0 truncate type-caption",
+								statusToneClass,
+							)}
+							title={statusLabel}
+						>
+							{statusLabel}
+						</span>
+					)}
+				</div>
+
+				<span
+					className="min-w-0 truncate px-1.5 text-right type-secondary italic text-fg-ghost"
+					title={run.projectName}
+				>
+					{run.projectName}
+				</span>
+			</motion.div>
+		</TitleTooltip>
 	);
 }
 

@@ -379,7 +379,7 @@ describe("HomePage", () => {
 		expect(row.className).toContain(
 			"grid-cols-[auto_3.25rem_minmax(0,1fr)_6.75rem]",
 		);
-		expect(row.title).toBe("/build-fast Build One");
+		expect(row.title).toBe("");
 		expect(rowChildren[1]?.className).toContain("tabular-nums");
 		expect(projectName.textContent).toBe("Project One");
 		expect(projectName.classList.contains("truncate")).toBe(true);
@@ -387,6 +387,20 @@ describe("HomePage", () => {
 			within(row).queryByRole("button", { name: "Open project Project One" }),
 		).toBeNull();
 		expect(within(row).getByText("build").textContent).toBe("build");
+
+		fireEvent.focus(row);
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 300));
+		});
+		expect(screen.queryByRole("tooltip")).toBeNull();
+
+		fireEvent.pointerEnter(row, { pointerType: "mouse" });
+
+		await waitFor(() => {
+			expect(screen.getByRole("tooltip").textContent).toBe(
+				"/build-fast Build One",
+			);
+		});
 	});
 
 	test("filters activity rows from the search control", async () => {
