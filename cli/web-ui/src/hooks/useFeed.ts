@@ -25,6 +25,11 @@ interface FeedResponse {
 	total: number;
 }
 
+interface FetchFeedOptions {
+	readonly signal?: AbortSignal;
+	readonly showLoading?: boolean;
+}
+
 export interface UseFeedOptions extends Partial<RunsFilter> {
 	limit?: number;
 	offset?: number;
@@ -153,62 +158,98 @@ function buildQueryParams(options: UseFeedOptions): URLSearchParams {
 	return params;
 }
 
+function isAbortError(err: unknown): boolean {
+	return (
+		typeof err === "object" &&
+		err !== null &&
+		"name" in err &&
+		err.name === "AbortError"
+	);
+}
+
 export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 	const [items, setItems] = useState<FeedItem[]>([]);
 	const [total, setTotal] = useState(0);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
 	const matchingRunIdsRef = useRef<Set<string>>(new Set());
+	const latestRequestIdRef = useRef(0);
 	useLiveRunIndexBridge();
 	const liveSnapshot = useLiveRunIndexSnapshot();
 
 	const { status, projectId, dateRange, limit, offset, search } = options;
 
-	const fetchFeed = useCallback(async () => {
-		try {
-			const params = buildQueryParams({
-				status,
-				projectId,
-				dateRange,
-				limit,
-				offset,
-				search,
-			});
-			const url = `/api/v2/feed${params.toString() ? `?${params.toString()}` : ""}`;
-			const response = await fetch(url);
+	const fetchFeed = useCallback(
+		async ({ signal, showLoading = false }: FetchFeedOptions = {}) => {
+			const requestId = latestRequestIdRef.current + 1;
+			latestRequestIdRef.current = requestId;
+			const isLatestRequest = () =>
+				latestRequestIdRef.current === requestId && !signal?.aborted;
 
-			if (!response.ok) {
-				throw new Error(`Failed to fetch feed: ${response.statusText}`);
+			if (showLoading) {
+				setIsLoading(true);
 			}
 
-			const data = (await response.json()) as FeedResponse;
-			liveRunIndex.upsertRuns(data.items.map((item) => item.run));
-			const filterOptions = { status, projectId, dateRange, search };
-			matchingRunIdsRef.current = new Set(
-				liveRunIndex
-					.getAllRuns()
-					.filter((run) => matchesFeedFilters(run, filterOptions))
-					.map((run) => run.id),
-			);
-			setItems(
-				data.items
-					.map((item) =>
-						toFeedItem(liveRunIndex.getRun(item.run.id) ?? item.run),
-					)
-					.sort(compareFeedItems),
-			);
-			setTotal(data.total);
-			setError(null);
-		} catch (err) {
-			setError(err instanceof Error ? err : new Error(String(err)));
-		} finally {
-			setIsLoading(false);
-		}
-	}, [status, projectId, dateRange, limit, offset, search]);
+			try {
+				const params = buildQueryParams({
+					status,
+					projectId,
+					dateRange,
+					limit,
+					offset,
+					search,
+				});
+				const url = `/api/v2/feed${params.toString() ? `?${params.toString()}` : ""}`;
+				const response = await fetch(url, { signal });
+
+				if (!response.ok) {
+					throw new Error(`Failed to fetch feed: ${response.statusText}`);
+				}
+
+				const data = (await response.json()) as FeedResponse;
+				if (!isLatestRequest()) {
+					return;
+				}
+
+				liveRunIndex.upsertRuns(data.items.map((item) => item.run));
+				const filterOptions = { status, projectId, dateRange, search };
+				matchingRunIdsRef.current = new Set(
+					liveRunIndex
+						.getAllRuns()
+						.filter((run) => matchesFeedFilters(run, filterOptions))
+						.map((run) => run.id),
+				);
+				setItems(
+					data.items
+						.map((item) =>
+							toFeedItem(liveRunIndex.getRun(item.run.id) ?? item.run),
+						)
+						.sort(compareFeedItems),
+				);
+				setTotal(data.total);
+				setError(null);
+			} catch (err) {
+				if (isAbortError(err) || !isLatestRequest()) {
+					return;
+				}
+
+				setError(err instanceof Error ? err : new Error(String(err)));
+			} finally {
+				if (isLatestRequest()) {
+					setIsLoading(false);
+				}
+			}
+		},
+		[status, projectId, dateRange, limit, offset, search],
+	);
 
 	useEffect(() => {
-		setIsLoading(true);
-		fetchFeed();
+		const controller = new AbortController();
+		void fetchFeed({ signal: controller.signal, showLoading: true });
+
+		return () => {
+			controller.abort();
+		};
 	}, [fetchFeed]);
 
 	useEffect(() => {
@@ -288,8 +329,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 	useReconnectRecovery(fetchFeed);
 
 	const refetch = useCallback(() => {
-		setIsLoading(true);
-		fetchFeed();
+		void fetchFeed({ showLoading: true });
 	}, [fetchFeed]);
 
 	return {

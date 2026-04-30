@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useSyncExternalStore } from "react";
+import type { FeedItem } from "@/hooks/useFeed";
 import { liveRunIndex } from "@/lib/live-run-index";
 import type { Run } from "@/types/runs";
 
@@ -31,6 +32,62 @@ function buildRun(overrides: Partial<Run> = {}): Run {
 	};
 }
 
+interface MockFeedResponse {
+	readonly ok: boolean;
+	readonly statusText: string;
+	readonly json: () => Promise<{
+		readonly items: FeedItem[];
+		readonly total: number;
+	}>;
+}
+
+interface Deferred<T> {
+	readonly promise: Promise<T>;
+	readonly resolve: (value: T) => void;
+	readonly reject: (reason?: unknown) => void;
+}
+
+function createDeferred<T>(): Deferred<T> {
+	let resolve: (value: T) => void = () => {};
+	let reject: (reason?: unknown) => void = () => {};
+	const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+		resolve = resolvePromise;
+		reject = rejectPromise;
+	});
+
+	return { promise, resolve, reject };
+}
+
+function buildFeedItem(run: Run): FeedItem {
+	return {
+		type: "run",
+		id: run.id,
+		timestamp: run.lastEventAt ?? run.startedAt,
+		run,
+	};
+}
+
+function buildFeedResponse(
+	runs: readonly Run[],
+	total = runs.length,
+): MockFeedResponse {
+	return {
+		ok: true,
+		statusText: "OK",
+		json: () =>
+			Promise.resolve({
+				items: runs.map(buildFeedItem),
+				total,
+			}),
+	};
+}
+
+function createAbortError(): Error {
+	const error = new Error("Aborted");
+	error.name = "AbortError";
+	return error;
+}
+
 async function loadUseFeed() {
 	mock.module("../../hooks/useReconnectRecovery.ts", () => ({
 		useReconnectRecovery: () => {},
@@ -54,23 +111,7 @@ beforeEach(() => {
 	mock.restore();
 	liveRunIndex.clear();
 
-	fetchMock = mock(() =>
-		Promise.resolve({
-			ok: true,
-			json: () =>
-				Promise.resolve({
-					items: [
-						{
-							type: "run",
-							id: "run-1",
-							timestamp: "2026-04-10T00:05:00.000Z",
-							run: buildRun(),
-						},
-					],
-					total: 1,
-				}),
-		}),
-	);
+	fetchMock = mock(() => Promise.resolve(buildFeedResponse([buildRun()])));
 
 	globalThis.fetch = fetchMock as unknown as typeof fetch;
 });
@@ -236,16 +277,7 @@ describe("useFeed", () => {
 	});
 
 	test("applies shared multi-token search semantics to live feed updates", async () => {
-		fetchMock = mock(() =>
-			Promise.resolve({
-				ok: true,
-				json: () =>
-					Promise.resolve({
-						items: [],
-						total: 0,
-					}),
-			}),
-		);
+		fetchMock = mock(() => Promise.resolve(buildFeedResponse([], 0)));
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 
 		const { useFeed } = await loadUseFeed();
@@ -300,5 +332,122 @@ describe("useFeed", () => {
 		);
 		expect(result.current.total).toBe(1);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("ignores stale unfiltered responses after current empty search results", async () => {
+		const staleUnfilteredResponse = createDeferred<MockFeedResponse>();
+		const currentSearchResponse = createDeferred<MockFeedResponse>();
+		let requestCount = 0;
+		let firstSignal: AbortSignal | undefined;
+
+		fetchMock = mock((_url: string | URL | Request, init?: RequestInit) => {
+			requestCount += 1;
+			if (requestCount === 1) {
+				firstSignal = init?.signal ?? undefined;
+				return staleUnfilteredResponse.promise;
+			}
+
+			return currentSearchResponse.promise;
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { useFeed } = await loadUseFeed();
+		const { result, rerender } = renderHook(
+			({ search }: { readonly search?: string }) =>
+				useFeed({ limit: 25, offset: 0, search }),
+			{ initialProps: { search: undefined as string | undefined } },
+		);
+
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+		});
+
+		rerender({ search: "rep1" });
+
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+		});
+		expect(firstSignal?.aborted).toBe(true);
+
+		await act(async () => {
+			currentSearchResponse.resolve(buildFeedResponse([], 0));
+			await currentSearchResponse.promise;
+			await Promise.resolve();
+		});
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+		expect(result.current.items).toHaveLength(0);
+		expect(result.current.total).toBe(0);
+		expect(result.current.error).toBeNull();
+
+		await act(async () => {
+			staleUnfilteredResponse.resolve(
+				buildFeedResponse([buildRun({ id: "stale-run", name: "Stale Row" })]),
+			);
+			await staleUnfilteredResponse.promise;
+			await Promise.resolve();
+		});
+
+		expect(result.current.items).toHaveLength(0);
+		expect(result.current.total).toBe(0);
+		expect(result.current.error).toBeNull();
+		expect(liveRunIndex.getRun("stale-run")).toBeUndefined();
+	});
+
+	test("does not clear current loading state when an aborted request rejects", async () => {
+		const abortedResponse = createDeferred<MockFeedResponse>();
+		const currentSearchResponse = createDeferred<MockFeedResponse>();
+		let requestCount = 0;
+
+		fetchMock = mock((_url: string | URL | Request, init?: RequestInit) => {
+			requestCount += 1;
+			if (requestCount === 1) {
+				init?.signal?.addEventListener("abort", () => {
+					abortedResponse.reject(createAbortError());
+				});
+				return abortedResponse.promise;
+			}
+
+			return currentSearchResponse.promise;
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { useFeed } = await loadUseFeed();
+		const { result, rerender } = renderHook(
+			({ search }: { readonly search?: string }) =>
+				useFeed({ limit: 25, offset: 0, search }),
+			{ initialProps: { search: undefined as string | undefined } },
+		);
+
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+		});
+
+		rerender({ search: "rep1" });
+
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+		});
+		await act(async () => {
+			await Promise.resolve();
+		});
+
+		expect(result.current.isLoading).toBe(true);
+		expect(result.current.error).toBeNull();
+
+		await act(async () => {
+			currentSearchResponse.resolve(buildFeedResponse([], 0));
+			await currentSearchResponse.promise;
+			await Promise.resolve();
+		});
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+		expect(result.current.items).toHaveLength(0);
+		expect(result.current.total).toBe(0);
+		expect(result.current.error).toBeNull();
 	});
 });
