@@ -162,6 +162,11 @@ function FeedEntry({
 }) {
 	const latestEventAt = run.lastEventAt ?? run.startedAt;
 	const timeLabel = formatRelativeTime(latestEventAt);
+	const activityDisplayName = resolveRunDisplayName(run) || run.command;
+	const activityTitle =
+		activityDisplayName === run.command
+			? run.command
+			: `${run.command} ${activityDisplayName}`;
 	const displayStatusLabel = getRunStatusLabel(run);
 	const currentStepLabel = getRunCurrentStepLabel(run);
 	const statusLabel =
@@ -183,6 +188,7 @@ function FeedEntry({
 			role="button"
 			tabIndex={0}
 			aria-selected={selected}
+			title={activityTitle}
 			onClick={onClick}
 			onKeyDown={(e) => {
 				if (e.key === "Enter" || e.key === " ") {
@@ -219,7 +225,7 @@ function FeedEntry({
 				</span>
 
 				<span className="min-w-0 flex-1 truncate type-secondary text-fg-muted">
-					{resolveRunDisplayName(run) || run.command}
+					{activityDisplayName}
 				</span>
 
 				{statusLabel && (
