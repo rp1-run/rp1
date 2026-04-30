@@ -9,7 +9,13 @@ import {
 	Workflow,
 	X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import {
 	Dialog,
 	DialogClose,
@@ -67,7 +73,8 @@ export interface RunDetailSurfaceProps {
 	readonly onRouteReplace?: (route: string) => void;
 	readonly onArtifactRouteSelect?: (route: string) => void;
 	readonly onBackToRuns?: () => void;
-	readonly onCurrentStepNameChange?: (name: string | null) => void;
+	readonly showCurrentStepInArtifactHeader?: boolean;
+	readonly artifactHeaderActions?: ReactNode;
 }
 
 export interface RunDetailTarget {
@@ -152,7 +159,8 @@ export function RunDetailSurface({
 	onRouteReplace,
 	onArtifactRouteSelect,
 	onBackToRuns,
-	onCurrentStepNameChange,
+	showCurrentStepInArtifactHeader = false,
+	artifactHeaderActions,
 }: RunDetailSurfaceProps) {
 	const { run, isLoading, error, refetch } = useRunDetail(runId);
 	const [endingOutcome, setEndingOutcome] = useState<
@@ -241,11 +249,6 @@ export function RunDetailSurface({
 			run.currentStep
 		);
 	}, [run]);
-
-	useEffect(() => {
-		onCurrentStepNameChange?.(currentStepName);
-		return () => onCurrentStepNameChange?.(null);
-	}, [currentStepName, onCurrentStepNameChange]);
 
 	const headerStatusMessage =
 		run?.statusMessage && run.statusMessage !== currentStepName
@@ -596,6 +599,10 @@ export function RunDetailSurface({
 
 	const bodyStatusMessage =
 		run.error && run.error !== headerStatusMessage ? run.error : null;
+	const artifactHeaderLabel =
+		showCurrentStepInArtifactHeader && currentStepName
+			? `Current Step: ${currentStepName}`
+			: null;
 
 	const artifactPanel = (
 		<RunArtifactsPanel
@@ -605,6 +612,8 @@ export function RunDetailSurface({
 			runId={runId}
 			subflowDiagram={subflowDiagram}
 			showFrontmatter={showFrontmatter}
+			headerLabel={artifactHeaderLabel}
+			headerActions={artifactHeaderActions}
 			leadingControl={
 				stepPanelOpen ? undefined : (
 					<PanelHeaderIconButton

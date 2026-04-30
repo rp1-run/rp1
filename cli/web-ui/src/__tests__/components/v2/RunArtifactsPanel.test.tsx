@@ -115,11 +115,15 @@ async function renderPanel({
 	selectedArtifact,
 	onArtifactSelect,
 	leadingControl,
+	headerLabel,
+	headerActions,
 }: {
 	readonly artifactGroups: readonly ArtifactGroup[];
 	readonly selectedArtifact: Artifact | null;
 	readonly onArtifactSelect?: (artifact: Artifact) => void;
 	readonly leadingControl?: ReactNode;
+	readonly headerLabel?: ReactNode;
+	readonly headerActions?: ReactNode;
 }) {
 	const { RunArtifactsPanel } = await importPanel();
 
@@ -132,6 +136,8 @@ async function renderPanel({
 			subflowDiagram={null}
 			showFrontmatter={true}
 			leadingControl={leadingControl}
+			headerLabel={headerLabel}
+			headerActions={headerActions}
 		/>,
 	);
 }
@@ -202,12 +208,66 @@ describe("RunArtifactsPanel", () => {
 		const headerShell =
 			leadingControl.parentElement?.parentElement?.parentElement;
 
-		expect(leadingControl.parentElement?.className).toContain("self-start");
+		expect(leadingControl.parentElement?.className).toContain("items-center");
 		expect(headerShell?.className).toContain("px-4");
-		expect(headerShell?.className).toContain("pt-3");
-		expect(headerShell?.className).toContain("pb-2");
+		expect(headerShell?.className).toContain("py-2");
 		expect(headerShell?.className).not.toContain("py-3");
 		expect(headerShell?.className).not.toContain("md:px-[40px]");
+	});
+
+	test("renders optional context and actions inside the compact artifact header", async () => {
+		const onlyArtifact = artifact(
+			"doc-1",
+			"build",
+			".rp1/work/features/example/tasks.md",
+		);
+
+		await renderPanel({
+			artifactGroups: [group("step:build", "Build", "build", [onlyArtifact])],
+			selectedArtifact: onlyArtifact,
+			headerLabel: "Current Step: Build",
+			headerActions: (
+				<button type="button" aria-label="Expand selected run">
+					Expand
+				</button>
+			),
+		});
+
+		expect(screen.getByText("Current Step: Build")).toBeTruthy();
+		expect(
+			screen.getByRole("button", { name: "Expand selected run" }),
+		).toBeTruthy();
+		expect(
+			within(screen.getByRole("list", { name: "Artifacts" })).getByRole(
+				"button",
+				{ name: "tasks.md" },
+			),
+		).toBeTruthy();
+	});
+
+	test("allows file tabs to wrap instead of using a horizontal scroller", async () => {
+		const firstArtifact = artifact(
+			"doc-1",
+			"build",
+			".rp1/work/features/example/summary.md",
+		);
+		const secondArtifact = artifact(
+			"doc-2",
+			"build",
+			".rp1/work/features/example/report.md",
+		);
+
+		await renderPanel({
+			artifactGroups: [
+				group("step:build", "Build", "build", [firstArtifact, secondArtifact]),
+			],
+			selectedArtifact: firstArtifact,
+		});
+
+		const fileList = screen.getByRole("list", { name: "Artifacts" });
+		expect(fileList.className).toContain("flex-wrap");
+		expect(fileList.className).not.toContain("whitespace-nowrap");
+		expect(fileList.parentElement?.className).not.toContain("overflow-x-auto");
 	});
 
 	test("shows one file list for one multi-artifact group", async () => {

@@ -321,48 +321,31 @@ function SelectedRunPane({
 	selectedRunId: string | null;
 	onExpand: () => void;
 }) {
-	const [currentStepName, setCurrentStepName] = useState<{
-		readonly runId: string | null;
-		readonly name: string | null;
-	}>({ runId: null, name: null });
-	const handleCurrentStepNameChange = useCallback(
-		(name: string | null) => {
-			setCurrentStepName({ runId: selectedRunId, name });
-		},
-		[selectedRunId],
-	);
-	const previewTitle =
-		currentStepName.runId === selectedRunId && currentStepName.name
-			? `Current Step: ${currentStepName.name}`
-			: "Run Preview";
+	const expandAction = selectedRunId ? (
+		<button
+			type="button"
+			onClick={onExpand}
+			className="flex h-4 items-center text-fg-ghost transition-colors duration-150 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+			aria-label="Expand selected run"
+			title="Expand selected run"
+		>
+			<Maximize2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+		</button>
+	) : null;
 
 	return (
 		<section
 			aria-label="Selected run"
 			className="hidden min-h-0 min-w-0 overflow-hidden rounded-[var(--radius)] border border-border bg-surface-void xl:flex xl:flex-col"
 		>
-			<header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
-				<h2 className="min-w-0 truncate type-body font-medium text-fg">
-					{previewTitle}
-				</h2>
-				<button
-					type="button"
-					onClick={onExpand}
-					disabled={!selectedRunId}
-					className="flex h-7 w-7 items-center justify-center rounded text-fg-ghost transition-colors duration-150 hover:bg-surface hover:text-fg-muted disabled:pointer-events-none disabled:opacity-40"
-					aria-label="Expand selected run"
-					title="Expand selected run"
-				>
-					<Maximize2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-				</button>
-			</header>
 			<div className="min-h-0 flex-1 overflow-hidden">
 				{selectedRunId ? (
 					<RunDetailSurface
 						key={selectedRunId}
 						runId={selectedRunId}
 						mode="activity-preview"
-						onCurrentStepNameChange={handleCurrentStepNameChange}
+						showCurrentStepInArtifactHeader={true}
+						artifactHeaderActions={expandAction}
 					/>
 				) : (
 					<NoSelectedRunState />

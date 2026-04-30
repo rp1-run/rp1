@@ -120,7 +120,7 @@ function createRunDetail(runId: string | undefined): Run | null {
 }
 
 function getPreviewText() {
-	return screen.getAllByTestId("run-detail-surface")[0]?.textContent;
+	return screen.getAllByTestId("run-detail-preview-body")[0]?.textContent;
 }
 
 function getActivityRow(name: string) {
@@ -219,8 +219,20 @@ function installHomePageMocks() {
 	}));
 
 	mock.module("@/components/v2/RunArtifactsPanel", () => ({
-		RunArtifactsPanel: ({ runId }: { readonly runId?: string }) => (
-			<div data-testid="run-detail-surface">Preview {runId}</div>
+		RunArtifactsPanel: ({
+			runId,
+			headerLabel,
+			headerActions,
+		}: {
+			readonly runId?: string;
+			readonly headerLabel?: ReactNode;
+			readonly headerActions?: ReactNode;
+		}) => (
+			<div data-testid="run-detail-surface">
+				{headerLabel && <span>{headerLabel}</span>}
+				{headerActions}
+				<span data-testid="run-detail-preview-body">Preview {runId}</span>
+			</div>
 		),
 	}));
 
@@ -485,9 +497,7 @@ describe("HomePage", () => {
 			expect(getPreviewText()).toBe("Preview run-1");
 		});
 		await waitFor(() => {
-			expect(
-				screen.getByRole("heading", { name: "Current Step: Build" }),
-			).toBeTruthy();
+			expect(screen.getByText("Current Step: Build")).toBeTruthy();
 		});
 		expect(screen.queryByText("Run Preview")).toBeNull();
 

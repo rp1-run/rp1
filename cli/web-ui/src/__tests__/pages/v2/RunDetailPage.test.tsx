@@ -136,6 +136,10 @@ function applyRunDetailMocks() {
 		useWebSocket: () => webSocketApi,
 	}));
 
+	mock.module("@/components/v2/HarnessIcon", () => ({
+		HarnessIcon: () => <span data-testid="harness-icon" />,
+	}));
+
 	mock.module("@/components/ui/resizable", () => ({
 		ResizablePanelGroup: ({ children }: { children?: ReactNode }) => (
 			<div>{children}</div>
