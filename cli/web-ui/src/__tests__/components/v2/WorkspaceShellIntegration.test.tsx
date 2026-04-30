@@ -106,14 +106,22 @@ async function renderShell(initialEntries: readonly string[]) {
 		`../../../components/v2/WorkspaceTabStrip.tsx?workspace-shell-test=${importVersion}`
 	);
 
+	function RunWorkspaceWithChrome() {
+		return (
+			<>
+				<TerminalBreadcrumb />
+				<RunWorkspace />
+			</>
+		);
+	}
+
 	return render(
 		<MemoryRouter initialEntries={[...initialEntries]}>
 			<BreadcrumbProvider>
 				<WorkspaceTabsProvider>
-					<TerminalBreadcrumb />
 					<WorkspaceTabStrip />
 					<Routes>
-						<Route path="/runs/:runId/*" element={<RunWorkspace />} />
+						<Route path="/runs/:runId/*" element={<RunWorkspaceWithChrome />} />
 						<Route path="/projects/:projectId" element={<ProjectWorkspace />} />
 						<Route path="/projects" element={<LocationProbe />} />
 					</Routes>
@@ -135,7 +143,7 @@ describe("workspace shell integration", () => {
 		sessionStorage.clear();
 	});
 
-	test("keeps breadcrumb chrome synchronized with the active workspace tab", async () => {
+	test("keeps run info chrome scoped to the active run workspace", async () => {
 		setStoredState({
 			tabs: [
 				{
@@ -185,8 +193,7 @@ describe("workspace shell integration", () => {
 				"/projects/proj-1",
 			);
 		});
-		expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toBeTruthy();
-		expect(screen.getByRole("link", { name: /Project One/i })).toBeTruthy();
+		expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
 		expect(screen.queryByRole("navigation", { name: "Run info" })).toBeNull();
 
 		fireEvent.click(
