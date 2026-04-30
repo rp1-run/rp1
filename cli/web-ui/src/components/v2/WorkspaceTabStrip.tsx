@@ -105,7 +105,7 @@ export function WorkspaceTabStrip({
 		}
 	}, [hasTabs]);
 
-	if (!hasTabs && !action) {
+	if (!hasTabs) {
 		return null;
 	}
 

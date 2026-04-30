@@ -282,12 +282,12 @@ describe("WorkspaceTabStrip", () => {
 		});
 	});
 
-	test("keeps the top bar visible for actions even when there are no open tabs", async () => {
+	test("hides the top bar and its actions when there are no open tabs", async () => {
 		await renderStrip(["/"], {
 			action: <button type="button">Notifications</button>,
 		});
 
-		expect(screen.getByRole("button", { name: "Notifications" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Notifications" })).toBeNull();
 		expect(
 			screen.queryByRole("button", { name: /Close all .* workspace tabs/ }),
 		).toBeNull();

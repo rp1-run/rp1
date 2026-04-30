@@ -251,6 +251,15 @@ describe("AppLayout notifications shell wiring", () => {
 		});
 	});
 
+	test("keeps notifications available without rendering a workspace tab bar on tabless routes", async () => {
+		await renderLayout();
+
+		expect(getNotificationTriggers()).toHaveLength(2);
+		expect(
+			screen.queryByRole("navigation", { name: "Open workspaces" }),
+		).toBeNull();
+	});
+
 	test("supports keyboard toggle, restores focus on close, and keeps overlays exclusive", async () => {
 		await renderLayout();
 
@@ -314,6 +323,7 @@ describe("AppLayout notifications shell wiring", () => {
 	test("renders workspace navigation without a global breadcrumb row", async () => {
 		await renderLayoutAt("/runs/run-1");
 
+		expect(getNotificationTriggers()).toHaveLength(2);
 		expect(
 			screen.getByRole("navigation", { name: "Open workspaces" }),
 		).toBeTruthy();

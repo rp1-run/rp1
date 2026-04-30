@@ -12,9 +12,15 @@ import { ShortcutHelpOverlay } from "@/components/v2/ShortcutHelpOverlay";
 import { WorkspaceTabStrip } from "@/components/v2/WorkspaceTabStrip";
 import { BreadcrumbProvider } from "@/hooks/useBreadcrumbContext";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
-import { useNotifications } from "@/hooks/useNotifications";
+import {
+	type NotificationsSummary,
+	useNotifications,
+} from "@/hooks/useNotifications";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
-import { WorkspaceTabsProvider } from "@/hooks/useWorkspaceTabs";
+import {
+	useWorkspaceTabs,
+	WorkspaceTabsProvider,
+} from "@/hooks/useWorkspaceTabs";
 import {
 	pageTransition,
 	pageTransitionReduced,
@@ -40,12 +46,51 @@ function isFullHeightRoute(pathname: string): boolean {
 
 type ActiveOverlay = "none" | "command-palette" | "notifications";
 
+interface DesktopWorkspaceChromeProps {
+	readonly summary: NotificationsSummary;
+	readonly notificationsOpen: boolean;
+	readonly onToggleNotifications: () => void;
+}
+
 function createCurrentPath(
 	pathname: string,
 	search: string,
 	hash: string,
 ): string {
 	return `${pathname}${search}${hash}`;
+}
+
+function DesktopWorkspaceChrome({
+	summary,
+	notificationsOpen,
+	onToggleNotifications,
+}: DesktopWorkspaceChromeProps) {
+	const { tabs } = useWorkspaceTabs();
+	const hasTabs = tabs.length > 0;
+
+	return (
+		<>
+			<WorkspaceTabStrip
+				action={
+					<NotificationTrigger
+						summary={summary}
+						open={notificationsOpen}
+						onClick={onToggleNotifications}
+					/>
+				}
+			/>
+			{!hasTabs ? (
+				<div className="fixed right-0 top-14 z-30 hidden rounded-l-md border border-r-0 border-border/60 bg-background/95 shadow-sm backdrop-blur md:flex">
+					<NotificationTrigger
+						summary={summary}
+						open={notificationsOpen}
+						onClick={onToggleNotifications}
+						className="h-11 w-11 rounded-l-md rounded-r-none"
+					/>
+				</div>
+			) : null}
+		</>
+	);
 }
 
 export function AppLayout() {
@@ -133,14 +178,10 @@ export function AppLayout() {
 						<IconRail className="hidden md:flex" />
 
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-							<WorkspaceTabStrip
-								action={
-									<NotificationTrigger
-										summary={summary}
-										open={activeOverlay === "notifications"}
-										onClick={handleToggleNotifications}
-									/>
-								}
+							<DesktopWorkspaceChrome
+								summary={summary}
+								notificationsOpen={activeOverlay === "notifications"}
+								onToggleNotifications={handleToggleNotifications}
 							/>
 							{isFullHeight ? (
 								<main className="min-h-0 flex-1 overflow-hidden">
