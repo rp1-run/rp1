@@ -1,0 +1,17 @@
+[package]
+name = "sprite"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.86"
+description = "Terminal ACP client and orchestration boundary for rp1 harness workflows"
+license = "MIT"
+repository = "https://github.com/rp1/sprite"
+
+[dependencies]
+agent-client-protocol = "0.11.1"
+ratatui = "0.30.0"
+
+[dev-dependencies]
+assert_cmd = "2.2.1"
+predicates = "3.1.4"
+
