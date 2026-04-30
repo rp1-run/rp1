@@ -8,7 +8,7 @@ const selectTriggerVariants = cva(
 	{
 		variants: {
 			size: {
-				sm: "h-7 px-2 text-xs min-w-[80px] max-w-[160px] gap-1 border border-border/50 bg-transparent hover:bg-surface text-fg-muted",
+				sm: "h-7 px-2 type-secondary font-medium min-w-[80px] max-w-[160px] gap-1 border border-border/50 bg-transparent hover:bg-surface text-fg-muted",
 				md: "h-9 px-3 text-sm min-w-[140px] gap-2 border border-border bg-background hover:bg-muted",
 				lg: "h-10 px-4 text-sm min-w-[160px] gap-2 border border-border bg-background hover:bg-muted",
 			},
@@ -30,7 +30,7 @@ const checkSizes = {
 } as const;
 
 const optionPadding = {
-	sm: "gap-1 px-2 py-1.5 text-xs",
+	sm: "gap-1 px-2 py-1.5 type-secondary font-medium",
 	md: "gap-2 px-3 py-2 text-sm",
 	lg: "gap-2 px-3 py-2 text-sm",
 } as const;

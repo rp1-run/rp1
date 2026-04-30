@@ -112,7 +112,7 @@ export function FilterBar({
 						aria-selected={filters.status === tab.value}
 						onClick={() => handleStatusChange(tab.value)}
 						className={cn(
-							"shrink-0 rounded-md px-1.5 py-1 text-[11px] font-medium leading-none transition-colors duration-150",
+							"shrink-0 rounded-md px-1.5 py-1 type-secondary font-medium transition-colors duration-150",
 							filters.status === tab.value
 								? "bg-surface text-fg"
 								: "text-fg-ghost hover:text-fg-muted hover:bg-surface/50",
