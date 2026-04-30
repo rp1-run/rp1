@@ -377,7 +377,7 @@ describe("HomePage", () => {
 		const rowChildren = Array.from(row.children);
 
 		expect(row.className).toContain(
-			"grid-cols-[auto_3.75rem_minmax(0,1fr)_6.75rem]",
+			"grid-cols-[auto_3.25rem_minmax(0,1fr)_6.75rem]",
 		);
 		expect(rowChildren[1]?.className).toContain("tabular-nums");
 		expect(projectName.textContent).toBe("Project One");
