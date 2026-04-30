@@ -311,13 +311,17 @@ describe("AppLayout notifications shell wiring", () => {
 		});
 	});
 
-	test("renders the workspace strip alongside durable shell navigation for open workspaces", async () => {
+	test("renders workspace navigation without a global breadcrumb row", async () => {
 		await renderLayoutAt("/runs/run-1");
 
 		expect(
 			screen.getByRole("navigation", { name: "Open workspaces" }),
 		).toBeTruthy();
-		expect(screen.getByRole("button", { name: "Run run-1" })).toBeTruthy();
+		expect(
+			screen.getByRole("button", { name: /^(Build One|Run run-1)/ }),
+		).toBeTruthy();
+		expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
+		expect(screen.queryByRole("navigation", { name: "Run info" })).toBeNull();
 		expect(
 			screen.getByRole("navigation", { name: "Mobile navigation" }),
 		).toBeTruthy();

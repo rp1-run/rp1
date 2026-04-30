@@ -86,6 +86,7 @@ mock.module("@/providers/WebSocketProvider", () => ({
 }));
 
 mock.module("@/hooks/useMediaQuery", () => ({
+	useMediaQuery: () => false,
 	useIsMobile: () => false,
 }));
 

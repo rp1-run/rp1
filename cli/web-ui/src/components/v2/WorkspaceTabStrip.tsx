@@ -1,6 +1,20 @@
-import { Activity, FolderOpen, NotebookTabs, X } from "lucide-react";
+import { Activity, CopyX, FolderOpen, NotebookTabs, X } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useWorkspaceTabs, type WorkspaceTab } from "@/hooks/useWorkspaceTabs";
 import { cn } from "@/lib/utils";
@@ -61,10 +75,16 @@ export function WorkspaceTabStrip({
 	action,
 	className,
 }: WorkspaceTabStripProps = {}) {
-	const { tabs, activeKey, activateWorkspace, closeWorkspace } =
-		useWorkspaceTabs();
+	const {
+		tabs,
+		activeKey,
+		activateWorkspace,
+		closeWorkspace,
+		closeAllWorkspaces,
+	} = useWorkspaceTabs();
 	const reducedMotion = usePrefersReducedMotion();
 	const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+	const [closeAllDialogOpen, setCloseAllDialogOpen] = useState(false);
 
 	useEffect(() => {
 		if (!activeKey) return;
@@ -78,6 +98,12 @@ export function WorkspaceTabStrip({
 	}, [activeKey, reducedMotion]);
 
 	const hasTabs = tabs.length > 0;
+
+	useEffect(() => {
+		if (!hasTabs) {
+			setCloseAllDialogOpen(false);
+		}
+	}, [hasTabs]);
 
 	if (!hasTabs && !action) {
 		return null;
@@ -110,6 +136,11 @@ export function WorkspaceTabStrip({
 		window.requestAnimationFrame(() => {
 			focusItem(nextFocusableKey);
 		});
+	};
+
+	const handleConfirmCloseAll = () => {
+		closeAllWorkspaces();
+		setCloseAllDialogOpen(false);
 	};
 
 	const handleNavigationKey = (
@@ -184,6 +215,28 @@ export function WorkspaceTabStrip({
 				className,
 			)}
 		>
+			{hasTabs ? (
+				<TooltipProvider>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<button
+								type="button"
+								onClick={() => setCloseAllDialogOpen(true)}
+								className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-fg-ghost transition-colors duration-150 hover:bg-surface/60 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+								aria-label={`Close all ${tabs.length} workspace tabs`}
+							>
+								<CopyX className="h-3.5 w-3.5" strokeWidth={1.5} />
+							</button>
+						</TooltipTrigger>
+						<TooltipContent
+							side="bottom"
+							className="border-0 bg-surface text-fg shadow-none"
+						>
+							Close all tabs
+						</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
+			) : null}
 			{hasTabs ? (
 				<nav
 					aria-label="Open workspaces"
@@ -267,6 +320,34 @@ export function WorkspaceTabStrip({
 			{action ? (
 				<div className="flex shrink-0 items-center">{action}</div>
 			) : null}
+			<Dialog open={closeAllDialogOpen} onOpenChange={setCloseAllDialogOpen}>
+				<DialogContent className="max-w-[20rem] rounded border-border bg-surface p-4 shadow-sm">
+					<DialogTitle className="type-body font-medium text-fg">
+						Close all tabs?
+					</DialogTitle>
+					<DialogDescription className="type-secondary text-fg-muted">
+						Close {tabs.length} open workspace tab
+						{tabs.length === 1 ? "" : "s"}.
+					</DialogDescription>
+					<DialogFooter className="mt-2 flex-row justify-end gap-2 space-x-0">
+						<DialogClose asChild>
+							<button
+								type="button"
+								className="rounded px-2 py-1 type-secondary text-fg-ghost transition-colors duration-150 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+							>
+								Cancel
+							</button>
+						</DialogClose>
+						<button
+							type="button"
+							onClick={handleConfirmCloseAll}
+							className="rounded px-2 py-1 type-secondary text-accent-amber transition-colors duration-150 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+						>
+							Close all
+						</button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

@@ -1,12 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
 	Activity,
+	LoaderCircle,
 	Maximize2,
-	NotebookTabs,
+	Search,
 	SlidersHorizontal,
+	X,
 } from "lucide-react";
 import {
 	type ReactNode,
+	type Ref,
 	useCallback,
 	useEffect,
 	useRef,
@@ -16,6 +19,7 @@ import { useSearchParams } from "react-router-dom";
 import { FilterBar } from "@/components/v2/FilterBar";
 import { HarnessIcon } from "@/components/v2/HarnessIcon";
 import { RunDetailSurface } from "@/components/v2/RunDetailSurface";
+import { TitleTooltip } from "@/components/v2/TitleTooltip";
 import type { FeedItem } from "@/hooks/useFeed";
 import { useFeed } from "@/hooks/useFeed";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -23,12 +27,17 @@ import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useWorkspaceTabs } from "@/hooks/useWorkspaceTabs";
 import { isTextInputElement } from "@/lib/keyboard";
 import { resolveRunDisplayName } from "@/lib/run-display";
-import { getRunStatusLabel, getStatusLabel } from "@/lib/status-labels";
+import {
+	getRunCurrentStepLabel,
+	getRunStatusLabel,
+	getStatusLabel,
+} from "@/lib/status-labels";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Run, RunsFilter } from "@/types/runs";
 
 const PAGE_SIZE = 25;
+const SEARCH_QUERY_DEBOUNCE_MS = 150;
 const ACTIVITY_NAVIGATION_KEYS = new Set(["ArrowDown", "j", "ArrowUp", "k"]);
 
 function hasOpenDialog(): boolean {
@@ -144,24 +153,29 @@ function FeedEntry({
 	selected,
 	entryRef,
 	onClick,
-	onProjectClick,
 	reducedMotion,
 }: {
 	run: Run;
 	selected: boolean;
 	entryRef: (node: HTMLDivElement | null) => void;
 	onClick: () => void;
-	onProjectClick: (projectId: string) => void;
 	reducedMotion: boolean;
 }) {
 	const latestEventAt = run.lastEventAt ?? run.startedAt;
+	const timeLabel = formatRelativeTime(latestEventAt);
+	const activityDisplayName = resolveRunDisplayName(run) || run.command;
+	const activityTitle =
+		activityDisplayName === run.command
+			? run.command
+			: `${run.command} ${activityDisplayName}`;
 	const displayStatusLabel = getRunStatusLabel(run);
+	const currentStepLabel = getRunCurrentStepLabel(run);
 	const statusLabel =
 		run.status === "running" && displayStatusLabel === getStatusLabel("running")
-			? null
+			? currentStepLabel?.toLowerCase()
 			: displayStatusLabel.toLowerCase();
 	const statusToneClass =
-		run.status === "waiting"
+		run.status === "running" || run.status === "waiting"
 			? "text-accent-amber"
 			: run.status === "failed" || run.status === "abandoned"
 				? "text-failure"
@@ -170,77 +184,90 @@ function FeedEntry({
 					: "text-fg-ghost";
 
 	return (
-		<motion.div
-			ref={entryRef}
-			role="button"
-			tabIndex={0}
-			aria-selected={selected}
-			onClick={onClick}
-			onKeyDown={(e) => {
-				if (e.key === "Enter" || e.key === " ") {
-					e.preventDefault();
-					onClick();
-				}
-			}}
-			variants={reducedMotion ? feedItemVariantsReduced : feedItemVariants}
-			transition={reducedMotion ? { duration: 0 } : feedItemTransition}
-			className={cn(
-				"group flex w-full items-center gap-2.5 px-3 py-2.5 text-left rounded-[var(--radius)]",
-				"transition-colors duration-150",
-				"hover:bg-surface",
-				"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
-				selected && "bg-surface ring-1 ring-border",
-			)}
-		>
-			<StatusDot status={run.status} />
-
-			<div className="flex min-w-0 flex-1 items-center gap-3 xl:gap-2">
-				<span className="w-[5.5em] shrink-0 text-right type-secondary tabular-nums text-fg-ghost xl:w-auto xl:text-left">
-					{formatRelativeTime(latestEventAt)}
-				</span>
-
-				<span className="inline-flex w-[14px] shrink-0 items-center justify-center">
-					<HarnessIcon harness={run.harness} size={14} />
-				</span>
-
-				<span className="shrink-0 type-body font-medium text-fg xl:min-w-0 xl:truncate">
-					{run.command}
-				</span>
-
-				<span className="min-w-0 flex-1 truncate type-secondary text-fg-muted">
-					{resolveRunDisplayName(run) || run.command}
-				</span>
-
-				{statusLabel && (
-					<span className={cn("shrink-0 type-caption", statusToneClass)}>
-						{statusLabel}
-					</span>
-				)}
-			</div>
-
-			<button
-				type="button"
-				onClick={(e) => {
-					e.stopPropagation();
-					onProjectClick(run.projectId);
-				}}
+		<TitleTooltip>
+			<motion.div
+				ref={entryRef}
+				role="button"
+				tabIndex={0}
+				title={activityTitle}
+				aria-selected={selected}
+				onClick={onClick}
 				onKeyDown={(e) => {
 					if (e.key === "Enter" || e.key === " ") {
-						e.stopPropagation();
+						e.preventDefault();
+						onClick();
 					}
 				}}
-				className="ml-auto flex h-7 min-w-[82px] max-w-[120px] shrink-0 items-center justify-end gap-1 rounded px-1.5 type-secondary italic text-fg-ghost transition-colors duration-150 hover:bg-surface hover:text-fg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
-				aria-label={`Open project ${run.projectName}`}
-				title={`Open project ${run.projectName}`}
+				variants={reducedMotion ? feedItemVariantsReduced : feedItemVariants}
+				transition={reducedMotion ? { duration: 0 } : feedItemTransition}
+				className={cn(
+					"group grid w-full grid-cols-[auto_3.75rem_minmax(0,1fr)_6.75rem] items-center gap-2.5 px-3 py-2.5 text-left rounded-[var(--radius)] sm:grid-cols-[auto_3.75rem_minmax(0,1fr)_7.5rem]",
+					"transition-colors duration-150",
+					"hover:bg-surface",
+					"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
+					selected && "bg-surface ring-1 ring-border",
+				)}
 			>
-				<span className="truncate">{run.projectName}</span>
-				<NotebookTabs className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-			</button>
-		</motion.div>
+				<StatusDot status={run.status} />
+
+				<span
+					className="min-w-0 whitespace-nowrap text-right type-secondary tabular-nums text-fg-ghost"
+					title={timeLabel}
+				>
+					{timeLabel}
+				</span>
+
+				<div className="flex min-w-0 flex-1 items-center gap-3 xl:gap-2">
+					<span className="inline-flex w-[14px] shrink-0 items-center justify-center">
+						<HarnessIcon harness={run.harness} size={14} />
+					</span>
+
+					<span className="shrink-0 type-body font-medium text-fg xl:min-w-0 xl:truncate">
+						{run.command}
+					</span>
+
+					<span className="min-w-0 flex-1 truncate type-secondary text-fg-muted">
+						{activityDisplayName}
+					</span>
+
+					{statusLabel && (
+						<span
+							className={cn(
+								"max-w-[7.5rem] shrink-0 truncate type-caption",
+								statusToneClass,
+							)}
+							title={statusLabel}
+						>
+							{statusLabel}
+						</span>
+					)}
+				</div>
+
+				<span
+					className="min-w-0 truncate px-1.5 text-right type-secondary italic text-fg-ghost"
+					title={run.projectName}
+				>
+					{run.projectName}
+				</span>
+			</motion.div>
+		</TitleTooltip>
 	);
 }
 
-function EmptyActivityState() {
+function EmptyActivityState({
+	searchActive = false,
+}: {
+	searchActive?: boolean;
+}) {
+	if (searchActive) {
+		return (
+			<div className="flex flex-col items-center justify-center py-24 text-center xl:px-4 xl:py-16">
+				<Search className="h-5 w-5 text-fg-ghost mb-4" strokeWidth={1.5} />
+				<p className="type-body text-fg-ghost">No matching activity.</p>
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex flex-col items-center justify-center py-24 text-center xl:px-4 xl:py-16">
 			<Activity className="h-5 w-5 text-fg-ghost mb-4" strokeWidth={1.5} />
@@ -262,9 +289,17 @@ function EmptyActivityState() {
 
 function LoadingActivityState() {
 	return (
-		<div className="flex items-center justify-center py-16">
-			<span className="type-body text-fg-ghost">Loading...</span>
-		</div>
+		<output
+			aria-live="polite"
+			className="flex items-center justify-center gap-2 py-16"
+		>
+			<LoaderCircle
+				className="h-4 w-4 animate-spin text-fg-ghost"
+				strokeWidth={1.5}
+				aria-hidden="true"
+			/>
+			<span className="type-body text-fg-ghost">Loading activity...</span>
+		</output>
 	);
 }
 
@@ -286,30 +321,31 @@ function SelectedRunPane({
 	selectedRunId: string | null;
 	onExpand: () => void;
 }) {
+	const expandAction = selectedRunId ? (
+		<button
+			type="button"
+			onClick={onExpand}
+			className="flex h-4 items-center text-fg-ghost transition-colors duration-150 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+			aria-label="Expand selected run"
+			title="Expand selected run"
+		>
+			<Maximize2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+		</button>
+	) : null;
+
 	return (
 		<section
 			aria-label="Selected run"
 			className="hidden min-h-0 min-w-0 overflow-hidden rounded-[var(--radius)] border border-border bg-surface-void xl:flex xl:flex-col"
 		>
-			<header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
-				<h2 className="type-body font-medium text-fg">Run Preview</h2>
-				<button
-					type="button"
-					onClick={onExpand}
-					disabled={!selectedRunId}
-					className="flex h-7 w-7 items-center justify-center rounded text-fg-ghost transition-colors duration-150 hover:bg-surface hover:text-fg-muted disabled:pointer-events-none disabled:opacity-40"
-					aria-label="Expand selected run"
-					title="Expand selected run"
-				>
-					<Maximize2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-				</button>
-			</header>
 			<div className="min-h-0 flex-1 overflow-hidden">
 				{selectedRunId ? (
 					<RunDetailSurface
 						key={selectedRunId}
 						runId={selectedRunId}
 						mode="activity-preview"
+						showCurrentStepInArtifactHeader={true}
+						artifactHeaderActions={expandAction}
 					/>
 				) : (
 					<NoSelectedRunState />
@@ -320,10 +356,14 @@ function SelectedRunPane({
 }
 
 function ActivityHeader({
+	showSearch,
 	showFilters,
+	onToggleSearch,
 	onToggleFilters,
 }: {
+	showSearch: boolean;
 	showFilters: boolean;
+	onToggleSearch: () => void;
 	onToggleFilters: () => void;
 }) {
 	return (
@@ -332,21 +372,96 @@ function ActivityHeader({
 				<Activity className="h-4 w-4" strokeWidth={1.5} />
 				Activity
 			</h1>
-			<button
-				type="button"
-				onClick={onToggleFilters}
-				className={cn(
-					"flex h-7 w-7 items-center justify-center rounded transition-colors duration-150",
-					showFilters
-						? "text-fg bg-surface"
-						: "text-fg-ghost hover:text-fg-muted",
-				)}
-				aria-label={showFilters ? "Hide filters" : "Show filters"}
-				aria-expanded={showFilters}
-			>
-				<SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
-			</button>
+			<div className="flex items-center gap-1">
+				<button
+					type="button"
+					onClick={onToggleSearch}
+					className={cn(
+						"flex h-7 w-7 items-center justify-center rounded transition-colors duration-150",
+						showSearch
+							? "text-fg bg-surface"
+							: "text-fg-ghost hover:text-fg-muted",
+					)}
+					aria-label={showSearch ? "Hide search" : "Show search"}
+					aria-expanded={showSearch}
+				>
+					<Search className="h-3.5 w-3.5" strokeWidth={1.5} />
+				</button>
+				<button
+					type="button"
+					onClick={onToggleFilters}
+					className={cn(
+						"flex h-7 w-7 items-center justify-center rounded transition-colors duration-150",
+						showFilters
+							? "text-fg bg-surface"
+							: "text-fg-ghost hover:text-fg-muted",
+					)}
+					aria-label={showFilters ? "Hide filters" : "Show filters"}
+					aria-expanded={showFilters}
+				>
+					<SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
+				</button>
+			</div>
 		</header>
+	);
+}
+
+function ActivitySearchBar({
+	value,
+	isLoading,
+	inputRef,
+	onChange,
+	onClear,
+}: {
+	value: string;
+	isLoading: boolean;
+	inputRef: Ref<HTMLInputElement>;
+	onChange: (value: string) => void;
+	onClear: () => void;
+}) {
+	return (
+		<div className="mb-4 px-3 xl:shrink-0">
+			<div className="relative flex items-center">
+				{isLoading ? (
+					<LoaderCircle
+						className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 animate-spin text-fg-ghost"
+						strokeWidth={1.5}
+						aria-hidden="true"
+					/>
+				) : (
+					<Search
+						className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-fg-ghost"
+						strokeWidth={1.5}
+					/>
+				)}
+				<input
+					ref={inputRef}
+					type="search"
+					value={value}
+					aria-busy={isLoading}
+					onChange={(event) => onChange(event.currentTarget.value)}
+					onKeyDown={(event) => {
+						if (event.key === "Escape") {
+							event.preventDefault();
+							onClear();
+						}
+					}}
+					className="h-8 w-full rounded-md border border-border bg-surface-void pl-8 pr-8 type-secondary text-fg outline-none transition-colors duration-150 placeholder:text-fg-ghost focus:border-fg-ghost [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
+					placeholder="Search activity"
+					aria-label="Search activity"
+				/>
+				{value && (
+					<button
+						type="button"
+						onClick={onClear}
+						className="absolute right-1.5 flex h-5 w-5 items-center justify-center rounded text-fg-ghost transition-colors duration-150 hover:bg-surface hover:text-fg"
+						aria-label="Clear search"
+					>
+						<X className="h-3 w-3" strokeWidth={1.5} />
+					</button>
+				)}
+			</div>
+		</div>
 	);
 }
 
@@ -354,21 +469,25 @@ function FeedList({
 	items,
 	hasMore,
 	isLoading,
+	searchActive,
+	showEmptyLoadingState,
 	renderFeedItem,
 	onLoadEarlier,
 }: {
 	items: readonly FeedItem[];
 	hasMore: boolean;
 	isLoading: boolean;
+	searchActive: boolean;
+	showEmptyLoadingState: boolean;
 	renderFeedItem: (item: FeedItem) => ReactNode;
 	onLoadEarlier: () => void;
 }) {
 	if (isLoading && items.length === 0) {
-		return <LoadingActivityState />;
+		return showEmptyLoadingState ? <LoadingActivityState /> : null;
 	}
 
 	if (items.length === 0) {
-		return <EmptyActivityState />;
+		return <EmptyActivityState searchActive={searchActive} />;
 	}
 
 	return (
@@ -404,8 +523,12 @@ export function HomePage() {
 	const reducedMotion = usePrefersReducedMotion();
 	const isWideActivityLayout = useMediaQuery("(min-width: 1280px)");
 	const activityRowRefs = useRef(new Map<string, HTMLDivElement>());
+	const searchInputRef = useRef<HTMLInputElement>(null);
 
 	const initialProjectId = searchParams.get("projectId");
+	const [showSearch, setShowSearch] = useState(false);
+	const [searchQuery, setSearchQuery] = useState("");
+	const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 	const [showFilters, setShowFilters] = useState(!!initialProjectId);
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 	const [filters, setFilters] = useState<RunsFilter>({
@@ -414,13 +537,20 @@ export function HomePage() {
 		dateRange: "all",
 	});
 	const [pageSize, setPageSize] = useState(PAGE_SIZE);
+	const normalizedSearchQuery = searchQuery.trim();
+	const normalizedDebouncedSearchQuery = debouncedSearchQuery.trim();
+	const searchPending =
+		normalizedSearchQuery !== normalizedDebouncedSearchQuery;
 
 	const { items, total, isLoading } = useFeed({
 		...filters,
 		limit: pageSize,
+		search: normalizedDebouncedSearchQuery || undefined,
 	});
 
 	const hasMore = items.length < total;
+	const searchActive = normalizedSearchQuery.length > 0;
+	const isFeedRefreshing = isLoading || searchPending;
 
 	const handleFiltersChange = useCallback(
 		(newFilters: RunsFilter) => {
@@ -444,6 +574,43 @@ export function HomePage() {
 	const handleLoadEarlier = useCallback(() => {
 		setPageSize((prev) => prev + PAGE_SIZE);
 	}, []);
+
+	const handleToggleSearch = useCallback(() => {
+		if (showSearch) {
+			setSearchQuery("");
+			setDebouncedSearchQuery("");
+			setPageSize(PAGE_SIZE);
+			setShowSearch(false);
+			return;
+		}
+		setShowSearch(true);
+	}, [showSearch]);
+
+	const handleSearchChange = useCallback((value: string) => {
+		setSearchQuery(value);
+		setPageSize(PAGE_SIZE);
+	}, []);
+
+	const handleClearSearch = useCallback(() => {
+		setSearchQuery("");
+		setDebouncedSearchQuery("");
+		setPageSize(PAGE_SIZE);
+		searchInputRef.current?.focus();
+	}, []);
+
+	useEffect(() => {
+		const timeoutId = window.setTimeout(() => {
+			setDebouncedSearchQuery(searchQuery);
+		}, SEARCH_QUERY_DEBOUNCE_MS);
+
+		return () => window.clearTimeout(timeoutId);
+	}, [searchQuery]);
+
+	useEffect(() => {
+		if (showSearch) {
+			searchInputRef.current?.focus();
+		}
+	}, [showSearch]);
 
 	useEffect(() => {
 		if (!isWideActivityLayout) return;
@@ -517,13 +684,6 @@ export function HomePage() {
 		openWorkspace(`/runs/${selectedRunId}`);
 	}, [openWorkspace, selectedRunId]);
 
-	const handleProjectClick = useCallback(
-		(projectId: string) => {
-			openWorkspace(`/projects/${projectId}`);
-		},
-		[openWorkspace],
-	);
-
 	const renderFeedItem = useCallback(
 		(item: FeedItem) => {
 			return (
@@ -533,31 +693,36 @@ export function HomePage() {
 					selected={item.id === selectedRunId}
 					entryRef={(node) => setActivityRowRef(item.id, node)}
 					onClick={() => handleRunClick(item.id)}
-					onProjectClick={handleProjectClick}
 					reducedMotion={reducedMotion}
 				/>
 			);
 		},
-		[
-			handleRunClick,
-			handleProjectClick,
-			reducedMotion,
-			selectedRunId,
-			setActivityRowRef,
-		],
+		[handleRunClick, reducedMotion, selectedRunId, setActivityRowRef],
 	);
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto px-4 py-6 md:px-6 xl:overflow-hidden xl:py-4">
-			<div className="mx-auto h-full min-h-0 max-w-[640px] xl:grid xl:max-w-none xl:grid-cols-[minmax(360px,460px)_minmax(0,1fr)] xl:gap-4">
+			<div className="mx-auto h-full min-h-0 max-w-[640px] xl:grid xl:max-w-none xl:grid-cols-[minmax(420px,560px)_minmax(0,1fr)] xl:gap-4">
 				<section
 					aria-label="Activity feed"
 					className="min-h-0 xl:flex xl:flex-col xl:overflow-hidden xl:border-r xl:border-border xl:pr-4"
 				>
 					<ActivityHeader
+						showSearch={showSearch}
 						showFilters={showFilters}
+						onToggleSearch={handleToggleSearch}
 						onToggleFilters={() => setShowFilters((prev) => !prev)}
 					/>
+
+					{showSearch && (
+						<ActivitySearchBar
+							value={searchQuery}
+							isLoading={isFeedRefreshing}
+							inputRef={searchInputRef}
+							onChange={handleSearchChange}
+							onClear={handleClearSearch}
+						/>
+					)}
 
 					{showFilters && (
 						<div className="mb-4 px-3 xl:shrink-0">
@@ -572,7 +737,9 @@ export function HomePage() {
 						<FeedList
 							items={items}
 							hasMore={hasMore}
-							isLoading={isLoading}
+							isLoading={isFeedRefreshing}
+							searchActive={searchActive}
+							showEmptyLoadingState={!showSearch}
 							renderFeedItem={renderFeedItem}
 							onLoadEarlier={handleLoadEarlier}
 						/>

@@ -16,8 +16,14 @@ import {
 } from "../../hooks/useWorkspaceTabs";
 
 function WorkspaceTabsHarness() {
-	const { tabs, activeKey, lastDurableRoute, openWorkspace, closeWorkspace } =
-		useWorkspaceTabs();
+	const {
+		tabs,
+		activeKey,
+		lastDurableRoute,
+		openWorkspace,
+		closeWorkspace,
+		closeAllWorkspaces,
+	} = useWorkspaceTabs();
 	const location = useLocation();
 
 	return (
@@ -38,6 +44,9 @@ function WorkspaceTabsHarness() {
 			</button>
 			<button type="button" onClick={() => closeWorkspace("run:run-2")}>
 				close-run-2
+			</button>
+			<button type="button" onClick={closeAllWorkspaces}>
+				close-all
 			</button>
 		</div>
 	);
@@ -315,6 +324,47 @@ describe("useWorkspaceTabs", () => {
 
 		act(() => {
 			fireEvent.click(screen.getByRole("button", { name: "close-run-1" }));
+		});
+
+		await waitFor(() => {
+			expect(screen.getByTestId("location").textContent).toBe("/projects");
+		});
+		expect(parseTabs()).toEqual([]);
+		expect(screen.getByTestId("active-key").textContent).toBe("null");
+	});
+
+	test("closes every workspace and returns to the last durable route", async () => {
+		setStoredState({
+			tabs: [
+				{
+					key: "run:run-1",
+					kind: "run",
+					currentPath: "/runs/run-1",
+					rootPath: "/runs/run-1",
+					title: "Run one",
+					subtitle: null,
+					projectId: null,
+					lastVisitedAt: 1,
+				},
+				{
+					key: "project:proj-1",
+					kind: "project",
+					currentPath: "/projects/proj-1",
+					rootPath: "/projects/proj-1",
+					title: "Project one",
+					subtitle: null,
+					projectId: "proj-1",
+					lastVisitedAt: 2,
+				},
+			],
+			activeKey: "run:run-1",
+			lastDurableRoute: "/projects",
+		});
+
+		renderHarness(["/runs/run-1"]);
+
+		act(() => {
+			fireEvent.click(screen.getByRole("button", { name: "close-all" }));
 		});
 
 		await waitFor(() => {

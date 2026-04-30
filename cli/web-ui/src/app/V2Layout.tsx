@@ -9,7 +9,6 @@ import { NotificationsSidebar } from "@/components/v2/NotificationsSidebar";
 import { NotificationContainer } from "@/components/v2/NotificationToast";
 import { NotificationTrigger } from "@/components/v2/NotificationTrigger";
 import { ShortcutHelpOverlay } from "@/components/v2/ShortcutHelpOverlay";
-import { TerminalBreadcrumb } from "@/components/v2/TerminalBreadcrumb";
 import { WorkspaceTabStrip } from "@/components/v2/WorkspaceTabStrip";
 import { BreadcrumbProvider } from "@/hooks/useBreadcrumbContext";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
@@ -143,7 +142,6 @@ export function AppLayout() {
 									/>
 								}
 							/>
-							<TerminalBreadcrumb />
 							{isFullHeight ? (
 								<main className="min-h-0 flex-1 overflow-hidden">
 									<AnimatePresence mode="wait">

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
+	act,
 	cleanup,
 	fireEvent,
 	render,
@@ -18,19 +19,11 @@ import type { Artifact, Run, Step } from "@/types/runs";
 
 let importVersion = 0;
 let wideActivityLayout = false;
+let feedLoading = false;
+let feedSearchQueries: string[] = [];
 let feedItems: {
 	readonly id: string;
-	readonly run: {
-		readonly id: string;
-		readonly name: string;
-		readonly command: string;
-		readonly status: Run["status"];
-		readonly harness: string;
-		readonly startedAt: string;
-		readonly lastEventAt: string;
-		readonly projectId: string;
-		readonly projectName: string;
-	};
+	readonly run: Run;
 }[] = [];
 
 function createFeedItem({
@@ -46,18 +39,37 @@ function createFeedItem({
 	readonly projectName: string;
 	readonly status?: Run["status"];
 }) {
+	const step: Step = {
+		id: "build",
+		name: "Build",
+		status,
+		startedAt: "2026-04-12T00:00:00.000Z",
+		completedAt: null,
+		taskCount: 1,
+		completedTaskCount: status === "completed" ? 1 : 0,
+	};
 	return {
 		id,
 		run: {
 			id,
+			projectId,
+			projectName,
+			featureId: "feature-1",
+			featureName: "Feature One",
 			name,
 			command: "/build-fast",
 			status,
 			harness: "codex",
+			currentStep: step.id,
+			steps: [step],
+			artifacts: [],
+			events: [],
 			startedAt: "2026-04-12T00:00:00.000Z",
 			lastEventAt: "2026-04-12T00:05:00.000Z",
-			projectId,
-			projectName,
+			completedAt: status === "completed" ? "2026-04-12T00:05:00.000Z" : null,
+			error: null,
+			statusMessage: null,
+			agentSteps: null,
 		},
 	};
 }
@@ -108,7 +120,7 @@ function createRunDetail(runId: string | undefined): Run | null {
 }
 
 function getPreviewText() {
-	return screen.getAllByTestId("run-detail-surface")[0]?.textContent;
+	return screen.getAllByTestId("run-detail-preview-body")[0]?.textContent;
 }
 
 function getActivityRow(name: string) {
@@ -117,13 +129,41 @@ function getActivityRow(name: string) {
 	return row as HTMLElement;
 }
 
+async function flushSearchDebounce() {
+	await act(async () => {
+		await new Promise((resolve) => setTimeout(resolve, 200));
+	});
+}
+
 function installHomePageMocks() {
 	mock.module("@/hooks/useFeed", () => ({
-		useFeed: () => ({
-			items: feedItems,
-			total: feedItems.length,
-			isLoading: false,
-		}),
+		useFeed: (options?: { readonly search?: string }) => {
+			const search = options?.search?.trim().toLowerCase() ?? "";
+			feedSearchQueries.push(search);
+			const items = search
+				? feedItems.filter((item) =>
+						[
+							item.run.id,
+							item.run.name,
+							item.run.command,
+							item.run.featureName,
+							item.run.featureId,
+							item.run.projectName,
+							item.run.status,
+							item.run.currentStep,
+						]
+							.filter(Boolean)
+							.join(" ")
+							.toLowerCase()
+							.includes(search),
+					)
+				: feedItems;
+			return {
+				items,
+				total: items.length,
+				isLoading: feedLoading,
+			};
+		},
 	}));
 
 	mock.module("@/hooks/useMediaQuery", () => ({
@@ -179,8 +219,20 @@ function installHomePageMocks() {
 	}));
 
 	mock.module("@/components/v2/RunArtifactsPanel", () => ({
-		RunArtifactsPanel: ({ runId }: { readonly runId?: string }) => (
-			<div data-testid="run-detail-surface">Preview {runId}</div>
+		RunArtifactsPanel: ({
+			runId,
+			headerLabel,
+			headerActions,
+		}: {
+			readonly runId?: string;
+			readonly headerLabel?: ReactNode;
+			readonly headerActions?: ReactNode;
+		}) => (
+			<div data-testid="run-detail-surface">
+				{headerLabel && <span>{headerLabel}</span>}
+				{headerActions}
+				<span data-testid="run-detail-preview-body">Preview {runId}</span>
+			</div>
 		),
 	}));
 
@@ -275,6 +327,8 @@ describe("HomePage", () => {
 		localStorage.clear();
 		sessionStorage.clear();
 		wideActivityLayout = false;
+		feedLoading = false;
+		feedSearchQueries = [];
 		feedItems = [
 			createFeedItem({
 				id: "run-1",
@@ -327,34 +381,110 @@ describe("HomePage", () => {
 		});
 	});
 
-	test("reopens an existing project workspace from the feed project action", async () => {
-		setStoredState({
-			tabs: [
-				{
-					key: "project:proj-1",
-					kind: "project",
-					currentPath: "/projects/proj-1?view=summary",
-					rootPath: "/projects/proj-1",
-					title: "Project One",
-					subtitle: null,
-					projectId: "proj-1",
-					lastVisitedAt: 1,
-				},
-			],
-			activeKey: null,
-			lastDurableRoute: "/",
-		});
-
+	test("renders project names in activity rows without a project action", async () => {
 		await renderHomePage();
 
-		fireEvent.click(
-			screen.getByRole("button", { name: "Open project Project One" }),
+		const row = getActivityRow("Build One");
+		const projectName = within(row).getByText("Project One");
+		const rowChildren = Array.from(row.children);
+
+		expect(row.className).toContain(
+			"grid-cols-[auto_3.75rem_minmax(0,1fr)_6.75rem]",
 		);
+		expect(row.title).toBe("");
+		expect(rowChildren[1]?.className).toContain("tabular-nums");
+		expect(rowChildren[1]?.className).toContain("whitespace-nowrap");
+		expect(projectName.textContent).toBe("Project One");
+		expect(projectName.classList.contains("truncate")).toBe(true);
+		expect(
+			within(row).queryByRole("button", { name: "Open project Project One" }),
+		).toBeNull();
+		expect(within(row).getByText("build").textContent).toBe("build");
+
+		fireEvent.focus(row);
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 300));
+		});
+		expect(screen.queryByRole("tooltip")).toBeNull();
+
+		fireEvent.pointerEnter(row, { pointerType: "mouse" });
 
 		await waitFor(() => {
-			expect(screen.getByTestId("location-probe").textContent).toBe(
-				"/projects/proj-1?view=summary",
+			expect(screen.getByRole("tooltip").textContent).toBe(
+				"/build-fast Build One",
 			);
+		});
+	});
+
+	test("filters activity rows from the search control", async () => {
+		await renderHomePage();
+
+		fireEvent.click(screen.getByRole("button", { name: "Show search" }));
+
+		const input = screen.getByRole("searchbox", { name: "Search activity" });
+		fireEvent.change(input, { target: { value: "Project Two" } });
+
+		await flushSearchDebounce();
+		expect(screen.queryByText("Build One")).toBeNull();
+		expect(screen.getByText("Build Two")).toBeTruthy();
+
+		fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+
+		expect(screen.getByText("Build One")).toBeTruthy();
+		expect(screen.getByText("Build Two")).toBeTruthy();
+	});
+
+	test("debounces activity search requests while typing", async () => {
+		await renderHomePage();
+
+		fireEvent.click(screen.getByRole("button", { name: "Show search" }));
+
+		const input = screen.getByRole("searchbox", { name: "Search activity" });
+		fireEvent.change(input, { target: { value: "r" } });
+		fireEvent.change(input, { target: { value: "re" } });
+		fireEvent.change(input, { target: { value: "rep" } });
+		fireEvent.change(input, { target: { value: "repl" } });
+
+		await flushSearchDebounce();
+		expect(feedSearchQueries).toContain("repl");
+
+		expect(feedSearchQueries).not.toContain("r");
+		expect(feedSearchQueries).not.toContain("re");
+		expect(feedSearchQueries).not.toContain("rep");
+
+		feedSearchQueries = [];
+		fireEvent.change(input, { target: { value: "rep" } });
+		fireEvent.change(input, { target: { value: "re" } });
+		fireEvent.change(input, { target: { value: "r" } });
+		fireEvent.change(input, { target: { value: "" } });
+
+		await flushSearchDebounce();
+		expect(feedSearchQueries).toContain("");
+
+		expect(feedSearchQueries).not.toContain("r");
+		expect(feedSearchQueries).not.toContain("re");
+		expect(feedSearchQueries).not.toContain("rep");
+	});
+
+	test("uses the search input as the activity search progress indicator", async () => {
+		feedLoading = true;
+		await renderHomePage();
+
+		fireEvent.click(screen.getByRole("button", { name: "Show search" }));
+
+		const input = screen.getByRole("searchbox", { name: "Search activity" });
+		fireEvent.change(input, { target: { value: "Project Two" } });
+
+		await waitFor(() => {
+			expect(input.getAttribute("aria-busy")).toBe("true");
+			expect(screen.queryByText("Searching...")).toBeNull();
+		});
+
+		fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+
+		await waitFor(() => {
+			expect(input.getAttribute("aria-busy")).toBe("true");
+			expect(screen.queryByText("Updating activity...")).toBeNull();
 		});
 	});
 
@@ -366,6 +496,10 @@ describe("HomePage", () => {
 		await waitFor(() => {
 			expect(getPreviewText()).toBe("Preview run-1");
 		});
+		await waitFor(() => {
+			expect(screen.getByText("Current Step: Build")).toBeTruthy();
+		});
+		expect(screen.queryByText("Run Preview")).toBeNull();
 
 		fireEvent.click(screen.getByText("Build Two").closest('[role="button"]')!);
 
@@ -452,7 +586,7 @@ describe("HomePage", () => {
 		).toBe(true);
 	});
 
-	test("opens the project from the dedicated project area in the wide activity row", async () => {
+	test("keeps the wide activity row project name static", async () => {
 		wideActivityLayout = true;
 
 		await renderHomePage();
@@ -461,15 +595,14 @@ describe("HomePage", () => {
 			expect(getPreviewText()).toBe("Preview run-1");
 		});
 
-		fireEvent.click(
-			screen.getByRole("button", { name: "Open project Project Two" }),
-		);
+		const row = getActivityRow("Build Two");
 
-		await waitFor(() => {
-			expect(screen.getByTestId("location-probe").textContent).toBe(
-				"/projects/proj-2",
-			);
-		});
+		expect(within(row).getByText("Project Two").textContent).toBe(
+			"Project Two",
+		);
+		expect(
+			within(row).queryByRole("button", { name: "Open project Project Two" }),
+		).toBeNull();
 	});
 
 	test("expands the selected run by focusing its existing workspace tab", async () => {

@@ -102,6 +102,28 @@ Click any item to select it. Wide layouts show the inline preview; narrow
 layouts open or focus the run workspace tab. The project shortcut remains a
 nested action that opens the project workspace without selecting the run row.
 
+### Search
+
+Activity search spans the full eligible local run history in `~/.rp1/rp1.db`,
+not only the recent rows currently visible in the browse window. Use the search
+box to find older tracked runs by visible Activity fields such as run id,
+workflow or command text, run display name, feature name or id, project name,
+status, status message, harness, or current step label.
+
+Search pagination is applied after Arcade finds the full matching set, so later
+pages can include older matching runs instead of only continuing through the
+recent browse window.
+
+Search still respects the same Activity visibility rules and filters as normal
+browsing. Project, status, and date filters compose with the query, while
+bootstrap-only runs, eval runs, and flows with `arcade_tracked: false` remain
+excluded from results.
+
+Existing history becomes searchable lazily when Arcade handles a matching
+search request. Running `rp1 migrate` prebuilds Activity search rows for the
+current project's existing history, and `rp1 migrate --dry-run` reports the
+planned search-row work without rebuilding it.
+
 ### Empty State
 
 When there is no feed data, Arcade shows `No activity yet.` and a link to the

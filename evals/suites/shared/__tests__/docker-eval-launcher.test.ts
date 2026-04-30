@@ -156,9 +156,7 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 		expect(runArgs).toContain(
 			`${HOST_PROMPTFOO_CONFIG_DIR}:/home/rp1user/.promptfoo`,
 		);
-		expect(runArgs).toContain(
-			"PROMPTFOO_CONFIG_DIR=/home/rp1user/.promptfoo",
-		);
+		expect(runArgs).toContain("PROMPTFOO_CONFIG_DIR=/home/rp1user/.promptfoo");
 		expect(runArgs).toContain("ANTHROPIC_API_KEY");
 		expect(runArgs).toContain("GITHUB_TOKEN");
 		expect(runArgs).not.toContain("OPENAI_API_KEY");

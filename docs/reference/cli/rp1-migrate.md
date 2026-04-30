@@ -7,12 +7,18 @@ Migrates an existing rp1 project to the project-local directory model and upgrad
 ## Synopsis
 
 ```bash
-rp1 migrate
+rp1 migrate [--dry-run]
 ```
+
+## Options
+
+| Option | Description |
+|--------|-------------|
+| `--dry-run` | Preview migration actions without modifying files or database rows. The preview includes Activity search rows that would be created or refreshed. |
 
 ## Description
 
-The `rp1 migrate` command transitions an existing rp1 project to the project-local directory model and ensures managed stanza content is up to date. It performs seven steps, all idempotent:
+The `rp1 migrate` command transitions an existing rp1 project to the project-local directory model and ensures managed stanza content is up to date. It performs eight steps, all idempotent:
 
 1. **Creates `.rp1/project_id`** with a new UUID if the file does not already exist.
 2. **Creates `.rp1/work/`** directory if it does not already exist.
@@ -20,9 +26,12 @@ The `rp1 migrate` command transitions an existing rp1 project to the project-loc
 4. **Updates `.gitignore`** to include work directory ignore rules and ensure `.rp1/project_id` is not ignored.
 5. **Repairs Arcade metadata** for runs, artifacts, tasks, and notifications whose canonical project identity matches this project, including deterministic workflow fields when they can be derived safely.
 6. **Moves misplaced project-local artifacts** from previously mis-resolved `.rp1` roots into this project's canonical `.rp1/` directory when the source files can be found safely.
-7. **Upgrades stale stanza content** in `CLAUDE.md`, `AGENTS.md`, and `.gitignore` to the latest fence version (see [Fence Versioning](fence-versioning.md)).
+7. **Rebuilds Activity search rows** for existing workflow history so full-history Activity search can find eligible runs immediately after migration.
+8. **Upgrades stale stanza content** in `CLAUDE.md`, `AGENTS.md`, and `.gitignore` to the latest fence version (see [Fence Versioning](fence-versioning.md)).
 
 The command is fully automatic with no interactive prompts. It is safe to run multiple times -- subsequent runs detect that migration has already been completed and report no changes.
+
+Use `--dry-run` to preview planned migration work. Dry-run mode reports Activity search rows that would be created or refreshed without creating the search table, rebuilding rows, moving files, or rewriting run/event history.
 
 ## Project Root Discovery
 
@@ -73,6 +82,7 @@ Migration complete for /Users/dev/myproject
   Updated .gitignore (added 3 rule(s))
   Repaired Arcade metadata in 5 run(s), 3 artifact(s), 2 task(s), 4 notification(s)
   Moved 3 misplaced artifact file(s) into .rp1/
+  Rebuilt Activity search rows: 18 created, 2 refreshed
   Updated CLAUDE.md stanza (v0.6.0 -> v0.7.1)
   Updated AGENTS.md stanza (v0.6.0 -> v0.7.1)
 ```
@@ -87,7 +97,22 @@ Migration complete for /Users/dev/myproject
   No legacy work directory found
   .gitignore already up to date
   No database records to backfill
+  Activity search rows already up to date
   Stanza content already up to date
+```
+
+Dry-run output uses the same project discovery, but does not mutate files or the database:
+
+```
+Migration dry-run for /Users/dev/myproject
+
+  Project ID: 550e8400-e29b-41d4-a716-446655440000 (already existed)
+  .rp1/work/ already exists
+  No legacy work directory found
+  Would rebuild Activity search rows: 18 to create, 2 to refresh
+  Would leave database history and files unchanged
+
+Run without --dry-run to apply these changes.
 ```
 
 ## Examples
@@ -97,6 +122,12 @@ Migration complete for /Users/dev/myproject
 ```bash
 cd /path/to/my-project
 rp1 migrate
+```
+
+### Preview Migration Work
+
+```bash
+rp1 migrate --dry-run
 ```
 
 ### Migration Workflow

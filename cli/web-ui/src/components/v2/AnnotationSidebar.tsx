@@ -12,6 +12,7 @@ import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { useAnnotationContext } from "@/providers/AnnotationProvider";
 import type { Annotation, AnnotationFilter } from "@/types/annotations";
+import { PanelHeader, PanelHeaderIconButton } from "./PanelHeader";
 import { Select } from "./Select";
 
 export interface AnnotationSidebarProps {
@@ -453,44 +454,33 @@ export function AnnotationSidebar({
 			className={cn("flex h-full flex-col", className)}
 			aria-label="Annotations panel"
 		>
-			<header className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2">
-				<div className="flex items-center gap-2">
-					<MessageSquare
-						className="h-3.5 w-3.5 text-fg-ghost"
-						strokeWidth={1.5}
-					/>
-					<h2 className="type-secondary text-fg-muted tracking-wider uppercase">
-						Annotations
-					</h2>
+			<PanelHeader
+				icon={MessageSquare}
+				title="Annotations"
+				meta={
 					<span className="type-secondary text-fg-ghost tabular-nums">
 						{hasActiveFilter && count !== totalCount
 							? `${count} of ${totalCount}`
 							: totalCount}
 					</span>
-				</div>
-				<div className="flex items-center gap-2">
-					<button
-						type="button"
-						onClick={() => setShowFilters(!showFilters)}
-						className={cn(
-							"text-fg-ghost transition-colors duration-150 hover:text-fg",
-							showFilters && "text-fg",
-						)}
-						aria-label="Toggle filters"
-						aria-pressed={showFilters}
-					>
-						<Filter className="h-3.5 w-3.5" strokeWidth={1.5} />
-					</button>
-					<button
-						type="button"
-						onClick={onClose}
-						className="text-fg-ghost transition-colors duration-150 hover:text-fg"
-						aria-label="Close annotations panel"
-					>
-						<X className="h-3.5 w-3.5" strokeWidth={1.5} />
-					</button>
-				</div>
-			</header>
+				}
+				actions={
+					<>
+						<PanelHeaderIconButton
+							icon={Filter}
+							ariaLabel="Toggle filters"
+							onClick={() => setShowFilters(!showFilters)}
+							ariaPressed={showFilters}
+							className={cn(showFilters && "text-fg")}
+						/>
+						<PanelHeaderIconButton
+							icon={X}
+							ariaLabel="Close annotations panel"
+							onClick={onClose}
+						/>
+					</>
+				}
+			/>
 
 			{showFilters && (
 				<div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">

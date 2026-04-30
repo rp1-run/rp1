@@ -60,6 +60,7 @@ import {
 	type InstalledSkillDiscoveryMetadata,
 } from "../../../../src/install/verifier.js";
 import { logDaemonEvent } from "../../daemon/diagnostics";
+import { normalizeActivitySearchTokens } from "../../lib/activity-search-fields";
 import {
 	getSocraticDuelEventLabel,
 	getSocraticDuelOutcomeLabel,
@@ -79,6 +80,10 @@ import type {
 	Step,
 	StepStatus,
 } from "../../types/runs";
+import {
+	type ActivitySearchDateRange,
+	searchActivityFeedRuns,
+} from "../activity-search";
 import {
 	detectOrphanedAnnotations,
 	getAnnotation as getAnnotationById,
@@ -317,6 +322,30 @@ function getListRunStatusMessage(
 		record.flow,
 	);
 	return isSocraticDuelDisplayLabel(label) ? label : null;
+}
+
+function getCurrentStepFromStepStatuses(
+	stepStatuses: readonly StepStatusEntry[],
+): string | null {
+	for (const step of [...stepStatuses].reverse()) {
+		if (step.status === "running" || step.status === "waiting") {
+			return step.step;
+		}
+	}
+
+	for (const step of [...stepStatuses].reverse()) {
+		if (step.status !== "not_started") {
+			return step.step;
+		}
+	}
+
+	return null;
+}
+
+function getListRunCurrentStep(db: Database, record: RunRecord): string | null {
+	return getCurrentStepFromStepStatuses(
+		getEffectiveStepStatuses(db, record.id),
+	);
 }
 
 function asObject(value: unknown): Readonly<Record<string, unknown>> | null {
@@ -992,6 +1021,7 @@ function runRecordToListRun(
 	record: RunRecordWithLastEvent,
 	project: ProjectEntry,
 	statusMessage: string | null = null,
+	currentStep: string | null = null,
 ): Run {
 	return {
 		id: record.id,
@@ -1003,7 +1033,7 @@ function runRecordToListRun(
 		command: `/${record.flow}`,
 		status: record.status,
 		harness: record.harness,
-		currentStep: null,
+		currentStep,
 		steps: [],
 		artifacts: [],
 		events: [],
@@ -1314,6 +1344,7 @@ export async function handleV2RunsListRequest(
 					record,
 					project,
 					getListRunStatusMessage(db, record),
+					getListRunCurrentStep(db, record),
 				),
 			);
 		}
@@ -1369,6 +1400,7 @@ export async function handleV2RunsAttentionRequest(
 						record,
 						project,
 						getListRunStatusMessage(db, record),
+						getListRunCurrentStep(db, record),
 					),
 				);
 			}
@@ -1411,7 +1443,12 @@ export async function handleV2RunSummaryRequest(
 			fallbackProjectFromRun(record);
 
 		return jsonResponse(
-			runRecordToListRun(record, project, getListRunStatusMessage(db, record)),
+			runRecordToListRun(
+				record,
+				project,
+				getListRunStatusMessage(db, record),
+				getListRunCurrentStep(db, record),
+			),
 		);
 	} catch (error) {
 		return errorResponse(`Failed to fetch run summary: ${String(error)}`);
@@ -2365,6 +2402,8 @@ export async function handleV2FeedRequest(
 		const projectUuidFilter = params.get("project_id");
 		const statusFilter = params.get("status") as string | null;
 		const dateRange = params.get("dateRange") ?? "all";
+		const searchQuery = params.get("q") ?? params.get("search");
+		const searchTokens = normalizeActivitySearchTokens(searchQuery);
 		const limit = Number.parseInt(params.get("limit") ?? "25", 10);
 		const offset = Number.parseInt(params.get("offset") ?? "0", 10);
 
@@ -2395,6 +2434,28 @@ export async function handleV2FeedRequest(
 				? (statusFilter as string)
 				: undefined;
 
+		if (searchTokens.length > 0) {
+			const result = searchActivityFeedRuns({
+				db,
+				projectLookup,
+				skillMetadataLookup,
+				projection: {
+					currentStepForRun: getListRunCurrentStep,
+					statusMessageForRun: getListRunStatusMessage,
+					runRecordToListRun,
+				},
+				query: searchQuery,
+				projectId: dbProjectIdFilter,
+				projectRoot: dbProjectIdFilter ? undefined : projectPathFilter,
+				status: dbStatus as Status | undefined,
+				dateRange: dateRange as ActivitySearchDateRange,
+				limit,
+				offset,
+			});
+
+			return jsonResponse(result);
+		}
+
 		const runsResult = listRuns(db, {
 			projectId: dbProjectIdFilter,
 			projectPath: dbProjectIdFilter ? undefined : projectPathFilter,
@@ -2406,11 +2467,10 @@ export async function handleV2FeedRequest(
 			offset: 0,
 		});
 
-		let runItems: Array<{
-			type: "run";
-			id: string;
+		let runCandidates: Array<{
+			record: RunRecordWithLastEvent;
+			project: ProjectEntry;
 			timestamp: string;
-			run: Run;
 		}> = [];
 		for (const record of runsResult.records) {
 			if (isEvalRunRecord(record)) continue;
@@ -2418,16 +2478,10 @@ export async function handleV2FeedRequest(
 			const project =
 				findProjectByIdentity(projectLookup, record) ??
 				fallbackProjectFromRun(record);
-			const run = runRecordToListRun(
+			runCandidates.push({
 				record,
 				project,
-				getListRunStatusMessage(db, record),
-			);
-			runItems.push({
-				type: "run",
-				id: record.id,
-				timestamp: run.lastEventAt ?? run.startedAt,
-				run,
+				timestamp: record.lastEventAt ?? record.createdAt,
 			});
 		}
 
@@ -2440,19 +2494,35 @@ export async function handleV2FeedRequest(
 			};
 			const range = ranges[dateRange];
 			if (range) {
-				runItems = runItems.filter(
+				runCandidates = runCandidates.filter(
 					(item) => now - new Date(item.timestamp).getTime() <= range,
 				);
 			}
 		}
 
-		runItems.sort(
+		runCandidates.sort(
 			(a, b) =>
 				new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
 		);
 
-		const total = runItems.length;
-		const paged = runItems.slice(offset, offset + limit);
+		const total = runCandidates.length;
+		const paged = runCandidates
+			.slice(offset, offset + limit)
+			.map(({ record, project, timestamp }) => {
+				const run = runRecordToListRun(
+					record,
+					project,
+					getListRunStatusMessage(db, record),
+					getListRunCurrentStep(db, record),
+				);
+
+				return {
+					type: "run" as const,
+					id: record.id,
+					timestamp,
+					run,
+				};
+			});
 
 		return jsonResponse({ items: paged, total });
 	} catch (error) {

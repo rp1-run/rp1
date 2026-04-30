@@ -77,6 +77,27 @@ CREATE INDEX IF NOT EXISTS idx_socratic_duel_participants_duel ON socratic_duel_
 CREATE UNIQUE INDEX IF NOT EXISTS idx_socratic_duel_participants_identity ON socratic_duel_participants(duel_id, display_name, harness, model_id);
 `;
 
+const ACTIVITY_SEARCH_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS activity_search_runs (
+    run_id TEXT PRIMARY KEY NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    project_id TEXT DEFAULT NULL,
+    project_root TEXT NOT NULL,
+    flow TEXT NOT NULL,
+    status TEXT NOT NULL
+        CHECK(status IN (${RUN_STATUS_CHECK_SQL})),
+    activity_at TEXT NOT NULL,
+    source_event_id INTEGER DEFAULT NULL,
+    source_run_updated_at TEXT NOT NULL,
+    search_text TEXT NOT NULL,
+    indexed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_search_project_activity ON activity_search_runs(project_id, activity_at DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_search_root_activity ON activity_search_runs(project_root, activity_at DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_search_status_activity ON activity_search_runs(status, activity_at DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_search_activity ON activity_search_runs(activity_at DESC);
+`;
+
 /** Schema DDL for rp1.db (version 1, clean start) */
 const SCHEMA_SQL = `
 PRAGMA foreign_keys = ON;
@@ -85,7 +106,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (16);
+INSERT INTO schema_version (version) VALUES (17);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -230,6 +251,8 @@ CREATE TABLE IF NOT EXISTS project_registry_meta (
     value TEXT
 );
 
+${ACTIVITY_SEARCH_SCHEMA_SQL}
+
 ${SOCRATIC_DUEL_SCHEMA_SQL}
 `;
 
@@ -367,6 +390,65 @@ export interface EventInput {
 	readonly createdAt?: string;
 }
 
+export interface ActivitySearchRunInput {
+	readonly runId: string;
+	readonly projectId?: string | null;
+	readonly projectRoot: string;
+	readonly flow: string;
+	readonly status: Status;
+	readonly activityAt: string;
+	readonly sourceEventId?: number | null;
+	readonly sourceRunUpdatedAt: string;
+	readonly searchText: string;
+	readonly indexedAt?: string;
+}
+
+export interface ActivitySearchRunRecord {
+	readonly runId: string;
+	readonly projectId: string | null;
+	readonly projectRoot: string;
+	readonly flow: string;
+	readonly status: Status;
+	readonly activityAt: string;
+	readonly sourceEventId: number | null;
+	readonly sourceRunUpdatedAt: string;
+	readonly searchText: string;
+	readonly indexedAt: string;
+}
+
+export interface ActivitySearchScope {
+	readonly projectId?: string;
+	readonly projectRoot?: string;
+	readonly projectRoots?: readonly string[];
+	readonly status?: Status;
+	readonly activityFrom?: string;
+	readonly activityTo?: string;
+}
+
+export interface ActivitySearchRefreshScope extends ActivitySearchScope {
+	readonly excludeBootstrapOnly?: boolean;
+	readonly forceRefresh?: boolean;
+	readonly limit?: number;
+}
+
+export interface ActivitySearchQueryOptions extends ActivitySearchScope {
+	readonly tokens?: readonly string[];
+	readonly limit?: number;
+	readonly offset?: number;
+}
+
+export interface ActivitySearchQueryResult {
+	readonly records: ActivitySearchRunRecord[];
+	readonly total: number;
+}
+
+export interface ActivitySearchRefreshCandidate {
+	readonly run: RunRecordWithLastEvent;
+	readonly latestEventId: number | null;
+	readonly activityAt: string;
+	readonly searchRow: ActivitySearchRunRecord | null;
+}
+
 /** Input for upserting an artifact */
 export interface ArtifactInput {
 	readonly docId: string;
@@ -468,6 +550,19 @@ interface RunRow {
 	status: string;
 	created_at: string;
 	updated_at: string;
+}
+
+interface ActivitySearchRunRow {
+	run_id: string;
+	project_id: string | null;
+	project_root: string;
+	flow: string;
+	status: string;
+	activity_at: string;
+	source_event_id: number | null;
+	source_run_updated_at: string;
+	search_text: string;
+	indexed_at: string;
 }
 
 interface EventRow {
@@ -592,6 +687,21 @@ const runRowToRecord = (row: RunRow): RunRecord => ({
 	updatedAt: row.updated_at,
 });
 
+const activitySearchRunRowToRecord = (
+	row: ActivitySearchRunRow,
+): ActivitySearchRunRecord => ({
+	runId: row.run_id,
+	projectId: row.project_id ?? null,
+	projectRoot: row.project_root,
+	flow: row.flow,
+	status: row.status as Status,
+	activityAt: row.activity_at,
+	sourceEventId: row.source_event_id ?? null,
+	sourceRunUpdatedAt: row.source_run_updated_at,
+	searchText: row.search_text,
+	indexedAt: row.indexed_at,
+});
+
 const eventRowToRecord = (row: EventRow): EventRecord => ({
 	id: row.id,
 	runId: row.run_id,
@@ -670,6 +780,10 @@ const ensureSocraticDuelMetadataColumns = (db: Database): void => {
 export const ensureSocraticDuelSchema = (db: Database): void => {
 	db.exec(SOCRATIC_DUEL_SCHEMA_SQL);
 	ensureSocraticDuelMetadataColumns(db);
+};
+
+const ensureActivitySearchSchema = (db: Database): void => {
+	db.exec(ACTIVITY_SEARCH_SCHEMA_SQL);
 };
 
 const migrateSocraticDuelLockSchema = (db: Database): void => {
@@ -1238,6 +1352,15 @@ const applyMigrations = (db: Database): void => {
 	if ((postV15Version?.version ?? 15) < 16) {
 		ensureSocraticDuelSchema(db);
 		db.prepare("UPDATE schema_version SET version = 16").run();
+	}
+
+	const postV16Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV16Version?.version ?? 16) < 17) {
+		ensureActivitySearchSchema(db);
+		db.prepare("UPDATE schema_version SET version = 17").run();
 	}
 };
 
@@ -2298,6 +2421,269 @@ export const getMaxEventId = (db: Database): number => {
 	};
 
 	return row.max_id ?? 0;
+};
+
+const appendRunActivitySearchScopeConditions = (
+	conditions: string[],
+	values: (string | number)[],
+	opts: ActivitySearchScope,
+): void => {
+	if (opts.projectId != null) {
+		conditions.push("runs.project_id = ?");
+		values.push(opts.projectId);
+	}
+	if (opts.projectRoot != null) {
+		conditions.push("COALESCE(runs.rp1_project_root, runs.project_path) = ?");
+		values.push(opts.projectRoot);
+	} else if (opts.projectRoots != null && opts.projectRoots.length > 0) {
+		const placeholders = opts.projectRoots.map(() => "?").join(", ");
+		conditions.push(
+			`COALESCE(runs.rp1_project_root, runs.project_path) IN (${placeholders})`,
+		);
+		values.push(...opts.projectRoots);
+	}
+	if (opts.status != null) {
+		conditions.push("runs.status = ?");
+		values.push(opts.status);
+	}
+	if (opts.activityFrom != null) {
+		conditions.push(
+			"COALESCE(latest_events.last_event_at, runs.created_at) >= ?",
+		);
+		values.push(opts.activityFrom);
+	}
+	if (opts.activityTo != null) {
+		conditions.push(
+			"COALESCE(latest_events.last_event_at, runs.created_at) <= ?",
+		);
+		values.push(opts.activityTo);
+	}
+};
+
+const appendSearchRowScopeConditions = (
+	conditions: string[],
+	values: (string | number)[],
+	opts: ActivitySearchScope,
+): void => {
+	if (opts.projectId != null) {
+		conditions.push("project_id = ?");
+		values.push(opts.projectId);
+	}
+	if (opts.projectRoot != null) {
+		conditions.push("project_root = ?");
+		values.push(opts.projectRoot);
+	} else if (opts.projectRoots != null && opts.projectRoots.length > 0) {
+		const placeholders = opts.projectRoots.map(() => "?").join(", ");
+		conditions.push(`project_root IN (${placeholders})`);
+		values.push(...opts.projectRoots);
+	}
+	if (opts.status != null) {
+		conditions.push("status = ?");
+		values.push(opts.status);
+	}
+	if (opts.activityFrom != null) {
+		conditions.push("activity_at >= ?");
+		values.push(opts.activityFrom);
+	}
+	if (opts.activityTo != null) {
+		conditions.push("activity_at <= ?");
+		values.push(opts.activityTo);
+	}
+};
+
+const escapeLikeToken = (token: string): string =>
+	token.replace(/[\\%_]/g, (match) => `\\${match}`);
+
+/**
+ * Find runs whose materialized Activity search row is missing or stale.
+ */
+export const listActivitySearchRefreshCandidates = (
+	db: Database,
+	opts: ActivitySearchRefreshScope = {},
+): ActivitySearchRefreshCandidate[] => {
+	const conditions: string[] = opts.forceRefresh
+		? ["1 = 1"]
+		: [
+				`(activity_search_runs.run_id IS NULL
+		  OR activity_search_runs.source_run_updated_at IS NOT runs.updated_at
+		  OR COALESCE(activity_search_runs.source_event_id, -1) != COALESCE(latest_events.latest_event_id, -1))`,
+			];
+	const values: (string | number)[] = [];
+
+	appendRunActivitySearchScopeConditions(conditions, values, opts);
+	if (opts.excludeBootstrapOnly === true) {
+		conditions.push(
+			`(runs.bootstrap_context IS NULL OR ${NON_REAPER_EVENT_EXISTS_SQL})`,
+		);
+	}
+
+	const whereClause = `WHERE ${conditions.join(" AND ")}`;
+	const limitClause = opts.limit != null ? " LIMIT ?" : "";
+	const queryValues = opts.limit != null ? [...values, opts.limit] : values;
+
+	const rows = db
+		.prepare(
+			`SELECT runs.*,
+			        COALESCE(latest_events.last_event_at, runs.created_at) AS last_event_at,
+			        COALESCE(latest_events.last_event_at, runs.created_at) AS activity_at,
+			        latest_events.latest_event_id AS latest_event_id,
+			        activity_search_runs.run_id AS search_run_id,
+			        activity_search_runs.project_id AS search_project_id,
+			        activity_search_runs.project_root AS search_project_root,
+			        activity_search_runs.flow AS search_flow,
+			        activity_search_runs.status AS search_status,
+			        activity_search_runs.activity_at AS search_activity_at,
+			        activity_search_runs.source_event_id AS search_source_event_id,
+			        activity_search_runs.source_run_updated_at AS search_source_run_updated_at,
+			        activity_search_runs.search_text AS search_text,
+			        activity_search_runs.indexed_at AS search_indexed_at
+			 FROM runs
+			 LEFT JOIN (
+			     SELECT run_id, MAX(id) AS latest_event_id, MAX(created_at) AS last_event_at
+			     FROM events
+			     GROUP BY run_id
+			 ) AS latest_events ON latest_events.run_id = runs.id
+			 LEFT JOIN activity_search_runs ON activity_search_runs.run_id = runs.id
+			 ${whereClause}
+			 ORDER BY COALESCE(latest_events.last_event_at, runs.created_at) DESC,
+			          runs.created_at DESC,
+			          runs.id DESC
+			 ${limitClause}`,
+		)
+		.all(...queryValues) as (RunRow & {
+		last_event_at: string;
+		activity_at: string;
+		latest_event_id: number | null;
+		search_run_id: string | null;
+		search_project_id: string | null;
+		search_project_root: string | null;
+		search_flow: string | null;
+		search_status: string | null;
+		search_activity_at: string | null;
+		search_source_event_id: number | null;
+		search_source_run_updated_at: string | null;
+		search_text: string | null;
+		search_indexed_at: string | null;
+	})[];
+
+	return rows.map((row) => ({
+		run: {
+			...runRowToRecord(row),
+			lastEventAt: row.last_event_at,
+		},
+		latestEventId: row.latest_event_id ?? null,
+		activityAt: row.activity_at,
+		searchRow:
+			row.search_run_id == null
+				? null
+				: activitySearchRunRowToRecord({
+						run_id: row.search_run_id,
+						project_id: row.search_project_id,
+						project_root: row.search_project_root ?? "",
+						flow: row.search_flow ?? "",
+						status: row.search_status ?? "not_started",
+						activity_at: row.search_activity_at ?? row.activity_at,
+						source_event_id: row.search_source_event_id,
+						source_run_updated_at: row.search_source_run_updated_at ?? "",
+						search_text: row.search_text ?? "",
+						indexed_at: row.search_indexed_at ?? "",
+					}),
+	}));
+};
+
+export const upsertActivitySearchRun = (
+	db: Database,
+	input: ActivitySearchRunInput,
+): ActivitySearchRunRecord => {
+	const row = db
+		.prepare(
+			`INSERT INTO activity_search_runs (
+			    run_id, project_id, project_root, flow, status, activity_at,
+			    source_event_id, source_run_updated_at, search_text, indexed_at
+			 )
+			 VALUES (
+			    $runId, $projectId, $projectRoot, $flow, $status, $activityAt,
+			    $sourceEventId, $sourceRunUpdatedAt, $searchText,
+			    COALESCE($indexedAt, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+			 )
+			 ON CONFLICT(run_id) DO UPDATE SET
+			    project_id = excluded.project_id,
+			    project_root = excluded.project_root,
+			    flow = excluded.flow,
+			    status = excluded.status,
+			    activity_at = excluded.activity_at,
+			    source_event_id = excluded.source_event_id,
+			    source_run_updated_at = excluded.source_run_updated_at,
+			    search_text = excluded.search_text,
+			    indexed_at = excluded.indexed_at
+			 RETURNING *`,
+		)
+		.get({
+			$runId: input.runId,
+			$projectId: input.projectId ?? null,
+			$projectRoot: input.projectRoot,
+			$flow: input.flow,
+			$status: input.status,
+			$activityAt: input.activityAt,
+			$sourceEventId: input.sourceEventId ?? null,
+			$sourceRunUpdatedAt: input.sourceRunUpdatedAt,
+			$searchText: input.searchText,
+			$indexedAt: input.indexedAt ?? null,
+		}) as ActivitySearchRunRow;
+
+	return activitySearchRunRowToRecord(row);
+};
+
+export const deleteActivitySearchRun = (
+	db: Database,
+	runId: string,
+): boolean => {
+	const result = db
+		.prepare("DELETE FROM activity_search_runs WHERE run_id = $runId")
+		.run({ $runId: runId });
+	return result.changes > 0;
+};
+
+export const queryActivitySearchRuns = (
+	db: Database,
+	opts: ActivitySearchQueryOptions = {},
+): ActivitySearchQueryResult => {
+	const conditions: string[] = [];
+	const values: (string | number)[] = [];
+
+	appendSearchRowScopeConditions(conditions, values, opts);
+	for (const token of opts.tokens ?? []) {
+		const normalizedToken = token.trim().toLowerCase();
+		if (normalizedToken.length === 0) continue;
+		conditions.push("search_text LIKE ? ESCAPE '\\'");
+		values.push(`%${escapeLikeToken(normalizedToken)}%`);
+	}
+
+	const whereClause =
+		conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+	const countRow = db
+		.prepare(
+			`SELECT COUNT(*) AS count FROM activity_search_runs ${whereClause}`,
+		)
+		.get(...values) as { count: number };
+
+	const limitClause = opts.limit != null ? " LIMIT ? OFFSET ?" : "";
+	const queryValues =
+		opts.limit != null ? [...values, opts.limit, opts.offset ?? 0] : values;
+
+	const rows = db
+		.prepare(
+			`SELECT * FROM activity_search_runs
+			 ${whereClause}
+			 ORDER BY activity_at DESC, run_id DESC
+			 ${limitClause}`,
+		)
+		.all(...queryValues) as ActivitySearchRunRow[];
+
+	return {
+		records: rows.map(activitySearchRunRowToRecord),
+		total: countRow.count,
+	};
 };
 
 /** Options for listing runs with optional filters and pagination */

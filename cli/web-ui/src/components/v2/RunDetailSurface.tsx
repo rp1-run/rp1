@@ -6,8 +6,16 @@ import {
 	Loader2,
 	OctagonX,
 	RefreshCw,
+	Workflow,
+	X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import {
 	Dialog,
 	DialogClose,
@@ -39,6 +47,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Artifact, Run, Step } from "@/types/runs";
+import { PanelHeader, PanelHeaderIconButton } from "./PanelHeader";
 import { RunArtifactsPanel } from "./RunArtifactsPanel";
 import { RunInvocationCard } from "./RunInvocationCard";
 import { VerticalStepList } from "./VerticalStepList";
@@ -64,6 +73,8 @@ export interface RunDetailSurfaceProps {
 	readonly onRouteReplace?: (route: string) => void;
 	readonly onArtifactRouteSelect?: (route: string) => void;
 	readonly onBackToRuns?: () => void;
+	readonly showCurrentStepInArtifactHeader?: boolean;
+	readonly artifactHeaderActions?: ReactNode;
 }
 
 export interface RunDetailTarget {
@@ -148,6 +159,8 @@ export function RunDetailSurface({
 	onRouteReplace,
 	onArtifactRouteSelect,
 	onBackToRuns,
+	showCurrentStepInArtifactHeader = false,
+	artifactHeaderActions,
 }: RunDetailSurfaceProps) {
 	const { run, isLoading, error, refetch } = useRunDetail(runId);
 	const [endingOutcome, setEndingOutcome] = useState<
@@ -171,6 +184,7 @@ export function RunDetailSurface({
 		);
 	});
 	const [previewDocId, setPreviewDocId] = useState<string | null>(null);
+	const [stepPanelOpen, setStepPanelOpen] = useState(false);
 
 	const workflowName = useMemo(
 		() => (run ? commandToWorkflowName(run.command) : null),
@@ -235,6 +249,7 @@ export function RunDetailSurface({
 			run.currentStep
 		);
 	}, [run]);
+
 	const headerStatusMessage =
 		run?.statusMessage && run.statusMessage !== currentStepName
 			? run.statusMessage
@@ -584,6 +599,33 @@ export function RunDetailSurface({
 
 	const bodyStatusMessage =
 		run.error && run.error !== headerStatusMessage ? run.error : null;
+	const artifactHeaderLabel =
+		showCurrentStepInArtifactHeader && currentStepName
+			? `Current Step: ${currentStepName}`
+			: null;
+
+	const artifactPanel = (
+		<RunArtifactsPanel
+			artifactGroups={artifactGroups}
+			selectedArtifact={selectedArtifact}
+			onArtifactSelect={handleArtifactSelect}
+			runId={runId}
+			subflowDiagram={subflowDiagram}
+			showFrontmatter={showFrontmatter}
+			headerLabel={artifactHeaderLabel}
+			headerActions={artifactHeaderActions}
+			leadingControl={
+				stepPanelOpen ? undefined : (
+					<PanelHeaderIconButton
+						icon={Workflow}
+						ariaLabel="Toggle workflow steps"
+						ariaExpanded={false}
+						onClick={() => setStepPanelOpen(true)}
+					/>
+				)
+			}
+		/>
+	);
 
 	return (
 		<div className="flex h-full flex-col">
@@ -601,40 +643,56 @@ export function RunDetailSurface({
 			)}
 
 			<div className="hidden md:flex flex-1 min-h-0">
-				<ResizablePanelGroup direction="horizontal">
-					<ResizablePanel
-						defaultSize={22}
-						minSize={15}
-						maxSize={50}
-						className="bg-surface-void"
-					>
-						<div className="h-full overflow-y-auto">
-							<VerticalStepList
-								harness={run.harness}
-								steps={displaySteps}
-								artifacts={run.artifacts}
-								agentSteps={run.agentSteps}
-								selectedStepId={selectedStepId}
-								onStepSelect={handleStepSelect}
-								onArtifactSelect={handleArtifactSelect}
-								workflowName={workflowName}
-							/>
-						</div>
-					</ResizablePanel>
+				{stepPanelOpen ? (
+					<ResizablePanelGroup direction="horizontal">
+						<ResizablePanel
+							defaultSize={22}
+							minSize={15}
+							maxSize={50}
+							className="bg-surface-void"
+						>
+							<div className="flex h-full flex-col">
+								<PanelHeader
+									icon={Workflow}
+									title="Steps"
+									iconButton={{
+										ariaLabel: "Toggle workflow steps",
+										ariaExpanded: true,
+										onClick: () => setStepPanelOpen(false),
+									}}
+									actions={
+										<PanelHeaderIconButton
+											icon={X}
+											ariaLabel="Close workflow steps panel"
+											title="Close workflow steps panel"
+											onClick={() => setStepPanelOpen(false)}
+										/>
+									}
+								/>
+								<div className="min-h-0 flex-1 overflow-y-auto">
+									<VerticalStepList
+										harness={run.harness}
+										steps={displaySteps}
+										artifacts={run.artifacts}
+										agentSteps={run.agentSteps}
+										selectedStepId={selectedStepId}
+										onStepSelect={handleStepSelect}
+										onArtifactSelect={handleArtifactSelect}
+										workflowName={workflowName}
+									/>
+								</div>
+							</div>
+						</ResizablePanel>
 
-					<ResizableHandle className="cursor-col-resize" />
+						<ResizableHandle className="cursor-col-resize" />
 
-					<ResizablePanel defaultSize={78} minSize={40}>
-						<RunArtifactsPanel
-							artifactGroups={artifactGroups}
-							selectedArtifact={selectedArtifact}
-							onArtifactSelect={handleArtifactSelect}
-							runId={runId}
-							subflowDiagram={subflowDiagram}
-							showFrontmatter={showFrontmatter}
-						/>
-					</ResizablePanel>
-				</ResizablePanelGroup>
+						<ResizablePanel defaultSize={78} minSize={40}>
+							{artifactPanel}
+						</ResizablePanel>
+					</ResizablePanelGroup>
+				) : (
+					<div className="min-w-0 flex-1 overflow-hidden">{artifactPanel}</div>
+				)}
 			</div>
 
 			<div className="flex flex-col flex-1 min-h-0 md:hidden">

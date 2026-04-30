@@ -1,5 +1,5 @@
 import { Check, FileText, List } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { AnnotationToggleBtn } from "@/components/v2/AnnotationToggleBtn";
 import {
 	ArtifactContentSurface,
@@ -18,6 +18,9 @@ export interface RunArtifactsPanelProps {
 	readonly runId?: string;
 	readonly subflowDiagram?: string | null;
 	readonly showFrontmatter?: boolean;
+	readonly leadingControl?: ReactNode;
+	readonly headerLabel?: ReactNode;
+	readonly headerActions?: ReactNode;
 }
 
 function getFileName(path: string): string {
@@ -36,14 +39,62 @@ export function RunArtifactsPanel({
 	onArtifactSelect,
 	runId,
 	showFrontmatter = false,
+	leadingControl,
+	headerLabel,
+	headerActions,
 }: RunArtifactsPanelProps) {
 	const [copiedPath, setCopiedPath] = useState<string | null>(null);
 
 	const groups = artifactGroups.filter((group) => group.artifacts.length > 0);
 	const artifacts = flattenArtifacts(groups);
 
+	const renderLeadingControl = () =>
+		leadingControl ? (
+			<div className="flex h-7 shrink-0 items-center">{leadingControl}</div>
+		) : null;
+
+	const renderHeaderLabel = () =>
+		headerLabel ? (
+			<span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap type-secondary font-medium text-fg">
+				{headerLabel}
+			</span>
+		) : null;
+
+	const renderHeaderShell = (
+		main: ReactNode,
+		actions?: ReactNode,
+		leading?: ReactNode,
+	) => (
+		<div className="shrink-0 border-b border-border/60 bg-surface-void/70 px-4 py-2">
+			<div className="flex min-w-0 items-start gap-3">
+				{leading}
+				<div className="min-w-0 flex-1">{main}</div>
+				{actions}
+			</div>
+		</div>
+	);
+
 	if (artifacts.length === 0) {
-		return <ArtifactEmptyState />;
+		if (!leadingControl && !headerLabel && !headerActions) {
+			return <ArtifactEmptyState />;
+		}
+
+		return (
+			<div className="flex h-full min-w-0 flex-col overflow-hidden">
+				{renderHeaderShell(
+					<div className="flex min-w-0 items-start gap-2">
+						{renderHeaderLabel()}
+					</div>,
+					headerActions ? (
+						<div className="flex h-7 shrink-0 items-center gap-2">
+							{headerActions}
+						</div>
+					) : null,
+					renderLeadingControl(),
+				)}
+				<ArtifactEmptyState className="min-h-0 flex-1" />
+			</div>
+		);
 	}
 
 	const effectiveSelectedArtifact = selectedArtifact ?? artifacts[0] ?? null;
@@ -57,88 +108,84 @@ export function RunArtifactsPanel({
 	};
 
 	const renderArtifactList = () => (
-		<div className="min-w-0 flex-1 overflow-x-auto">
-			<ul
-				aria-label="Artifacts"
-				className="flex min-w-0 items-center gap-1 whitespace-nowrap"
-			>
-				{artifacts.map((artifact) => {
-					const fileName = getFileName(artifact.path);
-					const isSelected =
-						effectiveSelectedArtifact?.docId === artifact.docId;
-					const isCopied = copiedPath === artifact.path;
-					const IconComponent = isCopied ? Check : FileText;
-					const tooltipPath = artifact.absolutePath ?? artifact.path;
+		<ul
+			aria-label="Artifacts"
+			className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-1"
+		>
+			{artifacts.map((artifact) => {
+				const fileName = getFileName(artifact.path);
+				const isSelected = effectiveSelectedArtifact?.docId === artifact.docId;
+				const isCopied = copiedPath === artifact.path;
+				const IconComponent = isCopied ? Check : FileText;
+				const tooltipPath = artifact.absolutePath ?? artifact.path;
 
-					return (
-						<li key={artifact.docId} className="shrink-0">
-							<span
-								className={cn(
-									"inline-flex h-7 max-w-[14rem] items-center gap-1 rounded-sm px-2 type-secondary font-medium transition-colors duration-150",
-									isSelected
-										? "text-fg"
-										: "text-fg-ghost hover:bg-surface-base/70 hover:text-fg",
-								)}
-							>
-								<button
-									type="button"
-									title={tooltipPath}
-									aria-label={`Copy path for ${fileName}`}
-									onClick={(e) => {
-										e.stopPropagation();
-										handleCopyPath(artifact);
-									}}
-									className="shrink-0 transition-colors duration-150 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
-								>
-									<IconComponent
-										className="h-3 w-3 shrink-0"
-										strokeWidth={1.5}
-									/>
-								</button>
-								<button
-									type="button"
-									aria-current={isSelected ? "page" : undefined}
-									title={tooltipPath}
-									onClick={() => onArtifactSelect?.(artifact)}
-									className="min-w-0 truncate transition-colors duration-150 hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
-								>
-									{fileName}
-								</button>
-							</span>
-						</li>
-					);
-				})}
-			</ul>
-		</div>
-	);
-
-	const renderHeader = (controls: ArtifactContentSurfaceControls) => (
-		<div className="shrink-0 bg-surface-void/70 px-4 py-3 md:px-[40px]">
-			<div className="flex min-w-0 items-center justify-between gap-md">
-				{renderArtifactList()}
-				<div className="flex shrink-0 items-center gap-3">
-					<SaveStatusIndicator status={controls.saveStatus} />
-					{controls.showTableOfContentsToggle && (
-						<button
-							type="button"
-							onClick={controls.toggleTableOfContents}
-							className="text-fg-ghost transition-colors duration-150 hover:text-fg"
-							aria-label="Open table of contents"
+				return (
+					<li key={artifact.docId} className="max-w-full shrink-0">
+						<span
+							className={cn(
+								"inline-flex h-7 max-w-[14rem] items-center gap-1 rounded-sm px-2 type-secondary font-medium transition-colors duration-150",
+								isSelected
+									? "text-fg"
+									: "text-fg-ghost hover:bg-surface-base/70 hover:text-fg",
+							)}
 						>
-							<List className="h-3.5 w-3.5" strokeWidth={1.5} />
-						</button>
-					)}
-					{controls.showAnnotationToggle && controls.selectedArtifact && (
-						<AnnotationToggleBtn
-							artifactPath={controls.selectedArtifact.path}
-							onClick={controls.toggleAnnotations}
-							variant="inline"
-						/>
-					)}
-				</div>
-			</div>
-		</div>
+							<button
+								type="button"
+								title={tooltipPath}
+								aria-label={`Copy path for ${fileName}`}
+								onClick={(e) => {
+									e.stopPropagation();
+									handleCopyPath(artifact);
+								}}
+								className="shrink-0 transition-colors duration-150 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+							>
+								<IconComponent className="h-3 w-3 shrink-0" strokeWidth={1.5} />
+							</button>
+							<button
+								type="button"
+								aria-current={isSelected ? "page" : undefined}
+								title={tooltipPath}
+								onClick={() => onArtifactSelect?.(artifact)}
+								className="min-w-0 truncate transition-colors duration-150 hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+							>
+								{fileName}
+							</button>
+						</span>
+					</li>
+				);
+			})}
+		</ul>
 	);
+
+	const renderHeader = (controls: ArtifactContentSurfaceControls) =>
+		renderHeaderShell(
+			<div className="flex min-w-0 items-start gap-2">
+				{renderHeaderLabel()}
+				{renderArtifactList()}
+			</div>,
+			<div className="flex h-7 shrink-0 items-center gap-3">
+				<SaveStatusIndicator status={controls.saveStatus} />
+				{controls.showTableOfContentsToggle && (
+					<button
+						type="button"
+						onClick={controls.toggleTableOfContents}
+						className="text-fg-ghost transition-colors duration-150 hover:text-fg"
+						aria-label="Open table of contents"
+					>
+						<List className="h-3.5 w-3.5" strokeWidth={1.5} />
+					</button>
+				)}
+				{controls.showAnnotationToggle && controls.selectedArtifact && (
+					<AnnotationToggleBtn
+						artifactPath={controls.selectedArtifact.path}
+						onClick={controls.toggleAnnotations}
+						variant="inline"
+					/>
+				)}
+				{headerActions}
+			</div>,
+			renderLeadingControl(),
+		);
 
 	return (
 		<ArtifactContentSurface

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { resolveDirectorySet } from "../../shared/directory-resolution.js";
@@ -15,7 +15,12 @@ import {
 } from "./legacy-work.js";
 import { type StanzaUpgradeResult, upgradeStanzas } from "./stanza-upgrade.js";
 
+export interface MigrateOptions {
+	readonly dryRun?: boolean;
+}
+
 export interface MigrateResult {
+	readonly dryRun?: boolean;
 	readonly projectRoot: string;
 	readonly projectId: string;
 	readonly projectIdCreated: boolean;
@@ -28,6 +33,7 @@ export interface MigrateResult {
 
 export const executeMigrate = async (
 	cwd: string = process.cwd(),
+	options: MigrateOptions = {},
 ): Promise<MigrateResult> => {
 	const directories = resolveDirectorySet(cwd);
 	if (E.isLeft(directories)) {
@@ -40,6 +46,40 @@ export const executeMigrate = async (
 	const projectIdExistedBefore = existsSync(
 		path.join(projectRoot, ".rp1", "project_id"),
 	);
+	if (options.dryRun === true) {
+		const projectId = projectIdExistedBefore
+			? readFileSync(
+					path.join(projectRoot, ".rp1", "project_id"),
+					"utf-8",
+				).trim()
+			: "(generated on apply)";
+		const workDir = path.join(projectRoot, ".rp1", "work");
+		const legacyPath = findLegacyWorkDir(projectRoot);
+		const dbBackfill = await backfillProjectId(projectRoot, projectId, {
+			dryRun: true,
+		});
+
+		return {
+			dryRun: true,
+			projectRoot,
+			projectId,
+			projectIdCreated: !projectIdExistedBefore,
+			workDirCreated: !existsSync(workDir),
+			legacyWork: legacyPath
+				? { legacyPath, filesMoved: 0, filesSkipped: 0 }
+				: undefined,
+			gitignore: { updated: false, rulesAdded: [] },
+			dbBackfill,
+			stanzaUpgrade: {
+				filesUpgraded: [],
+				filesAlreadyCurrent: [],
+				filesScanned: 0,
+				filesNotFound: [],
+				errors: [],
+			},
+		};
+	}
+
 	const projectId = await ensureProjectId(projectRoot);
 	const projectIdCreated = !projectIdExistedBefore;
 
@@ -76,6 +116,51 @@ export const executeMigrate = async (
 
 export const formatMigrateSummary = (result: MigrateResult): string => {
 	const lines: string[] = [];
+	const activitySearchRowsCreated =
+		result.dbBackfill.activitySearchRowsCreated ?? 0;
+	const activitySearchRowsRefreshed =
+		result.dbBackfill.activitySearchRowsRefreshed ?? 0;
+	const totalActivitySearchRows =
+		activitySearchRowsCreated + activitySearchRowsRefreshed;
+
+	if (result.dryRun === true) {
+		lines.push(`Migration dry-run for ${result.projectRoot}`);
+		lines.push("");
+
+		if (result.projectIdCreated) {
+			lines.push("  Would create .rp1/project_id");
+		} else {
+			lines.push(`  Project ID: ${result.projectId} (already existed)`);
+		}
+
+		if (result.workDirCreated) {
+			lines.push("  Would create .rp1/work/");
+		} else {
+			lines.push("  .rp1/work/ already exists");
+		}
+
+		if (result.legacyWork) {
+			lines.push(
+				`  Would inspect legacy work artifacts at ${result.legacyWork.legacyPath}`,
+			);
+		} else {
+			lines.push("  No legacy work directory found");
+		}
+
+		if (totalActivitySearchRows > 0) {
+			lines.push(
+				`  Would rebuild Activity search rows: ${activitySearchRowsCreated} to create, ${activitySearchRowsRefreshed} to refresh`,
+			);
+		} else {
+			lines.push("  Activity search rows already up to date");
+		}
+
+		lines.push("  Would leave database history and files unchanged");
+		lines.push("");
+		lines.push("Run without --dry-run to apply these changes.");
+		return lines.join("\n");
+	}
+
 	lines.push(`Migration complete for ${result.projectRoot}`);
 	lines.push("");
 
@@ -130,6 +215,14 @@ export const formatMigrateSummary = (result: MigrateResult): string => {
 		}
 	} else {
 		lines.push("  No database records to backfill");
+	}
+
+	if (totalActivitySearchRows > 0) {
+		lines.push(
+			`  Rebuilt Activity search rows: ${activitySearchRowsCreated} created, ${activitySearchRowsRefreshed} refreshed`,
+		);
+	} else {
+		lines.push("  Activity search rows already up to date");
 	}
 
 	if (result.stanzaUpgrade.filesUpgraded.length > 0) {

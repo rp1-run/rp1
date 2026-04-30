@@ -1,15 +1,19 @@
+import type { Database } from "bun:sqlite";
 import { execFileSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { copyFile, mkdir, rename, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { resolveDirectorySet } from "../../shared/directory-resolution.js";
-import type { WorkflowRunPolicy } from "../../shared/events.js";
+import type { Status, WorkflowRunPolicy } from "../../shared/events.js";
+import { RUN_STATUS_CHECK_STATUSES } from "../../shared/events.js";
+import { getLogicalStepDisplayId } from "../../shared/logical-step.js";
 import {
 	getArtifactByDocId,
 	getArtifactsForRun,
 	resolveArtifactPathForRun,
+	upsertActivitySearchRun,
 	type WorkflowRunDecision,
 } from "../agent-tools/emit/database.js";
 
@@ -19,6 +23,12 @@ export interface DbBackfillResult {
 	readonly tasksUpdated: number;
 	readonly notificationsUpdated: number;
 	readonly artifactFilesMoved: number;
+	readonly activitySearchRowsCreated?: number;
+	readonly activitySearchRowsRefreshed?: number;
+}
+
+export interface DbBackfillOptions {
+	readonly dryRun?: boolean;
 }
 
 interface RunBackfillRow {
@@ -50,6 +60,37 @@ interface RunBootstrapBackfill {
 	readonly runPolicy: WorkflowRunPolicy;
 	readonly workIdentity: string | null;
 	readonly bootstrapContext: string;
+}
+
+interface ActivitySearchBackfillRow {
+	readonly id: string;
+	readonly flow: string;
+	readonly feature_id: string | null;
+	readonly project_path: string;
+	readonly rp1_project_root: string | null;
+	readonly project_id: string | null;
+	readonly status: Status;
+	readonly name: string | null;
+	readonly harness: string | null;
+	readonly created_at: string;
+	readonly updated_at: string;
+	readonly latest_event_id: number | null;
+	readonly last_event_at: string | null;
+	readonly search_run_id: string | null;
+	readonly search_project_id: string | null;
+	readonly search_project_root: string | null;
+	readonly search_flow: string | null;
+	readonly search_status: Status | null;
+	readonly search_activity_at: string | null;
+	readonly search_source_event_id: number | null;
+	readonly search_source_run_updated_at: string | null;
+}
+
+interface ActivityStatusEventRow {
+	readonly step: string | null;
+	readonly data: string | null;
+	readonly created_at: string;
+	readonly id: number;
 }
 
 const HISTORICAL_WORKFLOW_BACKFILLS: Readonly<
@@ -93,6 +134,63 @@ const GIT_ENV_VARS_TO_CLEAR = [
 	"GIT_ALTERNATE_OBJECT_DIRECTORIES",
 	"GIT_COMMON_DIR",
 ] as const;
+
+const STATUS_LABELS: Record<Status, string> = {
+	not_started: "Not Started",
+	running: "Running",
+	waiting: "Waiting",
+	inactive: "Inactive",
+	completed: "Completed",
+	failed: "Failed",
+	cancelled: "Cancelled",
+	abandoned: "Abandoned",
+	skipped: "Skipped",
+};
+
+const ACTIVITY_SEARCH_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS activity_search_runs (
+    run_id TEXT PRIMARY KEY NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    project_id TEXT DEFAULT NULL,
+    project_root TEXT NOT NULL,
+    flow TEXT NOT NULL,
+    status TEXT NOT NULL
+        CHECK(status IN (${RUN_STATUS_CHECK_STATUSES.map((status) => `'${status}'`).join(", ")})),
+    activity_at TEXT NOT NULL,
+    source_event_id INTEGER DEFAULT NULL,
+    source_run_updated_at TEXT NOT NULL,
+    search_text TEXT NOT NULL,
+    indexed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_search_project_activity ON activity_search_runs(project_id, activity_at DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_search_root_activity ON activity_search_runs(project_root, activity_at DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_search_status_activity ON activity_search_runs(status, activity_at DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_search_activity ON activity_search_runs(activity_at DESC);
+`;
+
+const NON_REAPER_EVENT_EXISTS_SQL = `EXISTS (
+	SELECT 1 FROM events
+	WHERE events.run_id = runs.id
+	  AND (
+		  CASE
+			  WHEN events.type = 'status_change'
+			   AND events.data IS NOT NULL
+			   AND json_valid(events.data)
+			  THEN COALESCE(json_extract(events.data, '$.source'), '')
+			  ELSE ''
+		  END
+	  ) != 'inactivity_reaper'
+)`;
+
+const emptyBackfillResult = (): DbBackfillResult => ({
+	runsUpdated: 0,
+	artifactsUpdated: 0,
+	tasksUpdated: 0,
+	notificationsUpdated: 0,
+	artifactFilesMoved: 0,
+	activitySearchRowsCreated: 0,
+	activitySearchRowsRefreshed: 0,
+});
 
 const defaultKbRoot = (projectRoot: string): string =>
 	join(resolve(projectRoot), ".rp1", "context");
@@ -180,6 +278,21 @@ const buildProjectPathWhereClause = (
 	};
 };
 
+const getTableColumns = (db: Database, table: string): ReadonlySet<string> => {
+	const cols = db.prepare(`PRAGMA table_info(${table})`).all() as {
+		name: string;
+	}[];
+	return new Set(cols.map((column) => column.name));
+};
+
+const hasTable = (db: Database, table: string): boolean =>
+	db
+		.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
+		.get(table) !== null;
+
+const hasColumn = (db: Database, table: string, column: string): boolean =>
+	getTableColumns(db, table).has(column);
+
 const belongsToProject = (
 	recordPath: string | null,
 	targetProjectRoot: string,
@@ -238,6 +351,126 @@ const parseJsonSafe = (
 	} catch {
 		return null;
 	}
+};
+
+const humanizeLabel = (value: string): string =>
+	value
+		.split(/[-_]/)
+		.filter(Boolean)
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(" ");
+
+const humanizeFeatureName = (featureId: string): string =>
+	featureId
+		.split("-")
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(" ");
+
+const getActivityRunEvents = (
+	db: Database,
+	runId: string,
+): readonly ActivityStatusEventRow[] => {
+	if (!hasTable(db, "events")) {
+		return [];
+	}
+
+	return db
+		.prepare(
+			`SELECT id, step, data, created_at
+			 FROM events
+			 WHERE run_id = $runId
+			   AND type = 'status_change'
+			 ORDER BY created_at ASC, id ASC`,
+		)
+		.all({ $runId: runId }) as ActivityStatusEventRow[];
+};
+
+const getRunLevelStatusMessage = (
+	events: readonly ActivityStatusEventRow[],
+	status: Status,
+): string | null => {
+	for (const event of [...events].reverse()) {
+		if (event.step != null) continue;
+		const data = parseJsonSafe(event.data);
+		if (data?.status !== status || typeof data?.message !== "string") {
+			continue;
+		}
+		return data.message;
+	}
+
+	return null;
+};
+
+const getCurrentStepFromEvents = (
+	events: readonly ActivityStatusEventRow[],
+): string | null => {
+	const stepStatuses = events
+		.map((event) => {
+			if (!event.step) return null;
+			const data = parseJsonSafe(event.data);
+			const status =
+				typeof data?.status === "string" ? data.status : "not_started";
+			return { step: event.step, status };
+		})
+		.filter(
+			(
+				entry,
+			): entry is {
+				readonly step: string;
+				readonly status: string;
+			} => entry !== null,
+		);
+
+	for (const entry of [...stepStatuses].reverse()) {
+		if (entry.status === "running" || entry.status === "waiting") {
+			return entry.step;
+		}
+	}
+
+	for (const entry of [...stepStatuses].reverse()) {
+		if (entry.status !== "not_started") {
+			return entry.step;
+		}
+	}
+
+	return null;
+};
+
+const buildActivitySearchText = (
+	row: ActivitySearchBackfillRow,
+	params: {
+		readonly projectRoot: string;
+		readonly projectName: string;
+		readonly statusMessage: string | null;
+		readonly currentStep: string | null;
+	},
+): string => {
+	const featureId = normalizeRunValue(row.feature_id) ?? "";
+	const featureName = featureId ? humanizeFeatureName(featureId) : "";
+	const runDisplayName = row.name ?? featureName ?? featureId;
+	const currentStepLabel = params.currentStep
+		? humanizeLabel(
+				getLogicalStepDisplayId(params.currentStep).replace(/_/g, "-"),
+			)
+		: null;
+
+	return [
+		row.id,
+		`/${row.flow}`,
+		runDisplayName,
+		featureName,
+		featureId,
+		params.projectName || basename(params.projectRoot),
+		row.status,
+		params.statusMessage,
+		row.harness,
+		params.currentStep,
+		currentStepLabel,
+		STATUS_LABELS[row.status],
+	]
+		.filter((value): value is string => typeof value === "string")
+		.join(" ")
+		.toLowerCase();
 };
 
 const isWorkflowRunDecision = (value: unknown): value is WorkflowRunDecision =>
@@ -588,25 +821,271 @@ const repairArtifactsForRun = async (
 	return { artifactsUpdated, artifactFilesMoved };
 };
 
+const selectActivitySearchBackfillRows = (
+	db: Database,
+	params: {
+		readonly projectId: string;
+		readonly targetProjectRoot: string;
+		readonly canonicalProjectRoot: string;
+		readonly candidateProjectPaths: readonly string[];
+	},
+): ActivitySearchBackfillRow[] => {
+	if (!hasTable(db, "runs")) {
+		return [];
+	}
+
+	const runColumns = getTableColumns(db, "runs");
+	const hasEvents = hasTable(db, "events");
+	const hasSearchRows = hasTable(db, "activity_search_runs");
+	const hasSearchColumns =
+		hasSearchRows &&
+		[
+			"run_id",
+			"project_id",
+			"project_root",
+			"flow",
+			"status",
+			"activity_at",
+			"source_event_id",
+			"source_run_updated_at",
+		].every((column) => hasColumn(db, "activity_search_runs", column));
+
+	if (
+		!runColumns.has("id") ||
+		!runColumns.has("flow") ||
+		!runColumns.has("project_path") ||
+		!runColumns.has("status") ||
+		!runColumns.has("created_at") ||
+		!runColumns.has("updated_at")
+	) {
+		return [];
+	}
+
+	const projectPathFilter = buildProjectPathWhereClause(
+		"runs.project_path",
+		params.candidateProjectPaths,
+	);
+	const conditions: string[] = [`(${projectPathFilter.clause})`];
+	const values: (string | number)[] = [...projectPathFilter.params];
+
+	if (runColumns.has("project_id")) {
+		conditions.push("runs.project_id = ?");
+		values.push(params.projectId);
+	}
+
+	if (runColumns.has("rp1_project_root")) {
+		const rp1ProjectRootFilter = buildProjectPathWhereClause(
+			"runs.rp1_project_root",
+			params.candidateProjectPaths,
+		);
+		conditions.push(`(${rp1ProjectRootFilter.clause})`);
+		values.push(...rp1ProjectRootFilter.params);
+		conditions.push("runs.rp1_project_root = ?");
+		values.push(params.targetProjectRoot);
+	}
+
+	const bootstrapFilter =
+		runColumns.has("bootstrap_context") && hasEvents
+			? `(runs.bootstrap_context IS NULL OR ${NON_REAPER_EVENT_EXISTS_SQL})`
+			: runColumns.has("bootstrap_context")
+				? "runs.bootstrap_context IS NULL"
+				: "1 = 1";
+
+	const latestEventsJoin = hasEvents
+		? `LEFT JOIN (
+		     SELECT run_id, MAX(id) AS latest_event_id, MAX(created_at) AS last_event_at
+		     FROM events
+		     GROUP BY run_id
+		   ) AS latest_events ON latest_events.run_id = runs.id`
+		: "";
+	const searchRowsJoin = hasSearchColumns
+		? "LEFT JOIN activity_search_runs ON activity_search_runs.run_id = runs.id"
+		: "";
+
+	const featureIdSelect = runColumns.has("feature_id")
+		? "runs.feature_id"
+		: "NULL";
+	const rp1ProjectRootSelect = runColumns.has("rp1_project_root")
+		? "runs.rp1_project_root"
+		: "NULL";
+	const projectIdSelect = runColumns.has("project_id")
+		? "runs.project_id"
+		: "NULL";
+	const nameSelect = runColumns.has("name") ? "runs.name" : "NULL";
+	const harnessSelect = runColumns.has("harness") ? "runs.harness" : "NULL";
+	const latestEventIdSelect = hasEvents
+		? "latest_events.latest_event_id"
+		: "NULL";
+	const lastEventAtSelect = hasEvents ? "latest_events.last_event_at" : "NULL";
+	const searchRunSelect = hasSearchColumns
+		? "activity_search_runs.run_id"
+		: "NULL";
+	const searchProjectIdSelect = hasSearchColumns
+		? "activity_search_runs.project_id"
+		: "NULL";
+	const searchProjectRootSelect = hasSearchColumns
+		? "activity_search_runs.project_root"
+		: "NULL";
+	const searchFlowSelect = hasSearchColumns
+		? "activity_search_runs.flow"
+		: "NULL";
+	const searchStatusSelect = hasSearchColumns
+		? "activity_search_runs.status"
+		: "NULL";
+	const searchActivityAtSelect = hasSearchColumns
+		? "activity_search_runs.activity_at"
+		: "NULL";
+	const searchSourceEventIdSelect = hasSearchColumns
+		? "activity_search_runs.source_event_id"
+		: "NULL";
+	const searchSourceRunUpdatedAtSelect = hasSearchColumns
+		? "activity_search_runs.source_run_updated_at"
+		: "NULL";
+
+	const rows = db
+		.prepare(
+			`SELECT runs.id,
+			        runs.flow,
+			        ${featureIdSelect} AS feature_id,
+			        runs.project_path,
+			        ${rp1ProjectRootSelect} AS rp1_project_root,
+			        ${projectIdSelect} AS project_id,
+			        runs.status,
+			        ${nameSelect} AS name,
+			        ${harnessSelect} AS harness,
+			        runs.created_at,
+			        runs.updated_at,
+			        ${latestEventIdSelect} AS latest_event_id,
+			        ${lastEventAtSelect} AS last_event_at,
+			        ${searchRunSelect} AS search_run_id,
+			        ${searchProjectIdSelect} AS search_project_id,
+			        ${searchProjectRootSelect} AS search_project_root,
+			        ${searchFlowSelect} AS search_flow,
+			        ${searchStatusSelect} AS search_status,
+			        ${searchActivityAtSelect} AS search_activity_at,
+			        ${searchSourceEventIdSelect} AS search_source_event_id,
+			        ${searchSourceRunUpdatedAtSelect} AS search_source_run_updated_at
+			 FROM runs
+			 ${latestEventsJoin}
+			 ${searchRowsJoin}
+			 WHERE (${conditions.join(" OR ")})
+			   AND ${bootstrapFilter}
+			 ORDER BY COALESCE(${lastEventAtSelect}, runs.created_at) DESC,
+			          runs.created_at DESC,
+			          runs.id DESC`,
+		)
+		.all(...values) as ActivitySearchBackfillRow[];
+
+	return rows.filter((row) => {
+		const rowProjectRoot = row.rp1_project_root ?? row.project_path;
+		return (
+			belongsToProject(row.project_path, params.canonicalProjectRoot) ||
+			belongsToProject(rowProjectRoot, params.canonicalProjectRoot) ||
+			matchesCandidatePath(row.project_path, params.candidateProjectPaths) ||
+			matchesCandidatePath(rowProjectRoot, params.candidateProjectPaths) ||
+			row.project_id === params.projectId
+		);
+	});
+};
+
+const backfillActivitySearchRows = (
+	db: Database,
+	params: {
+		readonly projectId: string;
+		readonly targetProjectRoot: string;
+		readonly canonicalProjectRoot: string;
+		readonly candidateProjectPaths: readonly string[];
+		readonly dryRun: boolean;
+	},
+): Pick<
+	DbBackfillResult,
+	"activitySearchRowsCreated" | "activitySearchRowsRefreshed"
+> => {
+	if (!params.dryRun) {
+		db.exec(ACTIVITY_SEARCH_SCHEMA_SQL);
+	}
+
+	const rows = selectActivitySearchBackfillRows(db, params);
+	let activitySearchRowsCreated = 0;
+	let activitySearchRowsRefreshed = 0;
+
+	for (const row of rows) {
+		const activityAt = row.last_event_at ?? row.created_at;
+		const targetProjectRoot = params.targetProjectRoot;
+		const targetProjectId = params.projectId;
+		const missing = row.search_run_id == null;
+		const stale =
+			!missing &&
+			(row.search_project_id !== targetProjectId ||
+				row.search_project_root !== targetProjectRoot ||
+				row.search_flow !== row.flow ||
+				row.search_status !== row.status ||
+				row.search_activity_at !== activityAt ||
+				row.search_source_run_updated_at !== row.updated_at ||
+				(row.search_source_event_id ?? -1) !== (row.latest_event_id ?? -1));
+
+		if (!missing && !stale) {
+			continue;
+		}
+
+		if (missing) {
+			activitySearchRowsCreated++;
+		} else {
+			activitySearchRowsRefreshed++;
+		}
+
+		if (params.dryRun) {
+			continue;
+		}
+
+		const events = getActivityRunEvents(db, row.id);
+		const currentStep = getCurrentStepFromEvents(events);
+		const statusMessage = getRunLevelStatusMessage(events, row.status);
+		const searchText = buildActivitySearchText(row, {
+			projectRoot: targetProjectRoot,
+			projectName: basename(targetProjectRoot),
+			statusMessage,
+			currentStep,
+		});
+
+		upsertActivitySearchRun(db, {
+			runId: row.id,
+			projectId: targetProjectId,
+			projectRoot: targetProjectRoot,
+			flow: row.flow,
+			status: row.status,
+			activityAt,
+			sourceEventId: row.latest_event_id,
+			sourceRunUpdatedAt: row.updated_at,
+			searchText,
+		});
+	}
+
+	return {
+		activitySearchRowsCreated,
+		activitySearchRowsRefreshed,
+	};
+};
+
 export const backfillProjectId = async (
 	projectRoot: string,
 	projectId: string,
+	options: DbBackfillOptions = {},
 ): Promise<DbBackfillResult> => {
 	const dbPath = process.env.RP1_DB ?? join(homedir(), ".rp1", "rp1.db");
 
 	if (!existsSync(dbPath)) {
-		return {
-			runsUpdated: 0,
-			artifactsUpdated: 0,
-			tasksUpdated: 0,
-			notificationsUpdated: 0,
-			artifactFilesMoved: 0,
-		};
+		return emptyBackfillResult();
 	}
 
 	const { Database } = require("bun:sqlite");
-	const db = new Database(dbPath);
-	db.exec("PRAGMA journal_mode = WAL");
+	const db = new Database(
+		dbPath,
+		options.dryRun === true ? { readonly: true, create: false } : undefined,
+	);
+	if (options.dryRun !== true) {
+		db.exec("PRAGMA journal_mode = WAL");
+	}
 	db.exec("PRAGMA busy_timeout = 5000");
 
 	const canonicalProjectRoot = canonicalizePath(projectRoot);
@@ -623,6 +1102,20 @@ export const backfillProjectId = async (
 	);
 
 	try {
+		if (options.dryRun === true) {
+			const activitySearch = backfillActivitySearchRows(db, {
+				projectId,
+				targetProjectRoot: targetDirectories.projectRoot,
+				canonicalProjectRoot,
+				candidateProjectPaths,
+				dryRun: true,
+			});
+			return {
+				...emptyBackfillResult(),
+				...activitySearch,
+			};
+		}
+
 		const ensureColumn = (table: string, column: string) => {
 			const cols = db.prepare(`PRAGMA table_info(${table})`).all() as {
 				name: string;
@@ -631,11 +1124,6 @@ export const backfillProjectId = async (
 				db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} TEXT DEFAULT NULL`);
 			}
 		};
-
-		const hasTable = (table: string): boolean =>
-			db
-				.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
-				.get(table) !== null;
 
 		const renameColumnIfNeeded = (
 			table: string,
@@ -796,7 +1284,7 @@ export const backfillProjectId = async (
 				runsUpdated++;
 			}
 
-			if (hasTable("notifications")) {
+			if (hasTable(db, "notifications")) {
 				const notificationResult = db
 					.prepare(
 						`UPDATE notifications
@@ -900,12 +1388,21 @@ export const backfillProjectId = async (
 			tasksUpdated += result.changes;
 		}
 
+		const activitySearch = backfillActivitySearchRows(db, {
+			projectId,
+			targetProjectRoot: targetDirectories.projectRoot,
+			canonicalProjectRoot,
+			candidateProjectPaths,
+			dryRun: false,
+		});
+
 		return {
 			runsUpdated,
 			artifactsUpdated,
 			tasksUpdated,
 			notificationsUpdated,
 			artifactFilesMoved,
+			...activitySearch,
 		};
 	} finally {
 		db.close();

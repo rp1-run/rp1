@@ -51,6 +51,7 @@ interface RunArtifactsPanelMockProps {
 	readonly selectedArtifact: Artifact | null;
 	readonly onArtifactSelect?: (artifact: Artifact) => void;
 	readonly showFrontmatter?: boolean;
+	readonly leadingControl?: ReactNode;
 }
 
 interface VerticalStepListMockProps {
@@ -135,6 +136,10 @@ function applyRunDetailMocks() {
 		useWebSocket: () => webSocketApi,
 	}));
 
+	mock.module("@/components/v2/HarnessIcon", () => ({
+		HarnessIcon: () => <span data-testid="harness-icon" />,
+	}));
+
 	mock.module("@/components/ui/resizable", () => ({
 		ResizablePanelGroup: ({ children }: { children?: ReactNode }) => (
 			<div>{children}</div>
@@ -172,6 +177,7 @@ function applyRunDetailMocks() {
 			selectedArtifact,
 			onArtifactSelect,
 			showFrontmatter,
+			leadingControl,
 		}: RunArtifactsPanelMockProps) => {
 			const artifacts = artifactGroups.flatMap((group) => group.artifacts);
 			latestRunArtifactsPanelProps.push({
@@ -188,6 +194,7 @@ function applyRunDetailMocks() {
 					data-frontmatter={String(showFrontmatter ?? false)}
 					data-selected-artifact={selectedArtifact?.docId ?? ""}
 				>
+					{leadingControl}
 					{artifacts.map((artifact) => (
 						<button
 							key={artifact.docId}
@@ -266,6 +273,22 @@ async function renderRunDetail(
 							}
 						/>
 					</Routes>
+				</ShortcutRegistryProvider>
+			</WorkspaceTabsProvider>
+		</MemoryRouter>,
+	);
+}
+
+async function renderRunPreview() {
+	const { RunDetailSurface } = await import(
+		`../../../components/v2/RunDetailSurface.tsx?run-preview-test=${++importVersion}`
+	);
+
+	return render(
+		<MemoryRouter initialEntries={["/"]}>
+			<WorkspaceTabsProvider>
+				<ShortcutRegistryProvider>
+					<RunDetailSurface runId="run-1" mode="activity-preview" />
 				</ShortcutRegistryProvider>
 			</WorkspaceTabsProvider>
 		</MemoryRouter>,
@@ -369,6 +392,110 @@ describe("RunDetailPage", () => {
 		for (const panel of screen.getAllByTestId("artifact-panel-frontmatter")) {
 			expect(panel.dataset.frontmatter).toBe("true");
 		}
+	});
+
+	test("collapses workflow steps by default and opens them on demand", async () => {
+		await renderRunDetail();
+
+		expect(screen.queryByTestId("step-list")).toBeNull();
+
+		const openStepsButton = screen.getByRole("button", {
+			name: "Toggle workflow steps",
+		});
+		expect(openStepsButton.getAttribute("aria-expanded")).toBe("false");
+		expect(openStepsButton.className).toContain("text-fg-ghost");
+		expect(openStepsButton.className).not.toContain("h-8");
+		expect(openStepsButton.className).not.toContain("w-8");
+		expect(openStepsButton.querySelector(".lucide-workflow")).toBeTruthy();
+		expect(
+			openStepsButton.querySelector(".lucide-workflow")?.getAttribute("class"),
+		).toContain("h-3.5");
+		expect(openStepsButton.querySelector(".lucide-list-todo")).toBeNull();
+		expect(
+			document.body.querySelector("aside[aria-label='Workflow steps']"),
+		).toBeNull();
+		expect(openStepsButton.closest(".w-10")).toBeNull();
+
+		fireEvent.click(openStepsButton);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("step-list").dataset.selectedStepId).toBe(
+				"build",
+			);
+		});
+		expect(screen.getByText("Steps")).toBeTruthy();
+		expect(document.body.querySelector(".lucide-workflow")).toBeTruthy();
+		expect(document.body.querySelector(".lucide-panel-left")).toBeNull();
+		const expandedToggle = screen.getByRole("button", {
+			name: "Toggle workflow steps",
+		});
+		expect(expandedToggle.getAttribute("aria-expanded")).toBe("true");
+		expect(
+			expandedToggle.querySelector(".lucide-workflow")?.getAttribute("class"),
+		).toContain("h-3.5");
+
+		const closeStepsButton = screen.getByRole("button", {
+			name: "Close workflow steps panel",
+		});
+		expect(closeStepsButton.querySelector(".lucide-x")).toBeTruthy();
+
+		fireEvent.click(expandedToggle);
+
+		await waitFor(() => {
+			expect(screen.queryByTestId("step-list")).toBeNull();
+		});
+		expect(
+			screen
+				.getByRole("button", { name: "Toggle workflow steps" })
+				.querySelector(".lucide-workflow"),
+		).toBeTruthy();
+	});
+
+	test("keeps the workflow steps affordance collapsed by default in the run preview", async () => {
+		await renderRunPreview();
+
+		expect(screen.queryByTestId("step-list")).toBeNull();
+
+		const openStepsButton = screen.getByRole("button", {
+			name: "Toggle workflow steps",
+		});
+		expect(openStepsButton.getAttribute("aria-expanded")).toBe("false");
+		expect(openStepsButton.className).toContain("text-fg-ghost");
+		expect(openStepsButton.className).not.toContain("h-8");
+		expect(openStepsButton.className).not.toContain("w-8");
+		expect(openStepsButton.querySelector(".lucide-workflow")).toBeTruthy();
+		expect(
+			document.body.querySelector("aside[aria-label='Workflow steps']"),
+		).toBeNull();
+
+		fireEvent.click(openStepsButton);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("step-list").dataset.selectedStepId).toBe(
+				"build",
+			);
+		});
+		expect(screen.getByText("Steps")).toBeTruthy();
+		expect(document.body.querySelector(".lucide-workflow")).toBeTruthy();
+		const expandedToggle = screen.getByRole("button", {
+			name: "Toggle workflow steps",
+		});
+		expect(expandedToggle.getAttribute("aria-expanded")).toBe("true");
+		const closeStepsButton = screen.getByRole("button", {
+			name: "Close workflow steps panel",
+		});
+		expect(closeStepsButton.querySelector(".lucide-x")).toBeTruthy();
+
+		fireEvent.click(closeStepsButton);
+
+		await waitFor(() => {
+			expect(screen.queryByTestId("step-list")).toBeNull();
+		});
+		expect(
+			screen
+				.getByRole("button", { name: "Toggle workflow steps" })
+				.querySelector(".lucide-workflow"),
+		).toBeTruthy();
 	});
 
 	test("posts explicit end-run actions from the detail header", async () => {
@@ -603,6 +730,10 @@ describe("RunDetailPage", () => {
 		};
 
 		await renderRunDetail("/runs/run-1/step/build/artifact/doc-1");
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "Toggle workflow steps" }),
+		);
 
 		await waitFor(() => {
 			expect(screen.getByTestId("step-list").dataset.selectedStepId).toBe(
