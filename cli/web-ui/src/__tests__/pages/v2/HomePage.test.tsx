@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
+	act,
 	cleanup,
 	fireEvent,
 	render,
@@ -19,6 +20,7 @@ import type { Artifact, Run, Step } from "@/types/runs";
 let importVersion = 0;
 let wideActivityLayout = false;
 let feedLoading = false;
+let feedSearchQueries: string[] = [];
 let feedItems: {
 	readonly id: string;
 	readonly run: Run;
@@ -127,10 +129,17 @@ function getActivityRow(name: string) {
 	return row as HTMLElement;
 }
 
+async function flushSearchDebounce() {
+	await act(async () => {
+		await new Promise((resolve) => setTimeout(resolve, 200));
+	});
+}
+
 function installHomePageMocks() {
 	mock.module("@/hooks/useFeed", () => ({
 		useFeed: (options?: { readonly search?: string }) => {
 			const search = options?.search?.trim().toLowerCase() ?? "";
+			feedSearchQueries.push(search);
 			const items = search
 				? feedItems.filter((item) =>
 						[
@@ -307,6 +316,7 @@ describe("HomePage", () => {
 		sessionStorage.clear();
 		wideActivityLayout = false;
 		feedLoading = false;
+		feedSearchQueries = [];
 		feedItems = [
 			createFeedItem({
 				id: "run-1",
@@ -386,17 +396,46 @@ describe("HomePage", () => {
 		const input = screen.getByRole("searchbox", { name: "Search activity" });
 		fireEvent.change(input, { target: { value: "Project Two" } });
 
-		await waitFor(() => {
-			expect(screen.queryByText("Build One")).toBeNull();
-			expect(screen.getByText("Build Two")).toBeTruthy();
-		});
+		await flushSearchDebounce();
+		expect(screen.queryByText("Build One")).toBeNull();
+		expect(screen.getByText("Build Two")).toBeTruthy();
 
 		fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
 
-		await waitFor(() => {
-			expect(screen.getByText("Build One")).toBeTruthy();
-			expect(screen.getByText("Build Two")).toBeTruthy();
-		});
+		expect(screen.getByText("Build One")).toBeTruthy();
+		expect(screen.getByText("Build Two")).toBeTruthy();
+	});
+
+	test("debounces activity search requests while typing", async () => {
+		await renderHomePage();
+
+		fireEvent.click(screen.getByRole("button", { name: "Show search" }));
+
+		const input = screen.getByRole("searchbox", { name: "Search activity" });
+		fireEvent.change(input, { target: { value: "r" } });
+		fireEvent.change(input, { target: { value: "re" } });
+		fireEvent.change(input, { target: { value: "rep" } });
+		fireEvent.change(input, { target: { value: "repl" } });
+
+		await flushSearchDebounce();
+		expect(feedSearchQueries).toContain("repl");
+
+		expect(feedSearchQueries).not.toContain("r");
+		expect(feedSearchQueries).not.toContain("re");
+		expect(feedSearchQueries).not.toContain("rep");
+
+		feedSearchQueries = [];
+		fireEvent.change(input, { target: { value: "rep" } });
+		fireEvent.change(input, { target: { value: "re" } });
+		fireEvent.change(input, { target: { value: "r" } });
+		fireEvent.change(input, { target: { value: "" } });
+
+		await flushSearchDebounce();
+		expect(feedSearchQueries).toContain("");
+
+		expect(feedSearchQueries).not.toContain("r");
+		expect(feedSearchQueries).not.toContain("re");
+		expect(feedSearchQueries).not.toContain("rep");
 	});
 
 	test("uses the search input as the activity search progress indicator", async () => {

@@ -2467,11 +2467,10 @@ export async function handleV2FeedRequest(
 			offset: 0,
 		});
 
-		let runItems: Array<{
-			type: "run";
-			id: string;
+		let runCandidates: Array<{
+			record: RunRecordWithLastEvent;
+			project: ProjectEntry;
 			timestamp: string;
-			run: Run;
 		}> = [];
 		for (const record of runsResult.records) {
 			if (isEvalRunRecord(record)) continue;
@@ -2479,17 +2478,10 @@ export async function handleV2FeedRequest(
 			const project =
 				findProjectByIdentity(projectLookup, record) ??
 				fallbackProjectFromRun(record);
-			const run = runRecordToListRun(
+			runCandidates.push({
 				record,
 				project,
-				getListRunStatusMessage(db, record),
-				getListRunCurrentStep(db, record),
-			);
-			runItems.push({
-				type: "run",
-				id: record.id,
-				timestamp: run.lastEventAt ?? run.startedAt,
-				run,
+				timestamp: record.lastEventAt ?? record.createdAt,
 			});
 		}
 
@@ -2502,19 +2494,35 @@ export async function handleV2FeedRequest(
 			};
 			const range = ranges[dateRange];
 			if (range) {
-				runItems = runItems.filter(
+				runCandidates = runCandidates.filter(
 					(item) => now - new Date(item.timestamp).getTime() <= range,
 				);
 			}
 		}
 
-		runItems.sort(
+		runCandidates.sort(
 			(a, b) =>
 				new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
 		);
 
-		const total = runItems.length;
-		const paged = runItems.slice(offset, offset + limit);
+		const total = runCandidates.length;
+		const paged = runCandidates
+			.slice(offset, offset + limit)
+			.map(({ record, project, timestamp }) => {
+				const run = runRecordToListRun(
+					record,
+					project,
+					getListRunStatusMessage(db, record),
+					getListRunCurrentStep(db, record),
+				);
+
+				return {
+					type: "run" as const,
+					id: record.id,
+					timestamp,
+					run,
+				};
+			});
 
 		return jsonResponse({ items: paged, total });
 	} catch (error) {

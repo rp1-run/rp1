@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 import type { Run, RunsFilter } from "@/types/runs";
 
 const PAGE_SIZE = 25;
+const SEARCH_QUERY_DEBOUNCE_MS = 150;
 const ACTIVITY_NAVIGATION_KEYS = new Set(["ArrowDown", "j", "ArrowUp", "k"]);
 
 function hasOpenDialog(): boolean {
@@ -531,6 +532,7 @@ export function HomePage() {
 	const initialProjectId = searchParams.get("projectId");
 	const [showSearch, setShowSearch] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
+	const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 	const [showFilters, setShowFilters] = useState(!!initialProjectId);
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 	const [filters, setFilters] = useState<RunsFilter>({
@@ -539,15 +541,20 @@ export function HomePage() {
 		dateRange: "all",
 	});
 	const [pageSize, setPageSize] = useState(PAGE_SIZE);
+	const normalizedSearchQuery = searchQuery.trim();
+	const normalizedDebouncedSearchQuery = debouncedSearchQuery.trim();
+	const searchPending =
+		normalizedSearchQuery !== normalizedDebouncedSearchQuery;
 
 	const { items, total, isLoading } = useFeed({
 		...filters,
 		limit: pageSize,
-		search: searchQuery.trim() || undefined,
+		search: normalizedDebouncedSearchQuery || undefined,
 	});
 
 	const hasMore = items.length < total;
-	const searchActive = searchQuery.trim().length > 0;
+	const searchActive = normalizedSearchQuery.length > 0;
+	const isFeedRefreshing = isLoading || searchPending;
 
 	const handleFiltersChange = useCallback(
 		(newFilters: RunsFilter) => {
@@ -575,6 +582,7 @@ export function HomePage() {
 	const handleToggleSearch = useCallback(() => {
 		if (showSearch) {
 			setSearchQuery("");
+			setDebouncedSearchQuery("");
 			setPageSize(PAGE_SIZE);
 			setShowSearch(false);
 			return;
@@ -589,9 +597,18 @@ export function HomePage() {
 
 	const handleClearSearch = useCallback(() => {
 		setSearchQuery("");
+		setDebouncedSearchQuery("");
 		setPageSize(PAGE_SIZE);
 		searchInputRef.current?.focus();
 	}, []);
+
+	useEffect(() => {
+		const timeoutId = window.setTimeout(() => {
+			setDebouncedSearchQuery(searchQuery);
+		}, SEARCH_QUERY_DEBOUNCE_MS);
+
+		return () => window.clearTimeout(timeoutId);
+	}, [searchQuery]);
 
 	useEffect(() => {
 		if (showSearch) {
@@ -704,7 +721,7 @@ export function HomePage() {
 					{showSearch && (
 						<ActivitySearchBar
 							value={searchQuery}
-							isLoading={isLoading}
+							isLoading={isFeedRefreshing}
 							inputRef={searchInputRef}
 							onChange={handleSearchChange}
 							onClear={handleClearSearch}
@@ -724,7 +741,7 @@ export function HomePage() {
 						<FeedList
 							items={items}
 							hasMore={hasMore}
-							isLoading={isLoading}
+							isLoading={isFeedRefreshing}
 							searchActive={searchActive}
 							showEmptyLoadingState={!showSearch}
 							renderFeedItem={renderFeedItem}

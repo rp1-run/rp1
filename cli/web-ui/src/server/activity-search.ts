@@ -9,7 +9,7 @@ import type {
 import {
 	deleteActivitySearchRun,
 	getEventsForRun,
-	getRunWithLastEventById,
+	getRunById,
 	listActivitySearchRefreshCandidates,
 	queryActivitySearchRuns,
 	upsertActivitySearchRun,
@@ -71,6 +71,8 @@ export interface SearchActivityFeedRunsOptions {
 	readonly offset?: number;
 	readonly now?: Date;
 }
+
+const PROJECT_DISPLAY_NAME_REFRESH_MIN_TOKEN_LENGTH = 2;
 
 function fallbackProjectFromRun(record: {
 	readonly projectId: string | null;
@@ -227,7 +229,11 @@ function projectNameMatchesTokens(
 	const projectName = project.name.trim().toLowerCase();
 	return (
 		projectName.length > 0 &&
-		tokens.some((token) => projectName.includes(token))
+		tokens.some(
+			(token) =>
+				token.length >= PROJECT_DISPLAY_NAME_REFRESH_MIN_TOKEN_LENGTH &&
+				projectName.includes(token),
+		)
 	);
 }
 
@@ -353,7 +359,7 @@ export function searchActivityFeedRuns(
 	const visibleRecords: RunRecordWithLastEvent[] = [];
 
 	for (const row of matchingRows) {
-		const record = getRunWithLastEventById(opts.db, row.runId);
+		const record = getRunById(opts.db, row.runId);
 		if (!record) {
 			deleteActivitySearchRun(opts.db, row.runId);
 			continue;
@@ -363,7 +369,10 @@ export function searchActivityFeedRuns(
 			continue;
 		}
 
-		visibleRecords.push(record);
+		visibleRecords.push({
+			...record,
+			lastEventAt: row.activityAt,
+		});
 	}
 
 	const offset = opts.offset ?? 0;
