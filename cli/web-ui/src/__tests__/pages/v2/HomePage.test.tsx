@@ -377,10 +377,11 @@ describe("HomePage", () => {
 		const rowChildren = Array.from(row.children);
 
 		expect(row.className).toContain(
-			"grid-cols-[auto_3.25rem_minmax(0,1fr)_6.75rem]",
+			"grid-cols-[auto_3.75rem_minmax(0,1fr)_6.75rem]",
 		);
 		expect(row.title).toBe("");
 		expect(rowChildren[1]?.className).toContain("tabular-nums");
+		expect(rowChildren[1]?.className).toContain("whitespace-nowrap");
 		expect(projectName.textContent).toBe("Project One");
 		expect(projectName.classList.contains("truncate")).toBe(true);
 		expect(

@@ -201,7 +201,7 @@ function FeedEntry({
 				variants={reducedMotion ? feedItemVariantsReduced : feedItemVariants}
 				transition={reducedMotion ? { duration: 0 } : feedItemTransition}
 				className={cn(
-					"group grid w-full grid-cols-[auto_3.25rem_minmax(0,1fr)_6.75rem] items-center gap-2.5 px-3 py-2.5 text-left rounded-[var(--radius)] sm:grid-cols-[auto_3.25rem_minmax(0,1fr)_7.5rem]",
+					"group grid w-full grid-cols-[auto_3.75rem_minmax(0,1fr)_6.75rem] items-center gap-2.5 px-3 py-2.5 text-left rounded-[var(--radius)] sm:grid-cols-[auto_3.75rem_minmax(0,1fr)_7.5rem]",
 					"transition-colors duration-150",
 					"hover:bg-surface",
 					"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
@@ -211,7 +211,7 @@ function FeedEntry({
 				<StatusDot status={run.status} />
 
 				<span
-					className="min-w-0 text-right type-secondary tabular-nums text-fg-ghost"
+					className="min-w-0 whitespace-nowrap text-right type-secondary tabular-nums text-fg-ghost"
 					title={timeLabel}
 				>
 					{timeLabel}
