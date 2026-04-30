@@ -89,6 +89,7 @@ async function renderStrip(
 				<WorkspaceTabStrip action={options.action} />
 				<Routes>
 					<Route path="/" element={<LocationProbe />} />
+					<Route path="/projects" element={<LocationProbe />} />
 					<Route path="/runs/:runId/*" element={<LocationProbe />} />
 					<Route path="/projects/:projectId" element={<LocationProbe />} />
 				</Routes>
@@ -132,7 +133,19 @@ describe("WorkspaceTabStrip", () => {
 
 		const firstTab = await screen.findByRole("button", { name: "Run run-1" });
 		const secondTab = screen.getByRole("button", { name: "proj-1, workspace" });
+		const closeAllButton = screen.getByRole("button", {
+			name: "Close all 2 workspace tabs",
+		});
+		const workspaceNav = screen.getByRole("navigation", {
+			name: "Open workspaces",
+		});
 
+		expect(
+			Boolean(
+				closeAllButton.compareDocumentPosition(workspaceNav) &
+					Node.DOCUMENT_POSITION_FOLLOWING,
+			),
+		).toBe(true);
 		expect(
 			screen.getByRole("button", { name: "Close Run run-1" }),
 		).toBeTruthy();
@@ -155,6 +168,47 @@ describe("WorkspaceTabStrip", () => {
 				"/runs/run-1",
 			);
 		});
+	});
+
+	test("confirms before closing all open workspace tabs", async () => {
+		setStoredState({
+			tabs: baseTabs,
+			activeKey: "run:run-1",
+			lastDurableRoute: "/projects",
+		});
+
+		await renderStrip(["/runs/run-1"]);
+
+		fireEvent.click(
+			await screen.findByRole("button", {
+				name: "Close all 2 workspace tabs",
+			}),
+		);
+
+		expect(screen.getByRole("dialog")).toBeTruthy();
+		expect(screen.getByText("Close all tabs?")).toBeTruthy();
+
+		fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+		await waitFor(() => {
+			expect(screen.queryByRole("dialog")).toBeNull();
+		});
+		expect(screen.getByRole("button", { name: "Run run-1" })).toBeTruthy();
+
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "Close all 2 workspace tabs",
+			}),
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Close all" }));
+
+		await waitFor(() => {
+			expect(screen.getByTestId("location-probe").textContent).toBe(
+				"/projects",
+			);
+		});
+		expect(
+			screen.queryByRole("navigation", { name: "Open workspaces" }),
+		).toBeNull();
 	});
 
 	test("supports home/end focus movement plus space and backspace keyboard controls", async () => {
@@ -234,6 +288,9 @@ describe("WorkspaceTabStrip", () => {
 		});
 
 		expect(screen.getByRole("button", { name: "Notifications" })).toBeTruthy();
+		expect(
+			screen.queryByRole("button", { name: /Close all .* workspace tabs/ }),
+		).toBeNull();
 		expect(
 			screen.queryByRole("navigation", { name: "Open workspaces" }),
 		).toBeNull();

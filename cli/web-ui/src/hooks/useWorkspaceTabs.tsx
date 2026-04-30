@@ -43,6 +43,7 @@ interface WorkspaceTabsContextValue extends WorkspaceTabsState {
 	readonly openWorkspace: (targetRoute: string) => void;
 	readonly activateWorkspace: (key: string) => void;
 	readonly closeWorkspace: (key: string) => void;
+	readonly closeAllWorkspaces: () => void;
 	readonly updateWorkspaceMetadata: (
 		key: string,
 		metadata: WorkspaceTabMetadata,
@@ -457,6 +458,21 @@ export function WorkspaceTabsProvider({
 		[navigate],
 	);
 
+	const closeAllWorkspaces = useCallback(() => {
+		const current = stateRef.current;
+
+		if (current.tabs.length === 0) {
+			return;
+		}
+
+		setState({
+			tabs: [],
+			activeKey: null,
+			lastDurableRoute: current.lastDurableRoute,
+		});
+		navigate(current.lastDurableRoute);
+	}, [navigate]);
+
 	const updateWorkspaceMetadata = useCallback(
 		(key: string, metadata: WorkspaceTabMetadata) => {
 			setState((current) => {
@@ -486,6 +502,7 @@ export function WorkspaceTabsProvider({
 			openWorkspace,
 			activateWorkspace,
 			closeWorkspace,
+			closeAllWorkspaces,
 			updateWorkspaceMetadata,
 		}),
 		[
@@ -493,6 +510,7 @@ export function WorkspaceTabsProvider({
 			openWorkspace,
 			activateWorkspace,
 			closeWorkspace,
+			closeAllWorkspaces,
 			updateWorkspaceMetadata,
 		],
 	);
