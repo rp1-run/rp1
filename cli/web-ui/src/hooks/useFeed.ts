@@ -9,6 +9,7 @@ import {
 	type Run,
 	type RunStatusFilter,
 	type RunsFilter,
+	type RunViewFilter,
 } from "@/types/runs";
 import {
 	useLiveRunIndexBridge,
@@ -98,14 +99,29 @@ function matchesStatusFilter(
 		return true;
 	}
 
-	if (status === "relevant") {
-		return !relevantHiddenRunStatusSet.has(run.status);
-	}
-
 	return run.status === status;
 }
 
+function matchesViewFilter(
+	run: Run,
+	view: RunViewFilter | null | undefined,
+): boolean {
+	if (!view || view === "all") {
+		return true;
+	}
+
+	if (view === "relevant") {
+		return !relevantHiddenRunStatusSet.has(run.status);
+	}
+
+	return true;
+}
+
 function matchesFeedFilters(run: Run, options: UseFeedOptions): boolean {
+	if (!matchesViewFilter(run, options.view)) {
+		return false;
+	}
+
 	if (!matchesStatusFilter(run, options.status)) {
 		return false;
 	}
@@ -149,6 +165,10 @@ function areFeedItemsEqual(
 
 function buildQueryParams(options: UseFeedOptions): URLSearchParams {
 	const params = new URLSearchParams();
+
+	if (options.view && options.view !== "all") {
+		params.set("view", options.view);
+	}
 
 	if (options.status && options.status !== "all") {
 		params.set("status", options.status);
@@ -197,7 +217,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 	useLiveRunIndexBridge();
 	const liveSnapshot = useLiveRunIndexSnapshot();
 
-	const { status, projectId, dateRange, limit, offset, search } = options;
+	const { view, status, projectId, dateRange, limit, offset, search } = options;
 
 	const fetchFeed = useCallback(
 		async ({ signal, showLoading = false }: FetchFeedOptions = {}) => {
@@ -212,6 +232,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 
 			try {
 				const params = buildQueryParams({
+					view,
 					status,
 					projectId,
 					dateRange,
@@ -232,7 +253,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 				}
 
 				liveRunIndex.upsertRuns(data.items.map((item) => item.run));
-				const filterOptions = { status, projectId, dateRange, search };
+				const filterOptions = { view, status, projectId, dateRange, search };
 				matchingRunIdsRef.current = new Set(
 					liveRunIndex
 						.getAllRuns()
@@ -241,9 +262,9 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 				);
 				setItems(
 					data.items
-						.map((item) =>
-							toFeedItem(liveRunIndex.getRun(item.run.id) ?? item.run),
-						)
+						.map((item) => liveRunIndex.getRun(item.run.id) ?? item.run)
+						.filter((run) => matchesFeedFilters(run, filterOptions))
+						.map(toFeedItem)
 						.sort(compareFeedItems),
 				);
 				setTotal(data.total);
@@ -260,7 +281,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 				}
 			}
 		},
-		[status, projectId, dateRange, limit, offset, search],
+		[view, status, projectId, dateRange, limit, offset, search],
 	);
 
 	useEffect(() => {
@@ -278,7 +299,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 		}
 
 		void liveSnapshot;
-		const filterOptions = { status, projectId, dateRange, search };
+		const filterOptions = { view, status, projectId, dateRange, search };
 		const knownMatchingRunIds = matchingRunIdsRef.current;
 		for (const runId of [...knownMatchingRunIds]) {
 			const liveRun = liveRunIndex.getRun(runId);
@@ -338,6 +359,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 		liveSnapshot,
 		items,
 		isLoading,
+		view,
 		status,
 		projectId,
 		dateRange,

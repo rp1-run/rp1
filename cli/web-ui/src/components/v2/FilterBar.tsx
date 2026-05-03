@@ -3,9 +3,12 @@ import { useCallback, useEffect, useState } from "react";
 import { getStatusLabel } from "@/lib/status-labels";
 import { cn } from "@/lib/utils";
 import {
-	DEFAULT_RUN_STATUS_FILTER,
+	DEFAULT_RUN_VIEW_FILTER,
+	RELEVANT_HIDDEN_RUN_STATUSES,
+	type RunStatus,
 	type RunStatusFilter,
 	type RunsFilter,
+	type RunViewFilter,
 } from "@/types/runs";
 import { Select } from "./Select";
 
@@ -22,9 +25,12 @@ export interface FilterBarProps {
 	className?: string;
 }
 
-const STATUS_TABS: { value: RunStatusFilter; label: string }[] = [
-	{ value: DEFAULT_RUN_STATUS_FILTER, label: "Relevant" },
+const VIEW_TABS: { value: RunViewFilter; label: string }[] = [
+	{ value: DEFAULT_RUN_VIEW_FILTER, label: "Relevant" },
 	{ value: "all", label: "All" },
+];
+
+const STATUS_OPTIONS: { value: RunStatus; label: string }[] = [
 	{ value: "running", label: getStatusLabel("running") },
 	{ value: "waiting", label: getStatusLabel("waiting") },
 	{ value: "inactive", label: getStatusLabel("inactive") },
@@ -35,11 +41,19 @@ const STATUS_TABS: { value: RunStatusFilter; label: string }[] = [
 ];
 
 const DATE_RANGES: { value: RunsFilter["dateRange"]; label: string }[] = [
-	{ value: "all", label: "All Time" },
+	{ value: "all", label: "Time" },
 	{ value: "today", label: "Today" },
 	{ value: "week", label: "This Week" },
 	{ value: "month", label: "This Month" },
 ];
+
+const relevantHiddenRunStatusSet = new Set<RunStatus>(
+	RELEVANT_HIDDEN_RUN_STATUSES,
+);
+
+function isHiddenInRelevantView(status: RunStatusFilter): boolean {
+	return status !== "all" && relevantHiddenRunStatusSet.has(status);
+}
 
 export function FilterBar({
 	filters,
@@ -60,6 +74,21 @@ export function FilterBar({
 		}
 		fetchProjects();
 	}, []);
+
+	const handleViewChange = useCallback(
+		(view: RunViewFilter) => {
+			onFiltersChange({
+				...filters,
+				view,
+				status:
+					view === DEFAULT_RUN_VIEW_FILTER &&
+					isHiddenInRelevantView(filters.status)
+						? "all"
+						: filters.status,
+			});
+		},
+		[filters, onFiltersChange],
+	);
 
 	const handleStatusChange = useCallback(
 		(status: RunStatusFilter) => {
@@ -84,39 +113,50 @@ export function FilterBar({
 
 	const handleClearFilters = useCallback(() => {
 		onFiltersChange({
-			status: DEFAULT_RUN_STATUS_FILTER,
+			view: DEFAULT_RUN_VIEW_FILTER,
+			status: "all",
 			projectId: null,
 			dateRange: "all",
 		});
 	}, [onFiltersChange]);
 
 	const hasActiveFilters =
-		filters.status !== DEFAULT_RUN_STATUS_FILTER ||
+		filters.view !== DEFAULT_RUN_VIEW_FILTER ||
+		filters.status !== "all" ||
 		filters.projectId !== null ||
 		filters.dateRange !== "all";
 
 	const projectOptions: { value: string; label: string }[] = [
-		{ value: "", label: "All Projects" },
+		{ value: "", label: "Project" },
 		...projects.map((p) => ({ value: p.id, label: p.name })),
+	];
+	const statusOptions: { value: RunStatusFilter; label: string }[] = [
+		{ value: "all", label: "Status" },
+		...STATUS_OPTIONS.filter(
+			(option) =>
+				filters.view === "all" || !relevantHiddenRunStatusSet.has(option.value),
+		),
 	];
 
 	return (
-		<div className={cn("flex w-full flex-col gap-2", className)}>
+		<div
+			className={cn("flex w-full flex-wrap items-center gap-1.5", className)}
+		>
 			<div
 				role="tablist"
-				aria-label="Filter by status"
+				aria-label="Activity view"
 				className="-mx-0.5 flex max-w-full items-center gap-0.5 overflow-x-auto px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 			>
-				{STATUS_TABS.map((tab) => (
+				{VIEW_TABS.map((tab) => (
 					<button
 						key={tab.value}
 						type="button"
 						role="tab"
-						aria-selected={filters.status === tab.value}
-						onClick={() => handleStatusChange(tab.value)}
+						aria-selected={filters.view === tab.value}
+						onClick={() => handleViewChange(tab.value)}
 						className={cn(
 							"shrink-0 rounded-md px-1.5 py-1 type-secondary font-medium transition-colors duration-150",
-							filters.status === tab.value
+							filters.view === tab.value
 								? "bg-surface text-fg"
 								: "text-fg-ghost hover:text-fg-muted hover:bg-surface/50",
 						)}
@@ -129,10 +169,19 @@ export function FilterBar({
 			<div className="flex min-w-0 flex-wrap items-center gap-1.5">
 				<Select
 					size="sm"
+					value={filters.status}
+					options={statusOptions}
+					onChange={(val) => handleStatusChange(val)}
+					placeholder="Status"
+					label="Filter by status"
+				/>
+
+				<Select
+					size="sm"
 					value={filters.projectId ?? ""}
 					options={projectOptions}
 					onChange={(val) => handleProjectChange(val === "" ? null : val)}
-					placeholder="All Projects"
+					placeholder="Project"
 					label="Filter by project"
 				/>
 
@@ -141,8 +190,8 @@ export function FilterBar({
 					value={filters.dateRange}
 					options={DATE_RANGES}
 					onChange={(val) => handleDateRangeChange(val)}
-					placeholder="All Time"
-					label="Filter by date range"
+					placeholder="Time"
+					label="Filter by time"
 				/>
 
 				{hasActiveFilters && (

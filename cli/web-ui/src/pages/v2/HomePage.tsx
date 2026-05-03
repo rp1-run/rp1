@@ -35,7 +35,7 @@ import {
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import {
-	DEFAULT_RUN_STATUS_FILTER,
+	DEFAULT_RUN_VIEW_FILTER,
 	type Run,
 	type RunsFilter,
 } from "@/types/runs";
@@ -536,7 +536,8 @@ export function HomePage() {
 	const [showFilters, setShowFilters] = useState(!!initialProjectId);
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 	const [filters, setFilters] = useState<RunsFilter>({
-		status: DEFAULT_RUN_STATUS_FILTER,
+		view: DEFAULT_RUN_VIEW_FILTER,
+		status: "all",
 		projectId: initialProjectId,
 		dateRange: "all",
 	});

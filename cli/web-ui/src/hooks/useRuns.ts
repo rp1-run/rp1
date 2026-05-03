@@ -5,6 +5,7 @@ import {
 	type Run,
 	type RunStatusFilter,
 	type RunsFilter,
+	type RunViewFilter,
 } from "@/types/runs";
 import { useLiveRunIndexSnapshot } from "./useLiveRunIndex";
 import { useReconnectRecovery } from "./useReconnectRecovery";
@@ -68,14 +69,29 @@ function matchesStatusFilter(
 		return true;
 	}
 
-	if (status === "relevant") {
-		return !relevantHiddenRunStatusSet.has(run.status);
-	}
-
 	return run.status === status;
 }
 
+function matchesViewFilter(
+	run: Run,
+	view: RunViewFilter | null | undefined,
+): boolean {
+	if (!view || view === "all") {
+		return true;
+	}
+
+	if (view === "relevant") {
+		return !relevantHiddenRunStatusSet.has(run.status);
+	}
+
+	return true;
+}
+
 function matchesRunFilters(run: Run, options: UseRunsOptions): boolean {
+	if (!matchesViewFilter(run, options.view)) {
+		return false;
+	}
+
 	if (!matchesStatusFilter(run, options.status)) {
 		return false;
 	}
@@ -97,6 +113,10 @@ function areRunsEqual(current: readonly Run[], next: readonly Run[]): boolean {
 
 function buildQueryParams(options: UseRunsOptions): URLSearchParams {
 	const params = new URLSearchParams();
+
+	if (options.view && options.view !== "all") {
+		params.set("view", options.view);
+	}
 
 	if (options.status && options.status !== "all") {
 		params.set("status", options.status);
@@ -130,11 +150,12 @@ export function useRuns(options: UseRunsOptions = {}): UseRunsResult {
 	const liveSnapshot = useLiveRunIndexSnapshot();
 
 	// Destructure to use primitives as dependencies (avoid object reference changes)
-	const { status, projectId, dateRange, limit, offset } = options;
+	const { view, status, projectId, dateRange, limit, offset } = options;
 
 	const fetchRuns = useCallback(async () => {
 		try {
 			const params = buildQueryParams({
+				view,
 				status,
 				projectId,
 				dateRange,
@@ -150,7 +171,7 @@ export function useRuns(options: UseRunsOptions = {}): UseRunsResult {
 
 			const data = (await response.json()) as RunsResponse;
 			liveRunIndex.upsertRuns(data.runs);
-			const filterOptions = { status, projectId, dateRange };
+			const filterOptions = { view, status, projectId, dateRange };
 			matchingRunIdsRef.current = new Set(
 				liveRunIndex
 					.getAllRuns()
@@ -160,6 +181,7 @@ export function useRuns(options: UseRunsOptions = {}): UseRunsResult {
 			setRuns(
 				data.runs
 					.map((run) => liveRunIndex.getRun(run.id) ?? run)
+					.filter((run) => matchesRunFilters(run, filterOptions))
 					.sort(compareRunsByActivity),
 			);
 			setTotal(data.total);
@@ -169,7 +191,7 @@ export function useRuns(options: UseRunsOptions = {}): UseRunsResult {
 		} finally {
 			setIsLoading(false);
 		}
-	}, [status, projectId, dateRange, limit, offset]);
+	}, [view, status, projectId, dateRange, limit, offset]);
 
 	useEffect(() => {
 		setIsLoading(true);
@@ -182,7 +204,7 @@ export function useRuns(options: UseRunsOptions = {}): UseRunsResult {
 		}
 
 		void liveSnapshot;
-		const filterOptions = { status, projectId, dateRange };
+		const filterOptions = { view, status, projectId, dateRange };
 		const knownMatchingRunIds = matchingRunIdsRef.current;
 		for (const runId of [...knownMatchingRunIds]) {
 			const liveRun = liveRunIndex.getRun(runId);
@@ -242,6 +264,7 @@ export function useRuns(options: UseRunsOptions = {}): UseRunsResult {
 		liveSnapshot,
 		runs,
 		isLoading,
+		view,
 		status,
 		projectId,
 		dateRange,

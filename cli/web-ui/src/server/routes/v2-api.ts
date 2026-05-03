@@ -122,25 +122,40 @@ import {
 	validateFilePath,
 } from "./content-utils";
 
-const RELEVANT_RUN_STATUS_FILTER = "relevant";
+const RELEVANT_RUN_VIEW_FILTER = "relevant";
 const RELEVANT_HIDDEN_RUN_STATUSES = [
 	"cancelled",
 	"abandoned",
 ] as const satisfies readonly Status[];
 
-function resolveStatusFilter(statusFilter: string | null): {
+function resolveStatusFilter(
+	viewFilter: string | null,
+	statusFilter: string | null,
+): {
 	readonly status?: Status;
 	readonly excludeStatuses?: readonly Status[];
 } {
-	if (!statusFilter || statusFilter === "all") {
-		return {};
-	}
+	const view =
+		viewFilter === RELEVANT_RUN_VIEW_FILTER ||
+		statusFilter === RELEVANT_RUN_VIEW_FILTER
+			? RELEVANT_RUN_VIEW_FILTER
+			: "all";
+	const statusCandidate =
+		statusFilter === RELEVANT_RUN_VIEW_FILTER ? null : statusFilter;
 
-	if (statusFilter === RELEVANT_RUN_STATUS_FILTER) {
-		return { excludeStatuses: RELEVANT_HIDDEN_RUN_STATUSES };
-	}
+	const status =
+		statusCandidate &&
+		statusCandidate !== "all" &&
+		isValidStatus(statusCandidate)
+			? statusCandidate
+			: undefined;
 
-	return isValidStatus(statusFilter) ? { status: statusFilter } : {};
+	const excludeStatuses =
+		view === RELEVANT_RUN_VIEW_FILTER
+			? RELEVANT_HIDDEN_RUN_STATUSES
+			: undefined;
+
+	return { status, excludeStatuses };
 }
 
 /**
@@ -1311,6 +1326,7 @@ export async function handleV2RunsListRequest(
 	const params = url.searchParams;
 
 	const statusFilter = params.get("status");
+	const viewFilter = params.get("view");
 	const projectIdFilter = params.get("projectId");
 	const projectUuidFilter = params.get("project_id");
 	const limit = Number.parseInt(params.get("limit") ?? "50", 10);
@@ -1339,7 +1355,7 @@ export async function handleV2RunsListRequest(
 			}
 		}
 
-		const dbStatusFilter = resolveStatusFilter(statusFilter);
+		const dbStatusFilter = resolveStatusFilter(viewFilter, statusFilter);
 
 		const result = listRuns(db, {
 			projectId: dbProjectIdFilter,
@@ -2419,6 +2435,7 @@ export async function handleV2FeedRequest(
 		const projectIdFilter = params.get("projectId");
 		const projectUuidFilter = params.get("project_id");
 		const statusFilter = params.get("status") as string | null;
+		const viewFilter = params.get("view");
 		const dateRange = params.get("dateRange") ?? "all";
 		const searchQuery = params.get("q") ?? params.get("search");
 		const searchTokens = normalizeActivitySearchTokens(searchQuery);
@@ -2447,7 +2464,7 @@ export async function handleV2FeedRequest(
 			}
 		}
 
-		const dbStatusFilter = resolveStatusFilter(statusFilter);
+		const dbStatusFilter = resolveStatusFilter(viewFilter, statusFilter);
 
 		if (searchTokens.length > 0) {
 			const result = searchActivityFeedRuns({

@@ -145,7 +145,7 @@ function installHomePageMocks() {
 			feedSearchQueries.push(search);
 			const items = feedItems.filter((item) => {
 				if (
-					options?.status === "relevant" &&
+					options?.view === "relevant" &&
 					(item.run.status === "cancelled" || item.run.status === "abandoned")
 				) {
 					return false;
@@ -153,7 +153,6 @@ function installHomePageMocks() {
 				if (
 					options?.status &&
 					options.status !== "all" &&
-					options.status !== "relevant" &&
 					item.run.status !== options.status
 				) {
 					return false;
@@ -255,7 +254,11 @@ function installHomePageMocks() {
 	mock.module("@/components/v2/FilterBar", () => ({
 		FilterBar: ({ filters }: { readonly filters: RunsFilter }) => {
 			latestFilterBarFilters = filters;
-			return <div data-testid="filter-bar">{filters.status}</div>;
+			return (
+				<div data-testid="filter-bar">
+					{filters.view}:{filters.status}
+				</div>
+			);
 		},
 	}));
 
@@ -471,7 +474,8 @@ describe("HomePage", () => {
 
 		await renderHomePage();
 
-		expect(feedOptions.at(-1)?.status).toBe("relevant");
+		expect(feedOptions.at(-1)?.view).toBe("relevant");
+		expect(feedOptions.at(-1)?.status).toBe("all");
 		expect(screen.getByText("Running Build")).toBeTruthy();
 		expect(screen.getByText("Completed Build")).toBeTruthy();
 		expect(screen.queryByText("Cancelled Build")).toBeNull();
@@ -479,8 +483,9 @@ describe("HomePage", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "Show filters" }));
 
-		expect(screen.getByTestId("filter-bar").textContent).toBe("relevant");
-		expect(latestFilterBarFilters?.status).toBe("relevant");
+		expect(screen.getByTestId("filter-bar").textContent).toBe("relevant:all");
+		expect(latestFilterBarFilters?.view).toBe("relevant");
+		expect(latestFilterBarFilters?.status).toBe("all");
 	});
 
 	test("filters activity rows from the search control", async () => {

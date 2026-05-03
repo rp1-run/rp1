@@ -292,7 +292,7 @@ describe("handleV2FeedRequest", () => {
 		expect(body.items[0]?.run.status).toBe("failed");
 	});
 
-	test("uses relevant status view to hide cancelled and abandoned runs", async () => {
+	test("uses relevant activity view to hide cancelled and abandoned runs", async () => {
 		const { db, projectId, projectRoot } = await setupProject(
 			tempDir,
 			"relevant",
@@ -347,7 +347,7 @@ describe("handleV2FeedRequest", () => {
 		deriveRunStatus(db, "run-relevant-abandoned");
 
 		const browseResponse = await handleV2FeedRequest(
-			new Request("http://localhost/api/v2/feed?status=relevant"),
+			new Request("http://localhost/api/v2/feed?view=relevant"),
 		);
 		expect(browseResponse.status).toBe(200);
 		const browseBody = (await browseResponse.json()) as {
@@ -362,7 +362,7 @@ describe("handleV2FeedRequest", () => {
 
 		const searchResponse = await handleV2FeedRequest(
 			new Request(
-				"http://localhost/api/v2/feed?status=relevant&q=relevant%20target",
+				"http://localhost/api/v2/feed?view=relevant&q=relevant%20target",
 			),
 		);
 		expect(searchResponse.status).toBe(200);

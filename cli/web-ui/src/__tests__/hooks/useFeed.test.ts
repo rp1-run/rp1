@@ -169,10 +169,10 @@ describe("useFeed", () => {
 		expect(url.searchParams.has("q")).toBe(false);
 	});
 
-	test("passes the relevant status view to the feed API", async () => {
+	test("passes the relevant activity view to the feed API", async () => {
 		const { useFeed } = await loadUseFeed();
 		const { result } = renderHook(() =>
-			useFeed({ status: "relevant", limit: 25, offset: 0 }),
+			useFeed({ view: "relevant", status: "all", limit: 25, offset: 0 }),
 		);
 
 		await waitFor(() => {
@@ -184,7 +184,8 @@ describe("useFeed", () => {
 			"http://localhost",
 		);
 		expect(url.pathname).toBe("/api/v2/feed");
-		expect(url.searchParams.get("status")).toBe("relevant");
+		expect(url.searchParams.get("view")).toBe("relevant");
+		expect(url.searchParams.has("status")).toBe(false);
 	});
 
 	test("patches known runs in place and appends newly matching runs without refetching", async () => {
@@ -234,7 +235,7 @@ describe("useFeed", () => {
 
 		const { useFeed } = await loadUseFeed();
 		const { result } = renderHook(() =>
-			useFeed({ status: "relevant", limit: 25, offset: 0 }),
+			useFeed({ view: "relevant", status: "all", limit: 25, offset: 0 }),
 		);
 
 		await waitFor(() => {
