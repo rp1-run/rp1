@@ -44,7 +44,6 @@
 [data-md-color-scheme="slate"] .md-header,
 [data-md-color-scheme="slate"] .md-tabs {
   background-color: var(--rp1-charcoal);
-  border-bottom: 1px solid var(--rp1-off-white);
   color: var(--rp1-off-white);
 }
 

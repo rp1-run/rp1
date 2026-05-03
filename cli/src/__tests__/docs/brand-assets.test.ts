@@ -203,9 +203,12 @@ describe("documentation brand assets", () => {
 		expect(lightHeader["background-color"]).toBe("var(--rp1-charcoal)");
 		expect(lightHeader["border-bottom"]).toBeUndefined();
 		expect(darkHeader["background-color"]).toBe("var(--rp1-charcoal)");
-		expect(darkHeader["border-bottom"]).toBe("1px solid var(--rp1-off-white)");
+		expect(darkHeader["border-bottom"]).toBeUndefined();
 		expect(darkTabs["background-color"]).toBe("var(--rp1-charcoal)");
-		expect(darkTabs["border-bottom"]).toBe("1px solid var(--rp1-off-white)");
+		expect(darkTabs["border-bottom"]).toBeUndefined();
+		expect(stylesheet).not.toContain(
+			"border-bottom: 1px solid var(--rp1-off-white);",
+		);
 
 		expect(contrastRatio("#f6f4ef", "#0f1113")).toBeGreaterThanOrEqual(4.5);
 	});
