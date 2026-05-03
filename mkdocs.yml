@@ -145,7 +145,6 @@ nav:
     - Map-Reduce Workflows: concepts/map-reduce-workflows.md
     - Stateless Agents: concepts/stateless-agents.md
     - Builder-Reviewer Agents: concepts/builder-reviewer-agents.md
-    - Brand Assets: concepts/brand-assets.md
   - Retired Features: retired-features.md
 
 extra:

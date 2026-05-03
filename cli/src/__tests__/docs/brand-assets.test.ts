@@ -140,6 +140,19 @@ describe("documentation brand assets", () => {
 		expectRepoAsset(`docs/${favicon}`);
 	});
 
+	test("brand asset role map stays out of user-facing concepts", () => {
+		const mkdocs = readRepoFile("mkdocs.yml");
+		const conceptsIndex = readRepoFile("docs/concepts/index.md");
+
+		expect(existsSync(join(repoRoot, "assets/brand/README.md"))).toBe(true);
+		expect(existsSync(join(repoRoot, "docs/concepts/brand-assets.md"))).toBe(
+			false,
+		);
+		expect(mkdocs).not.toContain("concepts/brand-assets.md");
+		expect(conceptsIndex).not.toContain("Brand Assets");
+		expect(conceptsIndex).not.toContain("brand-assets.md");
+	});
+
 	test("social metadata references an existing preview image", () => {
 		const override = readRepoFile("docs/overrides/main.html");
 		const metadataImagePaths = [
