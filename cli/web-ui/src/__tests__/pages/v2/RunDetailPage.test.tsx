@@ -25,6 +25,7 @@ const refetchMock = mock(() => {});
 let fetchMock: ReturnType<typeof mock>;
 let latestRunArtifactsPanelProps: RunArtifactsPanelMockProps[] = [];
 
+let headerLeftContent: ReactNode = null;
 let headerRightContent: ReactNode = null;
 
 const breadcrumbApi = {
@@ -33,7 +34,10 @@ const breadcrumbApi = {
 	setRunInfo: mock(() => {}),
 	headerLeft: null as ReactNode,
 	headerRight: null as ReactNode,
-	setHeaderLeft: mock(() => {}),
+	setHeaderLeft: mock((node: ReactNode) => {
+		headerLeftContent = node;
+		breadcrumbApi.headerLeft = node;
+	}),
 	setHeaderRight: mock((node: ReactNode) => {
 		headerRightContent = node;
 		breadcrumbApi.headerRight = node;
@@ -316,6 +320,7 @@ describe("RunDetailPage", () => {
 		breadcrumbApi.setRunInfo.mockClear();
 		breadcrumbApi.setHeaderLeft.mockClear();
 		breadcrumbApi.setHeaderRight.mockClear();
+		headerLeftContent = null;
 		headerRightContent = null;
 		webSocketApi.setProjectId.mockClear();
 		refetchMock.mockClear();
@@ -498,22 +503,39 @@ describe("RunDetailPage", () => {
 		).toBeTruthy();
 	});
 
-	test("posts explicit end-run actions from the detail header", async () => {
+	test("posts confirmed run cancellation from the detail header", async () => {
 		await renderRunDetail();
 
 		await waitFor(() => {
+			expect(breadcrumbApi.setHeaderLeft).toHaveBeenCalled();
 			expect(breadcrumbApi.setHeaderRight).toHaveBeenCalled();
 		});
+
+		const headerLeft = headerLeftContent;
+		expect(headerLeft).toBeTruthy();
+
+		const headerLeftContainer = render(headerLeft).container;
+		const statusDot = within(headerLeftContainer).getByRole("status", {
+			name: "Running",
+		});
+		expect(statusDot.querySelector(".animate-pulse")).toBeTruthy();
 
 		const headerRight = headerRightContent;
 		expect(headerRight).toBeTruthy();
 
 		const headerContainer = render(headerRight).container;
+		expect(headerContainer.textContent).toContain("Current step: Build");
+		expect(
+			headerContainer.querySelector("[aria-label='Abandon Run']"),
+		).toBeNull();
 		const cancelButton = headerContainer.querySelector(
 			"[aria-label='Cancel Run']",
 		);
 		expect(cancelButton).toBeTruthy();
+		expect(cancelButton?.querySelector(".lucide-circle-slash")).toBeTruthy();
 		fireEvent.click(cancelButton!);
+
+		expect(fetchMock).not.toHaveBeenCalled();
 
 		const confirmButton = await waitFor(() => {
 			const buttons = Array.from(document.body.querySelectorAll("button"));
