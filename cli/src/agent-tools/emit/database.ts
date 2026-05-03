@@ -421,6 +421,7 @@ export interface ActivitySearchScope {
 	readonly projectRoot?: string;
 	readonly projectRoots?: readonly string[];
 	readonly status?: Status;
+	readonly excludeStatuses?: readonly Status[];
 	readonly activityFrom?: string;
 	readonly activityTo?: string;
 }
@@ -2446,6 +2447,11 @@ const appendRunActivitySearchScopeConditions = (
 		conditions.push("runs.status = ?");
 		values.push(opts.status);
 	}
+	if (opts.excludeStatuses != null && opts.excludeStatuses.length > 0) {
+		const placeholders = opts.excludeStatuses.map(() => "?").join(", ");
+		conditions.push(`runs.status NOT IN (${placeholders})`);
+		values.push(...opts.excludeStatuses);
+	}
 	if (opts.activityFrom != null) {
 		conditions.push(
 			"COALESCE(latest_events.last_event_at, runs.created_at) >= ?",
@@ -2480,6 +2486,11 @@ const appendSearchRowScopeConditions = (
 	if (opts.status != null) {
 		conditions.push("status = ?");
 		values.push(opts.status);
+	}
+	if (opts.excludeStatuses != null && opts.excludeStatuses.length > 0) {
+		const placeholders = opts.excludeStatuses.map(() => "?").join(", ");
+		conditions.push(`status NOT IN (${placeholders})`);
+		values.push(...opts.excludeStatuses);
 	}
 	if (opts.activityFrom != null) {
 		conditions.push("activity_at >= ?");
@@ -2692,6 +2703,7 @@ export interface ListRunsOptions {
 	readonly projectPaths?: readonly string[];
 	readonly projectId?: string;
 	readonly status?: Status;
+	readonly excludeStatuses?: readonly Status[];
 	readonly excludeBootstrapOnly?: boolean;
 	readonly limit?: number;
 	readonly offset?: number;
@@ -2747,6 +2759,11 @@ export const listRuns = (
 	if (opts.status != null) {
 		conditions.push("status = ?");
 		filterValues.push(opts.status);
+	}
+	if (opts.excludeStatuses != null && opts.excludeStatuses.length > 0) {
+		const placeholders = opts.excludeStatuses.map(() => "?").join(", ");
+		conditions.push(`status NOT IN (${placeholders})`);
+		filterValues.push(...opts.excludeStatuses);
 	}
 	if (opts.excludeBootstrapOnly === true) {
 		conditions.push(

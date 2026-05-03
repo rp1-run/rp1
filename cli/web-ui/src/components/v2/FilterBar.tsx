@@ -2,7 +2,11 @@ import { X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { getStatusLabel } from "@/lib/status-labels";
 import { cn } from "@/lib/utils";
-import type { RunStatus, RunsFilter } from "@/types/runs";
+import {
+	DEFAULT_RUN_STATUS_FILTER,
+	type RunStatusFilter,
+	type RunsFilter,
+} from "@/types/runs";
 import { Select } from "./Select";
 
 interface Project {
@@ -18,9 +22,8 @@ export interface FilterBarProps {
 	className?: string;
 }
 
-type StatusTab = RunStatus | "all";
-
-const STATUS_TABS: { value: StatusTab; label: string }[] = [
+const STATUS_TABS: { value: RunStatusFilter; label: string }[] = [
+	{ value: DEFAULT_RUN_STATUS_FILTER, label: "Relevant" },
 	{ value: "all", label: "All" },
 	{ value: "running", label: getStatusLabel("running") },
 	{ value: "waiting", label: getStatusLabel("waiting") },
@@ -59,7 +62,7 @@ export function FilterBar({
 	}, []);
 
 	const handleStatusChange = useCallback(
-		(status: StatusTab) => {
+		(status: RunStatusFilter) => {
 			onFiltersChange({ ...filters, status });
 		},
 		[filters, onFiltersChange],
@@ -81,14 +84,14 @@ export function FilterBar({
 
 	const handleClearFilters = useCallback(() => {
 		onFiltersChange({
-			status: "all",
+			status: DEFAULT_RUN_STATUS_FILTER,
 			projectId: null,
 			dateRange: "all",
 		});
 	}, [onFiltersChange]);
 
 	const hasActiveFilters =
-		filters.status !== "all" ||
+		filters.status !== DEFAULT_RUN_STATUS_FILTER ||
 		filters.projectId !== null ||
 		filters.dateRange !== "all";
 

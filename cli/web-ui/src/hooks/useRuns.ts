@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { liveRunIndex } from "@/lib/live-run-index";
-import type { Run, RunsFilter } from "@/types/runs";
+import {
+	RELEVANT_HIDDEN_RUN_STATUSES,
+	type Run,
+	type RunStatusFilter,
+	type RunsFilter,
+} from "@/types/runs";
 import { useLiveRunIndexSnapshot } from "./useLiveRunIndex";
 import { useReconnectRecovery } from "./useReconnectRecovery";
 
@@ -21,6 +26,10 @@ interface UseRunsResult {
 	error: Error | null;
 	refetch: () => void;
 }
+
+const relevantHiddenRunStatusSet = new Set<Run["status"]>(
+	RELEVANT_HIDDEN_RUN_STATUSES,
+);
 
 function activityTimestamp(run: Run): string {
 	return run.lastEventAt ?? run.startedAt;
@@ -51,12 +60,23 @@ function isWithinDateRange(
 	return now - new Date(timestamp).getTime() <= ranges[dateRange];
 }
 
+function matchesStatusFilter(
+	run: Run,
+	status: RunStatusFilter | null | undefined,
+): boolean {
+	if (!status || status === "all") {
+		return true;
+	}
+
+	if (status === "relevant") {
+		return !relevantHiddenRunStatusSet.has(run.status);
+	}
+
+	return run.status === status;
+}
+
 function matchesRunFilters(run: Run, options: UseRunsOptions): boolean {
-	if (
-		options.status &&
-		options.status !== "all" &&
-		run.status !== options.status
-	) {
+	if (!matchesStatusFilter(run, options.status)) {
 		return false;
 	}
 

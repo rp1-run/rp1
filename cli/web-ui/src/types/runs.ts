@@ -21,6 +21,16 @@ export type RunStatus = Status;
 /** Status of a workflow step within a run -- canonical shared Status */
 export type StepStatus = Status;
 
+export const DEFAULT_RUN_STATUS_FILTER = "relevant" as const;
+export const RELEVANT_HIDDEN_RUN_STATUSES = [
+	"cancelled",
+	"abandoned",
+] as const satisfies readonly RunStatus[];
+export type RunStatusFilter =
+	| RunStatus
+	| "all"
+	| typeof DEFAULT_RUN_STATUS_FILTER;
+
 /** Event type for the run event stream -- canonical shared EventType */
 export type EventType = SharedEventType;
 
@@ -119,7 +129,7 @@ export interface AttentionData {
 
 /** Filter state for the runs list */
 export interface RunsFilter {
-	readonly status: RunStatus | "all";
+	readonly status: RunStatusFilter;
 	readonly projectId: string | null;
 	readonly dateRange: "today" | "week" | "month" | "all";
 }

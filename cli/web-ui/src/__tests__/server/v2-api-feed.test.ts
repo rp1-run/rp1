@@ -292,6 +292,91 @@ describe("handleV2FeedRequest", () => {
 		expect(body.items[0]?.run.status).toBe("failed");
 	});
 
+	test("uses relevant status view to hide cancelled and abandoned runs", async () => {
+		const { db, projectId, projectRoot } = await setupProject(
+			tempDir,
+			"relevant",
+		);
+		const base = "2026-04-10T04:00:00.000Z";
+
+		insertActivityRun(db, {
+			id: "run-relevant-running",
+			projectRoot,
+			projectId,
+			name: "Relevant Target Running",
+			status: "running",
+			eventAt: isoAt(base, 1000),
+		});
+		insertActivityRun(db, {
+			id: "run-relevant-completed",
+			projectRoot,
+			projectId,
+			name: "Relevant Target Completed",
+			status: "completed",
+			eventAt: isoAt(base, 2000),
+		});
+		insertActivityRun(db, {
+			id: "run-relevant-cancelled",
+			projectRoot,
+			projectId,
+			name: "Relevant Target Cancelled",
+			status: "running",
+			eventAt: isoAt(base, 3000),
+		});
+		insertEvent(db, {
+			runId: "run-relevant-cancelled",
+			type: "status_change",
+			data: JSON.stringify({ status: "cancelled" }),
+			createdAt: isoAt(base, 3500),
+		});
+		deriveRunStatus(db, "run-relevant-cancelled");
+		insertActivityRun(db, {
+			id: "run-relevant-abandoned",
+			projectRoot,
+			projectId,
+			name: "Relevant Target Abandoned",
+			status: "running",
+			eventAt: isoAt(base, 4000),
+		});
+		insertEvent(db, {
+			runId: "run-relevant-abandoned",
+			type: "status_change",
+			data: JSON.stringify({ status: "abandoned" }),
+			createdAt: isoAt(base, 4500),
+		});
+		deriveRunStatus(db, "run-relevant-abandoned");
+
+		const browseResponse = await handleV2FeedRequest(
+			new Request("http://localhost/api/v2/feed?status=relevant"),
+		);
+		expect(browseResponse.status).toBe(200);
+		const browseBody = (await browseResponse.json()) as {
+			items: Array<{ id: string }>;
+			total: number;
+		};
+		expect(browseBody.total).toBe(2);
+		expect(browseBody.items.map((item) => item.id)).toEqual([
+			"run-relevant-completed",
+			"run-relevant-running",
+		]);
+
+		const searchResponse = await handleV2FeedRequest(
+			new Request(
+				"http://localhost/api/v2/feed?status=relevant&q=relevant%20target",
+			),
+		);
+		expect(searchResponse.status).toBe(200);
+		const searchBody = (await searchResponse.json()) as {
+			items: Array<{ id: string }>;
+			total: number;
+		};
+		expect(searchBody.total).toBe(2);
+		expect(searchBody.items.map((item) => item.id)).toEqual([
+			"run-relevant-completed",
+			"run-relevant-running",
+		]);
+	});
+
 	test("filters run activity with the search query", async () => {
 		const { db, projectId, projectRoot } = await setupProject(
 			tempDir,

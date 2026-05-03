@@ -66,6 +66,7 @@ export interface SearchActivityFeedRunsOptions {
 	readonly projectId?: string;
 	readonly projectRoot?: string;
 	readonly status?: Status;
+	readonly excludeStatuses?: readonly Status[];
 	readonly dateRange?: ActivitySearchDateRange;
 	readonly limit?: number;
 	readonly offset?: number;
@@ -171,6 +172,7 @@ function activitySearchScopeFromOptions(
 		projectId: opts.projectId,
 		projectRoot: opts.projectRoot,
 		status: opts.status,
+		excludeStatuses: opts.excludeStatuses,
 		activityFrom:
 			rangeMs == null
 				? undefined
@@ -340,6 +342,17 @@ function isVisibleActivityRun(
 	);
 }
 
+function matchesStatusScope(
+	record: RunRecord,
+	opts: Pick<SearchActivityFeedRunsOptions, "status" | "excludeStatuses">,
+): boolean {
+	if (opts.status != null && record.status !== opts.status) {
+		return false;
+	}
+
+	return !(opts.excludeStatuses ?? []).includes(record.status);
+}
+
 export function searchActivityFeedRuns(
 	opts: SearchActivityFeedRunsOptions,
 ): ActivityFeedSearchResult {
@@ -366,6 +379,9 @@ export function searchActivityFeedRuns(
 		}
 
 		if (!isVisibleActivityRun(opts.db, record, opts.skillMetadataLookup)) {
+			continue;
+		}
+		if (!matchesStatusScope(record, opts)) {
 			continue;
 		}
 

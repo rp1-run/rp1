@@ -76,7 +76,6 @@ import type {
 	Run,
 	RunEvent,
 	RunInvocationContext,
-	RunStatus,
 	Step,
 	StepStatus,
 } from "../../types/runs";
@@ -122,6 +121,27 @@ import {
 	parseFrontmatter,
 	validateFilePath,
 } from "./content-utils";
+
+const RELEVANT_RUN_STATUS_FILTER = "relevant";
+const RELEVANT_HIDDEN_RUN_STATUSES = [
+	"cancelled",
+	"abandoned",
+] as const satisfies readonly Status[];
+
+function resolveStatusFilter(statusFilter: string | null): {
+	readonly status?: Status;
+	readonly excludeStatuses?: readonly Status[];
+} {
+	if (!statusFilter || statusFilter === "all") {
+		return {};
+	}
+
+	if (statusFilter === RELEVANT_RUN_STATUS_FILTER) {
+		return { excludeStatuses: RELEVANT_HIDDEN_RUN_STATUSES };
+	}
+
+	return isValidStatus(statusFilter) ? { status: statusFilter } : {};
+}
 
 /**
  * Acquire the emit database connection.
@@ -1290,7 +1310,7 @@ export async function handleV2RunsListRequest(
 	const url = new URL(req.url);
 	const params = url.searchParams;
 
-	const statusFilter = params.get("status") as RunStatus | "all" | null;
+	const statusFilter = params.get("status");
 	const projectIdFilter = params.get("projectId");
 	const projectUuidFilter = params.get("project_id");
 	const limit = Number.parseInt(params.get("limit") ?? "50", 10);
@@ -1319,15 +1339,13 @@ export async function handleV2RunsListRequest(
 			}
 		}
 
-		const dbStatus: Status | undefined =
-			statusFilter && statusFilter !== "all"
-				? (statusFilter as Status)
-				: undefined;
+		const dbStatusFilter = resolveStatusFilter(statusFilter);
 
 		const result = listRuns(db, {
 			projectId: dbProjectIdFilter,
 			projectPath: dbProjectIdFilter ? undefined : projectPathFilter,
-			status: dbStatus,
+			status: dbStatusFilter.status,
+			excludeStatuses: dbStatusFilter.excludeStatuses,
 			excludeBootstrapOnly: true,
 			limit,
 			offset,
@@ -2429,10 +2447,7 @@ export async function handleV2FeedRequest(
 			}
 		}
 
-		const dbStatus =
-			statusFilter && statusFilter !== "all"
-				? (statusFilter as string)
-				: undefined;
+		const dbStatusFilter = resolveStatusFilter(statusFilter);
 
 		if (searchTokens.length > 0) {
 			const result = searchActivityFeedRuns({
@@ -2447,7 +2462,8 @@ export async function handleV2FeedRequest(
 				query: searchQuery,
 				projectId: dbProjectIdFilter,
 				projectRoot: dbProjectIdFilter ? undefined : projectPathFilter,
-				status: dbStatus as Status | undefined,
+				status: dbStatusFilter.status,
+				excludeStatuses: dbStatusFilter.excludeStatuses,
 				dateRange: dateRange as ActivitySearchDateRange,
 				limit,
 				offset,
@@ -2459,9 +2475,8 @@ export async function handleV2FeedRequest(
 		const runsResult = listRuns(db, {
 			projectId: dbProjectIdFilter,
 			projectPath: dbProjectIdFilter ? undefined : projectPathFilter,
-			status: dbStatus as
-				| import("../../../../shared/events.js").Status
-				| undefined,
+			status: dbStatusFilter.status,
+			excludeStatuses: dbStatusFilter.excludeStatuses,
 			excludeBootstrapOnly: true,
 			limit: 200,
 			offset: 0,

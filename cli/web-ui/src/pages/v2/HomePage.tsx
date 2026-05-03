@@ -34,7 +34,11 @@ import {
 } from "@/lib/status-labels";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import type { Run, RunsFilter } from "@/types/runs";
+import {
+	DEFAULT_RUN_STATUS_FILTER,
+	type Run,
+	type RunsFilter,
+} from "@/types/runs";
 
 const PAGE_SIZE = 25;
 const SEARCH_QUERY_DEBOUNCE_MS = 150;
@@ -532,7 +536,7 @@ export function HomePage() {
 	const [showFilters, setShowFilters] = useState(!!initialProjectId);
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 	const [filters, setFilters] = useState<RunsFilter>({
-		status: "all",
+		status: DEFAULT_RUN_STATUS_FILTER,
 		projectId: initialProjectId,
 		dateRange: "all",
 	});
