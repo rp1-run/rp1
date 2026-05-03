@@ -169,6 +169,25 @@ describe("useFeed", () => {
 		expect(url.searchParams.has("q")).toBe(false);
 	});
 
+	test("passes the relevant activity view to the feed API", async () => {
+		const { useFeed } = await loadUseFeed();
+		const { result } = renderHook(() =>
+			useFeed({ view: "relevant", status: "all", limit: 25, offset: 0 }),
+		);
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		const url = new URL(
+			fetchMock.mock.calls[0]?.[0] as string,
+			"http://localhost",
+		);
+		expect(url.pathname).toBe("/api/v2/feed");
+		expect(url.searchParams.get("view")).toBe("relevant");
+		expect(url.searchParams.has("status")).toBe(false);
+	});
+
 	test("patches known runs in place and appends newly matching runs without refetching", async () => {
 		const { useFeed } = await loadUseFeed();
 		const { result } = renderHook(() => useFeed({ limit: 25, offset: 0 }));
@@ -207,6 +226,48 @@ describe("useFeed", () => {
 		);
 		expect(result.current.items[0]?.run.status).toBe("waiting");
 		expect(result.current.total).toBe(2);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("excludes cancelled and abandoned live rows from the relevant view", async () => {
+		fetchMock = mock(() => Promise.resolve(buildFeedResponse([], 0)));
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { useFeed } = await loadUseFeed();
+		const { result } = renderHook(() =>
+			useFeed({ view: "relevant", status: "all", limit: 25, offset: 0 }),
+		);
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		act(() => {
+			liveRunIndex.upsertRuns([
+				buildRun({
+					id: "run-completed",
+					status: "completed",
+					lastEventAt: "2026-04-10T00:08:00.000Z",
+				}),
+				buildRun({
+					id: "run-cancelled",
+					status: "cancelled",
+					lastEventAt: "2026-04-10T00:09:00.000Z",
+				}),
+				buildRun({
+					id: "run-abandoned",
+					status: "abandoned",
+					lastEventAt: "2026-04-10T00:10:00.000Z",
+				}),
+			]);
+		});
+
+		await waitFor(() => {
+			expect(
+				result.current.items.map((item: { id: string }) => item.id),
+			).toEqual(["run-completed"]);
+		});
+		expect(result.current.total).toBe(1);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 

@@ -15,12 +15,14 @@ import {
 	type WorkspaceTab,
 	WorkspaceTabsProvider,
 } from "@/hooks/useWorkspaceTabs";
-import type { Artifact, Run, Step } from "@/types/runs";
+import type { Artifact, Run, RunsFilter, Step } from "@/types/runs";
 
 let importVersion = 0;
 let wideActivityLayout = false;
 let feedLoading = false;
 let feedSearchQueries: string[] = [];
+let feedOptions: Array<Partial<RunsFilter> & { readonly search?: string }> = [];
+let latestFilterBarFilters: RunsFilter | null = null;
 let feedItems: {
 	readonly id: string;
 	readonly run: Run;
@@ -137,27 +139,40 @@ async function flushSearchDebounce() {
 
 function installHomePageMocks() {
 	mock.module("@/hooks/useFeed", () => ({
-		useFeed: (options?: { readonly search?: string }) => {
+		useFeed: (options?: Partial<RunsFilter> & { readonly search?: string }) => {
 			const search = options?.search?.trim().toLowerCase() ?? "";
+			feedOptions.push(options ?? {});
 			feedSearchQueries.push(search);
-			const items = search
-				? feedItems.filter((item) =>
-						[
-							item.run.id,
-							item.run.name,
-							item.run.command,
-							item.run.featureName,
-							item.run.featureId,
-							item.run.projectName,
-							item.run.status,
-							item.run.currentStep,
-						]
-							.filter(Boolean)
-							.join(" ")
-							.toLowerCase()
-							.includes(search),
-					)
-				: feedItems;
+			const items = feedItems.filter((item) => {
+				if (
+					options?.view === "relevant" &&
+					(item.run.status === "cancelled" || item.run.status === "abandoned")
+				) {
+					return false;
+				}
+				if (
+					options?.status &&
+					options.status !== "all" &&
+					item.run.status !== options.status
+				) {
+					return false;
+				}
+				if (!search) return true;
+				return [
+					item.run.id,
+					item.run.name,
+					item.run.command,
+					item.run.featureName,
+					item.run.featureId,
+					item.run.projectName,
+					item.run.status,
+					item.run.currentStep,
+				]
+					.filter(Boolean)
+					.join(" ")
+					.toLowerCase()
+					.includes(search);
+			});
 			return {
 				items,
 				total: items.length,
@@ -237,7 +252,14 @@ function installHomePageMocks() {
 	}));
 
 	mock.module("@/components/v2/FilterBar", () => ({
-		FilterBar: () => <div data-testid="filter-bar" />,
+		FilterBar: ({ filters }: { readonly filters: RunsFilter }) => {
+			latestFilterBarFilters = filters;
+			return (
+				<div data-testid="filter-bar">
+					{filters.view}:{filters.status}
+				</div>
+			);
+		},
 	}));
 
 	mock.module("@/components/v2/HarnessIcon", () => ({
@@ -329,6 +351,8 @@ describe("HomePage", () => {
 		wideActivityLayout = false;
 		feedLoading = false;
 		feedSearchQueries = [];
+		feedOptions = [];
+		latestFilterBarFilters = null;
 		feedItems = [
 			createFeedItem({
 				id: "run-1",
@@ -414,6 +438,54 @@ describe("HomePage", () => {
 				"/build-fast Build One",
 			);
 		});
+	});
+
+	test("uses the relevant activity view by default", async () => {
+		feedItems = [
+			createFeedItem({
+				id: "run-running",
+				name: "Running Build",
+				projectId: "proj-1",
+				projectName: "Project One",
+				status: "running",
+			}),
+			createFeedItem({
+				id: "run-completed",
+				name: "Completed Build",
+				projectId: "proj-1",
+				projectName: "Project One",
+				status: "completed",
+			}),
+			createFeedItem({
+				id: "run-cancelled",
+				name: "Cancelled Build",
+				projectId: "proj-1",
+				projectName: "Project One",
+				status: "cancelled",
+			}),
+			createFeedItem({
+				id: "run-abandoned",
+				name: "Abandoned Build",
+				projectId: "proj-1",
+				projectName: "Project One",
+				status: "abandoned",
+			}),
+		];
+
+		await renderHomePage();
+
+		expect(feedOptions.at(-1)?.view).toBe("relevant");
+		expect(feedOptions.at(-1)?.status).toBe("all");
+		expect(screen.getByText("Running Build")).toBeTruthy();
+		expect(screen.getByText("Completed Build")).toBeTruthy();
+		expect(screen.queryByText("Cancelled Build")).toBeNull();
+		expect(screen.queryByText("Abandoned Build")).toBeNull();
+
+		fireEvent.click(screen.getByRole("button", { name: "Show filters" }));
+
+		expect(screen.getByTestId("filter-bar").textContent).toBe("relevant:all");
+		expect(latestFilterBarFilters?.view).toBe("relevant");
+		expect(latestFilterBarFilters?.status).toBe("all");
 	});
 
 	test("filters activity rows from the search control", async () => {

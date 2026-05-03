@@ -8,8 +8,8 @@ edit_uri: ""
 theme:
   name: material
   custom_dir: docs/overrides
-  logo: assets/logo.svg
-  favicon: assets/logo.svg
+  logo: assets/rp1-mark.svg
+  favicon: assets/favicon.svg
   font:
     text: JetBrains Mono
     code: JetBrains Mono

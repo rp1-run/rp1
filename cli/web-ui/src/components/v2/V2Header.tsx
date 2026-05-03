@@ -7,10 +7,29 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { BrandMark } from "@/components/v2/BrandMark";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/providers/ThemeProvider";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
+
+const CONNECTION_STATUS_DETAILS: Record<
+	ConnectionStatus,
+	{ className: string; title: string }
+> = {
+	connected: {
+		className: "bg-terminal-green",
+		title: "Live updates active",
+	},
+	connecting: {
+		className: "bg-terminal-yellow",
+		title: "Connecting to live updates",
+	},
+	disconnected: {
+		className: "bg-failure",
+		title: "Disconnected from live updates",
+	},
+};
 
 export interface V2HeaderProps {
 	wsStatus: ConnectionStatus;
@@ -19,8 +38,9 @@ export interface V2HeaderProps {
 export function V2Header({ wsStatus }: V2HeaderProps) {
 	return (
 		<header className="flex h-12 shrink-0 items-center justify-between border-b px-4">
-			<div className="flex items-center gap-2">
-				<Logo wsStatus={wsStatus} />
+			<div className="flex items-center gap-3">
+				<BrandMark label="RP1 Arcade" />
+				<ConnectionStatusIndicator wsStatus={wsStatus} />
 			</div>
 			<div className="flex items-center gap-1">
 				<ThemeButton />
@@ -31,31 +51,29 @@ export function V2Header({ wsStatus }: V2HeaderProps) {
 	);
 }
 
-interface LogoProps {
+interface ConnectionStatusIndicatorProps {
 	wsStatus: ConnectionStatus;
 }
 
-function Logo({ wsStatus }: LogoProps) {
+function ConnectionStatusIndicator({
+	wsStatus,
+}: ConnectionStatusIndicatorProps) {
+	const statusDetails = CONNECTION_STATUS_DETAILS[wsStatus];
+
 	return (
-		// biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen reader context
-		<span
-			title={
-				wsStatus === "connected" ? "Live updates active" : "Reconnecting..."
-			}
-			aria-label={`rp1 - Connection status: ${wsStatus}`}
+		<output
+			aria-label={`Connection status: ${wsStatus}`}
+			title={statusDetails.title}
+			className="inline-flex h-7 items-center"
 		>
-			<span className="text-lg font-medium font-mono">rp1</span>
 			<span
+				aria-hidden="true"
 				className={cn(
-					"animate-blink",
-					wsStatus === "connected"
-						? "text-terminal-green"
-						: "text-terminal-red",
+					"h-2.5 w-2.5 rounded-full ring-2 ring-background",
+					statusDetails.className,
 				)}
-			>
-				_
-			</span>
-		</span>
+			/>
+		</output>
 	);
 }
 

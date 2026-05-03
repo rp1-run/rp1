@@ -1,10 +1,8 @@
 import {
 	AlertCircle,
 	ArrowLeft,
-	Ban,
 	Check,
-	Loader2,
-	OctagonX,
+	CircleSlash,
 	RefreshCw,
 	Workflow,
 	X,
@@ -163,13 +161,9 @@ export function RunDetailSurface({
 	artifactHeaderActions,
 }: RunDetailSurfaceProps) {
 	const { run, isLoading, error, refetch } = useRunDetail(runId);
-	const [endingOutcome, setEndingOutcome] = useState<
-		"cancelled" | "abandoned" | null
-	>(null);
+	const [isCancellingRun, setIsCancellingRun] = useState(false);
 	const [endRunError, setEndRunError] = useState<string | null>(null);
-	const [confirmAction, setConfirmAction] = useState<
-		"cancelled" | "abandoned" | null
-	>(null);
+	const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
 	const [showMetadata, setShowMetadata] = useState<boolean>(() => {
 		if (typeof window === "undefined") return false;
 		return (
@@ -295,42 +289,37 @@ export function RunDetailSurface({
 		});
 	}, []);
 
-	const handleEndRun = useCallback(
-		async (outcome: "cancelled" | "abandoned") => {
-			if (!runId) return;
+	const handleCancelRun = useCallback(async () => {
+		if (!runId) return;
 
-			setEndingOutcome(outcome);
-			setEndRunError(null);
+		setIsCancellingRun(true);
+		setEndRunError(null);
 
-			try {
-				const response = await fetch(`/api/v2/runs/${runId}/end`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ outcome }),
-				});
+		try {
+			const response = await fetch(`/api/v2/runs/${runId}/end`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ outcome: "cancelled" }),
+			});
 
-				if (!response.ok) {
-					let message = `Failed to end run: ${response.statusText}`;
-					const errorBody = (await response.json().catch(() => null)) as {
-						error?: string;
-					} | null;
-					if (typeof errorBody?.error === "string") {
-						message = errorBody.error;
-					}
-					throw new Error(message);
+			if (!response.ok) {
+				let message = `Failed to end run: ${response.statusText}`;
+				const errorBody = (await response.json().catch(() => null)) as {
+					error?: string;
+				} | null;
+				if (typeof errorBody?.error === "string") {
+					message = errorBody.error;
 				}
-
-				refetch();
-			} catch (err) {
-				setEndRunError(
-					err instanceof Error ? err.message : "Failed to end run",
-				);
-			} finally {
-				setEndingOutcome(null);
+				throw new Error(message);
 			}
-		},
-		[runId, refetch],
-	);
+
+			refetch();
+		} catch (err) {
+			setEndRunError(err instanceof Error ? err.message : "Failed to end run");
+		} finally {
+			setIsCancellingRun(false);
+		}
+	}, [runId, refetch]);
 
 	useEffect(() => {
 		if (mode !== "workspace") return;
@@ -367,12 +356,13 @@ export function RunDetailSurface({
 			const canEnd = !TERMINAL_RUN_STATUSES.has(run.status);
 
 			const statusIndicator =
-				run.status === "running" ? (
-					<Loader2
-						size={16}
-						strokeWidth={1.5}
-						className="animate-spin text-fg-muted"
-					/>
+				run.status === "running" || run.status === "waiting" ? (
+					<output
+						className="flex h-4 w-4 items-center justify-center"
+						aria-label={run.status === "running" ? "Running" : "Waiting"}
+					>
+						<span className="h-2 w-2 rounded-full bg-accent-amber animate-pulse" />
+					</output>
 				) : run.status === "completed" ? (
 					<Check size={16} strokeWidth={1.5} className="text-fg-ghost" />
 				) : run.status === "failed" || run.status === "abandoned" ? (
@@ -381,16 +371,11 @@ export function RunDetailSurface({
 						strokeWidth={1.5}
 						className="text-accent-amber"
 					/>
-				) : run.status === "waiting" ? (
-					<span className="flex items-center justify-center h-4 w-4">
-						<span className="h-2 w-2 rounded-full bg-accent-amber animate-pulse" />
-					</span>
 				) : null;
 
-			setHeaderLeft(null);
+			setHeaderLeft(statusIndicator);
 			setHeaderRight(
 				<>
-					{statusIndicator}
 					{currentStepName && (
 						<span className="type-secondary text-fg-ghost">
 							Current step: {currentStepName}
@@ -402,28 +387,16 @@ export function RunDetailSurface({
 						</span>
 					)}
 					{canEnd && (
-						<>
-							<button
-								type="button"
-								title="Abandon Run"
-								aria-label="Abandon Run"
-								disabled={endingOutcome !== null}
-								onClick={() => setConfirmAction("abandoned")}
-								className="text-fg-muted hover:text-fg transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none"
-							>
-								<Ban size={16} strokeWidth={1.5} />
-							</button>
-							<button
-								type="button"
-								title="Cancel Run"
-								aria-label="Cancel Run"
-								disabled={endingOutcome !== null}
-								onClick={() => setConfirmAction("cancelled")}
-								className="text-fg-muted hover:text-accent-amber transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none"
-							>
-								<OctagonX size={16} strokeWidth={1.5} />
-							</button>
-						</>
+						<button
+							type="button"
+							title="Cancel Run"
+							aria-label="Cancel Run"
+							disabled={isCancellingRun}
+							onClick={() => setConfirmCancelOpen(true)}
+							className="text-fg-muted hover:text-accent-amber transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none"
+						>
+							<CircleSlash size={16} strokeWidth={1.5} />
+						</button>
 					)}
 				</>,
 			);
@@ -437,7 +410,7 @@ export function RunDetailSurface({
 		run,
 		currentStepName,
 		headerStatusMessage,
-		endingOutcome,
+		isCancellingRun,
 		setHeaderLeft,
 		setHeaderRight,
 	]);
@@ -715,9 +688,9 @@ export function RunDetailSurface({
 			</div>
 
 			<Dialog
-				open={confirmAction !== null}
+				open={confirmCancelOpen}
 				onOpenChange={(open) => {
-					if (!open) setConfirmAction(null);
+					setConfirmCancelOpen(open);
 				}}
 			>
 				<DialogPortal>
@@ -725,9 +698,7 @@ export function RunDetailSurface({
 					<div className="fixed inset-0 z-50 flex items-center justify-center">
 						<div className="w-full max-w-sm rounded border border-border bg-surface p-lg shadow-sm">
 							<p className="font-mono text-[13px] text-fg">
-								{confirmAction === "abandoned"
-									? "Abandon this run? Progress will be marked as abandoned."
-									: "Cancel this run? The running process will be stopped."}
+								Cancel this run? The running process will be stopped.
 							</p>
 							<div className="mt-md flex justify-end gap-sm">
 								<DialogClose asChild>
@@ -742,10 +713,8 @@ export function RunDetailSurface({
 									type="button"
 									className="rounded px-sm py-xs font-mono text-[12px] text-accent-amber hover:text-fg transition-colors duration-150"
 									onClick={() => {
-										if (confirmAction) {
-											handleEndRun(confirmAction);
-										}
-										setConfirmAction(null);
+										handleCancelRun();
+										setConfirmCancelOpen(false);
 									}}
 								>
 									Confirm

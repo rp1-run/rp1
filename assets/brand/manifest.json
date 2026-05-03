@@ -1,0 +1,68 @@
+{
+  "sourceRoot": "assets/brand/source",
+  "palette": {
+    "charcoal": "#0f1113",
+    "offWhite": "#f6f4ef",
+    "green": "#23d188",
+    "amber": "#ffb000"
+  },
+  "sources": {
+    "rp1-mark-only.svg": "rp1-mark-only.svg",
+    "rp1 logo-01.svg": "source/rp1-logo-01.svg",
+    "rp1 logo-02.svg": "source/rp1-logo-02.svg",
+    "rp1 logo-03.svg": "source/rp1-logo-03.svg",
+    "rp1 logo-04.svg": "source/rp1-logo-04.svg",
+    "rp1 logo-05.svg": "source/rp1-logo-05.svg",
+    "rp1-logo-system.png": "source/rp1-logo-system.png"
+  },
+  "markOnlyVariantRules": {
+    "darkInkForLightContexts": "Use the authoritative rp1-mark-only.svg charcoal fills (#0f1113) with green accent (#23d188).",
+    "lightInkForDarkContexts": "Derive by replacing charcoal fills (#0f1113) with off-white fills (#f6f4ef), preserving the green accent (#23d188).",
+    "squareCanvas": "For favicon and app icon derivatives, center the mark-only source in a square viewBox without changing path artwork."
+  },
+  "roles": {
+    "compactMark": {
+      "source": "rp1-mark-only.svg",
+      "assets": [
+        "rp1-mark-only-dark.svg",
+        "rp1-mark-only-light.svg",
+        "rp1-mark.svg",
+        "rp1-mark-light.svg",
+        "rp1-mark-32.png"
+      ]
+    },
+    "favicon": {
+      "source": "rp1-mark-only.svg",
+      "assets": ["favicon.svg", "rp1-mark-32.png"]
+    },
+    "horizontalLockupLight": {
+      "source": "source/rp1-logo-02.svg",
+      "assets": ["rp1-lockup-light.svg"]
+    },
+    "horizontalLockupDark": {
+      "source": "source/rp1-logo-04.svg",
+      "assets": ["rp1-lockup-dark.svg"]
+    },
+    "emptyState": {
+      "source": "rp1-mark-only.svg",
+      "assets": [
+        "rp1-empty-state-dark.svg",
+        "rp1-empty-state-light.svg",
+        "rp1-empty-state.svg"
+      ]
+    },
+    "socialPreview": {
+      "source": "source/rp1-logo-02.svg",
+      "assets": ["social-preview.svg", "social-preview.png"]
+    },
+    "nativeAppIcon": {
+      "source": "rp1-mark-only.svg",
+      "assets": [
+        "app-icon.svg",
+        "native/icon.png",
+        "native/icon.ico",
+        "native/icon.iconset"
+      ]
+    }
+  }
+}
