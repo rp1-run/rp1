@@ -36,6 +36,7 @@ export {
 	AttentionSection,
 	type AttentionSectionProps,
 } from "./AttentionSection";
+export { BrandMark, type BrandMarkProps } from "./BrandMark";
 export { BtwFeed, type BtwFeedProps } from "./BtwFeed";
 export { Collapsible, type CollapsibleProps } from "./Collapsible";
 export {

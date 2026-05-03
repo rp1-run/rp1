@@ -1,47 +1,60 @@
 /* ==========================================================================
    rp1 Brand Colors
-   Primary: Dark Navy #162B49 (header/sidebar)
-   Accent: Cyan #4CC9F0 (buttons, links, toggles)
-   Orange: #FDBE5D (headings in dark mode)
+   Approved palette: assets/brand/README.md
    ========================================================================== */
 
 :root,
 :root > * {
-  /* PRIMARY COLOR: Used for the Header and Sidebar */
-  --md-primary-fg-color: #162B49;
-  --md-primary-fg-color--light: #2A4670;
-  --md-primary-fg-color--dark: #0D1A2E;
+  --rp1-charcoal: #0f1113;
+  --rp1-off-white: #f6f4ef;
+  --rp1-green: #23d188;
+  --rp1-amber: #ffb000;
+  --rp1-border: rgba(15, 17, 19, 0.16);
 
-  /* ACCENT COLOR: Used for Buttons, Links, and Toggles */
-  --md-accent-fg-color: #4CC9F0;
-  --md-accent-fg-color--transparent: rgba(76, 201, 240, 0.1);
+  --md-accent-fg-color: var(--rp1-green);
+  --md-accent-fg-color--transparent: rgba(35, 209, 136, 0.14);
 }
 
-/* LIGHT MODE: Darker link color for better contrast */
 [data-md-color-scheme="default"] {
-  --md-typeset-a-color: #0077B6;
+  --md-primary-fg-color: var(--rp1-charcoal);
+  --md-primary-fg-color--light: var(--rp1-charcoal);
+  --md-primary-fg-color--dark: var(--rp1-charcoal);
+  --md-primary-bg-color: var(--rp1-off-white);
+  --md-primary-bg-color--light: rgba(246, 244, 239, 0.72);
+  --md-typeset-a-color: var(--rp1-charcoal);
 }
 
-/* DARK MODE SPECIFICS */
 [data-md-color-scheme="slate"] {
-  /* Background: A very deep blue-grey */
-  --md-default-bg-color: #0d1117;
-
-  /* Code blocks: slightly lighter to stand out */
-  --md-code-bg-color: #161b22;
-
-  /* Brighter link color for dark backgrounds */
-  --md-typeset-a-color: #4CC9F0;
+  --md-primary-fg-color: var(--rp1-charcoal);
+  --md-primary-fg-color--light: var(--rp1-charcoal);
+  --md-primary-fg-color--dark: var(--rp1-charcoal);
+  --md-primary-bg-color: var(--rp1-off-white);
+  --md-primary-bg-color--light: rgba(246, 244, 239, 0.74);
+  --md-default-bg-color: var(--rp1-charcoal);
+  --md-code-bg-color: #171a1d;
+  --md-typeset-a-color: var(--rp1-green);
 }
 
-/* Dark mode headings use RP1 Orange */
+[data-md-color-scheme="default"] .md-header,
+[data-md-color-scheme="default"] .md-tabs {
+  background-color: var(--rp1-charcoal);
+  color: var(--rp1-off-white);
+}
+
+[data-md-color-scheme="slate"] .md-header,
+[data-md-color-scheme="slate"] .md-tabs {
+  background-color: var(--rp1-charcoal);
+  border-bottom: 1px solid var(--rp1-off-white);
+  color: var(--rp1-off-white);
+}
+
 [data-md-color-scheme="slate"] h1,
 [data-md-color-scheme="slate"] .md-typeset h1 {
-  color: #FDBE5D;
+  color: var(--rp1-off-white);
 }
 
 [data-md-color-scheme="slate"] strong {
-  color: #FDBE5D;
+  color: var(--rp1-off-white);
 }
 
 /* Logo sizing */
@@ -87,33 +100,81 @@
 
 /* CTA buttons */
 .md-typeset .md-button {
+  border-color: var(--rp1-charcoal);
+  color: var(--rp1-charcoal);
   margin-right: 0.5rem;
   margin-bottom: 0.5rem;
 }
 
+.md-typeset .md-button:hover,
+.md-typeset .md-button:focus {
+  border-color: var(--rp1-charcoal);
+  background-color: var(--rp1-charcoal);
+  color: var(--rp1-off-white);
+}
+
+.md-typeset .md-button--primary {
+  border-color: var(--rp1-charcoal);
+  background-color: var(--rp1-charcoal);
+  color: var(--rp1-off-white);
+}
+
+.md-typeset .md-button--primary:hover,
+.md-typeset .md-button--primary:focus {
+  border-color: #1f2428;
+  background-color: #1f2428;
+  color: var(--rp1-off-white);
+}
+
 /* GitHub button - ensure visibility in both modes */
 .md-typeset .md-button--github {
-  border-color: var(--md-default-fg-color--light);
-  color: var(--md-default-fg-color);
+  border-color: var(--rp1-charcoal);
+  color: var(--rp1-charcoal);
   background-color: transparent;
 }
 
 .md-typeset .md-button--github:hover {
-  border-color: var(--md-default-fg-color);
-  background-color: var(--md-default-fg-color);
-  color: var(--md-default-bg-color);
+  border-color: var(--rp1-charcoal);
+  background-color: var(--rp1-charcoal);
+  color: var(--rp1-off-white);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button {
+  border-color: var(--rp1-green);
+  color: var(--rp1-off-white);
+  background-color: transparent;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button:hover,
+[data-md-color-scheme="slate"] .md-typeset .md-button:focus {
+  border-color: var(--rp1-green);
+  background-color: var(--rp1-green);
+  color: var(--rp1-charcoal);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--primary {
+  border-color: var(--rp1-green);
+  background-color: var(--rp1-green);
+  color: var(--rp1-charcoal);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--primary:hover,
+[data-md-color-scheme="slate"] .md-typeset .md-button--primary:focus {
+  border-color: var(--rp1-off-white);
+  background-color: var(--rp1-off-white);
+  color: var(--rp1-charcoal);
 }
 
 [data-md-color-scheme="slate"] .md-typeset .md-button--github {
-  border-color: var(--md-default-fg-color--lighter);
-  color: var(--md-default-fg-color);
+  border-color: var(--rp1-off-white);
+  color: var(--rp1-off-white);
   background-color: transparent;
 }
 
 [data-md-color-scheme="slate"] .md-typeset .md-button--github:hover {
-  border-color: var(--md-default-fg-color);
-  background-color: var(--md-default-fg-color);
-  color: var(--md-default-bg-color);
+  border-color: var(--rp1-off-white);
+  background-color: var(--rp1-off-white);
+  color: var(--rp1-charcoal);
 }
 
 /* Simple grid layout (Stripe-style) */
@@ -351,7 +412,8 @@
   background-color: transparent;
 }
 
-.md-typeset .md-button--discord:hover {
+.md-typeset .md-button--discord:hover,
+.md-typeset .md-button--discord:focus {
   border-color: #5865F2;
   background-color: #5865F2;
   color: #ffffff;
@@ -363,10 +425,11 @@
   background-color: transparent;
 }
 
-[data-md-color-scheme="slate"] .md-typeset .md-button--discord:hover {
+[data-md-color-scheme="slate"] .md-typeset .md-button--discord:hover,
+[data-md-color-scheme="slate"] .md-typeset .md-button--discord:focus {
   border-color: #7289DA;
   background-color: #7289DA;
-  color: #ffffff;
+  color: var(--rp1-charcoal);
 }
 
 /* Mermaid diagram centering */

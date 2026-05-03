@@ -47,7 +47,7 @@ const LAUNCH_VIEW_TEMPLATE = readFileSync(
 );
 const CLI_VERSION = `${cliPackage.version}-dev`;
 const APP_NAME = "rp1 Arcade";
-const WINDOW_TITLE = "🕹️ rp1 Arcade";
+const WINDOW_TITLE = "rp1 Arcade";
 const WEB_DOCUMENT_TITLE = APP_NAME;
 const OPENING_TITLE = `Opening ${APP_NAME}`;
 const ARCADE_NAVIGATION_RULES = [

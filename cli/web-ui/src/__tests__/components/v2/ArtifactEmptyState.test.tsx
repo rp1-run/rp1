@@ -4,6 +4,12 @@ import { cleanup, render, screen } from "@testing-library/react";
 let importVersion = 0;
 let prefersReducedMotion = false;
 
+mock.module("@/providers/ThemeProvider", () => ({
+	useTheme: () => ({
+		theme: "dark",
+	}),
+}));
+
 mock.module("@/hooks/usePrefersReducedMotion", () => ({
 	usePrefersReducedMotion: () => prefersReducedMotion,
 }));
@@ -24,7 +30,7 @@ describe("ArtifactEmptyState", () => {
 		cleanup();
 	});
 
-	test("renders the artifact reconstruction loader with an accessible label", async () => {
+	test("renders current brand artwork with an accessible progress label", async () => {
 		const { ArtifactEmptyState } = await loadComponent();
 
 		render(<ArtifactEmptyState />);
@@ -37,24 +43,21 @@ describe("ArtifactEmptyState", () => {
 		expect(status.className).toContain("items-center");
 		expect(status.className).toContain("justify-center");
 		expect(status.className).not.toContain("bg-");
-		expect(visual.tagName.toLowerCase()).toBe("svg");
-		expect(visual.getAttribute("viewBox")).toBe("0 0 1200 800");
-		expect(visual.getAttribute("class")).toContain(
-			"artifact-reconstruction-loader",
-		);
+		expect(visual.tagName.toLowerCase()).toBe("div");
+		expect(visual.getAttribute("class")).toContain("artifact-brand-loader");
 		expect(visual.dataset.animationState).toBe("running");
-		expect(visual.textContent).toContain("CREATING ARTIFACTS");
-		expect(visual.textContent).toContain("⣠⣾⣿⣿⣿⣦⣄");
-		expect(visual.querySelectorAll(".reconstruction-row")).toHaveLength(9);
-		expect(visual.querySelectorAll(".grid-line")).toHaveLength(6);
-		expect(visual.querySelector(".cursor")).not.toBeNull();
-		expect(visual.querySelector("radialGradient")).toBeNull();
-		expect(visual.querySelector(".loader-bg")).toBeNull();
-		expect(visual.querySelector("style")?.textContent).toContain(
-			"html.dark .artifact-reconstruction-loader",
+		expect(visual.textContent).toContain("Creating artifacts");
+		expect(visual.querySelector("img")?.getAttribute("src")).toBe(
+			"/rp1-empty-state-light.svg",
 		);
-		expect(visual.textContent).not.toContain("artifact_registered");
-		expect(visual.textContent).not.toContain("waiting for your workflow");
+		expect(visual.querySelector(".brand-card")).not.toBeNull();
+		expect(visual.querySelector(".brand-halo")).not.toBeNull();
+		expect(visual.querySelector(".scan-line")).not.toBeNull();
+		expect(visual.querySelector(".cursor")).not.toBeNull();
+		expect(visual.querySelector("style")?.textContent).toContain(
+			"html.dark .artifact-brand-loader",
+		);
+		expect(visual.textContent).not.toContain("⣠⣾⣿⣿⣿⣦⣄");
 	});
 
 	test("uses the static SVG state for reduced motion", async () => {
@@ -68,6 +71,8 @@ describe("ArtifactEmptyState", () => {
 
 		expect(visual.dataset.animationState).toBe("static");
 		expect(style?.textContent).toContain('[data-animation-state="static"] *');
-		expect(visual.querySelectorAll(".reconstruction-row")).toHaveLength(9);
+		expect(visual.querySelector(".brand-card")?.getAttribute("src")).toBe(
+			"/rp1-empty-state-light.svg",
+		);
 	});
 });

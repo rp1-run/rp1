@@ -1,8 +1,8 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-light.svg">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-dark.svg">
-    <img src="docs/assets/logo-dark.svg" alt="rp1" width="320">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/rp1-lockup-light.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/rp1-lockup-dark.svg">
+    <img src="docs/assets/rp1-lockup-dark.svg" alt="rp1" width="320">
   </picture>
 </p>
 

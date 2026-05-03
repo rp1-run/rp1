@@ -20,6 +20,13 @@ export default {
 		mac: {
 			bundleCEF: false,
 			defaultRenderer: "native",
+			icons: "assets/icon.iconset",
+		},
+		win: {
+			icon: "assets/icon.ico",
+		},
+		linux: {
+			icon: "assets/icon.png",
 		},
 		watch: ["src/views"],
 	},

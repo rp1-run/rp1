@@ -56,6 +56,14 @@ directly.
 
     [:octicons-arrow-right-24: Learn more](builder-reviewer-agents.md)
 
+-   :material-palette: **Brand Assets**
+
+    ---
+
+    Choose the approved RP1 asset role for README, docs, Arcade, native shell, favicon, and social-preview surfaces.
+
+    [:octicons-arrow-right-24: Learn more](brand-assets.md)
+
 </div>
 
 ---
@@ -70,6 +78,7 @@ directly.
 | [Map-Reduce Workflows](map-reduce-workflows.md) | Parallel processing pattern | Fast KB and PR analysis |
 | [Stateless Agents](stateless-agents.md) | Resumable interview workflows | Robust, transparent state |
 | [Builder-Reviewer Agents](builder-reviewer-agents.md) | Adversarial agent cooperation | Higher quality, reliable code |
+| [Brand Assets](brand-assets.md) | Role map for RP1-owned brand surfaces | Avoids stale or mismatched artwork |
 
 ---
 

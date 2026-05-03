@@ -183,6 +183,18 @@ build-native-app: install
         echo "Native app bundle identity mismatch: CFBundleName=${bundle_name}, CFBundleIdentifier=${bundle_id}"
         exit 1
     fi
+    if [ -d "assets/icon.iconset" ]; then
+        bundle_icon_file="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "${app_path}/Contents/Info.plist")"
+        icon_path="${app_path}/Contents/Resources/AppIcon.icns"
+        if [ "$bundle_icon_file" != "AppIcon" ]; then
+            echo "Native app bundle icon mismatch: CFBundleIconFile=${bundle_icon_file}"
+            exit 1
+        fi
+        if [ ! -s "$icon_path" ]; then
+            echo "Native app bundle icon missing or empty: ${icon_path}"
+            exit 1
+        fi
+    fi
     cp ../bin/rp1 "${app_path}/Contents/MacOS/rp1"
     chmod +x "${app_path}/Contents/MacOS/rp1"
     touch "$app_path"

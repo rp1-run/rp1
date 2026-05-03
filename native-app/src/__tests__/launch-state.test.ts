@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { existsSync, statSync } from "node:fs";
+import { join } from "node:path";
 import cliPackage from "../../../cli/package.json";
+import electrobunConfig from "../../electrobun.config.ts";
 
 class MockDaemonExecutableResolutionError extends Error {
 	readonly checkedLocations: readonly unknown[];
@@ -211,6 +214,37 @@ describe("native launch state", () => {
 		]);
 	});
 
+	test("configures checked-in platform app icons", () => {
+		const iconPaths = {
+			mac: electrobunConfig.build?.mac?.icons,
+			win: electrobunConfig.build?.win?.icon,
+			linux: electrobunConfig.build?.linux?.icon,
+		};
+
+		expect(iconPaths).toEqual({
+			mac: "assets/icon.iconset",
+			win: "assets/icon.ico",
+			linux: "assets/icon.png",
+		});
+
+		const appRoot = join(import.meta.dir, "../..");
+		const macIconset = join(appRoot, iconPaths.mac ?? "");
+		const winIcon = join(appRoot, iconPaths.win ?? "");
+		const linuxIcon = join(appRoot, iconPaths.linux ?? "");
+
+		expect(existsSync(macIconset)).toBe(true);
+		expect(statSync(macIconset).isDirectory()).toBe(true);
+		expect(existsSync(join(macIconset, "icon_512x512@2x.png"))).toBe(true);
+
+		expect(existsSync(winIcon)).toBe(true);
+		expect(statSync(winIcon).isFile()).toBe(true);
+		expect(statSync(winIcon).size).toBeGreaterThan(0);
+
+		expect(existsSync(linuxIcon)).toBe(true);
+		expect(statSync(linuxIcon).isFile()).toBe(true);
+		expect(statSync(linuxIcon).size).toBeGreaterThan(0);
+	});
+
 	test("loads the project-list route when no project path is supplied", async () => {
 		const window = await runNativeEntrypoint();
 		const initialState = parseLaunchViewHtmlState(window.loadedHtml[0] ?? "");
@@ -220,7 +254,7 @@ describe("native launch state", () => {
 		expect(initialState.message).toBe("Loading registered projects.");
 		expect(window.navigationRules[0]).toContain("http://127.0.0.1:*/*");
 		expect(window.loadedUrls).toEqual(["http://127.0.0.1:7710/projects"]);
-		expect(window.title).toBe("🕹️ rp1 Arcade");
+		expect(window.title).toBe("rp1 Arcade");
 		expect(launchArcadeMock).toHaveBeenCalledWith({
 			projectPath: undefined,
 			rp1ExecutablePath: "/tmp/rp1",
@@ -238,12 +272,14 @@ describe("native launch state", () => {
 		window.title = "RP1 Arcade - Projects";
 		domReadyHandlers[0]?.({ detail: "http://127.0.0.1:7710/projects" });
 
-		expect(window.title).toBe("🕹️ rp1 Arcade");
+		expect(window.title).toBe("rp1 Arcade");
 		expect(window.executedScripts.at(-1)).toContain(
 			"__RP1_NATIVE_TITLE_PINNED__",
 		);
 		expect(window.executedScripts.at(-1)).toContain("rp1 Arcade");
-		expect(window.executedScripts.at(-1)).not.toContain("🕹️ rp1 Arcade");
+		expect(window.executedScripts.at(-1)).not.toMatch(
+			/\p{Emoji_Presentation}/u,
+		);
 	});
 
 	test("uses the app title for project launches", async () => {
@@ -262,7 +298,7 @@ describe("native launch state", () => {
 		expect(window.loadedUrls).toEqual([
 			"http://127.0.0.1:7710/projects/project-1",
 		]);
-		expect(window.title).toBe("🕹️ rp1 Arcade");
+		expect(window.title).toBe("rp1 Arcade");
 	});
 
 	test("renders option parsing failures before launching Arcade", async () => {

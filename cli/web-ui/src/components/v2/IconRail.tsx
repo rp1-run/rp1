@@ -6,6 +6,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { BrandMark } from "@/components/v2/BrandMark";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -38,11 +39,10 @@ export function IconRail({ className }: IconRailProps) {
 		>
 			<Link
 				to="/"
-				className="flex items-center justify-center text-fg-ghost transition-colors duration-150 hover:text-fg mb-sm"
-				style={{ fontSize: "13px", fontWeight: 500 }}
-				aria-label="rp1 home"
+				className="mb-sm flex items-center justify-center transition-opacity duration-150 hover:opacity-80"
+				aria-label="RP1 home"
 			>
-				rp1<span className="animate-blink text-fg-ghost">_</span>
+				<BrandMark label="" className="h-4 w-9" />
 			</Link>
 			{NAV_ITEMS.map((item) => {
 				const isActive = item.matchPrefix
