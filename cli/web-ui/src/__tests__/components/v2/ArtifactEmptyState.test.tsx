@@ -4,12 +4,6 @@ import { cleanup, render, screen } from "@testing-library/react";
 let importVersion = 0;
 let prefersReducedMotion = false;
 
-mock.module("@/providers/ThemeProvider", () => ({
-	useTheme: () => ({
-		theme: "dark",
-	}),
-}));
-
 mock.module("@/hooks/usePrefersReducedMotion", () => ({
 	usePrefersReducedMotion: () => prefersReducedMotion,
 }));
@@ -47,16 +41,21 @@ describe("ArtifactEmptyState", () => {
 		expect(visual.getAttribute("class")).toContain("artifact-brand-loader");
 		expect(visual.dataset.animationState).toBe("running");
 		expect(visual.textContent).toContain("Creating artifacts");
-		expect(visual.querySelector("img")?.getAttribute("src")).toBe(
-			"/rp1-empty-state-light.svg",
+		expect(visual.querySelector("img")).toBeNull();
+		expect(visual.querySelector(".brand-card")?.tagName.toLowerCase()).toBe(
+			"svg",
 		);
-		expect(visual.querySelector(".brand-card")).not.toBeNull();
+		expect(visual.querySelector(".brand-button-left")).not.toBeNull();
+		expect(visual.querySelector(".brand-button-right")).not.toBeNull();
 		expect(visual.querySelector(".brand-halo")).not.toBeNull();
-		expect(visual.querySelector(".scan-line")).not.toBeNull();
+		expect(visual.querySelector(".scan-line")).toBeNull();
 		expect(visual.querySelector(".cursor")).not.toBeNull();
-		expect(visual.querySelector("style")?.textContent).toContain(
-			"html.dark .artifact-brand-loader",
-		);
+		const styleText = visual.querySelector("style")?.textContent ?? "";
+		expect(styleText).toContain("html.dark .artifact-brand-loader");
+		expect(styleText).toContain('data-pressed-button="left"');
+		expect(styleText).toContain('data-pressed-button="right"');
+		expect(styleText).not.toContain("scan-line");
+		expect(styleText).not.toContain("255, 176, 0");
 		expect(visual.textContent).not.toContain("⣠⣾⣿⣿⣿⣦⣄");
 	});
 
@@ -71,8 +70,11 @@ describe("ArtifactEmptyState", () => {
 
 		expect(visual.dataset.animationState).toBe("static");
 		expect(style?.textContent).toContain('[data-animation-state="static"] *');
-		expect(visual.querySelector(".brand-card")?.getAttribute("src")).toBe(
-			"/rp1-empty-state-light.svg",
+		expect(visual.querySelector(".brand-card")?.tagName.toLowerCase()).toBe(
+			"svg",
 		);
+		expect(
+			visual.querySelector(".brand-card")?.getAttribute("data-pressed-button"),
+		).toBeNull();
 	});
 });
