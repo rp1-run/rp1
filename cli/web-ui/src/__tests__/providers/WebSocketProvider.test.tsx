@@ -1,14 +1,33 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { RuntimeProvider } from "@/providers/RuntimeProvider";
 import {
 	type EventNotificationMessage,
 	type StateSnapshotMessage,
 	useWebSocket,
 	WebSocketProvider,
 } from "@/providers/WebSocketProvider";
+import type { ArcadeRuntimeContract } from "@/types/runtime";
 
 const LAST_EVENT_ID_STORAGE_PREFIX = "rp1:last-event-id:";
+const TEST_RUNTIME: ArcadeRuntimeContract = {
+	schemaVersion: 1,
+	baseUrl: "http://127.0.0.1:7710",
+	hostMode: "browser",
+	version: "0.7.6",
+	buildId: "test-build",
+	cacheBust: "test-build",
+	reconnectPolicy: {
+		initialDelayMs: 2000,
+		maxDelayMs: 30000,
+		backoffFactor: 2,
+		heartbeatIntervalMs: 30000,
+		heartbeatMissThreshold: 3,
+		disconnectedRecoveryIntervalMs: 5000,
+		activityRecoveryLimit: 25,
+	},
+};
 
 class MockWebSocket {
 	static readonly CONNECTING = 0;
@@ -52,7 +71,11 @@ class MockWebSocket {
 }
 
 function wrapper({ children }: { children: ReactNode }) {
-	return <WebSocketProvider>{children}</WebSocketProvider>;
+	return (
+		<RuntimeProvider runtime={TEST_RUNTIME}>
+			<WebSocketProvider>{children}</WebSocketProvider>
+		</RuntimeProvider>
+	);
 }
 
 function getLatestProjectSocket(projectId: string): MockWebSocket | undefined {

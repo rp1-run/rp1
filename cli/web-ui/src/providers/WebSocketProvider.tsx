@@ -20,6 +20,7 @@ import type {
 	StateSnapshotCallback,
 	TreeChangedMessage,
 } from "../types/websocket";
+import { useRuntimeContract } from "./RuntimeProvider";
 
 export type {
 	ConnectionStatus,
@@ -54,9 +55,6 @@ interface WebSocketContextValue {
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
 
-const INITIAL_RECONNECT_DELAY = 2000;
-const MAX_RECONNECT_DELAY = 30000;
-const RECONNECT_BACKOFF_FACTOR = 2;
 const LAST_EVENT_ID_STORAGE_PREFIX = "rp1:last-event-id:";
 
 interface WebSocketProviderProps {
@@ -64,10 +62,12 @@ interface WebSocketProviderProps {
 }
 
 export function WebSocketProvider({ children }: WebSocketProviderProps) {
+	const runtime = useRuntimeContract();
+	const reconnectPolicy = runtime.reconnectPolicy;
 	const [status, setStatus] = useState<ConnectionStatus>("disconnected");
 	const [projectId, setProjectIdState] = useState<string | null>(null);
 	const wsRef = useRef<WebSocket | null>(null);
-	const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY);
+	const reconnectDelayRef = useRef(reconnectPolicy.initialDelayMs);
 	const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
 		null,
 	);
@@ -207,7 +207,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 			setStatus("connecting");
 
 			const currentProjectId = projectIdRef.current;
-			const wsProto = window.location.protocol === "https:" ? "wss" : "ws";
+			const runtimeBaseUrl = new URL(runtime.baseUrl);
+			const wsProto = runtimeBaseUrl.protocol === "https:" ? "wss" : "ws";
 			const wsUrl = (() => {
 				const query = new URLSearchParams();
 				if (currentProjectId) {
@@ -218,7 +219,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 					}
 				}
 				const queryString = query.toString();
-				return `${wsProto}://${window.location.host}/ws${queryString ? `?${queryString}` : ""}`;
+				return `${wsProto}://${runtimeBaseUrl.host}/ws${queryString ? `?${queryString}` : ""}`;
 			})();
 			const ws = new WebSocket(wsUrl);
 
@@ -228,7 +229,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 					return;
 				}
 				setStatus("connected");
-				reconnectDelayRef.current = INITIAL_RECONNECT_DELAY;
+				reconnectDelayRef.current = reconnectPolicy.initialDelayMs;
 
 				for (const path of subscriptionsRef.current) {
 					ws.send(JSON.stringify({ type: "subscribe", path }));
@@ -337,8 +338,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				reconnectTimeoutRef.current = null;
 				if (!mountedRef.current) return;
 				reconnectDelayRef.current = Math.min(
-					reconnectDelayRef.current * RECONNECT_BACKOFF_FACTOR,
-					MAX_RECONNECT_DELAY,
+					reconnectDelayRef.current * reconnectPolicy.backoffFactor,
+					reconnectPolicy.maxDelayMs,
 				);
 				connect();
 			}, reconnectDelayRef.current);
@@ -363,6 +364,10 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 		emitEventNotification,
 		normalizeReplayMessage,
 		readStoredLastEventId,
+		reconnectPolicy.backoffFactor,
+		reconnectPolicy.initialDelayMs,
+		reconnectPolicy.maxDelayMs,
+		runtime.baseUrl,
 	]);
 
 	const subscribe = useCallback((path: string) => {
