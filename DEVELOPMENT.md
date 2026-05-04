@@ -102,6 +102,15 @@ Arcade remains the fallback path; after a native launch, run `./bin/rp1 arcade`
 from the same project directory to verify the browser flow still opens the
 project.
 
+The native shell still loads the shared loopback Arcade web app. Before Arcade
+routes mount, the SPA fetches `/api/v2/runtime` with `no-store` semantics and
+expects the same contract in browser and native mode: base URL, host mode,
+version, build ID, cache-bust value, and reconnect policy. Browser launches
+default to `hostMode=browser`; native launches append `hostMode=native` and a
+`native-*` `cacheBust` query value while preserving existing URL parameters.
+When runtime fields change, validate both host modes so browser fallback and
+native launch do not drift.
+
 For repeated launch checks where rebuilding would interfere with daemon reuse,
 build once with `just build-local-dev`, then run Electrobun directly:
 

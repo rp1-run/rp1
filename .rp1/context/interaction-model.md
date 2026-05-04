@@ -75,7 +75,8 @@
 | Skill invocation syntax | Claude Code uses short slash commands; OpenCode uses rp1-prefixed names |
 | Execution vs observability | Host tools do the work; Agent Tools carry protocol; Arcade shows passive status |
 | Responsive layout | Desktop: icon-rail sidebar + resizable panels. Mobile: bottom tab bar + drawers |
-| Workflow freshness source | Arcade: emitted workflow events hydrate `LiveRunIndex`, run detail, and attention/project surfaces via project-scoped `lastEventId` cursors. Host tools: inline gates still come from the emitting workflow |
+| Workflow freshness source | Arcade: emitted workflow events hydrate `LiveRunIndex`, run detail, and attention/project surfaces via scope-aware global/project `lastEventId` cursors. Host tools: inline gates still come from the emitting workflow |
+| Browser/native runtime contract | Browser launch defaults to `hostMode=browser`; native launch appends `hostMode=native` and `cacheBust` while loading the same loopback Arcade SPA. Both host modes validate the no-store `/api/v2/runtime` contract before route-level WebSocket consumers mount |
 | Notification delivery | Arcade: real-time toasts with dedup + dismissible sidebar driven by the same emit stream. Host tools: inline gates |
 | Recovery semantics | Arcade reconnects with its saved cursor, replays missed events when possible, and falls back to bounded snapshot reconciliation or persisted REST recovery only when needed |
 | Run invocation context | Hidden by default, toggled via contextual command; shows workflow, run policy, worktree state |

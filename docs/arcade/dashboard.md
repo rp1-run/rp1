@@ -129,17 +129,29 @@ planned search-row work without rebuilding it.
 When there is no feed data, Arcade shows `No activity yet.` and a link to the
 first-workflow guide.
 
-### Refresh
+### Activity Freshness and Reconnect Recovery
 
-There is no dedicated refresh button on the home page. The feed updates through
-project-scoped workflow events emitted through `rp1 agent-tools emit`, so the
-browser patches only the affected run rows, project summaries, attention
-groups, and open run workspaces during normal operation.
+There is no dedicated refresh button on the home page. During normal
+operation, the feed updates through workflow events emitted by
+`rp1 agent-tools emit`, so the browser patches only the affected run rows,
+project summaries, attention groups, and open run workspaces.
 
-Broad collection refetches are reserved for recovery cases such as reconnecting
-after a replay gap that requires snapshot reconciliation, or for an explicit
-manual reload. File watching still refreshes artifact and file content, but it
-is not the normal path for workflow-status visibility.
+Activity keeps replay cursors in `sessionStorage`. The global feed uses
+`rp1:last-event-id:global`; project-scoped feeds use
+`rp1:last-event-id:<projectId>`. On reconnect, Arcade sends the appropriate
+scope and cursor to `/ws`. The daemon replays missed events when the gap is
+bounded, including each event's real project identity, so global Activity can
+catch up without selecting a project.
+
+If replay cannot cover the gap, the daemon sends a scoped snapshot. Project
+snapshots replace that project's active-run subset; global snapshots hydrate
+recent runs without pruning unrelated projects. After reconnect, the feed and
+run lists also run a bounded REST reconciliation using the runtime policy's
+`activityRecoveryLimit`, merging rows by stable run identity so replay and REST
+overlap does not duplicate Activity records.
+
+File watching still refreshes artifact and file content, but it is not the
+normal path for workflow-status visibility.
 
 ---
 
