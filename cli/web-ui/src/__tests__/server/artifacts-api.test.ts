@@ -84,10 +84,18 @@ const SCHEMA_SQL = `
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		doc_id TEXT UNIQUE NOT NULL,
 		run_id TEXT REFERENCES runs(id),
+		location_kind TEXT NOT NULL DEFAULT 'file',
 		path TEXT NOT NULL,
 		type TEXT NOT NULL DEFAULT 'other',
 		storage_root TEXT NOT NULL DEFAULT 'project',
+		url TEXT DEFAULT NULL,
+		label TEXT DEFAULT NULL,
+		relationship TEXT DEFAULT NULL,
+		source_context TEXT DEFAULT NULL,
+		source_artifact_path TEXT DEFAULT NULL,
+		metadata TEXT DEFAULT NULL,
 		project_path TEXT NOT NULL,
+		project_id TEXT DEFAULT NULL,
 		feature TEXT NOT NULL,
 		step TEXT,
 		subflow INTEGER NOT NULL DEFAULT 0,
@@ -455,6 +463,122 @@ describe("scanForDocId", () => {
 	});
 });
 
+describe("URL artifact save and patch requests", () => {
+	const urlRunId = "url-artifact-run-001";
+	const urlDocId = "url-artifact-doc-001";
+	const url = "https://github.com/example/repo/pull/123";
+	let urlTmpDir: string;
+	let urlDb: Database;
+
+	beforeAll(async () => {
+		urlTmpDir = await mkdtemp(join(tmpdir(), "rp1-url-artifact-test-"));
+		urlDb = new Database(":memory:");
+		urlDb.exec("PRAGMA foreign_keys = ON;");
+		urlDb.exec(SCHEMA_SQL);
+
+		urlDb
+			.prepare(
+				"INSERT INTO runs (id, flow, feature_id, project_path) VALUES ($id, $flow, $featureId, $projectPath)",
+			)
+			.run({
+				$id: urlRunId,
+				$flow: "pr-review",
+				$featureId: "link-artifacts",
+				$projectPath: urlTmpDir,
+			});
+
+		urlDb
+			.prepare(
+				"INSERT INTO artifacts (doc_id, run_id, location_kind, path, type, storage_root, url, project_path, feature, baseline) VALUES ($docId, $runId, $locationKind, $path, $type, $storageRoot, $url, $projectPath, $feature, $baseline)",
+			)
+			.run({
+				$docId: urlDocId,
+				$runId: urlRunId,
+				$locationKind: "url",
+				$path: url,
+				$type: "link",
+				$storageRoot: "work_dir",
+				$url: url,
+				$projectPath: urlTmpDir,
+				$feature: "link-artifacts",
+				$baseline: "original link baseline",
+			});
+
+		const candidatePath = join(
+			urlTmpDir,
+			".rp1",
+			"work",
+			"features",
+			"link-artifacts",
+			"reviewed-pr.md",
+		);
+		await mkdir(dirname(candidatePath), { recursive: true });
+		await Bun.write(
+			candidatePath,
+			`---\nrp1_doc_id: ${urlDocId}\n---\n# This must not become the URL artifact path`,
+		);
+
+		tmpDir = urlTmpDir;
+		testDb = urlDb;
+	});
+
+	afterAll(async () => {
+		urlDb?.close();
+		if (urlTmpDir) {
+			await rm(urlTmpDir, { recursive: true, force: true });
+		}
+	});
+
+	test("save requests for URL artifacts return a non-file response without reconciling storage", async () => {
+		const response = await handleArtifactSaveRequest(
+			urlRunId,
+			new Request("http://localhost/api/save", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					path: url,
+					content: `---\nrp1_doc_id: ${urlDocId}\n---\n# Updated`,
+				}),
+			}),
+			{ port: 3000, startTime: Date.now() },
+		);
+
+		expect(response.status).toBe(404);
+		const body = (await response.json()) as { error: string };
+		expect(body.error).toBe(
+			"File does not exist: only existing files can be saved",
+		);
+		const row = urlDb
+			.prepare("SELECT path, storage_root FROM artifacts WHERE doc_id = $docId")
+			.get({ $docId: urlDocId }) as {
+			path: string;
+			storage_root: string;
+		};
+		expect(row.path).toBe(url);
+		expect(row.storage_root).toBe("work_dir");
+	});
+
+	test("patch requests for URL artifacts do not scan matching doc_id files", async () => {
+		const response = await handleArtifactPatchRequest(urlDocId);
+
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as {
+			patch: string | null;
+			message: string;
+		};
+		expect(body.patch).toBeNull();
+		expect(body.message).toBe("File not found on disk");
+		const row = urlDb
+			.prepare("SELECT path, storage_root FROM artifacts WHERE doc_id = $docId")
+			.get({ $docId: urlDocId }) as {
+			path: string;
+			storage_root: string;
+		};
+		expect(row.path).toBe(url);
+		expect(row.storage_root).toBe("work_dir");
+	});
+});
+
 describe("resolveArtifactPath", () => {
 	let reconcileTmpDir: string;
 	let reconcileDb: Database;
@@ -653,6 +777,61 @@ describe("resolveArtifactPath", () => {
 			expect(row.storage_root).toBe("work_dir");
 		} finally {
 			await rm(externalProjectRoot, { recursive: true, force: true });
+		}
+	});
+
+	test("does not reconcile URL artifacts when caller omits location kind", async () => {
+		const urlProjectRoot = await mkdtemp(join(tmpdir(), "rp1-url-reconcile-"));
+		const urlWorkDir = join(urlProjectRoot, ".rp1", "work");
+		const urlDocId = "url-reconcile-doc";
+		const candidatePath = join(urlWorkDir, "features", "links", "pr.md");
+
+		try {
+			reconcileDb
+				.prepare(
+					"INSERT INTO artifacts (doc_id, run_id, location_kind, path, type, storage_root, url, project_path, feature) VALUES ($docId, $runId, $locationKind, $path, $type, $storageRoot, $url, $projectPath, $feature)",
+				)
+				.run({
+					$docId: urlDocId,
+					$runId: "reconcile-run",
+					$locationKind: "url",
+					$path: "https://github.com/example/repo/pull/123",
+					$type: "link",
+					$storageRoot: "work_dir",
+					$url: "https://github.com/example/repo/pull/123",
+					$projectPath: urlProjectRoot,
+					$feature: "test-feature",
+				});
+
+			await mkdir(dirname(candidatePath), { recursive: true });
+			await Bun.write(
+				candidatePath,
+				`---\nrp1_doc_id: ${urlDocId}\n---\n# This file must not be linked`,
+			);
+
+			const result = await resolveArtifactPath(
+				reconcileDb,
+				reconcileDirectories(urlProjectRoot, urlWorkDir),
+				{
+					docId: urlDocId,
+					path: "https://github.com/example/repo/pull/123",
+					storageRoot: "work_dir",
+				},
+			);
+
+			expect(result).toBeNull();
+			const row = reconcileDb
+				.prepare(
+					"SELECT path, storage_root FROM artifacts WHERE doc_id = $docId",
+				)
+				.get({ $docId: urlDocId }) as {
+				path: string;
+				storage_root: string;
+			};
+			expect(row.path).toBe("https://github.com/example/repo/pull/123");
+			expect(row.storage_root).toBe("work_dir");
+		} finally {
+			await rm(urlProjectRoot, { recursive: true, force: true });
 		}
 	});
 

@@ -253,12 +253,28 @@ export async function resolveArtifactPath(
 	directories: ProjectDirectories,
 	artifact: {
 		docId: string;
+		locationKind?: "file" | "url";
 		path: string;
 		storageRoot: "absolute" | "project" | "work_dir";
+		type?: string;
 	},
 	deps: ArtifactsApiDependencyOverrides = {},
 ): Promise<string | null> {
 	const dependencies = resolveDependencies(deps);
+	const persistedArtifact =
+		artifact.locationKind === undefined && artifact.type !== "link"
+			? dependencies.getArtifactByDocId(db, artifact.docId)
+			: null;
+
+	if (
+		artifact.locationKind === "url" ||
+		artifact.type === "link" ||
+		persistedArtifact?.locationKind === "url" ||
+		persistedArtifact?.type === "link"
+	) {
+		return null;
+	}
+
 	const absolutePath = resolveArtifactAbsolutePath(directories, artifact);
 	if (await Bun.file(absolutePath).exists()) {
 		return absolutePath;
