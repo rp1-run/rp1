@@ -12,6 +12,10 @@ import {
 	DaemonExecutableResolutionError,
 	resolveDaemonExecutablePath,
 } from "../../../cli/web-ui/src/daemon/executable.js";
+import {
+	appendArcadeRuntimeQuery,
+	createNativeArcadeCacheBust,
+} from "./runtime-url.js";
 
 type LaunchStatus = "loading" | "failure";
 type NativeWindow = InstanceType<typeof BrowserWindow>;
@@ -372,8 +376,13 @@ const launchNativeShell = async (
 		throw new Error(`Arcade returned a non-loopback URL: ${result.url}`);
 	}
 
+	const arcadeUrl = appendArcadeRuntimeQuery(result.url, {
+		hostMode: "native",
+		cacheBust: createNativeArcadeCacheBust(),
+	});
+
 	setVisibleWindowTitle(window);
-	loadWindowUrl(window, result.url);
+	loadWindowUrl(window, arcadeUrl);
 };
 
 const launchOptions = parseLaunchOptions();
