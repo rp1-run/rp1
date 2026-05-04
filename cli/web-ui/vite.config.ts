@@ -84,6 +84,7 @@ const runtimeManifest = buildRuntimeManifest({
 export default defineConfig({
 	plugins: [react(), runtimeManifestPlugin(runtimeManifest)],
 	define: {
+		__RP1_WEB_UI_BUILD_ID__: JSON.stringify(runtimeManifest.buildId),
 		__RP1_WEB_UI_BUILD_TIME__: JSON.stringify(runtimeManifest.buildTime),
 		__RP1_WEB_UI_GIT_COMMIT__: JSON.stringify(runtimeManifest.gitCommit),
 		__RP1_WEB_UI_VERSION__: JSON.stringify(runtimeManifest.version),

@@ -13,6 +13,32 @@ interface State {
 	errorInfo: ErrorInfo | null;
 }
 
+export function RuntimeLoadFailure({ message }: { message: string }) {
+	return (
+		<div
+			role="alert"
+			className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground"
+		>
+			<div className="flex w-full max-w-lg flex-col items-center rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
+				<AlertTriangle className="mb-4 h-10 w-10 text-destructive" />
+				<h1 className="mb-2 text-lg font-semibold">
+					Arcade runtime failed to load
+				</h1>
+				<p className="mb-4 max-w-md text-sm text-muted-foreground">{message}</p>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					onClick={() => window.location.reload()}
+				>
+					<RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+					Reload page
+				</Button>
+			</div>
+		</div>
+	);
+}
+
 export class ErrorBoundary extends Component<Props, State> {
 	constructor(props: Props) {
 		super(props);

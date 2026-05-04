@@ -1,4 +1,3 @@
-import { AlertTriangle, RefreshCw } from "lucide-react";
 import {
 	createContext,
 	type ReactNode,
@@ -6,7 +5,7 @@ import {
 	useEffect,
 	useState,
 } from "react";
-import { Button } from "@/components/ui/button";
+import { RuntimeLoadFailure } from "@/components/ErrorBoundary";
 import {
 	ARCADE_RUNTIME_SCHEMA_VERSION,
 	type ArcadeReconnectPolicy,
@@ -14,10 +13,20 @@ import {
 	isArcadeHostMode,
 } from "@/types/runtime";
 
+declare const __RP1_WEB_UI_BUILD_ID__: string | undefined;
+declare const __RP1_WEB_UI_VERSION__: string | undefined;
+
+interface ClientRuntimeBuildMetadata {
+	readonly buildId: string | null;
+	readonly version: string | null;
+}
+
 interface RuntimeProviderProps {
 	children: ReactNode;
 	runtime?: ArcadeRuntimeContract;
 	loadRuntime?: () => Promise<ArcadeRuntimeContract>;
+	clientBuildMetadata?: ClientRuntimeBuildMetadata;
+	reloadRuntime?: (contract: ArcadeRuntimeContract) => void;
 }
 
 interface RuntimeLoadState {
@@ -26,6 +35,7 @@ interface RuntimeLoadState {
 }
 
 const RuntimeContext = createContext<ArcadeRuntimeContract | null>(null);
+const RUNTIME_RELOAD_STORAGE_PREFIX = "rp1:runtime-reload:";
 
 const RUNTIME_QUERY_KEYS = {
 	hostMode: ["hostMode", "host-mode"],
@@ -103,6 +113,102 @@ export function buildRuntimeEndpoint(locationSearch = window.location.search) {
 	return `/api/v2/runtime${queryString ? `?${queryString}` : ""}`;
 }
 
+function readBuildMetadataValue(value: unknown): string | null {
+	return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+export function readClientRuntimeBuildMetadata(): ClientRuntimeBuildMetadata {
+	return {
+		buildId: readBuildMetadataValue(
+			typeof __RP1_WEB_UI_BUILD_ID__ === "string"
+				? __RP1_WEB_UI_BUILD_ID__
+				: null,
+		),
+		version: readBuildMetadataValue(
+			typeof __RP1_WEB_UI_VERSION__ === "string"
+				? __RP1_WEB_UI_VERSION__
+				: null,
+		),
+	};
+}
+
+function getRuntimeMismatchMessage(
+	contract: ArcadeRuntimeContract,
+	clientBuildMetadata: ClientRuntimeBuildMetadata,
+): string | null {
+	if (contract.buildId === `dev-${contract.version}`) {
+		return null;
+	}
+
+	if (
+		clientBuildMetadata.buildId !== null &&
+		clientBuildMetadata.buildId !== contract.buildId
+	) {
+		return `Arcade runtime build changed from ${clientBuildMetadata.buildId} to ${contract.buildId}.`;
+	}
+
+	if (
+		clientBuildMetadata.buildId === null &&
+		clientBuildMetadata.version !== null &&
+		clientBuildMetadata.version !== contract.version
+	) {
+		return `Arcade runtime version changed from ${clientBuildMetadata.version} to ${contract.version}.`;
+	}
+
+	return null;
+}
+
+function runtimeReloadAttemptStorageKey(buildId: string): string {
+	return `${RUNTIME_RELOAD_STORAGE_PREFIX}${buildId}`;
+}
+
+function hasRuntimeReloadAttempt(buildId: string): boolean {
+	try {
+		return (
+			sessionStorage.getItem(runtimeReloadAttemptStorageKey(buildId)) === "1"
+		);
+	} catch {
+		return false;
+	}
+}
+
+function markRuntimeReloadAttempt(buildId: string): void {
+	try {
+		sessionStorage.setItem(runtimeReloadAttemptStorageKey(buildId), "1");
+	} catch {}
+}
+
+function reloadWithRuntimeCacheBust(contract: ArcadeRuntimeContract): void {
+	const url = new URL(window.location.href);
+	url.searchParams.set("cacheBust", contract.buildId);
+	window.location.assign(url.toString());
+}
+
+function prepareRuntimeContract(
+	contract: ArcadeRuntimeContract,
+	clientBuildMetadata: ClientRuntimeBuildMetadata,
+	reloadRuntime: (contract: ArcadeRuntimeContract) => void,
+): ArcadeRuntimeContract | null {
+	const mismatchMessage = getRuntimeMismatchMessage(
+		contract,
+		clientBuildMetadata,
+	);
+
+	if (mismatchMessage === null) {
+		return contract;
+	}
+
+	if (!hasRuntimeReloadAttempt(contract.buildId)) {
+		markRuntimeReloadAttempt(contract.buildId);
+		reloadRuntime(contract);
+		return null;
+	}
+
+	throw new Error(
+		`${mismatchMessage} A cache-busted reload did not resolve the mismatch.`,
+	);
+}
+
 function validateRuntimeContract(value: unknown): ArcadeRuntimeContract {
 	if (!isRecord(value)) {
 		throw new Error("Arcade runtime contract response is invalid.");
@@ -156,36 +262,12 @@ export async function fetchRuntimeContract(): Promise<ArcadeRuntimeContract> {
 	return validateRuntimeContract((await response.json()) as unknown);
 }
 
-function RuntimeLoadFailure({ message }: { message: string }) {
-	return (
-		<div
-			role="alert"
-			className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground"
-		>
-			<div className="flex w-full max-w-lg flex-col items-center rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
-				<AlertTriangle className="mb-4 h-10 w-10 text-destructive" />
-				<h1 className="mb-2 text-lg font-semibold">
-					Arcade runtime failed to load
-				</h1>
-				<p className="mb-4 max-w-md text-sm text-muted-foreground">{message}</p>
-				<Button
-					type="button"
-					variant="outline"
-					size="sm"
-					onClick={() => window.location.reload()}
-				>
-					<RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-					Reload page
-				</Button>
-			</div>
-		</div>
-	);
-}
-
 export function RuntimeProvider({
 	children,
 	runtime,
 	loadRuntime = fetchRuntimeContract,
+	clientBuildMetadata,
+	reloadRuntime = reloadWithRuntimeCacheBust,
 }: RuntimeProviderProps) {
 	const [state, setState] = useState<RuntimeLoadState>(() => ({
 		contract: runtime ?? null,
@@ -199,11 +281,20 @@ export function RuntimeProvider({
 		}
 
 		let cancelled = false;
+		const buildMetadata =
+			clientBuildMetadata ?? readClientRuntimeBuildMetadata();
 
 		loadRuntime()
 			.then((contract) => {
 				if (!cancelled) {
-					setState({ contract, error: null });
+					const preparedContract = prepareRuntimeContract(
+						contract,
+						buildMetadata,
+						reloadRuntime,
+					);
+					if (preparedContract !== null) {
+						setState({ contract: preparedContract, error: null });
+					}
 				}
 			})
 			.catch((error: unknown) => {
@@ -221,7 +312,7 @@ export function RuntimeProvider({
 		return () => {
 			cancelled = true;
 		};
-	}, [runtime, loadRuntime]);
+	}, [runtime, loadRuntime, clientBuildMetadata, reloadRuntime]);
 
 	if (state.error) {
 		return <RuntimeLoadFailure message={state.error} />;

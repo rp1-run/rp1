@@ -3,9 +3,11 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { handleStaticRequest } from "../../server/routes/static";
+import { ARCADE_RUNTIME_MANIFEST_FILENAME } from "../../types/runtime";
 
 const HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate";
 const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
+const ASSET_MISSING_HEADER = "X-RP1-Asset-Missing";
 
 function request(pathname: string, headers?: HeadersInit): Request {
 	return new Request(`http://localhost${pathname}`, {
@@ -28,6 +30,10 @@ describe("handleStaticRequest", () => {
 			join(clientDir, "assets", "app-a1b2c3.js"),
 			"console.log('arcade');",
 		);
+		await Bun.write(
+			join(clientDir, ARCADE_RUNTIME_MANIFEST_FILENAME),
+			JSON.stringify({ buildId: "build-1" }),
+		);
 	});
 
 	afterAll(async () => {
@@ -42,7 +48,15 @@ describe("handleStaticRequest", () => {
 		);
 
 		expect(response.status).toBe(404);
-		expect(await response.text()).toBe("Not found");
+		expect(await response.text()).toBe(
+			[
+				"status=missing_asset",
+				"path=/assets/missing.js",
+				"message=Requested Arcade asset was not found.",
+				"",
+			].join("\n"),
+		);
+		expect(response.headers.get(ASSET_MISSING_HEADER)).toBe("true");
 		expect(response.headers.get("Content-Type")?.toLowerCase()).toBe(
 			"text/plain; charset=utf-8",
 		);
@@ -71,7 +85,8 @@ describe("handleStaticRequest", () => {
 		);
 
 		expect(response.status).toBe(404);
-		expect(await response.text()).toBe("Not found");
+		expect(await response.text()).toContain("path=/workspace/main.js");
+		expect(response.headers.get(ASSET_MISSING_HEADER)).toBe("true");
 	});
 
 	test("serves existing JavaScript assets with MIME and immutable cache headers", async () => {
@@ -102,5 +117,20 @@ describe("handleStaticRequest", () => {
 		);
 		expect(response.headers.get("Cache-Control")).toBe(HTML_CACHE_CONTROL);
 		expect(await response.text()).toContain("Arcade");
+	});
+
+	test("serves the runtime manifest with no-store cache headers", async () => {
+		const response = await handleStaticRequest(
+			request(`/${ARCADE_RUNTIME_MANIFEST_FILENAME}`, { Accept: "*/*" }),
+			false,
+			webUIDir,
+		);
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("Content-Type")).toBe(
+			"application/json; charset=utf-8",
+		);
+		expect(response.headers.get("Cache-Control")).toBe(HTML_CACHE_CONTROL);
+		expect(JSON.parse(await response.text())).toEqual({ buildId: "build-1" });
 	});
 });

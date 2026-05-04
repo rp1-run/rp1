@@ -1,7 +1,9 @@
 import { extname, join, resolve } from "node:path";
+import { ARCADE_RUNTIME_MANIFEST_FILENAME } from "../../types/runtime";
 
 const HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate";
 const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
+const ASSET_MISSING_HEADER = "X-RP1-Asset-Missing";
 
 const MIME_TYPES: Record<string, string> = {
 	".html": "text/html; charset=utf-8",
@@ -36,6 +38,10 @@ function hasFileExtension(pathname: string): boolean {
 	return extname(pathname) !== "";
 }
 
+function isRuntimeManifestPath(pathname: string): boolean {
+	return pathname === `/${ARCADE_RUNTIME_MANIFEST_FILENAME}`;
+}
+
 function acceptsHtml(req: Request): boolean {
 	const accept = req.headers.get("Accept");
 	return accept?.toLowerCase().includes("text/html") ?? false;
@@ -51,7 +57,10 @@ function shouldServeSpaFallback(req: Request, pathname: string): boolean {
 }
 
 function cacheControlForPath(pathname: string, filePath: string): string {
-	if (extname(filePath).toLowerCase() === ".html") {
+	if (
+		extname(filePath).toLowerCase() === ".html" ||
+		isRuntimeManifestPath(pathname)
+	) {
 		return HTML_CACHE_CONTROL;
 	}
 
@@ -60,6 +69,24 @@ function cacheControlForPath(pathname: string, filePath: string): string {
 	}
 
 	return "no-cache";
+}
+
+function missingAssetResponse(pathname: string): Response {
+	return new Response(
+		[
+			"status=missing_asset",
+			`path=${pathname}`,
+			"message=Requested Arcade asset was not found.",
+			"",
+		].join("\n"),
+		{
+			status: 404,
+			headers: {
+				[ASSET_MISSING_HEADER]: "true",
+				"Content-Type": "text/plain; charset=utf-8",
+			},
+		},
+	);
 }
 
 export async function handleStaticRequest(
@@ -106,6 +133,10 @@ export async function handleStaticRequest(
 					"Content-Type": "text/html; charset=utf-8",
 				},
 			});
+		}
+
+		if (hasFileExtension(pathname)) {
+			return missingAssetResponse(pathname);
 		}
 
 		return new Response("Not found", {

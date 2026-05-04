@@ -21,6 +21,9 @@ describe("web-ui version metadata", () => {
 		expect(config.define?.__RP1_WEB_UI_VERSION__).toBe(
 			JSON.stringify(cliPackage.version),
 		);
+		expect(
+			typeof JSON.parse(String(config.define?.__RP1_WEB_UI_BUILD_ID__)),
+		).toBe("string");
 	});
 
 	test("builds a deterministic runtime manifest identity", () => {

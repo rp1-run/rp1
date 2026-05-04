@@ -39,12 +39,14 @@ describe("RuntimeProvider", () => {
 
 	beforeEach(() => {
 		window.location.href = "http://localhost/";
+		window.sessionStorage.clear();
 	});
 
 	afterEach(() => {
 		cleanup();
 		globalThis.fetch = originalFetch;
 		window.location.href = "http://localhost/";
+		window.sessionStorage.clear();
 	});
 
 	test("builds the runtime endpoint from host launch metadata", () => {
@@ -121,5 +123,81 @@ describe("RuntimeProvider", () => {
 				"runtime unavailable",
 			);
 		});
+	});
+
+	test("accepts the development runtime fallback without a reload loop", async () => {
+		const devRuntime: ArcadeRuntimeContract = {
+			...TEST_RUNTIME,
+			buildId: `dev-${TEST_RUNTIME.version}`,
+			cacheBust: `dev-${TEST_RUNTIME.version}`,
+		};
+		const loadRuntime = mock(async () => devRuntime);
+		const reloadRuntime = mock((_contract: ArcadeRuntimeContract) => {});
+
+		render(
+			<RuntimeProvider
+				loadRuntime={loadRuntime}
+				clientBuildMetadata={{
+					buildId: "vite-dev-build",
+					version: TEST_RUNTIME.version,
+				}}
+				reloadRuntime={reloadRuntime}
+			>
+				<RuntimeProbe />
+			</RuntimeProvider>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("host-mode").textContent).toBe("native");
+		});
+		expect(reloadRuntime).not.toHaveBeenCalled();
+	});
+
+	test("attempts one cache-busted reload before failing a persistent runtime build mismatch", async () => {
+		const updatedRuntime: ArcadeRuntimeContract = {
+			...TEST_RUNTIME,
+			buildId: "build-2",
+			cacheBust: "build-2",
+		};
+		const loadRuntime = mock(async () => updatedRuntime);
+		const reloadRuntime = mock((_contract: ArcadeRuntimeContract) => {});
+		const clientBuildMetadata = {
+			buildId: "build-1",
+			version: TEST_RUNTIME.version,
+		};
+
+		render(
+			<RuntimeProvider
+				loadRuntime={loadRuntime}
+				clientBuildMetadata={clientBuildMetadata}
+				reloadRuntime={reloadRuntime}
+			>
+				<RuntimeProbe />
+			</RuntimeProvider>,
+		);
+
+		await waitFor(() => {
+			expect(reloadRuntime).toHaveBeenCalledWith(updatedRuntime);
+		});
+		expect(screen.queryByTestId("host-mode")).toBeNull();
+
+		cleanup();
+
+		render(
+			<RuntimeProvider
+				loadRuntime={loadRuntime}
+				clientBuildMetadata={clientBuildMetadata}
+				reloadRuntime={reloadRuntime}
+			>
+				<RuntimeProbe />
+			</RuntimeProvider>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByRole("alert").textContent).toContain(
+				"cache-busted reload did not resolve",
+			);
+		});
+		expect(reloadRuntime).toHaveBeenCalledTimes(1);
 	});
 });
