@@ -48,6 +48,15 @@ const artifactConfigs: Record<ArtifactType, ArtifactConfig> = {
 	},
 };
 
+const urlArtifactConfig: ArtifactConfig = {
+	icon: ExternalLink,
+	label: "Link",
+};
+
+function isUrlArtifact(artifact: Artifact): boolean {
+	return artifact.locationKind === "url";
+}
+
 function getFileName(path: string): string {
 	return path.split("/").pop() || path;
 }
@@ -57,6 +66,30 @@ function getDirectory(path: string): string {
 	if (parts.length <= 1) return "";
 	parts.pop();
 	return parts.join("/");
+}
+
+function getArtifactName(artifact: Artifact): string {
+	if (isUrlArtifact(artifact)) {
+		return artifact.label || artifact.url || artifact.path;
+	}
+
+	return getFileName(artifact.path);
+}
+
+function getArtifactContext(artifact: Artifact): string {
+	if (isUrlArtifact(artifact)) {
+		return artifact.url || artifact.path;
+	}
+
+	return getDirectory(artifact.path);
+}
+
+function getArtifactConfig(artifact: Artifact): ArtifactConfig {
+	if (isUrlArtifact(artifact)) {
+		return urlArtifactConfig;
+	}
+
+	return artifactConfigs[artifact.type] ?? artifactConfigs.other;
 }
 
 const ARTIFACT_ITEM_HEIGHT = 56;
@@ -78,10 +111,10 @@ function ArtifactItem({
 	onClick?: (artifact: Artifact) => void;
 	isSelected?: boolean;
 }) {
-	const config = artifactConfigs[artifact.type];
+	const config = getArtifactConfig(artifact);
 	const Icon = config.icon;
-	const fileName = getFileName(artifact.path);
-	const directory = getDirectory(artifact.path);
+	const artifactName = getArtifactName(artifact);
+	const artifactContext = getArtifactContext(artifact);
 
 	const handleClick = () => {
 		onClick?.(artifact);
@@ -115,7 +148,7 @@ function ArtifactItem({
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-2">
 					<span className="truncate font-medium text-foreground">
-						{fileName}
+						{artifactName}
 					</span>
 					{artifact.isNew && (
 						<span className="shrink-0 rounded bg-status-completed/20 px-1.5 py-0.5 text-xs font-medium text-status-completed">
@@ -128,8 +161,10 @@ function ArtifactItem({
 						</span>
 					)}
 				</div>
-				{directory && (
-					<p className="truncate text-xs text-muted-foreground">{directory}</p>
+				{artifactContext && (
+					<p className="truncate text-xs text-muted-foreground">
+						{artifactContext}
+					</p>
 				)}
 			</div>
 
@@ -184,7 +219,10 @@ export function ArtifactList({
 		[onArtifactClick],
 	);
 
-	const getArtifactKey = useCallback((artifact: Artifact) => artifact.path, []);
+	const getArtifactKey = useCallback(
+		(artifact: Artifact) => artifact.docId || artifact.path,
+		[],
+	);
 
 	if (artifacts.length === 0) {
 		return (
@@ -214,7 +252,7 @@ export function ArtifactList({
 	return (
 		<ul className={cn("space-y-1", className)} aria-label="Artifacts">
 			{artifacts.map((artifact, index) => (
-				<li key={artifact.path}>
+				<li key={artifact.docId || artifact.path}>
 					<ArtifactItem
 						artifact={artifact}
 						onClick={onArtifactClick}

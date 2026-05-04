@@ -120,9 +120,129 @@ const validateStatusChangePayload = (
 	return E.right(data);
 };
 
+const isNonEmptyString = (value: unknown): value is string =>
+	typeof value === "string" && value.trim().length > 0;
+
+const validateOptionalStringField = (
+	data: Record<string, unknown>,
+	fieldName: string,
+): E.Either<CLIError, void> => {
+	if (data[fieldName] !== undefined && typeof data[fieldName] !== "string") {
+		return E.left(
+			usageError(
+				`artifact_registered '${fieldName}' field must be a string when provided`,
+			),
+		);
+	}
+
+	return E.right(undefined);
+};
+
+const validateUrlArtifactRegisteredPayload = (
+	data: Record<string, unknown>,
+): E.Either<CLIError, Record<string, unknown>> => {
+	if (data.type !== "link") {
+		return E.left(
+			usageError(
+				'artifact_registered URL artifacts require type "link" in --data',
+			),
+		);
+	}
+
+	if (!isNonEmptyString(data.url)) {
+		return E.left(
+			usageError(
+				"artifact_registered URL artifacts require a non-empty 'url' field (string) in --data",
+			),
+		);
+	}
+
+	try {
+		const url = new URL(data.url);
+		if (url.protocol !== "http:" && url.protocol !== "https:") {
+			return E.left(
+				usageError(
+					"artifact_registered URL artifacts only support http and https URLs",
+				),
+			);
+		}
+	} catch {
+		return E.left(
+			usageError(
+				`artifact_registered URL artifact has an invalid url: ${String(data.url)}`,
+			),
+		);
+	}
+
+	if (!isNonEmptyString(data.label)) {
+		return E.left(
+			usageError(
+				"artifact_registered URL artifacts require a non-empty 'label' field (string) in --data",
+			),
+		);
+	}
+
+	if (!isNonEmptyString(data.relationship)) {
+		return E.left(
+			usageError(
+				"artifact_registered URL artifacts require a non-empty 'relationship' field (string) in --data",
+			),
+		);
+	}
+
+	for (const fieldName of [
+		"feature",
+		"docId",
+		"path",
+		"projectPath",
+		"sourceContext",
+		"sourceArtifactPath",
+	]) {
+		const result = validateOptionalStringField(data, fieldName);
+		if (E.isLeft(result)) return result;
+	}
+
+	if (
+		data.metadata !== undefined &&
+		(typeof data.metadata !== "object" ||
+			data.metadata === null ||
+			Array.isArray(data.metadata))
+	) {
+		return E.left(
+			usageError(
+				"artifact_registered URL artifact 'metadata' field must be an object when provided",
+			),
+		);
+	}
+
+	return E.right(data);
+};
+
 const validateArtifactRegisteredPayload = (
 	data: Record<string, unknown>,
 ): E.Either<CLIError, Record<string, unknown>> => {
+	if (data.locationKind !== undefined) {
+		if (data.locationKind !== "file" && data.locationKind !== "url") {
+			return E.left(
+				usageError(
+					"artifact_registered 'locationKind' field must be 'file' or 'url' when provided",
+				),
+			);
+		}
+
+		if (data.locationKind === "url") {
+			return validateUrlArtifactRegisteredPayload(data);
+		}
+	}
+
+	if (data.type === "link") {
+		return E.left(
+			usageError(
+				'artifact_registered link artifacts require locationKind "url" in --data',
+			),
+		);
+	}
+
 	if (!data.path || typeof data.path !== "string") {
 		return E.left(
 			usageError(

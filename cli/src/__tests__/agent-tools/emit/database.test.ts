@@ -103,7 +103,7 @@ describe("emit database", () => {
 			expect(tableNames).not.toContain("socratic_duel_turns");
 		});
 
-		test("schema_version is set to 17", async () => {
+		test("schema_version is set to 18", async () => {
 			const dbPath = join(tempDir, "version-test.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -111,7 +111,7 @@ describe("emit database", () => {
 				version: number;
 			};
 
-			expect(row.version).toBe(17);
+			expect(row.version).toBe(18);
 		});
 
 		test("activity_search_runs table includes search columns, indexes, and run FK", async () => {
@@ -353,7 +353,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 
 			const runRow = db
 				.prepare(
@@ -466,7 +466,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 
 			const duelColumns = db
 				.prepare("PRAGMA table_info(socratic_duels)")
@@ -584,7 +584,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 
 			const migratedDuel = db
 				.prepare(
@@ -725,7 +725,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 			expect(
 				db
 					.prepare(
@@ -869,7 +869,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 		});
 
 		test("migrates v2 schema to add subflow column to artifacts", async () => {
@@ -960,7 +960,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 		});
 
 		test("v3 to v4 migration adds baseline column and cleans orphaned edit-diff annotations", async () => {
@@ -1047,7 +1047,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 
 			const annotations = db.prepare("SELECT * FROM annotations").all() as {
 				content: string;
@@ -1167,7 +1167,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 
 			const indexes = db.prepare("PRAGMA index_list(runs)").all() as {
 				name: string;
@@ -1374,7 +1374,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 		});
 
 		test("foreign key constraints are enforced", async () => {

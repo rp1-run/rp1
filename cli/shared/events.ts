@@ -139,6 +139,10 @@ export const VALID_ARTIFACT_TYPES: readonly ArtifactType[] = [
 	"other",
 ] as const;
 
+export type ArtifactLocationKind = "file" | "url";
+
+export type ArtifactRegisteredType = ArtifactType | "link";
+
 export type WorkflowRunPolicy = "fresh" | "resumable";
 
 export type StatusChangeActor = "user" | "system" | "agent";
@@ -157,7 +161,8 @@ export interface StatusChangePayload {
 	readonly source?: StatusChangeSource;
 }
 
-export interface ArtifactRegisteredPayload {
+export interface FileArtifactRegisteredPayload {
+	readonly locationKind?: "file";
 	readonly path: string;
 	readonly type: ArtifactType;
 	readonly projectPath: string;
@@ -165,6 +170,25 @@ export interface ArtifactRegisteredPayload {
 	readonly docId?: string;
 	readonly storageRoot: "absolute" | "project" | "work_dir";
 }
+
+export interface UrlArtifactRegisteredPayload {
+	readonly locationKind: "url";
+	readonly type: "link";
+	readonly url: string;
+	readonly label: string;
+	readonly relationship: string;
+	readonly path?: string;
+	readonly projectPath?: string;
+	readonly feature?: string;
+	readonly docId?: string;
+	readonly sourceContext?: string;
+	readonly sourceArtifactPath?: string;
+	readonly metadata?: Readonly<Record<string, unknown>>;
+}
+
+export type ArtifactRegisteredPayload =
+	| FileArtifactRegisteredPayload
+	| UrlArtifactRegisteredPayload;
 
 export interface AnnotationUpdatedPayload {
 	readonly docId: string;

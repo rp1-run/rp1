@@ -21,6 +21,9 @@ interface SectionPath {
 	readonly relativePath: string;
 }
 
+type ArtifactPathRecord = Pick<ArtifactRecord, "path" | "storageRoot"> &
+	Partial<Pick<ArtifactRecord, "locationKind" | "url">>;
+
 const CANONICAL_SECTION_PREFIXES: Record<ProjectSection, string> = {
 	work: ".rp1/work",
 	kb: ".rp1/context",
@@ -111,6 +114,9 @@ const normalizeStoredWorkRelativePath = (artifactPath: string): string => {
 
 	return normalized;
 };
+
+const getUrlArtifactLocation = (artifact: ArtifactPathRecord): string =>
+	artifact.url ?? artifact.path;
 
 export const resolveProjectDirectories = (
 	projectPath: string,
@@ -228,8 +234,12 @@ export const toProjectSectionPath = (
 
 export const resolveArtifactAbsolutePath = (
 	directories: ProjectDirectories,
-	artifact: Pick<ArtifactRecord, "path" | "storageRoot">,
+	artifact: ArtifactPathRecord,
 ): string => {
+	if (artifact.locationKind === "url") {
+		return getUrlArtifactLocation(artifact);
+	}
+
 	if (isAbsolute(artifact.path) || artifact.storageRoot === "absolute") {
 		return resolve(artifact.path);
 	}
@@ -246,8 +256,12 @@ export const resolveArtifactAbsolutePath = (
 
 export const toArtifactDisplayPath = (
 	directories: ProjectDirectories,
-	artifact: Pick<ArtifactRecord, "path" | "storageRoot">,
+	artifact: ArtifactPathRecord,
 ): string => {
+	if (artifact.locationKind === "url") {
+		return getUrlArtifactLocation(artifact);
+	}
+
 	if (artifact.storageRoot === "work_dir") {
 		return ensureSectionPath(
 			getCanonicalSectionPath("work"),
@@ -279,28 +293,42 @@ export const toArtifactDisplayPathFromAbsolute = (
 
 export const matchesArtifactDisplayPath = (
 	directories: ProjectDirectories,
-	artifact: Pick<ArtifactRecord, "path" | "storageRoot">,
+	artifact: ArtifactPathRecord,
 	requestedPath: string,
-): boolean =>
-	artifact.path === requestedPath ||
-	toArtifactDisplayPath(directories, artifact) === requestedPath ||
-	(artifact.storageRoot === "work_dir" &&
-		ensureSectionPath(
-			"work",
-			trimTrailingSlash(normalizeStoredWorkRelativePath(artifact.path)),
-		) === requestedPath) ||
-	(artifact.storageRoot !== "absolute" &&
-		resolveProjectSectionFilePathLegacyAlias(
-			directories,
-			artifact,
-			requestedPath,
-		));
+): boolean => {
+	if (artifact.locationKind === "url") {
+		return (
+			artifact.path === requestedPath ||
+			getUrlArtifactLocation(artifact) === requestedPath
+		);
+	}
+
+	return (
+		artifact.path === requestedPath ||
+		toArtifactDisplayPath(directories, artifact) === requestedPath ||
+		(artifact.storageRoot === "work_dir" &&
+			ensureSectionPath(
+				"work",
+				trimTrailingSlash(normalizeStoredWorkRelativePath(artifact.path)),
+			) === requestedPath) ||
+		(artifact.storageRoot !== "absolute" &&
+			resolveProjectSectionFilePathLegacyAlias(
+				directories,
+				artifact,
+				requestedPath,
+			))
+	);
+};
 
 const resolveProjectSectionFilePathLegacyAlias = (
 	directories: ProjectDirectories,
-	artifact: Pick<ArtifactRecord, "path" | "storageRoot">,
+	artifact: ArtifactPathRecord,
 	requestedPath: string,
 ): boolean => {
+	if (artifact.locationKind === "url") {
+		return false;
+	}
+
 	const absolutePath = resolveArtifactAbsolutePath(directories, artifact);
 	const resolvedPath = resolve(absolutePath);
 
@@ -326,9 +354,7 @@ const resolveProjectSectionFilePathLegacyAlias = (
 	return false;
 };
 
-export const findArtifactByRequestedPath = <
-	T extends Pick<ArtifactRecord, "path" | "storageRoot">,
->(
+export const findArtifactByRequestedPath = <T extends ArtifactPathRecord>(
 	directories: ProjectDirectories,
 	artifacts: readonly T[],
 	requestedPath: string,

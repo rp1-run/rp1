@@ -128,6 +128,8 @@ If the template frontmatter includes an `emit_hint`, use it for artifact registr
 
 - **Judgment emoji mapping**: `approve` -> ✅, `request_changes` -> ⚠️, `block` -> 🛑.
 - **Visual Overview**: Include only if `VISUAL_CONTENT` is non-empty. Omit entirely if empty/missing.
+- **External Links**: Treat `PR_INFO.reviewed_pr_url` as the only first-iteration external link source. If present and non-empty, include exactly one `External Links` section with one `Reviewed PR` row: `Reviewed PR` | `reviewed_pr_url` | `reviewed_pr` | `PR review input resolution`. If missing or empty, omit the whole section. Do not leave `{REVIEWED_PR_URL}`, blank table rows, or any empty placeholders in the report.
+- **External Link Exclusions**: Do not add posted GitHub review URLs, code-line links, evidence links, related links, or URLs discovered in findings markdown to the `External Links` section. Those links may remain in their normal report context; only the reviewed PR URL is eligible for this section in this iteration.
 - **Code Links**: If PR_INFO contains `github_url` and `head_sha`, generate clickable GitHub links: `[path:lines](github_url/blob/head_sha/path#Lstart-Lend)`. Parse `lines` field: "67-72" -> start=67, end=72; "45" -> start=45, end=45. If `github_url` empty/missing, use plain text `` `path:lines` ``.
 - **Findings**: Group by severity (Critical -> High -> Medium -> Low).
 - **Cross-File Issues**: Include only if cross_file_findings is non-empty.

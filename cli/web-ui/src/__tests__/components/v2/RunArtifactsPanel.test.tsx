@@ -96,6 +96,28 @@ function artifact(
 	};
 }
 
+function urlArtifact(
+	docId: string,
+	stepId: string | null,
+	url: string,
+): Artifact {
+	return {
+		docId,
+		locationKind: "url",
+		path: url,
+		absolutePath: url,
+		type: "other",
+		url,
+		label: "Reviewed PR",
+		relationship: "reviewed_pr",
+		sourceContext: "PR review input resolution",
+		sourceArtifactPath: "pr-reviews/pr-123-review.md",
+		updatedDuringRun: true,
+		isNew: false,
+		step: stepId,
+	};
+}
+
 function group(
 	id: string,
 	label: string,
@@ -556,6 +578,48 @@ describe("RunArtifactsPanel", () => {
 		);
 		expect(screen.getByTestId("surface-body").textContent).toBe(
 			secondArtifact.path,
+		);
+	});
+
+	test("copies URL artifacts and keeps file content selected", async () => {
+		const writeText = mock(async () => undefined);
+		Object.defineProperty(navigator, "clipboard", {
+			configurable: true,
+			value: { writeText },
+		});
+		const fileArtifact = artifact(
+			"doc-report",
+			"posting",
+			".rp1/work/pr-reviews/pr-123-review.md",
+		);
+		const reviewedPrArtifact = urlArtifact(
+			"link-reviewed-pr",
+			"posting",
+			"https://github.com/example/repo/pull/123",
+		);
+
+		await renderPanel({
+			artifactGroups: [
+				group("step:posting", "Posting", "posting", [
+					fileArtifact,
+					reviewedPrArtifact,
+				]),
+			],
+			selectedArtifact: reviewedPrArtifact,
+		});
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "Copy URL for Reviewed PR" }),
+		);
+
+		expect(writeText).toHaveBeenCalledWith(
+			"https://github.com/example/repo/pull/123",
+		);
+		expect(screen.getByTestId("artifact-content-surface").dataset.docId).toBe(
+			"doc-report",
+		);
+		expect(screen.getByTestId("surface-body").textContent).toBe(
+			fileArtifact.path,
 		);
 	});
 });

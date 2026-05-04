@@ -146,6 +146,15 @@ and run-level artifacts appear together in a single horizontal file list. When a
 run has no artifacts yet, the panel shows an intentional waiting state instead
 of blank space.
 
+Run artifacts can be generated files or curated external links. URL artifacts
+are non-editable run outputs: open them in a new browser tab or copy their URL
+from the artifact controls. They are not loaded into the markdown artifact
+viewer, patched, or annotated like local files.
+
+For example, PR review runs register the reviewed PR URL as a `Reviewed PR`
+artifact when that URL is known. The same URL appears in the PR review report's
+`External Links` section so the report and run artifact list stay aligned.
+
 The step list still keeps step-level context and artifact shortcuts for
 investigation. Selecting a step artifact updates the same right-panel viewer,
 where annotation controls remain available for teams using Arcade annotations.

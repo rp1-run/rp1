@@ -1,4 +1,4 @@
-import { Check, FileText, List } from "lucide-react";
+import { Check, ExternalLink, FileText, List } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { AnnotationToggleBtn } from "@/components/v2/AnnotationToggleBtn";
 import {
@@ -27,6 +27,26 @@ function getFileName(path: string): string {
 	return path.split("/").pop() || path;
 }
 
+function isUrlArtifact(artifact: Artifact): boolean {
+	return artifact.locationKind === "url";
+}
+
+function getArtifactName(artifact: Artifact): string {
+	if (isUrlArtifact(artifact)) {
+		return artifact.label || artifact.url || artifact.path;
+	}
+
+	return getFileName(artifact.path);
+}
+
+function getArtifactTarget(artifact: Artifact): string {
+	if (isUrlArtifact(artifact)) {
+		return artifact.url || artifact.path;
+	}
+
+	return artifact.absolutePath ?? artifact.path;
+}
+
 function flattenArtifacts(
 	groups: readonly ArtifactGroup[],
 ): readonly Artifact[] {
@@ -43,10 +63,12 @@ export function RunArtifactsPanel({
 	headerLabel,
 	headerActions,
 }: RunArtifactsPanelProps) {
-	const [copiedPath, setCopiedPath] = useState<string | null>(null);
+	const [copiedArtifactId, setCopiedArtifactId] = useState<string | null>(null);
 
 	const groups = artifactGroups.filter((group) => group.artifacts.length > 0);
 	const artifacts = flattenArtifacts(groups);
+	const firstFileArtifact =
+		artifacts.find((artifact) => !isUrlArtifact(artifact)) ?? null;
 
 	const renderLeadingControl = () =>
 		leadingControl ? (
@@ -97,13 +119,16 @@ export function RunArtifactsPanel({
 		);
 	}
 
-	const effectiveSelectedArtifact = selectedArtifact ?? artifacts[0] ?? null;
+	const effectiveSelectedArtifact =
+		selectedArtifact && !isUrlArtifact(selectedArtifact)
+			? selectedArtifact
+			: firstFileArtifact;
 
-	const handleCopyPath = (artifact: Artifact) => {
-		const absPath = artifact.absolutePath ?? artifact.path;
-		void navigator.clipboard.writeText(absPath).then(() => {
-			setCopiedPath(artifact.path);
-			setTimeout(() => setCopiedPath(null), 2000);
+	const handleCopyArtifact = (artifact: Artifact) => {
+		const target = getArtifactTarget(artifact);
+		void navigator.clipboard.writeText(target).then(() => {
+			setCopiedArtifactId(artifact.docId);
+			setTimeout(() => setCopiedArtifactId(null), 2000);
 		});
 	};
 
@@ -113,11 +138,16 @@ export function RunArtifactsPanel({
 			className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-1"
 		>
 			{artifacts.map((artifact) => {
-				const fileName = getFileName(artifact.path);
+				const artifactName = getArtifactName(artifact);
 				const isSelected = effectiveSelectedArtifact?.docId === artifact.docId;
-				const isCopied = copiedPath === artifact.path;
-				const IconComponent = isCopied ? Check : FileText;
-				const tooltipPath = artifact.absolutePath ?? artifact.path;
+				const isCopied = copiedArtifactId === artifact.docId;
+				const IconComponent = isCopied
+					? Check
+					: isUrlArtifact(artifact)
+						? ExternalLink
+						: FileText;
+				const artifactTarget = getArtifactTarget(artifact);
+				const copyLabel = isUrlArtifact(artifact) ? "Copy URL" : "Copy path";
 
 				return (
 					<li key={artifact.docId} className="max-w-full shrink-0">
@@ -131,11 +161,11 @@ export function RunArtifactsPanel({
 						>
 							<button
 								type="button"
-								title={tooltipPath}
-								aria-label={`Copy path for ${fileName}`}
+								title={artifactTarget}
+								aria-label={`${copyLabel} for ${artifactName}`}
 								onClick={(e) => {
 									e.stopPropagation();
-									handleCopyPath(artifact);
+									handleCopyArtifact(artifact);
 								}}
 								className="shrink-0 transition-colors duration-150 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
 							>
@@ -144,11 +174,11 @@ export function RunArtifactsPanel({
 							<button
 								type="button"
 								aria-current={isSelected ? "page" : undefined}
-								title={tooltipPath}
+								title={artifactTarget}
 								onClick={() => onArtifactSelect?.(artifact)}
 								className="min-w-0 truncate transition-colors duration-150 hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
 							>
-								{fileName}
+								{artifactName}
 							</button>
 						</span>
 					</li>

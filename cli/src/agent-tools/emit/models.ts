@@ -6,7 +6,9 @@
 
 export type {
 	AnnotationUpdatedPayload,
+	ArtifactLocationKind,
 	ArtifactRegisteredPayload,
+	ArtifactRegisteredType,
 	ArtifactType,
 	BtwUpdatePayload,
 	EventPayload,

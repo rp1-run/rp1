@@ -176,6 +176,7 @@ Findings:
 - ✅ Low: 5
 
 Report: .rp1/work/pr-reviews/pr-123.md
+Reviewed PR: https://github.com/owner/repo/pull/123
 ```
 
 ## Output
@@ -189,6 +190,17 @@ Report: .rp1/work/pr-reviews/pr-123.md
 - Findings by severity
 - Cross-file issues
 - Recommendations
+
+When the reviewed PR URL is known, the report also includes an `External Links`
+section with one `Reviewed PR` row. That row records the URL, the `reviewed_pr`
+relationship, and the source context used to resolve the PR. The same reviewed
+PR link is registered as a run artifact so Arcade can open or copy it alongside
+the markdown report.
+
+The first PR review iteration includes only the reviewed PR URL in the
+`External Links` section. Posted GitHub review URLs, code-line links, evidence
+links, and related links remain in their normal report context and are not
+promoted to External Links entries.
 
 ---
 

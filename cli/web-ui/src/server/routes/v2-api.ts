@@ -635,6 +635,26 @@ function artifactRecordToArtifact(
 	record: ArtifactRecord,
 	directories: ProjectDirectories,
 ): Artifact {
+	if (record.locationKind === "url") {
+		const url = record.url ?? record.path;
+		return {
+			docId: record.docId,
+			locationKind: "url",
+			path: url,
+			absolutePath: url,
+			type: record.type as ArtifactType,
+			url,
+			label: record.label,
+			relationship: record.relationship,
+			sourceContext: record.sourceContext,
+			sourceArtifactPath: record.sourceArtifactPath,
+			updatedDuringRun: true,
+			isNew: false,
+			step: record.step ?? null,
+			subflow: record.subflow || undefined,
+		};
+	}
+
 	const relativePath = toArtifactDisplayPath(directories, record);
 	return {
 		docId: record.docId,
@@ -646,6 +666,17 @@ function artifactRecordToArtifact(
 		step: record.step ?? null,
 		subflow: record.subflow || undefined,
 	};
+}
+
+function artifactRecordDisplayKey(
+	record: ArtifactRecord,
+	directories: ProjectDirectories,
+): string {
+	if (record.locationKind === "url") {
+		return `url:${record.relationship ?? ""}:${record.url ?? record.path}`;
+	}
+
+	return toArtifactDisplayPath(directories, record);
 }
 
 /**
@@ -758,6 +789,7 @@ async function getSubflowDiagrams(
 	const subflows: Record<string, string> = {};
 
 	for (const artifact of artifacts) {
+		if (artifact.locationKind === "url") continue;
 		if (!artifact.subflow || !artifact.step) continue;
 
 		try {
@@ -1231,7 +1263,7 @@ async function buildDetailedRun(
 	if (artifactRecords.length > 0) {
 		const deduped = new Map<string, ArtifactRecord>();
 		for (const ar of artifactRecords) {
-			deduped.set(toArtifactDisplayPath(directories, ar), ar);
+			deduped.set(artifactRecordDisplayKey(ar, directories), ar);
 		}
 		artifacts = [...deduped.values()].map((ar) =>
 			artifactRecordToArtifact(ar, directories),
@@ -1665,6 +1697,10 @@ export async function handleV2ArtifactContentRequest(
 		);
 
 		if (artifactRecord) {
+			if (artifactRecord.locationKind === "url") {
+				return errorResponse("URL artifacts do not have file content", 400);
+			}
+
 			const resolvedPath = await resolveArtifactPathForRun(
 				db,
 				record,
@@ -1750,13 +1786,18 @@ export async function handleV2ArtifactContentRequest(
 		);
 		const artifactRow = db
 			.prepare(
-				"SELECT doc_id FROM artifacts WHERE run_id = $runId AND path = $path LIMIT 1",
+				"SELECT doc_id, location_kind FROM artifacts WHERE run_id = $runId AND path = $path LIMIT 1",
 			)
 			.get({ $runId: runId, $path: artifactPath }) as {
 			doc_id: string;
+			location_kind: string | null;
 		} | null;
 
 		if (artifactRow) {
+			if (artifactRow.location_kind === "url") {
+				return errorResponse("URL artifacts do not have file content", 400);
+			}
+
 			const resolvedPath = await resolveArtifactPath(db, directories, {
 				docId: artifactRow.doc_id,
 				path: artifactPath,

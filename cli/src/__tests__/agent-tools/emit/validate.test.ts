@@ -108,6 +108,19 @@ describe("emit validation", () => {
 				expectRight(result);
 			});
 
+			test("accepts valid URL artifact_registered payload", () => {
+				const result = validatePayloadShape("artifact_registered", {
+					locationKind: "url",
+					type: "link",
+					url: "https://github.com/example/repo/pull/123",
+					label: "Reviewed PR",
+					relationship: "reviewed_pr",
+					sourceContext: "PR review input resolution",
+					sourceArtifactPath: "pr-reviews/pr-123-review.md",
+				});
+				expectRight(result);
+			});
+
 			test("rejects artifact_registered without path", () => {
 				const error = expectLeft(
 					validatePayloadShape("artifact_registered", {
@@ -171,6 +184,52 @@ describe("emit validation", () => {
 				);
 				expect(error._tag).toBe("UsageError");
 				expect(getErrorMessage(error)).toContain("must be relative");
+			});
+
+			test("rejects link artifacts without URL locationKind", () => {
+				const error = expectLeft(
+					validatePayloadShape("artifact_registered", {
+						type: "link",
+						url: "https://github.com/example/repo/pull/123",
+						label: "Reviewed PR",
+						relationship: "reviewed_pr",
+					}),
+				);
+				expect(error._tag).toBe("UsageError");
+				expect(getErrorMessage(error)).toContain("locationKind");
+			});
+
+			test("rejects URL artifacts with non-http URLs", () => {
+				const error = expectLeft(
+					validatePayloadShape("artifact_registered", {
+						locationKind: "url",
+						type: "link",
+						url: "ftp://github.com/example/repo/pull/123",
+						label: "Reviewed PR",
+						relationship: "reviewed_pr",
+					}),
+				);
+				expect(error._tag).toBe("UsageError");
+				expect(getErrorMessage(error)).toContain("http and https");
+			});
+
+			test("rejects URL artifacts with missing required link fields", () => {
+				for (const field of ["url", "label", "relationship"] as const) {
+					const payload: Record<string, unknown> = {
+						locationKind: "url",
+						type: "link",
+						url: "https://github.com/example/repo/pull/123",
+						label: "Reviewed PR",
+						relationship: "reviewed_pr",
+					};
+					delete payload[field];
+
+					const error = expectLeft(
+						validatePayloadShape("artifact_registered", payload),
+					);
+					expect(error._tag).toBe("UsageError");
+					expect(getErrorMessage(error)).toContain(field);
+				}
 			});
 		});
 

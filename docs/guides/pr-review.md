@@ -230,6 +230,7 @@ Recommended Actions:
 3. Consider adding rate limiting to login route
 
 Report: .rp1/work/pr-reviews/feature-user-auth/review.md
+Reviewed PR: https://github.com/owner/repo/pull/42
 ```
 
 **Verdict types:**
@@ -242,6 +243,20 @@ Report: .rp1/work/pr-reviews/feature-user-auth/review.md
 
 !!! tip "Checkpoint"
     The review report is saved to `.rp1/work/pr-reviews/`. Review it before taking action.
+
+When the reviewed PR URL is known, the saved report includes an `External Links`
+section with a single `Reviewed PR` row. The final output, markdown report, and
+Arcade run artifacts point to the same PR URL:
+
+| Surface | Where the reviewed PR link appears |
+|---------|------------------------------------|
+| Final output | `Reviewed PR: https://github.com/owner/repo/pull/42` |
+| Markdown report | `External Links` table with `Reviewed PR` and `reviewed_pr` |
+| Arcade | Run artifact entry that opens or copies the PR URL |
+
+For the first PR review iteration, `External Links` includes only the reviewed
+PR URL. Posted review URLs, evidence links, code-line links, and related links
+stay in their normal report context.
 
 ---
 

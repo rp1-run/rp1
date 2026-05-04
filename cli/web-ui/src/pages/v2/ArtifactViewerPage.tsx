@@ -50,6 +50,7 @@ import { resolveRunDisplayName } from "@/lib/run-display";
 
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
+import type { Artifact } from "@/types/runs";
 
 const STORAGE_KEY_TOC_COLLAPSED = "rp1-toc-collapsed";
 const STORAGE_KEY_ANNOTATIONS_COLLAPSED = "rp1-annotations-collapsed";
@@ -59,6 +60,19 @@ interface ArtifactContent {
 	path: string;
 	content: string;
 	docId?: string;
+}
+
+function isUrlArtifact(artifact: Artifact | null): boolean {
+	return artifact?.locationKind === "url";
+}
+
+function getUrlArtifactTarget(artifact: Artifact): string {
+	return artifact.url || artifact.path;
+}
+
+function openUrlArtifact(artifact: Artifact): void {
+	if (typeof window === "undefined") return;
+	window.open(getUrlArtifactTarget(artifact), "_blank", "noopener,noreferrer");
 }
 
 function isSameArtifactContent(
@@ -224,7 +238,13 @@ export function ArtifactViewerPage() {
 	}, [run, selectedArtifactPath]);
 	const workspaceSubtitle = useMemo(() => {
 		if (!run) return null;
-		const artifactName = selectedArtifact?.path.split("/").at(-1) ?? null;
+		const artifactName = selectedArtifact
+			? isUrlArtifact(selectedArtifact)
+				? (selectedArtifact.label ??
+					selectedArtifact.url ??
+					selectedArtifact.path)
+				: (selectedArtifact.path.split("/").at(-1) ?? null)
+			: null;
 		return artifactName ?? run.projectName;
 	}, [run, selectedArtifact]);
 
@@ -258,7 +278,7 @@ export function ArtifactViewerPage() {
 	}, [run, setRunInfo]);
 
 	useEffect(() => {
-		if (selectedArtifact && runId) {
+		if (selectedArtifact && !isUrlArtifact(selectedArtifact) && runId) {
 			setActiveArtifact(runId, selectedArtifact.path);
 		} else {
 			setActiveArtifact(runId ?? "", null);
@@ -311,8 +331,16 @@ export function ArtifactViewerPage() {
 	}, []);
 
 	const handleArtifactSelect = useCallback(
-		(path: string) => {
-			navigate(`/runs/${runId}/artifacts/${path}`);
+		(artifact: Artifact) => {
+			if (isUrlArtifact(artifact)) {
+				openUrlArtifact(artifact);
+				if (isMobile) {
+					setSidebarDrawerOpen(false);
+				}
+				return;
+			}
+
+			navigate(`/runs/${runId}/artifacts/${artifact.path}`);
 			if (isMobile) {
 				setSidebarDrawerOpen(false);
 			}
@@ -370,6 +398,12 @@ export function ArtifactViewerPage() {
 				savedScrollState.current = null;
 				setContentError("Artifact not found");
 				setArtifactContent(null);
+				return;
+			}
+			if (isUrlArtifact(selectedArtifact)) {
+				savedScrollState.current = null;
+				setContentLoading(false);
+				setContentError(null);
 				return;
 			}
 
@@ -461,7 +495,7 @@ export function ArtifactViewerPage() {
 	}, [artifactContent]);
 
 	useEffect(() => {
-		if (!selectedArtifact) return;
+		if (!selectedArtifact || isUrlArtifact(selectedArtifact)) return;
 
 		const normalizedPath = selectedArtifact.path.replace(/^\.rp1\//, "");
 
@@ -590,8 +624,9 @@ export function ArtifactViewerPage() {
 					const currentIndex = run.artifacts.findIndex(
 						(a) => a.path === selectedArtifactPath,
 					);
-					if (currentIndex > 0) {
-						handleArtifactSelect(run.artifacts[currentIndex - 1].path);
+					const previousArtifact = run.artifacts[currentIndex - 1];
+					if (currentIndex > 0 && previousArtifact) {
+						handleArtifactSelect(previousArtifact);
 					}
 				},
 			},
@@ -604,8 +639,13 @@ export function ArtifactViewerPage() {
 					const currentIndex = run.artifacts.findIndex(
 						(a) => a.path === selectedArtifactPath,
 					);
-					if (currentIndex >= 0 && currentIndex < run.artifacts.length - 1) {
-						handleArtifactSelect(run.artifacts[currentIndex + 1].path);
+					const nextArtifact = run.artifacts[currentIndex + 1];
+					if (
+						currentIndex >= 0 &&
+						currentIndex < run.artifacts.length - 1 &&
+						nextArtifact
+					) {
+						handleArtifactSelect(nextArtifact);
 					}
 				},
 			},

@@ -7,11 +7,13 @@
  */
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
 	closeDatabase,
+	getActiveRunsSnapshot,
 	getArtifactByDocId,
 	getEmitDatabase,
 	getRunById,
@@ -407,6 +409,140 @@ describe("emit end-to-end", () => {
 			expect(getErrorMessage(error)).toContain(
 				"escapes the canonical work_dir root",
 			);
+		});
+
+		test("registers URL artifacts with deterministic link doc IDs", async () => {
+			const notifyEventMock = mock(async () => true);
+			setEmitDaemonModuleLoaderForTesting(async () => ({
+				connectToDaemon: async () => ({
+					port: 6710,
+					baseUrl: "http://127.0.0.1:6710",
+				}),
+				notifyEvent: notifyEventMock,
+				notifyNotification: mock(async () => true),
+			}));
+			const runId = "run-url-artifact";
+			const canonicalUrl = "https://github.com/example/repo/pull/123";
+			const expectedDocId = `link:${createHash("sha256")
+				.update(`${runId}reviewed_pr${canonicalUrl}`)
+				.digest("hex")}`;
+
+			const result = await expectTaskRight(
+				executeEmit(
+					makeInput({
+						runId,
+						type: "artifact_registered",
+						step: "posting",
+						data: {
+							locationKind: "url",
+							type: "link",
+							url: `${canonicalUrl}/`,
+							label: "Reviewed PR",
+							relationship: "reviewed_pr",
+							sourceContext: "PR review input resolution",
+							sourceArtifactPath: "pr-reviews/pr-123-review.md",
+							feature: "pr-123",
+							workflow: "pr-review",
+						},
+					}),
+				),
+			);
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const artifact = getArtifactByDocId(db, expectedDocId);
+			const snapshotArtifact = getActiveRunsSnapshot(db)
+				.find((run) => run.id === runId)
+				?.artifacts.find((record) => record.docId === expectedDocId);
+			const eventRow = db
+				.prepare("SELECT data FROM events WHERE id = $eventId")
+				.get({ $eventId: result.data.eventId }) as { data: string } | null;
+			const eventData = JSON.parse(eventRow?.data ?? "{}") as Record<
+				string,
+				unknown
+			>;
+
+			expect(result.data.docId).toBe(expectedDocId);
+			expect(artifact?.locationKind).toBe("url");
+			expect(artifact?.type).toBe("link");
+			expect(artifact?.path).toBe(canonicalUrl);
+			expect(artifact?.storageRoot).toBe("work_dir");
+			expect(artifact?.url).toBe(canonicalUrl);
+			expect(artifact?.label).toBe("Reviewed PR");
+			expect(artifact?.relationship).toBe("reviewed_pr");
+			expect(artifact?.sourceContext).toBe("PR review input resolution");
+			expect(artifact?.sourceArtifactPath).toBe("pr-reviews/pr-123-review.md");
+			expect(snapshotArtifact?.locationKind).toBe("url");
+			expect(snapshotArtifact?.url).toBe(canonicalUrl);
+			expect(snapshotArtifact?.label).toBe("Reviewed PR");
+			expect(snapshotArtifact?.relationship).toBe("reviewed_pr");
+			expect(eventData.path).toBe(canonicalUrl);
+			expect(eventData.url).toBe(canonicalUrl);
+			expect(eventData.docId).toBe(expectedDocId);
+			expect(notifyEventMock).toHaveBeenCalledWith(
+				expect.anything(),
+				expect.objectContaining({
+					eventType: "artifact_registered",
+					data: expect.objectContaining({
+						docId: expectedDocId,
+						locationKind: "url",
+						path: canonicalUrl,
+						url: canonicalUrl,
+						label: "Reviewed PR",
+						relationship: "reviewed_pr",
+					}),
+				}),
+			);
+		});
+
+		test("re-registering the same URL artifact updates one artifact row", async () => {
+			const runId = "run-url-artifact-idempotent";
+			const data = {
+				locationKind: "url",
+				type: "link",
+				url: "https://github.com/example/repo/pull/456",
+				label: "Reviewed PR",
+				relationship: "reviewed_pr",
+				sourceContext: "PR review input resolution",
+				sourceArtifactPath: "pr-reviews/pr-456-review.md",
+				feature: "pr-456",
+				workflow: "pr-review",
+			};
+
+			const first = await expectTaskRight(
+				executeEmit(
+					makeInput({
+						runId,
+						type: "artifact_registered",
+						step: "posting",
+						data,
+					}),
+				),
+			);
+			const second = await expectTaskRight(
+				executeEmit(
+					makeInput({
+						runId,
+						type: "artifact_registered",
+						step: "posting",
+						data: {
+							...data,
+							label: "Reviewed Pull Request",
+						},
+					}),
+				),
+			);
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const row = db
+				.prepare(
+					"SELECT COUNT(*) AS count FROM artifacts WHERE run_id = $runId AND location_kind = 'url' AND relationship = 'reviewed_pr'",
+				)
+				.get({ $runId: runId }) as { count: number };
+			const artifact = getArtifactByDocId(db, first.data.docId ?? "");
+
+			expect(first.data.docId).toBe(second.data.docId);
+			expect(row.count).toBe(1);
+			expect(artifact?.label).toBe("Reviewed Pull Request");
 		});
 	});
 
