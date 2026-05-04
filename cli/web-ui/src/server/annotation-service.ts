@@ -502,6 +502,10 @@ export async function loadContentForDocId(
 		return null;
 	}
 
+	if (artifact.locationKind === "url") {
+		return null;
+	}
+
 	try {
 		// 1. Run-aware resolution: if the artifact belongs to a run, use
 		//    resolveArtifactPathForRun which honours the run's rp1ProjectRoot
@@ -509,11 +513,11 @@ export async function loadContentForDocId(
 		if (artifact.runId) {
 			const run = getRunById(db, artifact.runId);
 			if (run) {
-				const runResolvedPath = await resolveArtifactPathForRun(db, run, {
-					docId: artifact.docId,
-					path: artifact.path,
-					storageRoot: artifact.storageRoot,
-				});
+				const runResolvedPath = await resolveArtifactPathForRun(
+					db,
+					run,
+					artifact,
+				);
 				if (runResolvedPath) {
 					const runFile = Bun.file(runResolvedPath);
 					if (await runFile.exists()) {
@@ -534,11 +538,7 @@ export async function loadContentForDocId(
 		// 3. Fallback: dynamic-import resolveArtifactPath for moved/archived artifacts
 		if (artifact.path && artifact.storageRoot) {
 			const { resolveArtifactPath } = await import("./routes/artifacts-api");
-			const resolvedPath = await resolveArtifactPath(db, directories, {
-				docId: artifact.docId,
-				path: artifact.path,
-				storageRoot: artifact.storageRoot,
-			});
+			const resolvedPath = await resolveArtifactPath(db, directories, artifact);
 			if (resolvedPath) {
 				return await Bun.file(resolvedPath).text();
 			}

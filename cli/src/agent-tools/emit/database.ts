@@ -3258,7 +3258,16 @@ export const resolveArtifactPathForRun = async (
 		readonly locationKind?: ArtifactLocationKind;
 	},
 ): Promise<string | null> => {
-	if (artifact.locationKind === "url") {
+	const persistedArtifact =
+		artifact.locationKind === undefined
+			? getArtifactByDocId(db, artifact.docId)
+			: null;
+
+	if (
+		artifact.locationKind === "url" ||
+		persistedArtifact?.locationKind === "url" ||
+		persistedArtifact?.type === "link"
+	) {
 		return null;
 	}
 

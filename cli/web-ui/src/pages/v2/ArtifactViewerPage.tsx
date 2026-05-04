@@ -2,6 +2,7 @@ import {
 	AlertCircle,
 	ArrowLeft,
 	ChevronRight,
+	ExternalLink,
 	List,
 	Loader2,
 	MessageSquare,
@@ -236,6 +237,12 @@ export function ArtifactViewerPage() {
 			null
 		);
 	}, [run, selectedArtifactPath]);
+	const selectedUrlArtifact =
+		selectedArtifact && isUrlArtifact(selectedArtifact)
+			? selectedArtifact
+			: null;
+	const selectedFileArtifact = selectedUrlArtifact ? null : selectedArtifact;
+	const selectedFileArtifactPath = selectedFileArtifact?.path ?? "";
 	const workspaceSubtitle = useMemo(() => {
 		if (!run) return null;
 		const artifactName = selectedArtifact
@@ -284,6 +291,15 @@ export function ArtifactViewerPage() {
 			setActiveArtifact(runId ?? "", null);
 		}
 	}, [selectedArtifact, runId, setActiveArtifact]);
+
+	useEffect(() => {
+		if (!selectedUrlArtifact) return;
+		setAnnotationSidebarOpen(false);
+		setAnnotationDrawerOpen(false);
+		setTocDrawerOpen(false);
+		setHeadings([]);
+		setActiveHeadingId(null);
+	}, [selectedUrlArtifact]);
 
 	useEffect(() => {
 		return () => {
@@ -404,6 +420,9 @@ export function ArtifactViewerPage() {
 				savedScrollState.current = null;
 				setContentLoading(false);
 				setContentError(null);
+				setArtifactContent(null);
+				setHeadings([]);
+				setActiveHeadingId(null);
 				return;
 			}
 
@@ -652,7 +671,7 @@ export function ArtifactViewerPage() {
 		],
 		commands: [
 			...workspaceCommands,
-			...(selectedArtifactPath
+			...(selectedFileArtifact
 				? [
 						{
 							id: "toggle-artifact-frontmatter",
@@ -726,6 +745,30 @@ export function ArtifactViewerPage() {
 				<div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
 					<Loader2 className="h-8 w-8 mb-4 animate-spin" />
 					<p className="text-sm">Loading artifact...</p>
+				</div>
+			) : selectedUrlArtifact ? (
+				<div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+					<h2 className="text-base font-medium text-foreground">
+						{selectedUrlArtifact.label ??
+							selectedUrlArtifact.url ??
+							selectedUrlArtifact.path}
+					</h2>
+					<a
+						href={getUrlArtifactTarget(selectedUrlArtifact)}
+						target="_blank"
+						rel="noreferrer"
+						className="max-w-full truncate text-sm text-primary underline-offset-4 hover:underline"
+					>
+						{getUrlArtifactTarget(selectedUrlArtifact)}
+					</a>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => openUrlArtifact(selectedUrlArtifact)}
+					>
+						<ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
+						Open link
+					</Button>
 				</div>
 			) : contentError ? (
 				<div className="flex flex-col items-center justify-center h-64">
@@ -833,10 +876,12 @@ export function ArtifactViewerPage() {
 								enabled={followMode}
 								onToggle={() => setFollowMode(!followMode)}
 							/>
-							<MobileAnnotationButton
-								selectedArtifactPath={selectedArtifactPath}
-								onClick={() => setAnnotationDrawerOpen(true)}
-							/>
+							{selectedFileArtifact && (
+								<MobileAnnotationButton
+									selectedArtifactPath={selectedFileArtifactPath}
+									onClick={() => setAnnotationDrawerOpen(true)}
+								/>
+							)}
 							<TooltipProvider>
 								<Tooltip>
 									<TooltipTrigger asChild>
@@ -903,18 +948,20 @@ export function ArtifactViewerPage() {
 					/>
 				</Drawer>
 
-				<Drawer
-					open={annotationDrawerOpen}
-					onClose={() => setAnnotationDrawerOpen(false)}
-					side="right"
-					title="Annotations"
-				>
-					<AnnotationSidebar
-						artifactPath={selectedArtifactPath}
+				{selectedFileArtifact && (
+					<Drawer
+						open={annotationDrawerOpen}
 						onClose={() => setAnnotationDrawerOpen(false)}
-						className="border-l-0 w-full"
-					/>
-				</Drawer>
+						side="right"
+						title="Annotations"
+					>
+						<AnnotationSidebar
+							artifactPath={selectedFileArtifactPath}
+							onClose={() => setAnnotationDrawerOpen(false)}
+							className="border-l-0 w-full"
+						/>
+					</Drawer>
+				)}
 
 				<footer className="border-t px-4 py-2">
 					<KeyHints hints={VIEWER_HINTS} />
@@ -924,8 +971,8 @@ export function ArtifactViewerPage() {
 
 		return (
 			<AnnotationProvider
-				artifactPath={selectedArtifactPath}
-				docId={selectedArtifact?.docId}
+				artifactPath={selectedFileArtifactPath}
+				docId={selectedFileArtifact?.docId}
 				runId={runId}
 			>
 				{mobileContent}
@@ -1041,9 +1088,9 @@ export function ArtifactViewerPage() {
 									</Tooltip>
 								</TooltipProvider>
 							)}
-							{!annotationSidebarOpen && (
+							{selectedFileArtifact && !annotationSidebarOpen && (
 								<AnnotationToggleButton
-									selectedArtifactPath={selectedArtifactPath}
+									selectedArtifactPath={selectedFileArtifactPath}
 									onOpen={() => handleToggleAnnotationSidebar(true)}
 								/>
 							)}
@@ -1092,7 +1139,7 @@ export function ArtifactViewerPage() {
 					</>
 				)}
 
-				{annotationSidebarOpen && (
+				{selectedFileArtifact && annotationSidebarOpen && (
 					<>
 						<ResizableHandle withHandle aria-label="Resize annotations panel" />
 						<ResizablePanel
@@ -1103,7 +1150,7 @@ export function ArtifactViewerPage() {
 							className="bg-card"
 						>
 							<AnnotationSidebar
-								artifactPath={selectedArtifactPath}
+								artifactPath={selectedFileArtifactPath}
 								onClose={() => handleToggleAnnotationSidebar(false)}
 								className="h-full"
 							/>
@@ -1120,8 +1167,8 @@ export function ArtifactViewerPage() {
 
 	return (
 		<AnnotationProvider
-			artifactPath={selectedArtifactPath}
-			docId={selectedArtifact?.docId}
+			artifactPath={selectedFileArtifactPath}
+			docId={selectedFileArtifact?.docId}
 			runId={runId}
 		>
 			{desktopContent}

@@ -4945,6 +4945,55 @@ describe("emit database", () => {
 			expect(resolvedPath).toBe(join(projectRoot, "legacy.md"));
 		});
 
+		test("does not resolve persisted URL artifacts when caller omits location kind", async () => {
+			const dbPath = join(tempDir, "artifact-resolve-url-partial.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const projectRoot = join(tempDir, "project-url-partial");
+			const workDir = join(tempDir, "external-url-work");
+			const filePath = join(workDir, "features", "feat", "reviewed-pr.md");
+			await mkdir(dirname(filePath), { recursive: true });
+			writeFileSync(
+				filePath,
+				"---\nrp1_doc_id: link-reviewed-pr\n---\n# Not a link artifact\n",
+			);
+
+			insertRun(db, {
+				id: "run-url-partial",
+				flow: "pr-review",
+				featureId: "feat",
+				projectPath: projectRoot,
+				rp1ProjectRoot: projectRoot,
+				rp1KbRoot: join(projectRoot, ".rp1", "context"),
+				rp1WorkRoot: workDir,
+			});
+			upsertArtifact(db, {
+				docId: "link-reviewed-pr",
+				runId: "run-url-partial",
+				locationKind: "url",
+				path: "features/feat/reviewed-pr.md",
+				type: "link",
+				storageRoot: "work_dir",
+				url: "https://github.com/example/repo/pull/123",
+				projectPath: projectRoot,
+				feature: "feat",
+			});
+
+			const resolvedPath = await resolveArtifactPathForRun(
+				db,
+				{
+					rp1ProjectRoot: projectRoot,
+					rp1WorkRoot: workDir,
+				},
+				{
+					docId: "link-reviewed-pr",
+					path: "features/feat/reviewed-pr.md",
+					storageRoot: "work_dir",
+				},
+			);
+
+			expect(resolvedPath).toBeNull();
+		});
+
 		test("reconciles missing work-dir artifacts by scanning rp1_work_root", async () => {
 			const dbPath = join(tempDir, "artifact-resolve-reconcile.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));

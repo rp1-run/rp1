@@ -21,6 +21,11 @@ import type { Artifact, Run } from "@/types/runs";
 
 let importVersion = 0;
 let latestRegistry: ShortcutRegistryData | null = null;
+let latestAnnotationProvider: {
+	artifactPath: string;
+	docId?: string;
+	runId?: string;
+} | null = null;
 
 const breadcrumbApi = {
 	setActiveArtifact: mock(() => {}),
@@ -117,9 +122,20 @@ mock.module("@/hooks/useFollowMode", () => ({
 }));
 
 mock.module("@/providers/AnnotationProvider", () => ({
-	AnnotationProvider: ({ children }: { children?: ReactNode }) => (
-		<>{children}</>
-	),
+	AnnotationProvider: ({
+		children,
+		artifactPath,
+		docId,
+		runId,
+	}: {
+		children?: ReactNode;
+		artifactPath: string;
+		docId?: string;
+		runId?: string;
+	}) => {
+		latestAnnotationProvider = { artifactPath, docId, runId };
+		return <>{children}</>;
+	},
 }));
 
 mock.module("@/components/ui/button", () => ({
@@ -249,13 +265,15 @@ function readStoredTabs() {
 		: null;
 }
 
-async function renderArtifactViewerPage() {
+async function renderArtifactViewerPage(
+	initialEntry = "/runs/run-1/artifacts/docs/tasks.md",
+) {
 	const { ArtifactViewerPage } = await import(
 		`../../../pages/v2/ArtifactViewerPage.tsx?artifact-viewer-page-test=${++importVersion}`
 	);
 
 	return render(
-		<MemoryRouter initialEntries={["/runs/run-1/artifacts/docs/tasks.md"]}>
+		<MemoryRouter initialEntries={[initialEntry]}>
 			<WorkspaceTabsProvider>
 				<ShortcutRegistryProvider>
 					<Routes>
@@ -282,6 +300,7 @@ describe("ArtifactViewerPage", () => {
 		localStorage.clear();
 		sessionStorage.clear();
 		latestRegistry = null;
+		latestAnnotationProvider = null;
 		run = {
 			...baseRun,
 			steps: [...baseRun.steps],
@@ -378,5 +397,44 @@ describe("ArtifactViewerPage", () => {
 		expect(screen.getByTestId("artifact-renderer").textContent).toBe(
 			"docs/tasks.md:# Tasks",
 		);
+	});
+
+	test("keeps direct URL artifact routes out of annotation surfaces", async () => {
+		run = {
+			...baseRun,
+			artifacts: [
+				{
+					docId: "link-reviewed-pr",
+					locationKind: "url",
+					path: "https://github.com/example/repo/pull/123",
+					absolutePath: "https://github.com/example/repo/pull/123",
+					type: "other",
+					url: "https://github.com/example/repo/pull/123",
+					label: "Reviewed PR",
+					relationship: "reviewed_pr",
+					sourceContext: "PR review input resolution",
+					sourceArtifactPath: "pr-reviews/pr-123-review.md",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "build",
+				},
+			],
+		};
+
+		await renderArtifactViewerPage(
+			"/runs/run-1/artifacts/https://github.com/example/repo/pull/123",
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText("Open link")).toBeTruthy();
+		});
+
+		expect(global.fetch).not.toHaveBeenCalled();
+		expect(screen.queryByTestId("annotation-sidebar")).toBeNull();
+		expect(latestAnnotationProvider).toMatchObject({
+			artifactPath: "",
+			docId: undefined,
+			runId: "run-1",
+		});
 	});
 });
