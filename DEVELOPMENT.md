@@ -46,6 +46,7 @@ All development commands use [Just](https://github.com/casey/just). Run `just` t
 | `test-unit` | Run unit tests only (~60 files, fast) |
 | `test-integration` | Run integration tests |
 | `test-all` | Run all CLI tests |
+| `test-web-ui-smoke` | Run Chromium smoke coverage for Arcade runtime loading and reconnect reliability |
 
 ### Code Quality
 
@@ -160,6 +161,19 @@ Manual verification on macOS:
 | Optional direct project launch | Run `just native-app-dev PROJECT=/path/to/rp1-project` | The project registers through Arcade if needed and the returned project URL loads |
 | Failure state | Use an invalid `PROJECT` path or non-executable `RP1_EXECUTABLE` | The launch view shows a clear failure instead of stale project content |
 | Browser fallback | From the same project directory, run `./bin/rp1 arcade` after native launch | Browser Arcade still opens the same project experience |
+
+Runtime reliability validation:
+
+| Check | Command or setup | Expected result |
+|-------|------------------|-----------------|
+| Chromium runtime smoke | `just test-web-ui-smoke` | The real Bun Arcade server loads the runtime contract in Chromium, returns structured missing-asset failures, replays a missed global Activity event, and keeps live event delivery working after reconnect |
+| Native/WebKit release validation | Run `just build-local-dev`, then `just native-app-dev PROJECT=/path/to/rp1-project`; repeat the cold launch, warm launch, failure state, and browser fallback checks above | Native Arcade loads the shared loopback web app with native runtime metadata and cache-bust query values, Activity recovers after reconnect or host pause, and browser Arcade remains equivalent |
+
+WebKit/native-like automation is intentionally manual for now. The current
+repository has stable Chromium automation through the CLI Puppeteer dependency,
+but no approved WebKit browser dependency, browser cache setup, or CI wiring.
+Do not claim WebKit/native-like automated coverage until those pieces are added
+as an explicit dependency and CI change.
 
 This phase proves a macOS shell bootstrap only. It does not include signing,
 notarization, auto-update, production packaging, tray or menu controls, native

@@ -364,6 +364,10 @@ test-cli:
 test-native-app:
     cd native-app && bun run test
 
+# Run Chromium smoke coverage for Arcade runtime reliability
+test-web-ui-smoke:
+    cd cli && bun run test:smoke:web-ui
+
 # Run evals unit tests
 test-evals:
     cd evals && bun run test
