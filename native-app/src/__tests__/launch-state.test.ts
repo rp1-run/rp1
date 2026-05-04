@@ -228,7 +228,7 @@ describe("native launch state", () => {
 		]);
 	});
 
-	test("configures checked-in platform app icons", () => {
+	test("configures checked-in brand platform app icons", () => {
 		const iconPaths = {
 			mac: electrobunConfig.build?.mac?.icons,
 			win: electrobunConfig.build?.win?.icon,
@@ -236,9 +236,9 @@ describe("native launch state", () => {
 		};
 
 		expect(iconPaths).toEqual({
-			mac: "assets/icon.iconset",
-			win: "assets/icon.ico",
-			linux: "assets/icon.png",
+			mac: "../assets/brand/native/icon.iconset",
+			win: "../assets/brand/native/icon.ico",
+			linux: "../assets/brand/native/icon.png",
 		});
 
 		const appRoot = join(import.meta.dir, "../..");
