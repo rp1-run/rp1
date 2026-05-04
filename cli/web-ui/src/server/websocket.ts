@@ -1,6 +1,11 @@
+import { randomUUID } from "node:crypto";
 import type { ServerWebSocket } from "bun";
 import type { ArtifactLocationKind, Status } from "../../../shared/events.js";
 import type { Annotation, AnnotationReply } from "../types/annotations";
+import {
+	type ArcadeReconnectPolicy,
+	DEFAULT_ARCADE_RECONNECT_POLICY,
+} from "../types/runtime";
 
 export type WebSocketActivityScope = "global" | "project";
 
@@ -20,6 +25,7 @@ export interface TreeChangedMessage {
 
 export interface HeartbeatMessage {
 	type: "heartbeat";
+	heartbeatId: string;
 	timestamp: string;
 }
 
@@ -106,6 +112,12 @@ export interface SwitchProjectMessage {
 	projectId: string;
 }
 
+export interface HeartbeatAckMessage {
+	type: "heartbeat:ack";
+	heartbeatId: string;
+	receivedAt: string;
+}
+
 export interface EventReplayMessage {
 	type: "event:replay";
 	scope: WebSocketActivityScope;
@@ -168,7 +180,8 @@ export type ServerMessage =
 export type ClientMessage =
 	| SubscribeMessage
 	| UnsubscribeMessage
-	| SwitchProjectMessage;
+	| SwitchProjectMessage
+	| HeartbeatAckMessage;
 
 interface ClientData {
 	projectPath: string;
@@ -182,7 +195,9 @@ interface ClientState {
 	scope: WebSocketActivityScope;
 	projectId: string | null;
 	subscriptions: Set<string>;
-	lastPing: number;
+	lastHeartbeatAckAt: number;
+	pendingHeartbeatId: string | null;
+	missedHeartbeatCount: number;
 	lastEventId: number | null;
 }
 
@@ -238,10 +253,14 @@ export class WebSocketHub {
 	private clients: Map<ServerWebSocket<ClientData>, ClientState> = new Map();
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 	private replayProvider: ReplayProvider | null = null;
+	private readonly reconnectPolicy: ArcadeReconnectPolicy;
 
 	private static readonly REPLAY_EVENT_CAP = 100;
 
-	constructor() {
+	constructor(
+		reconnectPolicy: ArcadeReconnectPolicy = DEFAULT_ARCADE_RECONNECT_POLICY,
+	) {
+		this.reconnectPolicy = reconnectPolicy;
 		this.startHeartbeat();
 	}
 
@@ -265,7 +284,9 @@ export class WebSocketHub {
 			scope,
 			projectId,
 			subscriptions: new Set(),
-			lastPing: Date.now(),
+			lastHeartbeatAckAt: Date.now(),
+			pendingHeartbeatId: null,
+			missedHeartbeatCount: 0,
 			lastEventId: lastEventId ?? null,
 		});
 		const scopeLabel =
@@ -450,8 +471,6 @@ export class WebSocketHub {
 		const state = this.clients.get(ws);
 		if (!state) return;
 
-		state.lastPing = Date.now();
-
 		try {
 			const msgStr =
 				typeof message === "string"
@@ -472,6 +491,13 @@ export class WebSocketHub {
 					state.scope = "project";
 					state.projectId = parsed.projectId;
 					console.log(`Client switched to project: ${parsed.projectId}`);
+					break;
+				case "heartbeat:ack":
+					if (parsed.heartbeatId === state.pendingHeartbeatId) {
+						state.pendingHeartbeatId = null;
+						state.missedHeartbeatCount = 0;
+						state.lastHeartbeatAckAt = Date.now();
+					}
 					break;
 			}
 		} catch {
@@ -590,20 +616,19 @@ export class WebSocketHub {
 	}
 
 	private startHeartbeat(): void {
-		const HEARTBEAT_INTERVAL = 30_000;
-		const STALE_THRESHOLD = 90_000;
+		const { heartbeatIntervalMs, heartbeatMissThreshold } =
+			this.reconnectPolicy;
 
 		this.heartbeatInterval = setInterval(() => {
-			const now = Date.now();
-			const heartbeat: HeartbeatMessage = {
-				type: "heartbeat",
-				timestamp: new Date().toISOString(),
-			};
-			const data = JSON.stringify(heartbeat);
-
 			for (const [ws, state] of this.clients.entries()) {
-				if (now - state.lastPing > STALE_THRESHOLD) {
-					console.log("Closing stale WebSocket connection");
+				if (state.pendingHeartbeatId !== null) {
+					state.missedHeartbeatCount += 1;
+				}
+
+				if (state.missedHeartbeatCount >= heartbeatMissThreshold) {
+					console.log(
+						"Closing WebSocket connection after missed heartbeat acknowledgements",
+					);
 					try {
 						ws.close();
 					} catch {
@@ -613,13 +638,20 @@ export class WebSocketHub {
 					continue;
 				}
 
+				const heartbeat: HeartbeatMessage = {
+					type: "heartbeat",
+					heartbeatId: randomUUID(),
+					timestamp: new Date().toISOString(),
+				};
+				state.pendingHeartbeatId = heartbeat.heartbeatId;
+
 				try {
-					ws.send(data);
+					ws.send(JSON.stringify(heartbeat));
 				} catch {
 					this.removeClient(ws);
 				}
 			}
-		}, HEARTBEAT_INTERVAL);
+		}, heartbeatIntervalMs);
 	}
 
 	stop(): void {

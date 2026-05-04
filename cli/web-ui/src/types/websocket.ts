@@ -25,7 +25,15 @@ export interface TreeChangedMessage {
 /** Server heartbeat */
 export interface HeartbeatMessage {
 	type: "heartbeat";
+	heartbeatId: string;
 	timestamp: string;
+}
+
+/** Client heartbeat acknowledgement */
+export interface HeartbeatAckMessage {
+	type: "heartbeat:ack";
+	heartbeatId: string;
+	receivedAt: string;
 }
 
 /** Project registry changed notification */

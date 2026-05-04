@@ -1,13 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import type { ServerWebSocket } from "bun";
 import { type ReplayProvider, WebSocketHub } from "../../server/websocket";
+import { DEFAULT_ARCADE_RECONNECT_POLICY } from "../../types/runtime";
 
 class MockServerWebSocket {
 	readonly sentMessages: string[] = [];
 	closed = false;
+	onSend?: (message: string) => void;
 
 	send(message: string): void {
 		this.sentMessages.push(message);
+		this.onSend?.(message);
 	}
 
 	close(): void {
@@ -17,14 +20,46 @@ class MockServerWebSocket {
 
 function asServerWebSocket(socket: MockServerWebSocket): ServerWebSocket<{
 	projectPath: string;
+	scope?: "global" | "project";
 	projectId?: string;
 	lastEventId?: number;
 }> {
 	return socket as unknown as ServerWebSocket<{
 		projectPath: string;
+		scope?: "global" | "project";
 		projectId?: string;
 		lastEventId?: number;
 	}>;
+}
+
+const FAST_HEARTBEAT_POLICY = {
+	...DEFAULT_ARCADE_RECONNECT_POLICY,
+	heartbeatIntervalMs: 5,
+	heartbeatMissThreshold: 2,
+};
+
+function wait(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitUntil(assertion: () => void): Promise<void> {
+	const deadline = Date.now() + 250;
+	let lastError: unknown;
+
+	while (Date.now() < deadline) {
+		try {
+			assertion();
+			return;
+		} catch (error) {
+			lastError = error;
+			await wait(5);
+		}
+	}
+
+	if (lastError) {
+		throw lastError;
+	}
+	assertion();
 }
 
 function buildReplayProvider(
@@ -169,6 +204,75 @@ describe("WebSocketHub replay", () => {
 					},
 				],
 			});
+		} finally {
+			hub.stop();
+		}
+	});
+});
+
+describe("WebSocketHub heartbeat acknowledgements", () => {
+	test("keeps passive clients connected while heartbeat acknowledgements succeed", async () => {
+		const hub = new WebSocketHub(FAST_HEARTBEAT_POLICY);
+		try {
+			const socket = new MockServerWebSocket();
+			const serverSocket = asServerWebSocket(socket);
+			socket.onSend = (message) => {
+				const parsed = JSON.parse(message) as {
+					type?: string;
+					heartbeatId?: string;
+				};
+				if (parsed.type === "heartbeat" && parsed.heartbeatId) {
+					hub.handleMessage(
+						serverSocket,
+						JSON.stringify({
+							type: "heartbeat:ack",
+							heartbeatId: parsed.heartbeatId,
+							receivedAt: new Date().toISOString(),
+						}),
+					);
+				}
+			};
+
+			hub.addClient(serverSocket, { scope: "global" });
+
+			await waitUntil(() => {
+				expect(socket.sentMessages.length).toBeGreaterThanOrEqual(2);
+			});
+			await wait(FAST_HEARTBEAT_POLICY.heartbeatIntervalMs * 2);
+
+			expect(socket.closed).toBe(false);
+			expect(hub.clientCount).toBe(1);
+			expect(JSON.parse(socket.sentMessages[0])).toMatchObject({
+				type: "heartbeat",
+				heartbeatId: expect.any(String),
+			});
+		} finally {
+			hub.stop();
+		}
+	});
+
+	test("closes clients after missed heartbeat acknowledgements despite unrelated messages", async () => {
+		const hub = new WebSocketHub(FAST_HEARTBEAT_POLICY);
+		try {
+			const socket = new MockServerWebSocket();
+			const serverSocket = asServerWebSocket(socket);
+
+			hub.addClient(serverSocket, { scope: "global" });
+
+			await waitUntil(() => {
+				expect(socket.sentMessages.length).toBeGreaterThanOrEqual(1);
+			});
+
+			hub.handleMessage(
+				serverSocket,
+				JSON.stringify({ type: "subscribe", path: "/tmp/project" }),
+			);
+
+			await waitUntil(() => {
+				expect(socket.closed).toBe(true);
+			});
+
+			expect(hub.clientCount).toBe(0);
 		} finally {
 			hub.stop();
 		}

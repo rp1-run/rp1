@@ -14,6 +14,7 @@ import type {
 	EventNotificationMessage,
 	EventReplayMessage,
 	FileChangedMessage,
+	HeartbeatAckMessage,
 	NotificationMessage,
 	ProjectsChangedMessage,
 	ServerMessage,
@@ -293,7 +294,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 			ws.onmessage = (event) => {
 				try {
 					const message = JSON.parse(event.data) as ServerMessage;
-					routeMessage(message);
+					routeMessage(message, ws);
 				} catch {
 					console.warn("Failed to parse WebSocket message");
 				}
@@ -302,7 +303,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 			wsRef.current = ws;
 		}
 
-		function routeMessage(message: ServerMessage) {
+		function routeMessage(message: ServerMessage, socket: WebSocket) {
 			switch (message.type) {
 				case "file:changed":
 					for (const listener of fileChangeListenersRef.current) {
@@ -372,8 +373,17 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 						listener(message);
 					}
 					break;
-				case "heartbeat":
+				case "heartbeat": {
+					if (socket.readyState === WebSocket.OPEN) {
+						const acknowledgement: HeartbeatAckMessage = {
+							type: "heartbeat:ack",
+							heartbeatId: message.heartbeatId,
+							receivedAt: new Date().toISOString(),
+						};
+						socket.send(JSON.stringify(acknowledgement));
+					}
 					break;
+				}
 			}
 		}
 

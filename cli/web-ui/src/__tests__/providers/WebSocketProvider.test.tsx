@@ -78,6 +78,16 @@ function wrapper({ children }: { children: ReactNode }) {
 	);
 }
 
+function wrapperWithRuntime(runtime: ArcadeRuntimeContract) {
+	return function TestWrapper({ children }: { children: ReactNode }) {
+		return (
+			<RuntimeProvider runtime={runtime}>
+				<WebSocketProvider>{children}</WebSocketProvider>
+			</RuntimeProvider>
+		);
+	};
+}
+
 function getLatestProjectSocket(projectId: string): MockWebSocket | undefined {
 	return [...MockWebSocket.instances]
 		.reverse()
@@ -326,5 +336,61 @@ describe("WebSocketProvider", () => {
 		expect(
 			sessionStorage.getItem(`${LAST_EVENT_ID_STORAGE_PREFIX}proj-2`),
 		).toBe("62");
+	});
+
+	test("acknowledges heartbeat messages immediately", async () => {
+		renderHook(() => useWebSocket(), { wrapper });
+
+		await waitFor(() => {
+			expect(getLatestGlobalSocket()).toBeDefined();
+		});
+
+		const globalSocket = getLatestGlobalSocket();
+		expect(globalSocket).toBeDefined();
+
+		act(() => {
+			globalSocket!.open();
+			globalSocket!.receive({
+				type: "heartbeat",
+				heartbeatId: "heartbeat-1",
+				timestamp: "2026-04-14T00:00:00.000Z",
+			});
+		});
+
+		expect(JSON.parse(globalSocket!.sentMessages[0])).toMatchObject({
+			type: "heartbeat:ack",
+			heartbeatId: "heartbeat-1",
+			receivedAt: expect.any(String),
+		});
+	});
+
+	test("starts reconnect recovery after a server-side heartbeat closure", async () => {
+		const fastReconnectRuntime: ArcadeRuntimeContract = {
+			...TEST_RUNTIME,
+			reconnectPolicy: {
+				...TEST_RUNTIME.reconnectPolicy,
+				initialDelayMs: 5,
+				maxDelayMs: 5,
+			},
+		};
+		const fastWrapper = wrapperWithRuntime(fastReconnectRuntime);
+
+		renderHook(() => useWebSocket(), { wrapper: fastWrapper });
+
+		await waitFor(() => {
+			expect(getLatestGlobalSocket()).toBeDefined();
+		});
+
+		const globalSocket = getLatestGlobalSocket();
+		expect(globalSocket).toBeDefined();
+
+		act(() => {
+			globalSocket!.open();
+			globalSocket!.close();
+		});
+
+		await waitFor(() => {
+			expect(MockWebSocket.instances.length).toBeGreaterThanOrEqual(2);
+		});
 	});
 });
