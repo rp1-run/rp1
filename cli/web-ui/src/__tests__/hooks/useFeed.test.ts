@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { useSyncExternalStore } from "react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { useEffect, useSyncExternalStore } from "react";
 import type { FeedItem } from "@/hooks/useFeed";
 import { liveRunIndex } from "@/lib/live-run-index";
 import type { Run } from "@/types/runs";
 
 let fetchMock: ReturnType<typeof mock>;
 let useFeedImportVersion = 0;
+let reconnectRecoveryCallbacks: Array<() => void | Promise<void>> = [];
+let activityRecoveryLimit = 10;
 
 function buildRun(overrides: Partial<Run> = {}): Run {
 	return {
@@ -67,6 +69,17 @@ function buildFeedItem(run: Run): FeedItem {
 	};
 }
 
+function feedItemIds(items: readonly FeedItem[]): string[] {
+	return items.map((item) => item.id);
+}
+
+function findFeedItem(
+	items: readonly FeedItem[],
+	id: string,
+): FeedItem | undefined {
+	return items.find((item) => item.id === id);
+}
+
 function buildFeedResponse(
 	runs: readonly Run[],
 	total = runs.length,
@@ -90,7 +103,16 @@ function createAbortError(): Error {
 
 async function loadUseFeed() {
 	mock.module("../../hooks/useReconnectRecovery.ts", () => ({
-		useReconnectRecovery: () => {},
+		useReconnectRecovery: (recover: () => void | Promise<void>) => {
+			useEffect(() => {
+				reconnectRecoveryCallbacks.push(recover);
+				return () => {
+					reconnectRecoveryCallbacks = reconnectRecoveryCallbacks.filter(
+						(callback) => callback !== recover,
+					);
+				};
+			}, [recover]);
+		},
 	}));
 	mock.module("../../hooks/useLiveRunIndex.ts", () => ({
 		useLiveRunIndexBridge: () => {},
@@ -101,6 +123,13 @@ async function loadUseFeed() {
 				liveRunIndex.getSnapshot,
 			),
 	}));
+	mock.module("@/providers/RuntimeProvider", () => ({
+		useRuntimeContract: () => ({
+			reconnectPolicy: {
+				activityRecoveryLimit,
+			},
+		}),
+	}));
 
 	return import(
 		`../../hooks/useFeed.ts?use-feed-test=${++useFeedImportVersion}`
@@ -110,6 +139,8 @@ async function loadUseFeed() {
 beforeEach(() => {
 	mock.restore();
 	liveRunIndex.clear();
+	reconnectRecoveryCallbacks = [];
+	activityRecoveryLimit = 10;
 
 	fetchMock = mock(() => Promise.resolve(buildFeedResponse([buildRun()])));
 
@@ -117,6 +148,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	cleanup();
 	liveRunIndex.clear();
 	mock.restore();
 });
@@ -510,5 +542,160 @@ describe("useFeed", () => {
 		expect(result.current.items).toHaveLength(0);
 		expect(result.current.total).toBe(0);
 		expect(result.current.error).toBeNull();
+	});
+
+	test("reconciles after reconnect with a bounded background request and deduplicates replay overlap", async () => {
+		const initialRun = buildRun({
+			id: "run-1",
+			lastEventAt: "2026-04-10T00:05:00.000Z",
+		});
+		const replayRun = buildRun({
+			id: "run-2",
+			name: "Replay Run",
+			lastEventAt: "2026-04-10T00:07:00.000Z",
+		});
+		const recoveredReplayRun = buildRun({
+			id: "run-2",
+			name: "Replay Run",
+			status: "waiting",
+			lastEventAt: "2026-04-10T00:08:00.000Z",
+		});
+		const liveAfterRecoveryRun = buildRun({
+			id: "run-3",
+			name: "Post Recovery Live Run",
+			lastEventAt: "2026-04-10T00:09:00.000Z",
+		});
+		const recoveryResponse = createDeferred<MockFeedResponse>();
+		let requestCount = 0;
+
+		fetchMock = mock(() => {
+			requestCount += 1;
+			if (requestCount === 1) {
+				return Promise.resolve(buildFeedResponse([initialRun], 1));
+			}
+
+			return recoveryResponse.promise;
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { useFeed } = await loadUseFeed();
+		const { result } = renderHook(() => useFeed({ limit: 25, offset: 0 }));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+		expect(reconnectRecoveryCallbacks).toHaveLength(1);
+
+		act(() => {
+			liveRunIndex.upsertRun(replayRun);
+		});
+
+		await waitFor(() => {
+			expect(feedItemIds(result.current.items)).toContain("run-2");
+		});
+
+		let recoveryPromise: void | Promise<void>;
+		act(() => {
+			recoveryPromise = reconnectRecoveryCallbacks[0]?.();
+		});
+
+		expect(result.current.isLoading).toBe(false);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		const recoveryUrl = new URL(
+			fetchMock.mock.calls[1]?.[0] as string,
+			"http://localhost",
+		);
+		expect(recoveryUrl.searchParams.get("limit")).toBe("35");
+
+		await act(async () => {
+			recoveryResponse.resolve(
+				buildFeedResponse([initialRun, recoveredReplayRun], 2),
+			);
+			await recoveryPromise;
+			await recoveryResponse.promise;
+			await Promise.resolve();
+		});
+
+		await waitFor(() => {
+			expect(feedItemIds(result.current.items)).toEqual(
+				expect.arrayContaining(["run-1", "run-2"]),
+			);
+		});
+		expect(new Set(feedItemIds(result.current.items)).size).toBe(
+			result.current.items.length,
+		);
+		expect(findFeedItem(result.current.items, "run-2")?.run.status).toBe(
+			"waiting",
+		);
+
+		act(() => {
+			liveRunIndex.upsertRun(liveAfterRecoveryRun);
+		});
+
+		await waitFor(() => {
+			expect(feedItemIds(result.current.items)).toContain("run-3");
+		});
+	});
+
+	test("preserves feed rows on recoverable reconciliation failure and retries later", async () => {
+		const initialRun = buildRun({
+			id: "run-1",
+			lastEventAt: "2026-04-10T00:05:00.000Z",
+		});
+		const recoveredRun = buildRun({
+			id: "run-2",
+			lastEventAt: "2026-04-10T00:06:00.000Z",
+		});
+		let requestCount = 0;
+
+		fetchMock = mock(() => {
+			requestCount += 1;
+			if (requestCount === 1) {
+				return Promise.resolve(buildFeedResponse([initialRun], 1));
+			}
+			if (requestCount === 2) {
+				return Promise.resolve({
+					ok: false,
+					statusText: "Service Unavailable",
+					json: () => Promise.resolve({ items: [], total: 0 }),
+				});
+			}
+
+			return Promise.resolve(buildFeedResponse([initialRun, recoveredRun], 2));
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { useFeed } = await loadUseFeed();
+		const { result } = renderHook(() => useFeed({ limit: 25, offset: 0 }));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		await act(async () => {
+			await reconnectRecoveryCallbacks[0]?.();
+			await Promise.resolve();
+		});
+
+		await waitFor(() => {
+			expect(result.current.error?.message).toBe(
+				"Failed to fetch feed: Service Unavailable",
+			);
+		});
+		expect(result.current.isLoading).toBe(false);
+		expect(feedItemIds(result.current.items)).toEqual(["run-1"]);
+
+		await act(async () => {
+			await reconnectRecoveryCallbacks[0]?.();
+			await Promise.resolve();
+		});
+
+		await waitFor(() => {
+			expect(result.current.error).toBeNull();
+			expect(feedItemIds(result.current.items)).toEqual(
+				expect.arrayContaining(["run-1", "run-2"]),
+			);
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(3);
 	});
 });

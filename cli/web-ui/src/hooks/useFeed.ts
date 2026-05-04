@@ -4,6 +4,7 @@ import {
 	normalizeActivitySearchTokens,
 } from "@/lib/activity-search-fields";
 import { liveRunIndex } from "@/lib/live-run-index";
+import { useRuntimeContract } from "@/providers/RuntimeProvider";
 import {
 	RELEVANT_HIDDEN_RUN_STATUSES,
 	type Run,
@@ -34,6 +35,7 @@ interface FeedResponse {
 interface FetchFeedOptions {
 	readonly signal?: AbortSignal;
 	readonly showLoading?: boolean;
+	readonly reconcile?: boolean;
 }
 
 export interface UseFeedOptions extends Partial<RunsFilter> {
@@ -53,9 +55,14 @@ export interface UseFeedResult {
 const relevantHiddenRunStatusSet = new Set<Run["status"]>(
 	RELEVANT_HIDDEN_RUN_STATUSES,
 );
+const DEFAULT_FEED_LIMIT = 25;
 
 function activityTimestamp(run: Run): string {
 	return run.lastEventAt ?? run.startedAt;
+}
+
+function compareRunsByActivity(a: Run, b: Run): number {
+	return activityTimestamp(b).localeCompare(activityTimestamp(a));
 }
 
 function compareFeedItems(a: FeedItem, b: FeedItem): number {
@@ -163,6 +170,21 @@ function areFeedItemsEqual(
 	});
 }
 
+function mergeRunsById(runs: readonly Run[]): Run[] {
+	const runsById = new Map<string, Run>();
+	for (const run of runs) {
+		runsById.set(run.id, run);
+	}
+	return [...runsById.values()];
+}
+
+function recoveryFeedLimit(
+	limit: number | undefined,
+	activityRecoveryLimit: number,
+): number {
+	return (limit ?? DEFAULT_FEED_LIMIT) + activityRecoveryLimit;
+}
+
 function buildQueryParams(options: UseFeedOptions): URLSearchParams {
 	const params = new URLSearchParams();
 
@@ -208,10 +230,12 @@ function isAbortError(err: unknown): boolean {
 }
 
 export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
+	const { reconnectPolicy } = useRuntimeContract();
 	const [items, setItems] = useState<FeedItem[]>([]);
 	const [total, setTotal] = useState(0);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
+	const itemsRef = useRef<FeedItem[]>([]);
 	const matchingRunIdsRef = useRef<Set<string>>(new Set());
 	const latestRequestIdRef = useRef(0);
 	useLiveRunIndexBridge();
@@ -219,8 +243,16 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 
 	const { view, status, projectId, dateRange, limit, offset, search } = options;
 
+	useEffect(() => {
+		itemsRef.current = items;
+	}, [items]);
+
 	const fetchFeed = useCallback(
-		async ({ signal, showLoading = false }: FetchFeedOptions = {}) => {
+		async ({
+			signal,
+			showLoading = false,
+			reconcile = false,
+		}: FetchFeedOptions = {}) => {
 			const requestId = latestRequestIdRef.current + 1;
 			latestRequestIdRef.current = requestId;
 			const isLatestRequest = () =>
@@ -236,7 +268,9 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 					status,
 					projectId,
 					dateRange,
-					limit,
+					limit: reconcile
+						? recoveryFeedLimit(limit, reconnectPolicy.activityRecoveryLimit)
+						: limit,
 					offset,
 					search,
 				});
@@ -254,20 +288,32 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 
 				liveRunIndex.upsertRuns(data.items.map((item) => item.run));
 				const filterOptions = { view, status, projectId, dateRange, search };
-				matchingRunIdsRef.current = new Set(
-					liveRunIndex
-						.getAllRuns()
-						.filter((run) => matchesFeedFilters(run, filterOptions))
-						.map((run) => run.id),
-				);
-				setItems(
-					data.items
+				const responseRuns = data.items
+					.map((item) => liveRunIndex.getRun(item.run.id) ?? item.run)
+					.filter((run) => matchesFeedFilters(run, filterOptions));
+
+				if (reconcile) {
+					const currentRuns = itemsRef.current
 						.map((item) => liveRunIndex.getRun(item.run.id) ?? item.run)
-						.filter((run) => matchesFeedFilters(run, filterOptions))
-						.map(toFeedItem)
-						.sort(compareFeedItems),
-				);
-				setTotal(data.total);
+						.filter((run) => matchesFeedFilters(run, filterOptions));
+					const mergedRuns = mergeRunsById([
+						...currentRuns,
+						...responseRuns,
+					]).sort(compareRunsByActivity);
+					const visibleRuns = mergedRuns.slice(0, limit ?? DEFAULT_FEED_LIMIT);
+					matchingRunIdsRef.current = new Set(currentRuns.map((run) => run.id));
+					setItems(visibleRuns.map(toFeedItem));
+					setTotal(Math.max(data.total, visibleRuns.length));
+				} else {
+					matchingRunIdsRef.current = new Set(
+						liveRunIndex
+							.getAllRuns()
+							.filter((run) => matchesFeedFilters(run, filterOptions))
+							.map((run) => run.id),
+					);
+					setItems(responseRuns.map(toFeedItem).sort(compareFeedItems));
+					setTotal(data.total);
+				}
 				setError(null);
 			} catch (err) {
 				if (isAbortError(err) || !isLatestRequest()) {
@@ -281,8 +327,21 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 				}
 			}
 		},
-		[view, status, projectId, dateRange, limit, offset, search],
+		[
+			view,
+			status,
+			projectId,
+			dateRange,
+			limit,
+			offset,
+			search,
+			reconnectPolicy.activityRecoveryLimit,
+		],
 	);
+
+	const reconcileFeed = useCallback(() => {
+		return fetchFeed({ reconcile: true });
+	}, [fetchFeed]);
 
 	useEffect(() => {
 		const controller = new AbortController();
@@ -341,9 +400,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 			}
 			addedCount = additions.length;
 			nextItems = [...nextLoadedItems, ...additions];
-			if (limit !== undefined) {
-				nextItems = nextItems.slice(0, limit);
-			}
+			nextItems = nextItems.slice(0, limit ?? DEFAULT_FEED_LIMIT);
 		}
 
 		if (!areFeedItemsEqual(currentItems, nextItems)) {
@@ -368,7 +425,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 		offset,
 	]);
 
-	useReconnectRecovery(fetchFeed);
+	useReconnectRecovery(reconcileFeed);
 
 	const refetch = useCallback(() => {
 		void fetchFeed({ showLoading: true });

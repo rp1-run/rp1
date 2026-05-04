@@ -7,6 +7,7 @@ type ConnectionStatus = "connecting" | "connected" | "disconnected";
 let reconnectListeners: ReconnectCallback[] = [];
 let socketStatus: ConnectionStatus = "connected";
 let intervalCallback: (() => void) | null = null;
+let intervalDelay: number | undefined;
 let intervalId = 0;
 let clearedIntervalIds: ReturnType<typeof setInterval>[] = [];
 let useReconnectRecoveryImportVersion = 0;
@@ -27,6 +28,13 @@ async function loadUseReconnectRecovery() {
 			},
 		}),
 	}));
+	mock.module("@/providers/RuntimeProvider", () => ({
+		useRuntimeContract: () => ({
+			reconnectPolicy: {
+				disconnectedRecoveryIntervalMs: 1234,
+			},
+		}),
+	}));
 
 	return import(
 		`../../hooks/useReconnectRecovery.ts?use-reconnect-recovery-test=${++useReconnectRecoveryImportVersion}`
@@ -38,10 +46,12 @@ beforeEach(() => {
 	reconnectListeners = [];
 	socketStatus = "connected";
 	intervalCallback = null;
+	intervalDelay = undefined;
 	intervalId = 0;
 	clearedIntervalIds = [];
-	globalThis.setInterval = ((callback: TimerHandler) => {
+	globalThis.setInterval = ((callback: TimerHandler, delay?: number) => {
 		intervalCallback = callback as () => void;
+		intervalDelay = delay;
 		intervalId += 1;
 		return intervalId as unknown as ReturnType<typeof setInterval>;
 	}) as unknown as typeof setInterval;
@@ -56,6 +66,7 @@ afterEach(() => {
 	reconnectListeners = [];
 	socketStatus = "connected";
 	intervalCallback = null;
+	intervalDelay = undefined;
 	clearedIntervalIds = [];
 	globalThis.setInterval = originalSetInterval;
 	globalThis.clearInterval = originalClearInterval;
@@ -77,6 +88,7 @@ describe("useReconnectRecovery", () => {
 		rerender();
 
 		expect(intervalCallback).not.toBeNull();
+		expect(intervalDelay).toBe(1234);
 
 		act(() => {
 			intervalCallback?.();
