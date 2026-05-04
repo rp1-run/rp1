@@ -170,6 +170,11 @@ async function handleV2ApiRequest(
 		return handleV2HealthRequest(apiContext);
 	}
 
+	if (pathname === "/api/v2/runtime" && method === "GET") {
+		const { handleV2RuntimeRequest } = await import("./routes/v2-api");
+		return handleV2RuntimeRequest(req, apiContext);
+	}
+
 	if (pathname === "/api/v2/shutdown" && method === "POST") {
 		const { handleV2ShutdownRequest } = await import("./routes/v2-api");
 		return handleV2ShutdownRequest(req, apiContext);
