@@ -19,6 +19,7 @@ import type {
 	ServerMessage,
 	StateSnapshotCallback,
 	TreeChangedMessage,
+	WebSocketActivityScope,
 } from "../types/websocket";
 import { useRuntimeContract } from "./RuntimeProvider";
 
@@ -56,6 +57,25 @@ interface WebSocketContextValue {
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
 
 const LAST_EVENT_ID_STORAGE_PREFIX = "rp1:last-event-id:";
+const GLOBAL_ACTIVITY_SCOPE_KEY = "global";
+
+interface ActivitySocketScope {
+	readonly scope: WebSocketActivityScope;
+	readonly storageKey: string;
+	readonly projectId: string | null;
+}
+
+function getActivitySocketScope(projectId: string | null): ActivitySocketScope {
+	if (projectId) {
+		return { scope: "project", storageKey: projectId, projectId };
+	}
+
+	return {
+		scope: "global",
+		storageKey: GLOBAL_ACTIVITY_SCOPE_KEY,
+		projectId: null,
+	};
+}
 
 interface WebSocketProviderProps {
 	children: ReactNode;
@@ -73,7 +93,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	);
 	const mountedRef = useRef(true);
 	const projectIdRef = useRef<string | null>(null);
-	const lastEventIdByProjectRef = useRef<Map<string, number>>(new Map());
+	const lastEventIdByScopeRef = useRef<Map<string, number>>(new Map());
 	const fileChangeListenersRef = useRef<Set<(msg: FileChangedMessage) => void>>(
 		new Set(),
 	);
@@ -98,15 +118,15 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	const notifyReconnectRef = useRef(false);
 
 	const readStoredLastEventId = useCallback(
-		(targetProjectId: string): number | null => {
-			const cached = lastEventIdByProjectRef.current.get(targetProjectId);
+		(storageKey: string): number | null => {
+			const cached = lastEventIdByScopeRef.current.get(storageKey);
 			if (cached != null) {
 				return cached;
 			}
 
 			try {
 				const storedValue = sessionStorage.getItem(
-					`${LAST_EVENT_ID_STORAGE_PREFIX}${targetProjectId}`,
+					`${LAST_EVENT_ID_STORAGE_PREFIX}${storageKey}`,
 				);
 				if (storedValue == null) {
 					return null;
@@ -115,7 +135,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				if (Number.isNaN(parsedValue)) {
 					return null;
 				}
-				lastEventIdByProjectRef.current.set(targetProjectId, parsedValue);
+				lastEventIdByScopeRef.current.set(storageKey, parsedValue);
 				return parsedValue;
 			} catch {
 				return null;
@@ -125,16 +145,16 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	);
 
 	const advanceLastEventId = useCallback(
-		(targetProjectId: string, eventId: number) => {
-			const currentValue = readStoredLastEventId(targetProjectId);
+		(storageKey: string, eventId: number) => {
+			const currentValue = readStoredLastEventId(storageKey);
 			if (currentValue != null && currentValue >= eventId) {
 				return;
 			}
 
-			lastEventIdByProjectRef.current.set(targetProjectId, eventId);
+			lastEventIdByScopeRef.current.set(storageKey, eventId);
 			try {
 				sessionStorage.setItem(
-					`${LAST_EVENT_ID_STORAGE_PREFIX}${targetProjectId}`,
+					`${LAST_EVENT_ID_STORAGE_PREFIX}${storageKey}`,
 					String(eventId),
 				);
 			} catch {}
@@ -165,7 +185,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 			message: EventReplayMessage,
 			targetProjectId: string | null,
 		): EventNotificationMessage | null => {
-			if (targetProjectId == null) {
+			const messageProjectId = message.event.projectId ?? targetProjectId;
+			if (messageProjectId == null) {
 				return null;
 			}
 
@@ -174,8 +195,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				eventId: message.event.id,
 				eventType: message.event.eventType,
 				runId: message.event.runId,
-				projectId: targetProjectId,
-				featureId: "",
+				projectId: messageProjectId,
+				featureId: message.event.featureId ?? "",
 				runStatus: message.event.runStatus ?? null,
 				step: message.event.step,
 				unit: message.event.unit ?? null,
@@ -184,6 +205,18 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 			};
 		},
 		[parseReplayEventData],
+	);
+
+	const advanceEventCursors = useCallback(
+		(message: EventNotificationMessage, scope: WebSocketActivityScope) => {
+			if (scope === "global") {
+				advanceLastEventId(GLOBAL_ACTIVITY_SCOPE_KEY, message.eventId);
+			}
+			if (message.projectId) {
+				advanceLastEventId(message.projectId, message.eventId);
+			}
+		},
+		[advanceLastEventId],
 	);
 
 	const emitEventNotification = useCallback(
@@ -207,16 +240,18 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 			setStatus("connecting");
 
 			const currentProjectId = projectIdRef.current;
+			const activityScope = getActivitySocketScope(currentProjectId);
 			const runtimeBaseUrl = new URL(runtime.baseUrl);
 			const wsProto = runtimeBaseUrl.protocol === "https:" ? "wss" : "ws";
 			const wsUrl = (() => {
 				const query = new URLSearchParams();
-				if (currentProjectId) {
-					query.set("projectId", currentProjectId);
-					const lastEventId = readStoredLastEventId(currentProjectId);
-					if (lastEventId != null) {
-						query.set("lastEventId", String(lastEventId));
-					}
+				query.set("scope", activityScope.scope);
+				if (activityScope.projectId) {
+					query.set("projectId", activityScope.projectId);
+				}
+				const lastEventId = readStoredLastEventId(activityScope.storageKey);
+				if (lastEventId != null) {
+					query.set("lastEventId", String(lastEventId));
 				}
 				const queryString = query.toString();
 				return `${wsProto}://${runtimeBaseUrl.host}/ws${queryString ? `?${queryString}` : ""}`;
@@ -280,7 +315,10 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 					}
 					break;
 				case "event:notification":
-					advanceLastEventId(message.projectId, message.eventId);
+					advanceEventCursors(
+						message,
+						getActivitySocketScope(projectIdRef.current).scope,
+					);
 					emitEventNotification(message);
 					break;
 				case "event:replay": {
@@ -289,22 +327,31 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 						projectIdRef.current,
 					);
 					if (normalizedMessage) {
-						advanceLastEventId(
-							normalizedMessage.projectId,
-							normalizedMessage.eventId,
+						advanceEventCursors(
+							normalizedMessage,
+							message.scope ??
+								getActivitySocketScope(projectIdRef.current).scope,
 						);
 						emitEventNotification(normalizedMessage);
 					}
 					break;
 				}
-				case "state:snapshot":
-					if (projectIdRef.current != null) {
-						advanceLastEventId(projectIdRef.current, message.lastEventId);
+				case "state:snapshot": {
+					const snapshotScope =
+						message.scope ?? getActivitySocketScope(projectIdRef.current).scope;
+					if (snapshotScope === "global") {
+						advanceLastEventId(GLOBAL_ACTIVITY_SCOPE_KEY, message.lastEventId);
+					} else {
+						const snapshotProjectId = message.projectId ?? projectIdRef.current;
+						if (snapshotProjectId != null) {
+							advanceLastEventId(snapshotProjectId, message.lastEventId);
+						}
 					}
 					for (const listener of snapshotListenersRef.current) {
 						listener(message);
 					}
 					break;
+				}
 				case "projects:changed":
 					for (const listener of projectsChangeListenersRef.current) {
 						listener(message);
@@ -361,6 +408,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	}, [
 		projectId,
 		advanceLastEventId,
+		advanceEventCursors,
 		emitEventNotification,
 		normalizeReplayMessage,
 		readStoredLastEventId,

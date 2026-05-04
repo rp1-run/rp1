@@ -6,6 +6,8 @@
 import type { ArtifactLocationKind, Status } from "../../../shared/events";
 import type { Annotation, AnnotationReply } from "./annotations";
 
+export type WebSocketActivityScope = "global" | "project";
+
 /** File change notification */
 export interface FileChangedMessage {
 	type: "file:changed";
@@ -50,9 +52,12 @@ export interface EventNotificationMessage {
 /** Replayed event for reconnection recovery */
 export interface EventReplayMessage {
 	type: "event:replay";
+	scope?: WebSocketActivityScope;
 	event: {
 		id: number;
 		runId: string;
+		projectId?: string;
+		featureId?: string;
 		eventType: string;
 		runStatus?: Status | null;
 		step: string | null;
@@ -65,8 +70,11 @@ export interface EventReplayMessage {
 /** Full state snapshot for reconnection recovery */
 export interface StateSnapshotMessage {
 	type: "state:snapshot";
+	scope?: WebSocketActivityScope;
+	projectId?: string | null;
 	runs: Array<{
 		id: string;
+		projectId?: string | null;
 		flow: string;
 		featureId: string;
 		projectPath: string;

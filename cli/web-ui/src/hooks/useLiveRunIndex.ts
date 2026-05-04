@@ -12,10 +12,15 @@ export function useLiveRunIndexBridge(): void {
 			void liveRunIndex.applyEvent(message);
 		});
 		const unsubscribeSnapshot = onStateSnapshot((message) => {
-			if (!projectId) {
+			if (message.scope === "global") {
+				liveRunIndex.applyGlobalSnapshot(message);
 				return;
 			}
-			liveRunIndex.applySnapshot(projectId, message);
+
+			const snapshotProjectId = message.projectId ?? projectId;
+			if (snapshotProjectId) {
+				liveRunIndex.applySnapshot(snapshotProjectId, message);
+			}
 		});
 
 		return () => {

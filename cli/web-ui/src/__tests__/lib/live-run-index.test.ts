@@ -54,6 +54,8 @@ function buildSnapshot(
 ): StateSnapshotMessage {
 	return {
 		type: "state:snapshot",
+		scope: overrides.scope ?? "project",
+		projectId: overrides.projectId ?? "proj-1",
 		lastEventId: overrides.lastEventId ?? 41,
 		runs: overrides.runs ?? [],
 	};
@@ -355,5 +357,79 @@ describe("LiveRunIndex", () => {
 		expect(new Set(index.getProjectRunIds("proj-1"))).toEqual(
 			new Set(["run-keep", "run-terminal"]),
 		);
+	});
+
+	test("applies global snapshots without pruning unrelated project runs", () => {
+		let fetchCount = 0;
+		const index = createLiveRunIndex({
+			fetchRunSummary: (runId) => {
+				fetchCount += 1;
+				return Promise.resolve(
+					buildRun({
+						id: runId,
+						projectId: "proj-2",
+						projectName: "Project Two",
+					}),
+				);
+			},
+		});
+
+		index.upsertRuns([
+			buildRun({
+				id: "run-keep",
+				status: "running",
+				currentStep: "build",
+				lastEventAt: "2026-04-14T00:03:00.000Z",
+			}),
+			buildRun({
+				id: "run-other-project",
+				projectId: "proj-2",
+				projectName: "Project Two",
+				status: "running",
+				currentStep: "build",
+				lastEventAt: "2026-04-14T00:04:00.000Z",
+			}),
+		]);
+
+		index.applyGlobalSnapshot(
+			buildSnapshot({
+				scope: "global",
+				projectId: null,
+				lastEventId: 50,
+				runs: [
+					{
+						id: "run-keep",
+						projectId: "proj-1",
+						flow: "build",
+						featureId: "emit-daemon",
+						projectPath: "/tmp/project",
+						status: "waiting",
+						steps: [{ step: "review", status: "waiting" }],
+						artifacts: [],
+					},
+					{
+						id: "run-new",
+						projectId: "proj-2",
+						flow: "build",
+						featureId: "emit-daemon",
+						projectPath: "/tmp/other-project",
+						status: "running",
+						steps: [{ step: "build", status: "running" }],
+						artifacts: [],
+					},
+				],
+			}),
+		);
+
+		expect(index.getRun("run-keep")).toMatchObject({
+			status: "waiting",
+			currentStep: "review",
+		});
+		expect(index.getRun("run-other-project")).toMatchObject({
+			status: "running",
+			currentStep: "build",
+		});
+		expect(index.getProjectRunIds("proj-2")).toContain("run-other-project");
+		expect(fetchCount).toBe(1);
 	});
 });

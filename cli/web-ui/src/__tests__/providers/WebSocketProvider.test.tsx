@@ -87,6 +87,14 @@ function getLatestProjectSocket(projectId: string): MockWebSocket | undefined {
 		);
 }
 
+function getLatestGlobalSocket(): MockWebSocket | undefined {
+	return [...MockWebSocket.instances]
+		.reverse()
+		.find(
+			(socket) => new URL(socket.url).searchParams.get("scope") === "global",
+		);
+}
+
 describe("WebSocketProvider", () => {
 	const originalWebSocket = globalThis.WebSocket;
 
@@ -118,9 +126,29 @@ describe("WebSocketProvider", () => {
 
 		const projectSocket = getLatestProjectSocket("proj-1");
 		expect(projectSocket).toBeDefined();
+		expect(new URL(projectSocket!.url).searchParams.get("scope")).toBe(
+			"project",
+		);
 		expect(new URL(projectSocket!.url).searchParams.get("lastEventId")).toBe(
 			"41",
 		);
+	});
+
+	test("includes the stored global cursor when connecting without a selected project", async () => {
+		sessionStorage.setItem(`${LAST_EVENT_ID_STORAGE_PREFIX}global`, "40");
+
+		renderHook(() => useWebSocket(), { wrapper });
+
+		await waitFor(() => {
+			expect(getLatestGlobalSocket()).toBeDefined();
+		});
+
+		const globalSocket = getLatestGlobalSocket();
+		expect(globalSocket).toBeDefined();
+		const url = new URL(globalSocket!.url);
+		expect(url.searchParams.get("scope")).toBe("global");
+		expect(url.searchParams.get("projectId")).toBeNull();
+		expect(url.searchParams.get("lastEventId")).toBe("40");
 	});
 
 	test("normalizes replay events and routes snapshots while advancing the project cursor", async () => {
@@ -161,9 +189,12 @@ describe("WebSocketProvider", () => {
 			});
 			projectSocket!.receive({
 				type: "event:replay",
+				scope: "project",
 				event: {
 					id: 43,
 					runId: "run-1",
+					projectId: "proj-1",
+					featureId: "feat-1",
 					eventType: "waiting_for_user",
 					step: "review",
 					data: JSON.stringify({ prompt: "Need approval" }),
@@ -172,9 +203,12 @@ describe("WebSocketProvider", () => {
 			});
 			projectSocket!.receive({
 				type: "state:snapshot",
+				scope: "project",
+				projectId: "proj-1",
 				runs: [
 					{
 						id: "run-1",
+						projectId: "proj-1",
 						flow: "build",
 						featureId: "feat-1",
 						projectPath: "/tmp/project",
@@ -224,5 +258,73 @@ describe("WebSocketProvider", () => {
 		expect(
 			new URL(reconnectedSocket!.url).searchParams.get("lastEventId"),
 		).toBe("55");
+	});
+
+	test("normalizes global replay events and advances global plus project cursors", async () => {
+		const receivedEvents: EventNotificationMessage[] = [];
+
+		const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+		act(() => {
+			result.current.onEventNotification((message) => {
+				receivedEvents.push(message);
+			});
+		});
+
+		await waitFor(() => {
+			expect(getLatestGlobalSocket()).toBeDefined();
+		});
+
+		const globalSocket = getLatestGlobalSocket();
+		expect(globalSocket).toBeDefined();
+
+		act(() => {
+			globalSocket!.open();
+			globalSocket!.receive({
+				type: "event:notification",
+				eventId: 61,
+				eventType: "status_change",
+				runId: "run-1",
+				projectId: "proj-1",
+				featureId: "feat-1",
+				step: "build",
+				data: { status: "running" },
+				createdAt: "2026-04-14T00:00:00.000Z",
+			});
+			globalSocket!.receive({
+				type: "event:replay",
+				scope: "global",
+				event: {
+					id: 62,
+					runId: "run-2",
+					projectId: "proj-2",
+					featureId: "feat-2",
+					eventType: "waiting_for_user",
+					runStatus: "waiting",
+					step: "review",
+					data: JSON.stringify({ prompt: "Need approval" }),
+					createdAt: "2026-04-14T00:00:01.000Z",
+				},
+			});
+		});
+
+		expect(receivedEvents).toHaveLength(2);
+		expect(receivedEvents[1]).toMatchObject({
+			type: "event:notification",
+			eventId: 62,
+			projectId: "proj-2",
+			featureId: "feat-2",
+			runStatus: "waiting",
+			data: { prompt: "Need approval" },
+		});
+		expect(
+			sessionStorage.getItem(`${LAST_EVENT_ID_STORAGE_PREFIX}global`),
+		).toBe("62");
+		expect(
+			sessionStorage.getItem(`${LAST_EVENT_ID_STORAGE_PREFIX}proj-1`),
+		).toBe("61");
+		expect(
+			sessionStorage.getItem(`${LAST_EVENT_ID_STORAGE_PREFIX}proj-2`),
+		).toBe("62");
 	});
 });

@@ -161,7 +161,6 @@ export function createServer(options: ServerOptions) {
 	const setupReplayProvider = async () => {
 		const {
 			getEmitDatabase,
-			countEventsSince,
 			getEventsSince,
 			getRunById,
 			getActiveRunsSnapshot,
@@ -178,10 +177,34 @@ export function createServer(options: ServerOptions) {
 		}
 
 		const db = dbResult.right;
+		const projects = await getAllProjects(db);
+		const projectLookup = buildProjectLookup(projects);
+		const getRunContext = (runId: string) => {
+			const run = getRunById(db, runId);
+			if (!run) {
+				return null;
+			}
+
+			const project = findProjectByIdentity(projectLookup, {
+				projectId: run.projectId,
+				rp1ProjectRoot: run.rp1ProjectRoot,
+				projectPath: run.projectPath,
+			});
+			if (!project) {
+				return null;
+			}
+
+			return {
+				projectId: project.id,
+				featureId: run.featureId,
+				runStatus: run.status,
+			};
+		};
+
 		websocketHub.setReplayProvider({
-			countEventsSince: (afterId: number) => countEventsSince(db, afterId),
 			getEventsSince: (afterId: number, limit?: number) =>
 				getEventsSince(db, afterId, limit),
+			getRunContext,
 			getRunStatus: (runId: string) => getRunById(db, runId)?.status ?? null,
 			getActiveRunsSnapshot: () => {
 				void reclassifyInactiveRunsWithBroadcast(db, websocketHub).catch(

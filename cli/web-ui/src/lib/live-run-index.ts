@@ -43,6 +43,7 @@ export interface LiveRunIndex {
 	hydrateRun: (runId: string) => Promise<Run | null>;
 	applyEvent: (message: EventNotificationMessage) => Promise<void>;
 	applySnapshot: (projectId: string, message: StateSnapshotMessage) => void;
+	applyGlobalSnapshot: (message: StateSnapshotMessage) => void;
 	clear: () => void;
 }
 
@@ -461,6 +462,19 @@ export function createLiveRunIndex(
 				}
 			}
 
+			for (const snapshotRun of message.runs) {
+				const existing = runsById.get(snapshotRun.id);
+				if (existing) {
+					storeRun(reconcileRunWithSnapshot(existing, snapshotRun));
+					continue;
+				}
+
+				void this.hydrateRun(snapshotRun.id);
+			}
+
+			emitChange();
+		},
+		applyGlobalSnapshot(message: StateSnapshotMessage) {
 			for (const snapshotRun of message.runs) {
 				const existing = runsById.get(snapshotRun.id);
 				if (existing) {
