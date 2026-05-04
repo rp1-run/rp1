@@ -58,3 +58,4 @@ native-app/artifacts/
 .osgrep
 # rp1 directory
 !.rp1/project_id
+cli/coverage/
