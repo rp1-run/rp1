@@ -17,9 +17,11 @@ Centralized output templates for all rp1 artifact types. Agents read templates t
 2. Read the template file at the listed path (relative to this skill directory).
 3. Fill placeholders (`{FEATURE_ID}`, `{Date}`, `[bracketed text]`) with actual values.
 4. Write the artifact to the location specified by `scope` + `path_pattern`.
-5. If the template includes an `emit_hint` in its frontmatter, use it to register the artifact.
+5. If the template includes `emit_hint`, the producer MUST register the artifact after writing it.
 
 Templates contain YAML frontmatter with routing metadata and a markdown body with the artifact format. Section-level templates (`type: section`) are appended to existing files, not written as standalone documents.
+
+Active `/build` artifacts are producer-owned: the agent that writes the artifact registers that exact path with explicit `storageRoot`. Do not recover active build artifacts by directory scan. Do not generate or register legacy `tracker.md` or `milestone-*.md` artifacts for new work.
 
 ## Template Index
 
@@ -30,8 +32,8 @@ Templates contain YAML frontmatter with routing metadata and a markdown body wit
 | feature-architect | design-decisions.md | document | workRoot | features/{FEATURE_ID}/design-decisions.md | templates/feature-architect/design-decisions.md |
 | feature-tasker | tasks.md | document | workRoot | features/{FEATURE_ID}/tasks.md | templates/feature-tasker/tasks.md |
 | feature-tasker | tasks.json | data | workRoot | features/{FEATURE_ID}/tasks.json | templates/feature-tasker/tasks.json |
-| feature-tasker | tracker.md | document | workRoot | features/{FEATURE_ID}/tracker.md | templates/feature-tasker/tracker.md |
 | feature-verifier | verification-report.md | document | workRoot | features/{FEATURE_ID}/feature_verification_{N}.md | templates/feature-verifier/verification-report.md |
+| build-verify-aggregator | build-readiness.md | document | workRoot | features/{FEATURE_ID}/build-readiness.md | templates/build-verify-aggregator/build-readiness.md |
 | feature-editor | edit-marker | section | workRoot | features/{FEATURE_ID}/requirements.md (append) | templates/_sections/edit-marker.md |
 | hypothesis-tester | hypothesis-document.md | document | workRoot | features/{FEATURE_ID}/hypotheses.md | templates/hypothesis-tester/hypothesis-document.md |
 | research-reporter | research-report.md | document | workRoot | research/{YYYY-MM-DD}-{TOPIC_SLUG}.md | templates/research-reporter/research-report.md |
@@ -110,6 +112,8 @@ templates/
 +-- blueprint-auditor/
 +-- blueprint-wizard/
 +-- bug-investigator/
++-- build-verify-aggregator/
++   +-- build-readiness.md
 +-- build-fast-planner/
 +-- charter-interviewer/
 +-- code-auditor/
@@ -120,7 +124,6 @@ templates/
 +-- feature-tasker/
 |   +-- tasks.md
 |   +-- tasks.json
-|   +-- tracker.md
 +-- feature-verifier/
 +-- hypothesis-tester/
 +-- knowledge-base/

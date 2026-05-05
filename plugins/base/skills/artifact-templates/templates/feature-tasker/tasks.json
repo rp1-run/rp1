@@ -10,12 +10,13 @@ emit_hint: |
     --workflow {WORKFLOW} \
     --type artifact_registered \
     --run-id {RUN_ID} \
-    --step tasks \
+    --step planning \
     --data '{"path": "features/{FEATURE_ID}/tasks.json", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 conditions:
-  - "Generate alongside tasks.md"
+  - "Generate alongside tasks.md as the only machine-readable task plan"
   - "Keep task order identical to tasks.md"
   - "Use dependencies from design.md Implementation DAG when present"
+  - "Do not infer task state from tasks.md, tracker.md, or milestone-*.md"
 ---
 
 {
