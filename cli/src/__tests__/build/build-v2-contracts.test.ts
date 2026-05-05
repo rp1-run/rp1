@@ -29,6 +29,13 @@ const extractArtifactPayloads = (content: string): string[] =>
 		...content.matchAll(/--type artifact_registered[\s\S]*?--data '([^']+)'/g),
 	].map((match) => match[1] ?? "");
 
+const extractArtifactEmitSteps = (content: string): string[] =>
+	[
+		...content.matchAll(
+			/--type artifact_registered[\s\S]*?--step\s+([A-Za-z0-9:_-]+)/g,
+		),
+	].map((match) => match[1] ?? "");
+
 const readAgentArgumentNames = async (
 	relativePath: string,
 ): Promise<readonly string[]> => {
@@ -110,6 +117,31 @@ describe("Build v2 static contracts", () => {
 		);
 	});
 
+	test("planning consumes feature-tasker structured JSON completion", async () => {
+		const build = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const tasker = await readProjectFile(
+			"plugins/dev/agents/feature-tasker.md",
+		);
+
+		expect(build).toContain("Parse the response as JSON.");
+		expect(build).toContain(
+			'"task_plan_path": "features/{FEATURE_ID}/tasks.json"',
+		);
+		expect(build).toContain(
+			"`artifacts[]` entries for both `features/{FEATURE_ID}/tasks.md` and `features/{FEATURE_ID}/tasks.json`",
+		);
+		expect(build).toContain("Treat prose-prefixed completion");
+		expect(tasker).toContain(
+			"Return ONLY raw JSON, no prose, no markdown fence.",
+		);
+		expect(tasker).toContain('"status": "success"');
+		expect(tasker).toContain(
+			'"task_plan_path": "features/{FEATURE_ID}/tasks.json"',
+		);
+		expect(tasker).not.toContain("Task planning completed:");
+		expect(tasker).not.toContain("Task update completed:");
+	});
+
 	test("implementation consumes tasks.json through build-task-plan without parser or grouper agents", async () => {
 		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
 
@@ -180,6 +212,10 @@ describe("Build v2 static contracts", () => {
 			"plugins/dev/agents/feature-tasker.md",
 			"plugins/dev/agents/build-verify-aggregator.md",
 			"plugins/dev/agents/feature-archiver.md",
+			"plugins/base/skills/artifact-templates/templates/feature-requirement-gatherer/requirements.md",
+			"plugins/base/skills/artifact-templates/templates/feature-architect/design.md",
+			"plugins/base/skills/artifact-templates/templates/feature-architect/design-decisions.md",
+			"plugins/base/skills/artifact-templates/templates/hypothesis-tester/hypothesis-document.md",
 			"plugins/base/skills/artifact-templates/templates/feature-tasker/tasks.md",
 			"plugins/base/skills/artifact-templates/templates/feature-tasker/tasks.json",
 			"plugins/base/skills/artifact-templates/templates/build-verify-aggregator/build-readiness.md",
@@ -192,6 +228,40 @@ describe("Build v2 static contracts", () => {
 			expect(payloads.length, producerPath).toBeGreaterThan(0);
 			for (const payload of payloads) {
 				expect(payload, producerPath).toContain('"storageRoot"');
+			}
+		}
+	});
+
+	test("active Build v2 artifact registration steps match the parent state model", async () => {
+		const skill = await expectTaskRight(parseSkill(buildSkillDir));
+		const mermaid = extractStateMachineMermaid(skill.content);
+		const machine = expectRight(parseAndTransform("build", mermaid ?? ""));
+		const validParentSteps = new Set(machine.states.keys());
+		const producerPaths = [
+			"plugins/dev/agents/feature-requirement-gatherer.md",
+			"plugins/dev/agents/feature-architect.md",
+			"plugins/dev/agents/feature-tasker.md",
+			"plugins/dev/agents/build-verify-aggregator.md",
+			"plugins/dev/agents/feature-archiver.md",
+			"plugins/base/skills/artifact-templates/templates/feature-requirement-gatherer/requirements.md",
+			"plugins/base/skills/artifact-templates/templates/feature-architect/design.md",
+			"plugins/base/skills/artifact-templates/templates/feature-architect/design-decisions.md",
+			"plugins/base/skills/artifact-templates/templates/hypothesis-tester/hypothesis-document.md",
+			"plugins/base/skills/artifact-templates/templates/feature-tasker/tasks.md",
+			"plugins/base/skills/artifact-templates/templates/feature-tasker/tasks.json",
+			"plugins/base/skills/artifact-templates/templates/build-verify-aggregator/build-readiness.md",
+		];
+
+		for (const producerPath of producerPaths) {
+			const steps = extractArtifactEmitSteps(
+				await readProjectFile(producerPath),
+			);
+			expect(steps.length, producerPath).toBeGreaterThan(0);
+			for (const step of steps) {
+				expect(
+					step.includes(":") || validParentSteps.has(step),
+					`${producerPath} uses invalid artifact registration step ${step}`,
+				).toBe(true);
 			}
 		}
 	});
@@ -219,6 +289,27 @@ describe("Build v2 static contracts", () => {
 			'path = "features/{FEATURE_ID}/build-readiness.md"',
 		);
 		expect(content).toContain('storageRoot = "work_dir"');
+	});
+
+	test("implementation checkpoint happens after readiness aggregation", async () => {
+		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const aggregatorDispatchIndex = content.indexOf(
+			'{% dispatch_agent "rp1-dev:build-verify-aggregator" %}',
+		);
+		const checkpointIndex = content.indexOf(
+			"**Implementation checkpoint** (after readiness; skip if AFK):",
+		);
+		const completionEmitIndex = content.indexOf(
+			"After the user chooses Release, or AFK skips this checkpoint, emit `implementation` completed:",
+		);
+
+		expect(aggregatorDispatchIndex).toBeGreaterThan(-1);
+		expect(checkpointIndex).toBeGreaterThan(aggregatorDispatchIndex);
+		expect(completionEmitIndex).toBeGreaterThan(checkpointIndex);
+		expect(content).toContain(
+			"artifact=features/{FEATURE_ID}/build-readiness.md",
+		);
+		expect(content).not.toContain('"context": "Build phase complete"');
 	});
 
 	test("archive completion is ordered after feature-archiver success", async () => {

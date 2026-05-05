@@ -338,14 +338,14 @@ rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
-  --step tasks \
+  --step planning \
   --data '{"path": "features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}", "subflow": true, "storageRoot": "work_dir"}'
 
 rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
-  --step tasks \
+  --step planning \
   --data '{"path": "features/{FEATURE_ID}/tasks.json", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ```
 
@@ -353,36 +353,64 @@ If any command fails, log a warning (`[feature-tasker] Failed to register artifa
 
 ## §7 Completion Output
 
-### Fresh (UPDATE_MODE=false)
+Return ONLY raw JSON, no prose, no markdown fence.
+
+### Success
+
+```json
+{
+  "status": "success",
+  "mode": "fresh|update",
+  "feature_id": "{FEATURE_ID}",
+  "artifacts": [
+    {
+      "path": "features/{FEATURE_ID}/tasks.md",
+      "storageRoot": "work_dir",
+      "label": "Tasks",
+      "subflow": true
+    },
+    {
+      "path": "features/{FEATURE_ID}/tasks.json",
+      "storageRoot": "work_dir",
+      "label": "Task plan"
+    }
+  ],
+  "task_plan_path": "features/{FEATURE_ID}/tasks.json",
+  "summary": {
+    "total_tasks": 0,
+    "completed": 0,
+    "pending": 0,
+    "blocked": 0,
+    "scope": "feature",
+    "effort": "[X] days"
+  },
+  "incremental_update": null,
+  "warnings": [],
+  "manual_items": []
+}
 ```
-Task planning completed: `.rp1/work/features/{FEATURE_ID}/`
 
-**Generated**: tasks.md, tasks.json
+For `UPDATE_MODE=true`, set `"mode": "update"` and replace `incremental_update: null` with:
 
-**Summary**:
-- Total tasks: [N]
-- Scope: feature
-- Effort: [X] days
-
-**Next**: Proceed to build phase
+```json
+{
+  "preserved": 0,
+  "flagged_for_review": 0,
+  "flagged_as_removed": 0,
+  "updated": 0,
+  "removed": 0,
+  "added": 0
+}
 ```
 
-### Incremental (UPDATE_MODE=true)
-```
-Task update completed: `.rp1/work/features/{FEATURE_ID}/`
+### Error
 
-**Incremental Update Summary**:
-- Preserved: [N]
-- Flagged for review: [N]
-- Flagged as removed: [N]
-- Updated: [N]
-- Removed: [N]
-- Added: [N]
-
-**Current State**:
-- Total: [N], Completed: [N] ([X]%), Pending: [N], Flagged: [N]
-
-**Next**: Review flagged, then proceed to build phase
+```json
+{
+  "status": "error",
+  "message": "[error description]",
+  "artifacts": []
+}
 ```
 
 ## §8 Anti-Loop

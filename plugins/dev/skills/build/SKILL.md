@@ -354,9 +354,10 @@ FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=false, WORKFLOW=build
 
 Validate the `feature-tasker` response before the planning checkpoint:
 
-- Accept the documented success contract only when the response starts with `Task planning completed:` or `Task update completed:` and references `.rp1/work/features/{FEATURE_ID}/`.
+- Parse the response as JSON.
+- Accept only the documented success contract: `"status": "success"`, `"feature_id": "{FEATURE_ID}"`, `"task_plan_path": "features/{FEATURE_ID}/tasks.json"`, and `artifacts[]` entries for both `features/{FEATURE_ID}/tasks.md` and `features/{FEATURE_ID}/tasks.json` with `storageRoot = "work_dir"`.
 - If the response is valid JSON with `"status": "error"`, treat it as an intentional task-generation failure. Surface the agent-provided `message` or `error`, abort the build on `planning`, and do NOT enter `implementation` or `release`.
-- Treat malformed output or unrelated implementation/test summaries as a failure. Do not silently continue without a confirmed `tasks.md` result.
+- Treat prose-prefixed completion, malformed output, missing artifacts, or unrelated implementation/test summaries as a failure. Do not silently continue without confirmed `tasks.md` and `tasks.json` results.
 
 **Checkpoint** (skip if AFK):
 
@@ -503,24 +504,9 @@ Documentation tasks from `TASK_PLAN.documentation_tasks`:
 - Carry `documentation_followups` into readiness/release `manual_items`.
 - Do not spawn undeclared documentation agents.
 
-**Checkpoint** (skip if AFK):
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type waiting_for_user \
-  --run-id {RUN_ID} \
-  --step implementation \
-  --data '{"prompt": "Continue, Add Task, Review feedback from Arcade, or Stop?", "context": "Build phase complete"}'
-```
-
-{% ask_user "Continue, Add Task, Review feedback from Arcade, or Stop?", options: "Continue", "Add Task", "Review feedback from Arcade", "Stop" %}
-On Add Task: spawn builder+reviewer for ad-hoc TX-{timestamp} task, loop back.
-On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
-
 ### §4.5 Cleanup Manifest Generation
 
-After builders, reviewers, doc tasks, and any checkpoint-added tasks finish, generate the durable cleanup handoff before verification:
+After builders, reviewers, and documentation follow-up collection finish, generate the durable cleanup handoff before verification:
 
 ```bash
 rp1 agent-tools change-manifest generate \
@@ -622,7 +608,61 @@ Readiness release behavior:
 
 If readiness has blocking failures or missing required components, keep parent `implementation` running for planned repair or waiting for a user decision. Emit parent `implementation` failed only when no repair/decision path remains.
 
-When readiness is PASS or WARN and can proceed to release, emit `implementation` completed:
+If readiness is FAIL or WAITING in interactive mode, present the readiness evidence before stopping:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type waiting_for_user \
+  --run-id {RUN_ID} \
+  --step implementation \
+  --data '{"prompt": "Readiness needs work. Repair, Add Task, Review feedback from Arcade, or Stop?", "context": "Readiness {readiness_status}; blockers={blocking_issues.length}; warnings={warnings.length}; manual_items={manual_items.length}; artifact=features/{FEATURE_ID}/build-readiness.md"}'
+```
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step implementation \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "readiness_status": "{readiness_status}"}'
+```
+
+Then STOP with `/build {FEATURE_ID}` resume instructions.
+
+If AFK and readiness is FAIL or WAITING, emit `implementation` failed unless an explicit repair/skip policy is already available.
+
+When readiness is PASS or WARN and can proceed to release, present the human gate before release.
+
+**Implementation checkpoint** (after readiness; skip if AFK):
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type waiting_for_user \
+  --run-id {RUN_ID} \
+  --step implementation \
+  --data '{"prompt": "Release, Add Task, Review feedback from Arcade, or Stop?", "context": "Readiness {readiness_status}; blockers={blocking_issues.length}; warnings={warnings.length}; manual_items={manual_items.length}; artifact=features/{FEATURE_ID}/build-readiness.md"}'
+```
+
+{% ask_user "Release, Add Task, Review feedback from Arcade, or Stop?", options: "Release", "Add Task", "Review feedback from Arcade", "Stop" %}
+On Release: continue.
+On Add Task: emit `implementation` waiting with `reason = "readiness_add_task"`, collect the added-task request, and STOP with `/build {FEATURE_ID}` resume instructions.
+On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
+On Stop: emit `implementation` waiting and STOP with `/build {FEATURE_ID}` resume instructions.
+
+Add-task or stop emit:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step implementation \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "reason": "readiness_add_task_or_stop"}'
+```
+
+After the user chooses Release, or AFK skips this checkpoint, emit `implementation` completed:
 
 ```bash
 rp1 agent-tools emit \

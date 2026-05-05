@@ -250,14 +250,14 @@ rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
-  --step design \
+  --step planning \
   --data '{"path": "features/{FEATURE_ID}/design.md", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 
 rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
-  --step design \
+  --step planning \
   --data '{"path": "features/{FEATURE_ID}/design-decisions.md", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ```
 
@@ -286,7 +286,7 @@ rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
-  --step design \
+  --step planning \
   --data '{"path": "features/{FEATURE_ID}/hypotheses.md", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ```
 

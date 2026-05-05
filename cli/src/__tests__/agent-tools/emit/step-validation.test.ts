@@ -112,12 +112,12 @@ describe("getCurrentRunState", () => {
 		insertEvent(db, {
 			runId,
 			type: "status_change",
-			step: "design",
+			step: "planning",
 			data: JSON.stringify({ status: "running" }),
 		});
 
 		const state = getCurrentRunState(db, runId);
-		expect(state).toBe("design");
+		expect(state).toBe("planning");
 	});
 
 	test("ignores unit-level events", async () => {
@@ -133,19 +133,19 @@ describe("getCurrentRunState", () => {
 		insertEvent(db, {
 			runId,
 			type: "status_change",
-			step: "build",
+			step: "implementation",
 			data: JSON.stringify({ status: "running" }),
 		});
 		insertEvent(db, {
 			runId,
 			type: "status_change",
-			step: "build",
+			step: "implementation",
 			unit: "T1",
 			data: JSON.stringify({ status: "running" }),
 		});
 
 		const state = getCurrentRunState(db, runId);
-		expect(state).toBe("build");
+		expect(state).toBe("implementation");
 	});
 
 	test("ignores non-status_change events", async () => {
@@ -167,7 +167,7 @@ describe("getCurrentRunState", () => {
 		insertEvent(db, {
 			runId,
 			type: "btw_update",
-			step: "design",
+			step: "planning",
 			data: JSON.stringify({ message: "hello" }),
 		});
 
@@ -181,25 +181,27 @@ describe("formatStepValidationError", () => {
 		const msg = formatStepValidationError(
 			"biulding",
 			"build",
-			["requirements", "design", "tasks", "build", "verify", "archive"],
-			"tasks",
-			["build"],
+			["requirements", "planning", "implementation", "release"],
+			"planning",
+			["implementation", "planning"],
 		);
 
 		expect(msg).toContain('step "biulding"');
 		expect(msg).toContain('"build" state machine');
 		expect(msg).toContain(
-			"Valid states: [requirements, design, tasks, build, verify, archive]",
+			"Valid states: [requirements, planning, implementation, release]",
 		);
-		expect(msg).toContain('Current state: "tasks"');
-		expect(msg).toContain('Valid transitions from "tasks": [build]');
+		expect(msg).toContain('Current state: "planning"');
+		expect(msg).toContain(
+			'Valid transitions from "planning": [implementation, planning]',
+		);
 	});
 
 	test("formats error without current state when state unknown", () => {
 		const msg = formatStepValidationError(
 			"biulding",
 			"build",
-			["requirements", "design", "tasks", "build", "verify", "archive"],
+			["requirements", "planning", "implementation", "release"],
 			null,
 			null,
 		);
@@ -207,7 +209,7 @@ describe("formatStepValidationError", () => {
 		expect(msg).toContain('step "biulding"');
 		expect(msg).toContain('"build" state machine');
 		expect(msg).toContain(
-			"Valid states: [requirements, design, tasks, build, verify, archive]",
+			"Valid states: [requirements, planning, implementation, release]",
 		);
 		expect(msg).not.toContain("Current state:");
 		expect(msg).not.toContain("Valid transitions from");
@@ -218,11 +220,13 @@ describe("formatStepValidationError", () => {
 			"invalid",
 			"build",
 			["a", "b", "c"],
-			"verify",
-			["build", "archive"],
+			"release",
+			["implementation", "release"],
 		);
 
-		expect(msg).toContain('Valid transitions from "verify": [build, archive]');
+		expect(msg).toContain(
+			'Valid transitions from "release": [implementation, release]',
+		);
 	});
 
 	test("handles empty valid transitions list", () => {
@@ -385,7 +389,7 @@ describe("validateStepAgainstStateMachine", () => {
 		insertEvent(db, {
 			runId,
 			type: "status_change",
-			step: "tasks",
+			step: "planning",
 			data: JSON.stringify({ status: "running" }),
 		});
 
@@ -403,8 +407,8 @@ describe("validateStepAgainstStateMachine", () => {
 		);
 
 		const msg = getErrorMessage(error);
-		expect(msg).toContain('Current state: "tasks"');
-		expect(msg).toContain('Valid transitions from "tasks"');
+		expect(msg).toContain('Current state: "planning"');
+		expect(msg).toContain('Valid transitions from "planning"');
 	});
 
 	test("returns error when state machine cannot be loaded for known workflow", async () => {
@@ -603,7 +607,7 @@ describe("emit pipeline: step validation integration", () => {
 		const input: EmitInput = {
 			type: "status_change",
 			runId: `run-load-fail-${Date.now()}`,
-			step: "build",
+			step: "implementation",
 			workflow: "nonexistent-workflow-abc",
 			projectPath: tempDir,
 			data: {
@@ -672,7 +676,7 @@ describe("predecessor auto-completion", () => {
 		const input2: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "design",
+			step: "planning",
 			workflow: "build",
 			projectPath: tempDir,
 			data: { status: "running", workflow: "build", feature: "feat" },
@@ -708,7 +712,7 @@ describe("predecessor auto-completion", () => {
 		const input: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "design",
+			step: "planning",
 			workflow: "build",
 			projectPath: tempDir,
 			data: { status: "running", workflow: "build", feature: "feat" },
@@ -744,7 +748,7 @@ describe("predecessor auto-completion", () => {
 		const input2: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "design",
+			step: "planning",
 			workflow: "build",
 			projectPath: tempDir,
 			data: { status: "running", workflow: "build", feature: "feat" },
@@ -772,7 +776,7 @@ describe("predecessor auto-completion", () => {
 		const input2: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "design",
+			step: "planning",
 			workflow: "build",
 			projectPath: tempDir,
 			data: { status: "running", workflow: "build", feature: "feat" },
@@ -800,7 +804,7 @@ describe("predecessor auto-completion", () => {
 		const input2: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "build",
+			step: "implementation",
 			workflow: "build",
 			projectPath: tempDir,
 			data: { status: "running", workflow: "build", feature: "feat" },
@@ -826,7 +830,7 @@ describe("predecessor auto-completion", () => {
 		const input2: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "design",
+			step: "planning",
 			unit: "T1",
 			workflow: "build",
 			projectPath: tempDir,
@@ -858,7 +862,7 @@ describe("predecessor auto-completion", () => {
 		const input2: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "design",
+			step: "planning",
 			workflow: "build",
 			projectPath: tempDir,
 			data: { status: "completed", workflow: "build", feature: "feat" },
@@ -889,7 +893,7 @@ describe("predecessor auto-completion", () => {
 		const input2: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "design",
+			step: "planning",
 			workflow: "build",
 			projectPath: tempDir,
 			data: { status: "running", workflow: "build", feature: "feat" },
@@ -911,14 +915,14 @@ describe("predecessor auto-completion", () => {
 			(e) =>
 				e.step === "requirements" && JSON.parse(e.data).status === "completed",
 		);
-		const designRunning = events.find(
-			(e) => e.step === "design" && JSON.parse(e.data).status === "running",
+		const planningRunning = events.find(
+			(e) => e.step === "planning" && JSON.parse(e.data).status === "running",
 		);
 
 		expect(reqCompleted).toBeDefined();
-		expect(designRunning).toBeDefined();
-		if (reqCompleted && designRunning) {
-			expect(reqCompleted.created_at <= designRunning.created_at).toBe(true);
+		expect(planningRunning).toBeDefined();
+		if (reqCompleted && planningRunning) {
+			expect(reqCompleted.created_at <= planningRunning.created_at).toBe(true);
 		}
 	});
 });
