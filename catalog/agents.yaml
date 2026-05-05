@@ -118,7 +118,7 @@ agents:
   - name: rp1-dev:code-checker
     description: "Fast code hygiene validation (linters, formatters, tests, coverage) for quick dev loop feedback"
     plugin: dev
-    last_checksum: 06fc9021fe043da8369e8b54107297f5a77a827c8dc914856f06cd15c9c75669
+    last_checksum: 232540fcc1fa57431a4d674fbe01aa2463a8e569ea3622b1971303cdce9cdb24
   - name: rp1-dev:comment-cleaner
     description: "Systematically removes unnecessary comments from manifest-owned code lines while preserving docstrings, critical logic explanations, and type directives"
     plugin: dev
@@ -146,7 +146,7 @@ agents:
   - name: rp1-dev:feature-verifier
     description: "Verifies feature acceptance criteria and requirements mapping with full KB context awareness for comprehensive feature validation before merge"
     plugin: dev
-    last_checksum: 7f95fedd89a9f5ff6fe713ccbe31dfc3f5ae42ee52f376f6c034d1f9ec076446
+    last_checksum: 45ba9693c907276be4287ddc9abc928a3dd081ed6eef75e7ca6d478332a181ad
   - name: rp1-dev:hypothesis-tester
     description: "Validates design hypotheses through code experiments, codebase analysis, and external research"
     plugin: dev
@@ -206,7 +206,7 @@ agents:
   - name: rp1-dev:task-reviewer
     description: "Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification."
     plugin: dev
-    last_checksum: 1e5086a09deebd4572d0b6175aea10006c7c95144e80799e913a8b8e8ac30d4b
+    last_checksum: 5a58761820f915019c8a622447be2eefef749a9de8599124ad5f0bf1aa50ba86
   - name: rp1-dev:test-runner
     description: "Executes comprehensive functional testing of implemented features including automated tests, coverage measurement, acceptance criteria verification, and detailed test reporting"
     plugin: dev

@@ -32,6 +32,11 @@ arguments:
     type: string
     required: true
     description: "Canonical work root returned by the parent workflow bootstrap"
+  - name: CODE_ROOT
+    type: string
+    required: false
+    default: ""
+    description: "Active source checkout root returned by the parent workflow bootstrap"
 ---
 
 # Code Checker Agent
@@ -44,10 +49,18 @@ arguments:
 <report_directory>$4 (default: `{WORK_ROOT}/features/{FEATURE_ID}/` if FEATURE_ID, else `{WORK_ROOT}/`)</report_directory>
 <kb_root>{{KB_ROOT from prompt}}</kb_root>
 <work_root>{{WORK_ROOT from prompt}}</work_root>
+<code_root>{{CODE_ROOT from prompt}}</code_root>
 
 ## §CTX
 
 Read `{KB_ROOT}/index.md` for project structure. Do NOT load additional KB files. If `{KB_ROOT}/` missing → continue w/o KB.
+
+## §SOURCE
+
+- If `CODE_ROOT` is non-empty, use it as `SOURCE_ROOT`.
+- If `CODE_ROOT` is empty, fall back to `git rev-parse --show-toplevel`, then `pwd`.
+- Run config scans and quality commands from `SOURCE_ROOT`.
+- Use `WORK_ROOT` only for report output and feature artifacts.
 
 ## §OBJ
 
@@ -87,16 +100,17 @@ Execute complete code quality validation:
 
 **Execution**:
 
-1. Detect build system via config scan
-2. Extract/validate commands per check type
-3. Run lint → parse results
-4. Run format check → parse results
-5. Run tests w/ coverage → parse results
-6. Aggregate w/ validation
-7. Scan existing reports → determine next number
-8. Generate markdown report
-9. Write report + output summary
-10. Stop
+1. Resolve `SOURCE_ROOT`
+2. Detect build system via config scan from `SOURCE_ROOT`
+3. Extract/validate commands per check type
+4. Run lint → parse results
+5. Run format check → parse results
+6. Run tests w/ coverage → parse results
+7. Aggregate w/ validation
+8. Scan existing reports → determine next number
+9. Generate markdown report
+10. Write report + output summary
+11. Stop
 
 ## §OUT
 

@@ -36,6 +36,11 @@ arguments:
     required: false
     default: ""
     description: "Parent workflow run ID for status attribution"
+  - name: CODE_ROOT
+    type: string
+    required: false
+    default: ""
+    description: "Active source checkout root returned by the parent workflow bootstrap"
 ---
 
 # Feature Verifier Agent - Acceptance Criteria Validation
@@ -62,15 +67,19 @@ $1
 {{WORK_ROOT from prompt}}
 </work_root>
 
+<code_root>
+{{CODE_ROOT from prompt}}
+</code_root>
+
 <test_scope>
 $3
 </test_scope>
 
 ## Checkout Root Resolution
 
-- Before inspecting implementation files, resolve the active checkout root with `pwd`.
-- If `git rev-parse --show-toplevel` succeeds, prefer that path for repository code inspection and absolute code references in the report.
-- Treat that checkout root as the source of truth for repository files, especially when the workflow was launched from a git worktree.
+- If `CODE_ROOT` is non-empty, use it as the active checkout root for repository code inspection and absolute code references in the report.
+- If `CODE_ROOT` is empty, resolve the active checkout root with `git rev-parse --show-toplevel`, then `pwd`.
+- Treat the active checkout root as the source of truth for repository files, especially when the workflow was launched from a git worktree.
 - Use `{WORK_ROOT}` only for durable workflow artifacts under `.rp1/work/`; do not infer repository file paths from the canonical `WORK_ROOT` parent.
 - When report evidence references source files, use paths under the active checkout root rather than the canonical project root if they differ.
 
@@ -89,7 +98,7 @@ Before executing the workflow, you must systematically plan your verification ap
    ```
 
 2. **File Path Planning**: Determine exact paths for:
-   - Active checkout root for repository code inspection (resolve with `pwd` / `git rev-parse --show-toplevel`)
+   - Active checkout root for repository code inspection (prefer `CODE_ROOT`; fallback to `git rev-parse --show-toplevel` / `pwd`)
    - Feature directory (`{WORK_ROOT}/features/{FEATURE_ID}/`)
    - requirements.md file
    - design.md file
