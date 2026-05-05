@@ -265,6 +265,24 @@ function readStoredTabs() {
 		: null;
 }
 
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason?: unknown) => void;
+	const promise = new Promise<T>((promiseResolve, promiseReject) => {
+		resolve = promiseResolve;
+		reject = promiseReject;
+	});
+	return { promise, resolve, reject };
+}
+
+function contentResponse(content: string): Response {
+	return {
+		ok: true,
+		statusText: "OK",
+		json: async () => ({ content }),
+	} as Response;
+}
+
 async function renderArtifactViewerPage(
 	initialEntry = "/runs/run-1/artifacts/docs/tasks.md",
 ) {
@@ -349,6 +367,65 @@ describe("ArtifactViewerPage", () => {
 		expect(breadcrumbApi.setActiveArtifact).toHaveBeenCalledWith(
 			"run-1",
 			"docs/tasks.md",
+		);
+	});
+
+	test("ignores stale artifact content when artifact fetches resolve out of order", async () => {
+		const firstArtifact: Artifact = {
+			...baseRun.artifacts[0],
+			docId: "doc-first",
+			path: "docs/first.md",
+			absolutePath: "/repo/docs/first.md",
+			label: "First Artifact",
+		};
+		const secondArtifact: Artifact = {
+			...baseRun.artifacts[0],
+			docId: "doc-second",
+			path: "docs/second.md",
+			absolutePath: "/repo/docs/second.md",
+			label: "Second Artifact",
+		};
+		const firstFetch = deferred<Response>();
+		const secondFetch = deferred<Response>();
+		run = {
+			...baseRun,
+			artifacts: [firstArtifact, secondArtifact],
+		};
+		global.fetch = mock((input: RequestInfo | URL) => {
+			const url = String(input);
+			if (url.includes(encodeURIComponent(firstArtifact.path))) {
+				return firstFetch.promise;
+			}
+			if (url.includes(encodeURIComponent(secondArtifact.path))) {
+				return secondFetch.promise;
+			}
+			return Promise.reject(new Error(`Unexpected artifact request: ${url}`));
+		}) as unknown as typeof fetch;
+
+		await renderArtifactViewerPage("/runs/run-1/artifacts/docs/first.md");
+
+		await waitFor(() => {
+			expect(global.fetch).toHaveBeenCalledTimes(1);
+		});
+
+		fireEvent.click(screen.getByRole("button", { name: "Second Artifact" }));
+
+		await waitFor(() => {
+			expect(global.fetch).toHaveBeenCalledTimes(2);
+		});
+
+		secondFetch.resolve(contentResponse("# Second artifact"));
+		await waitFor(() => {
+			expect(screen.getByTestId("artifact-renderer").textContent).toBe(
+				"docs/second.md:# Second artifact",
+			);
+		});
+
+		firstFetch.resolve(contentResponse("# First artifact"));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(screen.getByTestId("artifact-renderer").textContent).toBe(
+			"docs/second.md:# Second artifact",
 		);
 	});
 

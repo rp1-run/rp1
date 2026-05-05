@@ -212,6 +212,7 @@ export function ArtifactViewerPage() {
 		scrollTop: number;
 		scrollHeight: number;
 	} | null>(null);
+	const latestContentRequestIdRef = useRef(0);
 
 	const {
 		followMode,
@@ -405,13 +406,20 @@ export function ArtifactViewerPage() {
 
 	const fetchArtifactContentWithScrollPreservation = useCallback(
 		async (preserveScroll: boolean) => {
+			const requestId = latestContentRequestIdRef.current + 1;
+			latestContentRequestIdRef.current = requestId;
+			const isLatestContentRequest = () =>
+				latestContentRequestIdRef.current === requestId;
+
 			if (!run || !selectedArtifactPath) {
 				savedScrollState.current = null;
+				setContentLoading(false);
 				setArtifactContent(null);
 				return;
 			}
 			if (!selectedArtifact) {
 				savedScrollState.current = null;
+				setContentLoading(false);
 				setContentError("Artifact not found");
 				setArtifactContent(null);
 				return;
@@ -446,6 +454,9 @@ export function ArtifactViewerPage() {
 				const response = await fetch(
 					`/api/v2/runs/${runId}/artifacts/${encodeURIComponent(selectedArtifact.path)}`,
 				);
+				if (!isLatestContentRequest()) {
+					return;
+				}
 				if (!response.ok) {
 					let errorMessage = `Failed to fetch artifact: ${response.statusText}`;
 					try {
@@ -461,6 +472,9 @@ export function ArtifactViewerPage() {
 					throw new Error(errorMessage);
 				}
 				const data = (await response.json()) as { content: string };
+				if (!isLatestContentRequest()) {
+					return;
+				}
 				const nextContent = {
 					path: selectedArtifact.path,
 					content: data.content,
@@ -477,11 +491,14 @@ export function ArtifactViewerPage() {
 					return nextContent;
 				});
 			} catch (err) {
+				if (!isLatestContentRequest()) {
+					return;
+				}
 				savedScrollState.current = null;
 				setContentError(err instanceof Error ? err.message : String(err));
 				setArtifactContent(null);
 			} finally {
-				if (!preserveScroll) {
+				if (isLatestContentRequest()) {
 					setContentLoading(false);
 				}
 			}
