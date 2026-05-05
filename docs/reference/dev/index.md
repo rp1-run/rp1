@@ -13,7 +13,7 @@ Build features with full workflow orchestration.
 
 | Skill | Description |
 |---------|-------------|
-| [`build`](build.md) | **Primary skill** -- End-to-end feature workflow (requirements -> design -> build -> verify -> archive) |
+| [`build`](build.md) | **Primary skill** -- End-to-end feature workflow (`requirements` -> `planning` -> `implementation` -> `release`) |
 | [`build-fast`](build-fast.md) | Quick iteration for small, well-scoped tasks |
 | [`phase-plan`](phase-plan.md) | Decompose a completed PRD or oversized requirements artifact into delivery phases |
 | [`validate-hypothesis`](validate-hypothesis.md) | Test design assumptions through experiments |
@@ -79,38 +79,35 @@ Use the same workflow on every host:
 | OpenCode | `/rp1-dev-build my-feature` |
 | Codex | `$rp1-dev-build my-feature` |
 
-`/build` is the primary entry point for large or multi-step feature work, and
-`/phase-plan` sits just ahead of it when a planning source is too large for one
-independent feature:
+`/build` is the primary entry point for large or multi-step feature work. It is
+resumable by workflow state: rp1 reuses an active run for the same canonical
+project and `FEATURE_ID`, then continues from the next incomplete parent phase
+instead of inferring progress from artifact filenames. `/phase-plan` sits just
+ahead of it when a planning source is too large for one independent feature:
 
 ```mermaid
 flowchart LR
     P[Phase Plan]
     P --> R[Requirements]
-    R --> D[Design]
-    D --> B[Build]
-    B --> V[Verify]
-    V --> UR[User Review]
-    UR -->|More work| F[Follow-up]
-    F --> B
-    UR -->|Done| A[Archive]
+    R --> PL[Planning]
+    PL --> I[Implementation]
+    I --> REL[Release]
+    REL -->|Add task| I
+    REL -->|Archive or decline| Done[Complete]
 ```
 
-`/build` is resumable: rp1 reuses an active non-terminal run only when the
-canonical project and `FEATURE_ID` match, then continues from the first
-incomplete step in the canonical feature directory. `build-fast` uses the same
-bootstrap contract, but always starts a fresh run and writes its plan under
-`.rp1/work/quick-builds/`.
+`build-fast` uses the same bootstrap contract, but always starts a fresh run and
+writes its plan under `.rp1/work/quick-builds/`.
 
-| Step | What Happens | Artifact |
-|------|--------------|----------|
-| Requirements | Collect and document requirements | `requirements.md` |
-| Design | Generate technical design + tasks | `design.md`, `tasks.md` |
-| Build | Implement via builder-reviewer | Code changes |
-| Verify | Validate against acceptance criteria | `verification-report.md` |
-| User Review | Manual verification checkpoint | User decision |
-| Follow-up | Add more work if needed | Loops to Build |
-| Archive | Store completed feature | Archived artifacts |
+| Parent Phase | What Happens | Primary Artifacts |
+|--------------|--------------|-------------------|
+| `requirements` | Collect and document requirements, scope, and traceability | `requirements.md` |
+| `planning` | Generate design, validate assumptions when needed, and write the accepted task plan once | `design.md`, `tasks.md`, `tasks.json` |
+| `implementation` | Run builder-reviewer task units, mechanical checks, feature verification, and manifest-gated comment cleanup | Code changes, validation envelopes, cleanup manifest artifacts |
+| `release` | Present readiness, manual verification items, archive choice, and add-task option | `build-readiness.md`, optional archived outputs |
+
+Machine implementation planning consumes `tasks.json`. `tasks.md` remains the
+human review artifact and mirrors the same task IDs.
 
 **When to use which skill:**
 
@@ -160,4 +157,6 @@ After installation, start a new feature:
     $rp1-dev-build my-feature
     ```
 
-This runs the complete feature workflow -- collecting requirements, generating design, implementing with builder-reviewer, and verifying the result.
+This runs the complete feature workflow -- collecting requirements, planning,
+implementing with builder-reviewer, aggregating readiness, and completing the
+release decision.

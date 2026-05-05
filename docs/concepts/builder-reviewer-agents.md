@@ -89,7 +89,12 @@ Unresolvable issues don't silently pass — they escalate. This prevents broken 
 
 ## Adaptive Task Grouping
 
-Not all tasks need the same level of scrutiny. rp1 groups tasks by complexity:
+Not all tasks need the same level of scrutiny. In Build v2, `/build` gets task
+units from the schema-backed `tasks.json` plan produced during `planning`. The
+human-readable `tasks.md` mirrors those IDs for review, but machine grouping
+does not depend on markdown parsing.
+
+rp1 groups tasks by complexity:
 
 | Complexity | Grouping | Review Depth |
 |------------|----------|--------------|
@@ -99,13 +104,43 @@ Not all tasks need the same level of scrutiny. rp1 groups tasks by complexity:
 
 Simple tasks like "add a config option" can be batched for efficiency. Complex tasks like "implement authentication middleware" get individual attention.
 
+Documentation tasks are represented separately from code tasks. `/build`
+completes them only through a supported workflow; otherwise they become
+explicit manual or follow-up items in readiness and release instead of being
+silently treated as implemented code.
+
+---
+
+## Validation Responsibility Split
+
+Builder-reviewer is the per-task implementation gate, not the final release
+verdict. Build v2 keeps validation responsibilities separate so reviewers can
+see what each layer proved:
+
+| Layer | Owner | Responsibility |
+|-------|-------|----------------|
+| Implementation | `task-builder` | Apply the assigned task unit within scope, update the task status, and run focused local validation when useful |
+| Per-task review | `task-reviewer` | Check task scope, design conformance, acceptance references, and regressions for the assigned task unit |
+| Mechanical checks | `code-checker` | Run project format, lint, typecheck, test, or coverage commands and report mechanical failures separately |
+| Requirement evidence | `feature-verifier` | Map requirements and acceptance criteria to satisfied, blocked, not applicable, or manually verified evidence |
+| Comment cleanup | `comment-cleaner` | Clean only manifest-owned comment ranges and report skipped cleanup or severe scope-breaking findings separately |
+| Readiness aggregation | `build-verify-aggregator` | Combine validation envelopes into `PASS`, `WARN`, `FAIL`, or `WAITING` readiness and write `build-readiness.md` |
+
+`PASS` and `WARN` can proceed to release when no blocking issues remain.
+`FAIL` returns to implementation or stops. `WAITING` means human evidence is
+required before readiness can be claimed.
+
+Manual verification items and documentation follow-ups stay visible in
+`build-readiness.md` and the release gate. They are not hidden inside per-task
+review output.
+
 ---
 
 ## When Builder-Reviewer Is Used
 
 The builder-reviewer architecture is used in:
 
-- **`/build`** — Feature implementation (Step 3: Build)
+- **`/build`** - Feature implementation during the `implementation` phase
 - **`/build-fast`** — Quick iterations
 
 ---
