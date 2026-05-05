@@ -95,20 +95,15 @@ export function LinkSidebar({
 											title={target}
 										>
 											<div className="flex items-start gap-2">
-												<LinkIcon
-													className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground"
-													strokeWidth={1.5}
-													aria-hidden="true"
-												/>
 												<span className="min-w-0 flex-1">
-													<span className="block truncate text-sm text-fg">
+													<span className="block whitespace-normal break-words text-sm leading-snug text-fg">
 														{label}
 													</span>
-													<span className="mt-0.5 block truncate text-xs text-muted-foreground">
+													<span className="mt-0.5 block whitespace-normal break-words text-xs leading-snug text-muted-foreground">
 														{target}
 													</span>
 													{sourceContext && (
-														<span className="mt-1 block truncate text-xs text-fg-muted">
+														<span className="mt-1 block whitespace-normal break-words text-xs leading-snug text-fg-muted">
 															{sourceContext}
 														</span>
 													)}
