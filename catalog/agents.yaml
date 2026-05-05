@@ -188,9 +188,9 @@ agents:
     plugin: dev
     last_checksum: ad7bff389fb454da2d343914d00e5130f5855a3961334a893dbd4e03f227138a
   - name: rp1-dev:pr-walkthrough-reporter
-    description: "Generate an evidence-grounded plain markdown walkthrough for a pull request"
+    description: "Generate an evidence-grounded slide-ready markdown walkthrough for a pull request"
     plugin: dev
-    last_checksum: f63c5410d20dcb23877d2c3adb4aa27519c83adebe14911d7da0cfc3d8cccd85
+    last_checksum: bd895d0baf134a07dd8a03772dd68b4f62445902c82eae14d1dbf9f2853d52ac
   - name: rp1-dev:prd-archiver
     description: "Archives completed PRDs to .rp1/work/archives/prds/, archives associated completed features, checks KB staleness, and generates closure summaries"
     plugin: dev
