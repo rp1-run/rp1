@@ -109,6 +109,7 @@ Parse the JSON `ToolResult`.
 
 - If the tool fails or returns malformed output: emit `requirements` failed, report the tool error, STOP.
 - If `data.summary.contract_gaps` is non-empty: choose the first gap by phase order, emit `waiting_for_user` and `status_change waiting` on that gap phase, report missing registered outputs, STOP. Do not inspect feature files or infer success from filenames.
+- Set `WORKFLOW_STATE = data`.
 - Set `START_PHASE = data.summary.next_phase`.
 - If `START_PHASE` is `null`: output an already-complete summary from registered workflow state and STOP.
 - Phase order: `requirements` -> `planning` -> `implementation` -> `release`.
@@ -640,6 +641,26 @@ If GIT_COMMIT: stage+commit. If GIT_PUSH: push. If GIT_PR: create PR.
 
 **Skip if**: `START_PHASE` is after `release`.
 
+Release MUST start only after readiness aggregation has completed.
+
+Before emitting `release` running:
+
+1. Set `READINESS_CONTRACT` from the `build-verify-aggregator` JSON returned in §4.6 when this invocation ran implementation.
+2. If resuming directly at `release`, set `READINESS_CONTRACT` from `WORKFLOW_STATE.artifacts` only when a registered artifact exists with `path = "features/{FEATURE_ID}/build-readiness.md"` and `storageRoot = "work_dir"`.
+3. If no readiness contract or registered readiness artifact exists, emit `implementation` waiting with `reason = "missing_readiness_contract"` and STOP. Do not emit `release` running.
+4. If `READINESS_CONTRACT.readiness_status` is `FAIL` or `WAITING`, or `ready_for_release` is false, return to §4.6 readiness handling. Do not start release.
+
+Missing readiness emit:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step implementation \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "reason": "missing_readiness_contract"}'
+```
+
 Emit `release` running before presenting release options:
 
 ```bash
@@ -651,7 +672,7 @@ rp1 agent-tools emit \
   --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
 
-Output: Feature ID, phase status table, registered artifacts, readiness status, blockers, warnings, and manual items.
+Output: Feature ID, phase status table, registered artifacts, readiness artifact, readiness status, blockers, warnings, and manual items. Show manual checklist status before archive options: satisfied, not applicable, or still visible as release notes. Do not claim manual items are complete unless the readiness contract says so.
 
 **Release gate** (skip if AFK; AFK defaults to archive):
 
@@ -661,13 +682,45 @@ rp1 agent-tools emit \
   --type waiting_for_user \
   --run-id {RUN_ID} \
   --step release \
-  --data '{"prompt": "Add task, Archive, Review feedback from Arcade, or Do not archive?", "context": "Readiness complete"}'
+  --data '{"prompt": "Add task, Archive, Review feedback from Arcade, Complete without archive, or Stop?", "context": "Readiness complete. Manual checklist and archive decision required."}'
 ```
 
-{% ask_user "Add task, Archive, Review feedback from Arcade, or Do not archive?", options: "Add task", "Archive", "Review feedback from Arcade", "Do not archive" %}
-On Add task: return to `implementation`; parent `release` must not complete until release is re-entered after implementation.
+{% ask_user "Add task, Archive, Review feedback from Arcade, Complete without archive, or Stop?", options: "Add task", "Archive", "Review feedback from Arcade", "Complete without archive", "Stop" %}
+On Add task: emit `release` waiting with `archive_status = "deferred"`, emit `implementation` waiting with `reason = "release_add_task"`, collect the added-task request, and STOP with `/build {FEATURE_ID}` resume instructions. Parent `release` MUST NOT complete until release is re-entered after implementation and readiness re-aggregation.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
-On Do not archive: emit `release` completed with `archive_status: "declined"` and STOP.
+On Stop: emit `release` waiting with `archive_status = "deferred"` and STOP with `/build {FEATURE_ID}` resume instructions.
+On Complete without archive: emit `release` completed with `archive_status: "declined"` and STOP. Do not run `feature-archiver`. Do not claim archive completion.
+
+Add-task transition emits:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step release \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "archive_status": "deferred", "reason": "add_task_requested"}'
+```
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step implementation \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "reason": "release_add_task"}'
+```
+
+Stop emits:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step release \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "archive_status": "deferred"}'
+```
 
 ```bash
 rp1 agent-tools emit \
@@ -681,10 +734,19 @@ rp1 agent-tools emit \
 ### Archive
 
 {% dispatch_agent "rp1-dev:feature-archiver" %}
-MODE=archive, FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, SKIP_DOC_CHECK=false
+MODE=archive, FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, SKIP_DOC_CHECK=false, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-After `feature-archiver` succeeds, emit `release` completed:
+Parse the `feature-archiver` response before completing release:
+
+- Accept success only from final `ARCHIVE_RESULT_JSON={...}` or a JSON object with `status = "success"`, `mode = "archive"`, `archive_status = "completed"`, `archive_path`, and an `artifacts[]` entry for the actual archived output.
+- The archived artifact path MUST begin with `archives/features/` and use `storageRoot = "work_dir"`.
+- In `/build`, require `registration_status = "registered"` because `WORKFLOW` and `RUN_ID` were passed to `feature-archiver`.
+- If the response is `needs_confirmation`, malformed, missing the archive result, missing archived artifact registration evidence, or reports an error, do NOT emit `release` completed.
+- Interactive failure: emit `release` waiting with `reason = "archive_incomplete"` and STOP.
+- AFK failure: emit `release` failed only when no recovery remains.
+
+Archive-incomplete emit:
 
 ```bash
 rp1 agent-tools emit \
@@ -692,7 +754,18 @@ rp1 agent-tools emit \
   --type status_change \
   --run-id {RUN_ID} \
   --step release \
-  --data '{"status": "completed", "feature": "{FEATURE_ID}", "archive_status": "completed"}'
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "archive_status": "incomplete", "reason": "archive_incomplete"}'
+```
+
+After `feature-archiver` succeeds and registers the actual archived output, emit `release` completed:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step release \
+  --data '{"status": "completed", "feature": "{FEATURE_ID}", "archive_status": "completed", "archive_path": "{ARCHIVE_RESULT.archive_path}"}'
 ```
 
 ## §TERMINAL-STATES
@@ -703,7 +776,7 @@ rp1 agent-tools emit \
 |-----------|--------|------|
 | Archive completes successfully | `completed` | `release` |
 | User selects "Stop" at any checkpoint | `waiting` | current step |
-| User selects "Do not archive" at release gate | `completed` | `release` |
+| User selects "Complete without archive" at release gate | `completed` | `release` |
 | Unrecoverable agent failure | `failed` | failing parent phase |
 | AFK mode abort | `failed` | failing parent phase |
 

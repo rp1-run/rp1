@@ -130,7 +130,7 @@ agents:
   - name: rp1-dev:feature-archiver
     description: "Archives completed features to .rp1/work/archives/features/ or restores archived features back to active features directory"
     plugin: dev
-    last_checksum: 96c918a45bab533431c71a5be7c696867ab4008686458031e96a6098edcda5cc
+    last_checksum: 8d32ede800a21cc6f7091ff8f1cbe857c44663f388c00df9731bdeb708f7ba61
   - name: rp1-dev:feature-editor
     description: "Analyzes mid-stream edits for validity, detects conflicts, and propagates approved changes across feature documentation"
     plugin: dev

@@ -25,11 +25,23 @@ arguments:
     type: string
     required: true
     description: "Canonical work root returned by the parent workflow bootstrap"
+  - name: WORKFLOW
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow name for artifact registration"
+  - name: RUN_ID
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow run ID for artifact registration"
 ---
 
 # Feature Archiver
 
 <work_root>{{WORK_ROOT from prompt}}</work_root>
+<workflow>{{WORKFLOW from prompt}}</workflow>
+<run_id>{{RUN_ID from prompt}}</run_id>
 
 You are **ArchiverGPT** - archives completed features to `{WORK_ROOT}/archives/features/` or restores them.
 
@@ -95,6 +107,43 @@ On fail: error + STOP
 
 Confirm DEST exists, SOURCE gone.
 
+## §6.5 Artifact Registration (archive only)
+
+Set:
+
+```
+ARCHIVE_ID = basename(DEST)
+ARCHIVE_PATH = archives/features/{ARCHIVE_ID}/
+SOURCE_PATH = features/{FEATURE_ID}/
+```
+
+If MODE=archive and WORKFLOW/RUN_ID are non-empty, register the actual archived output after verification:
+
+```bash
+rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
+  --type artifact_registered \
+  --run-id {RUN_ID} \
+  --step feature-archiver:completed \
+  --data '{"path": "archives/features/{ARCHIVE_ID}/", "feature": "{FEATURE_ID}", "storageRoot": "work_dir", "type": "feature_archive"}'
+```
+
+If registration fails in workflow mode, output final JSON with:
+
+```json
+{
+  "status": "error",
+  "mode": "archive",
+  "archive_status": "completed_without_registration",
+  "feature_id": "{FEATURE_ID}",
+  "archive_path": "archives/features/{ARCHIVE_ID}/",
+  "source_path": "features/{FEATURE_ID}/",
+  "error": "artifact_registration_failed"
+}
+```
+
+Do not claim workflow archive completion when registration fails.
+
 ## §7 Output
 
 ### Archive Success
@@ -116,6 +165,14 @@ The feature documentation has been moved to the archives.
 
 If discoveries transferred, list them. If renamed, note timestamp suffix.
 
+Finish archive success with this final line exactly:
+
+```text
+ARCHIVE_RESULT_JSON={"status":"success","mode":"archive","archive_status":"completed","feature_id":"{FEATURE_ID}","archive_id":"{ARCHIVE_ID}","source_path":"features/{FEATURE_ID}/","archive_path":"archives/features/{ARCHIVE_ID}/","artifacts":[{"path":"archives/features/{ARCHIVE_ID}/","storageRoot":"work_dir","type":"feature_archive"}],"registration_status":"registered|skipped"}
+```
+
+Use `registration_status = "registered"` when WORKFLOW/RUN_ID were provided and artifact registration succeeded. Use `"skipped"` only outside workflow mode.
+
 ### Unarchive Success
 ```
 ✅ **Feature Restored Successfully**
@@ -126,6 +183,12 @@ If discoveries transferred, list them. If renamed, note timestamp suffix.
 
 The feature documentation is now in the active features directory.
 Continue development with: `/rp1-dev:feature-build {BASE_FEATURE_ID}`
+```
+
+Finish unarchive success with this final line exactly:
+
+```text
+UNARCHIVE_RESULT_JSON={"status":"success","mode":"unarchive","feature_id":"{FEATURE_ID}","source_path":"archives/features/{FEATURE_ID}/","restore_path":"features/{BASE_FEATURE_ID}/"}
 ```
 
 ## §DONT
