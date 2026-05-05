@@ -25,6 +25,7 @@ export interface ArtifactContentSurfaceControls {
 	readonly toggleTableOfContents: () => void;
 	readonly showAnnotationToggle: boolean;
 	readonly toggleAnnotations: () => void;
+	readonly closeSecondaryPanels: () => void;
 }
 
 export interface ArtifactContentSurfaceProps {
@@ -37,6 +38,8 @@ export interface ArtifactContentSurfaceProps {
 		controls: ArtifactContentSurfaceControls,
 	) => ReactNode;
 	readonly footer?: ReactNode;
+	readonly sidePanel?: ReactNode;
+	readonly onSecondaryPanelOpen?: () => void;
 }
 
 function ArtifactContentSurfaceInner({
@@ -47,6 +50,8 @@ function ArtifactContentSurfaceInner({
 	className,
 	renderHeader,
 	footer,
+	sidePanel,
+	onSecondaryPanelOpen,
 }: ArtifactContentSurfaceProps) {
 	const artifactPath = selectedArtifact?.path ?? null;
 	const artifactCacheKey =
@@ -179,21 +184,32 @@ function ArtifactContentSurfaceInner({
 		}
 	}, []);
 
+	const closeSecondaryPanels = useCallback(() => {
+		setTocOpen(false);
+		setAnnotationSidebarOpen(false);
+	}, []);
+
 	const handleToggleToc = useCallback(() => {
 		setTocOpen((prev) => {
 			const next = !prev;
-			if (next) setAnnotationSidebarOpen(false);
+			if (next) {
+				setAnnotationSidebarOpen(false);
+				onSecondaryPanelOpen?.();
+			}
 			return next;
 		});
-	}, []);
+	}, [onSecondaryPanelOpen]);
 
 	const handleToggleAnnotations = useCallback(() => {
 		setAnnotationSidebarOpen((prev) => {
 			const next = !prev;
-			if (next) setTocOpen(false);
+			if (next) {
+				setTocOpen(false);
+				onSecondaryPanelOpen?.();
+			}
 			return next;
 		});
-	}, []);
+	}, [onSecondaryPanelOpen]);
 
 	const controls: ArtifactContentSurfaceControls = {
 		selectedArtifact,
@@ -202,6 +218,7 @@ function ArtifactContentSurfaceInner({
 		toggleTableOfContents: handleToggleToc,
 		showAnnotationToggle: selectedArtifact !== null,
 		toggleAnnotations: handleToggleAnnotations,
+		closeSecondaryPanels,
 	};
 
 	return (
@@ -250,6 +267,8 @@ function ArtifactContentSurfaceInner({
 						/>
 					</div>
 				)}
+
+				{sidePanel}
 			</div>
 
 			{footer}

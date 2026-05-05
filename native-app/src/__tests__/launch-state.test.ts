@@ -320,12 +320,39 @@ describe("native launch state", () => {
 			};
 		};
 		const openExternal = rpcConfig.handlers.messages["rp1:open-external-url"];
+		const dispatchBridgeMessage = (message: unknown) => {
+			if (
+				typeof message !== "object" ||
+				message === null ||
+				!("type" in message) ||
+				!("id" in message)
+			) {
+				return;
+			}
+			const packet = message as {
+				readonly type?: unknown;
+				readonly id?: unknown;
+				readonly payload?: unknown;
+			};
+			if (packet.type !== "message" || typeof packet.id !== "string") {
+				return;
+			}
+			rpcConfig.handlers.messages[packet.id]?.(packet.payload);
+		};
 
 		expect(defineRPCMock).toHaveBeenCalledTimes(1);
 		expect(openExternal).toBeDefined();
 
-		openExternal?.({ url: "https://github.com/example/repo/pull/376" });
-		openExternal?.({ url: "javascript:alert(1)" });
+		dispatchBridgeMessage({
+			type: "message",
+			id: "rp1:open-external-url",
+			payload: { url: "https://github.com/example/repo/pull/376" },
+		});
+		dispatchBridgeMessage({
+			type: "message",
+			id: "rp1:open-external-url",
+			payload: { url: "javascript:alert(1)" },
+		});
 
 		expect(openExternalMock).toHaveBeenCalledTimes(1);
 		expect(openExternalMock).toHaveBeenCalledWith(

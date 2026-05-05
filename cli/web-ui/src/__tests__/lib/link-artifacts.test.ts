@@ -107,4 +107,49 @@ describe("link artifacts", () => {
 			payload: { url: "https://github.com/example/repo/pull/376" },
 		});
 	});
+
+	test("uses the native bridge when SPA navigation has dropped host mode query params", () => {
+		const openWindow = mock(() => null);
+		const postMessage = mock((_message: string) => {});
+
+		Object.defineProperty(window, "__electrobunBunBridge", {
+			configurable: true,
+			value: { postMessage },
+		});
+
+		openExternalUrl("https://github.com/example/repo/pull/376", {
+			openWindow,
+		});
+
+		expect(openWindow).not.toHaveBeenCalled();
+		expect(postMessage).toHaveBeenCalledTimes(1);
+		expect(JSON.parse(String(postMessage.mock.calls[0]?.[0]))).toEqual({
+			type: "message",
+			id: "rp1:open-external-url",
+			payload: { url: "https://github.com/example/repo/pull/376" },
+		});
+
+		Object.defineProperty(window, "__electrobunBunBridge", {
+			configurable: true,
+			value: undefined,
+		});
+	});
+
+	test("keeps explicit browser-mode links in a new tab even if a bridge is injected", () => {
+		const openWindow = mock(() => null);
+		const postMessage = mock((_message: string) => {});
+
+		openExternalUrl("https://github.com/example/repo/pull/376", {
+			hostMode: "browser",
+			nativeBridge: { postMessage },
+			openWindow,
+		});
+
+		expect(postMessage).not.toHaveBeenCalled();
+		expect(openWindow).toHaveBeenCalledWith(
+			"https://github.com/example/repo/pull/376",
+			"_blank",
+			"noopener,noreferrer",
+		);
+	});
 });

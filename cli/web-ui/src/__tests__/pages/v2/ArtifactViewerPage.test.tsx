@@ -7,7 +7,7 @@ import {
 	waitFor,
 	within,
 } from "@testing-library/react";
-import type { ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import {
 	WORKSPACE_TABS_STORAGE_KEY,
@@ -143,11 +143,11 @@ mock.module("@/components/ui/button", () => ({
 	Button: ({
 		children,
 		onClick,
+		...props
 	}: {
 		children?: ReactNode;
-		onClick?: () => void;
-	}) => (
-		<button type="button" onClick={onClick}>
+	} & ButtonHTMLAttributes<HTMLButtonElement>) => (
+		<button type="button" onClick={onClick} {...props}>
 			{children}
 		</button>
 	),
@@ -477,7 +477,7 @@ describe("ArtifactViewerPage", () => {
 		);
 	});
 
-	test("renders external links after file content as secondary information", async () => {
+	test("renders external links in a dedicated links panel", async () => {
 		const openMock = mock(() => null);
 		Object.defineProperty(window, "open", {
 			configurable: true,
@@ -513,22 +513,18 @@ describe("ArtifactViewerPage", () => {
 			);
 		});
 
-		const renderer = screen.getByTestId("artifact-renderer");
-		const externalLinks = screen.getByRole("region", {
-			name: "External links",
-		});
-		expect(
-			Boolean(
-				renderer.compareDocumentPosition(externalLinks) &
-					Node.DOCUMENT_POSITION_FOLLOWING,
-			),
-		).toBe(true);
-		expect(within(externalLinks).getByText("Reviewed PR #456")).toBeTruthy();
-		expect(externalLinks.querySelector(".lucide-link")).toBeTruthy();
+		expect(screen.queryByLabelText("Links panel")).toBeNull();
+		fireEvent.click(screen.getByRole("button", { name: "Open links panel" }));
+
+		const linksPanel = screen.getByLabelText("Links panel");
+		expect(within(linksPanel).getByText("Reviewed PR #456")).toBeTruthy();
+		expect(within(linksPanel).getByText("1 link")).toBeTruthy();
+		expect(linksPanel.querySelector(".lucide-link")).toBeTruthy();
+		expect(screen.queryByTestId("annotation-sidebar")).toBeNull();
 
 		fireEvent.click(
-			within(externalLinks).getByRole("button", {
-				name: /Reviewed PR #456/,
+			within(linksPanel).getByRole("button", {
+				name: "Open Reviewed PR #456",
 			}),
 		);
 

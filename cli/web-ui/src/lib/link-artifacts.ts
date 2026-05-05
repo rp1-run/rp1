@@ -208,13 +208,12 @@ export function orderArtifactsWithLinksLast(
 	return [...fileArtifacts, ...linkArtifacts];
 }
 
-function readHostModeFromLocation(): ArcadeHostMode {
-	if (typeof window === "undefined") return "browser";
+function readHostModeFromLocation(): ArcadeHostMode | null {
+	if (typeof window === "undefined") return null;
 	const params = new URLSearchParams(window.location.search);
-	return params.get("hostMode") === "native" ||
-		params.get("host-mode") === "native"
-		? "native"
-		: "browser";
+	const hostMode = params.get("hostMode") ?? params.get("host-mode");
+	if (hostMode === "native" || hostMode === "browser") return hostMode;
+	return null;
 }
 
 function resolveNativeBridge(
@@ -232,20 +231,18 @@ export function openExternalUrl(
 	if (typeof window === "undefined") return;
 
 	const hostMode = options.hostMode ?? readHostModeFromLocation();
-	if (hostMode === "native") {
-		const bridge = resolveNativeBridge(options);
-		if (bridge) {
-			try {
-				bridge.postMessage(
-					JSON.stringify({
-						type: "message",
-						id: NATIVE_OPEN_EXTERNAL_MESSAGE,
-						payload: { url },
-					}),
-				);
-				return;
-			} catch {}
-		}
+	const bridge = resolveNativeBridge(options);
+	if (bridge && (hostMode === "native" || hostMode === null)) {
+		try {
+			bridge.postMessage(
+				JSON.stringify({
+					type: "message",
+					id: NATIVE_OPEN_EXTERNAL_MESSAGE,
+					payload: { url },
+				}),
+			);
+			return;
+		} catch {}
 	}
 
 	const openWindow = options.openWindow ?? window.open.bind(window);

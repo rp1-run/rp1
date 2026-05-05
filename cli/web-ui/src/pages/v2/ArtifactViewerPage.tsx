@@ -34,6 +34,7 @@ import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
 import { ArtifactSidebar } from "@/components/v2/ArtifactSidebar";
 import { FollowModeToggle } from "@/components/v2/FollowModeToggle";
 import { KeyHints, VIEWER_HINTS } from "@/components/v2/KeyHints";
+import { LinkSidebar } from "@/components/v2/LinkSidebar";
 import { NewUpdatesChip } from "@/components/v2/NewUpdatesChip";
 import { TableOfContents } from "@/components/v2/TableOfContents";
 import { UnifiedContentRenderer } from "@/components/v2/UnifiedContentRenderer";
@@ -47,7 +48,6 @@ import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
 import {
-	getLinkArtifactContext,
 	getLinkArtifactLabel,
 	getLinkArtifactTarget,
 	isLinkArtifact,
@@ -163,6 +163,46 @@ function MobileAnnotationButton({
 	);
 }
 
+function LinksToggleButton({
+	count,
+	isOpen,
+	onClick,
+	ariaLabel,
+}: {
+	count: number;
+	isOpen?: boolean;
+	onClick: () => void;
+	ariaLabel: string;
+}) {
+	const LinkIcon = LINK_ARTIFACT_CONFIG.icon;
+
+	return (
+		<TooltipProvider>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8 relative"
+						onClick={onClick}
+						aria-label={ariaLabel}
+						aria-expanded={isOpen}
+						aria-pressed={isOpen}
+					>
+						<LinkIcon className="h-4 w-4" aria-hidden="true" />
+						<span className="absolute -right-1 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+							{count > 99 ? "99+" : count}
+						</span>
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>
+					<p>Links ({count})</p>
+				</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
+	);
+}
+
 export function ArtifactViewerPage() {
 	const { runId, "*": artifactPathParam } = useParams();
 	const navigate = useNavigate();
@@ -194,9 +234,11 @@ export function ArtifactViewerPage() {
 			return stored !== "true";
 		},
 	);
+	const [linksPanelOpen, setLinksPanelOpen] = useState(false);
 	const [sidebarDrawerOpen, setSidebarDrawerOpen] = useState(false);
 	const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
 	const [annotationDrawerOpen, setAnnotationDrawerOpen] = useState(false);
+	const [linksDrawerOpen, setLinksDrawerOpen] = useState(false);
 	const [liveAnnouncement, setLiveAnnouncement] = useState<string>("");
 
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
@@ -299,6 +341,7 @@ export function ArtifactViewerPage() {
 		setAnnotationSidebarOpen(false);
 		setAnnotationDrawerOpen(false);
 		setTocDrawerOpen(false);
+		setLinksDrawerOpen(false);
 		setHeadings([]);
 		setActiveHeadingId(null);
 	}, [selectedUrlArtifact]);
@@ -314,6 +357,7 @@ export function ArtifactViewerPage() {
 			const newValue = !prev;
 			if (!newValue) {
 				setAnnotationSidebarOpen(false);
+				setLinksPanelOpen(false);
 				if (typeof window !== "undefined") {
 					sessionStorage.setItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED, "true");
 				}
@@ -329,6 +373,7 @@ export function ArtifactViewerPage() {
 		setAnnotationSidebarOpen(open);
 		if (open) {
 			setTocCollapsed(true);
+			setLinksPanelOpen(false);
 			if (typeof window !== "undefined") {
 				sessionStorage.setItem(STORAGE_KEY_TOC_COLLAPSED, "true");
 			}
@@ -337,6 +382,34 @@ export function ArtifactViewerPage() {
 			sessionStorage.setItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED, String(!open));
 		}
 	}, []);
+
+	const handleToggleLinksPanel = useCallback((open: boolean) => {
+		setLinksPanelOpen(open);
+		if (open) {
+			setTocCollapsed(true);
+			setAnnotationSidebarOpen(false);
+			if (typeof window !== "undefined") {
+				sessionStorage.setItem(STORAGE_KEY_TOC_COLLAPSED, "true");
+				sessionStorage.setItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED, "true");
+			}
+		}
+	}, []);
+
+	const handleOpenLinksDrawer = useCallback(() => {
+		setLinksDrawerOpen(true);
+		setTocDrawerOpen(false);
+		setAnnotationDrawerOpen(false);
+	}, []);
+
+	const handleOpenPanelLink = useCallback(
+		(artifact: Artifact) => {
+			openLinkArtifact(artifact);
+			if (isMobile) {
+				setLinksDrawerOpen(false);
+			}
+		},
+		[isMobile],
+	);
 
 	const handleToggleFrontmatter = useCallback(() => {
 		setShowFrontmatter((prev) => {
@@ -758,41 +831,6 @@ export function ArtifactViewerPage() {
 	}
 
 	const LinkIcon = LINK_ARTIFACT_CONFIG.icon;
-	const externalLinksFooter =
-		linkArtifacts.length > 0 && !selectedUrlArtifact ? (
-			<section
-				className="mt-8 border-t border-border pt-4"
-				aria-label="External links"
-			>
-				<h2 className="mb-2 text-sm font-medium text-muted-foreground">
-					External links
-				</h2>
-				<ul className="space-y-2">
-					{linkArtifacts.map((artifact) => (
-						<li key={artifact.docId} className="min-w-0">
-							<button
-								type="button"
-								onClick={() => openLinkArtifact(artifact)}
-								className="group flex max-w-full items-start gap-2 text-left"
-							>
-								<LinkIcon
-									className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
-									aria-hidden="true"
-								/>
-								<span className="min-w-0">
-									<span className="block truncate text-sm font-medium text-foreground">
-										{getLinkArtifactLabel(artifact)}
-									</span>
-									<span className="block truncate text-xs text-muted-foreground">
-										{getLinkArtifactContext(artifact)}
-									</span>
-								</span>
-							</button>
-						</li>
-					))}
-				</ul>
-			</section>
-		) : null;
 
 	const contentArea = (
 		<>
@@ -932,6 +970,13 @@ export function ArtifactViewerPage() {
 									onClick={() => setAnnotationDrawerOpen(true)}
 								/>
 							)}
+							{linkArtifacts.length > 0 && (
+								<LinksToggleButton
+									count={linkArtifacts.length}
+									onClick={handleOpenLinksDrawer}
+									ariaLabel="Open links"
+								/>
+							)}
 							<TooltipProvider>
 								<Tooltip>
 									<TooltipTrigger asChild>
@@ -964,7 +1009,6 @@ export function ArtifactViewerPage() {
 							}
 						>
 							{contentArea}
-							{externalLinksFooter}
 						</article>
 					</ScrollArea>
 
@@ -1009,6 +1053,22 @@ export function ArtifactViewerPage() {
 						<AnnotationSidebar
 							artifactPath={selectedFileArtifactPath}
 							onClose={() => setAnnotationDrawerOpen(false)}
+							className="border-l-0 w-full"
+						/>
+					</Drawer>
+				)}
+
+				{linkArtifacts.length > 0 && (
+					<Drawer
+						open={linksDrawerOpen}
+						onClose={() => setLinksDrawerOpen(false)}
+						side="right"
+						title="Links"
+					>
+						<LinkSidebar
+							artifacts={linkArtifacts}
+							onOpenLink={handleOpenPanelLink}
+							onClose={() => setLinksDrawerOpen(false)}
 							className="border-l-0 w-full"
 						/>
 					</Drawer>
@@ -1140,6 +1200,16 @@ export function ArtifactViewerPage() {
 									</Tooltip>
 								</TooltipProvider>
 							)}
+							{linkArtifacts.length > 0 && (
+								<LinksToggleButton
+									count={linkArtifacts.length}
+									isOpen={linksPanelOpen}
+									onClick={() => handleToggleLinksPanel(!linksPanelOpen)}
+									ariaLabel={
+										linksPanelOpen ? "Close links panel" : "Open links panel"
+									}
+								/>
+							)}
 							{selectedFileArtifact && !annotationSidebarOpen && (
 								<AnnotationToggleButton
 									selectedArtifactPath={selectedFileArtifactPath}
@@ -1162,7 +1232,6 @@ export function ArtifactViewerPage() {
 								}
 							>
 								{contentArea}
-								{externalLinksFooter}
 							</article>
 						</ScrollArea>
 
@@ -1205,6 +1274,26 @@ export function ArtifactViewerPage() {
 							<AnnotationSidebar
 								artifactPath={selectedFileArtifactPath}
 								onClose={() => handleToggleAnnotationSidebar(false)}
+								className="h-full"
+							/>
+						</ResizablePanel>
+					</>
+				)}
+
+				{linkArtifacts.length > 0 && linksPanelOpen && (
+					<>
+						<ResizableHandle withHandle aria-label="Resize links panel" />
+						<ResizablePanel
+							defaultSize={15}
+							minSize={12}
+							maxSize={25}
+							collapsible
+							className="bg-card"
+						>
+							<LinkSidebar
+								artifacts={linkArtifacts}
+								onOpenLink={handleOpenPanelLink}
+								onClose={() => handleToggleLinksPanel(false)}
 								className="h-full"
 							/>
 						</ResizablePanel>

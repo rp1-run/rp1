@@ -23,6 +23,7 @@ interface MockArtifactContentSurfaceProps {
 		controls: ArtifactContentSurfaceControls,
 	) => ReactNode;
 	readonly footer?: ReactNode;
+	readonly sidePanel?: ReactNode;
 }
 
 mock.module("@/components/v2/ArtifactContentSurface", () => ({
@@ -33,6 +34,7 @@ mock.module("@/components/v2/ArtifactContentSurface", () => ({
 		emptyMessage,
 		renderHeader,
 		footer,
+		sidePanel,
 	}: MockArtifactContentSurfaceProps) => (
 		<section
 			data-testid="artifact-content-surface"
@@ -47,10 +49,12 @@ mock.module("@/components/v2/ArtifactContentSurface", () => ({
 				toggleTableOfContents: () => {},
 				showAnnotationToggle: selectedArtifact !== null,
 				toggleAnnotations: () => {},
+				closeSecondaryPanels: () => {},
 			})}
 			<div data-testid="surface-body">
 				{selectedArtifact?.path ?? emptyMessage ?? ""}
 			</div>
+			{sidePanel}
 			{footer}
 		</section>
 	),
@@ -622,12 +626,14 @@ describe("RunArtifactsPanel", () => {
 			within(artifactList).getByRole("button", { name: "pr-123-review.md" }),
 		).toBeTruthy();
 
-		const externalLinks = screen.getByRole("region", {
-			name: "External links",
-		});
-		expect(within(externalLinks).getByText("Reviewed PR #123")).toBeTruthy();
-		expect(externalLinks.querySelector(".lucide-link")).toBeTruthy();
-		expect(externalLinks.querySelector(".lucide-external-link")).toBeNull();
+		expect(screen.queryByLabelText("Links panel")).toBeNull();
+		fireEvent.click(screen.getByRole("button", { name: "Open links panel" }));
+
+		const linksPanel = screen.getByLabelText("Links panel");
+		expect(within(linksPanel).getByText("Reviewed PR #123")).toBeTruthy();
+		expect(within(linksPanel).getByText("1 link")).toBeTruthy();
+		expect(linksPanel.querySelector(".lucide-link")).toBeTruthy();
+		expect(linksPanel.querySelector(".lucide-external-link")).toBeTruthy();
 
 		fireEvent.click(
 			screen.getByRole("button", { name: "Copy URL for Reviewed PR #123" }),
@@ -646,7 +652,9 @@ describe("RunArtifactsPanel", () => {
 		);
 
 		fireEvent.click(
-			within(externalLinks).getByRole("button", { name: "Reviewed PR #123" }),
+			within(linksPanel).getByRole("button", {
+				name: "Open Reviewed PR #123",
+			}),
 		);
 
 		expect(onArtifactSelect).toHaveBeenCalledWith(reviewedPrArtifact);

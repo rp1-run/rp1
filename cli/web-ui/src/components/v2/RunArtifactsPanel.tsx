@@ -1,23 +1,27 @@
 import { Check, FileText, List } from "lucide-react";
 import { type ReactNode, useState } from "react";
+import { Drawer } from "@/components/ui/drawer";
 import { AnnotationToggleBtn } from "@/components/v2/AnnotationToggleBtn";
 import {
 	ArtifactContentSurface,
 	type ArtifactContentSurfaceControls,
 } from "@/components/v2/ArtifactContentSurface";
 import { ArtifactEmptyState } from "@/components/v2/ArtifactEmptyState";
+import { LinkSidebar } from "@/components/v2/LinkSidebar";
 import { SaveStatusIndicator } from "@/components/v2/UnifiedContentRenderer";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 import type { ArtifactGroup } from "@/lib/artifact-groups";
 import {
-	getLinkArtifactContext,
 	getLinkArtifactLabel,
 	getLinkArtifactTarget,
 	isLinkArtifact,
 	LINK_ARTIFACT_CONFIG,
+	openLinkArtifact,
 	partitionArtifactsByLinkKind,
 } from "@/lib/link-artifacts";
 import { cn } from "@/lib/utils";
 import type { Artifact } from "@/types/runs";
+import { PanelHeaderIconButton } from "./PanelHeader";
 
 export interface RunArtifactsPanelProps {
 	readonly artifactGroups: readonly ArtifactGroup[];
@@ -68,6 +72,8 @@ export function RunArtifactsPanel({
 	headerActions,
 }: RunArtifactsPanelProps) {
 	const [copiedArtifactId, setCopiedArtifactId] = useState<string | null>(null);
+	const [linksPanelOpen, setLinksPanelOpen] = useState(false);
+	const isMobile = useIsMobile();
 
 	const groups = artifactGroups.filter((group) => group.artifacts.length > 0);
 	const artifacts = flattenArtifacts(groups);
@@ -138,6 +144,17 @@ export function RunArtifactsPanel({
 		});
 	};
 
+	const handleOpenLinkArtifact = (artifact: Artifact) => {
+		if (onArtifactSelect) {
+			onArtifactSelect(artifact);
+		} else {
+			openLinkArtifact(artifact);
+		}
+		if (isMobile) {
+			setLinksPanelOpen(false);
+		}
+	};
+
 	const renderArtifactList = () =>
 		fileArtifacts.length > 0 ? (
 			<ul
@@ -193,65 +210,6 @@ export function RunArtifactsPanel({
 			</ul>
 		) : null;
 
-	const renderExternalLinks = () => {
-		if (linkArtifacts.length === 0) return null;
-		const LinkIcon = LINK_ARTIFACT_CONFIG.icon;
-
-		return (
-			<section
-				className="shrink-0 border-t border-border/60 bg-surface-void/50 px-4 py-2"
-				aria-label="External links"
-			>
-				<div className="flex min-w-0 flex-col gap-1">
-					<h2 className="type-secondary font-medium text-fg-ghost">
-						External links
-					</h2>
-					<ul className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-						{linkArtifacts.map((artifact) => {
-							const artifactName = getArtifactName(artifact);
-							const artifactTarget = getArtifactTarget(artifact);
-							const isCopied = copiedArtifactId === artifact.docId;
-							const IconComponent = isCopied ? Check : LinkIcon;
-
-							return (
-								<li key={artifact.docId} className="min-w-0 max-w-full">
-									<span className="inline-flex max-w-full items-center gap-1 type-secondary text-fg-ghost">
-										<button
-											type="button"
-											title={artifactTarget}
-											aria-label={`Copy URL for ${artifactName}`}
-											onClick={(e) => {
-												e.stopPropagation();
-												handleCopyArtifact(artifact);
-											}}
-											className="shrink-0 transition-colors duration-150 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
-										>
-											<IconComponent
-												className="h-3 w-3 shrink-0"
-												strokeWidth={1.5}
-											/>
-										</button>
-										<button
-											type="button"
-											title={artifactTarget}
-											onClick={() => onArtifactSelect?.(artifact)}
-											className="min-w-0 truncate transition-colors duration-150 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
-										>
-											{artifactName}
-										</button>
-										<span className="min-w-0 max-w-[18rem] truncate text-fg-muted">
-											{getLinkArtifactContext(artifact)}
-										</span>
-									</span>
-								</li>
-							);
-						})}
-					</ul>
-				</div>
-			</section>
-		);
-	};
-
 	const renderHeader = (controls: ArtifactContentSurfaceControls) =>
 		renderHeaderShell(
 			<div className="flex min-w-0 items-start gap-2">
@@ -260,6 +218,26 @@ export function RunArtifactsPanel({
 			</div>,
 			<div className="flex h-7 shrink-0 items-center gap-3">
 				<SaveStatusIndicator status={controls.saveStatus} />
+				{linkArtifacts.length > 0 && (
+					<PanelHeaderIconButton
+						icon={LINK_ARTIFACT_CONFIG.icon}
+						ariaLabel={
+							linksPanelOpen ? "Close links panel" : "Open links panel"
+						}
+						ariaExpanded={linksPanelOpen}
+						ariaPressed={linksPanelOpen}
+						onClick={() => {
+							setLinksPanelOpen((prev) => {
+								const next = !prev;
+								if (next) {
+									controls.closeSecondaryPanels();
+								}
+								return next;
+							});
+						}}
+						className={cn(linksPanelOpen && "text-fg")}
+					/>
+				)}
 				{controls.showTableOfContentsToggle && (
 					<button
 						type="button"
@@ -282,18 +260,47 @@ export function RunArtifactsPanel({
 			renderLeadingControl(),
 		);
 
+	const linksSidebar =
+		linksPanelOpen && linkArtifacts.length > 0 ? (
+			<LinkSidebar
+				artifacts={linkArtifacts}
+				onOpenLink={handleOpenLinkArtifact}
+				onClose={() => setLinksPanelOpen(false)}
+				className="h-full"
+			/>
+		) : null;
+
 	return (
-		<ArtifactContentSurface
-			selectedArtifact={effectiveSelectedArtifact}
-			runId={runId}
-			showFrontmatter={showFrontmatter}
-			emptyMessage={
-				fileArtifacts.length > 0
-					? "Select an artifact to view."
-					: "No file artifacts to preview."
-			}
-			renderHeader={renderHeader}
-			footer={renderExternalLinks()}
-		/>
+		<>
+			<ArtifactContentSurface
+				selectedArtifact={effectiveSelectedArtifact}
+				runId={runId}
+				showFrontmatter={showFrontmatter}
+				emptyMessage={
+					fileArtifacts.length > 0
+						? "Select an artifact to view."
+						: "No file artifacts to preview."
+				}
+				renderHeader={renderHeader}
+				sidePanel={
+					!isMobile && linksSidebar ? (
+						<div className="w-[280px] shrink-0 border-l border-border overflow-y-auto">
+							{linksSidebar}
+						</div>
+					) : null
+				}
+				onSecondaryPanelOpen={() => setLinksPanelOpen(false)}
+			/>
+			{isMobile && (
+				<Drawer
+					open={linksPanelOpen}
+					onClose={() => setLinksPanelOpen(false)}
+					side="right"
+					title="Links"
+				>
+					{linksSidebar}
+				</Drawer>
+			)}
+		</>
 	);
 }
