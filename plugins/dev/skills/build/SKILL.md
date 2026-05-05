@@ -422,7 +422,11 @@ rp1 agent-tools build-task-plan \
 Parse the JSON `ToolResult`.
 
 - Extract `task_units`, `implementation_tasks`, `documentation_tasks`, and `warnings`.
+- Set `TASK_PLAN = data`.
+- For each `task_unit`, derive `TASK_UNIT_IDS = task_unit.task_ids.join(",")`. This is the only source for builder/reviewer `TASK_IDS`.
+- Preserve `warnings` as `task_plan_warnings` for readiness/release notes.
 - If the tool fails or returns malformed output, emit `implementation` waiting with the tool error and STOP. Do not infer task state from markdown.
+- If `task_units` is empty, skip task-builder/task-reviewer and continue to documentation follow-ups, cleanup manifest handling, and verification.
 
 ### §4.2 Cleanup Manifest Baseline
 
@@ -438,37 +442,65 @@ Parse the `ToolResult` envelope. If the command fails or returns malformed outpu
 
 ### §4.3 Builder-Reviewer Loop
 
-For each task unit, run builder then reviewer:
+For each `task_unit` in `TASK_PLAN.task_units`, run builder then reviewer. Never derive task IDs from `tasks.md`; use `TASK_UNIT_IDS` from the current `task_unit`.
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_UNIT_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:task-reviewer" %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_UNIT_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-Loop logic: attempt=1, max=2. If reviewer reports SUCCESS: move to next unit.
+Parse the reviewer JSON contract. `status = "SUCCESS"` completes the unit. `status = "FAILURE"` or malformed output enters retry handling.
+
+Loop logic: `attempt = 1`, `max = 2`. If reviewer reports SUCCESS: move to next unit.
 
 If FAILURE and attempt < max:
 
 1. Extract `issues` and `summary` from reviewer response.
-2. Re-spawn task-builder with review feedback. If `GIT_COMMIT=true`, pass `REWRITE_COMMITS=true` so the builder amends the prior commit into a clean atomic rewrite:
+2. Build `PREVIOUS_FEEDBACK` as compact JSON: `{"task_unit": task_unit, "summary": summary, "issues": issues}`.
+3. Re-spawn task-builder with review feedback. If `GIT_COMMIT=true`, pass `REWRITE_COMMITS=true` so the builder amends the prior commit into a clean atomic rewrite:
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, REWRITE_COMMITS={GIT_COMMIT}, PREVIOUS_FEEDBACK={reviewer summary and issues}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_UNIT_IDS}, GIT_COMMIT={GIT_COMMIT}, REWRITE_COMMITS={GIT_COMMIT}, PREVIOUS_FEEDBACK={PREVIOUS_FEEDBACK}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-3. Re-run task-reviewer for the same task unit.
+4. Re-run task-reviewer for the same task unit.
 
 Else: escalate without marking parent `implementation` failed while recovery remains.
 
 - Interactive: emit `waiting_for_user` on `implementation`, then `status_change waiting`; STOP with `/build {FEATURE_ID}` resume instructions.
-- AFK: emit parent `implementation` failed only when the AFK policy has no skip/repair path left.
+- AFK: if an explicit skip policy exists, record the skipped `TASK_UNIT_IDS` as release follow-ups; otherwise emit parent `implementation` failed only because no skip/repair path remains.
+
+Interactive exhausted-retry emit:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type waiting_for_user \
+  --run-id {RUN_ID} \
+  --step implementation \
+  --data '{"prompt": "Task review failed after retry. Repair, Skip task, or Stop?", "context": "Task unit {TASK_UNIT_IDS} needs a decision before implementation can continue."}'
+```
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step implementation \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "task_unit": "{TASK_UNIT_IDS}", "reason": "review_retry_exhausted"}'
+```
 
 ### §4.4 Post-Build
 
-Documentation tasks from `documentation_tasks`: complete them only through a declared supported workflow. If none is available, carry them into release `manual_items`/follow-ups. Do not spawn undeclared documentation agents.
+Documentation tasks from `TASK_PLAN.documentation_tasks`:
+
+- Complete only through a declared supported workflow.
+- Current build has no declared docs implementation workflow; create `documentation_followups` from each docs task with `id`, `title`, `target`, `acceptance_refs`, and `dependencies`.
+- Carry `documentation_followups` into readiness/release `manual_items`.
+- Do not spawn undeclared documentation agents.
 
 **Checkpoint** (skip if AFK):
 
@@ -538,7 +570,7 @@ Otherwise set the `comment_cleaner` phase result yourself:
 Then aggregate with the real cleaner response or the synthetic warning result:
 
 {% dispatch_agent "rp1-dev:build-verify-aggregator" %}
-PHASE_RESULTS: { code_checker: {...}, feature_verifier: {...}, comment_cleaner: {...} }
+PHASE_RESULTS: { code_checker: {...}, feature_verifier: {...}, comment_cleaner: {...}, implementation_context: { task_plan_warnings: [...], documentation_followups: [...] } }
 {% enddispatch_agent %}
 
 Extract `overall_status`, `ready_for_merge`, `manual_items`.

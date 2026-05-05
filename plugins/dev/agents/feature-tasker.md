@@ -113,6 +113,10 @@ Set `SCOPE_FIT = "feature"` unless the design still clearly describes multiple i
 
     **Reference**: [design.md#section](design.md#section)
 
+    **Acceptance Refs**: REQ-{NNN}|-
+
+    **Depends On**: T{N}|-
+
     **Effort**: [X hours]
 
     **Acceptance Criteria**:
@@ -290,7 +294,11 @@ Use the template structure exactly.
 
 **tasks.md**:
 - **Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id`.
+- Include a `## Task Index` table before Task Subflow.
+- Task Index rows MUST mirror `tasks.json`: `id`, `type`, `status`, `complexity`, `acceptance_refs`, `dependencies`, and `target`.
+- Human markdown is review aid only; `/build` machine planning consumes `tasks.json`.
 - Task format per §3.3 with 4-space indent and blank lines between fields.
+- Each task's `Acceptance Refs` and `Depends On` fields MUST match the corresponding `tasks.json` row.
 - DAG ordering per §3.6.
 - Include Task Subflow mermaid diagram generated from DAG_STATE (or sequential chain if DAG_STATE = null). Same logic as §6.0 diagram generation.
 - Include Implementation DAG section copied from design.md if DAG_STATE exists; omit if null.
