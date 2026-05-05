@@ -91,13 +91,13 @@ Each iteration delegates to a general sub-agent. If the request is too large, it
 
 | Step | Skill | Input | Output |
 |------|-------|-------|--------|
-| 0 | `/pr-walkthrough [target]` | PR number, URL, or branch | Plain markdown walkthrough under `.rp1/work/pr-walkthroughs/` |
+| 0 | `/pr-walkthrough [target]` | PR number, URL, or branch | Slide-ready markdown walkthrough with plain markdown fallback under `.rp1/work/pr-walkthroughs/` |
 | 1 | `/pr-review [target]` | PR number, URL, or branch | Review comments posted to the PR |
 | 2 | `/address-pr-feedback [pr]` | PR with review comments | Resolved comments, updated code |
 
 **How they chain**:
 
-- `/pr-walkthrough` is an optional orientation step. It gathers direct PR metadata, changed files, diffs, and commits, then registers a markdown-only walkthrough with evidence IDs. It does not use existing `pr-review` artifacts, post comments, or require slide rendering.
+- `/pr-walkthrough` is an optional orientation step. It gathers direct PR metadata, changed files, diffs, and commits, then registers a slide-ready markdown walkthrough with contract metadata, reserved slide markers, speaker notes, vertical detail, and evidence IDs. The artifact remains readable as plain markdown; it does not use existing `pr-review` artifacts, post comments, or provide slide rendering.
 - `/pr-review` splits the diff into logical review units, analyzes each in parallel with specialized sub-reviewers, synthesizes findings, deduplicates overlapping comments, and posts them to the PR. Includes optional visual diagram generation (`/pr-visual`).
 - `/address-pr-feedback` reads all unresolved review comments from the PR, triages them (must-fix vs. nice-to-have vs. dismiss), and fixes them in priority order. Supports `--afk` for unattended resolution.
 - After fixing, re-run `/pr-review` to verify the fixes if needed.
