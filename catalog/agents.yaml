@@ -150,7 +150,7 @@ agents:
   - name: rp1-dev:hypothesis-tester
     description: "Validates design hypotheses through code experiments, codebase analysis, and external research"
     plugin: dev
-    last_checksum: 5fffce2a64a1f5c1510d437cb56d7d1f5805e6d7bc22c79c4ad388d5a69f8317
+    last_checksum: 4da924b18489ee4a45725724a3ddd6517f76206090ec49159f977cf19a9626aa
   - name: rp1-dev:phase-planner
     description: "Decomposes a planning source into a source-adjacent phase-plan artifact and refreshes source backlinks."
     plugin: dev

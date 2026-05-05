@@ -79,13 +79,17 @@ This file should have been created by the feature-architect during the design ph
 Re-run the design phase with /build {FEATURE_ID} or create the file manually following the format above.
 ```
 
-### 2. Parse PENDING Hypotheses
-Extract: ID, Statement, Risk, Criteria, Method
+### 2. Parse Hypotheses
+Extract: ID, Statement, Risk, Impact, Criteria, Method, Status.
+
+If Impact is absent, set `impact = Risk`. Preserve `risk` exactly as HIGH|MEDIUM|LOW|UNKNOWN for caller gating.
 
 If none PENDING:
-```
-All hypotheses already validated. No action needed.
-```
+- If any existing hypothesis is REJECTED, skip execution and return the rejected JSON contract in §4.5 so the caller can gate task generation.
+- Otherwise:
+  ```
+  All hypotheses already validated. No action needed.
+  ```
 
 ### 3. Execute Validation
 
@@ -161,11 +165,19 @@ If any REJECTED, output JSON block:
 {
   "type": "rejected_hypotheses",
   "hypotheses": [
-    {"id": "HYP-XXX", "statement": "{brief}", "evidence_summary": "{rejection reason}"}
+    {
+      "id": "HYP-XXX",
+      "statement": "{brief}",
+      "risk": "HIGH",
+      "impact": "HIGH",
+      "evidence_summary": "{rejection reason}"
+    }
   ],
   "hypotheses_path": ".rp1/work/features/{FEATURE_ID}/hypotheses.md"
 }
 ```
+
+`risk` and `impact` are required for every rejected hypothesis. If either value cannot be parsed, use `"UNKNOWN"`.
 
 Caller handles user confirmation -> may update to CONFIRMED_BY_USER.
 

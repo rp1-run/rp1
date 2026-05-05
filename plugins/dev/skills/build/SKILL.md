@@ -303,6 +303,50 @@ FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build,
 
 If the file does not exist, skip hypothesis validation regardless of `flagged_hypotheses` or `artifacts.hypotheses` in the response.
 
+### §2.2 Hypothesis Gate
+
+If `hypothesis-tester` ran, inspect its response before task generation:
+
+- If it reports an error, malformed rejection JSON, or cannot determine rejected hypotheses safely: abort on `planning`.
+- If it reports completion/no pending hypotheses and no rejected block: continue.
+- If it includes JSON with `type = "rejected_hypotheses"` and non-empty `hypotheses[]`: do NOT run `feature-tasker` yet.
+- Treat a rejected hypothesis as high impact when `impact = "HIGH"`, `risk = "HIGH"`, or the field is missing/unknown.
+
+If rejected hypotheses exist and `AFK=true`:
+
+- If any rejected hypothesis is high impact, emit `planning` failed with `reason = "rejected_high_impact_hypothesis"` and STOP.
+- Otherwise continue with risk, but include rejected IDs in the final planning summary. Do not silently hide the risk.
+
+If rejected hypotheses exist and `AFK=false`, run the interactive rejection gate:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type waiting_for_user \
+  --run-id {RUN_ID} \
+  --step planning \
+  --data '{"prompt": "Rejected planning hypotheses found. Revise plan, Continue with risk, or Stop?", "context": "Task generation is paused until rejected assumptions are accepted or revised."}'
+```
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step planning \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "reason": "rejected_hypotheses"}'
+```
+
+{% ask_user "Rejected planning hypotheses found. Revise plan, Continue with risk, or Stop?", options: "Revise plan", "Continue with risk", "Stop" %}
+
+- Revise plan: collect feedback, set `TASK_REGENERATION_REASON = "Rejected hypotheses: {ids}; revision requested: {summary}"`, emit `planning` running with that reason, then re-invoke §PHASE-2 before any task generation.
+- Continue with risk: proceed to the single normal `feature-tasker` dispatch below and preserve the rejected IDs in the final planning summary.
+- Stop: output the rejected hypothesis IDs and `/build {FEATURE_ID}` resume instruction, leave `planning` waiting, and STOP.
+
+### §2.3 Task Generation
+
+Normal fresh path invariant: dispatch `feature-tasker` exactly once, after `feature-architect` succeeds and after the hypothesis gate is either skipped, clear, or explicitly continued with risk.
+
 {% dispatch_agent "rp1-dev:feature-tasker" %}
 FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=false, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
@@ -325,7 +369,18 @@ rp1 agent-tools emit \
 ```
 
 {% ask_user "Continue, Revise, Review feedback from Arcade, or Stop?", options: "Continue", "Revise", "Review feedback from Arcade", "Stop" %}
-On Revise: get feedback, re-invoke §PHASE-2, and dispatch `feature-tasker` with `UPDATE_MODE=true` on that revise path.
+On Revise: get feedback. If the feedback changes scope, requirements, assumptions, or design, set `TASK_REGENERATION_REASON` to one sentence before regeneration and emit:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step planning \
+  --data '{"status": "running", "feature": "{FEATURE_ID}", "task_regeneration_reason": "{TASK_REGENERATION_REASON}", "update_mode": true}'
+```
+
+Then re-invoke §PHASE-2 and dispatch `feature-tasker` with `UPDATE_MODE=true` on that revise path. Do not regenerate tasks before the reason is recorded.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
 On Stop: emit waiting status, output summary (requirements complete, planning waiting), exit with `/build {FEATURE_ID}`.
 
