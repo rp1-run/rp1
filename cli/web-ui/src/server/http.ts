@@ -1,10 +1,11 @@
 import type { ServerWebSocket } from "bun";
 import type { FileWatcherPool } from "./file-watcher";
 import type { ApiContext } from "./routes/content-utils";
-import type { WebSocketHub } from "./websocket";
+import type { WebSocketActivityScope, WebSocketHub } from "./websocket";
 
 interface WebSocketData {
 	projectPath: string;
+	scope?: WebSocketActivityScope;
 	projectId?: string;
 	lastEventId?: number;
 }
@@ -60,7 +61,26 @@ export function startServer(config: ServerConfig): AppServer {
 			const pathname = url.pathname;
 
 			if (pathname === "/ws") {
+				const scopeParam = url.searchParams.get("scope");
 				const projectIdParam = url.searchParams.get("projectId");
+				if (
+					scopeParam != null &&
+					scopeParam !== "global" &&
+					scopeParam !== "project"
+				) {
+					return new Response("Invalid WebSocket scope", { status: 400 });
+				}
+
+				const scope: WebSocketActivityScope =
+					scopeParam === "project" || (scopeParam == null && projectIdParam)
+						? "project"
+						: "global";
+				if (scope === "project" && !projectIdParam) {
+					return new Response("Project WebSocket scope requires projectId", {
+						status: 400,
+					});
+				}
+
 				const lastEventIdParam = url.searchParams.get("lastEventId");
 				const lastEventId =
 					lastEventIdParam != null
@@ -69,7 +89,9 @@ export function startServer(config: ServerConfig): AppServer {
 				const upgraded = server.upgrade(req, {
 					data: {
 						projectPath,
-						projectId: projectIdParam ?? undefined,
+						scope,
+						projectId:
+							scope === "project" ? (projectIdParam ?? undefined) : undefined,
 						lastEventId:
 							lastEventId != null && !Number.isNaN(lastEventId)
 								? lastEventId
@@ -90,10 +112,12 @@ export function startServer(config: ServerConfig): AppServer {
 		},
 		websocket: {
 			open(ws: ServerWebSocket<WebSocketData>) {
+				const scope =
+					ws.data.scope ?? (ws.data.projectId ? "project" : "global");
 				const projectId = ws.data.projectId;
 				const lastEventId = ws.data.lastEventId;
-				websocketHub.addClient(ws, projectId, lastEventId);
-				if (projectId && fileWatcherPool) {
+				websocketHub.addClient(ws, { scope, projectId, lastEventId });
+				if (scope === "project" && projectId && fileWatcherPool) {
 					import("../../../src/agent-tools/emit/database.js").then(
 						async ({ getEmitDatabase }) => {
 							const dbResult = await getEmitDatabase()();
@@ -168,6 +192,11 @@ async function handleV2ApiRequest(
 	if (pathname === "/api/v2/health" && method === "GET") {
 		const { handleV2HealthRequest } = await import("./routes/v2-api");
 		return handleV2HealthRequest(apiContext);
+	}
+
+	if (pathname === "/api/v2/runtime" && method === "GET") {
+		const { handleV2RuntimeRequest } = await import("./routes/v2-api");
+		return handleV2RuntimeRequest(req, apiContext);
 	}
 
 	if (pathname === "/api/v2/shutdown" && method === "POST") {

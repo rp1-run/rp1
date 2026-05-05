@@ -66,13 +66,16 @@
 ## UI Patterns
 
 - **Contextual commands**: Views register `CommandDefinition[]` via `useContextualShortcuts` hook, surfaced in command palette alongside navigation/action commands
-- **SessionStorage persistence**: `showFrontmatter`/`showMetadata` use `useState` + `sessionStorage` for per-tab, per-view toggle persistence; WebSocket cursors follow the same pattern with `rp1:last-event-id:{projectId}`
+- **SessionStorage persistence**: `showFrontmatter`/`showMetadata` use `useState` + `sessionStorage` for per-tab, per-view toggle persistence; WebSocket cursors follow the same pattern with `rp1:last-event-id:global` and `rp1:last-event-id:{projectId}`
 - **Notification lifecycle**: Toasts auto-dismiss 6s with dedup guard; sidebar groups by attention level; "Read all" bulk dismiss
 - **Attention-level styling**: `itemClassForLevel` maps attention levels to differentiated background colors for visual triage
-- **LiveRunIndex projection**: Feed, runs, attention, project summaries, and run detail seed from REST, then project emitted workflow activity through a shared `LiveRunIndex` keyed by `runId` to patch only affected surfaces
+- **Runtime contract boundary**: `RuntimeProvider` loads the no-store `/api/v2/runtime` contract before WebSocket consumers mount, validates browser/native host mode, exposes reconnect policy, and performs one cache-busted reload before controlled runtime-load failure
+- **LiveRunIndex projection**: Feed, runs, attention, project summaries, and run detail seed from REST, then scope-aware emitted workflow activity flows through a shared `LiveRunIndex` keyed by `runId` to patch only affected surfaces
+- **Scope-aware Activity replay**: Global Activity stores `rp1:last-event-id:global`, project Activity stores `rp1:last-event-id:{projectId}`, and global live events advance both the global cursor and the event project's cursor when project identity is available
 - **Server-side Activity search projection**: Search feed requests refresh compact `activity_search_runs` rows, match normalized tokens against Activity-visible fields before pagination, then apply runtime visibility and reuse `runRecordToListRun` so search and browse keep the same feed item contract
-- **Snapshot reconciliation**: `state:snapshot` replaces the project's active-run subset and triggers bounded refetch only for currently visible collections whose membership may have changed
+- **Snapshot reconciliation**: Project `state:snapshot` replaces the project's active-run subset; global snapshots upsert/hydrate without pruning unrelated project runs. Both paths trigger bounded refetch only for currently visible collections whose membership may have changed
 - **Targeted hydration**: Unknown run events hydrate a single run summary before reducers apply queued updates, avoiding collection-wide invalidation for routine workflow activity
+- **Policy-driven Activity recovery**: `useReconnectRecovery`, `useFeed`, and `useRuns` read reconnect timing and `activityRecoveryLimit` from the runtime contract, reconcile in the background after reconnect, and merge replay/REST overlap through stable run identity
 
 ## Observability
 

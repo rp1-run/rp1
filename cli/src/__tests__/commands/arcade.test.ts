@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Command } from "commander";
+import { runtimeError } from "../../../shared/errors.js";
 import {
 	arcadeCommand,
 	createArcadeCommand,
@@ -67,6 +68,8 @@ describe("arcade command action coverage", () => {
 	const originalExit = process.exit;
 	const originalLog = console.log;
 	const originalError = console.error;
+	const originalBunSpawn = Bun.spawn;
+	const originalPlatform = process.platform;
 	let tempDir: string;
 	let logs: string[];
 	let errors: string[];
@@ -108,6 +111,11 @@ describe("arcade command action coverage", () => {
 		process.exit = originalExit;
 		console.log = originalLog;
 		console.error = originalError;
+		Bun.spawn = originalBunSpawn;
+		Object.defineProperty(process, "platform", {
+			value: originalPlatform,
+			configurable: true,
+		});
 		await rm(tempDir, { recursive: true, force: true });
 	});
 
@@ -174,6 +182,20 @@ describe("arcade command action coverage", () => {
 		return parent.parseAsync(["node", "rp1", "arcade", ...args]);
 	};
 
+	const browserCommandFor = (url: string): string[] =>
+		process.platform === "darwin"
+			? ["open", url]
+			: process.platform === "win32"
+				? ["cmd", "/c", "start", "", url]
+				: ["xdg-open", url];
+
+	const setPlatform = (platform: NodeJS.Platform): void => {
+		Object.defineProperty(process, "platform", {
+			value: platform,
+			configurable: true,
+		});
+	};
+
 	test("runs project, hook, daemon-only, restart, stop, and status branches", async () => {
 		const projectRoot = await createProject();
 
@@ -219,6 +241,64 @@ describe("arcade command action coverage", () => {
 		expect(errors).toEqual([]);
 	});
 
+	test("opens the browser by default through the platform launcher", async () => {
+		const projectRoot = await createProject();
+		const launched: Array<{
+			command: string[];
+			stdout?: unknown;
+			stderr?: unknown;
+		}> = [];
+		Bun.spawn = ((
+			command: string[],
+			options?: { stdout?: unknown; stderr?: unknown },
+		) => {
+			launched.push({
+				command,
+				stdout: options?.stdout,
+				stderr: options?.stderr,
+			});
+			return { exited: Promise.resolve(0) };
+		}) as unknown as typeof Bun.spawn;
+
+		await runArcade([projectRoot, "--port", "8127"]);
+
+		const url = "http://127.0.0.1:8127/projects/project-1";
+		expect(launched).toEqual([
+			{ command: browserCommandFor(url), stdout: "ignore", stderr: "ignore" },
+		]);
+		expect(infos).toContain(`Opened ${url}`);
+	});
+
+	test("opens the browser through the Windows launcher branch", async () => {
+		setPlatform("win32");
+		const projectRoot = await createProject();
+		const launched: string[][] = [];
+		Bun.spawn = ((command: string[]) => {
+			launched.push(command);
+			return { exited: Promise.resolve(0) };
+		}) as unknown as typeof Bun.spawn;
+
+		await runArcade([projectRoot, "--port", "8130"]);
+
+		expect(launched).toEqual([
+			["cmd", "/c", "start", "", "http://127.0.0.1:8130/projects/project-1"],
+		]);
+	});
+
+	test("warns when the platform browser launcher fails", async () => {
+		const projectRoot = await createProject();
+		Bun.spawn = (() => {
+			throw new Error("launcher missing");
+		}) as unknown as typeof Bun.spawn;
+
+		await runArcade([projectRoot, "--port", "8128"]);
+
+		expect(logs).toContain(
+			"WARN Could not open browser automatically. Please open http://127.0.0.1:8128/projects/project-1",
+		);
+		expect(infos).toContain("Opened http://127.0.0.1:8128/projects/project-1");
+	});
+
 	test("maps daemon port conflicts to CLI exit code", async () => {
 		const projectRoot = await createProject();
 		const conflict = new Error("port busy") as Error & { port: number };
@@ -255,6 +335,53 @@ describe("arcade command action coverage", () => {
 			]),
 		).rejects.toMatchObject({ code: 3 });
 		expect(errors.join("\n")).toContain("Port 8126 is already in use");
+	});
+
+	test("preserves CLI errors raised by daemon startup", async () => {
+		const projectRoot = await createProject();
+		const command = createArcadeCommand({
+			launchArcadeForProject: async () => {
+				throw runtimeError("daemon unavailable");
+			},
+		});
+		const parent = new Command("rp1");
+		parent.version("0.7.5");
+		Object.assign(parent, {
+			_logger: {
+				debug: () => {},
+				info: () => {},
+				warn: () => {},
+				error: () => {},
+			},
+		});
+		parent.addCommand(command);
+		parent.exitOverride();
+
+		await expect(
+			parent.parseAsync([
+				"node",
+				"rp1",
+				"arcade",
+				projectRoot,
+				"--port",
+				"8129",
+				"--no-open",
+			]),
+		).rejects.toMatchObject({ code: 1 });
+		expect(errors.join("\n")).toContain("daemon unavailable");
+	});
+
+	test("exits before daemon work when the parent logger is missing", async () => {
+		const command = createArcadeCommand({
+			getStatus: async () => ({ running: false }),
+		});
+		command.exitOverride();
+
+		await expect(
+			command.parseAsync(["node", "arcade", "--status"]),
+		).rejects.toMatchObject({ code: 1 });
+		expect(errors).toContain("Logger not initialized");
+		expect(daemonCalls).toEqual([]);
 	});
 });
 

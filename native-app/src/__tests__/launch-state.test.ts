@@ -3,6 +3,7 @@ import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import cliPackage from "../../../cli/package.json";
 import electrobunConfig from "../../electrobun.config.ts";
+import { appendArcadeRuntimeQuery } from "../bun/runtime-url";
 
 class MockDaemonExecutableResolutionError extends Error {
 	readonly checkedLocations: readonly unknown[];
@@ -115,6 +116,19 @@ const parseLaunchViewHtmlState = (html: string): Record<string, string> => {
 	return JSON.parse(match[1] ?? "{}") as Record<string, string>;
 };
 
+const expectNativeArcadeUrl = (
+	url: string | undefined,
+	pathname: string,
+): URL => {
+	expect(url).toBeDefined();
+	const parsed = new URL(url ?? "");
+	expect(parsed.origin).toBe("http://127.0.0.1:7710");
+	expect(parsed.pathname).toBe(pathname);
+	expect(parsed.searchParams.get("hostMode")).toBe("native");
+	expect(parsed.searchParams.get("cacheBust")).toMatch(/^native-[0-9a-z]+$/);
+	return parsed;
+};
+
 const runNativeEntrypoint = async (
 	args: readonly string[] = [],
 	env: Record<string, string | undefined> = {},
@@ -214,7 +228,7 @@ describe("native launch state", () => {
 		]);
 	});
 
-	test("configures checked-in platform app icons", () => {
+	test("configures checked-in brand platform app icons", () => {
 		const iconPaths = {
 			mac: electrobunConfig.build?.mac?.icons,
 			win: electrobunConfig.build?.win?.icon,
@@ -222,9 +236,9 @@ describe("native launch state", () => {
 		};
 
 		expect(iconPaths).toEqual({
-			mac: "assets/icon.iconset",
-			win: "assets/icon.ico",
-			linux: "assets/icon.png",
+			mac: "../assets/brand/native/icon.iconset",
+			win: "../assets/brand/native/icon.ico",
+			linux: "../assets/brand/native/icon.png",
 		});
 
 		const appRoot = join(import.meta.dir, "../..");
@@ -245,6 +259,24 @@ describe("native launch state", () => {
 		expect(statSync(linuxIcon).size).toBeGreaterThan(0);
 	});
 
+	test("appends native runtime metadata without dropping existing URL parameters", () => {
+		const url = appendArcadeRuntimeQuery(
+			"http://127.0.0.1:7710/projects?view=activity#recent",
+			{
+				hostMode: "native",
+				cacheBust: "native-load-1",
+			},
+		);
+		const parsed = new URL(url);
+
+		expect(parsed.origin).toBe("http://127.0.0.1:7710");
+		expect(parsed.pathname).toBe("/projects");
+		expect(parsed.hash).toBe("#recent");
+		expect(parsed.searchParams.get("view")).toBe("activity");
+		expect(parsed.searchParams.get("hostMode")).toBe("native");
+		expect(parsed.searchParams.get("cacheBust")).toBe("native-load-1");
+	});
+
 	test("loads the project-list route when no project path is supplied", async () => {
 		const window = await runNativeEntrypoint();
 		const initialState = parseLaunchViewHtmlState(window.loadedHtml[0] ?? "");
@@ -253,7 +285,8 @@ describe("native launch state", () => {
 		expect(initialState.status).toBe("loading");
 		expect(initialState.message).toBe("Loading registered projects.");
 		expect(window.navigationRules[0]).toContain("http://127.0.0.1:*/*");
-		expect(window.loadedUrls).toEqual(["http://127.0.0.1:7710/projects"]);
+		expect(window.loadedUrls).toHaveLength(1);
+		expectNativeArcadeUrl(window.loadedUrls[0], "/projects");
 		expect(window.title).toBe("rp1 Arcade");
 		expect(launchArcadeMock).toHaveBeenCalledWith({
 			projectPath: undefined,
@@ -287,7 +320,7 @@ describe("native launch state", () => {
 			kind: "project" as const,
 			projectId: "project-1",
 			projectName: "Example Project",
-			url: "http://127.0.0.1:7710/projects/project-1",
+			url: "http://127.0.0.1:7710/projects/project-1?view=activity",
 			action: "started" as const,
 			wasRunning: false,
 			daemonPort: 7710,
@@ -295,9 +328,12 @@ describe("native launch state", () => {
 
 		const window = await runNativeEntrypoint(["--project", "/tmp/project"]);
 
-		expect(window.loadedUrls).toEqual([
-			"http://127.0.0.1:7710/projects/project-1",
-		]);
+		expect(window.loadedUrls).toHaveLength(1);
+		const loadedUrl = expectNativeArcadeUrl(
+			window.loadedUrls[0],
+			"/projects/project-1",
+		);
+		expect(loadedUrl.searchParams.get("view")).toBe("activity");
 		expect(window.title).toBe("rp1 Arcade");
 	});
 

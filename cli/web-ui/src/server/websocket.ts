@@ -1,6 +1,13 @@
+import { randomUUID } from "node:crypto";
 import type { ServerWebSocket } from "bun";
 import type { ArtifactLocationKind, Status } from "../../../shared/events.js";
 import type { Annotation, AnnotationReply } from "../types/annotations";
+import {
+	type ArcadeReconnectPolicy,
+	DEFAULT_ARCADE_RECONNECT_POLICY,
+} from "../types/runtime";
+
+export type WebSocketActivityScope = "global" | "project";
 
 export interface FileChangedMessage {
 	type: "file:changed";
@@ -18,6 +25,7 @@ export interface TreeChangedMessage {
 
 export interface HeartbeatMessage {
 	type: "heartbeat";
+	heartbeatId: string;
 	timestamp: string;
 }
 
@@ -104,11 +112,20 @@ export interface SwitchProjectMessage {
 	projectId: string;
 }
 
+export interface HeartbeatAckMessage {
+	type: "heartbeat:ack";
+	heartbeatId: string;
+	receivedAt: string;
+}
+
 export interface EventReplayMessage {
 	type: "event:replay";
+	scope: WebSocketActivityScope;
 	event: {
 		id: number;
 		runId: string;
+		projectId: string;
+		featureId: string;
 		eventType: string;
 		runStatus?: Status | null;
 		step: string | null;
@@ -120,8 +137,11 @@ export interface EventReplayMessage {
 
 export interface StateSnapshotMessage {
 	type: "state:snapshot";
+	scope: WebSocketActivityScope;
+	projectId: string | null;
 	runs: Array<{
 		id: string;
+		projectId: string;
 		flow: string;
 		featureId: string;
 		projectPath: string;
@@ -160,23 +180,39 @@ export type ServerMessage =
 export type ClientMessage =
 	| SubscribeMessage
 	| UnsubscribeMessage
-	| SwitchProjectMessage;
+	| SwitchProjectMessage
+	| HeartbeatAckMessage;
 
 interface ClientData {
 	projectPath: string;
+	scope?: WebSocketActivityScope;
+	projectId?: string;
 	lastEventId?: number;
 }
 
 interface ClientState {
 	ws: ServerWebSocket<ClientData>;
+	scope: WebSocketActivityScope;
 	projectId: string | null;
 	subscriptions: Set<string>;
-	lastPing: number;
+	lastHeartbeatAckAt: number;
+	pendingHeartbeatId: string | null;
+	missedHeartbeatCount: number;
 	lastEventId: number | null;
 }
 
+interface ReplayRunContext {
+	projectId: string;
+	featureId: string;
+	runStatus: Status | null;
+}
+
+interface ReplayEventWithContext {
+	event: ReturnType<ReplayProvider["getEventsSince"]>[number];
+	context: ReplayRunContext;
+}
+
 export interface ReplayProvider {
-	countEventsSince(afterId: number): number;
 	getEventsSince(
 		afterId: number,
 		limit?: number,
@@ -189,6 +225,7 @@ export interface ReplayProvider {
 		data: string | null;
 		createdAt: string;
 	}>;
+	getRunContext?: (runId: string) => ReplayRunContext | null;
 	getRunStatus?: (runId: string) => Status | null;
 	getActiveRunsSnapshot(): Array<{
 		id: string;
@@ -216,10 +253,14 @@ export class WebSocketHub {
 	private clients: Map<ServerWebSocket<ClientData>, ClientState> = new Map();
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 	private replayProvider: ReplayProvider | null = null;
+	private readonly reconnectPolicy: ArcadeReconnectPolicy;
 
 	private static readonly REPLAY_EVENT_CAP = 100;
 
-	constructor() {
+	constructor(
+		reconnectPolicy: ArcadeReconnectPolicy = DEFAULT_ARCADE_RECONNECT_POLICY,
+	) {
+		this.reconnectPolicy = reconnectPolicy;
 		this.startHeartbeat();
 	}
 
@@ -229,23 +270,83 @@ export class WebSocketHub {
 
 	addClient(
 		ws: ServerWebSocket<ClientData>,
-		projectId?: string,
-		lastEventId?: number,
+		options: {
+			scope?: WebSocketActivityScope;
+			projectId?: string;
+			lastEventId?: number;
+		} = {},
 	): void {
+		const scope = options.scope ?? (options.projectId ? "project" : "global");
+		const projectId = scope === "project" ? (options.projectId ?? null) : null;
+		const lastEventId = options.lastEventId;
 		this.clients.set(ws, {
 			ws,
-			projectId: projectId ?? null,
+			scope,
+			projectId,
 			subscriptions: new Set(),
-			lastPing: Date.now(),
+			lastHeartbeatAckAt: Date.now(),
+			pendingHeartbeatId: null,
+			missedHeartbeatCount: 0,
 			lastEventId: lastEventId ?? null,
 		});
+		const scopeLabel =
+			scope === "project" && projectId ? `project ${projectId}` : "global";
 		console.log(
-			`WebSocket client connected${projectId ? ` for project ${projectId}` : ""}. Total clients: ${this.clients.size}`,
+			`WebSocket client connected for ${scopeLabel}. Total clients: ${this.clients.size}`,
 		);
 
 		if (lastEventId != null && this.replayProvider) {
 			this.replayEventsForClient(ws, lastEventId);
 		}
+	}
+
+	private clientReceivesProject(
+		state: ClientState,
+		projectId: string,
+	): boolean {
+		return state.scope === "global" || state.projectId === projectId;
+	}
+
+	private resolveReplayRunContext(
+		runId: string,
+		state: ClientState,
+	): ReplayRunContext | null {
+		if (!this.replayProvider) return null;
+
+		const context = this.replayProvider.getRunContext?.(runId);
+		if (context) {
+			return context;
+		}
+
+		if (state.scope === "project" && state.projectId) {
+			return {
+				projectId: state.projectId,
+				featureId: "",
+				runStatus: this.replayProvider.getRunStatus?.(runId) ?? null,
+			};
+		}
+
+		return null;
+	}
+
+	private getReplayEventsForClient(
+		state: ClientState,
+		lastEventId: number,
+	): ReplayEventWithContext[] {
+		if (!this.replayProvider) return [];
+
+		const events = this.replayProvider.getEventsSince(lastEventId);
+		const replayableEvents: ReplayEventWithContext[] = [];
+
+		for (const event of events) {
+			const context = this.resolveReplayRunContext(event.runId, state);
+			if (!context || !this.clientReceivesProject(state, context.projectId)) {
+				continue;
+			}
+			replayableEvents.push({ event, context });
+		}
+
+		return replayableEvents;
 	}
 
 	private replayEventsForClient(
@@ -258,23 +359,25 @@ export class WebSocketHub {
 		if (!state) return;
 
 		try {
-			const missedCount = this.replayProvider.countEventsSince(lastEventId);
+			const replayEvents = this.getReplayEventsForClient(state, lastEventId);
+			const missedCount = replayEvents.length;
 
 			if (missedCount === 0) {
 				return;
 			}
 
 			if (missedCount <= WebSocketHub.REPLAY_EVENT_CAP) {
-				const events = this.replayProvider.getEventsSince(lastEventId);
-				for (const event of events) {
+				for (const { event, context } of replayEvents) {
 					const message: EventReplayMessage = {
 						type: "event:replay",
+						scope: state.scope,
 						event: {
 							id: event.id,
 							runId: event.runId,
+							projectId: context.projectId,
+							featureId: context.featureId,
 							eventType: event.type,
-							runStatus:
-								this.replayProvider.getRunStatus?.(event.runId) ?? null,
+							runStatus: context.runStatus,
 							step: event.step,
 							unit: event.unit,
 							data: event.data,
@@ -289,20 +392,42 @@ export class WebSocketHub {
 						return;
 					}
 				}
-				console.log(`[replay] Replayed ${events.length} events for client`);
+				console.log(
+					`[replay] Replayed ${replayEvents.length} events for ${state.scope} client`,
+				);
 			} else {
-				const runs = this.replayProvider.getActiveRunsSnapshot();
+				const runs = this.replayProvider
+					.getActiveRunsSnapshot()
+					.flatMap((run) => {
+						const context = this.resolveReplayRunContext(run.id, state);
+						if (
+							!context ||
+							!this.clientReceivesProject(state, context.projectId)
+						) {
+							return [];
+						}
+
+						return [
+							{
+								run,
+								context,
+							},
+						];
+					});
 				const maxEventId = this.replayProvider.getMaxEventId();
 				const message: StateSnapshotMessage = {
 					type: "state:snapshot",
-					runs: runs.map((r) => ({
-						id: r.id,
-						flow: r.flow,
-						featureId: r.featureId,
-						projectPath: r.projectPath,
-						status: r.status,
-						steps: r.steps.map((s) => ({ step: s.step, status: s.status })),
-						artifacts: r.artifacts.map((a) => ({
+					scope: state.scope,
+					projectId: state.scope === "project" ? state.projectId : null,
+					runs: runs.map(({ run, context }) => ({
+						id: run.id,
+						projectId: context.projectId,
+						flow: run.flow,
+						featureId: context.featureId,
+						projectPath: run.projectPath,
+						status: run.status,
+						steps: run.steps.map((s) => ({ step: s.step, status: s.status })),
+						artifacts: run.artifacts.map((a) => ({
 							docId: a.docId,
 							path: a.path,
 							type: a.type,
@@ -346,8 +471,6 @@ export class WebSocketHub {
 		const state = this.clients.get(ws);
 		if (!state) return;
 
-		state.lastPing = Date.now();
-
 		try {
 			const msgStr =
 				typeof message === "string"
@@ -365,8 +488,16 @@ export class WebSocketHub {
 					state.subscriptions.delete(parsed.path);
 					break;
 				case "switch-project":
+					state.scope = "project";
 					state.projectId = parsed.projectId;
 					console.log(`Client switched to project: ${parsed.projectId}`);
+					break;
+				case "heartbeat:ack":
+					if (parsed.heartbeatId === state.pendingHeartbeatId) {
+						state.pendingHeartbeatId = null;
+						state.missedHeartbeatCount = 0;
+						state.lastHeartbeatAckAt = Date.now();
+					}
 					break;
 			}
 		} catch {
@@ -400,8 +531,7 @@ export class WebSocketHub {
 
 		const data = JSON.stringify(message);
 		for (const state of this.clients.values()) {
-			const isProjectMatch =
-				state.projectId === null || state.projectId === projectId;
+			const isProjectMatch = this.clientReceivesProject(state, projectId);
 			const isSubscribed =
 				state.subscriptions.size === 0 || state.subscriptions.has(path);
 
@@ -424,8 +554,7 @@ export class WebSocketHub {
 
 		const data = JSON.stringify(message);
 		for (const state of this.clients.values()) {
-			const isProjectMatch =
-				state.projectId === null || state.projectId === projectId;
+			const isProjectMatch = this.clientReceivesProject(state, projectId);
 
 			if (isProjectMatch) {
 				try {
@@ -473,8 +602,7 @@ export class WebSocketHub {
 
 		const serialized = JSON.stringify(message);
 		for (const state of this.clients.values()) {
-			const isProjectMatch =
-				state.projectId === null || state.projectId === projectId;
+			const isProjectMatch = this.clientReceivesProject(state, projectId);
 
 			if (isProjectMatch) {
 				try {
@@ -488,20 +616,19 @@ export class WebSocketHub {
 	}
 
 	private startHeartbeat(): void {
-		const HEARTBEAT_INTERVAL = 30_000;
-		const STALE_THRESHOLD = 90_000;
+		const { heartbeatIntervalMs, heartbeatMissThreshold } =
+			this.reconnectPolicy;
 
 		this.heartbeatInterval = setInterval(() => {
-			const now = Date.now();
-			const heartbeat: HeartbeatMessage = {
-				type: "heartbeat",
-				timestamp: new Date().toISOString(),
-			};
-			const data = JSON.stringify(heartbeat);
-
 			for (const [ws, state] of this.clients.entries()) {
-				if (now - state.lastPing > STALE_THRESHOLD) {
-					console.log("Closing stale WebSocket connection");
+				if (state.pendingHeartbeatId !== null) {
+					state.missedHeartbeatCount += 1;
+				}
+
+				if (state.missedHeartbeatCount >= heartbeatMissThreshold) {
+					console.log(
+						"Closing WebSocket connection after missed heartbeat acknowledgements",
+					);
 					try {
 						ws.close();
 					} catch {
@@ -511,13 +638,20 @@ export class WebSocketHub {
 					continue;
 				}
 
+				const heartbeat: HeartbeatMessage = {
+					type: "heartbeat",
+					heartbeatId: randomUUID(),
+					timestamp: new Date().toISOString(),
+				};
+				state.pendingHeartbeatId = heartbeat.heartbeatId;
+
 				try {
-					ws.send(data);
+					ws.send(JSON.stringify(heartbeat));
 				} catch {
 					this.removeClient(ws);
 				}
 			}
-		}, HEARTBEAT_INTERVAL);
+		}, heartbeatIntervalMs);
 	}
 
 	stop(): void {
@@ -627,8 +761,7 @@ export class WebSocketHub {
 		for (const state of this.clients.values()) {
 			const isProjectMatch =
 				notification.projectId === null ||
-				state.projectId === null ||
-				state.projectId === notification.projectId;
+				this.clientReceivesProject(state, notification.projectId);
 
 			if (isProjectMatch) {
 				try {

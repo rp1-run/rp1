@@ -78,6 +78,17 @@ describe("Arcade launch bridge", () => {
 		});
 	});
 
+	test("rejects existing directories that are not rp1 project roots", async () => {
+		const resolved = resolveArcadeProjectRoot(tempDir);
+
+		expect(resolved).toMatchObject({
+			_tag: "Left",
+			left: {
+				_tag: "NotFoundError",
+			},
+		});
+	});
+
 	test("launches a valid project through daemon startup and project registration", async () => {
 		const projectRoot = await createProjectRoot();
 
@@ -231,6 +242,18 @@ describe("Arcade launch bridge", () => {
 		expect(registerProjectWithDaemonMock).not.toHaveBeenCalled();
 	});
 
+	test("rejects project-list responses without a projects array", async () => {
+		globalThis.fetch = mock(async () =>
+			Response.json({}),
+		) as unknown as typeof fetch;
+
+		await expect(
+			launchArcadeProjectList({
+				port: 6811,
+			}),
+		).rejects.toThrow("Project list response did not include projects");
+	});
+
 	test("surfaces project-list API failures without falling back to project registration", async () => {
 		const fetchMock = mock(async () =>
 			Response.json({ error: "Project API unavailable" }, { status: 503 }),
@@ -291,5 +314,17 @@ describe("Arcade launch bridge", () => {
 				port: 6811,
 			}),
 		).rejects.toThrow("Project API unavailable");
+	});
+
+	test("uses HTTP status when project-list API failures are not JSON", async () => {
+		globalThis.fetch = mock(
+			async () => new Response("not-json", { status: 502 }),
+		) as unknown as typeof fetch;
+
+		await expect(
+			launchArcadeProjectList({
+				port: 6811,
+			}),
+		).rejects.toThrow("HTTP 502");
 	});
 });

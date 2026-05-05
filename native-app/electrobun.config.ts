@@ -1,5 +1,7 @@
 import type { ElectrobunConfig } from "electrobun";
 
+const BRAND_NATIVE_ICON_ROOT = "../assets/brand/native";
+
 export default {
 	app: {
 		name: "rp1 Arcade",
@@ -20,13 +22,13 @@ export default {
 		mac: {
 			bundleCEF: false,
 			defaultRenderer: "native",
-			icons: "assets/icon.iconset",
+			icons: `${BRAND_NATIVE_ICON_ROOT}/icon.iconset`,
 		},
 		win: {
-			icon: "assets/icon.ico",
+			icon: `${BRAND_NATIVE_ICON_ROOT}/icon.ico`,
 		},
 		linux: {
-			icon: "assets/icon.png",
+			icon: `${BRAND_NATIVE_ICON_ROOT}/icon.png`,
 		},
 		watch: ["src/views"],
 	},

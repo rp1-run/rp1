@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
+import { useRuntimeContract } from "@/providers/RuntimeProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
-
-const POLLING_INTERVAL = 5000;
 
 export function useReconnectRecovery(
 	recover: () => void | Promise<void>,
 ): void {
+	const { reconnectPolicy } = useRuntimeContract();
 	const { status, subscribeToReconnect } = useWebSocket();
 	const recoverRef = useRef(recover);
 
@@ -26,10 +26,10 @@ export function useReconnectRecovery(
 
 		const intervalId = setInterval(() => {
 			void recoverRef.current();
-		}, POLLING_INTERVAL);
+		}, reconnectPolicy.disconnectedRecoveryIntervalMs);
 
 		return () => {
 			clearInterval(intervalId);
 		};
-	}, [status]);
+	}, [status, reconnectPolicy.disconnectedRecoveryIntervalMs]);
 }

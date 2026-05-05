@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { liveRunIndex } from "@/lib/live-run-index";
+import { useRuntimeContract } from "@/providers/RuntimeProvider";
 import {
 	RELEVANT_HIDDEN_RUN_STATUSES,
 	type Run,
@@ -13,6 +14,11 @@ import { useReconnectRecovery } from "./useReconnectRecovery";
 interface RunsResponse {
 	runs: Run[];
 	total: number;
+}
+
+interface FetchRunsOptions {
+	readonly showLoading?: boolean;
+	readonly reconcile?: boolean;
 }
 
 interface UseRunsOptions extends Partial<RunsFilter> {
@@ -31,6 +37,7 @@ interface UseRunsResult {
 const relevantHiddenRunStatusSet = new Set<Run["status"]>(
 	RELEVANT_HIDDEN_RUN_STATUSES,
 );
+const DEFAULT_RUNS_LIMIT = 50;
 
 function activityTimestamp(run: Run): string {
 	return run.lastEventAt ?? run.startedAt;
@@ -111,6 +118,21 @@ function areRunsEqual(current: readonly Run[], next: readonly Run[]): boolean {
 	return current.every((run, index) => run === next[index]);
 }
 
+function mergeRunsById(runs: readonly Run[]): Run[] {
+	const runsById = new Map<string, Run>();
+	for (const run of runs) {
+		runsById.set(run.id, run);
+	}
+	return [...runsById.values()];
+}
+
+function recoveryRunsLimit(
+	limit: number | undefined,
+	activityRecoveryLimit: number,
+): number {
+	return (limit ?? DEFAULT_RUNS_LIMIT) + activityRecoveryLimit;
+}
+
 function buildQueryParams(options: UseRunsOptions): URLSearchParams {
 	const params = new URLSearchParams();
 
@@ -142,60 +164,102 @@ function buildQueryParams(options: UseRunsOptions): URLSearchParams {
 }
 
 export function useRuns(options: UseRunsOptions = {}): UseRunsResult {
+	const { reconnectPolicy } = useRuntimeContract();
 	const [runs, setRuns] = useState<Run[]>([]);
 	const [total, setTotal] = useState(0);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
+	const runsRef = useRef<Run[]>([]);
 	const matchingRunIdsRef = useRef<Set<string>>(new Set());
 	const liveSnapshot = useLiveRunIndexSnapshot();
 
 	// Destructure to use primitives as dependencies (avoid object reference changes)
 	const { view, status, projectId, dateRange, limit, offset } = options;
 
-	const fetchRuns = useCallback(async () => {
-		try {
-			const params = buildQueryParams({
-				view,
-				status,
-				projectId,
-				dateRange,
-				limit,
-				offset,
-			});
-			const url = `/api/v2/runs${params.toString() ? `?${params.toString()}` : ""}`;
-			const response = await fetch(url);
+	useEffect(() => {
+		runsRef.current = runs;
+	}, [runs]);
 
-			if (!response.ok) {
-				throw new Error(`Failed to fetch runs: ${response.statusText}`);
+	const fetchRuns = useCallback(
+		async ({
+			showLoading = false,
+			reconcile = false,
+		}: FetchRunsOptions = {}) => {
+			if (showLoading) {
+				setIsLoading(true);
 			}
 
-			const data = (await response.json()) as RunsResponse;
-			liveRunIndex.upsertRuns(data.runs);
-			const filterOptions = { view, status, projectId, dateRange };
-			matchingRunIdsRef.current = new Set(
-				liveRunIndex
-					.getAllRuns()
-					.filter((run) => matchesRunFilters(run, filterOptions))
-					.map((run) => run.id),
-			);
-			setRuns(
-				data.runs
+			try {
+				const params = buildQueryParams({
+					view,
+					status,
+					projectId,
+					dateRange,
+					limit: reconcile
+						? recoveryRunsLimit(limit, reconnectPolicy.activityRecoveryLimit)
+						: limit,
+					offset,
+				});
+				const url = `/api/v2/runs${params.toString() ? `?${params.toString()}` : ""}`;
+				const response = await fetch(url);
+
+				if (!response.ok) {
+					throw new Error(`Failed to fetch runs: ${response.statusText}`);
+				}
+
+				const data = (await response.json()) as RunsResponse;
+				liveRunIndex.upsertRuns(data.runs);
+				const filterOptions = { view, status, projectId, dateRange };
+				const responseRuns = data.runs
 					.map((run) => liveRunIndex.getRun(run.id) ?? run)
-					.filter((run) => matchesRunFilters(run, filterOptions))
-					.sort(compareRunsByActivity),
-			);
-			setTotal(data.total);
-			setError(null);
-		} catch (err) {
-			setError(err instanceof Error ? err : new Error(String(err)));
-		} finally {
-			setIsLoading(false);
-		}
-	}, [view, status, projectId, dateRange, limit, offset]);
+					.filter((run) => matchesRunFilters(run, filterOptions));
+
+				if (reconcile) {
+					const currentRuns = runsRef.current
+						.map((run) => liveRunIndex.getRun(run.id) ?? run)
+						.filter((run) => matchesRunFilters(run, filterOptions));
+					const mergedRuns = mergeRunsById([
+						...currentRuns,
+						...responseRuns,
+					]).sort(compareRunsByActivity);
+					const visibleRuns = mergedRuns.slice(0, limit ?? DEFAULT_RUNS_LIMIT);
+					matchingRunIdsRef.current = new Set(currentRuns.map((run) => run.id));
+					setRuns(visibleRuns);
+					setTotal(Math.max(data.total, visibleRuns.length));
+				} else {
+					matchingRunIdsRef.current = new Set(
+						liveRunIndex
+							.getAllRuns()
+							.filter((run) => matchesRunFilters(run, filterOptions))
+							.map((run) => run.id),
+					);
+					setRuns(responseRuns.sort(compareRunsByActivity));
+					setTotal(data.total);
+				}
+				setError(null);
+			} catch (err) {
+				setError(err instanceof Error ? err : new Error(String(err)));
+			} finally {
+				setIsLoading(false);
+			}
+		},
+		[
+			view,
+			status,
+			projectId,
+			dateRange,
+			limit,
+			offset,
+			reconnectPolicy.activityRecoveryLimit,
+		],
+	);
+
+	const reconcileRuns = useCallback(() => {
+		return fetchRuns({ reconcile: true });
+	}, [fetchRuns]);
 
 	useEffect(() => {
-		setIsLoading(true);
-		fetchRuns();
+		void fetchRuns({ showLoading: true });
 	}, [fetchRuns]);
 
 	useEffect(() => {
@@ -246,9 +310,7 @@ export function useRuns(options: UseRunsOptions = {}): UseRunsResult {
 			}
 			addedCount = additions.length;
 			nextRuns = [...nextLoadedRuns, ...additions].sort(compareRunsByActivity);
-			if (limit !== undefined) {
-				nextRuns = nextRuns.slice(0, limit);
-			}
+			nextRuns = nextRuns.slice(0, limit ?? DEFAULT_RUNS_LIMIT);
 		}
 
 		if (!areRunsEqual(currentRuns, nextRuns)) {
@@ -272,11 +334,10 @@ export function useRuns(options: UseRunsOptions = {}): UseRunsResult {
 		offset,
 	]);
 
-	useReconnectRecovery(fetchRuns);
+	useReconnectRecovery(reconcileRuns);
 
 	const refetch = useCallback(() => {
-		setIsLoading(true);
-		fetchRuns();
+		void fetchRuns({ showLoading: true });
 	}, [fetchRuns]);
 
 	return {

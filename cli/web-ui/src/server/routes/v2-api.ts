@@ -109,6 +109,12 @@ import {
 	registerProject,
 	removeProject,
 } from "../registry";
+import {
+	buildArcadeRuntimeContract,
+	RuntimeManifestError,
+	runtimeJsonResponse,
+	UnsupportedArcadeHostModeError,
+} from "../runtime-contract";
 import type { WebSocketHub } from "../websocket";
 import {
 	type ApiContext,
@@ -2165,6 +2171,32 @@ export async function handleV2HealthRequest(
 		isDev: ctx.isDev ?? false,
 		...(ctx.version && { version: ctx.version }),
 	});
+}
+
+/**
+ * GET /api/v2/runtime - browser/native runtime contract.
+ */
+export async function handleV2RuntimeRequest(
+	req: Request,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		const contract = await buildArcadeRuntimeContract(ctx, req.url);
+		return runtimeJsonResponse(contract);
+	} catch (error) {
+		if (error instanceof UnsupportedArcadeHostModeError) {
+			return runtimeJsonResponse({ error: error.message }, 400);
+		}
+
+		if (error instanceof RuntimeManifestError) {
+			return runtimeJsonResponse({ error: error.message }, 500);
+		}
+
+		return runtimeJsonResponse(
+			{ error: `Failed to build Arcade runtime contract: ${String(error)}` },
+			500,
+		);
+	}
 }
 
 /**
