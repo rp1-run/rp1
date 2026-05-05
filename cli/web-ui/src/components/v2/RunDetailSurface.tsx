@@ -37,6 +37,11 @@ import {
 	buildArtifactRoute,
 	groupArtifactsByWorkflowStep,
 } from "@/lib/artifact-groups";
+import {
+	getLinkArtifactLabel,
+	isLinkArtifact,
+	openLinkArtifact,
+} from "@/lib/link-artifacts";
 import { resolveRunDisplayName } from "@/lib/run-display";
 import {
 	getSocraticDuelStepLabel,
@@ -78,19 +83,6 @@ export interface RunDetailSurfaceProps {
 export interface RunDetailTarget {
 	readonly stepId: string;
 	readonly artifact: Artifact | null;
-}
-
-function isUrlArtifact(artifact: Artifact | null): boolean {
-	return artifact?.locationKind === "url";
-}
-
-function getUrlArtifactTarget(artifact: Artifact): string {
-	return artifact.url || artifact.path;
-}
-
-function openUrlArtifact(artifact: Artifact): void {
-	if (typeof window === "undefined") return;
-	window.open(getUrlArtifactTarget(artifact), "_blank", "noopener,noreferrer");
 }
 
 function MobileStepSelector({
@@ -154,10 +146,10 @@ export function selectDefaultRunTarget(run: Run): RunDetailTarget | null {
 			(candidate) =>
 				candidate.step === targetStep.id &&
 				candidate.docId &&
-				!isUrlArtifact(candidate),
+				!isLinkArtifact(candidate),
 		) ??
 		run.artifacts.find(
-			(candidate) => candidate.docId && !isUrlArtifact(candidate),
+			(candidate) => candidate.docId && !isLinkArtifact(candidate),
 		) ??
 		null;
 
@@ -239,15 +231,13 @@ export function RunDetailSurface({
 	const workspaceSubtitle = useMemo(() => {
 		if (!run) return null;
 		const artifactName = selectedArtifact
-			? isUrlArtifact(selectedArtifact)
-				? (selectedArtifact.label ??
-					selectedArtifact.url ??
-					selectedArtifact.path)
+			? isLinkArtifact(selectedArtifact)
+				? getLinkArtifactLabel(selectedArtifact)
 				: (selectedArtifact.path.split("/").at(-1) ?? null)
 			: null;
 		return artifactName ?? run.projectName;
 	}, [run, selectedArtifact]);
-	const selectedFileArtifact = isUrlArtifact(selectedArtifact)
+	const selectedFileArtifact = isLinkArtifact(selectedArtifact)
 		? null
 		: selectedArtifact;
 
@@ -449,8 +439,8 @@ export function RunDetailSurface({
 	const handleArtifactSelect = useCallback(
 		(artifact: Artifact) => {
 			setFocusedStepId(artifact.step ?? null);
-			if (isUrlArtifact(artifact)) {
-				openUrlArtifact(artifact);
+			if (isLinkArtifact(artifact)) {
+				openLinkArtifact(artifact);
 				return;
 			}
 			if (!runId) return;

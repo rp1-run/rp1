@@ -22,6 +22,7 @@ interface CapturedWindow {
 	readonly loadedUrls: string[];
 	readonly navigationRules: string[][];
 	readonly webviewHandlers: Record<string, Array<(event: unknown) => void>>;
+	readonly rpc?: unknown;
 	title: string;
 }
 
@@ -39,7 +40,11 @@ class MockBrowserWindow {
 
 	readonly captured: CapturedWindow;
 
-	constructor(options: { readonly title: string; readonly html?: string }) {
+	constructor(options: {
+		readonly title: string;
+		readonly html?: string;
+		readonly rpc?: unknown;
+	}) {
 		this.captured = {
 			initialHtml: options.html,
 			executedScripts: [],
@@ -47,6 +52,7 @@ class MockBrowserWindow {
 			loadedUrls: [],
 			navigationRules: [],
 			webviewHandlers: {},
+			rpc: options.rpc,
 			title: options.title,
 		};
 		capturedWindows.push(this.captured);
@@ -88,12 +94,20 @@ const launchArcadeMock = mock(async () => ({
 const setApplicationMenuMock = mock((menu: unknown) => {
 	capturedApplicationMenus.push(menu);
 });
+const defineRPCMock = mock((config: unknown) => config);
+const openExternalMock = mock((_url: string) => true);
 
 mock.module("electrobun/bun", () => ({
 	ApplicationMenu: {
 		setApplicationMenu: setApplicationMenuMock,
 	},
+	BrowserView: {
+		defineRPC: defineRPCMock,
+	},
 	BrowserWindow: MockBrowserWindow,
+	Utils: {
+		openExternal: openExternalMock,
+	},
 }));
 
 mock.module("../../../cli/web-ui/src/daemon/executable.js", () => ({
@@ -177,6 +191,8 @@ describe("native launch state", () => {
 		resolveDaemonExecutablePathMock.mockClear();
 		launchArcadeMock.mockClear();
 		setApplicationMenuMock.mockClear();
+		defineRPCMock.mockClear();
+		openExternalMock.mockClear();
 		resolveDaemonExecutablePathMock.mockImplementation(() => "/tmp/rp1");
 		launchArcadeMock.mockImplementation(async () => ({
 			kind: "project-list" as const,
@@ -296,6 +312,27 @@ describe("native launch state", () => {
 		});
 	});
 
+	test("opens link artifact URLs through the default browser bridge", async () => {
+		const window = await runNativeEntrypoint();
+		const rpcConfig = window.rpc as {
+			readonly handlers: {
+				readonly messages: Record<string, (payload: unknown) => void>;
+			};
+		};
+		const openExternal = rpcConfig.handlers.messages["rp1:open-external-url"];
+
+		expect(defineRPCMock).toHaveBeenCalledTimes(1);
+		expect(openExternal).toBeDefined();
+
+		openExternal?.({ url: "https://github.com/example/repo/pull/376" });
+		openExternal?.({ url: "javascript:alert(1)" });
+
+		expect(openExternalMock).toHaveBeenCalledTimes(1);
+		expect(openExternalMock).toHaveBeenCalledWith(
+			"https://github.com/example/repo/pull/376",
+		);
+	});
+
 	test("pins the visible title across webview navigations", async () => {
 		const window = await runNativeEntrypoint();
 		const domReadyHandlers = window.webviewHandlers["dom-ready"] ?? [];
@@ -357,7 +394,9 @@ describe("native launch state", () => {
 		});
 
 		const window = await runNativeEntrypoint();
-		const failureState = parseLaunchViewHtmlState(window.loadedHtml.at(-1) ?? "");
+		const failureState = parseLaunchViewHtmlState(
+			window.loadedHtml.at(-1) ?? "",
+		);
 
 		expect(failureState.status).toBe("failure");
 		expect(failureState.title).toBe("RP1 executable not found");
@@ -375,7 +414,9 @@ describe("native launch state", () => {
 		});
 
 		const window = await runNativeEntrypoint(["--project", "/tmp/not-rp1"]);
-		const failureState = parseLaunchViewHtmlState(window.loadedHtml.at(-1) ?? "");
+		const failureState = parseLaunchViewHtmlState(
+			window.loadedHtml.at(-1) ?? "",
+		);
 
 		expect(failureState.status).toBe("failure");
 		expect(failureState.title).toBe("Project cannot be opened");
@@ -392,7 +433,9 @@ describe("native launch state", () => {
 		});
 
 		const window = await runNativeEntrypoint(["--project", "/tmp/project"]);
-		const failureState = parseLaunchViewHtmlState(window.loadedHtml.at(-1) ?? "");
+		const failureState = parseLaunchViewHtmlState(
+			window.loadedHtml.at(-1) ?? "",
+		);
 
 		expect(failureState.status).toBe("failure");
 		expect(failureState.title).toBe("Arcade port is unavailable");
@@ -405,7 +448,9 @@ describe("native launch state", () => {
 		});
 
 		const window = await runNativeEntrypoint(["--project", "/tmp/project"]);
-		const failureState = parseLaunchViewHtmlState(window.loadedHtml.at(-1) ?? "");
+		const failureState = parseLaunchViewHtmlState(
+			window.loadedHtml.at(-1) ?? "",
+		);
 
 		expect(failureState.status).toBe("failure");
 		expect(failureState.title).toBe("Arcade launch failed");
@@ -422,7 +467,9 @@ describe("native launch state", () => {
 		});
 
 		const window = await runNativeEntrypoint(["--project", "/tmp/project"]);
-		const failureState = parseLaunchViewHtmlState(window.loadedHtml.at(-1) ?? "");
+		const failureState = parseLaunchViewHtmlState(
+			window.loadedHtml.at(-1) ?? "",
+		);
 
 		expect(failureState.status).toBe("failure");
 		expect(failureState.message).toBe(

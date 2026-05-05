@@ -5,6 +5,7 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -473,6 +474,68 @@ describe("ArtifactViewerPage", () => {
 		);
 		expect(screen.getByTestId("artifact-renderer").textContent).toBe(
 			"docs/tasks.md:# Tasks",
+		);
+	});
+
+	test("renders external links after file content as secondary information", async () => {
+		const openMock = mock(() => null);
+		Object.defineProperty(window, "open", {
+			configurable: true,
+			value: openMock,
+		});
+		run = {
+			...baseRun,
+			artifacts: [
+				...baseRun.artifacts,
+				{
+					docId: "link-reviewed-pr",
+					locationKind: "url",
+					path: "https://github.com/example/repo/pull/456",
+					absolutePath: "https://github.com/example/repo/pull/456",
+					type: "other",
+					url: "https://github.com/example/repo/pull/456",
+					label: "456",
+					relationship: "reviewed_pr",
+					sourceContext: "PR review input resolution",
+					sourceArtifactPath: "pr-reviews/pr-456-review.md",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "build",
+				},
+			],
+		};
+
+		await renderArtifactViewerPage();
+
+		await waitFor(() => {
+			expect(screen.getByTestId("artifact-renderer").textContent).toBe(
+				"docs/tasks.md:# Tasks",
+			);
+		});
+
+		const renderer = screen.getByTestId("artifact-renderer");
+		const externalLinks = screen.getByRole("region", {
+			name: "External links",
+		});
+		expect(
+			Boolean(
+				renderer.compareDocumentPosition(externalLinks) &
+					Node.DOCUMENT_POSITION_FOLLOWING,
+			),
+		).toBe(true);
+		expect(within(externalLinks).getByText("Reviewed PR #456")).toBeTruthy();
+		expect(externalLinks.querySelector(".lucide-link")).toBeTruthy();
+
+		fireEvent.click(
+			within(externalLinks).getByRole("button", {
+				name: /Reviewed PR #456/,
+			}),
+		);
+
+		expect(openMock).toHaveBeenCalledWith(
+			"https://github.com/example/repo/pull/456",
+			"_blank",
+			"noopener,noreferrer",
 		);
 	});
 

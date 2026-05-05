@@ -2,7 +2,6 @@ import {
 	AlertCircle,
 	ArrowLeft,
 	ChevronRight,
-	ExternalLink,
 	List,
 	Loader2,
 	MessageSquare,
@@ -47,6 +46,15 @@ import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
+import {
+	getLinkArtifactContext,
+	getLinkArtifactLabel,
+	getLinkArtifactTarget,
+	isLinkArtifact,
+	LINK_ARTIFACT_CONFIG,
+	openLinkArtifact,
+	orderArtifactsWithLinksLast,
+} from "@/lib/link-artifacts";
 import { resolveRunDisplayName } from "@/lib/run-display";
 
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
@@ -61,19 +69,6 @@ interface ArtifactContent {
 	path: string;
 	content: string;
 	docId?: string;
-}
-
-function isUrlArtifact(artifact: Artifact | null): boolean {
-	return artifact?.locationKind === "url";
-}
-
-function getUrlArtifactTarget(artifact: Artifact): string {
-	return artifact.url || artifact.path;
-}
-
-function openUrlArtifact(artifact: Artifact): void {
-	if (typeof window === "undefined") return;
-	window.open(getUrlArtifactTarget(artifact), "_blank", "noopener,noreferrer");
 }
 
 function isSameArtifactContent(
@@ -239,22 +234,28 @@ export function ArtifactViewerPage() {
 		);
 	}, [run, selectedArtifactPath]);
 	const selectedUrlArtifact =
-		selectedArtifact && isUrlArtifact(selectedArtifact)
+		selectedArtifact && isLinkArtifact(selectedArtifact)
 			? selectedArtifact
 			: null;
 	const selectedFileArtifact = selectedUrlArtifact ? null : selectedArtifact;
 	const selectedFileArtifactPath = selectedFileArtifact?.path ?? "";
+	const orderedArtifacts = useMemo(
+		() => (run ? orderArtifactsWithLinksLast(run.artifacts) : []),
+		[run],
+	);
+	const linkArtifacts = useMemo(
+		() => orderedArtifacts.filter(isLinkArtifact),
+		[orderedArtifacts],
+	);
+	const selectedArtifactName = selectedArtifact
+		? isLinkArtifact(selectedArtifact)
+			? getLinkArtifactLabel(selectedArtifact)
+			: (selectedArtifact.path.split("/").at(-1) ?? selectedArtifact.path)
+		: null;
 	const workspaceSubtitle = useMemo(() => {
 		if (!run) return null;
-		const artifactName = selectedArtifact
-			? isUrlArtifact(selectedArtifact)
-				? (selectedArtifact.label ??
-					selectedArtifact.url ??
-					selectedArtifact.path)
-				: (selectedArtifact.path.split("/").at(-1) ?? null)
-			: null;
-		return artifactName ?? run.projectName;
-	}, [run, selectedArtifact]);
+		return selectedArtifactName ?? run.projectName;
+	}, [run, selectedArtifactName]);
 
 	useEffect(() => {
 		if (run?.projectName && run?.projectId) {
@@ -286,7 +287,7 @@ export function ArtifactViewerPage() {
 	}, [run, setRunInfo]);
 
 	useEffect(() => {
-		if (selectedArtifact && !isUrlArtifact(selectedArtifact) && runId) {
+		if (selectedArtifact && !isLinkArtifact(selectedArtifact) && runId) {
 			setActiveArtifact(runId, selectedArtifact.path);
 		} else {
 			setActiveArtifact(runId ?? "", null);
@@ -349,8 +350,8 @@ export function ArtifactViewerPage() {
 
 	const handleArtifactSelect = useCallback(
 		(artifact: Artifact) => {
-			if (isUrlArtifact(artifact)) {
-				openUrlArtifact(artifact);
+			if (isLinkArtifact(artifact)) {
+				openLinkArtifact(artifact);
 				if (isMobile) {
 					setSidebarDrawerOpen(false);
 				}
@@ -424,7 +425,7 @@ export function ArtifactViewerPage() {
 				setArtifactContent(null);
 				return;
 			}
-			if (isUrlArtifact(selectedArtifact)) {
+			if (isLinkArtifact(selectedArtifact)) {
 				savedScrollState.current = null;
 				setContentLoading(false);
 				setContentError(null);
@@ -531,7 +532,7 @@ export function ArtifactViewerPage() {
 	}, [artifactContent]);
 
 	useEffect(() => {
-		if (!selectedArtifact || isUrlArtifact(selectedArtifact)) return;
+		if (!selectedArtifact || isLinkArtifact(selectedArtifact)) return;
 
 		const normalizedPath = selectedArtifact.path.replace(/^\.rp1\//, "");
 
@@ -756,6 +757,43 @@ export function ArtifactViewerPage() {
 		);
 	}
 
+	const LinkIcon = LINK_ARTIFACT_CONFIG.icon;
+	const externalLinksFooter =
+		linkArtifacts.length > 0 && !selectedUrlArtifact ? (
+			<section
+				className="mt-8 border-t border-border pt-4"
+				aria-label="External links"
+			>
+				<h2 className="mb-2 text-sm font-medium text-muted-foreground">
+					External links
+				</h2>
+				<ul className="space-y-2">
+					{linkArtifacts.map((artifact) => (
+						<li key={artifact.docId} className="min-w-0">
+							<button
+								type="button"
+								onClick={() => openLinkArtifact(artifact)}
+								className="group flex max-w-full items-start gap-2 text-left"
+							>
+								<LinkIcon
+									className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+									aria-hidden="true"
+								/>
+								<span className="min-w-0">
+									<span className="block truncate text-sm font-medium text-foreground">
+										{getLinkArtifactLabel(artifact)}
+									</span>
+									<span className="block truncate text-xs text-muted-foreground">
+										{getLinkArtifactContext(artifact)}
+									</span>
+								</span>
+							</button>
+						</li>
+					))}
+				</ul>
+			</section>
+		) : null;
+
 	const contentArea = (
 		<>
 			{contentLoading ? (
@@ -766,24 +804,21 @@ export function ArtifactViewerPage() {
 			) : selectedUrlArtifact ? (
 				<div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
 					<h2 className="text-base font-medium text-foreground">
-						{selectedUrlArtifact.label ??
-							selectedUrlArtifact.url ??
-							selectedUrlArtifact.path}
+						{getLinkArtifactLabel(selectedUrlArtifact)}
 					</h2>
-					<a
-						href={getUrlArtifactTarget(selectedUrlArtifact)}
-						target="_blank"
-						rel="noreferrer"
+					<button
+						type="button"
+						onClick={() => openLinkArtifact(selectedUrlArtifact)}
 						className="max-w-full truncate text-sm text-primary underline-offset-4 hover:underline"
 					>
-						{getUrlArtifactTarget(selectedUrlArtifact)}
-					</a>
+						{getLinkArtifactTarget(selectedUrlArtifact)}
+					</button>
 					<Button
 						variant="outline"
 						size="sm"
-						onClick={() => openUrlArtifact(selectedUrlArtifact)}
+						onClick={() => openLinkArtifact(selectedUrlArtifact)}
 					>
-						<ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
+						<LinkIcon className="mr-2 h-4 w-4" aria-hidden="true" />
 						Open link
 					</Button>
 				</div>
@@ -855,9 +890,7 @@ export function ArtifactViewerPage() {
 						)}
 						<li aria-current="page">
 							<span className="text-foreground truncate max-w-[100px]">
-								{selectedArtifactPath
-									? selectedArtifactPath.split("/").pop()
-									: "Artifacts"}
+								{selectedArtifactName ?? "Artifacts"}
 							</span>
 						</li>
 					</ol>
@@ -925,12 +958,13 @@ export function ArtifactViewerPage() {
 							className="p-4"
 							onScroll={handleScroll as unknown as React.UIEventHandler}
 							aria-label={
-								selectedArtifactPath
-									? `Content of ${selectedArtifactPath.split("/").pop()}`
+								selectedArtifactName
+									? `Content of ${selectedArtifactName}`
 									: "Artifact content"
 							}
 						>
 							{contentArea}
+							{externalLinksFooter}
 						</article>
 					</ScrollArea>
 
@@ -945,7 +979,7 @@ export function ArtifactViewerPage() {
 				>
 					<ScrollArea className="h-full">
 						<ArtifactSidebar
-							artifacts={run.artifacts}
+							artifacts={orderedArtifacts}
 							selectedPath={selectedArtifactPath}
 							onSelect={handleArtifactSelect}
 						/>
@@ -1041,7 +1075,8 @@ export function ArtifactViewerPage() {
 							</li>
 							<li aria-current="page">
 								<span className="text-foreground truncate max-w-[200px]">
-									{selectedArtifactPath.split("/").pop()}
+									{selectedArtifactName ??
+										selectedArtifactPath.split("/").pop()}
 								</span>
 							</li>
 						</>
@@ -1064,7 +1099,7 @@ export function ArtifactViewerPage() {
 					<aside aria-label="Artifact list" className="h-full">
 						<ScrollArea className="h-full">
 							<ArtifactSidebar
-								artifacts={run.artifacts}
+								artifacts={orderedArtifacts}
 								selectedPath={selectedArtifactPath}
 								onSelect={handleArtifactSelect}
 							/>
@@ -1121,12 +1156,13 @@ export function ArtifactViewerPage() {
 								className="p-6 min-w-0 max-w-full"
 								onScroll={handleScroll as unknown as React.UIEventHandler}
 								aria-label={
-									selectedArtifactPath
-										? `Content of ${selectedArtifactPath.split("/").pop()}`
+									selectedArtifactName
+										? `Content of ${selectedArtifactName}`
 										: "Artifact content"
 								}
 							>
 								{contentArea}
+								{externalLinksFooter}
 							</article>
 						</ScrollArea>
 

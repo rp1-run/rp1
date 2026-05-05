@@ -3,7 +3,6 @@ import {
 	Check,
 	Circle,
 	Code,
-	ExternalLink,
 	File,
 	FileText,
 	GitCompare,
@@ -11,6 +10,13 @@ import {
 	Minus,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import {
+	getLinkArtifactLabel,
+	getLinkArtifactTarget,
+	isLinkArtifact,
+	LINK_ARTIFACT_CONFIG,
+	orderArtifactsWithLinksLast,
+} from "@/lib/link-artifacts";
 import { cn } from "@/lib/utils";
 import type {
 	AgentTask,
@@ -40,21 +46,17 @@ const artifactIconMap: Record<ArtifactType, typeof FileText> = {
 	other: File,
 };
 
-function isUrlArtifact(artifact: Artifact): boolean {
-	return artifact.locationKind === "url";
-}
-
 function getArtifactName(artifact: Artifact): string {
-	if (isUrlArtifact(artifact)) {
-		return artifact.label || artifact.url || artifact.path;
+	if (isLinkArtifact(artifact)) {
+		return getLinkArtifactLabel(artifact);
 	}
 
 	return artifact.path.split("/").pop() ?? artifact.path;
 }
 
 function getArtifactTarget(artifact: Artifact): string {
-	if (isUrlArtifact(artifact)) {
-		return artifact.url || artifact.path;
+	if (isLinkArtifact(artifact)) {
+		return getLinkArtifactTarget(artifact);
 	}
 
 	return artifact.absolutePath ?? artifact.path;
@@ -279,7 +281,9 @@ export function VerticalStepList({
 			<ol className="relative ml-[9px] border-l border-border">
 				{steps.map((step, index) => {
 					const isSelected = step.id === selectedStepId;
-					const stepArtifacts = artifactsByStep.get(step.id) ?? [];
+					const stepArtifacts = orderArtifactsWithLinksLast(
+						artifactsByStep.get(step.id) ?? [],
+					);
 					const subTasks = agentSteps?.[step.id] ?? null;
 					const isComposite = subTasks !== null && subTasks.length > 0;
 					const isCompositeExpanded = expandedComposites.has(step.id);
@@ -354,12 +358,12 @@ export function VerticalStepList({
 							{isSelected && stepArtifacts.length > 0 && (
 								<ul className="ml-md pl-md py-xs border-l border-transparent">
 									{stepArtifacts.map((artifact) => {
-										const IconComponent = isUrlArtifact(artifact)
-											? ExternalLink
+										const IconComponent = isLinkArtifact(artifact)
+											? LINK_ARTIFACT_CONFIG.icon
 											: (artifactIconMap[artifact.type] ?? File);
 										const artifactName = getArtifactName(artifact);
 										const artifactTarget = getArtifactTarget(artifact);
-										const copyLabel = isUrlArtifact(artifact)
+										const copyLabel = isLinkArtifact(artifact)
 											? "Copy URL"
 											: "Copy path";
 										return (

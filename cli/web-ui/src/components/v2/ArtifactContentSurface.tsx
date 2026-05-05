@@ -36,6 +36,7 @@ export interface ArtifactContentSurfaceProps {
 	readonly renderHeader?: (
 		controls: ArtifactContentSurfaceControls,
 	) => ReactNode;
+	readonly footer?: ReactNode;
 }
 
 function ArtifactContentSurfaceInner({
@@ -45,6 +46,7 @@ function ArtifactContentSurfaceInner({
 	emptyMessage = "No content to display.",
 	className,
 	renderHeader,
+	footer,
 }: ArtifactContentSurfaceProps) {
 	const artifactPath = selectedArtifact?.path ?? null;
 	const artifactCacheKey =
@@ -249,6 +251,8 @@ function ArtifactContentSurfaceInner({
 					</div>
 				)}
 			</div>
+
+			{footer}
 		</div>
 	);
 }
