@@ -45,6 +45,7 @@ Read `{WORK_ROOT}/features/{FEATURE_ID}/`:
 | `design.md` | Yes | Tech specs |
 | `requirements.md` | Yes | Business reqs + AC |
 | `tasks.md` | If UPDATE | Existing tasks |
+| `tasks.json` | If UPDATE | Existing machine task plan |
 | `tracker.md` / `milestone-{N}.md` | No | Legacy read-only context only; never update or emit |
 
 **Validation**:
@@ -120,6 +121,39 @@ Set `SCOPE_FIT = "feature"` unless the design still clearly describes multiple i
 ```
 
 4-space indent + blank lines between fields.
+
+### 3.3.1 Machine Plan
+
+Generate `TASK_PLAN` in parallel with `tasks.md`. Machine orchestration consumes `tasks.json`; do not rely on markdown parsing.
+
+```json
+{
+  "schema_version": 1,
+  "feature_id": "{FEATURE_ID}",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Short task title",
+      "type": "code",
+      "status": "pending",
+      "complexity": "medium",
+      "acceptance_refs": ["REQ-001"],
+      "dependencies": [],
+      "reference": "design.md#section"
+    }
+  ]
+}
+```
+
+Rules:
+- `id`: stable task id from `tasks.md`
+- `title`: task line text without checkbox/id/complexity
+- `type`: `code` for `T*`; `docs` for `TD*`
+- `status`: `pending`, `completed`, or `blocked`
+- `complexity`: `simple`, `medium`, or `complex`
+- `acceptance_refs`: requirement/acceptance refs, empty array only when no explicit ref exists
+- `dependencies`: task ids from DAG dependency parsing
+- Include every active task from `tasks.md`; preserve done/blocked status in UPDATE mode.
 
 ### 3.4 Quality
 Every task: Specific, Measurable, Achievable (4-8h max), Relevant, Time-bound.
@@ -248,6 +282,7 @@ If legacy `tracker.md` or `milestone-{N}.md` files exist, treat them as read-onl
 For each artifact below, read `rp1-base:artifact-templates` SKILL.md to find the template row, then read the template file at the listed path:
 
 - `tasks.md` (Producer: `feature-tasker`)
+- `tasks.json` (Producer: `feature-tasker`)
 
 Use the template structure exactly.
 
@@ -261,15 +296,22 @@ Use the template structure exactly.
 - Include Implementation DAG section copied from design.md if DAG_STATE exists; omit if null.
 - User Docs section per §3.5 if DOC_IMPACTS non-empty.
 
+**tasks.json**:
+- Use schema in §3.3.1 exactly.
+- Keep task order identical to `tasks.md`.
+- `dependencies` from DAG_STATE. If no DAG or no dependency for a task, use `[]`.
+- Include code and docs tasks in one `tasks` array.
+
 If `SCOPE_FIT != "feature"`, exit with:
 
 ```json
 {"status": "error", "message": "Oversized scope requires /phase-plan before task generation. feature-tasker must not emit tracker.md or milestone artifacts."}
 ```
 
-### 5.1 Write `tasks.md`
+### 5.1 Write Task Artifacts
 
 Write to `{WORK_ROOT}/features/{FEATURE_ID}/tasks.md` using the `tasks.md` template loaded above.
+Write to `{WORK_ROOT}/features/{FEATURE_ID}/tasks.json` using the `tasks.json` template loaded above.
 
 ## §6 Artifact Registration
 
@@ -281,7 +323,7 @@ The subflow diagram is embedded inline as a fenced mermaid code block in `tasks.
 
 ### §6.1 Task Artifacts
 
-Register `tasks.md`:
+Register `tasks.md` and `tasks.json`:
 
 ```bash
 rp1 agent-tools emit \
@@ -290,6 +332,13 @@ rp1 agent-tools emit \
   --run-id {RUN_ID} \
   --step tasks \
   --data '{"path": "features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}", "subflow": true, "storageRoot": "work_dir"}'
+
+rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
+  --type artifact_registered \
+  --run-id {RUN_ID} \
+  --step tasks \
+  --data '{"path": "features/{FEATURE_ID}/tasks.json", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ```
 
 If any command fails, log a warning (`[feature-tasker] Failed to register artifact {path}: {error}`) and continue without blocking.
@@ -300,7 +349,7 @@ If any command fails, log a warning (`[feature-tasker] Failed to register artifa
 ```
 Task planning completed: `.rp1/work/features/{FEATURE_ID}/`
 
-**Generated**: tasks.md
+**Generated**: tasks.md, tasks.json
 
 **Summary**:
 - Total tasks: [N]

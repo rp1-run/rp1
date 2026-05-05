@@ -29,6 +29,7 @@ Templates contain YAML frontmatter with routing metadata and a markdown body wit
 | feature-architect | design.md | document | workRoot | features/{FEATURE_ID}/design.md | templates/feature-architect/design.md |
 | feature-architect | design-decisions.md | document | workRoot | features/{FEATURE_ID}/design-decisions.md | templates/feature-architect/design-decisions.md |
 | feature-tasker | tasks.md | document | workRoot | features/{FEATURE_ID}/tasks.md | templates/feature-tasker/tasks.md |
+| feature-tasker | tasks.json | data | workRoot | features/{FEATURE_ID}/tasks.json | templates/feature-tasker/tasks.json |
 | feature-tasker | tracker.md | document | workRoot | features/{FEATURE_ID}/tracker.md | templates/feature-tasker/tracker.md |
 | feature-verifier | verification-report.md | document | workRoot | features/{FEATURE_ID}/feature_verification_{N}.md | templates/feature-verifier/verification-report.md |
 | feature-editor | edit-marker | section | workRoot | features/{FEATURE_ID}/requirements.md (append) | templates/_sections/edit-marker.md |
@@ -118,6 +119,7 @@ templates/
 +-- feature-requirement-gatherer/
 +-- feature-tasker/
 |   +-- tasks.md
+|   +-- tasks.json
 |   +-- tracker.md
 +-- feature-verifier/
 +-- hypothesis-tester/

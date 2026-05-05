@@ -1,0 +1,47 @@
+---
+scope: workRoot
+path_pattern: "features/{FEATURE_ID}/tasks.json"
+producer: feature-tasker
+type: data
+description: "Schema-backed machine task plan for /build orchestration. Generated alongside tasks.md."
+strictness: strict
+emit_hint: |
+  rp1 agent-tools emit \
+    --workflow {WORKFLOW} \
+    --type artifact_registered \
+    --run-id {RUN_ID} \
+    --step tasks \
+    --data '{"path": "features/{FEATURE_ID}/tasks.json", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
+conditions:
+  - "Generate alongside tasks.md"
+  - "Keep task order identical to tasks.md"
+  - "Use dependencies from design.md Implementation DAG when present"
+---
+
+{
+  "schema_version": 1,
+  "feature_id": "{FEATURE_ID}",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Short task title",
+      "type": "code",
+      "status": "pending",
+      "complexity": "medium",
+      "acceptance_refs": ["REQ-001"],
+      "dependencies": [],
+      "reference": "design.md#section"
+    },
+    {
+      "id": "TD1",
+      "title": "Update user documentation",
+      "type": "docs",
+      "status": "pending",
+      "complexity": "simple",
+      "acceptance_refs": ["REQ-010"],
+      "dependencies": ["T1"],
+      "reference": "design.md#documentation-impact",
+      "target": "docs/reference/dev/build.md"
+    }
+  ]
+}
