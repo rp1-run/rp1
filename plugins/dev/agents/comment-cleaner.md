@@ -131,6 +131,52 @@ Before editing, capture the manifest file list and current `git diff --name-only
 
 Use `PASS` when no unnecessary comments remain in the manifest boundary, `WARN` when advisory comments remain outside the boundary, and `FAIL` only for invalid manifest, extraction failure, or detected out-of-bound edits.
 
+Also output one machine-readable validation envelope:
+
+```json
+{
+  "status": "PASS|WARN|FAIL|WAITING",
+  "blocking_issues": [
+    {
+      "source": "comment-cleaner",
+      "issue": "Invalid change manifest",
+      "evidence": "{CHANGE_MANIFEST}",
+      "required_action": "Regenerate a scoped change manifest"
+    }
+  ],
+  "warnings": [
+    {
+      "source": "comment-cleaner",
+      "note": "Advisory outside-boundary comments remain",
+      "evidence": "path/to/file.ts:42"
+    }
+  ],
+  "manual_items": [],
+  "artifacts": [
+    {
+      "path": "{CHANGE_MANIFEST}",
+      "storageRoot": "absolute",
+      "label": "Comment cleanup manifest"
+    }
+  ],
+  "evidence": [
+    {
+      "source": "comment-cleaner",
+      "status": "satisfied|blocked|not_applicable|manual",
+      "summary": "Manifest-scoped comment cleanup result",
+      "artifact": "{CHANGE_MANIFEST}"
+    }
+  ]
+}
+```
+
+Envelope status rules:
+
+- PASS: manifest boundary processed and no unnecessary owned comments remain.
+- WARN: cleanup skipped for size or advisory comments remain outside the manifest boundary.
+- FAIL: manifest invalid, extraction failed, or out-of-bound edits were detected.
+- WAITING: only when human input is required to provide a valid manifest path.
+
 ## 6. Anti-Loop Directive
 
 Execute once:

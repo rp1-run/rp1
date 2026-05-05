@@ -559,25 +559,69 @@ Otherwise set the `comment_cleaner` phase result yourself:
 ```json
 {
   "status": "WARN",
+  "blocking_issues": [],
+  "warnings": [
+    {
+      "source": "comment-cleaner",
+      "note": "Automatic comment cleanup skipped because no non-empty generated manifest was available.",
+      "evidence": "{cleanup_manifest_result.data.statusPath}"
+    }
+  ],
+  "manual_items": [],
+  "artifacts": [
+    {
+      "path": "{cleanup_manifest_result.data.statusPath}",
+      "storageRoot": "absolute",
+      "label": "Cleanup manifest status"
+    }
+  ],
+  "evidence": [
+    {
+      "source": "comment-cleaner",
+      "status": "not_applicable",
+      "summary": "{cleanup_manifest_result.data.skipReason}",
+      "artifact": "{cleanup_manifest_result.data.statusPath}"
+    }
+  ],
   "files_checked": 0,
   "manifest_path": null,
   "manifest_status_path": "{cleanup_manifest_result.data.statusPath}",
-  "skip_reason": "{cleanup_manifest_result.data.skipReason}",
-  "message": "Automatic comment cleanup skipped because no non-empty generated manifest was available."
+  "skip_reason": "{cleanup_manifest_result.data.skipReason}"
 }
 ```
 
 Then aggregate with the real cleaner response or the synthetic warning result:
 
+Build `PHASE_RESULTS_JSON` with normalized or legacy producer outputs:
+
+```json
+{
+  "code_checker": "{code-checker validation envelope or legacy result}",
+  "feature_verifier": "{feature-verifier validation envelope or legacy result}",
+  "comment_cleaner": "{comment-cleaner validation envelope or synthetic warning result}",
+  "implementation_context": {
+    "task_plan_warnings": [],
+    "documentation_followups": []
+  }
+}
+```
+
 {% dispatch_agent "rp1-dev:build-verify-aggregator" %}
-PHASE_RESULTS: { code_checker: {...}, feature_verifier: {...}, comment_cleaner: {...}, implementation_context: { task_plan_warnings: [...], documentation_followups: [...] } }
+PHASE_RESULTS={PHASE_RESULTS_JSON}, FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-Extract `overall_status`, `ready_for_merge`, `manual_items`.
+Extract `readiness_status`, `release_behavior`, `ready_for_release`, `blocking_issues`, `warnings`, and `manual_items`. Preserve compatibility fields `overall_status` and `ready_for_merge` when present.
+
+Readiness release behavior:
+
+- PASS/proceed: release may start.
+- WARN/proceed_with_notes: release may start with warnings/manual notes visible.
+- FAIL/return_to_implementation: keep parent `implementation` running for planned repair or waiting for a user decision.
+- WAITING/wait_for_human: emit parent `implementation` waiting for required manual evidence.
 
 If readiness has blocking failures or missing required components, keep parent `implementation` running for planned repair or waiting for a user decision. Emit parent `implementation` failed only when no repair/decision path remains.
 
-When readiness can proceed to release, emit `implementation` completed:
+When readiness is PASS or WARN and can proceed to release, emit `implementation` completed:
 
 ```bash
 rp1 agent-tools emit \

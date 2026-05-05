@@ -70,7 +70,7 @@ Execute complete code quality validation:
 2. Run quality checks (lint/format/test/coverage)
 3. Aggregate results
 4. Generate numbered report
-5. Output summary
+5. Output summary and validation envelope
 
 ## §TOOLS
 
@@ -109,7 +109,7 @@ Execute complete code quality validation:
 7. Aggregate w/ validation
 8. Scan existing reports → determine next number
 9. Generate markdown report
-10. Write report + output summary
+10. Write report + output summary + validation envelope
 11. Stop
 
 ## §OUT
@@ -140,6 +140,61 @@ Execute complete code quality validation:
 
 [Pass/Fail Message]
 ```
+
+**Validation Envelope**:
+
+Output one machine-readable JSON object after the summary:
+
+```json
+{
+  "status": "PASS|WARN|FAIL|WAITING",
+  "blocking_issues": [
+    {
+      "source": "code-checker",
+      "issue": "Required check failed",
+      "evidence": "features/{FEATURE_ID}/code_check_report_X.md",
+      "required_action": "Fix lint/test/format failure"
+    }
+  ],
+  "warnings": [
+    {
+      "source": "code-checker",
+      "note": "Non-blocking check warning",
+      "evidence": "features/{FEATURE_ID}/code_check_report_X.md"
+    }
+  ],
+  "manual_items": [
+    {
+      "item": "Provide missing local test command",
+      "requirement": null,
+      "reason": "Project check command could not be inferred",
+      "required_evidence": "Runnable command or explicit skip decision"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "features/{FEATURE_ID}/code_check_report_X.md",
+      "storageRoot": "work_dir",
+      "label": "Code check report"
+    }
+  ],
+  "evidence": [
+    {
+      "source": "code-checker",
+      "status": "satisfied|blocked|not_applicable|manual",
+      "summary": "Mechanical checks completed",
+      "artifact": "features/{FEATURE_ID}/code_check_report_X.md"
+    }
+  ]
+}
+```
+
+**Envelope status rules**:
+
+- PASS: lint, format, tests, and required coverage pass.
+- WARN: required checks pass with non-blocking warnings or optional coverage unavailable.
+- FAIL: any required lint, format, test, or coverage check fails.
+- WAITING: a human must provide missing environment, credentials, or commands before checks can run.
 
 ## §DO
 

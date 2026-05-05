@@ -197,6 +197,11 @@ After your planning, execute these workflow steps:
   - If deviation is documented, mark as intentional with field note reference
   - If deviation is NOT documented, flag for review as potential issue
 - Provide specific evidence for each status (code snippets, file references, missing functionality)
+- Map each criterion into validation evidence:
+  - VERIFIED or accepted INTENTIONAL DEVIATION -> `status: "satisfied"`
+  - PARTIAL or NOT VERIFIED -> `status: "blocked"` plus a blocking issue
+  - MANUAL_REQUIRED -> `status: "manual"` plus a manual item
+  - Not applicable criterion -> `status: "not_applicable"` with rationale
 
 ### 5.1 Manual Verification Detection
 
@@ -234,6 +239,7 @@ During verification, identify criteria that CANNOT be automated:
 - Scan for existing `feature_verification_*.md` files to determine the next report number
 - Generate a comprehensive markdown report following the required structure below
 - Write the report to `{feature_dir}/feature_verification_{number}.md`
+- Register the report with the template `emit_hint` when `WORKFLOW` and `RUN_ID` are non-empty. The artifact registration MUST include `storageRoot: "work_dir"`.
 - Include an executive summary with key metrics and actionable next steps
 - Transition to `completed` state per STATE-MACHINE section (skip if WORKFLOW is empty):
   ```bash
@@ -245,31 +251,62 @@ During verification, identify criteria that CANNOT be automated:
     --data '{"status": "completed", "feature": "{FEATURE_ID}"}'
   ```
 
-## Step 7.5: Manual Verification Return
+## Step 7.5: Validation Envelope Return
 
-After generating the report, output structured manual verification items:
+After generating and registering the report, output a machine-readable validation envelope:
 
 ```json
 {
-  "verification_complete": true,
+  "status": "PASS|WARN|FAIL|WAITING",
+  "blocking_issues": [
+    {
+      "source": "feature-verifier",
+      "issue": "Acceptance criterion is not implemented",
+      "requirement": "REQ-XXX",
+      "evidence": "features/{FEATURE_ID}/feature_verification_{number}.md",
+      "required_action": "Implement or explicitly defer the criterion"
+    }
+  ],
+  "warnings": [
+    {
+      "source": "feature-verifier",
+      "note": "Documented design deviation accepted",
+      "evidence": "features/{FEATURE_ID}/field-notes.md"
+    }
+  ],
   "manual_items": [
     {
-      "criterion": "AC-XXX",
-      "description": "What to verify",
-      "reason": "Why automation impossible"
+      "item": "Verify external email delivery",
+      "requirement": "REQ-XXX",
+      "reason": "Requires third-party inbox inspection",
+      "required_evidence": "Manual result and artifact/link"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "features/{FEATURE_ID}/feature_verification_{number}.md",
+      "storageRoot": "work_dir",
+      "label": "Feature verification report"
+    }
+  ],
+  "evidence": [
+    {
+      "requirement": "REQ-XXX",
+      "criterion": "Acceptance criterion text",
+      "status": "satisfied|blocked|not_applicable|manual",
+      "summary": "Evidence summary",
+      "artifact": "features/{FEATURE_ID}/feature_verification_{number}.md"
     }
   ]
 }
 ```
 
-If no manual items needed, return empty array:
+Envelope status rules:
 
-```json
-{
-  "verification_complete": true,
-  "manual_items": []
-}
-```
+- PASS: all required criteria are satisfied or not applicable, with no blocking issues or manual items.
+- WARN: criteria are satisfied but non-blocking notes or accepted deviations remain.
+- FAIL: any required criterion is blocked, partial, or not verified.
+- WAITING: required human evidence is needed before readiness can be claimed.
 
 ## Report Template Loading
 
