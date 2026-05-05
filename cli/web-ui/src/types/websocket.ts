@@ -3,7 +3,7 @@
  * Uses the unified event:notification format for all status and artifact updates.
  */
 
-import type { Status } from "../../../shared/events";
+import type { ArtifactLocationKind, Status } from "../../../shared/events";
 import type { Annotation, AnnotationReply } from "./annotations";
 
 /** File change notification */
@@ -72,7 +72,17 @@ export interface StateSnapshotMessage {
 		projectPath: string;
 		status: string;
 		steps: Array<{ step: string; status: string }>;
-		artifacts: Array<{ docId: string; path: string; type: string }>;
+		artifacts: Array<{
+			docId: string;
+			path: string;
+			type: string;
+			locationKind?: ArtifactLocationKind;
+			url?: string | null;
+			label?: string | null;
+			relationship?: string | null;
+			sourceContext?: string | null;
+			sourceArtifactPath?: string | null;
+		}>;
 	}>;
 	lastEventId: number;
 }

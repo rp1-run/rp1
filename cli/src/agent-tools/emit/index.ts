@@ -4,6 +4,7 @@
  * Handles all 6 event types through a single executeEmit pipeline.
  */
 
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -120,6 +121,31 @@ interface EndRunExecutionInput {
 	readonly outcome: EndRunOutcome;
 	readonly reason?: string;
 }
+
+interface ArtifactRegistrationResult {
+	readonly docId: string;
+	readonly data?: Record<string, unknown>;
+}
+
+const canonicalizeArtifactUrl = (value: string): string => {
+	const url = new URL(value.trim());
+	if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
+		url.pathname = url.pathname.replace(/\/+$/, "");
+	}
+	return url.toString();
+};
+
+const deriveLinkDocId = (
+	runId: string,
+	relationship: string,
+	canonicalUrl: string,
+): string =>
+	`link:${createHash("sha256")
+		.update(`${runId}${relationship}${canonicalUrl}`)
+		.digest("hex")}`;
+
+const optionalString = (value: unknown): string | undefined =>
+	typeof value === "string" ? value : undefined;
 
 /**
  * Check for flow mismatch between the stored run and the provided workflow.
@@ -270,9 +296,65 @@ const handleSkippedSteps = (
 const handleArtifactRegistration = (
 	input: EmitInput,
 	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkRoot" | "projectId">,
-): TE.TaskEither<CLIError, string | undefined> => {
+): TE.TaskEither<CLIError, ArtifactRegistrationResult | undefined> => {
 	if (input.type !== "artifact_registered") {
 		return TE.right(undefined);
+	}
+
+	if (input.data.locationKind === "url") {
+		const canonicalUrl = canonicalizeArtifactUrl(input.data.url as string);
+		const label = (input.data.label as string).trim();
+		const relationship = (input.data.relationship as string).trim();
+		const docId =
+			optionalString(input.data.docId)?.trim() ||
+			deriveLinkDocId(input.runId, relationship, canonicalUrl);
+		const feature = (input.data.feature as string) ?? "unknown";
+		const sourceContext = optionalString(input.data.sourceContext);
+		const sourceArtifactPath = optionalString(input.data.sourceArtifactPath);
+		const metadata =
+			input.data.metadata !== undefined
+				? JSON.stringify(input.data.metadata)
+				: undefined;
+
+		return pipe(
+			getEmitDatabase(),
+			TE.map((db) => {
+				const artifactInput: ArtifactInput = {
+					docId,
+					runId: input.runId,
+					locationKind: "url",
+					path: canonicalUrl,
+					type: "link",
+					storageRoot: "work_dir",
+					projectPath: input.projectPath,
+					projectId: run.projectId ?? undefined,
+					feature,
+					step: input.step,
+					subflow: input.data.subflow === true,
+					url: canonicalUrl,
+					label,
+					relationship,
+					sourceContext,
+					sourceArtifactPath,
+					metadata,
+				};
+
+				upsertArtifact(db, artifactInput);
+				return {
+					docId,
+					data: {
+						locationKind: "url",
+						type: "link",
+						url: canonicalUrl,
+						path: canonicalUrl,
+						label,
+						relationship,
+						...(sourceContext !== undefined ? { sourceContext } : {}),
+						...(sourceArtifactPath !== undefined ? { sourceArtifactPath } : {}),
+					},
+				} satisfies ArtifactRegistrationResult;
+			}),
+		);
 	}
 
 	const filePath = input.data.path as string;
@@ -333,7 +415,7 @@ const handleArtifactRegistration = (
 					};
 
 					upsertArtifact(db, artifactInput);
-					return docIdResult.docId;
+					return { docId: docIdResult.docId };
 				}),
 			),
 		),
@@ -372,6 +454,7 @@ const notifyDaemon = async (
 	run: Pick<RunRecord, "projectId" | "rp1ProjectRoot">,
 	runStatus: Status,
 	eventId: number,
+	eventData?: Record<string, unknown>,
 ): Promise<void> => {
 	try {
 		const { connectToDaemon, notifyEvent } = await loadDaemonModule();
@@ -381,7 +464,7 @@ const notifyDaemon = async (
 			const featureId = (input.data.feature as string) ?? "unknown";
 			let data: Record<string, unknown> | null = null;
 			try {
-				data = { ...input.data };
+				data = { ...(eventData ?? input.data) };
 			} catch {
 				data = null;
 			}
@@ -490,12 +573,17 @@ export const executeEmit = (
 								TE.bind("skippedResult", () =>
 									handleSkippedSteps(input, run.flow, now),
 								),
-								TE.bind("docId", () => handleArtifactRegistration(input, run)),
+								TE.bind("artifactRegistration", () =>
+									handleArtifactRegistration(input, run),
+								),
 								TE.chainFirst(() => handleAnnotation(input)),
-								TE.chain(({ skippedResult, docId }) => {
-									const eventData = { ...input.data };
-									if (docId) {
-										eventData.docId = docId;
+								TE.chain(({ skippedResult, artifactRegistration }) => {
+									const eventData = {
+										...input.data,
+										...(artifactRegistration?.data ?? {}),
+									};
+									if (artifactRegistration) {
+										eventData.docId = artifactRegistration.docId;
 									}
 
 									const parentStepId =
@@ -541,16 +629,23 @@ export const executeEmit = (
 												event,
 												runStatus,
 												skippedResult,
-												docId,
+												docId: artifactRegistration?.docId,
 												notification,
+												eventData,
 											};
 										}),
 									);
 								}),
-								TE.chainFirst(({ event, runStatus, notification }) =>
+								TE.chainFirst(({ event, runStatus, notification, eventData }) =>
 									TE.fromTask(async () => {
 										if (process.env.RP1_EVAL_MODE === "true") return;
-										await notifyDaemon(input, run, runStatus, event.id);
+										await notifyDaemon(
+											input,
+											run,
+											runStatus,
+											event.id,
+											eventData,
+										);
 										if (notification) {
 											await notifyDaemonNotification(notification);
 										}

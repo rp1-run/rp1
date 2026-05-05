@@ -17,9 +17,13 @@ import {
 	getEmitDatabase,
 	insertRun,
 	resetInstance,
+	upsertArtifact,
 } from "../../../../src/agent-tools/emit/database.js";
 import * as registry from "../../server/registry.js";
-import { handleV2RunDetailRequest } from "../../server/routes/v2-api.js";
+import {
+	handleV2ArtifactContentRequest,
+	handleV2RunDetailRequest,
+} from "../../server/routes/v2-api.js";
 
 const registrySpies: Array<{ mockRestore: () => void }> = [];
 
@@ -164,5 +168,119 @@ describe("handleV2RunDetailRequest", () => {
 
 		expect(response.status).toBe(200);
 		expect(Object.hasOwn(run, "invocation")).toBe(false);
+	});
+
+	test("projects URL artifacts in run detail without requiring file content", async () => {
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		insertRun(db, {
+			id: "run-with-url-artifact",
+			flow: "pr-review",
+			featureId: "pr-123",
+			projectPath: projectRoot,
+			rp1ProjectRoot: projectRoot,
+			rp1KbRoot: join(projectRoot, ".rp1", "context"),
+			rp1WorkRoot: join(projectRoot, ".rp1", "work"),
+			projectId: "project-1",
+			harness: "codex",
+		});
+		upsertArtifact(db, {
+			docId: "doc-report",
+			runId: "run-with-url-artifact",
+			path: "pr-reviews/pr-123-review.md",
+			type: "markdown",
+			storageRoot: "work_dir",
+			projectPath: projectRoot,
+			projectId: "project-1",
+			feature: "pr-123",
+			step: "posting",
+		});
+		upsertArtifact(db, {
+			docId: "link-reviewed-pr",
+			runId: "run-with-url-artifact",
+			locationKind: "url",
+			path: "https://github.com/example/repo/pull/123",
+			type: "link",
+			storageRoot: "work_dir",
+			url: "https://github.com/example/repo/pull/123",
+			label: "Reviewed PR",
+			relationship: "reviewed_pr",
+			sourceContext: "PR review input resolution",
+			sourceArtifactPath: "pr-reviews/pr-123-review.md",
+			projectPath: projectRoot,
+			projectId: "project-1",
+			feature: "pr-123",
+			step: "posting",
+			subflow: true,
+		});
+
+		const response = await handleV2RunDetailRequest("run-with-url-artifact");
+		const run = (await response.json()) as {
+			artifacts: Array<Record<string, unknown>>;
+		};
+
+		expect(response.status).toBe(200);
+		expect(run.artifacts).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					docId: "doc-report",
+					path: ".rp1/work/pr-reviews/pr-123-review.md",
+					type: "markdown",
+				}),
+				expect.objectContaining({
+					docId: "link-reviewed-pr",
+					locationKind: "url",
+					path: "https://github.com/example/repo/pull/123",
+					absolutePath: "https://github.com/example/repo/pull/123",
+					type: "link",
+					url: "https://github.com/example/repo/pull/123",
+					label: "Reviewed PR",
+					relationship: "reviewed_pr",
+					sourceContext: "PR review input resolution",
+					sourceArtifactPath: "pr-reviews/pr-123-review.md",
+					step: "posting",
+				}),
+			]),
+		);
+	});
+
+	test("rejects URL artifact content requests before filesystem fallback", async () => {
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		insertRun(db, {
+			id: "run-url-content",
+			flow: "pr-review",
+			featureId: "pr-123",
+			projectPath: projectRoot,
+			rp1ProjectRoot: projectRoot,
+			rp1KbRoot: join(projectRoot, ".rp1", "context"),
+			rp1WorkRoot: join(projectRoot, ".rp1", "work"),
+			projectId: "project-1",
+			harness: "codex",
+		});
+		upsertArtifact(db, {
+			docId: "link-reviewed-pr",
+			runId: "run-url-content",
+			locationKind: "url",
+			path: "https://github.com/example/repo/pull/123",
+			type: "link",
+			storageRoot: "work_dir",
+			url: "https://github.com/example/repo/pull/123",
+			label: "Reviewed PR",
+			relationship: "reviewed_pr",
+			sourceContext: "PR review input resolution",
+			sourceArtifactPath: "pr-reviews/pr-123-review.md",
+			projectPath: projectRoot,
+			projectId: "project-1",
+			feature: "pr-123",
+			step: "posting",
+		});
+
+		const response = await handleV2ArtifactContentRequest(
+			"run-url-content",
+			"https://github.com/example/repo/pull/123",
+		);
+		const body = (await response.json()) as { error?: string };
+
+		expect(response.status).toBe(400);
+		expect(body.error).toBe("URL artifacts do not have file content");
 	});
 });

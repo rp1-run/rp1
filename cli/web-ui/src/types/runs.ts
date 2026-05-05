@@ -7,13 +7,14 @@
  */
 
 import type {
+	ArtifactLocationKind,
 	ArtifactType,
 	EventType as SharedEventType,
 	Status,
 	WorkflowRunPolicy,
 } from "../../../shared/events";
 
-export type { ArtifactType };
+export type { ArtifactLocationKind, ArtifactType };
 
 /** Status of an agent run -- canonical shared Status */
 export type RunStatus = Status;
@@ -51,9 +52,15 @@ export interface Step {
 /** An artifact produced or updated by a run */
 export interface Artifact {
 	readonly docId: string;
+	readonly locationKind?: ArtifactLocationKind;
 	readonly path: string;
 	readonly absolutePath: string;
 	readonly type: ArtifactType;
+	readonly url?: string | null;
+	readonly label?: string | null;
+	readonly relationship?: string | null;
+	readonly sourceContext?: string | null;
+	readonly sourceArtifactPath?: string | null;
 	readonly updatedDuringRun: boolean;
 	readonly isNew: boolean;
 	readonly step: string | null;

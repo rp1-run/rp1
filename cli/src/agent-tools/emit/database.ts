@@ -14,6 +14,7 @@ import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { runtimeError } from "../../../shared/errors.js";
 import type {
+	ArtifactLocationKind,
 	EventRecord,
 	EventType,
 	RunRecord,
@@ -106,7 +107,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (17);
+INSERT INTO schema_version (version) VALUES (18);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -164,6 +165,14 @@ CREATE TABLE IF NOT EXISTS artifacts (
     type TEXT NOT NULL DEFAULT 'other',
     storage_root TEXT NOT NULL DEFAULT 'work_dir'
         CHECK(storage_root IN ('absolute', 'project', 'work_dir')),
+    location_kind TEXT NOT NULL DEFAULT 'file'
+        CHECK(location_kind IN ('file', 'url')),
+    url TEXT DEFAULT NULL,
+    label TEXT DEFAULT NULL,
+    relationship TEXT DEFAULT NULL,
+    source_context TEXT DEFAULT NULL,
+    source_artifact_path TEXT DEFAULT NULL,
+    metadata TEXT DEFAULT NULL,
     project_path TEXT NOT NULL,
     project_id TEXT DEFAULT NULL,
     feature TEXT NOT NULL,
@@ -454,9 +463,16 @@ export interface ActivitySearchRefreshCandidate {
 export interface ArtifactInput {
 	readonly docId: string;
 	readonly runId?: string;
+	readonly locationKind?: ArtifactLocationKind;
 	readonly path: string;
 	readonly type: string;
 	readonly storageRoot: ArtifactStorageRoot;
+	readonly url?: string;
+	readonly label?: string;
+	readonly relationship?: string;
+	readonly sourceContext?: string;
+	readonly sourceArtifactPath?: string;
+	readonly metadata?: string;
 	readonly projectPath: string;
 	readonly projectId?: string;
 	readonly feature: string;
@@ -486,9 +502,16 @@ export interface ArtifactRecord {
 	readonly id: number;
 	readonly docId: string;
 	readonly runId: string | null;
+	readonly locationKind: ArtifactLocationKind;
 	readonly path: string;
 	readonly type: string;
 	readonly storageRoot: ArtifactStorageRoot;
+	readonly url: string | null;
+	readonly label: string | null;
+	readonly relationship: string | null;
+	readonly sourceContext: string | null;
+	readonly sourceArtifactPath: string | null;
+	readonly metadata: string | null;
 	readonly projectPath: string;
 	readonly projectId: string | null;
 	readonly feature: string;
@@ -581,9 +604,16 @@ interface ArtifactRow {
 	id: number;
 	doc_id: string;
 	run_id: string | null;
+	location_kind: ArtifactLocationKind | null;
 	path: string;
 	type: string;
 	storage_root: ArtifactStorageRoot | null;
+	url: string | null;
+	label: string | null;
+	relationship: string | null;
+	source_context: string | null;
+	source_artifact_path: string | null;
+	metadata: string | null;
 	project_path: string;
 	project_id: string | null;
 	feature: string;
@@ -718,9 +748,16 @@ const artifactRowToRecord = (row: ArtifactRow): ArtifactRecord => ({
 	id: row.id,
 	docId: row.doc_id,
 	runId: row.run_id,
+	locationKind: row.location_kind ?? "file",
 	path: row.path,
 	type: row.type,
 	storageRoot: row.storage_root ?? "work_dir",
+	url: row.url ?? null,
+	label: row.label ?? null,
+	relationship: row.relationship ?? null,
+	sourceContext: row.source_context ?? null,
+	sourceArtifactPath: row.source_artifact_path ?? null,
+	metadata: row.metadata ?? null,
 	projectPath: row.project_path,
 	projectId: row.project_id ?? null,
 	feature: row.feature,
@@ -1363,6 +1400,57 @@ const applyMigrations = (db: Database): void => {
 		ensureActivitySearchSchema(db);
 		db.prepare("UPDATE schema_version SET version = 17").run();
 	}
+
+	const postV17Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV17Version?.version ?? 17) < 18) {
+		const artifactsTable = db
+			.prepare(
+				"SELECT name FROM sqlite_master WHERE type='table' AND name='artifacts'",
+			)
+			.get() as { name: string } | null;
+
+		if (artifactsTable) {
+			const artifactCols = db.prepare("PRAGMA table_info(artifacts)").all() as {
+				name: string;
+			}[];
+			const artifactColNames = new Set(artifactCols.map((c) => c.name));
+
+			if (!artifactColNames.has("location_kind")) {
+				db.exec(
+					"ALTER TABLE artifacts ADD COLUMN location_kind TEXT NOT NULL DEFAULT 'file' CHECK(location_kind IN ('file', 'url'))",
+				);
+			}
+			if (!artifactColNames.has("url")) {
+				db.exec("ALTER TABLE artifacts ADD COLUMN url TEXT DEFAULT NULL");
+			}
+			if (!artifactColNames.has("label")) {
+				db.exec("ALTER TABLE artifacts ADD COLUMN label TEXT DEFAULT NULL");
+			}
+			if (!artifactColNames.has("relationship")) {
+				db.exec(
+					"ALTER TABLE artifacts ADD COLUMN relationship TEXT DEFAULT NULL",
+				);
+			}
+			if (!artifactColNames.has("source_context")) {
+				db.exec(
+					"ALTER TABLE artifacts ADD COLUMN source_context TEXT DEFAULT NULL",
+				);
+			}
+			if (!artifactColNames.has("source_artifact_path")) {
+				db.exec(
+					"ALTER TABLE artifacts ADD COLUMN source_artifact_path TEXT DEFAULT NULL",
+				);
+			}
+			if (!artifactColNames.has("metadata")) {
+				db.exec("ALTER TABLE artifacts ADD COLUMN metadata TEXT DEFAULT NULL");
+			}
+		}
+
+		db.prepare("UPDATE schema_version SET version = 18").run();
+	}
 };
 
 /**
@@ -1766,9 +1854,16 @@ export const upsertArtifact = (
 			.prepare(
 				`UPDATE artifacts
 				 SET run_id = $runId,
+				     location_kind = $locationKind,
 				     path = $path,
 				     type = $type,
 				     storage_root = $storageRoot,
+				     url = $url,
+				     label = $label,
+				     relationship = $relationship,
+				     source_context = $sourceContext,
+				     source_artifact_path = $sourceArtifactPath,
+				     metadata = $metadata,
 				     project_path = $projectPath,
 				     project_id = $projectId,
 				     feature = $feature,
@@ -1780,9 +1875,16 @@ export const upsertArtifact = (
 			.get({
 				$docId: input.docId,
 				$runId: input.runId ?? existing.run_id,
+				$locationKind: input.locationKind ?? existing.location_kind ?? "file",
 				$path: input.path,
 				$type: input.type,
 				$storageRoot: input.storageRoot,
+				$url: input.url ?? null,
+				$label: input.label ?? null,
+				$relationship: input.relationship ?? null,
+				$sourceContext: input.sourceContext ?? null,
+				$sourceArtifactPath: input.sourceArtifactPath ?? null,
+				$metadata: input.metadata ?? null,
 				$projectPath: input.projectPath,
 				$projectId: input.projectId ?? existing.project_id,
 				$feature: input.feature,
@@ -1796,19 +1898,30 @@ export const upsertArtifact = (
 	const row = db
 		.prepare(
 			`INSERT INTO artifacts (
-			    doc_id, run_id, path, type, storage_root, project_path, project_id, feature, step, subflow
+			    doc_id, run_id, location_kind, path, type, storage_root, url, label,
+			    relationship, source_context, source_artifact_path, metadata,
+			    project_path, project_id, feature, step, subflow
 			 )
 			 VALUES (
-			    $docId, $runId, $path, $type, $storageRoot, $projectPath, $projectId, $feature, $step, $subflow
+			    $docId, $runId, $locationKind, $path, $type, $storageRoot, $url,
+			    $label, $relationship, $sourceContext, $sourceArtifactPath,
+			    $metadata, $projectPath, $projectId, $feature, $step, $subflow
 			 )
 			 RETURNING *`,
 		)
 		.get({
 			$docId: input.docId,
 			$runId: input.runId ?? null,
+			$locationKind: input.locationKind ?? "file",
 			$path: input.path,
 			$type: input.type,
 			$storageRoot: input.storageRoot,
+			$url: input.url ?? null,
+			$label: input.label ?? null,
+			$relationship: input.relationship ?? null,
+			$sourceContext: input.sourceContext ?? null,
+			$sourceArtifactPath: input.sourceArtifactPath ?? null,
+			$metadata: input.metadata ?? null,
 			$projectPath: input.projectPath,
 			$projectId: input.projectId ?? null,
 			$feature: input.feature,
@@ -2370,8 +2483,14 @@ export interface ActiveRunSnapshot {
 	readonly steps: readonly { step: string; status: Status }[];
 	readonly artifacts: readonly {
 		docId: string;
+		locationKind: ArtifactLocationKind;
 		path: string;
 		type: string;
+		url: string | null;
+		label: string | null;
+		relationship: string | null;
+		sourceContext: string | null;
+		sourceArtifactPath: string | null;
 	}[];
 }
 
@@ -2396,8 +2515,14 @@ export const getActiveRunsSnapshot = (db: Database): ActiveRunSnapshot[] => {
 
 		const artifacts = artifactRows.map((a) => ({
 			docId: a.doc_id,
+			locationKind: a.location_kind ?? "file",
 			path: a.path,
 			type: a.type,
+			url: a.url ?? null,
+			label: a.label ?? null,
+			relationship: a.relationship ?? null,
+			sourceContext: a.source_context ?? null,
+			sourceArtifactPath: a.source_artifact_path ?? null,
 		}));
 
 		return {
@@ -3129,8 +3254,23 @@ const getArtifactReconciliationRoots = (
 export const resolveArtifactPathForRun = async (
 	db: Database,
 	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkRoot">,
-	artifact: Pick<ArtifactRecord, "docId" | "path" | "storageRoot">,
+	artifact: Pick<ArtifactRecord, "docId" | "path" | "storageRoot"> & {
+		readonly locationKind?: ArtifactLocationKind;
+	},
 ): Promise<string | null> => {
+	const persistedArtifact =
+		artifact.locationKind === undefined
+			? getArtifactByDocId(db, artifact.docId)
+			: null;
+
+	if (
+		artifact.locationKind === "url" ||
+		persistedArtifact?.locationKind === "url" ||
+		persistedArtifact?.type === "link"
+	) {
+		return null;
+	}
+
 	if (isAbsolute(artifact.path)) {
 		return (await Bun.file(artifact.path).exists()) ? artifact.path : null;
 	}

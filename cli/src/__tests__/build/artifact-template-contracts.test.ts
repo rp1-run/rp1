@@ -23,4 +23,93 @@ describe("artifact template contracts", () => {
 		expect(body).not.toContain("> **Snapshot**");
 		expect(body).toContain("# {Project Name} — Bird's-Eye View");
 	});
+
+	test("pr-review report template declares the conditional Reviewed PR external link", async () => {
+		const template = await readProjectFile(
+			"plugins/base/skills/artifact-templates/templates/pr-review-reporter/pr-review-report.md",
+		);
+		const body = template.replace(FRONTMATTER_REGEX, "");
+
+		expect(template).toContain(
+			"Include External Links only when PR_INFO.reviewed_pr_url is present.",
+		);
+		expect(body).toContain("## External Links");
+		expect(body).toContain("| Label | URL | Relationship | Source Context |");
+		expect(body).toContain(
+			"| Reviewed PR | {REVIEWED_PR_URL} | reviewed_pr | PR review input resolution |",
+		);
+		expect(body).not.toContain("GitHub Review");
+	});
+
+	test("pr-review reporter limits External Links to one reviewed PR row", async () => {
+		const reporter = await readProjectFile(
+			"plugins/dev/agents/pr-review-reporter.md",
+		);
+
+		expect(reporter).toContain("PR_INFO.reviewed_pr_url");
+		expect(reporter).toContain("exactly one `External Links` section");
+		expect(reporter).toContain("one `Reviewed PR` row");
+		expect(reporter).toContain("omit the whole section");
+		expect(reporter).toContain("Do not leave `{REVIEWED_PR_URL}`");
+		expect(reporter).toContain("Do not add posted GitHub review URLs");
+		expect(reporter).toContain("URLs discovered in findings markdown");
+	});
+
+	test("pr-review skill registers only the reviewed PR URL as a link artifact", async () => {
+		const skill = await readProjectFile(
+			"plugins/dev/skills/pr-review/SKILL.md",
+		);
+		const linkPayloads = [
+			...skill.matchAll(/--data '([^']*"locationKind":"url"[^']*)'/g),
+		].map((match) => match[1]);
+		const reusablePayloads = linkPayloads.filter((payload) =>
+			payload.includes('"url":"{LINK_URL}"'),
+		);
+		const prReviewPayloads = linkPayloads.filter((payload) =>
+			payload.includes('"url":"{REVIEWED_PR_URL}"'),
+		);
+		const linkRegistrationSection =
+			skill
+				.split("### Link Artifact Registration")
+				.at(1)
+				?.split("### Final Output")
+				.at(0) ?? "";
+
+		expect(skill).toContain("REVIEWED_PR_URL");
+		expect(skill).toContain("reviewed_pr_url: REVIEWED_PR_URL");
+		expect(linkRegistrationSection).toContain(
+			"Reusable External Link Artifact Registration Pattern",
+		);
+		expect(linkRegistrationSection).toContain(
+			"Use this insertable block in any orchestrator",
+		);
+		expect(linkRegistrationSection).toContain(
+			"| `{LINK_URL}` | Canonical `http` or `https` URL from structured workflow state |",
+		);
+		expect(linkRegistrationSection).toContain(
+			"Collect link values from explicit workflow state, not by scanning generated markdown for URLs.",
+		);
+		expect(linkRegistrationSection).toContain("#### PR Review Binding");
+		expect(reusablePayloads).toHaveLength(1);
+		expect(prReviewPayloads).toHaveLength(1);
+		expect(prReviewPayloads[0]).toContain('"url":"{REVIEWED_PR_URL}"');
+		expect(prReviewPayloads[0]).toContain('"label":"Reviewed PR"');
+		expect(prReviewPayloads[0]).toContain('"relationship":"reviewed_pr"');
+		expect(prReviewPayloads[0]).toContain(
+			'"sourceContext":"PR review input resolution"',
+		);
+		expect(prReviewPayloads[0]).toContain(
+			'"sourceArtifactPath":"{REPORT_PATH}"',
+		);
+		expect(linkRegistrationSection).toContain(
+			"Skip this emit entirely when `REVIEWED_PR_URL` is empty.",
+		);
+		expect(linkRegistrationSection).toContain(
+			"If link artifact registration fails, warn and continue",
+		);
+		expect(linkRegistrationSection).toContain(
+			"Do not register posted GitHub review URLs",
+		);
+		expect(linkRegistrationSection).not.toContain('"url":"{REVIEW_URL}"');
+	});
 });

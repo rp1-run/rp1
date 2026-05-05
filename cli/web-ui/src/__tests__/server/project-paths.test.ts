@@ -165,6 +165,36 @@ describe("project-paths", () => {
 		);
 	});
 
+	test("treats URL artifacts as external locations instead of filesystem paths", () => {
+		const urlArtifact = {
+			locationKind: "url",
+			path: "https://github.com/example/repo/pull/123",
+			storageRoot: "work_dir",
+			url: "https://github.com/example/repo/pull/123",
+		} as const;
+
+		expect(resolveArtifactAbsolutePath(directories, urlArtifact)).toBe(
+			"https://github.com/example/repo/pull/123",
+		);
+		expect(toArtifactDisplayPath(directories, urlArtifact)).toBe(
+			"https://github.com/example/repo/pull/123",
+		);
+		expect(
+			findArtifactByRequestedPath(
+				directories,
+				[urlArtifact],
+				"https://github.com/example/repo/pull/123",
+			),
+		).toBe(urlArtifact);
+		expect(
+			findArtifactByRequestedPath(
+				directories,
+				[urlArtifact],
+				".rp1/work/https://github.com/example/repo/pull/123",
+			),
+		).toBeNull();
+	});
+
 	test("getRunDirectories derives project-local work root", () => {
 		expect(
 			getRunDirectories({

@@ -80,6 +80,19 @@ export interface RunDetailTarget {
 	readonly artifact: Artifact | null;
 }
 
+function isUrlArtifact(artifact: Artifact | null): boolean {
+	return artifact?.locationKind === "url";
+}
+
+function getUrlArtifactTarget(artifact: Artifact): string {
+	return artifact.url || artifact.path;
+}
+
+function openUrlArtifact(artifact: Artifact): void {
+	if (typeof window === "undefined") return;
+	window.open(getUrlArtifactTarget(artifact), "_blank", "noopener,noreferrer");
+}
+
 function MobileStepSelector({
 	steps,
 	selectedStepId,
@@ -138,9 +151,14 @@ export function selectDefaultRunTarget(run: Run): RunDetailTarget | null {
 		fallbackStep;
 	const artifact =
 		run.artifacts.find(
-			(candidate) => candidate.step === targetStep.id && candidate.docId,
+			(candidate) =>
+				candidate.step === targetStep.id &&
+				candidate.docId &&
+				!isUrlArtifact(candidate),
 		) ??
-		run.artifacts.find((candidate) => candidate.docId) ??
+		run.artifacts.find(
+			(candidate) => candidate.docId && !isUrlArtifact(candidate),
+		) ??
 		null;
 
 	return {
@@ -220,9 +238,18 @@ export function RunDetailSurface({
 
 	const workspaceSubtitle = useMemo(() => {
 		if (!run) return null;
-		const artifactName = selectedArtifact?.path.split("/").at(-1) ?? null;
+		const artifactName = selectedArtifact
+			? isUrlArtifact(selectedArtifact)
+				? (selectedArtifact.label ??
+					selectedArtifact.url ??
+					selectedArtifact.path)
+				: (selectedArtifact.path.split("/").at(-1) ?? null)
+			: null;
 		return artifactName ?? run.projectName;
 	}, [run, selectedArtifact]);
+	const selectedFileArtifact = isUrlArtifact(selectedArtifact)
+		? null
+		: selectedArtifact;
 
 	const displaySteps = useMemo<readonly Step[]>(() => {
 		return run ? run.steps : [];
@@ -421,8 +448,12 @@ export function RunDetailSurface({
 
 	const handleArtifactSelect = useCallback(
 		(artifact: Artifact) => {
-			if (!runId) return;
 			setFocusedStepId(artifact.step ?? null);
+			if (isUrlArtifact(artifact)) {
+				openUrlArtifact(artifact);
+				return;
+			}
+			if (!runId) return;
 			if (mode === "workspace") {
 				onArtifactRouteSelect?.(buildArtifactRoute(runId, artifact));
 				return;
@@ -453,12 +484,12 @@ export function RunDetailSurface({
 
 	useEffect(() => {
 		if (mode !== "workspace") return;
-		if (selectedArtifact && runId) {
-			setActiveArtifact(runId, selectedArtifact.path);
+		if (selectedFileArtifact && runId) {
+			setActiveArtifact(runId, selectedFileArtifact.path);
 		} else {
 			setActiveArtifact(runId ?? "", null);
 		}
-	}, [mode, selectedArtifact, runId, setActiveArtifact]);
+	}, [mode, selectedFileArtifact, runId, setActiveArtifact]);
 
 	useEffect(() => {
 		if (mode !== "workspace") return;
@@ -499,7 +530,7 @@ export function RunDetailSurface({
 						},
 					]
 				: []),
-			...(selectedArtifact
+			...(selectedFileArtifact
 				? [
 						{
 							id: "toggle-run-frontmatter",
@@ -580,7 +611,7 @@ export function RunDetailSurface({
 	const artifactPanel = (
 		<RunArtifactsPanel
 			artifactGroups={artifactGroups}
-			selectedArtifact={selectedArtifact}
+			selectedArtifact={selectedFileArtifact}
 			onArtifactSelect={handleArtifactSelect}
 			runId={runId}
 			subflowDiagram={subflowDiagram}
@@ -678,7 +709,7 @@ export function RunDetailSurface({
 				<div className="flex-1 min-h-0 overflow-y-auto">
 					<RunArtifactsPanel
 						artifactGroups={artifactGroups}
-						selectedArtifact={selectedArtifact}
+						selectedArtifact={selectedFileArtifact}
 						onArtifactSelect={handleArtifactSelect}
 						runId={runId}
 						subflowDiagram={subflowDiagram}

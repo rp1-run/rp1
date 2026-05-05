@@ -1,4 +1,5 @@
 import {
+	ExternalLink,
 	File,
 	FileCode,
 	FileDiff,
@@ -42,6 +43,15 @@ const artifactConfigs: Record<ArtifactType, ArtifactConfig> = {
 	},
 };
 
+const urlArtifactConfig: ArtifactConfig = {
+	icon: ExternalLink,
+	label: "Link",
+};
+
+function isUrlArtifact(artifact: Artifact): boolean {
+	return artifact.locationKind === "url";
+}
+
 function getFileName(path: string): string {
 	return path.split("/").pop() || path;
 }
@@ -53,10 +63,34 @@ function getDirectory(path: string): string {
 	return parts.join("/");
 }
 
+function getArtifactName(artifact: Artifact): string {
+	if (isUrlArtifact(artifact)) {
+		return artifact.label || artifact.url || artifact.path;
+	}
+
+	return getFileName(artifact.path);
+}
+
+function getArtifactContext(artifact: Artifact): string {
+	if (isUrlArtifact(artifact)) {
+		return artifact.url || artifact.path;
+	}
+
+	return getDirectory(artifact.path);
+}
+
+function getArtifactConfig(artifact: Artifact): ArtifactConfig {
+	if (isUrlArtifact(artifact)) {
+		return urlArtifactConfig;
+	}
+
+	return artifactConfigs[artifact.type] ?? artifactConfigs.other;
+}
+
 export interface ArtifactSidebarProps {
 	artifacts: readonly Artifact[];
 	selectedPath: string;
-	onSelect: (path: string) => void;
+	onSelect: (artifact: Artifact) => void;
 	className?: string;
 }
 
@@ -69,7 +103,7 @@ export function ArtifactSidebar({
 	const { getItemProps, containerProps, setSelectedIndex } = useKeyboardNav({
 		items: artifacts,
 		onSelect: (artifact) => {
-			onSelect(artifact.path);
+			onSelect(artifact);
 		},
 		enabled: true,
 		wrap: true,
@@ -108,26 +142,26 @@ export function ArtifactSidebar({
 				}}
 			>
 				{artifacts.map((artifact, index) => {
-					const config = artifactConfigs[artifact.type];
+					const config = getArtifactConfig(artifact);
 					const Icon = config.icon;
-					const fileName = getFileName(artifact.path);
-					const directory = getDirectory(artifact.path);
+					const artifactName = getArtifactName(artifact);
+					const artifactContext = getArtifactContext(artifact);
 					const isSelected = artifact.path === selectedPath;
 					const itemProps = getItemProps(index);
 
 					return (
 						<div
-							key={artifact.path}
+							key={artifact.docId || artifact.path}
 							{...itemProps}
 							id={`artifact-item-${index}`}
 							role="option"
 							tabIndex={-1}
 							aria-selected={isSelected}
-							onClick={() => onSelect(artifact.path)}
+							onClick={() => onSelect(artifact)}
 							onKeyDown={(e) => {
 								if (e.key === "Enter" || e.key === " ") {
 									e.preventDefault();
-									onSelect(artifact.path);
+									onSelect(artifact);
 								}
 							}}
 							className={cn(
@@ -147,7 +181,7 @@ export function ArtifactSidebar({
 							<div className="min-w-0 flex-1">
 								<div className="flex items-center gap-2">
 									<span className="truncate font-medium text-foreground">
-										{fileName}
+										{artifactName}
 									</span>
 									{artifact.isNew && (
 										<span className="shrink-0 rounded bg-status-completed/20 px-1.5 py-0.5 text-xs font-medium text-status-completed">
@@ -160,9 +194,9 @@ export function ArtifactSidebar({
 										</span>
 									)}
 								</div>
-								{directory && (
+								{artifactContext && (
 									<p className="truncate text-xs text-muted-foreground">
-										{directory}
+										{artifactContext}
 									</p>
 								)}
 							</div>

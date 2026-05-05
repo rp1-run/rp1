@@ -3,6 +3,7 @@ import {
 	Check,
 	Circle,
 	Code,
+	ExternalLink,
 	File,
 	FileText,
 	GitCompare,
@@ -38,6 +39,26 @@ const artifactIconMap: Record<ArtifactType, typeof FileText> = {
 	diagram: Image,
 	other: File,
 };
+
+function isUrlArtifact(artifact: Artifact): boolean {
+	return artifact.locationKind === "url";
+}
+
+function getArtifactName(artifact: Artifact): string {
+	if (isUrlArtifact(artifact)) {
+		return artifact.label || artifact.url || artifact.path;
+	}
+
+	return artifact.path.split("/").pop() ?? artifact.path;
+}
+
+function getArtifactTarget(artifact: Artifact): string {
+	if (isUrlArtifact(artifact)) {
+		return artifact.url || artifact.path;
+	}
+
+	return artifact.absolutePath ?? artifact.path;
+}
 
 function formatStepDuration(
 	startedAt: string | null,
@@ -333,10 +354,14 @@ export function VerticalStepList({
 							{isSelected && stepArtifacts.length > 0 && (
 								<ul className="ml-md pl-md py-xs border-l border-transparent">
 									{stepArtifacts.map((artifact) => {
-										const IconComponent =
-											artifactIconMap[artifact.type] ?? File;
-										const fileName =
-											artifact.path.split("/").pop() ?? artifact.path;
+										const IconComponent = isUrlArtifact(artifact)
+											? ExternalLink
+											: (artifactIconMap[artifact.type] ?? File);
+										const artifactName = getArtifactName(artifact);
+										const artifactTarget = getArtifactTarget(artifact);
+										const copyLabel = isUrlArtifact(artifact)
+											? "Copy URL"
+											: "Copy path";
 										return (
 											<li
 												key={artifact.docId}
@@ -346,13 +371,11 @@ export function VerticalStepList({
 													type="button"
 													onClick={(e) => {
 														e.stopPropagation();
-														navigator.clipboard.writeText(
-															artifact.absolutePath ?? artifact.path,
-														);
+														navigator.clipboard.writeText(artifactTarget);
 														setCopiedArtifactId(artifact.docId);
 														setTimeout(() => setCopiedArtifactId(null), 2000);
 													}}
-													aria-label={`Copy path for ${fileName}`}
+													aria-label={`${copyLabel} for ${artifactName}`}
 													className="flex-shrink-0 p-[1px] text-fg-ghost hover:text-fg transition-colors duration-150"
 												>
 													{copiedArtifactId === artifact.docId ? (
@@ -369,7 +392,9 @@ export function VerticalStepList({
 													onClick={() => onArtifactSelect(artifact)}
 													className="flex min-w-0 flex-1 items-center gap-xs py-[2px] text-left type-secondary text-fg-muted hover:text-fg transition-colors duration-150"
 												>
-													<span className="min-w-0 truncate">{fileName}</span>
+													<span className="min-w-0 truncate">
+														{artifactName}
+													</span>
 												</button>
 											</li>
 										);

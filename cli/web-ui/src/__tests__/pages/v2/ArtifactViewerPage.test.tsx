@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import {
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import {
@@ -11,10 +17,15 @@ import {
 	ShortcutRegistryProvider,
 	useShortcutRegistry,
 } from "@/providers/ShortcutRegistryProvider";
-import type { Run } from "@/types/runs";
+import type { Artifact, Run } from "@/types/runs";
 
 let importVersion = 0;
 let latestRegistry: ShortcutRegistryData | null = null;
+let latestAnnotationProvider: {
+	artifactPath: string;
+	docId?: string;
+	runId?: string;
+} | null = null;
 
 const breadcrumbApi = {
 	setActiveArtifact: mock(() => {}),
@@ -27,7 +38,7 @@ const webSocketApi = {
 	setProjectId: mock(() => {}),
 };
 
-const run: Run = {
+const baseRun: Run = {
 	id: "run-1",
 	projectId: "proj-1",
 	projectName: "Project One",
@@ -67,6 +78,8 @@ const run: Run = {
 	events: [],
 	agentSteps: null,
 };
+
+let run: Run = baseRun;
 
 mock.module("@/hooks/useRunDetail", () => ({
 	useRunDetail: () => ({
@@ -109,9 +122,20 @@ mock.module("@/hooks/useFollowMode", () => ({
 }));
 
 mock.module("@/providers/AnnotationProvider", () => ({
-	AnnotationProvider: ({ children }: { children?: ReactNode }) => (
-		<>{children}</>
-	),
+	AnnotationProvider: ({
+		children,
+		artifactPath,
+		docId,
+		runId,
+	}: {
+		children?: ReactNode;
+		artifactPath: string;
+		docId?: string;
+		runId?: string;
+	}) => {
+		latestAnnotationProvider = { artifactPath, docId, runId };
+		return <>{children}</>;
+	},
 }));
 
 mock.module("@/components/ui/button", () => ({
@@ -160,7 +184,25 @@ mock.module("@/components/ui/tooltip", () => ({
 }));
 
 mock.module("@/components/v2/ArtifactSidebar", () => ({
-	ArtifactSidebar: () => <div data-testid="artifact-sidebar" />,
+	ArtifactSidebar: ({
+		artifacts,
+		onSelect,
+	}: {
+		readonly artifacts: readonly Artifact[];
+		readonly onSelect: (artifact: Artifact) => void;
+	}) => (
+		<div data-testid="artifact-sidebar">
+			{artifacts.map((artifact) => (
+				<button
+					key={artifact.docId}
+					type="button"
+					onClick={() => onSelect(artifact)}
+				>
+					{artifact.label ?? artifact.path}
+				</button>
+			))}
+		</div>
+	),
 }));
 
 mock.module("@/components/v2/AnnotationSidebar", () => ({
@@ -223,13 +265,15 @@ function readStoredTabs() {
 		: null;
 }
 
-async function renderArtifactViewerPage() {
+async function renderArtifactViewerPage(
+	initialEntry = "/runs/run-1/artifacts/docs/tasks.md",
+) {
 	const { ArtifactViewerPage } = await import(
 		`../../../pages/v2/ArtifactViewerPage.tsx?artifact-viewer-page-test=${++importVersion}`
 	);
 
 	return render(
-		<MemoryRouter initialEntries={["/runs/run-1/artifacts/docs/tasks.md"]}>
+		<MemoryRouter initialEntries={[initialEntry]}>
 			<WorkspaceTabsProvider>
 				<ShortcutRegistryProvider>
 					<Routes>
@@ -256,6 +300,13 @@ describe("ArtifactViewerPage", () => {
 		localStorage.clear();
 		sessionStorage.clear();
 		latestRegistry = null;
+		latestAnnotationProvider = null;
+		run = {
+			...baseRun,
+			steps: [...baseRun.steps],
+			artifacts: [...baseRun.artifacts],
+			events: [...baseRun.events],
+		};
 		breadcrumbApi.setActiveArtifact.mockClear();
 		breadcrumbApi.setProject.mockClear();
 		breadcrumbApi.setRunInfo.mockClear();
@@ -299,5 +350,91 @@ describe("ArtifactViewerPage", () => {
 			"run-1",
 			"docs/tasks.md",
 		);
+	});
+
+	test("opens URL artifacts from the sidebar without replacing current file content", async () => {
+		const openMock = mock(() => null);
+		Object.defineProperty(window, "open", {
+			configurable: true,
+			value: openMock,
+		});
+		run = {
+			...baseRun,
+			artifacts: [
+				...baseRun.artifacts,
+				{
+					docId: "link-reviewed-pr",
+					locationKind: "url",
+					path: "https://github.com/example/repo/pull/123",
+					absolutePath: "https://github.com/example/repo/pull/123",
+					type: "other",
+					url: "https://github.com/example/repo/pull/123",
+					label: "Reviewed PR",
+					relationship: "reviewed_pr",
+					sourceContext: "PR review input resolution",
+					sourceArtifactPath: "pr-reviews/pr-123-review.md",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "build",
+				},
+			],
+		};
+
+		await renderArtifactViewerPage();
+
+		await waitFor(() => {
+			expect(screen.getByTestId("artifact-renderer").textContent).toBe(
+				"docs/tasks.md:# Tasks",
+			);
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Reviewed PR" }));
+
+		expect(openMock).toHaveBeenCalledWith(
+			"https://github.com/example/repo/pull/123",
+			"_blank",
+			"noopener,noreferrer",
+		);
+		expect(screen.getByTestId("artifact-renderer").textContent).toBe(
+			"docs/tasks.md:# Tasks",
+		);
+	});
+
+	test("keeps direct URL artifact routes out of annotation surfaces", async () => {
+		run = {
+			...baseRun,
+			artifacts: [
+				{
+					docId: "link-reviewed-pr",
+					locationKind: "url",
+					path: "https://github.com/example/repo/pull/123",
+					absolutePath: "https://github.com/example/repo/pull/123",
+					type: "other",
+					url: "https://github.com/example/repo/pull/123",
+					label: "Reviewed PR",
+					relationship: "reviewed_pr",
+					sourceContext: "PR review input resolution",
+					sourceArtifactPath: "pr-reviews/pr-123-review.md",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "build",
+				},
+			],
+		};
+
+		await renderArtifactViewerPage(
+			"/runs/run-1/artifacts/https://github.com/example/repo/pull/123",
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText("Open link")).toBeTruthy();
+		});
+
+		expect(global.fetch).not.toHaveBeenCalled();
+		expect(screen.queryByTestId("annotation-sidebar")).toBeNull();
+		expect(latestAnnotationProvider).toMatchObject({
+			artifactPath: "",
+			docId: undefined,
+			runId: "run-1",
+		});
 	});
 });

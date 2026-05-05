@@ -1,5 +1,5 @@
 import type { ServerWebSocket } from "bun";
-import type { Status } from "../../../shared/events.js";
+import type { ArtifactLocationKind, Status } from "../../../shared/events.js";
 import type { Annotation, AnnotationReply } from "../types/annotations";
 
 export interface FileChangedMessage {
@@ -127,7 +127,17 @@ export interface StateSnapshotMessage {
 		projectPath: string;
 		status: string;
 		steps: Array<{ step: string; status: string }>;
-		artifacts: Array<{ docId: string; path: string; type: string }>;
+		artifacts: Array<{
+			docId: string;
+			path: string;
+			type: string;
+			locationKind?: ArtifactLocationKind;
+			url?: string | null;
+			label?: string | null;
+			relationship?: string | null;
+			sourceContext?: string | null;
+			sourceArtifactPath?: string | null;
+		}>;
 	}>;
 	lastEventId: number;
 }
@@ -187,7 +197,17 @@ export interface ReplayProvider {
 		projectPath: string;
 		status: string;
 		steps: readonly { step: string; status: string }[];
-		artifacts: readonly { docId: string; path: string; type: string }[];
+		artifacts: readonly {
+			docId: string;
+			path: string;
+			type: string;
+			locationKind?: ArtifactLocationKind;
+			url?: string | null;
+			label?: string | null;
+			relationship?: string | null;
+			sourceContext?: string | null;
+			sourceArtifactPath?: string | null;
+		}[];
 	}>;
 	getMaxEventId(): number;
 }
@@ -286,6 +306,12 @@ export class WebSocketHub {
 							docId: a.docId,
 							path: a.path,
 							type: a.type,
+							locationKind: a.locationKind,
+							url: a.url,
+							label: a.label,
+							relationship: a.relationship,
+							sourceContext: a.sourceContext,
+							sourceArtifactPath: a.sourceArtifactPath,
 						})),
 					})),
 					lastEventId: maxEventId,

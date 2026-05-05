@@ -813,4 +813,58 @@ describe("RunDetailPage", () => {
 			expect(latestPath).toBe("/runs/run-1/step/review/artifact/doc-review");
 		});
 	});
+
+	test("opens URL artifacts externally instead of routing to the file viewer", async () => {
+		const openMock = mock(() => null);
+		Object.defineProperty(window, "open", {
+			configurable: true,
+			value: openMock,
+		});
+		run = {
+			...run,
+			artifacts: [
+				{
+					docId: "doc-1",
+					path: ".rp1/work/features/feature-1/tasks.md",
+					absolutePath: "/repo/.rp1/work/features/feature-1/tasks.md",
+					type: "markdown",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "build",
+				},
+				{
+					docId: "link-reviewed-pr",
+					locationKind: "url",
+					path: "https://github.com/example/repo/pull/123",
+					absolutePath: "https://github.com/example/repo/pull/123",
+					type: "other",
+					url: "https://github.com/example/repo/pull/123",
+					label: "Reviewed PR",
+					relationship: "reviewed_pr",
+					sourceContext: "PR review input resolution",
+					sourceArtifactPath: "pr-reviews/pr-123-review.md",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "build",
+				},
+			],
+		};
+
+		await renderRunDetail("/runs/run-1/step/build/artifact/doc-1");
+
+		await waitFor(() => {
+			expect(screen.getAllByText("link-reviewed-pr").length).toBeGreaterThan(0);
+		});
+		fireEvent.click(screen.getAllByText("link-reviewed-pr")[0]);
+
+		expect(openMock).toHaveBeenCalledWith(
+			"https://github.com/example/repo/pull/123",
+			"_blank",
+			"noopener,noreferrer",
+		);
+		expect(latestPath).toBe("/runs/run-1/step/build/artifact/doc-1");
+		for (const panel of screen.getAllByTestId("artifact-panel-frontmatter")) {
+			expect(panel.dataset.selectedArtifact).toBe("doc-1");
+		}
+	});
 });

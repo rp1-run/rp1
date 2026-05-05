@@ -99,12 +99,29 @@ function mergeArtifactRegistration(
 					...artifact,
 					path: incoming.path,
 					type: incoming.type,
+					...(incoming.locationKind !== undefined
+						? { locationKind: incoming.locationKind }
+						: {}),
+					...(incoming.locationKind === "url"
+						? {
+								absolutePath: incoming.absolutePath,
+								url: incoming.url,
+								label: incoming.label,
+								relationship: incoming.relationship,
+								sourceContext: incoming.sourceContext,
+								sourceArtifactPath: incoming.sourceArtifactPath,
+							}
+						: {}),
 					updatedDuringRun: true,
 					isNew: true,
 					step: artifact.step ?? incoming.step,
 				}
 			: artifact,
 	);
+}
+
+function optionalString(value: unknown): string | null {
+	return typeof value === "string" ? value : null;
 }
 
 function updateReconciledArtifactPath(
@@ -301,8 +318,17 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 
 			if (msg.eventType === "artifact_registered") {
 				const data = msg.data as Record<string, unknown> | null;
-				const docId = typeof data?.docId === "string" ? data.docId : "";
-				const path = typeof data?.path === "string" ? data.path : "";
+				const docId = optionalString(data?.docId) ?? "";
+				const locationKind =
+					data?.locationKind === "url"
+						? "url"
+						: data?.locationKind === "file"
+							? "file"
+							: undefined;
+				const url = optionalString(data?.url);
+				const path =
+					optionalString(data?.path) ??
+					(locationKind === "url" ? (url ?? "") : "");
 
 				if (!docId || !path) return;
 
@@ -322,9 +348,19 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 				} else {
 					const newArtifact: Artifact = {
 						docId,
+						...(locationKind !== undefined ? { locationKind } : {}),
 						path,
-						absolutePath: path,
+						absolutePath: locationKind === "url" ? (url ?? path) : path,
 						type: (data?.type as Artifact["type"]) ?? "other",
+						...(locationKind === "url"
+							? {
+									url: url ?? path,
+									label: optionalString(data?.label),
+									relationship: optionalString(data?.relationship),
+									sourceContext: optionalString(data?.sourceContext),
+									sourceArtifactPath: optionalString(data?.sourceArtifactPath),
+								}
+							: {}),
 						updatedDuringRun: true,
 						isNew: true,
 						step: msg.step,

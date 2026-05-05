@@ -103,7 +103,7 @@ describe("emit database", () => {
 			expect(tableNames).not.toContain("socratic_duel_turns");
 		});
 
-		test("schema_version is set to 17", async () => {
+		test("schema_version is set to 18", async () => {
 			const dbPath = join(tempDir, "version-test.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -111,7 +111,7 @@ describe("emit database", () => {
 				version: number;
 			};
 
-			expect(row.version).toBe(17);
+			expect(row.version).toBe(18);
 		});
 
 		test("activity_search_runs table includes search columns, indexes, and run FK", async () => {
@@ -353,7 +353,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 
 			const runRow = db
 				.prepare(
@@ -466,7 +466,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 
 			const duelColumns = db
 				.prepare("PRAGMA table_info(socratic_duels)")
@@ -584,7 +584,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 
 			const migratedDuel = db
 				.prepare(
@@ -725,7 +725,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 			expect(
 				db
 					.prepare(
@@ -869,7 +869,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 		});
 
 		test("migrates v2 schema to add subflow column to artifacts", async () => {
@@ -960,7 +960,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 		});
 
 		test("v3 to v4 migration adds baseline column and cleans orphaned edit-diff annotations", async () => {
@@ -1047,7 +1047,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 
 			const annotations = db.prepare("SELECT * FROM annotations").all() as {
 				content: string;
@@ -1167,7 +1167,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 
 			const indexes = db.prepare("PRAGMA index_list(runs)").all() as {
 				name: string;
@@ -1374,7 +1374,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(17);
+			expect(versionRow.version).toBe(18);
 		});
 
 		test("foreign key constraints are enforced", async () => {
@@ -4943,6 +4943,55 @@ describe("emit database", () => {
 			);
 
 			expect(resolvedPath).toBe(join(projectRoot, "legacy.md"));
+		});
+
+		test("does not resolve persisted URL artifacts when caller omits location kind", async () => {
+			const dbPath = join(tempDir, "artifact-resolve-url-partial.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const projectRoot = join(tempDir, "project-url-partial");
+			const workDir = join(tempDir, "external-url-work");
+			const filePath = join(workDir, "features", "feat", "reviewed-pr.md");
+			await mkdir(dirname(filePath), { recursive: true });
+			writeFileSync(
+				filePath,
+				"---\nrp1_doc_id: link-reviewed-pr\n---\n# Not a link artifact\n",
+			);
+
+			insertRun(db, {
+				id: "run-url-partial",
+				flow: "pr-review",
+				featureId: "feat",
+				projectPath: projectRoot,
+				rp1ProjectRoot: projectRoot,
+				rp1KbRoot: join(projectRoot, ".rp1", "context"),
+				rp1WorkRoot: workDir,
+			});
+			upsertArtifact(db, {
+				docId: "link-reviewed-pr",
+				runId: "run-url-partial",
+				locationKind: "url",
+				path: "features/feat/reviewed-pr.md",
+				type: "link",
+				storageRoot: "work_dir",
+				url: "https://github.com/example/repo/pull/123",
+				projectPath: projectRoot,
+				feature: "feat",
+			});
+
+			const resolvedPath = await resolveArtifactPathForRun(
+				db,
+				{
+					rp1ProjectRoot: projectRoot,
+					rp1WorkRoot: workDir,
+				},
+				{
+					docId: "link-reviewed-pr",
+					path: "features/feat/reviewed-pr.md",
+					storageRoot: "work_dir",
+				},
+			);
+
+			expect(resolvedPath).toBeNull();
 		});
 
 		test("reconciles missing work-dir artifacts by scanning rp1_work_root", async () => {

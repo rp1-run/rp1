@@ -170,7 +170,7 @@ agents:
   - name: rp1-dev:pr-review-reporter
     description: "Formats findings into markdown report and writes to file"
     plugin: dev
-    last_checksum: fd0f7c64fba22dd1cd6c84523ab058a0a497d6d00b9741eace6a0f25c5d240c0
+    last_checksum: 4bd6575e4460ca23c9f4e573d5c714108f4b560e0356e2c8bc6b5ee5cd02d66b
   - name: rp1-dev:pr-review-splitter
     description: "Splits PR diff into reviewable units, filtering out generated/low-value files"
     plugin: dev

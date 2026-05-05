@@ -494,6 +494,56 @@ describe("useRunDetail", () => {
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 
+	test("URL artifact registrations merge without requiring a file path", async () => {
+		const { useRunDetail } = await loadUseRunDetail();
+		const { result } = renderHook(() => useRunDetail("run-1"));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		act(() => {
+			emitEvent({
+				type: "event:notification",
+				eventId: 675,
+				eventType: "artifact_registered",
+				runId: "run-1",
+				projectId: "proj-1",
+				featureId: "feat-1",
+				step: "posting",
+				data: {
+					docId: "link-reviewed-pr",
+					locationKind: "url",
+					type: "link",
+					url: "https://github.com/example/repo/pull/123",
+					label: "Reviewed PR",
+					relationship: "reviewed_pr",
+					sourceContext: "PR review input resolution",
+					sourceArtifactPath: "pr-reviews/pr-123-review.md",
+				},
+				createdAt: "2026-03-15T01:28:00Z",
+			});
+		});
+
+		expect(result.current.run?.artifacts).toHaveLength(1);
+		expect(result.current.run?.artifacts[0]).toMatchObject({
+			docId: "link-reviewed-pr",
+			locationKind: "url",
+			path: "https://github.com/example/repo/pull/123",
+			absolutePath: "https://github.com/example/repo/pull/123",
+			type: "link",
+			url: "https://github.com/example/repo/pull/123",
+			label: "Reviewed PR",
+			relationship: "reviewed_pr",
+			sourceContext: "PR review input resolution",
+			sourceArtifactPath: "pr-reviews/pr-123-review.md",
+			updatedDuringRun: true,
+			isNew: true,
+			step: "posting",
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
 	test("run-level cancelled status changes stay on the current step and trigger a terminal refetch", async () => {
 		const { useRunDetail } = await loadUseRunDetail();
 		const { result } = renderHook(() => useRunDetail("run-1"));
