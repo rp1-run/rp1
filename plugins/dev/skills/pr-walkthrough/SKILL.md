@@ -33,7 +33,7 @@ metadata:
 
 # PR Walkthrough
 
-Generate a plain markdown walkthrough from direct pull request evidence. The output is a reviewer-orientation artifact, not a verdict and not a slide deck.
+Generate a slide-ready markdown walkthrough from direct pull request evidence. The output is a reviewer-orientation artifact with plain markdown fallback, not a review verdict or rendered slide reader.
 
 Use the pre-resolved `projectRoot`, `kbRoot`, `workRoot`, and `codeRoot` values from the generated Workflow Bootstrap section. Run all source-control commands from `codeRoot`, and write generated artifacts only under `workRoot`.
 
@@ -164,7 +164,7 @@ Derive `review_id` as `pr-{number}` for PR targets. For branch-only targets, san
 After evidence collection succeeds, emit `publishing` running and dispatch the reporter:
 
 {% dispatch_agent "rp1-dev:pr-walkthrough-reporter" %}
-Generate an evidence-grounded markdown PR walkthrough.
+Generate an evidence-grounded slide-ready markdown PR walkthrough with plain markdown fallback.
   EVIDENCE_JSON: {{stringify(EVIDENCE_JSON)}}
   KB_ROOT: {kbRoot}
   WORK_ROOT: {workRoot}
@@ -187,6 +187,8 @@ Validate the returned path before registration:
 - It must start with `pr-walkthroughs/`.
 - It must end with `.md`.
 - It must not contain `..`.
+
+Do not reject an otherwise valid reporter artifact because it contains the canonical slide-ready markdown contract fields, reserved `<!-- rp1-slide: ... -->` markers, slide metadata blocks, or `<!-- rp1-notes -->` speaker-note sections.
 
 ## 3. Register Artifact
 
@@ -232,4 +234,5 @@ Single pass. Do not:
 - Read existing `pr-review` artifacts.
 - Dispatch the reporter more than once.
 - Register more than one artifact.
-- Produce slide separators, speaker notes, Reveal.js metadata, or a review verdict.
+- Strip or forbid the canonical slide-ready markdown contract metadata, reserved slide markers, slide metadata blocks, or speaker notes.
+- Produce a rendered slide reader, alternate artifact path, extra artifact, or review verdict.
