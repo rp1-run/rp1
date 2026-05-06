@@ -1,18 +1,25 @@
 import {
-	ExternalLink,
 	File,
 	FileCode,
 	FileDiff,
 	FileImage,
 	FileSpreadsheet,
 	FileText,
+	type LucideIcon,
 } from "lucide-react";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
+import {
+	getLinkArtifactContext,
+	getLinkArtifactLabel,
+	isLinkArtifact,
+	LINK_ARTIFACT_CONFIG,
+	orderArtifactsWithLinksLast,
+} from "@/lib/link-artifacts";
 import { cn } from "@/lib/utils";
 import type { Artifact, ArtifactType } from "@/types/runs";
 
 interface ArtifactConfig {
-	icon: React.ComponentType<{ className?: string }>;
+	icon: LucideIcon;
 	label: string;
 }
 
@@ -43,15 +50,6 @@ const artifactConfigs: Record<ArtifactType, ArtifactConfig> = {
 	},
 };
 
-const urlArtifactConfig: ArtifactConfig = {
-	icon: ExternalLink,
-	label: "Link",
-};
-
-function isUrlArtifact(artifact: Artifact): boolean {
-	return artifact.locationKind === "url";
-}
-
 function getFileName(path: string): string {
 	return path.split("/").pop() || path;
 }
@@ -64,24 +62,24 @@ function getDirectory(path: string): string {
 }
 
 function getArtifactName(artifact: Artifact): string {
-	if (isUrlArtifact(artifact)) {
-		return artifact.label || artifact.url || artifact.path;
+	if (isLinkArtifact(artifact)) {
+		return getLinkArtifactLabel(artifact);
 	}
 
 	return getFileName(artifact.path);
 }
 
 function getArtifactContext(artifact: Artifact): string {
-	if (isUrlArtifact(artifact)) {
-		return artifact.url || artifact.path;
+	if (isLinkArtifact(artifact)) {
+		return getLinkArtifactContext(artifact);
 	}
 
 	return getDirectory(artifact.path);
 }
 
 function getArtifactConfig(artifact: Artifact): ArtifactConfig {
-	if (isUrlArtifact(artifact)) {
-		return urlArtifactConfig;
+	if (isLinkArtifact(artifact)) {
+		return LINK_ARTIFACT_CONFIG;
 	}
 
 	return artifactConfigs[artifact.type] ?? artifactConfigs.other;
@@ -100,8 +98,9 @@ export function ArtifactSidebar({
 	onSelect,
 	className,
 }: ArtifactSidebarProps) {
+	const orderedArtifacts = orderArtifactsWithLinksLast(artifacts);
 	const { getItemProps, containerProps, setSelectedIndex } = useKeyboardNav({
-		items: artifacts,
+		items: orderedArtifacts,
 		onSelect: (artifact) => {
 			onSelect(artifact);
 		},
@@ -110,9 +109,11 @@ export function ArtifactSidebar({
 	});
 
 	// Sync selection from selectedPath prop to keyboard nav state
-	const selectedIndex = artifacts.findIndex((a) => a.path === selectedPath);
+	const selectedIndex = orderedArtifacts.findIndex(
+		(a) => a.path === selectedPath,
+	);
 
-	if (artifacts.length === 0) {
+	if (orderedArtifacts.length === 0) {
 		return (
 			<div className={cn("text-sm text-muted-foreground p-4", className)}>
 				No artifacts produced
@@ -141,7 +142,7 @@ export function ArtifactSidebar({
 					}
 				}}
 			>
-				{artifacts.map((artifact, index) => {
+				{orderedArtifacts.map((artifact, index) => {
 					const config = getArtifactConfig(artifact);
 					const Icon = config.icon;
 					const artifactName = getArtifactName(artifact);

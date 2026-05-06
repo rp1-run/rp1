@@ -4,6 +4,7 @@ import {
 	fireEvent,
 	render,
 	screen,
+	waitFor,
 	within,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -21,6 +22,8 @@ interface MockArtifactContentSurfaceProps {
 	readonly renderHeader?: (
 		controls: ArtifactContentSurfaceControls,
 	) => ReactNode;
+	readonly footer?: ReactNode;
+	readonly sidePanel?: ReactNode;
 }
 
 mock.module("@/components/v2/ArtifactContentSurface", () => ({
@@ -30,6 +33,8 @@ mock.module("@/components/v2/ArtifactContentSurface", () => ({
 		showFrontmatter,
 		emptyMessage,
 		renderHeader,
+		footer,
+		sidePanel,
 	}: MockArtifactContentSurfaceProps) => (
 		<section
 			data-testid="artifact-content-surface"
@@ -44,10 +49,13 @@ mock.module("@/components/v2/ArtifactContentSurface", () => ({
 				toggleTableOfContents: () => {},
 				showAnnotationToggle: selectedArtifact !== null,
 				toggleAnnotations: () => {},
+				closeSecondaryPanels: () => {},
 			})}
 			<div data-testid="surface-body">
 				{selectedArtifact?.path ?? emptyMessage ?? ""}
 			</div>
+			{sidePanel}
+			{footer}
 		</section>
 	),
 }));
@@ -100,6 +108,7 @@ function urlArtifact(
 	docId: string,
 	stepId: string | null,
 	url: string,
+	label = "Reviewed PR",
 ): Artifact {
 	return {
 		docId,
@@ -108,7 +117,7 @@ function urlArtifact(
 		absolutePath: url,
 		type: "other",
 		url,
-		label: "Reviewed PR",
+		label,
 		relationship: "reviewed_pr",
 		sourceContext: "PR review input resolution",
 		sourceArtifactPath: "pr-reviews/pr-123-review.md",
@@ -596,7 +605,9 @@ describe("RunArtifactsPanel", () => {
 			"link-reviewed-pr",
 			"posting",
 			"https://github.com/example/repo/pull/123",
+			"123",
 		);
+		const onArtifactSelect = mock(() => {});
 
 		await renderPanel({
 			artifactGroups: [
@@ -606,20 +617,46 @@ describe("RunArtifactsPanel", () => {
 				]),
 			],
 			selectedArtifact: reviewedPrArtifact,
+			onArtifactSelect,
 		});
 
+		const artifactList = screen.getByRole("list", { name: "Artifacts" });
+		expect(within(artifactList).queryByText("Reviewed PR #123")).toBeNull();
+		expect(
+			within(artifactList).getByRole("button", { name: "pr-123-review.md" }),
+		).toBeTruthy();
+
+		expect(screen.queryByLabelText("Links panel")).toBeNull();
+		fireEvent.click(screen.getByRole("button", { name: "Open links panel" }));
+
+		const linksPanel = screen.getByLabelText("Links panel");
+		expect(within(linksPanel).getByText("Reviewed PR #123")).toBeTruthy();
+		expect(within(linksPanel).getByText("1 link")).toBeTruthy();
+		expect(linksPanel.querySelector(".lucide-link")).toBeTruthy();
+		expect(linksPanel.querySelector(".lucide-external-link")).toBeTruthy();
+
 		fireEvent.click(
-			screen.getByRole("button", { name: "Copy URL for Reviewed PR" }),
+			screen.getByRole("button", { name: "Copy URL for Reviewed PR #123" }),
 		);
 
-		expect(writeText).toHaveBeenCalledWith(
-			"https://github.com/example/repo/pull/123",
-		);
+		await waitFor(() => {
+			expect(writeText).toHaveBeenCalledWith(
+				"https://github.com/example/repo/pull/123",
+			);
+		});
 		expect(screen.getByTestId("artifact-content-surface").dataset.docId).toBe(
 			"doc-report",
 		);
 		expect(screen.getByTestId("surface-body").textContent).toBe(
 			fileArtifact.path,
 		);
+
+		fireEvent.click(
+			within(linksPanel).getByRole("button", {
+				name: "Open Reviewed PR #123",
+			}),
+		);
+
+		expect(onArtifactSelect).toHaveBeenCalledWith(reviewedPrArtifact);
 	});
 });

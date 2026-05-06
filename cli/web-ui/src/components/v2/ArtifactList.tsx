@@ -6,18 +6,26 @@ import {
 	FileImage,
 	FileSpreadsheet,
 	FileText,
+	type LucideIcon,
 } from "lucide-react";
 import { useCallback, useRef } from "react";
 import {
 	type VirtualizedListRef as KeyboardNavListRef,
 	useKeyboardNav,
 } from "@/hooks/useKeyboardNav";
+import {
+	getLinkArtifactContext,
+	getLinkArtifactLabel,
+	isLinkArtifact,
+	LINK_ARTIFACT_CONFIG,
+	orderArtifactsWithLinksLast,
+} from "@/lib/link-artifacts";
 import { cn } from "@/lib/utils";
 import type { Artifact, ArtifactType } from "@/types/runs";
 import { VirtualizedList, type VirtualizedListRef } from "./VirtualizedList";
 
 interface ArtifactConfig {
-	icon: React.ComponentType<{ className?: string }>;
+	icon: LucideIcon;
 	label: string;
 }
 
@@ -48,15 +56,6 @@ const artifactConfigs: Record<ArtifactType, ArtifactConfig> = {
 	},
 };
 
-const urlArtifactConfig: ArtifactConfig = {
-	icon: ExternalLink,
-	label: "Link",
-};
-
-function isUrlArtifact(artifact: Artifact): boolean {
-	return artifact.locationKind === "url";
-}
-
 function getFileName(path: string): string {
 	return path.split("/").pop() || path;
 }
@@ -69,24 +68,24 @@ function getDirectory(path: string): string {
 }
 
 function getArtifactName(artifact: Artifact): string {
-	if (isUrlArtifact(artifact)) {
-		return artifact.label || artifact.url || artifact.path;
+	if (isLinkArtifact(artifact)) {
+		return getLinkArtifactLabel(artifact);
 	}
 
 	return getFileName(artifact.path);
 }
 
 function getArtifactContext(artifact: Artifact): string {
-	if (isUrlArtifact(artifact)) {
-		return artifact.url || artifact.path;
+	if (isLinkArtifact(artifact)) {
+		return getLinkArtifactContext(artifact);
 	}
 
 	return getDirectory(artifact.path);
 }
 
 function getArtifactConfig(artifact: Artifact): ArtifactConfig {
-	if (isUrlArtifact(artifact)) {
-		return urlArtifactConfig;
+	if (isLinkArtifact(artifact)) {
+		return LINK_ARTIFACT_CONFIG;
 	}
 
 	return artifactConfigs[artifact.type] ?? artifactConfigs.other;
@@ -185,7 +184,8 @@ export function ArtifactList({
 	className,
 }: ArtifactListProps) {
 	const virtualizedListRef = useRef<VirtualizedListRef>(null);
-	const useVirtualization = artifacts.length > VIRTUALIZATION_THRESHOLD;
+	const orderedArtifacts = orderArtifactsWithLinksLast(artifacts);
+	const useVirtualization = orderedArtifacts.length > VIRTUALIZATION_THRESHOLD;
 
 	const handleSelect = useCallback(
 		(artifact: Artifact) => {
@@ -196,11 +196,11 @@ export function ArtifactList({
 
 	// Use external selectedIndex if provided, otherwise use internal keyboard nav
 	const { selectedIndex: internalSelectedIndex } = useKeyboardNav({
-		items: artifacts,
+		items: orderedArtifacts,
 		onSelect: handleSelect,
 		onDrillIn: handleSelect,
 		enabled:
-			artifacts.length > 0 &&
+			orderedArtifacts.length > 0 &&
 			!!onArtifactClick &&
 			externalSelectedIndex === undefined,
 		listRef: virtualizedListRef as React.RefObject<KeyboardNavListRef | null>,
@@ -224,7 +224,7 @@ export function ArtifactList({
 		[],
 	);
 
-	if (artifacts.length === 0) {
+	if (orderedArtifacts.length === 0) {
 		return (
 			<div className={cn("text-sm text-muted-foreground p-4", className)}>
 				No artifacts produced
@@ -236,7 +236,7 @@ export function ArtifactList({
 		return (
 			<VirtualizedList
 				ref={virtualizedListRef}
-				items={artifacts}
+				items={orderedArtifacts}
 				estimateSize={ARTIFACT_ITEM_HEIGHT}
 				overscan={3}
 				renderItem={renderArtifactItem}
@@ -251,7 +251,7 @@ export function ArtifactList({
 
 	return (
 		<ul className={cn("space-y-1", className)} aria-label="Artifacts">
-			{artifacts.map((artifact, index) => (
+			{orderedArtifacts.map((artifact, index) => (
 				<li key={artifact.docId || artifact.path}>
 					<ArtifactItem
 						artifact={artifact}

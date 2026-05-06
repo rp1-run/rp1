@@ -1,15 +1,27 @@
-import { Check, ExternalLink, FileText, List } from "lucide-react";
+import { Check, FileText, List } from "lucide-react";
 import { type ReactNode, useState } from "react";
+import { Drawer } from "@/components/ui/drawer";
 import { AnnotationToggleBtn } from "@/components/v2/AnnotationToggleBtn";
 import {
 	ArtifactContentSurface,
 	type ArtifactContentSurfaceControls,
 } from "@/components/v2/ArtifactContentSurface";
 import { ArtifactEmptyState } from "@/components/v2/ArtifactEmptyState";
+import { LinkSidebar } from "@/components/v2/LinkSidebar";
 import { SaveStatusIndicator } from "@/components/v2/UnifiedContentRenderer";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 import type { ArtifactGroup } from "@/lib/artifact-groups";
+import {
+	getLinkArtifactLabel,
+	getLinkArtifactTarget,
+	isLinkArtifact,
+	LINK_ARTIFACT_CONFIG,
+	openLinkArtifact,
+	partitionArtifactsByLinkKind,
+} from "@/lib/link-artifacts";
 import { cn } from "@/lib/utils";
 import type { Artifact } from "@/types/runs";
+import { PanelHeaderIconButton } from "./PanelHeader";
 
 export interface RunArtifactsPanelProps {
 	readonly artifactGroups: readonly ArtifactGroup[];
@@ -27,21 +39,17 @@ function getFileName(path: string): string {
 	return path.split("/").pop() || path;
 }
 
-function isUrlArtifact(artifact: Artifact): boolean {
-	return artifact.locationKind === "url";
-}
-
 function getArtifactName(artifact: Artifact): string {
-	if (isUrlArtifact(artifact)) {
-		return artifact.label || artifact.url || artifact.path;
+	if (isLinkArtifact(artifact)) {
+		return getLinkArtifactLabel(artifact);
 	}
 
 	return getFileName(artifact.path);
 }
 
 function getArtifactTarget(artifact: Artifact): string {
-	if (isUrlArtifact(artifact)) {
-		return artifact.url || artifact.path;
+	if (isLinkArtifact(artifact)) {
+		return getLinkArtifactTarget(artifact);
 	}
 
 	return artifact.absolutePath ?? artifact.path;
@@ -64,11 +72,15 @@ export function RunArtifactsPanel({
 	headerActions,
 }: RunArtifactsPanelProps) {
 	const [copiedArtifactId, setCopiedArtifactId] = useState<string | null>(null);
+	const [linksPanelOpen, setLinksPanelOpen] = useState(false);
+	const isMobile = useIsMobile();
 
 	const groups = artifactGroups.filter((group) => group.artifacts.length > 0);
 	const artifacts = flattenArtifacts(groups);
+	const { fileArtifacts, linkArtifacts } =
+		partitionArtifactsByLinkKind(artifacts);
 	const firstFileArtifact =
-		artifacts.find((artifact) => !isUrlArtifact(artifact)) ?? null;
+		fileArtifacts.find((artifact) => artifact.docId) ?? null;
 
 	const renderLeadingControl = () =>
 		leadingControl ? (
@@ -120,7 +132,7 @@ export function RunArtifactsPanel({
 	}
 
 	const effectiveSelectedArtifact =
-		selectedArtifact && !isUrlArtifact(selectedArtifact)
+		selectedArtifact && !isLinkArtifact(selectedArtifact)
 			? selectedArtifact
 			: firstFileArtifact;
 
@@ -132,60 +144,71 @@ export function RunArtifactsPanel({
 		});
 	};
 
-	const renderArtifactList = () => (
-		<ul
-			aria-label="Artifacts"
-			className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-1"
-		>
-			{artifacts.map((artifact) => {
-				const artifactName = getArtifactName(artifact);
-				const isSelected = effectiveSelectedArtifact?.docId === artifact.docId;
-				const isCopied = copiedArtifactId === artifact.docId;
-				const IconComponent = isCopied
-					? Check
-					: isUrlArtifact(artifact)
-						? ExternalLink
-						: FileText;
-				const artifactTarget = getArtifactTarget(artifact);
-				const copyLabel = isUrlArtifact(artifact) ? "Copy URL" : "Copy path";
+	const handleOpenLinkArtifact = (artifact: Artifact) => {
+		if (onArtifactSelect) {
+			onArtifactSelect(artifact);
+		} else {
+			openLinkArtifact(artifact);
+		}
+		if (isMobile) {
+			setLinksPanelOpen(false);
+		}
+	};
 
-				return (
-					<li key={artifact.docId} className="max-w-full shrink-0">
-						<span
-							className={cn(
-								"inline-flex h-7 max-w-[14rem] items-center gap-1 rounded-sm px-2 type-secondary font-medium transition-colors duration-150",
-								isSelected
-									? "text-fg"
-									: "text-fg-ghost hover:bg-surface-base/70 hover:text-fg",
-							)}
-						>
-							<button
-								type="button"
-								title={artifactTarget}
-								aria-label={`${copyLabel} for ${artifactName}`}
-								onClick={(e) => {
-									e.stopPropagation();
-									handleCopyArtifact(artifact);
-								}}
-								className="shrink-0 transition-colors duration-150 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+	const renderArtifactList = () =>
+		fileArtifacts.length > 0 ? (
+			<ul
+				aria-label="Artifacts"
+				className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-1"
+			>
+				{fileArtifacts.map((artifact) => {
+					const artifactName = getArtifactName(artifact);
+					const isSelected =
+						effectiveSelectedArtifact?.docId === artifact.docId;
+					const isCopied = copiedArtifactId === artifact.docId;
+					const IconComponent = isCopied ? Check : FileText;
+					const artifactTarget = getArtifactTarget(artifact);
+
+					return (
+						<li key={artifact.docId} className="max-w-full shrink-0">
+							<span
+								className={cn(
+									"inline-flex h-7 max-w-[14rem] items-center gap-1 rounded-sm px-2 type-secondary font-medium transition-colors duration-150",
+									isSelected
+										? "text-fg"
+										: "text-fg-ghost hover:bg-surface-base/70 hover:text-fg",
+								)}
 							>
-								<IconComponent className="h-3 w-3 shrink-0" strokeWidth={1.5} />
-							</button>
-							<button
-								type="button"
-								aria-current={isSelected ? "page" : undefined}
-								title={artifactTarget}
-								onClick={() => onArtifactSelect?.(artifact)}
-								className="min-w-0 truncate transition-colors duration-150 hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
-							>
-								{artifactName}
-							</button>
-						</span>
-					</li>
-				);
-			})}
-		</ul>
-	);
+								<button
+									type="button"
+									title={artifactTarget}
+									aria-label={`Copy path for ${artifactName}`}
+									onClick={(e) => {
+										e.stopPropagation();
+										handleCopyArtifact(artifact);
+									}}
+									className="shrink-0 transition-colors duration-150 hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+								>
+									<IconComponent
+										className="h-3 w-3 shrink-0"
+										strokeWidth={1.5}
+									/>
+								</button>
+								<button
+									type="button"
+									aria-current={isSelected ? "page" : undefined}
+									title={artifactTarget}
+									onClick={() => onArtifactSelect?.(artifact)}
+									className="min-w-0 truncate transition-colors duration-150 hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+								>
+									{artifactName}
+								</button>
+							</span>
+						</li>
+					);
+				})}
+			</ul>
+		) : null;
 
 	const renderHeader = (controls: ArtifactContentSurfaceControls) =>
 		renderHeaderShell(
@@ -195,6 +218,26 @@ export function RunArtifactsPanel({
 			</div>,
 			<div className="flex h-7 shrink-0 items-center gap-3">
 				<SaveStatusIndicator status={controls.saveStatus} />
+				{linkArtifacts.length > 0 && (
+					<PanelHeaderIconButton
+						icon={LINK_ARTIFACT_CONFIG.icon}
+						ariaLabel={
+							linksPanelOpen ? "Close links panel" : "Open links panel"
+						}
+						ariaExpanded={linksPanelOpen}
+						ariaPressed={linksPanelOpen}
+						onClick={() => {
+							setLinksPanelOpen((prev) => {
+								const next = !prev;
+								if (next) {
+									controls.closeSecondaryPanels();
+								}
+								return next;
+							});
+						}}
+						className={cn(linksPanelOpen && "text-fg")}
+					/>
+				)}
 				{controls.showTableOfContentsToggle && (
 					<button
 						type="button"
@@ -217,13 +260,47 @@ export function RunArtifactsPanel({
 			renderLeadingControl(),
 		);
 
+	const linksSidebar =
+		linksPanelOpen && linkArtifacts.length > 0 ? (
+			<LinkSidebar
+				artifacts={linkArtifacts}
+				onOpenLink={handleOpenLinkArtifact}
+				onClose={() => setLinksPanelOpen(false)}
+				className="h-full"
+			/>
+		) : null;
+
 	return (
-		<ArtifactContentSurface
-			selectedArtifact={effectiveSelectedArtifact}
-			runId={runId}
-			showFrontmatter={showFrontmatter}
-			emptyMessage="Select an artifact to view."
-			renderHeader={renderHeader}
-		/>
+		<>
+			<ArtifactContentSurface
+				selectedArtifact={effectiveSelectedArtifact}
+				runId={runId}
+				showFrontmatter={showFrontmatter}
+				emptyMessage={
+					fileArtifacts.length > 0
+						? "Select an artifact to view."
+						: "No file artifacts to preview."
+				}
+				renderHeader={renderHeader}
+				sidePanel={
+					!isMobile && linksSidebar ? (
+						<div className="w-[280px] shrink-0 border-l border-border overflow-y-auto">
+							{linksSidebar}
+						</div>
+					) : null
+				}
+				onSecondaryPanelOpen={() => setLinksPanelOpen(false)}
+			/>
+			{isMobile && (
+				<Drawer
+					open={linksPanelOpen}
+					onClose={() => setLinksPanelOpen(false)}
+					side="right"
+					title="Links"
+				>
+					{linksSidebar}
+				</Drawer>
+			)}
+		</>
 	);
 }

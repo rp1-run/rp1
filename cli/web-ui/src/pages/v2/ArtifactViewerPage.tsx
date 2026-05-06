@@ -2,7 +2,6 @@ import {
 	AlertCircle,
 	ArrowLeft,
 	ChevronRight,
-	ExternalLink,
 	List,
 	Loader2,
 	MessageSquare,
@@ -35,6 +34,7 @@ import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
 import { ArtifactSidebar } from "@/components/v2/ArtifactSidebar";
 import { FollowModeToggle } from "@/components/v2/FollowModeToggle";
 import { KeyHints, VIEWER_HINTS } from "@/components/v2/KeyHints";
+import { LinkSidebar } from "@/components/v2/LinkSidebar";
 import { NewUpdatesChip } from "@/components/v2/NewUpdatesChip";
 import { TableOfContents } from "@/components/v2/TableOfContents";
 import { UnifiedContentRenderer } from "@/components/v2/UnifiedContentRenderer";
@@ -47,6 +47,14 @@ import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
+import {
+	getLinkArtifactLabel,
+	getLinkArtifactTarget,
+	isLinkArtifact,
+	LINK_ARTIFACT_CONFIG,
+	openLinkArtifact,
+	orderArtifactsWithLinksLast,
+} from "@/lib/link-artifacts";
 import { resolveRunDisplayName } from "@/lib/run-display";
 
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
@@ -61,19 +69,6 @@ interface ArtifactContent {
 	path: string;
 	content: string;
 	docId?: string;
-}
-
-function isUrlArtifact(artifact: Artifact | null): boolean {
-	return artifact?.locationKind === "url";
-}
-
-function getUrlArtifactTarget(artifact: Artifact): string {
-	return artifact.url || artifact.path;
-}
-
-function openUrlArtifact(artifact: Artifact): void {
-	if (typeof window === "undefined") return;
-	window.open(getUrlArtifactTarget(artifact), "_blank", "noopener,noreferrer");
 }
 
 function isSameArtifactContent(
@@ -168,6 +163,46 @@ function MobileAnnotationButton({
 	);
 }
 
+function LinksToggleButton({
+	count,
+	isOpen,
+	onClick,
+	ariaLabel,
+}: {
+	count: number;
+	isOpen?: boolean;
+	onClick: () => void;
+	ariaLabel: string;
+}) {
+	const LinkIcon = LINK_ARTIFACT_CONFIG.icon;
+
+	return (
+		<TooltipProvider>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8 relative"
+						onClick={onClick}
+						aria-label={ariaLabel}
+						aria-expanded={isOpen}
+						aria-pressed={isOpen}
+					>
+						<LinkIcon className="h-4 w-4" aria-hidden="true" />
+						<span className="absolute -right-1 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+							{count > 99 ? "99+" : count}
+						</span>
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>
+					<p>Links ({count})</p>
+				</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
+	);
+}
+
 export function ArtifactViewerPage() {
 	const { runId, "*": artifactPathParam } = useParams();
 	const navigate = useNavigate();
@@ -199,9 +234,11 @@ export function ArtifactViewerPage() {
 			return stored !== "true";
 		},
 	);
+	const [linksPanelOpen, setLinksPanelOpen] = useState(false);
 	const [sidebarDrawerOpen, setSidebarDrawerOpen] = useState(false);
 	const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
 	const [annotationDrawerOpen, setAnnotationDrawerOpen] = useState(false);
+	const [linksDrawerOpen, setLinksDrawerOpen] = useState(false);
 	const [liveAnnouncement, setLiveAnnouncement] = useState<string>("");
 
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
@@ -212,6 +249,7 @@ export function ArtifactViewerPage() {
 		scrollTop: number;
 		scrollHeight: number;
 	} | null>(null);
+	const latestContentRequestIdRef = useRef(0);
 
 	const {
 		followMode,
@@ -238,22 +276,28 @@ export function ArtifactViewerPage() {
 		);
 	}, [run, selectedArtifactPath]);
 	const selectedUrlArtifact =
-		selectedArtifact && isUrlArtifact(selectedArtifact)
+		selectedArtifact && isLinkArtifact(selectedArtifact)
 			? selectedArtifact
 			: null;
 	const selectedFileArtifact = selectedUrlArtifact ? null : selectedArtifact;
 	const selectedFileArtifactPath = selectedFileArtifact?.path ?? "";
+	const orderedArtifacts = useMemo(
+		() => (run ? orderArtifactsWithLinksLast(run.artifacts) : []),
+		[run],
+	);
+	const linkArtifacts = useMemo(
+		() => orderedArtifacts.filter(isLinkArtifact),
+		[orderedArtifacts],
+	);
+	const selectedArtifactName = selectedArtifact
+		? isLinkArtifact(selectedArtifact)
+			? getLinkArtifactLabel(selectedArtifact)
+			: (selectedArtifact.path.split("/").at(-1) ?? selectedArtifact.path)
+		: null;
 	const workspaceSubtitle = useMemo(() => {
 		if (!run) return null;
-		const artifactName = selectedArtifact
-			? isUrlArtifact(selectedArtifact)
-				? (selectedArtifact.label ??
-					selectedArtifact.url ??
-					selectedArtifact.path)
-				: (selectedArtifact.path.split("/").at(-1) ?? null)
-			: null;
-		return artifactName ?? run.projectName;
-	}, [run, selectedArtifact]);
+		return selectedArtifactName ?? run.projectName;
+	}, [run, selectedArtifactName]);
 
 	useEffect(() => {
 		if (run?.projectName && run?.projectId) {
@@ -285,7 +329,7 @@ export function ArtifactViewerPage() {
 	}, [run, setRunInfo]);
 
 	useEffect(() => {
-		if (selectedArtifact && !isUrlArtifact(selectedArtifact) && runId) {
+		if (selectedArtifact && !isLinkArtifact(selectedArtifact) && runId) {
 			setActiveArtifact(runId, selectedArtifact.path);
 		} else {
 			setActiveArtifact(runId ?? "", null);
@@ -297,6 +341,7 @@ export function ArtifactViewerPage() {
 		setAnnotationSidebarOpen(false);
 		setAnnotationDrawerOpen(false);
 		setTocDrawerOpen(false);
+		setLinksDrawerOpen(false);
 		setHeadings([]);
 		setActiveHeadingId(null);
 	}, [selectedUrlArtifact]);
@@ -312,6 +357,7 @@ export function ArtifactViewerPage() {
 			const newValue = !prev;
 			if (!newValue) {
 				setAnnotationSidebarOpen(false);
+				setLinksPanelOpen(false);
 				if (typeof window !== "undefined") {
 					sessionStorage.setItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED, "true");
 				}
@@ -327,6 +373,7 @@ export function ArtifactViewerPage() {
 		setAnnotationSidebarOpen(open);
 		if (open) {
 			setTocCollapsed(true);
+			setLinksPanelOpen(false);
 			if (typeof window !== "undefined") {
 				sessionStorage.setItem(STORAGE_KEY_TOC_COLLAPSED, "true");
 			}
@@ -335,6 +382,34 @@ export function ArtifactViewerPage() {
 			sessionStorage.setItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED, String(!open));
 		}
 	}, []);
+
+	const handleToggleLinksPanel = useCallback((open: boolean) => {
+		setLinksPanelOpen(open);
+		if (open) {
+			setTocCollapsed(true);
+			setAnnotationSidebarOpen(false);
+			if (typeof window !== "undefined") {
+				sessionStorage.setItem(STORAGE_KEY_TOC_COLLAPSED, "true");
+				sessionStorage.setItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED, "true");
+			}
+		}
+	}, []);
+
+	const handleOpenLinksDrawer = useCallback(() => {
+		setLinksDrawerOpen(true);
+		setTocDrawerOpen(false);
+		setAnnotationDrawerOpen(false);
+	}, []);
+
+	const handleOpenPanelLink = useCallback(
+		(artifact: Artifact) => {
+			openLinkArtifact(artifact);
+			if (isMobile) {
+				setLinksDrawerOpen(false);
+			}
+		},
+		[isMobile],
+	);
 
 	const handleToggleFrontmatter = useCallback(() => {
 		setShowFrontmatter((prev) => {
@@ -348,8 +423,8 @@ export function ArtifactViewerPage() {
 
 	const handleArtifactSelect = useCallback(
 		(artifact: Artifact) => {
-			if (isUrlArtifact(artifact)) {
-				openUrlArtifact(artifact);
+			if (isLinkArtifact(artifact)) {
+				openLinkArtifact(artifact);
 				if (isMobile) {
 					setSidebarDrawerOpen(false);
 				}
@@ -405,18 +480,25 @@ export function ArtifactViewerPage() {
 
 	const fetchArtifactContentWithScrollPreservation = useCallback(
 		async (preserveScroll: boolean) => {
+			const requestId = latestContentRequestIdRef.current + 1;
+			latestContentRequestIdRef.current = requestId;
+			const isLatestContentRequest = () =>
+				latestContentRequestIdRef.current === requestId;
+
 			if (!run || !selectedArtifactPath) {
 				savedScrollState.current = null;
+				setContentLoading(false);
 				setArtifactContent(null);
 				return;
 			}
 			if (!selectedArtifact) {
 				savedScrollState.current = null;
+				setContentLoading(false);
 				setContentError("Artifact not found");
 				setArtifactContent(null);
 				return;
 			}
-			if (isUrlArtifact(selectedArtifact)) {
+			if (isLinkArtifact(selectedArtifact)) {
 				savedScrollState.current = null;
 				setContentLoading(false);
 				setContentError(null);
@@ -446,6 +528,9 @@ export function ArtifactViewerPage() {
 				const response = await fetch(
 					`/api/v2/runs/${runId}/artifacts/${encodeURIComponent(selectedArtifact.path)}`,
 				);
+				if (!isLatestContentRequest()) {
+					return;
+				}
 				if (!response.ok) {
 					let errorMessage = `Failed to fetch artifact: ${response.statusText}`;
 					try {
@@ -461,6 +546,9 @@ export function ArtifactViewerPage() {
 					throw new Error(errorMessage);
 				}
 				const data = (await response.json()) as { content: string };
+				if (!isLatestContentRequest()) {
+					return;
+				}
 				const nextContent = {
 					path: selectedArtifact.path,
 					content: data.content,
@@ -477,11 +565,14 @@ export function ArtifactViewerPage() {
 					return nextContent;
 				});
 			} catch (err) {
+				if (!isLatestContentRequest()) {
+					return;
+				}
 				savedScrollState.current = null;
 				setContentError(err instanceof Error ? err.message : String(err));
 				setArtifactContent(null);
 			} finally {
-				if (!preserveScroll) {
+				if (isLatestContentRequest()) {
 					setContentLoading(false);
 				}
 			}
@@ -514,7 +605,7 @@ export function ArtifactViewerPage() {
 	}, [artifactContent]);
 
 	useEffect(() => {
-		if (!selectedArtifact || isUrlArtifact(selectedArtifact)) return;
+		if (!selectedArtifact || isLinkArtifact(selectedArtifact)) return;
 
 		const normalizedPath = selectedArtifact.path.replace(/^\.rp1\//, "");
 
@@ -739,6 +830,8 @@ export function ArtifactViewerPage() {
 		);
 	}
 
+	const LinkIcon = LINK_ARTIFACT_CONFIG.icon;
+
 	const contentArea = (
 		<>
 			{contentLoading ? (
@@ -749,24 +842,21 @@ export function ArtifactViewerPage() {
 			) : selectedUrlArtifact ? (
 				<div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
 					<h2 className="text-base font-medium text-foreground">
-						{selectedUrlArtifact.label ??
-							selectedUrlArtifact.url ??
-							selectedUrlArtifact.path}
+						{getLinkArtifactLabel(selectedUrlArtifact)}
 					</h2>
-					<a
-						href={getUrlArtifactTarget(selectedUrlArtifact)}
-						target="_blank"
-						rel="noreferrer"
+					<button
+						type="button"
+						onClick={() => openLinkArtifact(selectedUrlArtifact)}
 						className="max-w-full truncate text-sm text-primary underline-offset-4 hover:underline"
 					>
-						{getUrlArtifactTarget(selectedUrlArtifact)}
-					</a>
+						{getLinkArtifactTarget(selectedUrlArtifact)}
+					</button>
 					<Button
 						variant="outline"
 						size="sm"
-						onClick={() => openUrlArtifact(selectedUrlArtifact)}
+						onClick={() => openLinkArtifact(selectedUrlArtifact)}
 					>
-						<ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
+						<LinkIcon className="mr-2 h-4 w-4" aria-hidden="true" />
 						Open link
 					</Button>
 				</div>
@@ -838,9 +928,7 @@ export function ArtifactViewerPage() {
 						)}
 						<li aria-current="page">
 							<span className="text-foreground truncate max-w-[100px]">
-								{selectedArtifactPath
-									? selectedArtifactPath.split("/").pop()
-									: "Artifacts"}
+								{selectedArtifactName ?? "Artifacts"}
 							</span>
 						</li>
 					</ol>
@@ -882,6 +970,13 @@ export function ArtifactViewerPage() {
 									onClick={() => setAnnotationDrawerOpen(true)}
 								/>
 							)}
+							{linkArtifacts.length > 0 && (
+								<LinksToggleButton
+									count={linkArtifacts.length}
+									onClick={handleOpenLinksDrawer}
+									ariaLabel="Open links"
+								/>
+							)}
 							<TooltipProvider>
 								<Tooltip>
 									<TooltipTrigger asChild>
@@ -908,8 +1003,8 @@ export function ArtifactViewerPage() {
 							className="p-4"
 							onScroll={handleScroll as unknown as React.UIEventHandler}
 							aria-label={
-								selectedArtifactPath
-									? `Content of ${selectedArtifactPath.split("/").pop()}`
+								selectedArtifactName
+									? `Content of ${selectedArtifactName}`
 									: "Artifact content"
 							}
 						>
@@ -928,7 +1023,7 @@ export function ArtifactViewerPage() {
 				>
 					<ScrollArea className="h-full">
 						<ArtifactSidebar
-							artifacts={run.artifacts}
+							artifacts={orderedArtifacts}
 							selectedPath={selectedArtifactPath}
 							onSelect={handleArtifactSelect}
 						/>
@@ -958,6 +1053,22 @@ export function ArtifactViewerPage() {
 						<AnnotationSidebar
 							artifactPath={selectedFileArtifactPath}
 							onClose={() => setAnnotationDrawerOpen(false)}
+							className="border-l-0 w-full"
+						/>
+					</Drawer>
+				)}
+
+				{linkArtifacts.length > 0 && (
+					<Drawer
+						open={linksDrawerOpen}
+						onClose={() => setLinksDrawerOpen(false)}
+						side="right"
+						title="Links"
+					>
+						<LinkSidebar
+							artifacts={linkArtifacts}
+							onOpenLink={handleOpenPanelLink}
+							onClose={() => setLinksDrawerOpen(false)}
 							className="border-l-0 w-full"
 						/>
 					</Drawer>
@@ -1024,7 +1135,8 @@ export function ArtifactViewerPage() {
 							</li>
 							<li aria-current="page">
 								<span className="text-foreground truncate max-w-[200px]">
-									{selectedArtifactPath.split("/").pop()}
+									{selectedArtifactName ??
+										selectedArtifactPath.split("/").pop()}
 								</span>
 							</li>
 						</>
@@ -1047,7 +1159,7 @@ export function ArtifactViewerPage() {
 					<aside aria-label="Artifact list" className="h-full">
 						<ScrollArea className="h-full">
 							<ArtifactSidebar
-								artifacts={run.artifacts}
+								artifacts={orderedArtifacts}
 								selectedPath={selectedArtifactPath}
 								onSelect={handleArtifactSelect}
 							/>
@@ -1088,6 +1200,16 @@ export function ArtifactViewerPage() {
 									</Tooltip>
 								</TooltipProvider>
 							)}
+							{linkArtifacts.length > 0 && (
+								<LinksToggleButton
+									count={linkArtifacts.length}
+									isOpen={linksPanelOpen}
+									onClick={() => handleToggleLinksPanel(!linksPanelOpen)}
+									ariaLabel={
+										linksPanelOpen ? "Close links panel" : "Open links panel"
+									}
+								/>
+							)}
 							{selectedFileArtifact && !annotationSidebarOpen && (
 								<AnnotationToggleButton
 									selectedArtifactPath={selectedFileArtifactPath}
@@ -1104,8 +1226,8 @@ export function ArtifactViewerPage() {
 								className="p-6 min-w-0 max-w-full"
 								onScroll={handleScroll as unknown as React.UIEventHandler}
 								aria-label={
-									selectedArtifactPath
-										? `Content of ${selectedArtifactPath.split("/").pop()}`
+									selectedArtifactName
+										? `Content of ${selectedArtifactName}`
 										: "Artifact content"
 								}
 							>
@@ -1152,6 +1274,26 @@ export function ArtifactViewerPage() {
 							<AnnotationSidebar
 								artifactPath={selectedFileArtifactPath}
 								onClose={() => handleToggleAnnotationSidebar(false)}
+								className="h-full"
+							/>
+						</ResizablePanel>
+					</>
+				)}
+
+				{linkArtifacts.length > 0 && linksPanelOpen && (
+					<>
+						<ResizableHandle withHandle aria-label="Resize links panel" />
+						<ResizablePanel
+							defaultSize={15}
+							minSize={12}
+							maxSize={25}
+							collapsible
+							className="bg-card"
+						>
+							<LinkSidebar
+								artifacts={linkArtifacts}
+								onOpenLink={handleOpenPanelLink}
+								onClose={() => handleToggleLinksPanel(false)}
 								className="h-full"
 							/>
 						</ResizablePanel>

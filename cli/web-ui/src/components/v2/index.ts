@@ -65,6 +65,7 @@ export {
 	NAV_HINTS_NO_BACK,
 	VIEWER_HINTS,
 } from "./KeyHints";
+export { LinkSidebar, type LinkSidebarProps } from "./LinkSidebar";
 export {
 	MobileTabBar,
 	type MobileTabBarProps,

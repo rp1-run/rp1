@@ -5,8 +5,9 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
-import type { ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import {
 	WORKSPACE_TABS_STORAGE_KEY,
@@ -142,11 +143,11 @@ mock.module("@/components/ui/button", () => ({
 	Button: ({
 		children,
 		onClick,
+		...props
 	}: {
 		children?: ReactNode;
-		onClick?: () => void;
-	}) => (
-		<button type="button" onClick={onClick}>
+	} & ButtonHTMLAttributes<HTMLButtonElement>) => (
+		<button type="button" onClick={onClick} {...props}>
 			{children}
 		</button>
 	),
@@ -265,6 +266,24 @@ function readStoredTabs() {
 		: null;
 }
 
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason?: unknown) => void;
+	const promise = new Promise<T>((promiseResolve, promiseReject) => {
+		resolve = promiseResolve;
+		reject = promiseReject;
+	});
+	return { promise, resolve, reject };
+}
+
+function contentResponse(content: string): Response {
+	return {
+		ok: true,
+		statusText: "OK",
+		json: async () => ({ content }),
+	} as Response;
+}
+
 async function renderArtifactViewerPage(
 	initialEntry = "/runs/run-1/artifacts/docs/tasks.md",
 ) {
@@ -352,6 +371,65 @@ describe("ArtifactViewerPage", () => {
 		);
 	});
 
+	test("ignores stale artifact content when artifact fetches resolve out of order", async () => {
+		const firstArtifact: Artifact = {
+			...baseRun.artifacts[0],
+			docId: "doc-first",
+			path: "docs/first.md",
+			absolutePath: "/repo/docs/first.md",
+			label: "First Artifact",
+		};
+		const secondArtifact: Artifact = {
+			...baseRun.artifacts[0],
+			docId: "doc-second",
+			path: "docs/second.md",
+			absolutePath: "/repo/docs/second.md",
+			label: "Second Artifact",
+		};
+		const firstFetch = deferred<Response>();
+		const secondFetch = deferred<Response>();
+		run = {
+			...baseRun,
+			artifacts: [firstArtifact, secondArtifact],
+		};
+		global.fetch = mock((input: RequestInfo | URL) => {
+			const url = String(input);
+			if (url.includes(encodeURIComponent(firstArtifact.path))) {
+				return firstFetch.promise;
+			}
+			if (url.includes(encodeURIComponent(secondArtifact.path))) {
+				return secondFetch.promise;
+			}
+			return Promise.reject(new Error(`Unexpected artifact request: ${url}`));
+		}) as unknown as typeof fetch;
+
+		await renderArtifactViewerPage("/runs/run-1/artifacts/docs/first.md");
+
+		await waitFor(() => {
+			expect(global.fetch).toHaveBeenCalledTimes(1);
+		});
+
+		fireEvent.click(screen.getByRole("button", { name: "Second Artifact" }));
+
+		await waitFor(() => {
+			expect(global.fetch).toHaveBeenCalledTimes(2);
+		});
+
+		secondFetch.resolve(contentResponse("# Second artifact"));
+		await waitFor(() => {
+			expect(screen.getByTestId("artifact-renderer").textContent).toBe(
+				"docs/second.md:# Second artifact",
+			);
+		});
+
+		firstFetch.resolve(contentResponse("# First artifact"));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(screen.getByTestId("artifact-renderer").textContent).toBe(
+			"docs/second.md:# Second artifact",
+		);
+	});
+
 	test("opens URL artifacts from the sidebar without replacing current file content", async () => {
 		const openMock = mock(() => null);
 		Object.defineProperty(window, "open", {
@@ -396,6 +474,64 @@ describe("ArtifactViewerPage", () => {
 		);
 		expect(screen.getByTestId("artifact-renderer").textContent).toBe(
 			"docs/tasks.md:# Tasks",
+		);
+	});
+
+	test("renders external links in a dedicated links panel", async () => {
+		const openMock = mock(() => null);
+		Object.defineProperty(window, "open", {
+			configurable: true,
+			value: openMock,
+		});
+		run = {
+			...baseRun,
+			artifacts: [
+				...baseRun.artifacts,
+				{
+					docId: "link-reviewed-pr",
+					locationKind: "url",
+					path: "https://github.com/example/repo/pull/456",
+					absolutePath: "https://github.com/example/repo/pull/456",
+					type: "other",
+					url: "https://github.com/example/repo/pull/456",
+					label: "456",
+					relationship: "reviewed_pr",
+					sourceContext: "PR review input resolution",
+					sourceArtifactPath: "pr-reviews/pr-456-review.md",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "build",
+				},
+			],
+		};
+
+		await renderArtifactViewerPage();
+
+		await waitFor(() => {
+			expect(screen.getByTestId("artifact-renderer").textContent).toBe(
+				"docs/tasks.md:# Tasks",
+			);
+		});
+
+		expect(screen.queryByLabelText("Links panel")).toBeNull();
+		fireEvent.click(screen.getByRole("button", { name: "Open links panel" }));
+
+		const linksPanel = screen.getByLabelText("Links panel");
+		expect(within(linksPanel).getByText("Reviewed PR #456")).toBeTruthy();
+		expect(within(linksPanel).getByText("1 link")).toBeTruthy();
+		expect(linksPanel.querySelector(".lucide-link")).toBeTruthy();
+		expect(screen.queryByTestId("annotation-sidebar")).toBeNull();
+
+		fireEvent.click(
+			within(linksPanel).getByRole("button", {
+				name: "Open Reviewed PR #456",
+			}),
+		);
+
+		expect(openMock).toHaveBeenCalledWith(
+			"https://github.com/example/repo/pull/456",
+			"_blank",
+			"noopener,noreferrer",
 		);
 	});
 

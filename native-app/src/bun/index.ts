@@ -2,8 +2,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
 	ApplicationMenu,
-	BrowserWindow,
 	type ApplicationMenuItemConfig,
+	BrowserView,
+	BrowserWindow,
+	Utils,
 } from "electrobun/bun";
 import cliPackage from "../../../cli/package.json";
 import { type CLIError, formatError } from "../../../cli/shared/errors.js";
@@ -45,6 +47,21 @@ interface LaunchViewState {
 	readonly detail?: string;
 }
 
+type NativeBridgeRpcSchema = {
+	readonly bun: {
+		readonly requests: Record<never, never>;
+		readonly messages: {
+			readonly "rp1:open-external-url": {
+				readonly url?: unknown;
+			};
+		};
+	};
+	readonly webview: {
+		readonly requests: Record<never, never>;
+		readonly messages: Record<never, never>;
+	};
+};
+
 const LAUNCH_VIEW_TEMPLATE = readFileSync(
 	resolve(import.meta.dir, "../views/launch/index.html"),
 	"utf8",
@@ -54,6 +71,7 @@ const APP_NAME = "rp1 Arcade";
 const WINDOW_TITLE = "rp1 Arcade";
 const WEB_DOCUMENT_TITLE = APP_NAME;
 const OPENING_TITLE = `Opening ${APP_NAME}`;
+const NATIVE_OPEN_EXTERNAL_MESSAGE = "rp1:open-external-url";
 const ARCADE_NAVIGATION_RULES = [
 	"^*",
 	"views://launch/*",
@@ -289,6 +307,40 @@ const isLoopbackArcadeUrl = (url: string): boolean => {
 	}
 };
 
+const readExternalUrl = (payload: unknown): string | null => {
+	if (typeof payload !== "object" || payload === null || !("url" in payload)) {
+		return null;
+	}
+
+	const url = (payload as { readonly url?: unknown }).url;
+	if (typeof url !== "string" || url.trim().length === 0) {
+		return null;
+	}
+
+	try {
+		const parsed = new URL(url);
+		return parsed.protocol === "http:" || parsed.protocol === "https:"
+			? parsed.toString()
+			: null;
+	} catch {
+		return null;
+	}
+};
+
+const createNativeBridgeRpc = () =>
+	BrowserView.defineRPC<NativeBridgeRpcSchema>({
+		handlers: {
+			messages: {
+				[NATIVE_OPEN_EXTERNAL_MESSAGE]: (payload: unknown) => {
+					const url = readExternalUrl(payload);
+					if (url) {
+						Utils.openExternal(url);
+					}
+				},
+			},
+		},
+	});
+
 const isCliError = (error: unknown): error is CLIError =>
 	typeof error === "object" &&
 	error !== null &&
@@ -392,6 +444,7 @@ ApplicationMenu.setApplicationMenu(APPLICATION_MENU);
 
 const mainWindow = new BrowserWindow({
 	title: WINDOW_TITLE,
+	rpc: createNativeBridgeRpc(),
 	frame: {
 		width: 1280,
 		height: 860,
