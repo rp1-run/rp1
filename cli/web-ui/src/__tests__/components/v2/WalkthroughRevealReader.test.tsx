@@ -69,7 +69,7 @@ class MockReveal {
 		this.destroyed = true;
 	}
 
-	getCurrentSlide(): HTMLElement {
+	getCurrentSlide(): HTMLElement | undefined {
 		return this.findSlide(this.current) ?? this.slides()[0] ?? this.root;
 	}
 
@@ -341,6 +341,41 @@ describe("WalkthroughRevealReader", () => {
 		expect(revealInstances[0].destroyed).toBe(true);
 	});
 
+	test("keeps Reveal mounted when render failure callback identity changes", async () => {
+		const { WalkthroughRevealReader } = await importReader();
+		const firstRenderFailure = mock(() => {});
+		const secondRenderFailure = mock(() => {});
+		const view = render(
+			<WalkthroughRevealReader
+				deck={deck}
+				path=".rp1/work/pr-walkthroughs/pr-42-walkthrough-001.md"
+				onRenderFailure={firstRenderFailure}
+			/>,
+		);
+
+		await waitFor(() => {
+			expect(revealInstances).toHaveLength(1);
+			expect(revealInstances[0].initialized).toBe(true);
+		});
+
+		const reveal = revealInstances[0];
+
+		view.rerender(
+			<WalkthroughRevealReader
+				deck={deck}
+				path=".rp1/work/pr-walkthroughs/pr-42-walkthrough-001.md"
+				onRenderFailure={secondRenderFailure}
+			/>,
+		);
+
+		await waitFor(() => {
+			expect(screen.queryByText("Loading slides")).toBeNull();
+		});
+
+		expect(revealInstances).toHaveLength(1);
+		expect(reveal.destroyed).toBe(false);
+	});
+
 	test("updates active notes, announcement, and focus after depth navigation", async () => {
 		await renderReader();
 
@@ -375,7 +410,7 @@ describe("WalkthroughRevealReader", () => {
 		});
 
 		expect(
-			revealInstances[0].getCurrentSlide().querySelector("aside.notes")
+			revealInstances[0].getCurrentSlide()?.querySelector("aside.notes")
 				?.textContent,
 		).toContain("Detail notes preserve E-DIFF-001.");
 		expect(screen.queryByLabelText("Active slide notes")).toBeNull();

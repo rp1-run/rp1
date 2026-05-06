@@ -1,9 +1,4 @@
-import {
-	Check,
-	FileText,
-	List,
-	Presentation,
-} from "lucide-react";
+import { Check, FileText, List, Presentation } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Drawer } from "@/components/ui/drawer";
 import { AnnotationToggleBtn } from "@/components/v2/AnnotationToggleBtn";

@@ -18,6 +18,8 @@ import type {
 	WalkthroughSlide,
 } from "@/lib/walkthrough-slide-source";
 
+import "reveal.js/reveal.css";
+
 export interface WalkthroughRevealReaderProps {
 	readonly deck: WalkthroughDeck;
 	readonly path: string;
@@ -110,6 +112,7 @@ export function WalkthroughRevealReader({
 	const readerRootRef = useRef<HTMLElement>(null);
 	const deckRootRef = useRef<HTMLDivElement>(null);
 	const revealRef = useRef<RevealApi | null>(null);
+	const onRenderFailureRef = useRef(onRenderFailure);
 	const controlRefs = useRef<
 		Record<NavigationDirection, HTMLButtonElement | null>
 	>({
@@ -125,10 +128,17 @@ export function WalkthroughRevealReader({
 		initialActiveSlide(entries, deck),
 	);
 
-	const reportRenderFailure = useCallback(() => {
-		setStatus("failed");
-		onRenderFailure?.(FALLBACK_FAILURE_MESSAGE);
+	useEffect(() => {
+		onRenderFailureRef.current = onRenderFailure;
 	}, [onRenderFailure]);
+
+	const reportRenderFailure = useCallback(
+		(message = FALLBACK_FAILURE_MESSAGE) => {
+			setStatus("failed");
+			onRenderFailureRef.current?.(message);
+		},
+		[],
+	);
 
 	useEffect(() => {
 		setActiveSlide(initialActiveSlide(entries, deck));
@@ -205,9 +215,7 @@ export function WalkthroughRevealReader({
 			.catch((error: unknown) => {
 				if (disposed) return;
 
-				const message = renderFailureMessage(error);
-				setStatus("failed");
-				onRenderFailure?.(message);
+				reportRenderFailure(renderFailureMessage(error));
 			});
 
 		return () => {
@@ -224,7 +232,7 @@ export function WalkthroughRevealReader({
 				revealRef.current = null;
 			}
 		};
-	}, [onRenderFailure, syncActiveSlide]);
+	}, [reportRenderFailure, syncActiveSlide]);
 
 	useEffect(() => {
 		const syncFullscreenState = () => {
@@ -586,7 +594,10 @@ function extractSlideTitle(slide: WalkthroughSlide): string {
 	return slide.id;
 }
 
-function resolveSlideElement(currentSlide: HTMLElement): HTMLElement | null {
+function resolveSlideElement(
+	currentSlide: HTMLElement | null | undefined,
+): HTMLElement | null {
+	if (!currentSlide) return null;
 	if (currentSlide.dataset.slideId) return currentSlide;
 	return (
 		currentSlide.querySelector<HTMLElement>("[data-slide-id].present") ??
