@@ -406,6 +406,21 @@ The guidance MUST be actionable—tell the builder exactly what to fix.
 
 Apply the **On SUCCESS** variant from the loaded template. Append after the builder's implementation summary.
 
+### 5.5.1 On SUCCESS: Persist Machine Task Plan
+
+Feature mode only:
+
+- Read `{WORK_ROOT}/features/{FEATURE_ID}/tasks.json` if it exists.
+- Preserve schema, order, and all task fields.
+- For each reviewed `TASK_IDS` entry, set matching `tasks[].status = "completed"`.
+- Write the updated JSON before emitting `task-reviewer:completed`.
+- If `tasks.json` is missing, malformed, or lacks any reviewed task id, return FAILURE with a blocking completeness issue. Build v2 resume safety depends on persisted machine status.
+
+Legacy milestone/quick-build mode:
+
+- Set `task_plan_updated = false`.
+- Do not create `tasks.json`.
+
 ### 5.6 Quick-Build Verification Section
 
 **If QUICK_BUILD_PATH is not empty** (quick-build mode):
@@ -468,6 +483,7 @@ Your final output MUST be valid JSON:
       "reason": "Why automation is impossible"
     }
   ],
+  "task_plan_updated": true,
   "summary": "Brief summary of verification result"
 }
 ```
@@ -521,6 +537,7 @@ Skip if WORKFLOW is empty.
       "reason": "Third-party API, behavior may vary"
     }
   ],
+  "task_plan_updated": true,
   "summary": "Task T1 implemented correctly. JWT validation follows design spec."
 }
 ```
@@ -564,6 +581,7 @@ Skip if WORKFLOW is empty.
     }
   ],
   "manual_verification": [],
+  "task_plan_updated": false,
   "summary": "Implementation missing signature validation. Use jwt.verify() instead of jwt.decode()."
 }
 ```

@@ -115,6 +115,16 @@ describe("Build v2 readiness contracts", () => {
 		]) {
 			expect(content).toContain(expectedBehavior);
 		}
+		expect(content).toContain(
+			'"task_plan_warnings": {task_plan_warnings JSON array}',
+		);
+		expect(content).toContain(
+			'"documentation_followups": {documentation_followups JSON array}',
+		);
+		expect(content).toContain(
+			"Never hardcode these fields to `[]` unless the corresponding source arrays are actually empty.",
+		);
+		expect(content).toContain("blocks_release = false");
 	});
 
 	test("build-readiness template leads with readiness evidence and explicit work artifact registration", async () => {

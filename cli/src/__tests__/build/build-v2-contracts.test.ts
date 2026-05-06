@@ -159,6 +159,30 @@ describe("Build v2 static contracts", () => {
 		expect(content).not.toContain("build-task-grouper");
 	});
 
+	test("implementation persists successful task units through task-reviewer", async () => {
+		const build = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const reviewer = await readProjectFile(
+			"plugins/dev/agents/task-reviewer.md",
+		);
+
+		expect(build).toContain(
+			'`status = "SUCCESS"` completes the unit only when `task_plan_updated = true`',
+		);
+		expect(build).toContain(
+			"Do not edit `tasks.json` in the parent orchestrator; the reviewer owns the success decision and task-plan persistence.",
+		);
+		expect(reviewer).toContain(
+			"### 5.5.1 On SUCCESS: Persist Machine Task Plan",
+		);
+		expect(reviewer).toContain(
+			'For each reviewed `TASK_IDS` entry, set matching `tasks[].status = "completed"`.',
+		);
+		expect(reviewer).toContain(
+			"Build v2 resume safety depends on persisted machine status.",
+		);
+		expect(reviewer).toContain('"task_plan_updated": true');
+	});
+
 	test("phase dispatches pass AFK_MODE and CODE_ROOT to the agents that require them", async () => {
 		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
 		const afkAgents = [

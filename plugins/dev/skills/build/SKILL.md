@@ -454,9 +454,9 @@ FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={code
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_UNIT_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-Parse the reviewer JSON contract. `status = "SUCCESS"` completes the unit. `status = "FAILURE"` or malformed output enters retry handling.
+Parse the reviewer JSON contract. `status = "SUCCESS"` completes the unit only when `task_plan_updated = true`; otherwise treat the reviewer output as FAILURE because resume safety depends on persisted `tasks.json` status. `status = "FAILURE"` or malformed output enters retry handling.
 
-Loop logic: `attempt = 1`, `max = 2`. If reviewer reports SUCCESS: move to next unit.
+Loop logic: `attempt = 1`, `max = 2`. If reviewer reports SUCCESS with `task_plan_updated = true`: move to next unit. Do not edit `tasks.json` in the parent orchestrator; the reviewer owns the success decision and task-plan persistence.
 
 If FAILURE and attempt < max:
 
@@ -500,7 +500,7 @@ rp1 agent-tools emit \
 Documentation tasks from `TASK_PLAN.documentation_tasks`:
 
 - Complete only through a declared supported workflow.
-- Current build has no declared docs implementation workflow; create `documentation_followups` from each docs task with `id`, `title`, `target`, `acceptance_refs`, and `dependencies`.
+- Current build has no declared docs implementation workflow; create `documentation_followups` from each docs task with `id`, `title`, `target`, `acceptance_refs`, `dependencies`, and `blocks_release = false`.
 - Carry `documentation_followups` into readiness/release `manual_items`.
 - Do not spawn undeclared documentation agents.
 
@@ -587,11 +587,13 @@ Build `PHASE_RESULTS_JSON` with normalized or legacy producer outputs:
   "feature_verifier": "{feature-verifier validation envelope or legacy result}",
   "comment_cleaner": "{comment-cleaner validation envelope or synthetic warning result}",
   "implementation_context": {
-    "task_plan_warnings": [],
-    "documentation_followups": []
+    "task_plan_warnings": {task_plan_warnings JSON array},
+    "documentation_followups": {documentation_followups JSON array}
   }
 }
 ```
+
+`task_plan_warnings` and `documentation_followups` MUST be the preserved arrays from §4.1 and §4.4. Never hardcode these fields to `[]` unless the corresponding source arrays are actually empty.
 
 {% dispatch_agent "rp1-dev:build-verify-aggregator" %}
 PHASE_RESULTS={PHASE_RESULTS_JSON}, FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
