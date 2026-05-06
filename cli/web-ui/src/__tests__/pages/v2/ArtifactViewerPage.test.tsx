@@ -13,6 +13,7 @@ import {
 	WORKSPACE_TABS_STORAGE_KEY,
 	WorkspaceTabsProvider,
 } from "@/hooks/useWorkspaceTabs";
+import type { WalkthroughDeck } from "@/lib/walkthrough-slide-source";
 import type { ShortcutRegistryData } from "@/providers/ShortcutRegistryProvider";
 import {
 	ShortcutRegistryProvider,
@@ -81,6 +82,29 @@ const baseRun: Run = {
 };
 
 let run: Run = baseRun;
+
+const walkthroughArtifactPath =
+	".rp1/work/pr-walkthroughs/pr-42-walkthrough-001.md";
+const walkthroughSlideSource = `---
+rp1_contract: pr-walkthrough-slide-source
+rp1_contract_version: "1.0.0"
+rp1_review_id: pr-42
+rp1_evidence_ids:
+  - E-PR-001
+---
+# PR Walkthrough: Checkout Reader
+
+<!-- rp1-slide: horizontal -->
+<!-- rp1-slide-meta
+id: slide-001
+role: at-a-glance
+depth: 0
+evidence: [E-PR-001]
+-->
+## At A Glance
+
+Review checkout. E-PR-001
+`;
 
 mock.module("@/hooks/useRunDetail", () => ({
 	useRunDetail: () => ({
@@ -252,6 +276,50 @@ mock.module(
 	() => unifiedContentRendererMock,
 );
 
+const walkthroughRevealReaderMock = {
+	WalkthroughRevealReader: ({
+		deck,
+		path,
+		onMarkdownModeRequested,
+		onRenderFailure,
+	}: {
+		readonly deck: WalkthroughDeck;
+		readonly path: string;
+		readonly onMarkdownModeRequested?: () => void;
+		readonly onRenderFailure?: (message: string) => void;
+	}) => (
+		<div data-testid="walkthrough-reader" data-path={path}>
+			<span>{deck.title}</span>
+			<button
+				type="button"
+				aria-label="Mock reader markdown mode"
+				onClick={onMarkdownModeRequested}
+			>
+				Markdown
+			</button>
+			<button
+				type="button"
+				aria-label="Mock reader render failure"
+				onClick={() =>
+					onRenderFailure?.("Mock reader failed. Showing markdown.")
+				}
+			>
+				Fail reader
+			</button>
+		</div>
+	),
+};
+
+mock.module(
+	"@/components/v2/WalkthroughRevealReader",
+	() => walkthroughRevealReaderMock,
+);
+
+mock.module(
+	"@/components/v2/WalkthroughRevealReader.tsx",
+	() => walkthroughRevealReaderMock,
+);
+
 function RegistryProbe() {
 	latestRegistry = useShortcutRegistry();
 	return null;
@@ -369,6 +437,95 @@ describe("ArtifactViewerPage", () => {
 			"run-1",
 			"docs/tasks.md",
 		);
+	});
+
+	test("renders supported walkthrough artifacts as slides and recovers to markdown on reader failure", async () => {
+		run = {
+			...baseRun,
+			artifacts: [
+				{
+					docId: "doc-walkthrough",
+					path: walkthroughArtifactPath,
+					absolutePath: `/repo/${walkthroughArtifactPath}`,
+					type: "markdown",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "pr-walkthrough",
+				},
+			],
+		};
+		global.fetch = mock(async () => ({
+			ok: true,
+			json: async () => ({ content: walkthroughSlideSource }),
+		})) as unknown as typeof fetch;
+
+		await renderArtifactViewerPage(
+			`/runs/run-1/artifacts/${walkthroughArtifactPath}`,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("walkthrough-reader").dataset.path).toBe(
+				walkthroughArtifactPath,
+			);
+		});
+		expect(
+			screen
+				.getByRole("button", { name: "Slides" })
+				.getAttribute("aria-pressed"),
+		).toBe("true");
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "Mock reader render failure" }),
+		);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText("Mock reader failed. Showing markdown."),
+			).toBeTruthy();
+			expect(screen.getByTestId("artifact-renderer").textContent).toContain(
+				`${walkthroughArtifactPath}:`,
+			);
+		});
+		expect(
+			screen
+				.getByRole("button", { name: "Markdown" })
+				.getAttribute("aria-pressed"),
+		).toBe("true");
+	});
+
+	test("keeps pr-review artifacts on the markdown path without slide controls", async () => {
+		const prReviewPath = ".rp1/work/pr-reviews/pr-42-review.md";
+		run = {
+			...baseRun,
+			artifacts: [
+				{
+					docId: "doc-pr-review",
+					path: prReviewPath,
+					absolutePath: `/repo/${prReviewPath}`,
+					type: "markdown",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "pr-review",
+				},
+			],
+		};
+		global.fetch = mock(async () => ({
+			ok: true,
+			json: async () => ({
+				content: "---\nrp1_contract: pr-review\n---\n# PR Review\n",
+			}),
+		})) as unknown as typeof fetch;
+
+		await renderArtifactViewerPage(`/runs/run-1/artifacts/${prReviewPath}`);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("artifact-renderer").textContent).toContain(
+				`${prReviewPath}:`,
+			);
+		});
+
+		expect(screen.queryByTestId("walkthrough-reader")).toBeNull();
+		expect(screen.queryByRole("button", { name: "Slides" })).toBeNull();
 	});
 
 	test("ignores stale artifact content when artifact fetches resolve out of order", async () => {

@@ -1,3 +1,5 @@
+@import "reveal.js/reveal.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -999,6 +1001,152 @@
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.rp1-walkthrough-reader .reveal {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: hsl(var(--surface));
+  color: hsl(var(--fg));
+}
+
+.rp1-walkthrough-reader .reveal.rp1-walkthrough-reveal-root {
+  position: absolute;
+  inset: 0;
+}
+
+.rp1-walkthrough-reader .reveal:focus-visible {
+  outline: 2px solid hsl(var(--accent));
+  outline-offset: -2px;
+}
+
+.rp1-walkthrough-reader:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  border: 0;
+  border-radius: 0;
+}
+
+.rp1-walkthrough-reader .reveal .slides {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  text-align: left;
+  transform-origin: 50% 50%;
+  transform-style: preserve-3d;
+}
+
+.rp1-walkthrough-reader .reveal .slides section {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 48px 64px;
+  overflow: hidden;
+  text-align: left;
+  transform-style: flat;
+  backface-visibility: hidden;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.rp1-walkthrough-reader .reveal .slides section.present {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 11;
+}
+
+.rp1-walkthrough-reader .reveal .slides > section.stack {
+  padding: 0;
+  overflow: visible;
+}
+
+.rp1-walkthrough-reader .reveal .slides > section.stack > section {
+  padding: 48px 64px;
+}
+
+.rp1-walkthrough-slide-content {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+}
+
+.rp1-walkthrough-reader .markdown-content {
+  width: 100%;
+  max-width: none;
+  color: hsl(var(--fg));
+}
+
+.rp1-walkthrough-reader .rp1-walkthrough-slide-markdown {
+  font-size: 18px;
+  line-height: 1.55;
+}
+
+.rp1-walkthrough-reader .rp1-walkthrough-slide-markdown h1,
+.rp1-walkthrough-reader .rp1-walkthrough-slide-markdown h2 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  border-bottom: 0;
+  padding-bottom: 0;
+  font-size: 32px;
+  line-height: 1.25;
+}
+
+.rp1-walkthrough-reader .rp1-walkthrough-slide-markdown h3 {
+  margin-top: 18px;
+  margin-bottom: 10px;
+  font-size: 22px;
+  line-height: 1.35;
+}
+
+.rp1-walkthrough-reader .rp1-walkthrough-slide-markdown p,
+.rp1-walkthrough-reader .rp1-walkthrough-slide-markdown li {
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.rp1-walkthrough-reader .rp1-walkthrough-slide-markdown ul,
+.rp1-walkthrough-reader .rp1-walkthrough-slide-markdown ol {
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.rp1-walkthrough-reader .rp1-walkthrough-slide-markdown pre {
+  max-height: min(420px, 48vh);
+  overflow: auto;
+}
+
+.rp1-walkthrough-reader .rp1-walkthrough-slide-markdown table {
+  font-size: 13px;
+}
+
+.rp1-walkthrough-reader .rp1-walkthrough-slide-markdown code {
+  word-break: break-word;
+}
+
+.rp1-walkthrough-reader .reveal aside.notes {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .rp1-walkthrough-reader .reveal .slides section,
+  .rp1-walkthrough-reader .reveal .slides > section.stack > section {
+    padding: 28px;
+  }
+
+  .rp1-walkthrough-reader .rp1-walkthrough-slide-markdown h1,
+  .rp1-walkthrough-reader .rp1-walkthrough-slide-markdown h2 {
+    font-size: 26px;
+  }
 }
 
 /* Reduced motion: disable all animations */

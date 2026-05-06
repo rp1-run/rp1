@@ -21,7 +21,7 @@
 | cli/pr-review | PR review config and CI environment detection | 4 |
 | web-ui/server | Bun HTTP/WS server with REST APIs, file watching, event broadcast, notifications | 16 |
 | web-ui/daemon | Daemon lifecycle manager with diagnostic logging and IPC | 4 |
-| web-ui/frontend | React SPA dashboard: pages, components, hooks, providers, motion | 190 |
+| web-ui/frontend | React SPA dashboard: pages, components, hooks, providers, motion, artifact viewers, walkthrough slide reader | 190 |
 | plugins/base | KB, docs sync, writing, research, strategy, security, prompt authoring pipeline, guide meta-skill | 98 |
 | plugins/dev | Build workflows, blueprinting, PR review and walkthrough, feature delivery | 58 |
 | plugins/utils | Prompt tersification, eval helpers | 14 |
@@ -46,6 +46,8 @@
 | install verifier | install | Cross-platform installation health check and skill discovery with arcade_tracked metadata |
 | pr-walkthrough | plugins/dev | Review workflow skill that resolves PR or branch targets, collects direct `gh`/`git` evidence, dispatches markdown synthesis, and registers a work artifact |
 | pr-walkthrough-reporter | plugins/dev | Agent that turns direct PR evidence into a plain markdown walkthrough with Evidence Index citations under `.rp1/work/pr-walkthroughs/` |
+| walkthrough-slide-source | web-ui/frontend | Client-side parser that validates the `pr-walkthrough-slide-source` markdown contract, extracts horizontal and vertical slides, notes, evidence IDs, and fallback reasons |
+| WalkthroughRevealReader | web-ui/frontend | Reveal.js-backed artifact reader for supported PR walkthroughs with slide/depth controls, active notes, evidence labels, and markdown fallback hooks |
 | build-prompt orchestrator | plugins/utils | Workflow skill that walks the six-stage prompt-writer pipeline via prompt-pipeline-runner agent with budgeted governance |
 | prompt-pipeline-runner | plugins/base | Agent executing constitutional-checklist, fallibilist-overlay, epistemic-stance, popper-patterns, confidence-schema, prompt-validation stages |
 
@@ -75,6 +77,7 @@ plugins/* --> cli/agent-tools (runtime conventions)
 | Arcade Tracked Visibility | parser, validator, catalog, verifier | Skills opt out of Activity feed via arcadeTracked without losing workflow mechanics |
 | Async Mutex Registry | web-ui/server/registry | Serializes concurrent registry mutations preventing race conditions |
 | Notification Auto-Generation | emit, daemon, frontend | Terminal events auto-create deduplicated notifications relayed via WebSocket |
+| Contract-Gated Artifact Reader | web-ui/frontend, plugins/dev | PR walkthrough artifacts can open as slides only when the markdown contract validates; unsupported or failed render paths keep the normal markdown viewer |
 | Catalog Registry | catalog, build, base/guide | Single-source catalog drives CATALOG.md, init blocks, and /guide |
 | Versioned Fence Markers | init, lib, migrate | Instruction stanzas carry version stamps for staleness detection and auto-upgrade |
 | Thin Command Adapter | commands, build, install, init | CLI commands translate flags and delegate to deeper modules |
