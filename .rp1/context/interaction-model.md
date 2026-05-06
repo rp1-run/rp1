@@ -67,7 +67,7 @@
 |----------|----------|
 | Walkthrough slide reader | File-backed markdown artifacts that declare `rp1_contract: pr-walkthrough-slide-source` and contain valid line-alone slide markers open in Slides mode from the existing artifact surface |
 | Markdown fallback | The original markdown content stays available in Markdown mode and is shown for unsupported artifacts, invalid contracts, parser failures, or Reveal.js render failures |
-| Reader navigation | Slides mode owns horizontal and vertical navigation, active-slide position, active notes, evidence labels, and current-slide announcements |
+| Reader navigation | Slides mode owns horizontal and vertical navigation, active-slide position, current-slide announcements, and Reveal speaker-view notes while evidence IDs stay in slide and markdown content |
 | Artifact context | Run artifact selection, content fetching, cache behavior, and path reconciliation stay on the existing artifact surface; no server API or artifact schema change is required |
 | Annotation behavior | Inline annotations remain on the markdown path; slide mode disables transformed-DOM annotation anchoring for this phase |
 
@@ -103,7 +103,7 @@
 - Reduced-motion fallback for all animations
 - Screen-reader aria-labels on status dots, notification triggers, commands
 - Live region announcements for ToC navigation and notifications
-- Walkthrough slide reader controls have accessible names, disabled boundary states, keyboard navigation, active-slide announcements, and a markdown fallback for source-order reading
+- Walkthrough slide reader controls have accessible names, disabled boundary states, keyboard navigation, active-slide announcements, Reveal speaker-view notes, and a markdown fallback for source-order reading
 - Named emits and state-machine-aligned steps for meaningful dashboard labels
 - Namespaced sub-agent steps prevent timeline collisions
 - Notification items use attention-level-differentiated backgrounds for visual triage

@@ -56,7 +56,7 @@ validation.
 
 | Mode | Use |
 |------|-----|
-| **Slides** | Review a supported PR walkthrough with horizontal and vertical slide navigation, active-slide notes, and evidence labels. |
+| **Slides** | Review a supported PR walkthrough with horizontal and vertical slide navigation. Speaker notes stay in Reveal's speaker view, and evidence IDs remain in slide content. |
 | **Markdown** | Read the original markdown artifact in source order, including evidence references, frontmatter, and slide markers. Use this mode for fallback reading, annotations, and audit. |
 
 The `Slides` and `Markdown` control appears only for supported walkthrough

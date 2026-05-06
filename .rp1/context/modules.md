@@ -47,7 +47,7 @@
 | pr-walkthrough | plugins/dev | Review workflow skill that resolves PR or branch targets, collects direct `gh`/`git` evidence, dispatches markdown synthesis, and registers a work artifact |
 | pr-walkthrough-reporter | plugins/dev | Agent that turns direct PR evidence into a plain markdown walkthrough with Evidence Index citations under `.rp1/work/pr-walkthroughs/` |
 | walkthrough-slide-source | web-ui/frontend | Client-side parser that validates the `pr-walkthrough-slide-source` markdown contract, extracts horizontal and vertical slides, notes, evidence IDs, and fallback reasons |
-| WalkthroughRevealReader | web-ui/frontend | Reveal.js-backed artifact reader for supported PR walkthroughs with slide/depth controls, active notes, evidence labels, and markdown fallback hooks |
+| WalkthroughRevealReader | web-ui/frontend | Reveal.js-backed artifact reader for supported PR walkthroughs with slide/depth controls, hidden Reveal speaker notes, source-order evidence preservation, and markdown fallback hooks |
 | build-prompt orchestrator | plugins/utils | Workflow skill that walks the six-stage prompt-writer pipeline via prompt-pipeline-runner agent with budgeted governance |
 | prompt-pipeline-runner | plugins/base | Agent executing constitutional-checklist, fallibilist-overlay, epistemic-stance, popper-patterns, confidence-schema, prompt-validation stages |
 

@@ -93,8 +93,9 @@ metadata while keeping a Markdown mode available for source-order reading.
 
 If the contract is unsupported, malformed, or slide rendering fails, Arcade
 shows the markdown artifact instead. Evidence IDs such as `E-PR-###`,
-`E-FILE-###`, `E-DIFF-###`, and `E-COMMIT-###` remain visible in slides, notes,
-the Evidence Index, and fallback markdown so claims stay auditable.
+`E-FILE-###`, `E-DIFF-###`, and `E-COMMIT-###` remain visible in slide content,
+Reveal speaker-view notes, the Evidence Index, and fallback markdown so claims
+stay auditable.
 
 ## Examples
 
