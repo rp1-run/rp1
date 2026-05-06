@@ -36,8 +36,17 @@ const hasDevDist = existsSync(
 );
 const testIfDist = hasDevDist ? test : test.skip;
 const localBinaryPath = join(repoRoot, "bin", "rp1");
-const hasLocalBinary = existsSync(localBinaryPath);
-const testIfBinary = hasLocalBinary ? test : test.skip;
+const hasRunnableLocalBinary = (() => {
+	if (!existsSync(localBinaryPath)) {
+		return false;
+	}
+
+	const probe = spawnSync(localBinaryPath, ["--version"], {
+		encoding: "utf-8",
+	});
+	return probe.error === undefined && typeof probe.status === "number";
+})();
+const testIfBinary = hasRunnableLocalBinary ? test : test.skip;
 
 describe("workflow-bootstrap", () => {
 	let tempDir: string;

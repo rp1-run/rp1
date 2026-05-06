@@ -89,7 +89,7 @@ describe("emit end-to-end", () => {
 		test("auto-creates run when run_id does not exist", async () => {
 			const input = makeInput({
 				type: "status_change",
-				step: "planning",
+				step: "requirements",
 				data: { status: "running", workflow: "build", feature: "new-feat" },
 			});
 
@@ -115,7 +115,7 @@ describe("emit end-to-end", () => {
 			const input = makeInput({
 				type: "status_change",
 				runId,
-				step: "implementation",
+				step: "requirements",
 				data: { status: "running", workflow: "build", feature: "feat" },
 			});
 
@@ -138,7 +138,7 @@ describe("emit end-to-end", () => {
 
 			const input = makeInput({
 				type: "status_change",
-				step: "implementation",
+				step: "requirements",
 				data: { status: "completed", workflow: "build", feature: "feat" },
 			});
 
@@ -156,7 +156,7 @@ describe("emit end-to-end", () => {
 					runId: input.runId,
 					projectPath: tempDir,
 					featureId: "feat",
-					step: "implementation",
+					step: "requirements",
 				}),
 			);
 
@@ -186,7 +186,7 @@ describe("emit end-to-end", () => {
 			const input = makeInput({
 				type: "status_change",
 				runId,
-				step: "implementation",
+				step: "requirements",
 				projectPath: projectRoot,
 				data: { status: "running", workflow: "build", feature: "feat" },
 			});
@@ -584,7 +584,7 @@ describe("emit end-to-end", () => {
 			const input = makeInput({
 				type: "status_change",
 				runId,
-				step: "planning",
+				step: "requirements",
 				data: {
 					status: "running",
 					workflow: "build",
@@ -627,7 +627,7 @@ describe("emit end-to-end", () => {
 			const input = makeInput({
 				type: "status_change",
 				runId,
-				step: "planning",
+				step: "requirements",
 				harness: "opencode",
 				data: {
 					status: "running",
@@ -656,7 +656,7 @@ describe("emit end-to-end", () => {
 				const input = makeInput({
 					type: "status_change",
 					runId,
-					step: "planning",
+					step: "requirements",
 					data: {
 						status: "running",
 						workflow: "build",
@@ -688,7 +688,7 @@ describe("emit end-to-end", () => {
 			const firstInput = makeInput({
 				type: "status_change",
 				runId,
-				step: "planning",
+				step: "requirements",
 				data: {
 					status: "running",
 					workflow: "build",
@@ -706,7 +706,7 @@ describe("emit end-to-end", () => {
 			const secondInput = makeInput({
 				type: "status_change",
 				runId,
-				step: "implementation",
+				step: "planning",
 				data: {
 					status: "running",
 					workflow: "build",

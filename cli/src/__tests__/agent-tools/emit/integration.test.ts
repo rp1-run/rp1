@@ -106,7 +106,7 @@ describe("Phase 2 integration: write-ahead durability", () => {
 
 			const input = makeInput({
 				type,
-				step: type === "status_change" ? "implementation" : undefined,
+				step: type === "status_change" ? "requirements" : undefined,
 				data: {
 					status: "running",
 					workflow: "build",
@@ -161,7 +161,7 @@ describe("Phase 2 integration: write-ahead durability", () => {
 				makeInput({
 					type: "status_change",
 					runId,
-					step: "implementation",
+					step: "requirements",
 					data: { status: "running", workflow: "build", feature: "feat" },
 				}),
 			),
@@ -205,7 +205,7 @@ describe("Phase 2 integration: write-ahead durability", () => {
 				makeInput({
 					type: "status_change",
 					runId,
-					step: "implementation",
+					step: "requirements",
 					data: { status: "running", workflow: "build", feature: "feat" },
 				}),
 			),
@@ -217,7 +217,7 @@ describe("Phase 2 integration: write-ahead durability", () => {
 				makeInput({
 					type: "waiting_for_user",
 					runId,
-					step: "implementation",
+					step: "requirements",
 					data: { workflow: "build", feature: "feat", prompt: "Need approval" },
 				}),
 			),
@@ -233,7 +233,7 @@ describe("Phase 2 integration: write-ahead durability", () => {
 			snapshot
 				.find((record) => record.id === runId)
 				?.steps.some(
-					(step) => step.step === "implementation" && step.status === "waiting",
+					(step) => step.step === "requirements" && step.status === "waiting",
 				),
 		).toBe(true);
 
@@ -242,7 +242,7 @@ describe("Phase 2 integration: write-ahead durability", () => {
 				makeInput({
 					type: "status_change",
 					runId,
-					step: "release",
+					step: "planning",
 					data: { status: "running", workflow: "build", feature: "feat" },
 				}),
 			),
@@ -258,7 +258,7 @@ describe("Phase 2 integration: write-ahead durability", () => {
 			snapshot
 				.find((record) => record.id === runId)
 				?.steps.some(
-					(step) => step.step === "release" && step.status === "running",
+					(step) => step.step === "planning" && step.status === "running",
 				),
 		).toBe(true);
 	});
@@ -271,7 +271,7 @@ describe("Phase 2 integration: write-ahead durability", () => {
 				makeInput({
 					type: "status_change",
 					runId,
-					step: "implementation",
+					step: "requirements",
 					data: { status: "running", workflow: "build", feature: "feat" },
 				}),
 			),
@@ -303,7 +303,7 @@ describe("Phase 2 integration: write-ahead durability", () => {
 				makeInput({
 					type: "status_change",
 					runId,
-					step: "release",
+					step: "planning",
 					data: { status: "running", workflow: "build", feature: "feat" },
 				}),
 			),
@@ -372,7 +372,7 @@ describe("Phase 2 integration: run resumption end-to-end", () => {
 		const input1: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "release",
+			step: "requirements",
 			data: { status: "completed", workflow: "build", feature: featureId },
 			projectPath: tempDir,
 		};
