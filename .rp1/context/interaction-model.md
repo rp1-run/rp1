@@ -1,109 +1,129 @@
 # rp1 - Interaction Model
 
-**Project**: rp1
-**Analysis Date**: 2026-04-14
-**Surfaces**: CLI, Host Tool Integration, Arcade Web UI, Agent Tools CLI, Reference Docs, Init Wizard
+**Repository**: rp1
+**Analysis Date**: 2026-05-06
+**Surfaces**: CLI, Init Wizard, host-tool workflows, agent-tools CLI, Arcade web UI, native Arcade shell, reference docs
 
 ## Experience Principles
 
-| Principle | Description |
-|-----------|-------------|
-| Keyboard-first monitoring | Arcade is keyboard-first and mouse-optional for run navigation, dialogs, command palette, and notification management |
-| Observable workflows | Long-running skills expose named runs, explicit phase transitions, gate pauses, and registered artifacts |
-| Evidence before questions | Interactive workflows read repo or KB material first and ask only for material-changing facts or decisions |
-| Durable handoffs | Intermediate artifacts are source-of-truth handoffs preserved across review, block, and cancel paths |
-| Contract-gated artifact views | Specialized artifact readers appear only after artifact contracts validate; markdown remains the source-of-truth fallback |
-| Automation-aware CLI | CLI commands expose machine-friendly modes: JSON output, lint-only checks, hook-json format, daemon-only startup |
-| Attention-proportional notification | Notifications categorized by attention level (action_required, attention, info). Bulk dismiss via "Read all" enables efficient triage |
-| Exclusive overlay model | Only one overlay active at a time. Side panels (ToC, annotations) are mutually exclusive within artifact viewer |
-| Progressive detail disclosure | Secondary metadata (frontmatter, run invocation context) hidden by default, surfaced via contextual commands. State persists in sessionStorage |
+- **Event-sourced workflow observability**: User-visible progress is projected from emitted run, step, artifact, notification, and snapshot events. Arcade observes and recovers; workflow prompts own execution semantics.
+- **Explicit gates over inferred progress**: Workflows stop at decisions, contract gaps, stale prerequisites, dirty worktrees, or quality gates by emitting waiting states and asking bounded questions.
+- **Durable artifact handoffs**: Structured artifacts are stable handoffs between agents, CLI, Arcade, and later workflows. File and URL artifacts are registered explicitly with storage roots and relationships.
+- **Keyboard-first workspace shell**: Arcade prioritizes command palette access, navigation chords, drawer toggles, roving list focus, and workspace tab controls while preserving text input behavior.
+- **Progressive detail disclosure**: Feeds, badges, filters, and notification groups stay glanceable; metadata, frontmatter, steps, file trees, TOCs, annotations, and commands are opt-in drill-down layers.
+- **Contract-gated rich readers**: Specialized artifact readers appear only when contracts validate. PR walkthrough slide mode falls back to markdown when unsupported or malformed.
+- **Fail-closed quality boundaries**: Review, verification, cleanup, and publication surface missing evidence as warnings, waiting gates, or failures rather than silently proceeding.
+- **Automation-aware command surfaces**: CLI and workflows expose dry-run, JSON, hook, daemon-only, AFK, and non-interactive modes for humans and hosts.
+- **Project-scoped recovery**: Arcade preserves tabs, replay cursors, activity history, file context, and search indexes per project across reloads and daemon restarts.
 
-## Surfaces
+## Actors & Surfaces
 
-| Surface | Role | Key Entry Points |
-|---------|------|------------------|
-| CLI | Project setup, maintenance, artifact build, daemon launch | `rp1 init`, `rp1 install`, `rp1 arcade`, `rp1 arcade --daemon-only`, `rp1 arcade --format hook-json`, `rp1 build` |
-| Host Tool Integration | Conversational execution for slash-command workflows | `/write-content`, `/generate-user-docs`, `/build`, `/knowledge-build` |
-| Arcade Web UI | Live observability, artifact review, walkthrough slide reading, notification, file browsing, feedback | `/`, `/projects`, `/runs/:runId`, `/runs/:runId/artifacts/:path`, `/projects/:projectId/files/:path` |
-| Agent Tools CLI | Protocol surface for workflow state, path resolution, artifact registration | `rp1 agent-tools emit`, `resolve-args`, `rp1-root-dir`, `feedback` |
-| Reference Docs | Preflight discovery for harness-specific invocation and parameters | `docs/reference/`, `docs/arcade/` |
-| Init Wizard | Interactive terminal UI for project initialization | `rp1 init` |
+| Actor | Surfaces | Goals |
+|-------|----------|-------|
+| Developer or operator | CLI, Init Wizard, Arcade, host workflows | Initialize projects, run workflows, monitor progress, inspect artifacts, respond to gates. |
+| Arcade monitor and reviewer | Activity, Run Detail, Artifact Viewer, Notifications, Project Browser | Scan activity, open run workspaces, triage notifications, annotate artifacts, follow external links. |
+| Workflow orchestrator agent | Host workflows, agent-tools CLI, Arcade run detail | Emit transitions, delegate work, register artifacts, pause for user decisions, close runs accurately. |
+| PR reviewer or maintainer | PR Review, PR Walkthrough, Address Feedback, Artifact Viewer | Review PRs, generate walkthroughs, address feedback, inspect CI-aware results. |
+| Project and knowledge maintainer | Knowledge Build, User Docs, Birds-Eye View, Work Search | Refresh KB context, generate user docs, produce overviews, search work artifacts. |
+| Prompt or governance author | Prompt Writer, Build Prompt, Socratic Duel | Build governed prompts, run structured debates, capture confidence and decisions. |
+
+## Surface Responsibilities
+
+### CLI
+**Role**: Primary command surface for starting Arcade, installing integrations, verifying setup, migrating state, updating rp1, and developer simulations.
+**Entry points**: `rp1 arcade`, `rp1 init`, `rp1 install`, `rp1 verify`, `rp1 migrate`, `rp1 update`, `rp1 fake`.
+**Primary actions**: Start/reuse daemon, register project, open/stop Arcade, install/verify hosts, dry-run migrations, update plugins.
+
+### Init Wizard
+**Role**: Terminal onboarding surface with stepwise prompts, progress, warnings, and recovery decisions.
+**Primary actions**: Choose git-root, ancestor/nested project, reinitialization, gitignore, and health-check behavior.
+
+### Host Tool Workflows
+**Role**: Skill and agent invocation surface where workflows run, ask questions, delegate, and emit state.
+**Entry points**: `/build`, `/build-fast`, `/speedrun`, `/pr-review`, `/pr-walkthrough`, `/knowledge-build`, `/generate-user-docs`, `/socratic-duel`, `/build-prompt`.
+**Primary actions**: Resolve arguments, emit run states, ask approvals, spawn sub-work, register artifacts, close runs.
+
+### Agent Tools CLI
+**Role**: Machine-facing contract for event emission, argument resolution, root discovery, work search, and run/artifact registration.
+**Entry points**: `emit`, `resolve-args`, `rp1-root-dir`, `workflow-bootstrap`, `workflow-state`, `work-search`.
+
+### Arcade Web UI
+**Role**: Browser workspace for monitoring projects, activity, runs, files, notifications, command palette actions, and persistent tabs.
+**Entry points**: `/`, `/projects`, `/runs/:runId`, `/projects/:projectId`, `/projects/:projectId/files`, `/artifacts/:artifactId`.
+
+### Run Detail and Artifact Viewer
+**Role**: Focused inspection surface for a run, steps, invocation, artifacts, links, markdown, slide reader, and annotations.
+**Primary actions**: Cancel live run, select artifacts, open external links, toggle metadata/frontmatter, switch markdown/slides, add/resolve annotations.
+
+### Project File Browser
+**Role**: Project-scoped browsing surface for files, markdown, table of contents, and live file refresh without artifact annotation semantics.
+
+### Reference Documentation
+**Role**: User-facing semantic contract for Arcade, keyboard behavior, artifact reading, Socratic Duel, and work search.
 
 ## User-Visible States
 
-| State | Meaning | Surfaces |
-|-------|---------|----------|
-| running | A workflow phase is actively executing | Arcade, Agent Tools |
-| waiting_for_user | Workflow paused for user decision | Arcade, Host Tool, Agent Tools |
-| completed | Workflow finished with final outputs | Arcade, Host Tool, Agent Tools |
-| failed | Phase or run terminated with error | Arcade, Agent Tools |
-| blocked | Required facts or decisions unresolved | Host Tool |
-| cancelled | User chose to stop; work products preserved | Host Tool |
-| kb_stale | KB behind HEAD but still readable; continue/rebuild/cancel gate | Host Tool |
-| connection_status | Live-update health vs reconnecting/fallback | Arcade |
-| annotation_status | Artifact feedback open or resolved | Arcade |
-| artifact_view_mode | Supported walkthrough artifacts can render as slides or markdown; unsupported or failed slide rendering uses markdown | Arcade |
-| notification_attention | Per-notification attention level (action_required, attention, info) | Arcade |
-| frontmatter_visibility | Artifact/file frontmatter shown/hidden per view (sessionStorage) | Arcade |
-| run_metadata_visibility | Run invocation metadata shown/hidden (sessionStorage) | Arcade |
+| State | Meaning | Surface Signals |
+|-------|---------|-----------------|
+| `running` | Workflow or step is actively executing and may stream events. | Status badge, activity row, current step, WebSocket updates. |
+| `waiting` | Execution is paused for a user decision or contract gate. | Waiting badge, ask-user prompt, action-required notification, run message. |
+| `completed` | Workflow reached intended terminal outcome and required artifacts should be registered. | Completed badge, closed run, artifact list, success row. |
+| `failed` | Terminal blocker, invalid contract, missing prerequisite, or failed verification. | Failed badge, error panel, terminal refetch. |
+| `cancelled` | User or workflow intentionally stopped before completion. | Cancelled badge, cancel confirmation, end-run event. |
+| `inactive` / `abandoned` | Run is no longer progressing but did not complete normally. | Terminal grouping, activity filter, status label. |
+| `not_started` / skipped | Step exists in workflow model but has not run or was intentionally bypassed. | Step list status, workflow graph state, skipped init step. |
+| Artifact file | Run output that Arcade can render. | Artifact sidebar item, new/updated badge, markdown/slides/outline affordances. |
+| Artifact link | URL output that should open outside the local artifact reader. | Link sidebar item, external-open action, copy URL action. |
+| Annotation open/resolved/orphaned | Artifact comment is actionable, complete, or detached after content changes. | Inline markers, sidebar grouping, orphan status. |
+| Notification action_required/attention/info | Updates grouped by urgency. | Drawer groups, summary counts, toast, read-all action. |
+| Connection connecting/connected/disconnected | Arcade live event stream status. | Connection status, replay, snapshot reconciliation, polling fallback. |
+| Workspace tab active/persisted/closed | Durable destinations and closable workspaces preserve navigation state. | Tab strip, active tab, close button, restored route. |
+| Readiness `PASS`/`WARN`/`FAIL`/`WAITING` | Build verification outcome for release or follow-up decisions. | Readiness artifact, release gate, follow-up options. |
 
 ## Feedback Loops
 
-| Loop | Trigger | Behavior |
-|------|---------|----------|
-| Workflow gate | Phase needs user choice | Emit waiting_for_user -> Arcade shows pause -> Host tool asks -> Answer resumes/revises/cancels |
-| Artifact registration | Workflow creates durable output | Emit artifact_registered with storageRoot -> Arcade resolves and shows file |
-| Annotation feedback | User comments/edits artifact in Arcade | Runtime persists change -> Agents read via feedback read -> Replies update UI via WebSocket |
-| Notification lifecycle | Events produce notifications | Emitted workflow events and notifications arrive over the project WebSocket -> Toast auto-dismiss (6s) with dedup guard -> Sidebar grouped by attention -> Individual dismiss via X, bulk via "Read all" |
-| Contextual command registration | View mounts with commands | ShortcutRegistryProvider stores view commands -> Command palette shows view-labeled group -> User executes -> Cleanup on unmount |
-| Emit-driven run projection | `event:notification` or `event:replay` arrives for a project | Browser stores `lastEventId`, reduces the event through `LiveRunIndex`, and patches only the affected run detail, feed rows, attention groups, and project summaries |
-| Snapshot reconciliation | Reconnect gap is too large for replay | Browser reconnects with the saved project cursor -> Server sends `state:snapshot` -> Client replaces the project's active-run subset and only refetches visible collections whose membership may now be stale |
-| Recovery fallback | Live socket is disconnected or replay was missed entirely | Persisted REST state plus disconnected-only polling restore the latest run truth without treating broad refresh as the normal workflow-status path |
-| Artifact viewing mode | Supported PR walkthrough artifact content loads in Arcade | Browser parses the fetched markdown contract -> valid decks default to Slides mode -> user can switch to Markdown -> unsupported, malformed, or failed slide rendering shows markdown with a fallback notice |
+- **Workflow gate loop**: A workflow reaches a decision checkpoint, stale prerequisite, dirty tree, oversized scope, or retry exhaustion -> emits waiting status -> asks a bounded question.
+- **Live event projection loop**: Workflows emit status, step, artifact, notification, or file-change events -> Arcade updates feeds, run details, artifacts, notifications, and summaries.
+- **Reconnect and reconciliation loop**: WebSocket reconnects or receives replay/snapshot -> Arcade replays from last event id and falls back to polling when needed.
+- **Artifact registration loop**: Workflow emits `artifact_registered` -> run detail gains a readable file or external link.
+- **Annotation collaboration loop**: User selects text, opens annotation, replies, resolves, or reloads changed content -> inline markers and sidebars reconcile state.
+- **Notification lifecycle loop**: Run emits notification or user dismisses one -> toasts, groups, counts, and read-all state update through REST/WebSocket.
+- **Workspace lifecycle loop**: User opens run, project, file browser, or artifact route -> Arcade deduplicates tabs, persists active workspace, and restores routes.
+- **Activity search and filter loop**: User changes query/filter/page -> local history updates matching feed rows, preview selection, empty states, and pagination.
+- **Builder-reviewer readiness loop**: Task is implemented and reviewed -> retries, follow-ups, readiness status, and release gates determine next work.
+- **Setup verification loop**: User installs, verifies, migrates, uninstalls, or updates -> CLI reports OK/MISS/WARN, dry-run actions, remediation, restart reminders, or nonzero exit codes.
 
-## Artifact Surface Behavior
+## Accessibility & Discoverability
 
-| Behavior | Contract |
-|----------|----------|
-| Walkthrough slide reader | File-backed markdown artifacts that declare `rp1_contract: pr-walkthrough-slide-source` and contain valid line-alone slide markers open in Slides mode from the existing artifact surface |
-| Markdown fallback | The original markdown content stays available in Markdown mode and is shown for unsupported artifacts, invalid contracts, parser failures, or Reveal.js render failures |
-| Reader navigation | Slides mode owns horizontal and vertical navigation, active-slide position, current-slide announcements, and Reveal speaker-view notes while evidence IDs stay in slide and markdown content |
-| Artifact context | Run artifact selection, content fetching, cache behavior, and path reconciliation stay on the existing artifact surface; no server API or artifact schema change is required |
-| Annotation behavior | Inline annotations remain on the markdown path; slide mode disables transformed-DOM annotation anchoring for this phase |
+- Single-key shortcuts are suppressed in text inputs; modifier shortcuts remain available.
+- Navigation lists and artifact sidebars use roving focus and arrow-key movement.
+- Workspace tabs support normal tab order plus arrow, Home, End, Enter, Space, Delete, and Backspace behavior.
+- Overlays and drawers close with Escape and expose dialog or drawer semantics.
+- Status changes and transient notifications use visible labels and live-region style announcements.
+- Reduced motion short-circuits toast removal animation.
+- Annotation reply and save flows support keyboard confirmation.
+- Mobile and narrow layouts convert dense side panels into explicit drawers and workspace navigation.
+- Fallback, loading, empty, and error states are explicit surfaces.
+- Init wizard prompts expose selected options, descriptions, arrow navigation, and Enter selection.
 
-## Keyboard & Command System
+## Cross-Surface Deltas
 
-- **Global shortcuts**: `g h` (home), `g p` (projects), `Cmd+K` (command palette), `n` (notifications)
-- **Navigation shortcuts**: Arrow keys with roving tabindex, `Enter` to open, `Escape` to close
-- **Contextual shortcuts**: Views register `ShortcutDefinition[]` and `CommandDefinition[]` via `useContextualShortcuts`
-- **Command palette**: Navigation, actions, theme toggle, and per-view contextual commands with keyword search
-- **Chord timeout**: 500ms with visual `data-chordPending` indicator
-- **Text input guard**: Single-key shortcuts suppressed during text entry
+| Behavior | Surfaces | Delta | Reason |
+|----------|----------|-------|--------|
+| Execution vs observation | Host workflows, agent-tools, Arcade | Workflows own prompts, transitions, delegation, and artifacts; Arcade observes, filters, navigates, annotates, and opens links. | Keeps workflow authority in prompts while giving users durable monitoring. |
+| Waiting state naming | Host workflows, Arcade | Emits may use `waiting_for_user`; Arcade presents `waiting`. | Separates machine specificity from dashboard status language. |
+| Durable destinations vs closable workspaces | Arcade | Activity and Projects are stable; run detail, project overview, and file browsers are closable tabs. | Separates anchors from temporary investigative contexts. |
+| Desktop vs narrow navigation | Arcade Activity, Run Detail | Wide screens show split inbox/preview; narrow screens open/focus a run tab. | Preserves scan-and-compare on desktop without cramped mobile split views. |
+| File vs URL artifacts | Artifact Viewer, Link Sidebar | Files render in Arcade; URLs appear as external links. | External review targets remain external records. |
+| Slide vs markdown reader | Artifact Viewer | Slides require valid PR walkthrough slide-source; markdown is universal and annotation-capable. | Specialized affordances depend on explicit contracts. |
+| Interactive vs AFK workflows | Build, Build Fast, Speedrun, Init | Interactive modes ask; AFK/non-interactive modes choose deterministic defaults or skip optional prompts. | Supports unattended automation without removing manual gates. |
+| Local vs CI PR review | PR Review, GitHub/CI | Local review may pause for dirty worktree/description; CI mode cannot prompt. | Automated environments cannot wait for cleanup decisions. |
+| Tracked vs passive workflows | Knowledge Build, Arcade | Most workflows emit Arcade-visible run state; knowledge-build is passive and reports no Arcade-visible run. | KB refresh is context maintenance rather than an interactive tracked run. |
+| Human vs machine CLI output | CLI, hooks, daemon | Commands offer text, dry-run summaries, JSON, hook payloads, and hidden daemon modes. | One command layer supports terminals, shell hooks, and host automation. |
 
-## Cross-Surface Behavior
+## Related KB Links
 
-| Behavior | Delta |
-|----------|-------|
-| Plugin installation | Claude Code uses MCP registration with scope; OpenCode copies filesystem artifacts; Codex uses its own path |
-| Skill invocation syntax | Claude Code uses short slash commands; OpenCode uses rp1-prefixed names |
-| Execution vs observability | Host tools do the work; Agent Tools carry protocol; Arcade shows passive status |
-| Responsive layout | Desktop: icon-rail sidebar + resizable panels. Mobile: bottom tab bar + drawers |
-| Workflow freshness source | Arcade: emitted workflow events hydrate `LiveRunIndex`, run detail, and attention/project surfaces via scope-aware global/project `lastEventId` cursors. Host tools: inline gates still come from the emitting workflow |
-| Artifact reader source | Host tools produce and register markdown artifacts; Arcade may add a contract-gated slide reader for supported PR walkthrough artifacts while retaining markdown fallback |
-| Browser/native runtime contract | Browser launch defaults to `hostMode=browser`; native launch appends `hostMode=native` and `cacheBust` while loading the same loopback Arcade SPA. Both host modes validate the no-store `/api/v2/runtime` contract before route-level WebSocket consumers mount |
-| Notification delivery | Arcade: real-time toasts with dedup + dismissible sidebar driven by the same emit stream. Host tools: inline gates |
-| Recovery semantics | Arcade reconnects with its saved cursor, replays missed events when possible, and falls back to bounded snapshot reconciliation or persisted REST recovery only when needed |
-| Run invocation context | Hidden by default, toggled via contextual command; shows workflow, run policy, worktree state |
-| Daemon lifecycle modes | Full mode (register + browser), daemon-only (start without project), hook-json (structured output for hooks) |
-
-## Accessibility
-
-- Roving tabindex for dense lists without trapping tab order
-- Single-key shortcut suppression during text entry
-- Reduced-motion fallback for all animations
-- Screen-reader aria-labels on status dots, notification triggers, commands
-- Live region announcements for ToC navigation and notifications
-- Walkthrough slide reader controls have accessible names, disabled boundary states, keyboard navigation, active-slide announcements, Reveal speaker-view notes, and a markdown fallback for source-order reading
-- Named emits and state-machine-aligned steps for meaningful dashboard labels
-- Namespaced sub-agent steps prevent timeline collisions
-- Notification items use attention-level-differentiated backgrounds for visual triage
+- **System topology**: [architecture.md](architecture.md)
+- **Modules and projects**: [modules.md](modules.md)
+- **Terminology**: [concept_map.md](concept_map.md)
+- **Implementation details**: [patterns.md](patterns.md)
