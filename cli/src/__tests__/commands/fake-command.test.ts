@@ -1,7 +1,15 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import {
+	mkdir,
+	mkdtemp,
+	readFile,
+	rm,
+	stat,
+	writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { closeDatabase } from "../../agent-tools/emit/database.js";
 import {
 	fakeCommand,
 	parseWorkflowName,
@@ -26,6 +34,17 @@ describe("fake workflow command", () => {
 	let logs: string[];
 	let tempDir: string | undefined;
 
+	const createIsolatedProject = async (): Promise<string> => {
+		closeDatabase();
+		tempDir = await mkdtemp(join(tmpdir(), "rp1-fake-command-"));
+		const rp1Dir = join(tempDir, ".rp1");
+		await mkdir(join(rp1Dir, "work"), { recursive: true });
+		await writeFile(join(rp1Dir, "project_id"), crypto.randomUUID());
+		process.env.RP1_DB = join(tempDir, "events.db");
+		process.chdir(tempDir);
+		return rp1Dir;
+	};
+
 	beforeEach(() => {
 		errors = [];
 		logs = [];
@@ -42,6 +61,7 @@ describe("fake workflow command", () => {
 
 	afterEach(async () => {
 		process.chdir(originalCwd);
+		closeDatabase();
 		console.error = originalError;
 		console.log = originalLog;
 		process.exit = originalExit;
@@ -74,12 +94,7 @@ describe("fake workflow command", () => {
 	test(
 		"runs a fast fake workflow with artifact and subflow events in an isolated project",
 		async () => {
-			tempDir = await mkdtemp(join(tmpdir(), "rp1-fake-command-"));
-			const rp1Dir = join(tempDir, ".rp1");
-			await mkdir(join(rp1Dir, "work"), { recursive: true });
-			await writeFile(join(rp1Dir, "project_id"), crypto.randomUUID());
-			process.env.RP1_DB = join(tempDir, "events.db");
-			process.chdir(tempDir);
+			const rp1Dir = await createIsolatedProject();
 
 			fakeCommand.exitOverride();
 			await fakeCommand.parseAsync([
@@ -91,7 +106,7 @@ describe("fake workflow command", () => {
 				"--feature",
 				"coverage-repair",
 				"--pause-at",
-				"build",
+				"implementation",
 				"--with-btw",
 				"--with-artifacts",
 				"--with-subflows",
@@ -114,4 +129,136 @@ describe("fake workflow command", () => {
 		},
 		{ timeout: 10000 },
 	);
+
+	test(
+		"runs a complete Build v2 fake workflow and writes phase artifacts",
+		async () => {
+			const rp1Dir = await createIsolatedProject();
+
+			fakeCommand.exitOverride();
+			await fakeCommand.parseAsync([
+				"node",
+				"fake",
+				"/build 'complete coverage repair'",
+				"--speed",
+				"fast",
+				"--feature",
+				"complete-repair",
+				"--with-btw",
+				"--with-artifacts",
+				"--with-subflows",
+			]);
+
+			const featureDir = join(rp1Dir, "work", "features", "complete-repair");
+			await expect(
+				readFile(join(featureDir, "requirements.md"), "utf-8"),
+			).resolves.toContain("# Fake Requirements Artifact");
+			await expect(
+				readFile(join(featureDir, "design.md"), "utf-8"),
+			).resolves.toContain("# Fake Design Artifact");
+			await expect(
+				readFile(join(featureDir, "tasks.md"), "utf-8"),
+			).resolves.toContain("# Fake Development Tasks");
+			await expect(
+				readFile(join(featureDir, "tasks.json"), "utf-8"),
+			).resolves.toContain('"feature_id": "complete-repair"');
+			await expect(
+				readFile(join(featureDir, "build-readiness.md"), "utf-8"),
+			).resolves.toContain("# Fake Build Readiness");
+			await expect(
+				readFile(
+					join(
+						rp1Dir,
+						"work",
+						"archives",
+						"features",
+						"complete-repair",
+						"archive-summary.md",
+					),
+					"utf-8",
+				),
+			).resolves.toContain("# Fake Feature Archive");
+
+			const output = logs.join("\n");
+			expect(output).toContain("Simulation complete");
+			expect(output).toContain("[4/4] release");
+		},
+		{ timeout: 10000 },
+	);
+
+	test(
+		"supports injected failure and concurrent pause simulations",
+		async () => {
+			await createIsolatedProject();
+
+			fakeCommand.exitOverride();
+			await fakeCommand.parseAsync([
+				"node",
+				"fake",
+				"/build 'failure coverage repair'",
+				"--speed",
+				"fast",
+				"--feature",
+				"failure-repair",
+				"--fail-at",
+				"planning",
+			]);
+
+			await fakeCommand.parseAsync([
+				"node",
+				"fake",
+				"/build 'parallel coverage repair'",
+				"--speed",
+				"fast",
+				"--feature",
+				"parallel-repair",
+				"--pause-at",
+				"requirements",
+				"--count",
+				"2",
+			]);
+
+			const output = logs.join("\n");
+			expect(output).toContain('Simulation failed at step "planning"');
+			expect(output).toContain("All runs finished");
+			expect(output).toContain("2/2 succeeded");
+		},
+		{ timeout: 10000 },
+	);
+
+	test("rejects unknown workflows and invalid Build v2 steps", async () => {
+		fakeCommand.exitOverride();
+
+		await expect(
+			fakeCommand.parseAsync(["node", "fake", "/missing-workflow"]),
+		).rejects.toMatchObject({ code: 1 });
+		expect(errors.at(-1)).toContain(
+			"Ensure a ## STATE-MACHINE section with a stateDiagram-v2 block exists",
+		);
+
+		errors = [];
+		await expect(
+			fakeCommand.parseAsync([
+				"node",
+				"fake",
+				"/build 'bad step'",
+				"--fail-at",
+				"build",
+			]),
+		).rejects.toMatchObject({ code: 1 });
+		expect(errors.at(-1)).toContain(
+			"Valid steps: requirements, planning, implementation, release",
+		);
+	});
+
+	test("rejects empty workflow names", async () => {
+		fakeCommand.exitOverride();
+
+		await expect(
+			fakeCommand.parseAsync(["node", "fake", "/"]),
+		).rejects.toMatchObject({ code: 1 });
+		expect(errors.at(-1)).toContain(
+			"Could not extract workflow name from command string",
+		);
+	});
 });

@@ -21,11 +21,12 @@ Common multi-skill sequences in rp1. Each workflow describes when to use it, the
 - `/blueprint` produces a PRD that defines scope. If the PRD already maps cleanly to one delivery slice, continue directly to `/build`.
 - Use `/phase-plan` when the PRD or requirements artifact spans multiple independently valuable features, rollout slices, or delivery phases. It creates the durable handoff between planning and feature execution. Pass an explicit PRD path or oversized `requirements.md` path as the source; if a basename or title is ambiguous, rerun with one explicit source path.
 - After `/phase-plan`, invoke child delivery with the exact emitted handoff command, for example `/build auth-session-hardening PHASE_PLAN_PATH=prds/auth-overhaul-phase-plan.md PHASE_ID=P2`. The `PHASE_PLAN_PATH` and `PHASE_ID` arguments preserve planning traceability for the child feature.
-- `/build` runs six internal phases (requirements -> design -> tasks -> build -> verify -> archive). It spawns sub-agents for each phase and manages checkpoints between them. The output is a working implementation on a feature branch, and oversized scope is redirected to `/phase-plan` instead of reviving legacy tracker or milestone planning.
+- `/build` runs four parent phases (`requirements` -> `planning` -> `implementation` -> `release`). It resumes from registered workflow state, not markdown filename guesses; `planning` writes reviewer-facing `tasks.md` plus schema-backed `tasks.json`, and machine implementation planning consumes `tasks.json`. The output is a working implementation with a readiness result, and oversized scope is redirected to `/phase-plan` instead of reviving legacy tracker or milestone planning.
+- Supported gates are requirements approval, planning approval, implementation readiness, and release. Release can archive after `feature-archiver` succeeds, decline archive with `archive_status: "declined"`, add a task by returning to implementation, or stop. Documentation tasks are completed only through a supported workflow or carried as explicit manual/follow-up items.
 - After pushing the branch and opening a PR, `/pr-review` performs map-reduce analysis: splits the diff into review units, analyzes each in parallel, synthesizes findings, deduplicates comments, and posts them.
 - `/address-pr-feedback` collects the posted review comments, triages them by priority, and fixes them in sequence.
 
-**Flags**: `/build` supports `--afk` for unattended mode, `--commit` to auto-commit, `--push` to push the branch, and `--pr` to create the PR automatically.
+**Flags**: `/build` supports `--afk` for unattended mode, `--git-commit` to auto-commit, `--git-push` to push the branch, and `--git-pr` to create the PR automatically.
 
 ## Quick Iteration
 
@@ -81,7 +82,7 @@ Each iteration delegates to a general sub-agent. If the request is too large, it
 - `/code-check` runs first because it is fast and catches issues that would noise up the audit. Fix any failures before proceeding.
 - `/code-audit` performs a deeper structural analysis. It discovers project patterns, detects violations, scans for leaked information in comments, identifies duplication, and checks documentation drift. Run it after `/code-check` passes clean.
 
-**Tip**: `/build` already runs `/code-check` internally during its verify phase. Use this standalone pipeline when iterating outside of `/build` or when you want the deeper `/code-audit` analysis.
+**Tip**: `/build` already runs `/code-check` during implementation before readiness aggregation. Use this standalone pipeline when iterating outside of `/build` or when you want the deeper `/code-audit` analysis.
 
 ## PR Workflow
 
@@ -163,7 +164,7 @@ Each iteration delegates to a general sub-agent. If the request is too large, it
 - `/code-investigate` performs systematic analysis without making permanent code changes. It forms hypotheses, tests them through code reading and experiments, and documents the root cause with evidence.
 - Use the investigation findings to drive a fix through `/build-fast` (for targeted fixes) or `/build` (if the fix requires broader changes). Pass the root cause and recommended fix as the development request.
 
-**Related**: `/validate-hypothesis` can independently test design assumptions flagged during `/build`'s design phase.
+**Related**: `/validate-hypothesis` can independently test design assumptions flagged during `/build`'s planning phase.
 
 ## Prompt Authoring
 

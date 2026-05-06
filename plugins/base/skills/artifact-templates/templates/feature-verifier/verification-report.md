@@ -3,7 +3,7 @@ scope: workRoot
 path_pattern: "features/{FEATURE_ID}/feature_verification_{N}.md"
 producer: feature-verifier
 type: document
-description: "Feature verification report validating acceptance criteria against implementation. Generated during verify phase of /build."
+description: "Acceptance-criteria verification report. Generated during implementation validation for /build."
 strictness: strict
 emit_hint: |
   rp1 agent-tools emit \
@@ -19,49 +19,31 @@ emit_hint: |
 **Generated**: {timestamp}
 **Feature ID**: {FEATURE_ID}
 **Verification Scope**: {test_scope}
-**KB Context**: {Loaded | Not loaded}
-**Field Notes**: {Available | Not available}
 
-## Executive Summary
-- Overall Status: {VERIFIED | PARTIAL | NOT VERIFIED}
-- Acceptance Criteria: {verified_count}/{total_count} verified ({percentage}%)
-- Implementation Quality: {HIGH | MEDIUM | LOW}
-- Ready for Merge: {YES | NO}
+## Summary
+- **Status**: PASS | WARN | FAIL | WAITING
+- **Acceptance Coverage**: {verified_count}/{total_count}
+- **Blocking Issues**: {count}
+- **Manual Items**: {count}
 
-## Field Notes Context
-**Field Notes Available**: {Yes | No}
+## Requirement Evidence
 
-### Documented Deviations
-{List deviations documented in field-notes.md, or "None"}
+| Requirement | Acceptance Criterion | Status | Evidence | Issues |
+|-------------|---------------------|--------|----------|--------|
+| REQ-{NNN} | {criterion} | satisfied/blocked/not_applicable/manual | `{file}:{line}` or artifact | {issue or "-"} |
 
-### Undocumented Deviations
-{List deviations NOT documented -- require attention, or "None found"}
+## Blocking Issues
+- {issue with file/artifact reference, or "None"}
 
-## Acceptance Criteria Verification
+## Non-Blocking Notes
+- {warning/deviation note, or "None"}
 
-### REQ-{NNN}: {requirement_title}
-**AC-{NNN}**: {acceptance_criterion_description}
-- Status: {VERIFIED | PARTIAL | NOT VERIFIED | INTENTIONAL DEVIATION}
-- Implementation: {file_path}:{line_numbers} - {function/method_name}
-- Evidence: {specific_code_evidence_or_explanation}
-- Field Notes: {reference to relevant field note if applicable, or "N/A"}
-- Issues: {any_problems_found}
+## Manual Verification Items
+| Item | Requirement | Reason | Evidence Needed |
+|------|-------------|--------|-----------------|
+| {item} | REQ-{NNN} | {why automation cannot prove it} | {manual check} |
 
-## Implementation Gap Analysis
-### Missing Implementations
-- {list_of_unimplemented_criteria}
-
-### Partial Implementations
-- {list_of_partially_implemented_criteria_with_specific_gaps}
-
-### Implementation Issues
-- {list_of_incorrectly_implemented_criteria}
-
-## Code Quality Assessment
-{analysis_of_implementation_quality_patterns_and_consistency}
-
-## Recommendations
-1. {specific_actionable_recommendation}
-
-## Verification Evidence
-{detailed_code_references_and_snippets_supporting_the_verification_status}
+## Field Notes
+| Deviation | Documented In | Action |
+|-----------|---------------|--------|
+| {deviation} | `field-notes.md` or "-" | accept/block/follow-up |

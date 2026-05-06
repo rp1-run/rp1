@@ -39,6 +39,7 @@ import {
 	getEventsSince,
 	getMaxEventId,
 	getProjectRunStats,
+	getRecentEventsForRun,
 	getRunById,
 	getRunsByAttentionStatus,
 	getRunWithLastEventById,
@@ -4789,6 +4790,32 @@ describe("emit database", () => {
 			const events = getEventsForRun(db, "run-efr-empty");
 
 			expect(events).toHaveLength(0);
+		});
+
+		test("returns only recent events in chronological order", async () => {
+			const dbPath = join(tempDir, "recent-events-for-run.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-recent",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			for (const step of ["one", "two", "three"]) {
+				insertEvent(db, {
+					runId: "run-recent",
+					type: "status_change",
+					step,
+					data: JSON.stringify({ status: "running" }),
+				});
+			}
+
+			const events = getRecentEventsForRun(db, "run-recent", 2);
+
+			expect(events.map((event) => event.step)).toEqual(["two", "three"]);
+			expect(events[0].id).toBeLessThan(events[1].id);
 		});
 	});
 

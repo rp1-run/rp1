@@ -181,7 +181,7 @@ describe("phase planning prompt contracts", () => {
 		expect(buildSkill).toContain("- name: PHASE_PLAN_PATH");
 		expect(buildSkill).toContain("- name: PHASE_ID");
 		expect(buildSkill).toContain(
-			"FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, PHASE_PLAN_PATH={PHASE_PLAN_PATH}, PHASE_ID={PHASE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}",
+			"FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK_MODE={AFK}, PHASE_PLAN_PATH={PHASE_PLAN_PATH}, PHASE_ID={PHASE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}",
 		);
 		expect(buildSkill).toContain('status = "needs_phase_planning"');
 		expect(buildSkill).toContain("do NOT run `hypothesis-tester`");
@@ -297,16 +297,13 @@ describe("phase planning prompt contracts", () => {
 			"abort the build on `requirements`, and do NOT retry it as a generic contract failure",
 		);
 		expect(buildSkill).toContain(
-			"Validate the `feature-tasker` response before the design checkpoint:",
+			"Validate the `feature-tasker` response before the planning checkpoint:",
 		);
 		expect(buildSkill).toContain(
-			"abort the build on `design`, and do NOT continue to §STEP-3, build, verify, or archive.",
+			"abort the build on `planning`, and do NOT enter `implementation` or `release`.",
 		);
 		expect(buildSkill).toContain(
-			"abort the build on `tasks`, and do NOT continue to §STEP-4.",
-		);
-		expect(buildSkill).toContain(
-			"Do not infer success from prior design-step task generation.",
+			"Do not silently continue without confirmed `tasks.md` and `tasks.json` results.",
 		);
 	});
 

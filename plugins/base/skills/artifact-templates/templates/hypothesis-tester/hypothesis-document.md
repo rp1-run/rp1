@@ -10,7 +10,7 @@ emit_hint: |
     --workflow {WORKFLOW} \
     --type artifact_registered \
     --run-id {RUN_ID} \
-    --step design \
+    --step planning \
     --data '{"path": "features/{FEATURE_ID}/hypotheses.md", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ---
 

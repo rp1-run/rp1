@@ -14,7 +14,7 @@ describe("canonical root propagation", () => {
 				path: "plugins/dev/skills/build/SKILL.md",
 				expected: [
 					"KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}",
-					"MODE=archive, FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, SKIP_DOC_CHECK=false",
+					"MODE=archive, FEATURE_ID={FEATURE_ID}, ARCHIVE_PATH={ARCHIVE_RETRY_PATH}, WORK_ROOT={workRoot}, SKIP_DOC_CHECK=false",
 				],
 			},
 			{

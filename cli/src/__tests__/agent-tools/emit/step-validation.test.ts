@@ -112,12 +112,12 @@ describe("getCurrentRunState", () => {
 		insertEvent(db, {
 			runId,
 			type: "status_change",
-			step: "design",
+			step: "planning",
 			data: JSON.stringify({ status: "running" }),
 		});
 
 		const state = getCurrentRunState(db, runId);
-		expect(state).toBe("design");
+		expect(state).toBe("planning");
 	});
 
 	test("ignores unit-level events", async () => {
@@ -133,19 +133,19 @@ describe("getCurrentRunState", () => {
 		insertEvent(db, {
 			runId,
 			type: "status_change",
-			step: "build",
+			step: "implementation",
 			data: JSON.stringify({ status: "running" }),
 		});
 		insertEvent(db, {
 			runId,
 			type: "status_change",
-			step: "build",
+			step: "implementation",
 			unit: "T1",
 			data: JSON.stringify({ status: "running" }),
 		});
 
 		const state = getCurrentRunState(db, runId);
-		expect(state).toBe("build");
+		expect(state).toBe("implementation");
 	});
 
 	test("ignores non-status_change events", async () => {
@@ -167,7 +167,7 @@ describe("getCurrentRunState", () => {
 		insertEvent(db, {
 			runId,
 			type: "btw_update",
-			step: "design",
+			step: "planning",
 			data: JSON.stringify({ message: "hello" }),
 		});
 
@@ -181,25 +181,27 @@ describe("formatStepValidationError", () => {
 		const msg = formatStepValidationError(
 			"biulding",
 			"build",
-			["requirements", "design", "tasks", "build", "verify", "archive"],
-			"tasks",
-			["build"],
+			["requirements", "planning", "implementation", "release"],
+			"planning",
+			["implementation", "planning"],
 		);
 
 		expect(msg).toContain('step "biulding"');
 		expect(msg).toContain('"build" state machine');
 		expect(msg).toContain(
-			"Valid states: [requirements, design, tasks, build, verify, archive]",
+			"Valid states: [requirements, planning, implementation, release]",
 		);
-		expect(msg).toContain('Current state: "tasks"');
-		expect(msg).toContain('Valid transitions from "tasks": [build]');
+		expect(msg).toContain('Current state: "planning"');
+		expect(msg).toContain(
+			'Valid transitions from "planning": [implementation, planning]',
+		);
 	});
 
 	test("formats error without current state when state unknown", () => {
 		const msg = formatStepValidationError(
 			"biulding",
 			"build",
-			["requirements", "design", "tasks", "build", "verify", "archive"],
+			["requirements", "planning", "implementation", "release"],
 			null,
 			null,
 		);
@@ -207,7 +209,7 @@ describe("formatStepValidationError", () => {
 		expect(msg).toContain('step "biulding"');
 		expect(msg).toContain('"build" state machine');
 		expect(msg).toContain(
-			"Valid states: [requirements, design, tasks, build, verify, archive]",
+			"Valid states: [requirements, planning, implementation, release]",
 		);
 		expect(msg).not.toContain("Current state:");
 		expect(msg).not.toContain("Valid transitions from");
@@ -218,11 +220,13 @@ describe("formatStepValidationError", () => {
 			"invalid",
 			"build",
 			["a", "b", "c"],
-			"verify",
-			["build", "archive"],
+			"release",
+			["implementation", "release"],
 		);
 
-		expect(msg).toContain('Valid transitions from "verify": [build, archive]');
+		expect(msg).toContain(
+			'Valid transitions from "release": [implementation, release]',
+		);
 	});
 
 	test("handles empty valid transitions list", () => {
@@ -343,6 +347,135 @@ describe("validateStepAgainstStateMachine", () => {
 		await expectTaskRight(validateStepAgainstStateMachine(input, makeRun()));
 	});
 
+	test("rejects a fresh parent run that starts after the initial state", async () => {
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const runId = "run-invalid-initial-state";
+		insertRun(db, {
+			id: runId,
+			flow: "build",
+			featureId: "feat",
+			projectPath: tempDir,
+		});
+
+		const input: EmitInput = {
+			type: "status_change",
+			runId,
+			step: "implementation",
+			workflow: "build",
+			projectPath: tempDir,
+			data: { status: "running", workflow: "build" },
+		};
+
+		const error = await expectTaskLeft(
+			validateStepAgainstStateMachine(input, makeRun({ id: runId })),
+		);
+
+		const msg = getErrorMessage(error);
+		expect(msg).toContain('step "implementation" cannot start');
+		expect(msg).toContain("Initial states: [requirements]");
+	});
+
+	test("rejects valid state names when the transition skips a parent phase", async () => {
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const runId = "run-invalid-transition";
+		insertRun(db, {
+			id: runId,
+			flow: "build",
+			featureId: "feat",
+			projectPath: tempDir,
+		});
+		insertEvent(db, {
+			runId,
+			type: "status_change",
+			step: "requirements",
+			data: JSON.stringify({ status: "running" }),
+		});
+
+		const input: EmitInput = {
+			type: "status_change",
+			runId,
+			step: "implementation",
+			workflow: "build",
+			projectPath: tempDir,
+			data: { status: "running", workflow: "build" },
+		};
+
+		const error = await expectTaskLeft(
+			validateStepAgainstStateMachine(input, makeRun({ id: runId })),
+		);
+
+		const msg = getErrorMessage(error);
+		expect(msg).toContain('step "implementation" is not a valid transition');
+		expect(msg).toContain('Current state: "requirements"');
+		expect(msg).toContain("planning");
+	});
+
+	test("allows re-emitting the current parent state", async () => {
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const runId = "run-repeat-current";
+		insertRun(db, {
+			id: runId,
+			flow: "build",
+			featureId: "feat",
+			projectPath: tempDir,
+		});
+		insertEvent(db, {
+			runId,
+			type: "status_change",
+			step: "requirements",
+			data: JSON.stringify({ status: "running" }),
+		});
+
+		const input: EmitInput = {
+			type: "status_change",
+			runId,
+			step: "requirements",
+			workflow: "build",
+			projectPath: tempDir,
+			data: { status: "completed", workflow: "build" },
+		};
+
+		await expectTaskRight(
+			validateStepAgainstStateMachine(input, makeRun({ id: runId })),
+		);
+	});
+
+	test("ignores namespaced subagent events when validating parent transitions", async () => {
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const runId = "run-subagent-parent-transition";
+		insertRun(db, {
+			id: runId,
+			flow: "build",
+			featureId: "feat",
+			projectPath: tempDir,
+		});
+		insertEvent(db, {
+			runId,
+			type: "status_change",
+			step: "planning",
+			data: JSON.stringify({ status: "completed" }),
+		});
+		insertEvent(db, {
+			runId,
+			type: "status_change",
+			step: "feature-tasker:completed",
+			data: JSON.stringify({ status: "completed" }),
+		});
+
+		const input: EmitInput = {
+			type: "status_change",
+			runId,
+			step: "implementation",
+			workflow: "build",
+			projectPath: tempDir,
+			data: { status: "running", workflow: "build" },
+		};
+
+		await expectTaskRight(
+			validateStepAgainstStateMachine(input, makeRun({ id: runId })),
+		);
+	});
+
 	test("rejects invalid step with actionable error message", async () => {
 		const db = await expectTaskRight(getEmitDatabase(dbPath));
 		const runId = "run-invalid-step";
@@ -385,7 +518,7 @@ describe("validateStepAgainstStateMachine", () => {
 		insertEvent(db, {
 			runId,
 			type: "status_change",
-			step: "tasks",
+			step: "planning",
 			data: JSON.stringify({ status: "running" }),
 		});
 
@@ -403,8 +536,8 @@ describe("validateStepAgainstStateMachine", () => {
 		);
 
 		const msg = getErrorMessage(error);
-		expect(msg).toContain('Current state: "tasks"');
-		expect(msg).toContain('Valid transitions from "tasks"');
+		expect(msg).toContain('Current state: "planning"');
+		expect(msg).toContain('Valid transitions from "planning"');
 	});
 
 	test("returns error when state machine cannot be loaded for known workflow", async () => {
@@ -579,6 +712,29 @@ describe("emit pipeline: step validation integration", () => {
 		expect(events).toHaveLength(0);
 	});
 
+	test("fresh run cannot skip initial parent phases", async () => {
+		const runId = `run-invalid-fresh-${Date.now()}`;
+		const input: EmitInput = {
+			type: "status_change",
+			runId,
+			step: "implementation",
+			workflow: "build",
+			projectPath: tempDir,
+			data: { status: "running", workflow: "build", feature: "feat" },
+		};
+
+		const error = await expectTaskLeft(executeEmit(input));
+		expect(getErrorMessage(error)).toContain(
+			'step "implementation" cannot start',
+		);
+
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const events = db
+			.prepare("SELECT * FROM events WHERE run_id = $runId")
+			.all({ $runId: runId });
+		expect(events).toHaveLength(0);
+	});
+
 	test("namespaced step is persisted without validation error", async () => {
 		const input: EmitInput = {
 			type: "status_change",
@@ -603,7 +759,7 @@ describe("emit pipeline: step validation integration", () => {
 		const input: EmitInput = {
 			type: "status_change",
 			runId: `run-load-fail-${Date.now()}`,
-			step: "build",
+			step: "implementation",
 			workflow: "nonexistent-workflow-abc",
 			projectPath: tempDir,
 			data: {
@@ -672,7 +828,7 @@ describe("predecessor auto-completion", () => {
 		const input2: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "design",
+			step: "planning",
 			workflow: "build",
 			projectPath: tempDir,
 			data: { status: "running", workflow: "build", feature: "feat" },
@@ -708,7 +864,7 @@ describe("predecessor auto-completion", () => {
 		const input: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "design",
+			step: "planning",
 			workflow: "build",
 			projectPath: tempDir,
 			data: { status: "running", workflow: "build", feature: "feat" },
@@ -744,7 +900,7 @@ describe("predecessor auto-completion", () => {
 		const input2: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "design",
+			step: "planning",
 			workflow: "build",
 			projectPath: tempDir,
 			data: { status: "running", workflow: "build", feature: "feat" },
@@ -772,7 +928,7 @@ describe("predecessor auto-completion", () => {
 		const input2: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "design",
+			step: "planning",
 			workflow: "build",
 			projectPath: tempDir,
 			data: { status: "running", workflow: "build", feature: "feat" },
@@ -784,7 +940,7 @@ describe("predecessor auto-completion", () => {
 		);
 	});
 
-	test("auto-completes transitive predecessors in running status", async () => {
+	test("rejects jumping over transitive predecessors in running status", async () => {
 		const runId = `run-pred-trans-${Date.now()}`;
 
 		const input1: EmitInput = {
@@ -800,14 +956,15 @@ describe("predecessor auto-completion", () => {
 		const input2: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "build",
+			step: "implementation",
 			workflow: "build",
 			projectPath: tempDir,
 			data: { status: "running", workflow: "build", feature: "feat" },
 		};
-		const result = await expectTaskRight(executeEmit(input2));
-
-		expect(result.data.completedPredecessors ?? []).toContain("requirements");
+		const error = await expectTaskLeft(executeEmit(input2));
+		expect(getErrorMessage(error)).toContain(
+			'step "implementation" is not a valid transition',
+		);
 	});
 
 	test("does not trigger predecessor completion when unit is set", async () => {
@@ -826,7 +983,7 @@ describe("predecessor auto-completion", () => {
 		const input2: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "design",
+			step: "planning",
 			unit: "T1",
 			workflow: "build",
 			projectPath: tempDir,
@@ -858,7 +1015,7 @@ describe("predecessor auto-completion", () => {
 		const input2: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "design",
+			step: "planning",
 			workflow: "build",
 			projectPath: tempDir,
 			data: { status: "completed", workflow: "build", feature: "feat" },
@@ -889,7 +1046,7 @@ describe("predecessor auto-completion", () => {
 		const input2: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "design",
+			step: "planning",
 			workflow: "build",
 			projectPath: tempDir,
 			data: { status: "running", workflow: "build", feature: "feat" },
@@ -911,14 +1068,14 @@ describe("predecessor auto-completion", () => {
 			(e) =>
 				e.step === "requirements" && JSON.parse(e.data).status === "completed",
 		);
-		const designRunning = events.find(
-			(e) => e.step === "design" && JSON.parse(e.data).status === "running",
+		const planningRunning = events.find(
+			(e) => e.step === "planning" && JSON.parse(e.data).status === "running",
 		);
 
 		expect(reqCompleted).toBeDefined();
-		expect(designRunning).toBeDefined();
-		if (reqCompleted && designRunning) {
-			expect(reqCompleted.created_at <= designRunning.created_at).toBe(true);
+		expect(planningRunning).toBeDefined();
+		if (reqCompleted && planningRunning) {
+			expect(reqCompleted.created_at <= planningRunning.created_at).toBe(true);
 		}
 	});
 });

@@ -17,6 +17,11 @@ arguments:
     required: false
     default: false
     description: "Incremental update mode"
+  - name: UPDATE_CONTEXT
+    type: string
+    required: false
+    default: ""
+    description: "Revision reason or explicit task request to apply while preserving completed work"
   - name: WORKFLOW
     type: string
     required: false
@@ -36,6 +41,7 @@ arguments:
 <feature_id>$1</feature_id>
 <work_root>{{WORK_ROOT from prompt}}</work_root>
 <update_mode>$2</update_mode>
+<update_context>{{UPDATE_CONTEXT from prompt}}</update_context>
 ## §1 Context Loading
 
 Read `{WORK_ROOT}/features/{FEATURE_ID}/`:
@@ -45,6 +51,7 @@ Read `{WORK_ROOT}/features/{FEATURE_ID}/`:
 | `design.md` | Yes | Tech specs |
 | `requirements.md` | Yes | Business reqs + AC |
 | `tasks.md` | If UPDATE | Existing tasks |
+| `tasks.json` | If UPDATE | Existing machine task plan |
 | `tracker.md` / `milestone-{N}.md` | No | Legacy read-only context only; never update or emit |
 
 **Validation**:
@@ -112,6 +119,10 @@ Set `SCOPE_FIT = "feature"` unless the design still clearly describes multiple i
 
     **Reference**: [design.md#section](design.md#section)
 
+    **Acceptance Refs**: REQ-{NNN}|-
+
+    **Depends On**: T{N}|-
+
     **Effort**: [X hours]
 
     **Acceptance Criteria**:
@@ -120,6 +131,41 @@ Set `SCOPE_FIT = "feature"` unless the design still clearly describes multiple i
 ```
 
 4-space indent + blank lines between fields.
+
+### 3.3.1 Machine Plan
+
+Generate `TASK_PLAN` in parallel with `tasks.md`. Machine orchestration consumes `tasks.json`; do not rely on markdown parsing.
+
+```json
+{
+  "schema_version": 1,
+  "feature_id": "{FEATURE_ID}",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Short task title",
+      "type": "code",
+      "status": "pending",
+      "complexity": "medium",
+      "acceptance_refs": ["REQ-001"],
+      "dependencies": [],
+      "reference": "design.md#section",
+      "target": "src/path-or-module.ts"
+    }
+  ]
+}
+```
+
+Rules:
+- `id`: stable task id from `tasks.md`
+- `title`: task line text without checkbox/id/complexity
+- `type`: `code` for `T*`; `docs` for `TD*`
+- `status`: `pending`, `completed`, or `blocked`
+- `complexity`: `simple`, `medium`, or `complex`
+- `acceptance_refs`: requirement/acceptance refs, empty array only when no explicit ref exists
+- `dependencies`: task ids from DAG dependency parsing
+- `target`: primary source, module, config, test, or doc path affected by the task; use a stable module/directory path when the exact file is not yet known
+- Include every active task from `tasks.md`; preserve done/blocked status in UPDATE mode.
 
 ### 3.4 Quality
 Every task: Specific, Measurable, Achievable (4-8h max), Relevant, Time-bound.
@@ -219,6 +265,8 @@ FOR each task:
 ### 4.5 New Elements
 List uncovered design sections -> new tasks: T{max_id + 1}...
 
+If `UPDATE_CONTEXT` is non-empty, treat it as an explicit update requirement. Add or update pending tasks so the request is represented in both `tasks.md` and `tasks.json`, while preserving completed tasks unless the context explicitly says they need review.
+
 ### 4.6 ID Rules
 | Scenario | Handling |
 |----------|----------|
@@ -248,6 +296,7 @@ If legacy `tracker.md` or `milestone-{N}.md` files exist, treat them as read-onl
 For each artifact below, read `rp1-base:artifact-templates` SKILL.md to find the template row, then read the template file at the listed path:
 
 - `tasks.md` (Producer: `feature-tasker`)
+- `tasks.json` (Producer: `feature-tasker`)
 
 Use the template structure exactly.
 
@@ -255,11 +304,22 @@ Use the template structure exactly.
 
 **tasks.md**:
 - **Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id`.
+- Include a `## Task Index` table before Task Subflow.
+- Task Index rows MUST mirror `tasks.json`: `id`, `type`, `status`, `complexity`, `acceptance_refs`, `dependencies`, and `target`.
+- Human markdown is review aid only; `/build` machine planning consumes `tasks.json`.
 - Task format per §3.3 with 4-space indent and blank lines between fields.
+- Each task's `Acceptance Refs` and `Depends On` fields MUST match the corresponding `tasks.json` row.
 - DAG ordering per §3.6.
 - Include Task Subflow mermaid diagram generated from DAG_STATE (or sequential chain if DAG_STATE = null). Same logic as §6.0 diagram generation.
 - Include Implementation DAG section copied from design.md if DAG_STATE exists; omit if null.
 - User Docs section per §3.5 if DOC_IMPACTS non-empty.
+
+**tasks.json**:
+- Use schema in §3.3.1 exactly.
+- Keep task order identical to `tasks.md`.
+- `dependencies` from DAG_STATE. If no DAG or no dependency for a task, use `[]`.
+- Include `target` for every code and docs task. Code-task targets use the main source/module/config/test path or nearest stable directory when the exact file is not known.
+- Include code and docs tasks in one `tasks` array.
 
 If `SCOPE_FIT != "feature"`, exit with:
 
@@ -267,9 +327,10 @@ If `SCOPE_FIT != "feature"`, exit with:
 {"status": "error", "message": "Oversized scope requires /phase-plan before task generation. feature-tasker must not emit tracker.md or milestone artifacts."}
 ```
 
-### 5.1 Write `tasks.md`
+### 5.1 Write Task Artifacts
 
 Write to `{WORK_ROOT}/features/{FEATURE_ID}/tasks.md` using the `tasks.md` template loaded above.
+Write to `{WORK_ROOT}/features/{FEATURE_ID}/tasks.json` using the `tasks.json` template loaded above.
 
 ## §6 Artifact Registration
 
@@ -281,51 +342,86 @@ The subflow diagram is embedded inline as a fenced mermaid code block in `tasks.
 
 ### §6.1 Task Artifacts
 
-Register `tasks.md`:
+Register `tasks.md` and `tasks.json`:
 
 ```bash
 rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
-  --step tasks \
+  --step planning \
   --data '{"path": "features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}", "subflow": true, "storageRoot": "work_dir"}'
+
+rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
+  --type artifact_registered \
+  --run-id {RUN_ID} \
+  --step planning \
+  --data '{"path": "features/{FEATURE_ID}/tasks.json", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ```
 
 If any command fails, log a warning (`[feature-tasker] Failed to register artifact {path}: {error}`) and continue without blocking.
 
 ## §7 Completion Output
 
-### Fresh (UPDATE_MODE=false)
+Return ONLY raw JSON, no prose, no markdown fence.
+
+### Success
+
+```json
+{
+  "status": "success",
+  "mode": "fresh|update",
+  "feature_id": "{FEATURE_ID}",
+  "artifacts": [
+    {
+      "path": "features/{FEATURE_ID}/tasks.md",
+      "storageRoot": "work_dir",
+      "label": "Tasks",
+      "subflow": true
+    },
+    {
+      "path": "features/{FEATURE_ID}/tasks.json",
+      "storageRoot": "work_dir",
+      "label": "Task plan"
+    }
+  ],
+  "task_plan_path": "features/{FEATURE_ID}/tasks.json",
+  "summary": {
+    "total_tasks": 0,
+    "completed": 0,
+    "pending": 0,
+    "blocked": 0,
+    "scope": "feature",
+    "effort": "[X] days"
+  },
+  "incremental_update": null,
+  "warnings": [],
+  "manual_items": []
+}
 ```
-Task planning completed: `.rp1/work/features/{FEATURE_ID}/`
 
-**Generated**: tasks.md
+For `UPDATE_MODE=true`, set `"mode": "update"` and replace `incremental_update: null` with:
 
-**Summary**:
-- Total tasks: [N]
-- Scope: feature
-- Effort: [X] days
-
-**Next**: Proceed to build phase
+```json
+{
+  "preserved": 0,
+  "flagged_for_review": 0,
+  "flagged_as_removed": 0,
+  "updated": 0,
+  "removed": 0,
+  "added": 0
+}
 ```
 
-### Incremental (UPDATE_MODE=true)
-```
-Task update completed: `.rp1/work/features/{FEATURE_ID}/`
+### Error
 
-**Incremental Update Summary**:
-- Preserved: [N]
-- Flagged for review: [N]
-- Flagged as removed: [N]
-- Updated: [N]
-- Removed: [N]
-- Added: [N]
-
-**Current State**:
-- Total: [N], Completed: [N] ([X]%), Pending: [N], Flagged: [N]
-
-**Next**: Review flagged, then proceed to build phase
+```json
+{
+  "status": "error",
+  "message": "[error description]",
+  "artifacts": []
+}
 ```
 
 ## §8 Anti-Loop

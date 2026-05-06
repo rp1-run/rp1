@@ -5,7 +5,7 @@
 
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
-import { formatError, usageError } from "../../shared/errors.js";
+import { type CLIError, formatError, usageError } from "../../shared/errors.js";
 import { VALID_EVENT_TYPES } from "../../shared/events.js";
 import {
 	CHANGE_MANIFEST_SOURCES,
@@ -83,10 +83,12 @@ process.on("SIGINT", () => {
 	process.exit(0);
 });
 
+import "./build-task-plan/index.js";
 import "./mmd-validate/index.js";
 import "./resolve-args/index.js";
 import "./rp1-root-dir/index.js";
 import "./workflow-bootstrap/index.js";
+import "./workflow-state/index.js";
 import "./comment-extract/index.js";
 import "./emit/index.js";
 import "./feedback/index.js";
@@ -128,6 +130,8 @@ Available Tools:
   resolve-args      Resolve structured arguments from schema, settings, and user input
   rp1-root-dir      Resolve project, KB, and work directories with worktree detection
   workflow-bootstrap Resolve canonical tracked-workflow bootstrap context and run selection
+  workflow-state    Read workflow state and next parent phase from the emit database
+  build-task-plan   Read schema-backed tasks.json and group build task units
   change-manifest  Create cleanup manifests from repository change evidence
   comment-extract   Extract comments from git-changed files
   emit              Record events for the rp1 workflow event system
@@ -142,6 +146,8 @@ Examples:
   cat diagram.mmd | rp1 agent-tools mmd-validate
   echo "graph TD; A-->B" | rp1 agent-tools mmd-validate
   rp1 agent-tools rp1-root-dir
+  rp1 agent-tools workflow-state --run-id <uuid> --workflow build --feature example --parent-phases requirements,planning,implementation,release
+  rp1 agent-tools build-task-plan --tasks-path /path/to/features/example/tasks.md --max-simple-batch 3 --complex-isolated true
   rp1 agent-tools change-manifest snapshot --code-root . --out .rp1/work/features/example/change-manifest-baseline.json
   rp1 agent-tools change-manifest generate --code-root . --out .rp1/work/features/example/change-manifest-001.json --status-out .rp1/work/features/example/change-manifest-status.json --source build --baseline .rp1/work/features/example/change-manifest-baseline.json
   rp1 agent-tools comment-extract branch main
@@ -561,6 +567,279 @@ Examples:
 			};
 
 			const result = await tool.execute(content, toolOptions)();
+
+			if (E.isLeft(result)) {
+				console.log(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+/**
+ * workflow-state subcommand.
+ * Reads tracked workflow state from the emit database.
+ */
+agentToolsCommand
+	.command("workflow-state")
+	.description(
+		"Read workflow state and next parent phase from the emit database",
+	)
+	.option("-f, --file <path>", "Read JSON input from file instead of stdin")
+	.option("--run-id <uuid>", "Run id to inspect")
+	.option("--workflow <name>", "Expected workflow name")
+	.option("--feature <id>", "Expected feature id")
+	.option(
+		"--parent-phases <phases>",
+		"Comma-separated parent phases in workflow order",
+	)
+	.option(
+		"--recent-events <n>",
+		"Number of recent events to include (default: 25, max: 100)",
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Reads the emit database projection for a run and returns run metadata,
+  effective step statuses, registered artifacts, bounded recent events,
+  the next parent phase, and contract gaps for completed phases whose
+  expected artifacts were not registered.
+
+Input (CLI flags or JSON via stdin/file):
+  - run_id: Run UUID (required)
+  - workflow: Expected workflow name (required)
+  - feature: Expected feature id (required)
+  - parent_phases: Ordered parent phase list (required)
+  - recent_event_limit: Optional recent event bound
+
+Output:
+  JSON ToolResult with run, steps, artifacts, recent_events, phases, and summary.
+
+Examples:
+  rp1 agent-tools workflow-state \\
+    --run-id <uuid> \\
+    --workflow build \\
+    --feature example \\
+    --parent-phases requirements,planning,implementation,release
+  echo '{"run_id":"<uuid>","workflow":"build","feature":"example","parent_phases":["requirements","planning","implementation","release"]}' | rp1 agent-tools workflow-state
+`,
+	)
+	.action(
+		async (options: {
+			file?: string;
+			runId?: string;
+			workflow?: string;
+			feature?: string;
+			parentPhases?: string;
+			recentEvents?: string;
+		}): Promise<void> => {
+			const toolName = "workflow-state";
+
+			let content: string;
+			let source: "file" | "stdin" = "stdin";
+
+			if (
+				options.runId ||
+				options.workflow ||
+				options.feature ||
+				options.parentPhases
+			) {
+				const input: Record<string, unknown> = {};
+				if (options.runId) {
+					input.run_id = options.runId;
+				}
+				if (options.workflow) {
+					input.workflow = options.workflow;
+				}
+				if (options.feature) {
+					input.feature = options.feature;
+				}
+				if (options.parentPhases) {
+					input.parent_phases = options.parentPhases
+						.split(",")
+						.map((phase) => phase.trim())
+						.filter(Boolean);
+				}
+				if (options.recentEvents) {
+					input.recent_event_limit = Number(options.recentEvents);
+				}
+				content = JSON.stringify(input);
+			} else {
+				const inputResult = await readInput(options.file)();
+
+				if (E.isLeft(inputResult)) {
+					console.log(
+						createErrorResponse(toolName, formatError(inputResult.left, false)),
+					);
+					process.exit(1);
+				}
+
+				content = inputResult.right.content;
+				source = inputResult.right.source;
+			}
+
+			const tool = getTool(toolName);
+			if (!tool) {
+				console.log(
+					createErrorResponse(toolName, "Tool not found in registry"),
+				);
+				process.exit(1);
+			}
+
+			const result = await tool.execute(content, {
+				inputSource: source,
+				filePath: options.file,
+			})();
+
+			if (E.isLeft(result)) {
+				console.log(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+const parseBooleanFlag = (
+	value: string | undefined,
+	optionName: string,
+): boolean | undefined => {
+	if (value === undefined) {
+		return undefined;
+	}
+
+	const normalized = value.trim().toLowerCase();
+	if (["true", "1", "yes"].includes(normalized)) {
+		return true;
+	}
+	if (["false", "0", "no"].includes(normalized)) {
+		return false;
+	}
+
+	throw usageError(
+		`Invalid ${optionName} value: ${value}`,
+		`Use true or false for ${optionName}.`,
+	);
+};
+
+/**
+ * build-task-plan subcommand.
+ * Reads schema-backed task plans and groups pending task units.
+ */
+agentToolsCommand
+	.command("build-task-plan")
+	.description("Read schema-backed tasks.json and group build task units")
+	.option("-f, --file <path>", "Read JSON input from file instead of stdin")
+	.option("--tasks-path <path>", "Absolute path to tasks.md or tasks.json")
+	.option(
+		"--max-simple-batch <n>",
+		"Max pending simple code tasks per builder unit",
+	)
+	.option(
+		"--complex-isolated <boolean>",
+		"Whether complex tasks are isolated into their own units",
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Reads the schema-backed tasks.json sidecar generated by feature-tasker. When
+  given tasks.md, the tool resolves the sibling tasks.json file and does not
+  parse markdown.
+
+Input (CLI flags or JSON via stdin/file):
+  - tasks_path: Absolute path to tasks.md or tasks.json (required)
+  - max_simple_batch: Optional positive integer, default 3
+  - complex_isolated: Optional boolean, default true
+
+Output:
+  JSON ToolResult with parsed tasks, pending implementation tasks, pending
+  documentation tasks, grouped task_units, warnings, and summary counts.
+
+Examples:
+  rp1 agent-tools build-task-plan \\
+    --tasks-path /project/.rp1/work/features/example/tasks.md \\
+    --max-simple-batch 3 \\
+    --complex-isolated true
+  echo '{"tasks_path":"/project/.rp1/work/features/example/tasks.md","max_simple_batch":3,"complex_isolated":true}' | rp1 agent-tools build-task-plan
+`,
+	)
+	.action(
+		async (options: {
+			file?: string;
+			tasksPath?: string;
+			maxSimpleBatch?: string;
+			complexIsolated?: string;
+		}): Promise<void> => {
+			const toolName = "build-task-plan";
+
+			let content: string;
+			let source: "file" | "stdin" = "stdin";
+
+			if (
+				options.tasksPath ||
+				options.maxSimpleBatch ||
+				options.complexIsolated !== undefined
+			) {
+				const input: Record<string, unknown> = {};
+				if (options.tasksPath) {
+					input.tasks_path = options.tasksPath;
+				}
+				if (options.maxSimpleBatch) {
+					input.max_simple_batch = options.maxSimpleBatch;
+				}
+				try {
+					const complexIsolated = parseBooleanFlag(
+						options.complexIsolated,
+						"--complex-isolated",
+					);
+					if (complexIsolated !== undefined) {
+						input.complex_isolated = complexIsolated;
+					}
+				} catch (error) {
+					console.log(
+						createErrorResponse(
+							toolName,
+							formatError(error as CLIError, false),
+						),
+					);
+					process.exit(1);
+				}
+				content = JSON.stringify(input);
+			} else {
+				const inputResult = await readInput(options.file)();
+
+				if (E.isLeft(inputResult)) {
+					console.log(
+						createErrorResponse(toolName, formatError(inputResult.left, false)),
+					);
+					process.exit(1);
+				}
+
+				content = inputResult.right.content;
+				source = inputResult.right.source;
+			}
+
+			const tool = getTool(toolName);
+			if (!tool) {
+				console.log(
+					createErrorResponse(toolName, "Tool not found in registry"),
+				);
+				process.exit(1);
+			}
+
+			const result = await tool.execute(content, {
+				inputSource: source,
+				filePath: options.file,
+			})();
 
 			if (E.isLeft(result)) {
 				console.log(

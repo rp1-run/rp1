@@ -104,9 +104,9 @@ agents:
     plugin: dev
     last_checksum: 235336c79e9a3c989d4518053a25270a022dd8030bb4145b5a6a4a79ea89d096
   - name: rp1-dev:build-verify-aggregator
-    description: "Combines verification phase results into final status determination"
+    description: "Combines validation envelopes into final build readiness status and artifact"
     plugin: dev
-    last_checksum: b427a54fd862a99a1571e8a928d57827d6b912cfaa79394ceed36fb5a2940f63
+    last_checksum: cce5d2a537e822b39b44e703c6bbfd0950a10f8a8de20ec37b50f7ec91346bc2
   - name: rp1-dev:charter-interviewer
     description: "Stateless interview agent that analyzes charter state and returns structured JSON responses for greenfield project vision capture"
     plugin: dev
@@ -118,19 +118,19 @@ agents:
   - name: rp1-dev:code-checker
     description: "Fast code hygiene validation (linters, formatters, tests, coverage) for quick dev loop feedback"
     plugin: dev
-    last_checksum: 06fc9021fe043da8369e8b54107297f5a77a827c8dc914856f06cd15c9c75669
+    last_checksum: 7aa3090816f66a490e09f9ae672bb77fe59b91d5d51e0e49e80208f1130be709
   - name: rp1-dev:comment-cleaner
     description: "Systematically removes unnecessary comments from manifest-owned code lines while preserving docstrings, critical logic explanations, and type directives"
     plugin: dev
-    last_checksum: 159e43a54c12e7c0d84309c5a6146eb0e41d4ad3405b5b68f0eb35ce659df9a9
+    last_checksum: 46082864c43142e3586d16f6f41bfccac5fd6db0e938044508ded93acc470cbc
   - name: rp1-dev:feature-architect
     description: "Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester."
     plugin: dev
-    last_checksum: e0a20d7e0a8b5026878c11034b2f95c09acff22293b2160f26858cc1283c9f05
+    last_checksum: 38169e936ecd47467086ecdc7e93091a3a8a8c2134e550080221a7097dc571d9
   - name: rp1-dev:feature-archiver
     description: "Archives completed features to .rp1/work/archives/features/ or restores archived features back to active features directory"
     plugin: dev
-    last_checksum: 96c918a45bab533431c71a5be7c696867ab4008686458031e96a6098edcda5cc
+    last_checksum: 92e06bbca75a64c23df02b1d70478e40fe5205eca637517b306de4db8ce83189
   - name: rp1-dev:feature-editor
     description: "Analyzes mid-stream edits for validity, detects conflicts, and propagates approved changes across feature documentation"
     plugin: dev
@@ -142,15 +142,15 @@ agents:
   - name: rp1-dev:feature-tasker
     description: "Generates development tasks from design specifications with support for incremental updates that preserve completed work"
     plugin: dev
-    last_checksum: 10e2765ba52b997e0e46d01e217aa68f76e5dad08ba4217914969122ed7e82e2
+    last_checksum: 8e27f32b1612917c8ab314ec761b6970a1e7b5a3eefd398cf17c3ada27d6f539
   - name: rp1-dev:feature-verifier
     description: "Verifies feature acceptance criteria and requirements mapping with full KB context awareness for comprehensive feature validation before merge"
     plugin: dev
-    last_checksum: 7f95fedd89a9f5ff6fe713ccbe31dfc3f5ae42ee52f376f6c034d1f9ec076446
+    last_checksum: bcc9450aa1e836d874dbf1968ff415d11d0651914fb3964e884549a5dbc50e85
   - name: rp1-dev:hypothesis-tester
     description: "Validates design hypotheses through code experiments, codebase analysis, and external research"
     plugin: dev
-    last_checksum: 5fffce2a64a1f5c1510d437cb56d7d1f5805e6d7bc22c79c4ad388d5a69f8317
+    last_checksum: 4da924b18489ee4a45725724a3ddd6517f76206090ec49159f977cf19a9626aa
   - name: rp1-dev:phase-planner
     description: "Decomposes a planning source into a source-adjacent phase-plan artifact and refreshes source backlinks."
     plugin: dev
@@ -206,7 +206,7 @@ agents:
   - name: rp1-dev:task-reviewer
     description: "Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification."
     plugin: dev
-    last_checksum: 1e5086a09deebd4572d0b6175aea10006c7c95144e80799e913a8b8e8ac30d4b
+    last_checksum: 7e567fd6f1ce46b00e2885c8eaa8bf3d4ab797e7703a69d6c4813601e9d6c9f4
   - name: rp1-dev:test-runner
     description: "Executes comprehensive functional testing of implemented features including automated tests, coverage measurement, acceptance criteria verification, and detailed test reporting"
     plugin: dev

@@ -41,6 +41,11 @@ arguments:
     required: false
     default: ""
     description: "Parent workflow run ID for status attribution"
+  - name: CODE_ROOT
+    type: string
+    required: false
+    default: ""
+    description: "Active source checkout root returned by the parent workflow bootstrap"
 ---
 
 # Task Reviewer Agent
@@ -65,6 +70,10 @@ The orchestrator provides these parameters in the prompt:
 {{WORK_ROOT from prompt}}
 </work_root>
 
+<code_root>
+{{CODE_ROOT from prompt}}
+</code_root>
+
 <quick_build_path>
 {{QUICK_BUILD_PATH from prompt}}
 </quick_build_path>
@@ -80,6 +89,13 @@ The orchestrator provides these parameters in the prompt:
 ## 1. Context Loading
 
 Load verification context. Use `<thinking>` blocks for analysis.
+
+### 1.0 Source Root Resolution
+
+- If `CODE_ROOT` is non-empty, use it as `SOURCE_ROOT` for all source-file reads, Grep/Glob searches, and git commands.
+- If `CODE_ROOT` is empty, fall back to the active checkout from `git rev-parse --show-toplevel`, then `pwd`.
+- Resolve claimed source files against `SOURCE_ROOT`; resolve work artifacts against `WORK_ROOT`.
+- Run git checks as `git -C {SOURCE_ROOT} ...`.
 
 ### 1.1 Selective KB Loading
 
@@ -264,25 +280,25 @@ Verify across seven dimensions, using `<thinking>` for detailed analysis:
 
 **Checks**:
 
-1. **Commit Exists**: Run `git log -1 --oneline` to verify recent commit
+1. **Commit Exists**: Run `git -C {SOURCE_ROOT} log -1 --oneline` to verify recent commit
 2. **Message Format**: Verify commit message matches pattern:
    ```
    feat({FEATURE_ID}): implement {TASK_ID} - {description}
    ```
-3. **Files Relevant**: Run `git diff-tree --no-commit-id --name-only -r HEAD` to list committed files. Verify all files are relevant to the task.
+3. **Files Relevant**: Run `git -C {SOURCE_ROOT} diff-tree --no-commit-id --name-only -r HEAD` to list committed files. Verify all files are relevant to the task.
 4. **Atomic**: Only one commit for the task (not multiple or amended)
 
 **Validation Commands**:
 
 ```bash
 # Check last commit message
-git log -1 --format='%s'
+git -C {SOURCE_ROOT} log -1 --format='%s'
 
 # Check committed files
-git diff-tree --no-commit-id --name-only -r HEAD
+git -C {SOURCE_ROOT} diff-tree --no-commit-id --name-only -r HEAD
 
 # Verify FEATURE_ID in scope
-git log -1 --format='%s' | grep -E '^feat\({FEATURE_ID}\): implement T[0-9]+'
+git -C {SOURCE_ROOT} log -1 --format='%s' | grep -E '^feat\({FEATURE_ID}\): implement T[0-9]+'
 ```
 
 **FAIL if**:
@@ -390,6 +406,21 @@ The guidance MUST be actionable—tell the builder exactly what to fix.
 
 Apply the **On SUCCESS** variant from the loaded template. Append after the builder's implementation summary.
 
+### 5.5.1 On SUCCESS: Persist Machine Task Plan
+
+Feature mode only:
+
+- Read `{WORK_ROOT}/features/{FEATURE_ID}/tasks.json` if it exists.
+- Preserve schema, order, and all task fields.
+- For each reviewed `TASK_IDS` entry, set matching `tasks[].status = "completed"`.
+- Write the updated JSON before emitting `task-reviewer:completed`.
+- If `tasks.json` is missing, malformed, or lacks any reviewed task id, return FAILURE with a blocking completeness issue. Build v2 resume safety depends on persisted machine status.
+
+Legacy milestone/quick-build mode:
+
+- Set `task_plan_updated = false`.
+- Do not create `tasks.json`.
+
 ### 5.6 Quick-Build Verification Section
 
 **If QUICK_BUILD_PATH is not empty** (quick-build mode):
@@ -452,6 +483,7 @@ Your final output MUST be valid JSON:
       "reason": "Why automation is impossible"
     }
   ],
+  "task_plan_updated": true,
   "summary": "Brief summary of verification result"
 }
 ```
@@ -505,6 +537,7 @@ Skip if WORKFLOW is empty.
       "reason": "Third-party API, behavior may vary"
     }
   ],
+  "task_plan_updated": true,
   "summary": "Task T1 implemented correctly. JWT validation follows design spec."
 }
 ```
@@ -548,6 +581,7 @@ Skip if WORKFLOW is empty.
     }
   ],
   "manual_verification": [],
+  "task_plan_updated": false,
   "summary": "Implementation missing signature validation. Use jwt.verify() instead of jwt.decode()."
 }
 ```

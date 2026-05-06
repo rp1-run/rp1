@@ -208,6 +208,39 @@ Each row shows:
 | Selection | Choosing a step updates the right-hand viewer to that step's execution flow or artifacts |
 | Retry marker | Repeated step names get a back-edge marker so retries are visible |
 
+### Build v2 Phase Semantics
+
+Build v2 keeps the parent `/build` run intentionally coarse. Arcade should show
+only these parent phases for the main build workflow:
+
+| Parent Phase | Meaning |
+|--------------|---------|
+| `requirements` | Requirements are being gathered, revised, or approved |
+| `planning` | Design, hypothesis decisions, and the accepted `tasks.md` plus `tasks.json` plan are being produced |
+| `implementation` | Builder-reviewer task units, checks, feature verification, and manifest-gated comment cleanup are running |
+| `release` | Readiness, manual verification items, archive choice, and final completion are being resolved |
+
+Detailed agent work remains visible through namespaced subagent steps such as
+`task-builder:building`, `task-reviewer:reviewing`,
+`build-verify-aggregator:verifying`, or `feature-archiver:archiving`. A
+recoverable subagent failure or retry should leave the parent phase `running`
+or `waiting`; the parent phase is `failed` only when the workflow reports that
+no planned recovery remains.
+
+Status semantics stay canonical:
+
+| Status | Build v2 Interpretation |
+|--------|-------------------------|
+| `running` | The parent phase or a nested agent task is active |
+| `waiting` | The workflow needs a decision, missing evidence, or contract-gap remediation |
+| `completed` | The phase finished with its required registered output or explicit release decision |
+| `failed` | The phase or run reached an unrecoverable error |
+
+Build readiness `WARN` is a release artifact result, not a separate Arcade
+canonical status. When warnings are non-blocking, the run can still complete
+while `build-readiness.md` preserves the notes. When warnings require human
+evidence, `/build` emits `waiting`.
+
 ### Agent Sub-State Panel
 
 When a step has subflow activity, the step list can expand into nested per-task
@@ -225,7 +258,7 @@ delegated agent work is doing inside the parent workflow phase.
 - Collapsed rows show summary chips instead of the full nested task list
 - Each task within an agent progresses independently through its own state machine
 
-**Example**: During a `build` workflow's "build" phase, you might see:
+**Example**: During a `build` workflow's `implementation` phase, you might see:
 - `task-builder`: building (T2) -- with T1 shown as completed
 
 Agent activity shown here is driven by the workflow steps and status events that

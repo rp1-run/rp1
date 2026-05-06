@@ -19,6 +19,11 @@ arguments:
     required: false
     default: false
     description: "Design iteration mode"
+  - name: UPDATE_CONTEXT
+    type: string
+    required: false
+    default: ""
+    description: "Revision feedback or rejected-hypothesis context to incorporate during update mode"
   - name: KB_ROOT
     type: string
     required: true
@@ -48,6 +53,7 @@ arguments:
 <feature_id>$1</feature_id>
 <afk_mode>$2</afk_mode>
 <update_mode>$3</update_mode>
+<update_context>{{UPDATE_CONTEXT from prompt}}</update_context>
 <kb_root>{{KB_ROOT from prompt}}</kb_root>
 <work_root>{{WORK_ROOT from prompt}}</work_root>
 **Feature dir**: `{WORK_ROOT}/features/{FEATURE_ID}/`
@@ -104,6 +110,8 @@ Check if `{WORK_ROOT}/features/{FEATURE_ID}/design.md` exists:
 
 Override if `$3` explicitly set.
 
+If `UPDATE_MODE=true` and `UPDATE_CONTEXT` is non-empty, treat it as required revision input. Address it explicitly in the updated design and avoid regenerating the same rejected hypothesis without a changed mitigation, assumption, or implementation approach.
+
 ## §4 Design Analysis
 
 Before output, perform analysis in `<design_thinking>` tags:
@@ -119,6 +127,7 @@ Before output, perform analysis in `<design_thinking>` tags:
 | 7 | Technical risks + mitigation strategies |
 | 8 | Assumption analysis (see §5) |
 | 9 | DAG analysis: identify impl components, map dependencies, group parallelizable tasks (see §7.1) |
+| 10 | If update context exists, map each requested revision to the design sections changed |
 
 ## §5 Assumption Analysis
 
@@ -250,14 +259,14 @@ rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
-  --step design \
+  --step planning \
   --data '{"path": "features/{FEATURE_ID}/design.md", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 
 rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
-  --step design \
+  --step planning \
   --data '{"path": "features/{FEATURE_ID}/design-decisions.md", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ```
 
@@ -286,7 +295,7 @@ rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
-  --step design \
+  --step planning \
   --data '{"path": "features/{FEATURE_ID}/hypotheses.md", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ```
 

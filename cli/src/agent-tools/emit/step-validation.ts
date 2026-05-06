@@ -40,6 +40,7 @@ export const getCurrentRunState = (
 			 WHERE run_id = $runId
 			   AND type = 'status_change'
 			   AND step IS NOT NULL
+			   AND instr(step, ':') = 0
 			   AND unit IS NULL
 			 ORDER BY id DESC
 			 LIMIT 1`,
@@ -69,6 +70,21 @@ export const formatStepValidationError = (
 
 	return msg;
 };
+
+const formatTransitionValidationError = (
+	step: string,
+	workflow: string,
+	currentState: string,
+	validTransitions: string[],
+): string =>
+	`step "${step}" is not a valid transition in the "${workflow}" state machine. Current state: "${currentState}". Valid transitions from "${currentState}": [${validTransitions.join(", ")}].`;
+
+const formatInitialStateValidationError = (
+	step: string,
+	workflow: string,
+	initialStates: readonly string[],
+): string =>
+	`step "${step}" cannot start the "${workflow}" state machine. Initial states: [${initialStates.join(", ")}].`;
 
 /**
  * Validate a step name against the workflow's state machine.
@@ -103,7 +119,31 @@ export const validateStepAgainstStateMachine = (
 	return pipe(
 		loadStateMachine(workflow),
 		TE.chain((machine) => {
-			if (machine.states.has(step)) {
+			if (!machine.states.has(step)) {
+				return pipe(
+					getEmitDatabase(),
+					TE.chain((db) => {
+						const currentState = getCurrentRunState(db, run.id);
+						const validStateIds = [...machine.states.keys()];
+						const validTransitions =
+							currentState !== null
+								? [...getValidNextStates(machine, currentState)]
+								: null;
+
+						const errorMsg = formatStepValidationError(
+							step,
+							workflow,
+							validStateIds,
+							currentState,
+							validTransitions,
+						);
+
+						return TE.left(runtimeError(errorMsg));
+					}),
+				);
+			}
+
+			if (input.type !== "status_change" || input.unit) {
 				return TE.right(undefined);
 			}
 
@@ -111,21 +151,43 @@ export const validateStepAgainstStateMachine = (
 				getEmitDatabase(),
 				TE.chain((db) => {
 					const currentState = getCurrentRunState(db, run.id);
-					const validStateIds = [...machine.states.keys()];
-					const validTransitions =
-						currentState !== null
-							? [...getValidNextStates(machine, currentState)]
-							: null;
+					if (currentState === null) {
+						if (machine.initialStates.includes(step)) {
+							return TE.right(undefined);
+						}
 
-					const errorMsg = formatStepValidationError(
-						step,
-						workflow,
-						validStateIds,
-						currentState,
-						validTransitions,
+						return TE.left(
+							runtimeError(
+								formatInitialStateValidationError(
+									step,
+									workflow,
+									machine.initialStates,
+								),
+							),
+						);
+					}
+
+					if (currentState === step) {
+						return TE.right(undefined);
+					}
+
+					const validTransitions = [
+						...getValidNextStates(machine, currentState),
+					];
+					if (validTransitions.includes(step)) {
+						return TE.right(undefined);
+					}
+
+					return TE.left(
+						runtimeError(
+							formatTransitionValidationError(
+								step,
+								workflow,
+								currentState,
+								validTransitions,
+							),
+						),
 					);
-
-					return TE.left(runtimeError(errorMsg));
 				}),
 			);
 		}),

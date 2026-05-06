@@ -21,9 +21,14 @@ describe("loader", () => {
 			const machine = await expectTaskRight(loadStateMachine("build"));
 
 			expect(machine.id).toBe("build");
-			expect(machine.states.size).toBe(6);
+			expect(machine.states.size).toBe(4);
 			expect(machine.initialStates).toEqual(["requirements"]);
-			expect(machine.terminalStates).toEqual(["archive"]);
+			expect(machine.terminalStates).toEqual([
+				"requirements",
+				"planning",
+				"implementation",
+				"release",
+			]);
 		});
 
 		test("loads build-fast workflow from filesystem", async () => {

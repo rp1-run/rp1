@@ -2990,6 +2990,26 @@ export const getEventsForRun = (db: Database, runId: string): EventRecord[] => {
 };
 
 /**
+ * Get the most recent events for a run, returned chronologically.
+ */
+export const getRecentEventsForRun = (
+	db: Database,
+	runId: string,
+	limit: number,
+): EventRecord[] => {
+	const rows = db
+		.prepare(
+			`SELECT * FROM events
+			 WHERE run_id = $runId
+			 ORDER BY created_at DESC, id DESC
+			 LIMIT $limit`,
+		)
+		.all({ $runId: runId, $limit: limit }) as EventRow[];
+
+	return rows.reverse().map(eventRowToRecord);
+};
+
+/**
  * Get all artifacts for a run.
  */
 export const getArtifactsForRun = (
