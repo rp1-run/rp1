@@ -347,6 +347,34 @@ describe("validateStepAgainstStateMachine", () => {
 		await expectTaskRight(validateStepAgainstStateMachine(input, makeRun()));
 	});
 
+	test("rejects a fresh parent run that starts after the initial state", async () => {
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const runId = "run-invalid-initial-state";
+		insertRun(db, {
+			id: runId,
+			flow: "build",
+			featureId: "feat",
+			projectPath: tempDir,
+		});
+
+		const input: EmitInput = {
+			type: "status_change",
+			runId,
+			step: "implementation",
+			workflow: "build",
+			projectPath: tempDir,
+			data: { status: "running", workflow: "build" },
+		};
+
+		const error = await expectTaskLeft(
+			validateStepAgainstStateMachine(input, makeRun({ id: runId })),
+		);
+
+		const msg = getErrorMessage(error);
+		expect(msg).toContain('step "implementation" cannot start');
+		expect(msg).toContain("Initial states: [requirements]");
+	});
+
 	test("rejects valid state names when the transition skips a parent phase", async () => {
 		const db = await expectTaskRight(getEmitDatabase(dbPath));
 		const runId = "run-invalid-transition";
@@ -681,6 +709,29 @@ describe("emit pipeline: step validation integration", () => {
 		const events = db
 			.prepare("SELECT * FROM events WHERE run_id = $runId AND step = $step")
 			.all({ $runId: runId, $step: "nonexistent_step" });
+		expect(events).toHaveLength(0);
+	});
+
+	test("fresh run cannot skip initial parent phases", async () => {
+		const runId = `run-invalid-fresh-${Date.now()}`;
+		const input: EmitInput = {
+			type: "status_change",
+			runId,
+			step: "implementation",
+			workflow: "build",
+			projectPath: tempDir,
+			data: { status: "running", workflow: "build", feature: "feat" },
+		};
+
+		const error = await expectTaskLeft(executeEmit(input));
+		expect(getErrorMessage(error)).toContain(
+			'step "implementation" cannot start',
+		);
+
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const events = db
+			.prepare("SELECT * FROM events WHERE run_id = $runId")
+			.all({ $runId: runId });
 		expect(events).toHaveLength(0);
 	});
 

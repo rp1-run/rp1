@@ -114,7 +114,7 @@ Parse the JSON `ToolResult`.
 - If any `WORKFLOW_STATE.phases[]` entry has `status = "waiting"` and there are no contract gaps for that phase, set `WAITING_PHASE` to the earliest waiting parent phase and set `START_PHASE = WAITING_PHASE.phase`.
 - When resuming a `WAITING_PHASE`, return to that phase's recorded checkpoint/decision handler. Do not rerun that phase's producer agents unless the resumed decision is Revise, Add Task, Repair, or another explicit update path.
 - If `START_PHASE` is `null`: output an already-complete summary from registered workflow state and STOP.
-- Initialize `PLANNING_UPDATE_CONTEXT = ""` and `TASK_REGENERATION_REASON = ""` unless restored from a resumed checkpoint event.
+- Initialize `PLANNING_UPDATE_CONTEXT = ""`, `TASK_REGENERATION_REASON = ""`, and `ARCHIVE_RETRY_PATH = ""` unless restored from a resumed checkpoint event.
 - Phase order: `requirements` -> `planning` -> `implementation` -> `release`.
 
 ## STATE-MACHINE
@@ -193,7 +193,11 @@ AFK mode: skip prompts, auto-select defaults, retry once on failure, auto-archiv
 
 ## §PHASE-1: Requirements
 
-**Skip if**: `START_PHASE` is after `requirements`. **Spawn agent — do NOT gather requirements yourself:**
+**Skip if**: `START_PHASE` is after `requirements`.
+
+**Resume checkpoint**: If `WAITING_PHASE.phase == "requirements"`, jump directly to this phase's Checkpoint options below. Do not dispatch `feature-requirement-gatherer` unless the resumed decision is Revise.
+
+**Spawn agent — do NOT gather requirements yourself:**
 
 {% dispatch_agent "rp1-dev:feature-requirement-gatherer" %}
 FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK_MODE={AFK}, PHASE_PLAN_PATH={PHASE_PLAN_PATH}, PHASE_ID={PHASE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
@@ -249,7 +253,17 @@ rp1 agent-tools emit \
 
 ## §PHASE-2: Planning
 
-**Skip if**: `START_PHASE` is after `planning`. **Spawn agent — do NOT design yourself:**
+**Skip if**: `START_PHASE` is after `planning`.
+
+**Resume checkpoint**: If `WAITING_PHASE.phase == "planning"`, inspect the latest parent waiting/status event from `WORKFLOW_STATE.recent_events`:
+
+- `reason = "rejected_hypotheses"` -> jump directly to §2.2 Hypothesis Gate.
+- oversized-scope redirect context -> re-output the redirect summary and STOP.
+- otherwise jump directly to the §2.3 planning Checkpoint.
+
+Do not dispatch `feature-architect`, `hypothesis-tester`, or fresh `feature-tasker` on a waiting resume unless the resumed decision is Revise.
+
+**Spawn agent — do NOT design yourself:**
 
 {% dispatch_agent "rp1-dev:feature-architect" %}
 FEATURE_ID={FEATURE_ID}, AFK_MODE={AFK}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, UPDATE_MODE={design.md exists}, UPDATE_CONTEXT={PLANNING_UPDATE_CONTEXT}, WORKFLOW=build, RUN_ID={RUN_ID}
@@ -385,7 +399,7 @@ rp1 agent-tools emit \
   --data '{"status": "running", "feature": "{FEATURE_ID}", "task_regeneration_reason": "{TASK_REGENERATION_REASON}", "update_mode": true}'
 ```
 
-Then set `PLANNING_UPDATE_CONTEXT = TASK_REGENERATION_REASON`, re-invoke §PHASE-2, and dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT=TASK_REGENERATION_REASON` on that revise path. Do not regenerate tasks before the reason is recorded.
+Then set `PLANNING_UPDATE_CONTEXT = TASK_REGENERATION_REASON`, re-invoke §PHASE-2, and dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT={TASK_REGENERATION_REASON}` on that revise path. Do not regenerate tasks before the reason is recorded.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
 On Stop: emit waiting status, output summary (requirements complete, planning waiting), exit with `/build {FEATURE_ID}`.
 
@@ -411,7 +425,18 @@ rp1 agent-tools emit \
 
 ## §PHASE-3: Implementation
 
-**Skip if**: `START_PHASE` is after `implementation`. **You MUST spawn task-builder — do NOT write code yourself.**
+**Skip if**: `START_PHASE` is after `implementation`.
+
+**Resume checkpoint**: If `WAITING_PHASE.phase == "implementation"`, inspect the latest parent waiting/status event from `WORKFLOW_STATE.recent_events`:
+
+- `reason = "review_retry_exhausted"` -> resume the repair/skip/stop decision before any new builder dispatch.
+- `reason = "readiness_add_task"` or `reason = "release_add_task"` -> run §4.1 against the updated `tasks.json`, then continue implementation from remaining task units.
+- `reason = "missing_readiness_contract"` -> jump to §4.6 verification/readiness.
+- otherwise jump directly to the Implementation checkpoint if a registered `features/{FEATURE_ID}/build-readiness.md` artifact exists.
+
+Do not dispatch task-builder, validators, or comment-cleaner before the matching resumed decision path is selected.
+
+**You MUST spawn task-builder — do NOT write code yourself.**
 
 ### §4.1 Plan Task Units
 
@@ -652,10 +677,10 @@ rp1 agent-tools emit \
 
 {% ask_user "Release, Add Task, Review feedback from Arcade, or Stop?", options: "Release", "Add Task", "Review feedback from Arcade", "Stop" %}
 On Release: continue.
-On Add Task: collect `ADDED_TASK_REQUEST`, dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT={"source":"implementation_checkpoint","request":ADDED_TASK_REQUEST}`, validate the same success contract as §2.3, then emit `implementation` waiting with `reason = "readiness_add_task"` and the compact `added_task_request`. STOP with `/build {FEATURE_ID}` resume instructions. On resume, `build-task-plan` must consume the updated `tasks.json`.
+On Add Task: collect `ADDED_TASK_REQUEST`, dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT={"source":"implementation_checkpoint","request":"{ADDED_TASK_REQUEST}"}`, validate the same success contract as §2.3, then emit `implementation` waiting with `reason = "readiness_add_task"` and the compact `added_task_request`. STOP with `/build {FEATURE_ID}` resume instructions. On resume, `build-task-plan` must consume the updated `tasks.json`.
 
 {% dispatch_agent "rp1-dev:feature-tasker" %}
-FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=true, UPDATE_CONTEXT={"source":"implementation_checkpoint","request":ADDED_TASK_REQUEST}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=true, UPDATE_CONTEXT={"source":"implementation_checkpoint","request":"{ADDED_TASK_REQUEST}"}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
@@ -702,6 +727,14 @@ If GIT_COMMIT: stage+commit. If GIT_PUSH: push. If GIT_PR: create PR.
 
 **Skip if**: `START_PHASE` is after `release`.
 
+**Resume checkpoint**: If `WAITING_PHASE.phase == "release"`, inspect the latest parent waiting/status event from `WORKFLOW_STATE.recent_events`:
+
+- `reason = "add_task_requested"` -> jump to §PHASE-3 Implementation and consume the updated `tasks.json`.
+- `reason = "archive_incomplete"` -> set `ARCHIVE_RETRY_PATH` from the prior archiver result's exact `archive_path`, then jump directly to Archive retry.
+- otherwise jump directly to the Release gate.
+
+Do not emit `release` completed on a waiting resume until the resumed release decision succeeds.
+
 Release MUST start only after readiness aggregation has completed.
 
 Before emitting `release` running:
@@ -747,10 +780,10 @@ rp1 agent-tools emit \
 ```
 
 {% ask_user "Add task, Archive, Review feedback from Arcade, Complete without archive, or Stop?", options: "Add task", "Archive", "Review feedback from Arcade", "Complete without archive", "Stop" %}
-On Add task: collect `ADDED_TASK_REQUEST`, dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT={"source":"release_gate","request":ADDED_TASK_REQUEST}`, validate the same success contract as §2.3, emit `release` waiting with `archive_status = "deferred"`, emit `implementation` waiting with `reason = "release_add_task"` and the compact `added_task_request`, and STOP with `/build {FEATURE_ID}` resume instructions. Parent `release` MUST NOT complete until release is re-entered after implementation and readiness re-aggregation.
+On Add task: collect `ADDED_TASK_REQUEST`, dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT={"source":"release_gate","request":"{ADDED_TASK_REQUEST}"}`, validate the same success contract as §2.3, emit `release` waiting with `archive_status = "deferred"`, emit `implementation` waiting with `reason = "release_add_task"` and the compact `added_task_request`, and STOP with `/build {FEATURE_ID}` resume instructions. Parent `release` MUST NOT complete until release is re-entered after implementation and readiness re-aggregation.
 
 {% dispatch_agent "rp1-dev:feature-tasker" %}
-FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=true, UPDATE_CONTEXT={"source":"release_gate","request":ADDED_TASK_REQUEST}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=true, UPDATE_CONTEXT={"source":"release_gate","request":"{ADDED_TASK_REQUEST}"}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
@@ -802,7 +835,7 @@ rp1 agent-tools emit \
 ### Archive
 
 {% dispatch_agent "rp1-dev:feature-archiver" %}
-MODE=archive, FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, SKIP_DOC_CHECK=false, WORKFLOW=build, RUN_ID={RUN_ID}
+MODE=archive, FEATURE_ID={FEATURE_ID}, ARCHIVE_PATH={ARCHIVE_RETRY_PATH}, WORK_ROOT={workRoot}, SKIP_DOC_CHECK=false, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 Parse the `feature-archiver` response before completing release:
@@ -811,7 +844,8 @@ Parse the `feature-archiver` response before completing release:
 - The archived artifact path MUST begin with `archives/features/` and use `storageRoot = "work_dir"`.
 - In `/build`, require `registration_status = "registered"` because `WORKFLOW` and `RUN_ID` were passed to `feature-archiver`.
 - If the response is `needs_confirmation`, malformed, missing the archive result, missing archived artifact registration evidence, or reports an error, do NOT emit `release` completed.
-- Interactive failure: emit `release` waiting with `reason = "archive_incomplete"` and STOP.
+- If the response reports `registration_retry_required = true`, set `ARCHIVE_RETRY_PATH = response.archive_path` before emitting failure.
+- Interactive failure: emit `release` waiting with `reason = "archive_incomplete"` and `archive_path = "{ARCHIVE_RETRY_PATH}"`, then STOP.
 - AFK failure: emit `release` failed only when no recovery remains.
 
 Archive-incomplete emit:
@@ -822,7 +856,7 @@ rp1 agent-tools emit \
   --type status_change \
   --run-id {RUN_ID} \
   --step release \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "archive_status": "incomplete", "reason": "archive_incomplete"}'
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "archive_status": "incomplete", "reason": "archive_incomplete", "archive_path": "{ARCHIVE_RETRY_PATH}"}'
 ```
 
 After `feature-archiver` succeeds and registers the actual archived output, emit `release` completed:

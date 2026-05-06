@@ -79,6 +79,13 @@ const formatTransitionValidationError = (
 ): string =>
 	`step "${step}" is not a valid transition in the "${workflow}" state machine. Current state: "${currentState}". Valid transitions from "${currentState}": [${validTransitions.join(", ")}].`;
 
+const formatInitialStateValidationError = (
+	step: string,
+	workflow: string,
+	initialStates: readonly string[],
+): string =>
+	`step "${step}" cannot start the "${workflow}" state machine. Initial states: [${initialStates.join(", ")}].`;
+
 /**
  * Validate a step name against the workflow's state machine.
  *
@@ -144,7 +151,23 @@ export const validateStepAgainstStateMachine = (
 				getEmitDatabase(),
 				TE.chain((db) => {
 					const currentState = getCurrentRunState(db, run.id);
-					if (currentState === null || currentState === step) {
+					if (currentState === null) {
+						if (machine.initialStates.includes(step)) {
+							return TE.right(undefined);
+						}
+
+						return TE.left(
+							runtimeError(
+								formatInitialStateValidationError(
+									step,
+									workflow,
+									machine.initialStates,
+								),
+							),
+						);
+					}
+
+					if (currentState === step) {
 						return TE.right(undefined);
 					}
 

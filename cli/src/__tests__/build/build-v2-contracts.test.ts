@@ -127,6 +127,8 @@ describe("Build v2 static contracts", () => {
 		expect(content).toContain(
 			"set `PLANNING_UPDATE_CONTEXT = TASK_REGENERATION_REASON`",
 		);
+		expect(content).toContain("UPDATE_CONTEXT={TASK_REGENERATION_REASON}");
+		expect(content).not.toContain("UPDATE_CONTEXT=TASK_REGENERATION_REASON");
 	});
 
 	test("planning revision context is passed to architect and tasker agents", async () => {
@@ -215,15 +217,42 @@ describe("Build v2 static contracts", () => {
 
 		expect(content).toContain("collect `ADDED_TASK_REQUEST`");
 		expect(content).toContain(
-			'UPDATE_CONTEXT={"source":"implementation_checkpoint","request":ADDED_TASK_REQUEST}',
+			'UPDATE_CONTEXT={"source":"implementation_checkpoint","request":"{ADDED_TASK_REQUEST}"}',
 		);
 		expect(content).toContain(
-			'UPDATE_CONTEXT={"source":"release_gate","request":ADDED_TASK_REQUEST}',
+			'UPDATE_CONTEXT={"source":"release_gate","request":"{ADDED_TASK_REQUEST}"}',
 		);
+		expect(content).not.toContain('"request":ADDED_TASK_REQUEST');
 		expect(content).toContain(
 			"On resume, `build-task-plan` must consume the updated `tasks.json`.",
 		);
 		expect(content).toContain('"added_task_request": "{ADDED_TASK_REQUEST}"');
+	});
+
+	test("waiting-phase resumes branch before producer dispatches", async () => {
+		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+
+		for (const phase of [
+			'"requirements"',
+			'"planning"',
+			'"implementation"',
+			'"release"',
+		]) {
+			expect(content).toContain(`WAITING_PHASE.phase == ${phase}`);
+		}
+
+		expect(content).toContain(
+			"Do not dispatch `feature-requirement-gatherer` unless the resumed decision is Revise.",
+		);
+		expect(content).toContain(
+			"Do not dispatch `feature-architect`, `hypothesis-tester`, or fresh `feature-tasker` on a waiting resume",
+		);
+		expect(content).toContain(
+			"Do not dispatch task-builder, validators, or comment-cleaner before the matching resumed decision path is selected.",
+		);
+		expect(content).toContain(
+			"Do not emit `release` completed on a waiting resume until the resumed release decision succeeds.",
+		);
 	});
 
 	test("implementation persists successful task units through task-reviewer", async () => {
@@ -441,14 +470,25 @@ describe("Build v2 static contracts", () => {
 		const archiver = await readProjectFile(
 			"plugins/dev/agents/feature-archiver.md",
 		);
+		const build = await readProjectFile("plugins/dev/skills/build/SKILL.md");
 
 		expect(archiver).toContain("REGISTRATION_ONLY=true");
 		expect(archiver).toContain(
 			"continue directly to §6.5 to retry artifact registration",
 		);
+		expect(archiver).toContain("ARCHIVE_PATH");
+		expect(archiver).toContain("basename(ARCHIVE_PATH without trailing slash)");
+		expect(archiver).toContain("Do not recompute DEST from FEATURE_ID.");
 		expect(archiver).toContain('"archive_status": "waiting_registration"');
 		expect(archiver).toContain('"registration_retry_required": true');
+		expect(archiver).toContain(
+			"A later retry MUST pass the failed result's exact `archive_path` as `ARCHIVE_PATH`",
+		);
 		expect(archiver).toContain('"registration_status":"{REGISTRATION_STATUS}"');
+		expect(build).toContain("ARCHIVE_RETRY_PATH");
+		expect(build).toContain("ARCHIVE_PATH={ARCHIVE_RETRY_PATH}");
+		expect(build).toContain('archive_path = "{ARCHIVE_RETRY_PATH}"');
+		expect(build).toContain('"archive_path": "{ARCHIVE_RETRY_PATH}"');
 		expect(archiver).not.toContain('"registered|skipped"');
 		expect(archiver).not.toContain("completed_without_registration");
 	});

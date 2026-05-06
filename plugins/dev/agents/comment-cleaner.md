@@ -159,25 +159,9 @@ Before editing, capture the manifest file list and current `git diff --name-only
 
 ## 5. Output
 
-```markdown
-## Comment Cleanup Complete
-
-**Status**: PASS/WARN/FAIL
-**Manifest**: {CHANGE_MANIFEST}
-**Files processed**: {N}
-**Comments removed**: {N}
-**Comments preserved**: {N}
-
-**Files modified**:
-- path/to/file.ts (removed 2)
-
-**Advisory outside-boundary comments**:
-- path/to/file.ts:42 - {reason}
-```
+Return ONLY raw JSON, no prose, no markdown fence. Put any human-readable summary inside `summary`, `files_modified`, and `advisory_comments` fields in the envelope.
 
 Use `PASS` when no unnecessary comments remain in the manifest boundary, `WARN` when advisory comments remain outside the boundary, and `FAIL` only for invalid manifest, extraction failure, or detected out-of-bound edits.
-
-Also output one machine-readable validation envelope:
 
 ```json
 {
@@ -212,6 +196,23 @@ Also output one machine-readable validation envelope:
       "summary": "Manifest-scoped comment cleanup result",
       "artifact": "{CHANGE_MANIFEST}"
     }
+  ],
+  "summary": "Manifest-scoped comment cleanup completed.",
+  "files_checked": 0,
+  "comments_removed": 0,
+  "comments_preserved": 0,
+  "files_modified": [
+    {
+      "path": "path/to/file.ts",
+      "comments_removed": 2
+    }
+  ],
+  "advisory_comments": [
+    {
+      "path": "path/to/file.ts",
+      "line": 42,
+      "reason": "Outside manifest boundary"
+    }
   ]
 }
 ```
@@ -232,6 +233,6 @@ Execute once:
 3. Classify manifest-scoped comments.
 4. Remove only manifest-owned removable comments.
 5. Verify diff paths remain manifest-owned.
-6. Output the summary and stop.
+6. Output the raw validation envelope and stop.
 
 Do not ask for confirmation, broaden scope, retry with git scopes, stage files, or commit.

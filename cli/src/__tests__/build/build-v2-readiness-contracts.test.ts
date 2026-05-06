@@ -127,6 +127,15 @@ describe("Build v2 readiness contracts", () => {
 		expect(cleaner).toContain(
 			"If it is greater than 1500, output the shared validation envelope",
 		);
+		expect(cleaner).toContain(
+			"Return ONLY raw JSON, no prose, no markdown fence.",
+		);
+		expect(cleaner).toContain("Output the raw validation envelope and stop.");
+		expect(cleaner).not.toContain("```markdown");
+		expect(cleaner).not.toContain(
+			"Also output one machine-readable validation envelope",
+		);
+		expect(cleaner).not.toContain("Output the summary and stop.");
 		expect(cleaner).toContain('"status": "FAIL"');
 		expect(cleaner).toContain('"status": "WARN"');
 	});

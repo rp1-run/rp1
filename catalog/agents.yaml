@@ -122,7 +122,7 @@ agents:
   - name: rp1-dev:comment-cleaner
     description: "Systematically removes unnecessary comments from manifest-owned code lines while preserving docstrings, critical logic explanations, and type directives"
     plugin: dev
-    last_checksum: 5be5b83f86c26851038bac3645287653bf60d359421a31f18ed3c3bbf1060de5
+    last_checksum: 46082864c43142e3586d16f6f41bfccac5fd6db0e938044508ded93acc470cbc
   - name: rp1-dev:feature-architect
     description: "Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester."
     plugin: dev
@@ -130,7 +130,7 @@ agents:
   - name: rp1-dev:feature-archiver
     description: "Archives completed features to .rp1/work/archives/features/ or restores archived features back to active features directory"
     plugin: dev
-    last_checksum: 283b404c41d2b0dbb3f12a0de2d453fc3b4e7b44e3fe64b9bacf07150be18b25
+    last_checksum: 92e06bbca75a64c23df02b1d70478e40fe5205eca637517b306de4db8ce83189
   - name: rp1-dev:feature-editor
     description: "Analyzes mid-stream edits for validity, detects conflicts, and propagates approved changes across feature documentation"
     plugin: dev
