@@ -28,7 +28,7 @@ Generate a slide-ready markdown walkthrough that explains a pull request from di
 
 The `pr-walkthrough` command creates a reviewer-orientation artifact for a pull request. It gathers PR metadata, changed files, diffs, and commit summaries with `gh` and `git`, then writes an evidence-grounded slide-ready markdown walkthrough.
 
-The walkthrough is not a review verdict, does not post PR comments, and does not use existing `pr-review` artifacts as source material. It includes contract frontmatter, reserved slide markers, slide metadata, speaker notes, vertical detail, and an Evidence Index, while staying coherent when opened as normal markdown. This command does not provide or require a slide reader.
+The walkthrough is not a review verdict, does not post PR comments, and does not use existing `pr-review` artifacts as source material. It includes contract frontmatter, reserved slide markers, slide metadata, speaker notes, vertical detail, and an Evidence Index, while staying coherent when opened as normal markdown. Arcade can render supported outputs in its Artifact Viewer slide reader; the command itself writes and registers markdown.
 
 ## Parameters
 
@@ -78,6 +78,24 @@ Horizontal slide groups include:
 - `Risks And Questions`
 
 Overflow detail appears as vertical depth under the related topic, and supporting context appears in notes after the slide face. When read without slide rendering, the parent summary appears before its notes and deeper detail.
+
+## Output Artifact Behavior
+
+The workflow writes a markdown artifact under `.rp1/work/pr-walkthroughs/` and
+registers it with explicit `storageRoot: "work_dir"`. That markdown file is the
+source of truth for both the Arcade slide reader and normal markdown viewing.
+
+When the registered file-backed markdown artifact declares
+`rp1_contract: pr-walkthrough-slide-source` and has valid slide markers, Arcade
+can open it in Slides mode from the artifact surface. The reader uses the
+horizontal and vertical slide markers, speaker-note blocks, and evidence
+metadata while keeping a Markdown mode available for source-order reading.
+
+If the contract is unsupported, malformed, or slide rendering fails, Arcade
+shows the markdown artifact instead. Evidence IDs such as `E-PR-###`,
+`E-FILE-###`, `E-DIFF-###`, and `E-COMMIT-###` remain visible in slide content,
+Reveal speaker-view notes, the Evidence Index, and fallback markdown so claims
+stay auditable.
 
 ## Examples
 
@@ -146,7 +164,10 @@ Overflow detail appears as vertical depth under the related topic, and supportin
 - Reviewer focus areas
 - Risks and questions grounded in evidence
 
-The artifact is slide-ready markdown source, not a rendered presentation. Opened in a plain markdown viewer, the visible metadata and markers should not block the top-to-bottom walkthrough.
+The artifact is slide-ready markdown source, not a rendered presentation file.
+Opened in a plain markdown viewer, the visible metadata and markers should not
+block the top-to-bottom walkthrough. In Arcade, supported artifacts can be read
+with the slide reader or with the same markdown fallback.
 
 The artifact is registered with `storageRoot: "work_dir"` and appears in the workflow run artifacts.
 

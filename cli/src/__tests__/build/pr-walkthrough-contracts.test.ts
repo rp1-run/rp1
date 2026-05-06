@@ -44,6 +44,7 @@ const collectControlMarkers = (content: string): SlideMarker[] => {
 			continue;
 		}
 
+		// Control markers are valid only when they occupy the whole trimmed line.
 		if (!inFence && markers.has(trimmed)) {
 			controlMarkers.push(trimmed as SlideMarker);
 		}

@@ -2,10 +2,12 @@ import {
 	AlertCircle,
 	ArrowLeft,
 	ChevronRight,
+	FileText,
 	List,
 	Loader2,
 	MessageSquare,
 	PanelLeft,
+	Presentation,
 } from "lucide-react";
 import {
 	useCallback,
@@ -32,12 +34,14 @@ import {
 } from "@/components/ui/tooltip";
 import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
 import { ArtifactSidebar } from "@/components/v2/ArtifactSidebar";
+import type { ArtifactContentMode } from "@/components/v2/ContentPanel";
 import { FollowModeToggle } from "@/components/v2/FollowModeToggle";
 import { KeyHints, VIEWER_HINTS } from "@/components/v2/KeyHints";
 import { LinkSidebar } from "@/components/v2/LinkSidebar";
 import { NewUpdatesChip } from "@/components/v2/NewUpdatesChip";
 import { TableOfContents } from "@/components/v2/TableOfContents";
 import { UnifiedContentRenderer } from "@/components/v2/UnifiedContentRenderer";
+import { WalkthroughRevealReader } from "@/components/v2/WalkthroughRevealReader";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
@@ -56,6 +60,7 @@ import {
 	orderArtifactsWithLinksLast,
 } from "@/lib/link-artifacts";
 import { resolveRunDisplayName } from "@/lib/run-display";
+import { parseWalkthroughSlideSource } from "@/lib/walkthrough-slide-source";
 
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
@@ -71,6 +76,48 @@ interface ArtifactContent {
 	docId?: string;
 }
 
+function ArtifactContentModeControl({
+	mode,
+	onModeChange,
+}: {
+	readonly mode: ArtifactContentMode;
+	readonly onModeChange: (mode: ArtifactContentMode) => void;
+}) {
+	const modes = [
+		{ value: "slides", label: "Slides", icon: Presentation },
+		{ value: "markdown", label: "Markdown", icon: FileText },
+	] as const;
+
+	return (
+		<fieldset className="inline-flex h-8 shrink-0 items-center rounded border border-border bg-background p-0.5">
+			<legend className="sr-only">Artifact viewing mode</legend>
+			{modes.map(({ value, label, icon: Icon }) => {
+				const selected = mode === value;
+				return (
+					<button
+						key={value}
+						type="button"
+						aria-pressed={selected}
+						onClick={() => onModeChange(value)}
+						className={`inline-flex h-7 items-center gap-1 rounded-sm px-2 text-xs transition-colors duration-150 ${
+							selected
+								? "bg-surface-base text-fg"
+								: "text-fg-ghost hover:text-fg"
+						}`}
+					>
+						<Icon
+							className="h-3.5 w-3.5"
+							strokeWidth={1.5}
+							aria-hidden="true"
+						/>
+						<span>{label}</span>
+					</button>
+				);
+			})}
+		</fieldset>
+	);
+}
+
 function isSameArtifactContent(
 	left: ArtifactContent | null,
 	right: ArtifactContent | null,
@@ -81,6 +128,43 @@ function isSameArtifactContent(
 		left.path === right.path &&
 		left.content === right.content &&
 		left.docId === right.docId
+	);
+}
+
+function getWalkthroughFallbackMessage(
+	result: ReturnType<typeof parseWalkthroughSlideSource> | null,
+): string | null {
+	if (result?.kind !== "fallback") return null;
+
+	switch (result.reason) {
+		case "unsupported-contract-version":
+		case "invalid-slide-marker":
+		case "missing-horizontal-slide":
+		case "vertical-without-horizontal":
+		case "missing-slide-metadata":
+		case "invalid-slide-metadata":
+		case "invalid-slide-depth":
+			return `${result.message} Showing the markdown artifact instead.`;
+		default:
+			return null;
+	}
+}
+
+function WalkthroughFallbackNotice({
+	message,
+}: {
+	readonly message: string | null;
+}) {
+	if (!message) return null;
+
+	return (
+		<div className="mb-4 flex gap-2 rounded border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+			<AlertCircle
+				className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-70"
+				aria-hidden="true"
+			/>
+			<p>{message}</p>
+		</div>
 	);
 }
 
@@ -213,6 +297,11 @@ export function ArtifactViewerPage() {
 
 	const [artifactContent, setArtifactContent] =
 		useState<ArtifactContent | null>(null);
+	const [artifactContentMode, setArtifactContentMode] =
+		useState<ArtifactContentMode>("slides");
+	const [readerFallbackMessage, setReaderFallbackMessage] = useState<
+		string | null
+	>(null);
 	const [contentLoading, setContentLoading] = useState(false);
 	const [contentError, setContentError] = useState<string | null>(null);
 	const [headings, setHeadings] = useState<readonly HeadingEntry[]>([]);
@@ -298,6 +387,24 @@ export function ArtifactViewerPage() {
 		if (!run) return null;
 		return selectedArtifactName ?? run.projectName;
 	}, [run, selectedArtifactName]);
+	const walkthroughResult = useMemo(() => {
+		if (!artifactContent || !selectedFileArtifact) return null;
+		return parseWalkthroughSlideSource({
+			artifact: selectedFileArtifact,
+			markdown: artifactContent.content,
+		});
+	}, [artifactContent, selectedFileArtifact]);
+	const walkthroughDeck =
+		walkthroughResult?.kind === "deck" ? walkthroughResult.deck : null;
+	const slideModeAvailable = walkthroughDeck !== null;
+	const parserFallbackMessage =
+		getWalkthroughFallbackMessage(walkthroughResult);
+	const walkthroughFallbackMessage =
+		readerFallbackMessage ?? parserFallbackMessage;
+	const effectiveArtifactContentMode: ArtifactContentMode =
+		slideModeAvailable && artifactContentMode === "slides"
+			? "slides"
+			: "markdown";
 
 	useEffect(() => {
 		if (run?.projectName && run?.projectId) {
@@ -344,7 +451,17 @@ export function ArtifactViewerPage() {
 		setLinksDrawerOpen(false);
 		setHeadings([]);
 		setActiveHeadingId(null);
+		setReaderFallbackMessage(null);
 	}, [selectedUrlArtifact]);
+
+	useEffect(() => {
+		if (effectiveArtifactContentMode === "slides") {
+			setTocCollapsed(true);
+			setTocDrawerOpen(false);
+			setHeadings([]);
+			setActiveHeadingId(null);
+		}
+	}, [effectiveArtifactContentMode]);
 
 	useEffect(() => {
 		return () => {
@@ -419,6 +536,19 @@ export function ArtifactViewerPage() {
 			}
 			return next;
 		});
+	}, []);
+
+	const handleArtifactContentModeChange = useCallback(
+		(mode: ArtifactContentMode) => {
+			setReaderFallbackMessage(null);
+			setArtifactContentMode(mode);
+		},
+		[],
+	);
+
+	const handleWalkthroughRenderFailure = useCallback((message: string) => {
+		setReaderFallbackMessage(message);
+		setArtifactContentMode("markdown");
 	}, []);
 
 	const handleArtifactSelect = useCallback(
@@ -518,9 +648,10 @@ export function ArtifactViewerPage() {
 			if (!preserveScroll) {
 				savedScrollState.current = null;
 				setContentLoading(true);
-				// Clear headings when loading new artifact (they'll be repopulated by MarkdownViewer if applicable)
 				setHeadings([]);
 				setActiveHeadingId(null);
+				setArtifactContentMode("slides");
+				setReaderFallbackMessage(null);
 			}
 			setContentError(null);
 
@@ -554,6 +685,7 @@ export function ArtifactViewerPage() {
 					content: data.content,
 					docId: selectedArtifact.docId,
 				};
+				setReaderFallbackMessage(null);
 				setArtifactContent((current) => {
 					if (isSameArtifactContent(current, nextContent)) {
 						if (preserveScroll) {
@@ -674,17 +806,25 @@ export function ArtifactViewerPage() {
 	const handleKeyDown = useCallback(
 		(event: KeyboardEvent) => {
 			const target = event.target as HTMLElement;
+			if (target.closest(".rp1-walkthrough-reader")) return;
 			const isTextInput =
 				target.tagName === "INPUT" ||
 				target.tagName === "TEXTAREA" ||
 				target.isContentEditable;
+
+			if (
+				effectiveArtifactContentMode === "slides" &&
+				event.key.startsWith("Arrow")
+			) {
+				return;
+			}
 
 			if (!isTextInput && (event.key === "h" || event.key === "ArrowLeft")) {
 				event.preventDefault();
 				navigate(`/runs/${runId}`);
 			}
 		},
-		[navigate, runId],
+		[effectiveArtifactContentMode, navigate, runId],
 	);
 
 	useEffect(() => {
@@ -712,7 +852,9 @@ export function ArtifactViewerPage() {
 				label: "Expand",
 				description: "Toggle table of contents",
 				action: () => {
-					handleToggleTocCollapse();
+					if (effectiveArtifactContentMode === "markdown") {
+						handleToggleTocCollapse();
+					}
 				},
 			},
 			{
@@ -873,14 +1015,28 @@ export function ArtifactViewerPage() {
 					<p className="text-lg">Select an artifact from the sidebar</p>
 				</div>
 			) : artifactContent ? (
-				<UnifiedContentRenderer
-					content={artifactContent.content}
-					path={artifactContent.path}
-					showFrontmatter={showFrontmatter}
-					onHeadingsExtracted={handleHeadingsExtracted}
-					runId={runId}
-					docId={artifactContent.docId}
-				/>
+				effectiveArtifactContentMode === "slides" && walkthroughDeck ? (
+					<WalkthroughRevealReader
+						deck={walkthroughDeck}
+						path={artifactContent.path}
+						onMarkdownModeRequested={() =>
+							handleArtifactContentModeChange("markdown")
+						}
+						onRenderFailure={handleWalkthroughRenderFailure}
+					/>
+				) : (
+					<>
+						<WalkthroughFallbackNotice message={walkthroughFallbackMessage} />
+						<UnifiedContentRenderer
+							content={artifactContent.content}
+							path={artifactContent.path}
+							showFrontmatter={showFrontmatter}
+							onHeadingsExtracted={handleHeadingsExtracted}
+							runId={runId}
+							docId={artifactContent.docId}
+						/>
+					</>
+				)
 			) : null}
 		</>
 	);
@@ -960,6 +1116,12 @@ export function ArtifactViewerPage() {
 						</TooltipProvider>
 
 						<div className="flex items-center gap-2">
+							{slideModeAvailable && (
+								<ArtifactContentModeControl
+									mode={effectiveArtifactContentMode}
+									onModeChange={handleArtifactContentModeChange}
+								/>
+							)}
 							<FollowModeToggle
 								enabled={followMode}
 								onToggle={() => setFollowMode(!followMode)}
@@ -977,24 +1139,26 @@ export function ArtifactViewerPage() {
 									ariaLabel="Open links"
 								/>
 							)}
-							<TooltipProvider>
-								<Tooltip>
-									<TooltipTrigger asChild>
-										<Button
-											variant="ghost"
-											size="icon"
-											className="h-8 w-8"
-											onClick={() => setTocDrawerOpen(true)}
-											aria-label="Open table of contents"
-										>
-											<List className="h-4 w-4" aria-hidden="true" />
-										</Button>
-									</TooltipTrigger>
-									<TooltipContent>
-										<p>Table of contents</p>
-									</TooltipContent>
-								</Tooltip>
-							</TooltipProvider>
+							{effectiveArtifactContentMode === "markdown" && (
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Button
+												variant="ghost"
+												size="icon"
+												className="h-8 w-8"
+												onClick={() => setTocDrawerOpen(true)}
+												aria-label="Open table of contents"
+											>
+												<List className="h-4 w-4" aria-hidden="true" />
+											</Button>
+										</TooltipTrigger>
+										<TooltipContent>
+											<p>Table of contents</p>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+							)}
 						</div>
 					</div>
 
@@ -1176,30 +1340,38 @@ export function ArtifactViewerPage() {
 							role="toolbar"
 							aria-label="Artifact viewer controls"
 						>
+							{slideModeAvailable && (
+								<ArtifactContentModeControl
+									mode={effectiveArtifactContentMode}
+									onModeChange={handleArtifactContentModeChange}
+								/>
+							)}
 							<FollowModeToggle
 								enabled={followMode}
 								onToggle={() => setFollowMode(!followMode)}
 							/>
-							{tocCollapsed && headings.length > 0 && (
-								<TooltipProvider>
-									<Tooltip>
-										<TooltipTrigger asChild>
-											<Button
-												variant="ghost"
-												size="icon"
-												className="h-8 w-8"
-												onClick={handleToggleTocCollapse}
-												aria-label="Open table of contents"
-											>
-												<List className="h-4 w-4" aria-hidden="true" />
-											</Button>
-										</TooltipTrigger>
-										<TooltipContent>
-											<p>Table of contents ({headings.length})</p>
-										</TooltipContent>
-									</Tooltip>
-								</TooltipProvider>
-							)}
+							{effectiveArtifactContentMode === "markdown" &&
+								tocCollapsed &&
+								headings.length > 0 && (
+									<TooltipProvider>
+										<Tooltip>
+											<TooltipTrigger asChild>
+												<Button
+													variant="ghost"
+													size="icon"
+													className="h-8 w-8"
+													onClick={handleToggleTocCollapse}
+													aria-label="Open table of contents"
+												>
+													<List className="h-4 w-4" aria-hidden="true" />
+												</Button>
+											</TooltipTrigger>
+											<TooltipContent>
+												<p>Table of contents ({headings.length})</p>
+											</TooltipContent>
+										</Tooltip>
+									</TooltipProvider>
+								)}
 							{linkArtifacts.length > 0 && (
 								<LinksToggleButton
 									count={linkArtifacts.length}
@@ -1239,7 +1411,7 @@ export function ArtifactViewerPage() {
 					</main>
 				</ResizablePanel>
 
-				{!tocCollapsed && (
+				{effectiveArtifactContentMode === "markdown" && !tocCollapsed && (
 					<>
 						<ResizableHandle withHandle aria-label="Resize table of contents" />
 

@@ -1,4 +1,4 @@
-import { Check, FileText, List } from "lucide-react";
+import { Check, FileText, List, Presentation } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Drawer } from "@/components/ui/drawer";
 import { AnnotationToggleBtn } from "@/components/v2/AnnotationToggleBtn";
@@ -59,6 +59,51 @@ function flattenArtifacts(
 	groups: readonly ArtifactGroup[],
 ): readonly Artifact[] {
 	return groups.flatMap((group) => group.artifacts);
+}
+
+function ArtifactContentModeControl({
+	controls,
+}: {
+	readonly controls: ArtifactContentSurfaceControls;
+}) {
+	if (
+		!controls.slideModeAvailable ||
+		!controls.contentMode ||
+		!controls.setContentMode
+	) {
+		return null;
+	}
+
+	const modes = [
+		{ value: "slides", label: "Slides", icon: Presentation },
+		{ value: "markdown", label: "Markdown", icon: FileText },
+	] as const;
+
+	return (
+		<fieldset className="inline-flex h-7 shrink-0 items-center rounded border border-border bg-background p-0.5">
+			<legend className="sr-only">Artifact viewing mode</legend>
+			{modes.map(({ value, label, icon: Icon }) => {
+				const selected = controls.contentMode === value;
+				return (
+					<button
+						key={value}
+						type="button"
+						aria-pressed={selected}
+						onClick={() => controls.setContentMode?.(value)}
+						className={cn(
+							"inline-flex h-6 items-center gap-1 rounded-sm px-2 type-secondary transition-colors duration-150",
+							selected
+								? "bg-surface-base text-fg"
+								: "text-fg-ghost hover:text-fg",
+						)}
+					>
+						<Icon className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
+						<span>{label}</span>
+					</button>
+				);
+			})}
+		</fieldset>
+	);
 }
 
 export function RunArtifactsPanel({
@@ -217,6 +262,7 @@ export function RunArtifactsPanel({
 				{renderArtifactList()}
 			</div>,
 			<div className="flex h-7 shrink-0 items-center gap-3">
+				<ArtifactContentModeControl controls={controls} />
 				<SaveStatusIndicator status={controls.saveStatus} />
 				{linkArtifacts.length > 0 && (
 					<PanelHeaderIconButton
