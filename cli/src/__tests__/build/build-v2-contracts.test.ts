@@ -92,29 +92,64 @@ describe("Build v2 static contracts", () => {
 		expect(content).toContain(
 			"Do not inspect feature files or infer success from filenames.",
 		);
+		expect(content).toContain("WAITING_PHASE");
+		expect(content).toContain(
+			"return to that phase's recorded checkpoint/decision handler",
+		);
 		expect(content).not.toContain("build-artifact-detector");
 	});
 
 	test("planning has one normal feature-tasker dispatch after the hypothesis gate", async () => {
 		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
 		const dispatches = extractDispatches(content, "rp1-dev:feature-tasker");
+		const normalDispatches = dispatches.filter((dispatch) =>
+			dispatch.includes("UPDATE_MODE=false"),
+		);
 		const hypothesisGateIndex = content.indexOf("### §2.2 Hypothesis Gate");
 		const taskGenerationIndex = content.indexOf("### §2.3 Task Generation");
 		const featureTaskerIndex = content.indexOf(
 			'{% dispatch_agent "rp1-dev:feature-tasker" %}',
 		);
 
-		expect(dispatches).toHaveLength(1);
+		expect(normalDispatches).toHaveLength(1);
 		expect(hypothesisGateIndex).toBeGreaterThan(-1);
 		expect(taskGenerationIndex).toBeGreaterThan(hypothesisGateIndex);
 		expect(featureTaskerIndex).toBeGreaterThan(taskGenerationIndex);
-		expect(dispatches[0]).toContain("UPDATE_MODE=false");
+		expect(normalDispatches[0]).toContain(
+			"UPDATE_CONTEXT={TASK_REGENERATION_REASON}",
+		);
 		expect(content).toContain(
 			"Normal fresh path invariant: dispatch `feature-tasker` exactly once",
 		);
 		expect(content).toContain(
 			"Do not regenerate tasks before the reason is recorded.",
 		);
+		expect(content).toContain(
+			"set `PLANNING_UPDATE_CONTEXT = TASK_REGENERATION_REASON`",
+		);
+	});
+
+	test("planning revision context is passed to architect and tasker agents", async () => {
+		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const architect = await readProjectFile(
+			"plugins/dev/agents/feature-architect.md",
+		);
+		const tasker = await readProjectFile(
+			"plugins/dev/agents/feature-tasker.md",
+		);
+
+		expect(
+			extractDispatches(content, "rp1-dev:feature-architect")[0],
+		).toContain("UPDATE_CONTEXT={PLANNING_UPDATE_CONTEXT}");
+		expect(content).toContain(
+			"Rejected hypotheses: {ids}; revision requested: {summary}",
+		);
+		expect(architect).toContain("UPDATE_CONTEXT");
+		expect(architect).toContain(
+			"avoid regenerating the same rejected hypothesis",
+		);
+		expect(tasker).toContain("UPDATE_CONTEXT");
+		expect(tasker).toContain("treat it as an explicit update requirement");
 	});
 
 	test("planning consumes feature-tasker structured JSON completion", async () => {
@@ -157,6 +192,38 @@ describe("Build v2 static contracts", () => {
 		);
 		expect(content).not.toContain("build-task-parser");
 		expect(content).not.toContain("build-task-grouper");
+	});
+
+	test("task plan machine schema includes targets for code and docs parity", async () => {
+		const tasker = await readProjectFile(
+			"plugins/dev/agents/feature-tasker.md",
+		);
+		const template = await readProjectFile(
+			"plugins/base/skills/artifact-templates/templates/feature-tasker/tasks.json",
+		);
+
+		expect(tasker).toContain(
+			"`target`: primary source, module, config, test, or doc path affected by the task",
+		);
+		expect(tasker).toContain("Include `target` for every code and docs task.");
+		expect(template).toContain('"target": "src/path.ts"');
+		expect(template).toContain('"target": "docs/reference/dev/build.md"');
+	});
+
+	test("interactive Add Task paths update tasks.json before stopping", async () => {
+		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+
+		expect(content).toContain("collect `ADDED_TASK_REQUEST`");
+		expect(content).toContain(
+			'UPDATE_CONTEXT={"source":"implementation_checkpoint","request":ADDED_TASK_REQUEST}',
+		);
+		expect(content).toContain(
+			'UPDATE_CONTEXT={"source":"release_gate","request":ADDED_TASK_REQUEST}',
+		);
+		expect(content).toContain(
+			"On resume, `build-task-plan` must consume the updated `tasks.json`.",
+		);
+		expect(content).toContain('"added_task_request": "{ADDED_TASK_REQUEST}"');
 	});
 
 	test("implementation persists successful task units through task-reviewer", async () => {
@@ -251,7 +318,11 @@ describe("Build v2 static contracts", () => {
 			);
 			expect(payloads.length, producerPath).toBeGreaterThan(0);
 			for (const payload of payloads) {
-				expect(payload, producerPath).toContain('"storageRoot"');
+				expect(
+					payload.includes('"storageRoot"') ||
+						payload.includes('\\"storageRoot\\"'),
+					producerPath,
+				).toBe(true);
 			}
 		}
 	});
@@ -364,5 +435,50 @@ describe("Build v2 static contracts", () => {
 		expect(content).toContain(
 			'The archived artifact path MUST begin with `archives/features/` and use `storageRoot = "work_dir"`.',
 		);
+	});
+
+	test("feature archiver exposes a registration-only retry path", async () => {
+		const archiver = await readProjectFile(
+			"plugins/dev/agents/feature-archiver.md",
+		);
+
+		expect(archiver).toContain("REGISTRATION_ONLY=true");
+		expect(archiver).toContain(
+			"continue directly to §6.5 to retry artifact registration",
+		);
+		expect(archiver).toContain('"archive_status": "waiting_registration"');
+		expect(archiver).toContain('"registration_retry_required": true');
+		expect(archiver).toContain('"registration_status":"{REGISTRATION_STATUS}"');
+		expect(archiver).not.toContain('"registered|skipped"');
+		expect(archiver).not.toContain("completed_without_registration");
+	});
+
+	test("release Stop and archive decline emits are separate decisions", async () => {
+		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const stopIndex = content.indexOf("Stop emits:");
+		const completeIndex = content.indexOf("Complete-without-archive emit:");
+
+		expect(stopIndex).toBeGreaterThan(-1);
+		expect(completeIndex).toBeGreaterThan(stopIndex);
+		expect(content.slice(stopIndex, completeIndex)).toContain(
+			'"status": "waiting"',
+		);
+		expect(content.slice(stopIndex, completeIndex)).not.toContain(
+			'"archive_status": "declined"',
+		);
+		expect(content.slice(completeIndex)).toContain(
+			'"archive_status": "declined"',
+		);
+	});
+
+	test("build docs match release gate labels and AFK archive behavior", async () => {
+		const docs = await readProjectFile("docs/reference/dev/build.md");
+
+		expect(docs).toContain(
+			"Add task, Archive, Review feedback from Arcade, Complete without archive, Stop",
+		);
+		expect(docs).toContain("**Complete without archive**");
+		expect(docs).toContain("Release defaults to archive");
+		expect(docs).not.toContain("Do Not Archive");
 	});
 });

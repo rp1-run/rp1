@@ -40,16 +40,39 @@ Validate the manifest before extracting or editing:
 - `ownedHunks` use positive inclusive `{ "startLine": N, "endLine": M }` bounds with `M >= N`.
 - If `allowedOperations` is present, it includes `remove_comments` or `comment_cleanup`.
 
-If validation fails, output this and stop without reading source files:
+If validation fails, output the shared validation envelope and stop without reading source files:
 
-```markdown
-## Comment Cleanup Failed
-
-**Status**: FAIL
-**Reason**: Missing or invalid change manifest
-**Manifest**: {CHANGE_MANIFEST}
-**Files processed**: 0
-**Comments removed**: 0
+```json
+{
+  "status": "FAIL",
+  "blocking_issues": [
+    {
+      "source": "comment-cleaner",
+      "issue": "Missing or invalid change manifest",
+      "evidence": "{CHANGE_MANIFEST}",
+      "required_action": "Regenerate a scoped change manifest"
+    }
+  ],
+  "warnings": [],
+  "manual_items": [],
+  "artifacts": [
+    {
+      "path": "{CHANGE_MANIFEST}",
+      "storageRoot": "absolute",
+      "label": "Comment cleanup manifest"
+    }
+  ],
+  "evidence": [
+    {
+      "source": "comment-cleaner",
+      "status": "blocked",
+      "summary": "Manifest validation failed before source inspection",
+      "artifact": "{CHANGE_MANIFEST}"
+    }
+  ],
+  "files_checked": 0,
+  "comments_removed": 0
+}
 ```
 
 ## 2. Comment Extraction
@@ -62,16 +85,39 @@ cd "{CODE_ROOT}" && rp1 agent-tools comment-extract manifest manifest --change-m
 
 Use `data.comments` as the working set. The extractor filters comments to manifest-owned lines and fully contained owned hunks; do not widen the result by reading whole files.
 
-Check `data.linesAdded`. If it is greater than 1500, stop without edits:
+Check `data.linesAdded`. If it is greater than 1500, output the shared validation envelope and stop without edits:
 
-```markdown
-## Comment Cleanup Complete
-
-**Status**: WARN
-**Reason**: Manifest boundary too large ({N} owned lines); skipping automatic cleanup.
-**Files processed**: 0
-**Comments removed**: 0
-**Comments preserved**: 0
+```json
+{
+  "status": "WARN",
+  "blocking_issues": [],
+  "warnings": [
+    {
+      "source": "comment-cleaner",
+      "note": "Manifest boundary too large ({N} owned lines); skipping automatic cleanup.",
+      "evidence": "{CHANGE_MANIFEST}"
+    }
+  ],
+  "manual_items": [],
+  "artifacts": [
+    {
+      "path": "{CHANGE_MANIFEST}",
+      "storageRoot": "absolute",
+      "label": "Comment cleanup manifest"
+    }
+  ],
+  "evidence": [
+    {
+      "source": "comment-cleaner",
+      "status": "not_applicable",
+      "summary": "Automatic cleanup skipped because manifest boundary exceeds limit",
+      "artifact": "{CHANGE_MANIFEST}"
+    }
+  ],
+  "files_checked": 0,
+  "comments_removed": 0,
+  "comments_preserved": 0
+}
 ```
 
 ## 3. Classification

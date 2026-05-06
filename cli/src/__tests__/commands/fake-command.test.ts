@@ -157,11 +157,27 @@ describe("fake workflow command", () => {
 				readFile(join(featureDir, "design.md"), "utf-8"),
 			).resolves.toContain("# Fake Design Artifact");
 			await expect(
-				readFile(join(featureDir, "build-report.md"), "utf-8"),
-			).resolves.toContain("# Fake Build Report");
+				readFile(join(featureDir, "tasks.md"), "utf-8"),
+			).resolves.toContain("# Fake Development Tasks");
 			await expect(
-				readFile(join(featureDir, "verify-report.md"), "utf-8"),
-			).resolves.toContain("# Fake Verification Report");
+				readFile(join(featureDir, "tasks.json"), "utf-8"),
+			).resolves.toContain('"feature_id": "complete-repair"');
+			await expect(
+				readFile(join(featureDir, "build-readiness.md"), "utf-8"),
+			).resolves.toContain("# Fake Build Readiness");
+			await expect(
+				readFile(
+					join(
+						rp1Dir,
+						"work",
+						"archives",
+						"features",
+						"complete-repair",
+						"archive-summary.md",
+					),
+					"utf-8",
+				),
+			).resolves.toContain("# Fake Feature Archive");
 
 			const output = logs.join("\n");
 			expect(output).toContain("Simulation complete");

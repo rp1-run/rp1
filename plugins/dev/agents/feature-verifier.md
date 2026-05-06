@@ -367,4 +367,4 @@ Execute this workflow with these principles:
 - Generate evidence-based analysis using available documentation and codebase context
 - Complete the entire workflow systematically without requiring iteration
 
-Begin with your verification planning, then proceed through each workflow step systematically. Your final output should be the completed verification report written to the appropriate file location.
+Begin with your verification planning, then proceed through each workflow step systematically. Write and register the verification report, then make your final output ONLY the raw JSON validation envelope from Step 7.5.

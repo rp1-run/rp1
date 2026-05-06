@@ -68,8 +68,17 @@ describe("Build v2 readiness contracts", () => {
 		expect(agent.content).toContain(
 			"Missing/null required component -> synthesize a FAIL envelope",
 		);
+		expect(agent.content).toContain(
+			"Legacy `verification_complete: true` with no status -> PASS",
+		);
+		expect(agent.content).toContain(
+			"Legacy `reason`, `error`, or `message` on FAIL/error-shaped output",
+		);
 		expect(agent.content).toContain("WAITING status or required manual item");
 		expect(agent.content).toContain("Any warning or non-blocking manual item");
+		expect(agent.content).toContain(
+			"Required manual item: `required === true` or `blocks_release === true`.",
+		);
 		expect(agent.content).toContain(
 			"Lead with readiness status, blockers, warnings, manual items, requirement evidence.",
 		);
@@ -96,6 +105,30 @@ describe("Build v2 readiness contracts", () => {
 		]) {
 			expect(content).toContain(expectedContract);
 		}
+	});
+
+	test("validation producers do not bypass the shared envelope on terminal output", async () => {
+		const verifier = await readProjectFile(
+			"plugins/dev/agents/feature-verifier.md",
+		);
+		const cleaner = await readProjectFile(
+			"plugins/dev/agents/comment-cleaner.md",
+		);
+
+		expect(verifier).toContain(
+			"final output ONLY the raw JSON validation envelope from Step 7.5",
+		);
+		expect(verifier).not.toContain(
+			"Your final output should be the completed verification report",
+		);
+		expect(cleaner).toContain(
+			"If validation fails, output the shared validation envelope",
+		);
+		expect(cleaner).toContain(
+			"If it is greater than 1500, output the shared validation envelope",
+		);
+		expect(cleaner).toContain('"status": "FAIL"');
+		expect(cleaner).toContain('"status": "WARN"');
 	});
 
 	test("build skill passes readiness context and branches on PASS WARN FAIL WAITING", async () => {

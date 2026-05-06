@@ -38,7 +38,7 @@ export interface BuildTaskPlanTask {
 	readonly acceptance_refs: readonly string[];
 	readonly dependencies: readonly string[];
 	readonly reference?: string;
-	readonly target?: string;
+	readonly target: string;
 	readonly notes?: string;
 }
 

@@ -31,7 +31,8 @@ conditions:
       "complexity": "medium",
       "acceptance_refs": ["REQ-001"],
       "dependencies": [],
-      "reference": "design.md#section"
+      "reference": "design.md#section",
+      "target": "src/path.ts"
     },
     {
       "id": "TD1",

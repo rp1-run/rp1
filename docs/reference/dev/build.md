@@ -150,10 +150,10 @@ provide feedback, and control workflow progression.
 
 | Gate | After | Options | Purpose |
 |------|-------|---------|---------|
-| Requirements | `requirements` | Continue, Revise, Stop | Review requirements before planning |
-| Planning | `planning` | Continue, Revise, Stop | Review design, hypotheses, `tasks.md`, and `tasks.json` before implementation |
-| Implementation | `implementation` | Release, Add Task, Review Feedback, Stop | Review validation outcomes, warnings, and manual verification expectations |
-| Release | `release` | Archive, Do Not Archive, Add Task, Stop | Complete release, archive only when chosen, or return to implementation |
+| Requirements | `requirements` | Continue, Revise, Review feedback from Arcade, Stop | Review requirements before planning |
+| Planning | `planning` | Continue, Revise, Review feedback from Arcade, Stop | Review design, hypotheses, `tasks.md`, and `tasks.json` before implementation |
+| Implementation | `implementation` | Release, Add Task, Review feedback from Arcade, Stop | Review validation outcomes, warnings, and manual verification expectations |
+| Release | `release` | Add task, Archive, Review feedback from Arcade, Complete without archive, Stop | Complete release, archive only when chosen, or return to implementation |
 
 ### Gate Options
 
@@ -166,8 +166,9 @@ At each gate, you can choose:
 | **Revise** | Provide feedback and re-run the current phase |
 | **Stop** | Exit the workflow (all artifacts preserved) |
 | **Add Task** | Add implementation work and return to `implementation` |
+| **Review feedback from Arcade** | Process Arcade feedback, then return to the same gate |
 | **Archive** | Run `feature-archiver`; release completes only after archive succeeds |
-| **Do Not Archive** | Complete release with `archive_status: "declined"` |
+| **Complete without archive** | Complete release with `archive_status: "declined"` |
 
 ### Feedback Loop
 
@@ -192,6 +193,8 @@ In AFK mode:
 
 - All approval gates are skipped
 - Workflow proceeds automatically through all phases
+- Release defaults to archive: when readiness allows release, `feature-archiver`
+  runs automatically and release completes only after the archive is registered
 - Changes remain in working directory unless `--git-commit` is specified
 - Rejected high-impact hypotheses, missing required validation, or blocking
   readiness failures do not silently mark the feature ready

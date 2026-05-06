@@ -347,6 +347,107 @@ describe("validateStepAgainstStateMachine", () => {
 		await expectTaskRight(validateStepAgainstStateMachine(input, makeRun()));
 	});
 
+	test("rejects valid state names when the transition skips a parent phase", async () => {
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const runId = "run-invalid-transition";
+		insertRun(db, {
+			id: runId,
+			flow: "build",
+			featureId: "feat",
+			projectPath: tempDir,
+		});
+		insertEvent(db, {
+			runId,
+			type: "status_change",
+			step: "requirements",
+			data: JSON.stringify({ status: "running" }),
+		});
+
+		const input: EmitInput = {
+			type: "status_change",
+			runId,
+			step: "implementation",
+			workflow: "build",
+			projectPath: tempDir,
+			data: { status: "running", workflow: "build" },
+		};
+
+		const error = await expectTaskLeft(
+			validateStepAgainstStateMachine(input, makeRun({ id: runId })),
+		);
+
+		const msg = getErrorMessage(error);
+		expect(msg).toContain('step "implementation" is not a valid transition');
+		expect(msg).toContain('Current state: "requirements"');
+		expect(msg).toContain("planning");
+	});
+
+	test("allows re-emitting the current parent state", async () => {
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const runId = "run-repeat-current";
+		insertRun(db, {
+			id: runId,
+			flow: "build",
+			featureId: "feat",
+			projectPath: tempDir,
+		});
+		insertEvent(db, {
+			runId,
+			type: "status_change",
+			step: "requirements",
+			data: JSON.stringify({ status: "running" }),
+		});
+
+		const input: EmitInput = {
+			type: "status_change",
+			runId,
+			step: "requirements",
+			workflow: "build",
+			projectPath: tempDir,
+			data: { status: "completed", workflow: "build" },
+		};
+
+		await expectTaskRight(
+			validateStepAgainstStateMachine(input, makeRun({ id: runId })),
+		);
+	});
+
+	test("ignores namespaced subagent events when validating parent transitions", async () => {
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const runId = "run-subagent-parent-transition";
+		insertRun(db, {
+			id: runId,
+			flow: "build",
+			featureId: "feat",
+			projectPath: tempDir,
+		});
+		insertEvent(db, {
+			runId,
+			type: "status_change",
+			step: "planning",
+			data: JSON.stringify({ status: "completed" }),
+		});
+		insertEvent(db, {
+			runId,
+			type: "status_change",
+			step: "feature-tasker:completed",
+			data: JSON.stringify({ status: "completed" }),
+		});
+
+		const input: EmitInput = {
+			type: "status_change",
+			runId,
+			step: "implementation",
+			workflow: "build",
+			projectPath: tempDir,
+			data: { status: "running", workflow: "build" },
+		};
+
+		await expectTaskRight(
+			validateStepAgainstStateMachine(input, makeRun({ id: runId })),
+		);
+	});
+
 	test("rejects invalid step with actionable error message", async () => {
 		const db = await expectTaskRight(getEmitDatabase(dbPath));
 		const runId = "run-invalid-step";
@@ -788,7 +889,7 @@ describe("predecessor auto-completion", () => {
 		);
 	});
 
-	test("auto-completes transitive predecessors in running status", async () => {
+	test("rejects jumping over transitive predecessors in running status", async () => {
 		const runId = `run-pred-trans-${Date.now()}`;
 
 		const input1: EmitInput = {
@@ -809,9 +910,10 @@ describe("predecessor auto-completion", () => {
 			projectPath: tempDir,
 			data: { status: "running", workflow: "build", feature: "feat" },
 		};
-		const result = await expectTaskRight(executeEmit(input2));
-
-		expect(result.data.completedPredecessors ?? []).toContain("requirements");
+		const error = await expectTaskLeft(executeEmit(input2));
+		expect(getErrorMessage(error)).toContain(
+			'step "implementation" is not a valid transition',
+		);
 	});
 
 	test("does not trigger predecessor completion when unit is set", async () => {

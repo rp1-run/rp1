@@ -8,7 +8,7 @@ import {
 	getArtifactsForRun,
 	getEffectiveStepStatuses,
 	getEmitDatabase,
-	getEventsForRun,
+	getRecentEventsForRun,
 	getRunById,
 } from "../emit/database.js";
 import { registerTool, type ToolOptions } from "../index.js";
@@ -253,8 +253,11 @@ export const execute = (
 		TE.map(({ db, parsed, run }) => {
 			const steps = getEffectiveStepStatuses(db, parsed.runId);
 			const artifacts = getArtifactsForRun(db, parsed.runId);
-			const events = getEventsForRun(db, parsed.runId);
-			const recentEvents = events.slice(-parsed.recentEventLimit);
+			const recentEvents = getRecentEventsForRun(
+				db,
+				parsed.runId,
+				parsed.recentEventLimit,
+			);
 			const phases = buildPhases(parsed.parentPhases, steps);
 			const contractGaps = buildContractGaps(phases, artifacts, parsed.feature);
 

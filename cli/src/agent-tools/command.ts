@@ -794,7 +794,7 @@ Examples:
 					input.tasks_path = options.tasksPath;
 				}
 				if (options.maxSimpleBatch) {
-					input.max_simple_batch = Number(options.maxSimpleBatch);
+					input.max_simple_batch = options.maxSimpleBatch;
 				}
 				try {
 					const complexIsolated = parseBooleanFlag(

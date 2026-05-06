@@ -67,8 +67,9 @@ unarchive: SOURCE={{$ARCHIVES_DIR}}/{FEATURE_ID}/  DEST={{$FEATURES_DIR}}/{FEATU
 ## §3 Preconditions
 
 ### Archive
-1. SOURCE must exist -> else error + STOP
-2. Doc check (skip if SKIP_DOC_CHECK=true):
+1. SOURCE must exist. Exception: if SOURCE is missing, DEST exists, and WORKFLOW/RUN_ID are non-empty, set `REGISTRATION_ONLY=true` and continue directly to §6.5 to retry artifact registration for the already-moved archive.
+2. If SOURCE is missing and the registration-only exception does not apply -> error + STOP
+3. Doc check (skip if SKIP_DOC_CHECK=true or REGISTRATION_ONLY=true):
    - Need `requirements.md` or `design.md`
    - If missing, return:
    ```json
@@ -81,7 +82,7 @@ unarchive: SOURCE={{$ARCHIVES_DIR}}/{FEATURE_ID}/  DEST={{$FEATURES_DIR}}/{FEATU
 
 ## §4 Conflict Resolution (archive only)
 
-If DEST exists: append `_{TIMESTAMP}` (format: `%Y%m%d_%H%M%S`)
+If DEST exists and `REGISTRATION_ONLY` is not true: append `_{TIMESTAMP}` (format: `%Y%m%d_%H%M%S`)
 
 ## §4.5 Discovery Extraction (archive only)
 
@@ -97,6 +98,8 @@ If DEST exists: append `_{TIMESTAMP}` (format: `%Y%m%d_%H%M%S`)
 
 ## §5 Execute
 
+Skip this section when `REGISTRATION_ONLY=true`.
+
 ```bash
 mkdir -p {{$ARCHIVES_DIR}}
 mv {{$SOURCE}} {{$DEST}}
@@ -105,7 +108,7 @@ On fail: error + STOP
 
 ## §6 Verify
 
-Confirm DEST exists, SOURCE gone.
+Confirm DEST exists, SOURCE gone. For `REGISTRATION_ONLY=true`, confirm DEST exists and SOURCE remains absent; do not move files.
 
 ## §6.5 Artifact Registration (archive only)
 
@@ -128,21 +131,24 @@ rp1 agent-tools emit \
   --data '{"path": "archives/features/{ARCHIVE_ID}/", "feature": "{FEATURE_ID}", "storageRoot": "work_dir", "type": "feature_archive"}'
 ```
 
-If registration fails in workflow mode, output final JSON with:
+If registration fails in workflow mode, leave the archive at DEST and output final JSON with:
 
 ```json
 {
   "status": "error",
   "mode": "archive",
-  "archive_status": "completed_without_registration",
+  "archive_status": "waiting_registration",
   "feature_id": "{FEATURE_ID}",
+  "archive_id": "{ARCHIVE_ID}",
   "archive_path": "archives/features/{ARCHIVE_ID}/",
   "source_path": "features/{FEATURE_ID}/",
-  "error": "artifact_registration_failed"
+  "error": "artifact_registration_failed",
+  "registration_retry_required": true,
+  "registration_command": "rp1 agent-tools emit --workflow {WORKFLOW} --type artifact_registered --run-id {RUN_ID} --step feature-archiver:completed --data '{\"path\":\"archives/features/{ARCHIVE_ID}/\",\"feature\":\"{FEATURE_ID}\",\"storageRoot\":\"work_dir\",\"type\":\"feature_archive\"}'"
 }
 ```
 
-Do not claim workflow archive completion when registration fails.
+Do not claim workflow archive completion when registration fails. A later retry MAY run this agent again with the same FEATURE_ID; the registration-only precondition above must register the existing archive instead of failing because SOURCE was already moved.
 
 ## §7 Output
 
@@ -168,7 +174,7 @@ If discoveries transferred, list them. If renamed, note timestamp suffix.
 Finish archive success with this final line exactly:
 
 ```text
-ARCHIVE_RESULT_JSON={"status":"success","mode":"archive","archive_status":"completed","feature_id":"{FEATURE_ID}","archive_id":"{ARCHIVE_ID}","source_path":"features/{FEATURE_ID}/","archive_path":"archives/features/{ARCHIVE_ID}/","artifacts":[{"path":"archives/features/{ARCHIVE_ID}/","storageRoot":"work_dir","type":"feature_archive"}],"registration_status":"registered|skipped"}
+ARCHIVE_RESULT_JSON={"status":"success","mode":"archive","archive_status":"completed","feature_id":"{FEATURE_ID}","archive_id":"{ARCHIVE_ID}","source_path":"features/{FEATURE_ID}/","archive_path":"archives/features/{ARCHIVE_ID}/","artifacts":[{"path":"archives/features/{ARCHIVE_ID}/","storageRoot":"work_dir","type":"feature_archive"}],"registration_status":"{REGISTRATION_STATUS}"}
 ```
 
 Use `registration_status = "registered"` when WORKFLOW/RUN_ID were provided and artifact registration succeeded. Use `"skipped"` only outside workflow mode.

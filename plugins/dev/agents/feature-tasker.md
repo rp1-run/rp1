@@ -17,6 +17,11 @@ arguments:
     required: false
     default: false
     description: "Incremental update mode"
+  - name: UPDATE_CONTEXT
+    type: string
+    required: false
+    default: ""
+    description: "Revision reason or explicit task request to apply while preserving completed work"
   - name: WORKFLOW
     type: string
     required: false
@@ -36,6 +41,7 @@ arguments:
 <feature_id>$1</feature_id>
 <work_root>{{WORK_ROOT from prompt}}</work_root>
 <update_mode>$2</update_mode>
+<update_context>{{UPDATE_CONTEXT from prompt}}</update_context>
 ## §1 Context Loading
 
 Read `{WORK_ROOT}/features/{FEATURE_ID}/`:
@@ -143,7 +149,8 @@ Generate `TASK_PLAN` in parallel with `tasks.md`. Machine orchestration consumes
       "complexity": "medium",
       "acceptance_refs": ["REQ-001"],
       "dependencies": [],
-      "reference": "design.md#section"
+      "reference": "design.md#section",
+      "target": "src/path-or-module.ts"
     }
   ]
 }
@@ -157,6 +164,7 @@ Rules:
 - `complexity`: `simple`, `medium`, or `complex`
 - `acceptance_refs`: requirement/acceptance refs, empty array only when no explicit ref exists
 - `dependencies`: task ids from DAG dependency parsing
+- `target`: primary source, module, config, test, or doc path affected by the task; use a stable module/directory path when the exact file is not yet known
 - Include every active task from `tasks.md`; preserve done/blocked status in UPDATE mode.
 
 ### 3.4 Quality
@@ -257,6 +265,8 @@ FOR each task:
 ### 4.5 New Elements
 List uncovered design sections -> new tasks: T{max_id + 1}...
 
+If `UPDATE_CONTEXT` is non-empty, treat it as an explicit update requirement. Add or update pending tasks so the request is represented in both `tasks.md` and `tasks.json`, while preserving completed tasks unless the context explicitly says they need review.
+
 ### 4.6 ID Rules
 | Scenario | Handling |
 |----------|----------|
@@ -308,6 +318,7 @@ Use the template structure exactly.
 - Use schema in §3.3.1 exactly.
 - Keep task order identical to `tasks.md`.
 - `dependencies` from DAG_STATE. If no DAG or no dependency for a task, use `[]`.
+- Include `target` for every code and docs task. Code-task targets use the main source/module/config/test path or nearest stable directory when the exact file is not known.
 - Include code and docs tasks in one `tasks` array.
 
 If `SCOPE_FIT != "feature"`, exit with:

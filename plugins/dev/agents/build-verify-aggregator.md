@@ -68,15 +68,24 @@ Accept legacy component shapes, then normalize them to the preferred envelope.
 ## §NORMALIZE
 
 - Missing/null required component -> synthesize a FAIL envelope with one blocking issue.
-- Unknown status -> synthesize a FAIL envelope for that component.
+- Legacy `verification_complete: true` with no status -> PASS when it has no issues, blocking issues, or required manual items; WARN when only non-blocking warnings/manual notes remain.
+- Legacy `verification_complete: false` with no status -> FAIL.
+- Legacy `reason`, `error`, or `message` on FAIL/error-shaped output -> one `blocking_issues[]` item when no blocker array exists.
+- Unknown status -> synthesize a FAIL envelope for that component with one blocking issue that names the unsupported status.
 - Legacy `issues` -> `blocking_issues`.
 - Legacy `manual_items` -> `manual_items`.
 - Legacy artifact/report fields -> `artifacts`.
 - `implementation_context.task_plan_warnings` -> warnings.
-- `implementation_context.documentation_followups` -> manual_items.
+- `implementation_context.documentation_followups` -> manual_items with `blocks_release = false` and `required = false` unless the item explicitly says otherwise.
 - Empty arrays MUST remain present.
 
 Allowed statuses: PASS, WARN, FAIL, WAITING.
+
+Manual item blocking rule:
+
+- Required manual item: `required === true` or `blocks_release === true`.
+- Non-blocking manual item: `required === false` and `blocks_release === false`.
+- Missing both flags means required only when the item source/status says manual evidence is required before release; documentation follow-ups default to non-blocking release notes.
 
 ## §READINESS
 
@@ -136,7 +145,13 @@ Return ONLY this JSON:
   },
   "blocking_issues": [],
   "warnings": [],
-  "manual_items": [],
+  "manual_items": [
+    {
+      "item": "Manual or documentation follow-up",
+      "required": false,
+      "blocks_release": false
+    }
+  ],
   "artifacts": [
     {
       "path": "features/{FEATURE_ID}/build-readiness.md",

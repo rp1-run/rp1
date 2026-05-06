@@ -40,6 +40,7 @@ const codeTask = (
 	acceptance_refs: ["REQ-009"],
 	dependencies: [],
 	reference: "design.md#task-plan",
+	target: "src/task.ts",
 	...overrides,
 });
 
@@ -215,7 +216,75 @@ describe("build-task-plan", () => {
 		expect(result.success).toBe(false);
 		expect(result.errors?.map((error) => error.message)).toEqual([
 			'Task at index 0 has invalid "complexity". Expected one of: simple, medium, complex.',
+			'Task at index 0 must include non-empty "target".',
 			'Task "T2" depends on unknown task "T404".',
+		]);
+	});
+
+	test("excludes pending code tasks whose prerequisites are blocked", async () => {
+		const tempDir = await createTempDir("build-task-plan-blocked-deps");
+		tempDirs.push(tempDir);
+		const tasksPath = await writeFixture(
+			tempDir,
+			"features/build-v2/tasks.json",
+			taskPlan([
+				codeTask("T1", { status: "blocked" }),
+				codeTask("T2", { dependencies: ["T1"] }),
+				codeTask("T3"),
+			]),
+		);
+
+		const result = await expectTaskRight(
+			execute(JSON.stringify({ tasks_path: tasksPath }), {
+				inputSource: "stdin",
+			}),
+		);
+
+		expect(result.success).toBe(true);
+		expect(result.data?.implementation_tasks.map((task) => task.id)).toEqual([
+			"T3",
+		]);
+		expect(result.data?.task_units.map((unit) => unit.task_ids)).toEqual([
+			["T3"],
+		]);
+		expect(result.data?.warnings).toContain(
+			'Task "T2" is pending but blocked by prerequisite: T1',
+		);
+		expect(result.data?.summary.skipped_blocked).toBe(2);
+	});
+
+	test("allows non-isolated complex tasks to share independent batches", async () => {
+		const tempDir = await createTempDir("build-task-plan-complex-batch");
+		tempDirs.push(tempDir);
+		const tasksPath = await writeFixture(
+			tempDir,
+			"features/build-v2/tasks.json",
+			taskPlan([
+				codeTask("T1"),
+				codeTask("T2", { complexity: "complex" }),
+				codeTask("T3"),
+			]),
+		);
+
+		const result = await expectTaskRight(
+			execute(
+				JSON.stringify({
+					tasks_path: tasksPath,
+					max_simple_batch: 3,
+					complex_isolated: false,
+				}),
+				{ inputSource: "stdin" },
+			),
+		);
+
+		expect(result.success).toBe(true);
+		expect(result.data?.task_units).toEqual([
+			{
+				unit_id: 1,
+				task_ids: ["T1", "T2", "T3"],
+				complexity: "complex",
+				depends_on: [],
+			},
 		]);
 	});
 
@@ -260,5 +329,42 @@ describe("build-task-plan", () => {
 			["T1"],
 			["T2"],
 		]);
+	});
+
+	test("rejects invalid CLI numeric flags instead of defaulting them", async () => {
+		const tempDir = await createTempDir("build-task-plan-cli-invalid");
+		tempDirs.push(tempDir);
+		const tasksPath = await writeFixture(
+			tempDir,
+			"features/build-v2/tasks.json",
+			taskPlan([codeTask("T1")]),
+		);
+
+		const proc = Bun.spawn(
+			[
+				process.execPath,
+				mainPath,
+				"agent-tools",
+				"build-task-plan",
+				"--tasks-path",
+				tasksPath,
+				"--max-simple-batch",
+				"abc",
+			],
+			{
+				stdout: "pipe",
+				stderr: "pipe",
+			},
+		);
+		const [exitCode, stdout] = await Promise.all([
+			proc.exited,
+			new Response(proc.stdout).text(),
+			new Response(proc.stderr).text(),
+		]);
+		const output = parseCliOutput<null>(stdout);
+
+		expect(exitCode).toBe(1);
+		expect(output.success).toBe(false);
+		expect(output.errors?.[0]?.message).toContain('Invalid "max_simple_batch"');
 	});
 });

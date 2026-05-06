@@ -111,7 +111,10 @@ Parse the JSON `ToolResult`.
 - If `data.summary.contract_gaps` is non-empty: choose the first gap by phase order, emit `waiting_for_user` and `status_change waiting` on that gap phase, report missing registered outputs, STOP. Do not inspect feature files or infer success from filenames.
 - Set `WORKFLOW_STATE = data`.
 - Set `START_PHASE = data.summary.next_phase`.
+- If any `WORKFLOW_STATE.phases[]` entry has `status = "waiting"` and there are no contract gaps for that phase, set `WAITING_PHASE` to the earliest waiting parent phase and set `START_PHASE = WAITING_PHASE.phase`.
+- When resuming a `WAITING_PHASE`, return to that phase's recorded checkpoint/decision handler. Do not rerun that phase's producer agents unless the resumed decision is Revise, Add Task, Repair, or another explicit update path.
 - If `START_PHASE` is `null`: output an already-complete summary from registered workflow state and STOP.
+- Initialize `PLANNING_UPDATE_CONTEXT = ""` and `TASK_REGENERATION_REASON = ""` unless restored from a resumed checkpoint event.
 - Phase order: `requirements` -> `planning` -> `implementation` -> `release`.
 
 ## STATE-MACHINE
@@ -249,7 +252,7 @@ rp1 agent-tools emit \
 **Skip if**: `START_PHASE` is after `planning`. **Spawn agent — do NOT design yourself:**
 
 {% dispatch_agent "rp1-dev:feature-architect" %}
-FEATURE_ID={FEATURE_ID}, AFK_MODE={AFK}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, UPDATE_MODE={design.md exists}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, AFK_MODE={AFK}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, UPDATE_MODE={design.md exists}, UPDATE_CONTEXT={PLANNING_UPDATE_CONTEXT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 Parse the response as JSON.
@@ -340,7 +343,7 @@ rp1 agent-tools emit \
 
 {% ask_user "Rejected planning hypotheses found. Revise plan, Continue with risk, or Stop?", options: "Revise plan", "Continue with risk", "Stop" %}
 
-- Revise plan: collect feedback, set `TASK_REGENERATION_REASON = "Rejected hypotheses: {ids}; revision requested: {summary}"`, emit `planning` running with that reason, then re-invoke §PHASE-2 before any task generation.
+- Revise plan: collect feedback, set `TASK_REGENERATION_REASON = "Rejected hypotheses: {ids}; revision requested: {summary}"`, set `PLANNING_UPDATE_CONTEXT = TASK_REGENERATION_REASON`, emit `planning` running with that reason, then re-invoke §PHASE-2 before any task generation.
 - Continue with risk: proceed to the single normal `feature-tasker` dispatch below and preserve the rejected IDs in the final planning summary.
 - Stop: output the rejected hypothesis IDs and `/build {FEATURE_ID}` resume instruction, leave `planning` waiting, and STOP.
 
@@ -349,7 +352,7 @@ rp1 agent-tools emit \
 Normal fresh path invariant: dispatch `feature-tasker` exactly once, after `feature-architect` succeeds and after the hypothesis gate is either skipped, clear, or explicitly continued with risk.
 
 {% dispatch_agent "rp1-dev:feature-tasker" %}
-FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=false, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=false, UPDATE_CONTEXT={TASK_REGENERATION_REASON}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 Validate the `feature-tasker` response before the planning checkpoint:
@@ -382,7 +385,7 @@ rp1 agent-tools emit \
   --data '{"status": "running", "feature": "{FEATURE_ID}", "task_regeneration_reason": "{TASK_REGENERATION_REASON}", "update_mode": true}'
 ```
 
-Then re-invoke §PHASE-2 and dispatch `feature-tasker` with `UPDATE_MODE=true` on that revise path. Do not regenerate tasks before the reason is recorded.
+Then set `PLANNING_UPDATE_CONTEXT = TASK_REGENERATION_REASON`, re-invoke §PHASE-2, and dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT=TASK_REGENERATION_REASON` on that revise path. Do not regenerate tasks before the reason is recorded.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
 On Stop: emit waiting status, output summary (requirements complete, planning waiting), exit with `/build {FEATURE_ID}`.
 
@@ -649,11 +652,16 @@ rp1 agent-tools emit \
 
 {% ask_user "Release, Add Task, Review feedback from Arcade, or Stop?", options: "Release", "Add Task", "Review feedback from Arcade", "Stop" %}
 On Release: continue.
-On Add Task: emit `implementation` waiting with `reason = "readiness_add_task"`, collect the added-task request, and STOP with `/build {FEATURE_ID}` resume instructions.
+On Add Task: collect `ADDED_TASK_REQUEST`, dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT={"source":"implementation_checkpoint","request":ADDED_TASK_REQUEST}`, validate the same success contract as §2.3, then emit `implementation` waiting with `reason = "readiness_add_task"` and the compact `added_task_request`. STOP with `/build {FEATURE_ID}` resume instructions. On resume, `build-task-plan` must consume the updated `tasks.json`.
+
+{% dispatch_agent "rp1-dev:feature-tasker" %}
+FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=true, UPDATE_CONTEXT={"source":"implementation_checkpoint","request":ADDED_TASK_REQUEST}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
+
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
 On Stop: emit `implementation` waiting and STOP with `/build {FEATURE_ID}` resume instructions.
 
-Add-task or stop emit:
+Add-task emit:
 
 ```bash
 rp1 agent-tools emit \
@@ -661,7 +669,18 @@ rp1 agent-tools emit \
   --type status_change \
   --run-id {RUN_ID} \
   --step implementation \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "reason": "readiness_add_task_or_stop"}'
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "reason": "readiness_add_task", "added_task_request": "{ADDED_TASK_REQUEST}"}'
+```
+
+Stop emit:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step implementation \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "reason": "stopped_at_implementation_checkpoint"}'
 ```
 
 After the user chooses Release, or AFK skips this checkpoint, emit `implementation` completed:
@@ -728,7 +747,12 @@ rp1 agent-tools emit \
 ```
 
 {% ask_user "Add task, Archive, Review feedback from Arcade, Complete without archive, or Stop?", options: "Add task", "Archive", "Review feedback from Arcade", "Complete without archive", "Stop" %}
-On Add task: emit `release` waiting with `archive_status = "deferred"`, emit `implementation` waiting with `reason = "release_add_task"`, collect the added-task request, and STOP with `/build {FEATURE_ID}` resume instructions. Parent `release` MUST NOT complete until release is re-entered after implementation and readiness re-aggregation.
+On Add task: collect `ADDED_TASK_REQUEST`, dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT={"source":"release_gate","request":ADDED_TASK_REQUEST}`, validate the same success contract as §2.3, emit `release` waiting with `archive_status = "deferred"`, emit `implementation` waiting with `reason = "release_add_task"` and the compact `added_task_request`, and STOP with `/build {FEATURE_ID}` resume instructions. Parent `release` MUST NOT complete until release is re-entered after implementation and readiness re-aggregation.
+
+{% dispatch_agent "rp1-dev:feature-tasker" %}
+FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=true, UPDATE_CONTEXT={"source":"release_gate","request":ADDED_TASK_REQUEST}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
+
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
 On Stop: emit `release` waiting with `archive_status = "deferred"` and STOP with `/build {FEATURE_ID}` resume instructions.
 On Complete without archive: emit `release` completed with `archive_status: "declined"` and STOP. Do not run `feature-archiver`. Do not claim archive completion.
@@ -741,7 +765,7 @@ rp1 agent-tools emit \
   --type status_change \
   --run-id {RUN_ID} \
   --step release \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "archive_status": "deferred", "reason": "add_task_requested"}'
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "archive_status": "deferred", "reason": "add_task_requested", "added_task_request": "{ADDED_TASK_REQUEST}"}'
 ```
 
 ```bash
@@ -750,7 +774,7 @@ rp1 agent-tools emit \
   --type status_change \
   --run-id {RUN_ID} \
   --step implementation \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "reason": "release_add_task"}'
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "reason": "release_add_task", "added_task_request": "{ADDED_TASK_REQUEST}"}'
 ```
 
 Stop emits:
@@ -763,6 +787,8 @@ rp1 agent-tools emit \
   --step release \
   --data '{"status": "waiting", "feature": "{FEATURE_ID}", "archive_status": "deferred"}'
 ```
+
+Complete-without-archive emit:
 
 ```bash
 rp1 agent-tools emit \

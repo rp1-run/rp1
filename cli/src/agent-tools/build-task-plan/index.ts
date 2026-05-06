@@ -254,6 +254,7 @@ const parseTask = (
 		index,
 		errors,
 	);
+	const target = parseStringField(value, "target", index, errors);
 
 	if (
 		!id ||
@@ -262,7 +263,8 @@ const parseTask = (
 		!status ||
 		!complexity ||
 		!acceptanceRefs ||
-		!dependencies
+		!dependencies ||
+		!target
 	) {
 		return null;
 	}
@@ -278,9 +280,7 @@ const parseTask = (
 		...(parseOptionalString(value.reference)
 			? { reference: parseOptionalString(value.reference) }
 			: {}),
-		...(parseOptionalString(value.target)
-			? { target: parseOptionalString(value.target) }
-			: {}),
+		target,
 		...(parseOptionalString(value.notes)
 			? { notes: parseOptionalString(value.notes) }
 			: {}),
@@ -425,6 +425,76 @@ const pendingDependencyIdsFor = (
 	);
 };
 
+const dependencyBlockedIdsFor = (
+	tasks: readonly BuildTaskPlanTask[],
+): ReadonlySet<string> => {
+	const byId = new Map(tasks.map((task) => [task.id, task]));
+	const statusBlocked = new Set(
+		tasks.filter((task) => task.status === "blocked").map((task) => task.id),
+	);
+	const dependencyBlocked = new Set<string>();
+	const visiting = new Set<string>();
+
+	const isBlockedByDependency = (task: BuildTaskPlanTask): boolean => {
+		if (dependencyBlocked.has(task.id)) {
+			return true;
+		}
+		if (visiting.has(task.id)) {
+			return false;
+		}
+
+		visiting.add(task.id);
+		for (const dependency of task.dependencies) {
+			if (statusBlocked.has(dependency)) {
+				dependencyBlocked.add(task.id);
+				visiting.delete(task.id);
+				return true;
+			}
+
+			const dependencyTask = byId.get(dependency);
+			if (
+				dependencyTask &&
+				dependencyTask.status === "pending" &&
+				isBlockedByDependency(dependencyTask)
+			) {
+				dependencyBlocked.add(task.id);
+				visiting.delete(task.id);
+				return true;
+			}
+		}
+		visiting.delete(task.id);
+		return false;
+	};
+
+	for (const task of tasks) {
+		if (task.status === "pending") {
+			isBlockedByDependency(task);
+		}
+	}
+
+	return dependencyBlocked;
+};
+
+const blockedDependencyWarningsFor = (
+	tasks: readonly BuildTaskPlanTask[],
+	dependencyBlockedIds: ReadonlySet<string>,
+): readonly string[] => {
+	const blockedStatusIds = new Set(
+		tasks.filter((task) => task.status === "blocked").map((task) => task.id),
+	);
+	const blockedIds = new Set([...blockedStatusIds, ...dependencyBlockedIds]);
+
+	return tasks
+		.filter((task) => dependencyBlockedIds.has(task.id))
+		.map((task) => {
+			const blockers = task.dependencies.filter((dependency) =>
+				blockedIds.has(dependency),
+			);
+			const suffix = blockers.length > 0 ? `: ${blockers.join(", ")}` : ".";
+			return `Task "${task.id}" is pending but blocked by prerequisite${blockers.length === 1 ? "" : "s"}${suffix}`;
+		});
+};
+
 const unitComplexityFor = (
 	tasks: readonly BuildTaskPlanTask[],
 ): BuildTaskComplexity => {
@@ -491,8 +561,12 @@ const groupTaskUnits = (
 		);
 		const canBatchSimple =
 			task.complexity === "simple" && pendingDependencies.length === 0;
+		const canBatchNonIsolatedComplex =
+			!complexIsolated &&
+			task.complexity === "complex" &&
+			pendingDependencies.length === 0;
 
-		if (canBatchSimple) {
+		if (canBatchSimple || canBatchNonIsolatedComplex) {
 			simpleBuffer.push(task);
 			if (simpleBuffer.length >= maxSimpleBatch) {
 				flushSimple();
@@ -501,11 +575,6 @@ const groupTaskUnits = (
 		}
 
 		flushSimple();
-		if (task.complexity === "complex" && !complexIsolated) {
-			units.push(createUnit(unitId, [task], pendingImplementationIds));
-			unitId += 1;
-			continue;
-		}
 		units.push(createUnit(unitId, [task], pendingImplementationIds));
 		unitId += 1;
 	}
@@ -519,6 +588,7 @@ const summaryFor = (
 	implementationTasks: readonly BuildTaskPlanTask[],
 	documentationTasks: readonly BuildTaskPlanTask[],
 	taskUnits: readonly BuildTaskUnit[],
+	dependencyBlockedIds: ReadonlySet<string>,
 ) => {
 	const completed = tasks.filter((task) => task.status === "completed").length;
 	const blocked = tasks.filter((task) => task.status === "blocked").length;
@@ -531,7 +601,7 @@ const summaryFor = (
 		documentation_pending: documentationTasks.length,
 		total_units: taskUnits.length,
 		skipped_completed: completed,
-		skipped_blocked: blocked,
+		skipped_blocked: blocked + dependencyBlockedIds.size,
 	};
 };
 
@@ -548,10 +618,14 @@ const buildResult = (
 	const pendingTasks = sortedResult.right.filter(
 		(task) => task.status === "pending",
 	);
-	const implementationTasks = pendingTasks.filter(
+	const dependencyBlockedIds = dependencyBlockedIdsFor(sortedResult.right);
+	const schedulablePendingTasks = pendingTasks.filter(
+		(task) => !dependencyBlockedIds.has(task.id),
+	);
+	const implementationTasks = schedulablePendingTasks.filter(
 		(task) => task.type === "code",
 	);
-	const documentationTasks = pendingTasks.filter(
+	const documentationTasks = schedulablePendingTasks.filter(
 		(task) => task.type === "docs",
 	);
 	const taskUnits = groupTaskUnits(
@@ -569,17 +643,20 @@ const buildResult = (
 		implementation_tasks: implementationTasks,
 		documentation_tasks: documentationTasks,
 		task_units: taskUnits,
-		warnings:
-			input.tasksPath === planPath
+		warnings: [
+			...(input.tasksPath === planPath
 				? []
 				: [
 						`Resolved machine task plan sidecar from "${input.tasksPath}" to "${planPath}".`,
-					],
+					]),
+			...blockedDependencyWarningsFor(sortedResult.right, dependencyBlockedIds),
+		],
 		summary: summaryFor(
 			plan.tasks,
 			implementationTasks,
 			documentationTasks,
 			taskUnits,
+			dependencyBlockedIds,
 		),
 	});
 };
