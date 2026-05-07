@@ -1,79 +1,56 @@
-# PR Review Tutorial
+# PR Review Guide
 
-Perform thorough code reviews using rp1's map-reduce PR analysis. This tutorial walks you through automated review, visual understanding, and feedback handling.
+Use rp1 to review a pull request, decide what should happen next, and turn
+findings or human comments into follow-up work.
 
-**Time to complete**: ~30-40 minutes
+**Time to complete**: 15-25 minutes
 
 ---
 
-## What You'll Learn
+## What You'll Do
 
-- How rp1's map-reduce PR review architecture works
-- Running automated PR analysis with confidence gating
-- Visualizing PR changes with Mermaid diagrams
-- Collecting and addressing reviewer feedback
-- Integrating rp1 reviews into team workflows
+- Run a review against a pull request, branch, or local diff.
+- Read the verdict and separate blocking issues from useful observations.
+- Decide whether to proceed, fix, split, or ask for human review.
+- Use walkthroughs and diagrams when reviewers need more context.
+- Address follow-up comments without losing track of decisions.
 
 ## Prerequisites
 
 !!! warning "Before You Begin"
     - rp1 installed ([Installation](../getting-started/installation.md))
-    - Knowledge base generated (`/knowledge-build`)
-    - A PR to review (local branch or GitHub PR)
-    - For GitHub features: [`gh` CLI](https://cli.github.com/) installed and authenticated
+    - Project context generated with `knowledge-build`
+    - A pull request, branch, or local diff to review
+    - For GitHub pull requests: [`gh` CLI](https://cli.github.com/) installed and authenticated
 
 ---
 
-## The Scenario
-
-We'll review a **feature PR** that adds user authentication to an API. This example was chosen because:
-
-- Auth changes touch multiple layers (routes, middleware, database)
-- Security implications require careful review
-- Multiple files demonstrate the map-reduce approach
-
-**PR**: Branch `feature/user-auth` with 8 files changed, adding JWT-based authentication.
-
----
-
-## The PR Review Workflow
+## Review Decision Flow
 
 ```mermaid
 flowchart TB
-    PR[PR Created] --> R[Review + Visual]
-    R --> FB[Address Feedback]
-    FB --> M[Merge]
+    START[Choose a PR or branch] --> REVIEW[Run pr-review]
+    REVIEW --> READ[Read verdict and findings]
+    READ --> DECIDE{What is the next action?}
+    DECIDE -->|approve| PROCEED[Proceed to normal human or CI gate]
+    DECIDE -->|request_changes| FIX[Fix blocking findings]
+    DECIDE -->|block| PAUSE[Pause merge and rework or split]
+    DECIDE -->|needs context| ORIENT[Create walkthrough or diagram]
+    FIX --> REVIEW
+    ORIENT --> READ
 ```
 
-| Step | Command | Purpose |
-|------|---------|---------|
-| Review | `pr-review` | Automated analysis with confidence gating (auto-generates visual diagrams) |
-| Visualize | `pr-visual` | Manual diagram generation (if needed separately) |
-| Address Feedback | [Separate guide](pr-feedback.md) | Collect and fix reviewer comments |
+rp1's verdict is review input. It does not replace your team's merge policy,
+required CI checks, security rules, or human approval requirements.
 
----
+## Step 1: Run The Review
 
-## Step 1: Run PR Review
-
-Start the automated review analysis:
+Start with the current branch when it already has an associated pull request.
 
 === "Claude Code"
 
     ```bash
     /pr-review
-    ```
-
-    Or specify a target:
-
-    ```bash
-    # By branch
-    /pr-review feature/user-auth main
-
-    # By PR number
-    /pr-review 42
-
-    # By GitHub URL
-    /pr-review https://github.com/owner/repo/pull/42
     ```
 
 === "OpenCode"
@@ -82,357 +59,221 @@ Start the automated review analysis:
     /rp1-dev-pr-review
     ```
 
-    Or specify a target:
+=== "Codex"
 
     ```bash
-    # By branch
-    /rp1-dev-pr-review feature/user-auth main
-
-    # By PR number
-    /rp1-dev-pr-review 42
-
-    # By GitHub URL
-    /rp1-dev-pr-review https://github.com/owner/repo/pull/42
+    $rp1-dev-pr-review
     ```
 
-**What happens:**
-
-rp1's map-reduce PR review:
-
-1. **Splits** the diff into reviewable units (logical file groups)
-2. **Maps** each unit to a sub-reviewer agent (parallel analysis)
-3. **Reduces** findings through a synthesizer for holistic judgment
-
-```mermaid
-flowchart TB
-    subgraph Map Phase
-        D[PR Diff] --> S[Splitter]
-        S --> U1[Unit 1: Routes]
-        S --> U2[Unit 2: Middleware]
-        S --> U3[Unit 3: Services]
-        S --> U4[Unit 4: Tests]
-    end
-
-    subgraph Parallel Review
-        U1 --> R1[Sub-Reviewer 1]
-        U2 --> R2[Sub-Reviewer 2]
-        U3 --> R3[Sub-Reviewer 3]
-        U4 --> R4[Sub-Reviewer 4]
-    end
-
-    subgraph Reduce Phase
-        R1 --> SYN[Synthesizer]
-        R2 --> SYN
-        R3 --> SYN
-        R4 --> SYN
-        SYN --> REP[Review Report]
-    end
-```
-
-**What to expect:**
-
-```
-🔍 PR Review Started
-
-Target: feature/user-auth → main
-Files changed: 8
-Additions: +342, Deletions: -28
-
-Phase 1: Splitting diff into review units...
-✓ Unit 1: Authentication routes (2 files)
-✓ Unit 2: JWT middleware (2 files)
-✓ Unit 3: User service (2 files)
-✓ Unit 4: Test coverage (2 files)
-
-Phase 2: Parallel sub-reviews...
-[████████████████████] 4/4 units analyzed
-
-Phase 3: Synthesizing findings...
-```
-
-!!! tip "Checkpoint"
-    The splitter organizes files into logical units. If your files are grouped oddly, it may be because they share functionality the splitter detected.
-
----
-
-## Step 2: Understand Confidence Gating
-
-Each finding has a confidence score that determines how it's reported:
-
-**What to expect:**
-
-```
-📊 Findings Summary
-
-Critical Findings (≥65% confidence):
-
-  🔴 SECURITY: JWT secret hardcoded in source file
-     Location: src/middleware/auth.ts:12
-     Confidence: 92%
-     "Secret should be loaded from environment variable"
-
-High Priority (≥65% confidence):
-
-  🟠 Missing token expiration check
-     Location: src/middleware/auth.ts:45
-     Confidence: 78%
-     "Token validation doesn't check exp claim"
-
-Medium Priority (≥65% confidence):
-
-  🟡 No rate limiting on login endpoint
-     Location: src/routes/auth.ts:28
-     Confidence: 71%
-     "Login should have rate limiting to prevent brute force"
-
-Filtered (40-64%, critical/high only investigated):
-- Possible SQL injection (45% → investigated → FALSE POSITIVE)
-- Missing input validation (52% → investigated → documented)
-```
-
-**Confidence thresholds:**
-
-| Confidence | Action |
-|------------|--------|
-| ≥65% | Included in report |
-| 40-64% (critical/high) | Investigation protocol triggered |
-| <40% | Excluded from report |
-
----
-
-## Step 3: Review Fitness Judgment
-
-The synthesizer produces a holistic judgment:
-
-**What to expect:**
-
-```
-📋 Fitness Judgment
-
-Verdict: REQUEST_CHANGES
-
-Rationale:
-The PR introduces functional authentication but has security
-issues that must be addressed before merge:
-
-1. Hardcoded JWT secret (critical, blocking)
-2. Missing token expiration check (high, blocking)
-3. No rate limiting (medium, recommended)
-
-Positive Observations:
-- Good test coverage for happy path
-- Clean separation of concerns
-- Proper error handling in middleware
-
-Recommended Actions:
-1. Move JWT_SECRET to environment variable
-2. Add expiration check in validateToken()
-3. Consider adding rate limiting to login route
-
-Report: .rp1/work/pr-reviews/feature-user-auth/review.md
-Reviewed PR: https://github.com/owner/repo/pull/42
-```
-
-**Verdict types:**
-
-| Verdict | Meaning |
-|---------|---------|
-| `APPROVE` | No blocking issues, safe to merge |
-| `REQUEST_CHANGES` | Issues must be addressed |
-| `BLOCK` | Critical problems, needs rework |
-
-!!! tip "Checkpoint"
-    The review report is saved to `.rp1/work/pr-reviews/`. Review it before taking action.
-
-When the reviewed PR URL is known, the saved report includes an `External Links`
-section with a single `Reviewed PR` row. The final output, markdown report, and
-Arcade run artifacts point to the same PR URL:
-
-| Surface | Where the reviewed PR link appears |
-|---------|------------------------------------|
-| Final output | `Reviewed PR: https://github.com/owner/repo/pull/42` |
-| Markdown report | `External Links` table with `Reviewed PR` and `reviewed_pr` |
-| Arcade | Run artifact entry that opens or copies the PR URL |
-
-For the first PR review iteration, `External Links` includes only the reviewed
-PR URL. Posted review URLs, evidence links, code-line links, and related links
-stay in their normal report context.
-
----
-
-## Step 4: Visualize Changes (Auto or Manual)
-
-Visualizations are **automatically generated** during `pr-review` by default. You can also generate them manually:
+You can also point the review at a specific target.
 
 === "Claude Code"
 
     ```bash
-    /pr-visual
+    /pr-review 42
+    /pr-review https://github.com/owner/repo/pull/42
+    /pr-review feature/user-auth main
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev-pr-visual
+    /rp1-dev-pr-review 42
+    /rp1-dev-pr-review https://github.com/owner/repo/pull/42
+    /rp1-dev-pr-review feature/user-auth main
     ```
 
-**What happens:**
+=== "Codex"
 
-rp1 generates Mermaid diagrams showing:
+    ```bash
+    $rp1-dev-pr-review 42
+    $rp1-dev-pr-review https://github.com/owner/repo/pull/42
+    $rp1-dev-pr-review feature/user-auth main
+    ```
 
-- File change relationships
-- New dependencies introduced
-- Data flow modifications
-- Component interactions
+The review resolves the target, reads the PR description or local diff, checks
+the implementation against that intent, and writes a report under
+`.rp1/work/pr-reviews/`.
 
-**What to expect:**
+## Step 2: Read The Verdict
 
-```
-📊 PR Visualization
+The final output and markdown report should answer four questions:
 
-Generating diagrams for: feature/user-auth → main
+| Question | Where to look |
+|----------|---------------|
+| What was this PR trying to do? | Intent or summary section |
+| Is it safe to proceed? | Verdict and rationale |
+| What must change before merge? | Critical and high findings |
+| What should be tracked after review? | Recommendations and follow-ups |
 
-Diagrams created:
-1. File Change Map - shows which files changed and how they relate
-2. New Dependencies - shows new imports/dependencies added
-3. Auth Flow - shows the authentication data flow
+Typical verdicts:
 
-Output: .rp1/work/pr-reviews/feature-user-auth/diagrams.md
-```
+| Verdict | What it means | Next action |
+|---------|---------------|-------------|
+| `approve` | No blocking issues were found. | Continue to human review, CI, or merge policy. |
+| `request_changes` | One or more findings should be fixed before merge. | Fix the blocking items, push updates, and rerun review if the change is material. |
+| `block` | The PR has critical risk or the review cannot support the current direction. | Pause merge, rework the approach, split the PR, or ask a domain owner. |
 
-Example generated diagram:
+When the reviewed PR URL is known, the report and Arcade run show a reviewed PR
+link so you can jump back to the source review target.
 
-```mermaid
-flowchart TB
-    subgraph "New Authentication Flow"
-        REQ[Request] --> MW[Auth Middleware]
-        MW --> |valid token| ROUTE[Protected Route]
-        MW --> |invalid token| ERR[401 Error]
+## Step 3: Decide What Happens Next
 
-        LOGIN[Login Route] --> SVC[User Service]
-        SVC --> DB[(Database)]
-        SVC --> JWT[JWT Sign]
-        JWT --> RES[Token Response]
-    end
-```
+Use the verdict with your own context:
 
-!!! info "When to Run Manually"
-    Run `pr-visual` separately when you want to regenerate diagrams, share visuals without the full review, or explain changes to stakeholders.
+| Situation | Action |
+|-----------|--------|
+| Verdict is `approve`, CI is green, and no required reviewer is missing. | Proceed through your normal merge process. |
+| Verdict is `request_changes` with concrete code findings. | Fix those items, add or update tests when needed, then rerun review. |
+| Verdict is `block`. | Stop the merge path until the design, security, or correctness issue is resolved. |
+| The PR is large and reviewers need orientation. | Generate a walkthrough before asking for review. |
+| The change is cross-file or hard to explain in prose. | Generate a visual diagram and attach or link it in the PR discussion. |
+| Human reviewers already left comments. | Use the feedback workflow to collect and address comments systematically. |
 
----
+!!! tip "Keep findings actionable"
+    A useful review decision identifies the exact blocking item, the expected
+    fix, and whether another review pass is required.
+
+## Step 4: Use Walkthroughs And Visual Aids
+
+Use these when the review needs context, not as a substitute for fixing
+findings.
+
+| Need | Command | Best use |
+|------|---------|----------|
+| Review verdict and actionable findings | `pr-review` | Decide whether to approve, request changes, or block. |
+| Reviewer orientation | `pr-walkthrough` | Explain what changed, where to look, and what questions remain. |
+| Cross-file diagram | `pr-visual` | Show flows, dependencies, or file relationships that are hard to scan from a diff. |
+
+Generate a walkthrough:
+
+=== "Claude Code"
+
+    ```bash
+    /pr-walkthrough 42
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-dev-pr-walkthrough 42
+    ```
+
+=== "Codex"
+
+    ```bash
+    $rp1-dev-pr-walkthrough 42
+    ```
+
+Generate diagrams:
+
+=== "Claude Code"
+
+    ```bash
+    /pr-visual 42
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-dev-pr-visual 42
+    ```
+
+=== "Codex"
+
+    ```bash
+    $rp1-dev-pr-visual 42
+    ```
+
+Open generated reports, walkthroughs, and diagrams from the command output or
+from the run in [Arcade](../arcade/index.md). Walkthroughs are easiest to share
+when reviewers need a quick map before reading the diff.
 
 ## Step 5: Address Feedback
 
-After human reviewers comment on your PR, use the feedback workflow to collect and fix their comments systematically.
+After human reviewers comment on the pull request, use the feedback workflow to
+collect unresolved comments, decide which ones need code changes, and apply the
+fixes in one pass.
 
 [Go to Addressing PR Feedback :material-arrow-right:](pr-feedback.md){ .md-button .md-button--primary }
 
----
+## Team Review Patterns
 
-## Team Workflow Integration
-
-### Pattern A: Pre-Review with rp1
-
-Run `pr-review` before requesting human review:
+### Pre-Review Before Requesting Humans
 
 ```mermaid
 flowchart TB
-    DEV[Developer] --> PR[Create PR]
-    PR --> rp1[rp1 pr-review]
-    rp1 --> FIX[Fix Issues]
-    FIX --> HUMAN[Request Human Review]
-    HUMAN --> MERGE[Merge]
+    DEV[Developer opens PR] --> AUTO[Run pr-review]
+    AUTO --> FIX[Fix blocking findings]
+    FIX --> HUMAN[Request human review]
+    HUMAN --> MERGE[Merge through team policy]
 ```
 
-**Benefits**: Catch obvious issues before human reviewers spend time.
+Use this when you want to catch obvious issues before reviewers spend time.
 
-### Pattern B: Post-Review Feedback Loop
-
-Use rp1 to process and fix human feedback:
+### Orientation For Larger PRs
 
 ```mermaid
 flowchart TB
-    PR[Create PR] --> HUMAN[Human Review]
-    HUMAN --> ADDR[/address-pr-feedback]
-    ADDR --> UPDATE[Push Updates]
-    UPDATE --> MERGE[Merge]
+    DEV[Developer opens large PR] --> WALK[Generate walkthrough]
+    WALK --> REVIEWERS[Share orientation with reviewers]
+    REVIEWERS --> AUTO[Run or read pr-review]
+    AUTO --> DECISION[Decide next action]
 ```
 
-**Benefits**: Systematic processing of reviewer comments, nothing missed.
+Use this when the PR is correct but hard to scan without a change map.
 
-### Pattern C: Full rp1 Loop
-
-Combine automated and human review:
+### Post-Review Feedback Loop
 
 ```mermaid
 flowchart TB
-    PR[Create PR] --> AUTO[rp1 pr-review]
-    AUTO --> FIX1[Fix Auto Issues]
-    FIX1 --> HUMAN[Human Review]
-    HUMAN --> ADDR[/address-pr-feedback]
-    ADDR --> MERGE[Merge]
+    HUMAN[Human review comments] --> FEEDBACK[Run address-pr-feedback]
+    FEEDBACK --> UPDATE[Apply fixes]
+    UPDATE --> CHECK[Run tests or pr-review again]
+    CHECK --> MERGE[Merge through team policy]
 ```
 
-**Benefits**: Most thorough review process, combines AI and human insight.
-
----
-
-## Summary
-
-You've learned the PR review workflow:
-
-| Step | Command | Output |
-|------|---------|--------|
-| 1. Review | `pr-review` | Findings with confidence scores |
-| 2. Judgment | (automatic) | APPROVE / REQUEST_CHANGES / BLOCK |
-| 3. Visualize | `pr-visual` | Mermaid diagrams (auto or manual) |
-
-### Key Concepts
-
-- **[Map-Reduce](../concepts/map-reduce-workflows.md)**: Parallel analysis of diff units, synthesized judgment
-- **Confidence Gating**: Only high-confidence findings reported
-- **Fitness Judgment**: Holistic assessment, not just issue list
-
----
-
-## Next Steps
-
-- **Address feedback**: See [Addressing PR Feedback](pr-feedback.md) for the complete feedback workflow
-- **Reference docs**: See [pr-review](../reference/dev/pr-review.md), [pr-visual](../reference/dev/pr-visual.md)
-- **Understand the architecture**: Learn about [Map-Reduce Workflows](../concepts/map-reduce-workflows.md)
-- **Investigate issues**: Use [Bug Investigation](bug-investigation.md) for complex problems
+Use this when comments already exist and you need to avoid missing one.
 
 ---
 
 ## Troubleshooting
 
-??? question "PR review is taking too long"
+??? question "The review target is wrong"
 
-    Large PRs with many files take longer due to parallel sub-reviews. Consider:
+    Pass the PR number or URL explicitly:
 
-    - Breaking large PRs into smaller chunks
-    - Excluding generated files (they're filtered automatically, but patterns may need adjustment)
-
-??? question "Confidence scores seem too low"
-
-    Confidence depends on evidence found in your codebase. Ensure your knowledge base is current:
     ```bash
-    /knowledge-build
+    /pr-review 42
     ```
 
-??? question "Diagrams aren't rendering"
+    For local branches, include the base branch:
 
-    Mermaid diagrams require a compatible viewer. The generated markdown works in:
-
-    - GitHub (native support)
-    - VS Code with Mermaid extension
-    - MkDocs with pymdownx.superfences
-
-??? question "Can I review without GitHub?"
-
-    Yes. `pr-review` and `pr-visual` work with local branches:
     ```bash
     /pr-review feature-branch main
     ```
 
-    Only `/address-pr-feedback` requires GitHub integration.
+??? question "The report does not understand the intent"
+
+    Make sure the PR description explains the goal, user impact, and known
+    tradeoffs. If the PR is local-only, include a clear branch name and commit
+    history, or add context when the workflow asks.
+
+??? question "The PR is too large to review usefully"
+
+    Generate a walkthrough for orientation, then split the PR if the findings
+    are too broad to act on. Reviews are most useful when each finding maps to
+    a specific owner and fix.
+
+??? question "I need automated GitHub review comments"
+
+    Use [Remote PR Review](remote-pr-review.md) and the
+    [PR Review Config Reference](../reference/pr-review-config.md) for CI
+    setup and posting behavior.
+
+## Next Steps
+
+- **Command details**: [`pr-review`](../reference/dev/pr-review.md)
+- **Walkthrough reference**: [`pr-walkthrough`](../reference/dev/pr-walkthrough.md)
+- **Visual reference**: [`pr-visual`](../reference/dev/pr-visual.md)
+- **Human comments**: [Addressing PR Feedback](pr-feedback.md)

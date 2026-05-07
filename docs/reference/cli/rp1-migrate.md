@@ -58,8 +58,8 @@ The command computes the legacy external work path using the same normalization 
 `rp1 migrate` also repairs older tracked-workflow rows conservatively:
 
 - When the command can safely derive workflow identity, it backfills the run
-  onto the canonical project root and adds deterministic fields such as
-  `run_policy`, `work_identity`, and `bootstrap_context`.
+  onto the canonical project root and restores deterministic resume metadata,
+  including resume behavior, work identity, and startup context.
 - Older `/build` runs with a known `feature_id` become resumable again as
   `FEATURE_ID=<value>`, even if they were originally created from a linked
   worktree.

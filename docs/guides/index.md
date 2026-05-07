@@ -4,7 +4,7 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
 ---
 
-## Available Tutorials
+## Guides By Job
 
 <div class="grid cards" markdown>
 
@@ -12,9 +12,17 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
     ---
 
-    Build your first feature with rp1's 6-step workflow using the `/build` command: requirements, design, build, verify, archive, and follow-up.
+    Ship a feature with the primary `/build` workflow from requirements through release.
 
     [:octicons-arrow-right-24: Start tutorial](feature-development.md)
+
+-   :material-rocket-launch-outline: **Project Bootstrap**
+
+    ---
+
+    Turn a new project idea into a charter, project scaffold, and first implementation path.
+
+    [:octicons-arrow-right-24: Start tutorial](bootstrap.md)
 
 -   :material-bug-outline: **Bug Investigation**
 
@@ -28,7 +36,7 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
     ---
 
-    Perform thorough code reviews with map-reduce analysis and confidence gating.
+    Run a structured review, inspect findings, and decide whether to proceed, request changes, or ask for human review.
 
     [:octicons-arrow-right-24: Start tutorial](pr-review.md)
 
@@ -48,6 +56,14 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
     [:octicons-arrow-right-24: Start tutorial](pr-feedback.md)
 
+-   :material-cog-sync-outline: **CI/CD Integration**
+
+    ---
+
+    Run rp1 review workflows from automation and connect results back to pull requests.
+
+    [:octicons-arrow-right-24: Start tutorial](ci-cd-integration.md)
+
 -   :material-account-group: **Team Onboarding**
 
     ---
@@ -56,29 +72,37 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
     [:octicons-arrow-right-24: Start tutorial](team-onboarding.md)
 
+-   :material-account-switch-outline: **Scaling with Teams**
+
+    ---
+
+    Standardize how teammates use rp1 workflows, reviews, and shared project context.
+
+    [:octicons-arrow-right-24: Start tutorial](scaling-with-teams.md)
+
 </div>
 
 ---
 
 ## Learning Path
 
-New to rp1? Follow this recommended sequence:
+New to rp1? Use the top-level navigation as a job router:
 
 ```mermaid
 flowchart TB
-    INST[Installation] --> FD[Feature Development]
-    FD --> BI[Bug Investigation]
-    BI --> PR[PR Review]
-    PR --> FB[PR Feedback]
-    FB --> TO[Team Onboarding]
+    START[Get Started] --> SHIP[Ship Code]
+    SHIP --> REVIEW[Review PRs]
+    REVIEW --> AUTO[Automate CI]
+    AUTO --> TEAM[Teams]
+    SHIP --> ARCADE[Monitor in Arcade]
+    REVIEW --> ARCADE
 ```
 
-1. **[Installation](../getting-started/installation.md)** - Install and configure rp1
-2. **[Feature Development](feature-development.md)** - Learn the core workflow
-3. **[Bug Investigation](bug-investigation.md)** - Debug issues systematically
-4. **[PR Review](pr-review.md)** - Automate code review
-5. **[Addressing PR Feedback](pr-feedback.md)** - Handle reviewer comments
-6. **[Team Onboarding](team-onboarding.md)** - Share knowledge with your team
+1. **[Get Started](../getting-started/index.md)** - Install rp1, initialize a project, and run a first workflow
+2. **[Ship Code](feature-development.md)** - Learn the main implementation path, then branch to [Project Bootstrap](bootstrap.md) or [Bug Investigation](bug-investigation.md)
+3. **[Review PRs](pr-review.md)** - Run a review, inspect results, and [address feedback](pr-feedback.md)
+4. **[Automate CI](ci-cd-integration.md)** - Move repeatable PR checks into automation
+5. **[Teams](team-onboarding.md)** - Help teammates adopt shared workflows and project context
 
 ---
 

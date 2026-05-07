@@ -78,7 +78,7 @@ The command automatically detects the appropriate build mode:
 The command generates knowledge base files in `.rp1/context/`.
 
 !!! info "KB File Reference"
-    See [What's in the Knowledge Base?](../../concepts/knowledge-aware-agents.md#whats-in-the-knowledge-base) for the complete list of generated files and their purposes.
+    See [Project Context](../../concepts/knowledge-aware-agents.md#what-the-context-helps-with) for how workflows use context, and [The `.rp1` Directory](../../getting-started/rp1-directory.md#directory-structure) for generated file locations.
 
 **Note**: `meta.json` contains local paths and should be added to `.gitignore`. It is written locally but not intended as a shared project artifact.
 

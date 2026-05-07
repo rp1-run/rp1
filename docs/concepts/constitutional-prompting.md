@@ -1,10 +1,12 @@
-# Constitutional Prompting
+# Consistent Workflows
 
-Constitutional prompting is rp1's core pattern for encoding expert knowledge into AI-executable workflows. Instead of crafting prompts on-the-fly and iterating until you get the right output, constitutional prompts define the **rules, structure, and constraints** upfront—enabling consistent, single-pass execution.
+rp1 workflows are structured prompts for common development jobs. Instead of
+asking an assistant to improvise every step, you run a workflow that already
+knows the expected path, evidence, artifacts, and quality checks for the job.
 
 ---
 
-## The Problem
+## The Problem With Ad-Hoc Prompting
 
 Traditional AI-assisted development often looks like this:
 
@@ -28,14 +30,14 @@ This **iteration loop** wastes time and mental energy. Each prompt requires you 
 
 ---
 
-## How Constitutional Prompting Works
+## How rp1 Workflows Help
 
-Constitutional prompts flip the script. Instead of ad-hoc conversations, they encode:
+rp1 workflows replace repeated prompting with job-specific instructions:
 
-1. **Expert knowledge** - Best practices distilled into the prompt itself
-2. **Codebase context** - Automatic loading of your project's patterns
-3. **Execution rules** - Built-in anti-loop directives for single-pass completion
-4. **Output contracts** - Defined structure for consistent results
+1. **A clear job** - Ship a feature, review a PR, investigate a bug, write docs, or build context.
+2. **Project context** - Workflows load the project knowledge they need before acting.
+3. **Durable artifacts** - Important work is written to files that can be reviewed and resumed.
+4. **Quality gates** - Build and review workflows keep validation visible instead of burying it in chat.
 
 ```mermaid
 flowchart LR
@@ -47,16 +49,16 @@ flowchart LR
         A5 --> A6[Final Output]
     end
 
-    subgraph "Constitutional Prompting"
-        C1[Constitutional Agent] --> C2[Load Context]
-        C2 --> C3[Execute Rules]
-        C3 --> C4[Single Output]
+    subgraph "rp1 Workflow"
+        C1[Run Workflow] --> C2[Load Project Context]
+        C2 --> C3[Create Artifacts]
+        C3 --> C4[Report Status]
     end
 ```
 
 ---
 
-## Example: Before and After
+## Example: Before And After
 
 ### Before: Ad-hoc Feature Development
 
@@ -75,7 +77,7 @@ AI: [fixes tests]
 
 **Result**: 5+ iterations, inconsistent output, no documentation
 
-### After: Constitutional Feature Development
+### After: rp1 Feature Workflow
 
 === "Claude Code"
 
@@ -89,52 +91,19 @@ AI: [fixes tests]
     /rp1-dev-build dark-mode
     ```
 
-**Result**: Single command orchestrates all steps (requirements, design, build, verify) in single passes, produces documented artifacts
+=== "Codex"
+
+    ```bash
+    $rp1-dev-build dark-mode
+    ```
+
+**Result**: One workflow guides requirements, planning, implementation, review,
+and release readiness. The intermediate files remain available after the chat
+session.
 
 ---
 
-## Key Components
-
-### Anti-Loop Directives
-
-Constitutional agents include explicit instructions to prevent iteration:
-
-> "Execute the complete workflow in a single pass. Do NOT ask for clarification or wait for feedback. Make reasonable decisions when information is ambiguous."
-
-This forces the agent to make decisions rather than punting to the user.
-
-### Numbered Workflow Sections
-
-Each agent follows a structured workflow:
-
-```
-## 1. Context Loading
-Load knowledge base and understand codebase patterns.
-
-## 2. Analysis
-Analyze requirements and identify approach.
-
-## 3. Implementation
-Execute the defined workflow steps.
-
-## 4. Output
-Produce the specified artifacts.
-```
-
-### Output Contracts
-
-Agents define exactly what they produce:
-
-```markdown
-## Output Format
-- requirements.md: Feature requirements document
-- design.md: Technical design specification
-- tasks.md: Implementation task breakdown
-```
-
----
-
-## Key Benefits
+## What You Should Expect
 
 <div class="grid cards" markdown>
 
@@ -142,25 +111,25 @@ Agents define exactly what they produce:
 
     ---
 
-    Single-pass completion means no back-and-forth. Get results in one command.
+    You spend less time re-explaining the same workflow steps.
 
 -   :material-check-all: **Consistent Output**
 
     ---
 
-    The same command produces the same structure every time. No surprises.
+    The same workflow produces a recognizable set of artifacts and status updates.
 
 -   :material-brain: **Encoded Expertise**
 
     ---
 
-    Best practices are built into the prompts. You don't need to remember them.
+    The workflow carries the expected process so you can focus on the decision.
 
 -   :material-file-document: **Documented Artifacts**
 
     ---
 
-    Every step produces documentation, not just code.
+    Requirements, designs, tasks, reports, and reviews are kept as project files.
 
 </div>
 
@@ -168,10 +137,11 @@ Agents define exactly what they produce:
 
 ## Related Concepts
 
-- [Knowledge-Aware Agents](knowledge-aware-agents.md) - How agents understand your codebase
-- [Command-Agent Pattern](command-agent-pattern.md) - The architecture behind rp1 commands
+- [Project Context](knowledge-aware-agents.md) - How workflows understand your codebase
+- [Workflow Delegation](command-agent-pattern.md) - Advanced explanation of how rp1 routes work internally
 
 ## Learn More
 
-- [Feature Development Tutorial](../guides/feature-development.md) - See constitutional prompting in action
-- [Command Reference](../reference/index.md) - Explore all constitutional commands
+- [Feature Development Guide](../guides/feature-development.md) - See the main delivery workflow
+- [First Workflow](../getting-started/first-workflow.md) - Choose your first tracked workflow
+- [Command Reference](../reference/index.md) - Explore workflow references

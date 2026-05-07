@@ -2,6 +2,10 @@
 
 Searches project-scoped rp1 work artifacts through `rp1 agent-tools work-search`.
 
+This is an advanced machine-facing API reference. The exact JSON fields,
+database terms, and scoring names are shown for automation and debugging; normal
+users usually search and open artifacts through Arcade.
+
 ---
 
 ## Synopsis

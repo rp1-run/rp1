@@ -1,5 +1,10 @@
 # Stateless Agent Pattern
 
+!!! note "Advanced workflow design"
+    This page is for readers who want to understand how resumable interview
+    workflows are built. Most users only need to know that interrupted guided
+    workflows can resume from saved progress.
+
 The Stateless Agent pattern enables **resumable interview workflows** in rp1. When you're interrupted during a guided interview (like charter creation), you can pick up exactly where you left off. The agent reads its state from a visible "scratch pad" section rather than relying on conversation memory.
 
 ---

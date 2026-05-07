@@ -1,5 +1,10 @@
 # Skill-Agent Pattern
 
+!!! note "Advanced workflow architecture"
+    This page explains how rp1 routes work internally. It is useful for
+    maintainers and power users, but it is not required for normal setup,
+    feature development, PR review, or Arcade use.
+
 rp1 workflows stay usable because they separate the user-facing entry point from
 the specialist that actually does the work.
 

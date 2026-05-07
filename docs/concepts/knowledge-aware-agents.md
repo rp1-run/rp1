@@ -1,6 +1,8 @@
-# Knowledge-Aware Agents
+# Project Context
 
-Knowledge-aware agents understand your codebase before writing code. By loading a pre-built knowledge base, rp1 agents respect your architecture, follow your patterns, and use your terminology—producing output that fits naturally into your project.
+Project context is the shared understanding rp1 builds about your codebase.
+Once that context exists, workflows can follow your architecture, terminology,
+and patterns without asking you to paste the same background into every chat.
 
 ---
 
@@ -25,74 +27,58 @@ Even when you provide context manually, you're limited by:
 
 ---
 
-## How Knowledge-Aware Agents Work
+## How Project Context Works
 
-rp1 solves this with a two-phase approach:
+rp1 uses a simple user-facing loop:
 
-### Phase 1: Knowledge Base Generation
-
-The `knowledge-build` command analyzes your entire codebase and creates a structured knowledge base:
+1. Run `knowledge-build` when you first set up the project or after major architectural changes.
+2. rp1 analyzes the repository and writes project context for later workflows.
+3. Feature, review, investigation, and documentation workflows load the relevant context before acting.
 
 ```mermaid
-sequenceDiagram
-    participant User
-    participant KB as knowledge-build
-    participant SA as Spatial Analyzer
-    participant Agents as 5 Parallel Agents
-    participant Files as .rp1/context/
-
-    User->>KB: /knowledge-build
-    KB->>SA: Analyze codebase
-    SA-->>KB: Categorized files
-    KB->>Agents: Process in parallel
-    Note over Agents: concept-extractor<br/>architecture-mapper<br/>interaction-mapper<br/>module-analyzer<br/>pattern-extractor
-    Agents-->>KB: Analysis results
-    KB->>Files: Write KB files
-    KB-->>User: READY
+flowchart LR
+    Setup[Run knowledge-build] --> Context[Project context]
+    Context --> Feature[Feature work]
+    Context --> Review[PR review]
+    Context --> Investigate[Bug investigation]
+    Context --> Docs[Documentation work]
 ```
 
-### Phase 2: Self-Contained Context Loading
+### Self-Contained Context Loading
 
-rp1 commands are **self-contained**: agents load relevant KB context
-automatically. You do not need a separate "load the KB first" step.
+rp1 workflows are self-contained after project context exists. You do not need a
+separate "load the project first" step before each workflow.
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant Cmd as rp1 Command
-    participant Agent as Constitutional Agent
-    participant KB as .rp1/context/
+    participant Workflow as rp1 Workflow
+    participant Context as Project Context
     participant Code as Your Codebase
 
-    User->>Cmd: /build my-feature
-    Cmd->>Agent: Spawn agent
-    Agent->>KB: Load index.md (always)
-    Agent->>KB: Load interaction-model.md (if needed)
-    Agent->>KB: Load patterns.md (if needed)
-    Agent->>KB: Load modules.md (if needed)
-    Agent->>Code: Read relevant files
-    Agent-->>User: Context-aware output
+    User->>Workflow: Run build, pr-review, or code-investigate
+    Workflow->>Context: Load relevant project knowledge
+    Workflow->>Code: Inspect the files needed for this task
+    Workflow-->>User: Context-aware output and artifacts
 ```
 
 !!! tip "Progressive Loading"
-    Most agents use **progressive loading**: start with `index.md`, then load additional files only when needed. This reduces context usage by 50-70% while maintaining quality.
+    Workflows load the context they need for the current job instead of trying to
+    use every project file at once.
 
 ---
 
-## What's in the Knowledge Base?
+## What The Context Helps With
 
-The knowledge base lives in `.rp1/context/` and contains:
+| Area | Example |
+|------|---------|
+| Project structure | Which modules, packages, or apps matter for a task |
+| Architecture | Where new behavior should live and what boundaries to respect |
+| Patterns | Naming, testing, error handling, state management, and integration style |
+| Product language | Domain terms the project already uses |
+| User surfaces | CLI, UI, docs, or workflow behavior that users see |
 
-| File | Purpose | Contents |
-|------|---------|----------|
-| `index.md` | Project overview | Structure, entry points, tech stack |
-| `architecture.md` | System architecture | Layers, patterns, integrations |
-| `interaction-model.md` | Cross-surface behavior | Actors, surfaces, states, feedback |
-| `modules.md` | Component breakdown | Modules, dependencies, key files |
-| `concept_map.md` | Domain terminology | Business concepts, glossary |
-| `patterns.md` | Implementation patterns | Code patterns, idioms, conventions |
-| `state.json` | Build metadata (shareable) | Last commit, file counts, repo type |
-| `meta.json` | Local metadata (not shared) | Local paths (repo_root) |
+For the raw files and directory layout, see [The `.rp1` Directory](../getting-started/rp1-directory.md). Most users only need to know that context exists and should be refreshed when the project changes significantly.
 
 ---
 
@@ -112,9 +98,9 @@ Problems:
 - Doesn't use your error message format
 - Missing your standard validation utilities
 
-### After: Knowledge-Aware Response
+### After: Context-Aware Response
 
-With KB loaded, the agent knows:
+With project context available, the workflow has enough background to know:
 - You use a `Validator` class pattern
 - Error messages follow `<field>: <message>` format
 - Validators are in `src/validators/`
@@ -140,7 +126,7 @@ export class PhoneValidator extends Validator<string> {
 
 ## When to Rebuild the Knowledge Base
 
-The KB should be rebuilt when your codebase changes significantly:
+Project context should be refreshed when your codebase changes significantly:
 
 | Scenario | Action |
 |----------|--------|
@@ -163,7 +149,7 @@ The KB should be rebuilt when your codebase changes significantly:
 
     ---
 
-    Agents know your code patterns and follow them automatically.
+    Workflows can follow your code patterns automatically.
 
 -   :material-book-open-variant: **Domain Understanding**
 
@@ -181,7 +167,7 @@ The KB should be rebuilt when your codebase changes significantly:
 
     ---
 
-    New team members can explore the KB to understand the codebase.
+    New team members can start from generated orientation before reading raw source.
 
 </div>
 
@@ -189,11 +175,11 @@ The KB should be rebuilt when your codebase changes significantly:
 
 ## Related Concepts
 
-- [Constitutional Prompting](constitutional-prompting.md) - How agents execute without iteration
-- [Map-Reduce Workflows](map-reduce-workflows.md) - How KB generation parallelizes
+- [Consistent Workflows](constitutional-prompting.md) - Why rp1 workflows are structured
+- [Parallel Analysis](map-reduce-workflows.md) - Advanced explanation of how large analysis jobs split work
 
 ## Learn More
 
-- [`knowledge-build` Reference](../reference/base/knowledge-build.md) - Generate the knowledge base
-- [Feature Development Guide](../guides/feature-development.md) - See KB-backed
+- [`knowledge-build` Reference](../reference/base/knowledge-build.md) - Generate project context
+- [Feature Development Guide](../guides/feature-development.md) - See project-context-backed
   workflows in practice

@@ -29,10 +29,9 @@ command.
 ## Description
 
 The `build` command is the **primary entry point** for feature development. It
-uses resumable run policy, so rp1 can reopen the active run for the same
-`FEATURE_ID` and continue from the next user-meaningful phase. Resume decisions
-come from registered workflow state and artifacts in the emit database, not from
-guessing which files happen to exist.
+can reopen the active run for the same `FEATURE_ID` and continue from the next
+user-meaningful phase. Resume decisions come from recorded workflow state and
+registered artifacts, not from guessing which files happen to exist.
 
 When the request expands beyond a single independently executable feature,
 `/build` stops and redirects to `/phase-plan` instead of generating new tracker
@@ -48,7 +47,8 @@ or milestone artifacts.
 - **Safe defaults**: No git operations unless explicitly requested via flags
 - **Opt-in git operations**: Use `--git-*` flags for commit, push, PR
 - **Builder-reviewer architecture**: Quality-gated implementation with feedback loops
-- **Manifest-gated cleanup**: Automatic comment cleanup runs only from a generated change manifest
+- **Scoped cleanup**: Automatic comment cleanup runs only when rp1 can prove the
+  safe cleanup boundary
 - **Readiness aggregation**: Final release readiness separates blockers,
   warnings, evidence, and manual verification items
 
@@ -79,42 +79,43 @@ the request or pass them through host-specific argument binding:
 
 ## Workflow Lifecycle
 
-The command reports four broad parent phases. Namespaced agent activity, such
-as `task-builder:building` or `task-reviewer:reviewing`, appears as detail under
-those phases instead of adding extra parent steps.
+The command reports four broad parent phases. Implementation and review details
+appear under those phases instead of adding extra parent steps.
 
 | Parent Phase | What Happens | Primary Outputs |
 |--------------|--------------|-----------------|
 | `requirements` | Collect requirements, scope, constraints, assumptions, and phase-plan traceability | `requirements.md` |
 | `planning` | Produce design, validate hypotheses when present, then generate the accepted task plan once | `design.md`, `tasks.md`, `tasks.json` |
-| `implementation` | Execute schema-backed task units through builder-reviewer loops, run mechanical checks, feature verification, and manifest-gated comment cleanup | Code changes, validation envelopes, cleanup manifest artifacts |
+| `implementation` | Execute planned task units through builder-reviewer loops, run mechanical checks, verify the feature, and clean comments only inside a proven scope | Code changes, validation summaries, cleanup artifacts |
 | `release` | Present final readiness, manual verification items, archive choice, and add-task option | `build-readiness.md`, optional archived outputs |
 
-Machine task planning consumes schema-backed
-`features/<feature-id>/tasks.json`. `tasks.md` is the reviewer-facing companion
-artifact and must mirror the same task IDs, but markdown parsing is not the
-Build v2 machine contract.
+Machine task planning consumes `features/<feature-id>/tasks.json`. `tasks.md`
+is the reviewer-facing companion artifact and must mirror the same task IDs, but
+Markdown parsing is not the Build v2 execution contract.
 
-### Manifest-Gated Comment Cleanup
+### Advanced: Scoped Comment Cleanup Artifacts
+
+This section keeps exact generated artifact names because they are useful when
+auditing why automatic comment cleanup did or did not run.
 
 During `implementation`, `/build` snapshots the repository state before the
-first `task-builder` unit runs. After builders, reviewers, explicit
+first implementation unit runs. After builders, reviewers, explicit
 documentation follow-ups, and any checkpoint-added tasks finish, it generates
 the cleanup handoff before readiness aggregation.
 
 The feature work directory can contain:
 
-- `change-manifest-baseline.json` - build-start `CODE_ROOT`, `HEAD`, and dirty
-  paths
+- `change-manifest-baseline.json` - build-start code root, git revision, and
+  dirty paths
 - `change-manifest-001.json` - cleanup-owned files and line ranges, when
   supported changes are safe to classify
 - `change-manifest-status.json` - created/skipped status, file counts,
   owned-line counts, dirty-path metadata, and skip reason
 
-`/build` dispatches `comment-cleaner` only when the generated manifest is
+`/build` dispatches the cleanup agent only when the generated manifest is
 `created` and non-empty. The cleaner receives only `CHANGE_MANIFEST` and
 `CODE_ROOT`; `/build` does not pass branch names, commit ranges, dirty-state
-labels, or task-builder-authored hunks as cleanup scope.
+labels, or implementation-authored hunks as cleanup scope.
 
 If manifest generation skips, readiness aggregation records a warning result with
 `files_checked: 0`, the status artifact path, and the skip reason. Common skip
@@ -124,8 +125,8 @@ reasons include `no_supported_source_hunks`,
 `scope_outside_code_root`, `invalid_scope`, and `unsupported_scope`.
 
 Task builders do not calculate, merge, create, or hand off comment cleanup
-manifests. Review the generated manifest and status artifacts to audit why a
-file or line range was eligible for automatic cleanup.
+manifests. Review the generated manifest and status artifacts only when you need
+to audit why a file or line range was eligible for automatic cleanup.
 
 ### Oversized Scope Redirect
 
@@ -201,20 +202,19 @@ In AFK mode:
 
 ## Smart Resumption
 
-`build` uses workflow bootstrap and the read-only `workflow-state` tool before
-it dispatches phase work:
+`build` resumes from recorded workflow progress before it starts more phase
+work:
 
-1. rp1 resolves the canonical `projectRoot`, `kbRoot`, and `workRoot`.
-2. If the project already has a non-terminal `build` run for the same
-   `FEATURE_ID`, that run is resumed. Terminal runs are never reopened
-   automatically.
-3. `workflow-state` reads the emit database for run status, effective step
-   status, registered artifacts, and recent events.
-4. `/build` resumes from `summary.next_phase`, or waits with a contract-gap
-   message when required registered outputs are missing or inconsistent.
+1. rp1 identifies the project and the feature you asked to build.
+2. If that feature already has an active build run, that run is resumed.
+   Completed runs are never reopened automatically.
+3. rp1 checks the recorded workflow phase, registered outputs, and recent
+   progress.
+4. `/build` resumes from the next required parent phase, or waits with a
+   recovery message when required outputs are missing or inconsistent.
 
 This means linked-worktree invocations still reuse the owning repository's run
-and keep artifacts under the owning repository's `.rp1/work/`.
+and keep artifacts under that repository's rp1 work directory.
 
 Resume is state-first:
 
@@ -364,10 +364,11 @@ phase plan from the saved `requirements.md`.
 
 ## Output
 
-**Location:** `{workRoot}/features/<feature-id>/`
+**Location:** `.rp1/work/features/<feature-id>/`
 
-In a standard checkout this is `.rp1/work/features/<feature-id>/`. In a linked
-worktree, rp1 still uses the owning repository's canonical work root.
+In a linked worktree, rp1 stores feature artifacts under the owning repository's
+rp1 work directory so resuming from another checkout still finds the same run
+history.
 
 **Contents:**
 
@@ -375,7 +376,7 @@ worktree, rp1 still uses the owning repository's canonical work root.
   - includes `## Planning Traceability` when phase context is supplied
 - `design.md` - Technical design
 - `tasks.md` - Human-readable implementation and documentation task plan
-- `tasks.json` - Schema-backed task plan consumed by `build-task-plan`
+- `tasks.json` - Machine-readable task plan used during implementation
 - `verification-report.md` - Requirement and acceptance evidence when produced
 - `build-readiness.md` - Final readiness result with blockers, warnings,
   manual items, and evidence
@@ -402,7 +403,11 @@ them into readiness and release as explicit manual or follow-up items.
 
 Codex is a first-class rp1 platform alongside Claude Code and OpenCode. Skills are invoked with `$skill-name` syntax (e.g., `$rp1-dev-build`), and project-level instructions are delivered via `AGENTS.md` (the Codex equivalent of `CLAUDE.md` for Claude Code).
 
-### Build Layout
+### Advanced: Codex Build Artifact Layout
+
+This section is for maintainers debugging Codex installation or generated
+prompt artifacts. Normal Codex users only need the `$rp1-dev-build` invocation
+above.
 
 Each skill produces the following artifacts under `dist/codex/`:
 
@@ -437,7 +442,10 @@ Codex skills are invoked with `$skill-name` syntax, not the `/command` syntax us
 
 Codex uses `AGENTS.md` as its project-level instruction file. Running `rp1 init` for Codex generates or appends to `AGENTS.md` in the project root with KB loading instructions and rp1 conventions. This is equivalent to the `CLAUDE.md` file used by Claude Code.
 
-### Parameter Handling
+### Advanced: Parameter Handling
+
+This maintainer detail keeps the exact Codex build-filter name because it is
+useful when auditing generated Codex prompt output.
 
 Codex does not have native argument substitution (`$1`, `$ARGUMENTS`). During the build, the `param_transform` filter rewrites parameter references into instructional text that Codex can model-extract from the user's prompt:
 
@@ -448,7 +456,10 @@ Codex does not have native argument substitution (`$1`, `$ARGUMENTS`). During th
 
 Parameter tables in skills are preserved as-is since they serve as instructional text for the model. The model extracts parameter values from the user's natural language prompt rather than relying on positional substitution.
 
-### Main Config Entries
+### Advanced: Main Config Entries
+
+This maintainer detail keeps generated agent names because they appear in the
+Codex config files installed under `~/.codex/`.
 
 Slim `[agents.*]` sections are generated for inclusion in `~/.codex/config.toml`. Each entry contains only two fields:
 
@@ -458,7 +469,7 @@ description = "Implements tasks from feature task lists"
 config_file = "./agents/rp1/task-builder.toml"
 ```
 
-### Per-Agent TOML Files
+### Advanced: Per-Agent TOML Files
 
 Individual agent configuration files are generated at `~/.codex/agents/rp1/{name}.toml`. Each file contains the agent's model and full instructions using multiline syntax:
 
@@ -469,7 +480,10 @@ Agent instructions here...
 """
 ```
 
-### Content Transformations
+### Advanced: Content Transformations
+
+This contributor detail keeps source tag and context names so prompt authors
+can audit host-specific prompt build behavior.
 
 During the Codex build, agent and skill content undergoes four transformations in order:
 

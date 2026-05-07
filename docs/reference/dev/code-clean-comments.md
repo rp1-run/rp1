@@ -45,6 +45,10 @@ durable `change-manifest-*.json` artifact with
 then invokes the comment-cleaner agent only when the manifest is created and
 non-empty.
 
+The exact manifest names are shown because they are the audit trail for what
+rp1 was allowed to edit. If cleanup skips or changes less than expected, inspect
+the manifest and status file instead of widening the scope blindly.
+
 The cleaner receives only `CHANGE_MANIFEST` and `CODE_ROOT`. It does not accept
 branch-wide, unstaged, dirty-state, or commit-range cleanup parameters
 directly; those inputs must be converted into a manifest before cleanup can
