@@ -142,7 +142,7 @@ Findings:
 - Medium: 3
 - Low: 5
 
-Report: .rp1/work/pr-reviews/pr-123.md
+Report: .rp1/work/pr-reviews/pr-123-review-001.md
 Reviewed PR: https://github.com/owner/repo/pull/123
 ```
 

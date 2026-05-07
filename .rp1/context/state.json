@@ -4,15 +4,15 @@
   "monorepo_projects": [
     "cli/",
     "cli/web-ui/",
-    "evals/",
-    "native-app/",
     "plugins/base/",
     "plugins/dev/",
-    "plugins/utils/"
+    "plugins/utils/",
+    "evals/",
+    "docs/"
   ],
-  "generated_at": "2026-05-06T09:51:16Z",
-  "git_commit": "d04f54dcd1ad4ff70e47a6b570e964bf0d416e3f",
-  "files_analyzed": 1077,
+  "generated_at": "2026-04-12T00:00:00Z",
+  "git_commit": "c0e31eb1b9bcebe4720181365667bf38fa435ea6",
+  "files_analyzed": 919,
   "languages": [
     "TypeScript",
     "TSX",
@@ -25,30 +25,8 @@
     "HTML"
   ],
   "metrics": {
-    "modules": 20,
-    "components": 38,
-    "concepts": 30
-  },
-  "build_strategy": "full_scan",
-  "total_files_scanned": 1077,
-  "high_value_files": 645,
-  "documentation_files": 41,
-  "quality_indicators": {
-    "architecture_clarity": "high",
-    "concept_extraction": "high",
-    "module_boundaries": "high"
-  },
-  "incremental_updates": {
-    "last_incremental_date": "2026-05-06T09:51:16Z",
-    "files_changed_since_last": 645,
-    "sections_updated": [
-      "concept_map.md",
-      "architecture.md",
-      "interaction-model.md",
-      "modules.md",
-      "patterns.md",
-      "index.md"
-    ],
-    "full_scan_required": true
+    "modules": 22,
+    "components": 12,
+    "concepts": 36
   }
 }

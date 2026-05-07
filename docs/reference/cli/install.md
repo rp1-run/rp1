@@ -123,18 +123,6 @@ This means you do not need to manually stop and restart Arcade around
 `just install`. The flow preserves the prior port so browser tabs and
 bookmarks continue to work.
 
-## Troubleshooting Copilot Install Locations
-
-Most users should rely on `rp1 install copilot` and `rp1 verify copilot` rather
-than inspecting generated plugin files. The locations below are useful only
-when troubleshooting a Copilot install that still loads an old plugin version.
-
-- rp1 prepares Copilot plugin data under `~/.rp1/copilot/marketplace/`.
-- Copilot installs the active plugins under
-  `~/.copilot/installed-plugins/rp1-local/rp1-*`.
-- Unsupported legacy paths under `~/.config/github-copilot/` are not a valid
-  install target.
-
 ### What you should see
 
 | Before install | After install |
@@ -148,6 +136,18 @@ when troubleshooting a Copilot install that still loads an old plugin version.
 Under normal conditions no manual steps are needed. If an install is
 interrupted mid-flow, the next `just install` or `rp1 arcade` call detects
 and cleans up stale restart markers and daemon state automatically.
+
+## Troubleshooting Copilot Install Locations
+
+Most users should rely on `rp1 install copilot` and `rp1 verify copilot` rather
+than inspecting generated plugin files. The locations below are useful only
+when troubleshooting a Copilot install that still loads an old plugin version.
+
+- rp1 prepares Copilot plugin data under `~/.rp1/copilot/marketplace/`.
+- Copilot installs the active plugins under
+  `~/.copilot/installed-plugins/rp1-local/rp1-*`.
+- Unsupported legacy paths under `~/.config/github-copilot/` are not a valid
+  install target.
 
 ## Verification
 

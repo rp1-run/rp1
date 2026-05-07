@@ -182,7 +182,8 @@ List navigation on Activity and Projects:
 |-----|--------|
 | `j` or `Arrow Down` | Select next row |
 | `k` or `Arrow Up` | Select previous row |
-| `l`, `Arrow Right`, or `Enter` | Open the selected item |
+| Projects: `l`, `Arrow Right`, or `Enter` | Open the selected project |
+| Activity: `Enter` or `Space` | Select the row and update the details preview where shown |
 | `h` or `Arrow Left` | Move back where supported |
 
 Workspace tabs support normal tab focus plus arrow keys, Home, End, Enter,

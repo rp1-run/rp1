@@ -52,10 +52,10 @@ curl -fsSL https://rp1.run/install.sh | sh
 Package-manager installs add the rp1 CLI. The standalone install script also
 tries to install host integrations unless you set `SKIP_PLUGINS=1`.
 
-Verify the CLI:
+Verify the CLI binary is available:
 
 ```bash
-rp1 verify
+rp1 --version
 ```
 
 ---

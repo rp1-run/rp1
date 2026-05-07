@@ -169,7 +169,7 @@ for the current checkout.
         /rp1-base-knowledge-build
         ```
 
-2. Confirm `.rp1/context/index.md` and `.rp1/context/modules.md` exist.
+2. Confirm `.rp1/context/index.md`, `.rp1/context/modules.md`, and `.rp1/context/patterns.md` exist.
 3. Re-run the workflow after context is refreshed.
 
 ### Project Context Is Stale
