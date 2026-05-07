@@ -607,7 +607,8 @@ db-reset:
 
 # Serve documentation with live reload
 serve-docs:
-    uvx --no-config --default-index {{PYPI_INDEX}} --with mkdocs-material mkdocs serve --strict --livereload
+    env -u UV_INDEX -u UV_EXTRA_INDEX_URL -u UV_INDEX_URL -u UV_NO_INDEX \
+        uvx --no-config --default-index {{PYPI_INDEX}} --with mkdocs-material mkdocs serve --strict --livereload
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Evaluations
