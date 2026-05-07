@@ -2,6 +2,11 @@
 
 PROJECT := ""
 RP1_EXECUTABLE := "bin/rp1"
+PYPI_INDEX := "https://pypi.org/simple"
+
+# Keep uv-based project recipes on public PyPI even if a user-level uv config
+# points at a private package index.
+export UV_DEFAULT_INDEX := "https://pypi.org/simple"
 
 # Default recipe - show available commands
 default:
@@ -602,7 +607,7 @@ db-reset:
 
 # Serve documentation with live reload
 serve-docs:
-    uvx --index https://pypi.org --with mkdocs-material mkdocs serve --strict --livereload
+    uvx --no-config --default-index {{PYPI_INDEX}} --with mkdocs-material mkdocs serve --strict --livereload
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Evaluations
