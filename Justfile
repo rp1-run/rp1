@@ -141,7 +141,7 @@ build-plugins-check:
 
 # Build the web-ui
 build-web-ui:
-    cd cli/web-ui && bun run build
+    cd cli && bun run build:web-ui
 
 # Clear web-ui cache (needed when testing local builds)
 
