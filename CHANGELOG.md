@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.7.7](https://github.com/rp1-run/rp1/compare/v0.7.6...v0.7.7) (2026-05-10)
+
+
+### Features
+
+* **activity:** add searchable feed and refine Arcade UI ([#369](https://github.com/rp1-run/rp1/issues/369)) ([594b76b](https://github.com/rp1-run/rp1/commit/594b76b1eac386dde5b62f5c9fc31345560500eb))
+* add PR walkthrough slide reader ([#379](https://github.com/rp1-run/rp1/issues/379)) ([d04f54d](https://github.com/rp1-run/rp1/commit/d04f54dcd1ad4ff70e47a6b570e964bf0d416e3f))
+* **agent-tools:** add comment cleanup manifests ([#371](https://github.com/rp1-run/rp1/issues/371)) ([6a2a979](https://github.com/rp1-run/rp1/commit/6a2a979a71979ae2f343af6b4d924eef3da46251))
+* **brand-assets:** refresh RP1 brand surfaces ([#373](https://github.com/rp1-run/rp1/issues/373)) ([935fa17](https://github.com/rp1-run/rp1/commit/935fa178b679df6c8a1cf8a04055a52cd9f19c87))
+* **build-v2:** optimize build workflow contracts ([#378](https://github.com/rp1-run/rp1/issues/378)) ([c92751b](https://github.com/rp1-run/rp1/commit/c92751b4862278c8e790f0d6425aa023e6d3acfc))
+* **dev:** add PR walkthrough workflow ([#365](https://github.com/rp1-run/rp1/issues/365)) ([8b02518](https://github.com/rp1-run/rp1/commit/8b0251814614532aadcb8360a315340a841472da))
+* **dev:** add slide-ready walkthrough contract ([#376](https://github.com/rp1-run/rp1/issues/376)) ([5691fb0](https://github.com/rp1-run/rp1/commit/5691fb06c827f21af2b7ac77ba53d0164afda775))
+* **pr-review:** add link artifacts ([#374](https://github.com/rp1-run/rp1/issues/374)) ([71dadba](https://github.com/rp1-run/rp1/commit/71dadba148365f7c71a738b25d80e45fe18d737a))
+
+
+### Bug Fixes
+
+* arcade native/web runtime reliability ([#375](https://github.com/rp1-run/rp1/issues/375)) ([159139c](https://github.com/rp1-run/rp1/commit/159139cd1debd8d62137c6265dda7f2dabd24e85))
+* failing evals ([#382](https://github.com/rp1-run/rp1/issues/382)) ([613aaad](https://github.com/rp1-run/rp1/commit/613aaad7871454063fa8afdfacda14a51e39cc43))
+* **socratic-duel:** reject timeout close after peer registration ([#370](https://github.com/rp1-run/rp1/issues/370)) ([4309c25](https://github.com/rp1-run/rp1/commit/4309c250281aa90f9ab157b6f4e17beef0d3d3dd))
+* **ui:** activity feed and native Arcade polish ([#367](https://github.com/rp1-run/rp1/issues/367)) ([a5ee9f3](https://github.com/rp1-run/rp1/commit/a5ee9f33a272f395d935fd155068e8b14ac038fc))
+* **web-ui:** improve artifact links ([#377](https://github.com/rp1-run/rp1/issues/377)) ([af86ce1](https://github.com/rp1-run/rp1/commit/af86ce119c63ecfe578d78392da4bb21450130e5))
+* **web-ui:** install dependencies before build ([#380](https://github.com/rp1-run/rp1/issues/380)) ([f0dea0e](https://github.com/rp1-run/rp1/commit/f0dea0e0dfedd42337a069f2c3e4198352d3ff46))
+
+
+### Documentation
+
+* align user-facing documentation site ([#381](https://github.com/rp1-run/rp1/issues/381)) ([99aca0a](https://github.com/rp1-run/rp1/commit/99aca0a8d251cfbdab13071421010d47c1cf57c8))
+
 ## [0.7.6](https://github.com/rp1-run/rp1/compare/v0.7.5...v0.7.6) (2026-04-26)
 
 
