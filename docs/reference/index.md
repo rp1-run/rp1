@@ -1,90 +1,91 @@
 # Reference
 
-User-facing reference for rp1 setup, workflows, and automation configuration.
+User-facing reference for rp1 setup, workflows, reviews, automation, and
+advanced material. Use the task groups below first; the plugin catalogs remain
+available when you need the complete command list.
 
 ---
 
-## CLI Commands
+## Setup And Maintenance
 
-The rp1 CLI handles setup, verification, migration, and updates outside your AI
-assistant session.
-
-| Command | Description |
-|---------|-------------|
-| [`init`](cli/init.md) | Initialize rp1 in a project with guided setup |
-| [`install`](cli/install.md) | Install plugins for Claude Code, OpenCode, Codex, or Copilot CLI |
-| [`update`](cli/update.md) | Update the rp1 CLI and installed plugins |
-| [`rp1 migrate`](cli/rp1-migrate.md) | Migrate older projects into the project-local `.rp1/` layout |
+| Need | Reference |
+|------|-----------|
+| Initialize a project | [`init`](cli/init.md) |
+| Install rp1 into an AI coding host | [`install`](cli/install.md) |
+| Update the CLI and installed plugins | [`update`](cli/update.md) |
+| Check available updates | [`check-update`](cli/check-update.md) |
+| Update rp1 and refresh installed plugins from a workflow | [`self-update`](base/self-update.md) |
+| Migrate an older project layout | [`rp1 migrate`](cli/rp1-migrate.md) |
 
 [:octicons-arrow-right-24: CLI Reference](cli/index.md)
 
-### Automation Config
+## Ship Code
 
-| Config | Description |
-|--------|-------------|
-| [`pr-review.yaml`](pr-review-config.md) | PR review behavior for CI/CD mode |
+| Need | Reference |
+|------|-----------|
+| Run the full feature workflow | [`build`](dev/build.md) |
+| Make a small, well-scoped change | [`build-fast`](dev/build-fast.md) |
+| Break a large plan into phases | [`phase-plan`](dev/phase-plan.md) |
+| Validate a design assumption before coding | [`validate-hypothesis`](dev/validate-hypothesis.md) |
+| Create or manage PRD and feature artifacts | [`blueprint`](dev/blueprint.md), [`feature-edit`](dev/feature-edit.md), [`feature-archive`](dev/feature-archive.md), [`feature-unarchive`](dev/feature-unarchive.md) |
+| Check code quality or investigate a bug | [`code-check`](dev/code-check.md), [`code-audit`](dev/code-audit.md), [`code-investigate`](dev/code-investigate.md) |
 
-[:octicons-arrow-right-24: PR Review Config Reference](pr-review-config.md)
+[:octicons-arrow-right-24: Ship code guide](../guides/feature-development.md)
 
----
+## Review PRs
 
-## Base Plugin Skills
+| Need | Reference |
+|------|-----------|
+| Run an evidence-grounded PR review | [`pr-review`](dev/pr-review.md) |
+| Generate a PR diagram | [`pr-visual`](dev/pr-visual.md) |
+| Generate a markdown walkthrough | [`pr-walkthrough`](dev/pr-walkthrough.md) |
+| Address review feedback | [`address-pr-feedback`](dev/address-pr-feedback.md) |
+| Configure CI review behavior | [`pr-review.yaml`](pr-review-config.md) |
 
-The base plugin provides project understanding, documentation, analysis, and
-maintenance workflows.
+[:octicons-arrow-right-24: PR review guide](../guides/pr-review.md)
 
-| Skill | Description |
+## Understand The Project
+
+| Need | Reference |
+|------|-----------|
+| Generate project context | [`knowledge-build`](base/knowledge-build.md) |
+| Produce a project overview for onboarding | [`project-birds-eye-view`](base/project-birds-eye-view.md) |
+| Research a codebase or technical topic | [`deep-research`](base/deep-research.md) |
+| Draft technical content | [`write-content`](base/write-content.md) |
+| Compare strategic trade-offs | [`strategize`](base/strategize.md) |
+| Run a security assessment | [`analyse-security`](base/analyse-security.md) |
+| Validate Mermaid diagrams | [`fix-mermaid`](base/fix-mermaid.md) |
+| Discover the right rp1 workflow | [`guide`](base/guide.md) |
+
+## Platforms And Automation
+
+| Need | Reference |
+|------|-----------|
+| GitHub Copilot CLI setup and verification | [GitHub Copilot CLI](platforms/copilot.md) |
+| CI/CD integration path | [CI/CD Integration](../guides/ci-cd-integration.md) |
+| Remote PR review from automation | [Remote PR Review](../guides/remote-pr-review.md) |
+| PR review configuration file | [`pr-review.yaml`](pr-review-config.md) |
+
+## Advanced And Maintainer References
+
+| Need | Reference |
+|------|-----------|
+| Public-docs boundary and routing rules | [Documentation Boundary](documentation-boundary.md) |
+| Project-local `.rp1/` files | [The `.rp1` Directory](../getting-started/rp1-directory.md) |
+| User-facing concepts | [Concepts](../concepts/index.md) |
+| Advanced workflow architecture | [Workflow Delegation](../concepts/command-agent-pattern.md), [Parallel Analysis](../concepts/map-reduce-workflows.md), [Resumable Interviews](../concepts/stateless-agents.md) |
+| Authoring format for rp1 skills | [Skill Format](../concepts/skill-format.md) |
+| Search work artifacts through the agent-tool API | [`work-search`](base/work-search.md) |
+| Fence marker versioning | [Fence Versioning](cli/fence-versioning.md) |
+| Retired features | [Retired Features](../retired-features.md) |
+
+## Complete Catalogs
+
+| Catalog | Description |
 |---------|-------------|
-| [`knowledge-build`](base/knowledge-build.md) | Generate knowledge base using parallel map-reduce architecture |
-| [`deep-research`](base/deep-research.md) | Investigate a codebase or technical topic in depth |
-| [`project-birds-eye-view`](base/project-birds-eye-view.md) | Generate comprehensive project overview with diagrams |
-| [`write-content`](base/write-content.md) | Interactive technical content creation assistant |
-| [`strategize`](base/strategize.md) | Holistic strategic analysis with trade-off recommendations |
-| [`socratic-duel`](base/socratic-duel.md) | Strategy workflow for direct two-agent debate recorded in a separate debate artifact |
-| [`socratic-duel-run`](base/socratic-duel.md#launcher-mode) | Same-harness Socratic Duel launcher that delegates debate turns to participant subagents |
-| [`analyse-security`](base/analyse-security.md) | Comprehensive security validation and vulnerability scanning |
-| [`fix-mermaid`](base/fix-mermaid.md) | Validate and repair Mermaid diagrams in markdown docs |
-| [`guide`](base/guide.md) | Discover skills, get workflow guidance, and ask about rp1 capabilities |
-| [`self-update`](base/self-update.md) | Update rp1 and refresh installed plugins |
-
-### Base Plugin Agent Tools
-
-| Tool | Description |
-|------|-------------|
-| [`work-search`](base/work-search.md) | Search project-scoped markdown work artifacts through `rp1 agent-tools work-search` |
-
-[:octicons-arrow-right-24: Base Plugin Reference](base/index.md)
-
----
-
-## Dev Plugin Skills
-
-The dev plugin provides development workflow capabilities: feature lifecycle, code quality, and PR management.
-
-### Feature Development
-
-| Skill | Description |
-|---------|-------------|
-| [`build`](dev/build.md) | **Primary skill** -- End-to-end feature workflow (requirements -> design -> build -> verify -> archive) |
-| [`build-fast`](dev/build-fast.md) | Quick iteration for small, well-scoped tasks |
-| [`validate-hypothesis`](dev/validate-hypothesis.md) | Test design assumptions through experiments |
-
-| [`blueprint`](dev/blueprint.md) | Create project charter and PRD documents |
-| [`blueprint-archive`](dev/blueprint-archive.md) | Archive completed blueprints |
-| [`blueprint-audit`](dev/blueprint-audit.md) | Audit a PRD against implementation status |
-| [`feature-edit`](dev/feature-edit.md) | Propagate mid-stream changes across build artifacts |
-| [`feature-archive`](dev/feature-archive.md) | Archive completed features |
-| [`feature-unarchive`](dev/feature-unarchive.md) | Restore archived features |
-| [`code-check`](dev/code-check.md) | Fast hygiene validation (lint, test, coverage) |
-| [`code-audit`](dev/code-audit.md) | Pattern consistency and maintainability audit |
-| [`code-investigate`](dev/code-investigate.md) | Systematic bug investigation |
-| [`code-clean-comments`](dev/code-clean-comments.md) | Remove unnecessary code comments |
-| [`pr-review`](dev/pr-review.md) | Map-reduce PR review with confidence gating |
-| [`pr-visual`](dev/pr-visual.md) | Generate Mermaid diagrams from PR diffs |
-| [`pr-walkthrough`](dev/pr-walkthrough.md) | Generate markdown PR walkthroughs grounded in direct PR evidence |
-| [`address-pr-feedback`](dev/address-pr-feedback.md) | Collect, triage, and fix PR review comments |
-
-[:octicons-arrow-right-24: Dev Plugin Reference](dev/index.md)
+| [CLI Reference](cli/index.md) | Setup and maintenance commands |
+| [Base Workflow Reference](base/index.md) | Project understanding, research, documentation, analysis, and maintenance workflows |
+| [Development Workflow Reference](dev/index.md) | Feature delivery, code quality, PR review, and planning workflows |
 
 ---
 
@@ -104,8 +105,8 @@ The workflow stays the same across hosts. Only the command syntax changes:
 
     rp1 skills are installed with an `rp1-` prefix to avoid collisions with your own skills:
 
-    1. **Type the skill name directly** (e.g., `/rp1-dev-build`, `/rp1-base-knowledge-build`)
-    2. **Type `/skills`** to browse and select — look for skills prefixed with `rp1-`
+    1. Type the skill name directly, for example `/rp1-dev-build` or `/rp1-base-knowledge-build`
+    2. Type `/skills` to browse and select skills prefixed with `rp1-`
 
     ```bash
     /rp1-dev-build my-feature [arguments]
@@ -113,7 +114,7 @@ The workflow stays the same across hosts. Only the command syntax changes:
     ```
 
     !!! note
-        Autocomplete for skill names is not yet available in OpenCode — see [opencode#14506](https://github.com/anomalyco/opencode/issues/14506). This may be supported soon.
+        Autocomplete for skill names is not yet available in OpenCode. See [opencode#14506](https://github.com/anomalyco/opencode/issues/14506).
 
 === "Codex"
 
@@ -124,28 +125,22 @@ The workflow stays the same across hosts. Only the command syntax changes:
 
 === "Copilot CLI"
 
-    rp1 skills are installed with an `rp1-` prefix under `~/.config/github-copilot/skills/`:
-
     ```bash
     /rp1-dev-build my-feature
     /rp1-base-knowledge-build
     ```
 
-    Copilot CLI discovers skills from its configured skills directory. Parameters are passed inline and resolved via model-parsed recovery.
+    Copilot CLI discovers rp1 skills from its configured skills directory.
 
 ---
 
 ## Quick Navigation
 
-Looking for something specific?
-
-- **Build a knowledge base**: [`knowledge-build`](base/knowledge-build.md)
-- **Start a new feature**: Use `/build` (orchestrates requirements, design, build, verify) - see [Feature Development Guide](../guides/feature-development.md)
-- **Review a PR**: [`pr-review`](dev/pr-review.md)
-- **Understand a PR**: [`pr-walkthrough`](dev/pr-walkthrough.md)
-- **Run code checks**: [`code-check`](dev/code-check.md)
-- **Security scan**: [`analyse-security`](base/analyse-security.md)
-- **Monitor agent progress**: [Arcade](../arcade/index.md)
-- **CLI commands**: [`init`](cli/index.md), [`install`](cli/install.md), [`update`](cli/update.md)
-- **Troubleshooting install issues**: [Troubleshooting](../troubleshooting/index.md)
-- **Deprecated features**: [Retired Features](../retired-features.md)
+- **Get started**: [Installation](../getting-started/installation.md), [First Workflow](../getting-started/first-workflow.md)
+- **Ship a feature**: [Feature Development Guide](../guides/feature-development.md), [`build`](dev/build.md), [`build-fast`](dev/build-fast.md)
+- **Review a PR**: [PR Review Guide](../guides/pr-review.md), [`pr-review`](dev/pr-review.md), [`pr-walkthrough`](dev/pr-walkthrough.md)
+- **Monitor work**: [Arcade](../arcade/index.md)
+- **Understand concepts**: [Concepts](../concepts/index.md), [Consistent Workflows](../concepts/constitutional-prompting.md), [Project Context](../concepts/knowledge-aware-agents.md)
+- **Automate CI**: [CI/CD Integration](../guides/ci-cd-integration.md), [`pr-review.yaml`](pr-review-config.md)
+- **Onboard a team**: [Team Onboarding](../guides/team-onboarding.md), [`project-birds-eye-view`](base/project-birds-eye-view.md)
+- **Troubleshoot**: [Troubleshooting](../troubleshooting/index.md)

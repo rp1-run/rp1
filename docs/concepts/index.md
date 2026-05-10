@@ -1,91 +1,100 @@
 # Concepts
 
-Understanding the core ideas behind rp1 helps you get more out of its
-workflows. These guides explain the patterns that end users interact with
-directly.
+These concepts explain the parts of rp1 that normal users interact with:
+workflows, projects, context, artifacts, Arcade, reviews, and team handoffs.
+You do not need to understand rp1 prompt authoring or runtime internals to use
+the product.
 
 ---
 
 <div class="grid cards" markdown>
 
--   :material-script-text: **Constitutional Prompting**
+-   :material-play-circle: **Workflows**
 
     ---
 
-    Learn how rp1 encodes expert knowledge into AI-executable workflows for consistent, single-pass execution.
+    A workflow is a guided path for a job such as shipping a feature, reviewing a PR, investigating a bug, or generating project context.
 
     [:octicons-arrow-right-24: Learn more](constitutional-prompting.md)
 
--   :material-brain: **Knowledge-Aware Agents**
+-   :material-folder-search: **Project Context**
 
     ---
 
-    Discover how agents understand your codebase before writing code, respecting your patterns and architecture.
+    Project context gives rp1 enough knowledge about your codebase to follow its architecture, language, and patterns.
 
     [:octicons-arrow-right-24: Learn more](knowledge-aware-agents.md)
 
--   :material-layers: **Skill-Agent Pattern**
+-   :material-file-document: **Artifacts**
 
     ---
 
-    Understand the architecture where skills (SKILL.md) delegate to autonomous agents.
+    Workflows leave durable files behind: requirements, designs, task lists, reports, reviews, walkthroughs, and readiness notes.
 
-    [:octicons-arrow-right-24: Learn more](command-agent-pattern.md)
+    [:octicons-arrow-right-24: Read artifacts in Arcade](../arcade/artifact-viewer.md)
 
--   :material-sitemap: **Map-Reduce Workflows**
-
-    ---
-
-    See how rp1 parallelizes work for knowledge base generation and PR reviews.
-
-    [:octicons-arrow-right-24: Learn more](map-reduce-workflows.md)
-
--   :material-restart: **Stateless Agents**
+-   :material-view-dashboard: **Arcade**
 
     ---
 
-    Learn how resumable interview workflows use file-based state for robustness.
+    Arcade shows active and completed workflows, attention needed, artifacts, links, and comments in one place.
 
-    [:octicons-arrow-right-24: Learn more](stateless-agents.md)
+    [:octicons-arrow-right-24: Monitor work](../arcade/index.md)
 
--   :material-account-check: **Builder-Reviewer Agents**
+-   :material-source-pull: **Reviews**
 
     ---
 
-    Learn how adversarial cooperation between builder and reviewer agents ensures reliable code implementation.
+    PR review workflows produce findings and walkthroughs so you can decide whether to proceed, fix, or ask for a deeper look.
 
-    [:octicons-arrow-right-24: Learn more](builder-reviewer-agents.md)
+    [:octicons-arrow-right-24: Review PRs](../guides/pr-review.md)
+
+-   :material-account-group: **Teams**
+
+    ---
+
+    Shared project context and artifacts help teammates understand what was planned, changed, reviewed, and released.
+
+    [:octicons-arrow-right-24: Onboard a team](../guides/team-onboarding.md)
 
 </div>
 
 ---
 
-## Quick Overview
+## Core User Concepts
 
 | Concept | What It Is | Why It Matters |
 |---------|-----------|----------------|
-| [Constitutional Prompting](constitutional-prompting.md) | Expert knowledge encoded in prompts | No iteration loops, consistent output |
-| [Knowledge-Aware Agents](knowledge-aware-agents.md) | Agents that understand your codebase | Output fits your architecture |
-| [Skill-Agent Pattern](command-agent-pattern.md) | Skills delegate to agents | Clean, reusable workflows |
-| [Map-Reduce Workflows](map-reduce-workflows.md) | Parallel processing pattern | Fast KB and PR analysis |
-| [Stateless Agents](stateless-agents.md) | Resumable interview workflows | Robust, transparent state |
-| [Builder-Reviewer Agents](builder-reviewer-agents.md) | Adversarial agent cooperation | Higher quality, reliable code |
+| [Workflows](constitutional-prompting.md) | Job-specific commands with built-in guidance | You can run a short command and get a consistent path through planning, implementation, review, or analysis |
+| [Project context](knowledge-aware-agents.md) | Generated knowledge about your codebase | rp1 can follow your project structure, terminology, and patterns |
+| Artifacts | Files created by workflows | You can inspect, share, resume, and review work after the chat session ends |
+| Arcade | Local dashboard for workflow activity | You can see running work, attention needed, artifacts, links, and comments |
+| Reviews | PR analysis and walkthrough outputs | You can decide whether to approve, request changes, or investigate |
+| Teams | Shared context and handoff material | Teammates can see the same project understanding and delivery artifacts |
 
 ---
 
 ## Where to Start
 
-**New to rp1?** Start with [Constitutional Prompting](constitutional-prompting.md) to understand rp1's core philosophy.
+**New to rp1?** Start with [Getting Started](../getting-started/index.md), then read [Consistent Workflows](constitutional-prompting.md) to understand why rp1 workflows feel more structured than ad-hoc prompting.
 
-**Want context-aware output?** Read [Knowledge-Aware Agents](knowledge-aware-agents.md) to learn about the knowledge base.
+**Want output that fits your codebase?** Read [Project Context](knowledge-aware-agents.md) to learn how `knowledge-build` supports later workflows.
 
-**Curious about architecture?** See [Skill-Agent Pattern](command-agent-pattern.md) for the technical design.
+**Using Arcade?** See [Arcade](../arcade/index.md), [Artifact Viewer](../arcade/artifact-viewer.md), and [Annotations](../arcade/annotations.md).
 
-**Need performance?** Check [Map-Reduce Workflows](map-reduce-workflows.md) for parallelization patterns.
+**Reviewing PRs?** See the [PR Review Guide](../guides/pr-review.md) and [PR Review Reference](../reference/dev/pr-review.md).
 
-**Building resumable workflows?** See [Stateless Agents](stateless-agents.md) for interrupt-safe interview patterns.
+**Onboarding teammates?** See [Team Onboarding](../guides/team-onboarding.md) and [`project-birds-eye-view`](../reference/base/project-birds-eye-view.md).
 
-**Want reliable implementations?** See [Builder-Reviewer Agents](builder-reviewer-agents.md) for adversarial cooperation.
+## Advanced And Contributor Material
 
-**Using Arcade?** See [Arcade](../arcade/index.md) and
-[Keyboard Shortcuts](../arcade/keyboard-shortcuts.md).
+The pages below are useful when you want to understand or maintain rp1 itself.
+They are not required for normal setup, feature work, PR review, or Arcade use.
+
+| Need | Advanced path |
+|------|---------------|
+| Understand how workflows delegate work internally | [Workflow Delegation](command-agent-pattern.md) |
+| Understand how large analysis jobs split and merge work | [Parallel Analysis](map-reduce-workflows.md) |
+| Understand resumable interview workflow design | [Resumable Interviews](stateless-agents.md) |
+| Understand Build implementation and review internals | [Build Implementation Review](builder-reviewer-agents.md) |
+| Author or maintain rp1 prompt packages | [Skill Format](skill-format.md) |

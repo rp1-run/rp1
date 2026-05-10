@@ -1,6 +1,11 @@
 # pr-walkthrough
 
-Generate a slide-ready markdown walkthrough that explains a pull request from direct PR evidence and remains readable as plain markdown.
+Generate a markdown walkthrough that helps reviewers understand what changed in
+a pull request before they read the full diff.
+
+`pr-walkthrough` is an orientation tool. It does not approve, reject, or comment
+on a pull request. Use [`pr-review`](pr-review.md) when you need a verdict and
+actionable findings.
 
 ---
 
@@ -24,11 +29,13 @@ Generate a slide-ready markdown walkthrough that explains a pull request from di
     $rp1-dev-pr-walkthrough [target] [base-branch]
     ```
 
-## Description
+## When To Use It
 
-The `pr-walkthrough` command creates a reviewer-orientation artifact for a pull request. It gathers PR metadata, changed files, diffs, and commit summaries with `gh` and `git`, then writes an evidence-grounded slide-ready markdown walkthrough.
-
-The walkthrough is not a review verdict, does not post PR comments, and does not use existing `pr-review` artifacts as source material. It includes contract frontmatter, reserved slide markers, slide metadata, speaker notes, vertical detail, and an Evidence Index, while staying coherent when opened as normal markdown. Arcade can render supported outputs in its Artifact Viewer slide reader; the command itself writes and registers markdown.
+| Use `pr-walkthrough` when... | Prefer another command when... |
+|------------------------------|--------------------------------|
+| The PR is large enough that reviewers need a map. | You need a merge-readiness verdict; use [`pr-review`](pr-review.md). |
+| You want a narrative summary grounded in PR evidence. | You only need diagrams; use [`pr-visual`](pr-visual.md). |
+| You want to share reviewer focus areas before human review starts. | Human comments already need fixes; use [`address-pr-feedback`](address-pr-feedback.md). |
 
 ## Parameters
 
@@ -42,11 +49,12 @@ The walkthrough is not a review verdict, does not post PR comments, and does not
 | Input Type | Example | Resolution |
 |------------|---------|------------|
 | Empty | - | Uses the PR associated with the current branch, falling back to a local diff against `BASE_BRANCH` |
-| PR Number | `123` | Fetches PR metadata and diff with `gh` |
+| PR number | `123` | Fetches PR metadata and diff with `gh` |
 | PR URL | `https://github.com/owner/repo/pull/123` | Fetches PR metadata and diff with `gh` |
-| Branch Name | `feature/auth` | Uses the branch PR when available, otherwise uses a local diff against `BASE_BRANCH` |
+| Branch name | `feature/auth` | Uses the branch PR when available, otherwise uses a local diff against `BASE_BRANCH` |
 
-If the target cannot identify exactly one PR or one local diff, the workflow fails during evidence collection instead of producing an unrelated artifact.
+If the target cannot identify exactly one PR or one local diff, the workflow
+fails during evidence collection instead of producing an unrelated artifact.
 
 ## Workflow
 
@@ -54,48 +62,48 @@ If the target cannot identify exactly one PR or one local diff, the workflow fai
 stateDiagram-v2
     [*] --> collecting
     collecting --> publishing : evidence ready
-    publishing --> [*] : artifact registered
+    publishing --> [*] : walkthrough written
 ```
 
 | Step | What Happens |
 |------|--------------|
-| `collecting` | Resolves the target, gathers direct `gh` or `git` evidence, and assigns evidence IDs |
-| `publishing` | Generates the slide-ready markdown walkthrough and registers it as a work artifact |
+| `collecting` | Resolves the target and gathers PR metadata, changed files, diff excerpts, and commits. |
+| `publishing` | Writes the walkthrough and registers it with the run so it can be opened from Arcade. |
 
-## Evidence And Scope
+## Reading The Walkthrough
 
-The generated walkthrough includes an Evidence Index that maps evidence IDs to PR metadata, changed files, diff excerpts, or commits. Major purpose, change, reviewer-focus, risk, speaker-note, and vertical-detail claims cite those IDs so reviewers can spot-check the artifact against the source PR evidence.
+The walkthrough is designed to answer:
 
-The artifact declares the `pr-walkthrough-slide-source` contract in frontmatter. Slide structure is represented with line-alone HTML comment markers such as `<!-- rp1-slide: horizontal -->`, `<!-- rp1-slide: vertical -->`, `<!-- rp1-notes -->`, and per-slide metadata blocks. These markers are part of the markdown source contract; PR excerpts stay fenced or quoted so separator-like source text is not treated as slide structure.
+| Question | Where to look |
+|----------|---------------|
+| What is the PR trying to accomplish? | At-a-glance summary |
+| Which files or areas changed? | Change map |
+| What should reviewers inspect first? | Reviewer focus areas |
+| What risks or open questions remain? | Risks and questions |
+| Which source evidence supports the claims? | Evidence index |
 
-Horizontal slide groups include:
+Use the walkthrough before or alongside human review. It is especially useful
+when a PR spans multiple folders, introduces a new flow, or needs a short
+written explanation for reviewers who were not involved in the implementation.
 
-- `At A Glance`
-- `Evidence Index`
-- `Change Map`
-- `Walkthrough`
-- `Reviewer Focus`
-- `Risks And Questions`
-
-Overflow detail appears as vertical depth under the related topic, and supporting context appears in notes after the slide face. When read without slide rendering, the parent summary appears before its notes and deeper detail.
-
-## Output Artifact Behavior
+## Output
 
 The workflow writes a markdown artifact under `.rp1/work/pr-walkthroughs/` and
-registers it with explicit `storageRoot: "work_dir"`. That markdown file is the
-source of truth for both the Arcade slide reader and normal markdown viewing.
+registers it with the run. Open it from command output, the file path, or
+[Arcade](../../arcade/index.md).
 
-When the registered file-backed markdown artifact declares
-`rp1_contract: pr-walkthrough-slide-source` and has valid slide markers, Arcade
-can open it in Slides mode from the artifact surface. The reader uses the
-horizontal and vertical slide markers, speaker-note blocks, and evidence
-metadata while keeping a Markdown mode available for source-order reading.
+Expected contents:
 
-If the contract is unsupported, malformed, or slide rendering fails, Arcade
-shows the markdown artifact instead. Evidence IDs such as `E-PR-###`,
-`E-FILE-###`, `E-DIFF-###`, and `E-COMMIT-###` remain visible in slide content,
-Reveal speaker-view notes, the Evidence Index, and fallback markdown so claims
-stay auditable.
+- PR purpose and size at a glance
+- Evidence index with source references
+- Reviewable change map
+- Narrative walkthrough of major changes
+- Reviewer focus areas
+- Risks and questions grounded in evidence
+
+Arcade may offer a slide-style reading mode for supported walkthroughs. Markdown
+viewing is always available, and it is the best fallback when you want to copy,
+quote, annotate, or search the walkthrough text.
 
 ## Examples
 
@@ -139,40 +147,23 @@ stay auditable.
     $rp1-dev-pr-walkthrough 123
     ```
 
-**Example output:**
+Example final output:
 
 ```text
-## PR Walkthrough Complete
+PR Walkthrough Complete
 
-**Target**: PR #123
-**Artifact**: pr-walkthroughs/pr-123-walkthrough-001.md
-**Evidence**: 8 files, 3 commits
+Target: PR #123
+Artifact: pr-walkthroughs/pr-123-walkthrough-001.md
+Evidence: 8 files, 3 commits
 ```
-
-## Output
-
-**Location:** `.rp1/work/pr-walkthroughs/<review-id>-walkthrough-<NNN>.md`
-
-**Contents:**
-
-- Contract frontmatter identifying the walkthrough as `pr-walkthrough-slide-source`
-- Reserved slide markers, slide metadata blocks, speaker notes, and vertical detail
-- PR purpose and size at a glance
-- Evidence Index with source references and evidence IDs used by slide metadata and claims
-- Reviewable change map
-- Narrative walkthrough of major changes
-- Reviewer focus areas
-- Risks and questions grounded in evidence
-
-The artifact is slide-ready markdown source, not a rendered presentation file.
-Opened in a plain markdown viewer, the visible metadata and markers should not
-block the top-to-bottom walkthrough. In Arcade, supported artifacts can be read
-with the slide reader or with the same markdown fallback.
-
-The artifact is registered with `storageRoot: "work_dir"` and appears in the workflow run artifacts.
 
 ## Related Commands
 
 - [`pr-review`](pr-review.md) - Produce a review verdict and actionable findings
 - [`pr-visual`](pr-visual.md) - Generate diagrams from PR diffs
 - [`address-pr-feedback`](address-pr-feedback.md) - Collect and fix review comments
+
+## See Also
+
+- [PR Review Guide](../../guides/pr-review.md)
+- [Artifact Viewer](../../arcade/artifact-viewer.md)

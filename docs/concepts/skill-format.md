@@ -1,5 +1,10 @@
 # Skill Format Reference
 
+!!! warning "Contributor authoring reference"
+    This page is for people authoring or maintaining rp1 skills and prompt
+    packages. It is not part of normal user onboarding, feature development, PR
+    review, or Arcade use.
+
 All invocable prompts in rp1 use the canonical `SKILL.md` format: a YAML frontmatter block followed by the prompt body in Markdown.
 
 ## Frontmatter Structure

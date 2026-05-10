@@ -71,41 +71,73 @@ hooks:
 
 nav:
   - Home: index.md
-  - Getting Started:
+  - Get Started:
     - Overview: getting-started/index.md
-    - Installation: getting-started/installation.md
+    - Installation and Hosts: getting-started/installation.md
     - First Workflow: getting-started/first-workflow.md
-    - The .rp1 Directory: getting-started/rp1-directory.md
-  - Guides:
-    - Overview: guides/index.md
+  - Ship Code:
+    - Workflow Guides: guides/index.md
     - Feature Development: guides/feature-development.md
     - Project Bootstrap: guides/bootstrap.md
     - Bug Investigation: guides/bug-investigation.md
+  - Review PRs:
     - PR Review: guides/pr-review.md
     - Remote PR Review (CI/CD): guides/remote-pr-review.md
     - Addressing PR Feedback: guides/pr-feedback.md
-    - Team Onboarding: guides/team-onboarding.md
-    - CI/CD Integration: guides/ci-cd-integration.md
-    - Scaling with Teams: guides/scaling-with-teams.md
-  - Arcade:
+  - Monitor in Arcade:
     - Overview: arcade/index.md
     - Dashboard: arcade/dashboard.md
-    - Annotations: arcade/annotations.md
     - Artifact Viewer: arcade/artifact-viewer.md
+    - Annotations: arcade/annotations.md
     - Keyboard Shortcuts: arcade/keyboard-shortcuts.md
     - Settings: arcade/settings.md
-  - Comparison:
-    - Why rp1?: comparison/vs-raw-prompting.md
+  - Concepts:
+    - Overview: concepts/index.md
+    - Consistent Workflows: concepts/constitutional-prompting.md
+    - Project Context: concepts/knowledge-aware-agents.md
+  - Automate CI:
+    - CI/CD Integration: guides/ci-cd-integration.md
+  - Teams:
+    - Team Onboarding: guides/team-onboarding.md
+    - Scaling with Teams: guides/scaling-with-teams.md
+  - Why rp1?: comparison/vs-raw-prompting.md
   - Reference:
     - Overview: reference/index.md
-    - PR Review Config: reference/pr-review-config.md
-    - CLI:
+    - Setup and Maintenance:
       - Overview: reference/cli/index.md
       - init: reference/cli/init.md
       - install: reference/cli/install.md
       - update: reference/cli/update.md
+      - check-update: reference/cli/check-update.md
       - rp1 migrate: reference/cli/rp1-migrate.md
-    - Base Plugin:
+      - self-update: reference/base/self-update.md
+    - Platform Support:
+      - GitHub Copilot CLI Setup: reference/platforms/copilot.md
+    - Ship Code Reference:
+      - Overview: reference/dev/index.md
+      - build: reference/dev/build.md
+      - build-fast: reference/dev/build-fast.md
+      - phase-plan: reference/dev/phase-plan.md
+      - validate-hypothesis: reference/dev/validate-hypothesis.md
+    - Planning Reference:
+      - blueprint: reference/dev/blueprint.md
+      - blueprint-archive: reference/dev/blueprint-archive.md
+      - blueprint-audit: reference/dev/blueprint-audit.md
+      - feature-edit: reference/dev/feature-edit.md
+      - feature-archive: reference/dev/feature-archive.md
+      - feature-unarchive: reference/dev/feature-unarchive.md
+    - Code Quality Reference:
+      - code-check: reference/dev/code-check.md
+      - code-audit: reference/dev/code-audit.md
+      - code-investigate: reference/dev/code-investigate.md
+      - code-clean-comments: reference/dev/code-clean-comments.md
+    - PR Review Reference:
+      - pr-review: reference/dev/pr-review.md
+      - pr-visual: reference/dev/pr-visual.md
+      - pr-walkthrough: reference/dev/pr-walkthrough.md
+      - address-pr-feedback: reference/dev/address-pr-feedback.md
+      - PR Review Config: reference/pr-review-config.md
+    - Knowledge and Analysis Reference:
       - Overview: reference/base/index.md
       - knowledge-build: reference/base/knowledge-build.md
       - deep-research: reference/base/deep-research.md
@@ -115,37 +147,22 @@ nav:
       - socratic-duel: reference/base/socratic-duel.md
       - analyse-security: reference/base/analyse-security.md
       - fix-mermaid: reference/base/fix-mermaid.md
+      - guide: reference/base/guide.md
+  - Troubleshoot by Symptom: troubleshooting/index.md
+  - Advanced:
+    - Documentation Boundary: reference/documentation-boundary.md
+    - The .rp1 Directory: getting-started/rp1-directory.md
+    - How rp1 Works:
+      - Workflow Delegation: concepts/command-agent-pattern.md
+      - Parallel Analysis: concepts/map-reduce-workflows.md
+      - Resumable Interviews: concepts/stateless-agents.md
+      - Build Implementation Review: concepts/builder-reviewer-agents.md
+    - Contributor Authoring:
+      - Skill Format: concepts/skill-format.md
+    - Advanced Tools:
       - work-search: reference/base/work-search.md
-      - self-update: reference/base/self-update.md
-    - Dev Plugin:
-      - Overview: reference/dev/index.md
-      - build: reference/dev/build.md
-      - build-fast: reference/dev/build-fast.md
-      - blueprint: reference/dev/blueprint.md
-      - blueprint-archive: reference/dev/blueprint-archive.md
-      - blueprint-audit: reference/dev/blueprint-audit.md
-      - validate-hypothesis: reference/dev/validate-hypothesis.md
-      - feature-edit: reference/dev/feature-edit.md
-      - feature-archive: reference/dev/feature-archive.md
-      - feature-unarchive: reference/dev/feature-unarchive.md
-      - code-check: reference/dev/code-check.md
-      - code-audit: reference/dev/code-audit.md
-      - code-investigate: reference/dev/code-investigate.md
-      - code-clean-comments: reference/dev/code-clean-comments.md
-      - pr-review: reference/dev/pr-review.md
-      - pr-visual: reference/dev/pr-visual.md
-      - pr-walkthrough: reference/dev/pr-walkthrough.md
-      - address-pr-feedback: reference/dev/address-pr-feedback.md
-  - Troubleshooting: troubleshooting/index.md
-  - Concepts:
-    - Overview: concepts/index.md
-    - Constitutional Prompting: concepts/constitutional-prompting.md
-    - Knowledge-Aware Agents: concepts/knowledge-aware-agents.md
-    - Skill-Agent Pattern: concepts/command-agent-pattern.md
-    - Map-Reduce Workflows: concepts/map-reduce-workflows.md
-    - Stateless Agents: concepts/stateless-agents.md
-    - Builder-Reviewer Agents: concepts/builder-reviewer-agents.md
-  - Retired Features: retired-features.md
+      - Fence Versioning: reference/cli/fence-versioning.md
+    - Retired Features: retired-features.md
 
 extra:
   social:

@@ -1,6 +1,6 @@
 # Feature Development Tutorial
 
-Build your first feature with rp1's complete development workflow. This tutorial walks you through the entire journey from idea to verified implementation.
+Build your first feature with rp1's complete development workflow. This tutorial walks you through the current Build v2 journey from idea to release decision.
 
 **Time to complete**: ~30-45 minutes
 
@@ -8,12 +8,12 @@ Build your first feature with rp1's complete development workflow. This tutorial
 
 ## What You'll Learn
 
-- How rp1's 6-step feature workflow connects together
+- How Build v2 connects requirements, planning, implementation, and release
 - When to phase-plan before starting `/build`
 - Using `/build` as the single entry point for feature development
-- How the builder-reviewer architecture ensures implementation quality
-- The artifacts produced at each step
-- Supporting commands for mid-stream changes and unarchiving
+- How builder-reviewer task units and release readiness keep quality visible
+- The artifacts produced in each parent phase
+- How state-first continuation and add-task release decisions work
 
 ## Prerequisites
 
@@ -96,32 +96,27 @@ We'll build a **user authentication system** with login, registration, and sessi
 
 ---
 
-## The 6-Step Workflow
+## The Build v2 Lifecycle
 
 ```mermaid
 flowchart LR
-    R[Requirements] --> D[Design]
-    D --> Bu[Build]
-    Bu --> V[Verify]
-    V --> UR[User Review]
-    UR -->|More work| F[Follow-up]
-    F --> Bu
-    UR -->|Done| A[Archive]
+    R[Requirements] --> P[Planning]
+    P --> I[Implementation]
+    I --> L[Release]
+    L -->|Add task| I
+    L -->|Archive or complete| Done[Done]
 ```
 
-| Step | Purpose | Output |
-|------|---------|--------|
-| Requirements | Define what to build | requirements.md |
-| Design | Define how to build it | design.md + tasks.md |
-| Build | Implement the code | Working feature |
-| Verify | Validate against criteria | Verification report |
-| User Review | Manual verification checkpoint | User decision |
-| Follow-up | Add more tasks if needed | Loops back to Build |
-| Archive | Store completed feature | Archived artifacts |
+| Parent Phase | Purpose | Primary Output |
+|--------------|---------|----------------|
+| Requirements | Define the user need, scope, constraints, and acceptance criteria | `requirements.md` |
+| Planning | Turn requirements into design and an accepted task plan | `design.md`, `tasks.md`, `tasks.json` |
+| Implementation | Build task units, review them, and run validation | Working feature plus validation results |
+| Release | Review readiness, handle manual verification items, and choose archive or completion | `build-readiness.md`, optional archived artifacts |
 
 ## Using /build
 
-The `/build` command is the **single entry point** for feature development. It orchestrates all 6 steps automatically:
+The `/build` command is the **single entry point** for feature development. It orchestrates the four parent phases automatically:
 
 === "Claude Code"
 
@@ -137,13 +132,13 @@ The `/build` command is the **single entry point** for feature development. It o
     /rp1-dev-build my-feature --afk        # Autonomous mode
     ```
 
-!!! note "Individual Step Commands Removed"
-    Previous versions exposed individual commands like `/feature-requirements`, `/feature-design`, `/feature-build`, etc. These are no longer available as standalone commands. Use `/build` which orchestrates all steps automatically with smart resumption.
+!!! note "Individual phase commands removed"
+    Previous versions exposed individual commands like `/feature-requirements`, `/feature-design`, `/feature-build`, etc. These are no longer available as standalone commands. Use `/build`, which orchestrates the full lifecycle and resumes from workflow state.
 
 **Why /build?**
 
 - **Single command**: One entry point for the entire workflow
-- **Smart resumption**: Detects existing artifacts and resumes from the right step
+- **State-first resumption**: Reuses the active run for the same feature and continues from the next incomplete phase
 - **Interactive by default**: Approval gates let you review and steer at each step
 - **AFK mode** (Away From Keyboard): Run autonomously without user interaction (ideal for CI/CD or overnight runs)
 - **Consistent quality**: Builder-reviewer architecture ensures implementation quality
@@ -155,14 +150,16 @@ In interactive mode, approval gates appear between major workflow stages:
 ```mermaid
 flowchart LR
     R[Requirements] --> G1{Gate 1}
-    G1 -->|Continue| D[Design]
-    D --> G2{Gate 2}
-    G2 -->|Continue| T[Tasks]
-    T --> G3{Gate 3}
-    G3 -->|Continue| B[Build]
-    B --> G4{Gate 4}
-    G4 -->|Continue| V[Verify]
-    V --> A[Archive]
+    G1 -->|Continue| P[Planning]
+    P --> G2{Gate 2}
+    G2 -->|Continue| I[Implementation]
+    I --> G3{Gate 3}
+    G3 -->|Release| L[Release]
+    G3 -->|Add Task| I
+    L --> G4{Gate 4}
+    G4 -->|Archive| A[Archived]
+    G4 -->|Complete without archive| C[Complete]
+    G4 -->|Add Task| I
 ```
 
 At each gate, you can:
@@ -172,10 +169,13 @@ At each gate, you can:
 | **Continue** | Proceed to the next stage |
 | **Revise** | Provide feedback and re-run the current stage |
 | **Stop** | Exit the workflow (artifacts preserved for later) |
+| **Release** | Move from implementation into release readiness when the work is ready |
+| **Archive** | Archive completed feature artifacts during release |
+| **Complete without archive** | Finish release while leaving artifacts active |
 
-Gate 4 (after Build) also offers **Add Task** to implement additional work before verification.
+The implementation and release gates also offer **Add Task** to return to implementation when review or manual verification finds more work.
 
-When you select **Stop**, the workflow saves your progress. Resume anytime with `/build my-feature` — the artifact detector automatically continues from where you left off.
+When you select **Stop**, the workflow saves your progress. Resume anytime with `/build my-feature`; rp1 reads the active run's workflow state and continues from the next incomplete parent phase. If registered progress and local files disagree, workflow state wins and rp1 reports the gap instead of guessing from filenames.
 
 ### AFK Mode (Autonomous)
 
@@ -187,18 +187,17 @@ When to use `--afk` mode:
 - When you trust the AI to make reasonable decisions
 
 !!! note "Your code is safe"
-    Even in AFK mode, all changes are isolated to a separate branch. Nothing is merged until you review and approve.
+    Even in AFK mode, git operations remain opt-in through `--git-*` flags. Changes stay in your working directory unless you explicitly ask rp1 to commit, push, or open a PR.
 
-**Resumption scenarios:**
+**State-first resumption scenarios:**
 
-| Existing Artifacts | /build Resumes From |
-|-------------------|---------------------|
-| None | requirements |
-| requirements.md | design |
-| requirements.md + design.md | build |
-| requirements.md + design.md + tasks.md (completed) | verify |
-| All + verification-report.md | archive |
-| All archived | follow-up |
+| Registered State | /build Resumes From |
+|------------------|---------------------|
+| No completed parent phase | Requirements |
+| Requirements complete | Planning |
+| Planning complete with registered design and task plan | Implementation |
+| Implementation complete with readiness context | Release |
+| Missing required registered output | Waiting gate for the relevant phase |
 
 ---
 
@@ -247,11 +246,11 @@ When to use `--afk` mode:
 
 ---
 
-## What /build Does at Each Step
+## What /build Does in Each Phase
 
-When you run `/build user-auth`, the command orchestrates these steps automatically:
+When you run `/build user-auth`, the command orchestrates these parent phases automatically:
 
-### Step 1: Requirements
+### Phase 1: Requirements
 
 **What happens:**
 
@@ -268,11 +267,11 @@ Answer the questions, and rp1 generates a comprehensive requirements document.
 
 Contents include feature overview, business context, functional requirements, user stories, and acceptance criteria.
 
-### Step 2: Design
+### Phase 2: Planning
 
 **What happens:**
 
-rp1 analyzes your requirements and your codebase (via the KB) to create a design that fits your architecture. It considers:
+rp1 analyzes your requirements and your codebase context to create a design and accepted task plan that fit your architecture. It considers:
 
 - Your existing patterns and conventions
 - Component structure
@@ -282,7 +281,8 @@ rp1 analyzes your requirements and your codebase (via the KB) to create a design
 **Output:**
 
 - `.rp1/work/features/user-auth/design.md` - Architecture, component specs, data models, API design, security approach
-- `.rp1/work/features/user-auth/tasks.md` - Auto-generated task breakdown with complexity tags
+- `.rp1/work/features/user-auth/tasks.md` - Human-readable task plan for review
+- `.rp1/work/features/user-auth/tasks.json` - Machine-readable task plan used during implementation
 
 ??? info "Implementation DAG"
     For features with multiple components, the design includes an **Implementation DAG** (Directed Acyclic Graph) section that identifies:
@@ -291,7 +291,7 @@ rp1 analyzes your requirements and your codebase (via the KB) to create a design
     - **Dependencies**: Which tasks must complete before others can start
     - **Critical path**: The longest dependency chain
 
-    This enables the build phase to parallelize independent tasks without
+    This enables the implementation phase to parallelize independent tasks without
     forcing the whole build to run serially.
 
     Example DAG output:
@@ -317,7 +317,7 @@ rp1 analyzes your requirements and your codebase (via the KB) to create a design
     /validate-hypothesis user-auth
     ```
 
-### Step 3: Build
+### Phase 3: Implementation
 
 **What happens:**
 
@@ -352,94 +352,70 @@ flowchart TD
 !!! note "Inspired by Research"
     The builder-reviewer architecture is inspired by Block's [Adversarial Cooperation in Code Synthesis](https://block.xyz/documents/adversarial-cooperation-in-code-synthesis.pdf) paper.
 
-**Output:** Working feature implementation with all tasks completed in `tasks.md`.
+**Output:** Working feature implementation with completed task units and validation results.
 
-### Step 4: Verify
+### Implementation Validation
 
 **What happens:**
 
-rp1 performs comprehensive validation:
+Before release, rp1 performs comprehensive validation:
 
 1. Checks each acceptance criterion
 2. Verifies requirements coverage
 3. Runs the test suite
 4. Reviews field notes for intentional deviations
-5. Produces a verification report
+5. Records evidence for release readiness
 
-**Output:** `.rp1/work/features/user-auth/verification-report.md`
+**Output:** Validation results and, when produced, `.rp1/work/features/user-auth/verification-report.md`.
 
-### Step 4.1: User Review (Interactive Mode Only)
+### Phase 4: Release
 
-!!! note "Skipped in AFK Mode"
-    In `--afk` mode, this step is skipped and the workflow proceeds directly to Archive.
+!!! note "AFK mode"
+    In `--afk` mode, release defaults to archive when readiness allows it. Blocking readiness failures or missing required validation do not silently mark the feature complete.
 
 **What happens:**
 
-After automated verification, rp1 presents a summary of the completed work:
+After implementation validation, rp1 presents release readiness:
 
-- Branch created with all commits
 - Files modified and changes made
-- Verification results
-- Any field notes or deviations
+- Blockers, warnings, and supporting evidence
+- Manual verification items
+- Field notes and intentional deviations
 
-You're asked to **manually verify** the implementation — test the feature, review the code, check edge cases. Then choose how to proceed:
+You manually verify what matters for the feature, then choose how to proceed:
 
 | Option | What Happens |
 |--------|--------------|
-| **Follow-up** | Go to Step 5, add more tasks and loop back to Step 3 (Build) |
-| **Archive** | Proceed to Step 6, store completed feature |
+| **Archive** | Store the completed feature artifacts in the archive |
+| **Complete without archive** | Finish release while leaving feature artifacts active |
+| **Add Task** | Add follow-up work and return to implementation |
+| **Review feedback from Arcade** | Process feedback, then return to the release gate |
+| **Stop** | Preserve the run and return later |
 
-This checkpoint ensures you've validated the work before it's archived, and gives you the opportunity to add follow-up tasks if needed.
+This checkpoint keeps manual verification and release decisions explicit. Add-task cycles continue until you are satisfied with the implementation and choose Archive or Complete without archive.
 
-### Step 5: Follow-up
-
-**What happens:**
-
-If you chose Follow-up at the User Review checkpoint, rp1 helps you add more work:
-
-- Add additional tasks discovered during review
-- Address edge cases or improvements identified
-- Loop back to Step 3 (Build) to implement the new tasks
-
-This cycle continues until you're satisfied with the implementation and choose Archive.
-
-**Output:** Additional tasks added, loops back to Build.
-
-### Step 6: Archive
-
-**What happens:**
-
-Once you're done with all follow-up work, rp1 moves all feature artifacts to the archive:
-
-- Compresses artifacts for storage
-- Preserves requirements, design, tasks, and verification report
-- Clears working directory for next feature
-
-**Output:** `.rp1/archive/features/user-auth/` containing all archived artifacts.
+**Output:** `.rp1/work/features/user-auth/build-readiness.md` and, when you choose Archive, archived feature artifacts.
 
 ---
 
 ## Summary
 
-You've learned the 6-step feature development workflow:
+You've learned the Build v2 feature development workflow:
 
-| Step | What Happens | Artifact |
-|------|--------------|----------|
+| Phase | What Happens | Artifact |
+|-------|--------------|----------|
 | Optional | Blueprint captures project vision | charter.md, PRD |
-| 1. Requirements | Define what to build | requirements.md |
-| 2. Design | Define how to build it | design.md + tasks.md |
-| Optional | Validate risky assumptions | Proof-of-concept |
-| 3. Build | Implement with builder-reviewer | Implementation |
-| 4. Verify | Validate against criteria | verification-report.md |
-| 4.1 User Review | Manual verification checkpoint | User decision |
-| 5. Follow-up | Add more work (loops to Build) | Additional tasks |
-| 6. Archive | Store completed feature | Archived artifacts |
+| Requirements | Define what to build and why | `requirements.md` |
+| Planning | Define how to build it and accept the task plan | `design.md`, `tasks.md`, `tasks.json` |
+| Optional | Validate risky assumptions | Proof-of-concept findings |
+| Implementation | Implement and review task units | Code changes, task status, validation results |
+| Release | Review readiness, manual items, and archive or completion choice | `build-readiness.md`, optional archive |
 
 ### Key Benefits
 
 - **Single entry point** - `/build` orchestrates the entire workflow
-- **Smart resumption** - Detects existing artifacts and continues from the right step
-- **Documented artifacts** - Every step produces documentation
+- **State-first resumption** - Continues from registered workflow state instead of filename guesses
+- **Documented artifacts** - Every parent phase produces reviewable documentation
 - **Context-aware** - rp1 respects your codebase patterns
 - **Traceable** - Requirements map to design to tasks to code
 - **Quality-gated builds** - Builder-reviewer ensures implementation quality
@@ -487,10 +463,10 @@ While `/build` handles the complete workflow, these commands help with specific 
 
 ??? question "Can I skip steps?"
 
-    `/build` uses smart resumption - it detects existing artifacts and skips to the appropriate step automatically. If you have `requirements.md` already, it skips to design. If you have `design.md`, it skips to build.
+    `/build` uses state-first resumption. It reopens the active run for the same feature and continues from the next incomplete parent phase. If required registered outputs are missing or inconsistent, rp1 waits and reports the contract gap instead of inferring success from local files.
 
     You can also use `--afk` mode to run autonomously without prompts.
 
 ??? question "How do I make mid-stream changes?"
 
-    Use `/feature-edit feature-id "description of change"` to incorporate discoveries or corrections during the build phase. This updates the relevant documentation and tasks.
+    Use `/feature-edit feature-id "description of change"` to incorporate discoveries or corrections during implementation. This updates the relevant documentation and tasks.

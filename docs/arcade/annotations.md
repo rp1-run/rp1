@@ -1,237 +1,112 @@
 # Annotations
 
-The annotation system enables persistent, contextual feedback on artifacts in
-Arcade. Add inline comments and collaborate on design documents, requirements,
-and code.
+Annotations let you attach feedback to specific artifact text in Arcade. Use
+them when a requirement is unclear, a design choice needs review, a report
+finding needs follow-up, or a teammate should respond in context.
 
----
+## What Annotations Are For
 
-## Overview
+| Need | Use annotations to |
+|------|--------------------|
+| Ask for a change | Select the exact text and describe the requested edit. |
+| Discuss a decision | Reply in the thread until the decision is clear. |
+| Track completion | Resolve the annotation when the issue is addressed. |
+| Preserve context | Keep feedback attached to the artifact instead of separate chat history. |
+| Recover after edits | Review orphaned comments when the original selected text moved or changed. |
 
-Annotations provide a feedback loop between you and AI agents working on your codebase. Key capabilities:
+## Add A Comment
 
-- **Inline comments** anchored to text selections, hidden markers, or code lines
-- **Single-level replies** for discussions
-- **Real-time sync** via WebSocket
-- **Dual persistence** to JSON (machine-readable) and markdown (human-readable)
+1. Open an artifact in Arcade.
+2. Select the text you want to comment on.
+3. Choose **Add Comment** from the popover.
+4. Write the feedback.
+5. Press `Cmd/Ctrl + Enter` or use the submit action.
 
----
+Good comments are specific and actionable. Prefer "Clarify whether this command
+should run before or after `rp1 init`" over "unclear".
 
-## Creating Annotations
+## Comment On Code Blocks
 
-### Text Selection Comments
+Code blocks support the same selection flow as normal Markdown content. Select
+the relevant code or output, add a comment, and submit it from the popover.
 
-1. Select text in any markdown artifact or code block
-2. A small popover appears to the right of your selection with an "Add Comment" action
-3. Click to open the comment editor, then enter your feedback
-4. Press **Cmd/Ctrl + Enter** to submit
+Use code-block comments for generated diffs, command examples, error snippets,
+or implementation notes that need a targeted response.
 
-The annotation anchors to the selected text. If the document changes and the text can no longer be found, the annotation is marked as "orphaned" but preserved.
+## Read Existing Comments
 
-### Code Block Comments
+Artifacts show subtle indicators beside annotated content. Click an indicator
+to open the comment thread.
 
-Code blocks support the same text selection annotation workflow as markdown content:
+The sidebar groups comments by status:
 
-1. Select any text within a code block
-2. The comment popover appears to the right of your selection
-3. Add your comment and submit
+| Section | Meaning |
+|---------|---------|
+| Open | Feedback that still needs attention. |
+| Resolved | Feedback that has been addressed. |
+| Orphaned | Feedback whose original selected text could not be found after the artifact changed. |
 
-This unified experience allows precise feedback on any content type.
+Clicking a sidebar item scrolls to the comment location and opens the thread.
+Long comments can be expanded when the preview is truncated.
 
-### Hidden Anchor Comments
+## Reply
 
-Markdown files can contain hidden anchors (`<a id="section-name">`) that provide stable anchor points for annotations. These are invisible in the rendered output but allow annotations to survive document restructuring.
+1. Open a comment from the indicator or sidebar.
+2. Enter your reply.
+3. Press `Cmd/Ctrl + Enter` or choose Reply.
 
----
+Replies stay in chronological order under the original comment. Use replies for
+clarifying questions, decisions, or status notes.
 
-## Visual Indicators
+## Resolve And Reopen
 
-Annotations display as thin vertical lines on the left side of annotated content, providing subtle but visible markers that don't interfere with readability.
+Resolve a comment when the issue has been handled:
 
-### Indicator Colors
+1. Open the comment.
+2. Choose Resolve.
+3. Confirm that the indicator moves to the resolved state.
 
-| Color | Status | Description |
-|-------|--------|-------------|
-| **Yellow** | Open | Active annotations requiring attention |
-| **Green** | Resolved | Addressed annotations |
+Reopen a resolved comment when the issue still applies or the fix needs more
+work. The comment returns to the open section.
 
-### Interaction
+## Handle Orphaned Comments
 
-- **Click** the left-side indicator to open the annotation popover
-- The popover appears to the right of the content, positioned to avoid viewport edges
-- **Hover** over the indicator to see a visual highlight
+An annotation becomes orphaned when Arcade can no longer find the original text
+selection. The comment is preserved so feedback is not lost.
 
-### Code Block Indicators
+When you see an orphaned comment:
 
-Code blocks display indicators in the gutter area, using the same color scheme:
+1. Read the original comment and nearby artifact context.
+2. Search the artifact for the updated section if needed.
+3. Decide whether the feedback is already addressed.
+4. Reply with the new context or resolve the comment.
+5. Recreate the comment on the current text if it still needs work.
 
-- Yellow gutter highlight for open annotations
-- Green gutter highlight for resolved annotations
+## Work With Agents And Teammates
 
----
+Annotations are most useful when they become part of the next workflow pass.
 
-## Annotation Sidebar
+Typical loop:
 
-The artifact viewer includes a collapsible annotation sidebar on the right side. Toggle it with the annotation button in the toolbar.
+1. You add comments to a requirements, design, task, review, or readiness
+   artifact.
+2. You continue the relevant workflow or ask a teammate to review the artifact.
+3. The feedback is addressed in the next edit or decision.
+4. The thread is replied to or resolved.
 
-### Sidebar Items
-
-Each annotation in the sidebar displays:
-
-- **Status indicator**: Colored dot (yellow = open, green = resolved)
-- **Preview text**: First portion of the comment content
-- **Metadata**: Author and timestamp
-
-### Content Truncation
-
-Long comments are truncated in both the sidebar and popover to maintain a clean interface:
-
-- Comments exceeding 3 lines or ~200 characters show truncated text
-- Click **Show more** to expand and view the full content
-- Click **Show less** to collapse back to the preview
-- Expanded state persists during your session
-
-### Sections
-
-| Section | Description |
-|---------|-------------|
-| **Open** | Active annotations requiring attention |
-| **Resolved** | Addressed annotations (collapsed by default) |
-| **Orphaned** | Annotations whose anchors could not be found (warning badge) |
-
-### Navigation
-
-Click any annotation in the sidebar to:
-
-1. Scroll the document to the annotation's anchor position
-2. Open the annotation popover at that location
-
-The sidebar remains open after navigation, allowing you to quickly move between annotations.
-
----
-
-## Threading
-
-Annotations support single-level replies:
-
-1. Click an annotation indicator or sidebar item to open the popover
-2. Enter your reply in the text area at the bottom
-3. Press **Cmd/Ctrl + Enter** or click **Reply** to submit
-
-Replies display in chronological order beneath the original comment. Each reply shows the author and timestamp. Reply content follows the same truncation rules as main comments.
-
----
-
-## Resolution Workflow
-
-Mark annotations as resolved when addressed:
-
-1. Open the annotation popover
-2. Click the **Resolve** button (checkmark icon)
-3. The indicator changes from yellow to green
-4. The annotation moves to the "Resolved" section in the sidebar
-
-To reopen a resolved annotation, click **Unresolve** in the popover. The indicator returns to yellow and the annotation moves back to the "Open" section.
-
----
+If an agent says it addressed feedback, reopen the artifact and verify the
+resolved comments match the actual change.
 
 ## Keyboard Shortcuts
 
 | Shortcut | Context | Action |
 |----------|---------|--------|
-| `Cmd/Ctrl + Enter` | Comment input | Submit annotation or reply |
-| `Escape` | Popover open | Close popover |
-
----
-
-## Persistence
-
-### JSON Storage
-
-Annotations are stored in `.rp1/open-tasks.json` as the authoritative source. This file is machine-readable, enabling AI agents to read and respond to feedback.
-
-```json
-{
-  "version": "1.0.0",
-  "lastModified": "2026-01-26T10:00:00Z",
-  "annotations": [
-    {
-      "id": "ANN-1706266800000-abc123",
-      "artifactPath": "requirements.md",
-      "anchor": {
-        "type": "text-selection",
-        "selectedText": "user authentication",
-        "startOffset": 150,
-        "endOffset": 170
-      },
-      "content": "Should we support OAuth here?",
-      "status": "open",
-      "replies": []
-    }
-  ]
-}
-```
-
-### Markdown Embedding
-
-Annotations are also embedded as HTML comments in the source markdown files:
-
-```markdown
-<!-- rp1:annotation:ANN-001 -->
-Some annotated text
-<!-- /rp1:annotation:ANN-001 -->
-```
-
-These comments are invisible in rendered markdown but provide context when viewing source files.
-
----
-
-## Agent Integration
-
-AI agents interact with annotations through the `rp1 agent-tools feedback` subcommand, which provides a structured interface for the full feedback lifecycle.
-
-### Feedback Subcommands
-
-| Subcommand | Purpose |
-|------------|---------|
-| `feedback read --run-id <id>` | Fetch open annotations and pending file edits for a run |
-| `feedback resolve <id> --run-id <id>` | Mark an annotation as resolved |
-| `feedback reply <id> --run-id <id>` | Reply to an annotation thread |
-| `feedback accept-edit <id> --run-id <id>` | Accept a user-proposed file edit |
-
-All feedback operations are scoped by `--run-id`. Annotations without an explicit `runId` are matched via their associated artifacts, so agents can find feedback even when annotations were created before the current run started.
-
-### Reading Annotations
-
-Agents call `rp1 agent-tools feedback read --run-id <run-id>` at the start of relevant workflows to check for feedback. This returns open annotations with summary counts and any pending direct file edits.
-
-The raw JSON storage at `.rp1/open-tasks.json` remains available as a fallback for direct file access.
-
-### Example Workflow
-
-1. You review an AI-generated requirements document
-2. Add annotations highlighting unclear sections or requesting changes
-3. Run `/build my-feature` to continue development
-4. The builder agent calls `feedback read` to retrieve open annotations
-5. The agent addresses each annotation, then calls `feedback resolve` to mark it done
-6. Resolutions are written to the database and broadcast via WebSocket in real time
-
----
-
-## Feature Flag
-
-The annotation system can be disabled by setting the environment variable:
-
-```bash
-export RP1_ANNOTATIONS_ENABLED=false
-```
-
-When disabled, annotation UI elements are hidden and the API returns 404.
-
----
+| `Cmd/Ctrl + Enter` | Comment or reply input | Submit |
+| `Escape` | Popover open | Close the popover |
 
 ## Related
 
-- [Artifact Viewer](artifact-viewer.md) - Main artifact viewing interface
-- [Dashboard](dashboard.md) - Status monitoring dashboard
-- [Feature Development Guide](../guides/feature-development.md) - Using `/build` workflow
+- [Artifact Viewer](artifact-viewer.md)
+- [Dashboard](dashboard.md)
+- [Feature Development Guide](../guides/feature-development.md)
+- [PR Review Guide](../guides/pr-review.md)

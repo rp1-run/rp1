@@ -1,28 +1,32 @@
 # Your First Workflow
 
-You've installed rp1. Now let's put it to work.
+After installation and `rp1 init`, run one context-building command, choose a
+tracked workflow, then open Arcade to see the work.
 
 ---
 
-## Choose Your Path
+## Choose Your Starting Point
 
 === "Existing Codebase"
 
-    You have an existing project and want rp1 to learn it. **Continue below** to build your knowledge base.
+    You have a repository and want rp1 to understand it. Continue below to build
+    project context, then run a tracked workflow.
 
 === "Starting Fresh"
 
-    You're creating a brand new project from scratch (a "greenfield" project - starting with a clean slate, no existing code).
+    You are creating a new project from scratch.
 
     [Go to Bootstrap Guide :material-arrow-right:](../guides/bootstrap.md){ .md-button .md-button--primary }
 
-    The bootstrap workflow will guide you through project creation with charter interviews, tech stack selection, and scaffolding.
+    The bootstrap workflow helps turn an idea into a charter, project scaffold,
+    and first implementation path.
 
 ---
 
-## Build Your Knowledge Base
+## Build Project Context
 
-The first step with any existing codebase is building a **knowledge base**. This teaches rp1 about your project's structure, architecture, and patterns.
+Run `knowledge-build` once so later workflows can use your project's structure,
+architecture, and patterns.
 
 === "Claude Code"
 
@@ -37,7 +41,8 @@ The first step with any existing codebase is building a **knowledge base**. This
     ```
 
     !!! tip "Discovering Skills"
-        Type `/skills` in OpenCode to browse all available skills. rp1 skills are prefixed with `rp1-` (e.g., `rp1-base-knowledge-build`, `rp1-dev-build`).
+        Type `/skills` in OpenCode to browse installed skills. rp1 skills use
+        names such as `rp1-base-knowledge-build` and `rp1-dev-build`.
 
 === "Codex"
 
@@ -45,136 +50,102 @@ The first step with any existing codebase is building a **knowledge base**. This
     $rp1-base-knowledge-build
     ```
 
-### Expected Output
+=== "GitHub Copilot CLI"
 
-After the command completes, the final report ends with a summary like:
+    ```bash
+    /rp1-base-knowledge-build
+    ```
 
-```
-Knowledge Base Generated Successfully
-Repository: single-project
-Files Analyzed: 142
+### Expected Result
 
-Files Written:
-- .rp1/context/index.md
-- .rp1/context/concept_map.md
-- .rp1/context/architecture.md
-- .rp1/context/interaction-model.md
-- .rp1/context/modules.md
-- .rp1/context/patterns.md
-```
+The first run may take 10-15 minutes on a large repository. When it finishes,
+you should see either a success summary or an up-to-date message if the context
+was already current.
 
-If nothing changed since the last successful build, you'll instead see a short
-up-to-date message such as:
-
-```
-KB is up-to-date (commit a1b2c3d). No regeneration needed.
-```
+`knowledge-build` is an enabling step, not the destination. It prepares project
+context that feature, review, investigation, and documentation workflows use
+automatically. Because it is passive setup work, it does not create an Arcade
+run by itself.
 
 ---
 
-## What Just Happened?
+## Choose Your First Tracked Workflow
 
-The `knowledge-build` skill analyzed your codebase and updated the knowledge
-base files in `.rp1/context/`.
+Pick a workflow that matches a real next action. Tracked workflows create runs
+and artifacts you can inspect in Arcade.
 
-!!! info "KB File Reference"
-    See [What's in the Knowledge Base?](../concepts/knowledge-aware-agents.md#whats-in-the-knowledge-base) for the complete list of generated files and their purposes.
+| Goal | Claude Code | OpenCode | Codex | GitHub Copilot CLI |
+|------|-------------|----------|-------|--------------------|
+| Ship a multi-step feature | `/build my-feature` | `/rp1-dev-build my-feature` | `$rp1-dev-build my-feature` | `/rp1-dev-build my-feature` |
+| Make a bounded quick change | `/build-fast "Add dark mode toggle"` | `/rp1-dev-build-fast "Add dark mode toggle"` | `$rp1-dev-build-fast "Add dark mode toggle"` | `/rp1-dev-build-fast "Add dark mode toggle"` |
+| Review a pull request | `/pr-review` | `/rp1-dev-pr-review` | `$rp1-dev-pr-review` | `/rp1-dev-pr-review` |
 
-Future rp1 skills use this knowledge base automatically to understand your
-codebase context, making their outputs more accurate and relevant. This is a
-passive workflow, so it does not create an Arcade run.
-
-!!! tip "Incremental Updates"
-    First builds take 10-15 minutes for large projects. Subsequent runs are
-    incremental and usually complete in 2-5 minutes.
-
----
-
-## Ready to Ship? Start Here
-
-The **recommended next step** is to pick the delivery workflow that matches your
-scope:
-
-| If you want to... | Start with |
-|-------------------|------------|
-| Run a multi-step feature workflow that you can resume later by feature id | `build` |
-| Make a small or medium one-off change with a lightweight plan artifact | `build-fast` |
-
-`build` is rp1's flagship workflow. It reuses the active run for the same
-feature when possible. `build-fast` always starts fresh and stores its plan
-under `.rp1/work/quick-builds/`.
+For a first visible run, choose the smallest real task you have. `build-fast`
+is a good fit for a bounded change; `build` is better when you need
+requirements, planning, implementation, and release checks.
 
 [Start Feature Development :material-arrow-right:](../guides/feature-development.md){ .md-button .md-button--primary }
 
 ---
 
-## Explore More Workflows
+## Open Arcade
 
-Now that rp1 understands your codebase, try these workflows:
+After starting a tracked workflow, open Arcade from the same repository:
 
-!!! tip "Codex equivalents"
-    In Codex, use the same workflows with `$rp1-...` names such as
-    `$rp1-dev-blueprint`, `$rp1-dev-build`, `$rp1-dev-build-fast`, and
-    `$rp1-dev-pr-review`.
+```bash
+rp1 arcade
+```
 
-<div class="grid cards" markdown>
+Use Arcade to:
 
--   :material-file-document-edit: **Start a New Feature**
+- confirm the run appears under the right project
+- see whether the workflow is running, waiting, completed, or failed
+- open requirements, plans, reviews, and other artifacts
+- follow external links such as reviewed PRs
+- add or resolve artifact feedback when a run needs human input
 
-    ---
-
-    Create a charter and PRD for a new project or feature.
-
-    `/blueprint`
-
--   :material-hammer-wrench: **Build a Feature**
-
-    ---
-
-    Full workflow from requirements to verified implementation.
-
-    `/build my-feature`
-
--   :material-lightning-bolt: **Quick Task**
-
-    ---
-
-    Small fixes or enhancements under 2 hours.
-
-    `/build-fast "Add dark mode toggle"`
-
--   :material-source-pull: **Review a Pull Request**
-
-    ---
-
-    Get structured feedback on code changes.
-
-    `/pr-review`
-
-</div>
+[Explore Arcade :material-arrow-right:](../arcade/index.md){ .md-button }
 
 ---
 
-## Next Steps
+## Branch From Here
 
 <div class="grid cards" markdown>
 
--   :material-book-open-variant: **[Guides](../guides/index.md)**
+-   :material-hammer-wrench: **Ship code**
 
     ---
 
-    Step-by-step tutorials for feature development, PR review, and more.
+    Use the main feature workflow when work needs requirements, design, task
+    planning, implementation, review, and release checks.
 
--   :material-book-search: **[Reference](../reference/index.md)**
+    [:octicons-arrow-right-24: Feature development](../guides/feature-development.md)
 
-    ---
-
-    Complete documentation for all skills.
-
--   :material-lightbulb: **[Concepts](../concepts/index.md)**
+-   :material-source-pull: **Review PRs**
 
     ---
 
-    Understand constitutional prompting and knowledge-aware agents.
+    Run reviews, read findings, decide whether to block or proceed, and address
+    feedback.
+
+    [:octicons-arrow-right-24: PR review](../guides/pr-review.md)
+
+-   :material-view-dashboard: **Monitor work**
+
+    ---
+
+    Open runs, inspect artifacts, follow links, and respond when workflows need
+    attention.
+
+    [:octicons-arrow-right-24: Arcade](../arcade/index.md)
+
+-   :material-account-group: **Onboard teammates**
+
+    ---
+
+    Help teammates install rp1, generate context, and choose first workflows
+    without reading raw project files first.
+
+    [:octicons-arrow-right-24: Team onboarding](../guides/team-onboarding.md)
 
 </div>

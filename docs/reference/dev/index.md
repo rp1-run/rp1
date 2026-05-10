@@ -103,7 +103,7 @@ writes its plan under `.rp1/work/quick-builds/`.
 |--------------|--------------|-------------------|
 | `requirements` | Collect and document requirements, scope, and traceability | `requirements.md` |
 | `planning` | Generate design, validate assumptions when needed, and write the accepted task plan once | `design.md`, `tasks.md`, `tasks.json` |
-| `implementation` | Run builder-reviewer task units, mechanical checks, feature verification, and manifest-gated comment cleanup | Code changes, validation envelopes, cleanup manifest artifacts |
+| `implementation` | Run planned task units, mechanical checks, feature verification, and scoped comment cleanup | Code changes, validation summaries, cleanup artifacts |
 | `release` | Present readiness, manual verification items, archive choice, and add-task option | `build-readiness.md`, optional archived outputs |
 
 Machine implementation planning consumes `tasks.json`. `tasks.md` remains the

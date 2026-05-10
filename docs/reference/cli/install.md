@@ -58,15 +58,9 @@ Installs rp1 into Codex. This writes:
 rp1 install copilot [options]
 ```
 
-Installs rp1 into GitHub Copilot CLI using the native marketplace flow. rp1 stages a local marketplace, registers it as `rp1-local`, and then installs or updates the required Copilot plugins from that marketplace.
-
-This writes:
-
-- local marketplace metadata to `~/.rp1/copilot/marketplace/marketplace.json`
-- staged plugin roots to `~/.rp1/copilot/marketplace/plugins/rp1-*`
-- native installed plugins to `~/.copilot/installed-plugins/rp1-local/rp1-*`
-
-Unsupported legacy paths under `~/.config/github-copilot/` are not a valid install target.
+Installs or updates rp1 for GitHub Copilot CLI through the supported Copilot
+plugin commands. Use this target when Copilot is your coding host or when
+`rp1 verify copilot` reports that the rp1 plugins are missing or out of date.
 
 Requires the GitHub CLI (`gh`) version 2.74.0 or later with `gh copilot -- plugin --help` available.
 
@@ -143,6 +137,18 @@ Under normal conditions no manual steps are needed. If an install is
 interrupted mid-flow, the next `just install` or `rp1 arcade` call detects
 and cleans up stale restart markers and daemon state automatically.
 
+## Troubleshooting Copilot Install Locations
+
+Most users should rely on `rp1 install copilot` and `rp1 verify copilot` rather
+than inspecting generated plugin files. The locations below are useful only
+when troubleshooting a Copilot install that still loads an old plugin version.
+
+- rp1 prepares Copilot plugin data under `~/.rp1/copilot/marketplace/`.
+- Copilot installs the active plugins under
+  `~/.copilot/installed-plugins/rp1-local/rp1-*`.
+- Unsupported legacy paths under `~/.config/github-copilot/` are not a valid
+  install target.
+
 ## Verification
 
 After installation, verify the target host:
@@ -166,8 +172,12 @@ rp1 list --json
 ```
 
 `--json` emits one object per canonical installed skill. Alongside identity and
-host-install details, it includes the registry-backed discovery metadata used by
-guide and init:
+host-install details, it includes discovery metadata used by `guide`, `init`,
+and automation.
+
+The field names below are shown because they are part of the JSON output. Normal
+setup does not require memorizing them; they are most useful when scripting
+installation checks or debugging why a workflow resumes.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -178,9 +188,9 @@ guide and init:
 | `user_facing_name` | `string` | User-facing canonical id such as `rp1-base:guide` |
 | `category` | `string` | Canonical discovery category such as `knowledge` or `review` |
 | `is_workflow` | `boolean` | Whether the skill is a workflow-style orchestrator |
-| `key_args` | `string[]` | Primary argument names from `SKILL.md` frontmatter |
-| `run_policy` | `string` | Workflow run policy (`fresh` or `resumable`) when the skill is a tracked workflow |
-| `identity_args` | `string[]` | Workflow identity arguments. `[]` for fresh workflows; argument names for resumable workflows |
+| `key_args` | `string[]` | Primary argument names shown by discovery and setup flows |
+| `run_policy` | `string` | Resume mode (`fresh` or `resumable`) for tracked workflows |
+| `identity_args` | `string[]` | Arguments used to identify a resumable workflow run. `[]` for fresh workflows |
 | `installed_platforms` | `string[]` | Hosts where the skill is installed |
 | `invocations` | `object` | Host-specific invocation strings keyed by platform |
 
@@ -194,9 +204,11 @@ they ignore keys they do not use.
 | OpenCode | `~/.config/opencode/plugins/` |
 | Codex skills | `~/.codex/skills/` |
 | Codex agents | `~/.codex/agents/rp1/` |
-| Copilot CLI staged marketplace | `~/.rp1/copilot/marketplace/` |
-| Copilot CLI native installed plugins | `~/.copilot/installed-plugins/rp1-local/` |
-| Copilot CLI legacy leftovers | `~/.config/github-copilot/` |
+
+Copilot install paths are covered in
+[Troubleshooting Copilot Install Locations](#troubleshooting-copilot-install-locations)
+because most users should use `rp1 install copilot` and `rp1 verify copilot`
+instead of inspecting Copilot plugin files directly.
 
 ## Troubleshooting
 

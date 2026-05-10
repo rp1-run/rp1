@@ -55,9 +55,10 @@ The command produces one registered security posture report:
 
 **Location:** `.rp1/work/security/{REPORT_ID}/report.md`
 
-**Artifact path:** `security/{REPORT_ID}/report.md` with `storageRoot: "work_dir"`
-
-The workflow verifies that this exact file exists before registering the artifact. If the validator fails to create the expected report path, the run fails instead of registering a broken Arcade artifact link.
+Arcade shows the same report as a run artifact. The workflow verifies that this
+file exists before registering the artifact. If the validator fails to create
+the expected report path, the run fails instead of showing a broken Arcade
+artifact link.
 
 **Contents:**
 

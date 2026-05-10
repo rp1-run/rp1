@@ -1,5 +1,10 @@
 # Builder-Reviewer Agents
 
+!!! note "Advanced Build internals"
+    This page explains how rp1 separates implementation and review inside Build.
+    Normal feature delivery docs describe what users see: implementation,
+    review, validation, readiness, and release decisions.
+
 rp1 uses a **builder-reviewer architecture** to ensure reliable, high-quality code implementation. Instead of a single agent that writes and hopes for the best, two specialized agents work in an adversarial cooperation pattern — one builds, one critiques.
 
 !!! note "Inspired by Research"

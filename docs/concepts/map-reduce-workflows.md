@@ -1,5 +1,10 @@
 # Map-Reduce Workflows
 
+!!! note "Advanced analysis architecture"
+    This page explains how rp1 splits and merges large analysis jobs. Normal
+    users can run `knowledge-build` or `pr-review` without needing these
+    implementation details.
+
 Map-reduce workflows enable rp1 to process large tasks efficiently by splitting work into parallel units, processing them simultaneously, and merging the results. This pattern powers both knowledge base generation and PR reviews.
 
 ---

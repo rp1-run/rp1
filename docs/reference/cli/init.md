@@ -1,6 +1,6 @@
 # init
 
-Initialize rp1 in a project and prepare it for workflow use.
+Initialize rp1 in a repository and prepare it for workflow use.
 
 ---
 
@@ -13,15 +13,8 @@ rp1 init [options]
 ## Description
 
 `rp1 init` is the normal entry point for bringing rp1 into an existing
-repository. It:
-
-1. Creates `.rp1/`, `.rp1/context/`, and `.rp1/work/`
-2. Creates local and global rp1 settings files when missing
-3. Detects supported host tools installed on your machine
-4. Updates the host instruction file (`CLAUDE.md` or `AGENTS.md`)
-5. Configures `.gitignore` for local rp1 artifacts
-6. Installs plugins where `init` supports automatic installation
-7. Verifies the resulting setup and prints the next actions
+repository. It prepares the project, detects supported hosts, installs
+integrations where automatic setup is available, and prints the next actions.
 
 ## Options
 
@@ -32,15 +25,19 @@ repository. It:
 
 ## Host Support
 
-| Host | Detected by `init` | Instruction File | Automatic Install in `init` |
+| Host | Detected by `init` | Instruction file | Automatic integration setup |
 |------|---------------------|------------------|-----------------------------|
 | Claude Code | Yes | `CLAUDE.md` | Yes |
 | OpenCode | Yes | `AGENTS.md` | Yes |
-| Codex | Yes | `AGENTS.md` | No, run `rp1 install codex` |
+| GitHub Copilot CLI | Yes | `AGENTS.md` | Yes |
+| Codex | Yes | `AGENTS.md` | No, run `rp1 install codex` after `init` |
+
+Use [Installation and Host Setup](../../getting-started/installation.md) when
+you need the full setup path for a specific host.
 
 ## What Gets Configured
 
-### Project directories
+### Project Directories
 
 `init` prepares the standard rp1 layout:
 
@@ -52,64 +49,71 @@ repository. It:
 └── settings.toml
 ```
 
-### Instruction file
+### Instruction File
 
-rp1 adds project guidance to the instruction file your host uses:
+rp1 adds project guidance to the instruction file your host reads:
 
 - Claude Code: `CLAUDE.md`
 - OpenCode: `AGENTS.md`
 - Codex: `AGENTS.md`
+- GitHub Copilot CLI: `AGENTS.md`
 
-These instruction files are generated from pre-rendered templates. For Claude
-Code and OpenCode, the ambient `rp1 Skill Awareness` block is rendered from the
-same distributable skill registry that feeds the guide catalog, so onboarding
-guidance stays aligned with discovery surfaces. Codex intentionally omits that
-ambient block and keeps only Codex-specific conventions.
+Those files tell the host how to load project context and invoke rp1 workflows.
 
-### Git ignore defaults
+### Ignore Defaults
 
-The recommended setup keeps the knowledge base shareable while treating local
-work artifacts as disposable:
+The recommended setup keeps project context shareable while treating local work
+artifacts as disposable:
 
 - Track `.rp1/context/`
 - Ignore `.rp1/work/`
 - Ignore `.rp1/context/meta.json`
 - Ignore `.rp1/settings.toml`
 
+### Git Ignore Presets
+
+`rp1 init` uses the recommended ignore defaults unless you choose a different
+setup during interactive initialization. The presets all keep `.rp1/project_id`
+shareable so Arcade and rp1 can recognize the same project across clones and
+worktrees.
+
 ## Examples
 
-### Standard setup
+### Standard Setup
 
 ```bash
 cd my-project
 rp1 init
 ```
 
-### Non-interactive setup
+### Non-Interactive Setup
 
 ```bash
 rp1 init --yes
 ```
 
-Useful for automation, dev containers, and fresh checkouts where you want
-repeatable defaults.
+Use non-interactive setup for automation, dev containers, and fresh checkouts
+where you want repeatable defaults.
 
 ## Typical Next Steps
 
 After `init`, the normal path is:
 
-1. Restart the detected host tool so it reloads plugins
-2. Run `rp1 install codex` if you are using Codex
-3. Generate the knowledge base
+1. Restart the detected host tool so it reloads rp1.
+2. Run any host-specific install command that `init` printed.
+3. Generate project context.
+4. Start your first workflow or open Arcade.
 
-| Host | First KB Command |
-|------|------------------|
+| Host | First context command |
+|------|-----------------------|
 | Claude Code | `/knowledge-build` |
 | OpenCode | `/rp1-base-knowledge-build` |
 | Codex | `$rp1-base-knowledge-build` |
+| GitHub Copilot CLI | `/rp1-base-knowledge-build` |
 
 ## See Also
 
-- [Installation Guide](../../getting-started/installation.md)
-- [The .rp1 Directory](../../getting-started/rp1-directory.md)
+- [Installation and Host Setup](../../getting-started/installation.md)
 - [install](install.md)
+- [The .rp1 Directory](../../getting-started/rp1-directory.md)
+- [Troubleshooting](../../troubleshooting/index.md)

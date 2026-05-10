@@ -215,24 +215,23 @@ Consistent rp1 usage across the team maximizes value. Standardize on workflows, 
 
 ### Feature Development Standard
 
-Define a standard feature workflow for your team. The `/build` command orchestrates all steps automatically:
+Define a standard feature workflow for your team. The `/build` command orchestrates the current Build v2 lifecycle:
 
 ```mermaid
 flowchart TD
     subgraph "Entry Point"
-        BUILD_CMD[/build feature-name]
+        BUILD_CMD["/build feature-name"]
     end
 
-    subgraph "Orchestrated Steps"
+    subgraph "Parent Phases"
         CHARTER[Blueprint] --> REQS[Requirements]
-        REQS --> DESIGN[Design]
-        DESIGN --> TASKS[Tasks]
-        TASKS --> IMPL[Build]
-        IMPL --> VERIFY[Verify]
+        REQS --> PLAN[Planning]
+        PLAN --> IMPL[Implementation]
+        IMPL --> REL[Release]
     end
 
     subgraph "Review"
-        VERIFY --> PR[Pull Request]
+        REL --> PR[Pull Request]
         PR --> REVIEW[PR Review]
         REVIEW --> MERGE[Merge]
     end
@@ -247,14 +246,12 @@ flowchart TD
 
 ### Primary Command
 
-Use `/build feature-name` for all feature development. It orchestrates:
+Use `/build feature-name` for multi-component feature development. It orchestrates:
 
-1. **Requirements** - Document acceptance criteria, review with product owner
-2. **Design** - Technical design, peer review for medium+ complexity
-3. **Tasks** - Break into implementable chunks with complexity estimates
-4. **Build** - Implement with builder-reviewer architecture
-5. **Verify** - Validate against acceptance criteria
-6. **Archive** - Store completed artifacts
+1. **Requirements** - Document the user need, scope, constraints, and acceptance criteria
+2. **Planning** - Produce design and an accepted task plan
+3. **Implementation** - Build and review task units, then run validation
+4. **Release** - Review readiness, handle manual verification items, and archive or complete the feature
 
 ### Optional Pre-step
 
@@ -298,11 +295,12 @@ Add rp1-specific sections to your PR template:
 - [ ] Feature charter: `.rp1/work/features/<feature-id>/charter.md`
 - [ ] Requirements: `.rp1/work/features/<feature-id>/requirements.md`
 - [ ] Design: `.rp1/work/features/<feature-id>/design.md`
-- [ ] Verification: `.rp1/work/features/<feature-id>/verification-report.md`
+- [ ] Task plan: `.rp1/work/features/<feature-id>/tasks.md`
+- [ ] Readiness: `.rp1/work/features/<feature-id>/build-readiness.md`
 
 ### Checklist
 
-- [ ] Ran `/build` through verify step before creating PR
+- [ ] Ran `/build` through implementation and release readiness before creating PR
 - [ ] All acceptance criteria met
 - [ ] Tests passing
 - [ ] Documentation updated (if applicable)
@@ -431,7 +429,7 @@ flowchart TD
     TYPE -->|Requirements| REQ[Review both, merge manually]
     TYPE -->|Design| DES[Discuss with team, choose one]
     TYPE -->|Tasks| TASK[Merge task lists]
-    TYPE -->|Verification| VER[Regenerate verification]
+    TYPE -->|Readiness| READY[Refresh readiness]
 ```
 
 **Resolution by file type**:
@@ -442,7 +440,7 @@ flowchart TD
 | `requirements.md` | Merge acceptance criteria, deduplicate |
 | `design.md` | Team discussion, choose authoritative version |
 | `tasks.md` | Merge task lists, update status |
-| `verification-report.md` | Re-run `/build` to regenerate verification |
+| `build-readiness.md` or `verification-report.md` | Re-run `/build` to refresh validation and readiness evidence |
 
 **Example: Merging requirements**:
 
@@ -492,7 +490,7 @@ You've learned how to scale rp1 to your team:
 | Topic | Key Points |
 |-------|------------|
 | **KB Ownership** | Single maintainer, rotating, or CI-managed |
-| **Workflow Standards** | Define required steps, branch naming, PR templates |
+| **Workflow Standards** | Define required phases, branch naming, PR templates |
 | **Review Process** | Automated first review, human review for business logic |
 | **Conflict Resolution** | Regenerate KB, merge work files manually |
 | **Adoption Metrics** | Track usage rate, completion rate, onboarding time |

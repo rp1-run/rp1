@@ -1,6 +1,11 @@
 # pr-review
 
-Thorough code review that understands what your PR is trying to accomplish and checks the implementation against that intent.
+Run an evidence-grounded review for a pull request, branch, or local diff and
+produce a verdict with actionable findings.
+
+For the reviewer decision flow, start with the
+[PR Review Guide](../../guides/pr-review.md). Use this page for exact command
+syntax, output shape, CI behavior, and advanced review mechanics.
 
 ---
 
@@ -24,101 +29,61 @@ Thorough code review that understands what your PR is trying to accomplish and c
     $rp1-dev-pr-review [target] [base-branch] [skip-visual]
     ```
 
-## Description
+## When To Use It
 
-The `pr-review` command performs comprehensive code review by first understanding what your PR is trying to accomplish (from the description or linked issues), then reviewing each changed file against that intent. Findings are synthesized into an overall assessment with specific, actionable feedback.
+| Use `pr-review` when... | Use something else when... |
+|-------------------------|----------------------------|
+| You need a merge-readiness verdict. | Reviewers only need an orientation artifact; use [`pr-walkthrough`](pr-walkthrough.md). |
+| You want concrete findings tied to code locations. | You only need a diagram; use [`pr-visual`](pr-visual.md). |
+| You want to check a PR before or after human review. | Human comments already exist and need fixing; use [`address-pr-feedback`](address-pr-feedback.md). |
 
 !!! warning "Worktree Safety"
-    Do not create git worktrees under `.rp1/work/` while running PR reviews. Arcade treats `.rp1/work/` as artifact storage, and nested worktrees can make the project file browser unusable. If a separate checkout is unavoidable, place it outside `.rp1/`.
+    Do not create git worktrees under `.rp1/work/` while running PR reviews.
+    Arcade treats `.rp1/work/` as workflow output storage, and nested
+    worktrees can make the project file browser confusing. If a separate
+    checkout is unavoidable, place it outside `.rp1/`.
 
 ## Parameters
 
 | Parameter | Position | Required | Default | Description |
 |-----------|----------|----------|---------|-------------|
 | `TARGET` | `$1` | No | Current branch | PR number, URL, or branch name |
-| `BASE_BRANCH` | `$2` | No | From PR or `main` | Base branch for comparison |
-| `SKIP_VISUAL` | `$3` | No | `false` | Set `true` to skip visual diagram generation |
+| `BASE_BRANCH` | `$2` | No | From PR or `main` | Base branch for local branch comparison |
+| `SKIP_VISUAL` | `$3` | No | `false` | Set `true` to skip diagram generation |
 
 ## Input Resolution
 
 | Input Type | Example | Resolution |
 |------------|---------|------------|
-| Empty | - | Uses current branch |
-| PR Number | `123` | Fetches PR metadata via `gh` |
-| PR URL | `github.com/.../pull/123` | Extracts number, fetches PR |
-| Branch Name | `feature/auth` | Uses branch, checks for PR |
+| Empty | - | Uses the current branch and associated PR when available |
+| PR number | `123` | Fetches PR metadata with `gh` |
+| PR URL | `https://github.com/owner/repo/pull/123` | Extracts the PR number and fetches PR metadata |
+| Branch name | `feature/auth` | Uses the branch PR when available, otherwise compares against `BASE_BRANCH` |
 
-## Architecture
+If rp1 cannot identify the intended PR or diff, it should ask for clarification
+or fail before producing a misleading report.
 
-```mermaid
-flowchart TB
-    subgraph "Phase 0"
-        IR[Input Resolution] --> IM[Intent Model]
-    end
+## Read The Result
 
-    subgraph "Phase 1"
-        SP[Splitter] --> RU[Review Units]
-    end
+The report is written under `.rp1/work/pr-reviews/` and appears in Arcade when
+the workflow is tracked.
 
-    subgraph "Phase 2 (Parallel)"
-        R1[Sub-Reviewer 1]
-        R2[Sub-Reviewer 2]
-        RN[Sub-Reviewer N]
-        VIS[Visual PR - complex PRs only]
-    end
+| Section | What to do with it |
+|---------|--------------------|
+| Intent summary | Confirm rp1 reviewed the change you meant to review. |
+| Verdict and rationale | Decide whether to proceed, request changes, or block. |
+| Findings by severity | Fix blocking findings first; use lower-severity items as judgment calls. |
+| Cross-file issues | Check whether the problem requires a design or ownership decision. |
+| Recommendations | Turn follow-ups into tasks, comments, or a rerun checklist. |
+| Reviewed PR link | Jump back to the source PR when the target was resolved from GitHub. |
 
-    subgraph "Phase 3"
-        SY[Synthesizer] --> JD[Judgment]
-    end
-
-    subgraph "Phase 4"
-        RP[Reporter] --> MD[Report]
-    end
-
-    IM --> SP
-    RU --> R1
-    RU --> R2
-    RU --> RN
-    RU -.->|if complex| VIS
-    R1 --> SY
-    R2 --> SY
-    RN --> SY
-    VIS -.-> MD
-    JD --> RP
-```
-
-## Review Dimensions
-
-Each unit is analyzed across 5 dimensions:
-
-| Dimension | Focus |
-|-----------|-------|
-| **Correctness** | Logic errors, edge cases, bugs |
-| **Security** | Vulnerabilities, auth issues |
-| **Performance** | Bottlenecks, inefficiencies |
-| **Maintainability** | Code quality, patterns |
-| **Testing** | Coverage, test quality |
-
-## Confidence Gating
-
-Findings are filtered by confidence level:
-
-| Confidence | Action |
-|------------|--------|
-| 65%+ | Include in report |
-| 40-64% (critical/high) | Investigate further |
-| Below 40% | Exclude from report |
-
-## Judgment Outcomes
+Typical verdicts:
 
 | Judgment | Meaning |
 |----------|---------|
-| ✅ `approve` | Ready to merge |
-| ⚠️ `request_changes` | Issues to address |
-| 🛑 `block` | Critical problems found |
-
-!!! info "Visual PR Workflow"
-    For complex PRs (significant architectural changes or cross-cutting concerns), the review runs visual generation as a subflow inside the parent `pr-review` run while using the same underlying diagram generator as [`pr-visual`](pr-visual.md).
+| `approve` | No blocking issue was found. Continue through normal team gates. |
+| `request_changes` | One or more findings should be fixed before merge. |
+| `block` | Critical risk or review uncertainty should stop the merge path. |
 
 ## Examples
 
@@ -162,65 +127,39 @@ Findings are filtered by confidence level:
     $rp1-dev-pr-review 123
     ```
 
-**Example output:**
-```
-✅ PR Review Complete
+Example final output:
 
-Judgment: APPROVE
-The PR correctly implements user authentication with proper validation.
+```text
+PR Review Complete
+
+Judgment: request_changes
+The PR implements user authentication, but token expiration handling needs to
+be fixed before merge.
 
 Findings:
-- 🚨 Critical: 0
-- ⚠️ High: 1
-- 💡 Medium: 3
-- ✅ Low: 5
+- Critical: 0
+- High: 1
+- Medium: 3
+- Low: 5
 
-Report: .rp1/work/pr-reviews/pr-123.md
+Report: .rp1/work/pr-reviews/pr-123-review-001.md
 Reviewed PR: https://github.com/owner/repo/pull/123
 ```
 
-## Output
-
-**Location:** `.rp1/work/pr-reviews/<review-id>.md`
-
-**Contents:**
-
-- Intent summary
-- Judgment with rationale
-- Findings by severity
-- Cross-file issues
-- Recommendations
-
-When the reviewed PR URL is known, the report also includes an `External Links`
-section with one `Reviewed PR` row. That row records the URL, the `reviewed_pr`
-relationship, and the source context used to resolve the PR. The same reviewed
-PR link is registered as a run artifact so Arcade can open or copy it alongside
-the markdown report.
-
-The first PR review iteration includes only the reviewed PR URL in the
-`External Links` section. Posted GitHub review URLs, code-line links, evidence
-links, and related links remain in their normal report context and are not
-promoted to External Links entries.
-
----
-
 ## CI Mode
 
-When running in a CI/CD environment (detected via `CI=true` environment variable), the command operates in **CI mode** with additional capabilities. The CI platform is determined by the `ci_platform` config option (default: `github`).
+When running in CI, `pr-review` can review pull requests without interactive
+prompts. CI behavior is configured with `.rp1/config/pr-review.yaml` and
+environment variables.
 
-### CI Mode Behavior
+| Area | Local mode | CI mode |
+|------|------------|---------|
+| Target | Current branch, PR number, URL, or branch | Pull request event data |
+| Prompts | Can ask for missing context | Must continue or fail without prompts |
+| Output | Markdown report and optional visual output | Markdown report, job summary, optional GitHub comments |
+| Posting | Manual by default | Controlled by config |
 
-| Phase | Local Mode | CI Mode |
-|-------|------------|---------|
-| P-1: Config | Skipped | Load `.rp1/config/pr-review.yaml`, apply env overrides |
-| P0: Input | Interactive prompts | Extract from `GITHUB_EVENT_PATH` |
-| P0.5: Visual | HTML preview | Markdown mode (embedded in summary) |
-| P1-P4: Review | Standard | Standard |
-| P5: Posting | Skipped | Post review to GitHub via API |
-
-### Configuration
-
-Create `.rp1/config/pr-review.yaml` to enable and configure CI reviews:
+Minimal configuration:
 
 ```yaml
 enabled: true
@@ -230,76 +169,58 @@ max_comments: 25
 visualize: false
 ```
 
-See [PR Review Config Reference](../pr-review-config.md) for all options.
-
-### Environment Variables
-
-Override configuration via environment variables:
+Environment overrides:
 
 | Variable | Effect |
 |----------|--------|
-| `RP1_PR_REVIEW_ENABLED` | Enable/disable review |
+| `RP1_PR_REVIEW_ENABLED` | Enable or disable review |
 | `RP1_PR_REVIEW_VERDICT` | Set verdict mode |
-| `RP1_PR_REVIEW_ADD_COMMENTS` | Enable/disable inline comments |
-| `RP1_PR_REVIEW_VISUALIZE` | Enable/disable diagrams |
+| `RP1_PR_REVIEW_ADD_COMMENTS` | Enable or disable inline comments |
+| `RP1_PR_REVIEW_VISUALIZE` | Enable or disable diagrams |
 
-### Comment Deduplication
+See [PR Review Config Reference](../pr-review-config.md) and
+[Remote PR Review Guide](../../guides/remote-pr-review.md) for CI setup.
 
-In CI mode, the command:
+## Advanced Review Mechanics
 
-1. Fetches existing comments from the PR
-2. Compares new findings against existing bot comments
-3. Acknowledges human comments that match findings
-4. Posts only unique findings
+Most users only need the verdict and findings. The lower-level mechanics below
+matter when you are tuning review behavior, explaining a result, or debugging
+CI review output.
 
-This prevents duplicate comments across multiple workflow runs.
+### Review Generation
 
-### GitHub Actions Setup
+`pr-review` resolves the target, builds an intent model from available PR or
+branch context, reviews the changed files, synthesizes findings, and writes a
+single report. Large or cross-cutting changes may also get diagrams when
+visualization is enabled.
 
-```yaml
-name: rp1 PR Review
+### Finding Confidence
 
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+Findings are filtered before they reach the final report.
 
-permissions:
-  contents: read
-  pull-requests: write
+| Confidence | Action |
+|------------|--------|
+| 65% and above | Included in the report |
+| 40-64% for critical or high-severity concerns | Investigated before inclusion or exclusion |
+| Below 40% | Excluded from the report |
 
-jobs:
-  review:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+If a finding looks surprising, check the evidence in the report and rerun after
+updating the PR description, tests, or project context.
 
-      - name: Install rp1
-        run: curl -fsSL https://rp1.run/install.sh | sh
+### Comment Deduplication In CI
 
-      - name: Install Claude Code
-        run: npm install -g @anthropic-ai/claude-code
-
-      - name: Run PR Review
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: claude /rp1-dev:pr-review
-```
-
-See [Remote PR Review Guide](../../guides/remote-pr-review.md) for detailed setup instructions.
-
----
+When CI posting is enabled, rp1 checks existing bot comments and human comments
+before posting new findings. This keeps repeated runs from adding duplicate
+comments for the same issue.
 
 ## Related Commands
 
-- [`pr-walkthrough`](pr-walkthrough.md) - Generate a markdown orientation artifact from direct PR evidence
-- [`pr-visual`](pr-visual.md) - Generate diagrams from PR
+- [`pr-walkthrough`](pr-walkthrough.md) - Generate a reviewer-orientation artifact from direct PR evidence
+- [`pr-visual`](pr-visual.md) - Generate diagrams from a PR or branch diff
 - [`address-pr-feedback`](address-pr-feedback.md) - Collect and fix review comments
 
 ## See Also
 
-- [Map-Reduce Workflows](../../concepts/map-reduce-workflows.md) - How parallel review works
-- [Remote PR Review Guide](../../guides/remote-pr-review.md) - CI setup tutorial
-- [PR Review Config](../pr-review-config.md) - Configuration reference
+- [PR Review Guide](../../guides/pr-review.md)
+- [Remote PR Review Guide](../../guides/remote-pr-review.md)
+- [PR Review Config](../pr-review-config.md)

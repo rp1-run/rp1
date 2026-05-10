@@ -55,7 +55,7 @@ with scope gating and AFK mode support.
 | `DEVELOPMENT_REQUEST` | `$ARGUMENTS` | Yes | - | Freeform description of what to build |
 | `--afk` | Flag | No | `false` | AFK (Away From Keyboard) mode — non-interactive for automation |
 | `--confirm-plan` | Flag | No | `false` | Enable plan review checkpoint before implementation |
-| `--review` | Flag | No | `false` | Enable task-reviewer validation after implementation |
+| `--review` | Flag | No | `false` | Enable implementation review after the change |
 | `--git-commit` | Flag | No | `false` | Commit changes |
 | `--git-push` | Flag | No | `false` | Push branch to remote |
 
@@ -238,10 +238,10 @@ planning, build, and review/finalization:
 
 | Phase | What Happens |
 |------|---------------|
-| Bootstrap | Resolves canonical `projectRoot`, `kbRoot`, and `workRoot`, then creates a new `build-fast` run. Unlike `/build`, `build-fast` never resumes an earlier run. |
+| Bootstrap | Finds the project and rp1 work directory, then creates a new `build-fast` run. Unlike `/build`, `build-fast` never resumes an earlier run. |
 | Plan | Loads KB context, assesses scope, creates a quick-build artifact for Small/Medium requests, and optionally pauses for plan confirmation. Large single-feature requests stop here with a redirect to `/build`; initiative-sized requests stop here with a redirect to `/phase-plan`. |
-| Build | Snapshots the cleanup baseline, then delegates the planned work to `task-builder` using the quick-build artifact as the source of truth. |
-| Review / Finalize | Optionally runs `task-reviewer`, retries once on failure, generates the cleanup manifest, runs manifest-gated cleanup when safe, optionally pushes, and optionally pauses for a post-implementation checkpoint before final output. |
+| Build | Snapshots the cleanup baseline, then delegates the planned work using the quick-build artifact as the source of truth. |
+| Review / Finalize | Optionally runs review, retries once on failure, records the cleanup boundary, cleans comments when safe, optionally pushes, and optionally pauses for a post-implementation checkpoint before final output. |
 
 ## KB Loading
 
@@ -281,17 +281,20 @@ This file is the workflow's source of truth and includes:
 
 - Original request documentation
 - Scope assessment and implementation approach
-- Task checklist for `task-builder`
+- Task checklist for the implementation pass
 - Implementation summary
 - Verification notes (when review is enabled)
 
-### Comment Cleanup Output
+### Advanced: Comment Cleanup Output
+
+This section keeps the generated cleanup artifact names because they are useful
+when auditing why cleanup ran, skipped, or stopped before editing.
 
 For Small and Medium requests, `build-fast` writes cleanup artifacts next to the
 quick-build artifact:
 
 - `{RUN_ID}-change-manifest-baseline.json` - repository state before
-  `task-builder` runs
+  implementation starts
 - `{RUN_ID}-change-manifest-001.json` - cleanup-owned files and line ranges,
   when generated
 - `{RUN_ID}-change-manifest-status.json` - created/skipped status, file counts,
@@ -310,8 +313,8 @@ Common skip reasons include `no_supported_source_hunks`,
 `pre_existing_dirty_paths_overlap`, `missing_baseline`,
 `invalid_baseline`, `baseline_code_root_mismatch`,
 `scope_outside_code_root`, `invalid_scope`, and `unsupported_scope`.
-`build-fast` never asks `comment-cleaner` to infer scope from branch names,
-commit ranges, dirty labels, or task-builder-authored hunks.
+`build-fast` never asks the cleanup agent to infer scope from branch names,
+commit ranges, dirty labels, or implementation-authored hunks.
 
 ### Large and Initiative Redirects
 

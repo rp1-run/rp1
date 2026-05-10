@@ -11,7 +11,7 @@ Skip the iteration loops. Keep work attached to projects, artifacts, and feedbac
 40 workflow skills. 51 specialized agents. Use the same workflows in **Claude Code**, **OpenCode**, **Codex**, and **GitHub Copilot CLI**, then review them in **Arcade**.
 
 
-[:fontawesome-solid-terminal: Get Started](getting-started/installation.md){ .md-button .md-button--primary }
+[:fontawesome-solid-terminal: Get Started](getting-started/index.md){ .md-button .md-button--primary }
 [:fontawesome-brands-github: View on GitHub](https://github.com/rp1-run/rp1){ .md-button .md-button--github }
 [:fontawesome-brands-discord: Join Discord](https://discord.gg/XUqc4zcX26){ .md-button .md-button--discord }
 
@@ -85,7 +85,7 @@ Pick the workflow that matches the outcome you want. RP1 keeps the artifact trai
 </div>
 
 <div class="try-hosts">
-  <p class="try-hosts-title">Same workflow, different harness</p>
+  <p class="try-hosts-title">Same workflow, different host</p>
   <div class="try-hosts-grid">
     <div>
       <strong>Claude Code</strong><br>
@@ -159,7 +159,7 @@ Automatic hypothesis testing catches bad assumptions early. Design decisions get
 
 <div markdown>
 
-:fontawesome-solid-shuffle: **Switch harnesses without switching costs**
+:fontawesome-solid-shuffle: **Switch AI hosts without switching costs**
 
 rp1 keeps the workflow layer stable across Claude Code, OpenCode, Codex, and GitHub Copilot CLI. The syntax adapts to each host, but the workflow, artifacts, and review loop stay the same.
 
