@@ -631,10 +631,10 @@ eval-setup:
 #   just eval-run-local rp1-dev/build-fast # run inside the current environment
 
 # Run eval suites in Docker. Optional: suite path, --harness=opencode, --platform=<platform>, --attest, --commit, --verbose
-# Bounces the host-side promptfoo view daemon before and after Docker so it watches the active eval DB and re-indexes final results.
+# Stops the host-side promptfoo view daemon before Docker writes to SQLite, then reloads it after final results are available.
 eval-run *args:
     #!/usr/bin/env bash
-    just eval-dashboard-reload
+    just eval-dashboard-stop
     ./docker/eval-run.sh {{ args }}
     eval_exit=$?
     just eval-dashboard-reload
@@ -647,9 +647,10 @@ eval-run-local *args:
     repo_root="$(pwd)"
     export PATH="${repo_root}/bin:$PATH"
     evals_dir="${repo_root}/evals"
-    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${HOME}/.promptfoo}"
+    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/tmp/promptfoo}"
 
     mkdir -p "$promptfoo_config_dir"
+    bash "${evals_dir}/scripts/prepare-promptfoo-config.sh" "$promptfoo_config_dir"
     export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"
 
     # Parse flags
@@ -747,11 +748,20 @@ eval-view:
     #!/usr/bin/env bash
     set -e
     repo_root="$(pwd)"
-    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${HOME}/.promptfoo}"
+    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/tmp/promptfoo}"
 
     mkdir -p "$promptfoo_config_dir"
+    bash "${repo_root}/evals/scripts/prepare-promptfoo-config.sh" "$promptfoo_config_dir"
     export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"
     cd evals && bunx promptfoo view -n
+
+# Kill any running promptfoo view server. Used before Dockerized evals so the
+# host dashboard does not hold the SQLite DB while the Linux container writes it.
+eval-dashboard-stop:
+    #!/usr/bin/env bash
+    set -e
+    pkill -f "promptfoo view" 2>/dev/null || true
+    sleep 1
 
 # Kill any running promptfoo view server and start a fresh one so the
 # dashboard picks up evals written since the last start. `promptfoo view`
@@ -761,9 +771,7 @@ eval-dashboard-reload:
     #!/usr/bin/env bash
     set -e
     repo_root="$(pwd)"
-    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${HOME}/.promptfoo}"
-    mkdir -p "$promptfoo_config_dir"
-    export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"
+    promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/tmp/promptfoo}"
 
     # Kill any existing `promptfoo view` processes (there can be more than one
     # stacked on different ports). pkill returns 1 when nothing matches, which
@@ -771,6 +779,10 @@ eval-dashboard-reload:
     pkill -f "promptfoo view" 2>/dev/null || true
     # Give the port a moment to release.
     sleep 1
+
+    mkdir -p "$promptfoo_config_dir"
+    bash "${repo_root}/evals/scripts/prepare-promptfoo-config.sh" "$promptfoo_config_dir"
+    export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"
 
     # Start the view server as a detached child process. Plain shell
     # backgrounding leaves promptfoo tied to the launching shell on macOS, so it
