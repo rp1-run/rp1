@@ -104,6 +104,8 @@ setup_promptfoo_config_mount() {
 add_env_if_set ANTHROPIC_API_KEY
 add_env_if_set OPENAI_API_KEY
 add_env_if_set GITHUB_TOKEN
+export PROMPTFOO_DISABLE_WAL_MODE="${PROMPTFOO_DISABLE_WAL_MODE:-true}"
+forwarded_env+=(-e "PROMPTFOO_DISABLE_WAL_MODE=${PROMPTFOO_DISABLE_WAL_MODE}")
 add_worktree_git_mounts
 setup_promptfoo_config_mount
 

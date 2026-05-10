@@ -648,6 +648,7 @@ eval-run-local *args:
     export PATH="${repo_root}/bin:$PATH"
     evals_dir="${repo_root}/evals"
     promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/tmp/promptfoo}"
+    export PROMPTFOO_DISABLE_WAL_MODE="${PROMPTFOO_DISABLE_WAL_MODE:-true}"
 
     mkdir -p "$promptfoo_config_dir"
     bash "${evals_dir}/scripts/prepare-promptfoo-config.sh" "$promptfoo_config_dir"
@@ -749,6 +750,7 @@ eval-view:
     set -e
     repo_root="$(pwd)"
     promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/tmp/promptfoo}"
+    export PROMPTFOO_DISABLE_WAL_MODE="${PROMPTFOO_DISABLE_WAL_MODE:-true}"
 
     mkdir -p "$promptfoo_config_dir"
     bash "${repo_root}/evals/scripts/prepare-promptfoo-config.sh" "$promptfoo_config_dir"
@@ -772,6 +774,7 @@ eval-dashboard-reload:
     set -e
     repo_root="$(pwd)"
     promptfoo_config_dir="${PROMPTFOO_CONFIG_DIR:-${repo_root}/.rp1/tmp/promptfoo}"
+    export PROMPTFOO_DISABLE_WAL_MODE="${PROMPTFOO_DISABLE_WAL_MODE:-true}"
 
     # Kill any existing `promptfoo view` processes (there can be more than one
     # stacked on different ports). pkill returns 1 when nothing matches, which

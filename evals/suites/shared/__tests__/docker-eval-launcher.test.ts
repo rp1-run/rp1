@@ -164,6 +164,7 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 			`${REPO_PROMPTFOO_CONFIG_DIR}:/home/rp1user/.promptfoo`,
 		);
 		expect(runArgs).toContain("PROMPTFOO_CONFIG_DIR=/home/rp1user/.promptfoo");
+		expect(runArgs).toContain("PROMPTFOO_DISABLE_WAL_MODE=true");
 		expect(runArgs).toContain("ANTHROPIC_API_KEY");
 		expect(runArgs).toContain("GITHUB_TOKEN");
 		expect(runArgs).not.toContain("OPENAI_API_KEY");
@@ -404,6 +405,10 @@ esac
 		expect(evalRun.stdout).toContain("just eval-dashboard-stop");
 		expect(evalRunLocal.stdout).toContain(PROMPTFOO_CONFIG_DIR_SNIPPET);
 		expect(evalRunLocal.stdout).toContain(
+			'export PROMPTFOO_DISABLE_WAL_MODE="$' +
+				'{PROMPTFOO_DISABLE_WAL_MODE:-true}"',
+		);
+		expect(evalRunLocal.stdout).toContain(
 			'bash "$' +
 				'{evals_dir}/scripts/prepare-promptfoo-config.sh" "$promptfoo_config_dir"',
 		);
@@ -452,6 +457,7 @@ esac
 		expect(backupEntries).toContain("promptfoo.db");
 		expect(backupEntries).toContain("promptfoo.db-wal");
 		expect(backupEntries).toContain("evalLastWritten");
-		expect(result.stderr).toContain("moved corrupt state");
+		expect(result.stderr).toContain("quarantined state");
+		expect(result.stderr).not.toContain("unable to open database file");
 	});
 });
