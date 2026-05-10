@@ -89,10 +89,11 @@ setup_promptfoo_config_mount() {
             *) host_promptfoo_config_dir="${repo_root}/${PROMPTFOO_CONFIG_DIR}" ;;
         esac
     else
-        host_promptfoo_config_dir="${HOME}/.promptfoo"
+        host_promptfoo_config_dir="${repo_root}/.rp1/tmp/promptfoo"
     fi
 
     mkdir -p "$host_promptfoo_config_dir"
+    bash "${repo_root}/evals/scripts/prepare-promptfoo-config.sh" "$host_promptfoo_config_dir"
     promptfoo_mounts+=(
         -v
         "${host_promptfoo_config_dir}:${container_promptfoo_config_dir}"
@@ -103,6 +104,8 @@ setup_promptfoo_config_mount() {
 add_env_if_set ANTHROPIC_API_KEY
 add_env_if_set OPENAI_API_KEY
 add_env_if_set GITHUB_TOKEN
+export PROMPTFOO_DISABLE_WAL_MODE="${PROMPTFOO_DISABLE_WAL_MODE:-true}"
+forwarded_env+=(-e "PROMPTFOO_DISABLE_WAL_MODE=${PROMPTFOO_DISABLE_WAL_MODE}")
 add_worktree_git_mounts
 setup_promptfoo_config_mount
 

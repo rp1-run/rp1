@@ -4,6 +4,7 @@ import {
 	chmod,
 	mkdir,
 	mkdtemp,
+	readdir,
 	readFile,
 	rm,
 	writeFile,
@@ -13,8 +14,14 @@ import { join, resolve } from "node:path";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../../../");
 const EVAL_LAUNCHER_PATH = join(REPO_ROOT, "docker", "eval-run.sh");
-const PROMPTFOO_CONFIG_DIR_SNIPPET = `promptfoo_config_dir="\${PROMPTFOO_CONFIG_DIR:-\${HOME}/.promptfoo}"`;
-const HOST_PROMPTFOO_CONFIG_DIR = join(process.env.HOME ?? "", ".promptfoo");
+const PREPARE_PROMPTFOO_CONFIG_PATH = join(
+	REPO_ROOT,
+	"evals",
+	"scripts",
+	"prepare-promptfoo-config.sh",
+);
+const PROMPTFOO_CONFIG_DIR_SNIPPET = `promptfoo_config_dir="\${PROMPTFOO_CONFIG_DIR:-\${repo_root}/.rp1/tmp/promptfoo}"`;
+const REPO_PROMPTFOO_CONFIG_DIR = join(REPO_ROOT, ".rp1", "tmp", "promptfoo");
 
 let tempDirs: string[] = [];
 
@@ -154,9 +161,10 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 			"rp1-dev-evals-node_modules:/src/rp1/evals/node_modules",
 		);
 		expect(runArgs).toContain(
-			`${HOST_PROMPTFOO_CONFIG_DIR}:/home/rp1user/.promptfoo`,
+			`${REPO_PROMPTFOO_CONFIG_DIR}:/home/rp1user/.promptfoo`,
 		);
 		expect(runArgs).toContain("PROMPTFOO_CONFIG_DIR=/home/rp1user/.promptfoo");
+		expect(runArgs).toContain("PROMPTFOO_DISABLE_WAL_MODE=true");
 		expect(runArgs).toContain("ANTHROPIC_API_KEY");
 		expect(runArgs).toContain("GITHUB_TOKEN");
 		expect(runArgs).not.toContain("OPENAI_API_KEY");
@@ -349,7 +357,7 @@ esac
 		expect(gitLog).toContain(`-C ${REPO_ROOT} commit -m`);
 	});
 
-	test("uses host promptfoo home for evals and host view", async () => {
+	test("uses repo-local promptfoo home for evals and host view", async () => {
 		const evalRun = await runCommand("just", ["--show", "eval-run"], {
 			cwd: REPO_ROOT,
 			env: {
@@ -393,10 +401,23 @@ esac
 		expect(evalDashboardReload.exitCode).toBe(0);
 		expect(
 			(evalRun.stdout.match(/just eval-dashboard-reload/g) ?? []).length,
-		).toBe(2);
+		).toBe(1);
+		expect(evalRun.stdout).toContain("just eval-dashboard-stop");
 		expect(evalRunLocal.stdout).toContain(PROMPTFOO_CONFIG_DIR_SNIPPET);
 		expect(evalRunLocal.stdout).toContain(
+			'export PROMPTFOO_DISABLE_WAL_MODE="$' +
+				'{PROMPTFOO_DISABLE_WAL_MODE:-true}"',
+		);
+		expect(evalRunLocal.stdout).toContain(
+			'bash "$' +
+				'{evals_dir}/scripts/prepare-promptfoo-config.sh" "$promptfoo_config_dir"',
+		);
+		expect(evalRunLocal.stdout).toContain(
 			'export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"',
+		);
+		expect(evalDashboardReload.stdout).toContain(
+			'bash "$' +
+				'{repo_root}/evals/scripts/prepare-promptfoo-config.sh" "$promptfoo_config_dir"',
 		);
 		expect(evalDashboardReload.stdout).toContain(
 			'const child = spawn("bunx", ["promptfoo", "view", "-n"], {',
@@ -406,5 +427,37 @@ esac
 		expect(evalView.stdout).toContain(
 			'export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"',
 		);
+	});
+
+	test("quarantines corrupt promptfoo database files before reuse", async () => {
+		const configDir = await createTempDir("rp1-promptfoo-config-");
+		await writeFile(join(configDir, "promptfoo.db"), "not a sqlite database");
+		await writeFile(join(configDir, "promptfoo.db-wal"), "stale wal");
+		await writeFile(join(configDir, "evalLastWritten"), "stale-eval-id");
+
+		const result = await runCommand(
+			"bash",
+			[PREPARE_PROMPTFOO_CONFIG_PATH, configDir],
+			{
+				cwd: REPO_ROOT,
+				env: process.env,
+			},
+		);
+
+		expect(result.exitCode).toBe(0);
+		const entries = await readdir(configDir);
+		const backupDir = entries.find((entry) =>
+			entry.startsWith("corrupt-promptfoo-db-"),
+		);
+		expect(backupDir).toBeDefined();
+		expect(entries).not.toContain("promptfoo.db");
+		expect(entries).not.toContain("promptfoo.db-wal");
+		expect(entries).not.toContain("evalLastWritten");
+		const backupEntries = await readdir(join(configDir, backupDir ?? ""));
+		expect(backupEntries).toContain("promptfoo.db");
+		expect(backupEntries).toContain("promptfoo.db-wal");
+		expect(backupEntries).toContain("evalLastWritten");
+		expect(result.stderr).toContain("quarantined state");
+		expect(result.stderr).not.toContain("unable to open database file");
 	});
 });
