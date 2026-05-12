@@ -1,34 +1,26 @@
 import { describe, expect, test } from "bun:test";
 import { GEMINI_SMOKE_COMMAND_TOML } from "../../../install/gemini/smoke-command.js";
 
-const getSmokeShellScript = (): string => {
+const getSmokeNodeScript = (): string => {
 	const parsed = Bun.TOML.parse(GEMINI_SMOKE_COMMAND_TOML) as {
 		readonly prompt?: unknown;
 	};
 	expect(typeof parsed.prompt).toBe("string");
 
 	const match = (parsed.prompt as string).match(
-		/!{bash <<'RP1_GEMINI_SMOKE'\n([\s\S]*?)\nRP1_GEMINI_SMOKE\n}/,
+		/!{node - \{\{args\}\} <<'RP1_GEMINI_SMOKE'\n([\s\S]*?)\nRP1_GEMINI_SMOKE\n}/,
 	);
 	expect(match).not.toBeNull();
 	return match?.[1] ?? "";
 };
 
 const getArgumentParsingPrelude = (): string => {
-	const script = getSmokeShellScript();
-	const startIndex = script.indexOf('RAW_ARGS="$(cat <<');
-	const rawArgsEndIndex = script.indexOf("\nCOMMAND_PATH=");
-	const featureParsingIndex = script.indexOf('\nFEATURE_ID=""');
-	const marker = '\nif [ -z "$FEATURE_ID" ]; then';
-	const markerIndex = script.indexOf(marker);
+	const script = getSmokeNodeScript();
+	const startIndex = script.indexOf("const parseSmokeArgs = (input) => {");
+	const markerIndex = script.indexOf("\nconst versionResult =");
 	expect(startIndex).toBeGreaterThanOrEqual(0);
-	expect(rawArgsEndIndex).toBeGreaterThan(startIndex);
-	expect(featureParsingIndex).toBeGreaterThan(rawArgsEndIndex);
-	expect(markerIndex).toBeGreaterThan(0);
-	return (
-		script.slice(startIndex, rawArgsEndIndex) +
-		script.slice(featureParsingIndex, markerIndex)
-	);
+	expect(markerIndex).toBeGreaterThan(startIndex);
+	return script.slice(startIndex, markerIndex);
 };
 
 const parseSmokeArgs = async (
@@ -39,12 +31,13 @@ const parseSmokeArgs = async (
 	readonly runContext: string;
 }> => {
 	const script = `${getArgumentParsingPrelude().replace("{{args}}", args)}
-printf 'RAW_ARGS=%s\\n' "$RAW_ARGS"
-printf 'FEATURE_ID=%s\\n' "$FEATURE_ID"
-printf 'RUN_CONTEXT=%s\\n' "$RUN_CONTEXT"
+const result = parseSmokeArgs(${JSON.stringify(args)});
+console.log("RAW_ARGS=" + result.rawArgs);
+console.log("FEATURE_ID=" + result.featureId);
+console.log("RUN_CONTEXT=" + result.runContext);
 `;
 
-	const proc = Bun.spawn(["bash", "-c", script], {
+	const proc = Bun.spawn(["node", "-e", script], {
 		stdout: "pipe",
 		stderr: "pipe",
 	});
@@ -88,6 +81,25 @@ describe("Gemini smoke command template", () => {
 			"Experimental rp1 smoke workflow for Gemini CLI.",
 		);
 		expect(typeof parsed.prompt).toBe("string");
+	});
+
+	test("uses a Node heredoc without shell command substitution", () => {
+		expect(GEMINI_SMOKE_COMMAND_TOML).toContain(
+			"!{node - {{args}} <<'RP1_GEMINI_SMOKE'",
+		);
+		expect(getSmokeNodeScript()).not.toContain("$(");
+	});
+
+	test("prefers the checkout rp1 CLI for workflow emits", () => {
+		const script = getSmokeNodeScript();
+
+		expect(script).toContain(
+			'const localRp1CliPath = path.join(process.cwd(), "cli/src/main.ts");',
+		);
+		expect(script).toContain(
+			"const runRp1 = (args) => run(rp1Command, rp1Args(args));",
+		);
+		expect(script).not.toContain('run("rp1",');
 	});
 
 	test("preserves named multi-token arguments before workflow bootstrap", async () => {
