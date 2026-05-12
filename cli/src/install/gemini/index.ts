@@ -6,10 +6,10 @@ import type { CLIError } from "../../../shared/errors.js";
 import { installError } from "../../../shared/errors.js";
 import {
 	GEMINI_EXPERIMENTAL_GUIDANCE,
-	GEMINI_SMOKE_COMMAND_INVOCATION,
 	type GeminiInstallResult,
 	type GeminiPaths,
 	type GeminiVerificationResult,
+	getGeminiSmokeStatusDetail,
 } from "./models.js";
 import {
 	GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
@@ -122,15 +122,16 @@ export const verifyGeminiSmokeSetup = async (
 	const remediation: string[] = [];
 
 	if (!geminiInstalled) {
-		issues.push("Gemini CLI not found in PATH.");
-		remediation.push(
-			"Install Gemini CLI, then confirm `gemini --version` succeeds.",
-		);
+		const detail = getGeminiSmokeStatusDetail("degraded_missing_binary");
+		if (detail.issue) issues.push(detail.issue);
+		remediation.push(detail.remediation);
 	}
 
 	if (!commandInstalled) {
 		issues.push(`Gemini smoke command missing: ${paths.commandDisplayPath}.`);
-		remediation.push("Install the smoke command with `rp1 install gemini`.");
+		remediation.push(
+			getGeminiSmokeStatusDetail("degraded_missing_command").remediation,
+		);
 	}
 
 	const status = !geminiInstalled
@@ -140,9 +141,7 @@ export const verifyGeminiSmokeSetup = async (
 			: "degraded_missing_command";
 
 	if (status === "experimental_ready") {
-		remediation.push(
-			`Run ${GEMINI_SMOKE_COMMAND_INVOCATION} from Gemini CLI to collect smoke evidence.`,
-		);
+		remediation.push(getGeminiSmokeStatusDetail(status).remediation);
 	}
 
 	return {
@@ -168,6 +167,8 @@ export {
 	GEMINI_AUTO_INSTALL_SKIP_GUIDANCE,
 	GEMINI_EXPERIMENTAL_GUIDANCE,
 	GEMINI_SMOKE_COMMAND_INVOCATION,
+	GEMINI_SMOKE_STATUS_DETAILS,
+	getGeminiSmokeStatusDetail,
 } from "./models.js";
 export {
 	GEMINI_SMOKE_COMMAND_DISPLAY_PATH,

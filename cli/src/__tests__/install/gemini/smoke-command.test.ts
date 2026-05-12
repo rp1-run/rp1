@@ -16,10 +16,19 @@ const getSmokeShellScript = (): string => {
 
 const getArgumentParsingPrelude = (): string => {
 	const script = getSmokeShellScript();
+	const startIndex = script.indexOf('RAW_ARGS="$(cat <<');
+	const rawArgsEndIndex = script.indexOf("\nCOMMAND_PATH=");
+	const featureParsingIndex = script.indexOf('\nFEATURE_ID=""');
 	const marker = '\nif [ -z "$FEATURE_ID" ]; then';
 	const markerIndex = script.indexOf(marker);
+	expect(startIndex).toBeGreaterThanOrEqual(0);
+	expect(rawArgsEndIndex).toBeGreaterThan(startIndex);
+	expect(featureParsingIndex).toBeGreaterThan(rawArgsEndIndex);
 	expect(markerIndex).toBeGreaterThan(0);
-	return script.slice(0, markerIndex);
+	return (
+		script.slice(startIndex, rawArgsEndIndex) +
+		script.slice(featureParsingIndex, markerIndex)
+	);
 };
 
 const parseSmokeArgs = async (
@@ -99,5 +108,19 @@ describe("Gemini smoke command template", () => {
 			featureId: "feat",
 			runContext: "normal",
 		});
+	});
+
+	test("surfaces named degraded states and remediation in the command prompt", () => {
+		expect(GEMINI_SMOKE_COMMAND_TOML).toContain(
+			"State: degraded_trust_or_approval",
+		);
+		expect(GEMINI_SMOKE_COMMAND_TOML).toContain(
+			"State: degraded_missing_binary",
+		);
+		expect(GEMINI_SMOKE_COMMAND_TOML).toContain(
+			"State: degraded_missing_command",
+		);
+		expect(GEMINI_SMOKE_COMMAND_TOML).toContain("State: registration_failed");
+		expect(GEMINI_SMOKE_COMMAND_TOML).toContain("User action:");
 	});
 });

@@ -3,6 +3,7 @@ import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
 	GEMINI_SMOKE_COMMAND_TOML,
+	GEMINI_SMOKE_STATUS_DETAILS,
 	installGeminiSmokeCommand,
 	verifyGeminiSmokeSetup,
 } from "../../../install/gemini/index.js";
@@ -31,6 +32,22 @@ describe("Gemini smoke command installer", () => {
 
 	afterEach(async () => {
 		await cleanupTempDir(tempDir);
+	});
+
+	test("models the required Gemini smoke readiness and failure states", () => {
+		expect(Object.keys(GEMINI_SMOKE_STATUS_DETAILS)).toEqual([
+			"experimental_ready",
+			"degraded_missing_binary",
+			"degraded_missing_command",
+			"degraded_trust_or_approval",
+			"registration_failed",
+		]);
+		expect(
+			GEMINI_SMOKE_STATUS_DETAILS.degraded_trust_or_approval.remediation,
+		).toContain("Approve Gemini shell execution");
+		expect(
+			GEMINI_SMOKE_STATUS_DETAILS.registration_failed.remediation,
+		).toContain("Registration Output");
 	});
 
 	test("dry-run reports the smoke command path without writing", async () => {

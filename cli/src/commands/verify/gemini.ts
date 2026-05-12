@@ -2,6 +2,7 @@ import { Command } from "commander";
 import type { Logger } from "../../../shared/logger.js";
 import {
 	type GeminiVerifyDeps,
+	getGeminiSmokeStatusDetail,
 	verifyGeminiSmokeSetup,
 } from "../../install/gemini/index.js";
 import { colorFns } from "../../lib/colors.js";
@@ -15,6 +16,7 @@ export const executeVerifyGemini = async (
 	console.log(bold("\nVerifying Gemini CLI Smoke Command\n"));
 
 	const result = await verifyGeminiSmokeSetup(deps);
+	const statusDetail = getGeminiSmokeStatusDetail(result.status);
 	const statusLabel = result.verified
 		? green(result.status)
 		: yellow(result.status);
@@ -27,6 +29,7 @@ export const executeVerifyGemini = async (
 
 	console.log(`Support: ${yellow("experimental")} (${dim("smoke-only")})`);
 	console.log(`State: ${statusLabel}`);
+	console.log(`Meaning: ${statusDetail.label}`);
 	console.log("");
 	console.log("+----------------+----------------------+--------+");
 	console.log("| Component      | Value                | Status |");

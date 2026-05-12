@@ -10,6 +10,13 @@ prompt = '''
 
 Run this experimental smoke once. It validates only argument delivery, rp1 root resolution, work-root artifact writing, and artifact registration.
 
+If Gemini blocks the shell command because project trust, shell execution approval, or sandbox approval is required, report exactly:
+
+Gemini smoke status: blocked
+State: degraded_trust_or_approval
+Blocker: Gemini trust or approval prevented shell execution.
+User action: Approve Gemini shell execution or trust this project, then retry the smoke command.
+
 Shell output:
 !{bash <<'RP1_GEMINI_SMOKE'
 set -u
@@ -19,6 +26,23 @@ RAW_ARGS="$(cat <<'RP1_GEMINI_ARGS'
 RP1_GEMINI_ARGS
 )"
 COMMAND_PATH="${"${"}HOME}/.gemini/commands/rp1/smoke.toml"
+
+if ! command -v gemini >/dev/null 2>&1; then
+	echo "Gemini smoke status: blocked"
+	echo "State: degraded_missing_binary"
+	echo "Blocker: Gemini CLI binary was not found in PATH while running the smoke command."
+	echo "User action: Install Gemini CLI or fix PATH, then run rp1 verify gemini."
+	exit 127
+fi
+
+if [ ! -f "$COMMAND_PATH" ]; then
+	echo "Gemini smoke status: blocked"
+	echo "State: degraded_missing_command"
+	echo "Blocker: Gemini smoke command is missing at $COMMAND_PATH."
+	echo "User action: Run rp1 install gemini, then retry /rp1:smoke."
+	exit 2
+fi
+
 GEMINI_VERSION="$(gemini --version 2>&1 | head -n 1 || true)"
 
 FEATURE_ID=""
@@ -45,6 +69,7 @@ done
 if [ -z "$FEATURE_ID" ]; then
 	echo "Gemini smoke status: blocked"
 	echo "Blocker: missing FEATURE_ID. Invoke /rp1:smoke FEATURE_ID=<feature-id> RUN_CONTEXT=<label>."
+	echo "User action: Retry with FEATURE_ID=<feature-id>."
 	exit 2
 fi
 
@@ -63,7 +88,8 @@ BOOTSTRAP_STATUS=$?
 
 if [ "$BOOTSTRAP_STATUS" -ne 0 ]; then
 	echo "Gemini smoke status: blocked"
-	echo "Blocker: workflow-bootstrap failed. Verify this is an initialized rp1 project or worktree."
+	echo "Blocker: root resolution failed. Missing or invalid rp1 project context."
+	echo "User action: Run from an initialized rp1 checkout or worktree, or run rp1 init before retrying."
 	printf '%s\n' "$BOOTSTRAP_JSON"
 	exit "$BOOTSTRAP_STATUS"
 fi
@@ -129,6 +155,7 @@ ARTIFACT_STATUS=$?
 if [ "$ARTIFACT_STATUS" -ne 0 ]; then
 	echo "Gemini smoke status: blocked"
 	echo "Blocker: artifact write failed."
+	echo "User action: Check .rp1/work permissions and available disk space, then retry."
 	printf '%s\n' "$ARTIFACT_SETUP"
 	exit "$ARTIFACT_STATUS"
 fi
@@ -207,9 +234,11 @@ if [ "$REGISTRATION_STATUS_CODE" -eq 0 ]; then
 		--close-run \
 		--data '{"status":"completed"}' >/dev/null 2>&1 || true
 	echo "Gemini smoke status: passed"
+	echo "State: experimental_ready"
 	echo "Run: $RUN_ID"
 	echo "Artifact: $ARTIFACT_RELATIVE_PATH"
 	echo "Registration: registered"
+	echo "User action: Use the artifact as smoke evidence; Gemini remains experimental and smoke-only."
 else
 	rp1 agent-tools emit \
 		--harness gemini-cli \
@@ -218,10 +247,13 @@ else
 		--run-id "$RUN_ID" \
 		--step smoke \
 		--data '{"status":"failed","reason":"artifact registration failed"}' >/dev/null 2>&1 || true
-	echo "Gemini smoke status: blocked"
+	echo "Gemini smoke status: degraded"
+	echo "State: registration_failed"
 	echo "Run: $RUN_ID"
 	echo "Artifact: $ARTIFACT_RELATIVE_PATH"
 	echo "Registration: registration_failed"
+	echo "Blocker: artifact registration failed after the smoke artifact was written."
+	echo "User action: Inspect Registration Output in $ARTIFACT_RELATIVE_PATH, fix the rp1 emit failure, then rerun the smoke command."
 	printf '%s\n' "$REGISTRATION_OUTPUT"
 	exit "$REGISTRATION_STATUS_CODE"
 fi
@@ -230,10 +262,12 @@ RP1_GEMINI_SMOKE
 
 Report exactly:
 - Gemini smoke status
-- Run
-- Artifact
-- Registration
-- Blocker, only if status is blocked
+- State, when printed
+- Run, when printed
+- Artifact, when printed
+- Registration, when printed
+- Blocker, only if status is blocked or degraded
+- User action, when printed
 
 Do not inspect or modify any other files. Do not continue with unrelated analysis after reporting the shell output.
 '''
