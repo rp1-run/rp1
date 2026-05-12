@@ -7,7 +7,7 @@ import { MARKETPLACE_NAME } from "./marketplace.js";
 import {
 	type CommandResult,
 	getCopilotPaths,
-	runGhCommand,
+	runCopilotCommand,
 } from "./prerequisites.js";
 
 export type CopilotVerificationState =
@@ -32,8 +32,8 @@ export interface CopilotPluginVerification {
 export interface CopilotVerificationResult {
 	readonly state: CopilotVerificationState;
 	readonly verified: boolean;
-	readonly ghInstalled: boolean;
-	readonly ghVersion: string | null;
+	readonly copilotInstalled: boolean;
+	readonly copilotVersion: string | null;
 	readonly pluginListAvailable: boolean;
 	readonly plugins: readonly CopilotPluginVerification[];
 	readonly legacyFootprints: readonly string[];
@@ -48,12 +48,12 @@ interface ParsedInstalledPlugin {
 }
 
 interface CopilotVerifierDeps {
-	readonly getGhBinaryPath?: () => string | null;
+	readonly getCopilotBinaryPath?: () => string | null;
 	readonly paths?: ReturnType<typeof getCopilotPaths>;
 	readonly requiredPlugins?: readonly string[];
 	readonly optionalPlugins?: readonly string[];
 	readonly readPlatformVersion?: () => Promise<string | null>;
-	readonly runGh?: (args: readonly string[]) => Promise<CommandResult>;
+	readonly runCopilot?: (args: readonly string[]) => Promise<CommandResult>;
 }
 
 const toCopilotPluginName = (pluginName: string): string =>
@@ -104,7 +104,7 @@ const listLegacyFootprints = async (
 	return footprints.sort();
 };
 
-const parseGhVersion = (output: string): string | null =>
+const parseCopilotVersion = (output: string): string | null =>
 	output.match(/(\d+\.\d+\.\d+(?:[-+][^\s)]+)?)/)?.[1] ?? null;
 
 const parseInstalledPlugins = (
@@ -144,19 +144,19 @@ const unique = (values: readonly string[]): string[] => [...new Set(values)];
 const summarizeIssues = (
 	plugins: readonly CopilotPluginVerification[],
 	legacyFootprints: readonly string[],
-	ghInstalled: boolean,
+	copilotInstalled: boolean,
 	pluginListAvailable: boolean,
 	state: CopilotVerificationState,
 ): string[] => {
 	const issues: string[] = [];
 
-	if (!ghInstalled) {
-		issues.push("GitHub CLI (gh) not found in PATH.");
+	if (!copilotInstalled) {
+		issues.push("GitHub Copilot CLI (copilot) not found in PATH.");
 	}
 
-	if (ghInstalled && !pluginListAvailable) {
+	if (copilotInstalled && !pluginListAvailable) {
 		issues.push(
-			"Could not inspect installed Copilot plugins with `gh copilot -- plugin list`.",
+			"Could not inspect installed Copilot plugins with `copilot plugin list`.",
 		);
 	}
 
@@ -198,7 +198,7 @@ const buildRemediation = (
 	state: CopilotVerificationState,
 	plugins: readonly CopilotPluginVerification[],
 	pluginListAvailable: boolean,
-	ghInstalled: boolean,
+	copilotInstalled: boolean,
 ): string[] => {
 	const remediation: string[] = [];
 	const hasArtifactIssue = plugins.some((plugin) =>
@@ -213,15 +213,15 @@ const buildRemediation = (
 		plugin.issues.some((issue) => issue.includes("Version mismatch")),
 	);
 
-	if (!ghInstalled) {
+	if (!copilotInstalled) {
 		remediation.push(
-			"Install or repair GitHub CLI, then confirm `gh copilot -- plugin list` succeeds.",
+			"Install or repair GitHub Copilot CLI, then confirm `copilot version` and `copilot plugin list` succeed.",
 		);
 	}
 
-	if (!pluginListAvailable && ghInstalled) {
+	if (!pluginListAvailable && copilotInstalled) {
 		remediation.push(
-			"Run `gh copilot -- plugin list` directly and resolve any CLI errors before retrying verification.",
+			"Run `copilot plugin list` directly and resolve any CLI errors before retrying verification.",
 		);
 	}
 
@@ -266,8 +266,9 @@ export const verifyCopilotInstallation = async (
 	deps: CopilotVerifierDeps = {},
 ): Promise<CopilotVerificationResult> => {
 	const paths = deps.paths ?? getCopilotPaths();
-	const getGhBinaryPath = deps.getGhBinaryPath ?? (() => Bun.which("gh"));
-	const runGh = deps.runGh ?? runGhCommand;
+	const getCopilotBinaryPath =
+		deps.getCopilotBinaryPath ?? (() => Bun.which("copilot"));
+	const runCopilot = deps.runCopilot ?? runCopilotCommand;
 	const readPlatformVersion =
 		deps.readPlatformVersion ?? defaultReadPlatformVersion;
 	const requiredPlugins = (deps.requiredPlugins ?? REQUIRED_PLUGINS).map(
@@ -282,24 +283,24 @@ export const verifyCopilotInstallation = async (
 		paths.legacyAgentsDir,
 	);
 
-	let ghInstalled = false;
-	let ghVersion: string | null = null;
+	let copilotInstalled = false;
+	let copilotVersion: string | null = null;
 	let pluginListAvailable = false;
 	let installedPlugins = new Map<string, ParsedInstalledPlugin>();
 
-	if (getGhBinaryPath()) {
+	if (getCopilotBinaryPath()) {
 		try {
-			const versionResult = await runGh(["--version"]);
+			const versionResult = await runCopilot(["version"]);
 			if (versionResult.exitCode === 0) {
-				ghInstalled = true;
-				ghVersion = parseGhVersion(versionResult.output);
+				copilotInstalled = true;
+				copilotVersion = parseCopilotVersion(versionResult.output);
 			}
 		} catch {}
 	}
 
-	if (ghInstalled) {
+	if (copilotInstalled) {
 		try {
-			const pluginListResult = await runGh(["copilot", "--", "plugin", "list"]);
+			const pluginListResult = await runCopilot(["plugin", "list"]);
 			if (pluginListResult.exitCode === 0) {
 				pluginListAvailable = true;
 				installedPlugins = new Map(
@@ -358,7 +359,7 @@ export const verifyCopilotInstallation = async (
 
 			if (pluginListAvailable) {
 				if (listedPlugin === null) {
-					issues.push("Not reported by `gh copilot -- plugin list`.");
+					issues.push("Not reported by `copilot plugin list`.");
 				} else if (!listedInCopilot) {
 					issues.push(
 						`Listed from marketplace \`${listedPlugin.marketplace}\` instead of \`${MARKETPLACE_NAME}\`.`,
@@ -448,7 +449,7 @@ export const verifyCopilotInstallation = async (
 	const issues = summarizeIssues(
 		plugins,
 		legacyFootprints,
-		ghInstalled,
+		copilotInstalled,
 		pluginListAvailable,
 		state,
 	);
@@ -456,14 +457,14 @@ export const verifyCopilotInstallation = async (
 		state,
 		plugins,
 		pluginListAvailable,
-		ghInstalled,
+		copilotInstalled,
 	);
 
 	return {
 		state,
 		verified: state === "healthy_native" || state === "mixed_native_and_legacy",
-		ghInstalled,
-		ghVersion,
+		copilotInstalled,
+		copilotVersion,
 		pluginListAvailable,
 		plugins,
 		legacyFootprints,

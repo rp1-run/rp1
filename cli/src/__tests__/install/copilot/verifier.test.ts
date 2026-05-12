@@ -70,28 +70,28 @@ const writeNativeInstalledMarker = async (
 	);
 };
 
-const createRunGh =
+const createRunCopilot =
 	(
 		pluginsOutput: string,
 	): ((
 		args: readonly string[],
 	) => Promise<{ exitCode: number; output: string }>) =>
 	async (args) => {
-		if (args.join(" ") === "--version") {
+		if (args.join(" ") === "version") {
 			return {
 				exitCode: 0,
-				output: "gh version 2.74.1 (2026-04-01)",
+				output: "copilot version 1.0.0",
 			};
 		}
 
-		if (args.join(" ") === "copilot -- plugin list") {
+		if (args.join(" ") === "plugin list") {
 			return {
 				exitCode: 0,
 				output: pluginsOutput,
 			};
 		}
 
-		throw new Error(`Unexpected gh args: ${args.join(" ")}`);
+		throw new Error(`Unexpected copilot args: ${args.join(" ")}`);
 	};
 
 describe("copilot verifier", () => {
@@ -114,10 +114,10 @@ describe("copilot verifier", () => {
 		await writeNativeInstalledMarker(paths, "rp1-dev");
 
 		const result = await verifyCopilotInstallation({
-			getGhBinaryPath: () => "/usr/bin/gh",
+			getCopilotBinaryPath: () => "/usr/bin/copilot",
 			paths,
 			readPlatformVersion: async () => "0.6.5",
-			runGh: createRunGh(
+			runCopilot: createRunCopilot(
 				[
 					"Installed plugins:",
 					"  • rp1-base@rp1-local (v0.6.5)",
@@ -132,17 +132,17 @@ describe("copilot verifier", () => {
 		expect(result.plugins.every((plugin) => plugin.installed)).toBe(true);
 	});
 
-	test("classifies healthy_native when gh copilot omits plugin versions", async () => {
+	test("classifies healthy_native when Copilot omits plugin versions", async () => {
 		await writeMarketplacePluginArtifacts(paths, "rp1-base");
 		await writeMarketplacePluginArtifacts(paths, "rp1-dev");
 		await writeNativeInstalledMarker(paths, "rp1-base");
 		await writeNativeInstalledMarker(paths, "rp1-dev");
 
 		const result = await verifyCopilotInstallation({
-			getGhBinaryPath: () => "/usr/bin/gh",
+			getCopilotBinaryPath: () => "/usr/bin/copilot",
 			paths,
 			readPlatformVersion: async () => "0.6.5",
-			runGh: createRunGh(
+			runCopilot: createRunCopilot(
 				[
 					"Installed plugins:",
 					"  • rp1-base@rp1-local",
@@ -179,10 +179,10 @@ describe("copilot verifier", () => {
 		);
 
 		const result = await verifyCopilotInstallation({
-			getGhBinaryPath: () => "/usr/bin/gh",
+			getCopilotBinaryPath: () => "/usr/bin/copilot",
 			paths,
 			readPlatformVersion: async () => "0.6.5",
-			runGh: createRunGh(
+			runCopilot: createRunCopilot(
 				[
 					"Installed plugins:",
 					"  • rp1-base@rp1-local (v0.6.5)",
@@ -229,10 +229,10 @@ describe("copilot verifier", () => {
 		);
 
 		const result = await verifyCopilotInstallation({
-			getGhBinaryPath: () => "/usr/bin/gh",
+			getCopilotBinaryPath: () => "/usr/bin/copilot",
 			paths,
 			readPlatformVersion: async () => "0.6.5",
-			runGh: createRunGh(
+			runCopilot: createRunCopilot(
 				[
 					"Installed plugins:",
 					"  • rp1-base@rp1-local (v0.6.5)",
@@ -274,10 +274,10 @@ describe("copilot verifier", () => {
 		await writeFixture(paths.legacyAgentsDir, "rp1-base-agent.md", "agent");
 
 		const result = await verifyCopilotInstallation({
-			getGhBinaryPath: () => null,
+			getCopilotBinaryPath: () => null,
 			paths,
 			readPlatformVersion: async () => null,
-			runGh: createRunGh("Installed plugins:\n"),
+			runCopilot: createRunCopilot("Installed plugins:\n"),
 		});
 
 		expect(result.state).toBe("legacy_only");
@@ -295,10 +295,10 @@ describe("copilot verifier", () => {
 		await writeFixture(paths.legacySkillsDir, "rp1-build/SKILL.md", "skill");
 
 		const result = await verifyCopilotInstallation({
-			getGhBinaryPath: () => "/usr/bin/gh",
+			getCopilotBinaryPath: () => "/usr/bin/copilot",
 			paths,
 			readPlatformVersion: async () => "0.6.5",
-			runGh: createRunGh(
+			runCopilot: createRunCopilot(
 				[
 					"Installed plugins:",
 					"  • rp1-base@rp1-local (v0.6.5)",
@@ -319,10 +319,10 @@ describe("copilot verifier", () => {
 
 	test("classifies not_installed when no native or legacy rp1 Copilot footprint exists", async () => {
 		const result = await verifyCopilotInstallation({
-			getGhBinaryPath: () => "/usr/bin/gh",
+			getCopilotBinaryPath: () => "/usr/bin/copilot",
 			paths,
 			readPlatformVersion: async () => null,
-			runGh: createRunGh(
+			runCopilot: createRunCopilot(
 				"Installed plugins:\n  • spark@copilot-plugins (v1.0.0)",
 			),
 		});
@@ -340,10 +340,12 @@ describe("copilot verifier", () => {
 		await writeFixture(paths.legacyAgentsDir, "rp1-base-agent.md", "agent");
 
 		const result = await verifyCopilotInstallation({
-			getGhBinaryPath: () => "/usr/bin/gh",
+			getCopilotBinaryPath: () => "/usr/bin/copilot",
 			paths,
 			readPlatformVersion: async () => "0.6.5",
-			runGh: createRunGh("Installed plugins:\n  • rp1-base@rp1-local (v0.6.5)"),
+			runCopilot: createRunCopilot(
+				"Installed plugins:\n  • rp1-base@rp1-local (v0.6.5)",
+			),
 		});
 		const summary = summarizeCopilotVerification(result);
 

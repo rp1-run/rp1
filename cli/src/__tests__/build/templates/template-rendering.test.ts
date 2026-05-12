@@ -893,7 +893,7 @@ describeWithLiquid("template rendering", () => {
 			const manifest = JSON.parse(result);
 			expect(manifest.plugin).toBe("base");
 			expect(manifest.nativePluginName).toBe("rp1-base");
-			expect(manifest.copilotVersionTested).toBe("2.74.x");
+			expect(manifest.copilotVersionTested).toBe("standalone");
 			expect(manifest.installation.method).toBe("native-plugin-marketplace");
 			expect(manifest.installation.marketplaceDir).toBe(
 				"~/.rp1/copilot/marketplace",

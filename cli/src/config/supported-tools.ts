@@ -17,6 +17,8 @@ export interface SupportedTool {
 	readonly enabled?: boolean;
 	readonly binary: string;
 	readonly min_version: string;
+	readonly version_command?: readonly string[];
+	readonly detect_command?: readonly string[];
 	readonly instruction_file: string;
 	readonly install_url: string;
 	readonly plugin_install_cmd: string | null;

@@ -62,7 +62,7 @@ Installs or updates rp1 for GitHub Copilot CLI through the supported Copilot
 plugin commands. Use this target when Copilot is your coding host or when
 `rp1 verify copilot` reports that the rp1 plugins are missing or out of date.
 
-Requires the GitHub CLI (`gh`) version 2.74.0 or later with `gh copilot -- plugin --help` available.
+Requires the standalone GitHub Copilot CLI (`copilot`) with `copilot plugin --help` available.
 
 ### `install all`
 
@@ -220,15 +220,16 @@ Confirm the host is installed and on your `PATH`:
 which claude
 which opencode
 which codex
-which gh         # For Copilot CLI
-gh copilot -- plugin --help
+which copilot    # For Copilot CLI
+copilot version
+copilot plugin --help
 ```
 
 ### Plugins do not appear after install
 
 1. Restart the host tool
 2. Run the matching `rp1 verify ...` command
-3. For Copilot, confirm `gh copilot -- plugin list` includes `rp1-base@rp1-local` and `rp1-dev@rp1-local`
+3. For Copilot, confirm `copilot plugin list` includes `rp1-base@rp1-local` and `rp1-dev@rp1-local`
 4. Do not use `~/.config/github-copilot/...` as a Copilot success signal
 
 ### Permission denied

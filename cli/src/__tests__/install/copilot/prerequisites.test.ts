@@ -3,6 +3,7 @@ import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { MARKETPLACE_NAME } from "../../../install/copilot/marketplace.js";
 import {
+	checkCopilotPluginSupport,
 	checkCopilotVersion,
 	checkWritePermissions,
 	getCopilotPaths,
@@ -10,7 +11,9 @@ import {
 import {
 	cleanupTempDir,
 	createTempDir,
+	expectTaskLeft,
 	getErrorMessage,
+	installFakeCopilotCli,
 } from "../../helpers/index.js";
 
 describe("copilot prerequisites", () => {
@@ -25,8 +28,8 @@ describe("copilot prerequisites", () => {
 	});
 
 	describe("checkCopilotVersion", () => {
-		test("accepts versions >= 2.74.0", () => {
-			const validVersions = ["2.74.0", "2.74.1", "2.75.0", "2.100.0", "3.0.0"];
+		test("accepts parseable Copilot CLI versions", () => {
+			const validVersions = ["0.0.1", "0.1.0", "1.0.0", "2.100.0", "3.0.0"];
 
 			for (const version of validVersions) {
 				const result = checkCopilotVersion(version);
@@ -37,28 +40,13 @@ describe("copilot prerequisites", () => {
 			}
 		});
 
-		test("rejects versions below 2.74.0", () => {
-			const oldVersions = ["2.73.9", "2.73.0", "2.50.0", "1.0.0", "0.1.0"];
-
-			for (const version of oldVersions) {
-				const result = checkCopilotVersion(version);
-				expect(E.isLeft(result)).toBe(true);
-				if (E.isLeft(result)) {
-					expect(getErrorMessage(result.left)).toContain("below minimum");
-					expect((result.left as { suggestion?: string }).suggestion).toContain(
-						"2.74.0",
-					);
-				}
-			}
-		});
-
 		test("rejects unknown version values", () => {
 			const result = checkCopilotVersion("unknown");
 			expect(E.isLeft(result)).toBe(true);
 			if (E.isLeft(result)) {
 				expect(getErrorMessage(result.left)).toContain("Could not determine");
 				expect((result.left as { suggestion?: string }).suggestion).toContain(
-					"2.74.0",
+					"copilot version",
 				);
 			}
 		});
@@ -72,17 +60,44 @@ describe("copilot prerequisites", () => {
 				if (E.isLeft(result)) {
 					expect(getErrorMessage(result.left)).toContain("Could not parse");
 					expect((result.left as { suggestion?: string }).suggestion).toContain(
-						"2.74.0",
+						"copilot version",
 					);
 				}
 			}
 		});
 
 		test("extracts version from string containing semver", () => {
-			const result = checkCopilotVersion("gh version 2.74.0 (2026-01-15)");
+			const result = checkCopilotVersion("copilot version 1.2.3");
 			expect(E.isRight(result)).toBe(true);
 			if (E.isRight(result)) {
-				expect(result.right.value).toBe("2.74.0");
+				expect(result.right.value).toBe("1.2.3");
+			}
+		});
+	});
+
+	describe("checkCopilotPluginSupport", () => {
+		test("fails with standalone Copilot CLI repair guidance when plugin lifecycle is unavailable", async () => {
+			const fakeCopilot = await installFakeCopilotCli(tempDir, {
+				pluginHelpExitCode: 1,
+			});
+
+			try {
+				const error = await expectTaskLeft(checkCopilotPluginSupport());
+
+				expect(getErrorMessage(error)).toContain(
+					"plugin lifecycle commands are unavailable",
+				);
+				expect((error as { suggestion?: string }).suggestion).toContain(
+					"copilot version",
+				);
+				expect((error as { suggestion?: string }).suggestion).toContain(
+					"copilot plugin --help",
+				);
+				expect((error as { suggestion?: string }).suggestion).not.toContain(
+					"github/" + "gh-copilot",
+				);
+			} finally {
+				fakeCopilot.restore();
 			}
 		});
 	});

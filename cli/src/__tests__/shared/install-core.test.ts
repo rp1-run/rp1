@@ -74,12 +74,14 @@ const createCopilotTool = (): SupportedTool => ({
 	id: "copilot",
 	name: "GitHub Copilot CLI",
 	enabled: true,
-	binary: "gh",
-	min_version: "2.74.0",
+	binary: "copilot",
+	min_version: "0.0.0",
+	version_command: ["version"],
+	detect_command: ["plugin", "--help"],
 	instruction_file: "AGENTS.md",
 	install_url:
-		"https://docs.github.com/copilot/using-github-copilot/using-github-copilot-in-the-command-line",
-	plugin_install_cmd: "gh copilot -- plugin install {plugin}",
+		"https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli",
+	plugin_install_cmd: "copilot plugin install {plugin}",
 	capabilities: ["plugins", "skills", "agents", "slash-commands"],
 });
 
@@ -622,6 +624,38 @@ describe("install-core tool routing", () => {
 			restoreHome();
 			await cleanupTempDir(homeDir);
 		}
+	});
+
+	test("installForSpecificTool hard-fails explicit Copilot installation failures", async () => {
+		mock.module("../../install/copilot/index.js", () => ({
+			getDefaultCopilotArtifactsDir: () => "/mock/default-copilot",
+			installCopilot: () =>
+				TE.left(
+					installError(
+						"copilot",
+						"GitHub Copilot plugin lifecycle commands are unavailable",
+					),
+				),
+		}));
+
+		const registry: ToolsRegistry = {
+			version: "1.0.0",
+			tools: [{ ...createCopilotTool(), enabled: true }],
+		};
+		const installCore = (await import(
+			`../../shared/install-core.js?copilot-failure=${Date.now()}`
+		)) as InstallCoreModule;
+		const error = await expectTaskLeft(
+			installCore.installForSpecificTool(
+				"copilot",
+				registry,
+				createMockContext({ dryRun: false, skipPrompt: true }),
+			),
+		);
+
+		expect(getErrorMessage(error as CLIError)).toContain(
+			"GitHub Copilot plugin lifecycle commands are unavailable",
+		);
 	});
 
 	test("installForSpecificTool rejects unknown tools with enabled alternatives", async () => {

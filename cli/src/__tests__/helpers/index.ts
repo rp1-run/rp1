@@ -2,7 +2,10 @@
  * Test helpers barrel export.
  */
 
-export { type FakeGhCli, installFakeGhCli } from "./copilot-gh-helpers.js";
+export {
+	type FakeCopilotCli,
+	installFakeCopilotCli,
+} from "./copilot-gh-helpers.js";
 
 export {
 	createMinimalAgent,

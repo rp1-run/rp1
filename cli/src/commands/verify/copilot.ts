@@ -26,15 +26,15 @@ export const executeVerifyCopilot = async (
 			: result.state === "mixed_native_and_legacy"
 				? yellow("mixed_native_and_legacy")
 				: red(result.state);
-	const ghLabel = result.ghInstalled
-		? green(result.ghVersion ?? "unknown")
+	const copilotLabel = result.copilotInstalled
+		? green(result.copilotVersion ?? "unknown")
 		: red("not found");
 	const pluginListLabel = result.pluginListAvailable
 		? green("available")
 		: yellow("unavailable");
 
 	console.log(`State: ${stateLabel}`);
-	console.log(`GitHub CLI: ${ghLabel}`);
+	console.log(`Copilot CLI: ${copilotLabel}`);
 	console.log(`Plugin List: ${pluginListLabel}`);
 	console.log("");
 	console.log("Plugins:");

@@ -40,7 +40,7 @@ import {
 	checkCopilotVersion,
 	checkWritePermissions,
 	getCopilotPaths,
-	runGhCommand,
+	runCopilotCommand,
 } from "./prerequisites.js";
 
 const execAsync = promisify(exec);
@@ -108,7 +108,7 @@ export const installPlugin = (
 	isTTY: boolean,
 ): TE.TaskEither<CLIError, boolean> => {
 	const pluginRef = `${pluginName}@${MARKETPLACE_NAME}`;
-	const command = `gh copilot -- plugin install ${pluginRef}`;
+	const command = `copilot plugin install ${pluginRef}`;
 	const spinner = createSpinner(isTTY);
 
 	return pipe(
@@ -140,7 +140,7 @@ export const updatePlugin = (
 	isTTY: boolean,
 ): TE.TaskEither<CLIError, boolean> => {
 	const pluginRef = `${pluginName}@${MARKETPLACE_NAME}`;
-	const command = `gh copilot -- plugin update ${pluginRef}`;
+	const command = `copilot plugin update ${pluginRef}`;
 	const spinner = createSpinner(isTTY);
 
 	return pipe(
@@ -246,7 +246,7 @@ const shouldUninstallOptionalPlugin = async (
 };
 
 interface CopilotUninstallDeps {
-	readonly runGh?: (args: readonly string[]) => Promise<CommandResult>;
+	readonly runCopilot?: (args: readonly string[]) => Promise<CommandResult>;
 }
 
 export const validateCopilotArtifacts = (
@@ -463,7 +463,7 @@ export const uninstallCopilot = (
 ): TE.TaskEither<CLIError, CopilotUninstallResult> =>
 	TE.tryCatch(
 		async () => {
-			const runGh = deps.runGh ?? runGhCommand;
+			const runCopilot = deps.runCopilot ?? runCopilotCommand;
 			const nativeMarketplaceExists = await directoryExists(
 				paths.nativeMarketplaceDir,
 			);
@@ -494,14 +494,14 @@ export const uninstallCopilot = (
 					console.log("Would uninstall native Copilot plugins:");
 					for (const pluginName of uniquePluginsToUninstall) {
 						console.log(
-							`  - gh copilot -- plugin uninstall ${pluginName}@${MARKETPLACE_NAME}`,
+							`  - copilot plugin uninstall ${pluginName}@${MARKETPLACE_NAME}`,
 						);
 					}
 				}
 				if (marketplaceExists || nativeMarketplaceExists) {
 					console.log("Would remove local Copilot marketplace:");
 					console.log(
-						`  - gh copilot -- plugin marketplace remove ${MARKETPLACE_NAME}`,
+						`  - copilot plugin marketplace remove ${MARKETPLACE_NAME}`,
 					);
 				}
 				if (marketplaceExists) {
@@ -542,13 +542,7 @@ export const uninstallCopilot = (
 			const pluginsUninstalled: string[] = [];
 			for (const pluginName of uniquePluginsToUninstall) {
 				const pluginRef = `${pluginName}@${MARKETPLACE_NAME}`;
-				const result = await runGh([
-					"copilot",
-					"--",
-					"plugin",
-					"uninstall",
-					pluginRef,
-				]);
+				const result = await runCopilot(["plugin", "uninstall", pluginRef]);
 				if (result.exitCode === 0) {
 					pluginsUninstalled.push(pluginName);
 					continue;
@@ -564,9 +558,7 @@ export const uninstallCopilot = (
 
 			let marketplaceRemoved = false;
 			if (marketplaceExists || nativeMarketplaceExists) {
-				const removeResult = await runGh([
-					"copilot",
-					"--",
+				const removeResult = await runCopilot([
 					"plugin",
 					"marketplace",
 					"remove",
@@ -575,9 +567,7 @@ export const uninstallCopilot = (
 				if (removeResult.exitCode === 0) {
 					marketplaceRemoved = true;
 				} else if (requiresMarketplaceForceRemoval(removeResult.output)) {
-					const forceRemoveResult = await runGh([
-						"copilot",
-						"--",
+					const forceRemoveResult = await runCopilot([
 						"plugin",
 						"marketplace",
 						"remove",
@@ -671,14 +661,14 @@ export const previewCopilotInstallation = (
 
 			console.log("\nCommands to run:");
 			console.log(
-				`  - gh copilot -- plugin marketplace add "${paths.marketplaceDir}"`,
+				`  - copilot plugin marketplace add "${paths.marketplaceDir}"`,
 			);
 			for (const pluginName of pluginNames) {
 				console.log(
-					`  - gh copilot -- plugin install ${pluginName}@${MARKETPLACE_NAME}`,
+					`  - copilot plugin install ${pluginName}@${MARKETPLACE_NAME}`,
 				);
 				console.log(
-					`    gh copilot -- plugin update ${pluginName}@${MARKETPLACE_NAME}`,
+					`    copilot plugin update ${pluginName}@${MARKETPLACE_NAME}`,
 				);
 			}
 

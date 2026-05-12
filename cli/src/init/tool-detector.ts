@@ -37,6 +37,11 @@ export interface ToolDetectionResult {
  */
 type ParsedVersion = [number, number, number];
 
+interface ToolCommandResult {
+	readonly exitCode: number;
+	readonly output: string;
+}
+
 /**
  * Parse a version string into a semantic version tuple.
  * Extracts the first X.Y.Z pattern found in the string.
@@ -87,6 +92,26 @@ const compareVersions = (
 	return actual[2] >= minimum[2];
 };
 
+const runToolCommand = async (
+	binary: string,
+	args: readonly string[],
+): Promise<ToolCommandResult> => {
+	const proc = Bun.spawn([binary, ...args], {
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	const [exitCode, stdout, stderr] = await Promise.all([
+		proc.exited,
+		new Response(proc.stdout).text(),
+		new Response(proc.stderr).text(),
+	]);
+
+	return {
+		exitCode,
+		output: `${stdout}${stderr}`.trim(),
+	};
+};
+
 /**
  * Detect a single tool from the registry.
  * Uses Bun.which() to check PATH and Bun.spawn() to get version.
@@ -104,14 +129,22 @@ const detectSingleTool = async (
 			return null;
 		}
 
-		// Use Bun.spawn() for version detection
-		const proc = Bun.spawn([tool.binary, "--version"], {
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		const exitCode = await proc.exited;
+		const versionResult = await runToolCommand(
+			tool.binary,
+			tool.version_command ?? ["--version"],
+		);
 
-		if (exitCode !== 0) {
+		if (tool.detect_command) {
+			const detectResult = await runToolCommand(
+				tool.binary,
+				tool.detect_command,
+			);
+			if (detectResult.exitCode !== 0) {
+				return null;
+			}
+		}
+
+		if (versionResult.exitCode !== 0) {
 			// Binary exists but --version failed
 			// Still consider it detected but with unknown version
 			return {
@@ -121,7 +154,7 @@ const detectSingleTool = async (
 			};
 		}
 
-		const version = (await new Response(proc.stdout).text()).trim();
+		const version = versionResult.output;
 		const parsedActual = parseVersion(version);
 		const parsedMin = parseVersion(tool.min_version);
 

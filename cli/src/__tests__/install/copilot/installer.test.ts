@@ -24,7 +24,7 @@ import {
 	expectTaskLeft,
 	expectTaskRight,
 	getErrorMessage,
-	installFakeGhCli,
+	installFakeCopilotCli,
 	writeFixture,
 } from "../../helpers/index.js";
 
@@ -261,22 +261,16 @@ describe("copilot installer", () => {
 
 			const output = logSpy.mock.calls.flat().join("\n");
 			expect(output).toContain(
-				`gh copilot -- plugin marketplace add "${paths.marketplaceDir}"`,
+				`copilot plugin marketplace add "${paths.marketplaceDir}"`,
 			);
-			expect(output).toContain(
-				"gh copilot -- plugin install rp1-base@rp1-local",
-			);
-			expect(output).toContain(
-				"gh copilot -- plugin update rp1-base@rp1-local",
-			);
-			expect(output).toContain(
-				"gh copilot -- plugin install rp1-dev@rp1-local",
-			);
-			expect(output).toContain("gh copilot -- plugin update rp1-dev@rp1-local");
+			expect(output).toContain("copilot plugin install rp1-base@rp1-local");
+			expect(output).toContain("copilot plugin update rp1-base@rp1-local");
+			expect(output).toContain("copilot plugin install rp1-dev@rp1-local");
+			expect(output).toContain("copilot plugin update rp1-dev@rp1-local");
 		});
 
 		test("falls back from install to update when Copilot reports a plugin is already installed", async () => {
-			const fakeGh = await installFakeGhCli(tempDir, {
+			const fakeCopilot = await installFakeCopilotCli(tempDir, {
 				alreadyInstalledPlugins: ["rp1-base@rp1-local"],
 			});
 
@@ -286,13 +280,13 @@ describe("copilot installer", () => {
 				);
 
 				expect(result).toBe(true);
-				const commands = await fakeGh.readCommands();
+				const commands = await fakeCopilot.readCommands();
 				expect(commands).toEqual([
-					"copilot -- plugin install rp1-base@rp1-local",
-					"copilot -- plugin update rp1-base@rp1-local",
+					"plugin install rp1-base@rp1-local",
+					"plugin update rp1-base@rp1-local",
 				]);
 			} finally {
-				fakeGh.restore();
+				fakeCopilot.restore();
 			}
 		});
 	});
@@ -339,13 +333,13 @@ describe("copilot installer", () => {
 			);
 			await writeFixture(paths.agentsDir, "rp1-base-agent.md", "agent");
 
-			const ghCalls: string[] = [];
-			const runGh = async (args: readonly string[]) => {
-				ghCalls.push(args.join(" "));
+			const copilotCalls: string[] = [];
+			const runCopilot = async (args: readonly string[]) => {
+				copilotCalls.push(args.join(" "));
 				return { exitCode: 0, output: "ok" };
 			};
 			const result = await expectTaskRight(
-				uninstallCopilot(paths, false, { runGh }),
+				uninstallCopilot(paths, false, { runCopilot }),
 			);
 
 			expect(result.pluginsUninstalled).toEqual([
@@ -358,11 +352,11 @@ describe("copilot installer", () => {
 			expect(result.skillsRemoved).toBe(1);
 			expect(result.agentsRemoved).toBe(true);
 			expect(result.legacyConfigRemoved).toBe(false);
-			expect(ghCalls).toEqual([
-				"copilot -- plugin uninstall rp1-base@rp1-local",
-				"copilot -- plugin uninstall rp1-dev@rp1-local",
-				"copilot -- plugin uninstall rp1-utils@rp1-local",
-				"copilot -- plugin marketplace remove rp1-local",
+			expect(copilotCalls).toEqual([
+				"plugin uninstall rp1-base@rp1-local",
+				"plugin uninstall rp1-dev@rp1-local",
+				"plugin uninstall rp1-utils@rp1-local",
+				"plugin marketplace remove rp1-local",
 			]);
 
 			const remaining = await readdir(paths.skillsDir);
@@ -381,13 +375,13 @@ describe("copilot installer", () => {
 			);
 			await writeFixture(paths.skillsDir, "rp1-build/SKILL.md", "build skill");
 
-			const ghCalls: string[] = [];
-			const runGh = async (args: readonly string[]) => {
-				ghCalls.push(args.join(" "));
+			const copilotCalls: string[] = [];
+			const runCopilot = async (args: readonly string[]) => {
+				copilotCalls.push(args.join(" "));
 				return { exitCode: 0, output: "ok" };
 			};
 			const result = await expectTaskRight(
-				uninstallCopilot(paths, true, { runGh }),
+				uninstallCopilot(paths, true, { runCopilot }),
 			);
 
 			expect(result.pluginsUninstalled).toHaveLength(0);
@@ -396,7 +390,7 @@ describe("copilot installer", () => {
 			expect(result.skillsRemoved).toBe(0);
 			expect(result.agentsRemoved).toBe(false);
 			expect(result.legacyConfigRemoved).toBe(false);
-			expect(ghCalls).toHaveLength(0);
+			expect(copilotCalls).toHaveLength(0);
 
 			const entries = await readdir(paths.skillsDir);
 			expect(entries).toContain("rp1-build");
@@ -428,11 +422,11 @@ describe("copilot installer", () => {
 			await writeFixture(paths.skillsDir, "rp1-build/SKILL.md", "build skill");
 			await writeFixture(paths.agentsDir, "rp1-base-agent.md", "agent");
 
-			const ghCalls: string[] = [];
-			const runGh = async (args: readonly string[]) => {
+			const copilotCalls: string[] = [];
+			const runCopilot = async (args: readonly string[]) => {
 				const command = args.join(" ");
-				ghCalls.push(command);
-				if (command === "copilot -- plugin marketplace remove rp1-local") {
+				copilotCalls.push(command);
+				if (command === "plugin marketplace remove rp1-local") {
 					return {
 						exitCode: 1,
 						output: "plugins from this marketplace are installed; use --force",
@@ -442,7 +436,7 @@ describe("copilot installer", () => {
 			};
 
 			const result = await expectTaskRight(
-				uninstallCopilot(paths, false, { runGh }),
+				uninstallCopilot(paths, false, { runCopilot }),
 			);
 
 			expect(result.pluginsUninstalled).toEqual(["rp1-base", "rp1-dev"]);
@@ -450,11 +444,11 @@ describe("copilot installer", () => {
 			expect(result.marketplaceDeleted).toBe(true);
 			expect(result.skillsRemoved).toBe(1);
 			expect(result.agentsRemoved).toBe(true);
-			expect(ghCalls).toEqual([
-				"copilot -- plugin uninstall rp1-base@rp1-local",
-				"copilot -- plugin uninstall rp1-dev@rp1-local",
-				"copilot -- plugin marketplace remove rp1-local",
-				"copilot -- plugin marketplace remove --force rp1-local",
+			expect(copilotCalls).toEqual([
+				"plugin uninstall rp1-base@rp1-local",
+				"plugin uninstall rp1-dev@rp1-local",
+				"plugin marketplace remove rp1-local",
+				"plugin marketplace remove --force rp1-local",
 			]);
 			expect(await readdir(paths.skillsDir)).toEqual([]);
 			expect(await readdir(paths.agentsDir)).toEqual([]);
