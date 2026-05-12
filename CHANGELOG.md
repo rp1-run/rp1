@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.8](https://github.com/rp1-run/rp1/compare/v0.7.7...v0.7.8) (2026-05-12)
+
+
+### Bug Fixes
+
+* **copilot:** keep update lifecycle resilient ([#384](https://github.com/rp1-run/rp1/issues/384)) ([ea4fd21](https://github.com/rp1-run/rp1/commit/ea4fd21dffa4c8baafbf95c0c9fcc7af3fdef77f))
+
 ## [0.7.7](https://github.com/rp1-run/rp1/compare/v0.7.6...v0.7.7) (2026-05-10)
 
 
