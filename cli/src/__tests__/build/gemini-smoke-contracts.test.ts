@@ -81,9 +81,14 @@ describe("Gemini smoke workflow contracts", () => {
 		expect(typeof parsed.prompt).toBe("string");
 
 		const prompt = parsed.prompt as string;
-		expect(prompt).toContain("rp1 agent-tools workflow-bootstrap");
-		expect(prompt).toContain("--workflow gemini-harness-smoke");
-		expect(prompt).toContain("--harness gemini-cli");
+		expect(prompt).toContain(
+			"const runRp1 = (args) => run(rp1Command, rp1Args(args));",
+		);
+		expect(prompt).toMatch(
+			/const bootstrapResult = runRp1\(\[\s*"agent-tools",\s*"workflow-bootstrap",/,
+		);
+		expect(prompt).toMatch(/"--workflow",\s*"gemini-harness-smoke"/);
+		expect(prompt).toMatch(/"--harness",\s*"gemini-cli"/);
 		expect(prompt).toContain("FEATURE_ID=");
 		expect(prompt).toContain("RUN_CONTEXT=");
 		expect(prompt).toContain(
