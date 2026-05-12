@@ -1,6 +1,8 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { spawn } from "node:child_process";
+import { constants } from "node:fs";
 import {
+	access,
 	chmod,
 	mkdir,
 	mkdtemp,
@@ -10,7 +12,7 @@ import {
 	writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../../../");
 const EVAL_LAUNCHER_PATH = join(REPO_ROOT, "docker", "eval-run.sh");
@@ -78,6 +80,38 @@ async function readArgsFile(path: string): Promise<string[]> {
 		.filter((line) => line.length > 0);
 }
 
+async function isHermitWrapper(path: string): Promise<boolean> {
+	try {
+		const content = await readFile(path, "utf-8");
+		return content.includes("HERMIT_EXE") && content.includes("hermit");
+	} catch {
+		return false;
+	}
+}
+
+async function resolveNonHermitExecutable(name: string): Promise<string> {
+	for (const directory of (process.env.PATH ?? "").split(delimiter)) {
+		if (!directory) {
+			continue;
+		}
+
+		const candidate = join(directory, name);
+		try {
+			await access(candidate, constants.X_OK);
+		} catch {
+			continue;
+		}
+
+		if (await isHermitWrapper(candidate)) {
+			continue;
+		}
+
+		return candidate;
+	}
+
+	return name;
+}
+
 async function getGitRevParse(arg: string): Promise<string> {
 	const result = await runCommand("git", ["rev-parse", arg], {
 		cwd: REPO_ROOT,
@@ -87,7 +121,7 @@ async function getGitRevParse(arg: string): Promise<string> {
 	return resolve(REPO_ROOT, result.stdout.trim());
 }
 
-afterEach(async () => {
+afterAll(async () => {
 	await Promise.all(
 		tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
 	);
@@ -212,7 +246,8 @@ printf '%s\n' "$@" > "\${DOCKER_STUB_LOG_DIR}/\${kind}-args.txt"
 		);
 		await chmod(dockerStubPath, 0o755);
 
-		const result = await runCommand("just", ["start-docker-dev"], {
+		const justBinary = await resolveNonHermitExecutable("just");
+		const result = await runCommand(justBinary, ["start-docker-dev"], {
 			cwd: REPO_ROOT,
 			env: {
 				...process.env,
