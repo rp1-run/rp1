@@ -109,6 +109,23 @@ const createUnsupportedTool = (): DetectedTool => ({
 	meetsMinVersion: true,
 });
 
+const createGeminiTool = (): DetectedTool => ({
+	tool: {
+		id: "gemini",
+		name: "Gemini CLI",
+		enabled: true,
+		binary: "gemini",
+		min_version: "0.0.0",
+		instruction_file: "AGENTS.md",
+		install_url: "https://github.com/google-gemini/gemini-cli",
+		plugin_install_cmd: null,
+		supportLevel: "experimental",
+		capabilities: ["slash-commands"],
+	},
+	version: "0.1.0",
+	meetsMinVersion: true,
+});
+
 // Mock dependencies that succeed
 const createSuccessDeps = (
 	pluginsInstalled = ["rp1-base", "rp1-dev"],
@@ -233,6 +250,31 @@ describe("plugin-installation step", () => {
 					c.method === "box" && String(c.args[0]).includes("https://rp1.run"),
 			);
 			expect(boxCall).toBeDefined();
+		});
+
+		test("skips Gemini init installation with experimental smoke guidance", async () => {
+			const logger = createTrackingMockLogger();
+
+			const result = await executePluginInstallation(
+				createGeminiTool(),
+				{ isTTY: false },
+				logger,
+			);
+
+			expect(result.actions).toEqual([
+				{
+					type: "skipped",
+					reason: expect.stringContaining("rp1 install gemini"),
+				},
+			]);
+			expect(result.result).toBeNull();
+			expect(
+				logger.calls.some(
+					(call) =>
+						call.method === "info" &&
+						String(call.args[0]).includes("experimental"),
+				),
+			).toBe(true);
 		});
 
 		test("respects non-interactive mode flag and proceeds with installation", async () => {

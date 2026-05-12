@@ -28,11 +28,11 @@ describe("verify command structure", () => {
 			expect(description.toLowerCase()).toContain("verify");
 		});
 
-		test("has four subcommands", async () => {
+		test("has five subcommands", async () => {
 			const { verifyCommand } = await import("../index.js");
 
 			const subcommands = verifyCommand.commands;
-			expect(subcommands.length).toBe(4);
+			expect(subcommands.length).toBe(5);
 		});
 
 		test("includes claude-code subcommand", async () => {
@@ -71,6 +71,15 @@ describe("verify command structure", () => {
 			expect(subcommand).toBeDefined();
 		});
 
+		test("includes gemini subcommand", async () => {
+			const { verifyCommand } = await import("../index.js");
+
+			const subcommand = verifyCommand.commands.find(
+				(c) => c.name() === "gemini",
+			);
+			expect(subcommand).toBeDefined();
+		});
+
 		test("help text includes subcommand list", async () => {
 			const { verifyCommand } = await import("../index.js");
 
@@ -80,6 +89,7 @@ describe("verify command structure", () => {
 			expect(helpInfo).toContain("opencode");
 			expect(helpInfo).toContain("codex");
 			expect(helpInfo).toContain("copilot");
+			expect(helpInfo).toContain("gemini");
 		});
 	});
 
@@ -139,6 +149,28 @@ describe("verify command structure", () => {
 			expect(artifactsOpt).toBeDefined();
 		});
 	});
+
+	describe("verifyGeminiSubcommand", () => {
+		test("exports verifyGeminiSubcommand", async () => {
+			const { verifyGeminiSubcommand } = await import("../index.js");
+
+			expect(verifyGeminiSubcommand).toBeInstanceOf(Command);
+		});
+
+		test("has correct command name", async () => {
+			const { verifyGeminiSubcommand } = await import("../index.js");
+
+			expect(verifyGeminiSubcommand.name()).toBe("gemini");
+		});
+
+		test("has description marking Gemini as experimental", async () => {
+			const { verifyGeminiSubcommand } = await import("../index.js");
+
+			const description = verifyGeminiSubcommand.description();
+			expect(description.toLowerCase()).toContain("experimental");
+			expect(description.toLowerCase()).toContain("gemini");
+		});
+	});
 });
 
 describe("verify command function exports", () => {
@@ -152,6 +184,12 @@ describe("verify command function exports", () => {
 		const { executeVerifyOpenCode } = await import("../index.js");
 
 		expect(typeof executeVerifyOpenCode).toBe("function");
+	});
+
+	test("exports executeVerifyGemini function", async () => {
+		const { executeVerifyGemini } = await import("../index.js");
+
+		expect(typeof executeVerifyGemini).toBe("function");
 	});
 });
 
@@ -178,5 +216,11 @@ describe("verify command re-exports", () => {
 		const verifyModule = await import("../index.js");
 
 		expect(typeof verifyModule.executeVerifyCopilot).toBe("function");
+	});
+
+	test("re-exports verifyGeminiSubcommand", async () => {
+		const verifyModule = await import("../index.js");
+
+		expect(verifyModule.verifyGeminiSubcommand).toBeDefined();
 	});
 });

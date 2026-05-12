@@ -29,11 +29,11 @@ describe("install command structure", () => {
 			expect(description.toLowerCase()).toContain("plugin");
 		});
 
-		test("has three subcommands", async () => {
+		test("has six subcommands", async () => {
 			const { installParentCommand } = await import("../index.js");
 
 			const subcommands = installParentCommand.commands;
-			expect(subcommands.length).toBe(3);
+			expect(subcommands.length).toBe(6);
 		});
 
 		test("includes claude-code subcommand", async () => {
@@ -63,6 +63,15 @@ describe("install command structure", () => {
 			expect(subcommand).toBeDefined();
 		});
 
+		test("includes gemini subcommand", async () => {
+			const { installParentCommand } = await import("../index.js");
+
+			const subcommand = installParentCommand.commands.find(
+				(c) => c.name() === "gemini",
+			);
+			expect(subcommand).toBeDefined();
+		});
+
 		test("help text includes subcommand list", async () => {
 			const { installParentCommand } = await import("../index.js");
 
@@ -70,6 +79,7 @@ describe("install command structure", () => {
 			expect(helpInfo).toContain("Commands:");
 			expect(helpInfo).toContain("claude-code");
 			expect(helpInfo).toContain("opencode");
+			expect(helpInfo).toContain("gemini");
 			expect(helpInfo).toContain("all");
 		});
 
@@ -129,6 +139,7 @@ describe("install command structure", () => {
 			);
 			expect(subcommandNames).toContain("claude-code");
 			expect(subcommandNames).toContain("opencode");
+			expect(subcommandNames).toContain("gemini");
 			expect(subcommandNames).toContain("all");
 		});
 
@@ -296,6 +307,37 @@ describe("install command structure", () => {
 			expect(helpInfo).toContain("-y, --yes");
 		});
 	});
+
+	describe("installGeminiSubcommand", () => {
+		test("exports installGeminiSubcommand", async () => {
+			const { installGeminiSubcommand } = await import("../index.js");
+
+			expect(installGeminiSubcommand).toBeInstanceOf(Command);
+		});
+
+		test("has correct command name", async () => {
+			const { installGeminiSubcommand } = await import("../index.js");
+
+			expect(installGeminiSubcommand.name()).toBe("gemini");
+		});
+
+		test("has description marking Gemini as experimental", async () => {
+			const { installGeminiSubcommand } = await import("../index.js");
+
+			const description = installGeminiSubcommand.description();
+			expect(description.toLowerCase()).toContain("experimental");
+			expect(description.toLowerCase()).toContain("gemini");
+		});
+
+		test("accepts --dry-run option", async () => {
+			const { installGeminiSubcommand } = await import("../index.js");
+
+			const dryRunOpt = installGeminiSubcommand.options.find(
+				(o) => o.long === "--dry-run",
+			);
+			expect(dryRunOpt).toBeDefined();
+		});
+	});
 });
 
 describe("install command option parsing", () => {
@@ -347,5 +389,11 @@ describe("install command re-exports", () => {
 		const installModule = await import("../index.js");
 
 		expect(installModule.installAllSubcommand).toBeDefined();
+	});
+
+	test("re-exports installGeminiSubcommand", async () => {
+		const installModule = await import("../index.js");
+
+		expect(installModule.installGeminiSubcommand).toBeDefined();
 	});
 });

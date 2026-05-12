@@ -97,6 +97,19 @@ const createCodexTool = (): SupportedTool => ({
 	capabilities: ["skills", "agents"],
 });
 
+const createGeminiTool = (): SupportedTool => ({
+	id: "gemini",
+	name: "Gemini CLI",
+	enabled: true,
+	binary: "gemini",
+	min_version: "0.0.0",
+	instruction_file: "AGENTS.md",
+	install_url: "https://github.com/google-gemini/gemini-cli",
+	plugin_install_cmd: null,
+	supportLevel: "experimental",
+	capabilities: ["slash-commands"],
+});
+
 const createMockRegistry = (): ToolsRegistry => ({
 	version: "1.0.0",
 	tools: [createClaudeCodeTool(), createOpenCodeTool()],
@@ -686,6 +699,72 @@ describe("install-core tool routing", () => {
 		)) as CLIError;
 
 		expect(getErrorMessage(error)).toContain("currently disabled");
+	});
+
+	test("installForSpecificTool installs the explicit Gemini smoke command", async () => {
+		const homeDir = await createTempDir("install-core-gemini-specific");
+		const restoreHome = withEnvOverride("HOME", homeDir);
+
+		try {
+			const installCore = (await import(
+				`../../shared/install-core.js?gemini-specific=${Date.now()}`
+			)) as InstallCoreModule;
+			const result = await expectTaskRight(
+				installCore.installForSpecificTool(
+					"gemini",
+					{ version: "1.0.0", tools: [createGeminiTool()] },
+					createMockContext({ dryRun: false }),
+				),
+			);
+
+			expect(result).toMatchObject({
+				toolId: "gemini",
+				toolName: "Gemini CLI",
+				success: true,
+				pluginsInstalled: ["~/.gemini/commands/rp1/smoke.toml"],
+			});
+			expect(
+				await Bun.file(
+					join(homeDir, ".gemini", "commands", "rp1", "smoke.toml"),
+				).exists(),
+			).toBe(true);
+		} finally {
+			restoreHome();
+			await cleanupTempDir(homeDir);
+		}
+	});
+
+	test("installAllDetectedTools skips experimental Gemini during automatic install", async () => {
+		const installCore = (await import(
+			`../../shared/install-core.js?gemini-auto-skip=${Date.now()}`
+		)) as InstallCoreModule;
+		const result = await expectTaskRight(
+			installCore.installAllDetectedTools(
+				{
+					version: "1.0.0",
+					tools: [
+						{
+							...createGeminiTool(),
+							binary: "bun",
+							min_version: "0.0.0",
+						},
+					],
+				},
+				createMockContext(),
+			),
+		);
+
+		expect(result.installed).toBe(0);
+		expect(result.results).toEqual([
+			expect.objectContaining({
+				toolId: "gemini",
+				success: false,
+				skipped: true,
+			}),
+		]);
+		expect(result.results[0]?.warnings.join("\n")).toContain(
+			"rp1 install gemini",
+		);
 	});
 
 	test("installAllDetectedTools routes each detected host and reports unsupported tools without aborting", async () => {

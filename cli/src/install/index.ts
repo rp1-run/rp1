@@ -20,6 +20,11 @@ export {
 	readOpenCodeConfig,
 	registerOpenCodePlugin,
 } from "./config.js";
+export {
+	getGeminiPaths,
+	installGeminiSmokeCommand,
+	verifyGeminiSmokeSetup,
+} from "./gemini/index.js";
 // Installer
 export {
 	backupExistingInstallation,

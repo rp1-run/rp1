@@ -17,6 +17,7 @@ import {
 } from "./claude-code.js";
 import { executeVerifyCodex, verifyCodexSubcommand } from "./codex.js";
 import { executeVerifyCopilot, verifyCopilotSubcommand } from "./copilot.js";
+import { verifyGeminiSubcommand } from "./gemini.js";
 import { executeVerifyOpenCode, verifyOpenCodeSubcommand } from "./opencode.js";
 
 const { bold, dim } = colorFns;
@@ -35,6 +36,7 @@ Subcommands:
   opencode       Verify plugins in OpenCode
   codex          Verify plugins in Codex CLI
   copilot        Verify plugins in GitHub Copilot CLI
+  gemini         Verify experimental Gemini smoke command
 
 Examples:
   rp1 verify                Verify all platforms
@@ -42,6 +44,7 @@ Examples:
   rp1 verify opencode       Verify OpenCode installation
   rp1 verify codex          Verify Codex CLI installation
   rp1 verify copilot        Verify Copilot CLI installation
+  rp1 verify gemini         Verify Gemini smoke command setup
 `,
 	)
 	.action(async (_options, command) => {
@@ -117,6 +120,19 @@ if (!copilotVerifyEnabled) {
 	});
 }
 
+const geminiVerifyEnabled = isToolEnabled(
+	TOOLS_REGISTRY as ToolsRegistry,
+	"gemini",
+);
+verifyCommand.addCommand(verifyGeminiSubcommand, {
+	hidden: !geminiVerifyEnabled,
+});
+if (!geminiVerifyEnabled) {
+	verifyGeminiSubcommand.action(async () => {
+		process.exit(1);
+	});
+}
+
 // Export subcommands for direct access if needed
 export {
 	executeVerifyClaudeCode,
@@ -127,4 +143,5 @@ export {
 	executeVerifyCopilot,
 	verifyCopilotSubcommand,
 } from "./copilot.js";
+export { executeVerifyGemini, verifyGeminiSubcommand } from "./gemini.js";
 export { executeVerifyOpenCode, verifyOpenCodeSubcommand } from "./opencode.js";

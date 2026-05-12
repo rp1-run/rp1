@@ -19,6 +19,7 @@ import {
 } from "../assets/index.js";
 import {
 	getEnabledTools,
+	getToolSupportLevel,
 	isToolEnabled,
 	type ToolsRegistry,
 } from "../config/supported-tools.js";
@@ -46,6 +47,10 @@ import {
 	installCopilot,
 } from "../install/copilot/index.js";
 import type { CopilotInstallResult } from "../install/copilot/models.js";
+import {
+	GEMINI_AUTO_INSTALL_SKIP_GUIDANCE,
+	installGeminiSmokeCommand,
+} from "../install/gemini/index.js";
 import { writeVersionMarker } from "../install/version-marker.js";
 import { getInstalledVersion } from "../lib/version.js";
 
@@ -67,6 +72,7 @@ export interface ToolInstallResult {
 	readonly toolId: string;
 	readonly toolName: string;
 	readonly success: boolean;
+	readonly skipped?: boolean;
 	readonly pluginsInstalled: readonly string[];
 	readonly warnings: readonly string[];
 	readonly error?: CLIError;
@@ -346,11 +352,28 @@ const installForTool = (
 ): TE.TaskEither<CLIError, ToolInstallResult> => {
 	const baseResult: Omit<
 		ToolInstallResult,
-		"success" | "pluginsInstalled" | "warnings" | "error"
+		"success" | "skipped" | "pluginsInstalled" | "warnings" | "error"
 	> = {
 		toolId: tool.tool.id,
 		toolName: tool.tool.name,
 	};
+
+	if (getToolSupportLevel(tool.tool) !== "stable") {
+		return TE.right({
+			...baseResult,
+			success: false,
+			skipped: true,
+			pluginsInstalled: [],
+			warnings:
+				tool.tool.id === "gemini"
+					? [GEMINI_AUTO_INSTALL_SKIP_GUIDANCE]
+					: [
+							`${tool.tool.name} is ${getToolSupportLevel(
+								tool.tool,
+							)} and skipped by automatic install.`,
+						],
+		});
+	}
 
 	if (tool.tool.id === "claude-code") {
 		return pipe(
@@ -552,6 +575,21 @@ export const installForSpecificTool = (
 			installError(
 				"disabled-tool",
 				`Tool "${toolId}" is currently disabled and cannot be installed.`,
+			),
+		);
+	}
+
+	if (tool.id === "gemini") {
+		return pipe(
+			installGeminiSmokeCommand({ dryRun: ctx.dryRun }),
+			TE.map(
+				(result): ToolInstallResult => ({
+					toolId: tool.id,
+					toolName: tool.name,
+					success: true,
+					pluginsInstalled: [result.commandDisplayPath],
+					warnings: result.warnings,
+				}),
 			),
 		);
 	}

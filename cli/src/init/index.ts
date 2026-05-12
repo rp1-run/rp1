@@ -669,6 +669,14 @@ export function executeInit(
 											});
 										}
 										logger.success(`Installed plugins for ${result.toolName}`);
+									} else if (result.skipped) {
+										const reason =
+											result.warnings.join(" ") || `Skipped ${result.toolName}`;
+										allActions.push({
+											type: "skipped",
+											reason,
+										});
+										logger.warn(reason);
 									} else {
 										const errorMsg = result.error
 											? "message" in result.error

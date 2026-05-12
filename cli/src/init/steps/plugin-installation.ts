@@ -12,13 +12,17 @@ import { formatError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import { confirmAction, type PromptOptions } from "../../../shared/prompts.js";
 import { createSpinner } from "../../../shared/spinner.js";
-import type { ToolsRegistry } from "../../config/supported-tools.js";
+import {
+	getToolSupportLevel,
+	type ToolsRegistry,
+} from "../../config/supported-tools.js";
 import { installAllPlugins as defaultInstallAllPlugins } from "../../install/claudecode/installer.js";
 import type {
 	ClaudeCodeInstallResult,
 	ClaudeCodePrerequisiteResult,
 } from "../../install/claudecode/models.js";
 import { runAllPrerequisiteChecks as defaultRunAllPrerequisiteChecks } from "../../install/claudecode/prerequisites.js";
+import { GEMINI_AUTO_INSTALL_SKIP_GUIDANCE } from "../../install/gemini/index.js";
 import {
 	type InstallContext,
 	installCopilotPlugins as sharedInstallCopilotPlugins,
@@ -128,9 +132,16 @@ export async function checkPluginsInstalled(
 		return { installed: false, detected: [] };
 	}
 
+	const stableDetected = detected.filter(
+		(detectedTool) => getToolSupportLevel(detectedTool.tool) === "stable",
+	);
+	if (stableDetected.length === 0) {
+		return { installed: false, detected: [...detected] };
+	}
+
 	let allInstalled = true;
 
-	for (const detectedTool of detected) {
+	for (const detectedTool of stableDetected) {
 		// Skip disabled tools
 		if (detectedTool.tool.enabled === false) {
 			continue;
@@ -257,6 +268,16 @@ export const executePluginInstallation = async (
 
 	const supportedTools = ["claude-code", "opencode", "copilot"];
 	if (!supportedTools.includes(detectedTool.tool.id)) {
+		if (detectedTool.tool.id === "gemini") {
+			logger.info(GEMINI_AUTO_INSTALL_SKIP_GUIDANCE);
+			callbacks?.onActivity(GEMINI_AUTO_INSTALL_SKIP_GUIDANCE, "info");
+			actions.push({
+				type: "skipped",
+				reason: GEMINI_AUTO_INSTALL_SKIP_GUIDANCE,
+			});
+			return { actions, result: null };
+		}
+
 		// Unsupported tools require manual installation
 		logger.info(
 			`Plugin installation for ${detectedTool.tool.name} requires manual setup.`,

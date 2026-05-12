@@ -22,6 +22,7 @@ import {
 	verifyCopilotPlugins,
 	verifyOpenCodePlugins,
 } from "../../init/steps/verification.js";
+import { verifyGeminiSmokeSetup } from "../../install/gemini/index.js";
 import { colorFns } from "../../lib/colors.js";
 import {
 	type InstallContext,
@@ -33,6 +34,7 @@ import { installAllSubcommand } from "./all.js";
 import { installClaudeCodeSubcommand } from "./claude-code.js";
 import { installCodexSubcommand } from "./codex.js";
 import { installCopilotSubcommand } from "./copilot.js";
+import { installGeminiSubcommand } from "./gemini.js";
 import { installOpenCodeSubcommand } from "./opencode.js";
 
 const { green, yellow, red, dim, bold } = colorFns;
@@ -63,6 +65,21 @@ async function runPostInstallVerification(
 			result = await verifyCopilotPlugins();
 		} else if (toolId === "opencode") {
 			result = await verifyOpenCodePlugins();
+		}
+
+		if (toolId === "gemini") {
+			const geminiResult = await verifyGeminiSmokeSetup();
+			const status = geminiResult.verified ? green("[OK]") : yellow("[WARN]");
+			console.log(
+				`  ${status} Gemini smoke command (${dim(geminiResult.status)})`,
+			);
+			for (const issue of geminiResult.issues) {
+				console.log(yellow(`    - ${issue}`));
+			}
+			if (!geminiResult.verified) {
+				allVerified = false;
+			}
+			continue;
 		}
 
 		if (!result) continue;
@@ -105,7 +122,7 @@ export const installParentCommand = new Command("install")
 	.option("-y, --yes", "Skip confirmation prompts")
 	.option(
 		"-p, --platform <platform>",
-		"Target a specific platform (claude-code, opencode, codex, copilot)",
+		"Target a specific platform (claude-code, opencode, codex, copilot, gemini)",
 	)
 	.addHelpText(
 		"after",
@@ -118,6 +135,7 @@ Subcommands:
   opencode       Install plugins to OpenCode
   codex          Install plugins to Codex CLI
   copilot        Install plugins to Copilot CLI
+  gemini         Install experimental Gemini smoke command
   all            Install plugins to all detected tools
 
 Examples:
@@ -126,6 +144,7 @@ Examples:
   rp1 install claude-code                Install to Claude Code (subcommand)
   rp1 install opencode                   Install to OpenCode (subcommand)
   rp1 install copilot                    Install to Copilot CLI (subcommand)
+  rp1 install gemini                     Install Gemini smoke command only
   rp1 install all                        Install to all detected tools
   rp1 install --dry-run                  Preview installation
   rp1 install -y                         Skip confirmation prompts
@@ -176,6 +195,8 @@ Examples:
 				for (const plugin of toolResult.pluginsInstalled) {
 					console.log(dim(`       - ${plugin}`));
 				}
+			} else if (toolResult.skipped) {
+				console.log(yellow(`  [SKIP] ${toolResult.toolName}`));
 			} else {
 				console.log(yellow(`  [WARN] ${toolResult.toolName}`));
 				if (toolResult.error) {
@@ -224,6 +245,8 @@ Examples:
 						console.log(dim(`       - ${plugin}`));
 					}
 				}
+			} else if (toolResult.skipped) {
+				console.log(yellow(`  [SKIP] ${toolResult.toolName}`));
 			} else {
 				console.log(yellow(`  [WARN] ${toolResult.toolName}`));
 				if (toolResult.error) {
@@ -290,10 +313,24 @@ if (!copilotInstallEnabled) {
 	});
 }
 
+const geminiInstallEnabled = isToolEnabled(
+	TOOLS_REGISTRY as ToolsRegistry,
+	"gemini",
+);
+installParentCommand.addCommand(installGeminiSubcommand, {
+	hidden: !geminiInstallEnabled,
+});
+if (!geminiInstallEnabled) {
+	installGeminiSubcommand.action(async () => {
+		process.exit(1);
+	});
+}
+
 installParentCommand.addCommand(installAllSubcommand);
 
 export { installAllSubcommand } from "./all.js";
 export { installClaudeCodeSubcommand } from "./claude-code.js";
 export { installCodexSubcommand } from "./codex.js";
 export { installCopilotSubcommand } from "./copilot.js";
+export { installGeminiSubcommand } from "./gemini.js";
 export { installOpenCodeSubcommand } from "./opencode.js";

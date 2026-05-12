@@ -83,6 +83,8 @@ Examples:
 						console.log(dim(`       - ${plugin}`));
 					}
 				}
+			} else if (toolResult.skipped) {
+				console.log(yellow(`  [SKIP] ${toolResult.toolName}`));
 			} else {
 				console.log(yellow(`  [WARN] ${toolResult.toolName}`));
 				if (toolResult.error) {
