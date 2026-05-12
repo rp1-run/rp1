@@ -6,15 +6,15 @@ Set up, verify, and recover rp1 on GitHub Copilot CLI.
 
 ## Prerequisites
 
-- [GitHub CLI](https://cli.github.com/) (`gh`) version 2.74.0 or later
+- [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli) (`copilot`)
 - GitHub Copilot CLI enabled for your GitHub account
 - rp1 CLI installed
 
 Verify Copilot plugin support:
 
 ```bash
-gh --version
-gh copilot -- plugin --help
+copilot version
+copilot plugin --help
 ```
 
 ## Quick Setup
@@ -92,27 +92,27 @@ non-rp1 Copilot configuration.
 
 ## Troubleshooting
 
-### GitHub CLI Not Found
+### Copilot CLI Not Found
 
-Confirm `gh` is installed and on your `PATH`:
+Confirm `copilot` is installed and on your `PATH`:
 
 ```bash
-which gh
-gh --version
+which copilot
+copilot version
 ```
 
-If missing, install it from [cli.github.com](https://cli.github.com/).
+If missing, install it from GitHub's [Copilot CLI installation guide](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli).
 
 ### Copilot Plugin Support Is Missing
 
-Confirm the Copilot CLI extension is available:
+Confirm the Copilot CLI plugin lifecycle is available:
 
 ```bash
-gh copilot -- plugin --help
+copilot plugin --help
 ```
 
-If that command is unavailable, update GitHub CLI and enable Copilot CLI for
-your account.
+If that command is unavailable, update GitHub Copilot CLI and confirm Copilot
+CLI is enabled for your account and organization.
 
 ### `rp1 verify copilot` Is Not `healthy_native`
 
@@ -128,7 +128,7 @@ your account.
 
 1. Restart the Copilot CLI session.
 2. Run `rp1 verify copilot`.
-3. Confirm `gh copilot -- plugin list` shows `rp1-base@rp1-local` and
+3. Confirm `copilot plugin list` shows `rp1-base@rp1-local` and
    `rp1-dev@rp1-local`.
 4. Re-run `rp1 install copilot` if either plugin is missing.
 
@@ -212,7 +212,7 @@ flow:
 just build-copilot
 ./bin/rp1 install copilot --yes --artifacts-dir dist/copilot
 ./bin/rp1 verify copilot
-gh copilot
+copilot
 ```
 
 Release-readiness validation should end in `healthy_native`.

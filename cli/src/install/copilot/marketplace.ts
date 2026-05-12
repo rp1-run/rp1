@@ -152,7 +152,7 @@ export const registerMarketplace = (
 	dryRun: boolean,
 	isTTY: boolean,
 ): TE.TaskEither<CLIError, boolean> => {
-	const command = `gh copilot -- plugin marketplace add "${marketplaceDir}"`;
+	const command = `copilot plugin marketplace add "${marketplaceDir}"`;
 	const spinner = createSpinner(isTTY);
 
 	if (dryRun) {

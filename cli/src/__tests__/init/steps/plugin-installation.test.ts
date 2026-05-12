@@ -73,17 +73,19 @@ const createClaudeCodeTool = (version = "1.0.40"): DetectedTool => ({
 	meetsMinVersion: true,
 });
 
-const createCopilotTool = (version = "2.74.0"): DetectedTool => ({
+const createCopilotTool = (version = "1.0.0"): DetectedTool => ({
 	tool: {
 		id: "copilot",
 		name: "GitHub Copilot CLI",
 		enabled: true,
-		binary: "gh",
-		min_version: "2.74.0",
+		binary: "copilot",
+		min_version: "0.0.0",
+		version_command: ["version"],
+		detect_command: ["plugin", "--help"],
 		instruction_file: "AGENTS.md",
 		install_url:
-			"https://docs.github.com/copilot/using-github-copilot/using-github-copilot-in-the-command-line",
-		plugin_install_cmd: "gh copilot -- plugin install {plugin}",
+			"https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli",
+		plugin_install_cmd: "copilot plugin install {plugin}",
 		capabilities: ["plugins", "skills", "agents", "slash-commands"],
 	},
 	version,

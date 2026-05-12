@@ -29,7 +29,7 @@ instructions for other installation methods.
 - stop the Arcade daemon first when it is already running
 - update the rp1 binary
 - relaunch post-update work in the freshly installed binary
-- refresh plugins for all detected tools
+- refresh plugins for all detected tools, warning and continuing if an opportunistic host refresh fails
 - run project migrations when the current directory is an rp1 project
 - restore the Arcade daemon after the update finishes
 
@@ -142,7 +142,8 @@ For manual installations or when automatic update fails, download the latest ver
 ## Plugin Updates
 
 After the binary step, `rp1 update` automatically detects installed tools and refreshes their
-plugins:
+plugins. This refresh is opportunistic: if one host tool is misconfigured, rp1 warns and
+continues with migrations and Arcade restart. Repair that host later with `rp1 update plugins <tool>`.
 
 ```
 Updating plugins for all detected tools...
@@ -160,6 +161,8 @@ You can also refresh plugins independently:
 rp1 update plugins                  # Update all detected tools
 rp1 update plugins claude-code      # Update Claude Code plugins only
 rp1 update plugins opencode         # Update OpenCode plugins only
+rp1 update plugins codex            # Update Codex plugins only
+rp1 update plugins copilot          # Update Copilot CLI plugins only
 ```
 
 ## Safe to Run

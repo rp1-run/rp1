@@ -1,11 +1,12 @@
 /**
  * Prerequisite checks for Copilot CLI installation.
- * Validates GitHub CLI, Copilot plugin lifecycle support, and marketplace write permissions.
+ * Validates GitHub Copilot CLI, plugin lifecycle support, and marketplace write permissions.
  */
 
+import { existsSync } from "node:fs";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
@@ -14,20 +15,49 @@ import type { PrerequisiteResult } from "../models.js";
 import { MARKETPLACE_NAME } from "./marketplace.js";
 import type { CopilotPaths } from "./models.js";
 
-const MIN_VERSION = "2.74.0";
+const MIN_VERSION = "0.0.0";
+const COPILOT_INSTALL_URL =
+	"https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli";
 const VERSION_REQUIREMENT_SUGGESTION =
-	`GitHub Copilot native install requires gh >= ${MIN_VERSION}. ` +
-	"Run `gh --version` and update GitHub CLI if needed: https://cli.github.com/";
+	"Run `copilot version` and update GitHub Copilot CLI if needed: " +
+	COPILOT_INSTALL_URL;
+const COPILOT_INSTALL_SUGGESTION =
+	"Install or update GitHub Copilot CLI, then verify with `copilot version` and `copilot plugin --help`: " +
+	COPILOT_INSTALL_URL;
+const COPILOT_PLUGIN_SUPPORT_SUGGESTION =
+	"Install or update GitHub Copilot CLI, then verify with `copilot version` and `copilot plugin --help`. " +
+	"If plugin commands remain unavailable, check your Copilot subscription and organization policy.";
 
 export interface CommandResult {
 	readonly exitCode: number;
 	readonly output: string;
 }
 
-export const runGhCommand = async (
+const findCopilotBinary = (): string | null => {
+	for (const pathDir of (process.env.PATH ?? "").split(delimiter)) {
+		if (!pathDir) {
+			continue;
+		}
+		const candidate = join(pathDir, "copilot");
+		if (existsSync(candidate)) {
+			return candidate;
+		}
+	}
+
+	const bunPath = Bun.which("copilot");
+	if (bunPath) {
+		return bunPath;
+	}
+
+	return null;
+};
+
+export const runCopilotCommand = async (
 	args: readonly string[],
 ): Promise<CommandResult> => {
-	const proc = Bun.spawn(["gh", ...args], {
+	const copilotBinary = findCopilotBinary() ?? "copilot";
+	const proc = Bun.spawn([copilotBinary, ...args], {
+		env: process.env,
 		stdout: "pipe",
 		stderr: "pipe",
 	});
@@ -50,21 +80,21 @@ export const checkCopilotInstalled = (): TE.TaskEither<
 > =>
 	TE.tryCatch(
 		async () => {
-			const binaryPath = Bun.which("gh");
+			const binaryPath = findCopilotBinary();
 			if (!binaryPath) {
 				throw prerequisiteError(
 					"copilot-installed",
-					"GitHub CLI (gh) not found in PATH",
-					"Install GitHub CLI: https://cli.github.com/ then enable Copilot: gh extension install github/gh-copilot",
+					"GitHub Copilot CLI (copilot) not found in PATH",
+					COPILOT_INSTALL_SUGGESTION,
 				);
 			}
 
-			const result = await runGhCommand(["--version"]);
+			const result = await runCopilotCommand(["version"]);
 			if (result.exitCode !== 0) {
 				return {
 					check: "copilot-installed",
 					passed: true,
-					message: "GitHub CLI found (version unknown)",
+					message: "GitHub Copilot CLI found (version unknown)",
 					value: "unknown",
 				};
 			}
@@ -75,7 +105,7 @@ export const checkCopilotInstalled = (): TE.TaskEither<
 			return {
 				check: "copilot-installed",
 				passed: true,
-				message: `GitHub CLI found: ${version}`,
+				message: `GitHub Copilot CLI found: ${version}`,
 				value: version,
 			};
 		},
@@ -90,8 +120,8 @@ export const checkCopilotInstalled = (): TE.TaskEither<
 			}
 			return prerequisiteError(
 				"copilot-installed",
-				"GitHub CLI (gh) not found in PATH",
-				"Install GitHub CLI: https://cli.github.com/ then enable Copilot: gh extension install github/gh-copilot",
+				"GitHub Copilot CLI (copilot) not found in PATH",
+				COPILOT_INSTALL_SUGGESTION,
 			);
 		},
 	);
@@ -103,7 +133,7 @@ export const checkCopilotVersion = (
 		return E.left(
 			prerequisiteError(
 				"copilot-version",
-				"Could not determine GitHub CLI version",
+				"Could not determine GitHub Copilot CLI version",
 				VERSION_REQUIREMENT_SUGGESTION,
 			),
 		);
@@ -114,7 +144,7 @@ export const checkCopilotVersion = (
 		return E.left(
 			prerequisiteError(
 				"copilot-version",
-				`Could not parse GitHub CLI version: ${versionStr}`,
+				`Could not parse GitHub Copilot CLI version: ${versionStr}`,
 				VERSION_REQUIREMENT_SUGGESTION,
 			),
 		);
@@ -128,7 +158,7 @@ export const checkCopilotVersion = (
 		return E.left(
 			prerequisiteError(
 				"copilot-version",
-				`Could not parse GitHub CLI version: ${versionStr}`,
+				`Could not parse GitHub Copilot CLI version: ${versionStr}`,
 				VERSION_REQUIREMENT_SUGGESTION,
 			),
 		);
@@ -139,7 +169,7 @@ export const checkCopilotVersion = (
 		return E.right({
 			check: "copilot-version",
 			passed: true,
-			message: `GitHub CLI version ${versionStr}`,
+			message: `GitHub Copilot CLI version ${versionStr}`,
 			value: versionStr,
 		});
 	}
@@ -157,8 +187,8 @@ export const checkCopilotVersion = (
 		return E.left(
 			prerequisiteError(
 				"copilot-version",
-				`GitHub CLI version ${major}.${minor}.${patch} is below minimum required`,
-				`Minimum required: ${MIN_VERSION}. Update GitHub CLI: https://cli.github.com/`,
+				`GitHub Copilot CLI version ${major}.${minor}.${patch} is below minimum required`,
+				`Minimum required: ${MIN_VERSION}. ${VERSION_REQUIREMENT_SUGGESTION}`,
 			),
 		);
 	}
@@ -166,7 +196,7 @@ export const checkCopilotVersion = (
 	return E.right({
 		check: "copilot-version",
 		passed: true,
-		message: `GitHub CLI version ${major}.${minor}.${patch} supported`,
+		message: `GitHub Copilot CLI version ${major}.${minor}.${patch} supported`,
 		value: `${major}.${minor}.${patch}`,
 	});
 };
@@ -177,12 +207,12 @@ export const checkCopilotPluginSupport = (): TE.TaskEither<
 > =>
 	TE.tryCatch(
 		async () => {
-			const result = await runGhCommand(["copilot", "--", "plugin", "--help"]);
+			const result = await runCopilotCommand(["plugin", "--help"]);
 			if (result.exitCode !== 0) {
 				throw prerequisiteError(
 					"copilot-plugin-support",
 					"GitHub Copilot plugin lifecycle commands are unavailable",
-					"Update GitHub CLI to >= 2.74.0 and ensure Copilot CLI support is enabled: gh extension install github/gh-copilot",
+					COPILOT_PLUGIN_SUPPORT_SUGGESTION,
 				);
 			}
 
@@ -205,7 +235,7 @@ export const checkCopilotPluginSupport = (): TE.TaskEither<
 			return prerequisiteError(
 				"copilot-plugin-support",
 				`Failed to verify GitHub Copilot plugin lifecycle commands: ${e}`,
-				"Run `gh copilot -- plugin --help` and update GitHub CLI if the command is unavailable",
+				COPILOT_PLUGIN_SUPPORT_SUGGESTION,
 			);
 		},
 	);

@@ -18,7 +18,7 @@ Before you begin, make sure you have:
 | Claude Code | [Claude Code](https://claude.ai/code) | `/knowledge-build` | Short command names are available. |
 | OpenCode | [OpenCode](https://github.com/opencode-ai/opencode) | `/rp1-base-knowledge-build` | rp1 commands keep their `rp1-` prefix. |
 | Codex | [Codex CLI](https://github.com/openai/codex) | `$rp1-base-knowledge-build` | Install the Codex integration after `rp1 init`. |
-| GitHub Copilot CLI | [GitHub Copilot CLI](https://docs.github.com/copilot/using-github-copilot/using-github-copilot-in-the-command-line) | `/rp1-base-knowledge-build` | Requires GitHub CLI with Copilot plugin support. |
+| GitHub Copilot CLI | [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli) | `/rp1-base-knowledge-build` | Requires standalone Copilot CLI with plugin support. |
 
 ---
 

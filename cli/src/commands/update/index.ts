@@ -13,7 +13,7 @@
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
-import { formatError, getExitCode } from "../../../shared/errors.js";
+import { formatError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import { loadToolsRegistry } from "../../config/supported-tools.js";
 import { detectTools } from "../../init/tool-detector.js";
@@ -349,7 +349,7 @@ interface UpdateArcadeState {
 	readonly daemonPort?: number;
 }
 
-interface PostUpdatePhaseResult {
+export interface PostUpdatePhaseResult {
 	readonly success: boolean;
 	readonly exitCode: number;
 }
@@ -433,12 +433,12 @@ const restartArcadeAfterUpdate = async (
 /**
  * Update plugins for all detected tools using the standard install/update path.
  */
-const updateDetectedPlugins = async (
+export const updateDetectedPlugins = async (
 	options: { dryRun: boolean; yes: boolean },
 	logger: Logger,
 	isTTY: boolean,
 ): Promise<PostUpdatePhaseResult> => {
-	const { bold, dim } = getColorFns(isTTY);
+	const { bold, dim, yellow } = getColorFns(isTTY);
 	const registry = await loadToolsRegistry();
 	const detection = await detectTools(registry)();
 
@@ -462,16 +462,37 @@ const updateDetectedPlugins = async (
 	const result = await installAllDetectedTools(registry, ctx)();
 	if (E.isLeft(result)) {
 		console.error(formatError(result.left, isTTY));
-		return {
-			success: false,
-			exitCode: getExitCode(result.left),
-		};
+		console.log("");
+		console.log(
+			yellow(
+				bold("Plugin refresh failed, but the core rp1 update will continue."),
+			),
+		);
+		console.log(
+			dim("Repair the host tool, then run `rp1 update plugins` to retry."),
+		);
+		return { success: true, exitCode: 0 };
 	}
 
 	formatUpdateAllResult(result.right, isTTY);
 
-	if (result.right.installed < result.right.results.length) {
-		return { success: false, exitCode: 1 };
+	const failedResults = result.right.results.filter((tool) => !tool.success);
+	if (failedResults.length > 0) {
+		console.log("");
+		console.log(
+			yellow(
+				bold(
+					"Plugin refresh had failures, but the core rp1 update will continue.",
+				),
+			),
+		);
+		for (const failed of failedResults) {
+			console.log(
+				dim(
+					`  Repair ${failed.toolName}, then run \`rp1 update plugins ${failed.toolId}\` to retry.`,
+				),
+			);
+		}
 	}
 
 	return { success: true, exitCode: 0 };
