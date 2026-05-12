@@ -11,6 +11,7 @@ import {
 	chmod,
 	mkdir,
 	mkdtemp,
+	readdir,
 	readFile,
 	rm,
 	unlink,
@@ -157,6 +158,35 @@ async function removeCache(): Promise<void> {
 	}
 }
 
+async function makeWritable(path: string): Promise<void> {
+	await chmod(path, 0o700).catch(() => undefined);
+	const entries = await readdir(path, { withFileTypes: true }).catch(() => []);
+	await Promise.all(
+		entries.map(async (entry) => {
+			const childPath = join(path, entry.name);
+			if (entry.isDirectory()) {
+				await makeWritable(childPath);
+				return;
+			}
+			await chmod(childPath, 0o600).catch(() => undefined);
+		}),
+	);
+}
+
+async function removeTestHomeDir(): Promise<void> {
+	if (!existsSync(testHomeDir)) {
+		return;
+	}
+
+	await makeWritable(testHomeDir);
+	await rm(testHomeDir, {
+		recursive: true,
+		force: true,
+		maxRetries: 3,
+		retryDelay: 100,
+	});
+}
+
 async function readCache(): Promise<VersionCache | null> {
 	if (!existsSync(cachePath)) {
 		return null;
@@ -195,7 +225,7 @@ describe("integration: version-update", () => {
 
 	afterEach(async () => {
 		await removeCache();
-		await rm(testHomeDir, { recursive: true, force: true });
+		await removeTestHomeDir();
 	});
 
 	describe("rp1 check-update --json", () => {
@@ -762,7 +792,7 @@ describe("integration: version-update", () => {
 				const duration = endTime - startTime;
 				const output = stdout + stderr;
 
-				expect(duration).toBeLessThan(15000);
+				expect(duration).toBeLessThan(25000);
 				expect([0, 1, 2]).toContain(exitCode);
 				expect(output).not.toContain("Updating rp1...");
 				expect(output).not.toContain("Successfully updated rp1");

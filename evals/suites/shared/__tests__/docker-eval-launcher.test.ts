@@ -13,6 +13,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../../../");
 const EVAL_LAUNCHER_PATH = join(REPO_ROOT, "docker", "eval-run.sh");
@@ -73,6 +74,16 @@ async function runCommand(
 }
 
 async function readArgsFile(path: string): Promise<string[]> {
+	const deadline = Date.now() + 1000;
+	while (Date.now() < deadline) {
+		try {
+			await access(path, constants.R_OK);
+			break;
+		} catch {
+			await delay(25);
+		}
+	}
+
 	const content = await readFile(path, "utf-8");
 	return content
 		.split("\n")
