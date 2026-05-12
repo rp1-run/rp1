@@ -292,6 +292,20 @@ describe("tool-detector", () => {
 				expect(formatted).toContain("v1.5.0");
 				expect(formatted).toContain("requires >= 2.0.0");
 			});
+
+			test("labels experimental tools", () => {
+				const detected = createMockDetectedTool({
+					tool: createMockTool({
+						name: "Gemini CLI",
+						supportLevel: "experimental",
+					}),
+					version: "0.41.2",
+					meetsMinVersion: true,
+				});
+
+				const formatted = formatDetectedTool(detected);
+				expect(formatted).toBe("Gemini CLI v0.41.2 (experimental)");
+			});
 		});
 	});
 

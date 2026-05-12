@@ -53,5 +53,17 @@ export const TOOLS_REGISTRY = {
 			plugin_install_cmd: "copilot plugin install {plugin}",
 			capabilities: ["plugins", "skills", "agents", "slash-commands"],
 		},
+		{
+			id: "gemini",
+			name: "Gemini CLI",
+			enabled: true,
+			binary: "gemini",
+			min_version: "0.0.0",
+			instruction_file: "AGENTS.md",
+			install_url: "https://github.com/google-gemini/gemini-cli",
+			plugin_install_cmd: null,
+			supportLevel: "experimental",
+			capabilities: ["slash-commands"],
+		},
 	],
 } as const;
