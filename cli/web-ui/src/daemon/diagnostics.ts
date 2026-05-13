@@ -13,7 +13,7 @@ import { getConfigDir } from "./config-dir";
  * - health_check_succeeded: Successful health check during polling
  * - health_check_timeout: Health check polling timeout reached
  */
-type DiagnosticEventType =
+export type DiagnosticEventType =
 	| "asset_check_attempt"
 	| "asset_check_complete"
 	| "database_init_complete"
@@ -26,7 +26,7 @@ type DiagnosticEventType =
 /**
  * Structured diagnostic event data for daemon health checks.
  */
-interface DiagnosticEventData extends Record<string, unknown> {
+export interface DiagnosticEventData extends Record<string, unknown> {
 	event_type?: DiagnosticEventType;
 	timestamp?: string;
 	attempt_count?: number;
@@ -56,8 +56,8 @@ function normalizeError(error: unknown): Record<string, string> {
 }
 
 export function logDaemonEvent(
-	event: string,
-	data: Record<string, unknown> = {},
+	event: DiagnosticEventType,
+	data: DiagnosticEventData = {},
 ): void {
 	try {
 		mkdirSync(getConfigDir(), { recursive: true });

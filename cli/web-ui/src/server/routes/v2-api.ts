@@ -2154,7 +2154,7 @@ async function checkAssetAvailability(
 	const backoffDelays = [10, 25, 50, 100, 200];
 	let lastError: unknown;
 
-	for (let attempt = 0; attempt < backoffDelays.length; attempt++) {
+	for (let attempt = 0; attempt <= backoffDelays.length; attempt++) {
 		try {
 			const file = Bun.file(indexPath);
 			if (await file.exists()) {
@@ -2170,7 +2170,7 @@ async function checkAssetAvailability(
 			lastError = error;
 		}
 
-		if (attempt < backoffDelays.length - 1) {
+		if (attempt < backoffDelays.length) {
 			const delay = backoffDelays[attempt];
 			await new Promise((resolve) => setTimeout(resolve, delay));
 		}
@@ -2178,7 +2178,7 @@ async function checkAssetAvailability(
 
 	const timingMs = Date.now() - startTime;
 	logDaemonEvent("asset_check_attempt", {
-		attempt: backoffDelays.length,
+		attempt: backoffDelays.length + 1,
 		result: "exhausted",
 		timingMs,
 		error: lastError instanceof Error ? lastError.message : String(lastError),
@@ -2207,6 +2207,14 @@ export async function handleV2HealthRequest(
 
 		if (!assetsReady) {
 			const totalMs = Date.now() - healthCheckStartTime;
+			logDaemonEvent("health_check_complete", {
+				status: "starting",
+				reason: "assets not ready",
+				assetCheckMs,
+				databaseInitMs: 0,
+				projectCountMs: 0,
+				totalMs,
+			});
 			return jsonResponse(
 				{
 					status: "starting",

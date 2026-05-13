@@ -115,7 +115,10 @@ export async function handleStaticRequest(
 	const filePath = resolve(distDir, pathname.slice(1)); // slice(1) removes leading /
 
 	// Security: Ensure resolved path is within distDir
-	if (!filePath.startsWith(`${resolvedDist}${sep}`) && filePath !== resolvedDist) {
+	if (
+		!filePath.startsWith(`${resolvedDist}${sep}`) &&
+		filePath !== resolvedDist
+	) {
 		return new Response("Forbidden", { status: 403 });
 	}
 

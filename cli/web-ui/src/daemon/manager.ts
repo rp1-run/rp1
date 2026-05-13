@@ -113,8 +113,10 @@ const DEFAULT_PORT = 7710;
  * macOS and Linux get 5 seconds.
  * Can be overridden via RP1_HEALTH_CHECK_TIMEOUT_MS environment variable.
  */
-function getHealthCheckTimeoutMs(): number {
-	const envTimeout = process.env.RP1_HEALTH_CHECK_TIMEOUT_MS;
+export function getHealthCheckTimeoutMs(
+	platform: typeof process.platform = process.platform,
+	envTimeout: string | undefined = process.env.RP1_HEALTH_CHECK_TIMEOUT_MS,
+): number {
 	if (envTimeout) {
 		const parsed = Number.parseInt(envTimeout, 10);
 		if (!Number.isNaN(parsed) && parsed > 0) {
@@ -122,7 +124,7 @@ function getHealthCheckTimeoutMs(): number {
 		}
 	}
 
-	return process.platform === "win32" ? 60000 : 5000;
+	return platform === "win32" ? 60000 : 5000;
 }
 
 /**

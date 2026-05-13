@@ -94,7 +94,7 @@ See [DEVELOPMENT.md](../DEVELOPMENT.md) for detailed project architecture and te
 
 ## Line Endings
 
-This repo uses `.gitattributes` to enforce LF line endings on text files regardless of platform. On Windows, the git installer defaults to `core.autocrlf=true`, which can fight `.gitattributes` and produce CRLF↔LF diff churn. Run this once after cloning to align your local git config:
+This repo uses `.gitattributes` to enforce LF line endings by default for text files, with explicit CRLF checkout for Windows shell scripts (`*.bat`, `*.cmd`, `*.ps1`). On Windows, the git installer defaults to `core.autocrlf=true`, which can fight `.gitattributes` and produce CRLF↔LF diff churn. Run this once after cloning to align your local git config:
 
 ```bash
 just setup-git

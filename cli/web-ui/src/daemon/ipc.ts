@@ -71,6 +71,18 @@ export interface HealthCheckResult {
 	};
 }
 
+const readHealthTimingHeaders = (
+	response: Response,
+): NonNullable<HealthCheckResult["headers"]> => ({
+	"x-health-check-time":
+		response.headers.get("X-Health-Check-Time") ?? undefined,
+	"x-asset-check-time": response.headers.get("X-Asset-Check-Time") ?? undefined,
+	"x-database-init-time":
+		response.headers.get("X-Database-Init-Time") ?? undefined,
+	"x-project-count-time":
+		response.headers.get("X-Project-Count-Time") ?? undefined,
+});
+
 /**
  * Check if the daemon is healthy.
  */
@@ -106,27 +118,14 @@ export async function checkHealthWithHeaders(
 			signal: AbortSignal.timeout(2000),
 		});
 
+		const headers = readHealthTimingHeaders(response);
+
 		if (!response.ok) {
-			return { health: null };
+			return { health: null, headers };
 		}
 
 		const health = (await response.json()) as HealthResponse;
-		return {
-			health,
-			headers: {
-				"x-health-check-time": response.headers.get(
-					"X-Health-Check-Time",
-				) ?? undefined,
-				"x-asset-check-time": response.headers.get("X-Asset-Check-Time") ??
-					undefined,
-				"x-database-init-time": response.headers.get(
-					"X-Database-Init-Time",
-				) ?? undefined,
-				"x-project-count-time": response.headers.get(
-					"X-Project-Count-Time",
-				) ?? undefined,
-			},
-		};
+		return { health, headers };
 	} catch {
 		return { health: null };
 	}

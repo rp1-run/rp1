@@ -694,9 +694,7 @@ describe("agent-tools command adapter", () => {
 		const projectRoot = await createProject();
 		// Pre-fix bug: Commander rejected this with parent's "required option '--type'"
 		// before subcommand dispatch. Post-fix: the parent's required-option
-		// gate no longer fires, the call reaches resume-run's action, and the
-		// action accepts the project path on every platform (path.isAbsolute
-		// handles both `/foo` and `C:\foo`).
+		// gate no longer fires and the call reaches resume-run's action.
 		await expectExit(
 			[
 				"emit",
@@ -717,17 +715,20 @@ describe("agent-tools command adapter", () => {
 		expect(joinedErrors).not.toMatch(/Project path must be absolute/);
 	});
 
+	test("resume-run project path validation recognizes Windows absolute paths", async () => {
+		const { isPlatformAbsoluteProjectPath } = await import(
+			"../../agent-tools/command.js"
+		);
+
+		expect(isPlatformAbsoluteProjectPath("C:\\code\\rp1", "win32")).toBe(true);
+		expect(isPlatformAbsoluteProjectPath("/tmp/rp1", "linux")).toBe(true);
+		expect(isPlatformAbsoluteProjectPath("relative\\rp1", "win32")).toBe(false);
+	});
+
 	test("emit end-run without --run-id fails via action guard, not Commander", async () => {
 		const projectRoot = await createProject();
 		await expectExit(
-			[
-				"emit",
-				"end-run",
-				"--outcome",
-				"cancelled",
-				"--project",
-				projectRoot,
-			],
+			["emit", "end-run", "--outcome", "cancelled", "--project", projectRoot],
 			1,
 		);
 		const joinedErrors = errors.join("\n");

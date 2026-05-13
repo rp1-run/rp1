@@ -3,7 +3,7 @@
  * Provides Commander.js commands for AI agent tools.
  */
 
-import { isAbsolute } from "node:path";
+import { posix, win32 } from "node:path";
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { type CLIError, formatError, usageError } from "../../shared/errors.js";
@@ -74,6 +74,15 @@ import {
 const cleanupAndExit = () => {
 	closeEmitDatabase();
 };
+
+export const isPlatformAbsoluteProjectPath = (
+	projectPath: string,
+	platform: typeof process.platform = process.platform,
+): boolean =>
+	platform === "win32"
+		? win32.isAbsolute(projectPath)
+		: posix.isAbsolute(projectPath);
+
 process.on("exit", cleanupAndExit);
 process.on("SIGTERM", () => {
 	cleanupAndExit();
@@ -1175,10 +1184,7 @@ Examples:
 const emitCommand = agentToolsCommand
 	.command("emit")
 	.description("Record events for the rp1 workflow event system")
-	.option(
-		"--type <type>",
-		`Event type (${VALID_EVENT_TYPES.join(", ")})`,
-	)
+	.option("--type <type>", `Event type (${VALID_EVENT_TYPES.join(", ")})`)
 	.option("--run-id <id>", "Workflow run ID (UUID)")
 	.option("--workflow <name>", "Workflow name (e.g., build, pr-review)")
 	.option(
@@ -1380,7 +1386,7 @@ Examples:
 
 			const projectPath = options.project ?? process.cwd();
 
-			if (!isAbsolute(projectPath)) {
+			if (!isPlatformAbsoluteProjectPath(projectPath)) {
 				console.error(
 					createErrorResponse(
 						toolName,
