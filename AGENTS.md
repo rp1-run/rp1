@@ -261,15 +261,15 @@ that an rp1 skill addresses, briefly suggest it.
 ### Skill Categories
 | Category | Skills | Suggest When |
 |----------|--------|--------------|
-| Development | /build, /build-fast, /speedrun | User starts new feature or describes a change |
-| Investigation | /code-investigate | User is debugging or examining errors |
-| Quality | /code-check, /code-audit, /code-clean-comments | User finishes implementation |
-| Review | /pr-review, /pr-visual, /address-pr-feedback | User prepares or responds to PR |
-| Documentation | /write-content, /generate-user-docs | User writes or updates docs |
-| Knowledge | /knowledge-build | User needs codebase context or KB is stale |
-| Strategy | /strategize, /deep-research, /analyse-security | User faces architectural or security decisions |
-| Planning | /blueprint, /blueprint-audit | User plans a project or audits progress |
-| Prompt | /prompt-writer, /tersify-prompt | User authors or rewrites prompts |
+| Development | /task, /bootstrap, /build, /build-fast, /feature-archive, /feature-edit, /feature-unarchive, /phase-plan, /speedrun | User starts a new feature, describes a change, or needs to scaffold a project |
+| Investigation | /code-investigate, /validate-hypothesis | User is debugging, examining errors, or testing a design hypothesis |
+| Quality | /code-comments, /code-audit, /code-check, /code-clean-comments | User finishes implementation and needs hygiene checks, audits, or comment cleanup |
+| Review | /address-pr-feedback, /arcade-collab, /pr-review, /pr-visual, /pr-walkthrough | User prepares a PR, receives review feedback, or needs visual diff understanding |
+| Documentation | /fix-mermaid, /generate-user-docs, /markdown-preview, /mermaid, /project-birds-eye-view, /write-content | User writes, updates, or previews docs, diagrams, or project overviews |
+| Knowledge | /guide, /knowledge-build, /knowledge-load, /self-update | User needs codebase context, KB is stale, or wants KB templates |
+| Strategy | /analyse-security, /deep-research, /socratic-duel, /socratic-duel-run, /strategize | User faces architectural decisions, security concerns, or needs deep research |
+| Planning | /blueprint, /blueprint-archive, /blueprint-audit | User plans a project, audits a PRD, or manages blueprint lifecycle |
+| Prompt | /prompt-writer | User authors, rewrites, or evaluates agent prompts |
 
 ### Suggestion Rules
 - Limit to 1 suggestion per turn. Format: skill name, one sentence why, offer to run.
