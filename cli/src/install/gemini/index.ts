@@ -16,6 +16,18 @@ import {
 	GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
 	GEMINI_SMOKE_COMMAND_TOML,
 } from "./smoke-command.js";
+import {
+	GEMINI_ALPHA_AGENT_MARKDOWN,
+	GEMINI_ALPHA_AGENT_RELATIVE_PATH,
+	GEMINI_BETA_AGENT_MARKDOWN,
+	GEMINI_BETA_AGENT_RELATIVE_PATH,
+	GEMINI_EXTENSION_MANIFEST_JSON,
+	GEMINI_EXTENSION_MANIFEST_RELATIVE_PATH,
+	GEMINI_RUNTIME_FAIL_AGENT_MARKDOWN,
+	GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH,
+	GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH,
+	GEMINI_SUBAGENT_COMMAND_TOML,
+} from "./subagent-command.js";
 
 export interface GeminiInstallOptions {
 	readonly dryRun: boolean;
@@ -36,6 +48,15 @@ export const getGeminiPaths = (
 	commandFile: join(homeDir, GEMINI_SMOKE_COMMAND_RELATIVE_PATH),
 	commandDisplayPath: GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 });
+
+const GEMINI_EXTENSION_ASSETS = [
+	[GEMINI_EXTENSION_MANIFEST_RELATIVE_PATH, GEMINI_EXTENSION_MANIFEST_JSON],
+	[GEMINI_SMOKE_COMMAND_RELATIVE_PATH, GEMINI_SMOKE_COMMAND_TOML],
+	[GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH, GEMINI_SUBAGENT_COMMAND_TOML],
+	[GEMINI_ALPHA_AGENT_RELATIVE_PATH, GEMINI_ALPHA_AGENT_MARKDOWN],
+	[GEMINI_BETA_AGENT_RELATIVE_PATH, GEMINI_BETA_AGENT_MARKDOWN],
+	[GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH, GEMINI_RUNTIME_FAIL_AGENT_MARKDOWN],
+] as const;
 
 const defaultPathExists = async (targetPath: string): Promise<boolean> => {
 	try {
@@ -61,7 +82,7 @@ const defaultGeminiVersion = async (): Promise<string | null> => {
 	return version.length > 0 ? version : "unknown";
 };
 
-export const installGeminiSmokeCommand = (
+export const installGeminiSubagentValidationAssets = (
 	options: GeminiInstallOptions,
 ): TE.TaskEither<CLIError, GeminiInstallResult> =>
 	TE.tryCatch(
@@ -72,7 +93,7 @@ export const installGeminiSmokeCommand = (
 
 			if (!binaryPath) {
 				warnings.push(
-					"Gemini CLI was not found in PATH. Install Gemini CLI before running the smoke command.",
+					"Gemini CLI was not found in PATH. Install Gemini CLI before running the rp1 Gemini commands.",
 				);
 			}
 
@@ -85,8 +106,14 @@ export const installGeminiSmokeCommand = (
 				};
 			}
 
-			await mkdir(dirname(paths.commandFile), { recursive: true });
-			await writeFile(paths.commandFile, GEMINI_SMOKE_COMMAND_TOML, "utf-8");
+			for (const [relativePath, content] of GEMINI_EXTENSION_ASSETS) {
+				const assetPath = join(
+					options.homeDir ?? process.env.HOME ?? homedir(),
+					relativePath,
+				);
+				await mkdir(dirname(assetPath), { recursive: true });
+				await writeFile(assetPath, content, "utf-8");
+			}
 
 			return {
 				commandPath: paths.commandFile,
@@ -97,12 +124,14 @@ export const installGeminiSmokeCommand = (
 		},
 		(error) =>
 			installError(
-				"gemini-smoke-command",
+				"gemini-extension-assets",
 				error instanceof Error
 					? error.message
-					: "Failed to install Gemini smoke command",
+					: "Failed to install Gemini extension assets",
 			),
 	);
+
+export const installGeminiSmokeCommand = installGeminiSubagentValidationAssets;
 
 export const verifyGeminiSmokeSetup = async (
 	deps: GeminiVerifyDeps = {},
@@ -158,20 +187,83 @@ export const verifyGeminiSmokeSetup = async (
 };
 
 export type {
+	GeminiAcknowledgementCaveat,
+	GeminiAcknowledgementEvidence,
+	GeminiAcknowledgementScope,
+	GeminiCustomSubagentEvidence,
+	GeminiDelegatedFailure,
+	GeminiDelegatedFailureEvidence,
+	GeminiDelegationEvidence,
+	GeminiDelegationEvidenceStatus,
+	GeminiFanoutEvidence,
+	GeminiFanoutOutput,
 	GeminiInstallResult,
 	GeminiPaths,
 	GeminiSmokeStatus,
+	GeminiStatusDetail,
+	GeminiSupportClassificationStatus,
 	GeminiVerificationResult,
+	GeminiWorkflowClass,
+	GeminiWorkflowSupportClassification,
 } from "./models.js";
 export {
+	GEMINI_ACKNOWLEDGEMENT_SCOPES,
 	GEMINI_AUTO_INSTALL_SKIP_GUIDANCE,
+	GEMINI_DEFAULT_WORKFLOW_CLASSIFICATIONS,
+	GEMINI_DELEGATION_EVIDENCE_REQUIRED_REASON,
+	GEMINI_DELEGATION_EVIDENCE_STATUSES,
 	GEMINI_EXPERIMENTAL_GUIDANCE,
+	GEMINI_HEAVYWEIGHT_WORKFLOW_CLASSES,
 	GEMINI_SMOKE_COMMAND_INVOCATION,
 	GEMINI_SMOKE_STATUS_DETAILS,
+	GEMINI_SUPPORT_CLASSIFICATION_STATUSES,
 	getGeminiSmokeStatusDetail,
 } from "./models.js";
 export {
+	GEMINI_EXTENSION_DISPLAY_DIR,
+	GEMINI_EXTENSION_NAME,
 	GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 	GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
 	GEMINI_SMOKE_COMMAND_TOML,
 } from "./smoke-command.js";
+export {
+	GEMINI_ALPHA_AGENT_MARKDOWN,
+	GEMINI_ALPHA_AGENT_RELATIVE_PATH,
+	GEMINI_BETA_AGENT_MARKDOWN,
+	GEMINI_BETA_AGENT_RELATIVE_PATH,
+	GEMINI_EXTENSION_MANIFEST_DISPLAY_PATH,
+	GEMINI_EXTENSION_MANIFEST_JSON,
+	GEMINI_EXTENSION_MANIFEST_RELATIVE_PATH,
+	GEMINI_FAIL_AGENT_MARKDOWN,
+	GEMINI_FAIL_AGENT_RELATIVE_PATH,
+	GEMINI_RUNTIME_FAIL_AGENT_MARKDOWN,
+	GEMINI_RUNTIME_FAIL_AGENT_MODEL,
+	GEMINI_RUNTIME_FAIL_AGENT_NAME,
+	GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH,
+	GEMINI_SUBAGENT_COMMAND_DISPLAY_PATH,
+	GEMINI_SUBAGENT_COMMAND_INVOCATION,
+	GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH,
+	GEMINI_SUBAGENT_COMMAND_TOML,
+} from "./subagent-command.js";
+export type {
+	GeminiSubagentEvidenceArtifactResult,
+	GeminiSubagentEvidenceCommandResult,
+	GeminiSubagentEvidenceCommandRunner,
+	GeminiSubagentEvidenceContext,
+	GeminiSubagentEvidencePersistOptions,
+	GeminiSubagentEvidencePersistResult,
+	GeminiSubagentEvidenceWriteOptions,
+	GeminiSubagentReductionPayload,
+} from "./subagent-evidence.js";
+export {
+	createGeminiSubagentEvidence,
+	GEMINI_SUBAGENT_HARNESS,
+	GEMINI_SUBAGENT_JSON_FILENAME,
+	GEMINI_SUBAGENT_MARKDOWN_FILENAME,
+	GEMINI_SUBAGENT_MARKERS,
+	GEMINI_SUBAGENT_WORKFLOW_NAME,
+	getGeminiSubagentEvidenceRelativePaths,
+	persistGeminiSubagentEvidence,
+	renderGeminiSubagentEvidenceMarkdown,
+	writeGeminiSubagentEvidenceArtifacts,
+} from "./subagent-evidence.js";

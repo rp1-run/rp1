@@ -1,8 +1,12 @@
-export const GEMINI_SMOKE_COMMAND_RELATIVE_PATH =
-	".gemini/commands/rp1/smoke.toml";
+export const GEMINI_EXTENSION_NAME = "rp1-phase2-validation";
 
-export const GEMINI_SMOKE_COMMAND_DISPLAY_PATH =
-	"~/.gemini/commands/rp1/smoke.toml";
+export const GEMINI_EXTENSION_RELATIVE_DIR = `.gemini/extensions/${GEMINI_EXTENSION_NAME}`;
+
+export const GEMINI_EXTENSION_DISPLAY_DIR = `~/${GEMINI_EXTENSION_RELATIVE_DIR}`;
+
+export const GEMINI_SMOKE_COMMAND_RELATIVE_PATH = `${GEMINI_EXTENSION_RELATIVE_DIR}/commands/rp1/smoke.toml`;
+
+export const GEMINI_SMOKE_COMMAND_DISPLAY_PATH = `${GEMINI_EXTENSION_DISPLAY_DIR}/commands/rp1/smoke.toml`;
 
 export const GEMINI_SMOKE_COMMAND_TOML = String.raw`description = "Experimental rp1 smoke workflow for Gemini CLI."
 prompt = '''
@@ -26,7 +30,7 @@ const path = require("node:path");
 const rawArgs = process.argv.slice(2).join(" ");
 const commandPath = path.join(
 	process.env.HOME || "",
-	".gemini/commands/rp1/smoke.toml",
+	".gemini/extensions/rp1-phase2-validation/commands/rp1/smoke.toml",
 );
 
 const outputOf = (result) =>

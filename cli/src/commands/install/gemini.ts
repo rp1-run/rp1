@@ -3,7 +3,9 @@ import * as E from "fp-ts/lib/Either.js";
 import { formatError, getExitCode } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import {
+	GEMINI_EXTENSION_DISPLAY_DIR,
 	GEMINI_SMOKE_COMMAND_INVOCATION,
+	GEMINI_SUBAGENT_COMMAND_INVOCATION,
 	installGeminiSmokeCommand,
 } from "../../install/gemini/index.js";
 import { colorFns } from "../../lib/colors.js";
@@ -11,14 +13,14 @@ import { colorFns } from "../../lib/colors.js";
 const { green, yellow, dim, bold, cyan } = colorFns;
 
 export const installGeminiSubcommand = new Command("gemini")
-	.description("Install experimental Gemini CLI smoke command")
-	.option("--dry-run", "Show the command file path without writing")
+	.description("Install experimental Gemini CLI extension assets")
+	.option("--dry-run", "Show the extension asset path without writing")
 	.addHelpText(
 		"after",
 		`
 Examples:
-  rp1 install gemini            Install the experimental Gemini smoke command
-  rp1 install gemini --dry-run  Preview the smoke command file path
+  rp1 install gemini            Install experimental Gemini smoke and P2 validation assets
+  rp1 install gemini --dry-run  Preview the extension asset path
 `,
 	)
 	.action(async (options, command) => {
@@ -40,17 +42,20 @@ Examples:
 		const installResult = result.right;
 
 		console.log("");
-		console.log(bold("Gemini CLI experimental smoke setup"));
+		console.log(bold("Gemini CLI experimental extension setup"));
 		console.log("");
 
 		if (installResult.commandWritten) {
 			console.log(
-				green(`Installed smoke command: ${installResult.commandDisplayPath}`),
+				green(`Installed extension assets: ${GEMINI_EXTENSION_DISPLAY_DIR}`),
+			);
+			console.log(
+				dim(`  - Smoke command: ${installResult.commandDisplayPath}`),
 			);
 		} else {
 			console.log(
 				yellow(
-					`Dry run: would write smoke command to ${installResult.commandDisplayPath}`,
+					`Dry run: would write extension assets to ${GEMINI_EXTENSION_DISPLAY_DIR}`,
 				),
 			);
 		}
@@ -66,4 +71,5 @@ Examples:
 		console.log("");
 		console.log(dim("Run from Gemini CLI:"));
 		console.log(cyan(`  ${GEMINI_SMOKE_COMMAND_INVOCATION}`));
+		console.log(cyan(`  ${GEMINI_SUBAGENT_COMMAND_INVOCATION}`));
 	});

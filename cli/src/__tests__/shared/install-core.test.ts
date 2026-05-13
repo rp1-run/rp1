@@ -701,7 +701,7 @@ describe("install-core tool routing", () => {
 		expect(getErrorMessage(error)).toContain("currently disabled");
 	});
 
-	test("installForSpecificTool installs the explicit Gemini smoke command", async () => {
+	test("installForSpecificTool installs the explicit Gemini validation extension", async () => {
 		const homeDir = await createTempDir("install-core-gemini-specific");
 		const restoreHome = withEnvOverride("HOME", homeDir);
 
@@ -721,11 +721,34 @@ describe("install-core tool routing", () => {
 				toolId: "gemini",
 				toolName: "Gemini CLI",
 				success: true,
-				pluginsInstalled: ["~/.gemini/commands/rp1/smoke.toml"],
+				pluginsInstalled: [
+					"~/.gemini/extensions/rp1-phase2-validation/commands/rp1/smoke.toml",
+				],
 			});
 			expect(
 				await Bun.file(
-					join(homeDir, ".gemini", "commands", "rp1", "smoke.toml"),
+					join(
+						homeDir,
+						".gemini",
+						"extensions",
+						"rp1-phase2-validation",
+						"commands",
+						"rp1",
+						"smoke.toml",
+					),
+				).exists(),
+			).toBe(true);
+			expect(
+				await Bun.file(
+					join(
+						homeDir,
+						".gemini",
+						"extensions",
+						"rp1-phase2-validation",
+						"commands",
+						"rp1",
+						"subagents.toml",
+					),
 				).exists(),
 			).toBe(true);
 		} finally {

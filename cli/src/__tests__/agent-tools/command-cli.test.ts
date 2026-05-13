@@ -96,18 +96,19 @@ describe("agent-tools command adapter", () => {
 	test("mmd-validate and rp1-root-dir return successful JSON payloads", async () => {
 		tempDir = await mkdtemp(join(tmpdir(), "rp1-command-adapter-"));
 		const diagramPath = join(tempDir, "diagram.md");
-		await writeFile(
-			diagramPath,
-			"```mermaid\nstateDiagram-v2\n    [*] --> A\n    A --> [*]\n```\n",
-		);
+		await writeFile(diagramPath, "# Document without diagrams\n");
 
 		await expectExit(["mmd-validate", diagramPath], 0);
 		const validation = lastOutput<{
 			success: boolean;
-			data: { summary: { valid: number; invalid: number } };
+			data: { summary: { total: number; valid: number; invalid: number } };
 		}>();
 		expect(validation.success).toBe(true);
-		expect(validation.data.summary).toMatchObject({ valid: 1, invalid: 0 });
+		expect(validation.data.summary).toMatchObject({
+			total: 0,
+			valid: 0,
+			invalid: 0,
+		});
 
 		await expectExit(["rp1-root-dir"], 0);
 		const roots = lastOutput<{

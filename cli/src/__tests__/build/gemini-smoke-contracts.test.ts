@@ -6,6 +6,10 @@ import { expectTaskRight } from "../helpers/index.js";
 
 const projectRoot = join(import.meta.dir, "..", "..", "..", "..");
 const skillDir = join(projectRoot, "plugins/dev/skills/gemini-harness-smoke");
+const subagentSkillDir = join(
+	projectRoot,
+	"plugins/dev/skills/gemini-harness-subagents",
+);
 
 const parseArtifactRegistrationPayload = (content: string) => {
 	const payload = content.match(
@@ -17,6 +21,19 @@ const parseArtifactRegistrationPayload = (content: string) => {
 		payload!.replaceAll("{FEATURE_ID}", "gemini-smoke-test"),
 	) as Record<string, unknown>;
 };
+
+const parseArtifactRegistrationPayloads = (
+	content: string,
+	featureId: string,
+): readonly Record<string, unknown>[] =>
+	[...content.matchAll(/--type artifact_registered[\s\S]*?--data '([^']+)'/g)]
+		.map((match) => match[1])
+		.map((payload) => {
+			expect(payload).toBeDefined();
+			return JSON.parse(
+				(payload ?? "").replaceAll("{FEATURE_ID}", featureId),
+			) as Record<string, unknown>;
+		});
 
 describe("Gemini smoke workflow contracts", () => {
 	test("declares the tracked smoke workflow arguments and state", async () => {
@@ -98,5 +115,71 @@ describe("Gemini smoke workflow contracts", () => {
 		expect(prompt).toContain("registration_status:");
 		expect(prompt).not.toContain("subagent");
 		expect(prompt).not.toContain("fanout");
+	});
+
+	test("declares the tracked subagent workflow schema and terminal gates", async () => {
+		const skill = await expectTaskRight(parseSkill(subagentSkillDir));
+
+		expect(skill.name).toBe("gemini-harness-subagents");
+		expect(skill.description).toContain(
+			"Experimental Gemini CLI subagent and fanout validation workflow",
+		);
+		expect(skill.metadata?.category).toBe("development");
+		expect(skill.metadata?.isWorkflow).toBe(true);
+		expect(skill.metadata?.workflow).toEqual({
+			runPolicy: "fresh",
+			identityArgs: [],
+		});
+		expect(skill.metadata?.arguments?.map((arg) => arg.name)).toEqual([
+			"FEATURE_ID",
+			"RUN_CONTEXT",
+		]);
+		expect(skill.content).toContain("stateDiagram-v2");
+		expect(skill.content).toContain("[*] --> smoke");
+		expect(skill.content).toContain(
+			"smoke --> validation : delegated_smoke_ready",
+		);
+		expect(skill.content).toContain(
+			"smoke --> blocked : unsupported_or_ack_required",
+		);
+		expect(skill.content).toContain(
+			"validation --> completed : evidence_passed",
+		);
+		expect(skill.content).toContain("validation --> failed : evidence_failed");
+		expect(skill.content).toContain(
+			"validation --> blocked : evidence_blocked",
+		);
+		expect(skill.content).toContain("Do not claim Gemini first-class support");
+	});
+
+	test("declares subagent evidence artifact registrations with explicit work-root storage", async () => {
+		const skill = await expectTaskRight(parseSkill(subagentSkillDir));
+		const payloads = parseArtifactRegistrationPayloads(
+			skill.content,
+			"gemini-phase2",
+		);
+
+		expect(skill.content).toContain(
+			"{workRoot}/features/{FEATURE_ID}/gemini-subagents.md",
+		);
+		expect(skill.content).toContain(
+			"{workRoot}/features/{FEATURE_ID}/gemini-subagents.json",
+		);
+		expect(payloads).toEqual([
+			{
+				path: "features/gemini-phase2/gemini-subagents.md",
+				feature: "gemini-phase2",
+				storageRoot: "work_dir",
+				format: "markdown",
+				harness: "gemini-cli",
+			},
+			{
+				path: "features/gemini-phase2/gemini-subagents.json",
+				feature: "gemini-phase2",
+				storageRoot: "work_dir",
+				format: "json",
+				harness: "gemini-cli",
+			},
+		]);
 	});
 });

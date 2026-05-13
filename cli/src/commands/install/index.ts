@@ -22,7 +22,10 @@ import {
 	verifyCopilotPlugins,
 	verifyOpenCodePlugins,
 } from "../../init/steps/verification.js";
-import { verifyGeminiSmokeSetup } from "../../install/gemini/index.js";
+import {
+	GEMINI_DELEGATION_EVIDENCE_REQUIRED_REASON,
+	verifyGeminiSmokeSetup,
+} from "../../install/gemini/index.js";
 import { colorFns } from "../../lib/colors.js";
 import {
 	type InstallContext,
@@ -72,6 +75,12 @@ async function runPostInstallVerification(
 			const status = geminiResult.verified ? green("[OK]") : yellow("[WARN]");
 			console.log(
 				`  ${status} Gemini smoke command (${dim(geminiResult.status)})`,
+			);
+			console.log(
+				`  ${yellow("[WARN]")} Gemini P2 delegation readiness (${dim("not_run")})`,
+			);
+			console.log(
+				yellow(`    - ${GEMINI_DELEGATION_EVIDENCE_REQUIRED_REASON}`),
 			);
 			for (const issue of geminiResult.issues) {
 				console.log(yellow(`    - ${issue}`));
@@ -135,7 +144,7 @@ Subcommands:
   opencode       Install plugins to OpenCode
   codex          Install plugins to Codex CLI
   copilot        Install plugins to Copilot CLI
-  gemini         Install experimental Gemini smoke command
+  gemini         Install experimental Gemini extension assets
   all            Install plugins to all detected tools
 
 Examples:
@@ -144,7 +153,7 @@ Examples:
   rp1 install claude-code                Install to Claude Code (subcommand)
   rp1 install opencode                   Install to OpenCode (subcommand)
   rp1 install copilot                    Install to Copilot CLI (subcommand)
-  rp1 install gemini                     Install Gemini smoke command only
+  rp1 install gemini                     Install Gemini smoke and P2 validation assets
   rp1 install all                        Install to all detected tools
   rp1 install --dry-run                  Preview installation
   rp1 install -y                         Skip confirmation prompts

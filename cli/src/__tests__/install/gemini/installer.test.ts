@@ -2,8 +2,20 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
+	GEMINI_ALPHA_AGENT_MARKDOWN,
+	GEMINI_ALPHA_AGENT_RELATIVE_PATH,
+	GEMINI_BETA_AGENT_MARKDOWN,
+	GEMINI_BETA_AGENT_RELATIVE_PATH,
+	GEMINI_EXTENSION_MANIFEST_JSON,
+	GEMINI_EXTENSION_MANIFEST_RELATIVE_PATH,
+	GEMINI_RUNTIME_FAIL_AGENT_MARKDOWN,
+	GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH,
+	GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
+	GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
 	GEMINI_SMOKE_COMMAND_TOML,
 	GEMINI_SMOKE_STATUS_DETAILS,
+	GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH,
+	GEMINI_SUBAGENT_COMMAND_TOML,
 	installGeminiSmokeCommand,
 	verifyGeminiSmokeSetup,
 } from "../../../install/gemini/index.js";
@@ -60,11 +72,11 @@ describe("Gemini smoke command installer", () => {
 		);
 
 		expect(result.commandWritten).toBe(false);
-		expect(result.commandDisplayPath).toBe("~/.gemini/commands/rp1/smoke.toml");
+		expect(result.commandDisplayPath).toBe(GEMINI_SMOKE_COMMAND_DISPLAY_PATH);
 		expect(await exists(result.commandPath)).toBe(false);
 	});
 
-	test("explicit install writes only the Gemini smoke command", async () => {
+	test("explicit install writes the Gemini smoke and P2 validation extension assets", async () => {
 		const result = await expectTaskRight(
 			installGeminiSmokeCommand({
 				dryRun: false,
@@ -74,19 +86,60 @@ describe("Gemini smoke command installer", () => {
 		);
 
 		expect(result.commandWritten).toBe(true);
+		expect(result.commandPath).toBe(
+			join(tempDir, GEMINI_SMOKE_COMMAND_RELATIVE_PATH),
+		);
+		expect(GEMINI_EXTENSION_MANIFEST_RELATIVE_PATH).toBe(
+			".gemini/extensions/rp1-phase2-validation/gemini-extension.json",
+		);
+		expect(GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH).toBe(
+			".gemini/extensions/rp1-phase2-validation/commands/rp1/subagents.toml",
+		);
+		expect(GEMINI_ALPHA_AGENT_RELATIVE_PATH).toBe(
+			".gemini/extensions/rp1-phase2-validation/agents/rp1-alpha.md",
+		);
+		expect(GEMINI_BETA_AGENT_RELATIVE_PATH).toBe(
+			".gemini/extensions/rp1-phase2-validation/agents/rp1-beta.md",
+		);
+		expect(GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH).toBe(
+			".gemini/extensions/rp1-phase2-validation/agents/rp1-runtime-fail.md",
+		);
 		expect(await Bun.file(result.commandPath).text()).toBe(
 			GEMINI_SMOKE_COMMAND_TOML,
 		);
 		expect(
-			await exists(join(tempDir, ".gemini", "commands", "rp1", "smoke.toml")),
+			JSON.parse(
+				await Bun.file(
+					join(tempDir, GEMINI_EXTENSION_MANIFEST_RELATIVE_PATH),
+				).text(),
+			),
+		).toEqual(JSON.parse(GEMINI_EXTENSION_MANIFEST_JSON));
+		expect(
+			await exists(join(tempDir, GEMINI_SMOKE_COMMAND_RELATIVE_PATH)),
 		).toBe(true);
+		expect(
+			await Bun.file(
+				join(tempDir, GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH),
+			).text(),
+		).toBe(GEMINI_SUBAGENT_COMMAND_TOML);
+		expect(
+			await Bun.file(join(tempDir, GEMINI_ALPHA_AGENT_RELATIVE_PATH)).text(),
+		).toBe(GEMINI_ALPHA_AGENT_MARKDOWN);
+		expect(
+			await Bun.file(join(tempDir, GEMINI_BETA_AGENT_RELATIVE_PATH)).text(),
+		).toBe(GEMINI_BETA_AGENT_MARKDOWN);
+		expect(
+			await Bun.file(
+				join(tempDir, GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH),
+			).text(),
+		).toBe(GEMINI_RUNTIME_FAIL_AGENT_MARKDOWN);
 	});
 
 	test("verify reports a missing Gemini binary with install guidance", async () => {
 		const result = await verifyGeminiSmokeSetup({
 			paths: {
-				commandFile: join(tempDir, ".gemini", "commands", "rp1", "smoke.toml"),
-				commandDisplayPath: "~/.gemini/commands/rp1/smoke.toml",
+				commandFile: join(tempDir, GEMINI_SMOKE_COMMAND_RELATIVE_PATH),
+				commandDisplayPath: GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 			},
 			getGeminiBinaryPath: () => null,
 			pathExists: async () => false,
@@ -101,8 +154,8 @@ describe("Gemini smoke command installer", () => {
 	test("verify reports a missing smoke command when Gemini is installed", async () => {
 		const result = await verifyGeminiSmokeSetup({
 			paths: {
-				commandFile: join(tempDir, ".gemini", "commands", "rp1", "smoke.toml"),
-				commandDisplayPath: "~/.gemini/commands/rp1/smoke.toml",
+				commandFile: join(tempDir, GEMINI_SMOKE_COMMAND_RELATIVE_PATH),
+				commandDisplayPath: GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 			},
 			getGeminiBinaryPath: () => "/usr/local/bin/gemini",
 			getGeminiVersion: async () => "gemini 1.2.3",
@@ -112,21 +165,21 @@ describe("Gemini smoke command installer", () => {
 		expect(result.status).toBe("degraded_missing_command");
 		expect(result.verified).toBe(false);
 		expect(result.remediation).toContain(
-			"Install the smoke command with `rp1 install gemini`.",
+			"Install the Gemini extension assets with `rp1 install gemini`.",
 		);
 	});
 
 	test("verify reports ready when Gemini and the smoke command are present", async () => {
 		const commandFile = await writeFixture(
 			tempDir,
-			join(".gemini", "commands", "rp1", "smoke.toml"),
+			GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
 			GEMINI_SMOKE_COMMAND_TOML,
 		);
 
 		const result = await verifyGeminiSmokeSetup({
 			paths: {
 				commandFile,
-				commandDisplayPath: "~/.gemini/commands/rp1/smoke.toml",
+				commandDisplayPath: GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 			},
 			getGeminiBinaryPath: () => "/usr/local/bin/gemini",
 			getGeminiVersion: async () => "gemini 1.2.3",

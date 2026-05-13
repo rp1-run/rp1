@@ -21,6 +21,7 @@ Supported targets:
 - OpenCode
 - Codex
 - Copilot CLI
+- Gemini CLI experimental validation assets (manual install only)
 
 ## Subcommands
 
@@ -64,13 +65,26 @@ plugin commands. Use this target when Copilot is your coding host or when
 
 Requires the standalone GitHub Copilot CLI (`copilot`) with `copilot plugin --help` available.
 
+### `install gemini`
+
+```bash
+rp1 install gemini [options]
+```
+
+Installs experimental Gemini CLI extension assets for validation only. This
+target installs the `/rp1:smoke` smoke command and the `/rp1:subagents` P2
+delegation validation command; it does not enable first-class Gemini workflow
+support.
+
 ### `install all`
 
 ```bash
 rp1 install all [options]
 ```
 
-Detects installed tools and installs rp1 to every supported one it finds.
+Detects installed tools and installs rp1 to every supported non-experimental
+target it finds. Gemini CLI is skipped by automatic install; use
+`rp1 install gemini` when you want the experimental validation assets.
 
 ## Options
 
@@ -90,6 +104,7 @@ rp1 install claude-code
 rp1 install opencode
 rp1 install codex
 rp1 install copilot
+rp1 install gemini
 ```
 
 ### Install everywhere detected
@@ -103,6 +118,7 @@ rp1 install all
 ```bash
 rp1 install codex --dry-run
 rp1 install copilot --dry-run
+rp1 install gemini --dry-run
 ```
 
 ## Contributor Local Install (`just install`)
@@ -158,9 +174,33 @@ rp1 verify claude-code
 rp1 verify opencode
 rp1 verify codex
 rp1 verify copilot
+rp1 verify gemini
 ```
 
 For Copilot, the clean success signal is `healthy_native`. A `mixed_native_and_legacy` result means the native install works, but old rp1 files still need cleanup under `~/.config/github-copilot/`.
+
+For Gemini, verification reports smoke readiness separately from P2 delegation
+readiness:
+
+```bash
+rp1 verify gemini
+rp1 verify gemini --feature-id <feature-id>
+```
+
+The Gemini smoke section uses `Support: experimental (smoke-only)` and reports
+`State` values such as `experimental_ready`, `degraded_missing_binary`,
+`degraded_missing_command`, `degraded_trust_or_approval`, or
+`registration_failed`. The P2 section is labeled `P2 delegation readiness` and
+reports `Overall delegation`, `Custom subagent`, `Fanout attribution`,
+`Delegated failure`, and `Acknowledgement` as `passed`, `failed`, `blocked`,
+`incomplete`, or `not_run`.
+
+Until `.rp1/work/features/<feature-id>/gemini-subagents.json` contains passing
+P2 evidence, the `Heavyweight workflow gate` keeps `build_fast`, `build`,
+`knowledge_build`, `deep_research`, and `pr_review` `blocked` or
+`experimental` with an evidence status. A dedicated Gemini platform page and
+polished support matrix are deferred; this install reference is the current
+support-fact stub.
 
 ## Listing Installed Skills
 
@@ -204,6 +244,7 @@ they ignore keys they do not use.
 | OpenCode | `~/.config/opencode/plugins/` |
 | Codex skills | `~/.codex/skills/` |
 | Codex agents | `~/.codex/agents/rp1/` |
+| Gemini extension | `~/.gemini/extensions/rp1-phase2-validation/` |
 
 Copilot install paths are covered in
 [Troubleshooting Copilot Install Locations](#troubleshooting-copilot-install-locations)
