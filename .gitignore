@@ -36,6 +36,7 @@ cli/src/config/supported-tools.generated.ts
 
 # local rp1 binary
 bin/rp1
+bin/rp1.exe
 
 # Native app generated output
 native-app/build/
@@ -59,3 +60,9 @@ native-app/artifacts/
 # rp1 directory
 !.rp1/project_id
 cli/coverage/
+
+# Local Claude Code settings (per-user permissions)
+.claude/settings.local.json
+
+# Git Bash crash dumps (Windows)
+*.stackdump
