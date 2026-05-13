@@ -10,12 +10,19 @@ import type { ProjectEntry } from "../server/registry";
  * Response from daemon health check.
  */
 export interface HealthResponse {
-	readonly status: "ok";
-	readonly uptime: number;
-	readonly port: number;
-	readonly projectCount: number;
+	readonly status: "ok" | "starting";
+	readonly uptime?: number;
+	readonly port?: number;
+	readonly projectCount?: number;
 	readonly isDev?: boolean;
 	readonly version?: string;
+	readonly reason?: string;
+	readonly timing?: {
+		readonly asset_check_ms: number;
+		readonly database_init_ms: number;
+		readonly project_count_ms: number;
+		readonly total_ms: number;
+	};
 }
 
 /**
@@ -52,6 +59,19 @@ export function createConnection(port: number): DaemonConnection {
 }
 
 /**
+ * Health check response with response metadata.
+ */
+export interface HealthCheckResult {
+	readonly health: HealthResponse | null;
+	readonly headers?: {
+		readonly "x-health-check-time"?: string;
+		readonly "x-asset-check-time"?: string;
+		readonly "x-database-init-time"?: string;
+		readonly "x-project-count-time"?: string;
+	};
+}
+
+/**
  * Check if the daemon is healthy.
  */
 export async function checkHealth(
@@ -70,6 +90,45 @@ export async function checkHealth(
 		return (await response.json()) as HealthResponse;
 	} catch {
 		return null;
+	}
+}
+
+/**
+ * Check if the daemon is healthy and capture response headers for diagnostics.
+ * T5: Polling Instrumentation - captures X-* timing headers
+ */
+export async function checkHealthWithHeaders(
+	conn: DaemonConnection,
+): Promise<HealthCheckResult> {
+	try {
+		const response = await fetch(`${conn.baseUrl}/api/v2/health`, {
+			method: "GET",
+			signal: AbortSignal.timeout(2000),
+		});
+
+		if (!response.ok) {
+			return { health: null };
+		}
+
+		const health = (await response.json()) as HealthResponse;
+		return {
+			health,
+			headers: {
+				"x-health-check-time": response.headers.get(
+					"X-Health-Check-Time",
+				) ?? undefined,
+				"x-asset-check-time": response.headers.get("X-Asset-Check-Time") ??
+					undefined,
+				"x-database-init-time": response.headers.get(
+					"X-Database-Init-Time",
+				) ?? undefined,
+				"x-project-count-time": response.headers.get(
+					"X-Project-Count-Time",
+				) ?? undefined,
+			},
+		};
+	} catch {
+		return { health: null };
 	}
 }
 
