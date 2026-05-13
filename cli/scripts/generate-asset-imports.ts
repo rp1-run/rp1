@@ -17,7 +17,7 @@
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { parse as parseYaml } from "yaml";
 import type { BundleManifest } from "../src/build/models.js";
 import {
@@ -97,7 +97,7 @@ interface AssetImport {
  */
 function getImportPath(assetPath: string): string {
 	const outputDir = dirname(OUTPUT_FILE);
-	return relative(outputDir, assetPath);
+	return relative(outputDir, assetPath).split(sep).join("/");
 }
 
 /**
@@ -258,7 +258,7 @@ async function collectWebUIAssets(): Promise<AssetImport[]> {
 				if (item.isDirectory()) {
 					await walk(fullPath);
 				} else {
-					const relPath = relative(WEBUI_DIST, fullPath);
+					const relPath = relative(WEBUI_DIST, fullPath).split(sep).join("/");
 					imports.push({
 						varName: toVarName("webui", relPath),
 						importPath: getImportPath(fullPath),
