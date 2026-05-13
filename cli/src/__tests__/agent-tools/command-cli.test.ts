@@ -650,4 +650,121 @@ describe("agent-tools command adapter", () => {
 		expect(rejected.data.reason).toContain("second participant is present");
 		expect(rejected.data.status).toBe("ACTIVE");
 	});
+
+	test("emit end-run with valid args does not fail on parent required options", async () => {
+		const projectRoot = await createProject();
+		const runId = "550e8400-e29b-41d4-a716-446655440099";
+		await expectExit(
+			[
+				"emit",
+				"--workflow",
+				"build",
+				"--type",
+				"status_change",
+				"--run-id",
+				runId,
+				"--step",
+				"requirements",
+				"--project",
+				projectRoot,
+				"--data",
+				'{"status":"running"}',
+			],
+			0,
+		);
+
+		await expectExit(
+			[
+				"emit",
+				"end-run",
+				"--run-id",
+				runId,
+				"--outcome",
+				"cancelled",
+				"--reason",
+				"regression test",
+				"--project",
+				projectRoot,
+			],
+			0,
+		);
+	});
+
+	test("emit resume-run with valid args dispatches to its action (cross-platform)", async () => {
+		const projectRoot = await createProject();
+		// Pre-fix bug: Commander rejected this with parent's "required option '--type'"
+		// before subcommand dispatch. Post-fix: the parent's required-option
+		// gate no longer fires, the call reaches resume-run's action, and the
+		// action accepts the project path on every platform (path.isAbsolute
+		// handles both `/foo` and `C:\foo`).
+		await expectExit(
+			[
+				"emit",
+				"resume-run",
+				"--feature",
+				"some-feature",
+				"--flow",
+				"build",
+				"--project",
+				projectRoot,
+			],
+			0,
+		);
+		const joinedErrors = errors.join("\n");
+		expect(joinedErrors).not.toMatch(/required option '--type'/);
+		expect(joinedErrors).not.toMatch(/required option '--run-id'/);
+		expect(joinedErrors).not.toMatch(/required option '--workflow'/);
+		expect(joinedErrors).not.toMatch(/Project path must be absolute/);
+	});
+
+	test("emit end-run without --run-id fails via action guard, not Commander", async () => {
+		const projectRoot = await createProject();
+		await expectExit(
+			[
+				"emit",
+				"end-run",
+				"--outcome",
+				"cancelled",
+				"--project",
+				projectRoot,
+			],
+			1,
+		);
+		const joinedErrors = errors.join("\n");
+		expect(joinedErrors).not.toMatch(/required option '--run-id'/);
+		const errorPayload = errors.at(-1);
+		expect(errorPayload).toBeDefined();
+		const parsed = JSON.parse(errorPayload as string) as {
+			tool: string;
+			errors: { message: string }[];
+		};
+		expect(parsed.tool).toBe("emit");
+		expect(parsed.errors[0]?.message).toMatch(/run.?id/i);
+	});
+
+	test("bare emit without --run-id still errors via validateEmitOptions, not Commander", async () => {
+		const projectRoot = await createProject();
+		await expectExit(
+			[
+				"emit",
+				"--workflow",
+				"build",
+				"--type",
+				"status_change",
+				"--step",
+				"requirements",
+				"--project",
+				projectRoot,
+			],
+			1,
+		);
+		const errorPayload = errors.at(-1);
+		expect(errorPayload).toBeDefined();
+		const parsed = JSON.parse(errorPayload as string) as {
+			tool: string;
+			errors: { message: string }[];
+		};
+		expect(parsed.tool).toBe("emit");
+		expect(parsed.errors[0]?.message).toMatch(/run.?id/i);
+	});
 });

@@ -5,7 +5,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
@@ -360,7 +360,7 @@ const handleArtifactRegistration = (
 	const filePath = input.data.path as string;
 	const storageRoot = input.data.storageRoot as ArtifactStorageRoot;
 	const absolutePath =
-		storageRoot === "absolute" || filePath.startsWith("/")
+		storageRoot === "absolute" || isAbsolute(filePath)
 			? resolve(filePath)
 			: storageRoot === "project"
 				? resolve(run.rp1ProjectRoot, filePath)
