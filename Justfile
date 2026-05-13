@@ -162,7 +162,7 @@ clean-web-ui-cache:
 
 # RP1_BUILD_INTERNAL=1 includes utils (internal-only plugin) in the dev build
 build-local-dev: build-web-ui clean-web-ui-cache
-    cd cli && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
+    cd cli && bun install --frozen-lockfile && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
 
 # Build the macOS native Arcade shell target without opening it
 build-native-app: install
