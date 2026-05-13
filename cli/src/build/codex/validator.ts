@@ -23,7 +23,8 @@ const extractFrontmatter = (
 	content: string,
 	file: string,
 ): E.Either<CLIError, Record<string, unknown>> => {
-	const lines = content.split("\n");
+	const normalized = content.replace(/\r\n/g, "\n");
+	const lines = normalized.split("\n");
 
 	// First line must be "---" (trimmed)
 	if (lines.length === 0 || lines[0].trim() !== "---") {
