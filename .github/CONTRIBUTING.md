@@ -92,6 +92,16 @@ See [DEVELOPMENT.md](../DEVELOPMENT.md) for detailed project architecture and te
 4. Push and create PR: `git push origin feat/your-feature`
 5. After PR approval and merge, automation handles the release
 
+## Line Endings
+
+This repo uses `.gitattributes` to enforce LF line endings on text files regardless of platform. On Windows, the git installer defaults to `core.autocrlf=true`, which can fight `.gitattributes` and produce CRLF↔LF diff churn. Run this once after cloning to align your local git config:
+
+```bash
+just setup-git
+```
+
+It runs `git config --local core.autocrlf false` and `git config --local core.eol lf` for this clone. Cross-platform contributors — especially on Windows — should do this. For a permanent posture across every repo on your machine, set the same values with `--global` instead.
+
 ## Git Hooks (Optional)
 
 This project uses [Lefthook](https://github.com/evilmartians/lefthook) for local git hooks. Installing it is optional but recommended.

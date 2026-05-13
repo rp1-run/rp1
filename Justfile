@@ -13,6 +13,22 @@ default:
     @just --list
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Local Setup
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Align local git config with this repo's .gitattributes policy (LF line
+# endings). Recommended after first clone, especially on Windows where the
+# git installer defaults to core.autocrlf=true. Idempotent.
+setup-git:
+    @echo "Aligning local git config with .gitattributes (LF line endings)..."
+    git config --local core.autocrlf false
+    git config --local core.eol lf
+    @echo ""
+    @echo "Local git config set. Optionally also install lefthook hooks:"
+    @echo "  brew install lefthook   # or: scoop install lefthook"
+    @echo "  lefthook install"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Docker Environment
 # ─────────────────────────────────────────────────────────────────────────────
 # Start the Stable Tester container (clean room with harness CLIs, no rp1 installed)
