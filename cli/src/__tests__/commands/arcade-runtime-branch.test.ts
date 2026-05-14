@@ -28,6 +28,10 @@ describe("arcade command runtime branches", () => {
 		process.exit = originalExit;
 		console.error = originalError;
 		mock.restore();
+		mock.module("../../../shared/runtime.js", () => ({
+			detectRuntime: () => ({ runtime: "bun" as const, version: Bun.version }),
+			isBun: () => true,
+		}));
 	});
 
 	test("prints Bun runtime guidance before daemon work in Node-like runtimes", async () => {
