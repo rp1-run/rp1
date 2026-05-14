@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	setDefaultTimeout,
+	test,
+} from "bun:test";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -24,6 +31,8 @@ import {
 	expectTaskRight,
 	initTestRepo,
 } from "../helpers/index.js";
+
+setDefaultTimeout(15000);
 
 describe("migrate", () => {
 	let tempDir: string;

@@ -28,6 +28,8 @@ describe("daemon manager lifecycle recovery", () => {
 	let stoppedPorts: number[];
 	let spawned: Array<{ command: string; args: string[] }>;
 	let portOwnerPid: number | null;
+	const nextHealth = (port: number): Health | null =>
+		healthResponses.length > 0 ? healthResponses.shift()! : healthy(port);
 
 	beforeEach(async () => {
 		tempDir = await mkdtemp(join(tmpdir(), "rp1-daemon-manager-test-"));
@@ -57,10 +59,10 @@ describe("daemon manager lifecycle recovery", () => {
 				port,
 				baseUrl: `http://127.0.0.1:${port}`,
 			}),
-			checkHealth: async (conn: { port: number }) =>
-				healthResponses.length > 0
-					? healthResponses.shift()
-					: healthy(conn.port),
+			checkHealth: async (conn: { port: number }) => nextHealth(conn.port),
+			checkHealthWithHeaders: async (conn: { port: number }) => ({
+				health: nextHealth(conn.port),
+			}),
 			getDaemonStatus: async () => statusResponse,
 			stopDaemon: async (conn: { port: number }) => {
 				stoppedPorts.push(conn.port);
