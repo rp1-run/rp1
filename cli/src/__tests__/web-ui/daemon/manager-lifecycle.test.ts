@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as childProcess from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -28,6 +29,8 @@ describe("daemon manager lifecycle recovery", () => {
 	let stoppedPorts: number[];
 	let spawned: Array<{ command: string; args: string[] }>;
 	let portOwnerPid: number | null;
+	const nextHealth = (port: number): Health | null =>
+		healthResponses.length > 0 ? healthResponses.shift()! : healthy(port);
 
 	beforeEach(async () => {
 		tempDir = await mkdtemp(join(tmpdir(), "rp1-daemon-manager-test-"));
@@ -57,10 +60,10 @@ describe("daemon manager lifecycle recovery", () => {
 				port,
 				baseUrl: `http://127.0.0.1:${port}`,
 			}),
-			checkHealth: async (conn: { port: number }) =>
-				healthResponses.length > 0
-					? healthResponses.shift()
-					: healthy(conn.port),
+			checkHealth: async (conn: { port: number }) => nextHealth(conn.port),
+			checkHealthWithHeaders: async (conn: { port: number }) => ({
+				health: nextHealth(conn.port),
+			}),
 			getDaemonStatus: async () => statusResponse,
 			stopDaemon: async (conn: { port: number }) => {
 				stoppedPorts.push(conn.port);
@@ -68,18 +71,35 @@ describe("daemon manager lifecycle recovery", () => {
 			},
 		}));
 		mock.module("node:child_process", () => ({
-			execSync: () => {
-				if (portOwnerPid === null) {
-					throw new Error("no owner");
+			...childProcess,
+			execSync: (
+				command: string,
+				options?: childProcess.ExecSyncOptions,
+			): Buffer | string => {
+				if (command.startsWith("lsof -ti:")) {
+					if (portOwnerPid === null) {
+						throw new Error("no owner");
+					}
+					return `${portOwnerPid}\n`;
 				}
-				return `${portOwnerPid}\n`;
+				return childProcess.execSync(command, options);
 			},
-			spawn: (command: string, args: string[]) => {
-				spawned.push({ command, args });
-				return {
-					pid: 4242,
-					unref: () => {},
-				};
+			spawn: (
+				command: string,
+				args?: readonly string[],
+				options?: childProcess.SpawnOptions,
+			) => {
+				const spawnArgs = Array.from(args ?? []);
+				if (spawnArgs[0] === "_daemon-server") {
+					spawned.push({ command, args: spawnArgs });
+					return {
+						pid: 4242,
+						unref: () => {},
+					};
+				}
+				return options === undefined
+					? childProcess.spawn(command, spawnArgs)
+					: childProcess.spawn(command, spawnArgs, options);
 			},
 		}));
 	});

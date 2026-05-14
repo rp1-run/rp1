@@ -1,4 +1,4 @@
-import { extname, join, resolve } from "node:path";
+import { extname, join, resolve, sep } from "node:path";
 import { ARCADE_RUNTIME_MANIFEST_FILENAME } from "../../types/runtime";
 
 const HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate";
@@ -115,7 +115,10 @@ export async function handleStaticRequest(
 	const filePath = resolve(distDir, pathname.slice(1)); // slice(1) removes leading /
 
 	// Security: Ensure resolved path is within distDir
-	if (!filePath.startsWith(`${resolvedDist}/`) && filePath !== resolvedDist) {
+	if (
+		!filePath.startsWith(`${resolvedDist}${sep}`) &&
+		filePath !== resolvedDist
+	) {
 		return new Response("Forbidden", { status: 403 });
 	}
 

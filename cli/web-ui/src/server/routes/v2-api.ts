@@ -2143,33 +2143,139 @@ export async function handleV2ProjectContentSaveRequest(
 }
 
 /**
+ * Check if assets are available with exponential backoff retry.
+ * T2: Asset Availability Retry Logic
+ */
+async function checkAssetAvailability(
+	webUIDir: string,
+): Promise<{ available: boolean; timingMs: number }> {
+	const indexPath = join(webUIDir, "client", "index.html");
+	const startTime = Date.now();
+	const backoffDelays = [10, 25, 50, 100, 200];
+	let lastError: unknown;
+
+	for (let attempt = 0; attempt <= backoffDelays.length; attempt++) {
+		try {
+			const file = Bun.file(indexPath);
+			if (await file.exists()) {
+				const timingMs = Date.now() - startTime;
+				logDaemonEvent("asset_check_attempt", {
+					attempt: attempt + 1,
+					result: "success",
+					timingMs,
+				});
+				return { available: true, timingMs };
+			}
+		} catch (error) {
+			lastError = error;
+		}
+
+		if (attempt < backoffDelays.length) {
+			const delay = backoffDelays[attempt];
+			await new Promise((resolve) => setTimeout(resolve, delay));
+		}
+	}
+
+	const timingMs = Date.now() - startTime;
+	logDaemonEvent("asset_check_attempt", {
+		attempt: backoffDelays.length + 1,
+		result: "exhausted",
+		timingMs,
+		error: lastError instanceof Error ? lastError.message : String(lastError),
+	});
+	return { available: false, timingMs };
+}
+
+/**
  * GET /api/v2/health - daemon health check.
+ * T3: Health Endpoint Instrumentation
+ * T4: Response Header Injection
  */
 export async function handleV2HealthRequest(
 	ctx: ApiContext,
 ): Promise<Response> {
+	const healthCheckStartTime = Date.now();
+	let assetCheckMs = 0;
+	let databaseInitMs = 0;
+	let projectCountMs = 0;
+	let assetsReady = true;
+
 	if (ctx.webUIDir) {
-		const indexPath = join(ctx.webUIDir, "client", "index.html");
-		const file = Bun.file(indexPath);
-		if (!(await file.exists())) {
+		const assetCheck = await checkAssetAvailability(ctx.webUIDir);
+		assetCheckMs = assetCheck.timingMs;
+		assetsReady = assetCheck.available;
+
+		if (!assetsReady) {
+			const totalMs = Date.now() - healthCheckStartTime;
+			logDaemonEvent("health_check_complete", {
+				status: "starting",
+				reason: "assets not ready",
+				assetCheckMs,
+				databaseInitMs: 0,
+				projectCountMs: 0,
+				totalMs,
+			});
 			return jsonResponse(
-				{ status: "starting", reason: "assets not ready" },
+				{
+					status: "starting",
+					reason: "assets not ready",
+					timing: {
+						asset_check_ms: assetCheckMs,
+						database_init_ms: 0,
+						project_count_ms: 0,
+						total_ms: totalMs,
+					},
+				},
 				503,
+				{
+					"X-Health-Check-Time": String(totalMs),
+					"X-Asset-Check-Time": String(assetCheckMs),
+					"X-Database-Init-Time": "0",
+					"X-Project-Count-Time": "0",
+				},
 			);
 		}
 	}
 
+	const databaseInitStartTime = Date.now();
 	const db = await getDb();
-	const projectCount = await getProjectCount(db);
-	const uptime = Math.floor((Date.now() - ctx.startTime) / 1000);
+	databaseInitMs = Date.now() - databaseInitStartTime;
 
-	return jsonResponse({
+	const projectCountStartTime = Date.now();
+	const projectCount = await getProjectCount(db);
+	projectCountMs = Date.now() - projectCountStartTime;
+
+	const uptime = Math.floor((Date.now() - ctx.startTime) / 1000);
+	const totalMs = Date.now() - healthCheckStartTime;
+
+	const responseBody = {
 		status: "ok",
 		uptime,
 		port: ctx.port,
 		projectCount,
 		isDev: ctx.isDev ?? false,
 		...(ctx.version && { version: ctx.version }),
+		timing: {
+			asset_check_ms: assetCheckMs,
+			database_init_ms: databaseInitMs,
+			project_count_ms: projectCountMs,
+			total_ms: totalMs,
+		},
+	};
+
+	logDaemonEvent("health_check_complete", {
+		status: "ok",
+		assetCheckMs,
+		databaseInitMs,
+		projectCountMs,
+		totalMs,
+	});
+
+	return jsonResponse(responseBody, 200, {
+		"X-Health-Check-Time": String(totalMs),
+		"X-Asset-Check-Time": String(assetCheckMs),
+		"X-Database-Init-Time": String(databaseInitMs),
+		"X-Project-Count-Time": String(projectCountMs),
 	});
 }
 

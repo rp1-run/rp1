@@ -34,10 +34,17 @@ export interface ApiContext {
 	readonly webUIDir?: string;
 }
 
-export function jsonResponse(data: unknown, status = 200): Response {
+export function jsonResponse(
+	data: unknown,
+	status = 200,
+	additionalHeaders: Record<string, string> = {},
+): Response {
 	return new Response(JSON.stringify(data), {
 		status,
-		headers: { "Content-Type": "application/json" },
+		headers: {
+			"Content-Type": "application/json",
+			...additionalHeaders,
+		},
 	});
 }
 

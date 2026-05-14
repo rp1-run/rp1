@@ -1,0 +1,24 @@
+# Default: detect text/binary, store with LF, check out with LF
+# regardless of user's core.autocrlf setting.
+* text=auto eol=lf
+
+# Explicit binary entries (no eol conversion, no diff)
+*.exe binary
+*.dll binary
+*.dylib binary
+*.so binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.zst binary
+*.zip binary
+*.tar binary
+*.gz binary
+
+# Windows shell scripts need CRLF to be runnable
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

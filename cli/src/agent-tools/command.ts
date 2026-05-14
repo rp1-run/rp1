@@ -3,6 +3,7 @@
  * Provides Commander.js commands for AI agent tools.
  */
 
+import { posix, win32 } from "node:path";
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { type CLIError, formatError, usageError } from "../../shared/errors.js";
@@ -73,6 +74,15 @@ import {
 const cleanupAndExit = () => {
 	closeEmitDatabase();
 };
+
+export const isPlatformAbsoluteProjectPath = (
+	projectPath: string,
+	platform: typeof process.platform = process.platform,
+): boolean =>
+	platform === "win32"
+		? win32.isAbsolute(projectPath)
+		: posix.isAbsolute(projectPath);
+
 process.on("exit", cleanupAndExit);
 process.on("SIGTERM", () => {
 	cleanupAndExit();
@@ -1174,12 +1184,9 @@ Examples:
 const emitCommand = agentToolsCommand
 	.command("emit")
 	.description("Record events for the rp1 workflow event system")
-	.requiredOption(
-		"--type <type>",
-		`Event type (${VALID_EVENT_TYPES.join(", ")})`,
-	)
-	.requiredOption("--run-id <id>", "Workflow run ID (UUID)")
-	.requiredOption("--workflow <name>", "Workflow name (e.g., build, pr-review)")
+	.option("--type <type>", `Event type (${VALID_EVENT_TYPES.join(", ")})`)
+	.option("--run-id <id>", "Workflow run ID (UUID)")
+	.option("--workflow <name>", "Workflow name (e.g., build, pr-review)")
 	.option(
 		"--step <step>",
 		"Workflow step name (required for status_change, subflow_registered)",
@@ -1379,7 +1386,7 @@ Examples:
 
 			const projectPath = options.project ?? process.cwd();
 
-			if (!projectPath.startsWith("/")) {
+			if (!isPlatformAbsoluteProjectPath(projectPath)) {
 				console.error(
 					createErrorResponse(
 						toolName,
@@ -1436,7 +1443,6 @@ Examples:
 emitCommand
 	.command("end-run")
 	.description("End a live run as cancelled or abandoned")
-	.requiredOption("--run-id <id>", "Workflow run ID (UUID)")
 	.requiredOption(
 		"--outcome <outcome>",
 		"Terminal outcome (cancelled, abandoned)",
@@ -1463,12 +1469,24 @@ Examples:
 `,
 	)
 	.action(
-		async (options: {
-			runId: string;
-			outcome: string;
-			reason?: string;
-		}): Promise<void> => {
+		async (
+			options: {
+				outcome: string;
+				reason?: string;
+			},
+			command: { optsWithGlobals: () => { runId?: string } },
+		): Promise<void> => {
 			const toolName = "emit";
+			const runId = command.optsWithGlobals().runId;
+			if (!runId || runId.trim() === "") {
+				console.error(
+					createErrorResponse(
+						toolName,
+						formatError(usageError("--run-id is required"), false),
+					),
+				);
+				process.exit(1);
+			}
 			if (options.outcome !== "cancelled" && options.outcome !== "abandoned") {
 				console.error(
 					createErrorResponse(
@@ -1485,7 +1503,7 @@ Examples:
 			}
 
 			const result = await executeEndRun({
-				runId: options.runId,
+				runId,
 				outcome: options.outcome,
 				reason: options.reason,
 			})();

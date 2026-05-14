@@ -84,17 +84,18 @@ const extractWorkflowMetadata = (
 /**
  * Extract YAML frontmatter and content from markdown.
  */
-const extractFrontmatter = (
+export const extractFrontmatter = (
 	content: string,
 	filePath: string,
 ): E.Either<CLIError, { metadata: Record<string, unknown>; body: string }> => {
-	if (!content.startsWith("---")) {
+	const normalized = content.replace(/\r\n/g, "\n");
+	if (!normalized.startsWith("---")) {
 		return E.left(
 			parseError(filePath, "Missing YAML frontmatter (must start with ---)"),
 		);
 	}
 
-	const parts = content.split("---");
+	const parts = normalized.split("---");
 	if (parts.length < 3) {
 		return E.left(
 			parseError(

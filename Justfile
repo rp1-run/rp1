@@ -13,6 +13,22 @@ default:
     @just --list
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Local Setup
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Align local git config with this repo's .gitattributes policy (LF line
+# endings). Recommended after first clone, especially on Windows where the
+# git installer defaults to core.autocrlf=true. Idempotent.
+setup-git:
+    @echo "Aligning local git config with .gitattributes (LF line endings)..."
+    git config --local core.autocrlf false
+    git config --local core.eol lf
+    @echo ""
+    @echo "Local git config set. Optionally also install lefthook hooks:"
+    @echo "  brew install lefthook   # or: scoop install lefthook"
+    @echo "  lefthook install"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Docker Environment
 # ─────────────────────────────────────────────────────────────────────────────
 # Start the Stable Tester container (clean room with harness CLIs, no rp1 installed)
@@ -162,7 +178,7 @@ clean-web-ui-cache:
 
 # RP1_BUILD_INTERNAL=1 includes utils (internal-only plugin) in the dev build
 build-local-dev: build-web-ui clean-web-ui-cache
-    cd cli && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
+    cd cli && bun install --frozen-lockfile && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
 
 # Build the macOS native Arcade shell target without opening it
 build-native-app: install

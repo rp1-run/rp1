@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
+import * as childProcess from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -81,9 +82,27 @@ describe("arcade command runtime branches", () => {
 				},
 			}));
 			mock.module("node:child_process", () => ({
-				spawn: (command: string, args: string[]) => {
-					spawned.push({ command, args });
-					return { unref: () => undefined };
+				...childProcess,
+				spawn: (
+					command: string,
+					args?: readonly string[],
+					options?: childProcess.SpawnOptions,
+				) => {
+					const spawnArgs = Array.from(args ?? []);
+					const url = "http://127.0.0.1:8131/projects/project-1";
+					const opensExpectedUrl =
+						(command === "open" && spawnArgs[0] === url) ||
+						(command === "cmd" && spawnArgs.at(-1) === url) ||
+						(command === "xdg-open" && spawnArgs[0] === url);
+
+					if (opensExpectedUrl) {
+						spawned.push({ command, args: spawnArgs });
+						return { unref: () => undefined };
+					}
+
+					return options === undefined
+						? childProcess.spawn(command, spawnArgs)
+						: childProcess.spawn(command, spawnArgs, options);
 				},
 			}));
 

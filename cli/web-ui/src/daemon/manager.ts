@@ -11,6 +11,7 @@ import { logDaemonEvent } from "./diagnostics";
 import { resolveDaemonExecutablePath } from "./executable";
 import {
 	checkHealth,
+	checkHealthWithHeaders,
 	createConnection,
 	type DaemonConnection,
 	type DaemonStatus,
@@ -107,9 +108,24 @@ export class DaemonPortConflictError extends Error {
 const DEFAULT_PORT = 7710;
 
 /**
- * Maximum time to wait for daemon to become healthy.
+ * Get the platform-aware timeout for health checks.
+ * Windows gets 60 seconds to accommodate slower I/O and process startup.
+ * macOS and Linux get 5 seconds.
+ * Can be overridden via RP1_HEALTH_CHECK_TIMEOUT_MS environment variable.
  */
-const HEALTH_CHECK_TIMEOUT_MS = 5000;
+export function getHealthCheckTimeoutMs(
+	platform: typeof process.platform = process.platform,
+	envTimeout: string | undefined = process.env.RP1_HEALTH_CHECK_TIMEOUT_MS,
+): number {
+	if (envTimeout) {
+		const parsed = Number.parseInt(envTimeout, 10);
+		if (!Number.isNaN(parsed) && parsed > 0) {
+			return parsed;
+		}
+	}
+
+	return platform === "win32" ? 60000 : 5000;
+}
 
 /**
  * Interval between health check polls.
@@ -292,22 +308,74 @@ async function stopUntrackedDaemon(
 
 /**
  * Wait for the daemon to become healthy.
+ * T5: Health Check Polling Instrumentation
+ * - Logs each polling attempt with attempt number and elapsed time
+ * - Captures and logs response headers (X-Health-Check-Time, etc.)
+ * - Logs health_check_succeeded on success with timing and project info
+ * - Logs health_check_timeout on timeout with final metrics
  */
 async function waitForHealth(
 	conn: DaemonConnection,
-	timeoutMs: number = HEALTH_CHECK_TIMEOUT_MS,
+	timeoutMs: number = getHealthCheckTimeoutMs(),
 ): Promise<boolean> {
 	const startTime = Date.now();
+	let attemptCount = 0;
 
 	while (Date.now() - startTime < timeoutMs) {
-		const health = await checkHealth(conn);
-		if (health) {
-			return true;
+		attemptCount++;
+		const elapsedMs = Date.now() - startTime;
+
+		try {
+			const result = await checkHealthWithHeaders(conn);
+			if (result.health) {
+				const successData = {
+					attemptCount,
+					elapsedMs,
+					projectCount: result.health.projectCount,
+					uptime: result.health.uptime,
+				};
+
+				// Include response headers in success log if available
+				if (result.headers) {
+					Object.assign(successData, result.headers);
+				}
+
+				logDaemonEvent("health_check_succeeded", successData);
+				return true;
+			}
+
+			const pollData = {
+				attempt: attemptCount,
+				elapsedMs,
+				result: "no_response",
+			};
+
+			// Include response headers in poll log if available
+			if (result.headers) {
+				Object.assign(pollData, result.headers);
+			}
+
+			logDaemonEvent("health_check_poll", pollData);
+		} catch (error) {
+			logDaemonEvent("health_check_poll", {
+				attempt: attemptCount,
+				elapsedMs,
+				result: "error",
+				error: error instanceof Error ? error.message : String(error),
+			});
 		}
+
 		await new Promise((resolve) =>
 			setTimeout(resolve, HEALTH_CHECK_INTERVAL_MS),
 		);
 	}
+
+	const finalElapsedMs = Date.now() - startTime;
+	logDaemonEvent("health_check_timeout", {
+		attemptCount,
+		finalElapsedMs,
+		timeoutMs,
+	});
 
 	return false;
 }
@@ -417,6 +485,13 @@ export async function ensureDaemon(
 	options?: DaemonEnsureOptions | string,
 ): Promise<DaemonStartResult> {
 	const ensureOptions = normalizeEnsureOptions(options);
+	const healthCheckTimeout = getHealthCheckTimeoutMs();
+	logDaemonEvent("ensure_daemon_start", {
+		port,
+		healthCheckTimeoutMs: healthCheckTimeout,
+		platform: process.platform,
+		cliVersion: ensureOptions.cliVersion,
+	});
 	return withLifecycleLock(
 		{
 			operation: "ensureDaemon",
