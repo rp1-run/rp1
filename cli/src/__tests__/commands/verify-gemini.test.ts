@@ -240,6 +240,60 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain("Gemini lifecycle path is degraded");
 	});
 
+	test("reports blocked lifecycle state when manifest assets cannot be read", async () => {
+		const result = await captureVerifyOutput(
+			readySmokeDeps(undefined, async () => {
+				throw Object.assign(new Error("permission denied"), {
+					code: "EACCES",
+				});
+			}),
+		);
+
+		expect(result.ok).toBe(false);
+		expect(result.output).toContain("Manifest lifecycle:");
+		expect(result.output).toContain("State: blocked");
+		expect(result.output).toContain("Gemini asset could not be read");
+		expect(result.output).toContain(
+			"Fix local file permissions or trust/approval blockers",
+		);
+	});
+
+	test("distinguishes one missing manifest asset from partial installs", async () => {
+		const [firstAsset, secondAsset] = GEMINI_ASSET_MANIFEST;
+		const oneMissing = await captureVerifyOutput(
+			readySmokeDeps(undefined, async (path) => {
+				if (firstAsset && path.endsWith(firstAsset.relativePath)) {
+					throw new Error("missing");
+				}
+				return currentManifestAssetReader(path);
+			}),
+		);
+
+		expect(oneMissing.ok).toBe(false);
+		expect(oneMissing.output).toContain("State: missing");
+		expect(oneMissing.output).toContain(
+			"A manifest-owned Gemini extension asset is missing.",
+		);
+
+		const partial = await captureVerifyOutput(
+			readySmokeDeps(undefined, async (path) => {
+				if (
+					(firstAsset && path.endsWith(firstAsset.relativePath)) ||
+					(secondAsset && path.endsWith(secondAsset.relativePath))
+				) {
+					throw new Error("missing");
+				}
+				return currentManifestAssetReader(path);
+			}),
+		);
+
+		expect(partial.ok).toBe(false);
+		expect(partial.output).toContain("State: partial");
+		expect(partial.output).toContain(
+			"Only part of the rp1 Gemini extension manifest is installed.",
+		);
+	});
+
 	test("reports removed when no manifest-owned Gemini assets are active", async () => {
 		const result = await captureVerifyOutput({
 			paths: smokeCommandPath,
@@ -299,6 +353,82 @@ describe("verify:gemini command", () => {
 			"evidence: features/gemini-phase2/gemini-subagents.md",
 		);
 		expect(result.output).toContain("Gemini P2 delegation readiness is gated");
+	});
+
+	test("reports invalid feature ids as gated evidence checks", async () => {
+		const result = await captureVerifyOutput(readySmokeDeps(), {
+			featureId: "../bad-feature",
+		});
+
+		expect(result.ok).toBe(false);
+		expect(result.output).toContain("Invalid Gemini evidence feature id");
+		expect(result.output).toContain(
+			"Gemini delegation readiness could not be verified",
+		);
+		expect(result.output).toContain(
+			"Invalid Gemini boundary evidence feature id",
+		);
+	});
+
+	test("reports malformed and incomplete P3 boundary evidence", async () => {
+		const malformed = await captureVerifyOutput(
+			readySmokeDeps(async (path) => {
+				if (path.endsWith("gemini-boundaries.json")) return "{";
+				throw new Error("missing");
+			}),
+			{ featureId: "gemini-phase-3" },
+		);
+
+		expect(malformed.ok).toBe(false);
+		expect(malformed.output).toContain(
+			"Gemini boundary evidence is not valid JSON",
+		);
+
+		const incomplete = await captureVerifyOutput(
+			readySmokeDeps(async (path) => {
+				if (path.endsWith("gemini-boundaries.json")) return "{}";
+				throw new Error("missing");
+			}),
+			{ featureId: "gemini-phase-3" },
+		);
+
+		expect(incomplete.ok).toBe(false);
+		expect(incomplete.output).toContain(
+			"Gemini boundary evidence is incomplete",
+		);
+	});
+
+	test("reports P2 delegation evidence parse and feature mismatch failures", async () => {
+		const malformed = await captureVerifyOutput(
+			readySmokeDeps(async (path) => {
+				if (path.endsWith("gemini-subagents.json")) return "{";
+				throw new Error("missing");
+			}),
+			{ featureId: "gemini-phase2" },
+		);
+
+		expect(malformed.ok).toBe(false);
+		expect(malformed.output).toContain(
+			"Gemini delegation evidence is not valid JSON",
+		);
+
+		const mismatch = await captureVerifyOutput(
+			readySmokeDeps(async (path) => {
+				if (path.endsWith("gemini-subagents.json")) {
+					return passingEvidenceJson().replace(
+						"gemini-phase2",
+						"other-feature",
+					);
+				}
+				throw new Error("missing");
+			}),
+			{ featureId: "gemini-phase2" },
+		);
+
+		expect(mismatch.ok).toBe(false);
+		expect(mismatch.output).toContain(
+			"Gemini delegation evidence feature mismatch",
+		);
 	});
 
 	test("reports blocked P3 boundary evidence with trust remediation", async () => {

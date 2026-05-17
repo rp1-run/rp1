@@ -38,7 +38,8 @@ describe("Gemini subagent validation assets", () => {
 
 		expect(manifest.name).toBe(GEMINI_EXTENSION_NAME);
 		expect(manifest.version).toBe("1.0.0");
-		expect(manifest.description).toContain("P2 validation");
+		expect(manifest.description).toContain("P2 delegation");
+		expect(manifest.description).toContain("P3 boundary validation");
 	});
 
 	test("subagent command parses as TOML and references only validation agents", () => {
