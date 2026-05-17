@@ -21,7 +21,8 @@ Supported targets:
 - OpenCode
 - Codex
 - Copilot CLI
-- Gemini CLI experimental validation assets (manual install only)
+- Gemini CLI experimental smoke, delegation, and boundary validation assets
+  (manual install only)
 
 ## Subcommands
 
@@ -73,8 +74,9 @@ rp1 install gemini [options]
 
 Installs experimental Gemini CLI extension assets for validation only. This
 target installs the `/rp1:smoke` smoke command and the `/rp1:subagents` P2
-delegation validation command; it does not enable first-class Gemini workflow
-support.
+delegation validation command, plus the `/rp1:boundaries` P3 trust, headless,
+user-gate, and lifecycle boundary command. It does not enable first-class
+Gemini workflow support.
 
 ### `install all`
 
@@ -179,28 +181,59 @@ rp1 verify gemini
 
 For Copilot, the clean success signal is `healthy_native`. A `mixed_native_and_legacy` result means the native install works, but old rp1 files still need cleanup under `~/.config/github-copilot/`.
 
-For Gemini, verification reports smoke readiness separately from P2 delegation
-readiness:
+For Gemini, verification reports manifest lifecycle state, smoke readiness, P2
+delegation readiness, and optional P3 boundary evidence:
 
 ```bash
 rp1 verify gemini
 rp1 verify gemini --feature-id <feature-id>
 ```
 
-The Gemini smoke section uses `Support: experimental (smoke-only)` and reports
-`State` values such as `experimental_ready`, `degraded_missing_binary`,
-`degraded_missing_command`, `degraded_trust_or_approval`, or
-`registration_failed`. The P2 section is labeled `P2 delegation readiness` and
-reports `Overall delegation`, `Custom subagent`, `Fanout attribution`,
-`Delegated failure`, and `Acknowledgement` as `passed`, `failed`, `blocked`,
-`incomplete`, or `not_run`.
+The Gemini smoke section uses `Support: experimental (manifest validation assets
+only)` and reports `State` values such as `experimental_ready`,
+`degraded_missing_binary`, `degraded_missing_command`,
+`degraded_trust_or_approval`, or `registration_failed`.
+
+The `Manifest lifecycle` section reports `Stage: verify`, an asset count, and a
+Gemini-specific lifecycle `State`:
+
+| State | Meaning | Next action |
+|-------|---------|-------------|
+| `current` | All rp1-owned Gemini validation assets match the manifest. | Restart Gemini CLI if assets were just installed, then run validation commands from a trusted workspace. |
+| `removed` | No rp1-owned Gemini validation assets are installed. | Run `rp1 install gemini` before using the experimental validation commands. |
+| `missing` | One manifest-owned asset is missing. | Run `rp1 install gemini` to restore it. |
+| `partial` | More than one, but not all, manifest-owned assets are missing. | Reinstall the complete Gemini validation asset set with `rp1 install gemini`. |
+| `stale` | One or more assets differ from the current manifest. | Run `rp1 install gemini` or `rp1 update plugins gemini` to refresh assets. |
+| `blocked` | rp1 could not read one or more Gemini extension assets. | Fix local file permissions or trust/approval blockers, then rerun `rp1 verify gemini`. |
+
+The P2 section is labeled `P2 delegation readiness` and reports `Overall
+delegation`, `Custom subagent`, `Fanout attribution`, `Delegated failure`, and
+`Acknowledgement` as `passed`, `failed`, `blocked`, `incomplete`, or `not_run`.
+The P3 section is labeled `P3 boundary evidence` when `--feature-id` is supplied
+or boundary evidence exists. It reads:
+
+```text
+.rp1/work/features/<feature-id>/gemini-boundaries.json
+.rp1/work/features/<feature-id>/gemini-boundaries.md
+```
+
+Boundary scenarios classify trust, approval, auth, user-input, headless, and
+lifecycle outcomes as `passed`, `degraded`, `blocked`, `unsupported`, `failed`,
+or `not_run`. If a scenario has a blocker, verification prints the recorded
+`Blocker` and `User action`.
 
 Until `.rp1/work/features/<feature-id>/gemini-subagents.json` contains passing
 P2 evidence, the `Heavyweight workflow gate` keeps `build_fast`, `build`,
 `knowledge_build`, `deep_research`, and `pr_review` `blocked` or
-`experimental` with an evidence status. A dedicated Gemini platform page and
-polished support matrix are deferred; this install reference is the current
-support-fact stub.
+`experimental` with an evidence status. Until
+`.rp1/work/features/<feature-id>/gemini-boundaries.json` contains passing P3
+boundary evidence, lifecycle, trust, and headless outcomes remain validation
+facts for the later support matrix rather than first-class support claims.
+
+Gemini may still require workspace trust, shell approval, or project agent
+acknowledgement when validation commands run. rp1 reports those as boundary
+states and remediation actions; it does not grant trust or approval
+automatically.
 
 ## Listing Installed Skills
 

@@ -47,6 +47,8 @@ Supported `tool` values:
 | `claude-code` | Update Claude Code only |
 | `opencode` | Update OpenCode only |
 | `codex` | Update Codex only |
+| `copilot` | Update GitHub Copilot CLI only |
+| `gemini` | Refresh experimental Gemini extension validation assets only |
 
 ## Options
 
@@ -65,7 +67,37 @@ rp1 update
 rp1 update --check
 rp1 update plugins all
 rp1 update plugins codex
+rp1 update plugins copilot
+rp1 update plugins gemini --dry-run
 ```
+
+## Gemini Extension Refresh
+
+`rp1 update plugins gemini` is an explicit refresh path for experimental Gemini
+validation assets. It updates only rp1-owned files under
+`~/.gemini/extensions/rp1-phase2-validation/`:
+
+- `/rp1:smoke`
+- `/rp1:subagents`
+- `/rp1:boundaries`
+- rp1 validation agents used by the Gemini smoke, P2, and P3 evidence flows
+
+The command reports `Lifecycle stage: update` and one of these states or
+results:
+
+| Output | Meaning | Next action |
+|--------|---------|-------------|
+| `Lifecycle state: current` | Gemini validation assets already match the current manifest. | Restart Gemini CLI only if you recently changed assets, then run `rp1 verify gemini`. |
+| `Lifecycle state: missing` or `partial` | Some or all manifest-owned Gemini assets are absent. | Run `rp1 update plugins gemini -y` or `rp1 install gemini`, restart Gemini CLI, then verify. |
+| `Lifecycle state: stale` | At least one manifest-owned asset differs from the current build. | Run `rp1 update plugins gemini -y`, restart Gemini CLI, then verify. |
+| `Lifecycle state: blocked` | rp1 could not safely inspect or refresh an asset. | Follow the printed `Next action`, usually fixing permissions under the Gemini extension directory. |
+| `Lifecycle result: refreshed` | rp1 refreshed manifest-owned Gemini assets. | Restart Gemini CLI, then run `rp1 verify gemini`. |
+| `Lifecycle state: failed` | Refresh failed after command execution started. | Check file permissions under `~/.gemini/extensions/rp1-phase2-validation/`, then rerun `rp1 update plugins gemini`. |
+
+Use `--dry-run` to preview the files that would be refreshed. Automatic
+`rp1 update plugins` or `rp1 update plugins all` skips Gemini because the
+Gemini CLI path is still experimental; use the explicit `gemini` target when
+you want to refresh those validation assets.
 
 ## Safety
 
@@ -94,9 +126,20 @@ rp1 update plugins all
 rp1 install claude-code
 rp1 install opencode
 rp1 install codex
+rp1 install copilot
+```
+
+For Gemini, rerun the explicit refresh path so the command can print
+Gemini-specific lifecycle state and remediation:
+
+```bash
+rp1 update plugins gemini --dry-run
+rp1 update plugins gemini -y
+rp1 verify gemini --feature-id <feature-id>
 ```
 
 ## See Also
 
 - [install](install.md)
+- [uninstall](uninstall.md)
 - [Troubleshooting](../../troubleshooting/index.md)

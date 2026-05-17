@@ -15,6 +15,7 @@
 | `/feature-archive` | dev | Archives a completed feature to the archives directory with optional documentation validation. | `FEATURE_ID` |  |  |  |
 | `/feature-edit` | dev | Incorporates mid-stream changes into feature documentation with validation and propagation. | `FEATURE_ID`, `EDIT_DESCRIPTION` |  |  |  |
 | `/feature-unarchive` | dev | Restores an archived feature from the archives directory back to the active features directory. | `FEATURE_ID` |  |  |  |
+| `/gemini-harness-boundaries` | dev | Experimental Gemini CLI boundary evidence workflow for trust, approval, user-gate, headless, and lifecycle outcomes. | `FEATURE_ID`, `RUN_CONTEXT` | Yes | fresh |  |
 | `/gemini-harness-smoke` | dev | Experimental Gemini CLI smoke workflow for argument, root, and artifact handoff evidence. | `FEATURE_ID`, `RUN_CONTEXT` | Yes | fresh |  |
 | `/gemini-harness-subagents` | dev | Experimental Gemini CLI subagent and fanout validation workflow for P2 readiness evidence. | `FEATURE_ID`, `RUN_CONTEXT` | Yes | fresh |  |
 | `/phase-plan` | dev | Decompose a completed PRD or oversized requirements artifact into durable delivery phases. | `SOURCE`, `UPDATE_CONTEXT`, `AFK` | Yes | fresh |  |

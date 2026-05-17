@@ -108,6 +108,7 @@ nav:
       - init: reference/cli/init.md
       - install: reference/cli/install.md
       - update: reference/cli/update.md
+      - uninstall: reference/cli/uninstall.md
       - check-update: reference/cli/check-update.md
       - rp1 migrate: reference/cli/rp1-migrate.md
       - self-update: reference/base/self-update.md

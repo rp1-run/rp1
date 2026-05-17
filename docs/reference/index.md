@@ -13,6 +13,7 @@ available when you need the complete command list.
 | Initialize a project | [`init`](cli/init.md) |
 | Install rp1 into an AI coding host | [`install`](cli/install.md) |
 | Update the CLI and installed plugins | [`update`](cli/update.md) |
+| Remove rp1 project setup or host-specific assets | [`uninstall`](cli/uninstall.md) |
 | Check available updates | [`check-update`](cli/check-update.md) |
 | Update rp1 and refresh installed plugins from a workflow | [`self-update`](base/self-update.md) |
 | Migrate an older project layout | [`rp1 migrate`](cli/rp1-migrate.md) |
