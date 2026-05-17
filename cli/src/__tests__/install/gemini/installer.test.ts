@@ -7,6 +7,8 @@ import {
 	GEMINI_ASSET_MANIFEST,
 	GEMINI_BETA_AGENT_MARKDOWN,
 	GEMINI_BETA_AGENT_RELATIVE_PATH,
+	GEMINI_BOUNDARY_COMMAND_RELATIVE_PATH,
+	GEMINI_BOUNDARY_COMMAND_TOML,
 	GEMINI_BOUNDARY_SCENARIOS,
 	GEMINI_BOUNDARY_STATES,
 	GEMINI_BOUNDARY_STATUSES,
@@ -26,6 +28,7 @@ import {
 	GEMINI_SUBAGENT_COMMAND_TOML,
 	installGeminiSmokeCommand,
 	verifyGeminiSmokeSetup,
+	writeGeminiBoundaryEvidenceArtifacts,
 } from "../../../install/gemini/index.js";
 import {
 	cleanupTempDir,
@@ -125,7 +128,7 @@ describe("Gemini smoke command installer", () => {
 		expect(await exists(result.commandPath)).toBe(false);
 	});
 
-	test("explicit install writes the Gemini smoke and P2 validation extension assets", async () => {
+	test("explicit install writes the Gemini smoke, P2, and boundary validation extension assets", async () => {
 		const result = await expectTaskRight(
 			installGeminiSmokeCommand({
 				dryRun: false,
@@ -143,6 +146,9 @@ describe("Gemini smoke command installer", () => {
 		);
 		expect(GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH).toBe(
 			".gemini/extensions/rp1-phase2-validation/commands/rp1/subagents.toml",
+		);
+		expect(GEMINI_BOUNDARY_COMMAND_RELATIVE_PATH).toBe(
+			".gemini/extensions/rp1-phase2-validation/commands/rp1/boundaries.toml",
 		);
 		expect(GEMINI_ALPHA_AGENT_RELATIVE_PATH).toBe(
 			".gemini/extensions/rp1-phase2-validation/agents/rp1-alpha.md",
@@ -172,6 +178,11 @@ describe("Gemini smoke command installer", () => {
 			).text(),
 		).toBe(GEMINI_SUBAGENT_COMMAND_TOML);
 		expect(
+			await Bun.file(
+				join(tempDir, GEMINI_BOUNDARY_COMMAND_RELATIVE_PATH),
+			).text(),
+		).toBe(GEMINI_BOUNDARY_COMMAND_TOML);
+		expect(
 			await Bun.file(join(tempDir, GEMINI_ALPHA_AGENT_RELATIVE_PATH)).text(),
 		).toBe(GEMINI_ALPHA_AGENT_MARKDOWN);
 		expect(
@@ -182,6 +193,76 @@ describe("Gemini smoke command installer", () => {
 				join(tempDir, GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH),
 			).text(),
 		).toBe(GEMINI_RUNTIME_FAIL_AGENT_MARKDOWN);
+	});
+
+	test("persists mergeable Gemini boundary markdown and JSON evidence", async () => {
+		const first = await writeGeminiBoundaryEvidenceArtifacts({
+			workRoot: tempDir,
+			featureId: "gemini-phase-3",
+			runId: "run-boundary-1",
+			geminiVersion: "gemini 1.2.3",
+			runContext: "manual",
+			scenarios: [
+				{
+					scenario: "trust",
+					mode: "interactive",
+					status: "blocked",
+					state: "requires_trust",
+					blocker: "Workspace trust required.",
+					userAction: "Trust the workspace, then retry.",
+					resumeSupported: true,
+					workflowClasses: [],
+					evidenceArtifactPath: null,
+				},
+			],
+		});
+		const second = await writeGeminiBoundaryEvidenceArtifacts({
+			workRoot: tempDir,
+			featureId: "gemini-phase-3",
+			runId: "run-boundary-2",
+			geminiVersion: "gemini 1.2.4",
+			runContext: "headless",
+			scenarios: [
+				{
+					scenario: "headless_user_gate",
+					mode: "headless",
+					status: "unsupported",
+					state: "headless_unsupported",
+					blocker: "Headless run reached an interactive gate.",
+					userAction: "Complete the gate interactively, then retry.",
+					resumeSupported: false,
+					workflowClasses: [],
+					evidenceArtifactPath: null,
+				},
+			],
+		});
+
+		expect(first.markdownRelativePath).toBe(
+			"features/gemini-phase-3/gemini-boundaries.md",
+		);
+		expect(second.jsonRelativePath).toBe(
+			"features/gemini-phase-3/gemini-boundaries.json",
+		);
+		expect(second.evidence.overallStatus).toBe("blocked");
+		expect(
+			second.evidence.scenarios.map((scenario) => scenario.scenario),
+		).toEqual(["trust", "headless_user_gate"]);
+		expect(
+			second.evidence.scenarios.every(
+				(scenario) =>
+					scenario.evidenceArtifactPath ===
+					"features/gemini-phase-3/gemini-boundaries.md",
+			),
+		).toBe(true);
+		expect(await Bun.file(second.markdownPath).text()).toContain(
+			"Workspace trust required.",
+		);
+		expect(JSON.parse(await Bun.file(second.jsonPath).text())).toMatchObject({
+			featureId: "gemini-phase-3",
+			runId: "run-boundary-2",
+			geminiVersion: "gemini 1.2.4",
+			overallStatus: "blocked",
+		});
 	});
 
 	test("verify reports a missing Gemini binary with install guidance", async () => {

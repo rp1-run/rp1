@@ -1,4 +1,8 @@
 import {
+	GEMINI_BOUNDARY_COMMAND_RELATIVE_PATH,
+	GEMINI_BOUNDARY_COMMAND_TOML,
+} from "./boundary-command.js";
+import {
 	GEMINI_EXTENSION_DISPLAY_DIR,
 	GEMINI_EXTENSION_RELATIVE_DIR,
 	GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
@@ -149,6 +153,12 @@ export const GEMINI_ASSET_MANIFEST = [
 		GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH,
 		"command",
 		GEMINI_SUBAGENT_COMMAND_TOML,
+		["install", "verify", "update", "uninstall"],
+	),
+	asset(
+		GEMINI_BOUNDARY_COMMAND_RELATIVE_PATH,
+		"command",
+		GEMINI_BOUNDARY_COMMAND_TOML,
 		["install", "verify", "update", "uninstall"],
 	),
 	asset(

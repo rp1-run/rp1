@@ -30,7 +30,8 @@ export const GEMINI_EXTENSION_MANIFEST_JSON = `${JSON.stringify(
 	{
 		name: GEMINI_EXTENSION_NAME,
 		version: "1.0.0",
-		description: "Experimental rp1 Gemini smoke and P2 validation assets.",
+		description:
+			"Experimental rp1 Gemini smoke, P2 delegation, and P3 boundary validation assets.",
 	},
 	null,
 	2,

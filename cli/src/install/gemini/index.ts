@@ -165,9 +165,23 @@ export const verifyGeminiSmokeSetup = async (
 	};
 };
 
+export {
+	GEMINI_BOUNDARY_COMMAND_DISPLAY_PATH,
+	GEMINI_BOUNDARY_COMMAND_INVOCATION,
+	GEMINI_BOUNDARY_COMMAND_PROMPT_CONTRACT,
+	GEMINI_BOUNDARY_COMMAND_RELATIVE_PATH,
+	GEMINI_BOUNDARY_COMMAND_TOML,
+} from "./boundary-command.js";
 export type {
 	GeminiBoundaryArtifactRegistration,
 	GeminiBoundaryEvidence,
+	GeminiBoundaryEvidenceArtifactResult,
+	GeminiBoundaryEvidenceCommandResult,
+	GeminiBoundaryEvidenceCommandRunner,
+	GeminiBoundaryEvidenceContext,
+	GeminiBoundaryEvidencePersistOptions,
+	GeminiBoundaryEvidencePersistResult,
+	GeminiBoundaryEvidenceWriteOptions,
 	GeminiBoundaryMode,
 	GeminiBoundaryScenario,
 	GeminiBoundaryScenarioEvidence,
@@ -175,6 +189,7 @@ export type {
 	GeminiBoundaryStatus,
 } from "./boundary-evidence.js";
 export {
+	createGeminiBoundaryEvidence,
 	GEMINI_BOUNDARY_EVIDENCE_SCHEMA_VERSION,
 	GEMINI_BOUNDARY_HARNESS,
 	GEMINI_BOUNDARY_JSON_FILENAME,
@@ -185,6 +200,9 @@ export {
 	GEMINI_BOUNDARY_STATUSES,
 	GEMINI_BOUNDARY_WORKFLOW_NAME,
 	getGeminiBoundaryEvidenceRelativePaths,
+	persistGeminiBoundaryEvidence,
+	renderGeminiBoundaryEvidenceMarkdown,
+	writeGeminiBoundaryEvidenceArtifacts,
 } from "./boundary-evidence.js";
 export type {
 	GeminiAssetContentCheck,

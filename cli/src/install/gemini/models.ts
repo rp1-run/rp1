@@ -1,8 +1,8 @@
 export const GEMINI_EXPERIMENTAL_GUIDANCE =
-	"Gemini CLI support is experimental and limited to smoke plus P2 delegation validation assets.";
+	"Gemini CLI support is experimental and limited to smoke, P2 delegation, and P3 boundary validation assets.";
 
 export const GEMINI_AUTO_INSTALL_SKIP_GUIDANCE =
-	"Gemini CLI is experimental and skipped by automatic install. Run `rp1 install gemini` to install only the /rp1:smoke and /rp1:subagents validation assets.";
+	"Gemini CLI is experimental and skipped by automatic install. Run `rp1 install gemini` to install only the /rp1:smoke, /rp1:subagents, and /rp1:boundaries validation assets.";
 
 export const GEMINI_SMOKE_COMMAND_INVOCATION =
 	"/rp1:smoke FEATURE_ID=<feature-id> RUN_CONTEXT=<label>";
