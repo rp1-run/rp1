@@ -246,6 +246,7 @@ export {
 export {
 	GEMINI_EXTENSION_DISPLAY_DIR,
 	GEMINI_EXTENSION_NAME,
+	GEMINI_EXTENSION_RELATIVE_DIR,
 	GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 	GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
 	GEMINI_SMOKE_COMMAND_TOML,
@@ -291,3 +292,8 @@ export {
 	renderGeminiSubagentEvidenceMarkdown,
 	writeGeminiSubagentEvidenceArtifacts,
 } from "./subagent-evidence.js";
+export type {
+	GeminiUninstallOptions,
+	GeminiUninstallResult,
+} from "./uninstaller.js";
+export { uninstallGeminiExtensionAssets } from "./uninstaller.js";

@@ -12,6 +12,7 @@ import { colorFns } from "../lib/colors.js";
 import { executeUninstall, type UninstallConfig } from "../uninstall/index.js";
 import { uninstallCodexCommand } from "./uninstall-codex.js";
 import { uninstallCopilotCommand } from "./uninstall-copilot.js";
+import { uninstallGeminiCommand } from "./uninstall-gemini.js";
 
 const { bold, dim, cyan } = colorFns;
 
@@ -40,6 +41,7 @@ Examples:
   rp1 uninstall --dry-run       Preview changes without removing
   rp1 uninstall -y              Non-interactive uninstall
   rp1 uninstall -s project      Uninstall project-scoped plugins
+  rp1 uninstall gemini --dry-run Preview Gemini extension asset removal
 `,
 	)
 	.action(async (options, command) => {
@@ -141,6 +143,19 @@ uninstallCommand.addCommand(uninstallCopilotCommand, {
 });
 if (!copilotUninstallEnabled) {
 	uninstallCopilotCommand.action(async () => {
+		process.exit(1);
+	});
+}
+
+const geminiUninstallEnabled = isToolEnabled(
+	TOOLS_REGISTRY as ToolsRegistry,
+	"gemini",
+);
+uninstallCommand.addCommand(uninstallGeminiCommand, {
+	hidden: !geminiUninstallEnabled,
+});
+if (!geminiUninstallEnabled) {
+	uninstallGeminiCommand.action(async () => {
 		process.exit(1);
 	});
 }
