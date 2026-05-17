@@ -20,6 +20,7 @@ import {
 	expectTaskRight,
 	getErrorMessage,
 	withEnvOverride,
+	writeFixture,
 } from "../helpers/index.js";
 
 type InstallCoreModule = typeof import("../../shared/install-core.js");
@@ -738,6 +739,103 @@ describe("install-core tool routing", () => {
 					),
 				).exists(),
 			).toBe(true);
+			expect(
+				await Bun.file(
+					join(
+						homeDir,
+						".gemini",
+						"extensions",
+						"rp1-phase2-validation",
+						"commands",
+						"rp1",
+						"subagents.toml",
+					),
+				).exists(),
+			).toBe(true);
+		} finally {
+			restoreHome();
+			await cleanupTempDir(homeDir);
+		}
+	});
+
+	test("updateForSpecificTool previews stale Gemini manifest refreshes", async () => {
+		const homeDir = await createTempDir("install-core-gemini-update-dry-run");
+		const restoreHome = withEnvOverride("HOME", homeDir);
+
+		try {
+			await writeFixture(
+				homeDir,
+				".gemini/extensions/rp1-phase2-validation/commands/rp1/smoke.toml",
+				"stale smoke command",
+			);
+			const installCore = (await import(
+				`../../shared/install-core.js?gemini-update-dry-run=${Date.now()}`
+			)) as InstallCoreModule;
+			const result = await expectTaskRight(
+				installCore.updateForSpecificTool(
+					"gemini",
+					{ version: "1.0.0", tools: [createGeminiTool()] },
+					createMockContext({ dryRun: true }),
+				),
+			);
+
+			expect(result).toMatchObject({
+				toolId: "gemini",
+				toolName: "Gemini CLI",
+				success: true,
+				restartRequired: false,
+			});
+			expect(result.details?.join("\n")).toContain("Lifecycle state: stale");
+			expect(result.details?.join("\n")).toContain("Would refresh:");
+			expect(
+				await Bun.file(
+					join(
+						homeDir,
+						".gemini",
+						"extensions",
+						"rp1-phase2-validation",
+						"commands",
+						"rp1",
+						"smoke.toml",
+					),
+				).text(),
+			).toBe("stale smoke command");
+		} finally {
+			restoreHome();
+			await cleanupTempDir(homeDir);
+		}
+	});
+
+	test("updateForSpecificTool refreshes stale Gemini manifest assets", async () => {
+		const homeDir = await createTempDir("install-core-gemini-update");
+		const restoreHome = withEnvOverride("HOME", homeDir);
+
+		try {
+			await writeFixture(
+				homeDir,
+				".gemini/extensions/rp1-phase2-validation/commands/rp1/smoke.toml",
+				"stale smoke command",
+			);
+			const installCore = (await import(
+				`../../shared/install-core.js?gemini-update=${Date.now()}`
+			)) as InstallCoreModule;
+			const result = await expectTaskRight(
+				installCore.updateForSpecificTool(
+					"gemini",
+					{ version: "1.0.0", tools: [createGeminiTool()] },
+					createMockContext({ dryRun: false }),
+				),
+			);
+
+			expect(result).toMatchObject({
+				toolId: "gemini",
+				toolName: "Gemini CLI",
+				success: true,
+				restartRequired: true,
+			});
+			expect(result.details?.join("\n")).toContain(
+				"Lifecycle result: refreshed",
+			);
 			expect(
 				await Bun.file(
 					join(

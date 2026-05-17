@@ -21,6 +21,7 @@ import {
 	getEnabledTools,
 	getToolSupportLevel,
 	isToolEnabled,
+	type SupportedTool,
 	type ToolsRegistry,
 } from "../config/supported-tools.js";
 import {
@@ -49,7 +50,10 @@ import {
 import type { CopilotInstallResult } from "../install/copilot/models.js";
 import {
 	GEMINI_AUTO_INSTALL_SKIP_GUIDANCE,
+	GEMINI_EXPERIMENTAL_GUIDANCE,
+	type GeminiManifestRefreshResult,
 	installGeminiSmokeCommand,
+	refreshGeminiManifestAssets,
 } from "../install/gemini/index.js";
 import { writeVersionMarker } from "../install/version-marker.js";
 import { getInstalledVersion } from "../lib/version.js";
@@ -73,7 +77,9 @@ export interface ToolInstallResult {
 	readonly toolName: string;
 	readonly success: boolean;
 	readonly skipped?: boolean;
+	readonly restartRequired?: boolean;
 	readonly pluginsInstalled: readonly string[];
+	readonly details?: readonly string[];
 	readonly warnings: readonly string[];
 	readonly error?: CLIError;
 }
@@ -480,6 +486,143 @@ const installForTool = (
 	});
 };
 
+type SpecificToolLookup =
+	| { readonly tool: SupportedTool }
+	| { readonly error: CLIError };
+
+const lookupSpecificTool = (
+	toolId: string,
+	registry: ToolsRegistry,
+): SpecificToolLookup => {
+	const tool = registry.tools.find((t) => t.id === toolId);
+
+	if (!tool) {
+		const enabledIds = getEnabledTools(registry)
+			.map((t) => `"${t.id}"`)
+			.join(", ");
+		return {
+			error: installError(
+				"invalid-tool",
+				`Unknown tool: ${toolId}. Available tools: ${enabledIds}.`,
+			),
+		};
+	}
+
+	if (!isToolEnabled(registry, toolId)) {
+		return {
+			error: installError(
+				"disabled-tool",
+				`Tool "${toolId}" is currently disabled and cannot be installed.`,
+			),
+		};
+	}
+
+	return { tool };
+};
+
+const formatAssetDisplayList = (
+	assets: readonly { readonly displayPath: string }[],
+): string => assets.map((asset) => asset.displayPath).join(", ");
+
+const geminiUpdateDetails = (
+	result: GeminiManifestRefreshResult,
+): readonly string[] => {
+	if (result.initialStatus.state === "blocked") {
+		return [
+			"Lifecycle stage: update",
+			"Lifecycle state: blocked",
+			`Next action: ${result.initialStatus.userAction}`,
+		];
+	}
+
+	if (result.dryRun && result.refreshableAssets.length > 0) {
+		return [
+			"Lifecycle stage: update",
+			`Lifecycle state: ${result.initialStatus.state}`,
+			`Would refresh: ${formatAssetDisplayList(result.refreshableAssets)}`,
+			"Next action: Run `rp1 update plugins gemini -y` to refresh, then restart Gemini CLI and run `rp1 verify gemini`.",
+		];
+	}
+
+	if (result.refreshedAssets.length > 0) {
+		return [
+			"Lifecycle stage: update",
+			"Lifecycle result: refreshed",
+			`Refreshed: ${formatAssetDisplayList(result.refreshedAssets)}`,
+			"Next action: Restart Gemini CLI, then run `rp1 verify gemini`.",
+		];
+	}
+
+	return [
+		"Lifecycle stage: update",
+		"Lifecycle state: current",
+		`Next action: ${result.finalStatus.userAction}`,
+	];
+};
+
+const failedGeminiUpdateResult = (
+	tool: SupportedTool,
+	error: CLIError,
+): ToolInstallResult => ({
+	toolId: tool.id,
+	toolName: tool.name,
+	success: false,
+	restartRequired: false,
+	pluginsInstalled: [],
+	details: [
+		"Lifecycle stage: update",
+		"Lifecycle state: failed",
+		"Next action: Check file permissions under ~/.gemini/extensions/rp1-phase2-validation, then rerun `rp1 update plugins gemini`.",
+	],
+	warnings: [GEMINI_EXPERIMENTAL_GUIDANCE],
+	error,
+});
+
+export const updateForSpecificTool = (
+	toolId: string,
+	registry: ToolsRegistry,
+	ctx: InstallContext,
+): TE.TaskEither<CLIError, ToolInstallResult> => {
+	const lookup = lookupSpecificTool(toolId, registry);
+	if ("error" in lookup) return TE.left(lookup.error);
+
+	if (lookup.tool.id !== "gemini") {
+		return installForSpecificTool(toolId, registry, ctx);
+	}
+
+	return pipe(
+		refreshGeminiManifestAssets({ dryRun: ctx.dryRun }),
+		TE.map((result): ToolInstallResult => {
+			const blocked = result.initialStatus.state === "blocked";
+			const toolResult = {
+				toolId: lookup.tool.id,
+				toolName: lookup.tool.name,
+				success: !blocked,
+				restartRequired:
+					!ctx.dryRun && !blocked && result.refreshedAssets.length > 0,
+				pluginsInstalled: [],
+				details: geminiUpdateDetails(result),
+				warnings: [GEMINI_EXPERIMENTAL_GUIDANCE],
+			};
+
+			if (!blocked) return toolResult;
+
+			return {
+				...toolResult,
+				error: installError(
+					"gemini-lifecycle-update",
+					result.initialStatus.issue ?? "Gemini lifecycle update blocked.",
+				),
+			};
+		}),
+		TE.orElse((error) =>
+			TE.right<CLIError, ToolInstallResult>(
+				failedGeminiUpdateResult(lookup.tool, error),
+			),
+		),
+	);
+};
+
 /**
  * Detect tools and validate at least one is present.
  * Wraps detectTools to convert from never-failing to CLIError-failing.
@@ -556,28 +699,10 @@ export const installForSpecificTool = (
 	registry: ToolsRegistry,
 	ctx: InstallContext,
 ): TE.TaskEither<CLIError, ToolInstallResult> => {
-	const tool = registry.tools.find((t) => t.id === toolId);
+	const lookup = lookupSpecificTool(toolId, registry);
+	if ("error" in lookup) return TE.left(lookup.error);
 
-	if (!tool) {
-		const enabledIds = getEnabledTools(registry)
-			.map((t) => `"${t.id}"`)
-			.join(", ");
-		return TE.left(
-			installError(
-				"invalid-tool",
-				`Unknown tool: ${toolId}. Available tools: ${enabledIds}.`,
-			),
-		);
-	}
-
-	if (!isToolEnabled(registry, toolId)) {
-		return TE.left(
-			installError(
-				"disabled-tool",
-				`Tool "${toolId}" is currently disabled and cannot be installed.`,
-			),
-		);
-	}
+	const { tool } = lookup;
 
 	if (tool.id === "gemini") {
 		return pipe(

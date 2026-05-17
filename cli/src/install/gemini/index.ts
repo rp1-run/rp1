@@ -213,6 +213,9 @@ export type {
 	GeminiLifecycleStage,
 	GeminiLifecycleState,
 	GeminiLifecycleStatus,
+	GeminiManifestLifecycleOptions,
+	GeminiManifestRefreshOptions,
+	GeminiManifestRefreshResult,
 	GeminiSafeRemovalResult,
 	GeminiSafeRemovalStatus,
 } from "./lifecycle.js";
@@ -227,6 +230,8 @@ export {
 	GEMINI_P3_LIFECYCLE_GAP_CONSTRAINT,
 	GEMINI_SAFE_REMOVAL_RESULTS,
 	getGeminiManifestAsset,
+	getGeminiManifestLifecycleStatus,
+	refreshGeminiManifestAssets,
 } from "./lifecycle.js";
 export type {
 	GeminiAcknowledgementCaveat,
