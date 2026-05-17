@@ -49,8 +49,13 @@ import {
 } from "../install/copilot/index.js";
 import type { CopilotInstallResult } from "../install/copilot/models.js";
 import {
+	GEMINI_ASSET_MANIFEST,
 	GEMINI_AUTO_INSTALL_SKIP_GUIDANCE,
+	GEMINI_BOUNDARY_COMMAND_INVOCATION,
 	GEMINI_EXPERIMENTAL_GUIDANCE,
+	GEMINI_EXTENSION_DISPLAY_DIR,
+	GEMINI_SMOKE_COMMAND_INVOCATION,
+	GEMINI_SUBAGENT_COMMAND_INVOCATION,
 	type GeminiManifestRefreshResult,
 	installGeminiSmokeCommand,
 	refreshGeminiManifestAssets,
@@ -524,6 +529,24 @@ const formatAssetDisplayList = (
 	assets: readonly { readonly displayPath: string }[],
 ): string => assets.map((asset) => asset.displayPath).join(", ");
 
+const geminiValidationScope = (): readonly string[] => [
+	`Smoke command: ${GEMINI_SMOKE_COMMAND_INVOCATION}`,
+	`P2 delegation command: ${GEMINI_SUBAGENT_COMMAND_INVOCATION}`,
+	`P3 boundary command: ${GEMINI_BOUNDARY_COMMAND_INVOCATION}`,
+];
+
+const geminiInstallDetails = (dryRun: boolean): readonly string[] => [
+	`Extension assets: ${GEMINI_EXTENSION_DISPLAY_DIR}`,
+	`Manifest assets: ${GEMINI_ASSET_MANIFEST.length} files`,
+	"Lifecycle stage: install",
+	dryRun
+		? "Lifecycle state: dry_run"
+		: "Lifecycle state: current after successful install",
+	dryRun
+		? "Next action: run `rp1 install gemini`, restart Gemini CLI, then run `rp1 verify gemini --feature-id <feature-id>`."
+		: "Next action: restart Gemini CLI, then run `rp1 verify gemini --feature-id <feature-id>` for manifest and boundary evidence status.",
+];
+
 const geminiUpdateDetails = (
 	result: GeminiManifestRefreshResult,
 ): readonly string[] => {
@@ -712,7 +735,8 @@ export const installForSpecificTool = (
 					toolId: tool.id,
 					toolName: tool.name,
 					success: true,
-					pluginsInstalled: [result.commandDisplayPath],
+					pluginsInstalled: geminiValidationScope(),
+					details: geminiInstallDetails(ctx.dryRun),
 					warnings: result.warnings,
 				}),
 			),

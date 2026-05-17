@@ -23,7 +23,12 @@ import {
 	verifyOpenCodePlugins,
 } from "../../init/steps/verification.js";
 import {
+	GEMINI_BOUNDARY_COMMAND_INVOCATION,
 	GEMINI_DELEGATION_EVIDENCE_REQUIRED_REASON,
+	GEMINI_SMOKE_COMMAND_INVOCATION,
+	GEMINI_SUBAGENT_COMMAND_INVOCATION,
+	type GeminiLifecycleStatus,
+	getGeminiManifestLifecycleStatus,
 	verifyGeminiSmokeSetup,
 } from "../../install/gemini/index.js";
 import { colorFns } from "../../lib/colors.js";
@@ -41,6 +46,113 @@ import { installGeminiSubcommand } from "./gemini.js";
 import { installOpenCodeSubcommand } from "./opencode.js";
 
 const { green, yellow, red, dim, bold } = colorFns;
+
+const geminiLifecycleStatus = (lifecycle: GeminiLifecycleStatus): string => {
+	if (lifecycle.state === "current") return green("[OK]");
+	if (lifecycle.state === "blocked" || lifecycle.state === "stale") {
+		return red("[MISS]");
+	}
+	return yellow("[WARN]");
+};
+
+const geminiLifecycleAssetCounts = (
+	lifecycle: GeminiLifecycleStatus,
+): {
+	readonly current: number;
+	readonly missing: number;
+	readonly stale: number;
+	readonly blocked: number;
+} => ({
+	current: lifecycle.assets.filter((asset) => asset.freshness === "current")
+		.length,
+	missing: lifecycle.assets.filter((asset) => asset.freshness === "missing")
+		.length,
+	stale: lifecycle.assets.filter((asset) => asset.freshness === "stale").length,
+	blocked: lifecycle.assets.filter((asset) => asset.freshness === "unknown")
+		.length,
+});
+
+const printGeminiValidationScope = (): void => {
+	console.log(dim("    - Installed validation scope:"));
+	console.log(dim(`      ${GEMINI_SMOKE_COMMAND_INVOCATION}`));
+	console.log(dim(`      ${GEMINI_SUBAGENT_COMMAND_INVOCATION}`));
+	console.log(dim(`      ${GEMINI_BOUNDARY_COMMAND_INVOCATION}`));
+};
+
+const printGeminiLifecycleVerification = (
+	lifecycle: GeminiLifecycleStatus,
+): void => {
+	const counts = geminiLifecycleAssetCounts(lifecycle);
+	console.log(
+		`  ${geminiLifecycleStatus(lifecycle)} Gemini manifest lifecycle (${dim(lifecycle.state)})`,
+	);
+	console.log(
+		dim(
+			`    - stage=${lifecycle.stage}; assets=${counts.current}/${lifecycle.assets.length} current, ${counts.missing} missing, ${counts.stale} stale, ${counts.blocked} blocked`,
+		),
+	);
+	for (const asset of lifecycle.assets.filter(
+		(asset) => asset.freshness !== "current",
+	)) {
+		console.log(yellow(`    - ${asset.asset.displayPath}: ${asset.freshness}`));
+	}
+	if (lifecycle.issue) {
+		console.log(yellow(`    - ${lifecycle.issue}`));
+	}
+	if (lifecycle.userAction) {
+		console.log(dim(`    - Next action: ${lifecycle.userAction}`));
+	}
+};
+
+async function runGeminiPostInstallVerification(): Promise<boolean> {
+	const geminiResult = await verifyGeminiSmokeSetup();
+	const lifecycleResult = await getGeminiManifestLifecycleStatus({
+		stage: "verify",
+	})();
+	const smokeStatus = geminiResult.verified ? green("[OK]") : yellow("[WARN]");
+
+	console.log(
+		`  ${smokeStatus} Gemini CLI and smoke command (${dim(geminiResult.status)})`,
+	);
+
+	if (E.isLeft(lifecycleResult)) {
+		console.log(
+			`  ${red("[MISS]")} Gemini manifest lifecycle (${dim("failed")})`,
+		);
+		console.log(
+			yellow(
+				`    - ${formatError(lifecycleResult.left, process.stderr.isTTY ?? false)}`,
+			),
+		);
+	} else {
+		printGeminiLifecycleVerification(lifecycleResult.right);
+	}
+
+	console.log(
+		`  ${yellow("[WARN]")} Gemini P2 delegation evidence (${dim("not_run")})`,
+	);
+	console.log(yellow(`    - ${GEMINI_DELEGATION_EVIDENCE_REQUIRED_REASON}`));
+	console.log(
+		`  ${yellow("[WARN]")} Gemini P3 boundary evidence (${dim("not_run")})`,
+	);
+	console.log(
+		yellow(
+			`    - Run ${GEMINI_BOUNDARY_COMMAND_INVOCATION} to record lifecycle, trust, headless, and user-gate boundary evidence.`,
+		),
+	);
+	printGeminiValidationScope();
+
+	for (const issue of geminiResult.issues) {
+		console.log(yellow(`    - ${issue}`));
+	}
+
+	return (
+		geminiResult.verified &&
+		(E.isRight(lifecycleResult)
+			? lifecycleResult.right.state === "current"
+			: false)
+	);
+}
 
 /**
  * Run post-install verification for successfully installed tools.
@@ -71,21 +183,7 @@ async function runPostInstallVerification(
 		}
 
 		if (toolId === "gemini") {
-			const geminiResult = await verifyGeminiSmokeSetup();
-			const status = geminiResult.verified ? green("[OK]") : yellow("[WARN]");
-			console.log(
-				`  ${status} Gemini smoke command (${dim(geminiResult.status)})`,
-			);
-			console.log(
-				`  ${yellow("[WARN]")} Gemini P2 delegation readiness (${dim("not_run")})`,
-			);
-			console.log(
-				yellow(`    - ${GEMINI_DELEGATION_EVIDENCE_REQUIRED_REASON}`),
-			);
-			for (const issue of geminiResult.issues) {
-				console.log(yellow(`    - ${issue}`));
-			}
-			if (!geminiResult.verified) {
+			if (!(await runGeminiPostInstallVerification())) {
 				allVerified = false;
 			}
 			continue;

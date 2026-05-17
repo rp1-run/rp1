@@ -230,6 +230,10 @@ const userActionForState = (state: GeminiLifecycleState): string => {
 		return "Run `rp1 verify gemini` to validate Gemini CLI readiness.";
 	}
 
+	if (state === "removed") {
+		return "Run `rp1 install gemini` before using the experimental Gemini validation commands.";
+	}
+
 	if (state === "blocked") {
 		return "Check file permissions under ~/.gemini/extensions/rp1-phase2-validation, then rerun `rp1 update plugins gemini`.";
 	}
@@ -244,6 +248,8 @@ const issueForState = (state: GeminiLifecycleState): string | null => {
 		return "Gemini extension assets are partially installed.";
 	if (state === "stale")
 		return "Gemini extension assets are stale or locally modified.";
+	if (state === "removed")
+		return "No rp1-owned Gemini extension assets are installed.";
 	if (state === "blocked")
 		return "Gemini lifecycle update is blocked by inaccessible extension assets.";
 	return "Gemini lifecycle route is unsupported before P3.";
@@ -251,6 +257,7 @@ const issueForState = (state: GeminiLifecycleState): string | null => {
 
 const stateForAssets = (
 	assets: readonly GeminiAssetLifecycleStatus[],
+	stage: GeminiLifecycleStage,
 ): GeminiLifecycleState => {
 	if (assets.some((assetStatus) => assetStatus.freshness === "unknown")) {
 		return "blocked";
@@ -261,7 +268,7 @@ const stateForAssets = (
 	}
 
 	if (assets.every((assetStatus) => assetStatus.freshness === "missing")) {
-		return "missing";
+		return stage === "verify" || stage === "uninstall" ? "removed" : "missing";
 	}
 
 	if (assets.some((assetStatus) => assetStatus.freshness === "stale")) {
@@ -325,10 +332,11 @@ const readGeminiManifestLifecycleStatus = async (
 			readAssetLifecycleStatus(homeDir, assetEntry),
 		),
 	);
-	const state = stateForAssets(assets);
+	const stage = options.stage ?? "update";
+	const state = stateForAssets(assets, stage);
 
 	return {
-		stage: options.stage ?? "update",
+		stage,
 		state,
 		assets,
 		issue: issueForState(state),

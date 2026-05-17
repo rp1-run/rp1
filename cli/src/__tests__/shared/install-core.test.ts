@@ -723,9 +723,15 @@ describe("install-core tool routing", () => {
 				toolName: "Gemini CLI",
 				success: true,
 				pluginsInstalled: [
-					"~/.gemini/extensions/rp1-phase2-validation/commands/rp1/smoke.toml",
+					expect.stringContaining("/rp1:smoke"),
+					expect.stringContaining("/rp1:subagents"),
+					expect.stringContaining("/rp1:boundaries"),
 				],
 			});
+			expect(result.details?.join("\n")).toContain("Lifecycle stage: install");
+			expect(result.details?.join("\n")).toContain(
+				"Lifecycle state: current after successful install",
+			);
 			expect(
 				await Bun.file(
 					join(
