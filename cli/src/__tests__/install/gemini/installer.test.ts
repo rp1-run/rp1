@@ -4,12 +4,20 @@ import { join } from "node:path";
 import {
 	GEMINI_ALPHA_AGENT_MARKDOWN,
 	GEMINI_ALPHA_AGENT_RELATIVE_PATH,
+	GEMINI_ASSET_MANIFEST,
 	GEMINI_BETA_AGENT_MARKDOWN,
 	GEMINI_BETA_AGENT_RELATIVE_PATH,
+	GEMINI_BOUNDARY_SCENARIOS,
+	GEMINI_BOUNDARY_STATES,
+	GEMINI_BOUNDARY_STATUSES,
 	GEMINI_EXTENSION_MANIFEST_JSON,
 	GEMINI_EXTENSION_MANIFEST_RELATIVE_PATH,
+	GEMINI_LIFECYCLE_STATES,
+	GEMINI_MANIFEST_OWNED_RELATIVE_PATHS,
+	GEMINI_P3_LIFECYCLE_GAP_CONSTRAINT,
 	GEMINI_RUNTIME_FAIL_AGENT_MARKDOWN,
 	GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH,
+	GEMINI_SAFE_REMOVAL_RESULTS,
 	GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 	GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
 	GEMINI_SMOKE_COMMAND_TOML,
@@ -60,6 +68,47 @@ describe("Gemini smoke command installer", () => {
 		expect(
 			GEMINI_SMOKE_STATUS_DETAILS.registration_failed.remediation,
 		).toContain("Registration Output");
+	});
+
+	test("models the P3 lifecycle manifest and boundary evidence contracts", () => {
+		expect(GEMINI_LIFECYCLE_STATES).toEqual([
+			"current",
+			"missing",
+			"partial",
+			"stale",
+			"removed",
+			"blocked",
+			"unsupported_before_p3",
+		]);
+		expect(GEMINI_SAFE_REMOVAL_RESULTS).toContain("blocked_unowned");
+		expect(GEMINI_P3_LIFECYCLE_GAP_CONSTRAINT).toContain(
+			"named Gemini update and uninstall lifecycle routes are not assumed to exist",
+		);
+		expect(GEMINI_BOUNDARY_SCENARIOS).toContain("headless_user_gate");
+		expect(GEMINI_BOUNDARY_SCENARIOS).toContain("uninstall_lifecycle");
+		expect(GEMINI_BOUNDARY_STATUSES).toEqual([
+			"passed",
+			"degraded",
+			"blocked",
+			"unsupported",
+			"failed",
+			"not_run",
+		]);
+		expect(GEMINI_BOUNDARY_STATES).toContain("requires_trust");
+		expect(GEMINI_BOUNDARY_STATES).toContain("unsupported_before_p3");
+		expect(GEMINI_ASSET_MANIFEST.map((asset) => asset.relativePath)).toEqual(
+			GEMINI_MANIFEST_OWNED_RELATIVE_PATHS,
+		);
+		expect(
+			GEMINI_ASSET_MANIFEST.every(
+				(asset) =>
+					asset.owner === "rp1" &&
+					asset.contentCheck === "exact_content" &&
+					asset.safeRemovalEligible &&
+					asset.lifecycleStages.includes("update") &&
+					asset.lifecycleStages.includes("uninstall"),
+			),
+		).toBe(true);
 	});
 
 	test("dry-run reports the smoke command path without writing", async () => {

@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { installError } from "../../../shared/errors.js";
+import { GEMINI_ASSET_MANIFEST } from "./lifecycle.js";
 import {
 	GEMINI_EXPERIMENTAL_GUIDANCE,
 	type GeminiInstallResult,
@@ -14,20 +15,7 @@ import {
 import {
 	GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 	GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
-	GEMINI_SMOKE_COMMAND_TOML,
 } from "./smoke-command.js";
-import {
-	GEMINI_ALPHA_AGENT_MARKDOWN,
-	GEMINI_ALPHA_AGENT_RELATIVE_PATH,
-	GEMINI_BETA_AGENT_MARKDOWN,
-	GEMINI_BETA_AGENT_RELATIVE_PATH,
-	GEMINI_EXTENSION_MANIFEST_JSON,
-	GEMINI_EXTENSION_MANIFEST_RELATIVE_PATH,
-	GEMINI_RUNTIME_FAIL_AGENT_MARKDOWN,
-	GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH,
-	GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH,
-	GEMINI_SUBAGENT_COMMAND_TOML,
-} from "./subagent-command.js";
 
 export interface GeminiInstallOptions {
 	readonly dryRun: boolean;
@@ -48,15 +36,6 @@ export const getGeminiPaths = (
 	commandFile: join(homeDir, GEMINI_SMOKE_COMMAND_RELATIVE_PATH),
 	commandDisplayPath: GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 });
-
-const GEMINI_EXTENSION_ASSETS = [
-	[GEMINI_EXTENSION_MANIFEST_RELATIVE_PATH, GEMINI_EXTENSION_MANIFEST_JSON],
-	[GEMINI_SMOKE_COMMAND_RELATIVE_PATH, GEMINI_SMOKE_COMMAND_TOML],
-	[GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH, GEMINI_SUBAGENT_COMMAND_TOML],
-	[GEMINI_ALPHA_AGENT_RELATIVE_PATH, GEMINI_ALPHA_AGENT_MARKDOWN],
-	[GEMINI_BETA_AGENT_RELATIVE_PATH, GEMINI_BETA_AGENT_MARKDOWN],
-	[GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH, GEMINI_RUNTIME_FAIL_AGENT_MARKDOWN],
-] as const;
 
 const defaultPathExists = async (targetPath: string): Promise<boolean> => {
 	try {
@@ -106,13 +85,13 @@ export const installGeminiSubagentValidationAssets = (
 				};
 			}
 
-			for (const [relativePath, content] of GEMINI_EXTENSION_ASSETS) {
+			for (const asset of GEMINI_ASSET_MANIFEST) {
 				const assetPath = join(
 					options.homeDir ?? process.env.HOME ?? homedir(),
-					relativePath,
+					asset.relativePath,
 				);
 				await mkdir(dirname(assetPath), { recursive: true });
-				await writeFile(assetPath, content, "utf-8");
+				await writeFile(assetPath, asset.expectedContent, "utf-8");
 			}
 
 			return {
@@ -186,6 +165,51 @@ export const verifyGeminiSmokeSetup = async (
 	};
 };
 
+export type {
+	GeminiBoundaryArtifactRegistration,
+	GeminiBoundaryEvidence,
+	GeminiBoundaryMode,
+	GeminiBoundaryScenario,
+	GeminiBoundaryScenarioEvidence,
+	GeminiBoundaryState,
+	GeminiBoundaryStatus,
+} from "./boundary-evidence.js";
+export {
+	GEMINI_BOUNDARY_EVIDENCE_SCHEMA_VERSION,
+	GEMINI_BOUNDARY_HARNESS,
+	GEMINI_BOUNDARY_JSON_FILENAME,
+	GEMINI_BOUNDARY_MARKDOWN_FILENAME,
+	GEMINI_BOUNDARY_MODES,
+	GEMINI_BOUNDARY_SCENARIOS,
+	GEMINI_BOUNDARY_STATES,
+	GEMINI_BOUNDARY_STATUSES,
+	GEMINI_BOUNDARY_WORKFLOW_NAME,
+	getGeminiBoundaryEvidenceRelativePaths,
+} from "./boundary-evidence.js";
+export type {
+	GeminiAssetContentCheck,
+	GeminiAssetFreshnessStatus,
+	GeminiAssetKind,
+	GeminiAssetLifecycleStatus,
+	GeminiAssetManifestEntry,
+	GeminiLifecycleStage,
+	GeminiLifecycleState,
+	GeminiLifecycleStatus,
+	GeminiSafeRemovalResult,
+	GeminiSafeRemovalStatus,
+} from "./lifecycle.js";
+export {
+	GEMINI_ASSET_CONTENT_CHECKS,
+	GEMINI_ASSET_FRESHNESS_STATUSES,
+	GEMINI_ASSET_KINDS,
+	GEMINI_ASSET_MANIFEST,
+	GEMINI_LIFECYCLE_STAGES,
+	GEMINI_LIFECYCLE_STATES,
+	GEMINI_MANIFEST_OWNED_RELATIVE_PATHS,
+	GEMINI_P3_LIFECYCLE_GAP_CONSTRAINT,
+	GEMINI_SAFE_REMOVAL_RESULTS,
+	getGeminiManifestAsset,
+} from "./lifecycle.js";
 export type {
 	GeminiAcknowledgementCaveat,
 	GeminiAcknowledgementEvidence,
