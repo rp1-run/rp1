@@ -737,7 +737,7 @@ const printGeminiBoundaryReadiness = (
 		console.log(
 			`  ${scenario.scenario.padEnd(20)} ${scenarioColor(scenario.status).padEnd(12)} ${dim(`state=${scenario.state}`)}`,
 		);
-		if (scenario.blocker) {
+		if (scenario.status !== "passed" && scenario.blocker) {
 			console.log(yellow(`    Blocker: ${scenario.blocker}`));
 		}
 		if (scenario.userAction) {

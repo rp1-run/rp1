@@ -248,6 +248,24 @@ const boolValue = (value, fallback) => {
 	return fallback;
 };
 
+const optionalText = (value) => {
+	if (value === undefined || value === null) return undefined;
+	const normalized = String(value).trim();
+	if (!normalized) return null;
+	if (["none", "null", "n/a"].includes(normalized.toLowerCase())) return null;
+	return normalized;
+};
+
+const passedUserAction = (scenario, mode) => {
+	if (scenario === "headless_user_gate") {
+		return "Use this artifact as evidence that headless validation completed after the interaction condition was satisfied.";
+	}
+	if (mode === "lifecycle") {
+		return "Use this artifact as evidence for the recorded Gemini lifecycle boundary result.";
+	}
+	return "Use this artifact as evidence that the Gemini boundary scenario completed.";
+};
+
 const requireAllowed = (label, value, allowed) => {
 	if (allowed.has(value)) return null;
 	return label + " must be one of: " + Array.from(allowed).join(", ");
@@ -616,13 +634,23 @@ const paths = evidencePaths(resolvedFeatureId);
 const markdownPath = path.join(data.directories.workRoot, paths.markdownRelativePath);
 const jsonPath = path.join(data.directories.workRoot, paths.jsonRelativePath);
 const workflowClasses = buildWorkflowClasses(status, paths.markdownRelativePath);
+const explicitBlocker = optionalText(parsed.values.BLOCKER);
+const explicitUserAction = optionalText(parsed.values.USER_ACTION);
 const scenarioEvidence = {
 	scenario,
 	mode,
 	status,
 	state,
-	blocker: parsed.values.BLOCKER || defaults.blocker || null,
-	userAction: parsed.values.USER_ACTION || defaults.userAction || null,
+	blocker: explicitBlocker !== undefined
+		? explicitBlocker
+		: status === "passed"
+			? null
+			: defaults.blocker || null,
+	userAction: explicitUserAction !== undefined
+		? explicitUserAction
+		: status === "passed"
+			? passedUserAction(scenario, mode)
+			: defaults.userAction || null,
 	resumeSupported: boolValue(parsed.values.RESUME_SUPPORTED, defaults.resumeSupported),
 	workflowClasses,
 	evidenceArtifactPath: paths.markdownRelativePath,

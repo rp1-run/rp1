@@ -129,11 +129,11 @@ const boundaryEvidenceJson = (
 				state,
 				blocker:
 					status === "passed"
-						? null
+						? "Stale blocker text should not be printed after the boundary passed."
 						: "Gemini workspace trust blocked shell execution.",
 				userAction:
 					status === "passed"
-						? null
+						? "Use this artifact as passing boundary evidence."
 						: "Trust this workspace in Gemini CLI, then retry the validation command.",
 				resumeSupported: status === "passed",
 				workflowClasses: GEMINI_DEFAULT_WORKFLOW_CLASSIFICATIONS,
@@ -477,6 +477,11 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain("Overall boundaries: passed");
 		expect(result.output).toContain("verify_lifecycle");
 		expect(result.output).toContain("state=current");
+		expect(result.output).not.toContain("Stale blocker text");
+		expect(result.output).not.toContain("Blocker:");
+		expect(result.output).toContain(
+			"Use this artifact as passing boundary evidence.",
+		);
 		expect(result.output).toContain("Gemini experimental smoke command ready");
 		expect(result.output).not.toContain(
 			"Gemini P2 delegation readiness is gated",
