@@ -68,7 +68,7 @@ jobs:
 
       - name: Generate coverage report
         if: ${{ always() && !cancelled() }}
-        run: cd cli && bun test --max-concurrency=1 --coverage 2>&1 | tee coverage.txt || true
+        run: cd cli && bun test --coverage 2>&1 | tee coverage.txt || true
 
       - name: Upload coverage report
         if: ${{ always() && !cancelled() }}
