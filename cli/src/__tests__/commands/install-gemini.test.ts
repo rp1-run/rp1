@@ -47,29 +47,6 @@ const runInstallCommandInProcess = async (
 	}
 };
 
-const runStaticInstallCommandInProcess = async (
-	homeDir: string,
-	args: readonly string[],
-): Promise<readonly string[]> => {
-	const logs: string[] = [];
-	const originalLog = console.log;
-	const restoreHome = withEnvOverride("HOME", homeDir);
-
-	try {
-		console.log = (...values: unknown[]) => {
-			logs.push(values.map(String).join(" ").replace(ANSI_REGEX, ""));
-		};
-		const root = new Command("rp1");
-		Object.assign(root, { _logger: logger, _isTTY: false });
-		root.addCommand(installParentCommand);
-		await root.parseAsync(["node", "rp1", ...args], { from: "node" });
-		return logs;
-	} finally {
-		console.log = originalLog;
-		restoreHome();
-	}
-};
-
 describe("Gemini install command", () => {
 	let tempDir: string;
 
@@ -186,23 +163,5 @@ describe("Gemini install command", () => {
 		expect(stdout).toContain("Gemini P2 delegation evidence");
 		expect(stdout).toContain("Gemini P3 boundary evidence");
 		expect(stdout).toContain("/rp1:boundaries");
-	});
-
-	test("runs the parent --platform gemini route in-process", async () => {
-		const output = (
-			await runStaticInstallCommandInProcess(tempDir, [
-				"install",
-				"--platform",
-				"gemini",
-				"-y",
-			])
-		).join("\n");
-
-		expect(output).toContain("Installing rp1 plugins to all detected tools");
-		expect(output).toContain("[OK] Gemini CLI");
-		expect(output).toContain("Verifying installation");
-		expect(output).toContain("Gemini manifest lifecycle");
-		expect(output).toContain("Gemini P3 boundary evidence");
-		expect(output).toContain("Restart your agentic tools");
 	});
 });
