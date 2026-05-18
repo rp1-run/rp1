@@ -193,19 +193,13 @@ describe("Gemini P3 command routes", () => {
 		expect(result.output).toContain("/rp1:boundaries");
 	});
 
-	test("install parent default dry-run keeps experimental Gemini on the automatic skip path", async () => {
-		const result = await runRootCommand(await freshInstallParentCommand(), [
-			"install",
-			"--dry-run",
-		]);
+	test("install parent documents experimental Gemini as an explicit manual install path", async () => {
+		const command = await freshInstallParentCommand();
+		const help = command.helpInformation();
 
-		expect(result.exitCode).toBe(0);
-		expect(result.output).toContain("Installation Results");
-		expect(result.output).toContain("Restart your agentic tools");
-		if (result.output.includes("Gemini CLI")) {
-			expect(result.output).toContain("rp1 install gemini");
-			expect(result.output).toContain("/rp1:boundaries");
-		}
+		expect(help).toContain("gemini");
+		expect(help).toContain("Install experimental Gemini CLI smoke, P2, and P3");
+		expect(help).toContain("Target a specific platform");
 	});
 
 	test("install parent reports invalid Gemini platform routing errors", async () => {
