@@ -36,6 +36,8 @@ const PLUGINS_BASE = join(CLI_ROOT, "../plugins/base");
  */
 const HOOK_SCRIPT_PATH = join(PLUGINS_BASE, "hooks/check-update.sh");
 
+const SYSTEM_TEST_PATH = ["/usr/bin", "/bin"].join(":");
+
 let testHomeDir: string;
 let configDir: string;
 let cachePath: string;
@@ -48,7 +50,7 @@ const getTestEnv = (): NodeJS.ProcessEnv => ({
 	HOME: testHomeDir,
 	XDG_CONFIG_HOME: join(testHomeDir, ".config"),
 	RP1_BINARY: rp1WrapperPath,
-	PATH: `${testBinDir}:${process.env.PATH ?? ""}`,
+	PATH: `${testBinDir}:${SYSTEM_TEST_PATH}`,
 });
 
 /**
@@ -59,11 +61,15 @@ async function runCliCommand(
 	timeout = 30000,
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
 	return new Promise((resolve, reject) => {
-		const proc = spawn("bun", ["run", join(CLI_ROOT, "src/main.ts"), ...args], {
-			cwd: CLI_ROOT,
-			timeout,
-			env: getTestEnv(),
-		});
+		const proc = spawn(
+			process.execPath,
+			["run", join(CLI_ROOT, "src/main.ts"), ...args],
+			{
+				cwd: CLI_ROOT,
+				timeout,
+				env: getTestEnv(),
+			},
+		);
 
 		let stdout = "";
 		let stderr = "";
@@ -207,11 +213,13 @@ async function createRp1Wrapper(): Promise<void> {
 		rp1WrapperPath,
 		[
 			"#!/bin/sh",
-			`exec bun run "${join(CLI_ROOT, "src/main.ts")}" "$@"`,
+			`exec "${process.execPath}" run "${join(CLI_ROOT, "src/main.ts")}" "$@"`,
 			"",
 		].join("\n"),
 	);
 	await chmod(rp1WrapperPath, 0o755);
+	await writeFile(join(testBinDir, "brew"), "#!/bin/sh\nexit 1\n");
+	await chmod(join(testBinDir, "brew"), 0o755);
 }
 
 describe("integration: version-update", () => {

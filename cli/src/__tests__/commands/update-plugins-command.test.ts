@@ -3,6 +3,10 @@ import { Command } from "commander";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { Logger } from "../../../shared/logger.js";
 import { pluginsSubcommand as realPluginsSubcommand } from "../../commands/update/plugins.js";
+import type {
+	SupportedTool,
+	ToolsRegistry,
+} from "../../config/supported-tools.js";
 import type { InstallContext } from "../../shared/install-core.js";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
 
@@ -27,21 +31,56 @@ const logger: Logger = {
 	box: () => {},
 };
 
+const createRegistryTool = (
+	tool: Pick<SupportedTool, "id" | "name" | "binary" | "instruction_file"> &
+		Partial<SupportedTool>,
+): SupportedTool => ({
+	enabled: true,
+	min_version: "0.0.0",
+	install_url: `https://example.test/${tool.id}`,
+	plugin_install_cmd: null,
+	capabilities: ["plugins"],
+	...tool,
+});
+
 const registry = {
+	version: "1.0",
 	tools: [
-		{
+		createRegistryTool({
+			id: "claude-code",
+			name: "Claude Code",
+			binary: "claude",
+			instruction_file: "CLAUDE.md",
+		}),
+		createRegistryTool({
+			id: "opencode",
+			name: "OpenCode",
+			binary: "opencode",
+			instruction_file: "AGENTS.md",
+		}),
+		createRegistryTool({
 			id: "codex",
 			name: "Codex CLI",
-			enabled: true,
 			binary: "codex",
-			min_version: "0.0.0",
 			instruction_file: "AGENTS.md",
-			install_url: "https://example.test/codex",
-			plugin_install_cmd: null,
-			capabilities: ["plugins"],
-		},
+		}),
+		createRegistryTool({
+			id: "copilot",
+			name: "GitHub Copilot CLI",
+			binary: "gh",
+			instruction_file: "AGENTS.md",
+		}),
+		createRegistryTool({
+			id: "gemini",
+			name: "Gemini CLI",
+			binary: "gemini",
+			instruction_file: "AGENTS.md",
+			supportLevel: "experimental",
+		}),
 	],
-};
+} satisfies ToolsRegistry;
+
+const codexTool = registry.tools.find((tool) => tool.id === "codex")!;
 
 const importPluginsModule = async () =>
 	(await import(
@@ -317,7 +356,7 @@ describe("update plugins command action", () => {
 					detected: [
 						{
 							tool: {
-								...registry.tools[0],
+								...codexTool,
 								id: "gemini",
 								name: "Gemini CLI",
 							},
@@ -364,12 +403,12 @@ describe("update plugins command action", () => {
 					installed: 1,
 					detected: [
 						{
-							tool: registry.tools[0],
+							tool: codexTool,
 							version: "0.1.0",
 							meetsMinVersion: true,
 						},
 						{
-							tool: { ...registry.tools[0], id: "opencode", name: "OpenCode" },
+							tool: { ...codexTool, id: "opencode", name: "OpenCode" },
 							version: "0.9.0",
 							meetsMinVersion: true,
 						},
