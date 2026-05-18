@@ -210,7 +210,7 @@ describe("embedded supported tools registry", () => {
 			{
 				id: "copilot",
 				name: "GitHub Copilot CLI",
-				binary: "gh",
+				binary: "copilot",
 				supportLevel: "stable",
 			},
 			{

@@ -1,10 +1,11 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import {
 	backupCodexInstallation,
+	type CodexInstallerDependencies,
 	copyCodexAgents,
 	copyCodexSkills,
 	previewCodexInstallation,
@@ -50,9 +51,13 @@ describe("codex installer", () => {
 	});
 
 	afterEach(async () => {
-		mock.restore();
 		await cleanupTempDir(tempDir);
 	});
+
+	const importCodexInstaller = async () =>
+		(await import(
+			`../../../install/codex/installer.js?real=${Date.now()}-${Math.random()}`
+		)) as typeof import("../../../install/codex/installer.js");
 
 	const writeCodexArtifacts = async (artifactsDir: string): Promise<void> => {
 		await writeFixture(
@@ -99,47 +104,42 @@ describe("codex installer", () => {
 		);
 	};
 
-	const mockCodexPrerequisites = (paths: CodexPaths): void => {
-		mock.module("../../../install/codex/prerequisites.js", () => ({
-			checkCodexInstalled: () =>
-				TE.right({
-					check: "codex-installed",
-					passed: true,
-					message: "Codex CLI found",
-					value: "codex-cli 0.125.0",
-				}),
-			checkCodexVersion: () =>
-				E.right({
-					check: "codex-version",
-					passed: true,
-					message: "Codex CLI version supported",
-					value: "0.125.0",
-				}),
-			checkWritePermissions: (targetDir: string) =>
-				TE.tryCatch(
-					async () => {
-						await mkdir(targetDir, { recursive: true });
-						return {
-							check: "write-permissions",
-							passed: true,
-							message: `Write permissions OK: ${targetDir}`,
-							value: targetDir,
-						};
-					},
-					() => ({
-						_tag: "PrerequisiteError" as const,
+	const createCodexInstallerDeps = (
+		paths: CodexPaths,
+	): CodexInstallerDependencies => ({
+		checkCodexInstalled: () =>
+			TE.right({
+				check: "codex-installed",
+				passed: true,
+				message: "Codex CLI found",
+				value: "codex-cli 0.125.0",
+			}),
+		checkCodexVersion: () =>
+			E.right({
+				check: "codex-version",
+				passed: true,
+				message: "Codex CLI version supported",
+				value: "0.125.0",
+			}),
+		checkWritePermissions: (targetDir: string) =>
+			TE.tryCatch(
+				async () => {
+					await mkdir(targetDir, { recursive: true });
+					return {
 						check: "write-permissions",
-						message: `Cannot write to ${targetDir}`,
-					}),
-				),
-			getCodexPaths: () => paths,
-		}));
-	};
-
-	const importMockedInstaller = async () =>
-		(await import(
-			`../../../install/codex/installer.js?mocked=${Date.now()}-${Math.random()}`
-		)) as typeof import("../../../install/codex/installer.js");
+						passed: true,
+						message: `Write permissions OK: ${targetDir}`,
+						value: targetDir,
+					};
+				},
+				() => ({
+					_tag: "PrerequisiteError" as const,
+					check: "write-permissions",
+					message: `Cannot write to ${targetDir}`,
+				}),
+			),
+		getCodexPaths: () => paths,
+	});
 
 	describe("validateCodexArtifacts", () => {
 		test("succeeds when all artifacts exist", async () => {
@@ -566,13 +566,12 @@ describe("codex installer", () => {
 				backupDir: join(tempDir, "home", ".codex-rp1-backups"),
 				agentsDir: join(tempDir, "home", ".codex", "agents", "rp1"),
 			};
-			mockCodexPrerequisites(paths);
-
-			const { installCodex } = await importMockedInstaller();
+			const { installCodex } = await importCodexInstaller();
 			const result = await expectTaskRight(
 				installCodex(
 					{ artifactsDir, dryRun: true, yes: true },
 					createMockContext({ skipPrompt: true }),
+					createCodexInstallerDeps(paths),
 				),
 			);
 
@@ -616,13 +615,12 @@ describe("codex installer", () => {
 					},
 				}),
 			);
-			mockCodexPrerequisites(paths);
-
-			const { installCodex } = await importMockedInstaller();
+			const { installCodex } = await importCodexInstaller();
 			const result = await expectTaskRight(
 				installCodex(
 					{ artifactsDir, dryRun: false, yes: true },
 					createMockContext({ skipPrompt: true }),
+					createCodexInstallerDeps(paths),
 				),
 			);
 

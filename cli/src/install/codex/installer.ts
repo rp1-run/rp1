@@ -52,6 +52,20 @@ import {
 	getCodexPaths,
 } from "./prerequisites.js";
 
+export interface CodexInstallerDependencies {
+	readonly checkCodexInstalled: typeof checkCodexInstalled;
+	readonly checkCodexVersion: typeof checkCodexVersion;
+	readonly checkWritePermissions: typeof checkWritePermissions;
+	readonly getCodexPaths: typeof getCodexPaths;
+}
+
+const defaultCodexInstallerDependencies: CodexInstallerDependencies = {
+	checkCodexInstalled,
+	checkCodexVersion,
+	checkWritePermissions,
+	getCodexPaths,
+};
+
 /** Extract plugin names (e.g. "rp1-base") from plugin directory paths. */
 const pluginNamesFromDirs = (dirs: readonly string[]): string[] =>
 	dirs.map((d) => `rp1-${basename(d)}`);
@@ -357,29 +371,32 @@ const collectAgentTomlPaths = async (
 export const installCodex = (
 	config: CodexInstallConfig,
 	ctx: InstallContext,
+	dependencies: CodexInstallerDependencies = defaultCodexInstallerDependencies,
 ): TE.TaskEither<CLIError, CodexInstallResult> => {
 	const isTTY = ctx.isTTY;
 	const spinner = createSpinner(isTTY);
-	const paths = getCodexPaths();
+	const paths = dependencies.getCodexPaths();
 
 	return pipe(
 		TE.Do,
 		TE.chain(() => {
 			spinner.start("Checking Codex prerequisites...");
-			return checkCodexInstalled();
+			return dependencies.checkCodexInstalled();
 		}),
 		TE.chain((prereqResult) => {
-			const versionResult = checkCodexVersion(prereqResult.value ?? "");
+			const versionResult = dependencies.checkCodexVersion(
+				prereqResult.value ?? "",
+			);
 			if (E.isLeft(versionResult)) {
 				spinner.fail("Version check failed");
 				return TE.left<CLIError, void>(versionResult.left);
 			}
 			return TE.right<CLIError, void>(undefined);
 		}),
-		TE.chain(() => checkWritePermissions(paths.skillsDir)),
-		TE.chain(() => checkWritePermissions(paths.agentsDir)),
-		TE.chain(() => checkWritePermissions(paths.backupDir)),
-		TE.chain(() => checkWritePermissions(paths.configDir)),
+		TE.chain(() => dependencies.checkWritePermissions(paths.skillsDir)),
+		TE.chain(() => dependencies.checkWritePermissions(paths.agentsDir)),
+		TE.chain(() => dependencies.checkWritePermissions(paths.backupDir)),
+		TE.chain(() => dependencies.checkWritePermissions(paths.configDir)),
 		TE.chainFirst(() => {
 			spinner.succeed("Codex prerequisites OK");
 			return TE.right(undefined);

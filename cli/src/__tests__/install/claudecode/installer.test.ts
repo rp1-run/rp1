@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { Logger } from "../../../../shared/logger.js";
+import type { ClaudeCodeInstallerDependencies } from "../../../install/claudecode/installer.js";
 import { expectTaskRight } from "../../helpers/index.js";
 
 const createLogger = (): { logger: Logger; messages: string[] } => {
@@ -19,18 +20,14 @@ const createLogger = (): { logger: Logger; messages: string[] } => {
 	return { logger, messages };
 };
 
-const importInstaller = async () =>
+const importClaudeCodeInstaller = async () =>
 	(await import(
-		`../../../install/claudecode/installer.js?coverage=${Date.now()}-${Math.random()}`
+		`../../../install/claudecode/installer.js?real=${Date.now()}-${Math.random()}`
 	)) as typeof import("../../../install/claudecode/installer.js");
 
 describe("claude code installer", () => {
-	afterEach(() => {
-		mock.restore();
-	});
-
 	test("dry-run plugin install and update emit scoped Claude commands", async () => {
-		const { installPlugin, updatePlugin } = await importInstaller();
+		const { installPlugin, updatePlugin } = await importClaudeCodeInstaller();
 		const { logger, messages } = createLogger();
 
 		await expectTaskRight(
@@ -55,14 +52,13 @@ describe("claude code installer", () => {
 	});
 
 	test("dry-run full install creates marketplace flow and records extracted plugins", async () => {
+		const { installAllPlugins } = await importClaudeCodeInstaller();
 		const calls: string[] = [];
-		mock.module("../../../install/claudecode/migration.js", () => ({
+		const installerDeps: ClaudeCodeInstallerDependencies = {
 			migrateFromGitHubMarketplace: () => {
 				calls.push("migrate");
-				return TE.right(undefined);
+				return TE.right(false);
 			},
-		}));
-		mock.module("../../../install/asset-extractor.js", () => ({
 			extractPlatformAssets: () => {
 				calls.push("extract");
 				return TE.right({
@@ -71,11 +67,7 @@ describe("claude code installer", () => {
 					targetDir: "/tmp/rp1-marketplace-test",
 				});
 			},
-		}));
-		mock.module("../../../install/claudecode/marketplace.js", () => ({
-			DEFAULT_MARKETPLACE_DIR: "/tmp/rp1-marketplace-test",
-			MARKETPLACE_NAME: "rp1-local",
-			createLocalMarketplace: (_dir: string, plugins: string[]) => {
+			createLocalMarketplace: (_dir: string, plugins: readonly string[]) => {
 				calls.push(`marketplace:${plugins.join(",")}`);
 				return TE.right({
 					marketplaceDir: "/tmp/rp1-marketplace-test",
@@ -84,24 +76,20 @@ describe("claude code installer", () => {
 			},
 			registerMarketplace: () => {
 				calls.push("register");
-				return TE.right(undefined);
+				return TE.right(true);
 			},
-		}));
-		mock.module("../../../install/version-marker.js", () => ({
 			writeVersionMarker: (tool: string, version: string) => {
 				calls.push(`marker:${tool}:${version}`);
 				return TE.right(undefined);
 			},
-		}));
-		mock.module("../../../lib/version.js", () => ({
 			getInstalledVersion: () => "1.2.3",
-		}));
+			defaultMarketplaceDir: "/tmp/rp1-marketplace-test",
+		};
 
-		const { installAllPlugins } = await importInstaller();
 		const { logger, messages } = createLogger();
 
 		const result = await expectTaskRight(
-			installAllPlugins("project", logger, true, false),
+			installAllPlugins("project", logger, true, false, installerDeps),
 		);
 
 		expect(result).toEqual({
