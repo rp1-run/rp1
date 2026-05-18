@@ -51,10 +51,16 @@ export interface ArcadeCommandDependencies {
 	readonly stopDaemon?: StopDaemon;
 	readonly getStatus?: GetStatus;
 	readonly restartDaemon?: RestartDaemon;
+	readonly isBun?: typeof isBun;
+	readonly nodeSpawn?: typeof spawn;
 }
 
 const openBrowser =
-	(url: string, logger: Logger): T.Task<void> =>
+	(
+		url: string,
+		logger: Logger,
+		dependencies: ArcadeCommandDependencies = {},
+	): T.Task<void> =>
 	async () => {
 		const platform = process.platform;
 		const [command, args]: [string, string[]] =
@@ -67,7 +73,8 @@ const openBrowser =
 		logger.debug(`Opening browser with: ${command} ${args.join(" ")}`);
 
 		try {
-			if (isBun()) {
+			const checkBun = dependencies.isBun ?? isBun;
+			if (checkBun()) {
 				const BunRuntime = globalThis.Bun as typeof Bun;
 				const proc = BunRuntime.spawn([command, ...args], {
 					stdout: "ignore",
@@ -75,7 +82,8 @@ const openBrowser =
 				});
 				await proc.exited;
 			} else {
-				const proc = spawn(command, args, {
+				const spawnProcess = dependencies.nodeSpawn ?? spawn;
+				const proc = spawnProcess(command, args, {
 					detached: true,
 					stdio: "ignore",
 				});
@@ -170,7 +178,7 @@ const executeWithDaemon = (
 
 		if (config.openBrowser) {
 			logger.debug("Opening browser...");
-			await openBrowser(url, logger)();
+			await openBrowser(url, logger, dependencies)();
 			logger.info(`Opened ${url}`);
 		} else {
 			logger.info(`Server running at ${url}`);
@@ -396,7 +404,8 @@ Note: This command requires Bun runtime. Install from https://bun.sh
 		)
 		.action(async (path, options, command) => {
 			// Check for Bun runtime early - the web-ui server requires Bun APIs
-			if (!isBun()) {
+			const checkBun = dependencies.isBun ?? isBun;
+			if (!checkBun()) {
 				console.error(
 					chalk.red("Error: The 'arcade' command requires Bun runtime."),
 				);

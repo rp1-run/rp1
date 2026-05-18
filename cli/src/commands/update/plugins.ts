@@ -17,6 +17,18 @@ import {
 	updateForSpecificTool,
 } from "../../shared/install-core.js";
 
+interface PluginsSubcommandDeps {
+	readonly loadToolsRegistry: typeof loadToolsRegistry;
+	readonly installAllDetectedTools: typeof installAllDetectedTools;
+	readonly updateForSpecificTool: typeof updateForSpecificTool;
+}
+
+const defaultPluginsSubcommandDeps: PluginsSubcommandDeps = {
+	loadToolsRegistry,
+	installAllDetectedTools,
+	updateForSpecificTool,
+};
+
 /**
  * Valid tool identifiers for plugin updates.
  */
@@ -150,17 +162,20 @@ export const formatUpdateAllResult = (
  *   --dry-run  Show what would be done without executing
  *   -y, --yes  Skip confirmation prompts
  */
-export const pluginsSubcommand = new Command("plugins")
-	.description("Update rp1 plugins for agentic tools")
-	.argument(
-		"[tool]",
-		'Tool to update: "all", "claude-code", "opencode", "codex", "copilot", or "gemini" (default: "all")',
-	)
-	.option("--dry-run", "Show what would be done without executing", false)
-	.option("-y, --yes", "Skip confirmation prompts", false)
-	.addHelpText(
-		"after",
-		`
+export const createPluginsSubcommand = (
+	deps: PluginsSubcommandDeps = defaultPluginsSubcommandDeps,
+): Command =>
+	new Command("plugins")
+		.description("Update rp1 plugins for agentic tools")
+		.argument(
+			"[tool]",
+			'Tool to update: "all", "claude-code", "opencode", "codex", "copilot", or "gemini" (default: "all")',
+		)
+		.option("--dry-run", "Show what would be done without executing", false)
+		.option("-y, --yes", "Skip confirmation prompts", false)
+		.addHelpText(
+			"after",
+			`
 Arguments:
   tool  The tool to update plugins for:
         - all          Update plugins for all detected tools (default)
@@ -180,113 +195,119 @@ Examples:
   rp1 update plugins gemini       Refresh Gemini extension assets explicitly
   rp1 update plugins --dry-run    Preview what would be updated
 `,
-	)
-	.action(async (tool: string | undefined, options, command) => {
-		const logger = command.parent?.parent?._logger as Logger | undefined;
-		const isTTY =
-			command.parent?.parent?._isTTY ?? process.stdout.isTTY ?? false;
-		const { bold, dim } = getColorFns(isTTY);
+		)
+		.action(async (tool: string | undefined, options, command) => {
+			const logger = command.parent?.parent?._logger as Logger | undefined;
+			const isTTY =
+				command.parent?.parent?._isTTY ?? process.stdout.isTTY ?? false;
+			const { bold, dim } = getColorFns(isTTY);
 
-		if (!logger) {
-			console.error("Logger not initialized");
-			process.exit(1);
-		}
-
-		const parentOptions = command.parent?.opts?.() ?? {};
-		const dryRun = Boolean(options.dryRun || parentOptions.dryRun);
-		const yes = Boolean(options.yes || parentOptions.yes);
-
-		// Default to "all" if no tool specified
-		const targetTool = tool ?? "all";
-
-		// Validate tool argument
-		if (
-			targetTool !== "all" &&
-			!VALID_TOOLS.includes(targetTool as ValidTool)
-		) {
-			console.error(
-				`Invalid tool: ${targetTool}. Use "all", "claude-code", "opencode", "codex", "copilot", or "gemini".`,
-			);
-			process.exit(1);
-		}
-
-		logger.debug(
-			`Plugin update starting (tool=${targetTool}, dry-run=${dryRun}, yes=${yes})`,
-		);
-
-		// Build installation context
-		const ctx: InstallContext = {
-			logger,
-			isTTY,
-			dryRun,
-			skipPrompt: yes || !isTTY,
-		};
-
-		// Load tools registry
-		const registry = await loadToolsRegistry();
-
-		if (dryRun) {
-			console.log(bold("\nDry run mode - showing what would be done:\n"));
-		}
-
-		let restartTargets: string[] = [];
-
-		if (targetTool === "all") {
-			// Update all detected tools
-			console.log("Detecting installed tools...");
-			const result = await installAllDetectedTools(registry, ctx)();
-
-			if (E.isLeft(result)) {
-				console.error(formatError(result.left, isTTY));
-				process.exit(getExitCode(result.left));
+			if (!logger) {
+				console.error("Logger not initialized");
+				process.exit(1);
 			}
 
-			formatUpdateAllResult(result.right, isTTY);
-			restartTargets = result.right.results
-				.filter(
-					(toolResult) =>
-						toolResult.success && toolResult.restartRequired !== false,
-				)
-				.map((toolResult) => toolResult.toolName);
+			const parentOptions = command.parent?.opts?.() ?? {};
+			const dryRun = Boolean(options.dryRun || parentOptions.dryRun);
+			const yes = Boolean(options.yes || parentOptions.yes);
 
-			// Exit with error if any failed
+			// Default to "all" if no tool specified
+			const targetTool = tool ?? "all";
+
+			// Validate tool argument
 			if (
-				result.right.results.some(
-					(toolResult) => !toolResult.success && !toolResult.skipped,
-				)
+				targetTool !== "all" &&
+				!VALID_TOOLS.includes(targetTool as ValidTool)
 			) {
+				console.error(
+					`Invalid tool: ${targetTool}. Use "all", "claude-code", "opencode", "codex", "copilot", or "gemini".`,
+				);
 				process.exit(1);
 			}
-		} else {
-			// Update specific tool
-			console.log(`Updating plugins for ${targetTool}...`);
-			const result = await updateForSpecificTool(targetTool, registry, ctx)();
 
-			if (E.isLeft(result)) {
-				console.error(formatError(result.left, isTTY));
-				process.exit(getExitCode(result.left));
-			}
-
-			console.log("");
-			formatPluginUpdateResult(result.right, isTTY);
-			restartTargets =
-				result.right.success && result.right.restartRequired !== false
-					? [result.right.toolName]
-					: [];
-
-			if (!result.right.success) {
-				process.exit(1);
-			}
-		}
-
-		if (!dryRun && restartTargets.length > 0) {
-			console.log("");
-			console.log(
-				dim(
-					`Please restart ${formatToolList(restartTargets)} to use the updated plugins.`,
-				),
+			logger.debug(
+				`Plugin update starting (tool=${targetTool}, dry-run=${dryRun}, yes=${yes})`,
 			);
-		}
 
-		process.exit(0);
-	});
+			// Build installation context
+			const ctx: InstallContext = {
+				logger,
+				isTTY,
+				dryRun,
+				skipPrompt: yes || !isTTY,
+			};
+
+			// Load tools registry
+			const registry = await deps.loadToolsRegistry();
+
+			if (dryRun) {
+				console.log(bold("\nDry run mode - showing what would be done:\n"));
+			}
+
+			let restartTargets: string[] = [];
+
+			if (targetTool === "all") {
+				// Update all detected tools
+				console.log("Detecting installed tools...");
+				const result = await deps.installAllDetectedTools(registry, ctx)();
+
+				if (E.isLeft(result)) {
+					console.error(formatError(result.left, isTTY));
+					process.exit(getExitCode(result.left));
+				}
+
+				formatUpdateAllResult(result.right, isTTY);
+				restartTargets = result.right.results
+					.filter(
+						(toolResult) =>
+							toolResult.success && toolResult.restartRequired !== false,
+					)
+					.map((toolResult) => toolResult.toolName);
+
+				// Exit with error if any failed
+				if (
+					result.right.results.some(
+						(toolResult) => !toolResult.success && !toolResult.skipped,
+					)
+				) {
+					process.exit(1);
+				}
+			} else {
+				// Update specific tool
+				console.log(`Updating plugins for ${targetTool}...`);
+				const result = await deps.updateForSpecificTool(
+					targetTool,
+					registry,
+					ctx,
+				)();
+
+				if (E.isLeft(result)) {
+					console.error(formatError(result.left, isTTY));
+					process.exit(getExitCode(result.left));
+				}
+
+				console.log("");
+				formatPluginUpdateResult(result.right, isTTY);
+				restartTargets =
+					result.right.success && result.right.restartRequired !== false
+						? [result.right.toolName]
+						: [];
+
+				if (!result.right.success) {
+					process.exit(1);
+				}
+			}
+
+			if (!dryRun && restartTargets.length > 0) {
+				console.log("");
+				console.log(
+					dim(
+						`Please restart ${formatToolList(restartTargets)} to use the updated plugins.`,
+					),
+				);
+			}
+
+			process.exit(0);
+		});
+
+export const pluginsSubcommand = createPluginsSubcommand();

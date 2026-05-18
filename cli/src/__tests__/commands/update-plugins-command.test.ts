@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { Command } from "commander";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { Logger } from "../../../shared/logger.js";
-import { pluginsSubcommand as realPluginsSubcommand } from "../../commands/update/plugins.js";
+import {
+	createPluginsSubcommand,
+	pluginsSubcommand as realPluginsSubcommand,
+} from "../../commands/update/plugins.js";
 import type {
 	SupportedTool,
 	ToolsRegistry,
@@ -82,20 +85,42 @@ const registry = {
 
 const codexTool = registry.tools.find((tool) => tool.id === "codex")!;
 
-const importPluginsModule = async () =>
-	(await import(
-		`../../commands/update/plugins.js?coverage=${Date.now()}-${Math.random()}`
-	)) as typeof import("../../commands/update/plugins.js");
+const createCommandDeps = (
+	overrides: Partial<Parameters<typeof createPluginsSubcommand>[0]> = {},
+): Parameters<typeof createPluginsSubcommand>[0] => ({
+	loadToolsRegistry: async () => registry,
+	installAllDetectedTools: mock(
+		(_toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
+			TE.right({
+				installed: 0,
+				detected: [],
+				results: [],
+			}),
+	),
+	updateForSpecificTool: mock(
+		(_toolId: string, _toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
+			TE.right({
+				toolId: "codex",
+				toolName: "Codex CLI",
+				success: true,
+				pluginsInstalled: [],
+				warnings: [],
+			}),
+	),
+	...overrides,
+});
 
-const runPluginsCommand = async (argv: string[]): Promise<void> => {
-	const { pluginsSubcommand } = await importPluginsModule();
+const runPluginsCommand = async (
+	argv: string[],
+	deps: Parameters<typeof createPluginsSubcommand>[0] = createCommandDeps(),
+): Promise<void> => {
 	const root = new Command("rp1");
 	const update = new Command("update")
 		.option("--dry-run", "Show what would be done without executing", false)
 		.option("-y, --yes", "Skip confirmation prompts", false);
 	Object.assign(root, { _logger: logger, _isTTY: false });
 	root.addCommand(update);
-	update.addCommand(pluginsSubcommand);
+	update.addCommand(createPluginsSubcommand(deps));
 	await root.parseAsync(["node", "rp1", ...argv], { from: "node" });
 };
 
@@ -185,11 +210,7 @@ describe("update plugins command action", () => {
 
 	test("updates one requested tool with dry-run context", async () => {
 		const updateForSpecificTool = mock(
-			(
-				_toolId: string,
-				_toolsRegistry: typeof registry,
-				_ctx: InstallContext,
-			) =>
+			(_toolId: string, _toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
 				TE.right({
 					toolId: "codex",
 					toolName: "Codex CLI",
@@ -198,16 +219,11 @@ describe("update plugins command action", () => {
 					warnings: [],
 				}),
 		);
-		mock.module("../../config/supported-tools.js", () => ({
-			loadToolsRegistry: async () => registry,
-		}));
-		mock.module("../../shared/install-core.js", () => ({
-			installAllDetectedTools: mock(() => TE.right({})),
-			updateForSpecificTool,
-		}));
-
 		await expect(
-			runPluginsCommand(["update", "plugins", "codex", "--dry-run"]),
+			runPluginsCommand(
+				["update", "plugins", "codex", "--dry-run"],
+				createCommandDeps({ updateForSpecificTool }),
+			),
 		).rejects.toMatchObject({ code: 0 });
 
 		expect(updateForSpecificTool.mock.calls[0]?.[0]).toBe("codex");
@@ -224,11 +240,7 @@ describe("update plugins command action", () => {
 
 	test("honors update-level dry-run when routing plugin updates", async () => {
 		const updateForSpecificTool = mock(
-			(
-				_toolId: string,
-				_toolsRegistry: typeof registry,
-				_ctx: InstallContext,
-			) =>
+			(_toolId: string, _toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
 				TE.right({
 					toolId: "codex",
 					toolName: "Codex CLI",
@@ -237,16 +249,11 @@ describe("update plugins command action", () => {
 					warnings: [],
 				}),
 		);
-		mock.module("../../config/supported-tools.js", () => ({
-			loadToolsRegistry: async () => registry,
-		}));
-		mock.module("../../shared/install-core.js", () => ({
-			installAllDetectedTools: mock(() => TE.right({})),
-			updateForSpecificTool,
-		}));
-
 		await expect(
-			runPluginsCommand(["update", "--dry-run", "plugins", "codex"]),
+			runPluginsCommand(
+				["update", "--dry-run", "plugins", "codex"],
+				createCommandDeps({ updateForSpecificTool }),
+			),
 		).rejects.toMatchObject({ code: 0 });
 
 		expect(updateForSpecificTool.mock.calls[0]?.[2]).toMatchObject({
@@ -257,11 +264,7 @@ describe("update plugins command action", () => {
 
 	test("routes explicit Gemini updates through the named update path", async () => {
 		const updateForSpecificTool = mock(
-			(
-				_toolId: string,
-				_toolsRegistry: typeof registry,
-				_ctx: InstallContext,
-			) =>
+			(_toolId: string, _toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
 				TE.right({
 					toolId: "gemini",
 					toolName: "Gemini CLI",
@@ -276,16 +279,11 @@ describe("update plugins command action", () => {
 					warnings: [],
 				}),
 		);
-		mock.module("../../config/supported-tools.js", () => ({
-			loadToolsRegistry: async () => registry,
-		}));
-		mock.module("../../shared/install-core.js", () => ({
-			installAllDetectedTools: mock(() => TE.right({})),
-			updateForSpecificTool,
-		}));
-
 		await expect(
-			runPluginsCommand(["update", "plugins", "gemini", "--dry-run"]),
+			runPluginsCommand(
+				["update", "plugins", "gemini", "--dry-run"],
+				createCommandDeps({ updateForSpecificTool }),
+			),
 		).rejects.toMatchObject({ code: 0 });
 
 		expect(updateForSpecificTool.mock.calls[0]?.[0]).toBe("gemini");
@@ -312,11 +310,7 @@ describe("update plugins command action", () => {
 
 	test("prints restart guidance for explicit Gemini refreshes that update assets", async () => {
 		const updateForSpecificTool = mock(
-			(
-				_toolId: string,
-				_toolsRegistry: typeof registry,
-				_ctx: InstallContext,
-			) =>
+			(_toolId: string, _toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
 				TE.right({
 					toolId: "gemini",
 					toolName: "Gemini CLI",
@@ -331,16 +325,11 @@ describe("update plugins command action", () => {
 					warnings: [],
 				}),
 		);
-		mock.module("../../config/supported-tools.js", () => ({
-			loadToolsRegistry: async () => registry,
-		}));
-		mock.module("../../shared/install-core.js", () => ({
-			installAllDetectedTools: mock(() => TE.right({})),
-			updateForSpecificTool,
-		}));
-
 		await expect(
-			runPluginsCommand(["update", "plugins", "gemini", "--yes"]),
+			runPluginsCommand(
+				["update", "plugins", "gemini", "--yes"],
+				createCommandDeps({ updateForSpecificTool }),
+			),
 		).rejects.toMatchObject({ code: 0 });
 
 		const output = logs.join("\n");
@@ -350,7 +339,7 @@ describe("update plugins command action", () => {
 
 	test("keeps skipped experimental Gemini update-all as a successful command", async () => {
 		const installAllDetectedTools = mock(
-			(_toolsRegistry: typeof registry, _ctx: InstallContext) =>
+			(_toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
 				TE.right({
 					installed: 0,
 					detected: [
@@ -378,16 +367,11 @@ describe("update plugins command action", () => {
 					],
 				}),
 		);
-		mock.module("../../config/supported-tools.js", () => ({
-			loadToolsRegistry: async () => registry,
-		}));
-		mock.module("../../shared/install-core.js", () => ({
-			installAllDetectedTools,
-			updateForSpecificTool: mock(() => TE.right({})),
-		}));
-
 		await expect(
-			runPluginsCommand(["update", "plugins", "all"]),
+			runPluginsCommand(
+				["update", "plugins", "all"],
+				createCommandDeps({ installAllDetectedTools }),
+			),
 		).rejects.toMatchObject({ code: 0 });
 
 		const output = logs.join("\n");
@@ -398,7 +382,7 @@ describe("update plugins command action", () => {
 
 	test("updates all tools and exits nonzero when any update fails", async () => {
 		const installAllDetectedTools = mock(
-			(_toolsRegistry: typeof registry, _ctx: InstallContext) =>
+			(_toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
 				TE.right({
 					installed: 1,
 					detected: [
@@ -431,16 +415,11 @@ describe("update plugins command action", () => {
 					],
 				}),
 		);
-		mock.module("../../config/supported-tools.js", () => ({
-			loadToolsRegistry: async () => registry,
-		}));
-		mock.module("../../shared/install-core.js", () => ({
-			installAllDetectedTools,
-			updateForSpecificTool: mock(() => TE.right({})),
-		}));
-
 		await expect(
-			runPluginsCommand(["update", "plugins", "all", "--yes"]),
+			runPluginsCommand(
+				["update", "plugins", "all", "--yes"],
+				createCommandDeps({ installAllDetectedTools }),
+			),
 		).rejects.toMatchObject({ code: 1 });
 
 		expect(installAllDetectedTools.mock.calls[0]?.[0]).toBe(registry);
