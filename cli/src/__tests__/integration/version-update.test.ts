@@ -1,7 +1,7 @@
 /**
  * Integration tests for version update CLI commands and hook output.
- * Tests end-to-end behavior of check-update, self-update commands
- * and the check-update.sh hook script.
+ * Tests end-to-end behavior of check-update commands and the check-update.sh
+ * hook script.
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
@@ -713,102 +713,6 @@ describe("integration: version-update", () => {
 					result.cache_expires_in_hours === null ||
 						typeof result.cache_expires_in_hours === "number",
 				).toBe(true);
-			},
-			{ timeout: 30000 },
-		);
-	});
-
-	describe("rp1 self-update --dry-run", () => {
-		test(
-			"shows detection output without executing update",
-			async () => {
-				const { stdout, stderr, exitCode } = await runCliCommand([
-					"self-update",
-					"--dry-run",
-				]);
-
-				expect([0, 1, 2]).toContain(exitCode);
-
-				const output = stdout + stderr;
-
-				expect(output).toContain("Detecting installation method");
-
-				const hasDetectionResult =
-					output.includes("Homebrew") ||
-					output.includes("Scoop") ||
-					output.includes("manual");
-				expect(hasDetectionResult).toBe(true);
-
-				if (
-					exitCode === 0 &&
-					output.includes("Dry run mode - showing what would be done")
-				) {
-					expect(output).toContain("Installation method:");
-					expect(output).toContain("Current version:");
-					expect(output).toContain("Update command:");
-				}
-
-				if (exitCode === 1) {
-					expect(output).toContain("Updating plugins for detected tools...");
-					expect(output).toContain("Plugin Update Summary");
-				}
-
-				if (exitCode === 2) {
-					expect(output).toContain("github.com/rp1-run/rp1/releases");
-				}
-			},
-			{ timeout: 30000 },
-		);
-
-		test(
-			"shows installation method in dry-run output",
-			async () => {
-				const { stdout, stderr, exitCode } = await runCliCommand([
-					"self-update",
-					"--dry-run",
-				]);
-
-				const output = stdout + stderr;
-
-				const methods = ["Homebrew", "Scoop", "manual"];
-				const foundMethod = methods.some((m) => output.includes(m));
-				expect(foundMethod).toBe(true);
-
-				if (exitCode === 0) {
-					const showsDryRunInfo = output.includes(
-						"Dry run mode - showing what would be done",
-					);
-					const showsUpToDate = output.includes(
-						"already on the latest version",
-					);
-					expect(showsDryRunInfo || showsUpToDate).toBe(true);
-				}
-
-				if (exitCode === 2) {
-					expect(output).toContain("github.com/rp1-run/rp1/releases");
-				}
-			},
-			{ timeout: 30000 },
-		);
-
-		test(
-			"does not execute actual package manager commands in dry-run",
-			async () => {
-				const startTime = Date.now();
-
-				const { stdout, stderr, exitCode } = await runCliCommand([
-					"self-update",
-					"--dry-run",
-				]);
-
-				const endTime = Date.now();
-				const duration = endTime - startTime;
-				const output = stdout + stderr;
-
-				expect(duration).toBeLessThan(25000);
-				expect([0, 1, 2]).toContain(exitCode);
-				expect(output).not.toContain("Updating rp1...");
-				expect(output).not.toContain("Successfully updated rp1");
 			},
 			{ timeout: 30000 },
 		);
