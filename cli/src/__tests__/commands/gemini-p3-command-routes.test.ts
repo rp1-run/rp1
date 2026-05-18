@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { Command } from "commander";
-import { installParentCommand } from "../../commands/install/index.js";
 import { uninstallCommand } from "../../commands/uninstall.js";
 import { pluginsSubcommand } from "../../commands/update/plugins.js";
 import { verifyGeminiSubcommand } from "../../commands/verify/gemini.js";
@@ -93,6 +92,13 @@ const runRootCommand = async (
 	}
 };
 
+const freshInstallParentCommand = async (): Promise<Command> => {
+	const module = await import(
+		`../../commands/install/index.js?gemini-p3-routes=${Date.now()}-${Math.random()}`
+	);
+	return module.installParentCommand;
+};
+
 const runUpdatePlugins = async (
 	args: readonly string[],
 ): ReturnType<typeof runRootCommand> => {
@@ -157,7 +163,7 @@ describe("Gemini P3 command routes", () => {
 	});
 
 	test("install parent dry-runs explicit Gemini routing without post-install verification", async () => {
-		const result = await runRootCommand(installParentCommand, [
+		const result = await runRootCommand(await freshInstallParentCommand(), [
 			"install",
 			"--platform",
 			"gemini",
@@ -172,7 +178,7 @@ describe("Gemini P3 command routes", () => {
 	});
 
 	test("install parent verifies explicit Gemini installs through P3 readiness output", async () => {
-		const result = await runRootCommand(installParentCommand, [
+		const result = await runRootCommand(await freshInstallParentCommand(), [
 			"install",
 			"--platform",
 			"gemini",
@@ -188,7 +194,7 @@ describe("Gemini P3 command routes", () => {
 	});
 
 	test("install parent default dry-run keeps experimental Gemini on the automatic skip path", async () => {
-		const result = await runRootCommand(installParentCommand, [
+		const result = await runRootCommand(await freshInstallParentCommand(), [
 			"install",
 			"--dry-run",
 		]);
@@ -203,7 +209,7 @@ describe("Gemini P3 command routes", () => {
 	});
 
 	test("install parent reports invalid Gemini platform routing errors", async () => {
-		const result = await runRootCommand(installParentCommand, [
+		const result = await runRootCommand(await freshInstallParentCommand(), [
 			"install",
 			"--platform",
 			"missing-gemini",
