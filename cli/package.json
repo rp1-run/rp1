@@ -50,7 +50,7 @@
 		"lint:fix": "biome check --write .",
 		"format": "biome format .",
 		"format:fix": "biome format --write .",
-		"test": "bun test",
+		"test": "bun test --max-concurrency=1",
 		"test:unit": "find src/__tests__ -name '*.test.ts' ! -path '*integration*' -print0 | xargs -0 bun test",
 		"test:integration": "find src/__tests__ -name '*.test.ts' -path '*integration*' -print0 | xargs -0 bun test",
 		"test:smoke:web-ui": "bun run scripts/runtime-reliability-smoke.ts",

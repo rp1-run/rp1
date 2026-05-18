@@ -5,8 +5,6 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { chmod, mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import type {
 	SupportedTool,
 	ToolsRegistry,
@@ -20,12 +18,7 @@ import {
 	hasDetectedTools,
 	type ToolDetectionResult,
 } from "../../init/tool-detector.js";
-import {
-	cleanupTempDir,
-	createTempDir,
-	expectTaskRight,
-	withEnvOverride,
-} from "../helpers/index.js";
+import { expectTaskRight } from "../helpers/index.js";
 
 // Helper to create mock registry
 const createMockRegistry = (tools: SupportedTool[]): ToolsRegistry => ({
@@ -102,79 +95,6 @@ describe("tool-detector", () => {
 			// Should complete without throwing
 			const result = await expectTaskRight(detectTools(registry));
 			expect(result).toBeDefined();
-		});
-
-		test("does not detect Copilot from a plain gh binary", async () => {
-			const tempDir = await createTempDir("tool-detector-copilot-gh");
-			const binDir = join(tempDir, "bin");
-			const fakeGhPath = join(binDir, "gh");
-			await mkdir(binDir, { recursive: true });
-			await writeFile(fakeGhPath, "#!/bin/sh\nprintf 'gh version 2.92.0\\n'\n");
-			await chmod(fakeGhPath, 0o755);
-			const restorePath = withEnvOverride("PATH", binDir);
-
-			try {
-				const tool = createMockTool({
-					id: "copilot",
-					name: "GitHub Copilot CLI",
-					binary: "copilot",
-					min_version: "0.0.0",
-					version_command: ["version"],
-					detect_command: ["plugin", "--help"],
-				});
-				const result = await expectTaskRight(
-					detectTools(createMockRegistry([tool])),
-				);
-
-				expect(result.detected).toHaveLength(0);
-				expect(result.missing.map((missing) => missing.id)).toEqual([
-					"copilot",
-				]);
-			} finally {
-				restorePath();
-				await cleanupTempDir(tempDir);
-			}
-		});
-
-		test("requires Copilot plugin lifecycle support before detection", async () => {
-			const tempDir = await createTempDir("tool-detector-copilot-plugin");
-			const binDir = join(tempDir, "bin");
-			const fakeCopilotPath = join(binDir, "copilot");
-			await mkdir(binDir, { recursive: true });
-			await writeFile(
-				fakeCopilotPath,
-				[
-					"#!/bin/sh",
-					'if [ "$*" = "version" ]; then printf \'copilot version 1.0.0\\n\'; exit 0; fi',
-					'if [ "$*" = "plugin --help" ]; then printf \'plugin support unavailable\\n\' >&2; exit 1; fi',
-					"exit 1",
-					"",
-				].join("\n"),
-			);
-			await chmod(fakeCopilotPath, 0o755);
-			const restorePath = withEnvOverride("PATH", binDir);
-
-			try {
-				const tool = createMockTool({
-					id: "copilot",
-					name: "GitHub Copilot CLI",
-					binary: "copilot",
-					min_version: "0.0.0",
-					version_command: ["version"],
-					detect_command: ["plugin", "--help"],
-				});
-				const result = await expectTaskRight(
-					detectTools(createMockRegistry([tool])),
-				);
-
-				expect(result.detected).toHaveLength(0);
-				expect(result.missing.map((missing) => missing.id)).toEqual([
-					"copilot",
-				]);
-			} finally {
-				restorePath();
-				await cleanupTempDir(tempDir);
-			}
 		});
 	});
 

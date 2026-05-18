@@ -14,7 +14,14 @@ const forwardedArgs = process.argv
 	.slice(2)
 	.filter((arg) => arg !== "--coverage");
 const reporterArgs = coverageReporterArgs(forwardedArgs);
-const testArgs = ["test", "--coverage", ...reporterArgs, ...forwardedArgs];
+const concurrencyArgs = maxConcurrencyArgs(forwardedArgs);
+const testArgs = [
+	"test",
+	"--coverage",
+	...concurrencyArgs,
+	...reporterArgs,
+	...forwardedArgs,
+];
 
 const testProcess = Bun.spawn(["bun", ...testArgs], {
 	stdout: "inherit",
@@ -64,6 +71,13 @@ function coverageReporterArgs(args: readonly string[]): string[] {
 	}
 
 	return defaults;
+}
+
+function maxConcurrencyArgs(args: readonly string[]): string[] {
+	if (args.some((arg) => arg === "--max-concurrency")) return [];
+	if (args.some((arg) => arg.startsWith("--max-concurrency="))) return [];
+
+	return ["--max-concurrency=1"];
 }
 
 function extractCoverageReporters(args: readonly string[]): string[] {
