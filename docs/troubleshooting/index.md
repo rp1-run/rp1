@@ -10,7 +10,8 @@ Find the symptom you are seeing, then follow the shortest recovery path.
 |---------|------------|
 | `rp1` command is missing | [CLI install problems](#cli-install-problems) |
 | Host commands do not appear | [Host integration problems](#host-integration-problems) |
-| Codex or Copilot behaves differently | [Host-specific recovery](#host-specific-recovery) |
+| Codex, Copilot, or Gemini validation behaves differently | [Host-specific recovery](#host-specific-recovery) |
+| Gemini reports missing or stale assets, trust, approval, acknowledgement, or headless blockers | [Gemini CLI](#gemini-cli) |
 | Agent guesses wrong paths or patterns | [Project context problems](#project-context-problems) |
 | A workflow is waiting, stuck, or too broad | [Workflow recovery](#workflow-recovery) |
 | Arcade does not show the run or artifact | [Arcade problems](#arcade-problems) |
@@ -57,6 +58,15 @@ rp1 install opencode
 rp1 install codex
 rp1 install copilot
 ```
+
+Gemini is optional and experimental. Verify it only when you are intentionally
+collecting Gemini validation evidence:
+
+```bash
+rp1 verify gemini --feature-id <feature-id>
+```
+
+Use a stable host when Gemini reports a degraded or unsupported workflow class.
 
 ---
 
@@ -133,6 +143,24 @@ For Copilot, the target verification result is `healthy_native`.
 
 See the [Copilot CLI platform guide](../reference/platforms/copilot.md) for the
 full Copilot setup and recovery path.
+
+### Gemini CLI
+
+Gemini CLI is an opt-in experimental validation surface. It is not part of the
+default stable-host setup path, and Gemini limitations do not downgrade Claude
+Code, OpenCode, Codex, or GitHub Copilot CLI support.
+
+| Symptom | Recovery |
+|---------|----------|
+| Gemini CLI is missing | Install Gemini CLI only if you intend to validate Gemini, then run `gemini --version`. |
+| Validation assets are missing, partial, or stale | Run `rp1 install gemini` or `rp1 update plugins gemini`, restart Gemini CLI, then verify again. |
+| Gemini asks to trust the workspace | Trust the intended repository interactively, or rerun the workflow on a stable host. |
+| Gemini asks for tool approval | Approve the action interactively when appropriate; do not assume unattended resume. |
+| Gemini reports new agents | Acknowledge and enable the agent, then rerun the validation command. |
+| Headless validation stops | Rerun interactively or keep the row `degraded` or `unsupported` in the support matrix. |
+
+See the [Gemini CLI platform guide](../reference/platforms/gemini.md) for the
+support matrix, validation checklist, and lifecycle recovery details.
 
 ---
 
@@ -319,4 +347,5 @@ When reporting an issue, include:
 - [init Reference](../reference/cli/init.md)
 - [install Reference](../reference/cli/install.md)
 - [Copilot CLI Platform Guide](../reference/platforms/copilot.md)
+- [Gemini CLI Platform Guide](../reference/platforms/gemini.md)
 - [Team Onboarding](../guides/team-onboarding.md)

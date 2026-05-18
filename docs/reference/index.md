@@ -63,6 +63,7 @@ available when you need the complete command list.
 | Need | Reference |
 |------|-----------|
 | GitHub Copilot CLI setup and verification | [GitHub Copilot CLI](platforms/copilot.md) |
+| Experimental Gemini CLI validation boundary | [Gemini CLI](platforms/gemini.md) |
 | CI/CD integration path | [CI/CD Integration](../guides/ci-cd-integration.md) |
 | Remote PR review from automation | [Remote PR Review](../guides/remote-pr-review.md) |
 | PR review configuration file | [`pr-review.yaml`](pr-review-config.md) |

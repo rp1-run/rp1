@@ -58,6 +58,23 @@ const extractBootstrapTarget = (
 	};
 };
 
+describe("build platform support", () => {
+	test("keeps Gemini out of first-class build-platform parity", () => {
+		const platformIds = Array.from(PLATFORM_DEFINITIONS.keys()).sort();
+
+		expect(platformIds).toEqual([
+			"claude-code",
+			"codex",
+			"copilot",
+			"opencode",
+		]);
+		expect(platformIds as readonly string[]).not.toContain("gemini");
+		expect(expectLeft(parseBuildArgs(["--platform", "gemini"]))).toMatchObject({
+			_tag: "UsageError",
+		});
+	});
+});
+
 describe("parseBuildArgs", () => {
 	test("accepts equals and separated forms for output, plugin, platform, and mode flags", () => {
 		expect(

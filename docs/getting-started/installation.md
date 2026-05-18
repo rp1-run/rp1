@@ -20,6 +20,12 @@ Before you begin, make sure you have:
 | Codex | [Codex CLI](https://github.com/openai/codex) | `$rp1-base-knowledge-build` | Install the Codex integration after `rp1 init`. |
 | GitHub Copilot CLI | [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli) | `/rp1-base-knowledge-build` | Requires standalone Copilot CLI with plugin support. |
 
+Gemini CLI is available only as an optional experimental validation surface. It
+is not required for normal setup, and it is not part of the default stable-host
+workflow path. See the
+[Gemini CLI platform guide](../reference/platforms/gemini.md) when you
+intentionally want to validate Gemini.
+
 ---
 
 ## Step 1: Install the rp1 CLI
@@ -93,6 +99,9 @@ rp1 init --yes
 | GitHub Copilot CLI | Yes | `AGENTS.md` | Offered automatically |
 | Codex | Yes | `AGENTS.md` | Run `rp1 install codex` after `init` |
 
+Gemini is not installed by the default `init` path. Use the explicit Gemini
+commands below only when collecting experimental validation evidence.
+
 ---
 
 ## Step 3: Install or Repair a Host Integration
@@ -107,11 +116,21 @@ rp1 install codex
 rp1 install copilot
 ```
 
+For optional Gemini validation assets:
+
+```bash
+rp1 install gemini
+```
+
 You can also install into every detected supported host:
 
 ```bash
 rp1 install
 ```
+
+The default install command skips Gemini. It installs stable host integrations
+only; use `rp1 install gemini` when you deliberately want the experimental
+validation commands.
 
 Verify a specific host:
 
@@ -122,10 +141,22 @@ rp1 verify codex
 rp1 verify copilot
 ```
 
+Verify Gemini only when you are validating that experimental surface:
+
+```bash
+rp1 verify gemini
+rp1 verify gemini --feature-id <feature-id>
+```
+
 For GitHub Copilot CLI, the clean success signal is `rp1 verify copilot`
 reporting `healthy_native`. See the
 [Copilot CLI platform guide](../reference/platforms/copilot.md) for Copilot
 verification states and recovery steps.
+
+For Gemini CLI, verification reports experimental validation-asset lifecycle
+states and boundary evidence. See the
+[Gemini CLI platform guide](../reference/platforms/gemini.md) before relying on
+any Gemini workflow class.
 
 ---
 
@@ -133,6 +164,9 @@ verification states and recovery steps.
 
 Restart Claude Code, OpenCode, Codex, or GitHub Copilot CLI after installation or
 updates so it reloads rp1.
+
+If you installed or refreshed Gemini validation assets, restart Gemini CLI
+before running the experimental `/rp1:...` validation commands.
 
 ---
 
@@ -192,6 +226,7 @@ goal.
 | Host commands do not appear | Restart the host and run the matching `rp1 verify ...` command. |
 | Codex does not show rp1 commands | Run `rp1 install codex`, then restart Codex. |
 | Copilot verification is not `healthy_native` | Follow [Copilot recovery](../reference/platforms/copilot.md#troubleshooting). |
+| Gemini reports missing or stale validation assets, trust, approval, or acknowledgement gates | Follow [Gemini validation recovery](../reference/platforms/gemini.md#limitations-and-user-actions). |
 | First workflow is using stale project details | Re-run the project context command from Step 5. |
 
 More recovery paths are grouped by symptom in

@@ -1,6 +1,7 @@
 # install
 
-Install rp1 plugins for supported host tools.
+Install rp1 plugins for supported host tools and optional experimental
+validation assets.
 
 ---
 
@@ -12,8 +13,9 @@ rp1 install <subcommand> [options]
 
 ## Description
 
-Use `rp1 install` when you want to install or refresh rp1 for a specific host
-tool, or for every detected host on the machine.
+Use `rp1 install` when you want to install or refresh rp1 for a specific stable
+host tool, or for every detected stable host on the machine. Gemini CLI is an
+explicit experimental validation target and is skipped by default setup.
 
 Supported targets:
 
@@ -76,7 +78,8 @@ Installs experimental Gemini CLI extension assets for validation only. This
 target installs the `/rp1:smoke` smoke command and the `/rp1:subagents` P2
 delegation validation command, plus the `/rp1:boundaries` P3 trust, headless,
 user-gate, and lifecycle boundary command. It does not enable first-class
-Gemini workflow support.
+Gemini workflow support. Review the
+[Gemini CLI platform guide](../platforms/gemini.md) before using these assets.
 
 ### `install all`
 
@@ -233,7 +236,8 @@ facts for the later support matrix rather than first-class support claims.
 Gemini may still require workspace trust, shell approval, or project agent
 acknowledgement when validation commands run. rp1 reports those as boundary
 states and remediation actions; it does not grant trust or approval
-automatically.
+automatically. The [Gemini CLI platform guide](../platforms/gemini.md) explains
+which workflow classes remain experimental, degraded, or unsupported.
 
 ## Listing Installed Skills
 
@@ -319,4 +323,5 @@ ls -la ~/.rp1/copilot/
 ## See Also
 
 - [Installation Guide](../../getting-started/installation.md)
+- [Gemini CLI Platform Guide](../platforms/gemini.md)
 - [update](update.md)

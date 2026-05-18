@@ -114,6 +114,7 @@ nav:
       - self-update: reference/base/self-update.md
     - Platform Support:
       - GitHub Copilot CLI Setup: reference/platforms/copilot.md
+      - Gemini CLI Experimental Guide: reference/platforms/gemini.md
     - Ship Code Reference:
       - Overview: reference/dev/index.md
       - build: reference/dev/build.md

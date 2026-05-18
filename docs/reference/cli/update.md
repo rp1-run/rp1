@@ -97,7 +97,9 @@ results:
 Use `--dry-run` to preview the files that would be refreshed. Automatic
 `rp1 update plugins` or `rp1 update plugins all` skips Gemini because the
 Gemini CLI path is still experimental; use the explicit `gemini` target when
-you want to refresh those validation assets.
+you want to refresh those validation assets. The
+[Gemini CLI platform guide](../platforms/gemini.md) explains the experimental
+support matrix and stale-asset recovery boundary.
 
 ## Safety
 
@@ -142,4 +144,5 @@ rp1 verify gemini --feature-id <feature-id>
 
 - [install](install.md)
 - [uninstall](uninstall.md)
+- [Gemini CLI Platform Guide](../platforms/gemini.md)
 - [Troubleshooting](../../troubleshooting/index.md)

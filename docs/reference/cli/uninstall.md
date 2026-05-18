@@ -51,6 +51,10 @@ It removes manifest-owned validation assets for `/rp1:smoke`,
 `/rp1:subagents`, `/rp1:boundaries`, and the rp1 validation agents only when
 their contents still match the current rp1 manifest.
 
+Gemini uninstall affects only this opt-in experimental validation surface. It
+does not remove or downgrade stable Claude Code, OpenCode, Codex, or GitHub
+Copilot CLI integrations.
+
 ## Gemini Safety Rules
 
 | Case | Behavior |
@@ -75,6 +79,9 @@ The expected post-removal lifecycle state is `removed` or another inactive state
 that points back to `rp1 install gemini` as the setup action. A removed Gemini
 extension is not a first-class Gemini support failure; it means the experimental
 validation assets are no longer installed.
+
+See the [Gemini CLI platform guide](../platforms/gemini.md) for the support
+matrix and removal-lifecycle limitations.
 
 ## Options
 
@@ -110,4 +117,5 @@ printed file-permission issue and retry uninstall.
 
 - [install](install.md)
 - [update](update.md)
+- [Gemini CLI Platform Guide](../platforms/gemini.md)
 - [Fence Versioning](fence-versioning.md)
