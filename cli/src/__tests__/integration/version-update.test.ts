@@ -5,7 +5,6 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import {
 	chmod,
@@ -38,6 +37,12 @@ const HOOK_SCRIPT_PATH = join(PLUGINS_BASE, "hooks/check-update.sh");
 
 const SYSTEM_TEST_PATH = ["/usr/bin", "/bin"].join(":");
 
+interface CommandResult {
+	readonly stdout: string;
+	readonly stderr: string;
+	readonly exitCode: number;
+}
+
 let testHomeDir: string;
 let configDir: string;
 let cachePath: string;
@@ -56,44 +61,82 @@ const getTestEnv = (): NodeJS.ProcessEnv => ({
 /**
  * Run a CLI command and return stdout, stderr, and exit code.
  */
+async function runCapturedProcess(
+	command: string,
+	args: string[],
+	options: {
+		readonly cwd: string;
+		readonly env: NodeJS.ProcessEnv;
+		readonly input?: string;
+		readonly timeout: number;
+	},
+): Promise<CommandResult> {
+	const proc = Bun.spawn([command, ...args], {
+		cwd: options.cwd,
+		env: options.env,
+		stdin: options.input === undefined ? "ignore" : "pipe",
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	if (options.input !== undefined) {
+		const stdin = proc.stdin;
+		if (!stdin) {
+			throw new Error("Expected subprocess stdin pipe");
+		}
+		stdin.write(options.input);
+		stdin.end();
+	}
+
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
+	const completed = Promise.all([
+		proc.exited,
+		new Response(proc.stdout).text(),
+		new Response(proc.stderr).text(),
+	] as const);
+	const timeoutResult = new Promise<null>((resolve) => {
+		timeoutId = setTimeout(() => resolve(null), options.timeout);
+		timeoutId.unref?.();
+	});
+
+	const result = await Promise.race([completed, timeoutResult]);
+	if (result === null) {
+		proc.kill("SIGTERM");
+		const forceKill = setTimeout(() => proc.kill("SIGKILL"), 1000);
+		forceKill.unref?.();
+		const [, stdout, stderr] = await completed;
+		clearTimeout(forceKill);
+		return {
+			stdout: stdout.trim(),
+			stderr:
+				`${stderr.trim()}\nTimed out after ${options.timeout}ms: ${command} ${args.join(" ")}`.trim(),
+			exitCode: 124,
+		};
+	}
+
+	if (timeoutId) {
+		clearTimeout(timeoutId);
+	}
+	const [exitCode, stdout, stderr] = result;
+	return {
+		stdout: stdout.trim(),
+		stderr: stderr.trim(),
+		exitCode,
+	};
+}
+
 async function runCliCommand(
 	args: string[],
 	timeout = 30000,
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-	return new Promise((resolve, reject) => {
-		const proc = spawn(
-			process.execPath,
-			["run", join(CLI_ROOT, "src/main.ts"), ...args],
-			{
-				cwd: CLI_ROOT,
-				timeout,
-				env: getTestEnv(),
-			},
-		);
-
-		let stdout = "";
-		let stderr = "";
-
-		proc.stdout.on("data", (data) => {
-			stdout += data.toString();
-		});
-
-		proc.stderr.on("data", (data) => {
-			stderr += data.toString();
-		});
-
-		proc.on("close", (code) => {
-			resolve({
-				stdout: stdout.trim(),
-				stderr: stderr.trim(),
-				exitCode: code ?? 1,
-			});
-		});
-
-		proc.on("error", (error) => {
-			reject(error);
-		});
-	});
+): Promise<CommandResult> {
+	return runCapturedProcess(
+		process.execPath,
+		["run", join(CLI_ROOT, "src/main.ts"), ...args],
+		{
+			cwd: CLI_ROOT,
+			env: getTestEnv(),
+			timeout,
+		},
+	);
 }
 
 /**
@@ -102,39 +145,19 @@ async function runCliCommand(
 async function runHookScript(
 	input: object,
 	timeout = 10000,
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-	return new Promise((resolve, reject) => {
-		const proc = spawn(HOOK_SCRIPT_PATH, [], {
-			cwd: PLUGINS_BASE,
-			timeout,
-			env: getTestEnv(),
-		});
+): Promise<CommandResult> {
+	return runHookScriptRaw(JSON.stringify(input), timeout);
+}
 
-		let stdout = "";
-		let stderr = "";
-
-		proc.stdout.on("data", (data) => {
-			stdout += data.toString();
-		});
-
-		proc.stderr.on("data", (data) => {
-			stderr += data.toString();
-		});
-
-		proc.on("close", (code) => {
-			resolve({
-				stdout: stdout.trim(),
-				stderr: stderr.trim(),
-				exitCode: code ?? 1,
-			});
-		});
-
-		proc.on("error", (error) => {
-			reject(error);
-		});
-
-		proc.stdin.write(JSON.stringify(input));
-		proc.stdin.end();
+async function runHookScriptRaw(
+	input: string,
+	timeout = 10000,
+): Promise<CommandResult> {
+	return runCapturedProcess(HOOK_SCRIPT_PATH, [], {
+		cwd: PLUGINS_BASE,
+		env: getTestEnv(),
+		input,
+		timeout,
 	});
 }
 
@@ -611,24 +634,8 @@ describe("integration: version-update", () => {
 		test(
 			"exits gracefully with invalid JSON input",
 			async () => {
-				const proc = spawn(HOOK_SCRIPT_PATH, [], {
-					cwd: PLUGINS_BASE,
-					timeout: 10000,
-					env: getTestEnv(),
-				});
-
-				return new Promise<void>((resolve) => {
-					let exitCode: number | null = null;
-
-					proc.on("close", (code) => {
-						exitCode = code;
-						expect(exitCode).toBe(0);
-						resolve();
-					});
-
-					proc.stdin.write("{ invalid json }}}");
-					proc.stdin.end();
-				});
+				const { exitCode } = await runHookScriptRaw("{ invalid json }}}");
+				expect(exitCode).toBe(0);
 			},
 			{ timeout: 30000 },
 		);
