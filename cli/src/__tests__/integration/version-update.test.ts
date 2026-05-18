@@ -103,12 +103,10 @@ async function runCapturedProcess(
 		proc.kill("SIGTERM");
 		const forceKill = setTimeout(() => proc.kill("SIGKILL"), 1000);
 		forceKill.unref?.();
-		const [, stdout, stderr] = await completed;
-		clearTimeout(forceKill);
+		void completed.finally(() => clearTimeout(forceKill));
 		return {
-			stdout: stdout.trim(),
-			stderr:
-				`${stderr.trim()}\nTimed out after ${options.timeout}ms: ${command} ${args.join(" ")}`.trim(),
+			stdout: "",
+			stderr: `Timed out after ${options.timeout}ms: ${command} ${args.join(" ")}`,
 			exitCode: 124,
 		};
 	}
