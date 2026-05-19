@@ -2,6 +2,16 @@
 
 Common multi-skill sequences in rp1. Each workflow describes when to use it, the skill chain, and how outputs connect.
 
+## Host Support Boundary
+
+Claude Code, OpenCode, Codex CLI, and GitHub Copilot CLI remain the supported
+hosts for the workflow sequences below. Gemini CLI receives generated bundle
+assets and a support matrix, but the current generated Gemini matrix has 0
+supported workflow rows and 15 product-owned unsupported rows. If a user asks to
+run one of these workflows on Gemini, check
+`rp1 verify gemini --workflow <workflow-id>` and route unsupported attempts to
+Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI.
+
 ## Feature Development Lifecycle
 
 **When**: Building a new feature end-to-end -- from idea through implementation to merge.

@@ -73,9 +73,11 @@ rp1 update plugins gemini --dry-run
 
 ## Gemini Extension Refresh
 
-`rp1 update plugins gemini` is an explicit refresh path for generated Gemini
-bundle assets. It updates only rp1-owned files under the generated rp1 Gemini
-extension directories, such as `~/.gemini/extensions/rp1-base/` and
+`rp1 update plugins gemini` is the explicit refresh path for generated Gemini
+bundle assets. Gemini is a first-class generated-bundle target, but refresh is
+opt-in so non-Gemini users are not asked to maintain Gemini extensions. The
+command updates only rp1-owned files under the generated rp1 Gemini extension
+directories, such as `~/.gemini/extensions/rp1-base/` and
 `~/.gemini/extensions/rp1-dev/`.
 
 The command reports `Lifecycle stage: update` and one of these states or
@@ -91,11 +93,15 @@ results:
 | `Lifecycle state: failed` | Refresh failed after command execution started. | Check file permissions under `~/.gemini/extensions/`, then rerun `rp1 update plugins gemini`. |
 
 Use `--dry-run` to preview the files that would be refreshed. Automatic
-`rp1 update plugins` or `rp1 update plugins all` skips Gemini because the
-Gemini CLI path is still experimental; use the explicit `gemini` target when
-you want to refresh generated bundle assets. The
-[Gemini CLI platform guide](../platforms/gemini.md) explains the experimental
+`rp1 update plugins` or `rp1 update plugins all` skips Gemini; use the explicit
+`gemini` target when you want to refresh generated bundle assets. The
+[Gemini CLI platform guide](../platforms/gemini.md) explains the current
 support matrix and stale-asset recovery boundary.
+
+Refreshing Gemini assets does not promote workflow support by itself. The
+current generated support matrix has 0 supported workflow rows and 15
+unsupported product-scope rows. Run `rp1 verify gemini --workflow <workflow-id>`
+after refresh to see workflow attribution.
 
 ## Safety
 
@@ -139,6 +145,7 @@ rp1 verify gemini --feature-id <feature-id>
 ## See Also
 
 - [install](install.md)
+- [verify](verify.md)
 - [uninstall](uninstall.md)
 - [Gemini CLI Platform Guide](../platforms/gemini.md)
 - [Troubleshooting](../../troubleshooting/index.md)

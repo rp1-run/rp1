@@ -389,6 +389,46 @@ Documentation tasks in `tasks.json` are completed only through a supported
 workflow. If no supported documentation workflow is available, `/build` carries
 them into readiness and release as explicit manual or follow-up items.
 
+## Build Platform Targets And Bundle Manifests
+
+The historical build command name is `rp1 build:opencode`, but the build
+pipeline now targets all generated rp1 host bundles through `--platform`.
+
+| Platform target | Output directory | Primary bundle purpose |
+|-----------------|------------------|------------------------|
+| `opencode` | `dist/opencode/` | OpenCode commands, skills, agents, and plugin metadata |
+| `claude-code` | `dist/claude-code/` | Claude Code plugin artifacts |
+| `codex` | `dist/codex/` | Codex skills, agents, config entries, and `AGENTS.md` material |
+| `copilot` | `dist/copilot/` | GitHub Copilot CLI plugin artifacts |
+| `gemini` | `dist/gemini/` | Gemini CLI generated extension bundle assets |
+| `all` | all directories above | Full generated bundle set |
+
+Build Gemini directly or as part of the full platform set:
+
+```bash
+rp1 build:opencode --platform gemini
+rp1 build:opencode --platform all
+```
+
+The Gemini target is a first-class generated bundle target. It writes plugin
+subdirectories such as `dist/gemini/base/` and `dist/gemini/dev/`, with
+generated command TOML under `commands/rp1-<plugin>/`, packaged skills under
+`skills/`, packaged agents under `agents/`, and per-plugin lifecycle files:
+`GEMINI.md`, `gemini-extension.json`, `manifest.json`, and
+`support-matrix.json`.
+
+`dist/gemini/bundle-manifest.json` is the top-level manifest used by bundle
+embedding and lifecycle commands. It records platform metadata, command entries,
+skill entries, agent entries, and verbatim files such as each plugin's
+`support-matrix.json`. Gemini platform metadata keeps the `@lobehub/icons`
+`Gemini` mono icon requirement.
+
+The generated Gemini support matrix is separate from generated asset presence.
+The current matrix has 0 `supported` workflow rows and 15 `unsupported` rows.
+Those unsupported rows are product-scope exceptions, not install failures, and
+`rp1 verify gemini --workflow <workflow-id>` reports that attribution before a
+user attempts a workflow on Gemini.
+
 ## Related Commands
 
 | Command | When to Use |
@@ -401,7 +441,11 @@ them into readiness and release as explicit manual or follow-up items.
 
 ## Codex Build Output
 
-Codex is a first-class rp1 platform alongside Claude Code and OpenCode. Skills are invoked with `$skill-name` syntax (e.g., `$rp1-dev-build`), and project-level instructions are delivered via `AGENTS.md` (the Codex equivalent of `CLAUDE.md` for Claude Code).
+Codex is a first-class rp1 platform alongside Claude Code, OpenCode, GitHub
+Copilot CLI, and the opt-in Gemini generated bundle target. Skills are invoked
+with `$skill-name` syntax (e.g., `$rp1-dev-build`), and project-level
+instructions are delivered via `AGENTS.md` (the Codex equivalent of `CLAUDE.md`
+for Claude Code).
 
 ### Advanced: Codex Build Artifact Layout
 

@@ -20,11 +20,11 @@ Before you begin, make sure you have:
 | Codex | [Codex CLI](https://github.com/openai/codex) | `$rp1-base-knowledge-build` | Install the Codex integration after `rp1 init`. |
 | GitHub Copilot CLI | [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli) | `/rp1-base-knowledge-build` | Requires standalone Copilot CLI with plugin support. |
 
-Gemini CLI is available only as an optional experimental validation surface. It
-is not required for normal setup, and it is not part of the default stable-host
+Gemini CLI is available as an optional generated bundle platform. It is not
+required for normal setup, and it is not part of the default stable-host
 workflow path. See the
 [Gemini CLI platform guide](../reference/platforms/gemini.md) when you
-intentionally want to validate Gemini.
+intentionally want to install or verify Gemini generated bundle assets.
 
 ---
 
@@ -100,7 +100,7 @@ rp1 init --yes
 | Codex | Yes | `AGENTS.md` | Run `rp1 install codex` after `init` |
 
 Gemini is not installed by the default `init` path. Use the explicit Gemini
-commands below only when collecting experimental validation evidence.
+commands below only when you want generated Gemini bundle assets.
 
 ---
 
@@ -129,8 +129,8 @@ rp1 install
 ```
 
 The default install command skips Gemini. It installs stable host integrations
-only; use `rp1 install gemini` when you deliberately want the experimental
-generated bundle commands.
+only; use `rp1 install gemini` when you deliberately want generated Gemini
+bundle commands.
 
 Verify a specific host:
 
@@ -141,7 +141,7 @@ rp1 verify codex
 rp1 verify copilot
 ```
 
-Verify Gemini only when you are validating that experimental surface:
+Verify Gemini only when you are checking generated Gemini bundle assets:
 
 ```bash
 rp1 verify gemini
@@ -154,7 +154,9 @@ reporting `healthy_native`. See the
 verification states and recovery steps.
 
 For Gemini CLI, verification reports generated bundle lifecycle states,
-support-matrix attribution, and optional retained release evidence. See the
+support-matrix attribution, and optional feature evidence. The current Gemini
+matrix has no supported workflow rows; unsupported workflow attribution is a
+product-scope boundary, not an install failure. See the
 [Gemini CLI platform guide](../reference/platforms/gemini.md) before relying on
 any Gemini workflow class.
 

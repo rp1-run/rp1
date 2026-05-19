@@ -13,9 +13,10 @@ rp1 install <subcommand> [options]
 
 ## Description
 
-Use `rp1 install` when you want to install or refresh rp1 for a specific stable
-host tool, or for every detected stable host on the machine. Gemini CLI is an
-explicit experimental generated-bundle target and is skipped by default setup.
+Use `rp1 install` when you want to install or refresh rp1 for a specific host
+tool, or for every detected stable host on the machine. Gemini CLI is a
+first-class generated-bundle target, but it is still explicit opt-in and is
+skipped by default setup.
 
 Supported targets:
 
@@ -23,7 +24,7 @@ Supported targets:
 - OpenCode
 - Codex
 - Copilot CLI
-- Gemini CLI generated extension bundle assets (manual install only)
+- Gemini CLI generated extension bundle assets (explicit install only)
 
 ## Subcommands
 
@@ -73,10 +74,11 @@ Requires the standalone GitHub Copilot CLI (`copilot`) with `copilot plugin --he
 rp1 install gemini [options]
 ```
 
-Installs generated Gemini CLI extension bundle assets from the current rp1
-build. Validation-only smoke, proof, and manual-copy assets are not installed as
-normal product workflows. Review the
-[Gemini CLI platform guide](../platforms/gemini.md) before using these assets.
+Installs generated Gemini CLI extension bundle assets from the current
+`dist/gemini/` build output. Validation-only smoke, proof, and manual-copy
+assets are not installed as normal product workflows. Review the
+[Gemini CLI platform guide](../platforms/gemini.md) before using these assets;
+the current Gemini support matrix has no supported workflow rows.
 
 ### `install all`
 
@@ -84,9 +86,9 @@ normal product workflows. Review the
 rp1 install all [options]
 ```
 
-Detects installed tools and installs rp1 to every supported non-experimental
-target it finds. Gemini CLI is skipped by automatic install; use
-`rp1 install gemini` when you want the generated Gemini bundle assets.
+Detects installed tools and installs rp1 to every detected stable target it
+finds. Gemini CLI is skipped by automatic install; use `rp1 install gemini`
+when you explicitly want the generated Gemini bundle assets.
 
 ## Options
 
@@ -181,8 +183,8 @@ rp1 verify gemini
 
 For Copilot, the clean success signal is `healthy_native`. A `mixed_native_and_legacy` result means the native install works, but old rp1 files still need cleanup under `~/.config/github-copilot/`.
 
-For Gemini, verification reports generated bundle lifecycle state, support-matrix
-readiness, and optional retained release evidence:
+For Gemini, verification reports generated bundle lifecycle state,
+support-matrix readiness, and optional feature evidence:
 
 ```bash
 rp1 verify gemini
@@ -199,42 +201,31 @@ Gemini-specific lifecycle `State`:
 
 | State | Meaning | Next action |
 |-------|---------|-------------|
-| `current` | All rp1-owned Gemini bundle assets match the manifest. | Restart Gemini CLI if assets were just installed, then verify the target workflow against the support matrix. |
+| `current` | All rp1-owned Gemini bundle assets match the manifest. | Restart Gemini CLI if assets were just installed, then verify any target workflow against the support matrix. |
 | `removed` | No rp1-owned Gemini bundle assets are installed. | Run `rp1 install gemini` before using generated Gemini commands. |
 | `missing` | One manifest-owned asset is missing. | Run `rp1 install gemini` to restore it. |
 | `partial` | More than one, but not all, manifest-owned assets are missing. | Reinstall the complete Gemini bundle asset set with `rp1 install gemini`. |
 | `stale` | One or more assets differ from the current manifest. | Run `rp1 install gemini` or `rp1 update plugins gemini` to refresh assets. |
 | `blocked` | rp1 could not read one or more Gemini extension assets. | Fix local file permissions or trust/approval blockers, then rerun `rp1 verify gemini`. |
 
-The P2 section is labeled `P2 delegation readiness` and reports `Overall
-delegation`, `Custom subagent`, `Fanout attribution`, `Delegated failure`, and
-`Acknowledgement` as `passed`, `failed`, `blocked`, `incomplete`, or `not_run`.
-The P3 section is labeled `P3 boundary evidence` when `--feature-id` is supplied
-or boundary evidence exists. It reads:
+Use `--workflow` to attribute a workflow attempt against the generated support
+matrix before trying it on Gemini:
 
-```text
-.rp1/work/features/<feature-id>/gemini-boundaries.json
-.rp1/work/features/<feature-id>/gemini-boundaries.md
+```bash
+rp1 verify gemini --workflow dev:build
 ```
 
-Boundary scenarios classify trust, approval, auth, user-input, headless, and
-lifecycle outcomes as `passed`, `degraded`, `blocked`, `unsupported`, `failed`,
-or `not_run`. If a scenario has a blocker, verification prints the recorded
-`Blocker` and `User action`.
-
-Until `.rp1/work/features/<feature-id>/gemini-subagents.json` contains passing
-P2 evidence, the `Heavyweight workflow gate` keeps `build_fast`, `build`,
-`knowledge_build`, `deep_research`, and `pr_review` `blocked` or
-`experimental` with an evidence status. Until
-`.rp1/work/features/<feature-id>/gemini-boundaries.json` contains passing P3
-boundary evidence, lifecycle, trust, and headless outcomes remain validation
-facts for the later support matrix rather than first-class support claims.
+The current generated Gemini matrix has 0 supported workflow rows and 15
+unsupported rows. An unsupported workflow attribution means the workflow is
+outside current Gemini product scope; it is not an installation failure when
+the manifest lifecycle is otherwise current.
 
 Gemini may still require workspace trust, shell approval, or project agent
-acknowledgement when validation commands run. rp1 reports those as boundary
-states and remediation actions; it does not grant trust or approval
-automatically. The [Gemini CLI platform guide](../platforms/gemini.md) explains
-which workflow classes remain experimental, degraded, or unsupported.
+acknowledgement when generated bundle commands run. rp1 reports those as
+boundary states and remediation actions; it does not grant trust or approval
+automatically. The [verify reference](verify.md) and
+[Gemini CLI platform guide](../platforms/gemini.md) explain the verifier output
+and current support matrix.
 
 ## Listing Installed Skills
 
@@ -320,5 +311,6 @@ ls -la ~/.rp1/copilot/
 ## See Also
 
 - [Installation Guide](../../getting-started/installation.md)
+- [verify](verify.md)
 - [Gemini CLI Platform Guide](../platforms/gemini.md)
 - [update](update.md)

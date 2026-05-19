@@ -16,7 +16,7 @@ rp1 uninstall gemini [options]
 `rp1 uninstall` removes rp1-managed project setup from the current repository
 while preserving `.rp1/` work and knowledge artifacts.
 
-`rp1 uninstall gemini` removes only experimental rp1 Gemini CLI extension assets
+`rp1 uninstall gemini` removes only rp1 Gemini CLI generated extension assets
 that match the Gemini asset manifest. It does not remove user-created Gemini
 files, third-party Gemini extensions, or modified rp1 files that no longer match
 the manifest.
@@ -51,9 +51,9 @@ Gemini uninstall is scoped to rp1-owned files under:
 It removes generated manifest-owned Gemini bundle assets only when their
 contents still match the current rp1 manifest.
 
-Gemini uninstall affects only this opt-in experimental validation surface. It
-does not remove or downgrade stable Claude Code, OpenCode, Codex, or GitHub
-Copilot CLI integrations.
+Gemini uninstall affects only this opt-in generated bundle target. It does not
+remove or downgrade stable Claude Code, OpenCode, Codex, or GitHub Copilot CLI
+integrations.
 
 ## Gemini Safety Rules
 
@@ -68,7 +68,7 @@ Copilot CLI integrations.
 
 ## Post-Removal Verification
 
-After removal, verify that Gemini no longer reports active rp1 validation
+After removal, verify that Gemini no longer reports active rp1 generated bundle
 assets:
 
 ```bash
@@ -77,8 +77,8 @@ rp1 verify gemini
 
 The expected post-removal lifecycle state is `removed` or another inactive state
 that points back to `rp1 install gemini` as the setup action. A removed Gemini
-extension is not a first-class Gemini support failure; it means the experimental
-generated bundle assets are no longer installed.
+extension is not a Gemini workflow-support failure; it means the generated
+bundle assets are no longer installed.
 
 See the [Gemini CLI platform guide](../platforms/gemini.md) for the support
 matrix and removal-lifecycle limitations.
@@ -116,6 +116,7 @@ printed file-permission issue and retry uninstall.
 ## See Also
 
 - [install](install.md)
+- [verify](verify.md)
 - [update](update.md)
 - [Gemini CLI Platform Guide](../platforms/gemini.md)
 - [Fence Versioning](fence-versioning.md)

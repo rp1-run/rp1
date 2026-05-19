@@ -59,14 +59,16 @@ rp1 install codex
 rp1 install copilot
 ```
 
-Gemini is optional and experimental. Verify it only when you are intentionally
-collecting Gemini validation evidence:
+Gemini is optional and explicit opt-in. Verify it only when you intentionally
+installed or refreshed generated Gemini bundle assets:
 
 ```bash
-rp1 verify gemini --feature-id <feature-id>
+rp1 verify gemini
+rp1 verify gemini --workflow <workflow-id>
 ```
 
-Use a stable host when Gemini reports a degraded or unsupported workflow class.
+Use a stable host when Gemini reports an unsupported workflow attribution. The
+current Gemini support matrix has no supported workflow rows.
 
 ---
 
@@ -146,21 +148,21 @@ full Copilot setup and recovery path.
 
 ### Gemini CLI
 
-Gemini CLI is an opt-in experimental validation surface. It is not part of the
-default stable-host setup path, and Gemini limitations do not downgrade Claude
-Code, OpenCode, Codex, or GitHub Copilot CLI support.
+Gemini CLI is an opt-in generated bundle target. It is not part of the default
+stable-host setup path, and Gemini limitations do not downgrade Claude Code,
+OpenCode, Codex, or GitHub Copilot CLI support.
 
 | Symptom | Recovery |
 |---------|----------|
-| Gemini CLI is missing | Install Gemini CLI only if you intend to validate Gemini, then run `gemini --version`. |
-| Validation assets are missing, partial, or stale | Run `rp1 install gemini` or `rp1 update plugins gemini`, restart Gemini CLI, then verify again. |
+| Gemini CLI is missing | Install Gemini CLI only if you intend to use Gemini assets, then run `gemini --version`. |
+| Generated bundle assets are missing, partial, or stale | Run `rp1 install gemini` or `rp1 update plugins gemini`, restart Gemini CLI, then verify again. |
 | Gemini asks to trust the workspace | Trust the intended repository interactively, or rerun the workflow on a stable host. |
 | Gemini asks for tool approval | Approve the action interactively when appropriate; do not assume unattended resume. |
 | Gemini reports new agents | Acknowledge and enable the agent, then rerun the validation command. |
-| Headless validation stops | Rerun interactively or keep the row `degraded` or `unsupported` in the support matrix. |
+| Headless validation stops | Rerun interactively or keep the row `unsupported` in the support matrix. |
 
 See the [Gemini CLI platform guide](../reference/platforms/gemini.md) for the
-support matrix, validation checklist, and lifecycle recovery details.
+support matrix, workflow attribution, and lifecycle recovery details.
 
 ---
 
