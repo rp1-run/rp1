@@ -85,9 +85,7 @@ describe("update plugin result formatting", () => {
 				skipped: true,
 				restartRequired: false,
 				pluginsInstalled: [],
-				warnings: [
-					"Gemini CLI uses an explicit support-matrix scoped lifecycle.",
-				],
+				warnings: ["Gemini CLI uses an explicit opt-in lifecycle."],
 			},
 			false,
 		);

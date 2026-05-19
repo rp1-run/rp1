@@ -192,7 +192,7 @@ rp1 verify gemini --feature-id <feature-id>
 ```
 
 The Gemini bundle section uses `Support: generated bundle (Gemini extension
-assets)` and reports `State` values such as `experimental_ready`,
+assets)` and reports `State` values such as `generated_bundle_ready`,
 `degraded_missing_binary`, `degraded_missing_command`,
 `degraded_trust_or_approval`, or `registration_failed`.
 
@@ -201,7 +201,7 @@ Gemini-specific lifecycle `State`:
 
 | State | Meaning | Next action |
 |-------|---------|-------------|
-| `current` | All rp1-owned Gemini bundle assets match the manifest. | Restart Gemini CLI if assets were just installed, then verify any target workflow against the support matrix. |
+| `current` | All rp1-owned Gemini bundle assets match the manifest. | Restart Gemini CLI if assets were just installed, then run installed rp1 workflows from Gemini slash commands. |
 | `removed` | No rp1-owned Gemini bundle assets are installed. | Run `rp1 install gemini` before using generated Gemini commands. |
 | `missing` | One manifest-owned asset is missing. | Run `rp1 install gemini` to restore it. |
 | `partial` | More than one, but not all, manifest-owned assets are missing. | Reinstall the complete Gemini bundle asset set with `rp1 install gemini`. |
@@ -209,16 +209,15 @@ Gemini-specific lifecycle `State`:
 | `blocked` | rp1 could not read one or more Gemini extension assets. | Fix local file permissions or trust/approval blockers, then rerun `rp1 verify gemini`. |
 
 Use `--workflow` to attribute a workflow attempt against the generated support
-matrix before trying it on Gemini:
+matrix:
 
 ```bash
 rp1 verify gemini --workflow dev:build
 ```
 
-The current generated Gemini matrix has 0 supported workflow rows and 15
-unsupported rows. An unsupported workflow attribution means the workflow is
-outside current Gemini product scope; it is not an installation failure when
-the manifest lifecycle is otherwise current.
+The current generated Gemini matrix has 15 supported workflow rows and 0
+unsupported rows. Supported workflow attribution reports the generated-bundle
+evidence source for the row.
 
 Gemini may still require workspace trust, shell approval, or project agent
 acknowledgement when generated bundle commands run. rp1 reports those as

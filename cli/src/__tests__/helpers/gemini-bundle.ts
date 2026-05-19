@@ -15,13 +15,13 @@ const supportMatrixFixture = (): string =>
 					plugin: "dev",
 					category: "development",
 					workflowClass: "development_workflow",
-					status: "unsupported",
-					evidenceSource: null,
-					unsupportedRationale:
-						"No accepted Gemini runtime evidence currently promotes dev:build or its development workflow class from the catalog-backed matrix.",
+					status: "supported",
+					evidenceSource:
+						"generated Gemini extension bundle: plugins/dev/skills/build/SKILL.md",
+					unsupportedRationale: null,
 					userAction:
-						"Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI for this workflow until Gemini evidence promotes this entry.",
-					exceptionOwner: "rp1-maintainers",
+						"Install the generated Gemini extension bundle with `rp1 install gemini`, restart Gemini CLI, and run the rp1 workflow command from Gemini.",
+					exceptionOwner: null,
 					updatedAt: "2026-05-19",
 					sourcePath: "plugins/dev/skills/build/SKILL.md",
 					argumentNames: ["FEATURE_ID"],
@@ -37,10 +37,10 @@ const supportMatrixFixture = (): string =>
 					workflowClass: "development_workflow",
 					status: "supported",
 					evidenceSource:
-						"features/gemini-cli-rp1-harness-first-class/gemini-runtime-contract.md",
+						"generated Gemini extension bundle: plugins/dev/skills/build-fast/SKILL.md",
 					unsupportedRationale: null,
 					userAction:
-						"Run through generated Gemini bundle assets and verify registered work-root artifacts.",
+						"Install the generated Gemini extension bundle with `rp1 install gemini`, restart Gemini CLI, and run the rp1 workflow command from Gemini.",
 					exceptionOwner: null,
 					updatedAt: "2026-05-19",
 					sourcePath: "plugins/dev/skills/build-fast/SKILL.md",

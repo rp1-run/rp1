@@ -2,13 +2,12 @@
 
 Gemini CLI is a first-class rp1 generated bundle and build platform. It has its
 own build target, generated extension assets, lifecycle commands, verifier
-output, and support-matrix attribution.
+output, and support-matrix attribution for the user-facing rp1 workflows.
 
 Gemini remains explicit opt-in. The current generated support matrix is
-intentionally conservative: it has 15 workflow rows, 0 `supported` rows, and 15
-`unsupported` rows. Unsupported rows are product-owned scope exceptions, not
-install failures. Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI
-for those workflows until accepted Gemini runtime evidence promotes a row.
+bundle-backed: it has 15 workflow rows, 15 `supported` rows, and 0
+`unsupported` rows. Validation-only harness workflows remain excluded from
+product workflow claims.
 
 ## Current Status
 
@@ -61,8 +60,8 @@ commands.
 |---------|---------|-------|
 | `rp1 install gemini` | Copies current manifest-owned Gemini bundle assets into Gemini extension directories. | Explicit opt-in; automatic install skips Gemini. |
 | `rp1 update plugins gemini` | Refreshes installed Gemini assets from the current manifest. | Explicit opt-in; update-all skips Gemini. |
-| `rp1 verify gemini` | Checks generated bundle lifecycle state and support-matrix readiness. | Reports bundle status without implying workflow support. |
-| `rp1 verify gemini --workflow <workflow-id>` | Attributes one workflow attempt against the generated matrix. | Unsupported attribution is a product-scope boundary, not an install failure. |
+| `rp1 verify gemini` | Checks generated bundle lifecycle state. | A current lifecycle means the installed generated bundle is ready. |
+| `rp1 verify gemini --workflow <workflow-id>` | Attributes one workflow attempt against the generated matrix. | Supported attribution points at the generated bundle evidence source. |
 | `rp1 uninstall gemini` | Removes safe, manifest-owned Gemini assets. | Preserves modified files and unrelated Gemini extensions. |
 
 Gemini asset lifecycle states include `current`, `removed`, `missing`,
@@ -77,54 +76,52 @@ refresh; it does not change support status for stable hosts.
 - `Support: generated bundle (Gemini extension assets)`
 - `State` for generated bundle setup
 - `Manifest lifecycle` with stage, asset counts, and lifecycle state
-- optional P2/P3 evidence sections when a feature id is supplied
+- optional P2/P3 validation evidence sections when a feature id is supplied
 - optional `Workflow attempt attribution` when `--workflow` is supplied
 
-Use `--workflow` before trying a catalog workflow on Gemini:
+Use `--workflow` to inspect a catalog workflow row on Gemini:
 
 ```bash
 rp1 verify gemini --workflow dev:build
 ```
 
-When the workflow row is unsupported, the verifier prints the workflow id,
-state, product-owned support boundary, rationale, exception owner, and user
-action. The current matrix points users to Claude Code, OpenCode, Codex CLI, or
-GitHub Copilot CLI for every listed workflow.
+When the workflow row is supported, the verifier prints the workflow id, state,
+generated-bundle rationale, evidence source, and user action.
 
 ## Current Support Matrix
 
 The generated matrix lives in `dist/gemini/<plugin>/support-matrix.json` and is
-also represented in `dist/gemini/bundle-manifest.json`. The current rows are all
-`unsupported` and owned by `rp1-maintainers`.
+also represented in `dist/gemini/bundle-manifest.json`. The current
+user-facing workflow rows are all `supported`.
 
 | Workflow id | Workflow class | Status | User action |
 |-------------|----------------|--------|-------------|
-| `dev:build` | development workflow | `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI. |
-| `dev:build-fast` | development workflow | `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI. |
-| `dev:phase-plan` | development workflow | `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI. |
-| `dev:speedrun` | development workflow | `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI. |
-| `dev:pr-review` | review workflow | `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI. |
-| `dev:pr-visual` | review workflow | `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI. |
-| `dev:pr-walkthrough` | review workflow | `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI. |
-| `base:generate-user-docs` | documentation workflow | `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI. |
-| `base:project-birds-eye-view` | documentation workflow | `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI. |
-| `base:knowledge-build` | knowledge workflow | `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI. |
-| `base:analyse-security` | strategy workflow | `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI. |
-| `base:deep-research` | strategy workflow | `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI. |
-| `base:socratic-duel` | strategy workflow | `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI. |
-| `base:socratic-duel-run` | strategy workflow | `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI. |
-| `dev:blueprint` | planning workflow | `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI. |
+| `dev:build` | development workflow | `supported` | Run from the generated Gemini extension bundle. |
+| `dev:build-fast` | development workflow | `supported` | Run from the generated Gemini extension bundle. |
+| `dev:phase-plan` | development workflow | `supported` | Run from the generated Gemini extension bundle. |
+| `dev:speedrun` | development workflow | `supported` | Run from the generated Gemini extension bundle. |
+| `dev:pr-review` | review workflow | `supported` | Run from the generated Gemini extension bundle. |
+| `dev:pr-visual` | review workflow | `supported` | Run from the generated Gemini extension bundle. |
+| `dev:pr-walkthrough` | review workflow | `supported` | Run from the generated Gemini extension bundle. |
+| `base:generate-user-docs` | documentation workflow | `supported` | Run from the generated Gemini extension bundle. |
+| `base:project-birds-eye-view` | documentation workflow | `supported` | Run from the generated Gemini extension bundle. |
+| `base:knowledge-build` | knowledge workflow | `supported` | Run from the generated Gemini extension bundle. |
+| `base:analyse-security` | strategy workflow | `supported` | Run from the generated Gemini extension bundle. |
+| `base:deep-research` | strategy workflow | `supported` | Run from the generated Gemini extension bundle. |
+| `base:socratic-duel` | strategy workflow | `supported` | Run from the generated Gemini extension bundle. |
+| `base:socratic-duel-run` | strategy workflow | `supported` | Run from the generated Gemini extension bundle. |
+| `dev:blueprint` | planning workflow | `supported` | Run from the generated Gemini extension bundle. |
 
 Internal-only, template-only, non-workflow, and validation-only artifacts are
 excluded from user-facing Gemini workflow support claims.
 
-## Promotion Policy
+## Support Policy
 
-A workflow row can move to `supported` only when accepted runtime evidence shows
-the generated Gemini bundle launched that workflow, wrote the expected work-root
-artifact, emitted `artifact_registered` with `storageRoot=work_dir`, associated
-the artifact with the active run, and preserved root/worktree behavior where
-relevant.
+User-facing workflow rows are generated as `supported` when they are
+distributable, invocable workflows in the catalog and their Gemini command,
+skill, agent, and context assets are present in the generated bundle. Optional
+runtime evidence can still be recorded for validation, but it is not required
+to claim generated-bundle support.
 
 When a Gemini support-state change is made, update these in the same change:
 
@@ -140,11 +137,11 @@ When a Gemini support-state change is made, update these in the same change:
 |-----------|---------------|------------|
 | Gemini CLI is missing | The generated bundle target cannot be verified locally. | Install Gemini CLI only if you intend to use Gemini assets, then run `gemini --version`. |
 | Generated bundle assets are missing or stale | Installed Gemini extension files do not match the current manifest. | Run `rp1 install gemini` or `rp1 update plugins gemini`, restart Gemini CLI, then verify. |
-| A workflow is `unsupported` | The generated matrix has a product-owned scope exception for that workflow. | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI until Gemini evidence promotes the row. |
+| A workflow id is unknown | The workflow id is not present in the generated matrix. | Confirm the workflow id or rebuild the Gemini bundle from current catalog sources. |
 | Gemini asks to trust the workspace | The run is blocked on an interactive trust decision. | Trust the intended repository or rerun on a stable host. |
 | Gemini asks for tool approval | The run is blocked on Gemini approval policy. | Approve the action interactively when appropriate; do not assume unattended resume. |
 | Gemini reports new agents | Project or extension agents may need acknowledgement. | Acknowledge and enable the agents, then rerun verification. |
-| Headless validation stops | A trust, approval, user-input, or acknowledgement gate likely interrupted automation. | Rerun interactively or keep the workflow row unsupported. |
+| Headless validation stops | A trust, approval, user-input, or acknowledgement gate likely interrupted automation. | Rerun interactively or capture the blocker as validation evidence. |
 
 ## Opt-In Boundary
 
@@ -162,5 +159,5 @@ rp1 verify codex
 rp1 verify copilot
 ```
 
-Stable-host evidence does not promote Gemini workflow rows, and Gemini
-limitations do not downgrade stable-host support.
+Stable-host evidence is tracked separately from Gemini, and Gemini limitations
+do not downgrade stable-host support.

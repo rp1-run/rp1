@@ -424,10 +424,9 @@ skill entries, agent entries, and verbatim files such as each plugin's
 `Gemini` mono icon requirement.
 
 The generated Gemini support matrix is separate from generated asset presence.
-The current matrix has 0 `supported` workflow rows and 15 `unsupported` rows.
-Those unsupported rows are product-scope exceptions, not install failures, and
-`rp1 verify gemini --workflow <workflow-id>` reports that attribution before a
-user attempts a workflow on Gemini.
+The current matrix has 15 `supported` workflow rows and 0 `unsupported` rows.
+`rp1 verify gemini --workflow <workflow-id>` reports the generated-bundle
+evidence source for a workflow row.
 
 ## Related Commands
 

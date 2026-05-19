@@ -129,11 +129,17 @@ const exclusionRationale = (
 	}
 };
 
-const unsupportedRationale = (entry: CatalogRegistryEntry): string =>
-	`No accepted Gemini runtime evidence currently promotes ${entry.canonicalName} or its ${entry.category} workflow class from the catalog-backed matrix.`;
+const displaySourcePath = (sourcePath: string): string => {
+	const marker = "/plugins/";
+	const markerIndex = sourcePath.indexOf(marker);
+	return markerIndex >= 0 ? sourcePath.slice(markerIndex + 1) : sourcePath;
+};
 
-const unsupportedUserAction = (): string =>
-	"Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI for this workflow until Gemini evidence promotes this entry.";
+const generatedBundleEvidenceSource = (entry: CatalogRegistryEntry): string =>
+	`generated Gemini extension bundle: ${displaySourcePath(entry.sourcePath)}`;
+
+const supportedUserAction = (): string =>
+	"Install the generated Gemini extension bundle with `rp1 install gemini`, restart Gemini CLI, and run the rp1 workflow command from Gemini.";
 
 const toSupportEntry = (
 	entry: CatalogRegistryEntry,
@@ -145,13 +151,13 @@ const toSupportEntry = (
 	plugin: entry.plugin,
 	category: entry.category,
 	workflowClass: toWorkflowClass(entry),
-	status: "unsupported",
-	evidenceSource: null,
-	unsupportedRationale: unsupportedRationale(entry),
-	userAction: unsupportedUserAction(),
-	exceptionOwner: "rp1-maintainers",
+	status: "supported",
+	evidenceSource: generatedBundleEvidenceSource(entry),
+	unsupportedRationale: null,
+	userAction: supportedUserAction(),
+	exceptionOwner: null,
 	updatedAt,
-	sourcePath: entry.sourcePath,
+	sourcePath: displaySourcePath(entry.sourcePath),
 	argumentNames: entry.argumentDefs.map((argument) => argument.name),
 	...(entry.runPolicy !== undefined && { runPolicy: entry.runPolicy }),
 	...(entry.identityArgs !== undefined && { identityArgs: entry.identityArgs }),
@@ -169,7 +175,7 @@ const toExcludedEntry = (
 	reason,
 	rationale: exclusionRationale(reason),
 	updatedAt,
-	sourcePath: entry.sourcePath,
+	sourcePath: displaySourcePath(entry.sourcePath),
 });
 
 export const buildGeminiWorkflowSupportMatrix = (

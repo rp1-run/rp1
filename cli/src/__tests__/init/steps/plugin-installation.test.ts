@@ -272,7 +272,7 @@ describe("plugin-installation step", () => {
 				logger.calls.some(
 					(call) =>
 						call.method === "info" &&
-						String(call.args[0]).includes("explicit support-matrix scoped"),
+						String(call.args[0]).includes("explicit opt-in lifecycle"),
 				),
 			).toBe(true);
 		});

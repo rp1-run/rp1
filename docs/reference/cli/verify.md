@@ -51,10 +51,10 @@ The Gemini verifier reports:
 
 | Section | Meaning |
 |---------|---------|
-| `Support: generated bundle (Gemini extension assets)` | rp1 is checking generated Gemini assets, not broad workflow parity. |
-| `State` | Generated bundle setup state, such as `experimental_ready`, `degraded_missing_binary`, `degraded_missing_command`, `degraded_trust_or_approval`, or `registration_failed`. |
+| `Support: generated bundle (Gemini extension assets)` | rp1 is checking generated Gemini extension assets and workflow bundle readiness. |
+| `State` | Generated bundle setup state, such as `generated_bundle_ready`, `degraded_missing_binary`, `degraded_missing_command`, `degraded_trust_or_approval`, or `registration_failed`. |
 | `Manifest lifecycle` | Whether manifest-owned Gemini assets are `current`, `removed`, `missing`, `partial`, `stale`, or `blocked`. |
-| `P2 delegation readiness` | Optional feature evidence for delegation, fanout, delegated failure, and acknowledgement. |
+| `P2 delegation evidence` | Optional feature evidence for delegation, fanout, delegated failure, and acknowledgement. |
 | `P3 boundary evidence` | Optional feature evidence for trust, approval, auth, user-input, headless, and lifecycle boundaries. |
 | `Workflow attempt attribution` | Optional support-matrix attribution for a requested workflow id. |
 
@@ -64,10 +64,9 @@ Use `--workflow` to check whether a workflow attempt is supported on Gemini:
 rp1 verify gemini --workflow dev:build
 ```
 
-The current generated Gemini support matrix has 0 supported workflow rows and
-15 unsupported rows. If `--workflow` reports `unsupported`, the verifier is
-identifying a product-owned Gemini support boundary. That result is not an
-install failure when the manifest lifecycle is otherwise current.
+The current generated Gemini support matrix has 15 supported workflow rows and
+0 unsupported rows. If `--workflow` reports `supported`, the verifier prints
+the generated-bundle evidence source for that workflow row.
 
 Use `--feature-id` only when you need the verifier to read feature evidence from
 the work directory:
@@ -88,7 +87,7 @@ matrix, verifier output, and public docs together.
 | Gemini lifecycle `missing` or `partial` | Reinstall the complete generated Gemini bundle with `rp1 install gemini`. |
 | Gemini lifecycle `stale` | Run `rp1 install gemini` or `rp1 update plugins gemini`, restart Gemini CLI, then verify. |
 | Gemini lifecycle `blocked` | Fix the printed file permission, trust, or approval blocker, then rerun verification. |
-| Gemini workflow `unsupported` | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI until accepted Gemini evidence promotes the row. |
+| Gemini workflow `unknown` | Confirm the workflow id or rebuild Gemini assets from current catalog sources. |
 
 ## See Also
 

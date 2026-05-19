@@ -1,8 +1,8 @@
 export const GEMINI_EXPERIMENTAL_GUIDANCE =
-	"Gemini CLI support is generated-bundle backed and scoped by the Gemini support matrix; unsupported workflows are product-owned exceptions and validation-only smoke/proof assets are not installed as product workflows.";
+	"Gemini CLI support is generated-bundle backed; `rp1 install gemini` installs the generated commands, skills, agents, context, extension metadata, and support matrix.";
 
 export const GEMINI_AUTO_INSTALL_SKIP_GUIDANCE =
-	"Gemini CLI uses an explicit support-matrix scoped lifecycle and is skipped by automatic install. Run `rp1 install gemini` only when you want Gemini bundle assets.";
+	"Gemini CLI uses an explicit opt-in lifecycle and is skipped by automatic install. Run `rp1 install gemini` only when you want Gemini bundle assets.";
 
 export type GeminiSmokeStatus =
 	| "generated_bundle_ready"
@@ -68,7 +68,7 @@ export const GEMINI_SMOKE_STATUS_DETAILS = {
 		label: "generated bundle ready",
 		issue: null,
 		remediation:
-			"Run `rp1 verify gemini --workflow <workflow-id>` to inspect support-matrix attribution before using a workflow on Gemini.",
+			"Restart Gemini CLI, then run installed rp1 workflows from Gemini slash commands.",
 	},
 	degraded_missing_binary: {
 		label: "degraded: Gemini CLI binary missing",

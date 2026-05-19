@@ -140,7 +140,7 @@ export const attributeGeminiWorkflowAttempt = (
 			workflowId,
 			status: "supported",
 			productOwnedScope: false,
-			rationale: `Gemini support matrix marks ${workflowId} supported by accepted runtime evidence.`,
+			rationale: `Gemini support matrix marks ${workflowId} supported by the generated extension bundle.`,
 			userAction: entry.userAction,
 			evidenceSource: entry.evidenceSource,
 			exceptionOwner: null,
@@ -169,7 +169,7 @@ export const attributeGeminiWorkflowAttempt = (
 		productOwnedScope: true,
 		rationale: `${workflowId} is not present in the generated Gemini support matrix.`,
 		userAction:
-			"Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI unless a Gemini support matrix row is added with accepted evidence.",
+			"Confirm the workflow id or rebuild the Gemini bundle from current catalog sources.",
 		evidenceSource: null,
 		exceptionOwner: "rp1-maintainers",
 	};
@@ -245,6 +245,17 @@ const evaluateSupportedWorkflow = (
 	};
 };
 
+const generatedBundleSupportedWorkflowResult = (
+	entry: GeminiWorkflowSupportEntry,
+): GeminiRuntimeContractWorkflowResult => ({
+	workflowId: entry.workflowId,
+	status: "passed",
+	issue: null,
+	userAction: entry.userAction,
+	artifactRelativePath: null,
+	activeRunId: null,
+});
+
 export const evaluateGeminiRuntimeContract = (
 	matrix: GeminiWorkflowSupportMatrix,
 	evidence: GeminiRuntimeContractEvidence | null,
@@ -267,14 +278,14 @@ export const evaluateGeminiRuntimeContract = (
 		};
 	}
 
-	const workflows = supportedEntries.map((entry) =>
-		evaluateSupportedWorkflow(
-			entry.workflowId,
-			evidence?.workflows.find(
-				(workflow) => workflow.workflowId === entry.workflowId,
-			),
-		),
-	);
+	const workflows = supportedEntries.map((entry) => {
+		const workflowEvidence = evidence?.workflows.find(
+			(workflow) => workflow.workflowId === entry.workflowId,
+		);
+		return workflowEvidence
+			? evaluateSupportedWorkflow(entry.workflowId, workflowEvidence)
+			: generatedBundleSupportedWorkflowResult(entry);
+	});
 	const failed = workflows.find((workflow) => workflow.status !== "passed");
 
 	return {

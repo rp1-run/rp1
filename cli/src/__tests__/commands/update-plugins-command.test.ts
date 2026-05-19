@@ -362,9 +362,7 @@ describe("update plugins command action", () => {
 							restartRequired: false,
 							pluginsInstalled: [],
 							details: ["Lifecycle stage: update"],
-							warnings: [
-								"Gemini CLI uses an explicit support-matrix scoped lifecycle.",
-							],
+							warnings: ["Gemini CLI uses an explicit opt-in lifecycle."],
 						},
 					],
 				}),

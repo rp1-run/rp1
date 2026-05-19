@@ -98,10 +98,10 @@ Use `--dry-run` to preview the files that would be refreshed. Automatic
 [Gemini CLI platform guide](../platforms/gemini.md) explains the current
 support matrix and stale-asset recovery boundary.
 
-Refreshing Gemini assets does not promote workflow support by itself. The
-current generated support matrix has 0 supported workflow rows and 15
-unsupported product-scope rows. Run `rp1 verify gemini --workflow <workflow-id>`
-after refresh to see workflow attribution.
+Refreshing Gemini assets restores the generated workflow bundle. The current
+generated support matrix has 15 supported workflow rows and 0 unsupported rows.
+Run `rp1 verify gemini --workflow <workflow-id>` after refresh to see workflow
+attribution.
 
 ## Safety
 

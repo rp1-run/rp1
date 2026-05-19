@@ -201,7 +201,7 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain("rp1 install gemini");
 	});
 
-	test("reports ready setup as support-matrix scoped generated bundle readiness", async () => {
+	test("reports ready setup as generated bundle readiness", async () => {
 		const result = await captureVerifyOutput(readySmokeDeps());
 
 		expect(result.ok).toBe(true);
@@ -216,8 +216,10 @@ describe("verify:gemini command", () => {
 			"Trust/approval note: Gemini may still require workspace trust",
 		);
 		expect(result.output).toContain(
-			"Run `rp1 verify gemini --workflow <workflow-id>`",
+			"Restart Gemini CLI, then run installed rp1 workflows",
 		);
+		expect(result.output).not.toContain("P2 delegation evidence:");
+		expect(result.output).not.toContain("Workflow classifications:");
 		expect(result.output).toContain("Gemini generated bundle ready");
 		expect(result.output).not.toContain("experimental_ready");
 	});
@@ -320,28 +322,26 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain("rp1 install gemini");
 	});
 
-	test("attributes unsupported workflow attempts from the generated support matrix", async () => {
+	test("attributes supported workflow attempts from the generated support matrix", async () => {
 		const result = await captureVerifyOutput(readySmokeDeps(), {
 			workflowId: "dev:build",
 		});
 
-		expect(result.ok).toBe(false);
+		expect(result.ok).toBe(true);
 		expect(result.output).toContain("Workflow attempt attribution:");
 		expect(result.output).toContain("Workflow: dev:build");
-		expect(result.output).toContain("State: unsupported");
+		expect(result.output).toContain("State: supported");
 		expect(result.output).toContain(
-			"Product scope: product-owned Gemini support boundary",
+			"Product scope: supported Gemini matrix row",
 		);
 		expect(result.output).toContain(
-			"No accepted Gemini runtime evidence currently promotes dev:build",
+			"generated Gemini extension bundle: plugins/dev/skills/build/SKILL.md",
 		);
-		expect(result.output).toContain("Exception owner: rp1-maintainers");
-		expect(result.output).toContain(
-			"Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI",
+		expect(result.output).not.toContain(
+			"Gemini unsupported workflow attribution",
 		);
-		expect(result.output).toContain("Gemini unsupported workflow attribution");
 		expect(result.output).not.toContain("Gemini lifecycle path is degraded");
-		expect(result.output).not.toContain("Gemini generated bundle ready");
+		expect(result.output).toContain("Gemini generated bundle ready");
 	});
 
 	test("keeps supported workflow attempts on the normal readiness path", async () => {
@@ -357,7 +357,7 @@ describe("verify:gemini command", () => {
 			"Product scope: supported Gemini matrix row",
 		);
 		expect(result.output).toContain(
-			"features/gemini-cli-rp1-harness-first-class/gemini-runtime-contract.md",
+			"generated Gemini extension bundle: plugins/dev/skills/build-fast/SKILL.md",
 		);
 		expect(result.output).toContain("Gemini generated bundle ready");
 	});
@@ -377,7 +377,7 @@ describe("verify:gemini command", () => {
 		expect(result.output).not.toContain("Gemini lifecycle path is degraded");
 	});
 
-	test("gates P2 delegation readiness when feature evidence is missing", async () => {
+	test("fails P2 delegation evidence validation when feature evidence is missing", async () => {
 		const result = await captureVerifyOutput(
 			readySmokeDeps(async () => {
 				throw new Error("missing");
@@ -389,7 +389,7 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain(
 			"Support: generated bundle (Gemini extension assets)",
 		);
-		expect(result.output).toContain("P2 delegation readiness:");
+		expect(result.output).toContain("P2 delegation evidence:");
 		expect(result.output).toContain(
 			"Evidence: features/gemini-phase2/gemini-subagents.json",
 		);
@@ -397,7 +397,9 @@ describe("verify:gemini command", () => {
 		expect(result.output).toMatch(/Custom subagent\s+not_run/);
 		expect(result.output).toMatch(/build_fast\s+blocked\s+evidence=not_run/);
 		expect(result.output).toContain("Gemini delegation evidence missing");
-		expect(result.output).toContain("Gemini P2 delegation readiness is gated");
+		expect(result.output).toContain(
+			"Gemini P2 delegation evidence validation failed",
+		);
 	});
 
 	test("reports failed P2 evidence and keeps heavyweight workflows blocked", async () => {
@@ -415,10 +417,12 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain(
 			"evidence: features/gemini-phase2/gemini-subagents.md",
 		);
-		expect(result.output).toContain("Gemini P2 delegation readiness is gated");
+		expect(result.output).toContain(
+			"Gemini P2 delegation evidence validation failed",
+		);
 	});
 
-	test("reports invalid feature ids as gated evidence checks", async () => {
+	test("reports invalid feature ids as evidence validation failures", async () => {
 		const result = await captureVerifyOutput(readySmokeDeps(), {
 			featureId: "../bad-feature",
 		});
@@ -518,9 +522,11 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain(
 			"User action: Trust this workspace in Gemini CLI, then retry the validation command.",
 		);
-		expect(result.output).toContain("Gemini P3 boundary evidence is gated");
+		expect(result.output).toContain(
+			"Gemini P3 boundary evidence validation failed",
+		);
 		expect(result.output).not.toContain(
-			"Gemini P2 delegation readiness is gated",
+			"Gemini P2 delegation evidence validation failed",
 		);
 	});
 
@@ -547,11 +553,11 @@ describe("verify:gemini command", () => {
 		);
 		expect(result.output).toContain("Gemini generated bundle ready");
 		expect(result.output).not.toContain(
-			"Gemini P2 delegation readiness is gated",
+			"Gemini P2 delegation evidence validation failed",
 		);
 	});
 
-	test("reports passing P2 evidence as evidence-only heavyweight workflow readiness", async () => {
+	test("reports passing P2 evidence classifications without gating Gemini support", async () => {
 		const result = await captureVerifyOutput(
 			readySmokeDeps(async () => passingEvidenceJson()),
 			{ featureId: "gemini-phase2" },
@@ -571,7 +577,7 @@ describe("verify:gemini command", () => {
 		);
 		expect(result.output).toContain("Gemini generated bundle ready");
 		expect(result.output).not.toContain(
-			"Gemini P2 delegation readiness is gated",
+			"Gemini P2 delegation evidence validation failed",
 		);
 	});
 });

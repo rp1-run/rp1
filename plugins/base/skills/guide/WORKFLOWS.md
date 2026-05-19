@@ -4,13 +4,13 @@ Common multi-skill sequences in rp1. Each workflow describes when to use it, the
 
 ## Host Support Boundary
 
-Claude Code, OpenCode, Codex CLI, and GitHub Copilot CLI remain the supported
-hosts for the workflow sequences below. Gemini CLI receives generated bundle
-assets and a support matrix, but the current generated Gemini matrix has 0
-supported workflow rows and 15 product-owned unsupported rows. If a user asks to
-run one of these workflows on Gemini, check
-`rp1 verify gemini --workflow <workflow-id>` and route unsupported attempts to
-Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI.
+Claude Code, OpenCode, Codex CLI, GitHub Copilot CLI, and Gemini CLI are
+supported hosts for the workflow sequences below. Gemini CLI receives generated
+bundle assets and a support matrix; the current generated Gemini matrix has 15
+supported workflow rows and 0 unsupported rows. If a user asks to run one of
+these workflows on Gemini, use `rp1 install gemini` to install the generated
+bundle and `rp1 verify gemini --workflow <workflow-id>` to inspect the matrix
+row.
 
 ## Feature Development Lifecycle
 

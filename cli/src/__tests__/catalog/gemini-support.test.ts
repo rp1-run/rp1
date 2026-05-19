@@ -138,17 +138,19 @@ describe("Gemini workflow support matrix", () => {
 			workflowId: "dev:build",
 			name: "build",
 			userFacingName: "rp1-dev:build",
-			status: "unsupported",
+			status: "supported",
 			workflowClass: "development_workflow",
-			exceptionOwner: "rp1-maintainers",
+			exceptionOwner: null,
 			updatedAt: UPDATED_AT,
 			runPolicy: "resumable",
 			identityArgs: ["FEATURE_ID"],
 			argumentNames: ["FEATURE_ID"],
 		});
-		expect(matrix.entries[0]?.evidenceSource).toBeNull();
-		expect(matrix.entries[0]?.unsupportedRationale).toContain("dev:build");
-		expect(matrix.entries[0]?.userAction).toContain("Gemini evidence");
+		expect(matrix.entries[0]?.evidenceSource).toContain(
+			"generated Gemini extension bundle",
+		);
+		expect(matrix.entries[0]?.unsupportedRationale).toBeNull();
+		expect(matrix.entries[0]?.userAction).toContain("rp1 install gemini");
 
 		expect(
 			matrix.excludedEntries.map((entry) => ({

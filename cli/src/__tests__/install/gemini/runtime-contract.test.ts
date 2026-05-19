@@ -80,7 +80,21 @@ const runtimeEvidence = (
 });
 
 describe("Gemini runtime contract", () => {
-	test("passes supported workflows only when work-root artifacts are registered to the active run", () => {
+	test("passes generated-bundle supported workflows without requiring per-workflow runtime attestation", () => {
+		const result = evaluateGeminiRuntimeContract(matrixFixture(), null);
+
+		expect(result.status).toBe("passed");
+		expect(result.workflows).toEqual([
+			expect.objectContaining({
+				workflowId: "dev:build",
+				status: "passed",
+				artifactRelativePath: null,
+				activeRunId: null,
+			}),
+		]);
+	});
+
+	test("passes supported workflows with recorded work-root artifacts", () => {
 		const result = evaluateGeminiRuntimeContract(
 			matrixFixture(),
 			runtimeEvidence(),

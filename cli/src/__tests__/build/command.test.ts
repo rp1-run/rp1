@@ -853,7 +853,7 @@ Research explorer content.
 		);
 		expect(agentContent).toContain("kind: local");
 		expect(agentContent).toContain("- read_file");
-		expect(agentContent).toContain("- grep_search");
+		expect(agentContent).toContain("- search_file_content");
 		expect(agentContent).toContain("- run_shell_command");
 
 		const context = await readFile(join(out, "base", "GEMINI.md"), "utf-8");
@@ -865,7 +865,7 @@ Research explorer content.
 		);
 		expect(supportMatrix.entries[0]).toMatchObject({
 			workflowId: "base:knowledge-build",
-			status: "unsupported",
+			status: "supported",
 		});
 
 		const manifest = JSON.parse(

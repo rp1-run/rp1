@@ -596,7 +596,7 @@ const printGeminiDelegationReadiness = (
 	readiness: GeminiDelegationReadiness,
 ): void => {
 	console.log("");
-	console.log(bold("P2 delegation readiness:"));
+	console.log(bold("P2 delegation evidence:"));
 
 	if (readiness.evidencePath) {
 		console.log(`Evidence: ${readiness.evidencePath}`);
@@ -628,7 +628,7 @@ const printGeminiDelegationReadiness = (
 	}
 
 	console.log("");
-	console.log(bold("Heavyweight workflow gate:"));
+	console.log(bold("Workflow classifications:"));
 	for (const classification of readiness.workflowClasses) {
 		const color = classificationColor(classification.status);
 		const displayStatus = classificationDisplayStatus(classification.status);
@@ -782,11 +782,13 @@ export const executeVerifyGemini = async (
 
 	const result = await verifyGeminiBundleSetup(deps);
 	const lifecycle = await loadGeminiManifestLifecycle(deps);
-	const delegationReadiness = await loadGeminiDelegationReadiness(
-		options,
-		deps,
-	);
-	const boundaryReadiness = await loadGeminiBoundaryReadiness(options, deps);
+	const verifyFeatureEvidence = Boolean(options.featureId?.trim());
+	const delegationReadiness = verifyFeatureEvidence
+		? await loadGeminiDelegationReadiness(options, deps)
+		: null;
+	const boundaryReadiness = verifyFeatureEvidence
+		? await loadGeminiBoundaryReadiness(options, deps)
+		: null;
 	const workflowAttemptReadiness = loadGeminiWorkflowAttemptReadiness(
 		options.workflowId,
 		lifecycle,
@@ -836,8 +838,10 @@ export const executeVerifyGemini = async (
 	}
 
 	printGeminiManifestLifecycle(lifecycle);
-	printGeminiDelegationReadiness(delegationReadiness);
-	if (options.featureId || boundaryReadiness.evidence) {
+	if (delegationReadiness) {
+		printGeminiDelegationReadiness(delegationReadiness);
+	}
+	if (boundaryReadiness) {
 		printGeminiBoundaryReadiness(boundaryReadiness);
 	}
 	if (workflowAttemptReadiness) {
@@ -845,11 +849,19 @@ export const executeVerifyGemini = async (
 	}
 
 	const lifecycleReady = lifecycle.state === "current";
-	const boundaryEvidencePresent = boundaryReadiness.evidence !== null;
+	const boundaryEvidencePresent =
+		boundaryReadiness?.evidence !== null &&
+		boundaryReadiness?.evidence !== undefined;
 
 	if (result.verified && lifecycleReady) {
-		if (boundaryEvidencePresent && boundaryReadiness.status !== "passed") {
-			console.log(yellow(bold("\nGemini P3 boundary evidence is gated")));
+		if (
+			boundaryEvidencePresent &&
+			boundaryReadiness &&
+			boundaryReadiness.status !== "passed"
+		) {
+			console.log(
+				yellow(bold("\nGemini P3 boundary evidence validation failed")),
+			);
 			console.log(
 				dim(
 					"  Review the P3 boundary evidence issue and rerun after the recorded user action is complete.",
@@ -858,11 +870,13 @@ export const executeVerifyGemini = async (
 			return false;
 		}
 		if (
-			options.featureId &&
+			delegationReadiness &&
 			!boundaryEvidencePresent &&
 			delegationReadiness.status !== "passed"
 		) {
-			console.log(yellow(bold("\nGemini P2 delegation readiness is gated")));
+			console.log(
+				yellow(bold("\nGemini P2 delegation evidence validation failed")),
+			);
 			console.log(dim(`  ${GEMINI_DELEGATION_EVIDENCE_REQUIRED_REASON}`));
 			return false;
 		}
