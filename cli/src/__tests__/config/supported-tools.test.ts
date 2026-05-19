@@ -171,7 +171,7 @@ describe("isToolEnabled", () => {
 });
 
 describe("embedded supported tools registry", () => {
-	test("includes Gemini as experimental without reclassifying existing harnesses", async () => {
+	test("includes Gemini as explicit opt-in without reclassifying existing harnesses", async () => {
 		const registry = await loadToolsRegistry();
 
 		expect(registry.tools.map((tool) => tool.id)).toEqual([

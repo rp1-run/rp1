@@ -63,7 +63,7 @@ describe("update plugin result formatting", () => {
 					"Next action: Restart Gemini CLI, then run `rp1 verify gemini`.",
 				],
 				warnings: [
-					"Gemini CLI remains experimental and support-matrix scoped for rp1.",
+					"Gemini CLI support is generated-bundle backed and scoped by the Gemini support matrix.",
 				],
 			},
 			false,
@@ -73,10 +73,10 @@ describe("update plugin result formatting", () => {
 		expect(output).toContain("Gemini CLI: Plugins updated successfully");
 		expect(output).toContain("Lifecycle stage: update");
 		expect(output).toContain("Lifecycle result: refreshed");
-		expect(output).toContain("Gemini CLI remains experimental");
+		expect(output).toContain("Gemini CLI support is generated-bundle backed");
 	});
 
-	test("formats skipped experimental Gemini update-all results as skipped", () => {
+	test("formats skipped explicit Gemini update-all results as skipped", () => {
 		formatPluginUpdateResult(
 			{
 				toolId: "gemini",
@@ -85,7 +85,9 @@ describe("update plugin result formatting", () => {
 				skipped: true,
 				restartRequired: false,
 				pluginsInstalled: [],
-				warnings: ["Gemini CLI is experimental."],
+				warnings: [
+					"Gemini CLI uses an explicit support-matrix scoped lifecycle.",
+				],
 			},
 			false,
 		);
@@ -252,7 +254,7 @@ describe("update plugin result formatting", () => {
 
 		const output = logs.join("\n");
 		expect(output).toContain("Skipped: 1");
-		expect(output).toContain("No stable plugins were updated");
+		expect(output).toContain("No automatic plugin updates were applied");
 		expect(output).not.toContain("See errors above");
 	});
 });

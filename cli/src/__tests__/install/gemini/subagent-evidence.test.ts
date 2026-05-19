@@ -86,7 +86,7 @@ describe("Gemini subagent evidence helper", () => {
 				workflowClass,
 				status: "experimental",
 				reason:
-					"Gemini P2 delegation evidence passed; heavyweight workflow classes remain experimental until maintainers upgrade support policy.",
+					"Gemini P2 delegation evidence passed for the recorded scenario; heavyweight workflow classes remain evidence-only until maintainers upgrade the support matrix.",
 				evidenceArtifactPath: "features/gemini-phase2/gemini-subagents.md",
 				evidenceStatus: "passed",
 			})),
@@ -252,7 +252,7 @@ describe("Gemini subagent evidence helper", () => {
 			feature: "gemini-phase2",
 			classification: "passed",
 			reason:
-				"Gemini P2 delegation evidence passed; heavyweight workflow classes remain experimental until maintainers upgrade support policy.",
+				"Gemini P2 delegation evidence passed for the recorded scenario; heavyweight workflow classes remain evidence-only until maintainers upgrade the support matrix.",
 		});
 	});
 });

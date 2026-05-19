@@ -580,6 +580,10 @@ const classificationColor = (
 	return yellow;
 };
 
+const classificationDisplayStatus = (
+	status: GeminiWorkflowSupportClassification["status"],
+): string => (status === "experimental" ? "evidence_only" : status);
+
 const renderReadinessStatus = (
 	label: string,
 	status: GeminiDelegationEvidenceStatus,
@@ -627,9 +631,10 @@ const printGeminiDelegationReadiness = (
 	console.log(bold("Heavyweight workflow gate:"));
 	for (const classification of readiness.workflowClasses) {
 		const color = classificationColor(classification.status);
+		const displayStatus = classificationDisplayStatus(classification.status);
 		const evidenceStatus = classification.evidenceStatus ?? readiness.status;
 		console.log(
-			`  ${classification.workflowClass.padEnd(16)} ${color(classification.status).padEnd(14)} ${dim(`evidence=${evidenceStatus}`)}`,
+			`  ${classification.workflowClass.padEnd(16)} ${color(displayStatus).padEnd(14)} ${dim(`evidence=${evidenceStatus}`)}`,
 		);
 		console.log(dim(`    ${classification.reason}`));
 		if (classification.evidenceArtifactPath) {

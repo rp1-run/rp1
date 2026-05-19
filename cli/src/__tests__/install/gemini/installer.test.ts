@@ -49,7 +49,7 @@ describe("Gemini bundle asset installer", () => {
 
 	test("models the required Gemini bundle readiness and failure states", () => {
 		expect(Object.keys(GEMINI_SMOKE_STATUS_DETAILS)).toEqual([
-			"experimental_ready",
+			"generated_bundle_ready",
 			"degraded_missing_binary",
 			"degraded_missing_command",
 			"degraded_trust_or_approval",
@@ -346,7 +346,7 @@ describe("Gemini bundle asset installer", () => {
 			getGeminiVersion: async () => "gemini 1.2.3",
 		});
 
-		expect(result.status).toBe("experimental_ready");
+		expect(result.status).toBe("generated_bundle_ready");
 		expect(result.verified).toBe(true);
 		expect(result.issues).toEqual([]);
 	});

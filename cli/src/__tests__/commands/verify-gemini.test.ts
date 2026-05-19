@@ -154,7 +154,7 @@ describe("verify:gemini command", () => {
 		console.log = originalLog;
 	});
 
-	test("reports missing Gemini CLI as an experimental degraded state", async () => {
+	test("reports missing Gemini CLI as a degraded generated-bundle state", async () => {
 		const result = await captureVerifyOutput({
 			paths: primaryCommandPath,
 			getGeminiBinaryPath: () => null,
@@ -201,14 +201,14 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain("rp1 install gemini");
 	});
 
-	test("reports ready setup without first-class support claims", async () => {
+	test("reports ready setup as support-matrix scoped generated bundle readiness", async () => {
 		const result = await captureVerifyOutput(readySmokeDeps());
 
 		expect(result.ok).toBe(true);
 		expect(result.output).toContain(
 			"Support: generated bundle (Gemini extension assets)",
 		);
-		expect(result.output).toContain("State: experimental_ready");
+		expect(result.output).toContain("State: generated_bundle_ready");
 		expect(result.output).toContain("Meaning: generated bundle ready");
 		expect(result.output).toContain("Manifest lifecycle:");
 		expect(result.output).toContain("State: current");
@@ -219,7 +219,7 @@ describe("verify:gemini command", () => {
 			"Run `rp1 verify gemini --workflow <workflow-id>`",
 		);
 		expect(result.output).toContain("Gemini generated bundle ready");
-		expect(result.output).not.toContain("stable");
+		expect(result.output).not.toContain("experimental_ready");
 	});
 
 	test("fails ready bundle when a manifest asset is stale", async () => {
@@ -551,7 +551,7 @@ describe("verify:gemini command", () => {
 		);
 	});
 
-	test("reports passing P2 evidence as experimental heavyweight workflow readiness", async () => {
+	test("reports passing P2 evidence as evidence-only heavyweight workflow readiness", async () => {
 		const result = await captureVerifyOutput(
 			readySmokeDeps(async () => passingEvidenceJson()),
 			{ featureId: "gemini-phase2" },
@@ -564,7 +564,7 @@ describe("verify:gemini command", () => {
 		expect(result.output).toMatch(/Delegated failure\s+passed/);
 		expect(result.output).toMatch(/Acknowledgement\s+passed/);
 		expect(result.output).toMatch(
-			/build_fast\s+experimental\s+evidence=passed/,
+			/build_fast\s+evidence_only\s+evidence=passed/,
 		);
 		expect(result.output).toContain(
 			"evidence: features/gemini-phase2/gemini-subagents.md",

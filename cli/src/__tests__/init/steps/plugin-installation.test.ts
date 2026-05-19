@@ -252,7 +252,7 @@ describe("plugin-installation step", () => {
 			expect(boxCall).toBeDefined();
 		});
 
-		test("skips Gemini init installation with experimental smoke guidance", async () => {
+		test("skips Gemini init installation with explicit opt-in guidance", async () => {
 			const logger = createTrackingMockLogger();
 
 			const result = await executePluginInstallation(
@@ -272,7 +272,7 @@ describe("plugin-installation step", () => {
 				logger.calls.some(
 					(call) =>
 						call.method === "info" &&
-						String(call.args[0]).includes("experimental"),
+						String(call.args[0]).includes("explicit support-matrix scoped"),
 				),
 			).toBe(true);
 		});

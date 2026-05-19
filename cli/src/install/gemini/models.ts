@@ -1,11 +1,11 @@
 export const GEMINI_EXPERIMENTAL_GUIDANCE =
-	"Gemini CLI support is generated-bundle backed and scoped by the Gemini support matrix; validation-only smoke/proof assets are not installed as product workflows.";
+	"Gemini CLI support is generated-bundle backed and scoped by the Gemini support matrix; unsupported workflows are product-owned exceptions and validation-only smoke/proof assets are not installed as product workflows.";
 
 export const GEMINI_AUTO_INSTALL_SKIP_GUIDANCE =
-	"Gemini CLI is experimental and skipped by automatic install. Run `rp1 install gemini` to install generated Gemini extension bundle assets.";
+	"Gemini CLI uses an explicit support-matrix scoped lifecycle and is skipped by automatic install. Run `rp1 install gemini` only when you want Gemini bundle assets.";
 
 export type GeminiSmokeStatus =
-	| "experimental_ready"
+	| "generated_bundle_ready"
 	| "degraded_missing_binary"
 	| "degraded_missing_command"
 	| "degraded_trust_or_approval"
@@ -64,7 +64,7 @@ export interface GeminiStatusDetail {
 export type GeminiSmokeStatusDetail = GeminiStatusDetail;
 
 export const GEMINI_SMOKE_STATUS_DETAILS = {
-	experimental_ready: {
+	generated_bundle_ready: {
 		label: "generated bundle ready",
 		issue: null,
 		remediation:

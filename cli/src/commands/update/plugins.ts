@@ -136,7 +136,9 @@ export const formatUpdateAllResult = (
 	} else if (failed.length === 0) {
 		console.log(
 			yellow(
-				bold("No stable plugins were updated; skipped tools are listed above."),
+				bold(
+					"No automatic plugin updates were applied; skipped tools are listed above.",
+				),
 			),
 		);
 	} else if (result.installed > 0) {
@@ -183,7 +185,7 @@ Arguments:
         - opencode     Update plugins for OpenCode only
         - codex        Update plugins for Codex only
         - copilot      Update plugins for Copilot CLI only
-        - gemini       Refresh experimental Gemini extension assets only
+        - gemini       Refresh explicit Gemini extension bundle assets only
 
 Examples:
   rp1 update plugins           Update plugins for all detected tools

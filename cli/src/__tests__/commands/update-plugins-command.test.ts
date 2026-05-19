@@ -337,7 +337,7 @@ describe("update plugins command action", () => {
 		expect(output).toContain("Please restart Gemini CLI");
 	});
 
-	test("keeps skipped experimental Gemini update-all as a successful command", async () => {
+	test("keeps skipped explicit Gemini update-all as a successful command", async () => {
 		const installAllDetectedTools = mock(
 			(_toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
 				TE.right({
@@ -362,7 +362,9 @@ describe("update plugins command action", () => {
 							restartRequired: false,
 							pluginsInstalled: [],
 							details: ["Lifecycle stage: update"],
-							warnings: ["Gemini CLI is experimental."],
+							warnings: [
+								"Gemini CLI uses an explicit support-matrix scoped lifecycle.",
+							],
 						},
 					],
 				}),
@@ -376,7 +378,7 @@ describe("update plugins command action", () => {
 
 		const output = logs.join("\n");
 		expect(output).toContain("Gemini CLI: Plugin update skipped");
-		expect(output).toContain("No stable plugins were updated");
+		expect(output).toContain("No automatic plugin updates were applied");
 		expect(output).not.toContain("See errors above");
 	});
 

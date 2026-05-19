@@ -163,11 +163,11 @@ describe("verify command structure", () => {
 			expect(verifyGeminiSubcommand.name()).toBe("gemini");
 		});
 
-		test("has description marking Gemini as experimental", async () => {
+		test("has description marking Gemini as generated-bundle scoped", async () => {
 			const { verifyGeminiSubcommand } = await import("../index.js");
 
 			const description = verifyGeminiSubcommand.description();
-			expect(description.toLowerCase()).toContain("experimental");
+			expect(description.toLowerCase()).toContain("generated");
 			expect(description.toLowerCase()).toContain("gemini");
 		});
 	});

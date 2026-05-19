@@ -1103,7 +1103,7 @@ describe("install-core tool routing", () => {
 		}
 	});
 
-	test("installAllDetectedTools skips experimental Gemini during automatic install", async () => {
+	test("installAllDetectedTools keeps Gemini explicit during automatic install", async () => {
 		const installCore = (await import(
 			`../../shared/install-core.js?gemini-auto-skip=${Date.now()}`
 		)) as InstallCoreModule;

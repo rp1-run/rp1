@@ -207,16 +207,16 @@ export const verifyGeminiBundleSetup = async (
 	const status = !geminiInstalled
 		? "degraded_missing_binary"
 		: commandInstalled
-			? "experimental_ready"
+			? "generated_bundle_ready"
 			: "degraded_missing_command";
 
-	if (status === "experimental_ready") {
+	if (status === "generated_bundle_ready") {
 		remediation.push(getGeminiSmokeStatusDetail(status).remediation);
 	}
 
 	return {
 		status,
-		verified: status === "experimental_ready",
+		verified: status === "generated_bundle_ready",
 		geminiInstalled,
 		geminiVersion,
 		commandInstalled,
@@ -326,6 +326,21 @@ export {
 	GEMINI_SUPPORT_CLASSIFICATION_STATUSES,
 	getGeminiSmokeStatusDetail,
 } from "./models.js";
+export type {
+	BuildGeminiReleaseReadinessRecordOptions,
+	GeminiExistingHarnessRegression,
+	GeminiReleaseReadinessGate,
+	GeminiReleaseReadinessGateId,
+	GeminiReleaseReadinessGateStatus,
+	GeminiReleaseReadinessRecord,
+	GeminiReleaseReadinessStatus,
+} from "./release-readiness.js";
+export {
+	buildGeminiReleaseReadinessRecord,
+	GEMINI_RELEASE_READINESS_GATE_IDS,
+	GEMINI_RELEASE_READINESS_SCHEMA_VERSION,
+	renderGeminiReleaseReadinessMarkdown,
+} from "./release-readiness.js";
 export type {
 	GeminiRuntimeContractEvaluation,
 	GeminiRuntimeContractEvidence,

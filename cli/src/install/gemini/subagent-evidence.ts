@@ -425,7 +425,7 @@ const overallStatusFor = (
 const statusReason = (status: GeminiDelegationEvidenceStatus): string => {
 	switch (status) {
 		case "passed":
-			return "Gemini P2 delegation evidence passed; heavyweight workflow classes remain experimental until maintainers upgrade support policy.";
+			return "Gemini P2 delegation evidence passed for the recorded scenario; heavyweight workflow classes remain evidence-only until maintainers upgrade the support matrix.";
 		case "blocked":
 			return "Gemini delegation validation is blocked by acknowledgement, trust, setup, or invocation requirements.";
 		case "failed":

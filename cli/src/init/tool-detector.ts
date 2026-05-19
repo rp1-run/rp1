@@ -262,6 +262,10 @@ export const formatDetectedTool = (detected: DetectedTool): string => {
 		? ""
 		: ` (requires >= ${detected.tool.min_version})`;
 	const supportLevel = getToolSupportLevel(detected.tool);
-	const support = supportLevel === "stable" ? "" : ` (${supportLevel})`;
+	const supportLabel =
+		detected.tool.id === "gemini" && supportLevel === "experimental"
+			? "explicit opt-in"
+			: supportLevel;
+	const support = supportLevel === "stable" ? "" : ` (${supportLabel})`;
 	return `${detected.tool.name} ${versionInfo}${support}${status}`;
 };

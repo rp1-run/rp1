@@ -200,7 +200,7 @@ const overallStatusFor = (
 const statusReason = (status: GeminiBoundaryStatus): string => {
 	switch (status) {
 		case "passed":
-			return "Gemini boundary evidence passed for the recorded scenario; Gemini remains experimental.";
+			return "Gemini boundary evidence passed for the recorded scenario; workflow support remains scoped by the Gemini support matrix.";
 		case "degraded":
 			return "Gemini boundary evidence recorded a recoverable degraded condition with a user action.";
 		case "blocked":

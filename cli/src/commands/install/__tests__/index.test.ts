@@ -321,11 +321,11 @@ describe("install command structure", () => {
 			expect(installGeminiSubcommand.name()).toBe("gemini");
 		});
 
-		test("has description marking Gemini as experimental", async () => {
+		test("has description marking Gemini as generated-bundle scoped", async () => {
 			const { installGeminiSubcommand } = await import("../index.js");
 
 			const description = installGeminiSubcommand.description();
-			expect(description.toLowerCase()).toContain("experimental");
+			expect(description.toLowerCase()).toContain("generated");
 			expect(description.toLowerCase()).toContain("gemini");
 		});
 

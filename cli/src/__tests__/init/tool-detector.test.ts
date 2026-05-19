@@ -213,9 +213,10 @@ describe("tool-detector", () => {
 				expect(formatted).toContain("requires >= 2.0.0");
 			});
 
-			test("labels experimental tools", () => {
+			test("labels Gemini as explicit opt-in", () => {
 				const detected = createMockDetectedTool({
 					tool: createMockTool({
+						id: "gemini",
 						name: "Gemini CLI",
 						supportLevel: "experimental",
 					}),
@@ -224,7 +225,7 @@ describe("tool-detector", () => {
 				});
 
 				const formatted = formatDetectedTool(detected);
-				expect(formatted).toBe("Gemini CLI v0.41.2 (experimental)");
+				expect(formatted).toBe("Gemini CLI v0.41.2 (explicit opt-in)");
 			});
 		});
 	});
