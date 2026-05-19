@@ -316,6 +316,65 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain("rp1 install gemini");
 	});
 
+	test("attributes unsupported workflow attempts from the generated support matrix", async () => {
+		const result = await captureVerifyOutput(readySmokeDeps(), {
+			workflowId: "dev:build",
+		});
+
+		expect(result.ok).toBe(false);
+		expect(result.output).toContain("Workflow attempt attribution:");
+		expect(result.output).toContain("Workflow: dev:build");
+		expect(result.output).toContain("State: unsupported");
+		expect(result.output).toContain(
+			"Product scope: product-owned Gemini support boundary",
+		);
+		expect(result.output).toContain(
+			"No accepted Gemini runtime evidence currently promotes dev:build",
+		);
+		expect(result.output).toContain("Exception owner: rp1-maintainers");
+		expect(result.output).toContain(
+			"Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI",
+		);
+		expect(result.output).toContain("Gemini unsupported workflow attribution");
+		expect(result.output).not.toContain("Gemini lifecycle path is degraded");
+		expect(result.output).not.toContain(
+			"Gemini experimental smoke command ready",
+		);
+	});
+
+	test("keeps supported workflow attempts on the normal readiness path", async () => {
+		const result = await captureVerifyOutput(readySmokeDeps(), {
+			workflowId: "dev:build-fast",
+		});
+
+		expect(result.ok).toBe(true);
+		expect(result.output).toContain("Workflow attempt attribution:");
+		expect(result.output).toContain("Workflow: dev:build-fast");
+		expect(result.output).toContain("State: supported");
+		expect(result.output).toContain(
+			"Product scope: supported Gemini matrix row",
+		);
+		expect(result.output).toContain(
+			"features/gemini-cli-rp1-harness-first-class/gemini-runtime-contract.md",
+		);
+		expect(result.output).toContain("Gemini experimental smoke command ready");
+	});
+
+	test("reports unknown workflow attempts without blaming installation state", async () => {
+		const result = await captureVerifyOutput(readySmokeDeps(), {
+			workflowId: "dev:unknown",
+		});
+
+		expect(result.ok).toBe(false);
+		expect(result.output).toContain("Workflow: dev:unknown");
+		expect(result.output).toContain("State: unknown");
+		expect(result.output).toContain(
+			"dev:unknown is not present in the generated Gemini support matrix.",
+		);
+		expect(result.output).toContain("Gemini unsupported workflow attribution");
+		expect(result.output).not.toContain("Gemini lifecycle path is degraded");
+	});
+
 	test("gates P2 delegation readiness when feature evidence is missing", async () => {
 		const result = await captureVerifyOutput(
 			readySmokeDeps(async () => {

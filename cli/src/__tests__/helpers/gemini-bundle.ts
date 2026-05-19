@@ -3,6 +3,70 @@ import { dirname, join } from "node:path";
 import type { BundledAssets } from "../../assets/reader.js";
 import type { GeminiAssetManifestEntry } from "../../install/gemini/index.js";
 
+const supportMatrixFixture = (): string =>
+	`${JSON.stringify(
+		{
+			updatedAt: "2026-05-19",
+			entries: [
+				{
+					workflowId: "dev:build",
+					name: "build",
+					userFacingName: "rp1-dev:build",
+					plugin: "dev",
+					category: "development",
+					workflowClass: "development_workflow",
+					status: "unsupported",
+					evidenceSource: null,
+					unsupportedRationale:
+						"No accepted Gemini runtime evidence currently promotes dev:build or its development workflow class from the catalog-backed matrix.",
+					userAction:
+						"Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI for this workflow until Gemini evidence promotes this entry.",
+					exceptionOwner: "rp1-maintainers",
+					updatedAt: "2026-05-19",
+					sourcePath: "plugins/dev/skills/build/SKILL.md",
+					argumentNames: ["FEATURE_ID"],
+					runPolicy: "resumable",
+					identityArgs: ["FEATURE_ID"],
+				},
+				{
+					workflowId: "dev:build-fast",
+					name: "build-fast",
+					userFacingName: "rp1-dev:build-fast",
+					plugin: "dev",
+					category: "development",
+					workflowClass: "development_workflow",
+					status: "supported",
+					evidenceSource:
+						"features/gemini-cli-rp1-harness-first-class/gemini-runtime-contract.md",
+					unsupportedRationale: null,
+					userAction:
+						"Run through generated Gemini bundle assets and verify registered work-root artifacts.",
+					exceptionOwner: null,
+					updatedAt: "2026-05-19",
+					sourcePath: "plugins/dev/skills/build-fast/SKILL.md",
+					argumentNames: ["FEATURE_ID"],
+					runPolicy: "fresh",
+					identityArgs: ["FEATURE_ID"],
+				},
+			],
+			excludedEntries: [
+				{
+					workflowId: "dev:gemini-harness-smoke",
+					name: "gemini-harness-smoke",
+					userFacingName: "rp1-dev:gemini-harness-smoke",
+					plugin: "dev",
+					reason: "validation_only",
+					rationale:
+						"Gemini validation workflows collect release evidence and are not shipped product workflow support claims.",
+					updatedAt: "2026-05-19",
+					sourcePath: "plugins/dev/skills/gemini-harness-smoke/SKILL.md",
+				},
+			],
+		},
+		null,
+		2,
+	)}\n`;
+
 export const createGeminiBundleAssetManifestFixture =
 	(): readonly GeminiAssetManifestEntry[] => [
 		{
@@ -62,7 +126,7 @@ export const createGeminiBundleAssetManifestFixture =
 			kind: "support_matrix",
 			owner: "rp1",
 			contentCheck: "exact_content",
-			expectedContent: '{"workflows":[]}\n',
+			expectedContent: supportMatrixFixture(),
 			safeRemovalEligible: true,
 			lifecycleStages: ["install", "verify", "update", "uninstall"],
 		},
@@ -144,7 +208,7 @@ export const createBundledGeminiAssetsFixture = (): BundledAssets => ({
 						{
 							name: "support-matrix.json",
 							path: "/embedded/dev-support",
-							content: '{"workflows":[]}\n',
+							content: supportMatrixFixture(),
 						},
 					],
 				},
@@ -169,7 +233,7 @@ export const writeGeminiBundleDistFixture = async (
 		["base/gemini-extension.json", '{"name":"rp1-base"}\n'],
 		["base/GEMINI.md", "# rp1-base\n"],
 		["dev/agents/rp1-dev-task-builder.md", "# Task Builder\n"],
-		["dev/support-matrix.json", '{"workflows":[]}\n'],
+		["dev/support-matrix.json", supportMatrixFixture()],
 	]);
 
 	for (const [relativePath, content] of files) {

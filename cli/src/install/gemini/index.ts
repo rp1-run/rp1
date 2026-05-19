@@ -334,6 +334,22 @@ export {
 	GEMINI_SUPPORT_CLASSIFICATION_STATUSES,
 	getGeminiSmokeStatusDetail,
 } from "./models.js";
+export type {
+	GeminiRuntimeContractEvaluation,
+	GeminiRuntimeContractEvidence,
+	GeminiRuntimeContractWorkflowResult,
+	GeminiRuntimeWorkflowEvidence,
+	GeminiRuntimeWorkflowStatus,
+	GeminiWorkflowAttemptAttribution,
+} from "./runtime-contract.js";
+export {
+	attributeGeminiWorkflowAttempt,
+	evaluateGeminiRuntimeContract,
+	GEMINI_RUNTIME_CONTRACT_SCHEMA_VERSION,
+	GEMINI_RUNTIME_WORKFLOW_STATUSES,
+	loadGeminiWorkflowSupportMatrixFromAssets,
+	parseGeminiWorkflowSupportMatrix,
+} from "./runtime-contract.js";
 export {
 	GEMINI_EXTENSION_DISPLAY_DIR,
 	GEMINI_EXTENSION_NAME,

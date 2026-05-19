@@ -7,6 +7,7 @@ import type { Logger } from "../../../shared/logger.js";
 import { resolveRp1Root } from "../../agent-tools/rp1-root-dir/resolver.js";
 import type { BundledAssets } from "../../assets/reader.js";
 import {
+	attributeGeminiWorkflowAttempt,
 	GEMINI_BOUNDARY_MODES,
 	GEMINI_BOUNDARY_SCENARIOS,
 	GEMINI_BOUNDARY_STATES,
@@ -23,11 +24,13 @@ import {
 	type GeminiLifecycleState,
 	type GeminiLifecycleStatus,
 	type GeminiVerifyDeps,
+	type GeminiWorkflowAttemptAttribution,
 	type GeminiWorkflowSupportClassification,
 	getGeminiBoundaryEvidenceRelativePaths,
 	getGeminiManifestLifecycleStatus,
 	getGeminiSmokeStatusDetail,
 	getGeminiSubagentEvidenceRelativePaths,
+	loadGeminiWorkflowSupportMatrixFromAssets,
 	verifyGeminiSmokeSetup,
 } from "../../install/gemini/index.js";
 import { colorFns } from "../../lib/colors.js";
@@ -36,6 +39,7 @@ const { green, yellow, red, dim, bold, cyan } = colorFns;
 
 export interface GeminiVerifyOptions {
 	readonly featureId?: string;
+	readonly workflowId?: string;
 }
 
 export interface GeminiVerifyDelegationDeps {
@@ -66,6 +70,11 @@ interface GeminiBoundaryReadiness {
 	readonly evidencePath: string | null;
 	readonly issue: string | null;
 	readonly workflowClasses: readonly GeminiWorkflowSupportClassification[];
+}
+
+interface GeminiWorkflowAttemptReadiness {
+	readonly attribution: GeminiWorkflowAttemptAttribution | null;
+	readonly issue: string | null;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -512,6 +521,32 @@ const loadGeminiBoundaryReadiness = async (
 	};
 };
 
+const loadGeminiWorkflowAttemptReadiness = (
+	workflowId: string | undefined,
+	lifecycle: GeminiLifecycleStatus,
+): GeminiWorkflowAttemptReadiness | null => {
+	const requestedWorkflow = workflowId?.trim();
+	if (!requestedWorkflow) return null;
+
+	try {
+		const matrix = loadGeminiWorkflowSupportMatrixFromAssets(
+			lifecycle.assets.map((assetStatus) => assetStatus.asset),
+		);
+		return {
+			attribution: attributeGeminiWorkflowAttempt(matrix, requestedWorkflow),
+			issue: null,
+		};
+	} catch (error) {
+		return {
+			attribution: null,
+			issue:
+				error instanceof Error
+					? error.message
+					: "Gemini support matrix could not be read.",
+		};
+	}
+};
+
 const statusColor = (
 	status: GeminiDelegationEvidenceStatus,
 ): ((value: string) => string) => {
@@ -689,6 +724,49 @@ const printGeminiBoundaryReadiness = (
 	}
 };
 
+const workflowAttemptColor = (
+	status: GeminiWorkflowAttemptAttribution["status"],
+): ((value: string) => string) => {
+	if (status === "supported") return green;
+	if (status === "unsupported") return red;
+	return yellow;
+};
+
+const printGeminiWorkflowAttemptReadiness = (
+	readiness: GeminiWorkflowAttemptReadiness,
+): void => {
+	console.log("");
+	console.log(bold("Workflow attempt attribution:"));
+
+	if (readiness.issue) {
+		console.log(yellow(`Issue: ${readiness.issue}`));
+		console.log(
+			dim(
+				"User action: Build or install the generated Gemini bundle so its support matrix can attribute the attempted workflow.",
+			),
+		);
+		return;
+	}
+
+	const attribution = readiness.attribution;
+	if (!attribution) return;
+
+	const color = workflowAttemptColor(attribution.status);
+	console.log(`Workflow: ${attribution.workflowId}`);
+	console.log(`State: ${color(attribution.status)}`);
+	console.log(
+		`Product scope: ${attribution.productOwnedScope ? "product-owned Gemini support boundary" : "supported Gemini matrix row"}`,
+	);
+	console.log(`Rationale: ${attribution.rationale}`);
+	if (attribution.exceptionOwner) {
+		console.log(`Exception owner: ${attribution.exceptionOwner}`);
+	}
+	if (attribution.evidenceSource) {
+		console.log(`Evidence: ${attribution.evidenceSource}`);
+	}
+	console.log(dim(`User action: ${attribution.userAction}`));
+};
+
 export const executeVerifyGemini = async (
 	_logger: Logger,
 	deps?: GeminiVerifyDeps &
@@ -705,6 +783,10 @@ export const executeVerifyGemini = async (
 		deps,
 	);
 	const boundaryReadiness = await loadGeminiBoundaryReadiness(options, deps);
+	const workflowAttemptReadiness = loadGeminiWorkflowAttemptReadiness(
+		options.workflowId,
+		lifecycle,
+	);
 	const statusDetail = getGeminiSmokeStatusDetail(result.status);
 	const statusLabel = result.verified
 		? green(result.status)
@@ -754,6 +836,9 @@ export const executeVerifyGemini = async (
 	if (options.featureId || boundaryReadiness.evidence) {
 		printGeminiBoundaryReadiness(boundaryReadiness);
 	}
+	if (workflowAttemptReadiness) {
+		printGeminiWorkflowAttemptReadiness(workflowAttemptReadiness);
+	}
 
 	const lifecycleReady = lifecycle.state === "current";
 	const boundaryEvidencePresent = boundaryReadiness.evidence !== null;
@@ -775,6 +860,18 @@ export const executeVerifyGemini = async (
 		) {
 			console.log(yellow(bold("\nGemini P2 delegation readiness is gated")));
 			console.log(dim(`  ${GEMINI_DELEGATION_EVIDENCE_REQUIRED_REASON}`));
+			return false;
+		}
+		if (
+			workflowAttemptReadiness &&
+			workflowAttemptReadiness.attribution?.status !== "supported"
+		) {
+			console.log(yellow(bold("\nGemini unsupported workflow attribution")));
+			console.log(
+				dim(
+					"  The requested workflow is not a Gemini runtime success; the support matrix above identifies the product scope and next action.",
+				),
+			);
 			return false;
 		}
 		console.log(green(bold("\nGemini experimental smoke command ready")));
@@ -799,12 +896,17 @@ export const verifyGeminiSubcommand = new Command("gemini")
 		"--feature-id <featureId>",
 		"Read Gemini feature evidence from .rp1/work/features/<featureId>/",
 	)
+	.option(
+		"--workflow <workflowId>",
+		"Attribute a Gemini workflow attempt against the generated support matrix",
+	)
 	.addHelpText(
 		"after",
 		`
 Examples:
   rp1 verify gemini                          Verify Gemini CLI experimental manifest setup
   rp1 verify gemini --feature-id phase-p3    Verify setup plus feature evidence
+  rp1 verify gemini --workflow dev:build     Explain Gemini support for a workflow attempt
 `,
 	)
 	.action(async (options, command) => {
@@ -816,6 +918,7 @@ Examples:
 
 		const ok = await executeVerifyGemini(logger, undefined, {
 			featureId: options.featureId,
+			workflowId: options.workflow,
 		});
 		if (!ok) process.exit(1);
 	});
