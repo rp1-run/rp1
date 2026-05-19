@@ -154,7 +154,7 @@ describe("verify:gemini command", () => {
 		console.log = originalLog;
 	});
 
-	test("reports missing Gemini CLI as a degraded generated-bundle state", async () => {
+	test("reports missing Gemini CLI as degraded Gemini readiness", async () => {
 		const result = await captureVerifyOutput({
 			paths: primaryCommandPath,
 			getGeminiBinaryPath: () => null,
@@ -167,7 +167,7 @@ describe("verify:gemini command", () => {
 
 		expect(result.ok).toBe(false);
 		expect(result.output).toContain(
-			"Support: generated bundle (Gemini extension assets)",
+			"Support: first-class (Gemini CLI extension assets)",
 		);
 		expect(result.output).toContain("State: degraded_missing_binary");
 		expect(result.output).toContain(
@@ -201,15 +201,15 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain("rp1 install gemini");
 	});
 
-	test("reports ready setup as generated bundle readiness", async () => {
+	test("reports ready Gemini setup", async () => {
 		const result = await captureVerifyOutput(readySmokeDeps());
 
 		expect(result.ok).toBe(true);
 		expect(result.output).toContain(
-			"Support: generated bundle (Gemini extension assets)",
+			"Support: first-class (Gemini CLI extension assets)",
 		);
-		expect(result.output).toContain("State: generated_bundle_ready");
-		expect(result.output).toContain("Meaning: generated bundle ready");
+		expect(result.output).toContain("State: ready");
+		expect(result.output).toContain("Meaning: ready");
 		expect(result.output).toContain("Manifest lifecycle:");
 		expect(result.output).toContain("State: current");
 		expect(result.output).toContain(
@@ -220,7 +220,7 @@ describe("verify:gemini command", () => {
 		);
 		expect(result.output).not.toContain("P2 delegation evidence:");
 		expect(result.output).not.toContain("Workflow classifications:");
-		expect(result.output).toContain("Gemini generated bundle ready");
+		expect(result.output).toContain("Gemini CLI ready");
 	});
 
 	test("fails ready bundle when a manifest asset is stale", async () => {
@@ -334,13 +334,13 @@ describe("verify:gemini command", () => {
 			"Product scope: supported Gemini matrix row",
 		);
 		expect(result.output).toContain(
-			"generated Gemini extension bundle: plugins/dev/skills/build/SKILL.md",
+			"Gemini CLI extension assets: plugins/dev/skills/build/SKILL.md",
 		);
 		expect(result.output).not.toContain(
 			"Gemini workflow attribution requires attention",
 		);
 		expect(result.output).not.toContain("Gemini lifecycle path is degraded");
-		expect(result.output).toContain("Gemini generated bundle ready");
+		expect(result.output).toContain("Gemini CLI ready");
 	});
 
 	test("keeps supported workflow attempts on the normal readiness path", async () => {
@@ -356,9 +356,9 @@ describe("verify:gemini command", () => {
 			"Product scope: supported Gemini matrix row",
 		);
 		expect(result.output).toContain(
-			"generated Gemini extension bundle: plugins/dev/skills/build-fast/SKILL.md",
+			"Gemini CLI extension assets: plugins/dev/skills/build-fast/SKILL.md",
 		);
-		expect(result.output).toContain("Gemini generated bundle ready");
+		expect(result.output).toContain("Gemini CLI ready");
 	});
 
 	test("reports unknown workflow attempts without blaming installation state", async () => {
@@ -370,7 +370,7 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain("Workflow: dev:unknown");
 		expect(result.output).toContain("State: unknown");
 		expect(result.output).toContain(
-			"dev:unknown is not present in the generated Gemini support matrix.",
+			"dev:unknown is not present in the Gemini support matrix.",
 		);
 		expect(result.output).toContain(
 			"Gemini workflow attribution requires attention",
@@ -388,7 +388,7 @@ describe("verify:gemini command", () => {
 
 		expect(result.ok).toBe(false);
 		expect(result.output).toContain(
-			"Support: generated bundle (Gemini extension assets)",
+			"Support: first-class (Gemini CLI extension assets)",
 		);
 		expect(result.output).toContain("P2 delegation evidence:");
 		expect(result.output).toContain(
@@ -547,7 +547,7 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain(
 			"Use this artifact as passing boundary evidence.",
 		);
-		expect(result.output).toContain("Gemini generated bundle ready");
+		expect(result.output).toContain("Gemini CLI ready");
 		expect(result.output).not.toContain(
 			"Gemini P2 delegation evidence validation failed",
 		);
@@ -566,7 +566,7 @@ describe("verify:gemini command", () => {
 		expect(result.output).toMatch(/Delegated failure\s+passed/);
 		expect(result.output).toMatch(/Acknowledgement\s+passed/);
 		expect(result.output).not.toContain("Workflow classifications:");
-		expect(result.output).toContain("Gemini generated bundle ready");
+		expect(result.output).toContain("Gemini CLI ready");
 		expect(result.output).not.toContain(
 			"Gemini P2 delegation evidence validation failed",
 		);

@@ -148,7 +148,7 @@ const userActionForState = (state: GeminiLifecycleState): string => {
 	}
 
 	if (state === "removed") {
-		return "Run `rp1 install gemini` before using generated Gemini bundle assets.";
+		return "Run `rp1 install gemini` before using Gemini rp1 commands.";
 	}
 
 	if (state === "blocked") {

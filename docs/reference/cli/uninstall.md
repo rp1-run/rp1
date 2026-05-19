@@ -16,7 +16,7 @@ rp1 uninstall gemini [options]
 `rp1 uninstall` removes rp1-managed project setup from the current repository
 while preserving `.rp1/` work and knowledge artifacts.
 
-`rp1 uninstall gemini` removes only rp1 Gemini CLI generated extension assets
+`rp1 uninstall gemini` removes only rp1 Gemini CLI extension assets
 that match the Gemini asset manifest. It does not remove user-created Gemini
 files, third-party Gemini extensions, or modified rp1 files that no longer match
 the manifest.
@@ -48,10 +48,10 @@ Gemini uninstall is scoped to rp1-owned files under:
 ~/.gemini/extensions/rp1-dev/
 ```
 
-It removes generated manifest-owned Gemini bundle assets only when their
+It removes manifest-owned Gemini assets only when their
 contents still match the current rp1 manifest.
 
-Gemini uninstall affects only this generated bundle target. It does not
+Gemini uninstall affects only this Gemini extension target. It does not
 remove or downgrade stable Claude Code, OpenCode, Codex, or GitHub Copilot CLI
 integrations.
 
@@ -68,7 +68,7 @@ integrations.
 
 ## Post-Removal Verification
 
-After removal, verify that Gemini no longer reports active rp1 generated bundle
+After removal, verify that Gemini no longer reports active rp1 Gemini extension
 assets:
 
 ```bash
@@ -77,8 +77,8 @@ rp1 verify gemini
 
 The expected post-removal lifecycle state is `removed` or another inactive state
 that points back to `rp1 install gemini` as the setup action. A removed Gemini
-extension is not a Gemini workflow-support failure; it means the generated
-bundle assets are no longer installed.
+extension is not a Gemini workflow-support failure; it means the Gemini assets
+are no longer installed.
 
 See the [Gemini CLI platform guide](../platforms/gemini.md) for the support
 matrix and removal-lifecycle limitations.

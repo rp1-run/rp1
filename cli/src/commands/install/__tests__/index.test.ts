@@ -321,12 +321,12 @@ describe("install command structure", () => {
 			expect(installGeminiSubcommand.name()).toBe("gemini");
 		});
 
-		test("has description marking Gemini as generated-bundle scoped", async () => {
+		test("has description marking Gemini as supported", async () => {
 			const { installGeminiSubcommand } = await import("../index.js");
 
 			const description = installGeminiSubcommand.description();
-			expect(description.toLowerCase()).toContain("generated");
 			expect(description.toLowerCase()).toContain("gemini");
+			expect(description.toLowerCase()).toContain("extension");
 		});
 
 		test("accepts --dry-run option", async () => {

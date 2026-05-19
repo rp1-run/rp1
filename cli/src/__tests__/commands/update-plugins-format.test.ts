@@ -62,9 +62,7 @@ describe("update plugin result formatting", () => {
 					"Lifecycle result: refreshed",
 					"Next action: Restart Gemini CLI, then run `rp1 verify gemini`.",
 				],
-				warnings: [
-					"Gemini CLI support is generated-bundle backed and scoped by the Gemini support matrix.",
-				],
+				warnings: [],
 			},
 			false,
 		);
@@ -73,7 +71,7 @@ describe("update plugin result formatting", () => {
 		expect(output).toContain("Gemini CLI: Plugins updated successfully");
 		expect(output).toContain("Lifecycle stage: update");
 		expect(output).toContain("Lifecycle result: refreshed");
-		expect(output).toContain("Gemini CLI support is generated-bundle backed");
+		expect(output).not.toContain("Gemini CLI support is");
 	});
 
 	test("formats skipped unsupported tool results as skipped", () => {

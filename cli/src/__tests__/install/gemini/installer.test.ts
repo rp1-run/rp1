@@ -51,7 +51,7 @@ describe("Gemini bundle asset installer", () => {
 
 	test("models the required Gemini bundle readiness and failure states", () => {
 		expect(Object.keys(GEMINI_SMOKE_STATUS_DETAILS)).toEqual([
-			"generated_bundle_ready",
+			"ready",
 			"degraded_missing_binary",
 			"degraded_missing_command",
 			"degraded_trust_or_approval",
@@ -93,7 +93,7 @@ describe("Gemini bundle asset installer", () => {
 		expect(GEMINI_BOUNDARY_STATES).toContain("legacy_pre_manifest");
 	});
 
-	test("derives manifest-owned assets from a generated Gemini bundle", async () => {
+	test("derives manifest-owned assets from Gemini extension assets", async () => {
 		const assets = await loadGeminiBundleAssetManifest({
 			bundledAssets: createBundledGeminiAssetsFixture(),
 		});
@@ -119,7 +119,7 @@ describe("Gemini bundle asset installer", () => {
 		).toBe(true);
 	});
 
-	test("prefers targeted Gemini dist assets over embedded bundle assets", async () => {
+	test("prefers targeted Gemini dist assets over embedded Gemini assets", async () => {
 		const distDir = await writeGeminiBundleDistFixture(tempDir);
 		await writeFixture(distDir, "base/GEMINI.md", "# rp1-base from dist\n");
 		const restoreBundle = withEnvOverride("RP1_GEMINI_BUNDLE_DIR", distDir);
@@ -216,7 +216,7 @@ describe("Gemini bundle asset installer", () => {
 		expect(await exists(result.commandPath)).toBe(false);
 	});
 
-	test("targeted install writes generated Gemini bundle assets", async () => {
+	test("targeted install writes Gemini extension assets", async () => {
 		const result = await expectTaskRight(
 			installGeminiBundleAssets({
 				dryRun: false,
@@ -369,7 +369,7 @@ describe("Gemini bundle asset installer", () => {
 			getGeminiVersion: async () => "gemini 1.2.3",
 		});
 
-		expect(result.status).toBe("generated_bundle_ready");
+		expect(result.status).toBe("ready");
 		expect(result.verified).toBe(true);
 		expect(result.issues).toEqual([]);
 	});

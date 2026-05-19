@@ -64,17 +64,17 @@ describe("Gemini install command", () => {
 		await cleanupTempDir(tempDir);
 	});
 
-	test("registers the Gemini install subcommand with bundle scope", () => {
+	test("registers the Gemini install subcommand", () => {
 		const subcommand = installParentCommand.commands.find(
 			(command) => command.name() === "gemini",
 		);
 
 		expect(subcommand).toBeInstanceOf(Command);
 		expect(subcommand?.description()).toContain("Gemini CLI");
-		expect(subcommand?.description()).toContain("extension bundle assets");
+		expect(subcommand?.description()).toContain("extension assets");
 	});
 
-	test("dry-run output reports generated Gemini bundle scope", async () => {
+	test("dry-run output reports Gemini extension scope", async () => {
 		const proc = Bun.spawn(
 			["bun", "src/main.ts", "install", "gemini", "--dry-run"],
 			{
@@ -97,10 +97,10 @@ describe("Gemini install command", () => {
 
 		expect(exitCode).toBe(0);
 		expect(stderr).not.toContain("Logger not initialized");
-		expect(stdout).toContain("Gemini CLI extension bundle setup");
-		expect(stdout).toContain("generated bundle assets");
-		expect(stdout).toContain("Installed bundle scope:");
-		expect(stdout).toContain("Generated Gemini commands");
+		expect(stdout).toContain("Gemini CLI extension setup");
+		expect(stdout).toContain("Gemini extension assets");
+		expect(stdout).toContain("Installed Gemini scope:");
+		expect(stdout).toContain("Gemini commands");
 		expect(stdout).toContain("rp1 verify gemini");
 	});
 
@@ -113,7 +113,7 @@ describe("Gemini install command", () => {
 			])
 		).join("\n");
 
-		expect(output).toContain("Gemini CLI extension bundle setup");
+		expect(output).toContain("Gemini CLI extension setup");
 		expect(output).toContain("Dry run: would write");
 		expect(output).toContain("rp1-base");
 		expect(output).toContain("Gemini context, extension metadata");
@@ -128,7 +128,7 @@ describe("Gemini install command", () => {
 		).join("\n");
 
 		expect(output).toContain("Installed");
-		expect(output).toContain("generated bundle assets");
+		expect(output).toContain("Gemini extension assets");
 		await expect(
 			access(
 				join(
@@ -164,7 +164,7 @@ describe("Gemini install command", () => {
 		expect(stderr).not.toContain("Logger not initialized");
 		expect(stdout).toContain("Gemini manifest lifecycle");
 		expect(stdout).toContain("current");
-		expect(stdout).toContain("Generated bundle assets");
+		expect(stdout).toContain("[OK] Gemini CLI");
 		expect(stdout).toContain("rp1 verify gemini");
 	});
 });

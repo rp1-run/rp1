@@ -1,19 +1,18 @@
 # Gemini CLI Platform Guide
 
-Gemini CLI is a first-class rp1 generated bundle and build platform. It has its
-own build target, generated extension assets, lifecycle commands, verifier
-output, and support-matrix attribution for the user-facing rp1 workflows.
+Gemini CLI is a first-class rp1 platform. It has its own build target,
+extension assets, lifecycle commands, verifier output, and support-matrix
+attribution for the user-facing rp1 workflows.
 
-The current generated support matrix is bundle-backed and supports all 15
-user-facing workflow rows. Validation-only harness workflows remain excluded
-from product workflow claims.
+The current Gemini support matrix supports all 15 user-facing workflow rows.
+Validation-only harness workflows remain excluded from product workflow claims.
 
 ## Current Status
 
-- `rp1 build:opencode --platform gemini` writes generated Gemini assets to
+- `rp1 build:opencode --platform gemini` writes Gemini extension assets to
   `dist/gemini/`; `--platform all` includes Gemini alongside the other build
   platforms.
-- The generated bundle includes per-plugin extension metadata, command TOML,
+- The Gemini extension includes per-plugin extension metadata, command TOML,
   packaged skills, packaged agents, `GEMINI.md`, `manifest.json`,
   `support-matrix.json`, and the top-level `bundle-manifest.json`.
 - Gemini lifecycle commands are manifest-backed:
@@ -29,7 +28,7 @@ from product workflow claims.
 ## Prerequisites
 
 - Gemini CLI available on `PATH`.
-- rp1 CLI available from the project checkout that owns the generated bundle
+- rp1 CLI available from the project checkout that owns the Gemini extension
   assets.
 - A trusted workspace or worktree when running Gemini interactively.
 - Current `dist/gemini/` assets from the active feature or release branch.
@@ -40,39 +39,39 @@ Verify the local Gemini binary first:
 gemini --version
 ```
 
-Install or verify the generated bundle:
+Install or verify the Gemini extension:
 
 ```bash
 rp1 install gemini
 rp1 verify gemini
 ```
 
-## Generated Bundle Lifecycle
+## Gemini Extension Lifecycle
 
 Gemini install, update, verify, and uninstall operate on manifest-owned files in
-the generated extension bundle. rp1 does not install historical smoke commands,
+the Gemini CLI extension. rp1 does not install historical smoke commands,
 manual-copy validation assets, or proof-only workflows as normal Gemini product
 commands.
 
 | Command | Purpose | Notes |
 |---------|---------|-------|
-| `rp1 install gemini` | Copies current manifest-owned Gemini bundle assets into Gemini extension directories. | Targeted install path; `rp1 install` also installs Gemini when detected. |
+| `rp1 install gemini` | Copies current manifest-owned Gemini assets into Gemini extension directories. | Targeted install path; `rp1 install` also installs Gemini when detected. |
 | `rp1 update plugins gemini` | Refreshes installed Gemini assets from the current manifest. | Targeted refresh path; `rp1 update plugins all` also refreshes Gemini when detected. |
-| `rp1 verify gemini` | Checks generated bundle lifecycle state. | A current lifecycle means the installed generated bundle is ready. |
-| `rp1 verify gemini --workflow <workflow-id>` | Attributes one workflow attempt against the generated matrix. | Supported attribution points at the generated bundle evidence source. |
+| `rp1 verify gemini` | Checks Gemini extension lifecycle state. | A current lifecycle means the installed Gemini extension is ready. |
+| `rp1 verify gemini --workflow <workflow-id>` | Attributes one workflow attempt against the Gemini matrix. | Supported attribution points at the Gemini extension evidence source. |
 | `rp1 uninstall gemini` | Removes safe, manifest-owned Gemini assets. | Preserves modified files and unrelated Gemini extensions. |
 
 Gemini asset lifecycle states include `current`, `removed`, `missing`,
 `partial`, `stale`, and `blocked`. A `removed`, `missing`, `partial`, or
-`stale` lifecycle state means the generated bundle assets are inactive or need a
+`stale` lifecycle state means the Gemini extension assets are inactive or need a
 refresh; it does not change support status for stable hosts.
 
 ## Verifier Output
 
 `rp1 verify gemini` reports:
 
-- `Support: generated bundle (Gemini extension assets)`
-- `State` for generated bundle setup
+- `Support: first-class (Gemini CLI extension assets)`
+- `State` for Gemini extension setup
 - `Manifest lifecycle` with stage, asset counts, and lifecycle state
 - optional P2/P3 validation evidence sections when a feature id is supplied
 - optional `Workflow attempt attribution` when `--workflow` is supplied
@@ -84,31 +83,31 @@ rp1 verify gemini --workflow dev:build
 ```
 
 When the workflow row is supported, the verifier prints the workflow id, state,
-generated-bundle rationale, evidence source, and user action.
+first-class Gemini rationale, evidence source, and user action.
 
 ## Current Support Matrix
 
-The generated matrix lives in `dist/gemini/<plugin>/support-matrix.json` and is
+The Gemini matrix lives in `dist/gemini/<plugin>/support-matrix.json` and is
 also represented in `dist/gemini/bundle-manifest.json`. The current
 user-facing workflow rows are all `supported`.
 
 | Workflow id | Workflow class | Status | User action |
 |-------------|----------------|--------|-------------|
-| `dev:build` | development workflow | `supported` | Run from the generated Gemini extension bundle. |
-| `dev:build-fast` | development workflow | `supported` | Run from the generated Gemini extension bundle. |
-| `dev:phase-plan` | development workflow | `supported` | Run from the generated Gemini extension bundle. |
-| `dev:speedrun` | development workflow | `supported` | Run from the generated Gemini extension bundle. |
-| `dev:pr-review` | review workflow | `supported` | Run from the generated Gemini extension bundle. |
-| `dev:pr-visual` | review workflow | `supported` | Run from the generated Gemini extension bundle. |
-| `dev:pr-walkthrough` | review workflow | `supported` | Run from the generated Gemini extension bundle. |
-| `base:generate-user-docs` | documentation workflow | `supported` | Run from the generated Gemini extension bundle. |
-| `base:project-birds-eye-view` | documentation workflow | `supported` | Run from the generated Gemini extension bundle. |
-| `base:knowledge-build` | knowledge workflow | `supported` | Run from the generated Gemini extension bundle. |
-| `base:analyse-security` | strategy workflow | `supported` | Run from the generated Gemini extension bundle. |
-| `base:deep-research` | strategy workflow | `supported` | Run from the generated Gemini extension bundle. |
-| `base:socratic-duel` | strategy workflow | `supported` | Run from the generated Gemini extension bundle. |
-| `base:socratic-duel-run` | strategy workflow | `supported` | Run from the generated Gemini extension bundle. |
-| `dev:blueprint` | planning workflow | `supported` | Run from the generated Gemini extension bundle. |
+| `dev:build` | development workflow | `supported` | Run from the Gemini CLI extension assets. |
+| `dev:build-fast` | development workflow | `supported` | Run from the Gemini CLI extension assets. |
+| `dev:phase-plan` | development workflow | `supported` | Run from the Gemini CLI extension assets. |
+| `dev:speedrun` | development workflow | `supported` | Run from the Gemini CLI extension assets. |
+| `dev:pr-review` | review workflow | `supported` | Run from the Gemini CLI extension assets. |
+| `dev:pr-visual` | review workflow | `supported` | Run from the Gemini CLI extension assets. |
+| `dev:pr-walkthrough` | review workflow | `supported` | Run from the Gemini CLI extension assets. |
+| `base:generate-user-docs` | documentation workflow | `supported` | Run from the Gemini CLI extension assets. |
+| `base:project-birds-eye-view` | documentation workflow | `supported` | Run from the Gemini CLI extension assets. |
+| `base:knowledge-build` | knowledge workflow | `supported` | Run from the Gemini CLI extension assets. |
+| `base:analyse-security` | strategy workflow | `supported` | Run from the Gemini CLI extension assets. |
+| `base:deep-research` | strategy workflow | `supported` | Run from the Gemini CLI extension assets. |
+| `base:socratic-duel` | strategy workflow | `supported` | Run from the Gemini CLI extension assets. |
+| `base:socratic-duel-run` | strategy workflow | `supported` | Run from the Gemini CLI extension assets. |
+| `dev:blueprint` | planning workflow | `supported` | Run from the Gemini CLI extension assets. |
 
 Internal-only, template-only, non-workflow, and validation-only artifacts are
 excluded from user-facing Gemini workflow support claims.
@@ -117,9 +116,9 @@ excluded from user-facing Gemini workflow support claims.
 
 User-facing workflow rows are generated as `supported` when they are
 distributable, invocable workflows in the catalog and their Gemini command,
-skill, agent, and context assets are present in the generated bundle. Optional
+skill, agent, and context assets are present in the Gemini extension. Optional
 runtime evidence can still be recorded for validation, but it is not required
-to claim generated-bundle support.
+to claim first-class Gemini support.
 
 When a Gemini support-state change is made, update these in the same change:
 
@@ -133,9 +132,9 @@ When a Gemini support-state change is made, update these in the same change:
 
 | Situation | What it means | What to do |
 |-----------|---------------|------------|
-| Gemini CLI is missing | The generated bundle target cannot be verified locally. | Install Gemini CLI, then run `gemini --version`. |
-| Generated bundle assets are missing or stale | Installed Gemini extension files do not match the current manifest. | Run `rp1 install gemini` or `rp1 update plugins gemini`, restart Gemini CLI, then verify. |
-| A workflow id is unknown | The workflow id is not present in the generated matrix. | Confirm the workflow id or rebuild the Gemini bundle from current catalog sources. |
+| Gemini CLI is missing | The Gemini extension target cannot be verified locally. | Install Gemini CLI, then run `gemini --version`. |
+| Gemini extension assets are missing or stale | Installed Gemini extension files do not match the current manifest. | Run `rp1 install gemini` or `rp1 update plugins gemini`, restart Gemini CLI, then verify. |
+| A workflow id is unknown | The workflow id is not present in the Gemini matrix. | Confirm the workflow id or rebuild Gemini assets from current catalog sources. |
 | Gemini asks to trust the workspace | The run is blocked on an interactive trust decision. | Trust the intended repository or rerun on a stable host. |
 | Gemini asks for tool approval | The run is blocked on Gemini approval policy. | Approve the action interactively when appropriate; do not assume unattended resume. |
 | Gemini reports new agents | Project or extension agents may need acknowledgement. | Acknowledge and enable the agents, then rerun verification. |

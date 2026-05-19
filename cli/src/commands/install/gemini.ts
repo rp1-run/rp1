@@ -11,14 +11,14 @@ import { colorFns } from "../../lib/colors.js";
 const { green, yellow, dim, bold, cyan } = colorFns;
 
 export const installGeminiSubcommand = new Command("gemini")
-	.description("Install generated rp1 Gemini CLI extension bundle assets")
+	.description("Install rp1 Gemini CLI extension assets")
 	.option("--dry-run", "Show the extension asset path without writing")
 	.addHelpText(
 		"after",
 		`
 Examples:
-  rp1 install gemini            Install generated Gemini extension bundle assets
-  rp1 install gemini --dry-run  Preview generated bundle asset installation
+  rp1 install gemini            Install Gemini CLI extension assets
+  rp1 install gemini --dry-run  Preview Gemini extension asset installation
 `,
 	)
 	.action(async (options, command) => {
@@ -40,19 +40,19 @@ Examples:
 		const installResult = result.right;
 
 		console.log("");
-		console.log(bold("Gemini CLI extension bundle setup"));
+		console.log(bold("Gemini CLI extension setup"));
 		console.log("");
 
 		if (installResult.commandWritten) {
 			console.log(
 				green(
-					`Installed ${installResult.assetCount} generated bundle assets under ${geminiExtensionDisplayRoot()}`,
+					`Installed ${installResult.assetCount} Gemini extension assets under ${geminiExtensionDisplayRoot()}`,
 				),
 			);
 		} else {
 			console.log(
 				yellow(
-					`Dry run: would write ${installResult.assetCount} generated bundle assets under ${geminiExtensionDisplayRoot()}`,
+					`Dry run: would write ${installResult.assetCount} Gemini extension assets under ${geminiExtensionDisplayRoot()}`,
 				),
 			);
 		}
@@ -76,9 +76,9 @@ Examples:
 		}
 
 		console.log("");
-		console.log(dim("Installed bundle scope:"));
-		console.log(dim("  - Generated Gemini commands"));
-		console.log(dim("  - Generated Gemini skills and agents"));
+		console.log(dim("Installed Gemini scope:"));
+		console.log(dim("  - Gemini commands"));
+		console.log(dim("  - Gemini skills and agents"));
 		console.log(
 			dim("  - Gemini context, extension metadata, and support matrix"),
 		);

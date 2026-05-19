@@ -11,7 +11,7 @@ AI assistant session.
 |---------|-------------|
 | [`init`](init.md) | Initialize rp1 in a project with guided setup |
 | [`install`](install.md) | Install rp1 plugins for AI tools |
-| [`verify`](verify.md) | Verify host integrations and generated bundle assets |
+| [`verify`](verify.md) | Verify host integrations and Gemini extension assets |
 | [`update`](update.md) | Update rp1 CLI and plugins |
 | [`uninstall`](uninstall.md) | Remove rp1 project setup or host-specific assets |
 | [`check-update`](check-update.md) | Check for CLI and stanza updates |

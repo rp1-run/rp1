@@ -135,11 +135,11 @@ const displaySourcePath = (sourcePath: string): string => {
 	return markerIndex >= 0 ? sourcePath.slice(markerIndex + 1) : sourcePath;
 };
 
-const generatedBundleEvidenceSource = (entry: CatalogRegistryEntry): string =>
-	`generated Gemini extension bundle: ${displaySourcePath(entry.sourcePath)}`;
+const geminiExtensionEvidenceSource = (entry: CatalogRegistryEntry): string =>
+	`Gemini CLI extension assets: ${displaySourcePath(entry.sourcePath)}`;
 
 const supportedUserAction = (): string =>
-	"Install the generated Gemini extension bundle with `rp1 install gemini`, restart Gemini CLI, and run the rp1 workflow command from Gemini.";
+	"Install Gemini CLI extension assets with `rp1 install gemini`, restart Gemini CLI, and run the rp1 workflow command from Gemini.";
 
 const toSupportEntry = (
 	entry: CatalogRegistryEntry,
@@ -152,7 +152,7 @@ const toSupportEntry = (
 	category: entry.category,
 	workflowClass: toWorkflowClass(entry),
 	status: "supported",
-	evidenceSource: generatedBundleEvidenceSource(entry),
+	evidenceSource: geminiExtensionEvidenceSource(entry),
 	unsupportedRationale: null,
 	userAction: supportedUserAction(),
 	exceptionOwner: null,

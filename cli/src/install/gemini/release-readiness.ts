@@ -93,7 +93,7 @@ const inventoryGate = (
 			"Catalog inventory",
 			"blocking_gap",
 			`classified=${classified}; excluded=${excluded}; updated=${matrix.updatedAt}`,
-			"The generated Gemini support matrix has no classified workflow rows.",
+			"The Gemini support matrix has no classified workflow rows.",
 			"Regenerate the catalog-backed Gemini support matrix before release.",
 		);
 	}
@@ -116,7 +116,7 @@ const lifecycleGate = (
 				"Lifecycle",
 				"pass",
 				`state=${lifecycleState}`,
-				"Gemini install, verify, update, and uninstall operate on manifest-owned bundle assets.",
+				"Gemini install, verify, update, and uninstall operate on manifest-owned extension assets.",
 			)
 		: gate(
 				"lifecycle",
@@ -131,17 +131,17 @@ const bundleGate = (assetCount: number): GeminiReleaseReadinessGate =>
 	assetCount > 0
 		? gate(
 				"bundle",
-				"Generated bundle",
+				"Gemini extension assets",
 				"pass",
 				`manifest_assets=${assetCount}`,
-				"Generated Gemini bundle assets are present and manifest-owned.",
+				"Gemini extension assets are present and manifest-owned.",
 			)
 		: gate(
 				"bundle",
-				"Generated bundle",
+				"Gemini extension assets",
 				"blocking_gap",
 				"manifest_assets=0",
-				"No generated Gemini bundle assets were available for the release gate.",
+				"No Gemini CLI extension assets were available for the release gate.",
 				"Run `rp1 build --platform gemini` and rerun release readiness.",
 			);
 
@@ -154,7 +154,7 @@ const runtimeGate = (
 			"Runtime contract",
 			"pass",
 			`supported=${runtimeEvaluation.supportedWorkflowCount}; unsupported=${runtimeEvaluation.unsupportedWorkflowCount}`,
-			"Supported Gemini workflow rows are backed by generated-bundle assets; per-workflow runtime attestation is optional release evidence.",
+			"Supported Gemini workflow rows are backed by first-class Gemini extension assets; per-workflow runtime attestation is optional release evidence.",
 		);
 	}
 
@@ -168,7 +168,7 @@ const runtimeGate = (
 			"Runtime contract",
 			"product_exception",
 			`supported=0; unsupported=${runtimeEvaluation.unsupportedWorkflowCount}`,
-			"No generated Gemini support matrix row is promoted to supported, so runtime success is not claimed.",
+			"No Gemini support matrix row is promoted to supported, so runtime success is not claimed.",
 			"Regenerate the Gemini support matrix from current catalog sources before release.",
 		);
 	}
@@ -190,7 +190,7 @@ const docsGate = (aligned: boolean): GeminiReleaseReadinessGate =>
 				"Docs and CLI language",
 				"pass",
 				"docs_aligned=true",
-				"Public docs and CLI language use the same generated-bundle support wording.",
+				"Public docs and CLI language use the same first-class Gemini support wording.",
 			)
 		: gate(
 				"docs",

@@ -22,7 +22,7 @@ const printGeminiUninstallResult = (
 	logger: Logger,
 ): void => {
 	console.log("");
-	console.log(bold("Gemini CLI extension bundle uninstall"));
+	console.log(bold("Gemini CLI extension uninstall"));
 	console.log("");
 
 	if (result.dryRun) {
@@ -72,14 +72,14 @@ const printGeminiUninstallResult = (
 };
 
 export const uninstallGeminiCommand = new Command("gemini")
-	.description("Remove generated rp1 Gemini CLI extension bundle assets")
+	.description("Remove rp1 Gemini CLI extension assets")
 	.option("--dry-run", "Show what would be removed without making changes")
 	.option("-y, --yes", "Skip confirmation prompts")
 	.addHelpText(
 		"after",
 		`
 Removes only rp1-owned Gemini extension assets:
-  - Matches files from the generated rp1 Gemini bundle manifest
+  - Matches files from the rp1 Gemini manifest
   - Preserves modified files and unexpected leftovers
   - Removes empty rp1 Gemini extension directories when safe
 
@@ -105,7 +105,7 @@ Examples:
 
 		if (!dryRun && !yes) {
 			const proceed = await confirmAction(
-				"Remove generated rp1 Gemini CLI extension bundle assets?",
+				"Remove rp1 Gemini CLI extension assets?",
 				{ isTTY, defaultOnNonTTY: false },
 			);
 			if (!proceed) {

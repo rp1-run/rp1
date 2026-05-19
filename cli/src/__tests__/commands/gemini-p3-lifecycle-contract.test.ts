@@ -57,7 +57,7 @@ describe("Gemini P3 lifecycle command contracts", () => {
 		const install = await runCli(tempDir, bundleDir, ["install", "gemini"]);
 		expect(install.exitCode).toBe(0);
 		expect(install.stderr).not.toContain("Logger not initialized");
-		expect(install.stdout).toContain("generated bundle assets");
+		expect(install.stdout).toContain("Gemini extension assets");
 
 		const boundaryCommandPath = join(
 			tempDir,

@@ -258,7 +258,7 @@ describe("plugin-installation step", () => {
 			expect(boxCall).toBeDefined();
 		});
 
-		test("installs Gemini bundle assets during init installation", async () => {
+		test("installs Gemini assets during init installation", async () => {
 			const tempDir = await createTempDir("init-gemini-install");
 			const restoreHome = withEnvOverride("HOME", tempDir);
 			const bundleDir = await writeGeminiBundleDistFixture(tempDir);

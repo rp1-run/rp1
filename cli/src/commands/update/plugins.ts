@@ -178,7 +178,7 @@ Arguments:
         - opencode     Update plugins for OpenCode only
         - codex        Update plugins for Codex only
         - copilot      Update plugins for Copilot CLI only
-        - gemini       Refresh Gemini extension bundle assets only
+        - gemini       Refresh Gemini CLI extension assets only
 
 Examples:
   rp1 update plugins           Update plugins for all detected tools

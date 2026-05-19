@@ -217,7 +217,7 @@ Subcommands:
   opencode       Install plugins to OpenCode
   codex          Install plugins to Codex CLI
   copilot        Install plugins to Copilot CLI
-  gemini         Install generated Gemini extension bundle assets
+  gemini         Install Gemini CLI extension assets
   all            Install plugins to all detected tools
 
 Examples:
@@ -226,7 +226,7 @@ Examples:
   rp1 install claude-code                Install to Claude Code (subcommand)
   rp1 install opencode                   Install to OpenCode (subcommand)
   rp1 install copilot                    Install to Copilot CLI (subcommand)
-  rp1 install gemini                     Install generated Gemini extension bundle assets
+  rp1 install gemini                     Install Gemini CLI extension assets
   rp1 install all                        Install to all detected tools
   rp1 install --dry-run                  Preview installation
   rp1 install -y                         Skip confirmation prompts

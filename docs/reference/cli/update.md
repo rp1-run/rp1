@@ -48,7 +48,7 @@ Supported `tool` values:
 | `opencode` | Update OpenCode only |
 | `codex` | Update Codex only |
 | `copilot` | Update GitHub Copilot CLI only |
-| `gemini` | Refresh generated Gemini extension bundle assets only |
+| `gemini` | Refresh Gemini CLI extension assets assets only |
 
 ## Options
 
@@ -73,10 +73,10 @@ rp1 update plugins gemini --dry-run
 
 ## Gemini Extension Refresh
 
-`rp1 update plugins gemini` is the targeted refresh path for generated Gemini
-bundle assets. Gemini is a first-class generated-bundle target, and refresh is
+`rp1 update plugins gemini` is the targeted refresh path for Gemini CLI
+extension assets. Gemini is a first-class target, and refresh is
 also included in `rp1 update plugins all` when Gemini CLI is detected. The
-command updates only rp1-owned files under the generated rp1 Gemini extension
+command updates only rp1-owned files under the rp1 Gemini extension
 directories, such as `~/.gemini/extensions/rp1-base/` and
 `~/.gemini/extensions/rp1-dev/`.
 
@@ -85,7 +85,7 @@ results:
 
 | Output | Meaning | Next action |
 |--------|---------|-------------|
-| `Lifecycle state: current` | Gemini bundle assets already match the current manifest. | Restart Gemini CLI only if you recently changed assets, then run `rp1 verify gemini`. |
+| `Lifecycle state: current` | Gemini assets already match the current manifest. | Restart Gemini CLI only if you recently changed assets, then run `rp1 verify gemini`. |
 | `Lifecycle state: missing` or `partial` | Some or all manifest-owned Gemini assets are absent. | Run `rp1 update plugins gemini -y` or `rp1 install gemini`, restart Gemini CLI, then verify. |
 | `Lifecycle state: stale` | At least one manifest-owned asset differs from the current build. | Run `rp1 update plugins gemini -y`, restart Gemini CLI, then verify. |
 | `Lifecycle state: blocked` | rp1 could not safely inspect or refresh an asset. | Follow the printed `Next action`, usually fixing permissions under the Gemini extension directory. |
@@ -98,7 +98,7 @@ Use `--dry-run` to preview the files that would be refreshed. The targeted
 support matrix and stale-asset recovery boundary.
 
 Refreshing Gemini assets restores the generated workflow bundle. The current
-generated support matrix supports all 15 generated workflow rows.
+generated support matrix supports all 15 Gemini workflow rows.
 Run `rp1 verify gemini --workflow <workflow-id>` after refresh to see workflow
 attribution.
 

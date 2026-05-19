@@ -20,11 +20,11 @@ Before you begin, make sure you have:
 | Codex | [Codex CLI](https://github.com/openai/codex) | `$rp1-base-knowledge-build` | Install the Codex integration after `rp1 init`. |
 | GitHub Copilot CLI | [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli) | `/rp1-base-knowledge-build` | Requires standalone Copilot CLI with plugin support. |
 
-Gemini CLI is available as an optional generated bundle platform. It is not
+Gemini CLI is available as an optional Gemini extension platform. It is not
 required for normal setup, and it is not part of the default stable-host
 workflow path. See the
 [Gemini CLI platform guide](../reference/platforms/gemini.md) when you
-intentionally want to install or verify Gemini generated bundle assets.
+intentionally want to install or verify Gemini Gemini extension assets.
 
 ---
 
@@ -117,7 +117,7 @@ rp1 install codex
 rp1 install copilot
 ```
 
-For a targeted Gemini generated bundle install:
+For a targeted Gemini Gemini extension install:
 
 ```bash
 rp1 install gemini
@@ -141,7 +141,7 @@ rp1 verify codex
 rp1 verify copilot
 ```
 
-Verify Gemini generated bundle assets:
+Verify Gemini Gemini extension assets:
 
 ```bash
 rp1 verify gemini
@@ -153,9 +153,9 @@ reporting `healthy_native`. See the
 [Copilot CLI platform guide](../reference/platforms/copilot.md) for Copilot
 verification states and recovery steps.
 
-For Gemini CLI, verification reports generated bundle lifecycle states,
+For Gemini CLI, verification reports Gemini extension lifecycle states,
 support-matrix attribution, and optional feature evidence. The current Gemini
-matrix supports all 15 generated workflow rows. See the
+matrix supports all 15 Gemini workflow rows. See the
 [Gemini CLI platform guide](../reference/platforms/gemini.md) for workflow
 attribution details.
 
@@ -224,7 +224,7 @@ goal.
 | Host commands do not appear | Restart the host and run the matching `rp1 verify ...` command. |
 | Codex does not show rp1 commands | Run `rp1 install codex`, then restart Codex. |
 | Copilot verification is not `healthy_native` | Follow [Copilot recovery](../reference/platforms/copilot.md#troubleshooting). |
-| Gemini reports missing or stale generated bundle assets, trust, approval, or acknowledgement gates | Follow [Gemini recovery](../reference/platforms/gemini.md#limitations-and-user-actions). |
+| Gemini reports missing or stale Gemini extension assets, trust, approval, or acknowledgement gates | Follow [Gemini recovery](../reference/platforms/gemini.md#limitations-and-user-actions). |
 | First workflow is using stale project details | Re-run the project context command from Step 5. |
 
 More recovery paths are grouped by symptom in

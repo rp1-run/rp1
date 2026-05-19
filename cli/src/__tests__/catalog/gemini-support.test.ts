@@ -147,7 +147,7 @@ describe("Gemini workflow support matrix", () => {
 			argumentNames: ["FEATURE_ID"],
 		});
 		expect(matrix.entries[0]?.evidenceSource).toContain(
-			"generated Gemini extension bundle",
+			"Gemini CLI extension assets",
 		);
 		expect(matrix.entries[0]?.unsupportedRationale).toBeNull();
 		expect(matrix.entries[0]?.userAction).toContain("rp1 install gemini");

@@ -1,8 +1,5 @@
-export const GEMINI_INSTALL_GUIDANCE =
-	"Gemini CLI support is generated-bundle backed; `rp1 install gemini` installs the generated commands, skills, agents, context, extension metadata, and support matrix.";
-
 export type GeminiSmokeStatus =
-	| "generated_bundle_ready"
+	| "ready"
 	| "degraded_missing_binary"
 	| "degraded_missing_command"
 	| "degraded_trust_or_approval"
@@ -61,8 +58,8 @@ export interface GeminiStatusDetail {
 export type GeminiSmokeStatusDetail = GeminiStatusDetail;
 
 export const GEMINI_SMOKE_STATUS_DETAILS = {
-	generated_bundle_ready: {
-		label: "generated bundle ready",
+	ready: {
+		label: "ready",
 		issue: null,
 		remediation:
 			"Restart Gemini CLI, then run installed rp1 workflows from Gemini slash commands.",
@@ -75,8 +72,7 @@ export const GEMINI_SMOKE_STATUS_DETAILS = {
 	},
 	degraded_missing_command: {
 		label: "degraded: primary command asset missing",
-		issue:
-			"Gemini primary command asset is not installed from the generated rp1 Gemini extension bundle.",
+		issue: "Gemini primary command asset is not installed.",
 		remediation:
 			"Install the Gemini extension assets with `rp1 install gemini`.",
 	},
@@ -84,14 +80,14 @@ export const GEMINI_SMOKE_STATUS_DETAILS = {
 		label: "degraded: Gemini trust or approval required",
 		issue: "Gemini blocked shell execution until trust or approval is granted.",
 		remediation:
-			"Approve Gemini shell execution or trust this project, then retry the generated Gemini command or verification.",
+			"Approve Gemini shell execution or trust this project, then retry the Gemini command or verification.",
 	},
 	registration_failed: {
 		label: "degraded: artifact registration failed",
 		issue:
 			"The Gemini artifact was written, but rp1 artifact registration failed.",
 		remediation:
-			"Inspect the artifact registration output, fix the rp1 emit failure, then rerun the generated Gemini workflow.",
+			"Inspect the artifact registration output, fix the rp1 emit failure, then rerun the Gemini workflow.",
 	},
 } as const satisfies Record<GeminiSmokeStatus, GeminiSmokeStatusDetail>;
 

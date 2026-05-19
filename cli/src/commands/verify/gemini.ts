@@ -214,26 +214,26 @@ const lifecycleMessageFor = (
 			return {
 				issue: "No rp1-owned Gemini extension assets are installed.",
 				userAction:
-					"Run `rp1 install gemini` before using generated Gemini bundle assets.",
+					"Run `rp1 install gemini` before using Gemini rp1 commands.",
 			};
 		case "missing":
 			return {
 				issue: "A manifest-owned Gemini extension asset is missing.",
 				userAction:
-					"Run `rp1 install gemini` to restore the missing bundle asset.",
+					"Run `rp1 install gemini` to restore the missing Gemini extension asset.",
 			};
 		case "partial":
 			return {
 				issue: "Only part of the rp1 Gemini extension manifest is installed.",
 				userAction:
-					"Run `rp1 install gemini` to reinstall the complete manifest-owned bundle asset set.",
+					"Run `rp1 install gemini` to reinstall the complete manifest-owned Gemini asset set.",
 			};
 		case "stale":
 			return {
 				issue:
 					"One or more rp1 Gemini extension assets do not match the current manifest.",
 				userAction:
-					"Run `rp1 install gemini` to refresh stale manifest-owned bundle assets.",
+					"Run `rp1 install gemini` to refresh stale manifest-owned Gemini assets.",
 			};
 		case "blocked":
 			return {
@@ -720,7 +720,7 @@ const printGeminiWorkflowAttemptReadiness = (
 		console.log(yellow(`Issue: ${readiness.issue}`));
 		console.log(
 			dim(
-				"User action: Build or install the generated Gemini bundle so its support matrix can attribute the attempted workflow.",
+				"User action: Install Gemini CLI extension assets so the support matrix can attribute the attempted workflow.",
 			),
 		);
 		return;
@@ -752,7 +752,7 @@ export const executeVerifyGemini = async (
 		GeminiVerifyLifecycleDeps,
 	options: GeminiVerifyOptions = {},
 ): Promise<boolean> => {
-	console.log(bold("\nVerifying Gemini CLI Extension Bundle\n"));
+	console.log(bold("\nVerifying Gemini CLI Integration\n"));
 
 	const result = await verifyGeminiBundleSetup(deps);
 	const lifecycle = await loadGeminiManifestLifecycle(deps);
@@ -779,7 +779,7 @@ export const executeVerifyGemini = async (
 		: red("missing");
 
 	console.log(
-		`Support: ${yellow("generated bundle")} (${dim("Gemini extension assets")})`,
+		`Support: ${green("first-class")} (${dim("Gemini CLI extension assets")})`,
 	);
 	console.log(`State: ${statusLabel}`);
 	console.log(`Meaning: ${statusDetail.label}`);
@@ -868,7 +868,7 @@ export const executeVerifyGemini = async (
 			);
 			return false;
 		}
-		console.log(green(bold("\nGemini generated bundle ready")));
+		console.log(green(bold("\nGemini CLI ready")));
 		return true;
 	}
 
@@ -883,22 +883,20 @@ export const executeVerifyGemini = async (
 };
 
 export const verifyGeminiSubcommand = new Command("gemini")
-	.description(
-		"Verify Gemini CLI generated extension bundle and support-matrix readiness",
-	)
+	.description("Verify Gemini CLI integration and support-matrix readiness")
 	.option(
 		"--feature-id <featureId>",
 		"Read Gemini feature evidence from .rp1/work/features/<featureId>/",
 	)
 	.option(
 		"--workflow <workflowId>",
-		"Attribute a Gemini workflow attempt against the generated support matrix",
+		"Attribute a Gemini workflow attempt against the Gemini support matrix",
 	)
 	.addHelpText(
 		"after",
 		`
 Examples:
-  rp1 verify gemini                          Verify Gemini CLI generated bundle setup
+  rp1 verify gemini                          Verify Gemini CLI setup
   rp1 verify gemini --feature-id phase-p3    Verify setup plus feature evidence
   rp1 verify gemini --workflow dev:build     Explain Gemini support for a workflow attempt
 `,

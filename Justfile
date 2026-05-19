@@ -314,7 +314,7 @@ codex:
     ./bin/rp1 install codex --yes --artifacts-dir dist/codex
     codex
 
-# Launch Gemini CLI with local generated extension bundle assets (auto-builds if stale)
+# Launch Gemini CLI with local Gemini CLI extension assets (auto-builds if stale)
 gemini:
     #!/usr/bin/env bash
     set -e
@@ -322,7 +322,7 @@ gemini:
        [ ! -f "dist/gemini/base/gemini-extension.json" ] || \
        [ "$(find plugins/ cli/src/build cli/scripts -newer dist/gemini/base/gemini-extension.json \( -name '*.md' -o -name '*.liquid' -o -name '*.ts' -o -name '*.json' \) 2>/dev/null | head -1)" ]; then
         echo "Building Gemini artifacts..."
-        cd cli && bun run scripts/build-gemini.ts && cd ..
+        cd cli && RP1_BUILD_INTERNAL=1 bun run scripts/build-gemini.ts && cd ..
     fi
     RP1_GEMINI_BUNDLE_DIR=dist/gemini ./bin/rp1 install gemini
     gemini

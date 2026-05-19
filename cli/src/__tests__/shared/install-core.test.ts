@@ -784,7 +784,7 @@ describe("install-core tool routing", () => {
 		}
 	});
 
-	test("installForSpecificTool previews targeted Gemini bundle assets", async () => {
+	test("installForSpecificTool previews targeted Gemini assets", async () => {
 		const homeDir = await createTempDir("install-core-gemini-specific-dry-run");
 		const restoreHome = withEnvOverride("HOME", homeDir);
 		const restoreBundle = await withGeminiBundleDir(homeDir);

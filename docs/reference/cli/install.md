@@ -1,6 +1,6 @@
 # install
 
-Install rp1 plugins for supported host tools and generated Gemini bundle
+Install rp1 plugins for supported host tools and Gemini CLI extension
 assets.
 
 ---
@@ -15,7 +15,7 @@ rp1 install <subcommand> [options]
 
 Use `rp1 install` when you want to install or refresh rp1 for a specific host
 tool, or for every detected stable host on the machine. Gemini CLI is a
-first-class generated-bundle target and participates in default setup when it
+first-class first-class Gemini target and participates in default setup when it
 is detected.
 
 Supported targets:
@@ -24,7 +24,7 @@ Supported targets:
 - OpenCode
 - Codex
 - Copilot CLI
-- Gemini CLI generated extension bundle assets
+- Gemini CLI Gemini CLI extension assets
 
 ## Subcommands
 
@@ -74,7 +74,7 @@ Requires the standalone GitHub Copilot CLI (`copilot`) with `copilot plugin --he
 rp1 install gemini [options]
 ```
 
-Installs generated Gemini CLI extension bundle assets from the current
+Installs Gemini CLI extension assets from the current
 `dist/gemini/` build output. Validation-only smoke, proof, and manual-copy
 assets are not installed as normal product workflows. Review the
 [Gemini CLI platform guide](../platforms/gemini.md) for lifecycle and
@@ -182,7 +182,7 @@ rp1 verify gemini
 
 For Copilot, the clean success signal is `healthy_native`. A `mixed_native_and_legacy` result means the native install works, but old rp1 files still need cleanup under `~/.config/github-copilot/`.
 
-For Gemini, verification reports generated bundle lifecycle state,
+For Gemini, verification reports Gemini extension lifecycle state,
 support-matrix readiness, and optional feature evidence:
 
 ```bash
@@ -190,8 +190,8 @@ rp1 verify gemini
 rp1 verify gemini --feature-id <feature-id>
 ```
 
-The Gemini bundle section uses `Support: generated bundle (Gemini extension
-assets)` and reports `State` values such as `generated_bundle_ready`,
+The Gemini section uses `Support: first-class (Gemini CLI extension assets)`
+and reports `State` values such as `ready`,
 `degraded_missing_binary`, `degraded_missing_command`,
 `degraded_trust_or_approval`, or `registration_failed`.
 
@@ -200,26 +200,26 @@ Gemini-specific lifecycle `State`:
 
 | State | Meaning | Next action |
 |-------|---------|-------------|
-| `current` | All rp1-owned Gemini bundle assets match the manifest. | Restart Gemini CLI if assets were just installed, then run installed rp1 workflows from Gemini slash commands. |
-| `removed` | No rp1-owned Gemini bundle assets are installed. | Run `rp1 install gemini` before using generated Gemini commands. |
+| `current` | All rp1-owned Gemini assets match the manifest. | Restart Gemini CLI if assets were just installed, then run installed rp1 workflows from Gemini slash commands. |
+| `removed` | No rp1-owned Gemini assets are installed. | Run `rp1 install gemini` before using Gemini commands. |
 | `missing` | One manifest-owned asset is missing. | Run `rp1 install gemini` to restore it. |
-| `partial` | More than one, but not all, manifest-owned assets are missing. | Reinstall the complete Gemini bundle asset set with `rp1 install gemini`. |
+| `partial` | More than one, but not all, manifest-owned assets are missing. | Reinstall the complete Gemini asset set with `rp1 install gemini`. |
 | `stale` | One or more assets differ from the current manifest. | Run `rp1 install gemini` or `rp1 update plugins gemini` to refresh assets. |
 | `blocked` | rp1 could not read one or more Gemini extension assets. | Fix local file permissions or trust/approval blockers, then rerun `rp1 verify gemini`. |
 
-Use `--workflow` to attribute a workflow attempt against the generated support
+Use `--workflow` to attribute a workflow attempt against the Gemini support
 matrix:
 
 ```bash
 rp1 verify gemini --workflow dev:build
 ```
 
-The current generated Gemini matrix supports all 15 generated workflow rows.
-Supported workflow attribution reports the generated-bundle evidence source for
+The current Gemini support matrix supports all 15 Gemini workflow rows.
+Supported workflow attribution reports the first-class Gemini evidence source for
 the row.
 
 Gemini may still require workspace trust, shell approval, or project agent
-acknowledgement when generated bundle commands run. rp1 reports those as
+acknowledgement when Gemini extension commands run. rp1 reports those as
 boundary states and remediation actions; it does not grant trust or approval
 automatically. The [verify reference](verify.md) and
 [Gemini CLI platform guide](../platforms/gemini.md) explain the verifier output

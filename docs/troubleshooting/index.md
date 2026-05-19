@@ -59,14 +59,14 @@ rp1 install codex
 rp1 install copilot
 ```
 
-Verify Gemini generated bundle assets when Gemini CLI is installed:
+Verify Gemini Gemini extension assets when Gemini CLI is installed:
 
 ```bash
 rp1 verify gemini
 rp1 verify gemini --workflow <workflow-id>
 ```
 
-The current Gemini support matrix supports all 15 generated workflow rows.
+The current Gemini support matrix supports all 15 Gemini workflow rows.
 
 ---
 
@@ -146,14 +146,14 @@ full Copilot setup and recovery path.
 
 ### Gemini CLI
 
-Gemini CLI is a first-class generated bundle target. It is part of the default
+Gemini CLI is a first-class Gemini extension target. It is part of the default
 stable-host setup path when Gemini CLI is detected, and Gemini limitations do
 not downgrade Claude Code, OpenCode, Codex, or GitHub Copilot CLI support.
 
 | Symptom | Recovery |
 |---------|----------|
 | Gemini CLI is missing | Install Gemini CLI, then run `gemini --version`. |
-| Generated bundle assets are missing, partial, or stale | Run `rp1 install gemini` or `rp1 update plugins gemini`, restart Gemini CLI, then verify again. |
+| Gemini extension assets are missing, partial, or stale | Run `rp1 install gemini` or `rp1 update plugins gemini`, restart Gemini CLI, then verify again. |
 | Gemini asks to trust the workspace | Trust the intended repository interactively, or rerun the workflow on a stable host. |
 | Gemini asks for tool approval | Approve the action interactively when appropriate; do not assume unattended resume. |
 | Gemini reports new agents | Acknowledge and enable the agent, then rerun the validation command. |

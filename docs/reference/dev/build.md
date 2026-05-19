@@ -400,8 +400,8 @@ pipeline now targets all generated rp1 host bundles through `--platform`.
 | `claude-code` | `dist/claude-code/` | Claude Code plugin artifacts |
 | `codex` | `dist/codex/` | Codex skills, agents, config entries, and `AGENTS.md` material |
 | `copilot` | `dist/copilot/` | GitHub Copilot CLI plugin artifacts |
-| `gemini` | `dist/gemini/` | Gemini CLI generated extension bundle assets |
-| `all` | all directories above | Full generated bundle set |
+| `gemini` | `dist/gemini/` | Gemini CLI Gemini CLI extension assets |
+| `all` | all directories above | Full Gemini extension set |
 
 Build Gemini directly or as part of the full platform set:
 
@@ -410,7 +410,7 @@ rp1 build:opencode --platform gemini
 rp1 build:opencode --platform all
 ```
 
-The Gemini target is a first-class generated bundle target. It writes plugin
+The Gemini target is a first-class Gemini extension target. It writes plugin
 subdirectories such as `dist/gemini/base/` and `dist/gemini/dev/`, with
 generated command TOML under `commands/rp1-<plugin>/`, packaged skills under
 `skills/`, packaged agents under `agents/`, and per-plugin lifecycle files:
@@ -423,9 +423,9 @@ skill entries, agent entries, and verbatim files such as each plugin's
 `support-matrix.json`. Gemini platform metadata keeps the `@lobehub/icons`
 `Gemini` mono icon requirement.
 
-The generated Gemini support matrix is separate from generated asset presence.
+The Gemini support matrix is separate from generated asset presence.
 The current matrix has 15 `supported` workflow rows and 0 `unsupported` rows.
-`rp1 verify gemini --workflow <workflow-id>` reports the generated-bundle
+`rp1 verify gemini --workflow <workflow-id>` reports the first-class Gemini
 evidence source for a workflow row.
 
 ## Related Commands
@@ -441,7 +441,7 @@ evidence source for a workflow row.
 ## Codex Build Output
 
 Codex is a first-class rp1 platform alongside Claude Code, OpenCode, GitHub
-Copilot CLI, and the Gemini generated bundle target. Skills are invoked
+Copilot CLI, and the Gemini Gemini extension target. Skills are invoked
 with `$skill-name` syntax (e.g., `$rp1-dev-build`), and project-level
 instructions are delivered via `AGENTS.md` (the Codex equivalent of `CLAUDE.md`
 for Claude Code).

@@ -49,7 +49,6 @@ import {
 } from "../install/copilot/index.js";
 import type { CopilotInstallResult } from "../install/copilot/models.js";
 import {
-	GEMINI_INSTALL_GUIDANCE,
 	type GeminiManifestRefreshResult,
 	geminiExtensionDisplayRoot,
 	geminiExtensionNameFromDisplayDir,
@@ -618,7 +617,7 @@ const failedGeminiUpdateResult = (
 		"Lifecycle state: failed",
 		`Next action: Check file permissions under ${geminiExtensionDisplayRoot()}, then rerun \`rp1 update plugins gemini\`.`,
 	],
-	warnings: [GEMINI_INSTALL_GUIDANCE],
+	warnings: [],
 	error,
 });
 
@@ -646,7 +645,7 @@ export const updateForSpecificTool = (
 					!ctx.dryRun && !blocked && result.refreshedAssets.length > 0,
 				pluginsInstalled: [],
 				details: geminiUpdateDetails(result),
-				warnings: [GEMINI_INSTALL_GUIDANCE],
+				warnings: [],
 			};
 
 			if (!blocked) return toolResult;

@@ -17,10 +17,10 @@ const supportMatrixFixture = (): string =>
 					workflowClass: "development_workflow",
 					status: "supported",
 					evidenceSource:
-						"generated Gemini extension bundle: plugins/dev/skills/build/SKILL.md",
+						"Gemini CLI extension assets: plugins/dev/skills/build/SKILL.md",
 					unsupportedRationale: null,
 					userAction:
-						"Install the generated Gemini extension bundle with `rp1 install gemini`, restart Gemini CLI, and run the rp1 workflow command from Gemini.",
+						"Install Gemini CLI extension assets with `rp1 install gemini`, restart Gemini CLI, and run the rp1 workflow command from Gemini.",
 					exceptionOwner: null,
 					updatedAt: "2026-05-19",
 					sourcePath: "plugins/dev/skills/build/SKILL.md",
@@ -37,10 +37,10 @@ const supportMatrixFixture = (): string =>
 					workflowClass: "development_workflow",
 					status: "supported",
 					evidenceSource:
-						"generated Gemini extension bundle: plugins/dev/skills/build-fast/SKILL.md",
+						"Gemini CLI extension assets: plugins/dev/skills/build-fast/SKILL.md",
 					unsupportedRationale: null,
 					userAction:
-						"Install the generated Gemini extension bundle with `rp1 install gemini`, restart Gemini CLI, and run the rp1 workflow command from Gemini.",
+						"Install Gemini CLI extension assets with `rp1 install gemini`, restart Gemini CLI, and run the rp1 workflow command from Gemini.",
 					exceptionOwner: null,
 					updatedAt: "2026-05-19",
 					sourcePath: "plugins/dev/skills/build-fast/SKILL.md",

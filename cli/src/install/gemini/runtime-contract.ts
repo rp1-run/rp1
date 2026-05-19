@@ -37,7 +37,7 @@ export interface GeminiRuntimeContractEvidence {
 	readonly featureId: string;
 	readonly runId: string;
 	readonly geminiVersion: string;
-	readonly generatedBundle: boolean;
+	readonly geminiExtensionAssets: boolean;
 	readonly workflows: readonly GeminiRuntimeWorkflowEvidence[];
 }
 
@@ -140,7 +140,7 @@ export const attributeGeminiWorkflowAttempt = (
 			workflowId,
 			status: "supported",
 			productOwnedScope: false,
-			rationale: `Gemini support matrix marks ${workflowId} supported by the generated extension bundle.`,
+			rationale: `Gemini support matrix marks ${workflowId} supported by Gemini CLI extension assets.`,
 			userAction: entry.userAction,
 			evidenceSource: entry.evidenceSource,
 			exceptionOwner: null,
@@ -167,9 +167,9 @@ export const attributeGeminiWorkflowAttempt = (
 		workflowId,
 		status: "unknown",
 		productOwnedScope: true,
-		rationale: `${workflowId} is not present in the generated Gemini support matrix.`,
+		rationale: `${workflowId} is not present in the Gemini support matrix.`,
 		userAction:
-			"Confirm the workflow id or rebuild the Gemini bundle from current catalog sources.",
+			"Confirm the workflow id or rebuild Gemini assets from current catalog sources.",
 		evidenceSource: null,
 		exceptionOwner: "rp1-maintainers",
 	};
@@ -197,7 +197,7 @@ const evaluateSupportedWorkflow = (
 		return failedWorkflowResult(
 			workflowId,
 			`Supported Gemini workflow ${workflowId} has no runtime contract evidence.`,
-			"Run the workflow through the generated Gemini bundle and record work-root artifact registration evidence.",
+			"Run the workflow through Gemini CLI and record work-root artifact registration evidence.",
 		);
 	}
 
@@ -215,8 +215,8 @@ const evaluateSupportedWorkflow = (
 	if (!evidence.launchedFromBundle) {
 		return failedWorkflowResult(
 			workflowId,
-			`Supported Gemini workflow ${workflowId} was not launched from generated bundle assets.`,
-			"Launch the workflow from the generated Gemini extension bundle before promoting the support row.",
+			`Supported Gemini workflow ${workflowId} was not launched from Gemini CLI extension assets.`,
+			"Launch the workflow from Gemini CLI before promoting the support row.",
 			evidence,
 		);
 	}
@@ -245,7 +245,7 @@ const evaluateSupportedWorkflow = (
 	};
 };
 
-const generatedBundleSupportedWorkflowResult = (
+const geminiExtensionSupportedWorkflowResult = (
 	entry: GeminiWorkflowSupportEntry,
 ): GeminiRuntimeContractWorkflowResult => ({
 	workflowId: entry.workflowId,
@@ -274,7 +274,7 @@ export const evaluateGeminiRuntimeContract = (
 			unsupportedWorkflowCount,
 			workflows: [],
 			issue:
-				"No generated Gemini support matrix row is currently marked supported, so no supported workflow runtime contract can be claimed.",
+				"No Gemini support matrix row is currently marked supported, so no supported workflow runtime contract can be claimed.",
 		};
 	}
 
@@ -284,7 +284,7 @@ export const evaluateGeminiRuntimeContract = (
 		);
 		return workflowEvidence
 			? evaluateSupportedWorkflow(entry.workflowId, workflowEvidence)
-			: generatedBundleSupportedWorkflowResult(entry);
+			: geminiExtensionSupportedWorkflowResult(entry);
 	});
 	const failed = workflows.find((workflow) => workflow.status !== "passed");
 

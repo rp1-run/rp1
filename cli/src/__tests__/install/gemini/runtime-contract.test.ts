@@ -20,7 +20,7 @@ const matrixFixture = (): GeminiWorkflowSupportMatrix => ({
 			evidenceSource:
 				"features/gemini-cli-rp1-harness-first-class/gemini-runtime-contract.md",
 			unsupportedRationale: null,
-			userAction: "Run the generated Gemini bundle workflow.",
+			userAction: "Run the Gemini workflow.",
 			exceptionOwner: null,
 			updatedAt: "2026-05-19",
 			sourcePath: "plugins/dev/skills/build/SKILL.md",
@@ -59,7 +59,7 @@ const runtimeEvidence = (
 	featureId: "gemini-cli-rp1-harness-first-class",
 	runId: "run-runtime",
 	geminiVersion: "gemini 1.2.3",
-	generatedBundle: true,
+	geminiExtensionAssets: true,
 	workflows: [
 		{
 			workflowId: "dev:build",
@@ -80,7 +80,7 @@ const runtimeEvidence = (
 });
 
 describe("Gemini runtime contract", () => {
-	test("passes generated-bundle supported workflows without requiring per-workflow runtime attestation", () => {
+	test("passes supported Gemini workflows without requiring per-workflow runtime attestation", () => {
 		const result = evaluateGeminiRuntimeContract(matrixFixture(), null);
 
 		expect(result.status).toBe("passed");

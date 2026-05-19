@@ -204,7 +204,7 @@ const resolveGeminiDistDir = async (
 	}
 
 	throw new Error(
-		`Cannot find dist/gemini bundle assets. Run \`rp1 build --platform gemini\` first.`,
+		`Cannot find Gemini assets under dist/gemini. Run \`rp1 build --platform gemini\` first.`,
 	);
 };
 
