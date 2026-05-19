@@ -630,6 +630,7 @@ export const updateForSpecificTool = (
 	if ("error" in lookup) return TE.left(lookup.error);
 
 	if (lookup.tool.id !== "gemini") {
+		// Non-Gemini hosts treat update as an idempotent install path today.
 		return installForSpecificTool(toolId, registry, ctx);
 	}
 

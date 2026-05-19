@@ -2,14 +2,13 @@
 
 /**
  * Standalone script to build Gemini CLI artifacts.
- * Produces Gemini extension bundle assets in dist/gemini/.
+ * Produces Gemini extension assets in dist/gemini/.
  *
  * Usage:
  *   bun run scripts/build-gemini.ts [options]
  *
  * Options:
- *   -o, --output-dir <dir>   OpenCode output directory (default: dist/opencode/)
- *                             Gemini output is derived as sibling (dist/gemini/)
+ *   -o, --output-dir <dir>   Gemini output directory (default: dist/gemini/)
  *   -p, --plugin <name>      Build specific plugin (base, dev, or all)
  *   --json                   Output results as JSON for CI/CD
  *   -h, --help               Show this help message

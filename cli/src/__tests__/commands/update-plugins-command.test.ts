@@ -2,15 +2,13 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { Command } from "commander";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { Logger } from "../../../shared/logger.js";
-import {
-	createPluginsSubcommand,
-	pluginsSubcommand as realPluginsSubcommand,
-} from "../../commands/update/plugins.js";
+import { createPluginsSubcommand } from "../../commands/update/plugins.js";
 import type {
 	SupportedTool,
 	ToolsRegistry,
 } from "../../config/supported-tools.js";
 import type { InstallContext } from "../../shared/install-core.js";
+import { writeGeminiBundleDistFixture } from "../helpers/gemini-bundle.js";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
 
 class ProcessExit extends Error {
@@ -127,10 +125,15 @@ const runPluginsCommand = async (
 const runRealPluginsCommand = async (
 	homeDir: string,
 	argv: string[],
+	bundleDir?: string,
 ): Promise<{ readonly exitCode: number; readonly output: string }> => {
 	const originalHome = process.env.HOME;
+	const originalBundleDir = process.env.RP1_GEMINI_BUNDLE_DIR;
 	const logs: string[] = [];
 	process.env.HOME = homeDir;
+	if (bundleDir) {
+		process.env.RP1_GEMINI_BUNDLE_DIR = bundleDir;
+	}
 	const originalLog = console.log;
 	const originalExit = process.exit;
 	try {
@@ -146,7 +149,7 @@ const runRealPluginsCommand = async (
 			.option("-y, --yes", "Skip confirmation prompts", false);
 		Object.assign(root, { _logger: logger, _isTTY: false });
 		root.addCommand(update);
-		update.addCommand(realPluginsSubcommand);
+		update.addCommand(createPluginsSubcommand());
 		try {
 			await root.parseAsync(["node", "rp1", ...argv], { from: "node" });
 			return { exitCode: 0, output: logs.join("\n") };
@@ -163,6 +166,11 @@ const runRealPluginsCommand = async (
 			delete process.env.HOME;
 		} else {
 			process.env.HOME = originalHome;
+		}
+		if (originalBundleDir === undefined) {
+			delete process.env.RP1_GEMINI_BUNDLE_DIR;
+		} else {
+			process.env.RP1_GEMINI_BUNDLE_DIR = originalBundleDir;
 		}
 	}
 };
@@ -294,12 +302,12 @@ describe("update plugins command action", () => {
 	});
 
 	test("runs the real targeted Gemini update route in-process", async () => {
-		const result = await runRealPluginsCommand(tempDir, [
-			"update",
-			"plugins",
-			"gemini",
-			"--dry-run",
-		]);
+		const bundleDir = await writeGeminiBundleDistFixture(tempDir);
+		const result = await runRealPluginsCommand(
+			tempDir,
+			["update", "plugins", "gemini", "--dry-run"],
+			bundleDir,
+		);
 
 		expect(result.exitCode).toBe(0);
 		expect(result.output).toContain("Updating plugins for gemini");

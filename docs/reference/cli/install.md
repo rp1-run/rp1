@@ -15,8 +15,7 @@ rp1 install <subcommand> [options]
 
 Use `rp1 install` when you want to install or refresh rp1 for a specific host
 tool, or for every detected stable host on the machine. Gemini CLI is a
-first-class first-class Gemini target and participates in default setup when it
-is detected.
+first-class Gemini target and participates in default setup when it is detected.
 
 Supported targets:
 
@@ -24,7 +23,7 @@ Supported targets:
 - OpenCode
 - Codex
 - Copilot CLI
-- Gemini CLI Gemini CLI extension assets
+- Gemini CLI extension assets
 
 ## Subcommands
 

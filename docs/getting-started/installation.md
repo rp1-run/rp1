@@ -20,11 +20,11 @@ Before you begin, make sure you have:
 | Codex | [Codex CLI](https://github.com/openai/codex) | `$rp1-base-knowledge-build` | Install the Codex integration after `rp1 init`. |
 | GitHub Copilot CLI | [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli) | `/rp1-base-knowledge-build` | Requires standalone Copilot CLI with plugin support. |
 
-Gemini CLI is available as an optional Gemini extension platform. It is not
-required for normal setup, and it is not part of the default stable-host
-workflow path. See the
-[Gemini CLI platform guide](../reference/platforms/gemini.md) when you
-intentionally want to install or verify Gemini Gemini extension assets.
+Gemini CLI is available as a first-class Gemini extension platform. It
+participates in default install when detected, and it can also be installed or
+verified directly. See the
+[Gemini CLI platform guide](../reference/platforms/gemini.md) for Gemini
+extension assets.
 
 ---
 
@@ -117,7 +117,7 @@ rp1 install codex
 rp1 install copilot
 ```
 
-For a targeted Gemini Gemini extension install:
+For a targeted Gemini extension install:
 
 ```bash
 rp1 install gemini
@@ -141,7 +141,7 @@ rp1 verify codex
 rp1 verify copilot
 ```
 
-Verify Gemini Gemini extension assets:
+Verify Gemini extension assets:
 
 ```bash
 rp1 verify gemini

@@ -89,8 +89,23 @@ export interface BuildGeminiWorkflowSupportMatrixOptions {
 	readonly updatedAt?: string;
 }
 
+const GEMINI_WORKFLOW_CLASS_BY_CATEGORY: Record<
+	CatalogRegistryEntry["category"],
+	GeminiWorkflowClass
+> = {
+	development: "development_workflow",
+	investigation: "investigation_workflow",
+	quality: "quality_workflow",
+	review: "review_workflow",
+	documentation: "documentation_workflow",
+	knowledge: "knowledge_workflow",
+	strategy: "strategy_workflow",
+	planning: "planning_workflow",
+	prompt: "prompt_workflow",
+};
+
 const toWorkflowClass = (entry: CatalogRegistryEntry): GeminiWorkflowClass =>
-	`${entry.category}_workflow` as GeminiWorkflowClass;
+	GEMINI_WORKFLOW_CLASS_BY_CATEGORY[entry.category];
 
 const getExclusionReason = (
 	entry: CatalogRegistryEntry,

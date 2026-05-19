@@ -17,9 +17,9 @@ interface GeminiGeneratedCommand {
 }
 
 interface GeminiBuildState extends PlatformBuildState {
-	readonly commandFiles: GeminiGeneratedCommand[];
-	readonly skillNames: string[];
-	readonly agentNames: string[];
+	commandFiles: GeminiGeneratedCommand[];
+	skillNames: string[];
+	agentNames: string[];
 }
 
 const asGeminiBuildState = (state: PlatformBuildState): GeminiBuildState =>

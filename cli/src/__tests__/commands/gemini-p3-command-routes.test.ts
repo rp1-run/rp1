@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Command } from "commander";
-import { pluginsSubcommand } from "../../commands/update/plugins.js";
+import { createPluginsSubcommand } from "../../commands/update/plugins.js";
 import { writeGeminiBundleDistFixture } from "../helpers/gemini-bundle.js";
 import {
 	cleanupTempDir,
@@ -97,7 +97,7 @@ const runUpdatePlugins = async (
 	const update = new Command("update")
 		.option("--dry-run", "Show what would be done without executing", false)
 		.option("-y, --yes", "Skip confirmation prompts", false);
-	update.addCommand(pluginsSubcommand);
+	update.addCommand(createPluginsSubcommand());
 	return runRootCommand(update, ["update", ...args]);
 };
 

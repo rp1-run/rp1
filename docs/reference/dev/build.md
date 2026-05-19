@@ -400,8 +400,8 @@ pipeline now targets all generated rp1 host bundles through `--platform`.
 | `claude-code` | `dist/claude-code/` | Claude Code plugin artifacts |
 | `codex` | `dist/codex/` | Codex skills, agents, config entries, and `AGENTS.md` material |
 | `copilot` | `dist/copilot/` | GitHub Copilot CLI plugin artifacts |
-| `gemini` | `dist/gemini/` | Gemini CLI Gemini CLI extension assets |
-| `all` | all directories above | Full Gemini extension set |
+| `gemini` | `dist/gemini/` | Gemini CLI extension assets |
+| `all` | all directories above | Full platform artifact set |
 
 Build Gemini directly or as part of the full platform set:
 
@@ -441,7 +441,7 @@ evidence source for a workflow row.
 ## Codex Build Output
 
 Codex is a first-class rp1 platform alongside Claude Code, OpenCode, GitHub
-Copilot CLI, and the Gemini Gemini extension target. Skills are invoked
+Copilot CLI, and the Gemini extension target. Skills are invoked
 with `$skill-name` syntax (e.g., `$rp1-dev-build`), and project-level
 instructions are delivered via `AGENTS.md` (the Codex equivalent of `CLAUDE.md`
 for Claude Code).

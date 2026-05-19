@@ -103,9 +103,7 @@ describe("Gemini P3 lifecycle command contracts", () => {
 		]);
 		expect(dryRunUninstall.exitCode).toBe(0);
 		expect(dryRunUninstall.stderr).not.toContain("Logger not initialized");
-		expect(dryRunUninstall.stdout).toContain(
-			"Gemini CLI extension bundle uninstall",
-		);
+		expect(dryRunUninstall.stdout).toContain("Gemini CLI extension uninstall");
 		expect(dryRunUninstall.stdout).toContain(
 			"Dry run: would remove rp1-owned Gemini assets",
 		);

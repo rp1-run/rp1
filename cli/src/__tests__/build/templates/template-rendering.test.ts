@@ -62,6 +62,10 @@ const createTestEngine = () => {
 		return value;
 	});
 
+	engine.registerFilter("escape_json", (value: string) =>
+		JSON.stringify(value).slice(1, -1),
+	);
+
 	engine.registerFilter("escape_toml", (value: string) => {
 		return value
 			.replace(/\\/g, "\\\\")

@@ -59,7 +59,7 @@ rp1 install codex
 rp1 install copilot
 ```
 
-Verify Gemini Gemini extension assets when Gemini CLI is installed:
+Verify Gemini extension assets when Gemini CLI is installed:
 
 ```bash
 rp1 verify gemini

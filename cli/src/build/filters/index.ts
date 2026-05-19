@@ -17,6 +17,7 @@ import {
 	allowedToolsFilter,
 	copilotPermissionPatternsFilter,
 } from "./allowed-tools.js";
+import { escapeJson } from "./escape-json.js";
 import { escapeToml } from "./escape-toml.js";
 import { escapeYaml } from "./escape-yaml.js";
 import { harnessName } from "./harness-name.js";
@@ -31,6 +32,7 @@ import { toolProse } from "./tool-prose.js";
 export {
 	allowedToolsFilter,
 	copilotPermissionPatternsFilter,
+	escapeJson,
 	escapeToml,
 	escapeYaml,
 	harnessName,
@@ -81,6 +83,8 @@ export function registerFilters(liquid: Liquid): void {
 	);
 
 	liquid.registerFilter("escape_yaml", (value: string) => escapeYaml(value));
+
+	liquid.registerFilter("escape_json", (value: string) => escapeJson(value));
 
 	liquid.registerFilter("escape_toml", (value: string) => escapeToml(value));
 

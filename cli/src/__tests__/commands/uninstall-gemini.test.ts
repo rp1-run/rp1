@@ -147,7 +147,7 @@ describe("Gemini uninstall command", () => {
 
 		expect(exitCode).toBe(0);
 		expect(stderr).not.toContain("Logger not initialized");
-		expect(stdout).toContain("Gemini CLI extension bundle uninstall");
+		expect(stdout).toContain("Gemini CLI extension uninstall");
 		expect(stdout).toContain("No rp1-owned Gemini extension assets found.");
 	});
 
@@ -165,7 +165,7 @@ describe("Gemini uninstall command", () => {
 			"--dry-run",
 		]);
 
-		expect(output).toContain("Gemini CLI extension bundle uninstall");
+		expect(output).toContain("Gemini CLI extension uninstall");
 		expect(output).toContain("Dry run: would remove rp1-owned Gemini assets");
 		expect(output).toContain("Unexpected leftovers preserved");
 		expect(output).toContain("Inspect ~/.gemini/extensions");
@@ -188,7 +188,7 @@ describe("Gemini uninstall command", () => {
 			["uninstall", "gemini", "--yes"],
 		);
 
-		expect(output).toContain("Gemini CLI extension bundle uninstall");
+		expect(output).toContain("Gemini CLI extension uninstall");
 		expect(successes.join("\n")).toContain(
 			"Removed rp1-owned Gemini extension assets",
 		);
