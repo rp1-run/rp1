@@ -116,7 +116,7 @@ const createGeminiTool = (): SupportedTool => ({
 	instruction_file: "AGENTS.md",
 	install_url: "https://github.com/google-gemini/gemini-cli",
 	plugin_install_cmd: null,
-	supportLevel: "experimental",
+	supportLevel: "stable",
 	capabilities: ["slash-commands"],
 });
 
@@ -724,7 +724,7 @@ describe("install-core tool routing", () => {
 		expect(getErrorMessage(error)).toContain("currently disabled");
 	});
 
-	test("installForSpecificTool installs the explicit Gemini bundle extension", async () => {
+	test("installForSpecificTool installs the targeted Gemini bundle extension", async () => {
 		const homeDir = await createTempDir("install-core-gemini-specific");
 		const restoreHome = withEnvOverride("HOME", homeDir);
 		const restoreBundle = await withGeminiBundleDir(homeDir);
@@ -747,10 +747,7 @@ describe("install-core tool routing", () => {
 				success: true,
 			});
 			expect(result.pluginsInstalled).toEqual(
-				expect.arrayContaining([
-					expect.stringContaining("Generated bundle assets"),
-					expect.stringContaining("rp1-base"),
-				]),
+				expect.arrayContaining(["rp1-base", "rp1-dev"]),
 			);
 			expect(result.details?.join("\n")).toContain("Lifecycle stage: install");
 			expect(result.details?.join("\n")).toContain(
@@ -787,7 +784,7 @@ describe("install-core tool routing", () => {
 		}
 	});
 
-	test("installForSpecificTool previews explicit Gemini bundle assets", async () => {
+	test("installForSpecificTool previews targeted Gemini bundle assets", async () => {
 		const homeDir = await createTempDir("install-core-gemini-specific-dry-run");
 		const restoreHome = withEnvOverride("HOME", homeDir);
 		const restoreBundle = await withGeminiBundleDir(homeDir);
@@ -810,10 +807,7 @@ describe("install-core tool routing", () => {
 				success: true,
 			});
 			expect(result.pluginsInstalled).toEqual(
-				expect.arrayContaining([
-					expect.stringContaining("Generated bundle assets"),
-					expect.stringContaining("rp1-base"),
-				]),
+				expect.arrayContaining(["rp1-base", "rp1-dev"]),
 			);
 			expect(result.details?.join("\n")).toContain("Lifecycle state: dry_run");
 			expect(result.details?.join("\n")).toContain("rp1 install gemini");
@@ -853,10 +847,7 @@ describe("install-core tool routing", () => {
 			);
 			expect(dryRun.details?.join("\n")).toContain("Lifecycle state: dry_run");
 			expect(dryRun.pluginsInstalled).toEqual(
-				expect.arrayContaining([
-					expect.stringContaining("Generated bundle assets"),
-					expect.stringContaining("rp1-base"),
-				]),
+				expect.arrayContaining(["rp1-base", "rp1-dev"]),
 			);
 
 			const installed = await expectTaskRight(
@@ -1103,37 +1094,48 @@ describe("install-core tool routing", () => {
 		}
 	});
 
-	test("installAllDetectedTools keeps Gemini explicit during automatic install", async () => {
-		const installCore = (await import(
-			`../../shared/install-core.js?gemini-auto-skip=${Date.now()}`
-		)) as InstallCoreModule;
-		const result = await expectTaskRight(
-			installCore.installAllDetectedTools(
-				{
-					version: "1.0.0",
-					tools: [
-						{
-							...createGeminiTool(),
-							binary: "bun",
-							min_version: "0.0.0",
-						},
-					],
-				},
-				createMockContext(),
-			),
-		);
+	test("installAllDetectedTools installs Gemini during automatic install", async () => {
+		const homeDir = await createTempDir("install-core-gemini-auto-install");
+		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restoreBundle = await withGeminiBundleDir(homeDir);
 
-		expect(result.installed).toBe(0);
-		expect(result.results).toEqual([
-			expect.objectContaining({
-				toolId: "gemini",
-				success: false,
-				skipped: true,
-			}),
-		]);
-		expect(result.results[0]?.warnings.join("\n")).toContain(
-			"rp1 install gemini",
-		);
+		const installCore = (await import(
+			`../../shared/install-core.js?gemini-auto-install=${Date.now()}`
+		)) as InstallCoreModule;
+
+		try {
+			const result = await expectTaskRight(
+				installCore.installAllDetectedTools(
+					{
+						version: "1.0.0",
+						tools: [
+							{
+								...createGeminiTool(),
+								binary: "bun",
+								min_version: "0.0.0",
+							},
+						],
+					},
+					createMockContext(),
+				),
+			);
+
+			expect(result.installed).toBe(1);
+			expect(result.results).toEqual([
+				expect.objectContaining({
+					toolId: "gemini",
+					success: true,
+					pluginsInstalled: expect.arrayContaining(["rp1-base", "rp1-dev"]),
+				}),
+			]);
+			expect(result.results[0]?.details?.join("\n")).toContain(
+				"Lifecycle state: current after successful install",
+			);
+		} finally {
+			restoreBundle();
+			restoreHome();
+			await cleanupTempDir(homeDir);
+		}
 	});
 
 	test("installAllDetectedTools routes each detected host and reports unsupported tools without aborting", async () => {
@@ -1288,7 +1290,7 @@ describe("install-core tool routing", () => {
 		});
 	});
 
-	test("final Gemini lifecycle route import covers explicit install, update, and auto-skip states", async () => {
+	test("final Gemini lifecycle route import covers default install and update states", async () => {
 		const homeDir = await createTempDir("install-core-gemini-final-route");
 		const restoreHome = withEnvOverride("HOME", homeDir);
 		const restoreBundle = await withGeminiBundleDir(homeDir);
@@ -1313,10 +1315,7 @@ describe("install-core tool routing", () => {
 				"Lifecycle state: dry_run",
 			);
 			expect(dryInstall.pluginsInstalled).toEqual(
-				expect.arrayContaining([
-					expect.stringContaining("Generated bundle assets"),
-					expect.stringContaining("rp1-base"),
-				]),
+				expect.arrayContaining(["rp1-base", "rp1-dev"]),
 			);
 
 			const installed = await expectTaskRight(
@@ -1421,6 +1420,10 @@ describe("install-core tool routing", () => {
 			)) as CLIError;
 			expect(getErrorMessage(disabled)).toContain("currently disabled");
 
+			await rm(join(homeDir, blockedAsset.relativePath), {
+				recursive: true,
+				force: true,
+			});
 			const autoInstall = await expectTaskRight(
 				installCore.installAllDetectedTools(
 					{
@@ -1436,18 +1439,14 @@ describe("install-core tool routing", () => {
 					createMockContext({ dryRun: false }),
 				),
 			);
-			expect(autoInstall.installed).toBe(0);
+			expect(autoInstall.installed).toBe(1);
 			expect(autoInstall.results).toEqual([
 				expect.objectContaining({
 					toolId: "gemini",
-					success: false,
-					skipped: true,
-					pluginsInstalled: [],
+					success: true,
+					pluginsInstalled: expect.arrayContaining(["rp1-base", "rp1-dev"]),
 				}),
 			]);
-			expect(autoInstall.results[0]?.warnings.join("\n")).toContain(
-				"rp1 install gemini",
-			);
 		} finally {
 			restoreBundle();
 			restoreHome();

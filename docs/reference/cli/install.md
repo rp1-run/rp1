@@ -1,7 +1,7 @@
 # install
 
-Install rp1 plugins for supported host tools and optional generated Gemini
-bundle assets.
+Install rp1 plugins for supported host tools and generated Gemini bundle
+assets.
 
 ---
 
@@ -15,8 +15,8 @@ rp1 install <subcommand> [options]
 
 Use `rp1 install` when you want to install or refresh rp1 for a specific host
 tool, or for every detected stable host on the machine. Gemini CLI is a
-first-class generated-bundle target, but it is still explicit opt-in and is
-skipped by default setup.
+first-class generated-bundle target and participates in default setup when it
+is detected.
 
 Supported targets:
 
@@ -24,7 +24,7 @@ Supported targets:
 - OpenCode
 - Codex
 - Copilot CLI
-- Gemini CLI generated extension bundle assets (explicit install only)
+- Gemini CLI generated extension bundle assets
 
 ## Subcommands
 
@@ -77,8 +77,8 @@ rp1 install gemini [options]
 Installs generated Gemini CLI extension bundle assets from the current
 `dist/gemini/` build output. Validation-only smoke, proof, and manual-copy
 assets are not installed as normal product workflows. Review the
-[Gemini CLI platform guide](../platforms/gemini.md) before using these assets;
-the current Gemini support matrix has no supported workflow rows.
+[Gemini CLI platform guide](../platforms/gemini.md) for lifecycle and
+support-matrix details.
 
 ### `install all`
 
@@ -87,8 +87,7 @@ rp1 install all [options]
 ```
 
 Detects installed tools and installs rp1 to every detected stable target it
-finds. Gemini CLI is skipped by automatic install; use `rp1 install gemini`
-when you explicitly want the generated Gemini bundle assets.
+finds, including Gemini CLI when it is available on `PATH`.
 
 ## Options
 
@@ -215,9 +214,9 @@ matrix:
 rp1 verify gemini --workflow dev:build
 ```
 
-The current generated Gemini matrix has 15 supported workflow rows and 0
-unsupported rows. Supported workflow attribution reports the generated-bundle
-evidence source for the row.
+The current generated Gemini matrix supports all 15 generated workflow rows.
+Supported workflow attribution reports the generated-bundle evidence source for
+the row.
 
 Gemini may still require workspace trust, shell approval, or project agent
 acknowledgement when generated bundle commands run. rp1 reports those as

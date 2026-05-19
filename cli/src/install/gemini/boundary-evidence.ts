@@ -59,7 +59,7 @@ export const GEMINI_BOUNDARY_STATES = [
 	"stale",
 	"removed",
 	"blocked",
-	"unsupported_before_p3",
+	"legacy_pre_manifest",
 ] as const;
 
 export type GeminiBoundaryState = (typeof GEMINI_BOUNDARY_STATES)[number];
@@ -206,7 +206,7 @@ const statusReason = (status: GeminiBoundaryStatus): string => {
 		case "blocked":
 			return "Gemini boundary evidence is blocked by trust, approval, auth, lifecycle, or user input requirements.";
 		case "unsupported":
-			return "Gemini boundary evidence recorded an unsupported Gemini automation boundary.";
+			return "Gemini boundary evidence recorded an out-of-scope automation boundary.";
 		case "failed":
 			return "Gemini boundary evidence failed while recording or classifying the scenario.";
 		case "not_run":
@@ -222,10 +222,10 @@ const buildWorkflowClassifications = (
 		workflowClass,
 		status:
 			status === "unsupported"
-				? "unsupported"
+				? "out_of_scope"
 				: status === "passed" || status === "degraded"
-					? "experimental"
-					: "blocked",
+					? "evidence_recorded"
+					: "needs_attention",
 		reason: statusReason(status),
 		evidenceArtifactPath,
 		evidenceStatus:

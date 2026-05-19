@@ -53,7 +53,7 @@ describe("Gemini P3 lifecycle command contracts", () => {
 		await cleanupTempDir(tempDir);
 	});
 
-	test("exercises explicit install, update, uninstall, and removed-verify routes in isolated HOME", async () => {
+	test("exercises targeted install, update, uninstall, and removed-verify routes in isolated HOME", async () => {
 		const install = await runCli(tempDir, bundleDir, ["install", "gemini"]);
 		expect(install.exitCode).toBe(0);
 		expect(install.stderr).not.toContain("Logger not initialized");

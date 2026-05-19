@@ -98,9 +98,9 @@ const isWorkflowClassification = (
 ): value is GeminiWorkflowSupportClassification =>
 	isRecord(value) &&
 	typeof value.workflowClass === "string" &&
-	(value.status === "experimental" ||
-		value.status === "blocked" ||
-		value.status === "unsupported") &&
+	(value.status === "evidence_recorded" ||
+		value.status === "needs_attention" ||
+		value.status === "out_of_scope") &&
 	typeof value.reason === "string";
 
 const isBoundaryStatus = (value: unknown): value is GeminiBoundaryStatus =>
@@ -177,7 +177,7 @@ const missingEvidenceReadiness = (
 	workflowClasses: GEMINI_DEFAULT_WORKFLOW_CLASSIFICATIONS,
 });
 
-const blockedClassificationsFor = (
+const evidenceClassificationsFor = (
 	status: GeminiDelegationEvidenceStatus,
 	reason: string,
 	evidencePath: string | null,
@@ -241,11 +241,12 @@ const lifecycleMessageFor = (
 				userAction:
 					"Fix local file permissions or trust/approval blockers, then rerun `rp1 verify gemini`.",
 			};
-		case "unsupported_before_p3":
+		case "legacy_pre_manifest":
 			return {
-				issue: "Gemini lifecycle verification was unsupported before P3.",
+				issue:
+					"Gemini lifecycle verification came from legacy pre-manifest evidence.",
 				userAction:
-					"Use a P3-capable rp1 build for manifest-backed Gemini lifecycle checks.",
+					"Run the current manifest-backed Gemini lifecycle check again.",
 			};
 	}
 };
@@ -306,7 +307,7 @@ const loadGeminiDelegationReadiness = async (
 				error instanceof Error
 					? error.message
 					: "Invalid Gemini delegation evidence feature id.",
-			workflowClasses: blockedClassificationsFor(
+			workflowClasses: evidenceClassificationsFor(
 				"incomplete",
 				"Gemini delegation readiness could not be verified because the feature id is invalid.",
 				null,
@@ -323,7 +324,7 @@ const loadGeminiDelegationReadiness = async (
 			evidencePath: paths.jsonRelativePath,
 			issue:
 				"Could not resolve the rp1 work directory for Gemini delegation evidence.",
-			workflowClasses: blockedClassificationsFor(
+			workflowClasses: evidenceClassificationsFor(
 				"incomplete",
 				"Gemini delegation readiness could not be verified because the rp1 work directory was unavailable.",
 				paths.markdownRelativePath,
@@ -353,7 +354,7 @@ const loadGeminiDelegationReadiness = async (
 			evidence: null,
 			evidencePath: paths.jsonRelativePath,
 			issue: `Gemini delegation evidence is not valid JSON: ${paths.jsonRelativePath}.`,
-			workflowClasses: blockedClassificationsFor(
+			workflowClasses: evidenceClassificationsFor(
 				"incomplete",
 				"Gemini delegation readiness could not be verified because the evidence JSON is malformed.",
 				paths.markdownRelativePath,
@@ -367,7 +368,7 @@ const loadGeminiDelegationReadiness = async (
 			evidence: null,
 			evidencePath: paths.jsonRelativePath,
 			issue: `Gemini delegation evidence is incomplete: ${paths.jsonRelativePath}.`,
-			workflowClasses: blockedClassificationsFor(
+			workflowClasses: evidenceClassificationsFor(
 				"incomplete",
 				"Gemini delegation readiness could not be verified because required evidence fields are missing.",
 				paths.markdownRelativePath,
@@ -381,7 +382,7 @@ const loadGeminiDelegationReadiness = async (
 			evidence: null,
 			evidencePath: paths.jsonRelativePath,
 			issue: `Gemini delegation evidence feature mismatch: expected ${featureId}, got ${parsed.featureId}.`,
-			workflowClasses: blockedClassificationsFor(
+			workflowClasses: evidenceClassificationsFor(
 				"incomplete",
 				"Gemini delegation readiness could not be verified because the evidence feature id does not match the requested feature.",
 				paths.markdownRelativePath,
@@ -424,7 +425,7 @@ const loadGeminiBoundaryReadiness = async (
 				error instanceof Error
 					? error.message
 					: "Invalid Gemini boundary evidence feature id.",
-			workflowClasses: blockedClassificationsFor(
+			workflowClasses: evidenceClassificationsFor(
 				"incomplete",
 				"Gemini boundary evidence could not be verified because the feature id is invalid.",
 				null,
@@ -442,7 +443,7 @@ const loadGeminiBoundaryReadiness = async (
 			evidencePath: paths.jsonRelativePath,
 			issue:
 				"Could not resolve the rp1 work directory for Gemini boundary evidence.",
-			workflowClasses: blockedClassificationsFor(
+			workflowClasses: evidenceClassificationsFor(
 				"incomplete",
 				"Gemini boundary evidence could not be verified because the rp1 work directory was unavailable.",
 				paths.markdownRelativePath,
@@ -472,7 +473,7 @@ const loadGeminiBoundaryReadiness = async (
 			evidence: null,
 			evidencePath: paths.jsonRelativePath,
 			issue: `Gemini boundary evidence is not valid JSON: ${paths.jsonRelativePath}.`,
-			workflowClasses: blockedClassificationsFor(
+			workflowClasses: evidenceClassificationsFor(
 				"incomplete",
 				"Gemini boundary evidence could not be verified because the evidence JSON is malformed.",
 				paths.markdownRelativePath,
@@ -486,7 +487,7 @@ const loadGeminiBoundaryReadiness = async (
 			evidence: null,
 			evidencePath: paths.jsonRelativePath,
 			issue: `Gemini boundary evidence is incomplete: ${paths.jsonRelativePath}.`,
-			workflowClasses: blockedClassificationsFor(
+			workflowClasses: evidenceClassificationsFor(
 				"incomplete",
 				"Gemini boundary evidence could not be verified because required evidence fields are missing.",
 				paths.markdownRelativePath,
@@ -500,7 +501,7 @@ const loadGeminiBoundaryReadiness = async (
 			evidence: null,
 			evidencePath: paths.jsonRelativePath,
 			issue: `Gemini boundary evidence feature mismatch: expected ${featureId}, got ${parsed.featureId}.`,
-			workflowClasses: blockedClassificationsFor(
+			workflowClasses: evidenceClassificationsFor(
 				"incomplete",
 				"Gemini boundary evidence could not be verified because the evidence feature id does not match the requested feature.",
 				paths.markdownRelativePath,
@@ -572,18 +573,6 @@ const lifecycleColor = (
 	return yellow;
 };
 
-const classificationColor = (
-	status: GeminiWorkflowSupportClassification["status"],
-): ((value: string) => string) => {
-	if (status === "experimental") return yellow;
-	if (status === "blocked") return red;
-	return yellow;
-};
-
-const classificationDisplayStatus = (
-	status: GeminiWorkflowSupportClassification["status"],
-): string => (status === "experimental" ? "evidence_only" : status);
-
 const renderReadinessStatus = (
 	label: string,
 	status: GeminiDelegationEvidenceStatus,
@@ -625,21 +614,6 @@ const printGeminiDelegationReadiness = (
 
 	if (readiness.issue) {
 		console.log(yellow(`Issue: ${readiness.issue}`));
-	}
-
-	console.log("");
-	console.log(bold("Workflow classifications:"));
-	for (const classification of readiness.workflowClasses) {
-		const color = classificationColor(classification.status);
-		const displayStatus = classificationDisplayStatus(classification.status);
-		const evidenceStatus = classification.evidenceStatus ?? readiness.status;
-		console.log(
-			`  ${classification.workflowClass.padEnd(16)} ${color(displayStatus).padEnd(14)} ${dim(`evidence=${evidenceStatus}`)}`,
-		);
-		console.log(dim(`    ${classification.reason}`));
-		if (classification.evidenceArtifactPath) {
-			console.log(dim(`    evidence: ${classification.evidenceArtifactPath}`));
-		}
 	}
 };
 
@@ -884,10 +858,12 @@ export const executeVerifyGemini = async (
 			workflowAttemptReadiness &&
 			workflowAttemptReadiness.attribution?.status !== "supported"
 		) {
-			console.log(yellow(bold("\nGemini unsupported workflow attribution")));
+			console.log(
+				yellow(bold("\nGemini workflow attribution requires attention")),
+			);
 			console.log(
 				dim(
-					"  The requested workflow is not a Gemini runtime success; the support matrix above identifies the product scope and next action.",
+					"  The requested workflow is not a supported Gemini workflow row; the support matrix above identifies the product scope and next action.",
 				),
 			);
 			return false;

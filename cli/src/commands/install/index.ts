@@ -23,7 +23,6 @@ import {
 	verifyOpenCodePlugins,
 } from "../../init/steps/verification.js";
 import {
-	GEMINI_DELEGATION_EVIDENCE_REQUIRED_REASON,
 	type GeminiLifecycleStatus,
 	getGeminiManifestLifecycleStatus,
 	verifyGeminiBundleSetup,
@@ -117,19 +116,6 @@ async function runGeminiPostInstallVerification(): Promise<boolean> {
 	} else {
 		printGeminiLifecycleVerification(lifecycleResult.right);
 	}
-
-	console.log(
-		`  ${yellow("[WARN]")} Gemini P2 delegation evidence (${dim("not_run")})`,
-	);
-	console.log(yellow(`    - ${GEMINI_DELEGATION_EVIDENCE_REQUIRED_REASON}`));
-	console.log(
-		`  ${yellow("[WARN]")} Gemini P3 boundary evidence (${dim("not_run")})`,
-	);
-	console.log(
-		yellow(
-			"    - Attach accepted release-readiness evidence before upgrading trust, headless, or user-gate claims.",
-		),
-	);
 
 	for (const issue of geminiResult.issues) {
 		console.log(yellow(`    - ${issue}`));

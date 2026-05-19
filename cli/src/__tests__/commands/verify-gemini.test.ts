@@ -180,7 +180,7 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain("Gemini lifecycle path is degraded");
 	});
 
-	test("reports missing primary command with explicit install guidance", async () => {
+	test("reports missing primary command with targeted install guidance", async () => {
 		const result = await captureVerifyOutput({
 			paths: primaryCommandPath,
 			getGeminiBinaryPath: () => "/usr/local/bin/gemini",
@@ -221,7 +221,6 @@ describe("verify:gemini command", () => {
 		expect(result.output).not.toContain("P2 delegation evidence:");
 		expect(result.output).not.toContain("Workflow classifications:");
 		expect(result.output).toContain("Gemini generated bundle ready");
-		expect(result.output).not.toContain("experimental_ready");
 	});
 
 	test("fails ready bundle when a manifest asset is stale", async () => {
@@ -338,7 +337,7 @@ describe("verify:gemini command", () => {
 			"generated Gemini extension bundle: plugins/dev/skills/build/SKILL.md",
 		);
 		expect(result.output).not.toContain(
-			"Gemini unsupported workflow attribution",
+			"Gemini workflow attribution requires attention",
 		);
 		expect(result.output).not.toContain("Gemini lifecycle path is degraded");
 		expect(result.output).toContain("Gemini generated bundle ready");
@@ -373,7 +372,9 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain(
 			"dev:unknown is not present in the generated Gemini support matrix.",
 		);
-		expect(result.output).toContain("Gemini unsupported workflow attribution");
+		expect(result.output).toContain(
+			"Gemini workflow attribution requires attention",
+		);
 		expect(result.output).not.toContain("Gemini lifecycle path is degraded");
 	});
 
@@ -395,14 +396,14 @@ describe("verify:gemini command", () => {
 		);
 		expect(result.output).toMatch(/Overall delegation\s+not_run/);
 		expect(result.output).toMatch(/Custom subagent\s+not_run/);
-		expect(result.output).toMatch(/build_fast\s+blocked\s+evidence=not_run/);
+		expect(result.output).not.toContain("Workflow classifications:");
 		expect(result.output).toContain("Gemini delegation evidence missing");
 		expect(result.output).toContain(
 			"Gemini P2 delegation evidence validation failed",
 		);
 	});
 
-	test("reports failed P2 evidence and keeps heavyweight workflows blocked", async () => {
+	test("reports failed P2 evidence without changing bundle support", async () => {
 		const result = await captureVerifyOutput(
 			readySmokeDeps(async () => failedEvidenceJson()),
 			{ featureId: "gemini-phase2" },
@@ -413,10 +414,7 @@ describe("verify:gemini command", () => {
 		expect(result.output).toMatch(/Fanout attribution\s+failed/);
 		expect(result.output).toMatch(/Delegated failure\s+failed/);
 		expect(result.output).toMatch(/Acknowledgement\s+passed/);
-		expect(result.output).toMatch(/build_fast\s+blocked\s+evidence=failed/);
-		expect(result.output).toContain(
-			"evidence: features/gemini-phase2/gemini-subagents.md",
-		);
+		expect(result.output).not.toContain("Workflow classifications:");
 		expect(result.output).toContain(
 			"Gemini P2 delegation evidence validation failed",
 		);
@@ -429,9 +427,7 @@ describe("verify:gemini command", () => {
 
 		expect(result.ok).toBe(false);
 		expect(result.output).toContain("Invalid Gemini evidence feature id");
-		expect(result.output).toContain(
-			"Gemini delegation readiness could not be verified",
-		);
+		expect(result.output).toContain("P2 delegation evidence:");
 		expect(result.output).toContain(
 			"Invalid Gemini boundary evidence feature id",
 		);
@@ -557,7 +553,7 @@ describe("verify:gemini command", () => {
 		);
 	});
 
-	test("reports passing P2 evidence classifications without gating Gemini support", async () => {
+	test("reports passing P2 evidence without gating Gemini support", async () => {
 		const result = await captureVerifyOutput(
 			readySmokeDeps(async () => passingEvidenceJson()),
 			{ featureId: "gemini-phase2" },
@@ -569,12 +565,7 @@ describe("verify:gemini command", () => {
 		expect(result.output).toMatch(/Fanout attribution\s+passed/);
 		expect(result.output).toMatch(/Delegated failure\s+passed/);
 		expect(result.output).toMatch(/Acknowledgement\s+passed/);
-		expect(result.output).toMatch(
-			/build_fast\s+evidence_only\s+evidence=passed/,
-		);
-		expect(result.output).toContain(
-			"evidence: features/gemini-phase2/gemini-subagents.md",
-		);
+		expect(result.output).not.toContain("Workflow classifications:");
 		expect(result.output).toContain("Gemini generated bundle ready");
 		expect(result.output).not.toContain(
 			"Gemini P2 delegation evidence validation failed",

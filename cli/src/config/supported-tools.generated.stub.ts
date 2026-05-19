@@ -62,7 +62,7 @@ export const TOOLS_REGISTRY = {
 			instruction_file: "AGENTS.md",
 			install_url: "https://github.com/google-gemini/gemini-cli",
 			plugin_install_cmd: null,
-			supportLevel: "experimental",
+			supportLevel: "stable",
 			icon: {
 				source: "@lobehub/icons",
 				name: "Gemini",

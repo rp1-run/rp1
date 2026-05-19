@@ -28,7 +28,7 @@ export const GEMINI_LIFECYCLE_STATES = [
 	"stale",
 	"removed",
 	"blocked",
-	"unsupported_before_p3",
+	"legacy_pre_manifest",
 ] as const;
 
 export type GeminiLifecycleState = (typeof GEMINI_LIFECYCLE_STATES)[number];
@@ -74,7 +74,7 @@ export type GeminiSafeRemovalResult =
 	(typeof GEMINI_SAFE_REMOVAL_RESULTS)[number];
 
 export const GEMINI_P3_LIFECYCLE_GAP_CONSTRAINT =
-	"Before Gemini P3, named Gemini update and uninstall lifecycle routes are not assumed to exist; callers must surface unsupported_before_p3 or implement explicit manifest-backed update and removal behavior.";
+	"Gemini lifecycle routes are manifest-backed; legacy pre-manifest lifecycle evidence is retained only for historical artifact parsing.";
 
 export interface GeminiAssetManifestEntry {
 	readonly relativePath: string;
@@ -169,7 +169,7 @@ const issueForState = (state: GeminiLifecycleState): string | null => {
 		return "No rp1-owned Gemini extension assets are installed.";
 	if (state === "blocked")
 		return "Gemini lifecycle update is blocked by inaccessible extension assets.";
-	return "Gemini lifecycle route is unsupported before P3.";
+	return "Gemini lifecycle route came from legacy pre-manifest evidence.";
 };
 
 const stateForAssets = (

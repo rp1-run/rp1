@@ -73,11 +73,11 @@ describe("Gemini bundle asset installer", () => {
 			"stale",
 			"removed",
 			"blocked",
-			"unsupported_before_p3",
+			"legacy_pre_manifest",
 		]);
 		expect(GEMINI_SAFE_REMOVAL_RESULTS).toContain("blocked_unowned");
 		expect(GEMINI_P3_LIFECYCLE_GAP_CONSTRAINT).toContain(
-			"named Gemini update and uninstall lifecycle routes are not assumed to exist",
+			"Gemini lifecycle routes are manifest-backed",
 		);
 		expect(GEMINI_BOUNDARY_SCENARIOS).toContain("headless_user_gate");
 		expect(GEMINI_BOUNDARY_SCENARIOS).toContain("uninstall_lifecycle");
@@ -90,7 +90,7 @@ describe("Gemini bundle asset installer", () => {
 			"not_run",
 		]);
 		expect(GEMINI_BOUNDARY_STATES).toContain("requires_trust");
-		expect(GEMINI_BOUNDARY_STATES).toContain("unsupported_before_p3");
+		expect(GEMINI_BOUNDARY_STATES).toContain("legacy_pre_manifest");
 	});
 
 	test("derives manifest-owned assets from a generated Gemini bundle", async () => {
@@ -119,7 +119,7 @@ describe("Gemini bundle asset installer", () => {
 		).toBe(true);
 	});
 
-	test("prefers explicit Gemini dist assets over embedded bundle assets", async () => {
+	test("prefers targeted Gemini dist assets over embedded bundle assets", async () => {
 		const distDir = await writeGeminiBundleDistFixture(tempDir);
 		await writeFixture(distDir, "base/GEMINI.md", "# rp1-base from dist\n");
 		const restoreBundle = withEnvOverride("RP1_GEMINI_BUNDLE_DIR", distDir);
@@ -216,7 +216,7 @@ describe("Gemini bundle asset installer", () => {
 		expect(await exists(result.commandPath)).toBe(false);
 	});
 
-	test("explicit install writes generated Gemini bundle assets", async () => {
+	test("targeted install writes generated Gemini bundle assets", async () => {
 		const result = await expectTaskRight(
 			installGeminiBundleAssets({
 				dryRun: false,

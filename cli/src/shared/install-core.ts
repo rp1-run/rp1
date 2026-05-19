@@ -49,10 +49,10 @@ import {
 } from "../install/copilot/index.js";
 import type { CopilotInstallResult } from "../install/copilot/models.js";
 import {
-	GEMINI_AUTO_INSTALL_SKIP_GUIDANCE,
-	GEMINI_EXPERIMENTAL_GUIDANCE,
+	GEMINI_INSTALL_GUIDANCE,
 	type GeminiManifestRefreshResult,
 	geminiExtensionDisplayRoot,
+	geminiExtensionNameFromDisplayDir,
 	installGeminiBundleAssets,
 	refreshGeminiManifestAssets,
 } from "../install/gemini/index.js";
@@ -371,14 +371,11 @@ const installForTool = (
 			success: false,
 			skipped: true,
 			pluginsInstalled: [],
-			warnings:
-				tool.tool.id === "gemini"
-					? [GEMINI_AUTO_INSTALL_SKIP_GUIDANCE]
-					: [
-							`${tool.tool.name} is ${getToolSupportLevel(
-								tool.tool,
-							)} and skipped by automatic install.`,
-						],
+			warnings: [
+				`${tool.tool.name} is ${getToolSupportLevel(
+					tool.tool,
+				)} and requires a targeted install path.`,
+			],
 		});
 	}
 
@@ -478,6 +475,31 @@ const installForTool = (
 		);
 	}
 
+	if (tool.tool.id === "gemini") {
+		return pipe(
+			installGeminiBundleAssets({ dryRun: ctx.dryRun }),
+			TE.map(
+				(result): ToolInstallResult => ({
+					...baseResult,
+					success: true,
+					pluginsInstalled: geminiBundleScope(result),
+					details: geminiInstallDetails(ctx.dryRun, result),
+					warnings: result.warnings,
+				}),
+			),
+			TE.orElse(
+				(error): TE.TaskEither<CLIError, ToolInstallResult> =>
+					TE.right({
+						...baseResult,
+						success: false,
+						pluginsInstalled: [],
+						warnings: [],
+						error,
+					}),
+			),
+		);
+	}
+
 	// Unknown tool - return failure result
 	return TE.right({
 		...baseResult,
@@ -528,10 +550,8 @@ const formatAssetDisplayList = (
 const geminiBundleScope = (result: {
 	readonly assetCount: number;
 	readonly extensionDisplayDirs: readonly string[];
-}): readonly string[] => [
-	`Generated bundle assets: ${result.assetCount} files`,
-	...result.extensionDisplayDirs.map((dir) => `Extension: ${dir}`),
-];
+}): readonly string[] =>
+	result.extensionDisplayDirs.map(geminiExtensionNameFromDisplayDir);
 
 const geminiInstallDetails = (
 	dryRun: boolean,
@@ -598,7 +618,7 @@ const failedGeminiUpdateResult = (
 		"Lifecycle state: failed",
 		`Next action: Check file permissions under ${geminiExtensionDisplayRoot()}, then rerun \`rp1 update plugins gemini\`.`,
 	],
-	warnings: [GEMINI_EXPERIMENTAL_GUIDANCE],
+	warnings: [GEMINI_INSTALL_GUIDANCE],
 	error,
 });
 
@@ -626,7 +646,7 @@ export const updateForSpecificTool = (
 					!ctx.dryRun && !blocked && result.refreshedAssets.length > 0,
 				pluginsInstalled: [],
 				details: geminiUpdateDetails(result),
-				warnings: [GEMINI_EXPERIMENTAL_GUIDANCE],
+				warnings: [GEMINI_INSTALL_GUIDANCE],
 			};
 
 			if (!blocked) return toolResult;

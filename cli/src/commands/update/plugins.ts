@@ -65,13 +65,6 @@ export const formatPluginUpdateResult = (
 
 	if (result.skipped) {
 		console.log(yellow(`${result.toolName}: Plugin update skipped`));
-		if (result.toolId === "gemini") {
-			console.log(
-				dim(
-					"  Next action: Run `rp1 update plugins gemini` to refresh Gemini assets explicitly.",
-				),
-			);
-		}
 	} else if (result.success) {
 		console.log(green(`${result.toolName}: Plugins updated successfully`));
 		if (result.pluginsInstalled.length > 0) {
@@ -185,7 +178,7 @@ Arguments:
         - opencode     Update plugins for OpenCode only
         - codex        Update plugins for Codex only
         - copilot      Update plugins for Copilot CLI only
-        - gemini       Refresh explicit Gemini extension bundle assets only
+        - gemini       Refresh Gemini extension bundle assets only
 
 Examples:
   rp1 update plugins           Update plugins for all detected tools
@@ -194,7 +187,7 @@ Examples:
   rp1 update plugins opencode     Update OpenCode plugins only
   rp1 update plugins codex        Update Codex plugins only
   rp1 update plugins copilot      Update Copilot CLI plugins only
-  rp1 update plugins gemini       Refresh Gemini extension assets explicitly
+  rp1 update plugins gemini       Refresh Gemini extension assets
   rp1 update plugins --dry-run    Preview what would be updated
 `,
 		)

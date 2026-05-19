@@ -40,6 +40,9 @@ export const geminiExtensionRelativeRoot = (): string => GEMINI_EXTENSION_ROOT;
 export const geminiExtensionDisplayRoot = (): string =>
 	GEMINI_EXTENSION_DISPLAY_ROOT;
 
+export const geminiExtensionNameFromDisplayDir = (displayDir: string): string =>
+	displayDir.split("/").at(-1) ?? displayDir;
+
 const toPosixPath = (path: string): string => path.split(sep).join("/");
 
 const relativeAssetPath = (

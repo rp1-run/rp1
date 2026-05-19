@@ -171,7 +171,7 @@ describe("isToolEnabled", () => {
 });
 
 describe("embedded supported tools registry", () => {
-	test("includes Gemini as explicit opt-in without reclassifying existing harnesses", async () => {
+	test("includes Gemini as a stable harness without reclassifying existing harnesses", async () => {
 		const registry = await loadToolsRegistry();
 
 		expect(registry.tools.map((tool) => tool.id)).toEqual([
@@ -217,12 +217,12 @@ describe("embedded supported tools registry", () => {
 				id: "gemini",
 				name: "Gemini CLI",
 				binary: "gemini",
-				supportLevel: "experimental",
+				supportLevel: "stable",
 			},
 		]);
 	});
 
-	test("keeps Gemini visible while excluding it from default install targets", async () => {
+	test("includes Gemini in default install targets", async () => {
 		const registry = await loadToolsRegistry();
 		const gemini = findToolById(registry, "gemini");
 
@@ -235,8 +235,8 @@ describe("embedded supported tools registry", () => {
 		expect(getEnabledTools(registry).map((tool) => tool.id)).toContain(
 			"gemini",
 		);
-		expect(
-			getDefaultInstallTools(registry).map((tool) => tool.id),
-		).not.toContain("gemini");
+		expect(getDefaultInstallTools(registry).map((tool) => tool.id)).toContain(
+			"gemini",
+		);
 	});
 });

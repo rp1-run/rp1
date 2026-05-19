@@ -384,7 +384,7 @@ describe("Gemini P3 validation contracts", () => {
 			expect.arrayContaining([
 				expect.objectContaining({
 					workflowClass: "build_fast",
-					status: "blocked",
+					status: "needs_attention",
 					evidenceStatus: "blocked",
 					evidenceArtifactPath: "features/gemini-phase-3/gemini-boundaries.md",
 				}),
@@ -424,7 +424,7 @@ describe("Gemini P3 validation contracts", () => {
 		});
 		expect(degraded.overallStatus).toBe("degraded");
 		expect(degraded.workflowClasses[0]).toMatchObject({
-			status: "experimental",
+			status: "evidence_recorded",
 			evidenceStatus: "failed",
 		});
 
@@ -449,7 +449,7 @@ describe("Gemini P3 validation contracts", () => {
 		});
 		expect(failed.overallStatus).toBe("failed");
 		expect(failed.workflowClasses[0]).toMatchObject({
-			status: "blocked",
+			status: "needs_attention",
 			evidenceStatus: "failed",
 		});
 
@@ -460,7 +460,7 @@ describe("Gemini P3 validation contracts", () => {
 		});
 		expect(notRun.overallStatus).toBe("not_run");
 		expect(notRun.workflowClasses[0]).toMatchObject({
-			status: "blocked",
+			status: "needs_attention",
 			evidenceStatus: "not_run",
 		});
 	});

@@ -51,7 +51,7 @@ Gemini uninstall is scoped to rp1-owned files under:
 It removes generated manifest-owned Gemini bundle assets only when their
 contents still match the current rp1 manifest.
 
-Gemini uninstall affects only this opt-in generated bundle target. It does not
+Gemini uninstall affects only this generated bundle target. It does not
 remove or downgrade stable Claude Code, OpenCode, Codex, or GitHub Copilot CLI
 integrations.
 

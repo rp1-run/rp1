@@ -6,11 +6,10 @@ Common multi-skill sequences in rp1. Each workflow describes when to use it, the
 
 Claude Code, OpenCode, Codex CLI, GitHub Copilot CLI, and Gemini CLI are
 supported hosts for the workflow sequences below. Gemini CLI receives generated
-bundle assets and a support matrix; the current generated Gemini matrix has 15
-supported workflow rows and 0 unsupported rows. If a user asks to run one of
-these workflows on Gemini, use `rp1 install gemini` to install the generated
-bundle and `rp1 verify gemini --workflow <workflow-id>` to inspect the matrix
-row.
+bundle assets and a support matrix; the current generated Gemini matrix
+supports all 15 user-facing workflow rows. If a user asks to run one of these
+workflows on Gemini, use `rp1 install gemini` to install the generated bundle
+and `rp1 verify gemini --workflow <workflow-id>` to inspect the matrix row.
 
 ## Feature Development Lifecycle
 

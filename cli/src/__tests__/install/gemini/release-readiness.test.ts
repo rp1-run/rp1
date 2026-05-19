@@ -96,7 +96,7 @@ describe("Gemini release readiness gate", () => {
 			["docs", "blocking_gap"],
 			["cleanup", "pass"],
 			["existing_harness_regression", "pass"],
-			["non_gemini_opt_in", "pass"],
+			["first_class_install", "pass"],
 		]);
 
 		const markdown = renderGeminiReleaseReadinessMarkdown(record);
@@ -105,7 +105,7 @@ describe("Gemini release readiness gate", () => {
 		expect(markdown).toContain("ready_for_release: false");
 	});
 
-	test("blocks release when stable harness regression evidence is incomplete or Gemini is not opt-in", () => {
+	test("blocks release when stable harness regression evidence is incomplete or Gemini is missing from default install", () => {
 		const matrix = matrixWithUnsupportedRows();
 		const runtimeEvaluation = evaluateGeminiRuntimeContract(matrix, null);
 
@@ -127,14 +127,14 @@ describe("Gemini release readiness gate", () => {
 
 		expect(record.blockingGaps).toEqual([
 			"existing_harness_regression",
-			"non_gemini_opt_in",
+			"first_class_install",
 		]);
 		expect(
 			record.gates.find((gate) => gate.id === "existing_harness_regression")
 				?.evidence,
 		).toContain("missing=copilot");
 		expect(
-			record.gates.find((gate) => gate.id === "non_gemini_opt_in")?.rationale,
-		).toContain("Non-Gemini users would need Gemini-specific setup.");
+			record.gates.find((gate) => gate.id === "first_class_install")?.rationale,
+		).toContain("Default install/update flow is missing a stable harness.");
 	});
 });

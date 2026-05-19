@@ -73,9 +73,9 @@ rp1 update plugins gemini --dry-run
 
 ## Gemini Extension Refresh
 
-`rp1 update plugins gemini` is the explicit refresh path for generated Gemini
-bundle assets. Gemini is a first-class generated-bundle target, but refresh is
-opt-in so non-Gemini users are not asked to maintain Gemini extensions. The
+`rp1 update plugins gemini` is the targeted refresh path for generated Gemini
+bundle assets. Gemini is a first-class generated-bundle target, and refresh is
+also included in `rp1 update plugins all` when Gemini CLI is detected. The
 command updates only rp1-owned files under the generated rp1 Gemini extension
 directories, such as `~/.gemini/extensions/rp1-base/` and
 `~/.gemini/extensions/rp1-dev/`.
@@ -92,14 +92,13 @@ results:
 | `Lifecycle result: refreshed` | rp1 refreshed manifest-owned Gemini assets. | Restart Gemini CLI, then run `rp1 verify gemini`. |
 | `Lifecycle state: failed` | Refresh failed after command execution started. | Check file permissions under `~/.gemini/extensions/`, then rerun `rp1 update plugins gemini`. |
 
-Use `--dry-run` to preview the files that would be refreshed. Automatic
-`rp1 update plugins` or `rp1 update plugins all` skips Gemini; use the explicit
-`gemini` target when you want to refresh generated bundle assets. The
+Use `--dry-run` to preview the files that would be refreshed. The targeted
+`gemini` command is useful when you want Gemini-specific lifecycle details. The
 [Gemini CLI platform guide](../platforms/gemini.md) explains the current
 support matrix and stale-asset recovery boundary.
 
 Refreshing Gemini assets restores the generated workflow bundle. The current
-generated support matrix has 15 supported workflow rows and 0 unsupported rows.
+generated support matrix supports all 15 generated workflow rows.
 Run `rp1 verify gemini --workflow <workflow-id>` after refresh to see workflow
 attribution.
 
@@ -133,7 +132,7 @@ rp1 install codex
 rp1 install copilot
 ```
 
-For Gemini, rerun the explicit refresh path so the command can print
+For Gemini, rerun the targeted refresh path so the command can print
 Gemini-specific lifecycle state and remediation:
 
 ```bash

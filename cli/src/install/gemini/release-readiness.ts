@@ -12,7 +12,7 @@ export const GEMINI_RELEASE_READINESS_GATE_IDS = [
 	"docs",
 	"cleanup",
 	"existing_harness_regression",
-	"non_gemini_opt_in",
+	"first_class_install",
 ] as const;
 
 export type GeminiReleaseReadinessGateId =
@@ -103,7 +103,7 @@ const inventoryGate = (
 		"Catalog inventory",
 		"pass",
 		`classified=${classified}; excluded=${excluded}; updated=${matrix.updatedAt}`,
-		"Every user-facing catalog workflow has a Gemini support row or explicit exclusion.",
+		"Every user-facing catalog workflow has a Gemini support row or cataloged exclusion.",
 	);
 };
 
@@ -252,24 +252,24 @@ const existingHarnessRegressionGate = (
 	);
 };
 
-const nonGeminiOptInGate = (
+const firstClassInstallGate = (
 	nonGeminiSetupRequired: boolean,
 ): GeminiReleaseReadinessGate =>
 	nonGeminiSetupRequired
 		? gate(
-				"non_gemini_opt_in",
-				"Non-Gemini opt-in",
+				"first_class_install",
+				"First-class install",
 				"blocking_gap",
-				"non_gemini_setup_required=true",
-				"Non-Gemini users would need Gemini-specific setup.",
-				"Keep Gemini on explicit install/update paths so existing users are not forced to configure Gemini.",
+				"default_install_includes_gemini=false",
+				"Default install/update flow is missing a stable harness.",
+				"Keep Gemini in the stable tools registry and automatic install/update flow.",
 			)
 		: gate(
-				"non_gemini_opt_in",
-				"Non-Gemini opt-in",
+				"first_class_install",
+				"First-class install",
 				"pass",
-				"non_gemini_setup_required=false",
-				"Users who do not install Gemini are not required to configure Gemini-specific setup.",
+				"default_install_includes_gemini=true",
+				"Gemini participates in the same default install/update flow as other stable harnesses.",
 			);
 
 export const buildGeminiReleaseReadinessRecord = (
@@ -283,7 +283,7 @@ export const buildGeminiReleaseReadinessRecord = (
 		docsGate(options.docsAligned),
 		cleanupGate(options.cleanupRecorded),
 		existingHarnessRegressionGate(options.existingHarnessRegressions),
-		nonGeminiOptInGate(options.nonGeminiSetupRequired),
+		firstClassInstallGate(options.nonGeminiSetupRequired),
 	];
 	const blockingGaps = gates
 		.filter((item) => item.status === "blocking_gap")

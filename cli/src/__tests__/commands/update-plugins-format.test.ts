@@ -76,23 +76,23 @@ describe("update plugin result formatting", () => {
 		expect(output).toContain("Gemini CLI support is generated-bundle backed");
 	});
 
-	test("formats skipped explicit Gemini update-all results as skipped", () => {
+	test("formats skipped unsupported tool results as skipped", () => {
 		formatPluginUpdateResult(
 			{
-				toolId: "gemini",
-				toolName: "Gemini CLI",
+				toolId: "future-host",
+				toolName: "Future Host",
 				success: false,
 				skipped: true,
 				restartRequired: false,
 				pluginsInstalled: [],
-				warnings: ["Gemini CLI uses an explicit opt-in lifecycle."],
+				warnings: ["Automated installation not supported for Future Host"],
 			},
 			false,
 		);
 
 		const output = logs.join("\n");
-		expect(output).toContain("Gemini CLI: Plugin update skipped");
-		expect(output).toContain("rp1 update plugins gemini");
+		expect(output).toContain("Future Host: Plugin update skipped");
+		expect(output).toContain("Automated installation not supported");
 		expect(output).not.toContain("Plugin update failed");
 	});
 

@@ -441,7 +441,7 @@ evidence source for a workflow row.
 ## Codex Build Output
 
 Codex is a first-class rp1 platform alongside Claude Code, OpenCode, GitHub
-Copilot CLI, and the opt-in Gemini generated bundle target. Skills are invoked
+Copilot CLI, and the Gemini generated bundle target. Skills are invoked
 with `$skill-name` syntax (e.g., `$rp1-dev-build`), and project-level
 instructions are delivered via `AGENTS.md` (the Codex equivalent of `CLAUDE.md`
 for Claude Code).

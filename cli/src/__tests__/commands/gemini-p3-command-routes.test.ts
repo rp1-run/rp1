@@ -129,7 +129,7 @@ describe("Gemini P3 command routes", () => {
 		expect(result.output).not.toContain("Lifecycle stage:");
 	});
 
-	test("install parent dry-runs explicit Gemini routing without post-install verification", async () => {
+	test("install parent dry-runs targeted Gemini routing without post-install verification", async () => {
 		const result = await runRootCommand(await freshInstallParentCommand(), [
 			"install",
 			"--platform",
@@ -140,7 +140,8 @@ describe("Gemini P3 command routes", () => {
 		expect(result.exitCode).toBe(0);
 		expect(result.output).toContain("Installing rp1 plugins");
 		expect(result.output).toContain("[OK] Gemini CLI");
-		expect(result.output).toContain("Generated bundle assets");
+		expect(result.output).toContain("rp1-base");
+		expect(result.output).toContain("rp1-dev");
 		expect(result.output).not.toContain("Verifying installation");
 	});
 });

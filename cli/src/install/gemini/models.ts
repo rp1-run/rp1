@@ -1,8 +1,5 @@
-export const GEMINI_EXPERIMENTAL_GUIDANCE =
+export const GEMINI_INSTALL_GUIDANCE =
 	"Gemini CLI support is generated-bundle backed; `rp1 install gemini` installs the generated commands, skills, agents, context, extension metadata, and support matrix.";
-
-export const GEMINI_AUTO_INSTALL_SKIP_GUIDANCE =
-	"Gemini CLI uses an explicit opt-in lifecycle and is skipped by automatic install. Run `rp1 install gemini` only when you want Gemini bundle assets.";
 
 export type GeminiSmokeStatus =
 	| "generated_bundle_ready"
@@ -23,9 +20,9 @@ export type GeminiDelegationEvidenceStatus =
 	(typeof GEMINI_DELEGATION_EVIDENCE_STATUSES)[number];
 
 export const GEMINI_SUPPORT_CLASSIFICATION_STATUSES = [
-	"experimental",
-	"blocked",
-	"unsupported",
+	"evidence_recorded",
+	"needs_attention",
+	"out_of_scope",
 ] as const;
 
 export type GeminiSupportClassificationStatus =
@@ -184,7 +181,7 @@ export interface GeminiDelegationEvidence {
 export const GEMINI_DEFAULT_WORKFLOW_CLASSIFICATIONS: readonly GeminiWorkflowSupportClassification[] =
 	GEMINI_HEAVYWEIGHT_WORKFLOW_CLASSES.map((workflowClass) => ({
 		workflowClass,
-		status: "blocked",
+		status: "needs_attention",
 		reason: GEMINI_DELEGATION_EVIDENCE_REQUIRED_REASON,
 		evidenceStatus: "not_run",
 	}));

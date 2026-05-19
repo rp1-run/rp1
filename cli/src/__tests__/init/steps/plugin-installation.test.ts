@@ -23,6 +23,12 @@ import type {
 	ClaudeCodeInstallResult,
 	ClaudeCodePrerequisiteResult,
 } from "../../../install/claudecode/models.js";
+import { writeGeminiBundleDistFixture } from "../../helpers/gemini-bundle.js";
+import {
+	cleanupTempDir,
+	createTempDir,
+	withEnvOverride,
+} from "../../helpers/index.js";
 
 // Create mock logger
 const createMockLogger = (): Logger => ({
@@ -119,7 +125,7 @@ const createGeminiTool = (): DetectedTool => ({
 		instruction_file: "AGENTS.md",
 		install_url: "https://github.com/google-gemini/gemini-cli",
 		plugin_install_cmd: null,
-		supportLevel: "experimental",
+		supportLevel: "stable",
 		capabilities: ["slash-commands"],
 	},
 	version: "0.1.0",
@@ -252,29 +258,43 @@ describe("plugin-installation step", () => {
 			expect(boxCall).toBeDefined();
 		});
 
-		test("skips Gemini init installation with explicit opt-in guidance", async () => {
+		test("installs Gemini bundle assets during init installation", async () => {
+			const tempDir = await createTempDir("init-gemini-install");
+			const restoreHome = withEnvOverride("HOME", tempDir);
+			const bundleDir = await writeGeminiBundleDistFixture(tempDir);
+			const restoreBundle = withEnvOverride("RP1_GEMINI_BUNDLE_DIR", bundleDir);
 			const logger = createTrackingMockLogger();
 
-			const result = await executePluginInstallation(
-				createGeminiTool(),
-				{ isTTY: false },
-				logger,
-			);
+			try {
+				const result = await executePluginInstallation(
+					createGeminiTool(),
+					{ isTTY: false },
+					logger,
+				);
 
-			expect(result.actions).toEqual([
-				{
-					type: "skipped",
-					reason: expect.stringContaining("rp1 install gemini"),
-				},
-			]);
-			expect(result.result).toBeNull();
-			expect(
-				logger.calls.some(
-					(call) =>
-						call.method === "info" &&
-						String(call.args[0]).includes("explicit opt-in lifecycle"),
-				),
-			).toBe(true);
+				expect(result.result?.success).toBe(true);
+				expect(result.actions).toEqual([
+					{
+						type: "plugin_installed",
+						name: "rp1-base",
+						version: "latest",
+					},
+					{
+						type: "plugin_installed",
+						name: "rp1-dev",
+						version: "latest",
+					},
+				]);
+				expect(
+					await Bun.file(
+						`${tempDir}/.gemini/extensions/rp1-base/gemini-extension.json`,
+					).text(),
+				).toBe('{"name":"rp1-base"}\n');
+			} finally {
+				restoreBundle();
+				restoreHome();
+				await cleanupTempDir(tempDir);
+			}
 		});
 
 		test("respects non-interactive mode flag and proceeds with installation", async () => {

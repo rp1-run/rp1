@@ -98,9 +98,10 @@ rp1 init --yes
 | OpenCode | Yes | `AGENTS.md` | Offered automatically |
 | GitHub Copilot CLI | Yes | `AGENTS.md` | Offered automatically |
 | Codex | Yes | `AGENTS.md` | Run `rp1 install codex` after `init` |
+| Gemini CLI | Yes | `GEMINI.md` and Gemini extensions | Offered automatically when Gemini CLI is detected |
 
-Gemini is not installed by the default `init` path. Use the explicit Gemini
-commands below only when you want generated Gemini bundle assets.
+Gemini can also be installed or repaired directly with the targeted Gemini
+commands below.
 
 ---
 
@@ -116,7 +117,7 @@ rp1 install codex
 rp1 install copilot
 ```
 
-For optional Gemini generated bundle assets:
+For a targeted Gemini generated bundle install:
 
 ```bash
 rp1 install gemini
@@ -128,9 +129,8 @@ You can also install into every detected supported host:
 rp1 install
 ```
 
-The default install command skips Gemini. It installs stable host integrations
-only; use `rp1 install gemini` when you deliberately want generated Gemini
-bundle commands.
+The default install command includes every detected stable host, including
+Gemini CLI when it is available on `PATH`.
 
 Verify a specific host:
 
@@ -141,7 +141,7 @@ rp1 verify codex
 rp1 verify copilot
 ```
 
-Verify Gemini only when you are checking generated Gemini bundle assets:
+Verify Gemini generated bundle assets:
 
 ```bash
 rp1 verify gemini
@@ -155,20 +155,16 @@ verification states and recovery steps.
 
 For Gemini CLI, verification reports generated bundle lifecycle states,
 support-matrix attribution, and optional feature evidence. The current Gemini
-matrix has no supported workflow rows; unsupported workflow attribution is a
-product-scope boundary, not an install failure. See the
-[Gemini CLI platform guide](../reference/platforms/gemini.md) before relying on
-any Gemini workflow class.
+matrix supports all 15 generated workflow rows. See the
+[Gemini CLI platform guide](../reference/platforms/gemini.md) for workflow
+attribution details.
 
 ---
 
 ## Step 4: Restart the Host Tool
 
-Restart Claude Code, OpenCode, Codex, or GitHub Copilot CLI after installation or
-updates so it reloads rp1.
-
-If you installed or refreshed Gemini bundle assets, restart Gemini CLI before
-running generated Gemini commands.
+Restart Claude Code, OpenCode, Codex, GitHub Copilot CLI, or Gemini CLI after
+installation or updates so it reloads rp1.
 
 ---
 

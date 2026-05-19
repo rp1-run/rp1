@@ -213,19 +213,19 @@ describe("tool-detector", () => {
 				expect(formatted).toContain("requires >= 2.0.0");
 			});
 
-			test("labels Gemini as explicit opt-in", () => {
+			test("formats stable Gemini without a qualification suffix", () => {
 				const detected = createMockDetectedTool({
 					tool: createMockTool({
 						id: "gemini",
 						name: "Gemini CLI",
-						supportLevel: "experimental",
+						supportLevel: "stable",
 					}),
 					version: "0.41.2",
 					meetsMinVersion: true,
 				});
 
 				const formatted = formatDetectedTool(detected);
-				expect(formatted).toBe("Gemini CLI v0.41.2 (explicit opt-in)");
+				expect(formatted).toBe("Gemini CLI v0.41.2");
 			});
 		});
 	});

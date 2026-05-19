@@ -38,9 +38,9 @@ files still need cleanup under `~/.config/github-copilot/`.
 
 ## Gemini Verification
 
-Gemini CLI is a first-class generated bundle target, but it is explicit opt-in.
-Automatic init, install-all, and update-all paths do not install or refresh
-Gemini assets.
+Gemini CLI is a first-class generated bundle target. Automatic init,
+install-all, and update-all paths install or refresh Gemini assets when Gemini
+CLI is detected.
 
 ```bash
 rp1 install gemini
@@ -64,9 +64,9 @@ Use `--workflow` to check whether a workflow attempt is supported on Gemini:
 rp1 verify gemini --workflow dev:build
 ```
 
-The current generated Gemini support matrix has 15 supported workflow rows and
-0 unsupported rows. If `--workflow` reports `supported`, the verifier prints
-the generated-bundle evidence source for that workflow row.
+The current generated Gemini support matrix supports all 15 generated workflow
+rows. If `--workflow` reports `supported`, the verifier prints the
+generated-bundle evidence source for that workflow row.
 
 Use `--feature-id` only when you need the verifier to read feature evidence from
 the work directory:

@@ -139,7 +139,7 @@ export const createBundledGeminiAssetsFixture = (): BundledAssets => ({
 				name: "Gemini CLI",
 				binary: "gemini",
 				instructionFile: "GEMINI.md",
-				supportLevel: "experimental",
+				supportLevel: "stable",
 				icon: {
 					source: "@lobehub/icons",
 					name: "Gemini",
@@ -239,7 +239,7 @@ export const writeGeminiBundleDistFixture = async (
 					name: "Gemini CLI",
 					binary: "gemini",
 					instructionFile: "GEMINI.md",
-					supportLevel: "experimental",
+					supportLevel: "stable",
 					icon: {
 						source: "@lobehub/icons",
 						name: "Gemini",

@@ -11,7 +11,7 @@ import {
 } from "./bundle-assets.js";
 import type { GeminiAssetManifestEntry } from "./lifecycle.js";
 import {
-	GEMINI_EXPERIMENTAL_GUIDANCE,
+	GEMINI_INSTALL_GUIDANCE,
 	type GeminiInstallResult,
 	type GeminiPaths,
 	type GeminiVerificationResult,
@@ -102,7 +102,7 @@ export const installGeminiBundleAssets = (
 						commandDisplayPath: primaryCommand.displayPath,
 					}
 				: getGeminiPaths(options.homeDir);
-			const warnings: string[] = [GEMINI_EXPERIMENTAL_GUIDANCE];
+			const warnings: string[] = [GEMINI_INSTALL_GUIDANCE];
 			const binaryPath = options.getGeminiBinaryPath?.() ?? Bun.which("gemini");
 
 			if (!binaryPath) {
@@ -263,6 +263,7 @@ export type { GeminiBundleAssetManifestOptions } from "./bundle-assets.js";
 export {
 	GEMINI_BUNDLE_DIR_ENV,
 	geminiExtensionDisplayRoot,
+	geminiExtensionNameFromDisplayDir,
 	geminiExtensionRelativeRoot,
 	getGeminiManifestAsset,
 	loadGeminiBundleAssetManifest,
@@ -316,12 +317,11 @@ export type {
 } from "./models.js";
 export {
 	GEMINI_ACKNOWLEDGEMENT_SCOPES,
-	GEMINI_AUTO_INSTALL_SKIP_GUIDANCE,
 	GEMINI_DEFAULT_WORKFLOW_CLASSIFICATIONS,
 	GEMINI_DELEGATION_EVIDENCE_REQUIRED_REASON,
 	GEMINI_DELEGATION_EVIDENCE_STATUSES,
-	GEMINI_EXPERIMENTAL_GUIDANCE,
 	GEMINI_HEAVYWEIGHT_WORKFLOW_CLASSES,
+	GEMINI_INSTALL_GUIDANCE,
 	GEMINI_SMOKE_STATUS_DETAILS,
 	GEMINI_SUPPORT_CLASSIFICATION_STATUSES,
 	getGeminiSmokeStatusDetail,

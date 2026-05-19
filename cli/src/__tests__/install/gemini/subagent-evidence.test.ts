@@ -84,9 +84,9 @@ describe("Gemini subagent evidence helper", () => {
 		expect(evidence.workflowClasses).toEqual(
 			GEMINI_HEAVYWEIGHT_WORKFLOW_CLASSES.map((workflowClass) => ({
 				workflowClass,
-				status: "experimental",
+				status: "evidence_recorded",
 				reason:
-					"Gemini P2 delegation evidence passed for the recorded scenario; heavyweight workflow classes remain evidence-only until maintainers upgrade the support matrix.",
+					"Gemini P2 delegation evidence passed for the recorded scenario.",
 				evidenceArtifactPath: "features/gemini-phase2/gemini-subagents.md",
 				evidenceStatus: "passed",
 			})),
@@ -108,7 +108,9 @@ describe("Gemini subagent evidence helper", () => {
 		expect(evidence.failureHandling.status).toBe("failed");
 		expect(evidence.failureHandling.successfulOutputsPreserved).toBe(false);
 		expect(
-			evidence.workflowClasses.every(({ status }) => status === "blocked"),
+			evidence.workflowClasses.every(
+				({ status }) => status === "needs_attention",
+			),
 		).toBe(true);
 	});
 
@@ -183,7 +185,9 @@ describe("Gemini subagent evidence helper", () => {
 			},
 		]);
 		expect(
-			evidence.workflowClasses.every(({ status }) => status === "blocked"),
+			evidence.workflowClasses.every(
+				({ status }) => status === "needs_attention",
+			),
 		).toBe(true);
 	});
 
@@ -251,8 +255,7 @@ describe("Gemini subagent evidence helper", () => {
 			status: "completed",
 			feature: "gemini-phase2",
 			classification: "passed",
-			reason:
-				"Gemini P2 delegation evidence passed for the recorded scenario; heavyweight workflow classes remain evidence-only until maintainers upgrade the support matrix.",
+			reason: "Gemini P2 delegation evidence passed for the recorded scenario.",
 		});
 	});
 });

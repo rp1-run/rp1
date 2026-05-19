@@ -78,7 +78,7 @@ const registry = {
 			name: "Gemini CLI",
 			binary: "gemini",
 			instruction_file: "AGENTS.md",
-			supportLevel: "experimental",
+			supportLevel: "stable",
 		}),
 	],
 } satisfies ToolsRegistry;
@@ -262,7 +262,7 @@ describe("update plugins command action", () => {
 		expect(logs.join("\n")).toContain("Dry run mode");
 	});
 
-	test("routes explicit Gemini updates through the named update path", async () => {
+	test("routes targeted Gemini updates through the named update path", async () => {
 		const updateForSpecificTool = mock(
 			(_toolId: string, _toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
 				TE.right({
@@ -293,7 +293,7 @@ describe("update plugins command action", () => {
 		expect(output).toContain("Lifecycle state: current");
 	});
 
-	test("runs the real explicit Gemini update route in-process", async () => {
+	test("runs the real targeted Gemini update route in-process", async () => {
 		const result = await runRealPluginsCommand(tempDir, [
 			"update",
 			"plugins",
@@ -308,7 +308,7 @@ describe("update plugins command action", () => {
 		expect(result.output).toContain("Lifecycle state:");
 	});
 
-	test("prints restart guidance for explicit Gemini refreshes that update assets", async () => {
+	test("prints restart guidance for targeted Gemini refreshes that update assets", async () => {
 		const updateForSpecificTool = mock(
 			(_toolId: string, _toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
 				TE.right({
@@ -337,11 +337,11 @@ describe("update plugins command action", () => {
 		expect(output).toContain("Please restart Gemini CLI");
 	});
 
-	test("keeps skipped explicit Gemini update-all as a successful command", async () => {
+	test("includes Gemini in update-all as a successful command", async () => {
 		const installAllDetectedTools = mock(
 			(_toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
 				TE.right({
-					installed: 0,
+					installed: 1,
 					detected: [
 						{
 							tool: {
@@ -357,12 +357,15 @@ describe("update plugins command action", () => {
 						{
 							toolId: "gemini",
 							toolName: "Gemini CLI",
-							success: false,
-							skipped: true,
+							success: true,
 							restartRequired: false,
-							pluginsInstalled: [],
-							details: ["Lifecycle stage: update"],
-							warnings: ["Gemini CLI uses an explicit opt-in lifecycle."],
+							pluginsInstalled: ["rp1-base", "rp1-dev"],
+							details: [
+								"Lifecycle stage: update",
+								"Lifecycle result: refreshed",
+								"Next action: Restart Gemini CLI, then run `rp1 verify gemini`.",
+							],
+							warnings: [],
 						},
 					],
 				}),
@@ -375,8 +378,8 @@ describe("update plugins command action", () => {
 		).rejects.toMatchObject({ code: 0 });
 
 		const output = logs.join("\n");
-		expect(output).toContain("Gemini CLI: Plugin update skipped");
-		expect(output).toContain("No automatic plugin updates were applied");
+		expect(output).toContain("Gemini CLI: Plugins updated successfully");
+		expect(output).toContain("rp1-base, rp1-dev");
 		expect(output).not.toContain("See errors above");
 	});
 

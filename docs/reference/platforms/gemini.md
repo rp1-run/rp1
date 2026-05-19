@@ -4,10 +4,9 @@ Gemini CLI is a first-class rp1 generated bundle and build platform. It has its
 own build target, generated extension assets, lifecycle commands, verifier
 output, and support-matrix attribution for the user-facing rp1 workflows.
 
-Gemini remains explicit opt-in. The current generated support matrix is
-bundle-backed: it has 15 workflow rows, 15 `supported` rows, and 0
-`unsupported` rows. Validation-only harness workflows remain excluded from
-product workflow claims.
+The current generated support matrix is bundle-backed and supports all 15
+user-facing workflow rows. Validation-only harness workflows remain excluded
+from product workflow claims.
 
 ## Current Status
 
@@ -20,9 +19,8 @@ product workflow claims.
 - Gemini lifecycle commands are manifest-backed:
   `rp1 install gemini`, `rp1 update plugins gemini`, `rp1 verify gemini`, and
   `rp1 uninstall gemini`.
-- Automatic init, install-all, and update-all paths skip Gemini. Install or
-  refresh Gemini only when you intentionally want generated Gemini bundle
-  assets.
+- Automatic init, install-all, and update-all paths include Gemini when Gemini
+  CLI is detected, matching the other stable harnesses.
 - Existing Claude Code, OpenCode, Codex CLI, and GitHub Copilot CLI setup and
   workflow support are independent from Gemini.
 - Gemini platform icon metadata uses the existing `@lobehub/icons` `Gemini`
@@ -42,7 +40,7 @@ Verify the local Gemini binary first:
 gemini --version
 ```
 
-Install the generated bundle only when you want Gemini assets:
+Install or verify the generated bundle:
 
 ```bash
 rp1 install gemini
@@ -58,8 +56,8 @@ commands.
 
 | Command | Purpose | Notes |
 |---------|---------|-------|
-| `rp1 install gemini` | Copies current manifest-owned Gemini bundle assets into Gemini extension directories. | Explicit opt-in; automatic install skips Gemini. |
-| `rp1 update plugins gemini` | Refreshes installed Gemini assets from the current manifest. | Explicit opt-in; update-all skips Gemini. |
+| `rp1 install gemini` | Copies current manifest-owned Gemini bundle assets into Gemini extension directories. | Targeted install path; `rp1 install` also installs Gemini when detected. |
+| `rp1 update plugins gemini` | Refreshes installed Gemini assets from the current manifest. | Targeted refresh path; `rp1 update plugins all` also refreshes Gemini when detected. |
 | `rp1 verify gemini` | Checks generated bundle lifecycle state. | A current lifecycle means the installed generated bundle is ready. |
 | `rp1 verify gemini --workflow <workflow-id>` | Attributes one workflow attempt against the generated matrix. | Supported attribution points at the generated bundle evidence source. |
 | `rp1 uninstall gemini` | Removes safe, manifest-owned Gemini assets. | Preserves modified files and unrelated Gemini extensions. |
@@ -135,7 +133,7 @@ When a Gemini support-state change is made, update these in the same change:
 
 | Situation | What it means | What to do |
 |-----------|---------------|------------|
-| Gemini CLI is missing | The generated bundle target cannot be verified locally. | Install Gemini CLI only if you intend to use Gemini assets, then run `gemini --version`. |
+| Gemini CLI is missing | The generated bundle target cannot be verified locally. | Install Gemini CLI, then run `gemini --version`. |
 | Generated bundle assets are missing or stale | Installed Gemini extension files do not match the current manifest. | Run `rp1 install gemini` or `rp1 update plugins gemini`, restart Gemini CLI, then verify. |
 | A workflow id is unknown | The workflow id is not present in the generated matrix. | Confirm the workflow id or rebuild the Gemini bundle from current catalog sources. |
 | Gemini asks to trust the workspace | The run is blocked on an interactive trust decision. | Trust the intended repository or rerun on a stable host. |
@@ -143,12 +141,12 @@ When a Gemini support-state change is made, update these in the same change:
 | Gemini reports new agents | Project or extension agents may need acknowledgement. | Acknowledge and enable the agents, then rerun verification. |
 | Headless validation stops | A trust, approval, user-input, or acknowledgement gate likely interrupted automation. | Rerun interactively or capture the blocker as validation evidence. |
 
-## Opt-In Boundary
+## Harness Boundary
 
-Gemini prerequisites apply only to users who choose to install or verify Gemini
-generated bundle assets. Do not ask non-Gemini users to install Gemini,
-acknowledge Gemini agents, refresh Gemini extensions, or run Gemini lifecycle
-commands.
+Gemini prerequisites apply when Gemini CLI is detected or when a user targets
+Gemini directly. Users without Gemini CLI installed are not asked to install
+Gemini, acknowledge Gemini agents, refresh Gemini extensions, or run Gemini
+lifecycle commands.
 
 Stable host verification remains separate:
 

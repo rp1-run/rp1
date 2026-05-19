@@ -425,7 +425,7 @@ const overallStatusFor = (
 const statusReason = (status: GeminiDelegationEvidenceStatus): string => {
 	switch (status) {
 		case "passed":
-			return "Gemini P2 delegation evidence passed for the recorded scenario; heavyweight workflow classes remain evidence-only until maintainers upgrade the support matrix.";
+			return "Gemini P2 delegation evidence passed for the recorded scenario.";
 		case "blocked":
 			return "Gemini delegation validation is blocked by acknowledgement, trust, setup, or invocation requirements.";
 		case "failed":
@@ -443,7 +443,7 @@ const buildWorkflowClassifications = (
 ): readonly GeminiWorkflowSupportClassification[] =>
 	GEMINI_HEAVYWEIGHT_WORKFLOW_CLASSES.map((workflowClass) => ({
 		workflowClass,
-		status: status === "passed" ? "experimental" : "blocked",
+		status: status === "passed" ? "evidence_recorded" : "needs_attention",
 		reason: statusReason(status),
 		evidenceArtifactPath,
 		evidenceStatus: status,
