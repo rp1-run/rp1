@@ -1,0 +1,210 @@
+import type { CatalogRegistryEntry } from "./registry.js";
+import { collectCatalogRegistry } from "./registry.js";
+
+export const GEMINI_SUPPORT_MATRIX_UPDATED_AT = "2026-05-19";
+
+const GEMINI_VALIDATION_WORKFLOW_IDS = new Set([
+	"dev:gemini-harness-smoke",
+	"dev:gemini-harness-subagents",
+	"dev:gemini-harness-boundaries",
+]);
+
+export type GeminiWorkflowSupportStatus = "supported" | "unsupported";
+
+export type GeminiWorkflowClass =
+	| "development_workflow"
+	| "investigation_workflow"
+	| "quality_workflow"
+	| "review_workflow"
+	| "documentation_workflow"
+	| "knowledge_workflow"
+	| "strategy_workflow"
+	| "planning_workflow"
+	| "prompt_workflow";
+
+export type GeminiWorkflowSupportExclusionReason =
+	| "internal_only"
+	| "template_only"
+	| "not_workflow"
+	| "validation_only";
+
+interface GeminiWorkflowSupportEntryBase {
+	readonly workflowId: string;
+	readonly name: string;
+	readonly userFacingName: string;
+	readonly plugin: CatalogRegistryEntry["plugin"];
+	readonly category: CatalogRegistryEntry["category"];
+	readonly workflowClass: GeminiWorkflowClass;
+	readonly userAction: string;
+	readonly updatedAt: string;
+	readonly sourcePath: string;
+	readonly argumentNames: readonly string[];
+	readonly runPolicy?: CatalogRegistryEntry["runPolicy"];
+	readonly identityArgs?: readonly string[];
+}
+
+export interface GeminiSupportedWorkflowEntry
+	extends GeminiWorkflowSupportEntryBase {
+	readonly status: "supported";
+	readonly evidenceSource: string;
+	readonly unsupportedRationale: null;
+	readonly exceptionOwner: null;
+}
+
+export interface GeminiUnsupportedWorkflowEntry
+	extends GeminiWorkflowSupportEntryBase {
+	readonly status: "unsupported";
+	readonly evidenceSource: null;
+	readonly unsupportedRationale: string;
+	readonly exceptionOwner: string;
+}
+
+export type GeminiWorkflowSupportEntry =
+	| GeminiSupportedWorkflowEntry
+	| GeminiUnsupportedWorkflowEntry;
+
+export interface GeminiWorkflowSupportExclusion {
+	readonly workflowId: string;
+	readonly name: string;
+	readonly userFacingName: string;
+	readonly plugin: CatalogRegistryEntry["plugin"];
+	readonly reason: GeminiWorkflowSupportExclusionReason;
+	readonly rationale: string;
+	readonly updatedAt: string;
+	readonly sourcePath: string;
+}
+
+export interface GeminiWorkflowSupportMatrix {
+	readonly updatedAt: string;
+	readonly entries: readonly GeminiWorkflowSupportEntry[];
+	readonly excludedEntries: readonly GeminiWorkflowSupportExclusion[];
+}
+
+export interface CollectedGeminiWorkflowSupportMatrix {
+	readonly matrix: GeminiWorkflowSupportMatrix;
+	readonly errors: readonly string[];
+}
+
+export interface BuildGeminiWorkflowSupportMatrixOptions {
+	readonly updatedAt?: string;
+}
+
+const toWorkflowClass = (entry: CatalogRegistryEntry): GeminiWorkflowClass =>
+	`${entry.category}_workflow` as GeminiWorkflowClass;
+
+const getExclusionReason = (
+	entry: CatalogRegistryEntry,
+): GeminiWorkflowSupportExclusionReason | null => {
+	if (GEMINI_VALIDATION_WORKFLOW_IDS.has(entry.canonicalName)) {
+		return "validation_only";
+	}
+
+	if (entry.distributionScope !== "distributable") {
+		return "internal_only";
+	}
+
+	if (!entry.userInvocable) {
+		return "template_only";
+	}
+
+	if (!entry.isWorkflow) {
+		return "not_workflow";
+	}
+
+	return null;
+};
+
+const exclusionRationale = (
+	reason: GeminiWorkflowSupportExclusionReason,
+): string => {
+	switch (reason) {
+		case "internal_only":
+			return "Internal-only catalog entries are not user-facing Gemini workflow support claims.";
+		case "template_only":
+			return "Template-only catalog entries are not directly invocable user workflows.";
+		case "not_workflow":
+			return "Catalog skills that are not workflows are outside the Gemini workflow support matrix.";
+		case "validation_only":
+			return "Gemini validation workflows collect release evidence and are not shipped product workflow support claims.";
+	}
+};
+
+const unsupportedRationale = (entry: CatalogRegistryEntry): string =>
+	`No accepted Gemini runtime evidence currently promotes ${entry.canonicalName} or its ${entry.category} workflow class from the catalog-backed matrix.`;
+
+const unsupportedUserAction = (): string =>
+	"Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI for this workflow until Gemini evidence promotes this entry.";
+
+const toSupportEntry = (
+	entry: CatalogRegistryEntry,
+	updatedAt: string,
+): GeminiWorkflowSupportEntry => ({
+	workflowId: entry.canonicalName,
+	name: entry.name,
+	userFacingName: entry.userFacingName,
+	plugin: entry.plugin,
+	category: entry.category,
+	workflowClass: toWorkflowClass(entry),
+	status: "unsupported",
+	evidenceSource: null,
+	unsupportedRationale: unsupportedRationale(entry),
+	userAction: unsupportedUserAction(),
+	exceptionOwner: "rp1-maintainers",
+	updatedAt,
+	sourcePath: entry.sourcePath,
+	argumentNames: entry.argumentDefs.map((argument) => argument.name),
+	...(entry.runPolicy !== undefined && { runPolicy: entry.runPolicy }),
+	...(entry.identityArgs !== undefined && { identityArgs: entry.identityArgs }),
+});
+
+const toExcludedEntry = (
+	entry: CatalogRegistryEntry,
+	reason: GeminiWorkflowSupportExclusionReason,
+	updatedAt: string,
+): GeminiWorkflowSupportExclusion => ({
+	workflowId: entry.canonicalName,
+	name: entry.name,
+	userFacingName: entry.userFacingName,
+	plugin: entry.plugin,
+	reason,
+	rationale: exclusionRationale(reason),
+	updatedAt,
+	sourcePath: entry.sourcePath,
+});
+
+export const buildGeminiWorkflowSupportMatrix = (
+	entries: readonly CatalogRegistryEntry[],
+	options: BuildGeminiWorkflowSupportMatrixOptions = {},
+): GeminiWorkflowSupportMatrix => {
+	const updatedAt = options.updatedAt ?? GEMINI_SUPPORT_MATRIX_UPDATED_AT;
+	const supportEntries: GeminiWorkflowSupportEntry[] = [];
+	const excludedEntries: GeminiWorkflowSupportExclusion[] = [];
+
+	for (const entry of entries) {
+		const reason = getExclusionReason(entry);
+		if (reason !== null) {
+			excludedEntries.push(toExcludedEntry(entry, reason, updatedAt));
+			continue;
+		}
+
+		supportEntries.push(toSupportEntry(entry, updatedAt));
+	}
+
+	return {
+		updatedAt,
+		entries: supportEntries,
+		excludedEntries,
+	};
+};
+
+export const collectGeminiWorkflowSupportMatrix = async (
+	projectRoot: string,
+	options: BuildGeminiWorkflowSupportMatrixOptions = {},
+): Promise<CollectedGeminiWorkflowSupportMatrix> => {
+	const { entries, errors } = await collectCatalogRegistry(projectRoot);
+
+	return {
+		matrix: buildGeminiWorkflowSupportMatrix(entries, options),
+		errors,
+	};
+};
