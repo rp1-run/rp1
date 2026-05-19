@@ -1185,6 +1185,9 @@ const buildPlatformArtifacts = async (
 							...(definition.config.supportLevel && {
 								supportLevel: definition.config.supportLevel,
 							}),
+							...(definition.config.icon && {
+								icon: definition.config.icon,
+							}),
 						},
 						null,
 						2,

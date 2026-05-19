@@ -13,12 +13,15 @@ import type {
 	SupportedTool,
 	ToolsRegistry,
 } from "../../config/supported-tools.js";
-import { GEMINI_ASSET_MANIFEST } from "../../install/gemini/index.js";
 import {
 	type InstallContext,
 	installForSpecificTool as installForSpecificToolDirect,
 	updateForSpecificTool as updateForSpecificToolDirect,
 } from "../../shared/install-core.js";
+import {
+	createGeminiBundleAssetManifestFixture,
+	writeGeminiBundleDistFixture,
+} from "../helpers/gemini-bundle.js";
 import {
 	cleanupTempDir,
 	createTempDir,
@@ -118,9 +121,16 @@ const createGeminiTool = (): SupportedTool => ({
 });
 
 const writeGeminiManifestAssets = async (homeDir: string): Promise<void> => {
-	for (const asset of GEMINI_ASSET_MANIFEST) {
+	for (const asset of createGeminiBundleAssetManifestFixture()) {
 		await writeFixture(homeDir, asset.relativePath, asset.expectedContent);
 	}
+};
+
+const geminiBundleAssetsFixture = createGeminiBundleAssetManifestFixture();
+
+const withGeminiBundleDir = async (homeDir: string): Promise<() => void> => {
+	const bundleDir = await writeGeminiBundleDistFixture(homeDir);
+	return withEnvOverride("RP1_GEMINI_BUNDLE_DIR", bundleDir);
 };
 
 const createMockRegistry = (): ToolsRegistry => ({
@@ -714,9 +724,10 @@ describe("install-core tool routing", () => {
 		expect(getErrorMessage(error)).toContain("currently disabled");
 	});
 
-	test("installForSpecificTool installs the explicit Gemini validation extension", async () => {
+	test("installForSpecificTool installs the explicit Gemini bundle extension", async () => {
 		const homeDir = await createTempDir("install-core-gemini-specific");
 		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restoreBundle = await withGeminiBundleDir(homeDir);
 
 		try {
 			const installCore = (await import(
@@ -734,12 +745,13 @@ describe("install-core tool routing", () => {
 				toolId: "gemini",
 				toolName: "Gemini CLI",
 				success: true,
-				pluginsInstalled: [
-					expect.stringContaining("/rp1:smoke"),
-					expect.stringContaining("/rp1:subagents"),
-					expect.stringContaining("/rp1:boundaries"),
-				],
 			});
+			expect(result.pluginsInstalled).toEqual(
+				expect.arrayContaining([
+					expect.stringContaining("Generated bundle assets"),
+					expect.stringContaining("rp1-base"),
+				]),
+			);
 			expect(result.details?.join("\n")).toContain("Lifecycle stage: install");
 			expect(result.details?.join("\n")).toContain(
 				"Lifecycle state: current after successful install",
@@ -750,10 +762,10 @@ describe("install-core tool routing", () => {
 						homeDir,
 						".gemini",
 						"extensions",
-						"rp1-phase2-validation",
+						"rp1-base",
 						"commands",
-						"rp1",
-						"smoke.toml",
+						"rp1-base",
+						"guide.toml",
 					),
 				).exists(),
 			).toBe(true);
@@ -763,22 +775,22 @@ describe("install-core tool routing", () => {
 						homeDir,
 						".gemini",
 						"extensions",
-						"rp1-phase2-validation",
-						"commands",
-						"rp1",
-						"subagents.toml",
+						"rp1-dev",
+						"support-matrix.json",
 					),
 				).exists(),
 			).toBe(true);
 		} finally {
+			restoreBundle();
 			restoreHome();
 			await cleanupTempDir(homeDir);
 		}
 	});
 
-	test("installForSpecificTool previews explicit Gemini validation assets", async () => {
+	test("installForSpecificTool previews explicit Gemini bundle assets", async () => {
 		const homeDir = await createTempDir("install-core-gemini-specific-dry-run");
 		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restoreBundle = await withGeminiBundleDir(homeDir);
 
 		try {
 			const installCore = (await import(
@@ -797,11 +809,12 @@ describe("install-core tool routing", () => {
 				toolName: "Gemini CLI",
 				success: true,
 			});
-			expect(result.pluginsInstalled).toEqual([
-				expect.stringContaining("/rp1:smoke"),
-				expect.stringContaining("/rp1:subagents"),
-				expect.stringContaining("/rp1:boundaries"),
-			]);
+			expect(result.pluginsInstalled).toEqual(
+				expect.arrayContaining([
+					expect.stringContaining("Generated bundle assets"),
+					expect.stringContaining("rp1-base"),
+				]),
+			);
 			expect(result.details?.join("\n")).toContain("Lifecycle state: dry_run");
 			expect(result.details?.join("\n")).toContain("rp1 install gemini");
 			expect(
@@ -810,14 +823,15 @@ describe("install-core tool routing", () => {
 						homeDir,
 						".gemini",
 						"extensions",
-						"rp1-phase2-validation",
+						"rp1-base",
 						"commands",
-						"rp1",
-						"smoke.toml",
+						"rp1-base",
+						"guide.toml",
 					),
 				).exists(),
 			).toBe(false);
 		} finally {
+			restoreBundle();
 			restoreHome();
 			await cleanupTempDir(homeDir);
 		}
@@ -826,6 +840,7 @@ describe("install-core tool routing", () => {
 	test("direct Gemini install route reports dry-run and installed lifecycle scope", async () => {
 		const homeDir = await createTempDir("install-core-gemini-direct-install");
 		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restoreBundle = await withGeminiBundleDir(homeDir);
 
 		try {
 			const registry = { version: "1.0.0", tools: [createGeminiTool()] };
@@ -837,11 +852,12 @@ describe("install-core tool routing", () => {
 				),
 			);
 			expect(dryRun.details?.join("\n")).toContain("Lifecycle state: dry_run");
-			expect(dryRun.pluginsInstalled).toEqual([
-				expect.stringContaining("/rp1:smoke"),
-				expect.stringContaining("/rp1:subagents"),
-				expect.stringContaining("/rp1:boundaries"),
-			]);
+			expect(dryRun.pluginsInstalled).toEqual(
+				expect.arrayContaining([
+					expect.stringContaining("Generated bundle assets"),
+					expect.stringContaining("rp1-base"),
+				]),
+			);
 
 			const installed = await expectTaskRight(
 				installForSpecificToolDirect(
@@ -855,10 +871,11 @@ describe("install-core tool routing", () => {
 			);
 			expect(
 				await Bun.file(
-					join(homeDir, GEMINI_ASSET_MANIFEST[0]?.relativePath ?? ""),
+					join(homeDir, geminiBundleAssetsFixture[0]?.relativePath ?? ""),
 				).exists(),
 			).toBe(true);
 		} finally {
+			restoreBundle();
 			restoreHome();
 			await cleanupTempDir(homeDir);
 		}
@@ -867,11 +884,14 @@ describe("install-core tool routing", () => {
 	test("updateForSpecificTool previews stale Gemini manifest refreshes", async () => {
 		const homeDir = await createTempDir("install-core-gemini-update-dry-run");
 		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restoreBundle = await withGeminiBundleDir(homeDir);
 
 		try {
+			const commandAsset = geminiBundleAssetsFixture[1];
+			if (!commandAsset) throw new Error("Gemini bundle fixture is incomplete");
 			await writeFixture(
 				homeDir,
-				".gemini/extensions/rp1-phase2-validation/commands/rp1/smoke.toml",
+				commandAsset.relativePath,
 				"stale smoke command",
 			);
 			const installCore = (await import(
@@ -894,19 +914,10 @@ describe("install-core tool routing", () => {
 			expect(result.details?.join("\n")).toContain("Lifecycle state: stale");
 			expect(result.details?.join("\n")).toContain("Would refresh:");
 			expect(
-				await Bun.file(
-					join(
-						homeDir,
-						".gemini",
-						"extensions",
-						"rp1-phase2-validation",
-						"commands",
-						"rp1",
-						"smoke.toml",
-					),
-				).text(),
+				await Bun.file(join(homeDir, commandAsset.relativePath)).text(),
 			).toBe("stale smoke command");
 		} finally {
+			restoreBundle();
 			restoreHome();
 			await cleanupTempDir(homeDir);
 		}
@@ -915,11 +926,14 @@ describe("install-core tool routing", () => {
 	test("updateForSpecificTool refreshes stale Gemini manifest assets", async () => {
 		const homeDir = await createTempDir("install-core-gemini-update");
 		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restoreBundle = await withGeminiBundleDir(homeDir);
 
 		try {
+			const commandAsset = geminiBundleAssetsFixture[1];
+			if (!commandAsset) throw new Error("Gemini bundle fixture is incomplete");
 			await writeFixture(
 				homeDir,
-				".gemini/extensions/rp1-phase2-validation/commands/rp1/smoke.toml",
+				commandAsset.relativePath,
 				"stale smoke command",
 			);
 			const installCore = (await import(
@@ -948,14 +962,15 @@ describe("install-core tool routing", () => {
 						homeDir,
 						".gemini",
 						"extensions",
-						"rp1-phase2-validation",
+						"rp1-base",
 						"commands",
-						"rp1",
-						"subagents.toml",
+						"rp1-base",
+						"guide.toml",
 					),
 				).exists(),
 			).toBe(true);
 		} finally {
+			restoreBundle();
 			restoreHome();
 			await cleanupTempDir(homeDir);
 		}
@@ -964,6 +979,7 @@ describe("install-core tool routing", () => {
 	test("updateForSpecificTool reports current Gemini assets without requiring restart", async () => {
 		const homeDir = await createTempDir("install-core-gemini-update-current");
 		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restoreBundle = await withGeminiBundleDir(homeDir);
 
 		try {
 			await writeGeminiManifestAssets(homeDir);
@@ -986,6 +1002,7 @@ describe("install-core tool routing", () => {
 			expect(result.details?.join("\n")).toContain("Lifecycle state: current");
 			expect(result.details?.join("\n")).toContain("rp1 verify gemini");
 		} finally {
+			restoreBundle();
 			restoreHome();
 			await cleanupTempDir(homeDir);
 		}
@@ -994,9 +1011,10 @@ describe("install-core tool routing", () => {
 	test("updateForSpecificTool reports blocked Gemini lifecycle assets", async () => {
 		const homeDir = await createTempDir("install-core-gemini-update-blocked");
 		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restoreBundle = await withGeminiBundleDir(homeDir);
 
 		try {
-			const blockedAsset = GEMINI_ASSET_MANIFEST[0];
+			const blockedAsset = geminiBundleAssetsFixture[0];
 			if (!blockedAsset) throw new Error("Gemini manifest is empty");
 			await writeGeminiManifestAssets(homeDir);
 			await rm(join(homeDir, blockedAsset.relativePath), { force: true });
@@ -1024,6 +1042,7 @@ describe("install-core tool routing", () => {
 			expect(result.details?.join("\n")).toContain("Lifecycle state: blocked");
 			expect(result.details?.join("\n")).toContain("Check file permissions");
 		} finally {
+			restoreBundle();
 			restoreHome();
 			await cleanupTempDir(homeDir);
 		}
@@ -1032,6 +1051,7 @@ describe("install-core tool routing", () => {
 	test("direct Gemini update route reports missing, current, and blocked states", async () => {
 		const homeDir = await createTempDir("install-core-gemini-update-direct");
 		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restoreBundle = await withGeminiBundleDir(homeDir);
 
 		try {
 			const registry = { version: "1.0.0", tools: [createGeminiTool()] };
@@ -1060,7 +1080,7 @@ describe("install-core tool routing", () => {
 			});
 			expect(current.details?.join("\n")).toContain("Lifecycle state: current");
 
-			const blockedAsset = GEMINI_ASSET_MANIFEST[0];
+			const blockedAsset = geminiBundleAssetsFixture[0];
 			if (!blockedAsset) throw new Error("Gemini manifest is empty");
 			await rm(join(homeDir, blockedAsset.relativePath), { force: true });
 			await mkdir(join(homeDir, blockedAsset.relativePath), {
@@ -1077,6 +1097,7 @@ describe("install-core tool routing", () => {
 			expect(blocked.error).toBeDefined();
 			expect(blocked.details?.join("\n")).toContain("Lifecycle state: blocked");
 		} finally {
+			restoreBundle();
 			restoreHome();
 			await cleanupTempDir(homeDir);
 		}
@@ -1270,6 +1291,7 @@ describe("install-core tool routing", () => {
 	test("final Gemini lifecycle route import covers explicit install, update, and auto-skip states", async () => {
 		const homeDir = await createTempDir("install-core-gemini-final-route");
 		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restoreBundle = await withGeminiBundleDir(homeDir);
 
 		try {
 			const installCore = (await import(
@@ -1290,11 +1312,12 @@ describe("install-core tool routing", () => {
 			expect(dryInstall.details?.join("\n")).toContain(
 				"Lifecycle state: dry_run",
 			);
-			expect(dryInstall.pluginsInstalled).toEqual([
-				expect.stringContaining("/rp1:smoke"),
-				expect.stringContaining("/rp1:subagents"),
-				expect.stringContaining("/rp1:boundaries"),
-			]);
+			expect(dryInstall.pluginsInstalled).toEqual(
+				expect.arrayContaining([
+					expect.stringContaining("Generated bundle assets"),
+					expect.stringContaining("rp1-base"),
+				]),
+			);
 
 			const installed = await expectTaskRight(
 				installCore.installForSpecificTool(
@@ -1322,7 +1345,7 @@ describe("install-core tool routing", () => {
 				"Lifecycle state: current",
 			);
 
-			const staleAsset = GEMINI_ASSET_MANIFEST[2];
+			const staleAsset = geminiBundleAssetsFixture[2];
 			if (!staleAsset) throw new Error("Gemini manifest is incomplete");
 			await writeFixture(homeDir, staleAsset.relativePath, "stale route asset");
 			const dryUpdate = await expectTaskRight(
@@ -1357,7 +1380,7 @@ describe("install-core tool routing", () => {
 				"Lifecycle result: refreshed",
 			);
 
-			const blockedAsset = GEMINI_ASSET_MANIFEST[3];
+			const blockedAsset = geminiBundleAssetsFixture[3];
 			if (!blockedAsset) throw new Error("Gemini manifest is incomplete");
 			await rm(join(homeDir, blockedAsset.relativePath), { force: true });
 			await mkdir(join(homeDir, blockedAsset.relativePath), {
@@ -1426,6 +1449,7 @@ describe("install-core tool routing", () => {
 				"rp1 install gemini",
 			);
 		} finally {
+			restoreBundle();
 			restoreHome();
 			await cleanupTempDir(homeDir);
 		}

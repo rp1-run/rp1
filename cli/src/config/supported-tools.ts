@@ -10,6 +10,12 @@ import { TOOLS_REGISTRY } from "./supported-tools.generated.js";
 
 export type ToolSupportLevel = "stable" | "experimental" | "degraded";
 
+export interface ToolIconMetadata {
+	readonly source: "@lobehub/icons";
+	readonly name: string;
+	readonly variant: "mono";
+}
+
 /**
  * A supported agentic tool that can host rp1 plugins.
  */
@@ -25,6 +31,7 @@ export interface SupportedTool {
 	readonly install_url: string;
 	readonly plugin_install_cmd: string | null;
 	readonly supportLevel?: ToolSupportLevel;
+	readonly icon?: ToolIconMetadata;
 	readonly capabilities: readonly string[];
 }
 

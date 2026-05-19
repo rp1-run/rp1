@@ -3,12 +3,7 @@ import * as E from "fp-ts/lib/Either.js";
 import { formatError, getExitCode } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import {
-	GEMINI_BOUNDARY_COMMAND_DISPLAY_PATH,
-	GEMINI_BOUNDARY_COMMAND_INVOCATION,
-	GEMINI_EXTENSION_DISPLAY_DIR,
-	GEMINI_SMOKE_COMMAND_INVOCATION,
-	GEMINI_SUBAGENT_COMMAND_DISPLAY_PATH,
-	GEMINI_SUBAGENT_COMMAND_INVOCATION,
+	geminiExtensionDisplayRoot,
 	installGeminiSmokeCommand,
 } from "../../install/gemini/index.js";
 import { colorFns } from "../../lib/colors.js";
@@ -16,16 +11,14 @@ import { colorFns } from "../../lib/colors.js";
 const { green, yellow, dim, bold, cyan } = colorFns;
 
 export const installGeminiSubcommand = new Command("gemini")
-	.description(
-		"Install experimental Gemini CLI smoke, P2, and P3 validation assets",
-	)
+	.description("Install generated rp1 Gemini CLI extension bundle assets")
 	.option("--dry-run", "Show the extension asset path without writing")
 	.addHelpText(
 		"after",
 		`
 Examples:
-  rp1 install gemini            Install experimental Gemini smoke, P2, and P3 validation assets
-  rp1 install gemini --dry-run  Preview the extension asset path
+  rp1 install gemini            Install generated Gemini extension bundle assets
+  rp1 install gemini --dry-run  Preview generated bundle asset installation
 `,
 	)
 	.action(async (options, command) => {
@@ -47,40 +40,30 @@ Examples:
 		const installResult = result.right;
 
 		console.log("");
-		console.log(bold("Gemini CLI experimental extension setup"));
+		console.log(bold("Gemini CLI extension bundle setup"));
 		console.log("");
 
 		if (installResult.commandWritten) {
 			console.log(
-				green(`Installed extension assets: ${GEMINI_EXTENSION_DISPLAY_DIR}`),
-			);
-			console.log(
-				dim(`  - Smoke command: ${installResult.commandDisplayPath}`),
-			);
-			console.log(
-				dim(
-					`  - P2 delegation command: ${GEMINI_SUBAGENT_COMMAND_DISPLAY_PATH}`,
+				green(
+					`Installed ${installResult.assetCount} generated bundle assets under ${geminiExtensionDisplayRoot()}`,
 				),
-			);
-			console.log(
-				dim(`  - P3 boundary command: ${GEMINI_BOUNDARY_COMMAND_DISPLAY_PATH}`),
 			);
 		} else {
 			console.log(
 				yellow(
-					`Dry run: would write extension assets to ${GEMINI_EXTENSION_DISPLAY_DIR}`,
+					`Dry run: would write ${installResult.assetCount} generated bundle assets under ${geminiExtensionDisplayRoot()}`,
 				),
 			);
+		}
+
+		for (const extension of installResult.extensionDisplayDirs) {
+			console.log(dim(`  - ${extension}`));
+		}
+
+		if (installResult.commandDisplayPath) {
 			console.log(
-				dim(`  - Smoke command: ${installResult.commandDisplayPath}`),
-			);
-			console.log(
-				dim(
-					`  - P2 delegation command: ${GEMINI_SUBAGENT_COMMAND_DISPLAY_PATH}`,
-				),
-			);
-			console.log(
-				dim(`  - P3 boundary command: ${GEMINI_BOUNDARY_COMMAND_DISPLAY_PATH}`),
+				dim(`Primary command asset: ${installResult.commandDisplayPath}`),
 			);
 		}
 
@@ -93,15 +76,13 @@ Examples:
 		}
 
 		console.log("");
-		console.log(dim("Installed validation scope:"));
-		console.log(dim("  - Smoke setup and artifact registration"));
-		console.log(dim("  - P2 delegation evidence"));
+		console.log(dim("Installed bundle scope:"));
+		console.log(dim("  - Generated Gemini commands"));
+		console.log(dim("  - Generated Gemini skills and agents"));
 		console.log(
-			dim("  - P3 lifecycle, trust, headless, and user-gate boundaries"),
+			dim("  - Gemini context, extension metadata, and support matrix"),
 		);
 		console.log("");
-		console.log(dim("Run from Gemini CLI:"));
-		console.log(cyan(`  ${GEMINI_SMOKE_COMMAND_INVOCATION}`));
-		console.log(cyan(`  ${GEMINI_SUBAGENT_COMMAND_INVOCATION}`));
-		console.log(cyan(`  ${GEMINI_BOUNDARY_COMMAND_INVOCATION}`));
+		console.log(dim("Next action:"));
+		console.log(cyan("  rp1 verify gemini"));
 	});

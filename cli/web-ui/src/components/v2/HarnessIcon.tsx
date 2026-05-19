@@ -1,6 +1,18 @@
-import { Claude, GithubCopilot, OpenAI, OpenCode } from "@lobehub/icons";
+import {
+	Claude,
+	Gemini,
+	GithubCopilot,
+	OpenAI,
+	OpenCode,
+} from "@lobehub/icons";
 
-export type HarnessName = "claude-code" | "codex" | "copilot" | "opencode";
+export type HarnessName =
+	| "claude-code"
+	| "codex"
+	| "copilot"
+	| "gemini"
+	| "gemini-cli"
+	| "opencode";
 
 interface HarnessIconProps {
 	readonly harness: string | null;
@@ -18,6 +30,10 @@ export function HarnessIcon({ harness, size = 20 }: HarnessIconProps) {
 			break;
 		case "copilot":
 			icon = <GithubCopilot size={size} />;
+			break;
+		case "gemini":
+		case "gemini-cli":
+			icon = <Gemini size={size} />;
 			break;
 		case "opencode":
 			icon = <OpenCode size={size} />;

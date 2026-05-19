@@ -5,21 +5,25 @@ import { dirname as posixDirname } from "node:path/posix";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { installError } from "../../../shared/errors.js";
+import type { BundledAssets } from "../../assets/reader.js";
 import {
-	GEMINI_ASSET_MANIFEST,
-	GEMINI_MANIFEST_OWNED_RELATIVE_PATHS,
-	type GeminiAssetManifestEntry,
-	type GeminiLifecycleState,
-	type GeminiSafeRemovalStatus,
+	type GeminiBundleAssetManifestOptions,
+	geminiExtensionDisplayRoot,
+	geminiExtensionRelativeRoot,
+	loadGeminiBundleAssetManifest,
+} from "./bundle-assets.js";
+import type {
+	GeminiAssetManifestEntry,
+	GeminiLifecycleState,
+	GeminiSafeRemovalStatus,
 } from "./lifecycle.js";
-import {
-	GEMINI_EXTENSION_DISPLAY_DIR,
-	GEMINI_EXTENSION_RELATIVE_DIR,
-} from "./smoke-command.js";
 
 export interface GeminiUninstallOptions {
 	readonly dryRun: boolean;
 	readonly homeDir?: string;
+	readonly assetManifest?: readonly GeminiAssetManifestEntry[];
+	readonly bundledAssets?: BundledAssets;
+	readonly distDir?: string;
 }
 
 export interface GeminiUninstallResult {
@@ -65,14 +69,16 @@ const removalStatus = (
 	userAction,
 });
 
-const expectedContainerPaths = (): ReadonlySet<string> => {
-	const paths = new Set<string>([GEMINI_EXTENSION_RELATIVE_DIR]);
+const expectedContainerPaths = (
+	assets: readonly GeminiAssetManifestEntry[],
+): ReadonlySet<string> => {
+	const paths = new Set<string>([geminiExtensionRelativeRoot()]);
 
-	for (const assetPath of GEMINI_MANIFEST_OWNED_RELATIVE_PATHS) {
+	for (const assetPath of assets.map((asset) => asset.relativePath)) {
 		let current = posixDirname(assetPath);
-		while (current.startsWith(GEMINI_EXTENSION_RELATIVE_DIR)) {
+		while (current.startsWith(geminiExtensionRelativeRoot())) {
 			paths.add(current);
-			if (current === GEMINI_EXTENSION_RELATIVE_DIR) break;
+			if (current === geminiExtensionRelativeRoot()) break;
 			current = posixDirname(current);
 		}
 	}
@@ -82,16 +88,17 @@ const expectedContainerPaths = (): ReadonlySet<string> => {
 
 const collectUnexpectedLeftovers = async (
 	homeDir: string,
+	assets: readonly GeminiAssetManifestEntry[],
 ): Promise<readonly string[]> => {
-	const extensionDir = join(homeDir, GEMINI_EXTENSION_RELATIVE_DIR);
-	const expectedAssets = new Set(GEMINI_MANIFEST_OWNED_RELATIVE_PATHS);
-	const expectedContainers = expectedContainerPaths();
+	const extensionDir = join(homeDir, geminiExtensionRelativeRoot());
+	const expectedAssets = new Set(assets.map((asset) => asset.relativePath));
+	const expectedContainers = expectedContainerPaths(assets);
 	const leftovers: string[] = [];
 
 	try {
 		const extensionStat = await lstat(extensionDir);
 		if (!extensionStat.isDirectory()) {
-			return [GEMINI_EXTENSION_DISPLAY_DIR];
+			return [geminiExtensionDisplayRoot()];
 		}
 	} catch (error) {
 		if (isMissingPathError(error)) return [];
@@ -123,13 +130,16 @@ const collectUnexpectedLeftovers = async (
 	return leftovers.sort();
 };
 
-const removeEmptyManifestDirs = async (homeDir: string): Promise<void> => {
-	const dirs = new Set<string>([GEMINI_EXTENSION_RELATIVE_DIR]);
-	for (const assetPath of GEMINI_MANIFEST_OWNED_RELATIVE_PATHS) {
+const removeEmptyManifestDirs = async (
+	homeDir: string,
+	assets: readonly GeminiAssetManifestEntry[],
+): Promise<void> => {
+	const dirs = new Set<string>([geminiExtensionRelativeRoot()]);
+	for (const assetPath of assets.map((asset) => asset.relativePath)) {
 		let current = posixDirname(assetPath);
-		while (current.startsWith(GEMINI_EXTENSION_RELATIVE_DIR)) {
+		while (current.startsWith(geminiExtensionRelativeRoot())) {
 			dirs.add(current);
-			if (current === GEMINI_EXTENSION_RELATIVE_DIR) break;
+			if (current === geminiExtensionRelativeRoot()) break;
 			current = posixDirname(current);
 		}
 	}
@@ -250,7 +260,7 @@ const summarizeUserAction = (
 	if (blocked?.userAction) return blocked.userAction;
 
 	if (unexpectedLeftovers.length > 0) {
-		return `Inspect ${GEMINI_EXTENSION_DISPLAY_DIR} and remove unexpected files manually only if they are yours to delete.`;
+		return `Inspect ${geminiExtensionDisplayRoot()} and remove unexpected files manually only if they are yours to delete.`;
 	}
 
 	const hasRemovableAssets = statuses.some(
@@ -273,19 +283,28 @@ export const uninstallGeminiExtensionAssets = (
 	TE.tryCatch(
 		async () => {
 			const homeDir = options.homeDir ?? process.env.HOME ?? homedir();
+			const manifestOptions: GeminiBundleAssetManifestOptions = {
+				assetManifest: options.assetManifest,
+				bundledAssets: options.bundledAssets,
+				distDir: options.distDir,
+			};
+			const assets = await loadGeminiBundleAssetManifest(manifestOptions);
 			const statuses: GeminiSafeRemovalStatus[] = [];
 
-			for (const asset of GEMINI_ASSET_MANIFEST) {
+			for (const asset of assets) {
 				statuses.push(
 					await evaluateAssetRemoval(homeDir, options.dryRun, asset),
 				);
 			}
 
 			if (!options.dryRun) {
-				await removeEmptyManifestDirs(homeDir);
+				await removeEmptyManifestDirs(homeDir, assets);
 			}
 
-			const unexpectedLeftovers = await collectUnexpectedLeftovers(homeDir);
+			const unexpectedLeftovers = await collectUnexpectedLeftovers(
+				homeDir,
+				assets,
+			);
 			const removedFiles = statuses
 				.filter((status) => status.result === "removed")
 				.map((status) => status.asset.displayPath);
@@ -308,8 +327,8 @@ export const uninstallGeminiExtensionAssets = (
 
 			return {
 				dryRun: options.dryRun,
-				extensionDir: join(homeDir, GEMINI_EXTENSION_RELATIVE_DIR),
-				extensionDisplayDir: GEMINI_EXTENSION_DISPLAY_DIR,
+				extensionDir: join(homeDir, geminiExtensionRelativeRoot()),
+				extensionDisplayDir: geminiExtensionDisplayRoot(),
 				state,
 				statuses,
 				unexpectedLeftovers,

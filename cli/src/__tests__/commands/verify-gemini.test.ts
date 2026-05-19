@@ -8,21 +8,21 @@ import {
 } from "../../commands/verify/gemini.js";
 import {
 	createGeminiSubagentEvidence,
-	GEMINI_ASSET_MANIFEST,
 	GEMINI_BOUNDARY_EVIDENCE_SCHEMA_VERSION,
 	GEMINI_DEFAULT_WORKFLOW_CLASSIFICATIONS,
 	GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 	GEMINI_SUBAGENT_MARKERS,
 	type GeminiVerifyDeps,
 } from "../../install/gemini/index.js";
+import { createGeminiBundleAssetManifestFixture } from "../helpers/gemini-bundle.js";
 
 const ANSI_REGEX = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
 
 const smokeCommandPath = {
-	commandFile:
-		"/tmp/.gemini/extensions/rp1-phase2-validation/commands/rp1/smoke.toml",
+	commandFile: "/tmp/.gemini/extensions/rp1-base/commands/rp1-base/guide.toml",
 	commandDisplayPath: GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 };
+const bundleAssets = createGeminiBundleAssetManifestFixture();
 
 const logger = {} as Logger;
 const originalLog = console.log;
@@ -52,9 +52,7 @@ const captureVerifyOutput = async (
 };
 
 const currentManifestAssetReader = async (path: string): Promise<string> => {
-	const asset = GEMINI_ASSET_MANIFEST.find((entry) =>
-		path.endsWith(entry.relativePath),
-	);
+	const asset = bundleAssets.find((entry) => path.endsWith(entry.relativePath));
 	if (!asset) throw new Error(`Unexpected Gemini manifest asset: ${path}`);
 	return asset.expectedContent;
 };
@@ -68,6 +66,7 @@ const readySmokeDeps = (
 	getGeminiVersion: async () => "gemini 1.2.3",
 	pathExists: async () => true,
 	homeDir: "/tmp",
+	assetManifest: bundleAssets,
 	readAssetFile,
 	workRoot: "/tmp/rp1-work",
 	readFile,
@@ -156,6 +155,7 @@ describe("verify:gemini command", () => {
 			paths: smokeCommandPath,
 			getGeminiBinaryPath: () => null,
 			pathExists: async () => false,
+			assetManifest: bundleAssets,
 			readAssetFile: async () => {
 				throw new Error("missing");
 			},
@@ -163,7 +163,7 @@ describe("verify:gemini command", () => {
 
 		expect(result.ok).toBe(false);
 		expect(result.output).toContain(
-			"Support: experimental (manifest validation assets only)",
+			"Support: generated bundle (Gemini extension assets)",
 		);
 		expect(result.output).toContain("State: degraded_missing_binary");
 		expect(result.output).toContain(
@@ -182,6 +182,7 @@ describe("verify:gemini command", () => {
 			getGeminiBinaryPath: () => "/usr/local/bin/gemini",
 			getGeminiVersion: async () => "gemini 1.2.3",
 			pathExists: async () => false,
+			assetManifest: bundleAssets,
 			readAssetFile: async () => {
 				throw new Error("missing");
 			},
@@ -201,7 +202,7 @@ describe("verify:gemini command", () => {
 
 		expect(result.ok).toBe(true);
 		expect(result.output).toContain(
-			"Support: experimental (manifest validation assets only)",
+			"Support: generated bundle (Gemini extension assets)",
 		);
 		expect(result.output).toContain("State: experimental_ready");
 		expect(result.output).toContain("Meaning: experimental smoke path ready");
@@ -218,8 +219,8 @@ describe("verify:gemini command", () => {
 	});
 
 	test("fails ready smoke when a manifest asset is stale", async () => {
-		const staleAsset = GEMINI_ASSET_MANIFEST.find((asset) =>
-			asset.displayPath.endsWith("/commands/rp1/subagents.toml"),
+		const staleAsset = bundleAssets.find((asset) =>
+			asset.displayPath.endsWith("/commands/rp1-base/guide.toml"),
 		);
 		const result = await captureVerifyOutput(
 			readySmokeDeps(undefined, async (path) => {
@@ -233,9 +234,11 @@ describe("verify:gemini command", () => {
 		expect(result.ok).toBe(false);
 		expect(result.output).toContain("Manifest lifecycle:");
 		expect(result.output).toContain("State: stale");
-		expect(result.output).toContain("Gemini asset is stale");
 		expect(result.output).toContain(
-			"Run `rp1 install gemini` to refresh stale manifest-owned validation assets.",
+			"does not match the bundled rp1 Gemini asset",
+		);
+		expect(result.output).toContain(
+			"Run `rp1 update plugins gemini` to refresh Gemini extension assets.",
 		);
 		expect(result.output).toContain("Gemini lifecycle path is degraded");
 	});
@@ -252,18 +255,18 @@ describe("verify:gemini command", () => {
 		expect(result.ok).toBe(false);
 		expect(result.output).toContain("Manifest lifecycle:");
 		expect(result.output).toContain("State: blocked");
-		expect(result.output).toContain("Gemini asset could not be read");
+		expect(result.output).toContain("Unable to inspect");
 		expect(result.output).toContain(
-			"Fix local file permissions or trust/approval blockers",
+			"Check file permissions under ~/.gemini/extensions",
 		);
 	});
 
 	test("distinguishes one missing manifest asset from partial installs", async () => {
-		const [firstAsset, secondAsset] = GEMINI_ASSET_MANIFEST;
+		const [firstAsset, secondAsset] = bundleAssets;
 		const oneMissing = await captureVerifyOutput(
 			readySmokeDeps(undefined, async (path) => {
 				if (firstAsset && path.endsWith(firstAsset.relativePath)) {
-					throw new Error("missing");
+					throw Object.assign(new Error("missing"), { code: "ENOENT" });
 				}
 				return currentManifestAssetReader(path);
 			}),
@@ -271,9 +274,7 @@ describe("verify:gemini command", () => {
 
 		expect(oneMissing.ok).toBe(false);
 		expect(oneMissing.output).toContain("State: missing");
-		expect(oneMissing.output).toContain(
-			"A manifest-owned Gemini extension asset is missing.",
-		);
+		expect(oneMissing.output).toContain("Gemini extension assets are missing.");
 
 		const partial = await captureVerifyOutput(
 			readySmokeDeps(undefined, async (path) => {
@@ -281,7 +282,7 @@ describe("verify:gemini command", () => {
 					(firstAsset && path.endsWith(firstAsset.relativePath)) ||
 					(secondAsset && path.endsWith(secondAsset.relativePath))
 				) {
-					throw new Error("missing");
+					throw Object.assign(new Error("missing"), { code: "ENOENT" });
 				}
 				return currentManifestAssetReader(path);
 			}),
@@ -290,7 +291,7 @@ describe("verify:gemini command", () => {
 		expect(partial.ok).toBe(false);
 		expect(partial.output).toContain("State: partial");
 		expect(partial.output).toContain(
-			"Only part of the rp1 Gemini extension manifest is installed.",
+			"Gemini extension assets are partially installed.",
 		);
 	});
 
@@ -300,8 +301,9 @@ describe("verify:gemini command", () => {
 			getGeminiBinaryPath: () => "/usr/local/bin/gemini",
 			getGeminiVersion: async () => "gemini 1.2.3",
 			pathExists: async () => false,
+			assetManifest: bundleAssets,
 			readAssetFile: async () => {
-				throw new Error("missing");
+				throw Object.assign(new Error("missing"), { code: "ENOENT" });
 			},
 		});
 
@@ -324,7 +326,7 @@ describe("verify:gemini command", () => {
 
 		expect(result.ok).toBe(false);
 		expect(result.output).toContain(
-			"Support: experimental (manifest validation assets only)",
+			"Support: generated bundle (Gemini extension assets)",
 		);
 		expect(result.output).toContain("P2 delegation readiness:");
 		expect(result.output).toContain(

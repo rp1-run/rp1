@@ -4,28 +4,12 @@ import { dirname, join } from "node:path";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { installError } from "../../../shared/errors.js";
+import type { BundledAssets } from "../../assets/reader.js";
 import {
-	GEMINI_BOUNDARY_COMMAND_RELATIVE_PATH,
-	GEMINI_BOUNDARY_COMMAND_TOML,
-} from "./boundary-command.js";
-import {
-	GEMINI_EXTENSION_DISPLAY_DIR,
-	GEMINI_EXTENSION_RELATIVE_DIR,
-	GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
-	GEMINI_SMOKE_COMMAND_TOML,
-} from "./smoke-command.js";
-import {
-	GEMINI_ALPHA_AGENT_MARKDOWN,
-	GEMINI_ALPHA_AGENT_RELATIVE_PATH,
-	GEMINI_BETA_AGENT_MARKDOWN,
-	GEMINI_BETA_AGENT_RELATIVE_PATH,
-	GEMINI_EXTENSION_MANIFEST_JSON,
-	GEMINI_EXTENSION_MANIFEST_RELATIVE_PATH,
-	GEMINI_RUNTIME_FAIL_AGENT_MARKDOWN,
-	GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH,
-	GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH,
-	GEMINI_SUBAGENT_COMMAND_TOML,
-} from "./subagent-command.js";
+	type GeminiBundleAssetManifestOptions,
+	geminiExtensionDisplayRoot,
+	loadGeminiBundleAssetManifest,
+} from "./bundle-assets.js";
 
 export const GEMINI_LIFECYCLE_STAGES = [
 	"install",
@@ -52,7 +36,12 @@ export type GeminiLifecycleState = (typeof GEMINI_LIFECYCLE_STATES)[number];
 export const GEMINI_ASSET_KINDS = [
 	"extension_manifest",
 	"command",
-	"validation_agent",
+	"agent",
+	"skill",
+	"context",
+	"support_matrix",
+	"metadata",
+	"state_machine",
 ] as const;
 
 export type GeminiAssetKind = (typeof GEMINI_ASSET_KINDS)[number];
@@ -123,6 +112,10 @@ export interface GeminiSafeRemovalStatus {
 export interface GeminiManifestLifecycleOptions {
 	readonly homeDir?: string;
 	readonly stage?: GeminiLifecycleStage;
+	readonly assetManifest?: readonly GeminiAssetManifestEntry[];
+	readonly bundledAssets?: BundledAssets;
+	readonly distDir?: string;
+	readonly readAssetFile?: (path: string) => Promise<string>;
 }
 
 export interface GeminiManifestRefreshOptions
@@ -137,82 +130,6 @@ export interface GeminiManifestRefreshResult {
 	readonly refreshableAssets: readonly GeminiAssetManifestEntry[];
 	readonly refreshedAssets: readonly GeminiAssetManifestEntry[];
 }
-
-const displayPathFor = (relativePath: string): string =>
-	relativePath.replace(
-		GEMINI_EXTENSION_RELATIVE_DIR,
-		GEMINI_EXTENSION_DISPLAY_DIR,
-	);
-
-const asset = (
-	relativePath: string,
-	kind: GeminiAssetKind,
-	expectedContent: string,
-	lifecycleStages: readonly GeminiLifecycleStage[],
-): GeminiAssetManifestEntry => ({
-	relativePath,
-	displayPath: displayPathFor(relativePath),
-	kind,
-	owner: "rp1",
-	contentCheck: "exact_content",
-	expectedContent,
-	safeRemovalEligible: true,
-	lifecycleStages,
-});
-
-export const GEMINI_ASSET_MANIFEST = [
-	asset(
-		GEMINI_EXTENSION_MANIFEST_RELATIVE_PATH,
-		"extension_manifest",
-		GEMINI_EXTENSION_MANIFEST_JSON,
-		["install", "verify", "update", "uninstall"],
-	),
-	asset(
-		GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
-		"command",
-		GEMINI_SMOKE_COMMAND_TOML,
-		["install", "verify", "update", "uninstall"],
-	),
-	asset(
-		GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH,
-		"command",
-		GEMINI_SUBAGENT_COMMAND_TOML,
-		["install", "verify", "update", "uninstall"],
-	),
-	asset(
-		GEMINI_BOUNDARY_COMMAND_RELATIVE_PATH,
-		"command",
-		GEMINI_BOUNDARY_COMMAND_TOML,
-		["install", "verify", "update", "uninstall"],
-	),
-	asset(
-		GEMINI_ALPHA_AGENT_RELATIVE_PATH,
-		"validation_agent",
-		GEMINI_ALPHA_AGENT_MARKDOWN,
-		["install", "verify", "update", "uninstall"],
-	),
-	asset(
-		GEMINI_BETA_AGENT_RELATIVE_PATH,
-		"validation_agent",
-		GEMINI_BETA_AGENT_MARKDOWN,
-		["install", "verify", "update", "uninstall"],
-	),
-	asset(
-		GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH,
-		"validation_agent",
-		GEMINI_RUNTIME_FAIL_AGENT_MARKDOWN,
-		["install", "verify", "update", "uninstall"],
-	),
-] as const satisfies readonly GeminiAssetManifestEntry[];
-
-export const GEMINI_MANIFEST_OWNED_RELATIVE_PATHS = GEMINI_ASSET_MANIFEST.map(
-	(entry) => entry.relativePath,
-);
-
-export const getGeminiManifestAsset = (
-	relativePath: string,
-): GeminiAssetManifestEntry | undefined =>
-	GEMINI_ASSET_MANIFEST.find((entry) => entry.relativePath === relativePath);
 
 const homeDirFor = (homeDir?: string): string =>
 	homeDir ?? process.env.HOME ?? homedir();
@@ -231,11 +148,11 @@ const userActionForState = (state: GeminiLifecycleState): string => {
 	}
 
 	if (state === "removed") {
-		return "Run `rp1 install gemini` before using the experimental Gemini validation commands.";
+		return "Run `rp1 install gemini` before using generated Gemini bundle assets.";
 	}
 
 	if (state === "blocked") {
-		return "Check file permissions under ~/.gemini/extensions/rp1-phase2-validation, then rerun `rp1 update plugins gemini`.";
+		return `Check file permissions under ${geminiExtensionDisplayRoot()}, then rerun \`rp1 update plugins gemini\`.`;
 	}
 
 	return "Run `rp1 update plugins gemini` to refresh manifest-owned Gemini extension assets.";
@@ -275,17 +192,24 @@ const stateForAssets = (
 		return "stale";
 	}
 
+	const missingCount = assets.filter(
+		(assetStatus) => assetStatus.freshness === "missing",
+	).length;
+	if (missingCount === 1) return "missing";
+
 	return "partial";
 };
 
 const readAssetLifecycleStatus = async (
 	homeDir: string,
 	asset: GeminiAssetManifestEntry,
+	readAssetFile: (path: string) => Promise<string> = (path) =>
+		readFile(path, "utf-8"),
 ): Promise<GeminiAssetLifecycleStatus> => {
 	const path = join(homeDir, asset.relativePath);
 
 	try {
-		const content = await readFile(path, "utf-8");
+		const content = await readAssetFile(path);
 		if (content === asset.expectedContent) {
 			return {
 				asset,
@@ -317,8 +241,7 @@ const readAssetLifecycleStatus = async (
 			asset,
 			freshness: "unknown",
 			issue: `Unable to inspect ${asset.displayPath}: ${errorMessage(error)}.`,
-			remediation:
-				"Check file permissions under ~/.gemini/extensions/rp1-phase2-validation, then rerun `rp1 update plugins gemini`.",
+			remediation: `Check file permissions under ${geminiExtensionDisplayRoot()}, then rerun \`rp1 update plugins gemini\`.`,
 		};
 	}
 };
@@ -327,10 +250,20 @@ const readGeminiManifestLifecycleStatus = async (
 	options: GeminiManifestLifecycleOptions = {},
 ): Promise<GeminiLifecycleStatus> => {
 	const homeDir = homeDirFor(options.homeDir);
+	const manifestOptions: GeminiBundleAssetManifestOptions = {
+		assetManifest: options.assetManifest,
+		bundledAssets: options.bundledAssets,
+		distDir: options.distDir,
+	};
+	const assetManifest = await loadGeminiBundleAssetManifest(manifestOptions);
 	const assets = await Promise.all(
-		GEMINI_ASSET_MANIFEST.map((assetEntry) =>
-			readAssetLifecycleStatus(homeDir, assetEntry),
-		),
+		assetManifest
+			.filter((assetEntry) =>
+				assetEntry.lifecycleStages.includes(options.stage ?? "update"),
+			)
+			.map((assetEntry) =>
+				readAssetLifecycleStatus(homeDir, assetEntry, options.readAssetFile),
+			),
 	);
 	const stage = options.stage ?? "update";
 	const state = stateForAssets(assets, stage);
@@ -362,9 +295,16 @@ export const refreshGeminiManifestAssets = (
 	TE.tryCatch(
 		async () => {
 			const homeDir = homeDirFor(options.homeDir);
+			const manifestOptions: GeminiBundleAssetManifestOptions = {
+				assetManifest: options.assetManifest,
+				bundledAssets: options.bundledAssets,
+				distDir: options.distDir,
+			};
 			const initialStatus = await readGeminiManifestLifecycleStatus({
 				homeDir,
 				stage: "update",
+				...manifestOptions,
+				readAssetFile: options.readAssetFile,
 			});
 			const refreshableAssets =
 				initialStatus.state === "blocked"
@@ -396,6 +336,8 @@ export const refreshGeminiManifestAssets = (
 			const finalStatus = await readGeminiManifestLifecycleStatus({
 				homeDir,
 				stage: "update",
+				...manifestOptions,
+				readAssetFile: options.readAssetFile,
 			});
 
 			return {
@@ -411,6 +353,13 @@ export const refreshGeminiManifestAssets = (
 				"gemini-lifecycle-update",
 				`Failed to refresh Gemini extension assets: ${errorMessage(
 					error,
-				)}. Next action: check permissions under ~/.gemini/extensions/rp1-phase2-validation, then rerun \`rp1 update plugins gemini\`.`,
+				)}. Next action: check permissions under ${geminiExtensionDisplayRoot()}, then rerun \`rp1 update plugins gemini\`.`,
 			),
+	);
+
+export const getGeminiManifestOwnedRelativePaths = async (
+	options: GeminiBundleAssetManifestOptions = {},
+): Promise<readonly string[]> =>
+	(await loadGeminiBundleAssetManifest(options)).map(
+		(entry) => entry.relativePath,
 	);

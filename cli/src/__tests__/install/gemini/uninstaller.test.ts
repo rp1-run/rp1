@@ -1,13 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { access, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import {
-	GEMINI_ASSET_MANIFEST,
-	GEMINI_EXTENSION_RELATIVE_DIR,
-	GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
-	GEMINI_SMOKE_COMMAND_TOML,
-	uninstallGeminiExtensionAssets,
-} from "../../../install/gemini/index.js";
+import { uninstallGeminiExtensionAssets } from "../../../install/gemini/index.js";
+import { createGeminiBundleAssetManifestFixture } from "../../helpers/gemini-bundle.js";
 import {
 	cleanupTempDir,
 	createTempDir,
@@ -25,8 +20,10 @@ const writeAsset = async (
 	return targetPath;
 };
 
+const bundleAssets = createGeminiBundleAssetManifestFixture();
+
 const writeManifestAssets = async (homeDir: string): Promise<void> => {
-	for (const asset of GEMINI_ASSET_MANIFEST) {
+	for (const asset of bundleAssets) {
 		await writeAsset(homeDir, asset.relativePath, asset.expectedContent);
 	}
 };
@@ -55,7 +52,7 @@ describe("Gemini extension uninstaller", () => {
 		await writeManifestAssets(tempDir);
 		const leftoverPath = await writeAsset(
 			tempDir,
-			`${GEMINI_EXTENSION_RELATIVE_DIR}/agents/user-agent.md`,
+			".gemini/extensions/rp1-dev/agents/user-agent.md",
 			"user content",
 		);
 
@@ -63,17 +60,18 @@ describe("Gemini extension uninstaller", () => {
 			uninstallGeminiExtensionAssets({
 				dryRun: true,
 				homeDir: tempDir,
+				assetManifest: bundleAssets,
 			}),
 		);
 
 		expect(result.state).toBe("current");
-		expect(result.wouldRemoveFiles).toHaveLength(GEMINI_ASSET_MANIFEST.length);
+		expect(result.wouldRemoveFiles).toHaveLength(bundleAssets.length);
 		expect(result.unexpectedLeftovers).toEqual([
-			"~/.gemini/extensions/rp1-phase2-validation/agents/user-agent.md",
+			"~/.gemini/extensions/rp1-dev/agents/user-agent.md",
 		]);
 		expect(await readFile(leftoverPath, "utf-8")).toBe("user content");
 		expect(
-			await exists(join(tempDir, GEMINI_SMOKE_COMMAND_RELATIVE_PATH)),
+			await exists(join(tempDir, bundleAssets[1]?.relativePath ?? "")),
 		).toBe(true);
 	});
 
@@ -81,7 +79,7 @@ describe("Gemini extension uninstaller", () => {
 		await writeManifestAssets(tempDir);
 		const leftoverPath = await writeAsset(
 			tempDir,
-			`${GEMINI_EXTENSION_RELATIVE_DIR}/agents/user-agent.md`,
+			".gemini/extensions/rp1-dev/agents/user-agent.md",
 			"user content",
 		);
 
@@ -89,16 +87,17 @@ describe("Gemini extension uninstaller", () => {
 			uninstallGeminiExtensionAssets({
 				dryRun: false,
 				homeDir: tempDir,
+				assetManifest: bundleAssets,
 			}),
 		);
 
 		expect(result.state).toBe("removed");
 		expect(result.inactive).toBe(true);
-		expect(result.removedFiles).toHaveLength(GEMINI_ASSET_MANIFEST.length);
+		expect(result.removedFiles).toHaveLength(bundleAssets.length);
 		expect(result.unexpectedLeftovers).toEqual([
-			"~/.gemini/extensions/rp1-phase2-validation/agents/user-agent.md",
+			"~/.gemini/extensions/rp1-dev/agents/user-agent.md",
 		]);
-		for (const asset of GEMINI_ASSET_MANIFEST) {
+		for (const asset of bundleAssets) {
 			expect(await exists(join(tempDir, asset.relativePath))).toBe(false);
 		}
 		expect(await readFile(leftoverPath, "utf-8")).toBe("user content");
@@ -106,27 +105,29 @@ describe("Gemini extension uninstaller", () => {
 
 	test("blocks modified manifest paths instead of treating them as rp1-owned", async () => {
 		await writeManifestAssets(tempDir);
-		const smokePath = await writeAsset(
+		const commandAsset = bundleAssets.find((asset) => asset.kind === "command");
+		if (!commandAsset) throw new Error("bundle fixture has no command asset");
+		const commandPath = await writeAsset(
 			tempDir,
-			GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
-			`${GEMINI_SMOKE_COMMAND_TOML}\n# user change\n`,
+			commandAsset.relativePath,
+			`${commandAsset.expectedContent}\n# user change\n`,
 		);
 
 		const result = await expectTaskRight(
 			uninstallGeminiExtensionAssets({
 				dryRun: false,
 				homeDir: tempDir,
+				assetManifest: bundleAssets,
 			}),
 		);
 
-		const smokeStatus = result.statuses.find(
-			(status) =>
-				status.asset.relativePath === GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
+		const commandStatus = result.statuses.find(
+			(status) => status.asset.relativePath === commandAsset.relativePath,
 		);
 		expect(result.state).toBe("blocked");
 		expect(result.inactive).toBe(false);
-		expect(smokeStatus?.result).toBe("blocked_unowned");
-		expect(await readFile(smokePath, "utf-8")).toContain("# user change");
+		expect(commandStatus?.result).toBe("blocked_unowned");
+		expect(await readFile(commandPath, "utf-8")).toContain("# user change");
 	});
 
 	test("reports inactive when no Gemini extension assets exist", async () => {
@@ -134,6 +135,7 @@ describe("Gemini extension uninstaller", () => {
 			uninstallGeminiExtensionAssets({
 				dryRun: false,
 				homeDir: tempDir,
+				assetManifest: bundleAssets,
 			}),
 		);
 
@@ -143,8 +145,6 @@ describe("Gemini extension uninstaller", () => {
 		expect(
 			result.statuses.every((status) => status.result === "skipped_missing"),
 		).toBe(true);
-		await expect(
-			stat(join(tempDir, GEMINI_EXTENSION_RELATIVE_DIR)),
-		).rejects.toThrow();
+		await expect(stat(join(tempDir, ".gemini/extensions"))).rejects.toThrow();
 	});
 });

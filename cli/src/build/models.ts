@@ -275,6 +275,7 @@ export interface BundleManifest {
 		readonly binary: string;
 		readonly instructionFile: string;
 		readonly supportLevel?: string;
+		readonly icon?: import("../config/supported-tools.js").ToolIconMetadata;
 	};
 	readonly plugins: {
 		readonly base: BundlePluginAssets;

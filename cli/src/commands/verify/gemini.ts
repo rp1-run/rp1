@@ -1,12 +1,12 @@
 import { readFile as readTextFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
+import { formatError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import { resolveRp1Root } from "../../agent-tools/rp1-root-dir/resolver.js";
+import type { BundledAssets } from "../../assets/reader.js";
 import {
-	GEMINI_ASSET_MANIFEST,
 	GEMINI_BOUNDARY_MODES,
 	GEMINI_BOUNDARY_SCENARIOS,
 	GEMINI_BOUNDARY_STATES,
@@ -14,19 +14,18 @@ import {
 	GEMINI_DEFAULT_WORKFLOW_CLASSIFICATIONS,
 	GEMINI_DELEGATION_EVIDENCE_REQUIRED_REASON,
 	GEMINI_SUBAGENT_COMMAND_INVOCATION,
-	type GeminiAssetFreshnessStatus,
-	type GeminiAssetLifecycleStatus,
+	type GeminiAssetManifestEntry,
 	type GeminiBoundaryEvidence,
 	type GeminiBoundaryScenarioEvidence,
 	type GeminiBoundaryStatus,
 	type GeminiDelegationEvidence,
 	type GeminiDelegationEvidenceStatus,
-	type GeminiLifecycleStage,
 	type GeminiLifecycleState,
 	type GeminiLifecycleStatus,
 	type GeminiVerifyDeps,
 	type GeminiWorkflowSupportClassification,
 	getGeminiBoundaryEvidenceRelativePaths,
+	getGeminiManifestLifecycleStatus,
 	getGeminiSmokeStatusDetail,
 	getGeminiSubagentEvidenceRelativePaths,
 	verifyGeminiSmokeSetup,
@@ -47,6 +46,9 @@ export interface GeminiVerifyDelegationDeps {
 
 export interface GeminiVerifyLifecycleDeps {
 	readonly homeDir?: string;
+	readonly assetManifest?: readonly GeminiAssetManifestEntry[];
+	readonly bundledAssets?: BundledAssets;
+	readonly distDir?: string;
 	readonly readAssetFile?: (path: string) => Promise<string>;
 }
 
@@ -156,8 +158,6 @@ const defaultResolveWorkRoot = async (): Promise<string | null> => {
 const defaultReadFile = (path: string): Promise<string> =>
 	readTextFile(path, "utf-8");
 
-const defaultReadAssetFile = defaultReadFile;
-
 const missingEvidenceReadiness = (
 	issue: string,
 	evidencePath: string | null = null,
@@ -192,75 +192,6 @@ const missingBoundaryReadiness = (
 	workflowClasses: GEMINI_DEFAULT_WORKFLOW_CLASSIFICATIONS,
 });
 
-const isPermissionError = (error: unknown): boolean =>
-	isRecord(error) && (error.code === "EACCES" || error.code === "EPERM");
-
-const readManifestAssetStatus = async (
-	asset: (typeof GEMINI_ASSET_MANIFEST)[number],
-	deps: GeminiVerifyLifecycleDeps,
-): Promise<GeminiAssetLifecycleStatus> => {
-	const homeDir = deps.homeDir ?? process.env.HOME ?? homedir();
-	const assetPath = join(homeDir, asset.relativePath);
-	const readAssetFile = deps.readAssetFile ?? defaultReadAssetFile;
-
-	try {
-		const actualContent = await readAssetFile(assetPath);
-		if (actualContent === asset.expectedContent) {
-			return {
-				asset,
-				freshness: "current",
-				issue: null,
-				remediation: null,
-			};
-		}
-
-		return {
-			asset,
-			freshness: "stale",
-			issue: `Gemini asset is stale: ${asset.displayPath}.`,
-			remediation:
-				"Run `rp1 install gemini` to refresh manifest-owned Gemini validation assets.",
-		};
-	} catch (error) {
-		if (isPermissionError(error)) {
-			return {
-				asset,
-				freshness: "unknown",
-				issue: `Gemini asset could not be read: ${asset.displayPath}.`,
-				remediation:
-					"Check file permissions for the Gemini extension directory, then rerun `rp1 verify gemini`.",
-			};
-		}
-
-		return {
-			asset,
-			freshness: "missing",
-			issue: `Gemini asset is missing: ${asset.displayPath}.`,
-			remediation:
-				"Run `rp1 install gemini` to install manifest-owned Gemini validation assets.",
-		};
-	}
-};
-
-const lifecycleStateFor = (
-	assets: readonly GeminiAssetLifecycleStatus[],
-): GeminiLifecycleState => {
-	const count = (freshness: GeminiAssetFreshnessStatus): number =>
-		assets.filter((asset) => asset.freshness === freshness).length;
-	const missing = count("missing");
-	const stale = count("stale");
-	const unknown = count("unknown");
-	const current = count("current");
-
-	if (unknown > 0) return "blocked";
-	if (stale > 0) return "stale";
-	if (current === assets.length) return "current";
-	if (missing === assets.length) return "removed";
-	if (missing > 1) return "partial";
-	if (missing === 1) return "missing";
-	return "blocked";
-};
-
 const lifecycleMessageFor = (
 	state: GeminiLifecycleState,
 ): Pick<GeminiLifecycleStatus, "issue" | "userAction"> => {
@@ -275,26 +206,26 @@ const lifecycleMessageFor = (
 			return {
 				issue: "No rp1-owned Gemini extension assets are installed.",
 				userAction:
-					"Run `rp1 install gemini` before using the experimental Gemini validation commands.",
+					"Run `rp1 install gemini` before using generated Gemini bundle assets.",
 			};
 		case "missing":
 			return {
 				issue: "A manifest-owned Gemini extension asset is missing.",
 				userAction:
-					"Run `rp1 install gemini` to restore the missing validation asset.",
+					"Run `rp1 install gemini` to restore the missing bundle asset.",
 			};
 		case "partial":
 			return {
 				issue: "Only part of the rp1 Gemini extension manifest is installed.",
 				userAction:
-					"Run `rp1 install gemini` to reinstall the complete manifest-owned validation asset set.",
+					"Run `rp1 install gemini` to reinstall the complete manifest-owned bundle asset set.",
 			};
 		case "stale":
 			return {
 				issue:
 					"One or more rp1 Gemini extension assets do not match the current manifest.",
 				userAction:
-					"Run `rp1 install gemini` to refresh stale manifest-owned validation assets.",
+					"Run `rp1 install gemini` to refresh stale manifest-owned bundle assets.",
 			};
 		case "blocked":
 			return {
@@ -314,21 +245,33 @@ const lifecycleMessageFor = (
 const loadGeminiManifestLifecycle = async (
 	deps: GeminiVerifyLifecycleDeps = {},
 ): Promise<GeminiLifecycleStatus> => {
-	const stage: GeminiLifecycleStage = "verify";
-	const assets = await Promise.all(
-		GEMINI_ASSET_MANIFEST.filter((asset) =>
-			asset.lifecycleStages.includes(stage),
-		).map((asset) => readManifestAssetStatus(asset, deps)),
-	);
-	const state = lifecycleStateFor(assets);
-	const message = lifecycleMessageFor(state);
+	const result = await getGeminiManifestLifecycleStatus({
+		homeDir: deps.homeDir,
+		stage: "verify",
+		assetManifest: deps.assetManifest,
+		bundledAssets: deps.bundledAssets,
+		distDir: deps.distDir,
+		readAssetFile: deps.readAssetFile,
+	})();
+
+	if (E.isLeft(result)) {
+		const state: GeminiLifecycleState = "blocked";
+		const message = lifecycleMessageFor(state);
+		return {
+			stage: "verify",
+			state,
+			assets: [],
+			issue: formatError(result.left, false),
+			userAction: message.userAction,
+		};
+	}
+
+	const message = lifecycleMessageFor(result.right.state);
 
 	return {
-		stage,
-		state,
-		assets,
-		issue: message.issue,
-		userAction: message.userAction,
+		...result.right,
+		issue: result.right.issue ?? message.issue,
+		userAction: result.right.userAction ?? message.userAction,
 	};
 };
 
@@ -774,7 +717,7 @@ export const executeVerifyGemini = async (
 		: red("missing");
 
 	console.log(
-		`Support: ${yellow("experimental")} (${dim("manifest validation assets only")})`,
+		`Support: ${yellow("generated bundle")} (${dim("Gemini extension assets")})`,
 	);
 	console.log(`State: ${statusLabel}`);
 	console.log(`Meaning: ${statusDetail.label}`);

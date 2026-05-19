@@ -63,6 +63,11 @@ export const TOOLS_REGISTRY = {
 			install_url: "https://github.com/google-gemini/gemini-cli",
 			plugin_install_cmd: null,
 			supportLevel: "experimental",
+			icon: {
+				source: "@lobehub/icons",
+				name: "Gemini",
+				variant: "mono",
+			},
 			capabilities: ["slash-commands"],
 		},
 	],

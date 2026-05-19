@@ -4,7 +4,12 @@ import { dirname, join } from "node:path";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { installError } from "../../../shared/errors.js";
-import { GEMINI_ASSET_MANIFEST } from "./lifecycle.js";
+import type { BundledAssets } from "../../assets/reader.js";
+import {
+	type GeminiBundleAssetManifestOptions,
+	loadGeminiBundleAssetManifest,
+} from "./bundle-assets.js";
+import type { GeminiAssetManifestEntry } from "./lifecycle.js";
 import {
 	GEMINI_EXPERIMENTAL_GUIDANCE,
 	type GeminiInstallResult,
@@ -21,6 +26,9 @@ export interface GeminiInstallOptions {
 	readonly dryRun: boolean;
 	readonly homeDir?: string;
 	readonly getGeminiBinaryPath?: () => string | null;
+	readonly assetManifest?: readonly GeminiAssetManifestEntry[];
+	readonly bundledAssets?: BundledAssets;
+	readonly distDir?: string;
 }
 
 export interface GeminiVerifyDeps {
@@ -28,6 +36,9 @@ export interface GeminiVerifyDeps {
 	readonly getGeminiBinaryPath?: () => string | null;
 	readonly getGeminiVersion?: () => Promise<string | null>;
 	readonly pathExists?: (path: string) => Promise<boolean>;
+	readonly assetManifest?: readonly GeminiAssetManifestEntry[];
+	readonly bundledAssets?: BundledAssets;
+	readonly distDir?: string;
 }
 
 export const getGeminiPaths = (
@@ -61,12 +72,35 @@ const defaultGeminiVersion = async (): Promise<string | null> => {
 	return version.length > 0 ? version : "unknown";
 };
 
+const bundleOptionsFor = (
+	options: GeminiInstallOptions | GeminiVerifyDeps,
+): GeminiBundleAssetManifestOptions => ({
+	assetManifest: options.assetManifest,
+	bundledAssets: options.bundledAssets,
+	distDir: options.distDir,
+});
+
+const primaryCommandAsset = (
+	assets: readonly GeminiAssetManifestEntry[],
+): GeminiAssetManifestEntry | undefined =>
+	assets.find((asset) => asset.kind === "command");
+
 export const installGeminiSubagentValidationAssets = (
 	options: GeminiInstallOptions,
 ): TE.TaskEither<CLIError, GeminiInstallResult> =>
 	TE.tryCatch(
 		async () => {
-			const paths = getGeminiPaths(options.homeDir);
+			const homeDir = options.homeDir ?? process.env.HOME ?? homedir();
+			const assets = await loadGeminiBundleAssetManifest(
+				bundleOptionsFor(options),
+			);
+			const primaryCommand = primaryCommandAsset(assets);
+			const paths = primaryCommand
+				? {
+						commandFile: join(homeDir, primaryCommand.relativePath),
+						commandDisplayPath: primaryCommand.displayPath,
+					}
+				: getGeminiPaths(options.homeDir);
 			const warnings: string[] = [GEMINI_EXPERIMENTAL_GUIDANCE];
 			const binaryPath = options.getGeminiBinaryPath?.() ?? Bun.which("gemini");
 
@@ -81,15 +115,21 @@ export const installGeminiSubagentValidationAssets = (
 					commandPath: paths.commandFile,
 					commandDisplayPath: paths.commandDisplayPath,
 					commandWritten: false,
+					assets,
+					assetCount: assets.length,
+					extensionDisplayDirs: [
+						...new Set(
+							assets.map((asset) =>
+								asset.displayPath.split("/").slice(0, 4).join("/"),
+							),
+						),
+					],
 					warnings,
 				};
 			}
 
-			for (const asset of GEMINI_ASSET_MANIFEST) {
-				const assetPath = join(
-					options.homeDir ?? process.env.HOME ?? homedir(),
-					asset.relativePath,
-				);
+			for (const asset of assets) {
+				const assetPath = join(homeDir, asset.relativePath);
 				await mkdir(dirname(assetPath), { recursive: true });
 				await writeFile(assetPath, asset.expectedContent, "utf-8");
 			}
@@ -98,6 +138,15 @@ export const installGeminiSubagentValidationAssets = (
 				commandPath: paths.commandFile,
 				commandDisplayPath: paths.commandDisplayPath,
 				commandWritten: true,
+				assets,
+				assetCount: assets.length,
+				extensionDisplayDirs: [
+					...new Set(
+						assets.map((asset) =>
+							asset.displayPath.split("/").slice(0, 4).join("/"),
+						),
+					),
+				],
 				warnings,
 			};
 		},
@@ -115,7 +164,19 @@ export const installGeminiSmokeCommand = installGeminiSubagentValidationAssets;
 export const verifyGeminiSmokeSetup = async (
 	deps: GeminiVerifyDeps = {},
 ): Promise<GeminiVerificationResult> => {
-	const paths = deps.paths ?? getGeminiPaths();
+	const assets = await loadGeminiBundleAssetManifest(bundleOptionsFor(deps));
+	const primaryCommand = primaryCommandAsset(assets);
+	const paths =
+		deps.paths ??
+		(primaryCommand
+			? {
+					commandFile: join(
+						process.env.HOME ?? homedir(),
+						primaryCommand.relativePath,
+					),
+					commandDisplayPath: primaryCommand.displayPath,
+				}
+			: getGeminiPaths());
 	const getGeminiBinaryPath =
 		deps.getGeminiBinaryPath ?? (() => Bun.which("gemini"));
 	const pathExists = deps.pathExists ?? defaultPathExists;
@@ -160,6 +221,7 @@ export const verifyGeminiSmokeSetup = async (
 		commandInstalled,
 		commandPath: paths.commandFile,
 		commandDisplayPath: paths.commandDisplayPath,
+		bundleAssetCount: assets.length,
 		issues,
 		remediation,
 	};
@@ -204,6 +266,14 @@ export {
 	renderGeminiBoundaryEvidenceMarkdown,
 	writeGeminiBoundaryEvidenceArtifacts,
 } from "./boundary-evidence.js";
+export type { GeminiBundleAssetManifestOptions } from "./bundle-assets.js";
+export {
+	GEMINI_BUNDLE_DIR_ENV,
+	geminiExtensionDisplayRoot,
+	geminiExtensionRelativeRoot,
+	getGeminiManifestAsset,
+	loadGeminiBundleAssetManifest,
+} from "./bundle-assets.js";
 export type {
 	GeminiAssetContentCheck,
 	GeminiAssetFreshnessStatus,
@@ -223,14 +293,12 @@ export {
 	GEMINI_ASSET_CONTENT_CHECKS,
 	GEMINI_ASSET_FRESHNESS_STATUSES,
 	GEMINI_ASSET_KINDS,
-	GEMINI_ASSET_MANIFEST,
 	GEMINI_LIFECYCLE_STAGES,
 	GEMINI_LIFECYCLE_STATES,
-	GEMINI_MANIFEST_OWNED_RELATIVE_PATHS,
 	GEMINI_P3_LIFECYCLE_GAP_CONSTRAINT,
 	GEMINI_SAFE_REMOVAL_RESULTS,
-	getGeminiManifestAsset,
 	getGeminiManifestLifecycleStatus,
+	getGeminiManifestOwnedRelativePaths,
 	refreshGeminiManifestAssets,
 } from "./lifecycle.js";
 export type {

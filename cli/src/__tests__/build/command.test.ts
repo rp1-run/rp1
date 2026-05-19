@@ -969,6 +969,11 @@ ${plugin} sample content.
 				"utf-8",
 			),
 		);
+		expect(geminiBundleManifest.platform.icon).toEqual({
+			source: "@lobehub/icons",
+			name: "Gemini",
+			variant: "mono",
+		});
 		expect(geminiBundleManifest.plugins.base).toBeDefined();
 		expect(geminiBundleManifest.plugins.dev).toBeDefined();
 	});

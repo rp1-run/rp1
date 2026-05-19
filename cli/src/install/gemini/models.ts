@@ -199,6 +199,9 @@ export interface GeminiInstallResult {
 	readonly commandPath: string;
 	readonly commandDisplayPath: string;
 	readonly commandWritten: boolean;
+	readonly assetCount: number;
+	readonly assets: readonly import("./lifecycle.js").GeminiAssetManifestEntry[];
+	readonly extensionDisplayDirs: readonly string[];
 	readonly warnings: readonly string[];
 }
 
@@ -210,6 +213,7 @@ export interface GeminiVerificationResult {
 	readonly commandInstalled: boolean;
 	readonly commandPath: string;
 	readonly commandDisplayPath: string;
+	readonly bundleAssetCount: number;
 	readonly issues: readonly string[];
 	readonly remediation: readonly string[];
 }

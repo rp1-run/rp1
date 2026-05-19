@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Command } from "commander";
 import { pluginsSubcommand } from "../../commands/update/plugins.js";
+import { writeGeminiBundleDistFixture } from "../helpers/gemini-bundle.js";
 import {
 	cleanupTempDir,
 	createTempDir,
@@ -103,13 +104,19 @@ const runUpdatePlugins = async (
 describe("Gemini P3 command routes", () => {
 	let tempDir: string;
 	let restoreHome: () => void;
+	let restoreBundle: () => void;
 
 	beforeEach(async () => {
 		tempDir = await createTempDir("gemini-p3-command-routes");
 		restoreHome = withEnvOverride("HOME", tempDir);
+		restoreBundle = withEnvOverride(
+			"RP1_GEMINI_BUNDLE_DIR",
+			await writeGeminiBundleDistFixture(tempDir),
+		);
 	});
 
 	afterEach(async () => {
+		restoreBundle();
 		restoreHome();
 		await cleanupTempDir(tempDir);
 	});
@@ -133,7 +140,7 @@ describe("Gemini P3 command routes", () => {
 		expect(result.exitCode).toBe(0);
 		expect(result.output).toContain("Installing rp1 plugins");
 		expect(result.output).toContain("[OK] Gemini CLI");
-		expect(result.output).toContain("/rp1:boundaries");
+		expect(result.output).toContain("Generated bundle assets");
 		expect(result.output).not.toContain("Verifying installation");
 	});
 });

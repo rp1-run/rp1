@@ -70,6 +70,7 @@ function installLayoutMocks() {
 
 	mock.module("@lobehub/icons", () => ({
 		Claude: () => <span data-testid="claude-icon" />,
+		Gemini: () => <span data-testid="gemini-icon" />,
 		GithubCopilot: () => <span data-testid="github-copilot-icon" />,
 		OpenAI: () => <span data-testid="openai-icon" />,
 		OpenCode: () => <span data-testid="opencode-icon" />,

@@ -2,34 +2,25 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
-	GEMINI_ALPHA_AGENT_MARKDOWN,
-	GEMINI_ALPHA_AGENT_RELATIVE_PATH,
-	GEMINI_ASSET_MANIFEST,
-	GEMINI_BETA_AGENT_MARKDOWN,
-	GEMINI_BETA_AGENT_RELATIVE_PATH,
-	GEMINI_BOUNDARY_COMMAND_RELATIVE_PATH,
-	GEMINI_BOUNDARY_COMMAND_TOML,
 	GEMINI_BOUNDARY_SCENARIOS,
 	GEMINI_BOUNDARY_STATES,
 	GEMINI_BOUNDARY_STATUSES,
-	GEMINI_EXTENSION_MANIFEST_JSON,
-	GEMINI_EXTENSION_MANIFEST_RELATIVE_PATH,
 	GEMINI_LIFECYCLE_STATES,
-	GEMINI_MANIFEST_OWNED_RELATIVE_PATHS,
 	GEMINI_P3_LIFECYCLE_GAP_CONSTRAINT,
-	GEMINI_RUNTIME_FAIL_AGENT_MARKDOWN,
-	GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH,
 	GEMINI_SAFE_REMOVAL_RESULTS,
 	GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 	GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
 	GEMINI_SMOKE_COMMAND_TOML,
 	GEMINI_SMOKE_STATUS_DETAILS,
-	GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH,
-	GEMINI_SUBAGENT_COMMAND_TOML,
 	installGeminiSmokeCommand,
+	loadGeminiBundleAssetManifest,
 	verifyGeminiSmokeSetup,
 	writeGeminiBoundaryEvidenceArtifacts,
 } from "../../../install/gemini/index.js";
+import {
+	createBundledGeminiAssetsFixture,
+	createGeminiBundleAssetManifestFixture,
+} from "../../helpers/gemini-bundle.js";
 import {
 	cleanupTempDir,
 	createTempDir,
@@ -48,6 +39,7 @@ const exists = async (path: string): Promise<boolean> => {
 
 describe("Gemini smoke command installer", () => {
 	let tempDir: string;
+	const bundleAssets = createGeminiBundleAssetManifestFixture();
 
 	beforeEach(async () => {
 		tempDir = await createTempDir("gemini-installer");
@@ -73,7 +65,7 @@ describe("Gemini smoke command installer", () => {
 		).toContain("Registration Output");
 	});
 
-	test("models the P3 lifecycle manifest and boundary evidence contracts", () => {
+	test("models the P3 lifecycle states and boundary evidence contracts", () => {
 		expect(GEMINI_LIFECYCLE_STATES).toEqual([
 			"current",
 			"missing",
@@ -99,11 +91,24 @@ describe("Gemini smoke command installer", () => {
 		]);
 		expect(GEMINI_BOUNDARY_STATES).toContain("requires_trust");
 		expect(GEMINI_BOUNDARY_STATES).toContain("unsupported_before_p3");
-		expect(GEMINI_ASSET_MANIFEST.map((asset) => asset.relativePath)).toEqual(
-			GEMINI_MANIFEST_OWNED_RELATIVE_PATHS,
+	});
+
+	test("derives manifest-owned assets from a generated Gemini bundle", async () => {
+		const assets = await loadGeminiBundleAssetManifest({
+			bundledAssets: createBundledGeminiAssetsFixture(),
+		});
+
+		expect(assets.map((asset) => asset.relativePath)).toEqual(
+			expect.arrayContaining([
+				".gemini/extensions/rp1-base/commands/rp1-base/guide.toml",
+				".gemini/extensions/rp1-base/skills/rp1-guide/SKILL.md",
+				".gemini/extensions/rp1-base/gemini-extension.json",
+				".gemini/extensions/rp1-dev/agents/rp1-dev-task-builder.md",
+				".gemini/extensions/rp1-dev/support-matrix.json",
+			]),
 		);
 		expect(
-			GEMINI_ASSET_MANIFEST.every(
+			assets.every(
 				(asset) =>
 					asset.owner === "rp1" &&
 					asset.contentCheck === "exact_content" &&
@@ -114,85 +119,104 @@ describe("Gemini smoke command installer", () => {
 		).toBe(true);
 	});
 
+	test("rejects non-Gemini bundle manifests before deriving lifecycle ownership", async () => {
+		const bundledAssets = createBundledGeminiAssetsFixture();
+		const geminiPlatform = bundledAssets.platforms.gemini;
+		if (!geminiPlatform?.platform) throw new Error("missing Gemini fixture");
+
+		await expect(
+			loadGeminiBundleAssetManifest({
+				bundledAssets: {
+					...bundledAssets,
+					platforms: {
+						gemini: {
+							...geminiPlatform,
+							platform: {
+								...geminiPlatform.platform,
+								id: "opencode",
+							},
+						},
+					},
+				},
+			}),
+		).rejects.toThrow("Embedded Gemini bundle metadata is for opencode");
+
+		const distDir = join(tempDir, "dist-opencode");
+		await writeFixture(
+			distDir,
+			"bundle-manifest.json",
+			`${JSON.stringify({
+				platform: {
+					id: "opencode",
+					name: "OpenCode",
+					binary: "opencode",
+					instructionFile: "AGENTS.md",
+				},
+				plugins: {
+					base: {
+						name: "rp1-base",
+						commands: [],
+						agents: [],
+						skills: [],
+						stateMachines: [],
+						verbatimFiles: [],
+					},
+					dev: {
+						name: "rp1-dev",
+						commands: [],
+						agents: [],
+						skills: [],
+						stateMachines: [],
+						verbatimFiles: [],
+					},
+				},
+				version: "0.0.0-test",
+				buildTimestamp: "2026-05-19T00:00:00Z",
+			})}\n`,
+		);
+
+		await expect(loadGeminiBundleAssetManifest({ distDir })).rejects.toThrow(
+			"Expected Gemini bundle manifest",
+		);
+	});
+
 	test("dry-run reports the smoke command path without writing", async () => {
 		const result = await expectTaskRight(
 			installGeminiSmokeCommand({
 				dryRun: true,
 				homeDir: tempDir,
 				getGeminiBinaryPath: () => "/usr/local/bin/gemini",
+				assetManifest: bundleAssets,
 			}),
 		);
 
 		expect(result.commandWritten).toBe(false);
-		expect(result.commandDisplayPath).toBe(GEMINI_SMOKE_COMMAND_DISPLAY_PATH);
+		expect(result.commandDisplayPath).toBe(bundleAssets[1]?.displayPath);
 		expect(await exists(result.commandPath)).toBe(false);
 	});
 
-	test("explicit install writes the Gemini smoke, P2, and boundary validation extension assets", async () => {
+	test("explicit install writes generated Gemini bundle assets", async () => {
 		const result = await expectTaskRight(
 			installGeminiSmokeCommand({
 				dryRun: false,
 				homeDir: tempDir,
 				getGeminiBinaryPath: () => "/usr/local/bin/gemini",
+				assetManifest: bundleAssets,
 			}),
 		);
 
 		expect(result.commandWritten).toBe(true);
 		expect(result.commandPath).toBe(
-			join(tempDir, GEMINI_SMOKE_COMMAND_RELATIVE_PATH),
-		);
-		expect(GEMINI_EXTENSION_MANIFEST_RELATIVE_PATH).toBe(
-			".gemini/extensions/rp1-phase2-validation/gemini-extension.json",
-		);
-		expect(GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH).toBe(
-			".gemini/extensions/rp1-phase2-validation/commands/rp1/subagents.toml",
-		);
-		expect(GEMINI_BOUNDARY_COMMAND_RELATIVE_PATH).toBe(
-			".gemini/extensions/rp1-phase2-validation/commands/rp1/boundaries.toml",
-		);
-		expect(GEMINI_ALPHA_AGENT_RELATIVE_PATH).toBe(
-			".gemini/extensions/rp1-phase2-validation/agents/rp1-alpha.md",
-		);
-		expect(GEMINI_BETA_AGENT_RELATIVE_PATH).toBe(
-			".gemini/extensions/rp1-phase2-validation/agents/rp1-beta.md",
-		);
-		expect(GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH).toBe(
-			".gemini/extensions/rp1-phase2-validation/agents/rp1-runtime-fail.md",
+			join(tempDir, bundleAssets[1]?.relativePath ?? ""),
 		);
 		expect(await Bun.file(result.commandPath).text()).toBe(
-			GEMINI_SMOKE_COMMAND_TOML,
+			bundleAssets[1]?.expectedContent,
 		);
-		expect(
-			JSON.parse(
-				await Bun.file(
-					join(tempDir, GEMINI_EXTENSION_MANIFEST_RELATIVE_PATH),
-				).text(),
-			),
-		).toEqual(JSON.parse(GEMINI_EXTENSION_MANIFEST_JSON));
-		expect(
-			await exists(join(tempDir, GEMINI_SMOKE_COMMAND_RELATIVE_PATH)),
-		).toBe(true);
-		expect(
-			await Bun.file(
-				join(tempDir, GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH),
-			).text(),
-		).toBe(GEMINI_SUBAGENT_COMMAND_TOML);
-		expect(
-			await Bun.file(
-				join(tempDir, GEMINI_BOUNDARY_COMMAND_RELATIVE_PATH),
-			).text(),
-		).toBe(GEMINI_BOUNDARY_COMMAND_TOML);
-		expect(
-			await Bun.file(join(tempDir, GEMINI_ALPHA_AGENT_RELATIVE_PATH)).text(),
-		).toBe(GEMINI_ALPHA_AGENT_MARKDOWN);
-		expect(
-			await Bun.file(join(tempDir, GEMINI_BETA_AGENT_RELATIVE_PATH)).text(),
-		).toBe(GEMINI_BETA_AGENT_MARKDOWN);
-		expect(
-			await Bun.file(
-				join(tempDir, GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH),
-			).text(),
-		).toBe(GEMINI_RUNTIME_FAIL_AGENT_MARKDOWN);
+		for (const asset of bundleAssets) {
+			expect(await Bun.file(join(tempDir, asset.relativePath)).text()).toBe(
+				asset.expectedContent,
+			);
+		}
 	});
 
 	test("persists mergeable Gemini boundary markdown and JSON evidence", async () => {
@@ -271,6 +295,7 @@ describe("Gemini smoke command installer", () => {
 				commandFile: join(tempDir, GEMINI_SMOKE_COMMAND_RELATIVE_PATH),
 				commandDisplayPath: GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 			},
+			assetManifest: bundleAssets,
 			getGeminiBinaryPath: () => null,
 			pathExists: async () => false,
 		});
@@ -287,6 +312,7 @@ describe("Gemini smoke command installer", () => {
 				commandFile: join(tempDir, GEMINI_SMOKE_COMMAND_RELATIVE_PATH),
 				commandDisplayPath: GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 			},
+			assetManifest: bundleAssets,
 			getGeminiBinaryPath: () => "/usr/local/bin/gemini",
 			getGeminiVersion: async () => "gemini 1.2.3",
 			pathExists: async () => false,
@@ -311,6 +337,7 @@ describe("Gemini smoke command installer", () => {
 				commandFile,
 				commandDisplayPath: GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 			},
+			assetManifest: bundleAssets,
 			getGeminiBinaryPath: () => "/usr/local/bin/gemini",
 			getGeminiVersion: async () => "gemini 1.2.3",
 		});

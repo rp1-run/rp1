@@ -3,6 +3,7 @@ import { access } from "node:fs/promises";
 import { join } from "node:path";
 import { Command } from "commander";
 import { installParentCommand } from "../../commands/install/index.js";
+import { writeGeminiBundleDistFixture } from "../helpers/gemini-bundle.js";
 import {
 	cleanupTempDir,
 	createTempDir,
@@ -26,11 +27,13 @@ const logger = {
 
 const runInstallCommandInProcess = async (
 	homeDir: string,
+	bundleDir: string,
 	args: readonly string[],
 ): Promise<readonly string[]> => {
 	const logs: string[] = [];
 	const originalLog = console.log;
 	const restoreHome = withEnvOverride("HOME", homeDir);
+	const restoreBundle = withEnvOverride("RP1_GEMINI_BUNDLE_DIR", bundleDir);
 
 	try {
 		console.log = (...values: unknown[]) => {
@@ -43,34 +46,35 @@ const runInstallCommandInProcess = async (
 		return logs;
 	} finally {
 		console.log = originalLog;
+		restoreBundle();
 		restoreHome();
 	}
 };
 
 describe("Gemini install command", () => {
 	let tempDir: string;
+	let bundleDir: string;
 
 	beforeEach(async () => {
 		tempDir = await createTempDir("gemini-install-command");
+		bundleDir = await writeGeminiBundleDistFixture(tempDir);
 	});
 
 	afterEach(async () => {
 		await cleanupTempDir(tempDir);
 	});
 
-	test("registers the Gemini install subcommand with P3 validation scope", () => {
+	test("registers the Gemini install subcommand with bundle scope", () => {
 		const subcommand = installParentCommand.commands.find(
 			(command) => command.name() === "gemini",
 		);
 
 		expect(subcommand).toBeInstanceOf(Command);
 		expect(subcommand?.description()).toContain("Gemini CLI");
-		expect(subcommand?.description()).toContain(
-			"smoke, P2, and P3 validation assets",
-		);
+		expect(subcommand?.description()).toContain("extension bundle assets");
 	});
 
-	test("dry-run output reports the exact Gemini validation scope", async () => {
+	test("dry-run output reports generated Gemini bundle scope", async () => {
 		const proc = Bun.spawn(
 			["bun", "src/main.ts", "install", "gemini", "--dry-run"],
 			{
@@ -79,6 +83,7 @@ describe("Gemini install command", () => {
 					...process.env,
 					HOME: tempDir,
 					NO_COLOR: "1",
+					RP1_GEMINI_BUNDLE_DIR: bundleDir,
 				},
 				stdout: "pipe",
 				stderr: "pipe",
@@ -92,45 +97,43 @@ describe("Gemini install command", () => {
 
 		expect(exitCode).toBe(0);
 		expect(stderr).not.toContain("Logger not initialized");
-		expect(stdout).toContain("Gemini CLI experimental extension setup");
-		expect(stdout).toContain("Smoke command:");
-		expect(stdout).toContain("P2 delegation command:");
-		expect(stdout).toContain("P3 boundary command:");
-		expect(stdout).toContain("Installed validation scope:");
-		expect(stdout).toContain("/rp1:smoke");
-		expect(stdout).toContain("/rp1:subagents");
-		expect(stdout).toContain("/rp1:boundaries");
+		expect(stdout).toContain("Gemini CLI extension bundle setup");
+		expect(stdout).toContain("generated bundle assets");
+		expect(stdout).toContain("Installed bundle scope:");
+		expect(stdout).toContain("Generated Gemini commands");
+		expect(stdout).toContain("rp1 verify gemini");
 	});
 
-	test("runs the Gemini dry-run action in-process with P3 lifecycle guidance", async () => {
+	test("runs the Gemini dry-run action in-process with bundle guidance", async () => {
 		const output = (
-			await runInstallCommandInProcess(tempDir, [
+			await runInstallCommandInProcess(tempDir, bundleDir, [
 				"install",
 				"gemini",
 				"--dry-run",
 			])
 		).join("\n");
 
-		expect(output).toContain("Gemini CLI experimental extension setup");
-		expect(output).toContain("Dry run: would write extension assets");
-		expect(output).toContain("P3 boundary command:");
-		expect(output).toContain("P3 lifecycle, trust, headless");
-		expect(output).toContain("/rp1:boundaries");
+		expect(output).toContain("Gemini CLI extension bundle setup");
+		expect(output).toContain("Dry run: would write");
+		expect(output).toContain("rp1-base");
+		expect(output).toContain("Gemini context, extension metadata");
 	});
 
 	test("runs the Gemini install action in-process and writes manifest assets", async () => {
 		const output = (
-			await runInstallCommandInProcess(tempDir, ["install", "gemini"])
+			await runInstallCommandInProcess(tempDir, bundleDir, [
+				"install",
+				"gemini",
+			])
 		).join("\n");
 
-		expect(output).toContain("Installed extension assets");
-		expect(output).toContain("P2 delegation command:");
-		expect(output).toContain("P3 boundary command:");
+		expect(output).toContain("Installed");
+		expect(output).toContain("generated bundle assets");
 		await expect(
 			access(
 				join(
 					tempDir,
-					".gemini/extensions/rp1-phase2-validation/commands/rp1/boundaries.toml",
+					".gemini/extensions/rp1-base/commands/rp1-base/guide.toml",
 				),
 			),
 		).resolves.toBeNull();
@@ -145,6 +148,7 @@ describe("Gemini install command", () => {
 					...process.env,
 					HOME: tempDir,
 					NO_COLOR: "1",
+					RP1_GEMINI_BUNDLE_DIR: bundleDir,
 				},
 				stdout: "pipe",
 				stderr: "pipe",
@@ -160,8 +164,7 @@ describe("Gemini install command", () => {
 		expect(stderr).not.toContain("Logger not initialized");
 		expect(stdout).toContain("Gemini manifest lifecycle");
 		expect(stdout).toContain("current");
-		expect(stdout).toContain("Gemini P2 delegation evidence");
-		expect(stdout).toContain("Gemini P3 boundary evidence");
-		expect(stdout).toContain("/rp1:boundaries");
+		expect(stdout).toContain("Generated bundle assets");
+		expect(stdout).toContain("rp1 verify gemini");
 	});
 });

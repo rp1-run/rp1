@@ -69,6 +69,11 @@ export interface BundledPlatform {
 		binary: string;
 		instructionFile: string;
 		supportLevel?: string;
+		icon?: {
+			source: "@lobehub/icons";
+			name: string;
+			variant: "mono";
+		};
 	};
 	plugins: {
 		base: BundledPlugin;

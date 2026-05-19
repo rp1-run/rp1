@@ -224,6 +224,11 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 		install_url: "https://github.com/google-gemini/gemini-cli",
 		plugin_install_cmd: null,
 		supportLevel: "experimental",
+		icon: {
+			source: "@lobehub/icons",
+			name: "Gemini",
+			variant: "mono",
+		},
 		capabilities: ["plugins", "skills", "agents", "slash-commands"],
 	},
 };

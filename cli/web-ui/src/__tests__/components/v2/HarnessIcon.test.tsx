@@ -8,6 +8,8 @@ async function loadHarnessIcon() {
 	mock.module("@lobehub/icons", () => ({
 		Claude: ({ size }: { size?: number }) =>
 			createElement("svg", { "data-icon": "Claude", "data-size": size }),
+		Gemini: ({ size }: { size?: number }) =>
+			createElement("svg", { "data-icon": "Gemini", "data-size": size }),
 		GithubCopilot: ({ size }: { size?: number }) =>
 			createElement("svg", {
 				"data-icon": "GithubCopilot",
@@ -45,5 +47,16 @@ describe("HarnessIcon", () => {
 		expect(
 			container.querySelector('svg[data-icon="GithubCopilot"]'),
 		).toBeTruthy();
+	});
+
+	test("renders the LobeHub Gemini mono icon for Gemini CLI harnesses", async () => {
+		const HarnessIcon = await loadHarnessIcon();
+		const { container } = render(
+			createElement(HarnessIcon, { harness: "gemini-cli", size: 18 }),
+		);
+
+		const wrapper = container.querySelector('span[title="gemini-cli"]');
+		expect(wrapper).toBeTruthy();
+		expect(container.querySelector('svg[data-icon="Gemini"]')).toBeTruthy();
 	});
 });

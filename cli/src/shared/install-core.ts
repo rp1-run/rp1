@@ -49,14 +49,10 @@ import {
 } from "../install/copilot/index.js";
 import type { CopilotInstallResult } from "../install/copilot/models.js";
 import {
-	GEMINI_ASSET_MANIFEST,
 	GEMINI_AUTO_INSTALL_SKIP_GUIDANCE,
-	GEMINI_BOUNDARY_COMMAND_INVOCATION,
 	GEMINI_EXPERIMENTAL_GUIDANCE,
-	GEMINI_EXTENSION_DISPLAY_DIR,
-	GEMINI_SMOKE_COMMAND_INVOCATION,
-	GEMINI_SUBAGENT_COMMAND_INVOCATION,
 	type GeminiManifestRefreshResult,
+	geminiExtensionDisplayRoot,
 	installGeminiSmokeCommand,
 	refreshGeminiManifestAssets,
 } from "../install/gemini/index.js";
@@ -529,15 +525,20 @@ const formatAssetDisplayList = (
 	assets: readonly { readonly displayPath: string }[],
 ): string => assets.map((asset) => asset.displayPath).join(", ");
 
-const geminiValidationScope = (): readonly string[] => [
-	`Smoke command: ${GEMINI_SMOKE_COMMAND_INVOCATION}`,
-	`P2 delegation command: ${GEMINI_SUBAGENT_COMMAND_INVOCATION}`,
-	`P3 boundary command: ${GEMINI_BOUNDARY_COMMAND_INVOCATION}`,
+const geminiValidationScope = (result: {
+	readonly assetCount: number;
+	readonly extensionDisplayDirs: readonly string[];
+}): readonly string[] => [
+	`Generated bundle assets: ${result.assetCount} files`,
+	...result.extensionDisplayDirs.map((dir) => `Extension: ${dir}`),
 ];
 
-const geminiInstallDetails = (dryRun: boolean): readonly string[] => [
-	`Extension assets: ${GEMINI_EXTENSION_DISPLAY_DIR}`,
-	`Manifest assets: ${GEMINI_ASSET_MANIFEST.length} files`,
+const geminiInstallDetails = (
+	dryRun: boolean,
+	result: { readonly assetCount: number },
+): readonly string[] => [
+	`Extension assets: ${geminiExtensionDisplayRoot()}`,
+	`Manifest assets: ${result.assetCount} files`,
 	"Lifecycle stage: install",
 	dryRun
 		? "Lifecycle state: dry_run"
@@ -595,7 +596,7 @@ const failedGeminiUpdateResult = (
 	details: [
 		"Lifecycle stage: update",
 		"Lifecycle state: failed",
-		"Next action: Check file permissions under ~/.gemini/extensions/rp1-phase2-validation, then rerun `rp1 update plugins gemini`.",
+		`Next action: Check file permissions under ${geminiExtensionDisplayRoot()}, then rerun \`rp1 update plugins gemini\`.`,
 	],
 	warnings: [GEMINI_EXPERIMENTAL_GUIDANCE],
 	error,
@@ -735,8 +736,8 @@ export const installForSpecificTool = (
 					toolId: tool.id,
 					toolName: tool.name,
 					success: true,
-					pluginsInstalled: geminiValidationScope(),
-					details: geminiInstallDetails(ctx.dryRun),
+					pluginsInstalled: geminiValidationScope(result),
+					details: geminiInstallDetails(ctx.dryRun, result),
 					warnings: result.warnings,
 				}),
 			),

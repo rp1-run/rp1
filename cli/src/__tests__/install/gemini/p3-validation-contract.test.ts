@@ -3,11 +3,9 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
 	createGeminiBoundaryEvidence,
-	GEMINI_ASSET_MANIFEST,
 	GEMINI_BOUNDARY_HARNESS,
 	GEMINI_BOUNDARY_SCENARIOS,
 	GEMINI_BOUNDARY_WORKFLOW_NAME,
-	GEMINI_EXTENSION_RELATIVE_DIR,
 	type GeminiBoundaryEvidenceCommandResult,
 	type GeminiBoundaryScenarioEvidence,
 	getGeminiManifestLifecycleStatus,
@@ -16,6 +14,7 @@ import {
 	refreshGeminiManifestAssets,
 	uninstallGeminiExtensionAssets,
 } from "../../../install/gemini/index.js";
+import { createGeminiBundleAssetManifestFixture } from "../../helpers/gemini-bundle.js";
 import {
 	cleanupTempDir,
 	createTempDir,
@@ -23,8 +22,10 @@ import {
 	writeFixture,
 } from "../../helpers/index.js";
 
+const bundleAssets = createGeminiBundleAssetManifestFixture();
+
 const writeManifestAssets = async (homeDir: string): Promise<void> => {
-	for (const asset of GEMINI_ASSET_MANIFEST) {
+	for (const asset of bundleAssets) {
 		await writeFixture(homeDir, asset.relativePath, asset.expectedContent);
 	}
 };
@@ -164,7 +165,11 @@ describe("Gemini P3 validation contracts", () => {
 
 	test("drives the real Gemini manifest through install, update, and uninstall states", async () => {
 		const missing = await expectTaskRight(
-			getGeminiManifestLifecycleStatus({ homeDir: tempDir, stage: "install" }),
+			getGeminiManifestLifecycleStatus({
+				homeDir: tempDir,
+				stage: "install",
+				assetManifest: bundleAssets,
+			}),
 		);
 		expect(missing.state).toBe("missing");
 		expect(missing.assets.every((asset) => asset.freshness === "missing")).toBe(
@@ -176,6 +181,7 @@ describe("Gemini P3 validation contracts", () => {
 				dryRun: true,
 				homeDir: tempDir,
 				getGeminiBinaryPath: () => "",
+				assetManifest: bundleAssets,
 			}),
 		);
 		expect(dryRun.commandWritten).toBe(false);
@@ -186,20 +192,29 @@ describe("Gemini P3 validation contracts", () => {
 				dryRun: false,
 				homeDir: tempDir,
 				getGeminiBinaryPath: () => "/usr/local/bin/gemini",
+				assetManifest: bundleAssets,
 			}),
 		);
 		expect(installed.commandWritten).toBe(true);
 
 		const current = await expectTaskRight(
-			getGeminiManifestLifecycleStatus({ homeDir: tempDir, stage: "verify" }),
+			getGeminiManifestLifecycleStatus({
+				homeDir: tempDir,
+				stage: "verify",
+				assetManifest: bundleAssets,
+			}),
 		);
 		expect(current.state).toBe("current");
 
-		const staleAsset = GEMINI_ASSET_MANIFEST[1];
+		const staleAsset = bundleAssets[1];
 		if (!staleAsset) throw new Error("Gemini manifest is empty");
 		await writeFixture(tempDir, staleAsset.relativePath, "locally edited");
 		const stale = await expectTaskRight(
-			getGeminiManifestLifecycleStatus({ homeDir: tempDir, stage: "update" }),
+			getGeminiManifestLifecycleStatus({
+				homeDir: tempDir,
+				stage: "update",
+				assetManifest: bundleAssets,
+			}),
 		);
 		expect(stale.state).toBe("stale");
 		expect(
@@ -209,7 +224,11 @@ describe("Gemini P3 validation contracts", () => {
 		});
 
 		const preview = await expectTaskRight(
-			refreshGeminiManifestAssets({ dryRun: true, homeDir: tempDir }),
+			refreshGeminiManifestAssets({
+				dryRun: true,
+				homeDir: tempDir,
+				assetManifest: bundleAssets,
+			}),
 		);
 		expect(preview.initialStatus.state).toBe("stale");
 		expect(
@@ -220,21 +239,31 @@ describe("Gemini P3 validation contracts", () => {
 		).toBe("locally edited");
 
 		const refreshed = await expectTaskRight(
-			refreshGeminiManifestAssets({ dryRun: false, homeDir: tempDir }),
+			refreshGeminiManifestAssets({
+				dryRun: false,
+				homeDir: tempDir,
+				assetManifest: bundleAssets,
+			}),
 		);
 		expect(refreshed.finalStatus.state).toBe("current");
 		expect(refreshed.refreshedAssets).toHaveLength(1);
 
 		const uninstallPreview = await expectTaskRight(
-			uninstallGeminiExtensionAssets({ dryRun: true, homeDir: tempDir }),
+			uninstallGeminiExtensionAssets({
+				dryRun: true,
+				homeDir: tempDir,
+				assetManifest: bundleAssets,
+			}),
 		);
 		expect(uninstallPreview.state).toBe("current");
-		expect(uninstallPreview.wouldRemoveFiles).toHaveLength(
-			GEMINI_ASSET_MANIFEST.length,
-		);
+		expect(uninstallPreview.wouldRemoveFiles).toHaveLength(bundleAssets.length);
 
 		const uninstalled = await expectTaskRight(
-			uninstallGeminiExtensionAssets({ dryRun: false, homeDir: tempDir }),
+			uninstallGeminiExtensionAssets({
+				dryRun: false,
+				homeDir: tempDir,
+				assetManifest: bundleAssets,
+			}),
 		);
 		expect(uninstalled.state).toBe("removed");
 		expect(uninstalled.inactive).toBe(true);
@@ -244,8 +273,8 @@ describe("Gemini P3 validation contracts", () => {
 	test("classifies safe-removal blockers before deleting Gemini assets", async () => {
 		await writeManifestAssets(tempDir);
 
-		const staleAsset = GEMINI_ASSET_MANIFEST[0];
-		const directoryAsset = GEMINI_ASSET_MANIFEST[1];
+		const staleAsset = bundleAssets[0];
+		const directoryAsset = bundleAssets[1];
 		if (!staleAsset || !directoryAsset) {
 			throw new Error("Gemini manifest needs at least two assets");
 		}
@@ -257,15 +286,19 @@ describe("Gemini P3 validation contracts", () => {
 		});
 		await writeFixture(
 			tempDir,
-			`${GEMINI_EXTENSION_RELATIVE_DIR}/agents/local-note.md`,
+			".gemini/extensions/rp1-dev/agents/local-note.md",
 			"keep me",
 		);
-		await mkdir(join(tempDir, GEMINI_EXTENSION_RELATIVE_DIR, "local-tools"), {
+		await mkdir(join(tempDir, ".gemini/extensions/rp1-base/local-tools"), {
 			recursive: true,
 		});
 
 		const result = await expectTaskRight(
-			uninstallGeminiExtensionAssets({ dryRun: true, homeDir: tempDir }),
+			uninstallGeminiExtensionAssets({
+				dryRun: true,
+				homeDir: tempDir,
+				assetManifest: bundleAssets,
+			}),
 		);
 
 		expect(result.state).toBe("blocked");
@@ -276,8 +309,8 @@ describe("Gemini P3 validation contracts", () => {
 		expect(result.userAction).toContain("Review");
 		expect(result.unexpectedLeftovers).toEqual(
 			expect.arrayContaining([
-				"~/.gemini/extensions/rp1-phase2-validation/agents/local-note.md",
-				"~/.gemini/extensions/rp1-phase2-validation/local-tools",
+				"~/.gemini/extensions/rp1-dev/agents/local-note.md",
+				"~/.gemini/extensions/rp1-base/local-tools",
 			]),
 		);
 		expect(
@@ -287,29 +320,39 @@ describe("Gemini P3 validation contracts", () => {
 
 	test("reports missing and obstructed Gemini uninstall states without removing user files", async () => {
 		const missingPreview = await expectTaskRight(
-			uninstallGeminiExtensionAssets({ dryRun: true, homeDir: tempDir }),
+			uninstallGeminiExtensionAssets({
+				dryRun: true,
+				homeDir: tempDir,
+				assetManifest: bundleAssets,
+			}),
 		);
 		expect(missingPreview.state).toBe("missing");
 		expect(missingPreview.userAction).toContain("rp1 verify gemini");
 
 		const inactive = await expectTaskRight(
-			uninstallGeminiExtensionAssets({ dryRun: false, homeDir: tempDir }),
+			uninstallGeminiExtensionAssets({
+				dryRun: false,
+				homeDir: tempDir,
+				assetManifest: bundleAssets,
+			}),
 		);
 		expect(inactive.state).toBe("removed");
 		expect(inactive.inactive).toBe(true);
 
-		await mkdir(dirname(join(tempDir, GEMINI_EXTENSION_RELATIVE_DIR)), {
+		await mkdir(dirname(join(tempDir, ".gemini/extensions")), {
 			recursive: true,
 		});
-		await writeFile(join(tempDir, GEMINI_EXTENSION_RELATIVE_DIR), "not a dir");
+		await writeFile(join(tempDir, ".gemini/extensions"), "not a dir");
 		const obstructed = await expectTaskRight(
-			uninstallGeminiExtensionAssets({ dryRun: true, homeDir: tempDir }),
+			uninstallGeminiExtensionAssets({
+				dryRun: true,
+				homeDir: tempDir,
+				assetManifest: bundleAssets,
+			}),
 		);
 		expect(obstructed.state).toBe("missing");
 		expect(obstructed.issue).toContain("Unexpected files remain");
-		expect(obstructed.unexpectedLeftovers).toEqual([
-			"~/.gemini/extensions/rp1-phase2-validation",
-		]);
+		expect(obstructed.unexpectedLeftovers).toEqual(["~/.gemini/extensions"]);
 	});
 
 	test("normalizes support-matrix-ready evidence for every P3 smoke scenario", () => {

@@ -227,6 +227,11 @@ describe("embedded supported tools registry", () => {
 		const gemini = findToolById(registry, "gemini");
 
 		expect(gemini).toBeDefined();
+		expect(gemini?.icon).toEqual({
+			source: "@lobehub/icons",
+			name: "Gemini",
+			variant: "mono",
+		});
 		expect(getEnabledTools(registry).map((tool) => tool.id)).toContain(
 			"gemini",
 		);
