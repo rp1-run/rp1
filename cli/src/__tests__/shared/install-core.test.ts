@@ -892,7 +892,7 @@ describe("install-core tool routing", () => {
 			await writeFixture(
 				homeDir,
 				commandAsset.relativePath,
-				"stale smoke command",
+				"stale generated command",
 			);
 			const installCore = (await import(
 				`../../shared/install-core.js?gemini-update-dry-run=${Date.now()}`
@@ -915,7 +915,7 @@ describe("install-core tool routing", () => {
 			expect(result.details?.join("\n")).toContain("Would refresh:");
 			expect(
 				await Bun.file(join(homeDir, commandAsset.relativePath)).text(),
-			).toBe("stale smoke command");
+			).toBe("stale generated command");
 		} finally {
 			restoreBundle();
 			restoreHome();
@@ -934,7 +934,7 @@ describe("install-core tool routing", () => {
 			await writeFixture(
 				homeDir,
 				commandAsset.relativePath,
-				"stale smoke command",
+				"stale generated command",
 			);
 			const installCore = (await import(
 				`../../shared/install-core.js?gemini-update=${Date.now()}`

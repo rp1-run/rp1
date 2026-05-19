@@ -49,19 +49,7 @@ const matrixFixture = (): GeminiWorkflowSupportMatrix => ({
 			identityArgs: ["TARGET"],
 		},
 	],
-	excludedEntries: [
-		{
-			workflowId: "dev:gemini-harness-smoke",
-			name: "gemini-harness-smoke",
-			userFacingName: "rp1-dev:gemini-harness-smoke",
-			plugin: "dev",
-			reason: "validation_only",
-			rationale:
-				"Gemini validation workflows collect release evidence and are not shipped product workflow support claims.",
-			updatedAt: "2026-05-19",
-			sourcePath: "plugins/dev/skills/gemini-harness-smoke/SKILL.md",
-		},
-	],
+	excludedEntries: [],
 });
 
 const runtimeEvidence = (

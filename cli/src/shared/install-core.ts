@@ -53,7 +53,7 @@ import {
 	GEMINI_EXPERIMENTAL_GUIDANCE,
 	type GeminiManifestRefreshResult,
 	geminiExtensionDisplayRoot,
-	installGeminiSmokeCommand,
+	installGeminiBundleAssets,
 	refreshGeminiManifestAssets,
 } from "../install/gemini/index.js";
 import { writeVersionMarker } from "../install/version-marker.js";
@@ -525,7 +525,7 @@ const formatAssetDisplayList = (
 	assets: readonly { readonly displayPath: string }[],
 ): string => assets.map((asset) => asset.displayPath).join(", ");
 
-const geminiValidationScope = (result: {
+const geminiBundleScope = (result: {
 	readonly assetCount: number;
 	readonly extensionDisplayDirs: readonly string[];
 }): readonly string[] => [
@@ -544,8 +544,8 @@ const geminiInstallDetails = (
 		? "Lifecycle state: dry_run"
 		: "Lifecycle state: current after successful install",
 	dryRun
-		? "Next action: run `rp1 install gemini`, restart Gemini CLI, then run `rp1 verify gemini --feature-id <feature-id>`."
-		: "Next action: restart Gemini CLI, then run `rp1 verify gemini --feature-id <feature-id>` for manifest and boundary evidence status.",
+		? "Next action: run `rp1 install gemini`, restart Gemini CLI, then run `rp1 verify gemini`."
+		: "Next action: restart Gemini CLI, then run `rp1 verify gemini` for manifest and support-matrix status.",
 ];
 
 const geminiUpdateDetails = (
@@ -730,13 +730,13 @@ export const installForSpecificTool = (
 
 	if (tool.id === "gemini") {
 		return pipe(
-			installGeminiSmokeCommand({ dryRun: ctx.dryRun }),
+			installGeminiBundleAssets({ dryRun: ctx.dryRun }),
 			TE.map(
 				(result): ToolInstallResult => ({
 					toolId: tool.id,
 					toolName: tool.name,
 					success: true,
-					pluginsInstalled: geminiValidationScope(result),
+					pluginsInstalled: geminiBundleScope(result),
 					details: geminiInstallDetails(ctx.dryRun, result),
 					warnings: result.warnings,
 				}),

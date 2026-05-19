@@ -14,7 +14,6 @@ import {
 	GEMINI_BOUNDARY_STATUSES,
 	GEMINI_DEFAULT_WORKFLOW_CLASSIFICATIONS,
 	GEMINI_DELEGATION_EVIDENCE_REQUIRED_REASON,
-	GEMINI_SUBAGENT_COMMAND_INVOCATION,
 	type GeminiAssetManifestEntry,
 	type GeminiBoundaryEvidence,
 	type GeminiBoundaryScenarioEvidence,
@@ -31,7 +30,7 @@ import {
 	getGeminiSmokeStatusDetail,
 	getGeminiSubagentEvidenceRelativePaths,
 	loadGeminiWorkflowSupportMatrixFromAssets,
-	verifyGeminiSmokeSetup,
+	verifyGeminiBundleSetup,
 } from "../../install/gemini/index.js";
 import { colorFns } from "../../lib/colors.js";
 
@@ -291,7 +290,7 @@ const loadGeminiDelegationReadiness = async (
 	const featureId = options.featureId?.trim();
 	if (!featureId) {
 		return missingEvidenceReadiness(
-			`No P2 evidence feature was supplied. Run ${GEMINI_SUBAGENT_COMMAND_INVOCATION} and verify with --feature-id <feature-id>.`,
+			"No P2 evidence feature was supplied. Attach accepted Gemini delegation evidence and verify with --feature-id <feature-id> before upgrading delegation claims.",
 		);
 	}
 
@@ -774,9 +773,9 @@ export const executeVerifyGemini = async (
 		GeminiVerifyLifecycleDeps,
 	options: GeminiVerifyOptions = {},
 ): Promise<boolean> => {
-	console.log(bold("\nVerifying Gemini CLI Smoke Command\n"));
+	console.log(bold("\nVerifying Gemini CLI Extension Bundle\n"));
 
-	const result = await verifyGeminiSmokeSetup(deps);
+	const result = await verifyGeminiBundleSetup(deps);
 	const lifecycle = await loadGeminiManifestLifecycle(deps);
 	const delegationReadiness = await loadGeminiDelegationReadiness(
 		options,
@@ -811,7 +810,7 @@ export const executeVerifyGemini = async (
 		`| Gemini CLI     | ${(result.geminiVersion ?? "not found").padEnd(20)} | ${binaryLabel.padEnd(6)} |`,
 	);
 	console.log(
-		`| Smoke command  | ${result.commandDisplayPath.padEnd(20)} | ${commandLabel.padEnd(6)} |`,
+		`| Primary command | ${result.commandDisplayPath.padEnd(19)} | ${commandLabel.padEnd(6)} |`,
 	);
 	console.log("+----------------+----------------------+--------+");
 
@@ -874,7 +873,7 @@ export const executeVerifyGemini = async (
 			);
 			return false;
 		}
-		console.log(green(bold("\nGemini experimental smoke command ready")));
+		console.log(green(bold("\nGemini generated bundle ready")));
 		return true;
 	}
 
@@ -890,7 +889,7 @@ export const executeVerifyGemini = async (
 
 export const verifyGeminiSubcommand = new Command("gemini")
 	.description(
-		"Verify experimental Gemini CLI manifest, smoke, and validation readiness",
+		"Verify Gemini CLI generated extension bundle and support-matrix readiness",
 	)
 	.option(
 		"--feature-id <featureId>",
@@ -904,7 +903,7 @@ export const verifyGeminiSubcommand = new Command("gemini")
 		"after",
 		`
 Examples:
-  rp1 verify gemini                          Verify Gemini CLI experimental manifest setup
+  rp1 verify gemini                          Verify Gemini CLI generated bundle setup
   rp1 verify gemini --feature-id phase-p3    Verify setup plus feature evidence
   rp1 verify gemini --workflow dev:build     Explain Gemini support for a workflow attempt
 `,

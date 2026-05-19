@@ -8,13 +8,10 @@ import {
 	GEMINI_LIFECYCLE_STATES,
 	GEMINI_P3_LIFECYCLE_GAP_CONSTRAINT,
 	GEMINI_SAFE_REMOVAL_RESULTS,
-	GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
-	GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
-	GEMINI_SMOKE_COMMAND_TOML,
 	GEMINI_SMOKE_STATUS_DETAILS,
-	installGeminiSmokeCommand,
+	installGeminiBundleAssets,
 	loadGeminiBundleAssetManifest,
-	verifyGeminiSmokeSetup,
+	verifyGeminiBundleSetup,
 	writeGeminiBoundaryEvidenceArtifacts,
 } from "../../../install/gemini/index.js";
 import {
@@ -37,9 +34,10 @@ const exists = async (path: string): Promise<boolean> => {
 	}
 };
 
-describe("Gemini smoke command installer", () => {
+describe("Gemini bundle asset installer", () => {
 	let tempDir: string;
 	const bundleAssets = createGeminiBundleAssetManifestFixture();
+	const primaryCommand = bundleAssets.find((asset) => asset.kind === "command");
 
 	beforeEach(async () => {
 		tempDir = await createTempDir("gemini-installer");
@@ -49,7 +47,7 @@ describe("Gemini smoke command installer", () => {
 		await cleanupTempDir(tempDir);
 	});
 
-	test("models the required Gemini smoke readiness and failure states", () => {
+	test("models the required Gemini bundle readiness and failure states", () => {
 		expect(Object.keys(GEMINI_SMOKE_STATUS_DETAILS)).toEqual([
 			"experimental_ready",
 			"degraded_missing_binary",
@@ -62,7 +60,7 @@ describe("Gemini smoke command installer", () => {
 		).toContain("Approve Gemini shell execution");
 		expect(
 			GEMINI_SMOKE_STATUS_DETAILS.registration_failed.remediation,
-		).toContain("Registration Output");
+		).toContain("artifact registration output");
 	});
 
 	test("models the P3 lifecycle states and boundary evidence contracts", () => {
@@ -180,9 +178,9 @@ describe("Gemini smoke command installer", () => {
 		);
 	});
 
-	test("dry-run reports the smoke command path without writing", async () => {
+	test("dry-run reports the primary command path without writing", async () => {
 		const result = await expectTaskRight(
-			installGeminiSmokeCommand({
+			installGeminiBundleAssets({
 				dryRun: true,
 				homeDir: tempDir,
 				getGeminiBinaryPath: () => "/usr/local/bin/gemini",
@@ -197,7 +195,7 @@ describe("Gemini smoke command installer", () => {
 
 	test("explicit install writes generated Gemini bundle assets", async () => {
 		const result = await expectTaskRight(
-			installGeminiSmokeCommand({
+			installGeminiBundleAssets({
 				dryRun: false,
 				homeDir: tempDir,
 				getGeminiBinaryPath: () => "/usr/local/bin/gemini",
@@ -290,10 +288,12 @@ describe("Gemini smoke command installer", () => {
 	});
 
 	test("verify reports a missing Gemini binary with install guidance", async () => {
-		const result = await verifyGeminiSmokeSetup({
+		if (!primaryCommand) throw new Error("missing primary command fixture");
+
+		const result = await verifyGeminiBundleSetup({
 			paths: {
-				commandFile: join(tempDir, GEMINI_SMOKE_COMMAND_RELATIVE_PATH),
-				commandDisplayPath: GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
+				commandFile: join(tempDir, primaryCommand.relativePath),
+				commandDisplayPath: primaryCommand.displayPath,
 			},
 			assetManifest: bundleAssets,
 			getGeminiBinaryPath: () => null,
@@ -306,11 +306,13 @@ describe("Gemini smoke command installer", () => {
 		expect(result.remediation.join("\n")).toContain("Install Gemini CLI");
 	});
 
-	test("verify reports a missing smoke command when Gemini is installed", async () => {
-		const result = await verifyGeminiSmokeSetup({
+	test("verify reports a missing primary command when Gemini is installed", async () => {
+		if (!primaryCommand) throw new Error("missing primary command fixture");
+
+		const result = await verifyGeminiBundleSetup({
 			paths: {
-				commandFile: join(tempDir, GEMINI_SMOKE_COMMAND_RELATIVE_PATH),
-				commandDisplayPath: GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
+				commandFile: join(tempDir, primaryCommand.relativePath),
+				commandDisplayPath: primaryCommand.displayPath,
 			},
 			assetManifest: bundleAssets,
 			getGeminiBinaryPath: () => "/usr/local/bin/gemini",
@@ -325,17 +327,19 @@ describe("Gemini smoke command installer", () => {
 		);
 	});
 
-	test("verify reports ready when Gemini and the smoke command are present", async () => {
+	test("verify reports ready when Gemini and the primary command are present", async () => {
+		if (!primaryCommand) throw new Error("missing primary command fixture");
+
 		const commandFile = await writeFixture(
 			tempDir,
-			GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
-			GEMINI_SMOKE_COMMAND_TOML,
+			primaryCommand.relativePath,
+			primaryCommand.expectedContent,
 		);
 
-		const result = await verifyGeminiSmokeSetup({
+		const result = await verifyGeminiBundleSetup({
 			paths: {
 				commandFile,
-				commandDisplayPath: GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
+				commandDisplayPath: primaryCommand.displayPath,
 			},
 			assetManifest: bundleAssets,
 			getGeminiBinaryPath: () => "/usr/local/bin/gemini",

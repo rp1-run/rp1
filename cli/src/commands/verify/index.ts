@@ -36,7 +36,7 @@ Subcommands:
   opencode       Verify plugins in OpenCode
   codex          Verify plugins in Codex CLI
   copilot        Verify plugins in GitHub Copilot CLI
-  gemini         Verify experimental Gemini smoke command
+  gemini         Verify Gemini generated extension bundle
 
 Examples:
   rp1 verify                Verify all platforms
@@ -44,7 +44,7 @@ Examples:
   rp1 verify opencode       Verify OpenCode installation
   rp1 verify codex          Verify Codex CLI installation
   rp1 verify copilot        Verify Copilot CLI installation
-  rp1 verify gemini         Verify Gemini smoke command setup
+  rp1 verify gemini         Verify Gemini generated extension bundle setup
 `,
 	)
 	.action(async (_options, command) => {

@@ -116,7 +116,7 @@ rp1 install codex
 rp1 install copilot
 ```
 
-For optional Gemini validation assets:
+For optional Gemini generated bundle assets:
 
 ```bash
 rp1 install gemini
@@ -130,7 +130,7 @@ rp1 install
 
 The default install command skips Gemini. It installs stable host integrations
 only; use `rp1 install gemini` when you deliberately want the experimental
-validation commands.
+generated bundle commands.
 
 Verify a specific host:
 
@@ -153,8 +153,8 @@ reporting `healthy_native`. See the
 [Copilot CLI platform guide](../reference/platforms/copilot.md) for Copilot
 verification states and recovery steps.
 
-For Gemini CLI, verification reports experimental validation-asset lifecycle
-states and boundary evidence. See the
+For Gemini CLI, verification reports generated bundle lifecycle states,
+support-matrix attribution, and optional retained release evidence. See the
 [Gemini CLI platform guide](../reference/platforms/gemini.md) before relying on
 any Gemini workflow class.
 
@@ -165,8 +165,8 @@ any Gemini workflow class.
 Restart Claude Code, OpenCode, Codex, or GitHub Copilot CLI after installation or
 updates so it reloads rp1.
 
-If you installed or refreshed Gemini validation assets, restart Gemini CLI
-before running the experimental `/rp1:...` validation commands.
+If you installed or refreshed Gemini bundle assets, restart Gemini CLI before
+running generated Gemini commands.
 
 ---
 
@@ -226,7 +226,7 @@ goal.
 | Host commands do not appear | Restart the host and run the matching `rp1 verify ...` command. |
 | Codex does not show rp1 commands | Run `rp1 install codex`, then restart Codex. |
 | Copilot verification is not `healthy_native` | Follow [Copilot recovery](../reference/platforms/copilot.md#troubleshooting). |
-| Gemini reports missing or stale validation assets, trust, approval, or acknowledgement gates | Follow [Gemini validation recovery](../reference/platforms/gemini.md#limitations-and-user-actions). |
+| Gemini reports missing or stale generated bundle assets, trust, approval, or acknowledgement gates | Follow [Gemini recovery](../reference/platforms/gemini.md#limitations-and-user-actions). |
 | First workflow is using stale project details | Re-run the project context command from Step 5. |
 
 More recovery paths are grouped by symptom in

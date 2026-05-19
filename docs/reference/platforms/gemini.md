@@ -22,9 +22,9 @@ workflow until new validation evidence upgrades the row.
 ## Prerequisites
 
 - Gemini CLI available on `PATH`.
-- rp1 CLI available from the project checkout that owns the validation assets.
+- rp1 CLI available from the project checkout that owns the generated bundle assets.
 - A trusted workspace or worktree when running Gemini interactively.
-- Current Gemini validation assets from the active feature or release branch.
+- Current generated Gemini bundle assets from the active feature or release branch.
 - Access to the work-root evidence artifacts referenced by the matrix.
 
 Verify the local Gemini binary first:
@@ -40,7 +40,7 @@ rp1 verify gemini --feature-id <feature-id>
 ```
 
 If that verifier is unavailable or reports stale assets, keep lifecycle rows
-`degraded`, refresh the validation assets, and attach manual evidence before
+`degraded`, refresh the generated bundle assets, and attach manual evidence before
 upgrading any support claim.
 
 ## Experimental Setup
@@ -48,46 +48,38 @@ upgrading any support claim.
 1. Install Gemini CLI using the upstream Gemini CLI instructions for your
    environment.
 2. Confirm `gemini --version` works in the same shell where you run rp1.
-3. Install or refresh the current rp1 Gemini validation assets for the feature
-   being tested.
+3. Install or refresh the current generated rp1 Gemini bundle assets for the
+   feature being tested.
 4. Run `rp1 verify gemini --feature-id <feature-id>` when the branch provides
    the verifier.
 5. Start Gemini from the repository or worktree you intend to validate.
 6. Accept required trust, tool approval, or agent acknowledgement prompts
-   interactively before expecting validation commands to run.
+   interactively before expecting Gemini workflows to run.
 
 This setup is optional. Non-Gemini users should continue using the host-specific
 setup for Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI.
 
 ## Invocation
 
-Gemini validation assets may expose narrow evidence commands. Use only commands
-that are present in the installed validation extension for the current branch.
-
-```text
-/rp1:smoke
-/rp1:subagents
-/rp1:boundaries
-```
-
-The smoke command validates root resolution, command execution, and artifact
-registration for the recorded scenario. Subagent, fanout, trust, approval,
-headless, and lifecycle claims require their own current evidence before they
-can be treated as supported.
+Gemini installs generated extension bundle commands from the normal rp1 catalog.
+Legacy validation-only smoke, subagent, and boundary commands are removed from
+the product bundle and should not appear as normal user workflows. Use
+`rp1 verify gemini --workflow <workflow-id>` to inspect support-matrix
+attribution before trying a catalog workflow on Gemini.
 
 Do not run general rp1 build, PR-review, or heavyweight map-reduce workflows on
-Gemini unless a later support-matrix row explicitly upgrades that workflow.
+Gemini unless a support-matrix row explicitly upgrades that workflow.
 
 ## Support Matrix
 
 | Workflow class | Gemini status | Reason | Limitation | User action | Evidence source |
 |----------------|---------------|--------|------------|-------------|-----------------|
-| Smoke workflow, root resolution, and artifact registration | `experimental` | The P1 smoke artifact records Gemini `0.42.0`, worktree-aware `code_root`, command path, work-root artifact path, and successful artifact registration. | Evidence covers the recorded smoke command only; it does not prove general workflow parity. | Run `/rp1:smoke` from the intended worktree, then inspect the registered work-root artifact. | `features/gemini-cli-rp1-harness-smoke/gemini-smoke.md` |
+| Historical smoke workflow, root resolution, and artifact registration | `experimental` | The P1 smoke artifact records Gemini `0.42.0`, worktree-aware `code_root`, command path, work-root artifact path, and successful artifact registration. | Evidence covers the recorded validation-only scenario only; it does not prove general workflow parity and the validation command is not installed as a product workflow. | Use the generated bundle verifier and support matrix for current workflow attempts. | `features/gemini-cli-rp1-harness-smoke/gemini-smoke.md` |
 | Custom subagent invocation | `unsupported` | No current P2 subagent artifact is present in the work root for public support claims. | Prior or local manual experiments must be attached before this row can claim working behavior; project agents may also require acknowledgement. | Use a stable host for subagent workflows, or attach accepted P2 evidence before reclassifying. | `manual gap` |
 | Fanout, delegated failure, and reducer collection | `unsupported` | No current P2 fanout artifact is present with attribution, result collection, and delegated-failure behavior. | Heavyweight multi-agent claims depend on this evidence and remain blocked without it. | Use Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI for fanout workflows. | `manual gap` |
 | Trust prompts, tool approval, and user-gated flows | `degraded` | Gemini may require interactive trust, approval, or user acknowledgement before a workflow can continue. | Unattended recovery and resume behavior are not proven by current P3 evidence. | Run interactively, trust the workspace, approve required tool use, then rerun the validation command. | `manual gap` |
 | Headless automation | `unsupported` | Current evidence does not prove unattended recovery from trust, approval, user-input, or acknowledgement gates. | Headless runs can stop waiting for user action and should not be treated as automation parity. | Use a stable host for unattended workflows, or rerun Gemini interactively for validation only. | `manual gap` |
-| Install, verify, update, stale-asset recovery, and removal lifecycle | `degraded` | Lifecycle verification is expected to come from `rp1 verify gemini --feature-id <feature-id>` plus install, update, and uninstall notes. | Current lifecycle evidence is incomplete in the work root. | Run the feature verifier when available; refresh stale validation assets before relying on results. | `manual gap` |
+| Install, verify, update, stale-asset recovery, and removal lifecycle | `degraded` | Lifecycle verification is expected to come from `rp1 verify gemini` plus install, update, and uninstall notes. | Current lifecycle evidence is incomplete in the work root. | Run the verifier when available; refresh stale generated bundle assets before relying on results. | `manual gap` |
 | Heavyweight tracked workflows | `unsupported` | Current evidence does not prove full tracked-workflow execution, subagent fanout, result reduction, or delegated failure handling. | Smoke success cannot be expanded into build, research, review, or release workflow parity. | Use a stable host for heavyweight rp1 workflows. | `manual gap` |
 | PR review | `unsupported` | PR-review support has a narrower harness contract and Gemini is not validated for that workflow. | No current PR-review Gemini evidence exists, and general PR-review parity would require separate validation. | Use a stable host for `/rp1-dev-pr-review`. | `cli/src/__tests__/pr-review/config.test.ts` |
 
@@ -101,7 +93,7 @@ the affected row `degraded` or `unsupported` and name the limitation.
 
 | Claim to validate | Support-matrix row | Evidence or command to inspect | Maintainer pass condition | If evidence is missing or stale |
 |-------------------|--------------------|--------------------------------|---------------------------|---------------------------------|
-| Smoke workflow | Smoke workflow, root resolution, and artifact registration | `features/gemini-cli-rp1-harness-smoke/gemini-smoke.md` | Artifact records the expected `feature_id`, `run_id`, Gemini version, command path, and recorded smoke command for the current validation branch. | Keep the row no stronger than `degraded`; do not infer general workflow support. |
+| Historical smoke workflow | Historical smoke workflow, root resolution, and artifact registration | `features/gemini-cli-rp1-harness-smoke/gemini-smoke.md` | Artifact records the expected `feature_id`, `run_id`, Gemini version, command path, and recorded validation scenario. | Treat this as historical release evidence only; do not infer general workflow support or reinstall the legacy validation command. |
 | Root resolution | Smoke workflow, root resolution, and artifact registration | `features/gemini-cli-rp1-harness-smoke/gemini-smoke.md` | `project_root`, `kb_root`, `work_root`, `code_root`, and `is_worktree` match the intended project and worktree boundary. | Keep root-resolution claims scoped to the recorded smoke scenario. |
 | Artifact registration | Smoke workflow, root resolution, and artifact registration | `features/gemini-cli-rp1-harness-smoke/gemini-smoke.md` and its registration output | `artifact_relative_path` points under the work root and `registration_status` is `registered`. | Keep artifact-registration claims `degraded` until a current registered artifact is attached. |
 | Custom subagents | Custom subagent invocation | `features/gemini-cli-rp1-harness-subagents/gemini-subagents.json` or accepted manual runtime note | Evidence shows the packaged rp1 subagent invoked successfully and states whether acknowledgement was required. | Keep the row `unsupported`; use `degraded` only when evidence works after a documented manual acknowledgement step. |
@@ -110,10 +102,10 @@ the affected row `degraded` or `unsupported` and name the limitation.
 | Trust prompt | Trust prompts, tool approval, and user-gated flows | `features/gemini-cli-rp1-harness-lifecycle/gemini-boundaries.json` or accepted manual trust note | Evidence records the trust gate, the required user action, and the result after the workspace is trusted. | Keep the row `degraded`; do not claim unattended recovery. |
 | Tool approval | Trust prompts, tool approval, and user-gated flows | `features/gemini-cli-rp1-harness-lifecycle/gemini-boundaries.json` or accepted manual approval note | Evidence records the approval prompt, approved action, and rerun or continuation result. | Keep approval language `degraded` and require interactive approval guidance. |
 | Headless automation | Headless automation | `features/gemini-cli-rp1-harness-lifecycle/gemini-boundaries.json` or accepted headless command output | Evidence proves the workflow can complete without trust, approval, user-input, or acknowledgement gates. | Keep the row `unsupported`; a stopped headless run is a limitation, not support evidence. |
-| Install lifecycle | Install, verify, update, stale-asset recovery, and removal lifecycle | Current Gemini install note or verifier output for the release branch | Evidence shows Gemini validation assets install from the expected branch or extension source and remain optional for non-Gemini users. | Keep the lifecycle row `degraded`; do not ask stable-host users to install Gemini. |
+| Install lifecycle | Install, verify, update, stale-asset recovery, and removal lifecycle | Current Gemini install note or verifier output for the release branch | Evidence shows generated Gemini bundle assets install from the expected branch or extension source and remain optional for non-Gemini users. | Keep the lifecycle row `degraded`; do not ask stable-host users to install Gemini. |
 | Verify lifecycle | Install, verify, update, stale-asset recovery, and removal lifecycle | `rp1 verify gemini --feature-id <feature-id>` output when the branch provides it | Verification reports current assets or an actionable prerequisite/stale-asset message. | Keep the lifecycle row `degraded` and tell maintainers to refresh or attach manual evidence. |
 | Update or stale-asset recovery | Install, verify, update, stale-asset recovery, and removal lifecycle | Current update/stale-asset verification note or verifier output | Evidence shows stale assets are detected and the refresh action is clear. | Keep stale-asset recovery `degraded`; do not imply automatic update parity. |
-| Removal lifecycle | Install, verify, update, stale-asset recovery, and removal lifecycle | Current removal or uninstall verification note | Evidence shows Gemini validation assets can be removed without affecting Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI setup. | Keep removal lifecycle `degraded`; treat missing removal proof as a non-blocking limitation, not stable-host risk. |
+| Removal lifecycle | Install, verify, update, stale-asset recovery, and removal lifecycle | Current removal or uninstall verification note | Evidence shows generated Gemini bundle assets can be removed without affecting Claude Code, OpenCode, Codex CLI, or GitHub Copilot CLI setup. | Keep removal lifecycle `degraded`; treat missing removal proof as a non-blocking limitation, not stable-host risk. |
 | PR review boundary | PR review | `cli/src/__tests__/pr-review/config.test.ts` and `cli/src/pr-review/models.ts` | PR-review harness validation remains limited to its current stable-host contract and rejects Gemini unless a later PR-review-specific validation changes it. | Keep PR review `unsupported`. |
 
 When the checklist changes a row, update the support matrix and Evidence
@@ -125,7 +117,7 @@ fanout, headless, lifecycle, heavyweight workflow, or PR-review claims.
 | Situation | What it means | What to do |
 |-----------|---------------|------------|
 | Gemini CLI is missing | The experimental surface cannot run. | Install Gemini CLI only if you intend to validate Gemini; otherwise use a stable host. |
-| Validation assets are missing or stale | The installed Gemini commands do not match the current feature or release branch. | Refresh the validation assets and rerun verification before collecting evidence. |
+| Generated bundle assets are missing or stale | The installed Gemini commands do not match the current feature or release branch. | Refresh the generated bundle assets and rerun verification before collecting evidence. |
 | Gemini asks to trust the workspace | The workflow is blocked on an interactive trust decision. | Trust the intended repository or rerun on a stable host. |
 | Gemini asks for tool approval | The workflow is blocked on Gemini approval policy. | Approve the action interactively when appropriate; do not assume unattended resume. |
 | Gemini reports new agents | Agent acknowledgement is required before the agent can be invoked. | Acknowledge and enable the agent, then rerun the validation command. |

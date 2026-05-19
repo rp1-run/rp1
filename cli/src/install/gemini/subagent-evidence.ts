@@ -15,13 +15,13 @@ import {
 	type GeminiFanoutOutput,
 	type GeminiWorkflowSupportClassification,
 } from "./models.js";
-import { GEMINI_RUNTIME_FAIL_AGENT_NAME } from "./subagent-command.js";
 
 export const GEMINI_SUBAGENT_MARKERS = {
 	alpha: "ALPHA_MARKER_FROM_rp1-alpha",
 	beta: "BETA_MARKER_FROM_rp1-beta",
 } as const;
 
+export const GEMINI_RUNTIME_FAIL_AGENT_NAME = "rp1-runtime-fail";
 export const GEMINI_SUBAGENT_MARKDOWN_FILENAME = "gemini-subagents.md";
 export const GEMINI_SUBAGENT_JSON_FILENAME = "gemini-subagents.json";
 export const GEMINI_SUBAGENT_WORKFLOW_NAME = "gemini-harness-subagents";

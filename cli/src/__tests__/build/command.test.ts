@@ -874,6 +874,50 @@ Research explorer content.
 		expect(manifest.artifacts.commands).toEqual(["rp1-base:knowledge-build"]);
 		expect(manifest.artifacts.supportMatrix).toBe("support-matrix.json");
 	});
+
+	test("excludes removed Gemini validation-only workflows from the dev bundle", async () => {
+		const projectRoot = join(import.meta.dir, "..", "..", "..", "..");
+		const out = join(outputDir, "gemini-cleanup-dev");
+		const result = await buildPlatformPlugin(
+			"dev",
+			projectRoot,
+			out,
+			geminiDef,
+			noopLogger,
+			true,
+		);
+
+		const manifest = JSON.parse(
+			await readFile(join(out, "dev", "manifest.json"), "utf-8"),
+		) as {
+			readonly artifacts: {
+				readonly commands: readonly string[];
+				readonly skills: readonly string[];
+			};
+		};
+		const context = await readFile(join(out, "dev", "GEMINI.md"), "utf-8");
+		const supportMatrix = await readFile(
+			join(out, "dev", "support-matrix.json"),
+			"utf-8",
+		);
+		const generatedAssetIndex = JSON.stringify(result.assets);
+
+		for (const validationAsset of [
+			"gemini-harness-smoke",
+			"gemini-harness-subagents",
+			"gemini-harness-boundaries",
+		]) {
+			expect(manifest.artifacts.commands.join("\n")).not.toContain(
+				validationAsset,
+			);
+			expect(manifest.artifacts.skills.join("\n")).not.toContain(
+				validationAsset,
+			);
+			expect(context).not.toContain(validationAsset);
+			expect(supportMatrix).not.toContain(validationAsset);
+			expect(generatedAssetIndex).not.toContain(validationAsset);
+		}
+	});
 });
 
 describe("executeBuild", () => {

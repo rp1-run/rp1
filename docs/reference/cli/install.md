@@ -1,7 +1,7 @@
 # install
 
-Install rp1 plugins for supported host tools and optional experimental
-validation assets.
+Install rp1 plugins for supported host tools and optional generated Gemini
+bundle assets.
 
 ---
 
@@ -15,7 +15,7 @@ rp1 install <subcommand> [options]
 
 Use `rp1 install` when you want to install or refresh rp1 for a specific stable
 host tool, or for every detected stable host on the machine. Gemini CLI is an
-explicit experimental validation target and is skipped by default setup.
+explicit experimental generated-bundle target and is skipped by default setup.
 
 Supported targets:
 
@@ -23,8 +23,7 @@ Supported targets:
 - OpenCode
 - Codex
 - Copilot CLI
-- Gemini CLI experimental smoke, delegation, and boundary validation assets
-  (manual install only)
+- Gemini CLI generated extension bundle assets (manual install only)
 
 ## Subcommands
 
@@ -74,11 +73,9 @@ Requires the standalone GitHub Copilot CLI (`copilot`) with `copilot plugin --he
 rp1 install gemini [options]
 ```
 
-Installs experimental Gemini CLI extension assets for validation only. This
-target installs the `/rp1:smoke` smoke command and the `/rp1:subagents` P2
-delegation validation command, plus the `/rp1:boundaries` P3 trust, headless,
-user-gate, and lifecycle boundary command. It does not enable first-class
-Gemini workflow support. Review the
+Installs generated Gemini CLI extension bundle assets from the current rp1
+build. Validation-only smoke, proof, and manual-copy assets are not installed as
+normal product workflows. Review the
 [Gemini CLI platform guide](../platforms/gemini.md) before using these assets.
 
 ### `install all`
@@ -89,7 +86,7 @@ rp1 install all [options]
 
 Detects installed tools and installs rp1 to every supported non-experimental
 target it finds. Gemini CLI is skipped by automatic install; use
-`rp1 install gemini` when you want the experimental validation assets.
+`rp1 install gemini` when you want the generated Gemini bundle assets.
 
 ## Options
 
@@ -184,16 +181,16 @@ rp1 verify gemini
 
 For Copilot, the clean success signal is `healthy_native`. A `mixed_native_and_legacy` result means the native install works, but old rp1 files still need cleanup under `~/.config/github-copilot/`.
 
-For Gemini, verification reports manifest lifecycle state, smoke readiness, P2
-delegation readiness, and optional P3 boundary evidence:
+For Gemini, verification reports generated bundle lifecycle state, support-matrix
+readiness, and optional retained release evidence:
 
 ```bash
 rp1 verify gemini
 rp1 verify gemini --feature-id <feature-id>
 ```
 
-The Gemini smoke section uses `Support: experimental (manifest validation assets
-only)` and reports `State` values such as `experimental_ready`,
+The Gemini bundle section uses `Support: generated bundle (Gemini extension
+assets)` and reports `State` values such as `experimental_ready`,
 `degraded_missing_binary`, `degraded_missing_command`,
 `degraded_trust_or_approval`, or `registration_failed`.
 
@@ -202,10 +199,10 @@ Gemini-specific lifecycle `State`:
 
 | State | Meaning | Next action |
 |-------|---------|-------------|
-| `current` | All rp1-owned Gemini validation assets match the manifest. | Restart Gemini CLI if assets were just installed, then run validation commands from a trusted workspace. |
-| `removed` | No rp1-owned Gemini validation assets are installed. | Run `rp1 install gemini` before using the experimental validation commands. |
+| `current` | All rp1-owned Gemini bundle assets match the manifest. | Restart Gemini CLI if assets were just installed, then verify the target workflow against the support matrix. |
+| `removed` | No rp1-owned Gemini bundle assets are installed. | Run `rp1 install gemini` before using generated Gemini commands. |
 | `missing` | One manifest-owned asset is missing. | Run `rp1 install gemini` to restore it. |
-| `partial` | More than one, but not all, manifest-owned assets are missing. | Reinstall the complete Gemini validation asset set with `rp1 install gemini`. |
+| `partial` | More than one, but not all, manifest-owned assets are missing. | Reinstall the complete Gemini bundle asset set with `rp1 install gemini`. |
 | `stale` | One or more assets differ from the current manifest. | Run `rp1 install gemini` or `rp1 update plugins gemini` to refresh assets. |
 | `blocked` | rp1 could not read one or more Gemini extension assets. | Fix local file permissions or trust/approval blockers, then rerun `rp1 verify gemini`. |
 
@@ -281,7 +278,7 @@ they ignore keys they do not use.
 | OpenCode | `~/.config/opencode/plugins/` |
 | Codex skills | `~/.codex/skills/` |
 | Codex agents | `~/.codex/agents/rp1/` |
-| Gemini extension | `~/.gemini/extensions/rp1-phase2-validation/` |
+| Gemini extensions | `~/.gemini/extensions/rp1-base/`, `~/.gemini/extensions/rp1-dev/` |
 
 Copilot install paths are covered in
 [Troubleshooting Copilot Install Locations](#troubleshooting-copilot-install-locations)

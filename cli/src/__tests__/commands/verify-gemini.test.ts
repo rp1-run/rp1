@@ -10,7 +10,6 @@ import {
 	createGeminiSubagentEvidence,
 	GEMINI_BOUNDARY_EVIDENCE_SCHEMA_VERSION,
 	GEMINI_DEFAULT_WORKFLOW_CLASSIFICATIONS,
-	GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
 	GEMINI_SUBAGENT_MARKERS,
 	type GeminiVerifyDeps,
 } from "../../install/gemini/index.js";
@@ -18,11 +17,16 @@ import { createGeminiBundleAssetManifestFixture } from "../helpers/gemini-bundle
 
 const ANSI_REGEX = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
 
-const smokeCommandPath = {
-	commandFile: "/tmp/.gemini/extensions/rp1-base/commands/rp1-base/guide.toml",
-	commandDisplayPath: GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
-};
 const bundleAssets = createGeminiBundleAssetManifestFixture();
+const primaryCommandAsset = bundleAssets.find(
+	(asset) => asset.kind === "command",
+);
+if (!primaryCommandAsset) throw new Error("missing primary command fixture");
+
+const primaryCommandPath = {
+	commandFile: "/tmp/.gemini/extensions/rp1-base/commands/rp1-base/guide.toml",
+	commandDisplayPath: primaryCommandAsset.displayPath,
+};
 
 const logger = {} as Logger;
 const originalLog = console.log;
@@ -61,7 +65,7 @@ const readySmokeDeps = (
 	readFile?: (path: string) => Promise<string>,
 	readAssetFile: (path: string) => Promise<string> = currentManifestAssetReader,
 ): VerifyCommandDeps => ({
-	paths: smokeCommandPath,
+	paths: primaryCommandPath,
 	getGeminiBinaryPath: () => "/usr/local/bin/gemini",
 	getGeminiVersion: async () => "gemini 1.2.3",
 	pathExists: async () => true,
@@ -152,7 +156,7 @@ describe("verify:gemini command", () => {
 
 	test("reports missing Gemini CLI as an experimental degraded state", async () => {
 		const result = await captureVerifyOutput({
-			paths: smokeCommandPath,
+			paths: primaryCommandPath,
 			getGeminiBinaryPath: () => null,
 			pathExists: async () => false,
 			assetManifest: bundleAssets,
@@ -176,9 +180,9 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain("Gemini lifecycle path is degraded");
 	});
 
-	test("reports missing smoke command with explicit install guidance", async () => {
+	test("reports missing primary command with explicit install guidance", async () => {
 		const result = await captureVerifyOutput({
-			paths: smokeCommandPath,
+			paths: primaryCommandPath,
 			getGeminiBinaryPath: () => "/usr/local/bin/gemini",
 			getGeminiVersion: async () => "gemini 1.2.3",
 			pathExists: async () => false,
@@ -190,7 +194,7 @@ describe("verify:gemini command", () => {
 
 		expect(result.ok).toBe(false);
 		expect(result.output).toContain("State: degraded_missing_command");
-		expect(result.output).toContain("Gemini smoke command missing");
+		expect(result.output).toContain("Gemini primary command asset missing");
 		expect(result.output).toContain(
 			"Install the Gemini extension assets with `rp1 install gemini`.",
 		);
@@ -205,20 +209,20 @@ describe("verify:gemini command", () => {
 			"Support: generated bundle (Gemini extension assets)",
 		);
 		expect(result.output).toContain("State: experimental_ready");
-		expect(result.output).toContain("Meaning: experimental smoke path ready");
+		expect(result.output).toContain("Meaning: generated bundle ready");
 		expect(result.output).toContain("Manifest lifecycle:");
 		expect(result.output).toContain("State: current");
 		expect(result.output).toContain(
 			"Trust/approval note: Gemini may still require workspace trust",
 		);
 		expect(result.output).toContain(
-			"Run /rp1:smoke FEATURE_ID=<feature-id> RUN_CONTEXT=<label>",
+			"Run `rp1 verify gemini --workflow <workflow-id>`",
 		);
-		expect(result.output).toContain("Gemini experimental smoke command ready");
+		expect(result.output).toContain("Gemini generated bundle ready");
 		expect(result.output).not.toContain("stable");
 	});
 
-	test("fails ready smoke when a manifest asset is stale", async () => {
+	test("fails ready bundle when a manifest asset is stale", async () => {
 		const staleAsset = bundleAssets.find((asset) =>
 			asset.displayPath.endsWith("/commands/rp1-base/guide.toml"),
 		);
@@ -297,7 +301,7 @@ describe("verify:gemini command", () => {
 
 	test("reports removed when no manifest-owned Gemini assets are active", async () => {
 		const result = await captureVerifyOutput({
-			paths: smokeCommandPath,
+			paths: primaryCommandPath,
 			getGeminiBinaryPath: () => "/usr/local/bin/gemini",
 			getGeminiVersion: async () => "gemini 1.2.3",
 			pathExists: async () => false,
@@ -337,9 +341,7 @@ describe("verify:gemini command", () => {
 		);
 		expect(result.output).toContain("Gemini unsupported workflow attribution");
 		expect(result.output).not.toContain("Gemini lifecycle path is degraded");
-		expect(result.output).not.toContain(
-			"Gemini experimental smoke command ready",
-		);
+		expect(result.output).not.toContain("Gemini generated bundle ready");
 	});
 
 	test("keeps supported workflow attempts on the normal readiness path", async () => {
@@ -357,7 +359,7 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain(
 			"features/gemini-cli-rp1-harness-first-class/gemini-runtime-contract.md",
 		);
-		expect(result.output).toContain("Gemini experimental smoke command ready");
+		expect(result.output).toContain("Gemini generated bundle ready");
 	});
 
 	test("reports unknown workflow attempts without blaming installation state", async () => {
@@ -543,7 +545,7 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain(
 			"Use this artifact as passing boundary evidence.",
 		);
-		expect(result.output).toContain("Gemini experimental smoke command ready");
+		expect(result.output).toContain("Gemini generated bundle ready");
 		expect(result.output).not.toContain(
 			"Gemini P2 delegation readiness is gated",
 		);
@@ -567,7 +569,7 @@ describe("verify:gemini command", () => {
 		expect(result.output).toContain(
 			"evidence: features/gemini-phase2/gemini-subagents.md",
 		);
-		expect(result.output).toContain("Gemini experimental smoke command ready");
+		expect(result.output).toContain("Gemini generated bundle ready");
 		expect(result.output).not.toContain(
 			"Gemini P2 delegation readiness is gated",
 		);

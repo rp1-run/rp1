@@ -22,8 +22,8 @@ export {
 } from "./config.js";
 export {
 	getGeminiPaths,
-	installGeminiSmokeCommand,
-	verifyGeminiSmokeSetup,
+	installGeminiBundleAssets,
+	verifyGeminiBundleSetup,
 } from "./gemini/index.js";
 // Installer
 export {

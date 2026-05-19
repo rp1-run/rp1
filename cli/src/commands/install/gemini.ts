@@ -4,7 +4,7 @@ import { formatError, getExitCode } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import {
 	geminiExtensionDisplayRoot,
-	installGeminiSmokeCommand,
+	installGeminiBundleAssets,
 } from "../../install/gemini/index.js";
 import { colorFns } from "../../lib/colors.js";
 
@@ -28,7 +28,7 @@ Examples:
 			process.exit(1);
 		}
 
-		const result = await installGeminiSmokeCommand({
+		const result = await installGeminiBundleAssets({
 			dryRun: options.dryRun ?? command.parent?.opts()?.dryRun ?? false,
 		})();
 

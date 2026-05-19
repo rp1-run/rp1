@@ -9,7 +9,7 @@ import {
 	type GeminiBoundaryEvidenceCommandResult,
 	type GeminiBoundaryScenarioEvidence,
 	getGeminiManifestLifecycleStatus,
-	installGeminiSmokeCommand,
+	installGeminiBundleAssets,
 	persistGeminiBoundaryEvidence,
 	refreshGeminiManifestAssets,
 	uninstallGeminiExtensionAssets,
@@ -177,7 +177,7 @@ describe("Gemini P3 validation contracts", () => {
 		);
 
 		const dryRun = await expectTaskRight(
-			installGeminiSmokeCommand({
+			installGeminiBundleAssets({
 				dryRun: true,
 				homeDir: tempDir,
 				getGeminiBinaryPath: () => "",
@@ -188,7 +188,7 @@ describe("Gemini P3 validation contracts", () => {
 		expect(dryRun.warnings.join("\n")).toContain("Gemini CLI was not found");
 
 		const installed = await expectTaskRight(
-			installGeminiSmokeCommand({
+			installGeminiBundleAssets({
 				dryRun: false,
 				homeDir: tempDir,
 				getGeminiBinaryPath: () => "/usr/local/bin/gemini",

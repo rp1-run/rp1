@@ -44,12 +44,12 @@ rp1 uninstall gemini --yes
 Gemini uninstall is scoped to rp1-owned files under:
 
 ```text
-~/.gemini/extensions/rp1-phase2-validation/
+~/.gemini/extensions/rp1-base/
+~/.gemini/extensions/rp1-dev/
 ```
 
-It removes manifest-owned validation assets for `/rp1:smoke`,
-`/rp1:subagents`, `/rp1:boundaries`, and the rp1 validation agents only when
-their contents still match the current rp1 manifest.
+It removes generated manifest-owned Gemini bundle assets only when their
+contents still match the current rp1 manifest.
 
 Gemini uninstall affects only this opt-in experimental validation surface. It
 does not remove or downgrade stable Claude Code, OpenCode, Codex, or GitHub
@@ -78,7 +78,7 @@ rp1 verify gemini
 The expected post-removal lifecycle state is `removed` or another inactive state
 that points back to `rp1 install gemini` as the setup action. A removed Gemini
 extension is not a first-class Gemini support failure; it means the experimental
-validation assets are no longer installed.
+generated bundle assets are no longer installed.
 
 See the [Gemini CLI platform guide](../platforms/gemini.md) for the support
 matrix and removal-lifecycle limitations.

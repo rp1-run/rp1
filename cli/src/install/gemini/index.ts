@@ -17,10 +17,6 @@ import {
 	type GeminiVerificationResult,
 	getGeminiSmokeStatusDetail,
 } from "./models.js";
-import {
-	GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
-	GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
-} from "./smoke-command.js";
 
 export interface GeminiInstallOptions {
 	readonly dryRun: boolean;
@@ -41,11 +37,16 @@ export interface GeminiVerifyDeps {
 	readonly distDir?: string;
 }
 
+const FALLBACK_PRIMARY_COMMAND_RELATIVE_PATH =
+	".gemini/extensions/rp1-base/commands/rp1-base/guide.toml";
+const FALLBACK_PRIMARY_COMMAND_DISPLAY_PATH =
+	"~/.gemini/extensions/rp1-base/commands/rp1-base/guide.toml";
+
 export const getGeminiPaths = (
 	homeDir = process.env.HOME ?? homedir(),
 ): GeminiPaths => ({
-	commandFile: join(homeDir, GEMINI_SMOKE_COMMAND_RELATIVE_PATH),
-	commandDisplayPath: GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
+	commandFile: join(homeDir, FALLBACK_PRIMARY_COMMAND_RELATIVE_PATH),
+	commandDisplayPath: FALLBACK_PRIMARY_COMMAND_DISPLAY_PATH,
 });
 
 const defaultPathExists = async (targetPath: string): Promise<boolean> => {
@@ -85,7 +86,7 @@ const primaryCommandAsset = (
 ): GeminiAssetManifestEntry | undefined =>
 	assets.find((asset) => asset.kind === "command");
 
-export const installGeminiSubagentValidationAssets = (
+export const installGeminiBundleAssets = (
 	options: GeminiInstallOptions,
 ): TE.TaskEither<CLIError, GeminiInstallResult> =>
 	TE.tryCatch(
@@ -159,9 +160,7 @@ export const installGeminiSubagentValidationAssets = (
 			),
 	);
 
-export const installGeminiSmokeCommand = installGeminiSubagentValidationAssets;
-
-export const verifyGeminiSmokeSetup = async (
+export const verifyGeminiBundleSetup = async (
 	deps: GeminiVerifyDeps = {},
 ): Promise<GeminiVerificationResult> => {
 	const assets = await loadGeminiBundleAssetManifest(bundleOptionsFor(deps));
@@ -197,7 +196,9 @@ export const verifyGeminiSmokeSetup = async (
 	}
 
 	if (!commandInstalled) {
-		issues.push(`Gemini smoke command missing: ${paths.commandDisplayPath}.`);
+		issues.push(
+			`Gemini primary command asset missing: ${paths.commandDisplayPath}.`,
+		);
 		remediation.push(
 			getGeminiSmokeStatusDetail("degraded_missing_command").remediation,
 		);
@@ -226,14 +227,6 @@ export const verifyGeminiSmokeSetup = async (
 		remediation,
 	};
 };
-
-export {
-	GEMINI_BOUNDARY_COMMAND_DISPLAY_PATH,
-	GEMINI_BOUNDARY_COMMAND_INVOCATION,
-	GEMINI_BOUNDARY_COMMAND_PROMPT_CONTRACT,
-	GEMINI_BOUNDARY_COMMAND_RELATIVE_PATH,
-	GEMINI_BOUNDARY_COMMAND_TOML,
-} from "./boundary-command.js";
 export type {
 	GeminiBoundaryArtifactRegistration,
 	GeminiBoundaryEvidence,
@@ -329,7 +322,6 @@ export {
 	GEMINI_DELEGATION_EVIDENCE_STATUSES,
 	GEMINI_EXPERIMENTAL_GUIDANCE,
 	GEMINI_HEAVYWEIGHT_WORKFLOW_CLASSES,
-	GEMINI_SMOKE_COMMAND_INVOCATION,
 	GEMINI_SMOKE_STATUS_DETAILS,
 	GEMINI_SUPPORT_CLASSIFICATION_STATUSES,
 	getGeminiSmokeStatusDetail,
@@ -350,33 +342,6 @@ export {
 	loadGeminiWorkflowSupportMatrixFromAssets,
 	parseGeminiWorkflowSupportMatrix,
 } from "./runtime-contract.js";
-export {
-	GEMINI_EXTENSION_DISPLAY_DIR,
-	GEMINI_EXTENSION_NAME,
-	GEMINI_EXTENSION_RELATIVE_DIR,
-	GEMINI_SMOKE_COMMAND_DISPLAY_PATH,
-	GEMINI_SMOKE_COMMAND_RELATIVE_PATH,
-	GEMINI_SMOKE_COMMAND_TOML,
-} from "./smoke-command.js";
-export {
-	GEMINI_ALPHA_AGENT_MARKDOWN,
-	GEMINI_ALPHA_AGENT_RELATIVE_PATH,
-	GEMINI_BETA_AGENT_MARKDOWN,
-	GEMINI_BETA_AGENT_RELATIVE_PATH,
-	GEMINI_EXTENSION_MANIFEST_DISPLAY_PATH,
-	GEMINI_EXTENSION_MANIFEST_JSON,
-	GEMINI_EXTENSION_MANIFEST_RELATIVE_PATH,
-	GEMINI_FAIL_AGENT_MARKDOWN,
-	GEMINI_FAIL_AGENT_RELATIVE_PATH,
-	GEMINI_RUNTIME_FAIL_AGENT_MARKDOWN,
-	GEMINI_RUNTIME_FAIL_AGENT_MODEL,
-	GEMINI_RUNTIME_FAIL_AGENT_NAME,
-	GEMINI_RUNTIME_FAIL_AGENT_RELATIVE_PATH,
-	GEMINI_SUBAGENT_COMMAND_DISPLAY_PATH,
-	GEMINI_SUBAGENT_COMMAND_INVOCATION,
-	GEMINI_SUBAGENT_COMMAND_RELATIVE_PATH,
-	GEMINI_SUBAGENT_COMMAND_TOML,
-} from "./subagent-command.js";
 export type {
 	GeminiSubagentEvidenceArtifactResult,
 	GeminiSubagentEvidenceCommandResult,
@@ -389,6 +354,7 @@ export type {
 } from "./subagent-evidence.js";
 export {
 	createGeminiSubagentEvidence,
+	GEMINI_RUNTIME_FAIL_AGENT_NAME,
 	GEMINI_SUBAGENT_HARNESS,
 	GEMINI_SUBAGENT_JSON_FILENAME,
 	GEMINI_SUBAGENT_MARKDOWN_FILENAME,

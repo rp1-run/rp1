@@ -23,13 +23,10 @@ import {
 	verifyOpenCodePlugins,
 } from "../../init/steps/verification.js";
 import {
-	GEMINI_BOUNDARY_COMMAND_INVOCATION,
 	GEMINI_DELEGATION_EVIDENCE_REQUIRED_REASON,
-	GEMINI_SMOKE_COMMAND_INVOCATION,
-	GEMINI_SUBAGENT_COMMAND_INVOCATION,
 	type GeminiLifecycleStatus,
 	getGeminiManifestLifecycleStatus,
-	verifyGeminiSmokeSetup,
+	verifyGeminiBundleSetup,
 } from "../../install/gemini/index.js";
 import { colorFns } from "../../lib/colors.js";
 import {
@@ -72,13 +69,6 @@ const geminiLifecycleAssetCounts = (
 		.length,
 });
 
-const printGeminiValidationScope = (): void => {
-	console.log(dim("    - Installed validation scope:"));
-	console.log(dim(`      ${GEMINI_SMOKE_COMMAND_INVOCATION}`));
-	console.log(dim(`      ${GEMINI_SUBAGENT_COMMAND_INVOCATION}`));
-	console.log(dim(`      ${GEMINI_BOUNDARY_COMMAND_INVOCATION}`));
-};
-
 const printGeminiLifecycleVerification = (
 	lifecycle: GeminiLifecycleStatus,
 ): void => {
@@ -105,14 +95,14 @@ const printGeminiLifecycleVerification = (
 };
 
 async function runGeminiPostInstallVerification(): Promise<boolean> {
-	const geminiResult = await verifyGeminiSmokeSetup();
+	const geminiResult = await verifyGeminiBundleSetup();
 	const lifecycleResult = await getGeminiManifestLifecycleStatus({
 		stage: "verify",
 	})();
-	const smokeStatus = geminiResult.verified ? green("[OK]") : yellow("[WARN]");
+	const bundleStatus = geminiResult.verified ? green("[OK]") : yellow("[WARN]");
 
 	console.log(
-		`  ${smokeStatus} Gemini CLI and smoke command (${dim(geminiResult.status)})`,
+		`  ${bundleStatus} Gemini CLI and primary command asset (${dim(geminiResult.status)})`,
 	);
 
 	if (E.isLeft(lifecycleResult)) {
@@ -137,10 +127,9 @@ async function runGeminiPostInstallVerification(): Promise<boolean> {
 	);
 	console.log(
 		yellow(
-			`    - Run ${GEMINI_BOUNDARY_COMMAND_INVOCATION} to record lifecycle, trust, headless, and user-gate boundary evidence.`,
+			"    - Attach accepted release-readiness evidence before upgrading trust, headless, or user-gate claims.",
 		),
 	);
-	printGeminiValidationScope();
 
 	for (const issue of geminiResult.issues) {
 		console.log(yellow(`    - ${issue}`));
@@ -242,7 +231,7 @@ Subcommands:
   opencode       Install plugins to OpenCode
   codex          Install plugins to Codex CLI
   copilot        Install plugins to Copilot CLI
-  gemini         Install experimental Gemini extension assets
+  gemini         Install generated Gemini extension bundle assets
   all            Install plugins to all detected tools
 
 Examples:
@@ -251,7 +240,7 @@ Examples:
   rp1 install claude-code                Install to Claude Code (subcommand)
   rp1 install opencode                   Install to OpenCode (subcommand)
   rp1 install copilot                    Install to Copilot CLI (subcommand)
-  rp1 install gemini                     Install Gemini smoke and P2 validation assets
+  rp1 install gemini                     Install generated Gemini extension bundle assets
   rp1 install all                        Install to all detected tools
   rp1 install --dry-run                  Preview installation
   rp1 install -y                         Skip confirmation prompts

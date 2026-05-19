@@ -63,7 +63,7 @@ describe("update plugin result formatting", () => {
 					"Next action: Restart Gemini CLI, then run `rp1 verify gemini`.",
 				],
 				warnings: [
-					"Gemini CLI remains experimental and validation-only for rp1.",
+					"Gemini CLI remains experimental and support-matrix scoped for rp1.",
 				],
 			},
 			false,

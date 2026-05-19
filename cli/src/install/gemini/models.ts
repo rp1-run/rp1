@@ -1,11 +1,8 @@
 export const GEMINI_EXPERIMENTAL_GUIDANCE =
-	"Gemini CLI support is experimental and limited to smoke, P2 delegation, and P3 boundary validation assets.";
+	"Gemini CLI support is generated-bundle backed and scoped by the Gemini support matrix; validation-only smoke/proof assets are not installed as product workflows.";
 
 export const GEMINI_AUTO_INSTALL_SKIP_GUIDANCE =
-	"Gemini CLI is experimental and skipped by automatic install. Run `rp1 install gemini` to install only the /rp1:smoke, /rp1:subagents, and /rp1:boundaries validation assets.";
-
-export const GEMINI_SMOKE_COMMAND_INVOCATION =
-	"/rp1:smoke FEATURE_ID=<feature-id> RUN_CONTEXT=<label>";
+	"Gemini CLI is experimental and skipped by automatic install. Run `rp1 install gemini` to install generated Gemini extension bundle assets.";
 
 export type GeminiSmokeStatus =
 	| "experimental_ready"
@@ -68,9 +65,10 @@ export type GeminiSmokeStatusDetail = GeminiStatusDetail;
 
 export const GEMINI_SMOKE_STATUS_DETAILS = {
 	experimental_ready: {
-		label: "experimental smoke path ready",
+		label: "generated bundle ready",
 		issue: null,
-		remediation: `Run ${GEMINI_SMOKE_COMMAND_INVOCATION} from Gemini CLI to collect smoke evidence.`,
+		remediation:
+			"Run `rp1 verify gemini --workflow <workflow-id>` to inspect support-matrix attribution before using a workflow on Gemini.",
 	},
 	degraded_missing_binary: {
 		label: "degraded: Gemini CLI binary missing",
@@ -79,8 +77,9 @@ export const GEMINI_SMOKE_STATUS_DETAILS = {
 			"Install Gemini CLI, then confirm `gemini --version` succeeds.",
 	},
 	degraded_missing_command: {
-		label: "degraded: smoke command missing",
-		issue: "Gemini smoke command is not installed in the rp1 Gemini extension.",
+		label: "degraded: primary command asset missing",
+		issue:
+			"Gemini primary command asset is not installed from the generated rp1 Gemini extension bundle.",
 		remediation:
 			"Install the Gemini extension assets with `rp1 install gemini`.",
 	},
@@ -88,14 +87,14 @@ export const GEMINI_SMOKE_STATUS_DETAILS = {
 		label: "degraded: Gemini trust or approval required",
 		issue: "Gemini blocked shell execution until trust or approval is granted.",
 		remediation:
-			"Approve Gemini shell execution or trust this project, then retry the smoke command.",
+			"Approve Gemini shell execution or trust this project, then retry the generated Gemini command or verification.",
 	},
 	registration_failed: {
 		label: "degraded: artifact registration failed",
 		issue:
-			"The smoke artifact was written, but rp1 artifact registration failed.",
+			"The Gemini artifact was written, but rp1 artifact registration failed.",
 		remediation:
-			"Inspect the smoke artifact Registration Output, fix the rp1 emit failure, then rerun the smoke command.",
+			"Inspect the artifact registration output, fix the rp1 emit failure, then rerun the generated Gemini workflow.",
 	},
 } as const satisfies Record<GeminiSmokeStatus, GeminiSmokeStatusDetail>;
 
