@@ -1,10 +1,8 @@
-import {
-	Claude,
-	Gemini,
-	GithubCopilot,
-	OpenAI,
-	OpenCode,
-} from "@lobehub/icons";
+import Claude from "@lobehub/icons/es/Claude/components/Mono";
+import Gemini from "@lobehub/icons/es/Gemini/components/Mono";
+import GithubCopilot from "@lobehub/icons/es/GithubCopilot/components/Mono";
+import OpenAI from "@lobehub/icons/es/OpenAI/components/Mono";
+import OpenCode from "@lobehub/icons/es/OpenCode/components/Mono";
 
 export type HarnessName =
 	| "claude-code"

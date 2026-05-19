@@ -1,62 +1,31 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { render } from "@testing-library/react";
 import { createElement } from "react";
-
-let harnessIconImportVersion = 0;
-
-async function loadHarnessIcon() {
-	mock.module("@lobehub/icons", () => ({
-		Claude: ({ size }: { size?: number }) =>
-			createElement("svg", { "data-icon": "Claude", "data-size": size }),
-		Gemini: ({ size }: { size?: number }) =>
-			createElement("svg", { "data-icon": "Gemini", "data-size": size }),
-		GithubCopilot: ({ size }: { size?: number }) =>
-			createElement("svg", {
-				"data-icon": "GithubCopilot",
-				"data-size": size,
-			}),
-		OpenAI: ({ size }: { size?: number }) =>
-			createElement("svg", { "data-icon": "OpenAI", "data-size": size }),
-		OpenCode: ({ size }: { size?: number }) =>
-			createElement("svg", { "data-icon": "OpenCode", "data-size": size }),
-	}));
-
-	const { HarnessIcon } = await import(
-		`../../../components/v2/HarnessIcon.tsx?harness-icon-test=${++harnessIconImportVersion}`
-	);
-
-	return HarnessIcon as (props: {
-		harness: string;
-		size?: number;
-	}) => JSX.Element;
-}
+import { HarnessIcon } from "../../../components/v2/HarnessIcon";
 
 describe("HarnessIcon", () => {
-	beforeEach(() => {
-		mock.restore();
-	});
-
-	test("renders the GithubCopilot icon for copilot harnesses", async () => {
-		const HarnessIcon = await loadHarnessIcon();
+	test("renders the GithubCopilot mono icon for copilot harnesses", () => {
 		const { container } = render(
 			createElement(HarnessIcon, { harness: "copilot", size: 16 }),
 		);
 
 		const wrapper = container.querySelector('span[title="copilot"]');
 		expect(wrapper).toBeTruthy();
-		expect(
-			container.querySelector('svg[data-icon="GithubCopilot"]'),
-		).toBeTruthy();
+		expect(container.querySelector("svg title")?.textContent).toBe(
+			"GithubCopilot",
+		);
 	});
 
-	test("renders the LobeHub Gemini mono icon for Gemini CLI harnesses", async () => {
-		const HarnessIcon = await loadHarnessIcon();
+	test("renders the LobeHub Gemini mono icon for Gemini CLI harnesses", () => {
 		const { container } = render(
 			createElement(HarnessIcon, { harness: "gemini-cli", size: 18 }),
 		);
 
 		const wrapper = container.querySelector('span[title="gemini-cli"]');
 		expect(wrapper).toBeTruthy();
-		expect(container.querySelector('svg[data-icon="Gemini"]')).toBeTruthy();
+		const icon = container.querySelector("svg");
+		expect(icon).toBeTruthy();
+		expect(icon?.getAttribute("fill")).toBe("currentColor");
+		expect(icon?.querySelector("title")?.textContent).toBe("Gemini");
 	});
 });
