@@ -105,7 +105,8 @@ const extractBundledPlugin = async (
 	}
 
 	for (const command of plugin.commands) {
-		const destPath = join(pluginDir, "commands", `${command.name}.md`);
+		const commandFileName = command.fileName ?? `${command.name}.md`;
+		const destPath = join(pluginDir, "commands", commandFileName);
 		await writeAssetEntry(command, destPath);
 		filesExtracted++;
 	}

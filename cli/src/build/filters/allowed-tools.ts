@@ -10,7 +10,7 @@
  * | opencode    | `"Bash(echo *), Read"`   | `["Bash(echo *)", "read_file"]`         |
  * | codex       | `"Bash(echo *), Read"`   | `"functions.exec_command(echo *)"` etc. |
  * | copilot     | `"Bash(echo *), Read"`   | `["run_terminal_command(echo *)", "read_file"]` |
- * | gemini      | `"Bash(echo *), Read"`   | `["Bash(echo *)", "Read"]`             |
+ * | gemini      | `"Bash(echo *), Read"`   | `["run_shell_command(echo *)", "read_file"]` |
  *
  * Extracts and reuses logic from transformations.ts (OpenCode split)
  * and codex/transformations.ts (Codex registry mapping with pattern handling).
@@ -179,6 +179,6 @@ export const allowedToolsFilter = (
 		case "copilot":
 			return toCopilotArray(allowedTools, registry);
 		case "gemini":
-			return toOpenCodeArray(allowedTools);
+			return toCopilotArray(allowedTools, registry);
 	}
 };

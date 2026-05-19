@@ -908,6 +908,14 @@ export const buildPlatformPlugin = async (
 			hookCtx,
 		);
 		errors.push(...hookResult.errors);
+		if (definition.producesBundleAssets && hookResult.commandFiles) {
+			for (const file of hookResult.commandFiles) {
+				commandEntries.push({
+					name: file.name,
+					path: `${pluginName}/${file.path}`,
+				});
+			}
+		}
 		if (definition.producesBundleAssets && hookResult.verbatimFiles) {
 			for (const file of hookResult.verbatimFiles) {
 				verbatimFileEntries.push({
@@ -1168,6 +1176,19 @@ const buildPlatformArtifacts = async (
 				buildTimestamp: new Date().toISOString(),
 				artifact: {
 					type: "bundle-manifest",
+					platformJson: JSON.stringify(
+						{
+							id: platform,
+							name: definition.config.name,
+							binary: definition.config.binary,
+							instructionFile: definition.config.instruction_file,
+							...(definition.config.supportLevel && {
+								supportLevel: definition.config.supportLevel,
+							}),
+						},
+						null,
+						2,
+					),
 					baseJson: JSON.stringify(baseAssets, null, 2),
 					devJson: JSON.stringify(devAssets, null, 2),
 					...(utilsAssets && {

@@ -239,6 +239,7 @@ export interface BundleAssetEntry {
 	readonly name: string;
 	readonly path: string;
 	readonly content?: string;
+	readonly fileName?: string;
 }
 
 /**
@@ -268,6 +269,13 @@ export interface BundlePluginAssets {
  * Generated at dist/<platform>/bundle-manifest.json after build.
  */
 export interface BundleManifest {
+	readonly platform?: {
+		readonly id: import("./template-context.js").BuildPlatform;
+		readonly name: string;
+		readonly binary: string;
+		readonly instructionFile: string;
+		readonly supportLevel?: string;
+	};
 	readonly plugins: {
 		readonly base: BundlePluginAssets;
 		readonly dev: BundlePluginAssets;

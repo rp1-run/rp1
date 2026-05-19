@@ -16,6 +16,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse as parseToml } from "smol-toml";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const GOLDEN_DIR = join(__dirname, "golden");
@@ -62,7 +63,12 @@ const createTestEngine = () => {
 	});
 
 	engine.registerFilter("escape_toml", (value: string) => {
-		return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+		return value
+			.replace(/\\/g, "\\\\")
+			.replace(/"/g, '\\"')
+			.replace(/\r/g, "\\r")
+			.replace(/\n/g, "\\n")
+			.replace(/\t/g, "\\t");
 	});
 
 	engine.registerFilter(
@@ -156,6 +162,32 @@ const createTestEngine = () => {
 			}
 			return mapped;
 		}
+		if (platform === "gemini") {
+			const tools = value.split(",").map((t: string) => t.trim());
+			const mapped: string[] = [];
+			const geminiToolMappings: Record<string, string | null> = {
+				Bash: "run_shell_command",
+				Read: "read_file",
+				Write: "write_file",
+				Edit: "replace",
+				Grep: "grep_search",
+				Glob: "glob",
+			};
+			for (const tool of tools) {
+				const parenMatch = tool.match(/^([A-Za-z]+)\((.+)\)$/);
+				const baseName = parenMatch ? parenMatch[1] : tool;
+				const mappedTool = geminiToolMappings[baseName];
+				if (mappedTool === null) continue;
+				if (mappedTool === undefined) {
+					mapped.push(tool);
+				} else if (parenMatch) {
+					mapped.push(`${mappedTool}(${parenMatch[2]})`);
+				} else {
+					mapped.push(mappedTool);
+				}
+			}
+			return mapped;
+		}
 		return value;
 	});
 
@@ -196,6 +228,8 @@ const createTestEngine = () => {
 		switch (platform) {
 			case "copilot":
 				return "gh-copilot";
+			case "gemini":
+				return "gemini-cli";
 			case "claude-code":
 			case "codex":
 			case "opencode":
@@ -902,6 +936,155 @@ describeWithLiquid("template rendering", () => {
 				"~/.copilot/installed-plugins/",
 			);
 			expect(JSON.stringify(manifest)).not.toContain("github-copilot");
+		});
+	});
+
+	describe("gemini templates", () => {
+		test("renders Gemini skill with workflow bootstrap and Gemini tool names", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("gemini/skill", {
+				platform: "gemini",
+				pluginName: "dev",
+				namespacedPluginName: "rp1-dev",
+				artifact: {
+					type: "skill",
+					name: "build-fast",
+					namespacedName: "rp1-build-fast",
+					description: "Fast tracked workflow for Gemini users",
+					allowedTools: "Bash(rp1 *), Read, Edit",
+					content: "Gemini skill content with $ARGUMENTS.",
+					metadata: {
+						category: "development",
+						isWorkflow: true,
+						workflow: {
+							runPolicy: "fresh",
+							identityArgs: [],
+						},
+						arguments: [
+							{
+								name: "DEVELOPMENT_REQUEST",
+								type: "string",
+								required: true,
+								description: "Development request",
+							},
+						],
+					},
+					supportingFiles: [],
+				},
+			});
+
+			expect(result).toContain('- "run_shell_command(rp1 *)"');
+			expect(result).toContain("- read_file");
+			expect(result).toContain("- replace");
+			expect(result).toContain("## 0. Workflow Bootstrap");
+			expect(result).toContain("--name rp1-dev:build-fast");
+			expect(result).toContain(
+				'--schema-path "$HOME/.gemini/extensions/rp1-dev/skills/rp1-build-fast/SKILL.md"',
+			);
+			expect(result).toContain("Default: `gemini-cli`");
+			expect(result).toContain(
+				"the arguments provided by the user in their prompt",
+			);
+		});
+
+		test("renders Gemini subagent files with local agent metadata", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("gemini/agent", {
+				platform: "gemini",
+				pluginName: "base",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "agent",
+					name: "research-explorer",
+					description: "Explores code and docs for a research report",
+					model: "inherit",
+					tools: ["Read", "Grep", "Bash"],
+					content: "Use Read and Grep carefully.",
+				},
+			});
+
+			expect(result).toContain("name: rp1-base-research-explorer");
+			expect(result).toContain("kind: local");
+			expect(result).toContain("- read_file");
+			expect(result).toContain("- grep_search");
+			expect(result).toContain("- run_shell_command");
+			expect(result).toContain("max_turns: 30");
+			expect(result).toContain("Default: `gemini-cli`");
+		});
+
+		test("renders Gemini command TOML with argument placeholder intact", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("gemini/command", {
+				platform: "gemini",
+				pluginName: "base",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "command",
+					name: "knowledge-build",
+					description: "Build knowledge base artifacts",
+					prompt: "# rp1-base:knowledge-build\n\nArguments: {{args}}\n",
+				},
+			});
+
+			const parsed = parseToml(result) as Record<string, unknown>;
+			expect(parsed.description).toBe("Build knowledge base artifacts");
+			expect(parsed.prompt).toContain("{{args}}");
+			expect(parsed.prompt).toContain("rp1-base:knowledge-build");
+		});
+
+		test("renders Gemini extension metadata, context, and manifest", async () => {
+			const engine = createTestEngine();
+			const extension = JSON.parse(
+				await engine.renderFile("gemini/extension", {
+					platform: "gemini",
+					pluginName: "base",
+					namespacedPluginName: "rp1-base",
+					pluginVersion: "1.2.3",
+					artifact: {
+						description: "Base workflows for Gemini CLI",
+						contextFileName: "GEMINI.md",
+					},
+				}),
+			);
+			expect(extension).toMatchObject({
+				name: "rp1-base",
+				version: "1.2.3",
+				contextFileName: "GEMINI.md",
+			});
+
+			const context = await engine.renderFile("gemini/context", {
+				platform: "gemini",
+				pluginName: "base",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					description: "Base workflows for Gemini CLI",
+					commands: ["rp1-base:knowledge-build"],
+					skills: ["rp1-knowledge-build"],
+					agents: ["rp1-base-research-explorer"],
+				},
+			});
+			expect(context).toContain("/rp1-base:knowledge-build");
+			expect(context).toContain("support-matrix.json");
+
+			const manifest = JSON.parse(
+				await engine.renderFile("gemini/manifest", {
+					platform: "gemini",
+					pluginName: "base",
+					namespacedPluginName: "rp1-base",
+					version: "1.0.0",
+					artifact: {
+						type: "manifest",
+						commands: ["rp1-base:knowledge-build"],
+						agents: ["rp1-base-research-explorer"],
+						skills: ["rp1-knowledge-build"],
+					},
+				}),
+			);
+			expect(manifest.nativePluginName).toBe("rp1-base");
+			expect(manifest.artifacts.supportMatrix).toBe("support-matrix.json");
+			expect(manifest.installation.extensionDir).toBe(
+				"~/.gemini/extensions/rp1-base",
+			);
 		});
 	});
 

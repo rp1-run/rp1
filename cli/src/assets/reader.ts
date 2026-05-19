@@ -63,6 +63,13 @@ export type PluginKey = (typeof ALL_PLUGIN_KEYS)[number];
  * Per-platform bundled plugin set.
  */
 export interface BundledPlatform {
+	platform?: {
+		id: string;
+		name: string;
+		binary: string;
+		instructionFile: string;
+		supportLevel?: string;
+	};
 	plugins: {
 		base: BundledPlugin;
 		dev: BundledPlugin;

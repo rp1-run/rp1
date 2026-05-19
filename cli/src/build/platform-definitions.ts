@@ -61,6 +61,8 @@ export type PlatformBuildState = Record<string, unknown>;
 export interface PostBuildResult {
 	readonly errors: string[];
 	readonly warnings: string[];
+	/** Additional generated command files to include in manifests and asset bundles. */
+	readonly commandFiles?: readonly { name: string; path: string }[];
 	/** Additional files to include in the bundle manifest as verbatim entries. */
 	readonly verbatimFiles?: readonly { name: string; path: string }[];
 }
@@ -241,6 +243,12 @@ import { discoverSkillMap } from "./codex/skill-map.js";
 import { validateSubAgents } from "./codex/sub-agent-validator.js";
 import { validateCodexToml } from "./codex/validator.js";
 import { copilotRegistry } from "./copilot/registry.js";
+import {
+	geminiPostPluginBuild,
+	geminiPostSkillWrite,
+	geminiPreparePlugin,
+} from "./gemini/hooks.js";
+import { geminiRegistry } from "./gemini/registry.js";
 import { defaultRegistry } from "./registry.js";
 import { transformNamespace } from "./tags/index.js";
 import { buildTemplateContext } from "./template-context.js";
@@ -427,10 +435,6 @@ const codexPostPluginBuild = async (
 // ---------------------------------------------------------------------------
 
 const opencodePreparePlugin = async (
-	_ctx: HookContext,
-): Promise<PlatformBuildState> => ({});
-
-const geminiPreparePlugin = async (
 	_ctx: HookContext,
 ): Promise<PlatformBuildState> => ({});
 
@@ -722,12 +726,12 @@ const copilotPlatform: PlatformDefinition = {
 
 const geminiPlatform: PlatformDefinition = {
 	id: "gemini",
-	registry: defaultRegistry,
+	registry: geminiRegistry,
 	config: platformConfigs.gemini,
 	templates: {
-		skill: "opencode/skill",
-		agent: "opencode/agent",
-		manifest: "opencode/manifest",
+		skill: "gemini/skill",
+		agent: "gemini/agent",
+		manifest: "gemini/manifest",
 	},
 	naming: {
 		skillDirPrefix: "rp1-",
@@ -737,6 +741,8 @@ const geminiPlatform: PlatformDefinition = {
 	},
 	hooks: {
 		preparePlugin: geminiPreparePlugin,
+		postSkillWrite: geminiPostSkillWrite,
+		postPluginBuild: geminiPostPluginBuild,
 	},
 	producesBundleAssets: true,
 };

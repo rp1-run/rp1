@@ -15,5 +15,10 @@
  * @returns TOML-safe escaped string (without surrounding quotes)
  */
 export const escapeToml = (value: string): string => {
-	return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+	return value
+		.replace(/\\/g, "\\\\")
+		.replace(/"/g, '\\"')
+		.replace(/\r/g, "\\r")
+		.replace(/\n/g, "\\n")
+		.replace(/\t/g, "\\t");
 };

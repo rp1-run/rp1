@@ -11,6 +11,7 @@ import {
 	allowedToolsFilter,
 	copilotPermissionPatternsFilter,
 } from "../../../build/filters/allowed-tools.js";
+import { geminiRegistry } from "../../../build/gemini/registry.js";
 import { defaultRegistry } from "../../../build/registry.js";
 
 describe("allowed_tools filter", () => {
@@ -155,14 +156,18 @@ describe("allowed_tools filter", () => {
 		});
 	});
 
-	describe("gemini (split to array)", () => {
-		test("splits comma-separated tools into array", () => {
+	describe("gemini (map through registry)", () => {
+		test("maps comma-separated tools into Gemini tool names", () => {
 			const result = allowedToolsFilter(
 				"Bash(echo *), Read, Write",
 				"gemini",
-				defaultRegistry,
+				geminiRegistry,
 			);
-			expect(result).toEqual(["Bash(echo *)", "Read", "Write"]);
+			expect(result).toEqual([
+				"run_shell_command(echo *)",
+				"read_file",
+				"write_file",
+			]);
 		});
 	});
 

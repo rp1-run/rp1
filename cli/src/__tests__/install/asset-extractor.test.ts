@@ -227,7 +227,14 @@ describe("asset-extractor", () => {
 						plugins: {
 							base: {
 								name: "rp1-base",
-								commands: [],
+								commands: [
+									{
+										name: "rp1-base:knowledge-build",
+										path: "/tmp/bun-embedded-command-12345",
+										content: 'prompt = "Run rp1"',
+										fileName: "rp1-base/knowledge-build.toml",
+									},
+								],
 								agents: [
 									{
 										name: "rp1-base-task-builder",
@@ -268,6 +275,12 @@ describe("asset-extractor", () => {
 			);
 
 			expect(result.pluginsExtracted).toEqual(["rp1-base"]);
+
+			const commandContent = await readFile(
+				join(targetDir, "base", "commands", "rp1-base", "knowledge-build.toml"),
+				"utf-8",
+			);
+			expect(commandContent).toBe('prompt = "Run rp1"');
 
 			const agentContent = await readFile(
 				join(targetDir, "base", "agents", "rp1-base-task-builder.agent.md"),
