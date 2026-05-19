@@ -10,13 +10,15 @@ mock.module("@/providers/ThemeProvider", () => ({
 }));
 
 describe("IconRail", () => {
+	let importVersion = 0;
+
 	afterEach(() => {
 		cleanup();
 	});
 
 	test("uses the current RP1 mark for navigation identity", async () => {
 		const { IconRail } = await import(
-			"../../../components/v2/IconRail.tsx?icon-rail-test"
+			`../../../components/v2/IconRail.tsx?icon-rail-test=${++importVersion}`
 		);
 
 		render(
