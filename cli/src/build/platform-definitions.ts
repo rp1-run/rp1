@@ -212,6 +212,18 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 		plugin_install_cmd: "copilot plugin install {plugin}",
 		capabilities: ["plugins", "skills", "agents", "slash-commands"],
 	},
+	gemini: {
+		id: "gemini",
+		name: "Gemini CLI",
+		enabled: true,
+		binary: "gemini",
+		min_version: "0.0.0",
+		instruction_file: "AGENTS.md",
+		install_url: "https://github.com/google-gemini/gemini-cli",
+		plugin_install_cmd: null,
+		supportLevel: "experimental",
+		capabilities: ["plugins", "skills", "agents", "slash-commands"],
+	},
 };
 
 // ---------------------------------------------------------------------------
@@ -415,6 +427,10 @@ const codexPostPluginBuild = async (
 // ---------------------------------------------------------------------------
 
 const opencodePreparePlugin = async (
+	_ctx: HookContext,
+): Promise<PlatformBuildState> => ({});
+
+const geminiPreparePlugin = async (
 	_ctx: HookContext,
 ): Promise<PlatformBuildState> => ({});
 
@@ -704,6 +720,27 @@ const copilotPlatform: PlatformDefinition = {
 	producesBundleAssets: true,
 };
 
+const geminiPlatform: PlatformDefinition = {
+	id: "gemini",
+	registry: defaultRegistry,
+	config: platformConfigs.gemini,
+	templates: {
+		skill: "opencode/skill",
+		agent: "opencode/agent",
+		manifest: "opencode/manifest",
+	},
+	naming: {
+		skillDirPrefix: "rp1-",
+		agentFileName: (pluginName: string, agentName: string) =>
+			`rp1-${pluginName}-${agentName}`,
+		agentExtension: ".md",
+	},
+	hooks: {
+		preparePlugin: geminiPreparePlugin,
+	},
+	producesBundleAssets: true,
+};
+
 // ---------------------------------------------------------------------------
 // Platform definitions map
 // ---------------------------------------------------------------------------
@@ -716,6 +753,7 @@ export const PLATFORM_DEFINITIONS: ReadonlyMap<
 	["claude-code", claudeCodePlatform],
 	["codex", codexPlatform],
 	["copilot", copilotPlatform],
+	["gemini", geminiPlatform],
 ]);
 
 /**

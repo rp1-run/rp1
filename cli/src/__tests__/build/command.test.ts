@@ -9,6 +9,7 @@ import { join } from "node:path";
 import type { Logger } from "../../../shared/logger.js";
 import {
 	buildPlatformPlugin,
+	deriveGeminiOutputDir,
 	executeBuild,
 	parseBuildArgs,
 } from "../../build/command.js";
@@ -38,6 +39,7 @@ const opencodeDef = PLATFORM_DEFINITIONS.get("opencode")!;
 const claudeCodeDef = PLATFORM_DEFINITIONS.get("claude-code")!;
 const codexDef = PLATFORM_DEFINITIONS.get("codex")!;
 const copilotDef = PLATFORM_DEFINITIONS.get("copilot")!;
+const geminiDef = PLATFORM_DEFINITIONS.get("gemini")!;
 
 const extractBootstrapTarget = (
 	content: string,
@@ -59,19 +61,28 @@ const extractBootstrapTarget = (
 };
 
 describe("build platform support", () => {
-	test("keeps Gemini out of first-class build-platform parity", () => {
+	test("registers Gemini as a bundle-producing build platform", () => {
 		const platformIds = Array.from(PLATFORM_DEFINITIONS.keys()).sort();
 
 		expect(platformIds).toEqual([
 			"claude-code",
 			"codex",
 			"copilot",
+			"gemini",
 			"opencode",
 		]);
-		expect(platformIds as readonly string[]).not.toContain("gemini");
-		expect(expectLeft(parseBuildArgs(["--platform", "gemini"]))).toMatchObject({
-			_tag: "UsageError",
-		});
+		expect(expectRight(parseBuildArgs(["--platform", "gemini"]))).toMatchObject(
+			{
+				platform: "gemini",
+			},
+		);
+		expect(geminiDef.producesBundleAssets).toBe(true);
+		expect(geminiDef.config.id).toBe("gemini");
+	});
+
+	test("derives the default Gemini output directory next to other platform outputs", () => {
+		expect(deriveGeminiOutputDir("dist/opencode")).toBe("dist/gemini");
+		expect(deriveGeminiOutputDir("dist/opencode/")).toBe("dist/gemini");
 	});
 });
 
@@ -104,6 +115,16 @@ describe("parseBuildArgs", () => {
 			outputDir: "out",
 			plugin: "utils",
 			platform: "copilot",
+		});
+
+		expect(
+			expectRight(
+				parseBuildArgs(["-o", "out", "-p", "utils", "--platform", "gemini"]),
+			),
+		).toMatchObject({
+			outputDir: "out",
+			plugin: "utils",
+			platform: "gemini",
 		});
 	});
 
@@ -764,7 +785,7 @@ ${plugin} sample content.
 			errors: string[];
 		};
 		expect(summary.status).toBe("success");
-		expect(summary.skills).toBeGreaterThanOrEqual(8);
+		expect(summary.skills).toBeGreaterThanOrEqual(10);
 		expect(summary.errors).toEqual([]);
 
 		const bundleManifest = JSON.parse(
@@ -775,5 +796,14 @@ ${plugin} sample content.
 		);
 		expect(bundleManifest.plugins.base).toBeDefined();
 		expect(bundleManifest.plugins.dev).toBeDefined();
+
+		const geminiBundleManifest = JSON.parse(
+			await readFile(
+				join(projectRoot, "dist", "gemini", "bundle-manifest.json"),
+				"utf-8",
+			),
+		);
+		expect(geminiBundleManifest.plugins.base).toBeDefined();
+		expect(geminiBundleManifest.plugins.dev).toBeDefined();
 	});
 });

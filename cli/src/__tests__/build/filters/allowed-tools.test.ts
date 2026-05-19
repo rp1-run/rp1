@@ -155,6 +155,17 @@ describe("allowed_tools filter", () => {
 		});
 	});
 
+	describe("gemini (split to array)", () => {
+		test("splits comma-separated tools into array", () => {
+			const result = allowedToolsFilter(
+				"Bash(echo *), Read, Write",
+				"gemini",
+				defaultRegistry,
+			);
+			expect(result).toEqual(["Bash(echo *)", "Read", "Write"]);
+		});
+	});
+
 	describe("copilot skill permissions", () => {
 		test("maps Bash wildcard patterns to shell permission stems", () => {
 			expect(copilotPermissionPatternsFilter("Bash(rp1 *)")).toEqual([

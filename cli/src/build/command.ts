@@ -64,7 +64,16 @@ import { createTemplateEngine } from "./template-engine.js";
 import { injectEmitHarness } from "./transforms.js";
 import { validateAgent, validateSkill } from "./validator.js";
 
-const VALID_PLATFORMS = ["opencode", "codex", "claude-code", "copilot", "all"];
+const VALID_PLATFORMS = [
+	"opencode",
+	"codex",
+	"claude-code",
+	"copilot",
+	"gemini",
+	"all",
+];
+const PLATFORM_ERROR =
+	"--platform must be 'opencode', 'codex', 'claude-code', 'copilot', 'gemini', or 'all'";
 
 /**
  * Format a lint diagnostic into a human-readable string.
@@ -128,40 +137,46 @@ export const parseBuildArgs = (
 		} else if (arg === "--platform") {
 			const value = args[++i];
 			if (!value || !VALID_PLATFORMS.includes(value)) {
-				return E.left(
-					usageError(
-						"--platform must be 'opencode', 'codex', 'claude-code', 'copilot', or 'all'",
-					),
-				);
+				return E.left(usageError(PLATFORM_ERROR));
 			}
 			(
 				config as {
-					platform: "opencode" | "codex" | "claude-code" | "copilot" | "all";
+					platform:
+						| "opencode"
+						| "codex"
+						| "claude-code"
+						| "copilot"
+						| "gemini"
+						| "all";
 				}
 			).platform = value as
 				| "opencode"
 				| "codex"
 				| "claude-code"
 				| "copilot"
+				| "gemini"
 				| "all";
 		} else if (arg.startsWith("--platform=")) {
 			const value = arg.slice("--platform=".length);
 			if (!VALID_PLATFORMS.includes(value)) {
-				return E.left(
-					usageError(
-						"--platform must be 'opencode', 'codex', 'claude-code', 'copilot', or 'all'",
-					),
-				);
+				return E.left(usageError(PLATFORM_ERROR));
 			}
 			(
 				config as {
-					platform: "opencode" | "codex" | "claude-code" | "copilot" | "all";
+					platform:
+						| "opencode"
+						| "codex"
+						| "claude-code"
+						| "copilot"
+						| "gemini"
+						| "all";
 				}
 			).platform = value as
 				| "opencode"
 				| "codex"
 				| "claude-code"
 				| "copilot"
+				| "gemini"
 				| "all";
 		} else if (arg === "--json") {
 			(config as { jsonOutput: boolean }).jsonOutput = true;
@@ -189,7 +204,7 @@ ${bold("Usage:")}
 ${bold("Options:")}
   -o, --output-dir <dir>       Output directory (default: dist/opencode/)
   -p, --plugin <name>          Build specific plugin (base, dev, utils, or all)
-  --platform <name>            Target platform (opencode, codex, claude-code, copilot, or all)
+  --platform <name>            Target platform (opencode, codex, claude-code, copilot, gemini, or all)
   --json                       Output results as JSON for CI/CD
   --lint                       Run build pipeline with lint validation only (no file output)
   -h, --help                   Show this help message
@@ -199,6 +214,7 @@ ${bold("Examples:")}
   rp1 build:opencode --plugin dev                  # Build only dev plugin
   rp1 build:opencode --platform claude-code        # Build for Claude Code
   rp1 build:opencode --platform codex              # Build for Codex
+  rp1 build:opencode --platform gemini             # Build for Gemini CLI
   rp1 build:opencode --platform all                # Build for all platforms
   rp1 build:opencode -o ./output                   # Custom output directory
   rp1 build:opencode --json                        # JSON output for CI
@@ -1049,6 +1065,16 @@ export const deriveCopilotOutputDir = (opencodeOutputDir: string): string => {
 };
 
 /**
+ * Derive Gemini output directory from the OpenCode output directory.
+ * Maps "dist/opencode" to "dist/gemini".
+ */
+export const deriveGeminiOutputDir = (opencodeOutputDir: string): string => {
+	const normalized = opencodeOutputDir.replace(/\/+$/, "");
+	const parent = dirname(normalized);
+	return join(parent, "gemini");
+};
+
+/**
  * Print build summary table.
  */
 const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
@@ -1188,6 +1214,14 @@ export const executeBuild = (
 					const ccOutputPath = deriveCCOutputDir(outputPath);
 					const codexOutputPath = deriveCodexOutputDir(outputPath);
 					const copilotOutputPath = deriveCopilotOutputDir(outputPath);
+					const geminiOutputPath = deriveGeminiOutputDir(outputPath);
+					const platformOutputPaths: Record<BuildPlatform, string> = {
+						opencode: outputPath,
+						"claude-code": ccOutputPath,
+						codex: codexOutputPath,
+						copilot: copilotOutputPath,
+						gemini: geminiOutputPath,
+					};
 
 					const platformsToBuild: Array<{
 						platform: BuildPlatform;
@@ -1199,20 +1233,17 @@ export const executeBuild = (
 									{ platform: "claude-code", outputPath: ccOutputPath },
 									{ platform: "codex", outputPath: codexOutputPath },
 									{ platform: "copilot", outputPath: copilotOutputPath },
+									{ platform: "gemini", outputPath: geminiOutputPath },
 								]
-							: [
-									{
-										platform: config.platform as BuildPlatform,
-										outputPath:
-											config.platform === "claude-code"
-												? ccOutputPath
-												: config.platform === "codex"
-													? codexOutputPath
-													: config.platform === "copilot"
-														? copilotOutputPath
-														: outputPath,
-									},
-								];
+							: (() => {
+									const platform = config.platform as BuildPlatform;
+									return [
+										{
+											platform,
+											outputPath: platformOutputPaths[platform],
+										},
+									];
+								})();
 
 					if (!config.jsonOutput) {
 						for (const { platform, outputPath: op } of platformsToBuild) {

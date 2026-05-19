@@ -21,7 +21,12 @@ import type {
 // ---------------------------------------------------------------------------
 
 /** Build target platforms. */
-export type BuildPlatform = "opencode" | "codex" | "claude-code" | "copilot";
+export type BuildPlatform =
+	| "opencode"
+	| "codex"
+	| "claude-code"
+	| "copilot"
+	| "gemini";
 
 // ---------------------------------------------------------------------------
 // Codex role type

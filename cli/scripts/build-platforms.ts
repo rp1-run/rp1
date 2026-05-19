@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 
 /**
- * Build artifacts for all platforms (Claude Code, OpenCode, Codex).
- * Produces dist/claude-code/, dist/opencode/, and dist/codex/ directories.
+ * Build artifacts for all platforms (Claude Code, OpenCode, Codex, Copilot, Gemini).
+ * Produces dist/claude-code/, dist/opencode/, dist/codex/, dist/copilot/, and dist/gemini/ directories.
  *
  * Usage:
  *   bun run scripts/build-platforms.ts [options]

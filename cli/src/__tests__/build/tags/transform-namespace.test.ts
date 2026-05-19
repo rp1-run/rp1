@@ -69,6 +69,20 @@ describe("transformNamespace", () => {
 		});
 	});
 
+	describe("gemini (@ prefix with dash separator)", () => {
+		test("transforms rp1-base:agent to @rp1-base-agent", () => {
+			expect(transformNamespace("rp1-base:agent", "gemini")).toBe(
+				"@rp1-base-agent",
+			);
+		});
+
+		test("transforms rp1-dev:build to @rp1-dev-build", () => {
+			expect(transformNamespace("rp1-dev:build", "gemini")).toBe(
+				"@rp1-dev-build",
+			);
+		});
+	});
+
 	describe("invalid input", () => {
 		test("returns non-canonical reference unchanged", () => {
 			expect(transformNamespace("not-a-ref", "copilot")).toBe("not-a-ref");

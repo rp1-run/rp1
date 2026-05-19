@@ -198,7 +198,13 @@ export interface PluginManifest {
 export interface BuildConfig {
 	readonly outputDir: string;
 	readonly plugin: "base" | "dev" | "utils" | "all";
-	readonly platform: "opencode" | "codex" | "claude-code" | "copilot" | "all";
+	readonly platform:
+		| "opencode"
+		| "codex"
+		| "claude-code"
+		| "copilot"
+		| "gemini"
+		| "all";
 	readonly jsonOutput: boolean;
 	readonly lintOnly: boolean;
 }
