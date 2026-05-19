@@ -163,11 +163,30 @@ describe("allowed_tools filter", () => {
 				"gemini",
 				geminiRegistry,
 			);
+			expect(result).toEqual(["run_shell_command", "read_file", "write_file"]);
+		});
+
+		test("strips shell permission patterns in Gemini agent tools", () => {
+			const result = allowedToolsFilter(
+				"Read, Grep, Bash, Bash(rp1 *)",
+				"gemini",
+				geminiRegistry,
+			);
 			expect(result).toEqual([
-				"run_shell_command(echo *)",
 				"read_file",
-				"write_file",
+				"search_file_content",
+				"run_shell_command",
 			]);
+		});
+
+		test("omits empty Gemini tool entries", () => {
+			const result = allowedToolsFilter("", "gemini", geminiRegistry);
+			expect(result).toEqual([]);
+		});
+
+		test("maps Task to the Gemini subagent invocation tool", () => {
+			const result = allowedToolsFilter("Task", "gemini", geminiRegistry);
+			expect(result).toEqual(["invoke_agent"]);
 		});
 	});
 

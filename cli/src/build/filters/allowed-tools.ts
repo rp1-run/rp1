@@ -10,7 +10,7 @@
  * | opencode    | `"Bash(echo *), Read"`   | `["Bash(echo *)", "read_file"]`         |
  * | codex       | `"Bash(echo *), Read"`   | `"functions.exec_command(echo *)"` etc. |
  * | copilot     | `"Bash(echo *), Read"`   | `["run_terminal_command(echo *)", "read_file"]` |
- * | gemini      | `"Bash(echo *), Read"`   | `["run_shell_command(echo *)", "read_file"]` |
+ * | gemini      | `"Bash(echo *), Read"`   | `["run_shell_command", "read_file"]` |
  *
  * Extracts and reuses logic from transformations.ts (OpenCode split)
  * and codex/transformations.ts (Codex registry mapping with pattern handling).
@@ -56,6 +56,39 @@ const toCopilotArray = (
 	}
 
 	return mapped;
+};
+
+/**
+ * Transform allowed-tools for Gemini agent frontmatter. Gemini agent `tools`
+ * accepts concrete tool names, not command permission patterns, so
+ * `Bash(rp1 *)` becomes `run_shell_command`.
+ */
+const toGeminiArray = (
+	allowedTools: string,
+	registry: PlatformRegistry,
+): readonly string[] => {
+	const tools = allowedTools
+		.split(",")
+		.map((t) => t.trim())
+		.filter(Boolean);
+	const mapped: string[] = [];
+
+	for (const tool of tools) {
+		const parenMatch = tool.match(/^([A-Za-z]+)\((.+)\)$/);
+		const baseName = parenMatch ? parenMatch[1] : tool;
+
+		const mappedTool = registry.toolMappings[baseName];
+		if (mappedTool === null) {
+			continue;
+		}
+		if (mappedTool === undefined) {
+			mapped.push(baseName);
+		} else {
+			mapped.push(mappedTool);
+		}
+	}
+
+	return [...new Set(mapped)];
 };
 
 const toCopilotShellPattern = (pattern: string): string => {
@@ -179,6 +212,6 @@ export const allowedToolsFilter = (
 		case "copilot":
 			return toCopilotArray(allowedTools, registry);
 		case "gemini":
-			return toCopilotArray(allowedTools, registry);
+			return toGeminiArray(allowedTools, registry);
 	}
 };

@@ -1085,7 +1085,10 @@ export const deriveGeminiOutputDir = (opencodeOutputDir: string): string => {
 /**
  * Print build summary table.
  */
-const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
+const printSummary = (
+	summaries: BuildSummary[],
+	outputPaths: readonly string[],
+): void => {
 	const { bold, green, cyan, yellow, boldGreen } = colorFns;
 	console.log(`\n${boldGreen("✓ Build complete!")}\n`);
 
@@ -1107,7 +1110,17 @@ const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
 		);
 	}
 
-	console.log(`\nOutput directory: ${cyan(resolve(outputPath))}`);
+	const uniqueOutputPaths = [
+		...new Set(outputPaths.map((path) => resolve(path))),
+	];
+	if (uniqueOutputPaths.length === 1) {
+		console.log(`\nOutput directory: ${cyan(uniqueOutputPaths[0])}`);
+	} else {
+		console.log("\nOutput directories:");
+		for (const outputPath of uniqueOutputPaths) {
+			console.log(`  ${cyan(outputPath)}`);
+		}
+	}
 
 	const allErrors = summaries.flatMap((s) => s.errors);
 	if (allErrors.length > 0) {
@@ -1343,7 +1356,10 @@ export const executeBuild = (
 						};
 						console.log(JSON.stringify(result, null, 2));
 					} else {
-						printSummary(allSummaries, outputPath);
+						printSummary(
+							allSummaries,
+							platformsToBuild.map(({ outputPath }) => outputPath),
+						);
 					}
 
 					const totalErrors = allSummaries.reduce(

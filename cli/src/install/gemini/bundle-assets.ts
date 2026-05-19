@@ -249,6 +249,11 @@ export const loadGeminiBundleAssetManifest = async (
 ): Promise<readonly GeminiAssetManifestEntry[]> => {
 	if (options.assetManifest) return options.assetManifest;
 
+	if (options.distDir || process.env[GEMINI_BUNDLE_DIR_ENV]) {
+		const fromDist = await loadGeminiPlatformFromDist(options.distDir);
+		return buildAssetManifestFromPlatform(fromDist.platform, fromDist.distDir);
+	}
+
 	if (options.bundledAssets) {
 		return buildAssetManifestFromPlatform(
 			geminiPlatformFromBundledAssets(options.bundledAssets),

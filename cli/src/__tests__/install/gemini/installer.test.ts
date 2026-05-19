@@ -17,11 +17,13 @@ import {
 import {
 	createBundledGeminiAssetsFixture,
 	createGeminiBundleAssetManifestFixture,
+	writeGeminiBundleDistFixture,
 } from "../../helpers/gemini-bundle.js";
 import {
 	cleanupTempDir,
 	createTempDir,
 	expectTaskRight,
+	withEnvOverride,
 	writeFixture,
 } from "../../helpers/index.js";
 
@@ -115,6 +117,27 @@ describe("Gemini bundle asset installer", () => {
 					asset.lifecycleStages.includes("uninstall"),
 			),
 		).toBe(true);
+	});
+
+	test("prefers explicit Gemini dist assets over embedded bundle assets", async () => {
+		const distDir = await writeGeminiBundleDistFixture(tempDir);
+		await writeFixture(distDir, "base/GEMINI.md", "# rp1-base from dist\n");
+		const restoreBundle = withEnvOverride("RP1_GEMINI_BUNDLE_DIR", distDir);
+
+		try {
+			const assets = await loadGeminiBundleAssetManifest({
+				bundledAssets: createBundledGeminiAssetsFixture(),
+			});
+
+			expect(
+				assets.find(
+					(asset) =>
+						asset.relativePath === ".gemini/extensions/rp1-base/GEMINI.md",
+				)?.expectedContent,
+			).toBe("# rp1-base from dist\n");
+		} finally {
+			restoreBundle();
+		}
 	});
 
 	test("rejects non-Gemini bundle manifests before deriving lifecycle ownership", async () => {
