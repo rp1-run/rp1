@@ -154,11 +154,15 @@ build-codex:
 build-copilot:
     cd cli && bun run scripts/build-copilot.ts
 
+# Build the Gemini CLI extension bundle
+build-gemini:
+    cd cli && bun run scripts/build-gemini.ts
+
 # Validate plugin builds on every platform (CI-oriented; no compile, no web-ui).
 # Catches platform-specific semantic-lint errors (L-rules) that single-platform
 # builds miss — e.g. OpenCode-only naming, Codex-only tool surfaces.
 build-plugins-check:
-    cd cli && bun run scripts/build-opencode.ts && bun run scripts/build-codex.ts && bun run scripts/build-claude-code.ts && bun run scripts/build-copilot.ts
+    cd cli && bun run scripts/build-opencode.ts && bun run scripts/build-codex.ts && bun run scripts/build-claude-code.ts && bun run scripts/build-copilot.ts && bun run scripts/build-gemini.ts
 
 # Build the web-ui
 build-web-ui:
@@ -178,7 +182,7 @@ clean-web-ui-cache:
 
 # RP1_BUILD_INTERNAL=1 includes utils (internal-only plugin) in the dev build
 build-local-dev: build-web-ui clean-web-ui-cache
-    cd cli && bun install --frozen-lockfile && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
+    cd cli && bun install --frozen-lockfile && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-gemini.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
 
 # Build the macOS native Arcade shell target without opening it
 build-native-app: install
@@ -309,6 +313,19 @@ codex:
     fi
     ./bin/rp1 install codex --yes --artifacts-dir dist/codex
     codex
+
+# Launch Gemini CLI with local generated extension bundle assets (auto-builds if stale)
+gemini:
+    #!/usr/bin/env bash
+    set -e
+    if [ ! -d "dist/gemini/base" ] || \
+       [ ! -f "dist/gemini/base/gemini-extension.json" ] || \
+       [ "$(find plugins/ cli/src/build cli/scripts -newer dist/gemini/base/gemini-extension.json \( -name '*.md' -o -name '*.liquid' -o -name '*.ts' -o -name '*.json' \) 2>/dev/null | head -1)" ]; then
+        echo "Building Gemini artifacts..."
+        cd cli && bun run scripts/build-gemini.ts && cd ..
+    fi
+    RP1_GEMINI_BUNDLE_DIR=dist/gemini ./bin/rp1 install gemini
+    gemini
 
 # Launch the macOS native Arcade shell in Electrobun dev mode.
 # Omit PROJECT for registered projects, or pass PROJECT=/path for direct launch.
