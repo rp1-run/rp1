@@ -64,5 +64,8 @@ cli/coverage/
 # Local Claude Code settings (per-user permissions)
 .claude/settings.local.json
 
+# Local Antigravity workspace metadata
+.antigravitycli/
+
 # Git Bash crash dumps (Windows)
 *.stackdump

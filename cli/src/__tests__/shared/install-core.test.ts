@@ -19,6 +19,10 @@ import {
 	updateForSpecificTool as updateForSpecificToolDirect,
 } from "../../shared/install-core.js";
 import {
+	createAntigravityBundleAssetManifestFixture,
+	writeAntigravityBundleDistFixture,
+} from "../helpers/antigravity-bundle.js";
+import {
 	createGeminiBundleAssetManifestFixture,
 	writeGeminiBundleDistFixture,
 } from "../helpers/gemini-bundle.js";
@@ -120,6 +124,19 @@ const createGeminiTool = (): SupportedTool => ({
 	capabilities: ["slash-commands"],
 });
 
+const createAntigravityTool = (): SupportedTool => ({
+	id: "antigravity",
+	name: "Antigravity CLI",
+	enabled: true,
+	binary: "agy",
+	min_version: "0.0.0",
+	instruction_file: "AGENTS.md",
+	install_url: "https://antigravity.google",
+	plugin_install_cmd: null,
+	supportLevel: "stable",
+	capabilities: ["plugins", "skills", "agents", "slash-commands", "mcp"],
+});
+
 const writeGeminiManifestAssets = async (homeDir: string): Promise<void> => {
 	for (const asset of createGeminiBundleAssetManifestFixture()) {
 		await writeFixture(homeDir, asset.relativePath, asset.expectedContent);
@@ -127,10 +144,19 @@ const writeGeminiManifestAssets = async (homeDir: string): Promise<void> => {
 };
 
 const geminiBundleAssetsFixture = createGeminiBundleAssetManifestFixture();
+const antigravityBundleAssetsFixture =
+	createAntigravityBundleAssetManifestFixture();
 
 const withGeminiBundleDir = async (homeDir: string): Promise<() => void> => {
 	const bundleDir = await writeGeminiBundleDistFixture(homeDir);
 	return withEnvOverride("RP1_GEMINI_BUNDLE_DIR", bundleDir);
+};
+
+const withAntigravityBundleDir = async (
+	homeDir: string,
+): Promise<() => void> => {
+	const bundleDir = await writeAntigravityBundleDistFixture(homeDir);
+	return withEnvOverride("RP1_ANTIGRAVITY_BUNDLE_DIR", bundleDir);
 };
 
 const createMockRegistry = (): ToolsRegistry => ({
@@ -872,6 +898,100 @@ describe("install-core tool routing", () => {
 		}
 	});
 
+	test("direct Antigravity install route reports package scope, validation, and version marker state", async () => {
+		const homeDir = await createTempDir(
+			"install-core-antigravity-direct-install",
+		);
+		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restorePath = withEnvOverride("PATH", homeDir);
+		const restoreBundle = await withAntigravityBundleDir(homeDir);
+		const originalWhich = Bun.which;
+		Bun.which = ((command: string) =>
+			command === "agy" ? null : originalWhich(command)) as typeof Bun.which;
+
+		try {
+			const registry = { version: "1.0.0", tools: [createAntigravityTool()] };
+			const dryRun = await expectTaskRight(
+				installForSpecificToolDirect(
+					"antigravity",
+					registry,
+					createMockContext({ dryRun: true }),
+				),
+			);
+			expect(dryRun).toMatchObject({
+				toolId: "antigravity",
+				toolName: "Antigravity CLI",
+				success: true,
+			});
+			expect(dryRun.pluginsInstalled).toEqual(
+				expect.arrayContaining(["rp1-base", "rp1-dev"]),
+			);
+			expect(dryRun.details?.join("\n")).toContain(
+				"Package assets: ~/.gemini/antigravity-cli",
+			);
+			expect(dryRun.details?.join("\n")).toContain("Lifecycle state: dry_run");
+			expect(dryRun.details?.join("\n")).toContain(
+				"Plugin validation: not_run",
+			);
+			expect(dryRun.details?.join("\n")).toContain(
+				"Version marker: not_written",
+			);
+			expect(
+				await Bun.file(
+					join(
+						homeDir,
+						".gemini",
+						"antigravity-cli",
+						"rp1-base",
+						"plugin.json",
+					),
+				).exists(),
+			).toBe(false);
+
+			const installed = await expectTaskRight(
+				installForSpecificToolDirect(
+					"antigravity",
+					registry,
+					createMockContext({ dryRun: false }),
+				),
+			);
+			expect(installed).toMatchObject({
+				toolId: "antigravity",
+				success: true,
+			});
+			expect(installed.warnings.join("\n")).toContain(
+				"Antigravity CLI was not found in PATH",
+			);
+			expect(installed.details?.join("\n")).toContain(
+				"Lifecycle state: current after successful install",
+			);
+			expect(installed.details?.join("\n")).toContain(
+				"Plugin validation: missing_binary",
+			);
+			expect(installed.details?.join("\n")).toContain(
+				"Version marker: current",
+			);
+			expect(
+				await Bun.file(
+					join(
+						homeDir,
+						".gemini",
+						"antigravity-cli",
+						"rp1-dev",
+						"delegation-definitions",
+						"index.json",
+					),
+				).exists(),
+			).toBe(true);
+		} finally {
+			Bun.which = originalWhich;
+			restoreBundle();
+			restorePath();
+			restoreHome();
+			await cleanupTempDir(homeDir);
+		}
+	});
+
 	test("updateForSpecificTool previews stale Gemini manifest refreshes", async () => {
 		const homeDir = await createTempDir("install-core-gemini-update-dry-run");
 		const restoreHome = withEnvOverride("HOME", homeDir);
@@ -907,6 +1027,94 @@ describe("install-core tool routing", () => {
 			expect(
 				await Bun.file(join(homeDir, commandAsset.relativePath)).text(),
 			).toBe("stale generated command");
+		} finally {
+			restoreBundle();
+			restoreHome();
+			await cleanupTempDir(homeDir);
+		}
+	});
+
+	test("direct Antigravity update route reports missing, refreshed, current, and blocked states", async () => {
+		const homeDir = await createTempDir("install-core-antigravity-update");
+		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restoreBundle = await withAntigravityBundleDir(homeDir);
+
+		try {
+			const registry = { version: "1.0.0", tools: [createAntigravityTool()] };
+			const dryMissing = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"antigravity",
+					registry,
+					createMockContext({ dryRun: true }),
+				),
+			);
+			expect(dryMissing).toMatchObject({
+				toolId: "antigravity",
+				success: true,
+				restartRequired: false,
+			});
+			expect(dryMissing.details?.join("\n")).toContain(
+				"Lifecycle state: missing",
+			);
+			expect(dryMissing.details?.join("\n")).toContain("Would refresh:");
+
+			const refreshed = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"antigravity",
+					registry,
+					createMockContext({ dryRun: false }),
+				),
+			);
+			expect(refreshed).toMatchObject({
+				toolId: "antigravity",
+				success: true,
+				restartRequired: true,
+			});
+			expect(refreshed.details?.join("\n")).toContain(
+				"Lifecycle result: refreshed",
+			);
+			expect(refreshed.details?.join("\n")).toContain(
+				"Version marker: current",
+			);
+
+			const current = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"antigravity",
+					registry,
+					createMockContext({ dryRun: false }),
+				),
+			);
+			expect(current).toMatchObject({
+				toolId: "antigravity",
+				success: true,
+				restartRequired: false,
+			});
+			expect(current.details?.join("\n")).toContain("Lifecycle state: current");
+			expect(current.details?.join("\n")).toContain(
+				"Run `rp1 verify antigravity`",
+			);
+
+			const blockedAsset = antigravityBundleAssetsFixture[0];
+			if (!blockedAsset) throw new Error("Antigravity manifest is empty");
+			await rm(join(homeDir, blockedAsset.relativePath), { force: true });
+			await mkdir(join(homeDir, blockedAsset.relativePath), {
+				recursive: true,
+			});
+			const blocked = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"antigravity",
+					registry,
+					createMockContext({ dryRun: false }),
+				),
+			);
+			expect(blocked).toMatchObject({
+				toolId: "antigravity",
+				success: false,
+				restartRequired: false,
+			});
+			expect(blocked.error).toBeDefined();
+			expect(blocked.details?.join("\n")).toContain("Lifecycle state: blocked");
+			expect(blocked.details?.join("\n")).toContain("Check file permissions");
 		} finally {
 			restoreBundle();
 			restoreHome();
@@ -1263,9 +1471,6 @@ describe("install-core tool routing", () => {
 		mock.module("../../install/codex/index.js", () => ({
 			getDefaultCodexArtifactsDir: () => "/mock/codex",
 			installCodex: () => TE.left(installError("codex", "copy failed")),
-		}));
-		mock.module("../../install/version-marker.js", () => ({
-			writeVersionMarker: () => TE.right(undefined),
 		}));
 		mock.module("../../lib/version.js", () => ({
 			getInstalledVersion: () => "9.9.9",

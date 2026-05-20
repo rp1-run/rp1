@@ -26,6 +26,7 @@ export type BuildPlatform =
 	| "codex"
 	| "claude-code"
 	| "copilot"
+	| "antigravity"
 	| "gemini";
 
 // ---------------------------------------------------------------------------

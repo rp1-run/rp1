@@ -48,7 +48,7 @@ Supported `tool` values:
 | `opencode` | Update OpenCode only |
 | `codex` | Update Codex only |
 | `copilot` | Update GitHub Copilot CLI only |
-| `gemini` | Refresh Gemini CLI extension assets assets only |
+| `antigravity` | Refresh Antigravity CLI plugin assets only |
 
 ## Options
 
@@ -68,39 +68,39 @@ rp1 update --check
 rp1 update plugins all
 rp1 update plugins codex
 rp1 update plugins copilot
-rp1 update plugins gemini --dry-run
+rp1 update plugins antigravity --dry-run
 ```
 
-## Gemini Extension Refresh
+## Antigravity Plugin Refresh
 
-`rp1 update plugins gemini` is the targeted refresh path for Gemini CLI
-extension assets. Gemini is a first-class target, and refresh is
-also included in `rp1 update plugins all` when Gemini CLI is detected. The
-command updates only rp1-owned files under the rp1 Gemini extension
-directories, such as `~/.gemini/extensions/rp1-base/` and
-`~/.gemini/extensions/rp1-dev/`.
+`rp1 update plugins antigravity` is the targeted refresh path for Antigravity
+CLI plugin assets. Antigravity is the active Google host target, and refresh is
+also included in `rp1 update plugins all` when `agy` is detected. The command
+updates only rp1-owned files under the Antigravity plugin directories, such as
+`~/.gemini/antigravity-cli/rp1-base/` and
+`~/.gemini/antigravity-cli/rp1-dev/`.
 
 The command reports `Lifecycle stage: update` and one of these states or
 results:
 
 | Output | Meaning | Next action |
 |--------|---------|-------------|
-| `Lifecycle state: current` | Gemini assets already match the current manifest. | Restart Gemini CLI only if you recently changed assets, then run `rp1 verify gemini`. |
-| `Lifecycle state: missing` or `partial` | Some or all manifest-owned Gemini assets are absent. | Run `rp1 update plugins gemini -y` or `rp1 install gemini`, restart Gemini CLI, then verify. |
-| `Lifecycle state: stale` | At least one manifest-owned asset differs from the current build. | Run `rp1 update plugins gemini -y`, restart Gemini CLI, then verify. |
-| `Lifecycle state: blocked` | rp1 could not safely inspect or refresh an asset. | Follow the printed `Next action`, usually fixing permissions under the Gemini extension directory. |
-| `Lifecycle result: refreshed` | rp1 refreshed manifest-owned Gemini assets. | Restart Gemini CLI, then run `rp1 verify gemini`. |
-| `Lifecycle state: failed` | Refresh failed after command execution started. | Check file permissions under `~/.gemini/extensions/`, then rerun `rp1 update plugins gemini`. |
+| `Lifecycle state: current` | Antigravity assets already match the current manifest. | Restart Antigravity CLI only if you recently changed assets, then run `rp1 verify antigravity`. |
+| `Lifecycle state: missing` or `partial` | Some or all manifest-owned Antigravity assets are absent. | Run `rp1 update plugins antigravity -y` or `rp1 install antigravity`, restart Antigravity CLI, then verify. |
+| `Lifecycle state: stale` | At least one manifest-owned asset differs from the current build. | Run `rp1 update plugins antigravity -y`, restart Antigravity CLI, then verify. |
+| `Lifecycle state: blocked` | rp1 could not safely inspect or refresh an asset. | Follow the printed `Next action`, usually fixing permissions under the Antigravity plugin directory. |
+| `Lifecycle result: refreshed` | rp1 refreshed manifest-owned Antigravity assets. | Restart Antigravity CLI, then run `rp1 verify antigravity`. |
+| `Lifecycle state: failed` | Refresh failed after command execution started. | Check file permissions under `~/.gemini/antigravity-cli/`, then rerun `rp1 update plugins antigravity`. |
 
 Use `--dry-run` to preview the files that would be refreshed. The targeted
-`gemini` command is useful when you want Gemini-specific lifecycle details. The
-[Gemini CLI platform guide](../platforms/gemini.md) explains the current
-support matrix and stale-asset recovery boundary.
+`antigravity` command is useful when you want Antigravity-specific lifecycle
+details. The [Antigravity CLI platform guide](../platforms/antigravity.md)
+explains the current support matrix, dynamic delegation boundary, and stale-asset
+recovery boundary.
 
-Refreshing Gemini assets restores the generated workflow assets. The current
-support matrix supports all 15 Gemini workflow rows.
-Run `rp1 verify gemini --workflow <workflow-id>` after refresh to see workflow
-attribution.
+Refreshing Antigravity assets restores the generated workflow assets. Run
+`rp1 verify antigravity --workflow <workflow-id>` after refresh to see workflow
+attribution and any dynamic delegation limitation.
 
 ## Safety
 
@@ -132,13 +132,13 @@ rp1 install codex
 rp1 install copilot
 ```
 
-For Gemini, rerun the targeted refresh path so the command can print
-Gemini-specific lifecycle state and remediation:
+For Antigravity, rerun the targeted refresh path so the command can print
+Antigravity-specific lifecycle state and remediation:
 
 ```bash
-rp1 update plugins gemini --dry-run
-rp1 update plugins gemini -y
-rp1 verify gemini --feature-id <feature-id>
+rp1 update plugins antigravity --dry-run
+rp1 update plugins antigravity -y
+rp1 verify antigravity --workflow <workflow-id>
 ```
 
 ## See Also
@@ -146,5 +146,5 @@ rp1 verify gemini --feature-id <feature-id>
 - [install](install.md)
 - [verify](verify.md)
 - [uninstall](uninstall.md)
-- [Gemini CLI Platform Guide](../platforms/gemini.md)
+- [Antigravity CLI Platform Guide](../platforms/antigravity.md)
 - [Troubleshooting](../../troubleshooting/index.md)

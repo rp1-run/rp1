@@ -8,7 +8,7 @@ import type {
 	ToolsRegistry,
 } from "../../config/supported-tools.js";
 import type { InstallContext } from "../../shared/install-core.js";
-import { writeGeminiBundleDistFixture } from "../helpers/gemini-bundle.js";
+import { writeAntigravityBundleDistFixture } from "../helpers/antigravity-bundle.js";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
 
 class ProcessExit extends Error {
@@ -72,9 +72,9 @@ const registry = {
 			instruction_file: "AGENTS.md",
 		}),
 		createRegistryTool({
-			id: "gemini",
-			name: "Gemini CLI",
-			binary: "gemini",
+			id: "antigravity",
+			name: "Antigravity CLI",
+			binary: "agy",
 			instruction_file: "AGENTS.md",
 			supportLevel: "stable",
 		}),
@@ -128,11 +128,11 @@ const runRealPluginsCommand = async (
 	bundleDir?: string,
 ): Promise<{ readonly exitCode: number; readonly output: string }> => {
 	const originalHome = process.env.HOME;
-	const originalBundleDir = process.env.RP1_GEMINI_BUNDLE_DIR;
+	const originalBundleDir = process.env.RP1_ANTIGRAVITY_BUNDLE_DIR;
 	const logs: string[] = [];
 	process.env.HOME = homeDir;
 	if (bundleDir) {
-		process.env.RP1_GEMINI_BUNDLE_DIR = bundleDir;
+		process.env.RP1_ANTIGRAVITY_BUNDLE_DIR = bundleDir;
 	}
 	const originalLog = console.log;
 	const originalExit = process.exit;
@@ -168,9 +168,9 @@ const runRealPluginsCommand = async (
 			process.env.HOME = originalHome;
 		}
 		if (originalBundleDir === undefined) {
-			delete process.env.RP1_GEMINI_BUNDLE_DIR;
+			delete process.env.RP1_ANTIGRAVITY_BUNDLE_DIR;
 		} else {
-			process.env.RP1_GEMINI_BUNDLE_DIR = originalBundleDir;
+			process.env.RP1_ANTIGRAVITY_BUNDLE_DIR = originalBundleDir;
 		}
 	}
 };
@@ -270,82 +270,84 @@ describe("update plugins command action", () => {
 		expect(logs.join("\n")).toContain("Dry run mode");
 	});
 
-	test("routes targeted Gemini updates through the named update path", async () => {
+	test("routes targeted Antigravity updates through the named update path", async () => {
 		const updateForSpecificTool = mock(
 			(_toolId: string, _toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
 				TE.right({
-					toolId: "gemini",
-					toolName: "Gemini CLI",
+					toolId: "antigravity",
+					toolName: "Antigravity CLI",
 					success: true,
 					restartRequired: false,
 					pluginsInstalled: [],
 					details: [
 						"Lifecycle stage: update",
 						"Lifecycle state: current",
-						"Next action: Run `rp1 verify gemini` to validate Gemini CLI readiness.",
+						"Next action: Run `rp1 verify antigravity` to validate Antigravity CLI readiness.",
 					],
 					warnings: [],
 				}),
 		);
 		await expect(
 			runPluginsCommand(
-				["update", "plugins", "gemini", "--dry-run"],
+				["update", "plugins", "antigravity", "--dry-run"],
 				createCommandDeps({ updateForSpecificTool }),
 			),
 		).rejects.toMatchObject({ code: 0 });
 
-		expect(updateForSpecificTool.mock.calls[0]?.[0]).toBe("gemini");
+		expect(updateForSpecificTool.mock.calls[0]?.[0]).toBe("antigravity");
 		const output = logs.join("\n");
-		expect(output).toContain("Gemini CLI: Plugins updated successfully");
+		expect(output).toContain("Antigravity CLI: Plugins updated successfully");
 		expect(output).toContain("Lifecycle stage: update");
 		expect(output).toContain("Lifecycle state: current");
 	});
 
-	test("runs the real targeted Gemini update route in-process", async () => {
-		const bundleDir = await writeGeminiBundleDistFixture(tempDir);
+	test("runs the real targeted Antigravity update route in-process", async () => {
+		const bundleDir = await writeAntigravityBundleDistFixture(tempDir);
 		const result = await runRealPluginsCommand(
 			tempDir,
-			["update", "plugins", "gemini", "--dry-run"],
+			["update", "plugins", "antigravity", "--dry-run"],
 			bundleDir,
 		);
 
 		expect(result.exitCode).toBe(0);
-		expect(result.output).toContain("Updating plugins for gemini");
-		expect(result.output).toContain("Gemini CLI: Plugins updated successfully");
+		expect(result.output).toContain("Updating plugins for antigravity");
+		expect(result.output).toContain(
+			"Antigravity CLI: Plugins updated successfully",
+		);
 		expect(result.output).toContain("Lifecycle stage: update");
 		expect(result.output).toContain("Lifecycle state:");
 	});
 
-	test("prints restart guidance for targeted Gemini refreshes that update assets", async () => {
+	test("prints restart guidance for targeted Antigravity refreshes that update assets", async () => {
 		const updateForSpecificTool = mock(
 			(_toolId: string, _toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
 				TE.right({
-					toolId: "gemini",
-					toolName: "Gemini CLI",
+					toolId: "antigravity",
+					toolName: "Antigravity CLI",
 					success: true,
 					restartRequired: true,
 					pluginsInstalled: [],
 					details: [
 						"Lifecycle stage: update",
 						"Lifecycle result: refreshed",
-						"Next action: Restart Gemini CLI, then run `rp1 verify gemini`.",
+						"Next action: Restart Antigravity CLI, then run `rp1 verify antigravity`.",
 					],
 					warnings: [],
 				}),
 		);
 		await expect(
 			runPluginsCommand(
-				["update", "plugins", "gemini", "--yes"],
+				["update", "plugins", "antigravity", "--yes"],
 				createCommandDeps({ updateForSpecificTool }),
 			),
 		).rejects.toMatchObject({ code: 0 });
 
 		const output = logs.join("\n");
 		expect(output).toContain("Lifecycle result: refreshed");
-		expect(output).toContain("Please restart Gemini CLI");
+		expect(output).toContain("Please restart Antigravity CLI");
 	});
 
-	test("includes Gemini in update-all as a successful command", async () => {
+	test("includes Antigravity in update-all as a successful command", async () => {
 		const installAllDetectedTools = mock(
 			(_toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
 				TE.right({
@@ -354,8 +356,8 @@ describe("update plugins command action", () => {
 						{
 							tool: {
 								...codexTool,
-								id: "gemini",
-								name: "Gemini CLI",
+								id: "antigravity",
+								name: "Antigravity CLI",
 							},
 							version: "0.0.0",
 							meetsMinVersion: true,
@@ -363,15 +365,15 @@ describe("update plugins command action", () => {
 					],
 					results: [
 						{
-							toolId: "gemini",
-							toolName: "Gemini CLI",
+							toolId: "antigravity",
+							toolName: "Antigravity CLI",
 							success: true,
 							restartRequired: false,
 							pluginsInstalled: ["rp1-base", "rp1-dev"],
 							details: [
 								"Lifecycle stage: update",
 								"Lifecycle result: refreshed",
-								"Next action: Restart Gemini CLI, then run `rp1 verify gemini`.",
+								"Next action: Restart Antigravity CLI, then run `rp1 verify antigravity`.",
 							],
 							warnings: [],
 						},
@@ -386,7 +388,7 @@ describe("update plugins command action", () => {
 		).rejects.toMatchObject({ code: 0 });
 
 		const output = logs.join("\n");
-		expect(output).toContain("Gemini CLI: Plugins updated successfully");
+		expect(output).toContain("Antigravity CLI: Plugins updated successfully");
 		expect(output).toContain("rp1-base, rp1-dev");
 		expect(output).not.toContain("See errors above");
 	});

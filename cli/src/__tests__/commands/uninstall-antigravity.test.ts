@@ -4,9 +4,9 @@ import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { uninstallCommand } from "../../commands/uninstall.js";
 import {
-	createGeminiBundleAssetManifestFixture,
-	writeGeminiBundleDistFixture,
-} from "../helpers/gemini-bundle.js";
+	createAntigravityBundleAssetManifestFixture,
+	writeAntigravityBundleDistFixture,
+} from "../helpers/antigravity-bundle.js";
 import {
 	cleanupTempDir,
 	createTempDir,
@@ -35,8 +35,10 @@ const writeFileInHome = async (
 	await writeFile(targetPath, content, "utf-8");
 };
 
-const writeGeminiManifestAssets = async (homeDir: string): Promise<void> => {
-	for (const asset of createGeminiBundleAssetManifestFixture()) {
+const writeAntigravityManifestAssets = async (
+	homeDir: string,
+): Promise<void> => {
+	for (const asset of createAntigravityBundleAssetManifestFixture()) {
 		await writeFileInHome(homeDir, asset.relativePath, asset.expectedContent);
 	}
 };
@@ -54,7 +56,10 @@ const runUninstallCommandInProcess = async (
 	const originalHome = process.env.HOME;
 	const originalLog = console.log;
 	const originalExit = process.exit;
-	const restoreBundle = withEnvOverride("RP1_GEMINI_BUNDLE_DIR", bundleDir);
+	const restoreBundle = withEnvOverride(
+		"RP1_ANTIGRAVITY_BUNDLE_DIR",
+		bundleDir,
+	);
 
 	try {
 		process.env.HOME = homeDir;
@@ -94,26 +99,26 @@ const runUninstallCommandInProcess = async (
 	}
 };
 
-describe("Gemini uninstall command", () => {
+describe("Antigravity uninstall command", () => {
 	let tempDir: string;
 	let bundleDir: string;
 
 	beforeEach(async () => {
-		tempDir = await createTempDir("gemini-uninstall-command");
-		bundleDir = await writeGeminiBundleDistFixture(tempDir);
+		tempDir = await createTempDir("antigravity-uninstall-command");
+		bundleDir = await writeAntigravityBundleDistFixture(tempDir);
 	});
 
 	afterEach(async () => {
 		await cleanupTempDir(tempDir);
 	});
 
-	test("registers the Gemini uninstall subcommand with safe-removal options", async () => {
+	test("registers the Antigravity uninstall subcommand with safe-removal options", async () => {
 		const subcommand = uninstallCommand.commands.find(
-			(command) => command.name() === "gemini",
+			(command) => command.name() === "antigravity",
 		);
 
 		expect(subcommand).toBeInstanceOf(Command);
-		expect(subcommand?.description()).toContain("Gemini CLI");
+		expect(subcommand?.description()).toContain("Antigravity CLI");
 		expect(
 			subcommand?.options.some((option) => option.long === "--dry-run"),
 		).toBe(true);
@@ -126,14 +131,14 @@ describe("Gemini uninstall command", () => {
 
 	test("executes the dry-run CLI path with root logger context", async () => {
 		const proc = Bun.spawn(
-			["bun", "src/main.ts", "uninstall", "gemini", "--dry-run"],
+			["bun", "src/main.ts", "uninstall", "antigravity", "--dry-run"],
 			{
 				cwd: cliRoot,
 				env: {
 					...process.env,
 					HOME: tempDir,
 					NO_COLOR: "1",
-					RP1_GEMINI_BUNDLE_DIR: bundleDir,
+					RP1_ANTIGRAVITY_BUNDLE_DIR: bundleDir,
 				},
 				stdout: "pipe",
 				stderr: "pipe",
@@ -147,57 +152,59 @@ describe("Gemini uninstall command", () => {
 
 		expect(exitCode).toBe(0);
 		expect(stderr).not.toContain("Logger not initialized");
-		expect(stdout).toContain("Gemini CLI extension uninstall");
-		expect(stdout).toContain("No rp1-owned Gemini extension assets found.");
+		expect(stdout).toContain("Antigravity CLI package uninstall");
+		expect(stdout).toContain("No rp1-owned Antigravity package assets found.");
 	});
 
 	test("runs the dry-run action in-process with safe-removal details", async () => {
-		await writeGeminiManifestAssets(tempDir);
+		await writeAntigravityManifestAssets(tempDir);
 		await writeFileInHome(
 			tempDir,
-			".gemini/extensions/rp1-base/agents/user-note.md",
+			".gemini/antigravity-cli/rp1-base/agents/user-note.md",
 			"user-owned note",
 		);
 
 		const { output } = await runUninstallCommandInProcess(tempDir, bundleDir, [
 			"uninstall",
-			"gemini",
+			"antigravity",
 			"--dry-run",
 		]);
 
-		expect(output).toContain("Gemini CLI extension uninstall");
-		expect(output).toContain("Dry run: would remove rp1-owned Gemini assets");
+		expect(output).toContain("Antigravity CLI package uninstall");
+		expect(output).toContain(
+			"Dry run: would remove rp1-owned Antigravity assets",
+		);
 		expect(output).toContain("Unexpected leftovers preserved");
-		expect(output).toContain("Inspect ~/.gemini/extensions");
+		expect(output).toContain("Inspect ~/.gemini/antigravity-cli");
 		await expect(
 			access(
 				join(
 					tempDir,
-					".gemini/extensions/rp1-base/commands/rp1-base/guide.toml",
+					".gemini/antigravity-cli/rp1-base/commands/rp1-base/guide.toml",
 				),
 			),
 		).resolves.toBeNull();
 	});
 
 	test("runs the confirmed uninstall action in-process and removes owned assets", async () => {
-		await writeGeminiManifestAssets(tempDir);
+		await writeAntigravityManifestAssets(tempDir);
 
 		const { output, successes } = await runUninstallCommandInProcess(
 			tempDir,
 			bundleDir,
-			["uninstall", "gemini", "--yes"],
+			["uninstall", "antigravity", "--yes"],
 		);
 
-		expect(output).toContain("Gemini CLI extension uninstall");
+		expect(output).toContain("Antigravity CLI package uninstall");
 		expect(successes.join("\n")).toContain(
-			"Removed rp1-owned Gemini extension assets",
+			"Removed rp1-owned Antigravity package assets",
 		);
-		expect(output).toContain("rp1 verify gemini");
+		expect(output).toContain("rp1 verify antigravity");
 		await expect(
 			access(
 				join(
 					tempDir,
-					".gemini/extensions/rp1-base/commands/rp1-base/guide.toml",
+					".gemini/antigravity-cli/rp1-base/commands/rp1-base/guide.toml",
 				),
 			),
 		).rejects.toThrow();

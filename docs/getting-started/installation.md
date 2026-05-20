@@ -19,12 +19,13 @@ Before you begin, make sure you have:
 | OpenCode | [OpenCode](https://github.com/opencode-ai/opencode) | `/rp1-base-knowledge-build` | rp1 commands keep their `rp1-` prefix. |
 | Codex | [Codex CLI](https://github.com/openai/codex) | `$rp1-base-knowledge-build` | Install the Codex integration after `rp1 init`. |
 | GitHub Copilot CLI | [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli) | `/rp1-base-knowledge-build` | Requires standalone Copilot CLI with plugin support. |
+| Antigravity CLI | [Antigravity CLI](https://www.antigravity.google/product/antigravity-cli) (`agy`) | `/rp1-base-knowledge-build` | Uses Antigravity plugin assets and workspace permissions. |
 
-Gemini CLI is available as a first-class Gemini extension platform. It
-participates in default install when detected, and it can also be installed or
-verified directly. See the
-[Gemini CLI platform guide](../reference/platforms/gemini.md) for Gemini
-extension assets.
+Antigravity CLI is the active Google host target. It participates in default
+install when `agy` is detected, and it can also be installed or verified
+directly. See the
+[Antigravity CLI platform guide](../reference/platforms/antigravity.md) for
+package, permission, and workflow support boundaries.
 
 ---
 
@@ -98,10 +99,10 @@ rp1 init --yes
 | OpenCode | Yes | `AGENTS.md` | Offered automatically |
 | GitHub Copilot CLI | Yes | `AGENTS.md` | Offered automatically |
 | Codex | Yes | `AGENTS.md` | Run `rp1 install codex` after `init` |
-| Gemini CLI | Yes | `GEMINI.md` and Gemini extensions | Offered automatically when Gemini CLI is detected |
+| Antigravity CLI | Yes | Antigravity plugin assets | Offered automatically when `agy` is detected |
 
-Gemini can also be installed or repaired directly with the targeted Gemini
-commands below.
+Antigravity can also be installed or repaired directly with the targeted
+Antigravity commands below.
 
 ---
 
@@ -117,10 +118,10 @@ rp1 install codex
 rp1 install copilot
 ```
 
-For a targeted Gemini extension install:
+For a targeted Antigravity plugin install:
 
 ```bash
-rp1 install gemini
+rp1 install antigravity
 ```
 
 You can also install into every detected supported host:
@@ -130,7 +131,7 @@ rp1 install
 ```
 
 The default install command includes every detected stable host, including
-Gemini CLI when it is available on `PATH`.
+Antigravity CLI when `agy` is available on `PATH`.
 
 Verify a specific host:
 
@@ -141,11 +142,11 @@ rp1 verify codex
 rp1 verify copilot
 ```
 
-Verify Gemini extension assets:
+Verify Antigravity plugin assets:
 
 ```bash
-rp1 verify gemini
-rp1 verify gemini --feature-id <feature-id>
+rp1 verify antigravity
+rp1 verify antigravity --workflow <workflow-id>
 ```
 
 For GitHub Copilot CLI, the clean success signal is `rp1 verify copilot`
@@ -153,18 +154,20 @@ reporting `healthy_native`. See the
 [Copilot CLI platform guide](../reference/platforms/copilot.md) for Copilot
 verification states and recovery steps.
 
-For Gemini CLI, verification reports Gemini extension lifecycle states,
-support-matrix attribution, and optional feature evidence. The current Gemini
-matrix supports all 15 Gemini workflow rows. See the
-[Gemini CLI platform guide](../reference/platforms/gemini.md) for workflow
-attribution details.
+For Antigravity CLI, verification reports Antigravity plugin lifecycle state,
+support-matrix attribution, and dynamic delegation boundaries. Delegated
+workflow rows depend on Antigravity dynamic subagents: define each required
+rp1-derived type once with `define_subagent`, then reuse the cached `TypeName`
+with `invoke_subagent`. See the
+[Antigravity CLI platform guide](../reference/platforms/antigravity.md) for
+workflow attribution details.
 
 ---
 
 ## Step 4: Restart the Host Tool
 
-Restart Claude Code, OpenCode, Codex, GitHub Copilot CLI, or Gemini CLI after
-installation or updates so it reloads rp1.
+Restart Claude Code, OpenCode, Codex, GitHub Copilot CLI, or Antigravity CLI
+after installation or updates so it reloads rp1.
 
 ---
 
@@ -207,12 +210,12 @@ onboarding workflows use for project-aware work.
 After project context is ready, continue with the workflow that matches your
 goal.
 
-| Goal | Claude Code | OpenCode | Codex | GitHub Copilot CLI |
-|------|-------------|----------|-------|--------------------|
-| Start a feature | `/build my-feature` | `/rp1-dev-build my-feature` | `$rp1-dev-build my-feature` | `/rp1-dev-build my-feature` |
-| Make a quick change | `/build-fast "..."` | `/rp1-dev-build-fast "..."` | `$rp1-dev-build-fast "..."` | `/rp1-dev-build-fast "..."` |
-| Review a PR | `/pr-review` | `/rp1-dev-pr-review` | `$rp1-dev-pr-review` | `/rp1-dev-pr-review` |
-| Onboard a teammate | `/project-birds-eye-view` | `/rp1-base-project-birds-eye-view` | `$rp1-base-project-birds-eye-view` | `/rp1-base-project-birds-eye-view` |
+| Goal | Claude Code | OpenCode | Codex | GitHub Copilot CLI | Antigravity CLI |
+|------|-------------|----------|-------|--------------------|-----------------|
+| Start a feature | `/build my-feature` | `/rp1-dev-build my-feature` | `$rp1-dev-build my-feature` | `/rp1-dev-build my-feature` | `/rp1-dev-build my-feature` |
+| Make a quick change | `/build-fast "..."` | `/rp1-dev-build-fast "..."` | `$rp1-dev-build-fast "..."` | `/rp1-dev-build-fast "..."` | `/rp1-dev-build-fast "..."` |
+| Review a PR | `/pr-review` | `/rp1-dev-pr-review` | `$rp1-dev-pr-review` | `/rp1-dev-pr-review` | `/rp1-dev-pr-review` |
+| Onboard a teammate | `/project-birds-eye-view` | `/rp1-base-project-birds-eye-view` | `$rp1-base-project-birds-eye-view` | `/rp1-base-project-birds-eye-view` | `/rp1-base-project-birds-eye-view` |
 
 ---
 
@@ -224,7 +227,7 @@ goal.
 | Host commands do not appear | Restart the host and run the matching `rp1 verify ...` command. |
 | Codex does not show rp1 commands | Run `rp1 install codex`, then restart Codex. |
 | Copilot verification is not `healthy_native` | Follow [Copilot recovery](../reference/platforms/copilot.md#troubleshooting). |
-| Gemini reports missing or stale Gemini extension assets, trust, approval, or acknowledgement gates | Follow [Gemini recovery](../reference/platforms/gemini.md#limitations-and-user-actions). |
+| Antigravity reports missing or stale plugin assets, trust, permission, approval, dynamic subagent, or headless blockers | Follow [Antigravity recovery](../reference/platforms/antigravity.md#limitations-and-user-actions). |
 | First workflow is using stale project details | Re-run the project context command from Step 5. |
 
 More recovery paths are grouped by symptom in

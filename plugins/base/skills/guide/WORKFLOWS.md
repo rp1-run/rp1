@@ -4,12 +4,17 @@ Common multi-skill sequences in rp1. Each workflow describes when to use it, the
 
 ## Host Support Boundary
 
-Claude Code, OpenCode, Codex CLI, GitHub Copilot CLI, and Gemini CLI are
-supported hosts for the workflow sequences below. Gemini CLI receives
-first-class extension assets and a support matrix; the current Gemini support matrix
-supports all 15 user-facing workflow rows. If a user asks to run one of these
-workflows on Gemini, use `rp1 install gemini` to install the Gemini extension
-and `rp1 verify gemini --workflow <workflow-id>` to inspect the matrix row.
+Claude Code, OpenCode, Codex CLI, GitHub Copilot CLI, and Antigravity CLI are
+supported hosts for the workflow sequences below. Antigravity CLI receives
+first-class plugin assets and a catalog-backed support matrix that classifies
+every shipped user-facing workflow row as `supported`, `limited`, or
+`unsupported`. Delegated Antigravity workflow rows are limited by the dynamic
+session-subagent contract: define each required rp1-derived type once with
+`define_subagent`, then reuse the cached `TypeName` with `invoke_subagent`;
+static `/agents` discovery is not support evidence. If a user asks to run one
+of these workflows on Antigravity, use `rp1 install antigravity` to install the
+Antigravity plugin assets and `rp1 verify antigravity --workflow <workflow-id>`
+to inspect the matrix row.
 
 ## Feature Development Lifecycle
 

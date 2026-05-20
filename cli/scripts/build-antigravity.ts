@@ -1,14 +1,14 @@
 #!/usr/bin/env bun
 
 /**
- * Standalone script to build Gemini CLI artifacts.
- * Produces Gemini extension assets in dist/gemini/.
+ * Standalone script to build Antigravity CLI plugin package assets.
+ * Produces Antigravity package assets in dist/antigravity/.
  *
  * Usage:
- *   bun run scripts/build-gemini.ts [options]
+ *   bun run scripts/build-antigravity.ts [options]
  *
  * Options:
- *   -o, --output-dir <dir>   Gemini output directory (default: dist/gemini/)
+ *   -o, --output-dir <dir>   Antigravity output directory (default: dist/antigravity/)
  *   -p, --plugin <name>      Build specific plugin (base, dev, or all)
  *   --json                   Output results as JSON for CI/CD
  *   -h, --help               Show this help message
@@ -24,7 +24,10 @@ const logger = createLogger({
 });
 
 const args = process.argv.slice(2);
-const result = await executeBuild([...args, "--platform", "gemini"], logger)();
+const result = await executeBuild(
+	[...args, "--platform", "antigravity"],
+	logger,
+)();
 
 if (E.isLeft(result)) {
 	process.exit(1);

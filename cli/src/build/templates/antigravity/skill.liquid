@@ -1,0 +1,199 @@
+---
+name: {{ artifact.namespacedName | escape_yaml }}
+description: {{ artifact.description | escape_yaml }}
+{%- if artifact.allowedTools %}
+{%- assign tools = artifact.allowedTools | allowed_tools: platform %}
+{%- if tools and tools.size > 0 %}
+allowed-tools:
+{%- for tool in tools %}
+  - {{ tool | escape_yaml }}
+{%- endfor %}
+{%- endif %}
+{%- endif %}
+metadata:
+  rp1:
+    plugin: {{ pluginName }}
+    name: {{ artifact.name }}
+{% if artifact.metadata %}
+{%- if artifact.metadata.category %}
+  category: {{ artifact.metadata.category }}
+{% endif -%}
+{%- if artifact.metadata.isWorkflow != nil %}
+  is_workflow: {{ artifact.metadata.isWorkflow }}
+{% endif -%}
+{%- if artifact.metadata.arcadeTracked != nil %}
+  arcade_tracked: {{ artifact.metadata.arcadeTracked }}
+{% endif -%}
+{%- if artifact.metadata.workflow and artifact.metadata.workflow.runPolicy %}
+  workflow:
+    run_policy: {{ artifact.metadata.workflow.runPolicy }}
+{%- if artifact.metadata.workflow.identityArgs != nil %}
+{%- if artifact.metadata.workflow.identityArgs.size > 0 %}
+    identity_args:
+{%- for arg in artifact.metadata.workflow.identityArgs %}
+      - {{ arg }}
+{%- endfor %}
+{%- else %}
+    identity_args: []
+{% endif %}
+{% endif %}
+{% endif -%}
+{%- if artifact.metadata.version %}
+  version: {{ artifact.metadata.version }}
+{% endif -%}
+{%- if artifact.metadata.tags and artifact.metadata.tags.size > 0 %}
+  tags:
+{%- for tag in artifact.metadata.tags %}
+    - {{ tag }}
+{%- endfor %}
+{% endif -%}
+{%- if artifact.metadata.created %}
+  created: {{ artifact.metadata.created }}
+{% endif -%}
+{%- if artifact.metadata.author %}
+  author: {{ artifact.metadata.author }}
+{% endif -%}
+{%- if artifact.metadata.argumentHint %}
+  argument-hint: "{{ artifact.metadata.argumentHint }}"
+{% endif -%}
+{%- capture trailing_metadata -%}
+{%- if artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
+  arguments:
+{{ artifact.metadata.arguments | to_yaml: 4 }}
+{% endif -%}
+{%- if artifact.metadata.environment and artifact.metadata.environment.size > 0 %}
+  environment:
+{{ artifact.metadata.environment | to_yaml: 4 }}
+{% endif -%}
+{%- if artifact.metadata.subAgents and artifact.metadata.subAgents.size > 0 %}
+  sub_agents:
+{%- for sub_agent in artifact.metadata.subAgents %}
+    - {{ sub_agent }}
+{%- endfor %}
+{% endif -%}
+{%- endcapture -%}
+{{ trailing_metadata | rstrip }}
+{%- endif %}
+---
+{% if artifact.metadata and artifact.metadata.isWorkflow == true %}
+
+## 0. Workflow Bootstrap
+
+Before any shell command that may change the working directory, run the tracked workflow bootstrap tool:
+
+```bash
+export CURRENT_HOST=antigravity
+rp1 agent-tools workflow-bootstrap \
+  --name rp1-{{ pluginName }}:{{ artifact.name }} \
+  --schema-path "$HOME/.gemini/antigravity-cli/rp1-{{ pluginName }}/skills/{{ artifact.namespacedName }}/SKILL.md" \
+{% if artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}  --args "the arguments provided by the user in their prompt" \
+{% endif %}  --project-root "$PWD" \
+  --harness antigravity
+```
+
+Parse the JSON response. Extract values from `data.arguments`, `data.directories`, `data.workflow`, `data.run`, and `data.trace`:
+
+| Variable | Source |
+|----------|--------|
+{%- if artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
+{%- for arg in artifact.metadata.arguments %}
+| {{ arg.name }} | `data.arguments.{{ arg.name }}` |
+{%- endfor %}
+{%- endif %}
+| RUN_ID | `data.run.runId` |
+| RUN_RESUMED | `data.run.resumed` |
+| RUN_DECISION | `data.run.decision` |
+| projectRoot | `data.directories.projectRoot` |
+| kbRoot | `data.directories.kbRoot` |
+| workRoot | `data.directories.workRoot` |
+| codeRoot | `data.directories.codeRoot` |
+| rp1DirectoryStatus | `data.directories.status` |
+| rp1NextStepCommand | `data.directories.nextStepCommand` |
+| workflowName | `data.workflow.name` |
+| workflowRunPolicy | `data.workflow.runPolicy` |
+| requestedProjectRoot | `data.trace.requestedProjectRoot` |
+| canonicalProjectRoot | `data.trace.canonicalProjectRoot` |
+
+If workflow bootstrap fails, required arguments remain unresolved, or `rp1DirectoryStatus` is not `initialized`, warn the user about the tool error and stop.
+
+Use `RUN_ID` for all subsequent emits and artifact registrations. Use the returned canonical directories for all subsequent paths. Do not call `resolve-args`, do not call `rp1-root-dir`, do not generate a UUID, and do not call `emit resume-run` directly.
+{% elsif artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
+
+## 0. Resolve Arguments
+
+Run the argument resolver to obtain all parameter values:
+
+```bash
+rp1 agent-tools resolve-args --name {{ namespacedPluginName }}:{{ artifact.name }} --args "the arguments provided by the user in their prompt"
+```
+
+Parse the JSON response. Extract values from `data.arguments` and `data.directories`:
+
+| Variable | Source |
+|----------|--------|
+{%- for arg in artifact.metadata.arguments %}
+| {{ arg.name }} | `data.arguments.{{ arg.name }}` |
+{%- endfor %}
+| projectRoot | `data.directories.projectRoot` |
+| kbRoot | `data.directories.kbRoot` |
+| workRoot | `data.directories.workRoot` |
+| rp1DirectoryStatus | `data.directories.status` |
+| rp1NextStepCommand | `data.directories.nextStepCommand` |
+
+If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
+
+Use these resolved values for all subsequent steps. Do not call `rp1-root-dir`, re-derive project directories, or re-parse arguments.
+{% endif %}
+
+{% if artifact.metadata and artifact.metadata.isWorkflow == true %}
+## Antigravity Runtime Semantics
+
+- Keep `CURRENT_HOST=antigravity` for this Antigravity session. Pass `--harness antigravity` to the generated workflow bootstrap command, and pass `--harness $CURRENT_HOST` only to `rp1 agent-tools emit` or another `rp1 agent-tools` command whose help explicitly documents `--harness`.
+- Treat the bootstrap response as authoritative. Resolve source-code reads and writes against `codeRoot`; resolve KB reads against `kbRoot`; resolve durable rp1 work artifacts and relative artifact registrations against `workRoot`.
+- Preserve the checkout split returned by bootstrap. In linked worktrees, `projectRoot` and `workRoot` can point at the canonical project while `codeRoot` points at the active worktree; do not collapse these paths or rederive them from Antigravity workspace state.
+- Before running behavior that depends on permissions, trust, sandboxing, headless operation, MCP access, external workspace access, or nested delegation, check the generated support matrix, support metadata, and any loaded delegation definition. If the mode is unsupported or not validated for Antigravity, stop or label the result as `Antigravity support exception: <mode> requires validation` with the next manual action instead of silently continuing.
+{% endif %}
+
+{% if artifact.metadata and artifact.metadata.subAgents and artifact.metadata.subAgents.size > 0 %}
+## Dynamic Delegation Session Registry
+
+This workflow uses Antigravity dynamic subagents. Maintain an in-memory registry for the active conversation/session only. Key entries as `${definition.rp1AgentId}:${definition.definitionHash}` and record:
+
+- `TypeName`
+- defined status
+- workspace policy
+- tool flags
+- nested-delegation allowance
+
+Load the generated definition index for each required package before delegated or fanout work:
+
+{%- for index in artifact.requiredDelegationDefinitionIndexes %}
+- `$HOME/.gemini/antigravity-cli/{{ index.packageName }}/{{ index.path }}`
+{%- endfor %}
+
+Then load each required definition by matching `definitions[].rp1AgentId` in that index and using the indexed `path`:
+
+{%- for definition in artifact.requiredDelegationDefinitions %}
+- source `{{ definition.sourceReference }}` -> `{{ definition.rp1AgentId }}` from `$HOME/.gemini/antigravity-cli/{{ definition.packageName }}/{{ definition.path }}`
+{%- endfor %}
+
+Before first use of a registry key, call Antigravity `define_subagent` with the loaded `definition.defineSubagent` fields: `name`, `description`, `system_prompt`, `enable_mcp_tools`, `enable_write_tools`, and `enable_subagent_tools`. Mark the registry entry as defined only after the call succeeds, and cache the returned `TypeName` if Antigravity returns one; otherwise use `definition.typeName`.
+
+Carry the registry through all parent workflow planning, delegated task units, fanout batches, and reduction steps for the active conversation/session. Do not reset it between delegated units, and do not redefine a registry key that is already marked defined unless Antigravity reports the cached type is unavailable.
+
+For repeated task units and fanout batches, reuse the cached `TypeName` with `invoke_subagent`. Each invocation must pass explicit `Prompt`, `Role`, `TypeName`, and optional allowed `Workspace`. Default to the inherited workspace. Pass `Workspace` only when the loaded definition or workflow support metadata explicitly allows the workspace needed by the unit. If an artifact-producing subagent cannot write to `workRoot` from the allowed workspace, have the parent write/register the artifact from the returned result, or report an Antigravity workspace support exception. The prompt must request an attributable result contract:
+
+```json
+{
+  "unit_id": "stable unit id",
+  "status": "success | failed",
+  "artifact_path": "path when applicable, otherwise null",
+  "failure_reason": "reason when failed, otherwise null"
+}
+```
+
+Do not query `/agents`, require static packaged agent discovery, or treat static packaged agent files as proof that delegated workflows can launch. If `definition.nestedDelegation.enabled` is not true, keep nested delegation disabled and report a support-boundary failure instead of setting `enable_subagent_tools`.
+{% endif %}
+
+{% render "antigravity/host-context", platform: platform %}
+{{ artifact.content | namespace_ref: platform | slash_commands: platform | param_transform: platform | tool_prose: platform }}

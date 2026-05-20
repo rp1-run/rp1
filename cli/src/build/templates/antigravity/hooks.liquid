@@ -1,0 +1,25 @@
+{
+  "description": "rp1 Antigravity session hooks",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rp1 arcade --no-open --format hook-json 2>/dev/null || true",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rp1 update --check --format hook-text 2>/dev/null || true",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

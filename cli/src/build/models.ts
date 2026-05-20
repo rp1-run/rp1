@@ -203,7 +203,7 @@ export interface BuildConfig {
 		| "codex"
 		| "claude-code"
 		| "copilot"
-		| "gemini"
+		| "antigravity"
 		| "all";
 	readonly jsonOutput: boolean;
 	readonly lintOnly: boolean;

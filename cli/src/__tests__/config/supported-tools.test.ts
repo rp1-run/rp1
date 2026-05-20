@@ -171,7 +171,7 @@ describe("isToolEnabled", () => {
 });
 
 describe("embedded supported tools registry", () => {
-	test("includes Gemini as a stable harness without reclassifying existing harnesses", async () => {
+	test("includes Antigravity as the stable Google harness without reclassifying existing harnesses", async () => {
 		const registry = await loadToolsRegistry();
 
 		expect(registry.tools.map((tool) => tool.id)).toEqual([
@@ -179,7 +179,7 @@ describe("embedded supported tools registry", () => {
 			"opencode",
 			"codex",
 			"copilot",
-			"gemini",
+			"antigravity",
 		]);
 		expect(
 			registry.tools.map((tool) => ({
@@ -214,29 +214,47 @@ describe("embedded supported tools registry", () => {
 				supportLevel: "stable",
 			},
 			{
-				id: "gemini",
-				name: "Gemini CLI",
-				binary: "gemini",
+				id: "antigravity",
+				name: "Antigravity CLI",
+				binary: "agy",
 				supportLevel: "stable",
 			},
 		]);
 	});
 
-	test("includes Gemini in default install targets", async () => {
+	test("includes Antigravity in default install targets", async () => {
 		const registry = await loadToolsRegistry();
-		const gemini = findToolById(registry, "gemini");
+		const antigravity = findToolById(registry, "antigravity");
 
-		expect(gemini).toBeDefined();
-		expect(gemini?.icon).toEqual({
+		expect(antigravity).toBeDefined();
+		expect(antigravity).toMatchObject({
+			id: "antigravity",
+			name: "Antigravity CLI",
+			binary: "agy",
+			min_version: "0.0.0",
+			instruction_file: "AGENTS.md",
+			install_url: "https://www.antigravity.google/product/antigravity-cli",
+			plugin_install_cmd: "agy plugin install {plugin}",
+			capabilities: [
+				"plugins",
+				"skills",
+				"agents",
+				"slash-commands",
+				"hooks",
+				"mcp",
+				"rules",
+			],
+		});
+		expect(antigravity?.icon).toEqual({
 			source: "@lobehub/icons",
-			name: "Gemini",
+			name: "Antigravity",
 			variant: "mono",
 		});
 		expect(getEnabledTools(registry).map((tool) => tool.id)).toContain(
-			"gemini",
+			"antigravity",
 		);
 		expect(getDefaultInstallTools(registry).map((tool) => tool.id)).toContain(
-			"gemini",
+			"antigravity",
 		);
 	});
 });

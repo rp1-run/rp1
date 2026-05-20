@@ -1,4 +1,23 @@
 export type {
+	AntigravityLimitedWorkflowEntry,
+	AntigravitySupportedWorkflowEntry,
+	AntigravityUnsupportedWorkflowEntry,
+	AntigravityWorkflowClass,
+	AntigravityWorkflowDelegation,
+	AntigravityWorkflowSupportEntry,
+	AntigravityWorkflowSupportExclusion,
+	AntigravityWorkflowSupportExclusionReason,
+	AntigravityWorkflowSupportMatrix,
+	AntigravityWorkflowSupportStatus,
+	BuildAntigravityWorkflowSupportMatrixOptions,
+	CollectedAntigravityWorkflowSupportMatrix,
+} from "./antigravity-support.js";
+export {
+	ANTIGRAVITY_SUPPORT_MATRIX_UPDATED_AT,
+	buildAntigravityWorkflowSupportMatrix,
+	collectAntigravityWorkflowSupportMatrix,
+} from "./antigravity-support.js";
+export type {
 	BuildGeminiWorkflowSupportMatrixOptions,
 	CollectedGeminiWorkflowSupportMatrix,
 	GeminiSupportedWorkflowEntry,

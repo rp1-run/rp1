@@ -14,7 +14,7 @@ const PLATFORM_BLOCK_PATTERNS = [
 	/\{%[-\s]*if\s+platform\b/g,
 	/\{%[-\s]*elsif\s+platform\b/g,
 	/\{%[-\s]*case\s+platform\b/g,
-	/\{%[-\s]*when\s+['"](?:claude-code|opencode|codex|copilot|gemini)['"]/g,
+	/\{%[-\s]*when\s+['"](?:claude-code|opencode|codex|copilot|antigravity|gemini)['"]/g,
 ];
 
 function findLineNumber(content: string, index: number): number {

@@ -13,6 +13,7 @@
  *   OC:    web_fetch / web_search tool references per capability
  *   Codex: web_search for all capabilities with degradation note
  *          when fetch is unavailable
+ *   Antigravity: web_search / web_fetch references per capability
  *   Gemini: web_search / web_fetch references per capability
  */
 
@@ -91,6 +92,8 @@ function renderWebAccess(
 			return renderCodex(capability, directive);
 		case "copilot":
 			return renderCopilot(capability, directive);
+		case "antigravity":
+			return renderOC(capability, directive);
 		case "gemini":
 			return renderOC(capability, directive);
 	}

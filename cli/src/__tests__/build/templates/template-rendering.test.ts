@@ -166,21 +166,22 @@ const createTestEngine = () => {
 			}
 			return mapped;
 		}
-		if (platform === "gemini") {
+		if (platform === "gemini" || platform === "antigravity") {
 			const tools = value.split(",").map((t: string) => t.trim());
 			const mapped: string[] = [];
-			const geminiToolMappings: Record<string, string | null> = {
+			const googleToolMappings: Record<string, string | null> = {
 				Bash: "run_shell_command",
 				Read: "read_file",
 				Write: "write_file",
 				Edit: "replace",
-				Grep: "grep_search",
+				Grep:
+					platform === "antigravity" ? "search_file_content" : "grep_search",
 				Glob: "glob",
 			};
 			for (const tool of tools) {
 				const parenMatch = tool.match(/^([A-Za-z]+)\((.+)\)$/);
 				const baseName = parenMatch ? parenMatch[1] : tool;
-				const mappedTool = geminiToolMappings[baseName];
+				const mappedTool = googleToolMappings[baseName];
 				if (mappedTool === null) continue;
 				if (mappedTool === undefined) {
 					mapped.push(tool);
@@ -232,6 +233,8 @@ const createTestEngine = () => {
 		switch (platform) {
 			case "copilot":
 				return "gh-copilot";
+			case "antigravity":
+				return "antigravity";
 			case "gemini":
 				return "gemini-cli";
 			case "claude-code":
@@ -940,6 +943,19 @@ describeWithLiquid("template rendering", () => {
 				"~/.copilot/installed-plugins/",
 			);
 			expect(JSON.stringify(manifest)).not.toContain("github-copilot");
+		});
+	});
+
+	describe("shared templates", () => {
+		test("renders Antigravity host context with canonical harness identity", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("shared/host-context", {
+				platform: "antigravity",
+			});
+
+			expect(result).toContain("`antigravity`");
+			expect(result).toContain("Default: `antigravity`");
+			expect(result).toContain("--harness $CURRENT_HOST");
 		});
 	});
 

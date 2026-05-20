@@ -400,33 +400,50 @@ pipeline now targets all generated rp1 host bundles through `--platform`.
 | `claude-code` | `dist/claude-code/` | Claude Code plugin artifacts |
 | `codex` | `dist/codex/` | Codex skills, agents, config entries, and `AGENTS.md` material |
 | `copilot` | `dist/copilot/` | GitHub Copilot CLI plugin artifacts |
-| `gemini` | `dist/gemini/` | Gemini CLI extension assets |
+| `antigravity` | `dist/antigravity/` | Antigravity CLI plugin assets |
 | `all` | all directories above | Full platform artifact set |
 
-Build Gemini directly or as part of the full platform set:
+Build Antigravity directly or as part of the full platform set:
 
 ```bash
-rp1 build:opencode --platform gemini
+rp1 build:opencode --platform antigravity
 rp1 build:opencode --platform all
 ```
 
-The Gemini target is a first-class Gemini extension target. It writes plugin
-subdirectories such as `dist/gemini/base/` and `dist/gemini/dev/`, with
-generated command TOML under `commands/rp1-<plugin>/`, packaged skills under
-`skills/`, packaged agents under `agents/`, and per-plugin lifecycle files:
-`GEMINI.md`, `gemini-extension.json`, `manifest.json`, and
+The Antigravity target is the active Google host target. It writes plugin
+subdirectories such as `dist/antigravity/base/` and
+`dist/antigravity/dev/`, with generated command metadata, packaged skills,
+rules, hooks, MCP configuration, compact delegation-definition assets, and
+per-plugin lifecycle files including `manifest.json` and
 `support-matrix.json`.
 
-`dist/gemini/bundle-manifest.json` is the top-level manifest used by bundle
+`dist/antigravity/bundle-manifest.json` is the top-level manifest used by bundle
 embedding and lifecycle commands. It records platform metadata, command entries,
-skill entries, agent entries, and verbatim files such as each plugin's
-`support-matrix.json`. Gemini platform metadata keeps the `@lobehub/icons`
-`Gemini` mono icon requirement.
+skill entries, delegation-definition assets, and verbatim files such as each
+plugin's `support-matrix.json`.
 
-The Gemini support matrix is separate from generated asset presence.
-The current matrix has 15 `supported` workflow rows and 0 `unsupported` rows.
-`rp1 verify gemini --workflow <workflow-id>` reports the first-class Gemini
-evidence source for a workflow row.
+The Antigravity support matrix is separate from generated asset presence.
+`rp1 verify antigravity --workflow <workflow-id>` reports the workflow row,
+support state, limitation, and user action. Delegated workflow rows are limited
+by the dynamic session-subagent contract: define each required rp1-derived type
+once with `define_subagent`, then reuse the cached `TypeName` with
+`invoke_subagent`; static `/agents` discovery is not release evidence.
+
+### Historical Google-Harness Evidence
+
+Fresh Antigravity release decisions must use Antigravity evidence from current
+builds, lifecycle checks, package validation, verifier output, and workflow
+smoke runs. Gemini-era `.rp1/work` artifacts remain useful only as provenance
+for earlier implementation choices; they do not support active Antigravity
+release claims unless the same assumption has fresh Antigravity validation or an
+explicit product-owned exception.
+
+For permission, trust, sandbox, headless, and MCP failure boundaries, run
+`just antigravity-smoke-boundaries`. The recipe writes
+`features/antigravity/antigravity-boundaries.md` and
+`features/antigravity/antigravity-boundaries.json` under `.rp1/work/`, records
+safe automated checks, and prints the transcript environment variables required
+for live Antigravity evidence.
 
 ## Related Commands
 
@@ -441,7 +458,7 @@ evidence source for a workflow row.
 ## Codex Build Output
 
 Codex is a first-class rp1 platform alongside Claude Code, OpenCode, GitHub
-Copilot CLI, and the Gemini extension target. Skills are invoked
+Copilot CLI, and Antigravity CLI. Skills are invoked
 with `$skill-name` syntax (e.g., `$rp1-dev-build`), and project-level
 instructions are delivered via `AGENTS.md` (the Codex equivalent of `CLAUDE.md`
 for Claude Code).

@@ -8,7 +8,7 @@ hide:
 
 Professional development workflows for AI coding assistants.
 Skip the iteration loops. Keep work attached to projects, artifacts, and feedback instead of ephemeral sessions.
-40 workflow skills. 51 specialized agents. Use the same workflows in **Claude Code**, **OpenCode**, **Codex**, and **GitHub Copilot CLI**, then review them in **Arcade**.
+40 workflow skills. 51 specialized agents. Use the same workflows in **Claude Code**, **OpenCode**, **Codex**, **GitHub Copilot CLI**, and **Antigravity CLI**, then review them in **Arcade**.
 
 
 [:fontawesome-solid-terminal: Get Started](getting-started/index.md){ .md-button .md-button--primary }
@@ -103,6 +103,10 @@ Pick the workflow that matches the outcome you want. RP1 keeps the artifact trai
       <strong>GitHub Copilot CLI</strong><br>
       <code>/rp1-dev-build "user-auth"</code>
     </div>
+    <div>
+      <strong>Antigravity CLI</strong><br>
+      <code>/rp1-dev-build "user-auth"</code>
+    </div>
   </div>
   <p class="try-hosts-links">
     <a href="reference/index.md">See the workflow reference</a>
@@ -161,7 +165,7 @@ Automatic hypothesis testing catches bad assumptions early. Design decisions get
 
 :fontawesome-solid-shuffle: **Switch AI hosts without switching costs**
 
-rp1 keeps the workflow layer stable across Claude Code, OpenCode, Codex, and GitHub Copilot CLI. The syntax adapts to each host, but the workflow, artifacts, and review loop stay the same.
+rp1 keeps the workflow layer stable across Claude Code, OpenCode, Codex, GitHub Copilot CLI, and Antigravity CLI. The syntax adapts to each host, but the workflow, artifacts, and review loop stay the same.
 
 [See the same workflows on every host :material-arrow-right:](reference/dev/index.md)
 
@@ -221,7 +225,7 @@ Keep the workflow layer stable while frontier models and host tools keep changin
 
 :fontawesome-solid-shuffle: **Same Workflows, Different Hosts**
 
-Use rp1 from Claude Code, OpenCode, Codex, or GitHub Copilot CLI without rewriting how your team works.
+Use rp1 from Claude Code, OpenCode, Codex, GitHub Copilot CLI, or Antigravity CLI without rewriting how your team works.
 
 </div>
 

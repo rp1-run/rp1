@@ -1,0 +1,39 @@
+{
+  "plugin": "{{ pluginName }}",
+  "nativePluginName": "{% if pluginName contains 'rp1-' %}{{ pluginName }}{% else %}{{ namespacedPluginName }}{% endif %}",
+  "version": "{{ version }}",
+  "antigravityVersionTested": "plugin-package-v1",
+  "artifacts": {
+    "commands": [
+{%- for cmd in artifact.commands %}
+      "{{ cmd }}"{% unless forloop.last %},{% endunless %}
+{%- endfor %}
+    ],
+    "agents": [
+{%- for agent in artifact.agents %}
+      "{{ agent }}"{% unless forloop.last %},{% endunless %}
+{%- endfor %}
+    ],
+    "skills": [
+{%- for skill in artifact.skills %}
+      "{{ skill }}"{% unless forloop.last %},{% endunless %}
+{%- endfor %}
+    ],
+    "plugin": "plugin.json",
+    "rules": "rules/rp1-rules.md",
+    "hooks": "hooks/hooks.json",
+    "mcpConfig": "mcp_config.json",
+    "supportMatrix": "support-matrix.json",
+    "supportMetadata": "support-metadata.json",
+    "delegationDefinitions": "delegation-definitions/index.json"
+  },
+  "installation": {
+    "method": "antigravity-native-plugin",
+    "profileDir": "~/.gemini/antigravity-cli/{% if pluginName contains 'rp1-' %}{{ pluginName }}{% else %}{{ namespacedPluginName }}{% endif %}",
+    "instructionFile": "AGENTS.md",
+    "pluginManifest": "plugin.json"
+  },
+  "requirements": {
+    "antigravityCli": ">=0.0.0"
+  }
+}

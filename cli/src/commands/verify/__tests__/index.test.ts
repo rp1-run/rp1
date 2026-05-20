@@ -28,11 +28,11 @@ describe("verify command structure", () => {
 			expect(description.toLowerCase()).toContain("verify");
 		});
 
-		test("has five subcommands", async () => {
+		test("has six subcommands", async () => {
 			const { verifyCommand } = await import("../index.js");
 
 			const subcommands = verifyCommand.commands;
-			expect(subcommands.length).toBe(5);
+			expect(subcommands.length).toBe(6);
 		});
 
 		test("includes claude-code subcommand", async () => {
@@ -71,11 +71,11 @@ describe("verify command structure", () => {
 			expect(subcommand).toBeDefined();
 		});
 
-		test("includes gemini subcommand", async () => {
+		test("includes antigravity subcommand", async () => {
 			const { verifyCommand } = await import("../index.js");
 
 			const subcommand = verifyCommand.commands.find(
-				(c) => c.name() === "gemini",
+				(c) => c.name() === "antigravity",
 			);
 			expect(subcommand).toBeDefined();
 		});
@@ -89,7 +89,7 @@ describe("verify command structure", () => {
 			expect(helpInfo).toContain("opencode");
 			expect(helpInfo).toContain("codex");
 			expect(helpInfo).toContain("copilot");
-			expect(helpInfo).toContain("gemini");
+			expect(helpInfo).toContain("antigravity");
 		});
 	});
 
@@ -150,25 +150,25 @@ describe("verify command structure", () => {
 		});
 	});
 
-	describe("verifyGeminiSubcommand", () => {
-		test("exports verifyGeminiSubcommand", async () => {
-			const { verifyGeminiSubcommand } = await import("../index.js");
+	describe("verifyAntigravitySubcommand", () => {
+		test("exports verifyAntigravitySubcommand", async () => {
+			const { verifyAntigravitySubcommand } = await import("../index.js");
 
-			expect(verifyGeminiSubcommand).toBeInstanceOf(Command);
+			expect(verifyAntigravitySubcommand).toBeInstanceOf(Command);
 		});
 
 		test("has correct command name", async () => {
-			const { verifyGeminiSubcommand } = await import("../index.js");
+			const { verifyAntigravitySubcommand } = await import("../index.js");
 
-			expect(verifyGeminiSubcommand.name()).toBe("gemini");
+			expect(verifyAntigravitySubcommand.name()).toBe("antigravity");
 		});
 
-		test("has description marking Gemini as supported", async () => {
-			const { verifyGeminiSubcommand } = await import("../index.js");
+		test("has description marking Antigravity as supported", async () => {
+			const { verifyAntigravitySubcommand } = await import("../index.js");
 
-			const description = verifyGeminiSubcommand.description();
-			expect(description.toLowerCase()).toContain("gemini");
-			expect(description.toLowerCase()).toContain("integration");
+			const description = verifyAntigravitySubcommand.description();
+			expect(description.toLowerCase()).toContain("antigravity");
+			expect(description.toLowerCase()).toContain("package");
 		});
 	});
 });
@@ -186,10 +186,10 @@ describe("verify command function exports", () => {
 		expect(typeof executeVerifyOpenCode).toBe("function");
 	});
 
-	test("exports executeVerifyGemini function", async () => {
-		const { executeVerifyGemini } = await import("../index.js");
+	test("exports executeVerifyAntigravity function", async () => {
+		const { executeVerifyAntigravity } = await import("../index.js");
 
-		expect(typeof executeVerifyGemini).toBe("function");
+		expect(typeof executeVerifyAntigravity).toBe("function");
 	});
 });
 
@@ -218,9 +218,9 @@ describe("verify command re-exports", () => {
 		expect(typeof verifyModule.executeVerifyCopilot).toBe("function");
 	});
 
-	test("re-exports verifyGeminiSubcommand", async () => {
+	test("re-exports verifyAntigravitySubcommand", async () => {
 		const verifyModule = await import("../index.js");
 
-		expect(verifyModule.verifyGeminiSubcommand).toBeDefined();
+		expect(verifyModule.verifyAntigravitySubcommand).toBeDefined();
 	});
 });

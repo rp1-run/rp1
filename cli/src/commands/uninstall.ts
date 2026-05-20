@@ -10,6 +10,7 @@ import {
 } from "../config/supported-tools.js";
 import { colorFns } from "../lib/colors.js";
 import { executeUninstall, type UninstallConfig } from "../uninstall/index.js";
+import { uninstallAntigravityCommand } from "./uninstall-antigravity.js";
 import { uninstallCodexCommand } from "./uninstall-codex.js";
 import { uninstallCopilotCommand } from "./uninstall-copilot.js";
 import { uninstallGeminiCommand } from "./uninstall-gemini.js";
@@ -41,7 +42,7 @@ Examples:
   rp1 uninstall --dry-run       Preview changes without removing
   rp1 uninstall -y              Non-interactive uninstall
   rp1 uninstall -s project      Uninstall project-scoped plugins
-  rp1 uninstall gemini --dry-run Preview Gemini extension asset removal
+  rp1 uninstall antigravity --dry-run Preview Antigravity package asset removal
 `,
 	)
 	.action(async (options, command) => {
@@ -147,15 +148,19 @@ if (!copilotUninstallEnabled) {
 	});
 }
 
-const geminiUninstallEnabled = isToolEnabled(
+const antigravityUninstallEnabled = isToolEnabled(
 	TOOLS_REGISTRY as ToolsRegistry,
-	"gemini",
+	"antigravity",
 );
-uninstallCommand.addCommand(uninstallGeminiCommand, {
-	hidden: !geminiUninstallEnabled,
+uninstallCommand.addCommand(uninstallAntigravityCommand, {
+	hidden: !antigravityUninstallEnabled,
 });
-if (!geminiUninstallEnabled) {
-	uninstallGeminiCommand.action(async () => {
+if (!antigravityUninstallEnabled) {
+	uninstallAntigravityCommand.action(async () => {
 		process.exit(1);
 	});
 }
+
+uninstallCommand.addCommand(uninstallGeminiCommand, {
+	hidden: true,
+});

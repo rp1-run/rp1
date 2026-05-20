@@ -120,6 +120,8 @@ function renderDispatch(
 			return mode === "background"
 				? renderCopilotBackground(agentRef, prompt)
 				: renderCopilotForeground(agentRef, prompt);
+		case "antigravity":
+			return renderGemini(agentRef, prompt);
 		case "gemini":
 			return renderGemini(agentRef, prompt);
 	}

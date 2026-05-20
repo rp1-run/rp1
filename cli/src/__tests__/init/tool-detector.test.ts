@@ -213,11 +213,11 @@ describe("tool-detector", () => {
 				expect(formatted).toContain("requires >= 2.0.0");
 			});
 
-			test("formats stable Gemini without a qualification suffix", () => {
+			test("formats stable Antigravity without a qualification suffix", () => {
 				const detected = createMockDetectedTool({
 					tool: createMockTool({
-						id: "gemini",
-						name: "Gemini CLI",
+						id: "antigravity",
+						name: "Antigravity CLI",
 						supportLevel: "stable",
 					}),
 					version: "0.41.2",
@@ -225,7 +225,7 @@ describe("tool-detector", () => {
 				});
 
 				const formatted = formatDetectedTool(detected);
-				expect(formatted).toBe("Gemini CLI v0.41.2");
+				expect(formatted).toBe("Antigravity CLI v0.41.2");
 			});
 		});
 	});

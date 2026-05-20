@@ -10,8 +10,8 @@ Find the symptom you are seeing, then follow the shortest recovery path.
 |---------|------------|
 | `rp1` command is missing | [CLI install problems](#cli-install-problems) |
 | Host commands do not appear | [Host integration problems](#host-integration-problems) |
-| Codex, Copilot, or Gemini validation behaves differently | [Host-specific recovery](#host-specific-recovery) |
-| Gemini reports missing or stale assets, trust, approval, acknowledgement, or headless blockers | [Gemini CLI](#gemini-cli) |
+| Codex, Copilot, or Antigravity validation behaves differently | [Host-specific recovery](#host-specific-recovery) |
+| Antigravity reports missing or stale assets, trust, approval, dynamic subagent, or headless blockers | [Antigravity CLI](#antigravity-cli) |
 | Agent guesses wrong paths or patterns | [Project context problems](#project-context-problems) |
 | A workflow is waiting, stuck, or too broad | [Workflow recovery](#workflow-recovery) |
 | Arcade does not show the run or artifact | [Arcade problems](#arcade-problems) |
@@ -59,14 +59,15 @@ rp1 install codex
 rp1 install copilot
 ```
 
-Verify Gemini extension assets when Gemini CLI is installed:
+Verify Antigravity plugin assets when Antigravity CLI is installed:
 
 ```bash
-rp1 verify gemini
-rp1 verify gemini --workflow <workflow-id>
+rp1 verify antigravity
+rp1 verify antigravity --workflow <workflow-id>
 ```
 
-The current Gemini support matrix supports all 15 Gemini workflow rows.
+Antigravity support-matrix rows are generated from the distributable workflow
+catalog.
 
 ---
 
@@ -144,23 +145,25 @@ For Copilot, the target verification result is `healthy_native`.
 See the [Copilot CLI platform guide](../reference/platforms/copilot.md) for the
 full Copilot setup and recovery path.
 
-### Gemini CLI
+### Antigravity CLI
 
-Gemini CLI is a first-class Gemini extension target. It is part of the default
-stable-host setup path when Gemini CLI is detected, and Gemini limitations do
+Antigravity CLI is the active Google host target. It is part of the default
+stable-host setup path when `agy` is detected, and Antigravity limitations do
 not downgrade Claude Code, OpenCode, Codex, or GitHub Copilot CLI support.
 
 | Symptom | Recovery |
 |---------|----------|
-| Gemini CLI is missing | Install Gemini CLI, then run `gemini --version`. |
-| Gemini extension assets are missing, partial, or stale | Run `rp1 install gemini` or `rp1 update plugins gemini`, restart Gemini CLI, then verify again. |
-| Gemini asks to trust the workspace | Trust the intended repository interactively, or rerun the workflow on a stable host. |
-| Gemini asks for tool approval | Approve the action interactively when appropriate; do not assume unattended resume. |
-| Gemini reports new agents | Acknowledge and enable the agent, then rerun the validation command. |
+| Antigravity CLI is missing | Install Antigravity CLI, then run `agy --version`. |
+| Antigravity plugin assets are missing, partial, or stale | Run `rp1 install antigravity` or `rp1 update plugins antigravity`, restart Antigravity CLI, then verify again. |
+| Antigravity asks to trust the workspace | Trust the intended repository interactively, or rerun the workflow on a stable host. |
+| Antigravity asks for tool approval | Approve the action interactively when appropriate; do not assume unattended resume. |
+| Dynamic subagent definition fails | Rerun with the supported Antigravity workspace selected; if the failure remains, capture it as a product-owned support-matrix exception. |
+| Dynamic subagent invocation fails | Confirm the parent defined the required rp1-derived type once with `define_subagent` and reused the cached `TypeName` with `invoke_subagent`. |
+| Artifact registration fails after a workflow writes output | Treat the run as recoverable failure, preserve the written artifact path, and rerun verification before reporting success. |
 | Headless validation stops | Rerun interactively or capture the blocker as validation evidence. |
 
-See the [Gemini CLI platform guide](../reference/platforms/gemini.md) for the
-support matrix, workflow attribution, and lifecycle recovery details.
+See the [Antigravity CLI platform guide](../reference/platforms/antigravity.md)
+for the support matrix, workflow attribution, and lifecycle recovery details.
 
 ---
 
@@ -347,5 +350,5 @@ When reporting an issue, include:
 - [init Reference](../reference/cli/init.md)
 - [install Reference](../reference/cli/install.md)
 - [Copilot CLI Platform Guide](../reference/platforms/copilot.md)
-- [Gemini CLI Platform Guide](../reference/platforms/gemini.md)
+- [Antigravity CLI Platform Guide](../reference/platforms/antigravity.md)
 - [Team Onboarding](../guides/team-onboarding.md)

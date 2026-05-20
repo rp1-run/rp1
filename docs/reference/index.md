@@ -12,7 +12,7 @@ available when you need the complete command list.
 |------|-----------|
 | Initialize a project | [`init`](cli/init.md) |
 | Install rp1 into an AI coding host | [`install`](cli/install.md) |
-| Verify host integrations and Gemini extension assets | [`verify`](cli/verify.md) |
+| Verify host integrations and Antigravity plugin assets | [`verify`](cli/verify.md) |
 | Update the CLI and installed plugins | [`update`](cli/update.md) |
 | Remove rp1 project setup or host-specific assets | [`uninstall`](cli/uninstall.md) |
 | Check available updates | [`check-update`](cli/check-update.md) |
@@ -64,7 +64,7 @@ available when you need the complete command list.
 | Need | Reference |
 |------|-----------|
 | GitHub Copilot CLI setup and verification | [GitHub Copilot CLI](platforms/copilot.md) |
-| Gemini CLI Gemini extension and support matrix | [Gemini CLI](platforms/gemini.md) |
+| Antigravity CLI plugin assets and support matrix | [Antigravity CLI](platforms/antigravity.md) |
 | CI/CD integration path | [CI/CD Integration](../guides/ci-cd-integration.md) |
 | Remote PR review from automation | [Remote PR Review](../guides/remote-pr-review.md) |
 | PR review configuration file | [`pr-review.yaml`](pr-review-config.md) |
@@ -134,6 +134,16 @@ The workflow stays the same across hosts. Only the command syntax changes:
     ```
 
     Copilot CLI discovers rp1 skills from its configured skills directory.
+
+=== "Antigravity CLI"
+
+    ```bash
+    /rp1-dev-build my-feature
+    /rp1-base-knowledge-build
+    ```
+
+    Antigravity CLI loads rp1 plugin assets from the Antigravity package and
+    reports workflow support through the Antigravity support matrix.
 
 ---
 

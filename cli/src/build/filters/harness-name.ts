@@ -9,6 +9,7 @@
  * | claude-code | claude-code   |
  * | codex       | codex         |
  * | copilot     | gh-copilot    |
+ * | antigravity | antigravity   |
  * | gemini      | gemini-cli    |
  * | opencode    | opencode      |
  *
@@ -25,6 +26,8 @@ export const harnessName = (platform: BuildPlatform): string => {
 			return "codex";
 		case "copilot":
 			return "gh-copilot";
+		case "antigravity":
+			return "antigravity";
 		case "gemini":
 			return "gemini-cli";
 		case "opencode":

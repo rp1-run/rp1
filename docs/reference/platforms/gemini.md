@@ -1,160 +1,45 @@
-# Gemini CLI Platform Guide
+# Retired Gemini CLI Platform Notes
 
-Gemini CLI is a first-class rp1 platform. It has its own build target,
-extension assets, lifecycle commands, verifier output, and support-matrix
-attribution for the user-facing rp1 workflows.
+Gemini CLI support was never released as a public rp1 platform. The unreleased
+Gemini work remains documented here only as historical provenance for maintainers
+reviewing the Antigravity replacement.
 
-The current Gemini support matrix supports all 15 user-facing workflow rows.
-Validation-only harness workflows remain excluded from product workflow claims.
+Use [Antigravity CLI](antigravity.md) for the active Google host target.
 
-## Current Status
+## What Changed
 
-- `rp1 build:opencode --platform gemini` writes Gemini extension assets to
-  `dist/gemini/`; `--platform all` includes Gemini alongside the other build
-  platforms.
-- The Gemini extension includes per-plugin extension metadata, command TOML,
-  packaged skills, packaged agents, `GEMINI.md`, `manifest.json`,
-  `support-matrix.json`, and the top-level `bundle-manifest.json`.
-- Gemini lifecycle commands are manifest-backed:
-  `rp1 install gemini`, `rp1 update plugins gemini`, `rp1 verify gemini`, and
-  `rp1 uninstall gemini`.
-- Automatic init, install-all, and update-all paths include Gemini when Gemini
-  CLI is detected, matching the other stable harnesses.
-- Existing Claude Code, OpenCode, Codex CLI, and GitHub Copilot CLI setup and
-  workflow support are independent from Gemini.
-- Gemini platform icon metadata uses the existing `@lobehub/icons` `Gemini`
-  mono asset pattern.
+The active Google host target is now Antigravity CLI with the `agy` binary and
+Antigravity plugin assets. User-facing lifecycle, support matrix, verifier,
+generated guide, and release guidance should point to Antigravity.
 
-## Prerequisites
+Historical Gemini artifacts may still exist in branch history, old feature work
+directories, or `.rp1/work` provenance from the unreleased Gemini effort. Those
+artifacts explain why an implementation choice was made, but they do not prove
+current Antigravity behavior.
 
-- Gemini CLI available on `PATH`.
-- rp1 CLI available from the project checkout that owns the Gemini extension
-  assets.
-- A trusted workspace or worktree when running Gemini interactively.
-- Current `dist/gemini/` assets from the active feature or release branch.
+## Allowed Historical Uses
 
-Verify the local Gemini binary first:
+Gemini references are allowed only when they are clearly historical, such as:
+
+- retained `.rp1/work` evidence from unreleased Gemini planning or validation
+- source citations that explain the Antigravity replacement history
+- maintainer notes that explicitly distinguish old Gemini evidence from fresh
+  Antigravity validation
+
+Do not use Gemini wording for active install, verify, update, uninstall,
+support-matrix, release, or troubleshooting guidance.
+
+## Active Replacement
+
+Use these Antigravity commands and docs instead:
 
 ```bash
-gemini --version
+rp1 install antigravity
+rp1 verify antigravity --workflow <workflow-id>
+rp1 update plugins antigravity
+rp1 uninstall antigravity
 ```
 
-Install or verify the Gemini extension:
-
-```bash
-rp1 install gemini
-rp1 verify gemini
-```
-
-## Gemini Extension Lifecycle
-
-Gemini install, update, verify, and uninstall operate on manifest-owned files in
-the Gemini CLI extension. rp1 does not install historical smoke commands,
-manual-copy validation assets, or proof-only workflows as normal Gemini product
-commands.
-
-| Command | Purpose | Notes |
-|---------|---------|-------|
-| `rp1 install gemini` | Copies current manifest-owned Gemini assets into Gemini extension directories. | Targeted install path; `rp1 install` also installs Gemini when detected. |
-| `rp1 update plugins gemini` | Refreshes installed Gemini assets from the current manifest. | Targeted refresh path; `rp1 update plugins all` also refreshes Gemini when detected. |
-| `rp1 verify gemini` | Checks Gemini extension lifecycle state. | A current lifecycle means the installed Gemini extension is ready. |
-| `rp1 verify gemini --workflow <workflow-id>` | Attributes one workflow attempt against the Gemini matrix. | Supported attribution points at the Gemini extension evidence source. |
-| `rp1 uninstall gemini` | Removes safe, manifest-owned Gemini assets. | Preserves modified files and unrelated Gemini extensions. |
-
-Gemini asset lifecycle states include `current`, `removed`, `missing`,
-`partial`, `stale`, and `blocked`. A `removed`, `missing`, `partial`, or
-`stale` lifecycle state means the Gemini extension assets are inactive or need a
-refresh; it does not change support status for stable hosts.
-
-## Verifier Output
-
-`rp1 verify gemini` reports:
-
-- `Support: first-class (Gemini CLI extension assets)`
-- `State` for Gemini extension setup
-- `Manifest lifecycle` with stage, asset counts, and lifecycle state
-- optional P2/P3 validation evidence sections when a feature id is supplied
-- optional `Workflow attempt attribution` when `--workflow` is supplied
-
-Use `--workflow` to inspect a catalog workflow row on Gemini:
-
-```bash
-rp1 verify gemini --workflow dev:build
-```
-
-When the workflow row is supported, the verifier prints the workflow id, state,
-first-class Gemini rationale, evidence source, and user action.
-
-## Current Support Matrix
-
-The Gemini matrix lives in `dist/gemini/<plugin>/support-matrix.json` and is
-also represented in `dist/gemini/bundle-manifest.json`. The current
-user-facing workflow rows are all `supported`.
-
-| Workflow id | Workflow class | Status | User action |
-|-------------|----------------|--------|-------------|
-| `dev:build` | development workflow | `supported` | Run from the Gemini CLI extension assets. |
-| `dev:build-fast` | development workflow | `supported` | Run from the Gemini CLI extension assets. |
-| `dev:phase-plan` | development workflow | `supported` | Run from the Gemini CLI extension assets. |
-| `dev:speedrun` | development workflow | `supported` | Run from the Gemini CLI extension assets. |
-| `dev:pr-review` | review workflow | `supported` | Run from the Gemini CLI extension assets. |
-| `dev:pr-visual` | review workflow | `supported` | Run from the Gemini CLI extension assets. |
-| `dev:pr-walkthrough` | review workflow | `supported` | Run from the Gemini CLI extension assets. |
-| `base:generate-user-docs` | documentation workflow | `supported` | Run from the Gemini CLI extension assets. |
-| `base:project-birds-eye-view` | documentation workflow | `supported` | Run from the Gemini CLI extension assets. |
-| `base:knowledge-build` | knowledge workflow | `supported` | Run from the Gemini CLI extension assets. |
-| `base:analyse-security` | strategy workflow | `supported` | Run from the Gemini CLI extension assets. |
-| `base:deep-research` | strategy workflow | `supported` | Run from the Gemini CLI extension assets. |
-| `base:socratic-duel` | strategy workflow | `supported` | Run from the Gemini CLI extension assets. |
-| `base:socratic-duel-run` | strategy workflow | `supported` | Run from the Gemini CLI extension assets. |
-| `dev:blueprint` | planning workflow | `supported` | Run from the Gemini CLI extension assets. |
-
-Internal-only, template-only, non-workflow, and validation-only artifacts are
-excluded from user-facing Gemini workflow support claims.
-
-## Support Policy
-
-User-facing workflow rows are generated as `supported` when they are
-distributable, invocable workflows in the catalog and their Gemini command,
-skill, agent, and context assets are present in the Gemini extension. Optional
-runtime evidence can still be recorded for validation, but it is not required
-to claim first-class Gemini support.
-
-When a Gemini support-state change is made, update these in the same change:
-
-- generated support matrix
-- verifier output expectations
-- this platform guide
-- install, update, uninstall, and verify command docs
-- generated guide references when they mention workflow support
-
-## Limitations And User Actions
-
-| Situation | What it means | What to do |
-|-----------|---------------|------------|
-| Gemini CLI is missing | The Gemini extension target cannot be verified locally. | Install Gemini CLI, then run `gemini --version`. |
-| Gemini extension assets are missing or stale | Installed Gemini extension files do not match the current manifest. | Run `rp1 install gemini` or `rp1 update plugins gemini`, restart Gemini CLI, then verify. |
-| A workflow id is unknown | The workflow id is not present in the Gemini matrix. | Confirm the workflow id or rebuild Gemini assets from current catalog sources. |
-| Gemini asks to trust the workspace | The run is blocked on an interactive trust decision. | Trust the intended repository or rerun on a stable host. |
-| Gemini asks for tool approval | The run is blocked on Gemini approval policy. | Approve the action interactively when appropriate; do not assume unattended resume. |
-| Gemini reports new agents | Project or extension agents may need acknowledgement. | Acknowledge and enable the agents, then rerun verification. |
-| Headless validation stops | A trust, approval, user-input, or acknowledgement gate likely interrupted automation. | Rerun interactively or capture the blocker as validation evidence. |
-
-## Harness Boundary
-
-Gemini prerequisites apply when Gemini CLI is detected or when a user targets
-Gemini directly. Users without Gemini CLI installed are not asked to install
-Gemini, acknowledge Gemini agents, refresh Gemini extensions, or run Gemini
-lifecycle commands.
-
-Stable host verification remains separate:
-
-```bash
-rp1 verify claude-code
-rp1 verify opencode
-rp1 verify codex
-rp1 verify copilot
-```
-
-Stable-host evidence is tracked separately from Gemini, and Gemini limitations
-do not downgrade stable-host support.
+See [Antigravity CLI](antigravity.md) for package layout, permissions, sandbox
+behavior, MCP guidance, dynamic delegation, support-matrix states, and
+troubleshooting.

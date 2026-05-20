@@ -1,0 +1,44 @@
+{
+	"entries": [
+		{
+			"path": "docs/reference/platforms/gemini.md",
+			"pattern": ".*",
+			"reason": "Retired Gemini platform notes are retained only as unreleased historical provenance."
+		},
+		{
+			"path": "docs/retired-features.md",
+			"pattern": ".*",
+			"reason": "Retired features page records the unreleased Gemini replacement history."
+		},
+		{
+			"path": "docs/reference/platforms/antigravity.md",
+			"pattern": ".*Gemini CLI support was never released.*|.*Historical Gemini.*|.*Gemini artifacts.*|.*Gemini evidence.*|.*Gemini validation.*",
+			"reason": "Antigravity platform guide explicitly distinguishes retired Gemini provenance from active Antigravity evidence."
+		},
+		{
+			"path": "docs/reference/platforms/antigravity.md",
+			"pattern": ".*~/.gemini/antigravity-cli/.*",
+			"reason": "Antigravity currently stores plugin assets under the Antigravity-owned profile path."
+		},
+		{
+			"path": "docs/reference/dev/build.md",
+			"pattern": ".*Gemini-era.*provenance.*",
+			"reason": "Maintainer build docs distinguish historical Gemini provenance from fresh Antigravity evidence."
+		},
+		{
+			"path": "docs/reference/cli/install.md",
+			"pattern": ".*~/.gemini/antigravity-cli/.*",
+			"reason": "Install docs show the Antigravity-owned profile path."
+		},
+		{
+			"path": "docs/reference/cli/update.md",
+			"pattern": ".*~/.gemini/antigravity-cli/.*",
+			"reason": "Update docs show the Antigravity-owned profile path."
+		},
+		{
+			"path": "docs/reference/cli/uninstall.md",
+			"pattern": ".*~/.gemini/antigravity-cli/.*",
+			"reason": "Uninstall docs show the Antigravity-owned profile path."
+		}
+	]
+}

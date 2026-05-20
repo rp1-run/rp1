@@ -4,6 +4,19 @@ import { createElement } from "react";
 import { HarnessIcon } from "../../../components/v2/HarnessIcon";
 
 describe("HarnessIcon", () => {
+	test("renders the Antigravity mono icon for Antigravity harnesses", () => {
+		const { container } = render(
+			createElement(HarnessIcon, { harness: "antigravity", size: 20 }),
+		);
+
+		const wrapper = container.querySelector('span[title="Antigravity"]');
+		expect(wrapper).toBeTruthy();
+		const icon = container.querySelector("svg");
+		expect(icon).toBeTruthy();
+		expect(icon?.getAttribute("fill")).toBe("currentColor");
+		expect(icon?.querySelector("title")?.textContent).toBe("Antigravity");
+	});
+
 	test("renders the GithubCopilot mono icon for copilot harnesses", () => {
 		const { container } = render(
 			createElement(HarnessIcon, { harness: "copilot", size: 16 }),

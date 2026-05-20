@@ -60,17 +60,23 @@ tools:
       - agents
       - slash-commands
 
-  - id: gemini
-    name: Gemini CLI
-    binary: gemini
+  - id: antigravity
+    name: Antigravity CLI
+    binary: agy
     min_version: "0.0.0"
     instruction_file: AGENTS.md
-    install_url: https://github.com/google-gemini/gemini-cli
-    plugin_install_cmd: null
+    install_url: https://www.antigravity.google/product/antigravity-cli
+    plugin_install_cmd: "agy plugin install {plugin}"
     supportLevel: stable
     icon:
       source: "@lobehub/icons"
-      name: Gemini
+      name: Antigravity
       variant: mono
     capabilities:
+      - plugins
+      - skills
+      - agents
       - slash-commands
+      - hooks
+      - mcp
+      - rules

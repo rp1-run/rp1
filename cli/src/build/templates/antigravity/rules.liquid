@@ -1,0 +1,14 @@
+# rp1 Antigravity Rules
+
+- Treat `support-matrix.json` as the product-owned workflow support boundary for this plugin.
+- Treat workflow-bootstrap roots as authoritative: source operations use `codeRoot`, KB reads use `kbRoot`, and durable rp1 artifacts use `workRoot`. Preserve canonical project roots and active worktree `codeRoot` when they differ.
+- Use `delegation-definitions/index.json` before delegated or fanout work.
+- Maintain a conversation/session-local registry keyed by rp1 agent id plus definition hash. Store the cached `TypeName`, definition status, workspace policy, tool flags, and nested-delegation allowance.
+- Define each required rp1-derived subagent type once per active conversation/session with `define_subagent`.
+- Reuse the cached `TypeName` with `invoke_subagent` for repeated task units and fanout batches.
+- Carry the session registry through fanout planning, delegated units, and reducers; do not reset or redefine already-defined entries during the same conversation/session.
+- Use inherited workspace by default. Pass `Workspace` only when the loaded definition or support metadata explicitly allows the workspace needed for code and artifacts.
+- Set `enable_subagent_tools` only when the loaded definition explicitly enables nested delegation.
+- Include an attributable result contract in delegated prompts: unit id, status, artifact path when applicable, and failure reason.
+- Do not use static packaged agent files or `/agents` discovery as proof that rp1 delegated workflows can launch.
+- Use `mcp_config.json` only as explicit MCP guidance. If permissions, trust, sandbox, headless execution, MCP, workspace, or nested delegation is unavailable or unvalidated, report an Antigravity support exception instead of silently continuing.

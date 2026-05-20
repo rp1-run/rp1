@@ -2,7 +2,10 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../../shared/errors.js";
-import { collectGeminiWorkflowSupportMatrix } from "../../catalog/index.js";
+import {
+	collectAntigravityWorkflowSupportMatrix,
+	collectGeminiWorkflowSupportMatrix,
+} from "../../catalog/index.js";
 import type { ClaudeCodeSkill } from "../models.js";
 import type {
 	HookContext,
@@ -209,9 +212,10 @@ export const geminiPostPluginBuild = async (
 		});
 	};
 
-	const supportMatrix = await collectGeminiWorkflowSupportMatrix(
-		hookCtx.projectRoot,
-	);
+	const supportMatrix =
+		hookCtx.platform === "antigravity"
+			? await collectAntigravityWorkflowSupportMatrix(hookCtx.projectRoot)
+			: await collectGeminiWorkflowSupportMatrix(hookCtx.projectRoot);
 	warnings.push(...supportMatrix.errors);
 	await writeFile(
 		join(outputDir, "support-matrix.json"),

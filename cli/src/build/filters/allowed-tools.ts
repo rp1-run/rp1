@@ -10,6 +10,7 @@
  * | opencode    | `"Bash(echo *), Read"`   | `["Bash(echo *)", "read_file"]`         |
  * | codex       | `"Bash(echo *), Read"`   | `"functions.exec_command(echo *)"` etc. |
  * | copilot     | `"Bash(echo *), Read"`   | `["run_terminal_command(echo *)", "read_file"]` |
+ * | antigravity | `"Bash(echo *), Read"`   | `["run_shell_command", "read_file"]` |
  * | gemini      | `"Bash(echo *), Read"`   | `["run_shell_command", "read_file"]` |
  *
  * Extracts and reuses logic from transformations.ts (OpenCode split)
@@ -211,6 +212,8 @@ export const allowedToolsFilter = (
 			return toCodexString(allowedTools, registry);
 		case "copilot":
 			return toCopilotArray(allowedTools, registry);
+		case "antigravity":
+			return toGeminiArray(allowedTools, registry);
 		case "gemini":
 			return toGeminiArray(allowedTools, registry);
 	}

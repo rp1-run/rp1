@@ -154,15 +154,15 @@ build-codex:
 build-copilot:
     cd cli && bun run scripts/build-copilot.ts
 
-# Build the Gemini CLI extension bundle
-build-gemini:
-    cd cli && bun run scripts/build-gemini.ts
+# Build the Antigravity CLI plugin packages
+build-antigravity:
+    cd cli && bun run scripts/build-antigravity.ts
 
 # Validate plugin builds on every platform (CI-oriented; no compile, no web-ui).
 # Catches platform-specific semantic-lint errors (L-rules) that single-platform
 # builds miss — e.g. OpenCode-only naming, Codex-only tool surfaces.
 build-plugins-check:
-    cd cli && bun run scripts/build-opencode.ts && bun run scripts/build-codex.ts && bun run scripts/build-claude-code.ts && bun run scripts/build-copilot.ts && bun run scripts/build-gemini.ts
+    cd cli && bun run scripts/build-opencode.ts && bun run scripts/build-codex.ts && bun run scripts/build-claude-code.ts && bun run scripts/build-copilot.ts && bun run scripts/build-antigravity.ts
 
 # Build the web-ui
 build-web-ui:
@@ -182,7 +182,7 @@ clean-web-ui-cache:
 
 # RP1_BUILD_INTERNAL=1 includes utils (internal-only plugin) in the dev build
 build-local-dev: build-web-ui clean-web-ui-cache
-    cd cli && bun install --frozen-lockfile && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-gemini.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
+    cd cli && bun install --frozen-lockfile && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-antigravity.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
 
 # Build the macOS native Arcade shell target without opening it
 build-native-app: install
@@ -314,18 +314,18 @@ codex:
     ./bin/rp1 install codex --yes --artifacts-dir dist/codex
     codex
 
-# Launch Gemini CLI with local Gemini CLI extension assets (auto-builds if stale)
-gemini:
+# Launch Antigravity CLI with local Antigravity package assets (auto-builds if stale)
+antigravity:
     #!/usr/bin/env bash
     set -e
-    if [ ! -d "dist/gemini/base" ] || \
-       [ ! -f "dist/gemini/base/gemini-extension.json" ] || \
-       [ "$(find plugins/ cli/src/build cli/scripts -newer dist/gemini/base/gemini-extension.json \( -name '*.md' -o -name '*.liquid' -o -name '*.ts' -o -name '*.json' \) 2>/dev/null | head -1)" ]; then
-        echo "Building Gemini artifacts..."
-        cd cli && RP1_BUILD_INTERNAL=1 bun run scripts/build-gemini.ts && cd ..
+    if [ ! -d "dist/antigravity/base" ] || \
+       [ ! -f "dist/antigravity/base/plugin.json" ] || \
+       [ "$(find plugins/ cli/src/build cli/scripts -newer dist/antigravity/base/plugin.json \( -name '*.md' -o -name '*.liquid' -o -name '*.ts' -o -name '*.json' \) 2>/dev/null | head -1)" ]; then
+        echo "Building Antigravity artifacts..."
+        cd cli && RP1_BUILD_INTERNAL=1 bun run scripts/build-antigravity.ts && cd ..
     fi
-    RP1_GEMINI_BUNDLE_DIR=dist/gemini ./bin/rp1 install gemini
-    gemini
+    RP1_ANTIGRAVITY_BUNDLE_DIR=dist/antigravity ./bin/rp1 install antigravity
+    agy
 
 # Launch the macOS native Arcade shell in Electrobun dev mode.
 # Omit PROJECT for registered projects, or pass PROJECT=/path for direct launch.
@@ -409,6 +409,143 @@ test-web-ui-smoke:
 # Run evals unit tests
 test-evals:
     cd evals && bun run test
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Antigravity Validation
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Run the full Antigravity maintainer validation recipe set
+antigravity-validate: antigravity-validate-build antigravity-validate-package antigravity-validate-lifecycle antigravity-validate-docs antigravity-validate-support-matrix antigravity-smoke-normal antigravity-smoke-worktree antigravity-smoke-checkout-evidence antigravity-smoke-dynamic-delegation antigravity-smoke-dynamic-fanout antigravity-smoke-dynamic-failure antigravity-smoke-boundaries antigravity-regression-existing-harnesses antigravity-regression-existing-harness-run-state
+    @echo "Antigravity validation recipes completed."
+
+# Build Antigravity package assets and verify the bundle manifest exists
+antigravity-validate-build: build-antigravity
+    test -f dist/antigravity/bundle-manifest.json
+
+# Validate generated Antigravity packages with agy when available
+antigravity-validate-package: build-antigravity
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v agy >/dev/null 2>&1; then
+        echo "PRODUCT-OWNED ANTIGRAVITY EXCEPTION: package validation requires a local agy binary."
+        echo "Install Antigravity CLI, then rerun this recipe; set RP1_ANTIGRAVITY_REQUIRE_LIVE=1 to make the missing binary fail."
+        if [ "${RP1_ANTIGRAVITY_REQUIRE_LIVE:-0}" = "1" ]; then exit 1; fi
+        exit 0
+    fi
+    found=false
+    for plugin_manifest in dist/antigravity/*/plugin.json; do
+        [ -f "$plugin_manifest" ] || continue
+        found=true
+        plugin_dir="$(dirname "$plugin_manifest")"
+        echo "Validating ${plugin_dir}"
+        agy plugin validate "$plugin_dir"
+    done
+    if [ "$found" != "true" ]; then
+        echo "No Antigravity plugin manifests found under dist/antigravity."
+        exit 1
+    fi
+
+# Check isolated-home install, verify, update/staleness, uninstall, and repeat-uninstall behavior
+antigravity-validate-lifecycle:
+    cd cli && bun test src/__tests__/install/antigravity/lifecycle.test.ts src/__tests__/commands/install-antigravity.test.ts src/__tests__/commands/uninstall-antigravity.test.ts src/__tests__/commands/update-plugins-command.test.ts
+
+# Audit active docs for stale Gemini wording outside the historical allowlist
+antigravity-validate-docs:
+    cd cli && bun run scripts/audit-antigravity-docs.ts ..
+
+# Check catalog-backed Antigravity support matrix generation
+antigravity-validate-support-matrix:
+    cd cli && bun test src/__tests__/catalog/antigravity-support.test.ts src/__tests__/build/antigravity-support-matrix.test.ts
+
+# Check normal-checkout Antigravity bootstrap and run-state contracts
+antigravity-smoke-normal:
+    cd cli && bun test src/__tests__/agent-tools/workflow-bootstrap/workflow-bootstrap.test.ts
+
+# Check linked-worktree Antigravity root, workRoot, and codeRoot contracts
+antigravity-smoke-worktree:
+    cd cli && bun test src/__tests__/agent-tools/workflow-bootstrap/workflow-bootstrap.test.ts
+
+# Record normal-checkout, worktree-checkout, and forced artifact-registration evidence artifacts
+antigravity-smoke-checkout-evidence:
+    cd cli && bun run scripts/record-antigravity-checkout-evidence.ts --feature-id antigravity --run-id "${RUN_ID:-manual}" --scenario all
+
+# Check define_subagent-once, session registry, and cached invoke_subagent reuse
+antigravity-smoke-dynamic-delegation:
+    cd cli && bun test src/__tests__/build/antigravity-package.test.ts
+
+# Check dynamic fanout recipe coverage and distinguishable delegated outputs
+antigravity-smoke-dynamic-fanout:
+    cd cli && bun test src/__tests__/build/antigravity-package.test.ts
+
+# Check dynamic delegated failure visibility and successful-unit attribution
+antigravity-smoke-dynamic-failure:
+    cd cli && bun test src/__tests__/build/antigravity-package.test.ts
+
+# Record reproducible boundary evidence for live Antigravity modes that need interactive confirmation
+antigravity-smoke-boundaries: build-antigravity
+    cd cli && bun run scripts/record-antigravity-boundary-evidence.ts --feature-id antigravity --run-id "${RUN_ID:-manual}" --scenario all
+
+# Record Antigravity permissions, trust, approval, sandbox, and headless evidence guidance
+antigravity-smoke-permissions-trust: build-antigravity
+    cd cli && bun run scripts/record-antigravity-boundary-evidence.ts --feature-id antigravity --run-id "${RUN_ID:-manual}" --scenario permissions_trust
+
+# Record Antigravity MCP unavailable or misconfigured evidence guidance
+antigravity-smoke-mcp-failure: build-antigravity
+    cd cli && bun run scripts/record-antigravity-boundary-evidence.ts --feature-id antigravity --run-id "${RUN_ID:-manual}" --scenario mcp_failure
+
+# Guard existing Claude Code, OpenCode, Codex, and Copilot build/install surfaces
+antigravity-regression-existing-harnesses:
+    cd cli && bun test src/__tests__/build/command.test.ts src/__tests__/build/templates/template-rendering.test.ts src/__tests__/shared/install-core.test.ts src/__tests__/install/copilot/installer.test.ts
+
+# Prove an existing-harness workflow can still register artifacts and run state without Antigravity setup
+antigravity-regression-existing-harness-run-state:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tmp_dir="$(mktemp -d)"
+    cleanup() {
+        rm -rf "$tmp_dir"
+    }
+    trap cleanup EXIT
+
+    project_root="$tmp_dir/project"
+    artifact_path="quick-builds/existing-harness-codex-artifact.md"
+    mkdir -p "$project_root/.rp1/work/quick-builds"
+    printf 'existing-harness-run-state-smoke\n' > "$project_root/.rp1/project_id"
+    printf '# Existing harness Codex artifact smoke\n\nHarness: codex\nWorkflow: build-fast\n' > "$project_root/.rp1/work/$artifact_path"
+
+    export RP1_DB="$tmp_dir/rp1.db"
+    run_id="$(bun -e 'console.log(crypto.randomUUID())')"
+    cd cli
+    agent_tools=(bun run src/main.ts agent-tools)
+
+    "${agent_tools[@]}" emit --harness codex --workflow build-fast --type status_change --run-id "$run_id" --step plan --name "Existing harness artifact smoke" --project "$project_root" --data '{"status":"running","feature":"quick-build"}' >/dev/null
+    "${agent_tools[@]}" emit --harness codex --workflow build-fast --type status_change --run-id "$run_id" --step build --project "$project_root" --data '{"status":"running","feature":"quick-build"}' >/dev/null
+    "${agent_tools[@]}" emit --harness codex --workflow build-fast --type artifact_registered --run-id "$run_id" --step build --project "$project_root" --data "{\"path\":\"$artifact_path\",\"feature\":\"quick-build\",\"storageRoot\":\"work_dir\"}" >/dev/null
+    "${agent_tools[@]}" emit --harness codex --workflow build-fast --type status_change --run-id "$run_id" --step review --project "$project_root" --data '{"status":"running","feature":"quick-build"}' >/dev/null
+    "${agent_tools[@]}" emit --harness codex --workflow build-fast --type status_change --run-id "$run_id" --step review --project "$project_root" --data '{"status":"completed","feature":"quick-build"}' --close-run >/dev/null
+
+    state_json="$tmp_dir/workflow-state.json"
+    "${agent_tools[@]}" workflow-state --run-id "$run_id" --workflow build-fast --feature quick-build --parent-phases plan,build,review --recent-events 10 > "$state_json"
+    STATE_JSON="$state_json" ARTIFACT_PATH="$artifact_path" bun -e '
+        const envelope = JSON.parse(await Bun.file(process.env.STATE_JSON).text());
+        const artifactPath = process.env.ARTIFACT_PATH;
+        const fail = (message) => {
+            console.error(message);
+            process.exit(1);
+        };
+        if (!envelope.success) fail("workflow-state did not return success");
+        const data = envelope.data;
+        if (data.run.harness !== "codex") fail(`expected codex harness, got ${data.run.harness}`);
+        if (data.run.status !== "completed") fail(`expected completed run, got ${data.run.status}`);
+        if (data.run.rp1WorkRoot !== `${data.run.rp1ProjectRoot}/.rp1/work`) fail("run roots do not point at the project work root");
+        if (data.artifacts.length !== 1) fail(`expected one artifact, got ${data.artifacts.length}`);
+        const artifact = data.artifacts[0];
+        if (artifact.path !== artifactPath) fail(`expected artifact path ${artifactPath}, got ${artifact.path}`);
+        if (artifact.storageRoot !== "work_dir") fail(`expected work_dir storage root, got ${artifact.storageRoot}`);
+        if (artifact.step !== "build") fail(`expected build artifact step, got ${artifact.step}`);
+        if (!data.recent_events.some((event) => event.type === "artifact_registered")) fail("artifact_registered event missing from recent workflow state");
+        console.log(`Existing-harness artifact/run-state smoke passed: harness=${data.run.harness} workflow=${data.run.flow} status=${data.run.status} artifact=${artifact.path}`);
+    '
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Code Quality
@@ -519,6 +656,7 @@ rm-stable:
     rm -rf ~/.config/github-copilot/skills/rp1-*/
     rm -rf ~/.config/github-copilot/agents/rp1*
     rm -rf ~/.gemini/extensions/rp1-*
+    rm -rf ~/.gemini/antigravity-cli/rp1-*
     rm -f bin/rp1
     rm -f ~/.rp1/platform-versions.json
 

@@ -10,6 +10,7 @@
  *   CC:    References allowed-tools with Bash(pattern) format
  *   OC:    References permission map with tool-level granularity
  *   Codex: References sandbox execution policy
+ *   Antigravity: References Antigravity trust, sandbox, and approval policy
  *   Gemini: References Gemini CLI trust and approval policy
  */
 
@@ -34,6 +35,8 @@ function renderPermissions(directive: string, platform: BuildPlatform): string {
 			return `Use the sandbox execution policy to ${directive}`;
 		case "copilot":
 			return `Use the \`allowed-tools\` YAML frontmatter field to ${directive}. Prefer Copilot permission patterns such as \`shell(rp1:*)\`, \`read\`, and \`write\`.`;
+		case "antigravity":
+			return `Use Antigravity CLI trust, sandbox, and approval policy to ${directive}`;
 		case "gemini":
 			return `Use Gemini CLI trust and approval policy to ${directive}`;
 	}

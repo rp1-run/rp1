@@ -9,6 +9,7 @@ import { join } from "node:path";
 import type { Logger } from "../../../shared/logger.js";
 import {
 	buildPlatformPlugin,
+	deriveAntigravityOutputDir,
 	deriveGeminiOutputDir,
 	executeBuild,
 	parseBuildArgs,
@@ -39,6 +40,7 @@ const opencodeDef = PLATFORM_DEFINITIONS.get("opencode")!;
 const claudeCodeDef = PLATFORM_DEFINITIONS.get("claude-code")!;
 const codexDef = PLATFORM_DEFINITIONS.get("codex")!;
 const copilotDef = PLATFORM_DEFINITIONS.get("copilot")!;
+const antigravityDef = PLATFORM_DEFINITIONS.get("antigravity")!;
 const geminiDef = PLATFORM_DEFINITIONS.get("gemini")!;
 
 const extractBootstrapTarget = (
@@ -61,26 +63,39 @@ const extractBootstrapTarget = (
 };
 
 describe("build platform support", () => {
-	test("registers Gemini as a bundle-producing build platform", () => {
-		const platformIds = Array.from(PLATFORM_DEFINITIONS.keys()).sort();
+	test("registers Antigravity as the active Google bundle-producing build platform", () => {
+		const activePlatformIds = Array.from(PLATFORM_DEFINITIONS.values())
+			.filter((definition) => definition.config.enabled !== false)
+			.map((definition) => definition.id)
+			.sort();
 
-		expect(platformIds).toEqual([
+		expect(activePlatformIds).toEqual([
+			"antigravity",
 			"claude-code",
 			"codex",
 			"copilot",
-			"gemini",
 			"opencode",
 		]);
-		expect(expectRight(parseBuildArgs(["--platform", "gemini"]))).toMatchObject(
-			{
-				platform: "gemini",
-			},
-		);
-		expect(geminiDef.producesBundleAssets).toBe(true);
-		expect(geminiDef.config.id).toBe("gemini");
+		expect(
+			expectRight(parseBuildArgs(["--platform", "antigravity"])),
+		).toMatchObject({
+			platform: "antigravity",
+		});
+		expect(antigravityDef.producesBundleAssets).toBe(true);
+		expect(antigravityDef.config).toMatchObject({
+			id: "antigravity",
+			name: "Antigravity CLI",
+			binary: "agy",
+		});
 	});
 
-	test("derives the default Gemini output directory next to other platform outputs", () => {
+	test("derives the default Google harness output directories next to other platform outputs", () => {
+		expect(deriveAntigravityOutputDir("dist/opencode")).toBe(
+			"dist/antigravity",
+		);
+		expect(deriveAntigravityOutputDir("dist/opencode/")).toBe(
+			"dist/antigravity",
+		);
 		expect(deriveGeminiOutputDir("dist/opencode")).toBe("dist/gemini");
 		expect(deriveGeminiOutputDir("dist/opencode/")).toBe("dist/gemini");
 	});
@@ -119,12 +134,19 @@ describe("parseBuildArgs", () => {
 
 		expect(
 			expectRight(
-				parseBuildArgs(["-o", "out", "-p", "utils", "--platform", "gemini"]),
+				parseBuildArgs([
+					"-o",
+					"out",
+					"-p",
+					"utils",
+					"--platform",
+					"antigravity",
+				]),
 			),
 		).toMatchObject({
 			outputDir: "out",
 			plugin: "utils",
-			platform: "gemini",
+			platform: "antigravity",
 		});
 	});
 
@@ -1007,18 +1029,23 @@ ${plugin} sample content.
 		expect(bundleManifest.plugins.base).toBeDefined();
 		expect(bundleManifest.plugins.dev).toBeDefined();
 
-		const geminiBundleManifest = JSON.parse(
+		const antigravityBundleManifest = JSON.parse(
 			await readFile(
-				join(projectRoot, "dist", "gemini", "bundle-manifest.json"),
+				join(projectRoot, "dist", "antigravity", "bundle-manifest.json"),
 				"utf-8",
 			),
 		);
-		expect(geminiBundleManifest.platform.icon).toEqual({
+		expect(antigravityBundleManifest.platform.icon).toEqual({
 			source: "@lobehub/icons",
-			name: "Gemini",
+			name: "Antigravity",
 			variant: "mono",
 		});
-		expect(geminiBundleManifest.plugins.base).toBeDefined();
-		expect(geminiBundleManifest.plugins.dev).toBeDefined();
+		expect(antigravityBundleManifest.platform).toMatchObject({
+			id: "antigravity",
+			name: "Antigravity CLI",
+			binary: "agy",
+		});
+		expect(antigravityBundleManifest.plugins.base).toBeDefined();
+		expect(antigravityBundleManifest.plugins.dev).toBeDefined();
 	});
 });

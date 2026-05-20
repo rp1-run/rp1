@@ -23,6 +23,11 @@ import {
 	verifyOpenCodePlugins,
 } from "../../init/steps/verification.js";
 import {
+	type AntigravityLifecycleStatus,
+	getAntigravityManifestLifecycleStatus,
+	verifyAntigravityBundleSetup,
+} from "../../install/antigravity/index.js";
+import {
 	type GeminiLifecycleStatus,
 	getGeminiManifestLifecycleStatus,
 	verifyGeminiBundleSetup,
@@ -35,6 +40,7 @@ import {
 	type ToolInstallResult,
 } from "../../shared/install-core.js";
 import { installAllSubcommand } from "./all.js";
+import { installAntigravitySubcommand } from "./antigravity.js";
 import { installClaudeCodeSubcommand } from "./claude-code.js";
 import { installCodexSubcommand } from "./codex.js";
 import { installCopilotSubcommand } from "./copilot.js";
@@ -42,6 +48,101 @@ import { installGeminiSubcommand } from "./gemini.js";
 import { installOpenCodeSubcommand } from "./opencode.js";
 
 const { green, yellow, red, dim, bold } = colorFns;
+
+const antigravityLifecycleStatus = (
+	lifecycle: AntigravityLifecycleStatus,
+): string => {
+	if (lifecycle.state === "current") return green("[OK]");
+	if (lifecycle.state === "blocked" || lifecycle.state === "stale") {
+		return red("[MISS]");
+	}
+	return yellow("[WARN]");
+};
+
+const antigravityLifecycleAssetCounts = (
+	lifecycle: AntigravityLifecycleStatus,
+): {
+	readonly current: number;
+	readonly missing: number;
+	readonly stale: number;
+	readonly blocked: number;
+} => ({
+	current: lifecycle.assets.filter((asset) => asset.freshness === "current")
+		.length,
+	missing: lifecycle.assets.filter((asset) => asset.freshness === "missing")
+		.length,
+	stale: lifecycle.assets.filter((asset) => asset.freshness === "stale").length,
+	blocked: lifecycle.assets.filter((asset) => asset.freshness === "unknown")
+		.length,
+});
+
+const printAntigravityLifecycleVerification = (
+	lifecycle: AntigravityLifecycleStatus,
+): void => {
+	const counts = antigravityLifecycleAssetCounts(lifecycle);
+	console.log(
+		`  ${antigravityLifecycleStatus(lifecycle)} Antigravity manifest lifecycle (${dim(lifecycle.state)})`,
+	);
+	console.log(
+		dim(
+			`    - stage=${lifecycle.stage}; assets=${counts.current}/${lifecycle.assets.length} current, ${counts.missing} missing, ${counts.stale} stale, ${counts.blocked} blocked`,
+		),
+	);
+	console.log(
+		dim(
+			`    - version-marker=${lifecycle.versionMarker.freshness}; installed=${lifecycle.versionMarker.installedVersion ?? "none"}; current=${lifecycle.versionMarker.currentVersion}`,
+		),
+	);
+	for (const asset of lifecycle.assets.filter(
+		(asset) => asset.freshness !== "current",
+	)) {
+		console.log(yellow(`    - ${asset.asset.displayPath}: ${asset.freshness}`));
+	}
+	if (lifecycle.issue) {
+		console.log(yellow(`    - ${lifecycle.issue}`));
+	}
+	if (lifecycle.userAction) {
+		console.log(dim(`    - Next action: ${lifecycle.userAction}`));
+	}
+};
+
+async function runAntigravityPostInstallVerification(): Promise<boolean> {
+	const antigravityResult = await verifyAntigravityBundleSetup();
+	const lifecycleResult = await getAntigravityManifestLifecycleStatus({
+		stage: "verify",
+	})();
+	const bundleStatus = antigravityResult.verified
+		? green("[OK]")
+		: yellow("[WARN]");
+
+	console.log(
+		`  ${bundleStatus} Antigravity CLI package validation (${dim(antigravityResult.status)})`,
+	);
+
+	if (E.isLeft(lifecycleResult)) {
+		console.log(
+			`  ${red("[MISS]")} Antigravity manifest lifecycle (${dim("failed")})`,
+		);
+		console.log(
+			yellow(
+				`    - ${formatError(lifecycleResult.left, process.stderr.isTTY ?? false)}`,
+			),
+		);
+	} else {
+		printAntigravityLifecycleVerification(lifecycleResult.right);
+	}
+
+	for (const issue of antigravityResult.issues) {
+		console.log(yellow(`    - ${issue}`));
+	}
+
+	return (
+		antigravityResult.verified &&
+		(E.isRight(lifecycleResult)
+			? lifecycleResult.right.state === "current"
+			: false)
+	);
+}
 
 const geminiLifecycleStatus = (lifecycle: GeminiLifecycleStatus): string => {
 	if (lifecycle.state === "current") return green("[OK]");
@@ -164,6 +265,13 @@ async function runPostInstallVerification(
 			continue;
 		}
 
+		if (toolId === "antigravity") {
+			if (!(await runAntigravityPostInstallVerification())) {
+				allVerified = false;
+			}
+			continue;
+		}
+
 		if (!result) continue;
 
 		for (const plugin of result.plugins) {
@@ -204,7 +312,7 @@ export const installParentCommand = new Command("install")
 	.option("-y, --yes", "Skip confirmation prompts")
 	.option(
 		"-p, --platform <platform>",
-		"Target a specific platform (claude-code, opencode, codex, copilot, gemini)",
+		"Target a specific platform (claude-code, opencode, codex, copilot, antigravity)",
 	)
 	.addHelpText(
 		"after",
@@ -217,7 +325,7 @@ Subcommands:
   opencode       Install plugins to OpenCode
   codex          Install plugins to Codex CLI
   copilot        Install plugins to Copilot CLI
-  gemini         Install Gemini CLI extension assets
+  antigravity    Install Antigravity CLI package assets
   all            Install plugins to all detected tools
 
 Examples:
@@ -226,7 +334,7 @@ Examples:
   rp1 install claude-code                Install to Claude Code (subcommand)
   rp1 install opencode                   Install to OpenCode (subcommand)
   rp1 install copilot                    Install to Copilot CLI (subcommand)
-  rp1 install gemini                     Install Gemini CLI extension assets
+  rp1 install antigravity                Install Antigravity CLI package assets
   rp1 install all                        Install to all detected tools
   rp1 install --dry-run                  Preview installation
   rp1 install -y                         Skip confirmation prompts
@@ -395,22 +503,27 @@ if (!copilotInstallEnabled) {
 	});
 }
 
-const geminiInstallEnabled = isToolEnabled(
+const antigravityInstallEnabled = isToolEnabled(
 	TOOLS_REGISTRY as ToolsRegistry,
-	"gemini",
+	"antigravity",
 );
-installParentCommand.addCommand(installGeminiSubcommand, {
-	hidden: !geminiInstallEnabled,
+installParentCommand.addCommand(installAntigravitySubcommand, {
+	hidden: !antigravityInstallEnabled,
 });
-if (!geminiInstallEnabled) {
-	installGeminiSubcommand.action(async () => {
+if (!antigravityInstallEnabled) {
+	installAntigravitySubcommand.action(async () => {
 		process.exit(1);
 	});
 }
 
+installParentCommand.addCommand(installGeminiSubcommand, {
+	hidden: true,
+});
+
 installParentCommand.addCommand(installAllSubcommand);
 
 export { installAllSubcommand } from "./all.js";
+export { installAntigravitySubcommand } from "./antigravity.js";
 export { installClaudeCodeSubcommand } from "./claude-code.js";
 export { installCodexSubcommand } from "./codex.js";
 export { installCopilotSubcommand } from "./copilot.js";

@@ -12,6 +12,10 @@ import {
 } from "../../config/supported-tools.js";
 import { colorFns } from "../../lib/colors.js";
 import {
+	executeVerifyAntigravity,
+	verifyAntigravitySubcommand,
+} from "./antigravity.js";
+import {
 	executeVerifyClaudeCode,
 	verifyClaudeCodeSubcommand,
 } from "./claude-code.js";
@@ -36,7 +40,7 @@ Subcommands:
   opencode       Verify plugins in OpenCode
   codex          Verify plugins in Codex CLI
   copilot        Verify plugins in GitHub Copilot CLI
-  gemini         Verify Gemini CLI integration
+  antigravity    Verify Antigravity CLI integration
 
 Examples:
   rp1 verify                Verify all platforms
@@ -44,7 +48,7 @@ Examples:
   rp1 verify opencode       Verify OpenCode installation
   rp1 verify codex          Verify Codex CLI installation
   rp1 verify copilot        Verify Copilot CLI installation
-  rp1 verify gemini         Verify Gemini CLI setup
+  rp1 verify antigravity    Verify Antigravity CLI setup
 `,
 	)
 	.action(async (_options, command) => {
@@ -75,6 +79,13 @@ Examples:
 			platforms.push({
 				name: "Copilot CLI",
 				run: () => executeVerifyCopilot(logger),
+			});
+		}
+
+		if (isToolEnabled(TOOLS_REGISTRY as ToolsRegistry, "antigravity")) {
+			platforms.push({
+				name: "Antigravity CLI",
+				run: () => executeVerifyAntigravity(logger),
 			});
 		}
 
@@ -120,20 +131,28 @@ if (!copilotVerifyEnabled) {
 	});
 }
 
-const geminiVerifyEnabled = isToolEnabled(
+const antigravityVerifyEnabled = isToolEnabled(
 	TOOLS_REGISTRY as ToolsRegistry,
-	"gemini",
+	"antigravity",
 );
-verifyCommand.addCommand(verifyGeminiSubcommand, {
-	hidden: !geminiVerifyEnabled,
+verifyCommand.addCommand(verifyAntigravitySubcommand, {
+	hidden: !antigravityVerifyEnabled,
 });
-if (!geminiVerifyEnabled) {
-	verifyGeminiSubcommand.action(async () => {
+if (!antigravityVerifyEnabled) {
+	verifyAntigravitySubcommand.action(async () => {
 		process.exit(1);
 	});
 }
 
+verifyCommand.addCommand(verifyGeminiSubcommand, {
+	hidden: true,
+});
+
 // Export subcommands for direct access if needed
+export {
+	executeVerifyAntigravity,
+	verifyAntigravitySubcommand,
+} from "./antigravity.js";
 export {
 	executeVerifyClaudeCode,
 	verifyClaudeCodeSubcommand,

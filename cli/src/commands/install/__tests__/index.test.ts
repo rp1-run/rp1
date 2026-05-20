@@ -29,11 +29,11 @@ describe("install command structure", () => {
 			expect(description.toLowerCase()).toContain("plugin");
 		});
 
-		test("has six subcommands", async () => {
+		test("has seven subcommands", async () => {
 			const { installParentCommand } = await import("../index.js");
 
 			const subcommands = installParentCommand.commands;
-			expect(subcommands.length).toBe(6);
+			expect(subcommands.length).toBe(7);
 		});
 
 		test("includes claude-code subcommand", async () => {
@@ -63,11 +63,11 @@ describe("install command structure", () => {
 			expect(subcommand).toBeDefined();
 		});
 
-		test("includes gemini subcommand", async () => {
+		test("includes antigravity subcommand", async () => {
 			const { installParentCommand } = await import("../index.js");
 
 			const subcommand = installParentCommand.commands.find(
-				(c) => c.name() === "gemini",
+				(c) => c.name() === "antigravity",
 			);
 			expect(subcommand).toBeDefined();
 		});
@@ -79,7 +79,7 @@ describe("install command structure", () => {
 			expect(helpInfo).toContain("Commands:");
 			expect(helpInfo).toContain("claude-code");
 			expect(helpInfo).toContain("opencode");
-			expect(helpInfo).toContain("gemini");
+			expect(helpInfo).toContain("antigravity");
 			expect(helpInfo).toContain("all");
 		});
 
@@ -139,7 +139,7 @@ describe("install command structure", () => {
 			);
 			expect(subcommandNames).toContain("claude-code");
 			expect(subcommandNames).toContain("opencode");
-			expect(subcommandNames).toContain("gemini");
+			expect(subcommandNames).toContain("antigravity");
 			expect(subcommandNames).toContain("all");
 		});
 
@@ -308,31 +308,31 @@ describe("install command structure", () => {
 		});
 	});
 
-	describe("installGeminiSubcommand", () => {
-		test("exports installGeminiSubcommand", async () => {
-			const { installGeminiSubcommand } = await import("../index.js");
+	describe("installAntigravitySubcommand", () => {
+		test("exports installAntigravitySubcommand", async () => {
+			const { installAntigravitySubcommand } = await import("../index.js");
 
-			expect(installGeminiSubcommand).toBeInstanceOf(Command);
+			expect(installAntigravitySubcommand).toBeInstanceOf(Command);
 		});
 
 		test("has correct command name", async () => {
-			const { installGeminiSubcommand } = await import("../index.js");
+			const { installAntigravitySubcommand } = await import("../index.js");
 
-			expect(installGeminiSubcommand.name()).toBe("gemini");
+			expect(installAntigravitySubcommand.name()).toBe("antigravity");
 		});
 
-		test("has description marking Gemini as supported", async () => {
-			const { installGeminiSubcommand } = await import("../index.js");
+		test("has description marking Antigravity as supported", async () => {
+			const { installAntigravitySubcommand } = await import("../index.js");
 
-			const description = installGeminiSubcommand.description();
-			expect(description.toLowerCase()).toContain("gemini");
-			expect(description.toLowerCase()).toContain("extension");
+			const description = installAntigravitySubcommand.description();
+			expect(description.toLowerCase()).toContain("antigravity");
+			expect(description.toLowerCase()).toContain("package");
 		});
 
 		test("accepts --dry-run option", async () => {
-			const { installGeminiSubcommand } = await import("../index.js");
+			const { installAntigravitySubcommand } = await import("../index.js");
 
-			const dryRunOpt = installGeminiSubcommand.options.find(
+			const dryRunOpt = installAntigravitySubcommand.options.find(
 				(o) => o.long === "--dry-run",
 			);
 			expect(dryRunOpt).toBeDefined();
@@ -391,9 +391,9 @@ describe("install command re-exports", () => {
 		expect(installModule.installAllSubcommand).toBeDefined();
 	});
 
-	test("re-exports installGeminiSubcommand", async () => {
+	test("re-exports installAntigravitySubcommand", async () => {
 		const installModule = await import("../index.js");
 
-		expect(installModule.installGeminiSubcommand).toBeDefined();
+		expect(installModule.installAntigravitySubcommand).toBeDefined();
 	});
 });

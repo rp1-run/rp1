@@ -54,7 +54,12 @@ generated view of the canonical skill registry for the distributable inventory
 (`base` and `dev`). The guide prompt and `WORKFLOWS.md` remain authored so
 recommendation logic and multi-skill guidance stay curated.
 
-The skill dynamically validates suggested skills using `rp1 list --json`. That output includes canonical skill identity, the hosts where each skill is installed, and host-specific invocation strings, so recommendations reflect your current setup and the tool you're using.
+The skill dynamically validates suggested skills using `rp1 list --json`. That
+output includes canonical skill identity, the hosts where each skill is
+installed, and host-specific invocation strings, so recommendations reflect your
+current setup and the tool you're using. Antigravity support boundaries come
+from the generated workflow support matrix, which is built from the same
+distributable catalog.
 
 ## Arguments
 

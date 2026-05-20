@@ -10,6 +10,7 @@
  * | opencode    | Rewrites known CC tool names to OC equivalents        |
  * | codex       | Rewrites known CC tool names to Codex equivalents     |
  * | copilot     | Rewrites known CC tool names to Copilot equivalents   |
+ * | antigravity | Rewrites known CC tool names to Antigravity names     |
  *
  * Only transforms references outside code blocks. For Codex, tools mapped
  * to null receive prose fallback descriptions (shell equivalents or

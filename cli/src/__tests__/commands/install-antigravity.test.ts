@@ -3,7 +3,7 @@ import { access } from "node:fs/promises";
 import { join } from "node:path";
 import { Command } from "commander";
 import { installParentCommand } from "../../commands/install/index.js";
-import { writeGeminiBundleDistFixture } from "../helpers/gemini-bundle.js";
+import { writeAntigravityBundleDistFixture } from "../helpers/antigravity-bundle.js";
 import {
 	cleanupTempDir,
 	createTempDir,
@@ -33,7 +33,10 @@ const runInstallCommandInProcess = async (
 	const logs: string[] = [];
 	const originalLog = console.log;
 	const restoreHome = withEnvOverride("HOME", homeDir);
-	const restoreBundle = withEnvOverride("RP1_GEMINI_BUNDLE_DIR", bundleDir);
+	const restoreBundle = withEnvOverride(
+		"RP1_ANTIGRAVITY_BUNDLE_DIR",
+		bundleDir,
+	);
 
 	try {
 		console.log = (...values: unknown[]) => {
@@ -51,39 +54,39 @@ const runInstallCommandInProcess = async (
 	}
 };
 
-describe("Gemini install command", () => {
+describe("Antigravity install command", () => {
 	let tempDir: string;
 	let bundleDir: string;
 
 	beforeEach(async () => {
-		tempDir = await createTempDir("gemini-install-command");
-		bundleDir = await writeGeminiBundleDistFixture(tempDir);
+		tempDir = await createTempDir("antigravity-install-command");
+		bundleDir = await writeAntigravityBundleDistFixture(tempDir);
 	});
 
 	afterEach(async () => {
 		await cleanupTempDir(tempDir);
 	});
 
-	test("registers the Gemini install subcommand", () => {
+	test("registers the Antigravity install subcommand", () => {
 		const subcommand = installParentCommand.commands.find(
-			(command) => command.name() === "gemini",
+			(command) => command.name() === "antigravity",
 		);
 
 		expect(subcommand).toBeInstanceOf(Command);
-		expect(subcommand?.description()).toContain("Gemini CLI");
-		expect(subcommand?.description()).toContain("extension assets");
+		expect(subcommand?.description()).toContain("Antigravity CLI");
+		expect(subcommand?.description()).toContain("package assets");
 	});
 
-	test("dry-run output reports Gemini extension scope", async () => {
+	test("dry-run output reports Antigravity package scope", async () => {
 		const proc = Bun.spawn(
-			["bun", "src/main.ts", "install", "gemini", "--dry-run"],
+			["bun", "src/main.ts", "install", "antigravity", "--dry-run"],
 			{
 				cwd: cliRoot,
 				env: {
 					...process.env,
 					HOME: tempDir,
 					NO_COLOR: "1",
-					RP1_GEMINI_BUNDLE_DIR: bundleDir,
+					RP1_ANTIGRAVITY_BUNDLE_DIR: bundleDir,
 				},
 				stdout: "pipe",
 				stderr: "pipe",
@@ -97,43 +100,43 @@ describe("Gemini install command", () => {
 
 		expect(exitCode).toBe(0);
 		expect(stderr).not.toContain("Logger not initialized");
-		expect(stdout).toContain("Gemini CLI extension setup");
-		expect(stdout).toContain("Gemini extension assets");
-		expect(stdout).toContain("Installed Gemini scope:");
-		expect(stdout).toContain("Gemini commands");
-		expect(stdout).toContain("rp1 verify gemini");
+		expect(stdout).toContain("Antigravity CLI package setup");
+		expect(stdout).toContain("Antigravity package assets");
+		expect(stdout).toContain("Installed Antigravity scope:");
+		expect(stdout).toContain("Antigravity commands");
+		expect(stdout).toContain("rp1 verify antigravity");
 	});
 
-	test("runs the Gemini dry-run action in-process with bundle guidance", async () => {
+	test("runs the Antigravity dry-run action in-process with bundle guidance", async () => {
 		const output = (
 			await runInstallCommandInProcess(tempDir, bundleDir, [
 				"install",
-				"gemini",
+				"antigravity",
 				"--dry-run",
 			])
 		).join("\n");
 
-		expect(output).toContain("Gemini CLI extension setup");
+		expect(output).toContain("Antigravity CLI package setup");
 		expect(output).toContain("Dry run: would write");
 		expect(output).toContain("rp1-base");
-		expect(output).toContain("Gemini context, extension metadata");
+		expect(output).toContain("Antigravity hooks and MCP configuration");
 	});
 
-	test("runs the Gemini install action in-process and writes manifest assets", async () => {
+	test("runs the Antigravity install action in-process and writes manifest assets", async () => {
 		const output = (
 			await runInstallCommandInProcess(tempDir, bundleDir, [
 				"install",
-				"gemini",
+				"antigravity",
 			])
 		).join("\n");
 
 		expect(output).toContain("Installed");
-		expect(output).toContain("Gemini extension assets");
+		expect(output).toContain("Antigravity package assets");
 		await expect(
 			access(
 				join(
 					tempDir,
-					".gemini/extensions/rp1-base/commands/rp1-base/guide.toml",
+					".gemini/antigravity-cli/rp1-base/commands/rp1-base/guide.toml",
 				),
 			),
 		).resolves.toBeNull();
@@ -141,14 +144,14 @@ describe("Gemini install command", () => {
 
 	test("post-install verification reports manifest lifecycle and P3 readiness", async () => {
 		const proc = Bun.spawn(
-			["bun", "src/main.ts", "install", "--platform", "gemini", "-y"],
+			["bun", "src/main.ts", "install", "--platform", "antigravity", "-y"],
 			{
 				cwd: cliRoot,
 				env: {
 					...process.env,
 					HOME: tempDir,
 					NO_COLOR: "1",
-					RP1_GEMINI_BUNDLE_DIR: bundleDir,
+					RP1_ANTIGRAVITY_BUNDLE_DIR: bundleDir,
 				},
 				stdout: "pipe",
 				stderr: "pipe",
@@ -162,9 +165,9 @@ describe("Gemini install command", () => {
 
 		expect(exitCode).toBe(0);
 		expect(stderr).not.toContain("Logger not initialized");
-		expect(stdout).toContain("Gemini manifest lifecycle");
+		expect(stdout).toContain("Antigravity manifest lifecycle");
 		expect(stdout).toContain("current");
-		expect(stdout).toContain("[OK] Gemini CLI");
-		expect(stdout).toContain("rp1 verify gemini");
+		expect(stdout).toContain("Antigravity CLI package validation");
+		expect(stdout).toContain("rp1 verify antigravity");
 	});
 });
