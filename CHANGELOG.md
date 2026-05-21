@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.9](https://github.com/rp1-run/rp1/compare/v0.7.8...v0.7.9) (2026-05-21)
+
+
+### Features
+
+* release first-class Antigravity support ([#385](https://github.com/rp1-run/rp1/issues/385)) ([a0a6f5b](https://github.com/rp1-run/rp1/commit/a0a6f5bbe208e3fc5b3f436e95eab3656ef468c2))
+
+
+### Bug Fixes
+
+* win plus arcade win fixes ([#387](https://github.com/rp1-run/rp1/issues/387)) ([eb2a30c](https://github.com/rp1-run/rp1/commit/eb2a30cda734ae231d884c214b2d2c2aba3b8407))
+
 ## [0.7.8](https://github.com/rp1-run/rp1/compare/v0.7.7...v0.7.8) (2026-05-12)
 
 
