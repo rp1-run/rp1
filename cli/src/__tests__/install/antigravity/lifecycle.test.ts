@@ -30,6 +30,12 @@ const passingValidate = async () => ({
 	stderr: "",
 });
 
+const passingInstall = async () => ({
+	exitCode: 0,
+	stdout: "installed\n",
+	stderr: "",
+});
+
 describe("Antigravity lifecycle", () => {
 	let tempDir: string;
 
@@ -50,6 +56,7 @@ describe("Antigravity lifecycle", () => {
 				assetManifest: assets,
 				getAntigravityBinaryPath: () => fakeAgyPath,
 				runAgyPluginValidate: passingValidate,
+				runAgyPluginInstall: passingInstall,
 			}),
 		);
 
@@ -58,6 +65,7 @@ describe("Antigravity lifecycle", () => {
 			"~/.gemini/antigravity-cli/rp1-base",
 		);
 		expect(install.validation.status).toBe("passed");
+		expect(install.activePluginInstall.status).toBe("passed");
 		expect(install.versionMarkerWritten).toBe(true);
 		await expect(
 			access(join(tempDir, ".gemini/antigravity-cli/rp1-base/plugin.json")),
@@ -162,6 +170,7 @@ describe("Antigravity lifecycle", () => {
 				assetManifest: assets,
 				getAntigravityBinaryPath: () => fakeAgyPath,
 				runAgyPluginValidate: passingValidate,
+				runAgyPluginInstall: passingInstall,
 			}),
 		);
 
@@ -181,6 +190,54 @@ describe("Antigravity lifecycle", () => {
 		);
 		expect(unsupportedValidation.issues.join("\n")).toContain(
 			"agy` binary does not expose `agy plugin validate",
+		);
+	});
+
+	test("verify flags active Antigravity plugins imported from Gemini CLI", async () => {
+		const assets = createAntigravityBundleAssetManifestFixture();
+		await expectTaskRight(
+			installAntigravityBundleAssets({
+				dryRun: false,
+				homeDir: tempDir,
+				assetManifest: assets,
+				getAntigravityBinaryPath: () => fakeAgyPath,
+				runAgyPluginValidate: passingValidate,
+				runAgyPluginInstall: passingInstall,
+			}),
+		);
+		await writeFile(
+			join(tempDir, ".gemini/antigravity-cli/import_manifest.json"),
+			JSON.stringify(
+				{
+					imports: [
+						{
+							name: "rp1-base",
+							source: "gemini-cli",
+							importedAt: "2026-05-20T04:21:57Z",
+							components: ["skills", "agents", "commands"],
+						},
+					],
+				},
+				null,
+				2,
+			),
+			"utf-8",
+		);
+
+		const verified = await verifyAntigravityBundleSetup({
+			homeDir: tempDir,
+			assetManifest: assets,
+			getAntigravityBinaryPath: () => fakeAgyPath,
+			getAntigravityVersion: async () => "agy 1.0.0",
+			runAgyPluginValidate: passingValidate,
+		});
+
+		expect(verified.status).toBe("degraded_stale_assets");
+		expect(verified.issues.join("\n")).toContain(
+			"rp1-base is still imported into Antigravity from Gemini CLI assets.",
+		);
+		expect(verified.remediation.join("\n")).toContain(
+			"rp1 install antigravity",
 		);
 	});
 

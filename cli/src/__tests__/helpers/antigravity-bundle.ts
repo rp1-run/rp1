@@ -168,6 +168,17 @@ export const createAntigravityBundleAssetManifestFixture =
 			lifecycleStages: ["install", "verify", "update", "uninstall"],
 		},
 		{
+			relativePath: ".gemini/antigravity-cli/rp1-dev/plugin.json",
+			displayPath: "~/.gemini/antigravity-cli/rp1-dev/plugin.json",
+			kind: "plugin_manifest",
+			owner: "rp1",
+			contentCheck: "exact_content",
+			expectedContent:
+				'{"name":"rp1-dev","host":{"id":"antigravity","binary":"agy"}}\n',
+			safeRemovalEligible: true,
+			lifecycleStages: ["install", "verify", "update", "uninstall"],
+		},
+		{
 			relativePath: ".gemini/antigravity-cli/rp1-dev/support-matrix.json",
 			displayPath: "~/.gemini/antigravity-cli/rp1-dev/support-matrix.json",
 			kind: "support_matrix",
@@ -272,6 +283,12 @@ export const createBundledAntigravityAssetsFixture = (): BundledAssets => ({
 					stateMachines: [],
 					verbatimFiles: [
 						{
+							name: "plugin.json",
+							path: "/embedded/dev-plugin",
+							content:
+								'{"name":"rp1-dev","host":{"id":"antigravity","binary":"agy"}}\n',
+						},
+						{
 							name: "support-matrix.json",
 							path: "/embedded/dev-support",
 							content: supportMatrixFixture(),
@@ -306,6 +323,10 @@ export const writeAntigravityBundleDistFixture = async (
 		[
 			"base/plugin.json",
 			'{"name":"rp1-base","host":{"id":"antigravity","binary":"agy"}}\n',
+		],
+		[
+			"dev/plugin.json",
+			'{"name":"rp1-dev","host":{"id":"antigravity","binary":"agy"}}\n',
 		],
 		["base/AGENTS.md", "# rp1-base\n"],
 		["base/mcp_config.json", '{"mcpServers":{}}\n'],
@@ -374,6 +395,7 @@ export const writeAntigravityBundleDistFixture = async (
 						skills: [],
 						stateMachines: [],
 						verbatimFiles: [
+							{ name: "plugin.json", path: "dev/plugin.json" },
 							{
 								name: "support-matrix.json",
 								path: "dev/support-matrix.json",

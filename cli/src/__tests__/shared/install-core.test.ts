@@ -4,8 +4,8 @@
  */
 
 import { afterEach, describe, expect, mock, test } from "bun:test";
-import { mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
+import { delimiter, join } from "node:path";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import { type CLIError, installError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
@@ -1341,6 +1341,82 @@ describe("install-core tool routing", () => {
 			);
 		} finally {
 			restoreBundle();
+			restoreHome();
+			await cleanupTempDir(homeDir);
+		}
+	});
+
+	test("installAllDetectedTools imports Antigravity active plugins during automatic install", async () => {
+		const homeDir = await createTempDir(
+			"install-core-antigravity-auto-install",
+		);
+		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restorePath = withEnvOverride(
+			"PATH",
+			[homeDir, process.env.PATH ?? ""].filter(Boolean).join(delimiter),
+		);
+		const restoreBundle = await withAntigravityBundleDir(homeDir);
+		const agyPath = join(homeDir, "agy");
+		const installLogPath = join(homeDir, "agy-plugin-install.log");
+		const originalWhich = Bun.which;
+
+		await writeFile(
+			agyPath,
+			[
+				"#!/bin/sh",
+				'if [ "$1" = "--version" ]; then echo "agy 1.0.0"; exit 0; fi',
+				'if [ "$1" = "plugin" ] && [ "$2" = "install" ]; then',
+				`  echo "$3" >> "${installLogPath}"`,
+				"  exit 0",
+				"fi",
+				'if [ "$1" = "plugin" ] && [ "$2" = "validate" ]; then exit 0; fi',
+				"exit 1",
+				"",
+			].join("\n"),
+			"utf-8",
+		);
+		await chmod(agyPath, 0o755);
+		Bun.which = ((command: string) =>
+			command === "agy" ? agyPath : originalWhich(command)) as typeof Bun.which;
+
+		const installCore = (await import(
+			`../../shared/install-core.js?antigravity-auto-install=${Date.now()}`
+		)) as InstallCoreModule;
+
+		try {
+			const result = await expectTaskRight(
+				installCore.installAllDetectedTools(
+					{
+						version: "1.0.0",
+						tools: [createAntigravityTool()],
+					},
+					createMockContext(),
+				),
+			);
+
+			expect(result.installed).toBe(1);
+			expect(result.results).toEqual([
+				expect.objectContaining({
+					toolId: "antigravity",
+					success: true,
+					pluginsInstalled: expect.arrayContaining(["rp1-base", "rp1-dev"]),
+				}),
+			]);
+			expect(result.results[0]?.details?.join("\n")).toContain(
+				"Plugin validation: passed",
+			);
+
+			const installLog = await Bun.file(installLogPath).text();
+			expect(installLog).toContain(
+				join(homeDir, ".gemini/antigravity-cli/rp1-base"),
+			);
+			expect(installLog).toContain(
+				join(homeDir, ".gemini/antigravity-cli/rp1-dev"),
+			);
+		} finally {
+			Bun.which = originalWhich;
+			restoreBundle();
+			restorePath();
 			restoreHome();
 			await cleanupTempDir(homeDir);
 		}

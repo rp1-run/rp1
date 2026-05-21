@@ -1,6 +1,6 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
@@ -23,6 +23,9 @@ import { getAntigravityManifestLifecycleStatus } from "./lifecycle.js";
 import {
 	type AntigravityInstallResult,
 	type AntigravityPaths,
+	type AntigravityPluginInstallPluginResult,
+	type AntigravityPluginInstallResult,
+	type AntigravityPluginInstallStatus,
 	type AntigravityPluginValidationResult,
 	type AntigravitySmokeStatus,
 	type AntigravityVerificationResult,
@@ -41,6 +44,14 @@ export interface AntigravityInstallOptions {
 	readonly bundledAssets?: BundledAssets;
 	readonly distDir?: string;
 	readonly runAgyPluginValidate?: AntigravityPluginValidationOptions["runAgyPluginValidate"];
+	readonly runAgyPluginInstall?: (
+		binaryPath: string,
+		pluginDir: string,
+	) => Promise<{
+		readonly exitCode: number;
+		readonly stdout: string;
+		readonly stderr: string;
+	}>;
 }
 
 export interface AntigravityVerifyDeps {
@@ -96,6 +107,111 @@ const pluginDirs = (
 ): readonly string[] =>
 	pluginRelativeDirs(assets).map((relativeDir) => join(homeDir, relativeDir));
 
+const activePluginRelativePath = (
+	asset: AntigravityAssetManifestEntry,
+): string | null => {
+	const parts = asset.relativePath.split("/");
+	if (
+		parts[0] !== ".gemini" ||
+		parts[1] !== "antigravity-cli" ||
+		!parts[2] ||
+		parts.length < 4
+	) {
+		return null;
+	}
+
+	return [".gemini", "antigravity-cli", "plugins", parts[2], ...parts.slice(3)]
+		.join("/")
+		.replace(/\/+/g, "/");
+};
+
+const readJsonFile = async (path: string): Promise<unknown | null> => {
+	try {
+		return JSON.parse(await readFile(path, "utf-8"));
+	} catch (error) {
+		const code =
+			typeof error === "object" && error !== null && "code" in error
+				? String((error as { readonly code?: unknown }).code)
+				: undefined;
+		if (code === "ENOENT") return null;
+		return null;
+	}
+};
+
+const inspectActiveAntigravityImports = async (options: {
+	readonly homeDir: string;
+	readonly assets: readonly AntigravityAssetManifestEntry[];
+	readonly readAssetFile?: (path: string) => Promise<string>;
+}): Promise<{
+	readonly issue: string;
+	readonly remediation: string;
+} | null> => {
+	const expectedPlugins = new Set(
+		pluginRelativeDirs(options.assets).map((relativeDir) =>
+			relativeDir.split("/").at(-1),
+		),
+	);
+	const importManifest = await readJsonFile(
+		join(options.homeDir, ".gemini/antigravity-cli/import_manifest.json"),
+	);
+	if (
+		importManifest &&
+		typeof importManifest === "object" &&
+		"imports" in importManifest &&
+		Array.isArray((importManifest as { readonly imports?: unknown }).imports)
+	) {
+		const latestImportSourceByName = new Map<string, unknown>();
+		for (const entry of (importManifest as { readonly imports: unknown[] })
+			.imports) {
+			if (typeof entry !== "object" || entry === null) continue;
+			const name = (entry as { readonly name?: unknown }).name;
+			const source = (entry as { readonly source?: unknown }).source;
+			if (typeof name === "string" && expectedPlugins.has(name)) {
+				latestImportSourceByName.set(name, source);
+			}
+		}
+
+		for (const [name, source] of latestImportSourceByName) {
+			if (source === "gemini-cli") {
+				return {
+					issue: `${name} is still imported into Antigravity from Gemini CLI assets.`,
+					remediation:
+						"Run `rp1 install antigravity` to import the rp1 Antigravity package assets into the active Antigravity plugin registry.",
+				};
+			}
+		}
+	}
+
+	const readActiveAsset =
+		options.readAssetFile ?? ((path: string) => readFile(path, "utf-8"));
+	const activeComparableKinds = new Set<AntigravityAssetManifestEntry["kind"]>([
+		"plugin_manifest",
+		"command",
+		"skill",
+		"context",
+		"support_matrix",
+		"support_metadata",
+	]);
+	for (const asset of options.assets) {
+		if (!activeComparableKinds.has(asset.kind)) continue;
+		const activeRelativePath = activePluginRelativePath(asset);
+		if (!activeRelativePath) continue;
+		const activePath = join(options.homeDir, activeRelativePath);
+		try {
+			const activeContent = await readActiveAsset(activePath);
+			if (activeContent !== asset.expectedContent) {
+				return {
+					issue: `Active Antigravity plugin asset ~/${activeRelativePath} does not match the installed rp1 Antigravity package asset.`,
+					remediation:
+						"Run `rp1 install antigravity` to refresh Antigravity's active plugin registry.",
+				};
+			}
+		} catch {}
+	}
+
+	return null;
+};
+
 const notRunValidation = (
 	binaryPath: string | null,
 ): AntigravityPluginValidationResult => ({
@@ -108,6 +224,141 @@ const notRunValidation = (
 	remediation:
 		"Run `rp1 install antigravity`, then `rp1 verify antigravity` to validate installed packages.",
 });
+
+const activePluginInstallRemediation = (
+	status: AntigravityPluginInstallStatus,
+): string => {
+	if (status === "passed") {
+		return "Antigravity active plugin registry was refreshed for all rp1 packages.";
+	}
+	if (status === "missing_binary") {
+		return "Install Antigravity CLI, then rerun `rp1 install antigravity` so rp1 packages are imported into the active Antigravity registry.";
+	}
+	if (status === "failed") {
+		return "Inspect `agy plugin install` output, then rerun `rp1 install antigravity`.";
+	}
+	return "Run `rp1 install antigravity` to import package assets into the active Antigravity plugin registry.";
+};
+
+const notRunActivePluginInstall = (
+	binaryPath: string | null,
+): AntigravityPluginInstallResult => ({
+	status: "not_run",
+	checked: false,
+	binaryPath,
+	plugins: [],
+	issue:
+		"Antigravity active plugin install was skipped because this was a dry run.",
+	remediation: activePluginInstallRemediation("not_run"),
+});
+
+const defaultRunAgyPluginInstall = async (
+	binaryPath: string,
+	pluginDir: string,
+): Promise<{
+	readonly exitCode: number;
+	readonly stdout: string;
+	readonly stderr: string;
+}> => {
+	const proc = Bun.spawn([binaryPath, "plugin", "install", pluginDir], {
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	const [exitCode, stdout, stderr] = await Promise.all([
+		proc.exited,
+		new Response(proc.stdout).text(),
+		new Response(proc.stderr).text(),
+	]);
+	return { exitCode, stdout, stderr };
+};
+
+const activePluginInstallStatus = (
+	results: readonly { readonly status: AntigravityPluginInstallStatus }[],
+): AntigravityPluginInstallStatus => {
+	if (results.some((result) => result.status === "failed")) return "failed";
+	if (
+		results.length > 0 &&
+		results.every((result) => result.status === "passed")
+	) {
+		return "passed";
+	}
+	return "not_run";
+};
+
+const installAntigravityActivePlugins = async (options: {
+	readonly binaryPath: string | null;
+	readonly pluginDirs: readonly string[];
+	readonly pluginDisplayDirs: readonly string[];
+	readonly runAgyPluginInstall?: AntigravityInstallOptions["runAgyPluginInstall"];
+}): Promise<AntigravityPluginInstallResult> => {
+	if (!options.binaryPath) {
+		return {
+			status: "missing_binary",
+			checked: false,
+			binaryPath: null,
+			plugins: [],
+			issue: "Antigravity CLI was not found in PATH.",
+			remediation: activePluginInstallRemediation("missing_binary"),
+		};
+	}
+
+	if (options.pluginDirs.length === 0) {
+		return {
+			status: "not_run",
+			checked: false,
+			binaryPath: options.binaryPath,
+			plugins: [],
+			issue:
+				"No Antigravity plugin package directories were available to import.",
+			remediation: activePluginInstallRemediation("not_run"),
+		};
+	}
+
+	const runInstall = options.runAgyPluginInstall ?? defaultRunAgyPluginInstall;
+	const plugins: AntigravityPluginInstallPluginResult[] = [];
+
+	for (let i = 0; i < options.pluginDirs.length; i++) {
+		const pluginDir = options.pluginDirs[i]!;
+		const displayDir = options.pluginDisplayDirs[i] ?? pluginDir;
+		const command = [
+			options.binaryPath,
+			"plugin",
+			"install",
+			pluginDir,
+		] as const;
+		const result = await runInstall(options.binaryPath, pluginDir);
+		const output = `${result.stdout}\n${result.stderr}`.trim();
+		const status: AntigravityPluginInstallStatus =
+			result.exitCode === 0 ? "passed" : "failed";
+		plugins.push({
+			pluginName: basename(pluginDir),
+			pluginDir,
+			displayDir,
+			status,
+			command,
+			issue:
+				status === "passed"
+					? null
+					: output || "Antigravity plugin install failed.",
+		});
+	}
+
+	const status = activePluginInstallStatus(plugins);
+	const issue =
+		status === "passed"
+			? null
+			: (plugins.find((plugin) => plugin.issue)?.issue ??
+				"Antigravity active plugin install did not pass.");
+
+	return {
+		status,
+		checked: status === "passed" || status === "failed",
+		binaryPath: options.binaryPath,
+		plugins,
+		issue,
+		remediation: activePluginInstallRemediation(status),
+	};
+};
 
 const defaultAntigravityVersion = async (): Promise<string | null> => {
 	const binaryPath = Bun.which("agy");
@@ -164,11 +415,26 @@ export const installAntigravityBundleAssets = (
 				}
 			}
 
+			const pluginDirsToValidate = pluginDirs(homeDir, assets);
+			const pluginDisplayDirsToValidate = pluginDisplayDirs(assets);
+			const activePluginInstall = options.dryRun
+				? notRunActivePluginInstall(binaryPath)
+				: await installAntigravityActivePlugins({
+						binaryPath,
+						pluginDirs: pluginDirsToValidate,
+						pluginDisplayDirs: pluginDisplayDirsToValidate,
+						runAgyPluginInstall: options.runAgyPluginInstall,
+					});
+			if (activePluginInstall.status === "failed") {
+				throw new Error(
+					activePluginInstall.issue ??
+						"Antigravity active plugin install failed.",
+				);
+			}
+
 			const versionMarkerWritten = options.dryRun
 				? false
 				: await writeAntigravityVersionMarker(homeDir);
-			const pluginDirsToValidate = pluginDirs(homeDir, assets);
-			const pluginDisplayDirsToValidate = pluginDisplayDirs(assets);
 			const validation = options.dryRun
 				? notRunValidation(binaryPath)
 				: await validateAntigravityPackages({
@@ -186,6 +452,11 @@ export const installAntigravityBundleAssets = (
 			if (validation.status === "failed") {
 				warnings.push("Antigravity plugin validation failed.");
 			}
+			if (activePluginInstall.status === "missing_binary") {
+				warnings.push(
+					"Antigravity active plugin import was skipped because `agy` was not found.",
+				);
+			}
 
 			return {
 				packageRoot: paths.packageRoot,
@@ -195,6 +466,7 @@ export const installAntigravityBundleAssets = (
 				assetCount: assets.length,
 				pluginDisplayDirs: pluginDisplayDirsToValidate,
 				pluginDirs: pluginDirsToValidate,
+				activePluginInstall,
 				validation,
 				versionMarkerWritten,
 				warnings,
@@ -254,17 +526,23 @@ export const verifyAntigravityBundleSetup = async (
 	const lifecycleState = E.isRight(lifecycle)
 		? lifecycle.right.state
 		: "blocked";
+	const activeImportIssue = await inspectActiveAntigravityImports({
+		homeDir,
+		assets,
+		readAssetFile: deps.readAssetFile,
+	});
 	const validation = await validateAntigravityPackages({
 		pluginDirs: pluginDirs(homeDir, assets),
 		pluginDisplayDirs: pluginDisplayDirs(assets),
 		getAntigravityBinaryPath,
 		runAgyPluginValidate: deps.runAgyPluginValidate,
 	});
-	const status = smokeStatusFrom(
+	const baseStatus = smokeStatusFrom(
 		antigravityInstalled,
 		lifecycleState,
 		validation,
 	);
+	const status = activeImportIssue ? "degraded_stale_assets" : baseStatus;
 	const detail = getAntigravitySmokeStatusDetail(status);
 	const issues: string[] = [];
 	const remediation: string[] = [];
@@ -291,6 +569,10 @@ export const verifyAntigravityBundleSetup = async (
 
 	if (validation.issue) issues.push(validation.issue);
 	remediation.push(validation.remediation);
+	if (activeImportIssue) {
+		issues.push(activeImportIssue.issue);
+		remediation.push(activeImportIssue.remediation);
+	}
 
 	return {
 		status,

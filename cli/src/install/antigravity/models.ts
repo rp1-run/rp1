@@ -16,6 +16,12 @@ export type AntigravityPluginValidationStatus =
 	| "failed"
 	| "not_run";
 
+export type AntigravityPluginInstallStatus =
+	| "passed"
+	| "missing_binary"
+	| "failed"
+	| "not_run";
+
 export interface AntigravityPluginValidationPluginResult {
 	readonly pluginName: string;
 	readonly pluginDir: string;
@@ -30,6 +36,24 @@ export interface AntigravityPluginValidationResult {
 	readonly checked: boolean;
 	readonly binaryPath: string | null;
 	readonly plugins: readonly AntigravityPluginValidationPluginResult[];
+	readonly issue: string | null;
+	readonly remediation: string;
+}
+
+export interface AntigravityPluginInstallPluginResult {
+	readonly pluginName: string;
+	readonly pluginDir: string;
+	readonly displayDir: string;
+	readonly status: AntigravityPluginInstallStatus;
+	readonly command: readonly string[] | null;
+	readonly issue: string | null;
+}
+
+export interface AntigravityPluginInstallResult {
+	readonly status: AntigravityPluginInstallStatus;
+	readonly checked: boolean;
+	readonly binaryPath: string | null;
+	readonly plugins: readonly AntigravityPluginInstallPluginResult[];
 	readonly issue: string | null;
 	readonly remediation: string;
 }
@@ -103,6 +127,7 @@ export interface AntigravityInstallResult {
 	readonly assets: readonly AntigravityAssetManifestEntry[];
 	readonly pluginDisplayDirs: readonly string[];
 	readonly pluginDirs: readonly string[];
+	readonly activePluginInstall: AntigravityPluginInstallResult;
 	readonly validation: AntigravityPluginValidationResult;
 	readonly versionMarkerWritten: boolean;
 	readonly warnings: readonly string[];
