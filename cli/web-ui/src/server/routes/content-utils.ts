@@ -1,5 +1,5 @@
 import { readdir, readFile, stat } from "node:fs/promises";
-import { basename, extname, join, resolve } from "node:path";
+import { basename, extname, join, resolve, sep } from "node:path";
 import type { FileWatcherPool } from "../file-watcher";
 import { parseCanonicalProjectSectionPath } from "../project-paths";
 import type { WebSocketHub } from "../websocket";
@@ -205,10 +205,14 @@ export async function resolveWithArchiveFallback(
 	rp1Path: string,
 	filePath: string,
 ): Promise<string | null> {
-	const fullPath = resolve(rp1Path, filePath);
+	const resolvedRp1Path = resolve(rp1Path);
+	const fullPath = resolve(resolvedRp1Path, filePath);
 
 	// Security: ensure resolved path is within rp1 directory
-	if (!fullPath.startsWith(`${rp1Path}/`)) {
+	if (
+		fullPath !== resolvedRp1Path &&
+		!fullPath.startsWith(`${resolvedRp1Path}${sep}`)
+	) {
 		return null;
 	}
 

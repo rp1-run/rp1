@@ -63,6 +63,18 @@ export type PluginKey = (typeof ALL_PLUGIN_KEYS)[number];
  * Per-platform bundled plugin set.
  */
 export interface BundledPlatform {
+	platform?: {
+		id: string;
+		name: string;
+		binary: string;
+		instructionFile: string;
+		supportLevel?: string;
+		icon?: {
+			source: "@lobehub/icons";
+			name: string;
+			variant: "mono";
+		};
+	};
 	plugins: {
 		base: BundledPlugin;
 		dev: BundledPlugin;

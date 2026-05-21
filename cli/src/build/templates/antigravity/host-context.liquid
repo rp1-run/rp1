@@ -1,0 +1,5 @@
+## Host Context
+
+Identify the active AI coding harness as `antigravity`. Antigravity generated workflows export `CURRENT_HOST=antigravity` before bootstrap and keep that value for later emitted workflow events.
+
+Pass `--harness` only to `rp1 agent-tools emit`, the generated workflow bootstrap command, or another `rp1 agent-tools` command whose help explicitly documents `--harness`. Do not add it to `resolve-args`, `rp1-root-dir`, or other commands.

@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
 	formatCoveragePercent,
+	isCliCoverageExcludedSource,
 	meetsLineThreshold,
+	summarizeCliLcovLineCoverage,
 	summarizeLcovLineCoverage,
 } from "../../../scripts/coverage-threshold.ts";
 
@@ -42,5 +44,35 @@ describe("coverage threshold helper", () => {
 
 		expect(summary).toEqual({ hit: 7, found: 10, ratio: 0.7 });
 		expect(meetsLineThreshold(summary, 0.8)).toBe(false);
+	});
+
+	test("excludes web UI source records from CLI coverage threshold", () => {
+		const summary = summarizeCliLcovLineCoverage(
+			[
+				"SF:src/main.ts",
+				"LF:8",
+				"LH:8",
+				"end_of_record",
+				"SF:web-ui/src/server/runtime-contract.ts",
+				"LF:8",
+				"LH:0",
+				"end_of_record",
+				"SF:/workspace/rp1/cli/web-ui/src/daemon/index.ts",
+				"LF:4",
+				"LH:0",
+				"end_of_record",
+			].join("\n"),
+		);
+
+		expect(summary).toEqual({ hit: 8, found: 8, ratio: 1 });
+		expect(
+			isCliCoverageExcludedSource("web-ui/src/server/runtime-contract.ts"),
+		).toBe(true);
+		expect(
+			isCliCoverageExcludedSource(
+				"/workspace/rp1/cli/web-ui/src/daemon/index.ts",
+			),
+		).toBe(true);
+		expect(isCliCoverageExcludedSource("src/web-ui/srcish.ts")).toBe(false);
 	});
 });

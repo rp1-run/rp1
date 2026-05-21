@@ -64,7 +64,16 @@ import { createTemplateEngine } from "./template-engine.js";
 import { injectEmitHarness } from "./transforms.js";
 import { validateAgent, validateSkill } from "./validator.js";
 
-const VALID_PLATFORMS = ["opencode", "codex", "claude-code", "copilot", "all"];
+const VALID_PLATFORMS = [
+	"opencode",
+	"codex",
+	"claude-code",
+	"copilot",
+	"antigravity",
+	"all",
+];
+const PLATFORM_ERROR =
+	"--platform must be 'opencode', 'codex', 'claude-code', 'copilot', 'antigravity', or 'all'";
 
 /**
  * Format a lint diagnostic into a human-readable string.
@@ -128,40 +137,46 @@ export const parseBuildArgs = (
 		} else if (arg === "--platform") {
 			const value = args[++i];
 			if (!value || !VALID_PLATFORMS.includes(value)) {
-				return E.left(
-					usageError(
-						"--platform must be 'opencode', 'codex', 'claude-code', 'copilot', or 'all'",
-					),
-				);
+				return E.left(usageError(PLATFORM_ERROR));
 			}
 			(
 				config as {
-					platform: "opencode" | "codex" | "claude-code" | "copilot" | "all";
+					platform:
+						| "opencode"
+						| "codex"
+						| "claude-code"
+						| "copilot"
+						| "antigravity"
+						| "all";
 				}
 			).platform = value as
 				| "opencode"
 				| "codex"
 				| "claude-code"
 				| "copilot"
+				| "antigravity"
 				| "all";
 		} else if (arg.startsWith("--platform=")) {
 			const value = arg.slice("--platform=".length);
 			if (!VALID_PLATFORMS.includes(value)) {
-				return E.left(
-					usageError(
-						"--platform must be 'opencode', 'codex', 'claude-code', 'copilot', or 'all'",
-					),
-				);
+				return E.left(usageError(PLATFORM_ERROR));
 			}
 			(
 				config as {
-					platform: "opencode" | "codex" | "claude-code" | "copilot" | "all";
+					platform:
+						| "opencode"
+						| "codex"
+						| "claude-code"
+						| "copilot"
+						| "antigravity"
+						| "all";
 				}
 			).platform = value as
 				| "opencode"
 				| "codex"
 				| "claude-code"
 				| "copilot"
+				| "antigravity"
 				| "all";
 		} else if (arg === "--json") {
 			(config as { jsonOutput: boolean }).jsonOutput = true;
@@ -189,7 +204,7 @@ ${bold("Usage:")}
 ${bold("Options:")}
   -o, --output-dir <dir>       Output directory (default: dist/opencode/)
   -p, --plugin <name>          Build specific plugin (base, dev, utils, or all)
-  --platform <name>            Target platform (opencode, codex, claude-code, copilot, or all)
+  --platform <name>            Target platform (opencode, codex, claude-code, copilot, antigravity, or all)
   --json                       Output results as JSON for CI/CD
   --lint                       Run build pipeline with lint validation only (no file output)
   -h, --help                   Show this help message
@@ -199,6 +214,7 @@ ${bold("Examples:")}
   rp1 build:opencode --plugin dev                  # Build only dev plugin
   rp1 build:opencode --platform claude-code        # Build for Claude Code
   rp1 build:opencode --platform codex              # Build for Codex
+  rp1 build:opencode --platform antigravity        # Build for Antigravity CLI
   rp1 build:opencode --platform all                # Build for all platforms
   rp1 build:opencode -o ./output                   # Custom output directory
   rp1 build:opencode --json                        # JSON output for CI
@@ -892,6 +908,14 @@ export const buildPlatformPlugin = async (
 			hookCtx,
 		);
 		errors.push(...hookResult.errors);
+		if (definition.producesBundleAssets && hookResult.commandFiles) {
+			for (const file of hookResult.commandFiles) {
+				commandEntries.push({
+					name: file.name,
+					path: `${pluginName}/${file.path}`,
+				});
+			}
+		}
 		if (definition.producesBundleAssets && hookResult.verbatimFiles) {
 			for (const file of hookResult.verbatimFiles) {
 				verbatimFileEntries.push({
@@ -1049,9 +1073,34 @@ export const deriveCopilotOutputDir = (opencodeOutputDir: string): string => {
 };
 
 /**
+ * Derive Antigravity output directory from the OpenCode output directory.
+ * Maps "dist/opencode" to "dist/antigravity".
+ */
+export const deriveAntigravityOutputDir = (
+	opencodeOutputDir: string,
+): string => {
+	const normalized = opencodeOutputDir.replace(/\/+$/, "");
+	const parent = dirname(normalized);
+	return join(parent, "antigravity");
+};
+
+/**
+ * Derive Gemini output directory from the OpenCode output directory.
+ * Maps "dist/opencode" to "dist/gemini".
+ */
+export const deriveGeminiOutputDir = (opencodeOutputDir: string): string => {
+	const normalized = opencodeOutputDir.replace(/\/+$/, "");
+	const parent = dirname(normalized);
+	return join(parent, "gemini");
+};
+
+/**
  * Print build summary table.
  */
-const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
+const printSummary = (
+	summaries: BuildSummary[],
+	outputPaths: readonly string[],
+): void => {
 	const { bold, green, cyan, yellow, boldGreen } = colorFns;
 	console.log(`\n${boldGreen("✓ Build complete!")}\n`);
 
@@ -1073,7 +1122,17 @@ const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
 		);
 	}
 
-	console.log(`\nOutput directory: ${cyan(resolve(outputPath))}`);
+	const uniqueOutputPaths = [
+		...new Set(outputPaths.map((path) => resolve(path))),
+	];
+	if (uniqueOutputPaths.length === 1) {
+		console.log(`\nOutput directory: ${cyan(uniqueOutputPaths[0])}`);
+	} else {
+		console.log("\nOutput directories:");
+		for (const outputPath of uniqueOutputPaths) {
+			console.log(`  ${cyan(outputPath)}`);
+		}
+	}
 
 	const allErrors = summaries.flatMap((s) => s.errors);
 	if (allErrors.length > 0) {
@@ -1142,6 +1201,22 @@ const buildPlatformArtifacts = async (
 				buildTimestamp: new Date().toISOString(),
 				artifact: {
 					type: "bundle-manifest",
+					platformJson: JSON.stringify(
+						{
+							id: platform,
+							name: definition.config.name,
+							binary: definition.config.binary,
+							instructionFile: definition.config.instruction_file,
+							...(definition.config.supportLevel && {
+								supportLevel: definition.config.supportLevel,
+							}),
+							...(definition.config.icon && {
+								icon: definition.config.icon,
+							}),
+						},
+						null,
+						2,
+					),
 					baseJson: JSON.stringify(baseAssets, null, 2),
 					devJson: JSON.stringify(devAssets, null, 2),
 					...(utilsAssets && {
@@ -1188,6 +1263,16 @@ export const executeBuild = (
 					const ccOutputPath = deriveCCOutputDir(outputPath);
 					const codexOutputPath = deriveCodexOutputDir(outputPath);
 					const copilotOutputPath = deriveCopilotOutputDir(outputPath);
+					const antigravityOutputPath = deriveAntigravityOutputDir(outputPath);
+					const geminiOutputPath = deriveGeminiOutputDir(outputPath);
+					const platformOutputPaths: Record<BuildPlatform, string> = {
+						opencode: outputPath,
+						"claude-code": ccOutputPath,
+						codex: codexOutputPath,
+						copilot: copilotOutputPath,
+						antigravity: antigravityOutputPath,
+						gemini: geminiOutputPath,
+					};
 
 					const platformsToBuild: Array<{
 						platform: BuildPlatform;
@@ -1199,20 +1284,20 @@ export const executeBuild = (
 									{ platform: "claude-code", outputPath: ccOutputPath },
 									{ platform: "codex", outputPath: codexOutputPath },
 									{ platform: "copilot", outputPath: copilotOutputPath },
-								]
-							: [
 									{
-										platform: config.platform as BuildPlatform,
-										outputPath:
-											config.platform === "claude-code"
-												? ccOutputPath
-												: config.platform === "codex"
-													? codexOutputPath
-													: config.platform === "copilot"
-														? copilotOutputPath
-														: outputPath,
+										platform: "antigravity",
+										outputPath: antigravityOutputPath,
 									},
-								];
+								]
+							: (() => {
+									const platform = config.platform as BuildPlatform;
+									return [
+										{
+											platform,
+											outputPath: platformOutputPaths[platform],
+										},
+									];
+								})();
 
 					if (!config.jsonOutput) {
 						for (const { platform, outputPath: op } of platformsToBuild) {
@@ -1288,7 +1373,10 @@ export const executeBuild = (
 						};
 						console.log(JSON.stringify(result, null, 2));
 					} else {
-						printSummary(allSummaries, outputPath);
+						printSummary(
+							allSummaries,
+							platformsToBuild.map(({ outputPath }) => outputPath),
+						);
 					}
 
 					const totalErrors = allSummaries.reduce(

@@ -30,6 +30,27 @@ import type { ClaudeCodeInstallResult } from "./models.js";
 
 const execAsync = promisify(exec);
 
+export interface ClaudeCodeInstallerDependencies {
+	readonly migrateFromGitHubMarketplace: typeof migrateFromGitHubMarketplace;
+	readonly extractPlatformAssets: typeof extractPlatformAssets;
+	readonly createLocalMarketplace: typeof createLocalMarketplace;
+	readonly registerMarketplace: typeof registerMarketplace;
+	readonly writeVersionMarker: typeof writeVersionMarker;
+	readonly getInstalledVersion: typeof getInstalledVersion;
+	readonly defaultMarketplaceDir: string;
+}
+
+const defaultClaudeCodeInstallerDependencies: ClaudeCodeInstallerDependencies =
+	{
+		migrateFromGitHubMarketplace,
+		extractPlatformAssets,
+		createLocalMarketplace,
+		registerMarketplace,
+		writeVersionMarker,
+		getInstalledVersion,
+		defaultMarketplaceDir: DEFAULT_MARKETPLACE_DIR,
+	};
+
 /**
  * Command timeout in milliseconds.
  */
@@ -211,18 +232,19 @@ export const installAllPlugins = (
 	logger: Logger,
 	dryRun: boolean,
 	isTTY: boolean,
+	dependencies: ClaudeCodeInstallerDependencies = defaultClaudeCodeInstallerDependencies,
 ): TE.TaskEither<CLIError, ClaudeCodeInstallResult> => {
 	const warnings: string[] = [];
 	const pluginsInstalled: string[] = [];
-	const marketplaceDir = DEFAULT_MARKETPLACE_DIR;
+	const marketplaceDir = dependencies.defaultMarketplaceDir;
 
 	return pipe(
 		// Step 1: Migrate from old GitHub marketplace if present
-		migrateFromGitHubMarketplace(logger, dryRun, isTTY),
+		dependencies.migrateFromGitHubMarketplace(logger, dryRun, isTTY),
 		// Step 2: Extract all available Claude Code assets from binary
 		TE.chain(() => {
 			logger.info("Extracting Claude Code assets...");
-			return extractPlatformAssets({
+			return dependencies.extractPlatformAssets({
 				platform: "claude-code",
 				targetDir: marketplaceDir,
 				plugins: [...ALL_PLUGIN_KEYS],
@@ -234,14 +256,14 @@ export const installAllPlugins = (
 				name.replace(/^rp1-/, ""),
 			);
 			return pipe(
-				createLocalMarketplace(marketplaceDir, extractedKeys),
+				dependencies.createLocalMarketplace(marketplaceDir, extractedKeys),
 				TE.map(() => extractedKeys),
 			);
 		}),
 		// Step 4: Register local marketplace with Claude CLI
 		TE.chain((extractedKeys: string[]) =>
 			pipe(
-				registerMarketplace(marketplaceDir, logger, dryRun, isTTY),
+				dependencies.registerMarketplace(marketplaceDir, logger, dryRun, isTTY),
 				TE.map(() => extractedKeys),
 			),
 		),
@@ -265,7 +287,12 @@ export const installAllPlugins = (
 			);
 		}),
 		// Step 6: Write version marker
-		TE.chain(() => writeVersionMarker("claude-code", getInstalledVersion())),
+		TE.chain(() =>
+			dependencies.writeVersionMarker(
+				"claude-code",
+				dependencies.getInstalledVersion(),
+			),
+		),
 		// Return result
 		TE.map(
 			(): ClaudeCodeInstallResult => ({

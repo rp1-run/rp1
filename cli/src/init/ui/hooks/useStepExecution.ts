@@ -878,6 +878,12 @@ export const useStepExecution = ({
 									`Installed plugins for ${result.toolName}`,
 									"success",
 								);
+							} else if (result.skipped) {
+								addAct(
+									"install-check",
+									result.warnings.join(" ") || `Skipped ${result.toolName}`,
+									"warning",
+								);
 							} else {
 								const errorMsg = result.error
 									? "message" in result.error

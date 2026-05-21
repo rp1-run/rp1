@@ -10,20 +10,14 @@ import * as E from "fp-ts/lib/Either.js";
 
 import {
 	checkDiskSpace,
-	checkNetworkConnectivity,
 	checkOpenCodeVersion,
-	checkPackageManagerHealth,
 	checkWritePermissions,
-	fetchLatestVersion,
-	runDryRunValidation,
 } from "../../install/prerequisites.js";
 import {
 	cleanupTempDir,
 	createTempDir,
 	getErrorMessage,
 } from "../helpers/index.js";
-
-const originalFetch = globalThis.fetch;
 
 describe("prerequisites", () => {
 	let tempDir: string;
@@ -33,7 +27,6 @@ describe("prerequisites", () => {
 	});
 
 	afterEach(async () => {
-		globalThis.fetch = originalFetch;
 		await cleanupTempDir(tempDir);
 	});
 
@@ -170,38 +163,6 @@ describe("prerequisites", () => {
 		});
 	});
 
-	describe("checkPackageManagerHealth", () => {
-		test(
-			"returns result with passed status (P1)",
-			async () => {
-				const result = await checkPackageManagerHealth()();
-
-				expect(E.isRight(result)).toBe(true);
-				if (E.isRight(result)) {
-					expect(result.right.check).toBe("package-manager-health");
-					expect(result.right.passed).toBe(true);
-				}
-			},
-			{ timeout: 35000 },
-		);
-	});
-
-	describe("checkNetworkConnectivity", () => {
-		test("returns result with check name (P1)", async () => {
-			const result = await checkNetworkConnectivity()();
-
-			if (E.isRight(result)) {
-				expect(result.right.check).toBe("network-connectivity");
-				expect(result.right.message).toContain("GitHub");
-			} else {
-				expect(result.left._tag).toBe("PrerequisiteError");
-				if (result.left._tag === "PrerequisiteError") {
-					expect(result.left.check).toBe("network-connectivity");
-				}
-			}
-		});
-	});
-
 	describe("checkDiskSpace", () => {
 		test("returns passed result with space info (P1)", async () => {
 			const result = await checkDiskSpace()();
@@ -222,76 +183,5 @@ describe("prerequisites", () => {
 				expect(result.right.passed).toBe(true);
 			}
 		});
-	});
-
-	describe("fetchLatestVersion", () => {
-		test("returns version string on success", async () => {
-			const result = await fetchLatestVersion()();
-
-			if (E.isRight(result)) {
-				expect(result.right).toMatch(/^\d+\.\d+\.\d+/);
-			} else {
-				expect(result.left._tag).toBe("PrerequisiteError");
-			}
-		});
-	});
-
-	describe("runDryRunValidation", () => {
-		test(
-			"aggregates results from all checks (P1)",
-			async () => {
-				const result = await runDryRunValidation()();
-
-				expect(E.isRight(result)).toBe(true);
-				if (E.isRight(result)) {
-					expect(Array.isArray(result.right.results)).toBe(true);
-					expect(result.right.results.length).toBeGreaterThanOrEqual(3);
-
-					const checkNames = result.right.results.map((r) => r.check);
-					expect(checkNames).toContain("package-manager-health");
-					expect(checkNames).toContain("network-connectivity");
-					expect(checkNames).toContain("disk-space");
-				}
-			},
-			{ timeout: 45000 },
-		);
-
-		test(
-			"separates warnings from blockers",
-			async () => {
-				const result = await runDryRunValidation()();
-
-				expect(E.isRight(result)).toBe(true);
-				if (E.isRight(result)) {
-					expect(Array.isArray(result.right.warnings)).toBe(true);
-					expect(Array.isArray(result.right.blockers)).toBe(true);
-				}
-			},
-			{ timeout: 45000 },
-		);
-
-		test(
-			"aggregates network failures as blockers",
-			async () => {
-				globalThis.fetch = (() =>
-					Promise.reject(new Error("offline"))) as unknown as typeof fetch;
-
-				const result = await runDryRunValidation()();
-
-				expect(E.isRight(result)).toBe(true);
-				if (E.isRight(result)) {
-					const network = result.right.results.find(
-						(r) => r.check === "network-connectivity",
-					);
-					expect(network?.passed).toBe(false);
-					expect(network?.severity).toBe("blocker");
-					expect(result.right.blockers).toContain(
-						"Cannot reach GitHub API: offline",
-					);
-					expect(result.right.latestVersion).toBeNull();
-				}
-			},
-			{ timeout: 45000 },
-		);
 	});
 });

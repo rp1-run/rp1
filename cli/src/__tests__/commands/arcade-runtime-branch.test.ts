@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
-import * as childProcess from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Command } from "commander";
+import type { ArcadeCommandDependencies } from "../../commands/arcade.js";
 
 class ProcessExit extends Error {
 	readonly code: number;
@@ -28,10 +28,6 @@ describe("arcade command runtime branches", () => {
 		process.exit = originalExit;
 		console.error = originalError;
 		mock.restore();
-		mock.module("../../../shared/runtime.js", () => ({
-			detectRuntime: () => ({ runtime: "bun" as const, version: Bun.version }),
-			isBun: () => true,
-		}));
 	});
 
 	test("prints Bun runtime guidance before daemon work in Node-like runtimes", async () => {
@@ -43,12 +39,9 @@ describe("arcade command runtime branches", () => {
 			errors.push(args.map(String).join(" "));
 		};
 
-		mock.module("../../../shared/runtime.js", () => ({
-			isBun: () => false,
-		}));
-
 		const { createArcadeCommand } = await importArcadeCommand();
 		const command = createArcadeCommand({
+			isBun: () => false,
 			getStatus: async () => ({ running: false }),
 		});
 		command.exitOverride();
@@ -75,39 +68,19 @@ describe("arcade command runtime branches", () => {
 			await mkdir(join(tempDir, ".rp1", "context"), { recursive: true });
 			await writeFile(join(tempDir, ".rp1", "project_id"), "project-1\n");
 
-			mock.module("../../../shared/runtime.js", () => ({
+			const nodeSpawn = mock((command: string, args?: readonly string[]) => {
+				const spawnArgs = Array.from(args ?? []);
+				spawned.push({ command, args: spawnArgs });
+				return { unref: () => undefined };
+			}) as unknown as NonNullable<ArcadeCommandDependencies["nodeSpawn"]>;
+
+			const { createArcadeCommand } = await importArcadeCommand();
+			const command = createArcadeCommand({
 				isBun: () => {
 					runtimeChecks += 1;
 					return runtimeChecks === 1;
 				},
-			}));
-			mock.module("node:child_process", () => ({
-				...childProcess,
-				spawn: (
-					command: string,
-					args?: readonly string[],
-					options?: childProcess.SpawnOptions,
-				) => {
-					const spawnArgs = Array.from(args ?? []);
-					const url = "http://127.0.0.1:8131/projects/project-1";
-					const opensExpectedUrl =
-						(command === "open" && spawnArgs[0] === url) ||
-						(command === "cmd" && spawnArgs.at(-1) === url) ||
-						(command === "xdg-open" && spawnArgs[0] === url);
-
-					if (opensExpectedUrl) {
-						spawned.push({ command, args: spawnArgs });
-						return { unref: () => undefined };
-					}
-
-					return options === undefined
-						? childProcess.spawn(command, spawnArgs)
-						: childProcess.spawn(command, spawnArgs, options);
-				},
-			}));
-
-			const { createArcadeCommand } = await importArcadeCommand();
-			const command = createArcadeCommand({
+				nodeSpawn,
 				launchArcadeForProject: async ({ port }: { port?: number }) => {
 					const daemonPort = port ?? 7710;
 					return {
@@ -153,6 +126,7 @@ describe("arcade command runtime branches", () => {
 						: { command: "xdg-open", args: [url] };
 
 			expect(spawned).toEqual([expectedSpawn]);
+			expect(runtimeChecks).toBe(2);
 			expect(infos).toContain(`Opened ${url}`);
 			expect(debugs.join("\n")).toContain("Opening browser");
 			expect(warnings).toEqual([]);

@@ -61,6 +61,8 @@ export type PlatformBuildState = Record<string, unknown>;
 export interface PostBuildResult {
 	readonly errors: string[];
 	readonly warnings: string[];
+	/** Additional generated command files to include in manifests and asset bundles. */
+	readonly commandFiles?: readonly { name: string; path: string }[];
 	/** Additional files to include in the bundle manifest as verbatim entries. */
 	readonly verbatimFiles?: readonly { name: string; path: string }[];
 }
@@ -212,6 +214,48 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 		plugin_install_cmd: "copilot plugin install {plugin}",
 		capabilities: ["plugins", "skills", "agents", "slash-commands"],
 	},
+	antigravity: {
+		id: "antigravity",
+		name: "Antigravity CLI",
+		enabled: true,
+		binary: "agy",
+		min_version: "0.0.0",
+		instruction_file: "AGENTS.md",
+		install_url: "https://www.antigravity.google/product/antigravity-cli",
+		plugin_install_cmd: "agy plugin install {plugin}",
+		supportLevel: "stable",
+		icon: {
+			source: "@lobehub/icons",
+			name: "Antigravity",
+			variant: "mono",
+		},
+		capabilities: [
+			"plugins",
+			"skills",
+			"agents",
+			"slash-commands",
+			"hooks",
+			"mcp",
+			"rules",
+		],
+	},
+	gemini: {
+		id: "gemini",
+		name: "Gemini CLI",
+		enabled: false,
+		binary: "gemini",
+		min_version: "0.0.0",
+		instruction_file: "AGENTS.md",
+		install_url: "https://github.com/google-gemini/gemini-cli",
+		plugin_install_cmd: null,
+		supportLevel: "stable",
+		icon: {
+			source: "@lobehub/icons",
+			name: "Gemini",
+			variant: "mono",
+		},
+		capabilities: ["plugins", "skills", "agents", "slash-commands"],
+	},
 };
 
 // ---------------------------------------------------------------------------
@@ -222,6 +266,13 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { toUserFacing } from "../../shared/canonical-name.js";
+import {
+	antigravityEnrichSkillContext,
+	antigravityPostPluginBuild,
+	antigravityPostSkillWrite,
+	antigravityPreparePlugin,
+} from "./antigravity/hooks.js";
+import { antigravityRegistry } from "./antigravity/registry.js";
 import { claudeCodeRegistry } from "./claude-code/registry.js";
 import { codexRegistry } from "./codex/registry.js";
 import { mapAgentToRoleType } from "./codex/role-mapper.js";
@@ -229,6 +280,12 @@ import { discoverSkillMap } from "./codex/skill-map.js";
 import { validateSubAgents } from "./codex/sub-agent-validator.js";
 import { validateCodexToml } from "./codex/validator.js";
 import { copilotRegistry } from "./copilot/registry.js";
+import {
+	geminiPostPluginBuild,
+	geminiPostSkillWrite,
+	geminiPreparePlugin,
+} from "./gemini/hooks.js";
+import { geminiRegistry } from "./gemini/registry.js";
 import { defaultRegistry } from "./registry.js";
 import { transformNamespace } from "./tags/index.js";
 import { buildTemplateContext } from "./template-context.js";
@@ -704,6 +761,53 @@ const copilotPlatform: PlatformDefinition = {
 	producesBundleAssets: true,
 };
 
+const antigravityPlatform: PlatformDefinition = {
+	id: "antigravity",
+	registry: antigravityRegistry,
+	config: platformConfigs.antigravity,
+	templates: {
+		skill: "antigravity/skill",
+		agent: "antigravity/agent",
+		manifest: "antigravity/manifest",
+	},
+	naming: {
+		skillDirPrefix: "rp1-",
+		agentFileName: (pluginName: string, agentName: string) =>
+			`rp1-${pluginName}-${agentName}`,
+		agentExtension: ".md",
+	},
+	hooks: {
+		preparePlugin: antigravityPreparePlugin,
+		enrichSkillContext: antigravityEnrichSkillContext,
+		postSkillWrite: antigravityPostSkillWrite,
+		postPluginBuild: antigravityPostPluginBuild,
+	},
+	producesBundleAssets: true,
+};
+
+const geminiPlatform: PlatformDefinition = {
+	id: "gemini",
+	registry: geminiRegistry,
+	config: platformConfigs.gemini,
+	templates: {
+		skill: "gemini/skill",
+		agent: "gemini/agent",
+		manifest: "gemini/manifest",
+	},
+	naming: {
+		skillDirPrefix: "rp1-",
+		agentFileName: (pluginName: string, agentName: string) =>
+			`rp1-${pluginName}-${agentName}`,
+		agentExtension: ".md",
+	},
+	hooks: {
+		preparePlugin: geminiPreparePlugin,
+		postSkillWrite: geminiPostSkillWrite,
+		postPluginBuild: geminiPostPluginBuild,
+	},
+	producesBundleAssets: true,
+};
+
 // ---------------------------------------------------------------------------
 // Platform definitions map
 // ---------------------------------------------------------------------------
@@ -716,6 +820,8 @@ export const PLATFORM_DEFINITIONS: ReadonlyMap<
 	["claude-code", claudeCodePlatform],
 	["codex", codexPlatform],
 	["copilot", copilotPlatform],
+	["antigravity", antigravityPlatform],
+	["gemini", geminiPlatform],
 ]);
 
 /**

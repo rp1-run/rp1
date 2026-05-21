@@ -8,6 +8,14 @@
 
 import { TOOLS_REGISTRY } from "./supported-tools.generated.js";
 
+export type ToolSupportLevel = "stable" | "experimental" | "degraded";
+
+export interface ToolIconMetadata {
+	readonly source: "@lobehub/icons";
+	readonly name: string;
+	readonly variant: "mono";
+}
+
 /**
  * A supported agentic tool that can host rp1 plugins.
  */
@@ -22,6 +30,8 @@ export interface SupportedTool {
 	readonly instruction_file: string;
 	readonly install_url: string;
 	readonly plugin_install_cmd: string | null;
+	readonly supportLevel?: ToolSupportLevel;
+	readonly icon?: ToolIconMetadata;
 	readonly capabilities: readonly string[];
 }
 
@@ -65,6 +75,16 @@ export const getEnabledTools = (
 	registry: ToolsRegistry,
 ): readonly SupportedTool[] =>
 	registry.tools.filter((t) => t.enabled !== false);
+
+export const getToolSupportLevel = (tool: SupportedTool): ToolSupportLevel =>
+	tool.supportLevel ?? "stable";
+
+export const getDefaultInstallTools = (
+	registry: ToolsRegistry,
+): readonly SupportedTool[] =>
+	getEnabledTools(registry).filter(
+		(tool) => getToolSupportLevel(tool) === "stable",
+	);
 
 /**
  * Check if a specific tool is enabled in the registry.

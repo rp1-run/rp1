@@ -11,6 +11,8 @@
  *   OC:    ask_user: "<question>" (with options if provided)
  *   Codex: request_user_input: "<question>" with required options array
  *          and subagent unavailability note
+ *   Antigravity: ask_user: "<question>" (with options if provided)
+ *   Gemini: ask_user: "<question>" (with options if provided)
  */
 
 import {
@@ -94,6 +96,10 @@ function renderAskUser(
 			return renderCodex(question, options);
 		case "copilot":
 			return renderCopilot(question, options);
+		case "antigravity":
+			return renderOpenCode(question, options);
+		case "gemini":
+			return renderOpenCode(question, options);
 	}
 }
 

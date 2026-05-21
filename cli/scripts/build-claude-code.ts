@@ -8,8 +8,7 @@
  *   bun run scripts/build-claude-code.ts [options]
  *
  * Options:
- *   -o, --output-dir <dir>   OpenCode output directory (default: dist/opencode/)
- *                             Claude Code output is derived as sibling (dist/claude-code/)
+ *   -o, --output-dir <dir>   Claude Code output directory (default: dist/claude-code/)
  *   -p, --plugin <name>      Build specific plugin (base, dev, or all)
  *   --json                   Output results as JSON for CI/CD
  *   -h, --help               Show this help message

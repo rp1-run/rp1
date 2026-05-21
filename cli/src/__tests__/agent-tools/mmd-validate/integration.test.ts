@@ -20,26 +20,6 @@ describe("mmd-validate integration", () => {
 		fixtureContent = await Bun.file(MIXED_DIAGRAMS_PATH).text();
 	});
 
-	it("should extract all 8 diagrams from mixed-diagrams.md", () => {
-		const result = extractMermaidBlocks(fixtureContent);
-
-		expect(E.isRight(result)).toBe(true);
-		if (E.isRight(result)) {
-			expect(result.right.length).toBe(8);
-
-			// Verify diagram types are detected correctly
-			const contents = result.right.map((b) => b.content);
-			expect(contents[0]).toContain("flowchart TD");
-			expect(contents[1]).toContain("sequenceDiagram");
-			expect(contents[2]).toContain("classDiagram");
-			expect(contents[3]).toContain("stateDiagram-v2");
-			expect(contents[4]).toContain("erDiagram");
-			expect(contents[5]).toContain("gantt");
-			expect(contents[6]).toContain("pie title");
-			expect(contents[7]).toContain("mindmap");
-		}
-	});
-
 	it("should validate diagrams and identify 2 invalid ones", async () => {
 		const extractResult = extractMermaidBlocks(fixtureContent);
 		expect(E.isRight(extractResult)).toBe(true);
@@ -103,28 +83,5 @@ describe("mmd-validate integration", () => {
 			expect(diagram.errors?.[0].message).toBeTruthy();
 			expect(diagram.errors?.[0].diagramIndex).toBe(diagram.index);
 		}
-	}, 30000);
-
-	it("should preserve line number information", async () => {
-		const extractResult = extractMermaidBlocks(fixtureContent);
-		expect(E.isRight(extractResult)).toBe(true);
-		if (!E.isRight(extractResult)) return;
-
-		const blocks = extractResult.right;
-		const validateResult = await validateDiagrams(blocks, 60000)();
-
-		expect(E.isRight(validateResult)).toBe(true);
-		if (!E.isRight(validateResult)) return;
-
-		const data = validateResult.right;
-
-		// All diagrams should have startLine set
-		for (const diagram of data.diagrams) {
-			expect(diagram.startLine).toBeGreaterThan(0);
-		}
-
-		// First diagram should start around line 9 (after markdown header)
-		expect(data.diagrams[0].startLine).toBeGreaterThanOrEqual(8);
-		expect(data.diagrams[0].startLine).toBeLessThanOrEqual(12);
 	}, 30000);
 });

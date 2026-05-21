@@ -1,0 +1,27 @@
+{
+  "name": "{{ namespacedPluginName }}",
+  "version": "{{ pluginVersion }}",
+  "description": "{{ artifact.description | escape_json }}",
+  "author": "rp1",
+  "host": {
+    "id": "antigravity",
+    "name": "Antigravity CLI",
+    "binary": "agy",
+    "minimumVersion": "{{ platformConfig.min_version }}"
+  },
+  "entrypoints": {
+    "instructions": "AGENTS.md",
+    "skills": "skills/",
+    "rules": "rules/",
+    "hooks": "hooks/hooks.json",
+    "mcp": "mcp_config.json",
+    "supportMatrix": "support-matrix.json",
+    "supportMetadata": "support-metadata.json",
+    "delegationDefinitions": "delegation-definitions/index.json"
+  },
+  "runtime": {
+    "delegation": "dynamic_define_subagent",
+    "runtimeContract": "define_subagent_once_per_session_then_invoke_subagent",
+    "staticAgentsDiscovery": "not_used"
+  }
+}

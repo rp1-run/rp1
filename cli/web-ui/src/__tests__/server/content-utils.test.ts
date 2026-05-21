@@ -10,6 +10,7 @@ import {
 } from "../../../../src/__tests__/helpers/git-helpers";
 import {
 	buildFileTree,
+	resolveWithArchiveFallback,
 	validateFilePath,
 } from "../../server/routes/content-utils";
 
@@ -30,6 +31,24 @@ describe("content-utils", () => {
 			expect(validateFilePath("work/features/feat-1/tasks.md")).toBe(
 				"Access denied: path outside allowed directories",
 			);
+		});
+	});
+
+	describe("resolveWithArchiveFallback", () => {
+		test("rejects paths that resolve outside the rp1 directory", async () => {
+			const tempDir = await mkdtemp(join(tmpdir(), "rp1-content-utils-"));
+			const rp1Path = join(tempDir, ".rp1");
+
+			try {
+				await mkdir(rp1Path, { recursive: true });
+				await Bun.write(join(tempDir, "outside.md"), "# outside");
+
+				await expect(
+					resolveWithArchiveFallback(rp1Path, "../outside.md"),
+				).resolves.toBeNull();
+			} finally {
+				await rm(tempDir, { recursive: true, force: true });
+			}
 		});
 	});
 

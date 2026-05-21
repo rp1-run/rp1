@@ -97,10 +97,10 @@ Parse the JSON array. Each entry includes:
 - `plugin`: Plugin id (`base`, `dev`, or `utils`)
 - `canonical_name`: Canonical skill id (`base:guide`)
 - `user_facing_name`: Canonical user-facing name (`rp1-base:guide`)
-- `installed_platforms`: Hosts where this skill is installed (`claude-code`, `opencode`, `codex`)
+- `installed_platforms`: Hosts where this skill is installed (`claude-code`, `opencode`, `codex`, `copilot`, `antigravity`)
 - `invocations`: Host-specific invocation strings for installed hosts
 
-`CURRENT_HOST` is injected into this built skill by the build pipeline and will be one of `claude-code`, `opencode`, or `codex`. Use `CURRENT_HOST` directly when filtering and presenting skills:
+`CURRENT_HOST` is injected into this built skill by the build pipeline and will be one of the supported platform ids such as `claude-code`, `opencode`, `codex`, `copilot`, or `antigravity`. Use `CURRENT_HOST` directly when filtering and presenting skills:
 
 - Only recommend skills whose `installed_platforms` includes `CURRENT_HOST`.
 - Use `invocations[CURRENT_HOST]` when presenting or invoking a skill.

@@ -291,6 +291,100 @@ metadata:
 		});
 	});
 
+	test("records Antigravity harness identity and worktree roots in bootstrap context", async () => {
+		const mainRepoRoot = join(tempDir, "antigravity-main");
+		const linkedWorktreePath = join(tempDir, "antigravity-linked-worktree");
+		const nestedWorktreePath = join(linkedWorktreePath, "nested", "dir");
+		const originalCurrentHost = process.env.CURRENT_HOST;
+
+		await writeProjectId(mainRepoRoot, "project-antigravity-worktree-id");
+		await initTestRepo(mainRepoRoot);
+		await writeWorkflowSkill({
+			rootDir: mainRepoRoot,
+			name: "build",
+			runPolicy: "resumable",
+		});
+		await createInitialCommit(mainRepoRoot);
+		await createTestWorktree(
+			mainRepoRoot,
+			linkedWorktreePath,
+			"feature/antigravity-runtime",
+		);
+		await mkdir(nestedWorktreePath, { recursive: true });
+
+		try {
+			process.env.CURRENT_HOST = "antigravity";
+			const canonicalMainRepoRoot = await realpath(mainRepoRoot).catch(
+				() => mainRepoRoot,
+			);
+			const canonicalLinkedWorktreePath = await realpath(
+				linkedWorktreePath,
+			).catch(() => linkedWorktreePath);
+
+			const result = await expectTaskRight(
+				execute(
+					JSON.stringify({
+						name: "rp1-dev:build",
+						schema_path: "plugins/dev/skills/build/SKILL.md",
+						raw_args: "feat-antigravity-runtime",
+						project_root: nestedWorktreePath,
+						harness: "antigravity",
+					}),
+					{ inputSource: "stdin" },
+				),
+			);
+
+			expect(result.data.trace.host).toBe("antigravity");
+			expect(result.data.trace.harness).toBe("antigravity");
+			expect(result.data.trace.canonicalProjectRoot).toBe(
+				canonicalMainRepoRoot,
+			);
+			expect(result.data.trace.isWorktree).toBe(true);
+			expect(result.data.directories).toMatchObject({
+				projectRoot: canonicalMainRepoRoot,
+				kbRoot: join(canonicalMainRepoRoot, ".rp1", "context"),
+				workRoot: join(canonicalMainRepoRoot, ".rp1", "work"),
+				codeRoot: canonicalLinkedWorktreePath,
+			});
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const run = getRunById(db, result.data.run.runId);
+			expect(run?.harness).toBe("antigravity");
+
+			const bootstrapContext = JSON.parse(run?.bootstrapContext ?? "{}") as {
+				directories?: {
+					projectRoot?: string;
+					kbRoot?: string;
+					workRoot?: string;
+					codeRoot?: string;
+				};
+				trace?: {
+					harness?: string;
+					isWorktree?: boolean;
+					canonicalProjectRoot?: string;
+				};
+			};
+
+			expect(bootstrapContext.directories).toEqual({
+				projectRoot: canonicalMainRepoRoot,
+				kbRoot: join(canonicalMainRepoRoot, ".rp1", "context"),
+				workRoot: join(canonicalMainRepoRoot, ".rp1", "work"),
+				codeRoot: canonicalLinkedWorktreePath,
+			});
+			expect(bootstrapContext.trace).toMatchObject({
+				harness: "antigravity",
+				isWorktree: true,
+				canonicalProjectRoot: canonicalMainRepoRoot,
+			});
+		} finally {
+			if (originalCurrentHost === undefined) {
+				delete process.env.CURRENT_HOST;
+			} else {
+				process.env.CURRENT_HOST = originalCurrentHost;
+			}
+		}
+	});
+
 	test("reuses the same resumable build run from the main repo and a linked worktree", async () => {
 		const mainRepoRoot = join(tempDir, "shared-worktree-main");
 		const linkedWorktreePath = join(tempDir, "shared-linked-worktree");

@@ -44,6 +44,14 @@ subagent_type: ${ns}
 ${renderPromptField("", prompt)}`;
 }
 
+function renderGemini(agentRef: string, prompt: string): string {
+	const ns = transformNamespace(agentRef, "gemini");
+	// Gemini and Antigravity expose one inline invocation form here; parent
+	// prompts carry any wait/continue semantics around this instruction.
+	return `Invoke ${ns}.
+${renderPromptField("", prompt)}`;
+}
+
 function renderCopilotForeground(agentRef: string, prompt: string): string {
 	const ns = transformNamespace(agentRef, "copilot");
 	return `create_agent:
@@ -114,6 +122,10 @@ function renderDispatch(
 			return mode === "background"
 				? renderCopilotBackground(agentRef, prompt)
 				: renderCopilotForeground(agentRef, prompt);
+		case "antigravity":
+			return renderGemini(agentRef, prompt);
+		case "gemini":
+			return renderGemini(agentRef, prompt);
 	}
 }
 

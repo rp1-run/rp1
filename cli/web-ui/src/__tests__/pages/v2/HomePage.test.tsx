@@ -8,7 +8,18 @@ import {
 	waitFor,
 	within,
 } from "@testing-library/react";
-import { createElement, forwardRef, type ReactNode } from "react";
+import {
+	cloneElement,
+	createElement,
+	type FocusEvent,
+	forwardRef,
+	type PointerEvent,
+	type ReactElement,
+	type ReactNode,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import {
 	WORKSPACE_TABS_STORAGE_KEY,
@@ -211,6 +222,88 @@ function installHomePageMocks() {
 			setHeaderLeft: mock(() => {}),
 			setHeaderRight: mock(() => {}),
 		}),
+	}));
+
+	mock.module("@/components/v2/TitleTooltip", () => ({
+		TitleTooltip: ({
+			title,
+			children,
+		}: {
+			readonly title?: string | null;
+			readonly children: ReactElement<{
+				readonly onBlur?: (event: FocusEvent<HTMLElement>) => void;
+				readonly onFocus?: (event: FocusEvent<HTMLElement>) => void;
+				readonly onPointerCancel?: (event: PointerEvent<HTMLElement>) => void;
+				readonly onPointerEnter?: (event: PointerEvent<HTMLElement>) => void;
+				readonly onPointerLeave?: (event: PointerEvent<HTMLElement>) => void;
+				readonly title?: string | null;
+			}>;
+		}) => {
+			const content = (title ?? children.props.title)?.trim();
+			const [open, setOpen] = useState(false);
+			const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+			const clearTimer = () => {
+				if (timerRef.current) {
+					clearTimeout(timerRef.current);
+					timerRef.current = null;
+				}
+			};
+
+			const close = () => {
+				clearTimer();
+				setOpen(false);
+			};
+
+			useEffect(
+				() => () => {
+					if (timerRef.current) {
+						clearTimeout(timerRef.current);
+						timerRef.current = null;
+					}
+				},
+				[],
+			);
+
+			if (!content) return children;
+
+			const trigger = cloneElement(children, {
+				title: undefined,
+				onBlur: (event: FocusEvent<HTMLElement>) => {
+					children.props.onBlur?.(event);
+					close();
+				},
+				onFocus: (event: FocusEvent<HTMLElement>) => {
+					children.props.onFocus?.(event);
+					close();
+				},
+				onPointerCancel: (event: PointerEvent<HTMLElement>) => {
+					children.props.onPointerCancel?.(event);
+					close();
+				},
+				onPointerEnter: (event: PointerEvent<HTMLElement>) => {
+					children.props.onPointerEnter?.(event);
+					if (event.pointerType === "touch") return;
+
+					close();
+					timerRef.current = setTimeout(() => {
+						setOpen(true);
+						timerRef.current = null;
+					}, 250);
+				},
+				onPointerLeave: (event: PointerEvent<HTMLElement>) => {
+					children.props.onPointerLeave?.(event);
+					close();
+				},
+			});
+
+			return (
+				<>
+					{trigger}
+					{open && <div role="tooltip">{content}</div>}
+				</>
+			);
+		},
 	}));
 
 	mock.module("@/providers/WebSocketProvider", () => ({

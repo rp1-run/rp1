@@ -49,6 +49,51 @@ describe("update plugin result formatting", () => {
 		expect(logs.join("\n")).toContain("rp1-base, rp1-dev");
 	});
 
+	test("formats Gemini lifecycle update details", () => {
+		formatPluginUpdateResult(
+			{
+				toolId: "gemini",
+				toolName: "Gemini CLI",
+				success: true,
+				restartRequired: false,
+				pluginsInstalled: [],
+				details: [
+					"Lifecycle stage: update",
+					"Lifecycle result: refreshed",
+					"Next action: Restart Gemini CLI, then run `rp1 verify gemini`.",
+				],
+				warnings: [],
+			},
+			false,
+		);
+
+		const output = logs.join("\n");
+		expect(output).toContain("Gemini CLI: Plugins updated successfully");
+		expect(output).toContain("Lifecycle stage: update");
+		expect(output).toContain("Lifecycle result: refreshed");
+		expect(output).not.toContain("Gemini CLI support is");
+	});
+
+	test("formats skipped unsupported tool results as skipped", () => {
+		formatPluginUpdateResult(
+			{
+				toolId: "future-host",
+				toolName: "Future Host",
+				success: false,
+				skipped: true,
+				restartRequired: false,
+				pluginsInstalled: [],
+				warnings: ["Automated installation not supported for Future Host"],
+			},
+			false,
+		);
+
+		const output = logs.join("\n");
+		expect(output).toContain("Future Host: Plugin update skipped");
+		expect(output).toContain("Automated installation not supported");
+		expect(output).not.toContain("Plugin update failed");
+	});
+
 	test("formats failed tool updates with errors and warnings", () => {
 		formatPluginUpdateResult(
 			{
@@ -175,5 +220,37 @@ describe("update plugin result formatting", () => {
 			false,
 		);
 		expect(logs.join("\n")).toContain("No plugins were updated");
+	});
+
+	test("formats skipped-only summaries without generic failure wording", () => {
+		formatUpdateAllResult(
+			{
+				installed: 0,
+				detected: [
+					{
+						tool: tool("gemini", "Gemini CLI"),
+						version: "0.0.0",
+						meetsMinVersion: true,
+					},
+				],
+				results: [
+					{
+						toolId: "gemini",
+						toolName: "Gemini CLI",
+						success: false,
+						skipped: true,
+						restartRequired: false,
+						pluginsInstalled: [],
+						warnings: [],
+					},
+				],
+			},
+			false,
+		);
+
+		const output = logs.join("\n");
+		expect(output).toContain("Skipped: 1");
+		expect(output).toContain("No automatic plugin updates were applied");
+		expect(output).not.toContain("See errors above");
 	});
 });

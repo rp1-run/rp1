@@ -1,0 +1,25 @@
+---
+name: {{ namespacedPluginName }}-{{ artifact.name }}
+description: {{ artifact.description | escape_yaml }}
+kind: local
+{%- assign tools = artifact.tools | join: ", " | allowed_tools: platform %}
+{%- if tools and tools.size > 0 %}
+tools:
+{%- for tool in tools %}
+  - {{ tool | escape_yaml }}
+{%- endfor %}
+{%- else %}
+tools: []
+{%- endif %}
+{%- if artifact.model != "inherit" %}
+model: {{ artifact.model }}
+{%- endif %}
+max_turns: 30
+metadata:
+  rp1:
+    runtime_delegation: dynamic_define_subagent
+    static_agents_discovery: non_contract
+---
+
+{% render "antigravity/host-context", platform: platform %}
+{{ artifact.content | namespace_ref: platform | slash_commands: platform | param_transform: platform | tool_prose: platform }}

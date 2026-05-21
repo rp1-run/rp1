@@ -9,6 +9,10 @@ import type {
 	SupportedTool,
 	ToolsRegistry,
 } from "../config/supported-tools.js";
+import {
+	getEnabledTools,
+	getToolSupportLevel,
+} from "../config/supported-tools.js";
 
 /**
  * A detected tool with its version information.
@@ -184,7 +188,7 @@ export const detectTools = (
 ): TE.TaskEither<never, ToolDetectionResult> =>
 	TE.tryCatch(
 		async () => {
-			const enabledTools = registry.tools.filter((t) => t.enabled !== false);
+			const enabledTools = getEnabledTools(registry);
 
 			// Run all detections in parallel for speed
 			const results = await Promise.all(
@@ -209,7 +213,7 @@ export const detectTools = (
 		() =>
 			({
 				detected: [],
-				missing: [...registry.tools.filter((t) => t.enabled !== false)],
+				missing: [...getEnabledTools(registry)],
 			}) as never,
 	);
 
@@ -257,5 +261,7 @@ export const formatDetectedTool = (detected: DetectedTool): string => {
 	const status = detected.meetsMinVersion
 		? ""
 		: ` (requires >= ${detected.tool.min_version})`;
-	return `${detected.tool.name} ${versionInfo}${status}`;
+	const supportLevel = getToolSupportLevel(detected.tool);
+	const support = supportLevel === "stable" ? "" : ` (${supportLevel})`;
+	return `${detected.tool.name} ${versionInfo}${support}${status}`;
 };

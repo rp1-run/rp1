@@ -12,11 +12,16 @@ import {
 } from "../../config/supported-tools.js";
 import { colorFns } from "../../lib/colors.js";
 import {
+	executeVerifyAntigravity,
+	verifyAntigravitySubcommand,
+} from "./antigravity.js";
+import {
 	executeVerifyClaudeCode,
 	verifyClaudeCodeSubcommand,
 } from "./claude-code.js";
 import { executeVerifyCodex, verifyCodexSubcommand } from "./codex.js";
 import { executeVerifyCopilot, verifyCopilotSubcommand } from "./copilot.js";
+import { verifyGeminiSubcommand } from "./gemini.js";
 import { executeVerifyOpenCode, verifyOpenCodeSubcommand } from "./opencode.js";
 
 const { bold, dim } = colorFns;
@@ -35,6 +40,7 @@ Subcommands:
   opencode       Verify plugins in OpenCode
   codex          Verify plugins in Codex CLI
   copilot        Verify plugins in GitHub Copilot CLI
+  antigravity    Verify Antigravity CLI integration
 
 Examples:
   rp1 verify                Verify all platforms
@@ -42,6 +48,7 @@ Examples:
   rp1 verify opencode       Verify OpenCode installation
   rp1 verify codex          Verify Codex CLI installation
   rp1 verify copilot        Verify Copilot CLI installation
+  rp1 verify antigravity    Verify Antigravity CLI setup
 `,
 	)
 	.action(async (_options, command) => {
@@ -72,6 +79,13 @@ Examples:
 			platforms.push({
 				name: "Copilot CLI",
 				run: () => executeVerifyCopilot(logger),
+			});
+		}
+
+		if (isToolEnabled(TOOLS_REGISTRY as ToolsRegistry, "antigravity")) {
+			platforms.push({
+				name: "Antigravity CLI",
+				run: () => executeVerifyAntigravity(logger),
 			});
 		}
 
@@ -117,7 +131,28 @@ if (!copilotVerifyEnabled) {
 	});
 }
 
+const antigravityVerifyEnabled = isToolEnabled(
+	TOOLS_REGISTRY as ToolsRegistry,
+	"antigravity",
+);
+verifyCommand.addCommand(verifyAntigravitySubcommand, {
+	hidden: !antigravityVerifyEnabled,
+});
+if (!antigravityVerifyEnabled) {
+	verifyAntigravitySubcommand.action(async () => {
+		process.exit(1);
+	});
+}
+
+verifyCommand.addCommand(verifyGeminiSubcommand, {
+	hidden: true,
+});
+
 // Export subcommands for direct access if needed
+export {
+	executeVerifyAntigravity,
+	verifyAntigravitySubcommand,
+} from "./antigravity.js";
 export {
 	executeVerifyClaudeCode,
 	verifyClaudeCodeSubcommand,
@@ -127,4 +162,5 @@ export {
 	executeVerifyCopilot,
 	verifyCopilotSubcommand,
 } from "./copilot.js";
+export { executeVerifyGemini, verifyGeminiSubcommand } from "./gemini.js";
 export { executeVerifyOpenCode, verifyOpenCodeSubcommand } from "./opencode.js";

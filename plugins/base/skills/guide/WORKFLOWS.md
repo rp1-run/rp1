@@ -2,6 +2,20 @@
 
 Common multi-skill sequences in rp1. Each workflow describes when to use it, the skill chain, and how outputs connect.
 
+## Host Support Boundary
+
+Claude Code, OpenCode, Codex CLI, GitHub Copilot CLI, and Antigravity CLI are
+supported hosts for the workflow sequences below. Antigravity CLI receives
+first-class plugin assets and a catalog-backed support matrix that classifies
+every shipped user-facing workflow row as `supported`, `limited`, or
+`unsupported`. Delegated Antigravity workflow rows are limited by the dynamic
+session-subagent contract: define each required rp1-derived type once with
+`define_subagent`, then reuse the cached `TypeName` with `invoke_subagent`;
+static `/agents` discovery is not support evidence. If a user asks to run one
+of these workflows on Antigravity, use `rp1 install antigravity` to install the
+Antigravity plugin assets and `rp1 verify antigravity --workflow <workflow-id>`
+to inspect the matrix row.
+
 ## Feature Development Lifecycle
 
 **When**: Building a new feature end-to-end -- from idea through implementation to merge.

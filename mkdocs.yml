@@ -107,12 +107,15 @@ nav:
       - Overview: reference/cli/index.md
       - init: reference/cli/init.md
       - install: reference/cli/install.md
+      - verify: reference/cli/verify.md
       - update: reference/cli/update.md
+      - uninstall: reference/cli/uninstall.md
       - check-update: reference/cli/check-update.md
       - rp1 migrate: reference/cli/rp1-migrate.md
       - self-update: reference/base/self-update.md
     - Platform Support:
       - GitHub Copilot CLI Setup: reference/platforms/copilot.md
+      - Antigravity CLI: reference/platforms/antigravity.md
     - Ship Code Reference:
       - Overview: reference/dev/index.md
       - build: reference/dev/build.md

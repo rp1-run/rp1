@@ -10,6 +10,8 @@
  * | opencode    | Passthrough (no transformation)                       |
  * | codex       | `$1` -> instructional text, `$ARGUMENTS` -> prose     |
  * | copilot     | `$1` -> instructional text, `$ARGUMENTS` -> prose     |
+ * | antigravity | `$1` -> instructional text, `$ARGUMENTS` -> prose     |
+ * | gemini      | `$1` -> instructional text, `$ARGUMENTS` -> prose     |
  *
  * Codex has no native `$1`/`$ARGUMENTS` substitution model. Skills
  * must express parameters as instructional text so the model can
@@ -106,6 +108,10 @@ export const paramTransform = (
 		case "codex":
 			return transformParamsForCodex(content);
 		case "copilot":
+			return transformParamsForCodex(content);
+		case "antigravity":
+			return transformParamsForCodex(content);
+		case "gemini":
 			return transformParamsForCodex(content);
 	}
 };

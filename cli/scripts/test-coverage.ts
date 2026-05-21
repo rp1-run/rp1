@@ -5,7 +5,7 @@ import { join } from "node:path";
 import {
 	formatCoveragePercent,
 	meetsLineThreshold,
-	summarizeLcovLineCoverage,
+	summarizeCliLcovLineCoverage,
 } from "./coverage-threshold.js";
 
 const LINE_COVERAGE_THRESHOLD = 0.8;
@@ -36,7 +36,7 @@ if (!existsSync(lcovPath)) {
 }
 
 const lcov = await Bun.file(lcovPath).text();
-const summary = summarizeLcovLineCoverage(lcov);
+const summary = summarizeCliLcovLineCoverage(lcov);
 const actual = formatCoveragePercent(summary.ratio);
 const required = formatCoveragePercent(LINE_COVERAGE_THRESHOLD);
 

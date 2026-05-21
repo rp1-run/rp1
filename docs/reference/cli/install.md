@@ -1,6 +1,6 @@
 # install
 
-Install rp1 plugins for supported host tools.
+Install rp1 plugins for supported host tools and Antigravity CLI plugin assets.
 
 ---
 
@@ -13,7 +13,9 @@ rp1 install <subcommand> [options]
 ## Description
 
 Use `rp1 install` when you want to install or refresh rp1 for a specific host
-tool, or for every detected host on the machine.
+tool, or for every detected stable host on the machine. Antigravity CLI is the
+active Google host target and participates in default setup when `agy` is
+detected.
 
 Supported targets:
 
@@ -21,6 +23,7 @@ Supported targets:
 - OpenCode
 - Codex
 - Copilot CLI
+- Antigravity CLI plugin assets
 
 ## Subcommands
 
@@ -64,13 +67,26 @@ plugin commands. Use this target when Copilot is your coding host or when
 
 Requires the standalone GitHub Copilot CLI (`copilot`) with `copilot plugin --help` available.
 
+### `install antigravity`
+
+```bash
+rp1 install antigravity [options]
+```
+
+Installs Antigravity CLI plugin assets from the current `dist/antigravity/`
+build output. Validation-only smoke, proof, and manual-copy assets are not
+installed as normal product workflows. Review the
+[Antigravity CLI platform guide](../platforms/antigravity.md) for lifecycle,
+dynamic delegation, and support-matrix details.
+
 ### `install all`
 
 ```bash
 rp1 install all [options]
 ```
 
-Detects installed tools and installs rp1 to every supported one it finds.
+Detects installed tools and installs rp1 to every detected stable target it
+finds, including Antigravity CLI when `agy` is available on `PATH`.
 
 ## Options
 
@@ -90,6 +106,7 @@ rp1 install claude-code
 rp1 install opencode
 rp1 install codex
 rp1 install copilot
+rp1 install antigravity
 ```
 
 ### Install everywhere detected
@@ -103,6 +120,7 @@ rp1 install all
 ```bash
 rp1 install codex --dry-run
 rp1 install copilot --dry-run
+rp1 install antigravity --dry-run
 ```
 
 ## Contributor Local Install (`just install`)
@@ -158,9 +176,56 @@ rp1 verify claude-code
 rp1 verify opencode
 rp1 verify codex
 rp1 verify copilot
+rp1 verify antigravity
 ```
 
 For Copilot, the clean success signal is `healthy_native`. A `mixed_native_and_legacy` result means the native install works, but old rp1 files still need cleanup under `~/.config/github-copilot/`.
+
+For Antigravity, verification reports Antigravity plugin lifecycle state,
+support-matrix readiness, dynamic delegation boundaries, and optional workflow
+attribution:
+
+```bash
+rp1 verify antigravity
+rp1 verify antigravity --workflow <workflow-id>
+```
+
+The Antigravity section uses
+`Support: first-class (Antigravity CLI plugin assets)` and reports `State`
+values such as `ready`,
+`degraded_missing_binary`, `degraded_missing_command`,
+`degraded_trust_or_approval`, or `registration_failed`.
+
+The `Manifest lifecycle` section reports `Stage: verify`, an asset count, and a
+Antigravity-specific lifecycle `State`:
+
+| State | Meaning | Next action |
+|-------|---------|-------------|
+| `current` | All rp1-owned Antigravity assets match the manifest. | Restart Antigravity CLI if assets were just installed, then run installed rp1 workflows from Antigravity slash commands. |
+| `removed` | No rp1-owned Antigravity assets are installed. | Run `rp1 install antigravity` before using Antigravity commands. |
+| `missing` | One manifest-owned asset is missing. | Run `rp1 install antigravity` to restore it. |
+| `partial` | More than one, but not all, manifest-owned assets are missing. | Reinstall the complete Antigravity asset set with `rp1 install antigravity`. |
+| `stale` | One or more assets differ from the current manifest. | Run `rp1 install antigravity` or `rp1 update plugins antigravity` to refresh assets. |
+| `blocked` | rp1 could not read one or more Antigravity plugin assets. | Fix local file permissions or trust/approval blockers, then rerun `rp1 verify antigravity`. |
+
+Use `--workflow` to attribute a workflow attempt against the Antigravity support
+matrix:
+
+```bash
+rp1 verify antigravity --workflow dev:build
+```
+
+Antigravity workflow rows are generated from the distributable catalog. Rows
+that need delegated work are limited by the dynamic session-subagent contract:
+define each required rp1-derived type once with `define_subagent`, then reuse
+the cached `TypeName` with `invoke_subagent`.
+
+Antigravity may still require workspace trust, shell approval, or permission
+approval when Antigravity plugin commands run. rp1 reports those as boundary
+states and remediation actions; it does not grant trust or approval
+automatically. The [verify reference](verify.md) and
+[Antigravity CLI platform guide](../platforms/antigravity.md) explain the
+verifier output and current support matrix.
 
 ## Listing Installed Skills
 
@@ -204,6 +269,7 @@ they ignore keys they do not use.
 | OpenCode | `~/.config/opencode/plugins/` |
 | Codex skills | `~/.codex/skills/` |
 | Codex agents | `~/.codex/agents/rp1/` |
+| Antigravity plugin assets | `~/.gemini/antigravity-cli/rp1-base/`, `~/.gemini/antigravity-cli/rp1-dev/` |
 
 Copilot install paths are covered in
 [Troubleshooting Copilot Install Locations](#troubleshooting-copilot-install-locations)
@@ -245,4 +311,6 @@ ls -la ~/.rp1/copilot/
 ## See Also
 
 - [Installation Guide](../../getting-started/installation.md)
+- [verify](verify.md)
+- [Antigravity CLI Platform Guide](../platforms/antigravity.md)
 - [update](update.md)

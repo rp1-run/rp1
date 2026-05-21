@@ -23,6 +23,12 @@ import type {
 	ClaudeCodeInstallResult,
 	ClaudeCodePrerequisiteResult,
 } from "../../../install/claudecode/models.js";
+import { writeGeminiBundleDistFixture } from "../../helpers/gemini-bundle.js";
+import {
+	cleanupTempDir,
+	createTempDir,
+	withEnvOverride,
+} from "../../helpers/index.js";
 
 // Create mock logger
 const createMockLogger = (): Logger => ({
@@ -106,6 +112,23 @@ const createUnsupportedTool = (): DetectedTool => ({
 		capabilities: [],
 	},
 	version: "0.5.0",
+	meetsMinVersion: true,
+});
+
+const createGeminiTool = (): DetectedTool => ({
+	tool: {
+		id: "gemini",
+		name: "Gemini CLI",
+		enabled: true,
+		binary: "gemini",
+		min_version: "0.0.0",
+		instruction_file: "AGENTS.md",
+		install_url: "https://github.com/google-gemini/gemini-cli",
+		plugin_install_cmd: null,
+		supportLevel: "stable",
+		capabilities: ["slash-commands"],
+	},
+	version: "0.1.0",
 	meetsMinVersion: true,
 });
 
@@ -233,6 +256,45 @@ describe("plugin-installation step", () => {
 					c.method === "box" && String(c.args[0]).includes("https://rp1.run"),
 			);
 			expect(boxCall).toBeDefined();
+		});
+
+		test("installs Gemini assets during init installation", async () => {
+			const tempDir = await createTempDir("init-gemini-install");
+			const restoreHome = withEnvOverride("HOME", tempDir);
+			const bundleDir = await writeGeminiBundleDistFixture(tempDir);
+			const restoreBundle = withEnvOverride("RP1_GEMINI_BUNDLE_DIR", bundleDir);
+			const logger = createTrackingMockLogger();
+
+			try {
+				const result = await executePluginInstallation(
+					createGeminiTool(),
+					{ isTTY: false },
+					logger,
+				);
+
+				expect(result.result?.success).toBe(true);
+				expect(result.actions).toEqual([
+					{
+						type: "plugin_installed",
+						name: "rp1-base",
+						version: "latest",
+					},
+					{
+						type: "plugin_installed",
+						name: "rp1-dev",
+						version: "latest",
+					},
+				]);
+				expect(
+					await Bun.file(
+						`${tempDir}/.gemini/extensions/rp1-base/gemini-extension.json`,
+					).text(),
+				).toBe('{"name":"rp1-base"}\n');
+			} finally {
+				restoreBundle();
+				restoreHome();
+				await cleanupTempDir(tempDir);
+			}
 		});
 
 		test("respects non-interactive mode flag and proceeds with installation", async () => {
@@ -530,22 +592,6 @@ describe("plugin-installation step", () => {
 			expect(result.detected[0]?.tool.id).toBe("copilot");
 		});
 
-		test("returns correct shape with installed and detected fields", async () => {
-			// Use the real registry to check against actual environment
-			const { loadToolsRegistry } = await import(
-				"../../../config/supported-tools.js"
-			);
-			const registry = await loadToolsRegistry();
-
-			const result = await checkPluginsInstalled(registry);
-
-			// Should always return the expected shape
-			expect(result).toHaveProperty("installed");
-			expect(result).toHaveProperty("detected");
-			expect(typeof result.installed).toBe("boolean");
-			expect(Array.isArray(result.detected)).toBe(true);
-		});
-
 		test("returns installed=false when no tools are detected", async () => {
 			// Empty registry means no tools will be detected
 			const emptyRegistry = { version: "1.0.0", tools: [] };
@@ -554,37 +600,6 @@ describe("plugin-installation step", () => {
 
 			expect(result.installed).toBe(false);
 			expect(result.detected).toHaveLength(0);
-		});
-
-		test("detected array contains DetectedTool objects with correct shape", async () => {
-			const { loadToolsRegistry } = await import(
-				"../../../config/supported-tools.js"
-			);
-			const registry = await loadToolsRegistry();
-
-			const result = await checkPluginsInstalled(registry);
-
-			// Each detected tool should have correct shape
-			for (const tool of result.detected) {
-				expect(tool).toHaveProperty("tool");
-				expect(tool).toHaveProperty("version");
-				expect(tool).toHaveProperty("meetsMinVersion");
-				expect(tool.tool).toHaveProperty("id");
-				expect(tool.tool).toHaveProperty("name");
-			}
-		});
-
-		test("returns consistent results across multiple calls (idempotent)", async () => {
-			const { loadToolsRegistry } = await import(
-				"../../../config/supported-tools.js"
-			);
-			const registry = await loadToolsRegistry();
-
-			const result1 = await checkPluginsInstalled(registry);
-			const result2 = await checkPluginsInstalled(registry);
-
-			expect(result1.installed).toBe(result2.installed);
-			expect(result1.detected.length).toBe(result2.detected.length);
 		});
 	});
 

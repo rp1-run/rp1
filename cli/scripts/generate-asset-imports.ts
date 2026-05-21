@@ -104,7 +104,7 @@ function getImportPath(assetPath: string): string {
  * Create a valid TypeScript variable name from a path/name.
  */
 function toVarName(prefix: string, name: string): string {
-	return `${prefix}_${name.replace(/[-./\\[\]@]/g, "_")}`;
+	return `${prefix}_${name.replace(/[-./\\[\]@:]/g, "_")}`;
 }
 
 /**
@@ -156,6 +156,27 @@ function collectPlatformAssets(platform: DiscoveredPlatform): AssetImport[] {
 
 	for (const [pluginKey, plugin] of Object.entries(platform.manifest.plugins)) {
 		const pluginName = pluginKey as "base" | "dev" | "utils";
+
+		// Commands
+		for (const command of plugin.commands) {
+			const fullPath = join(platform.distDir, command.path);
+			const commandFileName =
+				command.fileName ??
+				command.path.split("/commands/").at(1) ??
+				basename(command.path);
+			imports.push({
+				varName: toVarName(
+					`${platformPrefix}_${pluginName}_command`,
+					command.name,
+				),
+				importPath: getImportPath(fullPath),
+				outputName: command.name,
+				fileName: commandFileName,
+				category: "command",
+				plugin: pluginName,
+				platform: platform.name,
+			});
+		}
 
 		// Agents
 		for (const agent of plugin.agents) {
@@ -351,6 +372,10 @@ function generatePlatformBlock(
 			? `{ name: "${a.outputName}", path: "", content: ${a.varName} }`
 			: `{ name: "${a.outputName}", path: ${a.varName} }`;
 
+	const baseCommands = platformAssets
+		.filter((a) => a.category === "command" && a.plugin === "base")
+		.map(formatEntry);
+
 	const baseAgents = platformAssets
 		.filter((a) => a.category === "agent" && a.plugin === "base")
 		.map(formatEntry);
@@ -363,8 +388,16 @@ function generatePlatformBlock(
 		.filter((a) => a.category === "agent" && a.plugin === "dev")
 		.map(formatEntry);
 
+	const devCommands = platformAssets
+		.filter((a) => a.category === "command" && a.plugin === "dev")
+		.map(formatEntry);
+
 	const devSkills = platformAssets
 		.filter((a) => a.category === "skill" && a.plugin === "dev")
+		.map(formatEntry);
+
+	const utilsCommands = platformAssets
+		.filter((a) => a.category === "command" && a.plugin === "utils")
 		.map(formatEntry);
 
 	const utilsAgents = platformAssets
@@ -415,7 +448,7 @@ function generatePlatformBlock(
 		utilsAgents.length > 0 || utilsSkills.length > 0
 			? `      utils: {
         name: "rp1-utils",
-        commands: [],
+        commands: [${utilsCommands.join(", ")}],
         agents: [${utilsAgents.join(", ")}],
         skills: [${utilsSkills.join(", ")}],
         stateMachines: [${utilsStateMachines.join(", ")}],
@@ -427,12 +460,16 @@ function generatePlatformBlock(
 	const key = platform.name.includes("-")
 		? `"${platform.name}"`
 		: platform.name;
+	const platformMetadata = platform.manifest.platform
+		? `      platform: ${JSON.stringify(platform.manifest.platform, null, 8).replace(/\n/g, "\n      ")},
+`
+		: "";
 
 	return `    ${key}: {
-      plugins: {
+${platformMetadata}      plugins: {
         base: {
           name: "rp1-base",
-          commands: [],
+          commands: [${baseCommands.join(", ")}],
           agents: [${baseAgents.join(", ")}],
           skills: [${baseSkills.join(", ")}],
           stateMachines: [${baseStateMachines.join(", ")}],
@@ -441,7 +478,7 @@ function generatePlatformBlock(
         },
         dev: {
           name: "rp1-dev",
-          commands: [],
+          commands: [${devCommands.join(", ")}],
           agents: [${devAgents.join(", ")}],
           skills: [${devSkills.join(", ")}],
           stateMachines: [${devStateMachines.join(", ")}],
@@ -533,6 +570,7 @@ export const IS_BUNDLED = true;
 			(a) => a.platform === platform.name,
 		);
 		const agents = platformAssets.filter((a) => a.category === "agent");
+		const commands = platformAssets.filter((a) => a.category === "command");
 		const skills = platformAssets.filter((a) => a.category === "skill");
 		const stateMachines = platformAssets.filter(
 			(a) => a.category === "state-machine",
@@ -545,7 +583,9 @@ export const IS_BUNDLED = true;
 		);
 
 		console.log(`  ${platform.name}:`);
-		console.log(`    ${agents.length} agents, ${skills.length} skills`);
+		console.log(
+			`    ${commands.length} commands, ${agents.length} agents, ${skills.length} skills`,
+		);
 		if (stateMachines.length > 0) {
 			console.log(`    ${stateMachines.length} state machines`);
 		}

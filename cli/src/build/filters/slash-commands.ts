@@ -9,6 +9,8 @@
  * | opencode    | `/rp1-base:cmd` -> `command_invoke("rp1-base:cmd")`        |
  * | codex       | `/skill-name` -> `$rp1-{plugin}-{skill-name}` (skill map)  |
  * | copilot     | `/rp1-base:cmd` -> `/rp1-base/cmd` (slash separator)       |
+ * | antigravity | Passthrough (`/rp1-base:cmd` keeps colon namespace)        |
+ * | gemini      | Passthrough (`/rp1-base:cmd` keeps Gemini colon namespace) |
  *
  * Wraps the existing transformSlashCommandCalls() from transformations.ts
  * and transformPlainSlashCommands() from codex/transformations.ts.
@@ -146,5 +148,9 @@ export const slashCommands = (
 			);
 		case "copilot":
 			return transformSlashCommandsToCopilot(content);
+		case "antigravity":
+			return content;
+		case "gemini":
+			return content;
 	}
 };

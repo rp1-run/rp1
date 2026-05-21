@@ -34,6 +34,7 @@ export interface CatalogRegistryEntry extends CatalogRenderableEntry {
 	readonly canonicalName: string;
 	readonly userFacingName: string;
 	readonly argumentDefs: readonly ArgumentDefinition[];
+	readonly subAgents?: readonly string[];
 	readonly distributionScope: CatalogDistributionScope;
 	readonly userInvocable: boolean;
 	readonly sourcePath: string;
@@ -159,6 +160,7 @@ const toRegistryEntry = (
 	arcadeTracked: boolean | undefined,
 	userInvocable: boolean,
 	argumentDefs: readonly ArgumentDefinition[],
+	subAgents?: readonly string[],
 	runPolicy?: WorkflowRunPolicy,
 	identityArgs?: readonly string[],
 ): CatalogRegistryEntry => {
@@ -174,6 +176,7 @@ const toRegistryEntry = (
 		isWorkflow,
 		...(arcadeTracked !== undefined && { arcadeTracked }),
 		keyArgs: argumentDefs.map((argument) => argument.name),
+		...(subAgents !== undefined && { subAgents }),
 		...(runPolicy !== undefined && { runPolicy }),
 		...(identityArgs !== undefined && { identityArgs }),
 		argumentDefs,
@@ -311,6 +314,7 @@ export const collectCatalogRegistry = async (
 					metadata.arcadeTracked,
 					userInvocable,
 					argumentDefs,
+					metadata.subAgents,
 					metadata.workflow?.runPolicy,
 					metadata.workflow?.identityArgs,
 				),

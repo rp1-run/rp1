@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { cleanup, render, screen } from "@testing-library/react";
-import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
-import { IconRail } from "../../../components/v2/IconRail";
 
 mock.module("@/providers/ThemeProvider", () => ({
 	useTheme: () => ({
@@ -11,19 +9,18 @@ mock.module("@/providers/ThemeProvider", () => ({
 	}),
 }));
 
-mock.module("@/components/ui/tooltip", () => ({
-	TooltipProvider: ({ children }: { children?: ReactNode }) => <>{children}</>,
-	Tooltip: ({ children }: { children?: ReactNode }) => <>{children}</>,
-	TooltipTrigger: ({ children }: { children?: ReactNode }) => <>{children}</>,
-	TooltipContent: ({ children }: { children?: ReactNode }) => <>{children}</>,
-}));
-
 describe("IconRail", () => {
+	let importVersion = 0;
+
 	afterEach(() => {
 		cleanup();
 	});
 
-	test("uses the current RP1 mark for navigation identity", () => {
+	test("uses the current RP1 mark for navigation identity", async () => {
+		const { IconRail } = await import(
+			`../../../components/v2/IconRail.tsx?icon-rail-test=${++importVersion}`
+		);
+
 		render(
 			<MemoryRouter>
 				<IconRail />

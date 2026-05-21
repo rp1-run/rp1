@@ -9,8 +9,12 @@ import type {
 	ToolsRegistry,
 } from "../../config/supported-tools.js";
 import {
+	findToolById,
+	getDefaultInstallTools,
 	getEnabledTools,
+	getToolSupportLevel,
 	isToolEnabled,
+	loadToolsRegistry,
 } from "../../config/supported-tools.js";
 
 const createTool = (overrides: Partial<SupportedTool> = {}): SupportedTool => ({
@@ -99,6 +103,30 @@ describe("getEnabledTools", () => {
 	});
 });
 
+describe("getDefaultInstallTools", () => {
+	test("excludes experimental tools from default install targets", () => {
+		const registry = createRegistry([
+			createTool({ id: "stable" }),
+			createTool({ id: "experimental", supportLevel: "experimental" }),
+			createTool({
+				id: "disabled-experimental",
+				enabled: false,
+				supportLevel: "experimental",
+			}),
+		]);
+
+		const result = getDefaultInstallTools(registry);
+
+		expect(result.map((tool) => tool.id)).toEqual(["stable"]);
+	});
+
+	test("treats omitted supportLevel as stable", () => {
+		const tool = createTool({ supportLevel: undefined });
+
+		expect(getToolSupportLevel(tool)).toBe("stable");
+	});
+});
+
 describe("isToolEnabled", () => {
 	test("returns true for an enabled tool", () => {
 		const registry = createRegistry([
@@ -139,5 +167,94 @@ describe("isToolEnabled", () => {
 		const registry = createRegistry([toolWithoutEnabled]);
 
 		expect(isToolEnabled(registry, "legacy")).toBe(true);
+	});
+});
+
+describe("embedded supported tools registry", () => {
+	test("includes Antigravity as the stable Google harness without reclassifying existing harnesses", async () => {
+		const registry = await loadToolsRegistry();
+
+		expect(registry.tools.map((tool) => tool.id)).toEqual([
+			"claude-code",
+			"opencode",
+			"codex",
+			"copilot",
+			"antigravity",
+		]);
+		expect(
+			registry.tools.map((tool) => ({
+				id: tool.id,
+				name: tool.name,
+				binary: tool.binary,
+				supportLevel: getToolSupportLevel(tool),
+			})),
+		).toEqual([
+			{
+				id: "claude-code",
+				name: "Claude Code",
+				binary: "claude",
+				supportLevel: "stable",
+			},
+			{
+				id: "opencode",
+				name: "OpenCode",
+				binary: "opencode",
+				supportLevel: "stable",
+			},
+			{
+				id: "codex",
+				name: "Codex CLI",
+				binary: "codex",
+				supportLevel: "stable",
+			},
+			{
+				id: "copilot",
+				name: "GitHub Copilot CLI",
+				binary: "copilot",
+				supportLevel: "stable",
+			},
+			{
+				id: "antigravity",
+				name: "Antigravity CLI",
+				binary: "agy",
+				supportLevel: "stable",
+			},
+		]);
+	});
+
+	test("includes Antigravity in default install targets", async () => {
+		const registry = await loadToolsRegistry();
+		const antigravity = findToolById(registry, "antigravity");
+
+		expect(antigravity).toBeDefined();
+		expect(antigravity).toMatchObject({
+			id: "antigravity",
+			name: "Antigravity CLI",
+			binary: "agy",
+			min_version: "0.0.0",
+			instruction_file: "AGENTS.md",
+			install_url: "https://www.antigravity.google/product/antigravity-cli",
+			plugin_install_cmd: "agy plugin install {plugin}",
+			capabilities: [
+				"plugins",
+				"skills",
+				"agents",
+				"slash-commands",
+				"hooks",
+				"mcp",
+				"rules",
+			],
+		});
+		expect(antigravity?.icon).toEqual({
+			source: "@lobehub/icons",
+			name: "Antigravity",
+			variant: "mono",
+		});
+		expect(getEnabledTools(registry).map((tool) => tool.id)).toContain(
+			"antigravity",
+		);
+		expect(getDefaultInstallTools(registry).map((tool) => tool.id)).toContain(
+			"antigravity",
+		);
 	});
 });

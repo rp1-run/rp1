@@ -28,13 +28,18 @@ import {
 
 const buildMmd = `stateDiagram-v2
     [*] --> requirements
-    requirements --> design : reqs_complete
-    design --> tasks : design_complete
-    tasks --> build : tasks_ready
-    build --> verify : build_complete
-    verify --> build : verify_failed
-    verify --> archive : verify_passed
-    archive --> [*] : done
+    requirements --> planning : requirements_accepted
+    requirements --> requirements : requirements_revised
+    requirements --> [*] : stopped
+    planning --> implementation : plan_accepted
+    planning --> planning : plan_revised
+    planning --> [*] : oversized_or_stopped
+    implementation --> implementation : add_task_or_repair
+    implementation --> release : readiness_ready
+    implementation --> [*] : unrecoverable_failure
+    release --> implementation : add_task
+    release --> release : archive_chosen
+    release --> [*] : release_complete
 `;
 
 const buildFastMmd = `stateDiagram-v2
@@ -120,20 +125,18 @@ describe("deriveStepsFromMachine", () => {
 		const orderedSteps = deriveOrderedSteps(machine);
 
 		test("produces correct step count and ordering", () => {
-			expect(orderedSteps).toHaveLength(6);
+			expect(orderedSteps).toHaveLength(4);
 			expect(orderedSteps.map((s) => s.id)).toEqual([
 				"requirements",
-				"design",
-				"tasks",
-				"build",
-				"verify",
-				"archive",
+				"planning",
+				"implementation",
+				"release",
 			]);
 		});
 
 		test("all steps not_started when no step statuses", () => {
 			const steps = deriveStepsFromMachine([], orderedSteps, []);
-			expect(steps).toHaveLength(6);
+			expect(steps).toHaveLength(4);
 			for (const step of steps) {
 				expect(step.status).toBe("not_started");
 				expect(step.startedAt).toBeNull();
@@ -145,11 +148,9 @@ describe("deriveStepsFromMachine", () => {
 			const steps = deriveStepsFromMachine([], orderedSteps, []);
 			expect(steps.map((s) => s.name)).toEqual([
 				"Requirements",
-				"Design",
-				"Tasks",
-				"Build",
-				"Verify",
-				"Archive",
+				"Planning",
+				"Implementation",
+				"Release",
 			]);
 		});
 
@@ -157,18 +158,16 @@ describe("deriveStepsFromMachine", () => {
 			const steps = deriveStepsFromMachine([], orderedSteps, []);
 			expect(steps.map((s) => s.id)).toEqual([
 				"requirements",
-				"design",
-				"tasks",
-				"build",
-				"verify",
-				"archive",
+				"planning",
+				"implementation",
+				"release",
 			]);
 		});
 
 		test("marks steps with statuses correctly", () => {
 			const stepStatuses: StepStatusEntry[] = [
 				{ step: "requirements", status: "completed" },
-				{ step: "design", status: "running" },
+				{ step: "planning", status: "running" },
 			];
 
 			const events: EventRecord[] = [
@@ -186,7 +185,7 @@ describe("deriveStepsFromMachine", () => {
 				}),
 				makeEvent({
 					id: 3,
-					step: "design",
+					step: "planning",
 					data: JSON.stringify({ status: "running" }),
 					createdAt: "2026-03-01T00:02:00.000Z",
 				}),
@@ -201,17 +200,14 @@ describe("deriveStepsFromMachine", () => {
 			expect(steps[1].completedAt).toBeNull();
 			expect(steps[2].status).toBe("not_started");
 			expect(steps[3].status).toBe("not_started");
-			expect(steps[4].status).toBe("not_started");
-			expect(steps[5].status).toBe("not_started");
 		});
 
 		test("uses only canonical status values", () => {
 			const stepStatuses: StepStatusEntry[] = [
 				{ step: "requirements", status: "completed" },
-				{ step: "design", status: "running" },
-				{ step: "tasks", status: "waiting" },
-				{ step: "build", status: "failed" },
-				{ step: "verify", status: "skipped" },
+				{ step: "planning", status: "running" },
+				{ step: "implementation", status: "waiting" },
+				{ step: "release", status: "skipped" },
 			];
 
 			const steps = deriveStepsFromMachine(stepStatuses, orderedSteps, []);
@@ -683,7 +679,7 @@ describe("handleV2WorkflowsListRequest", () => {
 
 		const buildWorkflow = body.workflows.find((w) => w.name === "build");
 		expect(buildWorkflow).toBeDefined();
-		expect(buildWorkflow?.stateCount).toBe(6);
+		expect(buildWorkflow?.stateCount).toBe(4);
 
 		const buildFastWorkflow = body.workflows.find(
 			(w) => w.name === "build-fast",
@@ -738,47 +734,49 @@ describe("handleV2WorkflowDetailRequest", () => {
 
 		expect(body.name).toBe("build");
 
-		expect(body.states).toHaveLength(6);
+		expect(body.states).toHaveLength(4);
 		const stateIds = body.states.map((s) => s.id);
 		expect(stateIds).toContain("requirements");
-		expect(stateIds).toContain("design");
-		expect(stateIds).toContain("tasks");
-		expect(stateIds).toContain("build");
-		expect(stateIds).toContain("verify");
-		expect(stateIds).toContain("archive");
+		expect(stateIds).toContain("planning");
+		expect(stateIds).toContain("implementation");
+		expect(stateIds).toContain("release");
 
 		const reqState = body.states.find((s) => s.id === "requirements");
 		expect(reqState?.isInitial).toBe(true);
-		expect(reqState?.isTerminal).toBe(false);
+		expect(reqState?.isTerminal).toBe(true);
 
-		const archiveState = body.states.find((s) => s.id === "archive");
-		expect(archiveState?.isInitial).toBe(false);
-		expect(archiveState?.isTerminal).toBe(true);
+		const releaseState = body.states.find((s) => s.id === "release");
+		expect(releaseState?.isInitial).toBe(false);
+		expect(releaseState?.isTerminal).toBe(true);
 
-		expect(body.transitions.length).toBeGreaterThanOrEqual(6);
-		const reqToDesign = body.transitions.find(
-			(t) => t.sourceId === "requirements" && t.targetId === "design",
+		expect(body.transitions).toHaveLength(8);
+		const reqToPlanning = body.transitions.find(
+			(t) => t.sourceId === "requirements" && t.targetId === "planning",
 		);
-		expect(reqToDesign).toBeDefined();
-		expect(reqToDesign?.label).toBe("reqs_complete");
+		expect(reqToPlanning).toBeDefined();
+		expect(reqToPlanning?.label).toBe("requirements_accepted");
 
-		const retryLoop = body.transitions.find(
-			(t) => t.sourceId === "verify" && t.targetId === "build",
+		const implementationToRelease = body.transitions.find(
+			(t) => t.sourceId === "implementation" && t.targetId === "release",
 		);
-		expect(retryLoop).toBeDefined();
-		expect(retryLoop?.label).toBe("verify_failed");
+		expect(implementationToRelease).toBeDefined();
+		expect(implementationToRelease?.label).toBe("readiness_ready");
 
-		expect(body.orderedSteps).toHaveLength(6);
+		const releaseAddTask = body.transitions.find(
+			(t) => t.sourceId === "release" && t.targetId === "implementation",
+		);
+		expect(releaseAddTask).toBeDefined();
+		expect(releaseAddTask?.label).toBe("add_task");
+
+		expect(body.orderedSteps).toHaveLength(4);
 		expect(body.orderedSteps.map((s) => s.id)).toEqual([
 			"requirements",
-			"design",
-			"tasks",
-			"build",
-			"verify",
-			"archive",
+			"planning",
+			"implementation",
+			"release",
 		]);
 		expect(body.orderedSteps[0].index).toBe(0);
-		expect(body.orderedSteps[5].index).toBe(5);
+		expect(body.orderedSteps[3].index).toBe(3);
 	});
 
 	test("returns full state machine definition for 'build-fast'", async () => {

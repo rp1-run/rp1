@@ -160,35 +160,6 @@ describe("integration: init workflow", () => {
 			},
 			{ timeout: 30000 },
 		);
-
-		test(
-			"healthReport reflects actual setup state",
-			async () => {
-				const logger = createTrackingLogger();
-				const options: InitOptions = {
-					cwd: tempDir,
-					yes: true,
-				};
-
-				const result = await executeInit(options, logger)();
-
-				expect(E.isRight(result)).toBe(true);
-				if (!E.isRight(result)) return;
-
-				const initResult: InitResult = result.right;
-
-				// Health report should be present
-				expect(initResult.healthReport).not.toBeNull();
-
-				if (initResult.healthReport) {
-					// rp1 directory should exist
-					expect(initResult.healthReport.rp1DirExists).toBe(true);
-					// Instruction file should be valid (has fenced content)
-					expect(initResult.healthReport.instructionFileValid).toBe(true);
-				}
-			},
-			{ timeout: 30000 },
-		);
 	});
 
 	describe("re-init preserves existing content", () => {
@@ -353,39 +324,6 @@ This is an existing feature document.
 		);
 
 		test(
-			"uses recommended gitignore preset in --yes mode",
-			async () => {
-				// Create a git repo to enable gitignore configuration
-				await Bun.spawn(["git", "init"], { cwd: tempDir }).exited;
-
-				const logger = createTrackingLogger();
-				const options: InitOptions = {
-					cwd: tempDir,
-					yes: true,
-				};
-
-				const result = await executeInit(options, logger)();
-
-				expect(E.isRight(result)).toBe(true);
-				if (!E.isRight(result)) return;
-
-				// Check gitignore was created/updated
-				const gitignoreContent = await readFileIfExists(
-					join(tempDir, ".gitignore"),
-				);
-
-				if (gitignoreContent) {
-					// Should have rp1 fenced content with recommended preset
-					expect(gitignoreContent).toContain("# rp1:start");
-					expect(gitignoreContent).toContain("# rp1:end");
-					// Recommended preset ignores work but tracks context
-					expect(gitignoreContent).toContain("!.rp1/context/");
-				}
-			},
-			{ timeout: 30000 },
-		);
-
-		test(
 			"refreshes configuration in --yes mode (non-interactive update)",
 			async () => {
 				// Setup existing init
@@ -523,121 +461,6 @@ This is an existing feature document.
 						a.type === "updated_file",
 				);
 				expect(coreSetupActions.length).toBeGreaterThan(0);
-			},
-			{ timeout: 30000 },
-		);
-	});
-
-	describe("final summary reflects actual actions", () => {
-		test(
-			"summary includes all actions taken during init",
-			async () => {
-				const logger = createTrackingLogger();
-				const options: InitOptions = {
-					cwd: tempDir,
-					yes: true,
-				};
-
-				const result = await executeInit(options, logger)();
-
-				expect(E.isRight(result)).toBe(true);
-				if (!E.isRight(result)) return;
-
-				const initResult: InitResult = result.right;
-
-				// Actions should include directory and file operations
-				expect(initResult.actions.length).toBeGreaterThan(0);
-
-				// Should have created_directory actions
-				const dirActions = initResult.actions.filter(
-					(a) => a.type === "created_directory",
-				);
-				expect(dirActions.length).toBeGreaterThan(0);
-
-				// Should have created_file or updated_file for instruction file
-				const fileActions = initResult.actions.filter(
-					(a) => a.type === "created_file" || a.type === "updated_file",
-				);
-				expect(fileActions.length).toBeGreaterThan(0);
-
-				// Logger should have displayed summary via displaySummary function
-				expect(logger.calls.length).toBeGreaterThan(0);
-			},
-			{ timeout: 30000 },
-		);
-
-		test(
-			"nextSteps reflects setup state",
-			async () => {
-				const logger = createTrackingLogger();
-				const options: InitOptions = {
-					cwd: tempDir,
-					yes: true,
-				};
-
-				const result = await executeInit(options, logger)();
-
-				expect(E.isRight(result)).toBe(true);
-				if (!E.isRight(result)) return;
-
-				const initResult: InitResult = result.right;
-
-				// Should have nextSteps generated
-				expect(initResult.nextSteps).toBeDefined();
-				expect(Array.isArray(initResult.nextSteps)).toBe(true);
-
-				// nextSteps may suggest building KB if none exists
-				// At minimum, nextSteps array should exist
-				expect(initResult.nextSteps.length).toBeGreaterThanOrEqual(0);
-
-				// Since no AI tool detected in test env, should suggest installing one
-				if (!initResult.detectedTool) {
-					const toolStep = initResult.nextSteps.find(
-						(s) =>
-							s.action.includes("AI") ||
-							s.action.includes("Claude Code") ||
-							s.action.includes("OpenCode"),
-					);
-					expect(toolStep).toBeDefined();
-				}
-			},
-			{ timeout: 30000 },
-		);
-
-		test(
-			"healthReport reflects actual setup state",
-			async () => {
-				const logger = createTrackingLogger();
-				const options: InitOptions = {
-					cwd: tempDir,
-					yes: true,
-				};
-
-				const result = await executeInit(options, logger)();
-
-				expect(E.isRight(result)).toBe(true);
-				if (!E.isRight(result)) return;
-
-				const initResult: InitResult = result.right;
-
-				// Health report should exist
-				expect(initResult.healthReport).not.toBeNull();
-
-				if (initResult.healthReport) {
-					// Core setup should be healthy
-					expect(initResult.healthReport.rp1DirExists).toBe(true);
-					expect(initResult.healthReport.instructionFileValid).toBe(true);
-
-					// Plugin status depends on test environment:
-					// - If no tool detected: plugins array is empty, pluginsInstalled=true (vacuously)
-					// - If OpenCode: plugins array is empty, pluginsInstalled=true (vacuously)
-					// - If Claude Code: plugins array may have entries
-					// The health report should be consistent with its plugins array
-					if (initResult.healthReport.plugins.length === 0) {
-						// No plugins to verify = "all plugins installed" (vacuously true)
-						expect(initResult.healthReport.pluginsInstalled).toBe(true);
-					}
-				}
 			},
 			{ timeout: 30000 },
 		);

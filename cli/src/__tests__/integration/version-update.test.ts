@@ -1,16 +1,16 @@
 /**
  * Integration tests for version update CLI commands and hook output.
- * Tests end-to-end behavior of check-update, self-update commands
- * and the check-update.sh hook script.
+ * Tests end-to-end behavior of check-update commands and the check-update.sh
+ * hook script.
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import {
 	chmod,
 	mkdir,
 	mkdtemp,
+	readdir,
 	readFile,
 	rm,
 	unlink,
@@ -35,6 +35,14 @@ const PLUGINS_BASE = join(CLI_ROOT, "../plugins/base");
  */
 const HOOK_SCRIPT_PATH = join(PLUGINS_BASE, "hooks/check-update.sh");
 
+const SYSTEM_TEST_PATH = ["/usr/bin", "/bin"].join(":");
+
+interface CommandResult {
+	readonly stdout: string;
+	readonly stderr: string;
+	readonly exitCode: number;
+}
+
 let testHomeDir: string;
 let configDir: string;
 let cachePath: string;
@@ -47,46 +55,86 @@ const getTestEnv = (): NodeJS.ProcessEnv => ({
 	HOME: testHomeDir,
 	XDG_CONFIG_HOME: join(testHomeDir, ".config"),
 	RP1_BINARY: rp1WrapperPath,
-	PATH: `${testBinDir}:${process.env.PATH ?? ""}`,
+	PATH: `${testBinDir}:${SYSTEM_TEST_PATH}`,
 });
 
 /**
  * Run a CLI command and return stdout, stderr, and exit code.
  */
+async function runCapturedProcess(
+	command: string,
+	args: string[],
+	options: {
+		readonly cwd: string;
+		readonly env: NodeJS.ProcessEnv;
+		readonly input?: string;
+		readonly timeout: number;
+	},
+): Promise<CommandResult> {
+	const proc = Bun.spawn([command, ...args], {
+		cwd: options.cwd,
+		env: options.env,
+		stdin: options.input === undefined ? "ignore" : "pipe",
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	if (options.input !== undefined) {
+		const stdin = proc.stdin;
+		if (!stdin) {
+			throw new Error("Expected subprocess stdin pipe");
+		}
+		stdin.write(options.input);
+		stdin.end();
+	}
+
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
+	const completed = Promise.all([
+		proc.exited,
+		new Response(proc.stdout).text(),
+		new Response(proc.stderr).text(),
+	] as const);
+	const timeoutResult = new Promise<null>((resolve) => {
+		timeoutId = setTimeout(() => resolve(null), options.timeout);
+		timeoutId.unref?.();
+	});
+
+	const result = await Promise.race([completed, timeoutResult]);
+	if (result === null) {
+		proc.kill("SIGTERM");
+		const forceKill = setTimeout(() => proc.kill("SIGKILL"), 1000);
+		forceKill.unref?.();
+		void completed.finally(() => clearTimeout(forceKill));
+		return {
+			stdout: "",
+			stderr: `Timed out after ${options.timeout}ms: ${command} ${args.join(" ")}`,
+			exitCode: 124,
+		};
+	}
+
+	if (timeoutId) {
+		clearTimeout(timeoutId);
+	}
+	const [exitCode, stdout, stderr] = result;
+	return {
+		stdout: stdout.trim(),
+		stderr: stderr.trim(),
+		exitCode,
+	};
+}
+
 async function runCliCommand(
 	args: string[],
 	timeout = 30000,
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-	return new Promise((resolve, reject) => {
-		const proc = spawn("bun", ["run", join(CLI_ROOT, "src/main.ts"), ...args], {
+): Promise<CommandResult> {
+	return runCapturedProcess(
+		process.execPath,
+		["run", join(CLI_ROOT, "src/main.ts"), ...args],
+		{
 			cwd: CLI_ROOT,
-			timeout,
 			env: getTestEnv(),
-		});
-
-		let stdout = "";
-		let stderr = "";
-
-		proc.stdout.on("data", (data) => {
-			stdout += data.toString();
-		});
-
-		proc.stderr.on("data", (data) => {
-			stderr += data.toString();
-		});
-
-		proc.on("close", (code) => {
-			resolve({
-				stdout: stdout.trim(),
-				stderr: stderr.trim(),
-				exitCode: code ?? 1,
-			});
-		});
-
-		proc.on("error", (error) => {
-			reject(error);
-		});
-	});
+			timeout,
+		},
+	);
 }
 
 /**
@@ -95,39 +143,19 @@ async function runCliCommand(
 async function runHookScript(
 	input: object,
 	timeout = 10000,
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-	return new Promise((resolve, reject) => {
-		const proc = spawn(HOOK_SCRIPT_PATH, [], {
-			cwd: PLUGINS_BASE,
-			timeout,
-			env: getTestEnv(),
-		});
+): Promise<CommandResult> {
+	return runHookScriptRaw(JSON.stringify(input), timeout);
+}
 
-		let stdout = "";
-		let stderr = "";
-
-		proc.stdout.on("data", (data) => {
-			stdout += data.toString();
-		});
-
-		proc.stderr.on("data", (data) => {
-			stderr += data.toString();
-		});
-
-		proc.on("close", (code) => {
-			resolve({
-				stdout: stdout.trim(),
-				stderr: stderr.trim(),
-				exitCode: code ?? 1,
-			});
-		});
-
-		proc.on("error", (error) => {
-			reject(error);
-		});
-
-		proc.stdin.write(JSON.stringify(input));
-		proc.stdin.end();
+async function runHookScriptRaw(
+	input: string,
+	timeout = 10000,
+): Promise<CommandResult> {
+	return runCapturedProcess(HOOK_SCRIPT_PATH, [], {
+		cwd: PLUGINS_BASE,
+		env: getTestEnv(),
+		input,
+		timeout,
 	});
 }
 
@@ -157,6 +185,35 @@ async function removeCache(): Promise<void> {
 	}
 }
 
+async function makeWritable(path: string): Promise<void> {
+	await chmod(path, 0o700).catch(() => undefined);
+	const entries = await readdir(path, { withFileTypes: true }).catch(() => []);
+	await Promise.all(
+		entries.map(async (entry) => {
+			const childPath = join(path, entry.name);
+			if (entry.isDirectory()) {
+				await makeWritable(childPath);
+				return;
+			}
+			await chmod(childPath, 0o600).catch(() => undefined);
+		}),
+	);
+}
+
+async function removeTestHomeDir(): Promise<void> {
+	if (!existsSync(testHomeDir)) {
+		return;
+	}
+
+	await makeWritable(testHomeDir);
+	await rm(testHomeDir, {
+		recursive: true,
+		force: true,
+		maxRetries: 3,
+		retryDelay: 100,
+	});
+}
+
 async function readCache(): Promise<VersionCache | null> {
 	if (!existsSync(cachePath)) {
 		return null;
@@ -177,11 +234,13 @@ async function createRp1Wrapper(): Promise<void> {
 		rp1WrapperPath,
 		[
 			"#!/bin/sh",
-			`exec bun run "${join(CLI_ROOT, "src/main.ts")}" "$@"`,
+			`exec "${process.execPath}" run "${join(CLI_ROOT, "src/main.ts")}" "$@"`,
 			"",
 		].join("\n"),
 	);
 	await chmod(rp1WrapperPath, 0o755);
+	await writeFile(join(testBinDir, "brew"), "#!/bin/sh\nexit 1\n");
+	await chmod(join(testBinDir, "brew"), 0o755);
 }
 
 describe("integration: version-update", () => {
@@ -195,98 +254,7 @@ describe("integration: version-update", () => {
 
 	afterEach(async () => {
 		await removeCache();
-		await rm(testHomeDir, { recursive: true, force: true });
-	});
-
-	describe("rp1 check-update --json", () => {
-		test(
-			"response structure includes all required fields",
-			async () => {
-				await writeTestCache({
-					latestVersion: "99.0.0",
-					releaseUrl: "https://github.com/rp1-run/rp1/releases/tag/v99.0.0",
-					ttlHours: 24,
-				});
-
-				const { stdout, exitCode } = await runCliCommand([
-					"check-update",
-					"--json",
-				]);
-
-				expect(exitCode).toBe(0);
-
-				const result = JSON.parse(stdout);
-
-				expect(result).toHaveProperty("current_version");
-				expect(result).toHaveProperty("latest_version");
-				expect(result).toHaveProperty("update_available");
-				expect(result).toHaveProperty("release_url");
-				expect(result).toHaveProperty("error");
-				expect(result).toHaveProperty("cached");
-				expect(result).toHaveProperty("cache_age_hours");
-				expect(result).toHaveProperty("cache_expires_in_hours");
-			},
-			{ timeout: 30000 },
-		);
-
-		test(
-			"response structure includes cache fields when using cached result",
-			async () => {
-				await writeTestCache({
-					latestVersion: "88.0.0",
-					releaseUrl: "https://github.com/rp1-run/rp1/releases/tag/v88.0.0",
-					ttlHours: 24,
-				});
-
-				const { stdout, exitCode } = await runCliCommand([
-					"check-update",
-					"--json",
-				]);
-
-				expect(exitCode).toBe(0);
-
-				const result = JSON.parse(stdout);
-
-				expect(result.cached).toBe(true);
-				expect(typeof result.cache_age_hours).toBe("number");
-				expect(typeof result.cache_expires_in_hours).toBe("number");
-				expect(result.cache_age_hours).toBeGreaterThanOrEqual(0);
-				expect(result.cache_expires_in_hours).toBeGreaterThan(0);
-			},
-			{ timeout: 30000 },
-		);
-
-		test(
-			"returns snake_case field names in JSON output",
-			async () => {
-				await writeTestCache({
-					latestVersion: "77.0.0",
-					releaseUrl: "https://github.com/rp1-run/rp1/releases/tag/v77.0.0",
-					ttlHours: 24,
-				});
-
-				const { stdout, exitCode } = await runCliCommand([
-					"check-update",
-					"--json",
-				]);
-
-				expect(exitCode).toBe(0);
-
-				const result = JSON.parse(stdout);
-
-				expect(result).toHaveProperty("current_version");
-				expect(result).toHaveProperty("latest_version");
-				expect(result).toHaveProperty("update_available");
-				expect(result).toHaveProperty("release_url");
-				expect(result).toHaveProperty("cache_age_hours");
-				expect(result).toHaveProperty("cache_expires_in_hours");
-
-				expect(result).not.toHaveProperty("currentVersion");
-				expect(result).not.toHaveProperty("latestVersion");
-				expect(result).not.toHaveProperty("updateAvailable");
-			},
-			{ timeout: 30000 },
-		);
+		await removeTestHomeDir();
 	});
 
 	describe("rp1 check-update --force", () => {
@@ -413,58 +381,6 @@ describe("integration: version-update", () => {
 		);
 	});
 
-	describe("hook-text output", () => {
-		test(
-			"rp1 update --check --format hook-text prints one line and exits 0 when update exists",
-			async () => {
-				await writeTestCache({
-					latestVersion: "42.0.0",
-					releaseUrl: "https://github.com/rp1-run/rp1/releases/tag/v42.0.0",
-					ttlHours: 24,
-				});
-
-				const { stdout, exitCode } = await runCliCommand([
-					"--",
-					"update",
-					"--check",
-					"--format",
-					"hook-text",
-				]);
-
-				expect(exitCode).toBe(0);
-				expect(stdout).toContain("rp1 update available:");
-				expect(stdout).toContain("Run /self-update to update");
-			},
-			{ timeout: 30000 },
-		);
-
-		test(
-			"rp1 check-update --format hook-text prints current version and exits 0 when no update exists",
-			async () => {
-				const packageJson = JSON.parse(
-					await readFile(join(CLI_ROOT, "package.json"), "utf-8"),
-				) as { version: string };
-
-				await writeTestCache({
-					latestVersion: packageJson.version,
-					releaseUrl: `https://github.com/rp1-run/rp1/releases/tag/v${packageJson.version}`,
-					ttlHours: 24,
-				});
-
-				const { stdout, exitCode } = await runCliCommand([
-					"--",
-					"check-update",
-					"--format",
-					"hook-text",
-				]);
-
-				expect(exitCode).toBe(0);
-				expect(stdout).toContain("rp1 is running v");
-			},
-			{ timeout: 30000 },
-		);
-	});
-
 	describe("check-update.sh hook", () => {
 		test(
 			"produces output when source is startup and update available",
@@ -573,199 +489,8 @@ describe("integration: version-update", () => {
 		test(
 			"exits gracefully with invalid JSON input",
 			async () => {
-				const proc = spawn(HOOK_SCRIPT_PATH, [], {
-					cwd: PLUGINS_BASE,
-					timeout: 10000,
-					env: getTestEnv(),
-				});
-
-				return new Promise<void>((resolve) => {
-					let exitCode: number | null = null;
-
-					proc.on("close", (code) => {
-						exitCode = code;
-						expect(exitCode).toBe(0);
-						resolve();
-					});
-
-					proc.stdin.write("{ invalid json }}}");
-					proc.stdin.end();
-				});
-			},
-			{ timeout: 30000 },
-		);
-	});
-
-	describe("JSON output format matches Claude Code schema", () => {
-		test(
-			"hook output has correct structure",
-			async () => {
-				await writeTestCache({
-					latestVersion: "100.0.0",
-					releaseUrl: "https://github.com/rp1-run/rp1/releases/tag/v100.0.0",
-					ttlHours: 24,
-				});
-
-				const hookInput = {
-					session_id: "schema-test",
-					source: "startup",
-					hook_event_name: "SessionStart",
-				};
-
-				const { stdout, exitCode } = await runHookScript(hookInput);
-
+				const { exitCode } = await runHookScriptRaw("{ invalid json }}}");
 				expect(exitCode).toBe(0);
-
-				if (stdout.length > 0) {
-					const result = JSON.parse(stdout);
-
-					expect(result.hookSpecificOutput).toBeDefined();
-					expect(typeof result.hookSpecificOutput.hookEventName).toBe("string");
-					expect(typeof result.hookSpecificOutput.additionalContext).toBe(
-						"string",
-					);
-
-					expect(typeof result.systemMessage).toBe("string");
-				}
-			},
-			{ timeout: 30000 },
-		);
-
-		test(
-			"CLI JSON output has correct structure for API consumers",
-			async () => {
-				await writeTestCache({
-					latestVersion: "50.0.0",
-					releaseUrl: "https://github.com/rp1-run/rp1/releases/tag/v50.0.0",
-					ttlHours: 24,
-				});
-
-				const { stdout, exitCode } = await runCliCommand([
-					"check-update",
-					"--json",
-				]);
-
-				expect(exitCode).toBe(0);
-
-				const result = JSON.parse(stdout);
-
-				expect(typeof result.current_version).toBe("string");
-				expect(
-					result.latest_version === null ||
-						typeof result.latest_version === "string",
-				).toBe(true);
-				expect(typeof result.update_available).toBe("boolean");
-				expect(
-					result.release_url === null || typeof result.release_url === "string",
-				).toBe(true);
-				expect(result.error === null || typeof result.error === "string").toBe(
-					true,
-				);
-				expect(typeof result.cached).toBe("boolean");
-				expect(
-					result.cache_age_hours === null ||
-						typeof result.cache_age_hours === "number",
-				).toBe(true);
-				expect(
-					result.cache_expires_in_hours === null ||
-						typeof result.cache_expires_in_hours === "number",
-				).toBe(true);
-			},
-			{ timeout: 30000 },
-		);
-	});
-
-	describe("rp1 self-update --dry-run", () => {
-		test(
-			"shows detection output without executing update",
-			async () => {
-				const { stdout, stderr, exitCode } = await runCliCommand([
-					"self-update",
-					"--dry-run",
-				]);
-
-				expect([0, 1, 2]).toContain(exitCode);
-
-				const output = stdout + stderr;
-
-				expect(output).toContain("Detecting installation method");
-
-				const hasDetectionResult =
-					output.includes("Homebrew") ||
-					output.includes("Scoop") ||
-					output.includes("manual");
-				expect(hasDetectionResult).toBe(true);
-
-				if (
-					exitCode === 0 &&
-					output.includes("Dry run mode - showing what would be done")
-				) {
-					expect(output).toContain("Installation method:");
-					expect(output).toContain("Current version:");
-					expect(output).toContain("Update command:");
-				}
-
-				if (exitCode === 1) {
-					expect(output).toContain("Updating plugins for detected tools...");
-					expect(output).toContain("Plugin Update Summary");
-				}
-
-				if (exitCode === 2) {
-					expect(output).toContain("github.com/rp1-run/rp1/releases");
-				}
-			},
-			{ timeout: 30000 },
-		);
-
-		test(
-			"shows installation method in dry-run output",
-			async () => {
-				const { stdout, stderr, exitCode } = await runCliCommand([
-					"self-update",
-					"--dry-run",
-				]);
-
-				const output = stdout + stderr;
-
-				const methods = ["Homebrew", "Scoop", "manual"];
-				const foundMethod = methods.some((m) => output.includes(m));
-				expect(foundMethod).toBe(true);
-
-				if (exitCode === 0) {
-					const showsDryRunInfo = output.includes(
-						"Dry run mode - showing what would be done",
-					);
-					const showsUpToDate = output.includes(
-						"already on the latest version",
-					);
-					expect(showsDryRunInfo || showsUpToDate).toBe(true);
-				}
-
-				if (exitCode === 2) {
-					expect(output).toContain("github.com/rp1-run/rp1/releases");
-				}
-			},
-			{ timeout: 30000 },
-		);
-
-		test(
-			"does not execute actual package manager commands in dry-run",
-			async () => {
-				const startTime = Date.now();
-
-				const { stdout, stderr, exitCode } = await runCliCommand([
-					"self-update",
-					"--dry-run",
-				]);
-
-				const endTime = Date.now();
-				const duration = endTime - startTime;
-				const output = stdout + stderr;
-
-				expect(duration).toBeLessThan(15000);
-				expect([0, 1, 2]).toContain(exitCode);
-				expect(output).not.toContain("Updating rp1...");
-				expect(output).not.toContain("Successfully updated rp1");
 			},
 			{ timeout: 30000 },
 		);

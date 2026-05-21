@@ -198,7 +198,13 @@ export interface PluginManifest {
 export interface BuildConfig {
 	readonly outputDir: string;
 	readonly plugin: "base" | "dev" | "utils" | "all";
-	readonly platform: "opencode" | "codex" | "claude-code" | "copilot" | "all";
+	readonly platform:
+		| "opencode"
+		| "codex"
+		| "claude-code"
+		| "copilot"
+		| "antigravity"
+		| "all";
 	readonly jsonOutput: boolean;
 	readonly lintOnly: boolean;
 }
@@ -233,6 +239,7 @@ export interface BundleAssetEntry {
 	readonly name: string;
 	readonly path: string;
 	readonly content?: string;
+	readonly fileName?: string;
 }
 
 /**
@@ -262,6 +269,14 @@ export interface BundlePluginAssets {
  * Generated at dist/<platform>/bundle-manifest.json after build.
  */
 export interface BundleManifest {
+	readonly platform?: {
+		readonly id: import("./template-context.js").BuildPlatform;
+		readonly name: string;
+		readonly binary: string;
+		readonly instructionFile: string;
+		readonly supportLevel?: string;
+		readonly icon?: import("../config/supported-tools.js").ToolIconMetadata;
+	};
 	readonly plugins: {
 		readonly base: BundlePluginAssets;
 		readonly dev: BundlePluginAssets;

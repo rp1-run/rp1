@@ -195,6 +195,8 @@ export function parseTagArgs(args: string): ParsedTagArgs {
  * | opencode    | `rp1-dev:agent`    | `@rp1-dev/agent`     |
  * | codex       | `rp1-dev:agent`    | `rp1-dev-agent`      |
  * | copilot     | `rp1-dev:agent`    | `rp1-dev/agent`      |
+ * | antigravity | `rp1-dev:agent`    | `@rp1-dev-agent`     |
+ * | gemini      | `rp1-dev:agent`    | `@rp1-dev-agent`     |
  *
  * @param ref - Canonical reference in `rp1-{plugin}:{name}` format
  * @param platform - Target build platform
@@ -222,6 +224,12 @@ export function transformNamespace(
 		case "copilot":
 			// rp1-base:agent -> rp1-base/agent
 			return `${pluginName}/${artifact}`;
+		case "antigravity":
+			// rp1-base:agent -> @rp1-base-agent
+			return `@${pluginName}-${artifact}`;
+		case "gemini":
+			// rp1-base:agent -> @rp1-base-agent
+			return `@${pluginName}-${artifact}`;
 	}
 }
 

@@ -19,7 +19,9 @@ import {
 } from "../assets/index.js";
 import {
 	getEnabledTools,
+	getToolSupportLevel,
 	isToolEnabled,
+	type SupportedTool,
 	type ToolsRegistry,
 } from "../config/supported-tools.js";
 import {
@@ -27,6 +29,13 @@ import {
 	detectTools,
 	type ToolDetectionResult,
 } from "../init/tool-detector.js";
+import {
+	type AntigravityManifestRefreshResult,
+	antigravityBundleScope,
+	antigravityPackageDisplayRoot,
+	installAntigravityBundleAssets,
+	refreshAntigravityManifestAssets,
+} from "../install/antigravity/index.js";
 import { extractPlatformAssets } from "../install/asset-extractor.js";
 import { installAllPlugins } from "../install/claudecode/installer.js";
 import type { ClaudeCodeInstallResult } from "../install/claudecode/models.js";
@@ -46,6 +55,13 @@ import {
 	installCopilot,
 } from "../install/copilot/index.js";
 import type { CopilotInstallResult } from "../install/copilot/models.js";
+import {
+	type GeminiManifestRefreshResult,
+	geminiExtensionDisplayRoot,
+	geminiExtensionNameFromDisplayDir,
+	installGeminiBundleAssets,
+	refreshGeminiManifestAssets,
+} from "../install/gemini/index.js";
 import { writeVersionMarker } from "../install/version-marker.js";
 import { getInstalledVersion } from "../lib/version.js";
 
@@ -67,7 +83,10 @@ export interface ToolInstallResult {
 	readonly toolId: string;
 	readonly toolName: string;
 	readonly success: boolean;
+	readonly skipped?: boolean;
+	readonly restartRequired?: boolean;
 	readonly pluginsInstalled: readonly string[];
+	readonly details?: readonly string[];
 	readonly warnings: readonly string[];
 	readonly error?: CLIError;
 }
@@ -346,11 +365,25 @@ const installForTool = (
 ): TE.TaskEither<CLIError, ToolInstallResult> => {
 	const baseResult: Omit<
 		ToolInstallResult,
-		"success" | "pluginsInstalled" | "warnings" | "error"
+		"success" | "skipped" | "pluginsInstalled" | "warnings" | "error"
 	> = {
 		toolId: tool.tool.id,
 		toolName: tool.tool.name,
 	};
+
+	if (getToolSupportLevel(tool.tool) !== "stable") {
+		return TE.right({
+			...baseResult,
+			success: false,
+			skipped: true,
+			pluginsInstalled: [],
+			warnings: [
+				`${tool.tool.name} is ${getToolSupportLevel(
+					tool.tool,
+				)} and requires a targeted install path.`,
+			],
+		});
+	}
 
 	if (tool.tool.id === "claude-code") {
 		return pipe(
@@ -448,6 +481,56 @@ const installForTool = (
 		);
 	}
 
+	if (tool.tool.id === "antigravity") {
+		return pipe(
+			installAntigravityBundleAssets({ dryRun: ctx.dryRun }),
+			TE.map(
+				(result): ToolInstallResult => ({
+					...baseResult,
+					success: true,
+					pluginsInstalled: antigravityBundleScope(result),
+					details: antigravityInstallDetails(ctx.dryRun, result),
+					warnings: result.warnings,
+				}),
+			),
+			TE.orElse(
+				(error): TE.TaskEither<CLIError, ToolInstallResult> =>
+					TE.right({
+						...baseResult,
+						success: false,
+						pluginsInstalled: [],
+						warnings: [],
+						error,
+					}),
+			),
+		);
+	}
+
+	if (tool.tool.id === "gemini") {
+		return pipe(
+			installGeminiBundleAssets({ dryRun: ctx.dryRun }),
+			TE.map(
+				(result): ToolInstallResult => ({
+					...baseResult,
+					success: true,
+					pluginsInstalled: geminiBundleScope(result),
+					details: geminiInstallDetails(ctx.dryRun, result),
+					warnings: result.warnings,
+				}),
+			),
+			TE.orElse(
+				(error): TE.TaskEither<CLIError, ToolInstallResult> =>
+					TE.right({
+						...baseResult,
+						success: false,
+						pluginsInstalled: [],
+						warnings: [],
+						error,
+					}),
+			),
+		);
+	}
+
 	// Unknown tool - return failure result
 	return TE.right({
 		...baseResult,
@@ -455,6 +538,301 @@ const installForTool = (
 		pluginsInstalled: [],
 		warnings: [`Automated installation not supported for ${tool.tool.name}`],
 	});
+};
+
+type SpecificToolLookup =
+	| { readonly tool: SupportedTool }
+	| { readonly error: CLIError };
+
+const LEGACY_GEMINI_TOOL: SupportedTool = {
+	id: "gemini",
+	name: "Gemini CLI",
+	binary: "gemini",
+	min_version: "0.0.0",
+	instruction_file: "GEMINI.md",
+	install_url: "https://github.com/google-gemini/gemini-cli",
+	plugin_install_cmd: null,
+	supportLevel: "degraded",
+	capabilities: ["plugins", "skills", "agents", "slash-commands"],
+};
+
+const lookupSpecificTool = (
+	toolId: string,
+	registry: ToolsRegistry,
+): SpecificToolLookup => {
+	const tool = registry.tools.find((t) => t.id === toolId);
+
+	if (!tool) {
+		if (toolId === "gemini") {
+			return { tool: LEGACY_GEMINI_TOOL };
+		}
+
+		const enabledIds = getEnabledTools(registry)
+			.map((t) => `"${t.id}"`)
+			.join(", ");
+		return {
+			error: installError(
+				"invalid-tool",
+				`Unknown tool: ${toolId}. Available tools: ${enabledIds}.`,
+			),
+		};
+	}
+
+	if (!isToolEnabled(registry, toolId)) {
+		return {
+			error: installError(
+				"disabled-tool",
+				`Tool "${toolId}" is currently disabled and cannot be installed.`,
+			),
+		};
+	}
+
+	return { tool };
+};
+
+const formatAssetDisplayList = (
+	assets: readonly { readonly displayPath: string }[],
+): string => assets.map((asset) => asset.displayPath).join(", ");
+
+const antigravityInstallDetails = (
+	dryRun: boolean,
+	result: {
+		readonly assetCount: number;
+		readonly validation: {
+			readonly status: string;
+			readonly issue: string | null;
+		};
+		readonly versionMarkerWritten: boolean;
+	},
+): readonly string[] => [
+	`Package assets: ${antigravityPackageDisplayRoot()}`,
+	`Manifest assets: ${result.assetCount} files`,
+	"Lifecycle stage: install",
+	dryRun
+		? "Lifecycle state: dry_run"
+		: "Lifecycle state: current after successful install",
+	`Plugin validation: ${result.validation.status}${
+		result.validation.issue ? ` (${result.validation.issue})` : ""
+	}`,
+	`Version marker: ${result.versionMarkerWritten ? "current" : "not_written"}`,
+	dryRun
+		? "Next action: run `rp1 install antigravity`, restart Antigravity CLI, then run `rp1 verify antigravity`."
+		: "Next action: restart Antigravity CLI, then run `rp1 verify antigravity` for manifest, version marker, MCP, and plugin validation status.",
+];
+
+const antigravityUpdateDetails = (
+	result: AntigravityManifestRefreshResult,
+): readonly string[] => {
+	if (result.initialStatus.state === "blocked") {
+		return [
+			"Lifecycle stage: update",
+			"Lifecycle state: blocked",
+			`Next action: ${result.initialStatus.userAction}`,
+		];
+	}
+
+	if (result.dryRun && result.refreshableAssets.length > 0) {
+		return [
+			"Lifecycle stage: update",
+			`Lifecycle state: ${result.initialStatus.state}`,
+			`Would refresh: ${formatAssetDisplayList(result.refreshableAssets)}`,
+			"Next action: Run `rp1 update plugins antigravity -y` to refresh, then restart Antigravity CLI and run `rp1 verify antigravity`.",
+		];
+	}
+
+	if (result.refreshedAssets.length > 0 || result.versionMarkerWritten) {
+		return [
+			"Lifecycle stage: update",
+			"Lifecycle result: refreshed",
+			`Refreshed: ${formatAssetDisplayList(result.refreshedAssets)}`,
+			`Version marker: ${
+				result.versionMarkerWritten ? "current" : "unchanged"
+			}`,
+			"Next action: Restart Antigravity CLI, then run `rp1 verify antigravity`.",
+		];
+	}
+
+	return [
+		"Lifecycle stage: update",
+		"Lifecycle state: current",
+		`Version marker: ${result.finalStatus.versionMarker.freshness}`,
+		`Next action: ${result.finalStatus.userAction}`,
+	];
+};
+
+const failedAntigravityUpdateResult = (
+	tool: SupportedTool,
+	error: CLIError,
+): ToolInstallResult => ({
+	toolId: tool.id,
+	toolName: tool.name,
+	success: false,
+	restartRequired: false,
+	pluginsInstalled: [],
+	details: [
+		"Lifecycle stage: update",
+		"Lifecycle state: failed",
+		`Next action: Check file permissions under ${antigravityPackageDisplayRoot()}, then rerun \`rp1 update plugins antigravity\`.`,
+	],
+	warnings: [],
+	error,
+});
+
+const geminiBundleScope = (result: {
+	readonly assetCount: number;
+	readonly extensionDisplayDirs: readonly string[];
+}): readonly string[] =>
+	result.extensionDisplayDirs.map(geminiExtensionNameFromDisplayDir);
+
+const geminiInstallDetails = (
+	dryRun: boolean,
+	result: { readonly assetCount: number },
+): readonly string[] => [
+	`Extension assets: ${geminiExtensionDisplayRoot()}`,
+	`Manifest assets: ${result.assetCount} files`,
+	"Lifecycle stage: install",
+	dryRun
+		? "Lifecycle state: dry_run"
+		: "Lifecycle state: current after successful install",
+	dryRun
+		? "Next action: run `rp1 install gemini`, restart Gemini CLI, then run `rp1 verify gemini`."
+		: "Next action: restart Gemini CLI, then run `rp1 verify gemini` for manifest and support-matrix status.",
+];
+
+const geminiUpdateDetails = (
+	result: GeminiManifestRefreshResult,
+): readonly string[] => {
+	if (result.initialStatus.state === "blocked") {
+		return [
+			"Lifecycle stage: update",
+			"Lifecycle state: blocked",
+			`Next action: ${result.initialStatus.userAction}`,
+		];
+	}
+
+	if (result.dryRun && result.refreshableAssets.length > 0) {
+		return [
+			"Lifecycle stage: update",
+			`Lifecycle state: ${result.initialStatus.state}`,
+			`Would refresh: ${formatAssetDisplayList(result.refreshableAssets)}`,
+			"Next action: Run `rp1 update plugins gemini -y` to refresh, then restart Gemini CLI and run `rp1 verify gemini`.",
+		];
+	}
+
+	if (result.refreshedAssets.length > 0) {
+		return [
+			"Lifecycle stage: update",
+			"Lifecycle result: refreshed",
+			`Refreshed: ${formatAssetDisplayList(result.refreshedAssets)}`,
+			"Next action: Restart Gemini CLI, then run `rp1 verify gemini`.",
+		];
+	}
+
+	return [
+		"Lifecycle stage: update",
+		"Lifecycle state: current",
+		`Next action: ${result.finalStatus.userAction}`,
+	];
+};
+
+const failedGeminiUpdateResult = (
+	tool: SupportedTool,
+	error: CLIError,
+): ToolInstallResult => ({
+	toolId: tool.id,
+	toolName: tool.name,
+	success: false,
+	restartRequired: false,
+	pluginsInstalled: [],
+	details: [
+		"Lifecycle stage: update",
+		"Lifecycle state: failed",
+		`Next action: Check file permissions under ${geminiExtensionDisplayRoot()}, then rerun \`rp1 update plugins gemini\`.`,
+	],
+	warnings: [],
+	error,
+});
+
+export const updateForSpecificTool = (
+	toolId: string,
+	registry: ToolsRegistry,
+	ctx: InstallContext,
+): TE.TaskEither<CLIError, ToolInstallResult> => {
+	const lookup = lookupSpecificTool(toolId, registry);
+	if ("error" in lookup) return TE.left(lookup.error);
+
+	if (lookup.tool.id === "antigravity") {
+		return pipe(
+			refreshAntigravityManifestAssets({ dryRun: ctx.dryRun }),
+			TE.map((result): ToolInstallResult => {
+				const blocked = result.initialStatus.state === "blocked";
+				const toolResult = {
+					toolId: lookup.tool.id,
+					toolName: lookup.tool.name,
+					success: !blocked,
+					restartRequired:
+						!ctx.dryRun &&
+						!blocked &&
+						(result.refreshedAssets.length > 0 || result.versionMarkerWritten),
+					pluginsInstalled: [],
+					details: antigravityUpdateDetails(result),
+					warnings: [],
+				};
+
+				if (!blocked) return toolResult;
+
+				return {
+					...toolResult,
+					error: installError(
+						"antigravity-lifecycle-update",
+						result.initialStatus.issue ??
+							"Antigravity lifecycle update blocked.",
+					),
+				};
+			}),
+			TE.orElse((error) =>
+				TE.right<CLIError, ToolInstallResult>(
+					failedAntigravityUpdateResult(lookup.tool, error),
+				),
+			),
+		);
+	}
+
+	if (lookup.tool.id !== "gemini") {
+		return installForSpecificTool(toolId, registry, ctx);
+	}
+
+	return pipe(
+		refreshGeminiManifestAssets({ dryRun: ctx.dryRun }),
+		TE.map((result): ToolInstallResult => {
+			const blocked = result.initialStatus.state === "blocked";
+			const toolResult = {
+				toolId: lookup.tool.id,
+				toolName: lookup.tool.name,
+				success: !blocked,
+				restartRequired:
+					!ctx.dryRun && !blocked && result.refreshedAssets.length > 0,
+				pluginsInstalled: [],
+				details: geminiUpdateDetails(result),
+				warnings: [],
+			};
+
+			if (!blocked) return toolResult;
+
+			return {
+				...toolResult,
+				error: installError(
+					"gemini-lifecycle-update",
+					result.initialStatus.issue ?? "Gemini lifecycle update blocked.",
+				),
+			};
+		}),
+		TE.orElse((error) =>
+			TE.right<CLIError, ToolInstallResult>(
+				failedGeminiUpdateResult(lookup.tool, error),
+			),
+		),
+	);
 };
 
 /**
@@ -533,25 +911,39 @@ export const installForSpecificTool = (
 	registry: ToolsRegistry,
 	ctx: InstallContext,
 ): TE.TaskEither<CLIError, ToolInstallResult> => {
-	const tool = registry.tools.find((t) => t.id === toolId);
+	const lookup = lookupSpecificTool(toolId, registry);
+	if ("error" in lookup) return TE.left(lookup.error);
 
-	if (!tool) {
-		const enabledIds = getEnabledTools(registry)
-			.map((t) => `"${t.id}"`)
-			.join(", ");
-		return TE.left(
-			installError(
-				"invalid-tool",
-				`Unknown tool: ${toolId}. Available tools: ${enabledIds}.`,
+	const { tool } = lookup;
+
+	if (tool.id === "antigravity") {
+		return pipe(
+			installAntigravityBundleAssets({ dryRun: ctx.dryRun }),
+			TE.map(
+				(result): ToolInstallResult => ({
+					toolId: tool.id,
+					toolName: tool.name,
+					success: true,
+					pluginsInstalled: antigravityBundleScope(result),
+					details: antigravityInstallDetails(ctx.dryRun, result),
+					warnings: result.warnings,
+				}),
 			),
 		);
 	}
 
-	if (!isToolEnabled(registry, toolId)) {
-		return TE.left(
-			installError(
-				"disabled-tool",
-				`Tool "${toolId}" is currently disabled and cannot be installed.`,
+	if (tool.id === "gemini") {
+		return pipe(
+			installGeminiBundleAssets({ dryRun: ctx.dryRun }),
+			TE.map(
+				(result): ToolInstallResult => ({
+					toolId: tool.id,
+					toolName: tool.name,
+					success: true,
+					pluginsInstalled: geminiBundleScope(result),
+					details: geminiInstallDetails(ctx.dryRun, result),
+					warnings: result.warnings,
+				}),
 			),
 		);
 	}
