@@ -1388,7 +1388,12 @@ describe("install-core tool routing", () => {
 				installCore.installAllDetectedTools(
 					{
 						version: "1.0.0",
-						tools: [createAntigravityTool()],
+						tools: [
+							{
+								...createAntigravityTool(),
+								binary: agyPath,
+							},
+						],
 					},
 					createMockContext(),
 				),
