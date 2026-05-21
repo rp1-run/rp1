@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { access, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
+	antigravityPackageRelativeRoot,
 	getAntigravityManifestAsset,
 	getAntigravityManifestLifecycleStatus,
 	installAntigravityBundleAssets,
@@ -130,6 +131,9 @@ describe("Antigravity lifecycle", () => {
 		);
 		expect(uninstalled.inactive).toBe(true);
 		expect(uninstalled.removedFiles).toHaveLength(assets.length);
+		await expect(
+			access(join(tempDir, antigravityPackageRelativeRoot())),
+		).rejects.toThrow();
 
 		const repeated = await expectTaskRight(
 			uninstallAntigravityPackageAssets({

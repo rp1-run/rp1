@@ -1,4 +1,4 @@
-import { lstat, readdir, readFile, rm } from "node:fs/promises";
+import { lstat, readdir, readFile, rm, rmdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { dirname as posixDirname } from "node:path/posix";
@@ -170,7 +170,7 @@ const removeEmptyManifestDirs = async (
 		try {
 			const entries = await readdir(targetPath);
 			if (entries.length === 0) {
-				await rm(targetPath);
+				await rmdir(targetPath);
 			}
 		} catch {}
 	}

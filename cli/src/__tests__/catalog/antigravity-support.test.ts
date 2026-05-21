@@ -132,8 +132,8 @@ describe("Antigravity workflow support matrix", () => {
 					isWorkflow: false,
 				}),
 				catalogEntry({
-					canonicalName: "dev:gemini-harness-smoke",
-					name: "gemini-harness-smoke",
+					canonicalName: "dev:antigravity-harness-smoke",
+					name: "antigravity-harness-smoke",
 				}),
 			],
 			{ updatedAt: UPDATED_AT },
@@ -188,7 +188,10 @@ describe("Antigravity workflow support matrix", () => {
 			{ workflowId: "utils:tester", reason: "internal_only" },
 			{ workflowId: "base:template-reference", reason: "template_only" },
 			{ workflowId: "base:guide", reason: "not_workflow" },
-			{ workflowId: "dev:gemini-harness-smoke", reason: "validation_only" },
+			{
+				workflowId: "dev:antigravity-harness-smoke",
+				reason: "validation_only",
+			},
 		]);
 	});
 

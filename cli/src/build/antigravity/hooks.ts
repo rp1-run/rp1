@@ -235,8 +235,6 @@ const hasMcpCapability = (agent: ClaudeCodeAgent): boolean =>
 const hasSubagentCapability = (agent: ClaudeCodeAgent): boolean =>
 	agent.tools.includes("Task");
 
-const validatedNestedDelegationAgentIds = new Set<string>();
-
 const mappedAgentTools = (
 	agent: ClaudeCodeAgent,
 	hookCtx: HookContext,
@@ -285,9 +283,10 @@ const writeDelegationDefinitions = async (
 		const generatedAgentPath = join(outputDir, "agents", `${typeName}.md`);
 		const generatedAgentContent = await readFile(generatedAgentPath, "utf-8");
 		const systemPrompt = stripYamlFrontmatter(generatedAgentContent).trim();
-		const nestedDelegationEnabled =
-			hasSubagentCapability(agent) &&
-			validatedNestedDelegationAgentIds.has(rp1AgentId);
+		const sourceUsesSubagents = hasSubagentCapability(agent);
+		// Antigravity nested delegation remains disabled until runtime validation
+		// proves a subagent may safely invoke another dynamic subagent.
+		const nestedDelegationEnabled = false;
 		const definitionWithoutHash = {
 			schemaVersion: 1,
 			rp1AgentId,
@@ -303,7 +302,7 @@ const writeDelegationDefinitions = async (
 				isolatedWorktree: "requires_validation",
 			},
 			nestedDelegation: {
-				sourceUsesSubagents: hasSubagentCapability(agent),
+				sourceUsesSubagents,
 				enabled: nestedDelegationEnabled,
 				validation: nestedDelegationEnabled
 					? "validated_for_antigravity"

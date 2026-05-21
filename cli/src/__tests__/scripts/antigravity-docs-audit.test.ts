@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { join } from "node:path";
 import {
 	auditGeminiReferences,
+	findProjectRoot,
 	formatGeminiAuditResult,
 } from "../../../scripts/audit-antigravity-docs.ts";
 import {
@@ -75,5 +77,14 @@ describe("Antigravity docs Gemini leftover audit", () => {
 			allowed: false,
 		});
 		expect(formatGeminiAuditResult(result)).toContain("audit failed");
+	});
+
+	test("does not treat an unrelated docs-only parent as the project root", async () => {
+		await writeFixture(tempDir, "docs/notes.md", "# unrelated docs\n");
+		await writeFixture(tempDir, "nested/file.txt", "content\n");
+
+		await expect(findProjectRoot(join(tempDir, "nested"))).rejects.toThrow(
+			"Could not find project root",
+		);
 	});
 });

@@ -46,6 +46,8 @@ ${renderPromptField("", prompt)}`;
 
 function renderGemini(agentRef: string, prompt: string): string {
 	const ns = transformNamespace(agentRef, "gemini");
+	// Gemini and Antigravity expose one inline invocation form here; parent
+	// prompts carry any wait/continue semantics around this instruction.
 	return `Invoke ${ns}.
 ${renderPromptField("", prompt)}`;
 }

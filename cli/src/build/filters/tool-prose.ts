@@ -10,6 +10,7 @@
  * | opencode    | Rewrites known CC tool names to OC equivalents        |
  * | codex       | Rewrites known CC tool names to Codex equivalents     |
  * | copilot     | Rewrites known CC tool names to Copilot equivalents   |
+ * | gemini      | Rewrites known CC tool names to Gemini names          |
  * | antigravity | Rewrites known CC tool names to Antigravity names     |
  *
  * Only transforms references outside code blocks. For Codex, tools mapped

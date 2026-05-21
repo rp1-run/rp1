@@ -145,7 +145,11 @@ export async function findProjectRoot(startDir: string): Promise<string> {
 	let current = resolve(startDir);
 
 	while (true) {
-		if (await pathExists(join(current, "docs"))) {
+		if (
+			(await pathExists(join(current, ".rp1", "project_id"))) ||
+			((await pathExists(join(current, "cli"))) &&
+				(await pathExists(join(current, "docs"))))
+		) {
 			return current;
 		}
 

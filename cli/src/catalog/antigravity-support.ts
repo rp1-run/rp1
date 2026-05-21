@@ -4,9 +4,6 @@ import { collectCatalogRegistry } from "./registry.js";
 export const ANTIGRAVITY_SUPPORT_MATRIX_UPDATED_AT = "2026-05-20";
 
 const HARNESS_VALIDATION_WORKFLOW_IDS = new Set([
-	"dev:gemini-harness-smoke",
-	"dev:gemini-harness-subagents",
-	"dev:gemini-harness-boundaries",
 	"dev:antigravity-harness-smoke",
 	"dev:antigravity-harness-subagents",
 	"dev:antigravity-harness-boundaries",
