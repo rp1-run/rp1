@@ -586,7 +586,7 @@ fix-evals:
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Full local install: remove stable + build + install to all platforms
-install: rm-stable build
+install: _rm-stable-impl build
     @#!/usr/bin/env bash
     @set -e
     @if [ "$(uname)" = "Darwin" ]; then \
@@ -642,8 +642,9 @@ install-codex:
     @echo ""
     @./bin/rp1 install codex --yes
 
-# Remove stable rp1 from all platforms (only rp1-namespaced, preserves user files)
-rm-stable:
+# Internal: remove production rp1 platform installs and build artifacts (no prompt)
+[private]
+_rm-stable-impl:
     rm -rf ~/.config/opencode/plugin/rp1*
     rm -rf ~/.config/opencode/agents/rp1*
     rm -rf ~/.config/opencode/skills/rp1-*/
@@ -659,6 +660,70 @@ rm-stable:
     rm -rf ~/.gemini/antigravity-cli/rp1-*
     rm -f bin/rp1
     rm -f ~/.rp1/platform-versions.json
+
+# Remove production rp1 from all platforms incl. installed native app (prompts unless FORCE=1)
+rm-stable:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "${FORCE:-0}" != "1" ]; then
+        echo "This removes rp1 from Claude Code, OpenCode, Codex, Copilot,"
+        echo "Antigravity, and Gemini; plus bin/rp1 and the installed"
+        echo "~/Applications/rp1 Arcade dev.app. User project files are preserved."
+        echo "Set FORCE=1 to skip this prompt."
+        printf "Continue? [y/N] "
+        read -r reply
+        case "$reply" in
+            y|Y|yes|YES) ;;
+            *) echo "Aborted."; exit 1 ;;
+        esac
+    fi
+    just _rm-stable-impl
+    dev_app="${HOME}/Applications/rp1 Arcade dev.app"
+    if [ -d "$dev_app" ]; then
+        lsregister="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+        if [ -x "$lsregister" ]; then
+            "$lsregister" -u "$dev_app" >/dev/null 2>&1 || true
+        fi
+        rm -rf "$dev_app"
+        echo "Removed ${dev_app}"
+    fi
+
+# Remove the user-local rp1 shim from ~/.local/bin
+rm-local:
+    rm -f ~/.local/bin/rp1
+    @echo "Removed ~/.local/bin/rp1"
+
+# Build native app and install as 'rp1 Arcade dev.app' to ~/Applications
+install-native-app: build-native-app
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src_app="native-app/build/stable-macos-arm64/rp1 Arcade.app"
+    if [ ! -d "$src_app" ]; then
+        echo "Source app not found: $src_app" >&2
+        exit 1
+    fi
+    install_dir="${HOME}/Applications"
+    dest_app="${install_dir}/rp1 Arcade dev.app"
+    mkdir -p "$install_dir"
+    rm -rf "$dest_app"
+    cp -R "$src_app" "$dest_app"
+    plist="${dest_app}/Contents/Info.plist"
+    /usr/libexec/PlistBuddy -c 'Set :CFBundleName rp1 Arcade dev' "$plist"
+    /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier run.rp1.arcade.dev' "$plist"
+    if /usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$plist" >/dev/null 2>&1; then
+        /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName rp1 Arcade dev' "$plist"
+    else
+        /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string "rp1 Arcade dev"' "$plist"
+    fi
+    xattr -dr com.apple.quarantine "$dest_app" 2>/dev/null || true
+    touch "$dest_app"
+    lsregister="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+    if [ -x "$lsregister" ]; then
+        "$lsregister" -f "$dest_app" >/dev/null 2>&1 || true
+    fi
+    echo ""
+    echo "Installed local native app: ${dest_app}"
+    echo "Launch with: open -n \"${dest_app}\""
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Web-UI Development
