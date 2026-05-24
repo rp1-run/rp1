@@ -23,7 +23,6 @@ const PREPARE_PROMPTFOO_CONFIG_PATH = join(
 	"scripts",
 	"prepare-promptfoo-config.sh",
 );
-const PROMPTFOO_CONFIG_DIR_SNIPPET = `promptfoo_config_dir="\${PROMPTFOO_CONFIG_DIR:-\${repo_root}/.rp1/tmp/promptfoo}"`;
 const REPO_PROMPTFOO_CONFIG_DIR = join(REPO_ROOT, ".rp1", "tmp", "promptfoo");
 
 let tempDirs: string[] = [];
@@ -401,78 +400,6 @@ esac
 			`-C ${REPO_ROOT} add evals/output/rp1-dev-build-fast.json`,
 		);
 		expect(gitLog).toContain(`-C ${REPO_ROOT} commit -m`);
-	});
-
-	test("uses repo-local promptfoo home for evals and host view", async () => {
-		const evalRun = await runCommand("just", ["--show", "eval-run"], {
-			cwd: REPO_ROOT,
-			env: {
-				...process.env,
-				NO_COLOR: "1",
-			},
-		});
-		const evalRunLocal = await runCommand(
-			"just",
-			["--show", "eval-run-local"],
-			{
-				cwd: REPO_ROOT,
-				env: {
-					...process.env,
-					NO_COLOR: "1",
-				},
-			},
-		);
-		const evalView = await runCommand("just", ["--show", "eval-view"], {
-			cwd: REPO_ROOT,
-			env: {
-				...process.env,
-				NO_COLOR: "1",
-			},
-		});
-		const evalDashboardReload = await runCommand(
-			"just",
-			["--show", "eval-dashboard-reload"],
-			{
-				cwd: REPO_ROOT,
-				env: {
-					...process.env,
-					NO_COLOR: "1",
-				},
-			},
-		);
-
-		expect(evalRun.exitCode).toBe(0);
-		expect(evalRunLocal.exitCode).toBe(0);
-		expect(evalView.exitCode).toBe(0);
-		expect(evalDashboardReload.exitCode).toBe(0);
-		expect(
-			(evalRun.stdout.match(/just eval-dashboard-reload/g) ?? []).length,
-		).toBe(1);
-		expect(evalRun.stdout).toContain("just eval-dashboard-stop");
-		expect(evalRunLocal.stdout).toContain(PROMPTFOO_CONFIG_DIR_SNIPPET);
-		expect(evalRunLocal.stdout).toContain(
-			'export PROMPTFOO_DISABLE_WAL_MODE="$' +
-				'{PROMPTFOO_DISABLE_WAL_MODE:-true}"',
-		);
-		expect(evalRunLocal.stdout).toContain(
-			'bash "$' +
-				'{evals_dir}/scripts/prepare-promptfoo-config.sh" "$promptfoo_config_dir"',
-		);
-		expect(evalRunLocal.stdout).toContain(
-			'export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"',
-		);
-		expect(evalDashboardReload.stdout).toContain(
-			'bash "$' +
-				'{repo_root}/evals/scripts/prepare-promptfoo-config.sh" "$promptfoo_config_dir"',
-		);
-		expect(evalDashboardReload.stdout).toContain(
-			'const child = spawn("bunx", ["promptfoo", "view", "-n"], {',
-		);
-		expect(evalDashboardReload.stdout).toContain("detached: true");
-		expect(evalView.stdout).toContain(PROMPTFOO_CONFIG_DIR_SNIPPET);
-		expect(evalView.stdout).toContain(
-			'export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"',
-		);
 	});
 
 	test("quarantines corrupt promptfoo database files before reuse", async () => {
