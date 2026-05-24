@@ -407,6 +407,39 @@ function setStep(i, fileId = null) {
   showCardForCurrentStep();
 }
 
+// Swap which file's diff is shown inside the existing card. Card position,
+// scroll, drag, and clamp state are preserved; only the diff contents and the
+// cord target change.
+function swapActiveFile(fileId) {
+  const step = STEPS[state.stepIdx];
+  const concept = CONCEPT_BY_ID[step.conceptId];
+  if (!concept.files.includes(fileId)) return;
+  if (state.activeFileId === fileId) return;
+  state.activeFileId = fileId;
+
+  if (!cardEl) return;
+
+  const file = FILE_BY_ID[fileId];
+  cardEl.querySelector(".path").textContent = `${file.path}:${file.line}`;
+  cardEl.querySelectorAll(".tab").forEach((t) => {
+    t.classList.toggle("active", t.dataset.file === fileId);
+  });
+  const codeEl = cardEl.querySelector(".code");
+  codeEl.innerHTML = renderCode(file.code);
+  codeEl.scrollTop = 0;
+  codeEl.scrollLeft = 0;
+  const link = cardEl.querySelector(".actions a.primary");
+  if (link) link.href = `https://github.com/${PR.repo}/pull/${PR.number}/files#${fileId}`;
+
+  // Swing the cord to the new file's node — only meaningful in tree mode,
+  // where each file has its own sphere. In flow mode the cord stays on the
+  // concept node regardless of which tab is active.
+  if (state.mode === "tree") {
+    const obj = fileNodes.get(fileId);
+    if (obj) cordTargetMesh = obj.mesh;
+  }
+}
+
 function showCardForCurrentStep() {
   const step = STEPS[state.stepIdx];
   const concept = CONCEPT_BY_ID[step.conceptId];
@@ -443,27 +476,22 @@ function renderCode(lines) {
   }).join("");
 }
 
-let cardObj = null;
-let cardAnchorMesh = null; // the mesh the current card is tethered to
+// The card is pinned to a fixed screen slot via CSS; only its content swaps
+// when the step or active file changes. The cord swings between nodes to show
+// which one the card is currently describing.
+let cardEl = null;         // the .fragment-card DOM element (or null)
+let cordTargetMesh = null; // the mesh the cord points at
+const cardHost = document.getElementById("card-host");
 
 function renderFragmentCard(concept, activeFileId, reasonHtml) {
   // Tear down previous card
-  if (cardObj) {
-    cardObj.element.remove();
-    cardObj.parent?.remove(cardObj);
-    cardObj = null;
-  }
+  if (cardEl) { cardEl.remove(); cardEl = null; }
 
   const activeFile = FILE_BY_ID[activeFileId];
   const domain = DOMAINS[concept.domain];
 
-  // The CSS2DObject anchor (positioned by CSS2DRenderer) wraps the card so
-  // we can apply our own drag transform to .fragment-card freely.
-  const anchor = document.createElement("div");
-  anchor.className = "card-anchor";
   const wrap = document.createElement("div");
   wrap.className = "fragment-card";
-  anchor.appendChild(wrap);
 
   const tabsHtml = concept.files.map((fid) => {
     const f = FILE_BY_ID[fid];
@@ -479,7 +507,6 @@ function renderFragmentCard(concept, activeFileId, reasonHtml) {
       <span class="concept-label">${escapeAttr(concept.label)}</span>
       ${concept.files.length > 1 ? `<span class="file-count">${concept.files.length} files</span>` : ""}
     </div>
-    <button class="annotate-btn" title="Pin a note">📌</button>
     <div class="path">${escapeAttr(activeFile.path)}:${activeFile.line}</div>
     ${showSummary ? `<div class="reason">${reasonHtml}</div>` : ""}
     ${concept.files.length > 1 ? `<div class="file-tabs">${tabsHtml}</div>` : ""}
@@ -490,42 +517,29 @@ function renderFragmentCard(concept, activeFileId, reasonHtml) {
     </div>
   `;
 
-  // Anchor the card to whichever node is shown in this mode.
-  const anchorObj = state.mode === "flow"
+  // The currently-focused node — only used as the cord target and the
+  // "Re-centre" fly destination. The card itself is screen-pinned.
+  const focusObj = state.mode === "flow"
     ? conceptNodes.get(concept.id)
     : fileNodes.get(activeFileId);
 
-  // Tab click → swap active file (does NOT advance step)
+  // Tab click → swap diff content + cord target in place. The card stays
+  // where it is on screen so the user's eye doesn't have to chase it.
   wrap.querySelectorAll(".tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      state.activeFileId = tab.dataset.file;
-      // In tree mode, also fly the camera to the newly selected file
-      if (state.mode === "tree") {
-        const obj = fileNodes.get(state.activeFileId);
-        if (obj) flyTo(obj.mesh.position, { offset: new THREE.Vector3(3, 2, 11) });
-      }
-      renderFragmentCard(concept, state.activeFileId, reasonHtml);
-    });
+    tab.addEventListener("click", () => swapActiveFile(tab.dataset.file));
   });
 
   wrap.querySelector('[data-action="focus"]').addEventListener("click", () => {
-    if (anchorObj) flyTo(anchorObj.mesh.position);
-  });
-
-  wrap.querySelector(".annotate-btn").addEventListener("click", () => {
-    addPin(anchorObj);
+    if (cordTargetMesh) flyTo(cordTargetMesh.position);
   });
 
   // Drag-by-header: the .head bar (domain pill, concept title, file count) acts
-  // as the drag handle. Offsets are applied as CSS variables and reset on the
-  // next renderFragmentCard call (i.e. when the step or active file changes).
+  // as the drag handle. Offsets are applied as CSS variables.
   makeCardDraggable(wrap);
 
-  const obj = new CSS2DObject(anchor);
-  obj.position.set(1.2, 0, 0);
-  anchorObj.mesh.add(obj);
-  cardObj = obj;
-  cardAnchorMesh = anchorObj.mesh;
+  cardHost.appendChild(wrap);
+  cardEl = wrap;
+  cordTargetMesh = focusObj?.mesh ?? null;
 }
 
 function makeCardDraggable(cardEl) {
@@ -559,36 +573,6 @@ function makeCardDraggable(cardEl) {
   };
   handle.addEventListener("pointerup", end);
   handle.addEventListener("pointercancel", end);
-}
-
-// ─── Pins ──────────────────────────────────────────────────────────────────
-
-const pinObjects = new Map(); // mesh.uuid → CSS2DObject
-
-function addPin(anchor) {
-  if (!anchor || pinObjects.has(anchor.mesh.uuid)) return;
-  const el = document.createElement("div");
-  el.className = "pin";
-  el.innerHTML = `
-    <div class="pin-bubble">
-      <textarea placeholder="Drop a note…"></textarea>
-      <div class="pin-actions">
-        <button data-act="save">Save</button>
-        <button data-act="del">Remove</button>
-      </div>
-    </div>
-  `;
-  const ta = el.querySelector("textarea");
-  setTimeout(() => ta.focus(), 0);
-  el.querySelector('[data-act="save"]').addEventListener("click", () => ta.blur());
-  el.querySelector('[data-act="del"]').addEventListener("click", () => {
-    const o = pinObjects.get(anchor.mesh.uuid);
-    if (o) { o.element.remove(); o.parent?.remove(o); pinObjects.delete(anchor.mesh.uuid); }
-  });
-  const obj = new CSS2DObject(el);
-  obj.position.set(0, 1.6, 0);
-  anchor.mesh.add(obj);
-  pinObjects.set(anchor.mesh.uuid, obj);
 }
 
 // ─── Sidebar ───────────────────────────────────────────────────────────────
@@ -809,28 +793,25 @@ function update(dt) {
 
 // ─── Umbilical cord ────────────────────────────────────────────────────────
 
-const cordEl = document.getElementById("cord");
-const cordGlow = cordEl.querySelector(".cord-glow");
-const cordLine = cordEl.querySelector(".cord-line");
-const cordCapNode = cordEl.querySelector(".cord-cap-node");
-const cordCapCard = cordEl.querySelector(".cord-cap-card");
+const cordSvg = document.getElementById("cord");
+const cordGlow = cordSvg.querySelector(".cord-glow");
+const cordLine = cordSvg.querySelector(".cord-line");
+const cordCapNode = cordSvg.querySelector(".cord-cap-node");
+const cordCapCard = cordSvg.querySelector(".cord-cap-card");
 const _cordVec = new THREE.Vector3();
 
 function updateCord() {
-  if (!cardObj || !cardAnchorMesh) { cordEl.classList.remove("visible"); return; }
+  if (!cardEl || !cordTargetMesh) { cordSvg.classList.remove("visible"); return; }
 
-  // Node screen position (centre of the anchor group).
-  cardAnchorMesh.getWorldPosition(_cordVec);
+  // Node screen position (centre of whichever mesh the cord currently points at).
+  cordTargetMesh.getWorldPosition(_cordVec);
   _cordVec.project(camera);
   const sR = canvas.getBoundingClientRect();
   const nx = sR.left + sR.width  * (_cordVec.x * 0.5 + 0.5);
   const ny = sR.top  + sR.height * (-_cordVec.y * 0.5 + 0.5);
   const nodeBehind = _cordVec.z > 1; // behind the camera
 
-  // Card position: ask the rendered .fragment-card for its closest perimeter
-  // point to the node. The card's bounding rect already includes drag offsets.
-  const cardEl = cardObj.element.querySelector(".fragment-card");
-  if (!cardEl || nodeBehind) { cordEl.classList.remove("visible"); return; }
+  if (nodeBehind) { cordSvg.classList.remove("visible"); return; }
   const r = cardEl.getBoundingClientRect();
 
   const cx = r.left + r.width / 2;
@@ -863,7 +844,7 @@ function updateCord() {
   cordCapNode.setAttribute("cy", N.y);
   cordCapCard.setAttribute("cx", T.x);
   cordCapCard.setAttribute("cy", T.y);
-  cordEl.classList.add("visible");
+  cordSvg.classList.add("visible");
 }
 
 // Keep the top edge of the card visible. The card's CSS transform is
@@ -873,8 +854,6 @@ function updateCord() {
 // downward `--clamp-y` offset when needed.
 const TOP_MARGIN = 16;
 function updateCardClamp() {
-  if (!cardObj) return;
-  const cardEl = cardObj.element.querySelector(".fragment-card");
   if (!cardEl) return;
   const currentClamp = parseFloat(cardEl.style.getPropertyValue("--clamp-y")) || 0;
   const rect = cardEl.getBoundingClientRect();

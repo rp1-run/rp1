@@ -263,13 +263,13 @@ aside#sidebar {
   box-shadow: 0 0 18px rgba(93, 255, 196, 0.35);
 }
 
-/* Fragment card */
-.card-anchor {
-  position: relative;
+/* Fragment card — pinned to a screen slot, not to any 3D node. The cord
+   connects whichever node is currently focused TO the card. */
+#card-host {
+  position: absolute;
+  inset: 0;
   pointer-events: none;
-  /* CSS2DRenderer auto-assigns z-index by distance to camera, which can let
-     near node labels render on top of the card. Force the card to win. */
-  z-index: 9999 !important;
+  z-index: 5;
 }
 .fragment-card {
   /* ~80 monospace columns in the diff area plus chrome (line-prefix + padding
@@ -283,12 +283,16 @@ aside#sidebar {
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
   overflow: hidden;
   pointer-events: auto;
+  position: absolute;
+  /* Default slot: left edge with a small margin, vertically centred in the
+     canvas. User drag and the top-edge clamp compose with -50% via CSS vars. */
+  left: 16px;
+  top: 50%;
   transform:
-    translate(20px, -50%)
+    translate(0, -50%)
     translate(var(--drag-x, 0px), var(--drag-y, 0px))
     translate(0, var(--clamp-y, 0px));
   font-size: 12px;
-  position: relative;
   display: flex;
   flex-direction: column;
   /* Card grows with content but caps at 70% of viewport height; the .code
@@ -458,65 +462,3 @@ aside#sidebar {
 .tok-add { background: rgba(125, 240, 169, 0.10); display: inline-block; width: 100%; }
 .tok-del { background: rgba(255, 122, 153, 0.10); display: inline-block; width: 100%; text-decoration: line-through; opacity: 0.7; }
 
-/* Pin */
-.pin {
-  position: relative;
-  width: 220px;
-  pointer-events: auto;
-  transform: translate(-50%, -100%) translateY(-12px);
-}
-.pin-bubble {
-  background: var(--warn);
-  color: #1a1408;
-  padding: 8px 10px;
-  border-radius: 10px;
-  font-size: 11.5px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-  position: relative;
-}
-.pin-bubble::after {
-  content: '';
-  position: absolute;
-  bottom: -6px; left: 50%;
-  transform: translateX(-50%) rotate(45deg);
-  width: 10px; height: 10px;
-  background: var(--warn);
-}
-.pin-bubble textarea {
-  width: 100%;
-  background: transparent;
-  border: 0;
-  resize: none;
-  font: inherit;
-  color: inherit;
-  outline: none;
-  min-height: 36px;
-}
-.pin-bubble .pin-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 4px;
-  justify-content: flex-end;
-}
-.pin-bubble .pin-actions button {
-  border: 0;
-  background: rgba(0,0,0,0.15);
-  font-size: 10.5px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.annotate-btn {
-  position: absolute;
-  top: 8px; right: 8px;
-  width: 22px; height: 22px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--card-border);
-  color: var(--muted);
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px;
-}
-.annotate-btn:hover { color: var(--warn); }

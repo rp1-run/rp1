@@ -358,34 +358,35 @@ export const FILES = [
 ];
 
 // Edges between concept clusters — drives flow-mode rendering and the tour bridge.
+// `label` is rendered as a HUD chip at the curve midpoint.
 export const CONCEPT_EDGES = [
-  { from: "schema-change", to: "user-model" },
-  { from: "user-model", to: "users-api" },
-  { from: "user-model", to: "billing-api" },
-  { from: "user-model", to: "badge-ui" },
-  { from: "users-api", to: "badge-ui" },
-  { from: "billing-api", to: "billing-test" },
+  { from: "schema-change",  to: "user-model",   label: "shapes types" },
+  { from: "user-model",     to: "users-api",    label: "typed by" },
+  { from: "user-model",     to: "billing-api",  label: "typed by" },
+  { from: "user-model",     to: "badge-ui",     label: "typed by" },
+  { from: "users-api",      to: "badge-ui",     label: "feeds payload" },
+  { from: "billing-api",    to: "billing-test", label: "covered by" },
 ];
 
 // Edges between individual files — drives tree-mode rendering. Includes both
 // intra-concept (sibling) edges and cross-concept (ripple) edges.
 export const FILE_EDGES = [
-  // intra-concept
-  { from: "f-users-sql", to: "f-backfill-sql", kind: "sibling" },
-  { from: "f-user-interface", to: "f-tier-helpers", kind: "sibling" },
-  { from: "f-users-route", to: "f-users-serializer", kind: "sibling" },
-  { from: "f-billing-route", to: "f-pricing", kind: "sibling" },
-  { from: "f-user-badge", to: "f-tier-color", kind: "sibling" },
+  // intra-concept (sibling)
+  { from: "f-users-sql",       to: "f-backfill-sql",      kind: "sibling", label: "migrates" },
+  { from: "f-user-interface",  to: "f-tier-helpers",      kind: "sibling", label: "extracts" },
+  { from: "f-users-route",     to: "f-users-serializer",  kind: "sibling", label: "delegates" },
+  { from: "f-billing-route",   to: "f-pricing",           kind: "sibling", label: "calls" },
+  { from: "f-user-badge",      to: "f-tier-color",        kind: "sibling", label: "imports" },
 
   // cross-concept (ripple)
-  { from: "f-users-sql", to: "f-user-interface", kind: "ripple" },
-  { from: "f-user-interface", to: "f-users-route", kind: "ripple" },
-  { from: "f-user-interface", to: "f-billing-route", kind: "ripple" },
-  { from: "f-user-interface", to: "f-user-badge", kind: "ripple" },
-  { from: "f-tier-helpers", to: "f-pricing", kind: "ripple" },
-  { from: "f-tier-helpers", to: "f-tier-color", kind: "ripple" },
-  { from: "f-users-route", to: "f-user-badge", kind: "ripple" },
-  { from: "f-billing-route", to: "f-billing-test", kind: "ripple" },
+  { from: "f-users-sql",       to: "f-user-interface",    kind: "ripple",  label: "shapes" },
+  { from: "f-user-interface",  to: "f-users-route",       kind: "ripple",  label: "typed by" },
+  { from: "f-user-interface",  to: "f-billing-route",     kind: "ripple",  label: "typed by" },
+  { from: "f-user-interface",  to: "f-user-badge",        kind: "ripple",  label: "typed by" },
+  { from: "f-tier-helpers",    to: "f-pricing",           kind: "ripple",  label: "isEnterprise" },
+  { from: "f-tier-helpers",    to: "f-tier-color",        kind: "ripple",  label: "imports Tier" },
+  { from: "f-users-route",     to: "f-user-badge",        kind: "ripple",  label: "renders user" },
+  { from: "f-billing-route",   to: "f-billing-test",      kind: "ripple",  label: "tested by" },
 ];
 
 export const STEPS = [
