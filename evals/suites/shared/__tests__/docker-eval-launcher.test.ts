@@ -449,26 +449,44 @@ esac
 			(evalRun.stdout.match(/just eval-dashboard-reload/g) ?? []).length,
 		).toBe(1);
 		expect(evalRun.stdout).toContain("just eval-dashboard-stop");
-		expect(evalRunLocal.stdout).toContain(PROMPTFOO_CONFIG_DIR_SNIPPET);
-		expect(evalRunLocal.stdout).toContain(
+
+		// The eval-run-local and eval-dashboard-reload recipes now delegate to
+		// scripts. Verify the Justfile wraps them and the script bodies still
+		// carry the promptfoo wiring.
+		expect(evalRunLocal.stdout).toContain("./scripts/evals/run-local.sh");
+		expect(evalDashboardReload.stdout).toContain(
+			"./scripts/evals/dashboard-reload.sh",
+		);
+
+		const evalRunLocalScript = await readFile(
+			join(REPO_ROOT, "scripts", "evals", "run-local.sh"),
+			"utf-8",
+		);
+		const evalDashboardReloadScript = await readFile(
+			join(REPO_ROOT, "scripts", "evals", "dashboard-reload.sh"),
+			"utf-8",
+		);
+
+		expect(evalRunLocalScript).toContain(PROMPTFOO_CONFIG_DIR_SNIPPET);
+		expect(evalRunLocalScript).toContain(
 			'export PROMPTFOO_DISABLE_WAL_MODE="$' +
 				'{PROMPTFOO_DISABLE_WAL_MODE:-true}"',
 		);
-		expect(evalRunLocal.stdout).toContain(
+		expect(evalRunLocalScript).toContain(
 			'bash "$' +
 				'{evals_dir}/scripts/prepare-promptfoo-config.sh" "$promptfoo_config_dir"',
 		);
-		expect(evalRunLocal.stdout).toContain(
+		expect(evalRunLocalScript).toContain(
 			'export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"',
 		);
-		expect(evalDashboardReload.stdout).toContain(
+		expect(evalDashboardReloadScript).toContain(
 			'bash "$' +
 				'{repo_root}/evals/scripts/prepare-promptfoo-config.sh" "$promptfoo_config_dir"',
 		);
-		expect(evalDashboardReload.stdout).toContain(
+		expect(evalDashboardReloadScript).toContain(
 			'const child = spawn("bunx", ["promptfoo", "view", "-n"], {',
 		);
-		expect(evalDashboardReload.stdout).toContain("detached: true");
+		expect(evalDashboardReloadScript).toContain("detached: true");
 		expect(evalView.stdout).toContain(PROMPTFOO_CONFIG_DIR_SNIPPET);
 		expect(evalView.stdout).toContain(
 			'export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"',
