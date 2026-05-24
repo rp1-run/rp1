@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>3D PR Tour — prototype</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://esm.sh/three@0.169.0",
+          "three/addons/": "https://esm.sh/three@0.169.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="stage">
+      <canvas id="gl"></canvas>
+      <svg id="cord" aria-hidden="true">
+        <path class="cord-glow" />
+        <path class="cord-line" />
+        <circle class="cord-cap-node" r="3" />
+        <circle class="cord-cap-card" r="2" />
+      </svg>
+      <div id="scanlines" aria-hidden="true"></div>
+      <div id="vignette" aria-hidden="true"></div>
+      <div id="overlay"></div>
+    </div>
+
+    <aside id="sidebar">
+      <header>
+        <div class="pr-meta">
+          <div class="pr-num">PR #482</div>
+          <div class="pr-title">feat(billing): add subscription tier to users schema</div>
+        </div>
+      </header>
+
+      <section class="panel">
+        <h3>Domains</h3>
+        <div id="domains" class="chips"></div>
+      </section>
+
+      <section class="panel">
+        <h3>Layout</h3>
+        <div class="toggle">
+          <button data-layout="flow" class="active">Execution flow</button>
+          <button data-layout="tree">File tree</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>Tour</h3>
+        <div id="steps"></div>
+      </section>
+
+      <footer>
+        <button id="prev">◀ Prev</button>
+        <button id="next" class="primary">Next ▶</button>
+      </footer>
+    </aside>
+
+    <div id="hud">
+      <div class="step-indicator"><span id="step-num">1</span>/<span id="step-total">6</span></div>
+      <div class="step-title" id="step-title">The Epicenter</div>
+      <div class="step-sub" id="step-sub">High-isolation focus on the source of change</div>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
