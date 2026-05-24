@@ -274,9 +274,10 @@ function buildEdges(spec, nodes) {
 }
 
 // Traveling particles along each edge → "execution traffic" pulses.
+// Tuned small + slow + faint so they read as ambient flow, not "boxes".
 const PARTICLES_PER_EDGE = 5;
-const PARTICLE_SPEED = 0.18;   // t units per second
-const PARTICLE_SIZE = 0.16;
+const PARTICLE_SPEED = 0.06;   // t units per second
+const PARTICLE_SIZE = 0.07;
 
 function buildEdgeParticles(edges) {
   const total = edges.length * PARTICLES_PER_EDGE;
@@ -743,7 +744,7 @@ function updateEdgeSet(edges, nodes, isActive, focusIds) {
 }
 
 function updateEdgeParticles(set, dt, isActive, focusIds) {
-  set.mat.opacity = THREE.MathUtils.lerp(set.mat.opacity, isActive ? 0.85 : 0, 0.12);
+  set.mat.opacity = THREE.MathUtils.lerp(set.mat.opacity, isActive ? 0.45 : 0, 0.12);
   if (!isActive) return;
   for (const p of set.particles) {
     p.t += PARTICLE_SPEED * dt;
@@ -865,12 +866,32 @@ function updateCord() {
   cordEl.classList.add("visible");
 }
 
+// Keep the top edge of the card visible. The card's CSS transform is
+//   translate(20px, -50%) + drag + clamp
+// — the `-50%` centres the card on the node, which can push the top above
+// the viewport when the node is high. We measure each frame and apply a
+// downward `--clamp-y` offset when needed.
+const TOP_MARGIN = 16;
+function updateCardClamp() {
+  if (!cardObj) return;
+  const cardEl = cardObj.element.querySelector(".fragment-card");
+  if (!cardEl) return;
+  const currentClamp = parseFloat(cardEl.style.getPropertyValue("--clamp-y")) || 0;
+  const rect = cardEl.getBoundingClientRect();
+  const unclampedTop = rect.top - currentClamp;
+  const desired = unclampedTop < TOP_MARGIN ? TOP_MARGIN - unclampedTop : 0;
+  if (Math.abs(desired - currentClamp) > 0.5) {
+    cardEl.style.setProperty("--clamp-y", `${desired}px`);
+  }
+}
+
 function loop() {
   const dt = Math.min(clock.getDelta(), 0.05);
   update(dt);
   renderer.render(scene, camera);
   labelRenderer.render(scene, camera);
   updateCord();
+  updateCardClamp();
   requestAnimationFrame(loop);
 }
 

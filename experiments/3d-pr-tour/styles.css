@@ -272,7 +272,10 @@ aside#sidebar {
   z-index: 9999 !important;
 }
 .fragment-card {
-  width: 460px;
+  /* ~80 monospace columns in the diff area plus chrome (line-prefix + padding
+     + border). Width is fixed; the diff panel scrolls horizontally when a
+     particular line exceeds 80 cols. */
+  width: 640px;
   background: var(--card-bg);
   backdrop-filter: blur(14px);
   border: 1px solid var(--card-border);
@@ -280,11 +283,16 @@ aside#sidebar {
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
   overflow: hidden;
   pointer-events: auto;
-  transform: translate(20px, -50%) translate(var(--drag-x, 0px), var(--drag-y, 0px));
+  transform:
+    translate(20px, -50%)
+    translate(var(--drag-x, 0px), var(--drag-y, 0px))
+    translate(0, var(--clamp-y, 0px));
   font-size: 12px;
   position: relative;
   display: flex;
   flex-direction: column;
+  /* Card grows with content but caps at 70% of viewport height; the .code
+     panel inside takes the remaining space and scrolls. */
   max-height: 70vh;
 }
 .fragment-card .head {
@@ -378,13 +386,25 @@ aside#sidebar {
   background: rgba(0,0,0,0.32);
   color: #d8dee9;
   flex: 1 1 auto;
-  overflow: auto;
-  min-height: 0;
+  overflow: auto;          /* scroll on both axes when content exceeds box */
+  min-height: 0;           /* required for flex child to shrink + scroll */
   padding: 8px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(93, 255, 196, 0.35) transparent;
 }
+.fragment-card .code::-webkit-scrollbar { width: 8px; height: 8px; }
+.fragment-card .code::-webkit-scrollbar-thumb {
+  background: rgba(93, 255, 196, 0.35);
+  border-radius: 4px;
+}
+.fragment-card .code::-webkit-scrollbar-thumb:hover { background: rgba(93, 255, 196, 0.55); }
 .fragment-card .code .ln {
   padding: 0 14px;
   white-space: pre;
+  /* Force a minimum row width so the horizontal scrollbar appears even when
+     most lines are short — gives users a stable "80 col canvas" feel. */
+  min-width: 80ch;
+  width: fit-content;
 }
 .fragment-card .code .ln-prefix {
   display: inline-block;
