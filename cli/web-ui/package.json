@@ -47,7 +47,8 @@
 		"remark-gfm": "^4.0.0",
 		"reveal.js": "^6.0.1",
 		"shiki": "^1.24.0",
-		"tailwind-merge": "^2.6.0"
+		"tailwind-merge": "^2.6.0",
+		"three": "^0.184.0"
 	},
 	"devDependencies": {
 		"@happy-dom/global-registrator": "^20.3.9",
