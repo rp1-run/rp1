@@ -61,7 +61,7 @@ interface SceneNode {
 
 interface SceneEdge {
 	readonly edge: CodeTourViewEdge;
-	readonly line: THREE.Line;
+	readonly line: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>;
 	readonly material: THREE.LineBasicMaterial;
 	readonly geometry: THREE.BufferGeometry;
 	readonly labelObject: CSS2DObject;
@@ -1056,40 +1056,47 @@ function buildSceneEdges({
 	readonly scene: THREE.Scene;
 	readonly onClick: (edge: CodeTourViewEdge) => void;
 }): readonly SceneEdge[] {
-	return edges
-		.map((edge) => {
-			const from = nodes.get(edge.from);
-			const to = nodes.get(edge.to);
-			if (!from || !to) return null;
-			const curve = curveBetween(from.target, to.target);
-			const geometry = new THREE.BufferGeometry().setFromPoints(
-				curve.getPoints(42),
-			);
-			const material = new THREE.LineBasicMaterial({
-				color: from.domainColor.clone().lerp(to.domainColor, 0.45),
-				transparent: true,
-				opacity: 0.24,
-				depthWrite: false,
-				blending: THREE.AdditiveBlending,
-			});
-			const line = new THREE.Line(geometry, material);
-			scene.add(line);
+	const sceneEdges: SceneEdge[] = [];
+	for (const edge of edges) {
+		const from = nodes.get(edge.from);
+		const to = nodes.get(edge.to);
+		if (!from || !to) continue;
+		const curve = curveBetween(from.target, to.target);
+		const geometry = new THREE.BufferGeometry().setFromPoints(
+			curve.getPoints(42),
+		);
+		const material = new THREE.LineBasicMaterial({
+			color: from.domainColor.clone().lerp(to.domainColor, 0.45),
+			transparent: true,
+			opacity: 0.24,
+			depthWrite: false,
+			blending: THREE.AdditiveBlending,
+		});
+		const line = new THREE.Line(geometry, material);
+		scene.add(line);
 
-			const labelElement = document.createElement("button");
-			labelElement.type = "button";
-			labelElement.className = "rp1-code-tour-edge-label";
-			labelElement.textContent = edge.label;
-			labelElement.addEventListener("click", (event) => {
-				event.stopPropagation();
-				onClick(edge);
-			});
-			const labelObject = new CSS2DObject(labelElement);
-			labelObject.position.copy(curve.getPoint(0.5));
-			scene.add(labelObject);
+		const labelElement = document.createElement("button");
+		labelElement.type = "button";
+		labelElement.className = "rp1-code-tour-edge-label";
+		labelElement.textContent = edge.label;
+		labelElement.addEventListener("click", (event) => {
+			event.stopPropagation();
+			onClick(edge);
+		});
+		const labelObject = new CSS2DObject(labelElement);
+		labelObject.position.copy(curve.getPoint(0.5));
+		scene.add(labelObject);
 
-			return { edge, line, material, geometry, labelObject, labelElement };
-		})
-		.filter((edge): edge is SceneEdge => edge !== null);
+		sceneEdges.push({
+			edge,
+			line,
+			material,
+			geometry,
+			labelObject,
+			labelElement,
+		});
+	}
+	return sceneEdges;
 }
 
 function animateScene(

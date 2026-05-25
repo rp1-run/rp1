@@ -24,7 +24,7 @@
 |---------|------|------------------|
 | CLI | Project setup, maintenance, artifact build, daemon launch | `rp1 init`, `rp1 install`, `rp1 arcade`, `rp1 arcade --daemon-only`, `rp1 arcade --format hook-json`, `rp1 build` |
 | Host Tool Integration | Conversational execution for slash-command workflows | `/write-content`, `/generate-user-docs`, `/build`, `/knowledge-build` |
-| Arcade Web UI | Live observability, artifact review, walkthrough slide reading, notification, file browsing, feedback | `/`, `/projects`, `/runs/:runId`, `/runs/:runId/artifacts/:path`, `/projects/:projectId/files/:path` |
+| Arcade Web UI | Live observability, artifact review, 3D Code Tour walkthrough reading, notification, file browsing, feedback | `/`, `/projects`, `/runs/:runId`, `/runs/:runId/artifacts/:path`, `/projects/:projectId/files/:path` |
 | Agent Tools CLI | Protocol surface for workflow state, path resolution, artifact registration | `rp1 agent-tools emit`, `resolve-args`, `rp1-root-dir`, `feedback` |
 | Reference Docs | Preflight discovery for harness-specific invocation and parameters | `docs/reference/`, `docs/arcade/` |
 | Init Wizard | Interactive terminal UI for project initialization | `rp1 init` |
@@ -42,7 +42,7 @@
 | kb_stale | KB behind HEAD but still readable; continue/rebuild/cancel gate | Host Tool |
 | connection_status | Live-update health vs reconnecting/fallback | Arcade |
 | annotation_status | Artifact feedback open or resolved | Arcade |
-| artifact_view_mode | Supported walkthrough artifacts can render as slides or markdown; unsupported or failed slide rendering uses markdown | Arcade |
+| artifact_view_mode | Valid Code Tour walkthrough artifacts can render in 3D or Source mode; invalid, unsupported, or failed 3D rendering uses Source mode with diagnostics | Arcade |
 | notification_attention | Per-notification attention level (action_required, attention, info) | Arcade |
 | frontmatter_visibility | Artifact/file frontmatter shown/hidden per view (sessionStorage) | Arcade |
 | run_metadata_visibility | Run invocation metadata shown/hidden (sessionStorage) | Arcade |
@@ -59,17 +59,17 @@
 | Emit-driven run projection | `event:notification` or `event:replay` arrives for a project | Browser stores `lastEventId`, reduces the event through `LiveRunIndex`, and patches only the affected run detail, feed rows, attention groups, and project summaries |
 | Snapshot reconciliation | Reconnect gap is too large for replay | Browser reconnects with the saved project cursor -> Server sends `state:snapshot` -> Client replaces the project's active-run subset and only refetches visible collections whose membership may now be stale |
 | Recovery fallback | Live socket is disconnected or replay was missed entirely | Persisted REST state plus disconnected-only polling restore the latest run truth without treating broad refresh as the normal workflow-status path |
-| Artifact viewing mode | Supported PR walkthrough artifact content loads in Arcade | Browser parses the fetched markdown contract -> valid decks default to Slides mode -> user can switch to Markdown -> unsupported, malformed, or failed slide rendering shows markdown with a fallback notice |
+| Artifact viewing mode | Supported PR walkthrough artifact content loads in Arcade | Browser parses the fetched Code Tour JSON contract -> valid tours default to 3D mode -> user can switch to Source -> unsupported, malformed, or failed 3D rendering shows source JSON with a fallback notice |
 
 ## Artifact Surface Behavior
 
 | Behavior | Contract |
 |----------|----------|
-| Walkthrough slide reader | File-backed markdown artifacts that declare `rp1_contract: pr-walkthrough-slide-source` and contain valid line-alone slide markers open in Slides mode from the existing artifact surface |
-| Markdown fallback | The original markdown content stays available in Markdown mode and is shown for unsupported artifacts, invalid contracts, parser failures, or Reveal.js render failures |
-| Reader navigation | Slides mode owns horizontal and vertical navigation, active-slide position, current-slide announcements, and Reveal speaker-view notes while evidence IDs stay in slide and markdown content |
+| Code Tour reader | File-backed JSON artifacts under `pr-walkthroughs/` that satisfy the Code Tour v1 contract open in 3D mode from the existing artifact surface |
+| Source fallback | The original JSON content stays available in Source mode and is shown with diagnostics for unsupported artifacts, invalid contracts, parser failures, unavailable WebGL, or Three.js render failures |
+| Reader navigation | 3D mode owns concept/fragment focus, relationship navigation, guided step controls, active fragment changes, and current-focus announcements while evidence-backed context stays in the JSON source |
 | Artifact context | Run artifact selection, content fetching, cache behavior, and path reconciliation stay on the existing artifact surface; no server API or artifact schema change is required |
-| Annotation behavior | Inline annotations remain on the markdown path; slide mode disables transformed-DOM annotation anchoring for this phase |
+| Annotation behavior | Inline annotations remain on the Source path; 3D mode keeps generated graph DOM separate from source-order annotation anchoring |
 
 ## Keyboard & Command System
 
@@ -89,7 +89,7 @@
 | Execution vs observability | Host tools do the work; Agent Tools carry protocol; Arcade shows passive status |
 | Responsive layout | Desktop: icon-rail sidebar + resizable panels. Mobile: bottom tab bar + drawers |
 | Workflow freshness source | Arcade: emitted workflow events hydrate `LiveRunIndex`, run detail, and attention/project surfaces via scope-aware global/project `lastEventId` cursors. Host tools: inline gates still come from the emitting workflow |
-| Artifact reader source | Host tools produce and register markdown artifacts; Arcade may add a contract-gated slide reader for supported PR walkthrough artifacts while retaining markdown fallback |
+| Artifact reader source | Host tools produce and register Code Tour JSON artifacts for PR walkthroughs; Arcade adds a contract-gated 3D reader while retaining Source fallback |
 | Browser/native runtime contract | Browser launch defaults to `hostMode=browser`; native launch appends `hostMode=native` and `cacheBust` while loading the same loopback Arcade SPA. Both host modes validate the no-store `/api/v2/runtime` contract before route-level WebSocket consumers mount |
 | Notification delivery | Arcade: real-time toasts with dedup + dismissible sidebar driven by the same emit stream. Host tools: inline gates |
 | Recovery semantics | Arcade reconnects with its saved cursor, replays missed events when possible, and falls back to bounded snapshot reconciliation or persisted REST recovery only when needed |
@@ -103,7 +103,7 @@
 - Reduced-motion fallback for all animations
 - Screen-reader aria-labels on status dots, notification triggers, commands
 - Live region announcements for ToC navigation and notifications
-- Walkthrough slide reader controls have accessible names, disabled boundary states, keyboard navigation, active-slide announcements, Reveal speaker-view notes, and a markdown fallback for source-order reading
+- Code Tour reader controls have accessible names, disabled boundary states, keyboard navigation, current-focus announcements, and Source fallback for source-order reading
 - Named emits and state-machine-aligned steps for meaningful dashboard labels
 - Namespaced sub-agent steps prevent timeline collisions
 - Notification items use attention-level-differentiated backgrounds for visual triage
