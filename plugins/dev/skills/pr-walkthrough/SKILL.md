@@ -1,6 +1,6 @@
 ---
 name: pr-walkthrough
-description: "Generate an evidence-grounded markdown walkthrough for a pull request."
+description: "Generate an evidence-grounded Code Tour walkthrough for a pull request."
 allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git *), Bash(gh *)
 metadata:
   category: review
@@ -13,9 +13,10 @@ metadata:
     - pr
     - review
     - walkthrough
-    - markdown
+    - code-tour
+    - json
   created: 2026-04-26
-  updated: 2026-04-26
+  updated: 2026-05-25
   author: cloud-on-prem/rp1
   arguments:
     - name: TARGET
@@ -33,7 +34,7 @@ metadata:
 
 # PR Walkthrough
 
-Generate a slide-ready markdown walkthrough from direct pull request evidence. The output is a reviewer-orientation artifact with plain markdown fallback, not a review verdict or rendered slide reader.
+Generate a Code Tour JSON walkthrough from direct pull request evidence. The output is a reviewer-orientation artifact for the 3D Code Tour reader, not a review verdict.
 
 Use the pre-resolved `projectRoot`, `kbRoot`, `workRoot`, and `codeRoot` values from the generated Workflow Bootstrap section. Run all source-control commands from `codeRoot`, and write generated artifacts only under `workRoot`.
 
@@ -164,7 +165,7 @@ Derive `review_id` as `pr-{number}` for PR targets. For branch-only targets, san
 After evidence collection succeeds, emit `publishing` running and dispatch the reporter:
 
 {% dispatch_agent "rp1-dev:pr-walkthrough-reporter" %}
-Generate an evidence-grounded slide-ready markdown PR walkthrough with plain markdown fallback.
+Generate one evidence-grounded Code Tour JSON PR walkthrough.
   EVIDENCE_JSON: {{stringify(EVIDENCE_JSON)}}
   KB_ROOT: {kbRoot}
   WORK_ROOT: {workRoot}
@@ -176,7 +177,7 @@ Generate an evidence-grounded slide-ready markdown PR walkthrough with plain mar
 Wait for completion. Parse the reporter output as single-line JSON:
 
 ```json
-{"path":"pr-walkthroughs/{REVIEW_ID}-walkthrough-{NNN}.md"}
+{"path":"pr-walkthroughs/{REVIEW_ID}-walkthrough-{NNN}.json"}
 ```
 
 If the reporter fails or the output cannot be parsed, emit `publishing` with `{"status":"failed","reason":"reporter failed"}` and stop.
@@ -185,10 +186,10 @@ Validate the returned path before registration:
 
 - It must be relative.
 - It must start with `pr-walkthroughs/`.
-- It must end with `.md`.
+- It must end with `.json`.
 - It must not contain `..`.
 
-Do not reject an otherwise valid reporter artifact because it contains the canonical slide-ready markdown contract fields, reserved `<!-- rp1-slide: ... -->` markers, slide metadata blocks, or `<!-- rp1-notes -->` speaker-note sections.
+Do not accept a markdown artifact path, secondary artifact path, or slide-oriented output for new walkthrough runs.
 
 ## 3. Register Artifact
 
@@ -200,7 +201,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step publishing \
-  --data '{"path": "{ARTIFACT_RELATIVE_PATH}", "feature": "{review_id}", "storageRoot": "work_dir", "format": "markdown"}'
+  --data '{"path": "{ARTIFACT_RELATIVE_PATH}", "feature": "{review_id}", "storageRoot": "work_dir", "format": "json"}'
 ```
 
 Then emit `publishing` completed:
@@ -234,5 +235,4 @@ Single pass. Do not:
 - Read existing `pr-review` artifacts.
 - Dispatch the reporter more than once.
 - Register more than one artifact.
-- Strip or forbid the canonical slide-ready markdown contract metadata, reserved slide markers, slide metadata blocks, or speaker notes.
-- Produce a rendered slide reader, alternate artifact path, extra artifact, or review verdict.
+- Accept markdown output, slide-marker output, an alternate artifact path, an extra artifact, or a review verdict.

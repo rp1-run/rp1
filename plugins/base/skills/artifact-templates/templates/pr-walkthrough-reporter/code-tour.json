@@ -1,0 +1,112 @@
+---
+scope: workRoot
+path_pattern: "pr-walkthroughs/{REVIEW_ID}-walkthrough-{NNN}.json"
+producer: pr-walkthrough-reporter
+type: data
+description: "Code Tour JSON PR walkthrough generated from direct PR evidence by /pr-walkthrough."
+strictness: flexible
+---
+
+{
+  "version": "1.0",
+  "kind": "pull-request",
+  "title": "{PR_TITLE}",
+  "source": {
+    "kind": "{source_kind}",
+    "repo": "{repo}",
+    "id": "{source_id}",
+    "url": "{source_url}",
+    "ref": "{head_ref}",
+    "createdAt": "{created_at}",
+    "author": {
+      "name": "{author_name}",
+      "handle": "{author_handle}"
+    }
+  },
+  "domains": {
+    "workflow": {
+      "label": "Workflow",
+      "color": "#7ad0ff"
+    },
+    "surface": {
+      "label": "Surface",
+      "color": "#ffbf69"
+    }
+  },
+  "concepts": [
+    {
+      "id": "concept-1",
+      "label": "{concept_label}",
+      "domain": "workflow",
+      "epicenter": true,
+      "summary": "{concept_summary_with_evidence_ids}",
+      "fragments": ["fragment-1"]
+    },
+    {
+      "id": "concept-2",
+      "label": "{related_concept_label}",
+      "domain": "surface",
+      "summary": "{related_concept_summary_with_evidence_ids}",
+      "fragments": ["fragment-2"]
+    }
+  ],
+  "fragments": [
+    {
+      "id": "fragment-1",
+      "label": "{fragment_label}",
+      "path": "{path}",
+      "line": 1,
+      "lineEnd": 1,
+      "tree": "{tree_group}",
+      "url": "{source_url}",
+      "language": "{language}",
+      "code": [
+        {
+          "type": "add",
+          "tokens": [["", "{source_excerpt_line}"]]
+        }
+      ],
+      "highlight": {
+        "lines": [0]
+      }
+    },
+    {
+      "id": "fragment-2",
+      "label": "{related_fragment_label}",
+      "path": "{related_path}",
+      "line": 1,
+      "language": "{related_language}",
+      "code": [
+        {
+          "tokens": [["", "{related_source_excerpt_line}"]]
+        }
+      ]
+    }
+  ],
+  "edges": {
+    "concept": [
+      {
+        "from": "concept-1",
+        "to": "concept-2",
+        "label": "{relationship_label}",
+        "kind": "{relationship_kind}"
+      }
+    ],
+    "fragment": [
+      {
+        "from": "fragment-1",
+        "to": "fragment-2",
+        "label": "{fragment_relationship_label}",
+        "kind": "{fragment_relationship_kind}"
+      }
+    ]
+  },
+  "tour": [
+    {
+      "conceptId": "concept-1",
+      "title": "{tour_step_title}",
+      "sub": "{tour_step_context}",
+      "reason": "{tour_step_reason_with_evidence_ids}"
+    }
+  ]
+}
