@@ -1,0 +1,711 @@
+.rp1-code-tour {
+  position: relative;
+  display: block;
+  height: 100%;
+  min-height: 680px;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  background: hsl(32 10% 8%);
+  color: hsl(40 14% 92%);
+  outline: none;
+}
+
+.rp1-code-tour:focus-visible {
+  outline: 2px solid hsl(var(--accent));
+  outline-offset: -2px;
+}
+
+.rp1-code-tour-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, hsl(32 10% 8%) 0%, hsl(34 9% 11%) 42%, hsl(28 10% 7%) 100%),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 39px,
+      rgb(210 190 160 / 0.035) 40px
+    );
+}
+
+.rp1-code-tour-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / 0.035), transparent 16%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 3px,
+      rgb(255 255 255 / 0.025) 4px
+    );
+  mix-blend-mode: screen;
+  opacity: 0.7;
+  z-index: 2;
+}
+
+.rp1-code-tour-canvas,
+.rp1-code-tour-label-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.rp1-code-tour-canvas {
+  z-index: 1;
+  display: block;
+}
+
+.rp1-code-tour-label-layer {
+  z-index: 3;
+  pointer-events: none;
+}
+
+.rp1-code-tour-canvas-hidden,
+.rp1-code-tour-label-layer-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.rp1-code-tour-hud,
+.rp1-code-tour-inspector,
+.rp1-code-tour-bottom-bar,
+.rp1-code-tour-diagnostic-panel {
+  background: rgb(23 21 18 / 0.88);
+  border: 1px solid rgb(218 196 164 / 0.18);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.38);
+  backdrop-filter: blur(16px);
+}
+
+.rp1-code-tour-hud {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 76px;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.rp1-code-tour-hud-copy {
+  min-width: 0;
+}
+
+.rp1-code-tour-hud-copy h2 {
+  margin: 2px 0;
+  overflow: hidden;
+  color: hsl(40 14% 94%);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp1-code-tour-hud-copy p {
+  margin: 0;
+  overflow: hidden;
+  color: rgb(218 205 184 / 0.66);
+  font-size: 11px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp1-code-tour-source {
+  color: rgb(146 211 219 / 0.9) !important;
+}
+
+.rp1-code-tour-toolbar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.rp1-code-tour-icon-button {
+  width: 34px;
+  height: 34px;
+  color: rgb(235 225 210 / 0.82);
+}
+
+.rp1-code-tour-icon-button:hover {
+  background: rgb(255 255 255 / 0.08);
+  color: hsl(40 16% 96%);
+}
+
+.rp1-code-tour-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid rgb(218 196 164 / 0.14);
+  border-radius: 7px;
+  background: rgb(255 255 255 / 0.045);
+}
+
+.rp1-code-tour-segment button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 94px;
+  height: 28px;
+  justify-content: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: rgb(218 205 184 / 0.68);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.rp1-code-tour-segment button.active {
+  background: rgb(201 163 89 / 0.18);
+  color: hsl(40 16% 94%);
+}
+
+.rp1-code-tour-inspector {
+  position: absolute;
+  top: 108px;
+  right: 16px;
+  bottom: 84px;
+  z-index: 5;
+  display: flex;
+  width: min(430px, calc(100% - 32px));
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  border-radius: 8px;
+  padding: 14px;
+  scrollbar-color: rgb(218 196 164 / 0.28) transparent;
+  scrollbar-width: thin;
+}
+
+.rp1-code-tour-inspector-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rp1-code-tour-inspector-head p,
+.rp1-code-tour-inspector-head span,
+.rp1-code-tour-section-title,
+.rp1-code-tour-step-sub {
+  color: rgb(218 205 184 / 0.66);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.rp1-code-tour-inspector-head h3 {
+  margin: 2px 0 0;
+  color: hsl(40 16% 94%);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.rp1-code-tour-step-reason,
+.rp1-code-tour-section p,
+.rp1-code-tour-relationships p {
+  margin: 0;
+  color: rgb(238 228 213 / 0.82);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.rp1-code-tour-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  border-top: 1px solid rgb(218 196 164 / 0.12);
+  padding-top: 12px;
+}
+
+.rp1-code-tour-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  text-transform: uppercase;
+}
+
+.rp1-code-tour-section h4 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: hsl(40 16% 94%);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.rp1-code-tour-domain-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.rp1-code-tour-fragment-tabs {
+  display: flex;
+  gap: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.rp1-code-tour-fragment-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 220px;
+  min-height: 30px;
+  flex: 0 0 auto;
+  border: 1px solid rgb(218 196 164 / 0.14);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.035);
+  color: rgb(218 205 184 / 0.72);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 5px 8px;
+}
+
+.rp1-code-tour-fragment-tabs button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp1-code-tour-fragment-tabs button small {
+  min-width: 20px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  color: rgb(218 205 184 / 0.62);
+  font-size: 10px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.rp1-code-tour-fragment-tabs button.active {
+  border-color: rgb(146 211 219 / 0.42);
+  background: rgb(146 211 219 / 0.12);
+  color: hsl(40 16% 94%);
+}
+
+.rp1-code-tour-fragment-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgb(218 196 164 / 0.14);
+  border-radius: 8px;
+  background: rgb(13 13 12 / 0.72);
+}
+
+.rp1-code-tour-fragment-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgb(218 196 164 / 0.12);
+  padding: 10px 12px;
+}
+
+.rp1-code-tour-fragment-card-head h4 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: hsl(40 16% 94%);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rp1-code-tour-fragment-card-head p {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  color: rgb(218 205 184 / 0.62);
+  font-size: 11px;
+}
+
+.rp1-code-tour-fragment-card-head a {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(218 196 164 / 0.14);
+  border-radius: 6px;
+  color: rgb(146 211 219 / 0.88);
+}
+
+.rp1-code-tour-code {
+  max-height: 240px;
+  overflow: auto;
+  padding: 8px 0;
+  color: rgb(232 225 214 / 0.86);
+  font-family: var(--font-mono, "Commit Mono", ui-monospace, monospace);
+  font-size: 11px;
+  line-height: 1.5;
+  scrollbar-color: rgb(218 196 164 / 0.28) transparent;
+  scrollbar-width: thin;
+}
+
+.rp1-code-tour-code-line {
+  display: grid;
+  grid-template-columns: 4ch 2ch minmax(42ch, max-content);
+  min-width: 58ch;
+  padding: 0 10px;
+  white-space: pre;
+}
+
+.rp1-code-tour-code-line.is-add {
+  border-left: 2px solid rgb(111 214 141 / 0.72);
+  background: rgb(111 214 141 / 0.1);
+  padding-left: 8px;
+}
+
+.rp1-code-tour-code-line.is-del {
+  border-left: 2px solid rgb(222 118 122 / 0.72);
+  background: rgb(222 118 122 / 0.1);
+  color: rgb(232 196 194 / 0.72);
+  padding-left: 8px;
+}
+
+.rp1-code-tour-code-line.is-highlighted {
+  background: rgb(201 163 89 / 0.16);
+}
+
+.rp1-code-tour-code-number,
+.rp1-code-tour-code-prefix {
+  color: rgb(218 205 184 / 0.42);
+  user-select: none;
+}
+
+.rp1-code-tour-code-line.is-add .rp1-code-tour-code-prefix {
+  color: rgb(111 214 141 / 0.95);
+}
+
+.rp1-code-tour-code-line.is-del .rp1-code-tour-code-prefix {
+  color: rgb(222 118 122 / 0.95);
+}
+
+.rp1-code-tour-token-keyword {
+  color: rgb(224 143 183);
+}
+
+.rp1-code-tour-token-function {
+  color: rgb(146 211 219);
+}
+
+.rp1-code-tour-token-string {
+  color: rgb(166 209 137);
+}
+
+.rp1-code-tour-token-number {
+  color: rgb(231 191 113);
+}
+
+.rp1-code-tour-token-comment {
+  color: rgb(154 144 130 / 0.76);
+  font-style: italic;
+}
+
+.rp1-code-tour-token-type {
+  color: rgb(171 183 226);
+}
+
+.rp1-code-tour-relationships {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rp1-code-tour-relationships button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 44px;
+  border: 1px solid rgb(218 196 164 / 0.14);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.035);
+  color: rgb(238 228 213 / 0.82);
+  cursor: pointer;
+  padding: 7px 8px;
+  text-align: left;
+}
+
+.rp1-code-tour-relationships button:hover {
+  border-color: rgb(146 211 219 / 0.42);
+  background: rgb(146 211 219 / 0.09);
+}
+
+.rp1-code-tour-relationships strong {
+  color: hsl(40 16% 94%);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.rp1-code-tour-relationships span {
+  color: rgb(218 205 184 / 0.58);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.rp1-code-tour-bottom-bar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(calc(100% - 32px), 620px);
+  min-height: 44px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  padding: 5px;
+}
+
+.rp1-code-tour-step-strip {
+  display: flex;
+  gap: 4px;
+  max-width: 420px;
+  overflow-x: auto;
+  padding: 2px;
+}
+
+.rp1-code-tour-step-strip button {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.045);
+  color: rgb(218 205 184 / 0.68);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.rp1-code-tour-step-strip button.active {
+  border-color: rgb(201 163 89 / 0.58);
+  background: rgb(201 163 89 / 0.22);
+  color: hsl(40 16% 94%);
+}
+
+.rp1-code-tour-node-label,
+.rp1-code-tour-edge-label {
+  pointer-events: auto;
+  border: 1px solid rgb(218 196 164 / 0.22);
+  border-radius: 5px;
+  background: rgb(17 16 14 / 0.9);
+  box-shadow: 0 10px 22px rgb(0 0 0 / 0.38);
+  color: rgb(238 228 213 / 0.78);
+  cursor: pointer;
+  font-family: var(--font-mono, "Commit Mono", ui-monospace, monospace);
+  text-shadow: 0 0 10px rgb(0 0 0 / 0.7);
+}
+
+.rp1-code-tour-node-label {
+  max-width: 240px;
+  overflow: hidden;
+  padding: 3px 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+.rp1-code-tour-node-label.concept {
+  text-transform: uppercase;
+}
+
+.rp1-code-tour-node-label.is-active,
+.rp1-code-tour-edge-label.is-active {
+  border-color: rgb(146 211 219 / 0.74);
+  background: rgb(23 46 48 / 0.94);
+  color: hsl(40 16% 96%);
+}
+
+.rp1-code-tour-node-label.is-muted {
+  opacity: 0.48;
+}
+
+.rp1-code-tour-edge-label {
+  max-width: 170px;
+  overflow: hidden;
+  padding: 3px 7px;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-size: 9px;
+}
+
+.rp1-code-tour-diagnostic {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 108px 16px 84px;
+}
+
+.rp1-code-tour-diagnostic-panel {
+  width: min(980px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.rp1-code-tour-diagnostic-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.rp1-code-tour-diagnostic-title p {
+  margin: 0;
+  color: rgb(146 211 219 / 0.9);
+  font-size: 11px;
+}
+
+.rp1-code-tour-diagnostic-title h3 {
+  margin: 1px 0 0;
+  color: hsl(40 16% 94%);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.rp1-code-tour-diagnostic-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.rp1-code-tour-diagnostic-concepts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rp1-code-tour-diagnostic-concepts button {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid rgb(218 196 164 / 0.14);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.035);
+  color: rgb(238 228 213 / 0.82);
+  cursor: pointer;
+  padding: 7px 8px;
+  text-align: left;
+}
+
+.rp1-code-tour-diagnostic-concepts button.active {
+  border-color: rgb(146 211 219 / 0.42);
+  background: rgb(146 211 219 / 0.1);
+}
+
+.rp1-code-tour-diagnostic-concepts button > span {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+
+.rp1-code-tour-diagnostic-concepts strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.rp1-code-tour-diagnostic-concepts small {
+  color: rgb(218 205 184 / 0.58);
+  font-size: 10px;
+}
+
+@media (max-width: 980px) {
+  .rp1-code-tour {
+    min-height: 760px;
+  }
+
+  .rp1-code-tour-hud {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .rp1-code-tour-toolbar {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .rp1-code-tour-segment {
+    flex: 1 1 190px;
+  }
+
+  .rp1-code-tour-segment button {
+    flex: 1;
+  }
+
+  .rp1-code-tour-inspector {
+    top: auto;
+    right: 12px;
+    bottom: 74px;
+    left: 12px;
+    width: auto;
+    max-height: 43%;
+  }
+
+  .rp1-code-tour-diagnostic-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .rp1-code-tour {
+    min-height: 840px;
+  }
+
+  .rp1-code-tour-hud {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+  }
+
+  .rp1-code-tour-inspector {
+    right: 10px;
+    left: 10px;
+  }
+
+  .rp1-code-tour-bottom-bar {
+    right: 10px;
+    left: 10px;
+    width: auto;
+    transform: none;
+  }
+
+  .rp1-code-tour-step-strip {
+    flex: 1;
+  }
+
+  .rp1-code-tour-code {
+    max-height: 190px;
+  }
+}
