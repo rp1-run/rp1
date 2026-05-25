@@ -122,14 +122,13 @@ scene.add(buildAmbientPoints());
 const conceptNodes = new Map();
 const fileNodes = new Map();
 
-// Each node is a single low-poly wireframe icosahedron — no inner solid.
-// Phosphor, additive blending; opacity drives state.
-// Subdivision 1 = 80 faces — sparse enough to read as a "wireframe sketch"
-// without becoming a dense triangle mat.
-const wireGeom = new THREE.IcosahedronGeometry(0.82, 1);
+// Node shape: solid dodecahedron — 12 pentagonal faces, 30 edges. Platonic
+// solid with more presence than an octahedron, still crisp and geometric.
+const NODE_RADIUS = 0.8;
+const nodeGeom = new THREE.DodecahedronGeometry(NODE_RADIUS);
+const nodeEdgesGeom = new THREE.EdgesGeometry(nodeGeom);
 
-// Equatorial orbital ring rendered as a Line (always 1px) instead of a Mesh
-// band — true hairline rather than a thick disk.
+// Equatorial concept-ring (kept) — slightly outside the orbital cage.
 const ringPoints = [];
 const RING_SEGMENTS = 128;
 const RING_RADIUS = 1.55;
@@ -153,17 +152,33 @@ function buildNode(node, kind, position, baseScale) {
   anchor.userData = { id: node.id, kind };
   scene.add(anchor);
 
-  const wireMat = new THREE.MeshBasicMaterial({
+  // Solid dodecahedron body — soft additive fill that reads as "filled"
+  // without flat shading. Doubles as the raycast target.
+  const bodyMat = new THREE.MeshBasicMaterial({
     color: PHOSPHOR,
-    wireframe: true,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.22,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const wireMesh = new THREE.Mesh(nodeGeom, bodyMat);
+  wireMesh.userData = { id: node.id, kind };
+  anchor.add(wireMesh);
+
+  // Sharp edge seams — the 30 ridges of the dodecahedron in one LineSegments.
+  const edgeMat = new THREE.LineBasicMaterial({
+    color: PHOSPHOR,
+    transparent: true,
+    opacity: 0.9,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-  const wireMesh = new THREE.Mesh(wireGeom, wireMat);
-  wireMesh.userData = { id: node.id, kind };
-  anchor.add(wireMesh);
+  const edgeLines = new THREE.LineSegments(nodeEdgesGeom, edgeMat);
+  wireMesh.add(edgeLines);
+
+  // Body stays ~28% of the edge brightness so the fill is subtle, edges crisp.
+  const orbMats = [bodyMat, edgeMat];
 
   // Concept nodes get a subtle dashed orbital ring → "this is a cluster".
   // Hairline Line (always 1px) lying in the horizontal plane; the dashes
@@ -220,9 +235,9 @@ function buildNode(node, kind, position, baseScale) {
 
   return {
     mesh: anchor,
-    wireMesh,
+    wireMesh,        // invisible hit sphere + parent of the orbital rings
+    orbMats,         // three Line materials — animate for state opacity
     ring, label, labelEl,
-    wireMat,
     pole, poleMat,
     node, kind,
     target: position.clone(),    // layout target — spring pulls here
@@ -676,17 +691,20 @@ function updateNodeSet(nodes, isActive, focusIds, bridgeIds, bootMul) {
 
     // Boot cascade: each node ramps in with its own delay.
     const boot = bootMul(obj.spawnDelay);
-    obj.wireMat.opacity = THREE.MathUtils.lerp(obj.wireMat.opacity, wireT * boot, 0.14);
-    obj.wireMesh.visible = obj.wireMat.opacity > 0.005;
+    const liveOpacity = wireT * boot;
+    // Body is dim fill, edges are crisp seams.
+    obj.orbMats[0].opacity = THREE.MathUtils.lerp(obj.orbMats[0].opacity, liveOpacity * 0.28, 0.14);
+    obj.orbMats[1].opacity = THREE.MathUtils.lerp(obj.orbMats[1].opacity, liveOpacity, 0.14);
+    obj.wireMesh.visible = obj.orbMats[1].opacity > 0.005;
 
-    // Flag-pole tether — slightly dimmer than the wireframe, brighter on focus.
+    // Flag-pole tether — slightly dimmer than the rings, brighter on focus.
     const poleT = isFocus ? 0.8 : isBridge ? 0.5 : 0.28;
     obj.poleMat.opacity = THREE.MathUtils.lerp(obj.poleMat.opacity, (isActive && domainOk ? poleT : 0.04) * boot, 0.14);
     obj.pole.visible = obj.wireMesh.visible;
 
     // Brighten the wire on focus (white-hot tint via material.color shift).
     const targetCol = isFocus ? new THREE.Color(0xc4ffe6) : new THREE.Color(PHOSPHOR);
-    obj.wireMat.color.lerp(targetCol, 0.1);
+    obj.orbMats.forEach((m) => m.color.lerp(targetCol, 0.1));
 
     if (obj.ring) {
       const ringT = !isActive ? 0 : isFocus ? 0.7 : 0.28;
