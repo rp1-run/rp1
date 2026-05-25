@@ -4,15 +4,13 @@ import {
 	type SaveStatus,
 	UnifiedContentRenderer,
 } from "@/components/v2/UnifiedContentRenderer";
-import { WalkthroughRevealReader } from "@/components/v2/WalkthroughRevealReader";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import {
 	type CodeTourSourceResult,
 	parseCodeTourSource,
 } from "@/lib/code-tour-source";
-import type { WalkthroughDeck } from "@/lib/walkthrough-slide-source";
 
-export type ArtifactContentMode = "tour" | "slides" | "markdown";
+export type ArtifactContentMode = "tour" | "markdown";
 
 export interface ContentPanelProps {
 	readonly content: string | null;
@@ -31,12 +29,9 @@ export interface ContentPanelProps {
 	readonly filePath?: string;
 	readonly enableAnnotations?: boolean;
 	readonly contentMode?: ArtifactContentMode;
-	readonly walkthroughDeck?: WalkthroughDeck | null;
-	readonly walkthroughFallbackMessage?: string | null;
 	readonly codeTourSource?: CodeTourSourceResult | null;
 	readonly codeTourFallbackMessage?: string | null;
 	readonly onContentModeChange?: (mode: ArtifactContentMode) => void;
-	readonly onWalkthroughRenderFailure?: (message: string) => void;
 	readonly onCodeTourRenderFailure?: (message: string) => void;
 	readonly scrollViewportRef?: React.RefObject<HTMLDivElement>;
 }
@@ -57,12 +52,9 @@ export function ContentPanel({
 	filePath,
 	enableAnnotations = true,
 	contentMode = "markdown",
-	walkthroughDeck = null,
-	walkthroughFallbackMessage = null,
 	codeTourSource,
 	codeTourFallbackMessage = null,
 	onContentModeChange,
-	onWalkthroughRenderFailure,
 	onCodeTourRenderFailure,
 	onSaveStatusChange,
 }: ContentPanelProps) {
@@ -73,18 +65,16 @@ export function ContentPanel({
 		contentMode === "tour" && codeTourResult?.kind === "tour"
 			? codeTourResult.tour
 			: null;
-	const slideDeck = contentMode === "slides" && path ? walkthroughDeck : null;
-	const immersiveContent = codeTour ?? slideDeck;
 
 	return (
 		<div
 			className={
-				immersiveContent
+				codeTour
 					? "h-full min-h-[680px] max-w-full min-w-0 p-4"
 					: "artifact-viewer-content max-w-full min-w-0 break-words px-4 md:px-[40px]"
 			}
 			style={
-				immersiveContent
+				codeTour
 					? undefined
 					: {
 							paddingTop: "16px",
@@ -112,16 +102,7 @@ export function ContentPanel({
 						tour={codeTour}
 						path={path}
 						onSourceModeRequested={() => onContentModeChange?.("markdown")}
-						onRenderFailure={
-							onCodeTourRenderFailure ?? onWalkthroughRenderFailure
-						}
-					/>
-				) : slideDeck ? (
-					<WalkthroughRevealReader
-						deck={slideDeck}
-						path={path}
-						onMarkdownModeRequested={() => onContentModeChange?.("markdown")}
-						onRenderFailure={onWalkthroughRenderFailure}
+						onRenderFailure={onCodeTourRenderFailure}
 					/>
 				) : (
 					<>
@@ -129,7 +110,6 @@ export function ContentPanel({
 							source={codeTourResult}
 							renderFailureMessage={codeTourFallbackMessage}
 						/>
-						<WalkthroughFallbackNotice message={walkthroughFallbackMessage} />
 						<UnifiedContentRenderer
 							content={content}
 							path={path}
@@ -180,24 +160,6 @@ export function CodeTourFallbackNotice({
 					</pre>
 				)}
 			</div>
-		</div>
-	);
-}
-
-export function WalkthroughFallbackNotice({
-	message,
-}: {
-	readonly message: string | null;
-}) {
-	if (!message) return null;
-
-	return (
-		<div className="mb-4 flex gap-2 rounded border border-border bg-surface px-3 py-2 type-secondary text-fg-muted">
-			<AlertCircle
-				className="mt-0.5 h-3.5 w-3.5 shrink-0 text-fg-ghost"
-				aria-hidden="true"
-			/>
-			<p>{message}</p>
 		</div>
 	);
 }

@@ -9,7 +9,6 @@ import {
 	type LucideIcon,
 	MessageSquare,
 	PanelLeft,
-	Presentation,
 } from "lucide-react";
 import {
 	useCallback,
@@ -47,7 +46,6 @@ import { LinkSidebar } from "@/components/v2/LinkSidebar";
 import { NewUpdatesChip } from "@/components/v2/NewUpdatesChip";
 import { TableOfContents } from "@/components/v2/TableOfContents";
 import { UnifiedContentRenderer } from "@/components/v2/UnifiedContentRenderer";
-import { WalkthroughRevealReader } from "@/components/v2/WalkthroughRevealReader";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
@@ -67,7 +65,6 @@ import {
 	orderArtifactsWithLinksLast,
 } from "@/lib/link-artifacts";
 import { resolveRunDisplayName } from "@/lib/run-display";
-import { parseWalkthroughSlideSource } from "@/lib/walkthrough-slide-source";
 
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
@@ -138,43 +135,6 @@ function isSameArtifactContent(
 		left.path === right.path &&
 		left.content === right.content &&
 		left.docId === right.docId
-	);
-}
-
-function getWalkthroughFallbackMessage(
-	result: ReturnType<typeof parseWalkthroughSlideSource> | null,
-): string | null {
-	if (result?.kind !== "fallback") return null;
-
-	switch (result.reason) {
-		case "unsupported-contract-version":
-		case "invalid-slide-marker":
-		case "missing-horizontal-slide":
-		case "vertical-without-horizontal":
-		case "missing-slide-metadata":
-		case "invalid-slide-metadata":
-		case "invalid-slide-depth":
-			return `${result.message} Showing the markdown artifact instead.`;
-		default:
-			return null;
-	}
-}
-
-function WalkthroughFallbackNotice({
-	message,
-}: {
-	readonly message: string | null;
-}) {
-	if (!message) return null;
-
-	return (
-		<div className="mb-4 flex gap-2 rounded border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
-			<AlertCircle
-				className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-70"
-				aria-hidden="true"
-			/>
-			<p>{message}</p>
-		</div>
 	);
 }
 
@@ -308,7 +268,7 @@ export function ArtifactViewerPage() {
 	const [artifactContent, setArtifactContent] =
 		useState<ArtifactContent | null>(null);
 	const [artifactContentMode, setArtifactContentMode] =
-		useState<ArtifactContentMode>("slides");
+		useState<ArtifactContentMode>("tour");
 	const [readerFallbackMessage, setReaderFallbackMessage] = useState<
 		string | null
 	>(null);
@@ -405,42 +365,19 @@ export function ArtifactViewerPage() {
 		});
 	}, [artifactContent, selectedFileArtifact]);
 	const codeTour = codeTourResult?.kind === "tour" ? codeTourResult.tour : null;
-	const walkthroughResult = useMemo(() => {
-		if (!artifactContent || !selectedFileArtifact || codeTourResult)
-			return null;
-		return parseWalkthroughSlideSource({
-			artifact: selectedFileArtifact,
-			markdown: artifactContent.content,
-		});
-	}, [artifactContent, codeTourResult, selectedFileArtifact]);
-	const walkthroughDeck =
-		walkthroughResult?.kind === "deck" ? walkthroughResult.deck : null;
 	const codeTourModeAvailable = codeTour !== null;
-	const slideModeAvailable = walkthroughDeck !== null;
-	const parserFallbackMessage =
-		getWalkthroughFallbackMessage(walkthroughResult);
 	const codeTourFallbackMessage = codeTourResult ? readerFallbackMessage : null;
-	const walkthroughFallbackMessage = codeTourResult
-		? null
-		: (readerFallbackMessage ?? parserFallbackMessage);
 	const effectiveArtifactContentMode: ArtifactContentMode =
 		codeTourModeAvailable && artifactContentMode !== "markdown"
 			? "tour"
-			: slideModeAvailable && artifactContentMode === "slides"
-				? "slides"
-				: "markdown";
+			: "markdown";
 	const contentModeOptions: readonly ArtifactContentModeOption[] =
 		codeTourModeAvailable
 			? [
 					{ value: "tour", label: "3D", icon: Box },
 					{ value: "markdown", label: "Source", icon: FileText },
 				]
-			: slideModeAvailable
-				? [
-						{ value: "slides", label: "Slides", icon: Presentation },
-						{ value: "markdown", label: "Markdown", icon: FileText },
-					]
-				: [];
+			: [];
 
 	useEffect(() => {
 		if (run?.projectName && run?.projectId) {
@@ -491,10 +428,7 @@ export function ArtifactViewerPage() {
 	}, [selectedUrlArtifact]);
 
 	useEffect(() => {
-		if (
-			effectiveArtifactContentMode === "slides" ||
-			effectiveArtifactContentMode === "tour"
-		) {
+		if (effectiveArtifactContentMode === "tour") {
 			setTocCollapsed(true);
 			setTocDrawerOpen(false);
 			setHeadings([]);
@@ -584,11 +518,6 @@ export function ArtifactViewerPage() {
 		},
 		[],
 	);
-
-	const handleWalkthroughRenderFailure = useCallback((message: string) => {
-		setReaderFallbackMessage(message);
-		setArtifactContentMode("markdown");
-	}, []);
 
 	const handleCodeTourRenderFailure = useCallback((message: string) => {
 		setReaderFallbackMessage(message);
@@ -694,7 +623,7 @@ export function ArtifactViewerPage() {
 				setContentLoading(true);
 				setHeadings([]);
 				setActiveHeadingId(null);
-				setArtifactContentMode("slides");
+				setArtifactContentMode("tour");
 				setReaderFallbackMessage(null);
 			}
 			setContentError(null);
@@ -850,7 +779,6 @@ export function ArtifactViewerPage() {
 	const handleKeyDown = useCallback(
 		(event: KeyboardEvent) => {
 			const target = event.target as HTMLElement;
-			if (target.closest(".rp1-walkthrough-reader")) return;
 			if (target.closest(".rp1-code-tour")) return;
 			const isTextInput =
 				target.tagName === "INPUT" ||
@@ -858,8 +786,7 @@ export function ArtifactViewerPage() {
 				target.isContentEditable;
 
 			if (
-				(effectiveArtifactContentMode === "slides" ||
-					effectiveArtifactContentMode === "tour") &&
+				effectiveArtifactContentMode === "tour" &&
 				event.key.startsWith("Arrow")
 			) {
 				return;
@@ -1070,22 +997,12 @@ export function ArtifactViewerPage() {
 						}
 						onRenderFailure={handleCodeTourRenderFailure}
 					/>
-				) : effectiveArtifactContentMode === "slides" && walkthroughDeck ? (
-					<WalkthroughRevealReader
-						deck={walkthroughDeck}
-						path={artifactContent.path}
-						onMarkdownModeRequested={() =>
-							handleArtifactContentModeChange("markdown")
-						}
-						onRenderFailure={handleWalkthroughRenderFailure}
-					/>
 				) : (
 					<>
 						<CodeTourFallbackNotice
 							source={codeTourResult}
 							renderFailureMessage={codeTourFallbackMessage}
 						/>
-						<WalkthroughFallbackNotice message={walkthroughFallbackMessage} />
 						<UnifiedContentRenderer
 							content={artifactContent.content}
 							path={artifactContent.path}
