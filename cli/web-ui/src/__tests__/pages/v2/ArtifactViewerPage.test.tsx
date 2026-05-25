@@ -85,6 +85,8 @@ let run: Run = baseRun;
 
 const walkthroughArtifactPath =
 	".rp1/work/pr-walkthroughs/pr-42-walkthrough-001.md";
+const codeTourArtifactPath =
+	".rp1/work/pr-walkthroughs/pr-42-walkthrough-001.json";
 const walkthroughSlideSource = `---
 rp1_contract: pr-walkthrough-slide-source
 rp1_contract_version: "1.0.0"
@@ -105,6 +107,62 @@ evidence: [E-PR-001]
 
 Review checkout. E-PR-001
 `;
+
+const codeTourSource = JSON.stringify({
+	version: "1.0",
+	kind: "pr-walkthrough-code-tour",
+	title: "Checkout Code Tour",
+	source: {
+		kind: "pull_request",
+		repo: "example/repo",
+		id: "42",
+	},
+	domains: {
+		ui: {
+			label: "Arcade UI",
+			color: "#7ad0ff",
+		},
+	},
+	concepts: [
+		{
+			id: "artifact-viewer",
+			label: "Artifact Viewer",
+			domain: "ui",
+			epicenter: true,
+			summary: "Routes Code Tour artifacts to the 3D reader.",
+			fragments: ["artifact-viewer-page"],
+		},
+	],
+	fragments: [
+		{
+			id: "artifact-viewer-page",
+			label: "ArtifactViewerPage",
+			path: "cli/web-ui/src/pages/v2/ArtifactViewerPage.tsx",
+			line: 1,
+			language: "tsx",
+			code: [
+				{
+					tokens: [
+						["kw", "export"],
+						["", " function ArtifactViewerPage() {}"],
+					],
+				},
+			],
+		},
+	],
+	edges: {
+		concept: [],
+		fragment: [],
+	},
+	tour: [
+		{
+			conceptId: "artifact-viewer",
+			title: "Open the 3D route",
+			sub: "Artifact route",
+			reason: "Valid Code Tour JSON should default to the 3D reader.",
+		},
+	],
+});
 
 mock.module("@/hooks/useRunDetail", () => ({
 	useRunDetail: () => ({
@@ -320,6 +378,44 @@ mock.module(
 	() => walkthroughRevealReaderMock,
 );
 
+const codeTourReaderMock = {
+	CodeTour3DReader: ({
+		tour,
+		path,
+		onSourceModeRequested,
+		onRenderFailure,
+	}: {
+		readonly tour: { readonly title: string };
+		readonly path: string;
+		readonly onSourceModeRequested?: () => void;
+		readonly onRenderFailure?: (message: string) => void;
+	}) => (
+		<div data-testid="code-tour-reader" data-path={path}>
+			<span>{tour.title}</span>
+			<button
+				type="button"
+				aria-label="Mock code tour source mode"
+				onClick={onSourceModeRequested}
+			>
+				Source
+			</button>
+			<button
+				type="button"
+				aria-label="Mock code tour render failure"
+				onClick={() =>
+					onRenderFailure?.("Mock Code Tour render failed. Showing source.")
+				}
+			>
+				Fail tour
+			</button>
+		</div>
+	),
+};
+
+mock.module("@/components/v2/CodeTour3DReader", () => codeTourReaderMock);
+
+mock.module("@/components/v2/CodeTour3DReader.tsx", () => codeTourReaderMock);
+
 function RegistryProbe() {
 	latestRegistry = useShortcutRegistry();
 	return null;
@@ -491,6 +587,181 @@ describe("ArtifactViewerPage", () => {
 				.getByRole("button", { name: "Markdown" })
 				.getAttribute("aria-pressed"),
 		).toBe("true");
+	});
+
+	test("renders valid Code Tour artifacts in 3D mode and can switch to source", async () => {
+		run = {
+			...baseRun,
+			artifacts: [
+				{
+					docId: "doc-code-tour",
+					path: codeTourArtifactPath,
+					absolutePath: `/repo/${codeTourArtifactPath}`,
+					type: "other",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "pr-walkthrough",
+				},
+			],
+		};
+		global.fetch = mock(async () => ({
+			ok: true,
+			json: async () => ({ content: codeTourSource }),
+		})) as unknown as typeof fetch;
+
+		await renderArtifactViewerPage(
+			`/runs/run-1/artifacts/${codeTourArtifactPath}`,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("code-tour-reader").dataset.path).toBe(
+				codeTourArtifactPath,
+			);
+		});
+		expect(screen.getByText("Checkout Code Tour")).toBeTruthy();
+		expect(
+			screen.getByRole("button", { name: "3D" }).getAttribute("aria-pressed"),
+		).toBe("true");
+		expect(screen.queryByTestId("walkthrough-reader")).toBeNull();
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "Mock code tour source mode" }),
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("artifact-renderer").textContent).toContain(
+				`${codeTourArtifactPath}:`,
+			);
+		});
+		expect(
+			screen
+				.getByRole("button", { name: "Source" })
+				.getAttribute("aria-pressed"),
+		).toBe("true");
+	});
+
+	test("keeps Code Tour render failures on the source JSON path", async () => {
+		run = {
+			...baseRun,
+			artifacts: [
+				{
+					docId: "doc-code-tour",
+					path: codeTourArtifactPath,
+					absolutePath: `/repo/${codeTourArtifactPath}`,
+					type: "other",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "pr-walkthrough",
+				},
+			],
+		};
+		global.fetch = mock(async () => ({
+			ok: true,
+			json: async () => ({ content: codeTourSource }),
+		})) as unknown as typeof fetch;
+
+		await renderArtifactViewerPage(
+			`/runs/run-1/artifacts/${codeTourArtifactPath}`,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("code-tour-reader")).toBeTruthy();
+		});
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "Mock code tour render failure" }),
+		);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText("Mock Code Tour render failed. Showing source."),
+			).toBeTruthy();
+			expect(screen.getByTestId("artifact-renderer").textContent).toContain(
+				`${codeTourArtifactPath}:`,
+			);
+		});
+		expect(screen.queryByTestId("code-tour-reader")).toBeNull();
+		expect(
+			screen
+				.getByRole("button", { name: "Source" })
+				.getAttribute("aria-pressed"),
+		).toBe("true");
+	});
+
+	test("shows diagnostic source fallback for unsupported Code Tour artifacts", async () => {
+		run = {
+			...baseRun,
+			artifacts: [
+				{
+					docId: "doc-code-tour",
+					path: codeTourArtifactPath,
+					absolutePath: `/repo/${codeTourArtifactPath}`,
+					type: "other",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "pr-walkthrough",
+				},
+			],
+		};
+		global.fetch = mock(async () => ({
+			ok: true,
+			json: async () => ({
+				content: codeTourSource.replace('"version":"1.0"', '"version":"9.9"'),
+			}),
+		})) as unknown as typeof fetch;
+
+		await renderArtifactViewerPage(
+			`/runs/run-1/artifacts/${codeTourArtifactPath}`,
+		);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText(
+					"This Code Tour artifact could not be rendered. Showing the source JSON instead.",
+				),
+			).toBeTruthy();
+		});
+		expect(screen.getByText(/Unsupported Code Tour version/)).toBeTruthy();
+		expect(screen.getByTestId("artifact-renderer").textContent).toContain(
+			`${codeTourArtifactPath}:`,
+		);
+		expect(screen.queryByTestId("code-tour-reader")).toBeNull();
+		expect(screen.queryByTestId("walkthrough-reader")).toBeNull();
+		expect(screen.queryByRole("button", { name: "Slides" })).toBeNull();
+	});
+
+	test("shows diagnostic source fallback for malformed Code Tour JSON", async () => {
+		run = {
+			...baseRun,
+			artifacts: [
+				{
+					docId: "doc-code-tour",
+					path: codeTourArtifactPath,
+					absolutePath: `/repo/${codeTourArtifactPath}`,
+					type: "other",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "pr-walkthrough",
+				},
+			],
+		};
+		global.fetch = mock(async () => ({
+			ok: true,
+			json: async () => ({ content: "{" }),
+		})) as unknown as typeof fetch;
+
+		await renderArtifactViewerPage(
+			`/runs/run-1/artifacts/${codeTourArtifactPath}`,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText(/Malformed JSON/)).toBeTruthy();
+		});
+		expect(screen.getByTestId("artifact-renderer").textContent).toBe(
+			`${codeTourArtifactPath}:{`,
+		);
+		expect(screen.queryByTestId("code-tour-reader")).toBeNull();
+		expect(screen.queryByTestId("walkthrough-reader")).toBeNull();
 	});
 
 	test("keeps pr-review artifacts on the markdown path without slide controls", async () => {

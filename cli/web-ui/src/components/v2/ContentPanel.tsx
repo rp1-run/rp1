@@ -1,13 +1,18 @@
 import { AlertCircle, Loader2 } from "lucide-react";
+import { CodeTour3DReader } from "@/components/v2/CodeTour3DReader";
 import {
 	type SaveStatus,
 	UnifiedContentRenderer,
 } from "@/components/v2/UnifiedContentRenderer";
 import { WalkthroughRevealReader } from "@/components/v2/WalkthroughRevealReader";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
+import {
+	type CodeTourSourceResult,
+	parseCodeTourSource,
+} from "@/lib/code-tour-source";
 import type { WalkthroughDeck } from "@/lib/walkthrough-slide-source";
 
-export type ArtifactContentMode = "slides" | "markdown";
+export type ArtifactContentMode = "tour" | "slides" | "markdown";
 
 export interface ContentPanelProps {
 	readonly content: string | null;
@@ -28,8 +33,11 @@ export interface ContentPanelProps {
 	readonly contentMode?: ArtifactContentMode;
 	readonly walkthroughDeck?: WalkthroughDeck | null;
 	readonly walkthroughFallbackMessage?: string | null;
+	readonly codeTourSource?: CodeTourSourceResult | null;
+	readonly codeTourFallbackMessage?: string | null;
 	readonly onContentModeChange?: (mode: ArtifactContentMode) => void;
 	readonly onWalkthroughRenderFailure?: (message: string) => void;
+	readonly onCodeTourRenderFailure?: (message: string) => void;
 	readonly scrollViewportRef?: React.RefObject<HTMLDivElement>;
 }
 
@@ -51,21 +59,32 @@ export function ContentPanel({
 	contentMode = "markdown",
 	walkthroughDeck = null,
 	walkthroughFallbackMessage = null,
+	codeTourSource,
+	codeTourFallbackMessage = null,
 	onContentModeChange,
 	onWalkthroughRenderFailure,
+	onCodeTourRenderFailure,
 	onSaveStatusChange,
 }: ContentPanelProps) {
+	const codeTourResult =
+		codeTourSource ??
+		(content !== null && path ? parseCodeTourSource({ path, content }) : null);
+	const codeTour =
+		contentMode === "tour" && codeTourResult?.kind === "tour"
+			? codeTourResult.tour
+			: null;
 	const slideDeck = contentMode === "slides" && path ? walkthroughDeck : null;
+	const immersiveContent = codeTour ?? slideDeck;
 
 	return (
 		<div
 			className={
-				slideDeck
+				immersiveContent
 					? "h-full min-h-[680px] max-w-full min-w-0 p-4"
 					: "artifact-viewer-content max-w-full min-w-0 break-words px-4 md:px-[40px]"
 			}
 			style={
-				slideDeck
+				immersiveContent
 					? undefined
 					: {
 							paddingTop: "16px",
@@ -88,7 +107,16 @@ export function ContentPanel({
 					<p className="mt-2 type-secondary text-fg-ghost">{error}</p>
 				</div>
 			) : content !== null && path ? (
-				slideDeck ? (
+				codeTour ? (
+					<CodeTour3DReader
+						tour={codeTour}
+						path={path}
+						onSourceModeRequested={() => onContentModeChange?.("markdown")}
+						onRenderFailure={
+							onCodeTourRenderFailure ?? onWalkthroughRenderFailure
+						}
+					/>
+				) : slideDeck ? (
 					<WalkthroughRevealReader
 						deck={slideDeck}
 						path={path}
@@ -97,6 +125,10 @@ export function ContentPanel({
 					/>
 				) : (
 					<>
+						<CodeTourFallbackNotice
+							source={codeTourResult}
+							renderFailureMessage={codeTourFallbackMessage}
+						/>
 						<WalkthroughFallbackNotice message={walkthroughFallbackMessage} />
 						<UnifiedContentRenderer
 							content={content}
@@ -119,6 +151,35 @@ export function ContentPanel({
 					<span className="text-fg-ghost">{emptyMessage}</span>
 				</div>
 			)}
+		</div>
+	);
+}
+
+export function CodeTourFallbackNotice({
+	source,
+	renderFailureMessage,
+}: {
+	readonly source: CodeTourSourceResult | null;
+	readonly renderFailureMessage?: string | null;
+}) {
+	const diagnostic = source?.kind === "diagnostic" ? source : null;
+	const message = renderFailureMessage ?? diagnostic?.message ?? null;
+	if (!message) return null;
+
+	return (
+		<div className="mb-4 flex gap-2 rounded border border-border bg-surface px-3 py-2 type-secondary text-fg-muted">
+			<AlertCircle
+				className="mt-0.5 h-3.5 w-3.5 shrink-0 text-fg-ghost"
+				aria-hidden="true"
+			/>
+			<div className="min-w-0">
+				<p>{message}</p>
+				{diagnostic?.detail && (
+					<pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border bg-background px-2 py-1 font-mono text-[11px] leading-relaxed text-fg-ghost">
+						{diagnostic.detail}
+					</pre>
+				)}
+			</div>
 		</div>
 	);
 }

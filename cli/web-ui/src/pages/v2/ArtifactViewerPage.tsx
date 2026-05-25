@@ -1,10 +1,12 @@
 import {
 	AlertCircle,
 	ArrowLeft,
+	Box,
 	ChevronRight,
 	FileText,
 	List,
 	Loader2,
+	type LucideIcon,
 	MessageSquare,
 	PanelLeft,
 	Presentation,
@@ -34,7 +36,11 @@ import {
 } from "@/components/ui/tooltip";
 import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
 import { ArtifactSidebar } from "@/components/v2/ArtifactSidebar";
-import type { ArtifactContentMode } from "@/components/v2/ContentPanel";
+import { CodeTour3DReader } from "@/components/v2/CodeTour3DReader";
+import {
+	type ArtifactContentMode,
+	CodeTourFallbackNotice,
+} from "@/components/v2/ContentPanel";
 import { FollowModeToggle } from "@/components/v2/FollowModeToggle";
 import { KeyHints, VIEWER_HINTS } from "@/components/v2/KeyHints";
 import { LinkSidebar } from "@/components/v2/LinkSidebar";
@@ -51,6 +57,7 @@ import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
+import { parseCodeTourSource } from "@/lib/code-tour-source";
 import {
 	getLinkArtifactLabel,
 	getLinkArtifactTarget,
@@ -76,18 +83,21 @@ interface ArtifactContent {
 	docId?: string;
 }
 
+interface ArtifactContentModeOption {
+	readonly value: ArtifactContentMode;
+	readonly label: string;
+	readonly icon: LucideIcon;
+}
+
 function ArtifactContentModeControl({
 	mode,
+	modes,
 	onModeChange,
 }: {
 	readonly mode: ArtifactContentMode;
+	readonly modes: readonly ArtifactContentModeOption[];
 	readonly onModeChange: (mode: ArtifactContentMode) => void;
 }) {
-	const modes = [
-		{ value: "slides", label: "Slides", icon: Presentation },
-		{ value: "markdown", label: "Markdown", icon: FileText },
-	] as const;
-
 	return (
 		<fieldset className="inline-flex h-8 shrink-0 items-center rounded border border-border bg-background p-0.5">
 			<legend className="sr-only">Artifact viewing mode</legend>
@@ -387,24 +397,50 @@ export function ArtifactViewerPage() {
 		if (!run) return null;
 		return selectedArtifactName ?? run.projectName;
 	}, [run, selectedArtifactName]);
-	const walkthroughResult = useMemo(() => {
+	const codeTourResult = useMemo(() => {
 		if (!artifactContent || !selectedFileArtifact) return null;
+		return parseCodeTourSource({
+			artifact: selectedFileArtifact,
+			content: artifactContent.content,
+		});
+	}, [artifactContent, selectedFileArtifact]);
+	const codeTour = codeTourResult?.kind === "tour" ? codeTourResult.tour : null;
+	const walkthroughResult = useMemo(() => {
+		if (!artifactContent || !selectedFileArtifact || codeTourResult)
+			return null;
 		return parseWalkthroughSlideSource({
 			artifact: selectedFileArtifact,
 			markdown: artifactContent.content,
 		});
-	}, [artifactContent, selectedFileArtifact]);
+	}, [artifactContent, codeTourResult, selectedFileArtifact]);
 	const walkthroughDeck =
 		walkthroughResult?.kind === "deck" ? walkthroughResult.deck : null;
+	const codeTourModeAvailable = codeTour !== null;
 	const slideModeAvailable = walkthroughDeck !== null;
 	const parserFallbackMessage =
 		getWalkthroughFallbackMessage(walkthroughResult);
-	const walkthroughFallbackMessage =
-		readerFallbackMessage ?? parserFallbackMessage;
+	const codeTourFallbackMessage = codeTourResult ? readerFallbackMessage : null;
+	const walkthroughFallbackMessage = codeTourResult
+		? null
+		: (readerFallbackMessage ?? parserFallbackMessage);
 	const effectiveArtifactContentMode: ArtifactContentMode =
-		slideModeAvailable && artifactContentMode === "slides"
-			? "slides"
-			: "markdown";
+		codeTourModeAvailable && artifactContentMode !== "markdown"
+			? "tour"
+			: slideModeAvailable && artifactContentMode === "slides"
+				? "slides"
+				: "markdown";
+	const contentModeOptions: readonly ArtifactContentModeOption[] =
+		codeTourModeAvailable
+			? [
+					{ value: "tour", label: "3D", icon: Box },
+					{ value: "markdown", label: "Source", icon: FileText },
+				]
+			: slideModeAvailable
+				? [
+						{ value: "slides", label: "Slides", icon: Presentation },
+						{ value: "markdown", label: "Markdown", icon: FileText },
+					]
+				: [];
 
 	useEffect(() => {
 		if (run?.projectName && run?.projectId) {
@@ -455,7 +491,10 @@ export function ArtifactViewerPage() {
 	}, [selectedUrlArtifact]);
 
 	useEffect(() => {
-		if (effectiveArtifactContentMode === "slides") {
+		if (
+			effectiveArtifactContentMode === "slides" ||
+			effectiveArtifactContentMode === "tour"
+		) {
 			setTocCollapsed(true);
 			setTocDrawerOpen(false);
 			setHeadings([]);
@@ -547,6 +586,11 @@ export function ArtifactViewerPage() {
 	);
 
 	const handleWalkthroughRenderFailure = useCallback((message: string) => {
+		setReaderFallbackMessage(message);
+		setArtifactContentMode("markdown");
+	}, []);
+
+	const handleCodeTourRenderFailure = useCallback((message: string) => {
 		setReaderFallbackMessage(message);
 		setArtifactContentMode("markdown");
 	}, []);
@@ -807,13 +851,15 @@ export function ArtifactViewerPage() {
 		(event: KeyboardEvent) => {
 			const target = event.target as HTMLElement;
 			if (target.closest(".rp1-walkthrough-reader")) return;
+			if (target.closest(".rp1-code-tour")) return;
 			const isTextInput =
 				target.tagName === "INPUT" ||
 				target.tagName === "TEXTAREA" ||
 				target.isContentEditable;
 
 			if (
-				effectiveArtifactContentMode === "slides" &&
+				(effectiveArtifactContentMode === "slides" ||
+					effectiveArtifactContentMode === "tour") &&
 				event.key.startsWith("Arrow")
 			) {
 				return;
@@ -1015,7 +1061,16 @@ export function ArtifactViewerPage() {
 					<p className="text-lg">Select an artifact from the sidebar</p>
 				</div>
 			) : artifactContent ? (
-				effectiveArtifactContentMode === "slides" && walkthroughDeck ? (
+				effectiveArtifactContentMode === "tour" && codeTour ? (
+					<CodeTour3DReader
+						tour={codeTour}
+						path={artifactContent.path}
+						onSourceModeRequested={() =>
+							handleArtifactContentModeChange("markdown")
+						}
+						onRenderFailure={handleCodeTourRenderFailure}
+					/>
+				) : effectiveArtifactContentMode === "slides" && walkthroughDeck ? (
 					<WalkthroughRevealReader
 						deck={walkthroughDeck}
 						path={artifactContent.path}
@@ -1026,6 +1081,10 @@ export function ArtifactViewerPage() {
 					/>
 				) : (
 					<>
+						<CodeTourFallbackNotice
+							source={codeTourResult}
+							renderFailureMessage={codeTourFallbackMessage}
+						/>
 						<WalkthroughFallbackNotice message={walkthroughFallbackMessage} />
 						<UnifiedContentRenderer
 							content={artifactContent.content}
@@ -1116,9 +1175,10 @@ export function ArtifactViewerPage() {
 						</TooltipProvider>
 
 						<div className="flex items-center gap-2">
-							{slideModeAvailable && (
+							{contentModeOptions.length > 0 && (
 								<ArtifactContentModeControl
 									mode={effectiveArtifactContentMode}
+									modes={contentModeOptions}
 									onModeChange={handleArtifactContentModeChange}
 								/>
 							)}
@@ -1340,9 +1400,10 @@ export function ArtifactViewerPage() {
 							role="toolbar"
 							aria-label="Artifact viewer controls"
 						>
-							{slideModeAvailable && (
+							{contentModeOptions.length > 0 && (
 								<ArtifactContentModeControl
 									mode={effectiveArtifactContentMode}
+									modes={contentModeOptions}
 									onModeChange={handleArtifactContentModeChange}
 								/>
 							)}
