@@ -17,7 +17,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); f
 
 #stage {
   position: fixed;
-  inset: 0 360px 0 0;
+  /* Sidebar overlays the canvas as a slide-in panel instead of stealing
+     width, so the renderer doesn't have to resize on toggle. */
+  inset: 0;
   background:
     radial-gradient(ellipse at 50% 55%, rgba(20, 60, 50, 0.55) 0%, rgba(4, 10, 9, 1.0) 60%, #02060a 100%);
   overflow: hidden;
@@ -117,8 +119,13 @@ aside#sidebar {
   border-left: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  z-index: 5;
+  z-index: 6;
+  /* Hidden off the right edge by default; the Info button slides it in. */
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(.4, 0, .2, 1);
+  box-shadow: -16px 0 40px rgba(0, 0, 0, 0.45);
 }
+aside#sidebar.open { transform: translateX(0); }
 #sidebar header {
   padding: 18px 18px 14px;
   border-bottom: 1px solid var(--line);
@@ -219,6 +226,49 @@ aside#sidebar {
   border-radius: 12px;
   z-index: 4;
   min-width: 240px;
+}
+
+/* Floating bottom control bar — primary navigation when the sidebar is hidden. */
+#bottombar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  gap: 4px;
+  background: var(--card-bg);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 5px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 18px rgba(93, 255, 196, 0.08);
+}
+#bottombar button {
+  background: transparent;
+  border: 0;
+  color: var(--fg);
+  padding: 9px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: background-color 0.15s ease-out, color 0.15s ease-out;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+#bottombar button:hover { background: rgba(255, 255, 255, 0.06); }
+#bottombar button.primary {
+  background: var(--accent);
+  color: #07090f;
+  font-weight: 600;
+}
+#bottombar button.primary:hover { background: #9ee0ff; }
+#bottombar button[aria-pressed="true"] {
+  background: rgba(93, 255, 196, 0.18);
+  color: #c4ffe6;
 }
 .step-indicator { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
 .step-title { font-size: 16px; font-weight: 600; margin-top: 2px; }

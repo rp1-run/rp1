@@ -614,6 +614,17 @@ function buildSidebar() {
   document.getElementById("next").addEventListener("click", nextStep);
   document.getElementById("prev").addEventListener("click", prevStep);
 
+  // Floating bottom-bar controls. Info toggles the sidebar overlay; Prev/Next
+  // mirror the sidebar footer buttons so the bar is fully functional alone.
+  document.getElementById("bb-prev").addEventListener("click", prevStep);
+  document.getElementById("bb-next").addEventListener("click", nextStep);
+  const sidebarEl = document.getElementById("sidebar");
+  const infoBtn = document.getElementById("bb-info");
+  infoBtn.addEventListener("click", () => {
+    const open = sidebarEl.classList.toggle("open");
+    infoBtn.setAttribute("aria-pressed", open ? "true" : "false");
+  });
+
   document.querySelector(".pr-num").textContent = `${PR.repo} · PR #${PR.number}`;
   document.querySelector(".pr-title").textContent = PR.title;
 }
@@ -994,9 +1005,13 @@ canvas.addEventListener("dblclick", (e) => {
 // ─── Keyboard ──────────────────────────────────────────────────────────────
 
 window.addEventListener("keydown", (e) => {
-  if (e.target.tagName === "TEXTAREA") return;
+  if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
   if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); nextStep(); }
   else if (e.key === "ArrowLeft") { e.preventDefault(); prevStep(); }
+  else if (e.key === "i" || e.key === "I") {
+    e.preventDefault();
+    document.getElementById("bb-info").click();
+  }
 });
 
 // ─── Boot ──────────────────────────────────────────────────────────────────
