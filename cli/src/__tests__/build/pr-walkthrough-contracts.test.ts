@@ -55,6 +55,9 @@ describe("pr-walkthrough build contracts", () => {
 		expect(skill.metadata?.subAgents).toEqual([
 			"rp1-dev:pr-walkthrough-reporter",
 		]);
+		expect(skill.allowedTools?.split(",").map((tool) => tool.trim())).toContain(
+			"Read",
+		);
 		expect(skill.metadata?.arguments?.map((arg) => arg.name)).toEqual([
 			"TARGET",
 			"BASE_BRANCH",
@@ -94,12 +97,58 @@ describe("pr-walkthrough build contracts", () => {
 		expect(skill.content).toContain("It must start with `pr-walkthroughs/`.");
 		expect(skill.content).toContain("It must end with `.json`.");
 		expect(skill.content).toContain("It must not contain `..`.");
+		expect(skill.content).toContain(
+			"{workRoot}/{ARTIFACT_RELATIVE_PATH}` must exist and be readable.",
+		);
 		expect(skill.content).toContain("Code Tour JSON");
 		expect(skill.content).toContain("Do not accept a markdown artifact path");
 		expect(skill.content).not.toContain("slide-ready markdown");
 		expect(skill.content).not.toContain("plain markdown fallback");
 		expect(skill.content).not.toContain("rp1-slide:");
 		expect(skill.content).not.toContain("rp1-notes");
+	});
+
+	test("skill fails invalid Code Tour output before artifact registration", async () => {
+		const skillDir = join(projectRoot, "plugins/dev/skills/pr-walkthrough");
+		const skill = await expectTaskRight(parseSkill(skillDir));
+
+		const validationStart = skill.content.indexOf(
+			"Validate the returned path and content before registration:",
+		);
+		const registrationStart = skill.content.indexOf("## 3. Register Artifact");
+
+		expect(validationStart).toBeGreaterThan(-1);
+		expect(registrationStart).toBeGreaterThan(validationStart);
+
+		const validationSection = skill.content.slice(
+			validationStart,
+			registrationStart,
+		);
+		expect(validationSection).toContain(
+			"Load the artifact content from `{workRoot}/{ARTIFACT_RELATIVE_PATH}`",
+		);
+		expect(validationSection).toContain("The file content must parse as JSON.");
+		expect(validationSection).toContain(
+			"The parsed JSON must satisfy the Code Tour v1 semantic contract from `cli/shared/code-tour.ts`",
+		);
+		expect(validationSection).toContain('`version` is `"1.0"`');
+		expect(validationSection).toContain("concept and fragment IDs are unique");
+		expect(validationSection).toContain(
+			"edge endpoints resolve within their layer",
+		);
+		expect(validationSection).toContain("tour `conceptId` values resolve");
+		expect(validationSection).toContain(
+			"fragment token pairs use supported token kinds",
+		);
+		expect(validationSection).toContain("invalid Code Tour artifact");
+		expect(validationSection).toContain("missing Code Tour artifact");
+		expect(validationSection).toContain("stop without registering an artifact");
+		expect(validationSection).not.toContain("--type artifact_registered");
+
+		const registrationSection = skill.content.slice(registrationStart);
+		expect(registrationSection).toContain(
+			"only after path, file-existence, JSON parse, and Code Tour semantic validation pass",
+		);
 	});
 
 	test("reporter requires evidence-grounded Code Tour JSON output", async () => {

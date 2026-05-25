@@ -1,7 +1,7 @@
 ---
 name: pr-walkthrough
 description: "Generate an evidence-grounded Code Tour walkthrough for a pull request."
-allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git *), Bash(gh *)
+allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git *), Bash(gh *), Read
 metadata:
   category: review
   is_workflow: true
@@ -182,18 +182,23 @@ Wait for completion. Parse the reporter output as single-line JSON:
 
 If the reporter fails or the output cannot be parsed, emit `publishing` with `{"status":"failed","reason":"reporter failed"}` and stop.
 
-Validate the returned path before registration:
+Validate the returned path and content before registration:
 
 - It must be relative.
 - It must start with `pr-walkthroughs/`.
 - It must end with `.json`.
 - It must not contain `..`.
+- `{workRoot}/{ARTIFACT_RELATIVE_PATH}` must exist and be readable.
+- The file content must parse as JSON.
+- The parsed JSON must satisfy the Code Tour v1 semantic contract from `cli/shared/code-tour.ts`: `version` is `"1.0"`, required document fields exist, concept and fragment IDs are unique, domain references resolve, concept fragment references resolve, edge endpoints resolve within their layer, tour `conceptId` values resolve, and fragment token pairs use supported token kinds.
 
-Do not accept a markdown artifact path, secondary artifact path, or slide-oriented output for new walkthrough runs.
+Load the artifact content from `{workRoot}/{ARTIFACT_RELATIVE_PATH}` after path validation. If the artifact is missing, unreadable, malformed JSON, or invalid Code Tour content, emit `publishing` with `{"status":"failed","reason":"invalid Code Tour artifact: {FIRST_VALIDATION_ISSUE}"}` and stop without registering an artifact. For a missing file, use reason `missing Code Tour artifact: {ARTIFACT_RELATIVE_PATH}`.
+
+Do not accept a markdown artifact path, secondary artifact path, invalid Code Tour JSON, missing output, or slide-oriented output for new walkthrough runs.
 
 ## 3. Register Artifact
 
-Register the reporter output during `publishing`:
+Register the reporter output during `publishing` only after path, file-existence, JSON parse, and Code Tour semantic validation pass:
 
 ```bash
 rp1 agent-tools emit \
