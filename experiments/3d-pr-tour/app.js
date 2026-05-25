@@ -268,7 +268,24 @@ function buildEdges(spec, nodes) {
     });
     const line = new THREE.Line(geom, mat);
     scene.add(line);
-    out.push({ line, from: e.from, to: e.to, mat, geom, kind: e.kind, curve });
+
+    // Edge label as a CSS2DObject anchored at the curve midpoint. Position is
+    // updated each frame so the label follows when a node is dragged.
+    let labelObj = null, labelEl = null;
+    if (e.label) {
+      labelEl = document.createElement("div");
+      labelEl.className = `edge-label ${e.kind === "sibling" ? "sibling" : ""}`;
+      labelEl.textContent = e.label;
+      labelObj = new CSS2DObject(labelEl);
+      labelObj.position.copy(curve.getPoint(0.5));
+      scene.add(labelObj);
+    }
+
+    out.push({
+      line, from: e.from, to: e.to,
+      mat, geom, kind: e.kind, curve,
+      labelObj, labelEl,
+    });
   }
   return out;
 }
@@ -729,12 +746,21 @@ function updateEdgeSet(edges, nodes, isActive, focusIds) {
     e.mat.color.lerp(targetColor, 0.15);
     e.line.visible = e.mat.opacity > 0.005;
 
-    // recompute curve in case nodes have moved
+    // recompute curve in case nodes have moved (drag, layout switch, spring)
     e.curve = curveBetween(a.mesh.position, b.mesh.position);
     const pts = e.curve.getPoints(40);
     const positions = e.geom.attributes.position;
     for (let i = 0; i < pts.length; i++) positions.setXYZ(i, pts[i].x, pts[i].y, pts[i].z);
     positions.needsUpdate = true;
+
+    // Label rides the curve midpoint and reflects focus state. Only visible
+    // when the edge itself is visible enough to be readable context.
+    if (e.labelObj) {
+      e.labelObj.position.copy(e.curve.getPoint(0.5));
+      e.labelObj.visible = isActive && aLive && bLive && e.mat.opacity > 0.08;
+      e.labelEl.classList.toggle("focus", touchesFocus);
+      e.labelEl.classList.toggle("dim", !touchesFocus);
+    }
   }
 }
 

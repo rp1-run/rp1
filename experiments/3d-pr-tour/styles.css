@@ -313,6 +313,43 @@ aside#sidebar.open { transform: translateX(0); }
   box-shadow: 0 0 18px rgba(93, 255, 196, 0.35);
 }
 
+/* Edge labels — small rectangular HUD chips at the midpoint of each edge.
+   No flagpole; the label IS the edge's annotation, anchored visually to
+   the curve it sits on. CSS2DRenderer auto-centres them on the projected
+   midpoint via the default center (0.5, 0.5). */
+.edge-label {
+  font-size: 9.5px;
+  color: #cdffe8;
+  background: rgba(3, 12, 10, 0.92);
+  border: 1px solid rgba(93, 255, 196, 0.4);
+  border-radius: 3px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  pointer-events: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 0 3px rgba(93, 255, 196, 0.3);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
+}
+.edge-label.sibling {
+  /* intra-concept edges feel quieter — slightly muted */
+  font-style: italic;
+  border-style: dashed;
+}
+.edge-label.dim {
+  opacity: 0.4;
+  background: rgba(3, 12, 10, 0.7);
+  border-color: rgba(93, 255, 196, 0.18);
+}
+.edge-label.focus {
+  color: #f4fff9;
+  background: rgba(15, 50, 40, 0.95);
+  border-color: rgba(150, 255, 215, 0.85);
+  text-shadow: 0 0 5px rgba(93, 255, 196, 0.6);
+  box-shadow: 0 0 14px rgba(93, 255, 196, 0.3);
+}
+
 /* Fragment card — pinned to a screen slot, not to any 3D node. The cord
    connects whichever node is currently focused TO the card. */
 #card-host {
