@@ -1515,6 +1515,7 @@ function buildSceneEdges({
 		destinationButton.addEventListener("click", (event) => {
 			event.stopPropagation();
 			onDestinationClick(edge);
+			blurPointerActivatedButton(event);
 		});
 		destinationButton.addEventListener("keydown", (event) => {
 			if (event.key !== "Enter" || !event.shiftKey) return;
@@ -1533,6 +1534,7 @@ function buildSceneEdges({
 		sourceButton.addEventListener("click", (event) => {
 			event.stopPropagation();
 			onSourceClick(edge);
+			blurPointerActivatedButton(event);
 		});
 
 		const forwardButton = document.createElement("button");
@@ -1548,6 +1550,7 @@ function buildSceneEdges({
 		forwardButton.addEventListener("click", (event) => {
 			event.stopPropagation();
 			onDestinationClick(edge);
+			blurPointerActivatedButton(event);
 		});
 
 		const navElement = document.createElement("div");
@@ -1576,6 +1579,11 @@ function buildSceneEdges({
 		});
 	}
 	return sceneEdges;
+}
+
+function blurPointerActivatedButton(event: MouseEvent) {
+	if (event.detail === 0) return;
+	(event.currentTarget as HTMLButtonElement).blur();
 }
 
 function buildEdgeParticles({

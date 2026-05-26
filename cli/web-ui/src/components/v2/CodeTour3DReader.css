@@ -920,7 +920,6 @@
   background: var(--ct-scene-label-bg);
   box-shadow: 0 10px 22px var(--ct-scene-label-shadow);
   color: var(--ct-scene-label-text);
-  cursor: pointer;
   font-family: var(--font-mono, "Commit Mono", ui-monospace, monospace);
   text-shadow: 0 0 4px color-mix(in srgb, var(--ct-scene-label-text) 34%, transparent);
 }
@@ -936,6 +935,7 @@
   padding: 3px 8px;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
   font-size: 10px;
   letter-spacing: 0.04em;
 }
@@ -964,6 +964,7 @@
   padding: 0;
   text-transform: uppercase;
   white-space: nowrap;
+  cursor: default;
   font-size: 9px;
 }
 
@@ -1040,7 +1041,7 @@
   transition:
     opacity 0.12s ease-out,
     transform 0.12s ease-out;
-  transition-delay: 0.12s;
+  transition-delay: 0s;
 }
 
 .rp1-code-tour-edge-label:hover .rp1-code-tour-edge-label-nav,
