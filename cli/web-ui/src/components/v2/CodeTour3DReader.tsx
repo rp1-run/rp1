@@ -76,6 +76,11 @@ interface SceneEdge {
 	readonly line: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>;
 	readonly material: THREE.LineBasicMaterial;
 	readonly geometry: THREE.BufferGeometry;
+	readonly arrowhead: THREE.LineSegments<
+		THREE.BufferGeometry,
+		THREE.LineBasicMaterial
+	>;
+	readonly arrowMaterial: THREE.LineBasicMaterial;
 	readonly particlePoints: THREE.Points<
 		THREE.BufferGeometry,
 		THREE.PointsMaterial
@@ -145,8 +150,18 @@ const NODE_LABEL_POLE_GEOMETRY = new THREE.BufferGeometry().setFromPoints([
 	new THREE.Vector3(0, 0.42, 0),
 	new THREE.Vector3(0, 1.58, 0),
 ]);
+const EDGE_ARROWHEAD_GEOMETRY = new THREE.BufferGeometry().setFromPoints([
+	new THREE.Vector3(-0.16, -0.16, 0),
+	new THREE.Vector3(0, 0.2, 0),
+	new THREE.Vector3(0.16, -0.16, 0),
+	new THREE.Vector3(0, 0.2, 0),
+]);
 const EDGE_PARTICLES_PER_EDGE = 4;
 const EDGE_PARTICLE_SPEED = 0.075;
+const EDGE_ARROWHEAD_T = 0.72;
+const EDGE_ARROWHEAD_UP = new THREE.Vector3(0, 1, 0);
+const EDGE_ARROWHEAD_POINT = new THREE.Vector3();
+const EDGE_ARROWHEAD_TANGENT = new THREE.Vector3();
 const EDGE_PARTICLE_VECTOR = new THREE.Vector3();
 const EDGE_PARTICLE_TARGET_COLOR = new THREE.Color();
 const EDGE_PARTICLE_ACCENT_COLOR = new THREE.Color();
@@ -1481,6 +1496,20 @@ function buildSceneEdges({
 		const line = new THREE.Line(geometry, material);
 		scene.add(line);
 
+		const arrowMaterial = new THREE.LineBasicMaterial({
+			color: baseColor,
+			transparent: true,
+			opacity: 0,
+			depthWrite: false,
+			blending: sceneMaterialBlending(theme),
+		});
+		const arrowhead = new THREE.LineSegments(
+			EDGE_ARROWHEAD_GEOMETRY,
+			arrowMaterial,
+		);
+		positionEdgeArrowhead(arrowhead, curve);
+		scene.add(arrowhead);
+
 		const particles = buildEdgeParticles({
 			curve,
 			color: baseColor
@@ -1545,6 +1574,8 @@ function buildSceneEdges({
 			line,
 			material,
 			geometry,
+			arrowhead,
+			arrowMaterial,
 			particlePoints: particles.points,
 			particleGeometry: particles.geometry,
 			particleMaterial: particles.material,
@@ -1555,6 +1586,20 @@ function buildSceneEdges({
 		});
 	}
 	return sceneEdges;
+}
+
+function positionEdgeArrowhead(
+	arrowhead: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>,
+	curve: THREE.QuadraticBezierCurve3,
+) {
+	arrowhead.position.copy(
+		curve.getPoint(EDGE_ARROWHEAD_T, EDGE_ARROWHEAD_POINT),
+	);
+	arrowhead.quaternion.setFromUnitVectors(
+		EDGE_ARROWHEAD_UP,
+		curve.getTangent(EDGE_ARROWHEAD_T, EDGE_ARROWHEAD_TANGENT).normalize(),
+	);
+	arrowhead.renderOrder = 2;
 }
 
 function buildEdgeParticles({
@@ -1767,6 +1812,29 @@ function updateEdgeVisualState(
 	NODE_TARGET_COLOR.set(isActive ? sceneTheme.glowHot : sceneTheme.glow);
 	edge.material.color.lerp(NODE_TARGET_COLOR, 0.15);
 	edge.line.visible = edge.material.opacity > 0.02;
+	const arrowTargetOpacity = !isMode
+		? 0
+		: isActive
+			? theme === "light"
+				? 0.92
+				: 0.9
+			: theme === "light"
+				? 0.56
+				: 0.34;
+	edge.arrowMaterial.opacity = THREE.MathUtils.lerp(
+		edge.arrowMaterial.opacity,
+		arrowTargetOpacity,
+		0.12,
+	);
+	edge.arrowMaterial.color.lerp(NODE_TARGET_COLOR, 0.15);
+	const targetScale = isActive ? 1.18 : 1;
+	const nextScale = THREE.MathUtils.lerp(
+		edge.arrowhead.scale.x,
+		targetScale,
+		0.1,
+	);
+	edge.arrowhead.scale.setScalar(nextScale);
+	edge.arrowhead.visible = edge.arrowMaterial.opacity > 0.02;
 	edge.labelObject.visible = isMode && edge.material.opacity > 0.08;
 	edge.labelElement.classList.toggle("is-active", isActive);
 	updateEdgeParticles(edge, isMode, isActive, theme);
@@ -2084,6 +2152,7 @@ function disposeNodeMap(nodes: ReadonlyMap<string, SceneNode>) {
 function disposeEdges(edges: readonly SceneEdge[]) {
 	for (const edge of edges) {
 		edge.material.dispose();
+		edge.arrowMaterial.dispose();
 		edge.geometry.dispose();
 		edge.particleMaterial.dispose();
 		edge.particleGeometry.dispose();
