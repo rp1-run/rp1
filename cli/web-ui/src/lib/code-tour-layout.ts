@@ -3,7 +3,6 @@ import { layout as dagreLayout, Graph } from "@dagrejs/dagre";
 import type {
 	CodeTourViewConcept,
 	CodeTourViewEdge,
-	CodeTourViewFragment,
 	CodeTourViewModel,
 } from "@/lib/code-tour-view-model";
 
@@ -22,6 +21,7 @@ interface LayoutNode {
 	readonly id: string;
 	readonly label: string;
 	readonly weight: number;
+	readonly lane: number;
 	readonly epicenter?: boolean;
 }
 
@@ -40,6 +40,7 @@ interface LayoutOptions {
 	readonly targetDepth: number;
 	readonly ranksep: number;
 	readonly nodesep: number;
+	readonly laneSpacing: number;
 	readonly verticalLift: number;
 }
 
@@ -50,6 +51,7 @@ const CONCEPT_LAYOUT: LayoutOptions = {
 	targetDepth: 16,
 	ranksep: 5.8,
 	nodesep: 3.2,
+	laneSpacing: 4.8,
 	verticalLift: 1.3,
 };
 
@@ -60,6 +62,7 @@ const FRAGMENT_LAYOUT: LayoutOptions = {
 	targetDepth: 18,
 	ranksep: 5.2,
 	nodesep: 2.7,
+	laneSpacing: 3.8,
 	verticalLift: 1.1,
 };
 
@@ -75,14 +78,17 @@ export function buildCodeTourSceneLayout(
 function layoutConcepts(
 	tour: CodeTourViewModel,
 ): ReadonlyMap<string, CodeTourLayoutPoint> {
-	const nodes = tour.concepts.map((concept) => ({
+	const domainLaneById = new Map(
+		tour.domains.map((domain, index) => [domain.id, index]),
+	);
+	const nodes = tour.concepts.map((concept, index) => ({
 		id: concept.id,
 		label: concept.label,
 		weight: concept.changeCount,
+		lane: domainLaneById.get(concept.domain.id) ?? index,
 		epicenter: concept.epicenter,
 	}));
-	const stepEdges = sequentialStepEdges(tour);
-	const edges = [...visibleEdges(tour.conceptEdges, 3), ...stepEdges];
+	const edges = visibleEdges(tour.conceptEdges, 3);
 
 	return layoutNodes(nodes, edges, CONCEPT_LAYOUT);
 }
@@ -90,20 +96,19 @@ function layoutConcepts(
 function layoutFragments(
 	tour: CodeTourViewModel,
 ): ReadonlyMap<string, CodeTourLayoutPoint> {
+	const conceptLaneById = new Map(
+		tour.concepts.map((concept, index) => [concept.id, index]),
+	);
 	const nodes = tour.fragments.map((fragment) => ({
 		id: fragment.id,
 		label: fragment.label,
 		weight: fragment.changeCount,
+		lane: conceptLaneById.get(fragment.conceptId) ?? 0,
 	}));
 	const intraConceptEdges = tour.concepts.flatMap((concept) =>
 		sequentialFragmentEdges(tour, concept),
 	);
-	const stepEdges = sequentialStepFragmentEdges(tour);
-	const edges = [
-		...visibleEdges(tour.fragmentEdges, 3),
-		...intraConceptEdges,
-		...stepEdges,
-	];
+	const edges = [...visibleEdges(tour.fragmentEdges, 3), ...intraConceptEdges];
 
 	return layoutNodes(nodes, edges, FRAGMENT_LAYOUT);
 }
@@ -166,14 +171,22 @@ function normalizeLayout(
 	graph: Graph<GraphLabel, NodeLabel, EdgeLabel>,
 	options: LayoutOptions,
 ): ReadonlyMap<string, CodeTourLayoutPoint> {
+	const laneIndexByValue = new Map(
+		Array.from(new Set(nodes.map((node) => node.lane)))
+			.sort((left, right) => left - right)
+			.map((lane, index) => [lane, index]),
+	);
+	const laneCenter = (laneIndexByValue.size - 1) / 2;
 	const rawPositions = nodes
 		.map((node, index) => {
 			const point = graph.node(node.id);
+			const laneIndex = laneIndexByValue.get(node.lane) ?? 0;
+			const laneOffset = (laneIndex - laneCenter) * options.laneSpacing;
 			return {
 				node,
 				index,
 				x: finiteNumber(point?.x) ? point.x : index * options.nodesep,
-				z: finiteNumber(point?.y) ? point.y : 0,
+				z: (finiteNumber(point?.y) ? point.y : 0) + laneOffset,
 			};
 		})
 		.sort((left, right) => left.index - right.index);
@@ -239,25 +252,6 @@ function visibleEdges(
 	}));
 }
 
-function sequentialStepEdges(tour: CodeTourViewModel): readonly LayoutEdge[] {
-	const edges: LayoutEdge[] = [];
-	for (let index = 1; index < tour.steps.length; index += 1) {
-		const previous = tour.steps[index - 1];
-		const current = tour.steps[index];
-		if (!previous || !current || previous.conceptId === current.conceptId) {
-			continue;
-		}
-		edges.push({
-			id: `tour-step:${index}`,
-			from: previous.conceptId,
-			to: current.conceptId,
-			weight: 1,
-			minlen: 1,
-		});
-	}
-	return edges;
-}
-
 function sequentialFragmentEdges(
 	tour: CodeTourViewModel,
 	concept: CodeTourViewConcept,
@@ -277,38 +271,6 @@ function sequentialFragmentEdges(
 		});
 	}
 	return edges;
-}
-
-function sequentialStepFragmentEdges(
-	tour: CodeTourViewModel,
-): readonly LayoutEdge[] {
-	const edges: LayoutEdge[] = [];
-	for (let index = 1; index < tour.steps.length; index += 1) {
-		const previous = firstFragmentForConcept(
-			tour,
-			tour.steps[index - 1]?.conceptId ?? "",
-		);
-		const current = firstFragmentForConcept(
-			tour,
-			tour.steps[index]?.conceptId ?? "",
-		);
-		if (!previous || !current || previous.id === current.id) continue;
-		edges.push({
-			id: `tour-step-fragment:${index}`,
-			from: previous.id,
-			to: current.id,
-			weight: 1,
-			minlen: 1,
-		});
-	}
-	return edges;
-}
-
-function firstFragmentForConcept(
-	tour: CodeTourViewModel,
-	conceptId: string,
-): CodeTourViewFragment | null {
-	return tour.fragmentsByConceptId.get(conceptId)?.[0] ?? null;
 }
 
 function finiteNumber(value: unknown): value is number {

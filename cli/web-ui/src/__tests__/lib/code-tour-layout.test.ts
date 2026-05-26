@@ -315,12 +315,28 @@ describe("code tour Dagre layout", () => {
 		const tour = buildCodeTourViewModel(prShapedTourDocument);
 		const layout = buildCodeTourSceneLayout(tour);
 		const durationMs = performance.now() - startedAt;
+		const conceptPoints = [...layout.concepts.values()];
+		const fragmentPoints = [...layout.fragments.values()];
 
 		expect(layout.concepts.size).toBe(6);
 		expect(layout.fragments.size).toBe(13);
+		expect(axisSpan(conceptPoints, "x")).toBeGreaterThan(20);
+		expect(axisSpan(conceptPoints, "z")).toBeGreaterThan(5);
+		expect(axisSpan(fragmentPoints, "x")).toBeGreaterThan(20);
+		expect(axisSpan(fragmentPoints, "z")).toBeGreaterThan(10);
 		expect(durationMs).toBeLessThan(1000);
 	});
 });
+
+function axisSpan(
+	points: readonly { readonly x: number; readonly z: number }[],
+	axis: "x" | "z",
+): number {
+	return (
+		Math.max(...points.map((point) => point[axis])) -
+		Math.min(...points.map((point) => point[axis]))
+	);
+}
 
 function fragment(id: string, label: string, path: string): CodeTourFragment {
 	return {
