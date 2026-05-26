@@ -864,10 +864,11 @@
 }
 
 .rp1-code-tour-edge-label {
+  position: relative;
   display: inline-flex;
   align-items: stretch;
   max-width: 210px;
-  overflow: hidden;
+  overflow: visible;
   padding: 0;
   text-transform: uppercase;
   white-space: nowrap;
@@ -919,11 +920,37 @@
   opacity: 0.78;
 }
 
-.rp1-code-tour-edge-label-source {
-  flex: 0 0 22px;
-  border-right: 1px solid var(--ct-scene-label-border);
-  opacity: 0.78;
-  padding: 3px 5px;
+.rp1-code-tour-edge-label-nav {
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--ct-scene-label-border);
+  border-radius: 999px;
+  background: var(--ct-scene-label-bg);
+  box-shadow: 0 8px 18px var(--ct-scene-label-shadow);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 3px);
+  transition:
+    opacity 0.12s ease-out,
+    transform 0.12s ease-out;
+}
+
+.rp1-code-tour-edge-label:hover .rp1-code-tour-edge-label-nav,
+.rp1-code-tour-edge-label:focus-within .rp1-code-tour-edge-label-nav {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+
+.rp1-code-tour-edge-label-nav-button {
+  width: 20px;
+  height: 18px;
+  border-radius: 999px;
+  padding: 0;
 }
 
 .rp1-code-tour-diagnostic {
