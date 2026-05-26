@@ -15,6 +15,7 @@
 		"clean": "rm -rf dist"
 	},
 	"dependencies": {
+		"@dagrejs/dagre": "^3.0.0",
 		"@lobehub/icons": "^5.2.0",
 		"@milkdown/kit": "^7.19.0",
 		"@milkdown/plugin-highlight": "^7.19.0",

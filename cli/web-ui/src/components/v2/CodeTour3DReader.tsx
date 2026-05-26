@@ -24,6 +24,10 @@ import {
 } from "three/addons/renderers/CSS2DRenderer.js";
 import { Button } from "@/components/ui/button";
 import {
+	buildCodeTourSceneLayout,
+	type CodeTourLayoutPoint,
+} from "@/lib/code-tour-layout";
+import {
 	type CodeTourViewConcept,
 	type CodeTourViewEdge,
 	type CodeTourViewFragment,
@@ -119,8 +123,6 @@ interface FragmentCardDragState {
 	y: number;
 }
 
-const CONCEPT_RADIUS = 13;
-const FRAGMENT_COLUMN_GAP = 5.8;
 const FRAGMENT_CARD_MARGIN = 16;
 const NODE_GEOMETRY = new THREE.DodecahedronGeometry(0.82);
 const NODE_EDGE_GEOMETRY = new THREE.EdgesGeometry(NODE_GEOMETRY);
@@ -1124,8 +1126,7 @@ function createScene({
 
 	scene.add(buildAmbientPoints(theme));
 
-	const conceptPositions = conceptPositionMap(tour.concepts);
-	const fragmentPositions = fragmentPositionMap(tour);
+	const layout = buildCodeTourSceneLayout(tour);
 	const conceptNodes = new Map<string, SceneNode>();
 	const fragmentNodes = new Map<string, SceneNode>();
 	const conceptScales = scaleLookup(tour.concepts);
@@ -1139,7 +1140,7 @@ function createScene({
 			label: concept.label,
 			count: `${concept.fragmentIds.length}f / ${concept.changeCount}`,
 			domainColor: concept.domain.color,
-			position: conceptPositions.get(concept.id) ?? new THREE.Vector3(),
+			position: toSceneVector(layout.concepts.get(concept.id)),
 			baseScale: conceptScales.get(concept.id) ?? 1,
 			theme,
 			onClick: () => onConceptSelected(concept.id),
@@ -1156,7 +1157,7 @@ function createScene({
 			label: fragment.label,
 			count: `${fragment.changeCount}`,
 			domainColor: fragment.domain.color,
-			position: fragmentPositions.get(fragment.id) ?? new THREE.Vector3(),
+			position: toSceneVector(layout.fragments.get(fragment.id)),
 			baseScale: (fragmentScales.get(fragment.id) ?? 1) * 0.72,
 			theme,
 			onClick: () => onFragmentSelected(fragment.id),
@@ -1790,53 +1791,10 @@ function sceneMaterialBlending(theme: CodeTourTheme): THREE.Blending {
 	return theme === "light" ? THREE.NormalBlending : THREE.AdditiveBlending;
 }
 
-function conceptPositionMap(
-	concepts: readonly CodeTourViewConcept[],
-): ReadonlyMap<string, THREE.Vector3> {
-	const positions = new Map<string, THREE.Vector3>();
-	const epicenter = concepts.find((concept) => concept.epicenter);
-	const radialConcepts = concepts.filter((concept) => concept !== epicenter);
-	if (epicenter) positions.set(epicenter.id, new THREE.Vector3(0, 0, 0));
-
-	const count = Math.max(radialConcepts.length, 1);
-	for (const [index, concept] of radialConcepts.entries()) {
-		const angle = (index / count) * Math.PI * 2 - Math.PI / 2;
-		positions.set(
-			concept.id,
-			new THREE.Vector3(
-				Math.cos(angle) * CONCEPT_RADIUS,
-				index % 2 === 0 ? 1.4 : -1.4,
-				Math.sin(angle) * CONCEPT_RADIUS,
-			),
-		);
-	}
-
-	if (!epicenter && concepts[0]) {
-		positions.set(concepts[0].id, new THREE.Vector3(0, 0, 0));
-	}
-
-	return positions;
-}
-
-function fragmentPositionMap(
-	tour: CodeTourViewModel,
-): ReadonlyMap<string, THREE.Vector3> {
-	const positions = new Map<string, THREE.Vector3>();
-	const columns = Math.max(tour.concepts.length, 1);
-
-	tour.concepts.forEach((concept, columnIndex) => {
-		const fragments = tour.fragmentsByConceptId.get(concept.id) ?? [];
-		const x = (columnIndex - (columns - 1) / 2) * FRAGMENT_COLUMN_GAP;
-		const yStart = ((fragments.length - 1) * 2.7) / 2;
-		fragments.forEach((fragment, rowIndex) => {
-			positions.set(
-				fragment.id,
-				new THREE.Vector3(x, yStart - rowIndex * 2.7, 0),
-			);
-		});
-	});
-
-	return positions;
+function toSceneVector(point: CodeTourLayoutPoint | undefined): THREE.Vector3 {
+	return point
+		? new THREE.Vector3(point.x, point.y, point.z)
+		: new THREE.Vector3();
 }
 
 function scaleLookup(
