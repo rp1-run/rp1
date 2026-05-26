@@ -174,15 +174,15 @@ const SCENE_THEME: Readonly<
 		clear: 0xeaf2eb,
 		fog: 0xe8f0ea,
 		fogDensity: 0.014,
-		ambient: 0x0f766e,
-		ambientOpacity: 0.3,
-		ambientSize: 0.05,
-		glow: 0x0c6f62,
-		glowHot: 0x033f38,
-		edgeParticle: 0x0c7f70,
+		ambient: 0x128071,
+		ambientOpacity: 0.24,
+		ambientSize: 0.046,
+		glow: 0x0b695f,
+		glowHot: 0x1f9f84,
+		edgeParticle: 0x147c6f,
 		edgeParticleOpacity: 0,
-		edgeParticleActiveOpacity: 0.34,
-		edgeParticleSize: 0.058,
+		edgeParticleActiveOpacity: 0.24,
+		edgeParticleSize: 0.052,
 	},
 	dark: {
 		clear: 0x031814,
@@ -1386,7 +1386,7 @@ function buildSceneNode({
 	const bodyMaterial = new THREE.MeshBasicMaterial({
 		color,
 		transparent: true,
-		opacity: theme === "light" ? 0.22 : 0.2,
+		opacity: theme === "light" ? 0.14 : 0.2,
 		depthWrite: false,
 		blending,
 		side: THREE.DoubleSide,
@@ -1398,7 +1398,7 @@ function buildSceneNode({
 	const edgeMaterial = new THREE.LineBasicMaterial({
 		color,
 		transparent: true,
-		opacity: theme === "light" ? 0.95 : 0.8,
+		opacity: theme === "light" ? 0.68 : 0.8,
 		depthWrite: false,
 		blending,
 	});
@@ -1425,7 +1425,7 @@ function buildSceneNode({
 	});
 	const labelObject = new CSS2DObject(labelElement);
 	labelObject.center.set(0, 0.5);
-	labelObject.position.set(0, 1.55, 0);
+	labelObject.position.set(0, 1.58, 0);
 	group.add(labelObject);
 
 	return {
@@ -1698,7 +1698,7 @@ function updateNodeVisualState(
 					: 0.18;
 	node.bodyMaterial.opacity = THREE.MathUtils.lerp(
 		node.bodyMaterial.opacity,
-		visibleOpacity * (theme === "light" ? 0.24 : 0.3),
+		visibleOpacity * (theme === "light" ? 0.13 : 0.3),
 		0.12,
 	);
 	node.edgeMaterial.opacity = THREE.MathUtils.lerp(
@@ -1775,10 +1775,10 @@ function updateEdgeVisualState(
 		? 0
 		: isActive
 			? theme === "light"
-				? 0.95
+				? 0.62
 				: 0.88
 			: theme === "light"
-				? 0.34
+				? 0.26
 				: 0.18;
 	edge.material.opacity = THREE.MathUtils.lerp(
 		edge.material.opacity,
