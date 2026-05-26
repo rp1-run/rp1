@@ -190,7 +190,7 @@ agents:
   - name: rp1-dev:pr-walkthrough-reporter
     description: "Generate an evidence-grounded Code Tour JSON walkthrough for a pull request"
     plugin: dev
-    last_checksum: 7d5935c63acb74b1c3ed7f8f41efcccb071c70b737c81e7315e0a782a20211ac
+    last_checksum: 910ab4e2336a9d25c8d9dce94ccc6dee1c23812d30382e3be2ed40cdacd1e462
   - name: rp1-dev:prd-archiver
     description: "Archives completed PRDs to .rp1/work/archives/prds/, archives associated completed features, checks KB staleness, and generates closure summaries"
     plugin: dev
