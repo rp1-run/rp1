@@ -875,6 +875,10 @@
 }
 
 .rp1-code-tour-edge-label button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   background: transparent;
   color: inherit;
@@ -894,33 +898,31 @@
 }
 
 .rp1-code-tour-edge-label-destination {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   min-width: 0;
-  max-width: 170px;
+  max-width: 188px;
   overflow: hidden;
   padding: 3px 7px;
+}
+
+.rp1-code-tour-edge-label-destination-text {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.rp1-code-tour-edge-label-source {
-  order: -1;
-  width: 0;
-  overflow: hidden;
-  border-right: 1px solid transparent;
-  opacity: 0;
-  padding: 3px 0;
-  transition:
-    width 0.14s ease-out,
-    opacity 0.14s ease-out,
-    padding 0.14s ease-out,
-    border-color 0.14s ease-out;
+.rp1-code-tour-edge-label-destination-arrow {
+  flex: 0 0 auto;
+  opacity: 0.78;
 }
 
-.rp1-code-tour-edge-label:hover .rp1-code-tour-edge-label-source,
-.rp1-code-tour-edge-label:focus-within .rp1-code-tour-edge-label-source {
-  width: 22px;
-  border-right-color: var(--ct-scene-label-border);
-  opacity: 1;
+.rp1-code-tour-edge-label-source {
+  flex: 0 0 22px;
+  border-right: 1px solid var(--ct-scene-label-border);
+  opacity: 0.78;
   padding: 3px 5px;
 }
 

@@ -1499,12 +1499,19 @@ function buildSceneEdges({
 		const destinationButton = document.createElement("button");
 		destinationButton.type = "button";
 		destinationButton.className = "rp1-code-tour-edge-label-destination";
-		destinationButton.textContent = edge.label;
 		destinationButton.title = `Go to destination: ${edge.toLabel}`;
 		destinationButton.setAttribute(
 			"aria-label",
 			`Go to destination: ${edge.toLabel}`,
 		);
+		const destinationText = document.createElement("span");
+		destinationText.className = "rp1-code-tour-edge-label-destination-text";
+		destinationText.textContent = edge.label;
+		const destinationArrow = document.createElement("span");
+		destinationArrow.className = "rp1-code-tour-edge-label-destination-arrow";
+		destinationArrow.setAttribute("aria-hidden", "true");
+		destinationArrow.textContent = "→";
+		destinationButton.append(destinationText, destinationArrow);
 		destinationButton.addEventListener("click", (event) => {
 			event.stopPropagation();
 			onDestinationClick(edge);
@@ -1526,7 +1533,7 @@ function buildSceneEdges({
 			event.stopPropagation();
 			onSourceClick(edge);
 		});
-		labelElement.append(destinationButton, sourceButton);
+		labelElement.append(sourceButton, destinationButton);
 
 		const labelObject = new CSS2DObject(labelElement);
 		labelObject.position.copy(curve.getPoint(0.5));
