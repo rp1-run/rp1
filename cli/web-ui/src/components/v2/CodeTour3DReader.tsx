@@ -143,8 +143,7 @@ const CONCEPT_NODE_GEOMETRY = new THREE.DodecahedronGeometry(0.82);
 const CONCEPT_NODE_EDGE_GEOMETRY = new THREE.EdgesGeometry(
 	CONCEPT_NODE_GEOMETRY,
 );
-const FRAGMENT_NODE_GEOMETRY = new THREE.ConeGeometry(0.86, 1.42, 4, 1);
-FRAGMENT_NODE_GEOMETRY.rotateY(Math.PI / 4);
+const FRAGMENT_NODE_GEOMETRY = new THREE.SphereGeometry(0.78, 14, 10);
 const FRAGMENT_NODE_EDGE_GEOMETRY = new THREE.EdgesGeometry(
 	FRAGMENT_NODE_GEOMETRY,
 );
