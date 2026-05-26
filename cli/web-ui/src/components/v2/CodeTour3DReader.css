@@ -27,6 +27,13 @@
   --ct-label-active-bg: hsl(187 45% 91% / 0.96);
   --ct-label-text: hsl(var(--fg) / 0.82);
   --ct-label-shadow: rgb(48 42 32 / 0.18);
+  --ct-scene-label-bg: hsl(40 12% 98% / 0.94);
+  --ct-scene-label-active-bg: hsl(166 62% 90% / 0.96);
+  --ct-scene-label-border: hsl(172 58% 35% / 0.34);
+  --ct-scene-label-active-border: hsl(172 66% 27% / 0.74);
+  --ct-scene-label-text: hsl(174 54% 20% / 0.86);
+  --ct-scene-label-active-text: hsl(174 54% 12% / 0.96);
+  --ct-scene-label-shadow: rgb(48 42 32 / 0.18);
   --ct-tether-glow: hsl(188 52% 42%);
   --ct-tether-line: hsl(188 50% 30% / 0.76);
   --ct-tether-cap: hsl(188 50% 34%);
@@ -85,6 +92,13 @@
   --ct-label-active-bg: rgb(23 46 48 / 0.94);
   --ct-label-text: rgb(238 228 213 / 0.78);
   --ct-label-shadow: rgb(0 0 0 / 0.38);
+  --ct-scene-label-bg: rgb(3 12 10 / 0.92);
+  --ct-scene-label-active-bg: rgb(15 50 40 / 0.95);
+  --ct-scene-label-border: rgb(93 255 196 / 0.4);
+  --ct-scene-label-active-border: rgb(150 255 215 / 0.86);
+  --ct-scene-label-text: rgb(205 255 232 / 0.88);
+  --ct-scene-label-active-text: rgb(244 255 249 / 0.96);
+  --ct-scene-label-shadow: rgb(0 0 0 / 0.6);
   --ct-tether-glow: rgb(146 211 219);
   --ct-tether-line: rgb(218 244 239 / 0.86);
   --ct-tether-cap: rgb(218 244 239);
@@ -819,14 +833,14 @@
 .rp1-code-tour-node-label,
 .rp1-code-tour-edge-label {
   pointer-events: auto;
-  border: 1px solid var(--ct-border);
+  border: 1px solid var(--ct-scene-label-border);
   border-radius: 5px;
-  background: var(--ct-label-bg);
-  box-shadow: 0 10px 22px var(--ct-label-shadow);
-  color: var(--ct-label-text);
+  background: var(--ct-scene-label-bg);
+  box-shadow: 0 10px 22px var(--ct-scene-label-shadow);
+  color: var(--ct-scene-label-text);
   cursor: pointer;
   font-family: var(--font-mono, "Commit Mono", ui-monospace, monospace);
-  text-shadow: none;
+  text-shadow: 0 0 4px color-mix(in srgb, var(--ct-scene-label-text) 34%, transparent);
 }
 
 .rp1-code-tour-node-label {
@@ -844,9 +858,9 @@
 
 .rp1-code-tour-node-label.is-active,
 .rp1-code-tour-edge-label.is-active {
-  border-color: var(--ct-source-border);
-  background: var(--ct-label-active-bg);
-  color: var(--ct-heading);
+  border-color: var(--ct-scene-label-active-border);
+  background: var(--ct-scene-label-active-bg);
+  color: var(--ct-scene-label-active-text);
 }
 
 .rp1-code-tour-node-label.is-muted {

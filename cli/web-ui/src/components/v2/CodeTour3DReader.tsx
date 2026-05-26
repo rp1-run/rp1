@@ -60,14 +60,12 @@ interface SceneNode {
 	readonly group: THREE.Group;
 	readonly target: THREE.Vector3;
 	readonly hitMesh: THREE.Mesh;
-	readonly haloMesh: THREE.Mesh;
 	readonly bodyMaterial: THREE.MeshBasicMaterial;
-	readonly haloMaterial: THREE.MeshBasicMaterial;
 	readonly edgeMaterial: THREE.LineBasicMaterial;
 	readonly labelObject: CSS2DObject;
 	readonly labelElement: HTMLButtonElement;
 	readonly baseScale: number;
-	readonly domainColor: THREE.Color;
+	readonly glowColor: THREE.Color;
 }
 
 interface SceneEdge {
@@ -141,12 +139,12 @@ interface FragmentCardDragState {
 const FRAGMENT_CARD_MARGIN = 16;
 const NODE_GEOMETRY = new THREE.DodecahedronGeometry(0.82);
 const NODE_EDGE_GEOMETRY = new THREE.EdgesGeometry(NODE_GEOMETRY);
-const NODE_HALO_GEOMETRY = new THREE.SphereGeometry(1.2, 28, 14);
 const EDGE_PARTICLES_PER_EDGE = 4;
 const EDGE_PARTICLE_SPEED = 0.075;
 const EDGE_PARTICLE_VECTOR = new THREE.Vector3();
 const EDGE_PARTICLE_TARGET_COLOR = new THREE.Color();
 const EDGE_PARTICLE_ACCENT_COLOR = new THREE.Color();
+const NODE_TARGET_COLOR = new THREE.Color();
 const SCENE_THEME: Readonly<
 	Record<
 		CodeTourTheme,
@@ -157,10 +155,8 @@ const SCENE_THEME: Readonly<
 			readonly ambient: number;
 			readonly ambientOpacity: number;
 			readonly ambientSize: number;
-			readonly halo: number;
-			readonly haloOpacity: number;
-			readonly haloBridgeOpacity: number;
-			readonly haloActiveOpacity: number;
+			readonly glow: number;
+			readonly glowHot: number;
 			readonly edgeParticle: number;
 			readonly edgeParticleOpacity: number;
 			readonly edgeParticleActiveOpacity: number;
@@ -175,10 +171,8 @@ const SCENE_THEME: Readonly<
 		ambient: 0x257e78,
 		ambientOpacity: 0.22,
 		ambientSize: 0.046,
-		halo: 0x178f86,
-		haloOpacity: 0.045,
-		haloBridgeOpacity: 0.075,
-		haloActiveOpacity: 0.14,
+		glow: 0x0f766e,
+		glowHot: 0x073f3c,
 		edgeParticle: 0x0d7e76,
 		edgeParticleOpacity: 0,
 		edgeParticleActiveOpacity: 0.28,
@@ -191,10 +185,8 @@ const SCENE_THEME: Readonly<
 		ambient: 0x5dffc4,
 		ambientOpacity: 0.38,
 		ambientSize: 0.058,
-		halo: 0x5dffc4,
-		haloOpacity: 0.075,
-		haloBridgeOpacity: 0.12,
-		haloActiveOpacity: 0.24,
+		glow: 0x5dffc4,
+		glowHot: 0xc4ffe6,
 		edgeParticle: 0xa5ffdf,
 		edgeParticleOpacity: 0,
 		edgeParticleActiveOpacity: 0.48,
@@ -1188,7 +1180,6 @@ function createScene({
 			conceptId: concept.id,
 			label: concept.label,
 			count: `${concept.fragmentIds.length}f / ${concept.changeCount}`,
-			domainColor: concept.domain.color,
 			position: toSceneVector(layout.concepts.get(concept.id)),
 			baseScale: conceptScales.get(concept.id) ?? 1,
 			theme,
@@ -1205,7 +1196,6 @@ function createScene({
 			conceptId: fragment.conceptId,
 			label: fragment.label,
 			count: `${fragment.changeCount}`,
-			domainColor: fragment.domain.color,
 			position: toSceneVector(layout.fragments.get(fragment.id)),
 			baseScale: (fragmentScales.get(fragment.id) ?? 1) * 0.72,
 			theme,
@@ -1367,7 +1357,6 @@ function buildSceneNode({
 	conceptId,
 	label,
 	count,
-	domainColor,
 	position,
 	baseScale,
 	theme,
@@ -1378,38 +1367,25 @@ function buildSceneNode({
 	readonly conceptId: string;
 	readonly label: string;
 	readonly count: string;
-	readonly domainColor: string;
 	readonly position: THREE.Vector3;
 	readonly baseScale: number;
 	readonly theme: CodeTourTheme;
 	readonly onClick: () => void;
 }): SceneNode {
-	const color = sceneDomainColor(domainColor, theme);
+	const color = sceneGlowColor(theme);
 	const blending = sceneMaterialBlending(theme);
-	const sceneTheme = SCENE_THEME[theme];
 	const group = new THREE.Group();
 	group.position.copy(position);
 	group.scale.setScalar(baseScale);
 	group.userData = { kind, id };
 
-	const haloMaterial = new THREE.MeshBasicMaterial({
-		color: color.clone().lerp(new THREE.Color(sceneTheme.halo), 0.42),
-		transparent: true,
-		opacity: sceneTheme.haloOpacity,
-		depthWrite: false,
-		blending,
-		side: THREE.DoubleSide,
-	});
-	const haloMesh = new THREE.Mesh(NODE_HALO_GEOMETRY, haloMaterial);
-	haloMesh.renderOrder = -1;
-	group.add(haloMesh);
-
 	const bodyMaterial = new THREE.MeshBasicMaterial({
 		color,
 		transparent: true,
-		opacity: theme === "light" ? 0.3 : 0.2,
+		opacity: theme === "light" ? 0.22 : 0.2,
 		depthWrite: false,
 		blending,
+		side: THREE.DoubleSide,
 	});
 	const hitMesh = new THREE.Mesh(NODE_GEOMETRY, bodyMaterial);
 	hitMesh.userData = { kind, id };
@@ -1445,14 +1421,12 @@ function buildSceneNode({
 		group,
 		target: position.clone(),
 		hitMesh,
-		haloMesh,
 		bodyMaterial,
-		haloMaterial,
 		edgeMaterial,
 		labelObject,
 		labelElement,
 		baseScale,
-		domainColor: color,
+		glowColor: color,
 	};
 }
 
@@ -1478,7 +1452,7 @@ function buildSceneEdges({
 		const geometry = new THREE.BufferGeometry().setFromPoints(
 			curve.getPoints(42),
 		);
-		const baseColor = from.domainColor.clone().lerp(to.domainColor, 0.45);
+		const baseColor = from.glowColor.clone().lerp(to.glowColor, 0.45);
 		const material = new THREE.LineBasicMaterial({
 			color: baseColor,
 			transparent: true,
@@ -1657,26 +1631,15 @@ function updateNodeVisualState(
 		visibleOpacity,
 		0.12,
 	);
-	const haloOpacity = !isMode
-		? 0
-		: isActive
-			? sceneTheme.haloActiveOpacity
-			: isBridge
-				? sceneTheme.haloBridgeOpacity
-				: sceneTheme.haloOpacity;
-	node.haloMaterial.opacity = THREE.MathUtils.lerp(
-		node.haloMaterial.opacity,
-		haloOpacity,
-		0.12,
-	);
+	NODE_TARGET_COLOR.set(isActive ? sceneTheme.glowHot : sceneTheme.glow);
+	node.bodyMaterial.color.lerp(NODE_TARGET_COLOR, 0.1);
+	node.edgeMaterial.color.lerp(NODE_TARGET_COLOR, 0.1);
 	const targetScale = node.baseScale * (isActive ? 1.28 : isBridge ? 1.08 : 1);
 	const nextScale = THREE.MathUtils.lerp(node.group.scale.x, targetScale, 0.1);
 	node.group.scale.setScalar(nextScale);
-	node.haloMesh.scale.setScalar(isActive ? 1.36 : isBridge ? 1.18 : 1);
 	node.hitMesh.rotation.y += isActive ? 0.004 : 0.0012;
 	node.hitMesh.rotation.x += isActive ? 0.001 : 0.0003;
 	node.group.visible = node.edgeMaterial.opacity > 0.01;
-	node.haloMesh.visible = node.haloMaterial.opacity > 0.006;
 	node.labelObject.visible = isMode && node.edgeMaterial.opacity > 0.08;
 	node.labelElement.classList.toggle("is-active", isActive);
 	node.labelElement.classList.toggle("is-muted", !isActive && !isBridge);
@@ -1716,6 +1679,7 @@ function updateEdgeVisualState(
 	isActive: boolean,
 	theme: CodeTourTheme,
 ) {
+	const sceneTheme = SCENE_THEME[theme];
 	const targetOpacity = !isMode
 		? 0
 		: isActive
@@ -1730,6 +1694,8 @@ function updateEdgeVisualState(
 		targetOpacity,
 		0.12,
 	);
+	NODE_TARGET_COLOR.set(isActive ? sceneTheme.glowHot : sceneTheme.glow);
+	edge.material.color.lerp(NODE_TARGET_COLOR, 0.15);
 	edge.line.visible = edge.material.opacity > 0.02;
 	edge.labelObject.visible = isMode && edge.material.opacity > 0.08;
 	edge.labelElement.classList.toggle("is-active", isActive);
@@ -1961,17 +1927,8 @@ function buildAmbientPoints(theme: CodeTourTheme) {
 	return new THREE.Points(geometry, material);
 }
 
-function sceneDomainColor(
-	domainColor: string,
-	theme: CodeTourTheme,
-): THREE.Color {
-	const color = new THREE.Color(domainColor);
-	if (theme === "dark") return color;
-
-	const hsl = { h: 0, s: 0, l: 0 };
-	color.getHSL(hsl);
-	color.setHSL(hsl.h, Math.min(hsl.s * 1.12, 0.92), Math.min(hsl.l, 0.43));
-	return color;
+function sceneGlowColor(theme: CodeTourTheme): THREE.Color {
+	return new THREE.Color(SCENE_THEME[theme].glow);
 }
 
 function sceneMaterialBlending(theme: CodeTourTheme): THREE.Blending {
@@ -2048,7 +2005,6 @@ function firstFragmentForConcept(
 function disposeNodeMap(nodes: ReadonlyMap<string, SceneNode>) {
 	for (const node of nodes.values()) {
 		node.bodyMaterial.dispose();
-		node.haloMaterial.dispose();
 		node.edgeMaterial.dispose();
 		node.labelElement.remove();
 	}
