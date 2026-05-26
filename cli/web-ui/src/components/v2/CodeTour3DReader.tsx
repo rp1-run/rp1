@@ -171,26 +171,26 @@ const SCENE_THEME: Readonly<
 	>
 > = {
 	light: {
-		clear: 0xf1efeb,
-		fog: 0xf1efeb,
-		fogDensity: 0.012,
-		ambient: 0x257e78,
-		ambientOpacity: 0.22,
-		ambientSize: 0.046,
-		glow: 0x0f766e,
-		glowHot: 0x073f3c,
-		edgeParticle: 0x0d7e76,
+		clear: 0xeaf2eb,
+		fog: 0xe8f0ea,
+		fogDensity: 0.014,
+		ambient: 0x0f766e,
+		ambientOpacity: 0.3,
+		ambientSize: 0.05,
+		glow: 0x0c6f62,
+		glowHot: 0x033f38,
+		edgeParticle: 0x0c7f70,
 		edgeParticleOpacity: 0,
-		edgeParticleActiveOpacity: 0.28,
-		edgeParticleSize: 0.052,
+		edgeParticleActiveOpacity: 0.34,
+		edgeParticleSize: 0.058,
 	},
 	dark: {
-		clear: 0x11100d,
-		fog: 0x11100d,
-		fogDensity: 0.018,
+		clear: 0x031814,
+		fog: 0x031814,
+		fogDensity: 0.02,
 		ambient: 0x5dffc4,
-		ambientOpacity: 0.38,
-		ambientSize: 0.058,
+		ambientOpacity: 0.5,
+		ambientSize: 0.064,
 		glow: 0x5dffc4,
 		glowHot: 0xc4ffe6,
 		edgeParticle: 0xa5ffdf,
@@ -1137,11 +1137,11 @@ function createScene({
 	const renderer = new THREE.WebGLRenderer({
 		canvas,
 		antialias: true,
-		alpha: false,
+		alpha: true,
 		powerPreference: "high-performance",
 	});
 	const sceneTheme = SCENE_THEME[theme];
-	renderer.setClearColor(sceneTheme.clear, 1);
+	renderer.setClearColor(sceneTheme.clear, 0);
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 	const labelRenderer = new CSS2DRenderer({ element: overlay });

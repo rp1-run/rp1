@@ -1,8 +1,29 @@
 .rp1-code-tour {
   --ct-bg: hsl(var(--base));
   --ct-stage-bg:
-    radial-gradient(ellipse at 56% 48%, hsl(184 38% 84% / 0.36) 0%, transparent 48%),
-    linear-gradient(180deg, hsl(40 9% 97%) 0%, hsl(40 7% 92%) 46%, hsl(40 7% 88%) 100%);
+    radial-gradient(ellipse at 50% 54%, rgb(132 230 203 / 0.38) 0%, rgb(210 238 229 / 0.26) 36%, transparent 62%),
+    radial-gradient(ellipse at 50% 55%, rgb(34 92 77 / 0.17) 0%, transparent 64%),
+    linear-gradient(180deg, hsl(155 18% 94%) 0%, hsl(95 9% 89%) 100%);
+  --ct-stage-scanlines:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 2px,
+      rgb(15 118 110 / 0.035) 3px,
+      transparent 4px
+    );
+  --ct-stage-sweep:
+    linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgb(15 118 110 / 0.07) 50%,
+      transparent 100%
+    );
+  --ct-stage-vignette:
+    radial-gradient(ellipse at center, transparent 52%, rgb(18 73 60 / 0.14) 88%, rgb(18 45 40 / 0.22) 100%);
+  --ct-stage-scanline-opacity: 0.42;
+  --ct-stage-scanline-blend: multiply;
+  --ct-stage-vignette-opacity: 0.72;
   --ct-panel: hsl(var(--surface) / 0.9);
   --ct-panel-strong: hsl(var(--surface) / 0.96);
   --ct-panel-soft: hsl(var(--void) / 0.44);
@@ -64,10 +85,29 @@
 }
 
 .rp1-code-tour[data-code-tour-theme="dark"] {
-  --ct-bg: hsl(32 10% 8%);
+  --ct-bg: hsl(165 58% 4%);
   --ct-stage-bg:
-    radial-gradient(ellipse at 56% 48%, rgb(38 52 48 / 0.58) 0%, transparent 48%),
-    linear-gradient(180deg, hsl(32 10% 8%) 0%, hsl(34 9% 11%) 42%, hsl(28 10% 7%) 100%);
+    radial-gradient(ellipse at 50% 55%, rgb(20 60 50 / 0.62) 0%, rgb(4 10 9 / 0.96) 60%, rgb(2 6 10) 100%);
+  --ct-stage-scanlines:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 2px,
+      rgb(93 255 196 / 0.035) 3px,
+      transparent 4px
+    );
+  --ct-stage-sweep:
+    linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgb(93 255 196 / 0.06) 50%,
+      transparent 100%
+    );
+  --ct-stage-vignette:
+    radial-gradient(ellipse at center, transparent 50%, rgb(2 6 10 / 0.55) 88%, rgb(2 6 10 / 0.9) 100%);
+  --ct-stage-scanline-opacity: 0.9;
+  --ct-stage-scanline-blend: screen;
+  --ct-stage-vignette-opacity: 1;
   --ct-panel: rgb(23 21 18 / 0.88);
   --ct-panel-strong: rgb(13 13 12 / 0.82);
   --ct-panel-soft: rgb(255 255 255 / 0.045);
@@ -129,6 +169,36 @@
   background: var(--ct-stage-bg);
 }
 
+.rp1-code-tour-stage::before,
+.rp1-code-tour-stage::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+}
+
+.rp1-code-tour-stage::before {
+  z-index: 2;
+  background:
+    var(--ct-stage-scanlines),
+    var(--ct-stage-sweep);
+  background-position:
+    0 0,
+    0 -120%;
+  background-size:
+    auto,
+    100% 220%;
+  mix-blend-mode: var(--ct-stage-scanline-blend);
+  opacity: var(--ct-stage-scanline-opacity);
+  animation: rp1-code-tour-scan-sweep 7s linear infinite;
+}
+
+.rp1-code-tour-stage::after {
+  z-index: 2;
+  background: var(--ct-stage-vignette);
+  opacity: var(--ct-stage-vignette-opacity);
+}
+
 .rp1-code-tour-canvas,
 .rp1-code-tour-label-layer {
   position: absolute;
@@ -145,6 +215,26 @@
 .rp1-code-tour-label-layer {
   z-index: 3;
   pointer-events: none;
+}
+
+@keyframes rp1-code-tour-scan-sweep {
+  0% {
+    background-position:
+      0 0,
+      0 -120%;
+  }
+
+  100% {
+    background-position:
+      0 0,
+      0 120%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rp1-code-tour-stage::before {
+    animation: none;
+  }
 }
 
 .rp1-code-tour-canvas-hidden,
