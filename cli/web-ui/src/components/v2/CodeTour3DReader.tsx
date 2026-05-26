@@ -603,7 +603,6 @@ export function CodeTour3DReader({
 						onConceptSelected={selectConcept}
 						onFragmentSelected={selectFragment}
 						onRelationshipSelected={navigateRelationship}
-						onStepSelected={selectStep}
 					/>
 				)}
 
@@ -693,7 +692,6 @@ export function CodeTour3DReader({
 							cardRef={fragmentCardRef}
 							activeStep={activeStep}
 							activeStepIndex={activeStepIndex}
-							steps={tour.steps}
 							stepCount={Math.max(tour.steps.length, 1)}
 							isExpanded={isStepCardExpanded}
 							activeConcept={activeConcept}
@@ -703,7 +701,6 @@ export function CodeTour3DReader({
 							sourceKind={tour.kind}
 							onFragmentSelected={selectFragment}
 							onRelationshipSelected={navigateRelationship}
-							onStepSelected={selectStep}
 							onExpandedChange={updateStepCardExpanded}
 							onDragPointerDown={startFragmentCardDrag}
 							onDragPointerMove={moveFragmentCardDrag}
@@ -711,6 +708,44 @@ export function CodeTour3DReader({
 						/>
 					</>
 				)}
+
+				<nav className="rp1-code-tour-bottom-bar" aria-label="Tour steps">
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						onClick={() => selectStep(activeStepIndex - 1)}
+						disabled={!canGoPrevious}
+						aria-label="Previous tour step"
+						title="Previous tour step"
+					>
+						<ChevronLeft className="h-4 w-4" strokeWidth={1.6} />
+					</Button>
+					<div className="rp1-code-tour-step-strip">
+						{tour.steps.map((step, index) => (
+							<button
+								key={`${step.conceptId}:${index}`}
+								type="button"
+								className={index === activeStepIndex ? "active" : undefined}
+								onClick={() => selectStep(index)}
+								aria-label={`Open step ${index + 1}: ${step.title}`}
+							>
+								<span>{index + 1}</span>
+							</button>
+						))}
+					</div>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						onClick={() => selectStep(activeStepIndex + 1)}
+						disabled={!canGoNext}
+						aria-label="Next tour step"
+						title="Next tour step"
+					>
+						<ChevronRight className="h-4 w-4" strokeWidth={1.6} />
+					</Button>
+				</nav>
 
 				<p className="sr-only" aria-live="polite">
 					{activeConcept
@@ -757,7 +792,6 @@ function FloatingStepCard({
 	cardRef,
 	activeStep,
 	activeStepIndex,
-	steps,
 	stepCount,
 	isExpanded,
 	activeConcept,
@@ -767,7 +801,6 @@ function FloatingStepCard({
 	sourceKind,
 	onFragmentSelected,
 	onRelationshipSelected,
-	onStepSelected,
 	onExpandedChange,
 	onDragPointerDown,
 	onDragPointerMove,
@@ -776,7 +809,6 @@ function FloatingStepCard({
 	readonly cardRef: RefObject<HTMLElement>;
 	readonly activeStep: CodeTourViewStep | null;
 	readonly activeStepIndex: number;
-	readonly steps: readonly CodeTourViewStep[];
 	readonly stepCount: number;
 	readonly isExpanded: boolean;
 	readonly activeConcept: CodeTourViewConcept | null;
@@ -786,7 +818,6 @@ function FloatingStepCard({
 	readonly sourceKind: string;
 	readonly onFragmentSelected: (fragmentId: string) => void;
 	readonly onRelationshipSelected: (edge: CodeTourViewEdge) => void;
-	readonly onStepSelected: (index: number) => void;
 	readonly onExpandedChange: (expanded: boolean) => void;
 	readonly onDragPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
 	readonly onDragPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
@@ -823,11 +854,6 @@ function FloatingStepCard({
 				</span>
 			</div>
 
-			<StepNavigator
-				steps={steps}
-				activeStepIndex={activeStepIndex}
-				onStepSelected={onStepSelected}
-			/>
 			{activeStep?.sub && (
 				<p className="rp1-code-tour-step-sub">{activeStep.sub}</p>
 			)}
@@ -926,58 +952,6 @@ function FloatingStepCard({
 	);
 }
 
-function StepNavigator({
-	steps,
-	activeStepIndex,
-	onStepSelected,
-}: {
-	readonly steps: readonly CodeTourViewStep[];
-	readonly activeStepIndex: number;
-	readonly onStepSelected: (index: number) => void;
-}) {
-	if (steps.length === 0) return null;
-	const canGoPrevious = activeStepIndex > 0;
-	const canGoNext = activeStepIndex < steps.length - 1;
-
-	return (
-		<nav className="rp1-code-tour-step-navigator" aria-label="Tour steps">
-			<button
-				type="button"
-				className="rp1-code-tour-step-nav-button"
-				onClick={() => onStepSelected(activeStepIndex - 1)}
-				disabled={!canGoPrevious}
-				aria-label="Previous tour step"
-			>
-				<ChevronLeft className="h-4 w-4" strokeWidth={1.8} />
-				<span>Previous</span>
-			</button>
-			<div className="rp1-code-tour-step-strip">
-				{steps.map((step, index) => (
-					<button
-						key={`${step.conceptId}:${index}`}
-						type="button"
-						className={index === activeStepIndex ? "active" : undefined}
-						onClick={() => onStepSelected(index)}
-						aria-label={`Open step ${index + 1}: ${step.title}`}
-					>
-						<span>{index + 1}</span>
-					</button>
-				))}
-			</div>
-			<button
-				type="button"
-				className="rp1-code-tour-step-nav-button primary"
-				onClick={() => onStepSelected(activeStepIndex + 1)}
-				disabled={!canGoNext}
-				aria-label="Next tour step"
-			>
-				<span>Next</span>
-				<ChevronRight className="h-4 w-4" strokeWidth={1.8} />
-			</button>
-		</nav>
-	);
-}
-
 function readStoredStepCardExpanded(path: string): boolean {
 	if (typeof window === "undefined") return false;
 	try {
@@ -1063,7 +1037,6 @@ function CodeTourDiagnosticState({
 	onConceptSelected,
 	onFragmentSelected,
 	onRelationshipSelected,
-	onStepSelected,
 }: {
 	readonly kind: Exclude<RenderState, "ready">;
 	readonly tour: CodeTourViewModel;
@@ -1077,7 +1050,6 @@ function CodeTourDiagnosticState({
 	readonly onConceptSelected: (conceptId: string) => void;
 	readonly onFragmentSelected: (fragmentId: string) => void;
 	readonly onRelationshipSelected: (edge: CodeTourViewEdge) => void;
-	readonly onStepSelected: (index: number) => void;
 }) {
 	const title =
 		kind === "reduced"
@@ -1129,11 +1101,6 @@ function CodeTourDiagnosticState({
 									{activeStepIndex + 1}/{stepCount}
 								</span>
 							</div>
-							<StepNavigator
-								steps={tour.steps}
-								activeStepIndex={activeStepIndex}
-								onStepSelected={onStepSelected}
-							/>
 							{activeStep?.sub && (
 								<p className="rp1-code-tour-step-sub">{activeStep.sub}</p>
 							)}
