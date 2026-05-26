@@ -97,6 +97,7 @@ interface SceneHandles {
 	readonly fragmentEdges: readonly SceneEdge[];
 	readonly focusPosition: THREE.Vector3;
 	readonly focusTarget: THREE.Vector3;
+	autoFocusActive: boolean;
 	animationFrame: number | null;
 	dispose: () => void;
 }
@@ -395,7 +396,6 @@ export function CodeTour3DReader({
 			setIsFullscreen(isActive);
 			requestAnimationFrame(() => {
 				resizeScene(handlesRef.current, stageRef.current);
-				focusSceneTarget(handlesRef.current, readerStateRef.current);
 			});
 		};
 
@@ -405,12 +405,9 @@ export function CodeTour3DReader({
 	}, []);
 
 	useEffect(() => {
-		focusSceneTarget(handlesRef.current, {
-			mode,
-			activeConceptId,
-			activeFragmentId,
-		});
-	}, [activeConceptId, activeFragmentId, mode]);
+		if (!activeStep) return;
+		focusSceneTarget(handlesRef.current, readerStateRef.current);
+	}, [activeStep]);
 
 	useEffect(() => {
 		const canvas = canvasRef.current;
@@ -1279,16 +1276,22 @@ function createScene({
 		fragmentEdges,
 		focusPosition,
 		focusTarget,
+		autoFocusActive: false,
 		animationFrame: null,
 		dispose: () => {},
 	};
+	const cancelAutoFocus = () => cancelSceneAutoFocus(handles);
 	const resizeObserver = new ResizeObserver(() => resizeScene(handles, stage));
+	controls.addEventListener("start", cancelAutoFocus);
+	canvas.addEventListener("wheel", cancelAutoFocus, { passive: true });
 
 	handles.dispose = () => {
 		if (handles.animationFrame !== null) {
 			cancelAnimationFrame(handles.animationFrame);
 		}
 		resizeObserver.disconnect();
+		controls.removeEventListener("start", cancelAutoFocus);
+		canvas.removeEventListener("wheel", cancelAutoFocus);
 		canvas.removeEventListener("pointermove", pointerMove);
 		canvas.removeEventListener("click", click);
 		controls.dispose();
@@ -1449,8 +1452,7 @@ function animateScene(
 	if (state) {
 		updateSceneNodes(handles, state);
 		updateSceneEdges(handles, state);
-		handles.camera.position.lerp(handles.focusPosition, 0.045);
-		handles.controls.target.lerp(handles.focusTarget, 0.045);
+		updateAutoFocus(handles);
 		updateFragmentTether(handles, state);
 	} else {
 		hideFragmentTether(handles.fragmentTether);
@@ -1602,6 +1604,30 @@ function focusSceneTarget(
 			: new THREE.Vector3(4, 3, 12);
 	handles.focusTarget.copy(node.target);
 	handles.focusPosition.copy(node.target).add(offset);
+	handles.autoFocusActive = true;
+}
+
+function updateAutoFocus(handles: SceneHandles) {
+	if (!handles.autoFocusActive) return;
+
+	handles.camera.position.lerp(handles.focusPosition, 0.045);
+	handles.controls.target.lerp(handles.focusTarget, 0.045);
+
+	const cameraSettled =
+		handles.camera.position.distanceTo(handles.focusPosition) < 0.03;
+	const targetSettled =
+		handles.controls.target.distanceTo(handles.focusTarget) < 0.03;
+	if (!cameraSettled || !targetSettled) return;
+
+	handles.camera.position.copy(handles.focusPosition);
+	handles.controls.target.copy(handles.focusTarget);
+	handles.autoFocusActive = false;
+}
+
+function cancelSceneAutoFocus(handles: SceneHandles) {
+	handles.autoFocusActive = false;
+	handles.focusPosition.copy(handles.camera.position);
+	handles.focusTarget.copy(handles.controls.target);
 }
 
 function activeSceneNode(
