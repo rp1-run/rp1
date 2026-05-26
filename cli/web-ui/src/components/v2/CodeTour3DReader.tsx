@@ -835,10 +835,6 @@ function FloatingStepCard({
 			{activeConcept && (
 				<section className="rp1-code-tour-section">
 					<div className="rp1-code-tour-section-title">
-						<span
-							className="rp1-code-tour-domain-dot"
-							style={{ backgroundColor: activeConcept.domain.color }}
-						/>
 						<span>{activeConcept.domain.label}</span>
 					</div>
 					<h4>{activeConcept.label}</h4>
@@ -1015,10 +1011,6 @@ function CodeTourDiagnosticState({
 								}
 								onClick={() => onConceptSelected(concept.id)}
 							>
-								<span
-									style={{ backgroundColor: concept.domain.color }}
-									aria-hidden="true"
-								/>
 								<strong>{concept.label}</strong>
 								<small>{concept.fragmentIds.length} fragments</small>
 							</button>

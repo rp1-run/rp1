@@ -295,14 +295,6 @@
   line-height: 1.35;
 }
 
-.rp1-code-tour-domain-dot {
-  width: 9px;
-  height: 9px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  box-shadow: 0 0 10px currentColor;
-}
-
 .rp1-code-tour-fragment-tabs {
   display: flex;
   gap: 6px;
@@ -934,7 +926,7 @@
 
 .rp1-code-tour-diagnostic-concepts button {
   display: grid;
-  grid-template-columns: 9px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   min-height: 38px;
@@ -950,12 +942,6 @@
 .rp1-code-tour-diagnostic-concepts button.active {
   border-color: var(--ct-source-border);
   background: var(--ct-source-soft);
-}
-
-.rp1-code-tour-diagnostic-concepts button > span {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
 }
 
 .rp1-code-tour-diagnostic-concepts strong {
