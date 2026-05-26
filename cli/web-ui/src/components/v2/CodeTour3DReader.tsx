@@ -85,7 +85,7 @@ interface SceneEdge {
 	readonly particleBaseColor: THREE.Color;
 	readonly particleOffsets: readonly number[];
 	readonly labelObject: CSS2DObject;
-	readonly labelElement: HTMLButtonElement;
+	readonly labelElement: HTMLDivElement;
 }
 
 interface FragmentTetherRefs {
@@ -1203,13 +1203,17 @@ function createScene({
 		fragmentNodes.set(fragment.id, node);
 	}
 
-	const selectConceptRelationship = (edge: CodeTourViewEdge) => {
-		const activeId = stateRef.current?.activeConceptId ?? "";
-		onConceptSelected(relationshipNavigationTarget(edge, activeId));
+	const selectConceptSource = (edge: CodeTourViewEdge) => {
+		onConceptSelected(edge.from);
 	};
-	const selectFragmentRelationship = (edge: CodeTourViewEdge) => {
-		const activeId = stateRef.current?.activeFragmentId ?? "";
-		onFragmentSelected(relationshipNavigationTarget(edge, activeId));
+	const selectConceptDestination = (edge: CodeTourViewEdge) => {
+		onConceptSelected(edge.to);
+	};
+	const selectFragmentSource = (edge: CodeTourViewEdge) => {
+		onFragmentSelected(edge.from);
+	};
+	const selectFragmentDestination = (edge: CodeTourViewEdge) => {
+		onFragmentSelected(edge.to);
 	};
 
 	const conceptEdges = buildSceneEdges({
@@ -1217,14 +1221,16 @@ function createScene({
 		nodes: conceptNodes,
 		scene,
 		theme,
-		onClick: selectConceptRelationship,
+		onDestinationClick: selectConceptDestination,
+		onSourceClick: selectConceptSource,
 	});
 	const fragmentEdges = buildSceneEdges({
 		edges: tour.fragmentEdges,
 		nodes: fragmentNodes,
 		scene,
 		theme,
-		onClick: selectFragmentRelationship,
+		onDestinationClick: selectFragmentDestination,
+		onSourceClick: selectFragmentSource,
 	});
 
 	const raycaster = new THREE.Raycaster();
@@ -1288,8 +1294,8 @@ function createScene({
 		if (!hit) return;
 		if (hit.type === "edge") {
 			const state = stateRef.current;
-			if (state?.mode === "concept") selectConceptRelationship(hit.edge.edge);
-			else selectFragmentRelationship(hit.edge.edge);
+			if (state?.mode === "concept") selectConceptDestination(hit.edge.edge);
+			else selectFragmentDestination(hit.edge.edge);
 			return;
 		}
 		if (hit.kind === "concept") onConceptSelected(hit.id);
@@ -1445,13 +1451,15 @@ function buildSceneEdges({
 	nodes,
 	scene,
 	theme,
-	onClick,
+	onDestinationClick,
+	onSourceClick,
 }: {
 	readonly edges: readonly CodeTourViewEdge[];
 	readonly nodes: ReadonlyMap<string, SceneNode>;
 	readonly scene: THREE.Scene;
 	readonly theme: CodeTourTheme;
-	readonly onClick: (edge: CodeTourViewEdge) => void;
+	readonly onDestinationClick: (edge: CodeTourViewEdge) => void;
+	readonly onSourceClick: (edge: CodeTourViewEdge) => void;
 }): readonly SceneEdge[] {
 	const sceneEdges: SceneEdge[] = [];
 	for (const [edgeIndex, edge] of edges.entries()) {
@@ -1483,14 +1491,43 @@ function buildSceneEdges({
 		});
 		scene.add(particles.points);
 
-		const labelElement = document.createElement("button");
-		labelElement.type = "button";
+		const labelElement = document.createElement("div");
 		labelElement.className = "rp1-code-tour-edge-label";
-		labelElement.textContent = edge.label;
-		labelElement.addEventListener("click", (event) => {
+		labelElement.setAttribute("role", "group");
+		labelElement.setAttribute("aria-label", `Relationship: ${edge.label}`);
+
+		const destinationButton = document.createElement("button");
+		destinationButton.type = "button";
+		destinationButton.className = "rp1-code-tour-edge-label-destination";
+		destinationButton.textContent = edge.label;
+		destinationButton.title = `Go to destination: ${edge.toLabel}`;
+		destinationButton.setAttribute(
+			"aria-label",
+			`Go to destination: ${edge.toLabel}`,
+		);
+		destinationButton.addEventListener("click", (event) => {
 			event.stopPropagation();
-			onClick(edge);
+			onDestinationClick(edge);
 		});
+		destinationButton.addEventListener("keydown", (event) => {
+			if (event.key !== "Enter" || !event.shiftKey) return;
+			event.preventDefault();
+			event.stopPropagation();
+			onSourceClick(edge);
+		});
+
+		const sourceButton = document.createElement("button");
+		sourceButton.type = "button";
+		sourceButton.className = "rp1-code-tour-edge-label-source";
+		sourceButton.textContent = "←";
+		sourceButton.title = `Go to source: ${edge.fromLabel}`;
+		sourceButton.setAttribute("aria-label", `Go to source: ${edge.fromLabel}`);
+		sourceButton.addEventListener("click", (event) => {
+			event.stopPropagation();
+			onSourceClick(edge);
+		});
+		labelElement.append(destinationButton, sourceButton);
+
 		const labelObject = new CSS2DObject(labelElement);
 		labelObject.position.copy(curve.getPoint(0.5));
 		scene.add(labelObject);

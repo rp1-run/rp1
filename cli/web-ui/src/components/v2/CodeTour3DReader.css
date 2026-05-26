@@ -864,13 +864,64 @@
 }
 
 .rp1-code-tour-edge-label {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 210px;
+  overflow: hidden;
+  padding: 0;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-size: 9px;
+}
+
+.rp1-code-tour-edge-label button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.rp1-code-tour-edge-label button:hover {
+  background: color-mix(in srgb, var(--ct-scene-label-active-bg) 42%, transparent);
+}
+
+.rp1-code-tour-edge-label button:focus-visible {
+  outline: 1px solid var(--ct-scene-label-active-border);
+  outline-offset: -2px;
+}
+
+.rp1-code-tour-edge-label-destination {
+  min-width: 0;
   max-width: 170px;
   overflow: hidden;
   padding: 3px 7px;
   text-overflow: ellipsis;
-  text-transform: uppercase;
   white-space: nowrap;
-  font-size: 9px;
+}
+
+.rp1-code-tour-edge-label-source {
+  order: -1;
+  width: 0;
+  overflow: hidden;
+  border-right: 1px solid transparent;
+  opacity: 0;
+  padding: 3px 0;
+  transition:
+    width 0.14s ease-out,
+    opacity 0.14s ease-out,
+    padding 0.14s ease-out,
+    border-color 0.14s ease-out;
+}
+
+.rp1-code-tour-edge-label:hover .rp1-code-tour-edge-label-source,
+.rp1-code-tour-edge-label:focus-within .rp1-code-tour-edge-label-source {
+  width: 22px;
+  border-right-color: var(--ct-scene-label-border);
+  opacity: 1;
+  padding: 3px 5px;
 }
 
 .rp1-code-tour-diagnostic {
