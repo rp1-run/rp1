@@ -122,7 +122,8 @@ const tourDocument: CodeTourDocument = {
 			conceptId: "auth-gate",
 			title: "Open with auth gate",
 			sub: "Server boundary",
-			reason: "Start where the private state is protected.",
+			reason:
+				"- Start where `requireAuth` protects private state.\n- Verify the fallback path stays explicit.",
 		},
 		{
 			conceptId: "token-ui",
@@ -190,6 +191,7 @@ describe("CodeTour3DReader", () => {
 		expect(
 			screen.getByRole("heading", { name: "Open with auth gate" }),
 		).toBeTruthy();
+		expect(screen.getByText("requireAuth").tagName).toBe("CODE");
 		expect(screen.getAllByText("server/auth.ts:10-12").length).toBeGreaterThan(
 			0,
 		);

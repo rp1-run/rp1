@@ -81,9 +81,10 @@ Do not read `.rp1/work/pr-reviews/` or any existing generated review artifact. D
 ### Evidence ID Rules
 
 - Treat `evidence_index` as canonical.
-- Every evidence ID used in concept summaries, fragment labels, relationship rationale, or tour text must appear in `evidence_index`.
+- Use evidence IDs internally to ground claims while constructing the artifact.
 - Prefer specific IDs: source-context claims use `E-PR-###`; file-scope claims use `E-FILE-###`; implementation/risk claims use `E-DIFF-###`; sequencing or intent claims use `E-COMMIT-###`.
-- If a necessary direct source exists in `EVIDENCE_JSON` without an ID, create the smallest useful additional ID from that source and carry it into the artifact text where needed.
+- Do not place evidence IDs, file IDs, diff IDs, commit IDs, or bracketed citation metadata in user-facing Code Tour text.
+- User-facing fields include `title`, domain labels, concept labels, concept `summary`, fragment labels, edge labels, tour `title`, tour `sub`, and tour `reason`.
 - Do not cite unsupported claims. If evidence is weak, phrase the point as a reviewer question.
 
 ## 3. Load Artifact Template
@@ -124,7 +125,11 @@ Fill the canonical Code Tour JSON template.
 - Keep relationship labels short, human-readable, and verb-first where possible.
 - Avoid isolated changed fragments when evidence supports a relationship. Tests, docs, config, templates, and wiring changes should connect to the implementation or contract fragment they validate, document, configure, route, render, parse, or replace.
 - Use review-semantic fragment labels such as `validates`, `covers`, `documents`, `configures`, `hydrates`, `renders`, `parses`, `routes`, or `replaces` when direct call/data-flow evidence is not available but file names, test names, diff hunks, or commit context clearly support the link.
-- Put evidence IDs in `summary`, `sub`, or `reason` text when they support the claim without harming readability.
+- Make concept `summary` and tour `reason` crisp executive-summary text, preferably 2-4 Markdown-style bullet lines using `- `.
+- Keep bullets short: one fact per bullet, no dense paragraphs, no process narration, no evidence IDs.
+- Use inline backticks for short code identifiers, paths, commands, schema names, or token values when they improve scanning.
+- Keep tour `sub` to one short context line. Prefer a path, module name, or reviewer focus over a sentence.
+- Fragment and edge labels should be terse action phrases, not evidence references.
 - Do not invent concepts, relationships, risk claims, or intent not supported by `EVIDENCE_JSON`.
 - If evidence is weak, omit the relationship or phrase the tour reason as a reviewer question. A changed fragment may remain isolated only when it is intentionally standalone and that choice is clear from surrounding text.
 
@@ -150,8 +155,10 @@ Before writing, self-check the complete JSON. If any check fails, revise the JSO
 - Fragments include source location metadata and code excerpts.
 - Relationship labels are concise.
 - Changed fragments are not visually isolated unless intentionally standalone.
+- Concept summaries and tour reasons are compact bullets or very short prose.
+- No user-facing field contains an evidence ID pattern such as `E-FILE-001`, `E-DIFF-001`, or bracketed citation metadata.
 - Claims are grounded in supplied evidence or omitted.
-- No markdown, slide markers, speaker notes, PR comments, or review verdicts are present.
+- No markdown wrapper, slide markers, speaker notes, PR comments, or review verdicts are present.
 
 ## 6. Write Artifact
 

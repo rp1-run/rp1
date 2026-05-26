@@ -39,14 +39,14 @@ strictness: flexible
       "label": "{concept_label}",
       "domain": "workflow",
       "epicenter": true,
-      "summary": "{concept_summary_with_evidence_ids}",
+      "summary": "- {concise_user_facing_bullet}\\n- {concise_user_facing_bullet}",
       "fragments": ["fragment-1"]
     },
     {
       "id": "concept-2",
       "label": "{related_concept_label}",
       "domain": "surface",
-      "summary": "{related_concept_summary_with_evidence_ids}",
+      "summary": "- {concise_user_facing_bullet}\\n- {concise_user_facing_bullet}",
       "fragments": ["fragment-2"]
     }
   ],
@@ -106,7 +106,7 @@ strictness: flexible
       "conceptId": "concept-1",
       "title": "{tour_step_title}",
       "sub": "{tour_step_context}",
-      "reason": "{tour_step_reason_with_evidence_ids}"
+      "reason": "- {why_this_step_matters}\\n- {what_to_inspect}"
     }
   ]
 }

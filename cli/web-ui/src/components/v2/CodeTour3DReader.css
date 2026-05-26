@@ -352,12 +352,40 @@
 }
 
 .rp1-code-tour-step-reason,
+.rp1-code-tour-prose,
 .rp1-code-tour-section p,
 .rp1-code-tour-relationships p {
   margin: 0;
   color: var(--ct-text);
   font-size: 12px;
   line-height: 1.55;
+}
+
+.rp1-code-tour-prose ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 16px;
+}
+
+.rp1-code-tour-prose li {
+  padding-left: 2px;
+}
+
+.rp1-code-tour-prose code {
+  border: 1px solid var(--ct-border-subtle);
+  border-radius: 4px;
+  background: var(--ct-code-bg);
+  color: var(--ct-heading);
+  font-size: 0.94em;
+  padding: 0 3px;
+}
+
+.rp1-code-tour-step-sub.rp1-code-tour-prose {
+  color: var(--ct-muted);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .rp1-code-tour-section {

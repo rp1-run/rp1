@@ -811,6 +811,58 @@ function FragmentCard({
 	);
 }
 
+function CodeTourProse({
+	text,
+	className,
+}: {
+	readonly text: string;
+	readonly className?: string;
+}) {
+	const lines = text
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter(Boolean);
+	const bulletItems = lines
+		.map((line) => line.match(/^[-*]\s+(.+)$/)?.[1])
+		.filter((line): line is string => line !== undefined);
+
+	if (bulletItems.length > 0 && bulletItems.length === lines.length) {
+		return (
+			<div className={cn("rp1-code-tour-prose", className)}>
+				<ul>
+					{bulletItems.map((line) => (
+						<li key={line}>{renderInlineCode(line)}</li>
+					))}
+				</ul>
+			</div>
+		);
+	}
+
+	return (
+		<p className={cn("rp1-code-tour-prose", className)}>
+			{renderInlineCode(text)}
+		</p>
+	);
+}
+
+function renderInlineCode(text: string): ReactNode {
+	const nodes: ReactNode[] = [];
+	const pattern = /`([^`]+)`/g;
+	let lastIndex = 0;
+	let match: RegExpExecArray | null;
+	while ((match = pattern.exec(text)) !== null) {
+		if (match.index > lastIndex) {
+			nodes.push(text.slice(lastIndex, match.index));
+		}
+		nodes.push(<code key={`${match.index}:${match[1]}`}>{match[1]}</code>);
+		lastIndex = pattern.lastIndex;
+	}
+	if (lastIndex < text.length) {
+		nodes.push(text.slice(lastIndex));
+	}
+	return nodes;
+}
+
 function FloatingStepCard({
 	cardRef,
 	activeStep,
@@ -878,10 +930,16 @@ function FloatingStepCard({
 			</div>
 
 			{activeStep?.sub && (
-				<p className="rp1-code-tour-step-sub">{activeStep.sub}</p>
+				<CodeTourProse
+					text={activeStep.sub}
+					className="rp1-code-tour-step-sub"
+				/>
 			)}
 			{activeStep?.reason && (
-				<p className="rp1-code-tour-step-reason">{activeStep.reason}</p>
+				<CodeTourProse
+					text={activeStep.reason}
+					className="rp1-code-tour-step-reason"
+				/>
 			)}
 			<button
 				type="button"
@@ -905,7 +963,9 @@ function FloatingStepCard({
 								<span>{activeConcept.domain.label}</span>
 							</div>
 							<h4>{activeConcept.label}</h4>
-							{activeConcept.summary && <p>{activeConcept.summary}</p>}
+							{activeConcept.summary && (
+								<CodeTourProse text={activeConcept.summary} />
+							)}
 						</section>
 					)}
 
@@ -1125,10 +1185,16 @@ function CodeTourDiagnosticState({
 								</span>
 							</div>
 							{activeStep?.sub && (
-								<p className="rp1-code-tour-step-sub">{activeStep.sub}</p>
+								<CodeTourProse
+									text={activeStep.sub}
+									className="rp1-code-tour-step-sub"
+								/>
 							)}
 							{activeStep?.reason && (
-								<p className="rp1-code-tour-step-reason">{activeStep.reason}</p>
+								<CodeTourProse
+									text={activeStep.reason}
+									className="rp1-code-tour-step-reason"
+								/>
 							)}
 							{conceptFragments.length > 1 && (
 								<div className="rp1-code-tour-fragment-tabs">
