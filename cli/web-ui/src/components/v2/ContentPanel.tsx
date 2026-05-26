@@ -51,7 +51,7 @@ export function ContentPanel({
 	projectId,
 	filePath,
 	enableAnnotations = true,
-	contentMode = "markdown",
+	contentMode,
 	codeTourSource,
 	codeTourFallbackMessage = null,
 	onContentModeChange,
@@ -61,8 +61,10 @@ export function ContentPanel({
 	const codeTourResult =
 		codeTourSource ??
 		(content !== null && path ? parseCodeTourSource({ path, content }) : null);
+	const effectiveContentMode =
+		contentMode ?? (codeTourResult?.kind === "tour" ? "tour" : "markdown");
 	const codeTour =
-		contentMode === "tour" && codeTourResult?.kind === "tour"
+		effectiveContentMode === "tour" && codeTourResult?.kind === "tour"
 			? codeTourResult.tour
 			: null;
 
@@ -101,7 +103,11 @@ export function ContentPanel({
 					<CodeTour3DReader
 						tour={codeTour}
 						path={path}
-						onSourceModeRequested={() => onContentModeChange?.("markdown")}
+						onSourceModeRequested={
+							onContentModeChange
+								? () => onContentModeChange("markdown")
+								: undefined
+						}
 						onRenderFailure={onCodeTourRenderFailure}
 					/>
 				) : (
