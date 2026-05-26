@@ -60,7 +60,9 @@ interface SceneNode {
 	readonly group: THREE.Group;
 	readonly target: THREE.Vector3;
 	readonly hitMesh: THREE.Mesh;
+	readonly haloMesh: THREE.Mesh;
 	readonly bodyMaterial: THREE.MeshBasicMaterial;
+	readonly haloMaterial: THREE.MeshBasicMaterial;
 	readonly edgeMaterial: THREE.LineBasicMaterial;
 	readonly labelObject: CSS2DObject;
 	readonly labelElement: HTMLButtonElement;
@@ -70,9 +72,18 @@ interface SceneNode {
 
 interface SceneEdge {
 	readonly edge: CodeTourViewEdge;
+	readonly curve: THREE.QuadraticBezierCurve3;
 	readonly line: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>;
 	readonly material: THREE.LineBasicMaterial;
 	readonly geometry: THREE.BufferGeometry;
+	readonly particlePoints: THREE.Points<
+		THREE.BufferGeometry,
+		THREE.PointsMaterial
+	>;
+	readonly particleGeometry: THREE.BufferGeometry;
+	readonly particleMaterial: THREE.PointsMaterial;
+	readonly particleBaseColor: THREE.Color;
+	readonly particleOffsets: readonly number[];
 	readonly labelObject: CSS2DObject;
 	readonly labelElement: HTMLButtonElement;
 }
@@ -91,6 +102,10 @@ interface SceneHandles {
 	readonly labelRenderer: CSS2DRenderer;
 	readonly scene: THREE.Scene;
 	readonly theme: CodeTourTheme;
+	readonly ambientPoints: THREE.Points<
+		THREE.BufferGeometry,
+		THREE.PointsMaterial
+	>;
 	readonly camera: THREE.PerspectiveCamera;
 	readonly controls: OrbitControls;
 	readonly stage: HTMLDivElement;
@@ -126,6 +141,12 @@ interface FragmentCardDragState {
 const FRAGMENT_CARD_MARGIN = 16;
 const NODE_GEOMETRY = new THREE.DodecahedronGeometry(0.82);
 const NODE_EDGE_GEOMETRY = new THREE.EdgesGeometry(NODE_GEOMETRY);
+const NODE_HALO_GEOMETRY = new THREE.SphereGeometry(1.2, 28, 14);
+const EDGE_PARTICLES_PER_EDGE = 4;
+const EDGE_PARTICLE_SPEED = 0.075;
+const EDGE_PARTICLE_VECTOR = new THREE.Vector3();
+const EDGE_PARTICLE_TARGET_COLOR = new THREE.Color();
+const EDGE_PARTICLE_ACCENT_COLOR = new THREE.Color();
 const SCENE_THEME: Readonly<
 	Record<
 		CodeTourTheme,
@@ -135,6 +156,15 @@ const SCENE_THEME: Readonly<
 			readonly fogDensity: number;
 			readonly ambient: number;
 			readonly ambientOpacity: number;
+			readonly ambientSize: number;
+			readonly halo: number;
+			readonly haloOpacity: number;
+			readonly haloBridgeOpacity: number;
+			readonly haloActiveOpacity: number;
+			readonly edgeParticle: number;
+			readonly edgeParticleOpacity: number;
+			readonly edgeParticleActiveOpacity: number;
+			readonly edgeParticleSize: number;
 		}
 	>
 > = {
@@ -142,15 +172,33 @@ const SCENE_THEME: Readonly<
 		clear: 0xf1efeb,
 		fog: 0xf1efeb,
 		fogDensity: 0.012,
-		ambient: 0x8f8172,
-		ambientOpacity: 0.2,
+		ambient: 0x257e78,
+		ambientOpacity: 0.22,
+		ambientSize: 0.046,
+		halo: 0x178f86,
+		haloOpacity: 0.045,
+		haloBridgeOpacity: 0.075,
+		haloActiveOpacity: 0.14,
+		edgeParticle: 0x0d7e76,
+		edgeParticleOpacity: 0,
+		edgeParticleActiveOpacity: 0.28,
+		edgeParticleSize: 0.052,
 	},
 	dark: {
 		clear: 0x11100d,
 		fog: 0x11100d,
 		fogDensity: 0.018,
-		ambient: 0xd2bea0,
-		ambientOpacity: 0.34,
+		ambient: 0x5dffc4,
+		ambientOpacity: 0.38,
+		ambientSize: 0.058,
+		halo: 0x5dffc4,
+		haloOpacity: 0.075,
+		haloBridgeOpacity: 0.12,
+		haloActiveOpacity: 0.24,
+		edgeParticle: 0xa5ffdf,
+		edgeParticleOpacity: 0,
+		edgeParticleActiveOpacity: 0.48,
+		edgeParticleSize: 0.072,
 	},
 };
 const TOKEN_CLASS: Readonly<Record<string, string>> = {
@@ -1124,7 +1172,8 @@ function createScene({
 	controls.minDistance = 5;
 	controls.target.set(0, 0, 0);
 
-	scene.add(buildAmbientPoints(theme));
+	const ambientPoints = buildAmbientPoints(theme);
+	scene.add(ambientPoints);
 
 	const layout = buildCodeTourSceneLayout(tour);
 	const conceptNodes = new Map<string, SceneNode>();
@@ -1267,6 +1316,7 @@ function createScene({
 		labelRenderer,
 		scene,
 		theme,
+		ambientPoints,
 		camera,
 		controls,
 		stage,
@@ -1296,6 +1346,8 @@ function createScene({
 		canvas.removeEventListener("pointermove", pointerMove);
 		canvas.removeEventListener("click", click);
 		controls.dispose();
+		ambientPoints.geometry.dispose();
+		ambientPoints.material.dispose();
 		renderer.dispose();
 		overlay.replaceChildren();
 		disposeNodeMap(conceptNodes);
@@ -1334,10 +1386,23 @@ function buildSceneNode({
 }): SceneNode {
 	const color = sceneDomainColor(domainColor, theme);
 	const blending = sceneMaterialBlending(theme);
+	const sceneTheme = SCENE_THEME[theme];
 	const group = new THREE.Group();
 	group.position.copy(position);
 	group.scale.setScalar(baseScale);
 	group.userData = { kind, id };
+
+	const haloMaterial = new THREE.MeshBasicMaterial({
+		color: color.clone().lerp(new THREE.Color(sceneTheme.halo), 0.42),
+		transparent: true,
+		opacity: sceneTheme.haloOpacity,
+		depthWrite: false,
+		blending,
+		side: THREE.DoubleSide,
+	});
+	const haloMesh = new THREE.Mesh(NODE_HALO_GEOMETRY, haloMaterial);
+	haloMesh.renderOrder = -1;
+	group.add(haloMesh);
 
 	const bodyMaterial = new THREE.MeshBasicMaterial({
 		color,
@@ -1380,7 +1445,9 @@ function buildSceneNode({
 		group,
 		target: position.clone(),
 		hitMesh,
+		haloMesh,
 		bodyMaterial,
+		haloMaterial,
 		edgeMaterial,
 		labelObject,
 		labelElement,
@@ -1403,7 +1470,7 @@ function buildSceneEdges({
 	readonly onClick: (edge: CodeTourViewEdge) => void;
 }): readonly SceneEdge[] {
 	const sceneEdges: SceneEdge[] = [];
-	for (const edge of edges) {
+	for (const [edgeIndex, edge] of edges.entries()) {
 		const from = nodes.get(edge.from);
 		const to = nodes.get(edge.to);
 		if (!from || !to) continue;
@@ -1411,8 +1478,9 @@ function buildSceneEdges({
 		const geometry = new THREE.BufferGeometry().setFromPoints(
 			curve.getPoints(42),
 		);
+		const baseColor = from.domainColor.clone().lerp(to.domainColor, 0.45);
 		const material = new THREE.LineBasicMaterial({
-			color: from.domainColor.clone().lerp(to.domainColor, 0.45),
+			color: baseColor,
 			transparent: true,
 			opacity: theme === "light" ? 0.42 : 0.24,
 			depthWrite: false,
@@ -1420,6 +1488,16 @@ function buildSceneEdges({
 		});
 		const line = new THREE.Line(geometry, material);
 		scene.add(line);
+
+		const particles = buildEdgeParticles({
+			curve,
+			color: baseColor
+				.clone()
+				.lerp(new THREE.Color(SCENE_THEME[theme].edgeParticle), 0.4),
+			seed: edgeIndex,
+			theme,
+		});
+		scene.add(particles.points);
 
 		const labelElement = document.createElement("button");
 		labelElement.type = "button";
@@ -1435,14 +1513,65 @@ function buildSceneEdges({
 
 		sceneEdges.push({
 			edge,
+			curve,
 			line,
 			material,
 			geometry,
+			particlePoints: particles.points,
+			particleGeometry: particles.geometry,
+			particleMaterial: particles.material,
+			particleBaseColor: particles.baseColor,
+			particleOffsets: particles.offsets,
 			labelObject,
 			labelElement,
 		});
 	}
 	return sceneEdges;
+}
+
+function buildEdgeParticles({
+	curve,
+	color,
+	seed,
+	theme,
+}: {
+	readonly curve: THREE.QuadraticBezierCurve3;
+	readonly color: THREE.Color;
+	readonly seed: number;
+	readonly theme: CodeTourTheme;
+}): {
+	readonly points: THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial>;
+	readonly geometry: THREE.BufferGeometry;
+	readonly material: THREE.PointsMaterial;
+	readonly baseColor: THREE.Color;
+	readonly offsets: readonly number[];
+} {
+	const positions = new Float32Array(EDGE_PARTICLES_PER_EDGE * 3);
+	const offsets = Array.from({ length: EDGE_PARTICLES_PER_EDGE }, (_, index) =>
+		fract(index / EDGE_PARTICLES_PER_EDGE + seed * 0.137 + index * 0.019),
+	);
+	for (let index = 0; index < offsets.length; index += 1) {
+		const point = curve.getPoint(offsets[index] ?? 0);
+		positions[index * 3] = point.x;
+		positions[index * 3 + 1] = point.y;
+		positions[index * 3 + 2] = point.z;
+	}
+
+	const geometry = new THREE.BufferGeometry();
+	geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+	const sceneTheme = SCENE_THEME[theme];
+	const material = new THREE.PointsMaterial({
+		color,
+		size: sceneTheme.edgeParticleSize,
+		transparent: true,
+		opacity: 0,
+		depthWrite: false,
+		blending: sceneMaterialBlending(theme),
+		sizeAttenuation: true,
+	});
+	const points = new THREE.Points(geometry, material);
+	points.frustumCulled = false;
+	return { points, geometry, material, baseColor: color.clone(), offsets };
 }
 
 function animateScene(
@@ -1506,6 +1635,7 @@ function updateNodeVisualState(
 	isBridge: boolean,
 	theme: CodeTourTheme,
 ) {
+	const sceneTheme = SCENE_THEME[theme];
 	const visibleOpacity = !isMode
 		? 0
 		: isActive
@@ -1527,12 +1657,26 @@ function updateNodeVisualState(
 		visibleOpacity,
 		0.12,
 	);
+	const haloOpacity = !isMode
+		? 0
+		: isActive
+			? sceneTheme.haloActiveOpacity
+			: isBridge
+				? sceneTheme.haloBridgeOpacity
+				: sceneTheme.haloOpacity;
+	node.haloMaterial.opacity = THREE.MathUtils.lerp(
+		node.haloMaterial.opacity,
+		haloOpacity,
+		0.12,
+	);
 	const targetScale = node.baseScale * (isActive ? 1.28 : isBridge ? 1.08 : 1);
 	const nextScale = THREE.MathUtils.lerp(node.group.scale.x, targetScale, 0.1);
 	node.group.scale.setScalar(nextScale);
+	node.haloMesh.scale.setScalar(isActive ? 1.36 : isBridge ? 1.18 : 1);
 	node.hitMesh.rotation.y += isActive ? 0.004 : 0.0012;
 	node.hitMesh.rotation.x += isActive ? 0.001 : 0.0003;
 	node.group.visible = node.edgeMaterial.opacity > 0.01;
+	node.haloMesh.visible = node.haloMaterial.opacity > 0.006;
 	node.labelObject.visible = isMode && node.edgeMaterial.opacity > 0.08;
 	node.labelElement.classList.toggle("is-active", isActive);
 	node.labelElement.classList.toggle("is-muted", !isActive && !isBridge);
@@ -1589,6 +1733,48 @@ function updateEdgeVisualState(
 	edge.line.visible = edge.material.opacity > 0.02;
 	edge.labelObject.visible = isMode && edge.material.opacity > 0.08;
 	edge.labelElement.classList.toggle("is-active", isActive);
+	updateEdgeParticles(edge, isMode, isActive, theme);
+}
+
+function updateEdgeParticles(
+	edge: SceneEdge,
+	isMode: boolean,
+	isActive: boolean,
+	theme: CodeTourTheme,
+) {
+	const sceneTheme = SCENE_THEME[theme];
+	const targetOpacity = !isMode
+		? 0
+		: isActive
+			? sceneTheme.edgeParticleActiveOpacity
+			: sceneTheme.edgeParticleOpacity;
+	edge.particleMaterial.opacity = THREE.MathUtils.lerp(
+		edge.particleMaterial.opacity,
+		targetOpacity,
+		0.12,
+	);
+	edge.particleMaterial.size = THREE.MathUtils.lerp(
+		edge.particleMaterial.size,
+		isActive ? sceneTheme.edgeParticleSize * 1.12 : sceneTheme.edgeParticleSize,
+		0.1,
+	);
+	EDGE_PARTICLE_TARGET_COLOR.copy(edge.particleBaseColor).lerp(
+		EDGE_PARTICLE_ACCENT_COLOR.set(sceneTheme.edgeParticle),
+		isActive ? 0.68 : 0.32,
+	);
+	edge.particleMaterial.color.lerp(EDGE_PARTICLE_TARGET_COLOR, 0.14);
+	edge.particlePoints.visible = edge.particleMaterial.opacity > 0.01;
+	if (!edge.particlePoints.visible) return;
+
+	const elapsed = performance.now() / 1000;
+	const positions = edge.particleGeometry.getAttribute("position");
+	for (let index = 0; index < edge.particleOffsets.length; index += 1) {
+		const offset = edge.particleOffsets[index] ?? 0;
+		const t = (offset + elapsed * EDGE_PARTICLE_SPEED) % 1;
+		const point = edge.curve.getPoint(t, EDGE_PARTICLE_VECTOR);
+		positions.setXYZ(index, point.x, point.y, point.z);
+	}
+	positions.needsUpdate = true;
 }
 
 function focusSceneTarget(
@@ -1749,13 +1935,13 @@ function resizeScene(
 }
 
 function buildAmbientPoints(theme: CodeTourTheme) {
-	const count = 420;
+	const count = 960;
 	const positions = new Float32Array(count * 3);
 	for (let index = 0; index < count; index += 1) {
 		const seed = index * 12.9898;
-		const x = (fract(Math.sin(seed) * 43758.5453) - 0.5) * 70;
-		const y = (fract(Math.sin(seed + 8.12) * 23421.631) - 0.5) * 20 + 2;
-		const z = (fract(Math.sin(seed + 3.47) * 12914.019) - 0.5) * 70;
+		const x = (fract(Math.sin(seed) * 43758.5453) - 0.5) * 96;
+		const y = (fract(Math.sin(seed + 8.12) * 23421.631) - 0.5) * 30 + 2;
+		const z = (fract(Math.sin(seed + 3.47) * 12914.019) - 0.5) * 96;
 		positions[index * 3] = x;
 		positions[index * 3 + 1] = y;
 		positions[index * 3 + 2] = z;
@@ -1765,10 +1951,11 @@ function buildAmbientPoints(theme: CodeTourTheme) {
 	const sceneTheme = SCENE_THEME[theme];
 	const material = new THREE.PointsMaterial({
 		color: sceneTheme.ambient,
-		size: 0.035,
+		size: sceneTheme.ambientSize,
 		transparent: true,
 		opacity: sceneTheme.ambientOpacity,
 		depthWrite: false,
+		blending: sceneMaterialBlending(theme),
 		sizeAttenuation: true,
 	});
 	return new THREE.Points(geometry, material);
@@ -1861,6 +2048,7 @@ function firstFragmentForConcept(
 function disposeNodeMap(nodes: ReadonlyMap<string, SceneNode>) {
 	for (const node of nodes.values()) {
 		node.bodyMaterial.dispose();
+		node.haloMaterial.dispose();
 		node.edgeMaterial.dispose();
 		node.labelElement.remove();
 	}
@@ -1870,6 +2058,8 @@ function disposeEdges(edges: readonly SceneEdge[]) {
 	for (const edge of edges) {
 		edge.material.dispose();
 		edge.geometry.dispose();
+		edge.particleMaterial.dispose();
+		edge.particleGeometry.dispose();
 		edge.labelElement.remove();
 	}
 }
