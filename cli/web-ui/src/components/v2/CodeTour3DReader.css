@@ -875,6 +875,17 @@
   font-size: 9px;
 }
 
+.rp1-code-tour-edge-label::before {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  width: calc(100% + 14px);
+  min-width: 56px;
+  height: 9px;
+  content: "";
+  transform: translateX(-50%);
+}
+
 .rp1-code-tour-edge-label button {
   box-sizing: border-box;
   display: inline-flex;
@@ -937,6 +948,7 @@
   transition:
     opacity 0.12s ease-out,
     transform 0.12s ease-out;
+  transition-delay: 0.12s;
 }
 
 .rp1-code-tour-edge-label:hover .rp1-code-tour-edge-label-nav,
@@ -944,6 +956,7 @@
   opacity: 1;
   pointer-events: auto;
   transform: translate(-50%, 0);
+  transition-delay: 0s;
 }
 
 .rp1-code-tour-edge-label-nav-button {
