@@ -2,7 +2,8 @@
   position: relative;
   display: block;
   height: 100%;
-  min-height: 680px;
+  width: 100%;
+  min-height: max(680px, calc(100vh - 150px));
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -21,30 +22,8 @@
   inset: 0;
   overflow: hidden;
   background:
-    linear-gradient(180deg, hsl(32 10% 8%) 0%, hsl(34 9% 11%) 42%, hsl(28 10% 7%) 100%),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 39px,
-      rgb(210 190 160 / 0.035) 40px
-    );
-}
-
-.rp1-code-tour-grid {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(to bottom, rgb(255 255 255 / 0.035), transparent 16%),
-    repeating-linear-gradient(
-      to bottom,
-      transparent 0,
-      transparent 3px,
-      rgb(255 255 255 / 0.025) 4px
-    );
-  mix-blend-mode: screen;
-  opacity: 0.7;
-  z-index: 2;
+    radial-gradient(ellipse at 56% 48%, rgb(38 52 48 / 0.58) 0%, transparent 48%),
+    linear-gradient(180deg, hsl(32 10% 8%) 0%, hsl(34 9% 11%) 42%, hsl(28 10% 7%) 100%);
 }
 
 .rp1-code-tour-canvas,
@@ -86,7 +65,7 @@
   top: 16px;
   left: 16px;
   right: 16px;
-  z-index: 5;
+  z-index: 7;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -178,7 +157,7 @@
   top: 108px;
   right: 16px;
   bottom: 84px;
-  z-index: 5;
+  z-index: 6;
   display: flex;
   width: min(430px, calc(100% - 32px));
   min-width: 0;
@@ -309,6 +288,224 @@
   border: 1px solid rgb(218 196 164 / 0.14);
   border-radius: 8px;
   background: rgb(13 13 12 / 0.72);
+}
+
+.rp1-code-tour-fragment-tether {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+}
+
+.rp1-code-tour-fragment-tether.is-visible {
+  opacity: 1;
+}
+
+.rp1-code-tour-fragment-tether-glow,
+.rp1-code-tour-fragment-tether-line {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.rp1-code-tour-fragment-tether-glow {
+  stroke: rgb(146 211 219);
+  stroke-width: 5;
+  opacity: 0.18;
+  filter: blur(2px);
+}
+
+.rp1-code-tour-fragment-tether-line {
+  stroke: rgb(218 244 239 / 0.86);
+  stroke-width: 1.15;
+}
+
+.rp1-code-tour-fragment-tether-cap {
+  fill: rgb(218 244 239);
+  filter: drop-shadow(0 0 5px rgb(146 211 219 / 0.8));
+}
+
+.rp1-code-tour-floating-fragment-card {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  z-index: 6;
+  display: flex;
+  width: min(640px, calc(100% - 462px));
+  min-width: min(460px, calc(100% - 32px));
+  max-height: min(70vh, calc(100% - 132px));
+  flex-direction: column;
+  overflow: hidden;
+  transform:
+    translate(var(--clamp-x, 0px), calc(-50% + var(--clamp-y, 0px)))
+    translate(var(--drag-x, 0px), var(--drag-y, 0px));
+  border: 1px solid rgb(218 196 164 / 0.16);
+  border-radius: 8px;
+  background: rgb(13 13 12 / 0.82);
+  box-shadow: 0 22px 60px rgb(0 0 0 / 0.48);
+  backdrop-filter: blur(14px);
+  pointer-events: auto;
+}
+
+.rp1-code-tour-floating-fragment-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  border-bottom: 1px solid rgb(218 196 164 / 0.12);
+  background: rgb(255 255 255 / 0.035);
+  cursor: grab;
+  padding: 9px 11px;
+  touch-action: none;
+  user-select: none;
+}
+
+.rp1-code-tour-floating-domain-pill {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  padding: 2px 7px;
+}
+
+.rp1-code-tour-floating-concept-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: hsl(40 16% 94%);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp1-code-tour-floating-file-count {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.055);
+  color: rgb(218 205 184 / 0.62);
+  font-size: 10px;
+  line-height: 1.5;
+  padding: 2px 7px;
+}
+
+.rp1-code-tour-floating-fragment-path {
+  flex: 0 0 auto;
+  overflow: hidden;
+  color: rgb(218 205 184 / 0.62);
+  font-family: var(--font-mono, "Commit Mono", ui-monospace, monospace);
+  font-size: 11px;
+  line-height: 1.45;
+  padding: 7px 12px 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp1-code-tour-floating-fragment-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 3px;
+  overflow-x: auto;
+  border-bottom: 1px solid rgb(218 196 164 / 0.12);
+  padding: 6px 10px 0;
+}
+
+.rp1-code-tour-floating-fragment-tabs button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 210px;
+  min-height: 30px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: rgb(218 205 184 / 0.62);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 6px 9px;
+}
+
+.rp1-code-tour-floating-fragment-tabs button:hover {
+  background: rgb(255 255 255 / 0.035);
+  color: hsl(40 16% 94%);
+}
+
+.rp1-code-tour-floating-fragment-tabs button.active {
+  background: rgb(146 211 219 / 0.1);
+  color: hsl(40 16% 94%);
+}
+
+.rp1-code-tour-floating-fragment-tabs button.active::after {
+  position: absolute;
+  right: 6px;
+  bottom: -1px;
+  left: 6px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgb(146 211 219);
+  content: "";
+}
+
+.rp1-code-tour-floating-fragment-tabs span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp1-code-tour-floating-fragment-tabs small {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.055);
+  color: rgb(218 205 184 / 0.58);
+  font-size: 10px;
+  line-height: 1.5;
+  padding: 1px 5px;
+}
+
+.rp1-code-tour-floating-fragment-card .rp1-code-tour-code {
+  max-height: none;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.rp1-code-tour-floating-fragment-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  border-top: 1px solid rgb(218 196 164 / 0.12);
+  background: rgb(255 255 255 / 0.025);
+  padding: 9px 11px;
+}
+
+.rp1-code-tour-floating-fragment-actions a,
+.rp1-code-tour-floating-fragment-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  border: 1px solid rgb(218 196 164 / 0.16);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.045);
+  color: rgb(238 228 213 / 0.82);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 6px 9px;
+  text-decoration: none;
+}
+
+.rp1-code-tour-floating-fragment-actions a {
+  border-color: rgb(146 211 219 / 0.38);
+  background: rgb(146 211 219 / 0.16);
+  color: hsl(40 16% 96%);
 }
 
 .rp1-code-tour-fragment-card-head {
@@ -465,7 +662,7 @@
   position: absolute;
   bottom: 16px;
   left: 50%;
-  z-index: 5;
+  z-index: 7;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -670,7 +867,18 @@
     bottom: 74px;
     left: 12px;
     width: auto;
-    max-height: 43%;
+    max-height: 32%;
+  }
+
+  .rp1-code-tour-floating-fragment-card {
+    top: 152px;
+    left: 12px;
+    width: min(620px, calc(100% - 24px));
+    min-width: 0;
+    max-height: calc(62% - 88px);
+    transform:
+      translate(var(--clamp-x, 0px), var(--clamp-y, 0px))
+      translate(var(--drag-x, 0px), var(--drag-y, 0px));
   }
 
   .rp1-code-tour-diagnostic-grid {
@@ -692,6 +900,13 @@
   .rp1-code-tour-inspector {
     right: 10px;
     left: 10px;
+  }
+
+  .rp1-code-tour-floating-fragment-card {
+    top: 146px;
+    left: 10px;
+    width: calc(100% - 20px);
+    max-height: 40%;
   }
 
   .rp1-code-tour-bottom-bar {

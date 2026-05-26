@@ -72,7 +72,7 @@ export function ContentPanel({
 		<div
 			className={
 				codeTour
-					? "h-full min-h-[680px] max-w-full min-w-0 p-4"
+					? "h-full min-h-[680px] max-w-full min-w-0 p-0"
 					: "artifact-viewer-content max-w-full min-w-0 break-words px-4 md:px-[40px]"
 			}
 			style={

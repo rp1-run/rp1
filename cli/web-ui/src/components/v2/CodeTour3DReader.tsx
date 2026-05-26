@@ -11,7 +11,11 @@ import {
 	PanelRightOpen,
 	RotateCcw,
 } from "lucide-react";
-import type { ReactNode, RefObject } from "react";
+import type {
+	ReactNode,
+	PointerEvent as ReactPointerEvent,
+	RefObject,
+} from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -68,12 +72,23 @@ interface SceneEdge {
 	readonly labelElement: HTMLButtonElement;
 }
 
+interface FragmentTetherRefs {
+	readonly card: RefObject<HTMLElement>;
+	readonly svg: RefObject<SVGSVGElement>;
+	readonly glow: RefObject<SVGPathElement>;
+	readonly line: RefObject<SVGPathElement>;
+	readonly nodeCap: RefObject<SVGCircleElement>;
+	readonly cardCap: RefObject<SVGCircleElement>;
+}
+
 interface SceneHandles {
 	readonly renderer: THREE.WebGLRenderer;
 	readonly labelRenderer: CSS2DRenderer;
 	readonly scene: THREE.Scene;
 	readonly camera: THREE.PerspectiveCamera;
 	readonly controls: OrbitControls;
+	readonly stage: HTMLDivElement;
+	readonly fragmentTether: FragmentTetherRefs;
 	readonly conceptNodes: ReadonlyMap<string, SceneNode>;
 	readonly fragmentNodes: ReadonlyMap<string, SceneNode>;
 	readonly conceptEdges: readonly SceneEdge[];
@@ -90,8 +105,20 @@ interface ReaderStateRef {
 	readonly activeFragmentId: string;
 }
 
+interface FragmentCardDragState {
+	dragging: boolean;
+	pointerId: number | null;
+	startX: number;
+	startY: number;
+	baseX: number;
+	baseY: number;
+	x: number;
+	y: number;
+}
+
 const CONCEPT_RADIUS = 13;
 const FRAGMENT_COLUMN_GAP = 5.8;
+const FRAGMENT_CARD_MARGIN = 16;
 const NODE_GEOMETRY = new THREE.DodecahedronGeometry(0.82);
 const NODE_EDGE_GEOMETRY = new THREE.EdgesGeometry(NODE_GEOMETRY);
 const TOKEN_CLASS: Readonly<Record<string, string>> = {
@@ -114,9 +141,25 @@ export function CodeTour3DReader({
 	const stageRef = useRef<HTMLDivElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const overlayRef = useRef<HTMLDivElement>(null);
+	const fragmentCardRef = useRef<HTMLElement>(null);
+	const tetherSvgRef = useRef<SVGSVGElement>(null);
+	const tetherGlowRef = useRef<SVGPathElement>(null);
+	const tetherLineRef = useRef<SVGPathElement>(null);
+	const tetherNodeCapRef = useRef<SVGCircleElement>(null);
+	const tetherCardCapRef = useRef<SVGCircleElement>(null);
 	const handlesRef = useRef<SceneHandles | null>(null);
 	const onRenderFailureRef = useRef(onRenderFailure);
 	const lastFailureRef = useRef<string | null>(null);
+	const fragmentCardDragRef = useRef<FragmentCardDragState>({
+		dragging: false,
+		pointerId: null,
+		startX: 0,
+		startY: 0,
+		baseX: 0,
+		baseY: 0,
+		x: 0,
+		y: 0,
+	});
 	const prefersReducedMotion = usePrefersReducedMotion();
 	const firstConceptId = tour.concepts[0]?.id ?? "";
 	const firstStep = tour.steps[0] ?? null;
@@ -259,6 +302,56 @@ export function CodeTour3DReader({
 		focusSceneTarget(handlesRef.current, readerStateRef.current);
 	}, []);
 
+	const startFragmentCardDrag = useCallback(
+		(event: ReactPointerEvent<HTMLElement>) => {
+			if (isInteractiveTarget(event.target)) return;
+			const card = fragmentCardRef.current;
+			if (!card) return;
+
+			const drag = fragmentCardDragRef.current;
+			drag.dragging = true;
+			drag.pointerId = event.pointerId;
+			drag.startX = event.clientX;
+			drag.startY = event.clientY;
+			drag.baseX = drag.x;
+			drag.baseY = drag.y;
+
+			event.currentTarget.style.cursor = "grabbing";
+			event.currentTarget.setPointerCapture(event.pointerId);
+			event.preventDefault();
+		},
+		[],
+	);
+
+	const moveFragmentCardDrag = useCallback(
+		(event: ReactPointerEvent<HTMLElement>) => {
+			const drag = fragmentCardDragRef.current;
+			const card = fragmentCardRef.current;
+			if (!drag.dragging || drag.pointerId !== event.pointerId || !card) return;
+
+			drag.x = drag.baseX + event.clientX - drag.startX;
+			drag.y = drag.baseY + event.clientY - drag.startY;
+			card.style.setProperty("--drag-x", `${drag.x}px`);
+			card.style.setProperty("--drag-y", `${drag.y}px`);
+		},
+		[],
+	);
+
+	const endFragmentCardDrag = useCallback(
+		(event: ReactPointerEvent<HTMLElement>) => {
+			const drag = fragmentCardDragRef.current;
+			if (!drag.dragging || drag.pointerId !== event.pointerId) return;
+
+			drag.dragging = false;
+			drag.pointerId = null;
+			event.currentTarget.style.cursor = "grab";
+			try {
+				event.currentTarget.releasePointerCapture(event.pointerId);
+			} catch {}
+		},
+		[],
+	);
+
 	const toggleFullscreen = useCallback(() => {
 		const root = rootRef.current;
 		if (!root) return;
@@ -323,6 +416,14 @@ export function CodeTour3DReader({
 				overlay,
 				stage,
 				stateRef: readerStateRef,
+				fragmentTether: {
+					card: fragmentCardRef,
+					svg: tetherSvgRef,
+					glow: tetherGlowRef,
+					line: tetherLineRef,
+					nodeCap: tetherNodeCapRef,
+					cardCap: tetherCardCapRef,
+				},
 				onConceptSelected: selectConcept,
 				onFragmentSelected: selectFragment,
 			});
@@ -392,7 +493,6 @@ export function CodeTour3DReader({
 						sceneUnavailable && "rp1-code-tour-label-layer-hidden",
 					)}
 				/>
-				<div className="rp1-code-tour-grid" aria-hidden="true" />
 				{sceneUnavailable && (
 					<CodeTourDiagnosticState
 						kind={diagnosticKind}
@@ -464,6 +564,50 @@ export function CodeTour3DReader({
 					</div>
 				</header>
 
+				{!sceneUnavailable && activeFragment && (
+					<>
+						<svg
+							ref={tetherSvgRef}
+							className="rp1-code-tour-fragment-tether"
+							aria-hidden="true"
+						>
+							<path
+								ref={tetherGlowRef}
+								className="rp1-code-tour-fragment-tether-glow"
+							/>
+							<path
+								ref={tetherLineRef}
+								className="rp1-code-tour-fragment-tether-line"
+							/>
+							<circle
+								ref={tetherNodeCapRef}
+								className="rp1-code-tour-fragment-tether-cap"
+								r="3.2"
+							/>
+							<circle
+								ref={tetherCardCapRef}
+								className="rp1-code-tour-fragment-tether-cap"
+								r="3.2"
+							/>
+						</svg>
+						<FloatingFragmentCard
+							cardRef={fragmentCardRef}
+							activeConcept={activeConcept}
+							activeFragment={activeFragment}
+							conceptFragments={conceptFragments}
+							sourceKind={tour.kind}
+							onFragmentSelected={(fragmentId) => {
+								setMode("fragment");
+								selectFragment(fragmentId);
+							}}
+							onRecenter={resetCamera}
+							onDragPointerDown={startFragmentCardDrag}
+							onDragPointerMove={moveFragmentCardDrag}
+							onDragPointerUp={endFragmentCardDrag}
+						/>
+					</>
+				)}
+
 				<aside className="rp1-code-tour-inspector">
 					<div className="rp1-code-tour-inspector-head">
 						<div>
@@ -514,10 +658,6 @@ export function CodeTour3DReader({
 								</button>
 							))}
 						</div>
-					)}
-
-					{activeFragment && (
-						<FragmentCard fragment={activeFragment} sourceKind={tour.kind} />
 					)}
 
 					<section className="rp1-code-tour-section">
@@ -622,45 +762,145 @@ function FragmentCard({
 					</a>
 				)}
 			</div>
-			<section className="rp1-code-tour-code" aria-label="Source fragment">
-				{fragment.code.map((line, index) => {
-					const absoluteLine =
-						fragment.line !== null ? fragment.line + index : null;
-					const highlighted = fragment.highlightedLines.has(index);
-					return (
-						<div
-							key={`${fragment.id}:${index}`}
-							className={cn(
-								"rp1-code-tour-code-line",
-								line.type === "add" && "is-add",
-								line.type === "del" && "is-del",
-								highlighted && "is-highlighted",
-							)}
+			<FragmentCode fragment={fragment} />
+		</section>
+	);
+}
+
+function FloatingFragmentCard({
+	cardRef,
+	activeConcept,
+	activeFragment,
+	conceptFragments,
+	sourceKind,
+	onFragmentSelected,
+	onRecenter,
+	onDragPointerDown,
+	onDragPointerMove,
+	onDragPointerUp,
+}: {
+	readonly cardRef: RefObject<HTMLElement>;
+	readonly activeConcept: CodeTourViewConcept | null;
+	readonly activeFragment: CodeTourViewFragment;
+	readonly conceptFragments: readonly CodeTourViewFragment[];
+	readonly sourceKind: string;
+	readonly onFragmentSelected: (fragmentId: string) => void;
+	readonly onRecenter: () => void;
+	readonly onDragPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
+	readonly onDragPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
+	readonly onDragPointerUp: (event: ReactPointerEvent<HTMLElement>) => void;
+}) {
+	const sourceLabel =
+		sourceKind === "pull-request" ? "View full file on GitHub" : "Open source";
+
+	return (
+		<section ref={cardRef} className="rp1-code-tour-floating-fragment-card">
+			<div
+				className="rp1-code-tour-floating-fragment-head"
+				onPointerDown={onDragPointerDown}
+				onPointerMove={onDragPointerMove}
+				onPointerUp={onDragPointerUp}
+				onPointerCancel={onDragPointerUp}
+				title="Move source fragment panel"
+			>
+				<span
+					className="rp1-code-tour-floating-domain-pill"
+					style={{
+						backgroundColor: `${activeFragment.domain.color}1f`,
+						color: activeFragment.domain.color,
+					}}
+				>
+					{activeFragment.domain.label}
+				</span>
+				<span className="rp1-code-tour-floating-concept-label">
+					{activeConcept?.label ?? activeFragment.label}
+				</span>
+				{conceptFragments.length > 1 && (
+					<span className="rp1-code-tour-floating-file-count">
+						{conceptFragments.length} files
+					</span>
+				)}
+			</div>
+			<div className="rp1-code-tour-floating-fragment-path">
+				{activeFragment.location}
+			</div>
+			{conceptFragments.length > 1 && (
+				<div className="rp1-code-tour-floating-fragment-tabs">
+					{conceptFragments.map((fragment) => (
+						<button
+							key={fragment.id}
+							type="button"
+							className={
+								fragment.id === activeFragment.id ? "active" : undefined
+							}
+							onClick={() => onFragmentSelected(fragment.id)}
 						>
-							<span className="rp1-code-tour-code-number">
-								{absoluteLine ?? ""}
-							</span>
-							<span className="rp1-code-tour-code-prefix">
-								{codeLinePrefix(line)}
-							</span>
-							<span className="rp1-code-tour-code-text">
-								{line.tokens.length > 0 ? (
-									line.tokens.map(([kind, text], tokenIndex) => (
-										<span
-											key={`${fragment.id}:${index}:${tokenIndex}`}
-											className={TOKEN_CLASS[kind] ?? undefined}
-										>
-											{text}
-										</span>
-									))
-								) : (
-									<span>{codeLineText(line) || " "}</span>
-								)}
-							</span>
-						</div>
-					);
-				})}
-			</section>
+							<span>{fragment.label}</span>
+							<small>{fragment.changeCount}</small>
+						</button>
+					))}
+				</div>
+			)}
+			<FragmentCode fragment={activeFragment} />
+			<div className="rp1-code-tour-floating-fragment-actions">
+				{activeFragment.url && (
+					<a href={activeFragment.url} target="_blank" rel="noreferrer">
+						{sourceLabel}
+						<ExternalLink className="h-3 w-3" strokeWidth={1.6} />
+					</a>
+				)}
+				<button type="button" onClick={onRecenter}>
+					Recenter
+				</button>
+			</div>
+		</section>
+	);
+}
+
+function FragmentCode({
+	fragment,
+}: {
+	readonly fragment: CodeTourViewFragment;
+}) {
+	return (
+		<section className="rp1-code-tour-code" aria-label="Source fragment">
+			{fragment.code.map((line, index) => {
+				const absoluteLine =
+					fragment.line !== null ? fragment.line + index : null;
+				const highlighted = fragment.highlightedLines.has(index);
+				return (
+					<div
+						key={`${fragment.id}:${index}`}
+						className={cn(
+							"rp1-code-tour-code-line",
+							line.type === "add" && "is-add",
+							line.type === "del" && "is-del",
+							highlighted && "is-highlighted",
+						)}
+					>
+						<span className="rp1-code-tour-code-number">
+							{absoluteLine ?? ""}
+						</span>
+						<span className="rp1-code-tour-code-prefix">
+							{codeLinePrefix(line)}
+						</span>
+						<span className="rp1-code-tour-code-text">
+							{line.tokens.length > 0 ? (
+								line.tokens.map(([kind, text], tokenIndex) => (
+									<span
+										key={`${fragment.id}:${index}:${tokenIndex}`}
+										className={TOKEN_CLASS[kind] ?? undefined}
+									>
+										{text}
+									</span>
+								))
+							) : (
+								<span>{codeLineText(line) || " "}</span>
+							)}
+						</span>
+					</div>
+				);
+			})}
 		</section>
 	);
 }
@@ -756,6 +996,7 @@ function createScene({
 	overlay,
 	stage,
 	stateRef,
+	fragmentTether,
 	onConceptSelected,
 	onFragmentSelected,
 }: {
@@ -764,6 +1005,7 @@ function createScene({
 	readonly overlay: HTMLDivElement;
 	readonly stage: HTMLDivElement;
 	readonly stateRef: RefObject<ReaderStateRef>;
+	readonly fragmentTether: FragmentTetherRefs;
 	readonly onConceptSelected: (conceptId: string) => void;
 	readonly onFragmentSelected: (fragmentId: string) => void;
 }): SceneHandles {
@@ -794,7 +1036,6 @@ function createScene({
 	controls.minDistance = 5;
 	controls.target.set(0, 0, 0);
 
-	scene.add(new THREE.GridHelper(42, 18, 0x9d8a6d, 0x34302a));
 	scene.add(buildAmbientPoints());
 
 	const conceptPositions = conceptPositionMap(tour.concepts);
@@ -936,6 +1177,8 @@ function createScene({
 		scene,
 		camera,
 		controls,
+		stage,
+		fragmentTether,
 		conceptNodes,
 		fragmentNodes,
 		conceptEdges,
@@ -1109,6 +1352,9 @@ function animateScene(
 		updateSceneEdges(handles, state);
 		handles.camera.position.lerp(handles.focusPosition, 0.045);
 		handles.controls.target.lerp(handles.focusTarget, 0.045);
+		updateFragmentTether(handles, state);
+	} else {
+		hideFragmentTether(handles.fragmentTether);
 	}
 
 	handles.controls.update();
@@ -1212,11 +1458,7 @@ function focusSceneTarget(
 	state: ReaderStateRef | null,
 ) {
 	if (!handles || !state) return;
-	const node =
-		state.mode === "concept"
-			? handles.conceptNodes.get(state.activeConceptId)
-			: (handles.fragmentNodes.get(state.activeFragmentId) ??
-				handles.fragmentNodes.get(state.activeConceptId));
+	const node = activeSceneNode(handles, state);
 	if (!node) return;
 
 	const offset =
@@ -1225,6 +1467,110 @@ function focusSceneTarget(
 			: new THREE.Vector3(4, 3, 12);
 	handles.focusTarget.copy(node.target);
 	handles.focusPosition.copy(node.target).add(offset);
+}
+
+function activeSceneNode(
+	handles: SceneHandles,
+	state: ReaderStateRef,
+): SceneNode | undefined {
+	return state.mode === "concept"
+		? handles.conceptNodes.get(state.activeConceptId)
+		: (handles.fragmentNodes.get(state.activeFragmentId) ??
+				handles.fragmentNodes.get(state.activeConceptId));
+}
+
+function updateFragmentTether(handles: SceneHandles, state: ReaderStateRef) {
+	const tether = handles.fragmentTether;
+	const card = tether.card.current;
+	const svg = tether.svg.current;
+	const glow = tether.glow.current;
+	const line = tether.line.current;
+	const nodeCap = tether.nodeCap.current;
+	const cardCap = tether.cardCap.current;
+	const node = activeSceneNode(handles, state);
+
+	if (!card || !svg || !glow || !line || !nodeCap || !cardCap || !node) {
+		hideFragmentTether(tether);
+		return;
+	}
+
+	updateFragmentCardClamp(card, handles.stage);
+
+	const nodePosition = new THREE.Vector3();
+	node.group.getWorldPosition(nodePosition);
+	nodePosition.project(handles.camera);
+	if (nodePosition.z > 1) {
+		hideFragmentTether(tether);
+		return;
+	}
+
+	const stageRect = handles.stage.getBoundingClientRect();
+	const nodeX = stageRect.width * (nodePosition.x * 0.5 + 0.5);
+	const nodeY = stageRect.height * (-nodePosition.y * 0.5 + 0.5);
+	const cardRect = card.getBoundingClientRect();
+	const cardCenterX = cardRect.left - stageRect.left + cardRect.width / 2;
+	const cardCenterY = cardRect.top - stageRect.top + cardRect.height / 2;
+	const dx = nodeX - cardCenterX;
+	const dy = nodeY - cardCenterY;
+	const halfWidth = Math.max(cardRect.width / 2, 1);
+	const halfHeight = Math.max(cardRect.height / 2, 1);
+	const edgeScale = Math.min(
+		halfWidth / (Math.abs(dx) || 1),
+		halfHeight / (Math.abs(dy) || 1),
+	);
+	const cardX = cardCenterX + dx * edgeScale;
+	const cardY = cardCenterY + dy * edgeScale;
+	const path = `M ${nodeX.toFixed(1)} ${nodeY.toFixed(1)} L ${cardX.toFixed(
+		1,
+	)} ${cardY.toFixed(1)}`;
+
+	glow.setAttribute("d", path);
+	line.setAttribute("d", path);
+	nodeCap.setAttribute("cx", nodeX.toFixed(1));
+	nodeCap.setAttribute("cy", nodeY.toFixed(1));
+	cardCap.setAttribute("cx", cardX.toFixed(1));
+	cardCap.setAttribute("cy", cardY.toFixed(1));
+	svg.classList.add("is-visible");
+}
+
+function hideFragmentTether(tether: FragmentTetherRefs) {
+	tether.svg.current?.classList.remove("is-visible");
+}
+
+function updateFragmentCardClamp(card: HTMLElement, stage: HTMLDivElement) {
+	const currentX = Number.parseFloat(card.style.getPropertyValue("--clamp-x"));
+	const currentY = Number.parseFloat(card.style.getPropertyValue("--clamp-y"));
+	const clampX = Number.isFinite(currentX) ? currentX : 0;
+	const clampY = Number.isFinite(currentY) ? currentY : 0;
+	const cardRect = card.getBoundingClientRect();
+	const stageRect = stage.getBoundingClientRect();
+	const unclampedLeft = cardRect.left - clampX;
+	const unclampedTop = cardRect.top - clampY;
+	const minLeft = stageRect.left + FRAGMENT_CARD_MARGIN;
+	const minTop = stageRect.top + FRAGMENT_CARD_MARGIN;
+	const maxRight = stageRect.right - FRAGMENT_CARD_MARGIN;
+	const maxBottom = stageRect.bottom - FRAGMENT_CARD_MARGIN;
+	let nextX = 0;
+	let nextY = 0;
+
+	if (unclampedLeft < minLeft) {
+		nextX = minLeft - unclampedLeft;
+	} else if (unclampedLeft + cardRect.width > maxRight) {
+		nextX = maxRight - (unclampedLeft + cardRect.width);
+	}
+
+	if (unclampedTop < minTop) {
+		nextY = minTop - unclampedTop;
+	} else if (unclampedTop + cardRect.height > maxBottom) {
+		nextY = maxBottom - (unclampedTop + cardRect.height);
+	}
+
+	if (Math.abs(nextX - clampX) > 0.5) {
+		card.style.setProperty("--clamp-x", `${nextX}px`);
+	}
+	if (Math.abs(nextY - clampY) > 0.5) {
+		card.style.setProperty("--clamp-y", `${nextY}px`);
+	}
 }
 
 function resizeScene(
@@ -1413,6 +1759,10 @@ function isTextEntryTarget(target: EventTarget | null): boolean {
 		target.tagName === "TEXTAREA" ||
 		target.isContentEditable
 	);
+}
+
+function isInteractiveTarget(target: EventTarget | null): boolean {
+	return target instanceof HTMLElement && Boolean(target.closest("button, a"));
 }
 
 function usePrefersReducedMotion(): boolean {

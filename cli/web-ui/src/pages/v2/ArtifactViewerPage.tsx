@@ -371,6 +371,8 @@ export function ArtifactViewerPage() {
 		codeTourModeAvailable && artifactContentMode !== "markdown"
 			? "tour"
 			: "markdown";
+	const isRenderingCodeTour =
+		effectiveArtifactContentMode === "tour" && codeTour !== null;
 	const contentModeOptions: readonly ArtifactContentModeOption[] =
 		codeTourModeAvailable
 			? [
@@ -1139,9 +1141,12 @@ export function ArtifactViewerPage() {
 						</div>
 					</div>
 
-					<ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
+					<ScrollArea
+						className="flex-1 min-h-0"
+						viewportRef={scrollViewportRef}
+					>
 						<article
-							className="p-4"
+							className={isRenderingCodeTour ? "h-full p-0" : "p-4"}
 							onScroll={handleScroll as unknown as React.UIEventHandler}
 							aria-label={
 								selectedArtifactName
@@ -1373,7 +1378,11 @@ export function ArtifactViewerPage() {
 							viewportRef={scrollViewportRef}
 						>
 							<article
-								className="p-6 min-w-0 max-w-full"
+								className={
+									isRenderingCodeTour
+										? "h-full min-w-0 max-w-full p-0"
+										: "p-6 min-w-0 max-w-full"
+								}
 								onScroll={handleScroll as unknown as React.UIEventHandler}
 								aria-label={
 									selectedArtifactName
