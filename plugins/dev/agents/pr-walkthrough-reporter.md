@@ -122,9 +122,11 @@ Fill the canonical Code Tour JSON template.
 - Use fragments from changed files first. Read from `CODE_ROOT` only for brief surrounding context when the evidence packet is insufficient.
 - Each fragment must include enough `path` and line metadata to locate the source.
 - Keep relationship labels short, human-readable, and verb-first where possible.
+- Avoid isolated changed fragments when evidence supports a relationship. Tests, docs, config, templates, and wiring changes should connect to the implementation or contract fragment they validate, document, configure, route, render, parse, or replace.
+- Use review-semantic fragment labels such as `validates`, `covers`, `documents`, `configures`, `hydrates`, `renders`, `parses`, `routes`, or `replaces` when direct call/data-flow evidence is not available but file names, test names, diff hunks, or commit context clearly support the link.
 - Put evidence IDs in `summary`, `sub`, or `reason` text when they support the claim without harming readability.
 - Do not invent concepts, relationships, risk claims, or intent not supported by `EVIDENCE_JSON`.
-- If evidence is weak, omit the relationship or phrase the tour reason as a reviewer question.
+- If evidence is weak, omit the relationship or phrase the tour reason as a reviewer question. A changed fragment may remain isolated only when it is intentionally standalone and that choice is clear from surrounding text.
 
 ### JSON Rules
 
@@ -147,6 +149,7 @@ Before writing, self-check the complete JSON. If any check fails, revise the JSO
 - Concept set is small and review-ready.
 - Fragments include source location metadata and code excerpts.
 - Relationship labels are concise.
+- Changed fragments are not visually isolated unless intentionally standalone.
 - Claims are grounded in supplied evidence or omitted.
 - No markdown, slide markers, speaker notes, PR comments, or review verdicts are present.
 

@@ -139,8 +139,15 @@ interface FragmentCardDragState {
 }
 
 const FRAGMENT_CARD_MARGIN = 16;
-const NODE_GEOMETRY = new THREE.DodecahedronGeometry(0.82);
-const NODE_EDGE_GEOMETRY = new THREE.EdgesGeometry(NODE_GEOMETRY);
+const CONCEPT_NODE_GEOMETRY = new THREE.DodecahedronGeometry(0.82);
+const CONCEPT_NODE_EDGE_GEOMETRY = new THREE.EdgesGeometry(
+	CONCEPT_NODE_GEOMETRY,
+);
+const FRAGMENT_NODE_GEOMETRY = new THREE.ConeGeometry(0.86, 1.42, 4, 1);
+FRAGMENT_NODE_GEOMETRY.rotateY(Math.PI / 4);
+const FRAGMENT_NODE_EDGE_GEOMETRY = new THREE.EdgesGeometry(
+	FRAGMENT_NODE_GEOMETRY,
+);
 const NODE_LABEL_POLE_GEOMETRY = new THREE.BufferGeometry().setFromPoints([
 	new THREE.Vector3(0, 0.42, 0),
 	new THREE.Vector3(0, 1.58, 0),
@@ -595,10 +602,7 @@ export function CodeTour3DReader({
 						conceptFragments={conceptFragments}
 						activeRelationships={activeRelationships}
 						onConceptSelected={selectConcept}
-						onFragmentSelected={(fragmentId) => {
-							setMode("fragment");
-							selectFragment(fragmentId);
-						}}
+						onFragmentSelected={selectFragment}
 						onRelationshipSelected={navigateRelationship}
 					/>
 				)}
@@ -696,10 +700,7 @@ export function CodeTour3DReader({
 							conceptFragments={conceptFragments}
 							activeRelationships={activeRelationships}
 							sourceKind={tour.kind}
-							onFragmentSelected={(fragmentId) => {
-								setMode("fragment");
-								selectFragment(fragmentId);
-							}}
+							onFragmentSelected={selectFragment}
 							onRelationshipSelected={navigateRelationship}
 							onExpandedChange={updateStepCardExpanded}
 							onDragPointerDown={startFragmentCardDrag}
@@ -1452,6 +1453,12 @@ function buildSceneNode({
 	group.position.copy(position);
 	group.scale.setScalar(baseScale);
 	group.userData = { kind, id };
+	const nodeGeometry =
+		kind === "fragment" ? FRAGMENT_NODE_GEOMETRY : CONCEPT_NODE_GEOMETRY;
+	const nodeEdgeGeometry =
+		kind === "fragment"
+			? FRAGMENT_NODE_EDGE_GEOMETRY
+			: CONCEPT_NODE_EDGE_GEOMETRY;
 
 	const bodyMaterial = new THREE.MeshBasicMaterial({
 		color,
@@ -1461,7 +1468,7 @@ function buildSceneNode({
 		blending,
 		side: THREE.DoubleSide,
 	});
-	const hitMesh = new THREE.Mesh(NODE_GEOMETRY, bodyMaterial);
+	const hitMesh = new THREE.Mesh(nodeGeometry, bodyMaterial);
 	hitMesh.userData = { kind, id };
 	group.add(hitMesh);
 
@@ -1472,7 +1479,7 @@ function buildSceneNode({
 		depthWrite: false,
 		blending,
 	});
-	const wire = new THREE.LineSegments(NODE_EDGE_GEOMETRY, edgeMaterial);
+	const wire = new THREE.LineSegments(nodeEdgeGeometry, edgeMaterial);
 	hitMesh.add(wire);
 
 	const poleMaterial = new THREE.LineBasicMaterial({

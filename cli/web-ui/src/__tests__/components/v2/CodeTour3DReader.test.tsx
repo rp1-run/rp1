@@ -216,6 +216,18 @@ describe("CodeTour3DReader", () => {
 		expect(
 			screen.getAllByText("server/policy.ts:30-31").length,
 		).toBeGreaterThan(0);
+		expect(
+			screen
+				.getByRole("tab", { name: /Concepts/ })
+				.getAttribute("aria-selected"),
+		).toBe("true");
+		expect(
+			screen
+				.getByRole("tab", { name: /Fragments/ })
+				.getAttribute("aria-selected"),
+		).toBe("false");
+
+		fireEvent.click(screen.getByRole("tab", { name: /Fragments/ }));
 
 		fireEvent.click(
 			screen.getByRole("button", { name: /calls\s+AuthPolicy -> StatusBadge/ }),
