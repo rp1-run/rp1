@@ -846,10 +846,14 @@
 .rp1-code-tour-node-label {
   max-width: 240px;
   overflow: hidden;
+  border-left-width: 2px;
+  border-radius: 0 4px 4px 0;
+  margin-left: 1px;
   padding: 3px 8px;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 10px;
+  letter-spacing: 0.04em;
 }
 
 .rp1-code-tour-node-label.concept {

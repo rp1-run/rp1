@@ -62,6 +62,8 @@ interface SceneNode {
 	readonly hitMesh: THREE.Mesh;
 	readonly bodyMaterial: THREE.MeshBasicMaterial;
 	readonly edgeMaterial: THREE.LineBasicMaterial;
+	readonly pole: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>;
+	readonly poleMaterial: THREE.LineBasicMaterial;
 	readonly labelObject: CSS2DObject;
 	readonly labelElement: HTMLButtonElement;
 	readonly baseScale: number;
@@ -139,6 +141,10 @@ interface FragmentCardDragState {
 const FRAGMENT_CARD_MARGIN = 16;
 const NODE_GEOMETRY = new THREE.DodecahedronGeometry(0.82);
 const NODE_EDGE_GEOMETRY = new THREE.EdgesGeometry(NODE_GEOMETRY);
+const NODE_LABEL_POLE_GEOMETRY = new THREE.BufferGeometry().setFromPoints([
+	new THREE.Vector3(0, 0.42, 0),
+	new THREE.Vector3(0, 1.58, 0),
+]);
 const EDGE_PARTICLES_PER_EDGE = 4;
 const EDGE_PARTICLE_SPEED = 0.075;
 const EDGE_PARTICLE_VECTOR = new THREE.Vector3();
@@ -1401,6 +1407,16 @@ function buildSceneNode({
 	const wire = new THREE.LineSegments(NODE_EDGE_GEOMETRY, edgeMaterial);
 	hitMesh.add(wire);
 
+	const poleMaterial = new THREE.LineBasicMaterial({
+		color,
+		transparent: true,
+		opacity: theme === "light" ? 0.5 : 0.55,
+		depthWrite: false,
+		blending,
+	});
+	const pole = new THREE.Line(NODE_LABEL_POLE_GEOMETRY, poleMaterial);
+	group.add(pole);
+
 	const labelElement = document.createElement("button");
 	labelElement.type = "button";
 	labelElement.className = `rp1-code-tour-node-label ${kind}`;
@@ -1423,6 +1439,8 @@ function buildSceneNode({
 		hitMesh,
 		bodyMaterial,
 		edgeMaterial,
+		pole,
+		poleMaterial,
 		labelObject,
 		labelElement,
 		baseScale,
@@ -1631,15 +1649,31 @@ function updateNodeVisualState(
 		visibleOpacity,
 		0.12,
 	);
+	const poleOpacity = !isMode
+		? 0
+		: isActive
+			? 0.8
+			: isBridge
+				? 0.5
+				: theme === "light"
+					? 0.2
+					: 0.28;
+	node.poleMaterial.opacity = THREE.MathUtils.lerp(
+		node.poleMaterial.opacity,
+		poleOpacity,
+		0.12,
+	);
 	NODE_TARGET_COLOR.set(isActive ? sceneTheme.glowHot : sceneTheme.glow);
 	node.bodyMaterial.color.lerp(NODE_TARGET_COLOR, 0.1);
 	node.edgeMaterial.color.lerp(NODE_TARGET_COLOR, 0.1);
+	node.poleMaterial.color.lerp(NODE_TARGET_COLOR, 0.1);
 	const targetScale = node.baseScale * (isActive ? 1.28 : isBridge ? 1.08 : 1);
 	const nextScale = THREE.MathUtils.lerp(node.group.scale.x, targetScale, 0.1);
 	node.group.scale.setScalar(nextScale);
 	node.hitMesh.rotation.y += isActive ? 0.004 : 0.0012;
 	node.hitMesh.rotation.x += isActive ? 0.001 : 0.0003;
 	node.group.visible = node.edgeMaterial.opacity > 0.01;
+	node.pole.visible = isMode && node.poleMaterial.opacity > 0.01;
 	node.labelObject.visible = isMode && node.edgeMaterial.opacity > 0.08;
 	node.labelElement.classList.toggle("is-active", isActive);
 	node.labelElement.classList.toggle("is-muted", !isActive && !isBridge);
@@ -2006,6 +2040,7 @@ function disposeNodeMap(nodes: ReadonlyMap<string, SceneNode>) {
 	for (const node of nodes.values()) {
 		node.bodyMaterial.dispose();
 		node.edgeMaterial.dispose();
+		node.poleMaterial.dispose();
 		node.labelElement.remove();
 	}
 }
