@@ -151,6 +151,7 @@ const EDGE_PARTICLE_VECTOR = new THREE.Vector3();
 const EDGE_PARTICLE_TARGET_COLOR = new THREE.Color();
 const EDGE_PARTICLE_ACCENT_COLOR = new THREE.Color();
 const NODE_TARGET_COLOR = new THREE.Color();
+const STEP_CARD_EXPANDED_STORAGE_PREFIX = "rp1:code-tour:step-card-expanded:";
 const SCENE_THEME: Readonly<
 	Record<
 		CodeTourTheme,
@@ -253,6 +254,9 @@ export function CodeTour3DReader({
 	const [activeFragmentId, setActiveFragmentId] = useState(initialFragmentId);
 	const [renderState, setRenderState] = useState<RenderState>("checking");
 	const [isFullscreen, setIsFullscreen] = useState(false);
+	const [isStepCardExpanded, setIsStepCardExpanded] = useState(() =>
+		readStoredStepCardExpanded(path),
+	);
 	const readerStateRef = useRef<ReaderStateRef>({
 		mode,
 		activeConceptId,
@@ -292,6 +296,10 @@ export function CodeTour3DReader({
 	}, [onRenderFailure]);
 
 	useEffect(() => {
+		setIsStepCardExpanded(readStoredStepCardExpanded(path));
+	}, [path]);
+
+	useEffect(() => {
 		const nextStep = tour.steps[0] ?? null;
 		const nextConceptId = nextStep?.conceptId ?? tour.concepts[0]?.id ?? "";
 		const nextFragmentId =
@@ -324,6 +332,14 @@ export function CodeTour3DReader({
 			onRenderFailureRef.current?.(message);
 		},
 		[],
+	);
+
+	const updateStepCardExpanded = useCallback(
+		(expanded: boolean) => {
+			setIsStepCardExpanded(expanded);
+			writeStoredStepCardExpanded(path, expanded);
+		},
+		[path],
 	);
 
 	const selectConcept = useCallback(
@@ -674,6 +690,7 @@ export function CodeTour3DReader({
 							activeStep={activeStep}
 							activeStepIndex={activeStepIndex}
 							stepCount={Math.max(tour.steps.length, 1)}
+							isExpanded={isStepCardExpanded}
 							activeConcept={activeConcept}
 							activeFragment={activeFragment}
 							conceptFragments={conceptFragments}
@@ -684,6 +701,7 @@ export function CodeTour3DReader({
 								selectFragment(fragmentId);
 							}}
 							onRelationshipSelected={navigateRelationship}
+							onExpandedChange={updateStepCardExpanded}
 							onDragPointerDown={startFragmentCardDrag}
 							onDragPointerMove={moveFragmentCardDrag}
 							onDragPointerUp={endFragmentCardDrag}
@@ -775,6 +793,7 @@ function FloatingStepCard({
 	activeStep,
 	activeStepIndex,
 	stepCount,
+	isExpanded,
 	activeConcept,
 	activeFragment,
 	conceptFragments,
@@ -782,6 +801,7 @@ function FloatingStepCard({
 	sourceKind,
 	onFragmentSelected,
 	onRelationshipSelected,
+	onExpandedChange,
 	onDragPointerDown,
 	onDragPointerMove,
 	onDragPointerUp,
@@ -790,6 +810,7 @@ function FloatingStepCard({
 	readonly activeStep: CodeTourViewStep | null;
 	readonly activeStepIndex: number;
 	readonly stepCount: number;
+	readonly isExpanded: boolean;
 	readonly activeConcept: CodeTourViewConcept | null;
 	readonly activeFragment: CodeTourViewFragment;
 	readonly conceptFragments: readonly CodeTourViewFragment[];
@@ -797,6 +818,7 @@ function FloatingStepCard({
 	readonly sourceKind: string;
 	readonly onFragmentSelected: (fragmentId: string) => void;
 	readonly onRelationshipSelected: (edge: CodeTourViewEdge) => void;
+	readonly onExpandedChange: (expanded: boolean) => void;
 	readonly onDragPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
 	readonly onDragPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
 	readonly onDragPointerUp: (event: ReactPointerEvent<HTMLElement>) => void;
@@ -805,7 +827,14 @@ function FloatingStepCard({
 		sourceKind === "pull-request" ? "View full file on GitHub" : "Open source";
 
 	return (
-		<section ref={cardRef} className="rp1-code-tour-floating-step-card">
+		<section
+			ref={cardRef}
+			className={cn(
+				"rp1-code-tour-floating-step-card",
+				isExpanded ? "is-expanded" : "is-compact",
+			)}
+			aria-label="Tour step panel"
+		>
 			<div
 				className="rp1-code-tour-floating-step-head"
 				onPointerDown={onDragPointerDown}
@@ -814,7 +843,7 @@ function FloatingStepCard({
 				onPointerCancel={onDragPointerUp}
 				title="Move step panel"
 			>
-				<div>
+				<div className="rp1-code-tour-floating-step-head-main">
 					<p>{activeStep ? `Step ${activeStepIndex + 1}` : "Focus"}</p>
 					<h3>
 						{activeStep?.title ?? activeConcept?.label ?? activeFragment.label}
@@ -831,79 +860,120 @@ function FloatingStepCard({
 			{activeStep?.reason && (
 				<p className="rp1-code-tour-step-reason">{activeStep.reason}</p>
 			)}
+			<button
+				type="button"
+				className="rp1-code-tour-floating-step-detail-toggle"
+				aria-expanded={isExpanded}
+				onClick={() => onExpandedChange(!isExpanded)}
+			>
+				{isExpanded ? (
+					<Minimize2 className="h-3.5 w-3.5" strokeWidth={1.6} />
+				) : (
+					<Maximize2 className="h-3.5 w-3.5" strokeWidth={1.6} />
+				)}
+				<span>{isExpanded ? "Hide Details" : "See Details"}</span>
+			</button>
 
-			{activeConcept && (
-				<section className="rp1-code-tour-section">
-					<div className="rp1-code-tour-section-title">
-						<span>{activeConcept.domain.label}</span>
-					</div>
-					<h4>{activeConcept.label}</h4>
-					{activeConcept.summary && <p>{activeConcept.summary}</p>}
-				</section>
-			)}
-
-			{conceptFragments.length > 1 && (
-				<div className="rp1-code-tour-floating-fragment-tabs">
-					{conceptFragments.map((fragment) => (
-						<button
-							key={fragment.id}
-							type="button"
-							className={
-								fragment.id === activeFragment.id ? "active" : undefined
-							}
-							onClick={() => onFragmentSelected(fragment.id)}
-						>
-							<span>{fragment.label}</span>
-							<small>{fragment.changeCount}</small>
-						</button>
-					))}
-				</div>
-			)}
-
-			<section className="rp1-code-tour-floating-fragment">
-				<div className="rp1-code-tour-floating-fragment-path">
-					{activeFragment.location}
-				</div>
-				<div className="rp1-code-tour-floating-fragment-source">
-					<h4>{activeFragment.label}</h4>
-					{activeFragment.url && (
-						<a href={activeFragment.url} target="_blank" rel="noreferrer">
-							{sourceLabel}
-							<ExternalLink className="h-3 w-3" strokeWidth={1.6} />
-						</a>
+			{isExpanded && (
+				<>
+					{activeConcept && (
+						<section className="rp1-code-tour-section">
+							<div className="rp1-code-tour-section-title">
+								<span>{activeConcept.domain.label}</span>
+							</div>
+							<h4>{activeConcept.label}</h4>
+							{activeConcept.summary && <p>{activeConcept.summary}</p>}
+						</section>
 					)}
-				</div>
-				<FragmentCode fragment={activeFragment} />
-			</section>
 
-			<section className="rp1-code-tour-section">
-				<div className="rp1-code-tour-section-title">
-					<Box className="h-3 w-3" strokeWidth={1.6} />
-					<span>Relationships</span>
-				</div>
-				<div className="rp1-code-tour-relationships">
-					{activeRelationships.length > 0 ? (
-						activeRelationships.map((edge) => (
-							<button
-								key={edge.id}
-								type="button"
-								onClick={() => onRelationshipSelected(edge)}
-							>
-								<strong>{edge.label}</strong>
-								<span>
-									{edge.fromLabel}
-									{" -> "}
-									{edge.toLabel}
-								</span>
-							</button>
-						))
-					) : (
-						<p>No labeled relationships for this focus.</p>
+					{conceptFragments.length > 1 && (
+						<div className="rp1-code-tour-floating-fragment-tabs">
+							{conceptFragments.map((fragment) => (
+								<button
+									key={fragment.id}
+									type="button"
+									className={
+										fragment.id === activeFragment.id ? "active" : undefined
+									}
+									onClick={() => onFragmentSelected(fragment.id)}
+								>
+									<span>{fragment.label}</span>
+									<small>{fragment.changeCount}</small>
+								</button>
+							))}
+						</div>
 					)}
-				</div>
-			</section>
+
+					<section className="rp1-code-tour-floating-fragment">
+						<div className="rp1-code-tour-floating-fragment-path">
+							{activeFragment.location}
+						</div>
+						<div className="rp1-code-tour-floating-fragment-source">
+							<h4>{activeFragment.label}</h4>
+							{activeFragment.url && (
+								<a href={activeFragment.url} target="_blank" rel="noreferrer">
+									{sourceLabel}
+									<ExternalLink className="h-3 w-3" strokeWidth={1.6} />
+								</a>
+							)}
+						</div>
+						<FragmentCode fragment={activeFragment} />
+					</section>
+
+					<section className="rp1-code-tour-section">
+						<div className="rp1-code-tour-section-title">
+							<Box className="h-3 w-3" strokeWidth={1.6} />
+							<span>Relationships</span>
+						</div>
+						<div className="rp1-code-tour-relationships">
+							{activeRelationships.length > 0 ? (
+								activeRelationships.map((edge) => (
+									<button
+										key={edge.id}
+										type="button"
+										onClick={() => onRelationshipSelected(edge)}
+									>
+										<strong>{edge.label}</strong>
+										<span>
+											{edge.fromLabel}
+											{" -> "}
+											{edge.toLabel}
+										</span>
+									</button>
+								))
+							) : (
+								<p>No labeled relationships for this focus.</p>
+							)}
+						</div>
+					</section>
+				</>
+			)}
 		</section>
 	);
+}
+
+function readStoredStepCardExpanded(path: string): boolean {
+	if (typeof window === "undefined") return false;
+	try {
+		return (
+			window.sessionStorage.getItem(stepCardExpandedStorageKey(path)) === "true"
+		);
+	} catch {
+		return false;
+	}
+}
+
+function writeStoredStepCardExpanded(path: string, expanded: boolean) {
+	try {
+		window.sessionStorage.setItem(
+			stepCardExpandedStorageKey(path),
+			String(expanded),
+		);
+	} catch {}
+}
+
+function stepCardExpandedStorageKey(path: string): string {
+	return `${STEP_CARD_EXPANDED_STORAGE_PREFIX}${path}`;
 }
 
 function FragmentCode({

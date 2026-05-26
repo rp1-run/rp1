@@ -484,9 +484,9 @@
   left: 16px;
   z-index: 6;
   display: flex;
-  width: min(660px, calc(100% - 462px));
-  min-width: min(480px, calc(100% - 32px));
-  max-height: min(70vh, calc(100% - 132px));
+  width: min(440px, calc(100% - 462px));
+  min-width: min(340px, calc(100% - 32px));
+  max-height: min(42vh, calc(100% - 132px));
   flex-direction: column;
   gap: 12px;
   overflow: auto;
@@ -504,6 +504,12 @@
   scrollbar-width: thin;
 }
 
+.rp1-code-tour-floating-step-card.is-expanded {
+  width: min(660px, calc(100% - 462px));
+  min-width: min(480px, calc(100% - 32px));
+  max-height: min(70vh, calc(100% - 132px));
+}
+
 .rp1-code-tour-floating-step-head {
   display: flex;
   flex: 0 0 auto;
@@ -519,6 +525,11 @@
   user-select: none;
 }
 
+.rp1-code-tour-floating-step-head-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .rp1-code-tour-floating-step-head p,
 .rp1-code-tour-floating-step-head span {
   margin: 0;
@@ -529,10 +540,40 @@
 
 .rp1-code-tour-floating-step-head h3 {
   margin: 2px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--ct-heading);
   font-size: 15px;
   font-weight: 600;
   line-height: 1.35;
+}
+
+.rp1-code-tour-floating-step-detail-toggle {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 28px;
+  align-items: center;
+  gap: 7px;
+  justify-content: center;
+  border: 1px solid var(--ct-border-subtle);
+  border-radius: 6px;
+  background: var(--ct-panel-soft);
+  color: var(--ct-muted);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 9px;
+}
+
+.rp1-code-tour-floating-step-detail-toggle:hover {
+  background: var(--ct-panel-hover);
+  color: var(--ct-heading);
+}
+
+.rp1-code-tour-floating-step-detail-toggle:focus-visible {
+  outline: 1px solid var(--ct-accent-border);
+  outline-offset: 2px;
 }
 
 .rp1-code-tour-floating-domain-pill {
@@ -1202,12 +1243,18 @@
   .rp1-code-tour-floating-step-card {
     top: 152px;
     left: 12px;
-    width: min(620px, calc(100% - 24px));
+    width: min(460px, calc(100% - 24px));
     min-width: 0;
-    max-height: calc(62% - 88px);
+    max-height: calc(38% - 68px);
     transform:
       translate(var(--clamp-x, 0px), var(--clamp-y, 0px))
       translate(var(--drag-x, 0px), var(--drag-y, 0px));
+  }
+
+  .rp1-code-tour-floating-step-card.is-expanded {
+    width: min(620px, calc(100% - 24px));
+    min-width: 0;
+    max-height: calc(62% - 88px);
   }
 
   .rp1-code-tour-diagnostic-grid {
@@ -1229,6 +1276,11 @@
   .rp1-code-tour-floating-step-card {
     top: 146px;
     left: 10px;
+    width: calc(100% - 20px);
+    max-height: 32%;
+  }
+
+  .rp1-code-tour-floating-step-card.is-expanded {
     width: calc(100% - 20px);
     max-height: 40%;
   }
