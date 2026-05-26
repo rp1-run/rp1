@@ -3,6 +3,7 @@ import {
 	Box,
 	ChevronLeft,
 	ChevronRight,
+	createLucideIcon,
 	ExternalLink,
 	GitBranch,
 	Maximize2,
@@ -39,6 +40,26 @@ import {
 import { cn } from "@/lib/utils";
 
 import "./CodeTour3DReader.css";
+
+const ListChevronsDownUp = createLucideIcon("ListChevronsDownUp", [
+	[
+		"path",
+		{
+			d: "M3 5h8m-8 7h8m-8 7h8m4-14l3 3l3-3m-6 14l3-3l3 3",
+			key: "13i4w5",
+		},
+	],
+]);
+
+const ListChevronsUpDown = createLucideIcon("ListChevronsUpDown", [
+	[
+		"path",
+		{
+			d: "M3 5h8m-8 7h8m-8 7h8m4-11l3-3l3 3m-6 8l3 3l3-3",
+			key: "1x0j9z",
+		},
+	],
+]);
 
 export interface CodeTour3DReaderProps {
 	readonly tour: CodeTourViewModel;
@@ -86,6 +107,8 @@ interface SceneEdge {
 	readonly particleOffsets: readonly number[];
 	readonly labelObject: CSS2DObject;
 	readonly labelElement: HTMLDivElement;
+	readonly sourceNavButton: HTMLButtonElement;
+	readonly destinationNavButton: HTMLButtonElement;
 }
 
 interface FragmentTetherRefs {
@@ -867,9 +890,9 @@ function FloatingStepCard({
 				onClick={() => onExpandedChange(!isExpanded)}
 			>
 				{isExpanded ? (
-					<Minimize2 className="h-3.5 w-3.5" strokeWidth={1.6} />
+					<ListChevronsDownUp className="h-3.5 w-3.5" strokeWidth={1.6} />
 				) : (
-					<Maximize2 className="h-3.5 w-3.5" strokeWidth={1.6} />
+					<ListChevronsUpDown className="h-3.5 w-3.5" strokeWidth={1.6} />
 				)}
 				<span>{isExpanded ? "Hide Details" : "See Details"}</span>
 			</button>
@@ -1652,6 +1675,8 @@ function buildSceneEdges({
 			particleOffsets: particles.offsets,
 			labelObject,
 			labelElement,
+			sourceNavButton: sourceButton,
+			destinationNavButton: forwardButton,
 		});
 	}
 	return sceneEdges;
@@ -1811,8 +1836,10 @@ function updateNodeVisualState(
 	const targetScale = node.baseScale * (isActive ? 1.28 : isBridge ? 1.08 : 1);
 	const nextScale = THREE.MathUtils.lerp(node.group.scale.x, targetScale, 0.1);
 	node.group.scale.setScalar(nextScale);
-	node.hitMesh.rotation.y += isActive ? 0.004 : 0.0012;
-	node.hitMesh.rotation.x += isActive ? 0.001 : 0.0003;
+	if (isActive) {
+		node.hitMesh.rotation.y += 0.0016;
+		node.hitMesh.rotation.x += 0.0004;
+	}
 	node.group.visible = node.edgeMaterial.opacity > 0.01;
 	node.pole.visible = isMode && node.poleMaterial.opacity > 0.01;
 	node.labelObject.visible = isMode && node.edgeMaterial.opacity > 0.08;
@@ -1822,28 +1849,30 @@ function updateNodeVisualState(
 
 function updateSceneEdges(handles: SceneHandles, state: ReaderStateRef) {
 	for (const edge of handles.conceptEdges) {
+		const activeId = state.activeConceptId;
 		const active =
 			state.mode === "concept" &&
-			(edge.edge.from === state.activeConceptId ||
-				edge.edge.to === state.activeConceptId);
+			(edge.edge.from === activeId || edge.edge.to === activeId);
 		updateEdgeVisualState(
 			edge,
 			state.mode === "concept",
 			active,
 			handles.theme,
+			state.mode === "concept" ? activeId : null,
 		);
 	}
 
 	for (const edge of handles.fragmentEdges) {
+		const activeId = state.activeFragmentId;
 		const active =
 			state.mode === "fragment" &&
-			(edge.edge.from === state.activeFragmentId ||
-				edge.edge.to === state.activeFragmentId);
+			(edge.edge.from === activeId || edge.edge.to === activeId);
 		updateEdgeVisualState(
 			edge,
 			state.mode === "fragment",
 			active,
 			handles.theme,
+			state.mode === "fragment" ? activeId : null,
 		);
 	}
 }
@@ -1853,6 +1882,7 @@ function updateEdgeVisualState(
 	isMode: boolean,
 	isActive: boolean,
 	theme: CodeTourTheme,
+	activeId: string | null,
 ) {
 	const sceneTheme = SCENE_THEME[theme];
 	const targetOpacity = !isMode
@@ -1874,7 +1904,14 @@ function updateEdgeVisualState(
 	edge.line.visible = edge.material.opacity > 0.02;
 	edge.labelObject.visible = isMode && edge.material.opacity > 0.08;
 	edge.labelElement.classList.toggle("is-active", isActive);
+	updateEdgeNavButton(edge.sourceNavButton, activeId === edge.edge.from);
+	updateEdgeNavButton(edge.destinationNavButton, activeId === edge.edge.to);
 	updateEdgeParticles(edge, isMode, isActive, theme);
+}
+
+function updateEdgeNavButton(button: HTMLButtonElement, disabled: boolean) {
+	button.disabled = disabled;
+	button.setAttribute("aria-disabled", String(disabled));
 }
 
 function updateEdgeParticles(

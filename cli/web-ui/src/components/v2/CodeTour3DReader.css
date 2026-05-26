@@ -1038,6 +1038,15 @@
   background: color-mix(in srgb, var(--ct-scene-label-active-bg) 42%, transparent);
 }
 
+.rp1-code-tour-edge-label button:disabled {
+  cursor: default;
+  opacity: 0.34;
+}
+
+.rp1-code-tour-edge-label button:disabled:hover {
+  background: transparent;
+}
+
 .rp1-code-tour-edge-label button:focus-visible {
   outline: 1px solid var(--ct-scene-label-active-border);
   outline-offset: -2px;
