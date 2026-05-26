@@ -9,7 +9,6 @@ import {
 	Minimize2,
 	Network,
 	PanelRightOpen,
-	RotateCcw,
 } from "lucide-react";
 import type {
 	ReactNode,
@@ -29,6 +28,7 @@ import {
 	type CodeTourViewEdge,
 	type CodeTourViewFragment,
 	type CodeTourViewModel,
+	type CodeTourViewStep,
 	codeLinePrefix,
 	codeLineText,
 } from "@/lib/code-tour-view-model";
@@ -47,6 +47,7 @@ export interface CodeTour3DReaderProps {
 type TourSceneMode = "concept" | "fragment";
 type RenderState = "checking" | "ready" | "unsupported" | "failed" | "reduced";
 type SceneNodeKind = "concept" | "fragment";
+type CodeTourTheme = "light" | "dark";
 
 interface SceneNode {
 	readonly id: string;
@@ -85,6 +86,7 @@ interface SceneHandles {
 	readonly renderer: THREE.WebGLRenderer;
 	readonly labelRenderer: CSS2DRenderer;
 	readonly scene: THREE.Scene;
+	readonly theme: CodeTourTheme;
 	readonly camera: THREE.PerspectiveCamera;
 	readonly controls: OrbitControls;
 	readonly stage: HTMLDivElement;
@@ -121,6 +123,33 @@ const FRAGMENT_COLUMN_GAP = 5.8;
 const FRAGMENT_CARD_MARGIN = 16;
 const NODE_GEOMETRY = new THREE.DodecahedronGeometry(0.82);
 const NODE_EDGE_GEOMETRY = new THREE.EdgesGeometry(NODE_GEOMETRY);
+const SCENE_THEME: Readonly<
+	Record<
+		CodeTourTheme,
+		{
+			readonly clear: number;
+			readonly fog: number;
+			readonly fogDensity: number;
+			readonly ambient: number;
+			readonly ambientOpacity: number;
+		}
+	>
+> = {
+	light: {
+		clear: 0xf1efeb,
+		fog: 0xf1efeb,
+		fogDensity: 0.012,
+		ambient: 0x8f8172,
+		ambientOpacity: 0.2,
+	},
+	dark: {
+		clear: 0x11100d,
+		fog: 0x11100d,
+		fogDensity: 0.018,
+		ambient: 0xd2bea0,
+		ambientOpacity: 0.34,
+	},
+};
 const TOKEN_CLASS: Readonly<Record<string, string>> = {
 	kw: "rp1-code-tour-token-keyword",
 	fn: "rp1-code-tour-token-function",
@@ -161,6 +190,7 @@ export function CodeTour3DReader({
 		y: 0,
 	});
 	const prefersReducedMotion = usePrefersReducedMotion();
+	const theme = useDocumentTheme();
 	const firstConceptId = tour.concepts[0]?.id ?? "";
 	const firstStep = tour.steps[0] ?? null;
 	const initialConceptId = firstStep?.conceptId ?? firstConceptId;
@@ -298,10 +328,6 @@ export function CodeTour3DReader({
 		[activeConceptId, activeFragmentId, mode, selectConcept, selectFragment],
 	);
 
-	const resetCamera = useCallback(() => {
-		focusSceneTarget(handlesRef.current, readerStateRef.current);
-	}, []);
-
 	const startFragmentCardDrag = useCallback(
 		(event: ReactPointerEvent<HTMLElement>) => {
 			if (isInteractiveTarget(event.target)) return;
@@ -412,6 +438,7 @@ export function CodeTour3DReader({
 		try {
 			const handles = createScene({
 				tour,
+				theme,
 				canvas,
 				overlay,
 				stage,
@@ -446,6 +473,7 @@ export function CodeTour3DReader({
 		reportRenderFailure,
 		selectConcept,
 		selectFragment,
+		theme,
 		tour,
 	]);
 
@@ -477,6 +505,7 @@ export function CodeTour3DReader({
 				}
 			}}
 			aria-label={`Code Tour for ${tour.title}`}
+			data-code-tour-theme={theme}
 		>
 			<div ref={stageRef} className="rp1-code-tour-stage">
 				<canvas
@@ -497,9 +526,19 @@ export function CodeTour3DReader({
 					<CodeTourDiagnosticState
 						kind={diagnosticKind}
 						tour={tour}
+						activeStep={activeStep}
+						activeStepIndex={activeStepIndex}
+						stepCount={Math.max(tour.steps.length, 1)}
 						activeConcept={activeConcept}
 						activeFragment={activeFragment}
+						conceptFragments={conceptFragments}
+						activeRelationships={activeRelationships}
 						onConceptSelected={selectConcept}
+						onFragmentSelected={(fragmentId) => {
+							setMode("fragment");
+							selectFragment(fragmentId);
+						}}
+						onRelationshipSelected={navigateRelationship}
 					/>
 				)}
 
@@ -536,11 +575,6 @@ export function CodeTour3DReader({
 								<span>Fragments</span>
 							</button>
 						</div>
-						<IconButton
-							label="Recenter tour"
-							onClick={resetCamera}
-							icon={<RotateCcw className="h-3.5 w-3.5" strokeWidth={1.6} />}
-						/>
 						{onSourceModeRequested && (
 							<IconButton
 								label="Show source JSON"
@@ -590,103 +624,27 @@ export function CodeTour3DReader({
 								r="3.2"
 							/>
 						</svg>
-						<FloatingFragmentCard
+						<FloatingStepCard
 							cardRef={fragmentCardRef}
+							activeStep={activeStep}
+							activeStepIndex={activeStepIndex}
+							stepCount={Math.max(tour.steps.length, 1)}
 							activeConcept={activeConcept}
 							activeFragment={activeFragment}
 							conceptFragments={conceptFragments}
+							activeRelationships={activeRelationships}
 							sourceKind={tour.kind}
 							onFragmentSelected={(fragmentId) => {
 								setMode("fragment");
 								selectFragment(fragmentId);
 							}}
-							onRecenter={resetCamera}
+							onRelationshipSelected={navigateRelationship}
 							onDragPointerDown={startFragmentCardDrag}
 							onDragPointerMove={moveFragmentCardDrag}
 							onDragPointerUp={endFragmentCardDrag}
 						/>
 					</>
 				)}
-
-				<aside className="rp1-code-tour-inspector">
-					<div className="rp1-code-tour-inspector-head">
-						<div>
-							<p>{activeStep ? `Step ${activeStepIndex + 1}` : "Focus"}</p>
-							<h3>{activeStep?.title ?? activeConcept?.label ?? tour.title}</h3>
-						</div>
-						<span>
-							{activeStepIndex + 1}/{Math.max(tour.steps.length, 1)}
-						</span>
-					</div>
-					{activeStep?.sub && (
-						<p className="rp1-code-tour-step-sub">{activeStep.sub}</p>
-					)}
-					{activeStep?.reason && (
-						<p className="rp1-code-tour-step-reason">{activeStep.reason}</p>
-					)}
-
-					{activeConcept && (
-						<section className="rp1-code-tour-section">
-							<div className="rp1-code-tour-section-title">
-								<span
-									className="rp1-code-tour-domain-dot"
-									style={{ backgroundColor: activeConcept.domain.color }}
-								/>
-								<span>{activeConcept.domain.label}</span>
-							</div>
-							<h4>{activeConcept.label}</h4>
-							{activeConcept.summary && <p>{activeConcept.summary}</p>}
-						</section>
-					)}
-
-					{conceptFragments.length > 0 && (
-						<div className="rp1-code-tour-fragment-tabs">
-							{conceptFragments.map((fragment) => (
-								<button
-									key={fragment.id}
-									type="button"
-									className={
-										fragment.id === activeFragment?.id ? "active" : undefined
-									}
-									onClick={() => {
-										setMode("fragment");
-										selectFragment(fragment.id);
-									}}
-								>
-									<span>{fragment.label}</span>
-									<small>{fragment.changeCount}</small>
-								</button>
-							))}
-						</div>
-					)}
-
-					<section className="rp1-code-tour-section">
-						<div className="rp1-code-tour-section-title">
-							<Box className="h-3 w-3" strokeWidth={1.6} />
-							<span>Relationships</span>
-						</div>
-						<div className="rp1-code-tour-relationships">
-							{activeRelationships.length > 0 ? (
-								activeRelationships.map((edge) => (
-									<button
-										key={edge.id}
-										type="button"
-										onClick={() => navigateRelationship(edge)}
-									>
-										<strong>{edge.label}</strong>
-										<span>
-											{edge.fromLabel}
-											{" -> "}
-											{edge.toLabel}
-										</span>
-									</button>
-								))
-							) : (
-								<p>No labeled relationships for this focus.</p>
-							)}
-						</div>
-					</section>
-				</aside>
 
 				<nav className="rp1-code-tour-bottom-bar" aria-label="Tour steps">
 					<Button
@@ -767,25 +725,33 @@ function FragmentCard({
 	);
 }
 
-function FloatingFragmentCard({
+function FloatingStepCard({
 	cardRef,
+	activeStep,
+	activeStepIndex,
+	stepCount,
 	activeConcept,
 	activeFragment,
 	conceptFragments,
+	activeRelationships,
 	sourceKind,
 	onFragmentSelected,
-	onRecenter,
+	onRelationshipSelected,
 	onDragPointerDown,
 	onDragPointerMove,
 	onDragPointerUp,
 }: {
 	readonly cardRef: RefObject<HTMLElement>;
+	readonly activeStep: CodeTourViewStep | null;
+	readonly activeStepIndex: number;
+	readonly stepCount: number;
 	readonly activeConcept: CodeTourViewConcept | null;
 	readonly activeFragment: CodeTourViewFragment;
 	readonly conceptFragments: readonly CodeTourViewFragment[];
+	readonly activeRelationships: readonly CodeTourViewEdge[];
 	readonly sourceKind: string;
 	readonly onFragmentSelected: (fragmentId: string) => void;
-	readonly onRecenter: () => void;
+	readonly onRelationshipSelected: (edge: CodeTourViewEdge) => void;
 	readonly onDragPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
 	readonly onDragPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
 	readonly onDragPointerUp: (event: ReactPointerEvent<HTMLElement>) => void;
@@ -794,36 +760,47 @@ function FloatingFragmentCard({
 		sourceKind === "pull-request" ? "View full file on GitHub" : "Open source";
 
 	return (
-		<section ref={cardRef} className="rp1-code-tour-floating-fragment-card">
+		<section ref={cardRef} className="rp1-code-tour-floating-step-card">
 			<div
-				className="rp1-code-tour-floating-fragment-head"
+				className="rp1-code-tour-floating-step-head"
 				onPointerDown={onDragPointerDown}
 				onPointerMove={onDragPointerMove}
 				onPointerUp={onDragPointerUp}
 				onPointerCancel={onDragPointerUp}
-				title="Move source fragment panel"
+				title="Move step panel"
 			>
-				<span
-					className="rp1-code-tour-floating-domain-pill"
-					style={{
-						backgroundColor: `${activeFragment.domain.color}1f`,
-						color: activeFragment.domain.color,
-					}}
-				>
-					{activeFragment.domain.label}
+				<div>
+					<p>{activeStep ? `Step ${activeStepIndex + 1}` : "Focus"}</p>
+					<h3>
+						{activeStep?.title ?? activeConcept?.label ?? activeFragment.label}
+					</h3>
+				</div>
+				<span>
+					{activeStepIndex + 1}/{stepCount}
 				</span>
-				<span className="rp1-code-tour-floating-concept-label">
-					{activeConcept?.label ?? activeFragment.label}
-				</span>
-				{conceptFragments.length > 1 && (
-					<span className="rp1-code-tour-floating-file-count">
-						{conceptFragments.length} files
-					</span>
-				)}
 			</div>
-			<div className="rp1-code-tour-floating-fragment-path">
-				{activeFragment.location}
-			</div>
+
+			{activeStep?.sub && (
+				<p className="rp1-code-tour-step-sub">{activeStep.sub}</p>
+			)}
+			{activeStep?.reason && (
+				<p className="rp1-code-tour-step-reason">{activeStep.reason}</p>
+			)}
+
+			{activeConcept && (
+				<section className="rp1-code-tour-section">
+					<div className="rp1-code-tour-section-title">
+						<span
+							className="rp1-code-tour-domain-dot"
+							style={{ backgroundColor: activeConcept.domain.color }}
+						/>
+						<span>{activeConcept.domain.label}</span>
+					</div>
+					<h4>{activeConcept.label}</h4>
+					{activeConcept.summary && <p>{activeConcept.summary}</p>}
+				</section>
+			)}
+
 			{conceptFragments.length > 1 && (
 				<div className="rp1-code-tour-floating-fragment-tabs">
 					{conceptFragments.map((fragment) => (
@@ -841,18 +818,49 @@ function FloatingFragmentCard({
 					))}
 				</div>
 			)}
-			<FragmentCode fragment={activeFragment} />
-			<div className="rp1-code-tour-floating-fragment-actions">
-				{activeFragment.url && (
-					<a href={activeFragment.url} target="_blank" rel="noreferrer">
-						{sourceLabel}
-						<ExternalLink className="h-3 w-3" strokeWidth={1.6} />
-					</a>
-				)}
-				<button type="button" onClick={onRecenter}>
-					Recenter
-				</button>
-			</div>
+
+			<section className="rp1-code-tour-floating-fragment">
+				<div className="rp1-code-tour-floating-fragment-path">
+					{activeFragment.location}
+				</div>
+				<div className="rp1-code-tour-floating-fragment-source">
+					<h4>{activeFragment.label}</h4>
+					{activeFragment.url && (
+						<a href={activeFragment.url} target="_blank" rel="noreferrer">
+							{sourceLabel}
+							<ExternalLink className="h-3 w-3" strokeWidth={1.6} />
+						</a>
+					)}
+				</div>
+				<FragmentCode fragment={activeFragment} />
+			</section>
+
+			<section className="rp1-code-tour-section">
+				<div className="rp1-code-tour-section-title">
+					<Box className="h-3 w-3" strokeWidth={1.6} />
+					<span>Relationships</span>
+				</div>
+				<div className="rp1-code-tour-relationships">
+					{activeRelationships.length > 0 ? (
+						activeRelationships.map((edge) => (
+							<button
+								key={edge.id}
+								type="button"
+								onClick={() => onRelationshipSelected(edge)}
+							>
+								<strong>{edge.label}</strong>
+								<span>
+									{edge.fromLabel}
+									{" -> "}
+									{edge.toLabel}
+								</span>
+							</button>
+						))
+					) : (
+						<p>No labeled relationships for this focus.</p>
+					)}
+				</div>
+			</section>
 		</section>
 	);
 }
@@ -908,15 +916,29 @@ function FragmentCode({
 function CodeTourDiagnosticState({
 	kind,
 	tour,
+	activeStep,
+	activeStepIndex,
+	stepCount,
 	activeConcept,
 	activeFragment,
+	conceptFragments,
+	activeRelationships,
 	onConceptSelected,
+	onFragmentSelected,
+	onRelationshipSelected,
 }: {
 	readonly kind: Exclude<RenderState, "ready">;
 	readonly tour: CodeTourViewModel;
+	readonly activeStep: CodeTourViewStep | null;
+	readonly activeStepIndex: number;
+	readonly stepCount: number;
 	readonly activeConcept: CodeTourViewConcept | null;
 	readonly activeFragment: CodeTourViewFragment | null;
+	readonly conceptFragments: readonly CodeTourViewFragment[];
+	readonly activeRelationships: readonly CodeTourViewEdge[];
 	readonly onConceptSelected: (conceptId: string) => void;
+	readonly onFragmentSelected: (fragmentId: string) => void;
+	readonly onRelationshipSelected: (edge: CodeTourViewEdge) => void;
 }) {
 	const title =
 		kind === "reduced"
@@ -958,7 +980,71 @@ function CodeTourDiagnosticState({
 						))}
 					</div>
 					{activeFragment && (
-						<FragmentCard fragment={activeFragment} sourceKind={tour.kind} />
+						<div className="rp1-code-tour-diagnostic-details">
+							<div className="rp1-code-tour-diagnostic-step">
+								<div>
+									<p>{activeStep ? `Step ${activeStepIndex + 1}` : "Focus"}</p>
+									<h3>
+										{activeStep?.title ??
+											activeConcept?.label ??
+											activeFragment.label}
+									</h3>
+								</div>
+								<span>
+									{activeStepIndex + 1}/{stepCount}
+								</span>
+							</div>
+							{activeStep?.sub && (
+								<p className="rp1-code-tour-step-sub">{activeStep.sub}</p>
+							)}
+							{activeStep?.reason && (
+								<p className="rp1-code-tour-step-reason">{activeStep.reason}</p>
+							)}
+							{conceptFragments.length > 1 && (
+								<div className="rp1-code-tour-fragment-tabs">
+									{conceptFragments.map((fragment) => (
+										<button
+											key={fragment.id}
+											type="button"
+											className={
+												fragment.id === activeFragment.id ? "active" : undefined
+											}
+											onClick={() => onFragmentSelected(fragment.id)}
+										>
+											<span>{fragment.label}</span>
+											<small>{fragment.changeCount}</small>
+										</button>
+									))}
+								</div>
+							)}
+							<FragmentCard fragment={activeFragment} sourceKind={tour.kind} />
+							<section className="rp1-code-tour-section">
+								<div className="rp1-code-tour-section-title">
+									<Box className="h-3 w-3" strokeWidth={1.6} />
+									<span>Relationships</span>
+								</div>
+								<div className="rp1-code-tour-relationships">
+									{activeRelationships.length > 0 ? (
+										activeRelationships.map((edge) => (
+											<button
+												key={edge.id}
+												type="button"
+												onClick={() => onRelationshipSelected(edge)}
+											>
+												<strong>{edge.label}</strong>
+												<span>
+													{edge.fromLabel}
+													{" -> "}
+													{edge.toLabel}
+												</span>
+											</button>
+										))
+									) : (
+										<p>No labeled relationships for this focus.</p>
+									)}
+								</div>
+							</section>
+						</div>
 					)}
 				</div>
 			</div>
@@ -992,6 +1078,7 @@ function IconButton({
 
 function createScene({
 	tour,
+	theme,
 	canvas,
 	overlay,
 	stage,
@@ -1001,6 +1088,7 @@ function createScene({
 	onFragmentSelected,
 }: {
 	readonly tour: CodeTourViewModel;
+	readonly theme: CodeTourTheme;
 	readonly canvas: HTMLCanvasElement;
 	readonly overlay: HTMLDivElement;
 	readonly stage: HTMLDivElement;
@@ -1015,7 +1103,8 @@ function createScene({
 		alpha: false,
 		powerPreference: "high-performance",
 	});
-	renderer.setClearColor(0x11100d, 1);
+	const sceneTheme = SCENE_THEME[theme];
+	renderer.setClearColor(sceneTheme.clear, 1);
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 	const labelRenderer = new CSS2DRenderer({ element: overlay });
@@ -1024,7 +1113,7 @@ function createScene({
 	labelRenderer.domElement.style.pointerEvents = "none";
 
 	const scene = new THREE.Scene();
-	scene.fog = new THREE.FogExp2(0x11100d, 0.018);
+	scene.fog = new THREE.FogExp2(sceneTheme.fog, sceneTheme.fogDensity);
 	const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 260);
 	camera.position.set(7, 8, 28);
 
@@ -1036,7 +1125,7 @@ function createScene({
 	controls.minDistance = 5;
 	controls.target.set(0, 0, 0);
 
-	scene.add(buildAmbientPoints());
+	scene.add(buildAmbientPoints(theme));
 
 	const conceptPositions = conceptPositionMap(tour.concepts);
 	const fragmentPositions = fragmentPositionMap(tour);
@@ -1055,6 +1144,7 @@ function createScene({
 			domainColor: concept.domain.color,
 			position: conceptPositions.get(concept.id) ?? new THREE.Vector3(),
 			baseScale: conceptScales.get(concept.id) ?? 1,
+			theme,
 			onClick: () => onConceptSelected(concept.id),
 		});
 		scene.add(node.group);
@@ -1071,6 +1161,7 @@ function createScene({
 			domainColor: fragment.domain.color,
 			position: fragmentPositions.get(fragment.id) ?? new THREE.Vector3(),
 			baseScale: (fragmentScales.get(fragment.id) ?? 1) * 0.72,
+			theme,
 			onClick: () => onFragmentSelected(fragment.id),
 		});
 		scene.add(node.group);
@@ -1090,12 +1181,14 @@ function createScene({
 		edges: tour.conceptEdges,
 		nodes: conceptNodes,
 		scene,
+		theme,
 		onClick: selectConceptRelationship,
 	});
 	const fragmentEdges = buildSceneEdges({
 		edges: tour.fragmentEdges,
 		nodes: fragmentNodes,
 		scene,
+		theme,
 		onClick: selectFragmentRelationship,
 	});
 
@@ -1175,6 +1268,7 @@ function createScene({
 		renderer,
 		labelRenderer,
 		scene,
+		theme,
 		camera,
 		controls,
 		stage,
@@ -1220,6 +1314,7 @@ function buildSceneNode({
 	domainColor,
 	position,
 	baseScale,
+	theme,
 	onClick,
 }: {
 	readonly id: string;
@@ -1230,9 +1325,11 @@ function buildSceneNode({
 	readonly domainColor: string;
 	readonly position: THREE.Vector3;
 	readonly baseScale: number;
+	readonly theme: CodeTourTheme;
 	readonly onClick: () => void;
 }): SceneNode {
-	const color = new THREE.Color(domainColor);
+	const color = sceneDomainColor(domainColor, theme);
+	const blending = sceneMaterialBlending(theme);
 	const group = new THREE.Group();
 	group.position.copy(position);
 	group.scale.setScalar(baseScale);
@@ -1241,9 +1338,9 @@ function buildSceneNode({
 	const bodyMaterial = new THREE.MeshBasicMaterial({
 		color,
 		transparent: true,
-		opacity: 0.2,
+		opacity: theme === "light" ? 0.3 : 0.2,
 		depthWrite: false,
-		blending: THREE.AdditiveBlending,
+		blending,
 	});
 	const hitMesh = new THREE.Mesh(NODE_GEOMETRY, bodyMaterial);
 	hitMesh.userData = { kind, id };
@@ -1252,9 +1349,9 @@ function buildSceneNode({
 	const edgeMaterial = new THREE.LineBasicMaterial({
 		color,
 		transparent: true,
-		opacity: 0.8,
+		opacity: theme === "light" ? 0.95 : 0.8,
 		depthWrite: false,
-		blending: THREE.AdditiveBlending,
+		blending,
 	});
 	const wire = new THREE.LineSegments(NODE_EDGE_GEOMETRY, edgeMaterial);
 	hitMesh.add(wire);
@@ -1292,11 +1389,13 @@ function buildSceneEdges({
 	edges,
 	nodes,
 	scene,
+	theme,
 	onClick,
 }: {
 	readonly edges: readonly CodeTourViewEdge[];
 	readonly nodes: ReadonlyMap<string, SceneNode>;
 	readonly scene: THREE.Scene;
+	readonly theme: CodeTourTheme;
 	readonly onClick: (edge: CodeTourViewEdge) => void;
 }): readonly SceneEdge[] {
 	const sceneEdges: SceneEdge[] = [];
@@ -1311,9 +1410,9 @@ function buildSceneEdges({
 		const material = new THREE.LineBasicMaterial({
 			color: from.domainColor.clone().lerp(to.domainColor, 0.45),
 			transparent: true,
-			opacity: 0.24,
+			opacity: theme === "light" ? 0.42 : 0.24,
 			depthWrite: false,
-			blending: THREE.AdditiveBlending,
+			blending: sceneMaterialBlending(theme),
 		});
 		const line = new THREE.Line(geometry, material);
 		scene.add(line);
@@ -1379,7 +1478,7 @@ function updateSceneNodes(handles: SceneHandles, state: ReaderStateRef) {
 		const isMode = state.mode === "concept";
 		const isActive = node.id === state.activeConceptId;
 		const isBridge = conceptBridgeIds.has(node.id);
-		updateNodeVisualState(node, isMode, isActive, isBridge);
+		updateNodeVisualState(node, isMode, isActive, isBridge, handles.theme);
 	}
 
 	for (const node of handles.fragmentNodes.values()) {
@@ -1387,7 +1486,13 @@ function updateSceneNodes(handles: SceneHandles, state: ReaderStateRef) {
 		const isActive = node.id === state.activeFragmentId;
 		const isSameConcept = node.conceptId === state.activeConceptId;
 		const isBridge = fragmentBridgeIds.has(node.id);
-		updateNodeVisualState(node, isMode, isActive, isSameConcept || isBridge);
+		updateNodeVisualState(
+			node,
+			isMode,
+			isActive,
+			isSameConcept || isBridge,
+			handles.theme,
+		);
 	}
 }
 
@@ -1396,11 +1501,22 @@ function updateNodeVisualState(
 	isMode: boolean,
 	isActive: boolean,
 	isBridge: boolean,
+	theme: CodeTourTheme,
 ) {
-	const visibleOpacity = !isMode ? 0 : isActive ? 0.95 : isBridge ? 0.52 : 0.18;
+	const visibleOpacity = !isMode
+		? 0
+		: isActive
+			? 0.96
+			: isBridge
+				? theme === "light"
+					? 0.7
+					: 0.52
+				: theme === "light"
+					? 0.34
+					: 0.18;
 	node.bodyMaterial.opacity = THREE.MathUtils.lerp(
 		node.bodyMaterial.opacity,
-		visibleOpacity * 0.3,
+		visibleOpacity * (theme === "light" ? 0.24 : 0.3),
 		0.12,
 	);
 	node.edgeMaterial.opacity = THREE.MathUtils.lerp(
@@ -1425,7 +1541,12 @@ function updateSceneEdges(handles: SceneHandles, state: ReaderStateRef) {
 			state.mode === "concept" &&
 			(edge.edge.from === state.activeConceptId ||
 				edge.edge.to === state.activeConceptId);
-		updateEdgeVisualState(edge, state.mode === "concept", active);
+		updateEdgeVisualState(
+			edge,
+			state.mode === "concept",
+			active,
+			handles.theme,
+		);
 	}
 
 	for (const edge of handles.fragmentEdges) {
@@ -1433,7 +1554,12 @@ function updateSceneEdges(handles: SceneHandles, state: ReaderStateRef) {
 			state.mode === "fragment" &&
 			(edge.edge.from === state.activeFragmentId ||
 				edge.edge.to === state.activeFragmentId);
-		updateEdgeVisualState(edge, state.mode === "fragment", active);
+		updateEdgeVisualState(
+			edge,
+			state.mode === "fragment",
+			active,
+			handles.theme,
+		);
 	}
 }
 
@@ -1441,8 +1567,17 @@ function updateEdgeVisualState(
 	edge: SceneEdge,
 	isMode: boolean,
 	isActive: boolean,
+	theme: CodeTourTheme,
 ) {
-	const targetOpacity = !isMode ? 0 : isActive ? 0.88 : 0.18;
+	const targetOpacity = !isMode
+		? 0
+		: isActive
+			? theme === "light"
+				? 0.95
+				: 0.88
+			: theme === "light"
+				? 0.34
+				: 0.18;
 	edge.material.opacity = THREE.MathUtils.lerp(
 		edge.material.opacity,
 		targetOpacity,
@@ -1586,7 +1721,7 @@ function resizeScene(
 	handles.camera.updateProjectionMatrix();
 }
 
-function buildAmbientPoints() {
+function buildAmbientPoints(theme: CodeTourTheme) {
 	const count = 420;
 	const positions = new Float32Array(count * 3);
 	for (let index = 0; index < count; index += 1) {
@@ -1600,15 +1735,33 @@ function buildAmbientPoints() {
 	}
 	const geometry = new THREE.BufferGeometry();
 	geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+	const sceneTheme = SCENE_THEME[theme];
 	const material = new THREE.PointsMaterial({
-		color: 0xd2bea0,
+		color: sceneTheme.ambient,
 		size: 0.035,
 		transparent: true,
-		opacity: 0.34,
+		opacity: sceneTheme.ambientOpacity,
 		depthWrite: false,
 		sizeAttenuation: true,
 	});
 	return new THREE.Points(geometry, material);
+}
+
+function sceneDomainColor(
+	domainColor: string,
+	theme: CodeTourTheme,
+): THREE.Color {
+	const color = new THREE.Color(domainColor);
+	if (theme === "dark") return color;
+
+	const hsl = { h: 0, s: 0, l: 0 };
+	color.getHSL(hsl);
+	color.setHSL(hsl.h, Math.min(hsl.s * 1.12, 0.92), Math.min(hsl.l, 0.43));
+	return color;
+}
+
+function sceneMaterialBlending(theme: CodeTourTheme): THREE.Blending {
+	return theme === "light" ? THREE.NormalBlending : THREE.AdditiveBlending;
 }
 
 function conceptPositionMap(
@@ -1778,6 +1931,48 @@ function usePrefersReducedMotion(): boolean {
 	}, []);
 
 	return prefersReducedMotion;
+}
+
+function useDocumentTheme(): CodeTourTheme {
+	const [theme, setTheme] = useState<CodeTourTheme>(() =>
+		resolveDocumentTheme(),
+	);
+
+	useEffect(() => {
+		const root = document.documentElement;
+		const media = window.matchMedia?.("(prefers-color-scheme: dark)") ?? null;
+		const syncTheme = () => setTheme(resolveDocumentTheme());
+		const observer = new MutationObserver(syncTheme);
+
+		observer.observe(root, {
+			attributeFilter: ["class", "data-theme"],
+			attributes: true,
+		});
+		media?.addEventListener("change", syncTheme);
+		syncTheme();
+
+		return () => {
+			observer.disconnect();
+			media?.removeEventListener("change", syncTheme);
+		};
+	}, []);
+
+	return theme;
+}
+
+function resolveDocumentTheme(): CodeTourTheme {
+	if (typeof document === "undefined") return "dark";
+	const root = document.documentElement;
+	const explicitTheme = root.dataset.theme;
+	if (explicitTheme === "light" || root.classList.contains("light")) {
+		return "light";
+	}
+	if (explicitTheme === "dark" || root.classList.contains("dark")) {
+		return "dark";
+	}
+	return window.matchMedia?.("(prefers-color-scheme: dark)").matches
+		? "dark"
+		: "light";
 }
 
 function fract(value: number): number {

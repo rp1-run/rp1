@@ -147,6 +147,7 @@ function renderReader(
 
 describe("CodeTour3DReader", () => {
 	beforeEach(() => {
+		document.documentElement.classList.remove("light", "dark");
 		Object.defineProperty(window, "matchMedia", {
 			configurable: true,
 			value: (query: string) => ({
@@ -168,6 +169,7 @@ describe("CodeTour3DReader", () => {
 
 	afterEach(() => {
 		cleanup();
+		document.documentElement.classList.remove("light", "dark");
 		Object.defineProperty(window, "matchMedia", {
 			configurable: true,
 			value: originalMatchMedia,
@@ -243,5 +245,22 @@ describe("CodeTour3DReader", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Show source JSON" }));
 
 		expect(onSourceModeRequested).toHaveBeenCalled();
+	});
+
+	test("tracks document light and dark theme for tour chrome", () => {
+		document.documentElement.classList.add("light");
+
+		const { unmount } = renderReader();
+
+		let reader = screen.getByLabelText("Code Tour for Auth Flow Code Tour");
+		expect(reader.getAttribute("data-code-tour-theme")).toBe("light");
+
+		unmount();
+		document.documentElement.classList.remove("light");
+		document.documentElement.classList.add("dark");
+
+		renderReader();
+		reader = screen.getByLabelText("Code Tour for Auth Flow Code Tour");
+		expect(reader.getAttribute("data-code-tour-theme")).toBe("dark");
 	});
 });
