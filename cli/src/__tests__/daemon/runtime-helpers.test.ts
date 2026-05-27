@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
@@ -38,7 +38,17 @@ async function loadDiagnosticsModule() {
 
 function mockConfigDir(configDir: string): void {
 	const module = {
+		ensureConfigDir: async () => {
+			await mkdir(configDir, { recursive: true, mode: 0o700 });
+			return configDir;
+		},
+		getDaemonStatePath: () => join(configDir, "daemon-state.json"),
 		getConfigDir: () => configDir,
+		getLifecycleLockPath: () => join(configDir, "daemon.lifecycle.lock"),
+		getPidFilePath: () => join(configDir, "daemon.pid"),
+		getRestartMarkerPath: () => join(configDir, "restart-arcade-after-install"),
+		readDaemonState: () => null,
+		writeDaemonState: () => {},
 	};
 	mock.module("../../../web-ui/src/daemon/config-dir", () => module);
 	mock.module("../../../web-ui/src/daemon/config-dir.js", () => module);

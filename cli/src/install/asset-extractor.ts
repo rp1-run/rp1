@@ -31,6 +31,7 @@ export interface ExtractOptions {
 	readonly platform: BuildPlatform;
 	readonly targetDir: string;
 	readonly plugins?: readonly string[];
+	readonly distDir?: string;
 }
 
 /**
@@ -188,7 +189,11 @@ const resolvePluginKeys = (
 export const extractPlatformAssets = (
 	opts: ExtractOptions,
 ): TE.TaskEither<CLIError, ExtractionResult> =>
-	pipe(hasBundledAssets() ? extractFromEmbedded(opts) : extractFromDist(opts));
+	pipe(
+		opts.distDir || !hasBundledAssets()
+			? extractFromDist(opts)
+			: extractFromEmbedded(opts),
+	);
 
 /**
  * Extract assets from an already-loaded bundled manifest.
@@ -266,7 +271,7 @@ const extractFromDist = (
 ): TE.TaskEither<CLIError, ExtractionResult> =>
 	TE.tryCatch(
 		async () => {
-			const distDir = await resolveDistDir(opts.platform);
+			const distDir = await resolveDistDir(opts.platform, opts.distDir);
 
 			const entries = await readdir(distDir, { withFileTypes: true });
 			const pluginDirs = entries
@@ -319,7 +324,17 @@ const extractFromDist = (
  * Resolve the dist/ directory for a given platform.
  * Walks up from the current module location to find the project root.
  */
-const resolveDistDir = async (platform: BuildPlatform): Promise<string> => {
+const resolveDistDir = async (
+	platform: BuildPlatform,
+	distDir?: string,
+): Promise<string> => {
+	if (distDir) {
+		const s = await stat(distDir);
+		if (s.isDirectory()) {
+			return distDir;
+		}
+	}
+
 	// Try common project root locations
 	const candidates = [
 		join(process.cwd(), "dist", platform),

@@ -112,6 +112,10 @@ export interface BundledAssets {
  * Returns true only when embedded.ts contains actual asset imports (IS_BUNDLED === true).
  */
 export const hasBundledAssets = (): boolean => {
+	if (process.env.RP1_DISABLE_BUNDLED_ASSETS === "1") {
+		return false;
+	}
+
 	try {
 		// The embedded module is statically imported to ensure it's included in bundle
 		// eslint-disable-next-line @typescript-eslint/no-require-imports
