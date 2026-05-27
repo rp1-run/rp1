@@ -41,6 +41,7 @@ available when you need the complete command list.
 | Run an evidence-grounded PR review | [`pr-review`](dev/pr-review.md) |
 | Generate a PR diagram | [`pr-visual`](dev/pr-visual.md) |
 | Generate a markdown walkthrough | [`pr-walkthrough`](dev/pr-walkthrough.md) |
+| Split a large PR into a stack | [`pr-stack`](dev/pr-stack.md) |
 | Address review feedback | [`address-pr-feedback`](dev/address-pr-feedback.md) |
 | Configure CI review behavior | [`pr-review.yaml`](pr-review-config.md) |
 
@@ -151,7 +152,7 @@ The workflow stays the same across hosts. Only the command syntax changes:
 
 - **Get started**: [Installation](../getting-started/installation.md), [First Workflow](../getting-started/first-workflow.md)
 - **Ship a feature**: [Feature Development Guide](../guides/feature-development.md), [`build`](dev/build.md), [`build-fast`](dev/build-fast.md)
-- **Review a PR**: [PR Review Guide](../guides/pr-review.md), [`pr-review`](dev/pr-review.md), [`pr-walkthrough`](dev/pr-walkthrough.md)
+- **Review a PR**: [PR Review Guide](../guides/pr-review.md), [`pr-review`](dev/pr-review.md), [`pr-walkthrough`](dev/pr-walkthrough.md), [`pr-stack`](dev/pr-stack.md)
 - **Monitor work**: [Arcade](../arcade/index.md)
 - **Understand concepts**: [Concepts](../concepts/index.md), [Consistent Workflows](../concepts/constitutional-prompting.md), [Project Context](../concepts/knowledge-aware-agents.md)
 - **Automate CI**: [CI/CD Integration](../guides/ci-cd-integration.md), [`pr-review.yaml`](pr-review-config.md)

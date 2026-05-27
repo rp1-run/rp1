@@ -59,6 +59,7 @@ Review and manage pull requests effectively.
 | [`pr-review`](pr-review.md) | Map-reduce PR review with confidence gating |
 | [`pr-visual`](pr-visual.md) | Generate Mermaid diagrams from PR diffs |
 | [`pr-walkthrough`](pr-walkthrough.md) | Generate plain markdown walkthroughs grounded in direct PR evidence |
+| [`pr-stack`](pr-stack.md) | Split a large PR or branch into an approved stack of smaller PRs |
 | [`address-pr-feedback`](address-pr-feedback.md) | Unified workflow: collect, triage, and fix PR review comments |
 
 ### Collaboration
