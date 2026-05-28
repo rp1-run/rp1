@@ -35,7 +35,7 @@ metadata:
       type: boolean
       required: false
       default: false
-      description: "Enable plan review checkpoint and post-implementation review"
+      description: "Enable post-implementation checkpoint; plan review is default unless AFK"
       aliases:
         - "confirm"
         - "review plan"
@@ -94,9 +94,12 @@ Or in the terminal: `rp1 update`
 
 **CRITICAL OVERRIDE**: When `AFK=true`, treat `CONFIRM_PLAN` as `false` regardless of its passed value. AFK mode means zero user interaction - skip ALL user prompts throughout this workflow.
 
+When `AFK=false`, the plan review checkpoint is mandatory after planner artifact registration and before §PHASE-2. `CONFIRM_PLAN` does not control the plan checkpoint; it only enables the post-implementation checkpoint in §4.4.
+
 **Effective values when AFK=true**:
 
-- `CONFIRM_PLAN` -> `false` (forced)
+- Plan review checkpoint -> SKIP
+- `CONFIRM_PLAN` -> `false` (forced, disables post-implementation checkpoint)
 - All checkpoints -> SKIP (no user prompts)
 
 ## STATE-MACHINE
@@ -163,11 +166,11 @@ Interpret the planner redirect before stopping:
 
 ### §1.2 Plan Review Checkpoint
 
-**SKIP ENTIRELY if**: `AFK=true` OR `CONFIRM_PLAN=false`
+**SKIP ENTIRELY if**: `AFK=true`
 
 When skipped: Do NOT prompt the user. Proceed directly to §PHASE-2.
 
-**Interactive confirm mode rule**: When `AFK=false` AND `CONFIRM_PLAN=true`, this checkpoint is REQUIRED. Before entering §PHASE-2, you must complete both actions below in order:
+**Interactive plan gate rule**: When `AFK=false`, this checkpoint is REQUIRED after the planner registers the quick-build artifact and before entering §PHASE-2. Complete both actions below in order:
 1. Emit `waiting_for_user` for the plan gate
 2. Call `ask_user` and wait for the answer
 
@@ -197,7 +200,7 @@ Present the plan review to the user:
 
 **Files**: {files_affected}
 
-**Mandatory checkpoint**: The very next action must be the `ask_user` call below. Do NOT start §PHASE-2 until the user has answered. Do NOT skip this gate when `AFK=false` and `CONFIRM_PLAN=true`.
+**Mandatory checkpoint**: The very next action must be the `ask_user` call below. Do NOT start §PHASE-2 until the user has answered. Do NOT skip this gate when `AFK=false`.
 
 {% ask_user "Proceed with plan?", options: "Continue", "Revise", "Review feedback from Arcade", "Stop" %}
 
@@ -213,7 +216,7 @@ rp1 agent-tools emit end-run \
 ```
 Output "Build fast cancelled. Artifact preserved at {artifact_path}" and STOP.
 
-**Transition guard**: If `AFK=false` AND `CONFIRM_PLAN=true`, do not enter §PHASE-2 unless this checkpoint produced both a `waiting_for_user` emit and an `ask_user` answer in the current run.
+**Transition guard**: If `AFK=false`, do not enter §PHASE-2 unless this checkpoint produced both a `waiting_for_user` emit and an `ask_user` answer in the current run.
 
 ## §PHASE-2: Execution
 
@@ -428,8 +431,9 @@ rp1 agent-tools emit \
 **DO**:
 - Spawn agents for every phase (planner, task-builder, reviewer)
 - Wait for each spawned agent to complete before proceeding
-- Prompt user for interactions (when not AFK)
-- Treat interactive checkpoints as hard gates when `AFK=false` AND `CONFIRM_PLAN=true`
+- Prompt user for the plan checkpoint whenever `AFK=false`
+- Treat the plan checkpoint as a hard gate when `AFK=false`
+- Treat the post-implementation checkpoint as a hard gate when `AFK=false` AND `CONFIRM_PLAN=true`
 - Register artifact via `rp1 agent-tools emit --type artifact_registered` in §OUTPUT — this is REQUIRED
 
 **DO NOT** (hard constraints — never violate these):
@@ -437,7 +441,8 @@ rp1 agent-tools emit \
 - Read source code files to understand the task — subagents handle their own context
 - Implement anything yourself — you are ONLY a workflow orchestrator, not an implementer
 - Skip the task-builder spawn — it is MANDATORY for Small/Medium scope
-- Skip a required plan-review or post-implementation checkpoint in interactive confirm mode
+- Skip a required plan-review checkpoint in interactive mode
+- Skip a required post-implementation checkpoint in interactive confirm mode
 - Emit final `artifact_registered` output for the build phase before a required post-implementation checkpoint completes
 - Write the plan artifact yourself if the planner fails — retry the planner instead
 - Fall back to manual implementation if any agent fails — retry once, then STOP with error
