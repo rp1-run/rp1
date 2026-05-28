@@ -499,50 +499,62 @@ describe("install-core tool routing", () => {
 	});
 
 	test("installOpenCodePlugins forwards install flags and reports default dev plugins", async () => {
+		const restoreBundledAssets = withEnvOverride(
+			"RP1_DISABLE_BUNDLED_ASSETS",
+			"1",
+		);
 		const installCalls: Array<{
 			args: readonly string[];
 			options: { isTTY: boolean; skipPrompt: boolean };
 		}> = [];
 
-		mock.module("../../install/command.js", () => ({
-			executeInstall: (
-				args: readonly string[],
-				_logger: Logger,
-				options: { isTTY: boolean; skipPrompt: boolean },
-			) => {
-				installCalls.push({ args, options });
-				return TE.right(undefined);
-			},
-		}));
+		try {
+			mock.module("../../install/command.js", () => ({
+				executeInstall: (
+					args: readonly string[],
+					_logger: Logger,
+					options: { isTTY: boolean; skipPrompt: boolean },
+				) => {
+					installCalls.push({ args, options });
+					return TE.right(undefined);
+				},
+			}));
 
-		const installCore = (await import(
-			`../../shared/install-core.js?opencode-route=${Date.now()}`
-		)) as InstallCoreModule;
-		const result = await expectTaskRight(
-			installCore.installOpenCodePlugins(
-				{ artifactsDir: "/tmp/opencode-artifacts" },
-				createMockContext({ dryRun: true, skipPrompt: true }),
-			),
-		);
+			const installCore = (await import(
+				`../../shared/install-core.js?opencode-route=${Date.now()}`
+			)) as InstallCoreModule;
+			const result = await expectTaskRight(
+				installCore.installOpenCodePlugins(
+					{ artifactsDir: "/tmp/opencode-artifacts" },
+					createMockContext({ dryRun: true, skipPrompt: true }),
+				),
+			);
 
-		expect(result.pluginsInstalled).toEqual(["rp1-base", "rp1-dev"]);
-		expect(installCalls).toEqual([
-			{
-				args: [
-					"--artifacts-dir",
-					"/tmp/opencode-artifacts",
-					"--dry-run",
-					"--yes",
-				],
-				options: { isTTY: false, skipPrompt: true },
-			},
-		]);
+			expect(result.pluginsInstalled).toEqual(["rp1-base", "rp1-dev"]);
+			expect(installCalls).toEqual([
+				{
+					args: [
+						"--artifacts-dir",
+						"/tmp/opencode-artifacts",
+						"--dry-run",
+						"--yes",
+					],
+					options: { isTTY: false, skipPrompt: true },
+				},
+			]);
+		} finally {
+			restoreBundledAssets();
+		}
 	});
 
 	test("installForSpecificTool routes Codex through the default artifacts path", async () => {
 		const installCalls: Array<{ config: unknown; ctx: InstallContext }> = [];
 		const homeDir = await createTempDir("install-core-codex-specific");
 		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restoreBundledAssets = withEnvOverride(
+			"RP1_DISABLE_BUNDLED_ASSETS",
+			"1",
+		);
 
 		try {
 			mock.module("../../install/codex/index.js", () => ({
@@ -597,6 +609,7 @@ describe("install-core tool routing", () => {
 			>;
 			expect(markers.codex?.version).toBe("9.9.9");
 		} finally {
+			restoreBundledAssets();
 			restoreHome();
 			await cleanupTempDir(homeDir);
 		}
@@ -626,6 +639,10 @@ describe("install-core tool routing", () => {
 		const installCalls: Array<{ config: unknown; ctx: InstallContext }> = [];
 		const homeDir = await createTempDir("install-core-copilot-specific");
 		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restoreBundledAssets = withEnvOverride(
+			"RP1_DISABLE_BUNDLED_ASSETS",
+			"1",
+		);
 
 		try {
 			mock.module("../../install/copilot/index.js", () => ({
@@ -683,6 +700,7 @@ describe("install-core tool routing", () => {
 			>;
 			expect(markers.copilot?.version).toBe("9.9.9");
 		} finally {
+			restoreBundledAssets();
 			restoreHome();
 			await cleanupTempDir(homeDir);
 		}
