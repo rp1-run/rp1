@@ -66,6 +66,8 @@ tests:
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
       - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertAskUserCheckpoint
+      - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertDefaultProhibited
       - type: javascript
         value: file://../../shared/assertions/tool-calls.ts:assertKBLoad
@@ -79,7 +81,7 @@ tests:
           3. For Small/Medium scope: Output contains "Build Fast Complete" section with request summary
           4. For Small/Medium scope: Output references artifact at .rp1/work/quick-builds/ with date-based filename pattern ({yyyy-mm-dd}-{slug}-{n}.md)
           5. For Small/Medium scope: Output contains "Quality" section (or similarly worded) showing format/lint/test status
-          6. Output is coherent and does not claim the implementation is incomplete or waiting on user input
+          6. Output is coherent and does not claim the implementation is incomplete or waiting on user input after the default plan checkpoint continues
 
           PASS if: Output is well-structured with clear scope, artifact, change summary, and quality status
           FAIL if: Missing scope classification, missing completion summary, missing artifact path, missing quality status, or incoherent output
@@ -105,7 +107,7 @@ tests:
 
           PASS if: Agent stops after redirect, provides actionable alternatives
           FAIL if: Agent attempts to implement the large-scope request or provides no alternatives
-  - description: "confirm_plan_and_review_flags"
+  - description: "confirm_plan_enables_post_impl_checkpoint"
     vars:
       DEVELOPMENT_REQUEST: "add a simple greeting utility function"
       GIT_WORKTREE: false
@@ -127,7 +129,7 @@ tests:
         value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
       - type: llm-rubric
         value: |
-          Evaluate the agent's output after completing a build with --confirm-plan and --review flags.
+          Evaluate the agent's output after completing a build with default plan review, --confirm-plan post-implementation checkpoint, and --review.
           Note: checkpoint interactions and task delegation are verified by deterministic assertions.
 
           REQUIRED (all must pass):
@@ -137,7 +139,7 @@ tests:
 
           PASS if: Build completed with artifact and coherent summary
           FAIL if: Output contains errors, is incoherent, or missing completion artifact
-  - description: "in_afk_mode_bypasses_confirm"
+  - description: "afk_mode_bypasses_default_plan_pause"
     vars:
       DEVELOPMENT_REQUEST: "add a json validation script that's ultra performant"
       GIT_WORKTREE: false
@@ -158,7 +160,7 @@ tests:
       - type: llm-rubric
         value: |
           Evaluate the agent's output after completing a build in AFK mode.
-          Note: git commit presence and no-AskUser are verified by deterministic assertions.
+          Note: git commit presence and no-AskUser are verified by deterministic assertions, including bypass of the default plan checkpoint.
 
           REQUIRED:
           1. Agent implements the requested change (output mentions files created/modified)
