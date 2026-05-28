@@ -324,6 +324,7 @@ describe("RunDetailPage", () => {
 		headerRightContent = null;
 		webSocketApi.setProjectId.mockClear();
 		refetchMock.mockClear();
+		delete (run as { liveAcp?: unknown }).liveAcp;
 		run = {
 			...run,
 			status: "running",
@@ -555,6 +556,88 @@ describe("RunDetailPage", () => {
 			});
 		});
 		expect(refetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("renders live ACP detail without changing canonical run state", async () => {
+		run = {
+			...run,
+			status: "running",
+			lastEventAt: "2026-04-12T00:01:00.000Z",
+			liveAcp: {
+				sessionId: "fake-session-1",
+				provider: "fake",
+				status: "blocked",
+				health: "blocked",
+				statusMessage: "Waiting on fake sidecar permission",
+				activePermission: {
+					permissionId: "fake-permission-1",
+					title: "Approve fake sidecar continuation",
+					reason: "Proof fixture needs a blocking permission state",
+					status: "pending",
+					blocking: true,
+					updatedAt: "2026-04-12T00:02:00.000Z",
+				},
+				activity: [
+					{
+						id: "fake-session-1:1",
+						sequence: 1,
+						kind: "transcript",
+						payload: {
+							role: "assistant",
+							text: "I am inspecting run run-1",
+						},
+						createdAt: "2026-04-12T00:02:01.000Z",
+					},
+					{
+						id: "fake-session-1:2",
+						sequence: 2,
+						kind: "tool",
+						payload: {
+							toolCallId: "fake-tool-1",
+							name: "fake.read_run_context",
+							status: "completed",
+							outputSummary: "Loaded canonical run shell",
+						},
+						createdAt: "2026-04-12T00:02:02.000Z",
+					},
+					{
+						id: "fake-session-1:3",
+						sequence: 3,
+						kind: "plan",
+						payload: {
+							items: [
+								{
+									id: "plan-1",
+									title: "Inspect canonical run run-1",
+									status: "running",
+								},
+							],
+						},
+						createdAt: "2026-04-12T00:02:03.000Z",
+					},
+				],
+				droppedCount: 0,
+				lastSequence: 3,
+				updatedAt: "2026-04-12T00:02:03.000Z",
+			},
+		};
+
+		await renderRunDetail("/runs/run-1/step/build/artifact/doc-1");
+
+		const panels = screen.getAllByRole("region", {
+			name: "Live ACP activity",
+		});
+		expect(panels).toHaveLength(2);
+		const panel = within(panels[0]);
+		expect(panel.getByText("Live ACP")).toBeTruthy();
+		expect(panel.getByText("fake - fake-session-1")).toBeTruthy();
+		expect(panel.getAllByText("Blocked").length).toBeGreaterThan(0);
+		expect(panel.getByText("Waiting on fake sidecar permission")).toBeTruthy();
+		expect(panel.getByText("Approve fake sidecar continuation")).toBeTruthy();
+		expect(panel.getByText("fake.read_run_context")).toBeTruthy();
+		expect(panel.getByText("Inspect canonical run run-1")).toBeTruthy();
+		expect(run.status).toBe("running");
+		expect(run.lastEventAt).toBe("2026-04-12T00:01:00.000Z");
 	});
 
 	test("shows run status messages inline in the detail header", async () => {

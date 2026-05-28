@@ -22,6 +22,25 @@ export interface ArcadeRuntimeManifest {
 	readonly buildId: string;
 }
 
+export type ArcadeAcpSidecarProvider = "fake";
+export type ArcadeAcpSidecarHealth = "available";
+
+export interface ArcadeAcpActiveSessionSummary {
+	readonly activeSessions: number;
+	readonly blockedSessions: number;
+}
+
+export interface ArcadeAcpSidecarCapability {
+	readonly enabled: true;
+	readonly provider: ArcadeAcpSidecarProvider;
+	readonly health: ArcadeAcpSidecarHealth;
+	readonly activeSessionSummary: ArcadeAcpActiveSessionSummary;
+}
+
+export interface ArcadeRuntimeCapabilities {
+	readonly acpSidecar?: ArcadeAcpSidecarCapability;
+}
+
 export interface ArcadeRuntimeContract {
 	readonly schemaVersion: typeof ARCADE_RUNTIME_SCHEMA_VERSION;
 	readonly baseUrl: string;
@@ -30,6 +49,7 @@ export interface ArcadeRuntimeContract {
 	readonly buildId: string;
 	readonly cacheBust: string;
 	readonly reconnectPolicy: ArcadeReconnectPolicy;
+	readonly capabilities?: ArcadeRuntimeCapabilities;
 }
 
 export const DEFAULT_ARCADE_RECONNECT_POLICY: ArcadeReconnectPolicy = {

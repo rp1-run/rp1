@@ -3,6 +3,7 @@ import {
 	ARCADE_RUNTIME_MANIFEST_FILENAME,
 	ARCADE_RUNTIME_SCHEMA_VERSION,
 	type ArcadeHostMode,
+	type ArcadeRuntimeCapabilities,
 	type ArcadeRuntimeContract,
 	type ArcadeRuntimeManifest,
 	DEFAULT_ARCADE_RECONNECT_POLICY,
@@ -10,6 +11,7 @@ import {
 } from "../types/runtime";
 import { RP1_VERSION } from "../version";
 import type { ApiContext } from "./routes/content-utils";
+import { loadSettings, type Settings } from "./settings-loader";
 
 export const RUNTIME_CACHE_CONTROL = "no-store, no-cache, must-revalidate";
 
@@ -118,12 +120,36 @@ function resolveCacheBust(url: URL, manifest: ArcadeRuntimeManifest): string {
 	return cacheBust && cacheBust.length > 0 ? cacheBust : manifest.buildId;
 }
 
+function buildRuntimeCapabilities(
+	settings: Settings,
+): ArcadeRuntimeCapabilities | undefined {
+	if (!settings.acp.enabled) {
+		return undefined;
+	}
+
+	return {
+		acpSidecar: {
+			enabled: true,
+			provider: "fake",
+			health: "available",
+			activeSessionSummary: {
+				activeSessions: 0,
+				blockedSessions: 0,
+			},
+		},
+	};
+}
+
 export async function buildArcadeRuntimeContract(
 	ctx: ApiContext,
 	requestUrl: string | URL,
 ): Promise<ArcadeRuntimeContract> {
 	const url = requestUrl instanceof URL ? requestUrl : new URL(requestUrl);
-	const manifest = await readArcadeRuntimeManifest(ctx);
+	const [manifest, settings] = await Promise.all([
+		readArcadeRuntimeManifest(ctx),
+		ctx.settings ? Promise.resolve(ctx.settings) : loadSettings(),
+	]);
+	const capabilities = buildRuntimeCapabilities(settings);
 
 	return {
 		schemaVersion: ARCADE_RUNTIME_SCHEMA_VERSION,
@@ -133,6 +159,7 @@ export async function buildArcadeRuntimeContract(
 		buildId: manifest.buildId,
 		cacheBust: resolveCacheBust(url, manifest),
 		reconnectPolicy: DEFAULT_ARCADE_RECONNECT_POLICY,
+		...(capabilities ? { capabilities } : {}),
 	};
 }
 

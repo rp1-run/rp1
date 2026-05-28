@@ -52,6 +52,16 @@ describe("arcade command", () => {
 		expect(formatOption?.hidden).toBe(true);
 	});
 
+	test("does not expose an ACP local override option", () => {
+		expect(
+			arcadeCommand.options.filter((option) =>
+				/acp|sidecar|provider/i.test(
+					`${option.long} ${option.short ?? ""} ${option.description}`,
+				),
+			),
+		).toEqual([]);
+	});
+
 	test("formats hook payload with the resolved arcade url", () => {
 		expect(
 			formatArcadeHookPayload("http://127.0.0.1:7710/projects/test-id"),

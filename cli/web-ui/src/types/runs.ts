@@ -13,6 +13,14 @@ import type {
 	Status,
 	WorkflowRunPolicy,
 } from "../../../shared/events";
+import type {
+	AcpPermissionSignalPayload,
+	AcpSidecarProviderName,
+	AcpSidecarSessionStatus,
+	AcpSidecarSignal,
+	AcpSidecarSignalKind,
+	AcpStatusSignalPayload,
+} from "../server/acp/types";
 
 export type { ArtifactLocationKind, ArtifactType };
 
@@ -100,6 +108,31 @@ export interface RunInvocationContext {
 	readonly arguments?: Readonly<Record<string, string | boolean>>;
 }
 
+export interface LiveAcpActivityItem {
+	readonly id: string;
+	readonly sequence: number;
+	readonly kind: AcpSidecarSignalKind;
+	readonly payload: AcpSidecarSignal["payload"];
+	readonly createdAt: string;
+}
+
+export interface LiveAcpPermissionState extends AcpPermissionSignalPayload {
+	readonly updatedAt: string;
+}
+
+export interface LiveAcpRunState {
+	readonly sessionId: string;
+	readonly provider: AcpSidecarProviderName;
+	readonly status: AcpSidecarSessionStatus;
+	readonly health: AcpStatusSignalPayload["health"];
+	readonly statusMessage: string | null;
+	readonly activePermission: LiveAcpPermissionState | null;
+	readonly activity: readonly LiveAcpActivityItem[];
+	readonly droppedCount: number;
+	readonly lastSequence: number | null;
+	readonly updatedAt: string;
+}
+
 /** An agent run with all associated data */
 export interface Run {
 	readonly id: string;
@@ -123,6 +156,7 @@ export interface Run {
 	readonly agentSteps: Readonly<Record<string, readonly AgentTask[]>> | null;
 	readonly invocation?: RunInvocationContext;
 	readonly subflows?: Readonly<Record<string, string>>;
+	readonly liveAcp?: LiveAcpRunState;
 }
 
 /** Attention groupings for the home dashboard */

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Run } from "@/types/runs";
 import type {
+	AcpActivityMessage,
 	EventNotificationMessage,
 	StateSnapshotMessage,
 } from "@/types/websocket";
@@ -58,6 +59,28 @@ function buildSnapshot(
 		projectId: overrides.projectId ?? "proj-1",
 		lastEventId: overrides.lastEventId ?? 41,
 		runs: overrides.runs ?? [],
+	};
+}
+
+function buildAcpActivity(
+	overrides: Partial<AcpActivityMessage> = {},
+): AcpActivityMessage {
+	return {
+		type: "acp:activity",
+		sequenceId: overrides.sequenceId ?? "signal-1",
+		projectId: overrides.projectId ?? "proj-1",
+		runId: overrides.runId ?? "run-1",
+		sessionId: overrides.sessionId ?? "session-1",
+		provider: overrides.provider ?? "fake",
+		kind: overrides.kind ?? "status",
+		payload: overrides.payload ?? {
+			status: "running",
+			message: "Fake ACP is running",
+			health: "available",
+		},
+		signalIds: overrides.signalIds ?? [overrides.sequenceId ?? "signal-1"],
+		sidecarSequences: overrides.sidecarSequences ?? [1],
+		createdAt: overrides.createdAt ?? "2026-04-14T00:08:00.000Z",
 	};
 }
 
@@ -431,5 +454,110 @@ describe("LiveRunIndex", () => {
 		});
 		expect(index.getProjectRunIds("proj-2")).toContain("run-other-project");
 		expect(fetchCount).toBe(1);
+	});
+
+	test("projects ACP activity as live-only run state", async () => {
+		const index = createLiveRunIndex();
+		index.upsertRun(
+			buildRun({
+				artifacts: [
+					{
+						docId: "doc-1",
+						path: "artifact.md",
+						absolutePath: "/tmp/artifact.md",
+						type: "markdown",
+						updatedDuringRun: false,
+						isNew: false,
+						step: null,
+					},
+				],
+			}),
+		);
+
+		await index.applyAcpActivity(
+			buildAcpActivity({
+				sequenceId: "permission-1",
+				kind: "permission",
+				payload: {
+					permissionId: "perm-1",
+					title: "Approve file write",
+					reason: "Fake provider wants to demonstrate blocking state",
+					status: "pending",
+					blocking: true,
+				},
+				signalIds: ["permission-1"],
+				sidecarSequences: [7],
+				createdAt: "2026-04-14T00:08:00.000Z",
+			}),
+		);
+
+		const run = index.getRun("run-1");
+		expect(run).toMatchObject({
+			status: "running",
+			lastEventAt: "2026-04-14T00:01:00.000Z",
+			artifacts: [{ docId: "doc-1" }],
+			events: [],
+			liveAcp: {
+				sessionId: "session-1",
+				provider: "fake",
+				status: "blocked",
+				health: "blocked",
+				activePermission: {
+					permissionId: "perm-1",
+					blocking: true,
+					updatedAt: "2026-04-14T00:08:00.000Z",
+				},
+				activity: [
+					{
+						id: "permission-1",
+						kind: "permission",
+						sequence: 7,
+					},
+				],
+			},
+		});
+		expect(index.getLastEventId("proj-1")).toBeNull();
+	});
+
+	test("deduplicates and bounds high-volume ACP activity", async () => {
+		const index = createLiveRunIndex();
+		index.upsertRun(buildRun());
+
+		const signals = Array.from({ length: 105 }, (_, index) => ({
+			signalId: `transcript-${index + 1}`,
+			sequence: index + 1,
+			kind: "transcript" as const,
+			payload: {
+				role: "assistant" as const,
+				text: `Fake update ${index + 1}`,
+			},
+			createdAt: `2026-04-14T00:08:${String(index % 60).padStart(2, "0")}.000Z`,
+		}));
+		const message = buildAcpActivity({
+			sequenceId: "session-1:1-105",
+			kind: "batch",
+			payload: {
+				signals,
+				droppedCount: 2,
+			},
+			signalIds: signals.map((signal) => signal.signalId),
+			sidecarSequences: signals.map((signal) => signal.sequence),
+			createdAt: "2026-04-14T00:09:00.000Z",
+		});
+
+		await index.applyAcpActivity(message);
+		await index.applyAcpActivity(message);
+
+		const liveAcp = index.getRun("run-1")?.liveAcp;
+		expect(liveAcp?.activity).toHaveLength(100);
+		expect(liveAcp?.activity[0]?.id).toBe("transcript-6");
+		expect(liveAcp?.activity.at(-1)?.id).toBe("transcript-105");
+		expect(liveAcp?.droppedCount).toBe(7);
+		expect(liveAcp?.lastSequence).toBe(105);
+		expect(index.getRun("run-1")).toMatchObject({
+			status: "running",
+			events: [],
+			artifacts: [],
+		});
 	});
 });

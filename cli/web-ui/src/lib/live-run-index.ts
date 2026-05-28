@@ -1,5 +1,8 @@
-import type { Run } from "@/types/runs";
+import type { LiveAcpActivityItem, LiveAcpRunState, Run } from "@/types/runs";
 import type {
+	AcpActivityBatchPayload,
+	AcpActivityMessage,
+	AcpActivitySignalItem,
 	EventNotificationMessage,
 	StateSnapshotMessage,
 } from "@/types/websocket";
@@ -15,6 +18,9 @@ type Listener = () => void;
 const EMPTY_RUNS: readonly Run[] = [];
 const EMPTY_RUN_IDS: readonly string[] = [];
 const EMPTY_MESSAGES: readonly EventNotificationMessage[] = [];
+const EMPTY_ACP_MESSAGES: readonly AcpActivityMessage[] = [];
+const MAX_LIVE_ACP_ACTIVITY_ITEMS = 100;
+const MAX_LIVE_ACP_SEEN_SIGNAL_IDS = 500;
 type SnapshotRun = StateSnapshotMessage["runs"][number];
 
 export interface LiveRunIndexState {
@@ -42,6 +48,7 @@ export interface LiveRunIndex {
 	upsertRuns: (runs: readonly Run[]) => void;
 	hydrateRun: (runId: string) => Promise<Run | null>;
 	applyEvent: (message: EventNotificationMessage) => Promise<void>;
+	applyAcpActivity: (message: AcpActivityMessage) => Promise<void>;
 	applySnapshot: (projectId: string, message: StateSnapshotMessage) => void;
 	applyGlobalSnapshot: (message: StateSnapshotMessage) => void;
 	clear: () => void;
@@ -72,6 +79,7 @@ function normalizeRun(run: Run): Run {
 		error: run.error ?? null,
 		statusMessage: run.statusMessage ?? null,
 		agentSteps: run.agentSteps ?? null,
+		...(run.liveAcp ? { liveAcp: run.liveAcp } : {}),
 	};
 }
 
@@ -95,6 +103,7 @@ function mergeRuns(existing: Run | undefined, incoming: Run): Run {
 		agentSteps: normalized.agentSteps ?? existing.agentSteps,
 		invocation: normalized.invocation ?? existing.invocation,
 		subflows: normalized.subflows ?? existing.subflows,
+		liveAcp: normalized.liveAcp ?? existing.liveAcp,
 	};
 }
 
@@ -227,6 +236,156 @@ function reduceRun(run: Run, message: EventNotificationMessage): Run {
 	}
 }
 
+function isAcpBatchPayload(
+	payload: AcpActivityMessage["payload"],
+): payload is AcpActivityBatchPayload {
+	return (
+		typeof payload === "object" &&
+		payload !== null &&
+		Array.isArray((payload as AcpActivityBatchPayload).signals) &&
+		typeof (payload as AcpActivityBatchPayload).droppedCount === "number"
+	);
+}
+
+function acpSignalsForMessage(message: AcpActivityMessage): {
+	readonly signals: readonly AcpActivitySignalItem[];
+	readonly droppedCount: number;
+} {
+	if (message.kind === "batch") {
+		if (!isAcpBatchPayload(message.payload)) {
+			return { signals: [], droppedCount: 0 };
+		}
+		return {
+			signals: message.payload.signals,
+			droppedCount: Math.max(0, message.payload.droppedCount),
+		};
+	}
+
+	return {
+		signals: [
+			{
+				signalId: message.signalIds[0] ?? message.sequenceId,
+				sequence: message.sidecarSequences[0] ?? 0,
+				kind: message.kind,
+				payload: message.payload as AcpActivitySignalItem["payload"],
+				createdAt: message.createdAt,
+			},
+		],
+		droppedCount: 0,
+	};
+}
+
+function toLiveAcpActivityItem(
+	signal: AcpActivitySignalItem,
+): LiveAcpActivityItem {
+	return {
+		id: signal.signalId,
+		sequence: signal.sequence,
+		kind: signal.kind,
+		payload: signal.payload,
+		createdAt: signal.createdAt,
+	};
+}
+
+function reduceLiveAcpState(
+	existing: LiveAcpRunState | undefined,
+	message: AcpActivityMessage,
+	signals: readonly AcpActivitySignalItem[],
+	serverDroppedCount: number,
+): LiveAcpRunState {
+	let status = existing?.status ?? "running";
+	let health = existing?.health ?? "available";
+	let statusMessage = existing?.statusMessage ?? null;
+	let activePermission = existing?.activePermission ?? null;
+	let lastSequence = existing?.lastSequence ?? null;
+
+	for (const signal of signals) {
+		lastSequence =
+			lastSequence == null
+				? signal.sequence
+				: Math.max(lastSequence, signal.sequence);
+
+		if (signal.kind === "session") {
+			const payload = signal.payload as {
+				readonly status?: LiveAcpRunState["status"];
+				readonly message?: string;
+			};
+			status = payload.status ?? status;
+			statusMessage =
+				typeof payload.message === "string" ? payload.message : statusMessage;
+			health =
+				status === "blocked"
+					? "blocked"
+					: status === "cancelled" || status === "closed"
+						? "closed"
+						: "available";
+			continue;
+		}
+
+		if (signal.kind === "status") {
+			const payload = signal.payload as {
+				readonly status?: LiveAcpRunState["status"];
+				readonly message?: string;
+				readonly health?: LiveAcpRunState["health"];
+			};
+			status = payload.status ?? status;
+			health = payload.health ?? health;
+			statusMessage =
+				typeof payload.message === "string" ? payload.message : statusMessage;
+			continue;
+		}
+
+		if (signal.kind === "permission") {
+			const payload = signal.payload as Omit<
+				NonNullable<LiveAcpRunState["activePermission"]>,
+				"updatedAt"
+			>;
+			if (payload?.status === "pending") {
+				activePermission = {
+					...payload,
+					updatedAt: signal.createdAt,
+				};
+				if (payload.blocking) {
+					status = "blocked";
+					health = "blocked";
+				}
+			} else if (
+				payload?.permissionId &&
+				activePermission?.permissionId === payload.permissionId
+			) {
+				activePermission = null;
+			}
+		}
+	}
+
+	if (status === "cancelled" || status === "closed") {
+		activePermission = null;
+		health = "closed";
+	}
+
+	const nextItems = signals.map(toLiveAcpActivityItem);
+	const unboundedActivity = [...(existing?.activity ?? []), ...nextItems];
+	const localDroppedCount = Math.max(
+		0,
+		unboundedActivity.length - MAX_LIVE_ACP_ACTIVITY_ITEMS,
+	);
+	const activity = unboundedActivity.slice(-MAX_LIVE_ACP_ACTIVITY_ITEMS);
+
+	return {
+		sessionId: message.sessionId,
+		provider: message.provider,
+		status,
+		health,
+		statusMessage,
+		activePermission,
+		activity,
+		droppedCount:
+			(existing?.droppedCount ?? 0) + serverDroppedCount + localDroppedCount,
+		lastSequence,
+		updatedAt: message.createdAt,
+	};
+}
+
 export function createLiveRunIndex(
 	options: LiveRunIndexOptions = {},
 ): LiveRunIndex {
@@ -237,7 +396,10 @@ export function createLiveRunIndex(
 	const lastEventIdByProject = new Map<string, number>();
 	const lastActivityAtByProject = new Map<string, string>();
 	const queuedEventsByRun = new Map<string, EventNotificationMessage[]>();
+	const queuedAcpMessagesByRun = new Map<string, AcpActivityMessage[]>();
 	const pendingHydrations = new Map<string, Promise<Run | null>>();
+	const seenAcpSignalIdsByRun = new Map<string, Set<string>>();
+	const seenAcpSignalIdOrderByRun = new Map<string, string[]>();
 
 	function buildSnapshot(): LiveRunIndexState {
 		return {
@@ -310,6 +472,63 @@ export function createLiveRunIndex(
 		if (projectRuns?.size === 0) {
 			runsByProject.delete(existing.projectId);
 		}
+		queuedAcpMessagesByRun.delete(runId);
+		seenAcpSignalIdsByRun.delete(runId);
+		seenAcpSignalIdOrderByRun.delete(runId);
+	}
+
+	function acceptAcpSignal(runId: string, signalId: string): boolean {
+		let seenSignalIds = seenAcpSignalIdsByRun.get(runId);
+		let signalIdOrder = seenAcpSignalIdOrderByRun.get(runId);
+		if (!seenSignalIds) {
+			seenSignalIds = new Set();
+			seenAcpSignalIdsByRun.set(runId, seenSignalIds);
+		}
+		if (!signalIdOrder) {
+			signalIdOrder = [];
+			seenAcpSignalIdOrderByRun.set(runId, signalIdOrder);
+		}
+
+		if (seenSignalIds.has(signalId)) {
+			return false;
+		}
+
+		seenSignalIds.add(signalId);
+		signalIdOrder.push(signalId);
+		while (signalIdOrder.length > MAX_LIVE_ACP_SEEN_SIGNAL_IDS) {
+			const removed = signalIdOrder.shift();
+			if (removed) {
+				seenSignalIds.delete(removed);
+			}
+		}
+		return true;
+	}
+
+	function reduceRunWithAcpActivity(
+		run: Run,
+		message: AcpActivityMessage,
+	): Run {
+		if (run.id !== message.runId || run.projectId !== message.projectId) {
+			return run;
+		}
+
+		const { signals, droppedCount } = acpSignalsForMessage(message);
+		const acceptedSignals = signals.filter((signal) =>
+			acceptAcpSignal(run.id, signal.signalId),
+		);
+		if (acceptedSignals.length === 0) {
+			return run;
+		}
+
+		return {
+			...run,
+			liveAcp: reduceLiveAcpState(
+				run.liveAcp,
+				message,
+				acceptedSignals,
+				droppedCount,
+			),
+		};
 	}
 
 	async function reconcileUnknownRun(runId: string): Promise<Run | null> {
@@ -317,15 +536,22 @@ export function createLiveRunIndex(
 		try {
 			if (!hydratedRun) {
 				queuedEventsByRun.delete(runId);
+				queuedAcpMessagesByRun.delete(runId);
 				return null;
 			}
 
 			let nextRun = mergeRuns(runsById.get(runId), hydratedRun);
 			const queuedMessages = queuedEventsByRun.get(runId) ?? EMPTY_MESSAGES;
+			const queuedAcpMessages =
+				queuedAcpMessagesByRun.get(runId) ?? EMPTY_ACP_MESSAGES;
 			queuedEventsByRun.delete(runId);
+			queuedAcpMessagesByRun.delete(runId);
 
 			for (const message of queuedMessages) {
 				nextRun = reduceRun(nextRun, message);
+			}
+			for (const message of queuedAcpMessages) {
+				nextRun = reduceRunWithAcpActivity(nextRun, message);
 			}
 
 			storeRun(nextRun);
@@ -343,6 +569,15 @@ export function createLiveRunIndex(
 			return;
 		}
 		queuedEventsByRun.set(message.runId, [message]);
+	}
+
+	function queueAcpActivity(message: AcpActivityMessage) {
+		const queued = queuedAcpMessagesByRun.get(message.runId);
+		if (queued) {
+			queued.push(message);
+			return;
+		}
+		queuedAcpMessagesByRun.set(message.runId, [message]);
 	}
 
 	return {
@@ -442,6 +677,31 @@ export function createLiveRunIndex(
 			pendingHydrations.set(message.runId, nextPending);
 			await nextPending;
 		},
+		async applyAcpActivity(message: AcpActivityMessage) {
+			const existing = runsById.get(message.runId);
+			if (existing) {
+				const nextRun = reduceRunWithAcpActivity(existing, message);
+				if (nextRun === existing) {
+					return;
+				}
+				storeRun(nextRun);
+				noteProjectActivity(message.projectId, message.createdAt);
+				emitChange();
+				return;
+			}
+
+			queueAcpActivity(message);
+
+			const pending = pendingHydrations.get(message.runId);
+			if (pending) {
+				await pending;
+				return;
+			}
+
+			const nextPending = reconcileUnknownRun(message.runId);
+			pendingHydrations.set(message.runId, nextPending);
+			await nextPending;
+		},
 		applySnapshot(projectId: string, message: StateSnapshotMessage) {
 			const currentEventId = lastEventIdByProject.get(projectId);
 			if (currentEventId != null && currentEventId >= message.lastEventId) {
@@ -493,7 +753,10 @@ export function createLiveRunIndex(
 			lastEventIdByProject.clear();
 			lastActivityAtByProject.clear();
 			queuedEventsByRun.clear();
+			queuedAcpMessagesByRun.clear();
 			pendingHydrations.clear();
+			seenAcpSignalIdsByRun.clear();
+			seenAcpSignalIdOrderByRun.clear();
 			emitChange();
 		},
 	};

@@ -4,6 +4,11 @@
  */
 
 import type { ArtifactLocationKind, Status } from "../../../shared/events";
+import type {
+	AcpSidecarProviderName,
+	AcpSidecarSignal,
+	AcpSidecarSignalKind,
+} from "../server/acp/types";
 import type { Annotation, AnnotationReply } from "./annotations";
 
 export type WebSocketActivityScope = "global" | "project";
@@ -54,6 +59,33 @@ export interface EventNotificationMessage {
 	step: string | null;
 	unit?: string | null;
 	data: Record<string, unknown> | null;
+	createdAt: string;
+}
+
+export interface AcpActivitySignalItem {
+	readonly signalId: string;
+	readonly sequence: number;
+	readonly kind: AcpSidecarSignalKind;
+	readonly payload: AcpSidecarSignal["payload"];
+	readonly createdAt: string;
+}
+
+export interface AcpActivityBatchPayload {
+	readonly signals: readonly AcpActivitySignalItem[];
+	readonly droppedCount: number;
+}
+
+export interface AcpActivityMessage {
+	type: "acp:activity";
+	sequenceId: string;
+	projectId: string;
+	runId: string;
+	sessionId: string;
+	provider: AcpSidecarProviderName;
+	kind: AcpSidecarSignalKind | "batch";
+	payload: AcpSidecarSignal["payload"] | AcpActivityBatchPayload;
+	signalIds: readonly string[];
+	sidecarSequences: readonly number[];
 	createdAt: string;
 }
 
@@ -179,6 +211,7 @@ export type ServerMessage =
 	| HeartbeatMessage
 	| ProjectsChangedMessage
 	| EventNotificationMessage
+	| AcpActivityMessage
 	| EventReplayMessage
 	| StateSnapshotMessage
 	| AnnotationCreatedMessage

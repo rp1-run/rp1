@@ -52,6 +52,7 @@ function mergeLiveRunSummary(run: Run, summary: Run): Run {
 		completedAt: summary.completedAt ?? run.completedAt,
 		statusMessage: summary.statusMessage ?? run.statusMessage ?? null,
 		error: summary.error ?? run.error,
+		liveAcp: summary.liveAcp ?? run.liveAcp,
 	};
 }
 
@@ -188,10 +189,14 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 			if (runData.id !== requestedRunId) {
 				throw new Error("Run response did not match requested run");
 			}
-			setRun(runData);
-			runRef.current = runData;
-			cacheRunForId(requestedRunId, runData);
-			liveRunIndex.upsertRun(runData);
+			const liveSummary = liveRunIndex.getRun(requestedRunId);
+			const nextRun = liveSummary?.liveAcp
+				? { ...runData, liveAcp: liveSummary.liveAcp }
+				: runData;
+			setRun(nextRun);
+			runRef.current = nextRun;
+			cacheRunForId(requestedRunId, nextRun);
+			liveRunIndex.upsertRun(nextRun);
 			setError(null);
 		} catch (err) {
 			if (!isActiveRequest()) return;
@@ -471,7 +476,8 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 				nextRun.lastEventAt === prev.lastEventAt &&
 				nextRun.completedAt === prev.completedAt &&
 				nextRun.statusMessage === prev.statusMessage &&
-				nextRun.error === prev.error
+				nextRun.error === prev.error &&
+				nextRun.liveAcp === prev.liveAcp
 			) {
 				return prev;
 			}

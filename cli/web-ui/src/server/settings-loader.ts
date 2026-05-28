@@ -5,10 +5,15 @@ export interface DownsamplingSettings {
 	readonly thresholdHours: number;
 }
 
+export interface AcpSettings {
+	readonly enabled: boolean;
+}
+
 export interface Settings {
 	readonly version: number;
 	readonly theme: "light" | "dark" | "system";
 	readonly downsampling: DownsamplingSettings;
+	readonly acp: AcpSettings;
 }
 
 export const CURRENT_SETTINGS_VERSION = 1;
@@ -18,6 +23,9 @@ export const defaultSettings: Settings = {
 	theme: "system",
 	downsampling: {
 		thresholdHours: 24,
+	},
+	acp: {
+		enabled: false,
 	},
 };
 
@@ -58,14 +66,33 @@ function mergeDownsampling(
 	};
 }
 
+function mergeAcp(
+	base: AcpSettings,
+	override?: Partial<AcpSettings>,
+): AcpSettings {
+	if (!override) return base;
+	return {
+		enabled: override.enabled ?? base.enabled,
+	};
+}
+
+interface MergePartialSettingsOptions {
+	readonly includeAcp?: boolean;
+}
+
 function mergePartialSettings(
 	base: Settings,
 	override: Partial<Settings>,
+	options: MergePartialSettingsOptions = {},
 ): Settings {
 	return {
 		version: override.version ?? base.version,
 		theme: override.theme ?? base.theme,
 		downsampling: mergeDownsampling(base.downsampling, override.downsampling),
+		acp:
+			options.includeAcp === false
+				? base.acp
+				: mergeAcp(base.acp, override.acp),
 	};
 }
 
@@ -90,16 +117,16 @@ export function mergeSettings(
 	globalSettings: Partial<Settings> | null,
 	projectSettings: Partial<Settings> | null,
 ): Settings {
-	let merged: Partial<Settings> = {};
+	let merged: Settings = defaultSettings;
 
 	if (globalSettings) {
 		merged = mergePartialSettings(defaultSettings, globalSettings);
 	}
 
 	if (projectSettings) {
-		const base =
-			Object.keys(merged).length > 0 ? (merged as Settings) : defaultSettings;
-		merged = mergePartialSettings(base, projectSettings);
+		merged = mergePartialSettings(merged, projectSettings, {
+			includeAcp: false,
+		});
 	}
 
 	return migrateSettings(merged);
@@ -153,6 +180,16 @@ export function validateSettings(settings: unknown): settings is Settings {
 			d.thresholdHours !== undefined &&
 			typeof d.thresholdHours !== "number"
 		) {
+			return false;
+		}
+	}
+
+	if (s.acp !== undefined) {
+		if (typeof s.acp !== "object" || s.acp === null) {
+			return false;
+		}
+		const acp = s.acp as Record<string, unknown>;
+		if (acp.enabled !== undefined && typeof acp.enabled !== "boolean") {
 			return false;
 		}
 	}

@@ -80,6 +80,12 @@ import type {
 	StepStatus,
 } from "../../types/runs";
 import {
+	AcpApiError,
+	cancelFakeAcpSession,
+	closeFakeAcpSession,
+	startFakeAcpSession,
+} from "../acp/api";
+import {
 	type ActivitySearchDateRange,
 	searchActivityFeedRuns,
 } from "../activity-search";
@@ -302,6 +308,27 @@ function parseJsonSafe(
 	} catch {
 		return null;
 	}
+}
+
+async function parseJsonObjectBody(
+	req: Request,
+): Promise<Readonly<Record<string, unknown>>> {
+	let body: unknown;
+	try {
+		body = await req.json();
+	} catch {
+		throw new AcpApiError("invalid_request", "Malformed JSON body", 400);
+	}
+
+	if (typeof body !== "object" || body === null || Array.isArray(body)) {
+		throw new AcpApiError("invalid_request", "Invalid request body", 400);
+	}
+
+	return body as Readonly<Record<string, unknown>>;
+}
+
+function acpApiErrorResponse(error: AcpApiError): Response {
+	return jsonResponse({ error: error.message, code: error.code }, error.status);
 }
 
 function getRunLevelStatusMessage(
@@ -1664,6 +1691,68 @@ export async function handleV2RunEndRequest(
 		});
 	} catch (error) {
 		return errorResponse(`Failed to end run: ${String(error)}`);
+	}
+}
+
+export async function handleV2AcpFakeSessionStartRequest(
+	req: Request,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		const db = await getDb();
+		const body = await parseJsonObjectBody(req);
+		const result = await startFakeAcpSession(db, body, {
+			settings: ctx.settings,
+			websocketHub: ctx.websocketHub,
+		});
+		return jsonResponse(result, 201);
+	} catch (error) {
+		if (error instanceof AcpApiError) {
+			return acpApiErrorResponse(error);
+		}
+		return errorResponse(`Failed to start fake ACP session: ${String(error)}`);
+	}
+}
+
+export async function handleV2AcpFakeSessionCancelRequest(
+	sessionId: string,
+	req: Request,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		const db = await getDb();
+		const body = await parseJsonObjectBody(req);
+		const result = await cancelFakeAcpSession(db, sessionId, body, {
+			settings: ctx.settings,
+			websocketHub: ctx.websocketHub,
+		});
+		return jsonResponse(result);
+	} catch (error) {
+		if (error instanceof AcpApiError) {
+			return acpApiErrorResponse(error);
+		}
+		return errorResponse(`Failed to cancel fake ACP session: ${String(error)}`);
+	}
+}
+
+export async function handleV2AcpFakeSessionCloseRequest(
+	sessionId: string,
+	req: Request,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		const db = await getDb();
+		const body = await parseJsonObjectBody(req);
+		const result = await closeFakeAcpSession(db, sessionId, body, {
+			settings: ctx.settings,
+			websocketHub: ctx.websocketHub,
+		});
+		return jsonResponse(result);
+	} catch (error) {
+		if (error instanceof AcpApiError) {
+			return acpApiErrorResponse(error);
+		}
+		return errorResponse(`Failed to close fake ACP session: ${String(error)}`);
 	}
 }
 

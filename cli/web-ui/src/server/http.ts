@@ -214,6 +214,35 @@ async function handleV2ApiRequest(
 		return handleV2RunsAttentionRequest(apiContext);
 	}
 
+	if (pathname === "/api/v2/acp/fake-sessions" && method === "POST") {
+		const { handleV2AcpFakeSessionStartRequest } = await import(
+			"./routes/v2-api"
+		);
+		return handleV2AcpFakeSessionStartRequest(req, apiContext);
+	}
+
+	const acpFakeSessionCancelMatch = pathname.match(
+		/^\/api\/v2\/acp\/fake-sessions\/([^/]+)\/cancel$/,
+	);
+	if (acpFakeSessionCancelMatch && method === "POST") {
+		const { handleV2AcpFakeSessionCancelRequest } = await import(
+			"./routes/v2-api"
+		);
+		const sessionId = decodeURIComponent(acpFakeSessionCancelMatch[1]);
+		return handleV2AcpFakeSessionCancelRequest(sessionId, req, apiContext);
+	}
+
+	const acpFakeSessionCloseMatch = pathname.match(
+		/^\/api\/v2\/acp\/fake-sessions\/([^/]+)\/close$/,
+	);
+	if (acpFakeSessionCloseMatch && method === "POST") {
+		const { handleV2AcpFakeSessionCloseRequest } = await import(
+			"./routes/v2-api"
+		);
+		const sessionId = decodeURIComponent(acpFakeSessionCloseMatch[1]);
+		return handleV2AcpFakeSessionCloseRequest(sessionId, req, apiContext);
+	}
+
 	// Artifact patch endpoint (must match before general artifact routes)
 	const artifactPatchMatch = pathname.match(
 		/^\/api\/v2\/artifacts\/([^/]+)\/patch$/,

@@ -5,12 +5,19 @@ import { useWebSocket } from "@/providers/WebSocketProvider";
 const getSnapshot = (): LiveRunIndexState => liveRunIndex.getSnapshot();
 
 export function useLiveRunIndexBridge(): void {
-	const { onEventNotification, onStateSnapshot, projectId } = useWebSocket();
+	const { onAcpActivity, onEventNotification, onStateSnapshot, projectId } =
+		useWebSocket();
 
 	useEffect(() => {
 		const unsubscribeEvent = onEventNotification((message) => {
 			void liveRunIndex.applyEvent(message);
 		});
+		const unsubscribeAcp =
+			typeof onAcpActivity === "function"
+				? onAcpActivity((message) => {
+						void liveRunIndex.applyAcpActivity(message);
+					})
+				: () => {};
 		const unsubscribeSnapshot = onStateSnapshot((message) => {
 			if (message.scope === "global") {
 				liveRunIndex.applyGlobalSnapshot(message);
@@ -25,9 +32,10 @@ export function useLiveRunIndexBridge(): void {
 
 		return () => {
 			unsubscribeEvent();
+			unsubscribeAcp();
 			unsubscribeSnapshot();
 		};
-	}, [onEventNotification, onStateSnapshot, projectId]);
+	}, [onAcpActivity, onEventNotification, onStateSnapshot, projectId]);
 }
 
 export function useLiveRunIndexSnapshot(): LiveRunIndexState {

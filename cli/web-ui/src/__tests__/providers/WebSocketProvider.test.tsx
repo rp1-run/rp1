@@ -3,6 +3,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { RuntimeProvider } from "@/providers/RuntimeProvider";
 import {
+	type AcpActivityMessage,
 	type EventNotificationMessage,
 	type StateSnapshotMessage,
 	useWebSocket,
@@ -268,6 +269,58 @@ describe("WebSocketProvider", () => {
 		expect(
 			new URL(reconnectedSocket!.url).searchParams.get("lastEventId"),
 		).toBe("55");
+	});
+
+	test("routes ACP activity without advancing durable event cursors", async () => {
+		const receivedAcpMessages: AcpActivityMessage[] = [];
+
+		const { result } = renderHook(() => useWebSocket(), { wrapper });
+
+		act(() => {
+			result.current.onAcpActivity((message) => {
+				receivedAcpMessages.push(message);
+			});
+			result.current.setProjectId("proj-1");
+		});
+
+		await waitFor(() => {
+			expect(getLatestProjectSocket("proj-1")).toBeDefined();
+		});
+
+		const projectSocket = getLatestProjectSocket("proj-1");
+		expect(projectSocket).toBeDefined();
+
+		act(() => {
+			projectSocket!.open();
+			projectSocket!.receive({
+				type: "acp:activity",
+				sequenceId: "signal-1",
+				projectId: "proj-1",
+				runId: "run-1",
+				sessionId: "session-1",
+				provider: "fake",
+				kind: "status",
+				payload: {
+					status: "running",
+					message: "Fake ACP is running",
+					health: "available",
+				},
+				signalIds: ["signal-1"],
+				sidecarSequences: [1],
+				createdAt: "2026-04-14T00:00:00.000Z",
+			});
+		});
+
+		expect(receivedAcpMessages).toHaveLength(1);
+		expect(receivedAcpMessages[0]).toMatchObject({
+			type: "acp:activity",
+			sequenceId: "signal-1",
+			runId: "run-1",
+			sessionId: "session-1",
+		});
+		expect(
+			sessionStorage.getItem(`${LAST_EVENT_ID_STORAGE_PREFIX}proj-1`),
+		).toBeNull();
 	});
 
 	test("normalizes global replay events and advances global plus project cursors", async () => {

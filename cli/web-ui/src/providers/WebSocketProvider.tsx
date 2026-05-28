@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import type {
+	AcpActivityMessage,
 	AnnotationMessage,
 	ConnectionStatus,
 	EventNotificationMessage,
@@ -25,6 +26,7 @@ import type {
 import { useRuntimeContract } from "./RuntimeProvider";
 
 export type {
+	AcpActivityMessage,
 	ConnectionStatus,
 	EventNotificationMessage,
 	FileChangedMessage,
@@ -51,6 +53,7 @@ interface WebSocketContextValue {
 	onAnnotationMessage: (
 		callback: (msg: AnnotationMessage) => void,
 	) => () => void;
+	onAcpActivity: (callback: (msg: AcpActivityMessage) => void) => () => void;
 	onNotification: (callback: (msg: NotificationMessage) => void) => () => void;
 	subscribeToReconnect: (callback: () => void) => () => void;
 }
@@ -110,6 +113,9 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	const annotationListenersRef = useRef<Set<(msg: AnnotationMessage) => void>>(
 		new Set(),
 	);
+	const acpActivityListenersRef = useRef<
+		Set<(msg: AcpActivityMessage) => void>
+	>(new Set());
 	const notificationListenersRef = useRef<
 		Set<(msg: NotificationMessage) => void>
 	>(new Set());
@@ -367,6 +373,11 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 						listener(message);
 					}
 					break;
+				case "acp:activity":
+					for (const listener of acpActivityListenersRef.current) {
+						listener(message);
+					}
+					break;
 				case "notification:created":
 				case "notification:dismissed":
 					for (const listener of notificationListenersRef.current) {
@@ -482,6 +493,16 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 		[],
 	);
 
+	const onAcpActivity = useCallback(
+		(callback: (msg: AcpActivityMessage) => void) => {
+			acpActivityListenersRef.current.add(callback);
+			return () => {
+				acpActivityListenersRef.current.delete(callback);
+			};
+		},
+		[],
+	);
+
 	const onNotification = useCallback(
 		(callback: (msg: NotificationMessage) => void) => {
 			notificationListenersRef.current.add(callback);
@@ -534,6 +555,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				onStateSnapshot,
 				onProjectsChange,
 				onAnnotationMessage,
+				onAcpActivity,
 				onNotification,
 				subscribeToReconnect,
 			}}

@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import type { FileWatcherPool } from "../file-watcher";
 import { parseCanonicalProjectSectionPath } from "../project-paths";
+import type { Settings } from "../settings-loader";
 import type { WebSocketHub } from "../websocket";
 
 export interface FileNode {
@@ -32,6 +33,7 @@ export interface ApiContext {
 	readonly fileWatcherPool?: FileWatcherPool;
 	readonly shutdownCallback?: () => void;
 	readonly webUIDir?: string;
+	readonly settings?: Settings;
 }
 
 export function jsonResponse(data: unknown, status = 200): Response {

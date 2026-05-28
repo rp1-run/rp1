@@ -6,6 +6,7 @@ import {
 	type ArcadeReconnectPolicy,
 	DEFAULT_ARCADE_RECONNECT_POLICY,
 } from "../types/runtime";
+import type { AcpActivityMessage } from "../types/websocket";
 
 export type WebSocketActivityScope = "global" | "project";
 
@@ -168,6 +169,7 @@ export type ServerMessage =
 	| HeartbeatMessage
 	| ProjectsChangedMessage
 	| EventNotificationMessage
+	| AcpActivityMessage
 	| AnnotationCreatedMessage
 	| AnnotationUpdatedMessage
 	| AnnotationResolvedMessage
@@ -608,6 +610,24 @@ export class WebSocketHub {
 				try {
 					state.ws.send(serialized);
 					state.lastEventId = eventId;
+				} catch {
+					this.removeClient(state.ws);
+				}
+			}
+		}
+	}
+
+	broadcastAcpActivity(message: AcpActivityMessage): void {
+		const serialized = JSON.stringify(message);
+		for (const state of this.clients.values()) {
+			const isProjectMatch = this.clientReceivesProject(
+				state,
+				message.projectId,
+			);
+
+			if (isProjectMatch) {
+				try {
+					state.ws.send(serialized);
 				} catch {
 					this.removeClient(state.ws);
 				}

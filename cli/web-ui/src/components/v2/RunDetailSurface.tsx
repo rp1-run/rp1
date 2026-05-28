@@ -50,6 +50,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Artifact, Run, Step } from "@/types/runs";
+import { AcpLiveActivityPanel } from "./AcpLiveActivityPanel";
 import { PanelHeader, PanelHeaderIconButton } from "./PanelHeader";
 import { RunArtifactsPanel } from "./RunArtifactsPanel";
 import { RunInvocationCard } from "./RunInvocationCard";
@@ -620,6 +621,9 @@ export function RunDetailSurface({
 			}
 		/>
 	);
+	const liveAcpPanel = run.liveAcp ? (
+		<AcpLiveActivityPanel liveAcp={run.liveAcp} className="h-full" />
+	) : null;
 
 	return (
 		<div className="flex h-full flex-col">
@@ -680,8 +684,27 @@ export function RunDetailSurface({
 
 						<ResizableHandle className="cursor-col-resize" />
 
-						<ResizablePanel defaultSize={78} minSize={40}>
+						<ResizablePanel defaultSize={liveAcpPanel ? 54 : 78} minSize={40}>
 							{artifactPanel}
+						</ResizablePanel>
+
+						{liveAcpPanel && (
+							<>
+								<ResizableHandle className="cursor-col-resize" />
+								<ResizablePanel defaultSize={24} minSize={20} maxSize={36}>
+									{liveAcpPanel}
+								</ResizablePanel>
+							</>
+						)}
+					</ResizablePanelGroup>
+				) : liveAcpPanel ? (
+					<ResizablePanelGroup direction="horizontal">
+						<ResizablePanel defaultSize={72} minSize={45}>
+							{artifactPanel}
+						</ResizablePanel>
+						<ResizableHandle className="cursor-col-resize" />
+						<ResizablePanel defaultSize={28} minSize={20} maxSize={40}>
+							{liveAcpPanel}
 						</ResizablePanel>
 					</ResizablePanelGroup>
 				) : (
@@ -696,15 +719,24 @@ export function RunDetailSurface({
 					onStepSelect={handleStepSelect}
 				/>
 
-				<div className="flex-1 min-h-0 overflow-y-auto">
-					<RunArtifactsPanel
-						artifactGroups={artifactGroups}
-						selectedArtifact={selectedFileArtifact}
-						onArtifactSelect={handleArtifactSelect}
-						runId={runId}
-						subflowDiagram={subflowDiagram}
-						showFrontmatter={showFrontmatter}
-					/>
+				<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+					{run.liveAcp && (
+						<AcpLiveActivityPanel
+							liveAcp={run.liveAcp}
+							className="max-h-[42vh] shrink-0 border-b border-border"
+						/>
+					)}
+
+					<div className="min-h-0 flex-1 overflow-y-auto">
+						<RunArtifactsPanel
+							artifactGroups={artifactGroups}
+							selectedArtifact={selectedFileArtifact}
+							onArtifactSelect={handleArtifactSelect}
+							runId={runId}
+							subflowDiagram={subflowDiagram}
+							showFrontmatter={showFrontmatter}
+						/>
+					</div>
 				</div>
 			</div>
 

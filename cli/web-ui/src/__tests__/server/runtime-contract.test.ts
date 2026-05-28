@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { handleV2RuntimeRequest } from "../../server/routes/v2-api";
 import { RUNTIME_CACHE_CONTROL } from "../../server/runtime-contract";
+import { defaultSettings } from "../../server/settings-loader";
 import {
 	ARCADE_RUNTIME_MANIFEST_FILENAME,
 	type ArcadeRuntimeContract,
@@ -53,6 +54,7 @@ describe("Arcade runtime contract API", () => {
 				startTime: 0,
 				webUIDir,
 				version: "fallback-version",
+				settings: defaultSettings,
 			},
 		);
 
@@ -71,6 +73,36 @@ describe("Arcade runtime contract API", () => {
 		});
 	});
 
+	test("exposes fake ACP sidecar capability when global ACP is enabled", async () => {
+		const response = await handleV2RuntimeRequest(
+			runtimeRequest("http://127.0.0.1:7710/api/v2/runtime"),
+			{
+				port: 7710,
+				startTime: 0,
+				webUIDir,
+				settings: {
+					...defaultSettings,
+					acp: { enabled: true },
+				},
+			},
+		);
+
+		const body = (await response.json()) as ArcadeRuntimeContract;
+
+		expect(response.status).toBe(200);
+		expect(body.capabilities).toEqual({
+			acpSidecar: {
+				enabled: true,
+				provider: "fake",
+				health: "available",
+				activeSessionSummary: {
+					activeSessions: 0,
+					blockedSessions: 0,
+				},
+			},
+		});
+	});
+
 	test("returns native host mode and explicit cache bust query metadata", async () => {
 		const response = await handleV2RuntimeRequest(
 			runtimeRequest(
@@ -80,6 +112,7 @@ describe("Arcade runtime contract API", () => {
 				port: 7710,
 				startTime: 0,
 				webUIDir,
+				settings: defaultSettings,
 			},
 		);
 
@@ -98,6 +131,7 @@ describe("Arcade runtime contract API", () => {
 				port: 7710,
 				startTime: 0,
 				webUIDir,
+				settings: defaultSettings,
 			},
 		);
 
