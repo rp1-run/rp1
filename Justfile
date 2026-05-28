@@ -275,7 +275,7 @@ check-native-app:
 
 # Type check web-ui
 check-web-ui:
-    cd cli/web-ui && bunx tsc --noEmit
+    cd cli/web-ui && bun install --frozen-lockfile && bun run typecheck
 
 # Lint and type check evals
 check-evals:
