@@ -46,7 +46,13 @@ describe("daemon manager lifecycle recovery", () => {
 				await Bun.write(join(tempDir, ".keep"), "");
 				return tempDir;
 			},
+			getConfigDir: () => tempDir,
+			getDaemonStatePath: () => join(tempDir, "daemon-state.json"),
+			getLifecycleLockPath: () => join(tempDir, "daemon.lifecycle.lock"),
 			getPidFilePath: () => pidFilePath,
+			getRestartMarkerPath: () => join(tempDir, "restart-arcade-after-install"),
+			readDaemonState: () => null,
+			writeDaemonState: () => {},
 		}));
 		mock.module("../../../../web-ui/src/daemon/diagnostics", () => ({
 			logDaemonEvent: () => {},

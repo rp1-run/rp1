@@ -69,50 +69,43 @@ describe("asset-extractor", () => {
 				"../../install/asset-extractor.js"
 			);
 
-			// Since hasBundledAssets() returns false in test, this uses dist/ fallback.
-			// We need to run from the right CWD so it finds dist/
-			const origCwd = process.cwd();
-			try {
-				process.chdir(tempDir);
-				const result = await expectTaskRight(
-					extractPlatformAssets({
-						platform: "claude-code",
-						targetDir,
-					}),
-				);
+			const result = await expectTaskRight(
+				extractPlatformAssets({
+					platform: "claude-code",
+					targetDir,
+					distDir,
+				}),
+			);
 
-				expect(result.filesExtracted).toBe(5);
-				expect(result.pluginsExtracted).toContain("rp1-base");
-				expect(result.pluginsExtracted).toContain("rp1-dev");
-				expect(result.targetDir).toBe(targetDir);
+			expect(result.filesExtracted).toBe(5);
+			expect(result.pluginsExtracted).toContain("rp1-base");
+			expect(result.pluginsExtracted).toContain("rp1-dev");
+			expect(result.targetDir).toBe(targetDir);
 
-				// Verify file structure
-				const agentContent = await readFile(
-					join(targetDir, "base", "agents", "test-agent.md"),
-					"utf-8",
-				);
-				expect(agentContent).toBe("# Test Agent");
+			// Verify file structure
+			const agentContent = await readFile(
+				join(targetDir, "base", "agents", "test-agent.md"),
+				"utf-8",
+			);
+			expect(agentContent).toBe("# Test Agent");
 
-				const skillContent = await readFile(
-					join(targetDir, "base", "skills", "my-skill", "SKILL.md"),
-					"utf-8",
-				);
-				expect(skillContent).toBe("# Test Skill");
+			const skillContent = await readFile(
+				join(targetDir, "base", "skills", "my-skill", "SKILL.md"),
+				"utf-8",
+			);
+			expect(skillContent).toBe("# Test Skill");
 
-				const pluginJson = await readFile(
-					join(targetDir, "base", ".claude-plugin", "plugin.json"),
-					"utf-8",
-				);
-				expect(pluginJson).toContain('"name":"rp1-base"');
+			const pluginJson = await readFile(
+				join(targetDir, "base", ".claude-plugin", "plugin.json"),
+				"utf-8",
+			);
+			expect(pluginJson).toContain('"name":"rp1-base"');
 
-				const hooksJson = await readFile(
-					join(targetDir, "base", "hooks", "hooks.json"),
-					"utf-8",
-				);
-				expect(hooksJson).toContain('"SessionStart"');
-			} finally {
-				process.chdir(origCwd);
-			}
+			const hooksJson = await readFile(
+				join(targetDir, "base", "hooks", "hooks.json"),
+				"utf-8",
+			);
+			expect(hooksJson).toContain('"SessionStart"');
 		});
 
 		test("filters plugins when plugins option is provided", async () => {
@@ -135,27 +128,22 @@ describe("asset-extractor", () => {
 				"../../install/asset-extractor.js"
 			);
 
-			const origCwd = process.cwd();
-			try {
-				process.chdir(tempDir);
-				const result = await expectTaskRight(
-					extractPlatformAssets({
-						platform: "claude-code",
-						targetDir,
-						plugins: ["base"],
-					}),
-				);
+			const result = await expectTaskRight(
+				extractPlatformAssets({
+					platform: "claude-code",
+					targetDir,
+					plugins: ["base"],
+					distDir,
+				}),
+			);
 
-				expect(result.pluginsExtracted).toEqual(["rp1-base"]);
-				expect(result.filesExtracted).toBe(1);
+			expect(result.pluginsExtracted).toEqual(["rp1-base"]);
+			expect(result.filesExtracted).toBe(1);
 
-				// Verify dev was not extracted
-				const outputEntries = await readdir(targetDir);
-				expect(outputEntries).toContain("base");
-				expect(outputEntries).not.toContain("dev");
-			} finally {
-				process.chdir(origCwd);
-			}
+			// Verify dev was not extracted
+			const outputEntries = await readdir(targetDir);
+			expect(outputEntries).toContain("base");
+			expect(outputEntries).not.toContain("dev");
 		});
 
 		test("accepts rp1-prefixed plugin names in filter", async () => {
@@ -174,21 +162,16 @@ describe("asset-extractor", () => {
 				"../../install/asset-extractor.js"
 			);
 
-			const origCwd = process.cwd();
-			try {
-				process.chdir(tempDir);
-				const result = await expectTaskRight(
-					extractPlatformAssets({
-						platform: "opencode",
-						targetDir,
-						plugins: ["rp1-base"],
-					}),
-				);
+			const result = await expectTaskRight(
+				extractPlatformAssets({
+					platform: "opencode",
+					targetDir,
+					plugins: ["rp1-base"],
+					distDir,
+				}),
+			);
 
-				expect(result.pluginsExtracted).toEqual(["rp1-base"]);
-			} finally {
-				process.chdir(origCwd);
-			}
+			expect(result.pluginsExtracted).toEqual(["rp1-base"]);
 		});
 
 		test("returns error when dist directory does not exist", async () => {
@@ -200,20 +183,15 @@ describe("asset-extractor", () => {
 				"../../install/asset-extractor.js"
 			);
 
-			const origCwd = process.cwd();
-			try {
-				process.chdir(emptyDir);
-				const result = await extractPlatformAssets({
-					platform: "codex",
-					targetDir,
-				})();
+			const result = await extractPlatformAssets({
+				platform: "codex",
+				targetDir,
+				distDir: join(emptyDir, "dist", "codex"),
+			})();
 
-				expect(E.isLeft(result)).toBe(true);
-				if (E.isLeft(result)) {
-					expect(result.left._tag).toBe("InstallError");
-				}
-			} finally {
-				process.chdir(origCwd);
+			expect(E.isLeft(result)).toBe(true);
+			if (E.isLeft(result)) {
+				expect(result.left._tag).toBe("InstallError");
 			}
 		});
 	});
