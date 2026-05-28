@@ -15,7 +15,7 @@ metadata:
     - stack
     - github
   created: 2026-05-27
-  updated: 2026-05-27
+  updated: 2026-05-28
   author: cloud-on-prem/rp1
   arguments:
     - name: SOURCE
@@ -145,14 +145,75 @@ Emit `planning` running before command execution.
 
 ### 5. Produce Split Plan
 
-Before any branch or PR creation, produce:
+Before any branch or PR creation, produce a user-facing split plan.
 
-- Ordered PR list: title, branch name, base branch, intent, files/hunks/commits, expected size, generated exclusions.
-- Per PR: deployability, independent verification, cognitive scope, risks, confidence.
-- Stack narrative: why PR N depends only on PR N-1; no backward dependency.
-- Method: cherry-pick when commits fit one PR; hunk-stage when commits cross boundaries.
-- Reconstruction proof: planned top branch diff vs original `SOURCE` diff.
-- Failure plan: stop and replan on conflicts, budget failures, check failures, base mismatch, CI failure, or reconstruction mismatch.
+The plan is primarily for a human reviewer/maintainer deciding whether to approve execution. Keep it concise, scannable, and decision-oriented. Do not lead with internal workflow IDs, raw SHAs, merge-state dumps, long file lists, or test log excerpts. Put internal metadata in YAML frontmatter and put detailed evidence in a compact appendix only when it helps the user audit the plan.
+
+Required plan format:
+
+```markdown
+---
+source: "{SOURCE_URL_OR_REF}"
+source_title: "{SOURCE_TITLE_IF_KNOWN}"
+source_branch: "{SOURCE_BRANCH_IF_KNOWN}"
+source_head_sha: "{SOURCE_HEAD_SHA}"
+base_branch: "{BASE_BRANCH}"
+base_sha: "{BASE_SHA_IF_KNOWN}"
+stack_id: "{STACK_ID}"
+max_line_change: {MAX_LINE_CHANGE}
+generated_exclusions: []
+check_commands:
+  - "{CHECK_COMMAND}"
+workflow_run_id: "{RUN_ID}"
+---
+
+# PR Stack Plan: {human source label}
+
+**Recommendation:** {Ready to execute after approval | Execution blocked until ... | Plan only}
+
+{One short paragraph explaining why this split is the right review shape.}
+
+## Stack At A Glance
+
+| # | PR | Base | Size | What Reviewers Validate |
+|---|----|------|------|-------------------------|
+| 1 | {title} | `{base}` | {+/- total} | {one concrete review goal} |
+
+## Proposed PRs
+
+### 1. {PR title}
+
+- Branch: `{branch}`
+- Intent: {one sentence}
+- Changes: {short file-area or commit summary, not a long path dump}
+- Validation: `{check command}` plus any PR-specific check
+- Size: {added + deleted} counted lines; generated exclusions: {none or named paths}
+- Risk: {main risk in one sentence}
+- Confidence: {Supported/Provisional/etc.}
+
+## Approval Gate
+
+Approve this split plan and allow branch/PR creation?
+
+## Technical Appendix
+
+- Recovery point: `{source ref}@{source head sha}`
+- Reconstruction: {how top-of-stack diff will be compared to source diff}
+- Commit groups: {short list only when cherry-pick order matters}
+- Blockers: {conflicts, checks, source drift, or none}
+```
+
+Plan content requirements:
+
+- The body must answer first: "Can we execute this stack now?" If not, state the blocker and next action in the recommendation.
+- `Stack At A Glance` must fit on one screen for typical stacks. Use one row per PR.
+- `Proposed PRs` may include branch names, intent, validation, size, risk, and confidence. Avoid dumping all files unless file paths are the only way to understand scope; if needed, include only representative directories in the body and exact path lists in the appendix.
+- Store run ID, source/base SHAs, source branch, PR merge state, and similar machine metadata in frontmatter or `Technical Appendix`, not in top-level body sections.
+- Do not create top-level sections named `Snapshot`, `Observations`, `Execution Refresh`, `Execution Stop`, or `Retry Stop`; those read as logs. Use `Recommendation`, `Stack At A Glance`, `Proposed PRs`, `Checks`, `Blockers`, `Approval Gate`, and `Technical Appendix`.
+- For execution updates, append a short `## Execution Status` section with `Result`, `What happened`, `Current blocker`, and `Next step`. Keep raw logs in a referenced file path or appendix excerpt, not the main narrative.
+- Include generated-file exclusions only when they exist; otherwise say `none`.
+- Keep confidence markers on substantive split/risk claims, but do not overuse epistemic labels for obvious facts.
+- Include the reconstruction proof method and failure plan in the appendix unless either is the main user-facing blocker.
 
 Derive `STACK_ID` as `pr-{number}` for PR sources, otherwise sanitize the source ref by lowercasing and replacing characters outside `[a-z0-9._-]` with `-`.
 

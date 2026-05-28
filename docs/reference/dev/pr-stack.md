@@ -71,20 +71,26 @@ stateDiagram-v2
 `pr-stack` never creates branches, commits, pushes, or PRs until you approve the
 split plan. Use `--plan-only` when you want only the plan artifact.
 
+The plan is reader-first. It starts with the recommendation, a one-screen stack
+table, checks, blockers, and the approval question. Internal details such as run
+IDs, source/base SHAs, recovery points, and commit groupings are stored in
+frontmatter or a compact technical appendix.
+
 The plan includes:
 
-- Ordered PR list with titles, branch names, bases, intent, and size estimates
+- Ordered PR list with titles, bases, intent, validation, and size estimates
+- Clear recommendation: ready to execute, blocked, or plan-only
 - Generated-file exclusions and why each one is safe to exclude
-- Per-PR deployability, verification path, cognitive scope, risks, and confidence
-- Stack dependency narrative
-- Reconstruction proof method
-- Failure plan for conflicts, check failures, size overruns, CI failures, or reconstruction mismatch
+- Per-PR deployability, verification path, main risk, and confidence
+- Stack dependency narrative and reconstruction proof method in an appendix
 
 ## Output
 
 The workflow writes a markdown artifact under `.rp1/work/pr-stacks/` and
-registers it with the run. The same artifact contains the plan and, after
-execution, the final report.
+registers it with the run. The artifact is meant to be read by maintainers:
+machine metadata lives in YAML frontmatter, while the body focuses on the
+decision and next action. After execution, the same artifact gets a short
+execution status update and final report.
 
 Expected final report:
 
