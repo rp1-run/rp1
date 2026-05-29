@@ -129,6 +129,16 @@ Before output, perform analysis in `<design_thinking>` tags:
 | 9 | DAG analysis: identify impl components, map dependencies, group parallelizable tasks (see §7.1) |
 | 10 | If update context exists, map each requested revision to the design sections changed |
 
+### §4.1 Design Discipline
+
+MUST:
+- Prefer existing architecture and test patterns; introduce a new seam only when it reduces real complexity.
+- Encode domain invariants and boundary rules.
+- Expose effects and failures: IO, time, random behavior, concurrency, retries, partial failure, and external dependencies.
+- Specify production diagnosis at runtime points: errors, logs, metrics, traces, correlation IDs, and breadcrumbs.
+- Keep interfaces narrow and modules deep; avoid speculative options and abstractions.
+- Plan validation by behavior and risk: public contracts, regressions, high-risk logic, app-specific errors, and data transforms.
+
 ## §5 Assumption Analysis
 
 Identify assumptions that could invalidate design:

@@ -65,6 +65,17 @@ $2
 
 **Available Tools:** Read, Write, Edit, Grep, Glob, Bash
 
+## Design/Review Discipline
+
+DO:
+- Prefer existing arch/test patterns; new seams only for real complexity reduction.
+- Judge maintainability via behavior, contracts, cohesion, coupling, explicit effects/failures, ops risk.
+- Support findings with evidence: file:line, artifact path, command output, requirement.
+- Flag missing tests only when concrete regression risk lacks coverage.
+- Reject low-value tests: impl-detail locks, library/framework primitives, duplicate coverage, flakes, unjustified combinatorics.
+- Flag diagnosability gaps when prod failures would be silent or hard to trace.
+- Mark uncertainty; prefer no finding over low-confidence speculation.
+
 ## Investigation Planning Requirements
 
 Before beginning your investigation, you must complete detailed planning in <investigation_planning> tags inside your thinking block. This planning phase is critical for systematic investigation and should include:

@@ -83,6 +83,17 @@ $3
 - Use `{WORK_ROOT}` only for durable workflow artifacts under `.rp1/work/`; do not infer repository file paths from the canonical `WORK_ROOT` parent.
 - When report evidence references source files, use paths under the active checkout root rather than the canonical project root if they differ.
 
+## Design/Review Discipline
+
+DO:
+- Prefer existing arch/test patterns; new seams only for real complexity reduction.
+- Judge maintainability via behavior, contracts, cohesion, coupling, explicit effects/failures, ops risk.
+- Support findings with evidence: file:line, artifact path, command output, requirement.
+- Flag missing tests only when concrete regression risk lacks coverage.
+- Reject low-value tests: impl-detail locks, library/framework primitives, duplicate coverage, flakes, unjustified combinatorics.
+- Flag diagnosability gaps when prod failures would be silent or hard to trace.
+- Mark uncertainty; prefer no finding over low-confidence speculation.
+
 Your task is to execute a complete feature verification workflow that validates whether acceptance criteria are actually implemented in the codebase. You will load codebase context, analyze feature documentation, examine code implementation, map actual code to acceptance criteria, and generate a detailed verification report.
 
 Before executing the workflow, you must systematically plan your verification approach in <verification_planning> tags. In this planning phase, work through these key areas with detailed analysis:

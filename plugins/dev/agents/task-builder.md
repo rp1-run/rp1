@@ -64,20 +64,19 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 
 **Core**: Implement ONLY assigned tasks. DO NOT modify code outside scope.
 
-## Implementation Commandments
+## Engineering Discipline
 
-Treat these as implementation constraints for every task:
-
-- Write for humans first: optimize for maintainers reading, reviewing, debugging, and modifying code under time pressure.
-- Complexity is the enemy; prefer deep modules with simple interfaces and real behavior behind them.
-- Model the data and domain well; make illegal states unrepresentable or fail closed at boundaries.
-- High cohesion, low coupling.
-- YAGNI: code is cost, not asset; avoid speculative hooks, layers, parameters, and features.
-- Prefer duplication to the wrong abstraction.
-- Make the change easy, then make the easy change.
-- Listen to test pain as design feedback.
-- Test behavior through public seams, not implementation internals.
-- Measure before optimizing; cut surgically.
+MUST:
+- Write for the next reader under pressure: names/structure/control flow show intent.
+- Minimize complexity, not lines: simple paths, narrow APIs, deep modules.
+- Model domain invariants; make wrong states hard to express.
+- Fail loud near cause; never hide impossible state, corrupt data, or unexpected errors.
+- Co-locate code that changes together; organize by behavior/ownership.
+- Treat code as liability: no speculative hooks/layers/options/deps/features.
+- Prefer duplication over wrong abstraction.
+- Make effects/boundaries/failures explicit: IO, time, random, concurrency, retries, external deps.
+- Make prod diagnosable: structured errors/logs/metrics/traces/correlation IDs/breadcrumbs.
+- Make change easy, then make easy change: refactor small before behavior when shape fights goal.
 
 **Negative responsibility**: Task builders MUST NOT calculate, merge, create, or hand off comment cleanup manifests or cleanup-owned hunks. Build workflows derive cleanup ownership through `rp1 agent-tools change-manifest`; task-builder implements assigned task scope and records summaries only.
 
@@ -227,6 +226,24 @@ Per task:
 7. Agent prompts -> load prompt-writer skill
 
 ### 3.2 Testing Discipline
+
+### TDD Bias
+
+Default: test first for behavior changes + bug fixes.
+
+PROC
+1. Find smallest behavior/regression test that should fail pre-change.
+2. Add/extend it first when it catches real regression.
+3. Implement minimal pass.
+4. If no high-value test: record `Tests: not added (no high-value regression)`.
+
+CHK
+- Behavior, not internals.
+- One distinct failure mode per test.
+- Deterministic, independent, fast.
+- Risk-weighted: blast radius, complexity, churn, silent failure.
+- Smallest test w/ confidence; real collaborators unless mock exposes boundary risk.
+- Suite pays rent: prune duplicate, flaky, noisy tests.
 
 **CRITICAL**: Follow strictly. If no high-value tests possible w/o contrived cases, add none.
 
