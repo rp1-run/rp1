@@ -254,9 +254,9 @@ describe("useFeed", () => {
 		});
 
 		expect(result.current.items.map((item: { id: string }) => item.id)).toEqual(
-			["run-1", "run-2"],
+			["run-2", "run-1"],
 		);
-		expect(result.current.items[0]?.run.status).toBe("waiting");
+		expect(result.current.items[1]?.run.status).toBe("waiting");
 		expect(result.current.total).toBe(2);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
@@ -366,6 +366,53 @@ describe("useFeed", () => {
 			["run-1", "run-2"],
 		);
 		expect(result.current.items[1]?.run.status).toBe("waiting");
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("prepends new live runs and evicts the oldest when feed is at capacity", async () => {
+		const capacityRuns = Array.from({ length: 25 }, (_, i) =>
+			buildRun({
+				id: `run-${i + 1}`,
+				lastEventAt: `2026-04-10T00:${String(25 - i).padStart(2, "0")}:00.000Z`,
+			}),
+		);
+
+		fetchMock = mock(() =>
+			Promise.resolve(buildFeedResponse(capacityRuns, 25)),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { useFeed } = await loadUseFeed();
+		const { result } = renderHook(() => useFeed({ limit: 25, offset: 0 }));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+
+		expect(result.current.items).toHaveLength(25);
+		expect(result.current.items[0]?.id).toBe("run-1");
+		expect(result.current.items[24]?.id).toBe("run-25");
+
+		act(() => {
+			liveRunIndex.upsertRun(
+				buildRun({
+					id: "run-new",
+					name: "Brand New Run",
+					lastEventAt: "2026-04-10T00:26:00.000Z",
+				}),
+			);
+		});
+
+		await waitFor(() => {
+			expect(result.current.items[0]?.id).toBe("run-new");
+		});
+
+		expect(result.current.items).toHaveLength(25);
+		expect(result.current.items[0]?.id).toBe("run-new");
+		expect(
+			result.current.items.find((item: { id: string }) => item.id === "run-25"),
+		).toBeUndefined();
+		expect(result.current.total).toBe(26);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 

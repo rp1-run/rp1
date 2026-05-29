@@ -399,7 +399,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 				knownMatchingRunIds.add(run.id);
 			}
 			addedCount = additions.length;
-			nextItems = [...nextLoadedItems, ...additions];
+			nextItems = [...additions.sort(compareFeedItems), ...nextLoadedItems];
 			nextItems = nextItems.slice(0, limit ?? DEFAULT_FEED_LIMIT);
 		}
 
