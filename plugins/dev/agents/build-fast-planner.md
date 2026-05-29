@@ -104,6 +104,7 @@ If scope is Small or Medium, generate task breakdown:
 - Complexity: `simple` (<30 min) or `medium` (30min-2h)
 - No references, dependencies, or DAG (too complex for quick builds)
 - Tasks should be actionable implementation steps
+- **TDD task shaping**: For behavior changes and bug fixes, fold the smallest failing test into the same task, sequenced test-first. Carve out refactor, docs, and config tasks -- those skip test-first. If no high-value test exists, the task-builder records the skip (task-builder.md section 3.2).
 
 ### 3.2 Task Format
 

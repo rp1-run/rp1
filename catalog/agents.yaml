@@ -94,7 +94,7 @@ agents:
   - name: rp1-dev:build-fast-planner
     description: "Quick-iteration workflow planner. Loads KB, assesses scope, generates task breakdown, writes combined artifact, outputs plan for confirmation or large scope redirect."
     plugin: dev
-    last_checksum: d97ae69daaa8a3e2535f442a615694017e6bcfdd58570f82c078aa80a9e2c426
+    last_checksum: a03cfddaa2544dd102e3f2e308add1994b6daba7a8930e367059b4010237956d
   - name: rp1-dev:build-task-grouper
     description: "Batches parsed tasks into execution units based on complexity rules"
     plugin: dev
@@ -142,7 +142,7 @@ agents:
   - name: rp1-dev:feature-tasker
     description: "Generates development tasks from design specifications with support for incremental updates that preserve completed work"
     plugin: dev
-    last_checksum: 995d179ec71e27eb5d9ac3341f3920beab174cb0335d0cd708cfa51560b5fd8c
+    last_checksum: 16620e4c14ffb758923553b632600c141c9ef022193ad286588cd390fb34729e
   - name: rp1-dev:feature-verifier
     description: "Verifies feature acceptance criteria and requirements mapping with full KB context awareness for comprehensive feature validation before merge"
     plugin: dev
