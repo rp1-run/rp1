@@ -167,8 +167,16 @@ Rules:
 - `target`: primary source, module, config, test, or doc path affected by the task; use a stable module/directory path when the exact file is not yet known
 - Include every active task from `tasks.md`; preserve done/blocked status in UPDATE mode.
 
-### 3.4 Quality
+### 3.4 Task Quality
+
 Every task: Specific, Measurable, Achievable (4-8h max), Relevant, Time-bound.
+
+- Slice by behavior/owner/change-together boundary, not file type.
+- Each code task states public behavior or contract changed.
+- Put test work in same task when locally verifiable.
+- No standalone low-value test chores.
+- Add diagnosability task only for new failure modes or prod decision points.
+- No speculative abstraction, generic cleanup, or broad refactor unless design requires it.
 
 ### 3.5 User Docs Tasks
 

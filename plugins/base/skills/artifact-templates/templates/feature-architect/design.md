@@ -61,9 +61,9 @@ rp1_run_id: {RUN_ID}
 
 ## Validation Plan
 
-| Test | Type | What it verifies |
-|------|------|------------------|
-| {name} | {unit/integration/e2e} | {description} |
+| Behavior Or Contract | Failure Mode Covered | Test Type | Evidence Or Command |
+|----------------------|----------------------|-----------|---------------------|
+| {behavior_or_contract} | {failure_mode} | {unit/integration/e2e} | {command_or_evidence} |
 
 ## Documentation Impact
 
