@@ -324,6 +324,8 @@ describe("code tour Dagre layout", () => {
 		expect(axisSpan(conceptPoints, "z")).toBeGreaterThan(5);
 		expect(axisSpan(fragmentPoints, "x")).toBeGreaterThan(20);
 		expect(axisSpan(fragmentPoints, "z")).toBeGreaterThan(10);
+		expect(minimumDistance(conceptPoints)).toBeGreaterThan(5);
+		expect(minimumDistance(fragmentPoints)).toBeGreaterThan(3.75);
 		expect(durationMs).toBeLessThan(1000);
 	});
 });
@@ -336,6 +338,27 @@ function axisSpan(
 		Math.max(...points.map((point) => point[axis])) -
 		Math.min(...points.map((point) => point[axis]))
 	);
+}
+
+function minimumDistance(
+	points: readonly { readonly x: number; readonly z: number }[],
+): number {
+	let minimum = Number.POSITIVE_INFINITY;
+	for (let leftIndex = 0; leftIndex < points.length; leftIndex += 1) {
+		for (
+			let rightIndex = leftIndex + 1;
+			rightIndex < points.length;
+			rightIndex += 1
+		) {
+			const left = points[leftIndex];
+			const right = points[rightIndex];
+			minimum = Math.min(
+				minimum,
+				Math.hypot(left.x - right.x, left.z - right.z),
+			);
+		}
+	}
+	return minimum;
 }
 
 function fragment(id: string, label: string, path: string): CodeTourFragment {

@@ -42,6 +42,8 @@ interface LayoutOptions {
 	readonly nodesep: number;
 	readonly laneSpacing: number;
 	readonly verticalLift: number;
+	readonly collisionRadius: number;
+	readonly collisionIterations: number;
 }
 
 const CONCEPT_LAYOUT: LayoutOptions = {
@@ -53,6 +55,8 @@ const CONCEPT_LAYOUT: LayoutOptions = {
 	nodesep: 3.2,
 	laneSpacing: 4.8,
 	verticalLift: 1.3,
+	collisionRadius: 2.45,
+	collisionIterations: 10,
 };
 
 const FRAGMENT_LAYOUT: LayoutOptions = {
@@ -64,6 +68,8 @@ const FRAGMENT_LAYOUT: LayoutOptions = {
 	nodesep: 2.7,
 	laneSpacing: 3.8,
 	verticalLift: 1.1,
+	collisionRadius: 1.9,
+	collisionIterations: 12,
 };
 
 export function buildCodeTourSceneLayout(
@@ -214,23 +220,113 @@ function normalizeLayout(
 	const centerX = (bounds.minX + bounds.maxX) / 2;
 	const centerZ = (bounds.minZ + bounds.maxZ) / 2;
 
+	const normalizedPositions = rawPositions.map((position) => {
+		const lift =
+			((position.index % 3) - 1) *
+			options.verticalLift *
+			(position.node.epicenter ? 0 : 1);
+		return {
+			...position,
+			x: (position.x - centerX) * scale,
+			y: position.node.epicenter ? 0 : lift,
+			z: (position.z - centerZ) * scale,
+			radius: collisionRadius(position.node, options),
+		};
+	});
+
 	return new Map(
-		rawPositions.map((position) => {
-			const lift =
-				((position.index % 3) - 1) *
-				options.verticalLift *
-				(position.node.epicenter ? 0 : 1);
-			const y = position.node.epicenter ? 0 : lift;
-			return [
-				position.node.id,
-				{
-					x: (position.x - centerX) * scale,
-					y,
-					z: (position.z - centerZ) * scale,
-				},
-			];
-		}),
+		separateLayoutCollisions(normalizedPositions, options).map((position) => [
+			position.node.id,
+			{
+				x: position.x,
+				y: position.y,
+				z: position.z,
+			},
+		]),
 	);
+}
+
+function separateLayoutCollisions(
+	positions: readonly {
+		readonly node: LayoutNode;
+		readonly index: number;
+		readonly x: number;
+		readonly y: number;
+		readonly z: number;
+		readonly radius: number;
+	}[],
+	options: LayoutOptions,
+): readonly {
+	readonly node: LayoutNode;
+	readonly x: number;
+	readonly y: number;
+	readonly z: number;
+}[] {
+	const separated = positions.map((position) => ({ ...position }));
+	for (
+		let iteration = 0;
+		iteration < options.collisionIterations;
+		iteration += 1
+	) {
+		let moved = false;
+		for (let leftIndex = 0; leftIndex < separated.length; leftIndex += 1) {
+			for (
+				let rightIndex = leftIndex + 1;
+				rightIndex < separated.length;
+				rightIndex += 1
+			) {
+				const left = separated[leftIndex];
+				const right = separated[rightIndex];
+				const minDistance = left.radius + right.radius;
+				const delta = separationDelta(left, right, minDistance);
+				if (delta.distance >= minDistance) continue;
+
+				const push = (minDistance - delta.distance) * 0.54;
+				left.x -= delta.x * push;
+				left.z -= delta.z * push;
+				right.x += delta.x * push;
+				right.z += delta.z * push;
+				moved = true;
+			}
+		}
+		if (!moved) break;
+	}
+	return separated;
+}
+
+function separationDelta(
+	left: { readonly index: number; readonly x: number; readonly z: number },
+	right: { readonly index: number; readonly x: number; readonly z: number },
+	minDistance: number,
+): { readonly x: number; readonly z: number; readonly distance: number } {
+	const dx = right.x - left.x;
+	const dz = right.z - left.z;
+	const distance = Math.hypot(dx, dz);
+	const sameRank = Math.abs(dx) < minDistance * 0.85;
+	if (distance < 0.001 || sameRank) {
+		const z =
+			Math.abs(dz) > 0.001 ? Math.sign(dz) : indexDirection(left, right);
+		return { x: Math.sign(dx) * 0.08, z, distance };
+	}
+	return {
+		x: dx / distance,
+		z: dz / distance,
+		distance,
+	};
+}
+
+function indexDirection(
+	left: { readonly index: number },
+	right: { readonly index: number },
+): number {
+	return left.index < right.index ? 1 : -1;
+}
+
+function collisionRadius(node: LayoutNode, options: LayoutOptions): number {
+	const labelUnits = Math.min(node.label.length * 0.018, 0.7);
+	const weightUnits = Math.min(Math.max(node.weight, 0) * 0.035, 0.55);
+	const epicenterUnits = node.epicenter ? 0.65 : 0;
+	return options.collisionRadius + labelUnits + weightUnits + epicenterUnits;
 }
 
 function nodeWidth(node: LayoutNode, options: LayoutOptions): number {
