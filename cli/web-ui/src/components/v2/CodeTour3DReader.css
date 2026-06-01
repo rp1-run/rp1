@@ -55,9 +55,6 @@
   --ct-scene-label-text: hsl(174 54% 20% / 0.86);
   --ct-scene-label-active-text: hsl(174 54% 12% / 0.96);
   --ct-scene-label-shadow: rgb(48 42 32 / 0.18);
-  --ct-tether-glow: hsl(188 52% 42%);
-  --ct-tether-line: hsl(188 50% 30% / 0.76);
-  --ct-tether-cap: hsl(188 50% 34%);
   --ct-add-bg: hsl(145 40% 36% / 0.12);
   --ct-add-border: hsl(145 40% 36% / 0.7);
   --ct-add-text: hsl(145 40% 30%);
@@ -139,9 +136,6 @@
   --ct-scene-label-text: rgb(205 255 232 / 0.88);
   --ct-scene-label-active-text: rgb(244 255 249 / 0.96);
   --ct-scene-label-shadow: rgb(0 0 0 / 0.6);
-  --ct-tether-glow: rgb(146 211 219);
-  --ct-tether-line: rgb(218 244 239 / 0.86);
-  --ct-tether-cap: rgb(218 244 239);
   --ct-add-bg: rgb(111 214 141 / 0.1);
   --ct-add-border: rgb(111 214 141 / 0.72);
   --ct-add-text: rgb(111 214 141 / 0.95);
@@ -314,36 +308,6 @@
   color: var(--ct-heading);
 }
 
-.rp1-code-tour-segment {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--ct-border-subtle);
-  border-radius: 7px;
-  background: var(--ct-panel-soft);
-}
-
-.rp1-code-tour-segment button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 94px;
-  height: 28px;
-  justify-content: center;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--ct-muted);
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.rp1-code-tour-segment button.active {
-  background: var(--ct-accent-soft);
-  color: var(--ct-heading);
-}
-
 .rp1-code-tour-section-title,
 .rp1-code-tour-step-sub {
   color: var(--ct-muted);
@@ -467,45 +431,6 @@
   background: var(--ct-code-bg);
 }
 
-.rp1-code-tour-fragment-tether {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 160ms ease-out;
-}
-
-.rp1-code-tour-fragment-tether.is-visible {
-  opacity: 1;
-}
-
-.rp1-code-tour-fragment-tether-glow,
-.rp1-code-tour-fragment-tether-line {
-  fill: none;
-  stroke-linecap: round;
-}
-
-.rp1-code-tour-fragment-tether-glow {
-  stroke: var(--ct-tether-glow);
-  stroke-width: 5;
-  opacity: 0.18;
-  filter: blur(2px);
-}
-
-.rp1-code-tour-fragment-tether-line {
-  stroke: var(--ct-tether-line);
-  stroke-width: 1.15;
-}
-
-.rp1-code-tour-fragment-tether-cap {
-  fill: var(--ct-tether-cap);
-  filter: drop-shadow(0 0 5px var(--ct-tether-glow));
-}
-
 .rp1-code-tour-floating-step-card {
   position: absolute;
   top: 50%;
@@ -518,9 +443,7 @@
   flex-direction: column;
   gap: 12px;
   overflow: auto;
-  transform:
-    translate(var(--clamp-x, 0px), calc(-50% + var(--clamp-y, 0px)))
-    translate(var(--drag-x, 0px), var(--drag-y, 0px));
+  transform: translateY(-50%);
   border: 1px solid var(--ct-border);
   border-radius: 8px;
   background: var(--ct-panel-strong);
@@ -546,11 +469,8 @@
   gap: 12px;
   border-bottom: 1px solid var(--ct-border-subtle);
   background: var(--ct-panel-soft);
-  cursor: grab;
   margin: -14px -14px 0;
   padding: 12px 14px;
-  touch-action: none;
-  user-select: none;
 }
 
 .rp1-code-tour-floating-step-head-main {
@@ -1269,23 +1189,13 @@
     flex-wrap: wrap;
   }
 
-  .rp1-code-tour-segment {
-    flex: 1 1 190px;
-  }
-
-  .rp1-code-tour-segment button {
-    flex: 1;
-  }
-
   .rp1-code-tour-floating-step-card {
     top: 152px;
     left: 12px;
     width: min(460px, calc(100% - 24px));
     min-width: 0;
     max-height: calc(38% - 68px);
-    transform:
-      translate(var(--clamp-x, 0px), var(--clamp-y, 0px))
-      translate(var(--drag-x, 0px), var(--drag-y, 0px));
+    transform: none;
   }
 
   .rp1-code-tour-floating-step-card.is-expanded {

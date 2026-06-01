@@ -69,7 +69,6 @@ export interface CodeTourViewModel {
 	readonly concepts: readonly CodeTourViewConcept[];
 	readonly fragments: readonly CodeTourViewFragment[];
 	readonly conceptEdges: readonly CodeTourViewEdge[];
-	readonly fragmentEdges: readonly CodeTourViewEdge[];
 	readonly steps: readonly CodeTourViewStep[];
 	readonly conceptById: ReadonlyMap<string, CodeTourViewConcept>;
 	readonly fragmentById: ReadonlyMap<string, CodeTourViewFragment>;
@@ -133,11 +132,6 @@ export const buildCodeTourViewModel = (
 			document.edges?.concept ?? [],
 			conceptById,
 			"concept",
-		),
-		fragmentEdges: buildEdges(
-			document.edges?.fragment ?? [],
-			fragmentById,
-			"fragment",
 		),
 		steps,
 		conceptById,

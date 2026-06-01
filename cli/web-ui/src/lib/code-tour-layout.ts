@@ -1,7 +1,6 @@
 import type { EdgeLabel, GraphLabel, NodeLabel } from "@dagrejs/dagre";
 import { layout as dagreLayout, Graph } from "@dagrejs/dagre";
 import type {
-	CodeTourViewConcept,
 	CodeTourViewEdge,
 	CodeTourViewModel,
 } from "@/lib/code-tour-view-model";
@@ -14,7 +13,6 @@ export interface CodeTourLayoutPoint {
 
 export interface CodeTourSceneLayout {
 	readonly concepts: ReadonlyMap<string, CodeTourLayoutPoint>;
-	readonly fragments: ReadonlyMap<string, CodeTourLayoutPoint>;
 }
 
 interface LayoutNode {
@@ -59,25 +57,11 @@ const CONCEPT_LAYOUT: LayoutOptions = {
 	collisionIterations: 10,
 };
 
-const FRAGMENT_LAYOUT: LayoutOptions = {
-	nodeWidthBase: 3.1,
-	nodeHeight: 1.35,
-	targetWidth: 27,
-	targetDepth: 18,
-	ranksep: 5.2,
-	nodesep: 2.7,
-	laneSpacing: 3.8,
-	verticalLift: 1.1,
-	collisionRadius: 1.9,
-	collisionIterations: 12,
-};
-
 export function buildCodeTourSceneLayout(
 	tour: CodeTourViewModel,
 ): CodeTourSceneLayout {
 	return {
 		concepts: layoutConcepts(tour),
-		fragments: layoutFragments(tour),
 	};
 }
 
@@ -97,26 +81,6 @@ function layoutConcepts(
 	const edges = visibleEdges(tour.conceptEdges, 3);
 
 	return layoutNodes(nodes, edges, CONCEPT_LAYOUT);
-}
-
-function layoutFragments(
-	tour: CodeTourViewModel,
-): ReadonlyMap<string, CodeTourLayoutPoint> {
-	const conceptLaneById = new Map(
-		tour.concepts.map((concept, index) => [concept.id, index]),
-	);
-	const nodes = tour.fragments.map((fragment) => ({
-		id: fragment.id,
-		label: fragment.label,
-		weight: fragment.changeCount,
-		lane: conceptLaneById.get(fragment.conceptId) ?? 0,
-	}));
-	const intraConceptEdges = tour.concepts.flatMap((concept) =>
-		sequentialFragmentEdges(tour, concept),
-	);
-	const edges = [...visibleEdges(tour.fragmentEdges, 3), ...intraConceptEdges];
-
-	return layoutNodes(nodes, edges, FRAGMENT_LAYOUT);
 }
 
 function layoutNodes(
@@ -346,27 +310,6 @@ function visibleEdges(
 		weight,
 		minlen: 1,
 	}));
-}
-
-function sequentialFragmentEdges(
-	tour: CodeTourViewModel,
-	concept: CodeTourViewConcept,
-): readonly LayoutEdge[] {
-	const fragments = tour.fragmentsByConceptId.get(concept.id) ?? [];
-	const edges: LayoutEdge[] = [];
-	for (let index = 1; index < fragments.length; index += 1) {
-		const previous = fragments[index - 1];
-		const current = fragments[index];
-		if (!previous || !current) continue;
-		edges.push({
-			id: `concept-fragment:${concept.id}:${index}`,
-			from: previous.id,
-			to: current.id,
-			weight: 2,
-			minlen: 1,
-		});
-	}
-	return edges;
 }
 
 function finiteNumber(value: unknown): value is number {

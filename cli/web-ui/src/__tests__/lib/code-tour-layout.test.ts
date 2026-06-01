@@ -277,17 +277,13 @@ const prShapedTourDocument: CodeTourDocument = {
 };
 
 describe("code tour Dagre layout", () => {
-	test("returns finite concept and fragment positions for every node", () => {
+	test("returns finite concept positions for every node", () => {
 		const tour = buildCodeTourViewModel(tourDocument);
 		const layout = buildCodeTourSceneLayout(tour);
 
 		expect(layout.concepts.size).toBe(tour.concepts.length);
-		expect(layout.fragments.size).toBe(tour.fragments.length);
 
-		for (const point of [
-			...layout.concepts.values(),
-			...layout.fragments.values(),
-		]) {
+		for (const point of layout.concepts.values()) {
 			expect(Number.isFinite(point.x)).toBe(true);
 			expect(Number.isFinite(point.y)).toBe(true);
 			expect(Number.isFinite(point.z)).toBe(true);
@@ -302,12 +298,6 @@ describe("code tour Dagre layout", () => {
 		expect(layout.concepts.get("contract")?.x).toBeLessThan(
 			layout.concepts.get("reader")?.x ?? Number.NEGATIVE_INFINITY,
 		);
-		expect(layout.fragments.get("contract-types")?.x).toBeLessThan(
-			layout.fragments.get("contract-validator")?.x ?? Number.NEGATIVE_INFINITY,
-		);
-		expect(layout.fragments.get("source-view")?.x).toBeLessThan(
-			layout.fragments.get("reader-scene")?.x ?? Number.NEGATIVE_INFINITY,
-		);
 	});
 
 	test("lays out shortcut-heavy PR walkthrough graphs without stalling", () => {
@@ -316,16 +306,11 @@ describe("code tour Dagre layout", () => {
 		const layout = buildCodeTourSceneLayout(tour);
 		const durationMs = performance.now() - startedAt;
 		const conceptPoints = [...layout.concepts.values()];
-		const fragmentPoints = [...layout.fragments.values()];
 
 		expect(layout.concepts.size).toBe(6);
-		expect(layout.fragments.size).toBe(13);
 		expect(axisSpan(conceptPoints, "x")).toBeGreaterThan(20);
 		expect(axisSpan(conceptPoints, "z")).toBeGreaterThan(5);
-		expect(axisSpan(fragmentPoints, "x")).toBeGreaterThan(20);
-		expect(axisSpan(fragmentPoints, "z")).toBeGreaterThan(10);
 		expect(minimumDistance(conceptPoints)).toBeGreaterThan(5);
-		expect(minimumDistance(fragmentPoints)).toBeGreaterThan(3.75);
 		expect(durationMs).toBeLessThan(1000);
 	});
 });

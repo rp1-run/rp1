@@ -5,17 +5,11 @@ import {
 	ChevronRight,
 	createLucideIcon,
 	ExternalLink,
-	GitBranch,
 	Maximize2,
 	Minimize2,
-	Network,
 	PanelRightOpen,
 } from "lucide-react";
-import type {
-	ReactNode,
-	PointerEvent as ReactPointerEvent,
-	RefObject,
-} from "react";
+import type { ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -69,14 +63,11 @@ export interface CodeTour3DReaderProps {
 	readonly onRenderFailure?: (message: string) => void;
 }
 
-type TourSceneMode = "concept" | "fragment";
 type RenderState = "checking" | "ready" | "unsupported" | "failed" | "reduced";
-type SceneNodeKind = "concept" | "fragment";
 type CodeTourTheme = "light" | "dark";
 
 interface SceneNode {
 	readonly id: string;
-	readonly kind: SceneNodeKind;
 	readonly conceptId: string;
 	readonly group: THREE.Group;
 	readonly target: THREE.Vector3;
@@ -111,15 +102,6 @@ interface SceneEdge {
 	readonly destinationNavButton: HTMLButtonElement;
 }
 
-interface FragmentTetherRefs {
-	readonly card: RefObject<HTMLElement>;
-	readonly svg: RefObject<SVGSVGElement>;
-	readonly glow: RefObject<SVGPathElement>;
-	readonly line: RefObject<SVGPathElement>;
-	readonly nodeCap: RefObject<SVGCircleElement>;
-	readonly cardCap: RefObject<SVGCircleElement>;
-}
-
 interface SceneHandles {
 	readonly renderer: THREE.WebGLRenderer;
 	readonly labelRenderer: CSS2DRenderer;
@@ -132,11 +114,8 @@ interface SceneHandles {
 	readonly camera: THREE.PerspectiveCamera;
 	readonly controls: OrbitControls;
 	readonly stage: HTMLDivElement;
-	readonly fragmentTether: FragmentTetherRefs;
 	readonly conceptNodes: ReadonlyMap<string, SceneNode>;
-	readonly fragmentNodes: ReadonlyMap<string, SceneNode>;
 	readonly conceptEdges: readonly SceneEdge[];
-	readonly fragmentEdges: readonly SceneEdge[];
 	readonly focusPosition: THREE.Vector3;
 	readonly focusTarget: THREE.Vector3;
 	autoFocusActive: boolean;
@@ -145,30 +124,12 @@ interface SceneHandles {
 }
 
 interface ReaderStateRef {
-	readonly mode: TourSceneMode;
 	readonly activeConceptId: string;
-	readonly activeFragmentId: string;
 }
 
-interface FragmentCardDragState {
-	dragging: boolean;
-	pointerId: number | null;
-	startX: number;
-	startY: number;
-	baseX: number;
-	baseY: number;
-	x: number;
-	y: number;
-}
-
-const FRAGMENT_CARD_MARGIN = 16;
 const CONCEPT_NODE_GEOMETRY = new THREE.DodecahedronGeometry(0.82);
 const CONCEPT_NODE_EDGE_GEOMETRY = new THREE.EdgesGeometry(
 	CONCEPT_NODE_GEOMETRY,
-);
-const FRAGMENT_NODE_GEOMETRY = new THREE.SphereGeometry(0.78, 14, 10);
-const FRAGMENT_NODE_EDGE_GEOMETRY = new THREE.EdgesGeometry(
-	FRAGMENT_NODE_GEOMETRY,
 );
 const NODE_LABEL_POLE_GEOMETRY = new THREE.BufferGeometry().setFromPoints([
 	new THREE.Vector3(0, 0.42, 0),
@@ -249,25 +210,9 @@ export function CodeTour3DReader({
 	const stageRef = useRef<HTMLDivElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const overlayRef = useRef<HTMLDivElement>(null);
-	const fragmentCardRef = useRef<HTMLElement>(null);
-	const tetherSvgRef = useRef<SVGSVGElement>(null);
-	const tetherGlowRef = useRef<SVGPathElement>(null);
-	const tetherLineRef = useRef<SVGPathElement>(null);
-	const tetherNodeCapRef = useRef<SVGCircleElement>(null);
-	const tetherCardCapRef = useRef<SVGCircleElement>(null);
 	const handlesRef = useRef<SceneHandles | null>(null);
 	const onRenderFailureRef = useRef(onRenderFailure);
 	const lastFailureRef = useRef<string | null>(null);
-	const fragmentCardDragRef = useRef<FragmentCardDragState>({
-		dragging: false,
-		pointerId: null,
-		startX: 0,
-		startY: 0,
-		baseX: 0,
-		baseY: 0,
-		x: 0,
-		y: 0,
-	});
 	const prefersReducedMotion = usePrefersReducedMotion();
 	const theme = useDocumentTheme();
 	const firstConceptId = tour.concepts[0]?.id ?? "";
@@ -277,7 +222,6 @@ export function CodeTour3DReader({
 		firstFragmentForConcept(tour, initialConceptId)?.id ??
 		tour.fragments[0]?.id ??
 		"";
-	const [mode, setMode] = useState<TourSceneMode>("concept");
 	const [activeStepIndex, setActiveStepIndex] = useState(firstStep?.index ?? 0);
 	const [activeConceptId, setActiveConceptId] = useState(initialConceptId);
 	const [activeFragmentId, setActiveFragmentId] = useState(initialFragmentId);
@@ -287,9 +231,7 @@ export function CodeTour3DReader({
 		readStoredStepCardExpanded(path),
 	);
 	const readerStateRef = useRef<ReaderStateRef>({
-		mode,
 		activeConceptId,
-		activeFragmentId,
 	});
 
 	const activeConcept =
@@ -306,18 +248,10 @@ export function CodeTour3DReader({
 		: [];
 	const activeRelationships = useMemo(
 		() =>
-			mode === "concept" && activeConcept
+			activeConcept
 				? relationshipsFor(tour.conceptEdges, activeConcept.id)
-				: activeFragment
-					? relationshipsFor(tour.fragmentEdges, activeFragment.id)
-					: [],
-		[
-			activeConcept,
-			activeFragment,
-			mode,
-			tour.conceptEdges,
-			tour.fragmentEdges,
-		],
+				: [],
+		[activeConcept, tour.conceptEdges],
 	);
 
 	useEffect(() => {
@@ -336,7 +270,6 @@ export function CodeTour3DReader({
 			tour.fragments[0]?.id ??
 			"";
 
-		setMode("concept");
 		setActiveStepIndex(nextStep?.index ?? 0);
 		setActiveConceptId(nextConceptId);
 		setActiveFragmentId(nextFragmentId);
@@ -344,11 +277,9 @@ export function CodeTour3DReader({
 
 	useEffect(() => {
 		readerStateRef.current = {
-			mode,
 			activeConceptId,
-			activeFragmentId,
 		};
-	}, [activeConceptId, activeFragmentId, mode]);
+	}, [activeConceptId]);
 
 	const reportRenderFailure = useCallback(
 		(
@@ -413,63 +344,9 @@ export function CodeTour3DReader({
 
 	const navigateRelationship = useCallback(
 		(edge: CodeTourViewEdge) => {
-			if (mode === "concept") {
-				selectConcept(relationshipNavigationTarget(edge, activeConceptId));
-				return;
-			}
-			selectFragment(relationshipNavigationTarget(edge, activeFragmentId));
+			selectConcept(relationshipNavigationTarget(edge, activeConceptId));
 		},
-		[activeConceptId, activeFragmentId, mode, selectConcept, selectFragment],
-	);
-
-	const startFragmentCardDrag = useCallback(
-		(event: ReactPointerEvent<HTMLElement>) => {
-			if (isInteractiveTarget(event.target)) return;
-			const card = fragmentCardRef.current;
-			if (!card) return;
-
-			const drag = fragmentCardDragRef.current;
-			drag.dragging = true;
-			drag.pointerId = event.pointerId;
-			drag.startX = event.clientX;
-			drag.startY = event.clientY;
-			drag.baseX = drag.x;
-			drag.baseY = drag.y;
-
-			event.currentTarget.style.cursor = "grabbing";
-			event.currentTarget.setPointerCapture(event.pointerId);
-			event.preventDefault();
-		},
-		[],
-	);
-
-	const moveFragmentCardDrag = useCallback(
-		(event: ReactPointerEvent<HTMLElement>) => {
-			const drag = fragmentCardDragRef.current;
-			const card = fragmentCardRef.current;
-			if (!drag.dragging || drag.pointerId !== event.pointerId || !card) return;
-
-			drag.x = drag.baseX + event.clientX - drag.startX;
-			drag.y = drag.baseY + event.clientY - drag.startY;
-			card.style.setProperty("--drag-x", `${drag.x}px`);
-			card.style.setProperty("--drag-y", `${drag.y}px`);
-		},
-		[],
-	);
-
-	const endFragmentCardDrag = useCallback(
-		(event: ReactPointerEvent<HTMLElement>) => {
-			const drag = fragmentCardDragRef.current;
-			if (!drag.dragging || drag.pointerId !== event.pointerId) return;
-
-			drag.dragging = false;
-			drag.pointerId = null;
-			event.currentTarget.style.cursor = "grab";
-			try {
-				event.currentTarget.releasePointerCapture(event.pointerId);
-			} catch {}
-		},
-		[],
+		[activeConceptId, selectConcept],
 	);
 
 	const toggleFullscreen = useCallback(() => {
@@ -533,16 +410,7 @@ export function CodeTour3DReader({
 				overlay,
 				stage,
 				stateRef: readerStateRef,
-				fragmentTether: {
-					card: fragmentCardRef,
-					svg: tetherSvgRef,
-					glow: tetherGlowRef,
-					line: tetherLineRef,
-					nodeCap: tetherNodeCapRef,
-					cardCap: tetherCardCapRef,
-				},
 				onConceptSelected: selectConcept,
-				onFragmentSelected: selectFragment,
 			});
 			handlesRef.current = handles;
 			setRenderState("ready");
@@ -558,14 +426,7 @@ export function CodeTour3DReader({
 			handlesRef.current?.dispose();
 			handlesRef.current = null;
 		};
-	}, [
-		prefersReducedMotion,
-		reportRenderFailure,
-		selectConcept,
-		selectFragment,
-		theme,
-		tour,
-	]);
+	}, [prefersReducedMotion, reportRenderFailure, selectConcept, theme, tour]);
 
 	const canGoPrevious = activeStepIndex > 0;
 	const canGoNext = activeStepIndex < tour.steps.length - 1;
@@ -636,32 +497,6 @@ export function CodeTour3DReader({
 						<p>{path}</p>
 					</div>
 					<div className="rp1-code-tour-toolbar">
-						<div
-							className="rp1-code-tour-segment"
-							role="tablist"
-							aria-label="Code Tour layout"
-						>
-							<button
-								type="button"
-								role="tab"
-								aria-selected={mode === "concept"}
-								className={mode === "concept" ? "active" : undefined}
-								onClick={() => setMode("concept")}
-							>
-								<Network className="h-3.5 w-3.5" strokeWidth={1.6} />
-								<span>Concepts</span>
-							</button>
-							<button
-								type="button"
-								role="tab"
-								aria-selected={mode === "fragment"}
-								className={mode === "fragment" ? "active" : undefined}
-								onClick={() => setMode("fragment")}
-							>
-								<GitBranch className="h-3.5 w-3.5" strokeWidth={1.6} />
-								<span>Fragments</span>
-							</button>
-						</div>
 						{onSourceModeRequested && (
 							<IconButton
 								label="Show source JSON"
@@ -686,50 +521,20 @@ export function CodeTour3DReader({
 				</header>
 
 				{!sceneUnavailable && activeFragment && (
-					<>
-						<svg
-							ref={tetherSvgRef}
-							className="rp1-code-tour-fragment-tether"
-							aria-hidden="true"
-						>
-							<path
-								ref={tetherGlowRef}
-								className="rp1-code-tour-fragment-tether-glow"
-							/>
-							<path
-								ref={tetherLineRef}
-								className="rp1-code-tour-fragment-tether-line"
-							/>
-							<circle
-								ref={tetherNodeCapRef}
-								className="rp1-code-tour-fragment-tether-cap"
-								r="3.2"
-							/>
-							<circle
-								ref={tetherCardCapRef}
-								className="rp1-code-tour-fragment-tether-cap"
-								r="3.2"
-							/>
-						</svg>
-						<FloatingStepCard
-							cardRef={fragmentCardRef}
-							activeStep={activeStep}
-							activeStepIndex={activeStepIndex}
-							stepCount={Math.max(tour.steps.length, 1)}
-							isExpanded={isStepCardExpanded}
-							activeConcept={activeConcept}
-							activeFragment={activeFragment}
-							conceptFragments={conceptFragments}
-							activeRelationships={activeRelationships}
-							sourceKind={tour.kind}
-							onFragmentSelected={selectFragment}
-							onRelationshipSelected={navigateRelationship}
-							onExpandedChange={updateStepCardExpanded}
-							onDragPointerDown={startFragmentCardDrag}
-							onDragPointerMove={moveFragmentCardDrag}
-							onDragPointerUp={endFragmentCardDrag}
-						/>
-					</>
+					<FloatingStepCard
+						activeStep={activeStep}
+						activeStepIndex={activeStepIndex}
+						stepCount={Math.max(tour.steps.length, 1)}
+						isExpanded={isStepCardExpanded}
+						activeConcept={activeConcept}
+						activeFragment={activeFragment}
+						conceptFragments={conceptFragments}
+						activeRelationships={activeRelationships}
+						sourceKind={tour.kind}
+						onFragmentSelected={selectFragment}
+						onRelationshipSelected={navigateRelationship}
+						onExpandedChange={updateStepCardExpanded}
+					/>
 				)}
 
 				<nav className="rp1-code-tour-bottom-bar" aria-label="Tour steps">
@@ -864,7 +669,6 @@ function renderInlineCode(text: string): ReactNode {
 }
 
 function FloatingStepCard({
-	cardRef,
 	activeStep,
 	activeStepIndex,
 	stepCount,
@@ -877,11 +681,7 @@ function FloatingStepCard({
 	onFragmentSelected,
 	onRelationshipSelected,
 	onExpandedChange,
-	onDragPointerDown,
-	onDragPointerMove,
-	onDragPointerUp,
 }: {
-	readonly cardRef: RefObject<HTMLElement>;
 	readonly activeStep: CodeTourViewStep | null;
 	readonly activeStepIndex: number;
 	readonly stepCount: number;
@@ -894,30 +694,19 @@ function FloatingStepCard({
 	readonly onFragmentSelected: (fragmentId: string) => void;
 	readonly onRelationshipSelected: (edge: CodeTourViewEdge) => void;
 	readonly onExpandedChange: (expanded: boolean) => void;
-	readonly onDragPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
-	readonly onDragPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
-	readonly onDragPointerUp: (event: ReactPointerEvent<HTMLElement>) => void;
 }) {
 	const sourceLabel =
 		sourceKind === "pull-request" ? "View full file on GitHub" : "Open source";
 
 	return (
 		<section
-			ref={cardRef}
 			className={cn(
 				"rp1-code-tour-floating-step-card",
 				isExpanded ? "is-expanded" : "is-compact",
 			)}
 			aria-label="Tour step panel"
 		>
-			<div
-				className="rp1-code-tour-floating-step-head"
-				onPointerDown={onDragPointerDown}
-				onPointerMove={onDragPointerMove}
-				onPointerUp={onDragPointerUp}
-				onPointerCancel={onDragPointerUp}
-				title="Move step panel"
-			>
+			<div className="rp1-code-tour-floating-step-head">
 				<div className="rp1-code-tour-floating-step-head-main">
 					<p>{activeStep ? `Step ${activeStepIndex + 1}` : "Focus"}</p>
 					<h3>
@@ -1279,9 +1068,7 @@ function createScene({
 	overlay,
 	stage,
 	stateRef,
-	fragmentTether,
 	onConceptSelected,
-	onFragmentSelected,
 }: {
 	readonly tour: CodeTourViewModel;
 	readonly theme: CodeTourTheme;
@@ -1289,9 +1076,7 @@ function createScene({
 	readonly overlay: HTMLDivElement;
 	readonly stage: HTMLDivElement;
 	readonly stateRef: RefObject<ReaderStateRef>;
-	readonly fragmentTether: FragmentTetherRefs;
 	readonly onConceptSelected: (conceptId: string) => void;
-	readonly onFragmentSelected: (fragmentId: string) => void;
 }): SceneHandles {
 	const renderer = new THREE.WebGLRenderer({
 		canvas,
@@ -1326,14 +1111,11 @@ function createScene({
 
 	const layout = buildCodeTourSceneLayout(tour);
 	const conceptNodes = new Map<string, SceneNode>();
-	const fragmentNodes = new Map<string, SceneNode>();
 	const conceptScales = scaleLookup(tour.concepts);
-	const fragmentScales = scaleLookup(tour.fragments);
 
 	for (const concept of tour.concepts) {
 		const node = buildSceneNode({
 			id: concept.id,
-			kind: "concept",
 			conceptId: concept.id,
 			label: concept.label,
 			count: `${concept.fragmentIds.length}f / ${concept.changeCount}`,
@@ -1346,33 +1128,11 @@ function createScene({
 		conceptNodes.set(concept.id, node);
 	}
 
-	for (const fragment of tour.fragments) {
-		const node = buildSceneNode({
-			id: fragment.id,
-			kind: "fragment",
-			conceptId: fragment.conceptId,
-			label: fragment.label,
-			count: `${fragment.changeCount}`,
-			position: toSceneVector(layout.fragments.get(fragment.id)),
-			baseScale: (fragmentScales.get(fragment.id) ?? 1) * 0.72,
-			theme,
-			onClick: () => onFragmentSelected(fragment.id),
-		});
-		scene.add(node.group);
-		fragmentNodes.set(fragment.id, node);
-	}
-
 	const selectConceptSource = (edge: CodeTourViewEdge) => {
 		onConceptSelected(edge.from);
 	};
 	const selectConceptDestination = (edge: CodeTourViewEdge) => {
 		onConceptSelected(edge.to);
-	};
-	const selectFragmentSource = (edge: CodeTourViewEdge) => {
-		onFragmentSelected(edge.from);
-	};
-	const selectFragmentDestination = (edge: CodeTourViewEdge) => {
-		onFragmentSelected(edge.to);
 	};
 
 	const conceptEdges = buildSceneEdges({
@@ -1382,14 +1142,6 @@ function createScene({
 		theme,
 		onDestinationClick: selectConceptDestination,
 		onSourceClick: selectConceptSource,
-	});
-	const fragmentEdges = buildSceneEdges({
-		edges: tour.fragmentEdges,
-		nodes: fragmentNodes,
-		scene,
-		theme,
-		onDestinationClick: selectFragmentDestination,
-		onSourceClick: selectFragmentSource,
 	});
 
 	const raycaster = new THREE.Raycaster();
@@ -1405,26 +1157,22 @@ function createScene({
 		ndc.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 		raycaster.setFromCamera(ndc, camera);
 
-		const nodes =
-			state.mode === "concept"
-				? Array.from(conceptNodes.values())
-				: Array.from(fragmentNodes.values());
+		const nodes = Array.from(conceptNodes.values());
 		const nodeHits = raycaster.intersectObjects(
 			nodes.map((node) => node.hitMesh),
 			false,
 		);
 		if (nodeHits[0]) {
-			const { kind, id } = nodeHits[0].object.userData as {
-				readonly kind: SceneNodeKind;
+			const { id } = nodeHits[0].object.userData as {
 				readonly id: string;
 			};
-			return { type: "node" as const, kind, id };
+			return { type: "node" as const, id };
 		}
 
 		raycaster.params.Line = raycaster.params.Line ?? {};
 		const previousThreshold = raycaster.params.Line.threshold;
 		raycaster.params.Line.threshold = 0.42;
-		const edgeSet = state.mode === "concept" ? conceptEdges : fragmentEdges;
+		const edgeSet = conceptEdges;
 		const edgeHits = raycaster.intersectObjects(
 			edgeSet.map((edge) => edge.line),
 			false,
@@ -1452,13 +1200,10 @@ function createScene({
 		const hit = pick(event);
 		if (!hit) return;
 		if (hit.type === "edge") {
-			const state = stateRef.current;
-			if (state?.mode === "concept") selectConceptDestination(hit.edge.edge);
-			else selectFragmentDestination(hit.edge.edge);
+			selectConceptDestination(hit.edge.edge);
 			return;
 		}
-		if (hit.kind === "concept") onConceptSelected(hit.id);
-		else onFragmentSelected(hit.id);
+		onConceptSelected(hit.id);
 	};
 
 	canvas.addEventListener("pointermove", pointerMove);
@@ -1473,11 +1218,8 @@ function createScene({
 		camera,
 		controls,
 		stage,
-		fragmentTether,
 		conceptNodes,
-		fragmentNodes,
 		conceptEdges,
-		fragmentEdges,
 		focusPosition,
 		focusTarget,
 		autoFocusActive: false,
@@ -1504,9 +1246,7 @@ function createScene({
 		renderer.dispose();
 		overlay.replaceChildren();
 		disposeNodeMap(conceptNodes);
-		disposeNodeMap(fragmentNodes);
 		disposeEdges(conceptEdges);
-		disposeEdges(fragmentEdges);
 	};
 
 	resizeObserver.observe(stage);
@@ -1516,7 +1256,6 @@ function createScene({
 
 function buildSceneNode({
 	id,
-	kind,
 	conceptId,
 	label,
 	count,
@@ -1526,7 +1265,6 @@ function buildSceneNode({
 	onClick,
 }: {
 	readonly id: string;
-	readonly kind: SceneNodeKind;
 	readonly conceptId: string;
 	readonly label: string;
 	readonly count: string;
@@ -1540,13 +1278,9 @@ function buildSceneNode({
 	const group = new THREE.Group();
 	group.position.copy(position);
 	group.scale.setScalar(baseScale);
-	group.userData = { kind, id };
-	const nodeGeometry =
-		kind === "fragment" ? FRAGMENT_NODE_GEOMETRY : CONCEPT_NODE_GEOMETRY;
-	const nodeEdgeGeometry =
-		kind === "fragment"
-			? FRAGMENT_NODE_EDGE_GEOMETRY
-			: CONCEPT_NODE_EDGE_GEOMETRY;
+	group.userData = { id };
+	const nodeGeometry = CONCEPT_NODE_GEOMETRY;
+	const nodeEdgeGeometry = CONCEPT_NODE_EDGE_GEOMETRY;
 
 	const bodyMaterial = new THREE.MeshBasicMaterial({
 		color,
@@ -1557,7 +1291,7 @@ function buildSceneNode({
 		side: THREE.DoubleSide,
 	});
 	const hitMesh = new THREE.Mesh(nodeGeometry, bodyMaterial);
-	hitMesh.userData = { kind, id };
+	hitMesh.userData = { id };
 	group.add(hitMesh);
 
 	const edgeMaterial = new THREE.LineBasicMaterial({
@@ -1582,7 +1316,7 @@ function buildSceneNode({
 
 	const labelElement = document.createElement("button");
 	labelElement.type = "button";
-	labelElement.className = `rp1-code-tour-node-label ${kind}`;
+	labelElement.className = "rp1-code-tour-node-label concept";
 	labelElement.textContent = `${label} / ${count}`;
 	labelElement.addEventListener("click", (event) => {
 		event.stopPropagation();
@@ -1595,7 +1329,6 @@ function buildSceneNode({
 
 	return {
 		id,
-		kind,
 		conceptId,
 		group,
 		target: position.clone(),
@@ -1807,9 +1540,6 @@ function animateScene(
 		updateSceneNodes(handles, state);
 		updateSceneEdges(handles, state);
 		updateAutoFocus(handles);
-		updateFragmentTether(handles, state);
-	} else {
-		hideFragmentTether(handles.fragmentTether);
 	}
 
 	handles.controls.update();
@@ -1825,52 +1555,30 @@ function updateSceneNodes(handles: SceneHandles, state: ReaderStateRef) {
 		handles.conceptEdges,
 		state.activeConceptId,
 	);
-	const fragmentBridgeIds = bridgeIds(
-		handles.fragmentEdges,
-		state.activeFragmentId,
-	);
 
 	for (const node of handles.conceptNodes.values()) {
-		const isMode = state.mode === "concept";
 		const isActive = node.id === state.activeConceptId;
 		const isBridge = conceptBridgeIds.has(node.id);
-		updateNodeVisualState(node, isMode, isActive, isBridge, handles.theme);
-	}
-
-	for (const node of handles.fragmentNodes.values()) {
-		const isMode = state.mode === "fragment";
-		const isActive = node.id === state.activeFragmentId;
-		const isSameConcept = node.conceptId === state.activeConceptId;
-		const isBridge = fragmentBridgeIds.has(node.id);
-		updateNodeVisualState(
-			node,
-			isMode,
-			isActive,
-			isSameConcept || isBridge,
-			handles.theme,
-		);
+		updateNodeVisualState(node, isActive, isBridge, handles.theme);
 	}
 }
 
 function updateNodeVisualState(
 	node: SceneNode,
-	isMode: boolean,
 	isActive: boolean,
 	isBridge: boolean,
 	theme: CodeTourTheme,
 ) {
 	const sceneTheme = SCENE_THEME[theme];
-	const visibleOpacity = !isMode
-		? 0
-		: isActive
-			? 0.96
-			: isBridge
-				? theme === "light"
-					? 0.7
-					: 0.52
-				: theme === "light"
-					? 0.34
-					: 0.18;
+	const visibleOpacity = isActive
+		? 0.96
+		: isBridge
+			? theme === "light"
+				? 0.7
+				: 0.52
+			: theme === "light"
+				? 0.34
+				: 0.18;
 	node.bodyMaterial.opacity = THREE.MathUtils.lerp(
 		node.bodyMaterial.opacity,
 		visibleOpacity * (theme === "light" ? 0.13 : 0.3),
@@ -1881,15 +1589,13 @@ function updateNodeVisualState(
 		visibleOpacity,
 		0.12,
 	);
-	const poleOpacity = !isMode
-		? 0
-		: isActive
-			? 0.8
-			: isBridge
-				? 0.5
-				: theme === "light"
-					? 0.2
-					: 0.28;
+	const poleOpacity = isActive
+		? 0.8
+		: isBridge
+			? 0.5
+			: theme === "light"
+				? 0.2
+				: 0.28;
 	node.poleMaterial.opacity = THREE.MathUtils.lerp(
 		node.poleMaterial.opacity,
 		poleOpacity,
@@ -1907,8 +1613,8 @@ function updateNodeVisualState(
 		node.hitMesh.rotation.x += 0.0004;
 	}
 	node.group.visible = node.edgeMaterial.opacity > 0.01;
-	node.pole.visible = isMode && node.poleMaterial.opacity > 0.01;
-	node.labelObject.visible = isMode && node.edgeMaterial.opacity > 0.08;
+	node.pole.visible = node.poleMaterial.opacity > 0.01;
+	node.labelObject.visible = node.edgeMaterial.opacity > 0.08;
 	node.labelElement.classList.toggle("is-active", isActive);
 	node.labelElement.classList.toggle("is-muted", !isActive && !isBridge);
 }
@@ -1916,50 +1622,25 @@ function updateNodeVisualState(
 function updateSceneEdges(handles: SceneHandles, state: ReaderStateRef) {
 	for (const edge of handles.conceptEdges) {
 		const activeId = state.activeConceptId;
-		const active =
-			state.mode === "concept" &&
-			(edge.edge.from === activeId || edge.edge.to === activeId);
-		updateEdgeVisualState(
-			edge,
-			state.mode === "concept",
-			active,
-			handles.theme,
-			state.mode === "concept" ? activeId : null,
-		);
-	}
-
-	for (const edge of handles.fragmentEdges) {
-		const activeId = state.activeFragmentId;
-		const active =
-			state.mode === "fragment" &&
-			(edge.edge.from === activeId || edge.edge.to === activeId);
-		updateEdgeVisualState(
-			edge,
-			state.mode === "fragment",
-			active,
-			handles.theme,
-			state.mode === "fragment" ? activeId : null,
-		);
+		const active = edge.edge.from === activeId || edge.edge.to === activeId;
+		updateEdgeVisualState(edge, active, handles.theme, activeId);
 	}
 }
 
 function updateEdgeVisualState(
 	edge: SceneEdge,
-	isMode: boolean,
 	isActive: boolean,
 	theme: CodeTourTheme,
-	activeId: string | null,
+	activeId: string,
 ) {
 	const sceneTheme = SCENE_THEME[theme];
-	const targetOpacity = !isMode
-		? 0
-		: isActive
-			? theme === "light"
-				? 0.62
-				: 0.88
-			: theme === "light"
-				? 0.26
-				: 0.18;
+	const targetOpacity = isActive
+		? theme === "light"
+			? 0.62
+			: 0.88
+		: theme === "light"
+			? 0.26
+			: 0.18;
 	edge.material.opacity = THREE.MathUtils.lerp(
 		edge.material.opacity,
 		targetOpacity,
@@ -1968,11 +1649,11 @@ function updateEdgeVisualState(
 	NODE_TARGET_COLOR.set(isActive ? sceneTheme.glowHot : sceneTheme.glow);
 	edge.material.color.lerp(NODE_TARGET_COLOR, 0.15);
 	edge.line.visible = edge.material.opacity > 0.02;
-	edge.labelObject.visible = isMode && edge.material.opacity > 0.08;
+	edge.labelObject.visible = edge.material.opacity > 0.08;
 	edge.labelElement.classList.toggle("is-active", isActive);
 	updateEdgeNavButton(edge.sourceNavButton, activeId === edge.edge.from);
 	updateEdgeNavButton(edge.destinationNavButton, activeId === edge.edge.to);
-	updateEdgeParticles(edge, isMode, isActive, theme);
+	updateEdgeParticles(edge, isActive, theme);
 }
 
 function updateEdgeNavButton(button: HTMLButtonElement, disabled: boolean) {
@@ -1982,16 +1663,13 @@ function updateEdgeNavButton(button: HTMLButtonElement, disabled: boolean) {
 
 function updateEdgeParticles(
 	edge: SceneEdge,
-	isMode: boolean,
 	isActive: boolean,
 	theme: CodeTourTheme,
 ) {
 	const sceneTheme = SCENE_THEME[theme];
-	const targetOpacity = !isMode
-		? 0
-		: isActive
-			? sceneTheme.edgeParticleActiveOpacity
-			: sceneTheme.edgeParticleOpacity;
+	const targetOpacity = isActive
+		? sceneTheme.edgeParticleActiveOpacity
+		: sceneTheme.edgeParticleOpacity;
 	edge.particleMaterial.opacity = THREE.MathUtils.lerp(
 		edge.particleMaterial.opacity,
 		targetOpacity,
@@ -2029,10 +1707,7 @@ function focusSceneTarget(
 	const node = activeSceneNode(handles, state);
 	if (!node) return;
 
-	const offset =
-		state.mode === "concept"
-			? new THREE.Vector3(6, 5, 14)
-			: new THREE.Vector3(4, 3, 12);
+	const offset = new THREE.Vector3(6, 5, 14);
 	handles.focusTarget.copy(node.target);
 	handles.focusPosition.copy(node.target).add(offset);
 	handles.autoFocusActive = true;
@@ -2065,104 +1740,7 @@ function activeSceneNode(
 	handles: SceneHandles,
 	state: ReaderStateRef,
 ): SceneNode | undefined {
-	return state.mode === "concept"
-		? handles.conceptNodes.get(state.activeConceptId)
-		: (handles.fragmentNodes.get(state.activeFragmentId) ??
-				handles.fragmentNodes.get(state.activeConceptId));
-}
-
-function updateFragmentTether(handles: SceneHandles, state: ReaderStateRef) {
-	const tether = handles.fragmentTether;
-	const card = tether.card.current;
-	const svg = tether.svg.current;
-	const glow = tether.glow.current;
-	const line = tether.line.current;
-	const nodeCap = tether.nodeCap.current;
-	const cardCap = tether.cardCap.current;
-	const node = activeSceneNode(handles, state);
-
-	if (!card || !svg || !glow || !line || !nodeCap || !cardCap || !node) {
-		hideFragmentTether(tether);
-		return;
-	}
-
-	updateFragmentCardClamp(card, handles.stage);
-
-	const nodePosition = new THREE.Vector3();
-	node.group.getWorldPosition(nodePosition);
-	nodePosition.project(handles.camera);
-	if (nodePosition.z > 1) {
-		hideFragmentTether(tether);
-		return;
-	}
-
-	const stageRect = handles.stage.getBoundingClientRect();
-	const nodeX = stageRect.width * (nodePosition.x * 0.5 + 0.5);
-	const nodeY = stageRect.height * (-nodePosition.y * 0.5 + 0.5);
-	const cardRect = card.getBoundingClientRect();
-	const cardCenterX = cardRect.left - stageRect.left + cardRect.width / 2;
-	const cardCenterY = cardRect.top - stageRect.top + cardRect.height / 2;
-	const dx = nodeX - cardCenterX;
-	const dy = nodeY - cardCenterY;
-	const halfWidth = Math.max(cardRect.width / 2, 1);
-	const halfHeight = Math.max(cardRect.height / 2, 1);
-	const edgeScale = Math.min(
-		halfWidth / (Math.abs(dx) || 1),
-		halfHeight / (Math.abs(dy) || 1),
-	);
-	const cardX = cardCenterX + dx * edgeScale;
-	const cardY = cardCenterY + dy * edgeScale;
-	const path = `M ${nodeX.toFixed(1)} ${nodeY.toFixed(1)} L ${cardX.toFixed(
-		1,
-	)} ${cardY.toFixed(1)}`;
-
-	glow.setAttribute("d", path);
-	line.setAttribute("d", path);
-	nodeCap.setAttribute("cx", nodeX.toFixed(1));
-	nodeCap.setAttribute("cy", nodeY.toFixed(1));
-	cardCap.setAttribute("cx", cardX.toFixed(1));
-	cardCap.setAttribute("cy", cardY.toFixed(1));
-	svg.classList.add("is-visible");
-}
-
-function hideFragmentTether(tether: FragmentTetherRefs) {
-	tether.svg.current?.classList.remove("is-visible");
-}
-
-function updateFragmentCardClamp(card: HTMLElement, stage: HTMLDivElement) {
-	const currentX = Number.parseFloat(card.style.getPropertyValue("--clamp-x"));
-	const currentY = Number.parseFloat(card.style.getPropertyValue("--clamp-y"));
-	const clampX = Number.isFinite(currentX) ? currentX : 0;
-	const clampY = Number.isFinite(currentY) ? currentY : 0;
-	const cardRect = card.getBoundingClientRect();
-	const stageRect = stage.getBoundingClientRect();
-	const unclampedLeft = cardRect.left - clampX;
-	const unclampedTop = cardRect.top - clampY;
-	const minLeft = stageRect.left + FRAGMENT_CARD_MARGIN;
-	const minTop = stageRect.top + FRAGMENT_CARD_MARGIN;
-	const maxRight = stageRect.right - FRAGMENT_CARD_MARGIN;
-	const maxBottom = stageRect.bottom - FRAGMENT_CARD_MARGIN;
-	let nextX = 0;
-	let nextY = 0;
-
-	if (unclampedLeft < minLeft) {
-		nextX = minLeft - unclampedLeft;
-	} else if (unclampedLeft + cardRect.width > maxRight) {
-		nextX = maxRight - (unclampedLeft + cardRect.width);
-	}
-
-	if (unclampedTop < minTop) {
-		nextY = minTop - unclampedTop;
-	} else if (unclampedTop + cardRect.height > maxBottom) {
-		nextY = maxBottom - (unclampedTop + cardRect.height);
-	}
-
-	if (Math.abs(nextX - clampX) > 0.5) {
-		card.style.setProperty("--clamp-x", `${nextX}px`);
-	}
-	if (Math.abs(nextY - clampY) > 0.5) {
-		card.style.setProperty("--clamp-y", `${nextY}px`);
-	}
+	return handles.conceptNodes.get(state.activeConceptId);
 }
 
 function resizeScene(
@@ -2321,10 +1899,6 @@ function isTextEntryTarget(target: EventTarget | null): boolean {
 		target.tagName === "TEXTAREA" ||
 		target.isContentEditable
 	);
-}
-
-function isInteractiveTarget(target: EventTarget | null): boolean {
-	return target instanceof HTMLElement && Boolean(target.closest("button, a"));
 }
 
 function usePrefersReducedMotion(): boolean {

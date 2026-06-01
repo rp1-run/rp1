@@ -182,7 +182,7 @@ describe("CodeTour3DReader", () => {
 		mock.restore();
 	});
 
-	test("keeps guided controls, fragment focus, and relationship navigation coherent without WebGL", async () => {
+	test("renders concepts-only with fragment source and no view switcher without WebGL", async () => {
 		renderReader();
 
 		await waitFor(() => {
@@ -218,29 +218,9 @@ describe("CodeTour3DReader", () => {
 		expect(
 			screen.getAllByText("server/policy.ts:30-31").length,
 		).toBeGreaterThan(0);
-		expect(
-			screen
-				.getByRole("tab", { name: /Concepts/ })
-				.getAttribute("aria-selected"),
-		).toBe("true");
-		expect(
-			screen
-				.getByRole("tab", { name: /Fragments/ })
-				.getAttribute("aria-selected"),
-		).toBe("false");
 
-		fireEvent.click(screen.getByRole("tab", { name: /Fragments/ }));
-
-		fireEvent.click(
-			screen.getByRole("button", { name: /calls\s+AuthPolicy -> StatusBadge/ }),
-		);
-
-		expect(
-			screen.getByRole("heading", { name: "Review token UI" }),
-		).toBeTruthy();
-		expect(screen.getAllByText("ui/StatusBadge.tsx:18").length).toBeGreaterThan(
-			0,
-		);
+		expect(screen.queryByRole("tab", { name: /Concepts/ })).toBeNull();
+		expect(screen.queryByRole("tab", { name: /Fragments/ })).toBeNull();
 	});
 
 	test("reports render failure and exposes source mode from the diagnostic state", async () => {
