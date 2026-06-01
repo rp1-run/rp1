@@ -50,6 +50,7 @@
 | `/pr-stack` | dev | Plan and execute splitting a large PR or branch into a reviewable stacked PR sequence. | `SOURCE`, `BASE_BRANCH`, `MAX_LINE_CHANGE`, `CHECK_COMMAND`, `GENERATED_EXCLUSIONS`, `PUSH_REMOTE`, `STACK_PREFIX`, `PLAN_ONLY` | Yes | fresh |  |
 | `/pr-visual` | dev | Transform pull request diffs into Mermaid diagrams for visual code review and change understanding. | `PR_BRANCH`, `BASE_BRANCH`, `REVIEW_DEPTH`, `FOCUS_AREAS` | Yes | fresh |  |
 | `/pr-walkthrough` | dev | Generate an evidence-grounded markdown walkthrough for a pull request. | `TARGET`, `BASE_BRANCH` | Yes | fresh |  |
+| `/publish-artifact` | dev | Publish an rp1 artifact (investigation report, design doc, audit) from .rp1/work/ as an idempotent PR or issue comment instead of committing it to the repo; re-runs update the same comment in place. | `ARTIFACT_PATH`, `TARGET`, `DRY_RUN`, `FORCE` |  |  |  |
 
 ## Documentation
 
