@@ -289,9 +289,8 @@ export default function App() {
         {/* -- INTRO ------------------------------------------------- */}
         {step === "intro" && (
           <div style={{ animation: "fadeUp 0.5s ease" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32 }}>
-              <div style={{ width: 36, height: 36, background: "linear-gradient(135deg, var(--ra-accent-dark), var(--ra-accent))", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Space Grotesk'", fontWeight: 700, color: "var(--ra-cta-text)", fontSize: 15 }}>r1</div>
-              <span style={{ fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 15, color: "var(--md-default-fg-color)" }}>rp1</span>
+            <div style={{ marginBottom: 32 }}>
+              <span style={{ fontFamily: "var(--md-code-font-family, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace)", fontWeight: 700, fontSize: 18, color: "var(--md-default-fg-color)" }}>rp1</span>
             </div>
 
             <div style={{ marginBottom: 8, fontSize: 11, fontWeight: 600, color: "var(--ra-accent)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
