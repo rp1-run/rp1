@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.10](https://github.com/rp1-run/rp1/compare/v0.7.9...v0.7.10) (2026-06-02)
+
+
+### Features
+
+* **docs:** add readiness assessment page with homepage CTA ([#398](https://github.com/rp1-run/rp1/issues/398)) ([65ea433](https://github.com/rp1-run/rp1/commit/65ea4332dc0ca80d4928ba148af873396e0c93e7))
+* **pr-stack:** add stacked PR workflow ([#395](https://github.com/rp1-run/rp1/issues/395)) ([87d2aa6](https://github.com/rp1-run/rp1/commit/87d2aa610f51bd6f80462986d28d96d598c21877))
+
+
+### Code Refactoring
+
+* **justfile:** extract complex recipe bodies into ./scripts/ ([#392](https://github.com/rp1-run/rp1/issues/392)) ([d1b0d44](https://github.com/rp1-run/rp1/commit/d1b0d44b6a4b2606c1ab220ada1c7108a3e7f475))
+
 ## [0.7.9](https://github.com/rp1-run/rp1/compare/v0.7.8...v0.7.9) (2026-05-21)
 
 
