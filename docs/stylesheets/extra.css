@@ -646,4 +646,8 @@
     width: 12px;
     height: 12px;
   }
+
+  .md-typeset .md-button--readiness {
+    font-size: 0.65rem;
+  }
 }
