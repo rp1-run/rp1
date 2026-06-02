@@ -63,27 +63,51 @@ hide:
 
 <div id="readiness-root"></div>
 
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="/javascripts/readiness-assessment.js"></script>
 <script>
 (function() {
+  var REACT_URL = 'https://unpkg.com/react@18/umd/react.production.min.js';
+  var REACT_DOM_URL = 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js';
+  var COMPONENT_URL = '/javascripts/readiness-assessment.js';
+
+  function loadScript(url) {
+    return new Promise(function(resolve, reject) {
+      var s = document.createElement('script');
+      s.src = url;
+      s.crossOrigin = 'anonymous';
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
   function mountApp() {
     var root = document.getElementById('readiness-root');
-    if (!root || typeof ReactDOM === 'undefined' || typeof ReadinessAssessment === 'undefined') return;
-    ReactDOM.createRoot(root).render(React.createElement(ReadinessAssessment));
+    if (!root || !window.React || !window.ReactDOM || !window.ReadinessAssessment) return;
+    if (root._reactRoot) {
+      root._reactRoot.render(window.React.createElement(window.ReadinessAssessment));
+    } else {
+      root._reactRoot = window.ReactDOM.createRoot(root);
+      root._reactRoot.render(window.React.createElement(window.ReadinessAssessment));
+    }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', mountApp);
-  } else {
-    mountApp();
+  function ensureAndMount() {
+    if (window.React && window.ReactDOM && window.ReadinessAssessment) {
+      mountApp();
+      return;
+    }
+    var chain = Promise.resolve();
+    if (!window.React) chain = chain.then(function() { return loadScript(REACT_URL); });
+    if (!window.ReactDOM) chain = chain.then(function() { return loadScript(REACT_DOM_URL); });
+    if (!window.ReadinessAssessment) chain = chain.then(function() { return loadScript(COMPONENT_URL); });
+    chain.then(mountApp).catch(function() {});
   }
 
-  // Re-mount on MkDocs Material instant navigation
+  ensureAndMount();
+
   if (typeof document$ !== 'undefined') {
     document$.subscribe(function() {
-      mountApp();
+      setTimeout(ensureAndMount, 0);
     });
   }
 })();

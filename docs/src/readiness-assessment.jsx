@@ -324,8 +324,8 @@ export default function App() {
             >
               Start assessment →
             </button>
-            <p style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "var(--md-default-fg-color--lightest)" }}>
-              No email required \u00B7 No account needed \u00B7 Free forever
+            <p style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "var(--md-default-fg-color--lighter)" }}>
+              No email required · No account needed · Free forever
             </p>
           </div>
         )}
@@ -378,7 +378,7 @@ export default function App() {
                 onClick={() => setCurrentQ((c) => c - 1)}
                 style={{ background: "none", border: "none", color: "var(--md-default-fg-color--lighter)", fontSize: 12, marginTop: 20, cursor: "pointer", padding: 0 }}
               >
-                \u2190 Back
+                ← Back
               </button>
             )}
           </div>
@@ -456,7 +456,7 @@ export default function App() {
 
             <button
               onClick={() => { setStep("intro"); setCurrentQ(0); setAnswers({}); }}
-              style={{ background: "none", border: "none", color: "var(--md-default-fg-color--lightest)", fontSize: 12, marginTop: 14, cursor: "pointer", width: "100%", textAlign: "center" }}
+              style={{ background: "none", border: "none", color: "var(--md-default-fg-color--lighter)", fontSize: 12, marginTop: 14, cursor: "pointer", width: "100%", textAlign: "center" }}
             >
               Start over
             </button>
