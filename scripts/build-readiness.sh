@@ -8,12 +8,12 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-npx esbuild "$REPO_ROOT/docs/src/readiness-assessment-entry.jsx" \
+# esbuild is pinned for reproducible builds; bump deliberately when upgrading.
+npx esbuild@0.25.9 "$REPO_ROOT/docs/src/readiness-assessment-entry.jsx" \
   --bundle \
   --format=iife \
   --target=es2020 \
   --jsx=transform \
   --alias:react="$REPO_ROOT/docs/src/react-shim.js" \
-  --alias:react-dom="$REPO_ROOT/docs/src/react-shim.js" \
   --charset=utf8 \
   --outfile="$REPO_ROOT/docs/javascripts/readiness-assessment.js"

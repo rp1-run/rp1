@@ -135,6 +135,7 @@
       label: "Workflow-ready",
       headline: "You're already disciplined. rp1 compounds that.",
       summary: "Your team has good AI fundamentals. rp1's knowledge graph and constitutional prompting will eliminate the remaining friction and give you the team-layer your individual workflows lack.",
+      overview: "You have strong AI coding fundamentals with minimal friction. rp1 will compound your existing discipline by adding persistent codebase context and team-wide consistency.",
       commands: ["/knowledge-build", "/pr-review", "/phase-plan"],
       color: "var(--ra-score-green)"
     },
@@ -144,6 +145,7 @@
       label: "High rp1 ROI",
       headline: "Significant untapped efficiency. rp1 directly addresses your blockers.",
       summary: "You're spending real hours re-explaining context and iterating on AI output. The knowledge graph eliminates the re-explanation loop. Constitutional prompting cuts iterations. Your team will feel the difference within a week.",
+      overview: "You've got a working AI coding setup but there are clear efficiency gaps. rp1 will close those gaps by giving your agents architectural awareness and reducing iteration cycles.",
       commands: ["/knowledge-build", "/build", "/blueprint", "/pr-review"],
       color: "var(--ra-score-amber)"
     },
@@ -153,6 +155,7 @@
       label: "Critical workflow debt",
       headline: "You're leaving significant value on the table — and accumulating debt.",
       summary: "Your AI coding setup is creating friction at scale. Without persistent codebase context and architectural enforcement, every AI-generated line of code is a liability. rp1 gives your agents what they need to stop producing expensive rewrites.",
+      overview: "Your current AI coding setup is creating substantial friction at scale. rp1's knowledge graph and structured workflows will fundamentally change how your agents interact with your codebase.",
       commands: ["/knowledge-build", "/blueprint", "/build", "/pr-review", "/code-investigate"],
       color: "var(--ra-score-red)"
     }
@@ -190,27 +193,19 @@
       firstWeek: "In the first week, you'll see new team members producing architecture-compliant AI code from day one instead of weeks of ramp-up."
     }
   };
-  var READINESS_LEVELS = [
-    { max: 25, overview: "You have strong AI coding fundamentals with minimal friction. rp1 will compound your existing discipline by adding persistent codebase context and team-wide consistency." },
-    { max: 50, overview: "You've got a working AI coding setup but there are clear efficiency gaps. rp1 will close those gaps by giving your agents architectural awareness and reducing iteration cycles." },
-    { max: 75, overview: "Your AI workflows have significant room for improvement. rp1 directly targets the friction you're experiencing — context loss, excessive iterations, and inconsistent output quality." },
-    { max: 100, overview: "Your current AI coding setup is creating substantial friction at scale. rp1's knowledge graph and structured workflows will fundamentally change how your agents interact with your codebase." }
-  ];
   function generateInsight(answers, sectionScores) {
-    const scorePct = Math.round(
-      Object.values(answers).reduce((a, b) => a + b, 0) / 36 * 100
-    );
-    const readiness = READINESS_LEVELS.find((l) => scorePct <= l.max) || READINESS_LEVELS[READINESS_LEVELS.length - 1];
+    const score = Object.values(answers).reduce((a, b) => a + b, 0);
+    const level = SCORE_LEVELS.find((l) => score >= l.min && score <= l.max) || SCORE_LEVELS[SCORE_LEVELS.length - 1];
     const sorted = [...sectionScores].sort((a, b) => b.pct - a.pct);
-    const weakest = sorted[sorted.length - 1];
-    const secondWeakest = sorted[sorted.length - 2];
+    const weakest = sorted[0];
+    const secondWeakest = sorted[1];
     const primary = SECTION_RECOMMENDATIONS[weakest.id];
     const secondary = SECTION_RECOMMENDATIONS[secondWeakest.id];
     const recs = [primary.bottleneck, primary.fix, primary.firstWeek];
     if (secondWeakest.pct >= 50) {
       recs.push(secondary.fix);
     }
-    return { overview: readiness.overview, recommendations: recs };
+    return { overview: level.overview, recommendations: recs };
   }
   function AIInsight({ answers, sectionScores }) {
     const { overview, recommendations } = generateInsight(answers, sectionScores);
@@ -220,7 +215,6 @@
     const [step, setStep] = useState("intro");
     const [currentQ, setCurrentQ] = useState(0);
     const [answers, setAnswers] = useState({});
-    const [hovered, setHovered] = useState(null);
     const totalQ = QUESTIONS.length;
     const q = QUESTIONS[currentQ];
     const section = SECTIONS.find((s) => s.id === q?.section);

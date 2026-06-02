@@ -65,15 +65,19 @@ hide:
 
 <script>
 (function() {
-  var REACT_URL = 'https://unpkg.com/react@18/umd/react.production.min.js';
-  var REACT_DOM_URL = 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js';
+  var REACT_URL = 'https://unpkg.com/react@18.3.1/umd/react.production.min.js';
+  var REACT_DOM_URL = 'https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js';
   var COMPONENT_URL = '/javascripts/readiness-assessment.js';
+  // SRI hashes pin the exact CDN payloads for react@18.3.1 / react-dom@18.3.1.
+  var REACT_SRI = 'sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z';
+  var REACT_DOM_SRI = 'sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1';
 
-  function loadScript(url) {
+  function loadScript(url, integrity) {
     return new Promise(function(resolve, reject) {
       var s = document.createElement('script');
       s.src = url;
       s.crossOrigin = 'anonymous';
+      if (integrity) s.integrity = integrity;
       s.onload = resolve;
       s.onerror = reject;
       document.head.appendChild(s);
@@ -91,21 +95,31 @@ hide:
     }
   }
 
+  function showLoadError() {
+    var root = document.getElementById('readiness-root');
+    if (root) {
+      root.innerHTML = '<div style="text-align:center;padding:64px 16px;color:var(--md-default-fg-color--light);font-size:15px;line-height:1.6;">'
+        + 'The readiness assessment couldn\'t load. Please check your connection and refresh the page.'
+        + '</div>';
+    }
+  }
+
   function ensureAndMount() {
     if (window.React && window.ReactDOM && window.ReadinessAssessment) {
       mountApp();
       return;
     }
     var chain = Promise.resolve();
-    if (!window.React) chain = chain.then(function() { return loadScript(REACT_URL); });
-    if (!window.ReactDOM) chain = chain.then(function() { return loadScript(REACT_DOM_URL); });
+    if (!window.React) chain = chain.then(function() { return loadScript(REACT_URL, REACT_SRI); });
+    if (!window.ReactDOM) chain = chain.then(function() { return loadScript(REACT_DOM_URL, REACT_DOM_SRI); });
     if (!window.ReadinessAssessment) chain = chain.then(function() { return loadScript(COMPONENT_URL); });
-    chain.then(mountApp).catch(function() {});
+    chain.then(mountApp).catch(showLoadError);
   }
 
   ensureAndMount();
 
-  if (typeof document$ !== 'undefined') {
+  if (typeof document$ !== 'undefined' && !window.__raReadinessSubscribed) {
+    window.__raReadinessSubscribed = true;
     document$.subscribe(function() {
       setTimeout(ensureAndMount, 0);
     });
