@@ -125,20 +125,14 @@ describe("pr-walkthrough build contracts", () => {
 			registrationStart,
 		);
 		expect(validationSection).toContain(
-			"Load the artifact content from `{workRoot}/{ARTIFACT_RELATIVE_PATH}`",
+			"rp1 agent-tools code-tour-validate {workRoot}/{ARTIFACT_RELATIVE_PATH}",
 		);
-		expect(validationSection).toContain("The file content must parse as JSON.");
 		expect(validationSection).toContain(
-			"The parsed JSON must satisfy the Code Tour v1 semantic contract from `cli/shared/code-tour.ts`",
+			"the single source of truth for the Code Tour v1 contract in `cli/shared/code-tour.ts`",
 		);
-		expect(validationSection).toContain('`version` is `"1.0"`');
-		expect(validationSection).toContain("concept and fragment IDs are unique");
+		expect(validationSection).toContain("Read the `ToolResult` JSON envelope.");
 		expect(validationSection).toContain(
-			"edge endpoints resolve within their layer",
-		);
-		expect(validationSection).toContain("tour `conceptId` values resolve");
-		expect(validationSection).toContain(
-			"fragment token pairs use supported token kinds",
+			"the first `errors[].message` is `{FIRST_VALIDATION_ISSUE}`",
 		);
 		expect(validationSection).toContain("invalid Code Tour artifact");
 		expect(validationSection).toContain("missing Code Tour artifact");
