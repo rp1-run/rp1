@@ -458,30 +458,6 @@
   color: var(--rp1-charcoal);
 }
 
-/* Readiness CTA group – visually separated from primary CTAs */
-.rp1-readiness-cta {
-  margin-top: 0.5rem;
-  text-align: left;
-}
-
-/* Readiness CTA sub-label */
-.rp1-cta-sublabel {
-  display: block;
-  font-size: 0.72rem;
-  color: var(--md-default-fg-color--light);
-  margin-top: 0.15rem;
-  margin-bottom: 0.5rem;
-}
-
-[data-md-color-scheme="slate"] .rp1-cta-sublabel {
-  color: var(--md-default-fg-color--lighter);
-}
-
-@media (max-width: 768px) {
-  .rp1-readiness-cta {
-    margin-top: 0;
-  }
-}
 
 /* Mermaid diagram centering */
 .md-typeset .mermaid {
