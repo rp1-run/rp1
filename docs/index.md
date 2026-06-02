@@ -14,9 +14,14 @@ Skip the iteration loops. Keep work attached to projects, artifacts, and feedbac
 [:fontawesome-solid-terminal: Get Started](getting-started/index.md){ .md-button .md-button--primary }
 [:fontawesome-brands-github: View on GitHub](https://github.com/rp1-run/rp1){ .md-button .md-button--github }
 [:fontawesome-brands-discord: Join Discord](https://discord.gg/XUqc4zcX26){ .md-button .md-button--discord }
+
+<div class="rp1-readiness-cta" markdown>
+
 [:fontawesome-solid-clipboard-check: Check your workflow readiness](readiness/index.md){ .md-button .md-button--readiness }
 
 <span class="rp1-cta-sublabel">3 min · no account required · personalised result</span>
+
+</div>
 
 <div class="carousel-container">
   <div class="splide" id="hero-carousel" aria-label="Product Screenshots">
