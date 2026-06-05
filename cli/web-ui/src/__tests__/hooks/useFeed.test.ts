@@ -474,6 +474,83 @@ describe("useFeed", () => {
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 
+	test("preserves live rows when an in-flight feed response predates them", async () => {
+		const feedResponse = createDeferred<MockFeedResponse>();
+		const oldRun = buildRun({
+			id: "old-run",
+			name: "Old Run",
+			lastEventAt: "2026-04-06T00:05:00.000Z",
+		});
+		const liveRun = buildRun({
+			id: "live-run",
+			name: "Live Run",
+			lastEventAt: "2026-04-10T00:05:00.000Z",
+		});
+
+		fetchMock = mock(() => feedResponse.promise);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { useFeed } = await loadUseFeed();
+		const { result } = renderHook(() => useFeed({ limit: 25, offset: 0 }));
+
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+		});
+
+		act(() => {
+			liveRunIndex.upsertRun(liveRun);
+		});
+
+		await act(async () => {
+			feedResponse.resolve(buildFeedResponse([oldRun], 1));
+			await feedResponse.promise;
+			await Promise.resolve();
+		});
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+		expect(feedItemIds(result.current.items)).toEqual(["live-run", "old-run"]);
+		expect(result.current.total).toBe(2);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("does not promote unchanged cached live rows omitted from a feed response", async () => {
+		liveRunIndex.upsertRun(
+			buildRun({
+				id: "cached-live-run",
+				name: "Cached Live Run",
+				lastEventAt: "2026-04-06T00:05:00.000Z",
+			}),
+		);
+
+		fetchMock = mock(() =>
+			Promise.resolve(
+				buildFeedResponse(
+					[
+						buildRun({
+							id: "fresh-run",
+							name: "Fresh Run",
+							lastEventAt: "2026-04-10T00:05:00.000Z",
+						}),
+					],
+					1,
+				),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { useFeed } = await loadUseFeed();
+		const { result } = renderHook(() => useFeed({ limit: 25, offset: 0 }));
+
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(false);
+		});
+		expect(feedItemIds(result.current.items)).toEqual(["fresh-run"]);
+		expect(result.current.total).toBe(1);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
 	test("ignores stale unfiltered responses after current empty search results", async () => {
 		const staleUnfilteredResponse = createDeferred<MockFeedResponse>();
 		const currentSearchResponse = createDeferred<MockFeedResponse>();
