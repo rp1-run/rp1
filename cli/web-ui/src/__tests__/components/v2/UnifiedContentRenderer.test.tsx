@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { cleanup, render, screen } from "@testing-library/react";
-import { forwardRef, type ReactNode } from "react";
+import { forwardRef, type ReactNode, useState } from "react";
 
 let importVersion = 0;
 
@@ -11,17 +11,22 @@ mock.module("@/components/MilkdownEditor/MilkdownEditor", () => ({
 			content: string;
 			onContentChange?: (markdown: string) => void;
 		}
-	>(({ content, onContentChange }, ref) => (
-		<div ref={ref} data-testid="milkdown-editor">
-			{content}
-			<button
-				type="button"
-				onClick={() => onContentChange?.(content.replace("Visible", "Edited"))}
-			>
-				Edit
-			</button>
-		</div>
-	)),
+	>(({ content, onContentChange }, ref) => {
+		const [editorContent] = useState(content);
+		return (
+			<div ref={ref} data-testid="milkdown-editor">
+				{editorContent}
+				<button
+					type="button"
+					onClick={() =>
+						onContentChange?.(editorContent.replace("Visible", "Edited"))
+					}
+				>
+					Edit
+				</button>
+			</div>
+		);
+	}),
 }));
 
 mock.module("@/components/MarkdownViewer", () => ({
@@ -109,6 +114,41 @@ describe("UnifiedContentRenderer", () => {
 
 		expect(screen.getByTestId("milkdown-editor").textContent).toContain(
 			"internal metadata",
+		);
+	});
+
+	test("remounts the markdown editor when the selected artifact changes", async () => {
+		const { UnifiedContentRenderer } = await import(
+			`../../../components/v2/UnifiedContentRenderer.tsx?renderer-test=${++importVersion}`
+		);
+
+		const view = render(
+			<UnifiedContentRenderer
+				content="# Requirements"
+				path=".rp1/work/features/example/requirements.md"
+				runId="run-1"
+				docId="doc-requirements"
+			/>,
+		);
+
+		expect(screen.getByTestId("milkdown-editor").textContent).toContain(
+			"# Requirements",
+		);
+
+		view.rerender(
+			<UnifiedContentRenderer
+				content="# Tasks"
+				path=".rp1/work/features/example/tasks.md"
+				runId="run-1"
+				docId="doc-tasks"
+			/>,
+		);
+
+		expect(screen.getByTestId("milkdown-editor").textContent).toContain(
+			"# Tasks",
+		);
+		expect(screen.getByTestId("milkdown-editor").textContent).not.toContain(
+			"# Requirements",
 		);
 	});
 });
