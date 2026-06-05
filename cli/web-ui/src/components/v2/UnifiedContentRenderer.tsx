@@ -349,6 +349,13 @@ export function UnifiedContentRenderer({
 			<div className="relative">
 				{refreshingOverlay}
 				<MarkdownEditorWithSave
+					key={[
+						runId ?? "",
+						projectId ?? "",
+						filePath ?? "",
+						path,
+						docId ?? "",
+					].join("::")}
 					content={content}
 					path={path}
 					showFrontmatter={showFrontmatter}
