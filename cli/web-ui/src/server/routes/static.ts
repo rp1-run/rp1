@@ -38,6 +38,13 @@ function hasFileExtension(pathname: string): boolean {
 	return extname(pathname) !== "";
 }
 
+function isSpaDocumentRoute(pathname: string): boolean {
+	return (
+		/^\/projects\/[^/]+\/files\/.+/.test(pathname) ||
+		/^\/runs\/[^/]+\/artifacts\/.+/.test(pathname)
+	);
+}
+
 function isRuntimeManifestPath(pathname: string): boolean {
 	return pathname === `/${ARCADE_RUNTIME_MANIFEST_FILENAME}`;
 }
@@ -52,7 +59,7 @@ function shouldServeSpaFallback(req: Request, pathname: string): boolean {
 		req.method === "GET" &&
 		acceptsHtml(req) &&
 		!isAssetPath(pathname) &&
-		!hasFileExtension(pathname)
+		(!hasFileExtension(pathname) || isSpaDocumentRoute(pathname))
 	);
 }
 
