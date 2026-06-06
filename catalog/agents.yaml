@@ -155,6 +155,10 @@ agents:
     description: "Decomposes a planning source into a source-adjacent phase-plan artifact and refreshes source backlinks."
     plugin: dev
     last_checksum: 3e00b1bd93f53ae21f9b22ae078e865ca25ed03ece6e7b03719965d081022638
+  - name: rp1-dev:pr-cartographer
+    description: "Convert direct PR evidence into orientation-only PR cartography JSON"
+    plugin: dev
+    last_checksum: 86540fc15ddb3861445fd8c03a3e425ba172fdb6fed342ce69da0537502188c8
   - name: rp1-dev:pr-comment-deduplicator
     description: "Deduplicates PR review comments against existing bot and human comments"
     plugin: dev
@@ -190,7 +194,7 @@ agents:
   - name: rp1-dev:pr-walkthrough-reporter
     description: "Generate an evidence-grounded Code Tour JSON walkthrough for a pull request"
     plugin: dev
-    last_checksum: cd0070cdf95c868dd9165fcad1c2181a7d2ff4ca2e02ea986b2234ceaa22cd09
+    last_checksum: d915e6d77c6bf9fcfd42ec52753c610bcd614657b2683409c88c9fd5ad046342
   - name: rp1-dev:prd-archiver
     description: "Archives completed PRDs to .rp1/work/archives/prds/, archives associated completed features, checks KB staleness, and generates closure summaries"
     plugin: dev

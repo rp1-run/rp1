@@ -1,3 +1,8 @@
+import type {
+	PRCartographyDocument,
+	PRCartographyRelationship,
+} from "./pr-cartography.js";
+
 export const CODE_TOUR_VERSION = "1.0" as const;
 
 export interface CodeTourAuthor {
@@ -22,7 +27,32 @@ export interface CodeTourDomain {
 
 export type CodeTourDomains = Readonly<Record<string, CodeTourDomain>>;
 
-export interface CodeTourConcept {
+export type CodeTourCartographyRefKind =
+	| "file"
+	| "fragment"
+	| "boundary"
+	| "contract"
+	| "entity"
+	| "sideEffect"
+	| "riskSurface"
+	| "relationship";
+
+export interface CodeTourTypedCartographyRef {
+	readonly kind: CodeTourCartographyRefKind;
+	readonly id?: string;
+	readonly from?: string;
+	readonly to?: string;
+	readonly relationshipKind?: string;
+}
+
+export type CodeTourCartographyRef = string | CodeTourTypedCartographyRef;
+
+export interface CodeTourProvenance {
+	readonly evidenceIds?: readonly string[];
+	readonly cartographyRefs?: readonly CodeTourCartographyRef[];
+}
+
+export interface CodeTourConcept extends CodeTourProvenance {
 	readonly id: string;
 	readonly label: string;
 	readonly domain: string;
@@ -51,7 +81,7 @@ export interface CodeTourFragmentHighlight {
 	readonly lines?: readonly number[];
 }
 
-export interface CodeTourFragment {
+export interface CodeTourFragment extends CodeTourProvenance {
 	readonly id: string;
 	readonly label: string;
 	readonly path: string;
@@ -64,7 +94,7 @@ export interface CodeTourFragment {
 	readonly highlight?: CodeTourFragmentHighlight;
 }
 
-export interface CodeTourEdge {
+export interface CodeTourEdge extends CodeTourProvenance {
 	readonly from: string;
 	readonly to: string;
 	readonly label?: string;
@@ -76,7 +106,7 @@ export interface CodeTourEdges {
 	readonly fragment?: readonly CodeTourEdge[];
 }
 
-export interface CodeTourStep {
+export interface CodeTourStep extends CodeTourProvenance {
 	readonly conceptId: string;
 	readonly title: string;
 	readonly sub?: string;
@@ -100,6 +130,10 @@ export interface CodeTourValidationIssue {
 	readonly message: string;
 }
 
+export interface CodeTourValidationOptions {
+	readonly cartography?: PRCartographyDocument;
+}
+
 export type CodeTourValidationResult =
 	| { readonly ok: true; readonly document: CodeTourDocument }
 	| { readonly ok: false; readonly issues: readonly CodeTourValidationIssue[] };
@@ -107,6 +141,38 @@ export type CodeTourValidationResult =
 const idPattern = /^[a-zA-Z0-9_-]+$/;
 const hexColorPattern = /^#[0-9a-fA-F]{6}$/;
 const tokenKinds = new Set(["", "kw", "fn", "str", "num", "cmt", "type"]);
+const cartographyRefKinds = new Set<CodeTourCartographyRefKind>([
+	"file",
+	"fragment",
+	"boundary",
+	"contract",
+	"entity",
+	"sideEffect",
+	"riskSurface",
+	"relationship",
+]);
+
+type CodeTourCartographyIdRefKind = Exclude<
+	CodeTourCartographyRefKind,
+	"relationship"
+>;
+
+interface CodeTourCartographyIndex {
+	readonly evidenceIds: ReadonlySet<string>;
+	readonly allIds: ReadonlySet<string>;
+	readonly idsByKind: Record<CodeTourCartographyIdRefKind, ReadonlySet<string>>;
+	readonly relationships: readonly PRCartographyRelationship[];
+}
+
+const cartographyKindLabels: Record<CodeTourCartographyIdRefKind, string> = {
+	file: "file",
+	fragment: "fragment",
+	boundary: "boundary",
+	contract: "contract",
+	entity: "entity",
+	sideEffect: "side effect",
+	riskSurface: "risk surface",
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -202,6 +268,236 @@ const validateId = (
 	}
 };
 
+const createCartographyIndex = (
+	cartography: PRCartographyDocument | undefined,
+): CodeTourCartographyIndex | undefined => {
+	if (cartography === undefined) {
+		return undefined;
+	}
+
+	const idSets = {
+		file: new Set(cartography.files.map((file) => file.id)),
+		fragment: new Set(cartography.fragments.map((fragment) => fragment.id)),
+		boundary: new Set(cartography.boundaries.map((boundary) => boundary.id)),
+		contract: new Set(cartography.contracts.map((contract) => contract.id)),
+		entity: new Set(cartography.entities.map((entity) => entity.id)),
+		sideEffect: new Set(
+			cartography.sideEffects.map((sideEffect) => sideEffect.id),
+		),
+		riskSurface: new Set(
+			cartography.riskSurfaces.map((riskSurface) => riskSurface.id),
+		),
+	};
+
+	return {
+		evidenceIds: new Set(
+			cartography.evidenceIndex.map((evidence) => evidence.id),
+		),
+		allIds: new Set(Object.values(idSets).flatMap((ids) => [...ids])),
+		idsByKind: idSets,
+		relationships: cartography.relationships,
+	};
+};
+
+const validateOptionalEvidenceIds = (
+	record: Record<string, unknown>,
+	path: string,
+	issues: CodeTourValidationIssue[],
+	cartographyIndex: CodeTourCartographyIndex | undefined,
+): void => {
+	if (!hasOwn(record, "evidenceIds") || record.evidenceIds === undefined) {
+		return;
+	}
+
+	if (!Array.isArray(record.evidenceIds)) {
+		pushIssue(issues, path, "Expected an array of evidence ids");
+		return;
+	}
+
+	record.evidenceIds.forEach((evidenceId, index) => {
+		const itemPath = `${path}[${index}]`;
+		if (typeof evidenceId !== "string" || evidenceId.trim() === "") {
+			pushIssue(issues, itemPath, "Expected a non-empty evidence id");
+			return;
+		}
+
+		validateId(evidenceId, itemPath, issues);
+		if (
+			cartographyIndex !== undefined &&
+			!cartographyIndex.evidenceIds.has(evidenceId)
+		) {
+			pushIssue(issues, itemPath, `Unknown evidence id "${evidenceId}"`);
+		}
+	});
+};
+
+const relationshipMatches = (
+	relationship: PRCartographyRelationship,
+	from: string,
+	to: string,
+	relationshipKind: string | undefined,
+): boolean =>
+	relationship.from === from &&
+	relationship.to === to &&
+	(relationshipKind === undefined || relationship.kind === relationshipKind);
+
+const validateRelationshipCartographyRef = (
+	reference: Record<string, unknown>,
+	path: string,
+	issues: CodeTourValidationIssue[],
+	cartographyIndex: CodeTourCartographyIndex | undefined,
+): void => {
+	const from = readRequiredString(reference, "from", `${path}.from`, issues);
+	const to = readRequiredString(reference, "to", `${path}.to`, issues);
+	validateId(from, `${path}.from`, issues);
+	validateId(to, `${path}.to`, issues);
+	validateOptionalString(
+		reference,
+		"relationshipKind",
+		`${path}.relationshipKind`,
+		issues,
+	);
+
+	if (
+		cartographyIndex === undefined ||
+		from === undefined ||
+		to === undefined
+	) {
+		return;
+	}
+
+	const relationshipKind =
+		typeof reference.relationshipKind === "string"
+			? reference.relationshipKind
+			: undefined;
+	const hasRelationship = cartographyIndex.relationships.some((relationship) =>
+		relationshipMatches(relationship, from, to, relationshipKind),
+	);
+
+	if (!hasRelationship) {
+		const kindSuffix =
+			relationshipKind === undefined ? "" : ` with kind "${relationshipKind}"`;
+		pushIssue(
+			issues,
+			path,
+			`Unknown cartography relationship from "${from}" to "${to}"${kindSuffix}`,
+		);
+	}
+};
+
+const validateTypedCartographyRef = (
+	reference: Record<string, unknown>,
+	path: string,
+	issues: CodeTourValidationIssue[],
+	cartographyIndex: CodeTourCartographyIndex | undefined,
+): void => {
+	const kind = readRequiredString(reference, "kind", `${path}.kind`, issues);
+	if (
+		kind === undefined ||
+		!cartographyRefKinds.has(kind as CodeTourCartographyRefKind)
+	) {
+		if (kind !== undefined) {
+			pushIssue(
+				issues,
+				`${path}.kind`,
+				"Expected a known cartography reference kind",
+			);
+		}
+		return;
+	}
+
+	if (kind === "relationship") {
+		validateRelationshipCartographyRef(
+			reference,
+			path,
+			issues,
+			cartographyIndex,
+		);
+		return;
+	}
+
+	const id = readRequiredString(reference, "id", `${path}.id`, issues);
+	validateId(id, `${path}.id`, issues);
+
+	if (cartographyIndex === undefined || id === undefined) {
+		return;
+	}
+
+	const refKind = kind as CodeTourCartographyIdRefKind;
+	if (!cartographyIndex.idsByKind[refKind].has(id)) {
+		pushIssue(
+			issues,
+			`${path}.id`,
+			`Unknown ${cartographyKindLabels[refKind]} cartography id "${id}"`,
+		);
+	}
+};
+
+const validateOptionalCartographyRefs = (
+	record: Record<string, unknown>,
+	path: string,
+	issues: CodeTourValidationIssue[],
+	cartographyIndex: CodeTourCartographyIndex | undefined,
+): void => {
+	if (
+		!hasOwn(record, "cartographyRefs") ||
+		record.cartographyRefs === undefined
+	) {
+		return;
+	}
+
+	if (!Array.isArray(record.cartographyRefs)) {
+		pushIssue(issues, path, "Expected an array of cartography references");
+		return;
+	}
+
+	record.cartographyRefs.forEach((reference, index) => {
+		const itemPath = `${path}[${index}]`;
+		if (typeof reference === "string") {
+			if (reference.trim() === "") {
+				pushIssue(issues, itemPath, "Expected a non-empty cartography id");
+				return;
+			}
+
+			validateId(reference, itemPath, issues);
+			if (
+				cartographyIndex !== undefined &&
+				!cartographyIndex.allIds.has(reference)
+			) {
+				pushIssue(issues, itemPath, `Unknown cartography id "${reference}"`);
+			}
+			return;
+		}
+
+		if (!isRecord(reference)) {
+			pushIssue(issues, itemPath, "Expected a cartography reference object");
+			return;
+		}
+
+		validateTypedCartographyRef(reference, itemPath, issues, cartographyIndex);
+	});
+};
+
+const validateProvenance = (
+	record: Record<string, unknown>,
+	path: string,
+	issues: CodeTourValidationIssue[],
+	cartographyIndex: CodeTourCartographyIndex | undefined,
+): void => {
+	validateOptionalEvidenceIds(
+		record,
+		`${path}.evidenceIds`,
+		issues,
+		cartographyIndex,
+	);
+	validateOptionalCartographyRefs(
+		record,
+		`${path}.cartographyRefs`,
+		issues,
+		cartographyIndex,
+	);
+};
+
 const validateSource = (
 	value: unknown,
 	issues: CodeTourValidationIssue[],
@@ -285,6 +581,7 @@ const validateConcepts = (
 	value: unknown,
 	domainIds: ReadonlySet<string>,
 	issues: CodeTourValidationIssue[],
+	cartographyIndex: CodeTourCartographyIndex | undefined,
 ): {
 	readonly conceptIds: Set<string>;
 	readonly fragmentReferences: { readonly path: string; readonly id: string }[];
@@ -335,6 +632,7 @@ const validateConcepts = (
 
 		validateOptionalBoolean(concept, "epicenter", `${path}.epicenter`, issues);
 		validateOptionalString(concept, "summary", `${path}.summary`, issues);
+		validateProvenance(concept, path, issues, cartographyIndex);
 
 		if (!Array.isArray(concept.fragments)) {
 			pushIssue(
@@ -440,6 +738,7 @@ const validateHighlight = (
 const validateFragments = (
 	value: unknown,
 	issues: CodeTourValidationIssue[],
+	cartographyIndex: CodeTourCartographyIndex | undefined,
 ): Set<string> => {
 	const fragmentIds = new Set<string>();
 
@@ -501,6 +800,7 @@ const validateFragments = (
 		if (hasOwn(fragment, "highlight") && fragment.highlight !== undefined) {
 			validateHighlight(fragment.highlight, `${path}.highlight`, issues);
 		}
+		validateProvenance(fragment, path, issues, cartographyIndex);
 	});
 
 	return fragmentIds;
@@ -511,6 +811,7 @@ const validateEdgeArray = (
 	path: string,
 	validIds: ReadonlySet<string>,
 	issues: CodeTourValidationIssue[],
+	cartographyIndex: CodeTourCartographyIndex | undefined,
 ): void => {
 	if (!Array.isArray(value)) {
 		pushIssue(issues, path, "Expected an array of edges");
@@ -535,6 +836,7 @@ const validateEdgeArray = (
 
 		validateOptionalString(edge, "label", `${edgePath}.label`, issues);
 		validateOptionalString(edge, "kind", `${edgePath}.kind`, issues);
+		validateProvenance(edge, edgePath, issues, cartographyIndex);
 	});
 };
 
@@ -543,6 +845,7 @@ const validateEdges = (
 	conceptIds: ReadonlySet<string>,
 	fragmentIds: ReadonlySet<string>,
 	issues: CodeTourValidationIssue[],
+	cartographyIndex: CodeTourCartographyIndex | undefined,
 ): void => {
 	if (value === undefined) {
 		return;
@@ -554,10 +857,22 @@ const validateEdges = (
 	}
 
 	if (hasOwn(value, "concept") && value.concept !== undefined) {
-		validateEdgeArray(value.concept, "$.edges.concept", conceptIds, issues);
+		validateEdgeArray(
+			value.concept,
+			"$.edges.concept",
+			conceptIds,
+			issues,
+			cartographyIndex,
+		);
 	}
 	if (hasOwn(value, "fragment") && value.fragment !== undefined) {
-		validateEdgeArray(value.fragment, "$.edges.fragment", fragmentIds, issues);
+		validateEdgeArray(
+			value.fragment,
+			"$.edges.fragment",
+			fragmentIds,
+			issues,
+			cartographyIndex,
+		);
 	}
 };
 
@@ -565,6 +880,7 @@ const validateTour = (
 	value: unknown,
 	conceptIds: ReadonlySet<string>,
 	issues: CodeTourValidationIssue[],
+	cartographyIndex: CodeTourCartographyIndex | undefined,
 ): void => {
 	if (value === undefined) {
 		return;
@@ -595,13 +911,16 @@ const validateTour = (
 		readRequiredString(step, "title", `${path}.title`, issues);
 		validateOptionalString(step, "sub", `${path}.sub`, issues);
 		validateOptionalString(step, "reason", `${path}.reason`, issues);
+		validateProvenance(step, path, issues, cartographyIndex);
 	});
 };
 
 export const validateCodeTourDocument = (
 	value: unknown,
+	options: CodeTourValidationOptions = {},
 ): CodeTourValidationResult => {
 	const issues: CodeTourValidationIssue[] = [];
+	const cartographyIndex = createCartographyIndex(options.cartography);
 
 	if (!isRecord(value)) {
 		return {
@@ -633,8 +952,13 @@ export const validateCodeTourDocument = (
 		value.concepts,
 		domainIds,
 		issues,
+		cartographyIndex,
 	);
-	const fragmentIds = validateFragments(value.fragments, issues);
+	const fragmentIds = validateFragments(
+		value.fragments,
+		issues,
+		cartographyIndex,
+	);
 
 	for (const reference of fragmentReferences) {
 		if (!fragmentIds.has(reference.id)) {
@@ -642,8 +966,8 @@ export const validateCodeTourDocument = (
 		}
 	}
 
-	validateEdges(value.edges, conceptIds, fragmentIds, issues);
-	validateTour(value.tour, conceptIds, issues);
+	validateEdges(value.edges, conceptIds, fragmentIds, issues, cartographyIndex);
+	validateTour(value.tour, conceptIds, issues, cartographyIndex);
 
 	if (issues.length > 0) {
 		return { ok: false, issues };
@@ -654,9 +978,10 @@ export const validateCodeTourDocument = (
 
 export const parseCodeTourDocument = (
 	content: string,
+	options: CodeTourValidationOptions = {},
 ): CodeTourValidationResult => {
 	try {
-		return validateCodeTourDocument(JSON.parse(content));
+		return validateCodeTourDocument(JSON.parse(content), options);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		return {

@@ -3,7 +3,7 @@ scope: workRoot
 path_pattern: "pr-walkthroughs/{REVIEW_ID}-walkthrough-{NNN}.json"
 producer: pr-walkthrough-reporter
 type: data
-description: "Code Tour JSON PR walkthrough generated from direct PR evidence by /pr-walkthrough."
+description: "Code Tour JSON PR walkthrough generated from validated PR graph/cartography and direct PR evidence by /pr-walkthrough."
 strictness: flexible
 ---
 
@@ -40,14 +40,36 @@ strictness: flexible
       "domain": "workflow",
       "epicenter": true,
       "summary": "- {concise_user_facing_bullet}\\n- {concise_user_facing_bullet}",
-      "fragments": ["fragment-1"]
+      "fragments": ["fragment-1"],
+      "evidenceIds": ["E-DIFF-001"],
+      "cartographyRefs": [
+        {
+          "kind": "boundary",
+          "id": "boundary-main"
+        },
+        {
+          "kind": "contract",
+          "id": "contract-output"
+        }
+      ]
     },
     {
       "id": "concept-2",
       "label": "{related_concept_label}",
       "domain": "surface",
       "summary": "- {concise_user_facing_bullet}\\n- {concise_user_facing_bullet}",
-      "fragments": ["fragment-2"]
+      "fragments": ["fragment-2"],
+      "evidenceIds": ["E-DIFF-002"],
+      "cartographyRefs": [
+        {
+          "kind": "sideEffect",
+          "id": "effect-output"
+        },
+        {
+          "kind": "riskSurface",
+          "id": "risk-output-contract"
+        }
+      ]
     }
   ],
   "fragments": [
@@ -68,7 +90,18 @@ strictness: flexible
       ],
       "highlight": {
         "lines": [0]
-      }
+      },
+      "evidenceIds": ["E-DIFF-001"],
+      "cartographyRefs": [
+        {
+          "kind": "fragment",
+          "id": "frag-main"
+        },
+        {
+          "kind": "file",
+          "id": "file-main"
+        }
+      ]
     },
     {
       "id": "fragment-2",
@@ -80,6 +113,17 @@ strictness: flexible
         {
           "tokens": [["", "{related_source_excerpt_line}"]]
         }
+      ],
+      "evidenceIds": ["E-DIFF-002"],
+      "cartographyRefs": [
+        {
+          "kind": "fragment",
+          "id": "frag-related"
+        },
+        {
+          "kind": "file",
+          "id": "file-related"
+        }
       ]
     }
   ],
@@ -89,7 +133,16 @@ strictness: flexible
         "from": "concept-1",
         "to": "concept-2",
         "label": "{relationship_label}",
-        "kind": "{relationship_kind}"
+        "kind": "{relationship_kind}",
+        "evidenceIds": ["E-DIFF-001"],
+        "cartographyRefs": [
+          {
+            "kind": "relationship",
+            "from": "boundary-main",
+            "to": "contract-output",
+            "relationshipKind": "uses-contract"
+          }
+        ]
       }
     ],
     "fragment": [
@@ -97,7 +150,16 @@ strictness: flexible
         "from": "fragment-1",
         "to": "fragment-2",
         "label": "{fragment_relationship_label}",
-        "kind": "{fragment_relationship_kind}"
+        "kind": "{fragment_relationship_kind}",
+        "evidenceIds": ["E-DIFF-002"],
+        "cartographyRefs": [
+          {
+            "kind": "relationship",
+            "from": "frag-main",
+            "to": "frag-related",
+            "relationshipKind": "supports"
+          }
+        ]
       }
     ]
   },
@@ -106,7 +168,18 @@ strictness: flexible
       "conceptId": "concept-1",
       "title": "{tour_step_title}",
       "sub": "{tour_step_context}",
-      "reason": "- {why_this_step_matters}\\n- {what_to_inspect}"
+      "reason": "- {why_this_step_matters}\\n- {what_to_inspect}",
+      "evidenceIds": ["E-DIFF-001"],
+      "cartographyRefs": [
+        {
+          "kind": "boundary",
+          "id": "boundary-main"
+        },
+        {
+          "kind": "riskSurface",
+          "id": "risk-output-contract"
+        }
+      ]
     }
   ]
 }
