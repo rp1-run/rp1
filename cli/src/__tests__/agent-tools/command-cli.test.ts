@@ -120,6 +120,63 @@ describe("agent-tools command adapter", () => {
 		expect(roots.data.workRoot).toContain(".rp1/work");
 	});
 
+	test("pr-cartography-validate returns successful JSON for file input", async () => {
+		tempDir = await mkdtemp(join(tmpdir(), "rp1-command-adapter-"));
+		const cartographyPath = join(tempDir, "cartography.json");
+		await writeFile(
+			cartographyPath,
+			JSON.stringify({
+				version: "1.0",
+				kind: "pr-cartography",
+				source: { source: "github_pr", target: "482", reviewId: "pr-482" },
+				evidenceIndex: [
+					{
+						id: "E-DIFF-001",
+						kind: "diff",
+						source: "patch",
+						summary: "The patch changes a workflow boundary.",
+					},
+				],
+				files: [
+					{
+						id: "file-workflow",
+						path: "plugins/dev/skills/pr-walkthrough/SKILL.md",
+						evidenceIds: ["E-DIFF-001"],
+					},
+				],
+				fragments: [
+					{
+						id: "frag-workflow",
+						fileId: "file-workflow",
+						path: "plugins/dev/skills/pr-walkthrough/SKILL.md",
+						line: 1,
+						evidenceIds: ["E-DIFF-001"],
+					},
+				],
+				boundaries: [],
+				contracts: [],
+				entities: [],
+				sideEffects: [],
+				riskSurfaces: [],
+				relationships: [],
+			}),
+		);
+
+		await expectExit(["pr-cartography-validate", cartographyPath], 0);
+
+		const validation = lastOutput<{
+			success: boolean;
+			tool: string;
+			data: { version: string; kind: string };
+		}>();
+		expect(validation.success).toBe(true);
+		expect(validation.tool).toBe("pr-cartography-validate");
+		expect(validation.data).toMatchObject({
+			version: "1.0",
+			kind: "pr-cartography",
+		});
+	});
+
 	test("resolve-args and workflow-bootstrap resolve generated workflow inputs", async () => {
 		const projectRoot = resolve("..");
 		const schemaPath = join(projectRoot, "plugins/dev/skills/build/SKILL.md");
