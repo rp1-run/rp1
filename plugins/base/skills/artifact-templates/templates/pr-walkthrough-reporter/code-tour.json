@@ -1,0 +1,185 @@
+---
+scope: workRoot
+path_pattern: "pr-walkthroughs/{REVIEW_ID}-walkthrough-{NNN}.json"
+producer: pr-walkthrough-reporter
+type: data
+description: "Code Tour JSON PR walkthrough generated from validated PR graph/cartography and direct PR evidence by /pr-walkthrough."
+strictness: flexible
+---
+
+{
+  "version": "1.0",
+  "kind": "pull-request",
+  "title": "{PR_TITLE}",
+  "source": {
+    "kind": "{source_kind}",
+    "repo": "{repo}",
+    "id": "{source_id}",
+    "url": "{source_url}",
+    "ref": "{head_ref}",
+    "createdAt": "{created_at}",
+    "author": {
+      "name": "{author_name}",
+      "handle": "{author_handle}"
+    }
+  },
+  "domains": {
+    "workflow": {
+      "label": "Workflow",
+      "color": "#7ad0ff"
+    },
+    "surface": {
+      "label": "Surface",
+      "color": "#ffbf69"
+    }
+  },
+  "concepts": [
+    {
+      "id": "concept-1",
+      "label": "{concept_label}",
+      "domain": "workflow",
+      "epicenter": true,
+      "summary": "- {concise_user_facing_bullet}\\n- {concise_user_facing_bullet}",
+      "fragments": ["fragment-1"],
+      "evidenceIds": ["E-DIFF-001"],
+      "cartographyRefs": [
+        {
+          "kind": "boundary",
+          "id": "boundary-main"
+        },
+        {
+          "kind": "contract",
+          "id": "contract-output"
+        }
+      ]
+    },
+    {
+      "id": "concept-2",
+      "label": "{related_concept_label}",
+      "domain": "surface",
+      "summary": "- {concise_user_facing_bullet}\\n- {concise_user_facing_bullet}",
+      "fragments": ["fragment-2"],
+      "evidenceIds": ["E-DIFF-002"],
+      "cartographyRefs": [
+        {
+          "kind": "sideEffect",
+          "id": "effect-output"
+        },
+        {
+          "kind": "riskSurface",
+          "id": "risk-output-contract"
+        }
+      ]
+    }
+  ],
+  "fragments": [
+    {
+      "id": "fragment-1",
+      "label": "{fragment_label}",
+      "path": "{path}",
+      "line": 1,
+      "lineEnd": 1,
+      "tree": "{tree_group}",
+      "url": "{source_url}",
+      "language": "{language}",
+      "code": [
+        {
+          "type": "add",
+          "tokens": [["", "{source_excerpt_line}"]]
+        }
+      ],
+      "highlight": {
+        "lines": [0]
+      },
+      "evidenceIds": ["E-DIFF-001"],
+      "cartographyRefs": [
+        {
+          "kind": "fragment",
+          "id": "frag-main"
+        },
+        {
+          "kind": "file",
+          "id": "file-main"
+        }
+      ]
+    },
+    {
+      "id": "fragment-2",
+      "label": "{related_fragment_label}",
+      "path": "{related_path}",
+      "line": 1,
+      "language": "{related_language}",
+      "code": [
+        {
+          "tokens": [["", "{related_source_excerpt_line}"]]
+        }
+      ],
+      "evidenceIds": ["E-DIFF-002"],
+      "cartographyRefs": [
+        {
+          "kind": "fragment",
+          "id": "frag-related"
+        },
+        {
+          "kind": "file",
+          "id": "file-related"
+        }
+      ]
+    }
+  ],
+  "edges": {
+    "concept": [
+      {
+        "from": "concept-1",
+        "to": "concept-2",
+        "label": "{relationship_label}",
+        "kind": "{relationship_kind}",
+        "evidenceIds": ["E-DIFF-001"],
+        "cartographyRefs": [
+          {
+            "kind": "relationship",
+            "from": "boundary-main",
+            "to": "contract-output",
+            "relationshipKind": "uses-contract"
+          }
+        ]
+      }
+    ],
+    "fragment": [
+      {
+        "from": "fragment-1",
+        "to": "fragment-2",
+        "label": "{fragment_relationship_label}",
+        "kind": "{fragment_relationship_kind}",
+        "evidenceIds": ["E-DIFF-002"],
+        "cartographyRefs": [
+          {
+            "kind": "relationship",
+            "from": "frag-main",
+            "to": "frag-related",
+            "relationshipKind": "supports"
+          }
+        ]
+      }
+    ]
+  },
+  "tour": [
+    {
+      "conceptId": "concept-1",
+      "title": "{tour_step_title}",
+      "sub": "{tour_step_context}",
+      "reason": "- {why_this_step_matters}\\n- {what_to_inspect}",
+      "evidenceIds": ["E-DIFF-001"],
+      "cartographyRefs": [
+        {
+          "kind": "boundary",
+          "id": "boundary-main"
+        },
+        {
+          "kind": "riskSurface",
+          "id": "risk-output-contract"
+        }
+      ]
+    }
+  ]
+}

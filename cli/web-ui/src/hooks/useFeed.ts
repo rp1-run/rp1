@@ -65,10 +65,6 @@ function compareRunsByActivity(a: Run, b: Run): number {
 	return activityTimestamp(b).localeCompare(activityTimestamp(a));
 }
 
-function compareFeedItems(a: FeedItem, b: FeedItem): number {
-	return activityTimestamp(b.run).localeCompare(activityTimestamp(a.run));
-}
-
 function isWithinDateRange(
 	timestamp: string,
 	dateRange: UseFeedOptions["dateRange"],
@@ -178,6 +174,94 @@ function mergeRunsById(runs: readonly Run[]): Run[] {
 	return [...runsById.values()];
 }
 
+interface VisibleRunsResult {
+	readonly runs: Run[];
+	readonly knownActivityByRunId: Map<string, string>;
+	readonly addedCount: number;
+}
+
+interface BuildVisibleRunsOptions {
+	readonly preserveLoadedOrder?: boolean;
+}
+
+function buildVisibleRuns(
+	loadedRuns: readonly Run[],
+	filterOptions: UseFeedOptions,
+	knownActivityByRunId: ReadonlyMap<string, string>,
+	limit: number | undefined,
+	offset: number | undefined,
+	options: BuildVisibleRunsOptions = {},
+): VisibleRunsResult {
+	const nextKnownActivity = new Map(knownActivityByRunId);
+	const matchingLoadedRuns = mergeRunsById(loadedRuns).filter((run) =>
+		matchesFeedFilters(run, filterOptions),
+	);
+	const orderedLoadedRuns = options.preserveLoadedOrder
+		? matchingLoadedRuns
+		: [...matchingLoadedRuns].sort(compareRunsByActivity);
+
+	for (const run of matchingLoadedRuns) {
+		nextKnownActivity.set(run.id, activityTimestamp(run));
+	}
+
+	let addedCount = 0;
+	let candidateRuns = orderedLoadedRuns;
+	if ((offset ?? 0) === 0) {
+		const candidateIds = new Set(candidateRuns.map((run) => run.id));
+		const liveAdditions: Run[] = [];
+
+		for (const run of liveRunIndex.getAllRuns()) {
+			if (candidateIds.has(run.id) || !matchesFeedFilters(run, filterOptions)) {
+				continue;
+			}
+
+			const timestamp = activityTimestamp(run);
+			const knownTimestamp = nextKnownActivity.get(run.id);
+			if (knownTimestamp === timestamp) {
+				continue;
+			}
+
+			liveAdditions.push(run);
+			candidateIds.add(run.id);
+			nextKnownActivity.set(run.id, timestamp);
+			if (knownTimestamp === undefined) {
+				addedCount += 1;
+			}
+		}
+
+		candidateRuns = options.preserveLoadedOrder
+			? [...liveAdditions.sort(compareRunsByActivity), ...candidateRuns]
+			: mergeRunsById([...candidateRuns, ...liveAdditions]).sort(
+					compareRunsByActivity,
+				);
+	}
+
+	return {
+		runs: candidateRuns.slice(0, limit ?? DEFAULT_FEED_LIMIT),
+		knownActivityByRunId: nextKnownActivity,
+		addedCount,
+	};
+}
+
+function getMatchingLiveActivityByRunId(
+	filterOptions: UseFeedOptions,
+): Map<string, string> {
+	const activityByRunId = new Map<string, string>();
+	for (const run of liveRunIndex.getAllRuns()) {
+		if (matchesFeedFilters(run, filterOptions)) {
+			activityByRunId.set(run.id, activityTimestamp(run));
+		}
+	}
+	return activityByRunId;
+}
+
+function totalWithLiveAdditions(
+	serverTotal: number,
+	visible: VisibleRunsResult,
+): number {
+	return Math.max(serverTotal + visible.addedCount, visible.runs.length);
+}
+
 function recoveryFeedLimit(
 	limit: number | undefined,
 	activityRecoveryLimit: number,
@@ -236,7 +320,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
 	const itemsRef = useRef<FeedItem[]>([]);
-	const matchingRunIdsRef = useRef<Set<string>>(new Set());
+	const knownActivityByRunIdRef = useRef<Map<string, string>>(new Map());
 	const latestRequestIdRef = useRef(0);
 	useLiveRunIndexBridge();
 	const liveSnapshot = useLiveRunIndexSnapshot();
@@ -263,6 +347,10 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 			}
 
 			try {
+				const filterOptions = { view, status, projectId, dateRange, search };
+				const knownActivityAtRequestStart = reconcile
+					? new Map(knownActivityByRunIdRef.current)
+					: getMatchingLiveActivityByRunId(filterOptions);
 				const params = buildQueryParams({
 					view,
 					status,
@@ -287,7 +375,6 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 				}
 
 				liveRunIndex.upsertRuns(data.items.map((item) => item.run));
-				const filterOptions = { view, status, projectId, dateRange, search };
 				const responseRuns = data.items
 					.map((item) => liveRunIndex.getRun(item.run.id) ?? item.run)
 					.filter((run) => matchesFeedFilters(run, filterOptions));
@@ -296,23 +383,32 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 					const currentRuns = itemsRef.current
 						.map((item) => liveRunIndex.getRun(item.run.id) ?? item.run)
 						.filter((run) => matchesFeedFilters(run, filterOptions));
-					const mergedRuns = mergeRunsById([
-						...currentRuns,
-						...responseRuns,
-					]).sort(compareRunsByActivity);
-					const visibleRuns = mergedRuns.slice(0, limit ?? DEFAULT_FEED_LIMIT);
-					matchingRunIdsRef.current = new Set(currentRuns.map((run) => run.id));
-					setItems(visibleRuns.map(toFeedItem));
-					setTotal(Math.max(data.total, visibleRuns.length));
-				} else {
-					matchingRunIdsRef.current = new Set(
-						liveRunIndex
-							.getAllRuns()
-							.filter((run) => matchesFeedFilters(run, filterOptions))
-							.map((run) => run.id),
+					const visible = buildVisibleRuns(
+						[...currentRuns, ...responseRuns],
+						filterOptions,
+						knownActivityAtRequestStart,
+						limit,
+						offset,
 					);
-					setItems(responseRuns.map(toFeedItem).sort(compareFeedItems));
-					setTotal(data.total);
+					knownActivityByRunIdRef.current = visible.knownActivityByRunId;
+					const visibleRuns = visible.runs;
+					const nextItems = visibleRuns.map(toFeedItem);
+					itemsRef.current = nextItems;
+					setItems(nextItems);
+					setTotal(totalWithLiveAdditions(data.total, visible));
+				} else {
+					const visible = buildVisibleRuns(
+						responseRuns,
+						filterOptions,
+						knownActivityAtRequestStart,
+						limit,
+						offset,
+					);
+					knownActivityByRunIdRef.current = visible.knownActivityByRunId;
+					const nextItems = visible.runs.map(toFeedItem);
+					itemsRef.current = nextItems;
+					setItems(nextItems);
+					setTotal(totalWithLiveAdditions(data.total, visible));
 				}
 				setError(null);
 			} catch (err) {
@@ -359,62 +455,46 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
 
 		void liveSnapshot;
 		const filterOptions = { view, status, projectId, dateRange, search };
-		const knownMatchingRunIds = matchingRunIdsRef.current;
-		for (const runId of [...knownMatchingRunIds]) {
+		const knownActivityByRunId = new Map(knownActivityByRunIdRef.current);
+		for (const runId of [...knownActivityByRunId.keys()]) {
 			const liveRun = liveRunIndex.getRun(runId);
 			if (liveRun && !matchesFeedFilters(liveRun, filterOptions)) {
-				knownMatchingRunIds.delete(runId);
+				knownActivityByRunId.delete(runId);
 			}
 		}
 
-		const currentItems = items;
-		const nextLoadedItems = currentItems
+		const currentItems = itemsRef.current;
+		const currentRuns = currentItems
 			.map((item) => liveRunIndex.getRun(item.run.id) ?? item.run)
-			.filter((run) => matchesFeedFilters(run, filterOptions))
-			.map(toFeedItem);
-		for (const item of nextLoadedItems) {
-			knownMatchingRunIds.add(item.id);
-		}
-
-		const retainedIds = new Set(nextLoadedItems.map((item) => item.id));
+			.filter((run) => matchesFeedFilters(run, filterOptions));
+		const retainedIds = new Set(currentRuns.map((run) => run.id));
 		const removedCount = currentItems.reduce(
 			(count, item) => count + (retainedIds.has(item.id) ? 0 : 1),
 			0,
 		);
-
-		let addedCount = 0;
-		let nextItems = nextLoadedItems;
-		if ((offset ?? 0) === 0) {
-			const additions: RunFeedItem[] = [];
-			for (const run of liveRunIndex.getAllRuns()) {
-				if (
-					retainedIds.has(run.id) ||
-					knownMatchingRunIds.has(run.id) ||
-					!matchesFeedFilters(run, filterOptions)
-				) {
-					continue;
-				}
-				additions.push(toFeedItem(run));
-				retainedIds.add(run.id);
-				knownMatchingRunIds.add(run.id);
-			}
-			addedCount = additions.length;
-			nextItems = [...nextLoadedItems, ...additions];
-			nextItems = nextItems.slice(0, limit ?? DEFAULT_FEED_LIMIT);
-		}
+		const visible = buildVisibleRuns(
+			currentRuns,
+			filterOptions,
+			knownActivityByRunId,
+			limit,
+			offset,
+			{ preserveLoadedOrder: true },
+		);
+		knownActivityByRunIdRef.current = visible.knownActivityByRunId;
+		const nextItems = visible.runs.map(toFeedItem);
 
 		if (!areFeedItemsEqual(currentItems, nextItems)) {
+			itemsRef.current = nextItems;
 			setItems(nextItems);
 		}
 
-		if (addedCount > 0 || removedCount > 0) {
+		if (visible.addedCount > 0 || removedCount > 0) {
 			setTotal((currentTotal) =>
-				Math.max(0, currentTotal + addedCount - removedCount),
+				Math.max(0, currentTotal + visible.addedCount - removedCount),
 			);
 		}
 	}, [
 		liveSnapshot,
-		items,
 		isLoading,
 		view,
 		status,

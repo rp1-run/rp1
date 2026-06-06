@@ -1,20 +1,12 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import {
-	cleanup,
-	fireEvent,
-	render,
-	screen,
-	waitFor,
-} from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode, useEffect } from "react";
 import type {
 	ArtifactContentSurfaceControls,
 	ArtifactContentSurfaceProps,
 } from "@/components/v2/ArtifactContentSurface";
-import type { ArtifactContentMode } from "@/components/v2/ContentPanel";
 import type { SaveStatus } from "@/components/v2/UnifiedContentRenderer";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
-import type { WalkthroughDeck } from "@/lib/walkthrough-slide-source";
 import type { Artifact } from "@/types/runs";
 
 let importVersion = 0;
@@ -39,16 +31,6 @@ const secondArtifact: Artifact = {
 	step: "review",
 };
 
-const walkthroughArtifact: Artifact = {
-	docId: "doc-walkthrough",
-	path: ".rp1/work/pr-walkthroughs/pr-42-walkthrough-001.md",
-	absolutePath: "/repo/.rp1/work/pr-walkthroughs/pr-42-walkthrough-001.md",
-	type: "markdown",
-	updatedDuringRun: true,
-	isNew: false,
-	step: "pr-walkthrough",
-};
-
 const prReviewArtifact: Artifact = {
 	docId: "doc-pr-review",
 	path: ".rp1/work/pr-reviews/pr-42-review.md",
@@ -58,39 +40,6 @@ const prReviewArtifact: Artifact = {
 	isNew: false,
 	step: "pr-review",
 };
-
-const walkthroughSlideSource = `---
-rp1_contract: pr-walkthrough-slide-source
-rp1_contract_version: "1.0.0"
-rp1_review_id: pr-42
-rp1_evidence_ids:
-  - E-PR-001
----
-# PR Walkthrough: Checkout Reader
-
-<!-- rp1-slide: horizontal -->
-<!-- rp1-slide-meta
-id: slide-001
-role: at-a-glance
-depth: 0
-evidence: [E-PR-001]
--->
-## At A Glance
-
-Review the checkout reader. E-PR-001
-
-<!-- rp1-notes -->
-Speaker notes preserve E-PR-001.
-`;
-
-const invalidWalkthroughSlideSource = `---
-rp1_contract: pr-walkthrough-slide-source
-rp1_contract_version: "1.0.0"
----
-# PR Walkthrough: Invalid
-
-<!-- rp1-slide: diagonal -->
-`;
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;
@@ -123,11 +72,6 @@ interface MockContentPanelProps {
 	readonly isLoading?: boolean;
 	readonly onHeadingsExtracted?: (headings: HeadingEntry[]) => void;
 	readonly onSaveStatusChange?: (status: SaveStatus) => void;
-	readonly contentMode?: ArtifactContentMode;
-	readonly walkthroughDeck?: WalkthroughDeck | null;
-	readonly walkthroughFallbackMessage?: string | null;
-	readonly onContentModeChange?: (mode: ArtifactContentMode) => void;
-	readonly onWalkthroughRenderFailure?: (message: string) => void;
 }
 
 function MockContentPanel({
@@ -136,10 +80,6 @@ function MockContentPanel({
 	isLoading,
 	onHeadingsExtracted,
 	onSaveStatusChange,
-	contentMode = "markdown",
-	walkthroughDeck = null,
-	walkthroughFallbackMessage = null,
-	onWalkthroughRenderFailure,
 }: MockContentPanelProps) {
 	useEffect(() => {
 		if (content !== null && content !== undefined) {
@@ -154,24 +94,32 @@ function MockContentPanel({
 			data-loading={String(isLoading ?? false)}
 			data-content={content ?? ""}
 			data-error={error ?? ""}
-			data-content-mode={contentMode}
-			data-deck-title={walkthroughDeck?.title ?? ""}
-			data-fallback-message={walkthroughFallbackMessage ?? ""}
 		>
-			{walkthroughDeck ? (
-				<button
-					type="button"
-					aria-label="Mock reader render failure"
-					onClick={() =>
-						onWalkthroughRenderFailure?.(
-							"Mock reader failed. Showing markdown.",
-						)
-					}
-				>
-					Fail reader
-				</button>
-			) : null}
 			{error ?? content ?? ""}
+		</div>
+	);
+}
+
+function MockCodeTourFallbackNotice({
+	source,
+	renderFailureMessage,
+}: {
+	readonly source?: {
+		readonly kind: string;
+		readonly message?: string;
+		readonly detail?: string;
+	} | null;
+	readonly renderFailureMessage?: string | null;
+}) {
+	const isDiagnostic = source?.kind === "diagnostic";
+	const message =
+		renderFailureMessage ?? (isDiagnostic ? source?.message : null) ?? null;
+	if (!message) return null;
+
+	return (
+		<div>
+			<p>{message}</p>
+			{isDiagnostic && source?.detail ? <pre>{source.detail}</pre> : null}
 		</div>
 	);
 }
@@ -251,6 +199,7 @@ mock.module("@/components/v2/TableOfContents", () => ({
 }));
 
 mock.module("@/components/v2/ContentPanel", () => ({
+	CodeTourFallbackNotice: MockCodeTourFallbackNotice,
 	ContentPanel: MockContentPanel,
 }));
 
@@ -278,26 +227,6 @@ function renderHeader(controls: ArtifactContentSurfaceControls) {
 					onClick={controls.toggleAnnotations}
 				/>
 			)}
-			{controls.slideModeAvailable &&
-				controls.contentMode &&
-				controls.setContentMode && (
-					<fieldset aria-label="Artifact viewing mode">
-						<button
-							type="button"
-							aria-pressed={controls.contentMode === "slides"}
-							onClick={() => controls.setContentMode?.("slides")}
-						>
-							Slides
-						</button>
-						<button
-							type="button"
-							aria-pressed={controls.contentMode === "markdown"}
-							onClick={() => controls.setContentMode?.("markdown")}
-						>
-							Markdown
-						</button>
-					</fieldset>
-				)}
 		</div>
 	);
 }
@@ -406,62 +335,7 @@ describe("ArtifactContentSurface", () => {
 		expect(panel.dataset.error).toBe("");
 	});
 
-	test("opens supported walkthrough artifacts in slide mode and allows markdown selection", async () => {
-		global.fetch = mock(async () =>
-			contentResponse(walkthroughSlideSource),
-		) as unknown as typeof fetch;
-		const { ArtifactContentSurface } = await importSurface();
-
-		render(<ArtifactContentSurface {...surfaceProps(walkthroughArtifact)} />);
-
-		await waitFor(() => {
-			const panel = screen.getByTestId("artifact-content-panel");
-			expect(panel.dataset.contentMode).toBe("slides");
-			expect(panel.dataset.deckTitle).toBe("PR Walkthrough: Checkout Reader");
-		});
-
-		expect(
-			screen.getByRole("group", { name: "Artifact viewing mode" }),
-		).toBeTruthy();
-		expect(
-			screen
-				.getByRole("button", { name: "Slides" })
-				.getAttribute("aria-pressed"),
-		).toBe("true");
-
-		fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
-
-		await waitFor(() => {
-			expect(
-				screen.getByTestId("artifact-content-panel").dataset.contentMode,
-			).toBe("markdown");
-		});
-		expect(
-			screen
-				.getByRole("button", { name: "Markdown" })
-				.getAttribute("aria-pressed"),
-		).toBe("true");
-	});
-
-	test("falls back to markdown when the walkthrough contract is invalid", async () => {
-		global.fetch = mock(async () =>
-			contentResponse(invalidWalkthroughSlideSource),
-		) as unknown as typeof fetch;
-		const { ArtifactContentSurface } = await importSurface();
-
-		render(<ArtifactContentSurface {...surfaceProps(walkthroughArtifact)} />);
-
-		await waitFor(() => {
-			const panel = screen.getByTestId("artifact-content-panel");
-			expect(panel.dataset.contentMode).toBe("markdown");
-			expect(panel.dataset.deckTitle).toBe("");
-			expect(panel.dataset.fallbackMessage).toContain("unsupported direction");
-		});
-
-		expect(screen.queryByRole("button", { name: "Slides" })).toBeNull();
-	});
-
-	test("does not infer walkthrough support from ordinary pr-review artifacts", async () => {
+	test("keeps ordinary pr-review artifacts on the standard content path", async () => {
 		global.fetch = mock(async () =>
 			contentResponse("---\nrp1_contract: pr-review\n---\n# PR Review\n"),
 		) as unknown as typeof fetch;
@@ -471,37 +345,7 @@ describe("ArtifactContentSurface", () => {
 
 		await waitFor(() => {
 			const panel = screen.getByTestId("artifact-content-panel");
-			expect(panel.dataset.contentMode).toBe("markdown");
-			expect(panel.dataset.deckTitle).toBe("");
 			expect(panel.dataset.content).toContain("# PR Review");
-		});
-		expect(screen.queryByRole("button", { name: "Slides" })).toBeNull();
-	});
-
-	test("switches to markdown with a reviewer-facing message after reader failure", async () => {
-		global.fetch = mock(async () =>
-			contentResponse(walkthroughSlideSource),
-		) as unknown as typeof fetch;
-		const { ArtifactContentSurface } = await importSurface();
-
-		render(<ArtifactContentSurface {...surfaceProps(walkthroughArtifact)} />);
-
-		await waitFor(() => {
-			expect(
-				screen.getByTestId("artifact-content-panel").dataset.contentMode,
-			).toBe("slides");
-		});
-
-		fireEvent.click(
-			screen.getByRole("button", { name: "Mock reader render failure" }),
-		);
-
-		await waitFor(() => {
-			const panel = screen.getByTestId("artifact-content-panel");
-			expect(panel.dataset.contentMode).toBe("markdown");
-			expect(panel.dataset.fallbackMessage).toBe(
-				"Mock reader failed. Showing markdown.",
-			);
 		});
 	});
 });

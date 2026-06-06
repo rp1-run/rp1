@@ -50,24 +50,39 @@ help the current artifact.
 
 ## Reading Modes
 
-Most artifacts open in the standard reader for their file type. Supported PR
-walkthroughs can also offer a Slides mode.
+Most artifacts open in the standard reader for their file type. Valid Code Tour
+walkthrough artifacts open in the 3D reader by default and keep source viewing
+available for inspection or diagnostics.
 
 | Mode | Use it when |
 |------|-------------|
-| Markdown | You want the complete artifact in source order, including headings, evidence, and annotations. |
-| Slides | You want to present or skim a slide-ready PR walkthrough. |
+| 3D | You want to inspect a walkthrough as concepts, source fragments, relationships, and guided tour steps. |
+| Source | You want the complete JSON artifact in source order, including diagnostics and annotation support. |
 
-If Slides mode is not available or cannot render cleanly, use Markdown mode.
-Markdown is always the fallback reading path and is the best mode for
-annotations.
+If the Code Tour artifact is invalid, unsupported, or cannot render in the
+browser, Arcade shows a clear diagnostic above Source mode instead of a blank
+walkthrough surface.
+
+## Code Tour Walkthroughs
+
+Arcade treats JSON artifacts under `.rp1/work/pr-walkthroughs/` as Code Tour
+candidates. A valid artifact must satisfy the Code Tour v1 contract before the
+3D reader appears.
+
+| State | What Arcade shows |
+|-------|-------------------|
+| Valid Code Tour | A 3D concept graph with guided controls, source fragment cards, and relationship navigation. |
+| Source mode | The formatted JSON artifact, available from the 3D toolbar or after a diagnostic fallback. |
+| Invalid or unsupported JSON | A diagnostic message with validation details, followed by the source JSON. |
+| Render failure or unavailable WebGL | A diagnostic fallback that identifies the viewer-side rendering issue and leaves Source mode available. |
 
 ## Supported Content
 
 | Content | What Arcade shows |
 |---------|-------------------|
 | Markdown | Rendered prose, tables, code blocks, diagrams, outline, and annotations. |
-| JSON | Formatted structured data for inspection. |
+| Code Tour JSON | Contract-gated 3D walkthroughs for valid PR walkthrough artifacts, with source diagnostics as fallback. |
+| Other JSON | Formatted structured data for inspection. |
 | Mermaid diagrams | Rendered diagrams. |
 | Diffs | Syntax-highlighted unified diff content. |
 | Code | Syntax-highlighted source with line-oriented reading. |

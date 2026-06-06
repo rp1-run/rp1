@@ -40,7 +40,7 @@ Active `/build` artifacts are producer-owned: the agent that writes the artifact
 | project-documenter | birds-eye-view.md | document | workRoot | birds-eye/{YYYY-MM-DD}-{PROJECT_SLUG}.md | templates/project-documenter/birds-eye-view.md |
 | security-validator | security-report.md | document | workRoot | security/{REPORT_ID}/report.md | templates/security-validator/security-report.md |
 | pr-review-reporter | pr-review-report.md | document | workRoot | pr-reviews/{REVIEW_ID}-review-{NNN}.md | templates/pr-review-reporter/pr-review-report.md |
-| pr-walkthrough-reporter | pr-walkthrough.md | document | workRoot | pr-walkthroughs/{REVIEW_ID}-walkthrough-{NNN}.md | templates/pr-walkthrough-reporter/pr-walkthrough.md |
+| pr-walkthrough-reporter | code-tour.json | data | workRoot | pr-walkthroughs/{REVIEW_ID}-walkthrough-{NNN}.json | templates/pr-walkthrough-reporter/code-tour.json |
 | pr-feedback-collector | pr-feedback-tasks.md | document | workRoot | pr-reviews/{IDENTIFIER}-feedback-{NNN}.md | templates/pr-feedback-collector/pr-feedback-tasks.md |
 | code-auditor | audit-report.md | document | workRoot | audits/{SCOPE}/report.md | templates/code-auditor/audit-report.md |
 | bug-investigator | investigation-report.md | document | workRoot | investigations/{BUG_ID}/report.md | templates/bug-investigator/investigation-report.md |

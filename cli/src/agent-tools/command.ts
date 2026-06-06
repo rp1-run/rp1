@@ -94,6 +94,8 @@ process.on("SIGINT", () => {
 });
 
 import "./build-task-plan/index.js";
+import "./code-tour-validate/index.js";
+import "./pr-cartography-validate/index.js";
 import "./mmd-validate/index.js";
 import "./resolve-args/index.js";
 import "./rp1-root-dir/index.js";
@@ -136,25 +138,31 @@ export const agentToolsCommand = new Command("agent-tools")
 		"after",
 		`
 Available Tools:
-  mmd-validate      Validate Mermaid diagram syntax
-  resolve-args      Resolve structured arguments from schema, settings, and user input
-  rp1-root-dir      Resolve project, KB, and work directories with worktree detection
+  code-tour-validate       Validate Code Tour JSON walkthrough documents
+  pr-cartography-validate  Validate PR cartography JSON documents
+  mmd-validate             Validate Mermaid diagram syntax
+  resolve-args             Resolve structured arguments from schema, settings, and user input
+  rp1-root-dir             Resolve project, KB, and work directories with worktree detection
   workflow-bootstrap Resolve canonical tracked-workflow bootstrap context and run selection
-  workflow-state    Read workflow state and next parent phase from the emit database
-  build-task-plan   Read schema-backed tasks.json and group build task units
-  change-manifest  Create cleanup manifests from repository change evidence
-  comment-extract   Extract comments from git-changed files
-  emit              Record events for the rp1 workflow event system
-  feedback          Read, resolve, reply to, and accept feedback from the Arcade
-  github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
-  socratic-duel     Coordinate Socratic Duel participant locks and leases
-  task              Manage task queue (create, list, pickup, complete, fail, cancel, get)
-  work-search       Search project-scoped rp1 work artifacts
+  workflow-state     Read workflow state and next parent phase from the emit database
+  build-task-plan    Read schema-backed tasks.json and group build task units
+  change-manifest    Create cleanup manifests from repository change evidence
+  comment-extract    Extract comments from git-changed files
+  emit               Record events for the rp1 workflow event system
+  feedback           Read, resolve, reply to, and accept feedback from the Arcade
+  github-pr          GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
+  socratic-duel      Coordinate Socratic Duel participant locks and leases
+  task               Manage task queue (create, list, pickup, complete, fail, cancel, get)
+  work-search        Search project-scoped rp1 work artifacts
 
 Examples:
   rp1 agent-tools mmd-validate ./document.md
   cat diagram.mmd | rp1 agent-tools mmd-validate
   echo "graph TD; A-->B" | rp1 agent-tools mmd-validate
+  rp1 agent-tools code-tour-validate ./walkthrough.json
+  cat walkthrough.json | rp1 agent-tools code-tour-validate
+  rp1 agent-tools pr-cartography-validate ./cartography.json
+  cat cartography.json | rp1 agent-tools pr-cartography-validate
   rp1 agent-tools rp1-root-dir
   rp1 agent-tools workflow-state --run-id <uuid> --workflow build --feature example --parent-phases requirements,planning,implementation,release
   rp1 agent-tools build-task-plan --tasks-path /path/to/features/example/tasks.md --max-simple-batch 3 --complex-isolated true
@@ -268,6 +276,152 @@ Examples:
 			process.exit(0);
 		},
 	);
+
+/**
+ * code-tour-validate subcommand.
+ * Validates Code Tour JSON walkthrough documents from a file or stdin.
+ */
+agentToolsCommand
+	.command("code-tour-validate [file]")
+	.description("Validate Code Tour JSON walkthrough documents")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Validates a Code Tour JSON document (pr-walkthrough output) against the
+  Code Tour schema, including concept, fragment, edge, and tour references.
+  Reuses the shared validator; it does not reimplement validation rules.
+
+Input:
+  - File path: rp1 agent-tools code-tour-validate ./walkthrough.json
+  - Stdin: cat walkthrough.json | rp1 agent-tools code-tour-validate
+
+Output:
+  JSON with the validated document on success, or validation errors whose
+  context field carries the offending JSON path.
+  Exit code 0 for validation results (even if the document is invalid).
+  Exit code 1 only for tool execution errors (file not found, etc.).
+
+Examples:
+  # Validate a Code Tour JSON file
+  rp1 agent-tools code-tour-validate ./pr-walkthrough.json
+
+  # Validate Code Tour JSON from stdin
+  cat pr-walkthrough.json | rp1 agent-tools code-tour-validate
+`,
+	)
+	.action(async (file: string | undefined): Promise<void> => {
+		const toolName = "code-tour-validate";
+
+		const inputResult = await readInput(file)();
+
+		if (E.isLeft(inputResult)) {
+			console.error(
+				createErrorResponse(toolName, formatError(inputResult.left, false)),
+			);
+			process.exit(1);
+		}
+
+		const { content, source } = inputResult.right;
+
+		const tool = getTool(toolName);
+		if (!tool) {
+			console.error(
+				createErrorResponse(toolName, "Tool not found in registry"),
+			);
+			process.exit(1);
+		}
+
+		const toolOptions: ToolOptions = {
+			inputSource: source,
+			filePath: file,
+		};
+
+		const result = await tool.execute(content, toolOptions)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
+
+/**
+ * pr-cartography-validate subcommand.
+ * Validates PR cartography JSON documents from a file or stdin.
+ */
+agentToolsCommand
+	.command("pr-cartography-validate [file]")
+	.description("Validate PR cartography JSON documents")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Validates a PR cartography JSON document against the shared cartography v1
+  contract, including evidence, file, fragment, cartography relationship, and
+  orientation-only risk-surface checks.
+
+Input:
+  - File path: rp1 agent-tools pr-cartography-validate ./cartography.json
+  - Stdin: cat cartography.json | rp1 agent-tools pr-cartography-validate
+
+Output:
+  JSON with the validated document on success, or validation errors whose
+  context field carries the offending JSON path.
+  Exit code 0 for validation results (even if the document is invalid).
+  Exit code 1 only for tool execution errors (file not found, etc.).
+
+Examples:
+  # Validate a PR cartography JSON file
+  rp1 agent-tools pr-cartography-validate ./cartography.json
+
+  # Validate PR cartography JSON from stdin
+  cat cartography.json | rp1 agent-tools pr-cartography-validate
+`,
+	)
+	.action(async (file: string | undefined): Promise<void> => {
+		const toolName = "pr-cartography-validate";
+
+		const inputResult = await readInput(file)();
+
+		if (E.isLeft(inputResult)) {
+			console.error(
+				createErrorResponse(toolName, formatError(inputResult.left, false)),
+			);
+			process.exit(1);
+		}
+
+		const { content, source } = inputResult.right;
+
+		const tool = getTool(toolName);
+		if (!tool) {
+			console.error(
+				createErrorResponse(toolName, "Tool not found in registry"),
+			);
+			process.exit(1);
+		}
+
+		const toolOptions: ToolOptions = {
+			inputSource: source,
+			filePath: file,
+		};
+
+		const result = await tool.execute(content, toolOptions)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
 
 /**
  * rp1-root-dir subcommand.

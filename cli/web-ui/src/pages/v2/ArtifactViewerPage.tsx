@@ -1,13 +1,14 @@
 import {
 	AlertCircle,
 	ArrowLeft,
+	Box,
 	ChevronRight,
 	FileText,
 	List,
 	Loader2,
+	type LucideIcon,
 	MessageSquare,
 	PanelLeft,
-	Presentation,
 } from "lucide-react";
 import {
 	useCallback,
@@ -34,14 +35,17 @@ import {
 } from "@/components/ui/tooltip";
 import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
 import { ArtifactSidebar } from "@/components/v2/ArtifactSidebar";
-import type { ArtifactContentMode } from "@/components/v2/ContentPanel";
+import { CodeTour3DReader } from "@/components/v2/CodeTour3DReader";
+import {
+	type ArtifactContentMode,
+	CodeTourFallbackNotice,
+} from "@/components/v2/ContentPanel";
 import { FollowModeToggle } from "@/components/v2/FollowModeToggle";
 import { KeyHints, VIEWER_HINTS } from "@/components/v2/KeyHints";
 import { LinkSidebar } from "@/components/v2/LinkSidebar";
 import { NewUpdatesChip } from "@/components/v2/NewUpdatesChip";
 import { TableOfContents } from "@/components/v2/TableOfContents";
 import { UnifiedContentRenderer } from "@/components/v2/UnifiedContentRenderer";
-import { WalkthroughRevealReader } from "@/components/v2/WalkthroughRevealReader";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
@@ -51,6 +55,7 @@ import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
+import { parseCodeTourSource } from "@/lib/code-tour-source";
 import {
 	getLinkArtifactLabel,
 	getLinkArtifactTarget,
@@ -60,7 +65,6 @@ import {
 	orderArtifactsWithLinksLast,
 } from "@/lib/link-artifacts";
 import { resolveRunDisplayName } from "@/lib/run-display";
-import { parseWalkthroughSlideSource } from "@/lib/walkthrough-slide-source";
 
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
@@ -76,18 +80,21 @@ interface ArtifactContent {
 	docId?: string;
 }
 
+interface ArtifactContentModeOption {
+	readonly value: ArtifactContentMode;
+	readonly label: string;
+	readonly icon: LucideIcon;
+}
+
 function ArtifactContentModeControl({
 	mode,
+	modes,
 	onModeChange,
 }: {
 	readonly mode: ArtifactContentMode;
+	readonly modes: readonly ArtifactContentModeOption[];
 	readonly onModeChange: (mode: ArtifactContentMode) => void;
 }) {
-	const modes = [
-		{ value: "slides", label: "Slides", icon: Presentation },
-		{ value: "markdown", label: "Markdown", icon: FileText },
-	] as const;
-
 	return (
 		<fieldset className="inline-flex h-8 shrink-0 items-center rounded border border-border bg-background p-0.5">
 			<legend className="sr-only">Artifact viewing mode</legend>
@@ -128,43 +135,6 @@ function isSameArtifactContent(
 		left.path === right.path &&
 		left.content === right.content &&
 		left.docId === right.docId
-	);
-}
-
-function getWalkthroughFallbackMessage(
-	result: ReturnType<typeof parseWalkthroughSlideSource> | null,
-): string | null {
-	if (result?.kind !== "fallback") return null;
-
-	switch (result.reason) {
-		case "unsupported-contract-version":
-		case "invalid-slide-marker":
-		case "missing-horizontal-slide":
-		case "vertical-without-horizontal":
-		case "missing-slide-metadata":
-		case "invalid-slide-metadata":
-		case "invalid-slide-depth":
-			return `${result.message} Showing the markdown artifact instead.`;
-		default:
-			return null;
-	}
-}
-
-function WalkthroughFallbackNotice({
-	message,
-}: {
-	readonly message: string | null;
-}) {
-	if (!message) return null;
-
-	return (
-		<div className="mb-4 flex gap-2 rounded border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
-			<AlertCircle
-				className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-70"
-				aria-hidden="true"
-			/>
-			<p>{message}</p>
-		</div>
 	);
 }
 
@@ -298,7 +268,7 @@ export function ArtifactViewerPage() {
 	const [artifactContent, setArtifactContent] =
 		useState<ArtifactContent | null>(null);
 	const [artifactContentMode, setArtifactContentMode] =
-		useState<ArtifactContentMode>("slides");
+		useState<ArtifactContentMode>("tour");
 	const [readerFallbackMessage, setReaderFallbackMessage] = useState<
 		string | null
 	>(null);
@@ -387,24 +357,29 @@ export function ArtifactViewerPage() {
 		if (!run) return null;
 		return selectedArtifactName ?? run.projectName;
 	}, [run, selectedArtifactName]);
-	const walkthroughResult = useMemo(() => {
+	const codeTourResult = useMemo(() => {
 		if (!artifactContent || !selectedFileArtifact) return null;
-		return parseWalkthroughSlideSource({
+		return parseCodeTourSource({
 			artifact: selectedFileArtifact,
-			markdown: artifactContent.content,
+			content: artifactContent.content,
 		});
 	}, [artifactContent, selectedFileArtifact]);
-	const walkthroughDeck =
-		walkthroughResult?.kind === "deck" ? walkthroughResult.deck : null;
-	const slideModeAvailable = walkthroughDeck !== null;
-	const parserFallbackMessage =
-		getWalkthroughFallbackMessage(walkthroughResult);
-	const walkthroughFallbackMessage =
-		readerFallbackMessage ?? parserFallbackMessage;
+	const codeTour = codeTourResult?.kind === "tour" ? codeTourResult.tour : null;
+	const codeTourModeAvailable = codeTour !== null;
+	const codeTourFallbackMessage = codeTourResult ? readerFallbackMessage : null;
 	const effectiveArtifactContentMode: ArtifactContentMode =
-		slideModeAvailable && artifactContentMode === "slides"
-			? "slides"
+		codeTourModeAvailable && artifactContentMode !== "markdown"
+			? "tour"
 			: "markdown";
+	const isRenderingCodeTour =
+		effectiveArtifactContentMode === "tour" && codeTour !== null;
+	const contentModeOptions: readonly ArtifactContentModeOption[] =
+		codeTourModeAvailable
+			? [
+					{ value: "tour", label: "3D", icon: Box },
+					{ value: "markdown", label: "Source", icon: FileText },
+				]
+			: [];
 
 	useEffect(() => {
 		if (run?.projectName && run?.projectId) {
@@ -455,7 +430,7 @@ export function ArtifactViewerPage() {
 	}, [selectedUrlArtifact]);
 
 	useEffect(() => {
-		if (effectiveArtifactContentMode === "slides") {
+		if (effectiveArtifactContentMode === "tour") {
 			setTocCollapsed(true);
 			setTocDrawerOpen(false);
 			setHeadings([]);
@@ -546,7 +521,7 @@ export function ArtifactViewerPage() {
 		[],
 	);
 
-	const handleWalkthroughRenderFailure = useCallback((message: string) => {
+	const handleCodeTourRenderFailure = useCallback((message: string) => {
 		setReaderFallbackMessage(message);
 		setArtifactContentMode("markdown");
 	}, []);
@@ -650,7 +625,7 @@ export function ArtifactViewerPage() {
 				setContentLoading(true);
 				setHeadings([]);
 				setActiveHeadingId(null);
-				setArtifactContentMode("slides");
+				setArtifactContentMode("tour");
 				setReaderFallbackMessage(null);
 			}
 			setContentError(null);
@@ -806,14 +781,14 @@ export function ArtifactViewerPage() {
 	const handleKeyDown = useCallback(
 		(event: KeyboardEvent) => {
 			const target = event.target as HTMLElement;
-			if (target.closest(".rp1-walkthrough-reader")) return;
+			if (target.closest(".rp1-code-tour")) return;
 			const isTextInput =
 				target.tagName === "INPUT" ||
 				target.tagName === "TEXTAREA" ||
 				target.isContentEditable;
 
 			if (
-				effectiveArtifactContentMode === "slides" &&
+				effectiveArtifactContentMode === "tour" &&
 				event.key.startsWith("Arrow")
 			) {
 				return;
@@ -1015,18 +990,21 @@ export function ArtifactViewerPage() {
 					<p className="text-lg">Select an artifact from the sidebar</p>
 				</div>
 			) : artifactContent ? (
-				effectiveArtifactContentMode === "slides" && walkthroughDeck ? (
-					<WalkthroughRevealReader
-						deck={walkthroughDeck}
+				effectiveArtifactContentMode === "tour" && codeTour ? (
+					<CodeTour3DReader
+						tour={codeTour}
 						path={artifactContent.path}
-						onMarkdownModeRequested={() =>
+						onSourceModeRequested={() =>
 							handleArtifactContentModeChange("markdown")
 						}
-						onRenderFailure={handleWalkthroughRenderFailure}
+						onRenderFailure={handleCodeTourRenderFailure}
 					/>
 				) : (
 					<>
-						<WalkthroughFallbackNotice message={walkthroughFallbackMessage} />
+						<CodeTourFallbackNotice
+							source={codeTourResult}
+							renderFailureMessage={codeTourFallbackMessage}
+						/>
 						<UnifiedContentRenderer
 							content={artifactContent.content}
 							path={artifactContent.path}
@@ -1116,9 +1094,10 @@ export function ArtifactViewerPage() {
 						</TooltipProvider>
 
 						<div className="flex items-center gap-2">
-							{slideModeAvailable && (
+							{contentModeOptions.length > 0 && (
 								<ArtifactContentModeControl
 									mode={effectiveArtifactContentMode}
+									modes={contentModeOptions}
 									onModeChange={handleArtifactContentModeChange}
 								/>
 							)}
@@ -1162,9 +1141,12 @@ export function ArtifactViewerPage() {
 						</div>
 					</div>
 
-					<ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
+					<ScrollArea
+						className="flex-1 min-h-0"
+						viewportRef={scrollViewportRef}
+					>
 						<article
-							className="p-4"
+							className={isRenderingCodeTour ? "h-full p-0" : "p-4"}
 							onScroll={handleScroll as unknown as React.UIEventHandler}
 							aria-label={
 								selectedArtifactName
@@ -1340,9 +1322,10 @@ export function ArtifactViewerPage() {
 							role="toolbar"
 							aria-label="Artifact viewer controls"
 						>
-							{slideModeAvailable && (
+							{contentModeOptions.length > 0 && (
 								<ArtifactContentModeControl
 									mode={effectiveArtifactContentMode}
+									modes={contentModeOptions}
 									onModeChange={handleArtifactContentModeChange}
 								/>
 							)}
@@ -1395,7 +1378,11 @@ export function ArtifactViewerPage() {
 							viewportRef={scrollViewportRef}
 						>
 							<article
-								className="p-6 min-w-0 max-w-full"
+								className={
+									isRenderingCodeTour
+										? "h-full min-w-0 max-w-full p-0"
+										: "p-6 min-w-0 max-w-full"
+								}
 								onScroll={handleScroll as unknown as React.UIEventHandler}
 								aria-label={
 									selectedArtifactName

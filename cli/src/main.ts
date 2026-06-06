@@ -256,11 +256,13 @@ program.addCommand(
 			"after",
 			`
 Available Tools:
-  mmd-validate    Validate Mermaid diagram syntax
+  mmd-validate        Validate Mermaid diagram syntax
+  code-tour-validate  Validate Code Tour JSON walkthrough documents
 
 Examples:
   rp1 agent-tools mmd-validate ./document.md
   cat diagram.mmd | rp1 agent-tools mmd-validate
+  rp1 agent-tools code-tour-validate ./walkthrough.json
 
 Run 'rp1 agent-tools --help' for more information.
 `,

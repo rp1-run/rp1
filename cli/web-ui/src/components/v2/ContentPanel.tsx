@@ -1,13 +1,16 @@
 import { AlertCircle, Loader2 } from "lucide-react";
+import { CodeTour3DReader } from "@/components/v2/CodeTour3DReader";
 import {
 	type SaveStatus,
 	UnifiedContentRenderer,
 } from "@/components/v2/UnifiedContentRenderer";
-import { WalkthroughRevealReader } from "@/components/v2/WalkthroughRevealReader";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
-import type { WalkthroughDeck } from "@/lib/walkthrough-slide-source";
+import {
+	type CodeTourSourceResult,
+	parseCodeTourSource,
+} from "@/lib/code-tour-source";
 
-export type ArtifactContentMode = "slides" | "markdown";
+export type ArtifactContentMode = "tour" | "markdown";
 
 export interface ContentPanelProps {
 	readonly content: string | null;
@@ -26,10 +29,10 @@ export interface ContentPanelProps {
 	readonly filePath?: string;
 	readonly enableAnnotations?: boolean;
 	readonly contentMode?: ArtifactContentMode;
-	readonly walkthroughDeck?: WalkthroughDeck | null;
-	readonly walkthroughFallbackMessage?: string | null;
+	readonly codeTourSource?: CodeTourSourceResult | null;
+	readonly codeTourFallbackMessage?: string | null;
 	readonly onContentModeChange?: (mode: ArtifactContentMode) => void;
-	readonly onWalkthroughRenderFailure?: (message: string) => void;
+	readonly onCodeTourRenderFailure?: (message: string) => void;
 	readonly scrollViewportRef?: React.RefObject<HTMLDivElement>;
 }
 
@@ -48,24 +51,32 @@ export function ContentPanel({
 	projectId,
 	filePath,
 	enableAnnotations = true,
-	contentMode = "markdown",
-	walkthroughDeck = null,
-	walkthroughFallbackMessage = null,
+	contentMode,
+	codeTourSource,
+	codeTourFallbackMessage = null,
 	onContentModeChange,
-	onWalkthroughRenderFailure,
+	onCodeTourRenderFailure,
 	onSaveStatusChange,
 }: ContentPanelProps) {
-	const slideDeck = contentMode === "slides" && path ? walkthroughDeck : null;
+	const codeTourResult =
+		codeTourSource ??
+		(content !== null && path ? parseCodeTourSource({ path, content }) : null);
+	const effectiveContentMode =
+		contentMode ?? (codeTourResult?.kind === "tour" ? "tour" : "markdown");
+	const codeTour =
+		effectiveContentMode === "tour" && codeTourResult?.kind === "tour"
+			? codeTourResult.tour
+			: null;
 
 	return (
 		<div
 			className={
-				slideDeck
-					? "h-full min-h-[680px] max-w-full min-w-0 p-4"
+				codeTour
+					? "h-full min-h-[680px] max-w-full min-w-0 p-0"
 					: "artifact-viewer-content max-w-full min-w-0 break-words px-4 md:px-[40px]"
 			}
 			style={
-				slideDeck
+				codeTour
 					? undefined
 					: {
 							paddingTop: "16px",
@@ -88,16 +99,23 @@ export function ContentPanel({
 					<p className="mt-2 type-secondary text-fg-ghost">{error}</p>
 				</div>
 			) : content !== null && path ? (
-				slideDeck ? (
-					<WalkthroughRevealReader
-						deck={slideDeck}
+				codeTour ? (
+					<CodeTour3DReader
+						tour={codeTour}
 						path={path}
-						onMarkdownModeRequested={() => onContentModeChange?.("markdown")}
-						onRenderFailure={onWalkthroughRenderFailure}
+						onSourceModeRequested={
+							onContentModeChange
+								? () => onContentModeChange("markdown")
+								: undefined
+						}
+						onRenderFailure={onCodeTourRenderFailure}
 					/>
 				) : (
 					<>
-						<WalkthroughFallbackNotice message={walkthroughFallbackMessage} />
+						<CodeTourFallbackNotice
+							source={codeTourResult}
+							renderFailureMessage={codeTourFallbackMessage}
+						/>
 						<UnifiedContentRenderer
 							content={content}
 							path={path}
@@ -123,11 +141,15 @@ export function ContentPanel({
 	);
 }
 
-export function WalkthroughFallbackNotice({
-	message,
+export function CodeTourFallbackNotice({
+	source,
+	renderFailureMessage,
 }: {
-	readonly message: string | null;
+	readonly source: CodeTourSourceResult | null;
+	readonly renderFailureMessage?: string | null;
 }) {
+	const diagnostic = source?.kind === "diagnostic" ? source : null;
+	const message = renderFailureMessage ?? diagnostic?.message ?? null;
 	if (!message) return null;
 
 	return (
@@ -136,7 +158,14 @@ export function WalkthroughFallbackNotice({
 				className="mt-0.5 h-3.5 w-3.5 shrink-0 text-fg-ghost"
 				aria-hidden="true"
 			/>
-			<p>{message}</p>
+			<div className="min-w-0">
+				<p>{message}</p>
+				{diagnostic?.detail && (
+					<pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border bg-background px-2 py-1 font-mono text-[11px] leading-relaxed text-fg-ghost">
+						{diagnostic.detail}
+					</pre>
+				)}
+			</div>
 		</div>
 	);
 }

@@ -1,0 +1,8 @@
+{
+  "name": "3d-pr-tour",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run server.js"
+  }
+}

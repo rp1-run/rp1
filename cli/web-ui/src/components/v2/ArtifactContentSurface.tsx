@@ -2,21 +2,16 @@ import {
 	type ReactNode,
 	useCallback,
 	useEffect,
-	useMemo,
 	useRef,
 	useState,
 } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
-import {
-	type ArtifactContentMode,
-	ContentPanel,
-} from "@/components/v2/ContentPanel";
+import { ContentPanel } from "@/components/v2/ContentPanel";
 import { TableOfContents } from "@/components/v2/TableOfContents";
 import type { SaveStatus } from "@/components/v2/UnifiedContentRenderer";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { cn } from "@/lib/utils";
-import { parseWalkthroughSlideSource } from "@/lib/walkthrough-slide-source";
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Artifact } from "@/types/runs";
@@ -31,9 +26,6 @@ export interface ArtifactContentSurfaceControls {
 	readonly showAnnotationToggle: boolean;
 	readonly toggleAnnotations: () => void;
 	readonly closeSecondaryPanels: () => void;
-	readonly slideModeAvailable?: boolean;
-	readonly contentMode?: ArtifactContentMode;
-	readonly setContentMode?: (mode: ArtifactContentMode) => void;
 }
 
 export interface ArtifactContentSurfaceProps {
@@ -78,31 +70,10 @@ function ArtifactContentSurfaceInner({
 	const [annotationSidebarOpen, setAnnotationSidebarOpen] = useState(false);
 	const [tocOpen, setTocOpen] = useState(false);
 	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-	const [contentMode, setContentMode] = useState<ArtifactContentMode>("slides");
-	const [readerFallbackMessage, setReaderFallbackMessage] = useState<
-		string | null
-	>(null);
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const activeArtifactCacheKeyRef = useRef<string | null>(artifactCacheKey);
 	const { onFileChange } = useWebSocket();
 	activeArtifactCacheKeyRef.current = artifactCacheKey;
-
-	const walkthroughResult = useMemo(() => {
-		if (content === null || !selectedArtifact) return null;
-		return parseWalkthroughSlideSource({
-			artifact: selectedArtifact,
-			markdown: content,
-		});
-	}, [content, selectedArtifact]);
-	const walkthroughDeck =
-		walkthroughResult?.kind === "deck" ? walkthroughResult.deck : null;
-	const slideModeAvailable = walkthroughDeck !== null;
-	const parserFallbackMessage =
-		getWalkthroughFallbackMessage(walkthroughResult);
-	const walkthroughFallbackMessage =
-		readerFallbackMessage ?? parserFallbackMessage;
-	const effectiveContentMode: ArtifactContentMode =
-		slideModeAvailable && contentMode === "slides" ? "slides" : "markdown";
 
 	const fetchContent = useCallback(
 		async (preserveScroll: boolean) => {
@@ -145,7 +116,6 @@ function ArtifactContentSurfaceInner({
 				const data = (await response.json()) as { content: string };
 				if (!isActiveArtifactRequest()) return;
 				artifactContentCache.set(requestCacheKey, data.content);
-				setReaderFallbackMessage(null);
 				setContent((current) =>
 					current === data.content ? current : data.content,
 				);
@@ -183,16 +153,8 @@ function ArtifactContentSurfaceInner({
 		setContent(cachedContent);
 		setContentLoading(cachedContent === null);
 		setContentError(null);
-		setContentMode("slides");
-		setReaderFallbackMessage(null);
 		void fetchContent(false);
 	}, [artifactCacheKey, fetchContent]);
-
-	useEffect(() => {
-		if (effectiveContentMode === "slides") {
-			setTocOpen(false);
-		}
-	}, [effectiveContentMode]);
 
 	useEffect(() => {
 		if (!artifactPath || !runId) return;
@@ -249,28 +211,14 @@ function ArtifactContentSurfaceInner({
 		});
 	}, [onSecondaryPanelOpen]);
 
-	const handleContentModeChange = useCallback((mode: ArtifactContentMode) => {
-		setReaderFallbackMessage(null);
-		setContentMode(mode);
-	}, []);
-
-	const handleWalkthroughRenderFailure = useCallback((message: string) => {
-		setReaderFallbackMessage(message);
-		setContentMode("markdown");
-	}, []);
-
 	const controls: ArtifactContentSurfaceControls = {
 		selectedArtifact,
 		saveStatus,
-		showTableOfContentsToggle:
-			effectiveContentMode === "markdown" && headings.length > 0 && !tocOpen,
+		showTableOfContentsToggle: headings.length > 0 && !tocOpen,
 		toggleTableOfContents: handleToggleToc,
 		showAnnotationToggle: selectedArtifact !== null,
 		toggleAnnotations: handleToggleAnnotations,
 		closeSecondaryPanels,
-		slideModeAvailable,
-		contentMode: effectiveContentMode,
-		setContentMode: handleContentModeChange,
 	};
 
 	return (
@@ -295,27 +243,20 @@ function ArtifactContentSurfaceInner({
 						runId={runId}
 						docId={selectedArtifact?.docId}
 						showFrontmatter={showFrontmatter}
-						contentMode={effectiveContentMode}
-						walkthroughDeck={walkthroughDeck}
-						walkthroughFallbackMessage={walkthroughFallbackMessage}
-						onContentModeChange={handleContentModeChange}
-						onWalkthroughRenderFailure={handleWalkthroughRenderFailure}
 						scrollViewportRef={scrollViewportRef}
 					/>
 				</ScrollArea>
 
-				{effectiveContentMode === "markdown" &&
-					tocOpen &&
-					headings.length > 0 && (
-						<div className="w-[200px] shrink-0 border-l border-border overflow-y-auto">
-							<TableOfContents
-								headings={headings}
-								activeId={null}
-								onNavigate={handleTocNavigate}
-								onClose={handleToggleToc}
-							/>
-						</div>
-					)}
+				{tocOpen && headings.length > 0 && (
+					<div className="w-[200px] shrink-0 border-l border-border overflow-y-auto">
+						<TableOfContents
+							headings={headings}
+							activeId={null}
+							onNavigate={handleTocNavigate}
+							onClose={handleToggleToc}
+						/>
+					</div>
+				)}
 
 				{annotationSidebarOpen && selectedArtifact && (
 					<div className="w-[280px] shrink-0 border-l border-border overflow-y-auto">
@@ -333,25 +274,6 @@ function ArtifactContentSurfaceInner({
 			{footer}
 		</div>
 	);
-}
-
-function getWalkthroughFallbackMessage(
-	result: ReturnType<typeof parseWalkthroughSlideSource> | null,
-): string | null {
-	if (result?.kind !== "fallback") return null;
-
-	switch (result.reason) {
-		case "unsupported-contract-version":
-		case "invalid-slide-marker":
-		case "missing-horizontal-slide":
-		case "vertical-without-horizontal":
-		case "missing-slide-metadata":
-		case "invalid-slide-metadata":
-		case "invalid-slide-depth":
-			return `${result.message} Showing the markdown artifact instead.`;
-		default:
-			return null;
-	}
 }
 
 export function ArtifactContentSurface(props: ArtifactContentSurfaceProps) {

@@ -1,7 +1,7 @@
 # pr-walkthrough
 
-Generate a markdown walkthrough that helps reviewers understand what changed in
-a pull request before they read the full diff.
+Generate a Code Tour walkthrough that helps reviewers understand what changed
+in a pull request before they read the full diff.
 
 `pr-walkthrough` is an orientation tool. It does not approve, reject, or comment
 on a pull request. Use [`pr-review`](pr-review.md) when you need a verdict and
@@ -62,13 +62,13 @@ fails during evidence collection instead of producing an unrelated artifact.
 stateDiagram-v2
     [*] --> collecting
     collecting --> publishing : evidence ready
-    publishing --> [*] : walkthrough written
+    publishing --> [*] : Code Tour written
 ```
 
 | Step | What Happens |
 |------|--------------|
 | `collecting` | Resolves the target and gathers PR metadata, changed files, diff excerpts, and commits. |
-| `publishing` | Writes the walkthrough and registers it with the run so it can be opened from Arcade. |
+| `publishing` | Writes the validated Code Tour JSON artifact and registers it with the run so it can be opened from Arcade. |
 
 ## Reading The Walkthrough
 
@@ -76,11 +76,11 @@ The walkthrough is designed to answer:
 
 | Question | Where to look |
 |----------|---------------|
-| What is the PR trying to accomplish? | At-a-glance summary |
-| Which files or areas changed? | Change map |
-| What should reviewers inspect first? | Reviewer focus areas |
-| What risks or open questions remain? | Risks and questions |
-| Which source evidence supports the claims? | Evidence index |
+| What is the PR trying to accomplish? | Tour title, source context, and first tour step |
+| Which areas changed? | Domains and concept map |
+| What should reviewers inspect first? | Ordered tour steps and epicenter concepts |
+| Which files or fragments support each concept? | Source fragments attached to the focused concept |
+| How are concepts related? | Relationship labels in the 3D reader |
 
 Use the walkthrough before or alongside human review. It is especially useful
 when a PR spans multiple folders, introduces a new flow, or needs a short
@@ -88,22 +88,21 @@ written explanation for reviewers who were not involved in the implementation.
 
 ## Output
 
-The workflow writes a markdown artifact under `.rp1/work/pr-walkthroughs/` and
-registers it with the run. Open it from command output, the file path, or
-[Arcade](../../arcade/index.md).
+The workflow writes a validated Code Tour JSON artifact under
+`.rp1/work/pr-walkthroughs/` and registers it with the run. Open it from command
+output, the file path, or [Arcade](../../arcade/index.md).
 
 Expected contents:
 
-- PR purpose and size at a glance
-- Evidence index with source references
-- Reviewable change map
-- Narrative walkthrough of major changes
-- Reviewer focus areas
-- Risks and questions grounded in evidence
+- Title and source context
+- Domain taxonomy for the changed areas
+- Reviewable concepts grounded in source fragments
+- Source fragments with file, line, language, and code context
+- Concise concept and fragment relationships where useful
+- Ordered tour steps for guided review when applicable
 
-Arcade may offer a slide-style reading mode for supported walkthroughs. Markdown
-viewing is always available, and it is the best fallback when you want to copy,
-quote, annotate, or search the walkthrough text.
+Arcade opens valid Code Tour artifacts in the 3D walkthrough reader and keeps
+source viewing available for inspection or diagnostics.
 
 ## Examples
 
@@ -153,7 +152,7 @@ Example final output:
 PR Walkthrough Complete
 
 Target: PR #123
-Artifact: pr-walkthroughs/pr-123-walkthrough-001.md
+Artifact: pr-walkthroughs/pr-123-walkthrough-001.json
 Evidence: 8 files, 3 commits
 ```
 

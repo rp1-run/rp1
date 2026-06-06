@@ -49,7 +49,7 @@
 | `/pr-review` | dev | Intent-aware map-reduce PR review with CI/CD support, confidence gating, and intelligent comment deduplication. | `TARGET`, `BASE_BRANCH`, `SKIP_VISUAL` | Yes | fresh |  |
 | `/pr-stack` | dev | Plan and execute splitting a large PR or branch into a reviewable stacked PR sequence. | `SOURCE`, `BASE_BRANCH`, `MAX_LINE_CHANGE`, `CHECK_COMMAND`, `GENERATED_EXCLUSIONS`, `PUSH_REMOTE`, `STACK_PREFIX`, `PLAN_ONLY` | Yes | fresh |  |
 | `/pr-visual` | dev | Transform pull request diffs into Mermaid diagrams for visual code review and change understanding. | `PR_BRANCH`, `BASE_BRANCH`, `REVIEW_DEPTH`, `FOCUS_AREAS` | Yes | fresh |  |
-| `/pr-walkthrough` | dev | Generate an evidence-grounded markdown walkthrough for a pull request. | `TARGET`, `BASE_BRANCH` | Yes | fresh |  |
+| `/pr-walkthrough` | dev | Generate an evidence-grounded Code Tour walkthrough for a pull request. | `TARGET`, `BASE_BRANCH` | Yes | fresh |  |
 
 ## Documentation
 

@@ -1,7 +1,7 @@
 ---
 name: pr-walkthrough
-description: "Generate an evidence-grounded markdown walkthrough for a pull request."
-allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git *), Bash(gh *)
+description: "Generate an evidence-grounded Code Tour walkthrough for a pull request."
+allowed-tools: Bash(echo *), Bash(printf *), Bash(rp1 *), Bash(git *), Bash(gh *), Read
 metadata:
   category: review
   is_workflow: true
@@ -13,9 +13,10 @@ metadata:
     - pr
     - review
     - walkthrough
-    - markdown
+    - code-tour
+    - json
   created: 2026-04-26
-  updated: 2026-04-26
+  updated: 2026-06-05
   author: cloud-on-prem/rp1
   arguments:
     - name: TARGET
@@ -28,12 +29,13 @@ metadata:
       default: "main"
       description: "Diff base branch used when no remote PR is available"
   sub_agents:
+    - "rp1-dev:pr-cartographer"
     - "rp1-dev:pr-walkthrough-reporter"
 ---
 
 # PR Walkthrough
 
-Generate a slide-ready markdown walkthrough from direct pull request evidence. The output is a reviewer-orientation artifact with plain markdown fallback, not a review verdict or rendered slide reader.
+Generate a Code Tour JSON walkthrough from direct pull request evidence by first deriving validated PR cartography. The output is a reviewer-orientation artifact for the 3D Code Tour reader, not a review verdict.
 
 Use the pre-resolved `projectRoot`, `kbRoot`, `workRoot`, and `codeRoot` values from the generated Workflow Bootstrap section. Run all source-control commands from `codeRoot`, and write generated artifacts only under `workRoot`.
 
@@ -161,10 +163,31 @@ Derive `review_id` as `pr-{number}` for PR targets. For branch-only targets, san
 
 ## 2. Generate Walkthrough
 
-After evidence collection succeeds, emit `publishing` running and dispatch the reporter:
+After evidence collection succeeds, emit `publishing` running and dispatch the cartographer:
+
+{% dispatch_agent "rp1-dev:pr-cartographer" %}
+Convert direct PR evidence into orientation-only PR cartography JSON.
+  EVIDENCE_JSON: {{stringify(EVIDENCE_JSON)}}
+  Return raw PR cartography JSON only.
+{% enddispatch_agent %}
+
+Wait for completion. Parse the cartographer output as exactly one JSON object and store it as `PR_CARTOGRAPHY_JSON`. This is the validated PR graph JSON handoff for the reporter; do not write it as a workflow artifact.
+
+If the cartographer fails, returns non-JSON, returns multiple objects, or includes markdown/prose around the JSON, emit `publishing` with `{"status":"failed","reason":"cartographer failed"}` and stop without dispatching the reporter or registering an artifact.
+
+Validate `PR_CARTOGRAPHY_JSON` before reporter dispatch with the canonical shared validator -- the single source of truth for the PR cartography v1 contract in `cli/shared/pr-cartography.ts`:
+
+```bash
+printf '%s' '{{PR_CARTOGRAPHY_JSON}}' | rp1 agent-tools pr-cartography-validate
+```
+
+Read the `ToolResult` JSON envelope. If `success` is `false`, the first `errors[].message` is `{FIRST_CARTOGRAPHY_VALIDATION_ISSUE}`: emit `publishing` with `{"status":"failed","reason":"invalid PR cartography: {FIRST_CARTOGRAPHY_VALIDATION_ISSUE}"}` and stop without dispatching the reporter or registering an artifact. Proceed to reporter dispatch only when `success` is `true`.
+
+Dispatch the reporter exactly once. Pass validated `PR_GRAPH_JSON` as the source input by forwarding `PR_CARTOGRAPHY_JSON`. Pass `EVIDENCE_JSON` only as the direct evidence packet that backs the graph and must not be replaced by `.rp1/work/pr-reviews/` or any existing generated review artifact:
 
 {% dispatch_agent "rp1-dev:pr-walkthrough-reporter" %}
-Generate an evidence-grounded slide-ready markdown PR walkthrough with plain markdown fallback.
+Generate one evidence-grounded Code Tour JSON PR walkthrough from validated PR cartography.
+  PR_GRAPH_JSON: {{stringify(PR_CARTOGRAPHY_JSON)}}
   EVIDENCE_JSON: {{stringify(EVIDENCE_JSON)}}
   KB_ROOT: {kbRoot}
   WORK_ROOT: {workRoot}
@@ -176,23 +199,32 @@ Generate an evidence-grounded slide-ready markdown PR walkthrough with plain mar
 Wait for completion. Parse the reporter output as single-line JSON:
 
 ```json
-{"path":"pr-walkthroughs/{REVIEW_ID}-walkthrough-{NNN}.md"}
+{"path":"pr-walkthroughs/{REVIEW_ID}-walkthrough-{NNN}.json"}
 ```
 
-If the reporter fails or the output cannot be parsed, emit `publishing` with `{"status":"failed","reason":"reporter failed"}` and stop.
+If the reporter fails or the output cannot be parsed, emit `publishing` with `{"status":"failed","reason":"reporter failed"}` and stop without registering an artifact.
 
-Validate the returned path before registration:
+Validate the returned path and content before registration:
 
 - It must be relative.
 - It must start with `pr-walkthroughs/`.
-- It must end with `.md`.
+- It must end with `.json`.
 - It must not contain `..`.
+- `{workRoot}/{ARTIFACT_RELATIVE_PATH}` must exist and be readable. If missing or unreadable, emit `publishing` with `{"status":"failed","reason":"missing Code Tour artifact: {ARTIFACT_RELATIVE_PATH}"}` and stop.
 
-Do not reject an otherwise valid reporter artifact because it contains the canonical slide-ready markdown contract fields, reserved `<!-- rp1-slide: ... -->` markers, slide metadata blocks, or `<!-- rp1-notes -->` speaker-note sections.
+After the path checks pass, validate Code Tour content with the canonical validator — the single source of truth for the Code Tour v1 contract in `cli/shared/code-tour.ts` (JSON parse plus version, unique IDs, domain/fragment/edge/tour reference resolution, and token kinds):
+
+```bash
+rp1 agent-tools code-tour-validate {workRoot}/{ARTIFACT_RELATIVE_PATH}
+```
+
+Read the `ToolResult` JSON envelope. If `success` is `false`, the first `errors[].message` is `{FIRST_VALIDATION_ISSUE}`: emit `publishing` with `{"status":"failed","reason":"invalid Code Tour artifact: {FIRST_VALIDATION_ISSUE}"}` and stop without registering an artifact. Proceed to registration only when `success` is `true`.
+
+Do not accept a markdown artifact path, secondary artifact path, invalid Code Tour JSON, missing output, slide-oriented output, or any cartography artifact path for new walkthrough runs.
 
 ## 3. Register Artifact
 
-Register the reporter output during `publishing`:
+Register the reporter output during `publishing` only after path, file-existence, JSON parse, and Code Tour semantic validation pass:
 
 ```bash
 rp1 agent-tools emit \
@@ -200,7 +232,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step publishing \
-  --data '{"path": "{ARTIFACT_RELATIVE_PATH}", "feature": "{review_id}", "storageRoot": "work_dir", "format": "markdown"}'
+  --data '{"path": "{ARTIFACT_RELATIVE_PATH}", "feature": "{review_id}", "storageRoot": "work_dir", "format": "json"}'
 ```
 
 Then emit `publishing` completed:
@@ -232,7 +264,8 @@ Single pass. Do not:
 
 - Ask for clarification or wait for feedback.
 - Read existing `pr-review` artifacts.
+- Dispatch the cartographer more than once.
 - Dispatch the reporter more than once.
 - Register more than one artifact.
-- Strip or forbid the canonical slide-ready markdown contract metadata, reserved slide markers, slide metadata blocks, or speaker notes.
-- Produce a rendered slide reader, alternate artifact path, extra artifact, or review verdict.
+- Register PR cartography as a workflow artifact.
+- Accept markdown output, slide-marker output, an alternate artifact path, an extra artifact, or a review verdict.

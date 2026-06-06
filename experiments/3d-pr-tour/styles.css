@@ -1,0 +1,551 @@
+:root {
+  --bg: #07090f;
+  --bg-2: #0e1320;
+  --line: #1c2238;
+  --fg: #e7ecf7;
+  --muted: #8c95ad;
+  --accent: #7ad0ff;
+  --accent-2: #ff8bd4;
+  --warn: #ffd16a;
+  --ok: #7df0a9;
+  --card-bg: rgba(14, 19, 32, 0.88);
+  --card-border: rgba(255, 255, 255, 0.08);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; overflow: hidden; }
+
+#stage {
+  position: fixed;
+  /* Sidebar overlays the canvas as a slide-in panel instead of stealing
+     width, so the renderer doesn't have to resize on toggle. */
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 55%, rgba(20, 60, 50, 0.55) 0%, rgba(4, 10, 9, 1.0) 60%, #02060a 100%);
+  overflow: hidden;
+}
+#gl { display: block; width: 100%; height: 100%; position: relative; z-index: 1; }
+#overlay { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+#overlay > * { pointer-events: auto; }
+
+/* Scanlines: faint horizontal phosphor refresh lines drawn over the canvas. */
+#scanlines {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 2px,
+      rgba(93, 255, 196, 0.035) 3px,
+      transparent 4px
+    );
+  mix-blend-mode: screen;
+  opacity: 0.9;
+}
+#scanlines::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(93, 255, 196, 0.06) 50%,
+    transparent 100%
+  );
+  background-size: 100% 220%;
+  background-position: 0% -120%;
+  animation: scan-sweep 7s linear infinite;
+  opacity: 0.55;
+  mix-blend-mode: screen;
+}
+@keyframes scan-sweep {
+  0% { background-position: 0% -120%; }
+  100% { background-position: 0% 120%; }
+}
+
+/* Umbilical cord — links the focused node to the fragment card. */
+#cord {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  width: 100%; height: 100%;
+  overflow: visible;
+  opacity: 0;
+  transition: opacity 0.25s ease-out;
+}
+#cord.visible { opacity: 1; }
+#cord .cord-glow {
+  stroke: #5dffc4;
+  stroke-width: 4;
+  fill: none;
+  opacity: 0.22;
+  filter: blur(2px);
+}
+#cord .cord-line {
+  stroke: #b6ffe0;
+  stroke-width: 1.2;
+  fill: none;
+  stroke-dasharray: 4 7;
+  stroke-linecap: round;
+  opacity: 0.85;
+  animation: cord-flow 1.4s linear infinite;
+}
+#cord .cord-cap-node, #cord .cord-cap-card {
+  fill: #c4ffe6;
+  filter: drop-shadow(0 0 4px rgba(93, 255, 196, 0.9));
+}
+@keyframes cord-flow {
+  0% { stroke-dashoffset: 11; }
+  100% { stroke-dashoffset: 0; }
+}
+
+/* Vignette — pulls focus toward the centre. */
+#vignette {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background: radial-gradient(ellipse at center,
+    transparent 50%,
+    rgba(2, 6, 10, 0.55) 88%,
+    rgba(2, 6, 10, 0.9) 100%);
+}
+
+aside#sidebar {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: 360px;
+  background: linear-gradient(180deg, var(--bg-2) 0%, #0a0e18 100%);
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  z-index: 6;
+  /* Hidden off the right edge by default; the Info button slides it in. */
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(.4, 0, .2, 1);
+  box-shadow: -16px 0 40px rgba(0, 0, 0, 0.45);
+}
+aside#sidebar.open { transform: translateX(0); }
+#sidebar header {
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.pr-num { color: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.pr-title { font-size: 14px; font-weight: 600; margin-top: 4px; }
+
+.panel {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.panel h3 {
+  margin: 0 0 10px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font-size: 11px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.02);
+  color: var(--fg);
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.chip .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+.chip.off { opacity: 0.35; }
+
+.toggle { display: flex; gap: 4px; padding: 3px; background: rgba(255,255,255,0.03); border-radius: 8px; }
+.toggle button {
+  flex: 1;
+  background: transparent; border: 0; color: var(--muted);
+  padding: 7px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.toggle button.active { background: rgba(122, 208, 255, 0.14); color: var(--fg); }
+
+#steps { display: flex; flex-direction: column; gap: 4px; }
+.step-row {
+  display: flex; gap: 10px; align-items: center;
+  padding: 7px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.step-row:hover { background: rgba(255,255,255,0.03); }
+.step-row.active { background: rgba(122, 208, 255, 0.10); }
+.step-row .idx {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--line);
+  font-size: 11px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.step-row.active .idx { background: var(--accent); color: #07090f; }
+.step-row .label { font-size: 12px; }
+.step-row .label small { display: block; color: var(--muted); font-size: 10.5px; margin-top: 1px; }
+
+#sidebar footer {
+  margin-top: auto;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+  display: flex; gap: 8px;
+}
+#sidebar footer button {
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+}
+#sidebar footer button.primary { background: var(--accent); color: #07090f; border-color: var(--accent); }
+
+#hud {
+  position: fixed;
+  top: 20px; left: 24px;
+  background: var(--card-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--card-border);
+  padding: 12px 16px;
+  border-radius: 12px;
+  z-index: 4;
+  min-width: 240px;
+}
+
+/* Floating bottom control bar — primary navigation when the sidebar is hidden. */
+#bottombar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  gap: 4px;
+  background: var(--card-bg);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 5px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 18px rgba(93, 255, 196, 0.08);
+}
+#bottombar button {
+  background: transparent;
+  border: 0;
+  color: var(--fg);
+  padding: 9px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: background-color 0.15s ease-out, color 0.15s ease-out;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+#bottombar button:hover { background: rgba(255, 255, 255, 0.06); }
+#bottombar button.primary {
+  background: var(--accent);
+  color: #07090f;
+  font-weight: 600;
+}
+#bottombar button.primary:hover { background: #9ee0ff; }
+#bottombar button[aria-pressed="true"] {
+  background: rgba(93, 255, 196, 0.18);
+  color: #c4ffe6;
+}
+.step-indicator { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+.step-title { font-size: 16px; font-weight: 600; margin-top: 2px; }
+.step-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* CSS2DRenderer node labels — phosphor HUD readouts */
+.node-label {
+  font-size: 10.5px;
+  color: #cdffe8;
+  background: rgba(3, 12, 10, 0.92);
+  border: 1px solid rgba(93, 255, 196, 0.45);
+  /* Left edge is the "attachment" to the flag pole — heavier, brighter,
+     square-cornered. Other corners stay rounded for the HUD look. */
+  border-left: 2px solid rgba(150, 255, 215, 0.9);
+  border-radius: 0 3px 3px 0;
+  padding: 2px 8px 2px 8px;
+  margin-left: 1px;
+  white-space: nowrap;
+  pointer-events: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 4px rgba(93, 255, 196, 0.35);
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.55);
+}
+.node-label.concept {
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+.node-label.dim {
+  opacity: 0.35;
+  background: rgba(3, 12, 10, 0.65);
+  border-color: rgba(93, 255, 196, 0.18);
+  border-left-color: rgba(93, 255, 196, 0.45);
+}
+.node-label.focus {
+  color: #f4fff9;
+  background: rgba(15, 50, 40, 0.95);
+  border-color: rgba(150, 255, 215, 0.9);
+  border-left-color: #e7fff3;
+  text-shadow: 0 0 6px rgba(93, 255, 196, 0.65);
+  box-shadow: 0 0 18px rgba(93, 255, 196, 0.35);
+}
+
+/* Edge labels — small rectangular HUD chips at the midpoint of each edge.
+   No flagpole; the label IS the edge's annotation, anchored visually to
+   the curve it sits on. CSS2DRenderer auto-centres them on the projected
+   midpoint via the default center (0.5, 0.5). */
+.edge-label {
+  font-size: 9.5px;
+  color: #cdffe8;
+  background: rgba(3, 12, 10, 0.92);
+  border: 1px solid rgba(93, 255, 196, 0.4);
+  border-radius: 3px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  pointer-events: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 0 3px rgba(93, 255, 196, 0.3);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
+}
+.edge-label.sibling {
+  /* intra-concept edges feel quieter — slightly muted */
+  font-style: italic;
+  border-style: dashed;
+}
+.edge-label.dim {
+  opacity: 0.4;
+  background: rgba(3, 12, 10, 0.7);
+  border-color: rgba(93, 255, 196, 0.18);
+}
+.edge-label.focus {
+  color: #f4fff9;
+  background: rgba(15, 50, 40, 0.95);
+  border-color: rgba(150, 255, 215, 0.85);
+  text-shadow: 0 0 5px rgba(93, 255, 196, 0.6);
+  box-shadow: 0 0 14px rgba(93, 255, 196, 0.3);
+}
+
+/* Fragment card — pinned to a screen slot, not to any 3D node. The cord
+   connects whichever node is currently focused TO the card. */
+#card-host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+.fragment-card {
+  /* ~80 monospace columns in the diff area plus chrome (line-prefix + padding
+     + border). Width is fixed; the diff panel scrolls horizontally when a
+     particular line exceeds 80 cols. */
+  width: 640px;
+  background: var(--card-bg);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  overflow: hidden;
+  pointer-events: auto;
+  position: absolute;
+  /* Default slot: left edge with a small margin, vertically centred in the
+     canvas. User drag and the top-edge clamp compose with -50% via CSS vars. */
+  left: 16px;
+  top: 50%;
+  transform:
+    translate(0, -50%)
+    translate(var(--drag-x, 0px), var(--drag-y, 0px))
+    translate(0, var(--clamp-y, 0px));
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  /* Card grows with content but caps at 70% of viewport height; the .code
+     panel inside takes the remaining space and scrolls. */
+  max-height: 70vh;
+}
+.fragment-card .head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--card-border);
+  background: rgba(255,255,255,0.02);
+}
+.fragment-card .domain-pill {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.fragment-card .concept-label {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--fg);
+  flex: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fragment-card .file-count {
+  font-size: 10.5px;
+  color: var(--muted);
+  background: rgba(255,255,255,0.04);
+  border-radius: 999px;
+  padding: 2px 7px;
+  flex-shrink: 0;
+}
+.fragment-card .path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 6px 12px 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fragment-card .reason {
+  padding: 8px 12px 10px;
+  color: var(--fg);
+  font-size: 12px;
+  line-height: 1.5;
+  border-bottom: 1px solid var(--card-border);
+}
+.fragment-card .reason b { color: var(--accent); font-weight: 600; }
+
+.fragment-card .file-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 6px 10px 0;
+  border-bottom: 1px solid var(--card-border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.fragment-card .file-tabs .tab {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 6px 10px;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.fragment-card .file-tabs .tab:hover { color: var(--fg); background: rgba(255,255,255,0.03); }
+.fragment-card .file-tabs .tab.active {
+  color: var(--fg);
+  background: rgba(122, 208, 255, 0.08);
+}
+.fragment-card .file-tabs .tab.active::after {
+  content: ''; position: absolute; left: 6px; right: 6px; bottom: -1px;
+  height: 2px; background: var(--accent); border-radius: 2px;
+}
+.fragment-card .file-tabs .tab-changes {
+  font-size: 9.5px;
+  color: var(--muted);
+  background: rgba(255,255,255,0.04);
+  border-radius: 999px;
+  padding: 1px 5px;
+}
+.fragment-card .code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  line-height: 1.55;
+  background: rgba(0,0,0,0.32);
+  color: #d8dee9;
+  flex: 1 1 auto;
+  overflow: auto;          /* scroll on both axes when content exceeds box */
+  min-height: 0;           /* required for flex child to shrink + scroll */
+  padding: 8px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(93, 255, 196, 0.35) transparent;
+}
+.fragment-card .code::-webkit-scrollbar { width: 8px; height: 8px; }
+.fragment-card .code::-webkit-scrollbar-thumb {
+  background: rgba(93, 255, 196, 0.35);
+  border-radius: 4px;
+}
+.fragment-card .code::-webkit-scrollbar-thumb:hover { background: rgba(93, 255, 196, 0.55); }
+.fragment-card .code .ln {
+  padding: 0 14px;
+  white-space: pre;
+  /* Force a minimum row width so the horizontal scrollbar appears even when
+     most lines are short — gives users a stable "80 col canvas" feel. */
+  min-width: 80ch;
+  width: fit-content;
+}
+.fragment-card .code .ln-prefix {
+  display: inline-block;
+  width: 1.4em;
+  color: #5a6480;
+  user-select: none;
+}
+.fragment-card .code .ln-add {
+  background: rgba(125, 240, 169, 0.10);
+  border-left: 2px solid rgba(125, 240, 169, 0.55);
+  padding-left: 12px;
+}
+.fragment-card .code .ln-add .ln-prefix { color: rgba(125, 240, 169, 0.9); }
+.fragment-card .code .ln-del {
+  background: rgba(255, 122, 153, 0.10);
+  border-left: 2px solid rgba(255, 122, 153, 0.55);
+  padding-left: 12px;
+  color: #c4889a;
+}
+.fragment-card .code .ln-del .ln-prefix { color: rgba(255, 122, 153, 0.9); }
+.fragment-card .actions {
+  padding: 10px 12px;
+  display: flex; gap: 6px;
+  border-top: 1px solid var(--card-border);
+  background: rgba(255,255,255,0.02);
+}
+.fragment-card .actions a, .fragment-card .actions button {
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--card-border);
+  background: rgba(255,255,255,0.04);
+  color: var(--fg);
+  text-decoration: none;
+  cursor: pointer;
+}
+.fragment-card .actions a.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #07090f;
+  font-weight: 600;
+}
+
+/* code highlight */
+.tok-kw { color: #ff8bd4; }
+.tok-fn { color: #7ad0ff; }
+.tok-str { color: #b9e08b; }
+.tok-num { color: #ffd16a; }
+.tok-cmt { color: #5a6480; font-style: italic; }
+.tok-type { color: #9eb6ff; }
+.tok-add { background: rgba(125, 240, 169, 0.10); display: inline-block; width: 100%; }
+.tok-del { background: rgba(255, 122, 153, 0.10); display: inline-block; width: 100%; text-decoration: line-through; opacity: 0.7; }
+

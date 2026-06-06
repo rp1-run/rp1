@@ -21,7 +21,7 @@
 | cli/pr-review | PR review config and CI environment detection | 4 |
 | web-ui/server | Bun HTTP/WS server with REST APIs, file watching, event broadcast, notifications | 16 |
 | web-ui/daemon | Daemon lifecycle manager with diagnostic logging and IPC | 4 |
-| web-ui/frontend | React SPA dashboard: pages, components, hooks, providers, motion, artifact viewers, walkthrough slide reader | 190 |
+| web-ui/frontend | React SPA dashboard: pages, components, hooks, providers, motion, artifact viewers, 3D Code Tour reader | 190 |
 | plugins/base | KB, docs sync, writing, research, strategy, security, prompt authoring pipeline, guide meta-skill | 98 |
 | plugins/dev | Build workflows, blueprinting, PR review and walkthrough, feature delivery | 58 |
 | plugins/utils | Prompt tersification, eval helpers | 14 |
@@ -44,10 +44,11 @@
 | daemon diagnostics | web-ui/daemon | Structured NDJSON logging for daemon lifecycle events to daemon.log |
 | arcade command | commands | CLI entry point with start/stop/status/restart, --daemon-only, --format hook-json modes |
 | install verifier | install | Cross-platform installation health check and skill discovery with arcade_tracked metadata |
-| pr-walkthrough | plugins/dev | Review workflow skill that resolves PR or branch targets, collects direct `gh`/`git` evidence, dispatches markdown synthesis, and registers a work artifact |
-| pr-walkthrough-reporter | plugins/dev | Agent that turns direct PR evidence into a plain markdown walkthrough with Evidence Index citations under `.rp1/work/pr-walkthroughs/` |
-| walkthrough-slide-source | web-ui/frontend | Client-side parser that validates the `pr-walkthrough-slide-source` markdown contract, extracts horizontal and vertical slides, notes, evidence IDs, and fallback reasons |
-| WalkthroughRevealReader | web-ui/frontend | Reveal.js-backed artifact reader for supported PR walkthroughs with slide/depth controls, hidden Reveal speaker notes, source-order evidence preservation, and markdown fallback hooks |
+| pr-walkthrough | plugins/dev | Review workflow skill that resolves PR or branch targets, collects direct `gh`/`git` evidence, gates Code Tour JSON validity, and registers a work artifact |
+| pr-walkthrough-reporter | plugins/dev | Agent that turns direct PR evidence into validated Code Tour JSON with concepts, source fragments, labeled relationships, and guided tour steps under `.rp1/work/pr-walkthroughs/` |
+| code-tour contract | cli/shared | Shared Code Tour v1 parser and semantic validator for required fields, unique IDs, domain refs, fragment refs, edge endpoints, and tour concept refs |
+| code-tour-source | web-ui/frontend | Client-side Code Tour source parser that detects PR walkthrough JSON artifacts, builds the reader view model, and returns diagnostic states for invalid or unsupported content |
+| CodeTour3DReader | web-ui/frontend | Three.js-backed artifact reader for valid Code Tour walkthroughs with concept and fragment layouts, relationship navigation, guided controls, source mode, and nonblank render diagnostics |
 | build-prompt orchestrator | plugins/utils | Workflow skill that walks the six-stage prompt-writer pipeline via prompt-pipeline-runner agent with budgeted governance |
 | prompt-pipeline-runner | plugins/base | Agent executing constitutional-checklist, fallibilist-overlay, epistemic-stance, popper-patterns, confidence-schema, prompt-validation stages |
 
@@ -77,7 +78,7 @@ plugins/* --> cli/agent-tools (runtime conventions)
 | Arcade Tracked Visibility | parser, validator, catalog, verifier | Skills opt out of Activity feed via arcadeTracked without losing workflow mechanics |
 | Async Mutex Registry | web-ui/server/registry | Serializes concurrent registry mutations preventing race conditions |
 | Notification Auto-Generation | emit, daemon, frontend | Terminal events auto-create deduplicated notifications relayed via WebSocket |
-| Contract-Gated Artifact Reader | web-ui/frontend, plugins/dev | PR walkthrough artifacts can open as slides only when the markdown contract validates; unsupported or failed render paths keep the normal markdown viewer |
+| Contract-Gated Artifact Reader | web-ui/frontend, plugins/dev | PR walkthrough JSON artifacts open in the 3D Code Tour reader only when the Code Tour contract validates; invalid, unsupported, or failed render paths keep source diagnostics available |
 | Catalog Registry | catalog, build, base/guide | Single-source catalog drives CATALOG.md, init blocks, and /guide |
 | Versioned Fence Markers | init, lib, migrate | Instruction stanzas carry version stamps for staleness detection and auto-upgrade |
 | Thin Command Adapter | commands, build, install, init | CLI commands translate flags and delegate to deeper modules |
