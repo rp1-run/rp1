@@ -1,6 +1,7 @@
 {
 	"name": "@rp1-run/evals",
 	"version": "0.1.0",
+	"license": "Apache-2.0",
 	"private": true,
 	"description": "Prompt evaluation system for rp1 agents",
 	"type": "module",

@@ -23,7 +23,7 @@
 
 <p align="center">
   Professional development workflows for AI coding assistants.<br>
-  39 commands. 49 specialized agents. Single-pass execution.<br>
+  Structured commands. Specialized agents. Single-pass execution.<br>
   Works today with <strong>Claude Code</strong>. Experimental support for <strong>OpenCode</strong> and <strong>Codex CLI</strong>.
 </p>
 
@@ -137,7 +137,7 @@ rp1 install
 /code-check
 ```
 
-**[See all 39 commands →](https://rp1.run/reference/)**
+**[See all commands →](https://rp1.run/reference/)**
 
 ---
 
@@ -175,7 +175,7 @@ rp1 install
 
 ## Contributing
 
-See the [documentation](https://rp1.run) for architecture and contribution guides. Issues and PRs welcome!
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contributor setup, validation, and PR expectations. See the [documentation](https://rp1.run) for public guides and reference material.
 
 ## License
 
