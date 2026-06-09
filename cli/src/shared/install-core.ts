@@ -55,10 +55,20 @@ import {
 	installCopilot,
 } from "../install/copilot/index.js";
 import type { CopilotInstallResult } from "../install/copilot/models.js";
+import {
+	type GeminiManifestRefreshResult,
+	geminiExtensionDisplayRoot,
+	geminiExtensionNameFromDisplayDir,
+	installGeminiBundleAssets,
+	refreshGeminiManifestAssets,
+} from "../install/gemini/index.js";
+import {
+	gooseBundleScope,
+	goosePluginsDisplayRoot,
+	installGooseBundleAssets,
+} from "../install/goose/index.js";
 import { writeVersionMarker } from "../install/version-marker.js";
 import { getInstalledVersion } from "../lib/version.js";
-import { writeHarnessSelection } from "../settings/harness-writer.js";
-import { loadEnabledHarnesses } from "../settings/loader.js";
 
 /**
  * Context for installation operations.
@@ -69,7 +79,6 @@ export interface InstallContext {
 	readonly isTTY: boolean;
 	readonly dryRun: boolean;
 	readonly skipPrompt: boolean;
-	readonly homeDir?: string;
 }
 
 /**
@@ -163,7 +172,6 @@ export const installOpenCodePlugins = (
 	const options: InstallOptions = {
 		isTTY: ctx.isTTY,
 		skipPrompt: ctx.skipPrompt,
-		homeDir: ctx.homeDir,
 	};
 
 	return pipe(
@@ -503,6 +511,56 @@ const installForTool = (
 		);
 	}
 
+	if (tool.tool.id === "gemini") {
+		return pipe(
+			installGeminiBundleAssets({ dryRun: ctx.dryRun }),
+			TE.map(
+				(result): ToolInstallResult => ({
+					...baseResult,
+					success: true,
+					pluginsInstalled: geminiBundleScope(result),
+					details: geminiInstallDetails(ctx.dryRun, result),
+					warnings: result.warnings,
+				}),
+			),
+			TE.orElse(
+				(error): TE.TaskEither<CLIError, ToolInstallResult> =>
+					TE.right({
+						...baseResult,
+						success: false,
+						pluginsInstalled: [],
+						warnings: [],
+						error,
+					}),
+			),
+		);
+	}
+
+	if (tool.tool.id === "goose") {
+		return pipe(
+			installGooseBundleAssets({ dryRun: ctx.dryRun }),
+			TE.map(
+				(result): ToolInstallResult => ({
+					...baseResult,
+					success: true,
+					pluginsInstalled: gooseBundleScope(result),
+					details: gooseInstallDetails(ctx.dryRun, result),
+					warnings: result.warnings,
+				}),
+			),
+			TE.orElse(
+				(error): TE.TaskEither<CLIError, ToolInstallResult> =>
+					TE.right({
+						...baseResult,
+						success: false,
+						pluginsInstalled: [],
+						warnings: [],
+						error,
+					}),
+			),
+		);
+	}
+
 	// Unknown tool - return failure result
 	return TE.right({
 		...baseResult,
@@ -516,6 +574,18 @@ type SpecificToolLookup =
 	| { readonly tool: SupportedTool }
 	| { readonly error: CLIError };
 
+const LEGACY_GEMINI_TOOL: SupportedTool = {
+	id: "gemini",
+	name: "Gemini CLI",
+	binary: "gemini",
+	min_version: "0.0.0",
+	instruction_file: "GEMINI.md",
+	install_url: "https://github.com/google-gemini/gemini-cli",
+	plugin_install_cmd: null,
+	supportLevel: "degraded",
+	capabilities: ["plugins", "skills", "agents", "slash-commands"],
+};
+
 const lookupSpecificTool = (
 	toolId: string,
 	registry: ToolsRegistry,
@@ -523,6 +593,10 @@ const lookupSpecificTool = (
 	const tool = registry.tools.find((t) => t.id === toolId);
 
 	if (!tool) {
+		if (toolId === "gemini") {
+			return { tool: LEGACY_GEMINI_TOOL };
+		}
+
 		const enabledIds = getEnabledTools(registry)
 			.map((t) => `"${t.id}"`)
 			.join(", ");
@@ -634,6 +708,105 @@ const failedAntigravityUpdateResult = (
 	error,
 });
 
+const geminiBundleScope = (result: {
+	readonly assetCount: number;
+	readonly extensionDisplayDirs: readonly string[];
+}): readonly string[] =>
+	result.extensionDisplayDirs.map(geminiExtensionNameFromDisplayDir);
+
+const geminiInstallDetails = (
+	dryRun: boolean,
+	result: { readonly assetCount: number },
+): readonly string[] => [
+	`Extension assets: ${geminiExtensionDisplayRoot()}`,
+	`Manifest assets: ${result.assetCount} files`,
+	"Lifecycle stage: install",
+	dryRun
+		? "Lifecycle state: dry_run"
+		: "Lifecycle state: current after successful install",
+	dryRun
+		? "Next action: run `rp1 install gemini`, restart Gemini CLI, then run `rp1 verify gemini`."
+		: "Next action: restart Gemini CLI, then run `rp1 verify gemini` for manifest and support-matrix status.",
+];
+
+const gooseInstallDetails = (
+	dryRun: boolean,
+	result: {
+		readonly assetCount: number;
+		readonly skillCount: number;
+		readonly agentCount: number;
+		readonly recipeCount: number;
+		readonly metadataCount: number;
+		readonly versionMarkerWritten: boolean;
+	},
+): readonly string[] => [
+	`Goose assets: ${goosePluginsDisplayRoot()} plus ~/.agents/{skills,agents,recipes}`,
+	`Manifest assets: ${result.assetCount} files`,
+	`Skills: ${result.skillCount}; agents: ${result.agentCount}; recipes: ${result.recipeCount}; metadata: ${result.metadataCount}`,
+	"Lifecycle stage: install",
+	dryRun
+		? "Lifecycle state: dry_run"
+		: "Lifecycle state: current after successful install",
+	`Version marker: ${result.versionMarkerWritten ? "current" : "not_written"}`,
+	dryRun
+		? "Next action: run `rp1 install goose`, then `rp1 verify goose`."
+		: "Next action: run `rp1 verify goose` for binary, recipe, support metadata, and smoke status.",
+];
+
+const geminiUpdateDetails = (
+	result: GeminiManifestRefreshResult,
+): readonly string[] => {
+	if (result.initialStatus.state === "blocked") {
+		return [
+			"Lifecycle stage: update",
+			"Lifecycle state: blocked",
+			`Next action: ${result.initialStatus.userAction}`,
+		];
+	}
+
+	if (result.dryRun && result.refreshableAssets.length > 0) {
+		return [
+			"Lifecycle stage: update",
+			`Lifecycle state: ${result.initialStatus.state}`,
+			`Would refresh: ${formatAssetDisplayList(result.refreshableAssets)}`,
+			"Next action: Run `rp1 update plugins gemini -y` to refresh, then restart Gemini CLI and run `rp1 verify gemini`.",
+		];
+	}
+
+	if (result.refreshedAssets.length > 0) {
+		return [
+			"Lifecycle stage: update",
+			"Lifecycle result: refreshed",
+			`Refreshed: ${formatAssetDisplayList(result.refreshedAssets)}`,
+			"Next action: Restart Gemini CLI, then run `rp1 verify gemini`.",
+		];
+	}
+
+	return [
+		"Lifecycle stage: update",
+		"Lifecycle state: current",
+		`Next action: ${result.finalStatus.userAction}`,
+	];
+};
+
+const failedGeminiUpdateResult = (
+	tool: SupportedTool,
+	error: CLIError,
+): ToolInstallResult => ({
+	toolId: tool.id,
+	toolName: tool.name,
+	success: false,
+	restartRequired: false,
+	pluginsInstalled: [],
+	details: [
+		"Lifecycle stage: update",
+		"Lifecycle state: failed",
+		`Next action: Check file permissions under ${geminiExtensionDisplayRoot()}, then rerun \`rp1 update plugins gemini\`.`,
+	],
+	warnings: [],
+	error,
+});
+
 export const updateForSpecificTool = (
 	toolId: string,
 	registry: ToolsRegistry,
@@ -679,7 +852,41 @@ export const updateForSpecificTool = (
 		);
 	}
 
-	return installForSpecificTool(toolId, registry, ctx);
+	if (lookup.tool.id !== "gemini") {
+		return installForSpecificTool(toolId, registry, ctx);
+	}
+
+	return pipe(
+		refreshGeminiManifestAssets({ dryRun: ctx.dryRun }),
+		TE.map((result): ToolInstallResult => {
+			const blocked = result.initialStatus.state === "blocked";
+			const toolResult = {
+				toolId: lookup.tool.id,
+				toolName: lookup.tool.name,
+				success: !blocked,
+				restartRequired:
+					!ctx.dryRun && !blocked && result.refreshedAssets.length > 0,
+				pluginsInstalled: [],
+				details: geminiUpdateDetails(result),
+				warnings: [],
+			};
+
+			if (!blocked) return toolResult;
+
+			return {
+				...toolResult,
+				error: installError(
+					"gemini-lifecycle-update",
+					result.initialStatus.issue ?? "Gemini lifecycle update blocked.",
+				),
+			};
+		}),
+		TE.orElse((error) =>
+			TE.right<CLIError, ToolInstallResult>(
+				failedGeminiUpdateResult(lookup.tool, error),
+			),
+		),
+	);
 };
 
 /**
@@ -776,12 +983,38 @@ export const installForSpecificTool = (
 					warnings: result.warnings,
 				}),
 			),
-			TE.chainFirst((result) => {
-				if (result.success && !ctx.dryRun) {
-					syncHarnessSelectionAdd(toolId);
-				}
-				return TE.right(undefined);
-			}),
+		);
+	}
+
+	if (tool.id === "gemini") {
+		return pipe(
+			installGeminiBundleAssets({ dryRun: ctx.dryRun }),
+			TE.map(
+				(result): ToolInstallResult => ({
+					toolId: tool.id,
+					toolName: tool.name,
+					success: true,
+					pluginsInstalled: geminiBundleScope(result),
+					details: geminiInstallDetails(ctx.dryRun, result),
+					warnings: result.warnings,
+				}),
+			),
+		);
+	}
+
+	if (tool.id === "goose") {
+		return pipe(
+			installGooseBundleAssets({ dryRun: ctx.dryRun }),
+			TE.map(
+				(result): ToolInstallResult => ({
+					toolId: tool.id,
+					toolName: tool.name,
+					success: true,
+					pluginsInstalled: gooseBundleScope(result),
+					details: gooseInstallDetails(ctx.dryRun, result),
+					warnings: result.warnings,
+				}),
+			),
 		);
 	}
 
@@ -800,82 +1033,5 @@ export const installForSpecificTool = (
 			}
 			return TE.right(result);
 		}),
-		TE.chainFirst((result) => {
-			if (result.success && !ctx.dryRun) {
-				syncHarnessSelectionAdd(toolId);
-			}
-			return TE.right(undefined);
-		}),
 	);
-};
-
-/**
- * Sync harness selection after install: add the tool ID to [harnesses] enabled.
- * If no [harnesses] section exists yet, creates one with just this tool.
- * No-op when the tool is already in the enabled list.
- *
- * @param toolId - Harness ID to add
- * @param globalSettingsPath - Override for test isolation
- */
-export const syncHarnessSelectionAdd = (
-	toolId: string,
-	globalSettingsPath?: string,
-): void => {
-	const enabled = loadEnabledHarnesses(globalSettingsPath);
-	if (enabled === undefined) {
-		writeHarnessSelection([toolId], globalSettingsPath);
-		return;
-	}
-	if (!enabled.includes(toolId)) {
-		writeHarnessSelection([...enabled, toolId], globalSettingsPath);
-	}
-};
-
-/**
- * Sync harness selection after uninstall: remove the tool ID from [harnesses] enabled.
- * No-op when no [harnesses] section exists or the tool is not in the list.
- *
- * @param toolId - Harness ID to remove
- * @param globalSettingsPath - Override for test isolation
- */
-export const syncHarnessSelectionRemove = (
-	toolId: string,
-	globalSettingsPath?: string,
-): void => {
-	const enabled = loadEnabledHarnesses(globalSettingsPath);
-	if (enabled === undefined) return;
-	const updated = enabled.filter((id) => id !== toolId);
-	if (updated.length !== enabled.length) {
-		writeHarnessSelection(updated, globalSettingsPath);
-	}
-};
-
-/**
- * Filter detected tools to only those the user has selected (persisted in settings.toml).
- *
- * When no `[harnesses] enabled` selection exists, falls back to all detected tools
- * with stable support level -- preserving backward compatibility for pre-wizard users.
- *
- * When a selection exists, returns the intersection of detected tools and the
- * enabled list (preserving detected-tools ordering). Explicitly selected experimental
- * tools are included.
- *
- * @param detection - Result from detectTools()
- * @param globalSettingsPath - Override for test isolation
- * @returns Filtered array of DetectedTool entries
- */
-export const getEffectiveHarnesses = (
-	detection: ToolDetectionResult,
-	globalSettingsPath?: string,
-): readonly DetectedTool[] => {
-	const enabled = loadEnabledHarnesses(globalSettingsPath);
-
-	if (enabled === undefined) {
-		return detection.detected.filter(
-			(d) => getToolSupportLevel(d.tool) === "stable",
-		);
-	}
-
-	const enabledSet = new Set(enabled);
-	return detection.detected.filter((d) => enabledSet.has(d.tool.id));
 };

@@ -21,6 +21,8 @@ import {
 } from "./claude-code.js";
 import { executeVerifyCodex, verifyCodexSubcommand } from "./codex.js";
 import { executeVerifyCopilot, verifyCopilotSubcommand } from "./copilot.js";
+import { verifyGeminiSubcommand } from "./gemini.js";
+import { verifyGooseSubcommand } from "./goose.js";
 import { executeVerifyOpenCode, verifyOpenCodeSubcommand } from "./opencode.js";
 
 const { bold, dim } = colorFns;
@@ -48,6 +50,7 @@ Examples:
   rp1 verify codex          Verify Codex CLI installation
   rp1 verify copilot        Verify Copilot CLI installation
   rp1 verify antigravity    Verify Antigravity CLI setup
+  rp1 verify goose          Verify Goose CLI setup
 `,
 	)
 	.action(async (_options, command) => {
@@ -143,6 +146,23 @@ if (!antigravityVerifyEnabled) {
 	});
 }
 
+verifyCommand.addCommand(verifyGeminiSubcommand, {
+	hidden: true,
+});
+
+const gooseVerifyEnabled = isToolEnabled(
+	TOOLS_REGISTRY as ToolsRegistry,
+	"goose",
+);
+verifyCommand.addCommand(verifyGooseSubcommand, {
+	hidden: !gooseVerifyEnabled,
+});
+if (!gooseVerifyEnabled) {
+	verifyGooseSubcommand.action(async () => {
+		process.exit(1);
+	});
+}
+
 // Export subcommands for direct access if needed
 export {
 	executeVerifyAntigravity,
@@ -157,4 +177,6 @@ export {
 	executeVerifyCopilot,
 	verifyCopilotSubcommand,
 } from "./copilot.js";
+export { executeVerifyGemini, verifyGeminiSubcommand } from "./gemini.js";
+export { executeVerifyGoose, verifyGooseSubcommand } from "./goose.js";
 export { executeVerifyOpenCode, verifyOpenCodeSubcommand } from "./opencode.js";

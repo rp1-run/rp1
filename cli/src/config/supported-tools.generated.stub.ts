@@ -81,7 +81,7 @@ export const TOOLS_REGISTRY = {
 		{
 			id: "goose",
 			name: "Goose",
-			enabled: false,
+			enabled: true,
 			binary: "goose",
 			min_version: "1.35.0",
 			instruction_file: "AGENTS.md",
