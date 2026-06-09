@@ -12,6 +12,7 @@
  *   Codex: update_plan: <directive>
  *   Antigravity: Track progress in a markdown task list
  *   Gemini: Track progress in a markdown task list
+ *   Goose: Track progress in a markdown task list
  */
 
 import {
@@ -59,6 +60,8 @@ function renderPlanTool(directive: string, platform: BuildPlatform): string {
 		case "antigravity":
 			return `${directive}\n\nTrack progress in a markdown task list in the working directory.`;
 		case "gemini":
+			return `${directive}\n\nTrack progress in a markdown task list in the working directory.`;
+		case "goose":
 			return `${directive}\n\nTrack progress in a markdown task list in the working directory.`;
 	}
 }

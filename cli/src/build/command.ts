@@ -70,10 +70,11 @@ const VALID_PLATFORMS = [
 	"claude-code",
 	"copilot",
 	"antigravity",
+	"goose",
 	"all",
 ];
 const PLATFORM_ERROR =
-	"--platform must be 'opencode', 'codex', 'claude-code', 'copilot', 'antigravity', or 'all'";
+	"--platform must be 'opencode', 'codex', 'claude-code', 'copilot', 'antigravity', 'goose', or 'all'";
 
 /**
  * Format a lint diagnostic into a human-readable string.
@@ -147,6 +148,7 @@ export const parseBuildArgs = (
 						| "claude-code"
 						| "copilot"
 						| "antigravity"
+						| "goose"
 						| "all";
 				}
 			).platform = value as
@@ -155,6 +157,7 @@ export const parseBuildArgs = (
 				| "claude-code"
 				| "copilot"
 				| "antigravity"
+				| "goose"
 				| "all";
 		} else if (arg.startsWith("--platform=")) {
 			const value = arg.slice("--platform=".length);
@@ -169,6 +172,7 @@ export const parseBuildArgs = (
 						| "claude-code"
 						| "copilot"
 						| "antigravity"
+						| "goose"
 						| "all";
 				}
 			).platform = value as
@@ -177,6 +181,7 @@ export const parseBuildArgs = (
 				| "claude-code"
 				| "copilot"
 				| "antigravity"
+				| "goose"
 				| "all";
 		} else if (arg === "--json") {
 			(config as { jsonOutput: boolean }).jsonOutput = true;
@@ -204,7 +209,7 @@ ${bold("Usage:")}
 ${bold("Options:")}
   -o, --output-dir <dir>       Output directory (default: dist/opencode/)
   -p, --plugin <name>          Build specific plugin (base, dev, utils, or all)
-  --platform <name>            Target platform (opencode, codex, claude-code, copilot, antigravity, or all)
+  --platform <name>            Target platform (opencode, codex, claude-code, copilot, antigravity, goose, or all)
   --json                       Output results as JSON for CI/CD
   --lint                       Run build pipeline with lint validation only (no file output)
   -h, --help                   Show this help message
@@ -215,6 +220,7 @@ ${bold("Examples:")}
   rp1 build:opencode --platform claude-code        # Build for Claude Code
   rp1 build:opencode --platform codex              # Build for Codex
   rp1 build:opencode --platform antigravity        # Build for Antigravity CLI
+  rp1 build:opencode --platform goose              # Build for Goose
   rp1 build:opencode --platform all                # Build for all platforms
   rp1 build:opencode -o ./output                   # Custom output directory
   rp1 build:opencode --json                        # JSON output for CI
@@ -1095,6 +1101,16 @@ export const deriveGeminiOutputDir = (opencodeOutputDir: string): string => {
 };
 
 /**
+ * Derive Goose output directory from the OpenCode output directory.
+ * Maps "dist/opencode" to "dist/goose".
+ */
+export const deriveGooseOutputDir = (opencodeOutputDir: string): string => {
+	const normalized = opencodeOutputDir.replace(/\/+$/, "");
+	const parent = dirname(normalized);
+	return join(parent, "goose");
+};
+
+/**
  * Print build summary table.
  */
 const printSummary = (
@@ -1265,6 +1281,7 @@ export const executeBuild = (
 					const copilotOutputPath = deriveCopilotOutputDir(outputPath);
 					const antigravityOutputPath = deriveAntigravityOutputDir(outputPath);
 					const geminiOutputPath = deriveGeminiOutputDir(outputPath);
+					const gooseOutputPath = deriveGooseOutputDir(outputPath);
 					const platformOutputPaths: Record<BuildPlatform, string> = {
 						opencode: outputPath,
 						"claude-code": ccOutputPath,
@@ -1272,6 +1289,7 @@ export const executeBuild = (
 						copilot: copilotOutputPath,
 						antigravity: antigravityOutputPath,
 						gemini: geminiOutputPath,
+						goose: gooseOutputPath,
 					};
 
 					const platformsToBuild: Array<{
@@ -1288,6 +1306,7 @@ export const executeBuild = (
 										platform: "antigravity",
 										outputPath: antigravityOutputPath,
 									},
+									{ platform: "goose", outputPath: gooseOutputPath },
 								]
 							: (() => {
 									const platform = config.platform as BuildPlatform;

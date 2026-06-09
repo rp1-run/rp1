@@ -27,7 +27,8 @@ export type BuildPlatform =
 	| "claude-code"
 	| "copilot"
 	| "antigravity"
-	| "gemini";
+	| "gemini"
+	| "goose";
 
 // ---------------------------------------------------------------------------
 // Codex role type

@@ -11,6 +11,7 @@
  * | copilot     | `/rp1-base:cmd` -> `/rp1-base/cmd` (slash separator)       |
  * | antigravity | Passthrough (`/rp1-base:cmd` keeps colon namespace)        |
  * | gemini      | Passthrough (`/rp1-base:cmd` keeps Gemini colon namespace) |
+ * | goose       | Passthrough until Goose recipes define entrypoint syntax   |
  *
  * Wraps the existing transformSlashCommandCalls() from transformations.ts
  * and transformPlainSlashCommands() from codex/transformations.ts.
@@ -151,6 +152,8 @@ export const slashCommands = (
 		case "antigravity":
 			return content;
 		case "gemini":
+			return content;
+		case "goose":
 			return content;
 	}
 };

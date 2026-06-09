@@ -13,6 +13,7 @@
  *          and subagent unavailability note
  *   Antigravity: ask_user: "<question>" (with options if provided)
  *   Gemini: ask_user: "<question>" (with options if provided)
+ *   Goose: unsupported interactive input note
  */
 
 import {
@@ -100,6 +101,8 @@ function renderAskUser(
 			return renderOpenCode(question, options);
 		case "gemini":
 			return renderOpenCode(question, options);
+		case "goose":
+			return `Goose harness limitation: interactive user input is not supported in this build. Stop and ask the user directly: "${question}"`;
 	}
 }
 

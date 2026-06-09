@@ -126,6 +126,8 @@ function renderDispatch(
 			return renderGemini(agentRef, prompt);
 		case "gemini":
 			return renderGemini(agentRef, prompt);
+		case "goose":
+			return `Goose harness limitation: rp1 subagent delegation is not supported in this build. Do not dispatch ${agentRef}; complete the work inline or stop with this unsupported-capability message.`;
 	}
 }
 

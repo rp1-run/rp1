@@ -12,6 +12,7 @@
  *   Codex: References sandbox execution policy
  *   Antigravity: References Antigravity trust, sandbox, and approval policy
  *   Gemini: References Gemini CLI trust and approval policy
+ *   Goose: References Goose extension and approval limitations
  */
 
 import {
@@ -39,6 +40,8 @@ function renderPermissions(directive: string, platform: BuildPlatform): string {
 			return `Use Antigravity CLI trust, sandbox, and approval policy to ${directive}`;
 		case "gemini":
 			return `Use Gemini CLI trust and approval policy to ${directive}`;
+		case "goose":
+			return `Use Goose extension configuration and headless approval limitations to ${directive}`;
 	}
 }
 

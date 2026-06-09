@@ -12,6 +12,7 @@
  * | copilot     | `"Bash(echo *), Read"`   | `["run_terminal_command(echo *)", "read_file"]` |
  * | antigravity | `"Bash(echo *), Read"`   | `["run_shell_command", "read_file"]` |
  * | gemini      | `"Bash(echo *), Read"`   | `["run_shell_command", "read_file"]` |
+ * | goose       | `"Bash(echo *), Read"`   | `"Bash(echo *), Read"` (passthrough) |
  *
  * Extracts and reuses logic from transformations.ts (OpenCode split)
  * and codex/transformations.ts (Codex registry mapping with pattern handling).
@@ -216,5 +217,7 @@ export const allowedToolsFilter = (
 			return toGeminiArray(allowedTools, registry);
 		case "gemini":
 			return toGeminiArray(allowedTools, registry);
+		case "goose":
+			return allowedTools;
 	}
 };
