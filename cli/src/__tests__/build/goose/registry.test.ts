@@ -22,12 +22,15 @@ describe("goose registry", () => {
 		expect(getToolMapping(gooseRegistry, "Glob")).toBe("developer");
 	});
 
-	test("filters delegation and interactive tools until runtime boundaries land", () => {
+	test("filters delegation, interactive, and non-basic developer tools", () => {
 		expect(getToolMapping(gooseRegistry, "Task")).toBeNull();
 		expect(getToolMapping(gooseRegistry, "Skill")).toBeNull();
 		expect(getToolMapping(gooseRegistry, "SlashCommand")).toBeNull();
 		expect(getToolMapping(gooseRegistry, "AskUserQuestion")).toBeNull();
 		expect(getToolMapping(gooseRegistry, "WebSearch")).toBeNull();
+		expect(getToolMapping(gooseRegistry, "NotebookEdit")).toBeNull();
+		expect(getToolMapping(gooseRegistry, "BashOutput")).toBeNull();
+		expect(getToolMapping(gooseRegistry, "KillShell")).toBeNull();
 	});
 
 	test("platform definition uses the Goose registry", () => {

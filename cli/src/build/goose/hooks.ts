@@ -8,7 +8,6 @@ import type {
 	PlatformBuildState,
 	PostBuildResult,
 } from "../platform-definitions.js";
-import { getToolMapping } from "../registry.js";
 import { buildTemplateContext } from "../template-context.js";
 
 interface GooseRecipeSummary {
@@ -49,7 +48,7 @@ const requiredExtensionsForSkill = (
 ): readonly string[] => {
 	const extensions = new Set<string>(["developer"]);
 	for (const tool of parseToolNames(skill.allowedTools)) {
-		const mapped = getToolMapping(hookCtx.registry, tool);
+		const mapped = hookCtx.registry.toolMappings[tool];
 		if (mapped) {
 			extensions.add(mapped);
 		}
@@ -63,9 +62,10 @@ const unsupportedToolsForSkill = (
 ): readonly string[] =>
 	[
 		...new Set(
-			parseToolNames(skill.allowedTools).filter(
-				(tool) => getToolMapping(hookCtx.registry, tool) === null,
-			),
+			parseToolNames(skill.allowedTools).filter((tool) => {
+				const mapping = hookCtx.registry.toolMappings[tool];
+				return mapping === null || mapping === undefined;
+			}),
 		),
 	].sort();
 
