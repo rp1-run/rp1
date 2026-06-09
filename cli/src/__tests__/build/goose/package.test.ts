@@ -214,6 +214,17 @@ Build assigned implementation tasks. Preserve Task Plan and Add Task labels. Use
 			plugin: "dev",
 			nativePluginName: "rp1-dev",
 			supportScope: "generated-core-harness-assets",
+			supportClaim:
+				"Experimental core harness support for generated Goose skills, agents, recipes, targeted install/verify, and a verified non-delegating recipe runtime path.",
+			unsupportedScope: [
+				"ACP sidecar work",
+				"protocol integration",
+				"eval harness expansion",
+				"PR-review expansion",
+				"nested subagents and nested delegation",
+				"interactive headless approvals and user elicitation",
+				"broad workflow parity",
+			],
 			runtime: {
 				harness: "goose",
 				currentHost: "goose",

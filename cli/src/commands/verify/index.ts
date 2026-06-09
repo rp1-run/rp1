@@ -42,6 +42,7 @@ Subcommands:
   codex          Verify plugins in Codex CLI
   copilot        Verify plugins in GitHub Copilot CLI
   antigravity    Verify Antigravity CLI integration
+  goose          Verify Goose core harness assets
 
 Examples:
   rp1 verify                Verify all platforms

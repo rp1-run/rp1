@@ -184,7 +184,7 @@ export const executeVerifyGoose = async (
 
 	console.log(bold("\nGoose CLI verification\n"));
 	console.log(
-		`Support: ${green("experimental")} (${dim("Goose core harness assets")})`,
+		`Support: ${green("experimental")} (${dim("verified Goose core recipe harness")})`,
 	);
 	console.log(`State: ${statusLabel}`);
 	console.log(`Meaning: ${statusDetail.label}`);
@@ -230,6 +230,14 @@ export const executeVerifyGoose = async (
 	console.log(
 		`State: ${checkColor(result.supportMetadata.status === "passed")(result.supportMetadata.status)}`,
 	);
+	if (result.supportMetadata.supportClaims.length > 0) {
+		console.log(`Claim: ${result.supportMetadata.supportClaims[0]}`);
+	}
+	if (result.supportMetadata.unsupportedScopes.length > 0) {
+		console.log(
+			`Unsupported scope: ${result.supportMetadata.unsupportedScopes.join(", ")}`,
+		);
+	}
 	console.log(`Recipes declared: ${result.supportMetadata.recipeCount}`);
 	console.log(`Agents declared: ${result.supportMetadata.agentCount}`);
 

@@ -14,8 +14,8 @@
 
 <p align="center">
   <!-- x-release-please-start-version -->
-  <a href="https://github.com/rp1-run/rp1/releases"><img src="https://img.shields.io/static/v1?label=rp1-base&message=v0.7.12&color=blue" alt="rp1-base"></a>
-  <a href="https://github.com/rp1-run/rp1/releases"><img src="https://img.shields.io/static/v1?label=rp1-dev&message=v0.7.12&color=blue" alt="rp1-dev"></a>
+  <a href="https://github.com/rp1-run/rp1/releases"><img src="https://img.shields.io/static/v1?label=rp1-base&message=v0.7.10&color=blue" alt="rp1-base"></a>
+  <a href="https://github.com/rp1-run/rp1/releases"><img src="https://img.shields.io/static/v1?label=rp1-dev&message=v0.7.10&color=blue" alt="rp1-dev"></a>
   <!-- x-release-please-end -->
   <a href="https://rp1.run"><img src="https://img.shields.io/badge/docs-rp1.run-blue" alt="Docs"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg" alt="License"></a>
@@ -23,7 +23,7 @@
 
 <p align="center">
   Professional development workflows for AI coding assistants.<br>
-  Structured commands. Specialized agents. Single-pass execution.<br>
+  39 commands. 49 specialized agents. Single-pass execution.<br>
   Works today with <strong>Claude Code</strong>. Experimental support for <strong>OpenCode</strong> and <strong>Codex CLI</strong>.
 </p>
 
@@ -137,7 +137,7 @@ rp1 install
 /code-check
 ```
 
-**[See all commands →](https://rp1.run/reference/)**
+**[See all 39 commands →](https://rp1.run/reference/)**
 
 ---
 
@@ -160,7 +160,8 @@ rp1 install
 | [Claude Code](https://claude.ai/code) | Available |
 | [OpenCode](https://opencode.ai) | Experimental |
 | [Codex CLI](https://github.com/openai/codex) | Experimental |
-| Cursor, Goose, Amp | Coming Soon |
+| [Goose](https://block.github.io/goose/) | Experimental core harness: generated skills, agents, recipes, targeted install/verify, and verified non-delegating recipe runtime only. No ACP, eval, PR-review, nested delegation, or broad parity claim. |
+| Cursor, Amp | Coming Soon |
 
 ---
 
@@ -175,7 +176,7 @@ rp1 install
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contributor setup, validation, and PR expectations. See the [documentation](https://rp1.run) for public guides and reference material.
+See the [documentation](https://rp1.run) for architecture and contribution guides. Issues and PRs welcome!
 
 ## License
 

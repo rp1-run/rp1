@@ -154,6 +154,8 @@ export interface GooseSupportMetadataResult {
 	readonly status: GooseSupportMetadataStatus;
 	readonly checked: boolean;
 	readonly metadataFiles: readonly string[];
+	readonly supportClaims: readonly string[];
+	readonly unsupportedScopes: readonly string[];
 	readonly recipeCount: number;
 	readonly agentCount: number;
 	readonly issue: string | null;

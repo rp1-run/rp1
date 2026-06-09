@@ -13,6 +13,7 @@ rp1 verify opencode
 rp1 verify codex
 rp1 verify copilot
 rp1 verify antigravity [--workflow <workflow-id>]
+rp1 verify goose
 ```
 
 ## Description
@@ -20,7 +21,8 @@ rp1 verify antigravity [--workflow <workflow-id>]
 Use `rp1 verify` after install, update, or uninstall actions to confirm the host
 integration or Antigravity plugin state. Stable host checks report whether rp1
 is installed and healthy for that host. Antigravity verification reports plugin
-lifecycle state and support-matrix attribution.
+lifecycle state and support-matrix attribution. Goose verification reports the
+experimental core recipe harness assets and avoids broader parity claims.
 
 ## Subcommands
 
@@ -31,6 +33,7 @@ lifecycle state and support-matrix attribution.
 | `rp1 verify codex` | Verify Codex CLI installation. |
 | `rp1 verify copilot` | Verify GitHub Copilot CLI native plugin installation. |
 | `rp1 verify antigravity` | Verify Antigravity CLI plugin setup. |
+| `rp1 verify goose` | Verify Goose CLI, manifest assets, recipes, support metadata, and optional runtime-smoke evidence. |
 
 For Copilot, the clean success signal is `healthy_native`. A
 `mixed_native_and_legacy` result means the native install works, but old rp1
@@ -74,6 +77,31 @@ with `define_subagent`, then reuse the cached `TypeName` with
 Future Antigravity workflow support changes must update the generated support
 matrix, verifier output, and public docs together.
 
+## Goose Verification
+
+Goose support is experimental and limited to the verified core recipe harness:
+generated Goose skills, agents, recipes, targeted install/verify, and a
+non-delegating recipe runtime path.
+
+```bash
+rp1 install goose
+rp1 verify goose
+```
+
+The Goose verifier reports:
+
+| Section | Meaning |
+|---------|---------|
+| `Support: experimental` | rp1 is checking the verified Goose core recipe harness slice. |
+| `Manifest lifecycle` | Whether manifest-owned Goose assets are `current`, `removed`, `missing`, `partial`, `stale`, or `blocked`. |
+| `Recipe validation` | Whether installed recipes validate and at least one recipe renders through Goose. |
+| `Support metadata` | The generated claim and explicit unsupported scope. |
+| `Runtime smoke` | Optional opt-in evidence for a non-delegating recipe-backed runtime path. |
+
+Unsupported Goose scope currently includes ACP sidecar work, protocol
+integration, eval harness expansion, PR-review expansion, nested delegation,
+interactive headless approvals, user elicitation, and broad workflow parity.
+
 ## Common Recovery
 
 | Result | Next action |
@@ -84,6 +112,7 @@ matrix, verifier output, and public docs together.
 | Antigravity lifecycle `stale` | Run `rp1 install antigravity` or `rp1 update plugins antigravity`, restart Antigravity CLI, then verify. |
 | Antigravity lifecycle `blocked` | Fix the printed file permission, trust, or approval blocker, then rerun verification. |
 | Antigravity workflow `unknown` | Confirm the workflow id or rebuild Antigravity assets from current catalog sources. |
+| Goose lifecycle `missing`, `partial`, or `stale` | Run `rp1 install goose`, then rerun `rp1 verify goose`. |
 
 ## See Also
 

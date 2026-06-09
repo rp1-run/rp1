@@ -81,6 +81,10 @@ describe("Goose verify command", () => {
 		expect(result.output).toContain("Recipe validation:");
 		expect(result.output).toContain("State: passed");
 		expect(result.output).toContain("Support metadata:");
+		expect(result.output).toContain("verified Goose core recipe harness");
+		expect(result.output).toContain("Claim: Experimental core harness support");
+		expect(result.output).toContain("Unsupported scope: ACP sidecar work");
+		expect(result.output).toContain("PR-review expansion");
 		expect(result.output).toContain("Runtime smoke:");
 		expect(result.output).toContain("not_run");
 		expect(result.output).toContain("Goose lifecycle path is degraded");

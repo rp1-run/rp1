@@ -2,6 +2,7 @@ import Antigravity from "@lobehub/icons/es/Antigravity/components/Mono";
 import Claude from "@lobehub/icons/es/Claude/components/Mono";
 import Gemini from "@lobehub/icons/es/Gemini/components/Mono";
 import GithubCopilot from "@lobehub/icons/es/GithubCopilot/components/Mono";
+import Goose from "@lobehub/icons/es/Goose/components/Mono";
 import OpenAI from "@lobehub/icons/es/OpenAI/components/Mono";
 import OpenCode from "@lobehub/icons/es/OpenCode/components/Mono";
 
@@ -12,6 +13,7 @@ export type HarnessName =
 	| "copilot"
 	| "gemini"
 	| "gemini-cli"
+	| "goose"
 	| "opencode";
 
 interface HarnessIconProps {
@@ -39,6 +41,10 @@ export function HarnessIcon({ harness, size = 20 }: HarnessIconProps) {
 		case "gemini":
 		case "gemini-cli":
 			icon = <Gemini size={size} />;
+			break;
+		case "goose":
+			icon = <Goose size={size} />;
+			title = "Goose";
 			break;
 		case "opencode":
 			icon = <OpenCode size={size} />;
