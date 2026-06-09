@@ -93,6 +93,34 @@ const toGeminiArray = (
 	return [...new Set(mapped)];
 };
 
+const toGooseExtensions = (
+	allowedTools: string,
+	registry: PlatformRegistry,
+): readonly string[] => {
+	const tools = allowedTools
+		.split(",")
+		.map((t) => t.trim())
+		.filter(Boolean);
+	const mapped: string[] = [];
+
+	for (const tool of tools) {
+		const parenMatch = tool.match(/^([A-Za-z]+)\((.+)\)$/);
+		const baseName = parenMatch ? parenMatch[1] : tool;
+
+		const mappedTool = registry.toolMappings[baseName];
+		if (mappedTool === null) {
+			continue;
+		}
+		if (mappedTool === undefined) {
+			mapped.push(baseName);
+		} else {
+			mapped.push(mappedTool);
+		}
+	}
+
+	return [...new Set(mapped)];
+};
+
 const toCopilotShellPattern = (pattern: string): string => {
 	const trimmed = pattern.trim();
 	const wildcardStem = trimmed.match(/^([^\s]+)\s+\*$/);
@@ -218,6 +246,6 @@ export const allowedToolsFilter = (
 		case "gemini":
 			return toGeminiArray(allowedTools, registry);
 		case "goose":
-			return allowedTools;
+			return toGooseExtensions(allowedTools, registry);
 	}
 };

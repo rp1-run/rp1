@@ -76,6 +76,7 @@ describe("build platform support", () => {
 			"claude-code",
 			"codex",
 			"copilot",
+			"goose",
 			"opencode",
 		]);
 		expect(
@@ -91,7 +92,7 @@ describe("build platform support", () => {
 		});
 	});
 
-	test("registers Goose as an experimental build platform awaiting templates", () => {
+	test("registers Goose as an experimental bundle-producing build platform", () => {
 		expect(expectRight(parseBuildArgs(["--platform", "goose"]))).toMatchObject({
 			platform: "goose",
 		});
@@ -106,7 +107,7 @@ describe("build platform support", () => {
 			config: {
 				id: "goose",
 				name: "Goose",
-				enabled: false,
+				enabled: true,
 				binary: "goose",
 				min_version: "1.35.0",
 				supportLevel: "experimental",

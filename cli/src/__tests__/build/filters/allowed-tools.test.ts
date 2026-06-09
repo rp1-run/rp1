@@ -12,6 +12,7 @@ import {
 	copilotPermissionPatternsFilter,
 } from "../../../build/filters/allowed-tools.js";
 import { geminiRegistry } from "../../../build/gemini/registry.js";
+import { gooseRegistry } from "../../../build/goose/registry.js";
 import { defaultRegistry } from "../../../build/registry.js";
 
 describe("allowed_tools filter", () => {
@@ -187,6 +188,26 @@ describe("allowed_tools filter", () => {
 		test("maps Task to the Gemini subagent invocation tool", () => {
 			const result = allowedToolsFilter("Task", "gemini", geminiRegistry);
 			expect(result).toEqual(["invoke_agent"]);
+		});
+	});
+
+	describe("goose (map to recipe extensions)", () => {
+		test("maps file and shell tools to the Developer extension", () => {
+			const result = allowedToolsFilter(
+				"Bash(rp1 *), Read, Write, Edit, Grep, Glob",
+				"goose",
+				gooseRegistry,
+			);
+			expect(result).toEqual(["developer"]);
+		});
+
+		test("filters tools outside the initial generated recipe slice", () => {
+			const result = allowedToolsFilter(
+				"Task, SlashCommand, WebSearch, AskUserQuestion",
+				"goose",
+				gooseRegistry,
+			);
+			expect(result).toEqual([]);
 		});
 	});
 

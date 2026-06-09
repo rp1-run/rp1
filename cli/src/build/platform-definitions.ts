@@ -259,7 +259,7 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 	goose: {
 		id: "goose",
 		name: "Goose",
-		enabled: false,
+		enabled: true,
 		binary: "goose",
 		min_version: "1.35.0",
 		instruction_file: "AGENTS.md",
@@ -303,6 +303,12 @@ import {
 	geminiPreparePlugin,
 } from "./gemini/hooks.js";
 import { geminiRegistry } from "./gemini/registry.js";
+import {
+	goosePostPluginBuild,
+	goosePostSkillWrite,
+	goosePreparePlugin,
+} from "./goose/hooks.js";
+import { gooseRegistry } from "./goose/registry.js";
 import { defaultRegistry } from "./registry.js";
 import { transformNamespace } from "./tags/index.js";
 import { buildTemplateContext } from "./template-context.js";
@@ -827,7 +833,7 @@ const geminiPlatform: PlatformDefinition = {
 
 const goosePlatform: PlatformDefinition = {
 	id: "goose",
-	registry: defaultRegistry,
+	registry: gooseRegistry,
 	config: platformConfigs.goose,
 	templates: {
 		skill: "goose/skill",
@@ -839,6 +845,11 @@ const goosePlatform: PlatformDefinition = {
 		agentFileName: (pluginName: string, agentName: string) =>
 			`rp1-${pluginName}-${agentName}`,
 		agentExtension: ".md",
+	},
+	hooks: {
+		preparePlugin: goosePreparePlugin,
+		postSkillWrite: goosePostSkillWrite,
+		postPluginBuild: goosePostPluginBuild,
 	},
 	producesBundleAssets: true,
 };

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "plugin": "{{ pluginName }}",
+  "nativePluginName": "{{ namespacedPluginName }}",
+  "version": "{{ version }}",
+  "buildTimestamp": "{{ buildTimestamp }}",
+  "gooseVersion": {
+    "minimum": "{{ platformConfig.min_version }}",
+    "tested": "{{ platformConfig.min_version }}"
+  },
+  "supportScope": "generated-core-harness-assets",
+  "entrypoint": "goose run --recipe <recipe-file>",
+  "runtime": {
+    "harness": "goose",
+    "currentHost": "goose",
+    "bootstrapHarness": "goose",
+    "jsonOutput": "transcript-or-metadata-envelope"
+  },
+  "recipes": {{ artifact.recipesJson }},
+  "agents": {{ artifact.agentsJson }}
+}

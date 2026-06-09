@@ -78,12 +78,16 @@ build-copilot:
 build-antigravity:
     cd cli && bun run scripts/build-antigravity.ts
 
+# Build the Goose recipe package assets
+build-goose:
+    cd cli && bun run scripts/build-goose.ts
+
 # Validate plugin builds on every platform (CI-oriented; no compile, no web-ui).
 # Catches platform-specific semantic-lint errors (L-rules) that single-platform
 # builds miss — e.g. OpenCode-only naming, Codex-only tool surfaces.
 [doc("Validate plugin builds on every platform (CI-oriented)")]
 build-plugins-check:
-    cd cli && bun run scripts/build-opencode.ts && bun run scripts/build-codex.ts && bun run scripts/build-claude-code.ts && bun run scripts/build-copilot.ts && bun run scripts/build-antigravity.ts
+    cd cli && bun run scripts/build-opencode.ts && bun run scripts/build-codex.ts && bun run scripts/build-claude-code.ts && bun run scripts/build-copilot.ts && bun run scripts/build-antigravity.ts && bun run scripts/build-goose.ts
 
 # Build the web-ui
 build-web-ui:
@@ -101,7 +105,7 @@ clean-web-ui-cache:
 # RP1_BUILD_INTERNAL=1 includes utils (internal-only plugin) in the dev build
 [doc("Build the local rp1 binary with -dev version suffix")]
 build-local-dev: build-web-ui clean-web-ui-cache
-    cd cli && bun install --frozen-lockfile && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-antigravity.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
+    cd cli && bun install --frozen-lockfile && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-antigravity.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-goose.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
 
 # Build the macOS native Arcade shell target without opening it
 build-native-app: install
