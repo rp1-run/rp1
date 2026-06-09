@@ -24,7 +24,10 @@ describe("Antigravity validation recipes", () => {
 		expect(buildScript).toContain('"--platform", "antigravity"');
 		expect(buildScript).toContain("dist/antigravity/");
 		expect(buildPlatformsScript).toContain(
-			"dist/claude-code/, dist/opencode/, dist/codex/, dist/copilot/, and dist/antigravity/",
+			"dist/claude-code/, dist/opencode/, dist/codex/, dist/copilot/,",
+		);
+		expect(buildPlatformsScript).toContain(
+			"dist/antigravity/, and dist/goose/ directories.",
 		);
 		expect(buildPlatformsScript).not.toContain("dist/gemini/");
 	});
