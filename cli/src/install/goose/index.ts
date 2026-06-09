@@ -439,6 +439,19 @@ const validateGooseRecipes = async (options: {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
+const REQUIRED_UNSUPPORTED_SCOPE = [
+	"ACP sidecar work",
+	"protocol integration",
+	"eval harness expansion",
+	"PR-review expansion",
+	"nested subagents and nested delegation",
+	"interactive headless approvals and user elicitation",
+	"broad workflow parity",
+] as const;
+
+const isStringArray = (value: unknown): value is string[] =>
+	Array.isArray(value) && value.every((item) => typeof item === "string");
+
 const readSupportMetadata = (
 	assets: readonly GooseAssetManifestEntry[],
 ): GooseSupportMetadataResult => {
@@ -451,6 +464,8 @@ const readSupportMetadata = (
 			status: "missing",
 			checked: false,
 			metadataFiles: [],
+			supportClaims: [],
+			unsupportedScopes: [],
 			recipeCount: 0,
 			agentCount: 0,
 			issue: "Goose support metadata is missing from the asset manifest.",
@@ -462,22 +477,40 @@ const readSupportMetadata = (
 	let recipeCount = 0;
 	let agentCount = 0;
 	const metadataFiles: string[] = [];
+	const supportClaims: string[] = [];
+	const unsupportedScopes = new Set<string>();
 
 	for (const asset of metadataAssets) {
 		metadataFiles.push(asset.displayPath);
 		try {
 			const parsed = JSON.parse(asset.expectedContent) as unknown;
+			const supportClaim = isRecord(parsed) ? parsed.supportClaim : null;
+			const unsupportedScope = isRecord(parsed)
+				? parsed.unsupportedScope
+				: null;
 			if (
 				!isRecord(parsed) ||
 				!isRecord(parsed.runtime) ||
 				parsed.runtime.harness !== "goose" ||
 				!Array.isArray(parsed.recipes) ||
-				!Array.isArray(parsed.agents)
+				!Array.isArray(parsed.agents) ||
+				typeof supportClaim !== "string" ||
+				!isStringArray(unsupportedScope)
 			) {
 				throw new Error(
-					"metadata contract missing runtime, recipes, or agents",
+					"metadata contract missing runtime, recipes, agents, support claim, or unsupported scope",
 				);
 			}
+			const missingUnsupportedScope = REQUIRED_UNSUPPORTED_SCOPE.filter(
+				(scope) => !unsupportedScope.includes(scope),
+			);
+			if (missingUnsupportedScope.length > 0) {
+				throw new Error(
+					`metadata contract missing unsupported scope: ${missingUnsupportedScope.join(", ")}`,
+				);
+			}
+			supportClaims.push(supportClaim);
+			for (const scope of unsupportedScope) unsupportedScopes.add(scope);
 			recipeCount += parsed.recipes.length;
 			agentCount += parsed.agents.length;
 		} catch (error) {
@@ -485,6 +518,8 @@ const readSupportMetadata = (
 				status: "invalid",
 				checked: true,
 				metadataFiles,
+				supportClaims,
+				unsupportedScopes: [...unsupportedScopes],
 				recipeCount,
 				agentCount,
 				issue:
@@ -501,6 +536,8 @@ const readSupportMetadata = (
 		status: "passed",
 		checked: true,
 		metadataFiles,
+		supportClaims,
+		unsupportedScopes: [...unsupportedScopes],
 		recipeCount,
 		agentCount,
 		issue: null,

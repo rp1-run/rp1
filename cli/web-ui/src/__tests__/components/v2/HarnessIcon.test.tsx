@@ -41,4 +41,17 @@ describe("HarnessIcon", () => {
 		expect(icon?.getAttribute("fill")).toBe("currentColor");
 		expect(icon?.querySelector("title")?.textContent).toBe("Gemini");
 	});
+
+	test("renders the LobeHub Goose mono icon for Goose harnesses", () => {
+		const { container } = render(
+			createElement(HarnessIcon, { harness: "goose", size: 18 }),
+		);
+
+		const wrapper = container.querySelector('span[title="Goose"]');
+		expect(wrapper).toBeTruthy();
+		const icon = container.querySelector("svg");
+		expect(icon).toBeTruthy();
+		expect(icon?.getAttribute("fill")).toBe("currentColor");
+		expect(icon?.querySelector("title")?.textContent).toBe("Goose");
+	});
 });

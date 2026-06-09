@@ -32,6 +32,17 @@ const supportMetadataFixture = (): string =>
 			nativePluginName: "rp1-base",
 			version: "0.0.0-test",
 			supportScope: "generated-core-harness-assets",
+			supportClaim:
+				"Experimental core harness support for generated Goose skills, agents, recipes, targeted install/verify, and a verified non-delegating recipe runtime path.",
+			unsupportedScope: [
+				"ACP sidecar work",
+				"protocol integration",
+				"eval harness expansion",
+				"PR-review expansion",
+				"nested subagents and nested delegation",
+				"interactive headless approvals and user elicitation",
+				"broad workflow parity",
+			],
 			entrypoint: "goose run --recipe <recipe-file>",
 			runtime: {
 				harness: "goose",

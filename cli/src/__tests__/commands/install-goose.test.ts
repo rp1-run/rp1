@@ -101,6 +101,8 @@ describe("Goose install command", () => {
 		expect(stdout).toContain("Goose assets");
 		expect(stdout).toContain("Installed Goose scope:");
 		expect(stdout).toContain("Recipe entrypoints");
+		expect(stdout).toContain("Experimental core harness only");
+		expect(stdout).toContain("Not ACP, protocol integration, eval expansion");
 		expect(stdout).toContain("rp1 verify goose");
 	});
 

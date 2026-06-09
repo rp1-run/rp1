@@ -102,6 +102,16 @@ Examples:
 		console.log(dim("  - Goose-discoverable skills and agents"));
 		console.log(dim("  - Recipe entrypoints for `goose run --recipe <name>`"));
 		console.log(dim("  - rp1 support metadata under Goose plugin locations"));
+		console.log(
+			dim(
+				"  - Experimental core harness only: generated assets, targeted install/verify, and non-delegating recipe runtime evidence",
+			),
+		);
+		console.log(
+			dim(
+				"  - Not ACP, protocol integration, eval expansion, PR-review expansion, nested delegation, or interactive headless approvals",
+			),
+		);
 		console.log("");
 		console.log(dim("Next action:"));
 		console.log(cyan("  rp1 verify goose"));
