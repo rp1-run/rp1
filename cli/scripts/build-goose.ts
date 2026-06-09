@@ -1,14 +1,14 @@
 #!/usr/bin/env bun
 
 /**
- * Build artifacts for all platforms (Claude Code, OpenCode, Codex, Copilot, Antigravity, Goose).
- * Produces dist/claude-code/, dist/opencode/, dist/codex/, dist/copilot/,
- * dist/antigravity/, and dist/goose/ directories.
+ * Standalone script to build Goose recipe package assets.
+ * Produces Goose package assets in dist/goose/.
  *
  * Usage:
- *   bun run scripts/build-platforms.ts [options]
+ *   bun run scripts/build-goose.ts [options]
  *
  * Options:
+ *   -o, --output-dir <dir>   Goose output directory (default: dist/goose/)
  *   -p, --plugin <name>      Build specific plugin (base, dev, or all)
  *   --json                   Output results as JSON for CI/CD
  *   -h, --help               Show this help message
@@ -24,7 +24,7 @@ const logger = createLogger({
 });
 
 const args = process.argv.slice(2);
-const result = await executeBuild([...args, "--platform", "all"], logger)();
+const result = await executeBuild([...args, "--platform", "goose"], logger)();
 
 if (E.isLeft(result)) {
 	process.exit(1);

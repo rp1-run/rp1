@@ -242,7 +242,7 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 	goose: {
 		id: "goose",
 		name: "Goose",
-		enabled: false,
+		enabled: true,
 		binary: "goose",
 		min_version: "1.35.0",
 		instruction_file: "AGENTS.md",
@@ -269,6 +269,12 @@ import {
 	antigravityPreparePlugin,
 } from "./antigravity/hooks.js";
 import { antigravityRegistry } from "./antigravity/registry.js";
+import {
+	goosePostPluginBuild,
+	goosePostSkillWrite,
+	goosePreparePlugin,
+} from "./goose/hooks.js";
+import { gooseRegistry } from "./goose/registry.js";
 import { claudeCodeRegistry } from "./claude-code/registry.js";
 import { codexRegistry } from "./codex/registry.js";
 import { mapAgentToRoleType } from "./codex/role-mapper.js";
@@ -664,7 +670,7 @@ const copilotPostPluginBuild = async (
 
 const opencodePlatform: PlatformDefinition = {
 	id: "opencode",
-	registry: defaultRegistry,
+	registry: gooseRegistry,
 	config: platformConfigs.opencode,
 	templates: {
 		skill: "opencode/skill",
@@ -679,6 +685,11 @@ const opencodePlatform: PlatformDefinition = {
 	},
 	hooks: {
 		preparePlugin: opencodePreparePlugin,
+	},
+	hooks: {
+		preparePlugin: goosePreparePlugin,
+		postSkillWrite: goosePostSkillWrite,
+		postPluginBuild: goosePostPluginBuild,
 	},
 	producesBundleAssets: true,
 };

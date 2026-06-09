@@ -108,7 +108,7 @@ describe("build platform support", () => {
 		expect(gooseDef).toMatchObject({
 			id: "goose",
 			producesBundleAssets: true,
-			config: { enabled: false, binary: "goose", supportLevel: "experimental" },
+			config: { enabled: true, binary: "goose", supportLevel: "experimental" },
 		});
 	});
 });
