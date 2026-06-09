@@ -62,6 +62,11 @@ import {
 	installGeminiBundleAssets,
 	refreshGeminiManifestAssets,
 } from "../install/gemini/index.js";
+import {
+	gooseBundleScope,
+	goosePluginsDisplayRoot,
+	installGooseBundleAssets,
+} from "../install/goose/index.js";
 import { writeVersionMarker } from "../install/version-marker.js";
 import { getInstalledVersion } from "../lib/version.js";
 
@@ -531,6 +536,31 @@ const installForTool = (
 		);
 	}
 
+	if (tool.tool.id === "goose") {
+		return pipe(
+			installGooseBundleAssets({ dryRun: ctx.dryRun }),
+			TE.map(
+				(result): ToolInstallResult => ({
+					...baseResult,
+					success: true,
+					pluginsInstalled: gooseBundleScope(result),
+					details: gooseInstallDetails(ctx.dryRun, result),
+					warnings: result.warnings,
+				}),
+			),
+			TE.orElse(
+				(error): TE.TaskEither<CLIError, ToolInstallResult> =>
+					TE.right({
+						...baseResult,
+						success: false,
+						pluginsInstalled: [],
+						warnings: [],
+						error,
+					}),
+			),
+		);
+	}
+
 	// Unknown tool - return failure result
 	return TE.right({
 		...baseResult,
@@ -697,6 +727,30 @@ const geminiInstallDetails = (
 	dryRun
 		? "Next action: run `rp1 install gemini`, restart Gemini CLI, then run `rp1 verify gemini`."
 		: "Next action: restart Gemini CLI, then run `rp1 verify gemini` for manifest and support-matrix status.",
+];
+
+const gooseInstallDetails = (
+	dryRun: boolean,
+	result: {
+		readonly assetCount: number;
+		readonly skillCount: number;
+		readonly agentCount: number;
+		readonly recipeCount: number;
+		readonly metadataCount: number;
+		readonly versionMarkerWritten: boolean;
+	},
+): readonly string[] => [
+	`Goose assets: ${goosePluginsDisplayRoot()} plus ~/.agents/{skills,agents,recipes}`,
+	`Manifest assets: ${result.assetCount} files`,
+	`Skills: ${result.skillCount}; agents: ${result.agentCount}; recipes: ${result.recipeCount}; metadata: ${result.metadataCount}`,
+	"Lifecycle stage: install",
+	dryRun
+		? "Lifecycle state: dry_run"
+		: "Lifecycle state: current after successful install",
+	`Version marker: ${result.versionMarkerWritten ? "current" : "not_written"}`,
+	dryRun
+		? "Next action: run `rp1 install goose`, then `rp1 verify goose`."
+		: "Next action: run `rp1 verify goose` for binary, recipe, support metadata, and smoke status.",
 ];
 
 const geminiUpdateDetails = (
@@ -942,6 +996,22 @@ export const installForSpecificTool = (
 					success: true,
 					pluginsInstalled: geminiBundleScope(result),
 					details: geminiInstallDetails(ctx.dryRun, result),
+					warnings: result.warnings,
+				}),
+			),
+		);
+	}
+
+	if (tool.id === "goose") {
+		return pipe(
+			installGooseBundleAssets({ dryRun: ctx.dryRun }),
+			TE.map(
+				(result): ToolInstallResult => ({
+					toolId: tool.id,
+					toolName: tool.name,
+					success: true,
+					pluginsInstalled: gooseBundleScope(result),
+					details: gooseInstallDetails(ctx.dryRun, result),
 					warnings: result.warnings,
 				}),
 			),

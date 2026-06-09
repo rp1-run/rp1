@@ -230,7 +230,7 @@ describe("embedded supported tools registry", () => {
 				id: "goose",
 				name: "Goose",
 				binary: "goose",
-				enabled: false,
+				enabled: true,
 				supportLevel: "experimental",
 			},
 		]);
@@ -272,14 +272,14 @@ describe("embedded supported tools registry", () => {
 		);
 	});
 
-	test("includes Goose metadata without enabling install or verify surfaces", async () => {
+	test("enables Goose for targeted experimental install and verify surfaces", async () => {
 		const registry = await loadToolsRegistry();
 		const goose = findToolById(registry, "goose");
 
 		expect(goose).toMatchObject({
 			id: "goose",
 			name: "Goose",
-			enabled: false,
+			enabled: true,
 			binary: "goose",
 			min_version: "1.35.0",
 			instruction_file: "AGENTS.md",
@@ -293,9 +293,7 @@ describe("embedded supported tools registry", () => {
 			name: "Goose",
 			variant: "mono",
 		});
-		expect(getEnabledTools(registry).map((tool) => tool.id)).not.toContain(
-			"goose",
-		);
+		expect(getEnabledTools(registry).map((tool) => tool.id)).toContain("goose");
 		expect(
 			getDefaultInstallTools(registry).map((tool) => tool.id),
 		).not.toContain("goose");
