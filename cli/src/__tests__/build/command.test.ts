@@ -1084,5 +1084,36 @@ ${plugin} sample content.
 		});
 		expect(antigravityBundleManifest.plugins.base).toBeDefined();
 		expect(antigravityBundleManifest.plugins.dev).toBeDefined();
+
+		const gooseBundleManifest = JSON.parse(
+			await readFile(
+				join(projectRoot, "dist", "goose", "bundle-manifest.json"),
+				"utf-8",
+			),
+		);
+		expect(gooseBundleManifest.platform).toMatchObject({
+			id: "goose",
+			name: "Goose",
+			binary: "goose",
+			instructionFile: "AGENTS.md",
+			supportLevel: "experimental",
+			icon: {
+				source: "@lobehub/icons",
+				name: "Goose",
+				variant: "mono",
+			},
+		});
+		expect(gooseBundleManifest.plugins.base.verbatimFiles).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ name: "rp1-base-base-sample.yaml" }),
+				expect.objectContaining({ name: "support-metadata.json" }),
+			]),
+		);
+		expect(gooseBundleManifest.plugins.dev.verbatimFiles).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ name: "rp1-dev-dev-sample.yaml" }),
+				expect.objectContaining({ name: "support-metadata.json" }),
+			]),
+		);
 	});
 });

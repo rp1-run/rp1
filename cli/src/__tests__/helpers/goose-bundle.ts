@@ -8,8 +8,11 @@ title: rp1-base-guide
 description: Guide
 instructions: |
   Use the generated skill at {{ recipe_dir }}/../skills/rp1-guide/SKILL.md.
+  Before running the rp1 workflow, use the developer shell to run \`goose --version\` and verify it is at least 1.35.0.
+  If Goose is older than 1.35.0, stop without running the rp1 workflow and report the upgrade requirement.
+  The recipe parameter ARGUMENTS contains: {{ ARGUMENTS }}.
 prompt: |
-  Run rp1-guide.
+  Run rp1-guide with ARGUMENTS={{ ARGUMENTS }}.
 extensions:
   - type: builtin
     name: developer

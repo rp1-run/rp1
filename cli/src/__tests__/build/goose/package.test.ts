@@ -175,6 +175,9 @@ Build assigned implementation tasks. Preserve Task Plan and Add Task labels. Use
 		expect(recipeContent).toContain("key: ARGUMENTS");
 		expect(recipeContent).toContain("{{ ARGUMENTS }}");
 		expect(recipeContent).toContain(
+			"Before running the rp1 workflow, use the developer shell to run `goose --version`",
+		);
+		expect(recipeContent).toContain(
 			"Goose 1.35.0 or newer is required for rp1 generated recipes",
 		);
 		expect(recipeContent).toContain(
