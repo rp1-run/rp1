@@ -109,6 +109,14 @@ describe("Goose lifecycle", () => {
 		await expect(
 			access(join(tempDir, ".agents/recipes/rp1-base-guide.yaml")),
 		).resolves.toBeNull();
+		for (const unrelatedPath of [
+			".claude",
+			".config/opencode",
+			".codex",
+			".gemini",
+		]) {
+			await expect(access(join(tempDir, unrelatedPath))).rejects.toThrow();
+		}
 
 		const marker = JSON.parse(
 			await readFile(join(tempDir, ".rp1/platform-versions.json"), "utf-8"),
@@ -130,6 +138,44 @@ describe("Goose lifecycle", () => {
 		expect(verified.supportMetadata.status).toBe("passed");
 		expect(verified.runtimeSmoke.status).toBe("not_run");
 		expect(verified.issues.join("\n")).not.toContain("runtime smoke");
+	});
+
+	test("accepts supplied runtime smoke evidence without starting a model session", async () => {
+		const assets = createGooseBundleAssetManifestFixture();
+		await expectTaskRight(
+			installGooseBundleAssets({
+				dryRun: false,
+				homeDir: tempDir,
+				assetManifest: assets,
+				getGooseBinaryPath: () => fakeGoosePath,
+			}),
+		);
+
+		const verified = await verifyGooseBundleSetup({
+			homeDir: tempDir,
+			assetManifest: assets,
+			getGooseBinaryPath: () => fakeGoosePath,
+			getGooseVersion: async () => "goose 1.37.0",
+			runGooseRecipeValidate: passingCommand,
+			runGooseRecipeRender: passingCommand,
+			runtimeSmoke: {
+				status: "passed",
+				checked: true,
+				evidencePath: "features/goose-harness-core/goose-runtime-smoke.md",
+				issue: null,
+				remediation: "Opt-in Goose runtime smoke passed.",
+			},
+		});
+
+		expect(verified.status).toBe("ready");
+		expect(verified.runtimeSmoke).toMatchObject({
+			status: "passed",
+			checked: true,
+			evidencePath: "features/goose-harness-core/goose-runtime-smoke.md",
+		});
+		expect(verified.remediation).toContain(
+			"Opt-in Goose runtime smoke passed.",
+		);
 	});
 
 	test("reports missing binary and stale assets with next actions", async () => {
@@ -175,5 +221,61 @@ describe("Goose lifecycle", () => {
 		});
 		expect(stale.status).toBe("degraded_stale_assets");
 		expect(stale.issues.join("\n")).toContain("does not match");
+	});
+
+	test("reports unsupported Goose versions and invalid support metadata", async () => {
+		const assets = createGooseBundleAssetManifestFixture();
+		await expectTaskRight(
+			installGooseBundleAssets({
+				dryRun: false,
+				homeDir: tempDir,
+				assetManifest: assets,
+				getGooseBinaryPath: () => fakeGoosePath,
+			}),
+		);
+
+		const unsupportedVersion = await verifyGooseBundleSetup({
+			homeDir: tempDir,
+			assetManifest: assets,
+			getGooseBinaryPath: () => fakeGoosePath,
+			getGooseVersion: async () => "goose 1.34.9",
+			runGooseRecipeValidate: passingCommand,
+			runGooseRecipeRender: passingCommand,
+		});
+
+		expect(unsupportedVersion.status).toBe("degraded_unsupported_version");
+		expect(unsupportedVersion.binary.minVersion).toBe("1.35.0");
+		expect(unsupportedVersion.issues.join("\n")).toContain(
+			"Goose 1.35.0 or newer is required",
+		);
+
+		const invalidMetadataAssets = assets.map((asset) =>
+			asset.kind === "support_metadata"
+				? { ...asset, expectedContent: "{}\n" }
+				: asset,
+		);
+		await expectTaskRight(
+			installGooseBundleAssets({
+				dryRun: false,
+				homeDir: tempDir,
+				assetManifest: invalidMetadataAssets,
+				getGooseBinaryPath: () => fakeGoosePath,
+			}),
+		);
+
+		const invalidMetadata = await verifyGooseBundleSetup({
+			homeDir: tempDir,
+			assetManifest: invalidMetadataAssets,
+			getGooseBinaryPath: () => fakeGoosePath,
+			getGooseVersion: async () => "goose 1.37.0",
+			runGooseRecipeValidate: passingCommand,
+			runGooseRecipeRender: passingCommand,
+		});
+
+		expect(invalidMetadata.status).toBe("degraded_support_metadata_failed");
+		expect(invalidMetadata.supportMetadata.status).toBe("invalid");
+		expect(invalidMetadata.issues.join("\n")).toContain(
+			"Invalid Goose support metadata",
+		);
 	});
 });

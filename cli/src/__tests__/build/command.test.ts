@@ -10,11 +10,11 @@ import type { Logger } from "../../../shared/logger.js";
 import {
 	buildPlatformPlugin,
 	deriveAntigravityOutputDir,
+	deriveGeminiOutputDir,
 	deriveGooseOutputDir,
 	executeBuild,
 	parseBuildArgs,
 } from "../../build/command.js";
-import { ParseCache } from "../../build/parse-cache.js";
 import { PLATFORM_DEFINITIONS } from "../../build/platform-definitions.js";
 import {
 	assertTestIsolation,
@@ -42,6 +42,7 @@ const claudeCodeDef = PLATFORM_DEFINITIONS.get("claude-code")!;
 const codexDef = PLATFORM_DEFINITIONS.get("codex")!;
 const copilotDef = PLATFORM_DEFINITIONS.get("copilot")!;
 const antigravityDef = PLATFORM_DEFINITIONS.get("antigravity")!;
+const geminiDef = PLATFORM_DEFINITIONS.get("gemini")!;
 const gooseDef = PLATFORM_DEFINITIONS.get("goose")!;
 
 const extractBootstrapTarget = (
@@ -75,6 +76,7 @@ describe("build platform support", () => {
 			"claude-code",
 			"codex",
 			"copilot",
+			"goose",
 			"opencode",
 		]);
 		expect(
@@ -90,6 +92,34 @@ describe("build platform support", () => {
 		});
 	});
 
+	test("registers Goose as an experimental bundle-producing build platform", () => {
+		expect(expectRight(parseBuildArgs(["--platform", "goose"]))).toMatchObject({
+			platform: "goose",
+		});
+		expect(gooseDef).toMatchObject({
+			id: "goose",
+			producesBundleAssets: true,
+			templates: {
+				skill: "goose/skill",
+				agent: "goose/agent",
+				manifest: "goose/manifest",
+			},
+			config: {
+				id: "goose",
+				name: "Goose",
+				enabled: true,
+				binary: "goose",
+				min_version: "1.35.0",
+				supportLevel: "experimental",
+				icon: {
+					source: "@lobehub/icons",
+					name: "Goose",
+					variant: "mono",
+				},
+			},
+		});
+	});
+
 	test("derives the default Google harness output directories next to other platform outputs", () => {
 		expect(deriveAntigravityOutputDir("dist/opencode")).toBe(
 			"dist/antigravity",
@@ -97,19 +127,10 @@ describe("build platform support", () => {
 		expect(deriveAntigravityOutputDir("dist/opencode/")).toBe(
 			"dist/antigravity",
 		);
+		expect(deriveGeminiOutputDir("dist/opencode")).toBe("dist/gemini");
+		expect(deriveGeminiOutputDir("dist/opencode/")).toBe("dist/gemini");
 		expect(deriveGooseOutputDir("dist/opencode")).toBe("dist/goose");
 		expect(deriveGooseOutputDir("dist/opencode/")).toBe("dist/goose");
-	});
-
-	test("registers Goose as an experimental build platform", () => {
-		expect(expectRight(parseBuildArgs(["--platform", "goose"]))).toMatchObject({
-			platform: "goose",
-		});
-		expect(gooseDef).toMatchObject({
-			id: "goose",
-			producesBundleAssets: true,
-			config: { enabled: true, binary: "goose", supportLevel: "experimental" },
-		});
 	});
 });
 
@@ -144,10 +165,6 @@ describe("parseBuildArgs", () => {
 			platform: "copilot",
 		});
 
-		expect(expectRight(parseBuildArgs(["--platform=goose"]))).toMatchObject({
-			platform: "goose",
-		});
-
 		expect(
 			expectRight(
 				parseBuildArgs([
@@ -163,6 +180,10 @@ describe("parseBuildArgs", () => {
 			outputDir: "out",
 			plugin: "utils",
 			platform: "antigravity",
+		});
+
+		expect(expectRight(parseBuildArgs(["--platform=goose"]))).toMatchObject({
+			platform: "goose",
 		});
 	});
 
@@ -748,394 +769,12 @@ Sample skill content.
 	});
 });
 
-describe("buildPlatformPlugin (tier resolution)", () => {
+describe("buildPlatformPlugin (gemini)", () => {
 	let tempDir: string;
 	let outputDir: string;
 
 	beforeAll(async () => {
-		tempDir = await createTempDir("tier-resolution");
-		outputDir = join(tempDir, "output");
-	});
-
-	afterAll(async () => {
-		await cleanupTempDir(tempDir);
-	});
-
-	test("opencode agent with real tier omits model field (inherit)", async () => {
-		const projectRoot = join(tempDir, "project-tier-resolution");
-		await writeFixture(
-			projectRoot,
-			"plugins/base/skills/sample/SKILL.md",
-			`---
-name: sample
-description: "Sample skill with enough text to pass build validation"
----
-
-Sample skill content.
-`,
-		);
-		await writeFixture(
-			projectRoot,
-			"plugins/base/agents/deep-agent.md",
-			`---
-name: deep-agent
-description: "Agent with deep tier and high effort for resolution testing"
-tools: Read
-model: deep
-effort: high
----
-
-Deep agent content for tier resolution.
-`,
-		);
-
-		const out = join(outputDir, "tier-opencode");
-		const result = await buildPlatformPlugin(
-			"base",
-			projectRoot,
-			out,
-			opencodeDef,
-			noopLogger,
-			true,
-			false,
-		);
-
-		expect(result.summary.errors).toEqual([]);
-		expect(result.summary.agents).toBe(1);
-
-		const agentPath = join(out, "base", "agents", "rp1-base-deep-agent.md");
-		const agentContent = await readFile(agentPath, "utf-8");
-
-		// OpenCode is now unmapped — model field should be omitted (inherit)
-		expect(agentContent).not.toContain("model:");
-		expect(agentContent).not.toContain("model: deep");
-	});
-
-	test("preserves inherit model as-is and omits effort when resolveEffort returns null", async () => {
-		const projectRoot = join(tempDir, "project-tier-inherit");
-		await writeFixture(
-			projectRoot,
-			"plugins/base/skills/sample/SKILL.md",
-			`---
-name: sample
-description: "Sample skill with enough text to pass build validation"
----
-
-Sample skill content.
-`,
-		);
-		await writeFixture(
-			projectRoot,
-			"plugins/base/agents/inherit-agent.md",
-			`---
-name: inherit-agent
-description: "Agent with inherit model for backward compatibility testing"
-tools: Read
-model: inherit
----
-
-Inherit agent content.
-`,
-		);
-
-		const out = join(outputDir, "tier-inherit");
-		const result = await buildPlatformPlugin(
-			"base",
-			projectRoot,
-			out,
-			opencodeDef,
-			noopLogger,
-			true,
-			false,
-		);
-
-		expect(result.summary.errors).toEqual([]);
-		expect(result.summary.agents).toBe(1);
-
-		const agentPath = join(out, "base", "agents", "rp1-base-inherit-agent.md");
-		const agentContent = await readFile(agentPath, "utf-8");
-
-		// Inherit model should NOT emit model field at all (backward compatible)
-		expect(agentContent).not.toContain("model:");
-	});
-
-	test("Claude Code agent with deep tier emits YAML frontmatter with model and effort", async () => {
-		const projectRoot = join(tempDir, "project-tier-cc");
-		await writeFixture(
-			projectRoot,
-			"plugins/base/skills/sample/SKILL.md",
-			`---
-name: sample
-description: "Sample skill with enough text to pass build validation"
-metadata:
-  category: development
-  is_workflow: false
----
-
-Sample skill content.
-`,
-		);
-		await writeFixture(
-			projectRoot,
-			"plugins/base/agents/deep-agent.md",
-			`---
-name: deep-agent
-description: "Agent with deep tier for Claude Code pipeline test"
-tools: Read
-model: deep
-effort: high
----
-
-Deep agent content for CC pipeline test.
-`,
-		);
-
-		const out = join(outputDir, "tier-cc");
-		const result = await buildPlatformPlugin(
-			"base",
-			projectRoot,
-			out,
-			claudeCodeDef,
-			noopLogger,
-			true,
-			false,
-		);
-
-		expect(result.summary.errors).toEqual([]);
-		expect(result.summary.agents).toBe(1);
-
-		const agentPath = join(out, "base", "agents", "deep-agent.md");
-		const agentContent = await readFile(agentPath, "utf-8");
-
-		// Deep tier resolves to "opus" for Claude Code
-		expect(agentContent).toContain("model: opus");
-		expect(agentContent).not.toContain("model: deep");
-		// Effort emitted as "effort" field for Claude Code
-		expect(agentContent).toContain("effort: high");
-		// Frontmatter markers present
-		expect(agentContent).toContain("---");
-	});
-
-	test("Codex agent with deep tier emits model and model_reasoning_effort TOML fields", async () => {
-		const projectRoot = join(tempDir, "project-tier-codex");
-		await writeFixture(
-			projectRoot,
-			"plugins/base/skills/sample/SKILL.md",
-			`---
-name: sample
-description: "Sample skill with enough text to pass build validation"
-metadata:
-  category: development
-  is_workflow: false
----
-
-Sample skill content.
-`,
-		);
-		await writeFixture(
-			projectRoot,
-			"plugins/base/agents/deep-agent.md",
-			`---
-name: deep-agent
-description: "Agent with deep tier for Codex pipeline test"
-tools: Read
-model: deep
-effort: high
----
-
-Deep agent content for Codex pipeline test.
-`,
-		);
-
-		const out = join(outputDir, "tier-codex");
-		const result = await buildPlatformPlugin(
-			"base",
-			projectRoot,
-			out,
-			codexDef,
-			noopLogger,
-			true,
-			false,
-		);
-
-		expect(result.summary.errors).toEqual([]);
-		expect(result.summary.agents).toBe(1);
-
-		const agentPath = join(out, "base", "agents", "rp1-base-deep-agent.toml");
-		const agentContent = await readFile(agentPath, "utf-8");
-
-		// Deep tier resolves to "gpt-5.6-sol" for Codex
-		expect(agentContent).toContain('model = "gpt-5.6-sol"');
-		expect(agentContent).not.toContain('model = "deep"');
-		// Effort emitted as "model_reasoning_effort" for Codex
-		expect(agentContent).toContain('model_reasoning_effort = "high"');
-	});
-
-	test("fast tier agent omits effort across all platforms", async () => {
-		const projectRoot = join(tempDir, "project-tier-fast");
-		await writeFixture(
-			projectRoot,
-			"plugins/base/skills/sample/SKILL.md",
-			`---
-name: sample
-description: "Sample skill with enough text to pass build validation"
-metadata:
-  category: development
-  is_workflow: false
----
-
-Sample skill content.
-`,
-		);
-		await writeFixture(
-			projectRoot,
-			"plugins/base/agents/fast-agent.md",
-			`---
-name: fast-agent
-description: "Agent with fast tier for omission testing"
-tools: Read
-model: fast
----
-
-Fast agent content.
-`,
-		);
-
-		// Claude Code
-		const outCC = join(outputDir, "tier-fast-cc");
-		const ccResult = await buildPlatformPlugin(
-			"base",
-			projectRoot,
-			outCC,
-			claudeCodeDef,
-			noopLogger,
-			true,
-			false,
-		);
-		expect(ccResult.summary.errors).toEqual([]);
-		const ccContent = await readFile(
-			join(outCC, "base", "agents", "fast-agent.md"),
-			"utf-8",
-		);
-		expect(ccContent).toContain("model: haiku");
-		expect(ccContent).not.toContain("effort:");
-
-		// Codex
-		const outCdx = join(outputDir, "tier-fast-codex");
-		const cdxResult = await buildPlatformPlugin(
-			"base",
-			projectRoot,
-			outCdx,
-			codexDef,
-			noopLogger,
-			true,
-			false,
-		);
-		expect(cdxResult.summary.errors).toEqual([]);
-		const cdxContent = await readFile(
-			join(outCdx, "base", "agents", "rp1-base-fast-agent.toml"),
-			"utf-8",
-		);
-		expect(cdxContent).toContain('model = "gpt-5.6-luna"');
-		expect(cdxContent).not.toContain("model_reasoning_effort");
-	});
-
-	test("BundleAgentEntry includes tier and effort metadata in bundle assets", async () => {
-		const projectRoot = join(tempDir, "project-manifest-tier");
-		await writeFixture(
-			projectRoot,
-			"plugins/base/skills/sample/SKILL.md",
-			`---
-name: sample
-description: "Sample skill with enough text to pass build validation"
-metadata:
-  category: development
-  is_workflow: false
----
-
-Sample skill content.
-`,
-		);
-		await writeFixture(
-			projectRoot,
-			"plugins/base/agents/deep-agent.md",
-			`---
-name: deep-agent
-description: "Agent with deep tier and high effort for manifest metadata test"
-tools: Read
-model: deep
-effort: high
----
-
-Deep agent content for manifest metadata test.
-`,
-		);
-		await writeFixture(
-			projectRoot,
-			"plugins/base/agents/fast-agent.md",
-			`---
-name: fast-agent
-description: "Agent with fast tier and no effort for manifest metadata test"
-tools: Read
-model: fast
----
-
-Fast agent content for manifest metadata test.
-`,
-		);
-		await writeFixture(
-			projectRoot,
-			"plugins/base/agents/inherit-agent.md",
-			`---
-name: inherit-agent
-description: "Agent with inherit model for manifest metadata test"
-tools: Read
-model: inherit
----
-
-Inherit agent content for manifest metadata test.
-`,
-		);
-
-		const out = join(outputDir, "manifest-tier");
-		const result = await buildPlatformPlugin(
-			"base",
-			projectRoot,
-			out,
-			claudeCodeDef,
-			noopLogger,
-			true,
-			false,
-		);
-
-		expect(result.summary.errors).toEqual([]);
-		expect(result.summary.agents).toBe(3);
-
-		const deepEntry = result.assets.agents.find((a) => a.name === "deep-agent");
-		expect(deepEntry).toBeDefined();
-		expect(deepEntry!.tier).toBe("deep");
-		expect(deepEntry!.effort).toBe("high");
-
-		const fastEntry = result.assets.agents.find((a) => a.name === "fast-agent");
-		expect(fastEntry).toBeDefined();
-		expect(fastEntry!.tier).toBe("fast");
-		expect(fastEntry!.effort).toBeUndefined();
-
-		const inheritEntry = result.assets.agents.find(
-			(a) => a.name === "inherit-agent",
-		);
-		expect(inheritEntry).toBeDefined();
-		expect(inheritEntry!.tier).toBe("inherit");
-		expect(inheritEntry!.effort).toBeUndefined();
-	});
-});
-
-describe("ParseCache", () => {
-	let tempDir: string;
-	let outputDir: string;
-
-	beforeAll(async () => {
-		tempDir = await createTempDir("build-parse-cache");
+		tempDir = await createTempDir("build-cmd-gemini");
 		await assertTestIsolation(tempDir);
 		outputDir = join(tempDir, "output");
 	});
@@ -1144,96 +783,199 @@ describe("ParseCache", () => {
 		await cleanupTempDir(tempDir);
 	});
 
-	test("parses each source file exactly once across multiple platform builds", async () => {
-		const projectRoot = join(tempDir, "project-cache-dedup");
+	test("writes Gemini extension assets, command TOML, and support matrix", async () => {
+		const projectRoot = join(tempDir, "project-gemini-extension");
 
 		await writeFixture(
 			projectRoot,
 			"plugins/base/.claude-plugin/plugin.json",
-			JSON.stringify({ version: "1.0.0" }),
+			JSON.stringify({
+				name: "rp1-base",
+				description: "Base workflows for Gemini CLI",
+				version: "1.2.3",
+			}),
 		);
 		await writeFixture(
 			projectRoot,
-			"plugins/base/skills/cached-skill/SKILL.md",
+			"plugins/base/skills/knowledge-build/SKILL.md",
 			`---
-name: cached-skill
-description: "Skill to verify parse cache deduplication across platforms"
+name: knowledge-build
+description: "Build knowledge base artifacts for downstream workflows"
+allowed-tools: Bash(rp1 *), Read
 metadata:
-  category: development
-  is_workflow: false
+  category: knowledge
+  is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args: []
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: false
+      description: "Feature identifier"
 ---
 
-Cached skill content.
+Knowledge build content.
 `,
 		);
 		await writeFixture(
 			projectRoot,
-			"plugins/base/agents/cached-agent.md",
+			"plugins/base/agents/research-explorer.md",
 			`---
-name: cached-agent
-description: "Agent to verify parse cache deduplication"
-tools: Read
+name: research-explorer
+description: "Explores code and docs for a research report"
+tools: Read, Grep, Bash
 model: inherit
 ---
 
-Cached agent content.
+Research explorer content.
 `,
 		);
 
-		const cache = new ParseCache();
-		const opencodeOut = join(outputDir, "cache-opencode");
-		const claudeOut = join(outputDir, "cache-claude");
-
-		const result1 = await buildPlatformPlugin(
+		const out = join(outputDir, "gemini-extension");
+		const result = await buildPlatformPlugin(
 			"base",
 			projectRoot,
-			opencodeOut,
-			opencodeDef,
+			out,
+			geminiDef,
 			noopLogger,
 			true,
-			false,
-			cache,
 		);
 
-		const result2 = await buildPlatformPlugin(
-			"base",
+		expect(result.summary.commands).toBe(1);
+		expect(result.summary.skills).toBe(1);
+		expect(result.summary.agents).toBe(1);
+		expect(result.assets.commands).toEqual([
+			{
+				name: "rp1-base:knowledge-build",
+				path: "base/commands/rp1-base/knowledge-build.toml",
+			},
+		]);
+		expect(result.assets.verbatimFiles.map((file) => file.path).sort()).toEqual(
+			[
+				"base/GEMINI.md",
+				"base/gemini-extension.json",
+				"base/support-matrix.json",
+			],
+		);
+
+		const extension = JSON.parse(
+			await readFile(join(out, "base", "gemini-extension.json"), "utf-8"),
+		);
+		expect(extension).toMatchObject({
+			name: "rp1-base",
+			version: "1.2.3",
+			contextFileName: "GEMINI.md",
+		});
+
+		const commandToml = await readFile(
+			join(out, "base", "commands", "rp1-base", "knowledge-build.toml"),
+			"utf-8",
+		);
+		expect(commandToml).toContain("{{args}}");
+		expect(commandToml).toContain("rp1-base:knowledge-build");
+		const commandPrompt = (
+			Bun.TOML.parse(commandToml) as { readonly prompt?: unknown }
+		).prompt;
+		expect(typeof commandPrompt).toBe("string");
+		expect(commandPrompt).toContain(
+			"Use the bundled Gemini skill `rp1-knowledge-build`",
+		);
+		expect(commandPrompt).not.toContain("rp1-base-knowledge-build");
+
+		const generatedSkillNames = new Set(
+			result.assets.skills
+				.map((skill) => skill.name)
+				.filter((name) => name.endsWith("/SKILL.md"))
+				.map((name) => name.replace(/\/SKILL\.md$/, "")),
+		);
+		expect(generatedSkillNames.has("rp1-knowledge-build")).toBe(true);
+		for (const command of result.assets.commands) {
+			const parsedCommand = Bun.TOML.parse(
+				await readFile(join(out, command.path), "utf-8"),
+			) as { readonly prompt?: unknown };
+			expect(typeof parsedCommand.prompt).toBe("string");
+			const referencedSkillNames = [
+				...(parsedCommand.prompt as string).matchAll(
+					/Use the bundled Gemini skill `([^`]+)`/g,
+				),
+			].map((match) => match[1]);
+			expect(referencedSkillNames.length).toBeGreaterThan(0);
+			for (const skillName of referencedSkillNames) {
+				expect(generatedSkillNames.has(skillName)).toBe(true);
+			}
+		}
+
+		const agentContent = await readFile(
+			join(out, "base", "agents", "rp1-base-research-explorer.md"),
+			"utf-8",
+		);
+		expect(agentContent).toContain("kind: local");
+		expect(agentContent).toContain("- read_file");
+		expect(agentContent).toContain("- search_file_content");
+		expect(agentContent).toContain("- run_shell_command");
+
+		const context = await readFile(join(out, "base", "GEMINI.md"), "utf-8");
+		expect(context).toContain("/rp1-base:knowledge-build");
+		expect(context).toContain("support-matrix.json");
+
+		const supportMatrix = JSON.parse(
+			await readFile(join(out, "base", "support-matrix.json"), "utf-8"),
+		);
+		expect(supportMatrix.entries[0]).toMatchObject({
+			workflowId: "base:knowledge-build",
+			status: "supported",
+		});
+
+		const manifest = JSON.parse(
+			await readFile(join(out, "base", "manifest.json"), "utf-8"),
+		);
+		expect(manifest.artifacts.commands).toEqual(["rp1-base:knowledge-build"]);
+		expect(manifest.artifacts.supportMatrix).toBe("support-matrix.json");
+	});
+
+	test("excludes removed Gemini validation-only workflows from the dev bundle", async () => {
+		const projectRoot = join(import.meta.dir, "..", "..", "..", "..");
+		const out = join(outputDir, "gemini-cleanup-dev");
+		const result = await buildPlatformPlugin(
+			"dev",
 			projectRoot,
-			claudeOut,
-			claudeCodeDef,
+			out,
+			geminiDef,
 			noopLogger,
 			true,
-			false,
-			cache,
 		);
 
-		expect(result1.summary.skills).toBe(1);
-		expect(result1.summary.agents).toBe(1);
-		expect(result2.summary.errors).toEqual([]);
-		expect(result2.summary.skills).toBe(1);
-		expect(result2.summary.agents).toBe(1);
+		const manifest = JSON.parse(
+			await readFile(join(out, "dev", "manifest.json"), "utf-8"),
+		) as {
+			readonly artifacts: {
+				readonly commands: readonly string[];
+				readonly skills: readonly string[];
+			};
+		};
+		const context = await readFile(join(out, "dev", "GEMINI.md"), "utf-8");
+		const supportMatrix = await readFile(
+			join(out, "dev", "support-matrix.json"),
+			"utf-8",
+		);
+		const generatedAssetIndex = JSON.stringify(result.assets);
 
-		// Verify the cache returns the same object identity on
-		// subsequent calls -- proving it was parsed once and reused.
-		const skillDir = join(
-			projectRoot,
-			"plugins",
-			"base",
-			"skills",
-			"cached-skill",
-		);
-		const agentPath = join(
-			projectRoot,
-			"plugins",
-			"base",
-			"agents",
-			"cached-agent.md",
-		);
-		const skillResult1 = await cache.getSkill(skillDir);
-		const skillResult2 = await cache.getSkill(skillDir);
-		const agentResult1 = await cache.getAgent(agentPath);
-		const agentResult2 = await cache.getAgent(agentPath);
-		expect(skillResult1).toBe(skillResult2);
-		expect(agentResult1).toBe(agentResult2);
+		for (const validationAsset of [
+			"gemini-harness-smoke",
+			"gemini-harness-subagents",
+			"gemini-harness-boundaries",
+		]) {
+			expect(manifest.artifacts.commands.join("\n")).not.toContain(
+				validationAsset,
+			);
+			expect(manifest.artifacts.skills.join("\n")).not.toContain(
+				validationAsset,
+			);
+			expect(context).not.toContain(validationAsset);
+			expect(supportMatrix).not.toContain(validationAsset);
+			expect(generatedAssetIndex).not.toContain(validationAsset);
+		}
 	});
 });
 
@@ -1342,95 +1084,36 @@ ${plugin} sample content.
 		});
 		expect(antigravityBundleManifest.plugins.base).toBeDefined();
 		expect(antigravityBundleManifest.plugins.dev).toBeDefined();
-	});
 
-	test("parallel multi-platform build produces identical skill/agent counts to serial baseline", async () => {
-		const projectRoot = join(tempDir, "project-parallel-parity");
-		const outputDir = "dist/opencode";
-
-		for (const plugin of ["base", "dev"] as const) {
-			await writeFixture(
-				projectRoot,
-				`plugins/${plugin}/.claude-plugin/plugin.json`,
-				JSON.stringify({
-					name: `rp1-${plugin}`,
-					description: `${plugin} plugin for parallel parity test`,
-					version: "1.0.0",
-				}),
-			);
-			await writeFixture(
-				projectRoot,
-				`plugins/${plugin}/skills/${plugin}-parity/SKILL.md`,
-				`---
-name: ${plugin}-parity
-description: "${plugin} parity skill with enough description text for validation"
-metadata:
-  category: development
-  is_workflow: false
----
-
-${plugin} parity content.
-`,
-			);
-		}
-
-		// Build single platforms serially to get baseline counts
-		process.chdir(projectRoot);
-		logs = [];
-
-		let baselineSkills = 0;
-		let baselineAgents = 0;
-		for (const platform of ["opencode", "claude-code"] as const) {
-			logs = [];
-			const singleResult = await executeBuild(
-				[
-					"--platform",
-					platform,
-					"--plugin",
-					"all",
-					"--output-dir",
-					outputDir,
-					"--json",
-				],
-				noopLogger,
-			)();
-			expectRight(singleResult);
-			const singleSummary = JSON.parse(logs.at(-1) ?? "{}") as {
-				skills: number;
-				agents: number;
-			};
-			baselineSkills += singleSummary.skills;
-			baselineAgents += singleSummary.agents;
-		}
-
-		// Build all platforms (parallel path)
-		logs = [];
-		const parallelResult = await executeBuild(
-			[
-				"--platform",
-				"all",
-				"--plugin",
-				"all",
-				"--output-dir",
-				outputDir,
-				"--json",
-			],
-			noopLogger,
-		)();
-
-		expectRight(parallelResult);
-		const parallelSummary = JSON.parse(logs.at(-1) ?? "{}") as {
-			status: string;
-			skills: number;
-			agents: number;
-			errors: string[];
-		};
-
-		// The parallel all-platform build includes more platforms than the
-		// two we summed above, so its totals must be >= the serial baseline.
-		expect(parallelSummary.skills).toBeGreaterThanOrEqual(baselineSkills);
-		expect(parallelSummary.agents).toBeGreaterThanOrEqual(baselineAgents);
-		expect(parallelSummary.errors).toEqual([]);
-		expect(parallelSummary.status).toBe("success");
+		const gooseBundleManifest = JSON.parse(
+			await readFile(
+				join(projectRoot, "dist", "goose", "bundle-manifest.json"),
+				"utf-8",
+			),
+		);
+		expect(gooseBundleManifest.platform).toMatchObject({
+			id: "goose",
+			name: "Goose",
+			binary: "goose",
+			instructionFile: "AGENTS.md",
+			supportLevel: "experimental",
+			icon: {
+				source: "@lobehub/icons",
+				name: "Goose",
+				variant: "mono",
+			},
+		});
+		expect(gooseBundleManifest.plugins.base.verbatimFiles).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ name: "rp1-base-base-sample.yaml" }),
+				expect.objectContaining({ name: "support-metadata.json" }),
+			]),
+		);
+		expect(gooseBundleManifest.plugins.dev.verbatimFiles).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ name: "rp1-dev-dev-sample.yaml" }),
+				expect.objectContaining({ name: "support-metadata.json" }),
+			]),
+		);
 	});
 });

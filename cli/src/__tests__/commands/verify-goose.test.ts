@@ -106,6 +106,36 @@ describe("Goose verify command", () => {
 		expect(result.output).not.toContain("Issues Found:");
 	});
 
+	test("prints supplied runtime smoke evidence", async () => {
+		const deps = {
+			...readyVerifyDeps(tempDir),
+			runtimeSmoke: {
+				status: "passed" as const,
+				checked: true,
+				evidencePath: "features/goose-harness-core/goose-runtime-smoke.md",
+				issue: null,
+				remediation: "Opt-in Goose runtime smoke passed.",
+			},
+		};
+		await expectTaskRight(
+			installGooseBundleAssets({
+				dryRun: false,
+				homeDir: tempDir,
+				assetManifest: bundleAssets,
+				getGooseBinaryPath: () => "/usr/local/bin/goose",
+			}),
+		);
+
+		const result = await captureVerifyOutput(deps);
+
+		expect(result.ok).toBe(true);
+		expect(result.output).toContain("Runtime smoke:");
+		expect(result.output).toContain("passed");
+		expect(result.output).toContain(
+			"features/goose-harness-core/goose-runtime-smoke.md",
+		);
+	});
+
 	test("exposes Goose verify in command help", () => {
 		const help = verifyGooseSubcommand.helpInformation();
 
