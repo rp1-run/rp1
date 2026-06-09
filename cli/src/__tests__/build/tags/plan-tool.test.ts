@@ -46,6 +46,16 @@ describe("plan_tool tag", () => {
 			expect(output).toContain("No dedicated planning tool");
 			expect(output).toContain("markdown file");
 		});
+
+		test("Goose: renders directive with markdown fallback and no approval wait", async () => {
+			const output = await render(template, "goose");
+			expect(output).toContain("Track implementation progress");
+			expect(output).toContain("no dedicated planning or task-tracking tool");
+			expect(output).toContain("markdown task list");
+			expect(output).toContain(
+				"do not wait for interactive plan-mode approval",
+			);
+		});
 	});
 
 	describe("planning mode directive", () => {

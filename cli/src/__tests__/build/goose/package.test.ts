@@ -51,7 +51,7 @@ describe("Goose package build", () => {
 			`---
 name: build-fast
 description: "Fast tracked workflow that exercises generated Goose assets"
-allowed-tools: Bash(rp1 *), Read, Task
+allowed-tools: Bash(rp1 *), Read, Task, NotebookEdit, CustomMcpTool
 metadata:
   category: development
   is_workflow: true
@@ -66,6 +66,11 @@ metadata:
 ---
 
 Use /rp1-base:knowledge-load, emit artifacts, then complete the requested task.
+{% ask_user "Release, Add Task, Review feedback from Arcade, or Stop?", options: "Release", "Add Task", "Review feedback from Arcade", "Stop" %}
+On Add Task: collect the user's task request.
+{% dispatch_agent "rp1-dev:feature-tasker" %}
+FEATURE_ID=test-feature, UPDATE_MODE=true
+{% enddispatch_agent %}
 `,
 		);
 		await writeFixture(
@@ -74,11 +79,14 @@ Use /rp1-base:knowledge-load, emit artifacts, then complete the requested task.
 			`---
 name: task-builder
 description: "Implements assigned feature tasks for the Goose package test"
-tools: Read, Bash, Edit, Task
+tools: Read, Bash, Edit, Task, NotebookEdit, BashOutput, CustomMcpTool
 model: inherit
 ---
 
-Build assigned implementation tasks and return a concise result.
+# Task Reviewer Agent
+# Build Task Parser
+
+Build assigned implementation tasks. Preserve Task Plan and Add Task labels. Use the Task tool, AskUserQuestion, NotebookEdit, BashOutput, and WebSearch only when supported.
 `,
 		);
 
@@ -116,6 +124,23 @@ Build assigned implementation tasks and return a concise result.
 			"| FEATURE_ID | `data.arguments.FEATURE_ID` |",
 		);
 		expect(skillContent).toContain("Use `RUN_ID` for all subsequent emits");
+		expect(skillContent).toContain(
+			"Use the builtin `developer` extension for basic filesystem and shell work only",
+		);
+		expect(skillContent).toContain(
+			"Treat Goose JSON output as a transcript or metadata envelope",
+		);
+		expect(skillContent).toContain(
+			"Goose fails closed for unsupported runtime paths",
+		);
+		expect(skillContent).toContain(
+			"Release, Add Task, Review feedback from Arcade, or Stop?",
+		);
+		expect(skillContent).toContain("On Add Task: collect");
+		expect(skillContent).toContain(
+			"Goose unsupported capability: rp1 subagent delegation is fail-closed",
+		);
+		expect(skillContent).not.toContain("Add subagent delegation");
 
 		const agentContent = await readFile(
 			join(out, "dev", "agents", "rp1-dev-task-builder.md"),
@@ -124,6 +149,20 @@ Build assigned implementation tasks and return a concise result.
 		expect(agentContent).toContain("Set `CURRENT_HOST=goose`");
 		expect(agentContent).toContain("tools:\n  - developer");
 		expect(agentContent).not.toContain("summon");
+		expect(agentContent).toContain("# Task Reviewer Agent");
+		expect(agentContent).toContain("# Build Task Parser");
+		expect(agentContent).toContain("Preserve Task Plan and Add Task labels");
+		expect(agentContent).toContain(
+			"subagent delegation tool (unsupported on Goose",
+		);
+		expect(agentContent).toContain(
+			"interactive user input (unsupported on Goose; stop and ask the user directly)",
+		);
+		expect(agentContent).toContain("notebook editing (unsupported on Goose)");
+		expect(agentContent).toContain(
+			"background shell output collection (unsupported on Goose)",
+		);
+		expect(agentContent).toContain("web searching (unsupported on Goose)");
 
 		const recipePath = join(out, "dev", "recipes", "rp1-dev-build-fast.yaml");
 		const recipeContent = await readFile(recipePath, "utf-8");
@@ -137,6 +176,12 @@ Build assigned implementation tasks and return a concise result.
 		expect(recipeContent).toContain("{{ ARGUMENTS }}");
 		expect(recipeContent).toContain(
 			"Goose 1.35.0 or newer is required for rp1 generated recipes",
+		);
+		expect(recipeContent).toContain(
+			"When generated skill instructions ask for basic filesystem or shell capabilities",
+		);
+		expect(recipeContent).toContain(
+			"If the generated skill reports `Goose unsupported capability`, stop",
 		);
 
 		const manifest = JSON.parse(
@@ -172,6 +217,22 @@ Build assigned implementation tasks and return a concise result.
 				bootstrapHarness: "goose",
 				jsonOutput: "transcript-or-metadata-envelope",
 			},
+			capabilities: {
+				shellAndFilesystem: {
+					status: "supported",
+					extension: "developer",
+					tools: ["Read", "Write", "Edit", "Grep", "Glob", "Bash"],
+				},
+				delegation: {
+					status: "unsupported_fail_closed",
+				},
+				interactiveInput: {
+					status: "unsupported_fail_closed",
+				},
+				jsonOutput: {
+					status: "metadata_envelope",
+				},
+			},
 			agents: ["rp1-dev-task-builder"],
 		});
 		expect(supportMetadata.recipes).toEqual([
@@ -182,7 +243,7 @@ Build assigned implementation tasks and return a concise result.
 				sourceSkill: "dev:build-fast",
 				isWorkflow: true,
 				requiredExtensions: ["developer"],
-				unsupportedTools: ["Task"],
+				unsupportedTools: ["CustomMcpTool", "NotebookEdit", "Task"],
 				arguments: [
 					expect.objectContaining({
 						name: "FEATURE_ID",

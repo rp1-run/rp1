@@ -203,11 +203,20 @@ describe("allowed_tools filter", () => {
 
 		test("filters tools outside the initial generated recipe slice", () => {
 			const result = allowedToolsFilter(
-				"Task, SlashCommand, WebSearch, AskUserQuestion",
+				"Task, SlashCommand, WebSearch, AskUserQuestion, NotebookEdit, BashOutput, KillShell",
 				"goose",
 				gooseRegistry,
 			);
 			expect(result).toEqual([]);
+		});
+
+		test("filters unknown tools instead of advertising custom Goose extensions", () => {
+			const result = allowedToolsFilter(
+				"Read, CustomMcpTool",
+				"goose",
+				gooseRegistry,
+			);
+			expect(result).toEqual(["developer"]);
 		});
 	});
 

@@ -144,4 +144,10 @@ Use these resolved values for all subsequent steps. Do not call `rp1-root-dir`, 
 
 Set `CURRENT_HOST=goose` for this Goose skill context. Pass `--harness goose` to the workflow bootstrap command above. For generated `rp1 agent-tools emit` commands, keep `--harness $CURRENT_HOST` so emitted events use the same Goose harness identity.
 
+Use the builtin `developer` extension for basic filesystem and shell work only: `Read`, `Write`, `Edit`, `Grep`, `Glob`, and `Bash` semantics map to developer-extension file or shell operations. If the developer extension is unavailable, stop and report that Goose developer tooling is required for this rp1 recipe.
+
+Treat Goose JSON output as a transcript or metadata envelope, not as a bare final answer. Inspect the final assistant message or structured event metadata deliberately before deciding a workflow completed.
+
+Goose fails closed for unsupported runtime paths in this build: subagent delegation, nested delegation, interactive approvals, user elicitation, web access, notebook editing, and background shell session control. If a generated instruction reports `Goose unsupported capability` or one of those capabilities is required, stop and return the unsupported-capability message instead of waiting or simulating success.
+
 {{ artifact.content | namespace_ref: platform | slash_commands: platform | param_transform: platform | tool_prose: platform }}

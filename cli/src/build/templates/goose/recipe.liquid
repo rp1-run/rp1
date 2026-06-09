@@ -10,7 +10,9 @@ instructions: |
   Before running the rp1 workflow, use the developer shell to run `goose --version`, parse the first semantic version, and verify it is at least `{{ platformConfig.min_version }}`.
   If Goose is older than `{{ platformConfig.min_version }}`, or if the version cannot be checked, stop without running the rp1 workflow and report: `Goose {{ platformConfig.min_version }} or newer is required for rp1 generated recipes; found <version or error>. Upgrade Goose and rerun this recipe.`
   When generated skill instructions ask for `CURRENT_HOST`, use `goose`.
-  Treat Goose JSON output as a transcript or metadata envelope, not as a bare final answer.
+  When generated skill instructions ask for basic filesystem or shell capabilities (`Read`, `Write`, `Edit`, `Grep`, `Glob`, or `Bash`), use the builtin `developer` extension. If the developer extension is unavailable, stop and report: `Goose developer extension is required for rp1 generated recipes. Re-run with the developer extension enabled.`
+  Treat Goose JSON output as a transcript or metadata envelope, not as a bare final answer. Inspect the final assistant message or structured event metadata deliberately before deciding that a workflow completed.
+  Delegation, nested delegation, interactive approvals, user elicitation, web access, notebook editing, and background shell session control are unsupported in this build unless the generated instruction says a validated foreground Summon smoke exists. If one of those capabilities is required, stop and report the unsupported capability instead of waiting or pretending it succeeded.
   If an rp1 command fails, report the exact error and the recovery step from the command output.
 prompt: |
   Run the generated rp1 skill `{{ artifact.namespacedName }}`.
@@ -28,6 +30,7 @@ prompt: |
 {%- endif %}
 
   Start by reading the generated skill file, then follow it exactly.
+  If the generated skill reports `Goose unsupported capability`, stop and return that message as the recipe result.
 extensions:
   - type: builtin
     name: developer

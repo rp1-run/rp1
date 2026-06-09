@@ -62,7 +62,7 @@ function renderPlanTool(directive: string, platform: BuildPlatform): string {
 		case "gemini":
 			return `${directive}\n\nTrack progress in a markdown task list in the working directory.`;
 		case "goose":
-			return `${directive}\n\nTrack progress in a markdown task list in the working directory.`;
+			return `${directive}\n\nGoose has no dedicated planning or task-tracking tool in this build. Track progress in a markdown task list in the working directory, and do not wait for interactive plan-mode approval.`;
 	}
 }
 

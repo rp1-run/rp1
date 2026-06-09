@@ -58,6 +58,20 @@ describe("ask_user tag", () => {
 		});
 	});
 
+	describe("goose without options", () => {
+		const template = '{% ask_user "What is your preference?" %}';
+
+		test("renders direct unsupported elicitation guidance", async () => {
+			const output = await render(template, "goose");
+			expect(output).toContain("Goose unsupported capability");
+			expect(output).toContain("interactive user input and elicitation");
+			expect(output).toContain("Do not wait for headless approval");
+			expect(output).toContain(
+				'Stop and ask the user directly: "What is your preference?"',
+			);
+		});
+	});
+
 	describe("copilot with options", () => {
 		const template = '{% ask_user "Pick one", options: "Yes", "No", "Maybe" %}';
 

@@ -12,7 +12,7 @@
  * | copilot     | `"Bash(echo *), Read"`   | `["run_terminal_command(echo *)", "read_file"]` |
  * | antigravity | `"Bash(echo *), Read"`   | `["run_shell_command", "read_file"]` |
  * | gemini      | `"Bash(echo *), Read"`   | `["run_shell_command", "read_file"]` |
- * | goose       | `"Bash(echo *), Read"`   | `"Bash(echo *), Read"` (passthrough) |
+ * | goose       | `"Bash(echo *), Read"`   | `["developer"]` |
  *
  * Extracts and reuses logic from transformations.ts (OpenCode split)
  * and codex/transformations.ts (Codex registry mapping with pattern handling).
@@ -108,12 +108,7 @@ const toGooseExtensions = (
 		const baseName = parenMatch ? parenMatch[1] : tool;
 
 		const mappedTool = registry.toolMappings[baseName];
-		if (mappedTool === null) {
-			continue;
-		}
-		if (mappedTool === undefined) {
-			mapped.push(baseName);
-		} else {
+		if (mappedTool !== null && mappedTool !== undefined) {
 			mapped.push(mappedTool);
 		}
 	}

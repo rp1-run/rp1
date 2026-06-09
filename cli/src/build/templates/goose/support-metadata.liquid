@@ -16,6 +16,31 @@
     "bootstrapHarness": "goose",
     "jsonOutput": "transcript-or-metadata-envelope"
   },
+  "capabilities": {
+    "shellAndFilesystem": {
+      "status": "supported",
+      "extension": "developer",
+      "tools": ["Read", "Write", "Edit", "Grep", "Glob", "Bash"]
+    },
+    "delegation": {
+      "status": "unsupported_fail_closed",
+      "reason": "foreground Summon smoke has not passed"
+    },
+    "nestedDelegation": {
+      "status": "unsupported_fail_closed"
+    },
+    "interactiveInput": {
+      "status": "unsupported_fail_closed",
+      "includes": ["interactive approvals", "user elicitation"]
+    },
+    "webAccess": {
+      "status": "unsupported_fail_closed"
+    },
+    "jsonOutput": {
+      "status": "metadata_envelope",
+      "interpretation": "inspect final assistant message or structured event metadata"
+    }
+  },
   "recipes": {{ artifact.recipesJson }},
   "agents": {{ artifact.agentsJson }}
 }

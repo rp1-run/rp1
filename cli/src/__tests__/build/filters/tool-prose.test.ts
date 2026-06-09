@@ -8,6 +8,7 @@ import { claudeCodeRegistry } from "../../../build/claude-code/registry.js";
 import { codexRegistry } from "../../../build/codex/registry.js";
 import { copilotRegistry } from "../../../build/copilot/registry.js";
 import { toolProse } from "../../../build/filters/tool-prose.js";
+import { gooseRegistry } from "../../../build/goose/registry.js";
 import { defaultRegistry } from "../../../build/registry.js";
 
 describe("tool_prose filter", () => {
@@ -145,6 +146,56 @@ describe("tool_prose filter", () => {
 			const input = "Use WebFetch to download.";
 			const result = toolProse(input, "copilot", copilotRegistry);
 			expect(result).toBe("Use fetch_url to download.");
+		});
+	});
+
+	describe("goose", () => {
+		test("rewrites basic file and shell tools to developer extension semantics", () => {
+			const input = "Use Read, Edit, Grep, Glob, and Bash for local work.";
+			const result = toolProse(input, "goose", gooseRegistry);
+			expect(result).toContain("developer extension file reads");
+			expect(result).toContain("developer extension file edits");
+			expect(result).toContain("developer extension search");
+			expect(result).toContain("developer extension file discovery");
+			expect(result).toContain("developer extension shell commands");
+		});
+
+		test("rewrites explicit delegation tool phrases to fail-closed prose", () => {
+			const input =
+				"Use the Task tool, Skill tool, SlashCommand tool, AskUserQuestion, and WebSearch.";
+			const result = toolProse(input, "goose", gooseRegistry);
+			expect(result).toContain(
+				"subagent delegation tool (unsupported on Goose",
+			);
+			expect(result).toContain(
+				"nested skill invocation tool (unsupported on Goose)",
+			);
+			expect(result).toContain(
+				"slash command invocation tool (unsupported on Goose)",
+			);
+			expect(result).toContain(
+				"interactive user input (unsupported on Goose; stop and ask the user directly)",
+			);
+			expect(result).toContain("web searching (unsupported on Goose)");
+		});
+
+		test("preserves ordinary task vocabulary in generated Goose prose", () => {
+			const input =
+				"# Task Reviewer Agent\n# Build Task Parser\nTask Plan\nRelease, Add Task, Review feedback from Arcade, or Stop?";
+			const result = toolProse(input, "goose", gooseRegistry);
+			expect(result).toBe(input);
+		});
+
+		test("rewrites non-basic developer tools as unsupported", () => {
+			const input = "Use NotebookEdit, BashOutput, and KillShell.";
+			const result = toolProse(input, "goose", gooseRegistry);
+			expect(result).toContain("notebook editing (unsupported on Goose)");
+			expect(result).toContain(
+				"background shell output collection (unsupported on Goose)",
+			);
+			expect(result).toContain(
+				"background shell control (unsupported on Goose)",
+			);
 		});
 	});
 });
