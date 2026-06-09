@@ -36,6 +36,8 @@ function renderEditModel(directive: string, platform: BuildPlatform): string {
 			return `Use the edit_file tool (exact string replacement) to ${directive}. Provide old_string and new_string parameters for precise replacements.`;
 		case "antigravity":
 			return `Use Antigravity CLI file editing tools to ${directive}`;
+		case "goose":
+			return `Use Goose developer file editing tools to ${directive}`;
 	}
 }
 

@@ -22,6 +22,10 @@ describe("harness_name filter", () => {
 		expect(harnessName("antigravity")).toBe("antigravity");
 	});
 
+	test("maps goose to goose", () => {
+		expect(harnessName("goose")).toBe("goose");
+	});
+
 	test("maps opencode to opencode", () => {
 		expect(harnessName("opencode")).toBe("opencode");
 	});

@@ -93,6 +93,8 @@ function renderWebAccess(
 			return renderCopilot(capability, directive);
 		case "antigravity":
 			return renderOC(capability, directive);
+		case "goose":
+			return `Goose harness limitation: web access is not supported in this build. Use local evidence or stop and ask for the required source: ${directive}`;
 	}
 }
 

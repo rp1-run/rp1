@@ -36,6 +36,8 @@ function renderPermissions(directive: string, platform: BuildPlatform): string {
 			return `Use the \`allowed-tools\` YAML frontmatter field to ${directive}. Prefer Copilot permission patterns such as \`shell(rp1:*)\`, \`read\`, and \`write\`.`;
 		case "antigravity":
 			return `Use Antigravity CLI trust, sandbox, and approval policy to ${directive}`;
+		case "goose":
+			return `Use Goose extension configuration and headless approval limitations to ${directive}`;
 	}
 }
 

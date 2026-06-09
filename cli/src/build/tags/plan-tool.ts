@@ -57,6 +57,8 @@ function renderPlanTool(directive: string, platform: BuildPlatform): string {
 			return `${directive}\n\nNote: No dedicated planning tool is available on Copilot CLI. Track progress by writing status updates to a markdown file in the working directory.`;
 		case "antigravity":
 			return `${directive}\n\nTrack progress in a markdown task list in the working directory.`;
+		case "goose":
+			return `${directive}\n\nTrack progress in a markdown task list in the working directory.`;
 	}
 }
 

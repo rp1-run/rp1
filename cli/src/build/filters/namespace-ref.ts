@@ -88,5 +88,7 @@ export const namespaceRef = (
 			return transformNamespaceSeparator(content);
 		case "antigravity":
 			return content;
+		case "goose":
+			return content;
 	}
 };

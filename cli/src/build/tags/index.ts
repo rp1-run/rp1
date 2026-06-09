@@ -226,6 +226,8 @@ export function transformNamespace(
 		case "antigravity":
 			// rp1-base:agent -> @rp1-base-agent
 			return `@${pluginName}-${artifact}`;
+		case "goose":
+			return ref;
 	}
 }
 

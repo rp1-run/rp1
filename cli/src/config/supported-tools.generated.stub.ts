@@ -78,5 +78,22 @@ export const TOOLS_REGISTRY = {
 				"rules",
 			],
 		},
+		{
+			id: "goose",
+			name: "Goose",
+			enabled: false,
+			binary: "goose",
+			min_version: "1.35.0",
+			instruction_file: "AGENTS.md",
+			install_url: "https://block.github.io/goose/",
+			plugin_install_cmd: null,
+			supportLevel: "experimental",
+			icon: {
+				source: "@lobehub/icons",
+				name: "Goose",
+				variant: "mono",
+			},
+			capabilities: ["skills", "agents", "recipes"],
+		},
 	],
 } as const;

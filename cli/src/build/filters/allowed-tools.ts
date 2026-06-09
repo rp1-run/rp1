@@ -213,5 +213,7 @@ export const allowedToolsFilter = (
 			return toCopilotArray(allowedTools, registry);
 		case "antigravity":
 			return toAntigravityArray(allowedTools, registry);
+		case "goose":
+			return allowedTools;
 	}
 };

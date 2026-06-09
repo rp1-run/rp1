@@ -110,5 +110,7 @@ export const paramTransform = (
 			return transformParamsForCodex(content);
 		case "antigravity":
 			return transformParamsForCodex(content);
+		case "goose":
+			return content;
 	}
 };

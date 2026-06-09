@@ -97,6 +97,8 @@ function renderAskUser(
 			return renderCopilot(question, options);
 		case "antigravity":
 			return renderOpenCode(question, options);
+		case "goose":
+			return `Goose harness limitation: interactive user input is not supported in this build. Stop and ask the user directly: "${question}"`;
 	}
 }
 

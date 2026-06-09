@@ -27,6 +27,8 @@ export const harnessName = (platform: BuildPlatform): string => {
 			return "gh-copilot";
 		case "antigravity":
 			return "antigravity";
+		case "goose":
+			return "goose";
 		case "opencode":
 			return "opencode";
 	}

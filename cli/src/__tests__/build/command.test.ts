@@ -10,6 +10,7 @@ import type { Logger } from "../../../shared/logger.js";
 import {
 	buildPlatformPlugin,
 	deriveAntigravityOutputDir,
+	deriveGooseOutputDir,
 	executeBuild,
 	parseBuildArgs,
 } from "../../build/command.js";
@@ -41,6 +42,7 @@ const claudeCodeDef = PLATFORM_DEFINITIONS.get("claude-code")!;
 const codexDef = PLATFORM_DEFINITIONS.get("codex")!;
 const copilotDef = PLATFORM_DEFINITIONS.get("copilot")!;
 const antigravityDef = PLATFORM_DEFINITIONS.get("antigravity")!;
+const gooseDef = PLATFORM_DEFINITIONS.get("goose")!;
 
 const extractBootstrapTarget = (
 	content: string,
@@ -95,6 +97,19 @@ describe("build platform support", () => {
 		expect(deriveAntigravityOutputDir("dist/opencode/")).toBe(
 			"dist/antigravity",
 		);
+		expect(deriveGooseOutputDir("dist/opencode")).toBe("dist/goose");
+		expect(deriveGooseOutputDir("dist/opencode/")).toBe("dist/goose");
+	});
+
+	test("registers Goose as an experimental build platform", () => {
+		expect(expectRight(parseBuildArgs(["--platform", "goose"]))).toMatchObject({
+			platform: "goose",
+		});
+		expect(gooseDef).toMatchObject({
+			id: "goose",
+			producesBundleAssets: true,
+			config: { enabled: false, binary: "goose", supportLevel: "experimental" },
+		});
 	});
 });
 
@@ -127,6 +142,10 @@ describe("parseBuildArgs", () => {
 			outputDir: "out",
 			plugin: "utils",
 			platform: "copilot",
+		});
+
+		expect(expectRight(parseBuildArgs(["--platform=goose"]))).toMatchObject({
+			platform: "goose",
 		});
 
 		expect(
