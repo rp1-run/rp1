@@ -225,6 +225,49 @@ describe("LiveRunIndex", () => {
 		expect(index.getLastActivityAt("proj-1")).toBe("2026-04-14T00:07:00.000Z");
 	});
 
+	test("does not regress newer live lifecycle state with stale summaries", async () => {
+		const index = createLiveRunIndex();
+		index.upsertRun(
+			buildRun({
+				status: "running",
+				currentStep: "build",
+				lastEventAt: "2026-04-14T00:04:00.000Z",
+				statusMessage: "Building",
+			}),
+		);
+
+		await index.applyEvent(
+			buildEvent({
+				eventId: 25,
+				eventType: "waiting_for_user",
+				step: "review",
+				runStatus: "waiting",
+				data: { prompt: "Approve?" },
+				createdAt: "2026-04-14T00:05:00.000Z",
+			}),
+		);
+
+		index.upsertRun(
+			buildRun({
+				status: "running",
+				currentStep: "build",
+				lastEventAt: "2026-04-14T00:03:00.000Z",
+				completedAt: null,
+				error: "old error",
+				statusMessage: "Old summary",
+			}),
+		);
+
+		expect(index.getRun("run-1")).toMatchObject({
+			status: "waiting",
+			currentStep: "review",
+			lastEventAt: "2026-04-14T00:05:00.000Z",
+			completedAt: null,
+			error: null,
+			statusMessage: "Building",
+		});
+	});
+
 	test("deduplicates unknown-run hydration and replays queued events once", async () => {
 		let resolveFetch: (run: Run | null) => void = () => {
 			throw new Error("Hydration fetch was not initialized");

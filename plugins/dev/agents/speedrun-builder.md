@@ -34,3 +34,12 @@ When the dispatch prompt includes a `CODE_ROOT` value:
 - Do NOT load KB files or spawn subagents
 - Keep changes as small as possible while fully addressing the request
 - If the request is ambiguous, prefer the most conservative interpretation
+
+## Speedrun Gate
+
+MUST:
+- Keep change minimal; no unrelated refactor/speculative abstraction.
+- Run smallest relevant format/lint/test check identifiable quickly.
+- Add/modify tests only for behavior change, bug regression, or risky branch.
+- Else report: `Tests: not added (no high-value regression)`.
+- If design/broad coverage/scope exceeds gate: STOP -> /build-fast or /build.

@@ -77,6 +77,40 @@ describe("handleStaticRequest", () => {
 		expect(await response.text()).toContain("Arcade");
 	});
 
+	test("falls back to index.html for file browser routes with extensions", async () => {
+		const response = await handleStaticRequest(
+			request("/projects/project-1/files/.rp1/work/notes/example.md", {
+				Accept: "text/html",
+			}),
+			false,
+			webUIDir,
+		);
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("Content-Type")).toBe(
+			"text/html; charset=utf-8",
+		);
+		expect(response.headers.get("Cache-Control")).toBe(HTML_CACHE_CONTROL);
+		expect(await response.text()).toContain("Arcade");
+	});
+
+	test("falls back to index.html for artifact routes with extensions", async () => {
+		const response = await handleStaticRequest(
+			request("/runs/run-1/artifacts/pr-walkthroughs/example.md", {
+				Accept: "text/html",
+			}),
+			false,
+			webUIDir,
+		);
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("Content-Type")).toBe(
+			"text/html; charset=utf-8",
+		);
+		expect(response.headers.get("Cache-Control")).toBe(HTML_CACHE_CONTROL);
+		expect(await response.text()).toContain("Arcade");
+	});
+
 	test("returns 404 for missing extension-bearing paths outside assets", async () => {
 		const response = await handleStaticRequest(
 			request("/workspace/main.js", { Accept: "text/html" }),

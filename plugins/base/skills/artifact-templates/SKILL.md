@@ -71,6 +71,7 @@ Active `/build` artifacts are producer-owned: the agent that writes the artifact
 | knowledge-base | technology-matrix.md (monorepo) | document | kbRoot | technology-matrix.md | templates/knowledge-base/monorepo/technology-matrix.md |
 | knowledge-base | state.json | data | kbRoot | state.json | templates/knowledge-base/state.json |
 | knowledge-base | meta.json | data | kbRoot | meta.json | templates/knowledge-base/meta.json |
+| note | note.md | document | workRoot | notes/{yyyy-mm-dd}-{title-slug}.md | templates/note/note.md |
 | prompt-eval-builder | promptfoo-config | document | - | (agent-determined) | templates/prompt-eval-builder/promptfoo-config.yaml |
 
 For Socratic Duel, `managed-debate-region` is retained for legacy in-progress duels. New artifact-backed runs use `debate-artifact.md` under `workRoot`.
@@ -131,6 +132,8 @@ templates/
 |   +-- state.json
 |   +-- monorepo/
 |   +-- single-project/
++-- note/
+|   +-- note.md
 +-- phase-planner/
 +-- pr-feedback-collector/
 +-- pr-review-reporter/
