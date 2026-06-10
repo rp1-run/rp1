@@ -117,9 +117,12 @@ Build assigned implementation tasks. Preserve Task Plan and Add Task labels. Use
 		expect(skillContent).toContain("--harness goose");
 		expect(skillContent).toContain("--name rp1-dev:build-fast");
 		expect(skillContent).toContain(
-			'--schema-path "{{ recipe_dir }}/../skills/rp1-build-fast/SKILL.md"',
+			'--schema-path "$HOME/.agents/skills/rp1-build-fast/SKILL.md"',
 		);
-		expect(skillContent).toContain("Use /rp1-base:knowledge-load");
+		expect(skillContent).toContain(
+			"Goose unsupported capability: slash command invocation (/rp1-base:knowledge-load)",
+		);
+		expect(skillContent).not.toContain("Use /rp1-base:knowledge-load");
 		expect(skillContent).toContain(
 			"| FEATURE_ID | `data.arguments.FEATURE_ID` |",
 		);
@@ -135,6 +138,9 @@ Build assigned implementation tasks. Preserve Task Plan and Add Task labels. Use
 		);
 		expect(skillContent).toContain(
 			"Release, Add Task, Review feedback from Arcade, or Stop?",
+		);
+		expect(skillContent).toContain(
+			'Available options: "Release", "Add Task", "Review feedback from Arcade", "Stop"',
 		);
 		expect(skillContent).toContain("On Add Task: collect");
 		expect(skillContent).toContain(
@@ -179,6 +185,9 @@ Build assigned implementation tasks. Preserve Task Plan and Add Task labels. Use
 		);
 		expect(recipeContent).toContain(
 			"Goose 1.35.0 or newer is required for rp1 generated recipes",
+		);
+		expect(recipeContent).toContain(
+			"This recipe's generated skill declares unsupported Goose tools: CustomMcpTool, NotebookEdit, Task",
 		);
 		expect(recipeContent).toContain(
 			"When generated skill instructions ask for basic filesystem or shell capabilities",

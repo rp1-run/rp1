@@ -1,6 +1,6 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
@@ -9,7 +9,7 @@ import type { BundledAssets } from "../../assets/reader.js";
 import { getInstalledVersion } from "../../lib/version.js";
 import {
 	isStale,
-	readVersionMarker,
+	type VersionMarker,
 	writeVersionMarker,
 } from "../version-marker.js";
 import {
@@ -145,6 +145,18 @@ const errorCode = (error: unknown): string | undefined =>
 const errorMessage = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error);
 
+const isNodeError = (error: unknown): error is NodeJS.ErrnoException =>
+	typeof error === "object" && error !== null && "code" in error;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isVersionMarker = (value: unknown): value is VersionMarker =>
+	isRecord(value) &&
+	typeof value.version === "string" &&
+	typeof value.installedAt === "string" &&
+	typeof value.platform === "string";
+
 const userActionForState = (state: GooseLifecycleState): string => {
 	if (state === "current") {
 		return "Run `rp1 verify goose` to validate Goose binary, recipe, support metadata, and smoke status.";
@@ -269,20 +281,56 @@ const readVersionMarkerStatus = async (
 	homeDir: string,
 ): Promise<GooseVersionMarkerLifecycleStatus> => {
 	const currentVersion = getInstalledVersion();
-	const marker = await readVersionMarker(PLATFORM_ID, homeDir)();
+	const markerPath = join(homeDir, ".rp1/platform-versions.json");
+	let marker: VersionMarker | null = null;
 
-	if (E.isLeft(marker)) {
-		return {
-			freshness: "unknown",
-			installedVersion: null,
-			currentVersion,
-			issue: `Unable to inspect the rp1 Goose version marker: ${errorMessage(marker.left)}.`,
-			remediation:
-				"Check permissions for ~/.rp1/platform-versions.json, then rerun `rp1 verify goose`.",
-		};
+	try {
+		const parsed = JSON.parse(await readFile(markerPath, "utf-8")) as unknown;
+		if (!isRecord(parsed)) {
+			return {
+				freshness: "unknown",
+				installedVersion: null,
+				currentVersion,
+				issue:
+					"Unable to inspect the rp1 Goose version marker: malformed version marker file.",
+				remediation:
+					"Check permissions for ~/.rp1/platform-versions.json, then rerun `rp1 verify goose`.",
+			};
+		}
+		if (Object.hasOwn(parsed, PLATFORM_ID)) {
+			const markerCandidate = parsed[PLATFORM_ID];
+			if (
+				!isVersionMarker(markerCandidate) ||
+				markerCandidate.platform !== PLATFORM_ID
+			) {
+				return {
+					freshness: "unknown",
+					installedVersion: null,
+					currentVersion,
+					issue:
+						"Unable to inspect the rp1 Goose version marker: malformed goose marker entry.",
+					remediation:
+						"Check permissions for ~/.rp1/platform-versions.json, then rerun `rp1 verify goose`.",
+				};
+			}
+			marker = markerCandidate;
+		}
+	} catch (error) {
+		if (isNodeError(error) && error.code === "ENOENT") {
+			marker = null;
+		} else {
+			return {
+				freshness: "unknown",
+				installedVersion: null,
+				currentVersion,
+				issue: `Unable to inspect the rp1 Goose version marker: ${errorMessage(error)}.`,
+				remediation:
+					"Check permissions for ~/.rp1/platform-versions.json, then rerun `rp1 verify goose`.",
+			};
+		}
 	}
 
-	if (!marker.right) {
+	if (!marker) {
 		return {
 			freshness: "missing",
 			installedVersion: null,
@@ -293,12 +341,12 @@ const readVersionMarkerStatus = async (
 		};
 	}
 
-	if (isStale(marker.right, currentVersion)) {
+	if (isStale(marker, currentVersion)) {
 		return {
 			freshness: "stale",
-			installedVersion: marker.right.version,
+			installedVersion: marker.version,
 			currentVersion,
-			issue: `The rp1 Goose version marker is stale: installed ${marker.right.version}, current ${currentVersion}.`,
+			issue: `The rp1 Goose version marker is stale: installed ${marker.version}, current ${currentVersion}.`,
 			remediation:
 				"Run `rp1 install goose` to refresh assets and the version marker.",
 		};
@@ -306,11 +354,85 @@ const readVersionMarkerStatus = async (
 
 	return {
 		freshness: "current",
-		installedVersion: marker.right.version,
+		installedVersion: marker.version,
 		currentVersion,
 		issue: null,
 		remediation: null,
 	};
+};
+
+const resolveAssetPath = (
+	homeDir: string,
+	assetEntry: GooseAssetManifestEntry,
+): string => {
+	const root = resolve(homeDir);
+	const assetPath = resolve(root, assetEntry.relativePath);
+	const assetRelativePath = relative(root, assetPath);
+
+	if (
+		assetRelativePath === "" ||
+		assetRelativePath.startsWith("..") ||
+		isAbsolute(assetRelativePath)
+	) {
+		throw new Error(
+			`${assetEntry.displayPath} resolves outside the Goose home directory.`,
+		);
+	}
+
+	return assetPath;
+};
+
+const assertWritableAssetTarget = async (
+	assetPath: string,
+	assetEntry: GooseAssetManifestEntry,
+): Promise<void> => {
+	try {
+		const stat = await lstat(assetPath);
+		if (stat.isSymbolicLink() || !stat.isFile()) {
+			throw new Error(
+				`${assetEntry.displayPath} is not a regular file and cannot be overwritten safely.`,
+			);
+		}
+	} catch (error) {
+		if (isNodeError(error) && error.code === "ENOENT") return;
+		throw error;
+	}
+};
+
+const assertNoSymlinkAncestors = async (
+	homeDir: string,
+	assetPath: string,
+	assetEntry: GooseAssetManifestEntry,
+): Promise<void> => {
+	const root = resolve(homeDir);
+	const parentRelativePath = relative(root, dirname(assetPath));
+	let currentPath = root;
+
+	for (const segment of parentRelativePath.split(/[\\/]+/).filter(Boolean)) {
+		currentPath = join(currentPath, segment);
+		try {
+			const stat = await lstat(currentPath);
+			if (stat.isSymbolicLink() || !stat.isDirectory()) {
+				throw new Error(
+					`${assetEntry.displayPath} parent path contains a non-directory or symlink segment.`,
+				);
+			}
+		} catch (error) {
+			if (isNodeError(error) && error.code === "ENOENT") return;
+			throw error;
+		}
+	}
+};
+
+const writeGooseAsset = async (
+	homeDir: string,
+	assetEntry: GooseAssetManifestEntry,
+): Promise<void> => {
+	const assetPath = resolveAssetPath(homeDir, assetEntry);
+	await assertNoSymlinkAncestors(homeDir, assetPath, assetEntry);
+	await assertWritableAssetTarget(assetPath, assetEntry);
+	await mkdir(dirname(assetPath), { recursive: true });
+	await writeFile(assetPath, assetEntry.expectedContent, "utf-8");
 };
 
 const readGooseManifestLifecycleStatus = async (
@@ -409,9 +531,7 @@ export const refreshGooseManifestAssets = (
 			}
 
 			for (const assetEntry of refreshableAssets) {
-				const assetPath = join(homeDir, assetEntry.relativePath);
-				await mkdir(dirname(assetPath), { recursive: true });
-				await writeFile(assetPath, assetEntry.expectedContent, "utf-8");
+				await writeGooseAsset(homeDir, assetEntry);
 			}
 
 			const versionMarkerWritten = await writeGooseVersionMarker(homeDir);
@@ -445,9 +565,7 @@ export const writeGooseManifestAssets = async (options: {
 	readonly assets: readonly GooseAssetManifestEntry[];
 }): Promise<boolean> => {
 	for (const assetEntry of options.assets) {
-		const assetPath = join(options.homeDir, assetEntry.relativePath);
-		await mkdir(dirname(assetPath), { recursive: true });
-		await writeFile(assetPath, assetEntry.expectedContent, "utf-8");
+		await writeGooseAsset(options.homeDir, assetEntry);
 	}
 	return writeGooseVersionMarker(options.homeDir);
 };

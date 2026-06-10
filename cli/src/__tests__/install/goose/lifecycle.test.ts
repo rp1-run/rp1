@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { access, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
 	getGooseManifestLifecycleStatus,
@@ -15,6 +15,7 @@ import {
 import {
 	cleanupTempDir,
 	createTempDir,
+	expectTaskLeft,
 	expectTaskRight,
 } from "../../helpers/index.js";
 
@@ -178,6 +179,59 @@ describe("Goose lifecycle", () => {
 		);
 	});
 
+	test("treats failed or blocked runtime smoke evidence as degraded", async () => {
+		const assets = createGooseBundleAssetManifestFixture();
+		await expectTaskRight(
+			installGooseBundleAssets({
+				dryRun: false,
+				homeDir: tempDir,
+				assetManifest: assets,
+				getGooseBinaryPath: () => fakeGoosePath,
+			}),
+		);
+
+		const failed = await verifyGooseBundleSetup({
+			homeDir: tempDir,
+			assetManifest: assets,
+			getGooseBinaryPath: () => fakeGoosePath,
+			getGooseVersion: async () => "goose 1.37.0",
+			runGooseRecipeValidate: passingCommand,
+			runGooseRecipeRender: passingCommand,
+			runtimeSmoke: {
+				status: "failed",
+				checked: true,
+				evidencePath: "features/goose-harness-core/goose-runtime-smoke.md",
+				issue: "Goose runtime smoke exited nonzero.",
+				remediation: "Rerun the opt-in Goose runtime smoke.",
+			},
+		});
+
+		expect(failed.status).toBe("degraded_runtime_smoke_failed");
+		expect(failed.verified).toBe(false);
+		expect(failed.issues.join("\n")).toContain(
+			"Goose runtime smoke exited nonzero.",
+		);
+
+		const blocked = await verifyGooseBundleSetup({
+			homeDir: tempDir,
+			assetManifest: assets,
+			getGooseBinaryPath: () => fakeGoosePath,
+			getGooseVersion: async () => "goose 1.37.0",
+			runGooseRecipeValidate: passingCommand,
+			runGooseRecipeRender: passingCommand,
+			runtimeSmoke: {
+				status: "blocked",
+				checked: true,
+				evidencePath: null,
+				issue: "Goose runtime smoke could not start.",
+				remediation: "Fix Goose authentication and rerun the smoke.",
+			},
+		});
+
+		expect(blocked.status).toBe("degraded_runtime_smoke_failed");
+		expect(blocked.verified).toBe(false);
+	});
+
 	test("reports missing binary and stale assets with next actions", async () => {
 		const assets = createGooseBundleAssetManifestFixture();
 		const missingBinary = await verifyGooseBundleSetup({
@@ -277,5 +331,98 @@ describe("Goose lifecycle", () => {
 		expect(invalidMetadata.issues.join("\n")).toContain(
 			"Invalid Goose support metadata",
 		);
+	});
+
+	test("blocks malformed Goose version markers instead of treating them as missing", async () => {
+		const assets = createGooseBundleAssetManifestFixture();
+		await Promise.all(
+			assets.map(async (asset) => {
+				await mkdir(join(tempDir, asset.relativePath, ".."), {
+					recursive: true,
+				});
+				await writeFile(
+					join(tempDir, asset.relativePath),
+					asset.expectedContent,
+					"utf-8",
+				);
+			}),
+		);
+		await mkdir(join(tempDir, ".rp1"), { recursive: true });
+		await writeFile(join(tempDir, ".rp1/platform-versions.json"), "{", "utf-8");
+
+		const lifecycle = await expectTaskRight(
+			getGooseManifestLifecycleStatus({
+				homeDir: tempDir,
+				stage: "verify",
+				assetManifest: assets,
+			}),
+		);
+
+		expect(lifecycle.state).toBe("blocked");
+		expect(lifecycle.versionMarker.freshness).toBe("unknown");
+		expect(lifecycle.versionMarker.issue).toContain("Unable to inspect");
+
+		await writeFile(
+			join(tempDir, ".rp1/platform-versions.json"),
+			JSON.stringify({ goose: null }),
+			"utf-8",
+		);
+
+		const malformedEntryLifecycle = await expectTaskRight(
+			getGooseManifestLifecycleStatus({
+				homeDir: tempDir,
+				stage: "verify",
+				assetManifest: assets,
+			}),
+		);
+
+		expect(malformedEntryLifecycle.state).toBe("blocked");
+		expect(malformedEntryLifecycle.versionMarker.freshness).toBe("unknown");
+		expect(malformedEntryLifecycle.versionMarker.issue).toContain(
+			"malformed goose marker entry",
+		);
+	});
+
+	test("rejects unsafe Goose manifest write targets", async () => {
+		const outsideAsset = {
+			...createGooseBundleAssetManifestFixture()[0]!,
+			relativePath: "../outside/SKILL.md",
+			displayPath: "~/../outside/SKILL.md",
+		};
+
+		const outsideError = await expectTaskLeft(
+			installGooseBundleAssets({
+				dryRun: false,
+				homeDir: tempDir,
+				assetManifest: [outsideAsset],
+				getGooseBinaryPath: () => fakeGoosePath,
+			}),
+		);
+		expect(outsideError._tag).toBe("InstallError");
+		if (outsideError._tag === "InstallError") {
+			expect(outsideError.message).toContain("outside");
+		}
+
+		await mkdir(join(tempDir, ".agents/skills/rp1-guide"), {
+			recursive: true,
+		});
+		await writeFile(join(tempDir, "outside-target"), "outside", "utf-8");
+		await symlink(
+			join(tempDir, "outside-target"),
+			join(tempDir, ".agents/skills/rp1-guide/SKILL.md"),
+		);
+
+		const symlinkError = await expectTaskLeft(
+			installGooseBundleAssets({
+				dryRun: false,
+				homeDir: tempDir,
+				assetManifest: [createGooseBundleAssetManifestFixture()[0]!],
+				getGooseBinaryPath: () => fakeGoosePath,
+			}),
+		);
+		expect(symlinkError._tag).toBe("InstallError");
+		if (symlinkError._tag === "InstallError") {
+			expect(symlinkError.message).toContain("not a regular file");
+		}
 	});
 });

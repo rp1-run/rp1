@@ -9,7 +9,8 @@ export type GooseVerificationStatus =
 	| "degraded_blocked_assets"
 	| "degraded_recipe_validation_failed"
 	| "degraded_recipe_render_failed"
-	| "degraded_support_metadata_failed";
+	| "degraded_support_metadata_failed"
+	| "degraded_runtime_smoke_failed";
 
 export type GooseRecipeCheckStatus =
 	| "passed"
@@ -88,6 +89,12 @@ export const GOOSE_STATUS_DETAILS = {
 		issue: "rp1 Goose support metadata is missing or invalid.",
 		remediation:
 			"Rebuild Goose assets, run `rp1 install goose`, then verify again.",
+	},
+	degraded_runtime_smoke_failed: {
+		label: "degraded: Goose runtime smoke failed",
+		issue: "Supplied Goose runtime smoke evidence did not pass.",
+		remediation:
+			"Inspect the runtime smoke evidence, refresh Goose assets if needed, then rerun the opt-in smoke.",
 	},
 } as const satisfies Record<GooseVerificationStatus, GooseStatusDetail>;
 

@@ -140,6 +140,34 @@ describe("Goose verify command", () => {
 		);
 	});
 
+	test("fails verification when supplied runtime smoke evidence failed", async () => {
+		const deps = {
+			...readyVerifyDeps(tempDir),
+			runtimeSmoke: {
+				status: "failed" as const,
+				checked: true,
+				evidencePath: "features/goose-harness-core/goose-runtime-smoke.md",
+				issue: "Goose runtime smoke exited nonzero.",
+				remediation: "Rerun the opt-in Goose runtime smoke.",
+			},
+		};
+		await expectTaskRight(
+			installGooseBundleAssets({
+				dryRun: false,
+				homeDir: tempDir,
+				assetManifest: bundleAssets,
+				getGooseBinaryPath: () => "/usr/local/bin/goose",
+			}),
+		);
+
+		const result = await captureVerifyOutput(deps);
+
+		expect(result.ok).toBe(false);
+		expect(result.output).toContain("Goose lifecycle path is degraded");
+		expect(result.output).toContain("Goose runtime smoke exited nonzero.");
+		expect(result.output).toContain("degraded_runtime_smoke_failed");
+	});
+
 	test("exposes Goose verify in command help", () => {
 		const help = verifyGooseSubcommand.helpInformation();
 

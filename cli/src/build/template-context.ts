@@ -27,6 +27,7 @@ export type BuildPlatform =
 	| "claude-code"
 	| "copilot"
 	| "antigravity"
+	| "gemini"
 	| "goose";
 
 // ---------------------------------------------------------------------------
@@ -55,6 +56,7 @@ export interface SkillArtifactData {
 	readonly workflowTarget?: SkillWorkflowTarget; // canonical tracked-workflow target
 	readonly description: string;
 	readonly allowedTools?: string; // raw CC format (comma-separated string)
+	readonly unsupportedTools?: readonly string[];
 	readonly content: string; // post-conditional-processing
 	readonly metadata?: SkillMetadata;
 	readonly supportingFiles: readonly string[];
@@ -69,8 +71,6 @@ export interface AgentArtifactData {
 	readonly tools: readonly string[];
 	readonly content: string; // post-conditional-processing
 	readonly roleType?: CodexRoleType; // computed for Codex
-	readonly effortFieldName?: string; // platform/provider-specific effort field name
-	readonly effortValue?: string; // resolved effort value for the platform
 	readonly arguments?: readonly ArgumentDefinition[];
 	readonly environment?: readonly EnvironmentDefinition[];
 }
