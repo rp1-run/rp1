@@ -8,7 +8,6 @@ export const TOOLS_REGISTRY = {
 		{
 			id: "claude-code",
 			name: "Claude Code",
-			enabled: true,
 			binary: "claude",
 			min_version: "1.0.33",
 			instruction_file: "CLAUDE.md",
@@ -20,7 +19,6 @@ export const TOOLS_REGISTRY = {
 		{
 			id: "opencode",
 			name: "OpenCode",
-			enabled: true,
 			binary: "opencode",
 			min_version: "0.8.0",
 			instruction_file: "AGENTS.md",
@@ -42,7 +40,6 @@ export const TOOLS_REGISTRY = {
 		{
 			id: "copilot",
 			name: "GitHub Copilot CLI",
-			enabled: true,
 			binary: "copilot",
 			min_version: "0.0.0",
 			version_command: ["version"],
@@ -56,7 +53,6 @@ export const TOOLS_REGISTRY = {
 		{
 			id: "antigravity",
 			name: "Antigravity CLI",
-			enabled: true,
 			binary: "agy",
 			min_version: "0.0.0",
 			instruction_file: "AGENTS.md",

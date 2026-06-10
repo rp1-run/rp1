@@ -9,6 +9,7 @@ import type {
 } from "../../config/supported-tools.js";
 import type { InstallContext } from "../../shared/install-core.js";
 import { writeAntigravityBundleDistFixture } from "../helpers/antigravity-bundle.js";
+import { writeGooseBundleDistFixture } from "../helpers/goose-bundle.js";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
 
 class ProcessExit extends Error {
@@ -78,6 +79,14 @@ const registry = {
 			instruction_file: "AGENTS.md",
 			supportLevel: "stable",
 		}),
+		createRegistryTool({
+			id: "goose",
+			name: "Goose",
+			binary: "goose",
+			instruction_file: "AGENTS.md",
+			supportLevel: "experimental",
+			capabilities: ["skills", "agents", "recipes"],
+		}),
 	],
 } satisfies ToolsRegistry;
 
@@ -129,10 +138,15 @@ const runRealPluginsCommand = async (
 ): Promise<{ readonly exitCode: number; readonly output: string }> => {
 	const originalHome = process.env.HOME;
 	const originalBundleDir = process.env.RP1_ANTIGRAVITY_BUNDLE_DIR;
+	const originalGooseBundleDir = process.env.RP1_GOOSE_BUNDLE_DIR;
 	const logs: string[] = [];
 	process.env.HOME = homeDir;
 	if (bundleDir) {
-		process.env.RP1_ANTIGRAVITY_BUNDLE_DIR = bundleDir;
+		if (argv.includes("goose")) {
+			process.env.RP1_GOOSE_BUNDLE_DIR = bundleDir;
+		} else {
+			process.env.RP1_ANTIGRAVITY_BUNDLE_DIR = bundleDir;
+		}
 	}
 	const originalLog = console.log;
 	const originalExit = process.exit;
@@ -171,6 +185,11 @@ const runRealPluginsCommand = async (
 			delete process.env.RP1_ANTIGRAVITY_BUNDLE_DIR;
 		} else {
 			process.env.RP1_ANTIGRAVITY_BUNDLE_DIR = originalBundleDir;
+		}
+		if (originalGooseBundleDir === undefined) {
+			delete process.env.RP1_GOOSE_BUNDLE_DIR;
+		} else {
+			process.env.RP1_GOOSE_BUNDLE_DIR = originalGooseBundleDir;
 		}
 	}
 };
@@ -314,6 +333,52 @@ describe("update plugins command action", () => {
 		expect(result.output).toContain(
 			"Antigravity CLI: Plugins updated successfully",
 		);
+		expect(result.output).toContain("Lifecycle stage: update");
+		expect(result.output).toContain("Lifecycle state:");
+	});
+
+	test("routes targeted Goose updates through the named update path", async () => {
+		const updateForSpecificTool = mock(
+			(_toolId: string, _toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
+				TE.right({
+					toolId: "goose",
+					toolName: "Goose",
+					success: true,
+					restartRequired: false,
+					pluginsInstalled: [],
+					details: [
+						"Lifecycle stage: update",
+						"Lifecycle state: current",
+						"Next action: Run `rp1 verify goose`.",
+					],
+					warnings: [],
+				}),
+		);
+		await expect(
+			runPluginsCommand(
+				["update", "plugins", "goose", "--dry-run"],
+				createCommandDeps({ updateForSpecificTool }),
+			),
+		).rejects.toMatchObject({ code: 0 });
+
+		expect(updateForSpecificTool.mock.calls[0]?.[0]).toBe("goose");
+		const output = logs.join("\n");
+		expect(output).toContain("Goose: Plugins updated successfully");
+		expect(output).toContain("Lifecycle stage: update");
+		expect(output).toContain("Lifecycle state: current");
+	});
+
+	test("runs the real targeted Goose update route in-process", async () => {
+		const bundleDir = await writeGooseBundleDistFixture(tempDir);
+		const result = await runRealPluginsCommand(
+			tempDir,
+			["update", "plugins", "goose", "--dry-run"],
+			bundleDir,
+		);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.output).toContain("Updating plugins for goose");
+		expect(result.output).toContain("Goose: Plugins updated successfully");
 		expect(result.output).toContain("Lifecycle stage: update");
 		expect(result.output).toContain("Lifecycle state:");
 	});

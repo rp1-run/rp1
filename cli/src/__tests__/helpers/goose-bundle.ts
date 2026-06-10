@@ -60,6 +60,16 @@ const supportMetadataFixture = (): string =>
 					status: "unsupported_fail_closed",
 					reason: "foreground Summon smoke has not passed",
 				},
+				nestedDelegation: {
+					status: "unsupported_fail_closed",
+				},
+				interactiveInput: {
+					status: "unsupported_fail_closed",
+					includes: ["interactive approvals", "user elicitation"],
+				},
+				webAccess: {
+					status: "unsupported_fail_closed",
+				},
 			},
 			recipes: [
 				{

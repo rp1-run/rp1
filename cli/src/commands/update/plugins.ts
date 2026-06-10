@@ -39,6 +39,7 @@ const VALID_TOOLS = [
 	"copilot",
 	"antigravity",
 	"gemini",
+	"goose",
 ] as const;
 type ValidTool = (typeof VALID_TOOLS)[number];
 
@@ -151,7 +152,7 @@ export const formatUpdateAllResult = (
  *   rp1 update plugins [tool]
  *
  * Arguments:
- *   tool - Specific tool to update (claude-code, opencode, codex, copilot, antigravity) or "all"
+ *   tool - Specific tool to update (claude-code, opencode, codex, copilot, antigravity, gemini, goose) or "all"
  *          If omitted, defaults to "all"
  *
  * Options:
@@ -165,7 +166,7 @@ export const createPluginsSubcommand = (
 		.description("Update rp1 plugins for agentic tools")
 		.argument(
 			"[tool]",
-			'Tool to update: "all", "claude-code", "opencode", "codex", "copilot", or "antigravity" (default: "all")',
+			'Tool to update: "all", "claude-code", "opencode", "codex", "copilot", "antigravity", "gemini", or "goose" (default: "all")',
 		)
 		.option("--dry-run", "Show what would be done without executing", false)
 		.option("-y, --yes", "Skip confirmation prompts", false)
@@ -180,6 +181,8 @@ Arguments:
         - codex        Update plugins for Codex only
         - copilot      Update plugins for Copilot CLI only
         - antigravity  Refresh Antigravity CLI package assets only
+        - gemini       Refresh Gemini extension assets only
+        - goose        Refresh Goose recipe harness assets only
 
 Examples:
   rp1 update plugins           Update plugins for all detected tools
@@ -189,6 +192,8 @@ Examples:
   rp1 update plugins codex        Update Codex plugins only
   rp1 update plugins copilot      Update Copilot CLI plugins only
   rp1 update plugins antigravity  Refresh Antigravity package assets
+  rp1 update plugins gemini       Refresh Gemini extension assets
+  rp1 update plugins goose        Refresh Goose recipe harness assets
   rp1 update plugins --dry-run    Preview what would be updated
 `,
 		)
@@ -216,7 +221,7 @@ Examples:
 				!VALID_TOOLS.includes(targetTool as ValidTool)
 			) {
 				console.error(
-					`Invalid tool: ${targetTool}. Use "all", "claude-code", "opencode", "codex", "copilot", or "antigravity".`,
+					`Invalid tool: ${targetTool}. Use "all", "claude-code", "opencode", "codex", "copilot", "antigravity", "gemini", or "goose".`,
 				);
 				process.exit(1);
 			}

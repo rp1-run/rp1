@@ -485,20 +485,47 @@ const readSupportMetadata = (
 		try {
 			const parsed = JSON.parse(asset.expectedContent) as unknown;
 			const supportClaim = isRecord(parsed) ? parsed.supportClaim : null;
+			const supportScope = isRecord(parsed) ? parsed.supportScope : null;
 			const unsupportedScope = isRecord(parsed)
 				? parsed.unsupportedScope
 				: null;
+			const capabilities = isRecord(parsed) ? parsed.capabilities : null;
 			if (
 				!isRecord(parsed) ||
 				!isRecord(parsed.runtime) ||
 				parsed.runtime.harness !== "goose" ||
+				supportScope !== "generated-core-harness-assets" ||
 				!Array.isArray(parsed.recipes) ||
 				!Array.isArray(parsed.agents) ||
 				typeof supportClaim !== "string" ||
-				!isStringArray(unsupportedScope)
+				!isStringArray(unsupportedScope) ||
+				!isRecord(capabilities)
 			) {
 				throw new Error(
-					"metadata contract missing runtime, recipes, agents, support claim, or unsupported scope",
+					"metadata contract missing runtime, support scope, recipes, agents, support claim, unsupported scope, or capabilities",
+				);
+			}
+			const shellAndFilesystem = capabilities.shellAndFilesystem;
+			const delegation = capabilities.delegation;
+			const nestedDelegation = capabilities.nestedDelegation;
+			const interactiveInput = capabilities.interactiveInput;
+			const webAccess = capabilities.webAccess;
+			if (
+				!isRecord(shellAndFilesystem) ||
+				shellAndFilesystem.status !== "supported" ||
+				shellAndFilesystem.extension !== "developer" ||
+				!isStringArray(shellAndFilesystem.tools) ||
+				!isRecord(delegation) ||
+				delegation.status !== "unsupported_fail_closed" ||
+				!isRecord(nestedDelegation) ||
+				nestedDelegation.status !== "unsupported_fail_closed" ||
+				!isRecord(interactiveInput) ||
+				interactiveInput.status !== "unsupported_fail_closed" ||
+				!isRecord(webAccess) ||
+				webAccess.status !== "unsupported_fail_closed"
+			) {
+				throw new Error(
+					"metadata capabilities must declare developer filesystem support and fail-closed unsupported runtime paths",
 				);
 			}
 			const missingUnsupportedScope = REQUIRED_UNSUPPORTED_SCOPE.filter(
@@ -560,6 +587,7 @@ const statusFrom = (
 	lifecycleState: GooseLifecycleState,
 	recipeCheck: GooseRecipeCheckResult,
 	supportMetadata: GooseSupportMetadataResult,
+	runtimeSmoke: GooseRuntimeSmokeResult,
 ): GooseVerificationStatus => {
 	if (!binary.installed) return "degraded_missing_binary";
 	if (!binary.satisfiesMinVersion) return "degraded_unsupported_version";
@@ -577,6 +605,9 @@ const statusFrom = (
 	}
 	if (supportMetadata.status !== "passed") {
 		return "degraded_support_metadata_failed";
+	}
+	if (runtimeSmoke.status === "failed" || runtimeSmoke.status === "blocked") {
+		return "degraded_runtime_smoke_failed";
 	}
 	return "ready";
 };
@@ -612,6 +643,7 @@ export const verifyGooseBundleSetup = async (
 		lifecycleState,
 		recipeCheck,
 		supportMetadata,
+		runtimeSmoke,
 	);
 	const detail = getGooseStatusDetail(status);
 	const issues: string[] = [];

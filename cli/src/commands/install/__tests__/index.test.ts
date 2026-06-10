@@ -29,11 +29,11 @@ describe("install command structure", () => {
 			expect(description.toLowerCase()).toContain("plugin");
 		});
 
-		test("has seven subcommands", async () => {
+		test("has eight subcommands", async () => {
 			const { installParentCommand } = await import("../index.js");
 
 			const subcommands = installParentCommand.commands;
-			expect(subcommands.length).toBe(7);
+			expect(subcommands.length).toBe(8);
 		});
 
 		test("includes claude-code subcommand", async () => {
@@ -72,6 +72,15 @@ describe("install command structure", () => {
 			expect(subcommand).toBeDefined();
 		});
 
+		test("includes goose subcommand", async () => {
+			const { installParentCommand } = await import("../index.js");
+
+			const subcommand = installParentCommand.commands.find(
+				(c) => c.name() === "goose",
+			);
+			expect(subcommand).toBeDefined();
+		});
+
 		test("help text includes subcommand list", async () => {
 			const { installParentCommand } = await import("../index.js");
 
@@ -80,6 +89,7 @@ describe("install command structure", () => {
 			expect(helpInfo).toContain("claude-code");
 			expect(helpInfo).toContain("opencode");
 			expect(helpInfo).toContain("antigravity");
+			expect(helpInfo).toContain("goose");
 			expect(helpInfo).toContain("all");
 		});
 

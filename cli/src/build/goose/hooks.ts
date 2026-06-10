@@ -80,8 +80,9 @@ const listGeneratedAgentNames = async (
 			.filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
 			.map((entry) => entry.name.replace(/\.md$/, ""))
 			.sort((a, b) => a.localeCompare(b));
-	} catch {
-		return [];
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+		throw error;
 	}
 };
 
@@ -139,6 +140,8 @@ export const goosePostSkillWrite = async (
 	const namespacedSkillDir = `rp1-${skill.name}`;
 	const recipeName = gooseRecipeName(hookCtx.pluginName, skill.name);
 	const recipePath = `recipes/${recipeName}.yaml`;
+	const requiredExtensions = requiredExtensionsForSkill(skill, hookCtx);
+	const unsupportedTools = unsupportedToolsForSkill(skill, hookCtx);
 	const recipeCtx = buildTemplateContext(
 		hookCtx.platform,
 		hookCtx.pluginName,
@@ -149,6 +152,7 @@ export const goosePostSkillWrite = async (
 			namespacedName: namespacedSkillDir,
 			description: skill.description,
 			allowedTools: skill.allowedTools,
+			unsupportedTools,
 			content: skill.content,
 			metadata: skill.metadata,
 			supportingFiles: skill.supportingFiles,
@@ -172,8 +176,8 @@ export const goosePostSkillWrite = async (
 		sourceSkill: `${hookCtx.pluginName}:${skill.name}`,
 		description: skill.description,
 		isWorkflow: skill.metadata?.isWorkflow === true,
-		requiredExtensions: requiredExtensionsForSkill(skill, hookCtx),
-		unsupportedTools: unsupportedToolsForSkill(skill, hookCtx),
+		requiredExtensions,
+		unsupportedTools,
 		arguments: skill.metadata?.arguments ?? [],
 	});
 };

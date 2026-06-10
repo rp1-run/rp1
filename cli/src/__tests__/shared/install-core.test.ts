@@ -27,6 +27,10 @@ import {
 	writeGeminiBundleDistFixture,
 } from "../helpers/gemini-bundle.js";
 import {
+	createGooseBundleAssetManifestFixture,
+	writeGooseBundleDistFixture,
+} from "../helpers/goose-bundle.js";
+import {
 	cleanupTempDir,
 	createTempDir,
 	expectTaskLeft,
@@ -137,6 +141,19 @@ const createAntigravityTool = (): SupportedTool => ({
 	capabilities: ["plugins", "skills", "agents", "slash-commands", "mcp"],
 });
 
+const createGooseTool = (): SupportedTool => ({
+	id: "goose",
+	name: "Goose",
+	enabled: true,
+	binary: "goose",
+	min_version: "1.35.0",
+	instruction_file: "AGENTS.md",
+	install_url: "https://block.github.io/goose/",
+	plugin_install_cmd: null,
+	supportLevel: "experimental",
+	capabilities: ["skills", "agents", "recipes"],
+});
+
 const writeGeminiManifestAssets = async (homeDir: string): Promise<void> => {
 	for (const asset of createGeminiBundleAssetManifestFixture()) {
 		await writeFixture(homeDir, asset.relativePath, asset.expectedContent);
@@ -146,6 +163,7 @@ const writeGeminiManifestAssets = async (homeDir: string): Promise<void> => {
 const geminiBundleAssetsFixture = createGeminiBundleAssetManifestFixture();
 const antigravityBundleAssetsFixture =
 	createAntigravityBundleAssetManifestFixture();
+const gooseBundleAssetsFixture = createGooseBundleAssetManifestFixture();
 
 const withGeminiBundleDir = async (homeDir: string): Promise<() => void> => {
 	const bundleDir = await writeGeminiBundleDistFixture(homeDir);
@@ -157,6 +175,11 @@ const withAntigravityBundleDir = async (
 ): Promise<() => void> => {
 	const bundleDir = await writeAntigravityBundleDistFixture(homeDir);
 	return withEnvOverride("RP1_ANTIGRAVITY_BUNDLE_DIR", bundleDir);
+};
+
+const withGooseBundleDir = async (homeDir: string): Promise<() => void> => {
+	const bundleDir = await writeGooseBundleDistFixture(homeDir);
+	return withEnvOverride("RP1_GOOSE_BUNDLE_DIR", bundleDir);
 };
 
 const createMockRegistry = (): ToolsRegistry => ({
@@ -1010,6 +1033,71 @@ describe("install-core tool routing", () => {
 		}
 	});
 
+	test("direct Goose install route reports recipe harness scope and version marker state", async () => {
+		const homeDir = await createTempDir("install-core-goose-direct-install");
+		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restorePath = withEnvOverride("PATH", homeDir);
+		const restoreBundle = await withGooseBundleDir(homeDir);
+		const originalWhich = Bun.which;
+		Bun.which = ((command: string) =>
+			command === "goose" ? null : originalWhich(command)) as typeof Bun.which;
+
+		try {
+			const registry = { version: "1.0.0", tools: [createGooseTool()] };
+			const dryRun = await expectTaskRight(
+				installForSpecificToolDirect(
+					"goose",
+					registry,
+					createMockContext({ dryRun: true }),
+				),
+			);
+			expect(dryRun).toMatchObject({
+				toolId: "goose",
+				toolName: "Goose",
+				success: true,
+			});
+			expect(dryRun.pluginsInstalled).toEqual(
+				expect.arrayContaining(["rp1-base"]),
+			);
+			expect(dryRun.details?.join("\n")).toContain(
+				"Goose assets: ~/.agents/plugins plus ~/.agents/{skills,agents,recipes}",
+			);
+			expect(dryRun.details?.join("\n")).toContain("Lifecycle state: dry_run");
+
+			const installed = await expectTaskRight(
+				installForSpecificToolDirect(
+					"goose",
+					registry,
+					createMockContext({ dryRun: false }),
+				),
+			);
+			expect(installed).toMatchObject({
+				toolId: "goose",
+				success: true,
+			});
+			expect(installed.warnings.join("\n")).toContain(
+				"Goose CLI was not found in PATH",
+			);
+			expect(installed.details?.join("\n")).toContain(
+				"Lifecycle state: current after successful install",
+			);
+			expect(installed.details?.join("\n")).toContain(
+				"Version marker: current",
+			);
+			expect(
+				await Bun.file(
+					join(homeDir, ".agents/recipes/rp1-base-guide.yaml"),
+				).exists(),
+			).toBe(true);
+		} finally {
+			Bun.which = originalWhich;
+			restoreBundle();
+			restorePath();
+			restoreHome();
+			await cleanupTempDir(homeDir);
+		}
+	});
+
 	test("updateForSpecificTool previews stale Gemini manifest refreshes", async () => {
 		const homeDir = await createTempDir("install-core-gemini-update-dry-run");
 		const restoreHome = withEnvOverride("HOME", homeDir);
@@ -1133,6 +1221,90 @@ describe("install-core tool routing", () => {
 			expect(blocked.error).toBeDefined();
 			expect(blocked.details?.join("\n")).toContain("Lifecycle state: blocked");
 			expect(blocked.details?.join("\n")).toContain("Check file permissions");
+		} finally {
+			restoreBundle();
+			restoreHome();
+			await cleanupTempDir(homeDir);
+		}
+	});
+
+	test("direct Goose update route reports missing, refreshed, current, and blocked states", async () => {
+		const homeDir = await createTempDir("install-core-goose-update");
+		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restoreBundle = await withGooseBundleDir(homeDir);
+
+		try {
+			const registry = { version: "1.0.0", tools: [createGooseTool()] };
+			const dryMissing = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"goose",
+					registry,
+					createMockContext({ dryRun: true }),
+				),
+			);
+			expect(dryMissing).toMatchObject({
+				toolId: "goose",
+				success: true,
+				restartRequired: false,
+			});
+			expect(dryMissing.details?.join("\n")).toContain(
+				"Lifecycle state: missing",
+			);
+			expect(dryMissing.details?.join("\n")).toContain("Would refresh:");
+
+			const refreshed = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"goose",
+					registry,
+					createMockContext({ dryRun: false }),
+				),
+			);
+			expect(refreshed).toMatchObject({
+				toolId: "goose",
+				success: true,
+				restartRequired: true,
+			});
+			expect(refreshed.details?.join("\n")).toContain(
+				"Lifecycle result: refreshed",
+			);
+			expect(refreshed.details?.join("\n")).toContain(
+				"Version marker: current",
+			);
+
+			const current = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"goose",
+					registry,
+					createMockContext({ dryRun: false }),
+				),
+			);
+			expect(current).toMatchObject({
+				toolId: "goose",
+				success: true,
+				restartRequired: false,
+			});
+			expect(current.details?.join("\n")).toContain("Lifecycle state: current");
+			expect(current.details?.join("\n")).toContain("rp1 verify goose");
+
+			const blockedAsset = gooseBundleAssetsFixture[0];
+			if (!blockedAsset) throw new Error("Goose manifest is empty");
+			await rm(join(homeDir, blockedAsset.relativePath), { force: true });
+			await mkdir(join(homeDir, blockedAsset.relativePath), {
+				recursive: true,
+			});
+			const blocked = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"goose",
+					registry,
+					createMockContext({ dryRun: false }),
+				),
+			);
+			expect(blocked).toMatchObject({
+				toolId: "goose",
+				success: false,
+				restartRequired: false,
+			});
+			expect(blocked.details?.join("\n")).toContain("Lifecycle state: blocked");
 		} finally {
 			restoreBundle();
 			restoreHome();

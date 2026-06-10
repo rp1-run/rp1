@@ -80,7 +80,7 @@ Before any shell command that may change the working directory, run the tracked 
 export CURRENT_HOST=goose
 rp1 agent-tools workflow-bootstrap \
   --name rp1-{{ pluginName }}:{{ artifact.name }} \
-  --schema-path "{% raw %}{{ recipe_dir }}{% endraw %}/../skills/{{ artifact.namespacedName }}/SKILL.md" \
+  --schema-path "$HOME/.agents/skills/{{ artifact.namespacedName }}/SKILL.md" \
 {% if artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}  --args "$ARGUMENTS" \
 {% endif %}  --project-root "$PWD" \
   --harness goose
