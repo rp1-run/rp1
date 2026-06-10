@@ -11,6 +11,7 @@
  * | copilot     | `/rp1-base:cmd` -> `/rp1-base/cmd` (slash separator)       |
  * | antigravity | Passthrough (`/rp1-base:cmd` keeps colon namespace)        |
  * | gemini      | Passthrough (`/rp1-base:cmd` keeps Gemini colon namespace) |
+ * | goose       | `/rp1-base:cmd` -> unsupported-capability stop guidance    |
  *
  * Wraps the existing transformSlashCommandCalls() from transformations.ts
  * and transformPlainSlashCommands() from codex/transformations.ts.
@@ -123,6 +124,26 @@ const transformPlainSlashCommands = (
 	return result;
 };
 
+const transformSlashCommandsToGooseUnsupported = (content: string): string => {
+	const slashPattern = /\/rp1-(base|dev|utils):([a-z-]+)/g;
+	const matches = findMatchesOutsideCodeBlocks(slashPattern, content);
+
+	let result = content;
+	for (let i = matches.length - 1; i >= 0; i--) {
+		const match = matches[i];
+		const matchIndex = match.index;
+		if (matchIndex === undefined) continue;
+		const command = match[0];
+		const replacement = `Goose unsupported capability: slash command invocation (${command}) is not supported in this build. Stop and run this workflow on a slash-command-capable harness.`;
+		result =
+			result.slice(0, matchIndex) +
+			replacement +
+			result.slice(matchIndex + command.length);
+	}
+
+	return result;
+};
+
 /**
  * Apply slash-command transformation for the given platform.
  *
@@ -152,5 +173,7 @@ export const slashCommands = (
 			return content;
 		case "gemini":
 			return content;
+		case "goose":
+			return transformSlashCommandsToGooseUnsupported(content);
 	}
 };

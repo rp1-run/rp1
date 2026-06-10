@@ -26,6 +26,10 @@ describe("harness_name filter", () => {
 		expect(harnessName("gemini")).toBe("gemini-cli");
 	});
 
+	test("maps goose to goose", () => {
+		expect(harnessName("goose")).toBe("goose");
+	});
+
 	test("maps opencode to opencode", () => {
 		expect(harnessName("opencode")).toBe("opencode");
 	});

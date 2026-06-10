@@ -256,6 +256,23 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 		},
 		capabilities: ["plugins", "skills", "agents", "slash-commands"],
 	},
+	goose: {
+		id: "goose",
+		name: "Goose",
+		enabled: true,
+		binary: "goose",
+		min_version: "1.35.0",
+		instruction_file: "AGENTS.md",
+		install_url: "https://block.github.io/goose/",
+		plugin_install_cmd: null,
+		supportLevel: "experimental",
+		icon: {
+			source: "@lobehub/icons",
+			name: "Goose",
+			variant: "mono",
+		},
+		capabilities: ["skills", "agents", "recipes"],
+	},
 };
 
 // ---------------------------------------------------------------------------
@@ -286,6 +303,12 @@ import {
 	geminiPreparePlugin,
 } from "./gemini/hooks.js";
 import { geminiRegistry } from "./gemini/registry.js";
+import {
+	goosePostPluginBuild,
+	goosePostSkillWrite,
+	goosePreparePlugin,
+} from "./goose/hooks.js";
+import { gooseRegistry } from "./goose/registry.js";
 import { defaultRegistry } from "./registry.js";
 import { transformNamespace } from "./tags/index.js";
 import { buildTemplateContext } from "./template-context.js";
@@ -808,6 +831,29 @@ const geminiPlatform: PlatformDefinition = {
 	producesBundleAssets: true,
 };
 
+const goosePlatform: PlatformDefinition = {
+	id: "goose",
+	registry: gooseRegistry,
+	config: platformConfigs.goose,
+	templates: {
+		skill: "goose/skill",
+		agent: "goose/agent",
+		manifest: "goose/manifest",
+	},
+	naming: {
+		skillDirPrefix: "rp1-",
+		agentFileName: (pluginName: string, agentName: string) =>
+			`rp1-${pluginName}-${agentName}`,
+		agentExtension: ".md",
+	},
+	hooks: {
+		preparePlugin: goosePreparePlugin,
+		postSkillWrite: goosePostSkillWrite,
+		postPluginBuild: goosePostPluginBuild,
+	},
+	producesBundleAssets: true,
+};
+
 // ---------------------------------------------------------------------------
 // Platform definitions map
 // ---------------------------------------------------------------------------
@@ -822,6 +868,7 @@ export const PLATFORM_DEFINITIONS: ReadonlyMap<
 	["copilot", copilotPlatform],
 	["antigravity", antigravityPlatform],
 	["gemini", geminiPlatform],
+	["goose", goosePlatform],
 ]);
 
 /**

@@ -11,6 +11,7 @@ import {
 	buildPlatformPlugin,
 	deriveAntigravityOutputDir,
 	deriveGeminiOutputDir,
+	deriveGooseOutputDir,
 	executeBuild,
 	parseBuildArgs,
 } from "../../build/command.js";
@@ -42,6 +43,7 @@ const codexDef = PLATFORM_DEFINITIONS.get("codex")!;
 const copilotDef = PLATFORM_DEFINITIONS.get("copilot")!;
 const antigravityDef = PLATFORM_DEFINITIONS.get("antigravity")!;
 const geminiDef = PLATFORM_DEFINITIONS.get("gemini")!;
+const gooseDef = PLATFORM_DEFINITIONS.get("goose")!;
 
 const extractBootstrapTarget = (
 	content: string,
@@ -74,6 +76,7 @@ describe("build platform support", () => {
 			"claude-code",
 			"codex",
 			"copilot",
+			"goose",
 			"opencode",
 		]);
 		expect(
@@ -89,6 +92,34 @@ describe("build platform support", () => {
 		});
 	});
 
+	test("registers Goose as an experimental bundle-producing build platform", () => {
+		expect(expectRight(parseBuildArgs(["--platform", "goose"]))).toMatchObject({
+			platform: "goose",
+		});
+		expect(gooseDef).toMatchObject({
+			id: "goose",
+			producesBundleAssets: true,
+			templates: {
+				skill: "goose/skill",
+				agent: "goose/agent",
+				manifest: "goose/manifest",
+			},
+			config: {
+				id: "goose",
+				name: "Goose",
+				enabled: true,
+				binary: "goose",
+				min_version: "1.35.0",
+				supportLevel: "experimental",
+				icon: {
+					source: "@lobehub/icons",
+					name: "Goose",
+					variant: "mono",
+				},
+			},
+		});
+	});
+
 	test("derives the default Google harness output directories next to other platform outputs", () => {
 		expect(deriveAntigravityOutputDir("dist/opencode")).toBe(
 			"dist/antigravity",
@@ -98,6 +129,8 @@ describe("build platform support", () => {
 		);
 		expect(deriveGeminiOutputDir("dist/opencode")).toBe("dist/gemini");
 		expect(deriveGeminiOutputDir("dist/opencode/")).toBe("dist/gemini");
+		expect(deriveGooseOutputDir("dist/opencode")).toBe("dist/goose");
+		expect(deriveGooseOutputDir("dist/opencode/")).toBe("dist/goose");
 	});
 });
 
@@ -147,6 +180,10 @@ describe("parseBuildArgs", () => {
 			outputDir: "out",
 			plugin: "utils",
 			platform: "antigravity",
+		});
+
+		expect(expectRight(parseBuildArgs(["--platform=goose"]))).toMatchObject({
+			platform: "goose",
 		});
 	});
 
@@ -1047,5 +1084,36 @@ ${plugin} sample content.
 		});
 		expect(antigravityBundleManifest.plugins.base).toBeDefined();
 		expect(antigravityBundleManifest.plugins.dev).toBeDefined();
+
+		const gooseBundleManifest = JSON.parse(
+			await readFile(
+				join(projectRoot, "dist", "goose", "bundle-manifest.json"),
+				"utf-8",
+			),
+		);
+		expect(gooseBundleManifest.platform).toMatchObject({
+			id: "goose",
+			name: "Goose",
+			binary: "goose",
+			instructionFile: "AGENTS.md",
+			supportLevel: "experimental",
+			icon: {
+				source: "@lobehub/icons",
+				name: "Goose",
+				variant: "mono",
+			},
+		});
+		expect(gooseBundleManifest.plugins.base.verbatimFiles).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ name: "rp1-base-base-sample.yaml" }),
+				expect.objectContaining({ name: "support-metadata.json" }),
+			]),
+		);
+		expect(gooseBundleManifest.plugins.dev.verbatimFiles).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ name: "rp1-dev-dev-sample.yaml" }),
+				expect.objectContaining({ name: "support-metadata.json" }),
+			]),
+		);
 	});
 });

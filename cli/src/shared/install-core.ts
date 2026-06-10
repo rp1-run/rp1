@@ -62,6 +62,13 @@ import {
 	installGeminiBundleAssets,
 	refreshGeminiManifestAssets,
 } from "../install/gemini/index.js";
+import {
+	type GooseManifestRefreshResult,
+	gooseBundleScope,
+	goosePluginsDisplayRoot,
+	installGooseBundleAssets,
+	refreshGooseManifestAssets,
+} from "../install/goose/index.js";
 import { writeVersionMarker } from "../install/version-marker.js";
 import { getInstalledVersion } from "../lib/version.js";
 
@@ -531,6 +538,31 @@ const installForTool = (
 		);
 	}
 
+	if (tool.tool.id === "goose") {
+		return pipe(
+			installGooseBundleAssets({ dryRun: ctx.dryRun }),
+			TE.map(
+				(result): ToolInstallResult => ({
+					...baseResult,
+					success: true,
+					pluginsInstalled: gooseBundleScope(result),
+					details: gooseInstallDetails(ctx.dryRun, result),
+					warnings: result.warnings,
+				}),
+			),
+			TE.orElse(
+				(error): TE.TaskEither<CLIError, ToolInstallResult> =>
+					TE.right({
+						...baseResult,
+						success: false,
+						pluginsInstalled: [],
+						warnings: [],
+						error,
+					}),
+			),
+		);
+	}
+
 	// Unknown tool - return failure result
 	return TE.right({
 		...baseResult,
@@ -699,6 +731,30 @@ const geminiInstallDetails = (
 		: "Next action: restart Gemini CLI, then run `rp1 verify gemini` for manifest and support-matrix status.",
 ];
 
+const gooseInstallDetails = (
+	dryRun: boolean,
+	result: {
+		readonly assetCount: number;
+		readonly skillCount: number;
+		readonly agentCount: number;
+		readonly recipeCount: number;
+		readonly metadataCount: number;
+		readonly versionMarkerWritten: boolean;
+	},
+): readonly string[] => [
+	`Goose assets: ${goosePluginsDisplayRoot()} plus ~/.agents/{skills,agents,recipes}`,
+	`Manifest assets: ${result.assetCount} files`,
+	`Skills: ${result.skillCount}; agents: ${result.agentCount}; recipes: ${result.recipeCount}; metadata: ${result.metadataCount}`,
+	"Lifecycle stage: install",
+	dryRun
+		? "Lifecycle state: dry_run"
+		: "Lifecycle state: current after successful install",
+	`Version marker: ${result.versionMarkerWritten ? "current" : "not_written"}`,
+	dryRun
+		? "Next action: run `rp1 install goose`, then `rp1 verify goose`."
+		: "Next action: run `rp1 verify goose` for binary, recipe, support metadata, and smoke status.",
+];
+
 const geminiUpdateDetails = (
 	result: GeminiManifestRefreshResult,
 ): readonly string[] => {
@@ -735,6 +791,46 @@ const geminiUpdateDetails = (
 	];
 };
 
+const gooseUpdateDetails = (
+	result: GooseManifestRefreshResult,
+): readonly string[] => {
+	if (result.initialStatus.state === "blocked") {
+		return [
+			"Lifecycle stage: update",
+			"Lifecycle state: blocked",
+			`Next action: ${result.initialStatus.userAction}`,
+		];
+	}
+
+	if (result.dryRun && result.refreshableAssets.length > 0) {
+		return [
+			"Lifecycle stage: update",
+			`Lifecycle state: ${result.initialStatus.state}`,
+			`Would refresh: ${formatAssetDisplayList(result.refreshableAssets)}`,
+			"Next action: Run `rp1 update plugins goose -y` to refresh, then run `rp1 verify goose`.",
+		];
+	}
+
+	if (result.refreshedAssets.length > 0 || result.versionMarkerWritten) {
+		return [
+			"Lifecycle stage: update",
+			"Lifecycle result: refreshed",
+			`Refreshed: ${formatAssetDisplayList(result.refreshedAssets)}`,
+			`Version marker: ${
+				result.versionMarkerWritten ? "current" : "unchanged"
+			}`,
+			"Next action: Run `rp1 verify goose`.",
+		];
+	}
+
+	return [
+		"Lifecycle stage: update",
+		"Lifecycle state: current",
+		`Version marker: ${result.finalStatus.versionMarker.freshness}`,
+		`Next action: ${result.finalStatus.userAction}`,
+	];
+};
+
 const failedGeminiUpdateResult = (
 	tool: SupportedTool,
 	error: CLIError,
@@ -748,6 +844,24 @@ const failedGeminiUpdateResult = (
 		"Lifecycle stage: update",
 		"Lifecycle state: failed",
 		`Next action: Check file permissions under ${geminiExtensionDisplayRoot()}, then rerun \`rp1 update plugins gemini\`.`,
+	],
+	warnings: [],
+	error,
+});
+
+const failedGooseUpdateResult = (
+	tool: SupportedTool,
+	error: CLIError,
+): ToolInstallResult => ({
+	toolId: tool.id,
+	toolName: tool.name,
+	success: false,
+	restartRequired: false,
+	pluginsInstalled: [],
+	details: [
+		"Lifecycle stage: update",
+		"Lifecycle state: failed",
+		`Next action: Check file permissions under ${goosePluginsDisplayRoot()} and ~/.agents/, then rerun \`rp1 update plugins goose\`.`,
 	],
 	warnings: [],
 	error,
@@ -793,6 +907,42 @@ export const updateForSpecificTool = (
 			TE.orElse((error) =>
 				TE.right<CLIError, ToolInstallResult>(
 					failedAntigravityUpdateResult(lookup.tool, error),
+				),
+			),
+		);
+	}
+
+	if (lookup.tool.id === "goose") {
+		return pipe(
+			refreshGooseManifestAssets({ dryRun: ctx.dryRun }),
+			TE.map((result): ToolInstallResult => {
+				const blocked = result.initialStatus.state === "blocked";
+				const toolResult = {
+					toolId: lookup.tool.id,
+					toolName: lookup.tool.name,
+					success: !blocked,
+					restartRequired:
+						!ctx.dryRun &&
+						!blocked &&
+						(result.refreshedAssets.length > 0 || result.versionMarkerWritten),
+					pluginsInstalled: [],
+					details: gooseUpdateDetails(result),
+					warnings: [],
+				};
+
+				if (!blocked) return toolResult;
+
+				return {
+					...toolResult,
+					error: installError(
+						"goose-lifecycle-update",
+						result.initialStatus.issue ?? "Goose lifecycle update blocked.",
+					),
+				};
+			}),
+			TE.orElse((error) =>
+				TE.right<CLIError, ToolInstallResult>(
+					failedGooseUpdateResult(lookup.tool, error),
 				),
 			),
 		);
@@ -942,6 +1092,22 @@ export const installForSpecificTool = (
 					success: true,
 					pluginsInstalled: geminiBundleScope(result),
 					details: geminiInstallDetails(ctx.dryRun, result),
+					warnings: result.warnings,
+				}),
+			),
+		);
+	}
+
+	if (tool.id === "goose") {
+		return pipe(
+			installGooseBundleAssets({ dryRun: ctx.dryRun }),
+			TE.map(
+				(result): ToolInstallResult => ({
+					toolId: tool.id,
+					toolName: tool.name,
+					success: true,
+					pluginsInstalled: gooseBundleScope(result),
+					details: gooseInstallDetails(ctx.dryRun, result),
 					warnings: result.warnings,
 				}),
 			),

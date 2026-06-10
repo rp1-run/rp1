@@ -12,6 +12,7 @@
  * | copilot     | `"Bash(echo *), Read"`   | `["run_terminal_command(echo *)", "read_file"]` |
  * | antigravity | `"Bash(echo *), Read"`   | `["run_shell_command", "read_file"]` |
  * | gemini      | `"Bash(echo *), Read"`   | `["run_shell_command", "read_file"]` |
+ * | goose       | `"Bash(echo *), Read"`   | `["developer"]` |
  *
  * Extracts and reuses logic from transformations.ts (OpenCode split)
  * and codex/transformations.ts (Codex registry mapping with pattern handling).
@@ -85,6 +86,29 @@ const toGeminiArray = (
 		if (mappedTool === undefined) {
 			mapped.push(baseName);
 		} else {
+			mapped.push(mappedTool);
+		}
+	}
+
+	return [...new Set(mapped)];
+};
+
+const toGooseExtensions = (
+	allowedTools: string,
+	registry: PlatformRegistry,
+): readonly string[] => {
+	const tools = allowedTools
+		.split(",")
+		.map((t) => t.trim())
+		.filter(Boolean);
+	const mapped: string[] = [];
+
+	for (const tool of tools) {
+		const parenMatch = tool.match(/^([A-Za-z]+)\((.+)\)$/);
+		const baseName = parenMatch ? parenMatch[1] : tool;
+
+		const mappedTool = registry.toolMappings[baseName];
+		if (mappedTool !== null && mappedTool !== undefined) {
 			mapped.push(mappedTool);
 		}
 	}
@@ -216,5 +240,7 @@ export const allowedToolsFilter = (
 			return toGeminiArray(allowedTools, registry);
 		case "gemini":
 			return toGeminiArray(allowedTools, registry);
+		case "goose":
+			return toGooseExtensions(allowedTools, registry);
 	}
 };

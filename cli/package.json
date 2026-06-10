@@ -40,6 +40,7 @@
 		"build": "bun build src/main.ts --outdir dist --target node",
 		"build:web-ui": "cd web-ui && bun install --frozen-lockfile && bun run build",
 		"build:antigravity": "bun run scripts/build-antigravity.ts",
+		"build:goose": "bun run scripts/build-goose.ts",
 		"build:opencode": "bun run scripts/build-opencode.ts",
 		"build:platforms": "bun run scripts/build-platforms.ts",
 		"build:all": "bun run build && bun run build:web-ui && bun run build:platforms",

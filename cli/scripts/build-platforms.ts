@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 
 /**
- * Build artifacts for all platforms (Claude Code, OpenCode, Codex, Copilot, Antigravity).
- * Produces dist/claude-code/, dist/opencode/, dist/codex/, dist/copilot/, and dist/antigravity/ directories.
+ * Build artifacts for all platforms (Claude Code, OpenCode, Codex, Copilot, Antigravity, Goose).
+ * Produces dist/claude-code/, dist/opencode/, dist/codex/, dist/copilot/,
+ * dist/antigravity/, and dist/goose/ directories.
  *
  * Usage:
  *   bun run scripts/build-platforms.ts [options]

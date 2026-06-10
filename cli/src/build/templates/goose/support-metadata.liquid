@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "plugin": "{{ pluginName }}",
+  "nativePluginName": "{{ namespacedPluginName }}",
+  "version": "{{ version }}",
+  "buildTimestamp": "{{ buildTimestamp }}",
+  "gooseVersion": {
+    "minimum": "{{ platformConfig.min_version }}",
+    "tested": "{{ platformConfig.min_version }}"
+  },
+  "supportScope": "generated-core-harness-assets",
+  "supportClaim": "Experimental core harness support for generated Goose skills, agents, recipes, targeted install/verify, and a verified non-delegating recipe runtime path.",
+  "unsupportedScope": [
+    "ACP sidecar work",
+    "protocol integration",
+    "eval harness expansion",
+    "PR-review expansion",
+    "nested subagents and nested delegation",
+    "interactive headless approvals and user elicitation",
+    "broad workflow parity"
+  ],
+  "entrypoint": "goose run --recipe <recipe-file>",
+  "runtime": {
+    "harness": "goose",
+    "currentHost": "goose",
+    "bootstrapHarness": "goose",
+    "jsonOutput": "transcript-or-metadata-envelope"
+  },
+  "capabilities": {
+    "shellAndFilesystem": {
+      "status": "supported",
+      "extension": "developer",
+      "tools": ["Read", "Write", "Edit", "Grep", "Glob", "Bash"]
+    },
+    "delegation": {
+      "status": "unsupported_fail_closed",
+      "reason": "foreground Summon smoke has not passed"
+    },
+    "nestedDelegation": {
+      "status": "unsupported_fail_closed"
+    },
+    "interactiveInput": {
+      "status": "unsupported_fail_closed",
+      "includes": ["interactive approvals", "user elicitation"]
+    },
+    "webAccess": {
+      "status": "unsupported_fail_closed"
+    },
+    "jsonOutput": {
+      "status": "metadata_envelope",
+      "interpretation": "inspect final assistant message or structured event metadata"
+    }
+  },
+  "recipes": {{ artifact.recipesJson }},
+  "agents": {{ artifact.agentsJson }}
+}

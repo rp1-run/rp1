@@ -32,6 +32,11 @@ import {
 	getGeminiManifestLifecycleStatus,
 	verifyGeminiBundleSetup,
 } from "../../install/gemini/index.js";
+import {
+	type GooseLifecycleStatus,
+	getGooseManifestLifecycleStatus,
+	verifyGooseBundleSetup,
+} from "../../install/goose/index.js";
 import { colorFns } from "../../lib/colors.js";
 import {
 	type InstallContext,
@@ -45,6 +50,7 @@ import { installClaudeCodeSubcommand } from "./claude-code.js";
 import { installCodexSubcommand } from "./codex.js";
 import { installCopilotSubcommand } from "./copilot.js";
 import { installGeminiSubcommand } from "./gemini.js";
+import { installGooseSubcommand } from "./goose.js";
 import { installOpenCodeSubcommand } from "./opencode.js";
 
 const { green, yellow, red, dim, bold } = colorFns;
@@ -230,6 +236,97 @@ async function runGeminiPostInstallVerification(): Promise<boolean> {
 	);
 }
 
+const gooseLifecycleStatus = (lifecycle: GooseLifecycleStatus): string => {
+	if (lifecycle.state === "current") return green("[OK]");
+	if (lifecycle.state === "blocked" || lifecycle.state === "stale") {
+		return red("[MISS]");
+	}
+	return yellow("[WARN]");
+};
+
+const gooseLifecycleAssetCounts = (
+	lifecycle: GooseLifecycleStatus,
+): {
+	readonly current: number;
+	readonly missing: number;
+	readonly stale: number;
+	readonly blocked: number;
+} => ({
+	current: lifecycle.assets.filter((asset) => asset.freshness === "current")
+		.length,
+	missing: lifecycle.assets.filter((asset) => asset.freshness === "missing")
+		.length,
+	stale: lifecycle.assets.filter((asset) => asset.freshness === "stale").length,
+	blocked: lifecycle.assets.filter((asset) => asset.freshness === "unknown")
+		.length,
+});
+
+const printGooseLifecycleVerification = (
+	lifecycle: GooseLifecycleStatus,
+): void => {
+	const counts = gooseLifecycleAssetCounts(lifecycle);
+	console.log(
+		`  ${gooseLifecycleStatus(lifecycle)} Goose manifest lifecycle (${dim(lifecycle.state)})`,
+	);
+	console.log(
+		dim(
+			`    - stage=${lifecycle.stage}; assets=${counts.current}/${lifecycle.assets.length} current, ${counts.missing} missing, ${counts.stale} stale, ${counts.blocked} blocked`,
+		),
+	);
+	console.log(
+		dim(
+			`    - version-marker=${lifecycle.versionMarker.freshness}; installed=${lifecycle.versionMarker.installedVersion ?? "none"}; current=${lifecycle.versionMarker.currentVersion}`,
+		),
+	);
+	for (const asset of lifecycle.assets.filter(
+		(asset) => asset.freshness !== "current",
+	)) {
+		console.log(yellow(`    - ${asset.asset.displayPath}: ${asset.freshness}`));
+	}
+	if (lifecycle.issue) {
+		console.log(yellow(`    - ${lifecycle.issue}`));
+	}
+	if (lifecycle.userAction) {
+		console.log(dim(`    - Next action: ${lifecycle.userAction}`));
+	}
+};
+
+async function runGoosePostInstallVerification(): Promise<boolean> {
+	const gooseResult = await verifyGooseBundleSetup();
+	const lifecycleResult = await getGooseManifestLifecycleStatus({
+		stage: "verify",
+	})();
+	const bundleStatus = gooseResult.verified ? green("[OK]") : yellow("[WARN]");
+
+	console.log(
+		`  ${bundleStatus} Goose CLI, recipes, and support metadata (${dim(gooseResult.status)})`,
+	);
+
+	if (E.isLeft(lifecycleResult)) {
+		console.log(
+			`  ${red("[MISS]")} Goose manifest lifecycle (${dim("failed")})`,
+		);
+		console.log(
+			yellow(
+				`    - ${formatError(lifecycleResult.left, process.stderr.isTTY ?? false)}`,
+			),
+		);
+	} else {
+		printGooseLifecycleVerification(lifecycleResult.right);
+	}
+
+	for (const issue of gooseResult.issues) {
+		console.log(yellow(`    - ${issue}`));
+	}
+
+	return (
+		gooseResult.verified &&
+		(E.isRight(lifecycleResult)
+			? lifecycleResult.right.state === "current"
+			: false)
+	);
+}
+
 /**
  * Run post-install verification for successfully installed tools.
  * Verifies that plugins are actually present and correctly configured.
@@ -267,6 +364,13 @@ async function runPostInstallVerification(
 
 		if (toolId === "antigravity") {
 			if (!(await runAntigravityPostInstallVerification())) {
+				allVerified = false;
+			}
+			continue;
+		}
+
+		if (toolId === "goose") {
+			if (!(await runGoosePostInstallVerification())) {
 				allVerified = false;
 			}
 			continue;
@@ -312,7 +416,7 @@ export const installParentCommand = new Command("install")
 	.option("-y, --yes", "Skip confirmation prompts")
 	.option(
 		"-p, --platform <platform>",
-		"Target a specific platform (claude-code, opencode, codex, copilot, antigravity)",
+		"Target a specific platform (claude-code, opencode, codex, copilot, antigravity, goose)",
 	)
 	.addHelpText(
 		"after",
@@ -326,15 +430,18 @@ Subcommands:
   codex          Install plugins to Codex CLI
   copilot        Install plugins to Copilot CLI
   antigravity    Install Antigravity CLI package assets
+  goose          Install Goose core harness assets
   all            Install plugins to all detected tools
 
 Examples:
   rp1 install                            Auto-detect and install to all platforms
   rp1 install --platform claude-code     Install to Claude Code only
+  rp1 install --platform goose           Install to Goose only
   rp1 install claude-code                Install to Claude Code (subcommand)
   rp1 install opencode                   Install to OpenCode (subcommand)
   rp1 install copilot                    Install to Copilot CLI (subcommand)
   rp1 install antigravity                Install Antigravity CLI package assets
+  rp1 install goose                      Install Goose core harness assets
   rp1 install all                        Install to all detected tools
   rp1 install --dry-run                  Preview installation
   rp1 install -y                         Skip confirmation prompts
@@ -520,6 +627,19 @@ installParentCommand.addCommand(installGeminiSubcommand, {
 	hidden: true,
 });
 
+const gooseInstallEnabled = isToolEnabled(
+	TOOLS_REGISTRY as ToolsRegistry,
+	"goose",
+);
+installParentCommand.addCommand(installGooseSubcommand, {
+	hidden: !gooseInstallEnabled,
+});
+if (!gooseInstallEnabled) {
+	installGooseSubcommand.action(async () => {
+		process.exit(1);
+	});
+}
+
 installParentCommand.addCommand(installAllSubcommand);
 
 export { installAllSubcommand } from "./all.js";
@@ -528,4 +648,5 @@ export { installClaudeCodeSubcommand } from "./claude-code.js";
 export { installCodexSubcommand } from "./codex.js";
 export { installCopilotSubcommand } from "./copilot.js";
 export { installGeminiSubcommand } from "./gemini.js";
+export { installGooseSubcommand } from "./goose.js";
 export { installOpenCodeSubcommand } from "./opencode.js";

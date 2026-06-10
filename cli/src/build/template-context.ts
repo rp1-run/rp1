@@ -27,7 +27,8 @@ export type BuildPlatform =
 	| "claude-code"
 	| "copilot"
 	| "antigravity"
-	| "gemini";
+	| "gemini"
+	| "goose";
 
 // ---------------------------------------------------------------------------
 // Codex role type
@@ -55,6 +56,7 @@ export interface SkillArtifactData {
 	readonly workflowTarget?: SkillWorkflowTarget; // canonical tracked-workflow target
 	readonly description: string;
 	readonly allowedTools?: string; // raw CC format (comma-separated string)
+	readonly unsupportedTools?: readonly string[];
 	readonly content: string; // post-conditional-processing
 	readonly metadata?: SkillMetadata;
 	readonly supportingFiles: readonly string[];

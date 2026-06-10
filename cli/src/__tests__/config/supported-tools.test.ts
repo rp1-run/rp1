@@ -180,12 +180,14 @@ describe("embedded supported tools registry", () => {
 			"codex",
 			"copilot",
 			"antigravity",
+			"goose",
 		]);
 		expect(
 			registry.tools.map((tool) => ({
 				id: tool.id,
 				name: tool.name,
 				binary: tool.binary,
+				enabled: tool.enabled,
 				supportLevel: getToolSupportLevel(tool),
 			})),
 		).toEqual([
@@ -193,31 +195,43 @@ describe("embedded supported tools registry", () => {
 				id: "claude-code",
 				name: "Claude Code",
 				binary: "claude",
+				enabled: undefined,
 				supportLevel: "stable",
 			},
 			{
 				id: "opencode",
 				name: "OpenCode",
 				binary: "opencode",
+				enabled: undefined,
 				supportLevel: "stable",
 			},
 			{
 				id: "codex",
 				name: "Codex CLI",
 				binary: "codex",
+				enabled: true,
 				supportLevel: "stable",
 			},
 			{
 				id: "copilot",
 				name: "GitHub Copilot CLI",
 				binary: "copilot",
+				enabled: undefined,
 				supportLevel: "stable",
 			},
 			{
 				id: "antigravity",
 				name: "Antigravity CLI",
 				binary: "agy",
+				enabled: undefined,
 				supportLevel: "stable",
+			},
+			{
+				id: "goose",
+				name: "Goose",
+				binary: "goose",
+				enabled: true,
+				supportLevel: "experimental",
 			},
 		]);
 	});
@@ -256,5 +270,32 @@ describe("embedded supported tools registry", () => {
 		expect(getDefaultInstallTools(registry).map((tool) => tool.id)).toContain(
 			"antigravity",
 		);
+	});
+
+	test("enables Goose for targeted experimental install and verify surfaces", async () => {
+		const registry = await loadToolsRegistry();
+		const goose = findToolById(registry, "goose");
+
+		expect(goose).toMatchObject({
+			id: "goose",
+			name: "Goose",
+			enabled: true,
+			binary: "goose",
+			min_version: "1.35.0",
+			instruction_file: "AGENTS.md",
+			install_url: "https://block.github.io/goose/",
+			plugin_install_cmd: null,
+			supportLevel: "experimental",
+			capabilities: ["skills", "agents", "recipes"],
+		});
+		expect(goose?.icon).toEqual({
+			source: "@lobehub/icons",
+			name: "Goose",
+			variant: "mono",
+		});
+		expect(getEnabledTools(registry).map((tool) => tool.id)).toContain("goose");
+		expect(
+			getDefaultInstallTools(registry).map((tool) => tool.id),
+		).not.toContain("goose");
 	});
 });

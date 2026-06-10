@@ -126,6 +126,8 @@ function renderDispatch(
 			return renderGemini(agentRef, prompt);
 		case "gemini":
 			return renderGemini(agentRef, prompt);
+		case "goose":
+			return `Goose unsupported capability: rp1 subagent delegation is fail-closed in this build because no foreground Summon smoke has passed. Do not dispatch ${agentRef}, do not attempt nested delegation, and stop with: "Goose does not support rp1 delegation for ${agentRef} in this build. Run this workflow on a delegation-capable harness or add and pass a foreground Summon smoke first."`;
 	}
 }
 

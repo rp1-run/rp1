@@ -25,6 +25,11 @@ export {
 	installGeminiBundleAssets,
 	verifyGeminiBundleSetup,
 } from "./gemini/index.js";
+export {
+	getGoosePaths,
+	installGooseBundleAssets,
+	verifyGooseBundleSetup,
+} from "./goose/index.js";
 // Installer
 export {
 	backupExistingInstallation,

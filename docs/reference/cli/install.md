@@ -1,6 +1,7 @@
 # install
 
-Install rp1 plugins for supported host tools and Antigravity CLI plugin assets.
+Install rp1 plugins for supported host tools, Antigravity CLI plugin assets, and
+targeted Goose core harness assets.
 
 ---
 
@@ -15,7 +16,8 @@ rp1 install <subcommand> [options]
 Use `rp1 install` when you want to install or refresh rp1 for a specific host
 tool, or for every detected stable host on the machine. Antigravity CLI is the
 active Google host target and participates in default setup when `agy` is
-detected.
+detected. Goose is an experimental targeted install only; it is not included in
+default stable-host installation.
 
 Supported targets:
 
@@ -24,6 +26,7 @@ Supported targets:
 - Codex
 - Copilot CLI
 - Antigravity CLI plugin assets
+- Goose core harness assets (experimental, targeted only)
 
 ## Subcommands
 
@@ -79,6 +82,19 @@ installed as normal product workflows. Review the
 [Antigravity CLI platform guide](../platforms/antigravity.md) for lifecycle,
 dynamic delegation, and support-matrix details.
 
+### `install goose`
+
+```bash
+rp1 install goose [options]
+```
+
+Installs Goose-discoverable rp1 skills, agents, recipes, and support metadata
+from the current `dist/goose/` build output. Goose support is limited to the
+verified core recipe harness slice: generated assets, targeted install/verify,
+and non-delegating recipe runtime evidence. It does not claim ACP, protocol
+integration, eval expansion, PR-review expansion, nested delegation, or
+interactive headless approval support.
+
 ### `install all`
 
 ```bash
@@ -86,7 +102,8 @@ rp1 install all [options]
 ```
 
 Detects installed tools and installs rp1 to every detected stable target it
-finds, including Antigravity CLI when `agy` is available on `PATH`.
+finds, including Antigravity CLI when `agy` is available on `PATH`. Goose is
+experimental and remains a targeted `rp1 install goose` path.
 
 ## Options
 
@@ -107,6 +124,7 @@ rp1 install opencode
 rp1 install codex
 rp1 install copilot
 rp1 install antigravity
+rp1 install goose
 ```
 
 ### Install everywhere detected
@@ -121,6 +139,7 @@ rp1 install all
 rp1 install codex --dry-run
 rp1 install copilot --dry-run
 rp1 install antigravity --dry-run
+rp1 install goose --dry-run
 ```
 
 ## Contributor Local Install (`just install`)
@@ -177,6 +196,7 @@ rp1 verify opencode
 rp1 verify codex
 rp1 verify copilot
 rp1 verify antigravity
+rp1 verify goose
 ```
 
 For Copilot, the clean success signal is `healthy_native`. A `mixed_native_and_legacy` result means the native install works, but old rp1 files still need cleanup under `~/.config/github-copilot/`.
@@ -226,6 +246,11 @@ states and remediation actions; it does not grant trust or approval
 automatically. The [verify reference](verify.md) and
 [Antigravity CLI platform guide](../platforms/antigravity.md) explain the
 verifier output and current support matrix.
+
+For Goose, verification reports binary/version readiness, manifest-owned
+assets, recipe validation/render status, support metadata, and optional runtime
+smoke evidence. The printed support claim is intentionally limited to the
+verified core recipe harness slice.
 
 ## Listing Installed Skills
 

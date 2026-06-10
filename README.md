@@ -160,7 +160,8 @@ rp1 install
 | [Claude Code](https://claude.ai/code) | Available |
 | [OpenCode](https://opencode.ai) | Experimental |
 | [Codex CLI](https://github.com/openai/codex) | Experimental |
-| Cursor, Goose, Amp | Coming Soon |
+| [Goose](https://block.github.io/goose/) | Experimental core harness: generated skills, agents, recipes, targeted install/verify, and verified non-delegating recipe runtime only. No ACP, eval, PR-review, nested delegation, or broad parity claim. |
+| Cursor, Amp | Coming Soon |
 
 ---
 

@@ -118,6 +118,19 @@ describe("web_access tag", () => {
 		});
 	});
 
+	describe("goose: unsupported web access", () => {
+		const template =
+			'{% web_access "search", "Look up the latest documentation" %}';
+
+		test("renders direct unsupported guidance", async () => {
+			const output = await render(template, "goose");
+			expect(output).toContain("Goose unsupported capability");
+			expect(output).toContain("web access is not supported");
+			expect(output).toContain("Use local evidence only");
+			expect(output).toContain("stop and ask the user for the required source");
+		});
+	});
+
 	describe("invalid capability fallback", () => {
 		test("falls back to search for unknown capability", async () => {
 			const template = '{% web_access "invalid", "Do something" %}';

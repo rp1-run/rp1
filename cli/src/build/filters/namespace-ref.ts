@@ -11,6 +11,7 @@
  * | copilot     | `rp1-base:agent`   | `rp1-base/agent`    |
  * | antigravity | `rp1-base:agent`   | `rp1-base:agent`    |
  * | gemini      | `rp1-base:agent`   | `rp1-base:agent`    |
+ * | goose       | `rp1-base:agent`   | `rp1-base:agent`    |
  *
  * Wraps the existing transformNamespaceSeparator() and
  * transformNamespaceToCodex() logic from transformations.ts and
@@ -90,6 +91,8 @@ export const namespaceRef = (
 		case "antigravity":
 			return content;
 		case "gemini":
+			return content;
+		case "goose":
 			return content;
 	}
 };

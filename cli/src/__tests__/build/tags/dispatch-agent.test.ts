@@ -149,6 +149,17 @@ describe("dispatch_agent tag", () => {
 			});
 		});
 
+		describe("goose", () => {
+			test("renders fail-closed unsupported delegation guidance", async () => {
+				const output = await render(template, "goose");
+				expect(output).toContain("Goose unsupported capability");
+				expect(output).toContain("subagent delegation is fail-closed");
+				expect(output).toContain("no foreground Summon smoke has passed");
+				expect(output).toContain("Do not dispatch rp1-dev:code-writer");
+				expect(output).toContain("do not attempt nested delegation");
+			});
+		});
+
 		describe("all plugin prefixes", () => {
 			test("handles rp1-base: prefix", async () => {
 				const t = '{% dispatch_agent "rp1-base:knowledge-load", "Load KB" %}';

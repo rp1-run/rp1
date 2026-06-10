@@ -1,0 +1,33 @@
+---
+name: {{ namespacedPluginName }}-{{ artifact.name }}
+description: {{ artifact.description | escape_yaml }}
+{%- if artifact.model != "inherit" %}
+model: {{ artifact.model | escape_yaml }}
+{%- endif %}
+{%- assign extensions = artifact.tools | join: ", " | allowed_tools: platform %}
+{%- if extensions and extensions.size > 0 %}
+tools:
+{%- for extension in extensions %}
+  - {{ extension | escape_yaml }}
+{%- endfor %}
+{%- else %}
+tools: []
+{%- endif %}
+metadata:
+  rp1:
+    plugin: {{ pluginName }}
+    name: {{ artifact.name }}
+    harness: goose
+---
+
+## Goose Host Context
+
+Set `CURRENT_HOST=goose` for this Goose agent context. Pass `--harness goose` to rp1 workflow bootstrap commands and pass `--harness $CURRENT_HOST` only to `rp1 agent-tools emit` commands whose help documents `--harness`.
+
+Use the builtin `developer` extension for basic filesystem and shell work only: `Read`, `Write`, `Edit`, `Grep`, `Glob`, and `Bash` semantics map to developer-extension file or shell operations. If the developer extension is unavailable, stop and report that Goose developer tooling is required for this rp1 agent.
+
+Treat Goose JSON output as a transcript or metadata envelope, not as a bare final answer. Inspect the final assistant message or structured event metadata deliberately before deciding the agent completed.
+
+Goose fails closed for unsupported runtime paths in this build: subagent delegation, nested delegation, interactive approvals, user elicitation, web access, notebook editing, and background shell session control. If a generated instruction reports `Goose unsupported capability` or one of those capabilities is required, stop and return the unsupported-capability message instead of waiting or simulating success.
+
+{{ artifact.content | namespace_ref: platform | slash_commands: platform | param_transform: platform | tool_prose: platform }}
