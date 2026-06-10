@@ -73,6 +73,7 @@
 | `/guide` | base | Ask about rp1 capabilities, discover skills, and get workflow guidance. | `QUESTION` |  |  |  |
 | `/knowledge-build` | base | Orchestrates parallel KB generation using spatial analysis and a map-reduce architecture with incremental and feature-learning modes. | `FEATURE_ID` | Yes | fresh |  |
 | `/knowledge-load` | base | Ingests and prepares codebase documentation, builds internal knowledge graphs, and creates optimized context representations for downstream analysis tasks. | `LOAD_MODE` |  |  |  |
+| `/note` | base | Capture session context as a structured, frontmatter-rich markdown note under .rp1/work/notes/ with auto-maintained index and log. | `TOPIC`, `AFK` |  |  |  |
 | `/self-update` | base | Update rp1 and run the full post-update lifecycle. |  |  |  |  |
 
 ## Strategy
