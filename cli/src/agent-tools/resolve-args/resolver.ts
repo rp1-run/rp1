@@ -165,9 +165,38 @@ const parseFrontmatter = (
 };
 
 /**
+ * Check whether a token is a recognized flag or alias that should act as a
+ * boundary during positional capture. Only tokens matching a declared
+ * argument name (via --name or --name=value) or a declared alias terminate
+ * capture; unknown --prefixed tokens are treated as prose.
+ */
+const isRecognizedFlag = (
+	token: string,
+	schema: readonly ArgumentDefinition[],
+	aliasMap: Map<string, string>,
+): boolean => {
+	if (token.startsWith("--")) {
+		const raw = token.slice(2);
+		const eqIndex = raw.indexOf("=");
+		const flagName = eqIndex !== -1 ? raw.slice(0, eqIndex) : raw;
+		const upperName = flagName.replace(/-/g, "_").toUpperCase();
+		return schema.some((a) => a.name === upperName);
+	}
+	return aliasMap.has(token.toLowerCase());
+};
+
+/**
  * Parse raw argument string into positional and named values.
  * Supports positional args mapped to required/variadic string args in order,
  * and --flag or --key value patterns.
+ *
+ * Greedy positional capture: when the schema declares exactly one required
+ * non-variadic string arg and no other required string/enum args, all tokens
+ * that are not recognized trailing flags are collected into that positional.
+ *
+ * Recognized-flag boundary: both greedy and variadic capture loops stop only
+ * at tokens matching declared argument names or aliases, so embedded
+ * double-dashes in prose (e.g. "--broken") do not terminate capture.
  */
 export const parseRawArgs = (
 	rawArgs: string,
@@ -195,6 +224,16 @@ export const parseRawArgs = (
 	const positionalArgs = schema.filter(
 		(a) => a.type === "string" || a.type === "enum",
 	);
+
+	// When exactly one required non-variadic string arg exists and no other
+	// required string/enum args are declared, that arg absorbs all non-flag
+	// tokens instead of consuming a single word.
+	const requiredStringEnumArgs = schema.filter(
+		(a) =>
+			(a.type === "string" || a.type === "enum") && a.required && !a.variadic,
+	);
+	const greedyTarget =
+		requiredStringEnumArgs.length === 1 ? requiredStringEnumArgs[0] : null;
 
 	let positionalIndex = 0;
 	let i = 0;
@@ -224,7 +263,16 @@ export const parseRawArgs = (
 				if (matchedArg?.type === "boolean") {
 					result[upperName] = true;
 					i++;
+				} else if (matchedArg) {
+					if (i + 1 < tokens.length && !tokens[i + 1].startsWith("--")) {
+						result[upperName] = tokens[i + 1];
+						i += 2;
+					} else {
+						result[upperName] = true;
+						i++;
+					}
 				} else if (i + 1 < tokens.length && !tokens[i + 1].startsWith("--")) {
+					// Unknown flag with a following non-flag token: treat as key-value
 					result[upperName] = tokens[i + 1];
 					i += 2;
 				} else {
@@ -239,7 +287,27 @@ export const parseRawArgs = (
 				const chunks = [token];
 				i++;
 
-				while (i < tokens.length && !tokens[i].startsWith("--")) {
+				while (
+					i < tokens.length &&
+					!isRecognizedFlag(tokens[i], schema, aliasMap)
+				) {
+					chunks.push(tokens[i]);
+					i++;
+				}
+
+				result[positionalArg.name] = chunks.join(" ");
+				positionalIndex++;
+				continue;
+			}
+
+			if (greedyTarget && positionalArg?.name === greedyTarget.name) {
+				const chunks = [token];
+				i++;
+
+				while (
+					i < tokens.length &&
+					!isRecognizedFlag(tokens[i], schema, aliasMap)
+				) {
 					chunks.push(tokens[i]);
 					i++;
 				}

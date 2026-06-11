@@ -195,6 +195,141 @@ describe("parseRawArgs", () => {
 			ISSUE_ID: "running-evals",
 		});
 	});
+
+	test("captures multi-word value for sole required string positional", () => {
+		const result = parseRawArgs("fix the login bug on the dashboard", schema);
+		expect(result).toEqual({
+			FEATURE_ID: "fix the login bug on the dashboard",
+		});
+	});
+
+	test("captures multi-word positional with trailing recognized flag", () => {
+		const result = parseRawArgs(
+			"fix the login bug on the dashboard --afk",
+			schema,
+		);
+		expect(result).toEqual({
+			FEATURE_ID: "fix the login bug on the dashboard",
+			AFK: true,
+		});
+	});
+
+	test("embedded double-dash in prose does not terminate greedy positional capture", () => {
+		const result = parseRawArgs(
+			"fix the --broken login on dashboard --afk",
+			schema,
+		);
+		expect(result).toEqual({
+			FEATURE_ID: "fix the --broken login on dashboard",
+			AFK: true,
+		});
+	});
+
+	test("embedded double-dash in variadic prose does not terminate capture", () => {
+		const variadicSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "PROBLEM_STATEMENT",
+				type: "string",
+				required: true,
+				variadic: true,
+				description: "Problem statement",
+			},
+			{
+				name: "ISSUE_ID",
+				type: "string",
+				required: false,
+				description: "Issue identifier",
+			},
+		];
+
+		const result = parseRawArgs(
+			"the UI breaks when --verbose flag is passed --issue-id ui-verbose",
+			variadicSchema,
+		);
+
+		expect(result).toEqual({
+			PROBLEM_STATEMENT: "the UI breaks when --verbose flag is passed",
+			ISSUE_ID: "ui-verbose",
+		});
+	});
+
+	test("passing --afk does not set GIT_COMMIT in parsed output", () => {
+		const result = parseRawArgs("my-feature --afk", schema);
+		expect(result.AFK).toBe(true);
+		expect(result.GIT_COMMIT).toBeUndefined();
+	});
+
+	test("trailing recognized flags after multi-word positional text", () => {
+		const extendedSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "REQUEST",
+				type: "string",
+				required: true,
+				description: "User request",
+			},
+			{
+				name: "MODE",
+				type: "string",
+				required: false,
+				description: "Mode",
+			},
+			{
+				name: "AFK",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Non-interactive",
+			},
+		];
+		const result = parseRawArgs(
+			"fix the login bug --mode custom --afk",
+			extendedSchema,
+		);
+		expect(result).toEqual({
+			REQUEST: "fix the login bug",
+			MODE: "custom",
+			AFK: true,
+		});
+	});
+
+	test("boolean flag with --key=value after greedy positional", () => {
+		const result = parseRawArgs("my-feature --afk --git-commit=false", schema);
+		expect(result).toEqual({
+			FEATURE_ID: "my-feature",
+			AFK: true,
+			GIT_COMMIT: false,
+		});
+	});
+
+	test("greedy capture does not activate with multiple required string args", () => {
+		const multiRequiredSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "FEATURE_ID",
+				type: "string",
+				required: true,
+				description: "Feature ID",
+			},
+			{
+				name: "TASK_IDS",
+				type: "string",
+				required: true,
+				description: "Task IDs",
+			},
+			{
+				name: "AFK",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Non-interactive",
+			},
+		];
+		const result = parseRawArgs("my-feature T1,T2 --afk", multiRequiredSchema);
+		expect(result).toEqual({
+			FEATURE_ID: "my-feature",
+			TASK_IDS: "T1,T2",
+			AFK: true,
+		});
+	});
 });
 
 describe("resolveImpliesChains", () => {
@@ -608,6 +743,46 @@ metadata:
 		if (E.isRight(result)) {
 			expect(result.right.arguments.GIT_PR).toBe(true);
 			expect(result.right.arguments.GIT_PUSH).toBe(true);
+			expect(result.right.arguments.GIT_COMMIT).toBe(true);
+		}
+	});
+
+	test("passing --afk does not change GIT_COMMIT schema default", async () => {
+		const schemaPath = await createSkillFile(
+			tempDir,
+			`---
+name: test-skill
+description: "Test implies isolation between unrelated boolean flags"
+metadata:
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "Feature ID"
+    - name: AFK
+      type: boolean
+      required: false
+      default: false
+      description: "Non-interactive"
+    - name: GIT_COMMIT
+      type: boolean
+      required: false
+      default: true
+      description: "Commit changes"
+---
+# Test skill
+`,
+		);
+
+		const result = await resolveArgs({
+			schema_path: schemaPath,
+			raw_args: "my-feature --afk",
+			project_root: tempDir,
+		})();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.arguments.AFK).toBe(true);
 			expect(result.right.arguments.GIT_COMMIT).toBe(true);
 		}
 	});
