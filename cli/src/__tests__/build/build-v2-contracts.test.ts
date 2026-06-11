@@ -160,14 +160,13 @@ describe("Build v2 static contracts", () => {
 			"plugins/dev/agents/feature-tasker.md",
 		);
 
-		expect(build).toContain("Parse the response as JSON.");
+		// Build validates tasker response as JSON with task_plan_path and both artifact files
+		expect(build).toContain("parse JSON");
+		expect(build).toContain("task_plan_path");
 		expect(build).toContain(
-			'"task_plan_path": "features/{FEATURE_ID}/tasks.json"',
+			"`artifacts[]` for both `tasks.md` and `tasks.json`",
 		);
-		expect(build).toContain(
-			"`artifacts[]` entries for both `features/{FEATURE_ID}/tasks.md` and `features/{FEATURE_ID}/tasks.json`",
-		);
-		expect(build).toContain("Treat prose-prefixed completion");
+		expect(build).toContain("Do not continue without confirmed results");
 		expect(tasker).toContain(
 			"Return ONLY raw JSON, no prose, no markdown fence.",
 		);
@@ -226,7 +225,8 @@ describe("Build v2 static contracts", () => {
 		expect(content).toContain(
 			"On resume, `build-task-plan` must consume the updated `tasks.json`.",
 		);
-		expect(content).toContain('"added_task_request": "{ADDED_TASK_REQUEST}"');
+		// Add Task paths carry the added task request in emit data
+		expect(content).toContain("added_task_request");
 	});
 
 	test("waiting-phase resumes branch before producer dispatches", async () => {
@@ -261,12 +261,11 @@ describe("Build v2 static contracts", () => {
 			"plugins/dev/agents/task-reviewer.md",
 		);
 
-		expect(build).toContain(
-			'`status = "SUCCESS"` completes the unit only when `task_plan_updated = true`',
-		);
-		expect(build).toContain(
-			"Do not edit `tasks.json` in the parent orchestrator; the reviewer owns the success decision and task-plan persistence.",
-		);
+		// Build contract: SUCCESS + task_plan_updated completes the unit
+		expect(build).toContain("`SUCCESS` + `task_plan_updated = true`");
+		expect(build).toContain("completes the unit");
+		expect(build).toContain("Do not edit `tasks.json`");
+		expect(build).toContain("the reviewer owns");
 		expect(reviewer).toContain(
 			"### 5.5.1 On SUCCESS: Persist Machine Task Plan",
 		);
@@ -424,14 +423,15 @@ describe("Build v2 static contracts", () => {
 			"**Implementation checkpoint** (after readiness; skip if AFK):",
 		);
 		const completionEmitIndex = content.indexOf(
-			"After the user chooses Release, or AFK skips this checkpoint, emit `implementation` completed:",
+			"After the user chooses Release, or AFK skips this checkpoint, emit `implementation` completed",
 		);
 
 		expect(aggregatorDispatchIndex).toBeGreaterThan(-1);
 		expect(checkpointIndex).toBeGreaterThan(aggregatorDispatchIndex);
 		expect(completionEmitIndex).toBeGreaterThan(checkpointIndex);
+		// Readiness artifact reference exists in resume and release sections
 		expect(content).toContain(
-			"artifact=features/{FEATURE_ID}/build-readiness.md",
+			'path = "features/{FEATURE_ID}/build-readiness.md"',
 		);
 		expect(content).not.toContain('"context": "Build phase complete"');
 	});
@@ -445,24 +445,22 @@ describe("Build v2 static contracts", () => {
 		const archiverDispatchIndex = content.indexOf(
 			'{% dispatch_agent "rp1-dev:feature-archiver" %}',
 		);
-		const successRequirementIndex = content.indexOf(
-			"Parse the `feature-archiver` response before completing release:",
+		const parseResponseIndex = content.indexOf(
+			"Parse the `feature-archiver` response",
 		);
 		const archiveCompletedIndex = content.indexOf(
-			'"archive_status": "completed", "archive_path": "{ARCHIVE_RESULT.archive_path}"',
+			"After `feature-archiver` succeeds and registers the actual archived output",
 		);
 
 		expect(releaseRunningIndex).toBeLessThan(releaseGateIndex);
 		expect(declineIndex).toBeLessThan(archiveSectionIndex);
 		expect(content).toContain("Do not run `feature-archiver`.");
 		expect(archiverDispatchIndex).toBeGreaterThan(archiveSectionIndex);
-		expect(successRequirementIndex).toBeGreaterThan(archiverDispatchIndex);
-		expect(archiveCompletedIndex).toBeGreaterThan(successRequirementIndex);
+		expect(parseResponseIndex).toBeGreaterThan(archiverDispatchIndex);
+		expect(archiveCompletedIndex).toBeGreaterThan(parseResponseIndex);
+		// Archive success requires artifacts beginning with archives/features/
 		expect(content).toContain(
-			"After `feature-archiver` succeeds and registers the actual archived output, emit `release` completed:",
-		);
-		expect(content).toContain(
-			'The archived artifact path MUST begin with `archives/features/` and use `storageRoot = "work_dir"`.',
+			'`artifacts[]` entry beginning with `archives/features/` using `storageRoot: "work_dir"`',
 		);
 	});
 
@@ -487,27 +485,31 @@ describe("Build v2 static contracts", () => {
 		expect(archiver).toContain('"registration_status":"{REGISTRATION_STATUS}"');
 		expect(build).toContain("ARCHIVE_RETRY_PATH");
 		expect(build).toContain("ARCHIVE_PATH={ARCHIVE_RETRY_PATH}");
-		expect(build).toContain('archive_path = "{ARCHIVE_RETRY_PATH}"');
-		expect(build).toContain('"archive_path": "{ARCHIVE_RETRY_PATH}"');
+		// Archive-incomplete emit carries the retry path
+		expect(build).toContain('archive_path: "{ARCHIVE_RETRY_PATH}"');
 		expect(archiver).not.toContain('"registered|skipped"');
 		expect(archiver).not.toContain("completed_without_registration");
 	});
 
 	test("release Stop and archive decline emits are separate decisions", async () => {
 		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
-		const stopIndex = content.indexOf("Stop emits:");
-		const completeIndex = content.indexOf("Complete-without-archive emit:");
+		const stopIndex = content.indexOf("On Stop: emit `release` waiting");
+		const completeIndex = content.indexOf(
+			"On Complete without archive: emit `release` completed",
+		);
 
 		expect(stopIndex).toBeGreaterThan(-1);
 		expect(completeIndex).toBeGreaterThan(stopIndex);
+		// Stop path emits waiting with deferred, not declined
 		expect(content.slice(stopIndex, completeIndex)).toContain(
-			'"status": "waiting"',
+			'archive_status: "deferred"',
 		);
 		expect(content.slice(stopIndex, completeIndex)).not.toContain(
-			'"archive_status": "declined"',
+			'archive_status: "declined"',
 		);
+		// Complete-without-archive emits completed with declined
 		expect(content.slice(completeIndex)).toContain(
-			'"archive_status": "declined"',
+			'archive_status: "declined"',
 		);
 	});
 

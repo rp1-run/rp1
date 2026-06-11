@@ -171,6 +171,9 @@ describe("phase planning prompt contracts", () => {
 		const buildSkill = await readProjectFile(
 			"plugins/dev/skills/build/SKILL.md",
 		);
+		const buildRedirected = await readProjectFile(
+			"plugins/dev/skills/build/references/build-redirected.md",
+		);
 		const featureArchitect = await readProjectFile(
 			"plugins/dev/agents/feature-architect.md",
 		);
@@ -178,14 +181,19 @@ describe("phase planning prompt contracts", () => {
 			"plugins/dev/agents/feature-requirement-gatherer.md",
 		);
 
+		// Build SKILL.md carries traceability args and redirect detection
 		expect(buildSkill).toContain("- name: PHASE_PLAN_PATH");
 		expect(buildSkill).toContain("- name: PHASE_ID");
 		expect(buildSkill).toContain(
 			"FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK_MODE={AFK}, PHASE_PLAN_PATH={PHASE_PLAN_PATH}, PHASE_ID={PHASE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}",
 		);
 		expect(buildSkill).toContain('status = "needs_phase_planning"');
-		expect(buildSkill).toContain("do NOT run `hypothesis-tester`");
-		expect(buildSkill).toContain(
+		// Build SKILL.md references the companion for redirect handling
+		expect(buildSkill).toContain("references/build-redirected.md");
+
+		// Redirect invariants live in the references/ companion
+		expect(buildRedirected).toContain("do NOT run `hypothesis-tester`");
+		expect(buildRedirected).toContain(
 			"Scope exceeds a single feature. Run /phase-plan before resuming delivery.",
 		);
 		expect(featureArchitect).toContain(
@@ -230,7 +238,7 @@ describe("phase planning prompt contracts", () => {
 		);
 		expect(phasePlanner).toContain("candidate_paths");
 		expect(phasePlanner).toContain(
-			"return an error JSON object with `candidate_paths` and rerun guidance instead of prompting.",
+			"return an error JSON object with `candidate_paths` and rerun guidance instead of prompting",
 		);
 		expect(phasePlanSkill).toContain(
 			"This workflow is single-pass. It does not emit `waiting_for_user` for source ambiguity.",
@@ -290,21 +298,14 @@ describe("phase planning prompt contracts", () => {
 			"plugins/dev/skills/build/SKILL.md",
 		);
 
+		// Requirements: status error is intentional failure, not retried
 		expect(buildSkill).toContain(
-			'If the response is valid JSON with `"status": "error"`, treat it as an intentional requirements-step failure.',
+			'`status: "error"` = intentional failure (abort, no retry)',
 		);
-		expect(buildSkill).toContain(
-			"abort the build on `requirements`, and do NOT retry it as a generic contract failure",
-		);
-		expect(buildSkill).toContain(
-			"Validate the `feature-tasker` response before the planning checkpoint:",
-		);
-		expect(buildSkill).toContain(
-			"abort the build on `planning`, and do NOT enter `implementation` or `release`.",
-		);
-		expect(buildSkill).toContain(
-			"Do not silently continue without confirmed `tasks.md` and `tasks.json` results.",
-		);
+		// Task generation: status error aborts planning
+		expect(buildSkill).toContain('`status: "error"` = abort planning');
+		// Both tasks.md and tasks.json must be confirmed before proceeding
+		expect(buildSkill).toContain("Do not continue without confirmed results");
 	});
 
 	test("phase handoff inputs render planning traceability into requirements", async () => {

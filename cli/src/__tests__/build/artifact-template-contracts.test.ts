@@ -67,8 +67,12 @@ describe("artifact template contracts", () => {
 		const skill = await readProjectFile(
 			"plugins/dev/skills/pr-review/SKILL.md",
 		);
+		const linkArtifacts = await readProjectFile(
+			"plugins/dev/skills/pr-review/references/link-artifacts.md",
+		);
+		const combined = `${skill}\n${linkArtifacts}`;
 		const linkPayloads = [
-			...skill.matchAll(/--data '([^']*"locationKind":"url"[^']*)'/g),
+			...combined.matchAll(/--data '([^']*"locationKind":"url"[^']*)'/g),
 		].map((match) => match[1]);
 		const reusablePayloads = linkPayloads.filter((payload) =>
 			payload.includes('"url":"{LINK_URL}"'),
@@ -76,28 +80,26 @@ describe("artifact template contracts", () => {
 		const prReviewPayloads = linkPayloads.filter((payload) =>
 			payload.includes('"url":"{REVIEWED_PR_URL}"'),
 		);
-		const linkRegistrationSection =
-			skill
-				.split("### Link Artifact Registration")
-				.at(1)
-				?.split("### Final Output")
-				.at(0) ?? "";
 
+		// SKILL.md carries the pointer and core identity
 		expect(skill).toContain("REVIEWED_PR_URL");
 		expect(skill).toContain("reviewed_pr_url: REVIEWED_PR_URL");
-		expect(linkRegistrationSection).toContain(
+		expect(skill).toContain("references/link-artifacts.md");
+
+		// The reusable pattern and PR review binding live in the reference companion
+		expect(linkArtifacts).toContain(
 			"Reusable External Link Artifact Registration Pattern",
 		);
-		expect(linkRegistrationSection).toContain(
+		expect(linkArtifacts).toContain(
 			"Use this insertable block in any orchestrator",
 		);
-		expect(linkRegistrationSection).toContain(
+		expect(linkArtifacts).toContain(
 			"| `{LINK_URL}` | Canonical `http` or `https` URL from structured workflow state |",
 		);
-		expect(linkRegistrationSection).toContain(
+		expect(linkArtifacts).toContain(
 			"Collect link values from explicit workflow state, not by scanning generated markdown for URLs.",
 		);
-		expect(linkRegistrationSection).toContain("#### PR Review Binding");
+		expect(linkArtifacts).toContain("## PR Review Binding");
 		expect(reusablePayloads).toHaveLength(1);
 		expect(prReviewPayloads).toHaveLength(1);
 		expect(prReviewPayloads[0]).toContain('"url":"{REVIEWED_PR_URL}"');
@@ -109,16 +111,16 @@ describe("artifact template contracts", () => {
 		expect(prReviewPayloads[0]).toContain(
 			'"sourceArtifactPath":"{REPORT_PATH}"',
 		);
-		expect(linkRegistrationSection).toContain(
+		expect(linkArtifacts).toContain(
 			"Skip this emit entirely when `REVIEWED_PR_URL` is empty.",
 		);
-		expect(linkRegistrationSection).toContain(
+		expect(linkArtifacts).toContain(
 			"If link artifact registration fails, warn and continue",
 		);
-		expect(linkRegistrationSection).toContain(
+		expect(linkArtifacts).toContain(
 			"Do not register posted GitHub review URLs",
 		);
-		expect(linkRegistrationSection).not.toContain('"url":"{REVIEW_URL}"');
+		expect(combined).not.toContain('"url":"{REVIEW_URL}"');
 	});
 
 	test("all direct template path references in agent and skill files point to existing files", async () => {
