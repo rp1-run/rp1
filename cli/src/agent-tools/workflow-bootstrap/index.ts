@@ -422,14 +422,16 @@ export const execute = (
 				requireWorkflowTargetMatch(input, skill, resolvedSchemaPath),
 			),
 		),
-		TE.bind(
-			"resolvedArgs",
-			({ requestedProjectRoot, input, resolvedSchemaPath }) =>
-				resolveArgs({
-					schema_path: resolvedSchemaPath,
-					raw_args: input.raw_args,
-					project_root: requestedProjectRoot,
-				}),
+		TE.bind("resolvedArgs", ({ requestedProjectRoot, input, skill }) =>
+			resolveArgs({
+				name: input.name,
+				raw_args: input.raw_args,
+				project_root: requestedProjectRoot,
+				parsedSchema: {
+					arguments: skill.metadata?.arguments ?? [],
+					environment: skill.metadata?.environment ?? [],
+				},
+			}),
 		),
 		TE.chainFirst(({ resolvedArgs }) =>
 			TE.fromEither(requireResolvedArguments(resolvedArgs.unresolved)),

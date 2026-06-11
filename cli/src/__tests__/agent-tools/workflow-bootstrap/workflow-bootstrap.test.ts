@@ -10,6 +10,7 @@ import {
 	getRunById,
 	resetInstance,
 } from "../../../agent-tools/emit/database.js";
+import { resolveArgs } from "../../../agent-tools/resolve-args/resolver.js";
 import { execute } from "../../../agent-tools/workflow-bootstrap/index.js";
 import {
 	createInitialCommit,
@@ -703,4 +704,41 @@ metadata:
 			expect(parsed.data.directories.projectRoot).toBe(tempDir);
 		},
 	);
+
+	test("resolveArgs uses parsedSchema and does not read any schema file", async () => {
+		await writeProjectId(tempDir, "project-single-parse-id");
+
+		const result = await expectTaskRight(
+			resolveArgs({
+				name: "dev:build",
+				schema_path: join(tempDir, "nonexistent", "SKILL.md"),
+				raw_args: "my-feature --afk",
+				project_root: tempDir,
+				parsedSchema: {
+					arguments: [
+						{
+							name: "FEATURE_ID",
+							type: "string",
+							required: true,
+							description: "Feature identifier",
+						},
+						{
+							name: "AFK",
+							type: "boolean",
+							required: false,
+							default: false,
+							description: "Non-interactive mode",
+						},
+					],
+					environment: [],
+				},
+			}),
+		);
+
+		expect(result.arguments).toEqual({
+			FEATURE_ID: "my-feature",
+			AFK: true,
+		});
+		expect(result.unresolved).toEqual([]);
+	});
 });

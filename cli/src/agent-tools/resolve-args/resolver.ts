@@ -28,6 +28,7 @@ import type {
 } from "../../build/models.js";
 import { loadArgumentDefaultsForSkill } from "../../settings/loader.js";
 import type {
+	ParsedSchema,
 	ResolveArgsInput,
 	ResolvedArgs,
 	ResolvedArgumentValues,
@@ -439,6 +440,109 @@ export const resolveDirectories = (projectRoot: string): ResolvedDirectories =>
 	);
 
 /**
+ * Run the 5-layer argument merge given already-parsed schema definitions.
+ * Shared by both the pre-parsed and file-based resolution paths.
+ */
+const mergeArgumentLayers = (
+	input: ResolveArgsInput,
+	schema: ParsedSchema,
+	canonicalName: CanonicalName | null,
+	directories: ResolvedDirectories,
+	resolvedPath?: string,
+): TE.TaskEither<CLIError, ResolvedArgs> => {
+	if (schema.arguments.length === 0 && schema.environment.length === 0) {
+		return TE.right<CLIError, ResolvedArgs>({
+			arguments: {},
+			directories,
+			unresolved: [],
+		});
+	}
+
+	return TE.tryCatch(
+		async () => {
+			const argDefs = schema.arguments;
+
+			const userInput = parseRawArgs(input.raw_args, argDefs);
+
+			// Layers 2+3: Load settings (loader handles merge precedence)
+			// Use canonical name from input (e.g., "rp1-dev:build" -> "dev:build")
+			// to keep settings keys platform-independent and unambiguous.
+			// Falls back to path extraction only for --schema-path usage.
+			const skillName = canonicalName
+				? toCanonicalString(canonicalName)
+				: resolvedPath
+					? extractNameFromPath(resolvedPath)
+					: "unknown";
+			const settingsDefaults = await loadArgumentDefaultsForSkill(
+				skillName,
+				directories.projectRoot,
+			);
+
+			const resolved: Record<string, string | boolean> = {};
+
+			for (const arg of argDefs) {
+				if (userInput[arg.name] !== undefined) {
+					resolved[arg.name] = userInput[arg.name];
+					continue;
+				}
+
+				if (settingsDefaults[arg.name] !== undefined) {
+					const settingsVal = settingsDefaults[arg.name];
+					if (
+						typeof settingsVal === "string" ||
+						typeof settingsVal === "boolean"
+					) {
+						resolved[arg.name] = settingsVal;
+						continue;
+					}
+				}
+
+				if (arg.source?.env) {
+					const envVal = process.env[arg.source.env];
+					if (envVal !== undefined) {
+						if (arg.type === "boolean") {
+							resolved[arg.name] = envVal === "true" || envVal === "1";
+						} else {
+							resolved[arg.name] = envVal;
+						}
+						continue;
+					}
+				}
+
+				if (arg.default !== undefined) {
+					resolved[arg.name] = arg.default;
+					continue;
+				}
+
+				if (arg.type === "boolean") {
+					resolved[arg.name] = false;
+				}
+			}
+
+			// Resolve implies chains (fixed-point)
+			resolveImpliesChains(resolved, argDefs);
+
+			const unresolved: string[] = [];
+			for (const arg of argDefs) {
+				if (arg.required && resolved[arg.name] === undefined) {
+					unresolved.push(arg.name);
+				}
+			}
+
+			return {
+				arguments: resolved as ResolvedArgumentValues,
+				directories,
+				unresolved,
+			};
+		},
+		(err) =>
+			runtimeError(
+				`Failed to resolve arguments: ${err instanceof Error ? err.message : String(err)}`,
+			),
+	);
+};
+
+/**
  * Resolve arguments using the 5-layer merge precedence.
  *
  * Resolution precedence (highest to lowest):
@@ -449,6 +553,10 @@ export const resolveDirectories = (projectRoot: string): ResolvedDirectories =>
  * 5. Schema default
  *
  * Required arguments not resolved from any layer are returned in `unresolved`.
+ *
+ * When `parsedSchema` is provided on the input, the file-read and frontmatter
+ * parse steps are skipped entirely, avoiding redundant I/O when the caller
+ * has already parsed the schema (e.g., workflow-bootstrap).
  */
 export const resolveArgs = (
 	input: ResolveArgsInput,
@@ -463,6 +571,16 @@ export const resolveArgs = (
 	}
 
 	const directories = resolveDirectories(input.project_root);
+
+	// Fast path: caller already parsed the schema file (e.g., workflow-bootstrap)
+	if (input.parsedSchema) {
+		return mergeArgumentLayers(
+			input,
+			input.parsedSchema,
+			canonicalName,
+			directories,
+		);
+	}
 
 	return pipe(
 		// Resolve schema file path from name or direct path
@@ -488,104 +606,14 @@ export const resolveArgs = (
 				TE.map((schema) => ({ schema, resolvedPath })),
 			),
 		),
-		TE.chain(({ schema, resolvedPath }) => {
-			// Empty schema -> return empty result
-			if (schema.arguments.length === 0 && schema.environment.length === 0) {
-				return TE.right<CLIError, ResolvedArgs>({
-					arguments: {},
-					directories,
-					unresolved: [],
-				});
-			}
-
-			return TE.tryCatch(
-				async () => {
-					const argDefs = schema.arguments;
-
-					// Layer 1: Parse user input
-					const userInput = parseRawArgs(input.raw_args, argDefs);
-
-					// Layers 2+3: Load settings (loader handles merge precedence)
-					// Use canonical name from input (e.g., "rp1-dev:build" -> "dev:build")
-					// to keep settings keys platform-independent and unambiguous.
-					// Falls back to path extraction only for --schema-path usage.
-					const skillName = canonicalName
-						? toCanonicalString(canonicalName)
-						: extractNameFromPath(resolvedPath);
-					const settingsDefaults = await loadArgumentDefaultsForSkill(
-						skillName,
-						directories.projectRoot,
-					);
-
-					// Merge all layers per argument
-					const resolved: Record<string, string | boolean> = {};
-
-					for (const arg of argDefs) {
-						// Layer 1: user input
-						if (userInput[arg.name] !== undefined) {
-							resolved[arg.name] = userInput[arg.name];
-							continue;
-						}
-
-						// Layers 2+3: project/user settings (already merged by loader)
-						if (settingsDefaults[arg.name] !== undefined) {
-							const settingsVal = settingsDefaults[arg.name];
-							if (
-								typeof settingsVal === "string" ||
-								typeof settingsVal === "boolean"
-							) {
-								resolved[arg.name] = settingsVal;
-								continue;
-							}
-						}
-
-						// Layer 4: ENV var from source.env
-						if (arg.source?.env) {
-							const envVal = process.env[arg.source.env];
-							if (envVal !== undefined) {
-								if (arg.type === "boolean") {
-									resolved[arg.name] = envVal === "true" || envVal === "1";
-								} else {
-									resolved[arg.name] = envVal;
-								}
-								continue;
-							}
-						}
-
-						// Layer 5: Schema default
-						if (arg.default !== undefined) {
-							resolved[arg.name] = arg.default;
-							continue;
-						}
-
-						// Boolean arguments default to false when not specified
-						if (arg.type === "boolean") {
-							resolved[arg.name] = false;
-						}
-					}
-
-					// Resolve implies chains (fixed-point)
-					resolveImpliesChains(resolved, argDefs);
-
-					// Detect unresolved required arguments
-					const unresolved: string[] = [];
-					for (const arg of argDefs) {
-						if (arg.required && resolved[arg.name] === undefined) {
-							unresolved.push(arg.name);
-						}
-					}
-
-					return {
-						arguments: resolved as ResolvedArgumentValues,
-						directories,
-						unresolved,
-					};
-				},
-				(err) =>
-					runtimeError(
-						`Failed to resolve arguments: ${err instanceof Error ? err.message : String(err)}`,
-					),
-			);
-		}),
+		TE.chain(({ schema, resolvedPath }) =>
+			mergeArgumentLayers(
+				input,
+				schema,
+				canonicalName,
+				directories,
+				resolvedPath,
+			),
+		),
 	);
 };

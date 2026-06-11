@@ -24,6 +24,13 @@ const isPlainRecord = (
 ): value is Readonly<Record<string, unknown>> =>
 	value !== null && typeof value === "object" && !Array.isArray(value);
 
+const settingsCache = new Map<string, ParsedSettingsFile>();
+
+/** Clear the in-memory settings cache. Call in test `beforeEach` for isolation. */
+export const resetSettingsCache = (): void => {
+	settingsCache.clear();
+};
+
 const UPPER_SNAKE_CASE_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 const LOWER_CONFIG_KEY_PATTERN = /^[a-z][a-z0-9_-]*$/;
 
@@ -40,8 +47,15 @@ const normalizeArgumentKey = (key: string): string => {
 };
 
 const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
+	const cached = settingsCache.get(filePath);
+	if (cached) {
+		return cached;
+	}
+
 	if (!existsSync(filePath)) {
-		return { arguments: {}, directories: {} };
+		const empty: ParsedSettingsFile = { arguments: {}, directories: {} };
+		settingsCache.set(filePath, empty);
+		return empty;
 	}
 
 	try {
@@ -73,12 +87,16 @@ const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 			}
 		}
 
-		return {
+		const result: ParsedSettingsFile = {
 			arguments: argumentDefaults,
 			directories: {},
 		};
+		settingsCache.set(filePath, result);
+		return result;
 	} catch {
-		return { arguments: {}, directories: {} };
+		const empty: ParsedSettingsFile = { arguments: {}, directories: {} };
+		settingsCache.set(filePath, empty);
+		return empty;
 	}
 };
 

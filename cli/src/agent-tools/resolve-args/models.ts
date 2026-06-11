@@ -3,12 +3,24 @@
  * Defines input, output, and intermediate types for argument resolution.
  */
 
+import type {
+	ArgumentDefinition,
+	EnvironmentDefinition,
+} from "../../build/models.js";
+
+/** Pre-parsed schema definitions from a caller that already parsed the skill file. */
+export interface ParsedSchema {
+	readonly arguments: readonly ArgumentDefinition[];
+	readonly environment: readonly EnvironmentDefinition[];
+}
+
 /** Input payload for the resolve-args tool. */
 export interface ResolveArgsInput {
 	readonly schema_path?: string;
 	readonly name?: string;
 	readonly raw_args: string;
 	readonly project_root: string;
+	readonly parsedSchema?: ParsedSchema;
 }
 
 /** Resolved argument values keyed by UPPER_SNAKE_CASE argument name. */
