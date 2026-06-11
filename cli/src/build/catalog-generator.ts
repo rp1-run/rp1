@@ -5,6 +5,7 @@ import {
 	collectScopedCatalogRegistry,
 	renderCatalogMarkdown,
 } from "../catalog/index.js";
+import type { ParseCache } from "./parse-cache.js";
 
 export type CatalogEntry = CatalogRenderableEntry;
 
@@ -13,10 +14,12 @@ export type CatalogEntry = CatalogRenderableEntry;
  */
 export const collectCatalogEntries = async (
 	projectRoot: string,
+	cache?: ParseCache,
 ): Promise<{ entries: CatalogEntry[]; errors: string[] }> => {
 	const { entries, errors } = await collectScopedCatalogRegistry(
 		projectRoot,
 		"distributable",
+		cache,
 	);
 	return {
 		entries: entries.map((entry) => ({
@@ -46,8 +49,9 @@ export const renderCatalog = (entries: readonly CatalogEntry[]): string =>
 export const generateCatalog = async (
 	projectRoot: string,
 	outputPath?: string,
+	cache?: ParseCache,
 ): Promise<{ entries: CatalogEntry[]; errors: string[] }> => {
-	const { entries, errors } = await collectCatalogEntries(projectRoot);
+	const { entries, errors } = await collectCatalogEntries(projectRoot, cache);
 
 	const catalogContent = renderCatalog(entries);
 	const targetPath =

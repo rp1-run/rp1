@@ -13,6 +13,7 @@ import type {
 	SkillCategory,
 	WorkflowRunPolicy,
 } from "../build/models.js";
+import type { ParseCache } from "../build/parse-cache.js";
 import { parseSkill } from "../build/parser.js";
 
 export type CatalogDistributionScope = "distributable" | "internal";
@@ -267,6 +268,7 @@ export const selectCatalogEntriesByCanonicalNames = (
 
 export const collectCatalogRegistry = async (
 	projectRoot: string,
+	cache?: ParseCache,
 ): Promise<CollectedCatalogRegistry> => {
 	const entries: CatalogRegistryEntry[] = [];
 	const errors: string[] = [];
@@ -276,7 +278,9 @@ export const collectCatalogRegistry = async (
 
 		for (const skillDir of skillDirs) {
 			const skillMdPath = join(skillDir, "SKILL.md");
-			const result = await parseSkill(skillDir)();
+			const result = cache
+				? await cache.getSkill(skillDir)
+				: await parseSkill(skillDir)();
 			if (E.isLeft(result)) {
 				errors.push(
 					`Failed to parse ${skillDir}: ${formatError(result.left, false)}`,
@@ -336,8 +340,9 @@ export const filterUserInvocableEntries = (
 export const collectScopedCatalogRegistry = async (
 	projectRoot: string,
 	scope: CatalogScope,
+	cache?: ParseCache,
 ): Promise<CollectedCatalogRegistry> => {
-	const { entries, errors } = await collectCatalogRegistry(projectRoot);
+	const { entries, errors } = await collectCatalogRegistry(projectRoot, cache);
 	return {
 		entries: filterUserInvocableEntries(
 			filterCatalogEntriesByScope(entries, scope),
