@@ -258,11 +258,10 @@ Remove scratch pad, write final preferences w/ rationale.
 
 Response MUST be valid JSON matching types above. Output ONLY JSON. No other text.
 
-## §7 Anti-Loop
+{% include_shared "anti-loop.md" %}
 
+**File-specific constraints**:
 - DO NOT prompt the user directly - return question for caller
-- DO NOT iterate after returning JSON
-- Execute phase action ONCE → return JSON → STOP
 - Caller handles interaction + re-invokes
 
 **Hard Limits**: Interview 5 questions, Summary 2 iterations, 8 web searches, 15 page fetches

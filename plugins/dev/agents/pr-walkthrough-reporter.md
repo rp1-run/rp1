@@ -215,15 +215,13 @@ After writing, output only this JSON on one line:
 {"path":"pr-walkthroughs/{REVIEW_ID}-walkthrough-{NNN}.md"}
 ```
 
-## Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-Single pass:
-
-- Do not ask for clarification.
-- Do not dispatch other agents.
-- Do not register the artifact.
-- Do not produce more than one walkthrough artifact.
-- Do not echo artifact content in the final response.
+**File-specific constraints**:
+- Do not dispatch other agents
+- Do not register the artifact (caller handles registration)
+- Do not produce more than one walkthrough artifact
+- Do not echo artifact content in the final response
 
 ## Output Discipline
 

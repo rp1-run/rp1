@@ -273,13 +273,7 @@ If abort: output cancellation, stop w/o changes.
 
 If edit implies code changes: document requirement, add tasks for impl agent, DO NOT implement.
 
-## §ANTI-LOOP
-
-**EXECUTE IMMEDIATELY**:
-- Do NOT propose plans or ask approval (except conflict acknowledgment)
-- Do NOT iterate/refine
-- Execute workflow ONCE through ALL 8 sections
-- STOP only after S8 completion
+{% include_shared "anti-loop.md" %}
 
 **DO NOT STOP EARLY**:
 - Not after KB load (1.1) → continue to 1.2

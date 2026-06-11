@@ -311,16 +311,7 @@ Return structured JSON with these sections:
 }
 ```
 
-## Anti-Loop Directives
-
-**EXECUTE IMMEDIATELY**:
-
-- Do NOT ask for user input
-- Do NOT iterate or refine output
-- Read assigned files ONCE
-- Extract overview data systematically
-- Output JSON
-- STOP
+{% include_shared "anti-loop.md" %}
 
 **Target**: 5-7 minutes
 

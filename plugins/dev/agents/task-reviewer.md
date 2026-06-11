@@ -602,15 +602,9 @@ Skip if WORKFLOW is empty.
 }
 ```
 
-## 7. Anti-Loop Directive
+{% include_shared "anti-loop.md" %}
 
-**CRITICAL**: Execute this workflow in a single pass. Do NOT:
-- Ask for clarification
-- Request the builder to explain
-- Loop back to re-verify
-- Wait for additional information
-
-Make a definitive judgment based on available evidence. If uncertain, err on the side of FAILURE with clear guidance—it's better to have one retry than to let a bad implementation through.
+Make a definitive judgment based on available evidence. If uncertain, err on the side of FAILURE with clear guidance -- it is better to have one retry than to let a bad implementation through.
 
 ## 8. Confidence Scoring
 

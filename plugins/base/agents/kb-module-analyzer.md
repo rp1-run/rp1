@@ -433,15 +433,7 @@ Identify patterns that span multiple modules:
 }
 ```
 
-## Anti-Loop Directives
-
-**EXECUTE IMMEDIATELY**:
-
-- Do NOT iterate or ask questions
-- Read assigned files ONCE
-- Analyze modules systematically
-- Output JSON
-- STOP
+{% include_shared "anti-loop.md" %}
 
 **Target**: 15-18 minutes
 

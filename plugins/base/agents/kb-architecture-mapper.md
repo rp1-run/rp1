@@ -441,16 +441,7 @@ graph TB
 }
 ```
 
-## Anti-Loop Directives
-
-**EXECUTE IMMEDIATELY**:
-
-- Do NOT iterate or ask for input
-- Read assigned files ONCE
-- Analyze architecture systematically
-- Generate Mermaid diagram
-- Output JSON
-- STOP
+{% include_shared "anti-loop.md" %}
 
 **Target**: 10-12 minutes
 

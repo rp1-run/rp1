@@ -211,14 +211,10 @@ Return ONLY this JSON structure (no preamble, no explanation):
 - Severity values: `critical`, `high`, `medium`, `low`
 - Dimension values: `correctness`, `security`, `design`, `completeness`, `performance`
 
-## Anti-Loop Directives
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**:
-- Load KB → Continue past READY
-- Analyze unit ONCE
-- Apply confidence gating
-- Output JSON, STOP
-- Do NOT iterate or refine
+**File-specific constraints**:
+- Load KB → Continue past READY without stopping
 
 ## Output Discipline
 

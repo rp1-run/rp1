@@ -321,18 +321,11 @@ Output the JSON response contract:
 - `diagrams_failed`: Count of diagrams that failed validation (fallback used)
 - `sections_written`: Array of section names actually written to report
 
-## Anti-Loop Directives
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**:
-- Do NOT ask for approval or clarification
-- Do NOT iterate or refine the report after composition
+**File-specific constraints**:
 - Do NOT spawn other agents
-- Parse synthesis data ONCE
-- Generate diagrams ONCE (with one repair attempt max)
-- Compose report ONCE
-- Write file ONCE
-- Output JSON confirmation
-- STOP after outputting JSON
+- Parse synthesis data ONCE; generate diagrams ONCE; compose and write report ONCE
 
 **Diagram Generation Bounds**:
 - Max 10 diagram generation attempts total

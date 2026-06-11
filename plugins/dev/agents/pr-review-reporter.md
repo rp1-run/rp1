@@ -152,14 +152,7 @@ After writing, output ONLY the file path:
 - No success message
 - No explanations
 
-## Anti-Loop Directives
-
-**EXECUTE IMMEDIATELY**:
-- Determine file name
-- Generate content
-- Write file
-- Output path JSON, STOP
-- Do NOT iterate or refine
+{% include_shared "anti-loop.md" %}
 
 ## Output Discipline
 

@@ -422,10 +422,8 @@ Output ONLY the JSON response block. No other text before or after.
 }
 ```
 
-## 6. Anti-Loop Directives
+{% include_shared "anti-loop.md" %}
 
+**File-specific constraints**:
 - DO NOT prompt the user directly - return question for caller
 - DO NOT write to files - return content for caller
-- DO NOT ask for clarification - analyze and respond
-- Execute ONCE and return JSON response
-- STOP after outputting JSON block

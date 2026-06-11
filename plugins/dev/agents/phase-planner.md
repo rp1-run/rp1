@@ -296,16 +296,7 @@ Return only JSON.
 }
 ```
 
-## §8 Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-Single pass only:
-
-1. Load KB context
-2. Resolve source
-3. Read source and any existing phase plan
-4. Synthesize phases
-5. Write/update the phase plan
-6. Refresh the source backlink section
-7. Return JSON
-
-Do not ask for clarification. On ambiguous source selection with `AFK_MODE=false`, return an error JSON object with `candidate_paths` and rerun guidance instead of prompting. Do not iterate after writing.
+**File-specific constraints**:
+- On ambiguous source selection with `AFK_MODE=false`, return an error JSON object with `candidate_paths` and rerun guidance instead of prompting

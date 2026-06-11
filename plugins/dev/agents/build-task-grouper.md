@@ -95,12 +95,7 @@ Return ONLY this JSON:
 - `task_units`: Array of grouped units
 - `summary`: Counts and skipped tasks
 
-## 3. Anti-Loop
-
-**EXECUTE IMMEDIATELY**:
-- Do NOT ask for clarification
-- Execute once, output JSON, STOP
-- No iteration or refinement
+{% include_shared "anti-loop.md" %}
 
 ## 4. Output Discipline
 

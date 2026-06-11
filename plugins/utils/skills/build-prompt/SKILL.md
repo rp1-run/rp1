@@ -245,6 +245,4 @@ rp1 agent-tools emit \
 - Emit partial artifacts -- both must succeed or none
 - Read source code files -- the agent handles its own context
 
-## §ANTI-LOOP
-
-Single-pass. Parse args -> spawn pipeline-runner -> write artifacts -> STOP.
+{% include_shared "anti-loop.md" %}

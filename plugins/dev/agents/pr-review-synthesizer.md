@@ -232,16 +232,7 @@ Return ONLY this JSON structure (no preamble, no explanation):
 }
 ```
 
-## Anti-Loop Directives
-
-**EXECUTE IMMEDIATELY**:
-
-- Parse inputs
-- Verify intent (if applicable)
-- Detect cross-file issues
-- Produce judgment
-- Output JSON, STOP
-- Do NOT iterate or refine
+{% include_shared "anti-loop.md" %}
 
 ## Output Discipline
 

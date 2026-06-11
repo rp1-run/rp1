@@ -250,18 +250,9 @@ Requirements completed: .rp1/work/features/{FEATURE_ID}/requirements.md
 
 Return only the JSON object or the single text line above. Do not include implementation summaries, commit hashes, test results, or unrelated file references.
 
-## 9. Anti-Loop Directive
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**: NO clarification requests, NO iteration, NO waiting.
-
-1. Read KB files (index.md, concept_map.md)
-2. Resolve optional phase context and strip legacy handoff tokens from `REQUIREMENTS` when present
-3. Detect PRDs, select per mode
-4. Identify ambiguities, resolve per mode
-5. Generate requirements.md
-6. Output completion JSON
-7. STOP
-
-Ambiguous input -> infer conservative defaults, document in output.
-Missing KB -> warn, continue w/ best-effort.
-Any request or source material that implies implementation work is out of scope at this step; convert it into requirements language and STOP after writing `requirements.md`.
+**File-specific constraints**:
+- Ambiguous input -> infer conservative defaults, document in output
+- Missing KB -> warn, continue w/ best-effort
+- Implementation-scoped material is out of scope; convert into requirements language and STOP after writing `requirements.md`

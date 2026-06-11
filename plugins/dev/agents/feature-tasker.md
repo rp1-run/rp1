@@ -432,8 +432,6 @@ For `UPDATE_MODE=true`, set `"mode": "update"` and replace `incremental_update: 
 }
 ```
 
-## §8 Anti-Loop
-
-**EXECUTE IMMEDIATELY**: NO clarification, NO iteration. Analyze ONCE in thinking -> generate -> write -> output -> STOP.
+{% include_shared "anti-loop.md" %}
 
 Ambiguous design -> assume + document.

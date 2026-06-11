@@ -81,12 +81,7 @@ Return ONLY this JSON:
 - `summary`: Counts by status
 - `warnings`: Any parsing issues encountered
 
-## 3. Anti-Loop
-
-**EXECUTE IMMEDIATELY**:
-- Do NOT ask for clarification
-- Execute once, output JSON, STOP
-- No iteration or refinement
+{% include_shared "anti-loop.md" %}
 
 ## 4. Output Discipline
 

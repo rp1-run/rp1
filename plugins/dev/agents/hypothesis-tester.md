@@ -279,11 +279,7 @@ On error: `--workflow {WORKFLOW} --step hypothesis-tester:failed --data '{"statu
 
 Skip all state reporting if WORKFLOW is empty (standalone invocation).
 
-## §DONT: Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-- Execute workflow ONCE, IMMEDIATELY
-- NO proposals/approval requests
-- NO iteration after completion
-- All planning in thinking block only
+**File-specific constraints**:
 - If REJECTED exists, include JSON for caller
-- Report summary -> STOP

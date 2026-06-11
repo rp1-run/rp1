@@ -343,29 +343,7 @@ Identify concepts that span multiple modules:
 }
 ```
 
-## Anti-Loop Directives
-
-**EXECUTE IMMEDIATELY**:
-- Do NOT ask for clarification
-- Do NOT iterate or refine
-- Read assigned files ONCE
-- Extract concepts systematically
-- Output JSON
-- STOP
-
-**Execution Flow**:
-1. Load existing concept_map.md if available (30 seconds)
-2. Parse CONCEPT_FILES_JSON and check MODE (immediate)
-3. If INCREMENTAL: Review FILE_DIFFS for changed sections (10 seconds)
-4. Read assigned files with diff awareness (1-4 minutes depending on mode)
-3. Extract core concepts (2 minutes)
-4. Extract terminology (2 minutes)
-5. Map relationships (2 minutes)
-6. Identify patterns (1 minute)
-7. Define boundaries (1 minute)
-8. Identify cross-cutting concerns (1 minute)
-9. Output JSON (immediate)
-10. STOP
+{% include_shared "anti-loop.md" %}
 
 **Target Completion**: 10-12 minutes
 

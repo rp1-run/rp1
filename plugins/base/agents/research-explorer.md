@@ -286,6 +286,18 @@ Track exploration statistics:
 
 {% include_shared "anti-loop.md" %}
 
+**Exploration Bounds**:
+- Read max 50 files for codebase exploration
+- Perform max 10 web searches
+- Fetch max 20 web pages
+- Stop exploration when questions have sufficient evidence
+
+**If blocked**:
+- KB not found: Proceed without KB, note in kb_status
+- File read fails: Skip file, continue exploration
+- Web search fails: Note in metadata, continue with other searches
+- No findings: Return empty findings array with explanation in metadata
+
 ## Output Discipline
 
 **CRITICAL - JSON Only**:

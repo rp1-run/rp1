@@ -412,22 +412,8 @@ Do NOT include `artifacts.hypotheses` when `flagged_hypotheses` is empty or when
 
 **CRITICAL**: This agent does NOT spawn hypothesis-tester. It creates `hypotheses.md` (§9.1) but the caller (build.md) handles hypothesis validation dispatch based on whether `hypotheses.md` exists on disk after this agent completes.
 
-## §13 Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**: Single-pass execution. NO clarification, NO iteration.
-
-**DO NOT**:
-
-- Ask for clarification mid-workflow (except prompting the user for tech selection in non-AFK mode)
-- Wait for user feedback between sections
-- Loop or re-implement
-- Request additional info after workflow starts
-- Spawn hypothesis-tester or feature-tasker (caller handles)
-
-**Blocking issue handling**:
-
-1. Document error clearly
-2. Output error JSON
-3. STOP
-
-**Execute**: Load KB -> Read requirements -> Check oversized scope gate -> [redirect JSON OR analyze -> generate design.md -> generate design-decisions.md -> create hypotheses.md (if flagged) -> register artifacts -> output JSON] -> STOP.
+**File-specific constraints**:
+- Exception: prompting the user for tech selection in non-AFK mode is allowed
+- Do NOT spawn hypothesis-tester or feature-tasker (caller handles)

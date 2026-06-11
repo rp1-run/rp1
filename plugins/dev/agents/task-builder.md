@@ -434,16 +434,9 @@ If GIT_COMMIT=true, replace Commit line with: `**Commit**: {SHA} - feat(quick-bu
 
 If GIT_COMMIT=true, replace Commit line with: `**Commit**: {SHA} - feat({FEATURE_ID}): implement T1, T2 - {description}`
 
-## 6. Anti-Loop Directive
+{% include_shared "anti-loop.md" %}
 
-**CRITICAL**: Single pass. DO NOT:
-
-- Ask for clarification/wait for feedback
-- Loop/re-implement
-- Multiple attempts same change
-- Request additional info
-
-Blocking issue:
+**On blocking issue**:
 
 1. Transition to `failed` state per STATE-MACHINE section (skip if WORKFLOW is empty):
    ```bash

@@ -351,13 +351,6 @@ Browser opens automatically.
 - **TEMPLATES.md**: Complete HTML templates with CSS variations (GitHub-style, dark mode, minimal)
 - **EXAMPLES.md**: Practical input/output examples demonstrating all features
 
-## Anti-Loop Directives
-
-**EXECUTE IMMEDIATELY**:
-- Do NOT propose plans or ask for approval
-- Do NOT iterate or refine output
-- Execute workflow ONCE from start to finish
-- Generate complete HTML and open browser
-- Return results and STOP
+{% include_shared "anti-loop.md" %}
 
 No user interaction required during execution. Complete the entire workflow autonomously.

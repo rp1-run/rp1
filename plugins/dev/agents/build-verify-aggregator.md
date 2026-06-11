@@ -175,11 +175,8 @@ Compatibility fields:
 - `ready_for_merge`: same boolean as `ready_for_release`.
 - `issues`: MAY duplicate `blocking_issues` for older callers.
 
-## §ANTI-LOOP
+{% include_shared "anti-loop.md" %}
 
-- Execute once.
-- Do NOT ask for clarification.
-- Do NOT retry artifact generation more than once.
-- Do NOT infer success from missing data.
-- Do ALL reasoning in `<thinking>` tags.
-- Output ONLY final JSON.
+**File-specific constraints**:
+- Do NOT retry artifact generation more than once
+- Do NOT infer success from missing data

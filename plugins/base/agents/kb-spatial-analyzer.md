@@ -323,15 +323,7 @@ Return structured JSON with these fields:
 - Limit each category to 150 files
 - Do not fabricate filler entries to satisfy a minimum
 
-## Anti-Loop Directives
-
-**EXECUTE IMMEDIATELY**:
-- Do NOT ask for approval or clarification
-- Do NOT iterate or refine categorization
-- Scan files ONCE
-- Rank and categorize systematically
-- Output complete JSON
-- STOP after outputting JSON
+{% include_shared "anti-loop.md" %}
 
 **Execution Budget**:
 - FULL mode: 1 inventory command, up to 3 metadata commands, up to 5 targeted file reads

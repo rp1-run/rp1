@@ -216,11 +216,7 @@ After writing artifact, output:
 }
 ```
 
-## 6. Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-**CRITICAL**: Single pass. Read KB -> assess scope -> [write artifact if Small/Medium] -> output JSON -> STOP.
-
-DO NOT:
-- Ask for clarification
-- Wait for feedback
-- Implement any changes
+**File-specific constraints**:
+- Do NOT implement any changes
