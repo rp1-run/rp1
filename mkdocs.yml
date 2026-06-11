@@ -140,6 +140,7 @@ nav:
       - pr-walkthrough: reference/dev/pr-walkthrough.md
       - pr-stack: reference/dev/pr-stack.md
       - address-pr-feedback: reference/dev/address-pr-feedback.md
+      - publish-artifact: reference/dev/publish-artifact.md
       - PR Review Config: reference/pr-review-config.md
     - Knowledge and Analysis Reference:
       - Overview: reference/base/index.md
