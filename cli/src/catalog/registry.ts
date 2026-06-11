@@ -369,24 +369,12 @@ export const renderCatalogMarkdown = (
 		lines.push("");
 		lines.push(`> **Suggest when**: ${CATEGORY_TRIGGERS[category]}`);
 		lines.push("");
-		lines.push(
-			"| Skill | Plugin | Description | Key Args | Workflow | Run Policy | Identity Args |",
-		);
-		lines.push(
-			"|-------|--------|-------------|----------|----------|------------|---------------|",
-		);
+		lines.push("| Skill | Plugin | Description |");
+		lines.push("|-------|--------|-------------|");
 
 		for (const entry of categoryEntries) {
-			const workflow = entry.isWorkflow ? "Yes" : "";
-			const args =
-				entry.keyArgs.length > 0 ? `\`${entry.keyArgs.join("`, `")}\`` : "";
-			const runPolicy = entry.runPolicy ?? "";
-			const identityArgs =
-				entry.identityArgs && entry.identityArgs.length > 0
-					? `\`${entry.identityArgs.join("`, `")}\``
-					: "";
 			lines.push(
-				`| \`/${entry.name}\` | ${entry.plugin} | ${entry.description} | ${args} | ${workflow} | ${runPolicy} | ${identityArgs} |`,
+				`| \`/${entry.name}\` | ${entry.plugin} | ${entry.description} |`,
 			);
 		}
 

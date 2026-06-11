@@ -208,9 +208,10 @@ describe("catalog registry", () => {
 		expect(renderedCatalog).toContain("# rp1 Skill Catalog");
 		expect(renderedCatalog).toContain("## Development");
 		expect(renderedCatalog).toContain("## Knowledge");
-		expect(renderedCatalog).toContain("| Run Policy | Identity Args |");
-		expect(renderedCatalog).toContain("| `/build` | dev |");
-		expect(renderedCatalog).toContain("| resumable | `FEATURE_ID` |");
+		expect(renderedCatalog).toContain("| Skill | Plugin | Description |");
+		expect(renderedCatalog).not.toContain("| Run Policy |");
+		expect(renderedCatalog).not.toContain("| Key Args |");
+		expect(renderedCatalog).not.toContain("| Identity Args |");
 		expect(renderedCatalog).toContain("| `/build` | dev |");
 		expect(renderedCatalog).toContain("| `/alpha` | base |");
 		expect(renderedCatalog).not.toContain("tersify-prompt");
