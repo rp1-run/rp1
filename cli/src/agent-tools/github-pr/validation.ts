@@ -10,6 +10,7 @@ import { usageError } from "../../../shared/errors.js";
 import type {
 	AddReactionInput,
 	FetchCommentsInput,
+	PublishCommentInput,
 	ReplyCommentInput,
 	SubmitReviewInput,
 } from "./models.js";
@@ -105,6 +106,21 @@ const FetchCommentsInputSchema = z.object({
 		.number()
 		.int()
 		.positive("pr_number is required and must be a positive integer"),
+});
+
+/**
+ * Zod schema for PublishCommentInput.
+ *
+ * `artifact_path` is the only required field; `target` defaults to the current
+ * branch's open PR and `dry_run`/`force` default to false in the operation.
+ */
+const PublishCommentInputSchema = z.object({
+	artifact_path: z
+		.string()
+		.min(1, "artifact_path is required and must be a non-empty string"),
+	target: z.string().optional(),
+	dry_run: z.boolean().optional(),
+	force: z.boolean().optional(),
 });
 
 /**
@@ -216,4 +232,24 @@ export const validateFetchCommentsInput = (
 	}
 
 	return E.right(result.data as FetchCommentsInput);
+};
+
+/**
+ * Validate PublishCommentInput using Zod schema.
+ */
+export const validatePublishCommentInput = (
+	data: unknown,
+): E.Either<CLIError, PublishCommentInput> => {
+	const result = PublishCommentInputSchema.safeParse(data);
+
+	if (!result.success) {
+		return E.left(
+			usageError(
+				`Validation failed: ${formatZodErrors(result.error)}`,
+				"Fix input fields",
+			),
+		);
+	}
+
+	return E.right(result.data as PublishCommentInput);
 };
