@@ -33,6 +33,9 @@ import {
 } from "../../../shared/logical-step.js";
 import { readProjectId } from "../../../shared/project-id.js";
 
+/** Current schema version. Bump when adding migrations. */
+export const LATEST_SCHEMA_VERSION = 18;
+
 /** Default database file location. Override with RP1_DB env var. */
 const getDefaultDbPath = (): string =>
 	process.env.RP1_DB ?? join(homedir(), ".rp1", "rp1.db");
@@ -107,7 +110,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (18);
+INSERT INTO schema_version (version) VALUES (${LATEST_SCHEMA_VERSION});
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -925,6 +928,8 @@ const applyMigrations = (db: Database): void => {
 		.get() as { version: number } | null;
 
 	const currentVersion = versionRow?.version ?? 1;
+
+	if (currentVersion >= LATEST_SCHEMA_VERSION) return;
 
 	if (currentVersion < 2) {
 		const columns = db.prepare("PRAGMA table_info(annotations)").all() as {
