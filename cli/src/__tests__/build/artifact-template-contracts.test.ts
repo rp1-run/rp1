@@ -1,9 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 const projectRoot = join(import.meta.dir, "..", "..", "..", "..");
 const FRONTMATTER_REGEX = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
+
+/**
+ * Regex that matches direct template path references in agent/skill files.
+ * Captures the path portion after the `plugins/base/skills/artifact-templates/`
+ * prefix, including the full relative path within the templates directory.
+ */
+const TEMPLATE_PATH_REGEX =
+	/plugins\/base\/skills\/artifact-templates\/(templates\/[^\s`)"']+\.(?:md|json|yaml))/g;
 
 const readProjectFile = async (relativePath: string): Promise<string> =>
 	readFile(join(projectRoot, relativePath), "utf-8");
@@ -111,5 +119,58 @@ describe("artifact template contracts", () => {
 			"Do not register posted GitHub review URLs",
 		);
 		expect(linkRegistrationSection).not.toContain('"url":"{REVIEW_URL}"');
+	});
+
+	test("all direct template path references in agent and skill files point to existing files", async () => {
+		const pluginDirs = ["plugins/base", "plugins/dev", "plugins/utils"];
+		const mdFiles: string[] = [];
+
+		const walk = async (dir: string): Promise<void> => {
+			const entries = await readdir(join(projectRoot, dir), {
+				withFileTypes: true,
+			});
+			for (const entry of entries) {
+				const rel = `${dir}/${entry.name}`;
+				if (entry.isDirectory()) {
+					// Skip the artifact-templates directory itself
+					if (rel.includes("artifact-templates/templates")) continue;
+					await walk(rel);
+				} else if (entry.name.endsWith(".md")) {
+					mdFiles.push(rel);
+				}
+			}
+		};
+
+		for (const dir of pluginDirs) {
+			await walk(dir);
+		}
+
+		expect(mdFiles.length).toBeGreaterThan(0);
+
+		const pathRefs: Array<{ file: string; templatePath: string }> = [];
+
+		for (const file of mdFiles) {
+			const content = await readProjectFile(file);
+			for (const match of content.matchAll(TEMPLATE_PATH_REGEX)) {
+				pathRefs.push({
+					file,
+					templatePath: `plugins/base/skills/artifact-templates/${match[1]}`,
+				});
+			}
+		}
+
+		expect(pathRefs.length).toBeGreaterThan(20);
+
+		const missing: string[] = [];
+		for (const ref of pathRefs) {
+			const absPath = join(projectRoot, ref.templatePath);
+			try {
+				await stat(absPath);
+			} catch {
+				missing.push(`${ref.file} -> ${ref.templatePath}`);
+			}
+		}
+
+		expect(missing).toEqual([]);
 	});
 });
