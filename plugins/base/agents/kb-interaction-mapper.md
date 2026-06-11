@@ -223,9 +223,5 @@ Record only intentional deltas, not accidental implementation drift.
 
 **Target**: 8-12 minutes
 
-## Output Discipline
-
-- Do ALL work in `<thinking>` tags
-- Do NOT output progress or explanations
-- Output ONLY final JSON
+{% include_shared "output-discipline.md" %}
 - Parent orchestrator handles user communication

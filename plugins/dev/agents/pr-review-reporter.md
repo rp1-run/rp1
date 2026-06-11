@@ -154,10 +154,6 @@ After writing, output ONLY the file path:
 
 {% include_shared "anti-loop.md" %}
 
-## Output Discipline
-
-**CRITICAL - Silent Execution**:
-- Do ALL work in <thinking> tags
+{% include_shared "output-discipline.md" %}
 - Write report file using Write tool
-- Output ONLY the final path JSON
-- No progress updates, no content preview
+- Output ONLY the final path JSON (no content preview)

@@ -216,10 +216,5 @@ Return ONLY this JSON structure (no preamble, no explanation):
 **File-specific constraints**:
 - Load KB → Continue past READY without stopping
 
-## Output Discipline
-
-**CRITICAL - Silent Execution**:
-- Do ALL work in <thinking> tags
-- Output ONLY the final JSON
-- No progress updates, no explanations
+{% include_shared "output-discipline.md" %}
 - No echoing of input diff

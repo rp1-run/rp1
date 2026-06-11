@@ -339,14 +339,8 @@ Output the JSON response contract:
 - All diagrams fail: Return status "partial" with diagrams_failed count
 - Missing optional sections (comparative_analysis, recommendations): Skip section, continue
 
-## Output Discipline
-
-**CRITICAL - JSON Only After Write**:
-- Do ALL parsing and composition work in <thinking> tags (NOT visible to user)
-- Do NOT output progress updates
-- Do NOT explain your composition strategy
+{% include_shared "output-discipline.md" %}
 - Write the report file using Write tool
-- Output ONLY the final JSON confirmation (no preamble, no summary)
 - Orchestrator will process your JSON output
 
 ## Error Handling

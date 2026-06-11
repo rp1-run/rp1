@@ -309,10 +309,4 @@ Return:
 **File-specific constraints**:
 - Do not re-read the entire repo when one file and one KB section are enough
 
-## Output Discipline
-
-CRITICAL:
-- ALL work in `<thinking>`
-- NO progress narration
-- NO markdown explanations outside the final JSON
-- Return valid JSON only
+{% include_shared "output-discipline.md" %}

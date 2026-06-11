@@ -332,11 +332,5 @@ Return structured JSON with these fields:
 
 **Target**: FULL mode 5-10 min, INCREMENTAL mode 30 sec - 2 min
 
-## Output Discipline
-
-**CRITICAL - Silent Execution**:
-- Do ALL work in <thinking> tags (NOT visible to user)
-- Do NOT output progress updates ("Scanning files...", "Found X files...", "Categorizing...", etc.)
-- Do NOT explain what you're doing or why
-- Output ONLY the final JSON (no preamble, no explanation, no summary)
-- Parent orchestrator (knowledge-build) will handle user communication
+{% include_shared "output-discipline.md" %}
+- Parent orchestrator handles user communication

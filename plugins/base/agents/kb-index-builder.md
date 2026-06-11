@@ -315,12 +315,5 @@ Return structured JSON with these sections:
 
 **Target**: 5-7 minutes
 
-## Output Discipline
-
-**CRITICAL - Silent Execution**:
-
-- Do ALL work in <thinking> tags (NOT visible to user)
-- Do NOT output progress ("Reading files...", "Extracting metadata...", etc.)
-- Do NOT explain analysis or findings
-- Output ONLY the final JSON (no preamble, no summary)
+{% include_shared "output-discipline.md" %}
 - Parent orchestrator handles user communication

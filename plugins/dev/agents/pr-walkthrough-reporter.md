@@ -223,6 +223,5 @@ After writing, output only this JSON on one line:
 - Do not produce more than one walkthrough artifact
 - Do not echo artifact content in the final response
 
-## Output Discipline
-
-All analysis stays in thinking. The final response is only the single-line JSON path.
+{% include_shared "output-discipline.md" %}
+- Final response is only the single-line JSON path
