@@ -69,9 +69,14 @@ $4
 
 Read `{KB_ROOT}/index.md` to understand project structure and available KB files.
 
-**Selective Loading**: For PR synthesis, load:
+**Selective Loading**: Load additional KB files only when verifying a specific claim from sub-reviewer findings:
 
-- `{KB_ROOT}/patterns.md` - Required for pattern consistency synthesis
+| File | When to Load |
+|------|-------------|
+| `patterns.md` | Verifying a convention or pattern-consistency claim |
+| `architecture.md` | Verifying an architecture or cross-module data-flow claim |
+
+When in doubt, load the file.
 
 Do NOT load all KB files. Synthesis primarily uses summaries from sub-reviewers.
 

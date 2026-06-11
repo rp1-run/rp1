@@ -178,7 +178,7 @@ agents:
   - name: rp1-dev:pr-review-synthesizer
     description: "Holistic cross-file verification using compressed summaries"
     plugin: dev
-    last_checksum: 8ffd16a891162175ae9f4dcbc64316b6485bac86953d58ab6900d96d49bfa770
+    last_checksum: ec248fe7547f71080feef641d931812d81f45cc83bacbc25c7b50abee8d0afc3
   - name: rp1-dev:pr-sub-reviewer
     description: "Analyzes one review unit across 5 dimensions with confidence gating"
     plugin: dev
@@ -202,11 +202,11 @@ agents:
   - name: rp1-dev:task-builder
     description: "Implements assigned task(s) w/ full context, writes summaries to the resolved task file. Uses extended thinking (or ultrathink)."
     plugin: dev
-    last_checksum: 15d051a3620aa5f1c8ba520cc3bfde420aaa4daec78c74b2155bc989d6185a73
+    last_checksum: 0255ea346b3716776455bd94c409c966d384c0e6fada08c0735304cf0c2851e8
   - name: rp1-dev:task-reviewer
     description: "Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification."
     plugin: dev
-    last_checksum: b72e8eda8ef556abe86a2368f8264f30ff2c905f54a57118c0c0863552782c31
+    last_checksum: 271400676ebc94f908ce7c656061b02e89e800d32cd18044cf2f0935a2e6a84a
   - name: rp1-dev:test-runner
     description: "Executes comprehensive functional testing of implemented features including automated tests, coverage measurement, acceptance criteria verification, and detailed test reporting"
     plugin: dev

@@ -99,14 +99,16 @@ Load verification context. Use `<thinking>` blocks for analysis.
 
 ### 1.1 Selective KB Loading
 
-Read these files from `{KB_ROOT}/` (if they exist):
+Read from `{KB_ROOT}/` based on changeset scope (if they exist):
 
-| File | Purpose |
-|------|---------|
-| `patterns.md` | Verify code follows codebase conventions |
-| `modules.md` | Understand component boundaries |
+| File | When to Load |
+|------|-------------|
+| `patterns.md` | Always -- verify code follows codebase conventions |
+| `modules.md` | Diff spans multiple modules or touches component boundaries |
 
-Note: Reviewer loads less context than builder—focus on verification, not re-implementation.
+When in doubt, load the file.
+
+Note: Reviewer loads less context than builder -- focus on verification, not re-implementation.
 
 ### 1.2 Context Documentation
 

@@ -145,7 +145,16 @@ Use `<thinking>` blocks for analysis.
 
 ### 1.1 KB Files
 
-Read from `{KB_ROOT}/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`
+Read `{KB_ROOT}/index.md` first (required). Then load additional KB files based on task scope:
+
+| File | When to Load |
+|------|-------------|
+| `index.md` | Always |
+| `patterns.md` | Always |
+| `modules.md` | Task touches multiple modules or crosses component boundaries |
+| `architecture.md` | Task changes cross-module data flow, system layering, or integrations |
+
+When in doubt, load the file.
 
 If missing: warn, continue.
 
