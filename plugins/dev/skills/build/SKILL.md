@@ -351,32 +351,89 @@ Parse the `ToolResult` envelope. On failure: continue the build but record `clea
 
 ### §4.3 Builder-Reviewer Loop
 
-For each `task_unit` in `TASK_PLAN.task_units`, run builder then reviewer. Never derive task IDs from `tasks.md`; use `TASK_UNIT_IDS` from the current `task_unit`.
+Process `TASK_PLAN.task_units` with dependency-aware pipelining. Never derive task IDs from `tasks.md`; use `TASK_UNIT_IDS` from the current `task_unit`. Do not edit `tasks.json` from the orchestrator; the reviewer owns task-plan persistence.
+
+#### Ready-Set Derivation
+
+Initialize before the first dispatch:
+
+- `COMPLETED_UNIT_TASK_IDS` = `{}` (set of task IDs from units whose reviewer returned SUCCESS).
+- `UNIT_LOOKUP` = map from each task ID to its parent `task_unit.unit_id`, built once from all `task_units`.
+
+A unit is **ready** when every task ID in its `depends_on` is in `COMPLETED_UNIT_TASK_IDS`. Units with empty `depends_on` are ready immediately. Pick the next ready unit by lowest `unit_id`. If no unit is ready and uncompleted units remain, emit `implementation` waiting with `reason: "dependency_deadlock"` and STOP.
+
+#### Pipelined Dispatch
+
+For each ready unit **k**, dispatch the builder:
 
 {% dispatch_agent "rp1-dev:task-builder" %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_UNIT_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
+
+After builder(k) completes, determine pipelining eligibility:
+
+1. Compute the next ready unit **k+1** (lowest `unit_id` among remaining ready units, excluding k).
+2. Unit k+1 is **pipeline-eligible** when it exists AND none of unit k's `task_ids` appear in unit k+1's `depends_on`.
+
+**When k+1 is pipeline-eligible**: dispatch reviewer(k) AND builder(k+1) as parallel agents in a single message:
+
+{% dispatch_agent "rp1-dev:task-reviewer", background %}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_UNIT_IDS_K}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
+
+{% dispatch_agent "rp1-dev:task-builder", background %}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_UNIT_IDS_K1}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
+
+Wait for both to complete before any new dispatch. Process reviewer(k) result first.
+
+**When k+1 depends on k or no k+1 is ready**: dispatch reviewer(k) alone and wait:
 
 {% dispatch_agent "rp1-dev:task-reviewer" %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_UNIT_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-Reviewer contract: `SUCCESS` + `task_plan_updated = true` completes the unit. `FAILURE` or malformed enters retry. Do not edit `tasks.json` from the orchestrator; the reviewer owns task-plan persistence.
+#### Reviewer Success
 
-Loop: `attempt = 1`, `max = 2`. On FAILURE with attempt < max: build `PREVIOUS_FEEDBACK` JSON from `issues`/`summary`, re-spawn task-builder with feedback (if `GIT_COMMIT=true`, pass `REWRITE_COMMITS=true` for atomic commit rewrite):
+Reviewer contract: `SUCCESS` + `task_plan_updated = true` completes the unit. Add k's `task_ids` to `COMPLETED_UNIT_TASK_IDS`, recalculate the ready set, and continue to the next unprocessed unit.
+
+#### Reviewer Failure -- Sequential Path
+
+When reviewer(k) returns `FAILURE` or malformed and no builder(k+1) is in flight, enter the retry path immediately.
+
+`attempt = 1`, `max = 2`. On FAILURE with attempt < max: build `PREVIOUS_FEEDBACK` JSON from `issues`/`summary`, re-spawn task-builder with feedback (if `GIT_COMMIT=true`, pass `REWRITE_COMMITS=true` for atomic commit rewrite):
 
 {% dispatch_agent "rp1-dev:task-builder" %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_UNIT_IDS}, GIT_COMMIT={GIT_COMMIT}, REWRITE_COMMITS={GIT_COMMIT}, PREVIOUS_FEEDBACK={PREVIOUS_FEEDBACK}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-4. Re-run task-reviewer for the same task unit.
+Re-run task-reviewer for the same unit. On second failure, escalate per §4.3.7.
 
-Else: escalate without marking parent `implementation` failed while recovery remains.
+#### Reviewer Failure -- Pipelined Path
 
-- Interactive: emit `waiting_for_user` on `implementation`, then `status_change waiting`; STOP with `/build {FEATURE_ID}` resume instructions.
+When reviewer(k) returns `FAILURE` or malformed while builder(k+1) is in flight:
+
+1. **Wait** for builder(k+1) to complete. Do not dispatch anything new.
+2. **Mark dependencies stale**: any unit whose `depends_on` includes task IDs from unit k is not-ready until k passes review. The already-built k+1's review is deferred until k is resolved.
+3. **Run the retry path for unit k** using the same attempt/max logic as the sequential path above.
+4. If k passes retry: add k's task IDs to `COMPLETED_UNIT_TASK_IDS`, recalculate the ready set, then dispatch reviewer for the already-built k+1 unit.
+5. If k's retry is exhausted: escalate per §4.3.7. The already-built k+1 unit is abandoned along with k.
+
+#### Exhausted-Retry Escalation {#s4-3-7}
+
+Escalate without marking parent `implementation` failed while recovery remains.
+
+- Interactive: emit `waiting_for_user` on `implementation` with prompt "Task review failed after retry. Repair, Skip task, or Stop?" and context about the failing task unit. Then emit `implementation` waiting with `task_unit: "{TASK_UNIT_IDS}"` and `reason: "review_retry_exhausted"`. STOP with `/build {FEATURE_ID}` resume instructions.
 - AFK: if an explicit skip policy exists, record the skipped `TASK_UNIT_IDS` as release follow-ups; otherwise emit parent `implementation` failed only because no skip/repair path remains.
 
-Interactive exhausted-retry: emit `waiting_for_user` on `implementation` with prompt "Task review failed after retry. Repair, Skip task, or Stop?" and context about the failing task unit. Then emit `implementation` waiting with `task_unit: "{TASK_UNIT_IDS}"` and `reason: "review_retry_exhausted"`.
+#### Pipelining Rules
+
+1. **Never two builders concurrently.** At most one task-builder may be in flight at any time. The only concurrency is one reviewer alongside one builder on different units.
+2. **Never reviewer and builder on the same unit.** A unit's reviewer dispatches only after that unit's builder completes.
+3. **Dependency gate.** A unit whose `depends_on` contains task IDs from unit k must not begin building until k's reviewer returns `SUCCESS`.
+4. **Failure isolation.** When a pipelined reviewer(k) fails, wait for the in-flight builder(k+1) to finish, then resolve k's retry before any new dispatch.
+
+> **Phase 2 follow-up**: Full multi-builder parallelism with worktree-isolated concurrent builders is planned but not yet implemented. The current design limits concurrency to one builder + one reviewer on distinct units.
 
 ### §4.4 Post-Build
 
