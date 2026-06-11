@@ -23,6 +23,7 @@ import {
 } from "../../../agent-tools/emit/database.js";
 import {
 	executeEmit,
+	NOTIFY_DEADLINE_MS,
 	setEmitDaemonModuleLoaderForTesting,
 } from "../../../agent-tools/emit/index.js";
 import type { EmitInput } from "../../../agent-tools/emit/models.js";
@@ -720,6 +721,90 @@ describe("emit end-to-end", () => {
 				.prepare("SELECT harness FROM runs WHERE id = $id")
 				.get({ $id: runId }) as { harness: string | null } | null;
 			expect(afterRow?.harness).toBe("claude-code");
+		});
+	});
+
+	describe("daemon notification deadline", () => {
+		test("emit resolves within deadline when daemon hangs", async () => {
+			const connectToDaemonMock = mock(
+				() => new Promise<never>(() => {}), // never resolves
+			);
+			setEmitDaemonModuleLoaderForTesting(async () => ({
+				connectToDaemon: connectToDaemonMock,
+				notifyEvent: mock(async () => true),
+				notifyNotification: mock(async () => true),
+			}));
+
+			const input = makeInput({
+				type: "status_change",
+				step: "requirements",
+				data: { status: "running", workflow: "build", feature: "feat" },
+			});
+
+			const start = Date.now();
+			const result = await expectTaskRight(executeEmit(input));
+			const elapsed = Date.now() - start;
+
+			expect(result.success).toBe(true);
+			expect(result.data.runStatus).toBe("running");
+			// Must complete well within 1s (deadline is 500ms plus margin)
+			expect(elapsed).toBeLessThan(NOTIFY_DEADLINE_MS + 500);
+		});
+
+		test("notify completes normally when daemon responds immediately", async () => {
+			const notifyEventMock = mock(async () => true);
+			setEmitDaemonModuleLoaderForTesting(async () => ({
+				connectToDaemon: async () => ({
+					port: 6710,
+					baseUrl: "http://127.0.0.1:6710",
+				}),
+				notifyEvent: notifyEventMock,
+				notifyNotification: mock(async () => true),
+			}));
+
+			const input = makeInput({
+				type: "status_change",
+				step: "requirements",
+				data: { status: "running", workflow: "build", feature: "feat" },
+			});
+
+			const result = await expectTaskRight(executeEmit(input));
+
+			expect(result.success).toBe(true);
+			expect(notifyEventMock).toHaveBeenCalledTimes(1);
+		});
+
+		test("eval mode performs no daemon notification", async () => {
+			const connectToDaemonMock = mock(async () => ({
+				port: 6710,
+				baseUrl: "http://127.0.0.1:6710",
+			}));
+			setEmitDaemonModuleLoaderForTesting(async () => ({
+				connectToDaemon: connectToDaemonMock,
+				notifyEvent: mock(async () => true),
+				notifyNotification: mock(async () => true),
+			}));
+
+			const originalEval = process.env.RP1_EVAL_MODE;
+			process.env.RP1_EVAL_MODE = "true";
+			try {
+				const input = makeInput({
+					type: "status_change",
+					step: "requirements",
+					data: { status: "running", workflow: "build", feature: "feat" },
+				});
+
+				const result = await expectTaskRight(executeEmit(input));
+
+				expect(result.success).toBe(true);
+				expect(connectToDaemonMock).not.toHaveBeenCalled();
+			} finally {
+				if (originalEval === undefined) {
+					delete process.env.RP1_EVAL_MODE;
+				} else {
+					process.env.RP1_EVAL_MODE = originalEval;
+				}
+			}
 		});
 	});
 

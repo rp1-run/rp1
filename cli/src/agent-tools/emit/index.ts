@@ -53,6 +53,9 @@ import {
 
 const TOOL_NAME = "emit";
 
+/** Maximum time (ms) the daemon notification side-effect may block the emit result. */
+export const NOTIFY_DEADLINE_MS = 500;
+
 interface EmitDaemonModule {
 	readonly connectToDaemon: () => Promise<DaemonConnection | null>;
 	readonly notifyEvent: (
@@ -517,6 +520,27 @@ const notifyDaemonNotification = async (
 };
 
 /**
+ * Bound the full daemon notification chain (event + optional notification)
+ * with a deadline so it never blocks the emit critical path.
+ * Best-effort: when the deadline fires first, emit returns immediately
+ * and the in-flight notification continues in the background.
+ */
+const notifyDaemonBounded = async (
+	notifyFn: () => Promise<void>,
+): Promise<void> => {
+	if (process.env.RP1_EVAL_MODE === "true") return;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		const deadline = new Promise<void>((resolve) => {
+			timer = setTimeout(resolve, NOTIFY_DEADLINE_MS);
+		});
+		await Promise.race([notifyFn(), deadline]);
+	} finally {
+		if (timer !== undefined) clearTimeout(timer);
+	}
+};
+
+/**
  * Main emit execution pipeline.
  * Handles all 6 event types through a unified flow:
  * 1. Flow-mismatch check for any existing run
@@ -637,19 +661,20 @@ export const executeEmit = (
 									);
 								}),
 								TE.chainFirst(({ event, runStatus, notification, eventData }) =>
-									TE.fromTask(async () => {
-										if (process.env.RP1_EVAL_MODE === "true") return;
-										await notifyDaemon(
-											input,
-											run,
-											runStatus,
-											event.id,
-											eventData,
-										);
-										if (notification) {
-											await notifyDaemonNotification(notification);
-										}
-									}),
+									TE.fromTask(() =>
+										notifyDaemonBounded(async () => {
+											await notifyDaemon(
+												input,
+												run,
+												runStatus,
+												event.id,
+												eventData,
+											);
+											if (notification) {
+												await notifyDaemonNotification(notification);
+											}
+										}),
+									),
 								),
 								TE.map(
 									({
@@ -732,24 +757,25 @@ export const executeEndRun = (
 					};
 				}),
 				TE.chainFirst(({ event, run, runStatus, notification, eventData }) =>
-					TE.fromTask(async () => {
-						if (process.env.RP1_EVAL_MODE === "true") return;
-						await notifyDaemon(
-							{
-								type: "status_change",
-								runId: input.runId,
-								workflow: run.flow,
-								data: eventData,
-								projectPath: run.projectPath,
-							},
-							run,
-							runStatus,
-							event.id,
-						);
-						if (notification) {
-							await notifyDaemonNotification(notification);
-						}
-					}),
+					TE.fromTask(() =>
+						notifyDaemonBounded(async () => {
+							await notifyDaemon(
+								{
+									type: "status_change",
+									runId: input.runId,
+									workflow: run.flow,
+									data: eventData,
+									projectPath: run.projectPath,
+								},
+								run,
+								runStatus,
+								event.id,
+							);
+							if (notification) {
+								await notifyDaemonNotification(notification);
+							}
+						}),
+					),
 				),
 				TE.map(
 					({ event, runStatus }): ToolResult<EmitResult> =>
