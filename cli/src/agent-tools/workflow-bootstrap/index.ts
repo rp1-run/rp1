@@ -388,7 +388,7 @@ const buildBootstrapContext = (params: {
 
 export const execute = (
 	input: string,
-	_options: ToolOptions,
+	options: ToolOptions,
 ): TE.TaskEither<CLIError, ToolResult<WorkflowBootstrapResult>> =>
 	pipe(
 		TE.fromEither(parseInput(input)),
@@ -518,7 +518,7 @@ export const execute = (
 						resumed: runResult.resumed,
 						decision: runResult.decision,
 					},
-					trace,
+					...(options.verbose && { trace }),
 				});
 			},
 		),

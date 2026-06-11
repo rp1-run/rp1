@@ -14,9 +14,6 @@ export interface ResolveArgsInput {
 /** Resolved argument values keyed by UPPER_SNAKE_CASE argument name. */
 export type ResolvedArgumentValues = Readonly<Record<string, string | boolean>>;
 
-/** Reserved environment values keyed by parameter name. Currently emitted as {}. */
-export type ResolvedEnvironmentValues = Readonly<Record<string, string>>;
-
 /** Directory resolution status for the requested project root. */
 export type ResolvedDirectoryStatus =
 	| "initialized"
@@ -40,6 +37,5 @@ export interface ResolvedDirectories {
 export interface ResolvedArgs {
 	readonly arguments: ResolvedArgumentValues;
 	readonly directories: ResolvedDirectories;
-	readonly environment: ResolvedEnvironmentValues;
 	readonly unresolved: readonly string[];
 }

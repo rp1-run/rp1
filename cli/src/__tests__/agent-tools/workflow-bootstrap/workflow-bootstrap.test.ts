@@ -175,9 +175,7 @@ metadata:
 		expect(first.data.workflow.identityArgs).toEqual(["FEATURE_ID"]);
 		expect(first.data.run.resumed).toBe(false);
 		expect(first.data.run.decision).toBe("created_new_run");
-		expect(first.data.trace.projectIdentity).toBe("project-bootstrap-id");
-		expect(first.data.trace.workIdentity).toBe("FEATURE_ID=feat-bootstrap");
-		expect(first.data.trace.harness).toBe("codex");
+		expect(first.data.trace).toBeUndefined();
 
 		const second = await expectTaskRight(
 			execute(
@@ -219,6 +217,29 @@ metadata:
 		});
 	});
 
+	test("includes trace when verbose is set", async () => {
+		await writeProjectId(tempDir, "project-verbose-id");
+		await writeWorkflowSkill();
+
+		const result = await expectTaskRight(
+			execute(
+				JSON.stringify({
+					name: "build",
+					schema_path: "plugins/dev/skills/build/SKILL.md",
+					raw_args: "feat-verbose",
+					project_root: tempDir,
+					harness: "codex",
+				}),
+				{ inputSource: "stdin", verbose: true },
+			),
+		);
+
+		expect(result.data.trace).toBeDefined();
+		expect(result.data.trace?.projectIdentity).toBe("project-verbose-id");
+		expect(result.data.trace?.workIdentity).toBe("FEATURE_ID=feat-verbose");
+		expect(result.data.trace?.harness).toBe("codex");
+	});
+
 	test("resolves workflow metadata from the invoking linked worktree schema", async () => {
 		const mainRepoRoot = join(tempDir, "worktree-main");
 		const linkedWorktreePath = join(tempDir, "linked-worktree");
@@ -255,7 +276,7 @@ metadata:
 					project_root: nestedWorktreePath,
 					harness: "codex",
 				}),
-				{ inputSource: "stdin" },
+				{ inputSource: "stdin", verbose: true },
 			),
 		);
 
@@ -268,9 +289,9 @@ metadata:
 		expect(result.data.directories.workRoot).toBe(
 			join(canonicalMainRepoRoot, ".rp1", "work"),
 		);
-		expect(result.data.trace.requestedProjectRoot).toBe(nestedWorktreePath);
-		expect(result.data.trace.canonicalProjectRoot).toBe(canonicalMainRepoRoot);
-		expect(result.data.trace.isWorktree).toBe(true);
+		expect(result.data.trace?.requestedProjectRoot).toBe(nestedWorktreePath);
+		expect(result.data.trace?.canonicalProjectRoot).toBe(canonicalMainRepoRoot);
+		expect(result.data.trace?.isWorktree).toBe(true);
 
 		const db = await expectTaskRight(getEmitDatabase(dbPath));
 		const run = getRunById(db, result.data.run.runId);
@@ -330,16 +351,16 @@ metadata:
 						project_root: nestedWorktreePath,
 						harness: "antigravity",
 					}),
-					{ inputSource: "stdin" },
+					{ inputSource: "stdin", verbose: true },
 				),
 			);
 
-			expect(result.data.trace.host).toBe("antigravity");
-			expect(result.data.trace.harness).toBe("antigravity");
-			expect(result.data.trace.canonicalProjectRoot).toBe(
+			expect(result.data.trace?.host).toBe("antigravity");
+			expect(result.data.trace?.harness).toBe("antigravity");
+			expect(result.data.trace?.canonicalProjectRoot).toBe(
 				canonicalMainRepoRoot,
 			);
-			expect(result.data.trace.isWorktree).toBe(true);
+			expect(result.data.trace?.isWorktree).toBe(true);
 			expect(result.data.directories).toMatchObject({
 				projectRoot: canonicalMainRepoRoot,
 				kbRoot: join(canonicalMainRepoRoot, ".rp1", "context"),
@@ -440,7 +461,7 @@ metadata:
 		expect(mainRepoRun.data.run.resumed).toBe(false);
 		expect(mainRepoRun.data.run.decision).toBe("created_new_run");
 		expect(normalizedMainRunProjectRoot).toBe(canonicalMainRepoRoot);
-		expect(mainRepoRun.data.trace.requestedProjectRoot).toBe(mainRepoRoot);
+		expect(mainRepoRun.data.trace).toBeUndefined();
 
 		expect(linkedWorktreeRun.data.run.runId).toBe(mainRepoRun.data.run.runId);
 		expect(linkedWorktreeRun.data.run.resumed).toBe(true);
@@ -448,13 +469,7 @@ metadata:
 			"matched_non_terminal_run",
 		);
 		expect(normalizedLinkedRunProjectRoot).toBe(canonicalMainRepoRoot);
-		expect(linkedWorktreeRun.data.trace.requestedProjectRoot).toBe(
-			nestedWorktreePath,
-		);
-		expect(linkedWorktreeRun.data.trace.canonicalProjectRoot).toBe(
-			canonicalMainRepoRoot,
-		);
-		expect(linkedWorktreeRun.data.trace.isWorktree).toBe(true);
+		expect(linkedWorktreeRun.data.trace).toBeUndefined();
 
 		const db = await expectTaskRight(getEmitDatabase(dbPath));
 		const run = getRunById(db, mainRepoRun.data.run.runId);
@@ -633,7 +648,7 @@ metadata:
 				"add a simple hello world script at src/hello.ts",
 			);
 			expect(result.data.directories.projectRoot).toBe(tempDir);
-			expect(result.data.trace.harness).toBe("claude-code");
+			expect(result.data.trace).toBeUndefined();
 		},
 	);
 

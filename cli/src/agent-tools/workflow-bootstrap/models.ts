@@ -43,5 +43,5 @@ export interface WorkflowBootstrapResult {
 	readonly directories: ResolvedDirectories;
 	readonly workflow: WorkflowBootstrapWorkflow;
 	readonly run: WorkflowBootstrapRun;
-	readonly trace: WorkflowBootstrapTrace;
+	readonly trace?: WorkflowBootstrapTrace;
 }

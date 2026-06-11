@@ -426,7 +426,6 @@ export const resolveArgs = (
 				return TE.right<CLIError, ResolvedArgs>({
 					arguments: {},
 					directories,
-					environment: {},
 					unresolved: [],
 				});
 			}
@@ -511,7 +510,6 @@ export const resolveArgs = (
 					return {
 						arguments: resolved as ResolvedArgumentValues,
 						directories,
-						environment: {},
 						unresolved,
 					};
 				},

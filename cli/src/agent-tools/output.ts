@@ -31,8 +31,7 @@ export const errorResult = <T>(
 });
 
 /**
- * Format a tool result as a JSON string.
- * Returns pretty-printed JSON with 2-space indentation.
+ * Format a tool result as a compact JSON string.
  */
 export const formatOutput = <T>(result: ToolResult<T>): string =>
-	JSON.stringify(result, null, 2);
+	JSON.stringify(result);

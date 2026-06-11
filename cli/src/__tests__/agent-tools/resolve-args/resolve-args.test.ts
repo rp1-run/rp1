@@ -290,7 +290,6 @@ description: "A skill with no arguments for testing purposes"
 				status: "uninitialized",
 				nextStepCommand: "rp1 init",
 			});
-			expect(result.right.environment).toEqual({});
 			expect(result.right.unresolved).toEqual([]);
 		}
 	});
@@ -936,7 +935,7 @@ environment:
 		}
 	});
 
-	test("environment resolution returns empty map for RP1_* variables", async () => {
+	test("RP1_* environment schemas do not affect resolved output", async () => {
 		const schemaPath = await createAgentFile(
 			tempDir,
 			`---
@@ -967,46 +966,7 @@ environment:
 
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
-			expect(result.right.environment).toEqual({});
-		}
-	});
-
-	test("set RP1_* environment variables are silently ignored", async () => {
-		process.env.RP1_PROJECT_ROOT = join(tempDir, "project-override");
-		process.env.RP1_KB_ROOT = join(tempDir, "kb-override");
-		process.env.RP1_WORK_ROOT = join(tempDir, "work-override");
-
-		const schemaPath = await createAgentFile(
-			tempDir,
-			`---
-name: test-agent
-description: "A test agent with resolved directory environment"
-tools: Read
-model: inherit
-environment:
-  - name: RP1_PROJECT_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Project root"
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "KB directory"
-  - name: RP1_WORK_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Work directory"
----
-# Test agent
-`,
-		);
-
-		const result = await resolveArgs({
-			schema_path: schemaPath,
-			raw_args: "",
-			project_root: tempDir,
-		})();
-
-		expect(E.isRight(result)).toBe(true);
-		if (E.isRight(result)) {
-			expect(result.right.environment).toEqual({});
+			expect(result.right).not.toHaveProperty("environment");
 		}
 	});
 
