@@ -33,7 +33,7 @@
 
 | Skill | Plugin | Description |
 |-------|--------|-------------|
-| `/code-comments` | base | Extract comment locations from code files for analysis. Use when cleaning comments, auditing code documentation, or analyzing comment patterns. Supports Python, JavaScript, TypeScript, Go, Rust, Java, C/C++, Ruby, PHP, Shell scripts. Trigger terms - comments, extract comments, code comments, comment analysis, documentation audit, comment cleanup. |
+| `/code-comments` | base | Extract comment locations from code files for analysis. Use when cleaning comments, auditing documentation, or analyzing comment patterns across languages. |
 | `/code-audit` | dev | Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift. |
 | `/code-check` | dev | Fast code hygiene validation (lints, formatters, tests, coverage) for quick development loop feedback. |
 | `/code-clean-comments` | dev | Systematically removes unnecessary comments from a user scope by first resolving it into a durable change manifest. |
@@ -59,8 +59,8 @@
 |-------|--------|-------------|
 | `/fix-mermaid` | base | Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates syntax, and auto-repairs common errors. |
 | `/generate-user-docs` | base | Synchronizes user-facing documentation with the current knowledge base through validate -> stale gate -> scan -> approval -> process orchestration. |
-| `/markdown-preview` | base | Generate browser-viewable HTML previews from markdown, plain text, and Mermaid diagrams. Auto-validates diagrams, applies professional styling, and opens in default browser. Use when agents need to preview documentation, visualizations, or formatted content. |
-| `/mermaid` | base | Create, validate, and troubleshoot Mermaid.js diagrams. Use when generating flowcharts, sequence diagrams, class diagrams, ER diagrams, Gantt charts, state diagrams, or any visualization. Handles diagram validation, syntax errors, broken diagrams, and automatic repair. Trigger terms - mermaid, diagram, flowchart, sequence, class diagram, ER diagram, entity relationship, state machine, gantt, visualization, chart, graph. |
+| `/markdown-preview` | base | Generate browser-viewable HTML previews from markdown, plain text, and Mermaid diagrams. Auto-validates, styles, and opens in browser. |
+| `/mermaid` | base | Create, validate, and repair Mermaid.js diagrams. Use when generating flowcharts, sequence, class, ER, state, or Gantt diagrams, or any visualization. |
 | `/project-birds-eye-view` | base | Generates arc42/C4-aligned project overview artifacts with per-claim provenance, snapshot metadata, and Arcade-visible workflow tracking. |
 | `/write-content` | base | Interactive prompt to help create polished technical documents through clarifying questions and structured writing workflows. |
 
@@ -103,4 +103,4 @@
 
 | Skill | Plugin | Description |
 |-------|--------|-------------|
-| `/prompt-writer` | base | Write maximally terse agent prompts from scratch. Use when creating new agent specs, command prompts, or instruction sets. Teaches structure-first composition with compression-by-default patterns. Extended with constitutional governance, epistemic stance selection, and a six-stage prompt pipeline. |
+| `/prompt-writer` | base | Write maximally terse agent prompts from scratch. Use when creating agent specs, command prompts, or instruction sets with constitutional governance. |

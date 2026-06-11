@@ -1,6 +1,6 @@
 ---
 name: prompt-writer
-description: Write maximally terse agent prompts from scratch. Use when creating new agent specs, command prompts, or instruction sets. Teaches structure-first composition with compression-by-default patterns. Extended with constitutional governance, epistemic stance selection, and a six-stage prompt pipeline.
+description: Write maximally terse agent prompts from scratch. Use when creating agent specs, command prompts, or instruction sets with constitutional governance.
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: prompt

@@ -1,6 +1,6 @@
 ---
 name: mermaid
-description: Create, validate, and troubleshoot Mermaid.js diagrams. Use when generating flowcharts, sequence diagrams, class diagrams, ER diagrams, Gantt charts, state diagrams, or any visualization. Handles diagram validation, syntax errors, broken diagrams, and automatic repair. Trigger terms - mermaid, diagram, flowchart, sequence, class diagram, ER diagram, entity relationship, state machine, gantt, visualization, chart, graph.
+description: Create, validate, and repair Mermaid.js diagrams. Use when generating flowcharts, sequence, class, ER, state, or Gantt diagrams, or any visualization.
 allowed-tools: Bash, Read, Write, Edit
 metadata:
   category: documentation
