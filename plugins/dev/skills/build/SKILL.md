@@ -91,6 +91,12 @@ Use the pre-resolved `projectRoot`, `kbRoot`, `workRoot`, and `codeRoot` values 
 
 **Feature dir**: `{workRoot}/features/{FEATURE_ID}/`
 
+## References
+
+| File | Purpose | When to Load |
+|------|---------|--------------|
+| `references/build-redirected.md` | Oversized-scope redirect handling when feature-architect returns `needs_phase_planning` | When `feature-architect` returns `status = "needs_phase_planning"` |
+
 ## §0-FIRST-ACTION
 
 After the generated Workflow Bootstrap section resolves `RUN_ID`, `RUN_RESUMED`, and the canonical directories, the first prompt-authored action MUST be:
@@ -161,16 +167,18 @@ rp1 agent-tools emit \
   --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
 
-Subsequent state transitions omit `--name` (set-once semantics; the DB keeps the first value):
+Subsequent routine transitions use the same command without `--name` (set-once semantics; the DB keeps the first value). Replace `{STATE}` and the `data` JSON per this table:
 
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step {STATE} \
-  --data '{"status": "running", "feature": "{FEATURE_ID}"}'
-```
+| Trigger | Step | Data |
+|---------|------|------|
+| Phase entry (subsequent) | `{phase}` | `{"status": "running", "feature": "{FEATURE_ID}"}` |
+| Phase accepted / AFK continues | `{phase}` | `{"status": "completed", "feature": "{FEATURE_ID}"}` |
+| User stops at checkpoint | `{phase}` | `{"status": "waiting", "feature": "{FEATURE_ID}"}` |
+| Release: no archive | `release` | `{"status": "completed", "feature": "{FEATURE_ID}", "archive_status": "declined"}` |
+| Release: archived | `release` | `{"status": "completed", "feature": "{FEATURE_ID}", "archive_status": "completed", "archive_path": "..."}` |
+| Unrecoverable failure | `{failing step}` | `{"status": "failed", "feature": "{FEATURE_ID}"}` |
+
+Emit blocks with additional contextual data (reason, task_unit, readiness_status, etc.) remain verbatim at their point of use below. `waiting_for_user`, `artifact_registered`, and end-run emits are always shown inline.
 
 `RUN_ID` comes from the generated Workflow Bootstrap section. Do NOT override it.
 
@@ -206,50 +214,17 @@ FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK_MODE={AFK}, PHASE_PLAN
 If `PHASE_PLAN_PATH` and `PHASE_ID` were passed explicitly, forward them unchanged.
 If phase-plan handoff tokens remain embedded inside `REQUIREMENTS` using the legacy `PHASE_PLAN_PATH=... PHASE_ID=...` form, leave them untouched so `feature-requirement-gatherer` can normalize them before writing `requirements.md`.
 
-Validate the response before continuing:
-
-- First attempt to parse the response as JSON.
-- Accept only the documented completion contract from `feature-requirement-gatherer`: JSON with `"status": "success"` and an `"artifact"` path ending in `features/{FEATURE_ID}/requirements.md`, or a text line matching `Requirements completed:` followed by a path ending in `features/{FEATURE_ID}/requirements.md`.
-- If the response is valid JSON with `"status": "error"`, treat it as an intentional requirements-step failure. Surface the agent-provided `error` or `message`, abort the build on `requirements`, and do NOT retry it as a generic contract failure.
-- Treat any response that mentions commits, source-code edits, tests, verification, unrelated file paths, or implementation completion as a contract failure.
-- On contract failure: retry §PHASE-1 once with an explicit reminder that the agent may only write `requirements.md` and must not implement anything.
-- If the retry also fails, abort the build as failed. Do not enter planning, implementation, or release based on non-compliant output.
+Validate: parse JSON; accept `status: "success"` with artifact path ending in `features/{FEATURE_ID}/requirements.md`, or text `Requirements completed:` with matching path. `status: "error"` = intentional failure (abort, no retry). Mentions of commits, code edits, tests, or implementation = contract failure: retry once with scope reminder. Second failure = abort.
 
 **Checkpoint** (skip if AFK):
 
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type waiting_for_user \
-  --run-id {RUN_ID} \
-  --step requirements \
-  --data '{"prompt": "Continue, Revise, Review feedback from Arcade, or Stop?", "context": "Requirements gathering complete"}'
-```
+Emit `waiting_for_user` on `requirements` with prompt "Continue, Revise, Review feedback from Arcade, or Stop?" and context "Requirements gathering complete".
 
 {% ask_user "Continue, Revise, Review feedback from Arcade, or Stop?", options: "Continue", "Revise", "Review feedback from Arcade", "Stop" %}
 On Revise: get feedback, append to REQUIREMENTS, re-invoke §PHASE-1.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
-On Stop: emit waiting status, output summary, exit with `/build {FEATURE_ID}` resume instruction.
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step requirements \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}"}'
-```
-
-On Continue, or immediately when AFK skips the checkpoint, emit `requirements` completed before entering `planning`:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step requirements \
-  --data '{"status": "completed", "feature": "{FEATURE_ID}"}'
-```
+On Stop: emit `requirements` waiting per §PARENT-EMIT-DISCIPLINE table, output summary, exit with `/build {FEATURE_ID}` resume instruction.
+On Continue, or immediately when AFK skips the checkpoint, emit `requirements` completed per §PARENT-EMIT-DISCIPLINE table before entering `planning`.
 
 ## §PHASE-2: Planning
 
@@ -272,46 +247,8 @@ FEATURE_ID={FEATURE_ID}, AFK_MODE={AFK}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot},
 Parse the response as JSON.
 
 - Accept `status = "success"` to continue with design follow-on work.
-- Accept `status = "needs_phase_planning"` as an oversized-scope redirect. In that case, do NOT run `hypothesis-tester`, do NOT run `feature-tasker`, do NOT enter `implementation`, and do NOT generate legacy `tracker.md` or `milestone-*.md` guidance.
+- Accept `status = "needs_phase_planning"` as an oversized-scope redirect. Read `references/build-redirected.md` and follow the redirect handling procedure. Do NOT run `hypothesis-tester`, `feature-tasker`, or enter `implementation`.
 - Treat `status = "error"` or malformed output as a planning failure. Abort the build instead of guessing.
-
-### §2.1 Oversized Scope Redirect
-
-If `status = "needs_phase_planning"`:
-
-1. Extract `reason`, `source_relative_path`, and `redirect_command`.
-2. Emit a waiting event so the run clearly stops on `planning`:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type waiting_for_user \
-  --run-id {RUN_ID} \
-  --step planning \
-  --data '{"prompt": "Scope exceeds a single feature. Run /phase-plan before resuming delivery.", "context": "{redirect_command}"}'
-```
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step planning \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}"}'
-```
-
-3. Output:
-
-```markdown
-## Build Redirected
-
-**Feature**: {FEATURE_ID}
-**Reason**: {reason}
-**Source Artifact**: {source_relative_path}
-**Next**: Run `{redirect_command}`
-```
-
-4. STOP.
 
 After a `success` response, check whether `{workRoot}/features/{FEATURE_ID}/hypotheses.md` exists on disk. If it exists:
 
@@ -337,27 +274,11 @@ If rejected hypotheses exist and `AFK=true`:
 
 If rejected hypotheses exist and `AFK=false`, run the interactive rejection gate:
 
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type waiting_for_user \
-  --run-id {RUN_ID} \
-  --step planning \
-  --data '{"prompt": "Rejected planning hypotheses found. Revise plan, Continue with risk, or Stop?", "context": "Task generation is paused until rejected assumptions are accepted or revised."}'
-```
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step planning \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "reason": "rejected_hypotheses"}'
-```
+Emit `waiting_for_user` on `planning` with prompt "Rejected planning hypotheses found. Revise plan, Continue with risk, or Stop?" and context about paused task generation. Then emit `planning` waiting with `reason: "rejected_hypotheses"`.
 
 {% ask_user "Rejected planning hypotheses found. Revise plan, Continue with risk, or Stop?", options: "Revise plan", "Continue with risk", "Stop" %}
 
-- Revise plan: collect feedback, set `TASK_REGENERATION_REASON = "Rejected hypotheses: {ids}; revision requested: {summary}"`, set `PLANNING_UPDATE_CONTEXT = TASK_REGENERATION_REASON`, emit `planning` running with that reason, then re-invoke §PHASE-2 before any task generation.
+- Revise plan: collect feedback, set `TASK_REGENERATION_REASON = "Rejected hypotheses: {ids}; revision requested: {summary}"`, set `PLANNING_UPDATE_CONTEXT = TASK_REGENERATION_REASON`, emit `planning` running with `task_regeneration_reason` and `update_mode: true`, then re-invoke §PHASE-2 before any task generation.
 - Continue with risk: proceed to the single normal `feature-tasker` dispatch below and preserve the rejected IDs in the final planning summary.
 - Stop: output the rejected hypothesis IDs and `/build {FEATURE_ID}` resume instruction, leave `planning` waiting, and STOP.
 
@@ -369,59 +290,17 @@ Normal fresh path invariant: dispatch `feature-tasker` exactly once, after `feat
 FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=false, UPDATE_CONTEXT={TASK_REGENERATION_REASON}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-Validate the `feature-tasker` response before the planning checkpoint:
-
-- Parse the response as JSON.
-- Accept only the documented success contract: `"status": "success"`, `"feature_id": "{FEATURE_ID}"`, `"task_plan_path": "features/{FEATURE_ID}/tasks.json"`, and `artifacts[]` entries for both `features/{FEATURE_ID}/tasks.md` and `features/{FEATURE_ID}/tasks.json` with `storageRoot = "work_dir"`.
-- If the response is valid JSON with `"status": "error"`, treat it as an intentional task-generation failure. Surface the agent-provided `message` or `error`, abort the build on `planning`, and do NOT enter `implementation` or `release`.
-- Treat prose-prefixed completion, malformed output, missing artifacts, or unrelated implementation/test summaries as a failure. Do not silently continue without confirmed `tasks.md` and `tasks.json` results.
+Validate: parse JSON; accept `status: "success"` with `feature_id`, `task_plan_path`, and `artifacts[]` for both `tasks.md` and `tasks.json` (`storageRoot: "work_dir"`). `status: "error"` = abort planning. Malformed/missing artifacts = failure. Do not continue without confirmed results.
 
 **Checkpoint** (skip if AFK):
 
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type waiting_for_user \
-  --run-id {RUN_ID} \
-  --step planning \
-  --data '{"prompt": "Continue, Revise, Review feedback from Arcade, or Stop?", "context": "Design and task generation complete"}'
-```
+Emit `waiting_for_user` on `planning` with prompt "Continue, Revise, Review feedback from Arcade, or Stop?" and context "Design and task generation complete".
 
 {% ask_user "Continue, Revise, Review feedback from Arcade, or Stop?", options: "Continue", "Revise", "Review feedback from Arcade", "Stop" %}
-On Revise: get feedback. If the feedback changes scope, requirements, assumptions, or design, set `TASK_REGENERATION_REASON` to one sentence before regeneration and emit:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step planning \
-  --data '{"status": "running", "feature": "{FEATURE_ID}", "task_regeneration_reason": "{TASK_REGENERATION_REASON}", "update_mode": true}'
-```
-
-Then set `PLANNING_UPDATE_CONTEXT = TASK_REGENERATION_REASON`, re-invoke §PHASE-2, and dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT={TASK_REGENERATION_REASON}` on that revise path. Do not regenerate tasks before the reason is recorded.
+On Revise: get feedback. If the feedback changes scope, requirements, assumptions, or design, set `TASK_REGENERATION_REASON` to one sentence before regeneration, emit `planning` running with `task_regeneration_reason` and `update_mode: true`, set `PLANNING_UPDATE_CONTEXT = TASK_REGENERATION_REASON`, re-invoke §PHASE-2, and dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT={TASK_REGENERATION_REASON}`. Do not regenerate tasks before the reason is recorded.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
-On Stop: emit waiting status, output summary (requirements complete, planning waiting), exit with `/build {FEATURE_ID}`.
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step planning \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}"}'
-```
-
-On Continue, or immediately when AFK skips the checkpoint, emit `planning` completed before entering `implementation`:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step planning \
-  --data '{"status": "completed", "feature": "{FEATURE_ID}"}'
-```
+On Stop: emit `planning` waiting per §PARENT-EMIT-DISCIPLINE table, output summary (requirements complete, planning waiting), exit with `/build {FEATURE_ID}`.
+On Continue, or immediately when AFK skips the checkpoint, emit `planning` completed per §PARENT-EMIT-DISCIPLINE table before entering `implementation`.
 
 ## §PHASE-3: Implementation
 
@@ -468,7 +347,7 @@ rp1 agent-tools change-manifest snapshot \
   --out "{workRoot}/features/{FEATURE_ID}/change-manifest-baseline.json"
 ```
 
-Parse the `ToolResult` envelope. If the command fails or returns malformed output, continue the build but record `cleanup_manifest_result` as skipped with `skipReason: "baseline_snapshot_failed"`, `files: 0`, `ownedLineCount: 0`, and `statusPath: "{workRoot}/features/{FEATURE_ID}/change-manifest-status.json"`. Do not dispatch `comment-cleaner` later unless a generated manifest result explicitly returns `status: "created"` and non-empty ownership.
+Parse the `ToolResult` envelope. On failure: continue the build but record `cleanup_manifest_result` as skipped (`skipReason: "baseline_snapshot_failed"`, `files: 0`, `ownedLineCount: 0`). Do not dispatch `comment-cleaner` later unless `change-manifest generate` explicitly returns `status: "created"` with non-empty ownership.
 
 ### §4.3 Builder-Reviewer Loop
 
@@ -482,15 +361,9 @@ FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={code
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_UNIT_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-Parse the reviewer JSON contract. `status = "SUCCESS"` completes the unit only when `task_plan_updated = true`; otherwise treat the reviewer output as FAILURE because resume safety depends on persisted `tasks.json` status. `status = "FAILURE"` or malformed output enters retry handling.
+Reviewer contract: `SUCCESS` + `task_plan_updated = true` completes the unit. `FAILURE` or malformed enters retry. Do not edit `tasks.json` from the orchestrator; the reviewer owns task-plan persistence.
 
-Loop logic: `attempt = 1`, `max = 2`. If reviewer reports SUCCESS with `task_plan_updated = true`: move to next unit. Do not edit `tasks.json` in the parent orchestrator; the reviewer owns the success decision and task-plan persistence.
-
-If FAILURE and attempt < max:
-
-1. Extract `issues` and `summary` from reviewer response.
-2. Build `PREVIOUS_FEEDBACK` as compact JSON: `{"task_unit": task_unit, "summary": summary, "issues": issues}`.
-3. Re-spawn task-builder with review feedback. If `GIT_COMMIT=true`, pass `REWRITE_COMMITS=true` so the builder amends the prior commit into a clean atomic rewrite:
+Loop: `attempt = 1`, `max = 2`. On FAILURE with attempt < max: build `PREVIOUS_FEEDBACK` JSON from `issues`/`summary`, re-spawn task-builder with feedback (if `GIT_COMMIT=true`, pass `REWRITE_COMMITS=true` for atomic commit rewrite):
 
 {% dispatch_agent "rp1-dev:task-builder" %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_UNIT_IDS}, GIT_COMMIT={GIT_COMMIT}, REWRITE_COMMITS={GIT_COMMIT}, PREVIOUS_FEEDBACK={PREVIOUS_FEEDBACK}, WORKFLOW=build, RUN_ID={RUN_ID}
@@ -503,25 +376,7 @@ Else: escalate without marking parent `implementation` failed while recovery rem
 - Interactive: emit `waiting_for_user` on `implementation`, then `status_change waiting`; STOP with `/build {FEATURE_ID}` resume instructions.
 - AFK: if an explicit skip policy exists, record the skipped `TASK_UNIT_IDS` as release follow-ups; otherwise emit parent `implementation` failed only because no skip/repair path remains.
 
-Interactive exhausted-retry emit:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type waiting_for_user \
-  --run-id {RUN_ID} \
-  --step implementation \
-  --data '{"prompt": "Task review failed after retry. Repair, Skip task, or Stop?", "context": "Task unit {TASK_UNIT_IDS} needs a decision before implementation can continue."}'
-```
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step implementation \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "task_unit": "{TASK_UNIT_IDS}", "reason": "review_retry_exhausted"}'
-```
+Interactive exhausted-retry: emit `waiting_for_user` on `implementation` with prompt "Task review failed after retry. Repair, Skip task, or Stop?" and context about the failing task unit. Then emit `implementation` waiting with `task_unit: "{TASK_UNIT_IDS}"` and `reason: "review_retry_exhausted"`.
 
 ### §4.4 Post-Build
 
@@ -545,11 +400,7 @@ rp1 agent-tools change-manifest generate \
   --baseline "{workRoot}/features/{FEATURE_ID}/change-manifest-baseline.json"
 ```
 
-Parse the `ToolResult` envelope into `cleanup_manifest_result`.
-
-- If `data.status == "created"` and `data.files > 0` and `data.ownedLineCount > 0`, verification may dispatch `comment-cleaner` with `data.manifestPath` and `{codeRoot}`.
-- If `data.status == "skipped"`, keep `data.statusPath` and `data.skipReason` for the verify aggregator. Do not ask `comment-cleaner` to infer scope.
-- If the tool fails or returns malformed output, set `cleanup_manifest_result` to a skipped warning with `skipReason: "change_manifest_generate_failed"`, `files: 0`, `ownedLineCount: 0`, and `statusPath: "{workRoot}/features/{FEATURE_ID}/change-manifest-status.json"`.
+Parse the `ToolResult` envelope into `cleanup_manifest_result`. If `data.status == "created"` with `files > 0` and `ownedLineCount > 0`, `comment-cleaner` may participate using `data.manifestPath`. If `data.status == "skipped"`, preserve `statusPath`/`skipReason` for the aggregator. On failure: set skipped with `skipReason: "change_manifest_generate_failed"`, `files: 0`, `ownedLineCount: 0`.
 
 ### §4.6 Verification And Readiness
 
@@ -557,41 +408,7 @@ Parse the `ToolResult` envelope into `cleanup_manifest_result`.
 
 Evaluate the cleanup manifest result BEFORE dispatching any verification agent. Comment-cleaner participates only when ALL of: `cleanup_manifest_result.data.status == "created"`, `cleanup_manifest_result.data.files > 0`, `cleanup_manifest_result.data.ownedLineCount > 0`, and `cleanup_manifest_result.data.manifestPath` is present. Do not dispatch comment-cleaner with branch, unstaged, commit-range, base-branch, mode, or commit parameters; the generated manifest is the only safe cleanup boundary.
 
-If comment-cleaner will NOT participate, set the `comment_cleaner` phase result now (before dispatch):
-
-```json
-{
-  "status": "WARN",
-  "blocking_issues": [],
-  "warnings": [
-    {
-      "source": "comment-cleaner",
-      "note": "Automatic comment cleanup skipped because no non-empty generated manifest was available.",
-      "evidence": "{cleanup_manifest_result.data.statusPath}"
-    }
-  ],
-  "manual_items": [],
-  "artifacts": [
-    {
-      "path": "{cleanup_manifest_result.data.statusPath}",
-      "storageRoot": "absolute",
-      "label": "Cleanup manifest status"
-    }
-  ],
-  "evidence": [
-    {
-      "source": "comment-cleaner",
-      "status": "not_applicable",
-      "summary": "{cleanup_manifest_result.data.skipReason}",
-      "artifact": "{cleanup_manifest_result.data.statusPath}"
-    }
-  ],
-  "files_checked": 0,
-  "manifest_path": null,
-  "manifest_status_path": "{cleanup_manifest_result.data.statusPath}",
-  "skip_reason": "{cleanup_manifest_result.data.skipReason}"
-}
-```
+If comment-cleaner will NOT participate, set the `comment_cleaner` phase result now (before dispatch): `status: "WARN"`, empty `blocking_issues`, one warning noting "Automatic comment cleanup skipped because no non-empty generated manifest was available" with `evidence` from `cleanup_manifest_result.data.statusPath`, one artifact entry for the status path with `storageRoot: "absolute"`, one evidence entry with `status: "not_applicable"` and `summary` from `skipReason`, `files_checked: 0`, `manifest_path: null`, and `manifest_status_path`/`skip_reason` from the cleanup manifest result.
 
 #### Step 2 — Parallel dispatch
 
@@ -615,21 +432,7 @@ CHANGE_MANIFEST={cleanup_manifest_result.data.manifestPath}, CODE_ROOT={codeRoot
 
 Wait for ALL dispatched verification agents to complete before proceeding. Do not begin aggregation until every agent result is available. Collect each agent's response into its corresponding slot below.
 
-Build `PHASE_RESULTS_JSON` with normalized or legacy producer outputs:
-
-```json
-{
-  "code_checker": "{code-checker validation envelope or legacy result}",
-  "feature_verifier": "{feature-verifier validation envelope or legacy result}",
-  "comment_cleaner": "{comment-cleaner validation envelope or synthetic warning result}",
-  "implementation_context": {
-    "task_plan_warnings": {task_plan_warnings JSON array},
-    "documentation_followups": {documentation_followups JSON array}
-  }
-}
-```
-
-`task_plan_warnings` and `documentation_followups` MUST be the preserved arrays from §4.1 and §4.4. Never hardcode these fields to `[]` unless the corresponding source arrays are actually empty.
+Build `PHASE_RESULTS_JSON` with keys: `code_checker` (validation envelope or legacy), `feature_verifier` (validation envelope or legacy), `comment_cleaner` (validation envelope or synthetic warning), and `implementation_context` containing `task_plan_warnings` and `documentation_followups` arrays. These MUST be the preserved arrays from §4.1 and §4.4 -- never hardcode to `[]` unless actually empty.
 
 {% dispatch_agent "rp1-dev:build-verify-aggregator" %}
 PHASE_RESULTS={PHASE_RESULTS_JSON}, FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
@@ -646,27 +449,7 @@ Readiness release behavior:
 
 If readiness has blocking failures or missing required components, keep parent `implementation` running for planned repair or waiting for a user decision. Emit parent `implementation` failed only when no repair/decision path remains.
 
-If readiness is FAIL or WAITING in interactive mode, present the readiness evidence before stopping:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type waiting_for_user \
-  --run-id {RUN_ID} \
-  --step implementation \
-  --data '{"prompt": "Readiness needs work. Repair, Add Task, Review feedback from Arcade, or Stop?", "context": "Readiness {readiness_status}; blockers={blocking_issues.length}; warnings={warnings.length}; manual_items={manual_items.length}; artifact=features/{FEATURE_ID}/build-readiness.md"}'
-```
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step implementation \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "readiness_status": "{readiness_status}"}'
-```
-
-Then STOP with `/build {FEATURE_ID}` resume instructions.
+If readiness is FAIL or WAITING in interactive mode, present the readiness evidence before stopping: emit `waiting_for_user` on `implementation` with prompt "Readiness needs work. Repair, Add Task, Review feedback from Arcade, or Stop?" and readiness context (status, blocker/warning/manual-item counts, readiness artifact path). Then emit `implementation` waiting with `readiness_status`. STOP with `/build {FEATURE_ID}` resume instructions.
 
 If AFK and readiness is FAIL or WAITING, emit `implementation` failed unless an explicit repair/skip policy is already available.
 
@@ -674,58 +457,19 @@ When readiness is PASS or WARN and can proceed to release, present the human gat
 
 **Implementation checkpoint** (after readiness; skip if AFK):
 
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type waiting_for_user \
-  --run-id {RUN_ID} \
-  --step implementation \
-  --data '{"prompt": "Release, Add Task, Review feedback from Arcade, or Stop?", "context": "Readiness {readiness_status}; blockers={blocking_issues.length}; warnings={warnings.length}; manual_items={manual_items.length}; artifact=features/{FEATURE_ID}/build-readiness.md"}'
-```
+Emit `waiting_for_user` on `implementation` with prompt "Release, Add Task, Review feedback from Arcade, or Stop?" and readiness context.
 
 {% ask_user "Release, Add Task, Review feedback from Arcade, or Stop?", options: "Release", "Add Task", "Review feedback from Arcade", "Stop" %}
 On Release: continue.
-On Add Task: collect `ADDED_TASK_REQUEST`, dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT={"source":"implementation_checkpoint","request":"{ADDED_TASK_REQUEST}"}`, validate the same success contract as §2.3, then emit `implementation` waiting with `reason = "readiness_add_task"` and the compact `added_task_request`. STOP with `/build {FEATURE_ID}` resume instructions. On resume, `build-task-plan` must consume the updated `tasks.json`.
+On Add Task: collect `ADDED_TASK_REQUEST`, dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT={"source":"implementation_checkpoint","request":"{ADDED_TASK_REQUEST}"}`, validate the same success contract as §2.3, then emit `implementation` waiting with `reason: "readiness_add_task"` and `added_task_request`. STOP with `/build {FEATURE_ID}` resume instructions. On resume, `build-task-plan` must consume the updated `tasks.json`.
 
 {% dispatch_agent "rp1-dev:feature-tasker" %}
 FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=true, UPDATE_CONTEXT={"source":"implementation_checkpoint","request":"{ADDED_TASK_REQUEST}"}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
-On Stop: emit `implementation` waiting and STOP with `/build {FEATURE_ID}` resume instructions.
-
-Add-task emit:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step implementation \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "reason": "readiness_add_task", "added_task_request": "{ADDED_TASK_REQUEST}"}'
-```
-
-Stop emit:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step implementation \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "reason": "stopped_at_implementation_checkpoint"}'
-```
-
-After the user chooses Release, or AFK skips this checkpoint, emit `implementation` completed:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step implementation \
-  --data '{"status": "completed", "feature": "{FEATURE_ID}"}'
-```
+On Stop: emit `implementation` waiting with `reason: "stopped_at_implementation_checkpoint"` and STOP with `/build {FEATURE_ID}` resume instructions.
+After the user chooses Release, or AFK skips this checkpoint, emit `implementation` completed per §PARENT-EMIT-DISCIPLINE table.
 
 ### Git Operations (conditional)
 
@@ -752,93 +496,26 @@ Before emitting `release` running:
 3. If no readiness contract or registered readiness artifact exists, emit `implementation` waiting with `reason = "missing_readiness_contract"` and STOP. Do not emit `release` running.
 4. If `READINESS_CONTRACT.readiness_status` is `FAIL` or `WAITING`, or `ready_for_release` is false, return to §4.6 readiness handling. Do not start release.
 
-Missing readiness emit:
+Missing readiness: emit `implementation` waiting with `reason: "missing_readiness_contract"`.
 
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step implementation \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "reason": "missing_readiness_contract"}'
-```
-
-Emit `release` running before presenting release options:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step release \
-  --data '{"status": "running", "feature": "{FEATURE_ID}"}'
-```
+Emit `release` running per §PARENT-EMIT-DISCIPLINE table before presenting release options.
 
 Output: Feature ID, phase status table, registered artifacts, readiness artifact, readiness status, blockers, warnings, and manual items. Show manual checklist status before archive options: satisfied, not applicable, or still visible as release notes. Do not claim manual items are complete unless the readiness contract says so.
 
 **Release gate** (skip if AFK; AFK defaults to archive):
 
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type waiting_for_user \
-  --run-id {RUN_ID} \
-  --step release \
-  --data '{"prompt": "Add task, Archive, Review feedback from Arcade, Complete without archive, or Stop?", "context": "Readiness complete. Manual checklist and archive decision required."}'
-```
+Emit `waiting_for_user` on `release` with prompt "Add task, Archive, Review feedback from Arcade, Complete without archive, or Stop?" and readiness context.
 
 {% ask_user "Add task, Archive, Review feedback from Arcade, Complete without archive, or Stop?", options: "Add task", "Archive", "Review feedback from Arcade", "Complete without archive", "Stop" %}
-On Add task: collect `ADDED_TASK_REQUEST`, dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT={"source":"release_gate","request":"{ADDED_TASK_REQUEST}"}`, validate the same success contract as §2.3, emit `release` waiting with `archive_status = "deferred"`, emit `implementation` waiting with `reason = "release_add_task"` and the compact `added_task_request`, and STOP with `/build {FEATURE_ID}` resume instructions. Parent `release` MUST NOT complete until release is re-entered after implementation and readiness re-aggregation.
+On Add task: collect `ADDED_TASK_REQUEST`, dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT={"source":"release_gate","request":"{ADDED_TASK_REQUEST}"}`, validate the same success contract as §2.3. Emit `release` waiting with `archive_status: "deferred"`, `reason: "add_task_requested"`, and `added_task_request`. Emit `implementation` waiting with `reason: "release_add_task"` and `added_task_request`. STOP. Parent `release` MUST NOT complete until release is re-entered after implementation and readiness re-aggregation.
 
 {% dispatch_agent "rp1-dev:feature-tasker" %}
 FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=true, UPDATE_CONTEXT={"source":"release_gate","request":"{ADDED_TASK_REQUEST}"}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
-On Stop: emit `release` waiting with `archive_status = "deferred"` and STOP with `/build {FEATURE_ID}` resume instructions.
-On Complete without archive: emit `release` completed with `archive_status: "declined"` and STOP. Do not run `feature-archiver`. Do not claim archive completion.
-
-Add-task transition emits:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step release \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "archive_status": "deferred", "reason": "add_task_requested", "added_task_request": "{ADDED_TASK_REQUEST}"}'
-```
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step implementation \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "reason": "release_add_task", "added_task_request": "{ADDED_TASK_REQUEST}"}'
-```
-
-Stop emits:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step release \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "archive_status": "deferred"}'
-```
-
-Complete-without-archive emit:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step release \
-  --data '{"status": "completed", "feature": "{FEATURE_ID}", "archive_status": "declined"}'
-```
+On Stop: emit `release` waiting with `archive_status: "deferred"` and STOP with `/build {FEATURE_ID}` resume instructions.
+On Complete without archive: emit `release` completed per §PARENT-EMIT-DISCIPLINE table with `archive_status: "declined"` and STOP. Do not run `feature-archiver`.
 
 ### Archive
 
@@ -846,37 +523,12 @@ rp1 agent-tools emit \
 MODE=archive, FEATURE_ID={FEATURE_ID}, ARCHIVE_PATH={ARCHIVE_RETRY_PATH}, WORK_ROOT={workRoot}, SKIP_DOC_CHECK=false, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-Parse the `feature-archiver` response before completing release:
+Parse the `feature-archiver` response. Accept success from JSON with `status: "success"`, `mode: "archive"`, `archive_status: "completed"`, `archive_path`, and an `artifacts[]` entry beginning with `archives/features/` using `storageRoot: "work_dir"`. Require `registration_status: "registered"` since `WORKFLOW`/`RUN_ID` were passed.
+On failure (`needs_confirmation`, malformed, missing archive result/registration): do NOT emit `release` completed. If `registration_retry_required: true`, set `ARCHIVE_RETRY_PATH = response.archive_path`. Interactive: emit `release` waiting with `reason: "archive_incomplete"` and `archive_path`, STOP. AFK: emit `release` failed only when no recovery remains.
 
-- Accept success only from final `ARCHIVE_RESULT_JSON={...}` or a JSON object with `status = "success"`, `mode = "archive"`, `archive_status = "completed"`, `archive_path`, and an `artifacts[]` entry for the actual archived output.
-- The archived artifact path MUST begin with `archives/features/` and use `storageRoot = "work_dir"`.
-- In `/build`, require `registration_status = "registered"` because `WORKFLOW` and `RUN_ID` were passed to `feature-archiver`.
-- If the response is `needs_confirmation`, malformed, missing the archive result, missing archived artifact registration evidence, or reports an error, do NOT emit `release` completed.
-- If the response reports `registration_retry_required = true`, set `ARCHIVE_RETRY_PATH = response.archive_path` before emitting failure.
-- Interactive failure: emit `release` waiting with `reason = "archive_incomplete"` and `archive_path = "{ARCHIVE_RETRY_PATH}"`, then STOP.
-- AFK failure: emit `release` failed only when no recovery remains.
+Archive-incomplete: emit `release` waiting with `archive_status: "incomplete"`, `reason: "archive_incomplete"`, and `archive_path: "{ARCHIVE_RETRY_PATH}"`.
 
-Archive-incomplete emit:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step release \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}", "archive_status": "incomplete", "reason": "archive_incomplete", "archive_path": "{ARCHIVE_RETRY_PATH}"}'
-```
-
-After `feature-archiver` succeeds and registers the actual archived output, emit `release` completed:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step release \
-  --data '{"status": "completed", "feature": "{FEATURE_ID}", "archive_status": "completed", "archive_path": "{ARCHIVE_RESULT.archive_path}"}'
-```
+After `feature-archiver` succeeds and registers the actual archived output, emit `release` completed per §PARENT-EMIT-DISCIPLINE table with `archive_status: "completed"` and `archive_path`.
 
 ## §TERMINAL-STATES
 
@@ -890,16 +542,7 @@ rp1 agent-tools emit \
 | Unrecoverable agent failure | `failed` | failing parent phase |
 | AFK mode abort | `failed` | failing parent phase |
 
-On any unrecoverable failure, emit before exiting:
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step {FAILING_STEP} \
-  --data '{"status": "failed", "feature": "{FEATURE_ID}"}'
-```
+On any unrecoverable failure, emit per §PARENT-EMIT-DISCIPLINE table with `status: "failed"` on the failing parent phase.
 
 ## §ANTI-LOOP
 
