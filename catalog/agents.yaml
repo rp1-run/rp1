@@ -50,7 +50,7 @@ agents:
   - name: rp1-base:research-explorer
     description: "Deep exploration of codebases or web resources, returning structured JSON findings with evidence"
     plugin: base
-    last_checksum: 85a57aef63eea5423a1b547f6ea222590004457950bac79a57bed42ef727e696
+    last_checksum: e4146172d406ab1589940c2b5538fe84b0ecfb3dc2c49ab32fda05ae0bc6d069
   - name: rp1-base:research-reporter
     description: "Generates structured research reports with validated Mermaid diagrams from synthesis data"
     plugin: base

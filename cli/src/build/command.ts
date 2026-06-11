@@ -54,7 +54,10 @@ import type {
 	PlatformDefinition,
 } from "./platform-definitions.js";
 import { PLATFORM_DEFINITIONS } from "./platform-definitions.js";
-import { preprocessConditionals } from "./preprocessor.js";
+import {
+	preprocessConditionals,
+	resolveSharedIncludes,
+} from "./preprocessor.js";
 import { defaultRegistry } from "./registry.js";
 import type { BuildPlatform } from "./template-context.js";
 import {
@@ -612,8 +615,17 @@ export const buildPlatformPlugin = async (
 			continue;
 		}
 
-		const preprocessResult = await preprocessConditionals(
+		const includeResult = await resolveSharedIncludes(
 			ccSkill.content,
+			projectRoot,
+		);
+		if (E.isLeft(includeResult)) {
+			errors.push(formatError(includeResult.left, false));
+			continue;
+		}
+
+		const preprocessResult = await preprocessConditionals(
+			includeResult.right,
 			platform,
 		);
 		if (E.isLeft(preprocessResult)) {
@@ -793,8 +805,17 @@ export const buildPlatformPlugin = async (
 			continue;
 		}
 
-		const preprocessResult = await preprocessConditionals(
+		const agentIncludeResult = await resolveSharedIncludes(
 			ccAgent.content,
+			projectRoot,
+		);
+		if (E.isLeft(agentIncludeResult)) {
+			errors.push(formatError(agentIncludeResult.left, false));
+			continue;
+		}
+
+		const preprocessResult = await preprocessConditionals(
+			agentIncludeResult.right,
 			platform,
 		);
 		if (E.isLeft(preprocessResult)) {
