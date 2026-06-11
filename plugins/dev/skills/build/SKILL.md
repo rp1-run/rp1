@@ -553,23 +553,11 @@ Parse the `ToolResult` envelope into `cleanup_manifest_result`.
 
 ### §4.6 Verification And Readiness
 
-Invoke `code-checker` and `feature-verifier`. Include `comment-cleaner` only when `cleanup_manifest_result.data.status == "created"`, `cleanup_manifest_result.data.files > 0`, `cleanup_manifest_result.data.ownedLineCount > 0`, and `cleanup_manifest_result.data.manifestPath` is present. Do not dispatch comment-cleaner with branch, unstaged, commit-range, base-branch, mode, or commit parameters; the generated manifest is the only safe cleanup boundary.
+#### Step 1 — Resolve comment-cleaner participation
 
-{% dispatch_agent "rp1-dev:code-checker" %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}
-{% enddispatch_agent %}
+Evaluate the cleanup manifest result BEFORE dispatching any verification agent. Comment-cleaner participates only when ALL of: `cleanup_manifest_result.data.status == "created"`, `cleanup_manifest_result.data.files > 0`, `cleanup_manifest_result.data.ownedLineCount > 0`, and `cleanup_manifest_result.data.manifestPath` is present. Do not dispatch comment-cleaner with branch, unstaged, commit-range, base-branch, mode, or commit parameters; the generated manifest is the only safe cleanup boundary.
 
-{% dispatch_agent "rp1-dev:feature-verifier" %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
-{% enddispatch_agent %}
-
-If `cleanup_manifest_result` is created and non-empty:
-
-{% dispatch_agent "rp1-dev:comment-cleaner" %}
-CHANGE_MANIFEST={cleanup_manifest_result.data.manifestPath}, CODE_ROOT={codeRoot}
-{% enddispatch_agent %}
-
-Otherwise set the `comment_cleaner` phase result yourself:
+If comment-cleaner will NOT participate, set the `comment_cleaner` phase result now (before dispatch):
 
 ```json
 {
@@ -605,7 +593,27 @@ Otherwise set the `comment_cleaner` phase result yourself:
 }
 ```
 
-Then aggregate with the real cleaner response or the synthetic warning result:
+#### Step 2 — Parallel dispatch
+
+**CRITICAL**: Spawn ALL participating verification agents in a SINGLE message. Always include `code-checker` and `feature-verifier`. Include `comment-cleaner` only when resolved as participating in Step 1.
+
+{% dispatch_agent "rp1-dev:code-checker", background %}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}
+{% enddispatch_agent %}
+
+{% dispatch_agent "rp1-dev:feature-verifier", background %}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
+
+If comment-cleaner participates (resolved in Step 1):
+
+{% dispatch_agent "rp1-dev:comment-cleaner", background %}
+CHANGE_MANIFEST={cleanup_manifest_result.data.manifestPath}, CODE_ROOT={codeRoot}
+{% enddispatch_agent %}
+
+#### Step 3 — Wait for all before aggregation
+
+Wait for ALL dispatched verification agents to complete before proceeding. Do not begin aggregation until every agent result is available. Collect each agent's response into its corresponding slot below.
 
 Build `PHASE_RESULTS_JSON` with normalized or legacy producer outputs:
 

@@ -347,6 +347,8 @@ Do not dispatch comment-cleaner with branch, unstaged, commit-range, base-branch
 git push -u origin {branch}
 ```
 
+**Non-serializing when push is skipped**: When `GIT_PUSH=false`, §4.4 and §OUTPUT proceed immediately -- there is no push to wait for. The post-implementation checkpoint emit and artifact registration emit are independent of push and do not serialize behind it.
+
 ### §4.4 Post-Implementation Checkpoint
 
 **SKIP ENTIRELY if**: `AFK=true` OR `CONFIRM_PLAN=false`
@@ -430,7 +432,7 @@ rp1 agent-tools emit \
 
 **DO**:
 - Spawn agents for every phase (planner, task-builder, reviewer)
-- Wait for each spawned agent to complete before proceeding
+- Wait for each spawned agent to complete before proceeding, UNLESS agents are dispatched as an explicitly-marked parallel group (`background` dispatch tag), in which case wait for the entire group to complete before proceeding
 - Prompt user for the plan checkpoint whenever `AFK=false`
 - Treat the plan checkpoint as a hard gate when `AFK=false`
 - Treat the post-implementation checkpoint as a hard gate when `AFK=false` AND `CONFIRM_PLAN=true`

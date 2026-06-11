@@ -17,11 +17,11 @@ const readProjectFile = async (relativePath: string): Promise<string> =>
 	readFile(join(projectRoot, relativePath), "utf-8");
 
 const extractDispatches = (content: string, agentName: string): string[] => {
-	const start = `{% dispatch_agent "${agentName}" %}`;
-	return content
-		.split(start)
-		.slice(1)
-		.map((part) => part.split("{% enddispatch_agent %}")[0] ?? "");
+	const pattern = new RegExp(
+		`{% dispatch_agent "${agentName}"(?:, \\w+)? %}([\\s\\S]*?){% enddispatch_agent %}`,
+		"g",
+	);
+	return [...content.matchAll(pattern)].map((match) => match[1] ?? "");
 };
 
 const extractArtifactPayloads = (content: string): string[] =>
