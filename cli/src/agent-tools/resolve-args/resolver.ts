@@ -166,15 +166,14 @@ const parseFrontmatter = (
 };
 
 /**
- * Check whether a token is a recognized flag or alias that should act as a
- * boundary during positional capture. Only tokens matching a declared
- * argument name (via --name or --name=value) or a declared alias terminate
- * capture; unknown --prefixed tokens are treated as prose.
+ * Check whether a token is a recognized flag that should act as a boundary
+ * during positional capture. Only dash-prefixed tokens matching a declared
+ * argument name (via --name or --name=value) terminate capture; bare words
+ * and unknown --prefixed tokens are treated as prose.
  */
 const isRecognizedFlag = (
 	token: string,
 	schema: readonly ArgumentDefinition[],
-	aliasMap: Map<string, string>,
 ): boolean => {
 	if (token.startsWith("--")) {
 		const raw = token.slice(2);
@@ -183,7 +182,7 @@ const isRecognizedFlag = (
 		const upperName = flagName.replace(/-/g, "_").toUpperCase();
 		return schema.some((a) => a.name === upperName);
 	}
-	return aliasMap.has(token.toLowerCase());
+	return false;
 };
 
 /**
@@ -196,8 +195,10 @@ const isRecognizedFlag = (
  * that are not recognized trailing flags are collected into that positional.
  *
  * Recognized-flag boundary: both greedy and variadic capture loops stop only
- * at tokens matching declared argument names or aliases, so embedded
- * double-dashes in prose (e.g. "--broken") do not terminate capture.
+ * at dash-prefixed tokens (`--name` or `--name=value`) matching a declared
+ * argument name, so bare words and embedded double-dashes in prose
+ * (e.g. "--broken") do not terminate capture. Bare-word aliases only bind
+ * as standalone trailing tokens after all positional arguments are consumed.
  */
 export const parseRawArgs = (
 	rawArgs: string,
@@ -288,10 +289,7 @@ export const parseRawArgs = (
 				const chunks = [token];
 				i++;
 
-				while (
-					i < tokens.length &&
-					!isRecognizedFlag(tokens[i], schema, aliasMap)
-				) {
+				while (i < tokens.length && !isRecognizedFlag(tokens[i], schema)) {
 					chunks.push(tokens[i]);
 					i++;
 				}
@@ -305,10 +303,7 @@ export const parseRawArgs = (
 				const chunks = [token];
 				i++;
 
-				while (
-					i < tokens.length &&
-					!isRecognizedFlag(tokens[i], schema, aliasMap)
-				) {
+				while (i < tokens.length && !isRecognizedFlag(tokens[i], schema)) {
 					chunks.push(tokens[i]);
 					i++;
 				}
@@ -318,13 +313,17 @@ export const parseRawArgs = (
 				continue;
 			}
 
-			// Check for alias match
-			const aliasTarget = aliasMap.get(token.toLowerCase());
-			if (aliasTarget) {
-				result[aliasTarget] = true;
-			} else if (positionalArg) {
+			// Positional assignment takes precedence over bare-word aliases.
+			// Bare-word aliases only bind as standalone trailing tokens after
+			// all positional arguments have been consumed.
+			if (positionalArg) {
 				result[positionalArg.name] = token;
 				positionalIndex++;
+			} else {
+				const aliasTarget = aliasMap.get(token.toLowerCase());
+				if (aliasTarget) {
+					result[aliasTarget] = true;
+				}
 			}
 			i++;
 		}

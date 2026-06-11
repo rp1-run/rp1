@@ -149,9 +149,40 @@ describe("parseRawArgs", () => {
 		expect(result).toEqual({ FEATURE_ID: "my-feature", AFK: true });
 	});
 
-	test("parses alias trigger", () => {
+	test("bare alias in greedy capture is treated as prose, not flag trigger", () => {
 		const result = parseRawArgs('my-feature "no prompts"', schema);
-		expect(result).toEqual({ FEATURE_ID: "my-feature", AFK: true });
+		expect(result).toEqual({ FEATURE_ID: "my-feature no prompts" });
+	});
+
+	test("bare alias as standalone trailing token after positionals are consumed", () => {
+		const multiRequiredSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "FEATURE_ID",
+				type: "string",
+				required: true,
+				description: "Feature ID",
+			},
+			{
+				name: "TASK_IDS",
+				type: "string",
+				required: true,
+				description: "Task IDs",
+			},
+			{
+				name: "AFK",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Non-interactive",
+				aliases: ["afk", "no prompts"],
+			},
+		];
+		const result = parseRawArgs("my-feature T1,T2 afk", multiRequiredSchema);
+		expect(result).toEqual({
+			FEATURE_ID: "my-feature",
+			TASK_IDS: "T1,T2",
+			AFK: true,
+		});
 	});
 
 	test("returns empty for empty input", () => {
@@ -301,6 +332,58 @@ describe("parseRawArgs", () => {
 		});
 	});
 
+	test("bare alias words mid-prose do not terminate greedy capture", () => {
+		const aliasRichSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "REQUEST",
+				type: "string",
+				required: true,
+				description: "User request",
+			},
+			{
+				name: "AFK",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Non-interactive",
+				aliases: ["afk"],
+			},
+			{
+				name: "REVIEW",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Review changes",
+				aliases: ["review"],
+			},
+			{
+				name: "GIT_COMMIT",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Commit changes",
+				aliases: ["commit"],
+			},
+			{
+				name: "GIT_PUSH",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Push branch",
+				aliases: ["push"],
+			},
+		];
+
+		const result = parseRawArgs(
+			"fix the commit message review for the push notification feature",
+			aliasRichSchema,
+		);
+		expect(result).toEqual({
+			REQUEST:
+				"fix the commit message review for the push notification feature",
+		});
+	});
+
 	test("greedy capture does not activate with multiple required string args", () => {
 		const multiRequiredSchema: readonly ArgumentDefinition[] = [
 			{
@@ -328,6 +411,112 @@ describe("parseRawArgs", () => {
 			FEATURE_ID: "my-feature",
 			TASK_IDS: "T1,T2",
 			AFK: true,
+		});
+	});
+
+	test("trailing double-dash flags parse after alias-containing prose", () => {
+		const aliasRichSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "REQUEST",
+				type: "string",
+				required: true,
+				description: "User request",
+			},
+			{
+				name: "AFK",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Non-interactive",
+				aliases: ["afk"],
+			},
+			{
+				name: "GIT_COMMIT",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Commit changes",
+				aliases: ["commit"],
+			},
+			{
+				name: "REVIEW",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Review changes",
+				aliases: ["review"],
+			},
+		];
+
+		const result = parseRawArgs(
+			"fix the commit review logic on the afk handler --git-commit --review",
+			aliasRichSchema,
+		);
+		expect(result).toEqual({
+			REQUEST: "fix the commit review logic on the afk handler",
+			GIT_COMMIT: true,
+			REVIEW: true,
+		});
+	});
+
+	test("KEY=VALUE tokens mid-prose do not bind as flags", () => {
+		const result = parseRawArgs(
+			"set MODE=fast in the config file for review",
+			schema,
+		);
+		expect(result).toEqual({
+			FEATURE_ID: "set MODE=fast in the config file for review",
+		});
+	});
+
+	test("multi-alias schema with prose containing all alias words resolves full text", () => {
+		const aliasRichSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "REQUEST",
+				type: "string",
+				required: true,
+				description: "User request",
+			},
+			{
+				name: "AFK",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Non-interactive",
+				aliases: ["afk"],
+			},
+			{
+				name: "REVIEW",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Review changes",
+				aliases: ["review"],
+			},
+			{
+				name: "GIT_COMMIT",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Commit changes",
+				aliases: ["commit"],
+			},
+			{
+				name: "GIT_PUSH",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Push branch",
+				aliases: ["push"],
+			},
+		];
+
+		const result = parseRawArgs(
+			"review the commit message then push afk notification changes",
+			aliasRichSchema,
+		);
+		expect(result).toEqual({
+			REQUEST: "review the commit message then push afk notification changes",
 		});
 	});
 });
