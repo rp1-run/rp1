@@ -58,14 +58,12 @@ Turn a completed PRD or oversized feature requirements artifact into a durable, 
 
 ## §1 KB Loading
 
-Read if present:
+{% include_shared "kb-progressive-loading.md" %}
 
-1. `{KB_ROOT}/index.md`
-2. `{KB_ROOT}/architecture.md`
-3. `{KB_ROOT}/modules.md`
-4. `{KB_ROOT}/patterns.md`
-
-If any are missing: warn and continue with best-effort source analysis.
+Additional files:
+- `{KB_ROOT}/architecture.md`
+- `{KB_ROOT}/modules.md`
+- `{KB_ROOT}/patterns.md`
 
 ## §2 Source Resolution
 

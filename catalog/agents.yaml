@@ -126,7 +126,7 @@ agents:
   - name: rp1-dev:feature-architect
     description: "Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester."
     plugin: dev
-    last_checksum: feffec095106b9f9c97b81f59c596c33bc685d8f8d83866692d1e12eda8becbc
+    last_checksum: 81ea6c486d6a9f7493084eb2913d445996dbfb34fd327024691de3603f370b1b
   - name: rp1-dev:feature-archiver
     description: "Archives completed features to .rp1/work/archives/features/ or restores archived features back to active features directory"
     plugin: dev
@@ -138,7 +138,7 @@ agents:
   - name: rp1-dev:feature-requirement-gatherer
     description: "Transforms high-level feature concepts into structured requirements specifications. Invoked by /build workflow."
     plugin: dev
-    last_checksum: ee29437bfcd14690bb08bd43a11e5c5a0285ce2a8753f248f300cecd4b069f96
+    last_checksum: 632f70b1b972c1d9e9595178f5a27b9c2a48ac6d22c0b916b20668c0eb0ab4ea
   - name: rp1-dev:feature-tasker
     description: "Generates development tasks from design specifications with support for incremental updates that preserve completed work"
     plugin: dev
@@ -150,11 +150,11 @@ agents:
   - name: rp1-dev:hypothesis-tester
     description: "Validates design hypotheses through code experiments, codebase analysis, and external research"
     plugin: dev
-    last_checksum: 682062f9d3ecab420f0fecc50136722d881132944eb9c79f7c6aea1dce478070
+    last_checksum: 70ce4213101729216de6491776ead660f99c64f28df717fb4ae2fdb6afa747e3
   - name: rp1-dev:phase-planner
     description: "Decomposes a planning source into a source-adjacent phase-plan artifact and refreshes source backlinks."
     plugin: dev
-    last_checksum: a1659807c2cfe5fd7c6b52a5092475c561e0d97b43846ce980c45bd71da6fbc5
+    last_checksum: 179a848ffa5ad417e55a352b00d8f5d3873d51bb2f2630b15b519d3d5400c2ae
   - name: rp1-dev:pr-comment-deduplicator
     description: "Deduplicates PR review comments against existing bot and human comments"
     plugin: dev

@@ -73,12 +73,10 @@ Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
 
 ## 1. KB Loading
 
-Read via Read tool:
+{% include_shared "kb-progressive-loading.md" %}
 
-1. `{KB_ROOT}/index.md` - project structure, domain
-2. `{KB_ROOT}/concept_map.md` - domain terminology
-
-If KB missing: warn, continue w/ best-effort.
+Additional files:
+- `{KB_ROOT}/concept_map.md` - domain terminology
 
 ## 2. Phase Context Resolution
 

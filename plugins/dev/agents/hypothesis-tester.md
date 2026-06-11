@@ -60,9 +60,10 @@ This agent reads and updates existing documents -- it does not create them. The 
 
 ## §KB: Load Knowledge Base
 
-1. Read `{KB_ROOT}/index.md`
-2. Read `{KB_ROOT}/architecture.md` (for system design validation)
-3. Skip if `{KB_ROOT}/` missing
+{% include_shared "kb-progressive-loading.md" %}
+
+Additional files:
+- `{KB_ROOT}/architecture.md` - system design validation
 
 ## §PROC: Validation Workflow
 

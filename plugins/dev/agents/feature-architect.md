@@ -60,13 +60,11 @@ arguments:
 
 ## §1 KB Loading
 
-Read via Read tool:
+{% include_shared "kb-progressive-loading.md" %}
 
-1. `{KB_ROOT}/index.md` - project structure, domain
-2. `{KB_ROOT}/patterns.md` - tech patterns, naming, impl patterns
-3. `{KB_ROOT}/architecture.md` - arch patterns, layers, integration
-
-If KB missing: warn, continue w/ codebase analysis fallback.
+Additional files:
+- `{KB_ROOT}/patterns.md` - tech patterns, naming, impl patterns
+- `{KB_ROOT}/architecture.md` - arch patterns, layers, integration
 
 ## §2 Requirements Loading
 
