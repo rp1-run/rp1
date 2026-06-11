@@ -145,7 +145,7 @@ rp1 agent-tools emit \
 **Spawn agent**:
 
 {% dispatch_agent "rp1-dev:build-fast-planner" %}
-DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, WORKFLOW=build-fast, RUN_ID={RUN_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}
+DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, WORKFLOW=build-fast, RUN_ID={RUN_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}
 {% enddispatch_agent %}
 
 **Parse response**: Extract `scope`, `plan_summary`, `files_affected`, `reasoning`, `artifact_path`, `artifact_relative_path`, `task_count`, `task_ids`, plus optional `redirect_target` and `redirect_command`.
@@ -262,6 +262,7 @@ RUN_ID={RUN_ID}
 {% dispatch_agent "rp1-dev:task-reviewer" %}
 KB_ROOT={kbRoot}
 WORK_ROOT={workRoot}
+CODE_ROOT={codeRoot}
 QUICK_BUILD_PATH={workRoot}/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}

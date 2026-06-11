@@ -94,7 +94,7 @@ agents:
   - name: rp1-dev:build-fast-planner
     description: "Quick-iteration workflow planner. Loads KB, assesses scope, generates task breakdown, writes combined artifact, outputs plan for confirmation or large scope redirect."
     plugin: dev
-    last_checksum: 60df3d5dd93432483296a9934ece57ce9704f774d14d8869ff4812f2ac90fff5
+    last_checksum: 3d2f457a4815d14b28c3ee5434d8149db2011a606b0268a7e418e419a1101f90
   - name: rp1-dev:build-task-grouper
     description: "Batches parsed tasks into execution units based on complexity rules"
     plugin: dev
@@ -126,7 +126,7 @@ agents:
   - name: rp1-dev:feature-architect
     description: "Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester."
     plugin: dev
-    last_checksum: 81ea6c486d6a9f7493084eb2913d445996dbfb34fd327024691de3603f370b1b
+    last_checksum: 35743bb7e093c86f8fc7cace4a67d5cd6523777327e7ef2d11c11854311f5a9d
   - name: rp1-dev:feature-archiver
     description: "Archives completed features to .rp1/work/archives/features/ or restores archived features back to active features directory"
     plugin: dev
@@ -150,7 +150,7 @@ agents:
   - name: rp1-dev:hypothesis-tester
     description: "Validates design hypotheses through code experiments, codebase analysis, and external research"
     plugin: dev
-    last_checksum: 70ce4213101729216de6491776ead660f99c64f28df717fb4ae2fdb6afa747e3
+    last_checksum: a28027850e007d57843778d28c5b8ee5b75e5e4bc5b5743e9aa7d607508d5cf3
   - name: rp1-dev:phase-planner
     description: "Decomposes a planning source into a source-adjacent phase-plan artifact and refreshes source backlinks."
     plugin: dev

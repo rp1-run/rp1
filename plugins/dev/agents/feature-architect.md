@@ -32,6 +32,11 @@ arguments:
     type: string
     required: true
     description: "Canonical work root returned by the parent workflow bootstrap"
+  - name: CODE_ROOT
+    type: string
+    required: false
+    default: ""
+    description: "Root directory for source-code reads and writes (worktree-aware)"
   - name: WORKFLOW
     type: string
     required: false
@@ -56,7 +61,12 @@ arguments:
 <update_context>{{UPDATE_CONTEXT from prompt}}</update_context>
 <kb_root>{{KB_ROOT from prompt}}</kb_root>
 <work_root>{{WORK_ROOT from prompt}}</work_root>
+<code_root>{{CODE_ROOT from prompt}}</code_root>
 **Feature dir**: `{WORK_ROOT}/features/{FEATURE_ID}/`
+
+## Code Root Directive
+
+When `CODE_ROOT` is non-empty, resolve all source-file exploration (`Glob`, `Read` for codebase pattern analysis) against `CODE_ROOT`. Work artifacts use `WORK_ROOT`; KB reads use `KB_ROOT`. When `CODE_ROOT` is empty, fall back to the current working directory.
 
 ## §1 KB Loading
 

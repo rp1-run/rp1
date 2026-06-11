@@ -15,6 +15,11 @@ arguments:
     type: string
     required: true
     description: "Canonical work root returned by the parent workflow bootstrap"
+  - name: CODE_ROOT
+    type: string
+    required: false
+    default: ""
+    description: "Root directory for source-code reads and writes (worktree-aware)"
   - name: WORKFLOW
     type: string
     required: false
@@ -42,6 +47,14 @@ Analyze request, load KB, assess scope, generate task breakdown. Write combined 
 <work_root>
 {{WORK_ROOT from prompt}}
 </work_root>
+
+<code_root>
+{{CODE_ROOT from prompt}}
+</code_root>
+
+## Code Root Directive
+
+When `CODE_ROOT` is non-empty, resolve all source-file reads (`Glob`, `Grep`, `Read`) against `CODE_ROOT`. Work artifacts use `WORK_ROOT`; KB reads use `KB_ROOT`. When `CODE_ROOT` is empty, fall back to the current working directory.
 
 ## 1. KB Loading
 
