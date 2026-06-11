@@ -107,9 +107,7 @@ Release readiness rules:
 
 ## §ARTIFACT
 
-1. Read `rp1-base:artifact-templates` SKILL.md.
-2. Locate row: Producer `build-verify-aggregator`, Artifact `build-readiness.md`.
-3. Read `templates/build-verify-aggregator/build-readiness.md`.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/build-verify-aggregator/build-readiness.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
 4. Write `{WORK_ROOT}/features/{FEATURE_ID}/build-readiness.md`.
 5. Lead with readiness status, blockers, warnings, manual items, requirement evidence.
 6. Include every required component, including missing or failed components.

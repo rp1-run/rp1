@@ -53,9 +53,8 @@ DO:
 
 ## §FMT: Document Format Reference
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `hypothesis-tester` and **Artifact** = `hypothesis-document.md`.
-2. Read the template file at the listed **Template Path** for format reference.
-3. When updating the document, maintain the template's structure. Append findings to the `## Validation Findings` section.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/hypothesis-tester/hypothesis-document.md` for format reference (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. When updating the document, maintain the template's structure. Append findings to the `## Validation Findings` section.
 
 This agent reads and updates existing documents -- it does not create them. The initial document is created by feature-architect.
 

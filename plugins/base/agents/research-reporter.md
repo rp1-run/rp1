@@ -249,9 +249,8 @@ For failed diagrams, create a fallback block:
 
 ### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `research-reporter` and **Artifact** = `research-report.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for output. Fill placeholders per guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/research-reporter/research-report.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for output. Fill placeholders per guidance below.
 
 If the template frontmatter includes an `emit_hint` and this agent has no existing emit logic, use it for artifact registration.
 

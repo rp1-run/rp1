@@ -210,9 +210,8 @@ Write the phase plan using the canonical template.
 
 These two reads are the only allowed scope exception outside `{KB_ROOT}` and `{WORK_ROOT}`. Treat them as read-only schema inputs, not planning sources.
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `phase-planner` and **Artifact** = `phase-plan.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use the template structure exactly.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/phase-planner/phase-plan.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use the template structure exactly.
 
 ### Content Guidance
 

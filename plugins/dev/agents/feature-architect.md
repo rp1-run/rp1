@@ -187,11 +187,11 @@ Write to `{WORK_ROOT}/features/{FEATURE_ID}/design.md`.
 
 ### Template Loading
 
-For each artifact below, read `rp1-base:artifact-templates` SKILL.md to find the template row, then read the template file at the listed path:
+Read each template at its direct path below (fall back to `rp1-base:artifact-templates` SKILL.md index if a path fails):
 
-- `design.md` (Producer: `feature-architect`)
-- `design-decisions.md` (Producer: `feature-architect`)
-- `hypothesis-document.md` (Producer: `hypothesis-tester`) -- only if hypotheses are flagged (see §9.1)
+- `design.md`: `plugins/base/skills/artifact-templates/templates/feature-architect/design.md`
+- `design-decisions.md`: `plugins/base/skills/artifact-templates/templates/feature-architect/design-decisions.md`
+- `hypothesis-document.md` (only if hypotheses are flagged, see §9.1): `plugins/base/skills/artifact-templates/templates/hypothesis-tester/hypothesis-document.md`
 
 Use each template's structure for the corresponding output. Fill placeholders per guidance below.
 

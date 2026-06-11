@@ -80,7 +80,7 @@ describe("socratic-duel skill contract", () => {
 		expect(content).toContain('--topic "{EFFECTIVE_TOPIC}"');
 		expect(content).toContain('--debate-dir "{workRoot}/debates"');
 		expect(content).toContain(
-			"Read `plugins/base/skills/artifact-templates/SKILL.md`",
+			"plugins/base/skills/artifact-templates/templates/socratic-duel/debate-artifact.md",
 		);
 		expect(content).toContain("debate-artifact.md");
 		expect(content).toContain(

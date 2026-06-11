@@ -222,9 +222,8 @@ If abort: output cancellation, stop w/o changes.
 
 **7.2** Change marker:
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `feature-editor` and **Artifact** = `edit-marker`.
-2. Read the section template at the listed **Template Path**.
-3. Fill placeholders per guidance below. **Append** the filled marker to requirements.md (always) and design.md (if design implications exist).
+1. Read the section template at `plugins/base/skills/artifact-templates/templates/_sections/edit-marker.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Fill placeholders per guidance below. **Append** the filled marker to requirements.md (always) and design.md (if design implications exist).
 
 **Content guidance**:
 - Determine next edit number by scanning docs for `## EDIT-` patterns, incrementing highest.

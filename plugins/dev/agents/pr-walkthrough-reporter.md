@@ -91,10 +91,8 @@ Do not read `.rp1/work/pr-reviews/` or any existing generated review artifact. D
 
 Use the canonical template:
 
-1. Read `rp1-base:artifact-templates` SKILL.md.
-2. Locate the row where **Producer** = `pr-walkthrough-reporter` and **Artifact** = `pr-walkthrough.md`.
-3. Read the template file at the listed **Template Path**.
-4. Use the template's frontmatter, slide markers, slide metadata blocks, notes marker, vertical-depth structure, Evidence Index rules, section order, and path contract. The template is flexible; fill placeholders with concrete markdown and remove any unused placeholder text.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/pr-walkthrough-reporter/pr-walkthrough.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use the template's frontmatter, slide markers, slide metadata blocks, notes marker, vertical-depth structure, Evidence Index rules, section order, and path contract. The template is flexible; fill placeholders with concrete markdown and remove any unused placeholder text.
 
 Missing template is a blocking error. Do not write a partial artifact if the template cannot be read.
 

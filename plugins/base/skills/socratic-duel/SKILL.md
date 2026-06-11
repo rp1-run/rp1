@@ -56,7 +56,7 @@ metadata:
 §BOUNDARY
 - Backend owns participant registration, active lock status, lock claim, lock refresh, lock expiry, lock release, source/topic identity, and debate artifact path allocation.
 - Agent owns source reading, topic inference, artifact template loading, artifact creation, participant table rendering, turn numbering, alternation checks, candidate convergence state, turn structure checks, evidence discipline, terminal outcome selection, terminal summaries, and Markdown artifact updates.
-- Agent owns template selection by loading `/rp1-base:artifact-templates`; do not implement or expect TypeScript template rendering.
+- Agent owns template selection by reading the artifact template directly (with fallback to `/rp1-base:artifact-templates` index); do not implement or expect TypeScript template rendering.
 - Backend `status` is not debate truth. Treat the debate artifact as the debate record.
 - The source document is not the artifact. Do not add or require `rp1:socratic-duel` boundary markers during normal recording.
 - This base skill MUST NOT call rp1-dev commands or subagents.
@@ -237,9 +237,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
      ```
    - Parse tool result data for `duel_id`, `participant_id`, `participant_count`, `status`, `source_path`, `topic`, `topic_slug`, `debate_path`, and `next_step`.
    - Emit `participant_registered` with `--unit participant:{participant_id}`. Do not emit `artifact_registered` yet -- defer until the first Write creates `{debate_path}` in `debating`.
-   - Read `plugins/base/skills/artifact-templates/SKILL.md`.
-   - Locate row where **Producer** = `socratic-duel` and **Artifact** = `debate-artifact.md`.
-   - Read the listed template path under `plugins/base/skills/artifact-templates/`.
+   - Read the template at `plugins/base/skills/artifact-templates/templates/socratic-duel/debate-artifact.md` (fall back to `plugins/base/skills/artifact-templates/SKILL.md` index if the direct path fails).
    - Do not create the debate artifact yet unless this participant holds the active lease.
    - If `participant_count` is fewer than 2, transition to `waiting_for_participant`; otherwise transition to `debating`.
 

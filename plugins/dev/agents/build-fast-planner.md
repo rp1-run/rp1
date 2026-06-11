@@ -144,9 +144,8 @@ Write the file to `{WORK_ROOT}/quick-builds/{filename}`.
 
 #### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `build-fast-planner` and **Artifact** = `quick-build.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for the artifact. Fill placeholders per guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/build-fast-planner/quick-build.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for the artifact. Fill placeholders per guidance below.
 
 #### Content Guidance
 

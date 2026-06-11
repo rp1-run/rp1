@@ -187,9 +187,8 @@ Write to `{WORK_ROOT}/features/{FEATURE_ID}/requirements.md`.
 
 ### 6.1 Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `feature-requirement-gatherer` and **Artifact** = `requirements.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for output. Fill placeholders per guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/feature-requirement-gatherer/requirements.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for output. Fill placeholders per guidance below.
 
 ### 6.2 Content Guidance
 

@@ -394,9 +394,8 @@ Any of these trigger FAILURE:
 
 ### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `task-reviewer` and **Artifact** = `verification`.
-2. Read the section template at the listed **Template Path** (under `templates/_sections/`).
-3. The template contains both SUCCESS and FAILURE variants. Apply the appropriate variant based on the verdict. **Append** the filled section to the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) -- do not create a standalone document.
+1. Read the section template at `plugins/base/skills/artifact-templates/templates/_sections/verification.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. The template contains both SUCCESS and FAILURE variants. Apply the appropriate variant based on the verdict. **Append** the filled section to the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) -- do not create a standalone document.
 
 **Content guidance**:
 - Use 4-space indentation AND blank lines between major sections (Implementation Summary, Validation Summary).

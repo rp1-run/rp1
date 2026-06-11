@@ -203,9 +203,8 @@ Your investigation must produce two outputs:
 
 ### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `bug-investigator` and **Artifact** = `investigation-report.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for the report. Fill placeholders per guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/bug-investigator/investigation-report.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for the report. Fill placeholders per guidance below.
 
 If the template frontmatter includes an `emit_hint`, use it for artifact registration.
 

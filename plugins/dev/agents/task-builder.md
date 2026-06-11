@@ -363,9 +363,8 @@ Mark each task complete in the Tasks section: `- [ ]` -> `- [x]`
 
 Add immediately after task line (4-space indent, blank lines between sections).
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `task-builder` and **Artifact** = `implementation-summary`.
-2. Read the section template at the listed **Template Path** (under `templates/_sections/`).
-3. Fill placeholders per guidance below. **Append** the filled section after the task line in the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) -- do not create a standalone document.
+1. Read the section template at `plugins/base/skills/artifact-templates/templates/_sections/implementation-summary.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Fill placeholders per guidance below. **Append** the filled section after the task line in the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) -- do not create a standalone document.
 
 **Content guidance**:
 - Use 4-space indentation for all summary content (nests under task checkbox line).

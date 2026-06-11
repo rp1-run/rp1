@@ -220,9 +220,8 @@ After every task resolution (commit, skip, or refine cycle completion), write or
 
 #### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `speedrun` and **Artifact** = `session-log.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for the session log. Fill per guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/speedrun/session-log.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for the session log. Fill per guidance below.
 
 #### Content Guidance
 

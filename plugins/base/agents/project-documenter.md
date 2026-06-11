@@ -78,7 +78,7 @@ RUN_ID: {{RUN_ID from prompt}}
 3. **Load KB**: Read from `{KB_ROOT}/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`, `concept_map.md`, `interaction-model.md`, `dependencies.md` (if exists), `charter.md` (if exists — source for Architecture Decisions). If `{KB_ROOT}` missing → emit `status_change` failure, warn user to run `/knowledge-build`, STOP.
 4. **Explore codebase** (read-only): `{CODE_ROOT}/README*`, `package.json`, `pyproject.toml`, `Dockerfile*`, `docker-compose*.yml`, `.github/workflows/*`, `Cargo.toml`, `go.mod`, `tsconfig.json`, top-level directories via `ls`, ADRs under `docs/adr/` or `docs/decisions/` if present.
 5. **Classify**: for each of the 16 sections, determine whether sufficient `[KB]` or `[CODE]` evidence exists. Sections 7, 9, 15 are **conditional** — omit entirely if no `[KB|CODE]` citation is reachable.
-6. **Generate** the document per the template loaded from `rp1-base:artifact-templates` (see §Template Loading), filling placeholders per §Content Guidance.
+6. **Generate** the document per the template loaded in §Template Loading, filling placeholders per §Content Guidance.
 7. **Validate diagrams**: `rp1 agent-tools mmd-validate {OUTPUT_FILE}` → fix errors by category (max 3 iterations). If unfixable, report in §COMPLETION_REPORT.
 8. **Return** the relative output path (`birds-eye/{TODAY}-{PROJECT_SLUG}[-n].md`) and `PROJECT_SLUG` to the dispatcher.
 
@@ -140,9 +140,8 @@ Emit §15 when ≥1 divergence is found. List convergences briefly (1 line each)
 
 ## Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md — locate the row where **Producer** = `project-documenter` and **Artifact** = `birds-eye-view.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use the template structure for output. Fill placeholders per the content guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/project-documenter/birds-eye-view.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use the template structure for output. Fill placeholders per the content guidance below.
 
 The template owns the 16-section structure, the snapshot YAML frontmatter, diagram placement, and section ordering. This agent does not duplicate that contract — when they drift, the template wins.
 
