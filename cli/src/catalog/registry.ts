@@ -387,26 +387,22 @@ export const renderCatalogMarkdown = (
 export const renderInitSkillAwarenessBlock = (
 	entries: readonly CatalogRenderableEntry[],
 ): string => {
+	const pluginPrefixes = [
+		...new Set(entries.map((entry) => `rp1-${entry.plugin}`)),
+	].sort();
 	const lines: string[] = [];
-	lines.push("### Skill Categories");
-	lines.push("| Category | Skills | Suggest When |");
-	lines.push("|----------|--------|--------------|");
-
-	const groupedEntries = groupCatalogEntriesByCategory(entries);
-
-	for (const category of CATEGORY_ORDER) {
-		const categoryEntries = groupedEntries.get(category);
-		if (!categoryEntries || categoryEntries.length === 0) {
-			continue;
-		}
-
-		const skillNames = categoryEntries
-			.map((entry) => `/${entry.name}`)
-			.join(", ");
-		lines.push(
-			`| ${CATEGORY_LABELS[category]} | ${skillNames} | ${CATEGORY_TRIGGERS[category]} |`,
-		);
-	}
-
+	lines.push(
+		`Installed plugins: ${pluginPrefixes.join(", ")}. Run \`/guide\` to discover skills by task.`,
+	);
+	lines.push("");
+	lines.push(
+		"- Suggest at most 1 skill per turn: name, one-line reason, offer to run.",
+	);
+	lines.push(
+		"- Skip if the user declined this session or a workflow is already running.",
+	);
+	lines.push(
+		"- Only suggest when there is a clear match to the user's current activity.",
+	);
 	return lines.join("\n");
 };

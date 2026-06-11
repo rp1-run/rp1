@@ -223,10 +223,11 @@ describe("catalog registry", () => {
 			filterCatalogEntriesByScope(entries, "distributable"),
 		);
 
-		expect(renderedBlock).toContain("### Skill Categories");
-		expect(renderedBlock).toContain("| Development | /build |");
-		expect(renderedBlock).toContain("| Knowledge | /alpha |");
+		expect(renderedBlock).toContain("Installed plugins: rp1-base, rp1-dev.");
+		expect(renderedBlock).toContain("/guide");
+		expect(renderedBlock).toContain("Suggest at most 1 skill per turn");
 		expect(renderedBlock).not.toContain("tersify-prompt");
+		expect(renderedBlock).not.toContain("### Skill Categories");
 	});
 
 	test("defaults userInvocable to true when user_invocable is absent from metadata", async () => {
@@ -345,7 +346,7 @@ describe("catalog registry", () => {
 		expect(catalog).not.toContain("/templates");
 		expect(awareness).not.toContain("/templates");
 		expect(catalog).toContain("/alpha");
-		expect(awareness).toContain("/alpha");
+		expect(awareness).toContain("rp1-base");
 	});
 
 	test("reports missing discovery metadata instead of silently omitting skills", async () => {
