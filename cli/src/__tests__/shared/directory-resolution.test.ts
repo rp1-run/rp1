@@ -350,7 +350,6 @@ describe("directory resolution", () => {
 		await initTestRepo(detachedRepo);
 		await createInitialCommit(detachedRepo);
 
-		// Detach HEAD by checking out a specific commit
 		const revParseProc = Bun.spawn(["git", "rev-parse", "HEAD"], {
 			cwd: detachedRepo,
 			stdout: "pipe",
@@ -373,7 +372,6 @@ describe("directory resolution", () => {
 
 		expect(result.right.projectRoot).toBe(detachedRepo);
 		expect(result.right.isWorktree).toBe(false);
-		// In a detached HEAD state, worktreeName should be undefined
 		expect(result.right.worktreeName).toBeUndefined();
 	});
 
