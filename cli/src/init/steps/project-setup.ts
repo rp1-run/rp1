@@ -40,6 +40,7 @@ import {
 	wrapWithShellFence,
 } from "../shell-fence.js";
 import {
+	AGENTS_REFERENCE_TEMPLATE,
 	getInstructionFiles,
 	getPrimaryInstructionTemplateTarget,
 	resolveInstructionTemplate,
@@ -227,13 +228,22 @@ export async function createSettingsFiles(
 // ============================================================================
 
 /**
+ * Detect whether content already contains an `@AGENTS.md` import reference.
+ */
+export function hasAgentsReference(content: string): boolean {
+	return /^@AGENTS\.md\s*$/m.test(content);
+}
+
+/**
  * Inject rp1 KB instructions into a single instruction file.
+ * When `templateOverride` is provided it replaces the auto-resolved template.
  */
 async function injectIntoFile(
 	cwd: string,
 	file: string,
 	detectedTool: DetectedTool | null,
 	logger: Logger,
+	templateOverride?: string,
 ): Promise<InitAction | null> {
 	const filePath = path.resolve(cwd, file);
 	const exists = await fileExists(filePath);
@@ -253,12 +263,13 @@ async function injectIntoFile(
 	}
 
 	const template =
-		file === "CLAUDE.md" || file === "AGENTS.md"
+		templateOverride ??
+		(file === "CLAUDE.md" || file === "AGENTS.md"
 			? resolveInstructionTemplate(file, {
 					detectedTool,
 					existingContent,
 				})
-			: "";
+			: "");
 
 	if (hasFencedContent(existingContent)) {
 		logger.info(`Updating: ${filePath}`);
@@ -283,7 +294,13 @@ async function injectIntoFile(
 }
 
 /**
- * Inject rp1 KB instructions into ALL existing instruction files (CLAUDE.md and AGENTS.md).
+ * Inject rp1 KB instructions into instruction files.
+ *
+ * When both CLAUDE.md and AGENTS.md exist, the full stanza goes into
+ * AGENTS.md only and CLAUDE.md receives a single-line `@AGENTS.md`
+ * import reference inside its fence. When only one file exists it
+ * receives the full stanza. When neither exists the primary tool's
+ * default file is created.
  */
 export async function injectInstructions(
 	cwd: string,
@@ -311,6 +328,27 @@ export async function injectInstructions(
 		actions.push({ type: "created_file", path: filePath });
 		logger.success(`Created ${primaryFile} with ${linesInjected} lines`);
 		return { actions, instructionFile: primaryFile };
+	}
+
+	if (claudeExists && agentsExists) {
+		const agentsAction = await injectIntoFile(
+			cwd,
+			"AGENTS.md",
+			detectedTool,
+			logger,
+		);
+		if (agentsAction) actions.push(agentsAction);
+
+		const claudeAction = await injectIntoFile(
+			cwd,
+			"CLAUDE.md",
+			detectedTool,
+			logger,
+			AGENTS_REFERENCE_TEMPLATE,
+		);
+		if (claudeAction) actions.push(claudeAction);
+
+		return { actions, instructionFile: "CLAUDE.md" };
 	}
 
 	let primaryFile: string | null = null;

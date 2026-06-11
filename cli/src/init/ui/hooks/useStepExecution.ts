@@ -75,6 +75,7 @@ import {
 	verifyOpenCodePlugins,
 } from "../../steps/verification.js";
 import {
+	AGENTS_REFERENCE_TEMPLATE,
 	getInstructionFiles,
 	getPrimaryInstructionTemplateTarget,
 	resolveInstructionTemplate,
@@ -651,8 +652,67 @@ export const useStepExecution = ({
 	);
 
 	/**
+	 * Inject into a single instruction file, optionally overriding the template.
+	 */
+	const injectIntoSingleFile = useCallback(
+		async (
+			addAct: AddActivityFn,
+			file: string,
+			detectedTool: DetectedTool | null,
+			templateOverride?: string,
+		): Promise<void> => {
+			const ctx = contextRef.current;
+			const filePath = path.resolve(ctx.cwd, file);
+			const exists = await fileExists(filePath);
+
+			if (!exists) return;
+
+			addAct("instruction-injection", `Configuring ${file}...`, "info");
+
+			const existingContent = await readFileContent(filePath);
+			if (existingContent === null) {
+				throw new Error(`Failed to read file: ${filePath}`);
+			}
+
+			const validation = validateFencing(existingContent);
+			if (!validation.valid) {
+				throw new Error(`Invalid fencing in ${file}: ${validation.error}`);
+			}
+
+			const template =
+				templateOverride ??
+				resolveInstructionTemplate(file as "CLAUDE.md" | "AGENTS.md", {
+					detectedTool,
+					existingContent,
+				});
+
+			if (hasFencedContent(existingContent)) {
+				const newContent = replaceFencedContent(
+					existingContent,
+					template,
+					LATEST_FENCE_VERSION,
+				);
+				await writeFileContent(filePath, newContent);
+				addAct("instruction-injection", `Updated ${file}`, "success");
+			} else {
+				const newContent = appendFencedContent(
+					existingContent,
+					template,
+					LATEST_FENCE_VERSION,
+				);
+				await writeFileContent(filePath, newContent);
+				addAct("instruction-injection", `Appended to ${file}`, "success");
+			}
+		},
+		[],
+	);
+
+	/**
 	 * Execute the instruction injection step.
-	 * Injects rp1 KB instructions into ALL existing instruction files (CLAUDE.md and AGENTS.md).
+	 *
+	 * When both CLAUDE.md and AGENTS.md exist, the full stanza goes into
+	 * AGENTS.md only and CLAUDE.md receives a single-line `@AGENTS.md`
+	 * import reference inside its fence.
 	 */
 	const executeInstructionInjection = useCallback(
 		async (addAct: AddActivityFn): Promise<void> => {
@@ -677,52 +737,22 @@ export const useStepExecution = ({
 				return;
 			}
 
-			// Inject into all existing instruction files
+			if (claudeExists && agentsExists) {
+				await injectIntoSingleFile(addAct, "AGENTS.md", ctx.primaryTool);
+				await injectIntoSingleFile(
+					addAct,
+					"CLAUDE.md",
+					ctx.primaryTool,
+					AGENTS_REFERENCE_TEMPLATE,
+				);
+				return;
+			}
+
 			for (const file of getInstructionFiles()) {
-				const filePath = path.resolve(ctx.cwd, file);
-				const exists = await fileExists(filePath);
-
-				if (!exists) {
-					continue;
-				}
-
-				addAct("instruction-injection", `Configuring ${file}...`, "info");
-
-				const existingContent = await readFileContent(filePath);
-				if (existingContent === null) {
-					throw new Error(`Failed to read file: ${filePath}`);
-				}
-
-				const validation = validateFencing(existingContent);
-				if (!validation.valid) {
-					throw new Error(`Invalid fencing in ${file}: ${validation.error}`);
-				}
-
-				const template = resolveInstructionTemplate(file, {
-					detectedTool: ctx.primaryTool,
-					existingContent,
-				});
-
-				if (hasFencedContent(existingContent)) {
-					const newContent = replaceFencedContent(
-						existingContent,
-						template,
-						LATEST_FENCE_VERSION,
-					);
-					await writeFileContent(filePath, newContent);
-					addAct("instruction-injection", `Updated ${file}`, "success");
-				} else {
-					const newContent = appendFencedContent(
-						existingContent,
-						template,
-						LATEST_FENCE_VERSION,
-					);
-					await writeFileContent(filePath, newContent);
-					addAct("instruction-injection", `Appended to ${file}`, "success");
-				}
+				await injectIntoSingleFile(addAct, file, ctx.primaryTool);
 			}
 		},
-		[],
+		[injectIntoSingleFile],
 	);
 
 	/**

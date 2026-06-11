@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { AGENTS_REFERENCE_TEMPLATE } from "../../init/templates/index.js";
 import { LATEST_FENCE_VERSION } from "../../lib/fence-version.js";
 import { upgradeStanzas } from "../../migrate/stanza-upgrade.js";
 
@@ -170,5 +171,88 @@ describe("stanza-upgrade", () => {
 		const result = upgradeStanzas(tempDir);
 
 		expect(result.filesScanned).toBe(3);
+	});
+
+	describe("single-file deduplication during upgrade", () => {
+		test("upgrade replaces CLAUDE.md full template with @AGENTS.md reference when both have fences", () => {
+			writeFileSync(
+				join(tempDir, "CLAUDE.md"),
+				"# Project\n\n<!-- rp1:start:v0.1.0 -->\n## rp1 Knowledge Base\nOld full template\n<!-- rp1:end:v0.1.0 -->",
+			);
+			writeFileSync(
+				join(tempDir, "AGENTS.md"),
+				"<!-- rp1:start:v0.1.0 -->\n## rp1 Knowledge Base\nOld full template\n<!-- rp1:end:v0.1.0 -->",
+			);
+
+			const result = upgradeStanzas(tempDir);
+
+			expect(result.filesUpgraded).toHaveLength(2);
+
+			const claude = readFileSync(join(tempDir, "CLAUDE.md"), "utf-8");
+			const agents = readFileSync(join(tempDir, "AGENTS.md"), "utf-8");
+
+			expect(claude).toContain(AGENTS_REFERENCE_TEMPLATE);
+			expect(claude).not.toContain("## rp1 Knowledge Base");
+			expect(claude).toContain(`<!-- rp1:start:v${LATEST_FENCE_VERSION} -->`);
+
+			expect(agents).toContain("## rp1 Knowledge Base");
+			expect(agents).toContain(`<!-- rp1:start:v${LATEST_FENCE_VERSION} -->`);
+
+			expect(claude).toContain("# Project");
+		});
+
+		test("upgrade keeps CLAUDE.md full template when AGENTS.md has no fence", () => {
+			writeFileSync(
+				join(tempDir, "CLAUDE.md"),
+				"<!-- rp1:start:v0.1.0 -->\n## rp1 Knowledge Base\nOld\n<!-- rp1:end:v0.1.0 -->",
+			);
+			writeFileSync(join(tempDir, "AGENTS.md"), "# No fenced content\n");
+
+			const result = upgradeStanzas(tempDir);
+
+			expect(result.filesUpgraded).toHaveLength(1);
+			expect(result.filesUpgraded[0].file).toBe("CLAUDE.md");
+
+			const claude = readFileSync(join(tempDir, "CLAUDE.md"), "utf-8");
+			expect(claude).toContain("## rp1 Knowledge Base");
+			expect(claude).not.toContain(AGENTS_REFERENCE_TEMPLATE);
+		});
+
+		test("upgrade keeps CLAUDE.md full template when AGENTS.md does not exist", () => {
+			writeFileSync(
+				join(tempDir, "CLAUDE.md"),
+				"<!-- rp1:start:v0.1.0 -->\nold\n<!-- rp1:end:v0.1.0 -->",
+			);
+
+			const result = upgradeStanzas(tempDir);
+
+			expect(result.filesUpgraded).toHaveLength(1);
+			const claude = readFileSync(join(tempDir, "CLAUDE.md"), "utf-8");
+			expect(claude).toContain("## rp1 Knowledge Base");
+			expect(claude).not.toContain(AGENTS_REFERENCE_TEMPLATE);
+		});
+
+		test("upgrade is idempotent with @AGENTS.md reference", () => {
+			writeFileSync(
+				join(tempDir, "CLAUDE.md"),
+				`<!-- rp1:start:v0.1.0 -->\n${AGENTS_REFERENCE_TEMPLATE}\n<!-- rp1:end:v0.1.0 -->`,
+			);
+			writeFileSync(
+				join(tempDir, "AGENTS.md"),
+				"<!-- rp1:start:v0.1.0 -->\n## rp1 Knowledge Base\nold\n<!-- rp1:end:v0.1.0 -->",
+			);
+
+			const first = upgradeStanzas(tempDir);
+			expect(first.filesUpgraded).toHaveLength(2);
+
+			const second = upgradeStanzas(tempDir);
+			expect(second.filesUpgraded).toHaveLength(0);
+			expect(second.filesAlreadyCurrent).toContain("CLAUDE.md");
+			expect(second.filesAlreadyCurrent).toContain("AGENTS.md");
+
+			const claude = readFileSync(join(tempDir, "CLAUDE.md"), "utf-8");
+			expect(claude).toContain(AGENTS_REFERENCE_TEMPLATE);
+			expect(claude).not.toContain("## rp1 Knowledge Base");
+		});
 	});
 });
