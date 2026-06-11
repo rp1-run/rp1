@@ -35,6 +35,42 @@ export interface EmitCommandOptions {
 	readonly harness?: string;
 }
 
+/** Raw CLI options for batch emit before validation */
+export interface BatchEmitCommandOptions {
+	readonly runId: string;
+	readonly workflow: string;
+	readonly project?: string;
+	readonly harness?: string;
+	readonly batch: string;
+}
+
+/** A single event entry within a batch */
+export interface BatchEventEntry {
+	readonly type: string;
+	readonly step?: string;
+	readonly unit?: string;
+	readonly data?: string | Record<string, unknown>;
+	readonly name?: string;
+}
+
+/** Validated batch emit input */
+export interface BatchEmitInput {
+	readonly runId: string;
+	readonly workflow: string;
+	readonly projectPath: string;
+	readonly harness?: string;
+	readonly events: readonly ValidatedBatchEvent[];
+}
+
+/** A single validated event within a batch */
+export interface ValidatedBatchEvent {
+	readonly type: EventType;
+	readonly step?: string;
+	readonly unit?: string;
+	readonly data: Record<string, unknown>;
+	readonly name?: string;
+}
+
 const validateEventType = (type: string): E.Either<CLIError, EventType> => {
 	if (!type || type.trim() === "") {
 		return E.left(usageError("--type is required"));
@@ -499,6 +535,134 @@ export const validateEmitOptions = (
 				closeRun: options.closeRun,
 				name: options.name,
 				harness: options.harness,
+			}),
+		),
+	);
+
+const parseBatchJson = (
+	batch: string,
+): E.Either<CLIError, readonly BatchEventEntry[]> => {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(batch);
+	} catch {
+		return E.left(
+			usageError(
+				"--batch must be valid JSON. Expected a JSON array of event entries.",
+			),
+		);
+	}
+
+	if (!Array.isArray(parsed)) {
+		return E.left(usageError("--batch must be a JSON array of event entries."));
+	}
+
+	if (parsed.length === 0) {
+		return E.left(
+			usageError("--batch array must contain at least one event entry."),
+		);
+	}
+
+	return E.right(parsed as readonly BatchEventEntry[]);
+};
+
+const validateBatchEntry = (
+	entry: BatchEventEntry,
+	index: number,
+): E.Either<CLIError, ValidatedBatchEvent> => {
+	const typeResult = validateEventType(entry.type);
+	if (E.isLeft(typeResult)) {
+		return E.left(
+			usageError(
+				`Batch event[${index}]: ${(typeResult.left as CLIError & { message: string }).message}`,
+			),
+		);
+	}
+
+	const type = typeResult.right;
+	const stepResult = validateStepForType(type, entry.step);
+	if (E.isLeft(stepResult)) {
+		return E.left(
+			usageError(
+				`Batch event[${index}]: ${(stepResult.left as CLIError & { message: string }).message}`,
+			),
+		);
+	}
+
+	let data: Record<string, unknown>;
+	if (entry.data === undefined || entry.data === "") {
+		data = {};
+	} else if (typeof entry.data === "string") {
+		const parseResult = parseJsonPayload(entry.data);
+		if (E.isLeft(parseResult)) {
+			return E.left(
+				usageError(`Batch event[${index}]: data must be a valid JSON object.`),
+			);
+		}
+		data = parseResult.right;
+	} else if (
+		typeof entry.data === "object" &&
+		entry.data !== null &&
+		!Array.isArray(entry.data)
+	) {
+		data = entry.data;
+	} else {
+		return E.left(
+			usageError(`Batch event[${index}]: data must be a JSON object.`),
+		);
+	}
+
+	const shapeResult = validatePayloadShape(type, data, entry.step);
+	if (E.isLeft(shapeResult)) {
+		return E.left(
+			usageError(
+				`Batch event[${index}]: ${(shapeResult.left as CLIError & { message: string }).message}`,
+			),
+		);
+	}
+
+	return E.right({
+		type,
+		step: entry.step,
+		unit: entry.unit,
+		data: shapeResult.right,
+		name: entry.name,
+	});
+};
+
+/**
+ * Validate all batch emit command options and produce a BatchEmitInput.
+ * Validates run ID, workflow, batch JSON array, and each event entry.
+ */
+export const validateBatchEmitOptions = (
+	options: BatchEmitCommandOptions,
+): TE.TaskEither<CLIError, BatchEmitInput> =>
+	pipe(
+		TE.Do,
+		TE.bind("runId", () => TE.fromEither(validateRunId(options.runId))),
+		TE.bind("workflow", () =>
+			TE.fromEither(validateWorkflow(options.workflow)),
+		),
+		TE.bind("entries", () => TE.fromEither(parseBatchJson(options.batch))),
+		TE.bind("events", ({ entries }) => {
+			const validated: ValidatedBatchEvent[] = [];
+			for (let i = 0; i < entries.length; i++) {
+				const result = validateBatchEntry(entries[i], i);
+				if (E.isLeft(result)) {
+					return TE.left(result.left);
+				}
+				validated.push(result.right);
+			}
+			return TE.right(validated);
+		}),
+		TE.bind("resolved", () => validateProjectPath(options.project)),
+		TE.map(
+			({ runId, workflow, events, resolved }): BatchEmitInput => ({
+				runId,
+				workflow,
+				projectPath: resolved.projectPath,
+				harness: options.harness,
+				events,
 			}),
 		),
 	);

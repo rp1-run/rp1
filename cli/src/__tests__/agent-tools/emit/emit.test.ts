@@ -859,4 +859,133 @@ describe("emit end-to-end", () => {
 			expect(annotation?.content).toBe("Looks good");
 		});
 	});
+
+	describe("batch emit", () => {
+		test("processes multiple events in order and returns per-event results", async () => {
+			const { executeBatchEmit } = await import(
+				"../../../agent-tools/emit/index.js"
+			);
+			const runId = `run-batch-${Date.now()}`;
+
+			const result = await expectTaskRight(
+				executeBatchEmit({
+					runId,
+					workflow: "build",
+					projectPath: tempDir,
+					events: [
+						{
+							type: "status_change",
+							step: "task-builder:building",
+							data: { status: "running", feature: "batch-test" },
+						},
+						{
+							type: "status_change",
+							step: "task-builder:completed",
+							data: { status: "completed", feature: "batch-test" },
+						},
+					],
+				}),
+			);
+
+			expect(result.success).toBe(true);
+			expect(result.data.succeeded).toBe(2);
+			expect(result.data.failed).toBe(0);
+			expect(result.data.total).toBe(2);
+			expect(result.data.results).toHaveLength(2);
+			expect(result.data.results[0]).toMatchObject({
+				index: 0,
+				type: "status_change",
+				success: true,
+			});
+			expect(result.data.results[0].eventId).toBeGreaterThan(0);
+			expect(result.data.results[1]).toMatchObject({
+				index: 1,
+				type: "status_change",
+				success: true,
+			});
+		});
+
+		test("stops at first execution failure and reports succeeded events", async () => {
+			const { executeBatchEmit } = await import(
+				"../../../agent-tools/emit/index.js"
+			);
+			const runId = `run-batch-fail-${Date.now()}`;
+
+			// First event succeeds with a namespaced step, second fails
+			// because a non-namespaced step "nonexistent" does not exist
+			// in the build state machine.
+			const result = await expectTaskRight(
+				executeBatchEmit({
+					runId,
+					workflow: "build",
+					projectPath: tempDir,
+					events: [
+						{
+							type: "status_change",
+							step: "task-builder:building",
+							data: { status: "running", feature: "batch-test" },
+						},
+						{
+							type: "status_change",
+							step: "nonexistent",
+							data: { status: "running", feature: "batch-test" },
+						},
+					],
+				}),
+			);
+
+			expect(result.success).toBe(true);
+			expect(result.data.succeeded).toBe(1);
+			expect(result.data.failed).toBe(1);
+			expect(result.data.total).toBe(2);
+			expect(result.data.stoppedAtIndex).toBe(1);
+			expect(result.data.results).toHaveLength(2);
+			expect(result.data.results[0].success).toBe(true);
+			expect(result.data.results[1].success).toBe(false);
+			expect(result.data.results[1].error).toBeDefined();
+		});
+
+		test("returns correct envelope shape with per-event results array", async () => {
+			const { executeBatchEmit } = await import(
+				"../../../agent-tools/emit/index.js"
+			);
+			const runId = `run-batch-shape-${Date.now()}`;
+
+			const result = await expectTaskRight(
+				executeBatchEmit({
+					runId,
+					workflow: "build",
+					projectPath: tempDir,
+					events: [
+						{
+							type: "status_change",
+							step: "task-builder:building",
+							unit: "T1",
+							data: { status: "running", feature: "shape-test" },
+							name: "Shape test run",
+						},
+					],
+				}),
+			);
+
+			expect(result.success).toBe(true);
+			expect(result.tool).toBe("emit");
+			const envelope = result.data;
+			expect(envelope).toHaveProperty("results");
+			expect(envelope).toHaveProperty("succeeded");
+			expect(envelope).toHaveProperty("failed");
+			expect(envelope).toHaveProperty("total");
+			expect(envelope.succeeded).toBe(1);
+			expect(envelope.failed).toBe(0);
+			expect(envelope.total).toBe(1);
+			expect(envelope.stoppedAtIndex).toBeUndefined();
+
+			const eventResult = envelope.results[0];
+			expect(eventResult).toHaveProperty("index", 0);
+			expect(eventResult).toHaveProperty("type", "status_change");
+			expect(eventResult).toHaveProperty("success", true);
+			expect(eventResult).toHaveProperty("eventId");
+			expect(eventResult).toHaveProperty("runStatus");
+		});
+	});
 });

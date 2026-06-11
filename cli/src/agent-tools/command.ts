@@ -8,63 +8,17 @@ import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { type CLIError, formatError, usageError } from "../../shared/errors.js";
 import { VALID_EVENT_TYPES } from "../../shared/events.js";
-import {
-	CHANGE_MANIFEST_SOURCES,
-	executeChangeManifestSnapshot,
-	executeGenerateChangeManifest,
-} from "./change-manifest/index.js";
-import { executeExtract } from "./comment-extract/index.js";
-import {
-	closeDatabase as closeEmitDatabase,
-	findOrCreateRun,
-	getEmitDatabase,
-} from "./emit/database.js";
-import { executeEmit, executeEndRun } from "./emit/index.js";
-import {
-	type EmitCommandOptions,
-	validateEmitOptions,
-} from "./emit/validate.js";
-import {
-	executeFeedbackAcceptEdit,
-	executeFeedbackRead,
-	executeFeedbackReply,
-	executeFeedbackResolve,
-	validateAcceptEditOptions,
-	validateReadOptions,
-	validateReplyOptions,
-	validateResolveOptions,
-} from "./feedback/index.js";
+import { CHANGE_MANIFEST_SOURCES } from "./change-manifest/index.js";
+import { closeDatabase as closeEmitDatabase } from "./emit/database.js";
+import type { EmitCommandOptions } from "./emit/validate.js";
 import { VALID_STATUS_FILTERS } from "./feedback/models.js";
-import { resolveProjectPath } from "./git.js";
-import {
-	executeAddReaction,
-	executeFetchComments,
-	executeReplyComment,
-	executeSubmitReview,
-} from "./github-pr/index.js";
 import { getTool, type ToolOptions } from "./index.js";
 import { readInput } from "./input.js";
 import { formatOutput } from "./output.js";
 import {
-	executeClaimLock as executeSocraticDuelClaimLock,
-	executeJoin as executeSocraticDuelJoin,
-	executeRefreshLock as executeSocraticDuelRefreshLock,
-	executeReleaseLock as executeSocraticDuelReleaseLock,
-	executeStatus as executeSocraticDuelStatus,
-} from "./socratic-duel/index.js";
-import {
 	type TerminalOutcome,
 	VALID_TERMINAL_OUTCOMES,
 } from "./socratic-duel/models.js";
-import {
-	executeCancel as executeTaskCancel,
-	executeComplete as executeTaskComplete,
-	executeCreate as executeTaskCreate,
-	executeFail as executeTaskFail,
-	executeGet as executeTaskGet,
-	executeList as executeTaskList,
-	executePickup as executeTaskPickup,
-} from "./task/index.js";
 import { VALID_TASK_STATUSES } from "./task/models.js";
 import {
 	WORK_SEARCH_DEFAULT_LIMIT,
@@ -93,19 +47,57 @@ process.on("SIGINT", () => {
 	process.exit(0);
 });
 
-import "./build-task-plan/index.js";
-import "./mmd-validate/index.js";
-import "./resolve-args/index.js";
-import "./rp1-root-dir/index.js";
-import "./workflow-bootstrap/index.js";
-import "./workflow-state/index.js";
-import "./comment-extract/index.js";
-import "./emit/index.js";
-import "./feedback/index.js";
-import "./github-pr/index.js";
-import "./socratic-duel/index.js";
-import "./task/index.js";
-import "./work-search/index.js";
+/**
+ * Static map from subcommand name to dynamic import thunk.
+ * Each thunk lazily loads the tool module on first use, triggering
+ * registerTool() as a side effect. The runtime caches modules after
+ * first import so repeated calls are free.
+ */
+export const TOOL_MODULES: ReadonlyMap<string, () => Promise<void>> = new Map([
+	[
+		"build-task-plan",
+		() => import("./build-task-plan/index.js").then(() => undefined),
+	],
+	[
+		"mmd-validate",
+		() => import("./mmd-validate/index.js").then(() => undefined),
+	],
+	[
+		"resolve-args",
+		() => import("./resolve-args/index.js").then(() => undefined),
+	],
+	[
+		"rp1-root-dir",
+		() => import("./rp1-root-dir/index.js").then(() => undefined),
+	],
+	[
+		"workflow-bootstrap",
+		() => import("./workflow-bootstrap/index.js").then(() => undefined),
+	],
+	[
+		"workflow-state",
+		() => import("./workflow-state/index.js").then(() => undefined),
+	],
+	[
+		"comment-extract",
+		() => import("./comment-extract/index.js").then(() => undefined),
+	],
+	["emit", () => import("./emit/index.js").then(() => undefined)],
+	["feedback", () => import("./feedback/index.js").then(() => undefined)],
+	["github-pr", () => import("./github-pr/index.js").then(() => undefined)],
+	[
+		"socratic-duel",
+		() => import("./socratic-duel/index.js").then(() => undefined),
+	],
+	["task", () => import("./task/index.js").then(() => undefined)],
+	["work-search", () => import("./work-search/index.js").then(() => undefined)],
+]);
+
+/** Ensure a tool module is loaded before accessing it via getTool(). */
+const ensureToolLoaded = async (name: string): Promise<void> => {
+	const loader = TOOL_MODULES.get(name);
+	if (loader) await loader();
+};
 
 /** Default timeout for tool execution in milliseconds */
 const DEFAULT_TIMEOUT = 30000;
@@ -218,6 +210,7 @@ Examples:
 			options: { timeout: string },
 		): Promise<void> => {
 			const toolName = "mmd-validate";
+			await ensureToolLoaded(toolName);
 
 			const timeout = parseInt(options.timeout, 10);
 			if (Number.isNaN(timeout) || timeout <= 0) {
@@ -311,6 +304,7 @@ Examples:
 	)
 	.action(async (): Promise<void> => {
 		const toolName = "rp1-root-dir";
+		await ensureToolLoaded(toolName);
 
 		const tool = getTool(toolName);
 		if (!tool) {
@@ -401,6 +395,7 @@ Examples:
 			projectRoot?: string;
 		}): Promise<void> => {
 			const toolName = "resolve-args";
+			await ensureToolLoaded(toolName);
 
 			let content: string;
 			let source: "file" | "stdin" = "stdin";
@@ -533,6 +528,7 @@ Examples:
 			verbose?: boolean;
 		}): Promise<void> => {
 			const toolName = "workflow-bootstrap";
+			await ensureToolLoaded(toolName);
 
 			let content: string;
 			let source: "file" | "stdin" = "stdin";
@@ -656,6 +652,7 @@ Examples:
 			recentEvents?: string;
 		}): Promise<void> => {
 			const toolName = "workflow-state";
+			await ensureToolLoaded(toolName);
 
 			let content: string;
 			let source: "file" | "stdin" = "stdin";
@@ -797,6 +794,7 @@ Examples:
 			complexIsolated?: string;
 		}): Promise<void> => {
 			const toolName = "build-task-plan";
+			await ensureToolLoaded(toolName);
 
 			let content: string;
 			let source: "file" | "stdin" = "stdin";
@@ -935,6 +933,7 @@ Examples:
 			},
 		): Promise<void> => {
 			const toolName = "work-search";
+			await ensureToolLoaded(toolName);
 
 			const tool = getTool(toolName);
 			if (!tool) {
@@ -1009,6 +1008,9 @@ Example:
 	)
 	.action(async (options: { codeRoot: string; out: string }): Promise<void> => {
 		const toolName = "change-manifest";
+		const { executeChangeManifestSnapshot } = await import(
+			"./change-manifest/index.js"
+		);
 		const result = await executeChangeManifestSnapshot({
 			codeRoot: options.codeRoot,
 			out: options.out,
@@ -1078,6 +1080,9 @@ Examples:
 			scope?: string;
 		}): Promise<void> => {
 			const toolName = "change-manifest";
+			const { executeGenerateChangeManifest } = await import(
+				"./change-manifest/index.js"
+			);
 			const result = await executeGenerateChangeManifest({
 				codeRoot: options.codeRoot,
 				out: options.out,
@@ -1163,6 +1168,7 @@ Examples:
 			},
 		): Promise<void> => {
 			const toolName = "comment-extract";
+			const { executeExtract } = await import("./comment-extract/index.js");
 
 			const result = await executeExtract({
 				scope,
@@ -1213,6 +1219,10 @@ const emitCommand = agentToolsCommand
 		"--close-run",
 		"Force-close the run by completing all non-terminal steps",
 	)
+	.option(
+		"--batch <json>",
+		'JSON array of event entries for batch emit (use "-" for stdin)',
+	)
 	.addHelpText(
 		"after",
 		`
@@ -1238,6 +1248,16 @@ Description:
   Use 'emit end-run' for intentional terminal outcomes. Generic status_change
   events still require --step and are reserved for workflow-step lifecycle
   updates plus force-complete flows via --close-run.
+
+  Batch mode:
+    Use --batch to emit multiple events in a single invocation. Events share
+    --run-id and --workflow from the parent flags. Each entry in the JSON
+    array carries type, step, data, and optional unit/name fields. Events are
+    processed strictly in order with per-event state-machine validation. On
+    the first invalid event, processing stops and all prior successful events
+    are reported alongside the failure.
+
+    --batch <json>       JSON array inline, or "-" to read from stdin
 
 Arguments:
   --type <type>        Event type (required): ${VALID_EVENT_TYPES.join(", ")}
@@ -1285,6 +1305,19 @@ Examples:
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
     --step building \\
     --data '{"parentStepId": "building", "subflowName": "task-builder"}'
+
+  # Batch emit: multiple events in one call
+  rp1 agent-tools emit \\
+    --workflow build \\
+    --run-id "550e8400-e29b-41d4-a716-446655440000" \\
+    --batch '[{"type":"status_change","step":"requirements","data":{"status":"running"}},{"type":"status_change","step":"requirements","data":{"status":"completed"}}]'
+
+  # Batch emit from stdin
+  echo '[{"type":"status_change","step":"planning","data":{"status":"running"}}]' | \\
+    rp1 agent-tools emit \\
+    --workflow build \\
+    --run-id "550e8400-e29b-41d4-a716-446655440000" \\
+    --batch -
 `,
 	)
 	.action(
@@ -1299,8 +1332,61 @@ Examples:
 			closeRun?: boolean;
 			name?: string;
 			harness?: string;
+			batch?: string;
 		}): Promise<void> => {
 			const toolName = "emit";
+
+			if (options.batch !== undefined) {
+				const { executeBatchEmit } = await import("./emit/index.js");
+				const { validateBatchEmitOptions } = await import("./emit/validate.js");
+				let batchJson = options.batch;
+				if (batchJson === "-") {
+					const inputResult = await readInput()();
+					if (E.isLeft(inputResult)) {
+						console.error(
+							createErrorResponse(
+								toolName,
+								formatError(inputResult.left, false),
+							),
+						);
+						process.exit(1);
+					}
+					batchJson = inputResult.right.content;
+				}
+
+				const validationResult = await validateBatchEmitOptions({
+					runId: options.runId,
+					workflow: options.workflow,
+					project: options.project,
+					harness: options.harness,
+					batch: batchJson,
+				})();
+
+				if (E.isLeft(validationResult)) {
+					console.error(
+						createErrorResponse(
+							toolName,
+							formatError(validationResult.left, false),
+						),
+					);
+					process.exit(1);
+				}
+
+				const result = await executeBatchEmit(validationResult.right)();
+
+				if (E.isLeft(result)) {
+					console.error(
+						createErrorResponse(toolName, formatError(result.left, false)),
+					);
+					process.exit(1);
+				}
+
+				console.log(formatOutput(result.right));
+				process.exit(result.right.data.failed > 0 ? 1 : 0);
+			}
+
+			const { validateEmitOptions } = await import("./emit/validate.js");
+			const { executeEmit } = await import("./emit/index.js");
 
 			const emitOptions: EmitCommandOptions = {
 				type: options.type,
@@ -1390,6 +1476,10 @@ Examples:
 			project?: string;
 		}): Promise<void> => {
 			const toolName = "emit";
+			const { resolveProjectPath } = await import("./git.js");
+			const { findOrCreateRun, getEmitDatabase } = await import(
+				"./emit/database.js"
+			);
 
 			const projectPath = options.project ?? process.cwd();
 
@@ -1509,6 +1599,7 @@ Examples:
 				process.exit(1);
 			}
 
+			const { executeEndRun } = await import("./emit/index.js");
 			const result = await executeEndRun({
 				runId,
 				outcome: options.outcome,
@@ -1604,6 +1695,9 @@ Examples:
 			project?: string;
 		}): Promise<void> => {
 			const toolName = "feedback";
+			const { executeFeedbackRead, validateReadOptions } = await import(
+				"./feedback/index.js"
+			);
 
 			const validationResult = validateReadOptions({
 				runId: options.runId,
@@ -1674,6 +1768,9 @@ Examples:
 			options: { reply?: string },
 		): Promise<void> => {
 			const toolName = "feedback";
+			const { executeFeedbackResolve, validateResolveOptions } = await import(
+				"./feedback/index.js"
+			);
 
 			const validationResult = validateResolveOptions({
 				annotationId,
@@ -1741,6 +1838,9 @@ Examples:
 			options: { content: string },
 		): Promise<void> => {
 			const toolName = "feedback";
+			const { executeFeedbackReply, validateReplyOptions } = await import(
+				"./feedback/index.js"
+			);
 
 			const validationResult = validateReplyOptions({
 				annotationId,
@@ -1800,6 +1900,8 @@ Examples:
 	)
 	.action(async (docId: string): Promise<void> => {
 		const toolName = "feedback";
+		const { executeFeedbackAcceptEdit, validateAcceptEditOptions } =
+			await import("./feedback/index.js");
 
 		const validationResult = validateAcceptEditOptions({ docId });
 
@@ -1882,6 +1984,9 @@ socraticDuelCommand
 			runId?: string;
 		}): Promise<void> => {
 			const toolName = "socratic-duel";
+			const { executeJoin: executeSocraticDuelJoin } = await import(
+				"./socratic-duel/index.js"
+			);
 			const result = await executeSocraticDuelJoin({
 				targetPath: options.target,
 				topic: options.topic,
@@ -1917,6 +2022,9 @@ socraticDuelCommand
 			topic?: string;
 		}): Promise<void> => {
 			const toolName = "socratic-duel";
+			const { executeStatus: executeSocraticDuelStatus } = await import(
+				"./socratic-duel/index.js"
+			);
 			const result = await executeSocraticDuelStatus({
 				duelId: options.duelId,
 				targetPath: options.target,
@@ -1952,6 +2060,9 @@ socraticDuelCommand
 			forTimeout: boolean;
 		}): Promise<void> => {
 			const toolName = "socratic-duel";
+			const { executeClaimLock: executeSocraticDuelClaimLock } = await import(
+				"./socratic-duel/index.js"
+			);
 			const result = await executeSocraticDuelClaimLock({
 				duelId: options.duelId,
 				participantId: options.participantId,
@@ -1983,6 +2094,8 @@ socraticDuelCommand
 			leaseToken: string;
 		}): Promise<void> => {
 			const toolName = "socratic-duel";
+			const { executeRefreshLock: executeSocraticDuelRefreshLock } =
+				await import("./socratic-duel/index.js");
 			const result = await executeSocraticDuelRefreshLock({
 				duelId: options.duelId,
 				participantId: options.participantId,
@@ -2045,6 +2158,8 @@ socraticDuelCommand
 				process.exit(1);
 			}
 
+			const { executeReleaseLock: executeSocraticDuelReleaseLock } =
+				await import("./socratic-duel/index.js");
 			const result = await executeSocraticDuelReleaseLock({
 				duelId: options.duelId,
 				participantId: options.participantId,
@@ -2152,6 +2267,9 @@ Examples:
 			project?: string;
 		}): Promise<void> => {
 			const toolName = "task";
+			const { executeCreate: executeTaskCreate } = await import(
+				"./task/index.js"
+			);
 
 			const result = await executeTaskCreate({
 				type: options.type,
@@ -2233,6 +2351,7 @@ Examples:
 				process.exit(1);
 			}
 
+			const { executeList: executeTaskList } = await import("./task/index.js");
 			const result = await executeTaskList({
 				status: options.status as
 					| import("./task/models.js").TaskStatus
@@ -2284,6 +2403,9 @@ Examples:
 	)
 	.action(async (options: { project?: string }): Promise<void> => {
 		const toolName = "task";
+		const { executePickup: executeTaskPickup } = await import(
+			"./task/index.js"
+		);
 
 		const result = await executeTaskPickup(options.project)();
 
@@ -2332,6 +2454,9 @@ Examples:
 	)
 	.action(async (options: { id: string; result?: string }): Promise<void> => {
 		const toolName = "task";
+		const { executeComplete: executeTaskComplete } = await import(
+			"./task/index.js"
+		);
 
 		const id = parseInt(options.id, 10);
 		if (Number.isNaN(id) || id <= 0) {
@@ -2394,6 +2519,7 @@ Examples:
 	)
 	.action(async (options: { id: string; result?: string }): Promise<void> => {
 		const toolName = "task";
+		const { executeFail: executeTaskFail } = await import("./task/index.js");
 
 		const id = parseInt(options.id, 10);
 		if (Number.isNaN(id) || id <= 0) {
@@ -2465,6 +2591,9 @@ Examples:
 			process.exit(1);
 		}
 
+		const { executeCancel: executeTaskCancel } = await import(
+			"./task/index.js"
+		);
 		const result = await executeTaskCancel(id)();
 
 		if (E.isLeft(result)) {
@@ -2519,6 +2648,7 @@ Examples:
 			process.exit(1);
 		}
 
+		const { executeGet: executeTaskGet } = await import("./task/index.js");
 		const result = await executeTaskGet(id)();
 
 		if (E.isLeft(result)) {
@@ -2619,6 +2749,7 @@ Examples:
 			process.exit(1);
 		}
 
+		const { executeSubmitReview } = await import("./github-pr/index.js");
 		const result = await executeSubmitReview(inputResult.right.content)();
 
 		if (E.isLeft(result)) {
@@ -2675,6 +2806,7 @@ Examples:
 			process.exit(1);
 		}
 
+		const { executeAddReaction } = await import("./github-pr/index.js");
 		const result = await executeAddReaction(inputResult.right.content)();
 
 		if (E.isLeft(result)) {
@@ -2732,6 +2864,7 @@ Examples:
 			process.exit(1);
 		}
 
+		const { executeReplyComment } = await import("./github-pr/index.js");
 		const result = await executeReplyComment(inputResult.right.content)();
 
 		if (E.isLeft(result)) {
@@ -2789,6 +2922,7 @@ Examples:
 			process.exit(1);
 		}
 
+		const { executeFetchComments } = await import("./github-pr/index.js");
 		const result = await executeFetchComments(inputResult.right.content)();
 
 		if (E.isLeft(result)) {
