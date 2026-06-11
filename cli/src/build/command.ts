@@ -33,6 +33,7 @@ import { colorFns } from "../lib/colors.js";
 import { generateCatalog } from "./catalog-generator.js";
 import { validateCodexSkill } from "./codex/validator.js";
 import { type LintDiagnostic, lintArtifact } from "./lint/index.js";
+import { lintSkillDescriptionLength } from "./lint/rules/description-length.js";
 import {
 	lintAgentArguments,
 	lintSkillArguments,
@@ -592,6 +593,20 @@ export const buildPlatformPlugin = async (
 		const skillArgErrors = skillArgLint.filter((d) => d.severity === "error");
 		if (skillArgErrors.length > 0) {
 			for (const d of skillArgErrors) {
+				errors.push(formatLintDiagnostic(d));
+			}
+			continue;
+		}
+
+		const descLint = lintSkillDescriptionLength(ccSkill.description, skillDir);
+		for (const d of descLint) {
+			if (d.severity === "warning" && !jsonOutput) {
+				console.warn(formatLintDiagnostic(d));
+			}
+		}
+		const descErrors = descLint.filter((d) => d.severity === "error");
+		if (descErrors.length > 0) {
+			for (const d of descErrors) {
 				errors.push(formatLintDiagnostic(d));
 			}
 			continue;
