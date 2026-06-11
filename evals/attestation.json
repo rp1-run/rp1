@@ -3,8 +3,8 @@
 	"skills": {
 		"rp1-dev:build@claude-code": {
 			"platform": "claude-code",
-			"prompt_hash": "sha256:4e10b5e79e1bfa28dcc20d9ea581bbca7326bddd88e949b9dfe35c37f213aa19",
-			"deps_hash": "sha256:9e1332d05fae496e25499c009721747a1dd56c8ded7fd74a361585bbbb3e3e5b",
+			"prompt_hash": "sha256:865d281ab0822641d6d4fa601dd81afdaff5a181e0feed30ea8ccbf1d64b77d9",
+			"deps_hash": "sha256:0b1541de52be28b761958cb6d2ff71292e11a9a10489dd12cf42a9d81862898a",
 			"version": "3.0.0",
 			"last_eval": {
 				"passed": true,
@@ -15,8 +15,8 @@
 		},
 		"rp1-dev:build-fast@claude-code": {
 			"platform": "claude-code",
-			"prompt_hash": "sha256:317a89beaeb3186ee7691df9676ae7bf17662a378bff1879b0778c5949366d7e",
-			"deps_hash": "sha256:9e3e12d2f2a5f2c4d463315f095986a41290a1436653640557f2e8cc20cf254b",
+			"prompt_hash": "sha256:0c53aae3778412327f6eef8de69d986e71af78fd0afbf7bb5222728452b72874",
+			"deps_hash": "sha256:5f052743801458eb638b1e2ae29fc63630632d50349847e47bb8791c853d7964",
 			"version": "3.0.0",
 			"last_eval": {
 				"passed": true,
