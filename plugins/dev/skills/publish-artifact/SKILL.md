@@ -1,18 +1,18 @@
 ---
 name: publish-artifact
 description: "Publish an rp1 artifact (investigation report, design doc, audit) from .rp1/work/ as an idempotent PR or issue comment instead of committing it to the repo; re-runs update the same comment in place."
-allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git *), Bash(gh *), Bash(python3 *)
+allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: review
   is_workflow: false
-  version: 1.0.0
+  version: 2.0.0
   tags:
     - pr
     - review
     - artifact
     - github
   created: 2026-06-01
-  updated: 2026-06-01
+  updated: 2026-06-11
   author: cloud-on-prem/rp1
   arguments:
     - name: ARTIFACT_PATH
@@ -47,15 +47,9 @@ Publish an rp1 artifact (markdown under `.rp1/work/`; frontmatter optional) as a
 
 **The artifact file is never modified by this skill** — it is read-only on the local side, write-only on the GitHub side.
 
-> ### ⚠️ Always `--dry-run` first on a real PR or issue
+> ### ⚠️ Always dry-run first on a real PR or issue
 >
-> The skill writes to a real GitHub PR/issue comment by default. Before invoking against a real PR/issue you care about (especially one with active reviewers), always do a dry-run first:
->
-> ```
-> /rp1-dev:publish-artifact <path> [target] --dry-run
-> ```
->
-> Dry-run runs every step of the procedure except the GitHub write, prints the projected comment body to stdout and a diagnostic block to stderr (telling you whether the next run would `POST` or `PATCH`), and exits 0. Once the projection looks right, re-run without `--dry-run` to actually post. This is the v1 safety net while the projection logic is stabilizing.
+> The skill writes to a real GitHub PR/issue comment by default. Before publishing to a PR/issue you care about (especially one with active reviewers), run with `"dry_run": true` first. A dry-run runs every step except the GitHub write, returns the projected `comment_body` plus the `action` (`post` or `patch`) the real run would take, and writes nothing. Once the projection looks right, re-run without `dry_run` to post.
 
 ## When to invoke
 
@@ -68,91 +62,63 @@ Publish an rp1 artifact (markdown under `.rp1/work/`; frontmatter optional) as a
 - The file is not an rp1 work artifact at all (not under `.rp1/work/` and unrelated to rp1). This skill publishes rp1 artifacts; frontmatter is optional, but the file should be an rp1 work product.
 - The user wants to keep the artifact in the repo. This skill is for the *don't commit it* case.
 
-## Inputs
+## Gather the inputs
 
-| Arg | Required | Default |
+| Field | Required | How to determine |
 |---|---|---|
-| `<path>` | yes | — |
-| `[target]` | no | current branch's open PR (`gh pr view --json number -q .number`). May be a PR or issue **number**, or a full GitHub PR/issue **URL**. |
-| `--dry-run` | no | false (real post). First-time runs on real targets should pass `--dry-run` first. |
-| `--force` | no | false. See `references/edge-cases.md`. |
+| `artifact_path` | yes | The path to the artifact markdown the user wants to publish. A path outside `.rp1/work/` is allowed (a warning is returned). |
+| `target` | no | A PR/issue **number** or full GitHub PR/issue **URL** the user named. Omit it to default to the current branch's open PR. |
+| `dry_run` | no | `true` when the user wants a preview, or on a first publish to a real target. Defaults to `false` (real post). |
+| `force` | no | `true` only when the user explicitly wants to override a safety gate (closed/merged target, or a comment owned by another author). Defaults to `false`. See `references/edge-cases.md`. |
 
 ## Procedure
 
-The whole procedure runs as **one command** — `scripts/publish.py`. Set `SKILL_DIR`
-to this skill's directory (the folder containing this `SKILL.md`), then invoke:
+The whole procedure runs as **one command** — the `github-pr publish-comment` agent-tool. Pipe a single JSON object on stdin and read the JSON result on stdout:
 
 ```bash
-python3 "$SKILL_DIR/scripts/publish.py" <path> [target] [--dry-run] [--force]
+echo '{"artifact_path": "<path>", "target": "<pr-or-issue>", "dry_run": false, "force": false}' \
+  | rp1 agent-tools github-pr publish-comment
 ```
 
-That single process does everything: pre-flight checks → resolve the PR/issue
-target → project the comment body → find any existing comment for this artifact →
-POST or PATCH (or, under `--dry-run`, print the body + diagnostic and stop).
+Include only the fields you have: `artifact_path` is required; omit `target`, `dry_run`, and `force` when they are unset rather than guessing values.
 
-> **Run the one command. Do not re-implement these steps inline.**
+That single process does everything: derive owner/repo from the git origin remote → resolve the PR/issue target → project the comment body → find any existing comment for this artifact via its marker → POST or PATCH (or, under `dry_run`, return the projected body and the action it *would* take, writing nothing). It calls the GitHub API directly; it never shells out to `gh` and never modifies the artifact file.
+
+> **Run the one command. Do not re-implement these steps inline or call `git`/`gh` yourself.**
 > The procedure threads state across steps — the projected body, the idempotency
-> `doc_key`, the chosen `action`, the target comment id, and the target's metadata.
-> Separate `Bash` calls each get a fresh shell, so hand-assembling the steps drops
-> that state and leads to re-calling the helper scripts with the wrong arguments.
-> `publish.py` exists precisely to hold that state in one process. Pass the user's
-> args straight through to it; read its output; relay the result.
+> `doc_key`, the chosen `action`, and the target comment id. The agent-tool holds
+> that state in one process. Pass the user's inputs straight through, read the JSON
+> output, and relay the result.
 
-### What it does, in order (for transparency — not steps to run yourself)
+## Reading the output
 
-1. **Pre-flight:** `gh` present, `gh auth` ok, artifact file exists. A path outside
-   `.rp1/work/` is a warning, not an error (the path-based key still works).
-2. **Resolve target:** no `target` → current branch's open PR; a number or URL →
-   parsed via `scripts/parse_target.py` (bare numbers are probed for PR-vs-issue).
-   Closed/merged PRs and closed issues are gated behind `--force`.
-3. **Project body:** `scripts/project.py` turns the artifact into the byte-exact
-   comment body and computes `doc_key` (`rp1_doc_id`, else `path:<relative-path>`).
-   The split between the visible Executive Summary and the folded "Full artifact"
-   is chosen by a deterministic ladder; an author can override it by placing a
-   `<!-- rp1:split -->` line in the artifact (invisible when rendered) — content
-   before it is the summary, content after it is folded. Over the 65 KB cap →
-   hard error.
-4. **Find existing comment:** fetch all comments, match the line-1 marker
-   `<!-- rp1-artifact: <doc_key> -->`, then apply the decision table — 0 → POST,
-   1 mine → PATCH, 1 foreign → refuse (unless `--force`), ≥2 → refuse (always).
-5. **Write or preview:** `--dry-run` prints the diagnostic (stderr) + body (stdout)
-   and exits 0; otherwise it POSTs/PATCHes via `gh api -F body=@-` and prints a
-   confirmation with the comment URL.
+The command returns a JSON object:
 
-### Reading the output
+```json
+{
+  "action": "post" | "patch",
+  "comment_url": "https://github.com/...#issuecomment-...",
+  "doc_key": "<rp1_doc_id or path:<relative-path>>",
+  "size_bytes": 1234,
+  "warnings": ["..."],
+  "dry_run": false,
+  "comment_body": "<projected body — present only on dry_run>"
+}
+```
 
-- **Dry-run:** stderr carries the `=== publish-artifact (dry run) ===` block
-  (artifact, doc key, target, size, would-POST-or-PATCH); stdout carries only the
-  projected body, so `--dry-run | diff expected.md -` works. Relay the diagnostic
-  and surface any `WARNING:` lines (summary-ladder rung, orphaned comment, stale
-  mtime, path outside `.rp1/work/`).
-- **Real run:** the `✓ Posted|Updated …` block names the action, the PR/issue, and
-  the comment URL. Relay it verbatim.
-- **Non-zero exit:** the script printed the reason to stderr (refusals, size cap,
-  auth, no PR for branch). Show it; the artifact and any existing comment are
-  untouched.
+- **`action`** — `post` (new comment created) or `patch` (existing comment updated in place). On a dry-run this is the action the real run *would* take.
+- **`comment_url`** — link to the created/updated comment; `null` on a dry-run.
+- **`doc_key`** — the idempotency marker key (`rp1_doc_id` when present, else `path:<relative-path>`).
+- **`size_bytes`** — projected comment body size; the GitHub 65 KB cap is enforced as a hard error.
+- **`warnings`** — surface every entry to the user. These are advisory (summary-ladder rung, orphaned prior comment, stale local mtime, path outside `.rp1/work/`), not failures.
+- **`comment_body`** — on a dry-run only, the full projected body. Show it (or diff it) so the user can confirm before a real post.
 
-The per-arg semantics and every guard rail are specified in `references/edge-cases.md`.
+**On success:** relay the `action`, the `comment_url`, and any `warnings`.
+
+**On a refusal or error:** the command exits non-zero and prints the reason (foreign-owned comment without `force`, multiple matching comments, size cap, no PR for the current branch, closed/merged target without `force`, auth/network error). Show the reason verbatim. The artifact and any existing comment are left untouched. For foreign-owned or closed/merged cases, the user can re-run with `"force": true` if they intend to override; multiple-match refusals require manual dedup and `force` does **not** bypass them.
 
 ## References (read these — they encode the spec)
 
-- `references/artifact-frontmatter.md` — required/optional frontmatter fields, parsing implementation, title derivation rule.
+- `references/artifact-frontmatter.md` — required/optional frontmatter fields, parsing rules, title derivation rule.
 - `references/projection-format.md` — exact comment template and fill-in rules. **The output is byte-deterministic.**
-- `references/edge-cases.md` — re-run dedup logic, error table, `--force`/`--dry-run` semantics.
-
-## Fixtures and tests (the contract)
-
-The `examples/*-input.md` ↔ `examples/*-output.md` pairs are byte-exact golden tests
-for `scripts/project.py` (run by `tests/test_project.py`). The orchestration decisions
-in `scripts/publish.py` — the marker match, POST/PATCH/refuse table, dry-run diagnostic,
-soft orphan detection — are unit-tested in `tests/test_publish.py` with `gh` never
-called. After any change to the projection or orchestration:
-
-    python3 -m unittest discover -s plugins/dev/skills/publish-artifact/tests
-
-A failing golden test means the projection drifted from the contract — fix the script,
-not the fixtures.
-
-## Spec
-
-The contract this skill implements lives in `references/` (artifact frontmatter, projection format, edge cases).
+- `references/edge-cases.md` — re-run dedup logic, error table, `force`/`dry_run` semantics.

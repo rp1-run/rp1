@@ -36,6 +36,6 @@ templated docs but are **not** rendered — the skill ignores them. Any other fi
 
 ## Parsing note
 
-`scripts/project.py` parses frontmatter with Python stdlib only. A key line must start at
+The projection step parses frontmatter line-by-line. A key line must start at
 column 0 (`^key: value`); indented continuation lines of multi-line quoted values are not
 parsed as keys, so a colon inside a wrapped `description` cannot create a bogus key.

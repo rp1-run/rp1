@@ -8,12 +8,12 @@ After fetching all comments on the PR or issue and grepping for `<!-- rp1-artifa
 
 | Matches | Author of match | Behavior |
 |---|---|---|
-| 0 | n/a | **POST** new comment via `gh api`. |
-| 1 | == current `gh` user | **PATCH** existing comment. GitHub's "edited" badge surfaces the change. |
-| 1 | != current `gh` user | **Refuse unless `--force`.** Print: `Comment is owned by @<login>. Pass --force to overwrite, or coordinate with them.` |
+| 0 | n/a | **POST** a new comment. |
+| 1 | == authenticated user | **PATCH** existing comment. GitHub's "edited" badge surfaces the change. |
+| 1 | != authenticated user | **Refuse unless `force`.** Print: `Comment is owned by @<login>. Pass --force to overwrite, or coordinate with them.` |
 | ≥ 2 | any | **Refuse.** Print all matching comment URLs. Tell user to delete duplicates manually. Never auto-pick. |
 
-To resolve the current `gh` user: `gh api user --jq .login`.
+The current user is resolved via `users.getAuthenticated`.
 To get a comment's author: the `user.login` field on each comment object.
 
 ## Marker dropped from existing comment
@@ -26,7 +26,7 @@ A new comment will be posted, leaving the pre-existing comment orphaned.
 Consider deleting the old comment manually.
 ```
 
-The soft-detection heuristic: search for any existing comment by the current `gh` user that contains the footer string `Posted by \`publish-artifact\``. If any such comment exists but no marker matched our `doc_id`, the warning fires.
+The soft-detection heuristic: search for any existing comment by the authenticated user that contains the footer string `Posted by \`publish-artifact\``. If any such comment exists but no marker matched our `doc_id`, the warning fires.
 
 ## Error conditions
 
@@ -34,20 +34,19 @@ Principle: **fail loud, never destructive, never silent.** All errors exit non-z
 
 | Failure | Detection | Exit message |
 |---|---|---|
-| `gh` not installed | `command -v gh` fails | `gh CLI not found. Install: https://cli.github.com` |
-| `gh` not authenticated | `gh auth status` exits non-zero | `gh is not authenticated. Run: gh auth login` |
-| Path doesn't exist | `test -f "$path"` fails | `Artifact not found: <absolute-path>` |
-| Path not under `.rp1/work/` | prefix check on `$path` | **WARN, continue.** `WARNING: <path> is outside .rp1/work/.` The path-based key still works outside `.rp1/work/`; the warning is informational. |
+| Not authenticated / no GitHub token | GitHub API returns 401 | Bubble up the GitHub auth error. Local artifact is unchanged. |
+| Path doesn't exist | artifact file stat fails | `Artifact not found: <absolute-path>` |
+| Path not under `.rp1/work/` | prefix check on the path | **WARN, continue.** `WARNING: <path> is outside .rp1/work/.` The path-based key still works outside `.rp1/work/`; the warning is informational. |
 | Frontmatter or any field absent | n/a | **Not an error.** Frontmatter is optional; absent fields are skipped; the idempotency key falls back to `path:<relative-path>`. |
-| Target is an issue (not a PR) | `kind` resolution | **Not an error.** Comments use `/issues/{n}/comments`, valid for both. State checked via `gh issue view`. |
-| No PR for branch + no target arg | `gh pr view` returns no PR | `No open PR for current branch. Push and open a PR, or pass an explicit PR/issue number or URL.` |
-| PR closed or merged | `gh pr view --json state` | **WARN, allow only with `--force`.** `PR #<n> is <state>. Pass --force to comment anyway.` |
-| Closed issue | `gh issue view --json state` | **WARN, allow only with `--force`.** `Issue #<n> is CLOSED. Pass --force to comment anyway.` |
-| Comment body > 65 536 chars | `wc -c` after assembly | `Comment body exceeds GitHub's 65 KB cap (<size> bytes). Multi-comment chunking is not yet supported.` |
-| Network / GitHub API error | non-zero exit from `gh api` | Bubble up the `gh` error verbatim. Local artifact is unchanged. |
+| Target is an issue (not a PR) | `kind` resolution | **Not an error.** Comments use `/issues/{n}/comments`, valid for both. State checked via `issues.get`. |
+| No PR for branch + no target arg | no open PR for the current branch | `No open PR for current branch. Push and open a PR, or pass an explicit PR/issue number or URL.` |
+| PR closed or merged | `pulls.get` state | **WARN, allow only with `force`.** `PR #<n> is <state>. Pass --force to comment anyway.` |
+| Closed issue | `issues.get` state | **WARN, allow only with `force`.** `Issue #<n> is CLOSED. Pass --force to comment anyway.` |
+| Comment body > 65 536 chars | byte length after assembly | `Comment body exceeds GitHub's 65 KB cap (<size> bytes). Multi-comment chunking is not yet supported.` |
+| Network / GitHub API error | GitHub API request fails | Bubble up the GitHub error verbatim. Local artifact is unchanged. |
 | No recognizable summary section | regex misses all variants | **WARN, fall back to first H2.** `WARNING: no Executive Summary section found; falling back to first H2 ("<heading>").` |
 | `status: incomplete` in frontmatter | frontmatter parsing | Publish with the `⚠️ marked incomplete` banner (see projection-format.md). Not an error. |
-| Local artifact `mtime` older than existing comment `updated_at` | `stat` vs `gh api` `updated_at` | **WARN, allow.** `WARNING: local artifact is older than the existing comment. Continuing — pass --force to suppress this warning.` |
+| Local artifact `mtime` older than existing comment `updated_at` | local mtime vs comment `updated_at` | **WARN, allow.** `WARNING: local artifact is older than the existing comment. Continuing — pass --force to suppress this warning.` |
 
 ## --force flag effects
 
@@ -63,25 +62,11 @@ A single flag that loosens three guard rails at once:
 - (there is no missing-field refusal anymore — frontmatter is optional)
 - Body-size cap (65 KB is a GitHub-side limit)
 
-## --dry-run flag effects
+## dry_run flag effects
 
-Runs procedure steps 1–4 (resolve target, read + parse + project, lookup existing). Stops before any `POST`/`PATCH`, then exits 0.
+Resolves the target, reads + parses + projects the artifact, and looks up any existing comment. Stops before any `POST`/`PATCH` (writes nothing to GitHub), then exits 0.
 
-**Stdout** receives only the projected comment body (so `--dry-run | diff expected.md -` works). **Stderr** receives the diagnostic header below; the `Target:` line uses the PR format (with base/head) when `kind` is `pr`, and the issue format otherwise:
-
-```
-=== publish-artifact (dry run) ===
-Artifact: <relative-path>
-Doc key:  <doc_key>
-Target:   #<n> (<state>, base: <base>, head: <head>)   ← PR format
-Target:   #<n> (<state>, issue)                          ← issue format
-Size:     <bytes> / 65536 bytes
-Action:   would <POST|PATCH> (matched comment: <url-or-none>)
-
---- projected comment body ---
-<full body>
---- end body ---
-```
+The JSON result carries the projected body in `comment_body` and reports the action the real run *would* take in `action` (`post` or `patch`), with `comment_url` set to `null`. `doc_key`, `size_bytes`, and `warnings` are populated as they would be on a real run, so you can confirm the projection (and diff `comment_body` against an expected file) before posting.
 
 ## Path-based idempotency key
 

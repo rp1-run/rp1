@@ -1,8 +1,9 @@
 # Projection Format Reference
 
-The exact comment body is produced by `scripts/project.py` and pinned byte-for-byte by the
-golden tests in `tests/test_project.py`. This document describes the format; the script is
-the source of truth.
+The exact comment body is produced by the `github-pr publish-comment` agent-tool and pinned
+byte-for-byte by the golden tests in
+`cli/src/__tests__/agent-tools/github-pr/artifact-projection.test.ts`. This document
+describes the format; the projection module is the source of truth.
 
 ## Template
 
