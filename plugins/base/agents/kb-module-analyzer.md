@@ -275,7 +275,7 @@ Map dependencies between modules and components:
       "from": "dev/commands",
       "to": "base/commands",
       "type": "runtime",
-      "description": "Dev commands invoke base commands (e.g., /rp1-base:knowledge-load)"
+      "description": "Dev commands invoke base commands (e.g., /rp1-base:knowledge-build)"
     }
   ],
   "external_dependencies": [
@@ -378,7 +378,7 @@ Define module boundaries:
     {
       "module": "base",
       "public_api": {
-        "commands": ["knowledge-build", "knowledge-load", "strategize"],
+        "commands": ["knowledge-build", "strategize"],
         "agents": ["knowledge-builder", "project-documenter"],
         "skills": ["mermaid", "markdown-preview", "artifact-templates"]
       },

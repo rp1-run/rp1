@@ -26,7 +26,7 @@ agents:
   - name: rp1-base:kb-module-analyzer
     description: "Analyzes modules, components, and dependencies for modules.md from pre-filtered files"
     plugin: base
-    last_checksum: bc781769ce62d2cbb31b2477ec77cb85d6aa0ca76d67a780f28539b4081807d0
+    last_checksum: 1befac18f9d18cacf38f72eebd59d4f10ff0651aa06acfb326778c0bb92a5a4d
   - name: rp1-base:kb-pattern-extractor
     description: "Extracts implementation patterns and idioms for patterns.md from pre-filtered source files"
     plugin: base

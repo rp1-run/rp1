@@ -308,4 +308,4 @@ Final report must include:
 - files analyzed
 - files written under `.rp1/context/`
 - note that this passive workflow does not register an Arcade run
-- reminder: agents load KB automatically; no manual `knowledge-load` needed
+- reminder: agents load KB automatically via progressive disclosure
