@@ -86,12 +86,40 @@ appear under those phases instead of adding extra parent steps.
 |--------------|--------------|-----------------|
 | `requirements` | Collect requirements, scope, constraints, assumptions, and phase-plan traceability | `requirements.md` |
 | `planning` | Produce design, validate hypotheses when present, then generate the accepted task plan once | `design.md`, `tasks.md`, `tasks.json` |
-| `implementation` | Execute planned task units through builder-reviewer loops, run mechanical checks, verify the feature, and clean comments only inside a proven scope | Code changes, validation summaries, cleanup artifacts |
+| `implementation` | Execute planned task units through builder-reviewer loops, dispatch verification agents in parallel, and clean comments only inside a proven scope | Code changes, validation summaries, cleanup artifacts |
 | `release` | Present final readiness, manual verification items, archive choice, and add-task option | `build-readiness.md`, optional archived outputs |
 
 Machine task planning consumes `features/<feature-id>/tasks.json`. `tasks.md`
 is the reviewer-facing companion artifact and must mirror the same task IDs, but
 Markdown parsing is not the Build v2 execution contract.
+
+### Execution Model
+
+Implementation processes task units from the task plan in dependency order. Each
+unit declares a `depends_on` list of task IDs that must complete before the unit
+is eligible to start.
+
+**Builder-reviewer pipeline.** When builder(k) completes, reviewer(k) and
+builder(k+1) can dispatch in the same message if unit k+1 does not depend on
+unit k's tasks. This pipelining reduces wall-clock time without sacrificing
+review quality.
+
+**Parallel-wave mode.** When the ready set contains two or more independent
+units, `/build` can dispatch a second builder in a disposable git worktree so
+two units build concurrently. Preconditions for parallel-wave mode:
+
+- The host supports `TaskGroup` (parallel sub-agent dispatch)
+- A worktree-capable git repository
+- Two or more ready units with no mutual dependency and no file overlap
+
+At most two builders run concurrently -- one on the primary working tree, one on
+the worktree. After both complete, the worktree branch is integrated back onto
+the primary branch before reviewers dispatch.
+
+**Parallel verification.** After all implementation units finish, verification
+agents (code-checker, feature-verifier, and comment-cleaner when applicable)
+dispatch in parallel in a single message. Their results feed into readiness
+aggregation.
 
 ### Advanced: Scoped Comment Cleanup Artifacts
 

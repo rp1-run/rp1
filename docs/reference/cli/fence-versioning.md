@@ -81,6 +81,14 @@ The migrate command:
 Content you have written **outside** the fence markers is never modified.
 Already-current files are skipped. The operation is idempotent.
 
+### Dual-File Deduplication
+
+When both `CLAUDE.md` and `AGENTS.md` carry fenced stanzas, `rp1 migrate`
+deduplicates them during upgrade. The full stanza is written to `AGENTS.md` and
+`CLAUDE.md` is switched to a single-line `@AGENTS.md` import reference inside
+its fence. This matches the single-stanza injection behavior used by `rp1 init`
+for new dual-file projects.
+
 See [`rp1 migrate`](rp1-migrate.md) for full command documentation.
 
 ## Backward Compatibility

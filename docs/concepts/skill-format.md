@@ -47,7 +47,7 @@ metadata:
 
 ### `category`
 
-Classifies the skill for catalog grouping and ambient awareness. Used by the build pipeline to generate the skill catalog and the ambient suggestion table in instruction files.
+Classifies the skill for catalog grouping and ambient awareness. Used by the build pipeline to generate the skill catalog and the condensed skill-awareness pointer in instruction files.
 
 This field also feeds the canonical discovery registry, so `guide/CATALOG.md`,
 generated init awareness, and runtime `rp1 list --json` enrichment all derive
@@ -241,9 +241,53 @@ List of sub-agents the skill dispatches.
 The Markdown body after the frontmatter `---` delimiter contains the skill's instructions. It may include:
 
 - Liquid tags (`{% dispatch_agent %}`, `{% ask_user %}`, `{% plan_tool %}`)
+- Shared block includes (`{% include_shared "filename.md" %}`)
 - State machine definitions (`## STATE-MACHINE` with `stateDiagram-v2`)
 - Companion doc references (loaded via progressive disclosure)
 - Terse section headers (`## Configuration`, `## Workflow`, etc.)
+
+### `include_shared` Directive
+
+Use `{% include_shared "filename.md" %}` to splice content from
+`plugins/shared/` into a skill or agent at build time. The directive is resolved
+before platform conditional evaluation.
+
+Rules:
+
+- The target file must exist at `plugins/shared/{filename.md}`. A missing target
+  fails the build with an actionable message.
+- Nesting is not allowed. If an included file contains another `include_shared`
+  directive, the build fails.
+- The included content participates in all subsequent build steps (platform
+  conditionals, template rendering, lint).
+
+### Description Length Lint
+
+The build pipeline validates `description` length (rule L015):
+
+| Threshold | Severity | Action |
+|-----------|----------|--------|
+| > 200 characters | Error | Must fix before the build succeeds |
+| > 160 characters | Warning | Should shorten for discovery readability |
+
+Long descriptions degrade discovery UX in host tool skill lists and catalog
+displays.
+
+### Progressive Disclosure With `references/`
+
+Skills with large instruction sets can split content into a `references/`
+subdirectory. The entry-point `SKILL.md` contains a **manifest table** that maps
+each companion file to a load condition:
+
+```markdown
+| File | Description | Load When |
+|------|-------------|-----------|
+| `references/parallel-builders.md` | Worktree protocol | When parallel-wave preconditions are met |
+| `references/build-redirected.md` | Oversized-scope handling | When architect returns `needs_phase_planning` |
+```
+
+Agents load companion files on demand based on the condition column, keeping the
+base prompt compact. The `build` skill is the primary exemplar of this pattern.
 
 ## Directory Resolution
 

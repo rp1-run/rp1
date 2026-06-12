@@ -60,6 +60,23 @@ rp1 adds project guidance to the instruction file your host reads:
 
 Those files tell the host how to load project context and invoke rp1 workflows.
 
+When both `CLAUDE.md` and `AGENTS.md` exist in the same project, `init` uses
+**single-stanza injection**: the full rp1 stanza goes into `AGENTS.md` only, and
+`CLAUDE.md` receives a one-line `@AGENTS.md` import reference inside its fence.
+This avoids duplicate content that drifts across the two files.
+
+When only one instruction file exists, it receives the full stanza.
+
+### Skill Awareness
+
+The injected stanza includes a condensed skill-awareness pointer that tells the
+host about installed plugins and directs it to `/guide` for skill discovery. This
+replaces the previous full category table with a compact reference:
+
+- Lists installed plugins (e.g., `rp1-base`, `rp1-dev`)
+- Points to `/guide` for task-based skill lookup
+- Includes three short suggestion rules
+
 ### Ignore Defaults
 
 The recommended setup keeps project context shareable while treating local work
