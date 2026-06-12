@@ -95,6 +95,9 @@ export function upgradeStanzas(projectRoot: string): StanzaUpgradeResult {
 
 	// Pre-check: determine whether AGENTS.md carries a fenced stanza so that
 	// CLAUDE.md can be switched to the @AGENTS.md reference during upgrade.
+	// Deliberate convergence: this applies even when CLAUDE.md is already at
+	// the current fence version — dual-stanza projects collapse to the
+	// single-file layout on their next migrate, not only on version bumps.
 	const agentsFileContent = readFileSafe(path.join(projectRoot, "AGENTS.md"));
 	const agentsHasFence =
 		agentsFileContent !== null && hasFencedContent(agentsFileContent);

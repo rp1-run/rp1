@@ -739,12 +739,26 @@ export const useStepExecution = ({
 
 			if (claudeExists && agentsExists) {
 				await injectIntoSingleFile(addAct, "AGENTS.md", ctx.primaryTool);
-				await injectIntoSingleFile(
-					addAct,
-					"CLAUDE.md",
-					ctx.primaryTool,
-					AGENTS_REFERENCE_TEMPLATE,
-				);
+				// Skip CLAUDE.md when it already imports AGENTS.md outside any rp1
+				// fence — injecting the reference fence would duplicate the import.
+				const claudeContent = (await readFileContent(claudePath)) ?? "";
+				if (
+					/^@AGENTS\.md\s*$/m.test(claudeContent) &&
+					!hasFencedContent(claudeContent)
+				) {
+					addAct(
+						"instruction-injection",
+						"CLAUDE.md already references AGENTS.md; skipping",
+						"info",
+					);
+				} else {
+					await injectIntoSingleFile(
+						addAct,
+						"CLAUDE.md",
+						ctx.primaryTool,
+						AGENTS_REFERENCE_TEMPLATE,
+					);
+				}
 				return;
 			}
 

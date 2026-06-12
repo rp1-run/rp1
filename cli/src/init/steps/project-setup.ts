@@ -339,14 +339,22 @@ export async function injectInstructions(
 		);
 		if (agentsAction) actions.push(agentsAction);
 
-		const claudeAction = await injectIntoFile(
-			cwd,
-			"CLAUDE.md",
-			detectedTool,
-			logger,
-			AGENTS_REFERENCE_TEMPLATE,
-		);
-		if (claudeAction) actions.push(claudeAction);
+		// A CLAUDE.md that already imports AGENTS.md on its own (and carries no
+		// rp1 fence to manage) needs nothing from us — injecting the reference
+		// fence would make the import line appear twice.
+		const claudeContent = await fs.readFile(claudePath, "utf-8");
+		if (hasAgentsReference(claudeContent) && !hasFencedContent(claudeContent)) {
+			logger.info("CLAUDE.md already references AGENTS.md; skipping");
+		} else {
+			const claudeAction = await injectIntoFile(
+				cwd,
+				"CLAUDE.md",
+				detectedTool,
+				logger,
+				AGENTS_REFERENCE_TEMPLATE,
+			);
+			if (claudeAction) actions.push(claudeAction);
+		}
 
 		return { actions, instructionFile: "CLAUDE.md" };
 	}
