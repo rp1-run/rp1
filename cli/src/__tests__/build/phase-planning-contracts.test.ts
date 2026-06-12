@@ -302,8 +302,10 @@ describe("phase planning prompt contracts", () => {
 		expect(buildSkill).toContain(
 			'`status: "error"` = intentional failure (abort, no retry)',
 		);
-		// Task generation: status error aborts planning
-		expect(buildSkill).toContain('`status: "error"` = abort planning');
+		// Task generation: status error aborts planning and gates later phases
+		expect(buildSkill).toContain(
+			'`status: "error"` = abort planning; do NOT enter implementation or release',
+		);
 		// Both tasks.md and tasks.json must be confirmed before proceeding
 		expect(buildSkill).toContain("Do not continue without confirmed results");
 	});

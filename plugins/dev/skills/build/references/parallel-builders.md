@@ -34,7 +34,7 @@ The two builders receive different `CODE_ROOT` values; work artifacts stay canon
 
 After both builders complete and before dispatching any reviewer, integrate the secondary builder's worktree commits onto the primary branch:
 
-1. Verify the worktree branch has exactly one commit ahead of the base (the builder's atomic commit).
+1. Verify the worktree branch carries exactly one commit beyond its **fork point** -- the commit `HEAD` pointed at when the worktree was created (`git rev-list --count {forkPoint}..build-wt/{FEATURE_ID}/{unit_id}` = 1). Do not count against the current primary `HEAD`: the primary builder may have added one or more commits since the fork, and that is expected -- the rebase below replays the worktree's single commit onto whatever the primary `HEAD` is now.
 2. From the primary `codeRoot`, rebase the worktree branch:
 
 ```bash

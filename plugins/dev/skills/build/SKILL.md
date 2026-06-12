@@ -291,7 +291,7 @@ Normal fresh path invariant: dispatch `feature-tasker` exactly once, after `feat
 FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=false, UPDATE_CONTEXT={TASK_REGENERATION_REASON}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-Validate: parse JSON; accept `status: "success"` with `feature_id`, `task_plan_path`, and `artifacts[]` for both `tasks.md` and `tasks.json` (`storageRoot: "work_dir"`). `status: "error"` = abort planning. Malformed/missing artifacts = failure. Do not continue without confirmed results.
+Validate: parse JSON; accept `status: "success"` with `feature_id`, `task_plan_path`, and `artifacts[]` for both `tasks.md` and `tasks.json` (`storageRoot: "work_dir"`). `status: "error"` = abort planning; do NOT enter implementation or release. Malformed/missing artifacts = failure. Do not continue without confirmed results.
 
 **Checkpoint** (skip if AFK):
 
@@ -374,7 +374,7 @@ FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={code
 After builder(k) completes, determine pipelining eligibility:
 
 1. Compute the next ready unit **k+1** (lowest `unit_id` among remaining ready units, excluding k).
-2. Unit k+1 is **pipeline-eligible** when it exists AND none of unit k's `task_ids` appear in unit k+1's `depends_on`.
+2. Unit k+1 is **pipeline-eligible** when it exists AND none of unit k's `task_ids` appear in unit k+1's `depends_on` AND the two units' task file lists share no source file path (a failed reviewer(k) triggers a retry rebuild of k's files on the shared tree, so any overlap with k+1's in-flight edits is unsafe regardless of GIT_COMMIT).
 
 **When k+1 is pipeline-eligible**: dispatch reviewer(k) AND builder(k+1) as parallel agents in a single message:
 
@@ -435,7 +435,7 @@ Escalate without marking parent `implementation` failed while recovery remains.
 4. **Failure isolation.** When a pipelined reviewer(k) fails, wait for the in-flight builder(k+1) to finish, then resolve k's retry before any new dispatch.
 5. **Max two builders** (parallel-wave mode only). Parallel-wave mode dispatches at most two builders concurrently -- one on the primary `codeRoot`, one on a worktree `codeRoot`. Never three or more.
 6. **Parallel mode requires GIT_COMMIT=true and clean tree.** Without atomic commits the integration rebase has nothing to replay. A dirty working tree prevents worktree creation.
-7. **Overlapping file lists never concurrent.** If two ready units' task file lists share any source file path, they MUST NOT build concurrently. Fall back to serial pipelined dispatch for those units.
+7. **Overlapping file lists never concurrent.** If two units' task file lists share any source file path, they MUST NOT be in flight together — this applies to pipelined reviewer(k) ∥ builder(k+1) dispatch as well as parallel-wave builders. Fall back to strictly serial dispatch for those units.
 8. **Serial fallback.** When in doubt about preconditions, file overlap, or worktree health, fall back to the serial pipelined path. Parallel-wave is an optimization, not a requirement.
 9. **Emit namespacing unchanged.** Both primary and secondary builders emit with the same `task-builder:` step prefix. The `--unit` parameter distinguishes their events.
 

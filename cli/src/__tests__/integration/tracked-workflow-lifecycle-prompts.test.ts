@@ -247,9 +247,14 @@ describe("tracked workflow lifecycle prompts", () => {
 
 		// Build emits waiting_for_user at interactive checkpoints (prose form)
 		expect(content).toContain("waiting_for_user");
-		// Stop paths emit waiting status for resumable gates
-		expect(content).toContain("On Stop: emit");
-		expect(content).toContain("waiting");
+		// Stop paths emit waiting status for resumable gates — match the full
+		// sentences so unrelated occurrences of "waiting" cannot satisfy this
+		expect(content).toContain(
+			"On Stop: emit `requirements` waiting per §PARENT-EMIT-DISCIPLINE table",
+		);
+		expect(content).toContain(
+			"On Stop: emit `planning` waiting per §PARENT-EMIT-DISCIPLINE table",
+		);
 		expect(content).toContain("resume instruction");
 	});
 
