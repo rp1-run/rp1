@@ -425,6 +425,7 @@ const bootstrapWorkflow = async (options: {
 			options.invocationRoot,
 			"--harness",
 			"antigravity",
+			"--include-trace",
 		),
 		options.cliRoot,
 		{

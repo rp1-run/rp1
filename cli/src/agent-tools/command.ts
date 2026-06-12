@@ -481,7 +481,7 @@ agentToolsCommand
 		"--harness <name>",
 		"Harness/platform name (e.g., claude-code, codex, opencode)",
 	)
-	.option("-v, --verbose", "Include invocation trace in the response")
+	.option("--include-trace", "Include invocation trace in the response")
 	.addHelpText(
 		"after",
 		`
@@ -500,7 +500,8 @@ Input (CLI flags or JSON via stdin/file):
 
 Output:
   JSON ToolResult with canonical arguments, directories, workflow metadata,
-  and run selection. Use --verbose to include invocation trace data.
+  and run selection. Use --include-trace to include invocation trace data.
+  (The flag avoids -v/--verbose, which the parent CLI reserves for debug logging.)
 
 Examples:
   rp1 agent-tools workflow-bootstrap \\
@@ -509,7 +510,7 @@ Examples:
     --args "my-feature --afk" \\
     --project-root /path/to/project \\
     --harness codex
-  rp1 agent-tools workflow-bootstrap --verbose \\
+  rp1 agent-tools workflow-bootstrap --include-trace \\
     --name build \\
     --schema-path plugins/dev/skills/build/SKILL.md \\
     --args "my-feature --afk"
@@ -525,7 +526,7 @@ Examples:
 			args?: string;
 			projectRoot?: string;
 			harness?: string;
-			verbose?: boolean;
+			includeTrace?: boolean;
 		}): Promise<void> => {
 			const toolName = "workflow-bootstrap";
 			await ensureToolLoaded(toolName);
@@ -576,7 +577,7 @@ Examples:
 			const toolOptions: ToolOptions = {
 				inputSource: source,
 				filePath: options.file,
-				verbose: options.verbose,
+				verbose: options.includeTrace,
 			};
 
 			const result = await tool.execute(content, toolOptions)();
