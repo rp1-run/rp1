@@ -81,7 +81,7 @@ function mergeRuns(existing: Run | undefined, incoming: Run): Run {
 		return normalized;
 	}
 
-	return {
+	const merged = {
 		...existing,
 		...normalized,
 		steps: normalized.steps.length > 0 ? normalized.steps : existing.steps,
@@ -96,6 +96,20 @@ function mergeRuns(existing: Run | undefined, incoming: Run): Run {
 		invocation: normalized.invocation ?? existing.invocation,
 		subflows: normalized.subflows ?? existing.subflows,
 	};
+
+	if (activityTimestampForRun(normalized) < activityTimestampForRun(existing)) {
+		return {
+			...merged,
+			status: existing.status,
+			currentStep: existing.currentStep,
+			lastEventAt: existing.lastEventAt,
+			completedAt: existing.completedAt,
+			error: existing.error,
+			statusMessage: existing.statusMessage,
+		};
+	}
+
+	return merged;
 }
 
 function activityTimestampForRun(run: Run): string {

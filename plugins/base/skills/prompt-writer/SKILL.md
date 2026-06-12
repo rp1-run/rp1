@@ -44,7 +44,7 @@ Guide for writing maximally terse agent prompts with built-in constitutional gov
 
 | File | Purpose | When to Load |
 |------|---------|--------------|
-| `PATTERNS.md` | Reusable prompt patterns: constitutional agent, interview, map-reduce, state machine, tool selection, error hierarchy, output contract, progressive disclosure, checklist gate, parameterized behavior | Direct `/prompt-writer` invocation; prompt authoring |
+| `PATTERNS.md` | Reusable prompt patterns: constitutional agent, interview, map-reduce, state machine, tool selection, error hierarchy, output contract, progressive disclosure, checklist gate, parameterized behavior, engineering discipline | Direct `/prompt-writer` invocation; prompt authoring |
 | `TEMPLATES.md` | Ready-to-use prompt templates at simple, moderate, complex, command, and tool/skill levels | Direct `/prompt-writer` invocation; prompt authoring |
 
 ### Pipeline Stages

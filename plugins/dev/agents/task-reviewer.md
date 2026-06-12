@@ -241,8 +241,19 @@ Verify across seven dimensions, using `<thinking>` for detailed analysis:
 - [ ] Code structure aligns with existing patterns
 - [ ] Error handling style is consistent
 - [ ] No obvious code quality issues
+- [ ] Readable under pressure: names, structure, and control flow make intent clear
+- [ ] Low-complexity path: no broad speculative abstractions, layers, hooks, or options
+- [ ] Boundaries, effects, and failure modes are explicit
+- [ ] Changes are cohesive and local to the owning behavior/module
+- [ ] Production diagnosability is preserved or improved
 
-**Evidence**: Reference patterns.md, show alignment
+**FAIL if**:
+- Code hides errors, impossible states, corrupt data, or unexpected failures
+- Unrelated changes are coupled together
+- Broad abstractions or configuration surfaces are added without task-driven need
+- Failure behavior becomes harder to trace in production
+
+**Evidence**: Reference patterns.md and Engineering Discipline checks, show alignment
 
 ### 3.5 Testing Discipline Check
 
@@ -251,6 +262,8 @@ Verify across seven dimensions, using `<thinking>` for detailed analysis:
 **Pass Criteria**: Tests follow testing discipline rules
 
 **Checks**:
+- [ ] Behavior changes and bug fixes have the smallest high-value regression test first, or an explicit no-test rationale
+- [ ] Missing tests are treated as failures only when a concrete regression risk lacks coverage
 - [ ] Tests protect user-visible behavior, not implementation details
 - [ ] No tests for third-party libraries, framework behavior, or language primitives
 - [ ] No trivial tests for getters/setters/field access/dataclass defaults
@@ -263,12 +276,14 @@ Verify across seven dimensions, using `<thinking>` for detailed analysis:
 - [ ] Follows repo test conventions
 
 **FAIL if**:
+- Behavior change or bug fix lacks both meaningful coverage and an explicit no-test rationale
 - Superfluous tests added that don't catch real regressions
 - Tests that lock in implementation details
 - Tests for library/framework behavior we don't own
+- Duplicate, flaky, nondeterministic, or noisy tests are added
 - Combinatorial explosion without risk justification
 
-**Evidence**: List any test violations found
+**Evidence**: List test coverage rationale and any test violations found
 
 ### 3.6 Commit Validation Check
 

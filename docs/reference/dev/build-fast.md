@@ -34,7 +34,9 @@ durable phase planning first.
 
 Every invocation starts a fresh tracked run. Implementation changes happen in
 your current checkout, while workflow artifacts are stored under the canonical
-project work root. Use `--git-*` flags to enable commits or pushing.
+project work root. Non-AFK runs pause for plan review after the quick-build
+artifact is registered and before implementation begins. Use `--git-*` flags to
+enable commits or pushing.
 
 `build-fast` also snapshots the repository before implementation and resolves
 automatic comment cleanup through a generated change manifest after
@@ -54,7 +56,7 @@ with scope gating and AFK mode support.
 |-----------|----------|----------|---------|-------------|
 | `DEVELOPMENT_REQUEST` | `$ARGUMENTS` | Yes | - | Freeform description of what to build |
 | `--afk` | Flag | No | `false` | AFK (Away From Keyboard) mode — non-interactive for automation |
-| `--confirm-plan` | Flag | No | `false` | Enable plan review checkpoint before implementation |
+| `--confirm-plan` | Flag | No | `false` | Enable the post-implementation checkpoint; plan review is default unless `--afk` is set |
 | `--review` | Flag | No | `false` | Enable implementation review after the change |
 | `--git-commit` | Flag | No | `false` | Commit changes |
 | `--git-push` | Flag | No | `false` | Push branch to remote |
@@ -98,6 +100,7 @@ For automation scenarios (CI, scripts), use the `--afk` flag:
 
 | Decision Point | Behavior |
 |----------------|----------|
+| Plan review | Skipped |
 | KB missing | Warn, continue |
 | Tech choice | Use patterns.md preference |
 | Test scope | Conservative (minimal) |
@@ -107,9 +110,11 @@ For automation scenarios (CI, scripts), use the `--afk` flag:
 All auto-decisions are logged in the quick-build artifact with "(AFK auto)"
 prefix.
 
-## Confirm Mode
+## Interactive Checkpoints
 
-For interactive review of plans before execution, use the `--confirm-plan` flag:
+By default, non-AFK runs pause after planning so you can review the artifact and
+task list before implementation begins. Use `--confirm-plan` when you also want
+a checkpoint after implementation and cleanup:
 
 === "Claude Code"
 
@@ -123,11 +128,10 @@ For interactive review of plans before execution, use the `--confirm-plan` flag:
     /rp1-dev-build-fast "refactor the payment module" --confirm-plan
     ```
 
-**Confirm mode adds two checkpoints**:
-
 ### Plan Review Checkpoint
 
-After planning, before implementation begins:
+After planning and quick-build artifact registration, before implementation
+begins:
 
 ```
 ## Plan Review
@@ -146,12 +150,14 @@ After planning, before implementation begins:
 Options:
 1. "Continue" - Proceed with implementation
 2. "Revise" - Re-plan with your feedback
-3. "Stop" - Exit (artifact preserved for reference)
+3. "Review feedback from Arcade" - Process open Arcade feedback, then return to this checkpoint
+4. "Stop" - Exit (artifact preserved for reference)
 ```
 
 ### Post-Implementation Checkpoint
 
-After implementation completes:
+When `--confirm-plan` is set, `build-fast` also pauses after implementation and
+manifest-gated cleanup:
 
 ```
 ## Implementation Complete
@@ -162,10 +168,13 @@ After implementation completes:
 Review the changes, then:
 1. "Done" - Finish workflow
 2. "Add/Edit" - Describe additional changes needed
+3. "Review feedback from Arcade" - Process open Arcade feedback, then return to this checkpoint
 ```
 
-!!! note "AFK overrides confirm-plan"
-    When `--afk` is specified, `--confirm-plan` is automatically disabled since AFK mode is non-interactive.
+!!! note "AFK overrides checkpoints"
+    When `--afk` is specified, the default plan checkpoint is skipped and
+    `--confirm-plan` is automatically disabled since AFK mode is
+    non-interactive.
 
 ## Examples
 
@@ -217,7 +226,7 @@ Review the changes, then:
     /rp1-dev-build-fast "Optimize the database query in reports module"
     ```
 
-### With Plan Review
+### With Post-Implementation Checkpoint
 
 === "Claude Code"
 
@@ -239,7 +248,7 @@ planning, build, and review/finalization:
 | Phase | What Happens |
 |------|---------------|
 | Bootstrap | Finds the project and rp1 work directory, then creates a new `build-fast` run. Unlike `/build`, `build-fast` never resumes an earlier run. |
-| Plan | Loads KB context, assesses scope, creates a quick-build artifact for Small/Medium requests, and optionally pauses for plan confirmation. Large single-feature requests stop here with a redirect to `/build`; initiative-sized requests stop here with a redirect to `/phase-plan`. |
+| Plan | Loads KB context, assesses scope, creates and registers a quick-build artifact for Small/Medium requests, and pauses for plan confirmation unless `--afk` is set. Large single-feature requests stop here with a redirect to `/build`; initiative-sized requests stop here with a redirect to `/phase-plan`. |
 | Build | Snapshots the cleanup baseline, then delegates the planned work using the quick-build artifact as the source of truth. |
 | Review / Finalize | Optionally runs review, retries once on failure, records the cleanup boundary, cleans comments when safe, optionally pushes, and optionally pauses for a post-implementation checkpoint before final output. |
 

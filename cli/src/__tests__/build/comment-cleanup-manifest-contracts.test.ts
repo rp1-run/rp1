@@ -95,31 +95,35 @@ describe("comment cleanup manifest prompt contracts", () => {
 			"plugins/dev/agents/task-builder.md",
 		);
 
-		expect(taskBuilder).toContain("## Implementation Commandments");
+		expect(taskBuilder).toContain("## Engineering Discipline");
 		expect(taskBuilder).toContain(
-			"Write for humans first: optimize for maintainers reading, reviewing, debugging, and modifying code under time pressure.",
+			"Write for the next reader under pressure: names/structure/control flow show intent.",
 		);
 		expect(taskBuilder).toContain(
-			"Complexity is the enemy; prefer deep modules with simple interfaces and real behavior behind them.",
+			"Minimize complexity, not lines: simple paths, narrow APIs, deep modules.",
 		);
 		expect(taskBuilder).toContain(
-			"Model the data and domain well; make illegal states unrepresentable or fail closed at boundaries.",
-		);
-		expect(taskBuilder).toContain("High cohesion, low coupling.");
-		expect(taskBuilder).toContain(
-			"YAGNI: code is cost, not asset; avoid speculative hooks, layers, parameters, and features.",
+			"Model domain invariants; make wrong states hard to express.",
 		);
 		expect(taskBuilder).toContain(
-			"Prefer duplication to the wrong abstraction.",
+			"Fail loud near cause; never hide impossible state, corrupt data, or unexpected errors.",
 		);
 		expect(taskBuilder).toContain(
-			"Make the change easy, then make the easy change.",
+			"Co-locate code that changes together; organize by behavior/ownership.",
 		);
-		expect(taskBuilder).toContain("Listen to test pain as design feedback.");
 		expect(taskBuilder).toContain(
-			"Test behavior through public seams, not implementation internals.",
+			"Treat code as liability: no speculative hooks/layers/options/deps/features.",
 		);
-		expect(taskBuilder).toContain("Measure before optimizing; cut surgically.");
+		expect(taskBuilder).toContain("Prefer duplication over wrong abstraction.");
+		expect(taskBuilder).toContain(
+			"Make effects/boundaries/failures explicit: IO, time, random, concurrency, retries, external deps.",
+		);
+		expect(taskBuilder).toContain(
+			"Make prod diagnosable: structured errors/logs/metrics/traces/correlation IDs/breadcrumbs.",
+		);
+		expect(taskBuilder).toContain(
+			"Make change easy, then make easy change: refactor small before behavior when shape fights goal.",
+		);
 		expect(taskBuilder).toContain(
 			"Task builders MUST NOT calculate, merge, create, or hand off comment cleanup manifests or cleanup-owned hunks.",
 		);

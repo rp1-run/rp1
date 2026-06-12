@@ -431,6 +431,34 @@
   color: var(--rp1-charcoal);
 }
 
+/* Readiness CTA button */
+.md-typeset .md-button--readiness {
+  border-color: var(--rp1-charcoal);
+  color: var(--rp1-charcoal);
+  background-color: transparent;
+}
+
+.md-typeset .md-button--readiness:hover,
+.md-typeset .md-button--readiness:focus {
+  border-color: var(--rp1-charcoal);
+  background-color: var(--rp1-charcoal);
+  color: var(--rp1-off-white);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--readiness {
+  border-color: var(--rp1-amber);
+  color: var(--rp1-amber);
+  background-color: transparent;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--readiness:hover,
+[data-md-color-scheme="slate"] .md-typeset .md-button--readiness:focus {
+  border-color: var(--rp1-amber);
+  background-color: var(--rp1-amber);
+  color: var(--rp1-charcoal);
+}
+
+
 /* Mermaid diagram centering */
 .md-typeset .mermaid {
   text-align: center;
@@ -617,5 +645,9 @@
   .carousel-container .splide__pagination__page {
     width: 12px;
     height: 12px;
+  }
+
+  .md-typeset .md-button--readiness {
+    font-size: 0.65rem;
   }
 }

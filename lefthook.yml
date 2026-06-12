@@ -29,7 +29,7 @@ pre-push:
     typecheck-cli:
       run: cd cli && bun run typecheck
     typecheck-webui:
-      run: cd cli/web-ui && npx tsc --noEmit
+      run: cd cli/web-ui && bun install --frozen-lockfile && bun run typecheck
     catalog:
       run: just catalog-check
       fail_text: "Catalogue is stale — run: just catalog-generate"

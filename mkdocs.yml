@@ -71,6 +71,7 @@ hooks:
 
 nav:
   - Home: index.md
+  - Readiness: readiness/index.md
   - Get Started:
     - Overview: getting-started/index.md
     - Installation and Hosts: getting-started/installation.md
