@@ -226,4 +226,32 @@ describe("resolveSharedIncludes", () => {
 			expect(E.isRight(result)).toBe(true);
 		});
 	});
+
+	describe("regex state isolation across sequential files", () => {
+		test("resolves directives in every file of a multi-file pass", async () => {
+			// Regression: the nested-include .test() on the shared /g regex used to
+			// advance lastIndex, making the NEXT file's matchAll start mid-string
+			// and silently skip its directives.
+			const fileA = 'A {% include_shared "greeting.md" %} tail';
+			const fileB = '{% include_shared "greeting.md" %} B tail';
+
+			for (let i = 0; i < 3; i++) {
+				const a = expectRight(await resolveSharedIncludes(fileA, tempDir));
+				const b = expectRight(await resolveSharedIncludes(fileB, tempDir));
+				expect(a).toContain("Hello from shared block!");
+				expect(a).not.toContain("include_shared");
+				expect(b).toContain("Hello from shared block!");
+				expect(b).not.toContain("include_shared");
+			}
+		});
+	});
+
+	describe("path containment", () => {
+		test("rejects include targets that escape plugins/shared/", async () => {
+			const content = '{% include_shared "../../../etc/passwd" %}';
+			const result = await resolveSharedIncludes(content, tempDir);
+			const error = expectLeft(result);
+			expect(JSON.stringify(error)).toContain("escapes plugins/shared/");
+		});
+	});
 });

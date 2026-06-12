@@ -11,7 +11,7 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { Liquid } from "liquidjs";
 import type { CLIError } from "../../shared/errors.js";
@@ -118,6 +118,9 @@ const createPreprocessorLiquid = (): Liquid => {
 };
 
 const INCLUDE_SHARED_REGEX = /\{%\s*include_shared\s+"([^"]+)"\s*%\}/g;
+// Non-global twin for one-shot tests: .test() on the /g regex above would
+// advance its lastIndex and silently skip directives in the next file.
+const INCLUDE_SHARED_TEST_REGEX = /\{%\s*include_shared\s+"[^"]+"\s*%\}/;
 
 /**
  * Resolve `{% include_shared "name.md" %}` directives in source content.
@@ -143,7 +146,16 @@ export const resolveSharedIncludes = async (
 
 	for (const match of matches) {
 		const [directive, filename] = match;
-		const sharedPath = join(projectRoot, "plugins", "shared", filename);
+		const sharedRoot = join(projectRoot, "plugins", "shared");
+		const sharedPath = resolve(sharedRoot, filename);
+		if (!sharedPath.startsWith(sharedRoot + sep)) {
+			return E.left(
+				generationError(
+					"preprocessor",
+					`Shared include target escapes plugins/shared/: "${filename}"`,
+				),
+			);
+		}
 
 		let fileContent: string;
 		try {
@@ -157,7 +169,7 @@ export const resolveSharedIncludes = async (
 			);
 		}
 
-		if (INCLUDE_SHARED_REGEX.test(fileContent)) {
+		if (INCLUDE_SHARED_TEST_REGEX.test(fileContent)) {
 			return E.left(
 				generationError(
 					"preprocessor",
