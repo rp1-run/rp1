@@ -266,6 +266,11 @@ export const parseRawArgs = (
 					result[upperName] = true;
 					i++;
 				} else if (matchedArg) {
+					// Intentional asymmetry with positional capture: a flag VALUE never
+					// consumes a double-dash token (declared or not) — `--mode --anything`
+					// leaves --mode valueless rather than binding "--anything". Positional
+					// capture, by contrast, only stops at DECLARED flags so prose dashes
+					// flow into the positional. See resolve-args tests pinning both rules.
 					if (i + 1 < tokens.length && !tokens[i + 1].startsWith("--")) {
 						result[upperName] = tokens[i + 1];
 						i += 2;

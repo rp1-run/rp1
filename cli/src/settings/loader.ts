@@ -24,6 +24,9 @@ const isPlainRecord = (
 ): value is Readonly<Record<string, unknown>> =>
 	value !== null && typeof value === "object" && !Array.isArray(value);
 
+// Lifetime assumption: agent-tools processes are single-invocation, so this
+// module-level cache never needs runtime invalidation. A long-lived consumer
+// (daemon, watcher) must call resetSettingsCache() on settings changes.
 const settingsCache = new Map<string, ParsedSettingsFile>();
 
 /** Clear the in-memory settings cache. Call in test `beforeEach` for isolation. */

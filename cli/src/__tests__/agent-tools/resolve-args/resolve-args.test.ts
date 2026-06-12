@@ -107,6 +107,31 @@ describe("parseRawArgs", () => {
 		expect(result).toEqual({ FEATURE_ID: "my-feature" });
 	});
 
+	test("flag value never consumes a double-dash token (intentional asymmetry)", () => {
+		// Pins the boundary asymmetry documented in resolver.ts: a declared
+		// flag's VALUE stops at ANY double-dash token (declared or not), while
+		// positional capture stops only at DECLARED flags. `--mode --unknown`
+		// must leave MODE valueless (true) rather than binding "--unknown".
+		const modeSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "FEATURE_ID",
+				type: "string",
+				required: true,
+				description: "Feature ID",
+			},
+			{
+				name: "MODE",
+				type: "string",
+				required: false,
+				description: "Mode",
+			},
+		];
+		const result = parseRawArgs("feat --mode --unknown-thing", modeSchema);
+		expect(result.MODE).toBe(true);
+		expect(result.UNKNOWN_THING).toBe(true);
+		expect(result.FEATURE_ID).toBe("feat");
+	});
+
 	test("parses optional positional string and enum arguments", () => {
 		const optionalSchema: readonly ArgumentDefinition[] = [
 			{
