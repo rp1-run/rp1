@@ -66,7 +66,7 @@ agents:
   - name: rp1-base:socratic-duel-participant
     description: "Participates in a Socratic Duel run using pre-resolved launcher context and participant-owned artifact writes."
     plugin: base
-    last_checksum: 342fcd5cb334cdc44d11abfb63a6cdfdcee6c50427ac2404bb81921925c6b4a5
+    last_checksum: 23f8013b39083b1b229948a6c5099870837b253ec3a2bc3b2fc1e4a9ebdf43ec
   - name: rp1-base:strategic-advisor
     description: "Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs"
     plugin: base
@@ -106,7 +106,7 @@ agents:
   - name: rp1-dev:build-verify-aggregator
     description: "Combines validation envelopes into final build readiness status and artifact"
     plugin: dev
-    last_checksum: 25562e9b5b032f46b0ce0d8a4bbef415f0636bfefb20d5492c64e4b8add697e2
+    last_checksum: 05dcaa97d373ba47141d83992d1bc07782dbe795558d82c88cfe075c511c870e
   - name: rp1-dev:charter-interviewer
     description: "Stateless interview agent that analyzes charter state and returns structured JSON responses for greenfield project vision capture"
     plugin: dev
@@ -134,7 +134,7 @@ agents:
   - name: rp1-dev:feature-editor
     description: "Analyzes mid-stream edits for validity, detects conflicts, and propagates approved changes across feature documentation"
     plugin: dev
-    last_checksum: 694122d82547b089a19a151dd177108394db1f6fce6f50a47281914b9d7359b4
+    last_checksum: bdf279df9f0adf5915d02e91492a48d915337a472d5485d4cc938d5320688b97
   - name: rp1-dev:feature-requirement-gatherer
     description: "Transforms high-level feature concepts into structured requirements specifications. Invoked by /build workflow."
     plugin: dev
@@ -186,7 +186,7 @@ agents:
   - name: rp1-dev:pr-visualizer
     description: "Transform PR diffs into Mermaid diagrams for visual code review"
     plugin: dev
-    last_checksum: 0d4a8305f6c426a2efbdde87ff3ad35713eea3a39a6ae2f2e444f5e403478220
+    last_checksum: f86ce7f37ad094d098ff1238ce56a01682cec96a53bf92218d1288e08ffba161
   - name: rp1-dev:pr-walkthrough-reporter
     description: "Generate an evidence-grounded slide-ready markdown walkthrough for a pull request"
     plugin: dev
@@ -202,7 +202,7 @@ agents:
   - name: rp1-dev:task-builder
     description: "Implements assigned task(s) w/ full context, writes summaries to the resolved task file. Uses extended thinking (or ultrathink)."
     plugin: dev
-    last_checksum: 2ee13377b212a1cdfb6924c1ca6ff87cc552e18aa99fba2e8d328b47bd2e7587
+    last_checksum: 7b586d5d8c87c5a63ba8e241a7bf4e621b11b5d2a9abe5429f0dea9fbdb2011d
   - name: rp1-dev:task-reviewer
     description: "Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification."
     plugin: dev

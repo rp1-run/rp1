@@ -246,3 +246,6 @@ rp1 agent-tools emit \
 - Read source code files -- the agent handles its own context
 
 {% include_shared "anti-loop.md" %}
+
+**File-specific constraints**:
+- Flow is fixed: parse args → spawn pipeline-runner → write artifacts → STOP.

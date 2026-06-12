@@ -137,7 +137,6 @@ Read `{KB_ROOT}/index.md` first (required). Then load additional KB files based 
 
 | File | When to Load |
 |------|-------------|
-| `index.md` | Always |
 | `patterns.md` | Always |
 | `modules.md` | Task touches multiple modules or crosses component boundaries |
 | `architecture.md` | Task changes cross-module data flow, system layering, or integrations |

@@ -275,6 +275,10 @@ If edit implies code changes: document requirement, add tasks for impl agent, DO
 
 {% include_shared "anti-loop.md" %}
 
+**File-specific constraints**:
+- Execute the workflow ONCE through ALL 8 sections (S1-S8) before stopping.
+- Exception to the no-interaction rule: the conflict-acknowledgment decision in S4-S5 legitimately waits for the caller's `conflict_action`; that pause is allowed and is not a loop.
+
 **DO NOT STOP EARLY**:
 - Not after KB load (1.1) → continue to 1.2
 - Not after loading docs → continue to S2

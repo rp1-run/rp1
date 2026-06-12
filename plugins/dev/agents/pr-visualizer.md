@@ -124,6 +124,7 @@ Print raw markdown to stdout. No file write. No artifact registration.
 
 **File-specific constraints**:
 - Do not re-analyze or regenerate diagrams
+- On a blocking error, output the diagram sections completed so far alongside the error response -- partial results beat none
 
 ## Output Discipline
 

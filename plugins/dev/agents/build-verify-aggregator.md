@@ -108,10 +108,10 @@ Release readiness rules:
 ## §ARTIFACT
 
 1. Read the template at `plugins/base/skills/artifact-templates/templates/build-verify-aggregator/build-readiness.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
-4. Write `{WORK_ROOT}/features/{FEATURE_ID}/build-readiness.md`.
-5. Lead with readiness status, blockers, warnings, manual items, requirement evidence.
-6. Include every required component, including missing or failed components.
-7. Register artifact if `WORKFLOW` and `RUN_ID` are non-empty:
+2. Write `{WORK_ROOT}/features/{FEATURE_ID}/build-readiness.md`.
+3. Lead with readiness status, blockers, warnings, manual items, requirement evidence.
+4. Include every required component, including missing or failed components.
+5. Register artifact if `WORKFLOW` and `RUN_ID` are non-empty:
 
 ```bash
 rp1 agent-tools emit \
