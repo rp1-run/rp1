@@ -101,11 +101,6 @@ rp1 init --yes
 | Codex | Yes | `AGENTS.md` | Run `rp1 install codex` after `init` |
 | Antigravity CLI | Yes | Antigravity plugin assets | Offered automatically when `agy` is detected |
 
-When both `CLAUDE.md` and `AGENTS.md` exist, `init` uses single-stanza
-injection: the full rp1 stanza goes into `AGENTS.md` only, and `CLAUDE.md`
-receives an `@AGENTS.md` import reference. Running `rp1 migrate` on older
-dual-stanza projects performs the same deduplication during upgrade.
-
 Antigravity can also be installed or repaired directly with the targeted
 Antigravity commands below.
 
