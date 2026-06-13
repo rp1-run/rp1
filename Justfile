@@ -371,6 +371,12 @@ serve-docs:
     env -u UV_INDEX -u UV_EXTRA_INDEX_URL -u UV_INDEX_URL -u UV_NO_INDEX \
         uvx --no-config --default-index {{PYPI_INDEX}} --with mkdocs-material mkdocs serve --strict --livereload
 
+# Build docs in strict mode -- fails on broken internal links and anchors.
+# CI runs the same `mkdocs build --strict` (Docs Link Check job).
+check-docs:
+    env -u UV_INDEX -u UV_EXTRA_INDEX_URL -u UV_INDEX_URL -u UV_NO_INDEX \
+        uvx --no-config --default-index {{PYPI_INDEX}} --with mkdocs-material mkdocs build --strict
+
 # Bundle the readiness assessment React component (docs/javascripts/readiness-assessment.js)
 build-readiness:
     @./scripts/build-readiness.sh

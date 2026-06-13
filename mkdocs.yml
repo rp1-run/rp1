@@ -66,6 +66,14 @@ markdown_extensions:
 plugins:
   - search
 
+# Broken internal links and anchors fail the build under `mkdocs build --strict`
+# (see `just check-docs` and the Docs Link Check CI job).
+validation:
+  links:
+    not_found: warn
+    unrecognized_links: warn
+    anchors: warn
+
 hooks:
   - docs/hooks.py
 
