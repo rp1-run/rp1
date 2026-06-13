@@ -117,6 +117,7 @@ nav:
     - Platform Support:
       - GitHub Copilot CLI Setup: reference/platforms/copilot.md
       - Antigravity CLI: reference/platforms/antigravity.md
+      - Codex: reference/platforms/codex.md
     - Ship Code Reference:
       - Overview: reference/dev/index.md
       - build: reference/dev/build.md
