@@ -390,6 +390,8 @@ eval-setup:
 # Examples:
 #   just eval-run                          # run all suites in Docker (claude harness)
 #   just eval-run rp1-dev/build-fast       # run a specific suite in Docker
+#   just eval-run rp1-dev/build rp1-dev/build-fast  # multiple suites, one container
+#   just eval-run --rebuild-image          # force dev image rebuild (after Dockerfile changes)
 #   just eval-run --harness=opencode       # run all with opencode in Docker
 #   just eval-run --attest --commit        # run all in Docker, then commit on host
 #   just eval-run --platform=opencode      # attest for opencode platform

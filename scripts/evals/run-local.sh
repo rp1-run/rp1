@@ -2,7 +2,7 @@
 # Run eval suites in the current environment. Container-only entrypoint for
 # Dockerized evals (called from the rp1-dev container, not the host).
 #
-# Usage: scripts/evals/run-local.sh [suite] [--harness=...] [--platform=...] [--attest] [--commit] [--verbose]
+# Usage: scripts/evals/run-local.sh [suite ...] [--harness=...] [--platform=...] [--attest] [--commit] [--verbose]
 set -e
 
 repo_root="$(pwd)"
@@ -15,7 +15,7 @@ mkdir -p "$promptfoo_config_dir"
 bash "${evals_dir}/scripts/prepare-promptfoo-config.sh" "$promptfoo_config_dir"
 export PROMPTFOO_CONFIG_DIR="$promptfoo_config_dir"
 
-suite=""
+suites=()
 harness="claude"
 platform="claude-code"
 attest=false
@@ -29,7 +29,7 @@ for arg in "$@"; do
         --attest) attest=true ;;
         --commit) do_commit=true ;;
         --verbose) verbose_flag="--verbose" ;;
-        *) suite="$arg" ;;
+        *) suites+=("$arg") ;;
     esac
 done
 
@@ -37,13 +37,16 @@ if [ -n "$passed_suites_file" ]; then
     : > "$passed_suites_file"
 fi
 
-if [ -n "$suite" ]; then
-    config_file="${evals_dir}/suites/${suite}/evals.yaml"
-    if [ ! -f "$config_file" ]; then
-        echo "Error: Suite not found: $config_file"
-        exit 1
-    fi
-    configs_list="$config_file"
+if [ "${#suites[@]}" -gt 0 ]; then
+    configs_list=""
+    for suite in "${suites[@]}"; do
+        config_file="${evals_dir}/suites/${suite}/evals.yaml"
+        if [ ! -f "$config_file" ]; then
+            echo "Error: Suite not found: $config_file"
+            exit 1
+        fi
+        configs_list="${configs_list}${config_file}"$'\n'
+    done
 else
     configs_list=$(find "${evals_dir}/suites" -path "*/evals.yaml" -not -path "*/shared/*" -not -path "*/node_modules/*" | sort)
 fi

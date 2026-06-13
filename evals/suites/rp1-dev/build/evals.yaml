@@ -44,7 +44,7 @@ prompts:
 defaultTest:
   options:
     provider:
-      id: "anthropic:claude-haiku-4-5-20251001"
+      id: "anthropic:messages:claude-haiku-4-5"
       config:
         temperature: 0
   vars:
