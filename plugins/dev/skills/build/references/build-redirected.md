@@ -17,24 +17,13 @@ After dispatching `feature-architect`, parse the response JSON:
 If `status = "needs_phase_planning"`:
 
 1. Extract `reason`, `source_relative_path`, and `redirect_command`.
-2. Emit a waiting event so the run clearly stops on `planning`:
+2. Close the build run as terminal. A phase-plan handoff is **not** a resumable pause — the oversized feature will not resume as itself; the user runs `/phase-plan` and then builds the resulting child features. Emit a terminal `cancelled` end-run so the run leaves the active set instead of dangling in `waiting`:
 
 ```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type waiting_for_user \
+rp1 agent-tools emit end-run \
   --run-id {RUN_ID} \
-  --step planning \
-  --data '{"prompt": "Scope exceeds a single feature. Run /phase-plan before resuming delivery.", "context": "{redirect_command}"}'
-```
-
-```bash
-rp1 agent-tools emit \
-  --workflow build \
-  --type status_change \
-  --run-id {RUN_ID} \
-  --step planning \
-  --data '{"status": "waiting", "feature": "{FEATURE_ID}"}'
+  --outcome cancelled \
+  --reason "Scope exceeds a single feature; redirected to /phase-plan. Run {redirect_command}, then build the resulting child features."
 ```
 
 3. Output:
@@ -50,10 +39,10 @@ rp1 agent-tools emit \
 
 4. STOP.
 
-## Resume After Redirect
+## After Redirect
 
-When resuming a build where planning was waiting due to an oversized-scope redirect:
+A redirected build run is terminal (`cancelled`) — there is nothing to resume. To proceed:
 
-- The resume checkpoint in PHASE-2 detects `oversized-scope redirect context` from `WORKFLOW_STATE.recent_events`.
-- Re-output the redirect summary and STOP.
-- The user must run `/phase-plan` to decompose the scope before the build can proceed.
+- Run `/phase-plan` (or the `redirect_command`) to decompose the oversized scope into child features.
+- Then run `/build <child-feature>` for each child feature; each starts its own run.
+- Re-invoking `/build` on the original oversized scope simply starts a fresh run that re-gathers requirements and redirects again until the scope is decomposed.

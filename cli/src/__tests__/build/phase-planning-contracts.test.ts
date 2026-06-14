@@ -193,9 +193,12 @@ describe("phase planning prompt contracts", () => {
 
 		// Redirect invariants live in the references/ companion
 		expect(buildRedirected).toContain("do NOT run `hypothesis-tester`");
-		expect(buildRedirected).toContain(
-			"Scope exceeds a single feature. Run /phase-plan before resuming delivery.",
-		);
+		// A phase-plan handoff terminates the build run (cancelled), not a
+		// resumable waiting pause — otherwise the oversized build dangles open.
+		expect(buildRedirected).toContain("Scope exceeds a single feature");
+		expect(buildRedirected).toContain("emit end-run");
+		expect(buildRedirected).toContain("--outcome cancelled");
+		expect(buildRedirected).not.toContain('"status": "waiting"');
 		expect(featureArchitect).toContain(
 			"Do NOT trigger phase planning from routing provenance alone.",
 		);

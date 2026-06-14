@@ -242,8 +242,9 @@ On Continue, or immediately when AFK skips the checkpoint, emit `requirements` c
 **Resume checkpoint**: If `WAITING_PHASE.phase == "planning"`, inspect the latest parent waiting/status event from `WORKFLOW_STATE.recent_events`:
 
 - `reason = "rejected_hypotheses"` -> jump directly to §2.2 Hypothesis Gate.
-- oversized-scope redirect context -> re-output the redirect summary and STOP.
 - otherwise jump directly to the §2.3 planning Checkpoint.
+
+(An oversized-scope redirect terminates the run as `cancelled`, so a redirected build never resumes here — re-invoking `/build` starts a fresh run. See `references/build-redirected.md`.)
 
 Do not dispatch `feature-architect`, `hypothesis-tester`, or fresh `feature-tasker` on a waiting resume unless the resumed decision is Revise.
 
@@ -640,6 +641,7 @@ After `feature-archiver` succeeds and registers the actual archived output, emit
 |-----------|--------|------|
 | Archive completes successfully | `completed` | `release` |
 | User selects "Stop" at any checkpoint | `waiting` | current step |
+| Oversized scope redirected to /phase-plan | `cancelled` (end-run) | `planning` |
 | User selects "Complete without archive" at release gate | `completed` | `release` |
 | Unrecoverable agent failure | `failed` | failing parent phase |
 | AFK mode abort | `failed` | failing parent phase |
