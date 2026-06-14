@@ -338,6 +338,38 @@ const resolveHostAndHarness = (
 	return { host, harness };
 };
 
+// FEATURE_ID is used both as a feature directory name
+// ({workRoot}/features/{FEATURE_ID}/) and as the resumable run identity, so a
+// value containing slashes, spaces, or a whole prose request would create
+// broken nested directories and an unstable resume key. Skills instruct the
+// model to pass a clean kebab slug; this is the mechanical safety net for when
+// it does not (e.g. greedy-captured prose or a file path landing in FEATURE_ID).
+const FEATURE_ID_MAX_LENGTH = 60;
+
+const slugifyFeatureId = (value: string): string =>
+	value
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.slice(0, FEATURE_ID_MAX_LENGTH)
+		.replace(/-+$/g, "");
+
+// Normalize the FEATURE_ID argument in place so the same safe slug flows to the
+// run identity, the feature directory, the bootstrap context, and the arguments
+// returned to the skill. Leaves a value untouched when it is already a clean
+// slug, and leaves the original when slugification would be empty (degenerate
+// input is surfaced by the existing empty-identity / "unknown" handling).
+const normalizeFeatureId = (
+	argumentsMap: Record<string, string | boolean>,
+): void => {
+	const raw = argumentsMap.FEATURE_ID;
+	if (typeof raw !== "string") return;
+	const trimmed = raw.trim();
+	if (!trimmed) return;
+	const slug = slugifyFeatureId(trimmed);
+	if (slug) argumentsMap.FEATURE_ID = slug;
+};
+
 const deriveFeatureId = (
 	argumentsMap: Readonly<Record<string, string | boolean>>,
 ): string => {
@@ -436,6 +468,12 @@ export const execute = (
 		TE.chainFirst(({ resolvedArgs }) =>
 			TE.fromEither(requireResolvedArguments(resolvedArgs.unresolved)),
 		),
+		// Sanitize FEATURE_ID once, before it is consumed as run identity, feature
+		// directory, bootstrap context, or returned to the skill — so all four agree.
+		TE.map((ctx) => {
+			normalizeFeatureId(ctx.resolvedArgs.arguments);
+			return ctx;
+		}),
 		TE.bind("identity", ({ workflow, resolvedArgs }) =>
 			TE.fromEither(deriveIdentity(workflow, resolvedArgs.arguments)),
 		),

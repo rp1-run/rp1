@@ -218,6 +218,81 @@ metadata:
 		});
 	});
 
+	test("sanitizes a path-shaped FEATURE_ID and splits the remainder into REQUIREMENTS", async () => {
+		await writeProjectId(tempDir, "project-sanitize-id");
+		// build's real shape: FEATURE_ID (required) + REQUIREMENTS (variadic).
+		const skillPath = join(
+			tempDir,
+			"plugins",
+			"dev",
+			"skills",
+			"build",
+			"SKILL.md",
+		);
+		await mkdir(join(skillPath, ".."), { recursive: true });
+		await writeFile(
+			skillPath,
+			`---
+name: build
+description: "Bootstrap test workflow with a variadic requirements arg"
+metadata:
+  category: development
+  is_workflow: true
+  workflow:
+    run_policy: resumable
+    identity_args:
+      - FEATURE_ID
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "Feature identifier"
+    - name: REQUIREMENTS
+      type: string
+      required: false
+      default: ""
+      variadic: true
+      description: "Raw requirements text"
+    - name: AFK
+      type: boolean
+      required: false
+      default: false
+      description: "Non-interactive mode"
+---
+# Build
+`,
+		);
+
+		const result = await expectTaskRight(
+			execute(
+				JSON.stringify({
+					name: "build",
+					schema_path: "plugins/dev/skills/build/SKILL.md",
+					raw_args:
+						".rp1/work/research/2026-06-13-1up-install.md fix the issues --afk",
+					project_root: tempDir,
+					harness: "codex",
+				}),
+				{ inputSource: "stdin" },
+			),
+		);
+
+		// Greedy capture no longer swallows the whole request: the leading
+		// (path-shaped) token is FEATURE_ID and the rest is REQUIREMENTS. Bootstrap
+		// then slugifies FEATURE_ID so it is filesystem- and identity-safe.
+		expect(result.data.arguments.FEATURE_ID).toBe(
+			"rp1-work-research-2026-06-13-1up-install-md",
+		);
+		expect(result.data.arguments.REQUIREMENTS).toBe("fix the issues");
+		expect(result.data.arguments.AFK).toBe(true);
+
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const run = getRunById(db, result.data.run.runId);
+		expect(run?.workIdentity).toBe(
+			"FEATURE_ID=rp1-work-research-2026-06-13-1up-install-md",
+		);
+	});
+
 	test("includes trace when verbose is set", async () => {
 		await writeProjectId(tempDir, "project-verbose-id");
 		await writeWorkflowSkill();
