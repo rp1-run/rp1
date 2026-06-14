@@ -4,12 +4,15 @@ import { Command } from "commander";
 import pkg from "../package.json";
 import { type CLIError, formatError, getExitCode } from "../shared/errors.js";
 
-// Dev builds inject this constant at build time
+// Dev builds inject these constants at build time
 declare const __RP1_DEV_BUILD__: boolean | undefined;
-const version =
-	typeof __RP1_DEV_BUILD__ !== "undefined" && __RP1_DEV_BUILD__
-		? `${pkg.version}-dev`
-		: pkg.version;
+declare const __RP1_DEV_SHA__: string | undefined;
+const isDevBuild =
+	typeof __RP1_DEV_BUILD__ !== "undefined" && __RP1_DEV_BUILD__;
+const devSha = typeof __RP1_DEV_SHA__ !== "undefined" ? __RP1_DEV_SHA__ : "";
+const version = isDevBuild
+	? `${pkg.version}-dev${devSha ? `+${devSha}` : ""}`
+	: pkg.version;
 
 import { createLogger, type Logger, LogLevel } from "../shared/logger.js";
 import { detectRuntime } from "../shared/runtime.js";
