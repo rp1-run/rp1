@@ -206,6 +206,13 @@ Symbols: `[ ]`=PENDING `[~]`=RUNNING `[x]`=COMPLETED `[-]`=SKIPPED `[!]`=FAILED
 Requirements/planning fail fast on unrecoverable contract failures. Implementation retries recoverable builder/reviewer failures once before waiting (interactive) or failing per AFK policy. NEVER delete artifacts.
 AFK mode: skip prompts, auto-select defaults, retry once on failure, auto-archive.
 
+## §CHECKPOINT-OPTIONS
+
+`AskUserQuestion` shows at most **4 options**. At every checkpoint:
+
+- Present that checkpoint's canonical options **verbatim** — never rename, merge, or drop one to make room for another choice. `Review feedback from Arcade` and `Stop` must always be offered.
+- If an agent's result adds a decision the user must make (e.g. a scope choice the gatherer surfaced), or the canonical list exceeds four, do **not** fold it into the menu. Split into sequential `AskUserQuestion` calls: present the canonical proceed/stop menu first, then ask the surfaced or overflow choice after the user opts to proceed.
+
 ---
 
 ## §PHASE-1: Requirements
@@ -230,6 +237,7 @@ Validate: parse JSON; accept `status: "success"` with artifact path ending in `f
 Emit `waiting_for_user` on `requirements` with prompt "Continue, Revise, Review feedback from Arcade, or Stop?" and context "Requirements gathering complete".
 
 {% ask_user "Continue, Revise, Review feedback from Arcade, or Stop?", options: "Continue", "Revise", "Review feedback from Arcade", "Stop" %}
+If `feature-requirement-gatherer` surfaced a decision needing your input (e.g. a scope choice), keep these four options verbatim; on Continue, ask the surfaced decision as a separate `AskUserQuestion` before entering planning (§CHECKPOINT-OPTIONS). Never displace `Review feedback from Arcade` or `Stop`.
 On Revise: get feedback, append to REQUIREMENTS, re-invoke §PHASE-1.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
 On Stop: emit `requirements` waiting per §PARENT-EMIT-DISCIPLINE table, output summary, exit with `/build {FEATURE_ID}` resume instruction.
@@ -607,9 +615,17 @@ Output: Feature ID, phase status table, registered artifacts, readiness artifact
 
 **Release gate** (skip if AFK; AFK defaults to archive):
 
-Emit `waiting_for_user` on `release` with prompt "Add task, Archive, Review feedback from Arcade, Complete without archive, or Stop?" and readiness context.
+Emit `waiting_for_user` on `release` with prompt "Release, Add task, Review feedback from Arcade, or Stop?" and readiness context.
 
-{% ask_user "Add task, Archive, Review feedback from Arcade, Complete without archive, or Stop?", options: "Add task", "Archive", "Review feedback from Arcade", "Complete without archive", "Stop" %}
+The canonical release options are five (Archive, Complete without archive, Add task, Review feedback from Arcade, Stop) — over the 4-option cap — so present them as two steps per §CHECKPOINT-OPTIONS.
+
+{% ask_user "Release, Add task, Review feedback from Arcade, or Stop?", options: "Release", "Add task", "Review feedback from Arcade", "Stop" %}
+On Release: ask the archive sub-decision as a separate question:
+
+{% ask_user "Archive the feature now, or complete without archiving?", options: "Archive", "Complete without archive" %}
+On Archive: proceed to the Archive step below.
+On Complete without archive: emit `release` completed per §PARENT-EMIT-DISCIPLINE table with `archive_status: "declined"` and STOP. Do not run `feature-archiver`.
+
 On Add task: collect `ADDED_TASK_REQUEST`, dispatch `feature-tasker` with `UPDATE_MODE=true` and `UPDATE_CONTEXT={"source":"release_gate","request":"{ADDED_TASK_REQUEST}"}`, validate the same success contract as §2.3. Emit `release` waiting with `archive_status: "deferred"`, `reason: "add_task_requested"`, and `added_task_request`. Emit `implementation` waiting with `reason: "release_add_task"` and `added_task_request`. STOP. Parent `release` MUST NOT complete until release is re-entered after implementation and readiness re-aggregation.
 
 {% dispatch_agent "rp1-dev:feature-tasker" %}
@@ -618,7 +634,6 @@ FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, UPDATE_MODE=true, UPDATE_CONTEXT=
 
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
 On Stop: emit `release` waiting with `archive_status: "deferred"` and STOP with `/build {FEATURE_ID}` resume instructions.
-On Complete without archive: emit `release` completed per §PARENT-EMIT-DISCIPLINE table with `archive_status: "declined"` and STOP. Do not run `feature-archiver`.
 
 ### Archive
 

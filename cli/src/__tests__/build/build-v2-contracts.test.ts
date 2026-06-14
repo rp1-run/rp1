@@ -109,6 +109,32 @@ describe("Build v2 static contracts", () => {
 		expect(content).toContain("the remainder resolves to `REQUIREMENTS`");
 	});
 
+	test("checkpoint menus stay within the AskUserQuestion 4-option cap and keep Arcade/Stop", async () => {
+		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+
+		// The discipline rule that prevents a surfaced sub-decision from evicting a
+		// canonical option (e.g. dropping "Review feedback from Arcade") exists.
+		expect(content).toContain("## §CHECKPOINT-OPTIONS");
+		expect(content).toContain("at most **4 options**");
+
+		// Every ask_user directive declares 2-4 options — the harness hard cap.
+		const askUserPattern =
+			/\{%\s*ask_user\s+"[^"]*"\s*,\s*options:\s*([^%]*?)%\}/g;
+		const matches = [...content.matchAll(askUserPattern)];
+		expect(matches.length).toBeGreaterThanOrEqual(5);
+		for (const match of matches) {
+			const optionCount = (match[1]?.match(/"/g)?.length ?? 0) / 2;
+			expect(optionCount).toBeGreaterThanOrEqual(2);
+			expect(optionCount).toBeLessThanOrEqual(4);
+		}
+
+		// The requirements and planning checkpoints keep the canonical four verbatim.
+		const canonical = content.match(
+			/\{%\s*ask_user\s+"Continue, Revise, Review feedback from Arcade, or Stop\?"[^%]*%\}/g,
+		);
+		expect(canonical?.length).toBe(2);
+	});
+
 	test("planning has one normal feature-tasker dispatch after the hypothesis gate", async () => {
 		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
 		const dispatches = extractDispatches(content, "rp1-dev:feature-tasker");
@@ -509,18 +535,22 @@ describe("Build v2 static contracts", () => {
 		);
 
 		expect(stopIndex).toBeGreaterThan(-1);
-		expect(completeIndex).toBeGreaterThan(stopIndex);
+		expect(completeIndex).toBeGreaterThan(-1);
+		expect(completeIndex).not.toBe(stopIndex);
+
+		// Each path is a distinct decision with a distinct archive_status, regardless
+		// of the order they appear in the two-step release gate.
+		const stopLine = content.slice(stopIndex, content.indexOf("\n", stopIndex));
+		const completeLine = content.slice(
+			completeIndex,
+			content.indexOf("\n", completeIndex),
+		);
 		// Stop path emits waiting with deferred, not declined
-		expect(content.slice(stopIndex, completeIndex)).toContain(
-			'archive_status: "deferred"',
-		);
-		expect(content.slice(stopIndex, completeIndex)).not.toContain(
-			'archive_status: "declined"',
-		);
+		expect(stopLine).toContain('archive_status: "deferred"');
+		expect(stopLine).not.toContain('archive_status: "declined"');
 		// Complete-without-archive emits completed with declined
-		expect(content.slice(completeIndex)).toContain(
-			'archive_status: "declined"',
-		);
+		expect(completeLine).toContain('archive_status: "declined"');
+		expect(completeLine).not.toContain('archive_status: "deferred"');
 	});
 
 	test("build docs match release gate labels and AFK archive behavior", async () => {
