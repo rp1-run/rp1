@@ -97,7 +97,8 @@ build_from_source() {
     cd "$build_tmp" && \
         bun build "$SOURCE_DIR/cli/src/main.ts" --compile \
         --outfile "$build_tmp/rp1" \
-        --define __RP1_DEV_BUILD__=true
+        --define __RP1_DEV_BUILD__=true \
+        --define __RP1_DEV_SHA__='"'$(git -C "$SOURCE_DIR" rev-parse --short=5 HEAD 2>/dev/null)'"'
 
     # Install the built binary
     mkdir -p "$INSTALL_DIR"
@@ -153,7 +154,8 @@ build_local_artifacts() {
     cd "$build_tmp" && \
         bun build "$SOURCE_DIR/cli/src/main.ts" --compile \
         --outfile "$build_tmp/rp1" \
-        --define __RP1_DEV_BUILD__=true
+        --define __RP1_DEV_BUILD__=true \
+        --define __RP1_DEV_SHA__='"'$(git -C "$SOURCE_DIR" rev-parse --short=5 HEAD 2>/dev/null)'"'
 
     # Stage artifacts with goreleaser naming
     cp "$build_tmp/rp1" "$artifacts_dir/$binary_filename"
