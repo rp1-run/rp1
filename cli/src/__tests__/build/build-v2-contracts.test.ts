@@ -99,6 +99,16 @@ describe("Build v2 static contracts", () => {
 		expect(content).not.toContain("build-artifact-detector");
 	});
 
+	test("build instructs the model to pass a kebab-case FEATURE_ID slug", async () => {
+		const skill = await expectTaskRight(parseSkill(buildSkillDir));
+		const content = skill.content;
+		// The model must derive a clean slug rather than letting raw prose / a file
+		// path land in FEATURE_ID (which names the feature dir and resume key).
+		expect(content).toContain("FEATURE_ID slug");
+		expect(content).toContain('`--args "<slug> <remaining request>"`');
+		expect(content).toContain("the remainder resolves to `REQUIREMENTS`");
+	});
+
 	test("planning has one normal feature-tasker dispatch after the hypothesis gate", async () => {
 		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
 		const dispatches = extractDispatches(content, "rp1-dev:feature-tasker");

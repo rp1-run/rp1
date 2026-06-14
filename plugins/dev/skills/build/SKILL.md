@@ -91,6 +91,14 @@ Use the pre-resolved `projectRoot`, `kbRoot`, `workRoot`, and `codeRoot` values 
 
 **Feature dir**: `{workRoot}/features/{FEATURE_ID}/`
 
+**FEATURE_ID slug**: `FEATURE_ID` names the feature directory and is the resume key, so it MUST be a short kebab-case slug. When you run the §0 bootstrap, make the **first** `--args` token a clean slug:
+
+- If the user already gave a kebab-case slug, pass it unchanged.
+- Otherwise derive a short slug (3-6 words, lowercase, hyphens only — no slashes, spaces, or file extensions) from the request and pass the rest after it: `--args "<slug> <remaining request>"`. The leading token resolves to `FEATURE_ID`; the remainder resolves to `REQUIREMENTS`.
+- Never pass a file path, URL, or full sentence as the slug. If the request points at a doc (e.g. a research file), derive the slug from its subject, not its path.
+
+The bootstrap sanitizes `FEATURE_ID` to a safe slug as a fallback, but derive a meaningful one yourself — the fallback slug of raw prose is ugly. Your `/build {FEATURE_ID}` resume instruction surfaces the chosen slug for the user.
+
 ## References
 
 | File | Purpose | When to Load |
