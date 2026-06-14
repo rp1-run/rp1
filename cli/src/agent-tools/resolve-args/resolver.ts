@@ -227,15 +227,22 @@ export const parseRawArgs = (
 		(a) => a.type === "string" || a.type === "enum",
 	);
 
-	// When exactly one required non-variadic string arg exists and no other
-	// required string/enum args are declared, that arg absorbs all non-flag
-	// tokens instead of consuming a single word.
+	// When exactly one required non-variadic string arg exists AND no variadic
+	// positional is declared to absorb the remainder, that arg absorbs all
+	// non-flag tokens instead of consuming a single word (e.g. deep-research's
+	// RESEARCH_TOPIC). When a variadic positional IS declared (e.g. build's
+	// FEATURE_ID + variadic REQUIREMENTS), the required scalar takes a single
+	// leading token and the variadic captures the rest — otherwise the scalar
+	// would starve the variadic and swallow the entire request into FEATURE_ID.
 	const requiredStringEnumArgs = schema.filter(
 		(a) =>
 			(a.type === "string" || a.type === "enum") && a.required && !a.variadic,
 	);
+	const hasVariadicPositional = positionalArgs.some((a) => a.variadic);
 	const greedyTarget =
-		requiredStringEnumArgs.length === 1 ? requiredStringEnumArgs[0] : null;
+		requiredStringEnumArgs.length === 1 && !hasVariadicPositional
+			? requiredStringEnumArgs[0]
+			: null;
 
 	let positionalIndex = 0;
 	let i = 0;

@@ -252,6 +252,38 @@ describe("parseRawArgs", () => {
 		});
 	});
 
+	test("required scalar + variadic: leading token to scalar, remainder to variadic", () => {
+		// build's shape: FEATURE_ID (required, non-variadic) + REQUIREMENTS
+		// (variadic). The scalar must NOT greedily swallow the whole request — it
+		// takes a single leading token and the variadic captures the rest.
+		const buildShape: readonly ArgumentDefinition[] = [
+			{
+				name: "FEATURE_ID",
+				type: "string",
+				required: true,
+				description: "Feature identifier",
+			},
+			{
+				name: "REQUIREMENTS",
+				type: "string",
+				required: false,
+				default: "",
+				variadic: true,
+				description: "Raw requirements text",
+			},
+		];
+
+		const result = parseRawArgs(
+			"harden-1up-install fix the issues in the research doc",
+			buildShape,
+		);
+
+		expect(result).toEqual({
+			FEATURE_ID: "harden-1up-install",
+			REQUIREMENTS: "fix the issues in the research doc",
+		});
+	});
+
 	test("captures multi-word value for sole required string positional", () => {
 		const result = parseRawArgs("fix the login bug on the dashboard", schema);
 		expect(result).toEqual({
