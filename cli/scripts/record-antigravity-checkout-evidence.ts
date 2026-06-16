@@ -518,7 +518,11 @@ const runSuccessfulCheckoutScenario = async (options: {
 	readonly suffix: string;
 }): Promise<AntigravityCheckoutScenarioEvidence> => {
 	const dbPath = join(options.tempRoot, `${options.scenario}.db`);
-	const featureId = `antigravity-${options.scenario}-${options.suffix}`;
+	// Slugify the scenario key so the feature id is already a safe kebab slug and
+	// survives workflow-bootstrap's slugifyFeatureId() unchanged. An unsanitized
+	// underscore id would be rewritten at bootstrap and then mismatch the run's
+	// stored feature on later workflow-state/emit lookups.
+	const featureId = `antigravity-${options.scenario.replace(/_/g, "-")}-${options.suffix}`;
 	const projectId = `${featureId}-project`;
 	const setupCommands: AntigravityCommandEvidence[] = [];
 	let expectedProjectRoot: string;
@@ -775,7 +779,8 @@ const runArtifactRegistrationFailureScenario = async (options: {
 }): Promise<AntigravityCheckoutScenarioEvidence> => {
 	const scenario = "artifact_registration_failure";
 	const dbPath = join(options.tempRoot, `${scenario}.db`);
-	const featureId = `antigravity-${scenario}-${options.suffix}`;
+	// Slugify so the feature id survives workflow-bootstrap normalization (see note above).
+	const featureId = `antigravity-${scenario.replace(/_/g, "-")}-${options.suffix}`;
 	const projectRoot = join(options.tempRoot, "artifact-registration-failure");
 	await mkdir(projectRoot, { recursive: true });
 	await createRp1Project(projectRoot, `${featureId}-project`);
