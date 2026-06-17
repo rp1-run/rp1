@@ -1,6 +1,6 @@
 ---
 name: project-birds-eye-view
-description: Generates arc42/C4-aligned project overview artifacts with per-claim provenance, snapshot metadata, and Arcade-visible workflow tracking.
+description: Generates a digestible 3-tier/9-section arc42/C4-aligned project overview with per-claim provenance hidden in HTML comments, snapshot metadata, and Arcade-visible workflow tracking.
 allowed-tools: Bash(rp1 *), Bash(echo *)
 metadata:
   category: documentation
@@ -8,14 +8,14 @@ metadata:
   workflow:
     run_policy: fresh
     identity_args: []
-  version: 3.0.0
+  version: 4.0.0
   tags:
     - documentation
     - analysis
     - onboarding
     - visualization
   created: 2025-10-29
-  updated: 2026-04-23
+  updated: 2026-06-17
   author: cloud-on-prem/rp1
   arguments:
     - name: PROJECT_CONTEXT
@@ -110,7 +110,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --data '{"status":"completed"}'
 ```
 
-The agent loads the KB, generates a 16-section arc42/C4-aligned document with per-claim provenance, emits up to 6 Mermaid diagrams (validated via `rp1 agent-tools mmd-validate`), and writes to `{workRoot}/birds-eye/{YYYY-MM-DD}-{PROJECT_SLUG}.md` with n+1 dedup. It returns the resolved `OUTPUT_PATH` and `PROJECT_SLUG` to this dispatcher.
+The agent loads the KB, generates a digestible 3-tier/9-section arc42/C4-aligned document (TL;DR, the Five Views, Working In It, plus a conditional Reflexion appendix) with per-claim provenance hidden in HTML comments, emits up to 5 Mermaid diagrams — 3 mandatory + up to 2 conditional — (validated via `rp1 agent-tools mmd-validate`), and writes to `{workRoot}/birds-eye/{YYYY-MM-DD}-{PROJECT_SLUG}.md` with n+1 dedup. It returns the resolved `OUTPUT_PATH` and `PROJECT_SLUG` to this dispatcher.
 
 ## Runtime Contract
 
