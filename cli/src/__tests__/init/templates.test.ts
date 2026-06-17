@@ -70,10 +70,12 @@ describe("templates", () => {
 			expect(CLAUDE_CODE_TEMPLATE).not.toContain("Subagent waiting");
 		});
 
-		test("contains ambient skill awareness block", () => {
+		test("contains slim skill awareness block", () => {
 			expect(CLAUDE_CODE_TEMPLATE).toContain("rp1 Skill Awareness");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Skill Categories");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Suggestion Rules");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Installed plugins: rp1-");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("/guide");
+			expect(CLAUDE_CODE_TEMPLATE).not.toContain("Skill Categories");
+			expect(CLAUDE_CODE_TEMPLATE).not.toContain("Suggestion Rules");
 		});
 
 		test("ambient block matches the distributable registry rendering", async () => {
@@ -87,11 +89,15 @@ describe("templates", () => {
 			expect(AGENTS_TEMPLATE).toContain(expectedBlock);
 		});
 
-		test("ambient block includes suggestion rules", () => {
-			expect(CLAUDE_CODE_TEMPLATE).toContain("1 suggestion per turn");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Do not re-suggest");
+		test("slim block includes condensed suggestion rules", () => {
 			expect(CLAUDE_CODE_TEMPLATE).toContain(
-				"Do not suggest while an rp1 workflow",
+				"Suggest at most 1 skill per turn",
+			);
+			expect(CLAUDE_CODE_TEMPLATE).toContain(
+				"declined this session or a workflow is already running",
+			);
+			expect(CLAUDE_CODE_TEMPLATE).toContain(
+				"clear match to the user's current activity",
 			);
 			expect(CLAUDE_CODE_TEMPLATE).toContain("/guide");
 		});
@@ -121,10 +127,12 @@ describe("templates", () => {
 			expect(AGENTS_TEMPLATE).not.toContain("Subagent waiting");
 		});
 
-		test("contains ambient skill awareness block", () => {
+		test("contains slim skill awareness block", () => {
 			expect(AGENTS_TEMPLATE).toContain("rp1 Skill Awareness");
-			expect(AGENTS_TEMPLATE).toContain("Skill Categories");
-			expect(AGENTS_TEMPLATE).toContain("Suggestion Rules");
+			expect(AGENTS_TEMPLATE).toContain("Installed plugins: rp1-");
+			expect(AGENTS_TEMPLATE).toContain("/guide");
+			expect(AGENTS_TEMPLATE).not.toContain("Skill Categories");
+			expect(AGENTS_TEMPLATE).not.toContain("Suggestion Rules");
 		});
 	});
 
@@ -146,10 +154,10 @@ describe("templates", () => {
 			expect(CODEX_TEMPLATE).toContain("Subagent waiting");
 		});
 
-		test("does not contain ambient skill awareness block", () => {
+		test("does not contain skill awareness block", () => {
 			expect(CODEX_TEMPLATE).not.toContain("rp1 Skill Awareness");
+			expect(CODEX_TEMPLATE).not.toContain("Installed plugins: rp1-");
 			expect(CODEX_TEMPLATE).not.toContain("Skill Categories");
-			expect(CODEX_TEMPLATE).not.toContain("Suggestion Rules");
 		});
 	});
 
@@ -187,10 +195,11 @@ describe("templates", () => {
 			expect(CLAUDE_CODE_TEMPLATE).toEqual(AGENTS_TEMPLATE);
 		});
 
-		test("codex template shares KB section but not ambient block", () => {
+		test("codex template shares KB section but not skill awareness block", () => {
 			expect(CODEX_TEMPLATE).toContain("rp1 Knowledge Base");
 			expect(CODEX_TEMPLATE).toContain("Loading rules");
 			expect(CODEX_TEMPLATE).not.toContain("rp1 Skill Awareness");
+			expect(CODEX_TEMPLATE).not.toContain("Installed plugins: rp1-");
 		});
 	});
 

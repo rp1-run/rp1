@@ -245,7 +245,7 @@ Use the parent-computed inputs.
 
 ### 4. Reduce + Write
 
-1. Load `rp1-base:artifact-templates` (read SKILL.md index, then read needed KB templates from `templates/knowledge-base/`).
+1. Read needed KB templates directly from `plugins/base/skills/artifact-templates/templates/knowledge-base/` (fall back to `rp1-base:artifact-templates` SKILL.md index if a direct path fails).
 2. Merge analyzer output into:
    - `concept_map.md`
    - `architecture.md`
@@ -308,4 +308,4 @@ Final report must include:
 - files analyzed
 - files written under `.rp1/context/`
 - note that this passive workflow does not register an Arcade run
-- reminder: agents load KB automatically; no manual `knowledge-load` needed
+- reminder: agents load KB automatically via progressive disclosure

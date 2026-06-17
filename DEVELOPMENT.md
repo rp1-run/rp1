@@ -659,7 +659,7 @@ Role persona and critical instructions
 - `pr-reviewer`
 - `pr-visualizer`
 
-These agents run `/rp1-base:knowledge-load` as their first step to receive comprehensive architectural context.
+These agents load KB context as their first step by reading `.rp1/context/` files directly (index.md first, then the task-relevant files) to receive comprehensive architectural context.
 
 ### Testing Changes
 
@@ -749,7 +749,7 @@ These agents run `/rp1-base:knowledge-load` as their first step to receive compr
    1. Test the specific command/agent you modified
    2. Verify constitutional prompt structure is maintained
    3. Check namespace prefixes are correct
-   4. For KB-aware agents, verify they load KB correctly via `/rp1-base:knowledge-load`
+   4. For KB-aware agents, verify they load KB correctly (read `.rp1/context/index.md` first, then task-relevant files)
    5. Ensure no regression in existing functionality
    6. Test cross-plugin dependencies (dev calling base commands)
 

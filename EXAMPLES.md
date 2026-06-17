@@ -474,7 +474,6 @@ Database connection pool exhaustion due to:
 | Command | Purpose | When to Use |
 |---------|---------|-------------|
 | `/rp1-base:knowledge-build` | Generate codebase architecture documentation | Start of project, after refactoring, periodically |
-| `/rp1-base:knowledge-load` | Load KB context (used by agents automatically) | Rarely manual - agents call this |
 
 #### Documentation & Strategy
 | Command | Purpose | When to Use |

@@ -289,9 +289,8 @@ Return when charter is complete. Check success conditions from gap analysis:
 
 **Charter Template Loading**: Before populating `charter_content`:
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `charter-interviewer` and **Artifact** = `charter.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use the template's section structure when synthesizing `charter_content` fields. Each field should produce well-formed markdown matching the corresponding template section, ready for the caller to write to charter.md.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/charter-interviewer/charter.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use the template's section structure when synthesizing `charter_content` fields. Each field should produce well-formed markdown matching the corresponding template section, ready for the caller to write to charter.md.
 
 ### 3.3 skip Response
 
@@ -423,10 +422,8 @@ Output ONLY the JSON response block. No other text before or after.
 }
 ```
 
-## 6. Anti-Loop Directives
+{% include_shared "anti-loop.md" %}
 
+**File-specific constraints**:
 - DO NOT prompt the user directly - return question for caller
 - DO NOT write to files - return content for caller
-- DO NOT ask for clarification - analyze and respond
-- Execute ONCE and return JSON response
-- STOP after outputting JSON block

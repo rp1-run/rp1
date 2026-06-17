@@ -32,6 +32,11 @@ arguments:
     type: string
     required: true
     description: "Canonical work root returned by the parent workflow bootstrap"
+  - name: CODE_ROOT
+    type: string
+    required: false
+    default: ""
+    description: "Root directory for source-code reads and writes (worktree-aware)"
   - name: WORKFLOW
     type: string
     required: false
@@ -56,17 +61,20 @@ arguments:
 <update_context>{{UPDATE_CONTEXT from prompt}}</update_context>
 <kb_root>{{KB_ROOT from prompt}}</kb_root>
 <work_root>{{WORK_ROOT from prompt}}</work_root>
+<code_root>{{CODE_ROOT from prompt}}</code_root>
 **Feature dir**: `{WORK_ROOT}/features/{FEATURE_ID}/`
+
+## Code Root Directive
+
+When `CODE_ROOT` is non-empty, resolve all source-file exploration (`Glob`, `Read` for codebase pattern analysis) against `CODE_ROOT`. Work artifacts use `WORK_ROOT`; KB reads use `KB_ROOT`. When `CODE_ROOT` is empty, fall back to the current working directory.
 
 ## §1 KB Loading
 
-Read via Read tool:
+{% include_shared "kb-progressive-loading.md" %}
 
-1. `{KB_ROOT}/index.md` - project structure, domain
-2. `{KB_ROOT}/patterns.md` - tech patterns, naming, impl patterns
-3. `{KB_ROOT}/architecture.md` - arch patterns, layers, integration
-
-If KB missing: warn, continue w/ codebase analysis fallback.
+Additional files:
+- `{KB_ROOT}/patterns.md` - tech patterns, naming, impl patterns
+- `{KB_ROOT}/architecture.md` - arch patterns, layers, integration
 
 ## §2 Requirements Loading
 
@@ -187,11 +195,11 @@ Write to `{WORK_ROOT}/features/{FEATURE_ID}/design.md`.
 
 ### Template Loading
 
-For each artifact below, read `rp1-base:artifact-templates` SKILL.md to find the template row, then read the template file at the listed path:
+Read each template at its direct path below (fall back to `rp1-base:artifact-templates` SKILL.md index if a path fails):
 
-- `design.md` (Producer: `feature-architect`)
-- `design-decisions.md` (Producer: `feature-architect`)
-- `hypothesis-document.md` (Producer: `hypothesis-tester`) -- only if hypotheses are flagged (see §9.1)
+- `design.md`: `plugins/base/skills/artifact-templates/templates/feature-architect/design.md`
+- `design-decisions.md`: `plugins/base/skills/artifact-templates/templates/feature-architect/design-decisions.md`
+- `hypothesis-document.md` (only if hypotheses are flagged, see §9.1): `plugins/base/skills/artifact-templates/templates/hypothesis-tester/hypothesis-document.md`
 
 Use each template's structure for the corresponding output. Fill placeholders per guidance below.
 
@@ -412,22 +420,8 @@ Do NOT include `artifacts.hypotheses` when `flagged_hypotheses` is empty or when
 
 **CRITICAL**: This agent does NOT spawn hypothesis-tester. It creates `hypotheses.md` (§9.1) but the caller (build.md) handles hypothesis validation dispatch based on whether `hypotheses.md` exists on disk after this agent completes.
 
-## §13 Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**: Single-pass execution. NO clarification, NO iteration.
-
-**DO NOT**:
-
-- Ask for clarification mid-workflow (except prompting the user for tech selection in non-AFK mode)
-- Wait for user feedback between sections
-- Loop or re-implement
-- Request additional info after workflow starts
-- Spawn hypothesis-tester or feature-tasker (caller handles)
-
-**Blocking issue handling**:
-
-1. Document error clearly
-2. Output error JSON
-3. STOP
-
-**Execute**: Load KB -> Read requirements -> Check oversized scope gate -> [redirect JSON OR analyze -> generate design.md -> generate design-decisions.md -> create hypotheses.md (if flagged) -> register artifacts -> output JSON] -> STOP.
+**File-specific constraints**:
+- Exception: prompting the user for tech selection in non-AFK mode is allowed
+- Do NOT spawn hypothesis-tester or feature-tasker (caller handles)

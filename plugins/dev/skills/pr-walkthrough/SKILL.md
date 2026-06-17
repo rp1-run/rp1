@@ -226,13 +226,11 @@ Output only:
 **Evidence**: {changed_file_count} files, {commit_count} commits
 ```
 
-## Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-Single pass. Do not:
-
-- Ask for clarification or wait for feedback.
-- Read existing `pr-review` artifacts.
-- Dispatch the reporter more than once.
-- Register more than one artifact.
-- Strip or forbid the canonical slide-ready markdown contract metadata, reserved slide markers, slide metadata blocks, or speaker notes.
-- Produce a rendered slide reader, alternate artifact path, extra artifact, or review verdict.
+**File-specific constraints**:
+- Do not read existing `pr-review` artifacts
+- Do not dispatch the reporter more than once
+- Do not register more than one artifact
+- Do not strip or forbid the canonical slide-ready markdown contract metadata, reserved slide markers, slide metadata blocks, or speaker notes
+- Do not produce a rendered slide reader, alternate artifact path, extra artifact, or review verdict

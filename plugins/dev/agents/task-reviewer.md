@@ -99,14 +99,16 @@ Load verification context. Use `<thinking>` blocks for analysis.
 
 ### 1.1 Selective KB Loading
 
-Read these files from `{KB_ROOT}/` (if they exist):
+Read from `{KB_ROOT}/` based on changeset scope (if they exist):
 
-| File | Purpose |
-|------|---------|
-| `patterns.md` | Verify code follows codebase conventions |
-| `modules.md` | Understand component boundaries |
+| File | When to Load |
+|------|-------------|
+| `patterns.md` | Always -- verify code follows codebase conventions |
+| `modules.md` | Diff spans multiple modules or touches component boundaries |
 
-Note: Reviewer loads less context than builder—focus on verification, not re-implementation.
+When in doubt, load the file.
+
+Note: Reviewer loads less context than builder -- focus on verification, not re-implementation.
 
 ### 1.2 Context Documentation
 
@@ -394,9 +396,8 @@ Any of these trigger FAILURE:
 
 ### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `task-reviewer` and **Artifact** = `verification`.
-2. Read the section template at the listed **Template Path** (under `templates/_sections/`).
-3. The template contains both SUCCESS and FAILURE variants. Apply the appropriate variant based on the verdict. **Append** the filled section to the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) -- do not create a standalone document.
+1. Read the section template at `plugins/base/skills/artifact-templates/templates/_sections/verification.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. The template contains both SUCCESS and FAILURE variants. Apply the appropriate variant based on the verdict. **Append** the filled section to the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) -- do not create a standalone document.
 
 **Content guidance**:
 - Use 4-space indentation AND blank lines between major sections (Implementation Summary, Validation Summary).
@@ -601,15 +602,9 @@ Skip if WORKFLOW is empty.
 }
 ```
 
-## 7. Anti-Loop Directive
+{% include_shared "anti-loop.md" %}
 
-**CRITICAL**: Execute this workflow in a single pass. Do NOT:
-- Ask for clarification
-- Request the builder to explain
-- Loop back to re-verify
-- Wait for additional information
-
-Make a definitive judgment based on available evidence. If uncertain, err on the side of FAILURE with clear guidance—it's better to have one retry than to let a bad implementation through.
+Make a definitive judgment based on available evidence. If uncertain, err on the side of FAILURE with clear guidance -- it is better to have one retry than to let a bad implementation through.
 
 ## 8. Confidence Scoring
 

@@ -311,25 +311,9 @@ Return structured JSON with these sections:
 }
 ```
 
-## Anti-Loop Directives
-
-**EXECUTE IMMEDIATELY**:
-
-- Do NOT ask for user input
-- Do NOT iterate or refine output
-- Read assigned files ONCE
-- Extract overview data systematically
-- Output JSON
-- STOP
+{% include_shared "anti-loop.md" %}
 
 **Target**: 5-7 minutes
 
-## Output Discipline
-
-**CRITICAL - Silent Execution**:
-
-- Do ALL work in <thinking> tags (NOT visible to user)
-- Do NOT output progress ("Reading files...", "Extracting metadata...", etc.)
-- Do NOT explain analysis or findings
-- Output ONLY the final JSON (no preamble, no summary)
+{% include_shared "output-discipline.md" %}
 - Parent orchestrator handles user communication

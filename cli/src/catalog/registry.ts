@@ -13,6 +13,7 @@ import type {
 	SkillCategory,
 	WorkflowRunPolicy,
 } from "../build/models.js";
+import type { ParseCache } from "../build/parse-cache.js";
 import { parseSkill } from "../build/parser.js";
 
 export type CatalogDistributionScope = "distributable" | "internal";
@@ -267,6 +268,7 @@ export const selectCatalogEntriesByCanonicalNames = (
 
 export const collectCatalogRegistry = async (
 	projectRoot: string,
+	cache?: ParseCache,
 ): Promise<CollectedCatalogRegistry> => {
 	const entries: CatalogRegistryEntry[] = [];
 	const errors: string[] = [];
@@ -276,7 +278,9 @@ export const collectCatalogRegistry = async (
 
 		for (const skillDir of skillDirs) {
 			const skillMdPath = join(skillDir, "SKILL.md");
-			const result = await parseSkill(skillDir)();
+			const result = cache
+				? await cache.getSkill(skillDir)
+				: await parseSkill(skillDir)();
 			if (E.isLeft(result)) {
 				errors.push(
 					`Failed to parse ${skillDir}: ${formatError(result.left, false)}`,
@@ -336,8 +340,9 @@ export const filterUserInvocableEntries = (
 export const collectScopedCatalogRegistry = async (
 	projectRoot: string,
 	scope: CatalogScope,
+	cache?: ParseCache,
 ): Promise<CollectedCatalogRegistry> => {
-	const { entries, errors } = await collectCatalogRegistry(projectRoot);
+	const { entries, errors } = await collectCatalogRegistry(projectRoot, cache);
 	return {
 		entries: filterUserInvocableEntries(
 			filterCatalogEntriesByScope(entries, scope),
@@ -369,24 +374,12 @@ export const renderCatalogMarkdown = (
 		lines.push("");
 		lines.push(`> **Suggest when**: ${CATEGORY_TRIGGERS[category]}`);
 		lines.push("");
-		lines.push(
-			"| Skill | Plugin | Description | Key Args | Workflow | Run Policy | Identity Args |",
-		);
-		lines.push(
-			"|-------|--------|-------------|----------|----------|------------|---------------|",
-		);
+		lines.push("| Skill | Plugin | Description |");
+		lines.push("|-------|--------|-------------|");
 
 		for (const entry of categoryEntries) {
-			const workflow = entry.isWorkflow ? "Yes" : "";
-			const args =
-				entry.keyArgs.length > 0 ? `\`${entry.keyArgs.join("`, `")}\`` : "";
-			const runPolicy = entry.runPolicy ?? "";
-			const identityArgs =
-				entry.identityArgs && entry.identityArgs.length > 0
-					? `\`${entry.identityArgs.join("`, `")}\``
-					: "";
 			lines.push(
-				`| \`/${entry.name}\` | ${entry.plugin} | ${entry.description} | ${args} | ${workflow} | ${runPolicy} | ${identityArgs} |`,
+				`| \`/${entry.name}\` | ${entry.plugin} | ${entry.description} |`,
 			);
 		}
 
@@ -399,26 +392,22 @@ export const renderCatalogMarkdown = (
 export const renderInitSkillAwarenessBlock = (
 	entries: readonly CatalogRenderableEntry[],
 ): string => {
+	const pluginPrefixes = [
+		...new Set(entries.map((entry) => `rp1-${entry.plugin}`)),
+	].sort();
 	const lines: string[] = [];
-	lines.push("### Skill Categories");
-	lines.push("| Category | Skills | Suggest When |");
-	lines.push("|----------|--------|--------------|");
-
-	const groupedEntries = groupCatalogEntriesByCategory(entries);
-
-	for (const category of CATEGORY_ORDER) {
-		const categoryEntries = groupedEntries.get(category);
-		if (!categoryEntries || categoryEntries.length === 0) {
-			continue;
-		}
-
-		const skillNames = categoryEntries
-			.map((entry) => `/${entry.name}`)
-			.join(", ");
-		lines.push(
-			`| ${CATEGORY_LABELS[category]} | ${skillNames} | ${CATEGORY_TRIGGERS[category]} |`,
-		);
-	}
-
+	lines.push(
+		`Installed plugins: ${pluginPrefixes.join(", ")}. Run \`/guide\` to discover skills by task.`,
+	);
+	lines.push("");
+	lines.push(
+		"- Suggest at most 1 skill per turn: name, one-line reason, offer to run.",
+	);
+	lines.push(
+		"- Skip if the user declined this session or a workflow is already running.",
+	);
+	lines.push(
+		"- Only suggest when there is a clear match to the user's current activity.",
+	);
 	return lines.join("\n");
 };

@@ -164,18 +164,6 @@ Append new entry at end of file:
 
 Existing entries MUST remain unmodified.
 
-## Register Artifact
-
-After successful write, emit artifact registration:
-
-```bash
-rp1 agent-tools emit \
-  --type artifact_registered \
-  --data '{"path": "notes/{yyyy-mm-dd}-{title-slug}.md", "storageRoot": "work_dir", "format": "markdown"}'
-```
-
-If the emit fails, log a warning and continue. The note file is already written; registration failure MUST NOT block.
-
 ## Output
 
 Report to the user:

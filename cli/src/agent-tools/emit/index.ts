@@ -6,11 +6,12 @@
 
 import { createHash } from "node:crypto";
 import { isAbsolute, resolve } from "node:path";
+import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
 import type { CLIError } from "../../../shared/errors.js";
-import { runtimeError } from "../../../shared/errors.js";
+import { formatError, runtimeError } from "../../../shared/errors.js";
 import type { RunRecord, Status } from "../../../shared/events.js";
 import type {
 	DaemonConnection,
@@ -52,6 +53,9 @@ import {
 } from "./step-validation.js";
 
 const TOOL_NAME = "emit";
+
+/** Maximum time (ms) the daemon notification side-effect may block the emit result. */
+export const NOTIFY_DEADLINE_MS = 500;
 
 interface EmitDaemonModule {
 	readonly connectToDaemon: () => Promise<DaemonConnection | null>;
@@ -517,6 +521,27 @@ const notifyDaemonNotification = async (
 };
 
 /**
+ * Bound the full daemon notification chain (event + optional notification)
+ * with a deadline so it never blocks the emit critical path.
+ * Best-effort: when the deadline fires first, emit returns immediately
+ * and the in-flight notification continues in the background.
+ */
+const notifyDaemonBounded = async (
+	notifyFn: () => Promise<void>,
+): Promise<void> => {
+	if (process.env.RP1_EVAL_MODE === "true") return;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		const deadline = new Promise<void>((resolve) => {
+			timer = setTimeout(resolve, NOTIFY_DEADLINE_MS);
+		});
+		await Promise.race([notifyFn(), deadline]);
+	} finally {
+		if (timer !== undefined) clearTimeout(timer);
+	}
+};
+
+/**
  * Main emit execution pipeline.
  * Handles all 6 event types through a unified flow:
  * 1. Flow-mismatch check for any existing run
@@ -637,19 +662,20 @@ export const executeEmit = (
 									);
 								}),
 								TE.chainFirst(({ event, runStatus, notification, eventData }) =>
-									TE.fromTask(async () => {
-										if (process.env.RP1_EVAL_MODE === "true") return;
-										await notifyDaemon(
-											input,
-											run,
-											runStatus,
-											event.id,
-											eventData,
-										);
-										if (notification) {
-											await notifyDaemonNotification(notification);
-										}
-									}),
+									TE.fromTask(() =>
+										notifyDaemonBounded(async () => {
+											await notifyDaemon(
+												input,
+												run,
+												runStatus,
+												event.id,
+												eventData,
+											);
+											if (notification) {
+												await notifyDaemonNotification(notification);
+											}
+										}),
+									),
 								),
 								TE.map(
 									({
@@ -732,24 +758,25 @@ export const executeEndRun = (
 					};
 				}),
 				TE.chainFirst(({ event, run, runStatus, notification, eventData }) =>
-					TE.fromTask(async () => {
-						if (process.env.RP1_EVAL_MODE === "true") return;
-						await notifyDaemon(
-							{
-								type: "status_change",
-								runId: input.runId,
-								workflow: run.flow,
-								data: eventData,
-								projectPath: run.projectPath,
-							},
-							run,
-							runStatus,
-							event.id,
-						);
-						if (notification) {
-							await notifyDaemonNotification(notification);
-						}
-					}),
+					TE.fromTask(() =>
+						notifyDaemonBounded(async () => {
+							await notifyDaemon(
+								{
+									type: "status_change",
+									runId: input.runId,
+									workflow: run.flow,
+									data: eventData,
+									projectPath: run.projectPath,
+								},
+								run,
+								runStatus,
+								event.id,
+							);
+							if (notification) {
+								await notifyDaemonNotification(notification);
+							}
+						}),
+					),
 				),
 				TE.map(
 					({ event, runStatus }): ToolResult<EmitResult> =>
@@ -763,6 +790,92 @@ export const executeEndRun = (
 			),
 		),
 	);
+
+/** Per-event result in a batch envelope */
+export interface BatchEventResult {
+	readonly index: number;
+	readonly type: string;
+	readonly success: boolean;
+	readonly eventId?: number;
+	readonly runStatus?: string;
+	readonly error?: string;
+}
+
+/** Batch emit envelope returned to the caller */
+export interface BatchEmitEnvelope {
+	readonly results: readonly BatchEventResult[];
+	readonly succeeded: number;
+	readonly failed: number;
+	readonly total: number;
+	readonly stoppedAtIndex?: number;
+}
+
+/**
+ * Execute a batch of emit events in strict order.
+ * Each event shares the same runId and workflow. Processing stops at
+ * the first event that fails validation or execution. All prior
+ * successful events are included in the response alongside the failure.
+ */
+export const executeBatchEmit = (
+	input: import("./validate.js").BatchEmitInput,
+): TE.TaskEither<CLIError, ToolResult<BatchEmitEnvelope>> => {
+	const process = async (): Promise<ToolResult<BatchEmitEnvelope>> => {
+		const results: BatchEventResult[] = [];
+		let succeeded = 0;
+		let stoppedAtIndex: number | undefined;
+
+		for (let i = 0; i < input.events.length; i++) {
+			const entry = input.events[i];
+			const emitInput: EmitInput = {
+				type: entry.type,
+				runId: input.runId,
+				workflow: input.workflow,
+				step: entry.step,
+				unit: entry.unit,
+				data: { ...entry.data, workflow: input.workflow },
+				projectPath: input.projectPath,
+				name: entry.name,
+				harness: input.harness,
+			};
+
+			const result = await executeEmit(emitInput)();
+
+			if (E.isLeft(result)) {
+				results.push({
+					index: i,
+					type: entry.type,
+					success: false,
+					error: formatError(result.left, false),
+				});
+				stoppedAtIndex = i;
+				break;
+			}
+
+			const data = result.right.data as EmitResult;
+			results.push({
+				index: i,
+				type: entry.type,
+				success: true,
+				eventId: data.eventId,
+				runStatus: data.runStatus,
+			});
+			succeeded++;
+		}
+
+		const failed = stoppedAtIndex !== undefined ? 1 : 0;
+		return successResult(TOOL_NAME, {
+			results,
+			succeeded,
+			failed,
+			total: input.events.length,
+			...(stoppedAtIndex !== undefined ? { stoppedAtIndex } : {}),
+		});
+	};
+
+	return TE.tryCatch(process, (error) =>
+		runtimeError(`Batch emit failed: ${String(error)}`),
+	);
+};
 
 /**
  * Main execute function for tool registration.

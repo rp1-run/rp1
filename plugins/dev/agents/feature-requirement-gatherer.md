@@ -73,12 +73,10 @@ Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
 
 ## 1. KB Loading
 
-Read via Read tool:
+{% include_shared "kb-progressive-loading.md" %}
 
-1. `{KB_ROOT}/index.md` - project structure, domain
-2. `{KB_ROOT}/concept_map.md` - domain terminology
-
-If KB missing: warn, continue w/ best-effort.
+Additional files:
+- `{KB_ROOT}/concept_map.md` - domain terminology
 
 ## 2. Phase Context Resolution
 
@@ -187,9 +185,8 @@ Write to `{WORK_ROOT}/features/{FEATURE_ID}/requirements.md`.
 
 ### 6.1 Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `feature-requirement-gatherer` and **Artifact** = `requirements.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for output. Fill placeholders per guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/feature-requirement-gatherer/requirements.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for output. Fill placeholders per guidance below.
 
 ### 6.2 Content Guidance
 
@@ -251,18 +248,9 @@ Requirements completed: .rp1/work/features/{FEATURE_ID}/requirements.md
 
 Return only the JSON object or the single text line above. Do not include implementation summaries, commit hashes, test results, or unrelated file references.
 
-## 9. Anti-Loop Directive
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**: NO clarification requests, NO iteration, NO waiting.
-
-1. Read KB files (index.md, concept_map.md)
-2. Resolve optional phase context and strip legacy handoff tokens from `REQUIREMENTS` when present
-3. Detect PRDs, select per mode
-4. Identify ambiguities, resolve per mode
-5. Generate requirements.md
-6. Output completion JSON
-7. STOP
-
-Ambiguous input -> infer conservative defaults, document in output.
-Missing KB -> warn, continue w/ best-effort.
-Any request or source material that implies implementation work is out of scope at this step; convert it into requirements language and STOP after writing `requirements.md`.
+**File-specific constraints**:
+- Ambiguous input -> infer conservative defaults, document in output
+- Missing KB -> warn, continue w/ best-effort
+- Implementation-scoped material is out of scope; convert into requirements language and STOP after writing `requirements.md`

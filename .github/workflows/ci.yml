@@ -36,6 +36,23 @@ jobs:
       - name: Run checks
         run: just check-cli && just check-native-app
 
+  docs:
+    name: Docs Link Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install mkdocs-material
+        run: pip install mkdocs-material
+
+      - name: Build docs (strict — fails on broken internal links and anchors)
+        run: mkdocs build --strict
+
   test:
     name: Tests
     runs-on: ubuntu-latest
@@ -126,6 +143,11 @@ jobs:
 
       - uses: actions/checkout@v4
         if: ${{ github.event_name == 'pull_request' && github.head_ref == 'release-please--branches--main' }}
+
+      - uses: actions/setup-node@v4
+        if: ${{ github.event_name == 'pull_request' && github.head_ref == 'release-please--branches--main' }}
+        with:
+          node-version-file: .tool-versions
 
       - uses: oven-sh/setup-bun@v2
         if: ${{ github.event_name == 'pull_request' && github.head_ref == 'release-please--branches--main' }}

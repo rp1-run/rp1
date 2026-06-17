@@ -12,7 +12,10 @@ import {
 	hasShellFencedContent,
 	replaceShellFencedContent,
 } from "../init/shell-fence.js";
-import { resolveInstructionTemplate } from "../init/templates/index.js";
+import {
+	AGENTS_REFERENCE_TEMPLATE,
+	resolveInstructionTemplate,
+} from "../init/templates/index.js";
 import { LATEST_FENCE_VERSION } from "../lib/fence-version.js";
 import { compareVersions } from "../lib/version.js";
 
@@ -90,6 +93,15 @@ export function upgradeStanzas(projectRoot: string): StanzaUpgradeResult {
 	const filesNotFound: string[] = [];
 	const errors: Array<{ file: string; error: string }> = [];
 
+	// Pre-check: determine whether AGENTS.md carries a fenced stanza so that
+	// CLAUDE.md can be switched to the @AGENTS.md reference during upgrade.
+	// Deliberate convergence: this applies even when CLAUDE.md is already at
+	// the current fence version — dual-stanza projects collapse to the
+	// single-file layout on their next migrate, not only on version bumps.
+	const agentsFileContent = readFileSafe(path.join(projectRoot, "AGENTS.md"));
+	const agentsHasFence =
+		agentsFileContent !== null && hasFencedContent(agentsFileContent);
+
 	for (const spec of UPGRADE_SPECS) {
 		const filePath = path.join(projectRoot, spec.file);
 		const content = readFileSafe(filePath);
@@ -113,7 +125,15 @@ export function upgradeStanzas(projectRoot: string): StanzaUpgradeResult {
 				continue;
 			}
 
-			const template = spec.getTemplate(content);
+			// When both files carry fenced stanzas, CLAUDE.md should use the
+			// @AGENTS.md import reference instead of a full duplicate template.
+			let template: string;
+			if (spec.file === "CLAUDE.md" && agentsHasFence) {
+				template = AGENTS_REFERENCE_TEMPLATE;
+			} else {
+				template = spec.getTemplate(content);
+			}
+
 			if (!template) {
 				errors.push({
 					file: spec.file,

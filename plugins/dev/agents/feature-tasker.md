@@ -301,10 +301,10 @@ If legacy `tracker.md` or `milestone-{N}.md` files exist, treat them as read-onl
 
 ### Template Loading
 
-For each artifact below, read `rp1-base:artifact-templates` SKILL.md to find the template row, then read the template file at the listed path:
+Read each template at its direct path below (fall back to `rp1-base:artifact-templates` SKILL.md index if a path fails):
 
-- `tasks.md` (Producer: `feature-tasker`)
-- `tasks.json` (Producer: `feature-tasker`)
+- `tasks.md`: `plugins/base/skills/artifact-templates/templates/feature-tasker/tasks.md`
+- `tasks.json`: `plugins/base/skills/artifact-templates/templates/feature-tasker/tasks.json`
 
 Use the template structure exactly.
 
@@ -432,8 +432,6 @@ For `UPDATE_MODE=true`, set `"mode": "update"` and replace `incremental_update: 
 }
 ```
 
-## §8 Anti-Loop
-
-**EXECUTE IMMEDIATELY**: NO clarification, NO iteration. Analyze ONCE in thinking -> generate -> write -> output -> STOP.
+{% include_shared "anti-loop.md" %}
 
 Ambiguous design -> assume + document.

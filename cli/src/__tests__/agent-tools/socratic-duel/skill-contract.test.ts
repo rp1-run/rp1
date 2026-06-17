@@ -7,6 +7,10 @@ const skillPath = join(
 	projectRoot,
 	"plugins/base/skills/socratic-duel/SKILL.md",
 );
+const protocolPath = join(
+	projectRoot,
+	"plugins/base/skills/socratic-duel/references/protocol.md",
+);
 const launcherSkillPath = join(
 	projectRoot,
 	"plugins/base/skills/socratic-duel-run/SKILL.md",
@@ -38,7 +42,9 @@ const extractSection = (
 
 describe("socratic-duel skill contract", () => {
 	test("declares artifact-backed participant workflow and lock-only backend commands", async () => {
-		const content = await readFile(skillPath, "utf-8");
+		const skillContent = await readFile(skillPath, "utf-8");
+		const protocolContent = await readFile(protocolPath, "utf-8");
+		const content = `${skillContent}\n${protocolContent}`;
 
 		for (const transition of [
 			"[*] --> preparing",
@@ -80,7 +86,7 @@ describe("socratic-duel skill contract", () => {
 		expect(content).toContain('--topic "{EFFECTIVE_TOPIC}"');
 		expect(content).toContain('--debate-dir "{workRoot}/debates"');
 		expect(content).toContain(
-			"Read `plugins/base/skills/artifact-templates/SKILL.md`",
+			"plugins/base/skills/artifact-templates/templates/socratic-duel/debate-artifact.md",
 		);
 		expect(content).toContain("debate-artifact.md");
 		expect(content).toContain(
@@ -108,7 +114,9 @@ describe("socratic-duel skill contract", () => {
 	});
 
 	test("requires topic focus and terminal close-run outcome handling", async () => {
-		const content = await readFile(skillPath, "utf-8");
+		const skillContent = await readFile(skillPath, "utf-8");
+		const protocolContent = await readFile(protocolPath, "utf-8");
+		const content = `${skillContent}\n${protocolContent}`;
 
 		expect(content).toContain(
 			"Keep every claim, counterpoint, unresolved item, and terminal summary focused on `{TOPIC}` or the inferred effective topic.",
@@ -190,6 +198,7 @@ describe("socratic-duel skill contract", () => {
 
 	test("keeps duplicated participant turn contract in sync", async () => {
 		const standalone = await readFile(skillPath, "utf-8");
+		const protocol = await readFile(protocolPath, "utf-8");
 		const participant = await readFile(participantAgentPath, "utf-8");
 
 		expect(standalone).toContain(
@@ -199,7 +208,7 @@ describe("socratic-duel skill contract", () => {
 			"This agent intentionally duplicates the standalone skill's critical turn contract",
 		);
 		expect(extractSection(participant, "§TURN_RULES", "§OUTCOMES")).toBe(
-			extractSection(standalone, "§TURN_RULES", "§OUTCOMES"),
+			extractSection(protocol, "§TURN_RULES", "§DONT"),
 		);
 		expect(extractSection(participant, "§OUTCOMES", "§OUT")).toBe(
 			extractSection(standalone, "§OUTCOMES", "§DONT"),

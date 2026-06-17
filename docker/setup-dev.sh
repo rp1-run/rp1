@@ -64,7 +64,7 @@ cd /src/rp1/cli && \
 # Bun's --compile creates a temp .bun-build file in CWD then renames it.
 # virtiofs doesn't support atomic rename, so cd to a local dir for the compile.
 cd "$BUILD_TMP" && \
-    bun build /src/rp1/cli/src/main.ts --compile --outfile "$BUILD_TMP/rp1" --define __RP1_DEV_BUILD__=true
+    bun build /src/rp1/cli/src/main.ts --compile --outfile "$BUILD_TMP/rp1" --define __RP1_DEV_BUILD__=true --define __RP1_DEV_SHA__='"'$(git -C /src/rp1 rev-parse --short=5 HEAD 2>/dev/null)'"'
 mkdir -p /src/rp1/bin
 cp "$BUILD_TMP/rp1" /src/rp1/bin/rp1
 cd /src/rp1

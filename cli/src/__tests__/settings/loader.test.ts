@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
 	loadAllArgumentDefaults,
 	loadArgumentDefaultsForSkill,
+	resetSettingsCache,
 } from "../../settings/loader.js";
 import {
 	cleanupTempDir,
@@ -16,6 +17,7 @@ import {
 let tempDir: string;
 
 beforeEach(async () => {
+	resetSettingsCache();
 	tempDir = await createTempDir("settings-loader");
 });
 
@@ -180,5 +182,49 @@ describe("loadAllArgumentDefaults", () => {
 			build: { AFK: false, GIT_COMMIT: true },
 			"build-fast": { AFK: true },
 		});
+	});
+});
+
+describe("settings cache", () => {
+	test("repeated loads return cached values even after file changes on disk", async () => {
+		await writeFixture(
+			tempDir,
+			".rp1/settings.toml",
+			`[arguments.build]\nAFK = false\n`,
+		);
+
+		const first = await loadArgumentDefaultsForSkill("build", tempDir);
+		expect(first).toEqual({ AFK: false });
+
+		await writeFixture(
+			tempDir,
+			".rp1/settings.toml",
+			`[arguments.build]\nAFK = true\n`,
+		);
+
+		const second = await loadArgumentDefaultsForSkill("build", tempDir);
+		expect(second).toEqual({ AFK: false });
+	});
+
+	test("resetSettingsCache forces a fresh file read", async () => {
+		await writeFixture(
+			tempDir,
+			".rp1/settings.toml",
+			`[arguments.build]\nAFK = false\n`,
+		);
+
+		const first = await loadArgumentDefaultsForSkill("build", tempDir);
+		expect(first).toEqual({ AFK: false });
+
+		await writeFixture(
+			tempDir,
+			".rp1/settings.toml",
+			`[arguments.build]\nAFK = true\n`,
+		);
+
+		resetSettingsCache();
+
+		const second = await loadArgumentDefaultsForSkill("build", tempDir);
+		expect(second).toEqual({ AFK: true });
 	});
 });

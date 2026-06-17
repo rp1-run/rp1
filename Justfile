@@ -101,7 +101,7 @@ clean-web-ui-cache:
 # RP1_BUILD_INTERNAL=1 includes utils (internal-only plugin) in the dev build
 [doc("Build the local rp1 binary with -dev version suffix")]
 build-local-dev: build-web-ui clean-web-ui-cache
-    cd cli && bun install --frozen-lockfile && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-antigravity.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
+    cd cli && bun install --frozen-lockfile && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-copilot.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-antigravity.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true --define __RP1_DEV_SHA__='"'$(git rev-parse --short=5 HEAD)'"'
 
 # Build the macOS native Arcade shell target without opening it
 build-native-app: install
@@ -371,6 +371,12 @@ serve-docs:
     env -u UV_INDEX -u UV_EXTRA_INDEX_URL -u UV_INDEX_URL -u UV_NO_INDEX \
         uvx --no-config --default-index {{PYPI_INDEX}} --with mkdocs-material mkdocs serve --strict --livereload
 
+# Build docs in strict mode -- fails on broken internal links and anchors.
+# CI runs the same `mkdocs build --strict` (Docs Link Check job).
+check-docs:
+    env -u UV_INDEX -u UV_EXTRA_INDEX_URL -u UV_INDEX_URL -u UV_NO_INDEX \
+        uvx --no-config --default-index {{PYPI_INDEX}} --with mkdocs-material mkdocs build --strict
+
 # Bundle the readiness assessment React component (docs/javascripts/readiness-assessment.js)
 build-readiness:
     @./scripts/build-readiness.sh
@@ -390,6 +396,8 @@ eval-setup:
 # Examples:
 #   just eval-run                          # run all suites in Docker (claude harness)
 #   just eval-run rp1-dev/build-fast       # run a specific suite in Docker
+#   just eval-run rp1-dev/build rp1-dev/build-fast  # multiple suites, one container
+#   just eval-run --rebuild-image          # force dev image rebuild (after Dockerfile changes)
 #   just eval-run --harness=opencode       # run all with opencode in Docker
 #   just eval-run --attest --commit        # run all in Docker, then commit on host
 #   just eval-run --platform=opencode      # attest for opencode platform
@@ -420,6 +428,12 @@ eval-verify:
 # Show commands needing re-attestation
 eval-status:
     bun run evals/src/attestation/cli.ts status
+
+# Report REAL per-model token usage + cost from eval output (promptfoo's tokenUsage
+# is unreliable for the claude-agent-sdk provider). No args = all evals/output/*.json;
+# pass specific files to average across runs: just eval-usage out/a.json out/b.json
+eval-usage *args:
+    bun run evals/src/model-usage.ts {{args}}
 
 # View eval results in browser
 eval-view:

@@ -3,19 +3,28 @@
  * Defines input, output, and intermediate types for argument resolution.
  */
 
+import type {
+	ArgumentDefinition,
+	EnvironmentDefinition,
+} from "../../build/models.js";
+
+/** Pre-parsed schema definitions from a caller that already parsed the skill file. */
+export interface ParsedSchema {
+	readonly arguments: readonly ArgumentDefinition[];
+	readonly environment: readonly EnvironmentDefinition[];
+}
+
 /** Input payload for the resolve-args tool. */
 export interface ResolveArgsInput {
 	readonly schema_path?: string;
 	readonly name?: string;
 	readonly raw_args: string;
 	readonly project_root: string;
+	readonly parsedSchema?: ParsedSchema;
 }
 
 /** Resolved argument values keyed by UPPER_SNAKE_CASE argument name. */
 export type ResolvedArgumentValues = Readonly<Record<string, string | boolean>>;
-
-/** Reserved environment values keyed by parameter name. Currently emitted as {}. */
-export type ResolvedEnvironmentValues = Readonly<Record<string, string>>;
 
 /** Directory resolution status for the requested project root. */
 export type ResolvedDirectoryStatus =
@@ -40,6 +49,5 @@ export interface ResolvedDirectories {
 export interface ResolvedArgs {
 	readonly arguments: ResolvedArgumentValues;
 	readonly directories: ResolvedDirectories;
-	readonly environment: ResolvedEnvironmentValues;
 	readonly unresolved: readonly string[];
 }

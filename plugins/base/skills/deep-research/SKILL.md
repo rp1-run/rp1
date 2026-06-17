@@ -350,16 +350,12 @@ Full report saved to: `{report_path}`
 - Diagrams generated: {count}
 ```
 
-## Anti-Loop Directives
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**:
-- Do NOT ask for approval beyond initial clarification
-- Do NOT iterate or refine after synthesis
+**File-specific constraints**:
 - Do NOT re-run explorers
 - Spawn explorers in PARALLEL (single message, multiple parallel calls)
 - Synthesis is ONE pass with extended thinking
-- Output final summary after reporter completes
-- STOP after outputting final summary
 
 **If blocked**:
 - Missing clarification: Ask ONE focused question, then proceed

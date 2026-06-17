@@ -15,6 +15,11 @@ arguments:
     type: string
     required: true
     description: "Canonical work root returned by the parent workflow bootstrap"
+  - name: CODE_ROOT
+    type: string
+    required: false
+    default: ""
+    description: "Root directory for source-code reads and writes (worktree-aware)"
   - name: WORKFLOW
     type: string
     required: false
@@ -42,6 +47,14 @@ Analyze request, load KB, assess scope, generate task breakdown. Write combined 
 <work_root>
 {{WORK_ROOT from prompt}}
 </work_root>
+
+<code_root>
+{{CODE_ROOT from prompt}}
+</code_root>
+
+## Code Root Directive
+
+When `CODE_ROOT` is non-empty, resolve all source-file reads (`Glob`, `Grep`, `Read`) against `CODE_ROOT`. Work artifacts use `WORK_ROOT`; KB reads use `KB_ROOT`. When `CODE_ROOT` is empty, fall back to the current working directory.
 
 ## 1. KB Loading
 
@@ -144,9 +157,8 @@ Write the file to `{WORK_ROOT}/quick-builds/{filename}`.
 
 #### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `build-fast-planner` and **Artifact** = `quick-build.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for the artifact. Fill placeholders per guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/build-fast-planner/quick-build.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for the artifact. Fill placeholders per guidance below.
 
 #### Content Guidance
 
@@ -217,11 +229,7 @@ After writing artifact, output:
 }
 ```
 
-## 6. Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-**CRITICAL**: Single pass. Read KB -> assess scope -> [write artifact if Small/Medium] -> output JSON -> STOP.
-
-DO NOT:
-- Ask for clarification
-- Wait for feedback
-- Implement any changes
+**File-specific constraints**:
+- Do NOT implement any changes

@@ -1463,9 +1463,10 @@ export const assertOrchestratorSpawnedSpeedrunBuilder: AssertionFunction = (
 	};
 };
 
-/** Assert artifact-detector spawned first. */
-export const assertArtifactDetectorFirst =
-	assertFirstSubagent("artifact-detector");
+/** Assert feature-requirement-gatherer spawned first (the build-v2 workflow's first dispatch). */
+export const assertRequirementGathererFirst = assertFirstSubagent(
+	"feature-requirement-gatherer",
+);
 
 /** Default prohibited commands (no git init/rebase/reset --hard/push/commit). */
 export const assertDefaultProhibited = assertNoProhibitedCommands();

@@ -24,6 +24,7 @@ export interface ToolOptions {
 	readonly timeout?: number;
 	readonly inputSource: "file" | "stdin";
 	readonly filePath?: string;
+	readonly verbose?: boolean;
 }
 
 /**

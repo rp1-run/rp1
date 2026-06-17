@@ -149,7 +149,7 @@ describe("pr-walkthrough build contracts", () => {
 			"`<!-- rp1-notes -->` speaker-note sections",
 		);
 		expect(skill.content).toContain(
-			"Strip or forbid the canonical slide-ready markdown contract metadata",
+			"Do not strip or forbid the canonical slide-ready markdown contract metadata",
 		);
 	});
 

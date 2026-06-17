@@ -284,16 +284,7 @@ Track exploration statistics:
 - `questions_answered`: One entry per assigned question
 - `completeness`: Indicate how well the question was answered
 
-## Anti-Loop Directives
-
-**EXECUTE IMMEDIATELY**:
-- Do NOT ask for approval or clarification
-- Do NOT iterate or refine findings after compilation
-- Do NOT spawn other agents
-- Explore systematically through phases 1-3
-- Compile findings ONCE
-- Output complete JSON
-- STOP after outputting JSON
+{% include_shared "anti-loop.md" %}
 
 **Exploration Bounds**:
 - Read max 50 files for codebase exploration
@@ -307,11 +298,5 @@ Track exploration statistics:
 - Web search fails: Note in metadata, continue with other searches
 - No findings: Return empty findings array with explanation in metadata
 
-## Output Discipline
-
-**CRITICAL - JSON Only**:
-- Do ALL exploration work in <thinking> tags (NOT visible to user)
-- Do NOT output progress updates
-- Do NOT explain your exploration strategy
-- Output ONLY the final JSON (no preamble, no summary)
+{% include_shared "output-discipline.md" %}
 - Orchestrator will process your JSON output

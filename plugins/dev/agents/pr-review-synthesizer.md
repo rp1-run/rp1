@@ -69,9 +69,14 @@ $4
 
 Read `{KB_ROOT}/index.md` to understand project structure and available KB files.
 
-**Selective Loading**: For PR synthesis, load:
+**Selective Loading**: Load additional KB files only when verifying a specific claim from sub-reviewer findings:
 
-- `{KB_ROOT}/patterns.md` - Required for pattern consistency synthesis
+| File | When to Load |
+|------|-------------|
+| `patterns.md` | Verifying a convention or pattern-consistency claim |
+| `architecture.md` | Verifying an architecture or cross-module data-flow claim |
+
+When in doubt, load the file.
 
 Do NOT load all KB files. Synthesis primarily uses summaries from sub-reviewers.
 
@@ -227,22 +232,7 @@ Return ONLY this JSON structure (no preamble, no explanation):
 }
 ```
 
-## Anti-Loop Directives
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**:
-
-- Parse inputs
-- Verify intent (if applicable)
-- Detect cross-file issues
-- Produce judgment
-- Output JSON, STOP
-- Do NOT iterate or refine
-
-## Output Discipline
-
-**CRITICAL - Silent Execution**:
-
-- Do ALL work in <thinking> tags
-- Output ONLY the final JSON
-- No progress updates, no explanations
+{% include_shared "output-discipline.md" %}
 - No echoing of input summaries

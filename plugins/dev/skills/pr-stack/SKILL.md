@@ -352,11 +352,9 @@ Final:
 - `gh pr checks`
 - `just`
 
-## Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-Single pass per phase. Do not:
-
-- Ask for clarification before producing the initial split plan unless the target cannot be resolved.
-- Retry branch creation, cherry-pick, hunk staging, check execution, push, PR creation, or PR editing after a blocking failure.
-- Continue execution after any unapproved destructive operation would be required.
-- Create alternate artifacts outside `pr-stacks/`.
+**File-specific constraints**:
+- Do not retry branch creation, cherry-pick, hunk staging, check execution, push, PR creation, or PR editing after a blocking failure
+- Do not continue execution after any unapproved destructive operation would be required
+- Do not create alternate artifacts outside `pr-stacks/`

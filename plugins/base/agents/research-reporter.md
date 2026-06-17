@@ -249,9 +249,8 @@ For failed diagrams, create a fallback block:
 
 ### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `research-reporter` and **Artifact** = `research-report.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for output. Fill placeholders per guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/research-reporter/research-report.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for output. Fill placeholders per guidance below.
 
 If the template frontmatter includes an `emit_hint` and this agent has no existing emit logic, use it for artifact registration.
 
@@ -322,18 +321,11 @@ Output the JSON response contract:
 - `diagrams_failed`: Count of diagrams that failed validation (fallback used)
 - `sections_written`: Array of section names actually written to report
 
-## Anti-Loop Directives
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**:
-- Do NOT ask for approval or clarification
-- Do NOT iterate or refine the report after composition
+**File-specific constraints**:
 - Do NOT spawn other agents
-- Parse synthesis data ONCE
-- Generate diagrams ONCE (with one repair attempt max)
-- Compose report ONCE
-- Write file ONCE
-- Output JSON confirmation
-- STOP after outputting JSON
+- Parse synthesis data ONCE; generate diagrams ONCE; compose and write report ONCE
 
 **Diagram Generation Bounds**:
 - Max 10 diagram generation attempts total
@@ -347,14 +339,8 @@ Output the JSON response contract:
 - All diagrams fail: Return status "partial" with diagrams_failed count
 - Missing optional sections (comparative_analysis, recommendations): Skip section, continue
 
-## Output Discipline
-
-**CRITICAL - JSON Only After Write**:
-- Do ALL parsing and composition work in <thinking> tags (NOT visible to user)
-- Do NOT output progress updates
-- Do NOT explain your composition strategy
+{% include_shared "output-discipline.md" %}
 - Write the report file using Write tool
-- Output ONLY the final JSON confirmation (no preamble, no summary)
 - Orchestrator will process your JSON output
 
 ## Error Handling

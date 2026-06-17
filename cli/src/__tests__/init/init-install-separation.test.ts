@@ -21,6 +21,7 @@ import {
 	createSettingsFiles,
 	injectInstructions,
 } from "../../init/steps/project-setup.js";
+import { AGENTS_REFERENCE_TEMPLATE } from "../../init/templates/index.js";
 import type { DetectedTool } from "../../init/tool-detector.js";
 import { LATEST_FENCE_VERSION } from "../../lib/fence-version.js";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
@@ -634,6 +635,163 @@ describe("init-install separation", () => {
 			// Old fenced content replaced in both
 			expect(claudeContent).not.toContain("Old claude rp1");
 			expect(agentsContent).not.toContain("Old agents rp1");
+		});
+	});
+
+	describe("single-file stanza injection", () => {
+		test("both files exist: CLAUDE.md gets @AGENTS.md reference, AGENTS.md gets full stanza", async () => {
+			await writeFile(
+				join(tempDir, "CLAUDE.md"),
+				"# My Project\n\nCustom instructions.\n",
+				"utf-8",
+			);
+			await writeFile(
+				join(tempDir, "AGENTS.md"),
+				"# Agent Instructions\n\nAgent-specific content.\n",
+				"utf-8",
+			);
+
+			const logger = createMockLogger();
+			await injectInstructions(tempDir, null, logger);
+
+			const claudeContent = await readFile(join(tempDir, "CLAUDE.md"), "utf-8");
+			const agentsContent = await readFile(join(tempDir, "AGENTS.md"), "utf-8");
+
+			expect(claudeContent).toContain(AGENTS_REFERENCE_TEMPLATE);
+			expect(claudeContent).toContain(
+				`<!-- rp1:start:v${LATEST_FENCE_VERSION} -->`,
+			);
+			expect(claudeContent).not.toContain("## rp1 Knowledge Base");
+
+			expect(agentsContent).toContain("## rp1 Knowledge Base");
+			expect(agentsContent).toContain(
+				`<!-- rp1:start:v${LATEST_FENCE_VERSION} -->`,
+			);
+
+			expect(claudeContent).toContain("Custom instructions.");
+			expect(agentsContent).toContain("Agent-specific content.");
+		});
+
+		test("both files with existing fences: CLAUDE.md fence becomes @AGENTS.md reference", async () => {
+			await writeFile(
+				join(tempDir, "CLAUDE.md"),
+				`User content\n\n<!-- rp1:start -->\n## rp1 Knowledge Base\nOld template\n<!-- rp1:end -->\n`,
+				"utf-8",
+			);
+			await writeFile(
+				join(tempDir, "AGENTS.md"),
+				`Agent content\n\n<!-- rp1:start -->\n## rp1 Knowledge Base\nOld template\n<!-- rp1:end -->\n`,
+				"utf-8",
+			);
+
+			const logger = createMockLogger();
+			await injectInstructions(tempDir, null, logger);
+
+			const claudeContent = await readFile(join(tempDir, "CLAUDE.md"), "utf-8");
+			const agentsContent = await readFile(join(tempDir, "AGENTS.md"), "utf-8");
+
+			expect(claudeContent).toContain(AGENTS_REFERENCE_TEMPLATE);
+			expect(claudeContent).not.toContain("Old template");
+
+			expect(agentsContent).toContain("## rp1 Knowledge Base");
+			expect(agentsContent).not.toContain("Old template");
+
+			expect(claudeContent).toContain("User content");
+			expect(agentsContent).toContain("Agent content");
+		});
+
+		test("CLAUDE.md only: gets full stanza (no reference)", async () => {
+			await writeFile(
+				join(tempDir, "CLAUDE.md"),
+				"# My Project\n\nCustom instructions.\n",
+				"utf-8",
+			);
+
+			const logger = createMockLogger();
+			await injectInstructions(tempDir, null, logger);
+
+			const claudeContent = await readFile(join(tempDir, "CLAUDE.md"), "utf-8");
+			const agentsExists = await readFileIfExists(join(tempDir, "AGENTS.md"));
+
+			expect(claudeContent).toContain("## rp1 Knowledge Base");
+			expect(claudeContent).not.toContain(AGENTS_REFERENCE_TEMPLATE);
+			expect(claudeContent).toContain(
+				`<!-- rp1:start:v${LATEST_FENCE_VERSION} -->`,
+			);
+
+			expect(agentsExists).toBeNull();
+		});
+
+		test("AGENTS.md only: gets full stanza", async () => {
+			await writeFile(
+				join(tempDir, "AGENTS.md"),
+				"# Agent Instructions\n\nAgent content.\n",
+				"utf-8",
+			);
+
+			const logger = createMockLogger();
+			await injectInstructions(tempDir, null, logger);
+
+			const agentsContent = await readFile(join(tempDir, "AGENTS.md"), "utf-8");
+			const claudeExists = await readFileIfExists(join(tempDir, "CLAUDE.md"));
+
+			expect(agentsContent).toContain("## rp1 Knowledge Base");
+			expect(agentsContent).toContain(
+				`<!-- rp1:start:v${LATEST_FENCE_VERSION} -->`,
+			);
+
+			expect(claudeExists).toBeNull();
+		});
+
+		test("neither file exists: creates default instruction file", async () => {
+			const logger = createMockLogger();
+			const result = await injectInstructions(tempDir, null, logger);
+
+			expect(result.instructionFile).toBe("CLAUDE.md");
+			const claudeContent = await readFile(join(tempDir, "CLAUDE.md"), "utf-8");
+			expect(claudeContent).toContain("## rp1 Knowledge Base");
+			expect(claudeContent).toContain(
+				`<!-- rp1:start:v${LATEST_FENCE_VERSION} -->`,
+			);
+		});
+
+		test("both files: idempotent (second run produces identical output)", async () => {
+			await writeFile(join(tempDir, "CLAUDE.md"), "# My Project\n", "utf-8");
+			await writeFile(join(tempDir, "AGENTS.md"), "# Agents\n", "utf-8");
+
+			const logger = createMockLogger();
+
+			await injectInstructions(tempDir, null, logger);
+			const claudeFirst = await readFile(join(tempDir, "CLAUDE.md"), "utf-8");
+			const agentsFirst = await readFile(join(tempDir, "AGENTS.md"), "utf-8");
+
+			await injectInstructions(tempDir, null, logger);
+			const claudeSecond = await readFile(join(tempDir, "CLAUDE.md"), "utf-8");
+			const agentsSecond = await readFile(join(tempDir, "AGENTS.md"), "utf-8");
+
+			expect(claudeSecond).toBe(claudeFirst);
+			expect(agentsSecond).toBe(agentsFirst);
+		});
+
+		test("both files with Codex: AGENTS.md gets Codex template, CLAUDE.md gets reference", async () => {
+			await writeFile(join(tempDir, "CLAUDE.md"), "# My Project\n", "utf-8");
+			await writeFile(join(tempDir, "AGENTS.md"), "# Agents\n", "utf-8");
+
+			const logger = createMockLogger();
+			await injectInstructions(
+				tempDir,
+				createDetectedTool("codex", "AGENTS.md"),
+				logger,
+			);
+
+			const claudeContent = await readFile(join(tempDir, "CLAUDE.md"), "utf-8");
+			const agentsContent = await readFile(join(tempDir, "AGENTS.md"), "utf-8");
+
+			expect(claudeContent).toContain(AGENTS_REFERENCE_TEMPLATE);
+			expect(claudeContent).not.toContain("## Codex agent conventions");
+
+			expect(agentsContent).toContain("## Codex agent conventions");
+			expect(agentsContent).not.toContain("## rp1 Skill Awareness");
 		});
 	});
 

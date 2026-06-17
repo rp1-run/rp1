@@ -10,6 +10,7 @@ worktree_git_mounts=()
 promptfoo_mounts=()
 do_commit=false
 attest=false
+rebuild_image=false
 host_commit_outputs_file=""
 container_commit_outputs_file=""
 host_promptfoo_config_dir=""
@@ -19,6 +20,9 @@ for arg in "$@"; do
     case "$arg" in
         --commit)
             do_commit=true
+            ;;
+        --rebuild-image)
+            rebuild_image=true
             ;;
         --attest)
             attest=true
@@ -174,11 +178,15 @@ docker_run_args+=(
     "${container_args[@]}"
 )
 
-echo "Building dev image (cached layers reused)..."
-(
-    cd "$repo_root"
-    docker build --platform linux/arm64 --target dev -t rp1-dev -f docker/Dockerfile .
-)
+if [ "$rebuild_image" = "true" ] || ! docker image inspect rp1-dev >/dev/null 2>&1; then
+    echo "Building dev image (cached layers reused)..."
+    (
+        cd "$repo_root"
+        docker build --platform linux/arm64 --target dev -t rp1-dev -f docker/Dockerfile .
+    )
+else
+    echo "Reusing existing rp1-dev image; pass --rebuild-image after Dockerfile changes."
+fi
 
 echo "Starting dockerized eval run..."
 cd "$repo_root"

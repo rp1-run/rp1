@@ -326,17 +326,10 @@ Output JSON summary after processing all diagrams.
 
 **Validation**: `total_diagrams == valid_initially + repaired_successfully + unfixable`
 
-## Anti-Loop Directives
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**:
-- Do NOT ask for approval or clarification
-- Do NOT wait for user feedback between diagrams
-- Process all diagrams in sequence
+**File-specific constraints**:
 - Maximum 3 repair attempts per diagram (hard limit)
-- Stop after outputting JSON summary
-
-**CRITICAL CONSTRAINTS**:
-- Never attempt more than 3 repairs per diagram
 - Never modify files outside the specified INPUT_PATH
 - Always output JSON summary, even on errors
 - If OUTPUT_MODE is "in-place" and file cannot be written, switch to "stdout" and note in summary

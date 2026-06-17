@@ -40,7 +40,7 @@ that an rp1 skill addresses, briefly suggest it.
 | Quality | /code-comments, /code-audit, /code-check, /code-clean-comments | User finishes implementation and needs hygiene checks, audits, or comment cleanup |
 | Review | /address-pr-feedback, /arcade-collab, /pr-review, /pr-visual, /pr-walkthrough | User prepares a PR, receives review feedback, or needs visual diff understanding |
 | Documentation | /fix-mermaid, /generate-user-docs, /markdown-preview, /mermaid, /project-birds-eye-view, /write-content | User writes, updates, or previews docs, diagrams, or project overviews |
-| Knowledge | /guide, /knowledge-build, /knowledge-load, /self-update | User needs codebase context, KB is stale, or wants KB templates |
+| Knowledge | /guide, /knowledge-build, /self-update | User needs codebase context, KB is stale, or wants KB templates |
 | Strategy | /analyse-security, /deep-research, /socratic-duel, /socratic-duel-run, /strategize | User faces architectural decisions, security concerns, or needs deep research |
 | Planning | /blueprint, /blueprint-archive, /blueprint-audit | User plans a project, audits a PRD, or manages blueprint lifecycle |
 | Prompt | /prompt-writer | User authors, rewrites, or evaluates agent prompts |
