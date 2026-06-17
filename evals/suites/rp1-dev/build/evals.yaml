@@ -59,7 +59,7 @@ tests:
     threshold: 0.6
     assert:
       - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertArtifactDetectorFirst
+        value: file://../../shared/assertions/tool-calls.ts:assertRequirementGathererFirst
       - type: javascript
         weight: 0
         value: file://../../shared/assertions/tool-calls.ts:assertTaskBuilderSpawned
