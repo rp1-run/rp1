@@ -48,7 +48,7 @@ defaultTest:
       config:
         temperature: 0
   vars:
-    REQUEST: "add a simple yaml validator command without adding new deps"
+    REQUEST: 'add a slugify(text) string utility: lowercase the text, replace spaces and underscores with single hyphens, drop any character that is not a letter, number, or hyphen, collapse repeated hyphens, and trim leading and trailing hyphens. Examples: "Hello, World!" -> "hello-world", " Foo__Bar " -> "foo-bar", "a---b" -> "a-b"'
     GIT_WORKTREE: false
     GIT_COMMIT: false
     GIT_PUSH: false
