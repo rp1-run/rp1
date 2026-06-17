@@ -51,7 +51,7 @@ On each phase transition, emit:
 
 ```bash
 rp1 agent-tools emit --harness $CURRENT_HOST \
-  --workflow birds-eye-view \
+  --workflow project-birds-eye-view \
   --type status_change \
   --run-id {RUN_ID} \
   --name "Bird's-eye view: {RUN_NAME}" \
@@ -91,7 +91,7 @@ RUN_ID: {RUN_ID}
 
 ```bash
 rp1 agent-tools emit --harness $CURRENT_HOST \
-  --workflow birds-eye-view \
+  --workflow project-birds-eye-view \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step generate \
@@ -102,7 +102,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
 
 ```bash
 rp1 agent-tools emit --harness $CURRENT_HOST \
-  --workflow birds-eye-view \
+  --workflow project-birds-eye-view \
   --type status_change \
   --run-id {RUN_ID} \
   --step validate_diagrams \
