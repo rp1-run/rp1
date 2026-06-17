@@ -229,7 +229,7 @@ After changes:
 
 ## Environment note
 
-If installing `uv`, `bun`, or npm packages fails unexpectedly, it is likely due to the local VPN setup. Stop and ask the user for help instead of spending time on package-manager retries.
+If `uv`, `bun`, or npm package installs fail unexpectedly for network-related reasons, there may be environment-specific handling that applies. Consult your memory / local environment notes for the relevant steps before retrying repeatedly or escalating to the user.
 
 <!-- rp1:start:v0.7.1 -->
 ## rp1 Knowledge Base
