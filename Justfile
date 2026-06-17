@@ -429,6 +429,12 @@ eval-verify:
 eval-status:
     bun run evals/src/attestation/cli.ts status
 
+# Report REAL per-model token usage + cost from eval output (promptfoo's tokenUsage
+# is unreliable for the claude-agent-sdk provider). No args = all evals/output/*.json;
+# pass specific files to average across runs: just eval-usage out/a.json out/b.json
+eval-usage *args:
+    bun run evals/src/model-usage.ts {{args}}
+
 # View eval results in browser
 eval-view:
     #!/usr/bin/env bash
