@@ -144,10 +144,15 @@ jobs:
       - uses: actions/checkout@v4
         if: ${{ github.event_name == 'pull_request' && github.head_ref == 'release-please--branches--main' }}
 
+      # Pin Node 24 rather than .tool-versions (node 26): the `cd cli && bun install`
+      # step below builds web-ui's promptfoo -> better-sqlite3, which ships no prebuilt
+      # binary for Node 26 and fails to compile from source. Node 24 has prebuilts.
+      # Follow-up: migrate web-ui's promptfoo to the libsql build (as evals already did)
+      # to drop better-sqlite3, then this can return to node-version-file: .tool-versions.
       - uses: actions/setup-node@v4
         if: ${{ github.event_name == 'pull_request' && github.head_ref == 'release-please--branches--main' }}
         with:
-          node-version-file: .tool-versions
+          node-version: "24"
 
       - uses: oven-sh/setup-bun@v2
         if: ${{ github.event_name == 'pull_request' && github.head_ref == 'release-please--branches--main' }}
