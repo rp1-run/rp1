@@ -61,7 +61,7 @@
 | `/generate-user-docs` | base | Synchronizes user-facing documentation with the current knowledge base through validate -> stale gate -> scan -> approval -> process orchestration. |
 | `/markdown-preview` | base | Generate browser-viewable HTML previews from markdown, plain text, and Mermaid diagrams. Auto-validates, styles, and opens in browser. |
 | `/mermaid` | base | Create, validate, and repair Mermaid.js diagrams. Use when generating flowcharts, sequence, class, ER, state, or Gantt diagrams, or any visualization. |
-| `/project-birds-eye-view` | base | Generates arc42/C4-aligned project overview artifacts with per-claim provenance, snapshot metadata, and Arcade-visible workflow tracking. |
+| `/project-birds-eye-view` | base | Generates a digestible 3-tier/9-section arc42/C4-aligned project overview with per-claim provenance hidden in HTML comments, snapshot metadata, and Arcade-visible workflow tracking. |
 | `/write-content` | base | Interactive prompt to help create polished technical documents through clarifying questions and structured writing workflows. |
 
 ## Knowledge
