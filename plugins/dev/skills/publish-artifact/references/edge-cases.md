@@ -18,15 +18,15 @@ To get a comment's author: the `user.login` field on each comment object.
 
 ## Marker dropped from existing comment
 
-If someone manually edited the canonical comment and removed the `<!-- rp1-artifact: ... -->` line, the lookup finds 0 matches → we POST a new comment. **Print a warning to stderr:**
+If someone manually edited the canonical comment and removed the `<!-- rp1-artifact: ... -->` line, the lookup finds 0 matches → we POST a new comment. A warning is returned in the `data.warnings` array (not printed to stderr):
 
 ```
-WARNING: idempotency was broken for this artifact (no marker found in existing comments).
-A new comment will be posted, leaving the pre-existing comment orphaned.
-Consider deleting the old comment manually.
+WARNING: found <n> prior publish-artifact comment(s) but no marker for doc_key
+<doc_key>. Idempotency is broken — a new comment will be posted, orphaning the
+old one(s).
 ```
 
-The soft-detection heuristic: search for any existing comment by the authenticated user that contains the footer string `Posted by \`publish-artifact\``. If any such comment exists but no marker matched our `doc_id`, the warning fires.
+The soft-detection heuristic: search for any existing comment by the authenticated user that contains the footer string `Posted by \`publish-artifact\``. If any such comment exists but no marker matched our `doc_id`, the warning fires. The heuristic is intentionally broad and therefore **ambiguous**: publishing a *second, different* artifact on the same PR (a different `doc_key`) also trips it, since the earlier comment is a publish-artifact comment by you without this artifact's marker. Read the warning as "there may be an orphan," not a certainty.
 
 ## Error conditions
 
@@ -64,9 +64,9 @@ A single flag that loosens three guard rails at once:
 
 ## dry_run flag effects
 
-Resolves the target, reads + parses + projects the artifact, and looks up any existing comment. Stops before any `POST`/`PATCH` (writes nothing to GitHub), then exits 0.
+`dry_run` skips only the final GitHub write (`POST`/`PATCH`). Every preceding step still runs: target resolution, projection, the comment lookup, and **all safety gates**. So a dry-run is *not* guaranteed to exit 0 — it still fails non-zero on the same conditions a real run would (duplicate-marker refusal, foreign-owned comment without `force`, closed/merged target without `force`, or the 65 KB size cap; see "Error conditions"). It exits 0 only once those gates pass.
 
-The JSON result carries the projected body in `comment_body` and reports the action the real run *would* take in `action` (`post` or `patch`), with `comment_url` set to `null`. `doc_key`, `size_bytes`, and `warnings` are populated as they would be on a real run, so you can confirm the projection (and diff `comment_body` against an expected file) before posting.
+When the gates pass, the JSON result carries the projected body in `data.comment_body` and reports the action the real run *would* take in `data.action` (`post` or `patch`), with `data.comment_url` set to `null`. `data.doc_key`, `data.size_bytes`, and `data.warnings` are populated as they would be on a real run, so you can confirm the projection (and diff `data.comment_body` against an expected file) before posting.
 
 ## Path-based idempotency key
 

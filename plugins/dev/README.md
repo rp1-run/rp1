@@ -20,7 +20,7 @@ Then install dev plugin:
 /plugin install rp1-dev
 ```
 
-## Commands (18)
+## Commands (17)
 
 ### Project Onboarding (4)
 - `/blueprint [prd-name]` - Guided wizard to capture project vision via charter + PRDs

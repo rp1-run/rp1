@@ -49,7 +49,7 @@ Publish an rp1 artifact (markdown under `.rp1/work/`; frontmatter optional) as a
 
 > ### ⚠️ Always dry-run first on a real PR or issue
 >
-> The skill writes to a real GitHub PR/issue comment by default. Before publishing to a PR/issue you care about (especially one with active reviewers), run with `"dry_run": true` first. A dry-run runs every step except the GitHub write, returns the projected `comment_body` plus the `action` (`post` or `patch`) the real run would take, and writes nothing. Once the projection looks right, re-run without `dry_run` to post.
+> The skill writes to a real GitHub PR/issue comment by default. Before publishing to a PR/issue you care about (especially one with active reviewers), run with `"dry_run": true` first. A dry-run still resolves the target, validates, and runs the safety gates — it only skips the GitHub write — then returns the projected `data.comment_body` plus the `data.action` (`post` or `patch`) the real run would take. Once the projection looks right, re-run without `dry_run` to post.
 
 ## When to invoke
 
@@ -92,30 +92,35 @@ That single process does everything: derive owner/repo from the git origin remot
 
 ## Reading the output
 
-The command returns a JSON object:
+The command prints the standard agent-tools JSON envelope on stdout. The publish
+fields are nested under `data` — read them as `data.<field>`, not at the top level:
 
 ```json
 {
-  "action": "post" | "patch",
-  "comment_url": "https://github.com/...#issuecomment-...",
-  "doc_key": "<rp1_doc_id or path:<relative-path>>",
-  "size_bytes": 1234,
-  "warnings": ["..."],
-  "dry_run": false,
-  "comment_body": "<projected body — present only on dry_run>"
+  "success": true,
+  "tool": "github-pr",
+  "data": {
+    "action": "post" | "patch",
+    "comment_url": "https://github.com/...#issuecomment-...",
+    "doc_key": "<rp1_doc_id or path:<relative-path>>",
+    "size_bytes": 1234,
+    "warnings": ["..."],
+    "dry_run": false,
+    "comment_body": "<projected body — present only on dry_run>"
+  }
 }
 ```
 
-- **`action`** — `post` (new comment created) or `patch` (existing comment updated in place). On a dry-run this is the action the real run *would* take.
-- **`comment_url`** — link to the created/updated comment; `null` on a dry-run.
-- **`doc_key`** — the idempotency marker key (`rp1_doc_id` when present, else `path:<relative-path>`).
-- **`size_bytes`** — projected comment body size; the GitHub 65 KB cap is enforced as a hard error.
-- **`warnings`** — surface every entry to the user. These are advisory (summary-ladder rung, orphaned prior comment, stale local mtime, path outside `.rp1/work/`), not failures.
-- **`comment_body`** — on a dry-run only, the full projected body. Show it (or diff it) so the user can confirm before a real post.
+- **`data.action`** — `post` (new comment created) or `patch` (existing comment updated in place). On a dry-run this is the action the real run *would* take.
+- **`data.comment_url`** — link to the created/updated comment; `null` on a dry-run.
+- **`data.doc_key`** — the idempotency marker key (`rp1_doc_id` when present, else `path:<relative-path>`).
+- **`data.size_bytes`** — projected comment body size; the GitHub 65 KB cap is enforced as a hard error.
+- **`data.warnings`** — surface every entry to the user. These are advisory (summary-ladder rung, orphaned prior comment, stale local mtime, path outside `.rp1/work/`), not failures.
+- **`data.comment_body`** — on a dry-run only, the full projected body. Show it (or diff it) so the user can confirm before a real post.
 
-**On success:** relay the `action`, the `comment_url`, and any `warnings`.
+**On success:** relay `data.action`, `data.comment_url`, and any `data.warnings`.
 
-**On a refusal or error:** the command exits non-zero and prints the reason (foreign-owned comment without `force`, multiple matching comments, size cap, no PR for the current branch, closed/merged target without `force`, auth/network error). Show the reason verbatim. The artifact and any existing comment are left untouched. For foreign-owned or closed/merged cases, the user can re-run with `"force": true` if they intend to override; multiple-match refusals require manual dedup and `force` does **not** bypass them.
+**On a refusal or error:** the command exits non-zero and prints an error envelope on stderr — `{ "success": false, "tool": "github-pr", "data": null, "errors": [{ "message": "<reason>" }] }`. Show the `message` verbatim (foreign-owned comment without `force`, multiple matching comments, size cap, no PR for the current branch, closed/merged target without `force`, auth/network error). The artifact and any existing comment are left untouched. For foreign-owned or closed/merged cases, the user can re-run with `"force": true` if they intend to override; multiple-match refusals require manual dedup and `force` does **not** bypass them.
 
 ## References (read these — they encode the spec)
 

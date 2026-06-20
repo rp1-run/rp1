@@ -55,8 +55,10 @@ Operates on the body after the leading H1 is stripped. First match wins:
 5. First paragraph boundary (lead paragraph is the summary).
 6. Single block (whole body is the summary; no collapsible).
 
-Rungs 2–6 emit a one-line stderr warning. Rungs 0 and 1 do not. When `rest_body` is empty
-the `<details>` block is omitted.
+Rungs 2–6 add a one-line entry to the `data.warnings` array in the JSON result. Rung 1
+is quiet; rung 0 is quiet too, except it warns when the split marker has no content before
+it (the Executive Summary would be empty). When `rest_body` is empty the `<details>` block
+is omitted.
 
 ### Rung 0 — author-placed split marker
 
