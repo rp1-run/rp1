@@ -3,7 +3,7 @@ scope: workRoot
 path_pattern: "birds-eye/{YYYY-MM-DD}-{PROJECT_SLUG}.md"
 producer: project-documenter
 type: document
-description: "arc42/C4-aligned project overview artifact generated from KB + codebase by /project-birds-eye-view. 16 sections with per-claim provenance tags, snapshot metadata frontmatter, and conditional Reflexion appendix. Path uses date prefix and project slug with n+1 dedup — registration MUST use the producer's resolved OUTPUT_PATH, not this pattern, because dedup suffixes (-2, -3, …) are assigned at write time."
+description: "3-tier/9-section project overview artifact generated from KB + codebase by /project-birds-eye-view. Tier 1 Orientation (TL;DR), Tier 2 Five Views (§1–§5), Tier 3 Working In It (§6–§9), plus conditional Reflexion appendix. Per-claim provenance in hidden HTML comments. Snapshot metadata frontmatter with 9-section coverage tuple. Path uses date prefix and project slug with n+1 dedup — registration MUST use the producer's resolved OUTPUT_PATH, not this pattern, because dedup suffixes (-2, -3, …) are assigned at write time."
 strictness: flexible
 # No emit_hint: path_pattern is NOT safe to use directly for registration.
 # The `/project-birds-eye-view` dispatcher (or any caller) MUST register with the
@@ -19,8 +19,9 @@ snapshot_kb_root: "{KB_ROOT}"
 snapshot_kb_files: "{KB_FILES_WITH_VERSIONS}"
 snapshot_coverage:
   filled: {FILLED}
-  total: {TOTAL}
+  total: 9
   conditional_emitted: {CONDITIONAL_EMITTED}
+  conditional_possible: 3
   gaps: {GAP_COUNT}
 snapshot_source_of_truth: "{KB_ROOT}/"
 snapshot_regenerate_command: "/rp1-base:project-birds-eye-view"
@@ -28,7 +29,7 @@ snapshot_regenerate_command: "/rp1-base:project-birds-eye-view"
 
 # {Project Name} — Bird's-Eye View
 
-## 1. TL;DR for a new dev
+## TL;DR
 
 - {What it is}
 - {Who uses it}
@@ -36,13 +37,11 @@ snapshot_regenerate_command: "/rp1-base:project-birds-eye-view"
 - {Where to look first}
 - {What's weird / what will surprise you}
 
-## 2. Business context & purpose
+---
 
-{2–3 sentences with [KB|CODE|INFER|GAP] provenance tags per sentence. Answers: why does this exist, what problem does it solve, what is the core value proposition.}
+## 1. Purpose and System Context
 
-## 3. System context (C4 L1)
-
-{2–3 sentences describing external systems, users, integrations. Tagged.}
+{2–4 sentences merging business context and system context. Answers: why does this exist, what problem does it solve, who/what interacts with it.} <!-- prov: [KB|CODE|INFER|GAP] -->
 
 <!-- diagram: flowchart | nodes: N | citations: [KB:…] [CODE:…] | confidence: Supported -->
 ```mermaid
@@ -50,27 +49,19 @@ flowchart TD
     %% System context diagram — external actors and systems
 ```
 
-## 4. Containers / Building blocks (C4 L2)
+## 2. Building Blocks
 
-{2–3 sentences describing major runtime containers and their relationships. Tagged.}
+{2–3 sentences describing major components/containers and their relationships.} <!-- prov: [KB|CODE|INFER|GAP] -->
 
 <!-- diagram: flowchart | nodes: N | citations: [KB:…] [CODE:…] | confidence: Supported -->
 ```mermaid
 flowchart TD
-    %% Container / building-block diagram
+    %% Component / building-block diagram
 ```
 
-## 5. Tech stack & rationale
+## 3. Runtime Flows
 
-{2–3 sentences introducing the stack. Tagged.}
-
-| Technology | Purpose | Rationale |
-|------------|---------|-----------|
-| {name} | {purpose} | `[KB|CODE|GAP]` tagged |
-
-## 6. Runtime view — key scenarios (1–3)
-
-{2–3 sentences framing the scenarios. Tagged.}
+{2–3 sentences framing the key scenarios (1–3).} <!-- prov: [KB|CODE|INFER|GAP] -->
 
 <!-- diagram: sequenceDiagram | participants: N | citations: [KB:…] [CODE:…] | confidence: Supported -->
 ```mermaid
@@ -78,9 +69,11 @@ sequenceDiagram
     %% Hot-path sequence diagram — single most load-bearing flow
 ```
 
-## 7. Data model [conditional]
+## 4. Data Model [conditional]
 
-{Emit only if schema / ER / entity evidence exists. Otherwise omit and record in §13 Risks: "Omitted §7 Data model — no schema or KB entity evidence".}
+{Emit only if schema / ER / entity evidence exists. Otherwise omit entirely and record in §9 Risks & Gaps: "Omitted §4 Data Model — no schema or entity evidence".}
+
+{Brief description of core entities and relationships.} <!-- prov: [KB|CODE|INFER|GAP] -->
 
 <!-- diagram: erDiagram | entities: N | citations: [KB:…] [CODE:…] | confidence: Supported -->
 ```mermaid
@@ -88,69 +81,68 @@ erDiagram
     %% Entity-relationship diagram
 ```
 
-## 8. API / interface surface
+## 5. Integration Surface [conditional]
 
-{2–3 sentences on major public surfaces. Tagged.}
+{Emit only if the project exposes or consumes significant external interfaces (APIs, events, CLI commands, protocol surfaces). Otherwise omit entirely and record in §9 Risks & Gaps: "Omitted §5 Integration Surface — no significant external interface evidence".}
 
-| Endpoint / command / event | Owning component | Purpose |
-|----------------------------|------------------|---------|
-| `{surface}` | `{component}` | `{purpose}` |
+{2–3 sentences on public integration points.} <!-- prov: [KB|CODE|INFER|GAP] -->
 
-## 9. Deployment & environments [conditional]
+| Endpoint / command / event | Owning component | Direction | Purpose |
+|----------------------------|------------------|-----------|---------|
+| `{surface}` | `{component}` | `{in\|out\|both}` | `{purpose}` | <!-- prov: [KB|CODE] -->
 
-{Emit only if Dockerfile / compose / CI / IaC / deployment doc evidence exists. Otherwise omit and record in §13.}
-
-<!-- diagram: flowchart | deployment_units: N | citations: [KB:…] [CODE:…] | confidence: Supported -->
+<!-- diagram: flowchart | nodes: N | citations: [KB:…] [CODE:…] | confidence: Supported -->
 ```mermaid
 flowchart LR
-    %% Deployment topology
+    %% Integration surface diagram — external boundaries and flows
 ```
 
-## 10. Architecture decisions
+---
 
-{Always emitted. Bulleted list; each item cites `[KB: charter.md|ADR|PRD]` or `[GAP — no decision note]`.}
+## 6. Tech Stack
 
-- **{Decision title}** — {one-line summary}. `[KB: …]` OR `[GAP — …]`
+{2–3 sentences introducing the stack and rationale.} <!-- prov: [KB|CODE|INFER|GAP] -->
 
-## 11. Getting started
+| Technology | Purpose | Rationale |
+|------------|---------|-----------|
+| {name} | {purpose} | {rationale} | <!-- prov: [KB|CODE|GAP] -->
 
-{Ordered steps: install → run locally → run tests → ship a first change. Source: README, package scripts, justfile, Makefile. Every step tagged.}
+## 7. Getting Started
 
-1. {Step} — `[KB|CODE: …]`
+{Ordered steps: install → run locally → run tests → ship a first change. Source: README, package scripts, justfile, Makefile.}
 
-## 12. Debugging & observability
+1. {Step} <!-- prov: [KB|CODE] -->
 
-{Logs, traces, dashboards, oncall. Likely many `[GAP]` on first generation — that's a finding, not a failure. Tagged.}
+## 8. Key Decisions
 
-## 13. Risks, gaps, and what isn't covered
+{Bulleted list of architectural and design decisions.}
 
-{First-class risk register. Tagged.}
+- **{Decision title}** — {one-line summary} <!-- prov: [KB: charter.md|ADR|PRD] --> OR <!-- prov: [GAP — no decision note] -->
 
-- **Known issues**: `[KB|CODE: …]`
-- **Technical debt**: `[KB: …]`
-- **Top `[GAP]`s that would most improve the overview**: list with "next read" pointers
-- **Omitted conditional sections**: `Omitted §7 … — <reason>` / `Omitted §9 … — <reason>`
+## 9. Risks & Gaps
 
-## 14. Glossary
+{First-class risk register. Collects known issues, technical debt, observability gaps, and tracks omitted conditional sections.}
 
-{Domain terms extracted from `concept_map.md` or inferred from code. Tagged.}
+- **Known issues**: {description} <!-- prov: [KB|CODE] -->
+- **Technical debt**: {description} <!-- prov: [KB] -->
+- **Observability gaps**: {logs, traces, dashboards, oncall status} <!-- prov: [KB|CODE|GAP] -->
+- **Top gaps that would most improve the overview**: {list with "next read" pointers}
+- **Omitted conditional sections**: {e.g., "Omitted §4 Data Model — no schema or entity evidence" / "Omitted §5 Integration Surface — …"}
 
-| Term | Definition | Source |
-|------|------------|--------|
-| `{term}` | {definition} | `[KB|CODE: …]` |
+---
 
-## 15. Appendix: Intended vs observed architecture [conditional]
+## Appendix A: Reflexion [conditional]
 
-{Emit only when ≥1 divergence found. Otherwise omit and record in §13.}
+{Emit only when ≥1 divergence between KB claims and code observations is found. Otherwise omit entirely and record in §9 Risks & Gaps: "Omitted Appendix A Reflexion — no divergences found".}
 
 ### Convergences
 
-- {KB claim ↔ code observation} — `[KB: …]` + `[CODE: …]`
+- {KB claim ↔ code observation} <!-- prov: [KB:…] + [CODE:…] -->
 
 ### Divergences
 
-- **{KB claim}** does not match **{code observation}** — `[KB: …]` vs `[CODE: …]`. Recommended follow-up: {action}.
+- **{KB claim}** does not match **{code observation}**. Recommended follow-up: {action}. <!-- prov: [KB:…] vs [CODE:…] -->
 
 ### Absences
 
-- {KB claim with no code evidence} — `[KB: …]` + `[GAP: …]`
+- {KB claim with no code evidence} <!-- prov: [KB:…] + [GAP:…] -->

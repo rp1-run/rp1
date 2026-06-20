@@ -340,6 +340,41 @@ describe("directory resolution", () => {
 		expect(worktreeResult.right.codeRoot).not.toContain("..");
 	});
 
+	test("detached HEAD produces undefined worktreeName", async () => {
+		const detachedRepo = join(tempBase, "detached-head-repo");
+		await mkdir(join(detachedRepo, ".rp1"), { recursive: true });
+		writeFileSync(
+			join(detachedRepo, ".rp1", "project_id"),
+			"aa0e8400-e29b-41d4-a716-446655440000",
+		);
+		await initTestRepo(detachedRepo);
+		await createInitialCommit(detachedRepo);
+
+		const revParseProc = Bun.spawn(["git", "rev-parse", "HEAD"], {
+			cwd: detachedRepo,
+			stdout: "pipe",
+			env: { ...process.env, GIT_DIR: undefined },
+		});
+		const sha = (await new Response(revParseProc.stdout).text()).trim();
+		await revParseProc.exited;
+
+		const checkoutProc = Bun.spawn(["git", "checkout", sha], {
+			cwd: detachedRepo,
+			stdout: "pipe",
+			stderr: "pipe",
+			env: { ...process.env, GIT_DIR: undefined },
+		});
+		await checkoutProc.exited;
+
+		const result = resolveDirectorySet(detachedRepo);
+		expect(E.isRight(result)).toBe(true);
+		if (E.isLeft(result)) return;
+
+		expect(result.right.projectRoot).toBe(detachedRepo);
+		expect(result.right.isWorktree).toBe(false);
+		expect(result.right.worktreeName).toBeUndefined();
+	});
+
 	test("settings.toml directory overrides are ignored", async () => {
 		await writeFixture(
 			projectRoot,

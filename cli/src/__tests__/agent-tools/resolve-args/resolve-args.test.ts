@@ -107,6 +107,31 @@ describe("parseRawArgs", () => {
 		expect(result).toEqual({ FEATURE_ID: "my-feature" });
 	});
 
+	test("flag value never consumes a double-dash token (intentional asymmetry)", () => {
+		// Pins the boundary asymmetry documented in resolver.ts: a declared
+		// flag's VALUE stops at ANY double-dash token (declared or not), while
+		// positional capture stops only at DECLARED flags. `--mode --unknown`
+		// must leave MODE valueless (true) rather than binding "--unknown".
+		const modeSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "FEATURE_ID",
+				type: "string",
+				required: true,
+				description: "Feature ID",
+			},
+			{
+				name: "MODE",
+				type: "string",
+				required: false,
+				description: "Mode",
+			},
+		];
+		const result = parseRawArgs("feat --mode --unknown-thing", modeSchema);
+		expect(result.MODE).toBe(true);
+		expect(result.UNKNOWN_THING).toBe(true);
+		expect(result.FEATURE_ID).toBe("feat");
+	});
+
 	test("parses optional positional string and enum arguments", () => {
 		const optionalSchema: readonly ArgumentDefinition[] = [
 			{
@@ -149,9 +174,40 @@ describe("parseRawArgs", () => {
 		expect(result).toEqual({ FEATURE_ID: "my-feature", AFK: true });
 	});
 
-	test("parses alias trigger", () => {
+	test("bare alias in greedy capture is treated as prose, not flag trigger", () => {
 		const result = parseRawArgs('my-feature "no prompts"', schema);
-		expect(result).toEqual({ FEATURE_ID: "my-feature", AFK: true });
+		expect(result).toEqual({ FEATURE_ID: "my-feature no prompts" });
+	});
+
+	test("bare alias as standalone trailing token after positionals are consumed", () => {
+		const multiRequiredSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "FEATURE_ID",
+				type: "string",
+				required: true,
+				description: "Feature ID",
+			},
+			{
+				name: "TASK_IDS",
+				type: "string",
+				required: true,
+				description: "Task IDs",
+			},
+			{
+				name: "AFK",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Non-interactive",
+				aliases: ["afk", "no prompts"],
+			},
+		];
+		const result = parseRawArgs("my-feature T1,T2 afk", multiRequiredSchema);
+		expect(result).toEqual({
+			FEATURE_ID: "my-feature",
+			TASK_IDS: "T1,T2",
+			AFK: true,
+		});
 	});
 
 	test("returns empty for empty input", () => {
@@ -193,6 +249,331 @@ describe("parseRawArgs", () => {
 		expect(result).toEqual({
 			PROBLEM_STATEMENT: "running evals clobber the arcade UI",
 			ISSUE_ID: "running-evals",
+		});
+	});
+
+	test("required scalar + variadic: leading token to scalar, remainder to variadic", () => {
+		// build's shape: FEATURE_ID (required, non-variadic) + REQUIREMENTS
+		// (variadic). The scalar must NOT greedily swallow the whole request — it
+		// takes a single leading token and the variadic captures the rest.
+		const buildShape: readonly ArgumentDefinition[] = [
+			{
+				name: "FEATURE_ID",
+				type: "string",
+				required: true,
+				description: "Feature identifier",
+			},
+			{
+				name: "REQUIREMENTS",
+				type: "string",
+				required: false,
+				default: "",
+				variadic: true,
+				description: "Raw requirements text",
+			},
+		];
+
+		const result = parseRawArgs(
+			"harden-1up-install fix the issues in the research doc",
+			buildShape,
+		);
+
+		expect(result).toEqual({
+			FEATURE_ID: "harden-1up-install",
+			REQUIREMENTS: "fix the issues in the research doc",
+		});
+	});
+
+	test("captures multi-word value for sole required string positional", () => {
+		const result = parseRawArgs("fix the login bug on the dashboard", schema);
+		expect(result).toEqual({
+			FEATURE_ID: "fix the login bug on the dashboard",
+		});
+	});
+
+	test("captures multi-word positional with trailing recognized flag", () => {
+		const result = parseRawArgs(
+			"fix the login bug on the dashboard --afk",
+			schema,
+		);
+		expect(result).toEqual({
+			FEATURE_ID: "fix the login bug on the dashboard",
+			AFK: true,
+		});
+	});
+
+	test("embedded double-dash in prose does not terminate greedy positional capture", () => {
+		const result = parseRawArgs(
+			"fix the --broken login on dashboard --afk",
+			schema,
+		);
+		expect(result).toEqual({
+			FEATURE_ID: "fix the --broken login on dashboard",
+			AFK: true,
+		});
+	});
+
+	test("embedded double-dash in variadic prose does not terminate capture", () => {
+		const variadicSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "PROBLEM_STATEMENT",
+				type: "string",
+				required: true,
+				variadic: true,
+				description: "Problem statement",
+			},
+			{
+				name: "ISSUE_ID",
+				type: "string",
+				required: false,
+				description: "Issue identifier",
+			},
+		];
+
+		const result = parseRawArgs(
+			"the UI breaks when --verbose flag is passed --issue-id ui-verbose",
+			variadicSchema,
+		);
+
+		expect(result).toEqual({
+			PROBLEM_STATEMENT: "the UI breaks when --verbose flag is passed",
+			ISSUE_ID: "ui-verbose",
+		});
+	});
+
+	test("passing --afk does not set GIT_COMMIT in parsed output", () => {
+		const result = parseRawArgs("my-feature --afk", schema);
+		expect(result.AFK).toBe(true);
+		expect(result.GIT_COMMIT).toBeUndefined();
+	});
+
+	test("trailing recognized flags after multi-word positional text", () => {
+		const extendedSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "REQUEST",
+				type: "string",
+				required: true,
+				description: "User request",
+			},
+			{
+				name: "MODE",
+				type: "string",
+				required: false,
+				description: "Mode",
+			},
+			{
+				name: "AFK",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Non-interactive",
+			},
+		];
+		const result = parseRawArgs(
+			"fix the login bug --mode custom --afk",
+			extendedSchema,
+		);
+		expect(result).toEqual({
+			REQUEST: "fix the login bug",
+			MODE: "custom",
+			AFK: true,
+		});
+	});
+
+	test("boolean flag with --key=value after greedy positional", () => {
+		const result = parseRawArgs("my-feature --afk --git-commit=false", schema);
+		expect(result).toEqual({
+			FEATURE_ID: "my-feature",
+			AFK: true,
+			GIT_COMMIT: false,
+		});
+	});
+
+	test("bare alias words mid-prose do not terminate greedy capture", () => {
+		const aliasRichSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "REQUEST",
+				type: "string",
+				required: true,
+				description: "User request",
+			},
+			{
+				name: "AFK",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Non-interactive",
+				aliases: ["afk"],
+			},
+			{
+				name: "REVIEW",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Review changes",
+				aliases: ["review"],
+			},
+			{
+				name: "GIT_COMMIT",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Commit changes",
+				aliases: ["commit"],
+			},
+			{
+				name: "GIT_PUSH",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Push branch",
+				aliases: ["push"],
+			},
+		];
+
+		const result = parseRawArgs(
+			"fix the commit message review for the push notification feature",
+			aliasRichSchema,
+		);
+		expect(result).toEqual({
+			REQUEST:
+				"fix the commit message review for the push notification feature",
+		});
+	});
+
+	test("greedy capture does not activate with multiple required string args", () => {
+		const multiRequiredSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "FEATURE_ID",
+				type: "string",
+				required: true,
+				description: "Feature ID",
+			},
+			{
+				name: "TASK_IDS",
+				type: "string",
+				required: true,
+				description: "Task IDs",
+			},
+			{
+				name: "AFK",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Non-interactive",
+			},
+		];
+		const result = parseRawArgs("my-feature T1,T2 --afk", multiRequiredSchema);
+		expect(result).toEqual({
+			FEATURE_ID: "my-feature",
+			TASK_IDS: "T1,T2",
+			AFK: true,
+		});
+	});
+
+	test("trailing double-dash flags parse after alias-containing prose", () => {
+		const aliasRichSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "REQUEST",
+				type: "string",
+				required: true,
+				description: "User request",
+			},
+			{
+				name: "AFK",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Non-interactive",
+				aliases: ["afk"],
+			},
+			{
+				name: "GIT_COMMIT",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Commit changes",
+				aliases: ["commit"],
+			},
+			{
+				name: "REVIEW",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Review changes",
+				aliases: ["review"],
+			},
+		];
+
+		const result = parseRawArgs(
+			"fix the commit review logic on the afk handler --git-commit --review",
+			aliasRichSchema,
+		);
+		expect(result).toEqual({
+			REQUEST: "fix the commit review logic on the afk handler",
+			GIT_COMMIT: true,
+			REVIEW: true,
+		});
+	});
+
+	test("KEY=VALUE tokens mid-prose do not bind as flags", () => {
+		const result = parseRawArgs(
+			"set MODE=fast in the config file for review",
+			schema,
+		);
+		expect(result).toEqual({
+			FEATURE_ID: "set MODE=fast in the config file for review",
+		});
+	});
+
+	test("multi-alias schema with prose containing all alias words resolves full text", () => {
+		const aliasRichSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "REQUEST",
+				type: "string",
+				required: true,
+				description: "User request",
+			},
+			{
+				name: "AFK",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Non-interactive",
+				aliases: ["afk"],
+			},
+			{
+				name: "REVIEW",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Review changes",
+				aliases: ["review"],
+			},
+			{
+				name: "GIT_COMMIT",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Commit changes",
+				aliases: ["commit"],
+			},
+			{
+				name: "GIT_PUSH",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Push branch",
+				aliases: ["push"],
+			},
+		];
+
+		const result = parseRawArgs(
+			"review the commit message then push afk notification changes",
+			aliasRichSchema,
+		);
+		expect(result).toEqual({
+			REQUEST: "review the commit message then push afk notification changes",
 		});
 	});
 });
@@ -290,7 +671,6 @@ description: "A skill with no arguments for testing purposes"
 				status: "uninitialized",
 				nextStepCommand: "rp1 init",
 			});
-			expect(result.right.environment).toEqual({});
 			expect(result.right.unresolved).toEqual([]);
 		}
 	});
@@ -609,6 +989,46 @@ metadata:
 		if (E.isRight(result)) {
 			expect(result.right.arguments.GIT_PR).toBe(true);
 			expect(result.right.arguments.GIT_PUSH).toBe(true);
+			expect(result.right.arguments.GIT_COMMIT).toBe(true);
+		}
+	});
+
+	test("passing --afk does not change GIT_COMMIT schema default", async () => {
+		const schemaPath = await createSkillFile(
+			tempDir,
+			`---
+name: test-skill
+description: "Test implies isolation between unrelated boolean flags"
+metadata:
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "Feature ID"
+    - name: AFK
+      type: boolean
+      required: false
+      default: false
+      description: "Non-interactive"
+    - name: GIT_COMMIT
+      type: boolean
+      required: false
+      default: true
+      description: "Commit changes"
+---
+# Test skill
+`,
+		);
+
+		const result = await resolveArgs({
+			schema_path: schemaPath,
+			raw_args: "my-feature --afk",
+			project_root: tempDir,
+		})();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.arguments.AFK).toBe(true);
 			expect(result.right.arguments.GIT_COMMIT).toBe(true);
 		}
 	});
@@ -936,7 +1356,7 @@ environment:
 		}
 	});
 
-	test("environment resolution returns empty map for RP1_* variables", async () => {
+	test("RP1_* environment schemas do not affect resolved output", async () => {
 		const schemaPath = await createAgentFile(
 			tempDir,
 			`---
@@ -967,46 +1387,7 @@ environment:
 
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
-			expect(result.right.environment).toEqual({});
-		}
-	});
-
-	test("set RP1_* environment variables are silently ignored", async () => {
-		process.env.RP1_PROJECT_ROOT = join(tempDir, "project-override");
-		process.env.RP1_KB_ROOT = join(tempDir, "kb-override");
-		process.env.RP1_WORK_ROOT = join(tempDir, "work-override");
-
-		const schemaPath = await createAgentFile(
-			tempDir,
-			`---
-name: test-agent
-description: "A test agent with resolved directory environment"
-tools: Read
-model: inherit
-environment:
-  - name: RP1_PROJECT_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Project root"
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "KB directory"
-  - name: RP1_WORK_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Work directory"
----
-# Test agent
-`,
-		);
-
-		const result = await resolveArgs({
-			schema_path: schemaPath,
-			raw_args: "",
-			project_root: tempDir,
-		})();
-
-		expect(E.isRight(result)).toBe(true);
-		if (E.isRight(result)) {
-			expect(result.right.environment).toEqual({});
+			expect(result.right).not.toHaveProperty("environment");
 		}
 	});
 

@@ -6,7 +6,6 @@
 export {
 	// Types
 	type AssertionFunction,
-	assertArtifactDetectorFirst,
 	assertArtifactRegistration,
 	assertAskUserCheckpoint,
 	assertBuildProhibited,
@@ -35,6 +34,7 @@ export {
 	assertOutputContains,
 	assertPipelineRunnerSpawned,
 	assertPostImplCheckpoint,
+	assertRequirementGathererFirst,
 	assertSubagentSpawned,
 	// Pre-built instances for YAML file:// references
 	assertTaskBuilderSpawned,

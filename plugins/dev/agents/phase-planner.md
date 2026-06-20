@@ -58,14 +58,12 @@ Turn a completed PRD or oversized feature requirements artifact into a durable, 
 
 ## §1 KB Loading
 
-Read if present:
+{% include_shared "kb-progressive-loading.md" %}
 
-1. `{KB_ROOT}/index.md`
-2. `{KB_ROOT}/architecture.md`
-3. `{KB_ROOT}/modules.md`
-4. `{KB_ROOT}/patterns.md`
-
-If any are missing: warn and continue with best-effort source analysis.
+Additional files:
+- `{KB_ROOT}/architecture.md`
+- `{KB_ROOT}/modules.md`
+- `{KB_ROOT}/patterns.md`
 
 ## §2 Source Resolution
 
@@ -210,9 +208,8 @@ Write the phase plan using the canonical template.
 
 These two reads are the only allowed scope exception outside `{KB_ROOT}` and `{WORK_ROOT}`. Treat them as read-only schema inputs, not planning sources.
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `phase-planner` and **Artifact** = `phase-plan.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use the template structure exactly.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/phase-planner/phase-plan.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use the template structure exactly.
 
 ### Content Guidance
 
@@ -297,16 +294,7 @@ Return only JSON.
 }
 ```
 
-## §8 Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-Single pass only:
-
-1. Load KB context
-2. Resolve source
-3. Read source and any existing phase plan
-4. Synthesize phases
-5. Write/update the phase plan
-6. Refresh the source backlink section
-7. Return JSON
-
-Do not ask for clarification. On ambiguous source selection with `AFK_MODE=false`, return an error JSON object with `candidate_paths` and rerun guidance instead of prompting. Do not iterate after writing.
+**File-specific constraints**:
+- On ambiguous source selection with `AFK_MODE=false`, return an error JSON object with `candidate_paths` and rerun guidance instead of prompting

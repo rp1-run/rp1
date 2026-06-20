@@ -157,7 +157,7 @@ Options:
 ### Post-Implementation Checkpoint
 
 When `--confirm-plan` is set, `build-fast` also pauses after implementation and
-manifest-gated cleanup:
+cleanup:
 
 ```
 ## Implementation Complete

@@ -86,8 +86,8 @@ FROM target-repo AS stable
 
 USER root
 
-# Node.js LTS via NodeSource
-RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+# Node.js 26 via NodeSource (pinned to match .tool-versions / host + CI)
+RUN curl -fsSL https://deb.nodesource.com/setup_26.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
@@ -130,8 +130,8 @@ FROM target-repo AS dev
 
 USER root
 
-# Node.js LTS via NodeSource (needed for Codex CLI)
-RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+# Node.js 26 via NodeSource (pinned to match .tool-versions / host + CI) (needed for Codex CLI)
+RUN curl -fsSL https://deb.nodesource.com/setup_26.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 

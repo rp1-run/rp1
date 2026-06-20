@@ -130,7 +130,7 @@ describe("Build v2 readiness contracts", () => {
 		expect(cleaner).toContain(
 			"Return ONLY raw JSON, no prose, no markdown fence.",
 		);
-		expect(cleaner).toContain("Output the raw validation envelope and stop.");
+		expect(cleaner).toContain("output the shared validation envelope and stop");
 		expect(cleaner).not.toContain("```markdown");
 		expect(cleaner).not.toContain(
 			"Also output one machine-readable validation envelope",
@@ -157,15 +157,10 @@ describe("Build v2 readiness contracts", () => {
 		]) {
 			expect(content).toContain(expectedBehavior);
 		}
-		expect(content).toContain(
-			'"task_plan_warnings": {task_plan_warnings JSON array}',
-		);
-		expect(content).toContain(
-			'"documentation_followups": {documentation_followups JSON array}',
-		);
-		expect(content).toContain(
-			"Never hardcode these fields to `[]` unless the corresponding source arrays are actually empty.",
-		);
+		// Phase results carry task_plan_warnings and documentation_followups as preserved arrays
+		expect(content).toContain("task_plan_warnings");
+		expect(content).toContain("documentation_followups");
+		expect(content).toContain("never hardcode to `[]` unless actually empty");
 		expect(content).toContain("blocks_release = false");
 	});
 

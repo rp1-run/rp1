@@ -48,6 +48,7 @@ import {
 	INACTIVE_REAPER_STATUS_CHANGE,
 	insertEvent,
 	insertRun,
+	LATEST_SCHEMA_VERSION,
 	listActivitySearchRefreshCandidates,
 	listRuns,
 	normalizeArtifactStorage,
@@ -104,7 +105,7 @@ describe("emit database", () => {
 			expect(tableNames).not.toContain("socratic_duel_turns");
 		});
 
-		test("schema_version is set to 18", async () => {
+		test("schema_version is set to LATEST_SCHEMA_VERSION", async () => {
 			const dbPath = join(tempDir, "version-test.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -112,7 +113,41 @@ describe("emit database", () => {
 				version: number;
 			};
 
-			expect(row.version).toBe(18);
+			expect(row.version).toBe(LATEST_SCHEMA_VERSION);
+		});
+
+		test("applyMigrations fast path skips per-version work on current schema", async () => {
+			const dbPath = join(tempDir, "fast-path-test.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const versionBefore = (
+				db.prepare("SELECT version FROM schema_version").get() as {
+					version: number;
+				}
+			).version;
+			expect(versionBefore).toBe(LATEST_SCHEMA_VERSION);
+
+			closeDatabase();
+			resetInstance();
+
+			const db2 = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const versionAfter = (
+				db2.prepare("SELECT version FROM schema_version").get() as {
+					version: number;
+				}
+			).version;
+			expect(versionAfter).toBe(LATEST_SCHEMA_VERSION);
+
+			const tables = db2
+				.prepare(
+					"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
+				)
+				.all() as { name: string }[];
+			const tableNames = tables.map((t) => t.name);
+			expect(tableNames).toContain("runs");
+			expect(tableNames).toContain("events");
+			expect(tableNames).toContain("artifacts");
 		});
 
 		test("activity_search_runs table includes search columns, indexes, and run FK", async () => {

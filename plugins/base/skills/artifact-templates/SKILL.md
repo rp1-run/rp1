@@ -1,6 +1,6 @@
 ---
 name: artifact-templates
-description: "Agent-only reference providing canonical output templates for all rp1 artifacts (requirements, design, tasks, reports, KB docs). Load when producing any structured markdown artifact to ensure format consistency and correct routing metadata. Not user-invocable -- agents read the index to find the right template, then read the template file via the Read tool."
+description: "Agent-only canonical output templates for rp1 artifacts. Load when producing structured markdown to ensure format consistency and routing metadata."
 metadata:
   category: knowledge
   is_workflow: false

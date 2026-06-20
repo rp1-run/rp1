@@ -275,7 +275,7 @@ Map dependencies between modules and components:
       "from": "dev/commands",
       "to": "base/commands",
       "type": "runtime",
-      "description": "Dev commands invoke base commands (e.g., /rp1-base:knowledge-load)"
+      "description": "Dev commands invoke base commands (e.g., /rp1-base:knowledge-build)"
     }
   ],
   "external_dependencies": [
@@ -378,7 +378,7 @@ Define module boundaries:
     {
       "module": "base",
       "public_api": {
-        "commands": ["knowledge-build", "knowledge-load", "strategize"],
+        "commands": ["knowledge-build", "strategize"],
         "agents": ["knowledge-builder", "project-documenter"],
         "skills": ["mermaid", "markdown-preview", "artifact-templates"]
       },
@@ -433,23 +433,9 @@ Identify patterns that span multiple modules:
 }
 ```
 
-## Anti-Loop Directives
-
-**EXECUTE IMMEDIATELY**:
-
-- Do NOT iterate or ask questions
-- Read assigned files ONCE
-- Analyze modules systematically
-- Output JSON
-- STOP
+{% include_shared "anti-loop.md" %}
 
 **Target**: 15-18 minutes
 
-## Output Discipline
-
-**CRITICAL - Silent Execution**:
-
-- Do ALL work in <thinking> tags (NOT visible to user)
-- Do NOT output progress or verbose explanations
-- Output ONLY the final JSON
+{% include_shared "output-discipline.md" %}
 - Parent orchestrator handles user communication

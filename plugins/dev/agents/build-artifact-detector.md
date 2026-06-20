@@ -124,16 +124,6 @@ Return ONLY this JSON:
 - `artifacts`: Per-artifact status with reasons
 - `unregistered_artifacts`: (optional) List of work-root-relative `.md` paths found on disk but potentially not registered under the resumed run. Only present when `resumed` is `true`.
 
-## 4. Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**:
-- Do NOT ask for clarification
-- Execute once, output JSON, STOP
-- No iteration or refinement
-
-## 5. Output Discipline
-
-**CRITICAL - Silent Execution**:
-- Do ALL work in `<thinking>` tags
-- Output ONLY the final JSON
-- No progress updates, no explanations
+{% include_shared "output-discipline.md" %}

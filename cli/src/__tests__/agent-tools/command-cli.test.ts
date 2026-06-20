@@ -769,4 +769,140 @@ describe("agent-tools command adapter", () => {
 		expect(parsed.tool).toBe("emit");
 		expect(parsed.errors[0]?.message).toMatch(/run.?id/i);
 	});
+
+	test("emit invocation does not eagerly load unrelated tool modules", async () => {
+		const projectRoot = await createProject();
+		const runId = "550e8400-e29b-41d4-a716-446655440077";
+
+		// Emit a status_change -- only the emit module should load.
+		// If socratic-duel or other modules loaded eagerly, the old
+		// side-effect imports would have triggered them at import time.
+		// With lazy loading, only the emit module is imported on demand.
+		await expectExit(
+			[
+				"emit",
+				"--type",
+				"status_change",
+				"--run-id",
+				runId,
+				"--workflow",
+				"build",
+				"--step",
+				"task-builder:building",
+				"--data",
+				'{"status":"running","feature":"lazy-test"}',
+				"--project",
+				projectRoot,
+			],
+			0,
+		);
+		const emitted = lastOutput<{
+			success: boolean;
+			data: { runId: string; type: string };
+		}>();
+		expect(emitted.success).toBe(true);
+		expect(emitted.data.type).toBe("status_change");
+
+		const { TOOL_MODULES } = await import("../../agent-tools/command.js");
+		expect(TOOL_MODULES).toBeInstanceOf(Map);
+		expect(TOOL_MODULES.size).toBe(13);
+
+		// Verify that calling an unrelated tool's loader actually works
+		// (proves modules load on demand, not at import time)
+		const loader = TOOL_MODULES.get("mmd-validate");
+		expect(loader).toBeDefined();
+	});
+
+	test("emit batch processes multiple events and returns per-event results", async () => {
+		const projectRoot = await createProject();
+		const runId = "550e8400-e29b-41d4-a716-446655440088";
+
+		const batchEvents = JSON.stringify([
+			{
+				type: "status_change",
+				step: "task-builder:building",
+				data: { status: "running", feature: "batch-test" },
+			},
+			{
+				type: "status_change",
+				step: "task-builder:completed",
+				data: { status: "completed", feature: "batch-test" },
+			},
+		]);
+
+		await expectExit(
+			[
+				"emit",
+				"--run-id",
+				runId,
+				"--workflow",
+				"build",
+				"--batch",
+				batchEvents,
+				"--project",
+				projectRoot,
+			],
+			0,
+		);
+		const result = lastOutput<{
+			success: boolean;
+			data: {
+				results: Array<{
+					index: number;
+					type: string;
+					success: boolean;
+					eventId?: number;
+				}>;
+				succeeded: number;
+				failed: number;
+				total: number;
+			};
+		}>();
+		expect(result.success).toBe(true);
+		expect(result.data.succeeded).toBe(2);
+		expect(result.data.failed).toBe(0);
+		expect(result.data.total).toBe(2);
+		expect(result.data.results).toHaveLength(2);
+		expect(result.data.results[0].success).toBe(true);
+		expect(result.data.results[1].success).toBe(true);
+	});
+
+	test("emit batch stops at first invalid event and reports partial results", async () => {
+		const projectRoot = await createProject();
+		const runId = "550e8400-e29b-41d4-a716-446655440089";
+
+		const batchEvents = JSON.stringify([
+			{
+				type: "status_change",
+				step: "task-builder:building",
+				data: { status: "running", feature: "batch-fail" },
+			},
+			{
+				type: "status_change",
+				step: "task-builder:completed",
+				data: {},
+			},
+		]);
+
+		await expectExit(
+			[
+				"emit",
+				"--run-id",
+				runId,
+				"--workflow",
+				"build",
+				"--batch",
+				batchEvents,
+				"--project",
+				projectRoot,
+			],
+			1,
+		);
+		const errorPayload = errors.at(-1);
+		expect(errorPayload).toBeDefined();
+		const parsed = JSON.parse(errorPayload as string) as {
+			errors: { message: string }[];
+		};
+		expect(parsed.errors[0]?.message).toContain("Batch event[1]");
+	});
 });

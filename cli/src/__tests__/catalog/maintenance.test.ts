@@ -186,7 +186,7 @@ describe("catalog maintenance", () => {
 		);
 		await writeFile(
 			join(tempDir, INIT_TEMPLATE_SOURCE_RELATIVE_PATH),
-			`${INIT_TEMPLATE}\n| Category | Skills | Suggest When |\n`,
+			`${INIT_TEMPLATE}\nInstalled plugins: rp1-base, rp1-dev.\n`,
 		);
 
 		const result = await checkCatalogArtifacts(tempDir);
@@ -204,9 +204,7 @@ describe("catalog maintenance", () => {
 			[
 				"# Skills",
 				"",
-				"| Category | Skills | Suggest When |",
-				"|----------|--------|--------------|",
-				"| Development | /build | Use for builds. |",
+				"Installed plugins: rp1-base, rp1-dev. Run `/guide` to discover skills.",
 			].join("\n"),
 		);
 

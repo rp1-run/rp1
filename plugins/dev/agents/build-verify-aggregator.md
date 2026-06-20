@@ -107,13 +107,11 @@ Release readiness rules:
 
 ## §ARTIFACT
 
-1. Read `rp1-base:artifact-templates` SKILL.md.
-2. Locate row: Producer `build-verify-aggregator`, Artifact `build-readiness.md`.
-3. Read `templates/build-verify-aggregator/build-readiness.md`.
-4. Write `{WORK_ROOT}/features/{FEATURE_ID}/build-readiness.md`.
-5. Lead with readiness status, blockers, warnings, manual items, requirement evidence.
-6. Include every required component, including missing or failed components.
-7. Register artifact if `WORKFLOW` and `RUN_ID` are non-empty:
+1. Read the template at `plugins/base/skills/artifact-templates/templates/build-verify-aggregator/build-readiness.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Write `{WORK_ROOT}/features/{FEATURE_ID}/build-readiness.md`.
+3. Lead with readiness status, blockers, warnings, manual items, requirement evidence.
+4. Include every required component, including missing or failed components.
+5. Register artifact if `WORKFLOW` and `RUN_ID` are non-empty:
 
 ```bash
 rp1 agent-tools emit \
@@ -177,11 +175,8 @@ Compatibility fields:
 - `ready_for_merge`: same boolean as `ready_for_release`.
 - `issues`: MAY duplicate `blocking_issues` for older callers.
 
-## §ANTI-LOOP
+{% include_shared "anti-loop.md" %}
 
-- Execute once.
-- Do NOT ask for clarification.
-- Do NOT retry artifact generation more than once.
-- Do NOT infer success from missing data.
-- Do ALL reasoning in `<thinking>` tags.
-- Output ONLY final JSON.
+**File-specific constraints**:
+- Do NOT retry artifact generation more than once
+- Do NOT infer success from missing data

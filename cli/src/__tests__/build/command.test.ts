@@ -14,6 +14,7 @@ import {
 	executeBuild,
 	parseBuildArgs,
 } from "../../build/command.js";
+import { ParseCache } from "../../build/parse-cache.js";
 import { PLATFORM_DEFINITIONS } from "../../build/platform-definitions.js";
 import {
 	assertTestIsolation,
@@ -942,6 +943,113 @@ Research explorer content.
 	});
 });
 
+describe("ParseCache", () => {
+	let tempDir: string;
+	let outputDir: string;
+
+	beforeAll(async () => {
+		tempDir = await createTempDir("build-parse-cache");
+		await assertTestIsolation(tempDir);
+		outputDir = join(tempDir, "output");
+	});
+
+	afterAll(async () => {
+		await cleanupTempDir(tempDir);
+	});
+
+	test("parses each source file exactly once across multiple platform builds", async () => {
+		const projectRoot = join(tempDir, "project-cache-dedup");
+
+		await writeFixture(
+			projectRoot,
+			"plugins/base/.claude-plugin/plugin.json",
+			JSON.stringify({ version: "1.0.0" }),
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/skills/cached-skill/SKILL.md",
+			`---
+name: cached-skill
+description: "Skill to verify parse cache deduplication across platforms"
+metadata:
+  category: development
+  is_workflow: false
+---
+
+Cached skill content.
+`,
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/agents/cached-agent.md",
+			`---
+name: cached-agent
+description: "Agent to verify parse cache deduplication"
+tools: Read
+model: inherit
+---
+
+Cached agent content.
+`,
+		);
+
+		const cache = new ParseCache();
+		const opencodeOut = join(outputDir, "cache-opencode");
+		const claudeOut = join(outputDir, "cache-claude");
+
+		const result1 = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			opencodeOut,
+			opencodeDef,
+			noopLogger,
+			true,
+			false,
+			cache,
+		);
+
+		const result2 = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			claudeOut,
+			claudeCodeDef,
+			noopLogger,
+			true,
+			false,
+			cache,
+		);
+
+		expect(result1.summary.skills).toBe(1);
+		expect(result1.summary.agents).toBe(1);
+		expect(result2.summary.errors).toEqual([]);
+		expect(result2.summary.skills).toBe(1);
+		expect(result2.summary.agents).toBe(1);
+
+		// Verify the cache returns the same object identity on
+		// subsequent calls -- proving it was parsed once and reused.
+		const skillDir = join(
+			projectRoot,
+			"plugins",
+			"base",
+			"skills",
+			"cached-skill",
+		);
+		const agentPath = join(
+			projectRoot,
+			"plugins",
+			"base",
+			"agents",
+			"cached-agent.md",
+		);
+		const skillResult1 = await cache.getSkill(skillDir);
+		const skillResult2 = await cache.getSkill(skillDir);
+		const agentResult1 = await cache.getAgent(agentPath);
+		const agentResult2 = await cache.getAgent(agentPath);
+		expect(skillResult1).toBe(skillResult2);
+		expect(agentResult1).toBe(agentResult2);
+	});
+});
+
 describe("executeBuild", () => {
 	let tempDir: string;
 	let originalCwd: string;
@@ -1047,5 +1155,95 @@ ${plugin} sample content.
 		});
 		expect(antigravityBundleManifest.plugins.base).toBeDefined();
 		expect(antigravityBundleManifest.plugins.dev).toBeDefined();
+	});
+
+	test("parallel multi-platform build produces identical skill/agent counts to serial baseline", async () => {
+		const projectRoot = join(tempDir, "project-parallel-parity");
+		const outputDir = "dist/opencode";
+
+		for (const plugin of ["base", "dev"] as const) {
+			await writeFixture(
+				projectRoot,
+				`plugins/${plugin}/.claude-plugin/plugin.json`,
+				JSON.stringify({
+					name: `rp1-${plugin}`,
+					description: `${plugin} plugin for parallel parity test`,
+					version: "1.0.0",
+				}),
+			);
+			await writeFixture(
+				projectRoot,
+				`plugins/${plugin}/skills/${plugin}-parity/SKILL.md`,
+				`---
+name: ${plugin}-parity
+description: "${plugin} parity skill with enough description text for validation"
+metadata:
+  category: development
+  is_workflow: false
+---
+
+${plugin} parity content.
+`,
+			);
+		}
+
+		// Build single platforms serially to get baseline counts
+		process.chdir(projectRoot);
+		logs = [];
+
+		let baselineSkills = 0;
+		let baselineAgents = 0;
+		for (const platform of ["opencode", "claude-code"] as const) {
+			logs = [];
+			const singleResult = await executeBuild(
+				[
+					"--platform",
+					platform,
+					"--plugin",
+					"all",
+					"--output-dir",
+					outputDir,
+					"--json",
+				],
+				noopLogger,
+			)();
+			expectRight(singleResult);
+			const singleSummary = JSON.parse(logs.at(-1) ?? "{}") as {
+				skills: number;
+				agents: number;
+			};
+			baselineSkills += singleSummary.skills;
+			baselineAgents += singleSummary.agents;
+		}
+
+		// Build all platforms (parallel path)
+		logs = [];
+		const parallelResult = await executeBuild(
+			[
+				"--platform",
+				"all",
+				"--plugin",
+				"all",
+				"--output-dir",
+				outputDir,
+				"--json",
+			],
+			noopLogger,
+		)();
+
+		expectRight(parallelResult);
+		const parallelSummary = JSON.parse(logs.at(-1) ?? "{}") as {
+			status: string;
+			skills: number;
+			agents: number;
+			errors: string[];
+		};
+
+		// The parallel all-platform build includes more platforms than the
+		// two we summed above, so its totals must be >= the serial baseline.
+		expect(parallelSummary.skills).toBeGreaterThanOrEqual(baselineSkills);
+		expect(parallelSummary.agents).toBeGreaterThanOrEqual(baselineAgents);
+		expect(parallelSummary.errors).toEqual([]);
+		expect(parallelSummary.status).toBe("success");
 	});
 });

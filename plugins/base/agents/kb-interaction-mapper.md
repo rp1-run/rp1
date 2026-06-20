@@ -219,22 +219,9 @@ Record only intentional deltas, not accidental implementation drift.
 }
 ```
 
-## Anti-Loop Directives
+{% include_shared "anti-loop.md" %}
 
-EXECUTE IMMEDIATELY:
-1. Load existing `interaction-model.md` if available
-2. Parse `INTERACTION_FILES_JSON` and MODE
-3. If incremental: review `FILE_DIFFS` first
-4. Read assigned files with diff awareness
-5. Extract principles, actors, surfaces, states, feedback, constraints, deltas
-6. Output JSON only
-7. STOP
+**Target**: 8-12 minutes
 
-Target completion: 8-12 minutes
-
-## Output Discipline
-
-- Do ALL work in `<thinking>` tags
-- Do NOT output progress or explanations
-- Output ONLY final JSON
+{% include_shared "output-discipline.md" %}
 - Parent orchestrator handles user communication

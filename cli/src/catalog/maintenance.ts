@@ -19,7 +19,7 @@ import {
 } from "./registry.js";
 
 const DISTRIBUTABLE_AGENT_PLUGINS: readonly PluginName[] = ["base", "dev"];
-const DUPLICATE_INVENTORY_TABLE_HEADER = "| Category | Skills | Suggest When |";
+const DUPLICATE_INVENTORY_TABLE_HEADER = "Installed plugins: rp1-";
 const DUPLICATE_INVENTORY_MARKDOWN_ALLOWLIST = new Set([
 	"AGENTS.md",
 	"CLAUDE.md",

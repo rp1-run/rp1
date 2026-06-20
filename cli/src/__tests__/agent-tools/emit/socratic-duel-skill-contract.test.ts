@@ -7,10 +7,16 @@ const skillPath = join(
 	projectRoot,
 	"plugins/base/skills/socratic-duel/SKILL.md",
 );
+const protocolPath = join(
+	projectRoot,
+	"plugins/base/skills/socratic-duel/references/protocol.md",
+);
 
 describe("socratic-duel workflow visibility contract", () => {
 	test("declares artifact, participant, turn, convergence, and terminal events", async () => {
-		const content = await readFile(skillPath, "utf-8");
+		const skillContent = await readFile(skillPath, "utf-8");
+		const protocolContent = await readFile(protocolPath, "utf-8");
+		const content = `${skillContent}\n${protocolContent}`;
 
 		expect(content).toContain("--type artifact_registered");
 		expect(content).toContain('"storageRoot":"work_dir"');

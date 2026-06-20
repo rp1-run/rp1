@@ -466,6 +466,116 @@ This is an existing feature document.
 		);
 	});
 
+	describe("single-file stanza injection (end-to-end)", () => {
+		test(
+			"both files: CLAUDE.md gets @AGENTS.md reference, AGENTS.md gets full stanza",
+			async () => {
+				await writeFile(
+					join(tempDir, "CLAUDE.md"),
+					"# My Project\n\nProject-level instructions.\n",
+					"utf-8",
+				);
+				await writeFile(
+					join(tempDir, "AGENTS.md"),
+					"# Agents\n\nAgent instructions.\n",
+					"utf-8",
+				);
+
+				const logger = createTrackingLogger();
+				const result = await executeInit({ cwd: tempDir, yes: true }, logger)();
+
+				expect(E.isRight(result)).toBe(true);
+				if (!E.isRight(result)) return;
+
+				const claudeContent = await readFileIfExists(
+					join(tempDir, "CLAUDE.md"),
+				);
+				const agentsContent = await readFileIfExists(
+					join(tempDir, "AGENTS.md"),
+				);
+
+				expect(claudeContent).not.toBeNull();
+				expect(agentsContent).not.toBeNull();
+
+				expect(claudeContent).toContain("@AGENTS.md");
+				expect(claudeContent).not.toContain("## rp1 Knowledge Base");
+				expect(claudeContent).toContain("Project-level instructions.");
+
+				expect(agentsContent).toContain("## rp1 Knowledge Base");
+				expect(agentsContent).toContain("Agent instructions.");
+			},
+			{ timeout: 30000 },
+		);
+
+		test(
+			"CLAUDE.md only: gets full stanza without reference",
+			async () => {
+				await writeFile(join(tempDir, "CLAUDE.md"), "# My Project\n", "utf-8");
+
+				const logger = createTrackingLogger();
+				const result = await executeInit({ cwd: tempDir, yes: true }, logger)();
+
+				expect(E.isRight(result)).toBe(true);
+				if (!E.isRight(result)) return;
+
+				const claudeContent = await readFileIfExists(
+					join(tempDir, "CLAUDE.md"),
+				);
+				const agentsContent = await readFileIfExists(
+					join(tempDir, "AGENTS.md"),
+				);
+
+				expect(claudeContent).toContain("## rp1 Knowledge Base");
+				expect(claudeContent).not.toContain("@AGENTS.md");
+				expect(agentsContent).toBeNull();
+			},
+			{ timeout: 30000 },
+		);
+
+		test(
+			"AGENTS.md only: gets full stanza",
+			async () => {
+				await writeFile(join(tempDir, "AGENTS.md"), "# Agents\n", "utf-8");
+
+				const logger = createTrackingLogger();
+				const result = await executeInit({ cwd: tempDir, yes: true }, logger)();
+
+				expect(E.isRight(result)).toBe(true);
+				if (!E.isRight(result)) return;
+
+				const agentsContent = await readFileIfExists(
+					join(tempDir, "AGENTS.md"),
+				);
+				expect(agentsContent).toContain("## rp1 Knowledge Base");
+			},
+			{ timeout: 30000 },
+		);
+
+		test(
+			"neither file: creates default instruction file with full stanza",
+			async () => {
+				const logger = createTrackingLogger();
+				const result = await executeInit({ cwd: tempDir, yes: true }, logger)();
+
+				expect(E.isRight(result)).toBe(true);
+				if (!E.isRight(result)) return;
+
+				const claudeContent = await readFileIfExists(
+					join(tempDir, "CLAUDE.md"),
+				);
+				const agentsContent = await readFileIfExists(
+					join(tempDir, "AGENTS.md"),
+				);
+
+				const content = claudeContent ?? agentsContent;
+				expect(content).not.toBeNull();
+				expect(content).toContain("## rp1 Knowledge Base");
+				expect(content).toMatch(/<!-- rp1:start(:\S+)? -->/);
+			},
+			{ timeout: 30000 },
+		);
+	});
+
 	describe("edge cases", () => {
 		test(
 			"handles existing AGENTS.md file",

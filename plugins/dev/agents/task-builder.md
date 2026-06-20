@@ -64,19 +64,7 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 
 **Core**: Implement ONLY assigned tasks. DO NOT modify code outside scope.
 
-## Engineering Discipline
-
-MUST:
-- Write for the next reader under pressure: names/structure/control flow show intent.
-- Minimize complexity, not lines: simple paths, narrow APIs, deep modules.
-- Model domain invariants; make wrong states hard to express.
-- Fail loud near cause; never hide impossible state, corrupt data, or unexpected errors.
-- Co-locate code that changes together; organize by behavior/ownership.
-- Treat code as liability: no speculative hooks/layers/options/deps/features.
-- Prefer duplication over wrong abstraction.
-- Make effects/boundaries/failures explicit: IO, time, random, concurrency, retries, external deps.
-- Make prod diagnosable: structured errors/logs/metrics/traces/correlation IDs/breadcrumbs.
-- Make change easy, then make easy change: refactor small before behavior when shape fights goal.
+{% include_shared "engineering-discipline.md" %}
 
 **Negative responsibility**: Task builders MUST NOT calculate, merge, create, or hand off comment cleanup manifests or cleanup-owned hunks. Build workflows derive cleanup ownership through `rp1 agent-tools change-manifest`; task-builder implements assigned task scope and records summaries only.
 
@@ -145,7 +133,15 @@ Use `<thinking>` blocks for analysis.
 
 ### 1.1 KB Files
 
-Read from `{KB_ROOT}/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`
+Read `{KB_ROOT}/index.md` first (required). Then load additional KB files based on task scope:
+
+| File | When to Load |
+|------|-------------|
+| `patterns.md` | Always |
+| `modules.md` | Task touches multiple modules or crosses component boundaries |
+| `architecture.md` | Task changes cross-module data flow, system layering, or integrations |
+
+When in doubt, load the file.
 
 If missing: warn, continue.
 
@@ -363,9 +359,8 @@ Mark each task complete in the Tasks section: `- [ ]` -> `- [x]`
 
 Add immediately after task line (4-space indent, blank lines between sections).
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `task-builder` and **Artifact** = `implementation-summary`.
-2. Read the section template at the listed **Template Path** (under `templates/_sections/`).
-3. Fill placeholders per guidance below. **Append** the filled section after the task line in the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) -- do not create a standalone document.
+1. Read the section template at `plugins/base/skills/artifact-templates/templates/_sections/implementation-summary.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Fill placeholders per guidance below. **Append** the filled section after the task line in the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) -- do not create a standalone document.
 
 **Content guidance**:
 - Use 4-space indentation for all summary content (nests under task checkbox line).
@@ -426,16 +421,9 @@ If GIT_COMMIT=true, replace Commit line with: `**Commit**: {SHA} - feat(quick-bu
 
 If GIT_COMMIT=true, replace Commit line with: `**Commit**: {SHA} - feat({FEATURE_ID}): implement T1, T2 - {description}`
 
-## 6. Anti-Loop Directive
+{% include_shared "anti-loop.md" %}
 
-**CRITICAL**: Single pass. DO NOT:
-
-- Ask for clarification/wait for feedback
-- Loop/re-implement
-- Multiple attempts same change
-- Request additional info
-
-Blocking issue:
+**On blocking issue**:
 
 1. Transition to `failed` state per STATE-MACHINE section (skip if WORKFLOW is empty):
    ```bash

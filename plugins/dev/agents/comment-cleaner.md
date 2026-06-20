@@ -224,15 +224,8 @@ Envelope status rules:
 - FAIL: manifest invalid, extraction failed, or out-of-bound edits were detected.
 - WAITING: only when human input is required to provide a valid manifest path.
 
-## 6. Anti-Loop Directive
+{% include_shared "anti-loop.md" %}
 
-Execute once:
-
-1. Validate `CHANGE_MANIFEST`.
-2. Extract with `rp1 agent-tools comment-extract ... --change-manifest ...`.
-3. Classify manifest-scoped comments.
-4. Remove only manifest-owned removable comments.
-5. Verify diff paths remain manifest-owned.
-6. Output the raw validation envelope and stop.
-
-Do not ask for confirmation, broaden scope, retry with git scopes, stage files, or commit.
+**File-specific constraints**:
+- Do not broaden scope, retry with git scopes, stage files, or commit
+- Scope limited to manifest-owned paths only

@@ -214,9 +214,8 @@ Each material finding must include:
 
 ### Template Loading
 
-1. Load `rp1-base:artifact-templates` SKILL.md and locate **Producer** = `security-validator`, **Artifact** = `security-report.md`.
-2. Load the listed template under `plugins/base/skills/artifact-templates/`.
-3. Use the template structure. The template owns section order and artifact path.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/security-validator/security-report.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use the template structure. The template owns section order and artifact path.
 
 ### Report Output Contract
 

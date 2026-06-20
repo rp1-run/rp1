@@ -339,37 +339,12 @@ For each pattern finding:
 
 **Note**: Only include conditional pattern sections (io_patterns, concurrency, di_patterns, extension) if detected.
 
-## Anti-Loop Directives
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**:
-
-- Do NOT ask for clarification
-- Do NOT iterate or refine
-- Read assigned files ONCE
-- Extract patterns systematically
+**File-specific constraints**:
 - Enforce 150-line budget
-- Output JSON
-- STOP
-
-**Execution Flow**:
-
-1. Load existing patterns.md if available (30 seconds)
-2. Parse PATTERN_FILES_JSON and check MODE (immediate)
-3. Detect conditional category relevance (1 minute)
-4. Read assigned files with diff awareness (2-4 minutes)
-5. Extract 6 core patterns (3 minutes)
-6. Extract applicable conditional patterns (2 minutes)
-7. Enforce budget, compress if needed (30 seconds)
-8. Output JSON (immediate)
-9. STOP
 
 **Target Completion**: 8-10 minutes
 
-## Output Discipline
-
-**CRITICAL - Silent Execution**:
-
-- Do ALL work in <thinking> tags (NOT visible to user)
-- Do NOT output progress or verbose explanations
-- Output ONLY the final JSON
+{% include_shared "output-discipline.md" %}
 - Parent orchestrator handles user communication

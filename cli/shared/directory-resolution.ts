@@ -127,20 +127,30 @@ const missingProjectIdError = (projectRoot: string): CLIError =>
 		`Found a legacy rp1 project at ${projectRoot}. Run 'rp1 migrate' from that project root to create .rp1/project_id.`,
 	);
 
-const execGit = (cwd: string, args: readonly string[]): string =>
-	execFileSync("git", [...args], {
-		cwd,
-		encoding: "utf-8",
-		stdio: ["ignore", "pipe", "pipe"],
-		env: getIsolatedGitEnv(),
-	}).trim();
-
 const readGitContext = (cwd: string): GitContext | undefined => {
 	try {
-		const gitDir = execGit(cwd, ["rev-parse", "--git-dir"]);
-		const commonDir = execGit(cwd, ["rev-parse", "--git-common-dir"]);
-		const topLevel = execGit(cwd, ["rev-parse", "--show-toplevel"]);
-		const branch = execGit(cwd, ["rev-parse", "--abbrev-ref", "HEAD"]);
+		const output = execFileSync(
+			"git",
+			[
+				"rev-parse",
+				"--git-dir",
+				"--git-common-dir",
+				"--show-toplevel",
+				"--abbrev-ref",
+				"HEAD",
+			],
+			{
+				cwd,
+				encoding: "utf-8",
+				stdio: ["ignore", "pipe", "pipe"],
+				env: getIsolatedGitEnv(),
+			},
+		);
+
+		const lines = output.trimEnd().split("\n");
+		if (lines.length < 4) return undefined;
+
+		const [gitDir, commonDir, topLevel, branch] = lines;
 
 		return {
 			gitDir,
