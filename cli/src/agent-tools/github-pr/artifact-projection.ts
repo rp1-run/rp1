@@ -18,6 +18,8 @@ export const MAX_BYTES = 65536;
 export interface ProjectionResult {
 	readonly body: string;
 	readonly warnings: readonly string[];
+	/** Idempotency marker key (`rp1_doc_id` or `path:<source>`), computed once here. */
+	readonly docKey: string;
 }
 
 /** Parsed frontmatter mapping plus the body that follows it. */
@@ -400,5 +402,5 @@ export const project = (text: string, sourcePath: string): ProjectionResult => {
 	const banner = buildBanner(fm);
 	const key = markerKey(fm, sourcePath);
 	const out = assemble(key, title, rows, banner, summary, rest);
-	return { body: out, warnings };
+	return { body: out, warnings, docKey: key };
 };

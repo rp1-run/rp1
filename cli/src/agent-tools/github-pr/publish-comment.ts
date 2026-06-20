@@ -24,12 +24,7 @@ import { runtimeError, usageError } from "../../../shared/errors.js";
 import { execGitCommand, getCurrentBranch } from "../git.js";
 import type { ToolResult } from "../models.js";
 import { successResult } from "../output.js";
-import {
-	checkSize,
-	markerKey,
-	project,
-	splitFrontmatter,
-} from "./artifact-projection.js";
+import { checkSize, project } from "./artifact-projection.js";
 import { createOctokitClient, withGitHubErrorHandling } from "./client.js";
 import type { PublishCommentInput, PublishCommentOutput } from "./models.js";
 import { parse, type TargetKind } from "./parse-target.js";
@@ -400,11 +395,11 @@ const runUpsert = (
 		);
 	}
 
-	const { fm } = splitFrontmatter(artifact.text);
-	const { body, warnings: projectionWarnings } = project(
-		artifact.text,
-		artifact.relativePath,
-	);
+	const {
+		body,
+		warnings: projectionWarnings,
+		docKey,
+	} = project(artifact.text, artifact.relativePath);
 	warnings.push(...projectionWarnings);
 
 	const sizeError = checkSize(body);
@@ -412,7 +407,6 @@ const runUpsert = (
 		return TE.left(runtimeError(sizeError));
 	}
 
-	const docKey = markerKey(fm, artifact.relativePath);
 	const sizeBytes = new TextEncoder().encode(body).length;
 
 	return pipe(
