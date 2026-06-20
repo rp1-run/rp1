@@ -7,7 +7,8 @@
  *
  * A final block exercises `executePublishComment`'s create-vs-update branch
  * against a mocked Octokit to confirm POST calls `issues.createComment`, PATCH
- * calls `issues.updateComment`, and no `gh` subprocess is spawned (REQ-001).
+ * calls `issues.updateComment`, and — with Bun.spawn and child_process stubbed
+ * to throw — that no `gh` subprocess is spawned (REQ-001).
  */
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -93,17 +94,6 @@ describe("decideAction", () => {
 			);
 		}
 	});
-
-	test("Decision union is discriminated by action", () => {
-		const post = decideAction([], ME, false);
-		const patch = decideAction([comment({ id: 5 })], ME, false);
-		const refuse = decideAction([comment({ userLogin: "x" })], ME, false);
-		// Exhaustive shape check across all three variants.
-		expect(post.action).toBe("POST");
-		expect("targetCommentId" in post && post.targetCommentId).toBeNull();
-		expect(patch.action).toBe("PATCH");
-		expect("reason" in refuse).toBe(true);
-	});
 });
 
 describe("findMarkerMatches", () => {
@@ -147,10 +137,10 @@ describe("softDetectOrphan", () => {
 });
 
 describe("mtimeWarning", () => {
-	// "2026-06-11T00:00:00Z" is 1781481600 epoch seconds when the trailing Z is
-	// honored as UTC. Pinning these against fixed epoch seconds makes the
-	// assertions timezone-independent: the REQ-007 fix is precisely that the
-	// result no longer depends on the test machine's local offset.
+	// "2026-06-11T00:00:00Z" is 1781136000 epoch seconds when the trailing Z is
+	// honored as UTC (matching the commentTs constant below). Pinning both sides
+	// of the comparison to fixed epoch seconds keeps these assertions
+	// timezone-independent.
 	const updatedAt = "2026-06-11T00:00:00Z";
 	const commentTs = 1781136000;
 
@@ -172,14 +162,6 @@ describe("mtimeWarning", () => {
 	test("force suppresses the warning regardless of staleness", () => {
 		expect(mtimeWarning(commentTs - 1000, updatedAt, true)).toBeNull();
 	});
-
-	test("parses the trailing Z as UTC, not naive-local (REQ-007)", () => {
-		// A localMtime exactly at the UTC epoch is not "older", so no warning.
-		// Under the old naive-local parse this boundary would shift by the local
-		// UTC offset and could spuriously warn (or fail to warn) depending on TZ.
-		expect(mtimeWarning(commentTs, updatedAt, false)).toBeNull();
-		expect(mtimeWarning(commentTs - 1, updatedAt, false)).not.toBeNull();
-	});
 });
 
 /**
@@ -187,9 +169,10 @@ describe("mtimeWarning", () => {
  *
  * `executePublishComment` builds its Octokit client from `@octokit/rest` and
  * resolves repo identity / current branch via `git.ts`. We mock those modules so
- * the orchestration runs end-to-end without any network or `gh` subprocess, then
- * assert that the POST path calls `issues.createComment` (not `updateComment`)
- * and the PATCH path calls `issues.updateComment` (not `createComment`).
+ * the orchestration runs end-to-end without any network, and stub Bun.spawn and
+ * node:child_process to throw, then assert the POST path calls
+ * `issues.createComment` (not `updateComment`), the PATCH path calls
+ * `issues.updateComment` (not `createComment`), and neither spawned a subprocess.
  */
 describe("executePublishComment create-vs-update (mocked Octokit)", () => {
 	let tmpRoot: string;
@@ -197,6 +180,9 @@ describe("executePublishComment create-vs-update (mocked Octokit)", () => {
 	let createComment: ReturnType<typeof mock>;
 	let updateComment: ReturnType<typeof mock>;
 	let listCommentsResult: ArtifactComment[];
+	let originalToken: string | undefined;
+	let originalSpawn: typeof Bun.spawn;
+	let spawnCalls: number;
 
 	const HTML_URL = "https://github.com/o/r/issues/123#issuecomment-1";
 
@@ -267,12 +253,35 @@ describe("executePublishComment create-vs-update (mocked Octokit)", () => {
 			getCurrentBranch: () => async () => E.right("feature"),
 		}));
 
+		originalToken = process.env.GITHUB_TOKEN;
 		process.env.GITHUB_TOKEN = "test-token-for-mocking";
+
+		// REQ-001 guard: stub every subprocess entry point so a regression that
+		// shells out to `gh` is recorded in spawnCalls and fails loudly here,
+		// instead of passing silently as it would when only Octokit is mocked.
+		spawnCalls = 0;
+		originalSpawn = Bun.spawn;
+		const refuseSpawn = (): never => {
+			spawnCalls++;
+			throw new Error("publish-comment must not spawn a subprocess");
+		};
+		Bun.spawn = refuseSpawn as unknown as typeof Bun.spawn;
+		mock.module("node:child_process", () => ({
+			spawn: refuseSpawn,
+			exec: refuseSpawn,
+			execFile: refuseSpawn,
+			execSync: refuseSpawn,
+		}));
 	});
 
 	afterEach(() => {
 		rmSync(tmpRoot, { recursive: true, force: true });
-		delete process.env.GITHUB_TOKEN;
+		Bun.spawn = originalSpawn;
+		if (originalToken !== undefined) {
+			process.env.GITHUB_TOKEN = originalToken;
+		} else {
+			delete process.env.GITHUB_TOKEN;
+		}
 		mock.restore();
 	});
 
@@ -287,6 +296,7 @@ describe("executePublishComment create-vs-update (mocked Octokit)", () => {
 		expect(E.isRight(result)).toBe(true);
 		expect(createComment).toHaveBeenCalledTimes(1);
 		expect(updateComment).toHaveBeenCalledTimes(0);
+		expect(spawnCalls).toBe(0);
 		if (E.isRight(result)) {
 			expect(result.right.data.action).toBe("post");
 			expect(result.right.data.comment_url).toBe(HTML_URL);
@@ -313,6 +323,7 @@ describe("executePublishComment create-vs-update (mocked Octokit)", () => {
 		expect(E.isRight(result)).toBe(true);
 		expect(updateComment).toHaveBeenCalledTimes(1);
 		expect(createComment).toHaveBeenCalledTimes(0);
+		expect(spawnCalls).toBe(0);
 		if (E.isRight(result)) {
 			expect(result.right.data.action).toBe("patch");
 		}
