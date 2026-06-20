@@ -1,14 +1,12 @@
 /**
  * Pure projection of an rp1 artifact into a deterministic PR/issue comment body.
  *
- * Network-free TypeScript port of the publish-artifact skill's `project.py`.
  * Given artifact text and the repo-relative source path to display, it produces
  * the exact comment body. The output is a byte-exact contract verified against
  * golden fixtures; this module never reads GitHub and never mutates the artifact.
  *
- * Two intentional, documented deviations from the Python implementation:
- *  - `splitFrontmatter` tolerates CRLF (`\r\n`) line endings (LF behavior is
- *    unchanged).
+ * Line endings are normalized to LF before projection, so a CRLF (`\r\n`)
+ * artifact yields byte-identical output to its LF twin.
  */
 
 /** GitHub's hard cap on a single comment body, in bytes. */
@@ -389,7 +387,11 @@ export const checkSize = (body: string): string | null => {
  *   `path:` marker key.
  */
 export const project = (text: string, sourcePath: string): ProjectionResult => {
-	const { fm, body } = splitFrontmatter(text);
+	// Normalize line endings up front (faithful to Python's universal-newline
+	// read). Otherwise a CRLF artifact leaks a stray `\r` into every projected
+	// line, because `assemble` splits the body on `\n`.
+	const normalized = text.replace(/\r\n?/g, "\n");
+	const { fm, body } = splitFrontmatter(normalized);
 	const title = deriveTitle(fm, body, sourcePath);
 	const body1 = stripLeadingH1(body);
 	const { summary, rest, warning } = extractSummary(body1);

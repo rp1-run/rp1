@@ -46,8 +46,10 @@ const discoverCases = (): string[] =>
 describe("artifact projection golden fixtures", () => {
 	const cases = discoverCases();
 
-	test("discovers all 8 fixture pairs (16 files)", () => {
-		expect(cases.length).toBe(8);
+	test("discovers golden fixture pairs", () => {
+		// Guards against a vacuous generated-test loop without coupling the
+		// assertion to the exact fixture count.
+		expect(cases.length).toBeGreaterThan(0);
 	});
 
 	for (const name of cases) {
@@ -98,5 +100,27 @@ describe("CRLF frontmatter tolerance (REQ-008)", () => {
 
 		expect(fm).toEqual({ producer: "bug-investigator", rp1_doc_id: "abc" });
 		expect(body).toBe("# Title\n\nbody\n");
+	});
+
+	test("a CRLF artifact projects byte-identically to its LF twin", () => {
+		// project() must normalize line endings end-to-end: otherwise a stray
+		// `\r` leaks into every projected line, because assemble() splits the
+		// body on `\n`. Use a multi-line-body fixture so a regression surfaces
+		// across many lines, not just the lead.
+		const name = "investigation-report";
+		const sourcePath = `examples/${name}-input.md`;
+		const lfInput = readFileSync(join(GOLDEN_DIR, `${name}-input.md`), "utf8");
+		const crlfInput = lfInput.replace(/\n/g, "\r\n");
+		const expected = readFileSync(
+			join(GOLDEN_DIR, `${name}-output.md`),
+			"utf8",
+		);
+
+		const encoder = new TextEncoder();
+		const actualBytes = encoder.encode(project(crlfInput, sourcePath).body);
+		const expectedBytes = encoder.encode(expected);
+
+		expect(firstDiff(actualBytes, expectedBytes)).toBe(-1);
+		expect(actualBytes.length).toBe(expectedBytes.length);
 	});
 });
