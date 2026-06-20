@@ -7,8 +7,8 @@
  *
  * A final block exercises `executePublishComment`'s create-vs-update branch
  * against a mocked Octokit to confirm POST calls `issues.createComment`, PATCH
- * calls `issues.updateComment`, and — with Bun.spawn and child_process stubbed
- * to throw — that no `gh` subprocess is spawned (REQ-001).
+ * calls `issues.updateComment`, and — with Bun.spawn stubbed to throw — that no
+ * `gh` subprocess is spawned (REQ-001).
  */
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -16,6 +16,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
+import * as realGitModule from "../../../agent-tools/git.js";
 import {
 	type ArtifactComment,
 	decideAction,
@@ -23,6 +24,13 @@ import {
 	mtimeWarning,
 	softDetectOrphan,
 } from "../../../agent-tools/github-pr/publish-decisions.js";
+
+// Snapshot the real git.js exports at load time (before any mock.module call),
+// so the mocked block can spread a COMPLETE module and fully restore it after.
+// Bun's mock.restore() does not undo mock.module(), so without this an
+// incomplete git.js stub leaks into later test files (e.g. comment-extract /
+// change-manifest), breaking their imports and git lookups.
+const REAL_GIT = { ...realGitModule };
 
 const ME = "octocat";
 const DOC_KEY = "path:.rp1/work/features/x/report.md";
@@ -169,8 +177,8 @@ describe("mtimeWarning", () => {
  *
  * `executePublishComment` builds its Octokit client from `@octokit/rest` and
  * resolves repo identity / current branch via `git.ts`. We mock those modules so
- * the orchestration runs end-to-end without any network, and stub Bun.spawn and
- * node:child_process to throw, then assert the POST path calls
+ * the orchestration runs end-to-end without any network, and stub Bun.spawn
+ * (git.ts's subprocess mechanism) to throw, then assert the POST path calls
  * `issues.createComment` (not `updateComment`), the PATCH path calls
  * `issues.updateComment` (not `createComment`), and neither spawned a subprocess.
  */
@@ -244,6 +252,7 @@ describe("executePublishComment create-vs-update (mocked Octokit)", () => {
 			},
 		}));
 		mock.module("../../../agent-tools/git.js", () => ({
+			...REAL_GIT,
 			// origin remote -> owner/repo; show-toplevel -> the temp repo root so
 			// the artifact's repo-relative path (and thus doc_key) is deterministic.
 			execGitCommand: (args: readonly string[]) => async () =>
@@ -256,22 +265,15 @@ describe("executePublishComment create-vs-update (mocked Octokit)", () => {
 		originalToken = process.env.GITHUB_TOKEN;
 		process.env.GITHUB_TOKEN = "test-token-for-mocking";
 
-		// REQ-001 guard: stub every subprocess entry point so a regression that
-		// shells out to `gh` is recorded in spawnCalls and fails loudly here,
+		// REQ-001 guard: git.ts shells out via Bun.spawn, so stub it to record
+		// (spawnCalls) and throw — a regression that runs `gh` fails loudly here
 		// instead of passing silently as it would when only Octokit is mocked.
 		spawnCalls = 0;
 		originalSpawn = Bun.spawn;
-		const refuseSpawn = (): never => {
+		Bun.spawn = ((): never => {
 			spawnCalls++;
 			throw new Error("publish-comment must not spawn a subprocess");
-		};
-		Bun.spawn = refuseSpawn as unknown as typeof Bun.spawn;
-		mock.module("node:child_process", () => ({
-			spawn: refuseSpawn,
-			exec: refuseSpawn,
-			execFile: refuseSpawn,
-			execSync: refuseSpawn,
-		}));
+		}) as unknown as typeof Bun.spawn;
 	});
 
 	afterEach(() => {
@@ -283,6 +285,9 @@ describe("executePublishComment create-vs-update (mocked Octokit)", () => {
 			delete process.env.GITHUB_TOKEN;
 		}
 		mock.restore();
+		// mock.restore() does not undo mock.module(); restore the real git.js
+		// explicitly so this file's stub never leaks into other test files.
+		mock.module("../../../agent-tools/git.js", () => REAL_GIT);
 	});
 
 	test("POST path calls issues.createComment and not updateComment", async () => {
