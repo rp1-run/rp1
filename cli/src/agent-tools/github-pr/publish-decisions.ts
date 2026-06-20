@@ -1,31 +1,21 @@
 /**
  * Pure decision logic for the publish-artifact comment upsert.
  *
- * Network-free TypeScript port of the decision functions in the publish-artifact
- * skill's `publish.py`. These functions map a set of existing comments to an
- * upsert action (POST / PATCH / refuse), detect orphaned prior comments, warn on
- * stale local artifacts, and render the dry-run diagnostic and success blocks.
- * They never touch GitHub; the orchestration (`publish-comment.ts`) feeds them
- * data fetched via Octokit and acts on their decisions.
+ * These functions map a set of existing comments to an upsert action
+ * (POST / PATCH / refuse), detect orphaned prior comments, and warn on stale
+ * local artifacts. They never touch GitHub; the orchestration
+ * (`publish-comment.ts`) feeds them data fetched via Octokit and acts on their
+ * decisions.
  *
- * One intentional, documented deviation from the Python implementation:
- *  - `mtimeWarning` interprets GitHub's `updated_at` as UTC (REQ-007). Python
- *    stripped the trailing `Z` and parsed the timestamp as naive-local, which
- *    skewed the staleness comparison by the local UTC offset.
+ * `mtimeWarning` interprets GitHub's `updated_at` as UTC (REQ-007): the trailing
+ * `Z` is honored, so the staleness comparison does not skew by the local offset.
  */
-
-import { MAX_BYTES } from "./artifact-projection.js";
-import type { TargetKind } from "./parse-target.js";
 
 /** Comment marker template; the rendered marker opens a published comment body. */
 const MARKER_FMT = (key: string): string => `<!-- rp1-artifact: ${key} -->`;
 
 /** Footer substring identifying a comment posted by this skill. */
 const FOOTER_SOFT_MATCH = "Posted by `publish-artifact`";
-
-/** Python `str.strip()`: strip leading and trailing ASCII whitespace. */
-const strip = (s: string): string =>
-	s.replace(/^[ \t\n\r\f\v]+/, "").replace(/[ \t\n\r\f\v]+$/, "");
 
 /**
  * The fields of an existing PR/issue comment the decision logic depends on.
@@ -161,70 +151,4 @@ export const mtimeWarning = (
 		);
 	}
 	return null;
-};
-
-/** The dry-run diagnostic's `Target:` line (a PR carries base/head). */
-export const targetLine = (
-	kind: TargetKind,
-	number: number,
-	state: string,
-	baseRef: string,
-	headRef: string,
-): string =>
-	kind === "pr"
-		? `#${number} (${state}, base: ${baseRef}, head: ${headRef})`
-		: `#${number} (${state}, issue)`;
-
-/** Inputs for the dry-run diagnostic header. */
-export interface DiagnosticInput {
-	readonly relativePath: string;
-	readonly docKey: string;
-	readonly kind: TargetKind;
-	readonly number: number;
-	readonly state: string;
-	readonly baseRef: string;
-	readonly headRef: string;
-	readonly sizeBytes: number;
-	readonly action: string;
-	readonly matchedUrl: string;
-}
-
-/**
- * The stderr diagnostic header for `--dry-run` (the projected body follows it
- * on stdout).
- */
-export const buildDiagnostic = (d: DiagnosticInput): string =>
-	"=== publish-artifact (dry run) ===\n" +
-	`Artifact: ${d.relativePath}\n` +
-	`Doc key:  ${d.docKey}\n` +
-	`Target:   ${targetLine(d.kind, d.number, d.state, d.baseRef, d.headRef)}\n` +
-	`Size:     ${d.sizeBytes} / ${MAX_BYTES} bytes\n` +
-	`Action:   would ${d.action} (matched comment: ${d.matchedUrl})\n` +
-	"\n--- projected comment body ---\n";
-
-/** Inputs for the final user-facing success block. */
-export interface SuccessInput {
-	readonly action: "POST" | "PATCH";
-	readonly kind: TargetKind;
-	readonly number: number;
-	readonly fm: Record<string, string>;
-	readonly docKey: string;
-	readonly htmlUrl: string;
-	readonly sizeBytes: number;
-}
-
-/** The final user-facing confirmation block for a real POST/PATCH. */
-export const formatSuccess = (s: SuccessInput): string => {
-	const verb = s.action === "POST" ? "Posted" : "Updated";
-	const where = s.kind === "pr" ? "PR" : "issue";
-	const atype =
-		strip(s.fm.artifact ?? "") || strip(s.fm.type ?? "") || "(untyped)";
-	const issue = strip(s.fm.issue_id ?? "") || "—";
-	const kb = `${(s.sizeBytes / 1024).toFixed(1)} KB`;
-	return (
-		`✓ ${verb} rp1 artifact on ${where} #${s.number}\n` +
-		`  Artifact: ${atype} / ${issue} (doc_key ${s.docKey})\n` +
-		`  Comment:  ${s.htmlUrl}\n` +
-		`  Size:     ${kb} / 65 KB cap`
-	);
 };

@@ -1,10 +1,9 @@
 /**
  * Unit tests for the publish-artifact decision logic (publish-decisions.ts).
  *
- * The decision functions are pure ports of `publish.py`; the bulk of this suite
- * exercises them with in-memory `ArtifactComment` fixtures and asserts the
- * upsert decision, soft-orphan detection, UTC-correct mtime warning (REQ-007),
- * and byte-exact diagnostic / success output strings.
+ * The bulk of this suite exercises the decision functions with in-memory
+ * `ArtifactComment` fixtures and asserts the upsert decision, soft-orphan
+ * detection, and the UTC-correct mtime warning (REQ-007).
  *
  * A final block exercises `executePublishComment`'s create-vs-update branch
  * against a mocked Octokit to confirm POST calls `issues.createComment`, PATCH
@@ -18,13 +17,10 @@ import path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import {
 	type ArtifactComment,
-	buildDiagnostic,
 	decideAction,
 	findMarkerMatches,
-	formatSuccess,
 	mtimeWarning,
 	softDetectOrphan,
-	targetLine,
 } from "../../../agent-tools/github-pr/publish-decisions.js";
 
 const ME = "octocat";
@@ -183,96 +179,6 @@ describe("mtimeWarning", () => {
 		// UTC offset and could spuriously warn (or fail to warn) depending on TZ.
 		expect(mtimeWarning(commentTs, updatedAt, false)).toBeNull();
 		expect(mtimeWarning(commentTs - 1, updatedAt, false)).not.toBeNull();
-	});
-});
-
-describe("targetLine", () => {
-	test("PR carries base/head refs", () => {
-		expect(targetLine("pr", 123, "OPEN", "main", "feature")).toBe(
-			"#123 (OPEN, base: main, head: feature)",
-		);
-	});
-
-	test("issue omits base/head and is labelled issue", () => {
-		expect(targetLine("issue", 7, "CLOSED", "", "")).toBe("#7 (CLOSED, issue)");
-	});
-});
-
-describe("buildDiagnostic", () => {
-	test("renders the dry-run header byte-exactly (PR target)", () => {
-		const out = buildDiagnostic({
-			relativePath: ".rp1/work/x/report.md",
-			docKey: DOC_KEY,
-			kind: "pr",
-			number: 123,
-			state: "OPEN",
-			baseRef: "main",
-			headRef: "feature",
-			sizeBytes: 2048,
-			action: "PATCH",
-			matchedUrl: "https://github.com/o/r/issues/123#issuecomment-1",
-		});
-		expect(out).toBe(
-			"=== publish-artifact (dry run) ===\n" +
-				"Artifact: .rp1/work/x/report.md\n" +
-				`Doc key:  ${DOC_KEY}\n` +
-				"Target:   #123 (OPEN, base: main, head: feature)\n" +
-				"Size:     2048 / 65536 bytes\n" +
-				"Action:   would PATCH (matched comment: " +
-				"https://github.com/o/r/issues/123#issuecomment-1)\n" +
-				"\n--- projected comment body ---\n",
-		);
-	});
-});
-
-describe("formatSuccess", () => {
-	test("renders a POST confirmation block byte-exactly with ✓ and — literals", () => {
-		const out = formatSuccess({
-			action: "POST",
-			kind: "pr",
-			number: 123,
-			fm: { artifact: "investigation-report" },
-			docKey: DOC_KEY,
-			htmlUrl: "https://github.com/o/r/issues/123#issuecomment-1",
-			sizeBytes: 2048,
-		});
-		expect(out).toBe(
-			"✓ Posted rp1 artifact on PR #123\n" +
-				`  Artifact: investigation-report / — (doc_key ${DOC_KEY})\n` +
-				"  Comment:  https://github.com/o/r/issues/123#issuecomment-1\n" +
-				"  Size:     2.0 KB / 65 KB cap",
-		);
-	});
-
-	test("PATCH uses Updated/issue and falls back through type then (untyped)", () => {
-		const out = formatSuccess({
-			action: "PATCH",
-			kind: "issue",
-			number: 7,
-			fm: { type: "audit", issue_id: "ISSUE-9" },
-			docKey: DOC_KEY,
-			htmlUrl: "https://github.com/o/r/issues/7#issuecomment-2",
-			sizeBytes: 512,
-		});
-		expect(out).toBe(
-			"✓ Updated rp1 artifact on issue #7\n" +
-				`  Artifact: audit / ISSUE-9 (doc_key ${DOC_KEY})\n` +
-				"  Comment:  https://github.com/o/r/issues/7#issuecomment-2\n" +
-				"  Size:     0.5 KB / 65 KB cap",
-		);
-	});
-
-	test("empty frontmatter yields (untyped) artifact and — issue", () => {
-		const out = formatSuccess({
-			action: "POST",
-			kind: "pr",
-			number: 1,
-			fm: {},
-			docKey: DOC_KEY,
-			htmlUrl: "https://github.com/o/r/issues/1#issuecomment-1",
-			sizeBytes: 1024,
-		});
-		expect(out).toContain("  Artifact: (untyped) / — (doc_key ");
 	});
 });
 
