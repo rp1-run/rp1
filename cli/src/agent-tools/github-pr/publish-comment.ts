@@ -1,13 +1,12 @@
 /**
  * Idempotent publish-comment upsert operation.
  *
- * Orchestration port of the publish-artifact skill's `publish.py` `main` plus its
- * `gh`-touching helpers. It resolves the PR/issue target, projects the artifact
- * into a deterministic comment body, scans existing comments for this artifact's
- * marker, and POSTs a new comment or PATCHes the existing one in place (or, on a
- * dry run, returns the projected body without writing). GitHub is reached only
- * via Octokit; repo identity and the current branch come from `git.ts`. The `gh`
- * subprocess is never spawned (REQ-001).
+ * Resolves the PR/issue target, projects the artifact into a deterministic
+ * comment body, scans existing comments for this artifact's marker, and POSTs a
+ * new comment or PATCHes the existing one in place (or, on a dry run, returns the
+ * projected body without writing). GitHub is reached only via Octokit; repo
+ * identity and the current branch come from `git.ts`. The `gh` subprocess is
+ * never spawned (REQ-001).
  *
  * The pure projection (`artifact-projection.ts`), target parsing
  * (`parse-target.ts`), and decision logic (`publish-decisions.ts`) live in their
@@ -64,18 +63,25 @@ interface LoadedArtifact {
 /**
  * Parse `owner/repo` out of an `origin` remote URL.
  *
- * Handles the SSH (`git@github.com:owner/repo.git`) and HTTPS
- * (`https://github.com/owner/repo.git`) forms and tolerates a missing `.git`
- * suffix. Replaces Python's `gh repo view --json nameWithOwner` (HYP-002).
+ * Requires a `github.com` host — SSH (`git@github.com:owner/repo.git` or
+ * `ssh://git@github.com/owner/repo.git`) or HTTPS
+ * (`https://github.com/owner/repo.git`, optional userinfo), `.git` optional.
+ * Returns `null` for any other host so a non-github.com origin can never be
+ * published to `github.com/owner/repo` via the GitHub-only Octokit client.
  */
-const parseRemoteRepo = (remoteUrl: string): string | null => {
+export const parseRemoteRepo = (remoteUrl: string): string | null => {
 	const url = remoteUrl.trim();
-	const ssh = /^git@[^:]+:(?<owner>[^/]+)\/(?<repo>.+?)(?:\.git)?$/.exec(url);
+	const ssh =
+		/^(?:ssh:\/\/)?git@github\.com[:/](?<owner>[^/]+)\/(?<repo>.+?)(?:\.git)?$/.exec(
+			url,
+		);
 	if (ssh?.groups) {
 		return `${ssh.groups.owner}/${ssh.groups.repo}`;
 	}
 	const https =
-		/^https?:\/\/[^/]+\/(?<owner>[^/]+)\/(?<repo>.+?)(?:\.git)?$/.exec(url);
+		/^https?:\/\/(?:[^@/]+@)?github\.com\/(?<owner>[^/]+)\/(?<repo>.+?)(?:\.git)?$/.exec(
+			url,
+		);
 	if (https?.groups) {
 		return `${https.groups.owner}/${https.groups.repo}`;
 	}
@@ -101,8 +107,8 @@ const resolveRepoFull = (cwd: string): TE.TaskEither<CLIError, string> =>
 /**
  * Repo-relative path for the Source-path row and the `path:` marker key.
  *
- * Mirrors `relative_source_path`: resolve the repo root from the artifact's
- * directory and strip it; fall back to the input path when outside a repo.
+ * Resolve the repo root from the artifact's directory and strip it; fall back to
+ * the input path when outside a repo.
  */
 const relativeSourcePath = (
 	artifactPath: string,
@@ -214,7 +220,7 @@ const resolveTarget = (
 		},
 	)(client);
 
-/** Split `owner/repo` on its first slash (mirrors Python `split("/", 1)`). */
+/** Split `owner/repo` on its first slash. */
 const splitRepoFull = (repoFull: string): [string, string] => {
 	const slash = repoFull.indexOf("/");
 	return slash === -1

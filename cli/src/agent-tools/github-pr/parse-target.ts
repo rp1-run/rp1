@@ -1,7 +1,6 @@
 /**
  * Pure parsing of a PR/issue target into structured fields.
  *
- * Network-free TypeScript port of the publish-artifact skill's `parse_target.py`.
  * A bare number yields `kind: "unknown"` — the caller probes whether it is a PR
  * or an issue. A GitHub URL yields `kind` from its `/pull/` or `/issues/` path.
  */
@@ -22,7 +21,7 @@ export interface ParsedTarget {
  * Trailing path segments (e.g. `/files`) are ignored.
  */
 const URL_RE =
-	/^https?:\/\/github\.com\/(?<owner>[^/]+)\/(?<repo>[^/]+)\/(?<kind>pull|issues)\/(?<number>\d+)/;
+	/^https?:\/\/github\.com\/(?<owner>[^/]+)\/(?<repo>[^/]+)\/(?<kind>pull|issues)\/(?<number>\d+)(?=$|[/?#])/;
 
 /** A target consisting solely of digits. */
 const BARE_NUMBER_RE = /^\d+$/;
