@@ -50,6 +50,7 @@
 | `/pr-stack` | dev | Plan and execute splitting a large PR or branch into a reviewable stacked PR sequence. |
 | `/pr-visual` | dev | Transform pull request diffs into Mermaid diagrams for visual code review and change understanding. |
 | `/pr-walkthrough` | dev | Generate an evidence-grounded markdown walkthrough for a pull request. |
+| `/publish-artifact` | dev | Publish an rp1 artifact (investigation report, design doc, audit) from .rp1/work/ as an idempotent PR or issue comment instead of committing it to the repo; re-runs update the same comment in place. |
 
 ## Documentation
 

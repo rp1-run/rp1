@@ -117,10 +117,11 @@ The `/build` command orchestrates the complete 6-step feature development pipeli
 - `--review`: Enable task-reviewer validation after implementation (single retry on failure)
 - `--afk`: Non-interactive mode (skips all confirmation prompts)
 
-### PR Management (3)
+### PR Management (4)
 - `/pr-review` - Comprehensive pull request review (supports CI/CD mode)
 - `/address-pr-feedback [pr-number | pr-url | branch]` - Unified PR feedback workflow: collect, triage, and fix review comments
 - `/pr-visual` - Visualize pull request changes
+- `/publish-artifact <artifact-path> [target] [--dry-run] [--force]` - Publish an rp1 artifact as an idempotent PR or issue comment without committing it to the repo
 
 **CI/CD Mode**: The `pr-review` command supports automated execution in CI/CD pipelines:
 

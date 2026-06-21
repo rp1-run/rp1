@@ -138,7 +138,7 @@ Available Tools:
   comment-extract   Extract comments from git-changed files
   emit              Record events for the rp1 workflow event system
   feedback          Read, resolve, reply to, and accept feedback from the Arcade
-  github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
+  github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments, publish-comment)
   socratic-duel     Coordinate Socratic Duel participant locks and leases
   task              Manage task queue (create, list, pickup, complete, fail, cancel, get)
   work-search       Search project-scoped rp1 work artifacts
@@ -2683,6 +2683,7 @@ Subcommands:
   add-reaction     Add a reaction to a PR comment
   reply-comment    Reply to an existing PR comment thread
   fetch-comments   Fetch all comments from a PR
+  publish-comment  Publish an rp1 artifact as an idempotent PR/issue comment
 
 Examples:
   # Submit a review
@@ -2696,6 +2697,10 @@ Examples:
   # Fetch comments
   echo '{"owner":"org","repo":"repo","pr_number":123}' | \\
     rp1 agent-tools github-pr fetch-comments
+
+  # Publish an artifact as a comment
+  echo '{"artifact_path":".rp1/work/features/x/design.md"}' | \\
+    rp1 agent-tools github-pr publish-comment
 `,
 	);
 
@@ -2925,6 +2930,74 @@ Examples:
 
 		const { executeFetchComments } = await import("./github-pr/index.js");
 		const result = await executeFetchComments(inputResult.right.content)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
+
+/**
+ * github-pr publish-comment subcommand.
+ * Publishes an rp1 artifact as an idempotent PR or issue comment.
+ */
+githubPrCommand
+	.command("publish-comment")
+	.description("Publish an rp1 artifact as an idempotent PR/issue comment")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Projects an rp1 work artifact into a routing comment and upserts it onto a
+  PR or issue via the GitHub API. The operation is idempotent: re-runs update
+  the same comment in place (matched by an HTML marker key). Owner/repo are
+  derived from the git origin remote; the target defaults to the current
+  branch's open PR. Accepts JSON input via stdin.
+
+Input (JSON via stdin):
+  {
+    "artifact_path": "string",   // Path to the rp1 artifact to publish
+    "target": "string",          // Optional PR/issue number or URL (defaults to current-branch PR)
+    "dry_run": boolean,          // Optional: project the body without writing
+    "force": boolean             // Optional: override foreign/orphaned-comment refusals
+  }
+
+Output:
+  JSON with publish details:
+  - action: "post" | "patch"
+  - comment_url: URL to the comment (null on dry_run)
+  - doc_key: Stable marker key for the artifact
+  - size_bytes: Projected comment body size in bytes
+  - warnings: Array of advisory warnings
+  - dry_run: Whether the run was a dry run
+  - comment_body: Projected body (dry_run only)
+
+Examples:
+  echo '{"artifact_path":".rp1/work/features/x/design.md"}' | \\
+    rp1 agent-tools github-pr publish-comment
+
+  echo '{"artifact_path":".rp1/work/features/x/design.md","target":"123","dry_run":true}' | \\
+    rp1 agent-tools github-pr publish-comment
+`,
+	)
+	.action(async (): Promise<void> => {
+		const toolName = "github-pr";
+		const inputResult = await readInput()();
+
+		if (E.isLeft(inputResult)) {
+			console.error(
+				createErrorResponse(toolName, formatError(inputResult.left, false)),
+			);
+			process.exit(1);
+		}
+
+		const { executePublishComment } = await import("./github-pr/index.js");
+		const result = await executePublishComment(inputResult.right.content)();
 
 		if (E.isLeft(result)) {
 			console.error(

@@ -116,6 +116,37 @@ export interface PRComment {
 }
 
 /**
+ * Input for the idempotent publish-comment upsert operation.
+ *
+ * Mirrors the SKILL.md stdin contract `{artifact_path, target?, dry_run?,
+ * force?}`. `target` defaults to the current branch's open PR; `dry_run`
+ * projects the body without writing to GitHub; `force` loosens guard rails
+ * (foreign single comment, closed/merged target, stale local mtime).
+ */
+export interface PublishCommentInput {
+	readonly artifact_path: string;
+	readonly target?: string;
+	readonly dry_run?: boolean;
+	readonly force?: boolean;
+}
+
+/**
+ * Output from the publish-comment upsert operation.
+ *
+ * `comment_url` is `null` on a dry run (no comment is created or updated);
+ * `comment_body` carries the projected body only on a dry run.
+ */
+export interface PublishCommentOutput {
+	readonly action: "post" | "patch";
+	readonly comment_url: string | null;
+	readonly doc_key: string;
+	readonly size_bytes: number;
+	readonly warnings: readonly string[];
+	readonly dry_run: boolean;
+	readonly comment_body?: string;
+}
+
+/**
  * Validation result for input parsing.
  */
 export interface ValidationResult<T> {
