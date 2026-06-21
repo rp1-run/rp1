@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.7.11](https://github.com/rp1-run/rp1/compare/v0.7.10...v0.7.11) (2026-06-21)
+
+
+### Features
+
+* **dev:** add publish-artifact skill ([#397](https://github.com/rp1-run/rp1/issues/397)) ([9b51a5c](https://github.com/rp1-run/rp1/commit/9b51a5ce26cc10e6f5e30c955be8d54b59ff7ccd))
+* **prompts:** engineering discipline, TDD planning, /note skill + web-ui feed fixes ([#396](https://github.com/rp1-run/rp1/issues/396)) ([7575e4c](https://github.com/rp1-run/rp1/commit/7575e4c7ca2cc70bda3487712d2bcba5f3061fe2))
+
+
+### Performance Improvements
+
+* token-efficiency and execution-speed improvements across rp1 workflows ([#402](https://github.com/rp1-run/rp1/issues/402)) ([4867180](https://github.com/rp1-run/rp1/commit/4867180cfaa221a5d69ad7670b3247d2738005de))
+
+
+### Code Refactoring
+
+* **birds-eye-view:** 3-tier/9-section project overview output ([#403](https://github.com/rp1-run/rp1/issues/403)) ([e2bf467](https://github.com/rp1-run/rp1/commit/e2bf46789712cea756d693471efdd17499bb34db))
+
 ## [0.7.10](https://github.com/rp1-run/rp1/compare/v0.7.9...v0.7.10) (2026-06-02)
 
 
