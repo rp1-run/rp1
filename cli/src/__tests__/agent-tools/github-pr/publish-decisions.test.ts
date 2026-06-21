@@ -7,7 +7,7 @@
  *
  * A final block exercises `executePublishComment`'s create-vs-update branch
  * against a mocked Octokit to confirm POST calls `issues.createComment`, PATCH
- * calls `issues.updateComment`, and — with Bun.spawn stubbed to throw — that no
+ * calls `issues.updateComment`, and — with Bun.spawn stubbed to throw — no
  * `gh` subprocess is spawned (REQ-001).
  */
 
