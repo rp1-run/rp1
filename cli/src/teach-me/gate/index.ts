@@ -9,6 +9,10 @@
  * - {@link runBrowserGate} — a headless `file://` load asserting zero external
  *   network, no console errors, and a11y of controls/diagrams.
  *
+ * {@link assertSelfContained} exposes just the self-containment subset of the
+ * static checks for the `export` command (T7), which re-asserts that a rendered
+ * artifact is standalone without the repo-provenance checks.
+ *
  * {@link combineResults} merges per-gate results so the command can name every
  * failing check and exit non-zero (REQ-008).
  */
@@ -18,8 +22,10 @@ export {
 	runBrowserGate,
 } from "./browser-checks.js";
 export {
+	assertSelfContained,
 	DEFAULT_SIZE_LIMIT_BYTES,
 	runStaticGate,
+	type SelfContainmentOptions,
 	type StaticGateContext,
 } from "./static-checks.js";
 export {

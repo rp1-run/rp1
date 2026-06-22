@@ -23,10 +23,16 @@
 
 import { stat } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
-import { type GateResult, gateResult } from "./types.js";
+import { type GateCheck, type GateResult, gateResult } from "./types.js";
 
 /** Default self-containment size budget: 1 MiB (HYP-003 measured well under this). */
 export const DEFAULT_SIZE_LIMIT_BYTES = 1024 * 1024;
+
+/** Options for the standalone self-containment assertion ({@link assertSelfContained}). */
+export interface SelfContainmentOptions {
+	/** Max self-contained artifact size in bytes (defaults to {@link DEFAULT_SIZE_LIMIT_BYTES}). */
+	readonly sizeLimitBytes?: number;
+}
 
 /** Repo-relative context the static gate resolves references against. */
 export interface StaticGateContext {
@@ -108,6 +114,69 @@ async function refResolves(
 }
 
 /**
+ * The synchronous self-containment checks: size budget, no fetchable external
+ * network reference, and no runtime rendering library.
+ *
+ * These are the subset of the static gate that depends only on the artifact
+ * bytes (no repo on disk and no parsed lesson), so both {@link runStaticGate}
+ * (the full validate gate) and {@link assertSelfContained} (export's re-assertion)
+ * compose them from this single source of truth — keeping the subtle, fetchable-
+ * only URL discrimination (which must not false-positive on the W3C XML namespace
+ * URIs in inlined `<svg>`s) defined once.
+ */
+function selfContainmentChecks(
+	html: string,
+	sizeLimitBytes: number,
+): GateCheck[] {
+	const size = Buffer.byteLength(html, "utf8");
+	const hasExternalUrl =
+		EXTERNAL_URL.test(html) || PROTOCOL_RELATIVE_URL.test(html);
+	const hasRuntimeLibrary = EXTERNAL_SCRIPT.test(html) || hasScriptInSvg(html);
+
+	return [
+		{
+			name: "size-within-budget",
+			passed: size <= sizeLimitBytes,
+			detail:
+				size <= sizeLimitBytes
+					? undefined
+					: `Artifact is ${kib(size)}, over the ${kib(sizeLimitBytes)} budget.`,
+		},
+		{
+			name: "no-external-network-references",
+			passed: !hasExternalUrl,
+			detail: hasExternalUrl
+				? "Found a fetchable external src/href (http(s): or protocol-relative); the artifact must be self-contained."
+				: undefined,
+		},
+		{
+			name: "no-runtime-rendering-library",
+			passed: !hasRuntimeLibrary,
+			detail: hasRuntimeLibrary
+				? "Found an external <script src> or a <script> inside an inlined <svg>; diagrams/code must be static (REQ-007)."
+				: undefined,
+		},
+	];
+}
+
+/**
+ * Assert that a rendered `lesson.html` string is self-contained (T7 `export`).
+ *
+ * Runs only the artifact-bytes checks (size budget, no fetchable external
+ * network reference, no runtime rendering library) — the self-containment
+ * subset of {@link runStaticGate}, without its repo-`file:line` provenance and
+ * research-references checks, which depend on the repo on disk and the parsed
+ * lesson that `export` does not have. Synchronous and never throws.
+ */
+export function assertSelfContained(
+	html: string,
+	options: SelfContainmentOptions = {},
+): GateResult {
+	const limit = options.sizeLimitBytes ?? DEFAULT_SIZE_LIMIT_BYTES;
+	return gateResult(selfContainmentChecks(html, limit));
+}
+
+/**
  * Run the static gate against a rendered `lesson.html` string.
  *
  * Returns a {@link GateResult} naming each check; never throws (filesystem
@@ -120,7 +189,6 @@ export async function runStaticGate(
 	context: StaticGateContext,
 ): Promise<GateResult> {
 	const limit = context.sizeLimitBytes ?? DEFAULT_SIZE_LIMIT_BYTES;
-	const size = Buffer.byteLength(html, "utf8");
 
 	const refPaths = extractRefPaths(html);
 	const unresolved: string[] = [];
@@ -130,34 +198,10 @@ export async function runStaticGate(
 		}
 	}
 
-	const hasExternalUrl =
-		EXTERNAL_URL.test(html) || PROTOCOL_RELATIVE_URL.test(html);
 	const hasReferencesSection = html.includes('class="tm-references"');
 
 	return gateResult([
-		{
-			name: "size-within-budget",
-			passed: size <= limit,
-			detail:
-				size <= limit
-					? undefined
-					: `Artifact is ${kib(size)}, over the ${kib(limit)} budget.`,
-		},
-		{
-			name: "no-external-network-references",
-			passed: !hasExternalUrl,
-			detail: hasExternalUrl
-				? "Found a fetchable external src/href (http(s): or protocol-relative); the artifact must be self-contained."
-				: undefined,
-		},
-		{
-			name: "no-runtime-rendering-library",
-			passed: !EXTERNAL_SCRIPT.test(html) && !hasScriptInSvg(html),
-			detail:
-				EXTERNAL_SCRIPT.test(html) || hasScriptInSvg(html)
-					? "Found an external <script src> or a <script> inside an inlined <svg>; diagrams/code must be static (REQ-007)."
-					: undefined,
-		},
+		...selfContainmentChecks(html, limit),
 		{
 			name: "repo-references-resolve",
 			passed: unresolved.length === 0,
