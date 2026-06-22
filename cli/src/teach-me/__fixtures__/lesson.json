@@ -1,0 +1,444 @@
+{
+	"schemaVersion": "1.0",
+	"meta": {
+		"title": "How teach-me turns a lesson.json into one self-contained page",
+		"topicType": "repo",
+		"learnerPromise": "Trace a lesson from validated data to a single offline HTML file, and know which tool owns each step.",
+		"coreMentalModel": "A lesson is data, not markup: the schema gates it, the assembler walks it into fixed widgets, and the inliner folds everything into one file that opens from disk with zero network.",
+		"primarySpine": "code-path",
+		"learner": {
+			"familiarity": "intermediate",
+			"desiredDepth": "implementation",
+			"targetOutcome": "Modify the render pipeline without breaking self-containment",
+			"constraints": ["No external network at view time", "Single file output"]
+		},
+		"theme": "light",
+		"libraryVersion": "1.0"
+	},
+	"sections": [
+		{
+			"id": "the-code-path",
+			"heading": "The code path: parse, assemble, inline",
+			"intent": "code-path",
+			"blocks": [
+				{
+					"type": "prose",
+					"md": "`rp1 teach-me render` reads a `lesson.json`, validates it, and emits one `lesson.html`. The pipeline is three hops: **parse** (the schema), **assemble** (walk blocks into `<tm-*>` markup), and **inline** (fold the widget bundle, SVG, and styles into a single file)."
+				},
+				{
+					"type": "key-insight",
+					"title": "Quality lives in the tooling",
+					"md": "Lessons never hand-author markup. Every block is described as data and rendered by a fixed, accessible-by-construction widget, so a lesson cannot ship broken or inaccessible HTML."
+				},
+				{
+					"type": "code",
+					"lang": "ts",
+					"code": "export const renderLessonHtml = (\n  input: unknown,\n  source = \"lesson.json\",\n): TE.TaskEither<CLIError, string> => {\n  return async () => {\n    const result = await pipe(\n      TE.fromEither(parseLesson(input, source)),\n      TE.bindTo(\"lesson\"),\n      TE.bind(\"assembled\", ({ lesson }) => assembleLesson(lesson)),\n      TE.bind(\"bundle\", () => getWidgetBundle()),\n      TE.map(({ assembled, bundle }) => inlineDocument(assembled, bundle)),\n    )();\n    await closeMermaidBrowser()();\n    return result;\n  };\n};",
+					"filename": "cli/src/commands/teach-me/render.ts"
+				},
+				{
+					"type": "code-walkthrough",
+					"data": {
+						"lang": "ts",
+						"code": "const result = await pipe(\n  TE.fromEither(parseLesson(input, source)),\n  TE.bindTo(\"lesson\"),\n  TE.bind(\"assembled\", ({ lesson }) => assembleLesson(lesson)),\n  TE.bind(\"bundle\", () => getWidgetBundle()),\n  TE.map(({ assembled, bundle }) => inlineDocument(assembled, bundle)),\n)();",
+						"steps": [
+							{
+								"lines": "2",
+								"md": "`parseLesson` runs first; an invalid lesson short-circuits the pipe **before** any browser launch or asset read."
+							},
+							{
+								"lines": "4",
+								"md": "`assembleLesson` walks the validated model into `<tm-*>` markup and pre-renders diagrams to static SVG."
+							},
+							{
+								"lines": "5",
+								"md": "`getWidgetBundle` resolves the embedded widget JS+CSS — from the compiled binary, or a dev `dist/` fallback."
+							},
+							{
+								"lines": "6",
+								"md": "`inlineDocument` folds the assembled body and the bundle into one self-contained string."
+							}
+						]
+					}
+				}
+			]
+		},
+		{
+			"id": "the-render-sequence",
+			"heading": "The render sequence over time",
+			"intent": "timeline-sequence",
+			"blocks": [
+				{
+					"type": "prose",
+					"md": "Stepping through a single `render` call shows who hands what to whom."
+				},
+				{
+					"type": "timeline",
+					"data": {
+						"controls": "step",
+						"actors": [
+							"render",
+							"parseLesson",
+							"assembler",
+							"pre-render",
+							"inliner"
+						],
+						"steps": [
+							{
+								"title": "render receives lesson.json",
+								"desc": "The command reads the file and JSON.parses it; syntax errors are the caller's to own.",
+								"state": { "render": "reading" },
+								"annotations": ["argument is a path to lesson.json"]
+							},
+							{
+								"title": "parseLesson validates the model",
+								"desc": "Structural zod validation, then a version-pairing gate. Failure returns Left and writes no artifact.",
+								"state": { "parseLesson": "validating" },
+								"annotations": ["REQ-001", "REQ-003"]
+							},
+							{
+								"title": "assembler walks blocks",
+								"desc": "Each block becomes its <tm-*> element; interactive blocks get a JSON island child.",
+								"state": { "assembler": "walking" }
+							},
+							{
+								"title": "pre-render produces static SVG",
+								"desc": "Mermaid renders offline to a self-contained <svg>; no runtime diagram library is shipped.",
+								"state": { "pre-render": "rendering" },
+								"annotations": ["0 external requests"]
+							},
+							{
+								"title": "inliner folds one file",
+								"desc": "The widget bundle and styles inline into a single <main>; the script runs at the end of <body>.",
+								"state": { "inliner": "inlining" }
+							}
+						]
+					}
+				},
+				{
+					"type": "diagram",
+					"title": "Render sequence",
+					"source": "sequenceDiagram\n    participant R as render\n    participant S as parseLesson\n    participant A as assembler\n    participant I as inliner\n    R->>S: validate(lesson)\n    S-->>R: Right(model)\n    R->>A: assemble(model)\n    A->>I: body + bundle\n    I-->>R: one self-contained html",
+					"alt": "render calls parseLesson which returns a validated model, render passes it to the assembler, the assembler hands a body and bundle to the inliner, and the inliner returns one self-contained HTML string."
+				}
+			]
+		},
+		{
+			"id": "the-widget-state-machine",
+			"heading": "How an interactive widget hydrates",
+			"intent": "state-machine",
+			"blocks": [
+				{
+					"type": "prose",
+					"md": "An interactive widget is inert markup until its element definition runs. Because the widget `<script>` is at the end of `<body>`, each element upgrades only after its JSON island child is parsed."
+				},
+				{
+					"type": "state-explorer",
+					"data": {
+						"initial": "inert",
+						"states": [
+							{
+								"id": "inert",
+								"label": "Inert markup",
+								"description": "The <tm-*> element and its JSON island exist in the DOM, but no behavior is attached yet."
+							},
+							{
+								"id": "upgrading",
+								"label": "Upgrading",
+								"description": "The tail widget script runs; the element's connectedCallback reads its island."
+							},
+							{
+								"id": "hydrated",
+								"label": "Hydrated",
+								"description": "Controls are live <button>s; the island has been read and removed."
+							}
+						],
+						"transitions": [
+							{
+								"from": "inert",
+								"to": "upgrading",
+								"label": "script executes"
+							},
+							{
+								"from": "upgrading",
+								"to": "hydrated",
+								"label": "island parsed + rendered"
+							}
+						]
+					}
+				},
+				{
+					"type": "diagram",
+					"title": "Hydration states",
+					"source": "stateDiagram-v2\n    [*] --> Inert\n    Inert --> Upgrading: script executes\n    Upgrading --> Hydrated: island read\n    Hydrated --> [*]",
+					"alt": "A widget starts Inert, moves to Upgrading when the tail script executes, then to Hydrated once its JSON island is read, then completes."
+				}
+			]
+		},
+		{
+			"id": "the-layers",
+			"heading": "The layers of the teach-me module",
+			"intent": "layered-architecture",
+			"blocks": [
+				{
+					"type": "layer-explorer",
+					"data": {
+						"layers": [
+							{
+								"id": "schema",
+								"name": "Schema",
+								"responsibilities": [
+									"Validate lesson.json",
+									"Pair schema/library versions",
+									"Reject unknown block types"
+								]
+							},
+							{
+								"id": "assemble",
+								"name": "Assembler + pre-render",
+								"responsibilities": [
+									"Walk blocks to <tm-*> markup",
+									"Render Mermaid to static SVG",
+									"Highlight code with Shiki"
+								]
+							},
+							{
+								"id": "inline",
+								"name": "Inliner",
+								"responsibilities": [
+									"Fold the widget bundle into one file",
+									"Guarantee a single self-contained document"
+								]
+							},
+							{
+								"id": "gate",
+								"name": "Gate",
+								"responsibilities": [
+									"Re-assert self-containment",
+									"Run a headless file:// check",
+									"Name any failing check"
+								]
+							}
+						]
+					}
+				},
+				{
+					"type": "table",
+					"caption": "Which tool owns each guarantee",
+					"headers": ["Guarantee", "Owner"],
+					"rows": [
+						["Lesson is valid and versioned", "Schema"],
+						["Diagrams are static SVG", "Pre-render"],
+						["Output is one file", "Inliner"],
+						["No external network at view time", "Gate"]
+					]
+				}
+			]
+		},
+		{
+			"id": "the-decision",
+			"heading": "Static block or interactive widget?",
+			"intent": "decision-tree",
+			"blocks": [
+				{
+					"type": "callout",
+					"variant": "warn",
+					"title": "One island shape only",
+					"md": "An interactive block's JSON island is **exactly** its schema `data` object. Diverging from the schema shape is the single most common way a widget stays inert."
+				},
+				{
+					"type": "decision-tree",
+					"data": {
+						"root": {
+							"question": "Does the block need user interaction (stepping, branching, checking an answer)?",
+							"branches": [
+								{
+									"label": "No",
+									"terminal": {
+										"verdict": "no",
+										"text": "Render it server-side as a static <tm-*> child; the element only adds accessibility semantics."
+									}
+								},
+								{
+									"label": "Yes",
+									"node": {
+										"question": "Is its payload the schema's data object?",
+										"branches": [
+											{
+												"label": "Yes",
+												"terminal": {
+													"verdict": "yes",
+													"text": "Emit a co-located <script type=application/json> island; the widget hydrates from it."
+												}
+											},
+											{
+												"label": "No",
+												"terminal": {
+													"verdict": "maybe",
+													"text": "Fix the schema shape first — a mismatched island leaves the widget inert."
+												}
+											}
+										]
+									}
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "the-walkthrough",
+			"heading": "Build a lesson step by step",
+			"intent": "step-through",
+			"blocks": [
+				{
+					"type": "stepper",
+					"data": {
+						"steps": [
+							{
+								"title": "Describe the lesson as data",
+								"md": "Author `lesson.json` against the schema: `meta`, `sections[].blocks[]`, `checks`, `glossary`, `references`."
+							},
+							{
+								"title": "Render",
+								"md": "Run `render lesson.json -o lesson.html`. A schema error exits non-zero and writes **nothing**."
+							},
+							{
+								"title": "Validate",
+								"md": "Run `validate` to gate self-containment and run a headless `file://` check."
+							},
+							{
+								"title": "Export",
+								"md": "Run `export lesson.html -o out.html` to re-assert self-containment and emit the standalone file."
+							}
+						]
+					}
+				},
+				{
+					"type": "compare-cards",
+					"data": {
+						"cards": [
+							{
+								"title": "render",
+								"points": [
+									"Input: lesson.json",
+									"Output: one lesson.html",
+									"Owns: parse, assemble, inline"
+								]
+							},
+							{
+								"title": "validate",
+								"points": [
+									"Input: lesson.json",
+									"Output: pass/fail per check",
+									"Owns: static + headless gate"
+								]
+							},
+							{
+								"title": "export",
+								"points": [
+									"Input: rendered lesson.html",
+									"Output: standalone file",
+									"Owns: self-containment re-assertion"
+								]
+							}
+						]
+					}
+				},
+				{
+					"type": "glossary",
+					"terms": [
+						{
+							"term": "island",
+							"def": "A co-located <script type=application/json> child carrying a widget's data."
+						},
+						{
+							"term": "self-contained",
+							"def": "One HTML file with all CSS/JS/SVG inlined and zero external network references."
+						}
+					]
+				},
+				{
+					"type": "quiz",
+					"data": {
+						"questions": [
+							{
+								"q": "Where does the widget bundle <script> belong?",
+								"choices": ["In <head>", "At the end of <body>"],
+								"answer": 1,
+								"explanation": "A head script upgrades each element before its JSON island child is parsed, leaving interactive widgets inert; the tail placement fixes hydration."
+							}
+						]
+					}
+				}
+			]
+		}
+	],
+	"checks": [
+		{
+			"q": "What happens to the output file when parseLesson returns Left?",
+			"choices": ["A partial file is written", "No artifact is written"],
+			"answer": 1,
+			"explanation": "render writes output only on success, so a parse or version failure leaves no partial artifact behind."
+		},
+		{
+			"q": "Why must rendered diagrams be static SVG?",
+			"choices": [
+				"So the page loads with zero external network",
+				"So the diagrams animate"
+			],
+			"answer": 0,
+			"explanation": "Pre-rendering to static SVG means no runtime diagram library is shipped and the page opens offline from a file:// URL."
+		}
+	],
+	"glossary": [
+		{
+			"term": "lesson.json",
+			"def": "The hand-authored data model a lesson is expressed as."
+		},
+		{
+			"term": "widget",
+			"def": "A fixed <tm-*> custom element that renders one block type from data."
+		}
+	],
+	"misconceptions": [
+		"A lesson is HTML you write by hand (it is data validated against a schema).",
+		"Diagrams need a runtime library in the page (they are pre-rendered to static SVG)."
+	],
+	"next": [
+		"Read the assembler to see how each block becomes <tm-*> markup.",
+		"Read the gate to see how self-containment is re-asserted."
+	],
+	"references": [
+		{
+			"kind": "repo",
+			"path": "src/commands/teach-me/render.ts",
+			"symbol": "renderLessonHtml",
+			"why": "The render core that orchestrates parse, assemble, and inline."
+		},
+		{
+			"kind": "repo",
+			"path": "src/teach-me/schema/lesson-schema.ts",
+			"symbol": "parseLesson",
+			"why": "The schema contract boundary that validates and version-pairs a lesson."
+		},
+		{
+			"kind": "repo",
+			"path": "src/teach-me/inline.ts",
+			"why": "The inliner that folds the assembled body and widget bundle into one self-contained file."
+		},
+		{
+			"kind": "repo",
+			"path": "src/teach-me/gate/static-checks.ts",
+			"why": "The static self-containment checks the validate and export commands run."
+		},
+		{
+			"kind": "web",
+			"title": "Using custom elements",
+			"org": "MDN",
+			"url": "https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_custom_elements",
+			"usedFor": "Background on the connectedCallback lifecycle the widget hydration relies on."
+		}
+	]
+}
