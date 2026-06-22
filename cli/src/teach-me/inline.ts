@@ -11,8 +11,17 @@
  * The widget script is embedded as a plain inline `<script>` (not
  * `type="module"`): the bundle is an IIFE that self-registers all `<tm-*>`
  * elements, and a classic inline script avoids the `file://` ES-module CORS
- * restriction that would otherwise break offline open. Element upgrade happens
- * as the body is parsed after the definitions register in `<head>`.
+ * restriction that would otherwise break offline open.
+ *
+ * The script is placed at the END of `<body>`, after the lesson markup, not in
+ * `<head>`. Interactive widgets hydrate from a co-located
+ * `<script type="application/json">` island child, and a custom element's
+ * `connectedCallback` runs when its start tag is parsed — before its island
+ * child exists if the definition is already registered (a head script). Defining
+ * the elements only after the body is fully parsed means each element is upgraded
+ * with its island present, so it hydrates (verified under a real `file://` load;
+ * a head script leaves interactive widgets inert — REQ-004). The stylesheet stays
+ * in `<head>` so styling applies before paint.
  *
  * Output is deterministic: the document is built only from the assembled body
  * and the (byte-stable) widget bundle, with no timestamps or generated ids.
@@ -39,12 +48,12 @@ export function inlineDocument(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(assembled.title)}</title>
 <style>${bundle.css}</style>
-<script>${bundle.js}</script>
 </head>
 <body>
 <main class="tm-lesson">
 ${assembled.bodyHtml}
 </main>
+<script>${bundle.js}</script>
 </body>
 </html>
 `;
