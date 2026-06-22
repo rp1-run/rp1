@@ -103,6 +103,8 @@ export const collectPlatformPlugins = (
 export interface BundledAssets {
 	platforms: Partial<Record<string, BundledPlatform>>;
 	webui: AssetEntry[];
+	/** Compiled teach-me widget bundle (`tm-widgets.js`, `tm-base.css`). */
+	teachMe?: AssetEntry[];
 	version: string;
 	buildTimestamp: string;
 }

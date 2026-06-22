@@ -61,6 +61,7 @@ const { root: ROOT_DIR, cli: CLI_DIR } = findRootDir();
 
 const DIST_DIR = join(ROOT_DIR, "dist");
 const WEBUI_DIST = join(CLI_DIR, "web-ui/dist");
+const TEACHME_DIST = join(DIST_DIR, "teach-me");
 const OUTPUT_FILE = join(CLI_DIR, "src/assets/embedded.ts");
 const TOOLS_YAML = join(CLI_DIR, "src/config/supported-tools.yaml");
 const TOOLS_GENERATED = join(
@@ -85,6 +86,7 @@ interface AssetImport {
 		| "skill"
 		| "state-machine"
 		| "webui"
+		| "teach-me"
 		| "opencode-plugin"
 		| "verbatim-file";
 	plugin?: "base" | "dev" | "utils";
@@ -306,6 +308,48 @@ async function collectWebUIAssets(): Promise<AssetImport[]> {
 }
 
 /**
+ * Collect the compiled teach-me widget bundle (`tm-widgets.js`, `tm-base.css`)
+ * from dist/teach-me/ so it embeds via `import ... with { type: "file" }`.
+ * Like web-ui, this directory has no manifest, so the files are walked directly.
+ */
+async function collectTeachMeAssets(): Promise<AssetImport[]> {
+	const imports: AssetImport[] = [];
+
+	async function walk(dir: string): Promise<void> {
+		try {
+			const items = await readdir(dir, { withFileTypes: true });
+			for (const item of items) {
+				const fullPath = join(dir, item.name);
+				if (item.isDirectory()) {
+					await walk(fullPath);
+				} else {
+					const relPath = relative(TEACHME_DIST, fullPath).split(sep).join("/");
+					imports.push({
+						varName: toVarName("teachme", relPath),
+						importPath: getImportPath(fullPath),
+						outputName: relPath,
+						category: "teach-me",
+					});
+				}
+			}
+		} catch {
+			// Directory doesn't exist
+		}
+	}
+
+	try {
+		await stat(TEACHME_DIST);
+		await walk(TEACHME_DIST);
+	} catch {
+		console.warn(
+			"Warning: dist/teach-me not found. Run 'bun run build:teach-me-widgets' first.",
+		);
+	}
+
+	return imports;
+}
+
+/**
  * Generate supported-tools.generated.ts from supported-tools.yaml.
  */
 async function generateToolsRegistry(): Promise<void> {
@@ -505,8 +549,9 @@ async function generate(): Promise<void> {
 	}
 
 	const webuiAssets = await collectWebUIAssets();
+	const teachMeAssets = await collectTeachMeAssets();
 
-	const allAssets = [...allPlatformAssets, ...webuiAssets];
+	const allAssets = [...allPlatformAssets, ...webuiAssets, ...teachMeAssets];
 	const fileImports = allAssets
 		.filter((a) => !a.inlineContent)
 		.map(
@@ -536,6 +581,10 @@ async function generate(): Promise<void> {
 		(a) => `{ name: "${a.outputName}", path: ${a.varName} }`,
 	);
 
+	const teachMeEntries = teachMeAssets.map(
+		(a) => `{ name: "${a.outputName}", path: ${a.varName} }`,
+	);
+
 	// Use version from first platform (all share same version per version lockstep)
 	const version = platforms[0].manifest.version;
 
@@ -555,6 +604,7 @@ export const EMBEDDED_MANIFEST = {
 ${platformBlocks.join(",\n")}
   },
   webui: [${webuiEntries.join(", ")}],
+  teachMe: [${teachMeEntries.join(", ")}],
   version: "${version}",
   buildTimestamp: "${new Date().toISOString()}",
 } as const;
@@ -598,6 +648,7 @@ export const IS_BUNDLED = true;
 	}
 
 	console.log(`  Web-UI: ${webuiAssets.length} files`);
+	console.log(`  Teach-me widgets: ${teachMeAssets.length} files`);
 	console.log(`  Version: ${version}`);
 
 	// Generate tools registry from YAML

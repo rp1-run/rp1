@@ -295,6 +295,8 @@ export interface EmbeddedManifest {
 		Record<import("./template-context.js").BuildPlatform, BundleManifest>
 	>;
 	readonly webui: readonly BundleAssetEntry[];
+	/** Compiled teach-me widget bundle (`tm-widgets.js`, `tm-base.css`). */
+	readonly teachMe: readonly BundleAssetEntry[];
 	readonly version: string;
 	readonly buildTimestamp: string;
 }
