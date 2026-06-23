@@ -13,8 +13,10 @@ import {
 	MilkdownEditor,
 	type MilkdownEditorHandle,
 } from "@/components/MilkdownEditor/MilkdownEditor";
+import { SandboxedHtmlArtifact } from "@/components/v2/SandboxedHtmlArtifact";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { getCodeLanguageFromPath } from "@/lib/code-language";
+import { isHtmlArtifact } from "@/lib/html-artifact";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -341,6 +343,15 @@ export function UnifiedContentRenderer({
 			<span>Refreshing...</span>
 		</div>
 	) : null;
+
+	if (isHtmlArtifact(path)) {
+		return (
+			<div className="relative h-full w-full">
+				{refreshingOverlay}
+				<SandboxedHtmlArtifact content={content} title={path} />
+			</div>
+		);
+	}
 
 	const codeLanguage = getCodeLanguageFromPath(path);
 
