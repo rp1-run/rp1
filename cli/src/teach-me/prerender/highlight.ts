@@ -20,8 +20,17 @@ import { bundledLanguages, getSingletonHighlighter } from "shiki";
 import type { CLIError } from "../../../shared/errors.js";
 import { runtimeError } from "../../../shared/errors.js";
 
-/** Light/dark theme pair; emitted as CSS variables so a single block themes both ways. */
-const THEMES = { light: "github-light", dark: "github-dark" } as const;
+/**
+ * Light/dark theme pair; emitted as CSS variables so a single block themes both
+ * ways. Both are deliberately high-contrast (WCAG AA token contrast): the
+ * accessibility-tuned `github-light-high-contrast` for the cream light canvas
+ * and the vibrant, high-contrast `one-dark-pro` for the ink dark canvas — a
+ * sharp upgrade over the muted default `github-light`/`github-dark` pair.
+ */
+const THEMES = {
+	light: "github-light-high-contrast",
+	dark: "one-dark-pro",
+} as const;
 
 /** Pre-loaded themes for the singleton highlighter. */
 const THEME_NAMES = [THEMES.light, THEMES.dark] as const;
