@@ -82,6 +82,7 @@ const baseRun: Run = {
 };
 
 let run: Run = baseRun;
+let isMobileViewport = false;
 
 const walkthroughArtifactPath =
 	".rp1/work/pr-walkthroughs/pr-42-walkthrough-001.md";
@@ -124,8 +125,8 @@ mock.module("@/providers/WebSocketProvider", () => ({
 }));
 
 mock.module("@/hooks/useMediaQuery", () => ({
-	useMediaQuery: () => false,
-	useIsMobile: () => false,
+	useMediaQuery: () => isMobileViewport,
+	useIsMobile: () => isMobileViewport,
 }));
 
 mock.module("@/hooks/useReconnectRecovery", () => ({
@@ -393,6 +394,7 @@ describe("ArtifactViewerPage", () => {
 		sessionStorage.clear();
 		latestRegistry = null;
 		latestAnnotationProvider = null;
+		isMobileViewport = false;
 		run = {
 			...baseRun,
 			steps: [...baseRun.steps],
@@ -785,5 +787,60 @@ describe("ArtifactViewerPage", () => {
 			screen.getByTestId("artifact-renderer").dataset.enableAnnotations,
 		).toBe("true");
 		expect(screen.getByTestId("annotation-sidebar")).toBeTruthy();
+	});
+
+	test("retains the mobile annotation affordances for non-HTML file artifacts", async () => {
+		isMobileViewport = true;
+
+		await renderArtifactViewerPage();
+
+		await waitFor(() => {
+			expect(screen.getByTestId("artifact-renderer").textContent).toBe(
+				"docs/tasks.md:# Tasks",
+			);
+		});
+
+		expect(
+			screen.getByTestId("artifact-renderer").dataset.enableAnnotations,
+		).toBe("true");
+		expect(screen.getByLabelText("Open annotations")).toBeTruthy();
+		expect(screen.getByTestId("annotation-sidebar")).toBeTruthy();
+	});
+
+	test("suppresses the mobile annotation toolbar and drawer for HTML artifacts", async () => {
+		isMobileViewport = true;
+		const htmlArtifactPath = "lessons/intro.html";
+		run = {
+			...baseRun,
+			artifacts: [
+				{
+					docId: "doc-html",
+					path: htmlArtifactPath,
+					absolutePath: `/repo/${htmlArtifactPath}`,
+					type: "other",
+					updatedDuringRun: true,
+					isNew: false,
+					step: "build",
+				},
+			],
+		};
+		global.fetch = mock(async () => ({
+			ok: true,
+			json: async () => ({ content: "<!doctype html><button>Run</button>" }),
+		})) as unknown as typeof fetch;
+
+		await renderArtifactViewerPage(`/runs/run-1/artifacts/${htmlArtifactPath}`);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("artifact-renderer").textContent).toContain(
+				`${htmlArtifactPath}:`,
+			);
+		});
+
+		expect(
+			screen.getByTestId("artifact-renderer").dataset.enableAnnotations,
+		).toBe("false");
+		expect(screen.queryByLabelText("Open annotations")).toBeNull();
+		expect(screen.queryByTestId("annotation-sidebar")).toBeNull();
 	});
 });
