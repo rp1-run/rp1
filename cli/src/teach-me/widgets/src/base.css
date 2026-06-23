@@ -475,8 +475,8 @@ tm-table code,
 	border-color: var(--tm-border);
 }
 
-.tm-chip {
-	border-radius: 999px;
+.tm-btn[hidden] {
+	display: none;
 }
 
 .tm-link {
@@ -512,7 +512,7 @@ tm-key-insight,
 .tm-state-explorer__detail,
 .tm-layer-explorer__detail,
 .tm-code-walkthrough__explain,
-.tm-decision-tree__verdict,
+tm-decision-tree,
 .tm-compare-cards__card,
 .tm-quiz__q {
 	background: var(--tm-surface);
@@ -829,6 +829,20 @@ tm-diagram svg {
 	margin-top: 0.6rem;
 }
 
+tm-decision-tree {
+	padding: 1.05rem 1.2rem;
+}
+
+.tm-decision-tree__question {
+	margin: 0 0 0.2rem;
+	font-weight: 700;
+	color: var(--tm-heading);
+}
+
+.tm-decision-tree__reset {
+	margin-top: 0.75rem;
+}
+
 .tm-decision-tree__verdict {
 	padding: 1rem 1.15rem;
 	border-left-width: var(--tm-rail);
@@ -1038,7 +1052,6 @@ tm-diagram svg {
 .tm-quiz__q {
 	margin: 0 0 1rem;
 	padding: 1.05rem 1.2rem;
-	border: none;
 }
 
 .tm-quiz__legend {

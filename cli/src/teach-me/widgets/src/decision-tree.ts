@@ -46,6 +46,7 @@ class DecisionTreeElement extends HTMLElement {
 	private path: string[] = [];
 	private body!: HTMLElement;
 	private trail!: HTMLElement;
+	private reset!: HTMLButtonElement;
 
 	connectedCallback(): void {
 		const data = readIsland<DecisionTreeData>(this);
@@ -61,12 +62,16 @@ class DecisionTreeElement extends HTMLElement {
 		this.body = el("div", "tm-decision-tree__body");
 		this.body.setAttribute("aria-live", "polite");
 
-		const reset = button("Start over", "tm-btn tm-btn--ghost", () => {
-			this.path = [];
-			this.renderNode(this.root);
-		});
+		this.reset = button(
+			"Start over",
+			"tm-btn tm-btn--ghost tm-decision-tree__reset",
+			() => {
+				this.path = [];
+				this.renderNode(this.root);
+			},
+		);
 
-		this.append(this.trail, this.body, reset);
+		this.append(this.trail, this.body, this.reset);
 		this.renderNode(this.root);
 	}
 
@@ -89,6 +94,7 @@ class DecisionTreeElement extends HTMLElement {
 			choices.appendChild(choice);
 		}
 		this.body.appendChild(choices);
+		this.reset.hidden = this.path.length === 0;
 	}
 
 	private choose(branch: DecisionBranch): void {
@@ -117,6 +123,7 @@ class DecisionTreeElement extends HTMLElement {
 		);
 		card.appendChild(el("p", "tm-decision-tree__verdict-text", terminal.text));
 		this.body.appendChild(card);
+		this.reset.hidden = false;
 	}
 }
 

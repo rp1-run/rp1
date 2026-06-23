@@ -51,9 +51,7 @@ class StateExplorerElement extends HTMLElement {
 		group.setAttribute("role", "group");
 		group.setAttribute("aria-label", "States");
 		for (const state of data.states) {
-			const btn = button(state.label, "tm-btn tm-chip", () =>
-				this.select(state.id),
-			);
+			const btn = button(state.label, "tm-btn", () => this.select(state.id));
 			this.buttons.set(state.id, btn);
 			group.appendChild(btn);
 		}
