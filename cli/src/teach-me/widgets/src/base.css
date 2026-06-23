@@ -1091,6 +1091,10 @@ tm-decision-tree {
 	border-color: color-mix(in srgb, var(--tm-danger) 45%, transparent);
 }
 
+.tm-quiz__q > .tm-btn {
+	margin-top: 0.85rem;
+}
+
 .tm-quiz__feedback {
 	margin: 0.6rem 0 0;
 	font-size: 0.92rem;
