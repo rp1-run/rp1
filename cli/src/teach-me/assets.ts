@@ -87,8 +87,11 @@ export const readWidgetBundleFromDir = (
  * Repo-root `dist/teach-me/` resolved relative to this module's source location.
  * Only used on the dev/source path, where `import.meta` points at the real file
  * tree; the bundled path never reaches here.
+ *
+ * Exported so the test preload (`scripts/ensure-teach-me-widgets.ts`) resolves
+ * the exact same directory it must build into, keeping the two in lockstep.
  */
-const devBundleDir = (): string =>
+export const devBundleDir = (): string =>
 	join(
 		dirname(fileURLToPath(import.meta.url)),
 		"..",

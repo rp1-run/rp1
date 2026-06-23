@@ -1,5 +1,8 @@
 [test]
 root = "./src/__tests__"
+# Build the gitignored teach-me widget bundle if it is missing, so `bun test`
+# is self-sufficient on a fresh clone and in clean CI (no prior build step).
+preload = ["./scripts/ensure-teach-me-widgets.ts"]
 
 [install]
 registry = "https://registry.npmjs.org/"

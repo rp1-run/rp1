@@ -135,14 +135,17 @@ describeBrowser(
 	() => {
 		let html = "";
 
+		// Cold-starting Puppeteer Chrome and loading the offline Mermaid engine can
+		// exceed the default 5s hook budget on a busy box, so this render hook gets
+		// the same 30s timeout the sibling browser-backed render tests use.
 		beforeAll(async () => {
 			const result = await renderLessonHtml(fixtureValue, FIXTURE_PATH)();
 			html = expectRenderedHtml(result);
-		});
+		}, 30000);
 
 		afterAll(async () => {
 			await closeMermaidBrowser()();
-		});
+		}, 30000);
 
 		it("renders every <tm-*> widget from the fixture data (REQ-004)", () => {
 			for (const tag of WIDGET_TAGS) {
