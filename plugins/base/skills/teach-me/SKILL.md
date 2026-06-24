@@ -108,10 +108,10 @@ For web/science/library: gather authoritative sources, definitions, models worth
 
 ### Phase 5 -- Assemble (invoke tooling)
 
-Use the `workRoot` value resolved in §0 (Resolve Arguments) -- do NOT re-resolve directories. Write the lesson model under it (in worktrees `workRoot` already points at the MAIN repo's `.rp1/work/`, NOT the worktree) so Arcade can see it, e.g. `<workRoot>/features/teach-me-<slug>/lesson.json`. Then assemble:
+Use the `workRoot` value resolved in §0 (Resolve Arguments) -- do NOT re-resolve directories. Write the lesson model to a dedicated lessons dir `<workRoot>/teach-me/<YYYY-MM-DD>-<slug>/lesson.json` (in worktrees `workRoot` already points at the MAIN repo's `.rp1/work/`, NOT the worktree, so Arcade can see it). `<YYYY-MM-DD>` is today's date and `<slug>` is a short kebab-case of the topic. Do NOT write under `features/` -- that is the build/feature-workflow namespace, not lessons. Then assemble:
 
 ```bash
-rp1 teach-me render <workRoot>/features/teach-me-<slug>/lesson.json -o <workRoot>/features/teach-me-<slug>/lesson.html
+rp1 teach-me render <workRoot>/teach-me/<YYYY-MM-DD>-<slug>/lesson.json -o <workRoot>/teach-me/<YYYY-MM-DD>-<slug>/lesson.html
 ```
 
 The tooling -- not you -- selects templates, instantiates widgets, pre-renders diagrams/code/math, and inlines all assets into one self-contained file.
@@ -119,7 +119,7 @@ The tooling -- not you -- selects templates, instantiates widgets, pre-renders d
 ### Phase 6 -- Validation gate (before returning)
 
 ```bash
-rp1 teach-me validate <workRoot>/features/teach-me-<slug>/lesson.json
+rp1 teach-me validate <workRoot>/teach-me/<YYYY-MM-DD>-<slug>/lesson.json
 ```
 
 `validate` takes the lesson.json (it renders internally, then gates). Do NOT return a lesson that fails the gate -- fix the model and re-run. The gate checks (§17): renders without a server, no console errors / broken imports / missing assets, no external network requests, single self-contained file within size target, interactive controls + diagrams render, accessibility basics, every cited repo `file:line` resolves (anti-fabrication), and references present when research was used.
@@ -127,13 +127,13 @@ rp1 teach-me validate <workRoot>/features/teach-me-<slug>/lesson.json
 After the gate passes, register the output so it renders in the Arcade sandboxed-iframe viewer:
 
 ```bash
-rp1 agent-tools emit --type artifact_registered --run-id {RUN_ID} --harness $CURRENT_HOST --data '{"path":"features/teach-me-<slug>/lesson.html","storageRoot":"work_dir","kind":"html"}'
+rp1 agent-tools emit --type artifact_registered --run-id {RUN_ID} --harness $CURRENT_HOST --data '{"path":"teach-me/<YYYY-MM-DD>-<slug>/lesson.html","storageRoot":"work_dir","kind":"html"}'
 ```
 
 Register ONLY after the file exists. Optionally emit the standalone export:
 
 ```bash
-rp1 teach-me export <workRoot>/features/teach-me-<slug>/lesson.html -o <workRoot>/features/teach-me-<slug>/lesson.export.html
+rp1 teach-me export <workRoot>/teach-me/<YYYY-MM-DD>-<slug>/lesson.html -o <workRoot>/teach-me/<YYYY-MM-DD>-<slug>/lesson.export.html
 ```
 
 ## Output artifact contract (enforced by the gate)
