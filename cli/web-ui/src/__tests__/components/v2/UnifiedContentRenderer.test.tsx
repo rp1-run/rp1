@@ -152,6 +152,30 @@ describe("UnifiedContentRenderer", () => {
 		expect(screen.queryByTestId("markdown-viewer")).toBeNull();
 	});
 
+	test("wraps the html artifact in a non-collapsing fill-height container", async () => {
+		const { UnifiedContentRenderer } = await import(
+			`../../../components/v2/UnifiedContentRenderer.tsx?renderer-test=${++importVersion}`
+		);
+
+		render(
+			<UnifiedContentRenderer
+				content="<!doctype html><html><body><button>Run</button></body></html>"
+				path=".rp1/work/features/example/lesson.html"
+			/>,
+		);
+
+		// happy-dom does not compute layout px, so assert the structural classes
+		// that keep the iframe from collapsing to its 150px intrinsic height: a
+		// flex column with a min-height floor so the flex-1 iframe fills it.
+		const wrapper = screen.getByTestId("sandboxed-html-artifact")
+			.parentElement as HTMLElement;
+		expect(wrapper.className).toContain("flex");
+		expect(wrapper.className).toContain("flex-col");
+		expect(wrapper.className).toContain("h-full");
+		expect(wrapper.className).toContain("min-h-[640px]");
+		expect(wrapper.className).toContain("overflow-hidden");
+	});
+
 	test("classifies html case-insensitively (.HTM)", async () => {
 		const { UnifiedContentRenderer } = await import(
 			`../../../components/v2/UnifiedContentRenderer.tsx?renderer-test=${++importVersion}`

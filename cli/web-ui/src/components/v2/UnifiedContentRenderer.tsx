@@ -345,8 +345,17 @@ export function UnifiedContentRenderer({
 	) : null;
 
 	if (isHtmlArtifact(path)) {
+		// The HTML artifact fills the viewer pane and scrolls internally. The
+		// enclosing prose <article> is auto-height (correct for flow content),
+		// and Radix's ScrollArea injects an auto-height display:table wrapper, so
+		// a pure `h-full` chain collapses the iframe to its 150px intrinsic
+		// default, and a min-height alone does not establish a definite height for
+		// the iframe's percentage fill. So this wrapper is a flex column with a
+		// `min-h-[640px]` floor (matching WalkthroughRevealReader, the sibling
+		// full-pane renderer); the flex-1 iframe fills that height and grows with
+		// the pane.
 		return (
-			<div className="relative h-full w-full">
+			<div className="relative flex h-full min-h-[640px] w-full flex-col overflow-hidden">
 				{refreshingOverlay}
 				<SandboxedHtmlArtifact content={content} title={path} />
 			</div>
