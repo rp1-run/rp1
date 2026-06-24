@@ -19,6 +19,14 @@ import type { Artifact } from "@/types/runs";
 
 let importVersion = 0;
 
+// Every render of the mocked ContentPanel records the (path, content) pair it
+// was handed, so a test can assert the viewer is never fed a different
+// artifact's content than the path it is rendering (the tab-switch desync bug).
+const contentPanelRenders: Array<{
+	path: string | null;
+	content: string | null;
+}> = [];
+
 const firstArtifact: Artifact = {
 	docId: "doc-1",
 	path: ".rp1/work/features/feature-1/tasks.md",
@@ -57,6 +65,18 @@ const prReviewArtifact: Artifact = {
 	updatedDuringRun: true,
 	isNew: false,
 	step: "pr-review",
+};
+
+// An HTML artifact routes to the sandboxed iframe (detected by `.html`), so a
+// desync that feeds it markdown bytes is the visible "mangled" failure.
+const htmlArtifact: Artifact = {
+	docId: "doc-html",
+	path: ".rp1/work/features/feature-1/lesson.html",
+	absolutePath: "/repo/.rp1/work/features/feature-1/lesson.html",
+	type: "other",
+	updatedDuringRun: true,
+	isNew: false,
+	step: "build",
 };
 
 const walkthroughSlideSource = `---
@@ -119,6 +139,7 @@ function artifactNotFoundResponse(path: string): Response {
 
 interface MockContentPanelProps {
 	readonly content?: string | null;
+	readonly path?: string | null;
 	readonly error?: string | null;
 	readonly isLoading?: boolean;
 	readonly onHeadingsExtracted?: (headings: HeadingEntry[]) => void;
@@ -132,6 +153,7 @@ interface MockContentPanelProps {
 
 function MockContentPanel({
 	content,
+	path,
 	error,
 	isLoading,
 	onHeadingsExtracted,
@@ -141,6 +163,10 @@ function MockContentPanel({
 	walkthroughFallbackMessage = null,
 	onWalkthroughRenderFailure,
 }: MockContentPanelProps) {
+	// Record during render (not in an effect) so the transient commit a buggy
+	// switch produces — new path, previous artifact's content — is captured.
+	contentPanelRenders.push({ path: path ?? null, content: content ?? null });
+
 	useEffect(() => {
 		if (content !== null && content !== undefined) {
 			onHeadingsExtracted?.([{ id: "intro", text: "Intro", level: 1 }]);
@@ -315,6 +341,7 @@ describe("ArtifactContentSurface", () => {
 	beforeEach(() => {
 		mock.restore();
 		document.body.innerHTML = "";
+		contentPanelRenders.length = 0;
 		global.fetch = mock(async (input: RequestInfo | URL) => {
 			const url = String(input);
 			const content = url.includes(encodeURIComponent(secondArtifact.path))
@@ -359,6 +386,57 @@ describe("ArtifactContentSurface", () => {
 			expect(screen.getByLabelText("Open table of contents")).toBeTruthy();
 			expect(screen.getByLabelText("Toggle annotations")).toBeTruthy();
 		});
+	});
+
+	test("never feeds a viewer another artifact's content while switching tabs", async () => {
+		// Key each artifact's content by its path so a desynced (path, content)
+		// pair handed to the viewer is detectable. Without a synchronous reset on
+		// the selected-artifact change, the switch commits one frame with the new
+		// path but the previous artifact's bytes — markdown dumped into the HTML
+		// iframe (or vice versa): the "wrong tab / mangled content" flash.
+		global.fetch = mock(async (input: RequestInfo | URL) => {
+			const url = String(input);
+			const encoded = url.split("/artifacts/")[1] ?? "";
+			const path = decodeURIComponent(encoded);
+			return contentResponse(`CONTENT::${path}`);
+		}) as unknown as typeof fetch;
+
+		const { ArtifactContentSurface } = await importSurface();
+
+		const view = render(
+			<ArtifactContentSurface {...surfaceProps(firstArtifact)} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByTestId("artifact-content-panel").dataset.content).toBe(
+				`CONTENT::${firstArtifact.path}`,
+			);
+		});
+
+		// Only inspect renders produced by the tab switches below.
+		contentPanelRenders.length = 0;
+
+		// markdown -> html (the user's "Lesson.html selected, content is wrong").
+		view.rerender(<ArtifactContentSurface {...surfaceProps(htmlArtifact)} />);
+		await waitFor(() => {
+			expect(screen.getByTestId("artifact-content-panel").dataset.content).toBe(
+				`CONTENT::${htmlArtifact.path}`,
+			);
+		});
+
+		// html -> markdown.
+		view.rerender(<ArtifactContentSurface {...surfaceProps(secondArtifact)} />);
+		await waitFor(() => {
+			expect(screen.getByTestId("artifact-content-panel").dataset.content).toBe(
+				`CONTENT::${secondArtifact.path}`,
+			);
+		});
+
+		// Invariant: every committed render carried content belonging to its own
+		// path (or had no content yet). Any other pairing is the desync bug.
+		const mismatches = contentPanelRenders.filter(
+			(entry) => entry.content && entry.content !== `CONTENT::${entry.path}`,
+		);
+		expect(mismatches).toEqual([]);
 	});
 
 	test("ignores stale artifact fetch errors after the selected artifact changes", async () => {
