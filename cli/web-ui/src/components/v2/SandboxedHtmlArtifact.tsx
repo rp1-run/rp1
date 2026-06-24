@@ -26,7 +26,7 @@ export function SandboxedHtmlArtifact({
 			title={title}
 			srcDoc={content}
 			sandbox={HTML_ARTIFACT_SANDBOX}
-			className="rp1-html-artifact-frame h-full w-full flex-1 min-h-0 border-0 bg-white"
+			className="rp1-html-artifact-frame absolute inset-0 h-full w-full border-0 bg-white"
 		/>
 	);
 }

@@ -166,13 +166,13 @@ describe("UnifiedContentRenderer", () => {
 
 		// happy-dom does not compute layout px, so assert the structural classes
 		// that keep the iframe from collapsing to its 150px intrinsic height: a
-		// flex column with a min-height floor so the flex-1 iframe fills it.
+		// `relative` box with a min-height floor that the absolute-positioned
+		// iframe fills.
 		const wrapper = screen.getByTestId("sandboxed-html-artifact")
 			.parentElement as HTMLElement;
-		expect(wrapper.className).toContain("flex");
-		expect(wrapper.className).toContain("flex-col");
+		expect(wrapper.className).toContain("relative");
 		expect(wrapper.className).toContain("h-full");
-		expect(wrapper.className).toContain("min-h-[640px]");
+		expect(wrapper.className).toContain("min-h-[calc(100dvh_-_16rem)]");
 		expect(wrapper.className).toContain("overflow-hidden");
 	});
 

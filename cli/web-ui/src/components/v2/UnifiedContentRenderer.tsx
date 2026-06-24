@@ -345,17 +345,16 @@ export function UnifiedContentRenderer({
 	) : null;
 
 	if (isHtmlArtifact(path)) {
-		// The HTML artifact fills the viewer pane and scrolls internally. The
-		// enclosing prose <article> is auto-height (correct for flow content),
-		// and Radix's ScrollArea injects an auto-height display:table wrapper, so
-		// a pure `h-full` chain collapses the iframe to its 150px intrinsic
-		// default, and a min-height alone does not establish a definite height for
-		// the iframe's percentage fill. So this wrapper is a flex column with a
-		// `min-h-[640px]` floor (matching WalkthroughRevealReader, the sibling
-		// full-pane renderer); the flex-1 iframe fills that height and grows with
-		// the pane.
+		// The HTML artifact fills the viewer pane and scrolls internally. It renders
+		// in the shared ScrollArea/prose path on every surface; that Radix
+		// display:table viewport blocks a percentage/flex height, so the wrapper
+		// takes a viewport-relative `min-h-[calc(100dvh-16rem)]` fill (rather than a
+		// fixed floor) and the iframe is positioned `absolute inset-0` to fill it
+		// deterministically. The wrapper element is intentionally NOT swapped per
+		// surface — swapping it on tab-switch raced the content load and rendered
+		// the wrong artifact.
 		return (
-			<div className="relative flex h-full min-h-[640px] w-full flex-col overflow-hidden">
+			<div className="relative h-full min-h-[calc(100dvh_-_16rem)] w-full overflow-hidden">
 				{refreshingOverlay}
 				<SandboxedHtmlArtifact content={content} title={path} />
 			</div>
