@@ -124,10 +124,10 @@ rp1 teach-me validate <workRoot>/teach-me/<YYYY-MM-DD>-<slug>/lesson.json
 
 `validate` takes the lesson.json (it renders internally, then gates). Do NOT return a lesson that fails the gate -- fix the model and re-run. The gate checks (§17): renders without a server, no console errors / broken imports / missing assets, no external network requests, single self-contained file within size target, interactive controls + diagrams render, accessibility basics, every cited repo `file:line` resolves (anti-fabrication), and references present when research was used.
 
-After the gate passes, register the output so it renders in the Arcade sandboxed-iframe viewer:
+After the gate passes, register the output so it renders in the Arcade sandboxed-iframe viewer. Set `--name` to `Teach: <lesson title>` (the lesson's `meta.title`) so the run shows a meaningful title in the Activity feed instead of "Unknown" (the run name is set-once):
 
 ```bash
-rp1 agent-tools emit --type artifact_registered --run-id {RUN_ID} --harness $CURRENT_HOST --data '{"path":"teach-me/<YYYY-MM-DD>-<slug>/lesson.html","storageRoot":"work_dir","kind":"html"}'
+rp1 agent-tools emit --type artifact_registered --run-id {RUN_ID} --name "Teach: <lesson title>" --harness $CURRENT_HOST --data '{"path":"teach-me/<YYYY-MM-DD>-<slug>/lesson.html","storageRoot":"work_dir","kind":"html"}'
 ```
 
 Register ONLY after the file exists. Optionally emit the standalone export:
@@ -151,4 +151,4 @@ Recommendations (spine choice, widget choice, research-or-not, competing models)
 - `rp1 teach-me render <lesson.json> -o <out.html>`
 - `rp1 teach-me validate <lesson.json>`
 - `rp1 teach-me export <lesson.html> -o <out.html>`
-- `rp1 agent-tools emit --type artifact_registered --run-id {RUN_ID} --data <json>`
+- `rp1 agent-tools emit --type artifact_registered --run-id {RUN_ID} --name "Teach: <lesson title>" --data <json>`
