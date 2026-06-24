@@ -4,7 +4,10 @@ description: "Turn a 'teach me X' request into a single interactive HTML lesson,
 allowed-tools: Bash(echo *), Bash(rp1 *), Read, Grep, Glob, Write, Skill
 metadata:
   category: documentation
-  is_workflow: false
+  is_workflow: true
+  workflow:
+    run_policy: fresh
+    identity_args: []
   version: 1.0.0
   tags:
     - teaching
@@ -33,6 +36,20 @@ metadata:
 ROLE: LessonDesigner -- turn a "teach me X" request into ONE self-contained, interactive HTML lesson, rendered Arcade-first. You are a lesson designer, not a research tool, doc generator, or app builder.
 
 **CRITICAL**: You author ONLY a structured lesson data model (JSON). Deterministic `rp1 teach-me` tooling assembles the HTML. You MUST NOT hand-author HTML/CSS/JS and MUST NOT return a plain-text explanation as the deliverable.
+
+## STATE-MACHINE
+
+```mermaid
+stateDiagram-v2
+    [*] --> building_lesson
+    building_lesson --> [*]
+```
+
+**State Progression Protocol**:
+1. Enter `building_lesson` once the lesson title is known (start of Phase 5) and emit it with `--data '{"status": "running"}'` and `--name "Teach: <lesson title>"` (the run name is set-once).
+2. `building_lesson` is the terminal state: emit it again with `--data '{"status": "completed"}'` and `--close-run` after the Phase 6 gate passes and the artifact is registered.
+
+`RUN_ID` comes from the generated Workflow Bootstrap section. Do not re-resolve directories, do not call `resolve-args`, and do not generate a UUID manually.
 
 ## Scope
 
@@ -108,7 +125,13 @@ For web/science/library: gather authoritative sources, definitions, models worth
 
 ### Phase 5 -- Assemble (invoke tooling)
 
-Use the `workRoot` value resolved in §0 (Resolve Arguments) -- do NOT re-resolve directories. Write the lesson model to a dedicated lessons dir `<workRoot>/teach-me/<YYYY-MM-DD>-<slug>/lesson.json` (in worktrees `workRoot` already points at the MAIN repo's `.rp1/work/`, NOT the worktree, so Arcade can see it). `<YYYY-MM-DD>` is today's date and `<slug>` is a short kebab-case of the topic. Do NOT write under `features/` -- that is the build/feature-workflow namespace, not lessons. Then assemble:
+The lesson title (`meta.title`) is now known. Enter the `building_lesson` state, naming the run after the lesson so the Activity feed shows a real title:
+
+```bash
+rp1 agent-tools emit --workflow teach-me --type status_change --run-id {RUN_ID} --step building_lesson --name "Teach: <lesson title>" --harness $CURRENT_HOST --data '{"status":"running"}'
+```
+
+Use the `workRoot` value resolved in §0 (Workflow Bootstrap) -- do NOT re-resolve directories. Write the lesson model to a dedicated lessons dir `<workRoot>/teach-me/<YYYY-MM-DD>-<slug>/lesson.json` (in worktrees `workRoot` already points at the MAIN repo's `.rp1/work/`, NOT the worktree, so Arcade can see it). `<YYYY-MM-DD>` is today's date and `<slug>` is a short kebab-case of the topic. Do NOT write under `features/` -- that is the build/feature-workflow namespace, not lessons. Then assemble:
 
 ```bash
 rp1 teach-me render <workRoot>/teach-me/<YYYY-MM-DD>-<slug>/lesson.json -o <workRoot>/teach-me/<YYYY-MM-DD>-<slug>/lesson.html
@@ -127,13 +150,19 @@ rp1 teach-me validate <workRoot>/teach-me/<YYYY-MM-DD>-<slug>/lesson.json
 After the gate passes, register the output so it renders in the Arcade sandboxed-iframe viewer. Set `--name` to `Teach: <lesson title>` (the lesson's `meta.title`) so the run shows a meaningful title in the Activity feed instead of "Unknown" (the run name is set-once):
 
 ```bash
-rp1 agent-tools emit --type artifact_registered --run-id {RUN_ID} --name "Teach: <lesson title>" --harness $CURRENT_HOST --data '{"path":"teach-me/<YYYY-MM-DD>-<slug>/lesson.html","storageRoot":"work_dir","kind":"html"}'
+rp1 agent-tools emit --workflow teach-me --type artifact_registered --run-id {RUN_ID} --step building_lesson --name "Teach: <lesson title>" --harness $CURRENT_HOST --data '{"path":"teach-me/<YYYY-MM-DD>-<slug>/lesson.html","storageRoot":"work_dir","kind":"html"}'
 ```
 
 Register ONLY after the file exists. Optionally emit the standalone export:
 
 ```bash
 rp1 teach-me export <workRoot>/teach-me/<YYYY-MM-DD>-<slug>/lesson.html -o <workRoot>/teach-me/<YYYY-MM-DD>-<slug>/lesson.export.html
+```
+
+Once the gate has passed and the artifact is registered, close out the run by completing the `building_lesson` state (terminal):
+
+```bash
+rp1 agent-tools emit --workflow teach-me --type status_change --run-id {RUN_ID} --step building_lesson --close-run --harness $CURRENT_HOST --data '{"status":"completed"}'
 ```
 
 ## Output artifact contract (enforced by the gate)
