@@ -13,27 +13,32 @@
 
 import { defineWidget } from "./runtime.js";
 
-/** ARIA role applied to a callout based on its semantic variant. */
-const CALLOUT_ROLE: Record<string, string> = {
-	danger: "alert",
-	warn: "status",
-	success: "status",
-	info: "note",
+/** Human-readable label for each callout variant. */
+const CALLOUT_LABEL: Record<string, string> = {
+	danger: "Danger callout",
+	warn: "Warning callout",
+	success: "Success callout",
+	info: "Information callout",
 };
 
 /** `<tm-prose>` — server-rendered prose. No behavior; styled by tag. */
 class ProseElement extends HTMLElement {}
 
 /**
- * `<tm-callout>` — server-rendered callout. Adds an ARIA role matching the
- * `data-variant` so assistive technology announces danger/status appropriately
- * (information is never conveyed by color alone).
+ * `<tm-callout>` — server-rendered callout. Marks the element as a labelled
+ * region so assistive technology can announce its variant and purpose.
  */
 class CalloutElement extends HTMLElement {
 	connectedCallback(): void {
 		const variant = this.getAttribute("data-variant") ?? "info";
 		if (!this.hasAttribute("role")) {
-			this.setAttribute("role", CALLOUT_ROLE[variant] ?? "note");
+			this.setAttribute("role", "region");
+		}
+		if (!this.hasAttribute("aria-label")) {
+			this.setAttribute(
+				"aria-label",
+				CALLOUT_LABEL[variant] ?? "Information callout",
+			);
 		}
 	}
 }
@@ -55,11 +60,35 @@ class TableElement extends HTMLElement {
 	}
 }
 
-/** `<tm-key-insight>` — server-rendered emphasized takeaway. Styled by tag. */
-class KeyInsightElement extends HTMLElement {}
+/**
+ * `<tm-key-insight>` — server-rendered emphasized takeaway. Marks the element
+ * as a labelled region so screen readers announce it as a distinct key insight.
+ */
+class KeyInsightElement extends HTMLElement {
+	connectedCallback(): void {
+		if (!this.hasAttribute("role")) {
+			this.setAttribute("role", "region");
+		}
+		if (!this.hasAttribute("aria-label")) {
+			this.setAttribute("aria-label", "Key insight");
+		}
+	}
+}
 
-/** `<tm-glossary>` — server-rendered definition list. Styled by tag. */
-class GlossaryElement extends HTMLElement {}
+/**
+ * `<tm-glossary>` — server-rendered definition list. Marks the element as a
+ * labelled region so screen readers announce it as a glossary section.
+ */
+class GlossaryElement extends HTMLElement {
+	connectedCallback(): void {
+		if (!this.hasAttribute("role")) {
+			this.setAttribute("role", "region");
+		}
+		if (!this.hasAttribute("aria-label")) {
+			this.setAttribute("aria-label", "Glossary");
+		}
+	}
+}
 
 /**
  * `<tm-diagram>` — server-rendered static SVG with a required text equivalent.
