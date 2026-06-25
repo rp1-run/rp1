@@ -83,13 +83,11 @@ export const getKatexCss = (): TE.TaskEither<CLIError, string> =>
 			let css = await readFile(join(distDir, "katex.min.css"), "utf8");
 			const fontsDir = join(distDir, "fonts");
 
-			// Collect all woff2 font filenames referenced in the CSS.
 			const woff2Refs = new Set<string>();
 			for (const match of css.matchAll(/url\(fonts\/([\w-]+\.woff2)\)/g)) {
 				woff2Refs.add(match[1]);
 			}
 
-			// Read and base64-encode each woff2 font, then replace in CSS.
 			for (const fontFile of woff2Refs) {
 				const fontPath = join(fontsDir, fontFile);
 				const fontData = await readFile(fontPath);
@@ -98,8 +96,6 @@ export const getKatexCss = (): TE.TaskEither<CLIError, string> =>
 				css = css.split(`url(fonts/${fontFile})`).join(`url(${dataUri})`);
 			}
 
-			// Strip non-woff2 font fallbacks from src: declarations.
-			// Each @font-face src has comma-separated url() entries; remove woff/ttf ones.
 			css = css.replace(
 				/,url\(fonts\/[\w-]+\.(?:woff|ttf)\)\s*format\("[^"]+"\)/g,
 				"",

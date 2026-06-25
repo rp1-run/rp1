@@ -332,7 +332,6 @@ describe("parseLesson", () => {
 				blocks: Array<Record<string, unknown>>;
 			}>;
 		};
-		// Replace blocks with just a math block to isolate the test.
 		lesson.sections[0]!.blocks = [{ type: "math", tex: "x^2 + y^2 = z^2" }];
 		const result = parseLesson(lesson);
 		const parsed = expectRight(result);
