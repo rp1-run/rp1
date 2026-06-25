@@ -5,7 +5,7 @@
 		"topicType": "repo",
 		"learnerPromise": "Trace a lesson from validated data to a single offline HTML file, and know which tool owns each step.",
 		"coreMentalModel": "A lesson is data, not markup: the schema gates it, the assembler walks it into fixed widgets, and the inliner folds everything into one file that opens from disk with zero network.",
-		"primarySpine": "code-path",
+		"primarySpine": "code-path-explorer",
 		"learner": {
 			"familiarity": "intermediate",
 			"desiredDepth": "implementation",
@@ -390,6 +390,16 @@
 			],
 			"answer": 0,
 			"explanation": "Pre-rendering to static SVG means no runtime diagram library is shipped and the page opens offline from a file:// URL."
+		},
+		{
+			"q": "What does the self-containment gate check after rendering?",
+			"choices": [
+				"That the file has valid HTML syntax",
+				"That the artifact has no external network references",
+				"That the lesson has fewer than 100 lines"
+			],
+			"answer": 1,
+			"explanation": "The gate re-asserts that the single-file artifact has zero external src/href references, so it works offline from a file:// URL with no network."
 		}
 	],
 	"glossary": [
