@@ -156,11 +156,9 @@ describe("SandboxedHtmlArtifact", () => {
 			configurable: true,
 		});
 
-		// Trigger load so the initial post fires
 		fireEvent.load(iframe);
 		postMessageMock.mockClear();
 
-		// Switch theme and rerender
 		mockTheme = "light";
 		await act(async () => {
 			view.rerender(
