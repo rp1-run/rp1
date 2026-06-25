@@ -89,6 +89,29 @@ class QuizElement extends HTMLElement {
 			feedback.dataset.result = correct ? "correct" : "incorrect";
 			explanation.textContent = question.explanation;
 			explanation.hidden = false;
+
+			inputs.forEach((input) => {
+				input.disabled = true;
+			});
+			check.disabled = true;
+
+			if (!correct) {
+				const retry = button("Try again", "tm-btn tm-btn--ghost", () => {
+					inputs.forEach((input) => {
+						input.disabled = false;
+						input.checked = false;
+					});
+					labels.forEach((label) => {
+						label.classList.remove("is-correct", "is-incorrect");
+					});
+					check.disabled = false;
+					feedback.textContent = "";
+					delete feedback.dataset.result;
+					explanation.hidden = true;
+					retry.remove();
+				});
+				fieldset.appendChild(retry);
+			}
 		});
 
 		fieldset.append(check, feedback, explanation);

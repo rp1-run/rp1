@@ -1091,6 +1091,11 @@ tm-decision-tree {
 	border-color: color-mix(in srgb, var(--tm-danger) 45%, transparent);
 }
 
+.tm-quiz__choice:has(input:disabled) {
+	cursor: default;
+	pointer-events: none;
+}
+
 .tm-quiz__q > .tm-btn {
 	margin-top: 0.85rem;
 }
