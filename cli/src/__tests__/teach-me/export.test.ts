@@ -54,6 +54,9 @@ describe("assertSelfContained", () => {
 			"size-within-budget",
 			"no-external-network-references",
 			"no-runtime-rendering-library",
+			"css-url-external",
+			"js-fetch-external",
+			"relative-file-ref",
 		]);
 	});
 

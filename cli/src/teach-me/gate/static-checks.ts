@@ -21,7 +21,7 @@
  * The dynamic, browser-backed half of the gate lives in {@link ./browser-checks}.
  */
 
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 import { type GateCheck, type GateResult, gateResult } from "./types.js";
 
@@ -57,6 +57,18 @@ const PROTOCOL_RELATIVE_URL = /\b(?:src|href)\s*=\s*["']\/\//i;
 const EXTERNAL_SCRIPT = /<script\b[^>]*\bsrc\s*=/i;
 /** Captures the value of every `data-ref-path` attribute (repo reference paths). */
 const REF_PATH = /data-ref-path="([^"]*)"/g;
+/** Captures paired data-ref-path and data-ref-lines from the same element. */
+const REF_WITH_LINES = /data-ref-path="([^"]*)"[^>]*?data-ref-lines="([^"]*)"/g;
+/** CSS url() pointing at an external http(s) resource. */
+const CSS_URL_EXTERNAL = /url\(\s*['"]?https?:/i;
+/** JS fetch() call with an http(s) URL argument. */
+const JS_FETCH = /\bfetch\s*\(\s*['"`]https?:/i;
+/** JS XMLHttpRequest usage. */
+const JS_XHR = /\bXMLHttpRequest\b/;
+/** JS URL constructor with an http(s) URL argument. */
+const JS_URL_CTOR = /\bnew\s+URL\s*\(\s*['"`]https?:/i;
+/** A fetchable src/href pointing at a relative file (e.g., src="./companion.js"). */
+const RELATIVE_FILE_REF = /\b(?:src|href)\s*=\s*["']\.\//i;
 
 /** Format a byte count as a compact KiB string for readable failure details. */
 const kib = (bytes: number): string => `${(bytes / 1024).toFixed(1)} KiB`;
@@ -80,6 +92,129 @@ function hasScriptInSvg(html: string): boolean {
 		}
 	}
 	return false;
+}
+
+/** Extract the concatenated text content of all `<style>` blocks. */
+function extractStyleContent(html: string): string {
+	const blocks: string[] = [];
+	for (const m of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
+		blocks.push(m[1]);
+	}
+	return blocks.join("\n");
+}
+
+/**
+ * Extract the concatenated text content of inline `<script>` blocks,
+ * skipping `type="application/json"` data blocks and external `src=` scripts.
+ */
+function extractInlineScriptContent(html: string): string {
+	const blocks: string[] = [];
+	for (const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
+		const attrs = m[1];
+		if (/type\s*=\s*["']application\/json["']/i.test(attrs)) continue;
+		if (/\bsrc\s*=/i.test(attrs)) continue;
+		blocks.push(m[2]);
+	}
+	return blocks.join("\n");
+}
+
+/** True when any `<style>` block contains a CSS `url()` with an http(s) URL. */
+function hasCssExternalUrl(html: string): boolean {
+	return CSS_URL_EXTERNAL.test(extractStyleContent(html));
+}
+
+/**
+ * True when any inline `<script>` block contains fetch(), XMLHttpRequest,
+ * or URL constructor targeting an http(s) URL.
+ */
+function hasJsFetchExternal(html: string): boolean {
+	const js = extractInlineScriptContent(html);
+	if (JS_FETCH.test(js)) return true;
+	if (JS_URL_CTOR.test(js)) return true;
+	if (JS_XHR.test(js) && /https?:\/\//i.test(js)) return true;
+	return false;
+}
+
+/** True when any src/href attribute points at a relative file (e.g., `./companion.js`). */
+function hasRelativeFileRef(html: string): boolean {
+	return RELATIVE_FILE_REF.test(html);
+}
+
+/** Extract paired `data-ref-path` + `data-ref-lines` from the same elements. */
+function extractRefLineEntries(
+	html: string,
+): Array<{ path: string; lines: string }> {
+	const entries: Array<{ path: string; lines: string }> = [];
+	for (const m of html.matchAll(REF_WITH_LINES)) {
+		if (m[1].length > 0 && m[2].length > 0) {
+			entries.push({ path: m[1], lines: m[2] });
+		}
+	}
+	return entries;
+}
+
+/** Parse a line-range string (e.g., "40-72") and return the maximum cited line number. */
+function maxCitedLine(linesAttr: string): number | null {
+	const parts = linesAttr.split("-").map((s) => parseInt(s.trim(), 10));
+	const valid = parts.filter((n) => !Number.isNaN(n));
+	return valid.length > 0 ? Math.max(...valid) : null;
+}
+
+/** Count the number of lines in a file. Returns null if the file cannot be read. */
+async function countFileLines(filePath: string): Promise<number | null> {
+	try {
+		const content = await readFile(filePath, "utf-8");
+		if (content.length === 0) return 0;
+		return content.endsWith("\n")
+			? content.split("\n").length - 1
+			: content.split("\n").length;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Validate that every `data-ref-lines` attribute cites line numbers within
+ * the actual length of the referenced file.
+ */
+async function validateLineRanges(
+	html: string,
+	repoRoot: string,
+): Promise<GateCheck> {
+	const entries = extractRefLineEntries(html);
+	if (entries.length === 0) {
+		return { name: "line-range-valid", passed: true };
+	}
+
+	const violations: string[] = [];
+	for (const entry of entries) {
+		const resolved = resolveRefPath(repoRoot, entry.path);
+		if (resolved === null) {
+			violations.push(`${entry.path}: absolute or escaped path`);
+			continue;
+		}
+
+		const max = maxCitedLine(entry.lines);
+		if (max === null) continue;
+
+		const actualLines = await countFileLines(resolved);
+		if (actualLines === null) continue;
+
+		if (max > actualLines) {
+			violations.push(
+				`${entry.path}:${entry.lines} cites line ${max}, but the file has only ${actualLines} lines`,
+			);
+		}
+	}
+
+	return {
+		name: "line-range-valid",
+		passed: violations.length === 0,
+		detail:
+			violations.length === 0
+				? undefined
+				: `Line-range violations: ${violations.join("; ")}.`,
+	};
 }
 
 /** Resolve a repo-relative reference path under the repo root, rejecting escapes. */
@@ -132,6 +267,9 @@ function selfContainmentChecks(
 	const hasExternalUrl =
 		EXTERNAL_URL.test(html) || PROTOCOL_RELATIVE_URL.test(html);
 	const hasRuntimeLibrary = EXTERNAL_SCRIPT.test(html) || hasScriptInSvg(html);
+	const cssExternal = hasCssExternalUrl(html);
+	const jsExternal = hasJsFetchExternal(html);
+	const relativeRef = hasRelativeFileRef(html);
 
 	return [
 		{
@@ -154,6 +292,27 @@ function selfContainmentChecks(
 			passed: !hasRuntimeLibrary,
 			detail: hasRuntimeLibrary
 				? "Found an external <script src> or a <script> inside an inlined <svg>; diagrams/code must be static (REQ-007)."
+				: undefined,
+		},
+		{
+			name: "css-url-external",
+			passed: !cssExternal,
+			detail: cssExternal
+				? "Found a CSS url() referencing an external http(s) resource in an inline <style> block; all assets must be inlined."
+				: undefined,
+		},
+		{
+			name: "js-fetch-external",
+			passed: !jsExternal,
+			detail: jsExternal
+				? "Found a fetch(), XMLHttpRequest, or URL constructor targeting an external http(s) URL in an inline <script> block."
+				: undefined,
+		},
+		{
+			name: "relative-file-ref",
+			passed: !relativeRef,
+			detail: relativeRef
+				? 'Found a src/href pointing at a relative file (e.g., "./companion.js"); the artifact must be a single self-contained file.'
 				: undefined,
 		},
 	];
@@ -199,6 +358,7 @@ export async function runStaticGate(
 	}
 
 	const hasReferencesSection = html.includes('class="tm-references"');
+	const lineRangeCheck = await validateLineRanges(html, context.repoRoot);
 
 	return gateResult([
 		...selfContainmentChecks(html, limit),
@@ -218,5 +378,6 @@ export async function runStaticGate(
 					? "Lesson used web research but the rendered artifact has no references section."
 					: undefined,
 		},
+		lineRangeCheck,
 	]);
 }
