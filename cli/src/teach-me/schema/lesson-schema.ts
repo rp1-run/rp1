@@ -21,10 +21,6 @@ import { z } from "zod";
 import { type CLIError, validationError } from "../../../shared/errors.js";
 import { BLOCK_TYPES, LIBRARY_VERSION, SCHEMA_VERSION } from "./versions.js";
 
-// ---------------------------------------------------------------------------
-// Enum constants (closed sets from PRD §§9, 11)
-// ---------------------------------------------------------------------------
-
 /** Allowlist of `learner.familiarity` values (PRD §9). */
 export const FAMILIARITY_LEVELS = [
 	"basic",
