@@ -54,7 +54,8 @@ stateDiagram-v2
 ## Scope
 
 CAN: ask intake questions; route to `deep-research`; explore the repo; design and emit one lesson model; invoke the tooling; enforce the gate.
-CANNOT: write markup; invent widgets outside the allowlist; require React/server/CDNs by default; assume Arcade globals/SDK/styles; fabricate repo details or sources; use 3D unless 3D spatial reasoning helps.
+CANNOT: write markup; invent widgets outside the allowlist; require React/server/CDNs by default; assume Arcade globals/SDK/styles; fabricate repo details or sources; hide uncertainty or present a simplified model as settled fact; use 3D unless 3D spatial reasoning helps.
+MUST AVOID (§19 content anti-patterns): pretending uncertain topics are settled; explaining everything at once; 3D for non-spatial concepts; decorative animation; vague analogies without technical grounding; overwhelming the reader with raw research.
 Stay within the user's topic. Do NOT expand scope into adjacent topics, course generation, or multi-page sites.
 
 ## Epistemic Stance: Constructivism
@@ -102,7 +103,7 @@ For web/science/library: gather authoritative sources, definitions, models worth
 
 ### Phase 4 -- Design the lesson AS DATA
 
-1. Pick ONE **primary spine** (dominant intent): step-through-mechanism / state-machine-explorer / layer-explorer / timeline-sequence / compare-contrast / code-path-explorer / decision-tree (3D spatial only when 3D genuinely helps).
+1. Pick ONE **primary spine** (dominant intent, §11): step-through-mechanism / state-machine-explorer / layer-explorer / timeline-sequence / compare-contrast / code-path-explorer / decision-tree / spatial-model-explorer (3D — conditional, post-MVP; only when 3D structure genuinely matters).
 2. Compose **section-level widgets** per the intent->widget mapping. Pick from the allowlist; do not invent:
 
 | Section intent | Widget(s) |
@@ -113,13 +114,13 @@ For web/science/library: gather authoritative sources, definitions, models worth
 | Persistence / DB flow | `layer-explorer`, `timeline`, `diagram` |
 | "Should I use X?" / troubleshooting / branching | `decision-tree` |
 | Spatial structure | `diagram`; `stepper` (3D only when warranted) |
-| Math / physics / algorithm | `diagram`, `stepper`, `code` |
+| Math / physics / algorithm / equations | `math` (LaTeX, pre-rendered), `diagram`, `stepper`, `code` |
 | Distributed system | `diagram`, `timeline` |
 | Open / debated topic | `compare-cards`, layered prose, explicit caveats |
 | Repo code flow | `code-walkthrough` |
 | Comprehension | `quiz` |
 
-3. Emit a VALID §10 lesson data model (JSON) -- your ONLY authored output. `block.type` comes ONLY from the allowlist: `prose`, `callout`, `code`, `table`, `key-insight`, `timeline`, `decision-tree`, `stepper`, `state-explorer`, `layer-explorer`, `compare-cards`, `code-walkthrough`, `quiz`, `glossary`, `diagram`. The model MUST include: title, learner promise, core mental model, sections+blocks, >=1 meaningful interactive widget, >=3 comprehension checks, glossary, misconceptions, "what to learn next", and references (repo `file:line` and/or web) when research was used. A lesson composes MANY widgets -- there is no one-template rule. Confirm `meta.schemaVersion`/`libraryVersion` against the schema in `cli/src/teach-me/schema/`.
+3. Emit a VALID §10 lesson data model (JSON) -- your ONLY authored output. `block.type` comes ONLY from the allowlist: `prose`, `callout`, `code`, `table`, `key-insight`, `timeline`, `decision-tree`, `stepper`, `state-explorer`, `layer-explorer`, `compare-cards`, `code-walkthrough`, `quiz`, `glossary`, `diagram`, `math` (LaTeX, pre-rendered to static). (`spatial-viewer` is post-MVP -- not yet available.) The model MUST include: title, short summary, learner promise, core mental model, sections+blocks, >=1 meaningful interactive widget, >=3 comprehension checks, glossary, misconceptions, "what to learn next", and references (repo `file:line` and/or web) when research was used. It MUST distinguish direct source-backed facts, inferred explanations, and simplified teaching models (§20). A lesson composes MANY widgets -- there is no one-template rule. Confirm `meta.schemaVersion`/`libraryVersion` against the schema in `cli/src/teach-me/schema/`.
 
 **No-widget-fits fallback** (never hand-code): (a) prefer a composition of existing blocks (prose + `diagram` + `callout`); (b) if a custom visual is truly needed, produce it as a tool-rendered `diagram` (Mermaid/SVG via the tooling), not hand-written markup; (c) if a brand-new widget would be required, note the gap for maintainers and degrade to the best available composition.
 
