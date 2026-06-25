@@ -24,6 +24,7 @@ import { afterAll, describe, expect, it } from "bun:test";
 import * as E from "fp-ts/lib/Either.js";
 import { highlightCode } from "../../teach-me/prerender/highlight.js";
 import {
+	_testInternals,
 	closeMermaidBrowser,
 	renderMermaid,
 } from "../../teach-me/prerender/mermaid.js";
@@ -114,5 +115,39 @@ describeBrowser("renderMermaid", () => {
 		expect(error._tag).toBe("RuntimeError");
 		if (error._tag !== "RuntimeError") return;
 		expect(error.message.length).toBeGreaterThan(0);
+	}, 30000);
+
+	it("succeeds for concurrent calls without launching duplicate browsers", async () => {
+		const diagrams = [
+			"flowchart TD\n X1[One]",
+			"flowchart TD\n X2[Two]",
+			"flowchart TD\n X3[Three]",
+		];
+		const results = await Promise.all(diagrams.map((d) => renderMermaid(d)()));
+
+		for (const r of results) {
+			expect(E.isRight(r)).toBe(true);
+			if (E.isRight(r)) {
+				expect(r.right.trimStart().startsWith("<svg")).toBe(true);
+			}
+		}
+		// Only one browser instance exists — the memoized init prevented duplicates.
+		expect(_testInternals.getBrowserInstance()).not.toBeNull();
+	}, 30000);
+
+	it("resets browser singletons through the full lifecycle", async () => {
+		const r = await renderMermaid("flowchart TD\n L[Lifecycle]")();
+		expect(E.isRight(r)).toBe(true);
+
+		expect(_testInternals.getBrowserInstance()).not.toBeNull();
+		expect(_testInternals.getPageInstance()).not.toBeNull();
+
+		await closeMermaidBrowser()();
+
+		expect(_testInternals.getBrowserInstance()).toBeNull();
+		expect(_testInternals.getPageInstance()).toBeNull();
+
+		const r2 = await renderMermaid("flowchart TD\n L2[Fresh]")();
+		expect(E.isRight(r2)).toBe(true);
 	}, 30000);
 });

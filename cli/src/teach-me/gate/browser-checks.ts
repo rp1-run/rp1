@@ -22,7 +22,7 @@
 
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { Browser, ConsoleMessage, HTTPRequest, Page } from "puppeteer";
-import puppeteer from "puppeteer";
+import puppeteer, { TimeoutError } from "puppeteer";
 import type { CLIError } from "../../../shared/errors.js";
 import { prerequisiteError, runtimeError } from "../../../shared/errors.js";
 import { type GateResult, gateResult } from "./types.js";
@@ -95,10 +95,15 @@ const launchBrowser = (): TE.TaskEither<CLIError, Browser> =>
 			),
 	);
 
+/** Navigation timeout for `page.goto` (ms). */
+const GOTO_TIMEOUT_MS = 15_000;
+
 /**
  * Load `fileUrl`, observe its network/console behavior and DOM, and report the
  * dynamic checks. Wraps the post-launch work so any failure becomes a
  * `runtimeError` (an already-typed prerequisite error from launch is preserved).
+ * The page is closed in a `finally` block so slow or failing loads do not leak.
+ * Navigation timeouts surface as a distinct, actionable `runtimeError`.
  */
 const runChecks = (
 	browser: Browser,
@@ -108,41 +113,59 @@ const runChecks = (
 	TE.tryCatch(
 		async () => {
 			const page = await browser.newPage();
-			const externalRequests: string[] = [];
-			const consoleErrors: string[] = [];
+			try {
+				const externalRequests: string[] = [];
+				const consoleErrors: string[] = [];
 
-			page.on("request", (request: HTTPRequest) => {
-				const url = request.url();
-				if (!isLocalRequest(url)) {
-					externalRequests.push(url);
+				page.on("request", (request: HTTPRequest) => {
+					const url = request.url();
+					if (!isLocalRequest(url)) {
+						externalRequests.push(url);
+					}
+				});
+				page.on("requestfailed", (request: HTTPRequest) => {
+					const url = request.url();
+					if (!isLocalRequest(url)) {
+						externalRequests.push(url);
+					}
+				});
+				page.on("console", (message: ConsoleMessage) => {
+					if (message.type() === "error") {
+						consoleErrors.push(message.text());
+					}
+				});
+				page.on("pageerror", (error: unknown) => {
+					consoleErrors.push(
+						error instanceof Error ? error.message : String(error),
+					);
+				});
+
+				try {
+					await page.goto(fileUrl, {
+						waitUntil: "networkidle0",
+						timeout: GOTO_TIMEOUT_MS,
+					});
+				} catch (navError) {
+					if (navError instanceof TimeoutError) {
+						throw runtimeError(
+							`The lesson page did not finish loading within ${GOTO_TIMEOUT_MS / 1000}s. ` +
+								"This may indicate an external resource dependency or a slow local file system. " +
+								`URL: ${fileUrl}`,
+						);
+					}
+					throw navError;
 				}
-			});
-			page.on("requestfailed", (request: HTTPRequest) => {
-				const url = request.url();
-				if (!isLocalRequest(url)) {
-					externalRequests.push(url);
-				}
-			});
-			page.on("console", (message: ConsoleMessage) => {
-				if (message.type() === "error") {
-					consoleErrors.push(message.text());
-				}
-			});
-			page.on("pageerror", (error: unknown) => {
-				consoleErrors.push(
-					error instanceof Error ? error.message : String(error),
+				const probe = await probePage(page);
+
+				return assembleDynamicChecks(
+					externalRequests,
+					consoleErrors,
+					probe,
+					expectations,
 				);
-			});
-
-			await page.goto(fileUrl, { waitUntil: "networkidle0" });
-			const probe = await probePage(page);
-
-			return assembleDynamicChecks(
-				externalRequests,
-				consoleErrors,
-				probe,
-				expectations,
-			);
+			} finally {
+				await page.close().catch(() => {});
+			}
 		},
 		(error) =>
 			isCLIError(error)

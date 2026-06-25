@@ -39,56 +39,28 @@ let browserInstance: Browser | null = null;
 let pageInstance: Page | null = null;
 /** Monotonic id so each `mermaid.render()` call uses a unique element id. */
 let renderCounter = 0;
+/**
+ * Memoized in-flight init promise: concurrent first-callers share a single
+ * browser launch rather than racing to create two. Cleared on failure and
+ * in `closeMermaidBrowser`.
+ */
+let initPromise: Promise<Page> | null = null;
 
 /**
  * Launch the browser, load the offline Mermaid engine, and return a ready page.
- * Reuses an existing page when already initialized. A launch failure (typically
- * a missing Puppeteer-pinned Chrome) is mapped to an actionable prerequisite
- * error; any other failure is a runtime error.
+ * The check-then-launch is atomic: concurrent first-callers share a single
+ * `initPromise` so only one browser is ever launched. A launch failure
+ * (typically a missing Puppeteer-pinned Chrome) is mapped to an actionable
+ * prerequisite error; any other failure is a runtime error.
  */
 const initPage = (): TE.TaskEither<CLIError, Page> =>
 	TE.tryCatch(
 		async () => {
-			if (pageInstance) {
-				return pageInstance;
+			if (pageInstance) return pageInstance;
+			if (!initPromise) {
+				initPromise = launchAndSetup();
 			}
-
-			let browser: Browser;
-			try {
-				browser = await puppeteer.launch({
-					headless: true,
-					args: ["--no-sandbox", "--disable-setuid-sandbox"],
-				});
-			} catch (error) {
-				throw prerequisiteError(
-					"puppeteer-chrome",
-					`Failed to launch the headless browser used to pre-render Mermaid diagrams: ${error instanceof Error ? error.message : String(error)}`,
-					"Install the Puppeteer-pinned browser with `npx puppeteer browsers install chrome`.",
-				);
-			}
-
-			browserInstance = browser;
-			const page = await browser.newPage();
-			await page.setContent(RENDER_PAGE);
-
-			const mermaidSource = await readFile(mermaidBundlePath(), "utf8");
-			await page.addScriptTag({ content: mermaidSource });
-			await page.waitForFunction("typeof window.mermaid !== 'undefined'", {
-				timeout: 10000,
-			});
-			await page.evaluate(() => {
-				const win = globalThis as unknown as {
-					mermaid: { initialize: (config: unknown) => void };
-				};
-				win.mermaid.initialize({
-					startOnLoad: false,
-					securityLevel: "strict",
-					deterministicIds: true,
-				});
-			});
-
-			pageInstance = page;
-			return page;
+			return initPromise;
 		},
 		(error) =>
 			// Preserve an already-typed CLIError (the prerequisite case above).
@@ -99,8 +71,63 @@ const initPage = (): TE.TaskEither<CLIError, Page> =>
 					),
 	);
 
+/** Launch Puppeteer, inject Mermaid, and return the ready page singleton. */
+const launchAndSetup = async (): Promise<Page> => {
+	let browser: Browser;
+	try {
+		browser = await puppeteer.launch({
+			headless: true,
+			args: ["--no-sandbox", "--disable-setuid-sandbox"],
+		});
+	} catch (error) {
+		initPromise = null;
+		throw prerequisiteError(
+			"puppeteer-chrome",
+			`Failed to launch the headless browser used to pre-render Mermaid diagrams: ${error instanceof Error ? error.message : String(error)}`,
+			"Install the Puppeteer-pinned browser with `npx puppeteer browsers install chrome`.",
+		);
+	}
+
+	browserInstance = browser;
+	try {
+		const page = await browser.newPage();
+		await page.setContent(RENDER_PAGE);
+
+		const mermaidSource = await readFile(mermaidBundlePath(), "utf8");
+		await page.addScriptTag({ content: mermaidSource });
+		await page.waitForFunction("typeof window.mermaid !== 'undefined'", {
+			timeout: 10000,
+		});
+		await page.evaluate(() => {
+			const win = globalThis as unknown as {
+				mermaid: { initialize: (config: unknown) => void };
+			};
+			win.mermaid.initialize({
+				startOnLoad: false,
+				securityLevel: "strict",
+				deterministicIds: true,
+			});
+		});
+
+		pageInstance = page;
+		return page;
+	} catch (initError) {
+		await browser.close().catch(() => {});
+		browserInstance = null;
+		pageInstance = null;
+		initPromise = null;
+		throw initError;
+	}
+};
+
 const isCLIError = (value: unknown): value is CLIError =>
 	typeof value === "object" && value !== null && "_tag" in value;
+
+/** @internal Expose browser singleton state for tests. */
+export const _testInternals = {
+	getBrowserInstance: (): Browser | null => browserInstance,
+	getPageInstance: (): Page | null => pageInstance,
+};
 
 /**
  * Render Mermaid `source` to a static, self-contained `<svg>` string.
@@ -108,6 +135,11 @@ const isCLIError = (value: unknown): value is CLIError =>
  * The engine runs offline inside the shared Puppeteer page; the returned markup
  * references no runtime library and makes no external request. Invalid Mermaid
  * source yields `Left(RuntimeError)` carrying Mermaid's own parse message.
+ *
+ * Callers must render serially (e.g. via `TE.chain` sequences) and call
+ * `closeMermaidBrowser` only after a batch completes. The shared page's init
+ * is atomic — concurrent first-callers share one browser launch — but the
+ * render itself is not serialized internally.
  *
  * @param source - Mermaid diagram source (e.g. a `flowchart`).
  */
@@ -157,6 +189,7 @@ export const closeMermaidBrowser = (): TE.TaskEither<CLIError, void> =>
 				browserInstance = null;
 				pageInstance = null;
 			}
+			initPromise = null;
 		},
 		(error) =>
 			runtimeError(
