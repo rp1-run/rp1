@@ -108,7 +108,7 @@ function renderInline(text: string): string {
 			if (!isSafeHref(href)) {
 				return label;
 			}
-			return `<a href="${href}" rel="noopener noreferrer">${label}</a>`;
+			return `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
 		},
 	);
 	html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");

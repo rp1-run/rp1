@@ -1201,6 +1201,22 @@ tm-decision-tree {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
+   Reduced-motion override — neutralize the three transition declarations
+   that live outside the opt-in animation block below. The btn, walkthrough-
+   line, and quiz-choice transitions are useful for sighted users who have
+   not requested reduced motion, but must be disabled for users whose OS
+   sets `prefers-reduced-motion: reduce`.
+   ───────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+	.tm-btn,
+	.tm-code-walkthrough__line,
+	.tm-quiz__choice {
+		transition: none;
+	}
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
    Motion — one orchestrated staggered load reveal, opt-IN only.
    Everything here lives behind `prefers-reduced-motion: no-preference`, so the
    default (reduced-motion / no-preference-unknown) is a fully static page.

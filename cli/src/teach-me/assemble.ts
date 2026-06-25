@@ -119,7 +119,7 @@ function renderInline(text: string): string {
 		/\[([^\]]+)\]\(([^)\s]+)\)/g,
 		(_m, label: string, href: string) =>
 			isSafeHref(href)
-				? `<a href="${href}" rel="noopener noreferrer">${label}</a>`
+				? `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`
 				: label,
 	);
 	html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
