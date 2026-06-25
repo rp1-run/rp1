@@ -31,6 +31,25 @@ import { type AssembledLesson, escapeHtml } from "./assemble.js";
 import type { WidgetBundle } from "./assets.js";
 
 /**
+ * Inline `<script>` that listens for `postMessage` theme-sync messages from
+ * the Arcade host and applies the theme to the lesson document. The host sends
+ * `{type:'rp1-teach-me-theme', theme:'light'|'dark'}` on iframe load and on
+ * every theme toggle; the listener validates the shape strictly (type-check the
+ * data object, confirm the `type` string and `theme` enum) and sets
+ * `document.documentElement.dataset.theme` on match, which swaps the CSS custom
+ * property set in `base.css`. Malformed or unrelated messages are silently
+ * ignored. The script is a no-op when opened standalone (no parent posts).
+ */
+export const THEME_SYNC_SCRIPT = [
+	'window.addEventListener("message",function(e){',
+	"var d=e.data;",
+	'if(d&&typeof d==="object"&&d.type==="rp1-teach-me-theme"',
+	'&&(d.theme==="light"||d.theme==="dark")){',
+	"document.documentElement.dataset.theme=d.theme}",
+	"});",
+].join("");
+
+/**
  * Build the self-contained `lesson.html` from the assembled lesson and the
  * widget bundle. Pure and deterministic for a given input.
  */
@@ -58,6 +77,7 @@ ${katexStyle}</head>
 ${assembled.bodyHtml}
 </main>
 <script>${bundle.js}</script>
+<script>${THEME_SYNC_SCRIPT}</script>
 </body>
 </html>
 `;

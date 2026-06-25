@@ -1,7 +1,18 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { cleanup, render } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
 
 const PROBE = "__sandboxProbe";
+
+let mockTheme: "light" | "dark" = "dark";
+
+mock.module("@/providers/ThemeProvider", () => ({
+	useTheme: () => ({
+		theme: mockTheme,
+		setTheme: () => {},
+		toggleTheme: () => {},
+		systemPreference: "dark" as const,
+	}),
+}));
 
 let importVersion = 0;
 
@@ -101,5 +112,65 @@ describe("SandboxedHtmlArtifact", () => {
 		const sandbox = container.querySelector("iframe")?.getAttribute("sandbox");
 		expect(sandbox).not.toContain("allow-same-origin");
 		expect(sandbox).not.toContain("allow-top-navigation");
+	});
+
+	test("posts theme message to iframe contentWindow on load event", async () => {
+		mockTheme = "dark";
+		const { SandboxedHtmlArtifact } = await loadComponent();
+		const content = "<!doctype html><html><body>Theme test</body></html>";
+
+		const { container } = render(
+			<SandboxedHtmlArtifact content={content} title="lesson.html" />,
+		);
+
+		const iframe = container.querySelector("iframe")!;
+		const postMessageMock = mock(() => {});
+
+		Object.defineProperty(iframe, "contentWindow", {
+			value: { postMessage: postMessageMock },
+			configurable: true,
+		});
+
+		fireEvent.load(iframe);
+
+		expect(postMessageMock).toHaveBeenCalledWith(
+			{ type: "rp1-teach-me-theme", theme: "dark" },
+			"*",
+		);
+	});
+
+	test("posts updated theme message when Arcade theme changes", async () => {
+		mockTheme = "dark";
+		const { SandboxedHtmlArtifact } = await loadComponent();
+		const content = "<!doctype html><html><body>Theme change</body></html>";
+
+		const view = render(
+			<SandboxedHtmlArtifact content={content} title="lesson.html" />,
+		);
+
+		const iframe = view.container.querySelector("iframe")!;
+		const postMessageMock = mock(() => {});
+
+		Object.defineProperty(iframe, "contentWindow", {
+			value: { postMessage: postMessageMock },
+			configurable: true,
+		});
+
+		// Trigger load so the initial post fires
+		fireEvent.load(iframe);
+		postMessageMock.mockClear();
+
+		// Switch theme and rerender
+		mockTheme = "light";
+		await act(async () => {
+			view.rerender(
+				<SandboxedHtmlArtifact content={content} title="lesson.html" />,
+			);
+		});
+
+		expect(postMessageMock).toHaveBeenCalledWith(
+			{ type: "rp1-teach-me-theme", theme: "light" },
+			"*",
+		);
 	});
 });

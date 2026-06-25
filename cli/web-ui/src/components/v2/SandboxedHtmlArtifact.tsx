@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useTheme } from "@/providers/ThemeProvider";
 
 /**
  * Sandbox tokens for HTML artifact rendering. `allow-scripts` enables widget
@@ -35,23 +36,56 @@ function useContentKey(content: string): string {
 	}, [content]);
 }
 
+/** Message type constant shared with the inline theme-sync listener. */
+const THEME_MESSAGE_TYPE = "rp1-teach-me-theme";
+
+/**
+ * Post the current Arcade theme to the sandboxed iframe so the lesson's
+ * CSS custom-property set (driven by `data-theme` on `<html>`) follows the
+ * host's light/dark toggle across the iframe boundary.
+ */
+function postThemeToFrame(
+	iframe: HTMLIFrameElement | null,
+	theme: string,
+): void {
+	iframe?.contentWindow?.postMessage({ type: THEME_MESSAGE_TYPE, theme }, "*");
+}
+
 /**
  * Render a registered HTML artifact as a live, interactive page inside an
  * isolated iframe. Content is fed via `srcDoc` (already fetched by the viewer),
  * so no network or origin is shared with the host. The frame fills the viewer
  * pane and scrolls its own content internally.
+ *
+ * Theme sync: on iframe load and on every Arcade theme change, a
+ * `{type:'rp1-teach-me-theme', theme}` message is posted to the iframe's
+ * `contentWindow`. The lesson's inline theme-sync script (injected by
+ * `inline.ts`) receives it and applies the matching CSS custom-property set.
  */
 export function SandboxedHtmlArtifact({
 	content,
 	title,
 }: SandboxedHtmlArtifactProps) {
 	const contentKey = useContentKey(content);
+	const { theme } = useTheme();
+	const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+	const handleLoad = useCallback(() => {
+		postThemeToFrame(iframeRef.current, theme);
+	}, [theme]);
+
+	useEffect(() => {
+		postThemeToFrame(iframeRef.current, theme);
+	}, [theme]);
+
 	return (
 		<iframe
+			ref={iframeRef}
 			key={contentKey}
 			title={title}
 			srcDoc={content}
 			sandbox={HTML_ARTIFACT_SANDBOX}
+			onLoad={handleLoad}
 			className="rp1-html-artifact-frame absolute inset-0 h-full w-full border-0 bg-transparent"
 		/>
 	);
