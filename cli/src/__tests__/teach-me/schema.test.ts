@@ -191,6 +191,18 @@ function validLesson(): unknown {
 				answer: 1,
 				explanation: "The repository layer brackets all DB access.",
 			},
+			{
+				q: "Where do transactions begin?",
+				choices: ["In the handler", "In the repository layer"],
+				answer: 1,
+				explanation: "The repository layer starts and commits transactions.",
+			},
+			{
+				q: "What does the save function do?",
+				choices: ["Deletes data", "Persists data"],
+				answer: 1,
+				explanation: "The save function persists data through the repository.",
+			},
 		],
 		glossary: [{ term: "repository", def: "layer bracketing DB access" }],
 		misconceptions: ["DB access is scattered across handlers."],

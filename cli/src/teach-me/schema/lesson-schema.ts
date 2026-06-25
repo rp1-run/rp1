@@ -22,6 +22,38 @@ import { type CLIError, validationError } from "../../../shared/errors.js";
 import { BLOCK_TYPES, LIBRARY_VERSION, SCHEMA_VERSION } from "./versions.js";
 
 // ---------------------------------------------------------------------------
+// Enum constants (closed sets from PRD §§9, 11)
+// ---------------------------------------------------------------------------
+
+/** Allowlist of `learner.familiarity` values (PRD §9). */
+export const FAMILIARITY_LEVELS = [
+	"basic",
+	"intermediate",
+	"advanced",
+	"adjacent",
+] as const;
+
+/** Allowlist of `learner.desiredDepth` values (PRD §9). */
+export const DESIRED_DEPTHS = [
+	"intuitive",
+	"practical",
+	"implementation",
+	"mathematical",
+	"research",
+] as const;
+
+/** Allowlist of `meta.primarySpine` values (PRD §11). */
+export const PRIMARY_SPINES = [
+	"step-through-mechanism",
+	"state-machine-explorer",
+	"layer-explorer",
+	"timeline-sequence",
+	"compare-contrast",
+	"code-path-explorer",
+	"decision-tree",
+] as const;
+
+// ---------------------------------------------------------------------------
 // Shared leaf schemas
 // ---------------------------------------------------------------------------
 
@@ -130,7 +162,7 @@ const codeBlockSchema = z.object({
 const tableBlockSchema = z.object({
 	type: z.literal("table"),
 	headers: z.array(z.string()).min(1),
-	rows: z.array(z.array(z.string())),
+	rows: z.array(z.array(z.string())).min(1),
 	caption: z.string().min(1).optional(),
 });
 
@@ -192,25 +224,39 @@ const stepperBlockSchema = z.object({
 
 const stateExplorerBlockSchema = z.object({
 	type: z.literal("state-explorer"),
-	data: z.object({
-		initial: z.string().min(1).optional(),
-		states: z
-			.array(
+	data: z
+		.object({
+			initial: z.string().min(1).optional(),
+			states: z
+				.array(
+					z.object({
+						id: z.string().min(1),
+						label: z.string().min(1),
+						description: z.string().min(1).optional(),
+					}),
+				)
+				.min(1),
+			transitions: z.array(
 				z.object({
-					id: z.string().min(1),
-					label: z.string().min(1),
-					description: z.string().min(1).optional(),
+					from: z.string().min(1),
+					to: z.string().min(1),
+					label: z.string().min(1).optional(),
 				}),
-			)
-			.min(1),
-		transitions: z.array(
-			z.object({
-				from: z.string().min(1),
-				to: z.string().min(1),
-				label: z.string().min(1).optional(),
-			}),
+			),
+		})
+		.refine(
+			(data) => {
+				const stateIds = new Set(data.states.map((s) => s.id));
+				return data.transitions.every(
+					(t) => stateIds.has(t.from) && stateIds.has(t.to),
+				);
+			},
+			{
+				message:
+					"state-explorer transition references a state ID not present in the states array",
+				path: ["transitions"],
+			},
 		),
-	}),
 });
 
 const layerExplorerBlockSchema = z.object({
@@ -221,7 +267,7 @@ const layerExplorerBlockSchema = z.object({
 				z.object({
 					id: z.string().min(1),
 					name: z.string().min(1),
-					responsibilities: z.array(z.string()),
+					responsibilities: z.array(z.string()).min(1),
 				}),
 			)
 			.min(1),
@@ -235,7 +281,7 @@ const compareCardsBlockSchema = z.object({
 			.array(
 				z.object({
 					title: z.string().min(1),
-					points: z.array(z.string()),
+					points: z.array(z.string()).min(1),
 				}),
 			)
 			.min(1),
@@ -321,8 +367,8 @@ const referenceSchema = z.discriminatedUnion("kind", [
 ]);
 
 const learnerSchema = z.object({
-	familiarity: z.string().min(1),
-	desiredDepth: z.string().min(1),
+	familiarity: z.enum(FAMILIARITY_LEVELS),
+	desiredDepth: z.enum(DESIRED_DEPTHS),
 	targetOutcome: z.string().min(1),
 	constraints: z.array(z.string()),
 });
@@ -332,7 +378,7 @@ const metaSchema = z.object({
 	topicType: z.string().min(1),
 	learnerPromise: z.string().min(1),
 	coreMentalModel: z.string().min(1),
-	primarySpine: z.string().min(1),
+	primarySpine: z.enum(PRIMARY_SPINES),
 	learner: learnerSchema,
 	theme: z.enum(["auto", "light", "dark"]),
 	libraryVersion: z.string().min(1),
@@ -349,10 +395,10 @@ const lessonSchema = z.object({
 	schemaVersion: z.string().min(1),
 	meta: metaSchema,
 	sections: z.array(sectionSchema).min(1),
-	checks: z.array(checkItemSchema),
-	glossary: z.array(glossaryEntrySchema),
-	misconceptions: z.array(z.string()),
-	next: z.array(z.string()),
+	checks: z.array(checkItemSchema).min(3),
+	glossary: z.array(glossaryEntrySchema).min(1),
+	misconceptions: z.array(z.string().min(1)).min(1),
+	next: z.array(z.string().min(1)).min(1),
 	references: z.array(referenceSchema),
 });
 

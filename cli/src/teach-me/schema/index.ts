@@ -5,7 +5,12 @@
  * contract boundary, and the inferred lesson data-model types.
  */
 
-export { parseLesson } from "./lesson-schema.js";
+export {
+	DESIRED_DEPTHS,
+	FAMILIARITY_LEVELS,
+	PRIMARY_SPINES,
+	parseLesson,
+} from "./lesson-schema.js";
 export type {
 	Block,
 	BlockType,

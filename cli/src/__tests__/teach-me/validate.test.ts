@@ -233,10 +233,10 @@ const conformantLesson = () => ({
 		topicType: "concept",
 		learnerPromise: "You will understand the validation gate.",
 		coreMentalModel: "render then gate",
-		primarySpine: "code-path",
+		primarySpine: "code-path-explorer",
 		learner: {
 			familiarity: "intermediate",
-			desiredDepth: "working",
+			desiredDepth: "practical",
 			targetOutcome: "validate a lesson",
 			constraints: [],
 		},
@@ -266,10 +266,29 @@ const conformantLesson = () => ({
 			],
 		},
 	],
-	checks: [],
-	glossary: [],
-	misconceptions: [],
-	next: [],
+	checks: [
+		{
+			q: "Is the artifact self-contained?",
+			choices: ["No", "Yes"],
+			answer: 1,
+			explanation: "All assets are inlined.",
+		},
+		{
+			q: "Does the gate run?",
+			choices: ["No", "Yes"],
+			answer: 1,
+			explanation: "The gate validates self-containment.",
+		},
+		{
+			q: "What does validate check?",
+			choices: ["Syntax only", "Self-containment"],
+			answer: 1,
+			explanation: "Validate checks self-containment.",
+		},
+	],
+	glossary: [{ term: "gate", def: "the self-containment checker" }],
+	misconceptions: ["The gate only checks file size."],
+	next: ["Read the export command."],
 	references: [{ kind: "repo", path: "package.json", why: "the cli manifest" }],
 });
 
