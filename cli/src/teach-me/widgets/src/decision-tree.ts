@@ -61,6 +61,7 @@ class DecisionTreeElement extends HTMLElement {
 		this.trail.setAttribute("aria-label", "Choices made");
 		this.body = el("div", "tm-decision-tree__body");
 		this.body.setAttribute("aria-live", "polite");
+		this.body.setAttribute("tabindex", "-1");
 
 		this.reset = button(
 			"Start over",
@@ -68,6 +69,7 @@ class DecisionTreeElement extends HTMLElement {
 			() => {
 				this.path = [];
 				this.renderNode(this.root);
+				this.body.focus();
 			},
 		);
 
@@ -101,10 +103,12 @@ class DecisionTreeElement extends HTMLElement {
 		this.path.push(branch.label);
 		if (branch.node) {
 			this.renderNode(branch.node);
+			this.body.focus();
 			return;
 		}
 		if (branch.terminal) {
 			this.renderVerdict(branch.terminal);
+			this.body.focus();
 		}
 	}
 

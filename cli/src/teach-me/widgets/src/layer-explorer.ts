@@ -27,6 +27,7 @@ class LayerExplorerElement extends HTMLElement {
 	private buttons = new Map<string, HTMLButtonElement>();
 	private detail!: HTMLElement;
 	private selected = "";
+	private stack!: HTMLElement;
 
 	connectedCallback(): void {
 		const data = readIsland<LayerExplorerData>(this);
@@ -37,33 +38,37 @@ class LayerExplorerElement extends HTMLElement {
 		this.replaceChildren();
 		this.classList.add("tm-layer-explorer");
 
-		const stack = el("div", "tm-layer-explorer__stack");
-		stack.setAttribute("role", "group");
-		stack.setAttribute("aria-label", "Architecture layers, top to bottom");
+		this.stack = el("div", "tm-layer-explorer__stack");
+		this.stack.setAttribute("role", "group");
+		this.stack.setAttribute("aria-label", "Architecture layers, top to bottom");
 		this.layers.forEach((layer, i) => {
 			const btn = button(
 				`${i + 1}. ${layer.name}`,
 				"tm-btn tm-layer-explorer__layer",
 				() => this.select(layer.id),
 			);
+			btn.setAttribute("tabindex", "-1");
 			this.buttons.set(layer.id, btn);
-			stack.appendChild(btn);
+			this.stack.appendChild(btn);
 		});
+		this.stack.addEventListener("keydown", (e) => this.handleGroupKeydown(e));
 
 		this.detail = el("div", "tm-layer-explorer__detail");
 		this.detail.setAttribute("role", "region");
 		this.detail.setAttribute("aria-live", "polite");
 		this.detail.setAttribute("aria-label", "Layer responsibilities");
 
-		this.append(stack, this.detail);
+		this.append(this.stack, this.detail);
 		this.select(this.layers[0]?.id ?? "");
 	}
 
 	private select(id: string): void {
 		this.selected = id;
 		for (const [layerId, btn] of this.buttons) {
-			btn.setAttribute("aria-pressed", String(layerId === id));
-			btn.classList.toggle("is-active", layerId === id);
+			const active = layerId === id;
+			btn.setAttribute("aria-pressed", String(active));
+			btn.classList.toggle("is-active", active);
+			btn.setAttribute("tabindex", active ? "0" : "-1");
 		}
 		const layer = this.layers.find((l) => l.id === this.selected);
 		this.detail.replaceChildren();
@@ -78,6 +83,25 @@ class LayerExplorerElement extends HTMLElement {
 			}
 			this.detail.appendChild(list);
 		}
+	}
+
+	private handleGroupKeydown(e: KeyboardEvent): void {
+		const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
+		const backward = e.key === "ArrowLeft" || e.key === "ArrowUp";
+		if (!forward && !backward) {
+			return;
+		}
+		e.preventDefault();
+		const ids = Array.from(this.buttons.keys());
+		const cur = ids.indexOf(this.selected);
+		if (cur === -1) {
+			return;
+		}
+		const next = forward
+			? (cur + 1) % ids.length
+			: (cur - 1 + ids.length) % ids.length;
+		this.select(ids[next]);
+		this.buttons.get(ids[next])?.focus();
 	}
 }
 

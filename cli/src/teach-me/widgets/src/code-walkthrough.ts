@@ -69,6 +69,7 @@ class CodeWalkthroughElement extends HTMLElement {
 		this.explanation.setAttribute("role", "region");
 		this.explanation.setAttribute("aria-live", "polite");
 		this.explanation.setAttribute("aria-label", "Step explanation");
+		this.explanation.setAttribute("tabindex", "-1");
 
 		const nav = el("div", "tm-code-walkthrough__nav");
 		this.prevButton = button("Previous", "tm-btn", () => this.go(-1));
@@ -86,6 +87,7 @@ class CodeWalkthroughElement extends HTMLElement {
 		}
 		this.index = next;
 		this.render();
+		this.explanation.focus();
 	}
 
 	private render(): void {

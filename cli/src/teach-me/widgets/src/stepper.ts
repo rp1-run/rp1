@@ -57,6 +57,7 @@ class StepperElement extends HTMLElement {
 		this.body.setAttribute("role", "region");
 		this.body.setAttribute("aria-live", "polite");
 		this.body.setAttribute("aria-label", "Step detail");
+		this.body.setAttribute("tabindex", "-1");
 
 		const nav = el("div", "tm-stepper__nav");
 		this.prevButton = button("Previous", "tm-btn", () => this.go(-1));
@@ -74,6 +75,7 @@ class StepperElement extends HTMLElement {
 		}
 		this.index = next;
 		this.render();
+		this.body.focus();
 	}
 
 	private render(): void {

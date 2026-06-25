@@ -58,6 +58,7 @@ class TimelineElement extends HTMLElement {
 		this.current.setAttribute("role", "region");
 		this.current.setAttribute("aria-live", "polite");
 		this.current.setAttribute("aria-label", "Current step");
+		this.current.setAttribute("tabindex", "-1");
 
 		this.append(controls, this.position, this.current);
 		this.render();
@@ -86,6 +87,7 @@ class TimelineElement extends HTMLElement {
 		slider.addEventListener("input", () => {
 			this.index = Number(slider.value);
 			this.render();
+			this.current.focus();
 		});
 		this.slider = slider;
 		wrap.append(label, slider);
@@ -102,6 +104,7 @@ class TimelineElement extends HTMLElement {
 			this.slider.value = String(this.index);
 		}
 		this.render();
+		this.current.focus();
 	}
 
 	private render(): void {
@@ -131,6 +134,12 @@ class TimelineElement extends HTMLElement {
 			this.current.appendChild(notes);
 		}
 
+		if (this.slider) {
+			this.slider.setAttribute(
+				"aria-valuetext",
+				`Step ${this.index + 1}: ${step.title}`,
+			);
+		}
 		if (this.prevButton) {
 			this.prevButton.disabled = this.index === 0;
 		}

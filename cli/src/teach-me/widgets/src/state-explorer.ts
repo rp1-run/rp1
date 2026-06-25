@@ -37,6 +37,7 @@ class StateExplorerElement extends HTMLElement {
 	private buttons = new Map<string, HTMLButtonElement>();
 	private detail!: HTMLElement;
 	private selected = "";
+	private group!: HTMLElement;
 
 	connectedCallback(): void {
 		const data = readIsland<StateExplorerData>(this);
@@ -47,21 +48,23 @@ class StateExplorerElement extends HTMLElement {
 		this.replaceChildren();
 		this.classList.add("tm-state-explorer");
 
-		const group = el("div", "tm-state-explorer__states");
-		group.setAttribute("role", "group");
-		group.setAttribute("aria-label", "States");
+		this.group = el("div", "tm-state-explorer__states");
+		this.group.setAttribute("role", "group");
+		this.group.setAttribute("aria-label", "States");
 		for (const state of data.states) {
 			const btn = button(state.label, "tm-btn", () => this.select(state.id));
+			btn.setAttribute("tabindex", "-1");
 			this.buttons.set(state.id, btn);
-			group.appendChild(btn);
+			this.group.appendChild(btn);
 		}
+		this.group.addEventListener("keydown", (e) => this.handleGroupKeydown(e));
 
 		this.detail = el("div", "tm-state-explorer__detail");
 		this.detail.setAttribute("role", "region");
 		this.detail.setAttribute("aria-live", "polite");
 		this.detail.setAttribute("aria-label", "State detail");
 
-		this.append(group, this.detail);
+		this.append(this.group, this.detail);
 		this.select(data.initial ?? data.states[0]?.id ?? "");
 	}
 
@@ -72,10 +75,31 @@ class StateExplorerElement extends HTMLElement {
 	private select(id: string): void {
 		this.selected = id;
 		for (const [stateId, btn] of this.buttons) {
-			btn.setAttribute("aria-pressed", String(stateId === id));
-			btn.classList.toggle("is-active", stateId === id);
+			const active = stateId === id;
+			btn.setAttribute("aria-pressed", String(active));
+			btn.classList.toggle("is-active", active);
+			btn.setAttribute("tabindex", active ? "0" : "-1");
 		}
 		this.renderDetail();
+	}
+
+	private handleGroupKeydown(e: KeyboardEvent): void {
+		const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
+		const backward = e.key === "ArrowLeft" || e.key === "ArrowUp";
+		if (!forward && !backward) {
+			return;
+		}
+		e.preventDefault();
+		const ids = Array.from(this.buttons.keys());
+		const cur = ids.indexOf(this.selected);
+		if (cur === -1) {
+			return;
+		}
+		const next = forward
+			? (cur + 1) % ids.length
+			: (cur - 1 + ids.length) % ids.length;
+		this.select(ids[next]);
+		this.buttons.get(ids[next])?.focus();
 	}
 
 	private renderDetail(): void {
