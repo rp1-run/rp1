@@ -41,6 +41,10 @@ export function inlineDocument(
 	const theme = assembled.themeAttr
 		? ` data-theme="${assembled.themeAttr}"`
 		: "";
+	const katexStyle =
+		assembled.hasMath && assembled.katexCss
+			? `<style>${assembled.katexCss}</style>\n`
+			: "";
 	return `<!doctype html>
 <html lang="en"${theme}>
 <head>
@@ -48,7 +52,7 @@ export function inlineDocument(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(assembled.title)}</title>
 <style>${bundle.css}</style>
-</head>
+${katexStyle}</head>
 <body>
 <main class="tm-lesson">
 ${assembled.bodyHtml}

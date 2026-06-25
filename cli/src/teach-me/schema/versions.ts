@@ -32,6 +32,7 @@ export const BLOCK_TYPES = [
 	"key-insight",
 	"glossary",
 	"diagram",
+	"math",
 	// Interactive blocks (hydrated from a co-located `data` payload).
 	"timeline",
 	"decision-tree",

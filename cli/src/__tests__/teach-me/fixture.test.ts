@@ -255,6 +255,7 @@ describeBrowser(
 				const result = await runBrowserGate(pathToFileURL(filePath).href, {
 					expectInteractive: true,
 					expectDiagram: true,
+					expectMath: true,
 				})();
 				expect(E.isRight(result)).toBe(true);
 				if (!E.isRight(result)) return;

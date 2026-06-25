@@ -184,6 +184,12 @@ function validLesson(): unknown {
 							],
 						},
 					},
+					{
+						type: "math",
+						tex: "E = mc^{2}",
+						display: "block",
+						caption: "Mass-energy equivalence",
+					},
 				],
 			},
 		],
@@ -296,8 +302,8 @@ describe("parseLesson", () => {
 		expect(error._tag).toBe("ValidationError");
 	});
 
-	test("exposes the 15 MVP block types in the allowlist", () => {
-		expect(BLOCK_TYPES).toHaveLength(15);
+	test("exposes the 16 block types in the allowlist", () => {
+		expect(BLOCK_TYPES).toHaveLength(16);
 		expect([...BLOCK_TYPES]).toEqual(
 			expect.arrayContaining([
 				"prose",
@@ -315,8 +321,39 @@ describe("parseLesson", () => {
 				"quiz",
 				"glossary",
 				"diagram",
+				"math",
 			]),
 		);
+	});
+
+	test("accepts a math block and round-trips through parseLesson", () => {
+		const lesson = validLesson() as {
+			sections: Array<{
+				blocks: Array<Record<string, unknown>>;
+			}>;
+		};
+		// Replace blocks with just a math block to isolate the test.
+		lesson.sections[0]!.blocks = [{ type: "math", tex: "x^2 + y^2 = z^2" }];
+		const result = parseLesson(lesson);
+		const parsed = expectRight(result);
+		const mathBlock = parsed.sections[0]!.blocks[0]!;
+		expect(mathBlock.type).toBe("math");
+		if (mathBlock.type === "math") {
+			expect(mathBlock.tex).toBe("x^2 + y^2 = z^2");
+			expect(mathBlock.display).toBe("block");
+		}
+	});
+
+	test("rejects a math block with missing tex field", () => {
+		const lesson = validLesson() as {
+			sections: Array<{
+				blocks: Array<Record<string, unknown>>;
+			}>;
+		};
+		lesson.sections[0]!.blocks = [{ type: "math" }];
+		const error = expectLeft(parseLesson(lesson));
+		expect(error._tag).toBe("ValidationError");
+		expect(getErrorMessage(error)).toContain("tex");
 	});
 });
 

@@ -110,6 +110,25 @@ class DiagramElement extends HTMLElement {
 	}
 }
 
+/**
+ * `<tm-math>` — server-rendered KaTeX math. Promotes the `data-tex` source
+ * to an accessible name (`role="math"`, `aria-label`) so screen readers
+ * announce the original TeX rather than the rendered markup.
+ */
+class MathElement extends HTMLElement {
+	connectedCallback(): void {
+		const tex = this.getAttribute("data-tex");
+		if (tex && tex.length > 0) {
+			if (!this.hasAttribute("role")) {
+				this.setAttribute("role", "math");
+			}
+			if (!this.hasAttribute("aria-label")) {
+				this.setAttribute("aria-label", tex);
+			}
+		}
+	}
+}
+
 /** Register all static-block custom elements. */
 export function registerStaticBlocks(): void {
 	defineWidget("tm-prose", ProseElement);
@@ -119,4 +138,5 @@ export function registerStaticBlocks(): void {
 	defineWidget("tm-key-insight", KeyInsightElement);
 	defineWidget("tm-glossary", GlossaryElement);
 	defineWidget("tm-diagram", DiagramElement);
+	defineWidget("tm-math", MathElement);
 }

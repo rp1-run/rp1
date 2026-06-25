@@ -14,4 +14,5 @@
  */
 
 export { highlightCode } from "./highlight.js";
+export { getKatexCss, renderMath } from "./math.js";
 export { closeMermaidBrowser, renderMermaid } from "./mermaid.js";

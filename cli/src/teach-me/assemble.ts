@@ -29,7 +29,12 @@
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
-import { highlightCode, renderMermaid } from "./prerender/index.js";
+import {
+	getKatexCss,
+	highlightCode,
+	renderMath,
+	renderMermaid,
+} from "./prerender/index.js";
 import type {
 	Block,
 	GlossaryEntry,
@@ -66,6 +71,10 @@ export interface AssembledLesson {
 	readonly themeAttr: "light" | "dark" | null;
 	/** Assembled `<main>` inner HTML, deterministic and self-contained-ready. */
 	readonly bodyHtml: string;
+	/** True when at least one math block was rendered; the inliner uses this to inject KaTeX CSS. */
+	readonly hasMath: boolean;
+	/** Self-contained KaTeX CSS (with base64-inlined fonts), present only when `hasMath` is true. */
+	readonly katexCss?: string;
 }
 
 /** Escape text for safe inclusion in HTML element content or an attribute value. */
@@ -231,6 +240,18 @@ function renderStaticBlock(block: Block): TE.TaskEither<CLIError, string> {
 			return TE.right(
 				`<tm-glossary>${renderGlossaryList(block.terms)}</tm-glossary>`,
 			);
+		case "math": {
+			const caption = block.caption
+				? `<p class="tm-math__caption">${escapeHtml(block.caption)}</p>`
+				: "";
+			return pipe(
+				renderMath(block.tex, block.display),
+				TE.map(
+					(html) =>
+						`<tm-math data-display="${block.display}" data-tex="${escapeHtml(block.tex)}">${html}${caption}</tm-math>`,
+				),
+			);
+		}
 		default:
 			// Unreachable: `diagram` is handled by the caller (it needs a position
 			// index for id normalization), and interactive blocks never reach here.
@@ -413,10 +434,13 @@ export function assembleLesson(
 	});
 
 	const themeAttr = lesson.meta.theme === "auto" ? null : lesson.meta.theme;
+	const hasMath = lesson.sections.some((section) =>
+		section.blocks.some((block) => block.type === "math"),
+	);
 
 	return pipe(
 		TE.sequenceSeqArray(sectionTasks),
-		TE.map((sections) => {
+		TE.chain((sections) => {
 			const sectionsHtml = sections.join("");
 			const trailing = [
 				renderChecks(lesson),
@@ -429,11 +453,30 @@ export function assembleLesson(
 				renderStringList("next", "Where to go next", lesson.next),
 				renderReferences(lesson),
 			].join("");
-			return {
-				title: lesson.meta.title,
-				themeAttr,
-				bodyHtml: `${renderHeader(lesson)}${sectionsHtml}${trailing}`,
-			};
+			const bodyHtml = `${renderHeader(lesson)}${sectionsHtml}${trailing}`;
+
+			if (!hasMath) {
+				return TE.right({
+					title: lesson.meta.title,
+					themeAttr,
+					bodyHtml,
+					hasMath: false,
+				} as AssembledLesson);
+			}
+
+			return pipe(
+				getKatexCss(),
+				TE.map(
+					(katexCss) =>
+						({
+							title: lesson.meta.title,
+							themeAttr,
+							bodyHtml,
+							hasMath: true,
+							katexCss,
+						}) as AssembledLesson,
+				),
+			);
 		}),
 	);
 }

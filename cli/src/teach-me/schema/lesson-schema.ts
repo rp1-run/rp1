@@ -182,6 +182,13 @@ const diagramBlockSchema = z.object({
 	title: z.string().min(1).optional(),
 });
 
+const mathBlockSchema = z.object({
+	type: z.literal("math"),
+	tex: z.string().min(1),
+	display: z.enum(["block", "inline"]).default("block"),
+	caption: z.string().min(1).optional(),
+});
+
 // ---------------------------------------------------------------------------
 // Interactive blocks (hydrated from a co-located `data` payload)
 // ---------------------------------------------------------------------------
@@ -315,6 +322,7 @@ const blockSchema = z.discriminatedUnion(
 		keyInsightBlockSchema,
 		glossaryBlockSchema,
 		diagramBlockSchema,
+		mathBlockSchema,
 		timelineBlockSchema,
 		decisionTreeBlockSchema,
 		stepperBlockSchema,

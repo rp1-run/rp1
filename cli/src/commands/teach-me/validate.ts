@@ -58,6 +58,9 @@ const INTERACTIVE_TAGS =
 /** Whether validating against a lesson with diagrams (a `<tm-diagram>` is emitted). */
 const hasDiagram = (html: string): boolean => /<tm-diagram\b/.test(html);
 
+/** Whether the rendered artifact carries math blocks (a `<tm-math>` is emitted). */
+const hasMath = (html: string): boolean => /<tm-math\b/.test(html);
+
 /** Whether the rendered artifact carries interactive widgets that hydrate buttons. */
 const hasInteractive = (html: string): boolean => INTERACTIVE_TAGS.test(html);
 
@@ -110,6 +113,7 @@ const runGates = (
 	const expectations: BrowserGateExpectations = {
 		expectInteractive: hasInteractive(html),
 		expectDiagram: hasDiagram(html),
+		expectMath: hasMath(html),
 	};
 	return pipe(
 		TE.fromTask<GateResult, CLIError>(() => runStaticGate(html, staticContext)),

@@ -120,6 +120,12 @@
 					"title": "Render sequence",
 					"source": "sequenceDiagram\n    participant R as render\n    participant S as parseLesson\n    participant A as assembler\n    participant I as inliner\n    R->>S: validate(lesson)\n    S-->>R: Right(model)\n    R->>A: assemble(model)\n    A->>I: body + bundle\n    I-->>R: one self-contained html",
 					"alt": "render calls parseLesson which returns a validated model, render passes it to the assembler, the assembler hands a body and bundle to the inliner, and the inliner returns one self-contained HTML string."
+				},
+				{
+					"type": "math",
+					"tex": "E = mc^{2}",
+					"display": "block",
+					"caption": "Einstein's mass-energy equivalence"
 				}
 			]
 		},

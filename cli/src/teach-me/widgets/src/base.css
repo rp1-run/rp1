@@ -373,6 +373,7 @@ tm-table,
 tm-key-insight,
 tm-glossary,
 tm-diagram,
+tm-math,
 tm-timeline,
 tm-decision-tree,
 tm-stepper,
@@ -739,6 +740,37 @@ tm-diagram .tm-diagram__title {
 tm-diagram svg {
 	max-width: 100%;
 	height: auto;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Math (KaTeX pre-rendered)
+   ───────────────────────────────────────────────────────────────────────── */
+
+tm-math {
+	display: block;
+	padding: 0.5rem 0;
+}
+
+tm-math[data-display="block"] {
+	text-align: center;
+	padding: 1rem;
+	margin: 0.5rem 0;
+	background: var(--tm-surface);
+	border: 1px solid var(--tm-border);
+	border-radius: var(--tm-radius);
+	box-shadow: var(--tm-shadow);
+}
+
+tm-math[data-display="inline"] {
+	display: inline;
+	padding: 0;
+}
+
+tm-math .tm-math__caption {
+	margin: 0.5rem 0 0;
+	font-size: 0.9rem;
+	font-weight: 600;
+	color: var(--tm-text-muted);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

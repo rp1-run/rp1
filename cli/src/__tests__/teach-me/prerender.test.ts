@@ -24,6 +24,11 @@ import { afterAll, describe, expect, it } from "bun:test";
 import * as E from "fp-ts/lib/Either.js";
 import { highlightCode } from "../../teach-me/prerender/highlight.js";
 import {
+	_resetCssCache,
+	getKatexCss,
+	renderMath,
+} from "../../teach-me/prerender/math.js";
+import {
 	_testInternals,
 	closeMermaidBrowser,
 	renderMermaid,
@@ -79,6 +84,67 @@ describe("highlightCode", () => {
 		expect(html).not.toContain("<not & real>");
 		expect(html).toContain("&lt;not &amp; real&gt;");
 		expect(html).not.toContain("<script");
+	});
+});
+
+describe("renderMath", () => {
+	it("renders TeX to static HTML containing the .katex class", async () => {
+		const result = await renderMath("E = mc^{2}", "block")();
+
+		expect(E.isRight(result)).toBe(true);
+		if (!E.isRight(result)) return;
+
+		const html = result.right;
+		expect(html).toContain("katex");
+		expect(html).not.toContain("<script");
+	});
+
+	it("renders inline math without katex-display wrapper", async () => {
+		const result = await renderMath("x^2", "inline")();
+
+		expect(E.isRight(result)).toBe(true);
+		if (!E.isRight(result)) return;
+
+		const html = result.right;
+		expect(html).toContain("katex");
+		expect(html).not.toContain("katex-display");
+	});
+
+	it("renders block math with katex-display wrapper", async () => {
+		const result = await renderMath("\\int_0^1 x\\,dx", "block")();
+
+		expect(E.isRight(result)).toBe(true);
+		if (!E.isRight(result)) return;
+
+		const html = result.right;
+		expect(html).toContain("katex-display");
+	});
+
+	it("degrades gracefully for malformed TeX (throwOnError: false)", async () => {
+		const result = await renderMath("\\invalid{", "block")();
+
+		expect(E.isRight(result)).toBe(true);
+		if (!E.isRight(result)) return;
+
+		const html = result.right;
+		expect(html).toContain("katex");
+	});
+});
+
+describe("getKatexCss", () => {
+	it("returns CSS with no external url() references", async () => {
+		_resetCssCache();
+		const result = await getKatexCss()();
+
+		expect(E.isRight(result)).toBe(true);
+		if (!E.isRight(result)) return;
+
+		const css = result.right;
+		expect(css).toContain("@font-face");
+		expect(css).toContain("data:font/woff2;base64,");
+		// No external url() references remain -- only data: URIs.
+		expect(/url\(\s*['"]?https?:/i.test(css)).toBe(false);
+		expect(/url\(fonts\//i.test(css)).toBe(false);
 	});
 });
 

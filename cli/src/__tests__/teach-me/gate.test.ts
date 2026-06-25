@@ -45,6 +45,7 @@ describeBrowser("runBrowserGate", () => {
 		const result = await runBrowserGate(url, {
 			expectInteractive: false,
 			expectDiagram: false,
+			expectMath: false,
 		})();
 
 		expect(E.isLeft(result)).toBe(true);

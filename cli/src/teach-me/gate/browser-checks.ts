@@ -33,6 +33,8 @@ export interface BrowserGateExpectations {
 	readonly expectInteractive: boolean;
 	/** The lesson has diagrams, so an accessible diagram name must be present. */
 	readonly expectDiagram: boolean;
+	/** The lesson has math blocks, so a rendered `.katex` element must be present. */
+	readonly expectMath: boolean;
 }
 
 /** Local URL schemes a self-contained artifact may legitimately request. */
@@ -50,6 +52,7 @@ interface PageProbe {
 	readonly unlabelledButtons: number;
 	readonly diagramCount: number;
 	readonly diagramsMissingLabel: number;
+	readonly mathRendered: boolean;
 }
 
 /** Read button/diagram accessibility state from the live, hydrated DOM. */
@@ -67,11 +70,13 @@ const probePage = (page: Page): Promise<PageProbe> =>
 			const alt = (el.getAttribute("data-alt") ?? "").trim();
 			return aria.length > 0 || alt.length > 0;
 		};
+		const katexElements = document.querySelectorAll(".katex");
 		return {
 			buttonCount: buttons.length,
 			unlabelledButtons: buttons.filter((b) => !labelled(b)).length,
 			diagramCount: diagrams.length,
 			diagramsMissingLabel: diagrams.filter((d) => !diagramLabelled(d)).length,
+			mathRendered: katexElements.length > 0,
 		};
 	});
 
@@ -224,6 +229,16 @@ function assembleDynamicChecks(
 					: probe.diagramsMissingLabel > 0
 						? `${probe.diagramsMissingLabel} diagram(s) lack a text equivalent (aria-label/data-alt).`
 						: undefined,
+		});
+	}
+
+	if (expectations.expectMath) {
+		checks.push({
+			name: "math-renders",
+			passed: probe.mathRendered,
+			detail: probe.mathRendered
+				? undefined
+				: "Expected math blocks but found no .katex elements in the DOM.",
 		});
 	}
 
