@@ -20,7 +20,7 @@ describe("SandboxedHtmlArtifact", () => {
 		cleanup();
 	});
 
-	test("sandboxes the iframe with allow-scripts only and feeds content via srcDoc", async () => {
+	test("sandboxes the iframe with allow-scripts and allow-popups and feeds content via srcDoc", async () => {
 		const { SandboxedHtmlArtifact } = await loadComponent();
 		const content =
 			"<!doctype html><html><body><button>Run</button></body></html>";
@@ -31,7 +31,7 @@ describe("SandboxedHtmlArtifact", () => {
 
 		const iframe = container.querySelector("iframe");
 		expect(iframe).not.toBeNull();
-		expect(iframe?.getAttribute("sandbox")).toBe("allow-scripts");
+		expect(iframe?.getAttribute("sandbox")).toBe("allow-scripts allow-popups");
 		expect(iframe?.getAttribute("srcdoc")).toBe(content);
 		expect(iframe?.getAttribute("title")).toBe("lesson.html");
 	});

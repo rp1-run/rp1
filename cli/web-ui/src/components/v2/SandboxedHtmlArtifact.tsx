@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 
 /**
- * Sandbox tokens for HTML artifact rendering. Intentionally `allow-scripts`
- * only: omitting `allow-same-origin` yields an opaque origin so the artifact
- * cannot reach Arcade's DOM, storage, cookies, or top-level navigation. Adding
+ * Sandbox tokens for HTML artifact rendering. `allow-scripts` enables widget
+ * interactivity; `allow-popups` lets `target="_blank"` links open new tabs.
+ * Omitting `allow-same-origin` yields an opaque origin so the artifact cannot
+ * reach Arcade's DOM, storage, cookies, or top-level navigation. Adding
  * `allow-same-origin` here would defeat the isolation boundary (see design D2).
  */
-const HTML_ARTIFACT_SANDBOX = "allow-scripts";
+const HTML_ARTIFACT_SANDBOX = "allow-scripts allow-popups";
 
 interface SandboxedHtmlArtifactProps {
 	readonly content: string;
@@ -51,7 +52,7 @@ export function SandboxedHtmlArtifact({
 			title={title}
 			srcDoc={content}
 			sandbox={HTML_ARTIFACT_SANDBOX}
-			className="rp1-html-artifact-frame absolute inset-0 h-full w-full border-0 bg-white"
+			className="rp1-html-artifact-frame absolute inset-0 h-full w-full border-0 bg-transparent"
 		/>
 	);
 }
