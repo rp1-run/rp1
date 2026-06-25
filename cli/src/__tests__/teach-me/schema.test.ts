@@ -11,8 +11,11 @@
 import { describe, expect, test } from "bun:test";
 import {
 	BLOCK_TYPES,
+	DESIRED_DEPTHS,
+	FAMILIARITY_LEVELS,
 	type LessonModel,
 	LIBRARY_VERSION,
+	PRIMARY_SPINES,
 	parseLesson,
 	SCHEMA_VERSION,
 } from "../../teach-me/schema/index.js";
@@ -314,5 +317,140 @@ describe("parseLesson", () => {
 				"diagram",
 			]),
 		);
+	});
+});
+
+describe("schema hardening (REQ-013, REQ-014, REQ-018)", () => {
+	test("rejects invalid familiarity enum value with actionable message", () => {
+		const lesson = validLesson() as {
+			meta: { learner: { familiarity: string } };
+		};
+		lesson.meta.learner.familiarity = "expert";
+
+		const error = expectLeft(parseLesson(lesson));
+		expect(error._tag).toBe("ValidationError");
+		const msg = getErrorMessage(error);
+		expect(msg).toContain("familiarity");
+		for (const level of FAMILIARITY_LEVELS) {
+			expect(msg).toContain(level);
+		}
+	});
+
+	test("rejects invalid desiredDepth enum value with actionable message", () => {
+		const lesson = validLesson() as {
+			meta: { learner: { desiredDepth: string } };
+		};
+		lesson.meta.learner.desiredDepth = "deep";
+
+		const error = expectLeft(parseLesson(lesson));
+		expect(error._tag).toBe("ValidationError");
+		const msg = getErrorMessage(error);
+		expect(msg).toContain("desiredDepth");
+		for (const depth of DESIRED_DEPTHS) {
+			expect(msg).toContain(depth);
+		}
+	});
+
+	test("rejects unknown primarySpine with actionable message", () => {
+		const lesson = validLesson() as { meta: { primarySpine: string } };
+		lesson.meta.primarySpine = "unknown-spine";
+
+		const error = expectLeft(parseLesson(lesson));
+		expect(error._tag).toBe("ValidationError");
+		const msg = getErrorMessage(error);
+		expect(msg).toContain("primarySpine");
+		for (const spine of PRIMARY_SPINES) {
+			expect(msg).toContain(spine);
+		}
+	});
+
+	test("rejects fewer than 3 checks with minimum-count message", () => {
+		const lesson = validLesson() as {
+			checks: Array<{
+				q: string;
+				choices: string[];
+				answer: number;
+				explanation: string;
+			}>;
+		};
+		lesson.checks = [
+			{
+				q: "Question 1?",
+				choices: ["A", "B"],
+				answer: 0,
+				explanation: "Because A.",
+			},
+			{
+				q: "Question 2?",
+				choices: ["A", "B"],
+				answer: 1,
+				explanation: "Because B.",
+			},
+		];
+
+		const error = expectLeft(parseLesson(lesson));
+		expect(error._tag).toBe("ValidationError");
+		const msg = getErrorMessage(error);
+		expect(msg).toContain("checks");
+	});
+
+	test("rejects 0 glossary entries", () => {
+		const lesson = validLesson() as {
+			glossary: Array<{ term: string; def: string }>;
+		};
+		lesson.glossary = [];
+
+		const error = expectLeft(parseLesson(lesson));
+		expect(error._tag).toBe("ValidationError");
+		const msg = getErrorMessage(error);
+		expect(msg).toContain("glossary");
+	});
+
+	test("rejects state-explorer transitions referencing non-existent state IDs", () => {
+		const lesson = validLesson() as {
+			sections: Array<{
+				blocks: Array<{
+					type: string;
+					data?: {
+						states: Array<{ id: string; label: string }>;
+						transitions: Array<{
+							from: string;
+							to: string;
+							label?: string;
+						}>;
+					};
+				}>;
+			}>;
+		};
+
+		const stateExplorer = lesson.sections[0]!.blocks.find(
+			(b) => b.type === "state-explorer",
+		)!;
+		stateExplorer.data!.transitions = [
+			{ from: "idle", to: "nonexistent", label: "bad" },
+		];
+
+		const error = expectLeft(parseLesson(lesson));
+		expect(error._tag).toBe("ValidationError");
+		const msg = getErrorMessage(error);
+		expect(msg).toContain("transition");
+	});
+
+	test("handles malformed (non-parseable) JSON input gracefully", () => {
+		const result = parseLesson("this is { not valid json");
+		const error = expectLeft(result);
+		expect(error._tag).toBe("ValidationError");
+	});
+
+	test("handles null input gracefully", () => {
+		const result = parseLesson(null);
+		const error = expectLeft(result);
+		expect(error._tag).toBe("ValidationError");
+	});
+
+	test("handles numeric input gracefully", () => {
+		const result = parseLesson(42);
+		const error = expectLeft(result);
+		expect(error._tag).toBe("ValidationError");
 	});
 });

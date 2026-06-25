@@ -29,6 +29,7 @@ import {
 	validateFromFile,
 	validateLesson,
 } from "../../commands/teach-me/validate.js";
+import { escapeHtml, renderMarkdown } from "../../teach-me/assemble.js";
 import {
 	DEFAULT_SIZE_LIMIT_BYTES,
 	type GateCheck,
@@ -222,6 +223,240 @@ describe("validateFromFile", () => {
 		expect(E.isLeft(result)).toBe(true);
 		if (!E.isLeft(result)) return;
 		expect(result.left._tag).toBe("NotFoundError");
+	});
+});
+
+describe("gate hardening (REQ-005, REQ-006)", () => {
+	it("flags css-url-external for url(https://...) in inline style blocks", async () => {
+		const html = CLEAN_HTML.replace(
+			"<style>",
+			'<style>.x { background: url("https://evil.example/font.woff"); }',
+		);
+		const result = await runStaticGate(html, ctx());
+
+		const c = check(result, "css-url-external");
+		expect(c.passed).toBe(false);
+		expect(c.detail).toContain("CSS url()");
+	});
+
+	it("passes css-url-external when no CSS url() references external URLs", async () => {
+		const result = await runStaticGate(CLEAN_HTML, ctx());
+
+		expect(check(result, "css-url-external").passed).toBe(true);
+	});
+
+	it("flags js-fetch-external for fetch(https://...) in inline script blocks", async () => {
+		const html = CLEAN_HTML.replace(
+			"(()=>{})()",
+			'fetch("https://api.example.com/data")',
+		);
+		const result = await runStaticGate(html, ctx());
+
+		const c = check(result, "js-fetch-external");
+		expect(c.passed).toBe(false);
+		expect(c.detail).toContain("fetch()");
+	});
+
+	it("flags js-fetch-external for XMLHttpRequest targeting external URLs", async () => {
+		const html = CLEAN_HTML.replace(
+			"(()=>{})()",
+			'const x = new XMLHttpRequest(); x.open("GET", "https://evil.example/x");',
+		);
+		const result = await runStaticGate(html, ctx());
+
+		expect(check(result, "js-fetch-external").passed).toBe(false);
+	});
+
+	it("flags js-fetch-external for new URL constructor with http URL", async () => {
+		const html = CLEAN_HTML.replace(
+			"(()=>{})()",
+			'const u = new URL("https://evil.example/api");',
+		);
+		const result = await runStaticGate(html, ctx());
+
+		expect(check(result, "js-fetch-external").passed).toBe(false);
+	});
+
+	it("passes js-fetch-external when no JS targets external URLs", async () => {
+		const result = await runStaticGate(CLEAN_HTML, ctx());
+
+		expect(check(result, "js-fetch-external").passed).toBe(true);
+	});
+
+	it("does not false-positive on JSON data script blocks", async () => {
+		const html = CLEAN_HTML.replace(
+			"</body>",
+			'<script type="application/json">{"url":"https://example.com"}</script></body>',
+		);
+		const result = await runStaticGate(html, ctx());
+
+		expect(check(result, "js-fetch-external").passed).toBe(true);
+	});
+
+	it("flags relative-file-ref for src pointing at relative paths", async () => {
+		const html = CLEAN_HTML.replace(
+			"<tm-prose>",
+			'<script src="./companion.js"></script><tm-prose>',
+		);
+		const result = await runStaticGate(html, ctx());
+
+		const c = check(result, "relative-file-ref");
+		expect(c.passed).toBe(false);
+		expect(c.detail).toContain("relative file");
+	});
+
+	it("flags relative-file-ref for href pointing at relative paths", async () => {
+		const html = CLEAN_HTML.replace(
+			"<tm-prose>",
+			'<link href="./styles.css"><tm-prose>',
+		);
+		const result = await runStaticGate(html, ctx());
+
+		expect(check(result, "relative-file-ref").passed).toBe(false);
+	});
+
+	it("passes relative-file-ref when no relative file references exist", async () => {
+		const result = await runStaticGate(CLEAN_HTML, ctx());
+
+		expect(check(result, "relative-file-ref").passed).toBe(true);
+	});
+
+	it("rejects absolute path references outside the repo", async () => {
+		const html = `${CLEAN_HTML}
+<li class="tm-ref" data-ref-kind="repo" data-ref-path="/etc/passwd">x</li>`;
+		const result = await runStaticGate(html, ctx());
+
+		const c = check(result, "repo-references-resolve");
+		expect(c.passed).toBe(false);
+	});
+
+	it("flags line-range-invalid when cited lines exceed actual file length", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "tm-gate-linerange-"));
+		try {
+			const filePath = join(dir, "short.ts");
+			await writeFile(filePath, "line1\nline2\nline3\n");
+
+			const html = `${CLEAN_HTML}
+<li class="tm-ref" data-ref-kind="repo" data-ref-path="short.ts" data-ref-lines="1-50">x</li>`;
+			const result = await runStaticGate(html, ctx({ repoRoot: dir }));
+
+			const c = check(result, "line-range-valid");
+			expect(c.passed).toBe(false);
+			expect(c.detail).toContain("line 50");
+			expect(c.detail).toContain("3 lines");
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("passes line-range-valid when cited lines are within actual file length", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "tm-gate-linerange-"));
+		try {
+			const filePath = join(dir, "long.ts");
+			const lines = Array.from({ length: 100 }, (_, i) => `// line ${i + 1}`);
+			await writeFile(filePath, `${lines.join("\n")}\n`);
+
+			const html = `${CLEAN_HTML}
+<li class="tm-ref" data-ref-kind="repo" data-ref-path="long.ts" data-ref-lines="10-20">x</li>`;
+			const result = await runStaticGate(html, ctx({ repoRoot: dir }));
+
+			expect(check(result, "line-range-valid").passed).toBe(true);
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("rejects absolute paths in line-range references", async () => {
+		const html = `${CLEAN_HTML}
+<li class="tm-ref" data-ref-kind="repo" data-ref-path="/etc/passwd" data-ref-lines="1-5">x</li>`;
+		const result = await runStaticGate(html, ctx());
+
+		const c = check(result, "line-range-valid");
+		expect(c.passed).toBe(false);
+		expect(c.detail).toContain("absolute");
+	});
+
+	it("passes line-range-valid when no data-ref-lines attributes are present", async () => {
+		const result = await runStaticGate(CLEAN_HTML, ctx());
+
+		expect(check(result, "line-range-valid").passed).toBe(true);
+	});
+});
+
+describe("security helpers (REQ-016)", () => {
+	describe("escapeHtml (server-side, assemble.ts)", () => {
+		it("escapes angle brackets", () => {
+			expect(escapeHtml("<script>alert(1)</script>")).toBe(
+				"&lt;script&gt;alert(1)&lt;/script&gt;",
+			);
+		});
+
+		it("escapes double quotes", () => {
+			expect(escapeHtml('" onmouseover="alert(1)"')).toBe(
+				"&quot; onmouseover=&quot;alert(1)&quot;",
+			);
+		});
+
+		it("escapes single quotes", () => {
+			expect(escapeHtml("'")).toBe("&#39;");
+		});
+
+		it("escapes ampersands", () => {
+			expect(escapeHtml("a & b")).toBe("a &amp; b");
+		});
+
+		it("preserves safe content", () => {
+			expect(escapeHtml("hello world")).toBe("hello world");
+		});
+
+		it("escapes all dangerous characters in one string", () => {
+			const result = escapeHtml('<img src="x" onerror="alert(\'xss\')">');
+			expect(result).not.toContain("<");
+			expect(result).not.toContain(">");
+			expect(result).not.toContain('"');
+		});
+	});
+
+	describe("isSafeHref (server-side, via renderMarkdown)", () => {
+		it("rejects javascript: URLs", () => {
+			const result = renderMarkdown("[click](javascript:alert(1))");
+			expect(result).not.toContain("href=");
+			expect(result).toContain("click");
+		});
+
+		it("rejects javascript: with mixed case", () => {
+			const result = renderMarkdown("[click](JaVaScRiPt:alert(1))");
+			expect(result).not.toContain("href=");
+		});
+
+		it("rejects data: URLs", () => {
+			const result = renderMarkdown(
+				"[click](data:text/html,<script>alert(1)</script>)",
+			);
+			expect(result).not.toContain("href=");
+		});
+
+		it("rejects vbscript: URLs", () => {
+			const result = renderMarkdown("[click](vbscript:MsgBox)");
+			expect(result).not.toContain("href=");
+		});
+
+		it("accepts https: URLs", () => {
+			const result = renderMarkdown("[click](https://example.com)");
+			expect(result).toContain('href="https://example.com"');
+			expect(result).toContain('target="_blank"');
+			expect(result).toContain('rel="noopener noreferrer"');
+		});
+
+		it("accepts http: URLs", () => {
+			const result = renderMarkdown("[click](http://example.com)");
+			expect(result).toContain('href="http://example.com"');
+		});
+
+		it("accepts mailto: URLs", () => {
+			const result = renderMarkdown("[email](mailto:test@example.com)");
+			expect(result).toContain('href="mailto:test@example.com"');
+		});
 	});
 });
 
