@@ -38,6 +38,15 @@ const isAgentToolsCommand = (): boolean => {
 };
 
 /**
+ * Check if the teach-me command is being invoked.
+ * Used for lazy loading to avoid pulling puppeteer (via the lesson diagram
+ * pre-renderer) into normal CLI startup for other commands.
+ */
+const isTeachMeCommand = (): boolean => {
+	return isTopLevelCommandInvocation(process.argv.slice(2), "teach-me");
+};
+
+/**
  * Check if daemon-server command is being invoked (internal use only).
  * Used for spawning the web UI daemon server.
  */
@@ -186,6 +195,54 @@ const handleAgentToolsCommand = async (): Promise<void> => {
 	await agentProgram.parseAsync(process.argv);
 };
 
+/**
+ * Handle the teach-me command with lazy loading.
+ * Dynamically imports the command group so puppeteer (pulled in transitively by
+ * the lesson diagram pre-renderer) is not loaded during normal CLI startup.
+ */
+const handleTeachMeCommand = async (): Promise<void> => {
+	const { teachMeCommand } = await import("./commands/teach-me/index.js");
+
+	const teachMeProgram = new Command()
+		.name("rp1")
+		.version(version, "-V, --version", "Show version number")
+		.option("-v, --verbose", "Enable debug logging")
+		.option("--trace", "Enable trace logging")
+		.helpOption("-h, --help", "Show this help message")
+		.configureOutput({
+			outputError: (str, write) => write(chalk.red(str)),
+		});
+
+	teachMeProgram.hook("preAction", (thisCommand) => {
+		const opts = thisCommand.opts();
+		const isTTY = process.stdout.isTTY ?? false;
+
+		const level =
+			opts.trace || process.env.DEBUG === "*"
+				? LogLevel.TRACE
+				: opts.verbose
+					? LogLevel.DEBUG
+					: LogLevel.INFO;
+
+		const logger = createLogger({
+			level,
+			color: isTTY,
+		});
+
+		const runtime = detectRuntime();
+		if (runtime.warning) {
+			logger.warn(runtime.warning);
+		}
+
+		thisCommand._logger = logger;
+		thisCommand._isTTY = isTTY;
+	});
+
+	teachMeProgram.addCommand(teachMeCommand);
+
+	await teachMeProgram.parseAsync(process.argv);
+};
+
 declare module "commander" {
 	interface Command {
 		_logger?: Logger;
@@ -277,6 +334,30 @@ Run 'rp1 agent-tools --help' for more information.
 		}),
 );
 
+// Add teach-me stub command for help visibility
+// Actual execution is handled by lazy loading below (avoids loading puppeteer)
+program.addCommand(
+	new Command("teach-me")
+		.description("Render self-contained interactive lessons (lazy-loaded)")
+		.addHelpText(
+			"after",
+			`
+Subcommands:
+  render    Assemble a lesson.json into a single self-contained lesson.html
+
+Examples:
+  rp1 teach-me render lesson.json -o lesson.html
+
+Run 'rp1 teach-me --help' for more information.
+`,
+		)
+		.action(() => {
+			// This action should never be reached due to lazy loading check below
+			// but is here as a fallback
+			console.log("Use 'rp1 teach-me --help' for usage information.");
+		}),
+);
+
 const handleError = (error: CLIError): void => {
 	const isTTY = process.stderr.isTTY ?? false;
 	console.error(formatError(error, isTTY));
@@ -293,6 +374,16 @@ if (isDaemonServerCommand()) {
 } else if (isAgentToolsCommand()) {
 	// Handle agent-tools command with lazy loading to avoid loading puppeteer at startup
 	handleAgentToolsCommand().catch((error) => {
+		if (error && typeof error === "object" && "code" in error) {
+			handleError(error as CLIError);
+		} else {
+			console.error(error);
+			process.exit(1);
+		}
+	});
+} else if (isTeachMeCommand()) {
+	// Handle teach-me command with lazy loading to avoid loading puppeteer at startup
+	handleTeachMeCommand().catch((error) => {
 		if (error && typeof error === "object" && "code" in error) {
 			handleError(error as CLIError);
 		} else {

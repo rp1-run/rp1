@@ -13,8 +13,10 @@ import {
 	MilkdownEditor,
 	type MilkdownEditorHandle,
 } from "@/components/MilkdownEditor/MilkdownEditor";
+import { SandboxedHtmlArtifact } from "@/components/v2/SandboxedHtmlArtifact";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { getCodeLanguageFromPath } from "@/lib/code-language";
+import { isHtmlArtifact } from "@/lib/html-artifact";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -341,6 +343,23 @@ export function UnifiedContentRenderer({
 			<span>Refreshing...</span>
 		</div>
 	) : null;
+
+	if (isHtmlArtifact(path)) {
+		// The HTML artifact fills the viewer pane and scrolls internally. It renders
+		// in the shared ScrollArea/prose path on every surface; that Radix
+		// display:table viewport blocks a percentage/flex height, so the wrapper
+		// takes a viewport-relative `min-h-[calc(100dvh-16rem)]` fill (rather than a
+		// fixed floor) and the iframe is positioned `absolute inset-0` to fill it
+		// deterministically. The wrapper element is intentionally NOT swapped per
+		// surface — swapping it on tab-switch raced the content load and rendered
+		// the wrong artifact.
+		return (
+			<div className="relative h-full min-h-[calc(100dvh_-_16rem)] w-full overflow-hidden">
+				{refreshingOverlay}
+				<SandboxedHtmlArtifact content={content} title={path} />
+			</div>
+		);
+	}
 
 	const codeLanguage = getCodeLanguageFromPath(path);
 

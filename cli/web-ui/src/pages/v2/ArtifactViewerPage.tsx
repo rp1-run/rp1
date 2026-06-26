@@ -51,6 +51,7 @@ import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import { useWorkspaceDescriptor } from "@/hooks/useWorkspaceDescriptor";
+import { isHtmlArtifact } from "@/lib/html-artifact";
 import {
 	getLinkArtifactLabel,
 	getLinkArtifactTarget,
@@ -370,6 +371,11 @@ export function ArtifactViewerPage() {
 			: null;
 	const selectedFileArtifact = selectedUrlArtifact ? null : selectedArtifact;
 	const selectedFileArtifactPath = selectedFileArtifact?.path ?? "";
+	// HTML artifacts render in a sandboxed, opaque-origin iframe; annotations
+	// cannot cross that isolation boundary, so suppress every annotation
+	// affordance for them rather than showing a toolbar that cannot function.
+	const annotationsEnabled =
+		!!selectedFileArtifact && !isHtmlArtifact(selectedFileArtifact.path);
 	const orderedArtifacts = useMemo(
 		() => (run ? orderArtifactsWithLinksLast(run.artifacts) : []),
 		[run],
@@ -1034,6 +1040,7 @@ export function ArtifactViewerPage() {
 							onHeadingsExtracted={handleHeadingsExtracted}
 							runId={runId}
 							docId={artifactContent.docId}
+							enableAnnotations={annotationsEnabled}
 						/>
 					</>
 				)
@@ -1126,7 +1133,7 @@ export function ArtifactViewerPage() {
 								enabled={followMode}
 								onToggle={() => setFollowMode(!followMode)}
 							/>
-							{selectedFileArtifact && (
+							{annotationsEnabled && (
 								<MobileAnnotationButton
 									selectedArtifactPath={selectedFileArtifactPath}
 									onClick={() => setAnnotationDrawerOpen(true)}
@@ -1207,7 +1214,7 @@ export function ArtifactViewerPage() {
 					/>
 				</Drawer>
 
-				{selectedFileArtifact && (
+				{annotationsEnabled && (
 					<Drawer
 						open={annotationDrawerOpen}
 						onClose={() => setAnnotationDrawerOpen(false)}
@@ -1382,7 +1389,7 @@ export function ArtifactViewerPage() {
 									}
 								/>
 							)}
-							{selectedFileArtifact && !annotationSidebarOpen && (
+							{annotationsEnabled && !annotationSidebarOpen && (
 								<AnnotationToggleButton
 									selectedArtifactPath={selectedFileArtifactPath}
 									onOpen={() => handleToggleAnnotationSidebar(true)}
@@ -1433,7 +1440,7 @@ export function ArtifactViewerPage() {
 					</>
 				)}
 
-				{selectedFileArtifact && annotationSidebarOpen && (
+				{annotationsEnabled && annotationSidebarOpen && (
 					<>
 						<ResizableHandle withHandle aria-label="Resize annotations panel" />
 						<ResizablePanel

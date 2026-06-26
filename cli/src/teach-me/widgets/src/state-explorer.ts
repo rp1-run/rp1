@@ -1,0 +1,150 @@
+/**
+ * `<tm-state-explorer>` — inspect the states and transitions of a state machine.
+ *
+ * Hydrates from the schema `state-explorer.data` island:
+ * `{ initial?, states: [{ id, label, description? }],
+ * transitions: [{ from, to, label? }] }`.
+ *
+ * Lists the states as a selectable button group; selecting a state shows its
+ * description and the transitions that leave it (with their targets resolved to
+ * labels). The selected state is reflected via `aria-pressed`, and outgoing
+ * transitions are announced in a live region so the machine is explorable
+ * without relying on a rendered graph.
+ */
+
+import { button, defineWidget, el, readIsland } from "./runtime.js";
+
+interface ExplorerState {
+	id: string;
+	label: string;
+	description?: string;
+}
+
+interface ExplorerTransition {
+	from: string;
+	to: string;
+	label?: string;
+}
+
+interface StateExplorerData {
+	initial?: string;
+	states: ExplorerState[];
+	transitions: ExplorerTransition[];
+}
+
+class StateExplorerElement extends HTMLElement {
+	private data!: StateExplorerData;
+	private buttons = new Map<string, HTMLButtonElement>();
+	private detail!: HTMLElement;
+	private selected = "";
+	private group!: HTMLElement;
+
+	connectedCallback(): void {
+		const data = readIsland<StateExplorerData>(this);
+		if (!data || data.states.length === 0) {
+			return;
+		}
+		this.data = data;
+		this.replaceChildren();
+		this.classList.add("tm-state-explorer");
+
+		this.group = el("div", "tm-state-explorer__states");
+		this.group.setAttribute("role", "group");
+		this.group.setAttribute("aria-label", "States");
+		for (const state of data.states) {
+			const btn = button(state.label, "tm-btn", () => this.select(state.id));
+			btn.setAttribute("tabindex", "-1");
+			this.buttons.set(state.id, btn);
+			this.group.appendChild(btn);
+		}
+		this.group.addEventListener("keydown", (e) => this.handleGroupKeydown(e));
+
+		this.detail = el("div", "tm-state-explorer__detail");
+		this.detail.setAttribute("role", "region");
+		this.detail.setAttribute("aria-live", "polite");
+		this.detail.setAttribute("aria-label", "State detail");
+
+		this.append(this.group, this.detail);
+		this.select(data.initial ?? data.states[0]?.id ?? "");
+	}
+
+	private labelFor(id: string): string {
+		return this.data.states.find((state) => state.id === id)?.label ?? id;
+	}
+
+	private select(id: string): void {
+		this.selected = id;
+		for (const [stateId, btn] of this.buttons) {
+			const active = stateId === id;
+			btn.setAttribute("aria-pressed", String(active));
+			btn.classList.toggle("is-active", active);
+			btn.setAttribute("tabindex", active ? "0" : "-1");
+		}
+		this.renderDetail();
+	}
+
+	private handleGroupKeydown(e: KeyboardEvent): void {
+		const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
+		const backward = e.key === "ArrowLeft" || e.key === "ArrowUp";
+		if (!forward && !backward) {
+			return;
+		}
+		e.preventDefault();
+		const ids = Array.from(this.buttons.keys());
+		const cur = ids.indexOf(this.selected);
+		if (cur === -1) {
+			return;
+		}
+		const next = forward
+			? (cur + 1) % ids.length
+			: (cur - 1 + ids.length) % ids.length;
+		this.select(ids[next]);
+		this.buttons.get(ids[next])?.focus();
+	}
+
+	private renderDetail(): void {
+		const state = this.data.states.find((s) => s.id === this.selected);
+		this.detail.replaceChildren();
+		if (!state) {
+			return;
+		}
+		this.detail.appendChild(el("h4", "tm-state-explorer__name", state.label));
+		if (state.description) {
+			this.detail.appendChild(
+				el("p", "tm-state-explorer__desc", state.description),
+			);
+		}
+
+		const outgoing = this.data.transitions.filter(
+			(t) => t.from === this.selected,
+		);
+		const heading = el(
+			"p",
+			"tm-state-explorer__transitions-heading",
+			outgoing.length > 0
+				? "Transitions out"
+				: "No transitions out of this state",
+		);
+		this.detail.appendChild(heading);
+
+		if (outgoing.length > 0) {
+			const list = el("ul", "tm-state-explorer__transitions");
+			for (const transition of outgoing) {
+				const target = this.labelFor(transition.to);
+				const text = transition.label
+					? `${transition.label} -> ${target}`
+					: `-> ${target}`;
+				const item = el("li", undefined);
+				const link = button(text, "tm-link", () => this.select(transition.to));
+				item.appendChild(link);
+				list.appendChild(item);
+			}
+			this.detail.appendChild(list);
+		}
+	}
+}
+
+/** Register the `<tm-state-explorer>` element. */
+export function registerStateExplorer(): void {
+	defineWidget("tm-state-explorer", StateExplorerElement);
+}

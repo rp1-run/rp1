@@ -63,6 +63,7 @@
 | `/markdown-preview` | base | Generate browser-viewable HTML previews from markdown, plain text, and Mermaid diagrams. Auto-validates, styles, and opens in browser. |
 | `/mermaid` | base | Create, validate, and repair Mermaid.js diagrams. Use when generating flowcharts, sequence, class, ER, state, or Gantt diagrams, or any visualization. |
 | `/project-birds-eye-view` | base | Generates a digestible 3-tier/9-section arc42/C4-aligned project overview with per-claim provenance hidden in HTML comments, snapshot metadata, and Arcade-visible workflow tracking. |
+| `/teach-me` | base | Turn a 'teach me X' request into a single interactive HTML lesson, rendered Arcade-first, by emitting a lesson data model and assembling it with rp1 tooling. |
 | `/write-content` | base | Interactive prompt to help create polished technical documents through clarifying questions and structured writing workflows. |
 
 ## Knowledge

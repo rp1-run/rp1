@@ -87,6 +87,30 @@ function ArtifactContentSurfaceInner({
 	const { onFileChange } = useWebSocket();
 	activeArtifactCacheKeyRef.current = artifactCacheKey;
 
+	// Reset the per-artifact view state synchronously the moment the selected
+	// artifact changes. `path` is derived from the prop and updates immediately,
+	// but `content` is fetched state. If we reset it in an effect (after paint),
+	// React commits one frame with the NEW path and the PREVIOUS artifact's
+	// content; UnifiedContentRenderer routes by path, so that frame feeds the new
+	// viewer the wrong bytes — markdown dumped into the HTML iframe, or HTML into
+	// the markdown editor — the "wrong tab / mangled content" flash. Adjusting
+	// state during render (React's documented pattern for resetting state on a
+	// prop change) applies the reset in the SAME commit as the path change,
+	// before children render, so the mismatched frame is never shown.
+	const [trackedCacheKey, setTrackedCacheKey] = useState(artifactCacheKey);
+	if (trackedCacheKey !== artifactCacheKey) {
+		setTrackedCacheKey(artifactCacheKey);
+		const cached = artifactCacheKey
+			? (artifactContentCache.get(artifactCacheKey) ?? null)
+			: null;
+		setContent(cached);
+		setContentLoading(artifactCacheKey !== null && cached === null);
+		setContentError(null);
+		setHeadings([]);
+		setContentMode("slides");
+		setReaderFallbackMessage(null);
+	}
+
 	const walkthroughResult = useMemo(() => {
 		if (content === null || !selectedArtifact) return null;
 		return parseWalkthroughSlideSource({
@@ -172,19 +196,10 @@ function ArtifactContentSurfaceInner({
 	);
 
 	useEffect(() => {
-		if (!artifactCacheKey) {
-			setContent(null);
-			setContentLoading(false);
-			setContentError(null);
-			return;
-		}
-
-		const cachedContent = artifactContentCache.get(artifactCacheKey) ?? null;
-		setContent(cachedContent);
-		setContentLoading(cachedContent === null);
-		setContentError(null);
-		setContentMode("slides");
-		setReaderFallbackMessage(null);
+		// The synchronous reset above (the trackedCacheKey block) already cleared
+		// view state for the newly selected artifact, in the same commit as the
+		// path change. This effect only kicks off the fetch for it.
+		if (!artifactCacheKey) return;
 		void fetchContent(false);
 	}, [artifactCacheKey, fetchContent]);
 

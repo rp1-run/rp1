@@ -1,7 +1,23 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { render } from "@testing-library/react";
 import { createElement } from "react";
-import { HarnessIcon } from "../../../components/v2/HarnessIcon";
+
+// Sibling suites (e.g. V2Layout) register `mock.module("@/components/v2/HarnessIcon")`
+// at runtime, and bun never un-registers module mocks across files — so when one
+// of them runs before this file, the static import resolves to their stub and every
+// assertion below fails. Load an unmocked copy via a query suffix: a distinct module
+// key that no `mock.module` targets, keeping these tests order-independent.
+let HarnessIcon: typeof import("../../../components/v2/HarnessIcon").HarnessIcon;
+
+// Passed as a variable (not an inline string literal) so TypeScript skips
+// compile-time module resolution on the `?real-icons` query — which has no type
+// declaration — and resolves it at runtime only. The real type comes from the
+// query-free `typeof import(...)` annotation above.
+const realIconModule = "../../../components/v2/HarnessIcon.tsx?real-icons";
+
+beforeAll(async () => {
+	({ HarnessIcon } = await import(realIconModule));
+});
 
 describe("HarnessIcon", () => {
 	test("renders the Antigravity mono icon for Antigravity harnesses", () => {

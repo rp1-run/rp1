@@ -35,6 +35,20 @@ mock.module("@/components/MarkdownViewer", () => ({
 	),
 }));
 
+mock.module("@/components/v2/SandboxedHtmlArtifact", () => ({
+	SandboxedHtmlArtifact: ({
+		content,
+		title,
+	}: {
+		content: string;
+		title: string;
+	}) => (
+		<div data-testid="sandboxed-html-artifact" data-title={title}>
+			{content}
+		</div>
+	),
+}));
+
 mock.module("@/components/MarkdownViewer/MarkdownViewer", () => ({
 	AnnotationLayer: ({ children }: { children?: ReactNode }) => <>{children}</>,
 }));
@@ -115,6 +129,83 @@ describe("UnifiedContentRenderer", () => {
 		expect(screen.getByTestId("milkdown-editor").textContent).toContain(
 			"internal metadata",
 		);
+	});
+
+	test("routes html artifacts to the sandboxed iframe, not the source view", async () => {
+		const { UnifiedContentRenderer } = await import(
+			`../../../components/v2/UnifiedContentRenderer.tsx?renderer-test=${++importVersion}`
+		);
+
+		render(
+			<UnifiedContentRenderer
+				content="<!doctype html><html><body><button>Run</button></body></html>"
+				path=".rp1/work/features/example/lesson.html"
+			/>,
+		);
+
+		const sandboxed = screen.getByTestId("sandboxed-html-artifact");
+		expect(sandboxed.textContent).toContain("<button>Run</button>");
+		expect(sandboxed.getAttribute("data-title")).toBe(
+			".rp1/work/features/example/lesson.html",
+		);
+		expect(screen.queryByTestId("milkdown-editor")).toBeNull();
+		expect(screen.queryByTestId("markdown-viewer")).toBeNull();
+	});
+
+	test("wraps the html artifact in a non-collapsing fill-height container", async () => {
+		const { UnifiedContentRenderer } = await import(
+			`../../../components/v2/UnifiedContentRenderer.tsx?renderer-test=${++importVersion}`
+		);
+
+		render(
+			<UnifiedContentRenderer
+				content="<!doctype html><html><body><button>Run</button></body></html>"
+				path=".rp1/work/features/example/lesson.html"
+			/>,
+		);
+
+		// happy-dom does not compute layout px, so assert the structural classes
+		// that keep the iframe from collapsing to its 150px intrinsic height: a
+		// `relative` box with a min-height floor that the absolute-positioned
+		// iframe fills.
+		const wrapper = screen.getByTestId("sandboxed-html-artifact")
+			.parentElement as HTMLElement;
+		expect(wrapper.className).toContain("relative");
+		expect(wrapper.className).toContain("h-full");
+		expect(wrapper.className).toContain("min-h-[calc(100dvh_-_16rem)]");
+		expect(wrapper.className).toContain("overflow-hidden");
+	});
+
+	test("classifies html case-insensitively (.HTM)", async () => {
+		const { UnifiedContentRenderer } = await import(
+			`../../../components/v2/UnifiedContentRenderer.tsx?renderer-test=${++importVersion}`
+		);
+
+		render(
+			<UnifiedContentRenderer content="<p>hi</p>" path="docs/lesson.HTM" />,
+		);
+
+		expect(screen.getByTestId("sandboxed-html-artifact")).toBeTruthy();
+		expect(screen.queryByTestId("markdown-viewer")).toBeNull();
+	});
+
+	test("keeps existing viewers for non-html paths", async () => {
+		const { UnifiedContentRenderer } = await import(
+			`../../../components/v2/UnifiedContentRenderer.tsx?renderer-test=${++importVersion}`
+		);
+
+		const markdownView = render(
+			<UnifiedContentRenderer content="# Hello" path="docs/test.md" />,
+		);
+		expect(screen.getByTestId("milkdown-editor")).toBeTruthy();
+		expect(screen.queryByTestId("sandboxed-html-artifact")).toBeNull();
+		markdownView.unmount();
+
+		render(
+			<UnifiedContentRenderer content="const x = 1;" path="src/example.ts" />,
+		);
+		expect(screen.getByTestId("markdown-viewer")).toBeTruthy();
+		expect(screen.queryByTestId("sandboxed-html-artifact")).toBeNull();
 	});
 
 	test("remounts the markdown editor when the selected artifact changes", async () => {
