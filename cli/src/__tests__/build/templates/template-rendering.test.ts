@@ -498,6 +498,42 @@ describeWithLiquid("template rendering", () => {
 			expect(result).not.toContain("reasoningEffort:");
 			expect(result).not.toContain("effort:");
 		});
+
+		test("golden: effort pass-through produces provider-keyed field", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("opencode/agent", {
+				platform: "opencode",
+				artifact: {
+					type: "agent",
+					name: "test-agent",
+					description: "Agent with deep tier and effort",
+					model: "o3",
+					effortFieldName: "reasoningEffort",
+					effortValue: "high",
+					tools: ["Bash"],
+					content: "Agent content for effort pass-through test.",
+				},
+			});
+			expect(result.trim()).toBe(readGolden("opencode-agent-effort.md").trim());
+		});
+
+		test("golden: inherit model produces unchanged output (backward compat)", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("opencode/agent", {
+				platform: "opencode",
+				artifact: {
+					type: "agent",
+					name: "inherit-agent",
+					description: "Agent with inherited model",
+					model: "inherit",
+					tools: [],
+					content: "Agent content with no tools.",
+				},
+			});
+			expect(result.trim()).toBe(
+				readGolden("opencode-agent-inherit.md").trim(),
+			);
+		});
 	});
 
 	describe("codex/skill.liquid", () => {
@@ -692,6 +728,47 @@ describeWithLiquid("template rendering", () => {
 			});
 			expect(result).not.toContain("model =");
 			expect(result).not.toContain("model_reasoning_effort");
+		});
+
+		test("golden: model + effort produces TOML with both fields", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("codex/agent-toml", {
+				platform: "codex",
+				pluginName: "dev",
+				namespacedPluginName: "rp1-dev",
+				artifact: {
+					type: "agent",
+					name: "task-builder",
+					description: "Implements feature tasks",
+					model: "o3",
+					effortFieldName: "model_reasoning_effort",
+					effortValue: "high",
+					tools: ["Bash", "Edit"],
+					content: "Agent instructions for deep tier with effort.",
+				},
+			});
+			expect(result.trim()).toBe(
+				readGolden("codex-agent-toml-model-effort.toml").trim(),
+			);
+		});
+
+		test("golden: inherit model produces TOML identical to pre-tiering", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("codex/agent-toml", {
+				platform: "codex",
+				pluginName: "dev",
+				namespacedPluginName: "rp1-dev",
+				artifact: {
+					type: "agent",
+					name: "task-builder",
+					description: "Implements feature tasks",
+					model: "inherit",
+					tools: ["Bash", "Edit"],
+					content:
+						"Agent instructions with /rp1-base:knowledge-build reference.",
+				},
+			});
+			expect(result.trim()).toBe(readGolden("codex-agent-toml.toml").trim());
 		});
 	});
 
@@ -1036,6 +1113,50 @@ describeWithLiquid("template rendering", () => {
 		});
 	});
 
+	describe("antigravity/agent.liquid", () => {
+		test("golden: model emitted, effort omitted for Antigravity agent", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("antigravity/agent", {
+				platform: "antigravity",
+				pluginName: "base",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "agent",
+					name: "deep-agent",
+					description: "Agent with deep tier for Antigravity",
+					model: "opus",
+					tools: ["Read", "Bash"],
+					content: "Agent content for Antigravity tier test.",
+				},
+			});
+			expect(result.trim()).toBe(
+				readGolden("antigravity-agent-model.md").trim(),
+			);
+			expect(result).toContain("model: opus");
+			expect(result).not.toContain("effort:");
+			expect(result).not.toContain("reasoningEffort:");
+		});
+
+		test("inherit model omits model field for Antigravity agent", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("antigravity/agent", {
+				platform: "antigravity",
+				pluginName: "base",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "agent",
+					name: "inherit-agent",
+					description: "Agent with inherited model",
+					model: "inherit",
+					tools: ["Read"],
+					content: "Agent content.",
+				},
+			});
+			expect(result).not.toContain("model:");
+			expect(result).not.toContain("effort:");
+		});
+	});
+
 	describe("gemini templates", () => {
 		test("renders Gemini skill with workflow bootstrap and Gemini tool names", async () => {
 			const engine = createTestEngine();
@@ -1107,6 +1228,27 @@ describeWithLiquid("template rendering", () => {
 			expect(result).toContain("- run_shell_command");
 			expect(result).toContain("max_turns: 30");
 			expect(result).toContain("Default: `gemini-cli`");
+		});
+
+		test("golden: model emitted, effort omitted for Gemini agent", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("gemini/agent", {
+				platform: "gemini",
+				pluginName: "base",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "agent",
+					name: "deep-agent",
+					description: "Agent with deep tier for Gemini",
+					model: "gemini-2.5-pro",
+					tools: ["Read", "Bash"],
+					content: "Agent content for Gemini tier test.",
+				},
+			});
+			expect(result.trim()).toBe(readGolden("gemini-agent-model.md").trim());
+			expect(result).toContain("model: gemini-2.5-pro");
+			expect(result).not.toContain("effort:");
+			expect(result).not.toContain("reasoningEffort:");
 		});
 
 		test("renders Gemini command TOML with argument placeholder intact", async () => {
@@ -1358,6 +1500,56 @@ describeWithLiquid("template rendering", () => {
 			});
 			expect(result).not.toContain("---");
 			expect(result).not.toContain("model:");
+		});
+
+		test("golden: model + effort produces frontmatter with both fields", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("claude-code/agent", {
+				platform: "claude-code",
+				artifact: {
+					type: "agent",
+					name: "test-agent",
+					description: "Test agent",
+					model: "opus",
+					effortFieldName: "effort",
+					effortValue: "high",
+					tools: ["Bash", "Read"],
+					content: "Agent content for deep tier with effort.",
+				},
+			});
+			expect(result.trim()).toBe(readGolden("cc-agent-model-effort.md").trim());
+		});
+
+		test("golden: model only produces frontmatter without effort", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("claude-code/agent", {
+				platform: "claude-code",
+				artifact: {
+					type: "agent",
+					name: "test-agent",
+					description: "Test agent",
+					model: "haiku",
+					tools: ["Bash"],
+					content: "Agent content for fast tier without effort.",
+				},
+			});
+			expect(result.trim()).toBe(readGolden("cc-agent-model-only.md").trim());
+		});
+
+		test("golden: inherit model produces no frontmatter", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("claude-code/agent", {
+				platform: "claude-code",
+				artifact: {
+					type: "agent",
+					name: "test-agent",
+					description: "Test agent",
+					model: "inherit",
+					tools: [],
+					content: "Agent content with inherited model.",
+				},
+			});
+			expect(result.trim()).toBe(readGolden("cc-agent-inherit.md").trim());
 		});
 	});
 
