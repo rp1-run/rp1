@@ -2,7 +2,8 @@
 name: strategic-advisor
 description: Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs
 tools: Read, Grep, Glob, Bash, WebFetch
-model: inherit
+model: deep
+effort: high
 arguments:
   - name: PROBLEM_STATEMENT
     type: string

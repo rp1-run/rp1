@@ -2,7 +2,8 @@
 name: pr-feedback-collector
 description: Automatically gathers pull request review comments from GitHub, classifies them by priority and type, extracts actionable tasks, and generates structured feedback documents for systematic resolution
 tools: Read, Write, Bash
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: FEATURE_ID
     type: string

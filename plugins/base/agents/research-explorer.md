@@ -2,7 +2,8 @@
 name: research-explorer
 description: Deep exploration of codebases or web resources, returning structured JSON findings with evidence
 tools: Read, Grep, Glob, WebSearch
-model: inherit
+model: deep
+effort: high
 arguments:
   - name: EXPLORATION_TARGET
     type: string

@@ -2,7 +2,7 @@
 name: pr-comment-deduplicator
 description: Deduplicates PR review comments against existing bot and human comments
 tools: []
-model: inherit
+model: fast
 arguments:
   - name: NEW_COMMENTS
     type: string

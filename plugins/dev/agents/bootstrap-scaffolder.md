@@ -2,7 +2,8 @@
 name: bootstrap-scaffolder
 description: Stateless scaffolder that analyzes interview state and returns structured JSON responses for tech stack selection and project scaffolding
 tools: Read, Write, Bash
-model: inherit
+model: standard
+effort: medium
 author: cloud-on-prem/rp1
 arguments:
   - name: PROJECT_NAME

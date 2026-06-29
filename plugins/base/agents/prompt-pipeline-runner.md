@@ -2,7 +2,8 @@
 name: prompt-pipeline-runner
 description: Executes the six-stage prompt-writer pipeline and produces two mandatory output artifacts (ready-to-run prompt, confidence report)
 tools: Skill, Read, Bash
-model: inherit
+model: standard
+effort: high
 arguments:
   - name: PROMPT_NAME
     type: string

@@ -2,7 +2,8 @@
 name: phase-planner
 description: Decomposes a planning source into a source-adjacent phase-plan artifact and refreshes source backlinks.
 tools: Read, Write, Edit, Glob, Grep
-model: inherit
+model: deep
+effort: high
 author: cloud-on-prem/rp1
 arguments:
   - name: SOURCE

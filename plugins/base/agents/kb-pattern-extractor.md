@@ -2,7 +2,8 @@
 name: kb-pattern-extractor
 description: Extracts implementation patterns and idioms for patterns.md from pre-filtered source files
 tools: Read, Grep, Glob
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: CODEBASE_ROOT
     type: string

@@ -2,7 +2,8 @@
 name: code-auditor
 description: Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift
 tools: Read, Write, Grep, Glob, Bash
-model: inherit
+model: deep
+effort: high
 arguments:
   - name: FEATURE_ID
     type: string

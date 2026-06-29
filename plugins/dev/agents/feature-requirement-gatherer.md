@@ -2,7 +2,8 @@
 name: feature-requirement-gatherer
 description: Transforms high-level feature concepts into structured requirements specifications. Invoked by /build workflow.
 tools: Read, Write, Glob, Bash(rp1 *)
-model: inherit
+model: standard
+effort: high
 arguments:
   - name: FEATURE_ID
     type: string

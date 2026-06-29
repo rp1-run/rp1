@@ -2,7 +2,8 @@
 name: feature-archiver
 description: Archives completed features to .rp1/work/archives/features/ or restores archived features back to active features directory
 tools: Read, Glob, Bash, Edit
-model: inherit
+model: standard
+effort: low
 author: cloud-on-prem/rp1
 arguments:
   - name: MODE

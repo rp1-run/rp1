@@ -2,7 +2,8 @@
 name: kb-architecture-mapper
 description: Maps system architecture patterns, layers, and integrations for architecture.md from pre-filtered files
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: CODEBASE_ROOT
     type: string

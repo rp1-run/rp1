@@ -2,7 +2,8 @@
 name: kb-spatial-analyzer
 description: Scans repository files, ranks by importance (0-5), and categorizes them by KB section for parallel analysis
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: CODEBASE_ROOT
     type: string

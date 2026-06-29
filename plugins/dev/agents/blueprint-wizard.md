@@ -2,7 +2,8 @@
 name: blueprint-wizard
 description: Stateless PRD wizard that analyzes interview state and returns structured JSON responses for PRD creation
 tools: Read, Write, Glob, Bash
-model: inherit
+model: standard
+effort: high
 author: cloud-on-prem/rp1
 arguments:
   - name: PRD_NAME

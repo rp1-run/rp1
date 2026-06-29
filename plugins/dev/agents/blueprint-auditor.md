@@ -2,7 +2,8 @@
 name: blueprint-auditor
 description: Audits PRD documents against implementation status and executes disposition actions
 tools: Read, Glob, Bash, Grep, Write, Task
-model: inherit
+model: deep
+effort: high
 author: cloud-on-prem/rp1
 arguments:
   - name: MODE

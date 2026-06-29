@@ -2,7 +2,8 @@
 name: pr-sub-reviewer
 description: Analyzes one review unit across 5 dimensions with confidence gating
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: deep
+effort: high
 arguments:
   - name: UNIT_JSON
     type: string

@@ -2,7 +2,8 @@
 name: kb-concept-extractor
 description: Extracts domain concepts and terminology for concept_map.md from pre-filtered files
 tools: Read, Grep, Glob
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: CODEBASE_ROOT
     type: string

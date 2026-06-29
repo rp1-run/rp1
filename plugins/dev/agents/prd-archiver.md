@@ -2,7 +2,8 @@
 name: prd-archiver
 description: Archives completed PRDs to .rp1/work/archives/prds/, archives associated completed features, checks KB staleness, and generates closure summaries
 tools: Read, Glob, Bash, Grep, Write
-model: inherit
+model: standard
+effort: low
 author: cloud-on-prem/rp1
 arguments:
   - name: MODE

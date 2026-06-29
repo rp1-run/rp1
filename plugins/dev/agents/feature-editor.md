@@ -2,7 +2,8 @@
 name: feature-editor
 description: Analyzes mid-stream edits for validity, detects conflicts, and propagates approved changes across feature documentation
 tools: Read, Edit, Glob, Bash
-model: inherit
+model: standard
+effort: high
 author: cloud-on-prem/rp1
 arguments:
   - name: FEATURE_ID

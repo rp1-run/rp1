@@ -2,6 +2,8 @@
 name: build-fast-planner
 description: Quick-iteration workflow planner. Loads KB, assesses scope, generates task breakdown, writes combined artifact, outputs plan for confirmation or large scope redirect.
 tools: Read, Write, Glob, Grep, Bash, Bash(rp1 *)
+model: standard
+effort: high
 arguments:
   - name: REQUEST
     type: string

@@ -2,7 +2,8 @@
 name: project-documenter
 description: Generates a digestible 3-tier/9-section birds-eye-view document from KB + codebase, with per-claim provenance in hidden HTML comments
 tools: Read, Write, Grep, Glob, Skill, Bash, Bash(rp1 *)
-model: inherit
+model: standard
+effort: high
 arguments:
   - name: PROJECT_CONTEXT
     type: string

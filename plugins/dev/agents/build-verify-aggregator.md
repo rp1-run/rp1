@@ -2,7 +2,8 @@
 name: build-verify-aggregator
 description: Combines validation envelopes into final build readiness status and artifact
 tools: Read, Write, Bash
-model: inherit
+model: standard
+effort: low
 arguments:
   - name: PHASE_RESULTS
     type: string

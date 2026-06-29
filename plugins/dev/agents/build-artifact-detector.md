@@ -2,7 +2,7 @@
 name: build-artifact-detector
 description: Determines workflow start_step by checking existing feature artifacts using bootstrap-provided run context
 tools: Read, Bash(rp1 *)
-model: inherit
+model: fast
 arguments:
   - name: FEATURE_ID
     type: string

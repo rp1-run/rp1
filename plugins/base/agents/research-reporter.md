@@ -2,7 +2,8 @@
 name: research-reporter
 description: Generates structured research reports with validated Mermaid diagrams from synthesis data
 tools: Write, Skill, Bash
-model: inherit
+model: standard
+effort: high
 arguments:
   - name: SYNTHESIS_DATA
     type: string

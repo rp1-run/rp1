@@ -2,7 +2,8 @@
 name: pr-review-synthesizer
 description: Holistic cross-file verification using compressed summaries
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: deep
+effort: high
 arguments:
   - name: INTENT_JSON
     type: string

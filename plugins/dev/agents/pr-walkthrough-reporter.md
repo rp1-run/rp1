@@ -2,7 +2,8 @@
 name: pr-walkthrough-reporter
 description: Generate an evidence-grounded slide-ready markdown walkthrough for a pull request
 tools: Read, Write, Glob, Bash
-model: inherit
+model: standard
+effort: high
 arguments:
   - name: EVIDENCE_JSON
     type: string

@@ -2,7 +2,8 @@
 name: speedrun-builder
 description: Implements a single focused code change from a speedrun request
 tools: Read, Write, Edit, Bash, Glob, Grep
-model: inherit
+model: standard
+effort: medium
 ---
 
 # Speedrun Builder Agent

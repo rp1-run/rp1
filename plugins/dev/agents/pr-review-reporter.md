@@ -2,7 +2,8 @@
 name: pr-review-reporter
 description: Formats findings into markdown report and writes to file
 tools: Read, Write, Glob, Bash
-model: inherit
+model: standard
+effort: low
 arguments:
   - name: PR_INFO
     type: string

@@ -2,7 +2,8 @@
 name: task-reviewer
 description: Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification.
 tools: Read, Grep, Glob, Edit, Bash, Bash(rp1 *)
-model: inherit
+model: deep
+effort: high
 arguments:
   - name: FEATURE_ID
     type: string

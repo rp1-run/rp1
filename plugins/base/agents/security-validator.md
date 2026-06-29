@@ -2,7 +2,8 @@
 name: security-validator
 description: Performs evidence-bounded, standards-mapped security posture assessment for a project, sub-directory, module, concept, or feature topic
 tools: Read, Write, Grep, Glob, Bash
-model: inherit
+model: deep
+effort: high
 arguments:
   - name: TOPIC
     type: string

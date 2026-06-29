@@ -2,7 +2,8 @@
 name: kb-interaction-mapper
 description: Maps cross-surface interaction semantics for interaction-model.md from pre-filtered files
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: CODEBASE_ROOT
     type: string
