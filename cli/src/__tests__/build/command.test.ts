@@ -943,6 +943,118 @@ Research explorer content.
 	});
 });
 
+describe("buildPlatformPlugin (tier resolution)", () => {
+	let tempDir: string;
+	let outputDir: string;
+
+	beforeAll(async () => {
+		tempDir = await createTempDir("tier-resolution");
+		outputDir = join(tempDir, "output");
+	});
+
+	afterAll(async () => {
+		await cleanupTempDir(tempDir);
+	});
+
+	test("resolves abstract model tier to platform-specific ID and maps effort fields on AgentArtifactData", async () => {
+		const projectRoot = join(tempDir, "project-tier-resolution");
+		await writeFixture(
+			projectRoot,
+			"plugins/base/skills/sample/SKILL.md",
+			`---
+name: sample
+description: "Sample skill with enough text to pass build validation"
+---
+
+Sample skill content.
+`,
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/agents/deep-agent.md",
+			`---
+name: deep-agent
+description: "Agent with deep tier and high effort for resolution testing"
+tools: Read
+model: deep
+effort: high
+---
+
+Deep agent content for tier resolution.
+`,
+		);
+
+		const out = join(outputDir, "tier-opencode");
+		const result = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			out,
+			opencodeDef,
+			noopLogger,
+			true,
+			false,
+		);
+
+		expect(result.summary.errors).toEqual([]);
+		expect(result.summary.agents).toBe(1);
+
+		const agentPath = join(out, "base", "agents", "rp1-base-deep-agent.md");
+		const agentContent = await readFile(agentPath, "utf-8");
+
+		// Model tier "deep" should be resolved to "opus" for OpenCode
+		expect(agentContent).toContain("model: opus");
+		expect(agentContent).not.toContain("model: deep");
+	});
+
+	test("preserves inherit model as-is and omits effort when resolveEffort returns null", async () => {
+		const projectRoot = join(tempDir, "project-tier-inherit");
+		await writeFixture(
+			projectRoot,
+			"plugins/base/skills/sample/SKILL.md",
+			`---
+name: sample
+description: "Sample skill with enough text to pass build validation"
+---
+
+Sample skill content.
+`,
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/agents/inherit-agent.md",
+			`---
+name: inherit-agent
+description: "Agent with inherit model for backward compatibility testing"
+tools: Read
+model: inherit
+---
+
+Inherit agent content.
+`,
+		);
+
+		const out = join(outputDir, "tier-inherit");
+		const result = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			out,
+			opencodeDef,
+			noopLogger,
+			true,
+			false,
+		);
+
+		expect(result.summary.errors).toEqual([]);
+		expect(result.summary.agents).toBe(1);
+
+		const agentPath = join(out, "base", "agents", "rp1-base-inherit-agent.md");
+		const agentContent = await readFile(agentPath, "utf-8");
+
+		// Inherit model should NOT emit model field at all (backward compatible)
+		expect(agentContent).not.toContain("model:");
+	});
+});
+
 describe("ParseCache", () => {
 	let tempDir: string;
 	let outputDir: string;

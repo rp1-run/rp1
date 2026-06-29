@@ -66,6 +66,7 @@ import {
 	withDerivedArgumentHint,
 } from "./template-context.js";
 import { createTemplateEngine } from "./template-engine.js";
+import { resolveEffort, resolveTier } from "./tier-resolution.js";
 import { injectEmitHarness } from "./transforms.js";
 import {
 	validateAgent,
@@ -860,6 +861,16 @@ export const buildPlatformPlugin = async (
 		}
 		const processedContent = preprocessResult.right;
 
+		const resolvedModel =
+			resolveTier(ccAgent.model as import("./models.js").ModelTier, platform) ??
+			ccAgent.model;
+		const effortResolution = resolveEffort(
+			ccAgent.effort as import("./models.js").EffortLevel | undefined,
+			ccAgent.model as import("./models.js").ModelTier,
+			platform,
+			resolvedModel !== ccAgent.model ? resolvedModel : null,
+		);
+
 		let ctx: Record<string, unknown> = buildTemplateContext(
 			platform,
 			pluginName,
@@ -868,9 +879,13 @@ export const buildPlatformPlugin = async (
 				type: "agent",
 				name: ccAgent.name,
 				description: ccAgent.description,
-				model: ccAgent.model,
+				model: resolvedModel,
 				tools: ccAgent.tools,
 				content: processedContent,
+				...(effortResolution && {
+					effortFieldName: effortResolution.fieldName,
+					effortValue: effortResolution.value,
+				}),
 				...(ccAgent.arguments && { arguments: ccAgent.arguments }),
 				...(ccAgent.environment && { environment: ccAgent.environment }),
 			},
