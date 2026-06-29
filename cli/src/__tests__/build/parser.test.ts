@@ -245,6 +245,57 @@ Content.`;
 				await cleanupTempDir(tempDir);
 			}
 		});
+
+		test("extracts effort from agent frontmatter", async () => {
+			const tempDir = await createTempDir("parser-agent-effort");
+			try {
+				const content = `---
+name: effort-agent
+description: Agent with effort level
+tools: Read
+model: deep
+effort: high
+---
+Content.`;
+
+				const filePath = await writeFixture(
+					tempDir,
+					"effort-agent.md",
+					content,
+				);
+				const result = await expectTaskRight(parseAgent(filePath));
+
+				expect(result.effort).toBe("high");
+				expect(result.model).toBe("deep");
+			} finally {
+				await cleanupTempDir(tempDir);
+			}
+		});
+
+		test("defaults effort to undefined when not specified", async () => {
+			const tempDir = await createTempDir("parser-agent-no-effort");
+			try {
+				const content = `---
+name: no-effort-agent
+description: Agent without effort
+tools: Read
+model: standard
+---
+Content.`;
+
+				const filePath = await writeFixture(
+					tempDir,
+					"no-effort-agent.md",
+					content,
+				);
+				const result = await expectTaskRight(parseAgent(filePath));
+
+				expect(result.effort).toBeUndefined();
+				expect(result.model).toBe("standard");
+			} finally {
+				await cleanupTempDir(tempDir);
+			}
+		});
 	});
 
 	describe("parseSkill", () => {
