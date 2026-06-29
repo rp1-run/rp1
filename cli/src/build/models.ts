@@ -43,6 +43,50 @@ export interface ClaudeCodeCommand {
 	readonly content: string;
 }
 
+/** Abstract model tier aliases decoupling agent definitions from vendor model identifiers. */
+export type ModelTier = "deep" | "standard" | "fast" | "inherit";
+
+/** Valid model tier values for runtime validation. */
+export const VALID_MODEL_TIERS: readonly ModelTier[] = [
+	"deep",
+	"standard",
+	"fast",
+	"inherit",
+] as const;
+
+/** Reasoning effort levels controlling depth independently of model tier. */
+export type EffortLevel = "low" | "medium" | "high" | "xhigh" | "max";
+
+/** Valid effort level values for runtime validation. */
+export const VALID_EFFORT_LEVELS: readonly EffortLevel[] = [
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+	"max",
+] as const;
+
+/**
+ * Agents that must remain on the deep/frontier tier.
+ * Build emits a warning when any of these agents is assigned a non-deep tier.
+ */
+export const PROTECTED_AGENTS: ReadonlySet<string> = new Set([
+	"feature-architect",
+	"phase-planner",
+	"research-explorer",
+	"strategic-advisor",
+	"security-validator",
+	"socratic-duel-participant",
+	"bug-investigator",
+	"hypothesis-tester",
+	"code-auditor",
+	"blueprint-auditor",
+	"pr-review-synthesizer",
+	"pr-sub-reviewer",
+	"task-reviewer",
+	"feature-verifier",
+]);
+
 /**
  * Parsed Claude Code agent with frontmatter.
  * Represents an agent from Claude Code's .claude-plugin/agents/ directory
@@ -53,6 +97,7 @@ export interface ClaudeCodeAgent {
 	readonly description: string;
 	readonly tools: readonly string[];
 	readonly model: string;
+	readonly effort?: string;
 	readonly content: string;
 	readonly arguments?: readonly ArgumentDefinition[];
 	readonly environment?: readonly EnvironmentDefinition[];
