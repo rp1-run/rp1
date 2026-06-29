@@ -461,6 +461,43 @@ describeWithLiquid("template rendering", () => {
 				readGolden("opencode-agent-inherit.md").trim(),
 			);
 		});
+
+		test("emits provider-keyed effort pass-through field when present", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("opencode/agent", {
+				platform: "opencode",
+				artifact: {
+					type: "agent",
+					name: "test-agent",
+					description: "Agent with effort",
+					model: "o3",
+					effortFieldName: "reasoningEffort",
+					effortValue: "high",
+					tools: ["Bash", "Read"],
+					content: "Agent content.",
+				},
+			});
+			expect(result).toContain("model: o3");
+			expect(result).toContain("reasoningEffort: high");
+		});
+
+		test("omits effort field when effortValue is absent", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("opencode/agent", {
+				platform: "opencode",
+				artifact: {
+					type: "agent",
+					name: "test-agent",
+					description: "Agent without effort",
+					model: "sonnet",
+					tools: ["Bash"],
+					content: "Agent content.",
+				},
+			});
+			expect(result).toContain("model: sonnet");
+			expect(result).not.toContain("reasoningEffort:");
+			expect(result).not.toContain("effort:");
+		});
 	});
 
 	describe("codex/skill.liquid", () => {
@@ -615,6 +652,46 @@ describeWithLiquid("template rendering", () => {
 				},
 			});
 			expect(result.trim()).toBe(readGolden("codex-agent-toml.toml").trim());
+		});
+
+		test("emits model and model_reasoning_effort TOML fields when present", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("codex/agent-toml", {
+				platform: "codex",
+				pluginName: "dev",
+				namespacedPluginName: "rp1-dev",
+				artifact: {
+					type: "agent",
+					name: "task-builder",
+					description: "Implements feature tasks",
+					model: "o3",
+					effortFieldName: "model_reasoning_effort",
+					effortValue: "high",
+					tools: ["Bash", "Edit"],
+					content: "Agent instructions.",
+				},
+			});
+			expect(result).toContain('model = "o3"');
+			expect(result).toContain('model_reasoning_effort = "high"');
+		});
+
+		test("omits model and effort TOML fields when model is inherit", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("codex/agent-toml", {
+				platform: "codex",
+				pluginName: "dev",
+				namespacedPluginName: "rp1-dev",
+				artifact: {
+					type: "agent",
+					name: "task-builder",
+					description: "Implements feature tasks",
+					model: "inherit",
+					tools: ["Bash", "Edit"],
+					content: "Agent instructions.",
+				},
+			});
+			expect(result).not.toContain("model =");
+			expect(result).not.toContain("model_reasoning_effort");
 		});
 	});
 
@@ -1226,6 +1303,61 @@ describeWithLiquid("template rendering", () => {
 			});
 			expect(result).toContain("Default: `claude-code`");
 			expect(result).toContain("Agent content with rp1-base:agent reference.");
+		});
+
+		test("emits YAML frontmatter with model and effort when both present", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("claude-code/agent", {
+				platform: "claude-code",
+				artifact: {
+					type: "agent",
+					name: "test-agent",
+					description: "Test agent",
+					model: "opus",
+					effortFieldName: "effort",
+					effortValue: "high",
+					tools: ["Bash", "Read"],
+					content: "Agent content.",
+				},
+			});
+			expect(result).toContain("---");
+			expect(result).toContain("model: opus");
+			expect(result).toContain("effort: high");
+		});
+
+		test("emits frontmatter with model only when effort is absent", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("claude-code/agent", {
+				platform: "claude-code",
+				artifact: {
+					type: "agent",
+					name: "test-agent",
+					description: "Test agent",
+					model: "haiku",
+					tools: ["Bash"],
+					content: "Agent content.",
+				},
+			});
+			expect(result).toContain("---");
+			expect(result).toContain("model: haiku");
+			expect(result).not.toContain("effort:");
+		});
+
+		test("omits frontmatter entirely when model is inherit and no effort", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("claude-code/agent", {
+				platform: "claude-code",
+				artifact: {
+					type: "agent",
+					name: "test-agent",
+					description: "Test agent",
+					model: "inherit",
+					tools: [],
+					content: "Agent content.",
+				},
+			});
+			expect(result).not.toContain("---");
+			expect(result).not.toContain("model:");
 		});
 	});
 
