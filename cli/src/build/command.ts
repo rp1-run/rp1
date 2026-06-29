@@ -67,7 +67,11 @@ import {
 } from "./template-context.js";
 import { createTemplateEngine } from "./template-engine.js";
 import { injectEmitHarness } from "./transforms.js";
-import { validateAgent, validateSkill } from "./validator.js";
+import {
+	validateAgent,
+	validateAgentTierAndEffort,
+	validateSkill,
+} from "./validator.js";
 
 const VALID_PLATFORMS = [
 	"opencode",
@@ -817,6 +821,22 @@ export const buildPlatformPlugin = async (
 		if (agentArgErrors.length > 0) {
 			for (const d of agentArgErrors) {
 				errors.push(formatLintDiagnostic(d));
+			}
+			continue;
+		}
+
+		const tierValidation = validateAgentTierAndEffort(
+			ccAgent.name,
+			ccAgent.model,
+			ccAgent.effort,
+			agentFile,
+		);
+		for (const warning of tierValidation.warnings) {
+			emitWarn(warning);
+		}
+		if (tierValidation.errors.length > 0) {
+			for (const err of tierValidation.errors) {
+				errors.push(err);
 			}
 			continue;
 		}
