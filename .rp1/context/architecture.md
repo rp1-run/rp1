@@ -2,102 +2,72 @@
 
 **Project**: rp1
 **Architecture Pattern**: Plugin-based CLI with tracked workflow state, artifact-backed handoffs, and multi-platform prompt compilation
-**Last Updated**: 2026-04-12
+**Last Updated**: 2026-06-30
 
-## System Layers
+rp1 is a Bun/TypeScript CLI + plugin monorepo that compiles markdown-defined skills and agents into host-specific artifacts, tracks workflow runtime state as events, and serves a live Arcade dashboard.
 
-```text
-Interaction          CLI commands (cli/src/commands/)
-Workflow Definition  Plugin skills & agents (plugins/*)
-Runtime Services     Agent tools, emit, bootstrap (cli/src/agent-tools/)
-Build & Distribution Build pipeline, catalog (cli/src/build/, cli/src/catalog/)
-Presentation         Arcade SPA + HTTP/WS server (cli/web-ui/)
-Persistence          SQLite (~/.rp1/rp1.db), KB files (.rp1/context/), work artifacts (.rp1/work/)
-Evaluation           Dockerized eval execution (evals/)
-Quality Gates        Lefthook, Biome, catalog checks
-```
-
-## Architecture Diagram
+## High-Level Architecture
 
 ```mermaid
 flowchart TB
-    Host["Host Tools\nClaude Code / OpenCode / Codex"] --> CLI["rp1 CLI\ncli/src/main.ts"]
-    CLI --> Skills["Plugin Skills & Agents\nplugins/base, dev, utils"]
-    CLI --> AgentTools["Agent Tools\nemit, workflow-bootstrap,\nresolve-args, rp1-root-dir"]
-    CLI --> Build["Build Command"]
-    CLI --> Catalog["Catalog Registry\ncli/src/catalog/"]
+    Host["Host Tools<br/>Claude Code / OpenCode / Codex"] --> CLI["rp1 CLI<br/>cli/src/main.ts"]
+    CLI --> Skills["Plugin Skills & Agents<br/>plugins/base, dev, utils"]
+    CLI --> AgentTools["Agent Tools<br/>emit, workflow-bootstrap, resolve-args"]
+    CLI --> Build["Build Pipeline"]
+    CLI --> Catalog["Catalog Registry"]
     AgentTools --> EventDB[("~/.rp1/rp1.db")]
-    AgentTools --> Daemon["Arcade Daemon\nHTTP + WS"]
+    AgentTools --> Daemon["Arcade Daemon<br/>HTTP + WS"]
     Daemon --> Browser["Web Browser"]
-    Daemon --> Registry["Project Registry\nprojects.json + async mutex"]
-    Daemon --> Diagnostics["Diagnostics\ndaemon.log"]
-    Skills --> KB["Knowledge Base\n.rp1/context/*.md"]
-    Skills --> Work[".rp1/work/\nbrief.md + scan_results.json"]
-    Build --> Pipeline["LiquidJS build pipeline"]
-    Pipeline --> Artifacts["Platform artifacts + compiled binary"]
-    Catalog --> Guide["/guide meta-skill\nCATALOG.md + WORKFLOWS.md"]
+    Daemon --> Registry["Project Registry<br/>async mutex"]
+    Skills --> KB[".rp1/context KB"]
+    Skills --> Work[".rp1/work artifacts"]
+    Build --> Parse["parser"]
+    Parse --> Validate["validator<br/>tier + effort"]
+    Validate --> TierRes["tier-resolution<br/>resolveTier / resolveEffort"]
+    TierRes --> Render["LiquidJS templates"]
+    Render --> Artifacts["dist platform artifacts"]
 ```
 
 ## Architectural Patterns
 
-| Pattern | Description |
-|---------|-------------|
-| Plugin Architecture | Three plugin packs (base, dev, utils) with scoped capabilities and enforced dependency direction |
-| Event-Sourced Runtime State | Workflow progress tracked as events via `rp1 agent-tools emit` with status_change, waiting_for_user, artifact_registered, subflow_registered |
-| Cross-Platform Build Pipeline | Markdown specs compile into host-specific artifacts through shared LiquidJS pipeline. All 3 platform templates emit `arcade_tracked` field |
-| State-Machine-Driven Workflows | Skills declare `stateDiagram-v2` phases with explicit step transitions and validation |
-| Map-Reduce Agent Orchestration | Heavy analysis fans out to narrow workers and rejoins through parent orchestrator |
-| Artifact-Backed Workflow Handoffs | Multi-phase workflows bridge context through durable files in `.rp1/work/` |
-| Deterministic Workflow Bootstrap | `workflow-bootstrap` resolves directories, arguments, and run identity atomically. Skills declare `runPolicy` and `identityArgs` |
-| Catalog-as-Code | TypeScript catalog registry parses frontmatter, groups by category, renders CATALOG.md and init skill-awareness blocks |
-| Session Hooks | Host-specific hooks start services at session boundary using `--format hook-json` for structured output |
-| Cross-Process Registry Serialization | `withRegistryLock` async mutex serializes all registry mutations preventing race conditions |
-| Daemon Diagnostics Logging | Structured NDJSON log entries to `daemon.log` for post-mortem debugging |
-| Git Worktree-Aware Project Resolution | Project resolution derives paths from repo identity; guards against home-directory adoption |
-| Worktree-Aware Code Editing (CODE_ROOT) | Code-writing agents receive an explicit `codeRoot` directory for source-file reads and writes. In worktree contexts `codeRoot` equals the worktree path; in standard repos it equals `projectRoot`. Work artifacts continue to use `workRoot` (canonical `.rp1/work/`) and KB reads use `kbRoot`, keeping Arcade visibility intact while edits land in the user's active worktree |
-| Versioned Stanza Markers | Instruction-file stanzas carry version stamps for staleness detection and `rp1 migrate` upgrades |
-| Dockerized Eval Execution | Prompt evals run inside Docker containers isolating harness CLIs and dependencies |
+- **Cross-Platform Build Pipeline** — single-source agent/skill markdown compiles to 6 targets (Claude Code, OpenCode, Codex, Copilot, Antigravity, Gemini) via data-driven `PlatformDefinition` configs + LiquidJS templates.
+- **Additive-Field Tier Resolution** — agent `model` tier (deep/standard/fast/inherit) and `effort` (low–max) are resolved at build time from abstract aliases to platform-specific model IDs and effort field names, propagated as additive fields through the template context so templates stay format-only. (New in tiered-models-effort.)
+- **Event-Sourced Runtime State** — all workflow state changes are `rp1 agent-tools emit` events persisted to SQLite and broadcast over WebSocket.
+- **State-Machine-Driven Workflows** — skills declare `stateDiagram-v2` phases; steps are validated against the graph at emit time.
+- **Map-Reduce Agent Orchestration** — heavy analysis fans out to narrow workers and rejoins through a parent orchestrator (KB build, PR review).
+- **Deterministic Workflow Bootstrap** — `workflow-bootstrap` resolves directories, arguments, and run identity atomically; skills declare `runPolicy` + `identityArgs`.
+- **Artifact-Backed Handoffs** — inter-phase state persists as markdown/JSON under `.rp1/work/`.
+- **Catalog-as-Code** — the skill/agent catalog is derived from source frontmatter at build time.
+- **Worktree-Aware Code Editing** — agents distinguish `codeRoot` (edit target, worktree-aware) from `workRoot`/`kbRoot` (canonical `.rp1/`).
 
-## Key Data Flows
+## Layers
 
-### Event Pipeline
-Skill/agent emits workflow event -> State machine validation -> SQLite persistence -> HTTP notify daemon -> WebSocket broadcast to Arcade
+| Layer | Purpose | Components |
+|-------|---------|-----------|
+| Interaction | User-facing CLI commands, host tool integration | `cli/src/commands/` |
+| Workflow Definition | Plugin skills + agents | `plugins/{base,dev,utils}/` |
+| Runtime Services | Agent tools, emit, bootstrap, resolve-args | `cli/src/agent-tools/` |
+| Build & Distribution | Multi-platform compile with tier resolution, validation, rendering | `cli/src/build/`, `cli/src/catalog/` |
+| Presentation | Arcade SPA with real-time WS | `cli/web-ui/` |
+| Persistence | SQLite event store, KB, work artifacts | `~/.rp1/rp1.db`, `.rp1/context/`, `.rp1/work/` |
+| Evaluation | Dockerized prompt evals | `evals/` |
 
-### Workflow Bootstrap
-Tracked skill invokes `workflow-bootstrap` -> Resolves canonical directories -> Validates workflow contract -> Creates/resumes run -> Returns runId + directories + arguments
+## Data Flows
 
-### KB Generation
-Orchestrator selects mode (FULL/INCREMENTAL/FEATURE_LEARNING) -> Spatial analysis -> Parallel specialist agents -> Reconcile each section -> Write `.rp1/context/*.md` + `state.json`
+- **Build Pipeline (per-agent artifact)**: parse frontmatter (model tier + effort) → validate tier/effort/protected for all platforms → preprocess includes/conditionals → `resolveTier` → concrete model ID → `resolveEffort` → provider-specific `{fieldName, value}` → build `AgentArtifactData` → render platform Liquid template (conditional emit) → lint → write platform artifacts.
+- **Event Pipeline**: skill/agent emits event → state-machine validation → SQLite persist → HTTP daemon notify → WebSocket broadcast to Arcade.
+- **KB Generation**: orchestrator selects mode (FULL/INCREMENTAL/FEATURE_LEARNING) → spatial analysis → parallel specialist agents → reconcile → write `.rp1/context/*.md` + `state.json`.
 
-### Startup Recovery
-Server reads `daemon-state.json` high-water mark -> Queries SQLite for missed events -> Replays via WebSocket hub -> Prunes stale projects from registry
+## Integration Points
 
-### Project Registry
-Registration/access from CLI/hooks -> Worktree normalization -> UUID-keyed entry -> Async-mutex-serialized read-modify-write -> Atomic temp-file + rename
-
-## Integrations
-
-| Service | Purpose | Type |
-|---------|---------|------|
-| Bun | CLI runtime, HTTP/WS server, binary compilation, tests | Runtime |
-| bun:sqlite | Persist events, runs, artifacts, annotations, notifications | Embedded DB |
-| Git CLI | KB staleness, diffs, repo context, worktree resolution | Version control |
-| GitHub API | PR review, comments, reactions | REST API |
-| React + Vite | Arcade dashboard SPA | Frontend |
-| LiquidJS | Multi-platform prompt artifact rendering | Build |
-| chokidar | Watch `.rp1/work` and `.rp1/context` for live updates | Runtime |
-| promptfoo | Prompt quality evaluations | Testing |
-| Release Please | Semver and release automation | CI/CD |
-| GitHub Actions | CI, release, and automation jobs | CI/CD |
-| Lefthook | Local quality gates (lint, format, catalog check) | Dev tooling |
-| Biome | Linting and formatting for TS/TSX | Dev tooling |
-| MkDocs Material | Publish docs at `rp1.run` | Documentation |
-| Docker | Cross-platform testing and eval execution | Dev tooling |
+- **Runtime/build**: Bun (runtime, HTTP/WS server, binary compile, tests), `bun:sqlite` (event store), LiquidJS (template engine, `greedy:true` whitespace control).
+- **VCS/CI**: Git CLI (KB staleness, diffs, worktree resolution), GitHub API via `gh` (PR review), Release Please + GitHub Actions, Lefthook + Biome (local quality gates).
+- **Frontend**: React + Vite (Arcade SPA), chokidar (file watching), promptfoo + Docker (evals).
 
 ## Deployment
 
-- **Distribution**: Single-executable CLI with embedded assets plus background daemon
-- **Targets**: darwin-arm64, darwin-x64, linux-arm64, linux-x64, windows-x64
-- **Daemon**: Background Bun HTTP+WS server on port 7710 with PID-file lifecycle, version-aware restart, SIGTERM->SIGKILL escalation, diagnostic logging
-- **Config directory**: macOS `~/Library/Application Support/rp1/`, Linux `$XDG_CONFIG_HOME/rp1/`, Windows `%APPDATA%\rp1\`
-- **Docker**: Multi-stage Dockerfile (base -> target-repo -> stable | dev) for isolated testing and eval execution
+Single-executable CLI per platform (darwin/linux/windows) via GitHub releases, plus a background Bun HTTP+WS daemon on port 7710 with PID-file lifecycle, version-aware restart, and NDJSON diagnostics. Config dir is OS-specific.
+
+## Related KB
+
+- Component detail: `modules.md` · Concepts: `concept_map.md` · Conventions: `patterns.md` · Surfaces: `interaction-model.md`
