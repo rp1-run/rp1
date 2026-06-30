@@ -1,15 +1,9 @@
 ---
 name: rp1-base-knowledge-build
 description: Build knowledge base artifacts
-
-
 allowed-tools:
-
   - Bash
-
   - Read
-
-
 metadata:
   rp1:
     plugin: base

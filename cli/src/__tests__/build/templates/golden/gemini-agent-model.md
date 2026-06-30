@@ -2,18 +2,10 @@
 name: rp1-base-deep-agent
 description: Agent with deep tier for Gemini
 kind: local
-
-
 tools:
-
   - read_file
-
   - run_shell_command
-
-
-
 model: gemini-2.5-pro
-
 max_turns: 30
 ---
 

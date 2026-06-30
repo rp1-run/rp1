@@ -5,7 +5,7 @@ model = "{{ artifact.model }}"
 {%- endif -%}
 {%- if artifact.effortValue %}
 {{ artifact.effortFieldName }} = "{{ artifact.effortValue }}"
-{%- endif -%}
+{%- endif %}
 
 developer_instructions = '''
 You are running in Codex with shared rp1 prompt content.

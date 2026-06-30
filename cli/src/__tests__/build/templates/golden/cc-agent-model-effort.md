@@ -1,10 +1,6 @@
 ---
-
 model: opus
-
-
 effort: high
-
 ---
 
 ## Host Context

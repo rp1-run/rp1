@@ -2,18 +2,10 @@
 name: rp1-base-deep-agent
 description: Agent with deep tier for Antigravity
 kind: local
-
-
 tools:
-
   - read_file
-
   - run_shell_command
-
-
-
 model: opus
-
 max_turns: 30
 metadata:
   rp1:

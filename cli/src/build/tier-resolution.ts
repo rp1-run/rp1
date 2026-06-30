@@ -75,6 +75,11 @@ function clampToThreeLevels(effort: EffortLevel): string {
 /**
  * Derive the model provider from a resolved model identifier.
  * Used by OpenCode to select the correct effort pass-through field name.
+ *
+ * Closed-world assumption: only model IDs produced by TIER_MODEL_MAP reach
+ * this function (e.g. "opus", "sonnet", "haiku", "o3", "o4-mini",
+ * "gpt-4.1-nano"). If TIER_MODEL_MAP is extended with models from a new
+ * provider, add a matching branch here.
  */
 function deriveProvider(
 	resolvedModel: string,
@@ -174,7 +179,10 @@ export function resolveEffort(
 	if (effort === undefined) return null;
 	if (tier === "fast") return null;
 
-	// OpenCode: provider-dependent effort field
+	// OpenCode: provider-dependent effort field.
+	// When tier is "inherit", resolvedModel is null (the session model is
+	// unknown at build time), so provider resolves to "unknown" and effort
+	// is correctly omitted — the runtime session model determines behavior.
 	if (platform === "opencode") {
 		const provider = resolvedModel ? deriveProvider(resolvedModel) : "unknown";
 		const config = OPENCODE_PROVIDER_EFFORT[provider];

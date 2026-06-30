@@ -49,7 +49,7 @@ const createTestEngine = () => {
 		extname: ".liquid",
 		strictVariables: true,
 		strictFilters: true,
-		greedy: false,
+		greedy: true,
 		lenientIf: true,
 	});
 

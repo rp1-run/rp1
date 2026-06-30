@@ -1,8 +1,5 @@
 ---
-
 model: haiku
-
-
 ---
 
 ## Host Context
