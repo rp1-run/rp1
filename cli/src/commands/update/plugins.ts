@@ -38,7 +38,6 @@ const VALID_TOOLS = [
 	"codex",
 	"copilot",
 	"antigravity",
-	"gemini",
 ] as const;
 type ValidTool = (typeof VALID_TOOLS)[number];
 

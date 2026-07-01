@@ -27,6 +27,7 @@ import type { BuildPlatform } from "./template-context.js";
  *
  * Antigravity: uses Gemini models (gemini-3.1-pro for deep/frontier,
  * gemini-3.5-flash for standard/fast).
+ *
  */
 const TIER_MODEL_MAP: Readonly<
 	Record<Exclude<ModelTier, "inherit">, Partial<Record<BuildPlatform, string>>>
@@ -35,25 +36,21 @@ const TIER_MODEL_MAP: Readonly<
 		"claude-code": "fable",
 		codex: "gpt-5.5",
 		antigravity: "gemini-3.1-pro",
-		gemini: "gemini-2.5-pro",
 	},
 	deep: {
 		"claude-code": "opus",
 		codex: "gpt-5.5",
 		antigravity: "gemini-3.1-pro",
-		gemini: "gemini-2.5-pro",
 	},
 	standard: {
 		"claude-code": "sonnet",
 		codex: "gpt-5.4",
 		antigravity: "gemini-3.5-flash",
-		gemini: "gemini-2.5-flash",
 	},
 	fast: {
 		"claude-code": "haiku",
 		codex: "gpt-5.4-mini",
 		antigravity: "gemini-3.5-flash",
-		gemini: "gemini-2.5-flash",
 	},
 } as const;
 
@@ -94,7 +91,6 @@ const PLATFORM_EFFORT: Readonly<
 		mapValue: clampToCodexEffort,
 	},
 	antigravity: null,
-	gemini: null,
 	opencode: null,
 	copilot: null,
 };

@@ -83,10 +83,7 @@ const extractBundledPlugin = async (
 	platform?: BuildPlatform,
 ): Promise<number> => {
 	let filesExtracted = 0;
-	const pluginDir = join(
-		targetDir,
-		platform === "gemini" ? plugin.name : pluginKey,
-	);
+	const pluginDir = join(targetDir, pluginKey);
 
 	for (const agent of plugin.agents) {
 		// Codex agents are TOML files with a plugin-prefixed name (e.g., rp1-base-agent-name.toml)
@@ -298,10 +295,7 @@ const extractFromDist = (
 
 			for (const dir of filteredDirs) {
 				const srcDir = join(distDir, dir);
-				const dstDir = join(
-					opts.targetDir,
-					opts.platform === "gemini" ? `rp1-${dir}` : dir,
-				);
+				const dstDir = join(opts.targetDir, dir);
 				const count = await copyDirRecursive(srcDir, dstDir);
 				filesExtracted += count;
 				pluginsExtracted.push(`rp1-${dir}`);

@@ -22,10 +22,6 @@ describe("harness_name filter", () => {
 		expect(harnessName("antigravity")).toBe("antigravity");
 	});
 
-	test("maps gemini to gemini-cli", () => {
-		expect(harnessName("gemini")).toBe("gemini-cli");
-	});
-
 	test("maps opencode to opencode", () => {
 		expect(harnessName("opencode")).toBe("opencode");
 	});

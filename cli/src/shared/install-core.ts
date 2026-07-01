@@ -55,13 +55,6 @@ import {
 	installCopilot,
 } from "../install/copilot/index.js";
 import type { CopilotInstallResult } from "../install/copilot/models.js";
-import {
-	type GeminiManifestRefreshResult,
-	geminiExtensionDisplayRoot,
-	geminiExtensionNameFromDisplayDir,
-	installGeminiBundleAssets,
-	refreshGeminiManifestAssets,
-} from "../install/gemini/index.js";
 import { writeVersionMarker } from "../install/version-marker.js";
 import { getInstalledVersion } from "../lib/version.js";
 
@@ -506,31 +499,6 @@ const installForTool = (
 		);
 	}
 
-	if (tool.tool.id === "gemini") {
-		return pipe(
-			installGeminiBundleAssets({ dryRun: ctx.dryRun }),
-			TE.map(
-				(result): ToolInstallResult => ({
-					...baseResult,
-					success: true,
-					pluginsInstalled: geminiBundleScope(result),
-					details: geminiInstallDetails(ctx.dryRun, result),
-					warnings: result.warnings,
-				}),
-			),
-			TE.orElse(
-				(error): TE.TaskEither<CLIError, ToolInstallResult> =>
-					TE.right({
-						...baseResult,
-						success: false,
-						pluginsInstalled: [],
-						warnings: [],
-						error,
-					}),
-			),
-		);
-	}
-
 	// Unknown tool - return failure result
 	return TE.right({
 		...baseResult,
@@ -544,18 +512,6 @@ type SpecificToolLookup =
 	| { readonly tool: SupportedTool }
 	| { readonly error: CLIError };
 
-const LEGACY_GEMINI_TOOL: SupportedTool = {
-	id: "gemini",
-	name: "Gemini CLI",
-	binary: "gemini",
-	min_version: "0.0.0",
-	instruction_file: "GEMINI.md",
-	install_url: "https://github.com/google-gemini/gemini-cli",
-	plugin_install_cmd: null,
-	supportLevel: "degraded",
-	capabilities: ["plugins", "skills", "agents", "slash-commands"],
-};
-
 const lookupSpecificTool = (
 	toolId: string,
 	registry: ToolsRegistry,
@@ -563,10 +519,6 @@ const lookupSpecificTool = (
 	const tool = registry.tools.find((t) => t.id === toolId);
 
 	if (!tool) {
-		if (toolId === "gemini") {
-			return { tool: LEGACY_GEMINI_TOOL };
-		}
-
 		const enabledIds = getEnabledTools(registry)
 			.map((t) => `"${t.id}"`)
 			.join(", ");
@@ -678,81 +630,6 @@ const failedAntigravityUpdateResult = (
 	error,
 });
 
-const geminiBundleScope = (result: {
-	readonly assetCount: number;
-	readonly extensionDisplayDirs: readonly string[];
-}): readonly string[] =>
-	result.extensionDisplayDirs.map(geminiExtensionNameFromDisplayDir);
-
-const geminiInstallDetails = (
-	dryRun: boolean,
-	result: { readonly assetCount: number },
-): readonly string[] => [
-	`Extension assets: ${geminiExtensionDisplayRoot()}`,
-	`Manifest assets: ${result.assetCount} files`,
-	"Lifecycle stage: install",
-	dryRun
-		? "Lifecycle state: dry_run"
-		: "Lifecycle state: current after successful install",
-	dryRun
-		? "Next action: run `rp1 install gemini`, restart Gemini CLI, then run `rp1 verify gemini`."
-		: "Next action: restart Gemini CLI, then run `rp1 verify gemini` for manifest and support-matrix status.",
-];
-
-const geminiUpdateDetails = (
-	result: GeminiManifestRefreshResult,
-): readonly string[] => {
-	if (result.initialStatus.state === "blocked") {
-		return [
-			"Lifecycle stage: update",
-			"Lifecycle state: blocked",
-			`Next action: ${result.initialStatus.userAction}`,
-		];
-	}
-
-	if (result.dryRun && result.refreshableAssets.length > 0) {
-		return [
-			"Lifecycle stage: update",
-			`Lifecycle state: ${result.initialStatus.state}`,
-			`Would refresh: ${formatAssetDisplayList(result.refreshableAssets)}`,
-			"Next action: Run `rp1 update plugins gemini -y` to refresh, then restart Gemini CLI and run `rp1 verify gemini`.",
-		];
-	}
-
-	if (result.refreshedAssets.length > 0) {
-		return [
-			"Lifecycle stage: update",
-			"Lifecycle result: refreshed",
-			`Refreshed: ${formatAssetDisplayList(result.refreshedAssets)}`,
-			"Next action: Restart Gemini CLI, then run `rp1 verify gemini`.",
-		];
-	}
-
-	return [
-		"Lifecycle stage: update",
-		"Lifecycle state: current",
-		`Next action: ${result.finalStatus.userAction}`,
-	];
-};
-
-const failedGeminiUpdateResult = (
-	tool: SupportedTool,
-	error: CLIError,
-): ToolInstallResult => ({
-	toolId: tool.id,
-	toolName: tool.name,
-	success: false,
-	restartRequired: false,
-	pluginsInstalled: [],
-	details: [
-		"Lifecycle stage: update",
-		"Lifecycle state: failed",
-		`Next action: Check file permissions under ${geminiExtensionDisplayRoot()}, then rerun \`rp1 update plugins gemini\`.`,
-	],
-	warnings: [],
-	error,
-});
-
 export const updateForSpecificTool = (
 	toolId: string,
 	registry: ToolsRegistry,
@@ -798,41 +675,7 @@ export const updateForSpecificTool = (
 		);
 	}
 
-	if (lookup.tool.id !== "gemini") {
-		return installForSpecificTool(toolId, registry, ctx);
-	}
-
-	return pipe(
-		refreshGeminiManifestAssets({ dryRun: ctx.dryRun }),
-		TE.map((result): ToolInstallResult => {
-			const blocked = result.initialStatus.state === "blocked";
-			const toolResult = {
-				toolId: lookup.tool.id,
-				toolName: lookup.tool.name,
-				success: !blocked,
-				restartRequired:
-					!ctx.dryRun && !blocked && result.refreshedAssets.length > 0,
-				pluginsInstalled: [],
-				details: geminiUpdateDetails(result),
-				warnings: [],
-			};
-
-			if (!blocked) return toolResult;
-
-			return {
-				...toolResult,
-				error: installError(
-					"gemini-lifecycle-update",
-					result.initialStatus.issue ?? "Gemini lifecycle update blocked.",
-				),
-			};
-		}),
-		TE.orElse((error) =>
-			TE.right<CLIError, ToolInstallResult>(
-				failedGeminiUpdateResult(lookup.tool, error),
-			),
-		),
-	);
+	return installForSpecificTool(toolId, registry, ctx);
 };
 
 /**
@@ -926,22 +769,6 @@ export const installForSpecificTool = (
 					success: true,
 					pluginsInstalled: antigravityBundleScope(result),
 					details: antigravityInstallDetails(ctx.dryRun, result),
-					warnings: result.warnings,
-				}),
-			),
-		);
-	}
-
-	if (tool.id === "gemini") {
-		return pipe(
-			installGeminiBundleAssets({ dryRun: ctx.dryRun }),
-			TE.map(
-				(result): ToolInstallResult => ({
-					toolId: tool.id,
-					toolName: tool.name,
-					success: true,
-					pluginsInstalled: geminiBundleScope(result),
-					details: geminiInstallDetails(ctx.dryRun, result),
 					warnings: result.warnings,
 				}),
 			),

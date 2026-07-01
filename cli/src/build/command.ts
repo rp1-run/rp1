@@ -1175,16 +1175,6 @@ export const deriveAntigravityOutputDir = (
 };
 
 /**
- * Derive Gemini output directory from the OpenCode output directory.
- * Maps "dist/opencode" to "dist/gemini".
- */
-export const deriveGeminiOutputDir = (opencodeOutputDir: string): string => {
-	const normalized = opencodeOutputDir.replace(/\/+$/, "");
-	const parent = dirname(normalized);
-	return join(parent, "gemini");
-};
-
-/**
  * Print build summary table.
  */
 const printSummary = (
@@ -1358,14 +1348,12 @@ export const executeBuild = (
 					const codexOutputPath = deriveCodexOutputDir(outputPath);
 					const copilotOutputPath = deriveCopilotOutputDir(outputPath);
 					const antigravityOutputPath = deriveAntigravityOutputDir(outputPath);
-					const geminiOutputPath = deriveGeminiOutputDir(outputPath);
 					const platformOutputPaths: Record<BuildPlatform, string> = {
 						opencode: outputPath,
 						"claude-code": ccOutputPath,
 						codex: codexOutputPath,
 						copilot: copilotOutputPath,
 						antigravity: antigravityOutputPath,
-						gemini: geminiOutputPath,
 					};
 
 					const platformsToBuild: Array<{

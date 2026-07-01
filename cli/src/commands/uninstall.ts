@@ -13,7 +13,6 @@ import { executeUninstall, type UninstallConfig } from "../uninstall/index.js";
 import { uninstallAntigravityCommand } from "./uninstall-antigravity.js";
 import { uninstallCodexCommand } from "./uninstall-codex.js";
 import { uninstallCopilotCommand } from "./uninstall-copilot.js";
-import { uninstallGeminiCommand } from "./uninstall-gemini.js";
 
 const { bold, dim, cyan } = colorFns;
 
@@ -160,7 +159,3 @@ if (!antigravityUninstallEnabled) {
 		process.exit(1);
 	});
 }
-
-uninstallCommand.addCommand(uninstallGeminiCommand, {
-	hidden: true,
-});

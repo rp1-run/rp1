@@ -11,7 +11,6 @@
  * | codex       | `"Bash(echo *), Read"`   | `"functions.exec_command(echo *)"` etc. |
  * | copilot     | `"Bash(echo *), Read"`   | `["run_terminal_command(echo *)", "read_file"]` |
  * | antigravity | `"Bash(echo *), Read"`   | `["run_shell_command", "read_file"]` |
- * | gemini      | `"Bash(echo *), Read"`   | `["run_shell_command", "read_file"]` |
  *
  * Extracts and reuses logic from transformations.ts (OpenCode split)
  * and codex/transformations.ts (Codex registry mapping with pattern handling).
@@ -60,11 +59,11 @@ const toCopilotArray = (
 };
 
 /**
- * Transform allowed-tools for Gemini agent frontmatter. Gemini agent `tools`
+ * Transform allowed-tools for Antigravity agent frontmatter. Antigravity agent `tools`
  * accepts concrete tool names, not command permission patterns, so
  * `Bash(rp1 *)` becomes `run_shell_command`.
  */
-const toGeminiArray = (
+const toAntigravityArray = (
 	allowedTools: string,
 	registry: PlatformRegistry,
 ): readonly string[] => {
@@ -213,8 +212,6 @@ export const allowedToolsFilter = (
 		case "copilot":
 			return toCopilotArray(allowedTools, registry);
 		case "antigravity":
-			return toGeminiArray(allowedTools, registry);
-		case "gemini":
-			return toGeminiArray(allowedTools, registry);
+			return toAntigravityArray(allowedTools, registry);
 	}
 };

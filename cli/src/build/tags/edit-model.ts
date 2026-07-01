@@ -11,7 +11,6 @@
  *   OC:    Use the edit_file tool (exact string replacement) to <directive>
  *   Codex: Use the apply_patch tool (unified diff format) to <directive>
  *   Antigravity: Use Antigravity CLI file editing tools to <directive>
- *   Gemini: Use Gemini CLI file editing tools to <directive>
  */
 
 import {
@@ -37,8 +36,6 @@ function renderEditModel(directive: string, platform: BuildPlatform): string {
 			return `Use the edit_file tool (exact string replacement) to ${directive}. Provide old_string and new_string parameters for precise replacements.`;
 		case "antigravity":
 			return `Use Antigravity CLI file editing tools to ${directive}`;
-		case "gemini":
-			return `Use Gemini CLI file editing tools to ${directive}`;
 	}
 }
 
