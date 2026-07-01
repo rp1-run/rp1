@@ -15,6 +15,7 @@ import type {
 } from "./models.js";
 import {
 	PROTECTED_AGENTS,
+	TIER_RANK,
 	VALID_EFFORT_LEVELS,
 	VALID_MODEL_TIERS,
 } from "./models.js";
@@ -587,11 +588,12 @@ export const validateAgentTierAndEffort = (
 
 	if (
 		PROTECTED_AGENTS.has(agentName) &&
-		model !== "deep" &&
-		model !== "inherit"
+		model !== "inherit" &&
+		model in TIER_RANK &&
+		TIER_RANK[model as keyof typeof TIER_RANK] < TIER_RANK.deep
 	) {
 		warnings.push(
-			`${file}: protected agent '${agentName}' downgraded from deep to '${model}'`,
+			`${file}: protected agent '${agentName}' downgraded below deep to '${model}'`,
 		);
 	}
 

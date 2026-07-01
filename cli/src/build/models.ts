@@ -43,16 +43,42 @@ export interface ClaudeCodeCommand {
 	readonly content: string;
 }
 
-/** Abstract model tier aliases decoupling agent definitions from vendor model identifiers. */
-export type ModelTier = "deep" | "standard" | "fast" | "inherit";
+/**
+ * Abstract model tier aliases decoupling agent definitions from vendor model identifiers.
+ *
+ * **How to add a new model tier/class:**
+ * 1. Add the new tier to the `ModelTier` union AND `VALID_MODEL_TIERS` here.
+ * 2. Add a numeric rank entry in `TIER_RANK` here.
+ * 3. Add a row in `TIER_MODEL_MAP` (one concrete model per platform) in `tier-resolution.ts`.
+ * 4. Register any new concrete model IDs in `MODEL_PROVIDER` in `tier-resolution.ts`.
+ * 5. Optionally add agents to `PROTECTED_AGENTS` that must stay at or above a tier.
+ *
+ * The TS types (`Exclude<ModelTier, "inherit">` keys on `TIER_MODEL_MAP` and `TIER_RANK`)
+ * force a compile error if a tier is added without its mappings.
+ */
+export type ModelTier = "frontier" | "deep" | "standard" | "fast" | "inherit";
 
 /** Valid model tier values for runtime validation. */
 export const VALID_MODEL_TIERS: readonly ModelTier[] = [
+	"frontier",
 	"deep",
 	"standard",
 	"fast",
 	"inherit",
 ] as const;
+
+/**
+ * Ordered rank map for tier comparison. Higher = more capable.
+ * `inherit` is intentionally excluded — it means "use session model", not a rank.
+ */
+export const TIER_RANK: Readonly<
+	Record<Exclude<ModelTier, "inherit">, number>
+> = {
+	frontier: 3,
+	deep: 2,
+	standard: 1,
+	fast: 0,
+} as const;
 
 /** Reasoning effort levels controlling depth independently of model tier. */
 export type EffortLevel = "low" | "medium" | "high" | "xhigh" | "max";

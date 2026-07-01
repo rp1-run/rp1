@@ -14,6 +14,26 @@ import { resolveEffort, resolveTier } from "../../build/tier-resolution.js";
 // ---------------------------------------------------------------------------
 
 describe("resolveTier", () => {
+	test("frontier tier returns fable for claude-code", () => {
+		expect(resolveTier("frontier", "claude-code")).toBe("fable");
+	});
+
+	test("frontier tier returns o3 for codex", () => {
+		expect(resolveTier("frontier", "codex")).toBe("o3");
+	});
+
+	test("frontier tier returns fable for opencode", () => {
+		expect(resolveTier("frontier", "opencode")).toBe("fable");
+	});
+
+	test("frontier tier returns fable for antigravity", () => {
+		expect(resolveTier("frontier", "antigravity")).toBe("fable");
+	});
+
+	test("frontier tier returns gemini-2.5-pro for gemini", () => {
+		expect(resolveTier("frontier", "gemini")).toBe("gemini-2.5-pro");
+	});
+
 	test("deep tier returns frontier model for claude-code", () => {
 		const result = resolveTier("deep", "claude-code");
 		expect(result).toBe("opus");
@@ -191,5 +211,23 @@ describe("resolveEffort", () => {
 		// (though this combination may be caught by validation separately)
 		const result = resolveEffort("high", "inherit", "claude-code", null);
 		expect(result).toEqual({ fieldName: "effort", value: "high" });
+	});
+
+	// --- Frontier tier ---
+
+	test("frontier tier on claude-code returns effort field with value", () => {
+		const result = resolveEffort("high", "frontier", "claude-code", "fable");
+		expect(result).toEqual({ fieldName: "effort", value: "high" });
+	});
+
+	test("frontier tier on opencode with fable (Anthropic) returns null", () => {
+		const result = resolveEffort("high", "frontier", "opencode", "fable");
+		expect(result).toBeNull();
+	});
+
+	test("provider registry classifies fable as anthropic (verified via opencode null)", () => {
+		// fable is Anthropic, so OpenCode effort pass-through is null
+		const result = resolveEffort("max", "frontier", "opencode", "fable");
+		expect(result).toBeNull();
 	});
 });

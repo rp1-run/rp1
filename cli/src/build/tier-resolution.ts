@@ -24,6 +24,19 @@ import type { BuildPlatform } from "./template-context.js";
 const TIER_MODEL_MAP: Readonly<
 	Record<Exclude<ModelTier, "inherit">, Partial<Record<BuildPlatform, string>>>
 > = {
+	// frontier: most-capable model per platform.
+	// claude-code/opencode/antigravity are Anthropic-backed and share the same
+	// alias vocabulary (they already map deep→opus identically), so frontier→fable
+	// on all three. codex (OpenAI) and gemini (Google) have no class above their
+	// current deep model yet, so frontier currently coincides with their deep model
+	// (o3 / gemini-2.5-pro) and should be bumped when a higher class ships.
+	frontier: {
+		"claude-code": "fable",
+		codex: "o3",
+		opencode: "fable",
+		antigravity: "fable",
+		gemini: "gemini-2.5-pro",
+	},
 	deep: {
 		"claude-code": "opus",
 		codex: "o3",
@@ -72,40 +85,36 @@ function clampToThreeLevels(effort: EffortLevel): string {
 	return effort;
 }
 
+// Every model produced by TIER_MODEL_MAP MUST have an entry here;
+// add new model classes in one place.
+const MODEL_PROVIDER: Readonly<
+	Record<string, "anthropic" | "openai" | "google">
+> = {
+	fable: "anthropic",
+	opus: "anthropic",
+	sonnet: "anthropic",
+	haiku: "anthropic",
+	o3: "openai",
+	"o4-mini": "openai",
+	"gpt-4.1-nano": "openai",
+	"gemini-2.5-pro": "google",
+	"gemini-2.5-flash": "google",
+};
+
 /**
  * Derive the model provider from a resolved model identifier.
  * Used by OpenCode to select the correct effort pass-through field name.
  *
- * Closed-world assumption: only model IDs produced by TIER_MODEL_MAP reach
- * this function (e.g. "opus", "sonnet", "haiku", "o3", "o4-mini",
- * "gpt-4.1-nano"). If TIER_MODEL_MAP is extended with models from a new
- * provider, add a matching branch here.
+ * Looks up the explicit MODEL_PROVIDER registry (case-insensitive fallback).
+ * Returns "unknown" for unrecognized models.
  */
 function deriveProvider(
 	resolvedModel: string,
-): "anthropic" | "openai" | "unknown" {
-	const lower = resolvedModel.toLowerCase();
-
-	// Anthropic models: opus, sonnet, haiku, claude-*
-	if (
-		lower.includes("opus") ||
-		lower.includes("sonnet") ||
-		lower.includes("haiku") ||
-		lower.includes("claude")
-	) {
-		return "anthropic";
-	}
-
-	// OpenAI models: o3, o4, o1, gpt-*
-	if (
-		lower.startsWith("o3") ||
-		lower.startsWith("o4") ||
-		lower.startsWith("o1") ||
-		lower.includes("gpt")
-	) {
-		return "openai";
-	}
-
+): "anthropic" | "openai" | "google" | "unknown" {
+	const direct = MODEL_PROVIDER[resolvedModel];
+	if (direct) return direct;
+	const lower = MODEL_PROVIDER[resolvedModel.toLowerCase()];
+	if (lower) return lower;
 	return "unknown";
 }
 
@@ -118,6 +127,7 @@ const OPENCODE_PROVIDER_EFFORT: Readonly<
 > = {
 	openai: { fieldName: "reasoningEffort", mapValue: clampToThreeLevels },
 	anthropic: null,
+	google: null,
 	unknown: null,
 };
 

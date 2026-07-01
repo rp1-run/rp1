@@ -378,6 +378,17 @@ Content.`;
 	});
 
 	describe("validateAgentTierAndEffort", () => {
+		test("accepts frontier as a valid model tier", () => {
+			const result = validateAgentTierAndEffort(
+				"test-agent",
+				"frontier",
+				"high",
+				"test-agent.md",
+			);
+			expect(result.errors.length).toBe(0);
+			expect(result.warnings.length).toBe(0);
+		});
+
 		test("rejects unknown model tier with allowed values listed", () => {
 			const result = validateAgentTierAndEffort(
 				"test-agent",
@@ -387,6 +398,7 @@ Content.`;
 			);
 			expect(result.errors.length).toBe(1);
 			expect(result.errors[0]).toContain("turbo");
+			expect(result.errors[0]).toContain("frontier");
 			expect(result.errors[0]).toContain("deep");
 			expect(result.errors[0]).toContain("standard");
 			expect(result.errors[0]).toContain("fast");
@@ -431,7 +443,7 @@ Content.`;
 			expect(result.errors.length).toBe(0);
 			expect(result.warnings.length).toBe(1);
 			expect(result.warnings[0]).toContain("feature-architect");
-			expect(result.warnings[0]).toContain("protected");
+			expect(result.warnings[0]).toContain("downgraded below deep");
 		});
 
 		test("warns on protected agent downgrade to fast", () => {
@@ -442,10 +454,9 @@ Content.`;
 				"task-reviewer.md",
 			);
 			expect(result.errors.length).toBe(0);
-			// fast + protected = 2 warnings (fast+no-effort is fine since effort is undefined, but protected downgrade)
-			// Actually: fast with no effort => no fast+effort warning. Protected downgrade => 1 warning.
+			// fast with no effort => no fast+effort warning. Protected downgrade => 1 warning.
 			expect(result.warnings.length).toBe(1);
-			expect(result.warnings[0]).toContain("protected");
+			expect(result.warnings[0]).toContain("downgraded below deep");
 		});
 
 		test("accepts valid tier and effort combination", () => {
@@ -474,6 +485,17 @@ Content.`;
 			const result = validateAgentTierAndEffort(
 				"feature-architect",
 				"deep",
+				"high",
+				"feature-architect.md",
+			);
+			expect(result.errors.length).toBe(0);
+			expect(result.warnings.length).toBe(0);
+		});
+
+		test("does not warn on protected agent assigned frontier (upgrade, not downgrade)", () => {
+			const result = validateAgentTierAndEffort(
+				"feature-architect",
+				"frontier",
 				"high",
 				"feature-architect.md",
 			);
