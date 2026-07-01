@@ -2,7 +2,7 @@
 name: build-task-parser
 description: Extracts structured task information from tasks.md files
 tools: Read
-model: inherit
+model: fast
 arguments:
   - name: TASKS_PATH
     type: string

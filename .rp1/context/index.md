@@ -3,11 +3,11 @@
 **Type**: Monorepo
 **Languages**: TypeScript, TSX, Markdown, JSON, YAML, TOML, Shell, CSS, HTML
 **Version**: 0.7.1-dev
-**Updated**: 2026-04-12
+**Updated**: 2026-06-30
 
 ## Project Summary
 
-rp1 is a Bun/TypeScript CLI and plugin monorepo for authoring, building, and running AI agent workflows across Claude Code, OpenCode, and Codex. It combines markdown-defined skills and agents, tracked runtime state with deterministic workflow bootstrap, the Arcade dashboard with notifications and contextual commands, a multi-platform build pipeline with arcade tracking controls, catalog-driven skill discovery, and a progressively loaded knowledge base.
+rp1 is a Bun/TypeScript CLI and plugin monorepo for authoring, building, and running AI agent workflows across Claude Code, OpenCode, Codex, Antigravity, and Gemini. It combines markdown-defined skills and agents, tracked runtime state with deterministic workflow bootstrap, the Arcade dashboard with notifications and contextual commands, a multi-platform build pipeline with per-agent model/effort tiering and arcade tracking controls, catalog-driven skill discovery, and a progressively loaded knowledge base.
 
 ## Quick Reference
 
@@ -23,11 +23,11 @@ rp1 is a Bun/TypeScript CLI and plugin monorepo for authoring, building, and run
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | 102 | System design, layers, data flow, integrations |
-| interaction-model.md | 89 | Cross-surface semantics, workflow states, notifications, accessibility |
-| modules.md | 87 | Module boundaries, responsibilities, dependency highlights |
-| patterns.md | 81 | Code conventions, workflow idioms, extension patterns |
-| concept_map.md | 113 | Domain concepts, terminology, bounded contexts |
+| architecture.md | 73 | System design, layers, data flow, integrations |
+| interaction-model.md | 61 | Cross-surface semantics, workflow states, notifications, accessibility |
+| modules.md | 71 | Module boundaries, responsibilities, dependency highlights |
+| patterns.md | 63 | Code conventions, workflow idioms, extension patterns |
+| concept_map.md | 129 | Domain concepts, terminology, bounded contexts |
 
 ## Task-Based Loading
 
@@ -52,7 +52,7 @@ cli/
 ├── src/               # CLI commands, agent-tools, build pipeline, init/install flows
 │   ├── commands/      # User-facing CLI commands including build, migrate, and arcade
 │   ├── agent-tools/   # Workflow protocol tools (emit, workflow-bootstrap, resolve-args, feedback, root-dir, etc.)
-│   ├── build/         # Multi-platform artifact build pipeline with arcade tracking
+│   ├── build/         # Multi-platform artifact build pipeline with model/effort tiering + arcade tracking
 │   ├── catalog/       # Skill/agent catalog registry with distribution scoping
 │   ├── install/       # Host-tool installation and verification
 │   ├── migrate/       # Project migration with stanza upgrades and DB backfill

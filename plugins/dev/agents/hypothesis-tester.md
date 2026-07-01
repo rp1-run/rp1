@@ -2,7 +2,8 @@
 name: hypothesis-tester
 description: Validates design hypotheses through code experiments, codebase analysis, and external research
 tools: Read, Write, Edit, Grep, Glob, Bash, Bash(rp1 *)
-model: inherit
+model: deep
+effort: high
 author: cloud-on-prem/rp1
 arguments:
   - name: FEATURE_ID

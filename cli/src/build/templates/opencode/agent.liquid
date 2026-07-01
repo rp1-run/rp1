@@ -3,6 +3,9 @@ description: {{ artifact.description | escape_yaml }}
 mode: subagent
 {%- if artifact.model != "inherit" %}
 model: {{ artifact.model }}
+{%- endif -%}
+{%- if artifact.effortValue %}
+{{ artifact.effortFieldName }}: {{ artifact.effortValue }}
 {%- endif %}
 tools:
   bash: {% if artifact.tools contains "Bash" or artifact.tools contains "Bash(rp1 *)" %}true{% else %}false{% endif %}

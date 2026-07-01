@@ -2,7 +2,8 @@
 name: kb-index-builder
 description: "[DEPRECATED] Generates project overview data for index.md from pre-filtered files"
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: standard
+effort: low
 deprecated: true
 arguments:
   - name: CODEBASE_ROOT

@@ -2,7 +2,8 @@
 name: code-checker
 description: Fast code hygiene validation (linters, formatters, tests, coverage) for quick dev loop feedback
 tools: Read, Write, Bash
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: FEATURE_ID
     type: string

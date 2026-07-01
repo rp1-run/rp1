@@ -2,7 +2,7 @@
 name: build-task-grouper
 description: Batches parsed tasks into execution units based on complexity rules
 tools: []
-model: inherit
+model: fast
 arguments:
   - name: TASKS
     type: string

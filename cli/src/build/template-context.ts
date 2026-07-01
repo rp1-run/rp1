@@ -69,6 +69,8 @@ export interface AgentArtifactData {
 	readonly tools: readonly string[];
 	readonly content: string; // post-conditional-processing
 	readonly roleType?: CodexRoleType; // computed for Codex
+	readonly effortFieldName?: string; // platform/provider-specific effort field name
+	readonly effortValue?: string; // resolved effort value for the platform
 	readonly arguments?: readonly ArgumentDefinition[];
 	readonly environment?: readonly EnvironmentDefinition[];
 }

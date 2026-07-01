@@ -2,7 +2,8 @@
 name: pr-review-splitter
 description: Splits PR diff into reviewable units, filtering out generated/low-value files
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: standard
+effort: low
 arguments:
   - name: PR_BRANCH
     type: string

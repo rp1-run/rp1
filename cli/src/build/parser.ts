@@ -193,6 +193,7 @@ export const parseAgent = (
 			const name = metadata.name;
 			const description = metadata.description;
 			const model = metadata.model;
+			const effort = metadata.effort;
 
 			if (!name || !description) {
 				const missing = [!name && "name", !description && "description"].filter(
@@ -234,6 +235,8 @@ export const parseAgent = (
 				description: String(description),
 				tools,
 				model: model ? String(model) : "inherit",
+				...(effort !== undefined &&
+					effort !== null && { effort: String(effort) }),
 				content: body,
 				...(parsedArgs.length > 0 && { arguments: parsedArgs }),
 				...(parsedEnv.length > 0 && { environment: parsedEnv }),

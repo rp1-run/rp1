@@ -26,6 +26,10 @@
 | Arcade Tracked | mechanism | Optional `metadata.arcade_tracked` boolean controlling Activity feed visibility without disabling workflow mechanics |
 | Platform Definition | entity | Data-driven build configuration capturing platform-varying behavior: registry, templates, naming, lifecycle hooks |
 | Subflow | entity | Nested workflow registered within a parent run via `subflow_registered` event type |
+| ModelTier | entity | Abstract model alias (`deep`, `standard`, `fast`, `inherit`) declared in agent frontmatter, decoupling agent definitions from vendor-specific model identifiers. Resolved to platform-specific concrete model IDs at build time via `TIER_MODEL_MAP` |
+| EffortLevel | entity | Reasoning-depth control (`low`, `medium`, `high`, `xhigh`, `max`) declared independently of model tier in agent frontmatter. Resolved to platform-specific field names and values at build time; incompatible with the fast tier |
+| TIER_MODEL_MAP | mechanism | Centralized resolution dictionary mapping each abstract tier to concrete platform model IDs for Claude Code, Codex, OpenCode, Antigravity, and Gemini. Single-update-propagates-to-all-agents design |
+| Protected Agents | mechanism | Set of 14 reasoning-critical agents (feature-architect, phase-planner, security-validator, pr-sub-reviewer, etc.) that must remain on the deep tier. Build emits a warning (not error) when downgraded, allowing intentional experiments |
 
 ## Key Terminology
 
@@ -51,6 +55,12 @@
 | Document Kind | Requested or inferred document shape selecting default structure (auto, blog-post, technical-proposal, feedback) |
 | Section Scenario | Doc-sync classification for a section: `verify`, `add`, or `fix` |
 | Logical Step Key | Collapsed step identifier for dashboard grouping: non-namespaced steps keep their ID; namespaced lifecycle steps collapse to namespace prefix |
+| Model Tier | Abstract alias (`deep`, `standard`, `fast`, `inherit`) for agent model selection. `deep` = frontier reasoning model, `standard` = capable general-purpose model, `fast` = cheapest single-pass model, `inherit` = session model (backward-compatible default) |
+| Effort Level | Reasoning-depth control independent of model tier: `low`, `medium`, `high`, `xhigh`, `max`. Omitted for fast-tier agents. Platform-specific field names: `effort` (Claude Code), `model_reasoning_effort` (Codex), `reasoningEffort` (OpenCode/OpenAI provider) |
+| Tier Resolution | Build-time process that maps an abstract ModelTier + platform to a concrete vendor model ID via `TIER_MODEL_MAP`, and maps EffortLevel + platform to a provider-specific field name and value via `resolveEffort()` |
+| Protected Agent | One of 14 reasoning-critical agents that must remain on the deep tier; build emits a warning (not error) on downgrade attempt |
+| Effort Clamping | Mapping `xhigh` and `max` effort levels to `high` for platforms supporting only three-level effort vocabulary (OpenAI/Codex) |
+| Provider-Aware Effort | OpenCode effort resolution that derives the model provider (Anthropic vs OpenAI) from the resolved model ID to select the correct pass-through field name |
 
 ## Relationships
 
@@ -72,6 +82,10 @@ Platform Definition ──configures──> Build Template Context
 Discovery Registry ──generates──> Guide, Init Wizard
 Arcade Tracked ──filters──> Run (Activity feed visibility)
 Attestation ──validates──> Skill
+ModelTier ──classifies──> Agent (14 deep, 33 standard, 5 fast)
+TIER_MODEL_MAP ──resolves──> ModelTier (abstract tier → platform model ID)
+EffortLevel ──tunes──> Agent (optional reasoning-depth control)
+Protected Agents ──constrains──> ModelTier (build warning on non-deep downgrade)
 ```
 
 ## Agent Patterns
@@ -85,6 +99,8 @@ Attestation ──validates──> Skill
 | Stateless Agent | Blueprint charter creation | State persisted in visible file-based scratch pad for session-independent resumability |
 | Data-Driven Platform Build | Multi-platform artifacts | PlatformDefinition entries capture all platform-varying behavior |
 | Notification Auto-Generation | Emit pipeline | Status changes and waiting_for_user events auto-generate deduplicated notifications |
+| Build-Time Tier Resolution | Agent build pipeline | Agent frontmatter declares abstract tier + effort; `resolveTier()` and `resolveEffort()` map to platform-specific model IDs and effort field names before template rendering. Templates remain format-only |
+| Generator-Verifier Asymmetry | Agent classification | Generator agents (e.g., task-builder) run at standard tier because deep-tier verifier agents (e.g., task-reviewer) validate their output, preserving quality while reducing cost |
 
 ## Bounded Contexts
 
@@ -96,7 +112,7 @@ Attestation ──validates──> Skill
 | Feature Delivery | rp1-dev | PR Review, Task Queue, Builder-Reviewer |
 | Runtime Services | cli/src | Project, Run, Event, Workflow Bootstrap, Notification |
 | Dashboard | cli/web-ui | Arcade, Artifact, Annotation, Run Invocation Context |
-| Platform Abstraction | build pipeline | Platform Tag, CanonicalName, Platform Definition |
+| Platform Abstraction | build pipeline | Platform Tag, CanonicalName, Platform Definition, ModelTier, EffortLevel, Tier Resolution |
 | Discovery | cli/catalog | Discovery Registry, Guide, Skill Category, Arcade Tracked |
 | Project Lifecycle | cli/init, cli/migrate | Fence Versioning, Init Wizard, Project Migration |
 | Quality Assurance | evals/ | Attestation |
@@ -108,6 +124,6 @@ Attestation ──validates──> Skill
 - **Traceable state**: Intermediates (`brief.md`, `scan_results.json`) persist under `.rp1/work/`
 - **State discipline**: Mermaid states, emitted steps, namespaced sub-agent steps, and logical step keys stay aligned
 - **Configuration resolution**: `resolve-args` + `workflow-bootstrap` unify argument, directory, and run creation
-- **Platform portability**: Semantic tags and data-driven definitions let one prompt target multiple hosts
+- **Platform portability**: Semantic tags, data-driven definitions, and tier resolution let one prompt target multiple hosts with appropriate model and effort settings
 - **Single-source discovery**: Frontmatter metadata drives all catalog views, avoiding drift
 - **Standard tool envelope**: All agent-tools return `ToolResult<T>` JSON for predictable AI-agent parsing

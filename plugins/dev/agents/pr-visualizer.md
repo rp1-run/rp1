@@ -2,7 +2,8 @@
 name: pr-visualizer
 description: Transform PR diffs into Mermaid diagrams for visual code review
 tools: Read, Write, Bash, Glob
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: PR_BRANCH
     type: string

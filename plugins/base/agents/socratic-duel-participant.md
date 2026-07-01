@@ -2,7 +2,8 @@
 name: socratic-duel-participant
 description: Participates in a Socratic Duel run using pre-resolved launcher context and participant-owned artifact writes.
 tools: Read, Write, Edit, Bash(rp1 *)
-model: inherit
+model: deep
+effort: high
 arguments:
   - name: RUN_ID
     type: string

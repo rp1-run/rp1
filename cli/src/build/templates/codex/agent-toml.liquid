@@ -1,5 +1,11 @@
 name = "{{ namespacedPluginName }}-{{ artifact.name }}"
 description = "{{ artifact.description | escape_toml }}"
+{%- if artifact.model != "inherit" %}
+model = "{{ artifact.model }}"
+{%- endif -%}
+{%- if artifact.effortValue %}
+{{ artifact.effortFieldName }} = "{{ artifact.effortValue }}"
+{%- endif %}
 
 developer_instructions = '''
 You are running in Codex with shared rp1 prompt content.

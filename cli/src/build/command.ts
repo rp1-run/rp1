@@ -43,6 +43,8 @@ import type {
 	BuildSummary,
 	BundleAssetEntry,
 	BundlePluginAssets,
+	EffortLevel,
+	ModelTier,
 	OpenCodePluginAsset,
 	SkillCategory,
 	SkillMetadata,
@@ -66,8 +68,13 @@ import {
 	withDerivedArgumentHint,
 } from "./template-context.js";
 import { createTemplateEngine } from "./template-engine.js";
+import { resolveEffort, resolveTier } from "./tier-resolution.js";
 import { injectEmitHarness } from "./transforms.js";
-import { validateAgent, validateSkill } from "./validator.js";
+import {
+	validateAgent,
+	validateAgentTierAndEffort,
+	validateSkill,
+} from "./validator.js";
 
 const VALID_PLATFORMS = [
 	"opencode",
@@ -821,6 +828,22 @@ export const buildPlatformPlugin = async (
 			continue;
 		}
 
+		const tierValidation = validateAgentTierAndEffort(
+			ccAgent.name,
+			ccAgent.model,
+			ccAgent.effort,
+			agentFile,
+		);
+		for (const warning of tierValidation.warnings) {
+			emitWarn(warning);
+		}
+		if (tierValidation.errors.length > 0) {
+			for (const err of tierValidation.errors) {
+				errors.push(err);
+			}
+			continue;
+		}
+
 		const agentIncludeResult = await resolveSharedIncludes(
 			ccAgent.content,
 			projectRoot,
@@ -840,6 +863,19 @@ export const buildPlatformPlugin = async (
 		}
 		const processedContent = preprocessResult.right;
 
+		// resolveTier returns null for unmapped platforms (e.g. copilot) and
+		// "inherit" tier. Falling back to ccAgent.model preserves the original
+		// value ("inherit" or raw tier alias). This is safe because unmapped
+		// platforms' templates (copilot) never emit a model field.
+		const resolvedModel =
+			resolveTier(ccAgent.model as ModelTier, platform) ?? ccAgent.model;
+		const effortResolution = resolveEffort(
+			ccAgent.effort as EffortLevel | undefined,
+			ccAgent.model as ModelTier,
+			platform,
+			resolvedModel !== ccAgent.model ? resolvedModel : null,
+		);
+
 		let ctx: Record<string, unknown> = buildTemplateContext(
 			platform,
 			pluginName,
@@ -848,9 +884,13 @@ export const buildPlatformPlugin = async (
 				type: "agent",
 				name: ccAgent.name,
 				description: ccAgent.description,
-				model: ccAgent.model,
+				model: resolvedModel,
 				tools: ccAgent.tools,
 				content: processedContent,
+				...(effortResolution && {
+					effortFieldName: effortResolution.fieldName,
+					effortValue: effortResolution.value,
+				}),
 				...(ccAgent.arguments && { arguments: ccAgent.arguments }),
 				...(ccAgent.environment && { environment: ccAgent.environment }),
 			},

@@ -2,7 +2,8 @@
 name: scribe
 description: Dual-mode doc worker for scan/process batches. Returns JSON only.
 tools: Read, Edit, Glob, Grep
-model: inherit
+model: standard
+effort: low
 arguments:
   - name: MODE
     type: enum

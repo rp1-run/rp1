@@ -2,7 +2,8 @@
 name: comment-cleaner
 description: Systematically removes unnecessary comments from manifest-owned code lines while preserving docstrings, critical logic explanations, and type directives
 tools: Read, Edit, Grep, Bash, Skill
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: CHANGE_MANIFEST
     type: string

@@ -10,8 +10,8 @@
     "evals/",
     "docs/"
   ],
-  "generated_at": "2026-04-12T00:00:00Z",
-  "git_commit": "c0e31eb1b9bcebe4720181365667bf38fa435ea6",
+  "generated_at": "2026-06-30T04:51:23Z",
+  "git_commit": "fbd06f6c797d9327e3e65d5573d8cab9ff88c3c6",
   "files_analyzed": 919,
   "languages": [
     "TypeScript",
@@ -26,7 +26,7 @@
   ],
   "metrics": {
     "modules": 22,
-    "components": 12,
-    "concepts": 36
+    "components": 13,
+    "concepts": 40
   }
 }

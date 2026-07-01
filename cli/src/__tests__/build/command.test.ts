@@ -943,6 +943,299 @@ Research explorer content.
 	});
 });
 
+describe("buildPlatformPlugin (tier resolution)", () => {
+	let tempDir: string;
+	let outputDir: string;
+
+	beforeAll(async () => {
+		tempDir = await createTempDir("tier-resolution");
+		outputDir = join(tempDir, "output");
+	});
+
+	afterAll(async () => {
+		await cleanupTempDir(tempDir);
+	});
+
+	test("resolves abstract model tier to platform-specific ID and maps effort fields on AgentArtifactData", async () => {
+		const projectRoot = join(tempDir, "project-tier-resolution");
+		await writeFixture(
+			projectRoot,
+			"plugins/base/skills/sample/SKILL.md",
+			`---
+name: sample
+description: "Sample skill with enough text to pass build validation"
+---
+
+Sample skill content.
+`,
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/agents/deep-agent.md",
+			`---
+name: deep-agent
+description: "Agent with deep tier and high effort for resolution testing"
+tools: Read
+model: deep
+effort: high
+---
+
+Deep agent content for tier resolution.
+`,
+		);
+
+		const out = join(outputDir, "tier-opencode");
+		const result = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			out,
+			opencodeDef,
+			noopLogger,
+			true,
+			false,
+		);
+
+		expect(result.summary.errors).toEqual([]);
+		expect(result.summary.agents).toBe(1);
+
+		const agentPath = join(out, "base", "agents", "rp1-base-deep-agent.md");
+		const agentContent = await readFile(agentPath, "utf-8");
+
+		// Model tier "deep" should be resolved to "opus" for OpenCode
+		expect(agentContent).toContain("model: opus");
+		expect(agentContent).not.toContain("model: deep");
+	});
+
+	test("preserves inherit model as-is and omits effort when resolveEffort returns null", async () => {
+		const projectRoot = join(tempDir, "project-tier-inherit");
+		await writeFixture(
+			projectRoot,
+			"plugins/base/skills/sample/SKILL.md",
+			`---
+name: sample
+description: "Sample skill with enough text to pass build validation"
+---
+
+Sample skill content.
+`,
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/agents/inherit-agent.md",
+			`---
+name: inherit-agent
+description: "Agent with inherit model for backward compatibility testing"
+tools: Read
+model: inherit
+---
+
+Inherit agent content.
+`,
+		);
+
+		const out = join(outputDir, "tier-inherit");
+		const result = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			out,
+			opencodeDef,
+			noopLogger,
+			true,
+			false,
+		);
+
+		expect(result.summary.errors).toEqual([]);
+		expect(result.summary.agents).toBe(1);
+
+		const agentPath = join(out, "base", "agents", "rp1-base-inherit-agent.md");
+		const agentContent = await readFile(agentPath, "utf-8");
+
+		// Inherit model should NOT emit model field at all (backward compatible)
+		expect(agentContent).not.toContain("model:");
+	});
+
+	test("Claude Code agent with deep tier emits YAML frontmatter with model and effort", async () => {
+		const projectRoot = join(tempDir, "project-tier-cc");
+		await writeFixture(
+			projectRoot,
+			"plugins/base/skills/sample/SKILL.md",
+			`---
+name: sample
+description: "Sample skill with enough text to pass build validation"
+metadata:
+  category: development
+  is_workflow: false
+---
+
+Sample skill content.
+`,
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/agents/deep-agent.md",
+			`---
+name: deep-agent
+description: "Agent with deep tier for Claude Code pipeline test"
+tools: Read
+model: deep
+effort: high
+---
+
+Deep agent content for CC pipeline test.
+`,
+		);
+
+		const out = join(outputDir, "tier-cc");
+		const result = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			out,
+			claudeCodeDef,
+			noopLogger,
+			true,
+			false,
+		);
+
+		expect(result.summary.errors).toEqual([]);
+		expect(result.summary.agents).toBe(1);
+
+		const agentPath = join(out, "base", "agents", "deep-agent.md");
+		const agentContent = await readFile(agentPath, "utf-8");
+
+		// Deep tier resolves to "opus" for Claude Code
+		expect(agentContent).toContain("model: opus");
+		expect(agentContent).not.toContain("model: deep");
+		// Effort emitted as "effort" field for Claude Code
+		expect(agentContent).toContain("effort: high");
+		// Frontmatter markers present
+		expect(agentContent).toContain("---");
+	});
+
+	test("Codex agent with deep tier emits model and model_reasoning_effort TOML fields", async () => {
+		const projectRoot = join(tempDir, "project-tier-codex");
+		await writeFixture(
+			projectRoot,
+			"plugins/base/skills/sample/SKILL.md",
+			`---
+name: sample
+description: "Sample skill with enough text to pass build validation"
+metadata:
+  category: development
+  is_workflow: false
+---
+
+Sample skill content.
+`,
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/agents/deep-agent.md",
+			`---
+name: deep-agent
+description: "Agent with deep tier for Codex pipeline test"
+tools: Read
+model: deep
+effort: high
+---
+
+Deep agent content for Codex pipeline test.
+`,
+		);
+
+		const out = join(outputDir, "tier-codex");
+		const result = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			out,
+			codexDef,
+			noopLogger,
+			true,
+			false,
+		);
+
+		expect(result.summary.errors).toEqual([]);
+		expect(result.summary.agents).toBe(1);
+
+		const agentPath = join(out, "base", "agents", "rp1-base-deep-agent.toml");
+		const agentContent = await readFile(agentPath, "utf-8");
+
+		// Deep tier resolves to "o3" for Codex
+		expect(agentContent).toContain('model = "o3"');
+		expect(agentContent).not.toContain('model = "deep"');
+		// Effort emitted as "model_reasoning_effort" for Codex
+		expect(agentContent).toContain('model_reasoning_effort = "high"');
+	});
+
+	test("fast tier agent omits effort across all platforms", async () => {
+		const projectRoot = join(tempDir, "project-tier-fast");
+		await writeFixture(
+			projectRoot,
+			"plugins/base/skills/sample/SKILL.md",
+			`---
+name: sample
+description: "Sample skill with enough text to pass build validation"
+metadata:
+  category: development
+  is_workflow: false
+---
+
+Sample skill content.
+`,
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/agents/fast-agent.md",
+			`---
+name: fast-agent
+description: "Agent with fast tier for omission testing"
+tools: Read
+model: fast
+---
+
+Fast agent content.
+`,
+		);
+
+		// Claude Code
+		const outCC = join(outputDir, "tier-fast-cc");
+		const ccResult = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			outCC,
+			claudeCodeDef,
+			noopLogger,
+			true,
+			false,
+		);
+		expect(ccResult.summary.errors).toEqual([]);
+		const ccContent = await readFile(
+			join(outCC, "base", "agents", "fast-agent.md"),
+			"utf-8",
+		);
+		expect(ccContent).toContain("model: haiku");
+		expect(ccContent).not.toContain("effort:");
+
+		// Codex
+		const outCdx = join(outputDir, "tier-fast-codex");
+		const cdxResult = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			outCdx,
+			codexDef,
+			noopLogger,
+			true,
+			false,
+		);
+		expect(cdxResult.summary.errors).toEqual([]);
+		const cdxContent = await readFile(
+			join(outCdx, "base", "agents", "rp1-base-fast-agent.toml"),
+			"utf-8",
+		);
+		expect(cdxContent).toContain('model = "gpt-4.1-nano"');
+		expect(cdxContent).not.toContain("model_reasoning_effort");
+	});
+});
+
 describe("ParseCache", () => {
 	let tempDir: string;
 	let outputDir: string;

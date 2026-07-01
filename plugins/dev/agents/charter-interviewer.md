@@ -2,7 +2,8 @@
 name: charter-interviewer
 description: Stateless interview agent that analyzes charter state and returns structured JSON responses for greenfield project vision capture
 tools: Read
-model: inherit
+model: standard
+effort: medium
 author: cloud-on-prem/rp1
 arguments:
   - name: CHARTER_PATH

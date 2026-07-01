@@ -2,7 +2,8 @@
 name: bug-investigator
 description: Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes
 tools: Read, Write, Edit, Grep, Glob, Bash
-model: inherit
+model: deep
+effort: high
 author: cloud-on-prem/rp1
 arguments:
   - name: PROBLEM_STATEMENT
