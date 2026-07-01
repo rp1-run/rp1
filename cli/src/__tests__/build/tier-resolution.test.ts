@@ -18,60 +18,60 @@ describe("resolveTier", () => {
 		expect(resolveTier("frontier", "claude-code")).toBe("fable");
 	});
 
-	test("frontier tier returns o3 for codex", () => {
-		expect(resolveTier("frontier", "codex")).toBe("o3");
+	test("frontier tier returns gpt-5.5 for codex", () => {
+		expect(resolveTier("frontier", "codex")).toBe("gpt-5.5");
 	});
 
-	test("frontier tier returns fable for opencode", () => {
-		expect(resolveTier("frontier", "opencode")).toBe("fable");
+	test("frontier tier returns null for opencode (inherit)", () => {
+		expect(resolveTier("frontier", "opencode")).toBeNull();
 	});
 
-	test("frontier tier returns fable for antigravity", () => {
-		expect(resolveTier("frontier", "antigravity")).toBe("fable");
+	test("frontier tier returns gemini-3.1-pro for antigravity", () => {
+		expect(resolveTier("frontier", "antigravity")).toBe("gemini-3.1-pro");
 	});
 
 	test("frontier tier returns gemini-2.5-pro for gemini", () => {
 		expect(resolveTier("frontier", "gemini")).toBe("gemini-2.5-pro");
 	});
 
-	test("deep tier returns frontier model for claude-code", () => {
+	test("deep tier returns opus for claude-code", () => {
 		const result = resolveTier("deep", "claude-code");
 		expect(result).toBe("opus");
 	});
 
-	test("deep tier returns frontier model for codex", () => {
+	test("deep tier returns gpt-5.5 for codex", () => {
 		const result = resolveTier("deep", "codex");
-		expect(result).toBe("o3");
+		expect(result).toBe("gpt-5.5");
 	});
 
-	test("deep tier returns frontier model for opencode", () => {
+	test("deep tier returns null for opencode (inherit)", () => {
 		const result = resolveTier("deep", "opencode");
-		expect(result).toBe("opus");
+		expect(result).toBeNull();
 	});
 
-	test("deep tier returns frontier model for antigravity", () => {
+	test("deep tier returns gemini-3.1-pro for antigravity", () => {
 		const result = resolveTier("deep", "antigravity");
-		expect(result).toBe("opus");
+		expect(result).toBe("gemini-3.1-pro");
 	});
 
-	test("deep tier returns frontier model for gemini", () => {
+	test("deep tier returns gemini-2.5-pro for gemini", () => {
 		const result = resolveTier("deep", "gemini");
 		expect(result).toBe("gemini-2.5-pro");
 	});
 
 	test("standard tier returns balanced model for each platform", () => {
 		expect(resolveTier("standard", "claude-code")).toBe("sonnet");
-		expect(resolveTier("standard", "codex")).toBe("o4-mini");
-		expect(resolveTier("standard", "opencode")).toBe("sonnet");
-		expect(resolveTier("standard", "antigravity")).toBe("sonnet");
+		expect(resolveTier("standard", "codex")).toBe("gpt-5.4");
+		expect(resolveTier("standard", "opencode")).toBeNull();
+		expect(resolveTier("standard", "antigravity")).toBe("gemini-3.5-flash");
 		expect(resolveTier("standard", "gemini")).toBe("gemini-2.5-flash");
 	});
 
 	test("fast tier returns cheapest model for each platform", () => {
 		expect(resolveTier("fast", "claude-code")).toBe("haiku");
-		expect(resolveTier("fast", "codex")).toBe("gpt-4.1-nano");
-		expect(resolveTier("fast", "opencode")).toBe("haiku");
-		expect(resolveTier("fast", "antigravity")).toBe("haiku");
+		expect(resolveTier("fast", "codex")).toBe("gpt-5.4-mini");
+		expect(resolveTier("fast", "opencode")).toBeNull();
+		expect(resolveTier("fast", "antigravity")).toBe("gemini-3.5-flash");
 		expect(resolveTier("fast", "gemini")).toBe("gemini-2.5-flash");
 	});
 
@@ -86,6 +86,13 @@ describe("resolveTier", () => {
 		];
 		for (const p of platforms) {
 			expect(resolveTier("inherit", p)).toBeNull();
+		}
+	});
+
+	test("opencode returns null for any tier (inherits session model)", () => {
+		const tiers: ModelTier[] = ["frontier", "deep", "standard", "fast"];
+		for (const t of tiers) {
+			expect(resolveTier(t, "opencode")).toBeNull();
 		}
 	});
 
@@ -105,14 +112,14 @@ describe("resolveEffort", () => {
 	// --- Claude Code ---
 
 	test("claude-code returns effort field with pass-through value", () => {
-		const result = resolveEffort("high", "deep", "claude-code", "opus");
+		const result = resolveEffort("high", "deep", "claude-code");
 		expect(result).toEqual({ fieldName: "effort", value: "high" });
 	});
 
-	test("claude-code passes through all effort levels", () => {
+	test("claude-code passes through all effort levels including max", () => {
 		const levels: EffortLevel[] = ["low", "medium", "high", "xhigh", "max"];
 		for (const level of levels) {
-			const result = resolveEffort(level, "deep", "claude-code", "opus");
+			const result = resolveEffort(level, "deep", "claude-code");
 			expect(result).not.toBeNull();
 			expect(result!.fieldName).toBe("effort");
 			expect(result!.value).toBe(level);
@@ -122,64 +129,60 @@ describe("resolveEffort", () => {
 	// --- Codex ---
 
 	test("codex returns model_reasoning_effort field", () => {
-		const result = resolveEffort("high", "deep", "codex", "o3");
+		const result = resolveEffort("high", "deep", "codex");
 		expect(result).toEqual({
 			fieldName: "model_reasoning_effort",
 			value: "high",
 		});
 	});
 
-	test("codex clamps xhigh and max to high", () => {
-		expect(resolveEffort("xhigh", "deep", "codex", "o3")).toEqual({
+	test("codex passes through xhigh unchanged", () => {
+		expect(resolveEffort("xhigh", "deep", "codex")).toEqual({
 			fieldName: "model_reasoning_effort",
-			value: "high",
+			value: "xhigh",
 		});
-		expect(resolveEffort("max", "deep", "codex", "o3")).toEqual({
+	});
+
+	test("codex clamps max to xhigh", () => {
+		expect(resolveEffort("max", "deep", "codex")).toEqual({
 			fieldName: "model_reasoning_effort",
-			value: "high",
+			value: "xhigh",
 		});
 	});
 
-	// --- OpenCode (provider-aware) ---
-
-	test("opencode with OpenAI model returns reasoningEffort field", () => {
-		const result = resolveEffort("high", "deep", "opencode", "o3");
-		expect(result).toEqual({ fieldName: "reasoningEffort", value: "high" });
+	test("codex passes through low/medium/high unchanged", () => {
+		for (const level of ["low", "medium", "high"] as EffortLevel[]) {
+			const result = resolveEffort(level, "deep", "codex");
+			expect(result).toEqual({
+				fieldName: "model_reasoning_effort",
+				value: level,
+			});
+		}
 	});
 
-	test("opencode with OpenAI model clamps xhigh/max to high", () => {
-		expect(resolveEffort("xhigh", "standard", "opencode", "o4-mini")).toEqual({
-			fieldName: "reasoningEffort",
-			value: "high",
-		});
-	});
+	// --- OpenCode ---
 
-	test("opencode with Anthropic model returns null", () => {
-		const result = resolveEffort("high", "deep", "opencode", "opus");
-		expect(result).toBeNull();
-	});
-
-	test("opencode with Anthropic model (sonnet) returns null", () => {
-		const result = resolveEffort("medium", "standard", "opencode", "sonnet");
+	test("opencode returns null (effort not supported per-agent)", () => {
+		const result = resolveEffort("high", "deep", "opencode");
 		expect(result).toBeNull();
 	});
 
 	// --- Antigravity / Gemini ---
 
 	test("antigravity returns null (effort not supported per-agent)", () => {
-		const result = resolveEffort("high", "deep", "antigravity", "opus");
+		const result = resolveEffort("high", "deep", "antigravity");
 		expect(result).toBeNull();
 	});
 
 	test("gemini returns null (effort not supported per-agent)", () => {
-		const result = resolveEffort("high", "deep", "gemini", "gemini-2.5-pro");
+		const result = resolveEffort("high", "deep", "gemini");
 		expect(result).toBeNull();
 	});
 
 	// --- Copilot ---
 
 	test("copilot returns null (not supported)", () => {
-		const result = resolveEffort("high", "deep", "copilot", null);
+		const result = resolveEffort("high", "deep", "copilot");
 		expect(result).toBeNull();
 	});
 
@@ -194,14 +197,14 @@ describe("resolveEffort", () => {
 			"gemini",
 		];
 		for (const p of platforms) {
-			expect(resolveEffort("high", "fast", p, "haiku")).toBeNull();
+			expect(resolveEffort("high", "fast", p)).toBeNull();
 		}
 	});
 
 	// --- Undefined effort ---
 
 	test("undefined effort returns null", () => {
-		expect(resolveEffort(undefined, "deep", "claude-code", "opus")).toBeNull();
+		expect(resolveEffort(undefined, "deep", "claude-code")).toBeNull();
 	});
 
 	// --- Inherit tier with effort ---
@@ -209,25 +212,14 @@ describe("resolveEffort", () => {
 	test("inherit tier with effort still resolves effort (tier gating is fast-only)", () => {
 		// inherit just means no model override; effort can still be set
 		// (though this combination may be caught by validation separately)
-		const result = resolveEffort("high", "inherit", "claude-code", null);
+		const result = resolveEffort("high", "inherit", "claude-code");
 		expect(result).toEqual({ fieldName: "effort", value: "high" });
 	});
 
 	// --- Frontier tier ---
 
 	test("frontier tier on claude-code returns effort field with value", () => {
-		const result = resolveEffort("high", "frontier", "claude-code", "fable");
+		const result = resolveEffort("high", "frontier", "claude-code");
 		expect(result).toEqual({ fieldName: "effort", value: "high" });
-	});
-
-	test("frontier tier on opencode with fable (Anthropic) returns null", () => {
-		const result = resolveEffort("high", "frontier", "opencode", "fable");
-		expect(result).toBeNull();
-	});
-
-	test("provider registry classifies fable as anthropic (verified via opencode null)", () => {
-		// fable is Anthropic, so OpenCode effort pass-through is null
-		const result = resolveEffort("max", "frontier", "opencode", "fable");
-		expect(result).toBeNull();
 	});
 });

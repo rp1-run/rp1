@@ -50,7 +50,7 @@ export interface ClaudeCodeCommand {
  * 1. Add the new tier to the `ModelTier` union AND `VALID_MODEL_TIERS` here.
  * 2. Add a numeric rank entry in `TIER_RANK` here.
  * 3. Add a row in `TIER_MODEL_MAP` (one concrete model per platform) in `tier-resolution.ts`.
- * 4. Register any new concrete model IDs in `MODEL_PROVIDER` in `tier-resolution.ts`.
+ * 4. Add per-platform effort configs in `PLATFORM_EFFORT` in `tier-resolution.ts` if needed.
  * 5. Optionally add agents to `PROTECTED_AGENTS` that must stay at or above a tier.
  *
  * The TS types (`Exclude<ModelTier, "inherit">` keys on `TIER_MODEL_MAP` and `TIER_RANK`)

@@ -5,7 +5,7 @@ kind: local
 tools:
   - read_file
   - run_shell_command
-model: opus
+model: gemini-3.1-pro
 max_turns: 30
 metadata:
   rp1:

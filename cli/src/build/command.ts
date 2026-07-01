@@ -863,17 +863,15 @@ export const buildPlatformPlugin = async (
 		}
 		const processedContent = preprocessResult.right;
 
-		// resolveTier returns null for unmapped platforms (e.g. copilot) and
-		// "inherit" tier. Falling back to ccAgent.model preserves the original
-		// value ("inherit" or raw tier alias). This is safe because unmapped
-		// platforms' templates (copilot) never emit a model field.
+		// resolveTier returns null for unmapped platforms (opencode, copilot) and
+		// "inherit" tier. Falling back to "inherit" ensures templates omit the
+		// model field rather than emitting a raw tier alias like "deep".
 		const resolvedModel =
-			resolveTier(ccAgent.model as ModelTier, platform) ?? ccAgent.model;
+			resolveTier(ccAgent.model as ModelTier, platform) ?? "inherit";
 		const effortResolution = resolveEffort(
 			ccAgent.effort as EffortLevel | undefined,
 			ccAgent.model as ModelTier,
 			platform,
-			resolvedModel !== ccAgent.model ? resolvedModel : null,
 		);
 
 		let ctx: Record<string, unknown> = buildTemplateContext(

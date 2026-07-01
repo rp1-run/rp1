@@ -1,6 +1,6 @@
 name = "rp1-dev-task-builder"
 description = "Implements feature tasks"
-model = "o3"
+model = "gpt-5.5"
 model_reasoning_effort = "high"
 
 developer_instructions = '''

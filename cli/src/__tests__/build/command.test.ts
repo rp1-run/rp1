@@ -956,7 +956,7 @@ describe("buildPlatformPlugin (tier resolution)", () => {
 		await cleanupTempDir(tempDir);
 	});
 
-	test("resolves abstract model tier to platform-specific ID and maps effort fields on AgentArtifactData", async () => {
+	test("opencode agent with real tier omits model field (inherit)", async () => {
 		const projectRoot = join(tempDir, "project-tier-resolution");
 		await writeFixture(
 			projectRoot,
@@ -1001,8 +1001,8 @@ Deep agent content for tier resolution.
 		const agentPath = join(out, "base", "agents", "rp1-base-deep-agent.md");
 		const agentContent = await readFile(agentPath, "utf-8");
 
-		// Model tier "deep" should be resolved to "opus" for OpenCode
-		expect(agentContent).toContain("model: opus");
+		// OpenCode is now unmapped — model field should be omitted (inherit)
+		expect(agentContent).not.toContain("model:");
 		expect(agentContent).not.toContain("model: deep");
 	});
 
@@ -1159,8 +1159,8 @@ Deep agent content for Codex pipeline test.
 		const agentPath = join(out, "base", "agents", "rp1-base-deep-agent.toml");
 		const agentContent = await readFile(agentPath, "utf-8");
 
-		// Deep tier resolves to "o3" for Codex
-		expect(agentContent).toContain('model = "o3"');
+		// Deep tier resolves to "gpt-5.5" for Codex
+		expect(agentContent).toContain('model = "gpt-5.5"');
 		expect(agentContent).not.toContain('model = "deep"');
 		// Effort emitted as "model_reasoning_effort" for Codex
 		expect(agentContent).toContain('model_reasoning_effort = "high"');
@@ -1231,7 +1231,7 @@ Fast agent content.
 			join(outCdx, "base", "agents", "rp1-base-fast-agent.toml"),
 			"utf-8",
 		);
-		expect(cdxContent).toContain('model = "gpt-4.1-nano"');
+		expect(cdxContent).toContain('model = "gpt-5.4-mini"');
 		expect(cdxContent).not.toContain("model_reasoning_effort");
 	});
 });
