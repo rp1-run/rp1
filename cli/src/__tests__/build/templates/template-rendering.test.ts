@@ -499,7 +499,7 @@ describeWithLiquid("template rendering", () => {
 			expect(result).not.toContain("effort:");
 		});
 
-		test("golden: effort pass-through produces provider-keyed field", async () => {
+		test("golden: opencode agent with tier inherits (model + effort omitted)", async () => {
 			const engine = createTestEngine();
 			const result = await engine.renderFile("opencode/agent", {
 				platform: "opencode",
@@ -507,9 +507,7 @@ describeWithLiquid("template rendering", () => {
 					type: "agent",
 					name: "test-agent",
 					description: "Agent with deep tier and effort",
-					model: "o3",
-					effortFieldName: "reasoningEffort",
-					effortValue: "high",
+					model: "inherit",
 					tools: ["Bash"],
 					content: "Agent content for effort pass-through test.",
 				},
@@ -700,14 +698,14 @@ describeWithLiquid("template rendering", () => {
 					type: "agent",
 					name: "task-builder",
 					description: "Implements feature tasks",
-					model: "o3",
+					model: "gpt-5.5",
 					effortFieldName: "model_reasoning_effort",
 					effortValue: "high",
 					tools: ["Bash", "Edit"],
 					content: "Agent instructions.",
 				},
 			});
-			expect(result).toContain('model = "o3"');
+			expect(result).toContain('model = "gpt-5.5"');
 			expect(result).toContain('model_reasoning_effort = "high"');
 		});
 
@@ -740,7 +738,7 @@ describeWithLiquid("template rendering", () => {
 					type: "agent",
 					name: "task-builder",
 					description: "Implements feature tasks",
-					model: "o3",
+					model: "gpt-5.5",
 					effortFieldName: "model_reasoning_effort",
 					effortValue: "high",
 					tools: ["Bash", "Edit"],
@@ -1124,7 +1122,7 @@ describeWithLiquid("template rendering", () => {
 					type: "agent",
 					name: "deep-agent",
 					description: "Agent with deep tier for Antigravity",
-					model: "opus",
+					model: "gemini-3.1-pro",
 					tools: ["Read", "Bash"],
 					content: "Agent content for Antigravity tier test.",
 				},
@@ -1132,7 +1130,7 @@ describeWithLiquid("template rendering", () => {
 			expect(result.trim()).toBe(
 				readGolden("antigravity-agent-model.md").trim(),
 			);
-			expect(result).toContain("model: opus");
+			expect(result).toContain("model: gemini-3.1-pro");
 			expect(result).not.toContain("effort:");
 			expect(result).not.toContain("reasoningEffort:");
 		});

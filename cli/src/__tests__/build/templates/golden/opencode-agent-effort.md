@@ -1,8 +1,6 @@
 ---
 description: Agent with deep tier and effort
 mode: subagent
-model: o3
-reasoningEffort: high
 tools:
   bash: true
   write: false

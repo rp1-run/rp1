@@ -18,44 +18,41 @@ import type { BuildPlatform } from "./template-context.js";
  * Centralized mapping from abstract tiers to concrete platform model IDs.
  * Updating an entry here propagates to all agents of that tier on next build.
  *
- * Copilot is intentionally omitted (no tiering mechanism); resolveTier
- * returns null for unmapped platforms.
+ * Intentionally omitted platforms (resolveTier returns null → inherit):
+ * - copilot: no per-agent model tiering mechanism.
+ * - opencode: no per-agent model tiering — inherits the session model, like copilot.
+ *
+ * Codex: deep and frontier both map to gpt-5.5 (its most capable model);
+ * standard = gpt-5.4; fast = gpt-5.4-mini.
+ *
+ * Antigravity: uses Gemini models (gemini-3.1-pro for deep/frontier,
+ * gemini-3.5-flash for standard/fast).
  */
 const TIER_MODEL_MAP: Readonly<
 	Record<Exclude<ModelTier, "inherit">, Partial<Record<BuildPlatform, string>>>
 > = {
-	// frontier: most-capable model per platform.
-	// claude-code/opencode/antigravity are Anthropic-backed and share the same
-	// alias vocabulary (they already map deep→opus identically), so frontier→fable
-	// on all three. codex (OpenAI) and gemini (Google) have no class above their
-	// current deep model yet, so frontier currently coincides with their deep model
-	// (o3 / gemini-2.5-pro) and should be bumped when a higher class ships.
 	frontier: {
 		"claude-code": "fable",
-		codex: "o3",
-		opencode: "fable",
-		antigravity: "fable",
+		codex: "gpt-5.5",
+		antigravity: "gemini-3.1-pro",
 		gemini: "gemini-2.5-pro",
 	},
 	deep: {
 		"claude-code": "opus",
-		codex: "o3",
-		opencode: "opus",
-		antigravity: "opus",
+		codex: "gpt-5.5",
+		antigravity: "gemini-3.1-pro",
 		gemini: "gemini-2.5-pro",
 	},
 	standard: {
 		"claude-code": "sonnet",
-		codex: "o4-mini",
-		opencode: "sonnet",
-		antigravity: "sonnet",
+		codex: "gpt-5.4",
+		antigravity: "gemini-3.5-flash",
 		gemini: "gemini-2.5-flash",
 	},
 	fast: {
 		"claude-code": "haiku",
-		codex: "gpt-4.1-nano",
-		opencode: "haiku",
-		antigravity: "haiku",
+		codex: "gpt-5.4-mini",
+		antigravity: "gemini-3.5-flash",
 		gemini: "gemini-2.5-flash",
 	},
 } as const;
@@ -77,75 +74,28 @@ interface EffortFieldConfig {
 }
 
 /**
- * Clamp effort levels to the three-level vocabulary (low/medium/high)
- * supported by OpenAI and Codex platforms. xhigh and max map to high.
+ * Clamp effort to Codex's vocabulary: Codex reasoning effort tops out at
+ * xhigh, so max → xhigh; all other levels pass through unchanged.
  */
-function clampToThreeLevels(effort: EffortLevel): string {
-	if (effort === "xhigh" || effort === "max") return "high";
-	return effort;
-}
-
-// Every model produced by TIER_MODEL_MAP MUST have an entry here;
-// add new model classes in one place.
-const MODEL_PROVIDER: Readonly<
-	Record<string, "anthropic" | "openai" | "google">
-> = {
-	fable: "anthropic",
-	opus: "anthropic",
-	sonnet: "anthropic",
-	haiku: "anthropic",
-	o3: "openai",
-	"o4-mini": "openai",
-	"gpt-4.1-nano": "openai",
-	"gemini-2.5-pro": "google",
-	"gemini-2.5-flash": "google",
-};
-
-/**
- * Derive the model provider from a resolved model identifier.
- * Used by OpenCode to select the correct effort pass-through field name.
- *
- * Looks up the explicit MODEL_PROVIDER registry (case-insensitive fallback).
- * Returns "unknown" for unrecognized models.
- */
-function deriveProvider(
-	resolvedModel: string,
-): "anthropic" | "openai" | "google" | "unknown" {
-	const direct = MODEL_PROVIDER[resolvedModel];
-	if (direct) return direct;
-	const lower = MODEL_PROVIDER[resolvedModel.toLowerCase()];
-	if (lower) return lower;
-	return "unknown";
+function clampToCodexEffort(effort: EffortLevel): string {
+	return effort === "max" ? "xhigh" : effort;
 }
 
 /**
- * OpenCode effort field configs keyed by derived provider.
- * Anthropic models on OpenCode do not support per-agent effort pass-through.
- */
-const OPENCODE_PROVIDER_EFFORT: Readonly<
-	Record<string, EffortFieldConfig | null>
-> = {
-	openai: { fieldName: "reasoningEffort", mapValue: clampToThreeLevels },
-	anthropic: null,
-	google: null,
-	unknown: null,
-};
-
-/**
- * Direct platform effort configurations (non-provider-dependent).
- * Platforms not listed (copilot) or with null values do not support
- * per-agent effort control.
+ * Per-platform effort configurations.
+ * Platforms with null or not listed do not support per-agent effort control.
  */
 const PLATFORM_EFFORT: Readonly<
 	Partial<Record<BuildPlatform, EffortFieldConfig | null>>
 > = {
-	"claude-code": { fieldName: "effort", mapValue: (e) => e },
+	"claude-code": { fieldName: "effort", mapValue: (e) => e }, // supports all 5 levels incl max
 	codex: {
 		fieldName: "model_reasoning_effort",
-		mapValue: clampToThreeLevels,
+		mapValue: clampToCodexEffort,
 	},
 	antigravity: null,
 	gemini: null,
+	opencode: null,
 	copilot: null,
 };
 
@@ -169,38 +119,22 @@ export function resolveTier(
 }
 
 /**
- * Resolve an effort level to the platform/provider-specific field name and value.
- *
- * For OpenCode, the provider is derived from the resolved model ID to select
- * the correct pass-through field name (e.g., `reasoningEffort` for OpenAI).
+ * Resolve an effort level to the platform-specific field name and value.
  *
  * @returns `{ fieldName, value }` for platforms that support per-agent effort,
  *   or null when:
  *   - effort is undefined (not declared)
  *   - tier is "fast" (fast-tier models do not support effort control)
- *   - the platform/provider does not support per-agent effort
+ *   - the platform does not support per-agent effort
  */
 export function resolveEffort(
 	effort: EffortLevel | undefined,
 	tier: ModelTier,
 	platform: BuildPlatform,
-	resolvedModel: string | null,
 ): EffortResolution | null {
 	if (effort === undefined) return null;
 	if (tier === "fast") return null;
 
-	// OpenCode: provider-dependent effort field.
-	// When tier is "inherit", resolvedModel is null (the session model is
-	// unknown at build time), so provider resolves to "unknown" and effort
-	// is correctly omitted — the runtime session model determines behavior.
-	if (platform === "opencode") {
-		const provider = resolvedModel ? deriveProvider(resolvedModel) : "unknown";
-		const config = OPENCODE_PROVIDER_EFFORT[provider];
-		if (!config) return null;
-		return { fieldName: config.fieldName, value: config.mapValue(effort) };
-	}
-
-	// Other platforms: direct lookup
 	const config = PLATFORM_EFFORT[platform];
 	if (!config) return null;
 	return { fieldName: config.fieldName, value: config.mapValue(effort) };
