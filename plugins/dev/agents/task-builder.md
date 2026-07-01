@@ -277,7 +277,7 @@ After implementing all assigned tasks, embed a `stateDiagram-v2` fenced mermaid 
 
 1. Generate the diagram content using actual task IDs as state names and task descriptions as labels. For single tasks, produce a simple `[*] --> TaskState --> [*]` diagram.
 
-2. **Feature mode**: Embed the diagram in the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) as an `**Execution Flow**` block after the implementation summary for the last task in the batch (see Section 4.2 for placement).
+2. **Feature mode**: Generate the diagram content now. Write it to the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) during Section 4, under the task-file lock, as an `**Execution Flow**` block after the implementation summary for the last task in the batch (see Section 4.2 for placement).
 
    **Quick-build mode**: Embed the diagram in the quick-build artifact after the Implementation Summary table.
 
@@ -334,6 +334,21 @@ This is the default. Most runs skip this section entirely.
 Commit rules: only source code files you modified, no `.rp1/` work files, no unrelated files, one commit per task. Amend is only permitted when `REWRITE_COMMITS=true`.
 
 ## 4. Task File Update
+
+Feature mode updates the shared task markdown file, so protect this read-modify-write sequence with a lock:
+
+```bash
+LOCK_DIR="{WORK_ROOT}/features/{FEATURE_ID}/.task-file.lock"
+while ! mkdir "$LOCK_DIR" 2>/dev/null; do sleep 2; done
+```
+
+Run Sections 4.1 through 4.3 while holding the lock. Always release it after the task file has been written:
+
+```bash
+rmdir "$LOCK_DIR"
+```
+
+If the process fails after acquiring the lock, remove the lock before returning failure. In quick-build mode, use the same lock pattern next to `{QUICK_BUILD_PATH}` when updating the quick-build artifact.
 
 ### 4.1 Mark Complete (MUST DO IF IMPLEMENTED)
 

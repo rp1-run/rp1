@@ -378,11 +378,15 @@ Initialize before the first dispatch:
 - `COMPLETED_UNIT_TASK_IDS` = `{}` (set of task IDs from units whose reviewer returned SUCCESS).
 - `UNIT_LOOKUP` = map from each task ID to its parent `task_unit.unit_id`, built once from all `task_units`.
 
-A unit is **ready** when every task ID in its `depends_on` is in `COMPLETED_UNIT_TASK_IDS`. Units with empty `depends_on` are ready immediately. Pick the next ready unit by lowest `unit_id`. If no unit is ready and uncompleted units remain, emit `implementation` waiting with `reason: "dependency_deadlock"` and STOP.
+A unit is **ready** when every task ID in its `depends_on` is in `COMPLETED_UNIT_TASK_IDS`. Units with empty `depends_on` are ready immediately.
+
+Before every dispatch cycle, recalculate `READY_UNITS` from unbuilt units, sorted by lowest `unit_id`. Do not require one builder to finish before checking for a ready wave. If no unit is ready and uncompleted units remain, emit `implementation` waiting with `reason: "dependency_deadlock"` and STOP.
+
+If `READY_UNITS` has 2+ entries and all Parallel-Wave Mode preconditions pass, use Parallel-Wave Mode immediately. Otherwise pick the first ready unit by lowest `unit_id` and use the serial-pipelined dispatch below.
 
 #### Pipelined Dispatch
 
-For each ready unit **k**, dispatch the builder:
+For each selected ready unit **k**, dispatch the builder:
 
 {% dispatch_agent "rp1-dev:task-builder" %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_UNIT_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
@@ -455,6 +459,7 @@ Escalate without marking parent `implementation` failed while recovery remains.
 7. **Overlapping file lists never concurrent.** If two units' task file lists share any source file path, they MUST NOT be in flight together — this applies to pipelined reviewer(k) ∥ builder(k+1) dispatch as well as parallel-wave builders. Fall back to strictly serial dispatch for those units.
 8. **Serial fallback.** When in doubt about preconditions, file overlap, or worktree health, fall back to the serial pipelined path. Parallel-wave is an optimization, not a requirement.
 9. **Emit namespacing unchanged.** Both primary and secondary builders emit with the same `task-builder:` step prefix. The `--unit` parameter distinguishes their events.
+10. **Default no-commit builds are serial.** When `GIT_COMMIT=false`, parallel groups in `tasks.md` describe dependency windows, but builder execution stays serial-pipelined because there is no atomic commit to replay from a worktree.
 
 #### Parallel-Wave Mode
 
@@ -465,27 +470,23 @@ When ALL of the following preconditions are met, dispatch two builders concurren
 3. The ready set contains 2+ units with no mutual dependency (neither unit's `depends_on` includes the other's task IDs).
 4. The two candidate units' task file lists have no overlapping source file paths.
 
-**Trigger**: After builder(k) completes and the next ready unit k+1 is pipeline-eligible, check whether a second ready unit k+2 also exists and is pipeline-eligible (no dependency on k or k+1, no file overlap with k+1). If so, dispatch reviewer(k) on the primary `codeRoot`, builder(k+1) on the primary `codeRoot`, and builder(k+2) on a worktree `codeRoot` -- all three as parallel agents in a single message.
+**Trigger**: At the start of each dispatch cycle, before selecting a serial unit, compute the current ready wave. If at least two ready units are mutually independent and file-disjoint, dispatch the first unit as primary builder(k) on `codeRoot` and the second unit as secondary builder(k+1) on a worktree `codeRoot` in a single message.
 
-If only one additional ready unit exists, use the standard pipelined dispatch (reviewer(k) + builder(k+1)).
+If fewer than two ready units qualify, use the standard serial-pipelined dispatch.
 
 **Dispatch**:
 
-{% dispatch_agent "rp1-dev:task-reviewer", background %}
+{% dispatch_agent "rp1-dev:task-builder", background %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_UNIT_IDS_K}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:task-builder", background %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_UNIT_IDS_K1}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={worktreePath}, TASK_IDS={TASK_UNIT_IDS_K1}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-{% dispatch_agent "rp1-dev:task-builder", background %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={worktreePath}, TASK_IDS={TASK_UNIT_IDS_K2}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
-{% enddispatch_agent %}
+Wait for both builders to complete. Dispatch reviewer(k) on the primary `codeRoot` before integrating the secondary worktree. If reviewer(k) fails or is malformed, abandon the secondary worktree, retry or escalate k per the Reviewer Failure sections, and rebuild k+1 later from the serial path after k passes. If reviewer(k) succeeds, add k's task IDs to `COMPLETED_UNIT_TASK_IDS`, then integrate the secondary worktree per `references/parallel-builders.md` and dispatch reviewer(k+1) on the primary `codeRoot`.
 
-Wait for all three to complete. Process reviewer(k) result first. Then integrate the worktree per `references/parallel-builders.md` before dispatching any reviewer for k+1 or k+2.
-
-**Integration order**: After both builders finish, integrate the worktree branch (k+2) onto the primary branch per the Integration section in `references/parallel-builders.md`. If integration fails, apply the Conflict Fallback procedure (discard worktree, rebuild k+2 serially). Then dispatch reviewers for k+1 and k+2 using the standard serial or pipelined path.
+**Integration order**: After both builders finish and reviewer(k) succeeds, integrate the worktree branch (k+1) onto the primary branch per the Integration section in `references/parallel-builders.md`. If integration fails, apply the Conflict Fallback procedure (discard worktree, rebuild k+1 serially). Then dispatch reviewer(k+1) using the standard serial or pipelined path.
 
 See `references/parallel-builders.md` for the full worktree lifecycle protocol: creation, CODE_ROOT routing, integration, conflict fallback, cleanup, and failure handling.
 
