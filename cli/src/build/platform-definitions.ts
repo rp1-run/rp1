@@ -239,23 +239,6 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 			"rules",
 		],
 	},
-	gemini: {
-		id: "gemini",
-		name: "Gemini CLI",
-		enabled: false,
-		binary: "gemini",
-		min_version: "0.0.0",
-		instruction_file: "AGENTS.md",
-		install_url: "https://github.com/google-gemini/gemini-cli",
-		plugin_install_cmd: null,
-		supportLevel: "stable",
-		icon: {
-			source: "@lobehub/icons",
-			name: "Gemini",
-			variant: "mono",
-		},
-		capabilities: ["plugins", "skills", "agents", "slash-commands"],
-	},
 };
 
 // ---------------------------------------------------------------------------
@@ -280,12 +263,6 @@ import { discoverSkillMap } from "./codex/skill-map.js";
 import { validateSubAgents } from "./codex/sub-agent-validator.js";
 import { validateCodexToml } from "./codex/validator.js";
 import { copilotRegistry } from "./copilot/registry.js";
-import {
-	geminiPostPluginBuild,
-	geminiPostSkillWrite,
-	geminiPreparePlugin,
-} from "./gemini/hooks.js";
-import { geminiRegistry } from "./gemini/registry.js";
 import { defaultRegistry } from "./registry.js";
 import { transformNamespace } from "./tags/index.js";
 import { buildTemplateContext } from "./template-context.js";
@@ -785,29 +762,6 @@ const antigravityPlatform: PlatformDefinition = {
 	producesBundleAssets: true,
 };
 
-const geminiPlatform: PlatformDefinition = {
-	id: "gemini",
-	registry: geminiRegistry,
-	config: platformConfigs.gemini,
-	templates: {
-		skill: "gemini/skill",
-		agent: "gemini/agent",
-		manifest: "gemini/manifest",
-	},
-	naming: {
-		skillDirPrefix: "rp1-",
-		agentFileName: (pluginName: string, agentName: string) =>
-			`rp1-${pluginName}-${agentName}`,
-		agentExtension: ".md",
-	},
-	hooks: {
-		preparePlugin: geminiPreparePlugin,
-		postSkillWrite: geminiPostSkillWrite,
-		postPluginBuild: geminiPostPluginBuild,
-	},
-	producesBundleAssets: true,
-};
-
 // ---------------------------------------------------------------------------
 // Platform definitions map
 // ---------------------------------------------------------------------------
@@ -821,7 +775,6 @@ export const PLATFORM_DEFINITIONS: ReadonlyMap<
 	["codex", codexPlatform],
 	["copilot", copilotPlatform],
 	["antigravity", antigravityPlatform],
-	["gemini", geminiPlatform],
 ]);
 
 /**

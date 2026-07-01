@@ -51,12 +51,6 @@ describe("L002: orphaned-platform", () => {
 			expect(diagnostics.length).toBeGreaterThan(0);
 		});
 
-		test("detects {% when 'gemini' %}", () => {
-			const content = '{% when "gemini" %}\nGemini.';
-			const diagnostics = orphanedPlatformRule(content, "gemini", "test.md");
-			expect(diagnostics.length).toBeGreaterThan(0);
-		});
-
 		test("reports correct line number", () => {
 			const content = 'Line 1\nLine 2\n{% if platform == "codex" %}\nLine 4';
 			const diagnostics = orphanedPlatformRule(content, "codex", "test.md");
@@ -98,7 +92,6 @@ describe("L002: orphaned-platform", () => {
 			);
 			expect(orphanedPlatformRule(content, "opencode", "test.md")).toEqual([]);
 			expect(orphanedPlatformRule(content, "codex", "test.md")).toEqual([]);
-			expect(orphanedPlatformRule(content, "gemini", "test.md")).toEqual([]);
 		});
 	});
 });

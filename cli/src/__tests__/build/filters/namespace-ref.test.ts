@@ -130,11 +130,4 @@ describe("namespace_ref filter", () => {
 			);
 		});
 	});
-
-	describe("gemini (passthrough)", () => {
-		test("preserves colon namespace references", () => {
-			const content = "Use rp1-base:knowledge-load for context.";
-			expect(namespaceRef(content, "gemini")).toBe(content);
-		});
-	});
 });

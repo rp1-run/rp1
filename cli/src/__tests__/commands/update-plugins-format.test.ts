@@ -49,31 +49,6 @@ describe("update plugin result formatting", () => {
 		expect(logs.join("\n")).toContain("rp1-base, rp1-dev");
 	});
 
-	test("formats Gemini lifecycle update details", () => {
-		formatPluginUpdateResult(
-			{
-				toolId: "gemini",
-				toolName: "Gemini CLI",
-				success: true,
-				restartRequired: false,
-				pluginsInstalled: [],
-				details: [
-					"Lifecycle stage: update",
-					"Lifecycle result: refreshed",
-					"Next action: Restart Gemini CLI, then run `rp1 verify gemini`.",
-				],
-				warnings: [],
-			},
-			false,
-		);
-
-		const output = logs.join("\n");
-		expect(output).toContain("Gemini CLI: Plugins updated successfully");
-		expect(output).toContain("Lifecycle stage: update");
-		expect(output).toContain("Lifecycle result: refreshed");
-		expect(output).not.toContain("Gemini CLI support is");
-	});
-
 	test("formats skipped unsupported tool results as skipped", () => {
 		formatPluginUpdateResult(
 			{
@@ -228,15 +203,15 @@ describe("update plugin result formatting", () => {
 				installed: 0,
 				detected: [
 					{
-						tool: tool("gemini", "Gemini CLI"),
+						tool: tool("copilot", "GitHub Copilot CLI"),
 						version: "0.0.0",
 						meetsMinVersion: true,
 					},
 				],
 				results: [
 					{
-						toolId: "gemini",
-						toolName: "Gemini CLI",
+						toolId: "copilot",
+						toolName: "GitHub Copilot CLI",
 						success: false,
 						skipped: true,
 						restartRequired: false,

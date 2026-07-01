@@ -14,7 +14,6 @@ rm -rf ~/.codex/skills/rp1-*/
 rm -rf ~/.codex/agents/rp1/
 rm -rf ~/.config/github-copilot/skills/rp1-*/
 rm -rf ~/.config/github-copilot/agents/rp1*
-rm -rf ~/.gemini/extensions/rp1-*
 rm -rf ~/.gemini/antigravity-cli/rp1-*
 rm -f bin/rp1
 rm -f ~/.rp1/platform-versions.json

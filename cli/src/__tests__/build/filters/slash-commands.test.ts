@@ -176,11 +176,4 @@ describe("slash_commands filter", () => {
 			expect(result).toContain("/rp1-dev/other");
 		});
 	});
-
-	describe("gemini (passthrough)", () => {
-		test("keeps Gemini colon namespace command references", () => {
-			const content = "Run /rp1-base:knowledge-load to load.";
-			expect(slashCommands(content, "gemini")).toBe(content);
-		});
-	});
 });

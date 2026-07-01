@@ -21,7 +21,6 @@ import {
 } from "./claude-code.js";
 import { executeVerifyCodex, verifyCodexSubcommand } from "./codex.js";
 import { executeVerifyCopilot, verifyCopilotSubcommand } from "./copilot.js";
-import { verifyGeminiSubcommand } from "./gemini.js";
 import { executeVerifyOpenCode, verifyOpenCodeSubcommand } from "./opencode.js";
 
 const { bold, dim } = colorFns;
@@ -144,10 +143,6 @@ if (!antigravityVerifyEnabled) {
 	});
 }
 
-verifyCommand.addCommand(verifyGeminiSubcommand, {
-	hidden: true,
-});
-
 // Export subcommands for direct access if needed
 export {
 	executeVerifyAntigravity,
@@ -162,5 +157,4 @@ export {
 	executeVerifyCopilot,
 	verifyCopilotSubcommand,
 } from "./copilot.js";
-export { executeVerifyGemini, verifyGeminiSubcommand } from "./gemini.js";
 export { executeVerifyOpenCode, verifyOpenCodeSubcommand } from "./opencode.js";

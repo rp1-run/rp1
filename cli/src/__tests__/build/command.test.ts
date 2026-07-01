@@ -10,7 +10,6 @@ import type { Logger } from "../../../shared/logger.js";
 import {
 	buildPlatformPlugin,
 	deriveAntigravityOutputDir,
-	deriveGeminiOutputDir,
 	executeBuild,
 	parseBuildArgs,
 } from "../../build/command.js";
@@ -42,7 +41,6 @@ const claudeCodeDef = PLATFORM_DEFINITIONS.get("claude-code")!;
 const codexDef = PLATFORM_DEFINITIONS.get("codex")!;
 const copilotDef = PLATFORM_DEFINITIONS.get("copilot")!;
 const antigravityDef = PLATFORM_DEFINITIONS.get("antigravity")!;
-const geminiDef = PLATFORM_DEFINITIONS.get("gemini")!;
 
 const extractBootstrapTarget = (
 	content: string,
@@ -97,8 +95,6 @@ describe("build platform support", () => {
 		expect(deriveAntigravityOutputDir("dist/opencode/")).toBe(
 			"dist/antigravity",
 		);
-		expect(deriveGeminiOutputDir("dist/opencode")).toBe("dist/gemini");
-		expect(deriveGeminiOutputDir("dist/opencode/")).toBe("dist/gemini");
 	});
 });
 
@@ -730,216 +726,6 @@ Sample skill content.
 			await readFile(join(out, "base", "hooks", "copilot-hooks.json"), "utf-8"),
 		);
 		expect(hooksContent.hooks.SessionStart[0].command).toBe("echo start");
-	});
-});
-
-describe("buildPlatformPlugin (gemini)", () => {
-	let tempDir: string;
-	let outputDir: string;
-
-	beforeAll(async () => {
-		tempDir = await createTempDir("build-cmd-gemini");
-		await assertTestIsolation(tempDir);
-		outputDir = join(tempDir, "output");
-	});
-
-	afterAll(async () => {
-		await cleanupTempDir(tempDir);
-	});
-
-	test("writes Gemini extension assets, command TOML, and support matrix", async () => {
-		const projectRoot = join(tempDir, "project-gemini-extension");
-
-		await writeFixture(
-			projectRoot,
-			"plugins/base/.claude-plugin/plugin.json",
-			JSON.stringify({
-				name: "rp1-base",
-				description: "Base workflows for Gemini CLI",
-				version: "1.2.3",
-			}),
-		);
-		await writeFixture(
-			projectRoot,
-			"plugins/base/skills/knowledge-build/SKILL.md",
-			`---
-name: knowledge-build
-description: "Build knowledge base artifacts for downstream workflows"
-allowed-tools: Bash(rp1 *), Read
-metadata:
-  category: knowledge
-  is_workflow: true
-  workflow:
-    run_policy: fresh
-    identity_args: []
-  arguments:
-    - name: FEATURE_ID
-      type: string
-      required: false
-      description: "Feature identifier"
----
-
-Knowledge build content.
-`,
-		);
-		await writeFixture(
-			projectRoot,
-			"plugins/base/agents/research-explorer.md",
-			`---
-name: research-explorer
-description: "Explores code and docs for a research report"
-tools: Read, Grep, Bash
-model: inherit
----
-
-Research explorer content.
-`,
-		);
-
-		const out = join(outputDir, "gemini-extension");
-		const result = await buildPlatformPlugin(
-			"base",
-			projectRoot,
-			out,
-			geminiDef,
-			noopLogger,
-			true,
-		);
-
-		expect(result.summary.commands).toBe(1);
-		expect(result.summary.skills).toBe(1);
-		expect(result.summary.agents).toBe(1);
-		expect(result.assets.commands).toEqual([
-			{
-				name: "rp1-base:knowledge-build",
-				path: "base/commands/rp1-base/knowledge-build.toml",
-			},
-		]);
-		expect(result.assets.verbatimFiles.map((file) => file.path).sort()).toEqual(
-			[
-				"base/GEMINI.md",
-				"base/gemini-extension.json",
-				"base/support-matrix.json",
-			],
-		);
-
-		const extension = JSON.parse(
-			await readFile(join(out, "base", "gemini-extension.json"), "utf-8"),
-		);
-		expect(extension).toMatchObject({
-			name: "rp1-base",
-			version: "1.2.3",
-			contextFileName: "GEMINI.md",
-		});
-
-		const commandToml = await readFile(
-			join(out, "base", "commands", "rp1-base", "knowledge-build.toml"),
-			"utf-8",
-		);
-		expect(commandToml).toContain("{{args}}");
-		expect(commandToml).toContain("rp1-base:knowledge-build");
-		const commandPrompt = (
-			Bun.TOML.parse(commandToml) as { readonly prompt?: unknown }
-		).prompt;
-		expect(typeof commandPrompt).toBe("string");
-		expect(commandPrompt).toContain(
-			"Use the bundled Gemini skill `rp1-knowledge-build`",
-		);
-		expect(commandPrompt).not.toContain("rp1-base-knowledge-build");
-
-		const generatedSkillNames = new Set(
-			result.assets.skills
-				.map((skill) => skill.name)
-				.filter((name) => name.endsWith("/SKILL.md"))
-				.map((name) => name.replace(/\/SKILL\.md$/, "")),
-		);
-		expect(generatedSkillNames.has("rp1-knowledge-build")).toBe(true);
-		for (const command of result.assets.commands) {
-			const parsedCommand = Bun.TOML.parse(
-				await readFile(join(out, command.path), "utf-8"),
-			) as { readonly prompt?: unknown };
-			expect(typeof parsedCommand.prompt).toBe("string");
-			const referencedSkillNames = [
-				...(parsedCommand.prompt as string).matchAll(
-					/Use the bundled Gemini skill `([^`]+)`/g,
-				),
-			].map((match) => match[1]);
-			expect(referencedSkillNames.length).toBeGreaterThan(0);
-			for (const skillName of referencedSkillNames) {
-				expect(generatedSkillNames.has(skillName)).toBe(true);
-			}
-		}
-
-		const agentContent = await readFile(
-			join(out, "base", "agents", "rp1-base-research-explorer.md"),
-			"utf-8",
-		);
-		expect(agentContent).toContain("kind: local");
-		expect(agentContent).toContain("- read_file");
-		expect(agentContent).toContain("- search_file_content");
-		expect(agentContent).toContain("- run_shell_command");
-
-		const context = await readFile(join(out, "base", "GEMINI.md"), "utf-8");
-		expect(context).toContain("/rp1-base:knowledge-build");
-		expect(context).toContain("support-matrix.json");
-
-		const supportMatrix = JSON.parse(
-			await readFile(join(out, "base", "support-matrix.json"), "utf-8"),
-		);
-		expect(supportMatrix.entries[0]).toMatchObject({
-			workflowId: "base:knowledge-build",
-			status: "supported",
-		});
-
-		const manifest = JSON.parse(
-			await readFile(join(out, "base", "manifest.json"), "utf-8"),
-		);
-		expect(manifest.artifacts.commands).toEqual(["rp1-base:knowledge-build"]);
-		expect(manifest.artifacts.supportMatrix).toBe("support-matrix.json");
-	});
-
-	test("excludes removed Gemini validation-only workflows from the dev bundle", async () => {
-		const projectRoot = join(import.meta.dir, "..", "..", "..", "..");
-		const out = join(outputDir, "gemini-cleanup-dev");
-		const result = await buildPlatformPlugin(
-			"dev",
-			projectRoot,
-			out,
-			geminiDef,
-			noopLogger,
-			true,
-		);
-
-		const manifest = JSON.parse(
-			await readFile(join(out, "dev", "manifest.json"), "utf-8"),
-		) as {
-			readonly artifacts: {
-				readonly commands: readonly string[];
-				readonly skills: readonly string[];
-			};
-		};
-		const context = await readFile(join(out, "dev", "GEMINI.md"), "utf-8");
-		const supportMatrix = await readFile(
-			join(out, "dev", "support-matrix.json"),
-			"utf-8",
-		);
-		const generatedAssetIndex = JSON.stringify(result.assets);
-
-		for (const validationAsset of [
-			"gemini-harness-smoke",
-			"gemini-harness-subagents",
-			"gemini-harness-boundaries",
-		]) {
-			expect(manifest.artifacts.commands.join("\n")).not.toContain(
-				validationAsset,
-			);
-			expect(manifest.artifacts.skills.join("\n")).not.toContain(
-				validationAsset,
-			);
-			expect(context).not.toContain(validationAsset);
-			expect(supportMatrix).not.toContain(validationAsset);
-			expect(generatedAssetIndex).not.toContain(validationAsset);
-		}
 	});
 });
 

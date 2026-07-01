@@ -30,10 +30,6 @@ describe("resolveTier", () => {
 		expect(resolveTier("frontier", "antigravity")).toBe("gemini-3.1-pro");
 	});
 
-	test("frontier tier returns gemini-2.5-pro for gemini", () => {
-		expect(resolveTier("frontier", "gemini")).toBe("gemini-2.5-pro");
-	});
-
 	test("deep tier returns opus for claude-code", () => {
 		const result = resolveTier("deep", "claude-code");
 		expect(result).toBe("opus");
@@ -54,17 +50,11 @@ describe("resolveTier", () => {
 		expect(result).toBe("gemini-3.1-pro");
 	});
 
-	test("deep tier returns gemini-2.5-pro for gemini", () => {
-		const result = resolveTier("deep", "gemini");
-		expect(result).toBe("gemini-2.5-pro");
-	});
-
 	test("standard tier returns balanced model for each platform", () => {
 		expect(resolveTier("standard", "claude-code")).toBe("sonnet");
 		expect(resolveTier("standard", "codex")).toBe("gpt-5.4");
 		expect(resolveTier("standard", "opencode")).toBeNull();
 		expect(resolveTier("standard", "antigravity")).toBe("gemini-3.5-flash");
-		expect(resolveTier("standard", "gemini")).toBe("gemini-2.5-flash");
 	});
 
 	test("fast tier returns cheapest model for each platform", () => {
@@ -72,7 +62,6 @@ describe("resolveTier", () => {
 		expect(resolveTier("fast", "codex")).toBe("gpt-5.4-mini");
 		expect(resolveTier("fast", "opencode")).toBeNull();
 		expect(resolveTier("fast", "antigravity")).toBe("gemini-3.5-flash");
-		expect(resolveTier("fast", "gemini")).toBe("gemini-2.5-flash");
 	});
 
 	test("inherit returns null for every platform", () => {
@@ -81,7 +70,6 @@ describe("resolveTier", () => {
 			"codex",
 			"opencode",
 			"antigravity",
-			"gemini",
 			"copilot",
 		];
 		for (const p of platforms) {
@@ -167,15 +155,10 @@ describe("resolveEffort", () => {
 		expect(result).toBeNull();
 	});
 
-	// --- Antigravity / Gemini ---
+	// --- Antigravity ---
 
 	test("antigravity returns null (effort not supported per-agent)", () => {
 		const result = resolveEffort("high", "deep", "antigravity");
-		expect(result).toBeNull();
-	});
-
-	test("gemini returns null (effort not supported per-agent)", () => {
-		const result = resolveEffort("high", "deep", "gemini");
 		expect(result).toBeNull();
 	});
 
@@ -194,7 +177,6 @@ describe("resolveEffort", () => {
 			"codex",
 			"opencode",
 			"antigravity",
-			"gemini",
 		];
 		for (const p of platforms) {
 			expect(resolveEffort("high", "fast", p)).toBeNull();

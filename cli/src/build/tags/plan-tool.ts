@@ -11,7 +11,6 @@
  *   OC:    manage_todos: <directive>
  *   Codex: update_plan: <directive>
  *   Antigravity: Track progress in a markdown task list
- *   Gemini: Track progress in a markdown task list
  */
 
 import {
@@ -57,8 +56,6 @@ function renderPlanTool(directive: string, platform: BuildPlatform): string {
 		case "copilot":
 			return `${directive}\n\nNote: No dedicated planning tool is available on Copilot CLI. Track progress by writing status updates to a markdown file in the working directory.`;
 		case "antigravity":
-			return `${directive}\n\nTrack progress in a markdown task list in the working directory.`;
-		case "gemini":
 			return `${directive}\n\nTrack progress in a markdown task list in the working directory.`;
 	}
 }
