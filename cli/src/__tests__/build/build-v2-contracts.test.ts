@@ -231,6 +231,56 @@ describe("Build v2 static contracts", () => {
 		expect(content).not.toContain("build-task-grouper");
 	});
 
+	test("implementation checks the ready wave before falling back to serial dispatch", async () => {
+		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+
+		const readySetIndex = content.indexOf("#### Ready-Set Derivation");
+		const pipelinedIndex = content.indexOf("#### Pipelined Dispatch");
+		const parallelWaveIndex = content.indexOf("#### Parallel-Wave Mode");
+
+		expect(readySetIndex).toBeGreaterThan(-1);
+		expect(pipelinedIndex).toBeGreaterThan(readySetIndex);
+		expect(parallelWaveIndex).toBeGreaterThan(pipelinedIndex);
+		expect(content).toContain(
+			"Before every dispatch cycle, recalculate `READY_UNITS`",
+		);
+		expect(content).toContain(
+			"Do not require one builder to finish before checking for a ready wave.",
+		);
+		expect(content).toContain(
+			"If `READY_UNITS` has 2+ entries and all Parallel-Wave Mode preconditions pass, use Parallel-Wave Mode immediately.",
+		);
+		expect(content).toContain(
+			"At the start of each dispatch cycle, before selecting a serial unit",
+		);
+		expect(content).toContain("Default no-commit builds are serial.");
+	});
+
+	test("parallel builder reference integrates secondary work only after primary review succeeds", async () => {
+		const build = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const reference = await readProjectFile(
+			"plugins/dev/skills/build/references/parallel-builders.md",
+		);
+		const builder = await readProjectFile("plugins/dev/agents/task-builder.md");
+
+		expect(build).toContain(
+			"Dispatch reviewer(k) on the primary `codeRoot` before integrating the secondary worktree.",
+		);
+		expect(build).toContain(
+			"If reviewer(k) fails or is malformed, abandon the secondary worktree",
+		);
+		expect(reference).toContain(
+			"After both builders complete and reviewer(k) succeeds on the primary branch",
+		);
+		expect(reference).toContain(
+			"If reviewer(k) fails after both builders succeeded:",
+		);
+		expect(builder).toContain(".task-file.lock");
+		expect(builder).toContain(
+			"Run Sections 4.1 through 4.3 while holding the lock.",
+		);
+	});
+
 	test("task plan machine schema includes targets for code and docs parity", async () => {
 		const tasker = await readProjectFile(
 			"plugins/dev/agents/feature-tasker.md",

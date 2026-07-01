@@ -32,7 +32,7 @@ The two builders receive different `CODE_ROOT` values; work artifacts stay canon
 
 ## Integration
 
-After both builders complete and before dispatching any reviewer, integrate the secondary builder's worktree commits onto the primary branch:
+After both builders complete and reviewer(k) succeeds on the primary branch, integrate the secondary builder's worktree commits onto the primary branch:
 
 1. Verify the worktree branch carries exactly one commit beyond its **fork point** -- the commit `HEAD` pointed at when the worktree was created (`git rev-list --count {forkPoint}..build-wt/{FEATURE_ID}/{unit_id}` = 1). Do not count against the current primary `HEAD`: the primary builder may have added one or more commits since the fork, and that is expected -- the rebase below replays the worktree's single commit onto whatever the primary `HEAD` is now.
 2. From the primary `codeRoot`, rebase the worktree branch:
@@ -47,7 +47,7 @@ git -C "{codeRoot}" rebase HEAD "build-wt/{FEATURE_ID}/{unit_id}"
 git -C "{codeRoot}" merge --ff-only "build-wt/{FEATURE_ID}/{unit_id}"
 ```
 
-4. If both rebase and fast-forward succeed, proceed to dispatch reviewer(k) and reviewer(k+1) sequentially, or pipeline reviewer(k) with the next ready builder if one exists.
+4. If both rebase and fast-forward succeed, proceed to dispatch reviewer(k+1), or pipeline reviewer(k+1) with the next ready builder if one exists.
 
 ## Conflict Fallback
 
@@ -75,8 +75,15 @@ If the primary builder failed while the secondary succeeded:
 1. Do not integrate the secondary's worktree yet.
 2. Clean up the primary builder's failed state.
 3. Retry the primary builder on `codeRoot` per the normal retry path.
-4. Only after the primary unit succeeds, attempt integration of the secondary worktree.
+4. Only after the primary unit succeeds and reviewer(k) passes, attempt integration of the secondary worktree.
 5. If the retry window is exhausted for the primary, escalate per section 4.3.7. The secondary worktree is abandoned alongside the primary.
+
+If reviewer(k) fails after both builders succeeded:
+
+1. Do not integrate the secondary worktree.
+2. Clean up the worktree and branch per the Cleanup section.
+3. Retry or escalate unit k per the parent build prompt.
+4. Re-dispatch unit k+1's builder serially after unit k passes review.
 
 ## Cleanup
 
