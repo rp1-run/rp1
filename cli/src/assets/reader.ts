@@ -15,6 +15,8 @@ export interface AssetEntry {
 	path: string;
 	content?: string;
 	fileName?: string;
+	tier?: string;
+	effort?: string;
 }
 
 /**

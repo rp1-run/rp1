@@ -19,7 +19,7 @@ import { existsSync } from "node:fs";
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { parse as parseYaml } from "yaml";
-import type { BundleManifest } from "../src/build/models.js";
+import type { BundleAgentEntry, BundleManifest } from "../src/build/models.js";
 import {
 	collectScopedCatalogRegistry,
 	renderInitSkillAwarenessBlock,
@@ -70,13 +70,13 @@ const TOOLS_GENERATED = join(
 );
 const INIT_GENERATED = join(CLI_DIR, "src/init/templates/generated.ts");
 
-interface DiscoveredPlatform {
+export interface DiscoveredPlatform {
 	name: string;
 	distDir: string;
 	manifest: BundleManifest;
 }
 
-interface AssetImport {
+export interface AssetImport {
 	varName: string;
 	importPath: string;
 	outputName: string;
@@ -84,6 +84,7 @@ interface AssetImport {
 	category:
 		| "agent"
 		| "skill"
+		| "command"
 		| "state-machine"
 		| "webui"
 		| "teach-me"
@@ -92,6 +93,8 @@ interface AssetImport {
 	plugin?: "base" | "dev" | "utils";
 	platform?: string;
 	inlineContent?: string;
+	tier?: string;
+	effort?: string;
 }
 
 /**
@@ -152,7 +155,9 @@ async function discoverPlatforms(): Promise<DiscoveredPlatform[]> {
 /**
  * Collect plugin assets from a single platform's bundle manifest.
  */
-function collectPlatformAssets(platform: DiscoveredPlatform): AssetImport[] {
+export function collectPlatformAssets(
+	platform: DiscoveredPlatform,
+): AssetImport[] {
 	const imports: AssetImport[] = [];
 	const platformPrefix = platform.name.replace(/-/g, "_");
 
@@ -183,7 +188,8 @@ function collectPlatformAssets(platform: DiscoveredPlatform): AssetImport[] {
 		// Agents
 		for (const agent of plugin.agents) {
 			const fullPath = join(platform.distDir, agent.path);
-			imports.push({
+			const bundleAgent = agent as BundleAgentEntry;
+			const entry: AssetImport = {
 				varName: toVarName(`${platformPrefix}_${pluginName}_agent`, agent.name),
 				importPath: getImportPath(fullPath),
 				outputName: agent.name,
@@ -191,7 +197,10 @@ function collectPlatformAssets(platform: DiscoveredPlatform): AssetImport[] {
 				category: "agent",
 				plugin: pluginName,
 				platform: platform.name,
-			});
+			};
+			if (bundleAgent.tier) entry.tier = bundleAgent.tier;
+			if (bundleAgent.effort) entry.effort = bundleAgent.effort;
+			imports.push(entry);
 		}
 
 		// Skills
@@ -402,6 +411,18 @@ async function generateInitTemplates(): Promise<void> {
 }
 
 /**
+ * Format an agent asset entry, conditionally including tier and effort fields.
+ */
+export function formatAgentEntry(a: AssetImport): string {
+	let s = `{ name: "${a.outputName}", path: ${a.varName}`;
+	if (a.fileName) s += `, fileName: "${a.fileName}"`;
+	if (a.tier) s += `, tier: "${a.tier}"`;
+	if (a.effort) s += `, effort: "${a.effort}"`;
+	s += " }";
+	return s;
+}
+
+/**
  * Generate the platform block for a single discovered platform.
  */
 function generatePlatformBlock(
@@ -422,7 +443,7 @@ function generatePlatformBlock(
 
 	const baseAgents = platformAssets
 		.filter((a) => a.category === "agent" && a.plugin === "base")
-		.map(formatEntry);
+		.map(formatAgentEntry);
 
 	const baseSkills = platformAssets
 		.filter((a) => a.category === "skill" && a.plugin === "base")
@@ -430,7 +451,7 @@ function generatePlatformBlock(
 
 	const devAgents = platformAssets
 		.filter((a) => a.category === "agent" && a.plugin === "dev")
-		.map(formatEntry);
+		.map(formatAgentEntry);
 
 	const devCommands = platformAssets
 		.filter((a) => a.category === "command" && a.plugin === "dev")
@@ -446,7 +467,7 @@ function generatePlatformBlock(
 
 	const utilsAgents = platformAssets
 		.filter((a) => a.category === "agent" && a.plugin === "utils")
-		.map(formatEntry);
+		.map(formatAgentEntry);
 
 	const utilsSkills = platformAssets
 		.filter((a) => a.category === "skill" && a.plugin === "utils")
