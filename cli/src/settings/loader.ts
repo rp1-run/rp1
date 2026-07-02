@@ -3,6 +3,8 @@ import {
 	resolveGlobalSettingsPath,
 	resolveLocalSettingsPath,
 } from "../../shared/settings.js";
+import type { BuildPlatform } from "../build/template-context.js";
+import type { PlatformTierMap, TierRemappingConfig } from "./models.js";
 
 /** Argument defaults for a single skill/agent, keyed by UPPER_SNAKE_CASE argument name. */
 export type ArgumentDefaults = Readonly<
@@ -14,9 +16,16 @@ export type SettingsArgumentDefaults = Readonly<
 	Record<string, ArgumentDefaults>
 >;
 
+/** Parsed models section from a single settings file. */
+type ParsedModelsSection = Readonly<{
+	preset?: string;
+	platforms: Readonly<Partial<Record<BuildPlatform, PlatformTierMap>>>;
+}>;
+
 type ParsedSettingsFile = Readonly<{
 	arguments: SettingsArgumentDefaults;
 	directories: Record<string, never>;
+	models: ParsedModelsSection;
 }>;
 
 const isPlainRecord = (
@@ -49,6 +58,64 @@ const normalizeArgumentKey = (key: string): string => {
 	return key;
 };
 
+/** Reserved keys under [models] that are not platform names. */
+const MODELS_RESERVED_KEYS = new Set(["preset"]);
+
+/** Known tier keys that map to model identifiers. */
+const TIER_KEYS = new Set(["frontier", "deep", "standard", "fast"]);
+
+/**
+ * Extract tier-to-model mappings from a platform sub-table under [models].
+ * Only string values for known tier keys are included; other entries are ignored.
+ */
+const parsePlatformTierMap = (
+	table: Readonly<Record<string, unknown>>,
+): PlatformTierMap | null => {
+	const map: Record<string, string> = {};
+	let hasEntries = false;
+
+	for (const [key, value] of Object.entries(table)) {
+		if (TIER_KEYS.has(key) && typeof value === "string") {
+			map[key] = value;
+			hasEntries = true;
+		}
+	}
+
+	return hasEntries ? (map as PlatformTierMap) : null;
+};
+
+/**
+ * Extract the models section from parsed TOML.
+ * Handles both `[models]` (preset) and `[models.<platform>]` (tier mappings).
+ */
+const parseModelsSection = (
+	parsed: Record<string, unknown>,
+): ParsedModelsSection => {
+	const modelsSection = parsed.models;
+	const emptyModels: ParsedModelsSection = { platforms: {} };
+
+	if (!isPlainRecord(modelsSection)) {
+		return emptyModels;
+	}
+
+	const preset =
+		typeof modelsSection.preset === "string" ? modelsSection.preset : undefined;
+
+	const platforms: Record<string, PlatformTierMap> = {};
+
+	for (const [key, value] of Object.entries(modelsSection)) {
+		if (MODELS_RESERVED_KEYS.has(key)) continue;
+		if (!isPlainRecord(value)) continue;
+
+		const tierMap = parsePlatformTierMap(value);
+		if (tierMap) {
+			platforms[key] = tierMap;
+		}
+	}
+
+	return { preset, platforms };
+};
+
 const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 	const cached = settingsCache.get(filePath);
 	if (cached) {
@@ -56,7 +123,11 @@ const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 	}
 
 	if (!existsSync(filePath)) {
-		const empty: ParsedSettingsFile = { arguments: {}, directories: {} };
+		const empty: ParsedSettingsFile = {
+			arguments: {},
+			directories: {},
+			models: { platforms: {} },
+		};
 		settingsCache.set(filePath, empty);
 		return empty;
 	}
@@ -90,14 +161,21 @@ const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 			}
 		}
 
+		const models = parseModelsSection(parsed);
+
 		const result: ParsedSettingsFile = {
 			arguments: argumentDefaults,
 			directories: {},
+			models,
 		};
 		settingsCache.set(filePath, result);
 		return result;
 	} catch {
-		const empty: ParsedSettingsFile = { arguments: {}, directories: {} };
+		const empty: ParsedSettingsFile = {
+			arguments: {},
+			directories: {},
+			models: { platforms: {} },
+		};
 		settingsCache.set(filePath, empty);
 		return empty;
 	}
@@ -184,4 +262,64 @@ export const loadAllArgumentDefaults = async (
 	}
 
 	return result;
+};
+
+/**
+ * Load the `[models]` section from a single settings file.
+ * Returns the parsed models section when present, or an empty structure.
+ */
+const loadModelsFromFile = (filePath: string): ParsedModelsSection => {
+	return parseSettingsFileStrict(filePath).models;
+};
+
+/**
+ * Merge two platform tier maps, where `override` entries take precedence
+ * over `base` entries for the same tier.
+ */
+const mergePlatformTierMaps = (
+	base: PlatformTierMap,
+	override: PlatformTierMap,
+): PlatformTierMap => {
+	return { ...base, ...override };
+};
+
+/**
+ * Load tier remapping configuration from both project-level and user-level
+ * settings files.
+ *
+ * Merge precedence: project settings > user settings (per-platform, per-tier).
+ * Project-level preset overrides user-level preset.
+ *
+ * @param projectRoot - Project root directory (contains `.rp1/`)
+ * @returns Merged tier remapping configuration
+ */
+export const loadTierRemappings = async (
+	projectRoot: string,
+): Promise<TierRemappingConfig> => {
+	const projectModels = loadModelsFromFile(
+		resolveLocalSettingsPath(projectRoot),
+	);
+	const userModels = loadModelsFromFile(resolveGlobalSettingsPath());
+
+	const preset = projectModels.preset ?? userModels.preset;
+
+	const allPlatforms = new Set([
+		...Object.keys(userModels.platforms),
+		...Object.keys(projectModels.platforms),
+	]);
+
+	const platforms: Record<string, PlatformTierMap> = {};
+
+	for (const platform of allPlatforms) {
+		const userMap = userModels.platforms[platform as BuildPlatform];
+		const projectMap = projectModels.platforms[platform as BuildPlatform];
+
+		if (userMap && projectMap) {
+			platforms[platform] = mergePlatformTierMaps(userMap, projectMap);
+		} else {
+			platforms[platform] = (projectMap ?? userMap)!;
+		}
+	}
+
+	return { preset, platforms };
 };
