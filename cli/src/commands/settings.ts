@@ -96,8 +96,52 @@ Examples:
 
 		console.log();
 
-		// Summary
+		let overallValid = result.valid;
+
+		// Tier remapping semantic validation (only when TOML syntax is valid)
 		if (result.valid) {
+			const { loadTierRemappings } = await import("../settings/loader.js");
+			const { validateTierRemappings } = await import(
+				"../settings/validator.js"
+			);
+
+			const tierConfig = await loadTierRemappings(process.cwd());
+			const hasTierConfig =
+				tierConfig.preset !== undefined ||
+				Object.keys(tierConfig.platforms).length > 0;
+
+			if (hasTierConfig) {
+				console.log();
+				console.log(chalk.bold("Tier Remapping Validation"));
+				console.log();
+
+				const tierResult = validateTierRemappings(tierConfig);
+
+				for (const error of tierResult.errors) {
+					console.log(`  ${chalk.red("Error:")} ${error}`);
+				}
+				for (const warning of tierResult.warnings) {
+					console.log(`  ${chalk.yellow("Warning:")} ${warning}`);
+				}
+				for (const adjustment of tierResult.effortAdjustments) {
+					console.log(`  ${chalk.yellow("Effort:")} ${adjustment}`);
+				}
+
+				if (!tierResult.valid) {
+					overallValid = false;
+				} else if (
+					tierResult.warnings.length === 0 &&
+					tierResult.effortAdjustments.length === 0
+				) {
+					console.log(`  ${chalk.green("Tier remappings are valid.")}`);
+				}
+			}
+		}
+
+		console.log();
+
+		// Summary
+		if (overallValid) {
 			console.log(chalk.green("All settings files are valid."));
 			process.exit(0);
 		} else {
