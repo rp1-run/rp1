@@ -164,7 +164,6 @@ describe("rewriteAgentArtifact - Codex", () => {
 		expect(result.content).not.toContain('model = "gpt-5.5"');
 		// developer_instructions must be preserved verbatim
 		const diStart = "developer_instructions = '''";
-		const diEnd = "'''";
 		const originalDI = CODEX_AGENT_WITH_EFFORT.slice(
 			CODEX_AGENT_WITH_EFFORT.indexOf(diStart),
 		);
