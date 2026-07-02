@@ -238,14 +238,16 @@ export const loadArgumentDefaultsForSkill = async (
  * Merge precedence: project settings > user settings (per-skill, per-argument).
  *
  * @param projectRoot - Project root directory (contains `.rp1/`)
+ * @param globalSettingsPath - Override path to user-level settings file (defaults to ~/.config/rp1/settings.toml). Exposed for test isolation.
  * @returns Merged argument defaults keyed by skill name
  */
 export const loadAllArgumentDefaults = async (
 	projectRoot: string,
+	globalSettingsPath?: string,
 ): Promise<SettingsArgumentDefaults> => {
 	const [projectDefaults, userDefaults] = await Promise.all([
 		loadArgumentsFromFile(resolveLocalSettingsPath(projectRoot)),
-		loadArgumentsFromFile(resolveGlobalSettingsPath()),
+		loadArgumentsFromFile(globalSettingsPath ?? resolveGlobalSettingsPath()),
 	]);
 
 	const allSkillNames = new Set([
