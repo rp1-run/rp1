@@ -380,6 +380,66 @@ describe("applyRemappingsToAgents", () => {
 		expect(result.agentsModified).toBe(2);
 	});
 
+	test("returns agentsAlreadyCurrent when artifact already has the target model", async () => {
+		const agentPath = await writeFixture(
+			tempDir,
+			"agents/feature-architect.md",
+			CC_AGENT_DEEP,
+		);
+
+		const agents: AgentFileEntry[] = [
+			{
+				name: "feature-architect",
+				filePath: agentPath,
+				tier: "deep",
+				effort: "high",
+				platform: "claude-code",
+			},
+		];
+
+		const result = applyRemappingsToAgents(
+			agents,
+			{ "claude-code": { deep: "opus" } },
+			false,
+			createDeps(),
+		);
+
+		expect(result.agentsModified).toBe(0);
+		expect(result.agentsAlreadyCurrent).toBe(1);
+		expect(result.applied).toBe(false);
+
+		const content = readFileSync(agentPath, "utf-8");
+		expect(content).toBe(CC_AGENT_DEEP);
+	});
+
+	test("returns both counters at zero when no remapping matches agent tier", async () => {
+		const agentPath = await writeFixture(
+			tempDir,
+			"agents/task-builder.md",
+			CC_AGENT_STANDARD,
+		);
+
+		const agents: AgentFileEntry[] = [
+			{
+				name: "task-builder",
+				filePath: agentPath,
+				tier: "standard",
+				platform: "claude-code",
+			},
+		];
+
+		const result = applyRemappingsToAgents(
+			agents,
+			{ "claude-code": { deep: "sonnet" } },
+			false,
+			createDeps(),
+		);
+
+		expect(result.agentsModified).toBe(0);
+		expect(result.agentsAlreadyCurrent).toBe(0);
+		expect(result.applied).toBe(false);
+	});
+
 	test("skips agents with inherit tier", async () => {
 		const agentPath = await writeFixture(
 			tempDir,
@@ -448,6 +508,11 @@ describe("applyRemappingsToAgents", () => {
 });
 
 describe("resolveConfig", () => {
+	// Isolated global settings path to prevent tests from reading the
+	// developer's real ~/.config/rp1/settings.toml (mirrors the
+	// loadAllArgumentDefaults injection seam from b838b9f6).
+	const isolatedGlobalSettings = () => join(tempDir, "no-global-settings.toml");
+
 	test("loads config from settings.toml", async () => {
 		await writeFixture(
 			tempDir,
@@ -455,13 +520,21 @@ describe("resolveConfig", () => {
 			["[models.claude-code]", 'deep = "sonnet"'].join("\n"),
 		);
 
-		const { config, errors } = await resolveConfig(tempDir);
+		const { config, errors } = await resolveConfig(
+			tempDir,
+			undefined,
+			isolatedGlobalSettings(),
+		);
 		expect(errors).toHaveLength(0);
 		expect(config.platforms["claude-code"]?.deep).toBe("sonnet");
 	});
 
 	test("resolves named preset from CLI flag", async () => {
-		const { config, errors } = await resolveConfig(tempDir, "budget");
+		const { config, errors } = await resolveConfig(
+			tempDir,
+			"budget",
+			isolatedGlobalSettings(),
+		);
 		expect(errors).toHaveLength(0);
 		expect(config.preset).toBe("budget");
 		expect(config.platforms["claude-code"]?.deep).toBe("haiku");
@@ -469,7 +542,11 @@ describe("resolveConfig", () => {
 	});
 
 	test("returns error for unknown preset", async () => {
-		const { errors } = await resolveConfig(tempDir, "nonexistent");
+		const { errors } = await resolveConfig(
+			tempDir,
+			"nonexistent",
+			isolatedGlobalSettings(),
+		);
 		expect(errors.length).toBeGreaterThan(0);
 		expect(errors[0]).toContain("nonexistent");
 	});
@@ -483,7 +560,11 @@ describe("resolveConfig", () => {
 			),
 		);
 
-		const { config, errors } = await resolveConfig(tempDir, "premium");
+		const { config, errors } = await resolveConfig(
+			tempDir,
+			"premium",
+			isolatedGlobalSettings(),
+		);
 		expect(errors).toHaveLength(0);
 		expect(config.platforms["claude-code"]?.deep).toBe("opus");
 		expect(config.platforms["claude-code"]?.standard).toBe("sonnet");
@@ -502,14 +583,22 @@ describe("resolveConfig", () => {
 			].join("\n"),
 		);
 
-		const { config, errors } = await resolveConfig(tempDir);
+		const { config, errors } = await resolveConfig(
+			tempDir,
+			undefined,
+			isolatedGlobalSettings(),
+		);
 		expect(errors).toHaveLength(0);
 		expect(config.platforms["claude-code"]?.deep).toBe("sonnet");
 		expect(config.platforms["claude-code"]?.standard).toBe("haiku");
 	});
 
 	test("returns empty config when no settings exist", async () => {
-		const { config, errors } = await resolveConfig(tempDir);
+		const { config, errors } = await resolveConfig(
+			tempDir,
+			undefined,
+			isolatedGlobalSettings(),
+		);
 		expect(errors).toHaveLength(0);
 		expect(Object.keys(config.platforms)).toHaveLength(0);
 		expect(config.preset).toBeUndefined();

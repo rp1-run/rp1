@@ -296,15 +296,19 @@ const mergePlatformTierMaps = (
  * Project-level preset overrides user-level preset.
  *
  * @param projectRoot - Project root directory (contains `.rp1/`)
+ * @param globalSettingsPath - Override path to user-level settings file (defaults to ~/.config/rp1/settings.toml). Exposed for test isolation.
  * @returns Merged tier remapping configuration
  */
 export const loadTierRemappings = async (
 	projectRoot: string,
+	globalSettingsPath?: string,
 ): Promise<TierRemappingConfig> => {
 	const projectModels = loadModelsFromFile(
 		resolveLocalSettingsPath(projectRoot),
 	);
-	const userModels = loadModelsFromFile(resolveGlobalSettingsPath());
+	const userModels = loadModelsFromFile(
+		globalSettingsPath ?? resolveGlobalSettingsPath(),
+	);
 
 	const preset = projectModels.preset ?? userModels.preset;
 

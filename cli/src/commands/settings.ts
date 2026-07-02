@@ -221,6 +221,12 @@ Examples:
 						`[dry-run] Would modify ${result.agentsModified} agent artifact(s).`,
 					),
 				);
+			} else if (result.agentsAlreadyCurrent > 0) {
+				console.log(
+					chalk.green(
+						`All ${result.agentsAlreadyCurrent} matching agent(s) already up to date.`,
+					),
+				);
 			} else {
 				console.log(
 					chalk.dim("No agents would be modified with the current remappings."),
@@ -230,6 +236,12 @@ Examples:
 			console.log(
 				chalk.green(
 					`Applied tier remappings to ${result.agentsModified} agent artifact(s).`,
+				),
+			);
+		} else if (result.agentsAlreadyCurrent > 0) {
+			console.log(
+				chalk.green(
+					`All ${result.agentsAlreadyCurrent} matching agent(s) already up to date.`,
 				),
 			);
 		} else {

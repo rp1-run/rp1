@@ -733,6 +733,16 @@ export const executeUpdateAction = async (
 						`Re-applied tier remappings (${remappingResult.agentsModified} agents).`,
 					),
 				);
+			} else if (
+				remappingResult.agentsAlreadyCurrent > 0 &&
+				remappingResult.agentsModified === 0
+			) {
+				const { dim } = getColorFns(isTTY);
+				console.log(
+					dim(
+						`Tier remappings: all ${remappingResult.agentsAlreadyCurrent} matching agent(s) already up to date.`,
+					),
+				);
 			}
 		} catch (error) {
 			const { yellow } = getColorFns(isTTY);

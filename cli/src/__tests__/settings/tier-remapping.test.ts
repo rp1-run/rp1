@@ -3,6 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { join } from "node:path";
 import {
 	loadTierRemappings,
 	resetSettingsCache,
@@ -25,8 +26,10 @@ afterEach(async () => {
 });
 
 describe("loadTierRemappings", () => {
+	const isolatedGlobalSettings = () => join(tempDir, "no-global-settings.toml");
+
 	test("returns empty config when no settings files exist", async () => {
-		const result = await loadTierRemappings(tempDir);
+		const result = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		expect(result.preset).toBeUndefined();
 		expect(result.platforms).toEqual({});
 	});
@@ -43,7 +46,7 @@ describe("loadTierRemappings", () => {
 			].join("\n"),
 		);
 
-		const result = await loadTierRemappings(tempDir);
+		const result = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		expect(result.platforms["claude-code"]).toBeDefined();
 		expect(result.platforms["claude-code"]!.deep).toBe("sonnet");
 		expect(result.platforms["claude-code"]!.standard).toBe("sonnet");
@@ -57,7 +60,7 @@ describe("loadTierRemappings", () => {
 			["[models]", 'preset = "budget"'].join("\n"),
 		);
 
-		const result = await loadTierRemappings(tempDir);
+		const result = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		expect(result.preset).toBe("budget");
 		expect(result.platforms).toEqual({});
 	});
@@ -78,7 +81,7 @@ describe("loadTierRemappings", () => {
 			].join("\n"),
 		);
 
-		const result = await loadTierRemappings(tempDir);
+		const result = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		expect(result.preset).toBe("budget");
 		expect(result.platforms["claude-code"]!.deep).toBe("sonnet");
 		expect(result.platforms.codex!.deep).toBe("gpt-5.4");
@@ -91,7 +94,7 @@ describe("loadTierRemappings", () => {
 			["[models.claude-code]", 'deep = "sonnet"'].join("\n"),
 		);
 
-		const result = await loadTierRemappings(tempDir);
+		const result = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		const ccMap = result.platforms["claude-code"]!;
 		expect(ccMap.deep).toBe("sonnet");
 		expect(ccMap.standard).toBeUndefined();
@@ -106,7 +109,7 @@ describe("loadTierRemappings", () => {
 			["[arguments.build]", "AFK = false"].join("\n"),
 		);
 
-		const result = await loadTierRemappings(tempDir);
+		const result = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		expect(result.preset).toBeUndefined();
 		expect(result.platforms).toEqual({});
 	});
@@ -123,7 +126,7 @@ describe("loadTierRemappings", () => {
 			].join("\n"),
 		);
 
-		const result = await loadTierRemappings(tempDir);
+		const result = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		const ccMap = result.platforms["claude-code"]!;
 		expect(ccMap.deep).toBe("sonnet");
 		expect(ccMap.standard).toBeUndefined();
@@ -137,7 +140,7 @@ describe("loadTierRemappings", () => {
 			"this is not valid toml {{{}}}",
 		);
 
-		const result = await loadTierRemappings(tempDir);
+		const result = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		expect(result.preset).toBeUndefined();
 		expect(result.platforms).toEqual({});
 	});
@@ -158,7 +161,7 @@ describe("loadTierRemappings", () => {
 			].join("\n"),
 		);
 
-		const result = await loadTierRemappings(tempDir);
+		const result = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		expect(Object.keys(result.platforms)).toHaveLength(2);
 		expect(result.platforms["claude-code"]!.deep).toBe("sonnet");
 		expect(result.platforms.codex!.deep).toBe("gpt-5.5");
@@ -178,7 +181,7 @@ describe("loadTierRemappings", () => {
 		// We can verify project values are present - user-level settings
 		// at ~/.config/rp1/settings.toml can't be controlled in isolation,
 		// but the project values should appear in the result.
-		const result = await loadTierRemappings(tempDir);
+		const result = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		expect(result.platforms["claude-code"]!.deep).toBe("sonnet");
 		expect(result.platforms["claude-code"]!.standard).toBe("haiku");
 	});
@@ -190,7 +193,7 @@ describe("loadTierRemappings", () => {
 			["[models.claude-code]", 'deep = "sonnet"'].join("\n"),
 		);
 
-		const first = await loadTierRemappings(tempDir);
+		const first = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		expect(first.platforms["claude-code"]!.deep).toBe("sonnet");
 
 		// Change the file, should still get cached result
@@ -200,7 +203,7 @@ describe("loadTierRemappings", () => {
 			["[models.claude-code]", 'deep = "opus"'].join("\n"),
 		);
 
-		const second = await loadTierRemappings(tempDir);
+		const second = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		expect(second.platforms["claude-code"]!.deep).toBe("sonnet");
 	});
 
@@ -211,7 +214,7 @@ describe("loadTierRemappings", () => {
 			["[models.claude-code]", 'deep = "sonnet"'].join("\n"),
 		);
 
-		const first = await loadTierRemappings(tempDir);
+		const first = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		expect(first.platforms["claude-code"]!.deep).toBe("sonnet");
 
 		await writeFixture(
@@ -222,7 +225,7 @@ describe("loadTierRemappings", () => {
 
 		resetSettingsCache();
 
-		const second = await loadTierRemappings(tempDir);
+		const second = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		expect(second.platforms["claude-code"]!.deep).toBe("opus");
 	});
 
@@ -233,7 +236,7 @@ describe("loadTierRemappings", () => {
 			["[models]", "preset = 42"].join("\n"),
 		);
 
-		const result = await loadTierRemappings(tempDir);
+		const result = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		expect(result.preset).toBeUndefined();
 	});
 });

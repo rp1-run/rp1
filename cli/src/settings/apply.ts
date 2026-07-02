@@ -53,6 +53,7 @@ export interface ApplyOptions {
 export interface ApplyResult {
 	readonly applied: boolean;
 	readonly agentsModified: number;
+	readonly agentsAlreadyCurrent: number;
 	readonly effortAdjustments: readonly EffortAdjustment[];
 	readonly protectedWarnings: readonly ProtectedWarning[];
 	readonly warnings: readonly string[];
@@ -192,6 +193,7 @@ export function applyRemappingsToAgents(
 	deps: ApplyDeps,
 ): ApplyResult {
 	let agentsModified = 0;
+	let agentsAlreadyCurrent = 0;
 	const effortAdjustments: EffortAdjustment[] = [];
 	const protectedWarnings: ProtectedWarning[] = [];
 	const warnings: string[] = [];
@@ -225,7 +227,10 @@ export function applyRemappingsToAgents(
 			platform: agent.platform,
 		});
 
-		if (!result.modified) continue;
+		if (!result.modified) {
+			agentsAlreadyCurrent++;
+			continue;
+		}
 
 		if (!dryRun) {
 			try {
@@ -251,6 +256,7 @@ export function applyRemappingsToAgents(
 	return {
 		applied: agentsModified > 0,
 		agentsModified,
+		agentsAlreadyCurrent,
 		effortAdjustments,
 		protectedWarnings,
 		warnings,
@@ -268,13 +274,19 @@ export function applyRemappingsToAgents(
  * When a preset is specified via CLI flag, it replaces custom mappings entirely.
  * When the preset comes from settings.toml, per-platform overrides in the same
  * file are merged on top of preset values (per merge semantics from T2).
+ *
+ * @param globalSettingsPath - Override path to user-level settings file. Exposed for test isolation.
  */
 export async function resolveConfig(
 	projectRoot: string,
 	preset?: string,
+	globalSettingsPath?: string,
 ): Promise<{ config: TierRemappingConfig; errors: string[] }> {
 	const errors: string[] = [];
-	const settingsConfig = await loadTierRemappings(projectRoot);
+	const settingsConfig = await loadTierRemappings(
+		projectRoot,
+		globalSettingsPath,
+	);
 
 	const effectivePreset = preset ?? settingsConfig.preset;
 
@@ -330,6 +342,7 @@ export async function applyTierRemappings(
 	const emptyResult: ApplyResult = {
 		applied: false,
 		agentsModified: 0,
+		agentsAlreadyCurrent: 0,
 		effortAdjustments: [],
 		protectedWarnings: [],
 		warnings: [],
@@ -425,6 +438,7 @@ export async function applyTierRemappings(
 	return {
 		applied: result.applied,
 		agentsModified: result.agentsModified,
+		agentsAlreadyCurrent: result.agentsAlreadyCurrent,
 		effortAdjustments: result.effortAdjustments,
 		protectedWarnings: result.protectedWarnings,
 		warnings: allWarnings,
@@ -442,14 +456,18 @@ export async function applyTierRemappings(
  */
 export async function applyTierRemappingsIfConfigured(
 	projectRoot: string,
-): Promise<{ applied: boolean; agentsModified: number }> {
+): Promise<{
+	applied: boolean;
+	agentsModified: number;
+	agentsAlreadyCurrent: number;
+}> {
 	const settingsConfig = await loadTierRemappings(projectRoot);
 	const hasConfig =
 		settingsConfig.preset !== undefined ||
 		Object.keys(settingsConfig.platforms).length > 0;
 
 	if (!hasConfig) {
-		return { applied: false, agentsModified: 0 };
+		return { applied: false, agentsModified: 0, agentsAlreadyCurrent: 0 };
 	}
 
 	const result = await applyTierRemappings({
@@ -460,6 +478,7 @@ export async function applyTierRemappingsIfConfigured(
 	return {
 		applied: result.applied,
 		agentsModified: result.agentsModified,
+		agentsAlreadyCurrent: result.agentsAlreadyCurrent,
 	};
 }
 
