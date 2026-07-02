@@ -29,7 +29,7 @@ import type { BuildPlatform } from "./template-context.js";
  * gemini-3.5-flash for standard/fast).
  *
  */
-const TIER_MODEL_MAP: Readonly<
+export const TIER_MODEL_MAP: Readonly<
 	Record<Exclude<ModelTier, "inherit">, Partial<Record<BuildPlatform, string>>>
 > = {
 	frontier: {
