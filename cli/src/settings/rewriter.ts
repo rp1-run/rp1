@@ -12,7 +12,10 @@
 import type { EffortLevel, ModelTier } from "../build/models.js";
 import { PROTECTED_AGENTS, TIER_RANK } from "../build/models.js";
 import type { BuildPlatform } from "../build/template-context.js";
-import { TIER_MODEL_MAP } from "../build/tier-resolution.js";
+import {
+	modelSupportsEffort,
+	TIER_MODEL_MAP,
+} from "../build/tier-resolution.js";
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -46,26 +49,6 @@ export interface RewriteAgentParams {
 	readonly originalTier: ModelTier;
 	readonly originalEffort?: EffortLevel;
 	readonly platform: BuildPlatform;
-}
-
-// ---------------------------------------------------------------------------
-// Effort capability
-// ---------------------------------------------------------------------------
-
-/**
- * Determine whether a given model ID supports effort control on a platform.
- *
- * A model supports effort if it does NOT match the fast-tier model for the
- * platform in TIER_MODEL_MAP. Unknown models are conservatively assumed to
- * support effort (avoids incorrectly stripping effort from custom models).
- */
-export function modelSupportsEffort(
-	modelId: string,
-	platform: BuildPlatform,
-): boolean {
-	const fastModel = TIER_MODEL_MAP.fast[platform];
-	if (fastModel === undefined) return true;
-	return modelId !== fastModel;
 }
 
 // ---------------------------------------------------------------------------
@@ -251,8 +234,8 @@ function rewriteCodex(
 			continue;
 		}
 
-		// Detect start of multiline string
-		if (line.includes("'''") && !line.endsWith("'''")) {
+		// Detect start of multiline string (assignment opening: `key = '''`)
+		if (line.includes("=") && line.endsWith("'''")) {
 			inMultilineString = true;
 		}
 

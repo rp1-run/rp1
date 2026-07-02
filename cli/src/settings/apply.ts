@@ -403,16 +403,24 @@ export async function applyTierRemappings(
 		result.agentsModified > 0 &&
 		config.platforms["claude-code"] !== undefined;
 
+	const refreshWarnings: string[] = [];
 	if (claudeCodeModified) {
 		try {
 			await deps.refreshClaudeCodePlugins();
-		} catch {
-			// Append warning if cache refresh fails
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			refreshWarnings.push(
+				`Claude Code plugin cache refresh failed: ${message}`,
+			);
 		}
 	}
 
 	// Combine validation warnings with apply warnings
-	const allWarnings = [...validation.warnings, ...result.warnings];
+	const allWarnings = [
+		...validation.warnings,
+		...result.warnings,
+		...refreshWarnings,
+	];
 
 	return {
 		applied: result.applied,

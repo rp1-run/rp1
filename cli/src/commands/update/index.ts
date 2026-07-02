@@ -722,16 +722,22 @@ export const executeUpdateAction = async (
 	);
 
 	if (pluginResult.success && !options.dryRun) {
-		const remappingResult = await applyTierRemappingsIfConfigured(
-			process.cwd(),
-		);
-		if (remappingResult.applied) {
-			const { green } = getColorFns(isTTY);
-			console.log(
-				green(
-					`Re-applied tier remappings (${remappingResult.agentsModified} agents).`,
-				),
+		try {
+			const remappingResult = await applyTierRemappingsIfConfigured(
+				process.cwd(),
 			);
+			if (remappingResult.applied) {
+				const { green } = getColorFns(isTTY);
+				console.log(
+					green(
+						`Re-applied tier remappings (${remappingResult.agentsModified} agents).`,
+					),
+				);
+			}
+		} catch (error) {
+			const { yellow } = getColorFns(isTTY);
+			const message = error instanceof Error ? error.message : String(error);
+			console.log(yellow(`Tier remapping failed (non-blocking): ${message}`));
 		}
 	}
 

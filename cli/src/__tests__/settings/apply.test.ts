@@ -2,12 +2,16 @@
  * Unit tests for the tier remapping apply orchestrator.
  */
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import * as E from "fp-ts/lib/Either.js";
+import { DEFAULT_MARKETPLACE_DIR } from "../../install/claudecode/marketplace.js";
 import {
 	type AgentFileEntry,
 	type ApplyDeps,
 	applyRemappingsToAgents,
+	applyTierRemappings,
 	resolveConfig,
 } from "../../settings/apply.js";
 import { resetSettingsCache } from "../../settings/loader.js";
@@ -509,5 +513,84 @@ describe("resolveConfig", () => {
 		expect(errors).toHaveLength(0);
 		expect(Object.keys(config.platforms)).toHaveLength(0);
 		expect(config.preset).toBeUndefined();
+	});
+});
+
+describe("applyTierRemappings - cache refresh warnings", () => {
+	const emptyPlugin = {
+		name: "",
+		agents: [],
+		commands: [],
+		skills: [],
+		stateMachines: [],
+		verbatimFiles: [],
+	};
+
+	const minimalManifest = {
+		platforms: {
+			"claude-code": {
+				plugins: {
+					base: {
+						...emptyPlugin,
+						name: "rp1-base",
+						agents: [
+							{
+								name: "feature-architect",
+								path: "",
+								tier: "deep",
+								effort: "high",
+							},
+						],
+					},
+					dev: { ...emptyPlugin, name: "rp1-dev" },
+				},
+			},
+		},
+		version: "0.0.0-test",
+		buildTimestamp: new Date().toISOString(),
+	};
+
+	test("produces warning when refreshClaudeCodePlugins throws", async () => {
+		mock.module("../../assets/reader.js", () => ({
+			getBundledAssets: () => E.right(minimalManifest),
+			ALL_PLUGIN_KEYS: ["base", "dev", "utils"],
+		}));
+
+		await writeFixture(
+			tempDir,
+			".rp1/settings.toml",
+			["[models.claude-code]", 'deep = "sonnet"'].join("\n"),
+		);
+
+		const expectedPath = join(
+			DEFAULT_MARKETPLACE_DIR,
+			"base",
+			"agents",
+			"feature-architect.md",
+		);
+
+		const deps: ApplyDeps = {
+			readFile: (path) => {
+				if (path === expectedPath) return CC_AGENT_DEEP;
+				throw new Error(`unexpected read: ${path}`);
+			},
+			writeFile: () => {},
+			fileExists: (path) => path === expectedPath,
+			refreshClaudeCodePlugins: async () => {
+				throw new Error("plugin cache connection refused");
+			},
+		};
+
+		const result = await applyTierRemappings(
+			{ projectRoot: tempDir, dryRun: false },
+			deps,
+		);
+
+		expect(result.agentsModified).toBe(1);
+		const refreshWarning = result.warnings.find((w) =>
+			w.includes("plugin cache"),
+		);
+		expect(refreshWarning).toBeDefined();
+		expect(refreshWarning).toContain("connection refused");
 	});
 });

@@ -3,6 +3,7 @@ import {
 	resolveGlobalSettingsPath,
 	resolveLocalSettingsPath,
 } from "../../shared/settings.js";
+import { VALID_MODEL_TIERS } from "../build/models.js";
 import type { BuildPlatform } from "../build/template-context.js";
 import type { PlatformTierMap, TierRemappingConfig } from "./models.js";
 
@@ -61,8 +62,10 @@ const normalizeArgumentKey = (key: string): string => {
 /** Reserved keys under [models] that are not platform names. */
 const MODELS_RESERVED_KEYS = new Set(["preset"]);
 
-/** Known tier keys that map to model identifiers. */
-const TIER_KEYS = new Set(["frontier", "deep", "standard", "fast"]);
+/** Known tier keys that map to model identifiers (derived from canonical source). */
+const TIER_KEYS: ReadonlySet<string> = new Set(
+	VALID_MODEL_TIERS.filter((t) => t !== "inherit"),
+);
 
 /**
  * Extract tier-to-model mappings from a platform sub-table under [models].

@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { modelSupportsEffort } from "../../build/tier-resolution.js";
 import {
-	modelSupportsEffort,
 	type RewriteAgentParams,
 	rewriteAgentArtifact,
 } from "../../settings/rewriter.js";
@@ -201,6 +201,37 @@ describe("rewriteAgentArtifact - Codex", () => {
 		expect(result.modified).toBe(true);
 		expect(result.content).toContain('model = "gpt-5.4"');
 		expect(result.content).not.toContain("model_reasoning_effort");
+	});
+
+	test("does not rewrite model-like text inside multiline developer_instructions", () => {
+		const content = [
+			'name = "rp1-dev-test-agent"',
+			'description = "Agent with model ref in instructions"',
+			'model = "gpt-5.5"',
+			"",
+			"developer_instructions = '''",
+			"When configuring the model, set:",
+			'model = "some-other-model"',
+			"in the config file.",
+			"'''",
+		].join("\n");
+
+		const params: RewriteAgentParams = {
+			content,
+			agentName: "test-agent",
+			newModel: "gpt-5.4",
+			originalTier: "deep",
+			platform: "codex",
+		};
+
+		const result = rewriteAgentArtifact(params);
+
+		expect(result.modified).toBe(true);
+		// The top-level model should be rewritten
+		const lines = result.content.split("\n");
+		expect(lines[2]).toBe('model = "gpt-5.4"');
+		// The model inside developer_instructions must NOT be rewritten
+		expect(result.content).toContain('model = "some-other-model"');
 	});
 });
 
