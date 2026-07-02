@@ -314,6 +314,17 @@ export interface BundleAssetEntry {
 }
 
 /**
+ * Extended asset entry for agents carrying build-time tier metadata.
+ * The optional tier and effort fields preserve the agent's abstract tier identity
+ * and effort level through the build-to-install chain, enabling install-time
+ * remapping without access to source frontmatter.
+ */
+export interface BundleAgentEntry extends BundleAssetEntry {
+	readonly tier?: ModelTier;
+	readonly effort?: EffortLevel;
+}
+
+/**
  * OpenCode plugin asset entry for bundling.
  * Represents a plugin that responds to OpenCode events (e.g., update notifications).
  */
@@ -328,7 +339,7 @@ export interface OpenCodePluginAsset {
 export interface BundlePluginAssets {
 	readonly name: string;
 	readonly commands: readonly BundleAssetEntry[];
-	readonly agents: readonly BundleAssetEntry[];
+	readonly agents: readonly BundleAgentEntry[];
 	readonly skills: readonly BundleAssetEntry[];
 	readonly stateMachines: readonly BundleAssetEntry[];
 	readonly verbatimFiles: readonly BundleAssetEntry[];
