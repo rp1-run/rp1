@@ -35,6 +35,7 @@ import {
 	getInstalledVersion,
 } from "../../lib/version.js";
 import { executeMigrate, formatMigrateSummary } from "../../migrate/index.js";
+import { applyTierRemappingsIfConfigured } from "../../settings/apply.js";
 import {
 	type InstallContext,
 	installAllDetectedTools,
@@ -719,6 +720,21 @@ export const executeUpdateAction = async (
 		lifecycleLogger,
 		isTTY,
 	);
+
+	if (pluginResult.success && !options.dryRun) {
+		const remappingResult = await applyTierRemappingsIfConfigured(
+			process.cwd(),
+		);
+		if (remappingResult.applied) {
+			const { green } = getColorFns(isTTY);
+			console.log(
+				green(
+					`Re-applied tier remappings (${remappingResult.agentsModified} agents).`,
+				),
+			);
+		}
+	}
+
 	let migrationResult: PostUpdatePhaseResult;
 	if (pluginResult.success) {
 		migrationResult = await runProjectMigrations(
