@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, extname, join, resolve, sep } from "node:path";
+import type { ArcadeSettings } from "../arcade-settings-bridge";
 import type { FileWatcherPool } from "../file-watcher";
 import { parseCanonicalProjectSectionPath } from "../project-paths";
 import type { WebSocketHub } from "../websocket";
@@ -32,6 +33,7 @@ export interface ApiContext {
 	readonly fileWatcherPool?: FileWatcherPool;
 	readonly shutdownCallback?: () => void;
 	readonly webUIDir?: string;
+	readonly arcadeSettingsReady?: Promise<ArcadeSettings | undefined>;
 }
 
 export function jsonResponse(

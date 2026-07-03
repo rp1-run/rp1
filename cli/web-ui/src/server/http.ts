@@ -1,4 +1,5 @@
 import type { ServerWebSocket } from "bun";
+import type { ArcadeSettings } from "./arcade-settings-bridge";
 import type { FileWatcherPool } from "./file-watcher";
 import type { ApiContext } from "./routes/content-utils";
 import type { WebSocketActivityScope, WebSocketHub } from "./websocket";
@@ -19,6 +20,7 @@ export interface ServerConfig {
 	webUIDir?: string;
 	startTime?: number;
 	version?: string;
+	arcadeSettingsReady?: Promise<ArcadeSettings | undefined>;
 }
 
 export interface AppServer {
@@ -36,6 +38,7 @@ export function startServer(config: ServerConfig): AppServer {
 		webUIDir,
 		startTime = Date.now(),
 		version,
+		arcadeSettingsReady,
 	} = config;
 
 	let serverInstance: ReturnType<typeof Bun.serve<WebSocketData>>;
@@ -48,6 +51,7 @@ export function startServer(config: ServerConfig): AppServer {
 		websocketHub,
 		fileWatcherPool,
 		webUIDir,
+		arcadeSettingsReady,
 		shutdownCallback: () => {
 			serverInstance.stop();
 		},
@@ -189,6 +193,10 @@ async function handleV2ApiRequest(
 	projectPath: string,
 	apiContext: ApiContext,
 ): Promise<Response> {
+	if (pathname === "/api/v2/settings" && method === "GET") {
+		return handleV2SettingsRequest(apiContext);
+	}
+
 	if (pathname === "/api/v2/health" && method === "GET") {
 		const { handleV2HealthRequest } = await import("./routes/v2-api");
 		return handleV2HealthRequest(apiContext);
@@ -453,6 +461,23 @@ async function handleV2ApiRequest(
 
 	return new Response(JSON.stringify({ error: "Not found" }), {
 		status: 404,
+		headers: { "Content-Type": "application/json" },
+	});
+}
+
+const DEFAULT_SETTINGS_RESPONSE = {
+	theme: "system" as const,
+	downsampling: { thresholdHours: 24 },
+};
+
+async function handleV2SettingsRequest(
+	apiContext: ApiContext,
+): Promise<Response> {
+	const settings =
+		(await apiContext.arcadeSettingsReady) ?? DEFAULT_SETTINGS_RESPONSE;
+
+	return new Response(JSON.stringify(settings), {
+		status: 200,
 		headers: { "Content-Type": "application/json" },
 	});
 }
