@@ -697,7 +697,9 @@ export const IS_BUNDLED = true;
 	}
 }
 
-generate().catch((e) => {
-	console.error("Failed to generate asset imports:", e);
-	process.exit(1);
-});
+if (import.meta.main) {
+	generate().catch((e) => {
+		console.error("Failed to generate asset imports:", e);
+		process.exit(1);
+	});
+}
