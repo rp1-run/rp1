@@ -23,7 +23,8 @@ interface ModelUse {
 
 const num = (n: number | undefined) => (n ?? 0).toLocaleString();
 const usd = (n: number | undefined) => `$${(n ?? 0).toFixed(2)}`;
-const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+const mean = (xs: number[]) =>
+	xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0;
 
 // Default to evals/output relative to this file, so cwd does not matter.
 const defaultDir = join(import.meta.dir, "..", "output");
@@ -63,13 +64,17 @@ for (const file of files) {
 	let output = 0;
 	let cacheRead = 0;
 	let turns = 0;
-	console.log(`\n=== ${file}  (eval ${parsed.evalId ?? "?"})  ${results.length} test(s) ===`);
+	console.log(
+		`\n=== ${file}  (eval ${parsed.evalId ?? "?"})  ${results.length} test(s) ===`,
+	);
 	for (const r of results as Array<Record<string, unknown>>) {
 		const response = (r.response ?? {}) as Record<string, unknown>;
 		const md = (response.metadata ?? {}) as Record<string, unknown>;
 		const mu = (md.modelUsage ?? {}) as Record<string, ModelUse>;
 		const t = (md.numTurns as number) ?? 0;
-		const mins = (((r.latencyMs as number) ?? (md.durationMs as number) ?? 0) / 60000).toFixed(1);
+		const mins = (
+			((r.latencyMs as number) ?? (md.durationMs as number) ?? 0) / 60000
+		).toFixed(1);
 		turns += t;
 		console.log(`  test ${r.testIdx}: ${t} turns, ${mins} min`);
 		for (const [model, u] of Object.entries(mu)) {
@@ -82,7 +87,9 @@ for (const file of files) {
 			);
 		}
 	}
-	console.log(`  TOTAL: ${usd(cost)}  |  output ${num(output)} tok  |  cacheRead ${num(cacheRead)} tok  |  ${turns} turns`);
+	console.log(
+		`  TOTAL: ${usd(cost)}  |  output ${num(output)} tok  |  cacheRead ${num(cacheRead)} tok  |  ${turns} turns`,
+	);
 	totals.push({ cost, output, cacheRead, turns });
 }
 
@@ -91,9 +98,13 @@ if (totals.length > 1) {
 	const outs = totals.map((x) => x.output);
 	const turns = totals.map((x) => x.turns);
 	console.log(`\n=== AVERAGE across ${totals.length} runs ===`);
-	console.log(`  cost:   mean ${usd(mean(costs))}   (min ${usd(Math.min(...costs))}, max ${usd(Math.max(...costs))})`);
+	console.log(
+		`  cost:   mean ${usd(mean(costs))}   (min ${usd(Math.min(...costs))}, max ${usd(Math.max(...costs))})`,
+	);
 	console.log(
 		`  output: mean ${num(Math.round(mean(outs)))} tok   (min ${num(Math.min(...outs))}, max ${num(Math.max(...outs))})`,
 	);
-	console.log(`  turns:  mean ${mean(turns).toFixed(1)}   (min ${Math.min(...turns)}, max ${Math.max(...turns)})`);
+	console.log(
+		`  turns:  mean ${mean(turns).toFixed(1)}   (min ${Math.min(...turns)}, max ${Math.max(...turns)})`,
+	);
 }
