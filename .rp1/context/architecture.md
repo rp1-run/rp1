@@ -2,19 +2,20 @@
 
 **Project**: rp1
 **Architecture Pattern**: Plugin-based CLI with tracked workflow state, artifact-backed handoffs, and multi-platform prompt compilation
-**Last Updated**: 2026-06-30
+**Last Updated**: 2026-07-03
 
-rp1 is a Bun/TypeScript CLI + plugin monorepo that compiles markdown-defined skills and agents into host-specific artifacts, tracks workflow runtime state as events, and serves a live Arcade dashboard.
+rp1 is a Bun/TypeScript CLI + plugin monorepo that compiles markdown-defined skills and agents into host-specific artifacts, tracks workflow runtime state as events, serves a live Arcade dashboard, and lets users remap agent model tiers on their own machines at install time.
 
 ## High-Level Architecture
 
 ```mermaid
 flowchart TB
-    Host["Host Tools<br/>Claude Code / OpenCode / Codex"] --> CLI["rp1 CLI<br/>cli/src/main.ts"]
+    Host["Host Tools<br/>Claude Code / OpenCode / Codex / Copilot / Antigravity"] --> CLI["rp1 CLI<br/>cli/src/main.ts"]
     CLI --> Skills["Plugin Skills & Agents<br/>plugins/base, dev, utils"]
     CLI --> AgentTools["Agent Tools<br/>emit, workflow-bootstrap, resolve-args"]
     CLI --> Build["Build Pipeline"]
     CLI --> Catalog["Catalog Registry"]
+    CLI --> Settings["Settings<br/>apply, presets, rewriter"]
     AgentTools --> EventDB[("~/.rp1/rp1.db")]
     AgentTools --> Daemon["Arcade Daemon<br/>HTTP + WS"]
     Daemon --> Browser["Web Browser"]
@@ -22,16 +23,22 @@ flowchart TB
     Skills --> KB[".rp1/context KB"]
     Skills --> Work[".rp1/work artifacts"]
     Build --> Parse["parser"]
-    Parse --> Validate["validator<br/>tier + effort"]
-    Validate --> TierRes["tier-resolution<br/>resolveTier / resolveEffort"]
+    Parse --> Validate["validator<br/>tier + effort + protected"]
+    Validate --> TierRes["tier-resolution<br/>frontier/deep/standard/fast"]
     TierRes --> Render["LiquidJS templates"]
-    Render --> Artifacts["dist platform artifacts"]
+    Render --> Artifacts["dist platform artifacts<br/>+ BundleAgentEntry metadata"]
+    Settings --> Presets["budget / standard / premium"]
+    Settings --> Rewriter["artifact rewriter<br/>.md frontmatter / .toml"]
+    Settings --> TierRes
+    Rewriter --> Artifacts
 ```
 
 ## Architectural Patterns
 
-- **Cross-Platform Build Pipeline** — single-source agent/skill markdown compiles to 6 targets (Claude Code, OpenCode, Codex, Copilot, Antigravity, Gemini) via data-driven `PlatformDefinition` configs + LiquidJS templates.
-- **Additive-Field Tier Resolution** — agent `model` tier (deep/standard/fast/inherit) and `effort` (low–max) are resolved at build time from abstract aliases to platform-specific model IDs and effort field names, propagated as additive fields through the template context so templates stay format-only. (New in tiered-models-effort.)
+- **Cross-Platform Build Pipeline** — single-source agent/skill markdown compiles to 5 targets (Claude Code, OpenCode, Codex, Copilot, Antigravity) via data-driven `PlatformDefinition` configs + LiquidJS templates. (Gemini platform removed.)
+- **Additive-Field Tier Resolution with Frontier Tier** — agent `model` tier (frontier/deep/standard/fast/inherit) and `effort` (low–max) are resolved at build time from abstract aliases to platform-specific model IDs. Frontier maps to fable (CC), gpt-5.5 (Codex), gemini-3.1-pro (Antigravity); Codex clamps effort `max`→`xhigh`; OpenCode provider-dependent effort logic removed.
+- **Install-Time Tier Remapping** — user-controlled post-install model remapping via `settings.toml` `[models.<platform>]` sections or presets (budget/standard/premium): load → validate against `TIER_MODEL_MAP` → discover agents from bundle metadata → rewrite CC (.md frontmatter) and Codex (.toml) artifacts in place → strip effort on fast-class remaps → warn on protected-agent downgrades. `rp1 update` re-applies automatically (try/catch isolated).
+- **Protected Agent Downgrade Guards** — 14 reasoning-critical agents flagged in `PROTECTED_AGENTS`; build and remapping emit warnings via `TIER_RANK` comparison when they would drop below deep.
 - **Event-Sourced Runtime State** — all workflow state changes are `rp1 agent-tools emit` events persisted to SQLite and broadcast over WebSocket.
 - **State-Machine-Driven Workflows** — skills declare `stateDiagram-v2` phases; steps are validated against the graph at emit time.
 - **Map-Reduce Agent Orchestration** — heavy analysis fans out to narrow workers and rejoins through a parent orchestrator (KB build, PR review).
@@ -47,14 +54,15 @@ flowchart TB
 | Interaction | User-facing CLI commands, host tool integration | `cli/src/commands/` |
 | Workflow Definition | Plugin skills + agents | `plugins/{base,dev,utils}/` |
 | Runtime Services | Agent tools, emit, bootstrap, resolve-args | `cli/src/agent-tools/` |
-| Build & Distribution | Multi-platform compile with tier resolution, validation, rendering | `cli/src/build/`, `cli/src/catalog/` |
+| Build & Distribution | Multi-platform compile with tier resolution, validation, rendering, and install-time remapping | `cli/src/build/`, `cli/src/catalog/`, `cli/src/settings/` |
 | Presentation | Arcade SPA with real-time WS | `cli/web-ui/` |
-| Persistence | SQLite event store, KB, work artifacts | `~/.rp1/rp1.db`, `.rp1/context/`, `.rp1/work/` |
+| Persistence | SQLite event store, KB, work artifacts, settings | `~/.rp1/rp1.db`, `.rp1/context/`, `.rp1/work/`, `settings.toml` |
 | Evaluation | Dockerized prompt evals | `evals/` |
 
 ## Data Flows
 
-- **Build Pipeline (per-agent artifact)**: parse frontmatter (model tier + effort) → validate tier/effort/protected for all platforms → preprocess includes/conditionals → `resolveTier` → concrete model ID → `resolveEffort` → provider-specific `{fieldName, value}` → build `AgentArtifactData` → render platform Liquid template (conditional emit) → lint → write platform artifacts.
+- **Build Pipeline (per-agent artifact)**: parse frontmatter (model tier + effort) → validate tier/effort/protected → preprocess → `resolveTier` → concrete model ID → `resolveEffort` → `{fieldName, value}` → build `AgentArtifactData` + `BundleAgentEntry` (tier/effort metadata) → render platform Liquid template → lint → write platform artifacts.
+- **Install-Time Tier Remapping**: load `[models]` from project+user settings.toml (project wins) → resolve preset if any → validate (platforms, model IDs, effort compatibility) → discover installed agents via `BundleAgentEntry` metadata in the embedded manifest → rewrite artifacts → report modified / already-current / effort adjustments / protected warnings. Dry-run previews without writing.
 - **Event Pipeline**: skill/agent emits event → state-machine validation → SQLite persist → HTTP daemon notify → WebSocket broadcast to Arcade.
 - **KB Generation**: orchestrator selects mode (FULL/INCREMENTAL/FEATURE_LEARNING) → spatial analysis → parallel specialist agents → reconcile → write `.rp1/context/*.md` + `state.json`.
 
@@ -66,7 +74,7 @@ flowchart TB
 
 ## Deployment
 
-Single-executable CLI per platform (darwin/linux/windows) via GitHub releases, plus a background Bun HTTP+WS daemon on port 7710 with PID-file lifecycle, version-aware restart, and NDJSON diagnostics. Config dir is OS-specific.
+Single-executable CLI per platform (darwin/linux/windows) via GitHub releases, plus a background Bun HTTP+WS daemon on port 7710 with PID-file lifecycle, version-aware restart, and NDJSON diagnostics. Config dir is OS-specific. Agent tier metadata ships inside the binary's embedded manifest, enabling settings-driven remapping without source access.
 
 ## Related KB
 

@@ -35,6 +35,7 @@ import {
 	getInstalledVersion,
 } from "../../lib/version.js";
 import { executeMigrate, formatMigrateSummary } from "../../migrate/index.js";
+import { applyTierRemappingsIfConfigured } from "../../settings/apply.js";
 import {
 	type InstallContext,
 	installAllDetectedTools,
@@ -719,6 +720,37 @@ export const executeUpdateAction = async (
 		lifecycleLogger,
 		isTTY,
 	);
+
+	if (pluginResult.success && !options.dryRun) {
+		try {
+			const remappingResult = await applyTierRemappingsIfConfigured(
+				process.cwd(),
+			);
+			if (remappingResult.applied) {
+				const { green } = getColorFns(isTTY);
+				console.log(
+					green(
+						`Re-applied tier remappings (${remappingResult.agentsModified} agents).`,
+					),
+				);
+			} else if (
+				remappingResult.agentsAlreadyCurrent > 0 &&
+				remappingResult.agentsModified === 0
+			) {
+				const { dim } = getColorFns(isTTY);
+				console.log(
+					dim(
+						`Tier remappings: all ${remappingResult.agentsAlreadyCurrent} matching agent(s) already up to date.`,
+					),
+				);
+			}
+		} catch (error) {
+			const { yellow } = getColorFns(isTTY);
+			const message = error instanceof Error ? error.message : String(error);
+			console.log(yellow(`Tier remapping failed (non-blocking): ${message}`));
+		}
+	}
+
 	let migrationResult: PostUpdatePhaseResult;
 	if (pluginResult.success) {
 		migrationResult = await runProjectMigrations(

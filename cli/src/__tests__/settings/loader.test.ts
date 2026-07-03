@@ -3,6 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { join } from "node:path";
 import {
 	loadAllArgumentDefaults,
 	loadArgumentDefaultsForSkill,
@@ -15,6 +16,10 @@ import {
 } from "../helpers/index.js";
 
 let tempDir: string;
+
+/** Path to a nonexistent global settings file within tempDir, isolating tests from ~/.config/rp1/settings.toml. */
+const isolatedGlobalPath = (): string =>
+	join(tempDir, ".no-global", "settings.toml");
 
 beforeEach(async () => {
 	resetSettingsCache();
@@ -125,7 +130,7 @@ describe("loadArgumentDefaultsForSkill", () => {
 
 describe("loadAllArgumentDefaults", () => {
 	test("returns empty when no settings files exist", async () => {
-		const result = await loadAllArgumentDefaults(tempDir);
+		const result = await loadAllArgumentDefaults(tempDir, isolatedGlobalPath());
 		expect(result).toEqual({});
 	});
 
@@ -143,7 +148,7 @@ describe("loadAllArgumentDefaults", () => {
 			].join("\n"),
 		);
 
-		const result = await loadAllArgumentDefaults(tempDir);
+		const result = await loadAllArgumentDefaults(tempDir, isolatedGlobalPath());
 		expect(result).toEqual({
 			build: { AFK: false, GIT_COMMIT: true },
 			"build-fast": { AFK: false },
@@ -157,7 +162,7 @@ describe("loadAllArgumentDefaults", () => {
 			`[arguments.build]\nPLATFORM = "claude-code"\n`,
 		);
 
-		const result = await loadAllArgumentDefaults(tempDir);
+		const result = await loadAllArgumentDefaults(tempDir, isolatedGlobalPath());
 		expect(result).toEqual({
 			build: { PLATFORM: "claude-code" },
 		});
@@ -177,7 +182,7 @@ describe("loadAllArgumentDefaults", () => {
 			].join("\n"),
 		);
 
-		const result = await loadAllArgumentDefaults(tempDir);
+		const result = await loadAllArgumentDefaults(tempDir, isolatedGlobalPath());
 		expect(result).toEqual({
 			build: { AFK: false, GIT_COMMIT: true },
 			"build-fast": { AFK: true },

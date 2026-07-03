@@ -29,7 +29,7 @@ import type { BuildPlatform } from "./template-context.js";
  * gemini-3.5-flash for standard/fast).
  *
  */
-const TIER_MODEL_MAP: Readonly<
+export const TIER_MODEL_MAP: Readonly<
 	Record<Exclude<ModelTier, "inherit">, Partial<Record<BuildPlatform, string>>>
 > = {
 	frontier: {
@@ -94,6 +94,67 @@ const PLATFORM_EFFORT: Readonly<
 	opencode: null,
 	copilot: null,
 };
+
+// ---------------------------------------------------------------------------
+// Shared helpers for settings validation and artifact rewriting
+// ---------------------------------------------------------------------------
+
+/**
+ * Collect all distinct model identifiers for a given platform from TIER_MODEL_MAP.
+ * Used by the settings validator to check user-supplied model IDs against the
+ * canonical set, keeping a single source of truth (no separate allowlist).
+ */
+export function getValidModelIdsForPlatform(
+	platform: BuildPlatform,
+): readonly string[] {
+	const ids = new Set<string>();
+	for (const tier of Object.keys(TIER_MODEL_MAP) as Exclude<
+		ModelTier,
+		"inherit"
+	>[]) {
+		const id = TIER_MODEL_MAP[tier][platform];
+		if (id) ids.add(id);
+	}
+	return [...ids];
+}
+
+/**
+ * Determine whether a given model ID supports effort control on a platform.
+ * A model supports effort when:
+ * 1. The platform itself supports per-agent effort (non-null PLATFORM_EFFORT), AND
+ * 2. The model is not the fast-class model for that platform.
+ *
+ * Shared between build-time validation and install-time remapping to prevent
+ * effort-capability logic divergence.
+ */
+export function modelSupportsEffort(
+	modelId: string,
+	platform: BuildPlatform,
+): boolean {
+	const config = PLATFORM_EFFORT[platform];
+	if (!config) return false;
+	const fastModel = TIER_MODEL_MAP.fast[platform];
+	return modelId !== fastModel;
+}
+
+/**
+ * Return platforms that have per-agent model field support in TIER_MODEL_MAP.
+ * Platforms absent from all TIER_MODEL_MAP entries (copilot, opencode) are excluded.
+ */
+export function getPlatformsWithModelSupport(): readonly BuildPlatform[] {
+	const platforms = new Set<BuildPlatform>();
+	for (const tier of Object.keys(TIER_MODEL_MAP) as Exclude<
+		ModelTier,
+		"inherit"
+	>[]) {
+		for (const platform of Object.keys(
+			TIER_MODEL_MAP[tier],
+		) as BuildPlatform[]) {
+			platforms.add(platform);
+		}
+	}
+	return [...platforms];
+}
 
 // ---------------------------------------------------------------------------
 // Public API

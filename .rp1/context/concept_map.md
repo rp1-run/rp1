@@ -24,12 +24,18 @@
 | Workflow Bootstrap | entity | Auto-injected initialization step resolving arguments, directories, and run identity in one atomic call |
 | Discovery Registry | entity | Canonical skill catalog built from frontmatter at build time. Drives CATALOG.md, init awareness blocks, `rp1 list --json`, and ambient suggestions |
 | Arcade Tracked | mechanism | Optional `metadata.arcade_tracked` boolean controlling Activity feed visibility without disabling workflow mechanics |
-| Platform Definition | entity | Data-driven build configuration capturing platform-varying behavior: registry, templates, naming, lifecycle hooks |
+| Platform Definition | entity | Data-driven build configuration capturing platform-varying behavior. Supported platforms: claude-code, opencode, codex, copilot, antigravity |
 | Subflow | entity | Nested workflow registered within a parent run via `subflow_registered` event type |
-| ModelTier | entity | Abstract model alias (`deep`, `standard`, `fast`, `inherit`) declared in agent frontmatter, decoupling agent definitions from vendor-specific model identifiers. Resolved to platform-specific concrete model IDs at build time via `TIER_MODEL_MAP` |
-| EffortLevel | entity | Reasoning-depth control (`low`, `medium`, `high`, `xhigh`, `max`) declared independently of model tier in agent frontmatter. Resolved to platform-specific field names and values at build time; incompatible with the fast tier |
-| TIER_MODEL_MAP | mechanism | Centralized resolution dictionary mapping each abstract tier to concrete platform model IDs for Claude Code, Codex, OpenCode, Antigravity, and Gemini. Single-update-propagates-to-all-agents design |
-| Protected Agents | mechanism | Set of 14 reasoning-critical agents (feature-architect, phase-planner, security-validator, pr-sub-reviewer, etc.) that must remain on the deep tier. Build emits a warning (not error) when downgraded, allowing intentional experiments |
+| ModelTier | entity | Abstract model alias (`frontier`, `deep`, `standard`, `fast`, `inherit`) declared in agent frontmatter, decoupling agents from vendor model IDs. Ordered by `TIER_RANK` (frontier=3, deep=2, standard=1, fast=0); `inherit` unranked (session model). Resolved at build time via `TIER_MODEL_MAP` |
+| EffortLevel | entity | Reasoning-depth control (`low`, `medium`, `high`, `xhigh`, `max`) declared independently of tier. Resolved to platform-specific field names at build time; incompatible with the fast tier |
+| TIER_MODEL_MAP | mechanism | Exported resolution dictionary mapping each tier (frontier/deep/standard/fast) to concrete model IDs for Claude Code, Codex, and Antigravity (OpenCode/Copilot omitted — no per-agent tiering). Single source of truth for build AND install-time remapping |
+| TIER_RANK | mechanism | Ordered numeric rank for tier comparison. Used by protected-agent downgrade checks at build and remap time — compares capability level, not name equality |
+| Protected Agents | mechanism | Set of 14 reasoning-critical agents (feature-architect, phase-planner, security-validator, pr-sub-reviewer, task-reviewer, …) that must stay at or above deep. Build and remapping warn (never block) on downgrade |
+| BundleAgentEntry | entity | Bundle asset entry extended with optional tier/effort metadata, carried through manifests and the embedded manifest so install-time remapping needs no source frontmatter |
+| TierRemappingConfig | entity | User-declared remapping from `settings.toml` `[models]`: optional preset name + per-platform `[models.<platform>]` tier overrides (explicit entries beat preset values) |
+| Preset | entity | Blessed tier-to-model profile (`budget`, `standard`, `premium`) for CC + Codex. Budget = fast-class everywhere; standard = deep collapses to sonnet-class; premium = build defaults |
+| Artifact Rewriter | mechanism | Pure-function module rewriting installed agent artifacts per remapping: CC YAML frontmatter, Codex TOML line replacement; strips effort on fast-class remaps; warns on protected downgrades |
+| Task File Lock | mechanism | Directory-based lock (`mkdir .task-file.lock`) serializing concurrent task-file updates during parallel builder execution |
 
 ## Key Terminology
 
@@ -55,12 +61,13 @@
 | Document Kind | Requested or inferred document shape selecting default structure (auto, blog-post, technical-proposal, feedback) |
 | Section Scenario | Doc-sync classification for a section: `verify`, `add`, or `fix` |
 | Logical Step Key | Collapsed step identifier for dashboard grouping: non-namespaced steps keep their ID; namespaced lifecycle steps collapse to namespace prefix |
-| Model Tier | Abstract alias (`deep`, `standard`, `fast`, `inherit`) for agent model selection. `deep` = frontier reasoning model, `standard` = capable general-purpose model, `fast` = cheapest single-pass model, `inherit` = session model (backward-compatible default) |
-| Effort Level | Reasoning-depth control independent of model tier: `low`, `medium`, `high`, `xhigh`, `max`. Omitted for fast-tier agents. Platform-specific field names: `effort` (Claude Code), `model_reasoning_effort` (Codex), `reasoningEffort` (OpenCode/OpenAI provider) |
-| Tier Resolution | Build-time process that maps an abstract ModelTier + platform to a concrete vendor model ID via `TIER_MODEL_MAP`, and maps EffortLevel + platform to a provider-specific field name and value via `resolveEffort()` |
-| Protected Agent | One of 14 reasoning-critical agents that must remain on the deep tier; build emits a warning (not error) on downgrade attempt |
-| Effort Clamping | Mapping `xhigh` and `max` effort levels to `high` for platforms supporting only three-level effort vocabulary (OpenAI/Codex) |
-| Provider-Aware Effort | OpenCode effort resolution that derives the model provider (Anthropic vs OpenAI) from the resolved model ID to select the correct pass-through field name |
+| Model Tier | Abstract alias for agent model selection. `frontier` = maximum-capability (fable on CC), `deep` = frontier reasoning (opus), `standard` = capable general-purpose (sonnet), `fast` = cheapest single-pass (haiku), `inherit` = session model (default) |
+| Effort Level | Reasoning-depth control independent of tier: `low`–`max`. Omitted for fast tier. Field names: `effort` (CC, all 5 levels), `model_reasoning_effort` (Codex, `max` clamps to `xhigh`) |
+| Tier Resolution | Build-time mapping of ModelTier + platform → concrete model ID via `TIER_MODEL_MAP`, and EffortLevel + platform → field name/value via `resolveEffort()` |
+| Tier Remapping | Install-time process applying `[models]` settings to rewrite installed agent artifacts without rebuilding: load → validate → discover via bundle metadata → rewrite → report. Idempotent (re-runs report "already up to date") |
+| RemappableTier | Preset-exposed tier subset: `deep`, `standard`, `fast` (`frontier` and `inherit` excluded from presets) |
+| Effort Clamping | Codex-specific `max` → `xhigh` mapping (Codex supports four levels); CC supports all five natively |
+| Hermetic Settings Seam | Optional `globalSettingsPath` parameter on settings loaders/resolvers isolating tests from real `~/.config/rp1/settings.toml` |
 
 ## Relationships
 
@@ -69,23 +76,25 @@ Plugin ──contains──> Skill, Agent
 Skill ──delegates to──> Agent
 Skill ──embeds──> State Machine
 Skill ──enrolls in──> Discovery Registry
-Skill ──declares──> Arcade Tracked
 State Machine ──governs──> Run
 Run ──contains──> Event
 Run ──produces──> Artifact
 Run ──triggers──> Notification
 Artifact ──anchors──> Annotation
 Knowledge Base ──grounds──> Documentation Synchronization
-Knowledge Base ──informs──> Content Workflow
 Workflow Bootstrap ──initializes──> Run
 Platform Definition ──configures──> Build Template Context
 Discovery Registry ──generates──> Guide, Init Wizard
-Arcade Tracked ──filters──> Run (Activity feed visibility)
 Attestation ──validates──> Skill
-ModelTier ──classifies──> Agent (14 deep, 33 standard, 5 fast)
+ModelTier ──classifies──> Agent (14 deep, 33 standard, 5 fast; frontier unused by default)
 TIER_MODEL_MAP ──resolves──> ModelTier (abstract tier → platform model ID)
+TIER_RANK ──orders──> ModelTier (frontier > deep > standard > fast)
 EffortLevel ──tunes──> Agent (optional reasoning-depth control)
-Protected Agents ──constrains──> ModelTier (build warning on non-deep downgrade)
+Protected Agents ──constrains──> ModelTier (rank-based warning on downgrade below deep)
+BundleAgentEntry ──feeds──> Artifact Rewriter (build-time metadata → install-time rewriting)
+TierRemappingConfig ──configures──> Artifact Rewriter (user settings drive substitutions)
+Preset ──provides defaults for──> TierRemappingConfig (explicit overrides supersede)
+Task File Lock ──protects──> Task Queue (serializes concurrent task-file writes)
 ```
 
 ## Agent Patterns
@@ -99,8 +108,10 @@ Protected Agents ──constrains──> ModelTier (build warning on non-deep do
 | Stateless Agent | Blueprint charter creation | State persisted in visible file-based scratch pad for session-independent resumability |
 | Data-Driven Platform Build | Multi-platform artifacts | PlatformDefinition entries capture all platform-varying behavior |
 | Notification Auto-Generation | Emit pipeline | Status changes and waiting_for_user events auto-generate deduplicated notifications |
-| Build-Time Tier Resolution | Agent build pipeline | Agent frontmatter declares abstract tier + effort; `resolveTier()` and `resolveEffort()` map to platform-specific model IDs and effort field names before template rendering. Templates remain format-only |
-| Generator-Verifier Asymmetry | Agent classification | Generator agents (e.g., task-builder) run at standard tier because deep-tier verifier agents (e.g., task-reviewer) validate their output, preserving quality while reducing cost |
+| Build-Time Tier Resolution | Agent build pipeline | Frontmatter declares abstract tier + effort; `resolveTier()`/`resolveEffort()` map to platform specifics before rendering. Templates stay format-only |
+| Install-Time Tier Remapping | User model settings | Build embeds tier metadata in `BundleAgentEntry`; settings.toml overrides rewrite installed artifacts without rebuilding. Preset → validate → discover → rewrite → report |
+| Generator-Verifier Asymmetry | Agent classification | Generator agents (task-builder) run at standard tier because deep-tier verifiers (task-reviewer) validate their output — quality preserved, cost reduced |
+| Directory-Based File Lock | Parallel task-builder execution | `mkdir` atomicity serializes concurrent read-modify-write on shared task files; sleep-poll on contention; always release |
 
 ## Bounded Contexts
 
@@ -109,10 +120,11 @@ Protected Agents ──constrains──> ModelTier (build warning on non-deep do
 | Knowledge Management | rp1-base | Knowledge Base, Spatial Analyzer, Progressive Disclosure |
 | Documentation Production | rp1-base | Content Workflow, Documentation Synchronization, Scribe |
 | Prompt Tooling | rp1-utils | Prompt Authoring Workflow, Shell-Safe Formatting |
-| Feature Delivery | rp1-dev | PR Review, Task Queue, Builder-Reviewer |
+| Feature Delivery | rp1-dev | PR Review, Task Queue, Builder-Reviewer, Task File Lock |
 | Runtime Services | cli/src | Project, Run, Event, Workflow Bootstrap, Notification |
 | Dashboard | cli/web-ui | Arcade, Artifact, Annotation, Run Invocation Context |
-| Platform Abstraction | build pipeline | Platform Tag, CanonicalName, Platform Definition, ModelTier, EffortLevel, Tier Resolution |
+| Platform Abstraction | build pipeline | Platform Tag, CanonicalName, Platform Definition, ModelTier, EffortLevel, Tier Resolution, TIER_RANK |
+| Model Settings | cli/src/settings | TierRemappingConfig, Preset, Artifact Rewriter, BundleAgentEntry, Install-Time Tier Remapping |
 | Discovery | cli/catalog | Discovery Registry, Guide, Skill Category, Arcade Tracked |
 | Project Lifecycle | cli/init, cli/migrate | Fence Versioning, Init Wizard, Project Migration |
 | Quality Assurance | evals/ | Attestation |
@@ -123,7 +135,8 @@ Protected Agents ──constrains──> ModelTier (build warning on non-deep do
 - **Human gates**: `waiting_for_user` emitted before prompts, visible in host tool and Arcade
 - **Traceable state**: Intermediates (`brief.md`, `scan_results.json`) persist under `.rp1/work/`
 - **State discipline**: Mermaid states, emitted steps, namespaced sub-agent steps, and logical step keys stay aligned
-- **Configuration resolution**: `resolve-args` + `workflow-bootstrap` unify argument, directory, and run creation
-- **Platform portability**: Semantic tags, data-driven definitions, and tier resolution let one prompt target multiple hosts with appropriate model and effort settings
+- **Configuration resolution**: `resolve-args` + `workflow-bootstrap` unify argument, directory, and run creation; `settings.toml` layers (global, project) with preset and per-platform overrides for model tier remapping
+- **Platform portability**: Semantic tags, data-driven definitions, and tier resolution let one prompt target 5 hosts with appropriate model and effort settings
 - **Single-source discovery**: Frontmatter metadata drives all catalog views, avoiding drift
 - **Standard tool envelope**: All agent-tools return `ToolResult<T>` JSON for predictable AI-agent parsing
+- **Concurrent task safety**: Directory-based file locks protect shared task-file updates during parallel builder execution

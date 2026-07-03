@@ -1,6 +1,7 @@
 /**
  * Settings file validation.
- * Validates TOML syntax in global and local rp1 settings files.
+ * Validates TOML syntax in global and local rp1 settings files,
+ * and semantic validation for [models.*] tier remapping sections.
  */
 
 export {
@@ -12,6 +13,16 @@ import {
 	resolveGlobalSettingsPath,
 	resolveLocalSettingsPath,
 } from "../../shared/settings.js";
+
+import type { BundleAgentEntry } from "../build/models.js";
+import type { BuildPlatform } from "../build/template-context.js";
+import {
+	getValidModelIdsForPlatform,
+	modelSupportsEffort,
+} from "../build/tier-resolution.js";
+import type { TierRemappingConfig } from "./models.js";
+import { VALID_PRESET_NAMES } from "./presets.js";
+import { REWRITABLE_PLATFORMS } from "./rewriter.js";
 
 /**
  * Load a single settings file for validation purposes.
@@ -103,3 +114,105 @@ export const validateSettings = async (
 
 	return { valid, globalFile, localFile };
 };
+
+// ---------------------------------------------------------------------------
+// Tier remapping validation
+// ---------------------------------------------------------------------------
+
+/** Semantic validation result for [models.*] tier remapping configuration. */
+export interface TierRemappingValidationResult {
+	readonly valid: boolean;
+	readonly errors: readonly string[];
+	readonly warnings: readonly string[];
+	readonly effortAdjustments: readonly string[];
+}
+
+/** Known BuildPlatform values for platform-name validation. */
+const KNOWN_PLATFORMS: ReadonlySet<string> = new Set<BuildPlatform>([
+	"claude-code",
+	"codex",
+	"opencode",
+	"copilot",
+	"antigravity",
+]);
+
+/**
+ * Validate a tier remapping configuration for correctness.
+ *
+ * Checks:
+ * 1. Preset name (if set) is a known preset.
+ * 2. Platform names are known BuildPlatform values (unknown → warning).
+ * 3. Platforms without model-field support (copilot, opencode) → warning.
+ * 4. Model IDs are valid for the target platform (invalid → error with valid options).
+ * 5. Effort compatibility: agents that would have effort stripped (when agent metadata provided).
+ *
+ * @param config - Parsed tier remapping configuration
+ * @param agentEntries - Optional agent manifest entries for effort compatibility preview
+ */
+export function validateTierRemappings(
+	config: TierRemappingConfig,
+	agentEntries?: readonly BundleAgentEntry[],
+): TierRemappingValidationResult {
+	const errors: string[] = [];
+	const warnings: string[] = [];
+	const effortAdjustments: string[] = [];
+
+	if (
+		config.preset !== undefined &&
+		!VALID_PRESET_NAMES.includes(
+			config.preset as (typeof VALID_PRESET_NAMES)[number],
+		)
+	) {
+		errors.push(
+			`Unknown preset '${config.preset}'. Valid presets: ${VALID_PRESET_NAMES.join(", ")}`,
+		);
+	}
+
+	for (const [platformKey, tierMap] of Object.entries(config.platforms)) {
+		if (!KNOWN_PLATFORMS.has(platformKey)) {
+			warnings.push(
+				`'${platformKey}' is an unknown platform; remapping will be ignored. Known platforms: ${[...KNOWN_PLATFORMS].join(", ")}`,
+			);
+			continue;
+		}
+
+		const platform = platformKey as BuildPlatform;
+
+		if (!REWRITABLE_PLATFORMS.has(platform)) {
+			warnings.push(
+				`Remapping for '${platform}' will have no effect: installed artifacts for this platform cannot be rewritten`,
+			);
+			continue;
+		}
+
+		if (!tierMap) continue;
+
+		const validIds = getValidModelIdsForPlatform(platform);
+
+		for (const [tier, modelId] of Object.entries(tierMap)) {
+			if (!validIds.includes(modelId)) {
+				errors.push(
+					`Invalid model '${modelId}' for ${platform} tier '${tier}'. Valid models: ${validIds.join(", ")}`,
+				);
+				continue;
+			}
+
+			if (agentEntries && !modelSupportsEffort(modelId, platform)) {
+				for (const agent of agentEntries) {
+					if (agent.tier === tier && agent.effort !== undefined) {
+						effortAdjustments.push(
+							`Agent '${agent.name}' (tier: ${tier}, effort: ${agent.effort}) will have effort stripped when remapped to '${modelId}' on ${platform}`,
+						);
+					}
+				}
+			}
+		}
+	}
+
+	return {
+		valid: errors.length === 0,
+		errors,
+		warnings,
+		effortAdjustments,
+	};
+}

@@ -102,6 +102,20 @@ Refreshing Antigravity assets restores the generated workflow assets. Run
 `rp1 verify antigravity --workflow <workflow-id>` after refresh to see workflow
 attribution and any dynamic delegation limitation.
 
+## Tier Remapping Re-apply
+
+After refreshing plugins, `rp1 update` automatically re-applies model tier
+remappings from your `[models]` configuration in settings.toml. This ensures
+that updated agent artifacts retain your model preferences without requiring
+a manual `rp1 settings apply`.
+
+The re-apply is non-blocking: if no `[models]` section is configured, the step
+is silently skipped. If remapping encounters warnings (e.g., protected agent
+downgrades), they are logged but do not interrupt the update.
+
+See [Configuration](../configuration.md) for the `[models]` schema and
+[`settings`](settings.md) for manual apply and validation commands.
+
 ## Safety
 
 rp1 validates the downloaded binary before replacing the current one, so a bad
@@ -146,5 +160,7 @@ rp1 verify antigravity --workflow <workflow-id>
 - [install](install.md)
 - [verify](verify.md)
 - [uninstall](uninstall.md)
+- [settings](settings.md) - Manual model tier remapping and validation
+- [Configuration](../configuration.md) - settings.toml `[models]` reference
 - [Antigravity CLI Platform Guide](../platforms/antigravity.md)
 - [Troubleshooting](../../troubleshooting/index.md)
