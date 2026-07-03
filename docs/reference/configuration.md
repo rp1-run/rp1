@@ -59,9 +59,9 @@ Omitted tiers keep the build-time default model for that platform.
 | `claude-code` | `opus`, `sonnet`, `haiku`, `fable` |
 | `codex` | `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini` |
 
-Other platforms (`copilot`, `opencode`, `antigravity`) do not support per-agent
-model fields in their installed artifacts. Remappings for these platforms
-produce a validation warning and have no effect.
+Other platforms (`copilot`, `opencode`, `antigravity`) cannot have their
+installed artifacts rewritten. Remappings for these platforms produce a
+validation warning and have no effect.
 
 ---
 

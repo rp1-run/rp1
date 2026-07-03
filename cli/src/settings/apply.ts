@@ -10,8 +10,12 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
+import type { CLIError } from "../../shared/errors.js";
 import type { BundledAssets } from "../assets/reader.js";
-import { ALL_PLUGIN_KEYS, getBundledAssets } from "../assets/reader.js";
+import {
+	ALL_PLUGIN_KEYS,
+	getBundledAssets as getBundledAssetsReal,
+} from "../assets/reader.js";
 import type {
 	BundleAgentEntry,
 	EffortLevel,
@@ -47,6 +51,8 @@ export interface ApplyOptions {
 	readonly projectRoot: string;
 	readonly preset?: string;
 	readonly dryRun: boolean;
+	/** Override path to user-level settings file. Exposed for test isolation. */
+	readonly globalSettingsPath?: string;
 }
 
 /** Result of applying tier remappings. */
@@ -66,6 +72,7 @@ export interface ApplyDeps {
 	readonly writeFile: (path: string, content: string) => void;
 	readonly fileExists: (path: string) => boolean;
 	readonly refreshClaudeCodePlugins: () => Promise<void>;
+	readonly getBundledAssets: () => E.Either<CLIError, BundledAssets>;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,6 +102,7 @@ const DEFAULT_DEPS: ApplyDeps = {
 	writeFile: (path, content) => writeFileSync(path, content, "utf-8"),
 	fileExists: existsSync,
 	refreshClaudeCodePlugins: defaultRefreshClaudeCodePlugins,
+	getBundledAssets: getBundledAssetsReal,
 };
 
 // ---------------------------------------------------------------------------
@@ -353,6 +361,7 @@ export async function applyTierRemappings(
 	const { config, errors: configErrors } = await resolveConfig(
 		options.projectRoot,
 		options.preset,
+		options.globalSettingsPath,
 	);
 
 	if (configErrors.length > 0) {
@@ -374,7 +383,7 @@ export async function applyTierRemappings(
 	}
 
 	// 3. Get embedded manifest for agent tier metadata
-	const manifestResult = getBundledAssets();
+	const manifestResult = deps.getBundledAssets();
 	if (E.isLeft(manifestResult)) {
 		return {
 			...emptyResult,

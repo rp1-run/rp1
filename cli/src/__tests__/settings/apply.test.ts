@@ -2,7 +2,7 @@
  * Unit tests for the tier remapping apply orchestrator.
  */
 
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
@@ -73,6 +73,8 @@ const createDeps = (): ApplyDeps => ({
 		return fs.existsSync(path);
 	},
 	refreshClaudeCodePlugins: async () => {},
+	getBundledAssets: () =>
+		E.left({ _tag: "UsageError", message: "not bundled" } as never),
 });
 
 // ---------------------------------------------------------------------------
@@ -635,16 +637,14 @@ describe("applyTierRemappings - cache refresh warnings", () => {
 				},
 			},
 		},
+		webui: [],
 		version: "0.0.0-test",
 		buildTimestamp: new Date().toISOString(),
 	};
 
-	test("produces warning when refreshClaudeCodePlugins throws", async () => {
-		mock.module("../../assets/reader.js", () => ({
-			getBundledAssets: () => E.right(minimalManifest),
-			ALL_PLUGIN_KEYS: ["base", "dev", "utils"],
-		}));
+	const isolatedGlobalSettings = () => join(tempDir, "no-global-settings.toml");
 
+	test("produces warning when refreshClaudeCodePlugins throws", async () => {
 		await writeFixture(
 			tempDir,
 			".rp1/settings.toml",
@@ -668,10 +668,15 @@ describe("applyTierRemappings - cache refresh warnings", () => {
 			refreshClaudeCodePlugins: async () => {
 				throw new Error("plugin cache connection refused");
 			},
+			getBundledAssets: () => E.right(minimalManifest),
 		};
 
 		const result = await applyTierRemappings(
-			{ projectRoot: tempDir, dryRun: false },
+			{
+				projectRoot: tempDir,
+				dryRun: false,
+				globalSettingsPath: isolatedGlobalSettings(),
+			},
 			deps,
 		);
 

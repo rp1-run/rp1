@@ -6,6 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import * as E from "fp-ts/lib/Either.js";
 import {
 	type AgentFileEntry,
 	type ApplyDeps,
@@ -104,6 +105,8 @@ describe("applyTierRemappingsIfConfigured (update hook)", () => {
 				return fs.existsSync(path);
 			},
 			refreshClaudeCodePlugins: async () => {},
+			getBundledAssets: () =>
+				E.left({ _tag: "UsageError", message: "not bundled" } as never),
 		};
 
 		const result = applyRemappingsToAgents(

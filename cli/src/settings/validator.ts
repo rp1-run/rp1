@@ -17,12 +17,12 @@ import {
 import type { BundleAgentEntry } from "../build/models.js";
 import type { BuildPlatform } from "../build/template-context.js";
 import {
-	getPlatformsWithModelSupport,
 	getValidModelIdsForPlatform,
 	modelSupportsEffort,
 } from "../build/tier-resolution.js";
 import type { TierRemappingConfig } from "./models.js";
 import { VALID_PRESET_NAMES } from "./presets.js";
+import { REWRITABLE_PLATFORMS } from "./rewriter.js";
 
 /**
  * Load a single settings file for validation purposes.
@@ -168,8 +168,6 @@ export function validateTierRemappings(
 		);
 	}
 
-	const supportedPlatforms = new Set(getPlatformsWithModelSupport());
-
 	for (const [platformKey, tierMap] of Object.entries(config.platforms)) {
 		if (!KNOWN_PLATFORMS.has(platformKey)) {
 			warnings.push(
@@ -180,9 +178,9 @@ export function validateTierRemappings(
 
 		const platform = platformKey as BuildPlatform;
 
-		if (!supportedPlatforms.has(platform)) {
+		if (!REWRITABLE_PLATFORMS.has(platform)) {
 			warnings.push(
-				`Remapping for '${platform}' will have no effect: this platform does not support per-agent model fields`,
+				`Remapping for '${platform}' will have no effect: installed artifacts for this platform cannot be rewritten`,
 			);
 			continue;
 		}

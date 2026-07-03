@@ -244,7 +244,7 @@ describe("validateTierRemappings", () => {
 		expect(result.errors).toHaveLength(0);
 	});
 
-	test("antigravity platform accepts valid model IDs", () => {
+	test("antigravity platform produces cannot-rewrite warning", () => {
 		const config: TierRemappingConfig = {
 			platforms: {
 				antigravity: { deep: "gemini-3.1-pro", standard: "gemini-3.5-flash" },
@@ -254,5 +254,8 @@ describe("validateTierRemappings", () => {
 		const result = validateTierRemappings(config);
 		expect(result.valid).toBe(true);
 		expect(result.errors).toHaveLength(0);
+		expect(result.warnings.length).toBeGreaterThan(0);
+		expect(result.warnings[0]).toContain("antigravity");
+		expect(result.warnings[0]).toContain("no effect");
 	});
 });

@@ -109,7 +109,7 @@ function checkProtectedDowngrade(
 // Platforms that support model-field rewriting
 // ---------------------------------------------------------------------------
 
-const REWRITABLE_PLATFORMS: ReadonlySet<BuildPlatform> = new Set([
+export const REWRITABLE_PLATFORMS: ReadonlySet<BuildPlatform> = new Set([
 	"claude-code",
 	"codex",
 ]);
