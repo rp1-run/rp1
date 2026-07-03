@@ -6,6 +6,12 @@ import {
 import { VALID_MODEL_TIERS } from "../build/models.js";
 import type { BuildPlatform } from "../build/template-context.js";
 import type { PlatformTierMap, TierRemappingConfig } from "./models.js";
+import {
+	type ArcadeSettings,
+	type ArcadeTheme,
+	DEFAULT_ARCADE_SETTINGS,
+	VALID_ARCADE_THEMES,
+} from "./models.js";
 
 /** Argument defaults for a single skill/agent, keyed by UPPER_SNAKE_CASE argument name. */
 export type ArgumentDefaults = Readonly<
@@ -23,10 +29,17 @@ type ParsedModelsSection = Readonly<{
 	platforms: Readonly<Partial<Record<BuildPlatform, PlatformTierMap>>>;
 }>;
 
+/** Parsed arcade section from a single settings file (partial -- keys may be absent). */
+type ParsedArcadeSection = Readonly<{
+	theme?: ArcadeTheme;
+	downsampling?: Readonly<{ thresholdHours?: number }>;
+}>;
+
 type ParsedSettingsFile = Readonly<{
 	arguments: SettingsArgumentDefaults;
 	directories: Record<string, never>;
 	models: ParsedModelsSection;
+	arcade: ParsedArcadeSection;
 }>;
 
 const isPlainRecord = (
@@ -119,6 +132,40 @@ const parseModelsSection = (
 	return { preset, platforms };
 };
 
+/**
+ * Extract the arcade section from parsed TOML.
+ * Returns only validated fields; invalid values are omitted so defaults apply.
+ */
+const parseArcadeSection = (
+	parsed: Record<string, unknown>,
+): ParsedArcadeSection => {
+	const arcadeSection = parsed.arcade;
+	if (!isPlainRecord(arcadeSection)) {
+		return {};
+	}
+
+	const result: {
+		theme?: ArcadeTheme;
+		downsampling?: { thresholdHours?: number };
+	} = {};
+
+	if (
+		typeof arcadeSection.theme === "string" &&
+		(VALID_ARCADE_THEMES as readonly string[]).includes(arcadeSection.theme)
+	) {
+		result.theme = arcadeSection.theme as ArcadeTheme;
+	}
+
+	if (isPlainRecord(arcadeSection.downsampling)) {
+		const th = arcadeSection.downsampling.thresholdHours;
+		if (typeof th === "number") {
+			result.downsampling = { thresholdHours: th };
+		}
+	}
+
+	return result;
+};
+
 const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 	const cached = settingsCache.get(filePath);
 	if (cached) {
@@ -130,6 +177,7 @@ const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 			arguments: {},
 			directories: {},
 			models: { platforms: {} },
+			arcade: {},
 		};
 		settingsCache.set(filePath, empty);
 		return empty;
@@ -165,11 +213,13 @@ const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 		}
 
 		const models = parseModelsSection(parsed);
+		const arcade = parseArcadeSection(parsed);
 
 		const result: ParsedSettingsFile = {
 			arguments: argumentDefaults,
 			directories: {},
 			models,
+			arcade,
 		};
 		settingsCache.set(filePath, result);
 		return result;
@@ -178,6 +228,7 @@ const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 			arguments: {},
 			directories: {},
 			models: { platforms: {} },
+			arcade: {},
 		};
 		settingsCache.set(filePath, empty);
 		return empty;
@@ -331,4 +382,45 @@ export const loadTierRemappings = async (
 	}
 
 	return { preset, platforms };
+};
+
+/**
+ * Load the `[arcade]` section from a single settings file.
+ * Returns the parsed arcade section when present, or an empty structure.
+ */
+const loadArcadeFromFile = (filePath: string): ParsedArcadeSection => {
+	return parseSettingsFileStrict(filePath).arcade;
+};
+
+/**
+ * Load arcade settings from both project-level and user-level settings files,
+ * applying two-level merge (project overrides user, per key) and defaults.
+ *
+ * @param projectRoot - Project root directory (contains `.rp1/`)
+ * @param globalSettingsPath - Override path to user-level settings file (defaults to ~/.config/rp1/settings.toml). Exposed for test isolation.
+ * @returns Fully resolved `ArcadeSettings` with defaults applied
+ */
+export const loadArcadeSettings = async (
+	projectRoot: string,
+	globalSettingsPath?: string,
+): Promise<ArcadeSettings> => {
+	const projectArcade = loadArcadeFromFile(
+		resolveLocalSettingsPath(projectRoot),
+	);
+	const userArcade = loadArcadeFromFile(
+		globalSettingsPath ?? resolveGlobalSettingsPath(),
+	);
+
+	const theme =
+		projectArcade.theme ?? userArcade.theme ?? DEFAULT_ARCADE_SETTINGS.theme;
+
+	const thresholdHours =
+		projectArcade.downsampling?.thresholdHours ??
+		userArcade.downsampling?.thresholdHours ??
+		DEFAULT_ARCADE_SETTINGS.downsampling.thresholdHours;
+
+	return {
+		theme,
+		downsampling: { thresholdHours },
+	};
 };

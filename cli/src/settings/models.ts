@@ -1,13 +1,42 @@
 /**
- * Type definitions for user-controllable model tier remapping settings.
+ * Type definitions for user-controllable settings parsed from settings.toml.
  *
- * These types model the `[models]` and `[models.<platform>]` sections in
- * settings.toml, allowing users to declare abstract-tier-to-model remappings
- * that are applied at install time without requiring the build pipeline.
+ * Covers `[models]` / `[models.<platform>]` sections for tier remapping
+ * and the `[arcade]` section for Arcade UI preferences (theme, downsampling).
  */
 
 import type { ModelTier } from "../build/models.js";
 import type { BuildPlatform } from "../build/template-context.js";
+
+/** Valid theme values for Arcade UI. */
+export type ArcadeTheme = "light" | "dark" | "system";
+
+/** Downsampling configuration for Arcade event display. */
+export interface ArcadeDownsamplingSettings {
+	readonly thresholdHours: number;
+}
+
+/**
+ * Arcade UI settings parsed from the `[arcade]` section of settings.toml.
+ * Consumed by the daemon server and REST endpoint.
+ */
+export interface ArcadeSettings {
+	readonly theme: ArcadeTheme;
+	readonly downsampling: ArcadeDownsamplingSettings;
+}
+
+/** Valid arcade theme strings for input validation. */
+export const VALID_ARCADE_THEMES: readonly ArcadeTheme[] = [
+	"light",
+	"dark",
+	"system",
+] as const;
+
+/** Default arcade settings applied when no `[arcade]` section exists. */
+export const DEFAULT_ARCADE_SETTINGS: ArcadeSettings = {
+	theme: "system",
+	downsampling: { thresholdHours: 24 },
+} as const;
 
 /**
  * Per-platform tier-to-model mapping from user settings.
