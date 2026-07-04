@@ -868,6 +868,10 @@ describe("migrate", () => {
 					filesNotFound: [],
 					errors: [],
 				},
+				arcadeSettings: {
+					globalMigrated: false,
+					projectMigrated: false,
+				},
 			});
 
 			expect(summary).toContain("Created .rp1/project_id");
@@ -902,6 +906,10 @@ describe("migrate", () => {
 					filesScanned: 0,
 					filesNotFound: [],
 					errors: [],
+				},
+				arcadeSettings: {
+					globalMigrated: false,
+					projectMigrated: false,
 				},
 			});
 

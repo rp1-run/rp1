@@ -23,6 +23,7 @@
 - Parent skills gate on hard failures; batch workflows tolerate partial success. L1 (syntax) then L2 (schema) validation staging.
 - **Warnings vs errors**: `validateAgentTierAndEffort` and `validateTierRemappings` return `{errors[], warnings[]}` — errors halt processing, warnings emit advisories (fast-tier effort, protected-agent downgrade, unsupported platform).
 - **Non-blocking degradation**: optional post-update steps (tier remapping re-apply, plugin cache refresh) wrap in try/catch, surface warnings, and never abort the parent lifecycle.
+- **Comment-preserving TOML writes**: `rewriter.ts` (model tier remapping) and `arcade-writer.ts` (arcade settings migration) use targeted line edits with regex-based section boundary detection to append/merge TOML sections without disturbing existing comments or formatting; full-file serialization is avoided because `smol-toml` is parse-only.
 
 ## Validation & Boundaries
 
@@ -65,7 +66,7 @@
 ## Dependency Injection & Configuration
 
 - **Optional-parameter seams**: `ApplyDeps` interface injects `readFile`/`writeFile`/`fileExists`/`refreshClaudeCodePlugins` with `DEFAULT_DEPS` production binding; `globalSettingsPath` threads through loader/apply for isolation.
-- **TOML settings, two-level merge**: project `.rp1/settings.toml` > user `~/.config/rp1/settings.toml`, per key for both `[arguments.*]` and `[models.*]`; loader normalizes lower-kebab → UPPER_SNAKE. Blessed presets (`presets.ts`) provide complete tier-to-model profiles that explicit overrides supersede.
+- **TOML settings, two-level merge**: project `.rp1/settings.toml` > user `~/.config/rp1/settings.toml`, per key for `[arguments.*]`, `[models.*]`, and `[arcade]` sections; loader normalizes lower-kebab → UPPER_SNAKE for arguments. `[arcade]` section supports `theme` ("light"/"dark"/"system", default "system") and `[arcade.downsampling]` sub-table (`thresholdHours`, default 24); `loadArcadeSettings()` merges project over user with per-key granularity and returns typed `ArcadeSettings`. Blessed presets (`presets.ts`) provide complete tier-to-model profiles that explicit overrides supersede.
 
 ## Extension Mechanisms
 

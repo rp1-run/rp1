@@ -3,6 +3,10 @@ import path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { resolveDirectorySet } from "../../shared/directory-resolution.js";
 import { ensureProjectId } from "../../shared/project-id.js";
+import {
+	type ArcadeSettingsMigrationResult,
+	migrateArcadeSettings,
+} from "./arcade-settings.js";
 import { backfillProjectId, type DbBackfillResult } from "./db-backfill.js";
 import {
 	type GitignoreUpdateResult,
@@ -29,6 +33,7 @@ export interface MigrateResult {
 	readonly gitignore: GitignoreUpdateResult;
 	readonly dbBackfill: DbBackfillResult;
 	readonly stanzaUpgrade: StanzaUpgradeResult;
+	readonly arcadeSettings: ArcadeSettingsMigrationResult;
 }
 
 export const executeMigrate = async (
@@ -58,6 +63,10 @@ export const executeMigrate = async (
 		const dbBackfill = await backfillProjectId(projectRoot, projectId, {
 			dryRun: true,
 		});
+		const arcadeSettings = await migrateArcadeSettings({
+			projectRoot,
+			dryRun: true,
+		});
 
 		return {
 			dryRun: true,
@@ -77,6 +86,7 @@ export const executeMigrate = async (
 				filesNotFound: [],
 				errors: [],
 			},
+			arcadeSettings,
 		};
 	}
 
@@ -102,6 +112,8 @@ export const executeMigrate = async (
 
 	const stanzaUpgrade = upgradeStanzas(projectRoot);
 
+	const arcadeSettings = await migrateArcadeSettings({ projectRoot });
+
 	return {
 		projectRoot,
 		projectId,
@@ -111,6 +123,7 @@ export const executeMigrate = async (
 		gitignore,
 		dbBackfill,
 		stanzaUpgrade,
+		arcadeSettings,
 	};
 };
 
@@ -153,6 +166,20 @@ export const formatMigrateSummary = (result: MigrateResult): string => {
 			);
 		} else {
 			lines.push("  Activity search rows already up to date");
+		}
+
+		if (
+			result.arcadeSettings.globalMigrated ||
+			result.arcadeSettings.projectMigrated
+		) {
+			const migrated: string[] = [];
+			if (result.arcadeSettings.globalMigrated) migrated.push("global");
+			if (result.arcadeSettings.projectMigrated) migrated.push("project");
+			lines.push(
+				`  Would migrate Arcade settings (${migrated.join(", ")}) from JSON to TOML`,
+			);
+		} else {
+			lines.push("  No Arcade settings JSON to migrate");
 		}
 
 		lines.push("  Would leave database history and files unchanged");
@@ -241,6 +268,20 @@ export const formatMigrateSummary = (result: MigrateResult): string => {
 		for (const err of result.stanzaUpgrade.errors) {
 			lines.push(`  Stanza upgrade error in ${err.file}: ${err.error}`);
 		}
+	}
+
+	if (
+		result.arcadeSettings.globalMigrated ||
+		result.arcadeSettings.projectMigrated
+	) {
+		const migrated: string[] = [];
+		if (result.arcadeSettings.globalMigrated) migrated.push("global");
+		if (result.arcadeSettings.projectMigrated) migrated.push("project");
+		lines.push(
+			`  Migrated Arcade settings (${migrated.join(", ")}) from JSON to TOML`,
+		);
+	} else {
+		lines.push("  No Arcade settings JSON to migrate");
 	}
 
 	return lines.join("\n");

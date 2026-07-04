@@ -214,6 +214,36 @@ to `sonnet`.
 
 ---
 
+## Arcade Settings
+
+The `[arcade]` section configures the Arcade dashboard UI. These settings
+follow the same two-level merge as `[models]` -- project overrides user, per
+key.
+
+### Schema
+
+```toml
+[arcade]
+theme = "system"
+
+[arcade.downsampling]
+thresholdHours = 24
+```
+
+### Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `theme` | `"light"` \| `"dark"` \| `"system"` | `"system"` | UI color scheme. `"system"` follows OS preference |
+| `downsampling.thresholdHours` | number | `24` | Compress events for runs completed more than this many hours ago |
+
+All fields are optional. Missing fields use application defaults.
+
+See [Arcade Settings](../arcade/settings.md) for detailed examples,
+cascade behavior, and migration from the legacy `settings.json` format.
+
+---
+
 ## Validation
 
 Run `rp1 settings validate` to check your configuration for:
@@ -231,5 +261,6 @@ output details.
 
 ## See Also
 
+- [Arcade Settings](../arcade/settings.md) - Arcade UI theme and downsampling configuration
 - [`settings`](cli/settings.md) - CLI command reference for validate, apply, and presets
 - [The `.rp1` Directory](../getting-started/rp1-directory.md) - Project directory structure

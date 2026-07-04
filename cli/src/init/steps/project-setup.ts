@@ -133,7 +133,7 @@ export async function createDirectoryStructure(
 
 /**
  * Resolve the global settings file path.
- * Uses ~/.config/rp1/settings.toml to match settings-loader.ts.
+ * Uses ~/.config/rp1/settings.toml to match the canonical TOML settings path.
  */
 function resolveGlobalSettingsPath(): string {
 	return path.join(homedir(), ".config", "rp1", "settings.toml");
