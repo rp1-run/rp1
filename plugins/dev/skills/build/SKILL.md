@@ -524,7 +524,7 @@ If comment-cleaner will NOT participate, set the `comment_cleaner` phase result 
 
 #### Step 2 — Parallel dispatch
 
-**CRITICAL**: Emit ALL dispatch blocks below back-to-back in ONE message with NO text between them. Always include `code-checker` and `feature-verifier`. When comment-cleaner was resolved as participating in Step 1, include its block; when not participating, omit it entirely. No prose, conditionals, or explanatory text may appear between dispatch blocks.
+**CRITICAL**: Emit ALL dispatch blocks below back-to-back in ONE message with NO text between them. Always include `code-checker` and `feature-verifier`. Include `comment-cleaner` only when Step 1 resolved it as participating; when not, omit its block entirely. No prose, conditionals, or explanatory text may appear between dispatch blocks.
 
 {% dispatch_agent "rp1-dev:code-checker", background %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}
