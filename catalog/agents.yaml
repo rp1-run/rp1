@@ -142,7 +142,7 @@ agents:
   - name: rp1-dev:feature-tasker
     description: "Generates development tasks from design specifications with support for incremental updates that preserve completed work"
     plugin: dev
-    last_checksum: e20765ac3022237a72fa883279b2de86570609a5acb76ee7c6611f5e975e49a0
+    last_checksum: e20751763f1317ffad1a9f263d8ba8fcf0f810d06a7bc0466b0f0dbb4f6c738b
   - name: rp1-dev:feature-verifier
     description: "Verifies feature acceptance criteria and requirements mapping with full KB context awareness for comprehensive feature validation before merge"
     plugin: dev
