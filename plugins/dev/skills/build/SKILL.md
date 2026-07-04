@@ -524,7 +524,7 @@ If comment-cleaner will NOT participate, set the `comment_cleaner` phase result 
 
 #### Step 2 — Parallel dispatch
 
-**CRITICAL**: Spawn ALL participating verification agents in a SINGLE message. Always include `code-checker` and `feature-verifier`. Include `comment-cleaner` only when resolved as participating in Step 1.
+**CRITICAL**: Emit ALL dispatch blocks below back-to-back in ONE message with NO text between them. Always include `code-checker` and `feature-verifier`. When comment-cleaner was resolved as participating in Step 1, include its block; when not participating, omit it entirely. No prose, conditionals, or explanatory text may appear between dispatch blocks.
 
 {% dispatch_agent "rp1-dev:code-checker", background %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}
@@ -533,8 +533,6 @@ FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={code
 {% dispatch_agent "rp1-dev:feature-verifier", background %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
-
-If comment-cleaner participates (resolved in Step 1):
 
 {% dispatch_agent "rp1-dev:comment-cleaner", background %}
 CHANGE_MANIFEST={cleanup_manifest_result.data.manifestPath}, CODE_ROOT={codeRoot}

@@ -175,6 +175,7 @@ Every task: Specific, Measurable, Achievable (4-8h max), Relevant, Time-bound.
 - Slice by behavior/owner/change-together boundary, not file type.
 - Each code task states public behavior or contract changed.
 - **TDD task shaping**: For behavior changes and bug fixes, fold the smallest failing test into the same task, sequenced test-first. Name the expected failing test in the task's acceptance criteria. Carve out refactor, docs, and config tasks -- those skip test-first. If no high-value test exists, the task-builder records the skip (task-builder.md section 3.2).
+  - WRONG: T1 "implement formatDate" + T2 "add tests for formatDate". RIGHT: single task "implement formatDate with test-first coverage" -- a function and its tests are always one task.
 - No standalone low-value test chores.
 - Add diagnosability task only for new failure modes or prod decision points.
 - No speculative abstraction, generic cleanup, or broad refactor unless design requires it.
