@@ -84,11 +84,11 @@ homebrew_casks:
     description: "AI-assisted development workflows CLI"
     conflicts:
       - cask: "rp1-beta"
+    caveats: "Run 'rp1 install' to set up plugins for Claude Code, OpenCode, and Codex."
     hooks:
       post:
         install: |
           system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", staged_path] if OS.mac?
-          puts "Run 'rp1 install' to set up plugins for Claude Code, OpenCode, and Codex."
 
 scoops:
   - name: rp1
