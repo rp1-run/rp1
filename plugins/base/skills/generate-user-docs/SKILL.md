@@ -357,6 +357,7 @@ Spawn one background `rp1-base:scribe` per batch:
 {% dispatch_agent "rp1-base:scribe", background %}
 MODE: scan
 FILES: {actual JSON array of project-relative paths for this batch}
+KB_ROOT: {kbRoot}
 KB_INDEX_PATH: {kbRoot}/index.md
 
 Task: return JSON only with:
@@ -507,6 +508,7 @@ Spawn one background `rp1-base:scribe` per batch:
 {% dispatch_agent "rp1-base:scribe", background %}
 MODE: process
 FILES: {actual JSON array of project-relative paths for this batch}
+KB_ROOT: {kbRoot}
 SCAN_RESULTS_PATH: {workRoot}/{SCAN_RESULTS_REL}
 STYLE: {actual JSON.stringify(STYLE_CONFIG)}
 

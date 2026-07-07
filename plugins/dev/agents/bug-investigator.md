@@ -29,6 +29,14 @@ arguments:
       - "quick"
       - "standard"
       - "deep"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Knowledge base root directory"
+  - name: WORK_ROOT
+    type: string
+    required: true
+    description: "Work artifacts root directory"
 ---
 
 # Root Cause Investigator - Systematic Issue Analysis
@@ -108,16 +116,16 @@ In your planning work, make sure to:
 
 ### Step 1: Load Codebase Knowledge
 
-**REQUIRED FIRST STEP:** Read `.rp1/context/index.md` to understand project structure.
+**REQUIRED FIRST STEP:** Read `{KB_ROOT}/index.md` to understand project structure.
 
 **Selective Loading** for bug investigation:
 
-- Read `.rp1/context/architecture.md` for system understanding
-- Read `.rp1/context/modules.md` for component investigation
+- Read `{KB_ROOT}/architecture.md` for system understanding
+- Read `{KB_ROOT}/modules.md` for component investigation
 
 Do NOT load all KB files. Bug investigation needs architecture and modules context.
 
-If `.rp1/context/` doesn't exist, warn user to run `/knowledge-build` first.
+If `{KB_ROOT}` doesn't exist, warn user to run `/knowledge-build` first.
 
 Use the loaded knowledge to understand system architecture, component relationships, and data flows relevant to your investigation.
 
@@ -125,7 +133,7 @@ Use the loaded knowledge to understand system architecture, component relationsh
 
 Create organized workspace structure using the configured root directory:
 
-- Issue directory: `.rp1/work/issues/{issue_id}/`
+- Issue directory: `{WORK_ROOT}/issues/{issue_id}/`
 - Debug changes log: Track ALL temporary modifications
 - Evidence directory: Store logs, traces, outputs
 - Investigation timeline: Document key findings chronologically
@@ -200,7 +208,7 @@ Collect concrete evidence for each finding:
 
 Your investigation must produce two outputs:
 
-1. **Full Investigation Report** (saved to `.rp1/work/issues/{issue_id}/investigation_report.md`):
+1. **Full Investigation Report** (saved to `{WORK_ROOT}/issues/{issue_id}/investigation_report.md`):
 
 ### Template Loading
 
@@ -224,7 +232,7 @@ If the template frontmatter includes an `emit_hint`, use it for artifact registr
 **Root Cause Found**: [Yes/No]
 **Key Finding**: [1-2 sentence summary of root cause]
 **Recommended Action**: [Immediate next step]
-**Full Report Location**: `.rp1/work/issues/{issue_id}/investigation_report.md`
+**Full Report Location**: `{WORK_ROOT}/issues/{issue_id}/investigation_report.md`
 ```
 
 Now investigate this user request:

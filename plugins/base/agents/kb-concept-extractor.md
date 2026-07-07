@@ -38,6 +38,10 @@ arguments:
     required: false
     default: ""
     description: "Feature context JSON for FEATURE_LEARNING mode"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Knowledge base root directory"
 ---
 
 # KB Concept Extractor - Domain Concept Mapping
@@ -74,7 +78,7 @@ $6
 ## 1. Load Existing KB Context (If Available)
 
 **Check for existing concept_map.md**:
-- Check if `.rp1/context/concept_map.md` exists
+- Check if `{KB_ROOT}/concept_map.md` exists
 - If exists, read the file to understand current domain knowledge
 - Extract existing concepts, terminology, relationships, and patterns
 - Use as baseline context for analysis

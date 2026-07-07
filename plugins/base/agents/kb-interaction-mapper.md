@@ -38,6 +38,10 @@ arguments:
     required: false
     default: ""
     description: "Feature context JSON for FEATURE_LEARNING mode"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Knowledge base root directory"
 ---
 
 # KB Interaction Mapper - Cross-Surface Interaction Analysis
@@ -72,7 +76,7 @@ $6
 
 ## 1. Load Existing KB Context (If Available)
 
-- Check if `.rp1/context/interaction-model.md` exists
+- Check if `{KB_ROOT}/interaction-model.md` exists
 - If present, read it as prior interaction knowledge
 - Extract existing principles, actors, surfaces, states, feedback loops, deltas
 
