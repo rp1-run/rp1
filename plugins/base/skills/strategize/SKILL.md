@@ -20,9 +20,23 @@ metadata:
 
 This command invokes the **strategic-advisor** sub-agent for holistic optimization and trade-off analysis.
 
-Invoke the strategic-advisor agent:
+## Directory Resolution
+
+Before dispatching, resolve the canonical project directories:
+
+```bash
+rp1 agent-tools rp1-root-dir
+```
+
+Parse the returned JSON to extract `kbRoot`.
+
+## Dispatch
+
+Invoke the strategic-advisor agent with the resolved KB path:
 
 {% dispatch_agent "rp1-base:strategic-advisor" %}
+KB_ROOT={kbRoot}
+{% enddispatch_agent %}
 
 The agent will:
 - Analyze system comprehensively (architecture, code, usage, costs)
