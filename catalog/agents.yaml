@@ -10,27 +10,27 @@ agents:
   - name: rp1-base:kb-architecture-mapper
     description: "Maps system architecture patterns, layers, and integrations for architecture.md from pre-filtered files"
     plugin: base
-    last_checksum: 0cb8aa34654c64e8e7a305372f1214afab4afbba28ddc356506ab3d7f9a31d3a
+    last_checksum: 999437250ed1764c043afe3a5de016f8e898f01170c61ae9c2782868f04396e8
   - name: rp1-base:kb-concept-extractor
     description: "Extracts domain concepts and terminology for concept_map.md from pre-filtered files"
     plugin: base
-    last_checksum: d710d7e5d5d63777b41de5f4c64fda577994f9a4a18a88d13c3f9379c98a7f06
+    last_checksum: 86dd178b5ca9dcb3f006a2790d52a20e7194a78531de2de3b35d6b326ec14c96
   - name: rp1-base:kb-index-builder
     description: "[DEPRECATED] Generates project overview data for index.md from pre-filtered files"
     plugin: base
-    last_checksum: 3998ad02e71360ec8c9375a7101e9fe2096c5712cb9d922bc67273f69d6f92bd
+    last_checksum: 73c0fd95ba8157582ed26bc344e9f626d5ba3a577cb889aa8a93a9e0cc7ea729
   - name: rp1-base:kb-interaction-mapper
     description: "Maps cross-surface interaction semantics for interaction-model.md from pre-filtered files"
     plugin: base
-    last_checksum: 0ed07df012ddba810d45fde3cf7c16037e277e5d2f3fc801e11a09791174a51f
+    last_checksum: 5b749180d1626ac769e4dc3f20b82db89bebec670943c1adcd71891d0c672ce6
   - name: rp1-base:kb-module-analyzer
     description: "Analyzes modules, components, and dependencies for modules.md from pre-filtered files"
     plugin: base
-    last_checksum: d0664b4910ba52562813ef48b8e623fd5a2d1d2729d7493be02d05e8c24a4129
+    last_checksum: 53070458cc0b07b531999b2d5d977de3b978004df895710ebb2ea6cea8a7225b
   - name: rp1-base:kb-pattern-extractor
     description: "Extracts implementation patterns and idioms for patterns.md from pre-filtered source files"
     plugin: base
-    last_checksum: b3b38c9d17e1f7ee2c8f07cc2ad2e1764590856ed0878ffe51b31fb49f7ffe89
+    last_checksum: c250cb1ad7f91af78eb83b49cdc8b8f6aaa90662db93904250c61feff5e09e3f
   - name: rp1-base:kb-spatial-analyzer
     description: "Scans repository files, ranks by importance (0-5), and categorizes them by KB section for parallel analysis"
     plugin: base
