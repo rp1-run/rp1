@@ -70,7 +70,7 @@ agents:
   - name: rp1-base:strategic-advisor
     description: "Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs"
     plugin: base
-    last_checksum: 23d3514b788f7910bec9b8a1095a5e175bafb9a5c6c96c1437ac7b7d2c5da7d6
+    last_checksum: a11c9873430a2fe09951700553adc9134ff42b3e9234c23bb3b2a0ffc59705aa
   - name: rp1-dev:blueprint-auditor
     description: "Audits PRD documents against implementation status and executes disposition actions"
     plugin: dev
@@ -86,7 +86,7 @@ agents:
   - name: rp1-dev:bug-investigator
     description: "Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes"
     plugin: dev
-    last_checksum: 8895b0926e49fbc2c66d6067fc6a5b781e7c6286815cc68eeb9cffa30152221c
+    last_checksum: 0e90a63aba9a6c2cb3576793e782999feeb9d6130d2cbba749727ff3fa5590a6
   - name: rp1-dev:build-artifact-detector
     description: "Determines workflow start_step by checking existing feature artifacts using bootstrap-provided run context"
     plugin: dev
