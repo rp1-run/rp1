@@ -183,7 +183,7 @@ Do not echo placeholder tokens.
 {% dispatch_agent "rp1-base:kb-concept-extractor", background %}
 Use the parent-computed inputs.
 
-- KB_ROOT: actual kbRoot value
+- KB_ROOT={kbRoot}
 - MODE: actual mode
 - REPO_TYPE: actual repo type
 - CONCEPT_FILES_JSON: actual JSON array
@@ -195,7 +195,7 @@ Use the parent-computed inputs.
 {% dispatch_agent "rp1-base:kb-architecture-mapper", background %}
 Use the parent-computed inputs.
 
-- KB_ROOT: actual kbRoot value
+- KB_ROOT={kbRoot}
 - MODE: actual mode
 - REPO_TYPE: actual repo type
 - ARCH_FILES_JSON: actual JSON array
@@ -207,7 +207,7 @@ Use the parent-computed inputs.
 {% dispatch_agent "rp1-base:kb-interaction-mapper", background %}
 Use the parent-computed inputs.
 
-- KB_ROOT: actual kbRoot value
+- KB_ROOT={kbRoot}
 - MODE: actual mode
 - REPO_TYPE: actual repo type
 - INTERACTION_FILES_JSON: actual JSON array
@@ -219,7 +219,7 @@ Use the parent-computed inputs.
 {% dispatch_agent "rp1-base:kb-module-analyzer", background %}
 Use the parent-computed inputs.
 
-- KB_ROOT: actual kbRoot value
+- KB_ROOT={kbRoot}
 - MODE: actual mode
 - REPO_TYPE: actual repo type
 - MODULE_FILES_JSON: actual JSON array
@@ -231,7 +231,7 @@ Use the parent-computed inputs.
 {% dispatch_agent "rp1-base:kb-pattern-extractor", background %}
 Use the parent-computed inputs.
 
-- KB_ROOT: actual kbRoot value
+- KB_ROOT={kbRoot}
 - MODE: actual mode
 - REPO_TYPE: actual repo type
 - PATTERN_FILES_JSON: actual JSON array

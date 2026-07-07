@@ -58,7 +58,7 @@ agents:
   - name: rp1-base:scribe
     description: "Dual-mode doc worker for scan/process batches. Returns JSON only."
     plugin: base
-    last_checksum: 4d50c2046c17797ca4b86fb1fdd363af9d45ba9961a0815cc7bc055b23c56f8f
+    last_checksum: 9e55629f0583f920533c457b9a6603ee81d6a7e6a4f95a080a0a25f59b3967ab
   - name: rp1-base:security-validator
     description: "Performs evidence-bounded, standards-mapped security posture assessment for a project, sub-directory, module, concept, or feature topic"
     plugin: base

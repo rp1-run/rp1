@@ -12,6 +12,12 @@ metadata:
   created: 2025-10-25
   updated: 2026-02-26
   author: cloud-on-prem/rp1
+  arguments:
+    - name: PROBLEM_STATEMENT
+      type: string
+      required: true
+      variadic: true
+      description: "The strategy question or system analysis request"
   sub_agents:
     - "rp1-base:strategic-advisor"
 ---
@@ -22,20 +28,14 @@ This command invokes the **strategic-advisor** sub-agent for holistic optimizati
 
 ## Directory Resolution
 
-Before dispatching, resolve the canonical project directories:
-
-```bash
-rp1 agent-tools rp1-root-dir
-```
-
-Parse the returned JSON to extract `kbRoot`.
+Use the pre-resolved `kbRoot` from the generated Resolve Arguments section. Pass it as `{kbRoot}` in the dispatch block below.
 
 ## Dispatch
 
-Invoke the strategic-advisor agent with the resolved KB path:
+Invoke the strategic-advisor agent with the user's problem statement and resolved KB path:
 
 {% dispatch_agent "rp1-base:strategic-advisor" %}
-KB_ROOT={kbRoot}
+PROBLEM_STATEMENT={PROBLEM_STATEMENT}, KB_ROOT={kbRoot}
 {% enddispatch_agent %}
 
 The agent will:

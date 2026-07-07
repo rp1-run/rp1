@@ -92,6 +92,8 @@ arguments:
 
 ### 1. Parse Inputs
 
+If `KB_INDEX_PATH` is empty, set `KB_INDEX_PATH = {KB_ROOT}/index.md`.
+
 Parse `FILES` as JSON array -> `FILE_LIST`.
 
 If `FILES` cannot be parsed or is not an array:
