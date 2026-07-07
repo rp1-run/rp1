@@ -58,7 +58,7 @@ agents:
   - name: rp1-base:scribe
     description: "Dual-mode doc worker for scan/process batches. Returns JSON only."
     plugin: base
-    last_checksum: 856a779694035edec613a7b159c0c700a3095216afdd60c03e359357b4c5e483
+    last_checksum: 4d50c2046c17797ca4b86fb1fdd363af9d45ba9961a0815cc7bc055b23c56f8f
   - name: rp1-base:security-validator
     description: "Performs evidence-bounded, standards-mapped security posture assessment for a project, sub-directory, module, concept, or feature topic"
     plugin: base
@@ -126,7 +126,7 @@ agents:
   - name: rp1-dev:feature-architect
     description: "Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester."
     plugin: dev
-    last_checksum: 5eaaf42ec03ab67de97b14a32e5c2802e8ab921c36e57843cab438dee83f2aae
+    last_checksum: e498c7a10724072cc28a4f78cf9dbc2bb9f5209ff76595c4dc65f1d0b6736d0c
   - name: rp1-dev:feature-archiver
     description: "Archives completed features to .rp1/work/archives/features/ or restores archived features back to active features directory"
     plugin: dev
