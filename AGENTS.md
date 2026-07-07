@@ -21,7 +21,7 @@ Use these prefixes exactly:
 Subagents generally cannot spawn other agents. If an agent is designed to run as a subagent:
 
 - Do not use SlashCommand to call other commands.
-- Do not invoke other skills for KB context; read `.rp1/context/` files directly (index.md first, then task-relevant files).
+- Do not invoke other skills for KB context; read KB files directly using the resolved `{KB_ROOT}` path (index.md first, then task-relevant files).
 - Inline only the prompt text or KB guidance the subagent actually needs.
 
 ### Codex task shorthand
@@ -99,24 +99,26 @@ The build pipeline automatically injects a `## 0. Resolve Arguments` section int
 
 #### Directory resolution
 
-All project directories are deterministic from the project root. The `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, and `RP1_WORK_ROOT` environment variables have been removed. Skills and agents should not declare them in `environment` schemas.
+Project directories are resolved at runtime based on the active storage mode. The `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, and `RP1_WORK_ROOT` environment variables have been removed. Skills and agents should not declare them in `environment` schemas.
 
 To discover project directories, use `rp1 agent-tools rp1-root-dir` which returns:
 
 - `projectRoot` -- the project root (directory containing `.rp1/project_id`)
-- `kbRoot` -- always `<projectRoot>/.rp1/context`
-- `workRoot` -- always `<projectRoot>/.rp1/work`
+- `kbRoot` -- the knowledge base directory (respects active storage mode; defaults to `<projectRoot>/.rp1/context`)
+- `workRoot` -- the work artifacts directory (respects active storage mode; defaults to `<projectRoot>/.rp1/work`)
+
+When referencing KB or work directories in agent and skill prompts, use the resolved variables `{kbRoot}` and `{workRoot}` (in skills) or `{KB_ROOT}` and `{WORK_ROOT}` (in agent arguments). Do not hardcode literal `.rp1/context` or `.rp1/work` paths -- these may not resolve correctly when a non-default storage mode is active.
 
 #### Path interpolation
 
-When referencing paths in prompts, use relative paths from the project root:
+When referencing KB or work paths in prompts, use the resolved directory variables, not literal paths:
 
 ```markdown
-.rp1/context/index.md
-.rp1/work/features/{FEATURE_ID}/
+{kbRoot}/index.md
+{workRoot}/features/{FEATURE_ID}/
 ```
 
-Do not use `${}` shell parameter expansion in Bash snippets intended for Claude Code.
+Skills use `{kbRoot}` and `{workRoot}` from `resolve-args` output. Agents use `{KB_ROOT}` and `{WORK_ROOT}` from their declared arguments. Do not use `${}` shell parameter expansion in Bash snippets intended for Claude Code.
 
 ### Artifact Path Contract
 
