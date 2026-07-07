@@ -38,6 +38,10 @@ arguments:
     required: false
     default: ""
     description: "Feature context JSON for FEATURE_LEARNING mode"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Knowledge base root directory"
 ---
 
 # KB Pattern Extractor - Implementation Idiom Mapping
@@ -74,7 +78,7 @@ $6
 
 **Check for existing patterns.md**:
 
-- Check if `.rp1/context/patterns.md` exists
+- Check if `{KB_ROOT}/patterns.md` exists
 - If exists, read to understand current pattern documentation
 - Use as baseline for refinement in INCREMENTAL mode
 

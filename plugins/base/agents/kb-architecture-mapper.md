@@ -38,6 +38,10 @@ arguments:
     required: false
     default: ""
     description: "Feature context JSON for FEATURE_LEARNING mode"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Knowledge base root directory"
 ---
 
 # KB Architecture Mapper - System Architecture Analysis
@@ -74,7 +78,7 @@ $6
 
 **Check for existing architecture.md**:
 
-- Check if `.rp1/context/architecture.md` exists
+- Check if `{KB_ROOT}/architecture.md` exists
 - If exists, read the file to understand current architectural knowledge
 - Extract existing patterns, layers, integrations, and diagrams
 - Use as baseline context for analysis
@@ -333,8 +337,8 @@ Map data flow and state:
 
 **For rp1 example**:
 
-- State stored in `.rp1/context/state.json`
-- KB files generated in `.rp1/context/*.md`
+- State stored in `{KB_ROOT}/state.json`
+- KB files generated in `{KB_ROOT}/*.md`
 - State updated after each KB generation
 
 **Output Format**:
@@ -343,7 +347,7 @@ Map data flow and state:
 {
   "state_management": {
     "strategy": "File-based state with JSON metadata",
-    "location": ".rp1/context/state.json",
+    "location": "{KB_ROOT}/state.json",
     "lifecycle": "Generated after KB build, used for incremental updates"
   },
   "data_flows": [

@@ -39,6 +39,10 @@ arguments:
       - "FULL"
       - "INCREMENTAL"
       - "FEATURE_LEARNING"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Knowledge base root directory"
 ---
 
 # KB Index Builder - Project Overview Generation
@@ -87,7 +91,7 @@ $5
 
 **Check for existing index.md**:
 
-- Check if `.rp1/context/index.md` exists
+- Check if `{KB_ROOT}/index.md` exists
 - If exists, read the file to understand current KB state
 - Extract existing project information, structure, and insights
 - Use as baseline context for analysis
