@@ -22,6 +22,7 @@ import {
 	parseError,
 	runtimeError,
 } from "../../../shared/errors.js";
+import { computeDirectoryPaths } from "../../../shared/storage-mode.js";
 import type {
 	ArgumentDefinition,
 	EnvironmentDefinition,
@@ -412,12 +413,17 @@ export const resolveImpliesChains = (
 
 const buildFallbackDirectories = (projectRoot: string): ResolvedDirectories => {
 	const resolvedProjectRoot = path.resolve(projectRoot);
+	const { kbRoot, workRoot } = computeDirectoryPaths(
+		resolvedProjectRoot,
+		undefined,
+		"local",
+	);
 
 	return {
 		projectRoot: resolvedProjectRoot,
 		projectId: undefined,
-		kbRoot: path.join(resolvedProjectRoot, ".rp1", "context"),
-		workRoot: path.join(resolvedProjectRoot, ".rp1", "work"),
+		kbRoot,
+		workRoot,
 		codeRoot: resolvedProjectRoot,
 		isWorktree: false,
 		status: "uninitialized",

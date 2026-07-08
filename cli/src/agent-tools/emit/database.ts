@@ -32,6 +32,7 @@ import {
 	isNamespacedLifecycleStep,
 } from "../../../shared/logical-step.js";
 import { readProjectId } from "../../../shared/project-id.js";
+import { computeDirectoryPaths } from "../../../shared/storage-mode.js";
 
 /** Current schema version. Bump when adding migrations. */
 export const LATEST_SCHEMA_VERSION = 18;
@@ -675,10 +676,10 @@ const NON_TERMINAL_STATUSES = new Set<Status>([
 ]);
 
 const defaultKbRoot = (projectRoot: string): string =>
-	join(projectRoot, ".rp1", "context");
+	computeDirectoryPaths(projectRoot, undefined, "local").kbRoot;
 
 const defaultWorkRoot = (projectRoot: string): string =>
-	join(projectRoot, ".rp1", "work");
+	computeDirectoryPaths(projectRoot, undefined, "local").workRoot;
 
 const getLegacyWorkDir = (projectRoot: string): string =>
 	join(resolve(projectRoot), ".rp1", "work");
