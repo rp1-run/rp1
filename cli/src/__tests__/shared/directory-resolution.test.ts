@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { mkdir, realpath, rm, symlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
+import { resetContainerDetectionCache } from "../../../shared/storage-mode.js";
 import {
 	createInitialCommit,
 	createTestWorktree,
@@ -21,6 +22,7 @@ describe("directory resolution", () => {
 	let linkedWorktreePath: string;
 	let gitRepoWithoutRp1: string;
 	let plainDirectory: string;
+	let centralProject: string;
 	let originalRp1ProjectRoot: string | undefined;
 	let originalRp1Root: string | undefined;
 	let originalRp1KbRoot: string | undefined;
@@ -72,6 +74,18 @@ describe("directory resolution", () => {
 
 		plainDirectory = join(tempBase, "plain-directory");
 		await mkdir(plainDirectory, { recursive: true });
+
+		centralProject = join(tempBase, "project-central");
+		await mkdir(join(centralProject, ".rp1"), { recursive: true });
+		writeFileSync(
+			join(centralProject, ".rp1", "project_id"),
+			"cc0e8400-e29b-41d4-a716-446655440000",
+		);
+		await writeFixture(
+			centralProject,
+			".rp1/settings.toml",
+			'[storage]\nmode = "central"',
+		);
 	});
 
 	afterAll(async () => {
@@ -96,6 +110,7 @@ describe("directory resolution", () => {
 			process.env.RP1_WORK_ROOT = originalRp1WorkRoot;
 		}
 
+		resetContainerDetectionCache();
 		await removeTestWorktree(worktreeMainRoot, linkedWorktreePath, true);
 		await rm(tempBase, { recursive: true, force: true });
 	});
@@ -392,5 +407,105 @@ describe("directory resolution", () => {
 
 		expect(result.right.kbRoot).toBe(join(projectRoot, ".rp1", "context"));
 		expect(result.right.workRoot).toBe(join(projectRoot, ".rp1", "work"));
+	});
+
+	describe("storage mode resolution", () => {
+		test("resolves central-mode paths when storage mode is central", () => {
+			resetContainerDetectionCache();
+			const result = resolveDirectorySet(centralProject);
+			expect(E.isRight(result)).toBe(true);
+			if (E.isLeft(result)) return;
+
+			const home = homedir();
+			expect(result.right.kbRoot).toBe(
+				join(
+					home,
+					".rp1",
+					"projects",
+					"cc0e8400-e29b-41d4-a716-446655440000",
+					"context",
+				),
+			);
+			expect(result.right.workRoot).toBe(
+				join(
+					home,
+					".rp1",
+					"projects",
+					"cc0e8400-e29b-41d4-a716-446655440000",
+					"work",
+				),
+			);
+			expect(result.right.storageMode).toBe("central");
+			expect(result.right.projectRoot).toBe(centralProject);
+		});
+
+		test("container environment overrides central to local silently", () => {
+			resetContainerDetectionCache();
+			const origCodespaces = process.env.CODESPACES;
+			process.env.CODESPACES = "true";
+
+			const origWarn = console.warn;
+			const warnings: string[] = [];
+			console.warn = (...args: unknown[]) => {
+				warnings.push(String(args[0]));
+			};
+
+			try {
+				const result = resolveDirectorySet(centralProject);
+				expect(E.isRight(result)).toBe(true);
+				if (E.isLeft(result)) return;
+
+				expect(result.right.kbRoot).toBe(
+					join(centralProject, ".rp1", "context"),
+				);
+				expect(result.right.workRoot).toBe(
+					join(centralProject, ".rp1", "work"),
+				);
+				expect(result.right.storageMode).toBe("local");
+				expect(warnings.filter((w) => w.includes("container"))).toHaveLength(0);
+			} finally {
+				console.warn = origWarn;
+				if (origCodespaces === undefined) {
+					delete process.env.CODESPACES;
+				} else {
+					process.env.CODESPACES = origCodespaces;
+				}
+				resetContainerDetectionCache();
+			}
+		});
+
+		test("includes storageMode: local for default projects", () => {
+			resetContainerDetectionCache();
+			const result = resolveDirectorySet(nestedPath);
+			expect(E.isRight(result)).toBe(true);
+			if (E.isLeft(result)) return;
+
+			expect(result.right.storageMode).toBe("local");
+		});
+
+		test("central mode degrades to local when project_id is missing", async () => {
+			resetContainerDetectionCache();
+			const noIdProject = join(centralProject, "..", "project-central-no-id");
+			await mkdir(join(noIdProject, ".rp1"), { recursive: true });
+			await writeFixture(
+				noIdProject,
+				".rp1/settings.toml",
+				'[storage]\nmode = "central"',
+			);
+
+			const origWarn = console.warn;
+			console.warn = () => {};
+
+			try {
+				const result = resolveDirectorySet(noIdProject);
+				expect(E.isRight(result)).toBe(true);
+				if (E.isLeft(result)) return;
+
+				expect(result.right.kbRoot).toBe(join(noIdProject, ".rp1", "context"));
+				expect(result.right.workRoot).toBe(join(noIdProject, ".rp1", "work"));
+			} finally {
+				console.warn = origWarn;
+			}
+		});
 	});
 });

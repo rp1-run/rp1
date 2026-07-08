@@ -6,6 +6,12 @@ import * as E from "fp-ts/lib/Either.js";
 import type { CLIError } from "./errors.js";
 import { notFoundError } from "./errors.js";
 import { PROJECT_ID_FILENAME, readProjectId } from "./project-id.js";
+import type { StorageMode } from "./storage-mode.js";
+import {
+	computeDirectoryPaths,
+	isContainerEnvironment,
+	readStorageMode,
+} from "./storage-mode.js";
 
 export type ProjectRootSource = "walk_up" | "git_common_dir";
 
@@ -17,6 +23,7 @@ export interface ResolvedDirectorySet {
 	readonly codeRoot: string;
 	readonly isWorktree: boolean;
 	readonly worktreeName?: string;
+	readonly storageMode: StorageMode;
 }
 
 export interface DirectoryResolutionOptions {
@@ -184,23 +191,35 @@ const normalizeProjectKey = (projectRoot: string): string => {
 
 export { normalizeProjectKey };
 
+const resolveEffectiveMode = (projectRoot: string): StorageMode => {
+	if (isContainerEnvironment()) return "local";
+	return readStorageMode(projectRoot);
+};
+
 const buildDirectorySet = (params: {
 	projectRoot: string;
 	codeRoot: string;
 	isWorktree: boolean;
 	worktreeName?: string;
+	storageMode: StorageMode;
 }): ResolvedDirectorySet => {
 	const projectRoot = path.resolve(params.projectRoot);
 	const projectId = readProjectId(projectRoot);
+	const { kbRoot, workRoot } = computeDirectoryPaths(
+		projectRoot,
+		projectId,
+		params.storageMode,
+	);
 
 	return {
 		projectRoot,
 		projectId,
-		kbRoot: path.join(projectRoot, ".rp1", "context"),
-		workRoot: path.join(projectRoot, ".rp1", "work"),
+		kbRoot,
+		workRoot,
 		codeRoot: path.resolve(params.codeRoot),
 		isWorktree: params.isWorktree,
 		worktreeName: params.worktreeName,
+		storageMode: params.storageMode,
 	};
 };
 
@@ -249,6 +268,7 @@ export const resolveDirectorySet = (
 						codeRoot: gitContext.topLevel,
 						isWorktree: true,
 						worktreeName: gitContext.branch,
+						storageMode: resolveEffectiveMode(commonDirProjectRoot),
 					}),
 				);
 			}
@@ -269,6 +289,7 @@ export const resolveDirectorySet = (
 				projectRoot: walkedResult.root,
 				codeRoot: walkedResult.root,
 				isWorktree: false,
+				storageMode: resolveEffectiveMode(walkedResult.root),
 			}),
 		);
 	}
