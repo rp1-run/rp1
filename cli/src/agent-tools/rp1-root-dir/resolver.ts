@@ -30,6 +30,7 @@ export const resolveRp1Root = (
 					codeRoot: directories.codeRoot,
 					isWorktree: directories.isWorktree,
 					worktreeName: directories.worktreeName,
+					storageMode: directories.storageMode,
 				}),
 			),
 		),

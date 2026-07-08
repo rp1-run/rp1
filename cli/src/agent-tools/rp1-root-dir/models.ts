@@ -1,3 +1,5 @@
+import type { StorageMode } from "../../../shared/storage-mode.js";
+
 export interface Rp1RootResult {
 	readonly projectRoot: string;
 	readonly projectId: string | undefined;
@@ -6,4 +8,5 @@ export interface Rp1RootResult {
 	readonly codeRoot: string;
 	readonly isWorktree: boolean;
 	readonly worktreeName?: string;
+	readonly storageMode: StorageMode;
 }
