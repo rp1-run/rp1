@@ -3,6 +3,10 @@ import {
 	resolveGlobalSettingsPath,
 	resolveLocalSettingsPath,
 } from "../../shared/settings.js";
+import {
+	type StorageMode,
+	VALID_STORAGE_MODES,
+} from "../../shared/storage-mode.js";
 import { VALID_MODEL_TIERS } from "../build/models.js";
 import type { BuildPlatform } from "../build/template-context.js";
 import type { PlatformTierMap, TierRemappingConfig } from "./models.js";
@@ -35,9 +39,14 @@ type ParsedArcadeSection = Readonly<{
 	downsampling?: Readonly<{ thresholdHours?: number }>;
 }>;
 
+/** Parsed storage section from a single settings file (partial -- keys may be absent). */
+type ParsedStorageSection = Readonly<{
+	mode?: StorageMode;
+}>;
+
 type ParsedSettingsFile = Readonly<{
 	arguments: SettingsArgumentDefaults;
-	directories: Record<string, never>;
+	storage: ParsedStorageSection;
 	models: ParsedModelsSection;
 	arcade: ParsedArcadeSection;
 }>;
@@ -166,6 +175,28 @@ const parseArcadeSection = (
 	return result;
 };
 
+/**
+ * Extract the storage section from parsed TOML.
+ * Returns only validated fields; invalid values are omitted so the default (local) applies.
+ */
+const parseStorageSection = (
+	parsed: Record<string, unknown>,
+): ParsedStorageSection => {
+	const storageSection = parsed.storage;
+	if (!isPlainRecord(storageSection)) {
+		return {};
+	}
+
+	if (
+		typeof storageSection.mode === "string" &&
+		(VALID_STORAGE_MODES as readonly string[]).includes(storageSection.mode)
+	) {
+		return { mode: storageSection.mode as StorageMode };
+	}
+
+	return {};
+};
+
 const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 	const cached = settingsCache.get(filePath);
 	if (cached) {
@@ -175,7 +206,7 @@ const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 	if (!existsSync(filePath)) {
 		const empty: ParsedSettingsFile = {
 			arguments: {},
-			directories: {},
+			storage: {},
 			models: { platforms: {} },
 			arcade: {},
 		};
@@ -214,10 +245,11 @@ const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 
 		const models = parseModelsSection(parsed);
 		const arcade = parseArcadeSection(parsed);
+		const storage = parseStorageSection(parsed);
 
 		const result: ParsedSettingsFile = {
 			arguments: argumentDefaults,
-			directories: {},
+			storage,
 			models,
 			arcade,
 		};
@@ -226,7 +258,7 @@ const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 	} catch {
 		const empty: ParsedSettingsFile = {
 			arguments: {},
-			directories: {},
+			storage: {},
 			models: { platforms: {} },
 			arcade: {},
 		};
@@ -423,4 +455,34 @@ export const loadArcadeSettings = async (
 		theme,
 		downsampling: { thresholdHours },
 	};
+};
+
+/**
+ * Load the `[storage]` section from a single settings file.
+ * Returns the parsed storage section when present, or an empty structure.
+ */
+const loadStorageFromFile = (filePath: string): ParsedStorageSection => {
+	return parseSettingsFileStrict(filePath).storage;
+};
+
+/**
+ * Load storage mode from both project-level and user-level settings files,
+ * applying two-level merge (project overrides user) with "local" as default.
+ *
+ * @param projectRoot - Project root directory (contains `.rp1/`)
+ * @param globalSettingsPath - Override path to user-level settings file (defaults to ~/.config/rp1/settings.toml). Exposed for test isolation.
+ * @returns Resolved StorageMode ("local" or "central")
+ */
+export const loadStorageMode = async (
+	projectRoot: string,
+	globalSettingsPath?: string,
+): Promise<StorageMode> => {
+	const projectStorage = loadStorageFromFile(
+		resolveLocalSettingsPath(projectRoot),
+	);
+	const userStorage = loadStorageFromFile(
+		globalSettingsPath ?? resolveGlobalSettingsPath(),
+	);
+
+	return projectStorage.mode ?? userStorage.mode ?? "local";
 };
