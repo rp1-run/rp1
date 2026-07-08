@@ -295,6 +295,8 @@ export interface ResumeRunInput {
 	readonly flow: string;
 	readonly featureId: string;
 	readonly projectPath: string;
+	readonly projectId?: string;
+	readonly rp1ProjectRoot?: string;
 }
 
 /** Result of a find-or-create run operation */
@@ -1747,12 +1749,20 @@ export const findOrCreateRun = (
 	db: Database,
 	input: ResumeRunInput,
 ): ResumeRunResult => {
+	const directories = resolveRunDirectories({
+		projectPath: input.projectPath,
+		rp1ProjectRoot: input.rp1ProjectRoot,
+		projectId: input.projectId,
+	});
+	const projectId = directories.projectId ?? null;
+	const rp1ProjectRoot = directories.rp1ProjectRoot;
+
 	const existing = db
 		.prepare(
 			`SELECT * FROM runs
 			 WHERE feature_id = ?
 			   AND flow = ?
-			   AND project_path = ?
+			   AND (project_id = ? OR (project_id IS NULL AND rp1_project_root = ?))
 			   AND status NOT IN (${NON_RESUMABLE_RUN_STATUS_PLACEHOLDERS})
 			 ORDER BY created_at DESC
 			 LIMIT 1`,
@@ -1760,7 +1770,8 @@ export const findOrCreateRun = (
 		.get(
 			input.featureId,
 			input.flow,
-			input.projectPath,
+			projectId,
+			rp1ProjectRoot,
 			...NON_RESUMABLE_RUN_STATUSES,
 		) as RunRow | null;
 
@@ -1773,14 +1784,15 @@ export const findOrCreateRun = (
 			`SELECT * FROM runs
 			 WHERE feature_id = ?
 			   AND flow = 'unknown'
-			   AND project_path = ?
+			   AND (project_id = ? OR (project_id IS NULL AND rp1_project_root = ?))
 			   AND status NOT IN (${NON_RESUMABLE_RUN_STATUS_PLACEHOLDERS})
 			 ORDER BY created_at DESC
 			 LIMIT 1`,
 		)
 		.get(
 			input.featureId,
-			input.projectPath,
+			projectId,
+			rp1ProjectRoot,
 			...NON_RESUMABLE_RUN_STATUSES,
 		) as RunRow | null;
 
@@ -1795,7 +1807,6 @@ export const findOrCreateRun = (
 	}
 
 	const newId = crypto.randomUUID();
-	const directories = resolveRunDirectories({ projectPath: input.projectPath });
 	db.prepare(
 		`INSERT INTO runs (
 		    id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root,
@@ -1810,10 +1821,10 @@ export const findOrCreateRun = (
 		$flow: input.flow,
 		$featureId: input.featureId,
 		$projectPath: input.projectPath,
-		$rp1ProjectRoot: directories.rp1ProjectRoot,
+		$rp1ProjectRoot: rp1ProjectRoot,
 		$rp1KbRoot: directories.rp1KbRoot,
 		$rp1WorkRoot: directories.rp1WorkRoot,
-		$projectId: directories.projectId ?? null,
+		$projectId: projectId,
 	});
 
 	return { runId: newId, resumed: false };
@@ -2564,13 +2575,11 @@ const appendRunActivitySearchScopeConditions = (
 		values.push(opts.projectId);
 	}
 	if (opts.projectRoot != null) {
-		conditions.push("COALESCE(runs.rp1_project_root, runs.project_path) = ?");
+		conditions.push("runs.rp1_project_root = ?");
 		values.push(opts.projectRoot);
 	} else if (opts.projectRoots != null && opts.projectRoots.length > 0) {
 		const placeholders = opts.projectRoots.map(() => "?").join(", ");
-		conditions.push(
-			`COALESCE(runs.rp1_project_root, runs.project_path) IN (${placeholders})`,
-		);
+		conditions.push(`runs.rp1_project_root IN (${placeholders})`);
 		values.push(...opts.projectRoots);
 	}
 	if (opts.status != null) {
@@ -2877,13 +2886,11 @@ export const listRuns = (
 		conditions.push("project_id = ?");
 		filterValues.push(opts.projectId);
 	} else if (opts.projectPath != null) {
-		conditions.push("COALESCE(rp1_project_root, project_path) = ?");
+		conditions.push("rp1_project_root = ?");
 		filterValues.push(opts.projectPath);
 	} else if (opts.projectPaths != null && opts.projectPaths.length > 0) {
 		const placeholders = opts.projectPaths.map(() => "?").join(", ");
-		conditions.push(
-			`COALESCE(rp1_project_root, project_path) IN (${placeholders})`,
-		);
+		conditions.push(`rp1_project_root IN (${placeholders})`);
 		filterValues.push(...opts.projectPaths);
 	}
 	if (opts.status != null) {
@@ -3503,12 +3510,12 @@ export const getProjectRunStats = (
 
 	const rows = db
 		.prepare(
-			`SELECT COALESCE(rp1_project_root, project_path) as effective_project_path,
+			`SELECT rp1_project_root as effective_project_path,
 			        COUNT(*) as run_count,
 			        MAX(updated_at) as last_activity_at
 			 FROM runs
-			 WHERE COALESCE(rp1_project_root, project_path) IN (${placeholders})
-			 GROUP BY COALESCE(rp1_project_root, project_path)`,
+			 WHERE rp1_project_root IN (${placeholders})
+			 GROUP BY rp1_project_root`,
 		)
 		.all(...projectPaths) as {
 		effective_project_path: string;
@@ -3526,6 +3533,52 @@ export const getProjectRunStats = (
 	for (const path of projectPaths) {
 		if (!result.has(path)) {
 			result.set(path, { runCount: 0, lastActivityAt: null });
+		}
+	}
+
+	return result;
+};
+
+/**
+ * Get run statistics per project_id: run count and last activity timestamp.
+ */
+export const getProjectRunStatsByIds = (
+	db: Database,
+	projectIds: string[],
+): Map<string, ProjectRunStats> => {
+	const result = new Map<string, ProjectRunStats>();
+
+	if (projectIds.length === 0) {
+		return result;
+	}
+
+	const placeholders = projectIds.map(() => "?").join(", ");
+
+	const rows = db
+		.prepare(
+			`SELECT project_id,
+			        COUNT(*) as run_count,
+			        MAX(updated_at) as last_activity_at
+			 FROM runs
+			 WHERE project_id IN (${placeholders})
+			 GROUP BY project_id`,
+		)
+		.all(...projectIds) as {
+		project_id: string;
+		run_count: number;
+		last_activity_at: string | null;
+	}[];
+
+	for (const row of rows) {
+		result.set(row.project_id, {
+			runCount: row.run_count,
+			lastActivityAt: row.last_activity_at,
+		});
+	}
+
+	for (const id of projectIds) {
+		if (!result.has(id)) {
+			result.set(id, { runCount: 0, lastActivityAt: null });
 		}
 	}
 
