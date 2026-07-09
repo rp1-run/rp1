@@ -244,6 +244,7 @@ export type StepId =
 	| "directory-setup"
 	| "settings-setup"
 	| "tool-detection"
+	| "harness-selection"
 	| "instruction-injection"
 	| "gitignore-config"
 	| "install-check"
@@ -271,6 +272,8 @@ export interface UserChoices {
 	readonly reinitChoice?: ReinitChoice;
 	/** Selected gitignore preset */
 	readonly gitignorePreset?: GitignorePreset;
+	/** Selected harnesses from the harness-selection wizard step */
+	readonly enabledHarnesses?: readonly string[];
 }
 
 /**

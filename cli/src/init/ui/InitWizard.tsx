@@ -7,7 +7,7 @@
 
 import { Box, Text, useApp } from "ink";
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CLIError } from "../../../shared/errors.js";
 import type { ToolsRegistry } from "../../config/supported-tools.js";
 import type {
@@ -16,7 +16,12 @@ import type {
 	StepId,
 	UserChoices,
 } from "../models.js";
+import {
+	buildHarnessItems,
+	resolveDefaultSelection,
+} from "../steps/harness-selection.js";
 import { FinalSummary } from "./components/FinalSummary.js";
+import { MultiSelectPrompt } from "./components/MultiSelectPrompt.js";
 import {
 	ancestorProjectOptions,
 	gitignorePresetOptions,
@@ -52,6 +57,7 @@ type PromptType =
 	| "reinit"
 	| "gitignore"
 	| "ancestor-project"
+	| "harness-selection"
 	| null;
 
 /**
@@ -70,6 +76,7 @@ const PROMPTABLE_STEPS: Record<StepId, PromptType> = {
 	"directory-setup": null,
 	"settings-setup": null, // Settings files are created automatically, no prompt needed
 	"tool-detection": null,
+	"harness-selection": null, // Handled by step execution via onPromptRequest
 	"instruction-injection": null,
 	"gitignore-config": "gitignore", // Conditionally shown - see needsPrompt
 	"install-check": null,
@@ -114,7 +121,12 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 
 	const handlePromptRequest = useCallback(
 		(request: {
-			type: "git-root" | "reinit" | "gitignore" | "ancestor-project";
+			type:
+				| "git-root"
+				| "reinit"
+				| "gitignore"
+				| "ancestor-project"
+				| "harness-selection";
 			cwd?: string;
 			ancestorRoot?: string;
 		}) => {
@@ -172,6 +184,22 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 	);
 
 	/**
+	 * Handle multi-select submission from harness selection.
+	 */
+	const handleHarnessChoice = useCallback(
+		(selected: string[]) => {
+			dispatch({
+				type: "SET_USER_CHOICE",
+				key: "enabledHarnesses",
+				value: selected,
+			});
+			setActivePrompt(null);
+			dispatch({ type: "SET_PHASE", phase: "running" });
+		},
+		[dispatch],
+	);
+
+	/**
 	 * Handle user choice from SelectPrompt.
 	 */
 	const handleChoice = useCallback(
@@ -205,6 +233,16 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 			dispatch({ type: "SET_PHASE", phase: "running" });
 		},
 		[activePrompt, dispatch],
+	);
+
+	const harnessItems = useMemo(
+		() => buildHarnessItems(state.detectedTools),
+		[state.detectedTools],
+	);
+
+	const harnessDefaults = useMemo(
+		() => resolveDefaultSelection(harnessItems),
+		[harnessItems],
 	);
 
 	/**
@@ -476,6 +514,15 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 								value: "recommended" | "track_all" | "ignore_all",
 							) => void
 						}
+					/>
+				);
+			case "harness-selection":
+				return (
+					<MultiSelectPrompt
+						message="Which harnesses should receive rp1 support?"
+						items={harnessItems}
+						defaultSelected={harnessDefaults}
+						onSubmit={handleHarnessChoice}
 					/>
 				);
 			default:

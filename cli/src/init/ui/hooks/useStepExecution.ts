@@ -62,6 +62,11 @@ import {
 	validateShellFencing,
 	wrapWithShellFence,
 } from "../../shell-fence.js";
+import {
+	buildHarnessItems,
+	getStableDefaults,
+	writeHarnessSelection,
+} from "../../steps/harness-selection.js";
 import { performHealthCheck } from "../../steps/health-check.js";
 import { checkPluginsInstalled } from "../../steps/plugin-installation.js";
 import {
@@ -153,6 +158,7 @@ interface ExecutionContext {
 		ancestorProjectChoice?: "use-existing" | "create-nested";
 		reinitChoice?: ReinitChoice;
 		gitignorePreset?: GitignorePreset;
+		enabledHarnesses?: readonly string[];
 	};
 }
 
@@ -161,7 +167,12 @@ interface ExecutionContext {
  * When a step needs user input, it sets this in the context.
  */
 export interface PromptRequest {
-	readonly type: "git-root" | "reinit" | "gitignore" | "ancestor-project";
+	readonly type:
+		| "git-root"
+		| "reinit"
+		| "gitignore"
+		| "ancestor-project"
+		| "harness-selection";
 	readonly resolve: (value: string) => void;
 	/** Current working directory (for git-root and ancestor-project prompts) */
 	readonly cwd?: string;
@@ -652,6 +663,84 @@ export const useStepExecution = ({
 	);
 
 	/**
+	 * Execute the harness-selection step.
+	 * In interactive mode, requests a multi-select prompt. In non-interactive
+	 * mode (--yes), auto-selects all stable harnesses.
+	 */
+	const executeHarnessSelection = useCallback(
+		async (addAct: AddActivityFn): Promise<void> => {
+			const ctx = contextRef.current;
+
+			if (
+				!ctx.toolDetectionResult ||
+				ctx.toolDetectionResult.detected.length === 0
+			) {
+				addAct("harness-selection", "Skipped (no tools detected)", "info");
+				dispatch({
+					type: "SKIP_STEP",
+					stepId: "harness-selection",
+					reason: "No AI tools detected",
+				});
+				return;
+			}
+
+			const items = buildHarnessItems(ctx.toolDetectionResult.detected);
+
+			if (items.length === 0) {
+				addAct("harness-selection", "Skipped (no enabled tools)", "info");
+				dispatch({
+					type: "SKIP_STEP",
+					stepId: "harness-selection",
+					reason: "No enabled tools",
+				});
+				return;
+			}
+
+			if (options.yes) {
+				// Non-interactive: select all stable harnesses
+				const stableIds = getStableDefaults(items);
+				addAct(
+					"harness-selection",
+					`Auto-selected ${stableIds.length} stable harness${stableIds.length === 1 ? "" : "es"}`,
+					"success",
+				);
+				writeHarnessSelection(stableIds);
+				dispatch({
+					type: "SET_USER_CHOICE",
+					key: "enabledHarnesses",
+					value: stableIds,
+				});
+				return;
+			}
+
+			// Interactive mode: check if choice already made (re-execution after prompt)
+			const choice = state.userChoices.enabledHarnesses;
+			if (choice !== undefined) {
+				addAct(
+					"harness-selection",
+					`Selected ${choice.length} harness${choice.length === 1 ? "" : "es"}`,
+					"success",
+				);
+				writeHarnessSelection([...choice]);
+				return;
+			}
+
+			// Request multi-select prompt
+			promptRequestedRef.current = true;
+			onPromptRequest?.({
+				type: "harness-selection",
+				resolve: () => {},
+			});
+		},
+		[
+			dispatch,
+			options.yes,
+			state.userChoices.enabledHarnesses,
+			onPromptRequest,
+		],
+	);
+
+	/**
 	 * Inject into a single instruction file, optionally overriding the template.
 	 */
 	const injectIntoSingleFile = useCallback(
@@ -1127,6 +1216,9 @@ export const useStepExecution = ({
 					case "tool-detection":
 						await executeToolDetection(addAct);
 						break;
+					case "harness-selection":
+						await executeHarnessSelection(addAct);
+						break;
 					case "instruction-injection":
 						await executeInstructionInjection(addAct);
 						break;
@@ -1170,6 +1262,7 @@ export const useStepExecution = ({
 			executeDirectorySetup,
 			executeSettingsSetup,
 			executeToolDetection,
+			executeHarnessSelection,
 			executeInstructionInjection,
 			executeGitignoreConfig,
 			executeInstallCheck,

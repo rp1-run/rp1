@@ -8,8 +8,12 @@ import * as E from "fp-ts/lib/Either.js";
 import { formatError, getExitCode } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import { createSpinner } from "../../../shared/spinner.js";
-import { loadToolsRegistry } from "../../config/supported-tools.js";
+import {
+	getToolSupportLevel,
+	loadToolsRegistry,
+} from "../../config/supported-tools.js";
 import { colorFns } from "../../lib/colors.js";
+import { writeHarnessSelection } from "../../settings/harness-writer.js";
 import {
 	type InstallContext,
 	installAllDetectedTools,
@@ -69,6 +73,13 @@ Examples:
 		}
 
 		const installResult = result.right;
+
+		if (!ctx.dryRun) {
+			const stableIds = installResult.detected
+				.filter((d) => getToolSupportLevel(d.tool) === "stable")
+				.map((d) => d.tool.id);
+			writeHarnessSelection(stableIds);
+		}
 
 		// Display results
 		console.log("");

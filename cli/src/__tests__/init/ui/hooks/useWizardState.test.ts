@@ -104,6 +104,7 @@ describe("useWizardState", () => {
 				"git-check",
 				"reinit-check",
 				"tool-detection",
+				"harness-selection",
 				"install-check",
 				"directory-setup",
 				"settings-setup",
@@ -146,7 +147,7 @@ describe("useWizardState", () => {
 		});
 
 		test("returns last step for final index", () => {
-			const state = createTestState({ currentStepIndex: 10 });
+			const state = createTestState({ currentStepIndex: 11 });
 			const current = getCurrentStep(state);
 
 			expect(current?.id).toBe("summary");

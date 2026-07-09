@@ -8,6 +8,7 @@ import {
 	uninstallAntigravityPackageAssets,
 } from "../install/antigravity/index.js";
 import { colorFns } from "../lib/colors.js";
+import { syncHarnessSelectionRemove } from "../shared/install-core.js";
 
 const { bold, cyan, dim, green, yellow } = colorFns;
 
@@ -121,6 +122,10 @@ Examples:
 		if (E.isLeft(result)) {
 			console.error(formatError(result.left, process.stderr.isTTY ?? false));
 			process.exit(getExitCode(result.left));
+		}
+
+		if (!dryRun) {
+			syncHarnessSelectionRemove("antigravity");
 		}
 
 		printAntigravityUninstallResult(result.right, logger);

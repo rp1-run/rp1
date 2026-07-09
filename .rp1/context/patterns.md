@@ -1,13 +1,14 @@
 # Implementation Patterns
 
 **Project**: rp1
-**Last Updated**: 2026-07-03
+**Last Updated**: 2026-07-08
 
 ## Naming & Organization
 
 - Feature-scoped directories (`cli/src/commands/`, `cli/src/build/`, `cli/src/settings/`); prompt assets use kebab-case skill folders with `SKILL.md`.
 - CLI camelCase verbs; React hooks prefix `use`; error factories match their `_tag` (`usageError`, `runtimeError`).
 - Parameters UPPER_SNAKE_CASE (`/^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/`); relative TS imports keep `.js` suffixes; web-ui uses `@/`; CSS classes use `rp1-` prefix to avoid Tailwind collisions.
+- **Path variables (two-tier)**: skills reference project directories via `{kbRoot}`/`{workRoot}` (camelCase, from resolve-args/bootstrap); agents declare `KB_ROOT`/`WORK_ROOT` as UPPER_SNAKE frontmatter arguments. Dispatch blocks bridge the tiers with `KB_ROOT={kbRoot}` token syntax. Never hardcode literal `.rp1/context` or `.rp1/work` paths in prompts.
 
 ## Type & Data Modeling
 
@@ -30,6 +31,7 @@
 - **Additive-field propagation**: a new frontmatter field flows `parser → model interface → validator → tier-resolution → template context → Liquid templates` without breaking existing paths. Established for `arcadeTracked`; extended identically for `model` (ModelTier) and `effort` (EffortLevel).
 - Each definition validated field-by-field with early return on first error.
 - **Single-source validation sets**: settings validator imports shared helpers (`getValidModelIdsForPlatform`, `modelSupportsEffort`, `getPlatformsWithModelSupport`) from `tier-resolution.ts` — no separate allowlists; derive runtime sets from canonical maps (e.g. `TIER_KEYS` from `VALID_MODEL_TIERS`) instead of hand-copying.
+- **Build lint L014**: parameterized skills must not mention `rp1-root-dir` literally — directory resolution comes from the auto-injected Resolve Arguments section; the lint rule fails the build otherwise.
 
 ## Build Pipeline
 
@@ -37,6 +39,8 @@
 - **Install-time tier remapping (late binding)**: user `settings.toml` `[models]`/`[models.<platform>]` sections (or presets budget/standard/premium) drive `rp1 settings apply`: load → validate → discover agents from the embedded manifest → rewrite installed artifacts (CC YAML frontmatter, Codex TOML targeted line replacement) → report modified/already-current counts. `rp1 update` re-applies automatically. Idempotent: rewriter reports `modified=false` when target equals current.
 - **LiquidJS whitespace control (CRITICAL)**: production engine (`template-engine.ts`) uses `greedy:true`. Golden-file tests MUST replicate the identical config — config drift lets whitespace bugs ship undetected. Use `{%- endif %}` (no trailing dash) when a newline separator must survive. Gate optional fields on `model != "inherit"` / `effortValue` so opt-out output is byte-identical to legacy.
 - **Script entrypoint guard**: `cli/scripts/` executables wrap top-level execution in `if (import.meta.main)` so test imports of exported functions are side-effect-free.
+- **Migrate-integrated settings migration**: `migrateArcadeSettings` runs inside `executeMigrate()` (cli/src/migrate): detect legacy `settings.json` (global + project) → parse arcade fields with `VALID_ARCADE_THEMES` validation → write `[arcade]` via comment-preserving writer (idempotent, never overwrites existing keys) → rename source to `.migrated`. Dry-run detects without writing.
+- **Catalog checksums cover body content**: `catalog/agents.yaml` checksums hash agent body text, not just frontmatter — every prompt edit (even body-only) requires `just catalog-generate` with the regenerated catalog in the same commit.
 - **fp-ts pipeline**: `pipe(loadConfig, TE.fromEither, TE.chain(...))`; prefer clear `map`/`flatMap`/`isLeft` over abstractions.
 
 ## Observability
@@ -55,7 +59,7 @@
 - SQLite via `bun:sqlite` (runs, events, artifacts, annotations, notifications); upsert + source dedup.
 - Atomic writes via temp-file + rename (registry); PID file mode `0o600`.
 - `rp1 agent-tools emit` persists canonical events; daemon relays project-scoped WS envelopes. File artifacts keep `path`+`storageRoot`; URL artifacts register as `type: link` with deterministic identity (only curated run-output links).
-- **Directory-scoped I/O**: code edits resolve against `codeRoot` (worktree-aware); work/KB reads use `workRoot`/`kbRoot` (canonical `.rp1/`).
+- **Directory-scoped I/O**: code edits resolve against `codeRoot` (worktree-aware); work/KB reads use `workRoot`/`kbRoot` via `rp1-root-dir`, which respects the active storage mode — these paths may resolve outside the project tree when a non-default mode is configured.
 
 ## Concurrency & Async
 
@@ -65,7 +69,7 @@
 
 ## Dependency Injection & Configuration
 
-- **Optional-parameter seams**: `ApplyDeps` interface injects `readFile`/`writeFile`/`fileExists`/`refreshClaudeCodePlugins` with `DEFAULT_DEPS` production binding; `globalSettingsPath` threads through loader/apply for isolation.
+- **Optional-parameter seams**: `ApplyDeps` interface injects `readFile`/`writeFile`/`fileExists`/`refreshClaudeCodePlugins`/`getBundledAssets` with `DEFAULT_DEPS` production binding (imports `getBundledAssetsReal` explicitly to avoid a circular dependency); `globalSettingsPath` threads through loader/apply/migrate for isolation; `globalConfigDir` on `migrateArcadeSettings` isolates migration tests.
 - **TOML settings, two-level merge**: project `.rp1/settings.toml` > user `~/.config/rp1/settings.toml`, per key for `[arguments.*]`, `[models.*]`, and `[arcade]` sections; loader normalizes lower-kebab → UPPER_SNAKE for arguments. `[arcade]` section supports `theme` ("light"/"dark"/"system", default "system") and `[arcade.downsampling]` sub-table (`thresholdHours`, default 24); `loadArcadeSettings()` merges project over user with per-key granularity and returns typed `ArcadeSettings`. Blessed presets (`presets.ts`) provide complete tier-to-model profiles that explicit overrides supersede.
 
 ## Extension Mechanisms
