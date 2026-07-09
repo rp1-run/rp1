@@ -1,7 +1,7 @@
 # rp1 - Interaction Model
 
 **Project**: rp1
-**Analysis Date**: 2026-07-03
+**Analysis Date**: 2026-07-08
 **Surfaces**: CLI, Host Tool Integration, Arcade Web UI, Agent Tools CLI, Agent .md frontmatter, Settings Configuration, Reference Docs, Init Wizard
 
 ## Experience Principles
@@ -14,13 +14,14 @@
 - **Non-blocking degradation** — optional post-install steps (tier remapping re-apply, protected-agent warnings, cache refresh) log diagnostics but never interrupt the primary workflow.
 - **Attention-proportional notification** — notifications categorized by attention level with bulk dismiss.
 - **Progressive detail disclosure** — secondary metadata hidden by default, toggled via contextual commands, persisted in sessionStorage.
+- **Storage-mode transparency** — agents and skills reference KB/work directories via resolver variables (`{kbRoot}`/`{workRoot}` in skills; `{KB_ROOT}`/`{WORK_ROOT}` in agent arguments), never assuming physical locations; enables storage-mode redirection without prompt changes (lint L014 enforces).
 
 ## Actors & Surfaces
 
 | Actor | Goals | Surfaces |
 |-------|-------|----------|
 | End user | Execute workflows, monitor runs, review artifacts, give feedback, control model cost/capability trade-offs | CLI, Host Tool, Arcade, `settings.toml` |
-| Agent author | Set model tier + effort in agent frontmatter; get build-time validation feedback | Agent `.md` frontmatter, `rp1 build`, Agent Tools CLI |
+| Agent author | Set model tier + effort in agent frontmatter; declare `KB_ROOT`/`WORK_ROOT` argument variables; get build-time validation feedback | Agent `.md` frontmatter, `rp1 build`, Agent Tools CLI |
 | CI system | Validate/lint, produce JSON build output | `rp1 build --json --lint` |
 
 **Agent `.md` frontmatter**: authors set `model: frontier|deep|standard|fast|inherit` and optional `effort: low|medium|high|xhigh|max`. **Settings configuration** (`~/.config/rp1/settings.toml` user, `.rp1/settings.toml` project): users declare `[models]` presets or per-platform tier remappings that override build defaults without rebuilding.
@@ -37,6 +38,8 @@
 | settings_validation_error | Invalid TOML syntax or tier remapping semantics (bad preset, platform, model ID); `settings validate` exits 1 | CLI (`rp1 settings validate`) |
 | tier_remapping_applied | Agent artifacts rewritten per user mapping; count reported; idempotent re-run reports "already up to date" (distinct from "nothing matched") | CLI (`rp1 settings apply`, `rp1 update`) |
 | connection_status / annotation_status / notification_attention | Arcade live-update + feedback + triage signals | Arcade |
+| init step running / waiting_for_user / completed / failed / skipped | Init wizard step lifecycle; prompts (git-root, reinit, ancestor-project, gitignore preset) pause the step until the user chooses, then it re-executes | Init wizard UI, activity feed |
+| settings_created / settings_preserved | Init settings-setup created global/local `settings.toml` from template, or found existing files and left them untouched | Init wizard activity feed |
 
 ## Feedback Loops
 
@@ -46,7 +49,9 @@
 - **Notification lifecycle** — events produce deduplicated notifications; toasts auto-dismiss (6s); sidebar groups by attention.
 - **Build-time tier & effort validation** — `rp1 build` parses frontmatter → `validateAgentTierAndEffort` (errors halt with file+allowed values; warnings continue) → `resolveTier`/`resolveEffort` → platform-native config emitted.
 - **Settings tier remapping apply** — `rp1 settings apply` (or `rp1 update` auto-reapply) loads config/preset → validates semantics → discovers installed agents → rewrites model/effort fields → reports modified count + effort adjustments + protected-agent warnings. `--dry-run` previews.
+- **Storage-mode-aware directory resolution** — `rp1 agent-tools rp1-root-dir` returns `kbRoot`/`workRoot` respecting the active storage mode; skills receive resolved paths via workflow-bootstrap/resolve-args; agents receive them as dispatch arguments. Paths may resolve outside the project tree under non-default modes.
 - **Emit-driven run projection / snapshot reconciliation** — Arcade reduces events into `LiveRunIndex`, reconnects with saved cursor, falls back to REST when replay is impossible.
+- **Init wizard activity timeline** — `rp1 init` runs 11 ordered steps (registry → git-check → reinit-check → directory-setup → settings-setup → tool-detection → instruction-injection → gitignore-config → install-check → health-check → summary); each emits timestamped activities (info/success/warning/error). Plugin-install failures and health-check misses log as warnings, never fail the wizard. `--yes` applies non-interactive defaults; `--force-nested` bypasses the ancestor-project prompt.
 
 ## Cross-Surface Deltas
 
