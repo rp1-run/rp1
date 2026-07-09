@@ -23,12 +23,16 @@ interface PluginsSubcommandDeps {
 	readonly loadToolsRegistry: typeof loadToolsRegistry;
 	readonly installAllDetectedTools: typeof installAllDetectedTools;
 	readonly updateForSpecificTool: typeof updateForSpecificTool;
+	readonly detectTools: typeof detectTools;
+	readonly getEffectiveHarnesses: typeof getEffectiveHarnesses;
 }
 
 const defaultPluginsSubcommandDeps: PluginsSubcommandDeps = {
 	loadToolsRegistry,
 	installAllDetectedTools,
 	updateForSpecificTool,
+	detectTools,
+	getEffectiveHarnesses,
 };
 
 /**
@@ -246,7 +250,7 @@ Examples:
 			if (targetTool === "all") {
 				// Detect tools and filter to effective harnesses
 				console.log("Detecting installed tools...");
-				const detection = await detectTools(registry)();
+				const detection = await deps.detectTools(registry)();
 
 				if (E.isLeft(detection) || detection.right.detected.length === 0) {
 					console.log(
@@ -255,7 +259,7 @@ Examples:
 					process.exit(0);
 				}
 
-				const effective = getEffectiveHarnesses(detection.right);
+				const effective = deps.getEffectiveHarnesses(detection.right);
 
 				if (effective.length === 0) {
 					console.log(

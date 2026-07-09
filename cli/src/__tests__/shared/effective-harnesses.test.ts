@@ -2,7 +2,7 @@
  * Tests for getEffectiveHarnesses() -- harness selection filter for update/migrate.
  *
  * Regression targets:
- * - Absent [harnesses] enabled returns all detected stable (backward compat, REQ-006)
+ * - Absent [harnesses] enabled returns all detected stable (backward compat)
  * - Persisted selection filters to intersection of detected + selected
  * - Empty intersection returns empty array (no silent fallback)
  */
@@ -67,7 +67,7 @@ describe("getEffectiveHarnesses", () => {
 		return mod.getEffectiveHarnesses;
 	};
 
-	test("returns all detected stable when no selection persisted (REQ-006 backward compat)", async () => {
+	test("returns all detected stable when no selection persisted (backward compat)", async () => {
 		const getEffectiveHarnesses = await loadGetEffectiveHarnesses();
 
 		const detection: ToolDetectionResult = {
