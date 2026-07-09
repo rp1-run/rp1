@@ -57,6 +57,7 @@ import {
 import type { CopilotInstallResult } from "../install/copilot/models.js";
 import { writeVersionMarker } from "../install/version-marker.js";
 import { getInstalledVersion } from "../lib/version.js";
+import { loadEnabledHarnesses } from "../settings/loader.js";
 
 /**
  * Context for installation operations.
@@ -791,4 +792,34 @@ export const installForSpecificTool = (
 			return TE.right(result);
 		}),
 	);
+};
+
+/**
+ * Filter detected tools to only those the user has selected (persisted in settings.toml).
+ *
+ * When no `[harnesses] enabled` selection exists, falls back to all detected tools
+ * with stable support level -- preserving backward compatibility for pre-wizard users (REQ-006).
+ *
+ * When a selection exists, returns the intersection of detected tools and the
+ * enabled list (preserving detected-tools ordering). Explicitly selected experimental
+ * tools are included.
+ *
+ * @param detection - Result from detectTools()
+ * @param globalSettingsPath - Override for test isolation
+ * @returns Filtered array of DetectedTool entries
+ */
+export const getEffectiveHarnesses = (
+	detection: ToolDetectionResult,
+	globalSettingsPath?: string,
+): readonly DetectedTool[] => {
+	const enabled = loadEnabledHarnesses(globalSettingsPath);
+
+	if (enabled === undefined) {
+		return detection.detected.filter(
+			(d) => getToolSupportLevel(d.tool) === "stable",
+		);
+	}
+
+	const enabledSet = new Set(enabled);
+	return detection.detected.filter((d) => enabledSet.has(d.tool.id));
 };

@@ -8,8 +8,10 @@ import * as E from "fp-ts/lib/Either.js";
 import { formatError, getExitCode } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import { loadToolsRegistry } from "../../config/supported-tools.js";
+import { detectTools } from "../../init/tool-detector.js";
 import { getColorFns } from "../../lib/colors.js";
 import {
+	getEffectiveHarnesses,
 	type InstallAllResult,
 	type InstallContext,
 	installAllDetectedTools,
@@ -242,17 +244,55 @@ Examples:
 			let restartTargets: string[] = [];
 
 			if (targetTool === "all") {
-				// Update all detected tools
+				// Detect tools and filter to effective harnesses
 				console.log("Detecting installed tools...");
-				const result = await deps.installAllDetectedTools(registry, ctx)();
+				const detection = await detectTools(registry)();
 
-				if (E.isLeft(result)) {
-					console.error(formatError(result.left, isTTY));
-					process.exit(getExitCode(result.left));
+				if (E.isLeft(detection) || detection.right.detected.length === 0) {
+					console.log(
+						"No installed agentic tools detected. Nothing to update.",
+					);
+					process.exit(0);
 				}
 
-				formatUpdateAllResult(result.right, isTTY);
-				restartTargets = result.right.results
+				const effective = getEffectiveHarnesses(detection.right);
+
+				if (effective.length === 0) {
+					console.log(
+						"No enabled harnesses among detected tools. Nothing to update.",
+					);
+					process.exit(0);
+				}
+
+				const results: ToolInstallResult[] = [];
+				for (const tool of effective) {
+					const toolResult = await deps.updateForSpecificTool(
+						tool.tool.id,
+						registry,
+						ctx,
+					)();
+					if (E.isRight(toolResult)) {
+						results.push(toolResult.right);
+					} else {
+						results.push({
+							toolId: tool.tool.id,
+							toolName: tool.tool.name,
+							success: false,
+							pluginsInstalled: [],
+							warnings: [],
+							error: toolResult.left,
+						});
+					}
+				}
+
+				const allResult: InstallAllResult = {
+					installed: results.filter((r) => r.success).length,
+					results,
+					detected: effective,
+				};
+
+				formatUpdateAllResult(allResult, isTTY);
+				restartTargets = results
 					.filter(
 						(toolResult) =>
 							toolResult.success && toolResult.restartRequired !== false,
@@ -261,7 +301,7 @@ Examples:
 
 				// Exit with error if any failed
 				if (
-					result.right.results.some(
+					results.some(
 						(toolResult) => !toolResult.success && !toolResult.skipped,
 					)
 				) {

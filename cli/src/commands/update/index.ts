@@ -37,8 +37,11 @@ import {
 import { executeMigrate, formatMigrateSummary } from "../../migrate/index.js";
 import { applyTierRemappingsIfConfigured } from "../../settings/apply.js";
 import {
+	getEffectiveHarnesses,
+	type InstallAllResult,
 	type InstallContext,
-	installAllDetectedTools,
+	type ToolInstallResult,
+	updateForSpecificTool,
 } from "../../shared/install-core.js";
 import { formatUpdateAllResult, pluginsSubcommand } from "./plugins.js";
 import {
@@ -453,6 +456,22 @@ export const updateDetectedPlugins = async (
 		return { success: true, exitCode: 0 };
 	}
 
+	if (E.isLeft(detection)) {
+		console.log(dim("Tool detection failed. Skipping plugin refresh."));
+		return { success: true, exitCode: 0 };
+	}
+
+	const effective = getEffectiveHarnesses(detection.right);
+
+	if (effective.length === 0) {
+		console.log(
+			dim(
+				"No enabled harnesses among detected tools. Skipping plugin refresh.",
+			),
+		);
+		return { success: true, exitCode: 0 };
+	}
+
 	const ctx: InstallContext = {
 		logger,
 		isTTY,
@@ -460,24 +479,36 @@ export const updateDetectedPlugins = async (
 		skipPrompt: options.yes || !isTTY,
 	};
 
-	const result = await installAllDetectedTools(registry, ctx)();
-	if (E.isLeft(result)) {
-		console.error(formatError(result.left, isTTY));
-		console.log("");
-		console.log(
-			yellow(
-				bold("Plugin refresh failed, but the core rp1 update will continue."),
-			),
-		);
-		console.log(
-			dim("Repair the host tool, then run `rp1 update plugins` to retry."),
-		);
-		return { success: true, exitCode: 0 };
+	const results: ToolInstallResult[] = [];
+	for (const tool of effective) {
+		const toolResult = await updateForSpecificTool(
+			tool.tool.id,
+			registry,
+			ctx,
+		)();
+		if (E.isRight(toolResult)) {
+			results.push(toolResult.right);
+		} else {
+			results.push({
+				toolId: tool.tool.id,
+				toolName: tool.tool.name,
+				success: false,
+				pluginsInstalled: [],
+				warnings: [],
+				error: toolResult.left,
+			});
+		}
 	}
 
-	formatUpdateAllResult(result.right, isTTY);
+	const installAllResult: InstallAllResult = {
+		installed: results.filter((r) => r.success).length,
+		results,
+		detected: effective,
+	};
 
-	const failedResults = result.right.results.filter((tool) => !tool.success);
+	formatUpdateAllResult(installAllResult, isTTY);
+
+	const failedResults = results.filter((tool) => !tool.success);
 	if (failedResults.length > 0) {
 		console.log("");
 		console.log(
