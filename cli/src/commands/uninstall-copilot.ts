@@ -10,6 +10,7 @@ import type { Logger } from "../../shared/logger.js";
 import { confirmAction } from "../../shared/prompts.js";
 import { getCopilotPaths, uninstallCopilot } from "../install/copilot/index.js";
 import { colorFns } from "../lib/colors.js";
+import { syncHarnessSelectionRemove } from "../shared/install-core.js";
 
 const { bold, dim } = colorFns;
 
@@ -80,6 +81,10 @@ Examples:
 			agentsRemoved,
 			legacyConfigRemoved,
 		} = result.right;
+
+		if (!dryRun) {
+			syncHarnessSelectionRemove("copilot");
+		}
 
 		if (dryRun) {
 			console.log("");

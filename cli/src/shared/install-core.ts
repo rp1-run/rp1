@@ -57,6 +57,7 @@ import {
 import type { CopilotInstallResult } from "../install/copilot/models.js";
 import { writeVersionMarker } from "../install/version-marker.js";
 import { getInstalledVersion } from "../lib/version.js";
+import { writeHarnessSelection } from "../settings/harness-writer.js";
 import { loadEnabledHarnesses } from "../settings/loader.js";
 
 /**
@@ -773,6 +774,12 @@ export const installForSpecificTool = (
 					warnings: result.warnings,
 				}),
 			),
+			TE.chainFirst((result) => {
+				if (result.success && !ctx.dryRun) {
+					syncHarnessSelectionAdd(toolId);
+				}
+				return TE.right(undefined);
+			}),
 		);
 	}
 
@@ -791,14 +798,61 @@ export const installForSpecificTool = (
 			}
 			return TE.right(result);
 		}),
+		TE.chainFirst((result) => {
+			if (result.success && !ctx.dryRun) {
+				syncHarnessSelectionAdd(toolId);
+			}
+			return TE.right(undefined);
+		}),
 	);
+};
+
+/**
+ * Sync harness selection after install: add the tool ID to [harnesses] enabled.
+ * If no [harnesses] section exists yet, creates one with just this tool.
+ * No-op when the tool is already in the enabled list.
+ *
+ * @param toolId - Harness ID to add
+ * @param globalSettingsPath - Override for test isolation
+ */
+export const syncHarnessSelectionAdd = (
+	toolId: string,
+	globalSettingsPath?: string,
+): void => {
+	const enabled = loadEnabledHarnesses(globalSettingsPath);
+	if (enabled === undefined) {
+		writeHarnessSelection([toolId], globalSettingsPath);
+		return;
+	}
+	if (!enabled.includes(toolId)) {
+		writeHarnessSelection([...enabled, toolId], globalSettingsPath);
+	}
+};
+
+/**
+ * Sync harness selection after uninstall: remove the tool ID from [harnesses] enabled.
+ * No-op when no [harnesses] section exists or the tool is not in the list.
+ *
+ * @param toolId - Harness ID to remove
+ * @param globalSettingsPath - Override for test isolation
+ */
+export const syncHarnessSelectionRemove = (
+	toolId: string,
+	globalSettingsPath?: string,
+): void => {
+	const enabled = loadEnabledHarnesses(globalSettingsPath);
+	if (enabled === undefined) return;
+	const updated = enabled.filter((id) => id !== toolId);
+	if (updated.length !== enabled.length) {
+		writeHarnessSelection(updated, globalSettingsPath);
+	}
 };
 
 /**
  * Filter detected tools to only those the user has selected (persisted in settings.toml).
  *
  * When no `[harnesses] enabled` selection exists, falls back to all detected tools
- * with stable support level -- preserving backward compatibility for pre-wizard users (REQ-006).
+ * with stable support level -- preserving backward compatibility for pre-wizard users.
  *
  * When a selection exists, returns the intersection of detected tools and the
  * enabled list (preserving detected-tools ordering). Explicitly selected experimental
