@@ -100,6 +100,15 @@ describe("rp1-root-dir resolver", () => {
 			expect(result.workRoot).toBe(join(standardRepoRoot, ".rp1", "work"));
 			expect(result.codeRoot).toBe(standardRepoRoot);
 			expect(result.worktreeName).toBeUndefined();
+			expect(result.storageMode).toBe("local");
+		});
+
+		test("includes storageMode in output for agent and bootstrap consumers", async () => {
+			const result = await expectTaskRight(resolveRp1Root(standardRepoRoot));
+
+			expect(result.storageMode).toBeDefined();
+			expect(typeof result.storageMode).toBe("string");
+			expect(["local", "central"]).toContain(result.storageMode);
 		});
 
 		test("returns correct projectRoot from subdirectory of standard repo", async () => {
