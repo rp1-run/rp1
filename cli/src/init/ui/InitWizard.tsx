@@ -7,7 +7,7 @@
 
 import { Box, Text, useApp } from "ink";
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CLIError } from "../../../shared/errors.js";
 import type { ToolsRegistry } from "../../config/supported-tools.js";
 import type {
@@ -233,6 +233,16 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 			dispatch({ type: "SET_PHASE", phase: "running" });
 		},
 		[activePrompt, dispatch],
+	);
+
+	const harnessItems = useMemo(
+		() => buildHarnessItems(state.detectedTools),
+		[state.detectedTools],
+	);
+
+	const harnessDefaults = useMemo(
+		() => resolveDefaultSelection(harnessItems),
+		[harnessItems],
 	);
 
 	/**
@@ -506,18 +516,15 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 						}
 					/>
 				);
-			case "harness-selection": {
-				const items = buildHarnessItems(state.detectedTools);
-				const defaults = resolveDefaultSelection(items);
+			case "harness-selection":
 				return (
 					<MultiSelectPrompt
 						message="Which harnesses should receive rp1 support?"
-						items={items}
-						defaultSelected={defaults}
+						items={harnessItems}
+						defaultSelected={harnessDefaults}
 						onSubmit={handleHarnessChoice}
 					/>
 				);
-			}
 			default:
 				return null;
 		}

@@ -1,7 +1,7 @@
 import figures from "figures";
 import { Box, Text, useInput } from "ink";
 import type React from "react";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { colors, spacing } from "../styles/theme.js";
 
 /**
@@ -33,6 +33,10 @@ interface MultiSelectPromptProps<T extends string = string> {
 /**
  * Renders an interactive multi-select prompt with checkbox-style toggling.
  * Supports arrow keys for navigation, space to toggle, and enter to confirm.
+ *
+ * The input handler uses a ref-stable callback pattern to prevent Ink's
+ * useInput useEffect from tearing down and re-registering the stdin event
+ * listener on every re-render, which causes an event loop freeze under Bun.
  */
 export function MultiSelectPrompt<T extends string = string>({
 	message,
@@ -45,32 +49,54 @@ export function MultiSelectPrompt<T extends string = string>({
 		() => new Set(defaultSelected),
 	);
 
-	useInput((input, key) => {
-		if (key.upArrow) {
-			setFocusIndex((prev) => (prev > 0 ? prev - 1 : items.length - 1));
-		} else if (key.downArrow) {
-			setFocusIndex((prev) => (prev < items.length - 1 ? prev + 1 : 0));
-		} else if (input === " ") {
-			const item = items[focusIndex];
-			if (item) {
-				setSelected((prev) => {
-					const next = new Set(prev);
-					if (next.has(item.value)) {
-						next.delete(item.value);
-					} else {
-						next.add(item.value);
-					}
-					return next;
-				});
+	const itemsRef = useRef(items);
+	itemsRef.current = items;
+	const selectedRef = useRef(selected);
+	selectedRef.current = selected;
+	const focusIndexRef = useRef(focusIndex);
+	focusIndexRef.current = focusIndex;
+	const onSubmitRef = useRef(onSubmit);
+	onSubmitRef.current = onSubmit;
+
+	const handleInput = useCallback(
+		(
+			input: string,
+			key: { upArrow: boolean; downArrow: boolean; return: boolean },
+		) => {
+			if (key.upArrow) {
+				setFocusIndex((prev) =>
+					prev > 0 ? prev - 1 : itemsRef.current.length - 1,
+				);
+			} else if (key.downArrow) {
+				setFocusIndex((prev) =>
+					prev < itemsRef.current.length - 1 ? prev + 1 : 0,
+				);
+			} else if (input === " ") {
+				const item = itemsRef.current[focusIndexRef.current];
+				if (item) {
+					setSelected((prev) => {
+						const next = new Set(prev);
+						if (next.has(item.value)) {
+							next.delete(item.value);
+						} else {
+							next.add(item.value);
+						}
+						return next;
+					});
+				}
+			} else if (key.return) {
+				const currentSelected = selectedRef.current;
+				onSubmitRef.current(
+					itemsRef.current
+						.filter((item) => currentSelected.has(item.value))
+						.map((item) => item.value),
+				);
 			}
-		} else if (key.return) {
-			onSubmit(
-				items
-					.filter((item) => selected.has(item.value))
-					.map((item) => item.value),
-			);
-		}
-	});
+		},
+		[],
+	);
+
+	useInput(handleInput);
 
 	return (
 		<Box flexDirection="column" marginTop={spacing.small}>

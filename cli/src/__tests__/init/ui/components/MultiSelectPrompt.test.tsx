@@ -1,6 +1,7 @@
 /**
  * Unit tests for MultiSelectPrompt component.
- * Tests rendering, default selection state, and checkbox display.
+ * Tests rendering, default selection state, checkbox display, and
+ * re-render stability (regression for event-loop freeze on state updates).
  *
  * NOTE: Keyboard interaction tests (space toggle, enter submit) are omitted
  * because ink-testing-library's stdin simulation doesn't reliably trigger
@@ -11,6 +12,7 @@
  * - Default selection state (checked/unchecked indicators)
  * - Navigation hint display
  * - Edge cases (single item, empty defaults, all defaults)
+ * - Re-render stability with changing props
  */
 
 import { describe, expect, test } from "bun:test";
@@ -263,6 +265,76 @@ describe("MultiSelectPrompt", () => {
 			const output = lastFrame() ?? "";
 
 			expect(output).not.toContain("☒");
+		});
+	});
+
+	describe("re-render stability", () => {
+		test("survives parent re-render with new items array reference", () => {
+			const makeItems = (): MultiSelectItem[] => [
+				{ value: "a", label: "Item A" },
+				{ value: "b", label: "Item B" },
+			];
+
+			const { lastFrame, rerender } = render(
+				<MultiSelectPrompt
+					message="Select"
+					items={makeItems()}
+					defaultSelected={["a"]}
+					onSubmit={() => {}}
+				/>,
+			);
+
+			const first = lastFrame() ?? "";
+			expect(first).toContain("Item A");
+
+			rerender(
+				<MultiSelectPrompt
+					message="Select"
+					items={makeItems()}
+					defaultSelected={["a"]}
+					onSubmit={() => {}}
+				/>,
+			);
+
+			const second = lastFrame() ?? "";
+			expect(second).toContain("Item A");
+			expect(second).toContain("Item B");
+
+			const checkedCount = (second.match(/☒/g) || []).length;
+			expect(checkedCount).toBe(1);
+		});
+
+		test("preserves selection state across re-renders with new prop references", () => {
+			const items: MultiSelectItem[] = [
+				{ value: "x", label: "X" },
+				{ value: "y", label: "Y" },
+			];
+
+			const { lastFrame, rerender } = render(
+				<MultiSelectPrompt
+					message="Pick"
+					items={[...items]}
+					defaultSelected={["x", "y"]}
+					onSubmit={() => {}}
+				/>,
+			);
+
+			const before = lastFrame() ?? "";
+			const checkedBefore = (before.match(/☒/g) || []).length;
+			expect(checkedBefore).toBe(2);
+
+			rerender(
+				<MultiSelectPrompt
+					message="Pick"
+					items={[...items]}
+					defaultSelected={["x", "y"]}
+					onSubmit={() => {}}
+				/>,
+			);
+
+			const after = lastFrame() ?? "";
+			const checkedAfter = (after.match(/☒/g) || []).length;
+			expect(checkedAfter).toBe(2);
 		});
 	});
 });
