@@ -4,6 +4,7 @@ import {
 	resolveLocalSettingsPath,
 } from "../../shared/settings.js";
 import {
+	readStorageMode,
 	type StorageMode,
 	VALID_STORAGE_MODES,
 } from "../../shared/storage-mode.js";
@@ -458,16 +459,11 @@ export const loadArcadeSettings = async (
 };
 
 /**
- * Load the `[storage]` section from a single settings file.
- * Returns the parsed storage section when present, or an empty structure.
- */
-const loadStorageFromFile = (filePath: string): ParsedStorageSection => {
-	return parseSettingsFileStrict(filePath).storage;
-};
-
-/**
  * Load storage mode from both project-level and user-level settings files,
  * applying two-level merge (project overrides user) with "local" as default.
+ *
+ * Delegates to the canonical `readStorageMode` implementation in
+ * `cli/shared/storage-mode.ts` to maintain a single merge implementation.
  *
  * @param projectRoot - Project root directory (contains `.rp1/`)
  * @param globalSettingsPath - Override path to user-level settings file (defaults to ~/.config/rp1/settings.toml). Exposed for test isolation.
@@ -477,12 +473,5 @@ export const loadStorageMode = async (
 	projectRoot: string,
 	globalSettingsPath?: string,
 ): Promise<StorageMode> => {
-	const projectStorage = loadStorageFromFile(
-		resolveLocalSettingsPath(projectRoot),
-	);
-	const userStorage = loadStorageFromFile(
-		globalSettingsPath ?? resolveGlobalSettingsPath(),
-	);
-
-	return projectStorage.mode ?? userStorage.mode ?? "local";
+	return readStorageMode(projectRoot, globalSettingsPath);
 };

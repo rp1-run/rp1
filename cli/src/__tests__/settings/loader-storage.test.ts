@@ -4,6 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { join } from "node:path";
+import { readStorageMode } from "../../../shared/storage-mode.js";
 import { loadStorageMode, resetSettingsCache } from "../../settings/loader.js";
 import {
 	cleanupTempDir,
@@ -173,6 +174,36 @@ describe("two-level merge for storage mode", () => {
 
 		const result = await loadStorageMode(tempDir, globalPath);
 		expect(result).toBe("local");
+	});
+});
+
+describe("cross-verification: loadStorageMode delegates to readStorageMode", () => {
+	test("loadStorageMode and readStorageMode return identical results for central mode", async () => {
+		const globalPath = isolatedGlobalPath();
+		await writeFixture(
+			tempDir,
+			".rp1/settings.toml",
+			`[storage]\nmode = "central"\n`,
+		);
+
+		const loaderResult = await loadStorageMode(tempDir, globalPath);
+		const sharedResult = readStorageMode(tempDir, globalPath);
+		expect(loaderResult).toBe(sharedResult);
+		expect(loaderResult).toBe("central");
+	});
+
+	test("loadStorageMode and readStorageMode return identical results for absent section", async () => {
+		const globalPath = isolatedGlobalPath();
+		await writeFixture(
+			tempDir,
+			".rp1/settings.toml",
+			`[arguments.build]\nAFK = false\n`,
+		);
+
+		const loaderResult = await loadStorageMode(tempDir, globalPath);
+		const sharedResult = readStorageMode(tempDir, globalPath);
+		expect(loaderResult).toBe(sharedResult);
+		expect(loaderResult).toBe("local");
 	});
 });
 

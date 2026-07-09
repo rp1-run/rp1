@@ -503,6 +503,7 @@ describe("directory resolution", () => {
 
 				expect(result.right.kbRoot).toBe(join(noIdProject, ".rp1", "context"));
 				expect(result.right.workRoot).toBe(join(noIdProject, ".rp1", "work"));
+				expect(result.right.storageMode).toBe("local");
 			} finally {
 				console.warn = origWarn;
 			}

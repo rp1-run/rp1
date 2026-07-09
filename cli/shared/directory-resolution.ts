@@ -205,7 +205,7 @@ const buildDirectorySet = (params: {
 }): ResolvedDirectorySet => {
 	const projectRoot = path.resolve(params.projectRoot);
 	const projectId = readProjectId(projectRoot);
-	const { kbRoot, workRoot } = computeDirectoryPaths(
+	const { kbRoot, workRoot, effectiveMode } = computeDirectoryPaths(
 		projectRoot,
 		projectId,
 		params.storageMode,
@@ -219,7 +219,7 @@ const buildDirectorySet = (params: {
 		codeRoot: path.resolve(params.codeRoot),
 		isWorktree: params.isWorktree,
 		worktreeName: params.worktreeName,
-		storageMode: params.storageMode,
+		storageMode: effectiveMode,
 	};
 };
 

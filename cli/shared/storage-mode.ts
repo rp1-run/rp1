@@ -16,6 +16,7 @@ export const VALID_STORAGE_MODES: readonly StorageMode[] = [
 export interface DirectoryPaths {
 	readonly kbRoot: string;
 	readonly workRoot: string;
+	readonly effectiveMode: StorageMode;
 }
 
 export const computeDirectoryPaths = (
@@ -28,12 +29,14 @@ export const computeDirectoryPaths = (
 		return {
 			kbRoot: join(centralBase, "context"),
 			workRoot: join(centralBase, "work"),
+			effectiveMode: "central",
 		};
 	}
 
 	return {
 		kbRoot: join(projectRoot, ".rp1", "context"),
 		workRoot: join(projectRoot, ".rp1", "work"),
+		effectiveMode: "local",
 	};
 };
 
