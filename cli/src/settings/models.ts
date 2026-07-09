@@ -39,6 +39,14 @@ export const DEFAULT_ARCADE_SETTINGS: ArcadeSettings = {
 } as const;
 
 /**
+ * Harness selection parsed from the `[harnesses]` section of user-level settings.toml.
+ * User-level only -- harness availability is per-machine, not per-project.
+ */
+export interface ParsedHarnessesSection {
+	readonly enabled: readonly string[];
+}
+
+/**
  * Per-platform tier-to-model mapping from user settings.
  *
  * Each key is a concrete tier (excluding "inherit") and each value is

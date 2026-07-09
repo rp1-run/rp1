@@ -10,7 +10,11 @@ import {
 } from "../../shared/storage-mode.js";
 import { VALID_MODEL_TIERS } from "../build/models.js";
 import type { BuildPlatform } from "../build/template-context.js";
-import type { PlatformTierMap, TierRemappingConfig } from "./models.js";
+import type {
+	ParsedHarnessesSection,
+	PlatformTierMap,
+	TierRemappingConfig,
+} from "./models.js";
 import {
 	type ArcadeSettings,
 	type ArcadeTheme,
@@ -46,6 +50,7 @@ type ParsedStorageSection = Readonly<{
 }>;
 
 type ParsedSettingsFile = Readonly<{
+	harnesses?: ParsedHarnessesSection;
 	arguments: SettingsArgumentDefaults;
 	storage: ParsedStorageSection;
 	models: ParsedModelsSection;
@@ -198,6 +203,31 @@ const parseStorageSection = (
 	return {};
 };
 
+/**
+ * Extract the harnesses section from parsed TOML.
+ * Returns a typed section when `[harnesses]` exists with a valid `enabled` array,
+ * or `undefined` when absent or malformed (graceful degradation).
+ */
+const parseHarnessesSection = (
+	parsed: Record<string, unknown>,
+): ParsedHarnessesSection | undefined => {
+	const harnessesSection = parsed.harnesses;
+	if (!isPlainRecord(harnessesSection)) {
+		return undefined;
+	}
+
+	const enabled = harnessesSection.enabled;
+	if (!Array.isArray(enabled)) {
+		return undefined;
+	}
+
+	const validEntries = enabled.filter(
+		(item): item is string => typeof item === "string",
+	);
+
+	return { enabled: validEntries };
+};
+
 const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 	const cached = settingsCache.get(filePath);
 	if (cached) {
@@ -247,12 +277,14 @@ const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 		const models = parseModelsSection(parsed);
 		const arcade = parseArcadeSection(parsed);
 		const storage = parseStorageSection(parsed);
+		const harnesses = parseHarnessesSection(parsed);
 
 		const result: ParsedSettingsFile = {
 			arguments: argumentDefaults,
 			storage,
 			models,
 			arcade,
+			harnesses,
 		};
 		settingsCache.set(filePath, result);
 		return result;
@@ -474,4 +506,25 @@ export const loadStorageMode = async (
 	globalSettingsPath?: string,
 ): Promise<StorageMode> => {
 	return readStorageMode(projectRoot, globalSettingsPath);
+};
+
+/**
+ * Load the persisted harness selection from user-level settings.toml only.
+ *
+ * Unlike other settings sections, `[harnesses]` is NOT merged with project-level
+ * settings -- harness availability is per-machine, not per-project.
+ *
+ * @param globalSettingsPath - Override path to user-level settings file (defaults to ~/.config/rp1/settings.toml). Exposed for test isolation.
+ * @returns Array of enabled harness IDs, or `undefined` when no `[harnesses]` section exists (callers should fall back to all-detected-stable)
+ */
+export const loadEnabledHarnesses = (
+	globalSettingsPath?: string,
+): string[] | undefined => {
+	const settings = parseSettingsFileStrict(
+		globalSettingsPath ?? resolveGlobalSettingsPath(),
+	);
+	if (!settings.harnesses) {
+		return undefined;
+	}
+	return [...settings.harnesses.enabled];
 };
