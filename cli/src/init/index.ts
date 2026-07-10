@@ -51,6 +51,7 @@ import {
 	injectInstructions,
 } from "./steps/project-setup.js";
 import { checkRp1Readiness } from "./steps/readiness.js";
+import { generateSandboxGrants } from "./steps/sandbox-grants.js";
 import { displaySummary, generateNextSteps } from "./steps/summary.js";
 import {
 	verifyClaudeCodePlugins,
@@ -103,6 +104,10 @@ const INIT_STEPS = [
 	{ name: "install-check", description: "Checking plugin installation..." },
 	{ name: "directory-setup", description: "Setting up directory structure..." },
 	{ name: "settings-setup", description: "Creating settings files..." },
+	{
+		name: "sandbox-grants",
+		description: "Configuring sandbox grants...",
+	},
 	{
 		name: "instruction-injection",
 		description: "Configuring instruction file...",
@@ -824,6 +829,32 @@ export function executeInit(
 				);
 				allActions.push(...storageDirActions);
 				progress.completeStep();
+
+				// Phase 3: Generate sandbox grants for selected harnesses
+				// so AI coding platforms can access the central store at ~/.rp1/
+				progress.startStep("sandbox-grants");
+				try {
+					const grantResults = await generateSandboxGrants(
+						undefined,
+						cwd,
+						options.globalSettingsPath,
+					);
+					for (const grant of grantResults) {
+						if (grant.written) {
+							allActions.push({ type: "created_file", path: grant.path });
+							logger.success(
+								`Sandbox grant: ${grant.platform} → ${grant.path}`,
+							);
+						}
+					}
+					progress.completeStep();
+				} catch (error) {
+					const errorMessage =
+						error instanceof Error ? error.message : String(error);
+					logger.warn(`Sandbox grant error: ${errorMessage}`);
+					allWarnings.push(`Sandbox grants failed: ${errorMessage}`);
+					progress.failStep();
+				}
 
 				progress.startStep("instruction-injection");
 				const { actions: instrActions } = await injectInstructions(

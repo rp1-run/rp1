@@ -381,13 +381,17 @@ export async function generateSandboxGrants(
 	harnesses: string[] | undefined,
 	projectRoot: string,
 	globalSettingsPath?: string,
-): Promise<void> {
+): Promise<GrantResult[]> {
 	const resolved = await resolveHarnesses(harnesses, globalSettingsPath);
+	const results: GrantResult[] = [];
 
 	for (const platformId of resolved) {
 		const writer = PLATFORM_WRITERS[platformId];
 		if (writer) {
-			await writer(projectRoot);
+			const result = await writer(projectRoot);
+			results.push(result);
 		}
 	}
+
+	return results;
 }

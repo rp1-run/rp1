@@ -184,6 +184,8 @@ export interface InitOptions {
 	readonly interactive?: boolean;
 	/** Force creating a nested project even when an ancestor project exists */
 	readonly forceNested?: boolean;
+	/** Override path to global settings file (test isolation seam) */
+	readonly globalSettingsPath?: string;
 }
 
 /**
@@ -257,6 +259,7 @@ export type StepId =
 	| "settings-setup"
 	| "tool-detection"
 	| "harness-selection"
+	| "sandbox-grants"
 	| "instruction-injection"
 	| "gitignore-config"
 	| "install-check"

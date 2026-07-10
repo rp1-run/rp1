@@ -73,6 +73,7 @@ import {
 	checkRp1Readiness,
 	type ReadinessResult,
 } from "../../steps/readiness.js";
+import { generateSandboxGrants } from "../../steps/sandbox-grants.js";
 import { generateNextSteps } from "../../steps/summary.js";
 import {
 	verifyClaudeCodePlugins,
@@ -602,6 +603,38 @@ export const useStepExecution = ({
 					"Local settings file exists (user values preserved)",
 					"info",
 				);
+			}
+		},
+		[],
+	);
+
+	/**
+	 * Execute the sandbox grants step.
+	 * Generates per-platform filesystem grants so AI coding harnesses
+	 * can access centrally-stored artifacts under ~/.rp1/.
+	 */
+	const executeSandboxGrants = useCallback(
+		async (addAct: AddActivityFn): Promise<void> => {
+			const ctx = contextRef.current;
+			try {
+				const grantResults = await generateSandboxGrants(undefined, ctx.cwd);
+				let granted = 0;
+				for (const grant of grantResults) {
+					if (grant.written) {
+						addAct(
+							"sandbox-grants",
+							`${grant.platform} → ${grant.path}`,
+							"success",
+						);
+						granted++;
+					}
+				}
+				if (granted === 0) {
+					addAct("sandbox-grants", "No sandbox grants needed", "info");
+				}
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : String(error);
+				addAct("sandbox-grants", `Grant error: ${msg}`, "warning");
 			}
 		},
 		[],
@@ -1219,6 +1252,9 @@ export const useStepExecution = ({
 					case "harness-selection":
 						await executeHarnessSelection(addAct);
 						break;
+					case "sandbox-grants":
+						await executeSandboxGrants(addAct);
+						break;
 					case "instruction-injection":
 						await executeInstructionInjection(addAct);
 						break;
@@ -1263,6 +1299,7 @@ export const useStepExecution = ({
 			executeSettingsSetup,
 			executeToolDetection,
 			executeHarnessSelection,
+			executeSandboxGrants,
 			executeInstructionInjection,
 			executeGitignoreConfig,
 			executeInstallCheck,
