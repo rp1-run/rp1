@@ -12,10 +12,7 @@ import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Logger } from "../../../../shared/logger.js";
-import {
-	resolveStorageDirectoryPaths,
-	type StorageDirectoryPaths,
-} from "../../../init/directory-model.js";
+import { resolveStorageDirectoryPaths } from "../../../init/directory-model.js";
 import {
 	createMinimalProjectStructure,
 	createStorageDirectories,

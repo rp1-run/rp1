@@ -45,7 +45,6 @@ import { performHealthCheck } from "./steps/health-check.js";
 import { checkPluginsInstalled } from "./steps/plugin-installation.js";
 import {
 	configureGitignore,
-	createDirectoryStructure,
 	createMinimalProjectStructure,
 	createSettingsFiles,
 	createStorageDirectories,
