@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
 import { lstat, readdir, readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
@@ -89,10 +90,41 @@ export const resolveWorkSearchProjectScope = (
 		),
 	);
 
+/**
+ * Computes a human-readable display prefix for work artifact paths.
+ *
+ * Local mode (workRoot inside projectRoot): returns the project-relative path (e.g. `.rp1/work`).
+ * Central mode (workRoot outside projectRoot): returns a `~`-prefixed home-relative path
+ * (e.g. `~/.rp1/projects/{id}/work`), falling back to the absolute path when workRoot
+ * is not under the home directory.
+ */
+export const computeDisplayPrefix = (
+	workRoot: string,
+	projectRoot: string,
+	homeDir?: string,
+): string => {
+	const resolvedWorkRoot = resolve(workRoot);
+	const resolvedProjectRoot = resolve(projectRoot);
+
+	if (isWithinRoot(resolvedWorkRoot, resolvedProjectRoot)) {
+		return normalizeRelativePath(
+			relative(resolvedProjectRoot, resolvedWorkRoot),
+		);
+	}
+
+	const home = homeDir ?? homedir();
+	if (resolvedWorkRoot.startsWith(home + sep) || resolvedWorkRoot === home) {
+		return `~${normalizeRelativePath(resolvedWorkRoot.slice(home.length))}`;
+	}
+
+	return normalizeRelativePath(resolvedWorkRoot);
+};
+
 const collectMarkdownFiles = async (
 	workRoot: string,
 	currentDir: string,
 	files: MarkdownWorkFile[],
+	displayPrefix: string,
 ): Promise<void> => {
 	let entries: string[];
 	try {
@@ -119,7 +151,7 @@ const collectMarkdownFiles = async (
 		}
 
 		if (stat.isDirectory()) {
-			await collectMarkdownFiles(workRoot, absolutePath, files);
+			await collectMarkdownFiles(workRoot, absolutePath, files, displayPrefix);
 			continue;
 		}
 
@@ -137,7 +169,7 @@ const collectMarkdownFiles = async (
 		files.push({
 			absolutePath,
 			relativePath,
-			displayPath: `.rp1/work/${relativePath}`,
+			displayPath: `${displayPrefix}/${relativePath}`,
 			sizeBytes: stat.size,
 			mtimeMs: Math.round(stat.mtimeMs),
 		});
@@ -146,6 +178,8 @@ const collectMarkdownFiles = async (
 
 export const scanMarkdownWorkFiles = async (
 	workRoot: string,
+	projectRoot?: string,
+	homeDir?: string,
 ): Promise<readonly MarkdownWorkFile[]> => {
 	let rootStat: Awaited<ReturnType<typeof lstat>>;
 	try {
@@ -158,8 +192,12 @@ export const scanMarkdownWorkFiles = async (
 		return [];
 	}
 
+	const displayPrefix = projectRoot
+		? computeDisplayPrefix(workRoot, projectRoot, homeDir)
+		: ".rp1/work";
+
 	const files: MarkdownWorkFile[] = [];
-	await collectMarkdownFiles(workRoot, workRoot, files);
+	await collectMarkdownFiles(workRoot, workRoot, files, displayPrefix);
 	return files.sort((left, right) =>
 		left.relativePath.localeCompare(right.relativePath),
 	);
@@ -339,7 +377,7 @@ export const refreshWorkSearchIndex = (
 		TE.chain((project) =>
 			pipe(
 				TE.tryCatch(
-					() => scanMarkdownWorkFiles(project.workRoot),
+					() => scanMarkdownWorkFiles(project.workRoot, project.projectRoot),
 					(error) =>
 						runtimeError(
 							`Failed to scan work-search markdown files: ${error instanceof Error ? error.message : String(error)}`,
