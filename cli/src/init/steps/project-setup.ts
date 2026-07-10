@@ -27,6 +27,7 @@ import {
 import {
 	type InitDirectoryModel,
 	resolveInitDirectoryModel,
+	resolveStorageDirectoryPaths,
 } from "../directory-model.js";
 import { buildManagedGitignoreContent } from "../gitignore.js";
 import type { GitignorePreset, InitAction } from "../models.js";
@@ -111,6 +112,67 @@ export async function createDirectoryStructure(
 		logger.info(`Created: ${rp1Dir}`);
 		actions.push({ type: "created_directory", path: rp1Dir });
 	}
+
+	if (!(await directoryExists(contextDir))) {
+		await fs.mkdir(contextDir, { recursive: true });
+		logger.info(`Created: ${contextDir}`);
+		actions.push({ type: "created_directory", path: contextDir });
+	}
+
+	if (!(await directoryExists(workDir))) {
+		await fs.mkdir(workDir, { recursive: true });
+		logger.info(`Created: ${workDir}`);
+		actions.push({ type: "created_directory", path: workDir });
+	}
+
+	return actions;
+}
+
+/**
+ * Create only the minimal .rp1/ directory without context/ or work/ subdirs.
+ * Used in the reordered init flow where project_id and settings.toml must
+ * be established before storage directories can be computed.
+ */
+export async function createMinimalProjectStructure(
+	cwd: string,
+	logger: Logger,
+	directoriesOverride?: InitDirectoryModel,
+): Promise<InitAction[]> {
+	const actions: InitAction[] = [];
+	const directories = directoriesOverride ?? resolveInitDirectoryModel(cwd);
+	const { rp1Dir } = directories;
+
+	if (!(await directoryExists(rp1Dir))) {
+		await fs.mkdir(rp1Dir, { recursive: true });
+		logger.info(`Created: ${rp1Dir}`);
+		actions.push({ type: "created_directory", path: rp1Dir });
+	}
+
+	return actions;
+}
+
+/**
+ * Create storage directories (context + work) based on the resolved storage mode.
+ * For central mode, creates dirs under ~/.rp1/projects/{projectId}/.
+ * For local mode, creates dirs under {projectRoot}/.rp1/.
+ *
+ * Must be called after settings.toml is written and project_id exists,
+ * because the storage mode is read from the project's settings.
+ *
+ * @param homeDir - Override home directory for test isolation
+ */
+export async function createStorageDirectories(
+	projectRoot: string,
+	projectId: string,
+	logger: Logger,
+	homeDir?: string,
+): Promise<InitAction[]> {
+	const actions: InitAction[] = [];
+	const { contextDir, workDir } = resolveStorageDirectoryPaths(
+		projectRoot,
+		projectId,
+		homeDir,
+	);
 
 	if (!(await directoryExists(contextDir))) {
 		await fs.mkdir(contextDir, { recursive: true });

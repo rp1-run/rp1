@@ -46,7 +46,9 @@ import { checkPluginsInstalled } from "./steps/plugin-installation.js";
 import {
 	configureGitignore,
 	createDirectoryStructure,
+	createMinimalProjectStructure,
 	createSettingsFiles,
+	createStorageDirectories,
 	injectInstructions,
 } from "./steps/project-setup.js";
 import { checkRp1Readiness } from "./steps/readiness.js";
@@ -795,16 +797,20 @@ export function executeInit(
 				}
 
 				// --- Project setup ---
+				// Phase 1: Create minimal .rp1/ + project_id (required before
+				// central path computation and settings.toml write)
 				progress.startStep("directory-setup");
-				const dirActions = await createDirectoryStructure(
+				const minimalDirActions = await createMinimalProjectStructure(
 					cwd,
 					logger,
 					directories,
 				);
-				allActions.push(...dirActions);
-				await ensureProjectId(directories.projectRoot);
+				allActions.push(...minimalDirActions);
+				const projectId = await ensureProjectId(directories.projectRoot);
 				progress.completeStep();
 
+				// Phase 2: Write settings.toml, then create storage directories
+				// based on the resolved storage mode
 				progress.startStep("settings-setup");
 				const settingsActions = await createSettingsFiles(
 					cwd,
@@ -812,6 +818,12 @@ export function executeInit(
 					directories,
 				);
 				allActions.push(...settingsActions);
+				const storageDirActions = await createStorageDirectories(
+					directories.projectRoot,
+					projectId,
+					logger,
+				);
+				allActions.push(...storageDirActions);
 				progress.completeStep();
 
 				progress.startStep("instruction-injection");

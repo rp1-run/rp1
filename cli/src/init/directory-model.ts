@@ -2,6 +2,11 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { resolveDirectorySet } from "../../shared/directory-resolution.js";
+import type { StorageMode } from "../../shared/storage-mode.js";
+import {
+	computeDirectoryPaths,
+	readStorageMode,
+} from "../../shared/storage-mode.js";
 import { hasFencedContent } from "./comment-fence.js";
 import type { ReinitState } from "./models.js";
 import type { DetectedTool } from "./tool-detector.js";
@@ -99,6 +104,55 @@ export const chooseInitDirectoryModel = (
 	forceLocalProject
 		? defaultInitDirectoryModel(cwd)
 		: resolveInitDirectoryModel(cwd);
+
+/**
+ * Resolved storage directory paths based on the project's storage mode.
+ * Used after project_id and settings.toml are established to determine
+ * where KB and work artifacts should be stored.
+ */
+export interface StorageDirectoryPaths {
+	readonly contextDir: string;
+	readonly workDir: string;
+	readonly storageMode: StorageMode;
+}
+
+/**
+ * Compute storage directories using the resolver's path computation.
+ * Reads the storage mode from the project's settings.toml and delegates
+ * to computeDirectoryPaths for central vs local path resolution.
+ *
+ * Must be called after settings.toml is written and project_id exists.
+ *
+ * @param homeDir - Override home directory for central path computation
+ *   (test isolation seam; Bun's homedir() does not respect HOME env var)
+ */
+export const resolveStorageDirectoryPaths = (
+	projectRoot: string,
+	projectId: string,
+	homeDir?: string,
+): StorageDirectoryPaths => {
+	const mode = readStorageMode(projectRoot);
+
+	if (mode === "central" && homeDir !== undefined) {
+		const centralBase = path.join(homeDir, ".rp1", "projects", projectId);
+		return {
+			contextDir: path.join(centralBase, "context"),
+			workDir: path.join(centralBase, "work"),
+			storageMode: "central",
+		};
+	}
+
+	const { kbRoot, workRoot, effectiveMode } = computeDirectoryPaths(
+		projectRoot,
+		projectId,
+		mode,
+	);
+	return {
+		contextDir: kbRoot,
+		workDir: workRoot,
+		storageMode: effectiveMode,
+	};
+};
 
 async function fileExists(filePath: string): Promise<boolean> {
 	try {
