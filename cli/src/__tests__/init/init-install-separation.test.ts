@@ -393,13 +393,8 @@ describe("init-install separation", () => {
 
 			expect(content).not.toContain("\ngit_worktree = false");
 			expect(content).not.toContain("\ngit_commit = false");
-			expect(content).toContain(
-				"# Directory paths are fixed from the project root:",
-			);
-			expect(content).toContain(
-				"# - Knowledge base files live in .rp1/context",
-			);
-			expect(content).toContain("# - Work artifacts live in .rp1/work");
+			expect(content).toContain("[storage]");
+			expect(content).toContain('mode = "central"');
 			expect(content).toContain('# [arguments."dev:build"]');
 			expect(content).toContain("# git_commit = false");
 		});

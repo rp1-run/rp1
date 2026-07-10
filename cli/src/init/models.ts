@@ -4,8 +4,11 @@
  * next steps guidance, and progress tracking.
  */
 
+import type { StorageMode } from "../../shared/storage-mode.js";
 import type { GitRootResult } from "./git-root.js";
 import type { DetectedTool } from "./tool-detector.js";
+
+export type { StorageMode };
 
 /**
  * Project context classification for greenfield/brownfield detection.
@@ -210,6 +213,15 @@ export const GITIGNORE_PRESETS = {
 
 	/** Option C: Ignore entire .rp1/ */
 	ignore_all: `.rp1/`,
+
+	/**
+	 * Central mode: KB and work artifacts live under ~/.rp1/projects/<id>/,
+	 * so only project_id and settings.toml need tracking in the repo.
+	 */
+	central: `!.rp1/
+.rp1/*
+!.rp1/project_id
+!.rp1/settings.toml`,
 } as const;
 
 export type GitignorePreset = keyof typeof GITIGNORE_PRESETS;
