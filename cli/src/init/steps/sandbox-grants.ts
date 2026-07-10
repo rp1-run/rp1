@@ -184,16 +184,23 @@ export async function writeCodexGrants(
 
 // ─── OpenCode ─────────────────────────────────────────────────────────────
 
+/**
+ * OpenCode enforces an `external_directory` permission that defaults to "ask"
+ * for paths outside the working directory. The grant writes allow rules into
+ * the project-level `opencode.json` as a path-pattern-to-mode map.
+ *
+ * Validated format per HYP-002: `{ permission: { external_directory: { "~/.rp1/**": "allow" } } }`
+ */
 export interface OpenCodeGrants {
-	readonly sandbox: {
-		readonly external_directories: readonly string[];
+	readonly permission: {
+		readonly external_directory: Readonly<Record<string, string>>;
 	};
 }
 
 export function generateOpenCodeGrants(): OpenCodeGrants {
 	return {
-		sandbox: {
-			external_directories: [CENTRAL_STORE_PATH],
+		permission: {
+			external_directory: { [CENTRAL_STORE_GLOB]: "allow" },
 		},
 	};
 }
@@ -202,33 +209,35 @@ export async function writeOpenCodeGrants(
 	projectRoot: string,
 ): Promise<GrantResult> {
 	const grants = generateOpenCodeGrants();
-	const settingsDir = join(projectRoot, ".opencode");
-	const settingsPath = join(settingsDir, "settings.json");
+	const configPath = join(projectRoot, "opencode.json");
 
 	let existing: Record<string, unknown> = {};
 	try {
-		const content = await readFile(settingsPath, "utf-8");
+		const content = await readFile(configPath, "utf-8");
 		existing = JSON.parse(content) as Record<string, unknown>;
 	} catch {
 		// File absent or invalid
 	}
 
-	const existingSandbox = (existing.sandbox ?? {}) as Record<string, unknown>;
-	const mergedSandbox = { ...existingSandbox };
-	mergedSandbox.external_directories = dedupeArray([
-		...((existingSandbox.external_directories as string[]) ?? []),
-		...(grants.sandbox.external_directories as string[]),
-	]);
+	const existingPermission = (existing.permission ?? {}) as Record<
+		string,
+		unknown
+	>;
+	const existingExtDir = (existingPermission.external_directory ??
+		{}) as Record<string, string>;
 
-	const merged = { ...existing, sandbox: mergedSandbox };
-	await mkdir(settingsDir, { recursive: true });
-	await writeFile(
-		settingsPath,
-		`${JSON.stringify(merged, null, 2)}\n`,
-		"utf-8",
-	);
+	const mergedPermission = {
+		...existingPermission,
+		external_directory: {
+			...existingExtDir,
+			...grants.permission.external_directory,
+		},
+	};
 
-	return { platform: "opencode", written: true, path: settingsPath };
+	const merged = { ...existing, permission: mergedPermission };
+	await writeFile(configPath, `${JSON.stringify(merged, null, 2)}\n`, "utf-8");
+
+	return { platform: "opencode", written: true, path: configPath };
 }
 
 // ─── Antigravity ──────────────────────────────────────────────────────────

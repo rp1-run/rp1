@@ -17,6 +17,7 @@ import {
 	generateSandboxGrants,
 	writeClaudeCodeGrants,
 	writeCodexGrants,
+	writeOpenCodeGrants,
 } from "../../../init/steps/sandbox-grants.js";
 import {
 	cleanupTempDir,
@@ -149,9 +150,59 @@ describe("sandbox-grants", () => {
 	// ─── OpenCode ─────────────────────────────────────────────────
 
 	describe("generateOpenCodeGrants", () => {
-		test("produces external_directory config including ~/.rp1", () => {
+		test("produces permission.external_directory map with ~/.rp1/** allow rule", () => {
 			const grants = generateOpenCodeGrants();
-			expect(grants.sandbox.external_directories).toContain("~/.rp1");
+			expect(grants.permission.external_directory).toEqual({
+				"~/.rp1/**": "allow",
+			});
+		});
+	});
+
+	describe("writeOpenCodeGrants", () => {
+		test("creates opencode.json with permission.external_directory grant", async () => {
+			await writeOpenCodeGrants(tempDir);
+
+			const path = join(tempDir, "opencode.json");
+			expect(existsSync(path)).toBe(true);
+
+			const content = JSON.parse(readFileSync(path, "utf-8"));
+			expect(content.permission.external_directory["~/.rp1/**"]).toBe("allow");
+		});
+
+		test("merges grants into existing opencode.json without overwriting user content", async () => {
+			const existing = {
+				plugin: ["file:///some/plugin/index.ts"],
+				permission: {
+					external_directory: { "/other/path/**": "allow" },
+				},
+			};
+			await writeFixture(
+				tempDir,
+				"opencode.json",
+				JSON.stringify(existing, null, 2),
+			);
+
+			await writeOpenCodeGrants(tempDir);
+
+			const content = JSON.parse(
+				readFileSync(join(tempDir, "opencode.json"), "utf-8"),
+			);
+			expect(content.plugin).toEqual(["file:///some/plugin/index.ts"]);
+			expect(content.permission.external_directory["/other/path/**"]).toBe(
+				"allow",
+			);
+			expect(content.permission.external_directory["~/.rp1/**"]).toBe("allow");
+		});
+
+		test("does not duplicate grants on repeated writes", async () => {
+			await writeOpenCodeGrants(tempDir);
+			await writeOpenCodeGrants(tempDir);
+
+			const content = JSON.parse(
+				readFileSync(join(tempDir, "opencode.json"), "utf-8"),
+			);
+			const keys = Object.keys(content.permission.external_directory);
+			expect(keys.filter((k) => k === "~/.rp1/**")).toHaveLength(1);
 		});
 	});
 
@@ -182,9 +233,7 @@ describe("sandbox-grants", () => {
 			expect(existsSync(join(tempDir, ".claude", "settings.json"))).toBe(true);
 			expect(existsSync(join(tempDir, "codex.toml"))).toBe(true);
 
-			expect(existsSync(join(tempDir, ".opencode", "settings.json"))).toBe(
-				false,
-			);
+			expect(existsSync(join(tempDir, "opencode.json"))).toBe(false);
 			expect(existsSync(join(tempDir, ".gemini", "settings.json"))).toBe(false);
 			expect(
 				existsSync(join(tempDir, ".github", "copilot-settings.json")),
@@ -199,9 +248,7 @@ describe("sandbox-grants", () => {
 
 			expect(existsSync(join(tempDir, ".claude", "settings.json"))).toBe(true);
 			expect(existsSync(join(tempDir, "codex.toml"))).toBe(true);
-			expect(existsSync(join(tempDir, ".opencode", "settings.json"))).toBe(
-				true,
-			);
+			expect(existsSync(join(tempDir, "opencode.json"))).toBe(true);
 			expect(existsSync(join(tempDir, ".gemini", "settings.json"))).toBe(true);
 			expect(
 				existsSync(join(tempDir, ".github", "copilot-settings.json")),

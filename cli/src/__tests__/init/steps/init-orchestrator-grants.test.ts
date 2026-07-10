@@ -131,7 +131,7 @@ describe("integration: executeInit produces sandbox grant files", () => {
 					a.type === "created_file" &&
 					(a.path.includes(".claude") ||
 						a.path.includes("codex.toml") ||
-						a.path.includes(".opencode") ||
+						a.path.includes("opencode.json") ||
 						a.path.includes(".gemini") ||
 						a.path.includes("copilot-settings.json")),
 			);
