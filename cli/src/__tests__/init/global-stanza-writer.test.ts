@@ -1,9 +1,3 @@
-/**
- * Unit tests for the global stanza writer module.
- * Tests write, replace, remove, and orchestration of fenced stanza blocks
- * in user-global instruction files with filesystem isolation via temp dirs.
- */
-
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";

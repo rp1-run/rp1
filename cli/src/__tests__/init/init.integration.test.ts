@@ -53,6 +53,20 @@ async function readFileIfExists(filePath: string): Promise<string | null> {
 	}
 }
 
+/**
+ * Pre-create .rp1/settings.toml with local storage mode so that
+ * init takes the per-project stanza injection path instead of central mode.
+ */
+async function setupLocalStorageMode(cwd: string): Promise<void> {
+	const rp1Dir = join(cwd, ".rp1");
+	await mkdir(rp1Dir, { recursive: true });
+	await writeFile(
+		join(rp1Dir, "settings.toml"),
+		'[storage]\nmode = "local"\n',
+		"utf-8",
+	);
+}
+
 // ============================================================================
 // Integration Tests
 // ============================================================================
@@ -83,6 +97,7 @@ describe("integration: init workflow", () => {
 		test(
 			"creates complete setup with directories and instruction file",
 			async () => {
+				await setupLocalStorageMode(tempDir);
 				const logger = createTrackingLogger();
 				const options: InitOptions = {
 					cwd: tempDir,
@@ -480,6 +495,7 @@ This is an existing feature document.
 		test(
 			"both files: CLAUDE.md gets @AGENTS.md reference, AGENTS.md gets full stanza",
 			async () => {
+				await setupLocalStorageMode(tempDir);
 				await writeFile(
 					join(tempDir, "CLAUDE.md"),
 					"# My Project\n\nProject-level instructions.\n",
@@ -523,6 +539,7 @@ This is an existing feature document.
 		test(
 			"CLAUDE.md only: gets full stanza without reference",
 			async () => {
+				await setupLocalStorageMode(tempDir);
 				await writeFile(join(tempDir, "CLAUDE.md"), "# My Project\n", "utf-8");
 
 				const logger = createTrackingLogger();
@@ -551,6 +568,7 @@ This is an existing feature document.
 		test(
 			"AGENTS.md only: gets full stanza",
 			async () => {
+				await setupLocalStorageMode(tempDir);
 				await writeFile(join(tempDir, "AGENTS.md"), "# Agents\n", "utf-8");
 
 				const logger = createTrackingLogger();
@@ -573,6 +591,7 @@ This is an existing feature document.
 		test(
 			"neither file: creates default instruction file with full stanza",
 			async () => {
+				await setupLocalStorageMode(tempDir);
 				const logger = createTrackingLogger();
 				const result = await executeInit(
 					{ cwd: tempDir, yes: true, globalSettingsPath },
@@ -602,6 +621,7 @@ This is an existing feature document.
 		test(
 			"handles existing AGENTS.md file",
 			async () => {
+				await setupLocalStorageMode(tempDir);
 				// Create existing AGENTS.md (OpenCode style)
 				await writeFile(
 					join(tempDir, "AGENTS.md"),

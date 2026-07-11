@@ -535,11 +535,6 @@ export const updateDetectedPlugins = async (
 	return { success: true, exitCode: 0 };
 };
 
-/**
- * Resolve the list of harness IDs that should have global stanzas.
- * Prefers the persisted `[harnesses] enabled` selection; falls back to
- * all-detected-stable when absent, matching P2 backward-compatibility.
- */
 const resolveStanzaHarnesses = async (): Promise<readonly string[]> => {
 	const persisted = loadEnabledHarnesses();
 	if (persisted !== undefined) {
@@ -554,9 +549,6 @@ const resolveStanzaHarnesses = async (): Promise<readonly string[]> => {
 	return getEffectiveHarnesses(detection.right).map((d) => d.tool.id);
 };
 
-/**
- * Format the global stanza phase result for console output.
- */
 const formatStanzaResult = (
 	result: GlobalStanzaResult,
 	isTTY: boolean,
@@ -589,11 +581,6 @@ const formatStanzaResult = (
 	}
 };
 
-/**
- * Manage global instruction stanzas for all known harnesses.
- * Writes stanzas for enabled harnesses and removes stanzas from disabled ones.
- * Failures are non-blocking warnings.
- */
 const manageGlobalStanzaPhase = async (
 	options: { dryRun: boolean },
 	isTTY: boolean,

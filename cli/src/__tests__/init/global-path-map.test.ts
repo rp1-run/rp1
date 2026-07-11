@@ -1,9 +1,3 @@
-/**
- * Unit tests for the global instruction file path mapping.
- * Verifies correct path resolution for all supported harnesses
- * and forward-compatible null return for unknown harness IDs.
- */
-
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import {

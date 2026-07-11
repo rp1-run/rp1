@@ -1,10 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-/**
- * Maps each harness ID to a function that resolves its user-global instruction
- * file path from a given home directory.
- */
 export const GLOBAL_INSTRUCTION_PATH_MAP: Record<
 	string,
 	(homeDir: string) => string
@@ -16,11 +12,6 @@ export const GLOBAL_INSTRUCTION_PATH_MAP: Record<
 	antigravity: (home) => join(home, ".gemini", "AGENTS.md"),
 };
 
-/**
- * Resolve the absolute path to a harness's global instruction file.
- * Returns null for unknown harness IDs so callers can skip with a warning
- * (forward-compatible with future platforms).
- */
 export function resolveGlobalInstructionPath(
 	harnessId: string,
 	homeDir: string = homedir(),

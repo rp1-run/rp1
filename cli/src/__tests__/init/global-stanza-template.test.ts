@@ -1,8 +1,3 @@
-/**
- * Unit tests for the global stanza template content generator.
- * Verifies platform-specific stanza content and cross-project path discovery.
- */
-
 import { describe, expect, test } from "bun:test";
 import {
 	buildGlobalStanzaContent,
