@@ -41,6 +41,11 @@ import type {
 	ReinitState,
 } from "./models.js";
 import { createProgress, type InitProgress } from "./progress.js";
+import {
+	buildHarnessItems,
+	getStableDefaults,
+	writeHarnessSelection,
+} from "./steps/harness-selection.js";
 import { performHealthCheck } from "./steps/health-check.js";
 import { checkPluginsInstalled } from "./steps/plugin-installation.js";
 import {
@@ -633,6 +638,14 @@ export function executeInit(
 				allWarnings.push(...toolWarnings);
 				const primaryTool = getPrimaryTool(toolDetectionResult);
 				progress.completeStep();
+
+				// --- Harness persistence (non-TTY) ---
+				// Persist [harnesses] enabled to settings.toml so that
+				// rp1 update can scope global stanza writes correctly.
+				// Matches the TTY --yes path in useStepExecution.ts.
+				const harnessItems = buildHarnessItems(toolDetectionResult.detected);
+				const stableIds = getStableDefaults(harnessItems);
+				writeHarnessSelection(stableIds, options.globalSettingsPath);
 
 				// --- Install check and delegation ---
 				progress.startStep("install-check");
