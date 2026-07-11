@@ -12,11 +12,11 @@ import { type CLIError, runtimeError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
 import { ensureProjectId } from "../../shared/project-id.js";
 import { type PromptOptions, selectOption } from "../../shared/prompts.js";
+import { readStorageMode } from "../../shared/storage-mode.js";
 import {
 	loadToolsRegistry,
 	type ToolsRegistry,
 } from "../config/supported-tools.js";
-import { readStorageMode } from "../../shared/storage-mode.js";
 import {
 	type InstallContext,
 	installAllDetectedTools,
@@ -32,8 +32,8 @@ import {
 	detectReinitState as detectSharedReinitState,
 	type InitDirectoryModel,
 } from "./directory-model.js";
-import { manageGlobalStanzas } from "./global-stanza-writer.js";
 import { detectGitRoot, type GitRootResult } from "./git-root.js";
+import { manageGlobalStanzas } from "./global-stanza-writer.js";
 import type {
 	HealthReport,
 	InitAction,
