@@ -16,6 +16,10 @@ import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
 import { formatError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import { loadToolsRegistry } from "../../config/supported-tools.js";
+import {
+	type GlobalStanzaResult,
+	manageGlobalStanzas,
+} from "../../init/global-stanza-writer.js";
 import { detectTools } from "../../init/tool-detector.js";
 import { DEFAULT_TTL_HOURS, writeCache } from "../../lib/cache.js";
 import { getColorFns } from "../../lib/colors.js";
@@ -36,6 +40,7 @@ import {
 } from "../../lib/version.js";
 import { executeMigrate, formatMigrateSummary } from "../../migrate/index.js";
 import { applyTierRemappingsIfConfigured } from "../../settings/apply.js";
+import { loadEnabledHarnesses } from "../../settings/loader.js";
 import {
 	getEffectiveHarnesses,
 	type InstallAllResult,
@@ -531,6 +536,96 @@ export const updateDetectedPlugins = async (
 };
 
 /**
+ * Resolve the list of harness IDs that should have global stanzas.
+ * Prefers the persisted `[harnesses] enabled` selection; falls back to
+ * all-detected-stable when absent, matching P2 backward-compatibility.
+ */
+const resolveStanzaHarnesses = async (): Promise<readonly string[]> => {
+	const persisted = loadEnabledHarnesses();
+	if (persisted !== undefined) {
+		return persisted;
+	}
+
+	const registry = await loadToolsRegistry();
+	const detection = await detectTools(registry)();
+	if (E.isLeft(detection) || detection.right.detected.length === 0) {
+		return [];
+	}
+	return getEffectiveHarnesses(detection.right).map((d) => d.tool.id);
+};
+
+/**
+ * Format the global stanza phase result for console output.
+ */
+const formatStanzaResult = (
+	result: GlobalStanzaResult,
+	isTTY: boolean,
+): void => {
+	const { green, yellow, dim } = getColorFns(isTTY);
+
+	const parts: string[] = [];
+	if (result.written.length > 0) {
+		parts.push(green(`${result.written.length} written`));
+	}
+	if (result.updated.length > 0) {
+		parts.push(green(`${result.updated.length} updated`));
+	}
+	if (result.removed.length > 0) {
+		parts.push(`${result.removed.length} removed`);
+	}
+	if (result.skipped.length > 0) {
+		parts.push(dim(`${result.skipped.length} skipped`));
+	}
+	if (result.errors.length > 0) {
+		parts.push(yellow(`${result.errors.length} errors`));
+	}
+
+	if (parts.length > 0) {
+		console.log(`  Global stanzas: ${parts.join(", ")}`);
+	}
+
+	for (const err of result.errors) {
+		console.log(yellow(`  ${err.platform}: ${err.error}`));
+	}
+};
+
+/**
+ * Manage global instruction stanzas for all known harnesses.
+ * Writes stanzas for enabled harnesses and removes stanzas from disabled ones.
+ * Failures are non-blocking warnings.
+ */
+const manageGlobalStanzaPhase = async (
+	options: { dryRun: boolean },
+	isTTY: boolean,
+): Promise<PostUpdatePhaseResult> => {
+	const { bold, dim } = getColorFns(isTTY);
+
+	console.log("");
+	console.log(
+		bold(
+			options.dryRun
+				? "Checking global instruction stanzas..."
+				: "Updating global instruction stanzas...",
+		),
+	);
+
+	const enabledHarnesses = await resolveStanzaHarnesses();
+	if (enabledHarnesses.length === 0) {
+		console.log(
+			dim("No enabled harnesses. Skipping global stanza management."),
+		);
+		return { success: true, exitCode: 0 };
+	}
+
+	const result = await manageGlobalStanzas(enabledHarnesses, {
+		dryRun: options.dryRun,
+	});
+
+	formatStanzaResult(result, isTTY);
+	return { success: true, exitCode: 0 };
+};
+
+/**
  * Run project migrations after plugin refresh. This is best-effort when the
  * current working directory is not an rp1 project.
  */
@@ -779,6 +874,18 @@ export const executeUpdateAction = async (
 			const { yellow } = getColorFns(isTTY);
 			const message = error instanceof Error ? error.message : String(error);
 			console.log(yellow(`Tier remapping failed (non-blocking): ${message}`));
+		}
+	}
+
+	if (pluginResult.success) {
+		try {
+			await manageGlobalStanzaPhase({ dryRun: options.dryRun }, isTTY);
+		} catch (error) {
+			const { yellow } = getColorFns(isTTY);
+			const message = error instanceof Error ? error.message : String(error);
+			console.log(
+				yellow(`Global stanza management failed (non-blocking): ${message}`),
+			);
 		}
 	}
 
