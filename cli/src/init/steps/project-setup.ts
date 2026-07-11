@@ -27,11 +27,15 @@ import {
 import {
 	type InitDirectoryModel,
 	resolveInitDirectoryModel,
+	resolveStorageDirectoryPaths,
 } from "../directory-model.js";
 import { buildManagedGitignoreContent } from "../gitignore.js";
 import type { GitignorePreset, InitAction } from "../models.js";
 import type { InitProgress } from "../progress.js";
-import { buildSettingsTomlTemplate } from "../settings-template.js";
+import {
+	buildGlobalSettingsTomlTemplate,
+	buildSettingsTomlTemplate,
+} from "../settings-template.js";
 import {
 	appendShellFencedContent,
 	hasShellFencedContent,
@@ -127,6 +131,70 @@ export async function createDirectoryStructure(
 	return actions;
 }
 
+/**
+ * Create only the minimal .rp1/ directory without context/ or work/ subdirs.
+ * Used in the reordered init flow where project_id and settings.toml must
+ * be established before storage directories can be computed.
+ */
+export async function createMinimalProjectStructure(
+	cwd: string,
+	logger: Logger,
+	directoriesOverride?: InitDirectoryModel,
+): Promise<InitAction[]> {
+	const actions: InitAction[] = [];
+	const directories = directoriesOverride ?? resolveInitDirectoryModel(cwd);
+	const { rp1Dir } = directories;
+
+	if (!(await directoryExists(rp1Dir))) {
+		await fs.mkdir(rp1Dir, { recursive: true });
+		logger.info(`Created: ${rp1Dir}`);
+		actions.push({ type: "created_directory", path: rp1Dir });
+	}
+
+	return actions;
+}
+
+/**
+ * Create storage directories (context + work) based on the resolved storage mode.
+ * For central mode, creates dirs under ~/.rp1/projects/{projectId}/.
+ * For local mode, creates dirs under {projectRoot}/.rp1/.
+ *
+ * Must be called after settings.toml is written and project_id exists,
+ * because the storage mode is read from the project's settings.
+ *
+ * The logger is narrowed to `info` so non-Logger callers (the init wizard,
+ * which reports through per-step activity callbacks) can share this logic.
+ *
+ * @param homeDir - Override home directory for test isolation
+ */
+export async function createStorageDirectories(
+	projectRoot: string,
+	projectId: string,
+	logger: Pick<Logger, "info">,
+	homeDir?: string,
+): Promise<InitAction[]> {
+	const actions: InitAction[] = [];
+	const { contextDir, workDir } = resolveStorageDirectoryPaths(
+		projectRoot,
+		projectId,
+		homeDir,
+	);
+
+	if (!(await directoryExists(contextDir))) {
+		await fs.mkdir(contextDir, { recursive: true });
+		logger.info(`Created: ${contextDir}`);
+		actions.push({ type: "created_directory", path: contextDir });
+	}
+
+	if (!(await directoryExists(workDir))) {
+		await fs.mkdir(workDir, { recursive: true });
+		logger.info(`Created: ${workDir}`);
+		actions.push({ type: "created_directory", path: workDir });
+	}
+
+	return actions;
+}
+
 // ============================================================================
 // Settings Files
 // ============================================================================
@@ -156,6 +224,7 @@ function resolveLocalSettingsPath(
  */
 async function createOrUpdateSettingsFile(
 	filePath: string,
+	template: string,
 ): Promise<{ action: InitAction; isNew: boolean; addedFields: string[] }> {
 	if (await fileExists(filePath)) {
 		return {
@@ -165,8 +234,7 @@ async function createOrUpdateSettingsFile(
 		};
 	}
 
-	const content = buildSettingsTomlTemplate();
-	await writeFileContent(filePath, content);
+	await writeFileContent(filePath, template);
 
 	return {
 		action: { type: "created_file", path: filePath },
@@ -192,7 +260,10 @@ export async function createSettingsFiles(
 
 	// Process global settings file
 	const globalPath = resolveGlobalSettingsPath();
-	const globalResult = await createOrUpdateSettingsFile(globalPath);
+	const globalResult = await createOrUpdateSettingsFile(
+		globalPath,
+		buildGlobalSettingsTomlTemplate(),
+	);
 	actions.push(globalResult.action);
 
 	if (globalResult.isNew) {
@@ -207,7 +278,10 @@ export async function createSettingsFiles(
 
 	// Process local settings file
 	const localPath = resolveLocalSettingsPath(cwd, directoriesOverride);
-	const localResult = await createOrUpdateSettingsFile(localPath);
+	const localResult = await createOrUpdateSettingsFile(
+		localPath,
+		buildSettingsTomlTemplate(),
+	);
 	actions.push(localResult.action);
 
 	if (localResult.isNew) {

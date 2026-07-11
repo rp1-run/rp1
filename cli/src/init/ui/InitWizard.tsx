@@ -77,6 +77,7 @@ const PROMPTABLE_STEPS: Record<StepId, PromptType> = {
 	"settings-setup": null, // Settings files are created automatically, no prompt needed
 	"tool-detection": null,
 	"harness-selection": null, // Handled by step execution via onPromptRequest
+	"sandbox-grants": null,
 	"instruction-injection": null,
 	"gitignore-config": "gitignore", // Conditionally shown - see needsPrompt
 	"install-check": null,

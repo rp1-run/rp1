@@ -54,7 +54,10 @@ import type {
 	ReinitState,
 	StepId,
 } from "../../models.js";
-import { buildSettingsTomlTemplate } from "../../settings-template.js";
+import {
+	buildGlobalSettingsTomlTemplate,
+	buildSettingsTomlTemplate,
+} from "../../settings-template.js";
 import {
 	appendShellFencedContent,
 	hasShellFencedContent,
@@ -69,10 +72,12 @@ import {
 } from "../../steps/harness-selection.js";
 import { performHealthCheck } from "../../steps/health-check.js";
 import { checkPluginsInstalled } from "../../steps/plugin-installation.js";
+import { createStorageDirectories } from "../../steps/project-setup.js";
 import {
 	checkRp1Readiness,
 	type ReadinessResult,
 } from "../../steps/readiness.js";
+import { generateSandboxGrants } from "../../steps/sandbox-grants.js";
 import { generateNextSteps } from "../../steps/summary.js";
 import {
 	verifyClaudeCodePlugins,
@@ -97,6 +102,7 @@ import {
 import type { WizardAction, WizardState } from "./useWizardState.js";
 
 const DEFAULT_SETTINGS_TEMPLATE = buildSettingsTomlTemplate();
+const GLOBAL_SETTINGS_TEMPLATE = buildGlobalSettingsTomlTemplate();
 
 /**
  * Resolve the global settings file path.
@@ -523,8 +529,10 @@ export const useStepExecution = ({
 				chooseInitDirectoryModel(ctx.cwd, ctx.forceLocalProject);
 			ctx.directories = directories;
 
-			let created = 0;
-
+			// Only the minimal .rp1/ + project_id are created here. Context and
+			// work directories depend on the storage mode in settings.toml, so
+			// they are created by the settings-setup step after that file is
+			// written (mirroring the headless three-phase init flow).
 			if (!(await directoryExists(directories.rp1Dir))) {
 				await fs.mkdir(directories.rp1Dir, { recursive: true });
 				addAct(
@@ -532,35 +540,12 @@ export const useStepExecution = ({
 					`Created ${formatDirectoryForDisplay(ctx.cwd, directories.rp1Dir)}`,
 					"success",
 				);
-				created++;
-			}
-
-			if (!(await directoryExists(directories.contextDir))) {
-				await fs.mkdir(directories.contextDir, { recursive: true });
-				addAct(
-					"directory-setup",
-					`Created ${formatDirectoryForDisplay(ctx.cwd, directories.contextDir)}`,
-					"success",
-				);
-				created++;
-			}
-
-			if (!(await directoryExists(directories.workDir))) {
-				await fs.mkdir(directories.workDir, { recursive: true });
-				addAct(
-					"directory-setup",
-					`Created ${formatDirectoryForDisplay(ctx.cwd, directories.workDir)}`,
-					"success",
-				);
-				created++;
+			} else {
+				addAct("directory-setup", "Directory structure exists", "success");
 			}
 
 			await ensureProjectId(directories.projectRoot);
 			addAct("directory-setup", "Project ID ensured", "success");
-
-			if (created === 0) {
-				addAct("directory-setup", "Directory structure exists", "success");
-			}
 		},
 		[],
 	);
@@ -578,7 +563,7 @@ export const useStepExecution = ({
 			const globalDir = path.dirname(globalPath);
 			if (!(await fileExists(globalPath))) {
 				await fs.mkdir(globalDir, { recursive: true });
-				await writeFileContent(globalPath, DEFAULT_SETTINGS_TEMPLATE);
+				await writeFileContent(globalPath, GLOBAL_SETTINGS_TEMPLATE);
 				addAct("settings-setup", "Created global settings file", "success");
 			} else {
 				addAct(
@@ -602,6 +587,58 @@ export const useStepExecution = ({
 					"Local settings file exists (user values preserved)",
 					"info",
 				);
+			}
+
+			// Create storage directories now that settings.toml determines the
+			// mode: central mode places context/work under ~/.rp1/projects/<id>/,
+			// local mode under <projectRoot>/.rp1/.
+			const directories =
+				ctx.directories ??
+				chooseInitDirectoryModel(ctx.cwd, ctx.forceLocalProject);
+			ctx.directories = directories;
+			const projectId = await ensureProjectId(directories.projectRoot);
+			const storageActions = await createStorageDirectories(
+				directories.projectRoot,
+				projectId,
+				{
+					info: (message: string) =>
+						addAct("settings-setup", message, "success"),
+				},
+			);
+			if (storageActions.length === 0) {
+				addAct("settings-setup", "Storage directories exist", "info");
+			}
+		},
+		[],
+	);
+
+	/**
+	 * Execute the sandbox grants step.
+	 * Generates per-platform filesystem grants so AI coding harnesses
+	 * can access centrally-stored artifacts under ~/.rp1/.
+	 */
+	const executeSandboxGrants = useCallback(
+		async (addAct: AddActivityFn): Promise<void> => {
+			const ctx = contextRef.current;
+			try {
+				const grantResults = await generateSandboxGrants(undefined, ctx.cwd);
+				let granted = 0;
+				for (const grant of grantResults) {
+					if (grant.written) {
+						addAct(
+							"sandbox-grants",
+							`${grant.platform} → ${grant.path}`,
+							"success",
+						);
+						granted++;
+					}
+				}
+				if (granted === 0) {
+					addAct("sandbox-grants", "No sandbox grants needed", "info");
+				}
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : String(error);
+				addAct("sandbox-grants", `Grant error: ${msg}`, "warning");
 			}
 		},
 		[],
@@ -1219,6 +1256,9 @@ export const useStepExecution = ({
 					case "harness-selection":
 						await executeHarnessSelection(addAct);
 						break;
+					case "sandbox-grants":
+						await executeSandboxGrants(addAct);
+						break;
 					case "instruction-injection":
 						await executeInstructionInjection(addAct);
 						break;
@@ -1263,6 +1303,7 @@ export const useStepExecution = ({
 			executeSettingsSetup,
 			executeToolDetection,
 			executeHarnessSelection,
+			executeSandboxGrants,
 			executeInstructionInjection,
 			executeGitignoreConfig,
 			executeInstallCheck,

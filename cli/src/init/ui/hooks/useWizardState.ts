@@ -148,6 +148,11 @@ export const WIZARD_STEPS: readonly Omit<
 		description: "Creating settings files",
 	},
 	{
+		id: "sandbox-grants",
+		name: "Sandbox Grants",
+		description: "Configuring sandbox grants",
+	},
+	{
 		id: "instruction-injection",
 		name: "Instruction File",
 		description: "Configuring instruction file",

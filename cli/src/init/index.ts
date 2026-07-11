@@ -45,11 +45,13 @@ import { performHealthCheck } from "./steps/health-check.js";
 import { checkPluginsInstalled } from "./steps/plugin-installation.js";
 import {
 	configureGitignore,
-	createDirectoryStructure,
+	createMinimalProjectStructure,
 	createSettingsFiles,
+	createStorageDirectories,
 	injectInstructions,
 } from "./steps/project-setup.js";
 import { checkRp1Readiness } from "./steps/readiness.js";
+import { generateSandboxGrants } from "./steps/sandbox-grants.js";
 import { displaySummary, generateNextSteps } from "./steps/summary.js";
 import {
 	verifyClaudeCodePlugins,
@@ -102,6 +104,10 @@ const INIT_STEPS = [
 	{ name: "install-check", description: "Checking plugin installation..." },
 	{ name: "directory-setup", description: "Setting up directory structure..." },
 	{ name: "settings-setup", description: "Creating settings files..." },
+	{
+		name: "sandbox-grants",
+		description: "Configuring sandbox grants...",
+	},
 	{
 		name: "instruction-injection",
 		description: "Configuring instruction file...",
@@ -795,16 +801,20 @@ export function executeInit(
 				}
 
 				// --- Project setup ---
+				// Phase 1: Create minimal .rp1/ + project_id (required before
+				// central path computation and settings.toml write)
 				progress.startStep("directory-setup");
-				const dirActions = await createDirectoryStructure(
+				const minimalDirActions = await createMinimalProjectStructure(
 					cwd,
 					logger,
 					directories,
 				);
-				allActions.push(...dirActions);
-				await ensureProjectId(directories.projectRoot);
+				allActions.push(...minimalDirActions);
+				const projectId = await ensureProjectId(directories.projectRoot);
 				progress.completeStep();
 
+				// Phase 2: Write settings.toml, then create storage directories
+				// based on the resolved storage mode
 				progress.startStep("settings-setup");
 				const settingsActions = await createSettingsFiles(
 					cwd,
@@ -812,7 +822,39 @@ export function executeInit(
 					directories,
 				);
 				allActions.push(...settingsActions);
+				const storageDirActions = await createStorageDirectories(
+					directories.projectRoot,
+					projectId,
+					logger,
+				);
+				allActions.push(...storageDirActions);
 				progress.completeStep();
+
+				// Phase 3: Generate sandbox grants for selected harnesses
+				// so AI coding platforms can access the central store at ~/.rp1/
+				progress.startStep("sandbox-grants");
+				try {
+					const grantResults = await generateSandboxGrants(
+						undefined,
+						cwd,
+						options.globalSettingsPath,
+					);
+					for (const grant of grantResults) {
+						if (grant.written) {
+							allActions.push({ type: "created_file", path: grant.path });
+							logger.success(
+								`Sandbox grant: ${grant.platform} → ${grant.path}`,
+							);
+						}
+					}
+					progress.completeStep();
+				} catch (error) {
+					const errorMessage =
+						error instanceof Error ? error.message : String(error);
+					logger.warn(`Sandbox grant error: ${errorMessage}`);
+					allWarnings.push(`Sandbox grants failed: ${errorMessage}`);
+					progress.failStep();
+				}
 
 				progress.startStep("instruction-injection");
 				const { actions: instrActions } = await injectInstructions(
