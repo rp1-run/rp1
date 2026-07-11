@@ -126,6 +126,15 @@ describe("integration: executeInit produces sandbox grant files", () => {
 			const codexContent = readFileSync(join(tempDir, "codex.toml"), "utf-8");
 			expect(codexContent).toContain("~/.rp1");
 
+			// OpenCode grant must use the HYP-002 validated format:
+			// { permission: { external_directory: { "~/.rp1/**": "allow" } } }
+			const opencodePath = join(tempDir, "opencode.json");
+			expect(existsSync(opencodePath)).toBe(true);
+			const opencodeContent = JSON.parse(readFileSync(opencodePath, "utf-8"));
+			expect(opencodeContent.permission.external_directory["~/.rp1/**"]).toBe(
+				"allow",
+			);
+
 			const grantFileActions = initResult.actions.filter(
 				(a) =>
 					a.type === "created_file" &&

@@ -72,6 +72,7 @@ import {
 } from "../../steps/harness-selection.js";
 import { performHealthCheck } from "../../steps/health-check.js";
 import { checkPluginsInstalled } from "../../steps/plugin-installation.js";
+import { createStorageDirectories } from "../../steps/project-setup.js";
 import {
 	checkRp1Readiness,
 	type ReadinessResult,
@@ -528,8 +529,10 @@ export const useStepExecution = ({
 				chooseInitDirectoryModel(ctx.cwd, ctx.forceLocalProject);
 			ctx.directories = directories;
 
-			let created = 0;
-
+			// Only the minimal .rp1/ + project_id are created here. Context and
+			// work directories depend on the storage mode in settings.toml, so
+			// they are created by the settings-setup step after that file is
+			// written (mirroring the headless three-phase init flow).
 			if (!(await directoryExists(directories.rp1Dir))) {
 				await fs.mkdir(directories.rp1Dir, { recursive: true });
 				addAct(
@@ -537,35 +540,12 @@ export const useStepExecution = ({
 					`Created ${formatDirectoryForDisplay(ctx.cwd, directories.rp1Dir)}`,
 					"success",
 				);
-				created++;
-			}
-
-			if (!(await directoryExists(directories.contextDir))) {
-				await fs.mkdir(directories.contextDir, { recursive: true });
-				addAct(
-					"directory-setup",
-					`Created ${formatDirectoryForDisplay(ctx.cwd, directories.contextDir)}`,
-					"success",
-				);
-				created++;
-			}
-
-			if (!(await directoryExists(directories.workDir))) {
-				await fs.mkdir(directories.workDir, { recursive: true });
-				addAct(
-					"directory-setup",
-					`Created ${formatDirectoryForDisplay(ctx.cwd, directories.workDir)}`,
-					"success",
-				);
-				created++;
+			} else {
+				addAct("directory-setup", "Directory structure exists", "success");
 			}
 
 			await ensureProjectId(directories.projectRoot);
 			addAct("directory-setup", "Project ID ensured", "success");
-
-			if (created === 0) {
-				addAct("directory-setup", "Directory structure exists", "success");
-			}
 		},
 		[],
 	);
@@ -607,6 +587,26 @@ export const useStepExecution = ({
 					"Local settings file exists (user values preserved)",
 					"info",
 				);
+			}
+
+			// Create storage directories now that settings.toml determines the
+			// mode: central mode places context/work under ~/.rp1/projects/<id>/,
+			// local mode under <projectRoot>/.rp1/.
+			const directories =
+				ctx.directories ??
+				chooseInitDirectoryModel(ctx.cwd, ctx.forceLocalProject);
+			ctx.directories = directories;
+			const projectId = await ensureProjectId(directories.projectRoot);
+			const storageActions = await createStorageDirectories(
+				directories.projectRoot,
+				projectId,
+				{
+					info: (message: string) =>
+						addAct("settings-setup", message, "success"),
+				},
+			);
+			if (storageActions.length === 0) {
+				addAct("settings-setup", "Storage directories exist", "info");
 			}
 		},
 		[],

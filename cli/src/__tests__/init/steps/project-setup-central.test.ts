@@ -10,8 +10,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Logger } from "../../../../shared/logger.js";
+import { computeDirectoryPaths } from "../../../../shared/storage-mode.js";
 import { resolveStorageDirectoryPaths } from "../../../init/directory-model.js";
 import {
 	createMinimalProjectStructure,
@@ -253,6 +255,49 @@ describe("resolveStorageDirectoryPaths", () => {
 			projectId,
 			fakeHome,
 		);
+
+		expect(result.contextDir).toBe(join(projectRoot, ".rp1", "context"));
+		expect(result.workDir).toBe(join(projectRoot, ".rp1", "work"));
+		expect(result.storageMode).toBe("local");
+	});
+
+	// Without the homeDir test seam, the function delegates to the shared
+	// computeDirectoryPaths — the branch production code actually runs. These
+	// tests only compute paths (no directories are created), so using the real
+	// home directory is safe.
+	test("central mode without homeDir delegates to computeDirectoryPaths", async () => {
+		const projectRoot = join(tempDir, "project");
+		const projectId = "central-prod-branch-id";
+		await mkdir(join(projectRoot, ".rp1"), { recursive: true });
+		await writeFile(
+			join(projectRoot, ".rp1", "settings.toml"),
+			'[storage]\nmode = "central"\n',
+		);
+		await writeFile(join(projectRoot, ".rp1", "project_id"), projectId);
+
+		const result = resolveStorageDirectoryPaths(projectRoot, projectId);
+
+		const expected = computeDirectoryPaths(projectRoot, projectId, "central");
+		expect(result.contextDir).toBe(expected.kbRoot);
+		expect(result.workDir).toBe(expected.workRoot);
+		expect(result.storageMode).toBe("central");
+
+		const centralBase = join(homedir(), ".rp1", "projects", projectId);
+		expect(result.contextDir).toBe(join(centralBase, "context"));
+		expect(result.workDir).toBe(join(centralBase, "work"));
+	});
+
+	test("local mode without homeDir delegates to computeDirectoryPaths", async () => {
+		const projectRoot = join(tempDir, "project");
+		const projectId = "local-prod-branch-id";
+		await mkdir(join(projectRoot, ".rp1"), { recursive: true });
+		await writeFile(
+			join(projectRoot, ".rp1", "settings.toml"),
+			'[storage]\nmode = "local"\n',
+		);
+		await writeFile(join(projectRoot, ".rp1", "project_id"), projectId);
+
+		const result = resolveStorageDirectoryPaths(projectRoot, projectId);
 
 		expect(result.contextDir).toBe(join(projectRoot, ".rp1", "context"));
 		expect(result.workDir).toBe(join(projectRoot, ".rp1", "work"));

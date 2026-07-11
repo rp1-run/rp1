@@ -162,12 +162,15 @@ export async function createMinimalProjectStructure(
  * Must be called after settings.toml is written and project_id exists,
  * because the storage mode is read from the project's settings.
  *
+ * The logger is narrowed to `info` so non-Logger callers (the init wizard,
+ * which reports through per-step activity callbacks) can share this logic.
+ *
  * @param homeDir - Override home directory for test isolation
  */
 export async function createStorageDirectories(
 	projectRoot: string,
 	projectId: string,
-	logger: Logger,
+	logger: Pick<Logger, "info">,
 	homeDir?: string,
 ): Promise<InitAction[]> {
 	const actions: InitAction[] = [];
