@@ -644,10 +644,6 @@ export function executeInit(
 				const primaryTool = getPrimaryTool(toolDetectionResult);
 				progress.completeStep();
 
-				// --- Harness persistence (non-TTY) ---
-				// Persist [harnesses] enabled to settings.toml so that
-				// rp1 update can scope global stanza writes correctly.
-				// Matches the TTY --yes path in useStepExecution.ts.
 				const harnessItems = buildHarnessItems(toolDetectionResult.detected);
 				const stableIds = getStableDefaults(harnessItems);
 				writeHarnessSelection(stableIds, options.globalSettingsPath);
@@ -853,7 +849,7 @@ export function executeInit(
 				progress.startStep("sandbox-grants");
 				try {
 					const grantResults = await generateSandboxGrants(
-						undefined,
+						[...stableIds],
 						cwd,
 						options.globalSettingsPath,
 					);
@@ -899,7 +895,7 @@ export function executeInit(
 					}
 
 					const stanzaResult = await manageGlobalStanzas(stableIds, {
-						homeDir: undefined,
+						homeDir: options.homeDir,
 					});
 
 					for (const platform of stanzaResult.written) {
