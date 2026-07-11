@@ -32,7 +32,10 @@ import {
 import { buildManagedGitignoreContent } from "../gitignore.js";
 import type { GitignorePreset, InitAction } from "../models.js";
 import type { InitProgress } from "../progress.js";
-import { buildSettingsTomlTemplate } from "../settings-template.js";
+import {
+	buildGlobalSettingsTomlTemplate,
+	buildSettingsTomlTemplate,
+} from "../settings-template.js";
 import {
 	appendShellFencedContent,
 	hasShellFencedContent,
@@ -218,6 +221,7 @@ function resolveLocalSettingsPath(
  */
 async function createOrUpdateSettingsFile(
 	filePath: string,
+	template: string,
 ): Promise<{ action: InitAction; isNew: boolean; addedFields: string[] }> {
 	if (await fileExists(filePath)) {
 		return {
@@ -227,8 +231,7 @@ async function createOrUpdateSettingsFile(
 		};
 	}
 
-	const content = buildSettingsTomlTemplate();
-	await writeFileContent(filePath, content);
+	await writeFileContent(filePath, template);
 
 	return {
 		action: { type: "created_file", path: filePath },
@@ -254,7 +257,10 @@ export async function createSettingsFiles(
 
 	// Process global settings file
 	const globalPath = resolveGlobalSettingsPath();
-	const globalResult = await createOrUpdateSettingsFile(globalPath);
+	const globalResult = await createOrUpdateSettingsFile(
+		globalPath,
+		buildGlobalSettingsTomlTemplate(),
+	);
 	actions.push(globalResult.action);
 
 	if (globalResult.isNew) {
@@ -269,7 +275,10 @@ export async function createSettingsFiles(
 
 	// Process local settings file
 	const localPath = resolveLocalSettingsPath(cwd, directoriesOverride);
-	const localResult = await createOrUpdateSettingsFile(localPath);
+	const localResult = await createOrUpdateSettingsFile(
+		localPath,
+		buildSettingsTomlTemplate(),
+	);
 	actions.push(localResult.action);
 
 	if (localResult.isNew) {

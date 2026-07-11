@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { GITIGNORE_PRESETS } from "../../init/models.js";
-import { buildSettingsTomlTemplate } from "../../init/settings-template.js";
+import {
+	buildGlobalSettingsTomlTemplate,
+	buildSettingsTomlTemplate,
+} from "../../init/settings-template.js";
 
 describe("buildSettingsTomlTemplate", () => {
 	test("output contains [storage] section with mode = central", () => {
@@ -24,6 +27,24 @@ describe("buildSettingsTomlTemplate", () => {
 
 		expect(result).toContain("dev:build");
 		expect(result).toContain("dev:build-fast");
+	});
+});
+
+describe("buildGlobalSettingsTomlTemplate", () => {
+	test("does not set an active storage mode", () => {
+		const result = buildGlobalSettingsTomlTemplate();
+		const parsed = Bun.TOML.parse(result) as Record<string, unknown>;
+
+		// An active [storage] section in the global file would flip every
+		// project on the machine without its own mode to central.
+		expect(parsed.storage).toBeUndefined();
+	});
+
+	test("mentions storage opt-in only as commented guidance", () => {
+		const result = buildGlobalSettingsTomlTemplate();
+
+		expect(result).toContain("# [storage]");
+		expect(result).toContain('# mode = "central"');
 	});
 });
 

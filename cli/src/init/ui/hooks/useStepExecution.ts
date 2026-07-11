@@ -54,7 +54,10 @@ import type {
 	ReinitState,
 	StepId,
 } from "../../models.js";
-import { buildSettingsTomlTemplate } from "../../settings-template.js";
+import {
+	buildGlobalSettingsTomlTemplate,
+	buildSettingsTomlTemplate,
+} from "../../settings-template.js";
 import {
 	appendShellFencedContent,
 	hasShellFencedContent,
@@ -98,6 +101,7 @@ import {
 import type { WizardAction, WizardState } from "./useWizardState.js";
 
 const DEFAULT_SETTINGS_TEMPLATE = buildSettingsTomlTemplate();
+const GLOBAL_SETTINGS_TEMPLATE = buildGlobalSettingsTomlTemplate();
 
 /**
  * Resolve the global settings file path.
@@ -579,7 +583,7 @@ export const useStepExecution = ({
 			const globalDir = path.dirname(globalPath);
 			if (!(await fileExists(globalPath))) {
 				await fs.mkdir(globalDir, { recursive: true });
-				await writeFileContent(globalPath, DEFAULT_SETTINGS_TEMPLATE);
+				await writeFileContent(globalPath, GLOBAL_SETTINGS_TEMPLATE);
 				addAct("settings-setup", "Created global settings file", "success");
 			} else {
 				addAct(
