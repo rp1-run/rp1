@@ -242,7 +242,7 @@ The `[storage]` section is written with the same comment-preserving TOML
 strategy used for `[arcade]` -- existing comments and formatting in the
 file are not disturbed.
 
-See [`rp1 migrate --to-central`](cli/rp1-migrate.md#central-storage-conversion---to-central)
+See [`rp1 migrate --to-central`](cli/rp1-migrate.md#central-storage-conversion-to-central)
 for how this section is created.
 
 ---
