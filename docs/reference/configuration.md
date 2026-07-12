@@ -274,8 +274,11 @@ The distinction between an absent `[harnesses]` section and an explicit
 empty array is significant:
 
 - **Absent** (`[harnesses]` section not present): rp1 falls back to
-  auto-detection, using all stable platforms found in the tools registry
-  via `getDefaultInstallTools`. This is the default for projects that
+  auto-detection. `rp1 update` and `rp1 migrate --to-central` detect
+  installed harnesses on the machine (`detectTools` +
+  `getEffectiveHarnesses`), while `rp1 init` sandbox grants fall back
+  to all stable platforms in the tools registry
+  (`getDefaultInstallTools`). This is the default for machines that
   have not run `rp1 init` harness selection.
 - **Empty** (`enabled = []`): rp1 treats this as an explicit "no
   harnesses" selection. `rp1 update` skips global stanza management
