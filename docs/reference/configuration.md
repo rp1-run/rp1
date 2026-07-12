@@ -214,6 +214,39 @@ to `sonnet`.
 
 ---
 
+## Storage Mode
+
+The `[storage]` section records the active storage mode for a project. This
+section is written by `rp1 migrate --to-central` and should not be edited
+manually.
+
+### Schema
+
+```toml
+[storage]
+mode = "central"
+```
+
+### Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `mode` | `"local"` \| `"central"` | `"local"` | Where KB and work artifacts are stored. `"local"` keeps them in `.rp1/context/` and `.rp1/work/` inside the project. `"central"` stores them under `~/.rp1/projects/<project_id>/`. |
+
+When `mode` is `"central"`, the `rp1 agent-tools rp1-root-dir` command
+resolves `kbRoot` and `workRoot` to the central location instead of the
+project-local `.rp1/` directory. Skills and agents that use the resolved
+directory variables work in either mode without changes.
+
+The `[storage]` section is written with the same comment-preserving TOML
+strategy used for `[arcade]` -- existing comments and formatting in the
+file are not disturbed.
+
+See [`rp1 migrate --to-central`](cli/rp1-migrate.md#central-storage-conversion---to-central)
+for how this section is created.
+
+---
+
 ## Arcade Settings
 
 The `[arcade]` section configures the Arcade dashboard UI. These settings
