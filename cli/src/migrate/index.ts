@@ -52,6 +52,8 @@ export interface CentralStoreResult {
 export interface MigrateOptions {
 	readonly dryRun?: boolean;
 	readonly toCentral?: boolean;
+	readonly homeDir?: string;
+	readonly globalSettingsPath?: string;
 }
 
 export interface MigrateResult {
@@ -68,8 +70,10 @@ export interface MigrateResult {
 	readonly centralStore?: CentralStoreResult;
 }
 
-const resolveHarnesses = async (): Promise<readonly string[]> => {
-	const persisted = loadEnabledHarnesses();
+const resolveHarnesses = async (
+	globalSettingsPath?: string,
+): Promise<readonly string[]> => {
+	const persisted = loadEnabledHarnesses(globalSettingsPath);
 	if (persisted !== undefined) {
 		return persisted;
 	}
@@ -85,6 +89,8 @@ const executeCentralSteps = async (
 	projectRoot: string,
 	projectId: string,
 	dryRun: boolean,
+	homeDir?: string,
+	globalSettingsPath?: string,
 ): Promise<CentralStoreResult | undefined> => {
 	const currentMode = readStorageMode(projectRoot);
 	if (currentMode === "central") {
@@ -107,7 +113,10 @@ const executeCentralSteps = async (
 
 	const settingsPath = resolveLocalSettingsPath(projectRoot);
 
-	const relocated = relocateToCenter(projectRoot, projectId, { dryRun });
+	const relocated = relocateToCenter(projectRoot, projectId, {
+		dryRun,
+		homeDir,
+	});
 
 	const settingsWritten = writeStorageSection(settingsPath, "central", {
 		dryRun,
@@ -115,8 +124,11 @@ const executeCentralSteps = async (
 
 	const stanzasRemoved = removeProjectStanzas(projectRoot, { dryRun });
 
-	const harnesses = await resolveHarnesses();
-	const globalStanza = await manageGlobalStanzas(harnesses, { dryRun });
+	const harnesses = await resolveHarnesses(globalSettingsPath);
+	const globalStanza = await manageGlobalStanzas(harnesses, {
+		dryRun,
+		homeDir,
+	});
 
 	const gitignoreUpdated = updateGitignoreCentral(projectRoot, { dryRun });
 
@@ -170,7 +182,13 @@ export const executeMigrate = async (
 
 		let centralStore: CentralStoreResult | undefined;
 		if (options.toCentral === true) {
-			centralStore = await executeCentralSteps(projectRoot, projectId, true);
+			centralStore = await executeCentralSteps(
+				projectRoot,
+				projectId,
+				true,
+				options.homeDir,
+				options.globalSettingsPath,
+			);
 		}
 
 		return {
@@ -222,7 +240,13 @@ export const executeMigrate = async (
 
 	let centralStore: CentralStoreResult | undefined;
 	if (options.toCentral === true) {
-		centralStore = await executeCentralSteps(projectRoot, projectId, false);
+		centralStore = await executeCentralSteps(
+			projectRoot,
+			projectId,
+			false,
+			options.homeDir,
+			options.globalSettingsPath,
+		);
 	}
 
 	return {

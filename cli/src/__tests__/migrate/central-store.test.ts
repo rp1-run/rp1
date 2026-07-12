@@ -6,7 +6,7 @@ import {
 	setDefaultTimeout,
 	test,
 } from "bun:test";
-import { existsSync, readFileSync, renameSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -564,14 +564,10 @@ describe("central-store", () => {
 				"cross device content",
 			);
 
-			const originalRenameSync = renameSync;
-			const renameSyncRef = Object.getOwnPropertyDescriptor(
-				require("node:fs"),
-				"renameSync",
-			);
+			const fs = require("node:fs");
+			const renameSyncRef = Object.getOwnPropertyDescriptor(fs, "renameSync");
 
 			try {
-				const fs = require("node:fs");
 				fs.renameSync = (_src: string, _dest: string) => {
 					const err = new Error(
 						"EXDEV: cross-device link not permitted",
@@ -598,11 +594,8 @@ describe("central-store", () => {
 					existsSync(join(projectRoot, ".rp1", "context", "index.md")),
 				).toBe(false);
 			} finally {
-				const fs = require("node:fs");
 				if (renameSyncRef) {
 					Object.defineProperty(fs, "renameSync", renameSyncRef);
-				} else {
-					fs.renameSync = originalRenameSync;
 				}
 			}
 		});
@@ -610,12 +603,15 @@ describe("central-store", () => {
 
 	describe("executeMigrate central-store integration", () => {
 		let originalRp1Db: string | undefined;
-		let createdProjectIds: string[];
+		let homeDir: string;
+		let globalSettingsPath: string;
 
 		beforeEach(async () => {
 			originalRp1Db = process.env.RP1_DB;
 			process.env.RP1_DB = join(tempDir, "test-central.db");
-			createdProjectIds = [];
+			homeDir = join(tempDir, "fake-home");
+			await mkdir(homeDir, { recursive: true });
+			globalSettingsPath = join(homeDir, ".config", "rp1", "settings.toml");
 		});
 
 		afterEach(async () => {
@@ -627,15 +623,6 @@ describe("central-store", () => {
 			} else {
 				process.env.RP1_DB = originalRp1Db;
 			}
-
-			const { homedir } = require("node:os");
-			const home = homedir();
-			for (const pid of createdProjectIds) {
-				const centralDir = join(home, ".rp1", "projects", pid);
-				if (existsSync(centralDir)) {
-					await rm(centralDir, { recursive: true, force: true });
-				}
-			}
 		});
 
 		test("REQ-008: bare migrate does NOT convert a local project to central", async () => {
@@ -646,7 +633,6 @@ describe("central-store", () => {
 			await writeFile(join(projectRoot, ".rp1", "work", "tasks.md"), "# Tasks");
 
 			const result = await executeMigrate(projectRoot);
-			createdProjectIds.push(result.projectId);
 
 			expect(result.centralStore).toBeUndefined();
 			expect(existsSync(join(projectRoot, ".rp1", "context", "index.md"))).toBe(
@@ -667,7 +653,6 @@ describe("central-store", () => {
 			await mkdir(join(projectRoot, ".rp1"), { recursive: true });
 
 			const result = await executeMigrate(projectRoot);
-			createdProjectIds.push(result.projectId);
 			const summary = formatMigrateSummary(result);
 
 			expect(summary).not.toContain("--to-central");
@@ -694,8 +679,6 @@ describe("central-store", () => {
 		});
 
 		test("--to-central converts a local project to central end-to-end", async () => {
-			const { homedir } = require("node:os");
-			const home = homedir();
 			const projectRoot = join(tempDir, "convert-project");
 			await mkdir(join(projectRoot, ".rp1", "context", "sub"), {
 				recursive: true,
@@ -716,8 +699,11 @@ describe("central-store", () => {
 				"design",
 			);
 
-			const result = await executeMigrate(projectRoot, { toCentral: true });
-			createdProjectIds.push(result.projectId);
+			const result = await executeMigrate(projectRoot, {
+				toCentral: true,
+				homeDir,
+				globalSettingsPath,
+			});
 
 			expect(result.centralStore).toBeDefined();
 			const cs = result.centralStore!;
@@ -732,8 +718,11 @@ describe("central-store", () => {
 			);
 			expect(settingsContent).toContain('mode = "central"');
 
-			const centralBase = join(home, ".rp1", "projects", result.projectId);
+			const centralBase = join(homeDir, ".rp1", "projects", result.projectId);
 			expect(existsSync(join(centralBase, "context", "index.md"))).toBe(true);
+			expect(
+				readFileSync(join(centralBase, "context", "index.md"), "utf-8"),
+			).toBe("# KB Index");
 			expect(existsSync(join(centralBase, "context", "sub", "nested.md"))).toBe(
 				true,
 			);
@@ -757,8 +746,11 @@ describe("central-store", () => {
 				'[storage]\nmode = "central"\n',
 			);
 
-			const result = await executeMigrate(projectRoot, { toCentral: true });
-			createdProjectIds.push(result.projectId);
+			const result = await executeMigrate(projectRoot, {
+				toCentral: true,
+				homeDir,
+				globalSettingsPath,
+			});
 
 			expect(result.centralStore).toBeDefined();
 			const cs = result.centralStore!;
@@ -786,6 +778,8 @@ describe("central-store", () => {
 			const result = await executeMigrate(projectRoot, {
 				toCentral: true,
 				dryRun: true,
+				homeDir,
+				globalSettingsPath,
 			});
 
 			expect(result.dryRun).toBe(true);
@@ -817,6 +811,8 @@ describe("central-store", () => {
 				expect(settings).not.toContain('mode = "central"');
 			}
 
+			expect(existsSync(join(homeDir, ".rp1", "projects"))).toBe(false);
+
 			const summary = formatMigrateSummary(result);
 			expect(summary).toContain("Central storage conversion");
 			expect(summary).toContain("Would relocate");
@@ -840,8 +836,11 @@ describe("central-store", () => {
 				"<!-- rp1:start:v0.7.0 -->\nAgent stanza\n<!-- rp1:end:v0.7.0 -->\n",
 			);
 
-			const result = await executeMigrate(projectRoot, { toCentral: true });
-			createdProjectIds.push(result.projectId);
+			const result = await executeMigrate(projectRoot, {
+				toCentral: true,
+				homeDir,
+				globalSettingsPath,
+			});
 
 			expect(result.centralStore).toBeDefined();
 			expect(result.centralStore!.stanzasRemoved.filesModified).toContain(
@@ -878,8 +877,11 @@ describe("central-store", () => {
 				"node_modules/\n\n# rp1:start\n!.rp1/\n.rp1/*\n!.rp1/project_id\n!.rp1/context/\n!.rp1/context/**\n# rp1:end\n",
 			);
 
-			const result = await executeMigrate(projectRoot, { toCentral: true });
-			createdProjectIds.push(result.projectId);
+			const result = await executeMigrate(projectRoot, {
+				toCentral: true,
+				homeDir,
+				globalSettingsPath,
+			});
 
 			expect(result.centralStore).toBeDefined();
 			expect(result.centralStore!.gitignoreUpdated.updated).toBe(true);
@@ -910,8 +912,11 @@ describe("central-store", () => {
 			});
 			await commitProc.exited;
 
-			const result = await executeMigrate(repoDir, { toCentral: true });
-			createdProjectIds.push(result.projectId);
+			const result = await executeMigrate(repoDir, {
+				toCentral: true,
+				homeDir,
+				globalSettingsPath,
+			});
 
 			expect(result.centralStore).toBeDefined();
 			expect(result.centralStore!.gitUnstaged.unstaged.length).toBeGreaterThan(
@@ -927,8 +932,11 @@ describe("central-store", () => {
 			await mkdir(join(plainDir, ".rp1", "context"), { recursive: true });
 			await writeFile(join(plainDir, ".rp1", "context", "index.md"), "# KB");
 
-			const result = await executeMigrate(plainDir, { toCentral: true });
-			createdProjectIds.push(result.projectId);
+			const result = await executeMigrate(plainDir, {
+				toCentral: true,
+				homeDir,
+				globalSettingsPath,
+			});
 
 			expect(result.centralStore).toBeDefined();
 			expect(result.centralStore!.gitUnstaged.unstaged).toEqual([]);
@@ -942,8 +950,9 @@ describe("central-store", () => {
 				'[models]\ntier = "standard"\n',
 			);
 
-			const first = await executeMigrate(projectRoot, { toCentral: true });
-			createdProjectIds.push(first.projectId);
+			const centralOpts = { toCentral: true, homeDir, globalSettingsPath };
+
+			const first = await executeMigrate(projectRoot, centralOpts);
 
 			expect(first.centralStore).toBeDefined();
 			expect(first.centralStore!.settingsWritten).toBe(true);
@@ -958,7 +967,7 @@ describe("central-store", () => {
 			closeDatabase();
 			resetInstance();
 
-			const second = await executeMigrate(projectRoot, { toCentral: true });
+			const second = await executeMigrate(projectRoot, centralOpts);
 
 			expect(second.centralStore).toBeDefined();
 			expect(second.centralStore!.settingsWritten).toBe(false);
@@ -974,52 +983,39 @@ describe("central-store", () => {
 		});
 
 		test("global stanza injection is scoped to enabled harnesses only", async () => {
-			const { homedir } = require("node:os");
-			const home = homedir();
-			const globalSettingsDir = join(home, ".config", "rp1");
-			const globalSettingsPath = join(globalSettingsDir, "settings.toml");
-			let globalSettingsExisted = false;
-			let originalGlobalSettings = "";
+			const globalSettingsDir = join(homeDir, ".config", "rp1");
+			await mkdir(globalSettingsDir, { recursive: true });
+			await writeFile(
+				globalSettingsPath,
+				'[harnesses]\nenabled = ["claude-code"]\n',
+			);
 
-			if (existsSync(globalSettingsPath)) {
-				globalSettingsExisted = true;
-				originalGlobalSettings = readFileSync(globalSettingsPath, "utf-8");
-			}
+			const projectRoot = join(tempDir, "stanza-scope");
+			await mkdir(join(projectRoot, ".rp1"), { recursive: true });
 
-			try {
-				const { mkdirSync, writeFileSync } = require("node:fs");
-				mkdirSync(globalSettingsDir, { recursive: true });
-				writeFileSync(
-					globalSettingsPath,
-					'[harnesses]\nenabled = ["claude-code"]\n',
-					"utf-8",
-				);
+			const result = await executeMigrate(projectRoot, {
+				toCentral: true,
+				homeDir,
+				globalSettingsPath,
+			});
 
-				const projectRoot = join(tempDir, "stanza-scope");
-				await mkdir(join(projectRoot, ".rp1"), { recursive: true });
+			expect(result.centralStore).toBeDefined();
+			const gs = result.centralStore!.globalStanza;
 
-				const result = await executeMigrate(projectRoot, { toCentral: true });
-				createdProjectIds.push(result.projectId);
+			const claudeActioned =
+				gs.written.includes("claude-code") ||
+				gs.updated.includes("claude-code");
+			expect(claudeActioned).toBe(true);
 
-				expect(result.centralStore).toBeDefined();
-				const gs = result.centralStore!.globalStanza;
+			const claudePath = join(homeDir, ".claude", "CLAUDE.md");
+			expect(existsSync(claudePath)).toBe(true);
+			const claudeContent = readFileSync(claudePath, "utf-8");
+			expect(claudeContent).toContain("rp1");
 
-				const claudeActioned =
-					gs.written.includes("claude-code") ||
-					gs.updated.includes("claude-code");
-				expect(claudeActioned).toBe(true);
-
-				expect(gs.written).not.toContain("codex");
-				expect(gs.updated).not.toContain("codex");
-			} finally {
-				if (globalSettingsExisted) {
-					const { writeFileSync } = require("node:fs");
-					writeFileSync(globalSettingsPath, originalGlobalSettings, "utf-8");
-				} else if (existsSync(globalSettingsPath)) {
-					const { unlinkSync } = require("node:fs");
-					unlinkSync(globalSettingsPath);
-				}
-			}
+			expect(gs.written).not.toContain("codex");
+			expect(gs.updated).not.toContain("codex");
+			const codexPath = join(homeDir, ".codex", "AGENTS.md");
+			expect(existsSync(codexPath)).toBe(false);
 		});
 
 		test("formatMigrateSummary includes central store section for --to-central results", () => {
