@@ -214,6 +214,99 @@ to `sonnet`.
 
 ---
 
+## Storage Mode
+
+The `[storage]` section records the active storage mode for a project. This
+section is written by `rp1 migrate --to-central` and should not be edited
+manually.
+
+### Schema
+
+```toml
+[storage]
+mode = "central"
+```
+
+### Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `mode` | `"local"` \| `"central"` | `"local"` | Where KB and work artifacts are stored. `"local"` keeps them in `.rp1/context/` and `.rp1/work/` inside the project. `"central"` stores them under `~/.rp1/projects/<project_id>/`. |
+
+When `mode` is `"central"`, the `rp1 agent-tools rp1-root-dir` command
+resolves `kbRoot` and `workRoot` to the central location instead of the
+project-local `.rp1/` directory. Skills and agents that use the resolved
+directory variables work in either mode without changes.
+
+The `[storage]` section is written with the same comment-preserving TOML
+strategy used for `[arcade]` -- existing comments and formatting in the
+file are not disturbed.
+
+See [`rp1 migrate --to-central`](cli/rp1-migrate.md#central-storage-conversion-to-central)
+for how this section is created.
+
+---
+
+## Harness Selection
+
+The `[harnesses]` section records which AI harnesses receive global
+instruction stanzas and sandbox grants. This section exists only in
+user-level settings (`~/.config/rp1/settings.toml`) -- it is not merged
+with project-level settings because harness availability is per-machine,
+not per-project.
+
+### Schema
+
+```toml
+[harnesses]
+enabled = ["claude-code", "codex"]
+```
+
+### Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | string[] | *(absent)* | List of harness IDs that rp1 manages stanzas and sandbox grants for. Valid IDs: `claude-code`, `opencode`, `codex`, `copilot`, `antigravity`. |
+
+### Absent vs Empty
+
+The distinction between an absent `[harnesses]` section and an explicit
+empty array is significant:
+
+- **Absent** (`[harnesses]` section not present): rp1 falls back to
+  auto-detection. `rp1 update` and `rp1 migrate --to-central` detect
+  installed harnesses on the machine (`detectTools` +
+  `getEffectiveHarnesses`), while `rp1 init` sandbox grants fall back
+  to all stable platforms in the tools registry
+  (`getDefaultInstallTools`). This is the default for machines that
+  have not run `rp1 init` harness selection.
+- **Empty** (`enabled = []`): rp1 treats this as an explicit "no
+  harnesses" selection. `rp1 update` skips global stanza management
+  entirely, and `rp1 migrate --to-central` skips global stanza injection.
+
+### How It Is Written
+
+The `[harnesses]` section is created by `rp1 init` when the harness
+selection wizard completes, and updated by `rp1 install` and
+`rp1 uninstall` to keep the list in sync as tools are added or removed.
+The writer uses comment-preserving TOML edits (same strategy as
+`[arcade]` and `[storage]`).
+
+### Consumers
+
+Three subsystems read the persisted harness selection via
+`loadEnabledHarnesses`:
+
+- **`rp1 update`** (`resolveStanzaHarnesses`): determines which harness
+  instruction files receive global stanza writes or updates.
+- **`rp1 init` sandbox grants** (`resolveHarnesses`): determines which
+  platforms receive sandbox permission grants during project creation.
+- **`rp1 migrate --to-central`**: determines which harness instruction
+  files receive global stanza injection when converting to central
+  storage mode.
+
+---
+
 ## Arcade Settings
 
 The `[arcade]` section configures the Arcade dashboard UI. These settings
