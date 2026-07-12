@@ -70,6 +70,16 @@ async function readFileIfExists(filePath: string): Promise<string | null> {
 	}
 }
 
+async function setupLocalStorageMode(cwd: string): Promise<void> {
+	const rp1Dir = join(cwd, ".rp1");
+	await mkdir(rp1Dir, { recursive: true });
+	await writeFile(
+		join(rp1Dir, "settings.toml"),
+		'[storage]\nmode = "local"\n',
+		"utf-8",
+	);
+}
+
 function createDetectedTool(
 	id: "claude-code" | "opencode" | "codex",
 	instructionFile: "CLAUDE.md" | "AGENTS.md",
@@ -205,6 +215,7 @@ describe("init-install separation", () => {
 		test(
 			"install failure does not prevent project setup from completing",
 			async () => {
+				await setupLocalStorageMode(tempDir);
 				const logger = createTrackingLogger();
 				const options: InitOptions = { cwd: tempDir, yes: true };
 

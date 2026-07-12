@@ -53,16 +53,32 @@ async function readFileIfExists(filePath: string): Promise<string | null> {
 	}
 }
 
+/**
+ * Pre-create .rp1/settings.toml with local storage mode so that
+ * init takes the per-project stanza injection path instead of central mode.
+ */
+async function setupLocalStorageMode(cwd: string): Promise<void> {
+	const rp1Dir = join(cwd, ".rp1");
+	await mkdir(rp1Dir, { recursive: true });
+	await writeFile(
+		join(rp1Dir, "settings.toml"),
+		'[storage]\nmode = "local"\n',
+		"utf-8",
+	);
+}
+
 // ============================================================================
 // Integration Tests
 // ============================================================================
 
 describe("integration: init workflow", () => {
 	let tempDir: string;
+	let globalSettingsPath: string;
 	const originalEnv = process.env.RP1_ROOT;
 
 	beforeEach(async () => {
 		tempDir = await createTempDir("init-integration-");
+		globalSettingsPath = join(tempDir, "global-settings.toml");
 		// Clear RP1_ROOT env var to use default ".rp1"
 		delete process.env.RP1_ROOT;
 	});
@@ -81,10 +97,12 @@ describe("integration: init workflow", () => {
 		test(
 			"creates complete setup with directories and instruction file",
 			async () => {
+				await setupLocalStorageMode(tempDir);
 				const logger = createTrackingLogger();
 				const options: InitOptions = {
 					cwd: tempDir,
 					yes: true, // Non-interactive mode
+					globalSettingsPath,
 				};
 
 				const result = await executeInit(options, logger)();
@@ -142,6 +160,7 @@ describe("integration: init workflow", () => {
 				const options: InitOptions = {
 					cwd: tempDir,
 					yes: true,
+					globalSettingsPath,
 				};
 
 				const result = await executeInit(options, logger)();
@@ -207,6 +226,7 @@ More custom content below.
 				const options: InitOptions = {
 					cwd: tempDir,
 					yes: true, // Non-interactive mode defaults to skip re-init
+					globalSettingsPath,
 				};
 
 				// First verify the reinit state detection
@@ -278,6 +298,7 @@ This is an existing feature document.
 				const options: InitOptions = {
 					cwd: tempDir,
 					yes: true,
+					globalSettingsPath,
 				};
 
 				// Verify reinit state detection
@@ -310,6 +331,7 @@ This is an existing feature document.
 				const options: InitOptions = {
 					cwd: tempDir,
 					yes: true,
+					globalSettingsPath,
 				};
 
 				const result = await executeInit(options, logger)();
@@ -339,6 +361,7 @@ This is an existing feature document.
 				const options: InitOptions = {
 					cwd: tempDir,
 					yes: true,
+					globalSettingsPath,
 				};
 
 				const result = await executeInit(options, logger)();
@@ -382,6 +405,7 @@ This is an existing feature document.
 				const options: InitOptions = {
 					cwd: tempDir,
 					yes: true,
+					globalSettingsPath,
 				};
 
 				// Note: In the real workflow, plugin installation is attempted
@@ -436,6 +460,7 @@ This is an existing feature document.
 				const options: InitOptions = {
 					cwd: tempDir,
 					yes: true,
+					globalSettingsPath,
 				};
 
 				const result = await executeInit(options, logger)();
@@ -470,6 +495,7 @@ This is an existing feature document.
 		test(
 			"both files: CLAUDE.md gets @AGENTS.md reference, AGENTS.md gets full stanza",
 			async () => {
+				await setupLocalStorageMode(tempDir);
 				await writeFile(
 					join(tempDir, "CLAUDE.md"),
 					"# My Project\n\nProject-level instructions.\n",
@@ -482,7 +508,10 @@ This is an existing feature document.
 				);
 
 				const logger = createTrackingLogger();
-				const result = await executeInit({ cwd: tempDir, yes: true }, logger)();
+				const result = await executeInit(
+					{ cwd: tempDir, yes: true, globalSettingsPath },
+					logger,
+				)();
 
 				expect(E.isRight(result)).toBe(true);
 				if (!E.isRight(result)) return;
@@ -510,10 +539,14 @@ This is an existing feature document.
 		test(
 			"CLAUDE.md only: gets full stanza without reference",
 			async () => {
+				await setupLocalStorageMode(tempDir);
 				await writeFile(join(tempDir, "CLAUDE.md"), "# My Project\n", "utf-8");
 
 				const logger = createTrackingLogger();
-				const result = await executeInit({ cwd: tempDir, yes: true }, logger)();
+				const result = await executeInit(
+					{ cwd: tempDir, yes: true, globalSettingsPath },
+					logger,
+				)();
 
 				expect(E.isRight(result)).toBe(true);
 				if (!E.isRight(result)) return;
@@ -535,10 +568,14 @@ This is an existing feature document.
 		test(
 			"AGENTS.md only: gets full stanza",
 			async () => {
+				await setupLocalStorageMode(tempDir);
 				await writeFile(join(tempDir, "AGENTS.md"), "# Agents\n", "utf-8");
 
 				const logger = createTrackingLogger();
-				const result = await executeInit({ cwd: tempDir, yes: true }, logger)();
+				const result = await executeInit(
+					{ cwd: tempDir, yes: true, globalSettingsPath },
+					logger,
+				)();
 
 				expect(E.isRight(result)).toBe(true);
 				if (!E.isRight(result)) return;
@@ -554,8 +591,12 @@ This is an existing feature document.
 		test(
 			"neither file: creates default instruction file with full stanza",
 			async () => {
+				await setupLocalStorageMode(tempDir);
 				const logger = createTrackingLogger();
-				const result = await executeInit({ cwd: tempDir, yes: true }, logger)();
+				const result = await executeInit(
+					{ cwd: tempDir, yes: true, globalSettingsPath },
+					logger,
+				)();
 
 				expect(E.isRight(result)).toBe(true);
 				if (!E.isRight(result)) return;
@@ -580,6 +621,7 @@ This is an existing feature document.
 		test(
 			"handles existing AGENTS.md file",
 			async () => {
+				await setupLocalStorageMode(tempDir);
 				// Create existing AGENTS.md (OpenCode style)
 				await writeFile(
 					join(tempDir, "AGENTS.md"),
@@ -594,6 +636,7 @@ Existing agent instructions.
 				const options: InitOptions = {
 					cwd: tempDir,
 					yes: true,
+					globalSettingsPath,
 				};
 
 				const result = await executeInit(options, logger)();
@@ -623,6 +666,7 @@ Existing agent instructions.
 				const options: InitOptions = {
 					cwd: tempDir,
 					yes: true,
+					globalSettingsPath,
 				};
 
 				const result = await executeInit(options, logger)();

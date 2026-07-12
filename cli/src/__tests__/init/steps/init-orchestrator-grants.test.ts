@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import type { Logger } from "../../../../shared/logger.js";
@@ -16,6 +16,7 @@ import {
 	type GrantResult,
 	generateSandboxGrants,
 } from "../../../init/steps/sandbox-grants.js";
+import { resetSettingsCache } from "../../../settings/loader.js";
 import { cleanupTempDir, createTempDir } from "../../helpers/index.js";
 
 function createTrackingLogger(): Logger & {
@@ -72,14 +73,25 @@ describe("generateSandboxGrants returns GrantResult[]", () => {
 	});
 });
 
+function preWriteHarnessSettings(dir: string, harnesses: string[]): string {
+	const settingsDir = join(dir, ".config", "rp1");
+	mkdirSync(settingsDir, { recursive: true });
+	const settingsPath = join(settingsDir, "settings.toml");
+	const quoted = harnesses.map((h) => `"${h}"`).join(", ");
+	writeFileSync(settingsPath, `[harnesses]\nenabled = [${quoted}]\n`, "utf-8");
+	return settingsPath;
+}
+
 describe("integration: executeInit produces sandbox grant files", () => {
 	let tempDir: string;
 
 	beforeEach(async () => {
 		tempDir = await createTempDir("init-grants-integration-");
+		resetSettingsCache();
 	});
 
 	afterEach(async () => {
+		resetSettingsCache();
 		await cleanupTempDir(tempDir);
 	});
 
@@ -87,13 +99,16 @@ describe("integration: executeInit produces sandbox grant files", () => {
 		"fresh init produces settings.toml with mode=central and platform grants",
 		async () => {
 			const logger = createTrackingLogger();
-			// Use non-existent globalSettingsPath so loadEnabledHarnesses returns
-			// undefined, triggering fallback to all stable platforms (hermetic test)
-			const bogusSettingsPath = join(tempDir, "nonexistent-global.toml");
+			const globalSettingsPath = preWriteHarnessSettings(tempDir, [
+				"claude-code",
+				"codex",
+				"opencode",
+			]);
 			const options: InitOptions = {
 				cwd: tempDir,
 				yes: true,
-				globalSettingsPath: bogusSettingsPath,
+				globalSettingsPath,
+				homeDir: tempDir,
 			};
 
 			const result = await executeInit(options, logger)();
@@ -109,7 +124,6 @@ describe("integration: executeInit produces sandbox grant files", () => {
 			expect(settingsContent).toContain("[storage]");
 			expect(settingsContent).toContain('mode = "central"');
 
-			// Grant files should exist for all stable platforms (fallback behavior)
 			const claudeSettingsPath = join(tempDir, ".claude", "settings.json");
 			expect(existsSync(claudeSettingsPath)).toBe(true);
 
@@ -126,8 +140,6 @@ describe("integration: executeInit produces sandbox grant files", () => {
 			const codexContent = readFileSync(join(tempDir, "codex.toml"), "utf-8");
 			expect(codexContent).toContain("~/.rp1");
 
-			// OpenCode grant must use the HYP-002 validated format:
-			// { permission: { external_directory: { "~/.rp1/**": "allow" } } }
 			const opencodePath = join(tempDir, "opencode.json");
 			expect(existsSync(opencodePath)).toBe(true);
 			const opencodeContent = JSON.parse(readFileSync(opencodePath, "utf-8"));
@@ -158,11 +170,16 @@ describe("integration: executeInit produces sandbox grant files", () => {
 		"init summary logs sandbox grant status for each platform",
 		async () => {
 			const logger = createTrackingLogger();
-			const bogusSettingsPath = join(tempDir, "nonexistent-global.toml");
+			const globalSettingsPath = preWriteHarnessSettings(tempDir, [
+				"claude-code",
+				"codex",
+				"opencode",
+			]);
 			const options: InitOptions = {
 				cwd: tempDir,
 				yes: true,
-				globalSettingsPath: bogusSettingsPath,
+				globalSettingsPath,
+				homeDir: tempDir,
 			};
 
 			const result = await executeInit(options, logger)();
@@ -177,7 +194,6 @@ describe("integration: executeInit produces sandbox grant files", () => {
 			const grantMessages = successMessages.filter((m) =>
 				m.includes("Sandbox grant"),
 			);
-			// With fallback to all stable platforms, should have at least 2 messages
 			expect(grantMessages.length).toBeGreaterThanOrEqual(2);
 
 			expect(grantMessages.some((m) => m.includes("claude-code"))).toBe(true);

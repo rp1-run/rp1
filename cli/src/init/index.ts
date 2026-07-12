@@ -14,6 +14,7 @@ import {
 	loadToolsRegistry,
 	type ToolsRegistry,
 } from "../config/supported-tools.js";
+import { loadEnabledHarnesses } from "../settings/loader.js";
 import {
 	type InstallContext,
 	installAllDetectedTools,
@@ -41,6 +42,11 @@ import type {
 	ReinitState,
 } from "./models.js";
 import { createProgress, type InitProgress } from "./progress.js";
+import {
+	buildHarnessItems,
+	getStableDefaults,
+	writeHarnessSelection,
+} from "./steps/harness-selection.js";
 import { performHealthCheck } from "./steps/health-check.js";
 import { checkPluginsInstalled } from "./steps/plugin-installation.js";
 import {
@@ -48,7 +54,7 @@ import {
 	createMinimalProjectStructure,
 	createSettingsFiles,
 	createStorageDirectories,
-	injectInstructions,
+	injectInstructionsForStorageMode,
 } from "./steps/project-setup.js";
 import { checkRp1Readiness } from "./steps/readiness.js";
 import { generateSandboxGrants } from "./steps/sandbox-grants.js";
@@ -634,6 +640,14 @@ export function executeInit(
 				const primaryTool = getPrimaryTool(toolDetectionResult);
 				progress.completeStep();
 
+				const harnessItems = buildHarnessItems(toolDetectionResult.detected);
+				const stableIds = getStableDefaults(harnessItems);
+				const persisted = loadEnabledHarnesses(options.globalSettingsPath);
+				const selection = persisted ?? stableIds;
+				if (persisted === undefined) {
+					writeHarnessSelection(stableIds, options.globalSettingsPath);
+				}
+
 				// --- Install check and delegation ---
 				progress.startStep("install-check");
 				let pluginStatus: readonly PluginStatus[] = [];
@@ -835,7 +849,7 @@ export function executeInit(
 				progress.startStep("sandbox-grants");
 				try {
 					const grantResults = await generateSandboxGrants(
-						undefined,
+						[...selection],
 						cwd,
 						options.globalSettingsPath,
 					);
@@ -857,12 +871,21 @@ export function executeInit(
 				}
 
 				progress.startStep("instruction-injection");
-				const { actions: instrActions } = await injectInstructions(
+				const instrResult = await injectInstructionsForStorageMode({
 					cwd,
-					primaryTool || null,
-					logger,
-				);
-				allActions.push(...instrActions);
+					projectRoot: directories.projectRoot,
+					harnessSelection: selection,
+					detectedTool: primaryTool || null,
+					homeDir: options.homeDir,
+					globalSettingsPath: options.globalSettingsPath,
+					onProgress: (msg, type) => {
+						if (type === "success") logger.success(msg);
+						else if (type === "warning") logger.warn(msg);
+						else logger.info(msg);
+					},
+				});
+				allActions.push(...instrResult.actions);
+				allWarnings.push(...instrResult.warnings);
 				progress.completeStep();
 
 				progress.startStep("gitignore-config");

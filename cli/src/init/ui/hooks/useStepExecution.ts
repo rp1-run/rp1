@@ -19,17 +19,11 @@ import {
 	type ToolsRegistry,
 } from "../../../config/supported-tools.js";
 import { LATEST_FENCE_VERSION } from "../../../lib/fence-version.js";
+import { loadEnabledHarnesses } from "../../../settings/loader.js";
 import {
 	type InstallContext,
 	installAllDetectedTools,
 } from "../../../shared/install-core.js";
-import {
-	appendFencedContent,
-	hasFencedContent,
-	replaceFencedContent,
-	validateFencing,
-	wrapWithFence,
-} from "../../comment-fence.js";
 import {
 	detectProjectContext,
 	type ProjectContext,
@@ -72,24 +66,24 @@ import {
 } from "../../steps/harness-selection.js";
 import { performHealthCheck } from "../../steps/health-check.js";
 import { checkPluginsInstalled } from "../../steps/plugin-installation.js";
-import { createStorageDirectories } from "../../steps/project-setup.js";
+import {
+	createStorageDirectories,
+	injectInstructionsForStorageMode,
+} from "../../steps/project-setup.js";
 import {
 	checkRp1Readiness,
 	type ReadinessResult,
 } from "../../steps/readiness.js";
-import { generateSandboxGrants } from "../../steps/sandbox-grants.js";
+import {
+	generateSandboxGrants,
+	resolveHarnesses,
+} from "../../steps/sandbox-grants.js";
 import { generateNextSteps } from "../../steps/summary.js";
 import {
 	verifyClaudeCodePlugins,
 	verifyCopilotPlugins,
 	verifyOpenCodePlugins,
 } from "../../steps/verification.js";
-import {
-	AGENTS_REFERENCE_TEMPLATE,
-	getInstructionFiles,
-	getPrimaryInstructionTemplateTarget,
-	resolveInstructionTemplate,
-} from "../../templates/index.js";
 import {
 	type DetectedTool,
 	detectTools,
@@ -620,8 +614,16 @@ export const useStepExecution = ({
 	const executeSandboxGrants = useCallback(
 		async (addAct: AddActivityFn): Promise<void> => {
 			const ctx = contextRef.current;
+			const wizardSelection = state.userChoices.enabledHarnesses;
+			const selection = wizardSelection
+				? [...wizardSelection]
+				: (loadEnabledHarnesses(options.globalSettingsPath) ?? undefined);
 			try {
-				const grantResults = await generateSandboxGrants(undefined, ctx.cwd);
+				const grantResults = await generateSandboxGrants(
+					selection,
+					ctx.cwd,
+					options.globalSettingsPath,
+				);
 				let granted = 0;
 				for (const grant of grantResults) {
 					if (grant.written) {
@@ -641,7 +643,7 @@ export const useStepExecution = ({
 				addAct("sandbox-grants", `Grant error: ${msg}`, "warning");
 			}
 		},
-		[],
+		[state.userChoices.enabledHarnesses, options.globalSettingsPath],
 	);
 
 	/**
@@ -778,121 +780,57 @@ export const useStepExecution = ({
 	);
 
 	/**
-	 * Inject into a single instruction file, optionally overriding the template.
-	 */
-	const injectIntoSingleFile = useCallback(
-		async (
-			addAct: AddActivityFn,
-			file: string,
-			detectedTool: DetectedTool | null,
-			templateOverride?: string,
-		): Promise<void> => {
-			const ctx = contextRef.current;
-			const filePath = path.resolve(ctx.cwd, file);
-			const exists = await fileExists(filePath);
-
-			if (!exists) return;
-
-			addAct("instruction-injection", `Configuring ${file}...`, "info");
-
-			const existingContent = await readFileContent(filePath);
-			if (existingContent === null) {
-				throw new Error(`Failed to read file: ${filePath}`);
-			}
-
-			const validation = validateFencing(existingContent);
-			if (!validation.valid) {
-				throw new Error(`Invalid fencing in ${file}: ${validation.error}`);
-			}
-
-			const template =
-				templateOverride ??
-				resolveInstructionTemplate(file as "CLAUDE.md" | "AGENTS.md", {
-					detectedTool,
-					existingContent,
-				});
-
-			if (hasFencedContent(existingContent)) {
-				const newContent = replaceFencedContent(
-					existingContent,
-					template,
-					LATEST_FENCE_VERSION,
-				);
-				await writeFileContent(filePath, newContent);
-				addAct("instruction-injection", `Updated ${file}`, "success");
-			} else {
-				const newContent = appendFencedContent(
-					existingContent,
-					template,
-					LATEST_FENCE_VERSION,
-				);
-				await writeFileContent(filePath, newContent);
-				addAct("instruction-injection", `Appended to ${file}`, "success");
-			}
-		},
-		[],
-	);
-
-	/**
 	 * Execute the instruction injection step.
 	 *
-	 * When both CLAUDE.md and AGENTS.md exist, the full stanza goes into
-	 * AGENTS.md only and CLAUDE.md receives a single-line `@AGENTS.md`
-	 * import reference inside its fence.
+	 * Delegates to the shared injectInstructionsForStorageMode function so
+	 * both the wizard and headless paths handle central/local modes identically.
 	 */
 	const executeInstructionInjection = useCallback(
 		async (addAct: AddActivityFn): Promise<void> => {
 			const ctx = contextRef.current;
+			const directories =
+				ctx.directories ??
+				chooseInitDirectoryModel(ctx.cwd, ctx.forceLocalProject);
 
-			const claudePath = path.resolve(ctx.cwd, "CLAUDE.md");
-			const agentsPath = path.resolve(ctx.cwd, "AGENTS.md");
+			const wizardSelection = state.userChoices.enabledHarnesses;
+			// Unknown selection must not collapse to [] — manageGlobalStanzas([])
+			// removes every global stanza. Resolve like the sandbox-grants step:
+			// persisted selection first, then stable registry defaults.
+			const selection = wizardSelection
+				? [...wizardSelection]
+				: await resolveHarnesses(undefined, options.globalSettingsPath);
 
-			const claudeExists = await fileExists(claudePath);
-			const agentsExists = await fileExists(agentsPath);
-
-			// If neither exists, create the primary tool's file or default to CLAUDE.md
-			if (!claudeExists && !agentsExists) {
-				const { file: primaryFile, template } =
-					getPrimaryInstructionTemplateTarget(ctx.primaryTool);
-				const filePath = path.resolve(ctx.cwd, primaryFile);
-
-				addAct("instruction-injection", `Creating ${primaryFile}...`, "info");
-				const content = `${wrapWithFence(template, LATEST_FENCE_VERSION)}\n`;
-				await writeFileContent(filePath, content);
-				addAct("instruction-injection", `Created ${primaryFile}`, "success");
-				return;
-			}
-
-			if (claudeExists && agentsExists) {
-				await injectIntoSingleFile(addAct, "AGENTS.md", ctx.primaryTool);
-				// Skip CLAUDE.md when it already imports AGENTS.md outside any rp1
-				// fence — injecting the reference fence would duplicate the import.
-				const claudeContent = (await readFileContent(claudePath)) ?? "";
-				if (
-					/^@AGENTS\.md\s*$/m.test(claudeContent) &&
-					!hasFencedContent(claudeContent)
-				) {
+			const result = await injectInstructionsForStorageMode({
+				cwd: ctx.cwd,
+				projectRoot: directories.projectRoot,
+				harnessSelection: selection,
+				detectedTool: ctx.primaryTool,
+				homeDir: options.homeDir,
+				globalSettingsPath: options.globalSettingsPath,
+				onProgress: (msg, type) => {
 					addAct(
 						"instruction-injection",
-						"CLAUDE.md already references AGENTS.md; skipping",
-						"info",
+						msg,
+						type === "warning"
+							? "warning"
+							: type === "success"
+								? "success"
+								: "info",
 					);
-				} else {
-					await injectIntoSingleFile(
-						addAct,
-						"CLAUDE.md",
-						ctx.primaryTool,
-						AGENTS_REFERENCE_TEMPLATE,
-					);
-				}
-				return;
-			}
+				},
+			});
 
-			for (const file of getInstructionFiles()) {
-				await injectIntoSingleFile(addAct, file, ctx.primaryTool);
+			if (result.warnings.length > 0) {
+				for (const warning of result.warnings) {
+					addAct("instruction-injection", warning, "warning");
+				}
 			}
 		},
-		[injectIntoSingleFile],
+		[
+			state.userChoices.enabledHarnesses,
+			options.globalSettingsPath,
+			options.homeDir,
+		],
 	);
 
 	/**

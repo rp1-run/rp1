@@ -186,6 +186,8 @@ export interface InitOptions {
 	readonly forceNested?: boolean;
 	/** Override path to global settings file (test isolation seam) */
 	readonly globalSettingsPath?: string;
+	/** Override home directory for global stanza writes (test isolation seam) */
+	readonly homeDir?: string;
 }
 
 /**
