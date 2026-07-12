@@ -16,10 +16,12 @@ import { formatError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import type { PromptOptions } from "../../../shared/prompts.js";
 import { selectOption } from "../../../shared/prompts.js";
+import { readStorageMode } from "../../../shared/storage-mode.js";
 import { LATEST_FENCE_VERSION } from "../../lib/fence-version.js";
 import {
 	appendFencedContent,
 	hasFencedContent,
+	removeFencedContent,
 	replaceFencedContent,
 	validateFencing,
 	wrapWithFence,
@@ -30,6 +32,10 @@ import {
 	resolveStorageDirectoryPaths,
 } from "../directory-model.js";
 import { buildManagedGitignoreContent } from "../gitignore.js";
+import {
+	type GlobalStanzaResult,
+	manageGlobalStanzas,
+} from "../global-stanza-writer.js";
 import type { GitignorePreset, InitAction } from "../models.js";
 import type { InitProgress } from "../progress.js";
 import {
@@ -446,6 +452,122 @@ export async function injectInstructions(
 	}
 
 	return { actions, instructionFile: primaryFile };
+}
+
+// ============================================================================
+// Storage-Mode-Aware Instruction Injection
+// ============================================================================
+
+export interface InstructionInjectionOptions {
+	readonly cwd: string;
+	readonly projectRoot: string;
+	readonly harnessSelection: readonly string[];
+	readonly detectedTool: DetectedTool | null;
+	readonly homeDir?: string;
+	readonly globalSettingsPath?: string;
+	readonly onProgress?: (
+		message: string,
+		type: "info" | "success" | "warning",
+	) => void;
+}
+
+export interface InstructionInjectionResult {
+	readonly actions: InitAction[];
+	readonly stanzaResult: GlobalStanzaResult | null;
+	readonly warnings: string[];
+}
+
+export async function injectInstructionsForStorageMode(
+	options: InstructionInjectionOptions,
+): Promise<InstructionInjectionResult> {
+	const {
+		cwd,
+		projectRoot,
+		harnessSelection,
+		detectedTool,
+		homeDir,
+		globalSettingsPath,
+		onProgress,
+	} = options;
+
+	const actions: InitAction[] = [];
+	const warnings: string[] = [];
+	const storageMode = readStorageMode(projectRoot, globalSettingsPath);
+
+	if (storageMode === "central") {
+		for (const file of ["CLAUDE.md", "AGENTS.md"] as const) {
+			const filePath = path.resolve(cwd, file);
+			try {
+				const content = await readFileContent(filePath);
+				if (content !== null && hasFencedContent(content)) {
+					const cleaned = removeFencedContent(content);
+					await writeFileContent(filePath, cleaned);
+					actions.push({ type: "updated_file", path: filePath });
+					onProgress?.(
+						`Removed per-project rp1 stanza from ${file} (central mode)`,
+						"info",
+					);
+				}
+			} catch {
+				// File does not exist
+			}
+		}
+
+		const stanzaResult = await manageGlobalStanzas(harnessSelection, {
+			homeDir,
+		});
+
+		for (const platform of stanzaResult.written) {
+			const stanzaPath =
+				stanzaResult.paths.get(platform) ?? `global stanza: ${platform}`;
+			actions.push({
+				type: "created_file",
+				path: stanzaPath,
+			});
+			onProgress?.(`Wrote global stanza for ${platform}`, "success");
+		}
+		for (const platform of stanzaResult.updated) {
+			const stanzaPath =
+				stanzaResult.paths.get(platform) ?? `global stanza: ${platform}`;
+			actions.push({
+				type: "updated_file",
+				path: stanzaPath,
+			});
+			onProgress?.(`Updated global stanza for ${platform}`, "success");
+		}
+		for (const platform of stanzaResult.removed) {
+			onProgress?.(
+				`Removed global stanza for deselected platform: ${platform}`,
+				"info",
+			);
+		}
+		for (const { platform, error } of stanzaResult.errors) {
+			onProgress?.(`Global stanza error for ${platform}: ${error}`, "warning");
+			warnings.push(`Global stanza write failed for ${platform}: ${error}`);
+		}
+
+		return { actions, stanzaResult, warnings };
+	}
+
+	const proxyLogger: Logger = {
+		info: (msg: string) => onProgress?.(msg, "info"),
+		success: (msg: string) => onProgress?.(msg, "success"),
+		warn: (msg: string) => onProgress?.(msg, "warning"),
+		fail: (msg: string) => onProgress?.(msg, "warning"),
+		error: (msg: string) => onProgress?.(msg, "warning"),
+		debug: () => {},
+		trace: () => {},
+		start: () => {},
+		box: () => {},
+	};
+	const { actions: instrActions } = await injectInstructions(
+		cwd,
+		detectedTool,
+		proxyLogger,
+	);
+	actions.push(...instrActions);
+
+	return { actions, stanzaResult: null, warnings };
 }
 
 // ============================================================================

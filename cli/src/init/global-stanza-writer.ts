@@ -22,6 +22,7 @@ export interface GlobalStanzaResult {
 	readonly removed: string[];
 	readonly skipped: string[];
 	readonly errors: Array<{ platform: string; error: string }>;
+	readonly paths: ReadonlyMap<string, string>;
 }
 
 export interface ManageGlobalStanzasOptions {
@@ -124,7 +125,15 @@ export async function manageGlobalStanzas(
 		removed: string[];
 		skipped: string[];
 		errors: Array<{ platform: string; error: string }>;
-	} = { written: [], updated: [], removed: [], skipped: [], errors: [] };
+		paths: Map<string, string>;
+	} = {
+		written: [],
+		updated: [],
+		removed: [],
+		skipped: [],
+		errors: [],
+		paths: new Map(),
+	};
 
 	for (const platform of allPlatforms) {
 		if (enabledSet.has(platform)) {
@@ -135,6 +144,7 @@ export async function manageGlobalStanzas(
 						result.skipped.push(platform);
 						continue;
 					}
+					result.paths.set(platform, filePath);
 					const existing = await readFileContent(filePath);
 					if (existing === null || !hasFencedContent(existing)) {
 						result.written.push(platform);
@@ -142,7 +152,11 @@ export async function manageGlobalStanzas(
 						result.updated.push(platform);
 					}
 				} else {
-					const { action } = await writeGlobalStanza(platform, homeDir);
+					const { action, filePath } = await writeGlobalStanza(
+						platform,
+						homeDir,
+					);
+					result.paths.set(platform, filePath);
 					if (action === "written") {
 						result.written.push(platform);
 					} else {
@@ -169,6 +183,7 @@ export async function manageGlobalStanzas(
 					continue;
 				}
 
+				result.paths.set(platform, filePath);
 				if (dryRun) {
 					result.removed.push(platform);
 				} else {

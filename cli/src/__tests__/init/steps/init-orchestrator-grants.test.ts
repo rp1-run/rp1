@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import type { Logger } from "../../../../shared/logger.js";
@@ -16,6 +16,7 @@ import {
 	type GrantResult,
 	generateSandboxGrants,
 } from "../../../init/steps/sandbox-grants.js";
+import { resetSettingsCache } from "../../../settings/loader.js";
 import { cleanupTempDir, createTempDir } from "../../helpers/index.js";
 
 function createTrackingLogger(): Logger & {
@@ -72,14 +73,25 @@ describe("generateSandboxGrants returns GrantResult[]", () => {
 	});
 });
 
+function preWriteHarnessSettings(dir: string, harnesses: string[]): string {
+	const settingsDir = join(dir, ".config", "rp1");
+	mkdirSync(settingsDir, { recursive: true });
+	const settingsPath = join(settingsDir, "settings.toml");
+	const quoted = harnesses.map((h) => `"${h}"`).join(", ");
+	writeFileSync(settingsPath, `[harnesses]\nenabled = [${quoted}]\n`, "utf-8");
+	return settingsPath;
+}
+
 describe("integration: executeInit produces sandbox grant files", () => {
 	let tempDir: string;
 
 	beforeEach(async () => {
 		tempDir = await createTempDir("init-grants-integration-");
+		resetSettingsCache();
 	});
 
 	afterEach(async () => {
+		resetSettingsCache();
 		await cleanupTempDir(tempDir);
 	});
 
@@ -87,11 +99,15 @@ describe("integration: executeInit produces sandbox grant files", () => {
 		"fresh init produces settings.toml with mode=central and platform grants",
 		async () => {
 			const logger = createTrackingLogger();
-			const bogusSettingsPath = join(tempDir, "nonexistent-global.toml");
+			const globalSettingsPath = preWriteHarnessSettings(tempDir, [
+				"claude-code",
+				"codex",
+				"opencode",
+			]);
 			const options: InitOptions = {
 				cwd: tempDir,
 				yes: true,
-				globalSettingsPath: bogusSettingsPath,
+				globalSettingsPath,
 				homeDir: tempDir,
 			};
 
@@ -108,20 +124,28 @@ describe("integration: executeInit produces sandbox grant files", () => {
 			expect(settingsContent).toContain("[storage]");
 			expect(settingsContent).toContain('mode = "central"');
 
-			// Grant files should exist for detected stable platforms
 			const claudeSettingsPath = join(tempDir, ".claude", "settings.json");
-			if (existsSync(claudeSettingsPath)) {
-				const claudeSettings = JSON.parse(
-					readFileSync(claudeSettingsPath, "utf-8"),
-				);
-				expect(claudeSettings.permissions.additionalDirectories).toContain(
-					"~/.rp1",
-				);
-				expect(claudeSettings.permissions.allow).toContain("Read(~/.rp1/**)");
-				expect(claudeSettings.sandbox.filesystem.allowWrite).toContain(
-					"~/.rp1",
-				);
-			}
+			expect(existsSync(claudeSettingsPath)).toBe(true);
+
+			const claudeSettings = JSON.parse(
+				readFileSync(claudeSettingsPath, "utf-8"),
+			);
+			expect(claudeSettings.permissions.additionalDirectories).toContain(
+				"~/.rp1",
+			);
+			expect(claudeSettings.permissions.allow).toContain("Read(~/.rp1/**)");
+			expect(claudeSettings.sandbox.filesystem.allowWrite).toContain("~/.rp1");
+
+			expect(existsSync(join(tempDir, "codex.toml"))).toBe(true);
+			const codexContent = readFileSync(join(tempDir, "codex.toml"), "utf-8");
+			expect(codexContent).toContain("~/.rp1");
+
+			const opencodePath = join(tempDir, "opencode.json");
+			expect(existsSync(opencodePath)).toBe(true);
+			const opencodeContent = JSON.parse(readFileSync(opencodePath, "utf-8"));
+			expect(opencodeContent.permission.external_directory["~/.rp1/**"]).toBe(
+				"allow",
+			);
 
 			const grantFileActions = initResult.actions.filter(
 				(a) =>
@@ -132,7 +156,7 @@ describe("integration: executeInit produces sandbox grant files", () => {
 						a.path.includes(".gemini") ||
 						a.path.includes("copilot-settings.json")),
 			);
-			expect(grantFileActions.length).toBeGreaterThanOrEqual(1);
+			expect(grantFileActions.length).toBeGreaterThanOrEqual(2);
 
 			const grantErrors = initResult.warnings.filter((w) =>
 				w.includes("Sandbox grants failed"),
@@ -146,11 +170,15 @@ describe("integration: executeInit produces sandbox grant files", () => {
 		"init summary logs sandbox grant status for each platform",
 		async () => {
 			const logger = createTrackingLogger();
-			const bogusSettingsPath = join(tempDir, "nonexistent-global.toml");
+			const globalSettingsPath = preWriteHarnessSettings(tempDir, [
+				"claude-code",
+				"codex",
+				"opencode",
+			]);
 			const options: InitOptions = {
 				cwd: tempDir,
 				yes: true,
-				globalSettingsPath: bogusSettingsPath,
+				globalSettingsPath,
 				homeDir: tempDir,
 			};
 
@@ -166,7 +194,10 @@ describe("integration: executeInit produces sandbox grant files", () => {
 			const grantMessages = successMessages.filter((m) =>
 				m.includes("Sandbox grant"),
 			);
-			expect(grantMessages.length).toBeGreaterThanOrEqual(1);
+			expect(grantMessages.length).toBeGreaterThanOrEqual(2);
+
+			expect(grantMessages.some((m) => m.includes("claude-code"))).toBe(true);
+			expect(grantMessages.some((m) => m.includes("codex"))).toBe(true);
 		},
 		{ timeout: 30000 },
 	);

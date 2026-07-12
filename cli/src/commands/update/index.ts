@@ -535,18 +535,28 @@ export const updateDetectedPlugins = async (
 	return { success: true, exitCode: 0 };
 };
 
-const resolveStanzaHarnesses = async (): Promise<readonly string[]> => {
-	const persisted = loadEnabledHarnesses();
+export interface StanzaHarnessResolution {
+	readonly selection: readonly string[];
+	readonly source: "persisted" | "detected" | "none";
+}
+
+export const resolveStanzaHarnesses = async (
+	globalSettingsPath?: string,
+): Promise<StanzaHarnessResolution> => {
+	const persisted = loadEnabledHarnesses(globalSettingsPath);
 	if (persisted !== undefined) {
-		return persisted;
+		return { selection: persisted, source: "persisted" };
 	}
 
 	const registry = await loadToolsRegistry();
 	const detection = await detectTools(registry)();
 	if (E.isLeft(detection) || detection.right.detected.length === 0) {
-		return [];
+		return { selection: [], source: "none" };
 	}
-	return getEffectiveHarnesses(detection.right).map((d) => d.tool.id);
+	return {
+		selection: getEffectiveHarnesses(detection.right).map((d) => d.tool.id),
+		source: "detected",
+	};
 };
 
 const formatStanzaResult = (
@@ -581,8 +591,8 @@ const formatStanzaResult = (
 	}
 };
 
-const manageGlobalStanzaPhase = async (
-	options: { dryRun: boolean },
+export const manageGlobalStanzaPhase = async (
+	options: { dryRun: boolean; globalSettingsPath?: string },
 	isTTY: boolean,
 ): Promise<PostUpdatePhaseResult> => {
 	const { bold, dim } = getColorFns(isTTY);
@@ -596,15 +606,15 @@ const manageGlobalStanzaPhase = async (
 		),
 	);
 
-	const enabledHarnesses = await resolveStanzaHarnesses();
-	if (enabledHarnesses.length === 0) {
+	const resolved = await resolveStanzaHarnesses(options.globalSettingsPath);
+	if (resolved.source === "none") {
 		console.log(
 			dim("No enabled harnesses. Skipping global stanza management."),
 		);
 		return { success: true, exitCode: 0 };
 	}
 
-	const result = await manageGlobalStanzas(enabledHarnesses, {
+	const result = await manageGlobalStanzas(resolved.selection, {
 		dryRun: options.dryRun,
 	});
 

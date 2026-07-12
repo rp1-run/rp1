@@ -3,8 +3,6 @@
  * Orchestrates all initialization steps with TTY-aware interactivity.
  */
 
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -12,16 +10,15 @@ import { type CLIError, runtimeError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
 import { ensureProjectId } from "../../shared/project-id.js";
 import { type PromptOptions, selectOption } from "../../shared/prompts.js";
-import { readStorageMode } from "../../shared/storage-mode.js";
 import {
 	loadToolsRegistry,
 	type ToolsRegistry,
 } from "../config/supported-tools.js";
+import { loadEnabledHarnesses } from "../settings/loader.js";
 import {
 	type InstallContext,
 	installAllDetectedTools,
 } from "../shared/install-core.js";
-import { hasFencedContent, removeFencedContent } from "./comment-fence.js";
 import {
 	type ContextDetectionResult,
 	detectProjectContext,
@@ -33,7 +30,6 @@ import {
 	type InitDirectoryModel,
 } from "./directory-model.js";
 import { detectGitRoot, type GitRootResult } from "./git-root.js";
-import { manageGlobalStanzas } from "./global-stanza-writer.js";
 import type {
 	HealthReport,
 	InitAction,
@@ -58,7 +54,7 @@ import {
 	createMinimalProjectStructure,
 	createSettingsFiles,
 	createStorageDirectories,
-	injectInstructions,
+	injectInstructionsForStorageMode,
 } from "./steps/project-setup.js";
 import { checkRp1Readiness } from "./steps/readiness.js";
 import { generateSandboxGrants } from "./steps/sandbox-grants.js";
@@ -646,7 +642,11 @@ export function executeInit(
 
 				const harnessItems = buildHarnessItems(toolDetectionResult.detected);
 				const stableIds = getStableDefaults(harnessItems);
-				writeHarnessSelection(stableIds, options.globalSettingsPath);
+				const persisted = loadEnabledHarnesses(options.globalSettingsPath);
+				const selection = persisted ?? stableIds;
+				if (persisted === undefined) {
+					writeHarnessSelection(stableIds, options.globalSettingsPath);
+				}
 
 				// --- Install check and delegation ---
 				progress.startStep("install-check");
@@ -849,7 +849,7 @@ export function executeInit(
 				progress.startStep("sandbox-grants");
 				try {
 					const grantResults = await generateSandboxGrants(
-						[...stableIds],
+						[...selection],
 						cwd,
 						options.globalSettingsPath,
 					);
@@ -871,66 +871,21 @@ export function executeInit(
 				}
 
 				progress.startStep("instruction-injection");
-				const storageMode = readStorageMode(
-					directories.projectRoot,
-					options.globalSettingsPath,
-				);
-
-				if (storageMode === "central") {
-					for (const file of ["CLAUDE.md", "AGENTS.md"] as const) {
-						const filePath = path.resolve(cwd, file);
-						try {
-							const content = await fs.readFile(filePath, "utf-8");
-							if (hasFencedContent(content)) {
-								const cleaned = removeFencedContent(content);
-								await fs.writeFile(filePath, cleaned, "utf-8");
-								allActions.push({ type: "updated_file", path: filePath });
-								logger.info(
-									`Removed per-project rp1 stanza from ${file} (central mode)`,
-								);
-							}
-						} catch {
-							// File does not exist — nothing to clean up
-						}
-					}
-
-					const stanzaResult = await manageGlobalStanzas(stableIds, {
-						homeDir: options.homeDir,
-					});
-
-					for (const platform of stanzaResult.written) {
-						allActions.push({
-							type: "created_file",
-							path: `global stanza: ${platform}`,
-						});
-						logger.success(`Wrote global stanza for ${platform}`);
-					}
-					for (const platform of stanzaResult.updated) {
-						allActions.push({
-							type: "updated_file",
-							path: `global stanza: ${platform}`,
-						});
-						logger.success(`Updated global stanza for ${platform}`);
-					}
-					for (const platform of stanzaResult.removed) {
-						logger.info(
-							`Removed global stanza for deselected platform: ${platform}`,
-						);
-					}
-					for (const { platform, error } of stanzaResult.errors) {
-						logger.warn(`Global stanza error for ${platform}: ${error}`);
-						allWarnings.push(
-							`Global stanza write failed for ${platform}: ${error}`,
-						);
-					}
-				} else {
-					const { actions: instrActions } = await injectInstructions(
-						cwd,
-						primaryTool || null,
-						logger,
-					);
-					allActions.push(...instrActions);
-				}
+				const instrResult = await injectInstructionsForStorageMode({
+					cwd,
+					projectRoot: directories.projectRoot,
+					harnessSelection: selection,
+					detectedTool: primaryTool || null,
+					homeDir: options.homeDir,
+					globalSettingsPath: options.globalSettingsPath,
+					onProgress: (msg, type) => {
+						if (type === "success") logger.success(msg);
+						else if (type === "warning") logger.warn(msg);
+						else logger.info(msg);
+					},
+				});
+				allActions.push(...instrResult.actions);
+				allWarnings.push(...instrResult.warnings);
 				progress.completeStep();
 
 				progress.startStep("gitignore-config");
