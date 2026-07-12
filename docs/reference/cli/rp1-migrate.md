@@ -198,6 +198,7 @@ Migration complete for /Users/dev/myproject
   No database records to backfill
   Activity search rows already up to date
   Stanza content already up to date
+  No Arcade settings JSON to migrate
 
   Central storage conversion:
     Relocated 5 context file(s) and 12 work file(s) to central store
@@ -206,6 +207,29 @@ Migration complete for /Users/dev/myproject
     Global stanzas: 1 written
     Updated .gitignore to central preset
     Unstaged 17 file(s) from git index
+```
+
+### Central Conversion Dry-run Output
+
+```
+Migration dry-run for /Users/dev/myproject
+
+  Project ID: 550e8400-e29b-41d4-a716-446655440000 (already existed)
+  .rp1/work/ already exists
+  No legacy work directory found
+  Activity search rows already up to date
+  No Arcade settings JSON to migrate
+
+  Central storage conversion:
+    Would relocate 5 context file(s) and 12 work file(s) to central store
+    Would write [storage] mode = "central" to settings.toml
+    Would remove stanzas from: CLAUDE.md, AGENTS.md
+    Would manage global stanzas: 1 to write, 0 to update
+    Would update .gitignore to central preset
+    Would unstage 17 tracked file(s) from git index
+  Would leave database history and files unchanged
+
+Run without --dry-run to apply these changes.
 ```
 
 ## Error Handling
