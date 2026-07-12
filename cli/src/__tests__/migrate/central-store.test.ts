@@ -572,7 +572,7 @@ describe("central-store", () => {
 
 			try {
 				const fs = require("node:fs");
-				fs.renameSync = (src: string, dest: string) => {
+				fs.renameSync = (_src: string, _dest: string) => {
 					const err = new Error(
 						"EXDEV: cross-device link not permitted",
 					) as NodeJS.ErrnoException;
