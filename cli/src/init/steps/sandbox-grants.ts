@@ -359,7 +359,7 @@ const PLATFORM_WRITERS: Readonly<
  * 2. Otherwise read persisted selection via loadEnabledHarnesses.
  * 3. If nothing is persisted, fall back to all stable platforms in the registry.
  */
-async function resolveHarnesses(
+export async function resolveHarnesses(
 	harnesses: string[] | undefined,
 	globalSettingsPath?: string,
 ): Promise<readonly string[]> {

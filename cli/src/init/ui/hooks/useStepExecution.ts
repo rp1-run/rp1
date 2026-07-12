@@ -74,7 +74,10 @@ import {
 	checkRp1Readiness,
 	type ReadinessResult,
 } from "../../steps/readiness.js";
-import { generateSandboxGrants } from "../../steps/sandbox-grants.js";
+import {
+	generateSandboxGrants,
+	resolveHarnesses,
+} from "../../steps/sandbox-grants.js";
 import { generateNextSteps } from "../../steps/summary.js";
 import {
 	verifyClaudeCodePlugins,
@@ -790,9 +793,12 @@ export const useStepExecution = ({
 				chooseInitDirectoryModel(ctx.cwd, ctx.forceLocalProject);
 
 			const wizardSelection = state.userChoices.enabledHarnesses;
+			// Unknown selection must not collapse to [] — manageGlobalStanzas([])
+			// removes every global stanza. Resolve like the sandbox-grants step:
+			// persisted selection first, then stable registry defaults.
 			const selection = wizardSelection
 				? [...wizardSelection]
-				: (loadEnabledHarnesses(options.globalSettingsPath) ?? []);
+				: await resolveHarnesses(undefined, options.globalSettingsPath);
 
 			const result = await injectInstructionsForStorageMode({
 				cwd: ctx.cwd,
