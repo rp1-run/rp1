@@ -3,10 +3,31 @@ import path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { resolveDirectorySet } from "../../shared/directory-resolution.js";
 import { ensureProjectId } from "../../shared/project-id.js";
+import { resolveLocalSettingsPath } from "../../shared/settings.js";
+import { readStorageMode } from "../../shared/storage-mode.js";
+import { loadToolsRegistry } from "../config/supported-tools.js";
+import {
+	type GlobalStanzaResult,
+	manageGlobalStanzas,
+} from "../init/global-stanza-writer.js";
+import { detectTools } from "../init/tool-detector.js";
+import { loadEnabledHarnesses } from "../settings/loader.js";
+import { getEffectiveHarnesses } from "../shared/install-core.js";
 import {
 	type ArcadeSettingsMigrationResult,
 	migrateArcadeSettings,
 } from "./arcade-settings.js";
+import {
+	type UpdateGitignoreResult as CentralGitignoreResult,
+	type GitUnstageResult,
+	gitUnstageTracked,
+	type RelocateResult,
+	type RemoveStanzasResult,
+	relocateToCenter,
+	removeProjectStanzas,
+	updateGitignoreCentral,
+	writeStorageSection,
+} from "./central-store.js";
 import { backfillProjectId, type DbBackfillResult } from "./db-backfill.js";
 import {
 	type GitignoreUpdateResult,
@@ -19,8 +40,18 @@ import {
 } from "./legacy-work.js";
 import { type StanzaUpgradeResult, upgradeStanzas } from "./stanza-upgrade.js";
 
+export interface CentralStoreResult {
+	readonly relocated: RelocateResult;
+	readonly settingsWritten: boolean;
+	readonly stanzasRemoved: RemoveStanzasResult;
+	readonly globalStanza: GlobalStanzaResult;
+	readonly gitignoreUpdated: CentralGitignoreResult;
+	readonly gitUnstaged: GitUnstageResult;
+}
+
 export interface MigrateOptions {
 	readonly dryRun?: boolean;
+	readonly toCentral?: boolean;
 }
 
 export interface MigrateResult {
@@ -34,7 +65,76 @@ export interface MigrateResult {
 	readonly dbBackfill: DbBackfillResult;
 	readonly stanzaUpgrade: StanzaUpgradeResult;
 	readonly arcadeSettings: ArcadeSettingsMigrationResult;
+	readonly centralStore?: CentralStoreResult;
 }
+
+const resolveHarnesses = async (): Promise<readonly string[]> => {
+	const persisted = loadEnabledHarnesses();
+	if (persisted !== undefined) {
+		return persisted;
+	}
+	const registry = await loadToolsRegistry();
+	const detection = await detectTools(registry)();
+	if (E.isLeft(detection) || detection.right.detected.length === 0) {
+		return [];
+	}
+	return getEffectiveHarnesses(detection.right).map((d) => d.tool.id);
+};
+
+const executeCentralSteps = async (
+	projectRoot: string,
+	projectId: string,
+	dryRun: boolean,
+): Promise<CentralStoreResult | undefined> => {
+	const currentMode = readStorageMode(projectRoot);
+	if (currentMode === "central") {
+		return {
+			relocated: { contextFiles: 0, workFiles: 0, skipped: 0 },
+			settingsWritten: false,
+			stanzasRemoved: { filesModified: [], filesSkipped: [] },
+			globalStanza: {
+				written: [],
+				updated: [],
+				removed: [],
+				skipped: [],
+				errors: [],
+				paths: new Map(),
+			},
+			gitignoreUpdated: { updated: false },
+			gitUnstaged: { unstaged: [] },
+		};
+	}
+
+	const settingsPath = resolveLocalSettingsPath(projectRoot);
+
+	const relocated = relocateToCenter(projectRoot, projectId, { dryRun });
+
+	const settingsWritten = writeStorageSection(settingsPath, "central", {
+		dryRun,
+	});
+
+	const stanzasRemoved = removeProjectStanzas(projectRoot, { dryRun });
+
+	const harnesses = await resolveHarnesses();
+	const globalStanza = await manageGlobalStanzas(harnesses, { dryRun });
+
+	const gitignoreUpdated = updateGitignoreCentral(projectRoot, { dryRun });
+
+	const gitUnstaged = gitUnstageTracked(
+		projectRoot,
+		[".rp1/context", ".rp1/work"],
+		{ dryRun },
+	);
+
+	return {
+		relocated,
+		settingsWritten,
+		stanzasRemoved,
+		globalStanza,
+		gitignoreUpdated,
+		gitUnstaged,
+	};
+};
 
 export const executeMigrate = async (
 	cwd: string = process.cwd(),
@@ -68,6 +168,11 @@ export const executeMigrate = async (
 			dryRun: true,
 		});
 
+		let centralStore: CentralStoreResult | undefined;
+		if (options.toCentral === true) {
+			centralStore = await executeCentralSteps(projectRoot, projectId, true);
+		}
+
 		return {
 			dryRun: true,
 			projectRoot,
@@ -87,6 +192,7 @@ export const executeMigrate = async (
 				errors: [],
 			},
 			arcadeSettings,
+			centralStore,
 		};
 	}
 
@@ -114,6 +220,11 @@ export const executeMigrate = async (
 
 	const arcadeSettings = await migrateArcadeSettings({ projectRoot });
 
+	let centralStore: CentralStoreResult | undefined;
+	if (options.toCentral === true) {
+		centralStore = await executeCentralSteps(projectRoot, projectId, false);
+	}
+
 	return {
 		projectRoot,
 		projectId,
@@ -124,6 +235,7 @@ export const executeMigrate = async (
 		dbBackfill,
 		stanzaUpgrade,
 		arcadeSettings,
+		centralStore,
 	};
 };
 
@@ -180,6 +292,12 @@ export const formatMigrateSummary = (result: MigrateResult): string => {
 			);
 		} else {
 			lines.push("  No Arcade settings JSON to migrate");
+		}
+
+		if (result.centralStore) {
+			lines.push("");
+			lines.push("  Central storage conversion:");
+			formatCentralStoreDryRun(lines, result.centralStore);
 		}
 
 		lines.push("  Would leave database history and files unchanged");
@@ -284,5 +402,119 @@ export const formatMigrateSummary = (result: MigrateResult): string => {
 		lines.push("  No Arcade settings JSON to migrate");
 	}
 
+	if (result.centralStore) {
+		lines.push("");
+		lines.push("  Central storage conversion:");
+		formatCentralStoreResult(lines, result.centralStore);
+	}
+
 	return lines.join("\n");
+};
+
+const formatCentralStoreDryRun = (
+	lines: string[],
+	cs: CentralStoreResult,
+): void => {
+	const totalFiles = cs.relocated.contextFiles + cs.relocated.workFiles;
+	if (totalFiles > 0) {
+		lines.push(
+			`    Would relocate ${cs.relocated.contextFiles} context file(s) and ${cs.relocated.workFiles} work file(s) to central store`,
+		);
+	} else {
+		lines.push("    No files to relocate (already empty or moved)");
+	}
+
+	if (cs.settingsWritten) {
+		lines.push('    Would write [storage] mode = "central" to settings.toml');
+	} else {
+		lines.push("    Storage mode already set to central");
+	}
+
+	if (cs.stanzasRemoved.filesModified.length > 0) {
+		lines.push(
+			`    Would remove stanzas from: ${cs.stanzasRemoved.filesModified.join(", ")}`,
+		);
+	} else {
+		lines.push("    No project stanzas to remove");
+	}
+
+	const stanzaActions =
+		cs.globalStanza.written.length + cs.globalStanza.updated.length;
+	if (stanzaActions > 0) {
+		lines.push(
+			`    Would manage global stanzas: ${cs.globalStanza.written.length} to write, ${cs.globalStanza.updated.length} to update`,
+		);
+	} else {
+		lines.push("    No global stanza changes needed");
+	}
+
+	if (cs.gitignoreUpdated.updated) {
+		lines.push("    Would update .gitignore to central preset");
+	}
+
+	if (cs.gitUnstaged.unstaged.length > 0) {
+		lines.push(
+			`    Would unstage ${cs.gitUnstaged.unstaged.length} tracked file(s) from git index`,
+		);
+	}
+};
+
+const formatCentralStoreResult = (
+	lines: string[],
+	cs: CentralStoreResult,
+): void => {
+	const totalFiles = cs.relocated.contextFiles + cs.relocated.workFiles;
+	if (totalFiles > 0) {
+		lines.push(
+			`    Relocated ${cs.relocated.contextFiles} context file(s) and ${cs.relocated.workFiles} work file(s) to central store`,
+		);
+		if (cs.relocated.skipped > 0) {
+			lines.push(
+				`    Skipped ${cs.relocated.skipped} file(s) (already exist at destination)`,
+			);
+		}
+	} else {
+		lines.push("    No files to relocate");
+	}
+
+	if (cs.settingsWritten) {
+		lines.push('    Wrote [storage] mode = "central" to settings.toml');
+	} else {
+		lines.push("    Storage mode already set to central");
+	}
+
+	if (cs.stanzasRemoved.filesModified.length > 0) {
+		lines.push(
+			`    Removed stanzas from: ${cs.stanzasRemoved.filesModified.join(", ")}`,
+		);
+	} else {
+		lines.push("    No project stanzas to remove");
+	}
+
+	const written = cs.globalStanza.written.length;
+	const updated = cs.globalStanza.updated.length;
+	if (written > 0 || updated > 0) {
+		const parts: string[] = [];
+		if (written > 0) parts.push(`${written} written`);
+		if (updated > 0) parts.push(`${updated} updated`);
+		lines.push(`    Global stanzas: ${parts.join(", ")}`);
+	} else {
+		lines.push("    No global stanza changes needed");
+	}
+
+	if (cs.globalStanza.errors.length > 0) {
+		for (const err of cs.globalStanza.errors) {
+			lines.push(`    Global stanza error (${err.platform}): ${err.error}`);
+		}
+	}
+
+	if (cs.gitignoreUpdated.updated) {
+		lines.push("    Updated .gitignore to central preset");
+	}
+
+	if (cs.gitUnstaged.unstaged.length > 0) {
+		lines.push(
+			`    Unstaged ${cs.gitUnstaged.unstaged.length} file(s) from git index`,
+		);
+	}
 };
