@@ -30,7 +30,12 @@ export const TEST_SANDBOX_ENV_KEYS = [
 	"RP1_TEST_SANDBOX_HOME",
 ] as const;
 
-const RETAINED_READ_ONLY_ENV_KEYS = new Set(["PATH", "NODE", "BUN"]);
+const RETAINED_READ_ONLY_ENV_KEYS = new Set([
+	"PATH",
+	"NODE",
+	"BUN",
+	"PUPPETEER_EXECUTABLE_PATH",
+]);
 const MUTABLE_USER_STATE_ENV_KEYS = new Set([
 	"AWS_CONFIG_FILE",
 	"AWS_SHARED_CREDENTIALS_FILE",
@@ -216,6 +221,9 @@ export const createTestSandbox = async (): Promise<TestSandbox> => {
 		process.env,
 		homedir(),
 	);
+	const testBrowserExecutablePath =
+		inheritedAudit.environment.RP1_TEST_BROWSER_EXECUTABLE_PATH ??
+		(await resolveTestBrowserExecutablePath());
 	const root = await realpath(
 		await mkdtemp(join(tmpdir(), "rp1-test-sandbox-")),
 	);
@@ -241,6 +249,9 @@ export const createTestSandbox = async (): Promise<TestSandbox> => {
 		home: canonicalHome,
 		environment: {
 			...inheritedAudit.environment,
+			...(testBrowserExecutablePath
+				? { RP1_TEST_BROWSER_EXECUTABLE_PATH: testBrowserExecutablePath }
+				: {}),
 			HOME: canonicalHome,
 			USERPROFILE: canonicalHome,
 			HOMEDRIVE: windowsHome.drive,
@@ -257,6 +268,18 @@ export const createTestSandbox = async (): Promise<TestSandbox> => {
 			RP1_TEST_SANDBOX_HOME: canonicalHome,
 		},
 	};
+};
+
+const resolveTestBrowserExecutablePath = async (): Promise<
+	string | undefined
+> => {
+	try {
+		const { default: puppeteer } = await import("puppeteer");
+		return await realpath(puppeteer.executablePath());
+	} catch {
+		// Browser-free test selections remain runnable when Puppeteer is not installed.
+		return undefined;
+	}
 };
 
 export const runTestsWithIsolatedHome = async (

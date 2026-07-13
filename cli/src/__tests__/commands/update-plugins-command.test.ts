@@ -127,14 +127,11 @@ const runPluginsCommand = async (
 };
 
 const runRealPluginsCommand = async (
-	homeDir: string,
 	argv: string[],
 	bundleDir?: string,
 ): Promise<{ readonly exitCode: number; readonly output: string }> => {
-	const originalHome = process.env.HOME;
 	const originalBundleDir = process.env.RP1_ANTIGRAVITY_BUNDLE_DIR;
 	const logs: string[] = [];
-	process.env.HOME = homeDir;
 	if (bundleDir) {
 		process.env.RP1_ANTIGRAVITY_BUNDLE_DIR = bundleDir;
 	}
@@ -166,11 +163,6 @@ const runRealPluginsCommand = async (
 	} finally {
 		console.log = originalLog;
 		process.exit = originalExit;
-		if (originalHome === undefined) {
-			delete process.env.HOME;
-		} else {
-			process.env.HOME = originalHome;
-		}
 		if (originalBundleDir === undefined) {
 			delete process.env.RP1_ANTIGRAVITY_BUNDLE_DIR;
 		} else {
@@ -308,7 +300,6 @@ describe("update plugins command action", () => {
 	test("runs the real targeted Antigravity update route in-process", async () => {
 		const bundleDir = await writeAntigravityBundleDistFixture(tempDir);
 		const result = await runRealPluginsCommand(
-			tempDir,
 			["update", "plugins", "antigravity", "--dry-run"],
 			bundleDir,
 		);

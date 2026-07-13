@@ -5,18 +5,8 @@ import { join } from "node:path";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
 
 const originalFetch = globalThis.fetch;
-const originalPlatform = process.platform;
-const originalAppData = process.env.APPDATA;
-const originalXdgConfigHome = process.env.XDG_CONFIG_HOME;
 
 let tempDir: string;
-
-function setPlatform(platform: NodeJS.Platform): void {
-	Object.defineProperty(process, "platform", {
-		value: platform,
-		configurable: true,
-	});
-}
 
 async function loadConfigDirModule() {
 	return await import(
@@ -61,20 +51,6 @@ describe("daemon runtime helpers", () => {
 
 	afterEach(async () => {
 		globalThis.fetch = originalFetch;
-		Object.defineProperty(process, "platform", {
-			value: originalPlatform,
-			configurable: true,
-		});
-		if (originalAppData === undefined) {
-			delete process.env.APPDATA;
-		} else {
-			process.env.APPDATA = originalAppData;
-		}
-		if (originalXdgConfigHome === undefined) {
-			delete process.env.XDG_CONFIG_HOME;
-		} else {
-			process.env.XDG_CONFIG_HOME = originalXdgConfigHome;
-		}
 		await cleanupTempDir(tempDir);
 	});
 
@@ -82,24 +58,43 @@ describe("daemon runtime helpers", () => {
 		test("uses platform config directories for Arcade daemon state", async () => {
 			const { getConfigDir } = await loadConfigDirModule();
 
-			setPlatform("darwin");
-			expect(getConfigDir()).toBe(
+			expect(getConfigDir({ platform: "darwin", homeDir: homedir() })).toBe(
 				join(homedir(), "Library", "Application Support", "rp1"),
 			);
 
-			setPlatform("win32");
-			process.env.APPDATA = join(tempDir, "AppData", "Roaming");
-			expect(getConfigDir()).toBe(join(process.env.APPDATA, "rp1"));
+			const appData = join(tempDir, "AppData", "Roaming");
+			expect(
+				getConfigDir({
+					platform: "win32",
+					homeDir: homedir(),
+					environment: { APPDATA: appData },
+				}),
+			).toBe(join(appData, "rp1"));
 
-			delete process.env.APPDATA;
-			expect(getConfigDir()).toBe(join(homedir(), "AppData", "Roaming", "rp1"));
+			expect(
+				getConfigDir({
+					platform: "win32",
+					homeDir: homedir(),
+					environment: {},
+				}),
+			).toBe(join(homedir(), "AppData", "Roaming", "rp1"));
 
-			setPlatform("linux");
-			process.env.XDG_CONFIG_HOME = join(tempDir, "xdg");
-			expect(getConfigDir()).toBe(join(process.env.XDG_CONFIG_HOME, "rp1"));
+			const xdgConfigHome = join(tempDir, "xdg");
+			expect(
+				getConfigDir({
+					platform: "linux",
+					homeDir: homedir(),
+					environment: { XDG_CONFIG_HOME: xdgConfigHome },
+				}),
+			).toBe(join(xdgConfigHome, "rp1"));
 
-			delete process.env.XDG_CONFIG_HOME;
-			expect(getConfigDir()).toBe(join(homedir(), ".config", "rp1"));
+			expect(
+				getConfigDir({
+					platform: "linux",
+					homeDir: homedir(),
+					environment: {},
+				}),
+			).toBe(join(homedir(), ".config", "rp1"));
 		});
 
 		test("derives daemon sidecar paths from the active config directory", async () => {
@@ -110,19 +105,21 @@ describe("daemon runtime helpers", () => {
 				getRestartMarkerPath,
 			} = await loadConfigDirModule();
 
-			setPlatform("linux");
-			process.env.XDG_CONFIG_HOME = join(tempDir, "xdg");
-
 			const configDir = join(tempDir, "xdg", "rp1");
+			const options = {
+				platform: "linux" as const,
+				homeDir: homedir(),
+				environment: { XDG_CONFIG_HOME: join(tempDir, "xdg") },
+			};
 
-			expect(getPidFilePath()).toBe(join(configDir, "daemon.pid"));
-			expect(getLifecycleLockPath()).toBe(
+			expect(getPidFilePath(options)).toBe(join(configDir, "daemon.pid"));
+			expect(getLifecycleLockPath(options)).toBe(
 				join(configDir, "daemon.lifecycle.lock"),
 			);
-			expect(getRestartMarkerPath()).toBe(
+			expect(getRestartMarkerPath(options)).toBe(
 				join(configDir, "restart-arcade-after-install"),
 			);
-			expect(getDaemonStatePath()).toBe(
+			expect(getDaemonStatePath(options)).toBe(
 				join(homedir(), ".rp1", "daemon-state.json"),
 			);
 		});
@@ -130,11 +127,14 @@ describe("daemon runtime helpers", () => {
 		test("creates the config directory with daemon-only permissions", async () => {
 			const { ensureConfigDir } = await loadConfigDirModule();
 
-			setPlatform("linux");
-			process.env.XDG_CONFIG_HOME = join(tempDir, "xdg");
-
 			const configDir = join(tempDir, "xdg", "rp1");
-			expect(await ensureConfigDir()).toBe(configDir);
+			expect(
+				await ensureConfigDir({
+					platform: "linux",
+					homeDir: homedir(),
+					environment: { XDG_CONFIG_HOME: join(tempDir, "xdg") },
+				}),
+			).toBe(configDir);
 			const configStat = await stat(configDir);
 			expect(configStat.isDirectory()).toBe(true);
 		});

@@ -5,7 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
@@ -26,10 +26,24 @@ import {
 import {
 	cleanupTempDir,
 	createTempDir,
+	expectTaskLeft,
 	expectTaskRight,
+	getErrorMessage,
 } from "../helpers/index.js";
 
 describe("cache", () => {
+	let tempDir: string;
+	let cachePath: string;
+
+	beforeEach(async () => {
+		tempDir = await createTempDir("cache-test");
+		cachePath = join(tempDir, "cache", CACHE_FILE_NAME);
+	});
+
+	afterEach(async () => {
+		await cleanupTempDir(tempDir);
+	});
+
 	describe("getCachePath", () => {
 		test("uses the production default when no cache path is supplied", () => {
 			const cachePath = getCachePath();
@@ -66,25 +80,10 @@ describe("cache", () => {
 	});
 
 	describe("readCache", () => {
-		let tempDir: string;
-		let originalHome: string;
-
-		beforeEach(async () => {
-			tempDir = await createTempDir("cache-read");
-			originalHome = process.env.HOME || "";
-		});
-
-		afterEach(async () => {
-			process.env.HOME = originalHome;
-			await cleanupTempDir(tempDir);
-		});
-
 		test("returns null when cache file does not exist", async () => {
-			const result = await expectTaskRight(readCache());
+			const result = await expectTaskRight(readCache({ cachePath }));
 
-			// Since we're using the real home directory, the cache may or may not exist
-			// This test verifies the function executes without error
-			expect(result === null || typeof result === "object").toBe(true);
+			expect(result).toBeNull();
 		});
 
 		test("returns valid cache data when file contains valid JSON", async () => {
@@ -95,16 +94,18 @@ describe("cache", () => {
 				ttlHours: 24,
 			};
 
-			// Write to actual cache location for this test
 			await expectTaskRight(
-				writeCache({
-					latestVersion: validCache.latestVersion,
-					releaseUrl: validCache.releaseUrl,
-					ttlHours: validCache.ttlHours,
-				}),
+				writeCache(
+					{
+						latestVersion: validCache.latestVersion,
+						releaseUrl: validCache.releaseUrl,
+						ttlHours: validCache.ttlHours,
+					},
+					{ cachePath },
+				),
 			);
 
-			const result = await expectTaskRight(readCache());
+			const result = await expectTaskRight(readCache({ cachePath }));
 
 			expect(result).not.toBeNull();
 			expect(result?.latestVersion).toBe("0.3.0");
@@ -114,96 +115,92 @@ describe("cache", () => {
 			expect(result?.ttlHours).toBe(24);
 			expect(typeof result?.checkedAt).toBe("string");
 
-			await expectTaskRight(invalidateCache());
+			await expectTaskRight(invalidateCache({ cachePath }));
 		});
 
-		test("returns null for invalid JSON in cache file", async () => {
-			// First write valid cache, then we'll test readCacheSync with invalid data
+		test("returns an error for invalid JSON in cache file", async () => {
 			await expectTaskRight(
-				writeCache({
-					latestVersion: "0.3.0",
-					releaseUrl: "https://example.com",
-					ttlHours: 24,
-				}),
+				writeCache(
+					{
+						latestVersion: "0.3.0",
+						releaseUrl: "https://example.com",
+						ttlHours: 24,
+					},
+					{ cachePath },
+				),
 			);
+			await writeFile(cachePath, "not-json");
 
-			// Read should work with valid data
-			const validResult = await expectTaskRight(readCache());
-			expect(validResult).not.toBeNull();
-
-			await expectTaskRight(invalidateCache());
+			const error = await expectTaskLeft(readCache({ cachePath }));
+			expect(getErrorMessage(error)).toContain("Failed to read cache");
 		});
 
 		test("returns null for cache missing required fields", async () => {
-			// Write cache with valid data first
 			await expectTaskRight(
-				writeCache({
-					latestVersion: "0.3.0",
-					releaseUrl: "https://example.com",
-					ttlHours: 24,
-				}),
+				writeCache(
+					{
+						latestVersion: "0.3.0",
+						releaseUrl: "https://example.com",
+						ttlHours: 24,
+					},
+					{ cachePath },
+				),
 			);
+			await writeFile(cachePath, JSON.stringify({ latestVersion: "0.3.0" }));
 
-			const result = await expectTaskRight(readCache());
-
-			// The writeCache function always adds checkedAt, so result should be valid
-			expect(result).not.toBeNull();
-			expect(result?.checkedAt).toBeDefined();
-
-			// Clean up
-			await expectTaskRight(invalidateCache());
+			const result = await expectTaskRight(readCache({ cachePath }));
+			expect(result).toBeNull();
 		});
 	});
 
 	describe("readCacheSync", () => {
 		test("returns null when cache file does not exist", () => {
-			const cachePath = getCachePath();
-			if (existsSync(cachePath)) {
-				// Use async invalidation then sync read
-			}
-
-			// This tests the sync function's graceful handling
-			const result = readCacheSync();
-			expect(result === null || typeof result === "object").toBe(true);
+			const result = readCacheSync({ cachePath });
+			expect(result).toBeNull();
 		});
 
 		test("returns cache data when valid file exists", async () => {
 			await expectTaskRight(
-				writeCache({
-					latestVersion: "1.0.0",
-					releaseUrl: "https://github.com/rp1-run/rp1/releases/tag/v1.0.0",
-					ttlHours: 12,
-				}),
+				writeCache(
+					{
+						latestVersion: "1.0.0",
+						releaseUrl: "https://github.com/rp1-run/rp1/releases/tag/v1.0.0",
+						ttlHours: 12,
+					},
+					{ cachePath },
+				),
 			);
 
-			const result = readCacheSync();
+			const result = readCacheSync({ cachePath });
 
 			expect(result).not.toBeNull();
 			expect(result?.latestVersion).toBe("1.0.0");
 			expect(result?.ttlHours).toBe(12);
 
-			await expectTaskRight(invalidateCache());
+			await expectTaskRight(invalidateCache({ cachePath }));
 		});
 	});
 
 	describe("writeCache", () => {
 		afterEach(async () => {
-			await expectTaskRight(invalidateCache());
+			await expectTaskRight(invalidateCache({ cachePath }));
 		});
 
 		test("creates config directory if it does not exist", async () => {
-			await expectTaskRight(invalidateCache());
+			await expectTaskRight(invalidateCache({ cachePath }));
 
 			await expectTaskRight(
-				writeCache({
-					latestVersion: "0.4.0",
-					releaseUrl: "https://example.com/release",
-					ttlHours: 48,
-				}),
+				writeCache(
+					{
+						latestVersion: "0.4.0",
+						releaseUrl: "https://example.com/release",
+						ttlHours: 48,
+					},
+					{ cachePath },
+				),
 			);
 
-			const configDir = getConfigDir();
-			expect(existsSync(configDir)).toBe(true);
+			expect(existsSync(join(tempDir, "cache"))).toBe(true);
 		});
 
 		test("writes cache file with correct content", async () => {
@@ -213,9 +210,8 @@ describe("cache", () => {
 				ttlHours: 24,
 			};
 
-			await expectTaskRight(writeCache(cacheData));
+			await expectTaskRight(writeCache(cacheData, { cachePath }));
 
-			const cachePath = getCachePath();
 			expect(existsSync(cachePath)).toBe(true);
 
 			const content = await readFile(cachePath, "utf-8");
@@ -232,16 +228,18 @@ describe("cache", () => {
 			const beforeWrite = new Date();
 
 			await expectTaskRight(
-				writeCache({
-					latestVersion: "0.6.0",
-					releaseUrl: "https://example.com",
-					ttlHours: 24,
-				}),
+				writeCache(
+					{
+						latestVersion: "0.6.0",
+						releaseUrl: "https://example.com",
+						ttlHours: 24,
+					},
+					{ cachePath },
+				),
 			);
 
 			const afterWrite = new Date();
 
-			const cachePath = getCachePath();
 			const content = await readFile(cachePath, "utf-8");
 			const parsed = JSON.parse(content);
 
@@ -254,22 +252,28 @@ describe("cache", () => {
 
 		test("overwrites existing cache file", async () => {
 			await expectTaskRight(
-				writeCache({
-					latestVersion: "0.1.0",
-					releaseUrl: "https://example.com/old",
-					ttlHours: 24,
-				}),
+				writeCache(
+					{
+						latestVersion: "0.1.0",
+						releaseUrl: "https://example.com/old",
+						ttlHours: 24,
+					},
+					{ cachePath },
+				),
 			);
 
 			await expectTaskRight(
-				writeCache({
-					latestVersion: "0.2.0",
-					releaseUrl: "https://example.com/new",
-					ttlHours: 48,
-				}),
+				writeCache(
+					{
+						latestVersion: "0.2.0",
+						releaseUrl: "https://example.com/new",
+						ttlHours: 48,
+					},
+					{ cachePath },
+				),
 			);
 
-			const result = await expectTaskRight(readCache());
+			const result = await expectTaskRight(readCache({ cachePath }));
 
 			expect(result?.latestVersion).toBe("0.2.0");
 			expect(result?.releaseUrl).toBe("https://example.com/new");
@@ -496,56 +500,59 @@ describe("cache", () => {
 	describe("invalidateCache", () => {
 		test("removes existing cache file", async () => {
 			await expectTaskRight(
-				writeCache({
-					latestVersion: "0.3.0",
-					releaseUrl: "https://example.com",
-					ttlHours: 24,
-				}),
+				writeCache(
+					{
+						latestVersion: "0.3.0",
+						releaseUrl: "https://example.com",
+						ttlHours: 24,
+					},
+					{ cachePath },
+				),
 			);
 
-			const cachePath = getCachePath();
 			expect(existsSync(cachePath)).toBe(true);
 
-			await expectTaskRight(invalidateCache());
+			await expectTaskRight(invalidateCache({ cachePath }));
 
 			expect(existsSync(cachePath)).toBe(false);
 		});
 
 		test("succeeds when cache file does not exist", async () => {
-			const cachePath = getCachePath();
-			if (existsSync(cachePath)) {
-				await rm(cachePath);
-			}
-
-			await expectTaskRight(invalidateCache());
+			await expectTaskRight(invalidateCache({ cachePath }));
 
 			expect(existsSync(cachePath)).toBe(false);
 		});
 
 		test("allows writing new cache after invalidation", async () => {
 			await expectTaskRight(
-				writeCache({
-					latestVersion: "0.1.0",
-					releaseUrl: "https://example.com/old",
-					ttlHours: 24,
-				}),
+				writeCache(
+					{
+						latestVersion: "0.1.0",
+						releaseUrl: "https://example.com/old",
+						ttlHours: 24,
+					},
+					{ cachePath },
+				),
 			);
 
-			await expectTaskRight(invalidateCache());
+			await expectTaskRight(invalidateCache({ cachePath }));
 
 			await expectTaskRight(
-				writeCache({
-					latestVersion: "0.2.0",
-					releaseUrl: "https://example.com/new",
-					ttlHours: 48,
-				}),
+				writeCache(
+					{
+						latestVersion: "0.2.0",
+						releaseUrl: "https://example.com/new",
+						ttlHours: 48,
+					},
+					{ cachePath },
+				),
 			);
 
-			const result = await expectTaskRight(readCache());
+			const result = await expectTaskRight(readCache({ cachePath }));
 
 			expect(result?.latestVersion).toBe("0.2.0");
 
-			await expectTaskRight(invalidateCache());
+			await expectTaskRight(invalidateCache({ cachePath }));
 		});
 	});
 

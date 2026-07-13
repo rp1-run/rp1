@@ -74,6 +74,7 @@ describe("isolated-home test launcher", () => {
 		const inherited = {
 			HOME: callerHome,
 			PATH: `${join(callerHome, "bin")}${delimiter}/usr/bin`,
+			PUPPETEER_EXECUTABLE_PATH: join(callerHome, "browser", "chrome"),
 			PWD: join(callerHome, "checkout"),
 			CARGO_HOME: "/tmp/cargo-state",
 			RP1_TOOL_CACHE: join(callerHome, "tool-cache"),
@@ -86,12 +87,16 @@ describe("isolated-home test launcher", () => {
 		expect(audit.classifications).toMatchObject({
 			HOME: "sandbox-rewritten",
 			PATH: "retained-read-only",
+			PUPPETEER_EXECUTABLE_PATH: "retained-read-only",
 			PWD: "unset",
 			CARGO_HOME: "unset",
 			RP1_TOOL_CACHE: "unset",
 			SSH_AUTH_SOCK: "unset",
 		});
 		expect(audit.environment.PATH).toBe(inherited.PATH);
+		expect(audit.environment.PUPPETEER_EXECUTABLE_PATH).toBe(
+			inherited.PUPPETEER_EXECUTABLE_PATH,
+		);
 		expect(audit.environment.EXTERNAL_CONFIG).toBe(inherited.EXTERNAL_CONFIG);
 		for (const key of [
 			"HOME",
@@ -204,6 +209,7 @@ describe("isolated-home test launcher", () => {
 		expect(result.environment.USERPROFILE).toBe(sandboxHome);
 		expect(result.environment.CARGO_HOME).toBeUndefined();
 		expect(result.environment.PATH).toBe(process.env.PATH ?? "");
+		expect(result.environment.RP1_TEST_BROWSER_EXECUTABLE_PATH).toBeTruthy();
 		for (const key of [
 			"XDG_CONFIG_HOME",
 			"XDG_CACHE_HOME",
@@ -216,6 +222,23 @@ describe("isolated-home test launcher", () => {
 			"TMP",
 		]) {
 			expect(isInside(sandboxHome, result.environment[key]), key).toBe(true);
+		}
+		for (const boundary of [
+			"workerEnvironment",
+			"bunChildEnvironment",
+			"nodeChildEnvironment",
+		] as const) {
+			const environment = result.environment[boundary] as unknown as Record<
+				string,
+				string | undefined
+			>;
+			expect(environment.HOME, boundary).toBe(sandboxHome);
+			expect(environment.RP1_TEST_SANDBOX_HOME, boundary).toBe(sandboxHome);
+			expect(environment.PATH, boundary).toBe(process.env.PATH ?? "");
+			expect(environment.RP1_TEST_BROWSER_EXECUTABLE_PATH, boundary).toBe(
+				result.environment.RP1_TEST_BROWSER_EXECUTABLE_PATH,
+			);
+			expect(environment.CARGO_HOME, boundary).toBeUndefined();
 		}
 		expect(await exists(dirname(sandboxHome))).toBe(false);
 	});

@@ -103,6 +103,10 @@ describe("migrate", () => {
 			const defaultLegacyDir = join(homedir(), ".rp1", "work", projectKey);
 			const isolatedDbPath = join(isolatedHome, ".rp1", "rp1.db");
 			const defaultDbPath = process.env.RP1_DB!;
+			const defaultClaudePath = join(homedir(), ".claude", "CLAUDE.md");
+			const defaultClaudeContents = existsSync(defaultClaudePath)
+				? readFileSync(defaultClaudePath, "utf-8")
+				: undefined;
 
 			await mkdir(join(projectRoot, ".rp1", "context"), { recursive: true });
 			await writeFile(join(projectRoot, ".rp1", "context", "index.md"), "# KB");
@@ -184,7 +188,13 @@ describe("migrate", () => {
 				expect(existsSync(join(isolatedHome, ".claude", "CLAUDE.md"))).toBe(
 					true,
 				);
-				expect(existsSync(join(homedir(), ".claude", "CLAUDE.md"))).toBe(false);
+				if (defaultClaudeContents === undefined) {
+					expect(existsSync(defaultClaudePath)).toBe(false);
+				} else {
+					expect(readFileSync(defaultClaudePath, "utf-8")).toBe(
+						defaultClaudeContents,
+					);
+				}
 
 				const second = await executeMigrate(projectRoot, {
 					toCentral: true,

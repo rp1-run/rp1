@@ -502,6 +502,7 @@ export const executeInstall = (
 export const executeVerify = (
 	args: string[],
 	_logger: Logger,
+	options?: Pick<InstallOptions, "homeDir">,
 ): TE.TaskEither<CLIError, void> => {
 	let artifactsDir: string | undefined;
 	for (let i = 0; i < args.length; i++) {
@@ -511,9 +512,10 @@ export const executeVerify = (
 	}
 
 	console.log(bold("\nVerifying OpenCode Plugins\n"));
+	const paths = resolveInstallPathContext({ homeDir: options?.homeDir });
 
 	return pipe(
-		verifyInstallation(artifactsDir),
+		verifyInstallation(artifactsDir, undefined, paths),
 		TE.map((report) => {
 			console.log("+-----------+--------------+--------+");
 			console.log("| Component | Found/Expect | Status |");

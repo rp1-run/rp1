@@ -12,6 +12,9 @@ import { validateDiagrams } from "../../../agent-tools/mmd-validate/validator.js
 
 const FIXTURES_DIR = path.join(import.meta.dir, "fixtures");
 const MIXED_DIAGRAMS_PATH = path.join(FIXTURES_DIR, "mixed-diagrams.md");
+const browserOptions = {
+	executablePath: process.env.RP1_TEST_BROWSER_EXECUTABLE_PATH,
+};
 
 describe("mmd-validate integration", () => {
 	let fixtureContent: string;
@@ -27,7 +30,11 @@ describe("mmd-validate integration", () => {
 
 		const blocks = extractResult.right;
 		const startTime = performance.now();
-		const validateResult = await validateDiagrams(blocks, 60000)();
+		const validateResult = await validateDiagrams(
+			blocks,
+			60000,
+			browserOptions,
+		)();
 		const endTime = performance.now();
 		const duration = endTime - startTime;
 
@@ -67,7 +74,11 @@ describe("mmd-validate integration", () => {
 		if (!E.isRight(extractResult)) return;
 
 		const blocks = extractResult.right;
-		const validateResult = await validateDiagrams(blocks, 60000)();
+		const validateResult = await validateDiagrams(
+			blocks,
+			60000,
+			browserOptions,
+		)();
 
 		expect(E.isRight(validateResult)).toBe(true);
 		if (!E.isRight(validateResult)) return;

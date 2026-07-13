@@ -29,6 +29,7 @@ export interface ResolvedDirectorySet {
 export interface DirectoryResolutionOptions {
 	readonly allowHomeProjectRoot?: boolean;
 	readonly requireProjectId?: boolean;
+	readonly homeDir?: string;
 }
 
 interface GitContext {
@@ -78,15 +79,22 @@ const canonicalizePathForComparison = (targetPath: string): string => {
 	}
 };
 
-const getUserHomeDirectory = (): string =>
-	canonicalizePathForComparison(process.env.HOME ?? homedir());
+const getUserHomeDirectory = (homeDir?: string): string =>
+	canonicalizePathForComparison(homeDir ?? process.env.HOME ?? homedir());
+
+const isUserHomeDirectory = (
+	targetPath: string,
+	options: DirectoryResolutionOptions,
+): boolean =>
+	canonicalizePathForComparison(targetPath) ===
+	getUserHomeDirectory(options.homeDir);
 
 const canAutoDiscoverProjectRoot = (
 	targetPath: string,
 	options: DirectoryResolutionOptions,
 ): boolean =>
 	options.allowHomeProjectRoot === true ||
-	canonicalizePathForComparison(targetPath) !== getUserHomeDirectory();
+	!isUserHomeDirectory(targetPath, options);
 
 const walkUpToProjectRoot = (
 	startPath: string,
@@ -109,6 +117,13 @@ const walkUpToProjectRoot = (
 			canAutoDiscoverProjectRoot(current, options)
 		) {
 			fallbackRp1Dir = current;
+		}
+
+		if (
+			options.allowHomeProjectRoot !== true &&
+			isUserHomeDirectory(current, options)
+		) {
+			break;
 		}
 
 		const parent = path.dirname(current);

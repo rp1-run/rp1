@@ -1,7 +1,10 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
-import { resolveDirectorySet } from "../../shared/directory-resolution.js";
+import {
+	type DirectoryResolutionOptions,
+	resolveDirectorySet,
+} from "../../shared/directory-resolution.js";
 import type { StorageMode } from "../../shared/storage-mode.js";
 import {
 	computeDirectoryPaths,
@@ -36,8 +39,11 @@ export interface AncestorProjectInfo {
 	readonly ancestorRoot: string | undefined;
 }
 
-export const resolveInitDirectoryModel = (cwd: string): InitDirectoryModel => {
-	const result = resolveDirectorySet(cwd);
+export const resolveInitDirectoryModel = (
+	cwd: string,
+	options: DirectoryResolutionOptions = {},
+): InitDirectoryModel => {
+	const result = resolveDirectorySet(cwd, options);
 	if (E.isLeft(result)) {
 		return defaultInitDirectoryModel(cwd);
 	}
