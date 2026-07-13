@@ -687,4 +687,48 @@ describe("applyTierRemappings - cache refresh warnings", () => {
 		expect(refreshWarning).toBeDefined();
 		expect(refreshWarning).toContain("connection refused");
 	});
+
+	test("applies unrecognized model IDs with a warning instead of aborting", async () => {
+		await writeFixture(
+			tempDir,
+			".rp1/settings.toml",
+			["[models.claude-code]", 'deep = "fable-next"'].join("\n"),
+		);
+
+		const expectedPath = join(
+			DEFAULT_MARKETPLACE_DIR,
+			"base",
+			"agents",
+			"feature-architect.md",
+		);
+
+		const written: Record<string, string> = {};
+		const deps: ApplyDeps = {
+			readFile: (path) => {
+				if (path === expectedPath) return CC_AGENT_DEEP;
+				throw new Error(`unexpected read: ${path}`);
+			},
+			writeFile: (path, content) => {
+				written[path] = content;
+			},
+			fileExists: (path) => path === expectedPath,
+			refreshClaudeCodePlugins: async () => {},
+			getBundledAssets: () => E.right(minimalManifest),
+		};
+
+		const result = await applyTierRemappings(
+			{
+				projectRoot: tempDir,
+				dryRun: false,
+				globalSettingsPath: isolatedGlobalSettings(),
+			},
+			deps,
+		);
+
+		expect(result.agentsModified).toBe(1);
+		expect(written[expectedPath]).toContain("model: fable-next");
+		const advisory = result.warnings.find((w) => w.includes("fable-next"));
+		expect(advisory).toBeDefined();
+		expect(advisory).toContain("not in the known set");
+	});
 });

@@ -344,7 +344,9 @@ Run `rp1 settings validate` to check your configuration for:
 - TOML syntax errors in both settings files
 - Unknown preset names
 - Unknown or unsupported platform names
-- Invalid model identifiers for a platform
+- Unrecognized model identifiers for a platform (warning only — the ID is
+  applied as-is so new vendor models work without an rp1 release; the harness
+  rejects model names that do not exist)
 - Effort compatibility warnings
 
 See [`rp1 settings validate`](cli/settings.md#validate) for exit codes and
