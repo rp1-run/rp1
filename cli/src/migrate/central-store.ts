@@ -16,10 +16,7 @@ import {
 	removeFencedContent,
 } from "../init/comment-fence.js";
 import { GITIGNORE_PRESETS } from "../init/models.js";
-import {
-	replaceShellFencedContent,
-	wrapWithShellFence,
-} from "../init/shell-fence.js";
+import { replaceShellFencedContent } from "../init/shell-fence.js";
 import { LATEST_FENCE_VERSION } from "../lib/fence-version.js";
 
 export interface RelocateResult {
@@ -290,25 +287,21 @@ export const updateGitignoreCentral = (
 ): UpdateGitignoreResult => {
 	const gitignorePath = join(projectRoot, ".gitignore");
 	const centralPreset = GITIGNORE_PRESETS.central;
-
-	if (options.dryRun) {
-		return { updated: true };
-	}
-
-	if (!existsSync(gitignorePath)) {
-		const content = `${wrapWithShellFence(centralPreset, LATEST_FENCE_VERSION)}\n`;
-		writeFileSync(gitignorePath, content, "utf-8");
-		return { updated: true };
-	}
-
-	const existing = readFileSync(gitignorePath, "utf-8");
-	const updated = replaceShellFencedContent(
+	const existing = existsSync(gitignorePath)
+		? readFileSync(gitignorePath, "utf-8")
+		: "";
+	const candidate = replaceShellFencedContent(
 		existing,
 		centralPreset,
 		LATEST_FENCE_VERSION,
 	);
-	writeFileSync(gitignorePath, updated, "utf-8");
-	return { updated: true };
+	const updated = candidate !== existing;
+
+	if (updated && !options.dryRun) {
+		writeFileSync(gitignorePath, candidate, "utf-8");
+	}
+
+	return { updated };
 };
 
 const isGitRepo = (dirPath: string): boolean =>
