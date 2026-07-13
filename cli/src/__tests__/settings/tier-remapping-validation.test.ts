@@ -42,10 +42,8 @@ describe("validateTierRemappings", () => {
 
 		const warningMsg = result.warnings[0];
 		expect(warningMsg).toContain("nonexistent");
-		expect(warningMsg).toContain("opus");
-		expect(warningMsg).toContain("sonnet");
-		expect(warningMsg).toContain("haiku");
-		expect(warningMsg).toContain("applying anyway");
+		expect(warningMsg).toContain("not recognized");
+		expect(warningMsg).toContain("applying as-is");
 	});
 
 	test("warns on unrecognized model ID for codex platform but stays valid", () => {
@@ -59,7 +57,7 @@ describe("validateTierRemappings", () => {
 		expect(result.valid).toBe(true);
 		expect(result.errors).toHaveLength(0);
 		expect(result.warnings[0]).toContain("gpt-9.9-future");
-		expect(result.warnings[0]).toContain("gpt-5.4");
+		expect(result.warnings[0]).toContain("not recognized");
 	});
 
 	test("warns on unknown platform name (forward compatibility)", () => {
@@ -217,7 +215,7 @@ describe("validateTierRemappings", () => {
 	test("effort adjustments for codex platform", () => {
 		const config: TierRemappingConfig = {
 			platforms: {
-				codex: { deep: "gpt-5.4-mini" },
+				codex: { deep: "gpt-5.6-luna" },
 			},
 		};
 
@@ -238,7 +236,11 @@ describe("validateTierRemappings", () => {
 	test("valid config with codex platform mappings", () => {
 		const config: TierRemappingConfig = {
 			platforms: {
-				codex: { deep: "gpt-5.5", standard: "gpt-5.4", fast: "gpt-5.4-mini" },
+				codex: {
+					deep: "gpt-5.6-sol",
+					standard: "gpt-5.6-terra",
+					fast: "gpt-5.6-luna",
+				},
 			},
 		};
 
