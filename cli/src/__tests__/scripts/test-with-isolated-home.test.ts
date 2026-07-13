@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { exists, mkdtemp, readFile, rm } from "node:fs/promises";
+import { exists, mkdtemp, readFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join, relative } from "node:path";
+import { delimiter, dirname, isAbsolute, join, relative } from "node:path";
+import { auditInheritedTestEnvironment } from "../../../scripts/test-with-isolated-home.js";
 
 const cliRoot = join(import.meta.dir, "..", "..", "..");
 const repositoryRoot = dirname(cliRoot);
@@ -46,6 +47,7 @@ const runLauncher = async (failProbe: boolean) => {
 		cwd: cliRoot,
 		env: {
 			...process.env,
+			CARGO_HOME: join(outputRoot, "cargo-home"),
 			RP1_TEST_PROBE_OUTPUT: outputPath,
 			RP1_TEST_PROBE_FAIL: failProbe ? "1" : "0",
 		},
@@ -66,6 +68,95 @@ const runLauncher = async (failProbe: boolean) => {
 };
 
 describe("isolated-home test launcher", () => {
+	test("classifies inherited home paths before constructing the child environment", async () => {
+		const callerHome = await mkdtemp(join(tmpdir(), "rp1-env-audit-"));
+		tempRoots.push(callerHome);
+		const inherited = {
+			HOME: callerHome,
+			PATH: `${join(callerHome, "bin")}${delimiter}/usr/bin`,
+			PWD: join(callerHome, "checkout"),
+			CARGO_HOME: "/tmp/cargo-state",
+			RP1_TOOL_CACHE: join(callerHome, "tool-cache"),
+			SSH_AUTH_SOCK: "/tmp/agent.sock",
+			EXTERNAL_CONFIG: "/tmp/external-config",
+		};
+
+		const audit = await auditInheritedTestEnvironment(inherited, callerHome);
+
+		expect(audit.classifications).toMatchObject({
+			HOME: "sandbox-rewritten",
+			PATH: "retained-read-only",
+			PWD: "unset",
+			CARGO_HOME: "unset",
+			RP1_TOOL_CACHE: "unset",
+			SSH_AUTH_SOCK: "unset",
+		});
+		expect(audit.environment.PATH).toBe(inherited.PATH);
+		expect(audit.environment.EXTERNAL_CONFIG).toBe(inherited.EXTERNAL_CONFIG);
+		for (const key of [
+			"HOME",
+			"PWD",
+			"CARGO_HOME",
+			"RP1_TOOL_CACHE",
+			"SSH_AUTH_SOCK",
+		]) {
+			expect(audit.environment[key], key).toBeUndefined();
+		}
+	});
+
+	test("rejects an unclassified home path without printing its value", async () => {
+		const callerHome = await mkdtemp(join(tmpdir(), "rp1-env-reject-"));
+		tempRoots.push(callerHome);
+		const sensitivePath = join(callerHome, "private", "credentials");
+		let error: unknown;
+
+		try {
+			await auditInheritedTestEnvironment(
+				{ UNCLASSIFIED_TARGET: sensitivePath },
+				callerHome,
+			);
+		} catch (cause) {
+			error = cause;
+		}
+
+		expect(error).toBeInstanceOf(Error);
+		const message = error instanceof Error ? error.message : String(error);
+		expect(message).toBe(
+			"Test environment audit failed: UNCLASSIFIED_TARGET classification=unclassified",
+		);
+		expect(message).not.toContain(sensitivePath);
+	});
+
+	test("resolves symlink ancestors before classifying missing leaves", async () => {
+		const callerHome = await mkdtemp(join(tmpdir(), "rp1-env-link-home-"));
+		const externalRoot = await mkdtemp(
+			join(tmpdir(), "rp1-env-link-external-"),
+		);
+		tempRoots.push(callerHome, externalRoot);
+		const linkType = process.platform === "win32" ? "junction" : "dir";
+		const linkIntoHome = join(externalRoot, "into-home");
+		const linkOutOfHome = join(callerHome, "out-of-home");
+		await Promise.all([
+			symlink(callerHome, linkIntoHome, linkType),
+			symlink(externalRoot, linkOutOfHome, linkType),
+		]);
+		const unsafeCache = join(linkIntoHome, "missing", "cache");
+		const safeCache = join(linkOutOfHome, "missing", "cache");
+
+		const audit = await auditInheritedTestEnvironment(
+			{
+				SYMLINKED_HOME_CACHE: unsafeCache,
+				SYMLINKED_EXTERNAL_CACHE: safeCache,
+			},
+			callerHome,
+		);
+
+		expect(audit.classifications.SYMLINKED_HOME_CACHE).toBe("unset");
+		expect(audit.environment.SYMLINKED_HOME_CACHE).toBeUndefined();
+		expect(audit.classifications.SYMLINKED_EXTERNAL_CACHE).toBeUndefined();
+		expect(audit.environment.SYMLINKED_EXTERNAL_CACHE).toBe(safeCache);
+	});
+
 	test("routes every maintained CLI test command through the isolated-home launcher", async () => {
 		const packageJson = JSON.parse(
 			await readFile(join(cliRoot, "package.json"), "utf-8"),
@@ -111,9 +202,13 @@ describe("isolated-home test launcher", () => {
 		expect(result.environment.homedir).toBe(sandboxHome);
 		expect(result.environment.HOME).toBe(sandboxHome);
 		expect(result.environment.USERPROFILE).toBe(sandboxHome);
+		expect(result.environment.CARGO_HOME).toBeUndefined();
+		expect(result.environment.PATH).toBe(process.env.PATH ?? "");
 		for (const key of [
 			"XDG_CONFIG_HOME",
 			"XDG_CACHE_HOME",
+			"XDG_DATA_HOME",
+			"XDG_STATE_HOME",
 			"APPDATA",
 			"LOCALAPPDATA",
 			"TMPDIR",

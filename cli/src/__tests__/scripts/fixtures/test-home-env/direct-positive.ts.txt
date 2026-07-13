@@ -1,0 +1,8 @@
+const environment = process.env;
+environment.HOME = "/tmp/indirect-is-out-of-scope";
+const key = "HOME";
+process.env[key] = "/tmp/computed-is-out-of-scope";
+Reflect.deleteProperty(process.env, "HOME");
+Bun.spawn(["bun"], { env: { ...process.env, RP1_DB: "/tmp/rp1.db" } });
+new Worker("./worker.ts", { env: process.env });
+spawn("bun", [], { env: inheritedEnvironment });
