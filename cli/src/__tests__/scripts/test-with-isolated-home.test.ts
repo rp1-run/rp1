@@ -188,14 +188,15 @@ describe("isolated-home test launcher", () => {
 		}
 		expect(coverageScript).toContain("runTestsWithIsolatedHome(testArgs)");
 		expect(justfile).not.toContain("cd cli && bun test ");
-		const coverageCommand = workflow
-			.split("\n")
-			.find(
-				(line) => line.includes("run: cd cli") && line.includes("coverage"),
-			);
-		expect(coverageCommand?.trim()).toBe(
-			"run: cd cli && bun run test:coverage 2>&1 | tee coverage.txt",
+		expect(workflow).toContain(
+			'container_id=$(docker create "$TEST_ISOLATION_IMAGE" bun run scripts/verify-test-home-boundary.ts)',
 		);
+		expect(workflow).toContain("docker inspect --format '{{ len .Mounts }}'");
+		expect(workflow).toContain(
+			'run: docker run --rm "$TEST_ISOLATION_IMAGE" bun run test',
+		);
+		expect(workflow).toContain("bun run test:coverage 2>&1 | tee coverage.txt");
+		expect(workflow).toContain("steps.test_home_boundary.outcome == 'success'");
 		expect(workflow).not.toContain("cd cli && bun test --coverage");
 	});
 

@@ -56,7 +56,9 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    env:
+      TEST_ISOLATION_IMAGE: rp1-cli-test-isolation:${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
@@ -74,21 +76,49 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-bun-
 
-      - name: Install CLI dependencies
-        run: cd cli && bun install
-
       - name: Install native app dependencies
         run: cd native-app && bun install
 
-      - name: Run tests
-        run: just test-cli && just test-native-app
+      - name: Build disposable CLI test boundary
+        run: docker build --file .github/test-isolation.Dockerfile --tag "$TEST_ISOLATION_IMAGE" .
+
+      - name: Verify protected-home filesystem boundary
+        id: test_home_boundary
+        shell: bash
+        run: |
+          container_id=$(docker create "$TEST_ISOLATION_IMAGE" bun run scripts/verify-test-home-boundary.ts)
+          trap 'docker rm -f "$container_id" >/dev/null 2>&1 || true' EXIT
+          mount_count=$(docker inspect --format '{{ len .Mounts }}' "$container_id")
+          if [[ "$mount_count" != "0" ]]; then
+            echo "Refusing to test with host or volume mounts" >&2
+            docker inspect --format '{{ json .Mounts }}' "$container_id" >&2
+            exit 1
+          fi
+          echo "Container mounts: none"
+          docker start --attach "$container_id"
+
+      - name: Run CLI tests inside disposable boundary
+        run: docker run --rm "$TEST_ISOLATION_IMAGE" bun run test
+
+      - name: Run native app tests
+        run: just test-native-app
 
       - name: Generate coverage report
-        if: ${{ always() && !cancelled() }}
-        run: cd cli && bun run test:coverage 2>&1 | tee coverage.txt
+        if: ${{ always() && !cancelled() && steps.test_home_boundary.outcome == 'success' }}
+        shell: bash
+        run: |
+          container_id=$(docker create "$TEST_ISOLATION_IMAGE" bash -o pipefail -c 'bun run test:coverage 2>&1 | tee coverage.txt')
+          trap 'docker rm -f "$container_id" >/dev/null 2>&1 || true' EXIT
+          if docker start --attach "$container_id"; then
+            exit_code=0
+          else
+            exit_code=$?
+          fi
+          docker cp "$container_id:/workspace/cli/coverage.txt" cli/coverage.txt || true
+          exit "$exit_code"
 
       - name: Upload coverage report
-        if: ${{ always() && !cancelled() }}
+        if: ${{ always() && !cancelled() && steps.test_home_boundary.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
