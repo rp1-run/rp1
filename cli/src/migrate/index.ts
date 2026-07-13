@@ -4,7 +4,6 @@ import * as E from "fp-ts/lib/Either.js";
 import { resolveDirectorySet } from "../../shared/directory-resolution.js";
 import { ensureProjectId } from "../../shared/project-id.js";
 import { resolveLocalSettingsPath } from "../../shared/settings.js";
-import { readStorageMode } from "../../shared/storage-mode.js";
 import { loadToolsRegistry } from "../config/supported-tools.js";
 import {
 	type GlobalStanzaResult,
@@ -92,25 +91,6 @@ const executeCentralSteps = async (
 	homeDir?: string,
 	globalSettingsPath?: string,
 ): Promise<CentralStoreResult | undefined> => {
-	const currentMode = readStorageMode(projectRoot);
-	if (currentMode === "central") {
-		return {
-			relocated: { contextFiles: 0, workFiles: 0, skipped: 0 },
-			settingsWritten: false,
-			stanzasRemoved: { filesModified: [], filesSkipped: [] },
-			globalStanza: {
-				written: [],
-				updated: [],
-				removed: [],
-				skipped: [],
-				errors: [],
-				paths: new Map(),
-			},
-			gitignoreUpdated: { updated: false },
-			gitUnstaged: { unstaged: [] },
-		};
-	}
-
 	const settingsPath = resolveLocalSettingsPath(projectRoot);
 
 	const relocated = relocateToCenter(projectRoot, projectId, {

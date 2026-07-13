@@ -312,6 +312,23 @@ describe("central-store", () => {
 	});
 
 	describe("updateGitignoreCentral", () => {
+		test("reports unchanged central content without rewriting", async () => {
+			const projectRoot = join(tempDir, "project");
+			await mkdir(projectRoot, { recursive: true });
+			const gitignorePath = join(projectRoot, ".gitignore");
+			updateGitignoreCentral(projectRoot);
+			const original = readFileSync(gitignorePath, "utf-8");
+
+			const dryRunResult = updateGitignoreCentral(projectRoot, {
+				dryRun: true,
+			});
+			const applyResult = updateGitignoreCentral(projectRoot);
+
+			expect(dryRunResult.updated).toBe(false);
+			expect(applyResult.updated).toBe(false);
+			expect(readFileSync(gitignorePath, "utf-8")).toBe(original);
+		});
+
 		test("replaces existing shell-fenced block with central preset", async () => {
 			const projectRoot = join(tempDir, "project");
 			await mkdir(projectRoot, { recursive: true });
@@ -358,6 +375,17 @@ describe("central-store", () => {
 			expect(result.updated).toBe(true);
 			const content = readFileSync(gitignorePath, "utf-8");
 			expect(content).toBe("node_modules/\n");
+		});
+
+		test("dryRun reports a missing file without creating it", async () => {
+			const projectRoot = join(tempDir, "project");
+			await mkdir(projectRoot, { recursive: true });
+			const gitignorePath = join(projectRoot, ".gitignore");
+
+			const result = updateGitignoreCentral(projectRoot, { dryRun: true });
+
+			expect(result.updated).toBe(true);
+			expect(existsSync(gitignorePath)).toBe(false);
 		});
 
 		test("preserves user content outside the fenced block", async () => {
@@ -745,6 +773,7 @@ describe("central-store", () => {
 				join(projectRoot, ".rp1", "settings.toml"),
 				'[storage]\nmode = "central"\n',
 			);
+			updateGitignoreCentral(projectRoot);
 
 			const result = await executeMigrate(projectRoot, {
 				toCentral: true,
@@ -762,6 +791,126 @@ describe("central-store", () => {
 			expect(cs.stanzasRemoved.filesModified).toEqual([]);
 			expect(cs.gitignoreUpdated.updated).toBe(false);
 			expect(cs.gitUnstaged.unstaged).toEqual([]);
+		});
+
+		test("--to-central completes cleanup after interruption past the storage commit", async () => {
+			const projectRoot = join(tempDir, "interrupted-central");
+			const projectId = "interrupted-project-id";
+			await mkdir(join(projectRoot, ".rp1", "context"), { recursive: true });
+			await mkdir(join(projectRoot, ".rp1", "work"), { recursive: true });
+			await initTestRepo(projectRoot);
+			await writeFile(join(projectRoot, ".rp1", "project_id"), projectId);
+			await writeFile(
+				join(projectRoot, ".rp1", "settings.toml"),
+				'[storage]\nmode = "central"\n',
+			);
+			await writeFile(join(projectRoot, ".rp1", "context", "index.md"), "# KB");
+			await writeFile(join(projectRoot, ".rp1", "work", "tasks.md"), "# Tasks");
+			await writeFile(
+				join(projectRoot, "CLAUDE.md"),
+				"User content\n\n<!-- rp1:start -->\nManaged\n<!-- rp1:end -->\n",
+			);
+			await writeFile(
+				join(projectRoot, "AGENTS.md"),
+				"<!-- rp1:start -->\nManaged\n<!-- rp1:end -->\n",
+			);
+			await writeFile(
+				join(projectRoot, ".gitignore"),
+				"node_modules/\n\n# rp1:start\n!.rp1/\n.rp1/*\n!.rp1/project_id\n!.rp1/context/\n!.rp1/context/**\n# rp1:end\n",
+			);
+
+			const addProc = spawnGit(
+				[
+					"add",
+					"-f",
+					".gitignore",
+					"CLAUDE.md",
+					"AGENTS.md",
+					".rp1/project_id",
+					".rp1/settings.toml",
+					".rp1/context/index.md",
+					".rp1/work/tasks.md",
+				],
+				{ cwd: projectRoot },
+			);
+			await addProc.exited;
+			const commitProc = spawnGit(["commit", "-m", "interrupted migration"], {
+				cwd: projectRoot,
+			});
+			await commitProc.exited;
+
+			const centralBase = join(homeDir, ".rp1", "projects", projectId);
+			await mkdir(join(centralBase, "context"), { recursive: true });
+			await mkdir(join(centralBase, "work"), { recursive: true });
+			await writeFile(join(centralBase, "context", "index.md"), "# KB");
+			await writeFile(join(centralBase, "work", "tasks.md"), "# Tasks");
+			await rm(join(projectRoot, ".rp1", "context"), {
+				recursive: true,
+				force: true,
+			});
+			await rm(join(projectRoot, ".rp1", "work"), {
+				recursive: true,
+				force: true,
+			});
+
+			const first = await executeMigrate(projectRoot, {
+				toCentral: true,
+				homeDir,
+				globalSettingsPath,
+			});
+
+			expect(first.centralStore).toBeDefined();
+			const firstCentral = first.centralStore!;
+			expect(firstCentral.relocated.contextFiles).toBe(0);
+			expect(firstCentral.relocated.workFiles).toBe(0);
+			expect(firstCentral.settingsWritten).toBe(false);
+			expect(firstCentral.stanzasRemoved.filesModified).toEqual(
+				expect.arrayContaining(["CLAUDE.md", "AGENTS.md"]),
+			);
+			expect(firstCentral.gitignoreUpdated.updated).toBe(true);
+			expect(firstCentral.gitUnstaged.unstaged).toEqual(
+				expect.arrayContaining([".rp1/context/index.md", ".rp1/work/tasks.md"]),
+			);
+
+			expect(
+				readFileSync(join(projectRoot, "CLAUDE.md"), "utf-8"),
+			).not.toContain("rp1:start");
+			expect(
+				readFileSync(join(projectRoot, "AGENTS.md"), "utf-8"),
+			).not.toContain("rp1:start");
+			const gitignore = readFileSync(join(projectRoot, ".gitignore"), "utf-8");
+			expect(gitignore).toContain("!.rp1/settings.toml");
+			expect(gitignore).not.toContain("!.rp1/context/");
+			expect((gitignore.match(/# rp1:start/g) ?? []).length).toBe(1);
+			expect(
+				readFileSync(join(centralBase, "context", "index.md"), "utf-8"),
+			).toBe("# KB");
+			expect(readFileSync(join(centralBase, "work", "tasks.md"), "utf-8")).toBe(
+				"# Tasks",
+			);
+
+			const trackedProc = spawnGit(["ls-files", ".rp1/context", ".rp1/work"], {
+				cwd: projectRoot,
+			});
+			await trackedProc.exited;
+			const tracked = (
+				await new Response(trackedProc.stdout as ReadableStream).text()
+			).trim();
+			expect(tracked).toBe("");
+
+			closeDatabase();
+			resetInstance();
+
+			const second = await executeMigrate(projectRoot, {
+				toCentral: true,
+				homeDir,
+				globalSettingsPath,
+			});
+
+			expect(second.centralStore).toBeDefined();
+			expect(second.centralStore!.stanzasRemoved.filesModified).toEqual([]);
+			expect(second.centralStore!.gitignoreUpdated.updated).toBe(false);
+			expect(second.centralStore!.gitUnstaged.unstaged).toEqual([]);
 		});
 
 		test("--dry-run + --to-central reports planned central actions without modifying files", async () => {
