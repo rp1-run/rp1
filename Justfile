@@ -204,7 +204,7 @@ antigravity-validate-package: build-antigravity
 
 # Check isolated-home install, verify, update/staleness, uninstall, and repeat-uninstall behavior
 antigravity-validate-lifecycle:
-    cd cli && bun test src/__tests__/install/antigravity/lifecycle.test.ts src/__tests__/commands/install-antigravity.test.ts src/__tests__/commands/uninstall-antigravity.test.ts src/__tests__/commands/update-plugins-command.test.ts
+    cd cli && bun run scripts/test-with-isolated-home.ts src/__tests__/install/antigravity/lifecycle.test.ts src/__tests__/commands/install-antigravity.test.ts src/__tests__/commands/uninstall-antigravity.test.ts src/__tests__/commands/update-plugins-command.test.ts
 
 # Audit active docs for stale Gemini wording outside the historical allowlist
 antigravity-validate-docs:
@@ -212,15 +212,15 @@ antigravity-validate-docs:
 
 # Check catalog-backed Antigravity support matrix generation
 antigravity-validate-support-matrix:
-    cd cli && bun test src/__tests__/catalog/antigravity-support.test.ts src/__tests__/build/antigravity-support-matrix.test.ts
+    cd cli && bun run scripts/test-with-isolated-home.ts src/__tests__/catalog/antigravity-support.test.ts src/__tests__/build/antigravity-support-matrix.test.ts
 
 # Check normal-checkout Antigravity bootstrap and run-state contracts
 antigravity-smoke-normal:
-    cd cli && bun test src/__tests__/agent-tools/workflow-bootstrap/workflow-bootstrap.test.ts
+    cd cli && bun run scripts/test-with-isolated-home.ts src/__tests__/agent-tools/workflow-bootstrap/workflow-bootstrap.test.ts
 
 # Check linked-worktree Antigravity root, workRoot, and codeRoot contracts
 antigravity-smoke-worktree:
-    cd cli && bun test src/__tests__/agent-tools/workflow-bootstrap/workflow-bootstrap.test.ts
+    cd cli && bun run scripts/test-with-isolated-home.ts src/__tests__/agent-tools/workflow-bootstrap/workflow-bootstrap.test.ts
 
 # Record normal-checkout, worktree-checkout, and forced artifact-registration evidence artifacts
 antigravity-smoke-checkout-evidence:
@@ -228,15 +228,15 @@ antigravity-smoke-checkout-evidence:
 
 # Check define_subagent-once, session registry, and cached invoke_subagent reuse
 antigravity-smoke-dynamic-delegation:
-    cd cli && bun test src/__tests__/build/antigravity-package.test.ts
+    cd cli && bun run scripts/test-with-isolated-home.ts src/__tests__/build/antigravity-package.test.ts
 
 # Check dynamic fanout recipe coverage and distinguishable delegated outputs
 antigravity-smoke-dynamic-fanout:
-    cd cli && bun test src/__tests__/build/antigravity-package.test.ts
+    cd cli && bun run scripts/test-with-isolated-home.ts src/__tests__/build/antigravity-package.test.ts
 
 # Check dynamic delegated failure visibility and successful-unit attribution
 antigravity-smoke-dynamic-failure:
-    cd cli && bun test src/__tests__/build/antigravity-package.test.ts
+    cd cli && bun run scripts/test-with-isolated-home.ts src/__tests__/build/antigravity-package.test.ts
 
 # Record reproducible boundary evidence for live Antigravity modes that need interactive confirmation
 antigravity-smoke-boundaries: build-antigravity
@@ -252,7 +252,7 @@ antigravity-smoke-mcp-failure: build-antigravity
 
 # Guard existing Claude Code, OpenCode, Codex, and Copilot build/install surfaces
 antigravity-regression-existing-harnesses:
-    cd cli && bun test src/__tests__/build/command.test.ts src/__tests__/build/templates/template-rendering.test.ts src/__tests__/shared/install-core.test.ts src/__tests__/install/copilot/installer.test.ts
+    cd cli && bun run scripts/test-with-isolated-home.ts src/__tests__/build/command.test.ts src/__tests__/build/templates/template-rendering.test.ts src/__tests__/shared/install-core.test.ts src/__tests__/install/copilot/installer.test.ts
 
 # Prove an existing-harness workflow can still register artifacts and run state without Antigravity setup
 antigravity-regression-existing-harness-run-state:

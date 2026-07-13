@@ -52,12 +52,12 @@
 		"lint:fix": "biome check --write .",
 		"format": "biome format .",
 		"format:fix": "biome format --write .",
-		"test": "bun test",
-		"test:unit": "find src/__tests__ -name '*.test.ts' ! -path '*integration*' -print0 | xargs -0 bun test",
-		"test:integration": "find src/__tests__ -name '*.test.ts' -path '*integration*' -print0 | xargs -0 bun test",
+		"test": "bun run scripts/test-with-isolated-home.ts",
+		"test:unit": "find src/__tests__ -name '*.test.ts' ! -path '*integration*' -print0 | xargs -0 bun run scripts/test-with-isolated-home.ts",
+		"test:integration": "find src/__tests__ -name '*.test.ts' -path '*integration*' -print0 | xargs -0 bun run scripts/test-with-isolated-home.ts",
 		"test:smoke:web-ui": "bun run scripts/runtime-reliability-smoke.ts",
 		"test:coverage": "bun run scripts/test-coverage.ts",
-		"test:watch": "bun test --watch",
+		"test:watch": "bun run scripts/test-with-isolated-home.ts --watch",
 		"prepublishOnly": "bun run build:all"
 	},
 	"dependencies": {

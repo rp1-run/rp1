@@ -1,8 +1,11 @@
 [test]
 root = "./src/__tests__"
-# Build the gitignored teach-me widget bundle if it is missing, so `bun test`
-# is self-sufficient on a fresh clone and in clean CI (no prior build step).
-preload = ["./scripts/ensure-teach-me-widgets.ts"]
+# Admit the isolated home before building the gitignored teach-me widget bundle,
+# keeping supported test commands self-sufficient on a fresh clone and in CI.
+preload = [
+	"./src/__tests__/helpers/test-home-admission.ts",
+	"./scripts/ensure-teach-me-widgets.ts",
+]
 
 [install]
 registry = "https://registry.npmjs.org/"
