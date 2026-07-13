@@ -49,7 +49,7 @@ const CC_AGENT_STANDARD = [
 const CODEX_AGENT_DEEP = [
 	'name = "rp1-dev-feature-architect"',
 	'description = "Designs features"',
-	'model = "gpt-5.5"',
+	'model = "gpt-5.6-sol"',
 	'model_reasoning_effort = "high"',
 	"",
 	"developer_instructions = '''",
@@ -204,7 +204,7 @@ describe("applyRemappingsToAgents", () => {
 
 		const result = applyRemappingsToAgents(
 			agents,
-			{ codex: { deep: "gpt-5.4" } },
+			{ codex: { deep: "gpt-5.6-terra" } },
 			false,
 			createDeps(),
 		);
@@ -328,15 +328,15 @@ describe("applyRemappingsToAgents", () => {
 
 		const result = applyRemappingsToAgents(
 			agents,
-			{ codex: { deep: "gpt-5.4" } },
+			{ codex: { deep: "gpt-5.6-terra" } },
 			false,
 			createDeps(),
 		);
 
 		expect(result.agentsModified).toBe(1);
 		const updated = readFileSync(agentPath, "utf-8");
-		expect(updated).toContain('model = "gpt-5.4"');
-		expect(updated).not.toContain('model = "gpt-5.5"');
+		expect(updated).toContain('model = "gpt-5.6-terra"');
+		expect(updated).not.toContain('model = "gpt-5.6-sol"');
 		expect(updated).toContain("developer_instructions = '''");
 	});
 
@@ -373,7 +373,7 @@ describe("applyRemappingsToAgents", () => {
 			agents,
 			{
 				"claude-code": { deep: "sonnet" },
-				codex: { deep: "gpt-5.4" },
+				codex: { deep: "gpt-5.6-terra" },
 			},
 			false,
 			createDeps(),
@@ -540,7 +540,7 @@ describe("resolveConfig", () => {
 		expect(errors).toHaveLength(0);
 		expect(config.preset).toBe("budget");
 		expect(config.platforms["claude-code"]?.deep).toBe("haiku");
-		expect(config.platforms.codex?.deep).toBe("gpt-5.4-mini");
+		expect(config.platforms.codex?.deep).toBe("gpt-5.6-luna");
 	});
 
 	test("returns error for unknown preset", async () => {
@@ -729,6 +729,6 @@ describe("applyTierRemappings - cache refresh warnings", () => {
 		expect(written[expectedPath]).toContain("model: fable-next");
 		const advisory = result.warnings.find((w) => w.includes("fable-next"));
 		expect(advisory).toBeDefined();
-		expect(advisory).toContain("not in the known set");
+		expect(advisory).toContain("not recognized");
 	});
 });

@@ -18,8 +18,8 @@ describe("resolveTier", () => {
 		expect(resolveTier("frontier", "claude-code")).toBe("fable");
 	});
 
-	test("frontier tier returns gpt-5.5 for codex", () => {
-		expect(resolveTier("frontier", "codex")).toBe("gpt-5.5");
+	test("frontier tier returns gpt-5.6-sol for codex", () => {
+		expect(resolveTier("frontier", "codex")).toBe("gpt-5.6-sol");
 	});
 
 	test("frontier tier returns null for opencode (inherit)", () => {
@@ -35,9 +35,9 @@ describe("resolveTier", () => {
 		expect(result).toBe("opus");
 	});
 
-	test("deep tier returns gpt-5.5 for codex", () => {
+	test("deep tier returns gpt-5.6-sol for codex", () => {
 		const result = resolveTier("deep", "codex");
-		expect(result).toBe("gpt-5.5");
+		expect(result).toBe("gpt-5.6-sol");
 	});
 
 	test("deep tier returns null for opencode (inherit)", () => {
@@ -52,14 +52,14 @@ describe("resolveTier", () => {
 
 	test("standard tier returns balanced model for each platform", () => {
 		expect(resolveTier("standard", "claude-code")).toBe("sonnet");
-		expect(resolveTier("standard", "codex")).toBe("gpt-5.4");
+		expect(resolveTier("standard", "codex")).toBe("gpt-5.6-terra");
 		expect(resolveTier("standard", "opencode")).toBeNull();
 		expect(resolveTier("standard", "antigravity")).toBe("gemini-3.5-flash");
 	});
 
 	test("fast tier returns cheapest model for each platform", () => {
 		expect(resolveTier("fast", "claude-code")).toBe("haiku");
-		expect(resolveTier("fast", "codex")).toBe("gpt-5.4-mini");
+		expect(resolveTier("fast", "codex")).toBe("gpt-5.6-luna");
 		expect(resolveTier("fast", "opencode")).toBeNull();
 		expect(resolveTier("fast", "antigravity")).toBe("gemini-3.5-flash");
 	});

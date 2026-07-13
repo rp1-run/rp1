@@ -28,9 +28,9 @@ standard = "sonnet"
 fast = "haiku"
 
 [models.codex]
-deep = "gpt-5.4"
-standard = "gpt-5.4"
-fast = "gpt-5.4-mini"
+deep = "gpt-5.6-terra"
+standard = "gpt-5.6-terra"
+fast = "gpt-5.6-luna"
 ```
 
 ### Fields
@@ -52,12 +52,18 @@ Each platform sub-table accepts these tier keys:
 
 Omitted tiers keep the build-time default model for that platform.
 
-### Valid Model Identifiers
+### Model Identifiers
 
-| Platform | Valid Models |
+Any model identifier string is accepted — the harness is the authority on
+which model names exist and rejects invalid ones at runtime. Identifiers
+outside the set below (the shipped tier defaults) produce an advisory
+warning but are applied as-is, so new vendor models are usable without
+waiting for an rp1 release.
+
+| Platform | Default Models |
 |----------|-------------|
 | `claude-code` | `opus`, `sonnet`, `haiku`, `fable` |
-| `codex` | `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini` |
+| `codex` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
 
 Other platforms (`copilot`, `opencode`, `antigravity`) cannot have their
 installed artifacts rewritten. Remappings for these platforms produce a
@@ -77,7 +83,7 @@ Cost-optimized: uses only fast-class models across all tiers.
 | Platform | deep | standard | fast |
 |----------|------|----------|------|
 | `claude-code` | `haiku` | `haiku` | `haiku` |
-| `codex` | `gpt-5.4-mini` | `gpt-5.4-mini` | `gpt-5.4-mini` |
+| `codex` | `gpt-5.6-luna` | `gpt-5.6-luna` | `gpt-5.6-luna` |
 
 ### standard
 
@@ -86,7 +92,7 @@ Balanced: collapses deep tier to sonnet-class for users without Opus access.
 | Platform | deep | standard | fast |
 |----------|------|----------|------|
 | `claude-code` | `sonnet` | `sonnet` | `haiku` |
-| `codex` | `gpt-5.4` | `gpt-5.4` | `gpt-5.4-mini` |
+| `codex` | `gpt-5.6-terra` | `gpt-5.6-terra` | `gpt-5.6-luna` |
 
 ### premium
 
@@ -96,7 +102,7 @@ tier.
 | Platform | deep | standard | fast |
 |----------|------|----------|------|
 | `claude-code` | `opus` | `sonnet` | `haiku` |
-| `codex` | `gpt-5.5` | `gpt-5.4` | `gpt-5.4-mini` |
+| `codex` | `gpt-5.6-sol` | `gpt-5.6-terra` | `gpt-5.6-luna` |
 
 ---
 
@@ -136,7 +142,7 @@ the Claude Code deep tier to `opus`. All other tiers remain at preset values.
 ## Effort Auto-Strip
 
 When a tier is remapped to a fast-class model (e.g., `haiku` on Claude Code,
-`gpt-5.4-mini` on Codex), the effort field is automatically stripped from
+`gpt-5.6-luna` on Codex), the effort field is automatically stripped from
 agent artifacts during `rp1 settings apply`. Fast-class models do not support
 effort control, so the effort parameter would have no effect.
 
@@ -190,8 +196,8 @@ standard = "sonnet"
 fast = "haiku"
 
 [models.codex]
-deep = "gpt-5.4"
-fast = "gpt-5.4-mini"
+deep = "gpt-5.6-terra"
+fast = "gpt-5.6-luna"
 ```
 
 Omitted tiers (e.g., `standard` under `[models.codex]`) keep the build

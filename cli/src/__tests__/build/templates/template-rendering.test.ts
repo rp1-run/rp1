@@ -694,14 +694,14 @@ describeWithLiquid("template rendering", () => {
 					type: "agent",
 					name: "task-builder",
 					description: "Implements feature tasks",
-					model: "gpt-5.5",
+					model: "gpt-5.6-sol",
 					effortFieldName: "model_reasoning_effort",
 					effortValue: "high",
 					tools: ["Bash", "Edit"],
 					content: "Agent instructions.",
 				},
 			});
-			expect(result).toContain('model = "gpt-5.5"');
+			expect(result).toContain('model = "gpt-5.6-sol"');
 			expect(result).toContain('model_reasoning_effort = "high"');
 		});
 
@@ -734,7 +734,7 @@ describeWithLiquid("template rendering", () => {
 					type: "agent",
 					name: "task-builder",
 					description: "Implements feature tasks",
-					model: "gpt-5.5",
+					model: "gpt-5.6-sol",
 					effortFieldName: "model_reasoning_effort",
 					effortValue: "high",
 					tools: ["Bash", "Edit"],

@@ -945,8 +945,8 @@ Deep agent content for Codex pipeline test.
 		const agentPath = join(out, "base", "agents", "rp1-base-deep-agent.toml");
 		const agentContent = await readFile(agentPath, "utf-8");
 
-		// Deep tier resolves to "gpt-5.5" for Codex
-		expect(agentContent).toContain('model = "gpt-5.5"');
+		// Deep tier resolves to "gpt-5.6-sol" for Codex
+		expect(agentContent).toContain('model = "gpt-5.6-sol"');
 		expect(agentContent).not.toContain('model = "deep"');
 		// Effort emitted as "model_reasoning_effort" for Codex
 		expect(agentContent).toContain('model_reasoning_effort = "high"');
@@ -1017,7 +1017,7 @@ Fast agent content.
 			join(outCdx, "base", "agents", "rp1-base-fast-agent.toml"),
 			"utf-8",
 		);
-		expect(cdxContent).toContain('model = "gpt-5.4-mini"');
+		expect(cdxContent).toContain('model = "gpt-5.6-luna"');
 		expect(cdxContent).not.toContain("model_reasoning_effort");
 	});
 
