@@ -6,7 +6,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
@@ -20,6 +20,10 @@ export interface VersionCache {
 	readonly releaseUrl: string;
 	readonly checkedAt: string;
 	readonly ttlHours: number;
+}
+
+export interface CacheOptions {
+	readonly cachePath?: string;
 }
 
 export const DEFAULT_TTL_HOURS = 24;
@@ -41,18 +45,20 @@ export const getConfigDir = (): string => {
  * Get the full path to the version cache file.
  * Returns ~/.config/rp1/version-cache.json
  */
-export const getCachePath = (): string => {
-	return join(getConfigDir(), CACHE_FILE_NAME);
+export const getCachePath = (options: CacheOptions = {}): string => {
+	return options.cachePath ?? join(getConfigDir(), CACHE_FILE_NAME);
 };
 
 /**
  * Ensure the configuration directory exists.
  * Creates ~/.config/rp1/ if it doesn't exist.
  */
-export const ensureConfigDir = (): TE.TaskEither<CLIError, string> =>
-	TE.tryCatch(
+export const ensureConfigDir = (
+	options: CacheOptions = {},
+): TE.TaskEither<CLIError, string> => {
+	const configDir = dirname(getCachePath(options));
+	return TE.tryCatch(
 		async () => {
-			const configDir = getConfigDir();
 			if (!existsSync(configDir)) {
 				await mkdir(configDir, { recursive: true });
 			}
@@ -60,16 +66,18 @@ export const ensureConfigDir = (): TE.TaskEither<CLIError, string> =>
 		},
 		(e) => runtimeError(`Failed to create config directory: ${e}`),
 	);
+};
 
 /**
  * Read the version cache from disk.
  * Returns null if cache file doesn't exist or is corrupted.
  */
-export const readCache = (): TE.TaskEither<CLIError, VersionCache | null> =>
-	TE.tryCatch(
+export const readCache = (
+	options: CacheOptions = {},
+): TE.TaskEither<CLIError, VersionCache | null> => {
+	const cachePath = getCachePath(options);
+	return TE.tryCatch(
 		async () => {
-			const cachePath = getCachePath();
-
 			if (!existsSync(cachePath)) {
 				return null;
 			}
@@ -88,14 +96,17 @@ export const readCache = (): TE.TaskEither<CLIError, VersionCache | null> =>
 			return runtimeError(`Failed to read cache: ${e}`);
 		},
 	);
+};
 
 /**
  * Read cache synchronously, returning null on any error.
  * Useful for non-critical cache reads where we want graceful degradation.
  */
-export const readCacheSync = (): VersionCache | null => {
+export const readCacheSync = (
+	options: CacheOptions = {},
+): VersionCache | null => {
 	try {
-		const cachePath = getCachePath();
+		const cachePath = getCachePath(options);
 
 		if (!existsSync(cachePath)) {
 			return null;
@@ -121,13 +132,14 @@ export const readCacheSync = (): VersionCache | null => {
  */
 export const writeCache = (
 	data: Omit<VersionCache, "checkedAt">,
-): TE.TaskEither<CLIError, void> =>
-	pipe(
-		ensureConfigDir(),
+	options: CacheOptions = {},
+): TE.TaskEither<CLIError, void> => {
+	const cachePath = getCachePath(options);
+	return pipe(
+		ensureConfigDir({ cachePath }),
 		TE.chain(() =>
 			TE.tryCatch(
 				async () => {
-					const cachePath = getCachePath();
 					const cacheData: VersionCache = {
 						...data,
 						checkedAt: new Date().toISOString(),
@@ -138,6 +150,7 @@ export const writeCache = (
 			),
 		),
 	);
+};
 
 /**
  * Check if the cache is still valid (not expired).
@@ -174,16 +187,19 @@ export const getCacheExpiresInHours = (cache: VersionCache): number => {
  * Invalidate (delete) the cache.
  * Called after successful self-update.
  */
-export const invalidateCache = (): TE.TaskEither<CLIError, void> =>
-	TE.tryCatch(
+export const invalidateCache = (
+	options: CacheOptions = {},
+): TE.TaskEither<CLIError, void> => {
+	const cachePath = getCachePath(options);
+	return TE.tryCatch(
 		async () => {
-			const cachePath = getCachePath();
 			if (existsSync(cachePath)) {
 				await unlink(cachePath);
 			}
 		},
 		(e) => runtimeError(`Failed to invalidate cache: ${e}`),
 	);
+};
 
 /**
  * Type guard to validate cache data structure.

@@ -5,7 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { readFile, rm } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
@@ -31,12 +31,15 @@ import {
 
 describe("cache", () => {
 	describe("getCachePath", () => {
-		test("returns path in user home .config/rp1 directory", () => {
+		test("uses the production default when no cache path is supplied", () => {
 			const cachePath = getCachePath();
-			const expectedDir = join(homedir(), ".config", CONFIG_DIR_NAME);
+			const expectedDir = join(
+				process.env.HOME ?? homedir(),
+				".config",
+				CONFIG_DIR_NAME,
+			);
 
-			expect(cachePath).toContain(expectedDir);
-			expect(cachePath).toContain(CACHE_FILE_NAME);
+			expect(cachePath).toBe(join(expectedDir, CACHE_FILE_NAME));
 		});
 
 		test("returns path ending with version-cache.json", () => {
@@ -271,6 +274,50 @@ describe("cache", () => {
 			expect(result?.latestVersion).toBe("0.2.0");
 			expect(result?.releaseUrl).toBe("https://example.com/new");
 			expect(result?.ttlHours).toBe(48);
+		});
+
+		test("isolates invalidation and overwrite to an explicit cache path", async () => {
+			const tempDir = await createTempDir("cache-explicit-path");
+			const cachePath = join(tempDir, "cache", "custom-version-cache.json");
+			const preservedPath = join(tempDir, "preserved.json");
+			const options = { cachePath };
+
+			try {
+				await writeFile(preservedPath, "preserved");
+				await expectTaskRight(
+					writeCache(
+						{
+							latestVersion: "0.1.0",
+							releaseUrl: "https://example.com/old",
+							ttlHours: 24,
+						},
+						options,
+					),
+				);
+				await expectTaskRight(
+					writeCache(
+						{
+							latestVersion: "0.2.0",
+							releaseUrl: "https://example.com/new",
+							ttlHours: 48,
+						},
+						options,
+					),
+				);
+
+				expect(getCachePath(options)).toBe(cachePath);
+				expect((await expectTaskRight(readCache(options)))?.latestVersion).toBe(
+					"0.2.0",
+				);
+				expect(readCacheSync(options)?.latestVersion).toBe("0.2.0");
+
+				await expectTaskRight(invalidateCache(options));
+
+				expect(existsSync(cachePath)).toBe(false);
+				expect(await readFile(preservedPath, "utf-8")).toBe("preserved");
+			} finally {
+				await cleanupTempDir(tempDir);
+			}
 		});
 	});
 
