@@ -69,6 +69,7 @@ export interface InstallContext {
 	readonly isTTY: boolean;
 	readonly dryRun: boolean;
 	readonly skipPrompt: boolean;
+	readonly homeDir?: string;
 }
 
 /**
@@ -162,6 +163,7 @@ export const installOpenCodePlugins = (
 	const options: InstallOptions = {
 		isTTY: ctx.isTTY,
 		skipPrompt: ctx.skipPrompt,
+		homeDir: ctx.homeDir,
 	};
 
 	return pipe(
