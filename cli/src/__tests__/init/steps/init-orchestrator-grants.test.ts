@@ -78,7 +78,11 @@ function preWriteHarnessSettings(dir: string, harnesses: string[]): string {
 	mkdirSync(settingsDir, { recursive: true });
 	const settingsPath = join(settingsDir, "settings.toml");
 	const quoted = harnesses.map((h) => `"${h}"`).join(", ");
-	writeFileSync(settingsPath, `[harnesses]\nenabled = [${quoted}]\n`, "utf-8");
+	writeFileSync(
+		settingsPath,
+		`[storage]\nmode = "central"\n\n[harnesses]\nenabled = [${quoted}]\n`,
+		"utf-8",
+	);
 	return settingsPath;
 }
 
@@ -96,9 +100,15 @@ describe("integration: executeInit produces sandbox grant files", () => {
 	});
 
 	test(
-		"fresh init produces settings.toml with mode=central and platform grants",
+		"global central fallback produces isolated storage and platform grants",
 		async () => {
 			const logger = createTrackingLogger();
+			mkdirSync(join(tempDir, ".rp1"), { recursive: true });
+			writeFileSync(
+				join(tempDir, ".rp1", "settings.toml"),
+				"[arguments.build]\nAFK = false\n",
+				"utf-8",
+			);
 			const globalSettingsPath = preWriteHarnessSettings(tempDir, [
 				"claude-code",
 				"codex",
@@ -121,8 +131,17 @@ describe("integration: executeInit produces sandbox grant files", () => {
 			const settingsPath = join(tempDir, ".rp1", "settings.toml");
 			expect(existsSync(settingsPath)).toBe(true);
 			const settingsContent = readFileSync(settingsPath, "utf-8");
-			expect(settingsContent).toContain("[storage]");
-			expect(settingsContent).toContain('mode = "central"');
+			expect(settingsContent).not.toContain("[storage]");
+
+			const projectId = readFileSync(
+				join(tempDir, ".rp1", "project_id"),
+				"utf-8",
+			).trim();
+			const centralProjectDir = join(tempDir, ".rp1", "projects", projectId);
+			expect(existsSync(join(centralProjectDir, "context"))).toBe(true);
+			expect(existsSync(join(centralProjectDir, "work"))).toBe(true);
+			expect(existsSync(join(tempDir, ".rp1", "context"))).toBe(false);
+			expect(existsSync(join(tempDir, ".rp1", "work"))).toBe(false);
 
 			const claudeSettingsPath = join(tempDir, ".claude", "settings.json");
 			expect(existsSync(claudeSettingsPath)).toBe(true);

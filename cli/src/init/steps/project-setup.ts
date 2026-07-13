@@ -57,6 +57,28 @@ import {
 } from "../templates/index.js";
 import type { DetectedTool } from "../tool-detector.js";
 
+export interface InitPathOptions {
+	readonly homeDir?: string;
+	readonly globalSettingsPath?: string;
+}
+
+export interface InitPathContext {
+	readonly homeDir: string;
+	readonly globalSettingsPath: string;
+}
+
+export function resolveInitPathContext(
+	options: InitPathOptions = {},
+): InitPathContext {
+	const homeDir = options.homeDir ?? homedir();
+	return {
+		homeDir,
+		globalSettingsPath:
+			options.globalSettingsPath ??
+			path.join(homeDir, ".config", "rp1", "settings.toml"),
+	};
+}
+
 // ============================================================================
 // File System Helpers
 // ============================================================================
@@ -172,18 +194,22 @@ export async function createMinimalProjectStructure(
  * which reports through per-step activity callbacks) can share this logic.
  *
  * @param homeDir - Override home directory for test isolation
+ * @param globalSettingsPath - Override global settings path for storage-mode
+ *   fallback
  */
 export async function createStorageDirectories(
 	projectRoot: string,
 	projectId: string,
 	logger: Pick<Logger, "info">,
 	homeDir?: string,
+	globalSettingsPath?: string,
 ): Promise<InitAction[]> {
 	const actions: InitAction[] = [];
 	const { contextDir, workDir } = resolveStorageDirectoryPaths(
 		projectRoot,
 		projectId,
 		homeDir,
+		globalSettingsPath,
 	);
 
 	if (!(await directoryExists(contextDir))) {
@@ -204,14 +230,6 @@ export async function createStorageDirectories(
 // ============================================================================
 // Settings Files
 // ============================================================================
-
-/**
- * Resolve the global settings file path.
- * Uses ~/.config/rp1/settings.toml to match the canonical TOML settings path.
- */
-function resolveGlobalSettingsPath(): string {
-	return path.join(homedir(), ".config", "rp1", "settings.toml");
-}
 
 /**
  * Resolve the local settings file path.
@@ -257,6 +275,7 @@ export async function createSettingsFiles(
 	cwd: string,
 	logger: Logger,
 	directoriesOverride?: InitDirectoryModel,
+	paths: InitPathContext = resolveInitPathContext(),
 ): Promise<InitAction[]> {
 	const actions: InitAction[] = [];
 
@@ -265,7 +284,7 @@ export async function createSettingsFiles(
 	);
 
 	// Process global settings file
-	const globalPath = resolveGlobalSettingsPath();
+	const globalPath = paths.globalSettingsPath;
 	const globalResult = await createOrUpdateSettingsFile(
 		globalPath,
 		buildGlobalSettingsTomlTemplate(),
@@ -463,8 +482,7 @@ export interface InstructionInjectionOptions {
 	readonly projectRoot: string;
 	readonly harnessSelection: readonly string[];
 	readonly detectedTool: DetectedTool | null;
-	readonly homeDir?: string;
-	readonly globalSettingsPath?: string;
+	readonly paths?: InitPathContext;
 	readonly onProgress?: (
 		message: string,
 		type: "info" | "success" | "warning",
@@ -480,19 +498,13 @@ export interface InstructionInjectionResult {
 export async function injectInstructionsForStorageMode(
 	options: InstructionInjectionOptions,
 ): Promise<InstructionInjectionResult> {
-	const {
-		cwd,
-		projectRoot,
-		harnessSelection,
-		detectedTool,
-		homeDir,
-		globalSettingsPath,
-		onProgress,
-	} = options;
+	const { cwd, projectRoot, harnessSelection, detectedTool, onProgress } =
+		options;
+	const paths = options.paths ?? resolveInitPathContext();
 
 	const actions: InitAction[] = [];
 	const warnings: string[] = [];
-	const storageMode = readStorageMode(projectRoot, globalSettingsPath);
+	const storageMode = readStorageMode(projectRoot, paths.globalSettingsPath);
 
 	if (storageMode === "central") {
 		for (const file of ["CLAUDE.md", "AGENTS.md"] as const) {
@@ -514,7 +526,7 @@ export async function injectInstructionsForStorageMode(
 		}
 
 		const stanzaResult = await manageGlobalStanzas(harnessSelection, {
-			homeDir,
+			homeDir: paths.homeDir,
 		});
 
 		for (const platform of stanzaResult.written) {

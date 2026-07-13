@@ -6,6 +6,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../../shared/errors.js";
 import type { Logger } from "../../../../shared/logger.js";
@@ -454,6 +456,35 @@ describe("plugin-installation step", () => {
 	});
 
 	describe("checkPluginsInstalled", () => {
+		test("uses the supplied home for pre-install plugin verification", async () => {
+			const claudeTool = createClaudeCodeTool();
+			const registry = {
+				version: "1.0.0",
+				tools: [claudeTool.tool],
+			};
+			const isolatedHome = join(tmpdir(), "rp1-init-home");
+			let searchDirs: readonly string[] | undefined;
+
+			const result = await checkPluginsInstalled(registry, {
+				homeDir: isolatedHome,
+				detectTools: () =>
+					TE.right({
+						detected: [claudeTool],
+						missing: [],
+					}),
+				verifyClaudeCodePlugins: async (dirs) => {
+					searchDirs = dirs;
+					return { verified: true, plugins: [], issues: [] };
+				},
+			});
+
+			expect(result.installed).toBe(true);
+			expect(searchDirs?.length).toBeGreaterThan(0);
+			expect(searchDirs?.every((dir) => dir.startsWith(isolatedHome))).toBe(
+				true,
+			);
+		});
+
 		test("treats Copilot as missing when native verification fails", async () => {
 			const copilotTool = createCopilotTool();
 			const registry = {

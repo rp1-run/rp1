@@ -6,7 +6,6 @@
  */
 
 import * as fs from "node:fs/promises";
-import { homedir } from "node:os";
 import * as path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { nanoid } from "nanoid";
@@ -24,6 +23,7 @@ import {
 	type InstallContext,
 	installAllDetectedTools,
 } from "../../../shared/install-core.js";
+import { getClaudePluginDirs } from "../../../shared/paths.js";
 import {
 	detectProjectContext,
 	type ProjectContext,
@@ -68,7 +68,9 @@ import { performHealthCheck } from "../../steps/health-check.js";
 import { checkPluginsInstalled } from "../../steps/plugin-installation.js";
 import {
 	createStorageDirectories,
+	type InitPathContext,
 	injectInstructionsForStorageMode,
+	resolveInitPathContext,
 } from "../../steps/project-setup.js";
 import {
 	checkRp1Readiness,
@@ -97,14 +99,6 @@ import type { WizardAction, WizardState } from "./useWizardState.js";
 
 const DEFAULT_SETTINGS_TEMPLATE = buildSettingsTomlTemplate();
 const GLOBAL_SETTINGS_TEMPLATE = buildGlobalSettingsTomlTemplate();
-
-/**
- * Resolve the global settings file path.
- * Uses ~/.config/rp1/settings.toml to match the canonical TOML settings path.
- */
-function resolveGlobalSettingsPath(): string {
-	return path.join(homedir(), ".config", "rp1", "settings.toml");
-}
 
 /**
  * Resolve the local settings file path.
@@ -137,6 +131,7 @@ type AddActivityFn = (
  */
 interface ExecutionContext {
 	cwd: string;
+	paths: InitPathContext;
 	registry: ToolsRegistry | null;
 	gitResult: GitRootResult | null;
 	reinitState: ReinitState | null;
@@ -241,6 +236,7 @@ export const useStepExecution = ({
 	// Mutable execution context shared across steps
 	const contextRef = useRef<ExecutionContext>({
 		cwd: options.cwd ?? process.cwd(),
+		paths: resolveInitPathContext(options),
 		registry: null,
 		gitResult: null,
 		reinitState: null,
@@ -553,7 +549,7 @@ export const useStepExecution = ({
 			const ctx = contextRef.current;
 
 			// Create or merge global settings file
-			const globalPath = resolveGlobalSettingsPath();
+			const globalPath = ctx.paths.globalSettingsPath;
 			const globalDir = path.dirname(globalPath);
 			if (!(await fileExists(globalPath))) {
 				await fs.mkdir(globalDir, { recursive: true });
@@ -598,6 +594,8 @@ export const useStepExecution = ({
 					info: (message: string) =>
 						addAct("settings-setup", message, "success"),
 				},
+				ctx.paths.homeDir,
+				ctx.paths.globalSettingsPath,
 			);
 			if (storageActions.length === 0) {
 				addAct("settings-setup", "Storage directories exist", "info");
@@ -617,12 +615,12 @@ export const useStepExecution = ({
 			const wizardSelection = state.userChoices.enabledHarnesses;
 			const selection = wizardSelection
 				? [...wizardSelection]
-				: (loadEnabledHarnesses(options.globalSettingsPath) ?? undefined);
+				: (loadEnabledHarnesses(ctx.paths.globalSettingsPath) ?? undefined);
 			try {
 				const grantResults = await generateSandboxGrants(
 					selection,
 					ctx.cwd,
-					options.globalSettingsPath,
+					ctx.paths.globalSettingsPath,
 				);
 				let granted = 0;
 				for (const grant of grantResults) {
@@ -643,7 +641,7 @@ export const useStepExecution = ({
 				addAct("sandbox-grants", `Grant error: ${msg}`, "warning");
 			}
 		},
-		[state.userChoices.enabledHarnesses, options.globalSettingsPath],
+		[state.userChoices.enabledHarnesses],
 	);
 
 	/**
@@ -743,7 +741,7 @@ export const useStepExecution = ({
 					`Auto-selected ${stableIds.length} stable harness${stableIds.length === 1 ? "" : "es"}`,
 					"success",
 				);
-				writeHarnessSelection(stableIds);
+				writeHarnessSelection(stableIds, ctx.paths.globalSettingsPath);
 				dispatch({
 					type: "SET_USER_CHOICE",
 					key: "enabledHarnesses",
@@ -760,7 +758,7 @@ export const useStepExecution = ({
 					`Selected ${choice.length} harness${choice.length === 1 ? "" : "es"}`,
 					"success",
 				);
-				writeHarnessSelection([...choice]);
+				writeHarnessSelection([...choice], ctx.paths.globalSettingsPath);
 				return;
 			}
 
@@ -798,15 +796,14 @@ export const useStepExecution = ({
 			// persisted selection first, then stable registry defaults.
 			const selection = wizardSelection
 				? [...wizardSelection]
-				: await resolveHarnesses(undefined, options.globalSettingsPath);
+				: await resolveHarnesses(undefined, ctx.paths.globalSettingsPath);
 
 			const result = await injectInstructionsForStorageMode({
 				cwd: ctx.cwd,
 				projectRoot: directories.projectRoot,
 				harnessSelection: selection,
 				detectedTool: ctx.primaryTool,
-				homeDir: options.homeDir,
-				globalSettingsPath: options.globalSettingsPath,
+				paths: ctx.paths,
 				onProgress: (msg, type) => {
 					addAct(
 						"instruction-injection",
@@ -826,11 +823,7 @@ export const useStepExecution = ({
 				}
 			}
 		},
-		[
-			state.userChoices.enabledHarnesses,
-			options.globalSettingsPath,
-			options.homeDir,
-		],
+		[state.userChoices.enabledHarnesses],
 	);
 
 	/**
@@ -937,7 +930,9 @@ export const useStepExecution = ({
 
 			addAct("install-check", "Checking plugin installation...", "info");
 
-			const installStatus = await checkPluginsInstalled(ctx.registry);
+			const installStatus = await checkPluginsInstalled(ctx.registry, {
+				homeDir: ctx.paths.homeDir,
+			});
 
 			if (installStatus.installed) {
 				addAct(
@@ -969,6 +964,7 @@ export const useStepExecution = ({
 					isTTY: false,
 					dryRun: false,
 					skipPrompt: true,
+					homeDir: ctx.paths.homeDir,
 				};
 
 				try {
@@ -1051,9 +1047,11 @@ export const useStepExecution = ({
 					} | null = null;
 
 					if (detected.tool.id === "claude-code") {
-						verificationResult = await verifyClaudeCodePlugins();
+						verificationResult = await verifyClaudeCodePlugins(
+							getClaudePluginDirs(ctx.paths.homeDir),
+						);
 					} else if (detected.tool.id === "opencode") {
-						verificationResult = await verifyOpenCodePlugins();
+						verificationResult = await verifyOpenCodePlugins(ctx.paths.homeDir);
 					} else if (detected.tool.id === "copilot") {
 						verificationResult = await verifyCopilotPlugins();
 					}
