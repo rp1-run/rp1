@@ -165,8 +165,6 @@ describe("rp1-root-dir resolver", () => {
 		test("does not treat HOME as the active project root", async () => {
 			const fakeHome = join(tempBase, "fake-home");
 			const nestedPathUnderHome = join(fakeHome, "scratch", "app");
-			const originalHome = process.env.HOME;
-
 			await mkdir(join(fakeHome, ".rp1"), { recursive: true });
 			writeFileSync(
 				join(fakeHome, ".rp1", "project_id"),
@@ -174,20 +172,12 @@ describe("rp1-root-dir resolver", () => {
 			);
 			await mkdir(nestedPathUnderHome, { recursive: true });
 
-			process.env.HOME = fakeHome;
+			const result = resolveRp1Root(nestedPathUnderHome, {
+				homeDir: fakeHome,
+			});
+			const resolved = await result();
 
-			try {
-				const result = resolveRp1Root(nestedPathUnderHome);
-				const resolved = await result();
-
-				expect(resolved._tag).toBe("Left");
-			} finally {
-				if (originalHome === undefined) {
-					delete process.env.HOME;
-				} else {
-					process.env.HOME = originalHome;
-				}
-			}
+			expect(resolved._tag).toBe("Left");
 		});
 	});
 

@@ -38,6 +38,7 @@ describeBrowser("runBrowserGate", () => {
 	it("surfaces a goto timeout as a distinct actionable RuntimeError", async () => {
 		hangServer = Bun.serve({
 			port: 0,
+			idleTimeout: 30,
 			fetch: () => new Promise<Response>(() => {}),
 		});
 		const url = `http://localhost:${hangServer.port}/`;

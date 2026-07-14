@@ -19,6 +19,7 @@ import {
 	type InstallContext,
 	installAllDetectedTools,
 } from "../shared/install-core.js";
+import { getClaudePluginDirs } from "../shared/paths.js";
 import {
 	type ContextDetectionResult,
 	detectProjectContext,
@@ -55,6 +56,7 @@ import {
 	createSettingsFiles,
 	createStorageDirectories,
 	injectInstructionsForStorageMode,
+	resolveInitPathContext,
 } from "./steps/project-setup.js";
 import { checkRp1Readiness } from "./steps/readiness.js";
 import { generateSandboxGrants } from "./steps/sandbox-grants.js";
@@ -484,6 +486,7 @@ export function executeInit(
 			async (): Promise<InitResult> => {
 				const allActions: InitAction[] = [];
 				const allWarnings: string[] = [];
+				const paths = resolveInitPathContext(options);
 
 				const isTTY = detectTTY(options);
 				const promptOptions: PromptOptions = { isTTY };
@@ -642,10 +645,10 @@ export function executeInit(
 
 				const harnessItems = buildHarnessItems(toolDetectionResult.detected);
 				const stableIds = getStableDefaults(harnessItems);
-				const persisted = loadEnabledHarnesses(options.globalSettingsPath);
+				const persisted = loadEnabledHarnesses(paths.globalSettingsPath);
 				const selection = persisted ?? stableIds;
 				if (persisted === undefined) {
-					writeHarnessSelection(stableIds, options.globalSettingsPath);
+					writeHarnessSelection(stableIds, paths.globalSettingsPath);
 				}
 
 				// --- Install check and delegation ---
@@ -653,7 +656,9 @@ export function executeInit(
 				let pluginStatus: readonly PluginStatus[] = [];
 
 				if (toolDetectionResult.detected.length > 0) {
-					const installStatus = await checkPluginsInstalled(registry);
+					const installStatus = await checkPluginsInstalled(registry, {
+						homeDir: paths.homeDir,
+					});
 
 					if (installStatus.installed) {
 						logger.success("Plugins already installed, skipping install step");
@@ -669,6 +674,7 @@ export function executeInit(
 							isTTY,
 							dryRun: false,
 							skipPrompt: !isTTY,
+							homeDir: paths.homeDir,
 						};
 
 						try {
@@ -773,9 +779,11 @@ export function executeInit(
 							} | null = null;
 
 							if (detected.tool.id === "claude-code") {
-								verificationResult = await verifyClaudeCodePlugins();
+								verificationResult = await verifyClaudeCodePlugins(
+									getClaudePluginDirs(paths.homeDir),
+								);
 							} else if (detected.tool.id === "opencode") {
-								verificationResult = await verifyOpenCodePlugins();
+								verificationResult = await verifyOpenCodePlugins(paths.homeDir);
 							} else if (detected.tool.id === "copilot") {
 								verificationResult = await verifyCopilotPlugins();
 							}
@@ -834,12 +842,15 @@ export function executeInit(
 					cwd,
 					logger,
 					directories,
+					paths,
 				);
 				allActions.push(...settingsActions);
 				const storageDirActions = await createStorageDirectories(
 					directories.projectRoot,
 					projectId,
 					logger,
+					paths.homeDir,
+					paths.globalSettingsPath,
 				);
 				allActions.push(...storageDirActions);
 				progress.completeStep();
@@ -851,7 +862,7 @@ export function executeInit(
 					const grantResults = await generateSandboxGrants(
 						[...selection],
 						cwd,
-						options.globalSettingsPath,
+						paths.globalSettingsPath,
 					);
 					for (const grant of grantResults) {
 						if (grant.written) {
@@ -876,8 +887,7 @@ export function executeInit(
 					projectRoot: directories.projectRoot,
 					harnessSelection: selection,
 					detectedTool: primaryTool || null,
-					homeDir: options.homeDir,
-					globalSettingsPath: options.globalSettingsPath,
+					paths,
 					onProgress: (msg, type) => {
 						if (type === "success") logger.success(msg);
 						else if (type === "warning") logger.warn(msg);

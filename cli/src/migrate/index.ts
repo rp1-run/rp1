@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { resolveDirectorySet } from "../../shared/directory-resolution.js";
@@ -55,6 +56,13 @@ export interface MigrateOptions {
 	readonly globalSettingsPath?: string;
 }
 
+interface MigratePathContext {
+	readonly homeDir: string;
+	readonly globalSettingsPath: string;
+	readonly globalConfigDir: string;
+	readonly dbPath: string;
+}
+
 export interface MigrateResult {
 	readonly dryRun?: boolean;
 	readonly projectRoot: string;
@@ -84,18 +92,37 @@ const resolveHarnesses = async (
 	return getEffectiveHarnesses(detection.right).map((d) => d.tool.id);
 };
 
+const resolveMigratePathContext = (
+	options: MigrateOptions,
+): MigratePathContext => {
+	const homeDir = options.homeDir ?? homedir();
+	const globalSettingsPath =
+		options.globalSettingsPath ??
+		path.join(homeDir, ".config", "rp1", "settings.toml");
+	const dbPath =
+		options.homeDir === undefined
+			? (process.env.RP1_DB ?? path.join(homeDir, ".rp1", "rp1.db"))
+			: path.join(homeDir, ".rp1", "rp1.db");
+
+	return {
+		homeDir,
+		globalSettingsPath,
+		globalConfigDir: path.dirname(globalSettingsPath),
+		dbPath,
+	};
+};
+
 const executeCentralSteps = async (
 	projectRoot: string,
 	projectId: string,
 	dryRun: boolean,
-	homeDir?: string,
-	globalSettingsPath?: string,
+	paths: MigratePathContext,
 ): Promise<CentralStoreResult | undefined> => {
 	const settingsPath = resolveLocalSettingsPath(projectRoot);
 
 	const relocated = relocateToCenter(projectRoot, projectId, {
 		dryRun,
-		homeDir,
+		homeDir: paths.homeDir,
 	});
 
 	const settingsWritten = writeStorageSection(settingsPath, "central", {
@@ -104,10 +131,10 @@ const executeCentralSteps = async (
 
 	const stanzasRemoved = removeProjectStanzas(projectRoot, { dryRun });
 
-	const harnesses = await resolveHarnesses(globalSettingsPath);
+	const harnesses = await resolveHarnesses(paths.globalSettingsPath);
 	const globalStanza = await manageGlobalStanzas(harnesses, {
 		dryRun,
-		homeDir,
+		homeDir: paths.homeDir,
 	});
 
 	const gitignoreUpdated = updateGitignoreCentral(projectRoot, { dryRun });
@@ -139,6 +166,7 @@ export const executeMigrate = async (
 		);
 	}
 	const projectRoot = directories.right.projectRoot;
+	const paths = resolveMigratePathContext(options);
 
 	const projectIdExistedBefore = existsSync(
 		path.join(projectRoot, ".rp1", "project_id"),
@@ -151,13 +179,15 @@ export const executeMigrate = async (
 				).trim()
 			: "(generated on apply)";
 		const workDir = path.join(projectRoot, ".rp1", "work");
-		const legacyPath = findLegacyWorkDir(projectRoot);
+		const legacyPath = findLegacyWorkDir(projectRoot, paths.homeDir);
 		const dbBackfill = await backfillProjectId(projectRoot, projectId, {
 			dryRun: true,
+			dbPath: paths.dbPath,
 		});
 		const arcadeSettings = await migrateArcadeSettings({
 			projectRoot,
 			dryRun: true,
+			globalConfigDir: paths.globalConfigDir,
 		});
 
 		let centralStore: CentralStoreResult | undefined;
@@ -166,8 +196,7 @@ export const executeMigrate = async (
 				projectRoot,
 				projectId,
 				true,
-				options.homeDir,
-				options.globalSettingsPath,
+				paths,
 			);
 		}
 
@@ -205,18 +234,23 @@ export const executeMigrate = async (
 	const workDirCreated = !workDirExistedBefore;
 
 	let legacyWork: LegacyWorkResult | undefined;
-	const legacyPath = findLegacyWorkDir(projectRoot);
+	const legacyPath = findLegacyWorkDir(projectRoot, paths.homeDir);
 	if (legacyPath) {
 		legacyWork = moveLegacyWork(projectRoot, legacyPath);
 	}
 
 	const gitignore = updateGitignore(projectRoot);
 
-	const dbBackfill = await backfillProjectId(projectRoot, projectId);
+	const dbBackfill = await backfillProjectId(projectRoot, projectId, {
+		dbPath: paths.dbPath,
+	});
 
 	const stanzaUpgrade = upgradeStanzas(projectRoot);
 
-	const arcadeSettings = await migrateArcadeSettings({ projectRoot });
+	const arcadeSettings = await migrateArcadeSettings({
+		projectRoot,
+		globalConfigDir: paths.globalConfigDir,
+	});
 
 	let centralStore: CentralStoreResult | undefined;
 	if (options.toCentral === true) {
@@ -224,8 +258,7 @@ export const executeMigrate = async (
 			projectRoot,
 			projectId,
 			false,
-			options.homeDir,
-			options.globalSettingsPath,
+			paths,
 		);
 	}
 

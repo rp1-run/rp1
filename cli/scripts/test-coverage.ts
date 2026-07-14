@@ -7,6 +7,7 @@ import {
 	meetsLineThreshold,
 	summarizeCliLcovLineCoverage,
 } from "./coverage-threshold.js";
+import { runTestsWithIsolatedHome } from "./test-with-isolated-home.js";
 
 const LINE_COVERAGE_THRESHOLD = 0.8;
 
@@ -14,15 +15,8 @@ const forwardedArgs = process.argv
 	.slice(2)
 	.filter((arg) => arg !== "--coverage");
 const reporterArgs = coverageReporterArgs(forwardedArgs);
-const testArgs = ["test", "--coverage", ...reporterArgs, ...forwardedArgs];
-
-const testProcess = Bun.spawn(["bun", ...testArgs], {
-	stdout: "inherit",
-	stderr: "inherit",
-	stdin: "inherit",
-	env: process.env,
-});
-const testExitCode = await testProcess.exited;
+const testArgs = ["--coverage", ...reporterArgs, ...forwardedArgs];
+const testExitCode = await runTestsWithIsolatedHome(testArgs);
 
 if (testExitCode !== 0) {
 	process.exit(testExitCode);

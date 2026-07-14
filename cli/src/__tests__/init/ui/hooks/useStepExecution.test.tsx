@@ -9,7 +9,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
-import { rm } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { Text } from "ink";
@@ -122,5 +122,44 @@ describe("wizard directory-setup and settings-setup steps", () => {
 		expect(existsSync(join(homedir(), ".rp1", "projects", projectId))).toBe(
 			false,
 		);
+	});
+
+	test("keeps wizard central-mode settings, storage, and instruction writes below the supplied home", async () => {
+		const isolatedHome = join(tempDir, "home");
+		const globalSettingsPath = join(
+			isolatedHome,
+			".config",
+			"rp1",
+			"settings.toml",
+		);
+		await mkdir(join(isolatedHome, ".config", "rp1"), { recursive: true });
+		await Bun.write(globalSettingsPath, '[storage]\nmode = "central"\n');
+		const executor = await mountExecutor({
+			cwd: tempDir,
+			homeDir: isolatedHome,
+			globalSettingsPath,
+		});
+
+		await executor("directory-setup");
+		await Bun.write(
+			join(tempDir, ".rp1", "settings.toml"),
+			"[arguments.build]\nAFK = false\n",
+		);
+		await executor("settings-setup");
+
+		const projectId = readProjectId(tempDir);
+		const centralProjectDir = join(isolatedHome, ".rp1", "projects", projectId);
+		expect(existsSync(globalSettingsPath)).toBe(true);
+		expect(existsSync(join(centralProjectDir, "context"))).toBe(true);
+		expect(existsSync(join(centralProjectDir, "work"))).toBe(true);
+
+		await Bun.write(
+			globalSettingsPath,
+			'[storage]\nmode = "central"\n\n[harnesses]\nenabled = ["claude-code", "codex"]\n',
+		);
+		await executor("instruction-injection");
+
+		expect(existsSync(join(isolatedHome, ".claude", "CLAUDE.md"))).toBe(true);
+		expect(existsSync(join(isolatedHome, ".codex", "AGENTS.md"))).toBe(true);
 	});
 });

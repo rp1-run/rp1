@@ -9,6 +9,7 @@ import type { Rp1RootResult } from "./models.js";
 export interface Rp1RootResolutionOptions {
 	readonly requireProjectId?: boolean;
 	readonly allowHomeProjectRoot?: boolean;
+	readonly homeDir?: string;
 }
 
 export const resolveRp1Root = (
@@ -20,6 +21,7 @@ export const resolveRp1Root = (
 			resolveDirectorySet(cwd, {
 				requireProjectId: options.requireProjectId,
 				allowHomeProjectRoot: options.allowHomeProjectRoot,
+				homeDir: options.homeDir,
 			}),
 			E.map(
 				(directories: ResolvedDirectorySet): Rp1RootResult => ({

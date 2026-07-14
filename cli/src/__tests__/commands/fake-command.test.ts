@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import {
 	mkdir,
 	mkdtemp,
@@ -187,7 +187,7 @@ describe("fake workflow command", () => {
 	);
 
 	test(
-		"supports injected failure and concurrent pause simulations",
+		"supports injected failure simulations",
 		async () => {
 			await createIsolatedProject();
 
@@ -204,22 +204,38 @@ describe("fake workflow command", () => {
 				"planning",
 			]);
 
-			await fakeCommand.parseAsync([
-				"node",
-				"fake",
-				"/build 'parallel coverage repair'",
-				"--speed",
-				"fast",
-				"--feature",
-				"parallel-repair",
-				"--pause-at",
-				"requirements",
-				"--count",
-				"2",
-			]);
-
 			const output = logs.join("\n");
 			expect(output).toContain('Simulation failed at step "planning"');
+		},
+		{ timeout: 10000 },
+	);
+
+	test(
+		"supports concurrent pause simulations",
+		async () => {
+			await createIsolatedProject();
+
+			const randomSpy = spyOn(Math, "random").mockReturnValue(0);
+			try {
+				fakeCommand.exitOverride();
+				await fakeCommand.parseAsync([
+					"node",
+					"fake",
+					"/build 'parallel coverage repair'",
+					"--speed",
+					"fast",
+					"--feature",
+					"parallel-repair",
+					"--pause-at",
+					"requirements",
+					"--count",
+					"2",
+				]);
+			} finally {
+				randomSpy.mockRestore();
+			}
+
+			const output = logs.join("\n");
 			expect(output).toContain("All runs finished");
 			expect(output).toContain("2/2 succeeded");
 		},

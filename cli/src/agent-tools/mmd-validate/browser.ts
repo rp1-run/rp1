@@ -53,6 +53,10 @@ export interface BrowserValidationResult {
 	};
 }
 
+export interface BrowserLaunchOptions {
+	readonly executablePath?: string;
+}
+
 /** Browser instance management */
 let browserInstance: Browser | null = null;
 let pageInstance: Page | null = null;
@@ -62,7 +66,9 @@ let pageInstance: Page | null = null;
  * Reuses existing browser instance if already initialized.
  * Returns TaskEither with the Page instance for validation.
  */
-export const initBrowser = (): TE.TaskEither<CLIError, Page> =>
+export const initBrowser = (
+	options: BrowserLaunchOptions = {},
+): TE.TaskEither<CLIError, Page> =>
 	TE.tryCatch(
 		async () => {
 			if (pageInstance) {
@@ -72,6 +78,9 @@ export const initBrowser = (): TE.TaskEither<CLIError, Page> =>
 			browserInstance = await puppeteer.launch({
 				headless: true,
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+				...(options.executablePath
+					? { executablePath: options.executablePath }
+					: {}),
 			});
 
 			pageInstance = await browserInstance.newPage();

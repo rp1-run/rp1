@@ -14,7 +14,6 @@ import {
 	stat,
 	writeFile,
 } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, extname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { pipe } from "fp-ts/lib/function.js";
@@ -33,6 +32,7 @@ import type {
 	StagingResult,
 	StagingVerificationResult,
 } from "./models.js";
+import { type InstallPathContext, resolveInstallPathContext } from "./paths.js";
 
 /**
  * Recursively find all files matching a pattern in a directory.
@@ -237,12 +237,13 @@ export const copyArtifacts = (
 /**
  * Create backup of existing rp1 installation.
  */
-export const backupExistingInstallation = (logger?: {
-	debug: (msg: string) => void;
-}): TE.TaskEither<CLIError, BackupManifest> =>
+export const backupExistingInstallation = (
+	logger?: { debug: (msg: string) => void },
+	paths: InstallPathContext = resolveInstallPathContext(),
+): TE.TaskEither<CLIError, BackupManifest> =>
 	TE.tryCatch(
 		async () => {
-			const backupDir = join(homedir(), ".opencode-rp1-backups");
+			const backupDir = paths.backupDir;
 			const timestamp = new Date()
 				.toISOString()
 				.replace(/[:.]/g, "-")
@@ -250,7 +251,7 @@ export const backupExistingInstallation = (logger?: {
 			const backupPath = join(backupDir, `backup_${timestamp}`);
 			await mkdir(backupPath, { recursive: true });
 
-			const configDir = join(homedir(), ".config", "opencode");
+			const configDir = paths.openCodeConfigDir;
 			let filesBackedUp = 0;
 
 			try {
@@ -371,11 +372,12 @@ export const backupExistingInstallation = (logger?: {
 export const restoreFromBackup = (
 	manifest: BackupManifest,
 	logger?: { debug: (msg: string) => void },
+	paths: InstallPathContext = resolveInstallPathContext(),
 ): TE.TaskEither<CLIError, RestoreResult> =>
 	TE.tryCatch(
 		async () => {
 			const { backupPath } = manifest;
-			const configDir = join(homedir(), ".config", "opencode");
+			const configDir = paths.openCodeConfigDir;
 			let filesRestored = 0;
 
 			try {
@@ -539,11 +541,12 @@ export const restoreFromBackup = (
  * Remove all rp1-* plugins from OpenCode plugins directory.
  * Cleans up both old-style subdirectories and new-style flat files.
  */
-export const cleanRp1Plugins = async (logger?: {
-	debug: (msg: string) => void;
-}): Promise<void> => {
-	const pluginsDir = join(homedir(), ".config", "opencode", "plugins");
-	const legacyDir = join(homedir(), ".config", "opencode", "plugin");
+export const cleanRp1Plugins = async (
+	logger?: { debug: (msg: string) => void },
+	paths: InstallPathContext = resolveInstallPathContext(),
+): Promise<void> => {
+	const pluginsDir = paths.openCodePluginsDir;
+	const legacyDir = paths.legacyOpenCodePluginDir;
 
 	// Clean legacy plugin/ directory (singular)
 	try {
@@ -573,11 +576,12 @@ export const copyOpenCodePlugin = (
 	pluginName: string,
 	onProgress?: (message: string) => void,
 	logger?: { debug: (msg: string) => void },
+	paths: InstallPathContext = resolveInstallPathContext(),
 ): TE.TaskEither<CLIError, number> =>
 	TE.tryCatch(
 		async () => {
 			const opencodeSrc = join(sourceDir, "platforms", "opencode", "index.ts");
-			const pluginsDir = join(homedir(), ".config", "opencode", "plugins");
+			const pluginsDir = paths.openCodePluginsDir;
 			const targetFile = join(pluginsDir, `${pluginName}.ts`);
 
 			try {
@@ -601,16 +605,12 @@ export const copyOpenCodePlugin = (
 	);
 
 /**
- * Staging directory name for atomic installation.
- */
-const STAGING_DIR = ".rp1-staging";
-
-/**
  * Get the staging directory path.
  * Uses ~/.config/.rp1-staging to ensure same filesystem as target for atomic rename.
  */
-export const getStagingPath = (): string =>
-	join(homedir(), ".config", STAGING_DIR);
+export const getStagingPath = (
+	paths: InstallPathContext = resolveInstallPathContext(),
+): string => paths.stagingDir;
 
 /**
  * Copy plugin artifacts to staging directory.
@@ -620,10 +620,11 @@ export const copyToStaging = (
 	pluginDirs: readonly string[],
 	onProgress?: (message: string) => void,
 	logger?: { debug: (msg: string) => void },
+	paths: InstallPathContext = resolveInstallPathContext(),
 ): TE.TaskEither<CLIError, StagingResult> =>
 	TE.tryCatch(
 		async () => {
-			const stagingPath = getStagingPath();
+			const stagingPath = getStagingPath(paths);
 
 			await mkdir(stagingPath, { recursive: true, mode: 0o700 });
 			logger?.debug(`Created staging directory: ${stagingPath}`);
@@ -964,10 +965,11 @@ const performInstallation = (
 	onOverwrite?: (path: string) => void,
 	logger?: { debug: (msg: string) => void },
 	strict?: boolean,
+	paths: InstallPathContext = resolveInstallPathContext(),
 ): TE.TaskEither<CLIError, InstallResult> =>
 	TE.tryCatch(
 		async () => {
-			const targetDir = join(homedir(), ".config", "opencode");
+			const targetDir = paths.openCodeConfigDir;
 			const pluginsInstalled: string[] = [];
 			const warnings: string[] = [];
 			let totalFiles = 0;
@@ -1017,6 +1019,7 @@ const performInstallation = (
 						openCodePluginName,
 						onProgress,
 						logger,
+						paths,
 					)();
 					if (pluginResult._tag === "Left") {
 						warnings.push(
@@ -1058,15 +1061,16 @@ export const installRp1 = (
 	onOverwrite?: (path: string) => void,
 	logger?: { debug: (msg: string) => void },
 	strict?: boolean,
+	paths: InstallPathContext = resolveInstallPathContext(),
 ): TE.TaskEither<CLIError, InstallResult> =>
 	pipe(
-		backupExistingInstallation(logger),
+		backupExistingInstallation(logger, paths),
 		TE.chain((backup) => {
 			onProgress?.(`Backup created: ${backup.backupPath}`);
 
 			return pipe(
 				TE.tryCatch(
-					() => cleanRp1Plugins(logger),
+					() => cleanRp1Plugins(logger, paths),
 					(e) =>
 						installError("clean-plugins", `Failed to clean old plugins: ${e}`),
 				),
@@ -1078,13 +1082,14 @@ export const installRp1 = (
 						onOverwrite,
 						logger,
 						strict,
+						paths,
 					),
 				),
 				// On installation failure, attempt to restore from backup
 				TE.orElse(
 					(error): TE.TaskEither<CLIError, InstallResult> =>
 						pipe(
-							restoreFromBackup(backup, logger),
+							restoreFromBackup(backup, logger, paths),
 							TE.chain((restoreResult) => {
 								if (restoreResult.filesRestored > 0) {
 									onProgress?.(

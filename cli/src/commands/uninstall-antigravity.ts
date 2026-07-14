@@ -74,13 +74,21 @@ const printAntigravityUninstallResult = (
 	}
 };
 
-export const uninstallAntigravityCommand = new Command("antigravity")
-	.description("Remove rp1 Antigravity CLI package assets")
-	.option("--dry-run", "Show what would be removed without making changes")
-	.option("-y, --yes", "Skip confirmation prompts")
-	.addHelpText(
-		"after",
-		`
+export interface UninstallAntigravityCommandOptions {
+	readonly homeDir?: string;
+	readonly globalSettingsPath?: string;
+}
+
+export const createUninstallAntigravityCommand = (
+	commandOptions: UninstallAntigravityCommandOptions = {},
+): Command =>
+	new Command("antigravity")
+		.description("Remove rp1 Antigravity CLI package assets")
+		.option("--dry-run", "Show what would be removed without making changes")
+		.option("-y, --yes", "Skip confirmation prompts")
+		.addHelpText(
+			"after",
+			`
 Removes only rp1-owned Antigravity package assets:
   - Matches files from the rp1 Antigravity manifest
   - Preserves modified files and unexpected leftovers
@@ -91,42 +99,50 @@ Examples:
   rp1 uninstall antigravity --dry-run    Preview manifest-owned removal
   rp1 uninstall antigravity -y           Non-interactive uninstall
 `,
-	)
-	.action(async (options, command) => {
-		const logger = command.parent?.parent?._logger as Logger;
-		const isTTY =
-			command.parent?.parent?._isTTY ?? process.stdout.isTTY ?? false;
+		)
+		.action(async (options, command) => {
+			const logger = command.parent?.parent?._logger as Logger;
+			const isTTY =
+				command.parent?.parent?._isTTY ?? process.stdout.isTTY ?? false;
 
-		if (!logger) {
-			console.error("Logger not initialized");
-			process.exit(1);
-		}
-
-		const parentOptions = command.parent?.opts?.() ?? {};
-		const dryRun = Boolean(options.dryRun || parentOptions.dryRun);
-		const yes = Boolean(options.yes || parentOptions.yes);
-
-		if (!dryRun && !yes) {
-			const proceed = await confirmAction(
-				"Remove rp1 Antigravity CLI package assets?",
-				{ isTTY, defaultOnNonTTY: false },
-			);
-			if (!proceed) {
-				console.log("Cancelled.");
-				process.exit(0);
+			if (!logger) {
+				console.error("Logger not initialized");
+				process.exit(1);
 			}
-		}
 
-		const result = await uninstallAntigravityPackageAssets({ dryRun })();
+			const parentOptions = command.parent?.opts?.() ?? {};
+			const dryRun = Boolean(options.dryRun || parentOptions.dryRun);
+			const yes = Boolean(options.yes || parentOptions.yes);
 
-		if (E.isLeft(result)) {
-			console.error(formatError(result.left, process.stderr.isTTY ?? false));
-			process.exit(getExitCode(result.left));
-		}
+			if (!dryRun && !yes) {
+				const proceed = await confirmAction(
+					"Remove rp1 Antigravity CLI package assets?",
+					{ isTTY, defaultOnNonTTY: false },
+				);
+				if (!proceed) {
+					console.log("Cancelled.");
+					process.exit(0);
+				}
+			}
 
-		if (!dryRun) {
-			syncHarnessSelectionRemove("antigravity");
-		}
+			const result = await uninstallAntigravityPackageAssets({
+				dryRun,
+				homeDir: commandOptions.homeDir,
+			})();
 
-		printAntigravityUninstallResult(result.right, logger);
-	});
+			if (E.isLeft(result)) {
+				console.error(formatError(result.left, process.stderr.isTTY ?? false));
+				process.exit(getExitCode(result.left));
+			}
+
+			if (!dryRun) {
+				syncHarnessSelectionRemove(
+					"antigravity",
+					commandOptions.globalSettingsPath,
+				);
+			}
+
+			printAntigravityUninstallResult(result.right, logger);
+		});
+
+export const uninstallAntigravityCommand = createUninstallAntigravityCommand();

@@ -5,7 +5,7 @@
 
 import { exec } from "node:child_process";
 import { mkdir, stat, writeFile } from "node:fs/promises";
-import { freemem, homedir, platform } from "node:os";
+import { freemem, platform } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import * as E from "fp-ts/lib/Either.js";
@@ -14,6 +14,7 @@ import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
 import { prerequisiteError } from "../../shared/errors.js";
 import type { PrerequisiteResult } from "./models.js";
+import { type InstallPathContext, resolveInstallPathContext } from "./paths.js";
 
 const execAsync = promisify(exec);
 
@@ -21,15 +22,15 @@ const execAsync = promisify(exec);
  * Check if OpenCode CLI is installed and in PATH.
  * Returns OpenCode version string if installed.
  */
-export const checkOpenCodeInstalled = (): TE.TaskEither<
-	CLIError,
-	PrerequisiteResult
-> =>
+export const checkOpenCodeInstalled = (
+	environment?: NodeJS.ProcessEnv,
+): TE.TaskEither<CLIError, PrerequisiteResult> =>
 	pipe(
 		TE.tryCatch(
 			async () => {
 				const { stdout } = await execAsync("opencode --version", {
 					timeout: 5000,
+					env: environment,
 				});
 				return stdout.trim();
 			},
@@ -128,14 +129,16 @@ export const checkWritePermissions = (
 /**
  * Get the default OpenCode config directory.
  */
-export const getOpenCodeConfigDir = (): string =>
-	join(process.env.HOME ?? homedir(), ".config", "opencode");
+export const getOpenCodeConfigDir = (
+	paths: InstallPathContext = resolveInstallPathContext(),
+): string => paths.openCodeConfigDir;
 
 /**
  * Get the default OpenCode config file path.
  */
-export const getOpenCodeConfigPath = (): string =>
-	join(getOpenCodeConfigDir(), "opencode.json");
+export const getOpenCodeConfigPath = (
+	paths: InstallPathContext = resolveInstallPathContext(),
+): string => paths.openCodeConfigPath;
 
 /**
  * GitHub API endpoint for connectivity check and version fetch.
@@ -312,10 +315,11 @@ export const checkNetworkConnectivity = (): TE.TaskEither<
  */
 export const checkDiskSpace = (
 	requiredBytes: number = DEFAULT_REQUIRED_BYTES,
+	paths: InstallPathContext = resolveInstallPathContext(),
 ): TE.TaskEither<CLIError, PrerequisiteResult> =>
 	TE.tryCatch(
 		async (): Promise<PrerequisiteResult> => {
-			const targetDir = getOpenCodeConfigDir();
+			const targetDir = getOpenCodeConfigDir(paths);
 			const requiredMB = Math.ceil(requiredBytes / (1024 * 1024));
 
 			try {
@@ -460,10 +464,9 @@ const prerequisiteFailureResult = (
  *
  * Target: Complete within 10 seconds including network checks.
  */
-export const runDryRunValidation = (): TE.TaskEither<
-	CLIError,
-	DryRunValidationResult
-> =>
+export const runDryRunValidation = (
+	paths: InstallPathContext = resolveInstallPathContext(),
+): TE.TaskEither<CLIError, DryRunValidationResult> =>
 	pipe(
 		TE.Do,
 		TE.bind("pkgManager", () =>
@@ -491,7 +494,7 @@ export const runDryRunValidation = (): TE.TaskEither<
 		),
 		TE.bind("diskSpace", () =>
 			pipe(
-				checkDiskSpace(),
+				checkDiskSpace(DEFAULT_REQUIRED_BYTES, paths),
 				TE.orElse(
 					(): TE.TaskEither<CLIError, PrerequisiteResult> =>
 						TE.right({

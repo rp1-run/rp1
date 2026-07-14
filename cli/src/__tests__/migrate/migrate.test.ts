@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import {
 	afterEach,
 	beforeEach,
@@ -8,8 +9,9 @@ import {
 } from "bun:test";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { normalizeProjectKey } from "../../../shared/directory-resolution.js";
 import {
 	closeDatabase,
 	deriveRunStatus,
@@ -34,6 +36,34 @@ import {
 
 setDefaultTimeout(15000);
 
+const createBackfillRun = async (
+	dbPath: string,
+	runId: string,
+	projectRoot: string,
+): Promise<void> => {
+	const db = await expectTaskRight(getEmitDatabase(dbPath));
+	insertRun(db, {
+		id: runId,
+		flow: "build",
+		featureId: "migration-path-isolation",
+		projectPath: projectRoot,
+	});
+	closeDatabase();
+	resetInstance();
+};
+
+const readRunProjectId = (dbPath: string, runId: string): string | null => {
+	const db = new Database(dbPath, { readonly: true, create: false });
+	try {
+		const row = db
+			.prepare("SELECT project_id FROM runs WHERE id = ?")
+			.get(runId) as { project_id: string | null };
+		return row.project_id;
+	} finally {
+		db.close();
+	}
+};
+
 describe("migrate", () => {
 	let tempDir: string;
 	let originalRp1Db: string | undefined;
@@ -57,6 +87,248 @@ describe("migrate", () => {
 	});
 
 	describe("executeMigrate", () => {
+		test("ignores default legacy global state when isolated migration paths are supplied", async () => {
+			const projectRoot = join(tempDir, "isolated-project");
+			const isolatedHome = join(tempDir, "isolated-home");
+			const globalSettingsPath = join(
+				isolatedHome,
+				".config",
+				"rp1",
+				"settings.toml",
+			);
+			const isolatedGlobalDir = dirname(globalSettingsPath);
+			const defaultGlobalDir = join(homedir(), ".config", "rp1");
+			const projectKey = normalizeProjectKey(projectRoot);
+			const isolatedLegacyDir = join(isolatedHome, ".rp1", "work", projectKey);
+			const defaultLegacyDir = join(homedir(), ".rp1", "work", projectKey);
+			const isolatedDbPath = join(isolatedHome, ".rp1", "rp1.db");
+			const defaultDbPath = process.env.RP1_DB!;
+			const defaultClaudePath = join(homedir(), ".claude", "CLAUDE.md");
+			const defaultClaudeContents = existsSync(defaultClaudePath)
+				? readFileSync(defaultClaudePath, "utf-8")
+				: undefined;
+
+			await mkdir(join(projectRoot, ".rp1", "context"), { recursive: true });
+			await writeFile(join(projectRoot, ".rp1", "context", "index.md"), "# KB");
+			await mkdir(join(isolatedLegacyDir, "features"), { recursive: true });
+			await writeFile(
+				join(isolatedLegacyDir, "features", "isolated.md"),
+				"isolated",
+			);
+			await mkdir(join(defaultLegacyDir, "features"), { recursive: true });
+			await writeFile(
+				join(defaultLegacyDir, "features", "default.md"),
+				"default",
+			);
+			await mkdir(isolatedGlobalDir, { recursive: true });
+			await writeFile(
+				globalSettingsPath,
+				'[harnesses]\nenabled = ["claude-code"]\n',
+			);
+			await writeFile(
+				join(isolatedGlobalDir, "settings.json"),
+				JSON.stringify({ theme: "light" }),
+			);
+			await mkdir(defaultGlobalDir, { recursive: true });
+			await writeFile(
+				join(defaultGlobalDir, "settings.json"),
+				JSON.stringify({ theme: "dark" }),
+			);
+
+			await createBackfillRun(
+				isolatedDbPath,
+				"isolated-migration-run",
+				projectRoot,
+			);
+			await createBackfillRun(
+				defaultDbPath,
+				"default-migration-run",
+				projectRoot,
+			);
+
+			try {
+				const result = await executeMigrate(projectRoot, {
+					toCentral: true,
+					homeDir: isolatedHome,
+					globalSettingsPath,
+				});
+				const centralWorkDir = join(
+					isolatedHome,
+					".rp1",
+					"projects",
+					result.projectId,
+					"work",
+				);
+
+				expect(
+					existsSync(join(centralWorkDir, "features", "isolated.md")),
+				).toBe(true);
+				expect(existsSync(join(centralWorkDir, "features", "default.md"))).toBe(
+					false,
+				);
+				expect(
+					existsSync(join(defaultLegacyDir, "features", "default.md")),
+				).toBe(true);
+				expect(
+					existsSync(join(isolatedGlobalDir, "settings.json.migrated")),
+				).toBe(true);
+				expect(readFileSync(globalSettingsPath, "utf-8")).toContain(
+					'theme = "light"',
+				);
+				expect(existsSync(join(defaultGlobalDir, "settings.json"))).toBe(true);
+				expect(
+					existsSync(join(defaultGlobalDir, "settings.json.migrated")),
+				).toBe(false);
+				expect(readRunProjectId(isolatedDbPath, "isolated-migration-run")).toBe(
+					result.projectId,
+				);
+				expect(
+					readRunProjectId(defaultDbPath, "default-migration-run"),
+				).toBeNull();
+				expect(existsSync(join(isolatedHome, ".claude", "CLAUDE.md"))).toBe(
+					true,
+				);
+				if (defaultClaudeContents === undefined) {
+					expect(existsSync(defaultClaudePath)).toBe(false);
+				} else {
+					expect(readFileSync(defaultClaudePath, "utf-8")).toBe(
+						defaultClaudeContents,
+					);
+				}
+
+				const second = await executeMigrate(projectRoot, {
+					toCentral: true,
+					homeDir: isolatedHome,
+					globalSettingsPath,
+				});
+				expect(second.legacyWork?.filesMoved ?? 0).toBe(0);
+				expect(second.arcadeSettings.globalMigrated).toBe(false);
+				expect(second.centralStore?.relocated.contextFiles).toBe(0);
+				expect(second.centralStore?.relocated.workFiles).toBe(0);
+			} finally {
+				await rm(defaultLegacyDir, { recursive: true, force: true });
+				await rm(defaultGlobalDir, { recursive: true, force: true });
+			}
+		});
+
+		test("keeps isolated migration paths authoritative during dry-run", async () => {
+			const projectRoot = join(tempDir, "isolated-dry-run-project");
+			const isolatedHome = join(tempDir, "isolated-dry-run-home");
+			const globalSettingsPath = join(
+				isolatedHome,
+				".config",
+				"rp1",
+				"settings.toml",
+			);
+			const isolatedGlobalDir = dirname(globalSettingsPath);
+			const defaultGlobalDir = join(homedir(), ".config", "rp1");
+			const projectKey = normalizeProjectKey(projectRoot);
+			const isolatedLegacyDir = join(isolatedHome, ".rp1", "work", projectKey);
+			const defaultLegacyDir = join(homedir(), ".rp1", "work", projectKey);
+			const isolatedDbPath = join(isolatedHome, ".rp1", "rp1.db");
+
+			await mkdir(join(projectRoot, ".rp1", "context"), { recursive: true });
+			await mkdir(join(isolatedLegacyDir, "features"), { recursive: true });
+			await writeFile(
+				join(isolatedLegacyDir, "features", "isolated.md"),
+				"isolated",
+			);
+			await mkdir(join(defaultLegacyDir, "features"), { recursive: true });
+			await writeFile(
+				join(defaultLegacyDir, "features", "default.md"),
+				"default",
+			);
+			await mkdir(isolatedGlobalDir, { recursive: true });
+			await writeFile(
+				globalSettingsPath,
+				'[harnesses]\nenabled = ["claude-code"]\n',
+			);
+			await writeFile(
+				join(isolatedGlobalDir, "settings.json"),
+				JSON.stringify({ theme: "light" }),
+			);
+			await mkdir(defaultGlobalDir, { recursive: true });
+			await writeFile(
+				join(defaultGlobalDir, "settings.json"),
+				JSON.stringify({ theme: "dark" }),
+			);
+			await createBackfillRun(isolatedDbPath, "isolated-dry-run", projectRoot);
+
+			try {
+				const result = await executeMigrate(projectRoot, {
+					dryRun: true,
+					toCentral: true,
+					homeDir: isolatedHome,
+					globalSettingsPath,
+				});
+
+				expect(result.legacyWork?.legacyPath).toBe(isolatedLegacyDir);
+				expect(result.arcadeSettings.globalJsonPath).toBe(
+					join(isolatedGlobalDir, "settings.json"),
+				);
+				expect(result.dbBackfill.activitySearchRowsCreated).toBe(1);
+				expect(result.centralStore?.globalStanza.paths.get("claude-code")).toBe(
+					join(isolatedHome, ".claude", "CLAUDE.md"),
+				);
+				expect(
+					existsSync(join(isolatedLegacyDir, "features", "isolated.md")),
+				).toBe(true);
+				expect(existsSync(join(isolatedGlobalDir, "settings.json"))).toBe(true);
+				expect(
+					existsSync(join(isolatedGlobalDir, "settings.json.migrated")),
+				).toBe(false);
+				expect(readRunProjectId(isolatedDbPath, "isolated-dry-run")).toBeNull();
+				expect(existsSync(join(isolatedHome, ".rp1", "projects"))).toBe(false);
+			} finally {
+				await rm(defaultLegacyDir, { recursive: true, force: true });
+				await rm(defaultGlobalDir, { recursive: true, force: true });
+			}
+		});
+
+		test("preserves default migration paths when isolation inputs are omitted", async () => {
+			const projectRoot = join(tempDir, "default-path-project");
+			const defaultGlobalDir = join(homedir(), ".config", "rp1");
+			const defaultLegacyDir = join(
+				homedir(),
+				".rp1",
+				"work",
+				normalizeProjectKey(projectRoot),
+			);
+			const defaultDbPath = process.env.RP1_DB!;
+
+			await mkdir(join(projectRoot, ".rp1"), { recursive: true });
+			await mkdir(join(defaultLegacyDir, "features"), { recursive: true });
+			await writeFile(
+				join(defaultLegacyDir, "features", "default.md"),
+				"default",
+			);
+			await mkdir(defaultGlobalDir, { recursive: true });
+			await writeFile(
+				join(defaultGlobalDir, "settings.json"),
+				JSON.stringify({ theme: "dark" }),
+			);
+			await createBackfillRun(defaultDbPath, "default-path-run", projectRoot);
+
+			try {
+				const result = await executeMigrate(projectRoot);
+
+				expect(
+					existsSync(
+						join(projectRoot, ".rp1", "work", "features", "default.md"),
+					),
+				).toBe(true);
+				expect(
+					existsSync(join(defaultGlobalDir, "settings.json.migrated")),
+				).toBe(true);
+				expect(readRunProjectId(defaultDbPath, "default-path-run")).toBe(
+					result.projectId,
+				);
+			} finally {
+				await rm(defaultLegacyDir, { recursive: true, force: true });
+				await rm(defaultGlobalDir, { recursive: true, force: true });
+			}
+		});
+
 		test("creates .rp1/project_id when missing", async () => {
 			await mkdir(join(tempDir, ".rp1"), { recursive: true });
 

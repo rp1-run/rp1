@@ -11,6 +11,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import type { Logger } from "../../../shared/logger.js";
@@ -20,6 +21,7 @@ import {
 	createDirectoryStructure,
 	createSettingsFiles,
 	injectInstructions,
+	resolveInitPathContext,
 } from "../../init/steps/project-setup.js";
 import { AGENTS_REFERENCE_TEMPLATE } from "../../init/templates/index.js";
 import type { DetectedTool } from "../../init/tool-detector.js";
@@ -391,6 +393,15 @@ describe("init-install separation", () => {
 
 			// Content should be identical
 			expect(firstContent).toBe(secondContent);
+		});
+
+		test("headless omitted init path inputs preserve production defaults", () => {
+			const paths = resolveInitPathContext();
+
+			expect(paths.homeDir).toBe(homedir());
+			expect(paths.globalSettingsPath).toBe(
+				join(homedir(), ".config", "rp1", "settings.toml"),
+			);
 		});
 
 		test("createSettingsFiles writes current directory configuration guidance", async () => {

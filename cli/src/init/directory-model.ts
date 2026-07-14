@@ -1,7 +1,10 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
-import { resolveDirectorySet } from "../../shared/directory-resolution.js";
+import {
+	type DirectoryResolutionOptions,
+	resolveDirectorySet,
+} from "../../shared/directory-resolution.js";
 import type { StorageMode } from "../../shared/storage-mode.js";
 import {
 	computeDirectoryPaths,
@@ -36,8 +39,11 @@ export interface AncestorProjectInfo {
 	readonly ancestorRoot: string | undefined;
 }
 
-export const resolveInitDirectoryModel = (cwd: string): InitDirectoryModel => {
-	const result = resolveDirectorySet(cwd);
+export const resolveInitDirectoryModel = (
+	cwd: string,
+	options: DirectoryResolutionOptions = {},
+): InitDirectoryModel => {
+	const result = resolveDirectorySet(cwd, options);
 	if (E.isLeft(result)) {
 		return defaultInitDirectoryModel(cwd);
 	}
@@ -125,13 +131,16 @@ export interface StorageDirectoryPaths {
  *
  * @param homeDir - Override home directory for central path computation
  *   (test isolation seam; Bun's homedir() does not respect HOME env var)
+ * @param globalSettingsPath - Override global settings path for storage-mode
+ *   fallback when project settings omit the storage section
  */
 export const resolveStorageDirectoryPaths = (
 	projectRoot: string,
 	projectId: string,
 	homeDir?: string,
+	globalSettingsPath?: string,
 ): StorageDirectoryPaths => {
-	const mode = readStorageMode(projectRoot);
+	const mode = readStorageMode(projectRoot, globalSettingsPath);
 
 	if (mode === "central" && homeDir !== undefined) {
 		const centralBase = path.join(homeDir, ".rp1", "projects", projectId);

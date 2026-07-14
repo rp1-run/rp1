@@ -3,17 +3,18 @@
  */
 
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
 import { configError } from "../../shared/errors.js";
+import { type InstallPathContext, resolveInstallPathContext } from "./paths.js";
 
 /**
  * Create backup of existing config file.
  */
 export const backupConfig = (
 	configPath: string,
+	paths: InstallPathContext = resolveInstallPathContext(),
 ): TE.TaskEither<CLIError, string | null> =>
 	TE.tryCatch(
 		async () => {
@@ -23,7 +24,7 @@ export const backupConfig = (
 				return null; // No existing config
 			}
 
-			const backupDir = join(homedir(), ".opencode-rp1-backups");
+			const backupDir = paths.backupDir;
 			await mkdir(backupDir, { recursive: true });
 
 			const timestamp = new Date()
@@ -124,11 +125,13 @@ export const registerOpenCodePlugin = (
 /**
  * Get the default OpenCode config directory.
  */
-export const getConfigDir = (): string =>
-	join(homedir(), ".config", "opencode");
+export const getConfigDir = (
+	paths: InstallPathContext = resolveInstallPathContext(),
+): string => paths.openCodeConfigDir;
 
 /**
  * Get the default OpenCode config file path.
  */
-export const getConfigPath = (): string =>
-	join(getConfigDir(), "opencode.json");
+export const getConfigPath = (
+	paths: InstallPathContext = resolveInstallPathContext(),
+): string => paths.openCodeConfigPath;

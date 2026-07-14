@@ -48,9 +48,10 @@ export const isContainerEnvironment = (): boolean => {
 	}
 
 	const result =
-		existsSync("/.dockerenv") ||
 		process.env.REMOTE_CONTAINERS !== undefined ||
-		process.env.CODESPACES !== undefined;
+		process.env.CODESPACES !== undefined ||
+		// The disposable isolation boundary has a Docker marker but must retain normal storage-mode behavior.
+		(process.env.RP1_TEST_HOME_BOUNDARY !== "1" && existsSync("/.dockerenv"));
 
 	containerDetectionResult = result;
 	return result;

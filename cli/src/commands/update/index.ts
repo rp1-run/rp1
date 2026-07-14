@@ -21,7 +21,11 @@ import {
 	manageGlobalStanzas,
 } from "../../init/global-stanza-writer.js";
 import { detectTools } from "../../init/tool-detector.js";
-import { DEFAULT_TTL_HOURS, writeCache } from "../../lib/cache.js";
+import {
+	type CacheOptions,
+	DEFAULT_TTL_HOURS,
+	writeCache,
+} from "../../lib/cache.js";
 import { getColorFns } from "../../lib/colors.js";
 import {
 	checkFenceStaleness,
@@ -207,6 +211,7 @@ export const executeSelfUpdate = async (
 	options: { dryRun: boolean; force: boolean },
 	logger: Logger | undefined,
 	isTTY: boolean,
+	cacheOptions: CacheOptions = {},
 ): Promise<{
 	success: boolean;
 	exitCode: number;
@@ -253,6 +258,7 @@ export const executeSelfUpdate = async (
 		const checkOptions: CheckOptions = {
 			force: true, // Always bypass cache for self-update check
 			timeoutMs: 10000, // Longer timeout for update scenario
+			cachePath: cacheOptions.cachePath,
 		};
 		const versionCheck = await checkForUpdate(checkOptions);
 
@@ -309,11 +315,14 @@ export const executeSelfUpdate = async (
 	logger?.debug(
 		`Updating version cache after successful update to v${newVersion}`,
 	);
-	const cacheResult = await writeCache({
-		latestVersion: newVersion,
-		releaseUrl: `${GITHUB_RELEASES_URL}/tag/v${newVersion}`,
-		ttlHours: DEFAULT_TTL_HOURS,
-	})();
+	const cacheResult = await writeCache(
+		{
+			latestVersion: newVersion,
+			releaseUrl: `${GITHUB_RELEASES_URL}/tag/v${newVersion}`,
+			ttlHours: DEFAULT_TTL_HOURS,
+		},
+		cacheOptions,
+	)();
 	if (E.isLeft(cacheResult)) {
 		logger?.debug(
 			`Failed to update cache: ${formatError(cacheResult.left, false)}`,
@@ -689,6 +698,7 @@ export const executeUpdateAction = async (
 	},
 	logger: Logger | undefined,
 	isTTY: boolean,
+	cacheOptions: CacheOptions = {},
 ): Promise<void> => {
 	const { dim } = getColorFns(isTTY);
 	const resumingPostSelfUpdate = isPostSelfUpdateProcess();
@@ -722,6 +732,7 @@ export const executeUpdateAction = async (
 		const checkOptions: CheckOptions = {
 			force: false, // Use cache unless expired
 			timeoutMs: 5000,
+			cachePath: cacheOptions.cachePath,
 		};
 
 		logger?.debug(`Checking for updates (timeout=${checkOptions.timeoutMs}ms)`);
@@ -809,6 +820,7 @@ export const executeUpdateAction = async (
 			{ dryRun: options.dryRun, force: options.force },
 			logger,
 			isTTY,
+			cacheOptions,
 		);
 
 		if (!updateResult.success && updateResult.exitCode !== 2) {

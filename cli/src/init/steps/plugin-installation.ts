@@ -27,6 +27,7 @@ import {
 	installCopilotPlugins as sharedInstallCopilotPlugins,
 	installOpenCodePlugins as sharedInstallOpenCodePlugins,
 } from "../../shared/install-core.js";
+import { getClaudePluginDirs } from "../../shared/paths.js";
 import type {
 	InitAction,
 	PluginInstallResult,
@@ -91,6 +92,7 @@ export interface PluginsInstalledResult {
 }
 
 export interface CheckPluginsInstalledDeps {
+	readonly homeDir?: string;
 	readonly detectTools?: typeof detectTools;
 	readonly verifyClaudeCodePlugins?: typeof verifyClaudeCodePlugins;
 	readonly verifyOpenCodePlugins?: typeof verifyOpenCodePlugins;
@@ -147,12 +149,16 @@ export async function checkPluginsInstalled(
 		}
 
 		if (detectedTool.tool.id === "claude-code") {
-			const result = await runVerifyClaudeCodePlugins();
+			const result = await runVerifyClaudeCodePlugins(
+				deps.homeDir === undefined
+					? undefined
+					: getClaudePluginDirs(deps.homeDir),
+			);
 			if (!result.verified) {
 				allInstalled = false;
 			}
 		} else if (detectedTool.tool.id === "opencode") {
-			const result = await runVerifyOpenCodePlugins();
+			const result = await runVerifyOpenCodePlugins(deps.homeDir);
 			if (!result.verified) {
 				allInstalled = false;
 			}
