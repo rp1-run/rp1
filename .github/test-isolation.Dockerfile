@@ -23,8 +23,9 @@ FROM boundary AS test
 
 USER root
 
+# Bun builds the web UI's better-sqlite3 dependency from source during postinstall.
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends ca-certificates git python3 \
+	&& apt-get install -y --no-install-recommends build-essential ca-certificates git python3 \
 	&& rm -rf /var/lib/apt/lists/*
 
 COPY docker/certs/ /usr/local/share/ca-certificates/extra/
