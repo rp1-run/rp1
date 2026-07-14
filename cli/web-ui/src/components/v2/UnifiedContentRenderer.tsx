@@ -213,6 +213,8 @@ function MarkdownEditorWithSave({
 	const editorContainerRef = useRef<HTMLElement>(null);
 	const gutterRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<MilkdownEditorHandle>(null);
+	const annotationActiveRef = useRef(false);
+	const deferredSaveContentRef = useRef<string | null>(null);
 
 	const canSave = !!(runId || (projectId && filePath));
 
@@ -230,6 +232,13 @@ function MarkdownEditorWithSave({
 			if (indicatorTimerRef.current) clearTimeout(indicatorTimerRef.current);
 
 			saveTimerRef.current = setTimeout(async () => {
+				// Defer the save while an annotation is in progress so the DOM
+				// re-render from the save does not invalidate selection anchors.
+				if (annotationActiveRef.current) {
+					deferredSaveContentRef.current = fullContent;
+					return;
+				}
+
 				pendingLocalSavesRef.current.set(fullContent, Date.now());
 				setResolvedContent((current) =>
 					current === fullContent ? current : fullContent,
@@ -290,6 +299,59 @@ function MarkdownEditorWithSave({
 		};
 	}, []);
 
+	// Flush any deferred save content when the annotation flow returns to idle.
+	const handleAnnotationActiveChange = useCallback(
+		(active: boolean) => {
+			if (active || !deferredSaveContentRef.current || !canSave) return;
+
+			const deferredContent = deferredSaveContentRef.current;
+			deferredSaveContentRef.current = null;
+
+			pendingLocalSavesRef.current.set(deferredContent, Date.now());
+			setResolvedContent((current) =>
+				current === deferredContent ? current : deferredContent,
+			);
+			setSaveStatus("saving");
+
+			(async () => {
+				try {
+					let response: Response;
+					if (runId) {
+						response = await fetch(`/api/v2/runs/${runId}/artifacts/save`, {
+							method: "PUT",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ path, content: deferredContent }),
+						});
+					} else {
+						response = await fetch(
+							`/api/v2/projects/${encodeURIComponent(projectId!)}/content/${encodeURIComponent(filePath!)}`,
+							{
+								method: "PUT",
+								headers: { "Content-Type": "application/json" },
+								body: JSON.stringify({ content: deferredContent }),
+							},
+						);
+					}
+
+					if (!response.ok) {
+						pendingLocalSavesRef.current.delete(deferredContent);
+						setSaveStatus("error");
+					} else {
+						setSaveStatus("saved");
+					}
+				} catch {
+					pendingLocalSavesRef.current.delete(deferredContent);
+					setSaveStatus("error");
+				}
+
+				indicatorTimerRef.current = setTimeout(() => {
+					setSaveStatus("idle");
+				}, SAVE_INDICATOR_DURATION_MS);
+			})();
+		},
+		[canSave, runId, projectId, filePath, path, setSaveStatus],
+	);
+
 	return (
 		<div className="relative flex gap-3 min-w-0 max-w-full">
 			<div
@@ -317,6 +379,8 @@ function MarkdownEditorWithSave({
 					path={path}
 					containerRef={editorContainerRef}
 					gutterRef={gutterRef}
+					annotationActiveRef={annotationActiveRef}
+					onAnnotationActiveChange={handleAnnotationActiveChange}
 				/>
 			)}
 		</div>
