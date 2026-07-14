@@ -47,6 +47,7 @@ export interface InstallOptions {
 	isTTY: boolean;
 	skipPrompt: boolean;
 	homeDir?: string;
+	environment?: NodeJS.ProcessEnv;
 }
 
 export const parseInstallArgs = (
@@ -156,7 +157,7 @@ const executeInstallFromBundled = (
 			}
 			spinner.start("Checking prerequisites...");
 			return pipe(
-				checkOpenCodeInstalled(),
+				checkOpenCodeInstalled(options?.environment),
 				TE.chain((result) => {
 					const versionResult = checkOpenCodeVersion(result.value ?? "");
 					if (E.isLeft(versionResult)) {
@@ -397,7 +398,7 @@ export const executeInstall = (
 		),
 		TE.chain(() => {
 			spinner.start("Checking prerequisites...");
-			return checkOpenCodeInstalled();
+			return checkOpenCodeInstalled(options?.environment);
 		}),
 		TE.chain((result) => {
 			const versionResult = checkOpenCodeVersion(result.value ?? "");

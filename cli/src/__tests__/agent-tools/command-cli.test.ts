@@ -116,7 +116,7 @@ describe("agent-tools command adapter", () => {
 			data: { projectRoot: string; workRoot: string };
 		}>();
 		expect(roots.success).toBe(true);
-		expect(roots.data.projectRoot).toContain("rp1");
+		expect(roots.data.projectRoot).toBe(resolve(".."));
 		expect(roots.data.workRoot).toContain(".rp1/work");
 	});
 

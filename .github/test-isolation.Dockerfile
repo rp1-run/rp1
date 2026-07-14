@@ -49,7 +49,8 @@ ENV HOME=/tmp/rp1-install-home \
 # generated development stubs explicitly instead of invoking its nested install.
 RUN bun install --frozen-lockfile --ignore-scripts \
 	&& cp src/assets/embedded.stub.ts src/assets/embedded.ts \
-	&& cp src/config/supported-tools.generated.stub.ts src/config/supported-tools.generated.ts
+	&& cp src/config/supported-tools.generated.stub.ts src/config/supported-tools.generated.ts \
+	&& bun node_modules/puppeteer/install.mjs
 
 USER root
 

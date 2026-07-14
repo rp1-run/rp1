@@ -240,12 +240,15 @@ describe("computeDirectoryPaths", () => {
 describe("isContainerEnvironment", () => {
 	let originalRemoteContainers: string | undefined;
 	let originalCodespaces: string | undefined;
+	let originalTestHomeBoundary: string | undefined;
 
 	beforeEach(() => {
 		originalRemoteContainers = process.env.REMOTE_CONTAINERS;
 		originalCodespaces = process.env.CODESPACES;
+		originalTestHomeBoundary = process.env.RP1_TEST_HOME_BOUNDARY;
 		delete process.env.REMOTE_CONTAINERS;
 		delete process.env.CODESPACES;
+		delete process.env.RP1_TEST_HOME_BOUNDARY;
 		resetContainerDetectionCache();
 	});
 
@@ -260,6 +263,11 @@ describe("isContainerEnvironment", () => {
 		} else {
 			process.env.CODESPACES = originalCodespaces;
 		}
+		if (originalTestHomeBoundary === undefined) {
+			delete process.env.RP1_TEST_HOME_BOUNDARY;
+		} else {
+			process.env.RP1_TEST_HOME_BOUNDARY = originalTestHomeBoundary;
+		}
 		resetContainerDetectionCache();
 	});
 
@@ -273,6 +281,12 @@ describe("isContainerEnvironment", () => {
 		process.env.CODESPACES = "true";
 		const result = isContainerEnvironment();
 		expect(result).toBe(true);
+	});
+
+	test("does not treat the isolated test boundary as a production container", () => {
+		process.env.RP1_TEST_HOME_BOUNDARY = "1";
+		const result = isContainerEnvironment();
+		expect(result).toBe(false);
 	});
 
 	test("returns false when no container signals present", () => {

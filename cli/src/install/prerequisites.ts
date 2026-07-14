@@ -22,15 +22,15 @@ const execAsync = promisify(exec);
  * Check if OpenCode CLI is installed and in PATH.
  * Returns OpenCode version string if installed.
  */
-export const checkOpenCodeInstalled = (): TE.TaskEither<
-	CLIError,
-	PrerequisiteResult
-> =>
+export const checkOpenCodeInstalled = (
+	environment?: NodeJS.ProcessEnv,
+): TE.TaskEither<CLIError, PrerequisiteResult> =>
 	pipe(
 		TE.tryCatch(
 			async () => {
 				const { stdout } = await execAsync("opencode --version", {
 					timeout: 5000,
+					env: environment,
 				});
 				return stdout.trim();
 			},
