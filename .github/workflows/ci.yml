@@ -31,7 +31,9 @@ jobs:
         run: cd cli && bun install
 
       - name: Install native app dependencies
-        run: cd native-app && bun install
+        run: |
+          cd cli && bun install --frozen-lockfile --ignore-scripts
+          cd ../native-app && bun install --frozen-lockfile
 
       - name: Run checks
         run: just check-cli && just check-native-app
