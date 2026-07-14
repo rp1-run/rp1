@@ -23,9 +23,8 @@ FROM boundary AS test
 
 USER root
 
-# Bun builds the web UI's better-sqlite3 dependency from source during postinstall.
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends build-essential ca-certificates git python3 \
+	&& apt-get install -y --no-install-recommends ca-certificates git python3 \
 	&& rm -rf /var/lib/apt/lists/*
 
 COPY docker/certs/ /usr/local/share/ca-certificates/extra/
@@ -46,7 +45,11 @@ ENV HOME=/tmp/rp1-install-home \
 	BUN_INSTALL_CACHE_DIR=/workspace/.bun-cache \
 	PUPPETEER_CACHE_DIR=/workspace/.puppeteer-cache
 
-RUN bun install --frozen-lockfile
+# The CLI test boundary does not need web UI dependencies. Create postinstall's
+# generated development stubs explicitly instead of invoking its nested install.
+RUN bun install --frozen-lockfile --ignore-scripts \
+	&& cp src/assets/embedded.stub.ts src/assets/embedded.ts \
+	&& cp src/config/supported-tools.generated.stub.ts src/config/supported-tools.generated.ts
 
 USER root
 
