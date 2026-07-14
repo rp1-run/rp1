@@ -82,15 +82,9 @@ function checkProtectedDowngrade(
 	const originalRank = TIER_RANK[originalTier];
 	const newTier = effectiveTierForModel(newModel, platform);
 
-	// For unknown models, warn conservatively since we cannot verify capability
-	if (newTier === null) {
-		return {
-			agentName,
-			originalTier,
-			newModel,
-			message: `Protected agent "${agentName}" remapped from ${originalTier} to unknown model "${newModel}"; verify it meets reasoning requirements`,
-		};
-	}
+	// Unknown models are an explicit user choice already surfaced once by the
+	// advisory validation warning; only provable downgrades warrant per-agent noise.
+	if (newTier === null) return undefined;
 
 	const newRank = TIER_RANK[newTier];
 	if (newRank < originalRank) {

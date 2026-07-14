@@ -49,7 +49,7 @@ const CC_AGENT_STANDARD = [
 const CODEX_AGENT_DEEP = [
 	'name = "rp1-dev-feature-architect"',
 	'description = "Designs features"',
-	'model = "gpt-5.5"',
+	'model = "gpt-5.6-sol"',
 	'model_reasoning_effort = "high"',
 	"",
 	"developer_instructions = '''",
@@ -204,7 +204,7 @@ describe("applyRemappingsToAgents", () => {
 
 		const result = applyRemappingsToAgents(
 			agents,
-			{ codex: { deep: "gpt-5.4" } },
+			{ codex: { deep: "gpt-5.6-terra" } },
 			false,
 			createDeps(),
 		);
@@ -328,15 +328,15 @@ describe("applyRemappingsToAgents", () => {
 
 		const result = applyRemappingsToAgents(
 			agents,
-			{ codex: { deep: "gpt-5.4" } },
+			{ codex: { deep: "gpt-5.6-terra" } },
 			false,
 			createDeps(),
 		);
 
 		expect(result.agentsModified).toBe(1);
 		const updated = readFileSync(agentPath, "utf-8");
-		expect(updated).toContain('model = "gpt-5.4"');
-		expect(updated).not.toContain('model = "gpt-5.5"');
+		expect(updated).toContain('model = "gpt-5.6-terra"');
+		expect(updated).not.toContain('model = "gpt-5.6-sol"');
 		expect(updated).toContain("developer_instructions = '''");
 	});
 
@@ -373,7 +373,7 @@ describe("applyRemappingsToAgents", () => {
 			agents,
 			{
 				"claude-code": { deep: "sonnet" },
-				codex: { deep: "gpt-5.4" },
+				codex: { deep: "gpt-5.6-terra" },
 			},
 			false,
 			createDeps(),
@@ -540,7 +540,7 @@ describe("resolveConfig", () => {
 		expect(errors).toHaveLength(0);
 		expect(config.preset).toBe("budget");
 		expect(config.platforms["claude-code"]?.deep).toBe("haiku");
-		expect(config.platforms.codex?.deep).toBe("gpt-5.4-mini");
+		expect(config.platforms.codex?.deep).toBe("gpt-5.6-luna");
 	});
 
 	test("returns error for unknown preset", async () => {
@@ -686,5 +686,49 @@ describe("applyTierRemappings - cache refresh warnings", () => {
 		);
 		expect(refreshWarning).toBeDefined();
 		expect(refreshWarning).toContain("connection refused");
+	});
+
+	test("applies unrecognized model IDs with a warning instead of aborting", async () => {
+		await writeFixture(
+			tempDir,
+			".rp1/settings.toml",
+			["[models.claude-code]", 'deep = "fable-next"'].join("\n"),
+		);
+
+		const expectedPath = join(
+			DEFAULT_MARKETPLACE_DIR,
+			"base",
+			"agents",
+			"feature-architect.md",
+		);
+
+		const written: Record<string, string> = {};
+		const deps: ApplyDeps = {
+			readFile: (path) => {
+				if (path === expectedPath) return CC_AGENT_DEEP;
+				throw new Error(`unexpected read: ${path}`);
+			},
+			writeFile: (path, content) => {
+				written[path] = content;
+			},
+			fileExists: (path) => path === expectedPath,
+			refreshClaudeCodePlugins: async () => {},
+			getBundledAssets: () => E.right(minimalManifest),
+		};
+
+		const result = await applyTierRemappings(
+			{
+				projectRoot: tempDir,
+				dryRun: false,
+				globalSettingsPath: isolatedGlobalSettings(),
+			},
+			deps,
+		);
+
+		expect(result.agentsModified).toBe(1);
+		expect(written[expectedPath]).toContain("model: fable-next");
+		const advisory = result.warnings.find((w) => w.includes("fable-next"));
+		expect(advisory).toBeDefined();
+		expect(advisory).toContain("not recognized");
 	});
 });

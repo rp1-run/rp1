@@ -28,7 +28,7 @@ describe("validateTierRemappings", () => {
 		expect(result.errors).toHaveLength(0);
 	});
 
-	test("errors on unrecognized model identifier listing valid options", () => {
+	test("warns on unrecognized model identifier but stays valid", () => {
 		const config: TierRemappingConfig = {
 			platforms: {
 				"claude-code": { deep: "nonexistent" },
@@ -36,27 +36,28 @@ describe("validateTierRemappings", () => {
 		};
 
 		const result = validateTierRemappings(config);
-		expect(result.valid).toBe(false);
-		expect(result.errors.length).toBeGreaterThan(0);
+		expect(result.valid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+		expect(result.warnings.length).toBeGreaterThan(0);
 
-		const errorMsg = result.errors[0];
-		expect(errorMsg).toContain("nonexistent");
-		expect(errorMsg).toContain("opus");
-		expect(errorMsg).toContain("sonnet");
-		expect(errorMsg).toContain("haiku");
+		const warningMsg = result.warnings[0];
+		expect(warningMsg).toContain("nonexistent");
+		expect(warningMsg).toContain("not recognized");
+		expect(warningMsg).toContain("applying as-is");
 	});
 
-	test("errors on invalid model ID for codex platform", () => {
+	test("warns on unrecognized model ID for codex platform but stays valid", () => {
 		const config: TierRemappingConfig = {
 			platforms: {
-				codex: { standard: "invalid-model" },
+				codex: { standard: "gpt-9.9-future" },
 			},
 		};
 
 		const result = validateTierRemappings(config);
-		expect(result.valid).toBe(false);
-		expect(result.errors[0]).toContain("invalid-model");
-		expect(result.errors[0]).toContain("gpt-5.4");
+		expect(result.valid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+		expect(result.warnings[0]).toContain("gpt-9.9-future");
+		expect(result.warnings[0]).toContain("not recognized");
 	});
 
 	test("warns on unknown platform name (forward compatibility)", () => {
@@ -196,7 +197,7 @@ describe("validateTierRemappings", () => {
 		expect(result.valid).toBe(true);
 	});
 
-	test("validates multiple errors across platforms", () => {
+	test("warns per unrecognized model across platforms", () => {
 		const config: TierRemappingConfig = {
 			platforms: {
 				"claude-code": { deep: "bad-model-1" },
@@ -205,16 +206,16 @@ describe("validateTierRemappings", () => {
 		};
 
 		const result = validateTierRemappings(config);
-		expect(result.valid).toBe(false);
-		expect(result.errors.length).toBe(2);
-		expect(result.errors[0]).toContain("bad-model-1");
-		expect(result.errors[1]).toContain("bad-model-2");
+		expect(result.valid).toBe(true);
+		expect(result.warnings.length).toBe(2);
+		expect(result.warnings[0]).toContain("bad-model-1");
+		expect(result.warnings[1]).toContain("bad-model-2");
 	});
 
 	test("effort adjustments for codex platform", () => {
 		const config: TierRemappingConfig = {
 			platforms: {
-				codex: { deep: "gpt-5.4-mini" },
+				codex: { deep: "gpt-5.6-luna" },
 			},
 		};
 
@@ -235,7 +236,11 @@ describe("validateTierRemappings", () => {
 	test("valid config with codex platform mappings", () => {
 		const config: TierRemappingConfig = {
 			platforms: {
-				codex: { deep: "gpt-5.5", standard: "gpt-5.4", fast: "gpt-5.4-mini" },
+				codex: {
+					deep: "gpt-5.6-sol",
+					standard: "gpt-5.6-terra",
+					fast: "gpt-5.6-luna",
+				},
 			},
 		};
 

@@ -22,8 +22,8 @@ import type { BuildPlatform } from "./template-context.js";
  * - copilot: no per-agent model tiering mechanism.
  * - opencode: no per-agent model tiering — inherits the session model, like copilot.
  *
- * Codex: deep and frontier both map to gpt-5.5 (its most capable model);
- * standard = gpt-5.4; fast = gpt-5.4-mini.
+ * Codex: deep and frontier both map to gpt-5.6-sol (its most capable model);
+ * standard = gpt-5.6-terra; fast = gpt-5.6-luna.
  *
  * Antigravity: uses Gemini models (gemini-3.1-pro for deep/frontier,
  * gemini-3.5-flash for standard/fast).
@@ -34,22 +34,22 @@ export const TIER_MODEL_MAP: Readonly<
 > = {
 	frontier: {
 		"claude-code": "fable",
-		codex: "gpt-5.5",
+		codex: "gpt-5.6-sol",
 		antigravity: "gemini-3.1-pro",
 	},
 	deep: {
 		"claude-code": "opus",
-		codex: "gpt-5.5",
+		codex: "gpt-5.6-sol",
 		antigravity: "gemini-3.1-pro",
 	},
 	standard: {
 		"claude-code": "sonnet",
-		codex: "gpt-5.4",
+		codex: "gpt-5.6-terra",
 		antigravity: "gemini-3.5-flash",
 	},
 	fast: {
 		"claude-code": "haiku",
-		codex: "gpt-5.4-mini",
+		codex: "gpt-5.6-luna",
 		antigravity: "gemini-3.5-flash",
 	},
 } as const;

@@ -39,7 +39,7 @@ const CC_AGENT_NO_EFFORT = [
 const CODEX_AGENT_WITH_EFFORT = [
 	'name = "rp1-dev-feature-architect"',
 	'description = "Designs features with deep architectural analysis"',
-	'model = "gpt-5.5"',
+	'model = "gpt-5.6-sol"',
 	'model_reasoning_effort = "high"',
 	"",
 	"developer_instructions = '''",
@@ -53,7 +53,7 @@ const CODEX_AGENT_WITH_EFFORT = [
 const CODEX_AGENT_NO_EFFORT = [
 	'name = "rp1-dev-build-task-parser"',
 	'description = "Extracts structured task information"',
-	'model = "gpt-5.4-mini"',
+	'model = "gpt-5.6-luna"',
 	"",
 	"developer_instructions = '''",
 	"Multiline content here.",
@@ -150,7 +150,7 @@ describe("rewriteAgentArtifact - Codex", () => {
 		const params: RewriteAgentParams = {
 			content: CODEX_AGENT_WITH_EFFORT,
 			agentName: "feature-architect",
-			newModel: "gpt-5.4",
+			newModel: "gpt-5.6-terra",
 			originalTier: "deep",
 			originalEffort: "high",
 			platform: "codex",
@@ -160,8 +160,8 @@ describe("rewriteAgentArtifact - Codex", () => {
 
 		expect(result.modified).toBe(true);
 		// Model should be updated
-		expect(result.content).toContain('model = "gpt-5.4"');
-		expect(result.content).not.toContain('model = "gpt-5.5"');
+		expect(result.content).toContain('model = "gpt-5.6-terra"');
+		expect(result.content).not.toContain('model = "gpt-5.6-sol"');
 		// developer_instructions must be preserved verbatim
 		const diStart = "developer_instructions = '''";
 		const originalDI = CODEX_AGENT_WITH_EFFORT.slice(
@@ -175,7 +175,7 @@ describe("rewriteAgentArtifact - Codex", () => {
 		const params: RewriteAgentParams = {
 			content: CODEX_AGENT_WITH_EFFORT,
 			agentName: "feature-architect",
-			newModel: "gpt-5.4",
+			newModel: "gpt-5.6-terra",
 			originalTier: "deep",
 			originalEffort: "high",
 			platform: "codex",
@@ -191,7 +191,7 @@ describe("rewriteAgentArtifact - Codex", () => {
 		const params: RewriteAgentParams = {
 			content: CODEX_AGENT_NO_EFFORT,
 			agentName: "build-task-parser",
-			newModel: "gpt-5.4",
+			newModel: "gpt-5.6-terra",
 			originalTier: "fast",
 			platform: "codex",
 		};
@@ -199,7 +199,7 @@ describe("rewriteAgentArtifact - Codex", () => {
 		const result = rewriteAgentArtifact(params);
 
 		expect(result.modified).toBe(true);
-		expect(result.content).toContain('model = "gpt-5.4"');
+		expect(result.content).toContain('model = "gpt-5.6-terra"');
 		expect(result.content).not.toContain("model_reasoning_effort");
 	});
 
@@ -207,7 +207,7 @@ describe("rewriteAgentArtifact - Codex", () => {
 		const content = [
 			'name = "rp1-dev-test-agent"',
 			'description = "Agent with model ref in instructions"',
-			'model = "gpt-5.5"',
+			'model = "gpt-5.6-sol"',
 			"",
 			"developer_instructions = '''",
 			"When configuring the model, set:",
@@ -219,7 +219,7 @@ describe("rewriteAgentArtifact - Codex", () => {
 		const params: RewriteAgentParams = {
 			content,
 			agentName: "test-agent",
-			newModel: "gpt-5.4",
+			newModel: "gpt-5.6-terra",
 			originalTier: "deep",
 			platform: "codex",
 		};
@@ -229,7 +229,7 @@ describe("rewriteAgentArtifact - Codex", () => {
 		expect(result.modified).toBe(true);
 		// The top-level model should be rewritten
 		const lines = result.content.split("\n");
-		expect(lines[2]).toBe('model = "gpt-5.4"');
+		expect(lines[2]).toBe('model = "gpt-5.6-terra"');
 		// The model inside developer_instructions must NOT be rewritten
 		expect(result.content).toContain('model = "some-other-model"');
 	});
@@ -266,7 +266,7 @@ describe("effort correction", () => {
 		const params: RewriteAgentParams = {
 			content: CODEX_AGENT_WITH_EFFORT,
 			agentName: "feature-architect",
-			newModel: "gpt-5.4-mini",
+			newModel: "gpt-5.6-luna",
 			originalTier: "deep",
 			originalEffort: "high",
 			platform: "codex",
@@ -275,7 +275,7 @@ describe("effort correction", () => {
 		const result = rewriteAgentArtifact(params);
 
 		expect(result.modified).toBe(true);
-		expect(result.content).toContain('model = "gpt-5.4-mini"');
+		expect(result.content).toContain('model = "gpt-5.6-luna"');
 		expect(result.content).not.toContain("model_reasoning_effort");
 		expect(result.effortAdjustment).toBeDefined();
 		expect(result.effortAdjustment!.action).toBe("stripped");
@@ -339,6 +339,21 @@ describe("protected agent warnings", () => {
 			agentName: "feature-architect",
 			newModel: "sonnet",
 			originalTier: "standard",
+			originalEffort: "high",
+			platform: "claude-code",
+		};
+
+		const result = rewriteAgentArtifact(params);
+
+		expect(result.protectedWarning).toBeUndefined();
+	});
+
+	test("no warning when protected agent remapped to a model outside the tier map", () => {
+		const params: RewriteAgentParams = {
+			content: CC_AGENT_WITH_EFFORT,
+			agentName: "feature-architect",
+			newModel: "some-future-model",
+			originalTier: "deep",
 			originalEffort: "high",
 			platform: "claude-code",
 		};
@@ -417,12 +432,12 @@ describe("modelSupportsEffort", () => {
 		expect(modelSupportsEffort("sonnet", "claude-code")).toBe(true);
 	});
 
-	test("returns false for gpt-5.4-mini on codex (fast-class)", () => {
-		expect(modelSupportsEffort("gpt-5.4-mini", "codex")).toBe(false);
+	test("returns false for gpt-5.6-luna on codex (fast-class)", () => {
+		expect(modelSupportsEffort("gpt-5.6-luna", "codex")).toBe(false);
 	});
 
-	test("returns true for gpt-5.5 on codex", () => {
-		expect(modelSupportsEffort("gpt-5.5", "codex")).toBe(true);
+	test("returns true for gpt-5.6-sol on codex", () => {
+		expect(modelSupportsEffort("gpt-5.6-sol", "codex")).toBe(true);
 	});
 
 	test("returns true for unknown model (conservative: assume supports effort)", () => {

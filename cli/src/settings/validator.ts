@@ -143,7 +143,9 @@ const KNOWN_PLATFORMS: ReadonlySet<string> = new Set<BuildPlatform>([
  * 1. Preset name (if set) is a known preset.
  * 2. Platform names are known BuildPlatform values (unknown → warning).
  * 3. Platforms without model-field support (copilot, opencode) → warning.
- * 4. Model IDs are valid for the target platform (invalid → error with valid options).
+ * 4. Model IDs are advisory: unrecognized IDs produce a warning but are
+ *    applied as-is — the harness is the authority on which model names
+ *    exist, and new vendor models must be usable without an rp1 release.
  * 5. Effort compatibility: agents that would have effort stripped (when agent metadata provided).
  *
  * @param config - Parsed tier remapping configuration
@@ -191,10 +193,9 @@ export function validateTierRemappings(
 
 		for (const [tier, modelId] of Object.entries(tierMap)) {
 			if (!validIds.includes(modelId)) {
-				errors.push(
-					`Invalid model '${modelId}' for ${platform} tier '${tier}'. Valid models: ${validIds.join(", ")}`,
+				warnings.push(
+					`Model '${modelId}' for ${platform} tier '${tier}' is not recognized by this rp1 version; applying as-is — the harness will reject the ID if it does not exist`,
 				);
-				continue;
 			}
 
 			if (agentEntries && !modelSupportsEffort(modelId, platform)) {

@@ -57,9 +57,9 @@ describe("preset definitions", () => {
 		expect(preset.platforms["claude-code"]!.deep).toBe("opus");
 		expect(preset.platforms["claude-code"]!.standard).toBe("sonnet");
 		expect(preset.platforms["claude-code"]!.fast).toBe("haiku");
-		expect(preset.platforms.codex!.deep).toBe("gpt-5.5");
-		expect(preset.platforms.codex!.standard).toBe("gpt-5.4");
-		expect(preset.platforms.codex!.fast).toBe("gpt-5.4-mini");
+		expect(preset.platforms.codex!.deep).toBe("gpt-5.6-sol");
+		expect(preset.platforms.codex!.standard).toBe("gpt-5.6-terra");
+		expect(preset.platforms.codex!.fast).toBe("gpt-5.6-luna");
 	});
 
 	test("budget preset uses only fast-class models", () => {
@@ -67,9 +67,9 @@ describe("preset definitions", () => {
 		expect(preset.platforms["claude-code"]!.deep).toBe("haiku");
 		expect(preset.platforms["claude-code"]!.standard).toBe("haiku");
 		expect(preset.platforms["claude-code"]!.fast).toBe("haiku");
-		expect(preset.platforms.codex!.deep).toBe("gpt-5.4-mini");
-		expect(preset.platforms.codex!.standard).toBe("gpt-5.4-mini");
-		expect(preset.platforms.codex!.fast).toBe("gpt-5.4-mini");
+		expect(preset.platforms.codex!.deep).toBe("gpt-5.6-luna");
+		expect(preset.platforms.codex!.standard).toBe("gpt-5.6-luna");
+		expect(preset.platforms.codex!.fast).toBe("gpt-5.6-luna");
 	});
 
 	test("standard preset collapses deep to sonnet-class", () => {
@@ -77,9 +77,9 @@ describe("preset definitions", () => {
 		expect(preset.platforms["claude-code"]!.deep).toBe("sonnet");
 		expect(preset.platforms["claude-code"]!.standard).toBe("sonnet");
 		expect(preset.platforms["claude-code"]!.fast).toBe("haiku");
-		expect(preset.platforms.codex!.deep).toBe("gpt-5.4");
-		expect(preset.platforms.codex!.standard).toBe("gpt-5.4");
-		expect(preset.platforms.codex!.fast).toBe("gpt-5.4-mini");
+		expect(preset.platforms.codex!.deep).toBe("gpt-5.6-terra");
+		expect(preset.platforms.codex!.standard).toBe("gpt-5.6-terra");
+		expect(preset.platforms.codex!.fast).toBe("gpt-5.6-luna");
 	});
 });
 

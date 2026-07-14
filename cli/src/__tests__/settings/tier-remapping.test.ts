@@ -77,14 +77,14 @@ describe("loadTierRemappings", () => {
 				'deep = "sonnet"',
 				"",
 				"[models.codex]",
-				'deep = "gpt-5.4"',
+				'deep = "gpt-5.6-terra"',
 			].join("\n"),
 		);
 
 		const result = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		expect(result.preset).toBe("budget");
 		expect(result.platforms["claude-code"]!.deep).toBe("sonnet");
-		expect(result.platforms.codex!.deep).toBe("gpt-5.4");
+		expect(result.platforms.codex!.deep).toBe("gpt-5.6-terra");
 	});
 
 	test("omitted tiers are absent from parsed config", async () => {
@@ -155,17 +155,17 @@ describe("loadTierRemappings", () => {
 				'standard = "haiku"',
 				"",
 				"[models.codex]",
-				'deep = "gpt-5.5"',
-				'standard = "gpt-5.4"',
-				'fast = "gpt-5.4-mini"',
+				'deep = "gpt-5.6-sol"',
+				'standard = "gpt-5.6-terra"',
+				'fast = "gpt-5.6-luna"',
 			].join("\n"),
 		);
 
 		const result = await loadTierRemappings(tempDir, isolatedGlobalSettings());
 		expect(Object.keys(result.platforms)).toHaveLength(2);
 		expect(result.platforms["claude-code"]!.deep).toBe("sonnet");
-		expect(result.platforms.codex!.deep).toBe("gpt-5.5");
-		expect(result.platforms.codex!.fast).toBe("gpt-5.4-mini");
+		expect(result.platforms.codex!.deep).toBe("gpt-5.6-sol");
+		expect(result.platforms.codex!.fast).toBe("gpt-5.6-luna");
 	});
 
 	test("project-level settings override user-level per-platform", async () => {
