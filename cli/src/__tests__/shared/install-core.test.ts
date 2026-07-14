@@ -13,6 +13,7 @@ import type {
 	SupportedTool,
 	ToolsRegistry,
 } from "../../config/supported-tools.js";
+import * as realInstallCommand from "../../install/command.js";
 import {
 	type InstallContext,
 	installForSpecificTool as installForSpecificToolDirect,
@@ -32,6 +33,10 @@ import {
 } from "../helpers/index.js";
 
 type InstallCoreModule = typeof import("../../shared/install-core.js");
+
+// Bun's mock.restore() does not undo mock.module(). Keep the real command
+// module available so OpenCode routing mocks cannot leak into other test files.
+const REAL_INSTALL_COMMAND = { ...realInstallCommand };
 
 const createMockLogger = (): Logger => ({
 	trace: () => {},
@@ -151,6 +156,7 @@ const createCodexRegistry = (): ToolsRegistry => ({
 
 afterEach(() => {
 	mock.restore();
+	mock.module("../../install/command.js", () => REAL_INSTALL_COMMAND);
 });
 
 describe("install-core module", () => {
