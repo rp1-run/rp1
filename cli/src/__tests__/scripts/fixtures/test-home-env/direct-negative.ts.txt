@@ -1,0 +1,5 @@
+process.env.HOME = "/tmp/escape";
+delete process.env["XDG_CONFIG_HOME"];
+Bun.spawn(["bun"], { env: { HOME: "/tmp/escape" } });
+new Worker("./worker.ts", { env: {} });
+spawn("bun", [], { env: { PATH: "/usr/bin" } });

@@ -1211,8 +1211,6 @@ metadata:
 	test("does not treat the home directory as an initialized project", async () => {
 		const fakeHome = join(tempDir, "fake-home");
 		const nestedPathUnderHome = join(fakeHome, "scratch", "app");
-		const originalHome = process.env.HOME;
-
 		await writeFixture(fakeHome, ".rp1/project_id", "project-123");
 		await mkdir(nestedPathUnderHome, { recursive: true });
 
@@ -1232,34 +1230,27 @@ metadata:
 `,
 		);
 
-		process.env.HOME = fakeHome;
-
-		try {
-			const result = await resolveArgs({
+		const result = await resolveArgs(
+			{
 				schema_path: schemaPath,
 				raw_args: "",
 				project_root: nestedPathUnderHome,
-			})();
+			},
+			{ homeDir: fakeHome },
+		)();
 
-			expect(E.isRight(result)).toBe(true);
-			if (E.isRight(result)) {
-				expect(result.right.directories).toEqual({
-					projectRoot: nestedPathUnderHome,
-					projectId: undefined,
-					kbRoot: join(nestedPathUnderHome, ".rp1", "context"),
-					workRoot: join(nestedPathUnderHome, ".rp1", "work"),
-					codeRoot: nestedPathUnderHome,
-					isWorktree: false,
-					status: "uninitialized",
-					nextStepCommand: "rp1 init",
-				});
-			}
-		} finally {
-			if (originalHome === undefined) {
-				delete process.env.HOME;
-			} else {
-				process.env.HOME = originalHome;
-			}
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.directories).toEqual({
+				projectRoot: nestedPathUnderHome,
+				projectId: undefined,
+				kbRoot: join(nestedPathUnderHome, ".rp1", "context"),
+				workRoot: join(nestedPathUnderHome, ".rp1", "work"),
+				codeRoot: nestedPathUnderHome,
+				isWorktree: false,
+				status: "uninitialized",
+				nextStepCommand: "rp1 init",
+			});
 		}
 	});
 

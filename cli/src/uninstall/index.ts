@@ -13,7 +13,10 @@ import * as TE from "fp-ts/lib/TaskEither.js";
 import { type CLIError, runtimeError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
 import { confirmAction, type PromptOptions } from "../../shared/prompts.js";
-import { findFencedContent, hasFencedContent } from "../init/comment-fence.js";
+import {
+	hasFencedContent,
+	removeFencedContent,
+} from "../init/comment-fence.js";
 import { resolveInitDirectoryModel } from "../init/directory-model.js";
 import {
 	findShellFencedContent,
@@ -87,22 +90,6 @@ async function writeFileContent(
 	content: string,
 ): Promise<void> {
 	await fs.writeFile(filePath, content, "utf-8");
-}
-
-/**
- * Remove fenced content from a markdown file (CLAUDE.md, AGENTS.md).
- * Uses HTML comment markers: <!-- rp1:start --> and <!-- rp1:end -->
- */
-function removeFencedContent(content: string): string {
-	const position = findFencedContent(content);
-	if (!position) return content;
-
-	const before = content.slice(0, position.start);
-	const after = content.slice(position.end);
-
-	// Clean up extra newlines around the removed section
-	const result = (before.trimEnd() + after.trimStart()).trim();
-	return result.length > 0 ? `${result}\n` : "";
 }
 
 /**

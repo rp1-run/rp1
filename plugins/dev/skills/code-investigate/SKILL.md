@@ -63,7 +63,7 @@ stateDiagram-v2
 Invoke the bug-investigator agent with the freeform problem statement and derived issue id:
 
 {% dispatch_agent "rp1-dev:bug-investigator" %}
-PROBLEM_STATEMENT={PROBLEM_STATEMENT}, ISSUE_ID={EFFECTIVE_ISSUE_ID}
+PROBLEM_STATEMENT={PROBLEM_STATEMENT}, ISSUE_ID={EFFECTIVE_ISSUE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}
 {% enddispatch_agent %}
 
 The agent will:

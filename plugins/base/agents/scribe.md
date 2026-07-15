@@ -16,11 +16,15 @@ arguments:
     type: string
     required: true
     description: "JSON array of project-relative documentation paths"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Canonical KB root for resolving knowledge base file paths"
   - name: KB_INDEX_PATH
     type: string
     required: false
-    default: ".rp1/context/index.md"
-    description: "KB index path for scan mode"
+    default: ""
+    description: "KB index path for scan mode; when empty, falls back to {KB_ROOT}/index.md"
   - name: SCAN_RESULTS_PATH
     type: string
     required: false
@@ -49,7 +53,8 @@ arguments:
 |-------|------|---------|------|
 | `MODE` | enum | (req) | `scan` or `process` |
 | `FILES` | json string | (req) | JSON array of project-relative doc paths |
-| `KB_INDEX_PATH` | string | `.rp1/context/index.md` | scan only |
+| `KB_ROOT` | string | (req) | Canonical KB root path |
+| `KB_INDEX_PATH` | string | `""` | scan only; falls back to `{KB_ROOT}/index.md` when empty |
 | `SCAN_RESULTS_PATH` | string | `""` | process only |
 | `STYLE` | json string | `{}` | process only |
 
@@ -86,6 +91,8 @@ arguments:
 §PROC
 
 ### 1. Parse Inputs
+
+If `KB_INDEX_PATH` is empty, set `KB_INDEX_PATH = {KB_ROOT}/index.md`.
 
 Parse `FILES` as JSON array -> `FILE_LIST`.
 
@@ -235,7 +242,7 @@ Scenario handling:
 
 `add`
 - Parse `kb_match` as `file:line` or `file:start-end`
-- Read `.rp1/context/{file}`
+- Read `{KB_ROOT}/{file}`
 - Extract the KB section starting at the referenced line:
   - prefer the referenced heading through the next heading of the same or higher level
   - otherwise use a tight fallback window around the referenced line

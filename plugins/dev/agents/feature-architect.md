@@ -106,7 +106,7 @@ When redirecting:
 - do NOT write `design.md`, `design-decisions.md`, or `hypotheses.md`
 - do NOT register design artifacts
 - do NOT soften the recommendation with legacy `tracker.md` or `milestone-*.md` guidance
-- set `source_artifact` to `.rp1/work/features/{FEATURE_ID}/requirements.md`
+- set `source_artifact` to `{WORK_ROOT}/features/{FEATURE_ID}/requirements.md`
 - set `source_relative_path` to `features/{FEATURE_ID}/requirements.md`
 - set `redirect_command` to `/phase-plan features/{FEATURE_ID}/requirements.md` and append ` --afk` when `AFK_MODE=true`
 
@@ -295,7 +295,7 @@ If either command fails, log a warning (`[feature-architect] Failed to register 
 
 After artifact registration, if `flagged_hypotheses[]` is non-empty, persist the hypotheses to disk. When `flagged_hypotheses[]` is empty, skip this section entirely -- do NOT create `hypotheses.md`.
 
-1. Write `.rp1/work/features/{FEATURE_ID}/hypotheses.md` using the `hypothesis-document.md` template loaded in §7.
+1. Write `{WORK_ROOT}/features/{FEATURE_ID}/hypotheses.md` using the `hypothesis-document.md` template loaded in §7.
 2. Register the artifact (skip if WORKFLOW is empty).
 3. Add `"hypotheses"` to the `artifacts` map in the completion JSON (§12).
 
@@ -352,7 +352,7 @@ Oversized scope redirect:
   "status": "needs_phase_planning",
   "message": "Requirements span multiple independently valuable features. Use /phase-plan before /build continues.",
   "reason": "[why this exceeds a single feature]",
-  "source_artifact": ".rp1/work/features/{FEATURE_ID}/requirements.md",
+  "source_artifact": "{WORK_ROOT}/features/{FEATURE_ID}/requirements.md",
   "source_relative_path": "features/{FEATURE_ID}/requirements.md",
   "redirect_command": "/phase-plan features/{FEATURE_ID}/requirements.md",
   "artifacts": {},
@@ -367,8 +367,8 @@ Default (no hypotheses):
 {
   "status": "success",
   "artifacts": {
-    "design": ".rp1/work/features/{FEATURE_ID}/design.md",
-    "decisions": ".rp1/work/features/{FEATURE_ID}/design-decisions.md"
+    "design": "{WORK_ROOT}/features/{FEATURE_ID}/design.md",
+    "decisions": "{WORK_ROOT}/features/{FEATURE_ID}/design-decisions.md"
   },
   "flagged_hypotheses": [],
   "afk_decisions": [
@@ -387,9 +387,9 @@ When `flagged_hypotheses` is non-empty and `hypotheses.md` was created (see §9.
 {
   "status": "success",
   "artifacts": {
-    "design": ".rp1/work/features/{FEATURE_ID}/design.md",
-    "decisions": ".rp1/work/features/{FEATURE_ID}/design-decisions.md",
-    "hypotheses": ".rp1/work/features/{FEATURE_ID}/hypotheses.md"
+    "design": "{WORK_ROOT}/features/{FEATURE_ID}/design.md",
+    "decisions": "{WORK_ROOT}/features/{FEATURE_ID}/design-decisions.md",
+    "hypotheses": "{WORK_ROOT}/features/{FEATURE_ID}/hypotheses.md"
   },
   "flagged_hypotheses": [
     {

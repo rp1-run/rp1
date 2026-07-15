@@ -12,6 +12,7 @@ declare const __RP1_DEV_BUILD__: boolean | undefined;
 declare const __RP1_DEV_SHA__: string | undefined;
 
 import {
+	type CacheOptions,
 	DEFAULT_TTL_HOURS,
 	isCacheValid,
 	readCacheSync,
@@ -35,7 +36,7 @@ export interface VersionCheckResult {
 /**
  * Options for version check operations.
  */
-export interface CheckOptions {
+export interface CheckOptions extends CacheOptions {
 	readonly force?: boolean;
 	readonly ttlHours?: number;
 	readonly timeoutMs?: number;
@@ -284,7 +285,7 @@ export const getLatestVersion = async (
 	try {
 		// Check cache first (unless force is set)
 		if (!force) {
-			const cached = readCacheSync();
+			const cached = readCacheSync(options);
 			if (cached && isCacheValid(cached)) {
 				const checkedAt = new Date(cached.checkedAt);
 				const now = new Date();
@@ -343,11 +344,14 @@ export const getLatestVersion = async (
 
 		// Update cache (await but ignore errors - cache is non-critical)
 		try {
-			await writeCache({
-				latestVersion: version,
-				releaseUrl: releaseUrl,
-				ttlHours: ttlHours,
-			})();
+			await writeCache(
+				{
+					latestVersion: version,
+					releaseUrl: releaseUrl,
+					ttlHours: ttlHours,
+				},
+				options,
+			)();
 		} catch {
 			// Ignore cache write errors - non-critical
 		}

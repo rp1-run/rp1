@@ -7,7 +7,7 @@ Migrates an existing rp1 project to the project-local directory model and upgrad
 ## Synopsis
 
 ```bash
-rp1 migrate [--dry-run]
+rp1 migrate [--dry-run] [--to-central]
 ```
 
 ## Options
@@ -15,6 +15,7 @@ rp1 migrate [--dry-run]
 | Option | Description |
 |--------|-------------|
 | `--dry-run` | Preview migration actions without modifying files or database rows. The preview includes Activity search rows that would be created or refreshed. |
+| `--to-central` | Convert this project from local to central storage mode. Only executes when explicitly passed; bare `rp1 migrate` performs local-mode migration only. |
 
 ## Description
 
@@ -130,6 +131,18 @@ rp1 migrate
 rp1 migrate --dry-run
 ```
 
+### Convert to Central Storage
+
+```bash
+rp1 migrate --to-central
+```
+
+### Preview Central Conversion
+
+```bash
+rp1 migrate --to-central --dry-run
+```
+
 ### Migration Workflow
 
 The typical migration workflow after upgrading rp1:
@@ -155,6 +168,69 @@ When rp1 releases new stanza content (the managed blocks inside `CLAUDE.md`, `AG
 - Each upgraded file reports its version transition in the output (e.g., `v0.6.0 -> v0.7.1`).
 
 See [Fence Versioning](fence-versioning.md) for details on the version scheme.
+
+## Central Storage Conversion (`--to-central`)
+
+When `--to-central` is passed, six additional steps execute after the local-mode steps listed above. These steps convert the project from local storage (KB and work artifacts inside `.rp1/`) to central storage (KB and work artifacts under `~/.rp1/projects/<project_id>/`).
+
+1. **Relocates `.rp1/context/` and `.rp1/work/`** to `~/.rp1/projects/<project_id>/`, preserving directory structure. Cross-device moves are handled automatically. Files that already exist at the destination are skipped.
+2. **Writes `[storage] mode = "central"`** to the project's `.rp1/settings.toml`. If the file or section does not exist, it is created. If `mode` is already set to `"central"`, the write is skipped. Existing comments and formatting in the TOML file are preserved.
+3. **Removes rp1 fenced stanzas** from project-level `CLAUDE.md` and `AGENTS.md`. Content outside the fence markers is not modified. Files without fenced content are skipped.
+4. **Injects global stanzas** into harness-specific instruction files (e.g., `~/.claude/CLAUDE.md`) for each configured harness. If global stanzas already exist, they are updated to the latest version.
+5. **Updates `.gitignore`** to the central preset, which ignores the entire `.rp1/` directory since KB and work files are stored externally.
+6. **Runs `git rm --cached`** on previously tracked files under `.rp1/context/` and `.rp1/work/`, removing them from the git index without deleting the central copies.
+
+These steps only execute when `--to-central` is explicitly passed. Bare `rp1 migrate` performs local-mode migration only and does not convert, suggest, or reference central storage mode.
+
+If the project is already in central mode (`[storage] mode = "central"` is already set), the command reports no changes (idempotent).
+
+`--dry-run` composes with `--to-central`: `rp1 migrate --to-central --dry-run` reports all planned central-conversion actions without modifying files, settings, or the git index.
+
+### Central Conversion Output
+
+```
+Migration complete for /Users/dev/myproject
+
+  Project ID: 550e8400-e29b-41d4-a716-446655440000 (already existed)
+  .rp1/work/ already exists
+  No legacy work directory found
+  .gitignore already up to date
+  No database records to backfill
+  Activity search rows already up to date
+  Stanza content already up to date
+  No Arcade settings JSON to migrate
+
+  Central storage conversion:
+    Relocated 5 context file(s) and 12 work file(s) to central store
+    Wrote [storage] mode = "central" to settings.toml
+    Removed stanzas from: CLAUDE.md, AGENTS.md
+    Global stanzas: 1 written
+    Updated .gitignore to central preset
+    Unstaged 17 file(s) from git index
+```
+
+### Central Conversion Dry-run Output
+
+```
+Migration dry-run for /Users/dev/myproject
+
+  Project ID: 550e8400-e29b-41d4-a716-446655440000 (already existed)
+  .rp1/work/ already exists
+  No legacy work directory found
+  Activity search rows already up to date
+  No Arcade settings JSON to migrate
+
+  Central storage conversion:
+    Would relocate 5 context file(s) and 12 work file(s) to central store
+    Would write [storage] mode = "central" to settings.toml
+    Would remove stanzas from: CLAUDE.md, AGENTS.md
+    Would manage global stanzas: 1 to write, 0 to update
+    Would update .gitignore to central preset
+    Would unstage 17 tracked file(s) from git index
+  Would leave database history and files unchanged
+
+Run without --dry-run to apply these changes.
+```
 
 ## Error Handling
 

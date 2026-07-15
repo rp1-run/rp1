@@ -29,8 +29,6 @@ providers:
     label: rp1-agentic-eval
     config:
       model: sonnet
-      betas:
-        - fast-mode-2026-02-01
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
       ask_user_question:

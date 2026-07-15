@@ -11,6 +11,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import type { Logger } from "../../../shared/logger.js";
@@ -20,6 +21,7 @@ import {
 	createDirectoryStructure,
 	createSettingsFiles,
 	injectInstructions,
+	resolveInitPathContext,
 } from "../../init/steps/project-setup.js";
 import { AGENTS_REFERENCE_TEMPLATE } from "../../init/templates/index.js";
 import type { DetectedTool } from "../../init/tool-detector.js";
@@ -68,6 +70,16 @@ async function readFileIfExists(filePath: string): Promise<string | null> {
 	} catch {
 		return null;
 	}
+}
+
+async function setupLocalStorageMode(cwd: string): Promise<void> {
+	const rp1Dir = join(cwd, ".rp1");
+	await mkdir(rp1Dir, { recursive: true });
+	await writeFile(
+		join(rp1Dir, "settings.toml"),
+		'[storage]\nmode = "local"\n',
+		"utf-8",
+	);
 }
 
 function createDetectedTool(
@@ -205,6 +217,7 @@ describe("init-install separation", () => {
 		test(
 			"install failure does not prevent project setup from completing",
 			async () => {
+				await setupLocalStorageMode(tempDir);
 				const logger = createTrackingLogger();
 				const options: InitOptions = { cwd: tempDir, yes: true };
 
@@ -382,6 +395,15 @@ describe("init-install separation", () => {
 			expect(firstContent).toBe(secondContent);
 		});
 
+		test("headless omitted init path inputs preserve production defaults", () => {
+			const paths = resolveInitPathContext();
+
+			expect(paths.homeDir).toBe(homedir());
+			expect(paths.globalSettingsPath).toBe(
+				join(homedir(), ".config", "rp1", "settings.toml"),
+			);
+		});
+
 		test("createSettingsFiles writes current directory configuration guidance", async () => {
 			const logger = createMockLogger();
 
@@ -393,13 +415,8 @@ describe("init-install separation", () => {
 
 			expect(content).not.toContain("\ngit_worktree = false");
 			expect(content).not.toContain("\ngit_commit = false");
-			expect(content).toContain(
-				"# Directory paths are fixed from the project root:",
-			);
-			expect(content).toContain(
-				"# - Knowledge base files live in .rp1/context",
-			);
-			expect(content).toContain("# - Work artifacts live in .rp1/work");
+			expect(content).toContain("[storage]");
+			expect(content).toContain('mode = "central"');
 			expect(content).toContain('# [arguments."dev:build"]');
 			expect(content).toContain("# git_commit = false");
 		});

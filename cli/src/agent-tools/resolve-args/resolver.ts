@@ -13,6 +13,7 @@ import {
 	toCanonicalString,
 } from "../../../shared/canonical-name.js";
 import {
+	type DirectoryResolutionOptions,
 	type ResolvedDirectorySet,
 	resolveDirectorySet,
 } from "../../../shared/directory-resolution.js";
@@ -22,6 +23,7 @@ import {
 	parseError,
 	runtimeError,
 } from "../../../shared/errors.js";
+import { computeDirectoryPaths } from "../../../shared/storage-mode.js";
 import type {
 	ArgumentDefinition,
 	EnvironmentDefinition,
@@ -412,12 +414,17 @@ export const resolveImpliesChains = (
 
 const buildFallbackDirectories = (projectRoot: string): ResolvedDirectories => {
 	const resolvedProjectRoot = path.resolve(projectRoot);
+	const { kbRoot, workRoot } = computeDirectoryPaths(
+		resolvedProjectRoot,
+		undefined,
+		"local",
+	);
 
 	return {
 		projectRoot: resolvedProjectRoot,
 		projectId: undefined,
-		kbRoot: path.join(resolvedProjectRoot, ".rp1", "context"),
-		workRoot: path.join(resolvedProjectRoot, ".rp1", "work"),
+		kbRoot,
+		workRoot,
 		codeRoot: resolvedProjectRoot,
 		isWorktree: false,
 		status: "uninitialized",
@@ -441,9 +448,12 @@ const mapResolvedDirectories = (
 	}),
 });
 
-export const resolveDirectories = (projectRoot: string): ResolvedDirectories =>
+export const resolveDirectories = (
+	projectRoot: string,
+	options: DirectoryResolutionOptions = {},
+): ResolvedDirectories =>
 	pipe(
-		resolveDirectorySet(projectRoot),
+		resolveDirectorySet(projectRoot, options),
 		E.match(
 			() => buildFallbackDirectories(projectRoot),
 			(directories) => mapResolvedDirectories(directories),
@@ -571,6 +581,7 @@ const mergeArgumentLayers = (
  */
 export const resolveArgs = (
 	input: ResolveArgsInput,
+	directoryOptions: DirectoryResolutionOptions = {},
 ): TE.TaskEither<CLIError, ResolvedArgs> => {
 	// Parse canonical name once if input.name is provided
 	let canonicalName: CanonicalName | null = null;
@@ -581,7 +592,7 @@ export const resolveArgs = (
 		}
 	}
 
-	const directories = resolveDirectories(input.project_root);
+	const directories = resolveDirectories(input.project_root, directoryOptions);
 
 	// Fast path: caller already parsed the schema file (e.g., workflow-bootstrap)
 	if (input.parsedSchema) {

@@ -6,7 +6,6 @@
  */
 
 import * as fs from "node:fs/promises";
-import { homedir } from "node:os";
 import * as path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { nanoid } from "nanoid";
@@ -19,17 +18,12 @@ import {
 	type ToolsRegistry,
 } from "../../../config/supported-tools.js";
 import { LATEST_FENCE_VERSION } from "../../../lib/fence-version.js";
+import { loadEnabledHarnesses } from "../../../settings/loader.js";
 import {
 	type InstallContext,
 	installAllDetectedTools,
 } from "../../../shared/install-core.js";
-import {
-	appendFencedContent,
-	hasFencedContent,
-	replaceFencedContent,
-	validateFencing,
-	wrapWithFence,
-} from "../../comment-fence.js";
+import { getClaudePluginDirs } from "../../../shared/paths.js";
 import {
 	detectProjectContext,
 	type ProjectContext,
@@ -54,7 +48,10 @@ import type {
 	ReinitState,
 	StepId,
 } from "../../models.js";
-import { buildSettingsTomlTemplate } from "../../settings-template.js";
+import {
+	buildGlobalSettingsTomlTemplate,
+	buildSettingsTomlTemplate,
+} from "../../settings-template.js";
 import {
 	appendShellFencedContent,
 	hasShellFencedContent,
@@ -62,24 +59,33 @@ import {
 	validateShellFencing,
 	wrapWithShellFence,
 } from "../../shell-fence.js";
+import {
+	buildHarnessItems,
+	getStableDefaults,
+	writeHarnessSelection,
+} from "../../steps/harness-selection.js";
 import { performHealthCheck } from "../../steps/health-check.js";
 import { checkPluginsInstalled } from "../../steps/plugin-installation.js";
+import {
+	createStorageDirectories,
+	type InitPathContext,
+	injectInstructionsForStorageMode,
+	resolveInitPathContext,
+} from "../../steps/project-setup.js";
 import {
 	checkRp1Readiness,
 	type ReadinessResult,
 } from "../../steps/readiness.js";
+import {
+	generateSandboxGrants,
+	resolveHarnesses,
+} from "../../steps/sandbox-grants.js";
 import { generateNextSteps } from "../../steps/summary.js";
 import {
 	verifyClaudeCodePlugins,
 	verifyCopilotPlugins,
 	verifyOpenCodePlugins,
 } from "../../steps/verification.js";
-import {
-	AGENTS_REFERENCE_TEMPLATE,
-	getInstructionFiles,
-	getPrimaryInstructionTemplateTarget,
-	resolveInstructionTemplate,
-} from "../../templates/index.js";
 import {
 	type DetectedTool,
 	detectTools,
@@ -92,14 +98,7 @@ import {
 import type { WizardAction, WizardState } from "./useWizardState.js";
 
 const DEFAULT_SETTINGS_TEMPLATE = buildSettingsTomlTemplate();
-
-/**
- * Resolve the global settings file path.
- * Uses ~/.config/rp1/settings.toml to match settings-loader.ts.
- */
-function resolveGlobalSettingsPath(): string {
-	return path.join(homedir(), ".config", "rp1", "settings.toml");
-}
+const GLOBAL_SETTINGS_TEMPLATE = buildGlobalSettingsTomlTemplate();
 
 /**
  * Resolve the local settings file path.
@@ -132,6 +131,7 @@ type AddActivityFn = (
  */
 interface ExecutionContext {
 	cwd: string;
+	paths: InitPathContext;
 	registry: ToolsRegistry | null;
 	gitResult: GitRootResult | null;
 	reinitState: ReinitState | null;
@@ -153,6 +153,7 @@ interface ExecutionContext {
 		ancestorProjectChoice?: "use-existing" | "create-nested";
 		reinitChoice?: ReinitChoice;
 		gitignorePreset?: GitignorePreset;
+		enabledHarnesses?: readonly string[];
 	};
 }
 
@@ -161,7 +162,12 @@ interface ExecutionContext {
  * When a step needs user input, it sets this in the context.
  */
 export interface PromptRequest {
-	readonly type: "git-root" | "reinit" | "gitignore" | "ancestor-project";
+	readonly type:
+		| "git-root"
+		| "reinit"
+		| "gitignore"
+		| "ancestor-project"
+		| "harness-selection";
 	readonly resolve: (value: string) => void;
 	/** Current working directory (for git-root and ancestor-project prompts) */
 	readonly cwd?: string;
@@ -230,6 +236,7 @@ export const useStepExecution = ({
 	// Mutable execution context shared across steps
 	const contextRef = useRef<ExecutionContext>({
 		cwd: options.cwd ?? process.cwd(),
+		paths: resolveInitPathContext(options),
 		registry: null,
 		gitResult: null,
 		reinitState: null,
@@ -512,8 +519,10 @@ export const useStepExecution = ({
 				chooseInitDirectoryModel(ctx.cwd, ctx.forceLocalProject);
 			ctx.directories = directories;
 
-			let created = 0;
-
+			// Only the minimal .rp1/ + project_id are created here. Context and
+			// work directories depend on the storage mode in settings.toml, so
+			// they are created by the settings-setup step after that file is
+			// written (mirroring the headless three-phase init flow).
 			if (!(await directoryExists(directories.rp1Dir))) {
 				await fs.mkdir(directories.rp1Dir, { recursive: true });
 				addAct(
@@ -521,35 +530,12 @@ export const useStepExecution = ({
 					`Created ${formatDirectoryForDisplay(ctx.cwd, directories.rp1Dir)}`,
 					"success",
 				);
-				created++;
-			}
-
-			if (!(await directoryExists(directories.contextDir))) {
-				await fs.mkdir(directories.contextDir, { recursive: true });
-				addAct(
-					"directory-setup",
-					`Created ${formatDirectoryForDisplay(ctx.cwd, directories.contextDir)}`,
-					"success",
-				);
-				created++;
-			}
-
-			if (!(await directoryExists(directories.workDir))) {
-				await fs.mkdir(directories.workDir, { recursive: true });
-				addAct(
-					"directory-setup",
-					`Created ${formatDirectoryForDisplay(ctx.cwd, directories.workDir)}`,
-					"success",
-				);
-				created++;
+			} else {
+				addAct("directory-setup", "Directory structure exists", "success");
 			}
 
 			await ensureProjectId(directories.projectRoot);
 			addAct("directory-setup", "Project ID ensured", "success");
-
-			if (created === 0) {
-				addAct("directory-setup", "Directory structure exists", "success");
-			}
 		},
 		[],
 	);
@@ -563,11 +549,11 @@ export const useStepExecution = ({
 			const ctx = contextRef.current;
 
 			// Create or merge global settings file
-			const globalPath = resolveGlobalSettingsPath();
+			const globalPath = ctx.paths.globalSettingsPath;
 			const globalDir = path.dirname(globalPath);
 			if (!(await fileExists(globalPath))) {
 				await fs.mkdir(globalDir, { recursive: true });
-				await writeFileContent(globalPath, DEFAULT_SETTINGS_TEMPLATE);
+				await writeFileContent(globalPath, GLOBAL_SETTINGS_TEMPLATE);
 				addAct("settings-setup", "Created global settings file", "success");
 			} else {
 				addAct(
@@ -592,8 +578,70 @@ export const useStepExecution = ({
 					"info",
 				);
 			}
+
+			// Create storage directories now that settings.toml determines the
+			// mode: central mode places context/work under ~/.rp1/projects/<id>/,
+			// local mode under <projectRoot>/.rp1/.
+			const directories =
+				ctx.directories ??
+				chooseInitDirectoryModel(ctx.cwd, ctx.forceLocalProject);
+			ctx.directories = directories;
+			const projectId = await ensureProjectId(directories.projectRoot);
+			const storageActions = await createStorageDirectories(
+				directories.projectRoot,
+				projectId,
+				{
+					info: (message: string) =>
+						addAct("settings-setup", message, "success"),
+				},
+				ctx.paths.homeDir,
+				ctx.paths.globalSettingsPath,
+			);
+			if (storageActions.length === 0) {
+				addAct("settings-setup", "Storage directories exist", "info");
+			}
 		},
 		[],
+	);
+
+	/**
+	 * Execute the sandbox grants step.
+	 * Generates per-platform filesystem grants so AI coding harnesses
+	 * can access centrally-stored artifacts under ~/.rp1/.
+	 */
+	const executeSandboxGrants = useCallback(
+		async (addAct: AddActivityFn): Promise<void> => {
+			const ctx = contextRef.current;
+			const wizardSelection = state.userChoices.enabledHarnesses;
+			const selection = wizardSelection
+				? [...wizardSelection]
+				: (loadEnabledHarnesses(ctx.paths.globalSettingsPath) ?? undefined);
+			try {
+				const grantResults = await generateSandboxGrants(
+					selection,
+					ctx.cwd,
+					ctx.paths.globalSettingsPath,
+				);
+				let granted = 0;
+				for (const grant of grantResults) {
+					if (grant.written) {
+						addAct(
+							"sandbox-grants",
+							`${grant.platform} → ${grant.path}`,
+							"success",
+						);
+						granted++;
+					}
+				}
+				if (granted === 0) {
+					addAct("sandbox-grants", "No sandbox grants needed", "info");
+				}
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : String(error);
+				addAct("sandbox-grants", `Grant error: ${msg}`, "warning");
+			}
+		},
+		[state.userChoices.enabledHarnesses],
 	);
 
 	/**
@@ -652,121 +700,130 @@ export const useStepExecution = ({
 	);
 
 	/**
-	 * Inject into a single instruction file, optionally overriding the template.
+	 * Execute the harness-selection step.
+	 * In interactive mode, requests a multi-select prompt. In non-interactive
+	 * mode (--yes), auto-selects all stable harnesses.
 	 */
-	const injectIntoSingleFile = useCallback(
-		async (
-			addAct: AddActivityFn,
-			file: string,
-			detectedTool: DetectedTool | null,
-			templateOverride?: string,
-		): Promise<void> => {
+	const executeHarnessSelection = useCallback(
+		async (addAct: AddActivityFn): Promise<void> => {
 			const ctx = contextRef.current;
-			const filePath = path.resolve(ctx.cwd, file);
-			const exists = await fileExists(filePath);
 
-			if (!exists) return;
-
-			addAct("instruction-injection", `Configuring ${file}...`, "info");
-
-			const existingContent = await readFileContent(filePath);
-			if (existingContent === null) {
-				throw new Error(`Failed to read file: ${filePath}`);
-			}
-
-			const validation = validateFencing(existingContent);
-			if (!validation.valid) {
-				throw new Error(`Invalid fencing in ${file}: ${validation.error}`);
-			}
-
-			const template =
-				templateOverride ??
-				resolveInstructionTemplate(file as "CLAUDE.md" | "AGENTS.md", {
-					detectedTool,
-					existingContent,
+			if (
+				!ctx.toolDetectionResult ||
+				ctx.toolDetectionResult.detected.length === 0
+			) {
+				addAct("harness-selection", "Skipped (no tools detected)", "info");
+				dispatch({
+					type: "SKIP_STEP",
+					stepId: "harness-selection",
+					reason: "No AI tools detected",
 				});
-
-			if (hasFencedContent(existingContent)) {
-				const newContent = replaceFencedContent(
-					existingContent,
-					template,
-					LATEST_FENCE_VERSION,
-				);
-				await writeFileContent(filePath, newContent);
-				addAct("instruction-injection", `Updated ${file}`, "success");
-			} else {
-				const newContent = appendFencedContent(
-					existingContent,
-					template,
-					LATEST_FENCE_VERSION,
-				);
-				await writeFileContent(filePath, newContent);
-				addAct("instruction-injection", `Appended to ${file}`, "success");
+				return;
 			}
+
+			const items = buildHarnessItems(ctx.toolDetectionResult.detected);
+
+			if (items.length === 0) {
+				addAct("harness-selection", "Skipped (no enabled tools)", "info");
+				dispatch({
+					type: "SKIP_STEP",
+					stepId: "harness-selection",
+					reason: "No enabled tools",
+				});
+				return;
+			}
+
+			if (options.yes) {
+				// Non-interactive: select all stable harnesses
+				const stableIds = getStableDefaults(items);
+				addAct(
+					"harness-selection",
+					`Auto-selected ${stableIds.length} stable harness${stableIds.length === 1 ? "" : "es"}`,
+					"success",
+				);
+				writeHarnessSelection(stableIds, ctx.paths.globalSettingsPath);
+				dispatch({
+					type: "SET_USER_CHOICE",
+					key: "enabledHarnesses",
+					value: stableIds,
+				});
+				return;
+			}
+
+			// Interactive mode: check if choice already made (re-execution after prompt)
+			const choice = state.userChoices.enabledHarnesses;
+			if (choice !== undefined) {
+				addAct(
+					"harness-selection",
+					`Selected ${choice.length} harness${choice.length === 1 ? "" : "es"}`,
+					"success",
+				);
+				writeHarnessSelection([...choice], ctx.paths.globalSettingsPath);
+				return;
+			}
+
+			// Request multi-select prompt
+			promptRequestedRef.current = true;
+			onPromptRequest?.({
+				type: "harness-selection",
+				resolve: () => {},
+			});
 		},
-		[],
+		[
+			dispatch,
+			options.yes,
+			state.userChoices.enabledHarnesses,
+			onPromptRequest,
+		],
 	);
 
 	/**
 	 * Execute the instruction injection step.
 	 *
-	 * When both CLAUDE.md and AGENTS.md exist, the full stanza goes into
-	 * AGENTS.md only and CLAUDE.md receives a single-line `@AGENTS.md`
-	 * import reference inside its fence.
+	 * Delegates to the shared injectInstructionsForStorageMode function so
+	 * both the wizard and headless paths handle central/local modes identically.
 	 */
 	const executeInstructionInjection = useCallback(
 		async (addAct: AddActivityFn): Promise<void> => {
 			const ctx = contextRef.current;
+			const directories =
+				ctx.directories ??
+				chooseInitDirectoryModel(ctx.cwd, ctx.forceLocalProject);
 
-			const claudePath = path.resolve(ctx.cwd, "CLAUDE.md");
-			const agentsPath = path.resolve(ctx.cwd, "AGENTS.md");
+			const wizardSelection = state.userChoices.enabledHarnesses;
+			// Unknown selection must not collapse to [] — manageGlobalStanzas([])
+			// removes every global stanza. Resolve like the sandbox-grants step:
+			// persisted selection first, then stable registry defaults.
+			const selection = wizardSelection
+				? [...wizardSelection]
+				: await resolveHarnesses(undefined, ctx.paths.globalSettingsPath);
 
-			const claudeExists = await fileExists(claudePath);
-			const agentsExists = await fileExists(agentsPath);
-
-			// If neither exists, create the primary tool's file or default to CLAUDE.md
-			if (!claudeExists && !agentsExists) {
-				const { file: primaryFile, template } =
-					getPrimaryInstructionTemplateTarget(ctx.primaryTool);
-				const filePath = path.resolve(ctx.cwd, primaryFile);
-
-				addAct("instruction-injection", `Creating ${primaryFile}...`, "info");
-				const content = `${wrapWithFence(template, LATEST_FENCE_VERSION)}\n`;
-				await writeFileContent(filePath, content);
-				addAct("instruction-injection", `Created ${primaryFile}`, "success");
-				return;
-			}
-
-			if (claudeExists && agentsExists) {
-				await injectIntoSingleFile(addAct, "AGENTS.md", ctx.primaryTool);
-				// Skip CLAUDE.md when it already imports AGENTS.md outside any rp1
-				// fence — injecting the reference fence would duplicate the import.
-				const claudeContent = (await readFileContent(claudePath)) ?? "";
-				if (
-					/^@AGENTS\.md\s*$/m.test(claudeContent) &&
-					!hasFencedContent(claudeContent)
-				) {
+			const result = await injectInstructionsForStorageMode({
+				cwd: ctx.cwd,
+				projectRoot: directories.projectRoot,
+				harnessSelection: selection,
+				detectedTool: ctx.primaryTool,
+				paths: ctx.paths,
+				onProgress: (msg, type) => {
 					addAct(
 						"instruction-injection",
-						"CLAUDE.md already references AGENTS.md; skipping",
-						"info",
+						msg,
+						type === "warning"
+							? "warning"
+							: type === "success"
+								? "success"
+								: "info",
 					);
-				} else {
-					await injectIntoSingleFile(
-						addAct,
-						"CLAUDE.md",
-						ctx.primaryTool,
-						AGENTS_REFERENCE_TEMPLATE,
-					);
-				}
-				return;
-			}
+				},
+			});
 
-			for (const file of getInstructionFiles()) {
-				await injectIntoSingleFile(addAct, file, ctx.primaryTool);
+			if (result.warnings.length > 0) {
+				for (const warning of result.warnings) {
+					addAct("instruction-injection", warning, "warning");
+				}
 			}
 		},
-		[injectIntoSingleFile],
+		[state.userChoices.enabledHarnesses],
 	);
 
 	/**
@@ -873,7 +930,9 @@ export const useStepExecution = ({
 
 			addAct("install-check", "Checking plugin installation...", "info");
 
-			const installStatus = await checkPluginsInstalled(ctx.registry);
+			const installStatus = await checkPluginsInstalled(ctx.registry, {
+				homeDir: ctx.paths.homeDir,
+			});
 
 			if (installStatus.installed) {
 				addAct(
@@ -905,6 +964,7 @@ export const useStepExecution = ({
 					isTTY: false,
 					dryRun: false,
 					skipPrompt: true,
+					homeDir: ctx.paths.homeDir,
 				};
 
 				try {
@@ -987,9 +1047,11 @@ export const useStepExecution = ({
 					} | null = null;
 
 					if (detected.tool.id === "claude-code") {
-						verificationResult = await verifyClaudeCodePlugins();
+						verificationResult = await verifyClaudeCodePlugins(
+							getClaudePluginDirs(ctx.paths.homeDir),
+						);
 					} else if (detected.tool.id === "opencode") {
-						verificationResult = await verifyOpenCodePlugins();
+						verificationResult = await verifyOpenCodePlugins(ctx.paths.homeDir);
 					} else if (detected.tool.id === "copilot") {
 						verificationResult = await verifyCopilotPlugins();
 					}
@@ -1127,6 +1189,12 @@ export const useStepExecution = ({
 					case "tool-detection":
 						await executeToolDetection(addAct);
 						break;
+					case "harness-selection":
+						await executeHarnessSelection(addAct);
+						break;
+					case "sandbox-grants":
+						await executeSandboxGrants(addAct);
+						break;
 					case "instruction-injection":
 						await executeInstructionInjection(addAct);
 						break;
@@ -1170,6 +1238,8 @@ export const useStepExecution = ({
 			executeDirectorySetup,
 			executeSettingsSetup,
 			executeToolDetection,
+			executeHarnessSelection,
+			executeSandboxGrants,
 			executeInstructionInjection,
 			executeGitignoreConfig,
 			executeInstallCheck,

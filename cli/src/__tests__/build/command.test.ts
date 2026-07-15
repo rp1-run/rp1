@@ -945,8 +945,8 @@ Deep agent content for Codex pipeline test.
 		const agentPath = join(out, "base", "agents", "rp1-base-deep-agent.toml");
 		const agentContent = await readFile(agentPath, "utf-8");
 
-		// Deep tier resolves to "gpt-5.5" for Codex
-		expect(agentContent).toContain('model = "gpt-5.5"');
+		// Deep tier resolves to "gpt-5.6-sol" for Codex
+		expect(agentContent).toContain('model = "gpt-5.6-sol"');
 		expect(agentContent).not.toContain('model = "deep"');
 		// Effort emitted as "model_reasoning_effort" for Codex
 		expect(agentContent).toContain('model_reasoning_effort = "high"');
@@ -1017,8 +1017,97 @@ Fast agent content.
 			join(outCdx, "base", "agents", "rp1-base-fast-agent.toml"),
 			"utf-8",
 		);
-		expect(cdxContent).toContain('model = "gpt-5.4-mini"');
+		expect(cdxContent).toContain('model = "gpt-5.6-luna"');
 		expect(cdxContent).not.toContain("model_reasoning_effort");
+	});
+
+	test("BundleAgentEntry includes tier and effort metadata in bundle assets", async () => {
+		const projectRoot = join(tempDir, "project-manifest-tier");
+		await writeFixture(
+			projectRoot,
+			"plugins/base/skills/sample/SKILL.md",
+			`---
+name: sample
+description: "Sample skill with enough text to pass build validation"
+metadata:
+  category: development
+  is_workflow: false
+---
+
+Sample skill content.
+`,
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/agents/deep-agent.md",
+			`---
+name: deep-agent
+description: "Agent with deep tier and high effort for manifest metadata test"
+tools: Read
+model: deep
+effort: high
+---
+
+Deep agent content for manifest metadata test.
+`,
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/agents/fast-agent.md",
+			`---
+name: fast-agent
+description: "Agent with fast tier and no effort for manifest metadata test"
+tools: Read
+model: fast
+---
+
+Fast agent content for manifest metadata test.
+`,
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/agents/inherit-agent.md",
+			`---
+name: inherit-agent
+description: "Agent with inherit model for manifest metadata test"
+tools: Read
+model: inherit
+---
+
+Inherit agent content for manifest metadata test.
+`,
+		);
+
+		const out = join(outputDir, "manifest-tier");
+		const result = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			out,
+			claudeCodeDef,
+			noopLogger,
+			true,
+			false,
+		);
+
+		expect(result.summary.errors).toEqual([]);
+		expect(result.summary.agents).toBe(3);
+
+		const deepEntry = result.assets.agents.find((a) => a.name === "deep-agent");
+		expect(deepEntry).toBeDefined();
+		expect(deepEntry!.tier).toBe("deep");
+		expect(deepEntry!.effort).toBe("high");
+
+		const fastEntry = result.assets.agents.find((a) => a.name === "fast-agent");
+		expect(fastEntry).toBeDefined();
+		expect(fastEntry!.tier).toBe("fast");
+		expect(fastEntry!.effort).toBeUndefined();
+
+		const inheritEntry = result.assets.agents.find(
+			(a) => a.name === "inherit-agent",
+		);
+		expect(inheritEntry).toBeDefined();
+		expect(inheritEntry!.tier).toBe("inherit");
+		expect(inheritEntry!.effort).toBeUndefined();
 	});
 });
 

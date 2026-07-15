@@ -145,6 +145,13 @@ function resetWorkspace(workspaceDir: string, remoteDir: string): void {
 		);
 	}
 
+	// workflow-bootstrap requires .rp1/project_id; without it every test wastes
+	// a turn recovering via `rp1 migrate`.
+	const projectIdPath = join(workspaceDir, ".rp1", "project_id");
+	if (!existsSync(projectIdPath)) {
+		writeFileSync(projectIdPath, "00000000-0000-4000-8000-0000e7a1e7a1\n");
+	}
+
 	const configuredWorkRoot = join(workspaceDir, "rp1-work");
 	mkdirSync(join(configuredWorkRoot, "quick-builds"), { recursive: true });
 	mkdirSync(join(configuredWorkRoot, "features"), { recursive: true });

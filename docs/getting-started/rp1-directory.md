@@ -19,6 +19,7 @@ rp1 stores all project-specific data in a `.rp1/` directory at your project root
 │   ├── state.json            # Build state tracking (shareable)
 │   └── meta.json             # Local paths (NOT shareable - add to .gitignore)
 ├── config/                   # Project configuration
+├── settings.toml             # Project settings (model tiers, argument defaults)
 ├── work/                     # Work artifacts (ignored by git)
 │   ├── charter.md            # Project charter (from /blueprint)
 │   ├── prds/                 # Product requirement documents
@@ -30,8 +31,13 @@ rp1 stores all project-specific data in a `.rp1/` directory at your project root
 │   │       ├── tasks.md
 │   │       └── field-notes.md
 │   └── archives/             # Completed/archived features
-└── settings.toml             # Project settings
 ```
+
+The `settings.toml` file can include a `[models]` section for remapping
+abstract model tiers (deep, standard, fast) to concrete model identifiers per
+platform. This lets you control which models rp1 agents use without rebuilding.
+See [Configuration](../reference/configuration.md) for the full schema and
+available presets.
 
 ---
 

@@ -39,6 +39,7 @@ import {
 	getEventsSince,
 	getMaxEventId,
 	getProjectRunStats,
+	getProjectRunStatsByIds,
 	getRecentEventsForRun,
 	getRunById,
 	getRunsByAttentionStatus,
@@ -3640,6 +3641,112 @@ describe("emit database", () => {
 				.get("run-legacy") as { flow: string } | null;
 			expect(row?.flow).toBe("build");
 		});
+
+		test("matches run by project_id when available", async () => {
+			const dbPath = join(tempDir, "resume-project-id.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-pid",
+				flow: "build",
+				featureId: "feat-pid",
+				projectPath: "/project/old-path",
+				rp1ProjectRoot: "/project/old-path",
+				projectId: "stable-project-id",
+			});
+
+			insertEvent(db, {
+				runId: "run-pid",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-pid");
+
+			const result = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-pid",
+				projectPath: "/project/new-path",
+				rp1ProjectRoot: "/project/new-path",
+				projectId: "stable-project-id",
+			});
+
+			expect(result.runId).toBe("run-pid");
+			expect(result.resumed).toBe(true);
+		});
+
+		test("falls back to rp1_project_root for rows with NULL project_id", async () => {
+			const dbPath = join(tempDir, "resume-null-pid-fallback.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-no-pid",
+				flow: "build",
+				featureId: "feat-no-pid",
+				projectPath: "/project/fallback",
+				rp1ProjectRoot: "/project/fallback",
+			});
+
+			db.prepare("UPDATE runs SET project_id = NULL WHERE id = ?").run(
+				"run-no-pid",
+			);
+
+			insertEvent(db, {
+				runId: "run-no-pid",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-no-pid");
+
+			const result = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-no-pid",
+				projectPath: "/project/fallback",
+				rp1ProjectRoot: "/project/fallback",
+			});
+
+			expect(result.runId).toBe("run-no-pid");
+			expect(result.resumed).toBe(true);
+		});
+
+		test("matches legacy unknown flow by project_id", async () => {
+			const dbPath = join(tempDir, "resume-legacy-pid.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-legacy-pid",
+				flow: "unknown",
+				featureId: "feat-legacy-pid",
+				projectPath: "/project/legacy-path",
+				rp1ProjectRoot: "/project/legacy-path",
+				projectId: "stable-legacy-id",
+			});
+
+			insertEvent(db, {
+				runId: "run-legacy-pid",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-legacy-pid");
+
+			const result = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-legacy-pid",
+				projectPath: "/project/different-path",
+				rp1ProjectRoot: "/project/different-path",
+				projectId: "stable-legacy-id",
+			});
+
+			expect(result.runId).toBe("run-legacy-pid");
+			expect(result.resumed).toBe(true);
+
+			const row = db
+				.prepare("SELECT flow FROM runs WHERE id = ?")
+				.get("run-legacy-pid") as { flow: string } | null;
+			expect(row?.flow).toBe("build");
+		});
 	});
 
 	describe("findOrCreateWorkflowRun", () => {
@@ -5514,6 +5621,56 @@ describe("emit database", () => {
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
 			const stats = getProjectRunStats(db, []);
+
+			expect(stats.size).toBe(0);
+		});
+	});
+
+	describe("getProjectRunStatsByIds", () => {
+		test("returns run count and last activity per project_id", async () => {
+			const dbPath = join(tempDir, "project-stats-by-id.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-si1",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/project/alpha",
+				projectId: "pid-alpha",
+			});
+			insertRun(db, {
+				id: "run-si2",
+				flow: "review",
+				featureId: "feat",
+				projectPath: "/project/alpha-alt",
+				projectId: "pid-alpha",
+			});
+			insertRun(db, {
+				id: "run-si3",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/project/beta",
+				projectId: "pid-beta",
+			});
+
+			const stats = getProjectRunStatsByIds(db, [
+				"pid-alpha",
+				"pid-beta",
+				"pid-missing",
+			]);
+
+			expect(stats.get("pid-alpha")?.runCount).toBe(2);
+			expect(stats.get("pid-alpha")?.lastActivityAt).toBeTruthy();
+			expect(stats.get("pid-beta")?.runCount).toBe(1);
+			expect(stats.get("pid-missing")?.runCount).toBe(0);
+			expect(stats.get("pid-missing")?.lastActivityAt).toBeNull();
+		});
+
+		test("returns empty map for empty project id list", async () => {
+			const dbPath = join(tempDir, "project-stats-by-id-empty.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const stats = getProjectRunStatsByIds(db, []);
 
 			expect(stats.size).toBe(0);
 		});

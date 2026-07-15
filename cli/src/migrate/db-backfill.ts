@@ -29,6 +29,7 @@ export interface DbBackfillResult {
 
 export interface DbBackfillOptions {
 	readonly dryRun?: boolean;
+	readonly dbPath?: string;
 }
 
 interface RunBackfillRow {
@@ -1072,7 +1073,8 @@ export const backfillProjectId = async (
 	projectId: string,
 	options: DbBackfillOptions = {},
 ): Promise<DbBackfillResult> => {
-	const dbPath = process.env.RP1_DB ?? join(homedir(), ".rp1", "rp1.db");
+	const dbPath =
+		options.dbPath ?? process.env.RP1_DB ?? join(homedir(), ".rp1", "rp1.db");
 
 	if (!existsSync(dbPath)) {
 		return emptyBackfillResult();

@@ -30,6 +30,7 @@ import { getClaudePluginDirs } from "../shared/paths.js";
 import { getDefaultArtifactsDir } from "./installer.js";
 import { discoverPlugins, getAllArtifactNames } from "./manifest.js";
 import type { VerificationReport } from "./models.js";
+import { type InstallPathContext, resolveInstallPathContext } from "./paths.js";
 
 /**
  * Recursively find all files matching a pattern in a directory.
@@ -792,10 +793,11 @@ export interface ExpectedCounts {
 export const verifyInstallation = (
 	artifactsDir?: string,
 	expectedCounts?: ExpectedCounts,
+	paths: InstallPathContext = resolveInstallPathContext(),
 ): TE.TaskEither<CLIError, VerificationReport> =>
 	TE.tryCatch(
 		async () => {
-			const configDir = join(getUserHomeDir(), ".config", "opencode");
+			const configDir = paths.openCodeConfigDir;
 
 			try {
 				await stat(configDir);

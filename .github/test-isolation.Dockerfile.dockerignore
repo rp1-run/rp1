@@ -1,0 +1,15 @@
+**/node_modules
+**/coverage
+.1up
+.goreleaser
+.mypy_cache
+.osgrep
+.playwright-cli
+.playwright-mcp
+.rp1/work
+.ruff_cache
+bin
+dist
+evals/output
+htmlcov
+site

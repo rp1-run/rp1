@@ -27,6 +27,7 @@ export type {
 	ArtifactResult,
 	BuildConfig,
 	BuildSummary,
+	BundleAgentEntry,
 	BundleAssetEntry,
 	BundleManifest,
 	BundlePluginAssets,

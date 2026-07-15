@@ -10,6 +10,7 @@ import type { Logger } from "../../shared/logger.js";
 import { confirmAction } from "../../shared/prompts.js";
 import { getCodexPaths, uninstallCodex } from "../install/codex/index.js";
 import { colorFns } from "../lib/colors.js";
+import { syncHarnessSelectionRemove } from "../shared/install-core.js";
 
 const { bold, dim } = colorFns;
 
@@ -73,6 +74,10 @@ Examples:
 		}
 
 		const { skillsRemoved, agentsRemoved, configCleaned } = result.right;
+
+		if (!dryRun) {
+			syncHarnessSelectionRemove("codex");
+		}
 
 		if (dryRun) {
 			console.log("");

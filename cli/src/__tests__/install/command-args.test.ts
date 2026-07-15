@@ -100,11 +100,9 @@ describe("install argument parsing", () => {
 
 	test("executeInstall validates prerequisites and reports dry-run artifact preview", async () => {
 		const tempDir = await mkdtemp(join(tmpdir(), "rp1-install-dry-run-"));
-		const originalHome = process.env.HOME;
 		const originalPath = process.env.PATH;
 
 		try {
-			process.env.HOME = tempDir;
 			const binDir = join(tempDir, "bin");
 			const artifactsDir = join(tempDir, "artifacts");
 			await mkdir(binDir, { recursive: true });
@@ -119,15 +117,11 @@ describe("install argument parsing", () => {
 			const result = await executeInstall([artifactsDir, "--dry-run"], logger, {
 				isTTY: false,
 				skipPrompt: true,
+				homeDir: tempDir,
 			})();
 
 			expect(E.isRight(result)).toBe(true);
 		} finally {
-			if (originalHome === undefined) {
-				delete process.env.HOME;
-			} else {
-				process.env.HOME = originalHome;
-			}
 			if (originalPath === undefined) {
 				delete process.env.PATH;
 			} else {
@@ -139,11 +133,9 @@ describe("install argument parsing", () => {
 
 	test("executeInstall installs manifest-backed artifacts into isolated OpenCode config", async () => {
 		const tempDir = await mkdtemp(join(tmpdir(), "rp1-install-flow-"));
-		const originalHome = process.env.HOME;
 		const originalPath = process.env.PATH;
 
 		try {
-			process.env.HOME = tempDir;
 			const binDir = join(tempDir, "bin");
 			const artifactsDir = join(tempDir, "artifacts");
 			await mkdir(binDir, { recursive: true });
@@ -197,15 +189,11 @@ ${plugin} agent body.
 			const result = await executeInstall([artifactsDir, "--yes"], logger, {
 				isTTY: false,
 				skipPrompt: true,
+				homeDir: tempDir,
 			})();
 
 			expect(E.isRight(result)).toBe(true);
 		} finally {
-			if (originalHome === undefined) {
-				delete process.env.HOME;
-			} else {
-				process.env.HOME = originalHome;
-			}
 			if (originalPath === undefined) {
 				delete process.env.PATH;
 			} else {
@@ -217,10 +205,8 @@ ${plugin} agent body.
 
 	test("executeVerify reports a healthy isolated OpenCode installation", async () => {
 		const tempDir = await mkdtemp(join(tmpdir(), "rp1-install-verify-"));
-		const originalHome = process.env.HOME;
 
 		try {
-			process.env.HOME = tempDir;
 			await mkdir(join(tempDir, ".config", "opencode", "agents"), {
 				recursive: true,
 			});
@@ -243,15 +229,10 @@ ${plugin} agent body.
 				"export default {};\n",
 			);
 
-			const result = await executeVerify([], logger)();
+			const result = await executeVerify([], logger, { homeDir: tempDir })();
 
 			expect(E.isRight(result)).toBe(true);
 		} finally {
-			if (originalHome === undefined) {
-				delete process.env.HOME;
-			} else {
-				process.env.HOME = originalHome;
-			}
 			await rm(tempDir, { recursive: true, force: true });
 		}
 	});

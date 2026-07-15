@@ -19,12 +19,16 @@ arguments:
     type: string
     required: false
     default: ""
-    description: "Charter path (defaults to {TARGET_DIR}/.rp1/context/charter.md)"
+    description: "Charter path (defaults to {KB_ROOT}/charter.md)"
   - name: PREFS_PATH
     type: string
     required: false
     default: ""
-    description: "Prefs + scratch pad path (defaults to {TARGET_DIR}/.rp1/context/preferences.md)"
+    description: "Prefs + scratch pad path (defaults to {KB_ROOT}/preferences.md)"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Knowledge base root directory"
 ---
 
 # Bootstrap Scaffolder (Stateless)
@@ -151,7 +155,7 @@ Here's what I'll create for {PROJECT_NAME}:
 ## Project Structure
 {project-name}/
 ├── .git/
-├── .rp1/context/
+├── {KB_ROOT}/
 ├── AGENTS.md, CLAUDE.md, README.md
 ├── {manifest}
 ├── src/{main}
@@ -248,7 +252,7 @@ Max 2 iterations. After 2nd decline → error.
 ## §5 Scaffolding (phase=SCAFFOLD)
 
 ```bash
-mkdir -p "{TARGET_DIR}" "{TARGET_DIR}/.rp1/context" "{TARGET_DIR}/src" "{TARGET_DIR}/tests"
+mkdir -p "{TARGET_DIR}" "{KB_ROOT}" "{TARGET_DIR}/src" "{TARGET_DIR}/tests"
 cd "{TARGET_DIR}" && git init
 ```
 

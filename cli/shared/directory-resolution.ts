@@ -6,6 +6,12 @@ import * as E from "fp-ts/lib/Either.js";
 import type { CLIError } from "./errors.js";
 import { notFoundError } from "./errors.js";
 import { PROJECT_ID_FILENAME, readProjectId } from "./project-id.js";
+import type { StorageMode } from "./storage-mode.js";
+import {
+	computeDirectoryPaths,
+	isContainerEnvironment,
+	readStorageMode,
+} from "./storage-mode.js";
 
 export type ProjectRootSource = "walk_up" | "git_common_dir";
 
@@ -17,11 +23,13 @@ export interface ResolvedDirectorySet {
 	readonly codeRoot: string;
 	readonly isWorktree: boolean;
 	readonly worktreeName?: string;
+	readonly storageMode: StorageMode;
 }
 
 export interface DirectoryResolutionOptions {
 	readonly allowHomeProjectRoot?: boolean;
 	readonly requireProjectId?: boolean;
+	readonly homeDir?: string;
 }
 
 interface GitContext {
@@ -71,15 +79,22 @@ const canonicalizePathForComparison = (targetPath: string): string => {
 	}
 };
 
-const getUserHomeDirectory = (): string =>
-	canonicalizePathForComparison(process.env.HOME ?? homedir());
+const getUserHomeDirectory = (homeDir?: string): string =>
+	canonicalizePathForComparison(homeDir ?? process.env.HOME ?? homedir());
+
+const isUserHomeDirectory = (
+	targetPath: string,
+	options: DirectoryResolutionOptions,
+): boolean =>
+	canonicalizePathForComparison(targetPath) ===
+	getUserHomeDirectory(options.homeDir);
 
 const canAutoDiscoverProjectRoot = (
 	targetPath: string,
 	options: DirectoryResolutionOptions,
 ): boolean =>
 	options.allowHomeProjectRoot === true ||
-	canonicalizePathForComparison(targetPath) !== getUserHomeDirectory();
+	!isUserHomeDirectory(targetPath, options);
 
 const walkUpToProjectRoot = (
 	startPath: string,
@@ -102,6 +117,13 @@ const walkUpToProjectRoot = (
 			canAutoDiscoverProjectRoot(current, options)
 		) {
 			fallbackRp1Dir = current;
+		}
+
+		if (
+			options.allowHomeProjectRoot !== true &&
+			isUserHomeDirectory(current, options)
+		) {
+			break;
 		}
 
 		const parent = path.dirname(current);
@@ -184,23 +206,35 @@ const normalizeProjectKey = (projectRoot: string): string => {
 
 export { normalizeProjectKey };
 
+const resolveEffectiveMode = (projectRoot: string): StorageMode => {
+	if (isContainerEnvironment()) return "local";
+	return readStorageMode(projectRoot);
+};
+
 const buildDirectorySet = (params: {
 	projectRoot: string;
 	codeRoot: string;
 	isWorktree: boolean;
 	worktreeName?: string;
+	storageMode: StorageMode;
 }): ResolvedDirectorySet => {
 	const projectRoot = path.resolve(params.projectRoot);
 	const projectId = readProjectId(projectRoot);
+	const { kbRoot, workRoot, effectiveMode } = computeDirectoryPaths(
+		projectRoot,
+		projectId,
+		params.storageMode,
+	);
 
 	return {
 		projectRoot,
 		projectId,
-		kbRoot: path.join(projectRoot, ".rp1", "context"),
-		workRoot: path.join(projectRoot, ".rp1", "work"),
+		kbRoot,
+		workRoot,
 		codeRoot: path.resolve(params.codeRoot),
 		isWorktree: params.isWorktree,
 		worktreeName: params.worktreeName,
+		storageMode: effectiveMode,
 	};
 };
 
@@ -249,6 +283,7 @@ export const resolveDirectorySet = (
 						codeRoot: gitContext.topLevel,
 						isWorktree: true,
 						worktreeName: gitContext.branch,
+						storageMode: resolveEffectiveMode(commonDirProjectRoot),
 					}),
 				);
 			}
@@ -269,6 +304,7 @@ export const resolveDirectorySet = (
 				projectRoot: walkedResult.root,
 				codeRoot: walkedResult.root,
 				isWorktree: false,
+				storageMode: resolveEffectiveMode(walkedResult.root),
 			}),
 		);
 	}

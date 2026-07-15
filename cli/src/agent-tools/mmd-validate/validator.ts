@@ -7,7 +7,10 @@ import * as A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
-import type { BrowserValidationResult } from "./browser.js";
+import type {
+	BrowserLaunchOptions,
+	BrowserValidationResult,
+} from "./browser.js";
 import { closeBrowser, initBrowser, validateInBrowser } from "./browser.js";
 import type {
 	DiagramBlock,
@@ -136,6 +139,7 @@ const buildValidationData = (
 export const validateDiagrams = (
 	blocks: readonly DiagramBlock[],
 	_timeout: number,
+	browserOptions: BrowserLaunchOptions = {},
 ): TE.TaskEither<CLIError, MmdValidateData> => {
 	// Handle empty blocks case
 	if (blocks.length === 0) {
@@ -173,7 +177,7 @@ export const validateDiagrams = (
 
 	return pipe(
 		// Initialize browser once before parallel validation
-		initBrowser(),
+		initBrowser(browserOptions),
 		TE.chain((page) =>
 			pipe(
 				// Create validation tasks for all blocks

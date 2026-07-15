@@ -18,6 +18,7 @@ available when you need the complete command list.
 | Check available updates | [`check-update`](cli/check-update.md) |
 | Update rp1 and refresh installed plugins from a workflow | [`self-update`](base/self-update.md) |
 | Migrate an older project layout | [`rp1 migrate`](cli/rp1-migrate.md) |
+| Configure model tier remappings | [`configuration`](configuration.md), [`settings`](cli/settings.md) |
 
 [:octicons-arrow-right-24: CLI Reference](cli/index.md)
 

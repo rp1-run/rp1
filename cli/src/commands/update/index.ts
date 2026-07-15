@@ -16,8 +16,16 @@ import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
 import { formatError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import { loadToolsRegistry } from "../../config/supported-tools.js";
+import {
+	type GlobalStanzaResult,
+	manageGlobalStanzas,
+} from "../../init/global-stanza-writer.js";
 import { detectTools } from "../../init/tool-detector.js";
-import { DEFAULT_TTL_HOURS, writeCache } from "../../lib/cache.js";
+import {
+	type CacheOptions,
+	DEFAULT_TTL_HOURS,
+	writeCache,
+} from "../../lib/cache.js";
 import { getColorFns } from "../../lib/colors.js";
 import {
 	checkFenceStaleness,
@@ -35,9 +43,14 @@ import {
 	getInstalledVersion,
 } from "../../lib/version.js";
 import { executeMigrate, formatMigrateSummary } from "../../migrate/index.js";
+import { applyTierRemappingsIfConfigured } from "../../settings/apply.js";
+import { loadEnabledHarnesses } from "../../settings/loader.js";
 import {
+	getEffectiveHarnesses,
+	type InstallAllResult,
 	type InstallContext,
-	installAllDetectedTools,
+	type ToolInstallResult,
+	updateForSpecificTool,
 } from "../../shared/install-core.js";
 import { formatUpdateAllResult, pluginsSubcommand } from "./plugins.js";
 import {
@@ -198,6 +211,7 @@ export const executeSelfUpdate = async (
 	options: { dryRun: boolean; force: boolean },
 	logger: Logger | undefined,
 	isTTY: boolean,
+	cacheOptions: CacheOptions = {},
 ): Promise<{
 	success: boolean;
 	exitCode: number;
@@ -244,6 +258,7 @@ export const executeSelfUpdate = async (
 		const checkOptions: CheckOptions = {
 			force: true, // Always bypass cache for self-update check
 			timeoutMs: 10000, // Longer timeout for update scenario
+			cachePath: cacheOptions.cachePath,
 		};
 		const versionCheck = await checkForUpdate(checkOptions);
 
@@ -300,11 +315,14 @@ export const executeSelfUpdate = async (
 	logger?.debug(
 		`Updating version cache after successful update to v${newVersion}`,
 	);
-	const cacheResult = await writeCache({
-		latestVersion: newVersion,
-		releaseUrl: `${GITHUB_RELEASES_URL}/tag/v${newVersion}`,
-		ttlHours: DEFAULT_TTL_HOURS,
-	})();
+	const cacheResult = await writeCache(
+		{
+			latestVersion: newVersion,
+			releaseUrl: `${GITHUB_RELEASES_URL}/tag/v${newVersion}`,
+			ttlHours: DEFAULT_TTL_HOURS,
+		},
+		cacheOptions,
+	)();
 	if (E.isLeft(cacheResult)) {
 		logger?.debug(
 			`Failed to update cache: ${formatError(cacheResult.left, false)}`,
@@ -452,6 +470,22 @@ export const updateDetectedPlugins = async (
 		return { success: true, exitCode: 0 };
 	}
 
+	if (E.isLeft(detection)) {
+		console.log(dim("Tool detection failed. Skipping plugin refresh."));
+		return { success: true, exitCode: 0 };
+	}
+
+	const effective = getEffectiveHarnesses(detection.right);
+
+	if (effective.length === 0) {
+		console.log(
+			dim(
+				"No enabled harnesses among detected tools. Skipping plugin refresh.",
+			),
+		);
+		return { success: true, exitCode: 0 };
+	}
+
 	const ctx: InstallContext = {
 		logger,
 		isTTY,
@@ -459,24 +493,36 @@ export const updateDetectedPlugins = async (
 		skipPrompt: options.yes || !isTTY,
 	};
 
-	const result = await installAllDetectedTools(registry, ctx)();
-	if (E.isLeft(result)) {
-		console.error(formatError(result.left, isTTY));
-		console.log("");
-		console.log(
-			yellow(
-				bold("Plugin refresh failed, but the core rp1 update will continue."),
-			),
-		);
-		console.log(
-			dim("Repair the host tool, then run `rp1 update plugins` to retry."),
-		);
-		return { success: true, exitCode: 0 };
+	const results: ToolInstallResult[] = [];
+	for (const tool of effective) {
+		const toolResult = await updateForSpecificTool(
+			tool.tool.id,
+			registry,
+			ctx,
+		)();
+		if (E.isRight(toolResult)) {
+			results.push(toolResult.right);
+		} else {
+			results.push({
+				toolId: tool.tool.id,
+				toolName: tool.tool.name,
+				success: false,
+				pluginsInstalled: [],
+				warnings: [],
+				error: toolResult.left,
+			});
+		}
 	}
 
-	formatUpdateAllResult(result.right, isTTY);
+	const installAllResult: InstallAllResult = {
+		installed: results.filter((r) => r.success).length,
+		results,
+		detected: effective,
+	};
 
-	const failedResults = result.right.results.filter((tool) => !tool.success);
+	formatUpdateAllResult(installAllResult, isTTY);
+
+	const failedResults = results.filter((tool) => !tool.success);
 	if (failedResults.length > 0) {
 		console.log("");
 		console.log(
@@ -495,6 +541,93 @@ export const updateDetectedPlugins = async (
 		}
 	}
 
+	return { success: true, exitCode: 0 };
+};
+
+export interface StanzaHarnessResolution {
+	readonly selection: readonly string[];
+	readonly source: "persisted" | "detected" | "none";
+}
+
+export const resolveStanzaHarnesses = async (
+	globalSettingsPath?: string,
+): Promise<StanzaHarnessResolution> => {
+	const persisted = loadEnabledHarnesses(globalSettingsPath);
+	if (persisted !== undefined) {
+		return { selection: persisted, source: "persisted" };
+	}
+
+	const registry = await loadToolsRegistry();
+	const detection = await detectTools(registry)();
+	if (E.isLeft(detection) || detection.right.detected.length === 0) {
+		return { selection: [], source: "none" };
+	}
+	return {
+		selection: getEffectiveHarnesses(detection.right).map((d) => d.tool.id),
+		source: "detected",
+	};
+};
+
+const formatStanzaResult = (
+	result: GlobalStanzaResult,
+	isTTY: boolean,
+): void => {
+	const { green, yellow, dim } = getColorFns(isTTY);
+
+	const parts: string[] = [];
+	if (result.written.length > 0) {
+		parts.push(green(`${result.written.length} written`));
+	}
+	if (result.updated.length > 0) {
+		parts.push(green(`${result.updated.length} updated`));
+	}
+	if (result.removed.length > 0) {
+		parts.push(`${result.removed.length} removed`);
+	}
+	if (result.skipped.length > 0) {
+		parts.push(dim(`${result.skipped.length} skipped`));
+	}
+	if (result.errors.length > 0) {
+		parts.push(yellow(`${result.errors.length} errors`));
+	}
+
+	if (parts.length > 0) {
+		console.log(`  Global stanzas: ${parts.join(", ")}`);
+	}
+
+	for (const err of result.errors) {
+		console.log(yellow(`  ${err.platform}: ${err.error}`));
+	}
+};
+
+export const manageGlobalStanzaPhase = async (
+	options: { dryRun: boolean; globalSettingsPath?: string },
+	isTTY: boolean,
+): Promise<PostUpdatePhaseResult> => {
+	const { bold, dim } = getColorFns(isTTY);
+
+	console.log("");
+	console.log(
+		bold(
+			options.dryRun
+				? "Checking global instruction stanzas..."
+				: "Updating global instruction stanzas...",
+		),
+	);
+
+	const resolved = await resolveStanzaHarnesses(options.globalSettingsPath);
+	if (resolved.source === "none") {
+		console.log(
+			dim("No enabled harnesses. Skipping global stanza management."),
+		);
+		return { success: true, exitCode: 0 };
+	}
+
+	const result = await manageGlobalStanzas(resolved.selection, {
+		dryRun: options.dryRun,
+	});
+
+	formatStanzaResult(result, isTTY);
 	return { success: true, exitCode: 0 };
 };
 
@@ -565,6 +698,7 @@ export const executeUpdateAction = async (
 	},
 	logger: Logger | undefined,
 	isTTY: boolean,
+	cacheOptions: CacheOptions = {},
 ): Promise<void> => {
 	const { dim } = getColorFns(isTTY);
 	const resumingPostSelfUpdate = isPostSelfUpdateProcess();
@@ -598,6 +732,7 @@ export const executeUpdateAction = async (
 		const checkOptions: CheckOptions = {
 			force: false, // Use cache unless expired
 			timeoutMs: 5000,
+			cachePath: cacheOptions.cachePath,
 		};
 
 		logger?.debug(`Checking for updates (timeout=${checkOptions.timeoutMs}ms)`);
@@ -685,6 +820,7 @@ export const executeUpdateAction = async (
 			{ dryRun: options.dryRun, force: options.force },
 			logger,
 			isTTY,
+			cacheOptions,
 		);
 
 		if (!updateResult.success && updateResult.exitCode !== 2) {
@@ -719,6 +855,49 @@ export const executeUpdateAction = async (
 		lifecycleLogger,
 		isTTY,
 	);
+
+	if (pluginResult.success && !options.dryRun) {
+		try {
+			const remappingResult = await applyTierRemappingsIfConfigured(
+				process.cwd(),
+			);
+			if (remappingResult.applied) {
+				const { green } = getColorFns(isTTY);
+				console.log(
+					green(
+						`Re-applied tier remappings (${remappingResult.agentsModified} agents).`,
+					),
+				);
+			} else if (
+				remappingResult.agentsAlreadyCurrent > 0 &&
+				remappingResult.agentsModified === 0
+			) {
+				const { dim } = getColorFns(isTTY);
+				console.log(
+					dim(
+						`Tier remappings: all ${remappingResult.agentsAlreadyCurrent} matching agent(s) already up to date.`,
+					),
+				);
+			}
+		} catch (error) {
+			const { yellow } = getColorFns(isTTY);
+			const message = error instanceof Error ? error.message : String(error);
+			console.log(yellow(`Tier remapping failed (non-blocking): ${message}`));
+		}
+	}
+
+	if (pluginResult.success) {
+		try {
+			await manageGlobalStanzaPhase({ dryRun: options.dryRun }, isTTY);
+		} catch (error) {
+			const { yellow } = getColorFns(isTTY);
+			const message = error instanceof Error ? error.message : String(error);
+			console.log(
+				yellow(`Global stanza management failed (non-blocking): ${message}`),
+			);
+		}
+	}
+
 	let migrationResult: PostUpdatePhaseResult;
 	if (pluginResult.success) {
 		migrationResult = await runProjectMigrations(

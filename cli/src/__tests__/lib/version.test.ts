@@ -5,6 +5,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import {
 	invalidateCache,
 	readCacheSync,
@@ -18,7 +20,11 @@ import {
 	getLatestVersion,
 	stripVersionPrefix,
 } from "../../lib/version.js";
-import { expectTaskRight } from "../helpers/index.js";
+import {
+	cleanupTempDir,
+	createTempDir,
+	expectTaskRight,
+} from "../helpers/index.js";
 
 describe("version", () => {
 	describe("stripVersionPrefix", () => {
@@ -311,6 +317,29 @@ describe("version", () => {
 			expect(result).toHaveProperty("cached");
 			expect(result).toHaveProperty("cacheAgeHours");
 			expect(result).toHaveProperty("cacheExpiresInHours");
+		});
+
+		test("uses one explicit cache path for the entire update check", async () => {
+			const tempDir = await createTempDir("version-explicit-cache");
+			const cachePath = join(tempDir, "version-cache.json");
+			const cache: VersionCache = {
+				latestVersion: "99.0.0",
+				releaseUrl: "https://example.com/releases/v99.0.0",
+				checkedAt: new Date().toISOString(),
+				ttlHours: 24,
+			};
+
+			try {
+				await writeFile(cachePath, JSON.stringify(cache));
+
+				const result = await checkForUpdate({ cachePath });
+
+				expect(result.cached).toBe(true);
+				expect(result.latestVersion).toBe("99.0.0");
+				expect(result.releaseUrl).toBe(cache.releaseUrl);
+			} finally {
+				await cleanupTempDir(tempDir);
+			}
 		});
 
 		test("detects update available when latest > current", async () => {

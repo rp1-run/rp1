@@ -9,29 +9,36 @@ import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
+export interface DaemonPathOptions {
+	readonly platform?: NodeJS.Platform;
+	readonly homeDir?: string;
+	readonly environment?: NodeJS.ProcessEnv;
+}
+
 /**
  * Platform-specific configuration directory paths.
  * - macOS: ~/Library/Application Support/rp1/
  * - Linux: $XDG_CONFIG_HOME/rp1/ or ~/.config/rp1/
  * - Windows: %APPDATA%\rp1\
  */
-export function getConfigDir(): string {
-	const platform = process.platform;
-	const home = homedir();
+export function getConfigDir(options: DaemonPathOptions = {}): string {
+	const platform = options.platform ?? process.platform;
+	const home = options.homeDir ?? homedir();
+	const environment = options.environment ?? process.env;
 
 	if (platform === "darwin") {
 		return join(home, "Library", "Application Support", "rp1");
 	}
 
 	if (platform === "win32") {
-		const appData = process.env.APPDATA;
+		const appData = environment.APPDATA;
 		if (appData) {
 			return join(appData, "rp1");
 		}
 		return join(home, "AppData", "Roaming", "rp1");
 	}
 
-	const xdgConfig = process.env.XDG_CONFIG_HOME;
+	const xdgConfig = environment.XDG_CONFIG_HOME;
 	if (xdgConfig) {
 		return join(xdgConfig, "rp1");
 	}
@@ -42,8 +49,10 @@ export function getConfigDir(): string {
  * Ensure the configuration directory exists.
  * Creates the directory with user-only permissions if it doesn't exist.
  */
-export async function ensureConfigDir(): Promise<string> {
-	const configDir = getConfigDir();
+export async function ensureConfigDir(
+	options: DaemonPathOptions = {},
+): Promise<string> {
+	const configDir = getConfigDir(options);
 	await mkdir(configDir, { recursive: true, mode: 0o700 });
 	return configDir;
 }
@@ -51,24 +60,24 @@ export async function ensureConfigDir(): Promise<string> {
 /**
  * Get the path to the daemon PID file.
  */
-export function getPidFilePath(): string {
-	return join(getConfigDir(), "daemon.pid");
+export function getPidFilePath(options: DaemonPathOptions = {}): string {
+	return join(getConfigDir(options), "daemon.pid");
 }
 
 /**
  * Get the path to the lifecycle lock directory.
  * Used by lifecycle-lock.ts for cross-process daemon mutation serialization.
  */
-export function getLifecycleLockPath(): string {
-	return join(getConfigDir(), "daemon.lifecycle.lock");
+export function getLifecycleLockPath(options: DaemonPathOptions = {}): string {
+	return join(getConfigDir(options), "daemon.lifecycle.lock");
 }
 
 /**
  * Get the path to the restart-arcade-after-install marker file.
  * Written by the install preparation helper and read by the post-install flow.
  */
-export function getRestartMarkerPath(): string {
-	return join(getConfigDir(), "restart-arcade-after-install");
+export function getRestartMarkerPath(options: DaemonPathOptions = {}): string {
+	return join(getConfigDir(options), "restart-arcade-after-install");
 }
 
 /**
@@ -83,8 +92,8 @@ export interface DaemonState {
  * Get the path to the daemon state file.
  * Located alongside the rp1.db at ~/.rp1/daemon-state.json.
  */
-export function getDaemonStatePath(): string {
-	return join(homedir(), ".rp1", "daemon-state.json");
+export function getDaemonStatePath(options: DaemonPathOptions = {}): string {
+	return join(options.homeDir ?? homedir(), ".rp1", "daemon-state.json");
 }
 
 /**

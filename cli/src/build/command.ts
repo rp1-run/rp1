@@ -41,6 +41,7 @@ import {
 import type {
 	BuildConfig,
 	BuildSummary,
+	BundleAgentEntry,
 	BundleAssetEntry,
 	BundlePluginAssets,
 	EffortLevel,
@@ -534,7 +535,7 @@ export const buildPlatformPlugin = async (
 ): Promise<PlatformBuildResult> => {
 	const errors: string[] = [];
 	const commandEntries: BundleAssetEntry[] = [];
-	const agentEntries: BundleAssetEntry[] = [];
+	const agentEntries: BundleAgentEntry[] = [];
 	const skillEntries: BundleAssetEntry[] = [];
 	const skillFileEntries: BundleAssetEntry[] = [];
 	const stateMachineEntries: BundleAssetEntry[] = [];
@@ -948,7 +949,12 @@ export const buildPlatformPlugin = async (
 
 		if (definition.producesBundleAssets) {
 			const relativePath = `${pluginName}/agents/${agentFilename}`;
-			agentEntries.push({ name: ccAgent.name, path: relativePath });
+			agentEntries.push({
+				name: ccAgent.name,
+				path: relativePath,
+				tier: ccAgent.model as ModelTier,
+				...(ccAgent.effort && { effort: ccAgent.effort as EffortLevel }),
+			});
 		}
 
 		// Track Codex agent metadata in build state for postPluginBuild hooks
