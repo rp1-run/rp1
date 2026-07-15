@@ -1,6 +1,8 @@
 {
   "name": "rp1-eval-project",
   "version": "1.0.0",
+  "license": "Apache-2.0",
+  "private": true,
   "type": "module",
   "description": "Test project for rp1 evaluations",
   "scripts": {

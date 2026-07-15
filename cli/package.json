@@ -2,7 +2,7 @@
 	"name": "@rp1-run/rp1",
 	"version": "0.7.11",
 	"description": "AI-assisted development workflows CLI",
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/rp1-run/rp1.git",
