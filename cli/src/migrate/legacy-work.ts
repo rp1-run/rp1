@@ -101,9 +101,12 @@ const moveRecursive = (
 	return { moved, skipped };
 };
 
-export const findLegacyWorkDir = (projectRoot: string): string | undefined => {
+export const findLegacyWorkDir = (
+	projectRoot: string,
+	homeDir: string = homedir(),
+): string | undefined => {
 	const key = normalizeProjectKey(projectRoot);
-	const legacyPath = join(homedir(), ".rp1", "work", key);
+	const legacyPath = join(homeDir, ".rp1", "work", key);
 
 	if (!existsSync(legacyPath)) return undefined;
 

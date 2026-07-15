@@ -24,6 +24,7 @@ import { extractPlatformAssets } from "./asset-extractor.js";
 import { getDefaultArtifactsDir, installRp1 } from "./installer.js";
 import { discoverPlugins } from "./manifest.js";
 import { isHealthy } from "./models.js";
+import { type InstallPathContext, resolveInstallPathContext } from "./paths.js";
 import {
 	checkOpenCodeInstalled,
 	checkOpenCodeVersion,
@@ -45,6 +46,8 @@ export interface InstallArgs {
 export interface InstallOptions {
 	isTTY: boolean;
 	skipPrompt: boolean;
+	homeDir?: string;
+	environment?: NodeJS.ProcessEnv;
 }
 
 export const parseInstallArgs = (
@@ -93,6 +96,7 @@ export const parseInstallArgs = (
  * OpenCode hooks (TypeScript plugins) need separate extraction from the manifest.
  */
 const extractBundledHooks = async (
+	paths: InstallPathContext,
 	onProgress?: (msg: string) => void,
 ): Promise<number> => {
 	const assetsResult = getBundledAssets();
@@ -101,9 +105,8 @@ const extractBundledHooks = async (
 	const platform = assetsResult.right.platforms.opencode;
 	if (!platform) return 0;
 
-	const { homedir } = await import("node:os");
 	const { writeFile } = await import("node:fs/promises");
-	const pluginsDir = join(homedir(), ".config", "opencode", "plugins");
+	const pluginsDir = paths.openCodePluginsDir;
 	await mkdir(pluginsDir, { recursive: true });
 
 	let filesExtracted = 0;
@@ -134,6 +137,7 @@ const extractBundledHooks = async (
 const executeInstallFromBundled = (
 	config: InstallArgs,
 	_logger: Logger,
+	paths: InstallPathContext,
 	options?: InstallOptions,
 ): TE.TaskEither<CLIError, void> => {
 	const isTTY = options?.isTTY ?? process.stdout.isTTY ?? false;
@@ -153,7 +157,7 @@ const executeInstallFromBundled = (
 			}
 			spinner.start("Checking prerequisites...");
 			return pipe(
-				checkOpenCodeInstalled(),
+				checkOpenCodeInstalled(options?.environment),
 				TE.chain((result) => {
 					const versionResult = checkOpenCodeVersion(result.value ?? "");
 					if (E.isLeft(versionResult)) {
@@ -163,7 +167,7 @@ const executeInstallFromBundled = (
 					return TE.right(undefined);
 				}),
 				TE.chain(() => {
-					const targetDir = getOpenCodeConfigDir();
+					const targetDir = getOpenCodeConfigDir(paths);
 					return pipe(
 						checkWritePermissions(targetDir),
 						TE.map(() => ({ targetDir })),
@@ -220,6 +224,7 @@ const executeInstallFromBundled = (
 									undefined, // onOverwrite — rp1-namespaced files are always safe to overwrite
 									undefined,
 									config.strict,
+									paths,
 								),
 								TE.chain((installResult) => {
 									spinner.succeed(
@@ -232,9 +237,12 @@ const executeInstallFromBundled = (
 
 									return TE.tryCatch(
 										async () => {
-											const hooksCount = await extractBundledHooks((msg) => {
-												spinner.text = msg;
-											});
+											const hooksCount = await extractBundledHooks(
+												paths,
+												(msg) => {
+													spinner.text = msg;
+												},
+											);
 											if (hooksCount > 0) {
 												spinner.succeed(
 													"Hooks installed via plugins directory",
@@ -247,7 +255,11 @@ const executeInstallFromBundled = (
 								}),
 								TE.chain(() =>
 									pipe(
-										writeVersionMarker("opencode", getInstalledVersion()),
+										writeVersionMarker(
+											"opencode",
+											getInstalledVersion(),
+											paths.homeDir,
+										),
 										TE.mapLeft(
 											(e) => e, // pass through - version marker failure should not block install
 										),
@@ -269,7 +281,7 @@ const executeInstallFromBundled = (
 										skills: uniqueSkillDirs.size,
 									};
 									return pipe(
-										verifyInstallation(undefined, bundledCounts),
+										verifyInstallation(undefined, bundledCounts, paths),
 										TE.map((report) => {
 											if (isHealthy(report)) {
 												spinner.succeed(
@@ -329,6 +341,7 @@ export const executeInstall = (
 	options?: InstallOptions,
 ): TE.TaskEither<CLIError, void> => {
 	const config = parseInstallArgs(args);
+	const paths = resolveInstallPathContext({ homeDir: options?.homeDir });
 	const isTTY = options?.isTTY ?? process.stdout.isTTY ?? false;
 	const spinner = createSpinner(isTTY);
 
@@ -337,7 +350,7 @@ export const executeInstall = (
 	}
 
 	if (config.artifactsDir === null && hasBundledAssets()) {
-		return executeInstallFromBundled(config, logger, options);
+		return executeInstallFromBundled(config, logger, paths, options);
 	}
 
 	const artifactsDir = config.artifactsDir ?? getDefaultArtifactsDir();
@@ -385,7 +398,7 @@ export const executeInstall = (
 		),
 		TE.chain(() => {
 			spinner.start("Checking prerequisites...");
-			return checkOpenCodeInstalled();
+			return checkOpenCodeInstalled(options?.environment);
 		}),
 		TE.chain((result) => {
 			const versionResult = checkOpenCodeVersion(result.value ?? "");
@@ -396,7 +409,7 @@ export const executeInstall = (
 			return TE.right(undefined);
 		}),
 		TE.chain(() => {
-			const targetDir = getOpenCodeConfigDir();
+			const targetDir = getOpenCodeConfigDir(paths);
 			return pipe(
 				checkWritePermissions(targetDir),
 				TE.map(() => undefined),
@@ -434,6 +447,7 @@ export const executeInstall = (
 							undefined, // onOverwrite — rp1-namespaced files are always safe to overwrite
 							undefined, // logger
 							config.strict,
+							paths,
 						),
 						TE.chain((result) => {
 							spinner.succeed(
@@ -450,7 +464,7 @@ export const executeInstall = (
 						TE.chain(({ artifactsDir: verifyDir }) => {
 							spinner.start("Verifying installation...");
 							return pipe(
-								verifyInstallation(verifyDir),
+								verifyInstallation(verifyDir, undefined, paths),
 								TE.map((report) => {
 									if (isHealthy(report)) {
 										spinner.succeed(
@@ -469,7 +483,11 @@ export const executeInstall = (
 							);
 						}),
 						TE.chain(() =>
-							writeVersionMarker("opencode", getInstalledVersion()),
+							writeVersionMarker(
+								"opencode",
+								getInstalledVersion(),
+								paths.homeDir,
+							),
 						),
 					);
 				}),
@@ -485,6 +503,7 @@ export const executeInstall = (
 export const executeVerify = (
 	args: string[],
 	_logger: Logger,
+	options?: Pick<InstallOptions, "homeDir">,
 ): TE.TaskEither<CLIError, void> => {
 	let artifactsDir: string | undefined;
 	for (let i = 0; i < args.length; i++) {
@@ -494,9 +513,10 @@ export const executeVerify = (
 	}
 
 	console.log(bold("\nVerifying OpenCode Plugins\n"));
+	const paths = resolveInstallPathContext({ homeDir: options?.homeDir });
 
 	return pipe(
-		verifyInstallation(artifactsDir),
+		verifyInstallation(artifactsDir, undefined, paths),
 		TE.map((report) => {
 			console.log("+-----------+--------------+--------+");
 			console.log("| Component | Found/Expect | Status |");

@@ -2,7 +2,8 @@
 name: test-runner
 description: Executes comprehensive functional testing of implemented features including automated tests, coverage measurement, acceptance criteria verification, and detailed test reporting
 tools: Read, Write, Bash
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: FEATURE_ID
     type: string

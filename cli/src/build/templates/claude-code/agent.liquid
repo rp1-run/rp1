@@ -1,2 +1,13 @@
+{%- if artifact.model != "inherit" or artifact.effortValue -%}
+---
+{%- if artifact.model != "inherit" %}
+model: {{ artifact.model }}
+{%- endif %}
+{%- if artifact.effortValue %}
+{{ artifact.effortFieldName }}: {{ artifact.effortValue }}
+{%- endif %}
+---
+
+{% endif -%}
 {% render "shared/host-context", platform: platform %}
 {{ artifact.content | namespace_ref: platform | slash_commands: platform }}

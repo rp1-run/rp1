@@ -33,6 +33,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
+# Optional extra root CAs (e.g. Cloudflare WARP/Gateway CA for TLS-intercepting
+# networks). eval-run.sh exports the host's Gateway CA into docker/certs/ before
+# building; the directory holds only .gitkeep on non-intercepted networks.
+# Images built this way embed the host org's CA in a layer -- local use only,
+# never publish them to a registry.
+COPY docker/certs/ /usr/local/share/ca-certificates/extra/
+RUN update-ca-certificates
+# bun/node/npm do not read the system bundle for TLS by default
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+
 # GitHub CLI (gh)
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     | gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -86,8 +96,8 @@ FROM target-repo AS stable
 
 USER root
 
-# Node.js LTS via NodeSource
-RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+# Node.js 26 via NodeSource (pinned to match .tool-versions / host + CI)
+RUN curl -fsSL https://deb.nodesource.com/setup_26.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
@@ -130,8 +140,8 @@ FROM target-repo AS dev
 
 USER root
 
-# Node.js LTS via NodeSource (needed for Codex CLI)
-RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+# Node.js 26 via NodeSource (pinned to match .tool-versions / host + CI) (needed for Codex CLI)
+RUN curl -fsSL https://deb.nodesource.com/setup_26.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 

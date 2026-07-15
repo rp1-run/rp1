@@ -21,7 +21,7 @@ Use these prefixes exactly:
 Subagents generally cannot spawn other agents. If an agent is designed to run as a subagent:
 
 - Do not use SlashCommand to call other commands.
-- Do not call `/rp1-base:knowledge-load` from inside the subagent.
+- Do not invoke other skills for KB context; read KB files directly using the resolved `{KB_ROOT}` path (index.md first, then task-relevant files).
 - Inline only the prompt text or KB guidance the subagent actually needs.
 
 ### Codex task shorthand
@@ -46,7 +46,7 @@ When Codex agents spawn subagents in this repo:
 
 - Dev agents may depend on base.
 - Base agents must not call dev commands.
-- If a dev workflow needs `/rp1-base:knowledge-load` and it is unavailable, tell the user to install `rp1-base`.
+- If a dev workflow depends on an `rp1-base` skill (such as `rp1-base:artifact-templates`) and it is unavailable, tell the user to install `rp1-base`.
 
 ## Parameters and templating
 
@@ -99,24 +99,26 @@ The build pipeline automatically injects a `## 0. Resolve Arguments` section int
 
 #### Directory resolution
 
-All project directories are deterministic from the project root. The `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, and `RP1_WORK_ROOT` environment variables have been removed. Skills and agents should not declare them in `environment` schemas.
+Project directories are resolved at runtime based on the active storage mode. The `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, and `RP1_WORK_ROOT` environment variables have been removed. Skills and agents should not declare them in `environment` schemas.
 
 To discover project directories, use `rp1 agent-tools rp1-root-dir` which returns:
 
 - `projectRoot` -- the project root (directory containing `.rp1/project_id`)
-- `kbRoot` -- always `<projectRoot>/.rp1/context`
-- `workRoot` -- always `<projectRoot>/.rp1/work`
+- `kbRoot` -- the knowledge base directory (respects active storage mode; defaults to `<projectRoot>/.rp1/context`)
+- `workRoot` -- the work artifacts directory (respects active storage mode; defaults to `<projectRoot>/.rp1/work`)
+
+When referencing KB or work directories in agent and skill prompts, use the resolved variables `{kbRoot}` and `{workRoot}` (in skills) or `{KB_ROOT}` and `{WORK_ROOT}` (in agent arguments). Do not hardcode literal `.rp1/context` or `.rp1/work` paths -- these may not resolve correctly when a non-default storage mode is active.
 
 #### Path interpolation
 
-When referencing paths in prompts, use relative paths from the project root:
+When referencing KB or work paths in prompts, use the resolved directory variables, not literal paths:
 
 ```markdown
-.rp1/context/index.md
-.rp1/work/features/{FEATURE_ID}/
+{kbRoot}/index.md
+{workRoot}/features/{FEATURE_ID}/
 ```
 
-Do not use `${}` shell parameter expansion in Bash snippets intended for Claude Code.
+Skills use `{kbRoot}` and `{workRoot}` from `resolve-args` output. Agents use `{KB_ROOT}` and `{WORK_ROOT}` from their declared arguments. Do not use `${}` shell parameter expansion in Bash snippets intended for Claude Code.
 
 ### Artifact Path Contract
 
@@ -229,7 +231,7 @@ After changes:
 
 ## Environment note
 
-If installing `uv`, `bun`, or npm packages fails unexpectedly, it is likely due to the local VPN setup. Stop and ask the user for help instead of spending time on package-manager retries.
+If `uv`, `bun`, or npm package installs fail unexpectedly for network-related reasons, there may be environment-specific handling that applies. Consult your memory / local environment notes for the relevant steps before retrying repeatedly or escalating to the user.
 
 <!-- rp1:start:v0.7.1 -->
 ## rp1 Knowledge Base
@@ -266,7 +268,7 @@ that an rp1 skill addresses, briefly suggest it.
 | Quality | /code-comments, /code-audit, /code-check, /code-clean-comments | User finishes implementation and needs hygiene checks, audits, or comment cleanup |
 | Review | /address-pr-feedback, /arcade-collab, /pr-review, /pr-visual, /pr-walkthrough | User prepares a PR, receives review feedback, or needs visual diff understanding |
 | Documentation | /fix-mermaid, /generate-user-docs, /markdown-preview, /mermaid, /project-birds-eye-view, /write-content | User writes, updates, or previews docs, diagrams, or project overviews |
-| Knowledge | /guide, /knowledge-build, /knowledge-load, /self-update | User needs codebase context, KB is stale, or wants KB templates |
+| Knowledge | /guide, /knowledge-build, /self-update | User needs codebase context, KB is stale, or wants KB templates |
 | Strategy | /analyse-security, /deep-research, /socratic-duel, /socratic-duel-run, /strategize | User faces architectural decisions, security concerns, or needs deep research |
 | Planning | /blueprint, /blueprint-archive, /blueprint-audit | User plans a project, audits a PRD, or manages blueprint lifecycle |
 | Prompt | /prompt-writer | User authors, rewrites, or evaluates agent prompts |

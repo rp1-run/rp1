@@ -2,7 +2,8 @@
 name: kb-interaction-mapper
 description: Maps cross-surface interaction semantics for interaction-model.md from pre-filtered files
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: CODEBASE_ROOT
     type: string
@@ -37,6 +38,10 @@ arguments:
     required: false
     default: ""
     description: "Feature context JSON for FEATURE_LEARNING mode"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Knowledge base root directory"
 ---
 
 # KB Interaction Mapper - Cross-Surface Interaction Analysis
@@ -71,7 +76,7 @@ $6
 
 ## 1. Load Existing KB Context (If Available)
 
-- Check if `.rp1/context/interaction-model.md` exists
+- Check if `{KB_ROOT}/interaction-model.md` exists
 - If present, read it as prior interaction knowledge
 - Extract existing principles, actors, surfaces, states, feedback loops, deltas
 
@@ -219,22 +224,9 @@ Record only intentional deltas, not accidental implementation drift.
 }
 ```
 
-## Anti-Loop Directives
+{% include_shared "anti-loop.md" %}
 
-EXECUTE IMMEDIATELY:
-1. Load existing `interaction-model.md` if available
-2. Parse `INTERACTION_FILES_JSON` and MODE
-3. If incremental: review `FILE_DIFFS` first
-4. Read assigned files with diff awareness
-5. Extract principles, actors, surfaces, states, feedback, constraints, deltas
-6. Output JSON only
-7. STOP
+**Target**: 8-12 minutes
 
-Target completion: 8-12 minutes
-
-## Output Discipline
-
-- Do ALL work in `<thinking>` tags
-- Do NOT output progress or explanations
-- Output ONLY final JSON
+{% include_shared "output-discipline.md" %}
 - Parent orchestrator handles user communication

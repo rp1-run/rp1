@@ -4,8 +4,11 @@
  * next steps guidance, and progress tracking.
  */
 
+import type { StorageMode } from "../../shared/storage-mode.js";
 import type { GitRootResult } from "./git-root.js";
 import type { DetectedTool } from "./tool-detector.js";
+
+export type { StorageMode };
 
 /**
  * Project context classification for greenfield/brownfield detection.
@@ -181,6 +184,10 @@ export interface InitOptions {
 	readonly interactive?: boolean;
 	/** Force creating a nested project even when an ancestor project exists */
 	readonly forceNested?: boolean;
+	/** Override path to global settings file (test isolation seam) */
+	readonly globalSettingsPath?: string;
+	/** Override home directory for global stanza writes (test isolation seam) */
+	readonly homeDir?: string;
 }
 
 /**
@@ -210,6 +217,15 @@ export const GITIGNORE_PRESETS = {
 
 	/** Option C: Ignore entire .rp1/ */
 	ignore_all: `.rp1/`,
+
+	/**
+	 * Central mode: KB and work artifacts live under ~/.rp1/projects/<id>/,
+	 * so only project_id and settings.toml need tracking in the repo.
+	 */
+	central: `!.rp1/
+.rp1/*
+!.rp1/project_id
+!.rp1/settings.toml`,
 } as const;
 
 export type GitignorePreset = keyof typeof GITIGNORE_PRESETS;
@@ -244,6 +260,8 @@ export type StepId =
 	| "directory-setup"
 	| "settings-setup"
 	| "tool-detection"
+	| "harness-selection"
+	| "sandbox-grants"
 	| "instruction-injection"
 	| "gitignore-config"
 	| "install-check"
@@ -271,6 +289,8 @@ export interface UserChoices {
 	readonly reinitChoice?: ReinitChoice;
 	/** Selected gitignore preset */
 	readonly gitignorePreset?: GitignorePreset;
+	/** Selected harnesses from the harness-selection wizard step */
+	readonly enabledHarnesses?: readonly string[];
 }
 
 /**

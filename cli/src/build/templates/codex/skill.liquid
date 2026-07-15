@@ -98,8 +98,6 @@ Parse the JSON response. Extract values from `data.arguments`, `data.directories
 | rp1NextStepCommand | `data.directories.nextStepCommand` |
 | workflowName | `data.workflow.name` |
 | workflowRunPolicy | `data.workflow.runPolicy` |
-| requestedProjectRoot | `data.trace.requestedProjectRoot` |
-| canonicalProjectRoot | `data.trace.canonicalProjectRoot` |
 
 If workflow bootstrap fails, required arguments remain unresolved, or `rp1DirectoryStatus` is not `initialized`, warn the user about the tool error and stop.
 

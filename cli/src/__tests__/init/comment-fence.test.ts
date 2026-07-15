@@ -10,6 +10,7 @@ import {
 	extractFenceVersion,
 	findFencedContent,
 	hasFencedContent,
+	removeFencedContent,
 	replaceFencedContent,
 	validateFencing,
 	wrapWithFence,
@@ -311,6 +312,77 @@ after`;
 			const result = validateFencing(content);
 
 			expect(result.valid).toBe(true);
+		});
+	});
+
+	describe("removeFencedContent", () => {
+		test("returns content unchanged when no fence exists", () => {
+			const content = "Just plain content without any fence markers.";
+			expect(removeFencedContent(content)).toBe(content);
+		});
+
+		test("returns empty string when file is fence-only", () => {
+			const content = "<!-- rp1:start -->\nmanaged content\n<!-- rp1:end -->";
+			expect(removeFencedContent(content)).toBe("");
+		});
+
+		test("returns empty string for fence-only with trailing newline", () => {
+			const content = "<!-- rp1:start -->\nmanaged content\n<!-- rp1:end -->\n";
+			expect(removeFencedContent(content)).toBe("");
+		});
+
+		test("removes fence and preserves content before", () => {
+			const content =
+				"# Header\n\nSome text.\n\n<!-- rp1:start -->\nmanaged\n<!-- rp1:end -->";
+			const result = removeFencedContent(content);
+
+			expect(result).toContain("# Header");
+			expect(result).toContain("Some text.");
+			expect(result).not.toContain("<!-- rp1:start");
+			expect(result).not.toContain("managed");
+		});
+
+		test("removes fence and preserves content after", () => {
+			const content =
+				"<!-- rp1:start -->\nmanaged\n<!-- rp1:end -->\n\n## Footer\n\nMore text.";
+			const result = removeFencedContent(content);
+
+			expect(result).toContain("## Footer");
+			expect(result).toContain("More text.");
+			expect(result).not.toContain("<!-- rp1:start");
+			expect(result).not.toContain("managed");
+		});
+
+		test("removes fence and preserves content before and after", () => {
+			const content =
+				"# Header\n\nBefore.\n\n<!-- rp1:start -->\nmanaged\n<!-- rp1:end -->\n\nAfter.\n\n## Footer";
+			const result = removeFencedContent(content);
+
+			expect(result).toContain("# Header");
+			expect(result).toContain("Before.");
+			expect(result).toContain("After.");
+			expect(result).toContain("## Footer");
+			expect(result).not.toContain("managed");
+		});
+
+		test("handles versioned fence markers", () => {
+			const content =
+				"Keep this.\n\n<!-- rp1:start:v0.7.1 -->\nversioned managed\n<!-- rp1:end:v0.7.1 -->\n\nAlso keep.";
+			const result = removeFencedContent(content);
+
+			expect(result).toContain("Keep this.");
+			expect(result).toContain("Also keep.");
+			expect(result).not.toContain("versioned managed");
+			expect(result).not.toContain("<!-- rp1:start:v0.7.1 -->");
+		});
+
+		test("result ends with trailing newline when non-empty content remains", () => {
+			const content =
+				"Keep this.\n\n<!-- rp1:start -->\nmanaged\n<!-- rp1:end -->";
+			const result = removeFencedContent(content);
+
+			expect(result.length).toBeGreaterThan(0);
+			expect(result.endsWith("\n")).toBe(true);
 		});
 	});
 });

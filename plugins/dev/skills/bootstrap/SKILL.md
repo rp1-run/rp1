@@ -81,15 +81,17 @@ Max 2 attempts for validation, then abort.
 
 Create subdir if needed: `mkdir -p "{TARGET_DIR}"` (fail -> abort)
 
+**Resolve paths**: `rp1Dir = {TARGET_DIR}/.rp1` then `kbRoot = {rp1Dir}/context`
+
 ## §4 Charter Phase (Stateless)
 
 ### 4.1 Init Charter
 
 ```bash
-mkdir -p "{TARGET_DIR}/.rp1/context"
+mkdir -p "{kbRoot}"
 ```
 
-Create `{TARGET_DIR}/.rp1/context/charter.md`:
+Create `{kbRoot}/charter.md`:
 
 ```markdown
 # Project Charter: {PROJECT_NAME}
@@ -119,7 +121,7 @@ _TBD_
 
 ### 4.2 Interview Loop
 
-CHARTER_PATH = `{TARGET_DIR}/.rp1/context/charter.md`
+CHARTER_PATH = `{kbRoot}/charter.md`
 question_count = 0
 
 while question_count < 10:
@@ -149,13 +151,13 @@ while question_count < 10:
 
 ### 4.3 Verify
 
-`ls "{TARGET_DIR}/.rp1/context/charter.md"` - missing -> warn, continue
+`ls "{kbRoot}/charter.md"` - missing -> warn, continue
 
 ## §5 Scaffold Phase (Stateless)
 
 ### 5.1 Init Preferences
 
-Create `{TARGET_DIR}/.rp1/context/preferences.md`:
+Create `{kbRoot}/preferences.md`:
 
 ```markdown
 # Project Preferences
@@ -177,12 +179,13 @@ Testing: [?] | Build: [?] | Lint: [?] | Format: [?]
 
 ### 5.2 Scaffolder Loop
 
-PREFS_PATH = `{TARGET_DIR}/.rp1/context/preferences.md`
+PREFS_PATH = `{kbRoot}/preferences.md`
 question_count = 0, summary_iterations = 0
 
 loop:
   {% dispatch_agent "rp1-dev:bootstrap-scaffolder" %}
-  PROJECT_NAME, TARGET_DIR, CHARTER_PATH, PREFS_PATH}/.rp1/context
+  PROJECT_NAME, TARGET_DIR, CHARTER_PATH, PREFS_PATH
+  KB_ROOT={kbRoot}
   {% enddispatch_agent %}
 
   response = parse_json(output)
@@ -216,21 +219,18 @@ loop:
 Bootstrap complete!
 Project: {PROJECT_NAME} | Location: {TARGET_DIR}
 
-Created: .rp1/context/charter.md, preferences.md, AGENTS.md, CLAUDE.md, README.md, [pkg manifest], src/, tests/
+Created: {kbRoot}/charter.md, {kbRoot}/preferences.md, AGENTS.md, CLAUDE.md, README.md, [pkg manifest], src/, tests/
 
 Next: cd {PROJECT_NAME}, review code, run app (see README.md)
 
 Commands: /rp1-dev:build, /rp1-dev:blueprint update, /rp1-base:knowledge-build
 ```
 
-## §7 Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-**Single-pass. DO NOT**:
-
-- Ask clarification beyond defined prompts
-- Loop to earlier steps
-- Re-run agents after completion
-- Modify files outside TARGET_DIR
+**File-specific constraints**:
+- Do NOT modify files outside TARGET_DIR
+- Do NOT re-run agents after completion
 
 **Flow**: Check dir (1x) -> Resolve name (1x, max 2 validations) -> Setup target (1x) -> charter-interviewer (1x) -> bootstrap-scaffolder (1x) -> Output -> STOP
 

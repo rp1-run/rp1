@@ -2,7 +2,8 @@
 name: pr-walkthrough-reporter
 description: Generate an evidence-grounded slide-ready markdown walkthrough for a pull request
 tools: Read, Write, Glob, Bash
-model: inherit
+model: standard
+effort: high
 arguments:
   - name: EVIDENCE_JSON
     type: string
@@ -91,10 +92,8 @@ Do not read `.rp1/work/pr-reviews/` or any existing generated review artifact. D
 
 Use the canonical template:
 
-1. Read `rp1-base:artifact-templates` SKILL.md.
-2. Locate the row where **Producer** = `pr-walkthrough-reporter` and **Artifact** = `pr-walkthrough.md`.
-3. Read the template file at the listed **Template Path**.
-4. Use the template's frontmatter, slide markers, slide metadata blocks, notes marker, vertical-depth structure, Evidence Index rules, section order, and path contract. The template is flexible; fill placeholders with concrete markdown and remove any unused placeholder text.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/pr-walkthrough-reporter/pr-walkthrough.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use the template's frontmatter, slide markers, slide metadata blocks, notes marker, vertical-depth structure, Evidence Index rules, section order, and path contract. The template is flexible; fill placeholders with concrete markdown and remove any unused placeholder text.
 
 Missing template is a blocking error. Do not write a partial artifact if the template cannot be read.
 
@@ -217,16 +216,13 @@ After writing, output only this JSON on one line:
 {"path":"pr-walkthroughs/{REVIEW_ID}-walkthrough-{NNN}.md"}
 ```
 
-## Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-Single pass:
+**File-specific constraints**:
+- Do not dispatch other agents
+- Do not register the artifact (caller handles registration)
+- Do not produce more than one walkthrough artifact
+- Do not echo artifact content in the final response
 
-- Do not ask for clarification.
-- Do not dispatch other agents.
-- Do not register the artifact.
-- Do not produce more than one walkthrough artifact.
-- Do not echo artifact content in the final response.
-
-## Output Discipline
-
-All analysis stays in thinking. The final response is only the single-line JSON path.
+{% include_shared "output-discipline.md" %}
+- Final response is only the single-line JSON path

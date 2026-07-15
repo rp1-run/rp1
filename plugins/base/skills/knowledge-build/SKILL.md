@@ -183,6 +183,7 @@ Do not echo placeholder tokens.
 {% dispatch_agent "rp1-base:kb-concept-extractor", background %}
 Use the parent-computed inputs.
 
+- KB_ROOT={kbRoot}
 - MODE: actual mode
 - REPO_TYPE: actual repo type
 - CONCEPT_FILES_JSON: actual JSON array
@@ -194,6 +195,7 @@ Use the parent-computed inputs.
 {% dispatch_agent "rp1-base:kb-architecture-mapper", background %}
 Use the parent-computed inputs.
 
+- KB_ROOT={kbRoot}
 - MODE: actual mode
 - REPO_TYPE: actual repo type
 - ARCH_FILES_JSON: actual JSON array
@@ -205,6 +207,7 @@ Use the parent-computed inputs.
 {% dispatch_agent "rp1-base:kb-interaction-mapper", background %}
 Use the parent-computed inputs.
 
+- KB_ROOT={kbRoot}
 - MODE: actual mode
 - REPO_TYPE: actual repo type
 - INTERACTION_FILES_JSON: actual JSON array
@@ -216,6 +219,7 @@ Use the parent-computed inputs.
 {% dispatch_agent "rp1-base:kb-module-analyzer", background %}
 Use the parent-computed inputs.
 
+- KB_ROOT={kbRoot}
 - MODE: actual mode
 - REPO_TYPE: actual repo type
 - MODULE_FILES_JSON: actual JSON array
@@ -227,6 +231,7 @@ Use the parent-computed inputs.
 {% dispatch_agent "rp1-base:kb-pattern-extractor", background %}
 Use the parent-computed inputs.
 
+- KB_ROOT={kbRoot}
 - MODE: actual mode
 - REPO_TYPE: actual repo type
 - PATTERN_FILES_JSON: actual JSON array
@@ -245,7 +250,7 @@ Use the parent-computed inputs.
 
 ### 4. Reduce + Write
 
-1. Load `rp1-base:artifact-templates` (read SKILL.md index, then read needed KB templates from `templates/knowledge-base/`).
+1. Read needed KB templates directly from `plugins/base/skills/artifact-templates/templates/knowledge-base/` (fall back to `rp1-base:artifact-templates` SKILL.md index if a direct path fails).
 2. Merge analyzer output into:
    - `concept_map.md`
    - `architecture.md`
@@ -308,4 +313,4 @@ Final report must include:
 - files analyzed
 - files written under `.rp1/context/`
 - note that this passive workflow does not register an Arcade run
-- reminder: agents load KB automatically; no manual `knowledge-load` needed
+- reminder: agents load KB automatically via progressive disclosure

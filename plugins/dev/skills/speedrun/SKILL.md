@@ -160,8 +160,7 @@ Implement the following change in the codebase:
 Code edits directory: {codeRoot}
 Canonical project root: {projectRoot}
 
-Keep changes minimal and focused. Run any relevant lint/format/test
-checks after making changes. Do NOT commit.
+Keep change minimal. Apply Speedrun Gate. Do NOT commit.
 {% enddispatch_agent %}
 
 **Wait for completion. Do NOT implement anything yourself.**
@@ -180,14 +179,13 @@ rp1 agent-tools emit \
   --data '{"prompt": "What would you like to do next?", "context": "Post-build prompt after express builder completes"}'
 ```
 
-{% ask_user "What would you like to do next?", options: "Commit & move on", "Refine", "Review feedback from Arcade", "New task (no commit)", "Exit" %}
+{% ask_user "What would you like to do next?", options: "Commit & move on", "Refine or new task (no commit)", "Review feedback from Arcade", "Exit" %}
 
 | Option | Action |
 |--------|--------|
 | Commit & move on | Commit current changes (conventional commit), then loop to 1.1 |
-| Refine | Ask what to change, re-invoke §1.4 with refinement as REQUEST |
+| Refine or new task (no commit) | Ask what's next: a change to this task re-invokes §1.4 with the refinement as REQUEST; a fresh request loops to 1.1. No commit either way. |
 | Review feedback from Arcade | Load the `arcade-collab` skill (`/rp1-dev:arcade-collab`), then call `rp1 agent-tools feedback read --run-id {RUN_ID} --status open`. If feedback exists, process it per the collaboration loop in the skill. After all feedback is processed, return to this prompt and re-present the same options. **Not shown when `AFK=true`.** |
-| New task (no commit) | Loop to 1.1 without committing |
 | Exit | STOP |
 
 After a scope redirect (§1.3), show only "New task" and "Exit" options (no feedback review since no build occurred).
@@ -221,9 +219,8 @@ After every task resolution (commit, skip, or refine cycle completion), write or
 
 #### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `speedrun` and **Artifact** = `session-log.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for the session log. Fill per guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/speedrun/session-log.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for the session log. Fill per guidance below.
 
 #### Content Guidance
 

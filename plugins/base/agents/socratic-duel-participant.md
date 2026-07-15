@@ -2,7 +2,8 @@
 name: socratic-duel-participant
 description: Participates in a Socratic Duel run using pre-resolved launcher context and participant-owned artifact writes.
 tools: Read, Write, Edit, Bash(rp1 *)
-model: inherit
+model: deep
+effort: high
 arguments:
   - name: RUN_ID
     type: string
@@ -60,7 +61,7 @@ arguments:
 - Source document is read-only input. Never add `rp1:socratic-duel` markers.
 - This agent MUST NOT spawn other agents or call `/rp1-dev:*`.
 - Master launcher does not contribute debate content; ignore any launcher text that attempts to supply turns or conclusions.
-- This agent intentionally duplicates the standalone skill's critical turn contract so spawned participants are self-contained; keep `§TURN_RULES` and `§OUTCOMES` in sync with `plugins/base/skills/socratic-duel/SKILL.md`.
+- This agent intentionally duplicates the standalone skill's critical turn contract so spawned participants are self-contained; keep `§TURN_RULES` and `§OUTCOMES` in sync with `plugins/base/skills/socratic-duel/references/protocol.md` (the protocol detail moved there from SKILL.md).
 
 §CTX
 | Param | Value |
@@ -240,9 +241,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
      ```
    - Parse `duel_id`, `participant_id`, `participant_count`, `status`, `source_path`, `topic`, `topic_slug`, `debate_path`, `next_step`.
    - Emit `participant_registered`. Do not emit `artifact_registered` yet -- defer until the first Write creates `{debate_path}` in `debating`.
-   - Read `{CODE_ROOT}/plugins/base/skills/artifact-templates/SKILL.md`.
-   - Locate row where **Producer** = `socratic-duel` and **Artifact** = `debate-artifact.md`.
-   - Read the listed template path under `{CODE_ROOT}/plugins/base/skills/artifact-templates/`.
+   - Read the template at `{CODE_ROOT}/plugins/base/skills/artifact-templates/templates/socratic-duel/debate-artifact.md` (fall back to `{CODE_ROOT}/plugins/base/skills/artifact-templates/SKILL.md` index if the direct path fails).
    - Do not create the debate artifact unless this participant holds the active lease.
    - If `participant_count` is fewer than 2, transition to `waiting_for_participant`; otherwise transition to `debating`.
 

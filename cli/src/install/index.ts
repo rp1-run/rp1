@@ -20,11 +20,6 @@ export {
 	readOpenCodeConfig,
 	registerOpenCodePlugin,
 } from "./config.js";
-export {
-	getGeminiPaths,
-	installGeminiBundleAssets,
-	verifyGeminiBundleSetup,
-} from "./gemini/index.js";
 // Installer
 export {
 	backupExistingInstallation,

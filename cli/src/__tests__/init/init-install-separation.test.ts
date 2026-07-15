@@ -11,6 +11,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import type { Logger } from "../../../shared/logger.js";
@@ -20,7 +21,9 @@ import {
 	createDirectoryStructure,
 	createSettingsFiles,
 	injectInstructions,
+	resolveInitPathContext,
 } from "../../init/steps/project-setup.js";
+import { AGENTS_REFERENCE_TEMPLATE } from "../../init/templates/index.js";
 import type { DetectedTool } from "../../init/tool-detector.js";
 import { LATEST_FENCE_VERSION } from "../../lib/fence-version.js";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
@@ -67,6 +70,16 @@ async function readFileIfExists(filePath: string): Promise<string | null> {
 	} catch {
 		return null;
 	}
+}
+
+async function setupLocalStorageMode(cwd: string): Promise<void> {
+	const rp1Dir = join(cwd, ".rp1");
+	await mkdir(rp1Dir, { recursive: true });
+	await writeFile(
+		join(rp1Dir, "settings.toml"),
+		'[storage]\nmode = "local"\n',
+		"utf-8",
+	);
 }
 
 function createDetectedTool(
@@ -204,6 +217,7 @@ describe("init-install separation", () => {
 		test(
 			"install failure does not prevent project setup from completing",
 			async () => {
+				await setupLocalStorageMode(tempDir);
 				const logger = createTrackingLogger();
 				const options: InitOptions = { cwd: tempDir, yes: true };
 
@@ -381,6 +395,15 @@ describe("init-install separation", () => {
 			expect(firstContent).toBe(secondContent);
 		});
 
+		test("headless omitted init path inputs preserve production defaults", () => {
+			const paths = resolveInitPathContext();
+
+			expect(paths.homeDir).toBe(homedir());
+			expect(paths.globalSettingsPath).toBe(
+				join(homedir(), ".config", "rp1", "settings.toml"),
+			);
+		});
+
 		test("createSettingsFiles writes current directory configuration guidance", async () => {
 			const logger = createMockLogger();
 
@@ -392,13 +415,8 @@ describe("init-install separation", () => {
 
 			expect(content).not.toContain("\ngit_worktree = false");
 			expect(content).not.toContain("\ngit_commit = false");
-			expect(content).toContain(
-				"# Directory paths are fixed from the project root:",
-			);
-			expect(content).toContain(
-				"# - Knowledge base files live in .rp1/context",
-			);
-			expect(content).toContain("# - Work artifacts live in .rp1/work");
+			expect(content).toContain("[storage]");
+			expect(content).toContain('mode = "central"');
 			expect(content).toContain('# [arguments."dev:build"]');
 			expect(content).toContain("# git_commit = false");
 		});
@@ -634,6 +652,163 @@ describe("init-install separation", () => {
 			// Old fenced content replaced in both
 			expect(claudeContent).not.toContain("Old claude rp1");
 			expect(agentsContent).not.toContain("Old agents rp1");
+		});
+	});
+
+	describe("single-file stanza injection", () => {
+		test("both files exist: CLAUDE.md gets @AGENTS.md reference, AGENTS.md gets full stanza", async () => {
+			await writeFile(
+				join(tempDir, "CLAUDE.md"),
+				"# My Project\n\nCustom instructions.\n",
+				"utf-8",
+			);
+			await writeFile(
+				join(tempDir, "AGENTS.md"),
+				"# Agent Instructions\n\nAgent-specific content.\n",
+				"utf-8",
+			);
+
+			const logger = createMockLogger();
+			await injectInstructions(tempDir, null, logger);
+
+			const claudeContent = await readFile(join(tempDir, "CLAUDE.md"), "utf-8");
+			const agentsContent = await readFile(join(tempDir, "AGENTS.md"), "utf-8");
+
+			expect(claudeContent).toContain(AGENTS_REFERENCE_TEMPLATE);
+			expect(claudeContent).toContain(
+				`<!-- rp1:start:v${LATEST_FENCE_VERSION} -->`,
+			);
+			expect(claudeContent).not.toContain("## rp1 Knowledge Base");
+
+			expect(agentsContent).toContain("## rp1 Knowledge Base");
+			expect(agentsContent).toContain(
+				`<!-- rp1:start:v${LATEST_FENCE_VERSION} -->`,
+			);
+
+			expect(claudeContent).toContain("Custom instructions.");
+			expect(agentsContent).toContain("Agent-specific content.");
+		});
+
+		test("both files with existing fences: CLAUDE.md fence becomes @AGENTS.md reference", async () => {
+			await writeFile(
+				join(tempDir, "CLAUDE.md"),
+				`User content\n\n<!-- rp1:start -->\n## rp1 Knowledge Base\nOld template\n<!-- rp1:end -->\n`,
+				"utf-8",
+			);
+			await writeFile(
+				join(tempDir, "AGENTS.md"),
+				`Agent content\n\n<!-- rp1:start -->\n## rp1 Knowledge Base\nOld template\n<!-- rp1:end -->\n`,
+				"utf-8",
+			);
+
+			const logger = createMockLogger();
+			await injectInstructions(tempDir, null, logger);
+
+			const claudeContent = await readFile(join(tempDir, "CLAUDE.md"), "utf-8");
+			const agentsContent = await readFile(join(tempDir, "AGENTS.md"), "utf-8");
+
+			expect(claudeContent).toContain(AGENTS_REFERENCE_TEMPLATE);
+			expect(claudeContent).not.toContain("Old template");
+
+			expect(agentsContent).toContain("## rp1 Knowledge Base");
+			expect(agentsContent).not.toContain("Old template");
+
+			expect(claudeContent).toContain("User content");
+			expect(agentsContent).toContain("Agent content");
+		});
+
+		test("CLAUDE.md only: gets full stanza (no reference)", async () => {
+			await writeFile(
+				join(tempDir, "CLAUDE.md"),
+				"# My Project\n\nCustom instructions.\n",
+				"utf-8",
+			);
+
+			const logger = createMockLogger();
+			await injectInstructions(tempDir, null, logger);
+
+			const claudeContent = await readFile(join(tempDir, "CLAUDE.md"), "utf-8");
+			const agentsExists = await readFileIfExists(join(tempDir, "AGENTS.md"));
+
+			expect(claudeContent).toContain("## rp1 Knowledge Base");
+			expect(claudeContent).not.toContain(AGENTS_REFERENCE_TEMPLATE);
+			expect(claudeContent).toContain(
+				`<!-- rp1:start:v${LATEST_FENCE_VERSION} -->`,
+			);
+
+			expect(agentsExists).toBeNull();
+		});
+
+		test("AGENTS.md only: gets full stanza", async () => {
+			await writeFile(
+				join(tempDir, "AGENTS.md"),
+				"# Agent Instructions\n\nAgent content.\n",
+				"utf-8",
+			);
+
+			const logger = createMockLogger();
+			await injectInstructions(tempDir, null, logger);
+
+			const agentsContent = await readFile(join(tempDir, "AGENTS.md"), "utf-8");
+			const claudeExists = await readFileIfExists(join(tempDir, "CLAUDE.md"));
+
+			expect(agentsContent).toContain("## rp1 Knowledge Base");
+			expect(agentsContent).toContain(
+				`<!-- rp1:start:v${LATEST_FENCE_VERSION} -->`,
+			);
+
+			expect(claudeExists).toBeNull();
+		});
+
+		test("neither file exists: creates default instruction file", async () => {
+			const logger = createMockLogger();
+			const result = await injectInstructions(tempDir, null, logger);
+
+			expect(result.instructionFile).toBe("CLAUDE.md");
+			const claudeContent = await readFile(join(tempDir, "CLAUDE.md"), "utf-8");
+			expect(claudeContent).toContain("## rp1 Knowledge Base");
+			expect(claudeContent).toContain(
+				`<!-- rp1:start:v${LATEST_FENCE_VERSION} -->`,
+			);
+		});
+
+		test("both files: idempotent (second run produces identical output)", async () => {
+			await writeFile(join(tempDir, "CLAUDE.md"), "# My Project\n", "utf-8");
+			await writeFile(join(tempDir, "AGENTS.md"), "# Agents\n", "utf-8");
+
+			const logger = createMockLogger();
+
+			await injectInstructions(tempDir, null, logger);
+			const claudeFirst = await readFile(join(tempDir, "CLAUDE.md"), "utf-8");
+			const agentsFirst = await readFile(join(tempDir, "AGENTS.md"), "utf-8");
+
+			await injectInstructions(tempDir, null, logger);
+			const claudeSecond = await readFile(join(tempDir, "CLAUDE.md"), "utf-8");
+			const agentsSecond = await readFile(join(tempDir, "AGENTS.md"), "utf-8");
+
+			expect(claudeSecond).toBe(claudeFirst);
+			expect(agentsSecond).toBe(agentsFirst);
+		});
+
+		test("both files with Codex: AGENTS.md gets Codex template, CLAUDE.md gets reference", async () => {
+			await writeFile(join(tempDir, "CLAUDE.md"), "# My Project\n", "utf-8");
+			await writeFile(join(tempDir, "AGENTS.md"), "# Agents\n", "utf-8");
+
+			const logger = createMockLogger();
+			await injectInstructions(
+				tempDir,
+				createDetectedTool("codex", "AGENTS.md"),
+				logger,
+			);
+
+			const claudeContent = await readFile(join(tempDir, "CLAUDE.md"), "utf-8");
+			const agentsContent = await readFile(join(tempDir, "AGENTS.md"), "utf-8");
+
+			expect(claudeContent).toContain(AGENTS_REFERENCE_TEMPLATE);
+			expect(claudeContent).not.toContain("## Codex agent conventions");
+
+			expect(agentsContent).toContain("## Codex agent conventions");
+			expect(agentsContent).not.toContain("## rp1 Skill Awareness");
 		});
 	});
 

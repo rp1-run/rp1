@@ -2,7 +2,8 @@
 name: kb-concept-extractor
 description: Extracts domain concepts and terminology for concept_map.md from pre-filtered files
 tools: Read, Grep, Glob
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: CODEBASE_ROOT
     type: string
@@ -37,6 +38,10 @@ arguments:
     required: false
     default: ""
     description: "Feature context JSON for FEATURE_LEARNING mode"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Knowledge base root directory"
 ---
 
 # KB Concept Extractor - Domain Concept Mapping
@@ -73,7 +78,7 @@ $6
 ## 1. Load Existing KB Context (If Available)
 
 **Check for existing concept_map.md**:
-- Check if `.rp1/context/concept_map.md` exists
+- Check if `{KB_ROOT}/concept_map.md` exists
 - If exists, read the file to understand current domain knowledge
 - Extract existing concepts, terminology, relationships, and patterns
 - Use as baseline context for analysis
@@ -343,36 +348,9 @@ Identify concepts that span multiple modules:
 }
 ```
 
-## Anti-Loop Directives
-
-**EXECUTE IMMEDIATELY**:
-- Do NOT ask for clarification
-- Do NOT iterate or refine
-- Read assigned files ONCE
-- Extract concepts systematically
-- Output JSON
-- STOP
-
-**Execution Flow**:
-1. Load existing concept_map.md if available (30 seconds)
-2. Parse CONCEPT_FILES_JSON and check MODE (immediate)
-3. If INCREMENTAL: Review FILE_DIFFS for changed sections (10 seconds)
-4. Read assigned files with diff awareness (1-4 minutes depending on mode)
-3. Extract core concepts (2 minutes)
-4. Extract terminology (2 minutes)
-5. Map relationships (2 minutes)
-6. Identify patterns (1 minute)
-7. Define boundaries (1 minute)
-8. Identify cross-cutting concerns (1 minute)
-9. Output JSON (immediate)
-10. STOP
+{% include_shared "anti-loop.md" %}
 
 **Target Completion**: 10-12 minutes
 
-## Output Discipline
-
-**CRITICAL - Silent Execution**:
-- Do ALL work in <thinking> tags (NOT visible to user)
-- Do NOT output progress or verbose explanations
-- Output ONLY the final JSON
+{% include_shared "output-discipline.md" %}
 - Parent orchestrator handles user communication

@@ -128,6 +128,11 @@ export const WIZARD_STEPS: readonly Omit<
 		description: "Detecting AI tools",
 	},
 	{
+		id: "harness-selection",
+		name: "Harness Selection",
+		description: "Choosing harness platforms",
+	},
+	{
 		id: "install-check",
 		name: "Install Check",
 		description: "Checking plugin installation",
@@ -141,6 +146,11 @@ export const WIZARD_STEPS: readonly Omit<
 		id: "settings-setup",
 		name: "Settings",
 		description: "Creating settings files",
+	},
+	{
+		id: "sandbox-grants",
+		name: "Sandbox Grants",
+		description: "Configuring sandbox grants",
 	},
 	{
 		id: "instruction-injection",

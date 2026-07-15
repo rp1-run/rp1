@@ -10,6 +10,7 @@ worktree_git_mounts=()
 promptfoo_mounts=()
 do_commit=false
 attest=false
+rebuild_image=false
 host_commit_outputs_file=""
 container_commit_outputs_file=""
 host_promptfoo_config_dir=""
@@ -19,6 +20,9 @@ for arg in "$@"; do
     case "$arg" in
         --commit)
             do_commit=true
+            ;;
+        --rebuild-image)
+            rebuild_image=true
             ;;
         --attest)
             attest=true
@@ -174,11 +178,33 @@ docker_run_args+=(
     "${container_args[@]}"
 )
 
-echo "Building dev image (cached layers reused)..."
-(
-    cd "$repo_root"
-    docker build --platform linux/arm64 --target dev -t rp1-dev -f docker/Dockerfile .
-)
+# On TLS-intercepting networks (Cloudflare WARP), in-container downloads fail
+# with SELF_SIGNED_CERT_IN_CHAIN unless the image trusts the Gateway CA. Export
+# it from the macOS keychain into the build context so the Dockerfile bakes it
+# into the trust store. No-op when the cert is absent (WARP not installed).
+export_warp_ca_cert() {
+    local certs_dir="${repo_root}/docker/certs"
+    mkdir -p "$certs_dir"
+    if command -v security >/dev/null 2>&1; then
+        local pem
+        pem="$(security find-certificate -a -c "Cloudflare Gateway CA" -p /Library/Keychains/System.keychain 2>/dev/null || true)"
+        if [ -n "$pem" ]; then
+            printf '%s\n' "$pem" > "${certs_dir}/cloudflare-gateway-ca.crt"
+            echo "Exported Cloudflare Gateway CA into docker/certs/ for the image trust store."
+        fi
+    fi
+}
+
+if [ "$rebuild_image" = "true" ] || ! docker image inspect rp1-dev >/dev/null 2>&1; then
+    echo "Building dev image (cached layers reused)..."
+    export_warp_ca_cert
+    (
+        cd "$repo_root"
+        docker build --platform linux/arm64 --target dev -t rp1-dev -f docker/Dockerfile .
+    )
+else
+    echo "Reusing existing rp1-dev image; pass --rebuild-image after Dockerfile changes."
+fi
 
 echo "Starting dockerized eval run..."
 cd "$repo_root"

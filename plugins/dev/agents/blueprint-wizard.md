@@ -2,7 +2,8 @@
 name: blueprint-wizard
 description: Stateless PRD wizard that analyzes interview state and returns structured JSON responses for PRD creation
 tools: Read, Write, Glob, Bash
-model: inherit
+model: standard
+effort: high
 author: cloud-on-prem/rp1
 arguments:
   - name: PRD_NAME
@@ -149,9 +150,8 @@ All sections done:
 
 **PRD Template Loading**:
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `blueprint-wizard` and **Artifact** = `prd.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for `prd_content`. Fill sections from interview Q&A per section mapping (S1->Surface Overview, S2->Scope, S3->Requirements, S4->Dependencies, S5->Timeline).
+1. Read the template at `plugins/base/skills/artifact-templates/templates/blueprint-wizard/prd.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for `prd_content`. Fill sections from interview Q&A per section mapping (S1->Surface Overview, S2->Scope, S3->Requirements, S4->Dependencies, S5->Timeline).
 
 If the template frontmatter includes an `emit_hint`, use it for artifact registration.
 

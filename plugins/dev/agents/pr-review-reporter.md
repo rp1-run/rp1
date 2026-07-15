@@ -2,7 +2,8 @@
 name: pr-review-reporter
 description: Formats findings into markdown report and writes to file
 tools: Read, Write, Glob, Bash
-model: inherit
+model: standard
+effort: low
 arguments:
   - name: PR_INFO
     type: string
@@ -118,9 +119,8 @@ $9
 
 ### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `pr-review-reporter` and **Artifact** = `pr-review-report.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for output. Fill placeholders per guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/pr-review-reporter/pr-review-report.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for output. Fill placeholders per guidance below.
 
 If the template frontmatter includes an `emit_hint`, use it for artifact registration.
 
@@ -153,19 +153,8 @@ After writing, output ONLY the file path:
 - No success message
 - No explanations
 
-## Anti-Loop Directives
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**:
-- Determine file name
-- Generate content
-- Write file
-- Output path JSON, STOP
-- Do NOT iterate or refine
-
-## Output Discipline
-
-**CRITICAL - Silent Execution**:
-- Do ALL work in <thinking> tags
+{% include_shared "output-discipline.md" %}
 - Write report file using Write tool
-- Output ONLY the final path JSON
-- No progress updates, no content preview
+- Output ONLY the final path JSON (no content preview)

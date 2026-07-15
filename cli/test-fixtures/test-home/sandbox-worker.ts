@@ -1,0 +1,8 @@
+postMessage({
+	HOME: process.env.HOME,
+	PATH: process.env.PATH,
+	RP1_TEST_BROWSER_EXECUTABLE_PATH:
+		process.env.RP1_TEST_BROWSER_EXECUTABLE_PATH,
+	CARGO_HOME: process.env.CARGO_HOME,
+	RP1_TEST_SANDBOX_HOME: process.env.RP1_TEST_SANDBOX_HOME,
+});

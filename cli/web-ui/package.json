@@ -10,6 +10,7 @@
 		"dev:client": "vite --open",
 		"dev:server": "NODE_ENV=development bun run src/cli.ts ../..",
 		"build": "vite build",
+		"typecheck": "tsc --noEmit",
 		"preview": "vite preview",
 		"start": "bun run src/cli.ts",
 		"clean": "rm -rf dist"

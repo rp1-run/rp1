@@ -8,6 +8,7 @@ import * as E from "fp-ts/lib/Either.js";
 import {
 	validateAgent,
 	validateAgentSchema,
+	validateAgentTierAndEffort,
 	validateCommand,
 	validateCommandSchema,
 	validateCommandSyntax,
@@ -373,6 +374,159 @@ Content.`;
 			const result = validateSkillSchema(content, "test.md");
 
 			expect(E.isRight(result)).toBe(true);
+		});
+	});
+
+	describe("validateAgentTierAndEffort", () => {
+		test("accepts frontier as a valid model tier", () => {
+			const result = validateAgentTierAndEffort(
+				"test-agent",
+				"frontier",
+				"high",
+				"test-agent.md",
+			);
+			expect(result.errors.length).toBe(0);
+			expect(result.warnings.length).toBe(0);
+		});
+
+		test("rejects unknown model tier with allowed values listed", () => {
+			const result = validateAgentTierAndEffort(
+				"test-agent",
+				"turbo",
+				undefined,
+				"test-agent.md",
+			);
+			expect(result.errors.length).toBe(1);
+			expect(result.errors[0]).toContain("turbo");
+			expect(result.errors[0]).toContain("frontier");
+			expect(result.errors[0]).toContain("deep");
+			expect(result.errors[0]).toContain("standard");
+			expect(result.errors[0]).toContain("fast");
+			expect(result.errors[0]).toContain("inherit");
+			expect(result.warnings.length).toBe(0);
+		});
+
+		test("rejects unknown effort level with allowed values listed", () => {
+			const result = validateAgentTierAndEffort(
+				"test-agent",
+				"standard",
+				"extreme",
+				"test-agent.md",
+			);
+			expect(result.errors.length).toBe(1);
+			expect(result.errors[0]).toContain("extreme");
+			expect(result.errors[0]).toContain("low");
+			expect(result.errors[0]).toContain("high");
+			expect(result.warnings.length).toBe(0);
+		});
+
+		test("warns on fast tier with effort set", () => {
+			const result = validateAgentTierAndEffort(
+				"test-agent",
+				"fast",
+				"high",
+				"test-agent.md",
+			);
+			expect(result.errors.length).toBe(0);
+			expect(result.warnings.length).toBe(1);
+			expect(result.warnings[0]).toContain("fast");
+			expect(result.warnings[0]).toContain("effort");
+		});
+
+		test("warns on protected agent downgrade to standard", () => {
+			const result = validateAgentTierAndEffort(
+				"feature-architect",
+				"standard",
+				"high",
+				"feature-architect.md",
+			);
+			expect(result.errors.length).toBe(0);
+			expect(result.warnings.length).toBe(1);
+			expect(result.warnings[0]).toContain("feature-architect");
+			expect(result.warnings[0]).toContain("downgraded below deep");
+		});
+
+		test("warns on protected agent downgrade to fast", () => {
+			const result = validateAgentTierAndEffort(
+				"task-reviewer",
+				"fast",
+				undefined,
+				"task-reviewer.md",
+			);
+			expect(result.errors.length).toBe(0);
+			// fast with no effort => no fast+effort warning. Protected downgrade => 1 warning.
+			expect(result.warnings.length).toBe(1);
+			expect(result.warnings[0]).toContain("downgraded below deep");
+		});
+
+		test("accepts valid tier and effort combination", () => {
+			const result = validateAgentTierAndEffort(
+				"speedrun-builder",
+				"standard",
+				"medium",
+				"speedrun-builder.md",
+			);
+			expect(result.errors.length).toBe(0);
+			expect(result.warnings.length).toBe(0);
+		});
+
+		test("accepts inherit tier with no effort", () => {
+			const result = validateAgentTierAndEffort(
+				"test-agent",
+				"inherit",
+				undefined,
+				"test-agent.md",
+			);
+			expect(result.errors.length).toBe(0);
+			expect(result.warnings.length).toBe(0);
+		});
+
+		test("accepts deep tier on protected agent", () => {
+			const result = validateAgentTierAndEffort(
+				"feature-architect",
+				"deep",
+				"high",
+				"feature-architect.md",
+			);
+			expect(result.errors.length).toBe(0);
+			expect(result.warnings.length).toBe(0);
+		});
+
+		test("does not warn on protected agent assigned frontier (upgrade, not downgrade)", () => {
+			const result = validateAgentTierAndEffort(
+				"feature-architect",
+				"frontier",
+				"high",
+				"feature-architect.md",
+			);
+			expect(result.errors.length).toBe(0);
+			expect(result.warnings.length).toBe(0);
+		});
+
+		test("does not warn on protected agent with inherit tier", () => {
+			const result = validateAgentTierAndEffort(
+				"security-validator",
+				"inherit",
+				undefined,
+				"security-validator.md",
+			);
+			expect(result.errors.length).toBe(0);
+			expect(result.warnings.length).toBe(0);
+		});
+
+		test("collects both error and warning when both conditions apply", () => {
+			const result = validateAgentTierAndEffort(
+				"feature-architect",
+				"fast",
+				"extreme",
+				"feature-architect.md",
+			);
+			// error: unknown effort "extreme"
+			// warning: fast+effort (even though effort is invalid, the combo check still warns)
+			// warning: protected agent downgrade
+			expect(result.errors.length).toBe(1);
+			expect(result.errors[0]).toContain("extreme");
+			expect(result.warnings.length).toBe(2);
 		});
 	});
 

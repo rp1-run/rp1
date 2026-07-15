@@ -1,7 +1,7 @@
 /**
  * GitHub PR agent tool entry point.
  * Provides subcommand handlers for GitHub PR operations:
- * submit-review, add-reaction, reply-comment, fetch-comments.
+ * submit-review, add-reaction, reply-comment, fetch-comments, publish-comment.
  *
  * Used by AI agents to interact with GitHub PRs in a deterministic,
  * testable manner rather than invoking gh CLI directly.
@@ -16,6 +16,7 @@ import { successResult } from "../output.js";
 import { executeAddReaction } from "./add-reaction.js";
 import { executeFetchComments } from "./fetch-comments.js";
 import type { FetchCommentsOutput } from "./models.js";
+import { executePublishComment } from "./publish-comment.js";
 import { executeReplyComment } from "./reply-comment.js";
 import { executeSubmitReview } from "./submit-review.js";
 
@@ -44,13 +45,14 @@ const execute = (
 registerTool({
 	name: TOOL_NAME,
 	description:
-		"GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)",
+		"GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments, publish-comment)",
 	execute,
 });
 
 export {
 	executeAddReaction,
 	executeFetchComments,
+	executePublishComment,
 	executeReplyComment,
 	executeSubmitReview,
 	TOOL_NAME,
@@ -62,6 +64,8 @@ export type {
 	FetchCommentsInput,
 	FetchCommentsOutput,
 	PRComment,
+	PublishCommentInput,
+	PublishCommentOutput,
 	ReactionType,
 	ReplyCommentInput,
 	ReplyCommentOutput,

@@ -14,10 +14,12 @@ import {
 	loadToolsRegistry,
 	type ToolsRegistry,
 } from "../config/supported-tools.js";
+import { loadEnabledHarnesses } from "../settings/loader.js";
 import {
 	type InstallContext,
 	installAllDetectedTools,
 } from "../shared/install-core.js";
+import { getClaudePluginDirs } from "../shared/paths.js";
 import {
 	type ContextDetectionResult,
 	detectProjectContext,
@@ -41,15 +43,23 @@ import type {
 	ReinitState,
 } from "./models.js";
 import { createProgress, type InitProgress } from "./progress.js";
+import {
+	buildHarnessItems,
+	getStableDefaults,
+	writeHarnessSelection,
+} from "./steps/harness-selection.js";
 import { performHealthCheck } from "./steps/health-check.js";
 import { checkPluginsInstalled } from "./steps/plugin-installation.js";
 import {
 	configureGitignore,
-	createDirectoryStructure,
+	createMinimalProjectStructure,
 	createSettingsFiles,
-	injectInstructions,
+	createStorageDirectories,
+	injectInstructionsForStorageMode,
+	resolveInitPathContext,
 } from "./steps/project-setup.js";
 import { checkRp1Readiness } from "./steps/readiness.js";
+import { generateSandboxGrants } from "./steps/sandbox-grants.js";
 import { displaySummary, generateNextSteps } from "./steps/summary.js";
 import {
 	verifyClaudeCodePlugins,
@@ -102,6 +112,10 @@ const INIT_STEPS = [
 	{ name: "install-check", description: "Checking plugin installation..." },
 	{ name: "directory-setup", description: "Setting up directory structure..." },
 	{ name: "settings-setup", description: "Creating settings files..." },
+	{
+		name: "sandbox-grants",
+		description: "Configuring sandbox grants...",
+	},
 	{
 		name: "instruction-injection",
 		description: "Configuring instruction file...",
@@ -472,6 +486,7 @@ export function executeInit(
 			async (): Promise<InitResult> => {
 				const allActions: InitAction[] = [];
 				const allWarnings: string[] = [];
+				const paths = resolveInitPathContext(options);
 
 				const isTTY = detectTTY(options);
 				const promptOptions: PromptOptions = { isTTY };
@@ -628,12 +643,22 @@ export function executeInit(
 				const primaryTool = getPrimaryTool(toolDetectionResult);
 				progress.completeStep();
 
+				const harnessItems = buildHarnessItems(toolDetectionResult.detected);
+				const stableIds = getStableDefaults(harnessItems);
+				const persisted = loadEnabledHarnesses(paths.globalSettingsPath);
+				const selection = persisted ?? stableIds;
+				if (persisted === undefined) {
+					writeHarnessSelection(stableIds, paths.globalSettingsPath);
+				}
+
 				// --- Install check and delegation ---
 				progress.startStep("install-check");
 				let pluginStatus: readonly PluginStatus[] = [];
 
 				if (toolDetectionResult.detected.length > 0) {
-					const installStatus = await checkPluginsInstalled(registry);
+					const installStatus = await checkPluginsInstalled(registry, {
+						homeDir: paths.homeDir,
+					});
 
 					if (installStatus.installed) {
 						logger.success("Plugins already installed, skipping install step");
@@ -649,6 +674,7 @@ export function executeInit(
 							isTTY,
 							dryRun: false,
 							skipPrompt: !isTTY,
+							homeDir: paths.homeDir,
 						};
 
 						try {
@@ -753,9 +779,11 @@ export function executeInit(
 							} | null = null;
 
 							if (detected.tool.id === "claude-code") {
-								verificationResult = await verifyClaudeCodePlugins();
+								verificationResult = await verifyClaudeCodePlugins(
+									getClaudePluginDirs(paths.homeDir),
+								);
 							} else if (detected.tool.id === "opencode") {
-								verificationResult = await verifyOpenCodePlugins();
+								verificationResult = await verifyOpenCodePlugins(paths.homeDir);
 							} else if (detected.tool.id === "copilot") {
 								verificationResult = await verifyCopilotPlugins();
 							}
@@ -795,32 +823,79 @@ export function executeInit(
 				}
 
 				// --- Project setup ---
+				// Phase 1: Create minimal .rp1/ + project_id (required before
+				// central path computation and settings.toml write)
 				progress.startStep("directory-setup");
-				const dirActions = await createDirectoryStructure(
+				const minimalDirActions = await createMinimalProjectStructure(
 					cwd,
 					logger,
 					directories,
 				);
-				allActions.push(...dirActions);
-				await ensureProjectId(directories.projectRoot);
+				allActions.push(...minimalDirActions);
+				const projectId = await ensureProjectId(directories.projectRoot);
 				progress.completeStep();
 
+				// Phase 2: Write settings.toml, then create storage directories
+				// based on the resolved storage mode
 				progress.startStep("settings-setup");
 				const settingsActions = await createSettingsFiles(
 					cwd,
 					logger,
 					directories,
+					paths,
 				);
 				allActions.push(...settingsActions);
+				const storageDirActions = await createStorageDirectories(
+					directories.projectRoot,
+					projectId,
+					logger,
+					paths.homeDir,
+					paths.globalSettingsPath,
+				);
+				allActions.push(...storageDirActions);
 				progress.completeStep();
 
+				// Phase 3: Generate sandbox grants for selected harnesses
+				// so AI coding platforms can access the central store at ~/.rp1/
+				progress.startStep("sandbox-grants");
+				try {
+					const grantResults = await generateSandboxGrants(
+						[...selection],
+						cwd,
+						paths.globalSettingsPath,
+					);
+					for (const grant of grantResults) {
+						if (grant.written) {
+							allActions.push({ type: "created_file", path: grant.path });
+							logger.success(
+								`Sandbox grant: ${grant.platform} → ${grant.path}`,
+							);
+						}
+					}
+					progress.completeStep();
+				} catch (error) {
+					const errorMessage =
+						error instanceof Error ? error.message : String(error);
+					logger.warn(`Sandbox grant error: ${errorMessage}`);
+					allWarnings.push(`Sandbox grants failed: ${errorMessage}`);
+					progress.failStep();
+				}
+
 				progress.startStep("instruction-injection");
-				const { actions: instrActions } = await injectInstructions(
+				const instrResult = await injectInstructionsForStorageMode({
 					cwd,
-					primaryTool || null,
-					logger,
-				);
-				allActions.push(...instrActions);
+					projectRoot: directories.projectRoot,
+					harnessSelection: selection,
+					detectedTool: primaryTool || null,
+					paths,
+					onProgress: (msg, type) => {
+						if (type === "success") logger.success(msg);
+						else if (type === "warning") logger.warn(msg);
+						else logger.info(msg);
+					},
+				});
+				allActions.push(...instrResult.actions);
+				allWarnings.push(...instrResult.warnings);
 				progress.completeStep();
 
 				progress.startStep("gitignore-config");

@@ -2,7 +2,8 @@
 name: security-validator
 description: Performs evidence-bounded, standards-mapped security posture assessment for a project, sub-directory, module, concept, or feature topic
 tools: Read, Write, Grep, Glob, Bash
-model: inherit
+model: deep
+effort: high
 arguments:
   - name: TOPIC
     type: string
@@ -105,6 +106,17 @@ Return path: `OUTPUT_PATH: {OUTPUT_PATH}`
 - Create the report at exactly `OUTPUT_ABSOLUTE_PATH`. Do not use generic fallback names such as `security-validation-report.md`, and do not place the report directly under `{WORK_ROOT}/security/`.
 - Final response must include the written report and a short completion report with exactly `OUTPUT_PATH: {OUTPUT_PATH}`.
 
+## Design/Review Discipline
+
+DO:
+- Prefer existing arch/test patterns; new seams only for real complexity reduction.
+- Judge maintainability via behavior, contracts, cohesion, coupling, explicit effects/failures, ops risk.
+- Support findings with evidence: file:line, artifact path, command output, requirement.
+- Flag missing tests only when concrete regression risk lacks coverage.
+- Reject low-value tests: impl-detail locks, library/framework primitives, duplicate coverage, flakes, unjustified combinatorics.
+- Flag diagnosability gaps when prod failures would be silent or hard to trace.
+- Mark uncertainty; prefer no finding over low-confidence speculation.
+
 ## Epistemic Stance: Fallibilist Empirical
 
 All security claims are conjectural and exposed to refutation.
@@ -203,9 +215,8 @@ Each material finding must include:
 
 ### Template Loading
 
-1. Load `rp1-base:artifact-templates` SKILL.md and locate **Producer** = `security-validator`, **Artifact** = `security-report.md`.
-2. Load the listed template under `plugins/base/skills/artifact-templates/`.
-3. Use the template structure. The template owns section order and artifact path.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/security-validator/security-report.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use the template structure. The template owns section order and artifact path.
 
 ### Report Output Contract
 

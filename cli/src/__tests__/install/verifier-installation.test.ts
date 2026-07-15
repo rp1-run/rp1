@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
+import { resolveInstallPathContext } from "../../install/paths.js";
 import { verifyInstallation } from "../../install/verifier.js";
 import { getErrorMessage } from "../helpers/index.js";
 
@@ -24,20 +25,13 @@ const writeFixture = async (
 };
 
 describe("verifyInstallation filesystem coverage", () => {
-	const originalHome = process.env.HOME;
 	let tempDir: string;
 
 	beforeEach(async () => {
 		tempDir = await mkdtemp(join(tmpdir(), "rp1-verifier-coverage-"));
-		process.env.HOME = tempDir;
 	});
 
 	afterEach(async () => {
-		if (originalHome === undefined) {
-			delete process.env.HOME;
-		} else {
-			process.env.HOME = originalHome;
-		}
 		await rm(tempDir, { recursive: true, force: true });
 	});
 
@@ -68,10 +62,14 @@ describe("verifyInstallation filesystem coverage", () => {
 			"export default {};\n",
 		);
 
-		const result = await verifyInstallation(undefined, {
-			agents: 2,
-			skills: 2,
-		})();
+		const result = await verifyInstallation(
+			undefined,
+			{
+				agents: 2,
+				skills: 2,
+			},
+			resolveInstallPathContext({ homeDir: tempDir }),
+		)();
 
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
@@ -118,7 +116,11 @@ describe("verifyInstallation filesystem coverage", () => {
 			"Missing frontmatter\n",
 		);
 
-		const result = await verifyInstallation(join(tempDir, "artifacts"))();
+		const result = await verifyInstallation(
+			join(tempDir, "artifacts"),
+			undefined,
+			resolveInstallPathContext({ homeDir: tempDir }),
+		)();
 
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
@@ -134,7 +136,11 @@ describe("verifyInstallation filesystem coverage", () => {
 	});
 
 	test("returns a verification error when OpenCode has no configuration directory", async () => {
-		const result = await verifyInstallation()();
+		const result = await verifyInstallation(
+			undefined,
+			undefined,
+			resolveInstallPathContext({ homeDir: tempDir }),
+		)();
 
 		expect(E.isLeft(result)).toBe(true);
 		if (E.isLeft(result)) {

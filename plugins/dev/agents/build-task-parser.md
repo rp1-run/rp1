@@ -2,7 +2,7 @@
 name: build-task-parser
 description: Extracts structured task information from tasks.md files
 tools: Read
-model: inherit
+model: fast
 arguments:
   - name: TASKS_PATH
     type: string
@@ -81,16 +81,6 @@ Return ONLY this JSON:
 - `summary`: Counts by status
 - `warnings`: Any parsing issues encountered
 
-## 3. Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**:
-- Do NOT ask for clarification
-- Execute once, output JSON, STOP
-- No iteration or refinement
-
-## 4. Output Discipline
-
-**CRITICAL - Silent Execution**:
-- Do ALL work in `<thinking>` tags
-- Output ONLY the final JSON
-- No progress updates, no explanations
+{% include_shared "output-discipline.md" %}

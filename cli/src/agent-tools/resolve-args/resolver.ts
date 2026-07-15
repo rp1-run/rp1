@@ -13,6 +13,7 @@ import {
 	toCanonicalString,
 } from "../../../shared/canonical-name.js";
 import {
+	type DirectoryResolutionOptions,
 	type ResolvedDirectorySet,
 	resolveDirectorySet,
 } from "../../../shared/directory-resolution.js";
@@ -22,12 +23,14 @@ import {
 	parseError,
 	runtimeError,
 } from "../../../shared/errors.js";
+import { computeDirectoryPaths } from "../../../shared/storage-mode.js";
 import type {
 	ArgumentDefinition,
 	EnvironmentDefinition,
 } from "../../build/models.js";
 import { loadArgumentDefaultsForSkill } from "../../settings/loader.js";
 import type {
+	ParsedSchema,
 	ResolveArgsInput,
 	ResolvedArgs,
 	ResolvedArgumentValues,
@@ -165,9 +168,39 @@ const parseFrontmatter = (
 };
 
 /**
+ * Check whether a token is a recognized flag that should act as a boundary
+ * during positional capture. Only dash-prefixed tokens matching a declared
+ * argument name (via --name or --name=value) terminate capture; bare words
+ * and unknown --prefixed tokens are treated as prose.
+ */
+const isRecognizedFlag = (
+	token: string,
+	schema: readonly ArgumentDefinition[],
+): boolean => {
+	if (token.startsWith("--")) {
+		const raw = token.slice(2);
+		const eqIndex = raw.indexOf("=");
+		const flagName = eqIndex !== -1 ? raw.slice(0, eqIndex) : raw;
+		const upperName = flagName.replace(/-/g, "_").toUpperCase();
+		return schema.some((a) => a.name === upperName);
+	}
+	return false;
+};
+
+/**
  * Parse raw argument string into positional and named values.
  * Supports positional args mapped to required/variadic string args in order,
  * and --flag or --key value patterns.
+ *
+ * Greedy positional capture: when the schema declares exactly one required
+ * non-variadic string arg and no other required string/enum args, all tokens
+ * that are not recognized trailing flags are collected into that positional.
+ *
+ * Recognized-flag boundary: both greedy and variadic capture loops stop only
+ * at dash-prefixed tokens (`--name` or `--name=value`) matching a declared
+ * argument name, so bare words and embedded double-dashes in prose
+ * (e.g. "--broken") do not terminate capture. Bare-word aliases only bind
+ * as standalone trailing tokens after all positional arguments are consumed.
  */
 export const parseRawArgs = (
 	rawArgs: string,
@@ -195,6 +228,23 @@ export const parseRawArgs = (
 	const positionalArgs = schema.filter(
 		(a) => a.type === "string" || a.type === "enum",
 	);
+
+	// When exactly one required non-variadic string arg exists AND no variadic
+	// positional is declared to absorb the remainder, that arg absorbs all
+	// non-flag tokens instead of consuming a single word (e.g. deep-research's
+	// RESEARCH_TOPIC). When a variadic positional IS declared (e.g. build's
+	// FEATURE_ID + variadic REQUIREMENTS), the required scalar takes a single
+	// leading token and the variadic captures the rest — otherwise the scalar
+	// would starve the variadic and swallow the entire request into FEATURE_ID.
+	const requiredStringEnumArgs = schema.filter(
+		(a) =>
+			(a.type === "string" || a.type === "enum") && a.required && !a.variadic,
+	);
+	const hasVariadicPositional = positionalArgs.some((a) => a.variadic);
+	const greedyTarget =
+		requiredStringEnumArgs.length === 1 && !hasVariadicPositional
+			? requiredStringEnumArgs[0]
+			: null;
 
 	let positionalIndex = 0;
 	let i = 0;
@@ -224,7 +274,21 @@ export const parseRawArgs = (
 				if (matchedArg?.type === "boolean") {
 					result[upperName] = true;
 					i++;
+				} else if (matchedArg) {
+					// Intentional asymmetry with positional capture: a flag VALUE never
+					// consumes a double-dash token (declared or not) — `--mode --anything`
+					// leaves --mode valueless rather than binding "--anything". Positional
+					// capture, by contrast, only stops at DECLARED flags so prose dashes
+					// flow into the positional. See resolve-args tests pinning both rules.
+					if (i + 1 < tokens.length && !tokens[i + 1].startsWith("--")) {
+						result[upperName] = tokens[i + 1];
+						i += 2;
+					} else {
+						result[upperName] = true;
+						i++;
+					}
 				} else if (i + 1 < tokens.length && !tokens[i + 1].startsWith("--")) {
+					// Unknown flag with a following non-flag token: treat as key-value
 					result[upperName] = tokens[i + 1];
 					i += 2;
 				} else {
@@ -239,7 +303,7 @@ export const parseRawArgs = (
 				const chunks = [token];
 				i++;
 
-				while (i < tokens.length && !tokens[i].startsWith("--")) {
+				while (i < tokens.length && !isRecognizedFlag(tokens[i], schema)) {
 					chunks.push(tokens[i]);
 					i++;
 				}
@@ -249,13 +313,31 @@ export const parseRawArgs = (
 				continue;
 			}
 
-			// Check for alias match
-			const aliasTarget = aliasMap.get(token.toLowerCase());
-			if (aliasTarget) {
-				result[aliasTarget] = true;
-			} else if (positionalArg) {
+			if (greedyTarget && positionalArg?.name === greedyTarget.name) {
+				const chunks = [token];
+				i++;
+
+				while (i < tokens.length && !isRecognizedFlag(tokens[i], schema)) {
+					chunks.push(tokens[i]);
+					i++;
+				}
+
+				result[positionalArg.name] = chunks.join(" ");
+				positionalIndex++;
+				continue;
+			}
+
+			// Positional assignment takes precedence over bare-word aliases.
+			// Bare-word aliases only bind as standalone trailing tokens after
+			// all positional arguments have been consumed.
+			if (positionalArg) {
 				result[positionalArg.name] = token;
 				positionalIndex++;
+			} else {
+				const aliasTarget = aliasMap.get(token.toLowerCase());
+				if (aliasTarget) {
+					result[aliasTarget] = true;
+				}
 			}
 			i++;
 		}
@@ -332,12 +414,17 @@ export const resolveImpliesChains = (
 
 const buildFallbackDirectories = (projectRoot: string): ResolvedDirectories => {
 	const resolvedProjectRoot = path.resolve(projectRoot);
+	const { kbRoot, workRoot } = computeDirectoryPaths(
+		resolvedProjectRoot,
+		undefined,
+		"local",
+	);
 
 	return {
 		projectRoot: resolvedProjectRoot,
 		projectId: undefined,
-		kbRoot: path.join(resolvedProjectRoot, ".rp1", "context"),
-		workRoot: path.join(resolvedProjectRoot, ".rp1", "work"),
+		kbRoot,
+		workRoot,
 		codeRoot: resolvedProjectRoot,
 		isWorktree: false,
 		status: "uninitialized",
@@ -361,14 +448,120 @@ const mapResolvedDirectories = (
 	}),
 });
 
-export const resolveDirectories = (projectRoot: string): ResolvedDirectories =>
+export const resolveDirectories = (
+	projectRoot: string,
+	options: DirectoryResolutionOptions = {},
+): ResolvedDirectories =>
 	pipe(
-		resolveDirectorySet(projectRoot),
+		resolveDirectorySet(projectRoot, options),
 		E.match(
 			() => buildFallbackDirectories(projectRoot),
 			(directories) => mapResolvedDirectories(directories),
 		),
 	);
+
+/**
+ * Run the 5-layer argument merge given already-parsed schema definitions.
+ * Shared by both the pre-parsed and file-based resolution paths.
+ */
+const mergeArgumentLayers = (
+	input: ResolveArgsInput,
+	schema: ParsedSchema,
+	canonicalName: CanonicalName | null,
+	directories: ResolvedDirectories,
+	resolvedPath?: string,
+): TE.TaskEither<CLIError, ResolvedArgs> => {
+	if (schema.arguments.length === 0 && schema.environment.length === 0) {
+		return TE.right<CLIError, ResolvedArgs>({
+			arguments: {},
+			directories,
+			unresolved: [],
+		});
+	}
+
+	return TE.tryCatch(
+		async () => {
+			const argDefs = schema.arguments;
+
+			const userInput = parseRawArgs(input.raw_args, argDefs);
+
+			// Layers 2+3: Load settings (loader handles merge precedence)
+			// Use canonical name from input (e.g., "rp1-dev:build" -> "dev:build")
+			// to keep settings keys platform-independent and unambiguous.
+			// Falls back to path extraction only for --schema-path usage.
+			const skillName = canonicalName
+				? toCanonicalString(canonicalName)
+				: resolvedPath
+					? extractNameFromPath(resolvedPath)
+					: "unknown";
+			const settingsDefaults = await loadArgumentDefaultsForSkill(
+				skillName,
+				directories.projectRoot,
+			);
+
+			const resolved: Record<string, string | boolean> = {};
+
+			for (const arg of argDefs) {
+				if (userInput[arg.name] !== undefined) {
+					resolved[arg.name] = userInput[arg.name];
+					continue;
+				}
+
+				if (settingsDefaults[arg.name] !== undefined) {
+					const settingsVal = settingsDefaults[arg.name];
+					if (
+						typeof settingsVal === "string" ||
+						typeof settingsVal === "boolean"
+					) {
+						resolved[arg.name] = settingsVal;
+						continue;
+					}
+				}
+
+				if (arg.source?.env) {
+					const envVal = process.env[arg.source.env];
+					if (envVal !== undefined) {
+						if (arg.type === "boolean") {
+							resolved[arg.name] = envVal === "true" || envVal === "1";
+						} else {
+							resolved[arg.name] = envVal;
+						}
+						continue;
+					}
+				}
+
+				if (arg.default !== undefined) {
+					resolved[arg.name] = arg.default;
+					continue;
+				}
+
+				if (arg.type === "boolean") {
+					resolved[arg.name] = false;
+				}
+			}
+
+			// Resolve implies chains (fixed-point)
+			resolveImpliesChains(resolved, argDefs);
+
+			const unresolved: string[] = [];
+			for (const arg of argDefs) {
+				if (arg.required && resolved[arg.name] === undefined) {
+					unresolved.push(arg.name);
+				}
+			}
+
+			return {
+				arguments: resolved as ResolvedArgumentValues,
+				directories,
+				unresolved,
+			};
+		},
+		(err) =>
+			runtimeError(
+				`Failed to resolve arguments: ${err instanceof Error ? err.message : String(err)}`,
+			),
+	);
+};
 
 /**
  * Resolve arguments using the 5-layer merge precedence.
@@ -381,9 +574,14 @@ export const resolveDirectories = (projectRoot: string): ResolvedDirectories =>
  * 5. Schema default
  *
  * Required arguments not resolved from any layer are returned in `unresolved`.
+ *
+ * When `parsedSchema` is provided on the input, the file-read and frontmatter
+ * parse steps are skipped entirely, avoiding redundant I/O when the caller
+ * has already parsed the schema (e.g., workflow-bootstrap).
  */
 export const resolveArgs = (
 	input: ResolveArgsInput,
+	directoryOptions: DirectoryResolutionOptions = {},
 ): TE.TaskEither<CLIError, ResolvedArgs> => {
 	// Parse canonical name once if input.name is provided
 	let canonicalName: CanonicalName | null = null;
@@ -394,7 +592,17 @@ export const resolveArgs = (
 		}
 	}
 
-	const directories = resolveDirectories(input.project_root);
+	const directories = resolveDirectories(input.project_root, directoryOptions);
+
+	// Fast path: caller already parsed the schema file (e.g., workflow-bootstrap)
+	if (input.parsedSchema) {
+		return mergeArgumentLayers(
+			input,
+			input.parsedSchema,
+			canonicalName,
+			directories,
+		);
+	}
 
 	return pipe(
 		// Resolve schema file path from name or direct path
@@ -420,106 +628,14 @@ export const resolveArgs = (
 				TE.map((schema) => ({ schema, resolvedPath })),
 			),
 		),
-		TE.chain(({ schema, resolvedPath }) => {
-			// Empty schema -> return empty result
-			if (schema.arguments.length === 0 && schema.environment.length === 0) {
-				return TE.right<CLIError, ResolvedArgs>({
-					arguments: {},
-					directories,
-					environment: {},
-					unresolved: [],
-				});
-			}
-
-			return TE.tryCatch(
-				async () => {
-					const argDefs = schema.arguments;
-
-					// Layer 1: Parse user input
-					const userInput = parseRawArgs(input.raw_args, argDefs);
-
-					// Layers 2+3: Load settings (loader handles merge precedence)
-					// Use canonical name from input (e.g., "rp1-dev:build" -> "dev:build")
-					// to keep settings keys platform-independent and unambiguous.
-					// Falls back to path extraction only for --schema-path usage.
-					const skillName = canonicalName
-						? toCanonicalString(canonicalName)
-						: extractNameFromPath(resolvedPath);
-					const settingsDefaults = await loadArgumentDefaultsForSkill(
-						skillName,
-						directories.projectRoot,
-					);
-
-					// Merge all layers per argument
-					const resolved: Record<string, string | boolean> = {};
-
-					for (const arg of argDefs) {
-						// Layer 1: user input
-						if (userInput[arg.name] !== undefined) {
-							resolved[arg.name] = userInput[arg.name];
-							continue;
-						}
-
-						// Layers 2+3: project/user settings (already merged by loader)
-						if (settingsDefaults[arg.name] !== undefined) {
-							const settingsVal = settingsDefaults[arg.name];
-							if (
-								typeof settingsVal === "string" ||
-								typeof settingsVal === "boolean"
-							) {
-								resolved[arg.name] = settingsVal;
-								continue;
-							}
-						}
-
-						// Layer 4: ENV var from source.env
-						if (arg.source?.env) {
-							const envVal = process.env[arg.source.env];
-							if (envVal !== undefined) {
-								if (arg.type === "boolean") {
-									resolved[arg.name] = envVal === "true" || envVal === "1";
-								} else {
-									resolved[arg.name] = envVal;
-								}
-								continue;
-							}
-						}
-
-						// Layer 5: Schema default
-						if (arg.default !== undefined) {
-							resolved[arg.name] = arg.default;
-							continue;
-						}
-
-						// Boolean arguments default to false when not specified
-						if (arg.type === "boolean") {
-							resolved[arg.name] = false;
-						}
-					}
-
-					// Resolve implies chains (fixed-point)
-					resolveImpliesChains(resolved, argDefs);
-
-					// Detect unresolved required arguments
-					const unresolved: string[] = [];
-					for (const arg of argDefs) {
-						if (arg.required && resolved[arg.name] === undefined) {
-							unresolved.push(arg.name);
-						}
-					}
-
-					return {
-						arguments: resolved as ResolvedArgumentValues,
-						directories,
-						environment: {},
-						unresolved,
-					};
-				},
-				(err) =>
-					runtimeError(
-						`Failed to resolve arguments: ${err instanceof Error ? err.message : String(err)}`,
-					),
-			);
-		}),
+		TE.chain(({ schema, resolvedPath }) =>
+			mergeArgumentLayers(
+				input,
+				schema,
+				canonicalName,
+				directories,
+				resolvedPath,
+			),
+		),
 	);
 };

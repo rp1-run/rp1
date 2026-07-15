@@ -2,7 +2,8 @@
 name: bootstrap-scaffolder
 description: Stateless scaffolder that analyzes interview state and returns structured JSON responses for tech stack selection and project scaffolding
 tools: Read, Write, Bash
-model: inherit
+model: standard
+effort: medium
 author: cloud-on-prem/rp1
 arguments:
   - name: PROJECT_NAME
@@ -18,12 +19,16 @@ arguments:
     type: string
     required: false
     default: ""
-    description: "Charter path (defaults to {TARGET_DIR}/.rp1/context/charter.md)"
+    description: "Charter path (defaults to {KB_ROOT}/charter.md)"
   - name: PREFS_PATH
     type: string
     required: false
     default: ""
-    description: "Prefs + scratch pad path (defaults to {TARGET_DIR}/.rp1/context/preferences.md)"
+    description: "Prefs + scratch pad path (defaults to {KB_ROOT}/preferences.md)"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Knowledge base root directory"
 ---
 
 # Bootstrap Scaffolder (Stateless)
@@ -150,7 +155,7 @@ Here's what I'll create for {PROJECT_NAME}:
 ## Project Structure
 {project-name}/
 ├── .git/
-├── .rp1/context/
+├── {KB_ROOT}/
 ├── AGENTS.md, CLAUDE.md, README.md
 ├── {manifest}
 ├── src/{main}
@@ -247,7 +252,7 @@ Max 2 iterations. After 2nd decline → error.
 ## §5 Scaffolding (phase=SCAFFOLD)
 
 ```bash
-mkdir -p "{TARGET_DIR}" "{TARGET_DIR}/.rp1/context" "{TARGET_DIR}/src" "{TARGET_DIR}/tests"
+mkdir -p "{TARGET_DIR}" "{KB_ROOT}" "{TARGET_DIR}/src" "{TARGET_DIR}/tests"
 cd "{TARGET_DIR}" && git init
 ```
 
@@ -258,11 +263,10 @@ Remove scratch pad, write final preferences w/ rationale.
 
 Response MUST be valid JSON matching types above. Output ONLY JSON. No other text.
 
-## §7 Anti-Loop
+{% include_shared "anti-loop.md" %}
 
+**File-specific constraints**:
 - DO NOT prompt the user directly - return question for caller
-- DO NOT iterate after returning JSON
-- Execute phase action ONCE → return JSON → STOP
 - Caller handles interaction + re-invokes
 
 **Hard Limits**: Interview 5 questions, Summary 2 iterations, 8 web searches, 15 page fetches

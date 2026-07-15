@@ -127,17 +127,4 @@ describe("param_transform filter", () => {
 			expect(result).toContain("echo $1");
 		});
 	});
-
-	describe("gemini (model-parsed recovery, same as codex)", () => {
-		test("replaces positional and aggregate arguments with instructional text", () => {
-			const content = "Feature $1 with $ARGUMENTS.";
-			const result = paramTransform(content, "gemini");
-			expect(result).toContain("the value of the first argument");
-			expect(result).toContain(
-				"the arguments provided by the user in their prompt",
-			);
-			expect(result).not.toContain("$1");
-			expect(result).not.toContain("$ARGUMENTS");
-		});
-	});
 });

@@ -208,9 +208,10 @@ describe("catalog registry", () => {
 		expect(renderedCatalog).toContain("# rp1 Skill Catalog");
 		expect(renderedCatalog).toContain("## Development");
 		expect(renderedCatalog).toContain("## Knowledge");
-		expect(renderedCatalog).toContain("| Run Policy | Identity Args |");
-		expect(renderedCatalog).toContain("| `/build` | dev |");
-		expect(renderedCatalog).toContain("| resumable | `FEATURE_ID` |");
+		expect(renderedCatalog).toContain("| Skill | Plugin | Description |");
+		expect(renderedCatalog).not.toContain("| Run Policy |");
+		expect(renderedCatalog).not.toContain("| Key Args |");
+		expect(renderedCatalog).not.toContain("| Identity Args |");
 		expect(renderedCatalog).toContain("| `/build` | dev |");
 		expect(renderedCatalog).toContain("| `/alpha` | base |");
 		expect(renderedCatalog).not.toContain("tersify-prompt");
@@ -222,10 +223,11 @@ describe("catalog registry", () => {
 			filterCatalogEntriesByScope(entries, "distributable"),
 		);
 
-		expect(renderedBlock).toContain("### Skill Categories");
-		expect(renderedBlock).toContain("| Development | /build |");
-		expect(renderedBlock).toContain("| Knowledge | /alpha |");
+		expect(renderedBlock).toContain("Installed plugins: rp1-base, rp1-dev.");
+		expect(renderedBlock).toContain("/guide");
+		expect(renderedBlock).toContain("Suggest at most 1 skill per turn");
 		expect(renderedBlock).not.toContain("tersify-prompt");
+		expect(renderedBlock).not.toContain("### Skill Categories");
 	});
 
 	test("defaults userInvocable to true when user_invocable is absent from metadata", async () => {
@@ -344,7 +346,7 @@ describe("catalog registry", () => {
 		expect(catalog).not.toContain("/templates");
 		expect(awareness).not.toContain("/templates");
 		expect(catalog).toContain("/alpha");
-		expect(awareness).toContain("/alpha");
+		expect(awareness).toContain("rp1-base");
 	});
 
 	test("reports missing discovery metadata instead of silently omitting skills", async () => {

@@ -1,28 +1,21 @@
 ---
 name: rp1-dev-build
 description: Build plugin artifacts
-
 allowed-tools: "functions.exec_command(echo *)"
-
 metadata:
   rp1:
     plugin: dev
     name: build
-
-
   version: 1.0.0
 
   tags:
-
     - workflow
-
 
   created: 2026-01-01
 
   author: cloud-on-prem/rp1
 
   argument-hint: "<feature-id>"
-
 
 ---
 

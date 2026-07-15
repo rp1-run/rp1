@@ -54,6 +54,7 @@ describe("standard update plugin refresh", () => {
 				}),
 		}));
 		mock.module("../../../shared/install-core.js", () => ({
+			getEffectiveHarnesses: () => [detectedCopilot],
 			installAllDetectedTools: () =>
 				TE.right({
 					installed: 0,
@@ -75,6 +76,21 @@ describe("standard update plugin refresh", () => {
 							},
 						},
 					],
+				}),
+			updateForSpecificTool: () =>
+				TE.right({
+					toolId: "copilot",
+					toolName: "GitHub Copilot CLI",
+					success: false,
+					pluginsInstalled: [],
+					warnings: [],
+					error: {
+						_tag: "PrerequisiteError",
+						check: "copilot-plugin-support",
+						message: "GitHub Copilot plugin lifecycle commands are unavailable",
+						suggestion:
+							"Install or update GitHub Copilot CLI, then verify with `copilot version` and `copilot plugin --help`.",
+					},
 				}),
 			installForSpecificTool: () =>
 				TE.left({

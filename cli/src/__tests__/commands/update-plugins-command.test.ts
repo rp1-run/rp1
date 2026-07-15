@@ -7,6 +7,7 @@ import type {
 	SupportedTool,
 	ToolsRegistry,
 } from "../../config/supported-tools.js";
+import type { DetectedTool } from "../../init/tool-detector.js";
 import type { InstallContext } from "../../shared/install-core.js";
 import { writeAntigravityBundleDistFixture } from "../helpers/antigravity-bundle.js";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
@@ -105,6 +106,9 @@ const createCommandDeps = (
 				warnings: [],
 			}),
 	),
+	detectTools: (_toolsRegistry: ToolsRegistry) =>
+		TE.right({ detected: [] as DetectedTool[], missing: [] }),
+	getEffectiveHarnesses: (detection) => [...detection.detected],
 	...overrides,
 });
 
@@ -123,14 +127,11 @@ const runPluginsCommand = async (
 };
 
 const runRealPluginsCommand = async (
-	homeDir: string,
 	argv: string[],
 	bundleDir?: string,
 ): Promise<{ readonly exitCode: number; readonly output: string }> => {
-	const originalHome = process.env.HOME;
 	const originalBundleDir = process.env.RP1_ANTIGRAVITY_BUNDLE_DIR;
 	const logs: string[] = [];
-	process.env.HOME = homeDir;
 	if (bundleDir) {
 		process.env.RP1_ANTIGRAVITY_BUNDLE_DIR = bundleDir;
 	}
@@ -162,11 +163,6 @@ const runRealPluginsCommand = async (
 	} finally {
 		console.log = originalLog;
 		process.exit = originalExit;
-		if (originalHome === undefined) {
-			delete process.env.HOME;
-		} else {
-			process.env.HOME = originalHome;
-		}
 		if (originalBundleDir === undefined) {
 			delete process.env.RP1_ANTIGRAVITY_BUNDLE_DIR;
 		} else {
@@ -304,7 +300,6 @@ describe("update plugins command action", () => {
 	test("runs the real targeted Antigravity update route in-process", async () => {
 		const bundleDir = await writeAntigravityBundleDistFixture(tempDir);
 		const result = await runRealPluginsCommand(
-			tempDir,
 			["update", "plugins", "antigravity", "--dry-run"],
 			bundleDir,
 		);
@@ -348,42 +343,47 @@ describe("update plugins command action", () => {
 	});
 
 	test("includes Antigravity in update-all as a successful command", async () => {
-		const installAllDetectedTools = mock(
-			(_toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
+		const antigravityDetected: DetectedTool = {
+			tool: {
+				...codexTool,
+				id: "antigravity",
+				name: "Antigravity CLI",
+			},
+			version: "0.0.0",
+			meetsMinVersion: true,
+		};
+		const detectToolsMock = (_toolsRegistry: ToolsRegistry) =>
+			TE.right({
+				detected: [antigravityDetected] as DetectedTool[],
+				missing: [],
+			});
+		const getEffectiveHarnessesMock = (detection: {
+			detected: readonly DetectedTool[];
+		}) => [...detection.detected];
+		const updateForSpecificTool = mock(
+			(_toolId: string, _toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
 				TE.right({
-					installed: 1,
-					detected: [
-						{
-							tool: {
-								...codexTool,
-								id: "antigravity",
-								name: "Antigravity CLI",
-							},
-							version: "0.0.0",
-							meetsMinVersion: true,
-						},
+					toolId: "antigravity",
+					toolName: "Antigravity CLI",
+					success: true,
+					restartRequired: false,
+					pluginsInstalled: ["rp1-base", "rp1-dev"],
+					details: [
+						"Lifecycle stage: update",
+						"Lifecycle result: refreshed",
+						"Next action: Restart Antigravity CLI, then run `rp1 verify antigravity`.",
 					],
-					results: [
-						{
-							toolId: "antigravity",
-							toolName: "Antigravity CLI",
-							success: true,
-							restartRequired: false,
-							pluginsInstalled: ["rp1-base", "rp1-dev"],
-							details: [
-								"Lifecycle stage: update",
-								"Lifecycle result: refreshed",
-								"Next action: Restart Antigravity CLI, then run `rp1 verify antigravity`.",
-							],
-							warnings: [],
-						},
-					],
+					warnings: [],
 				}),
 		);
 		await expect(
 			runPluginsCommand(
 				["update", "plugins", "all"],
-				createCommandDeps({ installAllDetectedTools }),
+				createCommandDeps({
+					detectTools: detectToolsMock,
+					getEffectiveHarnesses: getEffectiveHarnessesMock,
+					updateForSpecificTool,
+				}),
 			),
 		).rejects.toMatchObject({ code: 0 });
 
@@ -394,49 +394,57 @@ describe("update plugins command action", () => {
 	});
 
 	test("updates all tools and exits nonzero when any update fails", async () => {
-		const installAllDetectedTools = mock(
-			(_toolsRegistry: ToolsRegistry, _ctx: InstallContext) =>
-				TE.right({
-					installed: 1,
-					detected: [
-						{
-							tool: codexTool,
-							version: "0.1.0",
-							meetsMinVersion: true,
-						},
-						{
-							tool: { ...codexTool, id: "opencode", name: "OpenCode" },
-							version: "0.9.0",
-							meetsMinVersion: true,
-						},
-					],
-					results: [
-						{
-							toolId: "codex",
-							toolName: "Codex CLI",
-							success: true,
-							pluginsInstalled: ["rp1-base"],
-							warnings: [],
-						},
-						{
-							toolId: "opencode",
-							toolName: "OpenCode",
-							success: false,
-							pluginsInstalled: [],
-							warnings: ["manual restart required"],
-						},
-					],
-				}),
+		const codexDetected: DetectedTool = {
+			tool: codexTool,
+			version: "0.1.0",
+			meetsMinVersion: true,
+		};
+		const opencodeDetected: DetectedTool = {
+			tool: { ...codexTool, id: "opencode", name: "OpenCode" },
+			version: "0.9.0",
+			meetsMinVersion: true,
+		};
+		const detectToolsMock = (_toolsRegistry: ToolsRegistry) =>
+			TE.right({
+				detected: [codexDetected, opencodeDetected] as DetectedTool[],
+				missing: [],
+			});
+		const getEffectiveHarnessesMock = (detection: {
+			detected: readonly DetectedTool[];
+		}) => [...detection.detected];
+		const updateForSpecificTool = mock(
+			(toolId: string, _toolsRegistry: ToolsRegistry, _ctx: InstallContext) => {
+				if (toolId === "codex") {
+					return TE.right({
+						toolId: "codex",
+						toolName: "Codex CLI",
+						success: true,
+						pluginsInstalled: ["rp1-base"],
+						warnings: [],
+					});
+				}
+				return TE.right({
+					toolId: "opencode",
+					toolName: "OpenCode",
+					success: false,
+					pluginsInstalled: [],
+					warnings: ["manual restart required"],
+				});
+			},
 		);
 		await expect(
 			runPluginsCommand(
 				["update", "plugins", "all", "--yes"],
-				createCommandDeps({ installAllDetectedTools }),
+				createCommandDeps({
+					detectTools: detectToolsMock,
+					getEffectiveHarnesses: getEffectiveHarnessesMock,
+					updateForSpecificTool,
+				}),
 			),
 		).rejects.toMatchObject({ code: 1 });
 
-		expect(installAllDetectedTools.mock.calls[0]?.[0]).toBe(registry);
-		expect(installAllDetectedTools.mock.calls[0]?.[1]).toMatchObject({
+		expect(updateForSpecificTool.mock.calls[0]?.[0]).toBe("codex");
+		expect(updateForSpecificTool.mock.calls[0]?.[2]).toMatchObject({
 			dryRun: false,
 			skipPrompt: true,
 		});

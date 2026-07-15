@@ -1,6 +1,6 @@
 ---
 name: artifact-templates
-description: "Agent-only reference providing canonical output templates for all rp1 artifacts (requirements, design, tasks, reports, KB docs). Load when producing any structured markdown artifact to ensure format consistency and correct routing metadata. Not user-invocable -- agents read the index to find the right template, then read the template file via the Read tool."
+description: "Agent-only canonical output templates for rp1 artifacts. Load when producing structured markdown to ensure format consistency and routing metadata."
 metadata:
   category: knowledge
   is_workflow: false
@@ -71,6 +71,7 @@ Active `/build` artifacts are producer-owned: the agent that writes the artifact
 | knowledge-base | technology-matrix.md (monorepo) | document | kbRoot | technology-matrix.md | templates/knowledge-base/monorepo/technology-matrix.md |
 | knowledge-base | state.json | data | kbRoot | state.json | templates/knowledge-base/state.json |
 | knowledge-base | meta.json | data | kbRoot | meta.json | templates/knowledge-base/meta.json |
+| note | note.md | document | workRoot | notes/{yyyy-mm-dd}-{title-slug}.md | templates/note/note.md |
 | prompt-eval-builder | promptfoo-config | document | - | (agent-determined) | templates/prompt-eval-builder/promptfoo-config.yaml |
 
 For Socratic Duel, `managed-debate-region` is retained for legacy in-progress duels. New artifact-backed runs use `debate-artifact.md` under `workRoot`.
@@ -131,6 +132,8 @@ templates/
 |   +-- state.json
 |   +-- monorepo/
 |   +-- single-project/
++-- note/
+|   +-- note.md
 +-- phase-planner/
 +-- pr-feedback-collector/
 +-- pr-review-reporter/

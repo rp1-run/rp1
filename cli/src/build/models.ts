@@ -44,6 +44,76 @@ export interface ClaudeCodeCommand {
 }
 
 /**
+ * Abstract model tier aliases decoupling agent definitions from vendor model identifiers.
+ *
+ * **How to add a new model tier/class:**
+ * 1. Add the new tier to the `ModelTier` union AND `VALID_MODEL_TIERS` here.
+ * 2. Add a numeric rank entry in `TIER_RANK` here.
+ * 3. Add a row in `TIER_MODEL_MAP` (one concrete model per platform) in `tier-resolution.ts`.
+ * 4. Add per-platform effort configs in `PLATFORM_EFFORT` in `tier-resolution.ts` if needed.
+ * 5. Optionally add agents to `PROTECTED_AGENTS` that must stay at or above a tier.
+ *
+ * The TS types (`Exclude<ModelTier, "inherit">` keys on `TIER_MODEL_MAP` and `TIER_RANK`)
+ * force a compile error if a tier is added without its mappings.
+ */
+export type ModelTier = "frontier" | "deep" | "standard" | "fast" | "inherit";
+
+/** Valid model tier values for runtime validation. */
+export const VALID_MODEL_TIERS: readonly ModelTier[] = [
+	"frontier",
+	"deep",
+	"standard",
+	"fast",
+	"inherit",
+] as const;
+
+/**
+ * Ordered rank map for tier comparison. Higher = more capable.
+ * `inherit` is intentionally excluded — it means "use session model", not a rank.
+ */
+export const TIER_RANK: Readonly<
+	Record<Exclude<ModelTier, "inherit">, number>
+> = {
+	frontier: 3,
+	deep: 2,
+	standard: 1,
+	fast: 0,
+} as const;
+
+/** Reasoning effort levels controlling depth independently of model tier. */
+export type EffortLevel = "low" | "medium" | "high" | "xhigh" | "max";
+
+/** Valid effort level values for runtime validation. */
+export const VALID_EFFORT_LEVELS: readonly EffortLevel[] = [
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+	"max",
+] as const;
+
+/**
+ * Agents that must remain on the deep/frontier tier.
+ * Build emits a warning when any of these agents is assigned a non-deep tier.
+ */
+export const PROTECTED_AGENTS: ReadonlySet<string> = new Set([
+	"feature-architect",
+	"phase-planner",
+	"research-explorer",
+	"strategic-advisor",
+	"security-validator",
+	"socratic-duel-participant",
+	"bug-investigator",
+	"hypothesis-tester",
+	"code-auditor",
+	"blueprint-auditor",
+	"pr-review-synthesizer",
+	"pr-sub-reviewer",
+	"task-reviewer",
+	"feature-verifier",
+]);
+
+/**
  * Parsed Claude Code agent with frontmatter.
  * Represents an agent from Claude Code's .claude-plugin/agents/ directory
  * with YAML frontmatter specifying tools, model, and prompt content.
@@ -53,6 +123,7 @@ export interface ClaudeCodeAgent {
 	readonly description: string;
 	readonly tools: readonly string[];
 	readonly model: string;
+	readonly effort?: string;
 	readonly content: string;
 	readonly arguments?: readonly ArgumentDefinition[];
 	readonly environment?: readonly EnvironmentDefinition[];
@@ -243,6 +314,17 @@ export interface BundleAssetEntry {
 }
 
 /**
+ * Extended asset entry for agents carrying build-time tier metadata.
+ * The optional tier and effort fields preserve the agent's abstract tier identity
+ * and effort level through the build-to-install chain, enabling install-time
+ * remapping without access to source frontmatter.
+ */
+export interface BundleAgentEntry extends BundleAssetEntry {
+	readonly tier?: ModelTier;
+	readonly effort?: EffortLevel;
+}
+
+/**
  * OpenCode plugin asset entry for bundling.
  * Represents a plugin that responds to OpenCode events (e.g., update notifications).
  */
@@ -257,7 +339,7 @@ export interface OpenCodePluginAsset {
 export interface BundlePluginAssets {
 	readonly name: string;
 	readonly commands: readonly BundleAssetEntry[];
-	readonly agents: readonly BundleAssetEntry[];
+	readonly agents: readonly BundleAgentEntry[];
 	readonly skills: readonly BundleAssetEntry[];
 	readonly stateMachines: readonly BundleAssetEntry[];
 	readonly verbatimFiles: readonly BundleAssetEntry[];
@@ -295,6 +377,8 @@ export interface EmbeddedManifest {
 		Record<import("./template-context.js").BuildPlatform, BundleManifest>
 	>;
 	readonly webui: readonly BundleAssetEntry[];
+	/** Compiled teach-me widget bundle (`tm-widgets.js`, `tm-base.css`). */
+	readonly teachMe: readonly BundleAssetEntry[];
 	readonly version: string;
 	readonly buildTimestamp: string;
 }

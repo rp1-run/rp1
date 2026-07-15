@@ -2,7 +2,8 @@
 name: pr-review-splitter
 description: Splits PR diff into reviewable units, filtering out generated/low-value files
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: standard
+effort: low
 arguments:
   - name: PR_BRANCH
     type: string
@@ -140,17 +141,6 @@ Return ONLY this JSON structure (no preamble, no explanation):
 - `filtered_files`: Show first 5 + "..." if more
 - Sort units by path, then start line
 
-## Anti-Loop Directives
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**:
-- Do NOT ask for approval
-- Do NOT explain your process
-- Execute once, output JSON, STOP
-- No iteration or refinement
-
-## Output Discipline
-
-**CRITICAL - Silent Execution**:
-- Do ALL work in <thinking> tags
-- Output ONLY the final JSON
-- No progress updates, no explanations
+{% include_shared "output-discipline.md" %}

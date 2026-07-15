@@ -2,7 +2,8 @@
 name: task-reviewer
 description: Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification.
 tools: Read, Grep, Glob, Edit, Bash, Bash(rp1 *)
-model: inherit
+model: deep
+effort: high
 arguments:
   - name: FEATURE_ID
     type: string
@@ -99,14 +100,16 @@ Load verification context. Use `<thinking>` blocks for analysis.
 
 ### 1.1 Selective KB Loading
 
-Read these files from `{KB_ROOT}/` (if they exist):
+Read from `{KB_ROOT}/` based on changeset scope (if they exist):
 
-| File | Purpose |
-|------|---------|
-| `patterns.md` | Verify code follows codebase conventions |
-| `modules.md` | Understand component boundaries |
+| File | When to Load |
+|------|-------------|
+| `patterns.md` | Always -- verify code follows codebase conventions |
+| `modules.md` | Diff spans multiple modules or touches component boundaries |
 
-Note: Reviewer loads less context than builder—focus on verification, not re-implementation.
+When in doubt, load the file.
+
+Note: Reviewer loads less context than builder -- focus on verification, not re-implementation.
 
 ### 1.2 Context Documentation
 
@@ -241,8 +244,19 @@ Verify across seven dimensions, using `<thinking>` for detailed analysis:
 - [ ] Code structure aligns with existing patterns
 - [ ] Error handling style is consistent
 - [ ] No obvious code quality issues
+- [ ] Readable under pressure: names, structure, and control flow make intent clear
+- [ ] Low-complexity path: no broad speculative abstractions, layers, hooks, or options
+- [ ] Boundaries, effects, and failure modes are explicit
+- [ ] Changes are cohesive and local to the owning behavior/module
+- [ ] Production diagnosability is preserved or improved
 
-**Evidence**: Reference patterns.md, show alignment
+**FAIL if**:
+- Code hides errors, impossible states, corrupt data, or unexpected failures
+- Unrelated changes are coupled together
+- Broad abstractions or configuration surfaces are added without task-driven need
+- Failure behavior becomes harder to trace in production
+
+**Evidence**: Reference patterns.md and Engineering Discipline checks, show alignment
 
 ### 3.5 Testing Discipline Check
 
@@ -251,6 +265,8 @@ Verify across seven dimensions, using `<thinking>` for detailed analysis:
 **Pass Criteria**: Tests follow testing discipline rules
 
 **Checks**:
+- [ ] Behavior changes and bug fixes have the smallest high-value regression test first, or an explicit no-test rationale
+- [ ] Missing tests are treated as failures only when a concrete regression risk lacks coverage
 - [ ] Tests protect user-visible behavior, not implementation details
 - [ ] No tests for third-party libraries, framework behavior, or language primitives
 - [ ] No trivial tests for getters/setters/field access/dataclass defaults
@@ -263,12 +279,14 @@ Verify across seven dimensions, using `<thinking>` for detailed analysis:
 - [ ] Follows repo test conventions
 
 **FAIL if**:
+- Behavior change or bug fix lacks both meaningful coverage and an explicit no-test rationale
 - Superfluous tests added that don't catch real regressions
 - Tests that lock in implementation details
 - Tests for library/framework behavior we don't own
+- Duplicate, flaky, nondeterministic, or noisy tests are added
 - Combinatorial explosion without risk justification
 
-**Evidence**: List any test violations found
+**Evidence**: List test coverage rationale and any test violations found
 
 ### 3.6 Commit Validation Check
 
@@ -379,9 +397,8 @@ Any of these trigger FAILURE:
 
 ### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `task-reviewer` and **Artifact** = `verification`.
-2. Read the section template at the listed **Template Path** (under `templates/_sections/`).
-3. The template contains both SUCCESS and FAILURE variants. Apply the appropriate variant based on the verdict. **Append** the filled section to the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) -- do not create a standalone document.
+1. Read the section template at `plugins/base/skills/artifact-templates/templates/_sections/verification.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. The template contains both SUCCESS and FAILURE variants. Apply the appropriate variant based on the verdict. **Append** the filled section to the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) -- do not create a standalone document.
 
 **Content guidance**:
 - Use 4-space indentation AND blank lines between major sections (Implementation Summary, Validation Summary).
@@ -586,15 +603,9 @@ Skip if WORKFLOW is empty.
 }
 ```
 
-## 7. Anti-Loop Directive
+{% include_shared "anti-loop.md" %}
 
-**CRITICAL**: Execute this workflow in a single pass. Do NOT:
-- Ask for clarification
-- Request the builder to explain
-- Loop back to re-verify
-- Wait for additional information
-
-Make a definitive judgment based on available evidence. If uncertain, err on the side of FAILURE with clear guidance—it's better to have one retry than to let a bad implementation through.
+Make a definitive judgment based on available evidence. If uncertain, err on the side of FAILURE with clear guidance -- it is better to have one retry than to let a bad implementation through.
 
 ## 8. Confidence Scoring
 

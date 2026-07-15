@@ -101,6 +101,17 @@ export function hasFencedContent(content: string): boolean {
 	return findFencedContent(content) !== null;
 }
 
+export function removeFencedContent(content: string): string {
+	const position = findFencedContent(content);
+	if (!position) return content;
+
+	const before = content.slice(0, position.start);
+	const after = content.slice(position.end);
+
+	const result = (before.trimEnd() + after.trimStart()).trim();
+	return result.length > 0 ? `${result}\n` : "";
+}
+
 export function validateFencing(content: string): {
 	valid: boolean;
 	error?: string;

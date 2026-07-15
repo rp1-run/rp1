@@ -2,7 +2,8 @@
 name: task-builder
 description: Implements assigned task(s) w/ full context, writes summaries to the resolved task file. Uses extended thinking (or ultrathink).
 tools: Read, Write, Edit, Bash, Glob, Grep, Bash(rp1 *)
-model: inherit
+model: standard
+effort: high
 arguments:
   - name: FEATURE_ID
     type: string
@@ -64,20 +65,7 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 
 **Core**: Implement ONLY assigned tasks. DO NOT modify code outside scope.
 
-## Implementation Commandments
-
-Treat these as implementation constraints for every task:
-
-- Write for humans first: optimize for maintainers reading, reviewing, debugging, and modifying code under time pressure.
-- Complexity is the enemy; prefer deep modules with simple interfaces and real behavior behind them.
-- Model the data and domain well; make illegal states unrepresentable or fail closed at boundaries.
-- High cohesion, low coupling.
-- YAGNI: code is cost, not asset; avoid speculative hooks, layers, parameters, and features.
-- Prefer duplication to the wrong abstraction.
-- Make the change easy, then make the easy change.
-- Listen to test pain as design feedback.
-- Test behavior through public seams, not implementation internals.
-- Measure before optimizing; cut surgically.
+{% include_shared "engineering-discipline.md" %}
 
 **Negative responsibility**: Task builders MUST NOT calculate, merge, create, or hand off comment cleanup manifests or cleanup-owned hunks. Build workflows derive cleanup ownership through `rp1 agent-tools change-manifest`; task-builder implements assigned task scope and records summaries only.
 
@@ -146,7 +134,15 @@ Use `<thinking>` blocks for analysis.
 
 ### 1.1 KB Files
 
-Read from `{KB_ROOT}/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`
+Read `{KB_ROOT}/index.md` first (required). Then load additional KB files based on task scope:
+
+| File | When to Load |
+|------|-------------|
+| `patterns.md` | Always |
+| `modules.md` | Task touches multiple modules or crosses component boundaries |
+| `architecture.md` | Task changes cross-module data flow, system layering, or integrations |
+
+When in doubt, load the file.
 
 If missing: warn, continue.
 
@@ -228,6 +224,24 @@ Per task:
 
 ### 3.2 Testing Discipline
 
+### TDD Bias
+
+Default: test first for behavior changes + bug fixes.
+
+PROC
+1. Find smallest behavior/regression test that should fail pre-change.
+2. Add/extend it first when it catches real regression.
+3. Implement minimal pass.
+4. If no high-value test: record `Tests: not added (no high-value regression)`.
+
+CHK
+- Behavior, not internals.
+- One distinct failure mode per test.
+- Deterministic, independent, fast.
+- Risk-weighted: blast radius, complexity, churn, silent failure.
+- Smallest test w/ confidence; real collaborators unless mock exposes boundary risk.
+- Suite pays rent: prune duplicate, flaky, noisy tests.
+
 **CRITICAL**: Follow strictly. If no high-value tests possible w/o contrived cases, add none.
 
 | # | Rule |
@@ -263,7 +277,7 @@ After implementing all assigned tasks, embed a `stateDiagram-v2` fenced mermaid 
 
 1. Generate the diagram content using actual task IDs as state names and task descriptions as labels. For single tasks, produce a simple `[*] --> TaskState --> [*]` diagram.
 
-2. **Feature mode**: Embed the diagram in the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) as an `**Execution Flow**` block after the implementation summary for the last task in the batch (see Section 4.2 for placement).
+2. **Feature mode**: Generate the diagram content now. Write it to the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) during Section 4, under the task-file lock, as an `**Execution Flow**` block after the implementation summary for the last task in the batch (see Section 4.2 for placement).
 
    **Quick-build mode**: Embed the diagram in the quick-build artifact after the Implementation Summary table.
 
@@ -321,6 +335,21 @@ Commit rules: only source code files you modified, no `.rp1/` work files, no unr
 
 ## 4. Task File Update
 
+Feature mode updates the shared task markdown file, so protect this read-modify-write sequence with a lock:
+
+```bash
+LOCK_DIR="{WORK_ROOT}/features/{FEATURE_ID}/.task-file.lock"
+while ! mkdir "$LOCK_DIR" 2>/dev/null; do sleep 2; done
+```
+
+Run Sections 4.1 through 4.3 while holding the lock. Always release it after the task file has been written:
+
+```bash
+rmdir "$LOCK_DIR"
+```
+
+If the process fails after acquiring the lock, remove the lock before returning failure. In quick-build mode, use the same lock pattern next to `{QUICK_BUILD_PATH}` when updating the quick-build artifact.
+
 ### 4.1 Mark Complete (MUST DO IF IMPLEMENTED)
 
 `- [ ]` -> `- [x]`
@@ -346,9 +375,8 @@ Mark each task complete in the Tasks section: `- [ ]` -> `- [x]`
 
 Add immediately after task line (4-space indent, blank lines between sections).
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `task-builder` and **Artifact** = `implementation-summary`.
-2. Read the section template at the listed **Template Path** (under `templates/_sections/`).
-3. Fill placeholders per guidance below. **Append** the filled section after the task line in the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) -- do not create a standalone document.
+1. Read the section template at `plugins/base/skills/artifact-templates/templates/_sections/implementation-summary.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Fill placeholders per guidance below. **Append** the filled section after the task line in the resolved task file (`tasks.md` or legacy `milestone-{N}.md`) -- do not create a standalone document.
 
 **Content guidance**:
 - Use 4-space indentation for all summary content (nests under task checkbox line).
@@ -409,16 +437,9 @@ If GIT_COMMIT=true, replace Commit line with: `**Commit**: {SHA} - feat(quick-bu
 
 If GIT_COMMIT=true, replace Commit line with: `**Commit**: {SHA} - feat({FEATURE_ID}): implement T1, T2 - {description}`
 
-## 6. Anti-Loop Directive
+{% include_shared "anti-loop.md" %}
 
-**CRITICAL**: Single pass. DO NOT:
-
-- Ask for clarification/wait for feedback
-- Loop/re-implement
-- Multiple attempts same change
-- Request additional info
-
-Blocking issue:
+**On blocking issue**:
 
 1. Transition to `failed` state per STATE-MACHINE section (skip if WORKFLOW is empty):
    ```bash

@@ -1,5 +1,6 @@
 import type { Status } from "../../shared/events.js";
 import { readDaemonState, writeDaemonState } from "./daemon/config-dir";
+import { loadArcadeSettingsWithFallback } from "./server/arcade-settings-bridge";
 import { FileWatcherPool } from "./server/file-watcher";
 import { startServer } from "./server/http";
 import { reclassifyInactiveRunsWithBroadcast } from "./server/inactive-runs";
@@ -147,6 +148,15 @@ export function createServer(options: ServerOptions) {
 	const websocketHub = new WebSocketHub();
 	const fileWatcherPool = new FileWatcherPool(websocketHub);
 
+	// Load arcade settings from TOML with grace fallback for leftover JSON files.
+	// Resolves async; the settings endpoint awaits this promise on first request.
+	const arcadeSettingsReady = loadArcadeSettingsWithFallback(projectPath)
+		.then(({ settings }) => settings)
+		.catch((err) => {
+			console.warn("[settings] Failed to load arcade settings:", err);
+			return undefined;
+		});
+
 	const server = startServer({
 		port,
 		projectPath,
@@ -156,6 +166,7 @@ export function createServer(options: ServerOptions) {
 		webUIDir,
 		startTime,
 		version,
+		arcadeSettingsReady,
 	});
 
 	const setupReplayProvider = async () => {

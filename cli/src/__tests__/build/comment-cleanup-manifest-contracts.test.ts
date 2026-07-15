@@ -26,9 +26,10 @@ describe("comment cleanup manifest prompt contracts", () => {
 			"Do not dispatch `comment-cleaner` later unless",
 		);
 		expect(buildSkill).toContain("Include `comment-cleaner` only when");
-		expect(buildSkill).toContain('"files_checked": 0');
-		expect(buildSkill).toContain('"manifest_status_path"');
-		expect(buildSkill).toContain('"skip_reason"');
+		// Cleanup-skip synthetic result fields (backtick-code format in compressed text)
+		expect(buildSkill).toContain("files_checked: 0");
+		expect(buildSkill).toContain("manifest_status_path");
+		expect(buildSkill).toContain("skip_reason");
 		expect(buildSkill).toContain(
 			"Do not dispatch comment-cleaner with branch, unstaged, commit-range, base-branch, mode, or commit parameters",
 		);
@@ -94,32 +95,47 @@ describe("comment cleanup manifest prompt contracts", () => {
 		const taskBuilder = await readProjectFile(
 			"plugins/dev/agents/task-builder.md",
 		);
+		const engineeringDiscipline = await readProjectFile(
+			"plugins/shared/engineering-discipline.md",
+		);
 
-		expect(taskBuilder).toContain("## Implementation Commandments");
-		expect(taskBuilder).toContain(
-			"Write for humans first: optimize for maintainers reading, reviewing, debugging, and modifying code under time pressure.",
+		// task-builder includes the shared engineering discipline via include_shared
+		expect(taskBuilder).toContain('include_shared "engineering-discipline.md"');
+
+		// The shared file carries the full engineering discipline invariants
+		expect(engineeringDiscipline).toContain("## Engineering Discipline");
+		expect(engineeringDiscipline).toContain(
+			"Write for the next reader under pressure: names/structure/control flow show intent.",
 		);
-		expect(taskBuilder).toContain(
-			"Complexity is the enemy; prefer deep modules with simple interfaces and real behavior behind them.",
+		expect(engineeringDiscipline).toContain(
+			"Minimize complexity, not lines: simple paths, narrow APIs, deep modules.",
 		);
-		expect(taskBuilder).toContain(
-			"Model the data and domain well; make illegal states unrepresentable or fail closed at boundaries.",
+		expect(engineeringDiscipline).toContain(
+			"Model domain invariants; make wrong states hard to express.",
 		);
-		expect(taskBuilder).toContain("High cohesion, low coupling.");
-		expect(taskBuilder).toContain(
-			"YAGNI: code is cost, not asset; avoid speculative hooks, layers, parameters, and features.",
+		expect(engineeringDiscipline).toContain(
+			"Fail loud near cause; never hide impossible state, corrupt data, or unexpected errors.",
 		);
-		expect(taskBuilder).toContain(
-			"Prefer duplication to the wrong abstraction.",
+		expect(engineeringDiscipline).toContain(
+			"Co-locate code that changes together; organize by behavior/ownership.",
 		);
-		expect(taskBuilder).toContain(
-			"Make the change easy, then make the easy change.",
+		expect(engineeringDiscipline).toContain(
+			"Treat code as liability: no speculative hooks/layers/options/deps/features.",
 		);
-		expect(taskBuilder).toContain("Listen to test pain as design feedback.");
-		expect(taskBuilder).toContain(
-			"Test behavior through public seams, not implementation internals.",
+		expect(engineeringDiscipline).toContain(
+			"Prefer duplication over wrong abstraction.",
 		);
-		expect(taskBuilder).toContain("Measure before optimizing; cut surgically.");
+		expect(engineeringDiscipline).toContain(
+			"Make effects/boundaries/failures explicit: IO, time, random, concurrency, retries, external deps.",
+		);
+		expect(engineeringDiscipline).toContain(
+			"Make prod diagnosable: structured errors/logs/metrics/traces/correlation IDs/breadcrumbs.",
+		);
+		expect(engineeringDiscipline).toContain(
+			"Make change easy, then make easy change: refactor small before behavior when shape fights goal.",
+		);
+
+		// Cleanup-ownership invariant stays in task-builder itself
 		expect(taskBuilder).toContain(
 			"Task builders MUST NOT calculate, merge, create, or hand off comment cleanup manifests or cleanup-owned hunks.",
 		);

@@ -1,6 +1,6 @@
 ---
 name: prompt-writer
-description: Write maximally terse agent prompts from scratch. Use when creating new agent specs, command prompts, or instruction sets. Teaches structure-first composition with compression-by-default patterns. Extended with constitutional governance, epistemic stance selection, and a six-stage prompt pipeline.
+description: Write maximally terse agent prompts from scratch. Use when creating agent specs, command prompts, or instruction sets with constitutional governance.
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: prompt
@@ -44,7 +44,7 @@ Guide for writing maximally terse agent prompts with built-in constitutional gov
 
 | File | Purpose | When to Load |
 |------|---------|--------------|
-| `PATTERNS.md` | Reusable prompt patterns: constitutional agent, interview, map-reduce, state machine, tool selection, error hierarchy, output contract, progressive disclosure, checklist gate, parameterized behavior | Direct `/prompt-writer` invocation; prompt authoring |
+| `PATTERNS.md` | Reusable prompt patterns: constitutional agent, interview, map-reduce, state machine, tool selection, error hierarchy, output contract, progressive disclosure, checklist gate, parameterized behavior, engineering discipline | Direct `/prompt-writer` invocation; prompt authoring |
 | `TEMPLATES.md` | Ready-to-use prompt templates at simple, moderate, complex, command, and tool/skill levels | Direct `/prompt-writer` invocation; prompt authoring |
 
 ### Pipeline Stages

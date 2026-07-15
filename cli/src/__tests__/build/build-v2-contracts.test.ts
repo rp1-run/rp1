@@ -17,11 +17,11 @@ const readProjectFile = async (relativePath: string): Promise<string> =>
 	readFile(join(projectRoot, relativePath), "utf-8");
 
 const extractDispatches = (content: string, agentName: string): string[] => {
-	const start = `{% dispatch_agent "${agentName}" %}`;
-	return content
-		.split(start)
-		.slice(1)
-		.map((part) => part.split("{% enddispatch_agent %}")[0] ?? "");
+	const pattern = new RegExp(
+		`{% dispatch_agent "${agentName}"(?:, \\w+)? %}([\\s\\S]*?){% enddispatch_agent %}`,
+		"g",
+	);
+	return [...content.matchAll(pattern)].map((match) => match[1] ?? "");
 };
 
 const extractArtifactPayloads = (content: string): string[] =>
@@ -99,6 +99,42 @@ describe("Build v2 static contracts", () => {
 		expect(content).not.toContain("build-artifact-detector");
 	});
 
+	test("build instructs the model to pass a kebab-case FEATURE_ID slug", async () => {
+		const skill = await expectTaskRight(parseSkill(buildSkillDir));
+		const content = skill.content;
+		// The model must derive a clean slug rather than letting raw prose / a file
+		// path land in FEATURE_ID (which names the feature dir and resume key).
+		expect(content).toContain("FEATURE_ID slug");
+		expect(content).toContain('`--args "<slug> <remaining request>"`');
+		expect(content).toContain("the remainder resolves to `REQUIREMENTS`");
+	});
+
+	test("checkpoint menus stay within the AskUserQuestion 4-option cap and keep Arcade/Stop", async () => {
+		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+
+		// The discipline rule that prevents a surfaced sub-decision from evicting a
+		// canonical option (e.g. dropping "Review feedback from Arcade") exists.
+		expect(content).toContain("## §CHECKPOINT-OPTIONS");
+		expect(content).toContain("at most **4 options**");
+
+		// Every ask_user directive declares 2-4 options — the harness hard cap.
+		const askUserPattern =
+			/\{%\s*ask_user\s+"[^"]*"\s*,\s*options:\s*([^%]*?)%\}/g;
+		const matches = [...content.matchAll(askUserPattern)];
+		expect(matches.length).toBeGreaterThanOrEqual(5);
+		for (const match of matches) {
+			const optionCount = (match[1]?.match(/"/g)?.length ?? 0) / 2;
+			expect(optionCount).toBeGreaterThanOrEqual(2);
+			expect(optionCount).toBeLessThanOrEqual(4);
+		}
+
+		// The requirements and planning checkpoints keep the canonical four verbatim.
+		const canonical = content.match(
+			/\{%\s*ask_user\s+"Continue, Revise, Review feedback from Arcade, or Stop\?"[^%]*%\}/g,
+		);
+		expect(canonical?.length).toBe(2);
+	});
+
 	test("planning has one normal feature-tasker dispatch after the hypothesis gate", async () => {
 		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
 		const dispatches = extractDispatches(content, "rp1-dev:feature-tasker");
@@ -160,14 +196,13 @@ describe("Build v2 static contracts", () => {
 			"plugins/dev/agents/feature-tasker.md",
 		);
 
-		expect(build).toContain("Parse the response as JSON.");
+		// Build validates tasker response as JSON with task_plan_path and both artifact files
+		expect(build).toContain("parse JSON");
+		expect(build).toContain("task_plan_path");
 		expect(build).toContain(
-			'"task_plan_path": "features/{FEATURE_ID}/tasks.json"',
+			"`artifacts[]` for both `tasks.md` and `tasks.json`",
 		);
-		expect(build).toContain(
-			"`artifacts[]` entries for both `features/{FEATURE_ID}/tasks.md` and `features/{FEATURE_ID}/tasks.json`",
-		);
-		expect(build).toContain("Treat prose-prefixed completion");
+		expect(build).toContain("Do not continue without confirmed results");
 		expect(tasker).toContain(
 			"Return ONLY raw JSON, no prose, no markdown fence.",
 		);
@@ -194,6 +229,56 @@ describe("Build v2 static contracts", () => {
 		);
 		expect(content).not.toContain("build-task-parser");
 		expect(content).not.toContain("build-task-grouper");
+	});
+
+	test("implementation checks the ready wave before falling back to serial dispatch", async () => {
+		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+
+		const readySetIndex = content.indexOf("#### Ready-Set Derivation");
+		const pipelinedIndex = content.indexOf("#### Pipelined Dispatch");
+		const parallelWaveIndex = content.indexOf("#### Parallel-Wave Mode");
+
+		expect(readySetIndex).toBeGreaterThan(-1);
+		expect(pipelinedIndex).toBeGreaterThan(readySetIndex);
+		expect(parallelWaveIndex).toBeGreaterThan(pipelinedIndex);
+		expect(content).toContain(
+			"Before every dispatch cycle, recalculate `READY_UNITS`",
+		);
+		expect(content).toContain(
+			"Do not require one builder to finish before checking for a ready wave.",
+		);
+		expect(content).toContain(
+			"If `READY_UNITS` has 2+ entries and all Parallel-Wave Mode preconditions pass, use Parallel-Wave Mode immediately.",
+		);
+		expect(content).toContain(
+			"At the start of each dispatch cycle, before selecting a serial unit",
+		);
+		expect(content).toContain("Default no-commit builds are serial.");
+	});
+
+	test("parallel builder reference integrates secondary work only after primary review succeeds", async () => {
+		const build = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const reference = await readProjectFile(
+			"plugins/dev/skills/build/references/parallel-builders.md",
+		);
+		const builder = await readProjectFile("plugins/dev/agents/task-builder.md");
+
+		expect(build).toContain(
+			"Dispatch reviewer(k) on the primary `codeRoot` before integrating the secondary worktree.",
+		);
+		expect(build).toContain(
+			"If reviewer(k) fails or is malformed, abandon the secondary worktree",
+		);
+		expect(reference).toContain(
+			"After both builders complete and reviewer(k) succeeds on the primary branch",
+		);
+		expect(reference).toContain(
+			"If reviewer(k) fails after both builders succeeded:",
+		);
+		expect(builder).toContain(".task-file.lock");
+		expect(builder).toContain(
+			"Run Sections 4.1 through 4.3 while holding the lock.",
+		);
 	});
 
 	test("task plan machine schema includes targets for code and docs parity", async () => {
@@ -226,7 +311,8 @@ describe("Build v2 static contracts", () => {
 		expect(content).toContain(
 			"On resume, `build-task-plan` must consume the updated `tasks.json`.",
 		);
-		expect(content).toContain('"added_task_request": "{ADDED_TASK_REQUEST}"');
+		// Add Task paths carry the added task request in emit data
+		expect(content).toContain("added_task_request");
 	});
 
 	test("waiting-phase resumes branch before producer dispatches", async () => {
@@ -261,12 +347,11 @@ describe("Build v2 static contracts", () => {
 			"plugins/dev/agents/task-reviewer.md",
 		);
 
-		expect(build).toContain(
-			'`status = "SUCCESS"` completes the unit only when `task_plan_updated = true`',
-		);
-		expect(build).toContain(
-			"Do not edit `tasks.json` in the parent orchestrator; the reviewer owns the success decision and task-plan persistence.",
-		);
+		// Build contract: SUCCESS + task_plan_updated completes the unit
+		expect(build).toContain("`SUCCESS` + `task_plan_updated = true`");
+		expect(build).toContain("completes the unit");
+		expect(build).toContain("Do not edit `tasks.json`");
+		expect(build).toContain("the reviewer owns");
 		expect(reviewer).toContain(
 			"### 5.5.1 On SUCCESS: Persist Machine Task Plan",
 		);
@@ -424,14 +509,15 @@ describe("Build v2 static contracts", () => {
 			"**Implementation checkpoint** (after readiness; skip if AFK):",
 		);
 		const completionEmitIndex = content.indexOf(
-			"After the user chooses Release, or AFK skips this checkpoint, emit `implementation` completed:",
+			"After the user chooses Release, or AFK skips this checkpoint, emit `implementation` completed",
 		);
 
 		expect(aggregatorDispatchIndex).toBeGreaterThan(-1);
 		expect(checkpointIndex).toBeGreaterThan(aggregatorDispatchIndex);
 		expect(completionEmitIndex).toBeGreaterThan(checkpointIndex);
+		// Readiness artifact reference exists in resume and release sections
 		expect(content).toContain(
-			"artifact=features/{FEATURE_ID}/build-readiness.md",
+			'path = "features/{FEATURE_ID}/build-readiness.md"',
 		);
 		expect(content).not.toContain('"context": "Build phase complete"');
 	});
@@ -445,24 +531,22 @@ describe("Build v2 static contracts", () => {
 		const archiverDispatchIndex = content.indexOf(
 			'{% dispatch_agent "rp1-dev:feature-archiver" %}',
 		);
-		const successRequirementIndex = content.indexOf(
-			"Parse the `feature-archiver` response before completing release:",
+		const parseResponseIndex = content.indexOf(
+			"Parse the `feature-archiver` response",
 		);
 		const archiveCompletedIndex = content.indexOf(
-			'"archive_status": "completed", "archive_path": "{ARCHIVE_RESULT.archive_path}"',
+			"After `feature-archiver` succeeds and registers the actual archived output",
 		);
 
 		expect(releaseRunningIndex).toBeLessThan(releaseGateIndex);
 		expect(declineIndex).toBeLessThan(archiveSectionIndex);
 		expect(content).toContain("Do not run `feature-archiver`.");
 		expect(archiverDispatchIndex).toBeGreaterThan(archiveSectionIndex);
-		expect(successRequirementIndex).toBeGreaterThan(archiverDispatchIndex);
-		expect(archiveCompletedIndex).toBeGreaterThan(successRequirementIndex);
+		expect(parseResponseIndex).toBeGreaterThan(archiverDispatchIndex);
+		expect(archiveCompletedIndex).toBeGreaterThan(parseResponseIndex);
+		// Archive success requires artifacts beginning with archives/features/
 		expect(content).toContain(
-			"After `feature-archiver` succeeds and registers the actual archived output, emit `release` completed:",
-		);
-		expect(content).toContain(
-			'The archived artifact path MUST begin with `archives/features/` and use `storageRoot = "work_dir"`.',
+			'`artifacts[]` entry beginning with `archives/features/` using `storageRoot: "work_dir"`',
 		);
 	});
 
@@ -487,28 +571,36 @@ describe("Build v2 static contracts", () => {
 		expect(archiver).toContain('"registration_status":"{REGISTRATION_STATUS}"');
 		expect(build).toContain("ARCHIVE_RETRY_PATH");
 		expect(build).toContain("ARCHIVE_PATH={ARCHIVE_RETRY_PATH}");
-		expect(build).toContain('archive_path = "{ARCHIVE_RETRY_PATH}"');
-		expect(build).toContain('"archive_path": "{ARCHIVE_RETRY_PATH}"');
+		// Archive-incomplete emit carries the retry path
+		expect(build).toContain('archive_path: "{ARCHIVE_RETRY_PATH}"');
 		expect(archiver).not.toContain('"registered|skipped"');
 		expect(archiver).not.toContain("completed_without_registration");
 	});
 
 	test("release Stop and archive decline emits are separate decisions", async () => {
 		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
-		const stopIndex = content.indexOf("Stop emits:");
-		const completeIndex = content.indexOf("Complete-without-archive emit:");
+		const stopIndex = content.indexOf("On Stop: emit `release` waiting");
+		const completeIndex = content.indexOf(
+			"On Complete without archive: emit `release` completed",
+		);
 
 		expect(stopIndex).toBeGreaterThan(-1);
-		expect(completeIndex).toBeGreaterThan(stopIndex);
-		expect(content.slice(stopIndex, completeIndex)).toContain(
-			'"status": "waiting"',
+		expect(completeIndex).toBeGreaterThan(-1);
+		expect(completeIndex).not.toBe(stopIndex);
+
+		// Each path is a distinct decision with a distinct archive_status, regardless
+		// of the order they appear in the two-step release gate.
+		const stopLine = content.slice(stopIndex, content.indexOf("\n", stopIndex));
+		const completeLine = content.slice(
+			completeIndex,
+			content.indexOf("\n", completeIndex),
 		);
-		expect(content.slice(stopIndex, completeIndex)).not.toContain(
-			'"archive_status": "declined"',
-		);
-		expect(content.slice(completeIndex)).toContain(
-			'"archive_status": "declined"',
-		);
+		// Stop path emits waiting with deferred, not declined
+		expect(stopLine).toContain('archive_status: "deferred"');
+		expect(stopLine).not.toContain('archive_status: "declined"');
+		// Complete-without-archive emits completed with declined
+		expect(completeLine).toContain('archive_status: "declined"');
+		expect(completeLine).not.toContain('archive_status: "deferred"');
 	});
 
 	test("build docs match release gate labels and AFK archive behavior", async () => {

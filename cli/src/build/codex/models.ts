@@ -20,6 +20,8 @@ export interface CodexAgent {
 	readonly description: string;
 	readonly model: string;
 	readonly roleType: CodexRoleType;
+	readonly effortFieldName?: string;
+	readonly effortValue?: string;
 	readonly developerInstructions: string;
 }
 

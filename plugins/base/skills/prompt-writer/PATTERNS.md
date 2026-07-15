@@ -251,6 +251,18 @@ Behavior that varies by input mode.
 - Partial results OK
 ```
 
+## Pattern 11: Engineering Discipline
+
+Use the smallest matching variant:
+
+| Variant | Use For | Sections |
+|---------|---------|----------|
+| Coding | agents that edit source | Engineering Discipline + TDD Bias |
+| Review | agents that design/review/investigate code | Design/Review Discipline |
+| Speedrun | tiny low-risk edits | Speedrun Gate |
+
+Rule: inline runtime-critical discipline in the target agent; use this pattern for authoring only.
+
 ## Anti-Pattern Reference
 
 Patterns to AVOID:

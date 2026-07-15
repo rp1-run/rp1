@@ -2,7 +2,8 @@
 name: kb-architecture-mapper
 description: Maps system architecture patterns, layers, and integrations for architecture.md from pre-filtered files
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: CODEBASE_ROOT
     type: string
@@ -37,6 +38,10 @@ arguments:
     required: false
     default: ""
     description: "Feature context JSON for FEATURE_LEARNING mode"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Knowledge base root directory"
 ---
 
 # KB Architecture Mapper - System Architecture Analysis
@@ -73,7 +78,7 @@ $6
 
 **Check for existing architecture.md**:
 
-- Check if `.rp1/context/architecture.md` exists
+- Check if `{KB_ROOT}/architecture.md` exists
 - If exists, read the file to understand current architectural knowledge
 - Extract existing patterns, layers, integrations, and diagrams
 - Use as baseline context for analysis
@@ -332,8 +337,8 @@ Map data flow and state:
 
 **For rp1 example**:
 
-- State stored in `.rp1/context/state.json`
-- KB files generated in `.rp1/context/*.md`
+- State stored in `{KB_ROOT}/state.json`
+- KB files generated in `{KB_ROOT}/*.md`
 - State updated after each KB generation
 
 **Output Format**:
@@ -342,7 +347,7 @@ Map data flow and state:
 {
   "state_management": {
     "strategy": "File-based state with JSON metadata",
-    "location": ".rp1/context/state.json",
+    "location": "{KB_ROOT}/state.json",
     "lifecycle": "Generated after KB build, used for incremental updates"
   },
   "data_flows": [
@@ -441,24 +446,9 @@ graph TB
 }
 ```
 
-## Anti-Loop Directives
-
-**EXECUTE IMMEDIATELY**:
-
-- Do NOT iterate or ask for input
-- Read assigned files ONCE
-- Analyze architecture systematically
-- Generate Mermaid diagram
-- Output JSON
-- STOP
+{% include_shared "anti-loop.md" %}
 
 **Target**: 10-12 minutes
 
-## Output Discipline
-
-**CRITICAL - Silent Execution**:
-
-- Do ALL work in <thinking> tags (NOT visible to user)
-- Do NOT output progress or verbose explanations
-- Output ONLY the final JSON
+{% include_shared "output-discipline.md" %}
 - Parent orchestrator handles user communication

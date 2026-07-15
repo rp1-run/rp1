@@ -75,17 +75,14 @@ describe("catalog-generator", () => {
 			expect(result).toContain("# rp1 Skill Catalog");
 			expect(result).toContain("## Development");
 			expect(result).toContain("## Quality");
+			// Catalog table reduced to three columns: Skill, Plugin, Description
+			expect(result).toContain("| Skill | Plugin | Description |");
 			expect(result).toContain(
-				"| Key Args | Workflow | Run Policy | Identity Args |",
+				"| `/build` | dev | End-to-end feature workflow. |",
 			);
+			expect(result).toContain("| `/speedrun` | dev | Quick iteration loop. |");
 			expect(result).toContain(
-				"| `/build` | dev | End-to-end feature workflow. | `FEATURE_ID`, `AFK` | Yes | resumable | `FEATURE_ID` |",
-			);
-			expect(result).toContain(
-				"| `/speedrun` | dev | Quick iteration loop. |  | Yes | fresh |  |",
-			);
-			expect(result).toContain(
-				"| `/code-check` | dev | Fast code hygiene validation. | `TARGET` |  |  |  |",
+				"| `/code-check` | dev | Fast code hygiene validation. |",
 			);
 		});
 

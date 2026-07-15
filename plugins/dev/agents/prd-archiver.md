@@ -2,7 +2,8 @@
 name: prd-archiver
 description: Archives completed PRDs to .rp1/work/archives/prds/, archives associated completed features, checks KB staleness, and generates closure summaries
 tools: Read, Glob, Bash, Grep, Write
-model: inherit
+model: standard
+effort: low
 author: cloud-on-prem/rp1
 arguments:
   - name: MODE
@@ -146,9 +147,8 @@ Generate `{{$PRD_ARCHIVE_DIR}}/closure_summary.md`:
 
 ### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `prd-archiver` and **Artifact** = `closure-summary.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for the closure summary. Fill placeholders per guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/prd-archiver/closure-summary.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for the closure summary. Fill placeholders per guidance below.
 
 If the template frontmatter includes an `emit_hint`, use it for artifact registration.
 

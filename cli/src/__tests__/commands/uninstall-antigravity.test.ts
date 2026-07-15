@@ -3,6 +3,7 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { uninstallCommand } from "../../commands/uninstall.js";
+import { createUninstallAntigravityCommand } from "../../commands/uninstall-antigravity.js";
 import {
 	createAntigravityBundleAssetManifestFixture,
 	writeAntigravityBundleDistFixture,
@@ -53,7 +54,6 @@ const runUninstallCommandInProcess = async (
 }> => {
 	const logs: string[] = [];
 	const successes: string[] = [];
-	const originalHome = process.env.HOME;
 	const originalLog = console.log;
 	const originalExit = process.exit;
 	const restoreBundle = withEnvOverride(
@@ -62,7 +62,6 @@ const runUninstallCommandInProcess = async (
 	);
 
 	try {
-		process.env.HOME = homeDir;
 		console.log = (...values: unknown[]) => {
 			logs.push(values.map(String).join(" ").replace(ANSI_REGEX, ""));
 		};
@@ -70,6 +69,7 @@ const runUninstallCommandInProcess = async (
 			throw new ProcessExit(code);
 		}) as typeof process.exit;
 		const root = new Command("rp1");
+		const uninstall = new Command("uninstall");
 		Object.assign(root, {
 			_logger: {
 				trace: () => {},
@@ -84,18 +84,19 @@ const runUninstallCommandInProcess = async (
 			},
 			_isTTY: false,
 		});
-		root.addCommand(uninstallCommand);
+		root.addCommand(uninstall);
+		uninstall.addCommand(
+			createUninstallAntigravityCommand({
+				homeDir,
+				globalSettingsPath: join(homeDir, ".config", "rp1", "settings.toml"),
+			}),
+		);
 		await root.parseAsync(["node", "rp1", ...args], { from: "node" });
 		return { output: logs.join("\n"), successes };
 	} finally {
 		restoreBundle();
 		console.log = originalLog;
 		process.exit = originalExit;
-		if (originalHome === undefined) {
-			delete process.env.HOME;
-		} else {
-			process.env.HOME = originalHome;
-		}
 	}
 };
 
@@ -136,7 +137,6 @@ describe("Antigravity uninstall command", () => {
 				cwd: cliRoot,
 				env: {
 					...process.env,
-					HOME: tempDir,
 					NO_COLOR: "1",
 					RP1_ANTIGRAVITY_BUNDLE_DIR: bundleDir,
 				},

@@ -126,14 +126,12 @@ describe("output", () => {
 			expect(() => JSON.parse(output)).not.toThrow();
 		});
 
-		test("uses 2-space indentation", () => {
+		test("returns compact single-line output", () => {
 			const result = successResult("test", { value: 1 });
 			const output = formatOutput(result);
 
-			expect(output).toContain("\n  ");
-			const lines = output.split("\n");
-			const indentedLines = lines.filter((l) => l.startsWith("  "));
-			expect(indentedLines.length).toBeGreaterThan(0);
+			expect(output).not.toContain("\n");
+			expect(output).toBe(JSON.stringify(result));
 		});
 
 		test("preserves all fields in output", () => {

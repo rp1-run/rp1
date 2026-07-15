@@ -12,7 +12,8 @@
 		"typecheck": "tsc --noEmit --strict --skipLibCheck --target ES2022 --module ESNext --moduleResolution bundler --types bun-types electrobun.config.ts src/bun/index.ts"
 	},
 	"dependencies": {
-		"electrobun": "^1.15.1"
+		"electrobun": "^1.15.1",
+		"fp-ts": "^2.16.9"
 	},
 	"devDependencies": {
 		"@types/bun": "^1.1.14",

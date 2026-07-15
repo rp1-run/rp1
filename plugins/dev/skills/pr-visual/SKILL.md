@@ -94,6 +94,7 @@ rp1 agent-tools emit \
 
 Emit `visualize` completed. Output the artifact path.
 
-## Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-Single pass. Dispatch agent once, register once, stop.
+**File-specific constraints**:
+- Dispatch the visualizer agent exactly once, register exactly one artifact, then stop.

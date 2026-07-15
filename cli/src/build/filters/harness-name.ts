@@ -10,7 +10,6 @@
  * | codex       | codex         |
  * | copilot     | gh-copilot    |
  * | antigravity | antigravity   |
- * | gemini      | gemini-cli    |
  * | opencode    | opencode      |
  *
  * Values not in this table return "unknown".
@@ -28,8 +27,6 @@ export const harnessName = (platform: BuildPlatform): string => {
 			return "gh-copilot";
 		case "antigravity":
 			return "antigravity";
-		case "gemini":
-			return "gemini-cli";
 		case "opencode":
 			return "opencode";
 	}

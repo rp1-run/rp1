@@ -2,7 +2,8 @@
 name: feature-tasker
 description: Generates development tasks from design specifications with support for incremental updates that preserve completed work
 tools: Read, Write, Glob, Bash(rp1 *)
-model: inherit
+model: standard
+effort: high
 arguments:
   - name: FEATURE_ID
     type: string
@@ -167,8 +168,18 @@ Rules:
 - `target`: primary source, module, config, test, or doc path affected by the task; use a stable module/directory path when the exact file is not yet known
 - Include every active task from `tasks.md`; preserve done/blocked status in UPDATE mode.
 
-### 3.4 Quality
+### 3.4 Task Quality
+
 Every task: Specific, Measurable, Achievable (4-8h max), Relevant, Time-bound.
+
+- Slice by behavior/owner/change-together boundary, not file type.
+- Each code task states public behavior or contract changed.
+- **TDD task shaping**: For behavior changes and bug fixes, fold the smallest failing test into the same task, sequenced test-first. Name the expected failing test in the task's acceptance criteria. Carve out refactor, docs, and config tasks -- those skip test-first. If no high-value test exists, the task-builder records the skip (task-builder.md section 3.2).
+  - WRONG: T1 "implement formatDate" + T2 "add tests for formatDate". RIGHT: single task "implement formatDate with test-first coverage" -- a function and its tests are always one task.
+- No standalone low-value test chores.
+  - WRONG: T2 "verify test coverage and edge cases" following an implement-with-tests T1. Verification is the task-reviewer's job -- never emit a task expected to produce no code changes.
+- Add diagnosability task only for new failure modes or prod decision points.
+- No speculative abstraction, generic cleanup, or broad refactor unless design requires it.
 
 ### 3.5 User Docs Tasks
 
@@ -293,10 +304,10 @@ If legacy `tracker.md` or `milestone-{N}.md` files exist, treat them as read-onl
 
 ### Template Loading
 
-For each artifact below, read `rp1-base:artifact-templates` SKILL.md to find the template row, then read the template file at the listed path:
+Read each template at its direct path below (fall back to `rp1-base:artifact-templates` SKILL.md index if a path fails):
 
-- `tasks.md` (Producer: `feature-tasker`)
-- `tasks.json` (Producer: `feature-tasker`)
+- `tasks.md`: `plugins/base/skills/artifact-templates/templates/feature-tasker/tasks.md`
+- `tasks.json`: `plugins/base/skills/artifact-templates/templates/feature-tasker/tasks.json`
 
 Use the template structure exactly.
 
@@ -424,8 +435,6 @@ For `UPDATE_MODE=true`, set `"mode": "update"` and replace `incremental_update: 
 }
 ```
 
-## §8 Anti-Loop
-
-**EXECUTE IMMEDIATELY**: NO clarification, NO iteration. Analyze ONCE in thinking -> generate -> write -> output -> STOP.
+{% include_shared "anti-loop.md" %}
 
 Ambiguous design -> assume + document.

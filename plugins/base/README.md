@@ -7,20 +7,19 @@ Foundation plugin providing knowledge management, documentation generation, stra
 The `rp1-base` plugin provides core knowledge and documentation capabilities that power the rp1 ecosystem:
 
 - **Parallel KB generation** - Map-reduce architecture with 5 specialized agents
-- **Self-contained commands** - All commands load KB context automatically (no manual `/knowledge-load` step needed)
+- **Self-contained commands** - All commands load KB context automatically
 - Project documentation and strategic analysis
 - Security validation
 - Content writing
 - Shared skills for all plugins
 
 **Agents**: 16 specialized agents across KB generation, deep research, documentation, strategy, security, validation, scribe, prompt pipeline, and Socratic Duel participant workflows
-**Skills**: 19 total skills, including 11 user-facing commands and shared capabilities
+**Skills**: 18 total skills, including 10 user-facing commands and shared capabilities
 
-## Commands (11)
+## Commands (10)
 
 ### Knowledge Management
 - `/knowledge-build` - Parallel KB generation using map-reduce architecture with 6 agents (includes pattern extraction)
-- `/knowledge-load` - **DEPRECATED** - Commands now load KB automatically. See [Progressive Loading](../../docs/concepts/knowledge-aware-agents.md)
 
 ### Research
 - `/deep-research` - Autonomous deep research on codebases and technical topics. Uses map-reduce architecture with explorer agents for thorough investigation and reporter agent for structured report output including Mermaid diagrams.

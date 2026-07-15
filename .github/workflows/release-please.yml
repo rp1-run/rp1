@@ -143,6 +143,11 @@ jobs:
       - name: Wait for Cloudflare Pages deploy
         uses: WalshyDev/cf-pages-await@3abae9f62a7672a1701300702ce42908e16cb88a  # v1
         id: cf-pages
+        # A transient Cloudflare Pages build flake must not fail the release
+        # workflow: the release is already created, and docs content is verified
+        # separately by the Docs Link Check (mkdocs build --strict). Tolerate the
+        # failure here and gate the audit below on the deploy actually succeeding.
+        continue-on-error: true
         with:
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           apiToken: ${{ secrets.CF_API_TOKEN }}
@@ -150,6 +155,7 @@ jobs:
           commitHash: ${{ github.sha }}
 
       - name: Run Lighthouse CI
+        if: steps.cf-pages.outcome == 'success'
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
         run: |

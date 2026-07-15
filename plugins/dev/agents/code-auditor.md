@@ -2,7 +2,8 @@
 name: code-auditor
 description: Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift
 tools: Read, Write, Grep, Glob, Bash
-model: inherit
+model: deep
+effort: high
 arguments:
   - name: FEATURE_ID
     type: string
@@ -68,6 +69,17 @@ Do NOT load all KB files. Code auditing needs patterns and modules context.
 If `{KB_ROOT}/` doesn't exist, warn user to run `/knowledge-build` first.
 
 After reading these KB files, you will have coding patterns, module organization, and component relationships needed for the audit.
+
+## Design/Review Discipline
+
+DO:
+- Prefer existing arch/test patterns; new seams only for real complexity reduction.
+- Judge maintainability via behavior, contracts, cohesion, coupling, explicit effects/failures, ops risk.
+- Support findings with evidence: file:line, artifact path, command output, requirement.
+- Flag missing tests only when concrete regression risk lacks coverage.
+- Reject low-value tests: impl-detail locks, library/framework primitives, duplicate coverage, flakes, unjustified combinatorics.
+- Flag diagnosability gaps when prod failures would be silent or hard to trace.
+- Mark uncertainty; prefer no finding over low-confidence speculation.
 
 ## Audit Process
 
@@ -139,9 +151,8 @@ Your analysis should be thorough and systematic to ensure accuracy and reliabili
 
 ### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `code-auditor` and **Artifact** = `audit-report.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for the report. Fill placeholders per guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/code-auditor/audit-report.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for the report. Fill placeholders per guidance below.
 
 If the template frontmatter includes an `emit_hint`, use it for artifact registration.
 

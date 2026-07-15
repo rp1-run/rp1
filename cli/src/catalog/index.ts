@@ -18,23 +18,6 @@ export {
 	collectAntigravityWorkflowSupportMatrix,
 } from "./antigravity-support.js";
 export type {
-	BuildGeminiWorkflowSupportMatrixOptions,
-	CollectedGeminiWorkflowSupportMatrix,
-	GeminiSupportedWorkflowEntry,
-	GeminiUnsupportedWorkflowEntry,
-	GeminiWorkflowClass,
-	GeminiWorkflowSupportEntry,
-	GeminiWorkflowSupportExclusion,
-	GeminiWorkflowSupportExclusionReason,
-	GeminiWorkflowSupportMatrix,
-	GeminiWorkflowSupportStatus,
-} from "./gemini-support.js";
-export {
-	buildGeminiWorkflowSupportMatrix,
-	collectGeminiWorkflowSupportMatrix,
-	GEMINI_SUPPORT_MATRIX_UPDATED_AT,
-} from "./gemini-support.js";
-export type {
 	CatalogArtifact,
 	CatalogValidationIssue,
 	CatalogValidationResult,

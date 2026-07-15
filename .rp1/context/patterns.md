@@ -1,109 +1,82 @@
 # Implementation Patterns
 
 **Project**: rp1
-**Last Updated**: 2026-04-29
+**Last Updated**: 2026-07-08
 
-## Naming Conventions
+## Naming & Organization
 
-- **Files**: Feature-scoped directories (`cli/src/commands/`, `cli/src/build/`); prompt assets use kebab-case skill folders with `SKILL.md`; React: PascalCase components, camelCase hooks
-- **Functions**: CLI camelCase verbs; React hooks prefix `use`; error factories match their `_tag` (usageError, runtimeError)
-- **Parameters**: UPPER_SNAKE_CASE enforced by `/^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/`
-- **Imports**: Relative TS imports keep `.js` suffixes; web-ui uses `@/` path alias; CSS classes use `rp1-` prefix to avoid Tailwind collisions
+- Feature-scoped directories (`cli/src/commands/`, `cli/src/build/`, `cli/src/settings/`); prompt assets use kebab-case skill folders with `SKILL.md`.
+- CLI camelCase verbs; React hooks prefix `use`; error factories match their `_tag` (`usageError`, `runtimeError`).
+- Parameters UPPER_SNAKE_CASE (`/^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/`); relative TS imports keep `.js` suffixes; web-ui uses `@/`; CSS classes use `rp1-` prefix to avoid Tailwind collisions.
+- **Path variables (two-tier)**: skills reference project directories via `{kbRoot}`/`{workRoot}` (camelCase, from resolve-args/bootstrap); agents declare `KB_ROOT`/`WORK_ROOT` as UPPER_SNAKE frontmatter arguments. Dispatch blocks bridge the tiers with `KB_ROOT={kbRoot}` token syntax. Never hardcode literal `.rp1/context` or `.rp1/work` paths in prompts.
 
-## Type Patterns
+## Type & Data Modeling
 
-- **Discriminated unions**: `_tag` field on CLIError, `type` field on EventPayload
-- **Enum tables**: SkillCategory, WorkflowRunPolicy, Status, EventType as string literal unions with parallel `VALID_*` arrays
-- **Immutability**: `readonly` properties and `as const` assertions throughout; persisted artifacts as source-of-truth snapshots
-- **Template strictness**: LiquidJS uses `strictVariables` and `strictFilters`
+- **Enum tables**: string-literal unions with parallel `VALID_*` arrays for build-time validation — `ModelTier`/`VALID_MODEL_TIERS`, `EffortLevel`/`VALID_EFFORT_LEVELS`, `SkillCategory`, `WorkflowRunPolicy`, `Status`, `EventType`.
+- Discriminated unions: `_tag` on `CLIError`, `type` on `EventPayload`.
+- `readonly` + `Readonly<Record<...>>` + `as const` throughout; persisted artifacts are source-of-truth snapshots.
+- **Tier abstraction**: abstract tier aliases (frontier/deep/standard/fast/inherit) decoupled from vendor model IDs via the centralized `TIER_MODEL_MAP` — single update point on vendor model releases. `PROTECTED_AGENTS` + `TIER_RANK` guard reasoning-critical agents from accidental downgrade. Compile-time safety: `Exclude<ModelTier, "inherit">` keys on `TIER_MODEL_MAP` and `TIER_RANK` force compile errors if a tier is added without mappings.
+- **Build-to-install metadata chain**: `BundleAgentEntry` extends `BundleAssetEntry` with optional `tier`/`effort`, preserved through bundle manifests → `generate-asset-imports.ts` → `EMBEDDED_MANIFEST`, so install-time remapping works from the compiled binary without source frontmatter.
 
 ## Error Handling
 
-- **Strategy**: Returns `Either` or `TaskEither<CLIError, A>`; formats errors once at CLI boundary via `formatError`; `tryCatchTE` wraps async
-- **Propagation**: Parent skills gate on hard failures; batch workflows tolerate partial success
-- **Validation staging**: L1 (syntax) then L2 (schema) in build pipeline
-- **Error discrimination**: `isValidProject` distinguishes ENOENT from transient I/O errors instead of swallowing all
-- **Common types**: UsageError, NotFoundError, ConfigError, RuntimeError, PrerequisiteError, ParseError, ValidationError, GenerationError, TransformError, PortInUseError
+- Returns `Either`/`TaskEither<CLIError, A>`; formatted once at the CLI boundary via `formatError`; `tryCatchTE` wraps async.
+- Parent skills gate on hard failures; batch workflows tolerate partial success. L1 (syntax) then L2 (schema) validation staging.
+- **Warnings vs errors**: `validateAgentTierAndEffort` and `validateTierRemappings` return `{errors[], warnings[]}` — errors halt processing, warnings emit advisories (fast-tier effort, protected-agent downgrade, unsupported platform).
+- **Non-blocking degradation**: optional post-update steps (tier remapping re-apply, plugin cache refresh) wrap in try/catch, surface warnings, and never abort the parent lifecycle.
+- **Comment-preserving TOML writes**: `rewriter.ts` (model tier remapping) and `arcade-writer.ts` (arcade settings migration) use targeted line edits with regex-based section boundary detection to append/merge TOML sections without disturbing existing comments or formatting; full-file serialization is avoided because `smol-toml` is parse-only.
 
-## Validation
+## Validation & Boundaries
 
-- **Location**: Workflow intake and command boundaries
-- **Method**: Explicit enum/default tables, existence checks, compatibility aliases
-- **Additive-field propagation**: New fields (e.g., `arcadeTracked`) flow parser -> models -> validator -> template -> registry without breaking existing paths
-- **Argument validation**: Each definition validated field-by-field with early return on first error
+- **Additive-field propagation**: a new frontmatter field flows `parser → model interface → validator → tier-resolution → template context → Liquid templates` without breaking existing paths. Established for `arcadeTracked`; extended identically for `model` (ModelTier) and `effort` (EffortLevel).
+- Each definition validated field-by-field with early return on first error.
+- **Single-source validation sets**: settings validator imports shared helpers (`getValidModelIdsForPlatform`, `modelSupportsEffort`, `getPlatformsWithModelSupport`) from `tier-resolution.ts` — no separate allowlists; derive runtime sets from canonical maps (e.g. `TIER_KEYS` from `VALID_MODEL_TIERS`) instead of hand-copying.
+- **Build lint L014**: parameterized skills must not mention `rp1-root-dir` literally — directory resolution comes from the auto-injected Resolve Arguments section; the lint rule fails the build otherwise.
 
-## fp-ts Pipeline Pattern
+## Build Pipeline
 
-- Arcade command uses `pipe(loadConfig, TE.fromEither, TE.chain(...))` for all operation modes
-- `tryCatchTE` wraps async operations with error factories
-- `map`, `flatMap`, `isLeft` preferred over overengineered abstractions
-
-## Concurrency Patterns
-
-- **Async mutex**: `withRegistryLock` in server/registry.ts serializes read-modify-write cycles via promise-chain mutex
-- **Toast dedup guard**: `NotificationContainer` uses functional state updater (`setToasts(prev => ...)`) to prevent duplicate toasts from concurrent WebSocket messages
-- **Request identity tracking**: Web-UI hooks use `useCallback`/`useRef` to handle stale async responses
-- **Lazy loading**: Heavy subsystems (daemon, emit relay) loaded via dynamic `import()` at runtime
-
-## I/O Patterns
-
-- **Database**: SQLite via `bun:sqlite` for runs, events, artifacts, annotations, notifications. Upsert semantics; dedup via `hasNotificationForSource`
-- **File I/O**: Atomic writes via temp-file + rename (registry `saveRegistry`); PID file with mode 0o600; diagnostic log uses `appendFileSync`
-- **Workflow event transport**: `rp1 agent-tools emit` persists canonical workflow events, then the daemon relays typed project-scoped WebSocket envelopes for status-bearing and attention-bearing live updates
-- **Run artifact locations**: File artifacts keep the `path` plus `storageRoot` contract. Curated external links register as URL artifacts with `locationKind: "url"`, `type: "link"`, `url`, `label`, and `relationship`; optional `sourceContext` and `sourceArtifactPath` tie the link back to a report. URL artifact identity is deterministic per run, relationship, and canonical URL so completion retries update one artifact instead of creating duplicates
-- **Link artifact scope**: Workflows should register only curated external links that represent run outputs, not every URL found in generated markdown. PR review is the first concrete workflow and registers only the reviewed PR URL as a `Reviewed PR` link artifact when available
-- **HTTP clients**: Web-UI SPA seeds surfaces from `/api/v2/` and uses targeted hydration such as `GET /api/v2/runs/:id/summary`; reconnect polling stays limited to disconnected recovery instead of routine freshness
-- **Freshness split**: Workflow status and attention come from emitted event delivery plus replay/snapshot recovery; file watching remains responsible only for artifact and file-content freshness
-- **Directory-scoped agent I/O**: Code-writing agents resolve source-file paths against `codeRoot` (the worktree path when in a worktree, `projectRoot` otherwise). Work-artifact reads and writes use `workRoot` and KB reads use `kbRoot`, both of which always point to the canonical `.rp1/` tree. This separation ensures edits land in the user's active working tree while Arcade-visible artifacts remain at the shared canonical location
-
-## PR/Review Workflow Patterns
-
-- **Direct evidence source**: Review-orientation workflows should gather PR metadata, changed files, diffs, stats, and commits directly through `gh` and `git`; generated review artifacts are outputs, not source material for later synthesis
-- **Evidence IDs**: Walkthrough-style artifacts assign stable IDs such as `E-PR-###`, `E-FILE-###`, `E-DIFF-###`, and `E-COMMIT-###`, then cite those IDs inline for major purpose, change, reviewer-focus, and risk claims
-- **Markdown artifact registration**: Plain markdown review artifacts live under purpose-specific workRoot directories, such as `pr-walkthroughs/{REVIEW_ID}-walkthrough-{NNN}.md`, and register with `artifact_registered` using a relative path plus explicit `storageRoot: "work_dir"`
-- **Workflow separation**: `/pr-walkthrough` orients reviewers without posting comments or verdicts; `/pr-review` remains the verdict/finding workflow and `/pr-visual` remains the diagram generator
-
-## UI Patterns
-
-- **Contextual commands**: Views register `CommandDefinition[]` via `useContextualShortcuts` hook, surfaced in command palette alongside navigation/action commands
-- **SessionStorage persistence**: `showFrontmatter`/`showMetadata` use `useState` + `sessionStorage` for per-tab, per-view toggle persistence; WebSocket cursors follow the same pattern with `rp1:last-event-id:global` and `rp1:last-event-id:{projectId}`
-- **Notification lifecycle**: Toasts auto-dismiss 6s with dedup guard; sidebar groups by attention level; "Read all" bulk dismiss
-- **Attention-level styling**: `itemClassForLevel` maps attention levels to differentiated background colors for visual triage
-- **Runtime contract boundary**: `RuntimeProvider` loads the no-store `/api/v2/runtime` contract before WebSocket consumers mount, validates browser/native host mode, exposes reconnect policy, and performs one cache-busted reload before controlled runtime-load failure
-- **LiveRunIndex projection**: Feed, runs, attention, project summaries, and run detail seed from REST, then scope-aware emitted workflow activity flows through a shared `LiveRunIndex` keyed by `runId` to patch only affected surfaces
-- **Scope-aware Activity replay**: Global Activity stores `rp1:last-event-id:global`, project Activity stores `rp1:last-event-id:{projectId}`, and global live events advance both the global cursor and the event project's cursor when project identity is available
-- **Server-side Activity search projection**: Search feed requests refresh compact `activity_search_runs` rows, match normalized tokens against Activity-visible fields before pagination, then apply runtime visibility and reuse `runRecordToListRun` so search and browse keep the same feed item contract
-- **Snapshot reconciliation**: Project `state:snapshot` replaces the project's active-run subset; global snapshots upsert/hydrate without pruning unrelated project runs. Both paths trigger bounded refetch only for currently visible collections whose membership may have changed
-- **Targeted hydration**: Unknown run events hydrate a single run summary before reducers apply queued updates, avoiding collection-wide invalidation for routine workflow activity
-- **Policy-driven Activity recovery**: `useReconnectRecovery`, `useFeed`, and `useRuns` read reconnect timing and `activityRecoveryLimit` from the runtime contract, reconcile in the background after reconnect, and merge replay/REST overlap through stable run identity
+- **Tier resolution**: `resolveTier` maps tier→platform model ID via `TIER_MODEL_MAP` (null for `inherit`/unmapped). `resolveEffort` returns a platform-specific `{fieldName, value}` — `effort` (Claude Code, 5 levels), `model_reasoning_effort` (Codex, `max` clamps to `xhigh`); omits for fast tier and platforms without effort support (OpenCode, Copilot, Antigravity).
+- **Install-time tier remapping (late binding)**: user `settings.toml` `[models]`/`[models.<platform>]` sections (or presets budget/standard/premium) drive `rp1 settings apply`: load → validate → discover agents from the embedded manifest → rewrite installed artifacts (CC YAML frontmatter, Codex TOML targeted line replacement) → report modified/already-current counts. `rp1 update` re-applies automatically. Idempotent: rewriter reports `modified=false` when target equals current.
+- **LiquidJS whitespace control (CRITICAL)**: production engine (`template-engine.ts`) uses `greedy:true`. Golden-file tests MUST replicate the identical config — config drift lets whitespace bugs ship undetected. Use `{%- endif %}` (no trailing dash) when a newline separator must survive. Gate optional fields on `model != "inherit"` / `effortValue` so opt-out output is byte-identical to legacy.
+- **Script entrypoint guard**: `cli/scripts/` executables wrap top-level execution in `if (import.meta.main)` so test imports of exported functions are side-effect-free.
+- **Migrate-integrated settings migration**: `migrateArcadeSettings` runs inside `executeMigrate()` (cli/src/migrate): detect legacy `settings.json` (global + project) → parse arcade fields with `VALID_ARCADE_THEMES` validation → write `[arcade]` via comment-preserving writer (idempotent, never overwrites existing keys) → rename source to `.migrated`. Dry-run detects without writing.
+- **Central-store migration pattern** (`cli/src/migrate/central-store.ts`): opt-in flag gating — all central-conversion steps are gated behind `MigrateOptions.toCentral === true`; bare `rp1 migrate` never converts or recommends. Test-isolation seams via `homeDir` (overrides `os.homedir()` for relocation target) and `globalSettingsPath` (overrides global settings path for harness resolution) — both optional parameters on `MigrateOptions` with production defaults. Comment-preserving TOML section writes for `[storage]` use the same regex-based section boundary detection pattern as `arcade-writer.ts` (find header, scan to next `[table]`, replace or append keys in place). Fenced-content management reuses `hasFencedContent`/`removeFencedContent` from `comment-fence.ts` for project stanzas and `replaceShellFencedContent` from `shell-fence.ts` for gitignore preset replacement. Cross-device-safe file relocation via `rename()` with `EXDEV` fallback to copy-then-delete. Step ordering ensures consistency: relocation before mode write (the commit point), cleanup steps after.
+- **Catalog checksums cover body content**: `catalog/agents.yaml` checksums hash agent body text, not just frontmatter — every prompt edit (even body-only) requires `just catalog-generate` with the regenerated catalog in the same commit.
+- **fp-ts pipeline**: `pipe(loadConfig, TE.fromEither, TE.chain(...))`; prefer clear `map`/`flatMap`/`isLeft` over abstractions.
 
 ## Observability
 
-- **CLI logging**: consola-based logger with `--verbose`/`--trace` mapping to numeric levels
-- **Daemon diagnostics**: Append-only NDJSON to `daemon.log` via `logDaemonEvent` with structured event/data fields; failures silently swallowed
-- **Correlation**: `runId`, `projectId`, and source IDs in notification and event records
+- consola logger with `--verbose`/`--trace` levels; daemon appends structured NDJSON to `daemon.log`; `runId`/`projectId`/source IDs correlate events and notifications.
 
-## Progressive-Disclosure Pipeline
+## Testing Idioms
 
-- Skills with large instruction sets split content into subdirectories (`references/`, `pipeline/`) loaded on demand
-- Entry-point SKILL.md contains a manifest table mapping companion files to load conditions
-- Pipeline stages are standalone `.md` files with consistent structure (Purpose, Input, Process, Output)
-- Agents execute stages sequentially, accumulating context across stages in conversation state
-- Exemplar: `prompt-writer` with three reference layers (`references/`) and six pipeline stages (`pipeline/`)
+- Tests under `cli/src/__tests__/` mirror feature areas with shared helpers (temp dirs, env save/restore, Either/TaskEither unwrap).
+- **Golden-file tests** validate rendered template output; the test Liquid engine config MUST match production (`greedy:true`) or whitespace bugs ship undetected.
+- **Hermetic settings tests**: any code path reading `~/.config/rp1/settings.toml` accepts an optional `globalSettingsPath` injection seam (`loadAllArgumentDefaults`, `loadTierRemappings`, `resolveConfig`); tests point it at an isolated nonexistent path so real developer config never leaks into assertions. Contract tests guard shape parity between `BundleAgentEntry` and the embedded manifest generator.
+- Evals share assertions under `evals/suites/shared/`.
 
-## Extension Points
+## I/O & Integration
 
-- Commands registered centrally via `program.addCommand` in `main.ts`
-- Agent tools register via `registerTool()`
-- Build pipeline uses LiquidJS templates with registered lint rules and filters
-- State machines declared in `stateDiagram-v2` blocks with auto-skip and auto-complete
-- Views register contextual commands via `useContextualShortcuts` hook for command palette integration
-- Prompt pipeline stages loaded progressively via companion reference files in skill subdirectories (`prompt-writer` as first exemplar)
+- SQLite via `bun:sqlite` (runs, events, artifacts, annotations, notifications); upsert + source dedup.
+- Atomic writes via temp-file + rename (registry); PID file mode `0o600`.
+- `rp1 agent-tools emit` persists canonical events; daemon relays project-scoped WS envelopes. File artifacts keep `path`+`storageRoot`; URL artifacts register as `type: link` with deterministic identity (only curated run-output links).
+- **Directory-scoped I/O**: code edits resolve against `codeRoot` (worktree-aware); work/KB reads use `workRoot`/`kbRoot` via `rp1-root-dir`, which respects the active storage mode — these paths may resolve outside the project tree when a non-default mode is configured.
 
-## Testing
+## Concurrency & Async
 
-- Tests under `cli/src/__tests__/` mirror feature areas with shared helpers
-- Common patterns: temp directories, explicit env save/restore, Either/TaskEither unwrap helpers
-- Unit-heavy with integration-style setup for CLI, filesystem, config, and build pipeline
-- Golden-file tests validate rendered template output
-- Evals share assertions under `evals/suites/shared/`
+- `withRegistryLock` async mutex serializes registry read-modify-write; functional state updaters dedup concurrent WS toasts; heavy subsystems (daemon, LiquidJS) loaded via dynamic `import()` and excluded from the compiled binary.
+- **Module-level cache with explicit reset**: settings loader caches parsed TOML per invocation lifetime; `resetSettingsCache()` exists solely for test isolation.
+- **Directory-based file lock**: parallel task-builders serialize shared task-file updates via `mkdir .task-file.lock` atomicity (sleep-poll on contention, always release).
+
+## Dependency Injection & Configuration
+
+- **Optional-parameter seams**: `ApplyDeps` interface injects `readFile`/`writeFile`/`fileExists`/`refreshClaudeCodePlugins`/`getBundledAssets` with `DEFAULT_DEPS` production binding (imports `getBundledAssetsReal` explicitly to avoid a circular dependency); `globalSettingsPath` threads through loader/apply/migrate for isolation; `globalConfigDir` on `migrateArcadeSettings` isolates migration tests.
+- **TOML settings, two-level merge**: project `.rp1/settings.toml` > user `~/.config/rp1/settings.toml`, per key for `[arguments.*]`, `[models.*]`, and `[arcade]` sections; loader normalizes lower-kebab → UPPER_SNAKE for arguments. `[arcade]` section supports `theme` ("light"/"dark"/"system", default "system") and `[arcade.downsampling]` sub-table (`thresholdHours`, default 24); `loadArcadeSettings()` merges project over user with per-key granularity and returns typed `ArcadeSettings`. Blessed presets (`presets.ts`) provide complete tier-to-model profiles that explicit overrides supersede.
+
+## Extension Mechanisms
+
+- Commands via `program.addCommand` in `main.ts`; agent tools via `registerTool()`; build templates per-platform under `templates/<platform>/` with registered lint rules + filters; state machines via `stateDiagram-v2` with auto-skip/auto-complete.
+
+## Related KB
+
+- Components: `modules.md` · System design: `architecture.md` · Concepts: `concept_map.md`

@@ -10,6 +10,8 @@
  * Liquid-like syntax in code examples.
  */
 
+import { readFile } from "node:fs/promises";
+import { join, resolve, sep } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { Liquid } from "liquidjs";
 import type { CLIError } from "../../shared/errors.js";
@@ -113,6 +115,73 @@ const createPreprocessorLiquid = (): Liquid => {
 	});
 	registerTags(liquid);
 	return liquid;
+};
+
+const INCLUDE_SHARED_REGEX = /\{%\s*include_shared\s+"([^"]+)"\s*%\}/g;
+// Non-global twin for one-shot tests: .test() on the /g regex above would
+// advance its lastIndex and silently skip directives in the next file.
+const INCLUDE_SHARED_TEST_REGEX = /\{%\s*include_shared\s+"[^"]+"\s*%\}/;
+
+/**
+ * Resolve `{% include_shared "name.md" %}` directives in source content.
+ *
+ * Each directive is replaced with the contents of `plugins/shared/{name.md}`
+ * relative to projectRoot. Nested includes (an included file containing
+ * another include directive) are rejected with a build error. Missing target
+ * files fail with an actionable message.
+ *
+ * This runs before `preprocessConditionals` so that included content is
+ * available for subsequent Liquid conditional evaluation.
+ */
+export const resolveSharedIncludes = async (
+	content: string,
+	projectRoot: string,
+): Promise<E.Either<CLIError, string>> => {
+	const matches = [...content.matchAll(INCLUDE_SHARED_REGEX)];
+	if (matches.length === 0) {
+		return E.right(content);
+	}
+
+	let result = content;
+
+	for (const match of matches) {
+		const [directive, filename] = match;
+		const sharedRoot = join(projectRoot, "plugins", "shared");
+		const sharedPath = resolve(sharedRoot, filename);
+		if (!sharedPath.startsWith(sharedRoot + sep)) {
+			return E.left(
+				generationError(
+					"preprocessor",
+					`Shared include target escapes plugins/shared/: "${filename}"`,
+				),
+			);
+		}
+
+		let fileContent: string;
+		try {
+			fileContent = await readFile(sharedPath, "utf-8");
+		} catch {
+			return E.left(
+				generationError(
+					"preprocessor",
+					`Shared include target not found: "${filename}" — expected at plugins/shared/${filename}`,
+				),
+			);
+		}
+
+		if (INCLUDE_SHARED_TEST_REGEX.test(fileContent)) {
+			return E.left(
+				generationError(
+					"preprocessor",
+					`Nested includes are not allowed: "${filename}" contains another include_shared directive`,
+				),
+			);
+		}
+
+		result = result.replace(directive, fileContent);
+	}
+
+	return E.right(result);
 };
 
 /**

@@ -22,21 +22,13 @@ const createMockLogger = (): Logger => ({
 
 describe("init gitignore generation", () => {
 	let tempDir: string;
-	let originalHome: string | undefined;
 
 	beforeEach(async () => {
 		tempDir = await createTempDir("init-gitignore-");
-		originalHome = process.env.HOME;
-		process.env.HOME = tempDir;
 	});
 
 	afterEach(async () => {
 		await cleanupTempDir(tempDir);
-		if (originalHome === undefined) {
-			delete process.env.HOME;
-		} else {
-			process.env.HOME = originalHome;
-		}
 	});
 
 	test("recommended preset includes project_id un-ignore and covers work via .rp1/*", () => {

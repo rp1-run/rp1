@@ -10,204 +10,204 @@ agents:
   - name: rp1-base:kb-architecture-mapper
     description: "Maps system architecture patterns, layers, and integrations for architecture.md from pre-filtered files"
     plugin: base
-    last_checksum: 1ae203bb5f9371243a7ba314d18e4ec0f1eafe27760aa4bc821d3f48bf030a0c
+    last_checksum: 999437250ed1764c043afe3a5de016f8e898f01170c61ae9c2782868f04396e8
   - name: rp1-base:kb-concept-extractor
     description: "Extracts domain concepts and terminology for concept_map.md from pre-filtered files"
     plugin: base
-    last_checksum: e1b7a1121d6ef383d17f40ce3139a97328410e2db528529b5d8902f2768e5077
+    last_checksum: 86dd178b5ca9dcb3f006a2790d52a20e7194a78531de2de3b35d6b326ec14c96
   - name: rp1-base:kb-index-builder
     description: "[DEPRECATED] Generates project overview data for index.md from pre-filtered files"
     plugin: base
-    last_checksum: 159c6db88f0f948ad93f7cacec927170fcc723bf3208f384d4595dbe50ed814c
+    last_checksum: 73c0fd95ba8157582ed26bc344e9f626d5ba3a577cb889aa8a93a9e0cc7ea729
   - name: rp1-base:kb-interaction-mapper
     description: "Maps cross-surface interaction semantics for interaction-model.md from pre-filtered files"
     plugin: base
-    last_checksum: b4fe9f31bbeb6291d0ab02d59f3e3af32721b6713e3463c8bedd69886d4d9182
+    last_checksum: 5b749180d1626ac769e4dc3f20b82db89bebec670943c1adcd71891d0c672ce6
   - name: rp1-base:kb-module-analyzer
     description: "Analyzes modules, components, and dependencies for modules.md from pre-filtered files"
     plugin: base
-    last_checksum: bc781769ce62d2cbb31b2477ec77cb85d6aa0ca76d67a780f28539b4081807d0
+    last_checksum: 53070458cc0b07b531999b2d5d977de3b978004df895710ebb2ea6cea8a7225b
   - name: rp1-base:kb-pattern-extractor
     description: "Extracts implementation patterns and idioms for patterns.md from pre-filtered source files"
     plugin: base
-    last_checksum: 5383a0059af86d5716b30b8a6c1ffd9edb18bdb91e0943074a014b59f91bd33a
+    last_checksum: c250cb1ad7f91af78eb83b49cdc8b8f6aaa90662db93904250c61feff5e09e3f
   - name: rp1-base:kb-spatial-analyzer
     description: "Scans repository files, ranks by importance (0-5), and categorizes them by KB section for parallel analysis"
     plugin: base
-    last_checksum: f320a18c37d98a7038874bb23486e960e194975121bc0fc9c8fb261a712e2660
+    last_checksum: ef1e6d7f770f4d441277a26f189c1993c6a58d459708a235d239a6529d362682
   - name: rp1-base:mermaid-fixer
     description: "Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates each diagram, attempts automatic repair (up to 3 iterations), and inserts placeholders for unfixable diagrams."
     plugin: base
-    last_checksum: a44eea08914b9a5f5d66c4184c162fc93583c0a3d74bdda7a0d7799341501449
+    last_checksum: 5a592e65f9af3e25525e79ce31b97090b6589371a355f9a8612e2fa21e80543b
   - name: rp1-base:project-documenter
-    description: "Generates arc42/C4-aligned birds-eye-view documents with per-claim provenance and Reflexion appendix"
+    description: "Generates a digestible 3-tier/9-section birds-eye-view document from KB + codebase, with per-claim provenance in hidden HTML comments"
     plugin: base
-    last_checksum: e0822f5f22a28afea0f8ee3e31483eb3be9f1537f48677b14a9ab474f2e4da9e
+    last_checksum: 57e663472cab105d80ce513eb8af7a2745af3003ac0f1cb880b116d7472dd0bf
   - name: rp1-base:prompt-pipeline-runner
     description: "Executes the six-stage prompt-writer pipeline and produces two mandatory output artifacts (ready-to-run prompt, confidence report)"
     plugin: base
-    last_checksum: 3463a883fa79290575a537f127deb8f0e5a7a4fe1d7a8a8997dd3876cd530b11
+    last_checksum: 605f47f09e034d7f5a250a5c0de95446fb95c63d768686d8f0484120f0428e6a
   - name: rp1-base:research-explorer
     description: "Deep exploration of codebases or web resources, returning structured JSON findings with evidence"
     plugin: base
-    last_checksum: 253d2537b0680b8252e47b6ebc6ffba1d90e1b58c3ab19c87e37827b2d5611f8
+    last_checksum: e56f673713ba6aadc6c09928d5887251d878f643add02fb9638991af06d1b4df
   - name: rp1-base:research-reporter
     description: "Generates structured research reports with validated Mermaid diagrams from synthesis data"
     plugin: base
-    last_checksum: aff40ab351fc76c4fec3c3733e4507cf8ce3812532cd6329d860d35c3b304748
+    last_checksum: 0651848e62cbc3c312252405d11da1fefad8b0a9de67a8615a331ec2feb2148b
   - name: rp1-base:scribe
     description: "Dual-mode doc worker for scan/process batches. Returns JSON only."
     plugin: base
-    last_checksum: e8b1bc7efe6e42654d99ff2d67457b9fbeadd82e67174da3f9b417985a817d34
+    last_checksum: 9e55629f0583f920533c457b9a6603ee81d6a7e6a4f95a080a0a25f59b3967ab
   - name: rp1-base:security-validator
     description: "Performs evidence-bounded, standards-mapped security posture assessment for a project, sub-directory, module, concept, or feature topic"
     plugin: base
-    last_checksum: 7ed0f5429467c6aa24adb3ed8ef93cb611ed8396e99f560a76668790de79c061
+    last_checksum: 433ccf11f18d7dc8158c122745fc6034b6990d3e394c15a9e105ea23abd759ec
   - name: rp1-base:socratic-duel-participant
     description: "Participates in a Socratic Duel run using pre-resolved launcher context and participant-owned artifact writes."
     plugin: base
-    last_checksum: e04631ec0d9ad76bad6b7b1ac380c96963ea048cef085cd986b611a5dd3337ef
+    last_checksum: 4260cbc7c74ac0aca78463d957f5d99b9ed5c13705f7886c1924404f5ce8f7b1
   - name: rp1-base:strategic-advisor
     description: "Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs"
     plugin: base
-    last_checksum: 2fbfb69e8d85b1f3109628236b23eee83e9fd4e92330dae7b817d857a10df7ef
+    last_checksum: a11c9873430a2fe09951700553adc9134ff42b3e9234c23bb3b2a0ffc59705aa
   - name: rp1-dev:blueprint-auditor
     description: "Audits PRD documents against implementation status and executes disposition actions"
     plugin: dev
-    last_checksum: 5082adf89e09658138ad105eb1b16ff13c77b66d70f76ee802e0dc1ccb00b6c3
+    last_checksum: b9fa265ccc043134173d3befa9f670da952cb6d8248d1e34324a43e763e10697
   - name: rp1-dev:blueprint-wizard
     description: "Stateless PRD wizard that analyzes interview state and returns structured JSON responses for PRD creation"
     plugin: dev
-    last_checksum: 7f40bfe3948b78d5dce77dbbf91a2d101c018e27591cf2a8279803328365b5d3
+    last_checksum: 2e9cb6150c9970b8b17bcfcc6b00e9dd3c654df3d4dbd23842553b553b02fc40
   - name: rp1-dev:bootstrap-scaffolder
     description: "Stateless scaffolder that analyzes interview state and returns structured JSON responses for tech stack selection and project scaffolding"
     plugin: dev
-    last_checksum: 90e9363d01c2bf01d156f9dc0bc9d9bfa7ed4a675a073b49a459b2ad18e858e0
+    last_checksum: a243535b24e3a0d33bb7e55405c1312083599fed0b3c4ec19f7b175c8012aca1
   - name: rp1-dev:bug-investigator
     description: "Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes"
     plugin: dev
-    last_checksum: 8fbd88469712a36bca30b52e2ab420f899912dba2a613f474341a8b5a78fbbfe
+    last_checksum: 0e90a63aba9a6c2cb3576793e782999feeb9d6130d2cbba749727ff3fa5590a6
   - name: rp1-dev:build-artifact-detector
     description: "Determines workflow start_step by checking existing feature artifacts using bootstrap-provided run context"
     plugin: dev
-    last_checksum: 8539a28e380e947169e891f71fb2f0b7406cd788b7611e3f5e83454cce7ffd63
+    last_checksum: 78cc1c42e80de7c27d81abb15c18a21b5f7444e22dd2fccc0be9b3811b7a5eb3
   - name: rp1-dev:build-fast-planner
     description: "Quick-iteration workflow planner. Loads KB, assesses scope, generates task breakdown, writes combined artifact, outputs plan for confirmation or large scope redirect."
     plugin: dev
-    last_checksum: d97ae69daaa8a3e2535f442a615694017e6bcfdd58570f82c078aa80a9e2c426
+    last_checksum: 61fb505e572b04f894bc5bb53f10fc46866f538ba2208e46147658a9adbb23cb
   - name: rp1-dev:build-task-grouper
     description: "Batches parsed tasks into execution units based on complexity rules"
     plugin: dev
-    last_checksum: b7dbeb8fd460af65ebcd8fbc2c158bb505443b24001a6996d8f0b565a591f974
+    last_checksum: 2fcedc2dda433bc5e9f748f8552b1113008e71962fa95e6935e31a054b96ecfa
   - name: rp1-dev:build-task-parser
     description: "Extracts structured task information from tasks.md files"
     plugin: dev
-    last_checksum: 235336c79e9a3c989d4518053a25270a022dd8030bb4145b5a6a4a79ea89d096
+    last_checksum: aa6e1a48c7f356e42f5cf71a784820f961992162c9a35e6493676f42c76ff172
   - name: rp1-dev:build-verify-aggregator
     description: "Combines validation envelopes into final build readiness status and artifact"
     plugin: dev
-    last_checksum: cce5d2a537e822b39b44e703c6bbfd0950a10f8a8de20ec37b50f7ec91346bc2
+    last_checksum: ae940bac221e1bdd49c0027d7155c0d7d9f8e5b0e8fe97b6c584ca7ddd3dc454
   - name: rp1-dev:charter-interviewer
     description: "Stateless interview agent that analyzes charter state and returns structured JSON responses for greenfield project vision capture"
     plugin: dev
-    last_checksum: abbbf4cd5ea0b3306eefeb8aead2c96cee904005dabd98a9edc4c6ab5b5e3e21
+    last_checksum: ea9eb5a37fd7e77c3cfea9985ffcd8ad2d15dedcd80294b4830496f219d20812
   - name: rp1-dev:code-auditor
     description: "Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift"
     plugin: dev
-    last_checksum: 547b317da04c22bc5b271fe4a4638303ea9c156f47df4b293cc37a7eebee0ddd
+    last_checksum: 51974522df4de596ea392a109090c24bc544c2a03e56a5a428cc8b646398238e
   - name: rp1-dev:code-checker
     description: "Fast code hygiene validation (linters, formatters, tests, coverage) for quick dev loop feedback"
     plugin: dev
-    last_checksum: 7aa3090816f66a490e09f9ae672bb77fe59b91d5d51e0e49e80208f1130be709
+    last_checksum: 31975a88a21fbf64e0fb99f0c2365d296c784ff4329738f17d4c50f6f49f1abe
   - name: rp1-dev:comment-cleaner
     description: "Systematically removes unnecessary comments from manifest-owned code lines while preserving docstrings, critical logic explanations, and type directives"
     plugin: dev
-    last_checksum: 46082864c43142e3586d16f6f41bfccac5fd6db0e938044508ded93acc470cbc
+    last_checksum: c92138f701e57951c1b1f0ab9a23fb29f33ecc83ac8ae73c0a5020afcc49748f
   - name: rp1-dev:feature-architect
     description: "Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester."
     plugin: dev
-    last_checksum: 38169e936ecd47467086ecdc7e93091a3a8a8c2134e550080221a7097dc571d9
+    last_checksum: e498c7a10724072cc28a4f78cf9dbc2bb9f5209ff76595c4dc65f1d0b6736d0c
   - name: rp1-dev:feature-archiver
     description: "Archives completed features to .rp1/work/archives/features/ or restores archived features back to active features directory"
     plugin: dev
-    last_checksum: 92e06bbca75a64c23df02b1d70478e40fe5205eca637517b306de4db8ce83189
+    last_checksum: 6488ca4f0f7751df50338503f228eaa13a5571a3afcaa1817a9ac231297c11e0
   - name: rp1-dev:feature-editor
     description: "Analyzes mid-stream edits for validity, detects conflicts, and propagates approved changes across feature documentation"
     plugin: dev
-    last_checksum: 245dc5226c7463cf3250dc5378b3c0467608cf5c65cf391500c07dc71734de68
+    last_checksum: 1a8ecc51d058ff57ee684b6c1c6daca3a2e2e9ee96446ded42d099a43767c7d9
   - name: rp1-dev:feature-requirement-gatherer
     description: "Transforms high-level feature concepts into structured requirements specifications. Invoked by /build workflow."
     plugin: dev
-    last_checksum: 1e676c094a570eb40b7acd96bd52b8afc42f56a00fc2ba8939d02d745d45606e
+    last_checksum: cfb2b16497a5643c7c56f908f4c7be62c8774705b4ab97d813323bbec2a59230
   - name: rp1-dev:feature-tasker
     description: "Generates development tasks from design specifications with support for incremental updates that preserve completed work"
     plugin: dev
-    last_checksum: 8e27f32b1612917c8ab314ec761b6970a1e7b5a3eefd398cf17c3ada27d6f539
+    last_checksum: e20751763f1317ffad1a9f263d8ba8fcf0f810d06a7bc0466b0f0dbb4f6c738b
   - name: rp1-dev:feature-verifier
     description: "Verifies feature acceptance criteria and requirements mapping with full KB context awareness for comprehensive feature validation before merge"
     plugin: dev
-    last_checksum: bcc9450aa1e836d874dbf1968ff415d11d0651914fb3964e884549a5dbc50e85
+    last_checksum: 1eff89e6b8511d4f23a175abe6106ce287e3f70d3799a6ead7fd0508117a49fa
   - name: rp1-dev:hypothesis-tester
     description: "Validates design hypotheses through code experiments, codebase analysis, and external research"
     plugin: dev
-    last_checksum: 4da924b18489ee4a45725724a3ddd6517f76206090ec49159f977cf19a9626aa
+    last_checksum: f2197ee767b985cbb4ac6462492d6d3d57459fe218006e6d054bbc4f93622375
   - name: rp1-dev:phase-planner
     description: "Decomposes a planning source into a source-adjacent phase-plan artifact and refreshes source backlinks."
     plugin: dev
-    last_checksum: 3e00b1bd93f53ae21f9b22ae078e865ca25ed03ece6e7b03719965d081022638
+    last_checksum: 5d5cb8a37ea5ec50fd40874195f3d036d7d4f8fdbdf2b2a8ea3515dbb0c6fced
   - name: rp1-dev:pr-comment-deduplicator
     description: "Deduplicates PR review comments against existing bot and human comments"
     plugin: dev
-    last_checksum: 0c6383836decc8544be38821497e75d2b030dae96d3271147ea7ea2d9239805b
+    last_checksum: 9186cec9f1b7d7312451c1a88d31142559fe247340d471e9a8ca10c0e4fcb046
   - name: rp1-dev:pr-comment-poster
     description: "Posts PR review comments via github-pr agent-tools"
     plugin: dev
-    last_checksum: 73ee88b9301e11576c2bc3013d2c04ecb932482fae5f8ba68952ce2a9773b1b8
+    last_checksum: 45b6913c5970806028cc5e263b1e47f22c4ab538f85e84727eb49b8e680364ed
   - name: rp1-dev:pr-feedback-collector
     description: "Automatically gathers pull request review comments from GitHub, classifies them by priority and type, extracts actionable tasks, and generates structured feedback documents for systematic resolution"
     plugin: dev
-    last_checksum: 7b259cf5ffb6787729e9d02fb0464340b65b2645e43d7c0cbbba21494bbc7ebd
+    last_checksum: 2e994a28783e6b51f51fe20e11052a4881bcf2a94a28116d8ac888604e14675d
   - name: rp1-dev:pr-review-reporter
     description: "Formats findings into markdown report and writes to file"
     plugin: dev
-    last_checksum: 4bd6575e4460ca23c9f4e573d5c714108f4b560e0356e2c8bc6b5ee5cd02d66b
+    last_checksum: e8e79e7d532aa18150925a92a7dc0d8c4478a85accdf928dcb408c44f845cce0
   - name: rp1-dev:pr-review-splitter
     description: "Splits PR diff into reviewable units, filtering out generated/low-value files"
     plugin: dev
-    last_checksum: fbf2342257df652cf714d031cf4437e22c20f0fc4143cee99c29b66a6f055ba0
+    last_checksum: 7de5b99e57defaa8770465378ac26ee7a87c0714fb8a345daaaed1b4575d3095
   - name: rp1-dev:pr-review-synthesizer
     description: "Holistic cross-file verification using compressed summaries"
     plugin: dev
-    last_checksum: 815bd58dc9d05f82c68d4beb3506d4c890947d3fdf52c3a2e6c4688060f5f744
+    last_checksum: 13d1a930c76747e1a5dc57aaf20401c4fd79d22b74f9defbcad92781361aed5d
   - name: rp1-dev:pr-sub-reviewer
     description: "Analyzes one review unit across 5 dimensions with confidence gating"
     plugin: dev
-    last_checksum: bc628e0f3d1d7caf65ec206c10a792801554e28851045634147b0855179de82b
+    last_checksum: f07584319aa00ad1a48b8b09287e92a20daae5947583811c7fa5731763432c07
   - name: rp1-dev:pr-visualizer
     description: "Transform PR diffs into Mermaid diagrams for visual code review"
     plugin: dev
-    last_checksum: ad7bff389fb454da2d343914d00e5130f5855a3961334a893dbd4e03f227138a
+    last_checksum: df4a4a325fc95b033f40e85f9cecb99fe286b759f6fde628b981bc847d19f76e
   - name: rp1-dev:pr-walkthrough-reporter
     description: "Generate an evidence-grounded slide-ready markdown walkthrough for a pull request"
     plugin: dev
-    last_checksum: bd895d0baf134a07dd8a03772dd68b4f62445902c82eae14d1dbf9f2853d52ac
+    last_checksum: 6feabfb683117308accf7a322876cc8203c6b2c06dd07faf0e26d1c606062759
   - name: rp1-dev:prd-archiver
     description: "Archives completed PRDs to .rp1/work/archives/prds/, archives associated completed features, checks KB staleness, and generates closure summaries"
     plugin: dev
-    last_checksum: 83ccd314620b6effdb0dfe4c6759f0266ec6952ab647856c55430c969c7ce8e2
+    last_checksum: d4e6f8897b4c4548d2730bef820ece2b4db2308fea18cc05778326902b228e3b
   - name: rp1-dev:speedrun-builder
     description: "Implements a single focused code change from a speedrun request"
     plugin: dev
-    last_checksum: 2675d54ae7d47c70e6b01021b5e9c21696a1f0fc1cc2b5d2af377b634951056c
+    last_checksum: b9a57e3448993006712cedede15014b3e726e250f779cff1130c3a87b4d7a295
   - name: rp1-dev:task-builder
     description: "Implements assigned task(s) w/ full context, writes summaries to the resolved task file. Uses extended thinking (or ultrathink)."
     plugin: dev
-    last_checksum: 06b80f5d3932570835feaf1a3b03102dffd6774a07b34672f5e417072aa44f27
+    last_checksum: af9935b641aa18addcaa5125ab269946dc37bffb3ba3f3e510cddb7816aa43f0
   - name: rp1-dev:task-reviewer
     description: "Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification."
     plugin: dev
-    last_checksum: 7e567fd6f1ce46b00e2885c8eaa8bf3d4ab797e7703a69d6c4813601e9d6c9f4
+    last_checksum: 127b1f730e6983fbaf645d5b8a086e9af8b9e662c0ab64874320be2d597f9be1
   - name: rp1-dev:test-runner
     description: "Executes comprehensive functional testing of implemented features including automated tests, coverage measurement, acceptance criteria verification, and detailed test reporting"
     plugin: dev
-    last_checksum: 3fc05bbc1e5e7ea5d6ac4fb147dd4c5e0043e9f1fa488b5136a881b8bb0fa5e8
+    last_checksum: ea72d209649b38f39a6c707e7973664f84344d7fc05de9aab2f2bb038a0cb6ed

@@ -1,6 +1,6 @@
 ---
 name: code-comments
-description: Extract comment locations from code files for analysis. Use when cleaning comments, auditing code documentation, or analyzing comment patterns. Supports Python, JavaScript, TypeScript, Go, Rust, Java, C/C++, Ruby, PHP, Shell scripts. Trigger terms - comments, extract comments, code comments, comment analysis, documentation audit, comment cleanup.
+description: Extract comment locations from code files for analysis. Use when cleaning comments, auditing documentation, or analyzing comment patterns across languages.
 allowed-tools: Bash, Read
 metadata:
   category: quality

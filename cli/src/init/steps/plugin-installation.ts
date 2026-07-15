@@ -23,15 +23,11 @@ import type {
 } from "../../install/claudecode/models.js";
 import { runAllPrerequisiteChecks as defaultRunAllPrerequisiteChecks } from "../../install/claudecode/prerequisites.js";
 import {
-	geminiExtensionNameFromDisplayDir,
-	installGeminiBundleAssets,
-	verifyGeminiBundleSetup,
-} from "../../install/gemini/index.js";
-import {
 	type InstallContext,
 	installCopilotPlugins as sharedInstallCopilotPlugins,
 	installOpenCodePlugins as sharedInstallOpenCodePlugins,
 } from "../../shared/install-core.js";
+import { getClaudePluginDirs } from "../../shared/paths.js";
 import type {
 	InitAction,
 	PluginInstallResult,
@@ -96,11 +92,11 @@ export interface PluginsInstalledResult {
 }
 
 export interface CheckPluginsInstalledDeps {
+	readonly homeDir?: string;
 	readonly detectTools?: typeof detectTools;
 	readonly verifyClaudeCodePlugins?: typeof verifyClaudeCodePlugins;
 	readonly verifyOpenCodePlugins?: typeof verifyOpenCodePlugins;
 	readonly verifyCopilotPlugins?: typeof verifyCopilotPlugins;
-	readonly verifyGeminiBundleSetup?: typeof verifyGeminiBundleSetup;
 }
 
 /**
@@ -124,8 +120,6 @@ export async function checkPluginsInstalled(
 		deps.verifyOpenCodePlugins ?? verifyOpenCodePlugins;
 	const runVerifyCopilotPlugins =
 		deps.verifyCopilotPlugins ?? verifyCopilotPlugins;
-	const runVerifyGeminiBundleSetup =
-		deps.verifyGeminiBundleSetup ?? verifyGeminiBundleSetup;
 	const detectionResult = await runDetectTools(registry)();
 
 	// detectTools never fails (returns Right), but handle defensively
@@ -155,22 +149,21 @@ export async function checkPluginsInstalled(
 		}
 
 		if (detectedTool.tool.id === "claude-code") {
-			const result = await runVerifyClaudeCodePlugins();
+			const result = await runVerifyClaudeCodePlugins(
+				deps.homeDir === undefined
+					? undefined
+					: getClaudePluginDirs(deps.homeDir),
+			);
 			if (!result.verified) {
 				allInstalled = false;
 			}
 		} else if (detectedTool.tool.id === "opencode") {
-			const result = await runVerifyOpenCodePlugins();
+			const result = await runVerifyOpenCodePlugins(deps.homeDir);
 			if (!result.verified) {
 				allInstalled = false;
 			}
 		} else if (detectedTool.tool.id === "copilot") {
 			const result = await runVerifyCopilotPlugins();
-			if (!result.verified) {
-				allInstalled = false;
-			}
-		} else if (detectedTool.tool.id === "gemini") {
-			const result = await runVerifyGeminiBundleSetup();
 			if (!result.verified) {
 				allInstalled = false;
 			}
@@ -278,7 +271,7 @@ export const executePluginInstallation = async (
 		return { actions, result: null };
 	}
 
-	const supportedTools = ["claude-code", "opencode", "copilot", "gemini"];
+	const supportedTools = ["claude-code", "opencode", "copilot"];
 	if (!supportedTools.includes(detectedTool.tool.id)) {
 		// Unsupported tools require manual installation
 		logger.info(
@@ -414,27 +407,6 @@ async function executeInstallationForTool(
 				success: true,
 				pluginsInstalled: [...copilotResult.right.pluginsInstalled],
 				warnings: [...copilotResult.right.warnings],
-			});
-		}
-	} else if (detectedTool.tool.id === "gemini") {
-		const geminiResult = await installGeminiBundleAssets({
-			dryRun: config.dryRun,
-		})();
-
-		if (E.isLeft(geminiResult)) {
-			resultEither = E.right({
-				success: false,
-				pluginsInstalled: [],
-				warnings: [],
-				error: geminiResult.left,
-			});
-		} else {
-			resultEither = E.right({
-				success: true,
-				pluginsInstalled: geminiResult.right.extensionDisplayDirs.map(
-					geminiExtensionNameFromDisplayDir,
-				),
-				warnings: [...geminiResult.right.warnings],
 			});
 		}
 	} else {

@@ -6,6 +6,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../../shared/errors.js";
 import type { Logger } from "../../../../shared/logger.js";
@@ -23,12 +25,6 @@ import type {
 	ClaudeCodeInstallResult,
 	ClaudeCodePrerequisiteResult,
 } from "../../../install/claudecode/models.js";
-import { writeGeminiBundleDistFixture } from "../../helpers/gemini-bundle.js";
-import {
-	cleanupTempDir,
-	createTempDir,
-	withEnvOverride,
-} from "../../helpers/index.js";
 
 // Create mock logger
 const createMockLogger = (): Logger => ({
@@ -112,23 +108,6 @@ const createUnsupportedTool = (): DetectedTool => ({
 		capabilities: [],
 	},
 	version: "0.5.0",
-	meetsMinVersion: true,
-});
-
-const createGeminiTool = (): DetectedTool => ({
-	tool: {
-		id: "gemini",
-		name: "Gemini CLI",
-		enabled: true,
-		binary: "gemini",
-		min_version: "0.0.0",
-		instruction_file: "AGENTS.md",
-		install_url: "https://github.com/google-gemini/gemini-cli",
-		plugin_install_cmd: null,
-		supportLevel: "stable",
-		capabilities: ["slash-commands"],
-	},
-	version: "0.1.0",
 	meetsMinVersion: true,
 });
 
@@ -256,45 +235,6 @@ describe("plugin-installation step", () => {
 					c.method === "box" && String(c.args[0]).includes("https://rp1.run"),
 			);
 			expect(boxCall).toBeDefined();
-		});
-
-		test("installs Gemini assets during init installation", async () => {
-			const tempDir = await createTempDir("init-gemini-install");
-			const restoreHome = withEnvOverride("HOME", tempDir);
-			const bundleDir = await writeGeminiBundleDistFixture(tempDir);
-			const restoreBundle = withEnvOverride("RP1_GEMINI_BUNDLE_DIR", bundleDir);
-			const logger = createTrackingMockLogger();
-
-			try {
-				const result = await executePluginInstallation(
-					createGeminiTool(),
-					{ isTTY: false },
-					logger,
-				);
-
-				expect(result.result?.success).toBe(true);
-				expect(result.actions).toEqual([
-					{
-						type: "plugin_installed",
-						name: "rp1-base",
-						version: "latest",
-					},
-					{
-						type: "plugin_installed",
-						name: "rp1-dev",
-						version: "latest",
-					},
-				]);
-				expect(
-					await Bun.file(
-						`${tempDir}/.gemini/extensions/rp1-base/gemini-extension.json`,
-					).text(),
-				).toBe('{"name":"rp1-base"}\n');
-			} finally {
-				restoreBundle();
-				restoreHome();
-				await cleanupTempDir(tempDir);
-			}
 		});
 
 		test("respects non-interactive mode flag and proceeds with installation", async () => {
@@ -516,6 +456,35 @@ describe("plugin-installation step", () => {
 	});
 
 	describe("checkPluginsInstalled", () => {
+		test("uses the supplied home for pre-install plugin verification", async () => {
+			const claudeTool = createClaudeCodeTool();
+			const registry = {
+				version: "1.0.0",
+				tools: [claudeTool.tool],
+			};
+			const isolatedHome = join(tmpdir(), "rp1-init-home");
+			let searchDirs: readonly string[] | undefined;
+
+			const result = await checkPluginsInstalled(registry, {
+				homeDir: isolatedHome,
+				detectTools: () =>
+					TE.right({
+						detected: [claudeTool],
+						missing: [],
+					}),
+				verifyClaudeCodePlugins: async (dirs) => {
+					searchDirs = dirs;
+					return { verified: true, plugins: [], issues: [] };
+				},
+			});
+
+			expect(result.installed).toBe(true);
+			expect(searchDirs?.length).toBeGreaterThan(0);
+			expect(searchDirs?.every((dir) => dir.startsWith(isolatedHome))).toBe(
+				true,
+			);
+		});
+
 		test("treats Copilot as missing when native verification fails", async () => {
 			const copilotTool = createCopilotTool();
 			const registry = {

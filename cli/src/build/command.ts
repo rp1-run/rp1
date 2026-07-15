@@ -33,6 +33,7 @@ import { colorFns } from "../lib/colors.js";
 import { generateCatalog } from "./catalog-generator.js";
 import { validateCodexSkill } from "./codex/validator.js";
 import { type LintDiagnostic, lintArtifact } from "./lint/index.js";
+import { lintSkillDescriptionLength } from "./lint/rules/description-length.js";
 import {
 	lintAgentArguments,
 	lintSkillArguments,
@@ -40,12 +41,16 @@ import {
 import type {
 	BuildConfig,
 	BuildSummary,
+	BundleAgentEntry,
 	BundleAssetEntry,
 	BundlePluginAssets,
+	EffortLevel,
+	ModelTier,
 	OpenCodePluginAsset,
 	SkillCategory,
 	SkillMetadata,
 } from "./models.js";
+import { ParseCache } from "./parse-cache.js";
 import { parseAgent, parseSkill } from "./parser.js";
 import type {
 	HookContext,
@@ -53,7 +58,10 @@ import type {
 	PlatformDefinition,
 } from "./platform-definitions.js";
 import { PLATFORM_DEFINITIONS } from "./platform-definitions.js";
-import { preprocessConditionals } from "./preprocessor.js";
+import {
+	preprocessConditionals,
+	resolveSharedIncludes,
+} from "./preprocessor.js";
 import { defaultRegistry } from "./registry.js";
 import type { BuildPlatform } from "./template-context.js";
 import {
@@ -61,8 +69,13 @@ import {
 	withDerivedArgumentHint,
 } from "./template-context.js";
 import { createTemplateEngine } from "./template-engine.js";
+import { resolveEffort, resolveTier } from "./tier-resolution.js";
 import { injectEmitHarness } from "./transforms.js";
-import { validateAgent, validateSkill } from "./validator.js";
+import {
+	validateAgent,
+	validateAgentTierAndEffort,
+	validateSkill,
+} from "./validator.js";
 
 const VALID_PLATFORMS = [
 	"opencode",
@@ -517,10 +530,12 @@ export const buildPlatformPlugin = async (
 	_logger: Logger,
 	jsonOutput: boolean,
 	lintOnly = false,
+	cache?: ParseCache,
+	diagnostics?: string[],
 ): Promise<PlatformBuildResult> => {
 	const errors: string[] = [];
 	const commandEntries: BundleAssetEntry[] = [];
-	const agentEntries: BundleAssetEntry[] = [];
+	const agentEntries: BundleAgentEntry[] = [];
 	const skillEntries: BundleAssetEntry[] = [];
 	const skillFileEntries: BundleAssetEntry[] = [];
 	const stateMachineEntries: BundleAssetEntry[] = [];
@@ -566,7 +581,7 @@ export const buildPlatformPlugin = async (
 		await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
 	}
 
-	if (!jsonOutput) {
+	if (!jsonOutput && !diagnostics) {
 		const platformLabel = platform === "opencode" ? "" : ` (${platform})`;
 		const mode = lintOnly ? " (lint)" : "";
 		spinner.start(`Building ${pluginName} plugin${platformLabel}${mode}...`);
@@ -576,8 +591,19 @@ export const buildPlatformPlugin = async (
 	const skillDirs = await getSkillDirs(skillsDir);
 	const skillNames: string[] = [];
 
+	const suppressOutput = diagnostics !== undefined;
+	const emitWarn = (msg: string): void => {
+		if (diagnostics) {
+			diagnostics.push(msg);
+		} else {
+			console.warn(msg);
+		}
+	};
+
 	for (const skillDir of skillDirs) {
-		const parseResult = await parseSkill(skillDir)();
+		const parseResult = cache
+			? await cache.getSkill(skillDir)
+			: await parseSkill(skillDir)();
 		if (E.isLeft(parseResult)) {
 			errors.push(formatError(parseResult.left, false));
 			continue;
@@ -597,8 +623,31 @@ export const buildPlatformPlugin = async (
 			continue;
 		}
 
-		const preprocessResult = await preprocessConditionals(
+		const descLint = lintSkillDescriptionLength(ccSkill.description, skillDir);
+		for (const d of descLint) {
+			if (d.severity === "warning" && !jsonOutput && !suppressOutput) {
+				emitWarn(formatLintDiagnostic(d));
+			}
+		}
+		const descErrors = descLint.filter((d) => d.severity === "error");
+		if (descErrors.length > 0) {
+			for (const d of descErrors) {
+				errors.push(formatLintDiagnostic(d));
+			}
+			continue;
+		}
+
+		const includeResult = await resolveSharedIncludes(
 			ccSkill.content,
+			projectRoot,
+		);
+		if (E.isLeft(includeResult)) {
+			errors.push(formatError(includeResult.left, false));
+			continue;
+		}
+
+		const preprocessResult = await preprocessConditionals(
+			includeResult.right,
 			platform,
 		);
 		if (E.isLeft(preprocessResult)) {
@@ -672,8 +721,8 @@ export const buildPlatformPlugin = async (
 			`${namespacedSkillDir}/SKILL.md`,
 		);
 		for (const d of skillLint.diagnostics) {
-			if (d.severity === "warning" && !jsonOutput) {
-				console.warn(formatLintDiagnostic(d));
+			if (d.severity === "warning" && !jsonOutput && !suppressOutput) {
+				emitWarn(formatLintDiagnostic(d));
 			}
 		}
 		if (skillLint.hasErrors) {
@@ -758,7 +807,9 @@ export const buildPlatformPlugin = async (
 	const agentNames: string[] = [];
 
 	for (const agentFile of agentFiles) {
-		const parseResult = await parseAgent(agentFile)();
+		const parseResult = cache
+			? await cache.getAgent(agentFile)
+			: await parseAgent(agentFile)();
 		if (E.isLeft(parseResult)) {
 			errors.push(formatError(parseResult.left, false));
 			continue;
@@ -778,8 +829,33 @@ export const buildPlatformPlugin = async (
 			continue;
 		}
 
-		const preprocessResult = await preprocessConditionals(
+		const tierValidation = validateAgentTierAndEffort(
+			ccAgent.name,
+			ccAgent.model,
+			ccAgent.effort,
+			agentFile,
+		);
+		for (const warning of tierValidation.warnings) {
+			emitWarn(warning);
+		}
+		if (tierValidation.errors.length > 0) {
+			for (const err of tierValidation.errors) {
+				errors.push(err);
+			}
+			continue;
+		}
+
+		const agentIncludeResult = await resolveSharedIncludes(
 			ccAgent.content,
+			projectRoot,
+		);
+		if (E.isLeft(agentIncludeResult)) {
+			errors.push(formatError(agentIncludeResult.left, false));
+			continue;
+		}
+
+		const preprocessResult = await preprocessConditionals(
+			agentIncludeResult.right,
 			platform,
 		);
 		if (E.isLeft(preprocessResult)) {
@@ -787,6 +863,17 @@ export const buildPlatformPlugin = async (
 			continue;
 		}
 		const processedContent = preprocessResult.right;
+
+		// resolveTier returns null for unmapped platforms (opencode, copilot) and
+		// "inherit" tier. Falling back to "inherit" ensures templates omit the
+		// model field rather than emitting a raw tier alias like "deep".
+		const resolvedModel =
+			resolveTier(ccAgent.model as ModelTier, platform) ?? "inherit";
+		const effortResolution = resolveEffort(
+			ccAgent.effort as EffortLevel | undefined,
+			ccAgent.model as ModelTier,
+			platform,
+		);
 
 		let ctx: Record<string, unknown> = buildTemplateContext(
 			platform,
@@ -796,9 +883,13 @@ export const buildPlatformPlugin = async (
 				type: "agent",
 				name: ccAgent.name,
 				description: ccAgent.description,
-				model: ccAgent.model,
+				model: resolvedModel,
 				tools: ccAgent.tools,
 				content: processedContent,
+				...(effortResolution && {
+					effortFieldName: effortResolution.fieldName,
+					effortValue: effortResolution.value,
+				}),
 				...(ccAgent.arguments && { arguments: ccAgent.arguments }),
 				...(ccAgent.environment && { environment: ccAgent.environment }),
 			},
@@ -826,8 +917,8 @@ export const buildPlatformPlugin = async (
 
 		const agentLint = lintArtifact(content, platform, agentFilename);
 		for (const d of agentLint.diagnostics) {
-			if (d.severity === "warning" && !jsonOutput) {
-				console.warn(formatLintDiagnostic(d));
+			if (d.severity === "warning" && !jsonOutput && !suppressOutput) {
+				emitWarn(formatLintDiagnostic(d));
 			}
 		}
 		if (agentLint.hasErrors) {
@@ -858,7 +949,12 @@ export const buildPlatformPlugin = async (
 
 		if (definition.producesBundleAssets) {
 			const relativePath = `${pluginName}/agents/${agentFilename}`;
-			agentEntries.push({ name: ccAgent.name, path: relativePath });
+			agentEntries.push({
+				name: ccAgent.name,
+				path: relativePath,
+				tier: ccAgent.model as ModelTier,
+				...(ccAgent.effort && { effort: ccAgent.effort as EffortLevel }),
+			});
 		}
 
 		// Track Codex agent metadata in build state for postPluginBuild hooks
@@ -1006,7 +1102,7 @@ export const buildPlatformPlugin = async (
 		}
 	}
 
-	if (!jsonOutput) {
+	if (!jsonOutput && !suppressOutput) {
 		const hasErrors = errors.length > 0;
 		const platformLabel = platform === "opencode" ? "" : ` ${platform}`;
 		const ocPluginNote = hasOpenCodePlugin ? " + OpenCode plugin" : "";
@@ -1085,16 +1181,6 @@ export const deriveAntigravityOutputDir = (
 };
 
 /**
- * Derive Gemini output directory from the OpenCode output directory.
- * Maps "dist/opencode" to "dist/gemini".
- */
-export const deriveGeminiOutputDir = (opencodeOutputDir: string): string => {
-	const normalized = opencodeOutputDir.replace(/\/+$/, "");
-	const parent = dirname(normalized);
-	return join(parent, "gemini");
-};
-
-/**
  * Print build summary table.
  */
 const printSummary = (
@@ -1157,6 +1243,8 @@ const buildPlatformArtifacts = async (
 	outputPath: string,
 	config: BuildConfig,
 	logger: Logger,
+	cache?: ParseCache,
+	diagnostics?: string[],
 ): Promise<{
 	summaries: BuildSummary[];
 	pluginAssets: Map<string, BundlePluginAssets>;
@@ -1176,6 +1264,8 @@ const buildPlatformArtifacts = async (
 			logger,
 			config.jsonOutput,
 			config.lintOnly,
+			cache,
+			diagnostics,
 		);
 		summaries.push(result.summary);
 		pluginAssets.set(pluginName, result.assets);
@@ -1264,14 +1354,12 @@ export const executeBuild = (
 					const codexOutputPath = deriveCodexOutputDir(outputPath);
 					const copilotOutputPath = deriveCopilotOutputDir(outputPath);
 					const antigravityOutputPath = deriveAntigravityOutputDir(outputPath);
-					const geminiOutputPath = deriveGeminiOutputDir(outputPath);
 					const platformOutputPaths: Record<BuildPlatform, string> = {
 						opencode: outputPath,
 						"claude-code": ccOutputPath,
 						codex: codexOutputPath,
 						copilot: copilotOutputPath,
 						antigravity: antigravityOutputPath,
-						gemini: geminiOutputPath,
 					};
 
 					const platformsToBuild: Array<{
@@ -1305,10 +1393,19 @@ export const executeBuild = (
 						}
 					}
 
+					// Shared parse cache: each source file is read and parsed
+					// once, then reused across catalog generation and all
+					// platform passes.
+					const cache = new ParseCache();
+
 					// Generate CATALOG.md from skill frontmatter before platform builds
 					// so it is picked up as a supporting file of the guide skill.
 					if (!config.lintOnly) {
-						const catalogResult = await generateCatalog(projectRoot);
+						const catalogResult = await generateCatalog(
+							projectRoot,
+							undefined,
+							cache,
+						);
 						if (catalogResult.errors.length > 0 && !config.jsonOutput) {
 							for (const err of catalogResult.errors) {
 								logger.warn(`Catalog: ${err}`);
@@ -1331,16 +1428,12 @@ export const executeBuild = (
 								: ["base", "dev"]
 							: [config.plugin];
 
-					const allSummaries: BuildSummary[] = [];
-
-					for (const {
-						platform,
-						outputPath: platformOutput,
-					} of platformsToBuild) {
+					// Filter to enabled platforms before building
+					const enabledPlatforms = platformsToBuild.filter(({ platform }) => {
 						const def = PLATFORM_DEFINITIONS.get(platform);
 						if (!def) {
 							logger.warn(`Unknown platform "${platform}" — skipping`);
-							continue;
+							return false;
 						}
 						if (def.config.enabled === false) {
 							if (config.platform !== "all") {
@@ -1348,17 +1441,47 @@ export const executeBuild = (
 									`${platform} platform is disabled — skipping artifact generation`,
 								);
 							}
-							continue;
+							return false;
 						}
+						return true;
+					});
 
-						const { summaries } = await buildPlatformArtifacts(
-							platform,
-							pluginsToBuild,
-							projectRoot,
-							platformOutput,
-							config,
-							logger,
-						);
+					// Build platforms in parallel when multiple are requested.
+					// Each platform writes to its own output directory so there
+					// are no file-level conflicts. Console output is buffered
+					// per-platform and flushed sequentially to prevent
+					// interleaved log lines.
+					const isParallel = enabledPlatforms.length > 1;
+					const allSummaries: BuildSummary[] = [];
+
+					const platformResults = await Promise.all(
+						enabledPlatforms.map(
+							async ({ platform, outputPath: platformOutput }) => {
+								const diagnostics: string[] | undefined =
+									isParallel && !config.jsonOutput ? [] : undefined;
+								const { summaries } = await buildPlatformArtifacts(
+									platform,
+									pluginsToBuild,
+									projectRoot,
+									platformOutput,
+									config,
+									logger,
+									cache,
+									diagnostics,
+								);
+								return { summaries, diagnostics };
+							},
+						),
+					);
+
+					// Flush buffered diagnostics sequentially to preserve
+					// per-platform output ordering.
+					for (const { summaries, diagnostics } of platformResults) {
+						if (diagnostics) {
+							for (const msg of diagnostics) {
+								console.warn(msg);
+							}
+						}
 						allSummaries.push(...summaries);
 					}
 

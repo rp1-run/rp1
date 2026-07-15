@@ -2,7 +2,8 @@
 name: prompt-tersifier
 description: Transforms agent-instruction prompts into maximally terse versions while preserving full intent
 tools: Read, Write, Bash, Skill
-model: inherit
+model: standard
+effort: high
 arguments:
   - name: INPUT_PROMPT
     type: string

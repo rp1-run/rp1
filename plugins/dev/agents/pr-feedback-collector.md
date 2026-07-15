@@ -2,7 +2,8 @@
 name: pr-feedback-collector
 description: Automatically gathers pull request review comments from GitHub, classifies them by priority and type, extracts actionable tasks, and generates structured feedback documents for systematic resolution
 tools: Read, Write, Bash
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: FEATURE_ID
     type: string
@@ -117,9 +118,8 @@ Extract actionable tasks from comment text using patterns:
 
 #### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `pr-feedback-collector` and **Artifact** = `pr-feedback-tasks.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for output. Fill placeholders per guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/pr-feedback-collector/pr-feedback-tasks.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for output. Fill placeholders per guidance below.
 
 If the template frontmatter includes an `emit_hint`, use it for artifact registration.
 

@@ -19,7 +19,7 @@ import { existsSync } from "node:fs";
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { parse as parseYaml } from "yaml";
-import type { BundleManifest } from "../src/build/models.js";
+import type { BundleAgentEntry, BundleManifest } from "../src/build/models.js";
 import {
 	collectScopedCatalogRegistry,
 	renderInitSkillAwarenessBlock,
@@ -61,6 +61,7 @@ const { root: ROOT_DIR, cli: CLI_DIR } = findRootDir();
 
 const DIST_DIR = join(ROOT_DIR, "dist");
 const WEBUI_DIST = join(CLI_DIR, "web-ui/dist");
+const TEACHME_DIST = join(DIST_DIR, "teach-me");
 const OUTPUT_FILE = join(CLI_DIR, "src/assets/embedded.ts");
 const TOOLS_YAML = join(CLI_DIR, "src/config/supported-tools.yaml");
 const TOOLS_GENERATED = join(
@@ -69,13 +70,13 @@ const TOOLS_GENERATED = join(
 );
 const INIT_GENERATED = join(CLI_DIR, "src/init/templates/generated.ts");
 
-interface DiscoveredPlatform {
+export interface DiscoveredPlatform {
 	name: string;
 	distDir: string;
 	manifest: BundleManifest;
 }
 
-interface AssetImport {
+export interface AssetImport {
 	varName: string;
 	importPath: string;
 	outputName: string;
@@ -83,13 +84,17 @@ interface AssetImport {
 	category:
 		| "agent"
 		| "skill"
+		| "command"
 		| "state-machine"
 		| "webui"
+		| "teach-me"
 		| "opencode-plugin"
 		| "verbatim-file";
 	plugin?: "base" | "dev" | "utils";
 	platform?: string;
 	inlineContent?: string;
+	tier?: string;
+	effort?: string;
 }
 
 /**
@@ -150,7 +155,9 @@ async function discoverPlatforms(): Promise<DiscoveredPlatform[]> {
 /**
  * Collect plugin assets from a single platform's bundle manifest.
  */
-function collectPlatformAssets(platform: DiscoveredPlatform): AssetImport[] {
+export function collectPlatformAssets(
+	platform: DiscoveredPlatform,
+): AssetImport[] {
 	const imports: AssetImport[] = [];
 	const platformPrefix = platform.name.replace(/-/g, "_");
 
@@ -181,7 +188,8 @@ function collectPlatformAssets(platform: DiscoveredPlatform): AssetImport[] {
 		// Agents
 		for (const agent of plugin.agents) {
 			const fullPath = join(platform.distDir, agent.path);
-			imports.push({
+			const bundleAgent = agent as BundleAgentEntry;
+			const entry: AssetImport = {
 				varName: toVarName(`${platformPrefix}_${pluginName}_agent`, agent.name),
 				importPath: getImportPath(fullPath),
 				outputName: agent.name,
@@ -189,7 +197,10 @@ function collectPlatformAssets(platform: DiscoveredPlatform): AssetImport[] {
 				category: "agent",
 				plugin: pluginName,
 				platform: platform.name,
-			});
+			};
+			if (bundleAgent.tier) entry.tier = bundleAgent.tier;
+			if (bundleAgent.effort) entry.effort = bundleAgent.effort;
+			imports.push(entry);
 		}
 
 		// Skills
@@ -306,6 +317,48 @@ async function collectWebUIAssets(): Promise<AssetImport[]> {
 }
 
 /**
+ * Collect the compiled teach-me widget bundle (`tm-widgets.js`, `tm-base.css`)
+ * from dist/teach-me/ so it embeds via `import ... with { type: "file" }`.
+ * Like web-ui, this directory has no manifest, so the files are walked directly.
+ */
+async function collectTeachMeAssets(): Promise<AssetImport[]> {
+	const imports: AssetImport[] = [];
+
+	async function walk(dir: string): Promise<void> {
+		try {
+			const items = await readdir(dir, { withFileTypes: true });
+			for (const item of items) {
+				const fullPath = join(dir, item.name);
+				if (item.isDirectory()) {
+					await walk(fullPath);
+				} else {
+					const relPath = relative(TEACHME_DIST, fullPath).split(sep).join("/");
+					imports.push({
+						varName: toVarName("teachme", relPath),
+						importPath: getImportPath(fullPath),
+						outputName: relPath,
+						category: "teach-me",
+					});
+				}
+			}
+		} catch {
+			// Directory doesn't exist
+		}
+	}
+
+	try {
+		await stat(TEACHME_DIST);
+		await walk(TEACHME_DIST);
+	} catch {
+		console.warn(
+			"Warning: dist/teach-me not found. Run 'bun run build:teach-me-widgets' first.",
+		);
+	}
+
+	return imports;
+}
+
+/**
  * Generate supported-tools.generated.ts from supported-tools.yaml.
  */
 async function generateToolsRegistry(): Promise<void> {
@@ -358,6 +411,18 @@ async function generateInitTemplates(): Promise<void> {
 }
 
 /**
+ * Format an agent asset entry, conditionally including tier and effort fields.
+ */
+export function formatAgentEntry(a: AssetImport): string {
+	let s = `{ name: "${a.outputName}", path: ${a.varName}`;
+	if (a.fileName) s += `, fileName: "${a.fileName}"`;
+	if (a.tier) s += `, tier: "${a.tier}"`;
+	if (a.effort) s += `, effort: "${a.effort}"`;
+	s += " }";
+	return s;
+}
+
+/**
  * Generate the platform block for a single discovered platform.
  */
 function generatePlatformBlock(
@@ -378,7 +443,7 @@ function generatePlatformBlock(
 
 	const baseAgents = platformAssets
 		.filter((a) => a.category === "agent" && a.plugin === "base")
-		.map(formatEntry);
+		.map(formatAgentEntry);
 
 	const baseSkills = platformAssets
 		.filter((a) => a.category === "skill" && a.plugin === "base")
@@ -386,7 +451,7 @@ function generatePlatformBlock(
 
 	const devAgents = platformAssets
 		.filter((a) => a.category === "agent" && a.plugin === "dev")
-		.map(formatEntry);
+		.map(formatAgentEntry);
 
 	const devCommands = platformAssets
 		.filter((a) => a.category === "command" && a.plugin === "dev")
@@ -402,7 +467,7 @@ function generatePlatformBlock(
 
 	const utilsAgents = platformAssets
 		.filter((a) => a.category === "agent" && a.plugin === "utils")
-		.map(formatEntry);
+		.map(formatAgentEntry);
 
 	const utilsSkills = platformAssets
 		.filter((a) => a.category === "skill" && a.plugin === "utils")
@@ -505,8 +570,9 @@ async function generate(): Promise<void> {
 	}
 
 	const webuiAssets = await collectWebUIAssets();
+	const teachMeAssets = await collectTeachMeAssets();
 
-	const allAssets = [...allPlatformAssets, ...webuiAssets];
+	const allAssets = [...allPlatformAssets, ...webuiAssets, ...teachMeAssets];
 	const fileImports = allAssets
 		.filter((a) => !a.inlineContent)
 		.map(
@@ -536,6 +602,10 @@ async function generate(): Promise<void> {
 		(a) => `{ name: "${a.outputName}", path: ${a.varName} }`,
 	);
 
+	const teachMeEntries = teachMeAssets.map(
+		(a) => `{ name: "${a.outputName}", path: ${a.varName} }`,
+	);
+
 	// Use version from first platform (all share same version per version lockstep)
 	const version = platforms[0].manifest.version;
 
@@ -555,6 +625,7 @@ export const EMBEDDED_MANIFEST = {
 ${platformBlocks.join(",\n")}
   },
   webui: [${webuiEntries.join(", ")}],
+  teachMe: [${teachMeEntries.join(", ")}],
   version: "${version}",
   buildTimestamp: "${new Date().toISOString()}",
 } as const;
@@ -598,6 +669,7 @@ export const IS_BUNDLED = true;
 	}
 
 	console.log(`  Web-UI: ${webuiAssets.length} files`);
+	console.log(`  Teach-me widgets: ${teachMeAssets.length} files`);
 	console.log(`  Version: ${version}`);
 
 	// Generate tools registry from YAML
@@ -625,7 +697,9 @@ export const IS_BUNDLED = true;
 	}
 }
 
-generate().catch((e) => {
-	console.error("Failed to generate asset imports:", e);
-	process.exit(1);
-});
+if (import.meta.main) {
+	generate().catch((e) => {
+		console.error("Failed to generate asset imports:", e);
+		process.exit(1);
+	});
+}

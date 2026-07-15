@@ -2,7 +2,8 @@
 name: kb-module-analyzer
 description: Analyzes modules, components, and dependencies for modules.md from pre-filtered files
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: CODEBASE_ROOT
     type: string
@@ -37,6 +38,10 @@ arguments:
     required: false
     default: ""
     description: "Feature context JSON for FEATURE_LEARNING mode"
+  - name: KB_ROOT
+    type: string
+    required: true
+    description: "Knowledge base root directory"
 ---
 
 # KB Module Analyzer - Component and Dependency Analysis
@@ -73,7 +78,7 @@ $6
 
 **Check for existing modules.md**:
 
-- Check if `.rp1/context/modules.md` exists
+- Check if `{KB_ROOT}/modules.md` exists
 - If exists, read the file to understand current module structure
 - Extract existing modules, components, dependencies, and metrics
 - Use as baseline context for analysis
@@ -275,7 +280,7 @@ Map dependencies between modules and components:
       "from": "dev/commands",
       "to": "base/commands",
       "type": "runtime",
-      "description": "Dev commands invoke base commands (e.g., /rp1-base:knowledge-load)"
+      "description": "Dev commands invoke base commands (e.g., /rp1-base:knowledge-build)"
     }
   ],
   "external_dependencies": [
@@ -378,7 +383,7 @@ Define module boundaries:
     {
       "module": "base",
       "public_api": {
-        "commands": ["knowledge-build", "knowledge-load", "strategize"],
+        "commands": ["knowledge-build", "strategize"],
         "agents": ["knowledge-builder", "project-documenter"],
         "skills": ["mermaid", "markdown-preview", "artifact-templates"]
       },
@@ -433,23 +438,9 @@ Identify patterns that span multiple modules:
 }
 ```
 
-## Anti-Loop Directives
-
-**EXECUTE IMMEDIATELY**:
-
-- Do NOT iterate or ask questions
-- Read assigned files ONCE
-- Analyze modules systematically
-- Output JSON
-- STOP
+{% include_shared "anti-loop.md" %}
 
 **Target**: 15-18 minutes
 
-## Output Discipline
-
-**CRITICAL - Silent Execution**:
-
-- Do ALL work in <thinking> tags (NOT visible to user)
-- Do NOT output progress or verbose explanations
-- Output ONLY the final JSON
+{% include_shared "output-discipline.md" %}
 - Parent orchestrator handles user communication

@@ -245,8 +245,16 @@ describe("tracked workflow lifecycle prompts", () => {
 	test("keeps build stop checkpoints as waiting-based resume gates", async () => {
 		const content = await readPrompt("plugins/dev/skills/build/SKILL.md");
 
-		expect(content).toContain("--type waiting_for_user");
-		expect(content).toContain("On Stop: emit waiting status");
+		// Build emits waiting_for_user at interactive checkpoints (prose form)
+		expect(content).toContain("waiting_for_user");
+		// Stop paths emit waiting status for resumable gates — match the full
+		// sentences so unrelated occurrences of "waiting" cannot satisfy this
+		expect(content).toContain(
+			"On Stop: emit `requirements` waiting per §PARENT-EMIT-DISCIPLINE table",
+		);
+		expect(content).toContain(
+			"On Stop: emit `planning` waiting per §PARENT-EMIT-DISCIPLINE table",
+		);
 		expect(content).toContain("resume instruction");
 	});
 

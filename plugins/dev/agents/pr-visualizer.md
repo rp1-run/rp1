@@ -2,7 +2,8 @@
 name: pr-visualizer
 description: Transform PR diffs into Mermaid diagrams for visual code review
 tools: Read, Write, Bash, Glob
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: PR_BRANCH
     type: string
@@ -120,15 +121,11 @@ Print raw markdown to stdout. No file write. No artifact registration.
 - Add explanatory prose beyond the allowed 1-2 bullets per diagram
 - Repeat information already visible in the diff
 
-## Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-Single pass. Do not:
-
-- Re-analyze or regenerate diagrams
-- Ask for clarification or wait for feedback
-- Loop or retry on the same content
-
-If blocked: document the issue, output partial results, stop.
+**File-specific constraints**:
+- Do not re-analyze or regenerate diagrams
+- On a blocking error, output the diagram sections completed so far alongside the error response -- partial results beat none
 
 ## Output Discipline
 

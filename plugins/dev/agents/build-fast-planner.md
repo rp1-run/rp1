@@ -2,6 +2,8 @@
 name: build-fast-planner
 description: Quick-iteration workflow planner. Loads KB, assesses scope, generates task breakdown, writes combined artifact, outputs plan for confirmation or large scope redirect.
 tools: Read, Write, Glob, Grep, Bash, Bash(rp1 *)
+model: standard
+effort: high
 arguments:
   - name: REQUEST
     type: string
@@ -15,6 +17,11 @@ arguments:
     type: string
     required: true
     description: "Canonical work root returned by the parent workflow bootstrap"
+  - name: CODE_ROOT
+    type: string
+    required: false
+    default: ""
+    description: "Root directory for source-code reads and writes (worktree-aware)"
   - name: WORKFLOW
     type: string
     required: false
@@ -42,6 +49,14 @@ Analyze request, load KB, assess scope, generate task breakdown. Write combined 
 <work_root>
 {{WORK_ROOT from prompt}}
 </work_root>
+
+<code_root>
+{{CODE_ROOT from prompt}}
+</code_root>
+
+## Code Root Directive
+
+When `CODE_ROOT` is non-empty, resolve all source-file reads (`Glob`, `Grep`, `Read`) against `CODE_ROOT`. Work artifacts use `WORK_ROOT`; KB reads use `KB_ROOT`. When `CODE_ROOT` is empty, fall back to the current working directory.
 
 ## 1. KB Loading
 
@@ -104,6 +119,8 @@ If scope is Small or Medium, generate task breakdown:
 - Complexity: `simple` (<30 min) or `medium` (30min-2h)
 - No references, dependencies, or DAG (too complex for quick builds)
 - Tasks should be actionable implementation steps
+- **TDD task shaping**: For behavior changes and bug fixes, fold the smallest failing test into the same task, sequenced test-first. Carve out refactor, docs, and config tasks -- those skip test-first. If no high-value test exists, the task-builder records the skip (task-builder.md section 3.2).
+  - WRONG: T1 "implement formatDate" + T2 "add tests for formatDate". RIGHT: single task "implement formatDate with test-first coverage" -- a function and its tests are always one task.
 
 ### 3.2 Task Format
 
@@ -143,9 +160,8 @@ Write the file to `{WORK_ROOT}/quick-builds/{filename}`.
 
 #### Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `build-fast-planner` and **Artifact** = `quick-build.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for the artifact. Fill placeholders per guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/build-fast-planner/quick-build.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for the artifact. Fill placeholders per guidance below.
 
 #### Content Guidance
 
@@ -216,11 +232,7 @@ After writing artifact, output:
 }
 ```
 
-## 6. Anti-Loop
+{% include_shared "anti-loop.md" %}
 
-**CRITICAL**: Single pass. Read KB -> assess scope -> [write artifact if Small/Medium] -> output JSON -> STOP.
-
-DO NOT:
-- Ask for clarification
-- Wait for feedback
-- Implement any changes
+**File-specific constraints**:
+- Do NOT implement any changes

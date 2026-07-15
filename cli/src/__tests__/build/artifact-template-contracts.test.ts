@@ -1,9 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 const projectRoot = join(import.meta.dir, "..", "..", "..", "..");
 const FRONTMATTER_REGEX = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
+
+/**
+ * Regex that matches direct template path references in agent/skill files.
+ * Captures the path portion after the `plugins/base/skills/artifact-templates/`
+ * prefix, including the full relative path within the templates directory.
+ */
+const TEMPLATE_PATH_REGEX =
+	/plugins\/base\/skills\/artifact-templates\/(templates\/[^\s`)"']+\.(?:md|json|yaml))/g;
 
 const readProjectFile = async (relativePath: string): Promise<string> =>
 	readFile(join(projectRoot, relativePath), "utf-8");
@@ -59,8 +67,12 @@ describe("artifact template contracts", () => {
 		const skill = await readProjectFile(
 			"plugins/dev/skills/pr-review/SKILL.md",
 		);
+		const linkArtifacts = await readProjectFile(
+			"plugins/dev/skills/pr-review/references/link-artifacts.md",
+		);
+		const combined = `${skill}\n${linkArtifacts}`;
 		const linkPayloads = [
-			...skill.matchAll(/--data '([^']*"locationKind":"url"[^']*)'/g),
+			...combined.matchAll(/--data '([^']*"locationKind":"url"[^']*)'/g),
 		].map((match) => match[1]);
 		const reusablePayloads = linkPayloads.filter((payload) =>
 			payload.includes('"url":"{LINK_URL}"'),
@@ -68,28 +80,26 @@ describe("artifact template contracts", () => {
 		const prReviewPayloads = linkPayloads.filter((payload) =>
 			payload.includes('"url":"{REVIEWED_PR_URL}"'),
 		);
-		const linkRegistrationSection =
-			skill
-				.split("### Link Artifact Registration")
-				.at(1)
-				?.split("### Final Output")
-				.at(0) ?? "";
 
+		// SKILL.md carries the pointer and core identity
 		expect(skill).toContain("REVIEWED_PR_URL");
 		expect(skill).toContain("reviewed_pr_url: REVIEWED_PR_URL");
-		expect(linkRegistrationSection).toContain(
+		expect(skill).toContain("references/link-artifacts.md");
+
+		// The reusable pattern and PR review binding live in the reference companion
+		expect(linkArtifacts).toContain(
 			"Reusable External Link Artifact Registration Pattern",
 		);
-		expect(linkRegistrationSection).toContain(
+		expect(linkArtifacts).toContain(
 			"Use this insertable block in any orchestrator",
 		);
-		expect(linkRegistrationSection).toContain(
+		expect(linkArtifacts).toContain(
 			"| `{LINK_URL}` | Canonical `http` or `https` URL from structured workflow state |",
 		);
-		expect(linkRegistrationSection).toContain(
+		expect(linkArtifacts).toContain(
 			"Collect link values from explicit workflow state, not by scanning generated markdown for URLs.",
 		);
-		expect(linkRegistrationSection).toContain("#### PR Review Binding");
+		expect(linkArtifacts).toContain("## PR Review Binding");
 		expect(reusablePayloads).toHaveLength(1);
 		expect(prReviewPayloads).toHaveLength(1);
 		expect(prReviewPayloads[0]).toContain('"url":"{REVIEWED_PR_URL}"');
@@ -101,15 +111,68 @@ describe("artifact template contracts", () => {
 		expect(prReviewPayloads[0]).toContain(
 			'"sourceArtifactPath":"{REPORT_PATH}"',
 		);
-		expect(linkRegistrationSection).toContain(
+		expect(linkArtifacts).toContain(
 			"Skip this emit entirely when `REVIEWED_PR_URL` is empty.",
 		);
-		expect(linkRegistrationSection).toContain(
+		expect(linkArtifacts).toContain(
 			"If link artifact registration fails, warn and continue",
 		);
-		expect(linkRegistrationSection).toContain(
+		expect(linkArtifacts).toContain(
 			"Do not register posted GitHub review URLs",
 		);
-		expect(linkRegistrationSection).not.toContain('"url":"{REVIEW_URL}"');
+		expect(combined).not.toContain('"url":"{REVIEW_URL}"');
+	});
+
+	test("all direct template path references in agent and skill files point to existing files", async () => {
+		const pluginDirs = ["plugins/base", "plugins/dev", "plugins/utils"];
+		const mdFiles: string[] = [];
+
+		const walk = async (dir: string): Promise<void> => {
+			const entries = await readdir(join(projectRoot, dir), {
+				withFileTypes: true,
+			});
+			for (const entry of entries) {
+				const rel = `${dir}/${entry.name}`;
+				if (entry.isDirectory()) {
+					// Skip the artifact-templates directory itself
+					if (rel.includes("artifact-templates/templates")) continue;
+					await walk(rel);
+				} else if (entry.name.endsWith(".md")) {
+					mdFiles.push(rel);
+				}
+			}
+		};
+
+		for (const dir of pluginDirs) {
+			await walk(dir);
+		}
+
+		expect(mdFiles.length).toBeGreaterThan(0);
+
+		const pathRefs: Array<{ file: string; templatePath: string }> = [];
+
+		for (const file of mdFiles) {
+			const content = await readProjectFile(file);
+			for (const match of content.matchAll(TEMPLATE_PATH_REGEX)) {
+				pathRefs.push({
+					file,
+					templatePath: `plugins/base/skills/artifact-templates/${match[1]}`,
+				});
+			}
+		}
+
+		expect(pathRefs.length).toBeGreaterThan(20);
+
+		const missing: string[] = [];
+		for (const ref of pathRefs) {
+			const absPath = join(projectRoot, ref.templatePath);
+			try {
+				await stat(absPath);
+			} catch {
+				missing.push(`${ref.file} -> ${ref.templatePath}`);
+			}
+		}
+
+		expect(missing).toEqual([]);
 	});
 });

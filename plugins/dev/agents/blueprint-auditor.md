@@ -2,7 +2,8 @@
 name: blueprint-auditor
 description: Audits PRD documents against implementation status and executes disposition actions
 tools: Read, Glob, Bash, Grep, Write, Task
-model: inherit
+model: deep
+effort: high
 author: cloud-on-prem/rp1
 arguments:
   - name: MODE
@@ -150,9 +151,8 @@ Return `needs_user_input` JSON:
 
 Then output audit table for display. Load the canonical format:
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `blueprint-auditor` and **Artifact** = `prd-audit-results.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for the audit results display. Fill with phase statuses and evidence from S6 classification.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/blueprint-auditor/prd-audit-results.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for the audit results display. Fill with phase statuses and evidence from S6 classification.
 
 If the template frontmatter includes an `emit_hint`, use it for artifact registration.
 

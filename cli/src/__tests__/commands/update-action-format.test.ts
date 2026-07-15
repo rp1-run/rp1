@@ -59,9 +59,9 @@ describe("update output formatting", () => {
 	const originalLog = console.log;
 	const originalError = console.error;
 	const originalExit = process.exit;
-	const originalHome = process.env.HOME;
 	const originalPath = process.env.PATH;
 	let tempDir: string;
+	let cachePath: string;
 	let logs: string[];
 	let errors: string[];
 
@@ -76,7 +76,7 @@ describe("update output formatting", () => {
 
 	beforeEach(async () => {
 		tempDir = await mkdtemp(join(tmpdir(), "rp1-update-coverage-"));
-		process.env.HOME = tempDir;
+		cachePath = join(tempDir, ".config", "rp1", "version-cache.json");
 		logs = [];
 		errors = [];
 		console.log = (...args: unknown[]) => {
@@ -94,11 +94,6 @@ describe("update output formatting", () => {
 		console.log = originalLog;
 		console.error = originalError;
 		process.exit = originalExit;
-		if (originalHome === undefined) {
-			delete process.env.HOME;
-		} else {
-			process.env.HOME = originalHome;
-		}
 		if (originalPath === undefined) {
 			delete process.env.PATH;
 		} else {
@@ -178,6 +173,7 @@ describe("update output formatting", () => {
 				},
 				undefined,
 				false,
+				{ cachePath },
 			),
 		).rejects.toMatchObject({ code: 1 });
 		expect(errors.at(-1)).toContain("--json and --format");
@@ -194,6 +190,7 @@ describe("update output formatting", () => {
 				},
 				undefined,
 				false,
+				{ cachePath },
 			),
 		).rejects.toMatchObject({ code: 1 });
 		expect(errors.at(-1)).toContain("Invalid --format value");
@@ -202,7 +199,7 @@ describe("update output formatting", () => {
 	test("check mode formats cached update results as JSON and hook text", async () => {
 		await mkdir(join(tempDir, ".config", "rp1"), { recursive: true });
 		await writeFile(
-			join(tempDir, ".config", "rp1", "version-cache.json"),
+			cachePath,
 			JSON.stringify({
 				latestVersion: "99.99.99",
 				releaseUrl: "https://example.test/rp1/v99.99.99",
@@ -221,6 +218,7 @@ describe("update output formatting", () => {
 				},
 				undefined,
 				false,
+				{ cachePath },
 			),
 		).rejects.toMatchObject({ code: 1 });
 		const json = JSON.parse(logs.at(0) ?? "{}") as {
@@ -246,6 +244,7 @@ describe("update output formatting", () => {
 				},
 				undefined,
 				false,
+				{ cachePath },
 			),
 		).rejects.toMatchObject({ code: 1 });
 		expect(logs.at(0)).toContain("rp1 update available");
@@ -265,6 +264,7 @@ describe("update output formatting", () => {
 			{ dryRun: false, force: true },
 			undefined,
 			false,
+			{ cachePath },
 		);
 
 		expect(result).toEqual({
@@ -291,6 +291,7 @@ describe("update output formatting", () => {
 			{ dryRun: true, force: true },
 			undefined,
 			false,
+			{ cachePath },
 		);
 
 		expect(result).toEqual({
@@ -321,6 +322,7 @@ describe("update output formatting", () => {
 			{ dryRun: false, force: true },
 			undefined,
 			false,
+			{ cachePath },
 		);
 
 		expect(result).toEqual({
@@ -354,6 +356,7 @@ describe("update output formatting", () => {
 			{ dryRun: false, force: true },
 			undefined,
 			false,
+			{ cachePath },
 		);
 
 		expect(result).toEqual({
@@ -388,6 +391,7 @@ describe("update output formatting", () => {
 				},
 				undefined,
 				false,
+				{ cachePath },
 			),
 		).rejects.toMatchObject({ code: 0 });
 

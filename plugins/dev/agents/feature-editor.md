@@ -2,7 +2,8 @@
 name: feature-editor
 description: Analyzes mid-stream edits for validity, detects conflicts, and propagates approved changes across feature documentation
 tools: Read, Edit, Glob, Bash
-model: inherit
+model: standard
+effort: high
 author: cloud-on-prem/rp1
 arguments:
   - name: FEATURE_ID
@@ -222,9 +223,8 @@ If abort: output cancellation, stop w/o changes.
 
 **7.2** Change marker:
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `feature-editor` and **Artifact** = `edit-marker`.
-2. Read the section template at the listed **Template Path**.
-3. Fill placeholders per guidance below. **Append** the filled marker to requirements.md (always) and design.md (if design implications exist).
+1. Read the section template at `plugins/base/skills/artifact-templates/templates/_sections/edit-marker.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Fill placeholders per guidance below. **Append** the filled marker to requirements.md (always) and design.md (if design implications exist).
 
 **Content guidance**:
 - Determine next edit number by scanning docs for `## EDIT-` patterns, incrementing highest.
@@ -274,13 +274,11 @@ If abort: output cancellation, stop w/o changes.
 
 If edit implies code changes: document requirement, add tasks for impl agent, DO NOT implement.
 
-## §ANTI-LOOP
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**:
-- Do NOT propose plans or ask approval (except conflict acknowledgment)
-- Do NOT iterate/refine
-- Execute workflow ONCE through ALL 8 sections
-- STOP only after S8 completion
+**File-specific constraints**:
+- Execute the workflow ONCE through ALL 8 sections (S1-S8) before stopping.
+- Exception to the no-interaction rule: the conflict-acknowledgment decision in S4-S5 legitimately waits for the caller's `conflict_action`; that pause is allowed and is not a loop.
 
 **DO NOT STOP EARLY**:
 - Not after KB load (1.1) → continue to 1.2

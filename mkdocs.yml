@@ -66,6 +66,14 @@ markdown_extensions:
 plugins:
   - search
 
+# Broken internal links and anchors fail the build under `mkdocs build --strict`
+# (see `just check-docs` and the Docs Link Check CI job).
+validation:
+  links:
+    not_found: warn
+    unrecognized_links: warn
+    anchors: warn
+
 hooks:
   - docs/hooks.py
 
@@ -117,6 +125,7 @@ nav:
     - Platform Support:
       - GitHub Copilot CLI Setup: reference/platforms/copilot.md
       - Antigravity CLI: reference/platforms/antigravity.md
+      - Codex: reference/platforms/codex.md
     - Ship Code Reference:
       - Overview: reference/dev/index.md
       - build: reference/dev/build.md
@@ -141,6 +150,7 @@ nav:
       - pr-walkthrough: reference/dev/pr-walkthrough.md
       - pr-stack: reference/dev/pr-stack.md
       - address-pr-feedback: reference/dev/address-pr-feedback.md
+      - publish-artifact: reference/dev/publish-artifact.md
       - PR Review Config: reference/pr-review-config.md
     - Knowledge and Analysis Reference:
       - Overview: reference/base/index.md

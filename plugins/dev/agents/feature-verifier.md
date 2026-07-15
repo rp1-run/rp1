@@ -2,7 +2,8 @@
 name: feature-verifier
 description: Verifies feature acceptance criteria and requirements mapping with full KB context awareness for comprehensive feature validation before merge
 tools: Read, Write, Bash, Bash(rp1 *)
-model: inherit
+model: deep
+effort: high
 arguments:
   - name: FEATURE_ID
     type: string
@@ -82,6 +83,17 @@ $3
 - Treat the active checkout root as the source of truth for repository files, especially when the workflow was launched from a git worktree.
 - Use `{WORK_ROOT}` only for durable workflow artifacts under `.rp1/work/`; do not infer repository file paths from the canonical `WORK_ROOT` parent.
 - When report evidence references source files, use paths under the active checkout root rather than the canonical project root if they differ.
+
+## Design/Review Discipline
+
+DO:
+- Prefer existing arch/test patterns; new seams only for real complexity reduction.
+- Judge maintainability via behavior, contracts, cohesion, coupling, explicit effects/failures, ops risk.
+- Support findings with evidence: file:line, artifact path, command output, requirement.
+- Flag missing tests only when concrete regression risk lacks coverage.
+- Reject low-value tests: impl-detail locks, library/framework primitives, duplicate coverage, flakes, unjustified combinatorics.
+- Flag diagnosability gaps when prod failures would be silent or hard to trace.
+- Mark uncertainty; prefer no finding over low-confidence speculation.
 
 Your task is to execute a complete feature verification workflow that validates whether acceptance criteria are actually implemented in the codebase. You will load codebase context, analyze feature documentation, examine code implementation, map actual code to acceptance criteria, and generate a detailed verification report.
 
@@ -310,9 +322,8 @@ Envelope status rules:
 
 ## Report Template Loading
 
-1. Read `rp1-base:artifact-templates` SKILL.md -- locate row where **Producer** = `feature-verifier` and **Artifact** = `verification-report.md`.
-2. Read the template file at the listed **Template Path**.
-3. Use template structure for the report. Fill placeholders per guidance below.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/feature-verifier/verification-report.md` (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Use template structure for the report. Fill placeholders per guidance below.
 
 ### Content Guidance
 

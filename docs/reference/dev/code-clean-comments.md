@@ -40,19 +40,18 @@ Removes unnecessary comments from a scoped set of code changes while preserving 
 ## Description
 
 The `code-clean-comments` command first resolves the requested scope into a
-durable `change-manifest-*.json` artifact with
-`rp1 agent-tools change-manifest generate --source code-clean-comments`. It
-then invokes the comment-cleaner agent only when the manifest is created and
+durable, validated cleanup manifest, then removes unnecessary comments only
+within that proven scope. Cleanup runs only when the manifest is created and
 non-empty.
 
-The exact manifest names are shown because they are the audit trail for what
-rp1 was allowed to edit. If cleanup skips or changes less than expected, inspect
-the manifest and status file instead of widening the scope blindly.
+The manifest is the audit trail for what rp1 was allowed to edit. If cleanup
+skips or changes less than expected, inspect the manifest and status file (see
+Generated Artifacts) instead of widening the scope blindly.
 
-The cleaner receives only `CHANGE_MANIFEST` and `CODE_ROOT`. It does not accept
-branch-wide, unstaged, dirty-state, or commit-range cleanup parameters
-directly; those inputs must be converted into a manifest before cleanup can
-edit files.
+Scope inputs such as a directory, git ref, or commit range are always converted
+into a manifest before any file is edited — cleanup never operates on raw
+branch-wide or dirty-state input directly, which keeps every edit bounded and
+reviewable.
 
 ### Generated Artifacts
 

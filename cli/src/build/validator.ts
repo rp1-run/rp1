@@ -7,7 +7,18 @@ import * as E from "fp-ts/lib/Either.js";
 import { parse as parseYaml } from "yaml";
 import type { CLIError } from "../../shared/errors.js";
 import { validationError } from "../../shared/errors.js";
-import type { SkillCategory, WorkflowRunPolicy } from "./models.js";
+import type {
+	EffortLevel,
+	ModelTier,
+	SkillCategory,
+	WorkflowRunPolicy,
+} from "./models.js";
+import {
+	PROTECTED_AGENTS,
+	TIER_RANK,
+	VALID_EFFORT_LEVELS,
+	VALID_MODEL_TIERS,
+} from "./models.js";
 
 const VALID_SKILL_CATEGORIES: readonly SkillCategory[] = [
 	"development",
@@ -524,4 +535,67 @@ export const validateSkill = (
 		return syntaxResult;
 	}
 	return validateSkillSchema(content, file);
+};
+
+// ============================================================================
+// Agent Tier and Effort Validation
+// ============================================================================
+
+/** Validation result containing both hard errors and advisory warnings. */
+export interface AgentTierValidationResult {
+	readonly errors: readonly string[];
+	readonly warnings: readonly string[];
+}
+
+/**
+ * Validate an agent's model tier and effort level declarations.
+ *
+ * Checks:
+ * - model must be a known tier alias from VALID_MODEL_TIERS
+ * - effort (when present) must be a known level from VALID_EFFORT_LEVELS
+ * - fast tier with effort set produces a warning (fast models lack effort control)
+ * - protected agents assigned non-deep, non-inherit tiers produce a downgrade warning
+ */
+export const validateAgentTierAndEffort = (
+	agentName: string,
+	model: string,
+	effort: string | undefined,
+	file: string,
+): AgentTierValidationResult => {
+	const errors: string[] = [];
+	const warnings: string[] = [];
+
+	if (!VALID_MODEL_TIERS.includes(model as ModelTier)) {
+		errors.push(
+			`${file}: unknown model tier '${model}'. Allowed values: ${VALID_MODEL_TIERS.join(", ")}`,
+		);
+	}
+
+	if (
+		effort !== undefined &&
+		!VALID_EFFORT_LEVELS.includes(effort as EffortLevel)
+	) {
+		errors.push(
+			`${file}: unknown effort level '${effort}'. Allowed values: ${VALID_EFFORT_LEVELS.join(", ")}`,
+		);
+	}
+
+	if (model === "fast" && effort !== undefined) {
+		warnings.push(
+			`${file}: effort '${effort}' set on fast-tier agent '${agentName}'; fast models do not support effort control`,
+		);
+	}
+
+	if (
+		PROTECTED_AGENTS.has(agentName) &&
+		model !== "inherit" &&
+		model in TIER_RANK &&
+		TIER_RANK[model as keyof typeof TIER_RANK] < TIER_RANK.deep
+	) {
+		warnings.push(
+			`${file}: protected agent '${agentName}' downgraded below deep to '${model}'`,
+		);
+	}
+
+	return { errors, warnings };
 };

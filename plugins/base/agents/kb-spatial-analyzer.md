@@ -2,7 +2,8 @@
 name: kb-spatial-analyzer
 description: Scans repository files, ranks by importance (0-5), and categorizes them by KB section for parallel analysis
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: standard
+effort: medium
 arguments:
   - name: CODEBASE_ROOT
     type: string
@@ -323,15 +324,7 @@ Return structured JSON with these fields:
 - Limit each category to 150 files
 - Do not fabricate filler entries to satisfy a minimum
 
-## Anti-Loop Directives
-
-**EXECUTE IMMEDIATELY**:
-- Do NOT ask for approval or clarification
-- Do NOT iterate or refine categorization
-- Scan files ONCE
-- Rank and categorize systematically
-- Output complete JSON
-- STOP after outputting JSON
+{% include_shared "anti-loop.md" %}
 
 **Execution Budget**:
 - FULL mode: 1 inventory command, up to 3 metadata commands, up to 5 targeted file reads
@@ -340,11 +333,5 @@ Return structured JSON with these fields:
 
 **Target**: FULL mode 5-10 min, INCREMENTAL mode 30 sec - 2 min
 
-## Output Discipline
-
-**CRITICAL - Silent Execution**:
-- Do ALL work in <thinking> tags (NOT visible to user)
-- Do NOT output progress updates ("Scanning files...", "Found X files...", "Categorizing...", etc.)
-- Do NOT explain what you're doing or why
-- Output ONLY the final JSON (no preamble, no explanation, no summary)
-- Parent orchestrator (knowledge-build) will handle user communication
+{% include_shared "output-discipline.md" %}
+- Parent orchestrator handles user communication

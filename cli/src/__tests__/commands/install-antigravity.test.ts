@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { access } from "node:fs/promises";
 import { join } from "node:path";
 import { Command } from "commander";
+import { createInstallAntigravitySubcommand } from "../../commands/install/antigravity.js";
 import { installParentCommand } from "../../commands/install/index.js";
 import { writeAntigravityBundleDistFixture } from "../helpers/antigravity-bundle.js";
 import {
@@ -32,7 +33,6 @@ const runInstallCommandInProcess = async (
 ): Promise<readonly string[]> => {
 	const logs: string[] = [];
 	const originalLog = console.log;
-	const restoreHome = withEnvOverride("HOME", homeDir);
 	const restoreBundle = withEnvOverride(
 		"RP1_ANTIGRAVITY_BUNDLE_DIR",
 		bundleDir,
@@ -43,14 +43,15 @@ const runInstallCommandInProcess = async (
 			logs.push(values.map(String).join(" ").replace(ANSI_REGEX, ""));
 		};
 		const root = new Command("rp1");
+		const install = new Command("install");
 		Object.assign(root, { _logger: logger, _isTTY: false });
-		root.addCommand(installParentCommand);
+		root.addCommand(install);
+		install.addCommand(createInstallAntigravitySubcommand({ homeDir }));
 		await root.parseAsync(["node", "rp1", ...args], { from: "node" });
 		return logs;
 	} finally {
 		console.log = originalLog;
 		restoreBundle();
-		restoreHome();
 	}
 };
 
@@ -84,7 +85,6 @@ describe("Antigravity install command", () => {
 				cwd: cliRoot,
 				env: {
 					...process.env,
-					HOME: tempDir,
 					NO_COLOR: "1",
 					RP1_ANTIGRAVITY_BUNDLE_DIR: bundleDir,
 				},
@@ -149,7 +149,6 @@ describe("Antigravity install command", () => {
 				cwd: cliRoot,
 				env: {
 					...process.env,
-					HOME: tempDir,
 					NO_COLOR: "1",
 					RP1_ANTIGRAVITY_BUNDLE_DIR: bundleDir,
 				},

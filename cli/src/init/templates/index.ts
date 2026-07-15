@@ -19,6 +19,12 @@ interface InstructionTemplateTarget {
 	readonly template: string;
 }
 
+/**
+ * Template content used in CLAUDE.md's fence when AGENTS.md holds the full stanza.
+ * Claude Code's `@FILE` directive imports the referenced file automatically.
+ */
+export const AGENTS_REFERENCE_TEMPLATE = "@AGENTS.md";
+
 const DEFAULT_INSTRUCTION_FILE: InstructionFile = "CLAUDE.md";
 
 const INSTRUCTION_FILES: readonly InstructionFile[] = [

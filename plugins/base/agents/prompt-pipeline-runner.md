@@ -2,7 +2,8 @@
 name: prompt-pipeline-runner
 description: Executes the six-stage prompt-writer pipeline and produces two mandatory output artifacts (ready-to-run prompt, confidence report)
 tools: Skill, Read, Bash
-model: inherit
+model: standard
+effort: high
 arguments:
   - name: PROMPT_NAME
     type: string
@@ -387,17 +388,11 @@ command | --help exit code recorded during Phase 1.5 | rewrites performed (if an
 REPORT>>>
 ````
 
-## Anti-Loop Directives
+{% include_shared "anti-loop.md" %}
 
-**EXECUTE IMMEDIATELY**:
-- Do NOT ask for approval or clarification
-- Do NOT iterate or refine after producing artifacts
+**File-specific constraints**:
 - Do NOT ask the orchestrator for guidance mid-pipeline
-- Read each stage file ONCE
-- Execute each stage ONCE
-- Produce artifacts ONCE
-- Return the two fenced artifact blocks
-- STOP
+- Read each stage file ONCE; execute each stage ONCE; produce artifacts ONCE
 
 **If blocked**:
 - Cannot read a stage file: FAIL with error describing which file is missing

@@ -3,6 +3,24 @@ import {
 	resolveGlobalSettingsPath,
 	resolveLocalSettingsPath,
 } from "../../shared/settings.js";
+import {
+	readStorageMode,
+	type StorageMode,
+	VALID_STORAGE_MODES,
+} from "../../shared/storage-mode.js";
+import { VALID_MODEL_TIERS } from "../build/models.js";
+import type { BuildPlatform } from "../build/template-context.js";
+import type {
+	ParsedHarnessesSection,
+	PlatformTierMap,
+	TierRemappingConfig,
+} from "./models.js";
+import {
+	type ArcadeSettings,
+	type ArcadeTheme,
+	DEFAULT_ARCADE_SETTINGS,
+	VALID_ARCADE_THEMES,
+} from "./models.js";
 
 /** Argument defaults for a single skill/agent, keyed by UPPER_SNAKE_CASE argument name. */
 export type ArgumentDefaults = Readonly<
@@ -14,15 +32,45 @@ export type SettingsArgumentDefaults = Readonly<
 	Record<string, ArgumentDefaults>
 >;
 
+/** Parsed models section from a single settings file. */
+type ParsedModelsSection = Readonly<{
+	preset?: string;
+	platforms: Readonly<Partial<Record<BuildPlatform, PlatformTierMap>>>;
+}>;
+
+/** Parsed arcade section from a single settings file (partial -- keys may be absent). */
+type ParsedArcadeSection = Readonly<{
+	theme?: ArcadeTheme;
+	downsampling?: Readonly<{ thresholdHours?: number }>;
+}>;
+
+/** Parsed storage section from a single settings file (partial -- keys may be absent). */
+type ParsedStorageSection = Readonly<{
+	mode?: StorageMode;
+}>;
+
 type ParsedSettingsFile = Readonly<{
+	harnesses?: ParsedHarnessesSection;
 	arguments: SettingsArgumentDefaults;
-	directories: Record<string, never>;
+	storage: ParsedStorageSection;
+	models: ParsedModelsSection;
+	arcade: ParsedArcadeSection;
 }>;
 
 const isPlainRecord = (
 	value: unknown,
 ): value is Readonly<Record<string, unknown>> =>
 	value !== null && typeof value === "object" && !Array.isArray(value);
+
+// Lifetime assumption: agent-tools processes are single-invocation, so this
+// module-level cache never needs runtime invalidation. A long-lived consumer
+// (daemon, watcher) must call resetSettingsCache() on settings changes.
+const settingsCache = new Map<string, ParsedSettingsFile>();
+
+/** Clear the in-memory settings cache. Call in test `beforeEach` for isolation. */
+export const resetSettingsCache = (): void => {
+	settingsCache.clear();
+};
 
 const UPPER_SNAKE_CASE_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 const LOWER_CONFIG_KEY_PATTERN = /^[a-z][a-z0-9_-]*$/;
@@ -39,9 +87,162 @@ const normalizeArgumentKey = (key: string): string => {
 	return key;
 };
 
+/** Reserved keys under [models] that are not platform names. */
+const MODELS_RESERVED_KEYS = new Set(["preset"]);
+
+/** Known tier keys that map to model identifiers (derived from canonical source). */
+const TIER_KEYS: ReadonlySet<string> = new Set(
+	VALID_MODEL_TIERS.filter((t) => t !== "inherit"),
+);
+
+/**
+ * Extract tier-to-model mappings from a platform sub-table under [models].
+ * Only string values for known tier keys are included; other entries are ignored.
+ */
+const parsePlatformTierMap = (
+	table: Readonly<Record<string, unknown>>,
+): PlatformTierMap | null => {
+	const map: Record<string, string> = {};
+	let hasEntries = false;
+
+	for (const [key, value] of Object.entries(table)) {
+		if (TIER_KEYS.has(key) && typeof value === "string") {
+			map[key] = value;
+			hasEntries = true;
+		}
+	}
+
+	return hasEntries ? (map as PlatformTierMap) : null;
+};
+
+/**
+ * Extract the models section from parsed TOML.
+ * Handles both `[models]` (preset) and `[models.<platform>]` (tier mappings).
+ */
+const parseModelsSection = (
+	parsed: Record<string, unknown>,
+): ParsedModelsSection => {
+	const modelsSection = parsed.models;
+	const emptyModels: ParsedModelsSection = { platforms: {} };
+
+	if (!isPlainRecord(modelsSection)) {
+		return emptyModels;
+	}
+
+	const preset =
+		typeof modelsSection.preset === "string" ? modelsSection.preset : undefined;
+
+	const platforms: Record<string, PlatformTierMap> = {};
+
+	for (const [key, value] of Object.entries(modelsSection)) {
+		if (MODELS_RESERVED_KEYS.has(key)) continue;
+		if (!isPlainRecord(value)) continue;
+
+		const tierMap = parsePlatformTierMap(value);
+		if (tierMap) {
+			platforms[key] = tierMap;
+		}
+	}
+
+	return { preset, platforms };
+};
+
+/**
+ * Extract the arcade section from parsed TOML.
+ * Returns only validated fields; invalid values are omitted so defaults apply.
+ */
+const parseArcadeSection = (
+	parsed: Record<string, unknown>,
+): ParsedArcadeSection => {
+	const arcadeSection = parsed.arcade;
+	if (!isPlainRecord(arcadeSection)) {
+		return {};
+	}
+
+	const result: {
+		theme?: ArcadeTheme;
+		downsampling?: { thresholdHours?: number };
+	} = {};
+
+	if (
+		typeof arcadeSection.theme === "string" &&
+		(VALID_ARCADE_THEMES as readonly string[]).includes(arcadeSection.theme)
+	) {
+		result.theme = arcadeSection.theme as ArcadeTheme;
+	}
+
+	if (isPlainRecord(arcadeSection.downsampling)) {
+		const th = arcadeSection.downsampling.thresholdHours;
+		if (typeof th === "number") {
+			result.downsampling = { thresholdHours: th };
+		}
+	}
+
+	return result;
+};
+
+/**
+ * Extract the storage section from parsed TOML.
+ * Returns only validated fields; invalid values are omitted so the default (local) applies.
+ */
+const parseStorageSection = (
+	parsed: Record<string, unknown>,
+): ParsedStorageSection => {
+	const storageSection = parsed.storage;
+	if (!isPlainRecord(storageSection)) {
+		return {};
+	}
+
+	if (
+		typeof storageSection.mode === "string" &&
+		(VALID_STORAGE_MODES as readonly string[]).includes(storageSection.mode)
+	) {
+		return { mode: storageSection.mode as StorageMode };
+	}
+
+	return {};
+};
+
+/**
+ * Extract the harnesses section from parsed TOML.
+ * Returns a typed section when `[harnesses]` exists with a valid `enabled` array,
+ * or `undefined` when absent or malformed (graceful degradation).
+ */
+const parseHarnessesSection = (
+	parsed: Record<string, unknown>,
+): ParsedHarnessesSection | undefined => {
+	const harnessesSection = parsed.harnesses;
+	if (!isPlainRecord(harnessesSection)) {
+		return undefined;
+	}
+
+	const enabled = harnessesSection.enabled;
+	if (!Array.isArray(enabled)) {
+		return undefined;
+	}
+
+	const validEntries = enabled.filter(
+		(item): item is string => typeof item === "string",
+	);
+
+	return { enabled: validEntries };
+};
+
 const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
+	const cached = settingsCache.get(filePath);
+	if (cached) {
+		return cached;
+	}
+
 	if (!existsSync(filePath)) {
-		return { arguments: {}, directories: {} };
+		const empty: ParsedSettingsFile = {
+			arguments: {},
+			storage: {},
+			models: { platforms: {} },
+			arcade: {},
+		};
+		settingsCache.set(filePath, empty);
+		return empty;
 	}
 
 	try {
@@ -73,12 +274,29 @@ const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 			}
 		}
 
-		return {
+		const models = parseModelsSection(parsed);
+		const arcade = parseArcadeSection(parsed);
+		const storage = parseStorageSection(parsed);
+		const harnesses = parseHarnessesSection(parsed);
+
+		const result: ParsedSettingsFile = {
 			arguments: argumentDefaults,
-			directories: {},
+			storage,
+			models,
+			arcade,
+			harnesses,
 		};
+		settingsCache.set(filePath, result);
+		return result;
 	} catch {
-		return { arguments: {}, directories: {} };
+		const empty: ParsedSettingsFile = {
+			arguments: {},
+			storage: {},
+			models: { platforms: {} },
+			arcade: {},
+		};
+		settingsCache.set(filePath, empty);
+		return empty;
 	}
 };
 
@@ -139,14 +357,16 @@ export const loadArgumentDefaultsForSkill = async (
  * Merge precedence: project settings > user settings (per-skill, per-argument).
  *
  * @param projectRoot - Project root directory (contains `.rp1/`)
+ * @param globalSettingsPath - Override path to user-level settings file (defaults to ~/.config/rp1/settings.toml). Exposed for test isolation.
  * @returns Merged argument defaults keyed by skill name
  */
 export const loadAllArgumentDefaults = async (
 	projectRoot: string,
+	globalSettingsPath?: string,
 ): Promise<SettingsArgumentDefaults> => {
 	const [projectDefaults, userDefaults] = await Promise.all([
 		loadArgumentsFromFile(resolveLocalSettingsPath(projectRoot)),
-		loadArgumentsFromFile(resolveGlobalSettingsPath()),
+		loadArgumentsFromFile(globalSettingsPath ?? resolveGlobalSettingsPath()),
 	]);
 
 	const allSkillNames = new Set([
@@ -163,4 +383,148 @@ export const loadAllArgumentDefaults = async (
 	}
 
 	return result;
+};
+
+/**
+ * Load the `[models]` section from a single settings file.
+ * Returns the parsed models section when present, or an empty structure.
+ */
+const loadModelsFromFile = (filePath: string): ParsedModelsSection => {
+	return parseSettingsFileStrict(filePath).models;
+};
+
+/**
+ * Merge two platform tier maps, where `override` entries take precedence
+ * over `base` entries for the same tier.
+ */
+const mergePlatformTierMaps = (
+	base: PlatformTierMap,
+	override: PlatformTierMap,
+): PlatformTierMap => {
+	return { ...base, ...override };
+};
+
+/**
+ * Load tier remapping configuration from both project-level and user-level
+ * settings files.
+ *
+ * Merge precedence: project settings > user settings (per-platform, per-tier).
+ * Project-level preset overrides user-level preset.
+ *
+ * @param projectRoot - Project root directory (contains `.rp1/`)
+ * @param globalSettingsPath - Override path to user-level settings file (defaults to ~/.config/rp1/settings.toml). Exposed for test isolation.
+ * @returns Merged tier remapping configuration
+ */
+export const loadTierRemappings = async (
+	projectRoot: string,
+	globalSettingsPath?: string,
+): Promise<TierRemappingConfig> => {
+	const projectModels = loadModelsFromFile(
+		resolveLocalSettingsPath(projectRoot),
+	);
+	const userModels = loadModelsFromFile(
+		globalSettingsPath ?? resolveGlobalSettingsPath(),
+	);
+
+	const preset = projectModels.preset ?? userModels.preset;
+
+	const allPlatforms = new Set([
+		...Object.keys(userModels.platforms),
+		...Object.keys(projectModels.platforms),
+	]);
+
+	const platforms: Record<string, PlatformTierMap> = {};
+
+	for (const platform of allPlatforms) {
+		const userMap = userModels.platforms[platform as BuildPlatform];
+		const projectMap = projectModels.platforms[platform as BuildPlatform];
+
+		if (userMap && projectMap) {
+			platforms[platform] = mergePlatformTierMaps(userMap, projectMap);
+		} else {
+			platforms[platform] = (projectMap ?? userMap)!;
+		}
+	}
+
+	return { preset, platforms };
+};
+
+/**
+ * Load the `[arcade]` section from a single settings file.
+ * Returns the parsed arcade section when present, or an empty structure.
+ */
+const loadArcadeFromFile = (filePath: string): ParsedArcadeSection => {
+	return parseSettingsFileStrict(filePath).arcade;
+};
+
+/**
+ * Load arcade settings from both project-level and user-level settings files,
+ * applying two-level merge (project overrides user, per key) and defaults.
+ *
+ * @param projectRoot - Project root directory (contains `.rp1/`)
+ * @param globalSettingsPath - Override path to user-level settings file (defaults to ~/.config/rp1/settings.toml). Exposed for test isolation.
+ * @returns Fully resolved `ArcadeSettings` with defaults applied
+ */
+export const loadArcadeSettings = async (
+	projectRoot: string,
+	globalSettingsPath?: string,
+): Promise<ArcadeSettings> => {
+	const projectArcade = loadArcadeFromFile(
+		resolveLocalSettingsPath(projectRoot),
+	);
+	const userArcade = loadArcadeFromFile(
+		globalSettingsPath ?? resolveGlobalSettingsPath(),
+	);
+
+	const theme =
+		projectArcade.theme ?? userArcade.theme ?? DEFAULT_ARCADE_SETTINGS.theme;
+
+	const thresholdHours =
+		projectArcade.downsampling?.thresholdHours ??
+		userArcade.downsampling?.thresholdHours ??
+		DEFAULT_ARCADE_SETTINGS.downsampling.thresholdHours;
+
+	return {
+		theme,
+		downsampling: { thresholdHours },
+	};
+};
+
+/**
+ * Load storage mode from both project-level and user-level settings files,
+ * applying two-level merge (project overrides user) with "local" as default.
+ *
+ * Delegates to the canonical `readStorageMode` implementation in
+ * `cli/shared/storage-mode.ts` to maintain a single merge implementation.
+ *
+ * @param projectRoot - Project root directory (contains `.rp1/`)
+ * @param globalSettingsPath - Override path to user-level settings file (defaults to ~/.config/rp1/settings.toml). Exposed for test isolation.
+ * @returns Resolved StorageMode ("local" or "central")
+ */
+export const loadStorageMode = async (
+	projectRoot: string,
+	globalSettingsPath?: string,
+): Promise<StorageMode> => {
+	return readStorageMode(projectRoot, globalSettingsPath);
+};
+
+/**
+ * Load the persisted harness selection from user-level settings.toml only.
+ *
+ * Unlike other settings sections, `[harnesses]` is NOT merged with project-level
+ * settings -- harness availability is per-machine, not per-project.
+ *
+ * @param globalSettingsPath - Override path to user-level settings file (defaults to ~/.config/rp1/settings.toml). Exposed for test isolation.
+ * @returns Array of enabled harness IDs, or `undefined` when no `[harnesses]` section exists (callers should fall back to all-detected-stable)
+ */
+export const loadEnabledHarnesses = (
+	globalSettingsPath?: string,
+): string[] | undefined => {
+	const settings = parseSettingsFileStrict(
+		globalSettingsPath ?? resolveGlobalSettingsPath(),
+	);
+	if (!settings.harnesses) {
+		return undefined;
+	}
+	return [...settings.harnesses.enabled];
 };
