@@ -84,6 +84,7 @@ function ArtifactContentSurfaceInner({
 	>(null);
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const activeArtifactCacheKeyRef = useRef<string | null>(artifactCacheKey);
+	const fetchAbortControllerRef = useRef<AbortController | null>(null);
 	const { onFileChange } = useWebSocket();
 	activeArtifactCacheKeyRef.current = artifactCacheKey;
 
@@ -141,6 +142,14 @@ function ArtifactContentSurfaceInner({
 				return;
 			}
 
+			// Abort any in-flight fetch for a previous artifact so stale responses
+			// are cancelled at the network level rather than merely ignored.
+			if (fetchAbortControllerRef.current) {
+				fetchAbortControllerRef.current.abort();
+			}
+			const abortController = new AbortController();
+			fetchAbortControllerRef.current = abortController;
+
 			const cachedContent = artifactContentCache.get(requestCacheKey) ?? null;
 
 			if (!preserveScroll && cachedContent === null) {
@@ -152,6 +161,7 @@ function ArtifactContentSurfaceInner({
 			try {
 				const response = await fetch(
 					`/api/v2/runs/${requestRunId}/artifacts/${encodeURIComponent(requestArtifactPath)}`,
+					{ signal: abortController.signal },
 				);
 				if (!isActiveArtifactRequest()) return;
 				if (!response.ok) {
@@ -174,6 +184,7 @@ function ArtifactContentSurfaceInner({
 					current === data.content ? current : data.content,
 				);
 			} catch (err) {
+				if (err instanceof DOMException && err.name === "AbortError") return;
 				if (!isActiveArtifactRequest()) return;
 				const message = err instanceof Error ? err.message : String(err);
 				const isTerminalError =

@@ -58,6 +58,13 @@ export function NotificationContainer() {
 			setTimeout(() => {
 				setToasts((prev) => prev.filter((t) => t.id !== id));
 			}, EXIT_ANIMATION_MS);
+
+			// Failsafe: force-remove toasts stuck in the exiting state beyond the
+			// animation duration. Guards against edge cases where the normal exit
+			// timeout fires but a concurrent state update re-introduces the toast.
+			setTimeout(() => {
+				setToasts((prev) => prev.filter((t) => t.id !== id));
+			}, EXIT_ANIMATION_MS + 500);
 		},
 		[reducedMotion],
 	);
@@ -130,16 +137,18 @@ export function NotificationContainer() {
 
 	const handleDismiss = useCallback(
 		async (id: number) => {
+			// Optimistic dismiss: remove the toast immediately so the UI responds
+			// instantly regardless of server latency or failure.
+			removeToast(id);
+
 			try {
 				const response = await fetch(`/api/v2/notifications/${id}/dismiss`, {
 					method: "POST",
 				});
 
 				if (!response.ok) {
-					throw new Error(getDismissErrorMessage(response));
+					console.warn(getDismissErrorMessage(response));
 				}
-
-				removeToast(id);
 			} catch (error) {
 				console.warn(String(error));
 			}

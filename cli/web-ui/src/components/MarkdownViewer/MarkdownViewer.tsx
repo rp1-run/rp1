@@ -45,14 +45,32 @@ export interface AnnotationLayerProps {
 	path: string;
 	containerRef: React.RefObject<HTMLElement | null>;
 	gutterRef: React.RefObject<HTMLElement | null>;
+	annotationActiveRef?: React.MutableRefObject<boolean>;
+	onAnnotationActiveChange?: (active: boolean) => void;
 }
 
 export function AnnotationLayer({
 	path,
 	containerRef,
 	gutterRef,
+	annotationActiveRef,
+	onAnnotationActiveChange,
 }: AnnotationLayerProps) {
 	const { flowState, dispatch } = useAnnotationFlow({ containerRef });
+
+	// Sync annotation-active state to the parent so it can defer auto-save
+	// while the user is mid-annotation (selecting text, filling in the form, etc.).
+	const prevAnnotationActiveRef = useRef(false);
+	useEffect(() => {
+		const isActive = flowState.state !== "idle";
+		if (annotationActiveRef) {
+			annotationActiveRef.current = isActive;
+		}
+		if (isActive !== prevAnnotationActiveRef.current) {
+			prevAnnotationActiveRef.current = isActive;
+			onAnnotationActiveChange?.(isActive);
+		}
+	}, [flowState.state, annotationActiveRef, onAnnotationActiveChange]);
 
 	const { annotations } = useAnnotations({ artifactPath: path });
 	const { selectedAnnotationId, selectAnnotation } = useAnnotationContextSafe();

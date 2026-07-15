@@ -355,7 +355,7 @@ export function CodeBlock({
 						})}
 					</div>
 
-					<div className="flex-1 overflow-x-auto p-3">
+					<div className="flex-1 overflow-x-auto p-3 select-text">
 						{isLoading ? (
 							<pre className="m-0 p-0">
 								<code className="block leading-6">{code}</code>
@@ -365,6 +365,7 @@ export function CodeBlock({
 								<div
 									className="absolute left-0 top-0 w-full pointer-events-none"
 									aria-hidden="true"
+									data-annotation-exclude=""
 								>
 									{Array.from({ length: lineCount }, (_, i) => {
 										const lineNumber = i + 1;
@@ -382,7 +383,7 @@ export function CodeBlock({
 									})}
 								</div>
 								<div
-									className="shiki-container relative leading-6 [&_pre]:m-0 [&_pre]:p-0 [&_pre]:bg-transparent [&_pre_code]:leading-6 [&_.line]:leading-6 [&_.line]:h-6"
+									className="shiki-container relative leading-6 select-text [&_pre]:m-0 [&_pre]:p-0 [&_pre]:bg-transparent [&_pre_code]:leading-6 [&_.line]:leading-6 [&_.line]:h-6"
 									// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted Shiki output
 									dangerouslySetInnerHTML={{ __html: highlightedHtml }}
 								/>
