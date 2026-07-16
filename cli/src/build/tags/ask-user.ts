@@ -23,7 +23,7 @@ import {
 	type TopLevelToken,
 } from "liquidjs";
 import type { BuildPlatform } from "../template-context.js";
-import { parseTagArgs } from "./index.js";
+import { isDirectInteractionHarness, parseTagArgs } from "./index.js";
 
 function renderClaudeCode(
 	question: string,
@@ -81,11 +81,45 @@ function renderCodex(question: string, options: readonly string[]): string {
 	return output;
 }
 
+/**
+ * Render relay envelope instructions for sub-agents on harnesses where
+ * sub-agents cannot prompt users directly. The sub-agent returns a
+ * JSON envelope to its parent, which relays the question to the user.
+ *
+ * Envelope protocol is minimal two-type: `needs_input` and `completed`.
+ */
+function renderRelayEnvelope(
+	question: string,
+	options: readonly string[],
+): string {
+	let envelope: string;
+	if (options.length > 0) {
+		const optionsJson = options.map((o) => `"${o}"`).join(", ");
+		envelope = `{"type": "needs_input", "question": "${question}", "options": [${optionsJson}]}`;
+	} else {
+		envelope = `{"type": "needs_input", "question": "${question}"}`;
+	}
+
+	let output =
+		"Return the following JSON envelope to your parent and **end your turn**:";
+	output += `\n\n\`\`\`json\n${envelope}\n\`\`\``;
+	output +=
+		"\n\nDo NOT attempt to prompt the user directly. Your parent will relay the question and send the answer back via follow-up message.";
+	output += "\n\nWhen all your work is complete, return:";
+	output += '\n\n```json\n{"type": "completed"}\n```';
+	return output;
+}
+
 function renderAskUser(
 	question: string,
 	options: readonly string[],
 	platform: BuildPlatform,
+	isSubAgent: boolean,
+	isDirect: boolean,
 ): string {
+	if (isSubAgent && !isDirect) {
+		return renderRelayEnvelope(question, options);
+	}
 	switch (platform) {
 		case "claude-code":
 			return renderClaudeCode(question, options);
@@ -120,6 +154,28 @@ export class AskUserTag extends Tag {
 
 	render(ctx: Context, emitter: Emitter): void {
 		const platform = ctx.getSync(["platform"]) as BuildPlatform;
-		emitter.write(renderAskUser(this.question, this.options, platform));
+
+		// Detect sub-agent context from artifact type
+		const artifact = ctx.getSync(["artifact"]) as { type?: string } | undefined;
+		const isSubAgent = artifact?.type === "agent";
+
+		// Detect direct-interaction capability from platform config
+		const platformConfig = ctx.getSync(["platformConfig"]) as
+			| { capabilities?: readonly string[] }
+			| undefined;
+		const isDirect = isDirectInteractionHarness(
+			platform,
+			platformConfig?.capabilities,
+		);
+
+		emitter.write(
+			renderAskUser(
+				this.question,
+				this.options,
+				platform,
+				isSubAgent,
+				isDirect,
+			),
+		);
 	}
 }

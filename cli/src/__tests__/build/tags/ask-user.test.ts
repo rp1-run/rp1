@@ -1,12 +1,15 @@
 /**
  * Unit tests for the ask_user semantic tag.
- * Tests output correctness for all three platforms, options handling,
- * and Codex-specific constraints.
+ * Tests output correctness for all platforms, options handling,
+ * Codex-specific constraints, and relay envelope codegen for sub-agent contexts.
  */
 
 import { describe, expect, test } from "bun:test";
 import { Liquid } from "liquidjs";
-import { registerTags } from "../../../build/tags/index.js";
+import {
+	registerTags,
+	SUB_AGENT_USER_INTERACTION,
+} from "../../../build/tags/index.js";
 
 function createLiquid(): Liquid {
 	const liquid = new Liquid({
@@ -20,6 +23,26 @@ function createLiquid(): Liquid {
 async function render(template: string, platform: string): Promise<string> {
 	const liquid = createLiquid();
 	return (await liquid.parseAndRender(template, { platform })).trim();
+}
+
+/**
+ * Render with full context including artifact type and platform capabilities,
+ * for testing sub-agent vs top-level behavior.
+ */
+async function renderWithContext(
+	template: string,
+	platform: string,
+	artifactType: "agent" | "skill",
+	capabilities: readonly string[] = [],
+): Promise<string> {
+	const liquid = createLiquid();
+	return (
+		await liquid.parseAndRender(template, {
+			platform,
+			artifact: { type: artifactType },
+			platformConfig: { capabilities },
+		})
+	).trim();
 }
 
 describe("ask_user tag", () => {
@@ -265,6 +288,139 @@ describe("ask_user tag", () => {
 			const template2 = '{% ask_user "What is your preference?" %}';
 			const output = await render(template2, "opencode");
 			expect(output).toBe('ask_user: "What is your preference?"');
+		});
+	});
+
+	describe("sub-agent relay mode", () => {
+		const template =
+			'{% ask_user "What framework?", options: "React", "Vue", "Svelte" %}';
+		const noOptsTemplate = '{% ask_user "Describe your setup" %}';
+
+		describe("Codex sub-agent emits needs_input envelope", () => {
+			test("emits needs_input envelope with question and options", async () => {
+				const output = await renderWithContext(template, "codex", "agent");
+				expect(output).toContain("needs_input");
+				expect(output).toContain("What framework?");
+				expect(output).toContain('"React"');
+				expect(output).toContain('"Vue"');
+				expect(output).toContain('"Svelte"');
+			});
+
+			test("does not emit 'user input unavailable' message", async () => {
+				const output = await renderWithContext(template, "codex", "agent");
+				expect(output).not.toContain(
+					"User input is unavailable in subagent contexts",
+				);
+			});
+
+			test("does not emit request_user_input tool format", async () => {
+				const output = await renderWithContext(template, "codex", "agent");
+				expect(output).not.toContain("request_user_input:");
+			});
+
+			test("instructs sub-agent to end its turn", async () => {
+				const output = await renderWithContext(template, "codex", "agent");
+				expect(output).toContain("end your turn");
+			});
+
+			test("without options omits options field from envelope", async () => {
+				const output = await renderWithContext(
+					noOptsTemplate,
+					"codex",
+					"agent",
+				);
+				expect(output).toContain("needs_input");
+				expect(output).toContain("Describe your setup");
+				expect(output).not.toContain('"options"');
+			});
+		});
+
+		describe("Claude Code sub-agent uses direct prompting", () => {
+			test("emits standard AskUserQuestion format", async () => {
+				const output = await renderWithContext(
+					template,
+					"claude-code",
+					"agent",
+					[SUB_AGENT_USER_INTERACTION],
+				);
+				expect(output).toContain('AskUserQuestion: "What framework?"');
+				expect(output).toContain("- React");
+				expect(output).toContain("- Vue");
+				expect(output).toContain("- Svelte");
+			});
+
+			test("does not emit relay envelope", async () => {
+				const output = await renderWithContext(
+					template,
+					"claude-code",
+					"agent",
+					[SUB_AGENT_USER_INTERACTION],
+				);
+				expect(output).not.toContain("needs_input");
+				expect(output).not.toContain("end your turn");
+			});
+		});
+
+		describe("OpenCode sub-agent emits needs_input envelope", () => {
+			test("emits needs_input envelope, not direct prompt", async () => {
+				const output = await renderWithContext(template, "opencode", "agent");
+				expect(output).toContain("needs_input");
+				expect(output).toContain("What framework?");
+				expect(output).not.toContain('ask_user: "What framework?"');
+			});
+		});
+
+		describe("relay envelope protocol (REQ-009)", () => {
+			test("references exactly two types: needs_input and completed", async () => {
+				const output = await renderWithContext(template, "codex", "agent");
+				expect(output).toContain("needs_input");
+				expect(output).toContain("completed");
+				// No other envelope types should be present
+				expect(output).not.toContain('"type": "error"');
+				expect(output).not.toContain('"type": "status"');
+				expect(output).not.toContain('"type": "progress"');
+			});
+		});
+
+		describe("skill context unchanged regardless of harness", () => {
+			test("Codex skill context renders existing request_user_input", async () => {
+				const output = await renderWithContext(template, "codex", "skill");
+				expect(output).toContain('request_user_input: "What framework?"');
+				expect(output).toContain(
+					"User input is unavailable in subagent contexts",
+				);
+				expect(output).not.toContain("needs_input");
+			});
+
+			test("Claude Code skill context renders existing AskUserQuestion", async () => {
+				const output = await renderWithContext(
+					template,
+					"claude-code",
+					"skill",
+					[SUB_AGENT_USER_INTERACTION],
+				);
+				expect(output).toBe(
+					'AskUserQuestion: "What framework?"\nOptions:\n- React\n- Vue\n- Svelte',
+				);
+			});
+
+			test("OpenCode skill context renders existing ask_user", async () => {
+				const output = await renderWithContext(template, "opencode", "skill");
+				expect(output).toContain('ask_user: "What framework?"');
+				expect(output).not.toContain("needs_input");
+			});
+		});
+
+		describe("no context fallback (backward compatibility)", () => {
+			test("rendering without artifact context matches existing behavior", async () => {
+				const withoutContext = await render(template, "codex");
+				const withSkillContext = await renderWithContext(
+					template,
+					"codex",
+					"skill",
+				);
+				expect(withoutContext).toBe(withSkillContext);
+			});
 		});
 	});
 });
