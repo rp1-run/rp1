@@ -13,32 +13,24 @@ strictness: strict
 **Status**: {Draft | Complete}
 
 ## Vision
-{One-sentence product vision}
+_TBD_
 
 ## Problem & Context
-{Why this exists, pain points, why now}
+_TBD_
 
 ## Target Users
-{Who uses it, user segments, needs}
+_TBD_
 
 ## Business Rationale
-{Value delivered, benefits, differentiation}
+_TBD_
 
 ## Scope Guardrails
 
 ### Will
-- {What the project will do}
+- _TBD_
 
 ### Won't
-- {What the project explicitly will not do}
+- _TBD_
 
 ## Success Criteria
-{Metrics, failure modes, definition of done}
-
-## Scratch Pad
-<!-- Interview state - will be removed upon completion -->
-<!-- Mode: CREATE -->
-<!-- Started: {timestamp} -->
-### Q&A History
-{Section Q&As accumulated during interview}
-<!-- End scratch pad -->
+_TBD_
