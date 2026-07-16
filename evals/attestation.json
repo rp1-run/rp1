@@ -4,12 +4,12 @@
     "rp1-dev:build@claude-code": {
       "platform": "claude-code",
       "prompt_hash": "sha256:cf1f9cbb1b851ab21702c25be1d72182512d7fa411326fe2c809935aa9d8536c",
-      "deps_hash": "sha256:ac6ec9b50f102e69910cd0871f58002a27e2c412badacc44814da1aee3d7631c",
+      "deps_hash": "sha256:065acd8c7e51c9639406864bc86d1a895e6469518196fd5ede86238b05b5b92a",
       "version": "3.0.0",
       "last_eval": {
         "passed": true,
-        "timestamp": "2026-07-04T08:39:50.880Z",
-        "git_commit": "2f3234f3",
+        "timestamp": "2026-07-16T05:01:03.891Z",
+        "git_commit": "4e4bbc64",
         "result_file": "output/rp1-dev-build.json"
       }
     },
@@ -86,7 +86,7 @@
     "dist/claude-code/dev/skills/build/SKILL.md": "sha256:cf1f9cbb1b851ab21702c25be1d72182512d7fa411326fe2c809935aa9d8536c",
     "dist/claude-code/dev/agents/build-artifact-detector.md": "sha256:a03ad12988346655af60da11117cb05b2179d7eb3f21d25ad5be5455444b0a4f",
     "dist/claude-code/dev/agents/feature-requirement-gatherer.md": "sha256:f2348f08d5cc754b413cdd93cef6a9f06c07706dcd3a1c664211af21d0e7872e",
-    "dist/claude-code/dev/agents/feature-architect.md": "sha256:92521c1fee2aa27fd74a4310a981d530365e7542ef7cbff349770e4e3b8c9bf1",
+    "dist/claude-code/dev/agents/feature-architect.md": "sha256:0942df3f285dde2e2199869207f5a19cc62b60700a42b8d4cce871f706f19f02",
     "dist/claude-code/dev/agents/hypothesis-tester.md": "sha256:a209e3044ebd093bb902d09e4c61f97169269364a0f97dd5dec3e7009acc63d1",
     "dist/claude-code/dev/agents/feature-tasker.md": "sha256:e5d0249b2488db516d0af4fe089de070fdbdff459b060a471fca21c53675c99b",
     "dist/claude-code/dev/agents/build-task-parser.md": "sha256:df5e6f3f94d56f9d3675e84d2fea3af7f7f39552e9871d5e6a622430a02cde18",
