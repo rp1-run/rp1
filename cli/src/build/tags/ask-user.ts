@@ -94,10 +94,10 @@ function renderRelayEnvelope(
 ): string {
 	let envelope: string;
 	if (options.length > 0) {
-		const optionsJson = options.map((o) => `"${o}"`).join(", ");
-		envelope = `{"type": "needs_input", "question": "${question}", "options": [${optionsJson}]}`;
+		const optionsJson = options.map((o) => JSON.stringify(o)).join(", ");
+		envelope = `{"type": "needs_input", "question": ${JSON.stringify(question)}, "options": [${optionsJson}]}`;
 	} else {
-		envelope = `{"type": "needs_input", "question": "${question}"}`;
+		envelope = `{"type": "needs_input", "question": ${JSON.stringify(question)}}`;
 	}
 
 	let output =

@@ -370,6 +370,50 @@ describe("ask_user tag", () => {
 			});
 		});
 
+		describe("relay envelope JSON safety (REQ-005)", () => {
+			test("double quotes in question produce valid JSON", async () => {
+				const tpl = '{% ask_user "Pick a \\"framework\\"" %}';
+				const output = await renderWithContext(tpl, "codex", "agent");
+				const jsonMatch = output.match(/```json\n([\s\S]*?)\n```/);
+				expect(jsonMatch).not.toBeNull();
+				const envelope = JSON.parse(jsonMatch![1]);
+				expect(envelope.type).toBe("needs_input");
+				expect(envelope.question).toContain('"');
+			});
+
+			test("backslashes in question produce valid JSON", async () => {
+				const tpl = '{% ask_user "path: C:\\\\Users\\\\dev" %}';
+				const output = await renderWithContext(tpl, "codex", "agent");
+				const jsonMatch = output.match(/```json\n([\s\S]*?)\n```/);
+				expect(jsonMatch).not.toBeNull();
+				const envelope = JSON.parse(jsonMatch![1]);
+				expect(envelope.type).toBe("needs_input");
+				expect(envelope.question).toContain("\\");
+			});
+
+			test("newlines in question produce valid JSON", async () => {
+				const tpl = '{% ask_user "line1\\nline2" %}';
+				const output = await renderWithContext(tpl, "codex", "agent");
+				const jsonMatch = output.match(/```json\n([\s\S]*?)\n```/);
+				expect(jsonMatch).not.toBeNull();
+				const envelope = JSON.parse(jsonMatch![1]);
+				expect(envelope.type).toBe("needs_input");
+			});
+
+			test("special characters in options produce valid JSON", async () => {
+				const tpl =
+					'{% ask_user "Pick", options: "Option \\"A\\"", "back\\\\slash" %}';
+				const output = await renderWithContext(tpl, "codex", "agent");
+				const jsonMatch = output.match(/```json\n([\s\S]*?)\n```/);
+				expect(jsonMatch).not.toBeNull();
+				const envelope = JSON.parse(jsonMatch![1]);
+				expect(envelope.type).toBe("needs_input");
+				expect(envelope.options).toBeArrayOfSize(2);
+				expect(envelope.options[0]).toContain('"');
+				expect(envelope.options[1]).toContain("\\");
+			});
+		});
+
 		describe("relay envelope protocol (REQ-009)", () => {
 			test("references exactly two types: needs_input and completed", async () => {
 				const output = await renderWithContext(template, "codex", "agent");
