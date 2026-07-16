@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.7.12](https://github.com/rp1-run/rp1/compare/v0.7.11...v0.7.12) (2026-07-16)
+
+
+### Features
+
+* **build:** per-step model + reasoning-effort tiering for agents ([#409](https://github.com/rp1-run/rp1/issues/409)) ([757cfdc](https://github.com/rp1-run/rp1/commit/757cfdc99fec307de5ffee606967c0c7cd1f6b6b))
+* **cli:** enforce isolated test-home boundaries ([#425](https://github.com/rp1-run/rp1/issues/425)) ([19e0b68](https://github.com/rp1-run/rp1/commit/19e0b686f1c1cc2413b6f66b094d2015cf75454f))
+* **init:** central-mode project creation with per-platform sandbox grants (storage-decoupling P2) ([#420](https://github.com/rp1-run/rp1/issues/420)) ([b0812b4](https://github.com/rp1-run/rp1/commit/b0812b4de7dcefb293f9f5369a847316251a4a57))
+* **init:** global instruction stanzas for central-mode projects (storage-decoupling P3) ([#421](https://github.com/rp1-run/rp1/issues/421)) ([ce0aae1](https://github.com/rp1-run/rp1/commit/ce0aae1e3459c987e9ae5c680c883ed43e88b4a2))
+* **init:** harness selection wizard with persisted [harnesses] settings (storage-decoupling P2) ([#419](https://github.com/rp1-run/rp1/issues/419)) ([59f870f](https://github.com/rp1-run/rp1/commit/59f870f97ec617854e9641104fc0a71b9e1fbe11))
+* **migrate:** opt-in central storage conversion via --to-central (storage-decoupling P4) ([#422](https://github.com/rp1-run/rp1/issues/422)) ([906d0d3](https://github.com/rp1-run/rp1/commit/906d0d3fe622a2079ae58b057b69dd4d08e369cd))
+* **plugins:** migrate literal .rp1 path refs to resolver variables (storage-decoupling P1) ([#417](https://github.com/rp1-run/rp1/issues/417)) ([d0667f1](https://github.com/rp1-run/rp1/commit/d0667f1e72032e7f3a0be540cf75b7733ebadf79))
+* **settings:** make model-ID validation advisory instead of blocking ([#424](https://github.com/rp1-run/rp1/issues/424)) ([a0b108e](https://github.com/rp1-run/rp1/commit/a0b108ea3253b93ab608f55baa41eef6dfaca1aa))
+* **settings:** migrate Arcade settings from JSON to canonical settings.toml [arcade] section ([#414](https://github.com/rp1-run/rp1/issues/414)) ([61d64ec](https://github.com/rp1-run/rp1/commit/61d64eccd677958957dc26d9efb8c0e78a3f0782))
+* **settings:** user-controllable model & effort tier remapping via late-bound resolution ([#413](https://github.com/rp1-run/rp1/issues/413)) ([b77de4e](https://github.com/rp1-run/rp1/commit/b77de4eacc3b3f085e289ea9ba63514247d58a6d))
+* **storage:** dual-mode directory resolution with [storage] settings, project_id DB keying, and container fallback (storage-decoupling P2.1) ([#418](https://github.com/rp1-run/rp1/issues/418)) ([713228a](https://github.com/rp1-run/rp1/commit/713228a86578e4ec1ad94341dd8ab1b495df249e))
+* **teach-me:** P1 lesson tooling + P2 Arcade sandboxed HTML viewer (umbrella) ([#407](https://github.com/rp1-run/rp1/issues/407)) ([e30a11b](https://github.com/rp1-run/rp1/commit/e30a11b2544f512763d6fe05025cd26f21a05557))
+
+
+### Bug Fixes
+
+* **base:** Change puts in post_install to a caveat ([#416](https://github.com/rp1-run/rp1/issues/416)) ([1b8634c](https://github.com/rp1-run/rp1/commit/1b8634c3a90490bea20bb40c690464152b3add8e))
+* **build:** correct codex/antigravity model mappings and make opencode inherit ([#410](https://github.com/rp1-run/rp1/issues/410)) ([f88b31a](https://github.com/rp1-run/rp1/commit/f88b31adef10b7c88f42ead3b7e370573fb66250))
+* **build:** dispatch ready task waves in parallel ([#412](https://github.com/rp1-run/rp1/issues/412)) ([3e7b6b1](https://github.com/rp1-run/rp1/commit/3e7b6b1c24c7f948d6fc5d5ce4a8aec0e472094f))
+* **migrate:** make central migration cleanup rerunnable ([#423](https://github.com/rp1-run/rp1/issues/423)) ([eacfbc0](https://github.com/rp1-run/rp1/commit/eacfbc077f0dd4f12e118bec2cfb6befbf574f6c))
+* **web-ui:** resolve toast dismiss, tab race, annotation save, and code block selection bugs ([#426](https://github.com/rp1-run/rp1/issues/426)) ([79e7511](https://github.com/rp1-run/rp1/commit/79e7511aba856366fe9337f1882cd978d4a26c15))
+
+
+### Documentation
+
+* add contributor PR readiness guidance ([#399](https://github.com/rp1-run/rp1/issues/399)) ([4e4bbc6](https://github.com/rp1-run/rp1/commit/4e4bbc645f12e3597d281206bf384c3020ea031d))
+
 ## [0.7.11](https://github.com/rp1-run/rp1/compare/v0.7.10...v0.7.11) (2026-06-21)
 
 
