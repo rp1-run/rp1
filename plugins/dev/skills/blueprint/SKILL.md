@@ -124,7 +124,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step charter \
-  --data '{"path": ".rp1/context/charter.md", "feature": "blueprint", "storageRoot": "project"}'
+  --data '{"path": "{kbRoot}/charter.md", "feature": "blueprint", "storageRoot": "project"}'
 ```
 
 ### Step 3: PRD Creation
@@ -162,7 +162,11 @@ rp1 agent-tools emit \
   --data '{"path": "prds/{PRD_NAME}.md", "feature": "{PRD_NAME}", "storageRoot": "work_dir"}'
 ```
 
-#### 3.4 Success Output
+#### 3.4 Completion Check
+
+Read `{workRoot}/prds/{PRD_NAME}.md` and check for remaining `_TBD_` markers.
+
+**If NO `_TBD_` markers remain** (PRD complete):
 
 ```
 PRD created!
@@ -179,6 +183,22 @@ Next Steps:
 Emit completion:
 ```
 rp1 agent-tools emit --workflow blueprint --type status_change --run-id {RUN_ID} --step prd --data '{"status": "completed"}' --close-run
+```
+
+**If `_TBD_` markers remain** (PRD incomplete):
+
+```
+PRD partially complete -- some sections still need input.
+
+Partial progress saved:
+- {workRoot}/prds/{PRD_NAME}.md
+
+To resume: re-run `/rp1-dev:blueprint {PRD_NAME}` -- the wizard will detect remaining _TBD_ sections and resume via gap analysis.
+```
+
+Emit waiting status (do NOT use `--close-run`):
+```
+rp1 agent-tools emit --workflow blueprint --type status_change --run-id {RUN_ID} --step prd --data '{"status": "waiting", "reason": "PRD has remaining _TBD_ sections"}'
 ```
 
 ## §USAGE
