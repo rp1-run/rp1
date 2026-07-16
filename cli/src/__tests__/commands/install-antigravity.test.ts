@@ -85,7 +85,6 @@ describe("Antigravity install command", () => {
 				cwd: cliRoot,
 				env: {
 					...process.env,
-					HOME: tempDir,
 					NO_COLOR: "1",
 					RP1_ANTIGRAVITY_BUNDLE_DIR: bundleDir,
 				},
@@ -150,7 +149,6 @@ describe("Antigravity install command", () => {
 				cwd: cliRoot,
 				env: {
 					...process.env,
-					HOME: tempDir,
 					NO_COLOR: "1",
 					RP1_ANTIGRAVITY_BUNDLE_DIR: bundleDir,
 				},
@@ -164,11 +162,30 @@ describe("Antigravity install command", () => {
 			new Response(proc.stderr).text(),
 		]);
 
-		expect(exitCode).toBe(0);
-		expect(stderr).not.toContain("Logger not initialized");
-		expect(stdout).toContain("Antigravity manifest lifecycle");
-		expect(stdout).toContain("current");
-		expect(stdout).toContain("Antigravity CLI package validation");
-		expect(stdout).toContain("rp1 verify antigravity");
+		try {
+			expect(exitCode).toBe(0);
+			expect(stderr).not.toContain("Logger not initialized");
+			expect(stdout).toContain("Antigravity manifest lifecycle");
+			expect(stdout).toContain("current");
+			expect(stdout).toContain("Antigravity CLI package validation");
+			expect(stdout).toContain("rp1 verify antigravity");
+		} finally {
+			// The confirmed install writes real assets into the shared test
+			// home; remove them so later tests observe a clean home.
+			const cleanupProc = Bun.spawn(
+				["bun", "src/main.ts", "uninstall", "antigravity", "--yes"],
+				{
+					cwd: cliRoot,
+					env: {
+						...process.env,
+						NO_COLOR: "1",
+						RP1_ANTIGRAVITY_BUNDLE_DIR: bundleDir,
+					},
+					stdout: "pipe",
+					stderr: "pipe",
+				},
+			);
+			await cleanupProc.exited;
+		}
 	});
 });

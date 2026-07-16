@@ -137,7 +137,6 @@ describe("Antigravity uninstall command", () => {
 				cwd: cliRoot,
 				env: {
 					...process.env,
-					HOME: tempDir,
 					NO_COLOR: "1",
 					RP1_ANTIGRAVITY_BUNDLE_DIR: bundleDir,
 				},
