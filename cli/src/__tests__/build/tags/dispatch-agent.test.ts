@@ -295,4 +295,109 @@ FEATURE_ID=templated-spawns, REQUIREMENTS=Add templated rendering, AFK=false, RP
 			);
 		});
 	});
+
+	describe("relay protocol", () => {
+		const template =
+			'{% dispatch_agent "rp1-dev:interviewer", "Interview the user about their project" %}';
+
+		describe("relay harnesses (foreground)", () => {
+			test("codex includes relay loop with needs_input/completed envelope and followup_task", async () => {
+				const output = await render(template, "codex");
+				expect(output).toContain("needs_input");
+				expect(output).toContain("completed");
+				expect(output).toContain("followup_task");
+				expect(output).toContain("Relay protocol");
+			});
+
+			test("opencode includes relay loop with needs_input/completed envelope", async () => {
+				const output = await render(template, "opencode");
+				expect(output).toContain("needs_input");
+				expect(output).toContain("completed");
+				expect(output).toContain("Relay protocol");
+			});
+
+			test("copilot includes relay loop with needs_input/completed envelope", async () => {
+				const output = await render(template, "copilot");
+				expect(output).toContain("needs_input");
+				expect(output).toContain("completed");
+				expect(output).toContain("Relay protocol");
+			});
+
+			test("antigravity includes relay loop with needs_input/completed envelope", async () => {
+				const output = await render(template, "antigravity");
+				expect(output).toContain("needs_input");
+				expect(output).toContain("completed");
+				expect(output).toContain("Relay protocol");
+			});
+		});
+
+		describe("direct interaction harnesses", () => {
+			test("claude-code does not include relay loop", async () => {
+				const output = await render(template, "claude-code");
+				expect(output).not.toContain("needs_input");
+				expect(output).not.toContain("Relay protocol");
+			});
+		});
+
+		describe("envelope constraints", () => {
+			test("relay envelope references exactly needs_input and completed types", async () => {
+				const output = await render(template, "codex");
+				expect(output).toContain("needs_input");
+				expect(output).toContain("completed");
+				// No additional protocol types beyond the two-type envelope
+				expect(output).not.toMatch(/"error"/);
+				expect(output).not.toMatch(/"pending"/);
+				expect(output).not.toMatch(/"status"/);
+				expect(output).not.toMatch(/"failed"/);
+			});
+		});
+
+		describe("background mode exclusion", () => {
+			test("codex background does not include relay loop", async () => {
+				const bgTemplate =
+					'{% dispatch_agent "rp1-dev:interviewer", "Interview", background %}';
+				const output = await render(bgTemplate, "codex");
+				expect(output).not.toContain("Relay protocol");
+				expect(output).not.toContain("needs_input");
+			});
+
+			test("copilot background does not include relay loop", async () => {
+				const bgTemplate =
+					'{% dispatch_agent "rp1-dev:interviewer", "Interview", background %}';
+				const output = await render(bgTemplate, "copilot");
+				expect(output).not.toContain("Relay protocol");
+				expect(output).not.toContain("needs_input");
+			});
+		});
+
+		describe("block syntax with relay", () => {
+			test("codex block foreground includes relay loop", async () => {
+				const blockTemplate = `{% dispatch_agent "rp1-dev:interviewer" %}
+Interview the user about their project vision and goals
+{% enddispatch_agent %}`;
+				const output = await render(blockTemplate, "codex");
+				expect(output).toContain("needs_input");
+				expect(output).toContain("completed");
+				expect(output).toContain("followup_task");
+			});
+
+			test("claude-code block foreground does not include relay loop", async () => {
+				const blockTemplate = `{% dispatch_agent "rp1-dev:interviewer" %}
+Interview the user about their project vision and goals
+{% enddispatch_agent %}`;
+				const output = await render(blockTemplate, "claude-code");
+				expect(output).not.toContain("needs_input");
+				expect(output).not.toContain("Relay protocol");
+			});
+		});
+
+		describe("codex followup_task specificity", () => {
+			test("codex relay mentions followup_task but opencode does not", async () => {
+				const codexOutput = await render(template, "codex");
+				const opencodeOutput = await render(template, "opencode");
+				expect(codexOutput).toContain("followup_task");
+				expect(opencodeOutput).not.toContain("followup_task");
+			});
+		});
+	});
 });

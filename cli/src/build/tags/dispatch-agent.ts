@@ -21,7 +21,11 @@ import {
 	type TopLevelToken,
 } from "liquidjs";
 import type { BuildPlatform } from "../template-context.js";
-import { parseTagArgs, transformNamespace } from "./index.js";
+import {
+	isDirectInteractionHarness,
+	parseTagArgs,
+	transformNamespace,
+} from "./index.js";
 
 type DispatchContextMode = "fresh" | "inherit";
 
@@ -100,6 +104,37 @@ function renderCodexBackground(
 ${renderPromptField("  ", prompt)}
 
 This agent runs in the background. Continue with other work. Check its result later when needed.`;
+}
+
+// ---------------------------------------------------------------------------
+// Relay protocol instructions (appended for foreground dispatches on relay harnesses)
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate relay protocol instructions for a given platform.
+ *
+ * The relay loop enables the parent skill to act as a communication bridge
+ * between the sub-agent and the user on harnesses where sub-agents cannot
+ * prompt users directly. The envelope is limited to exactly two types:
+ * `needs_input` and `completed`.
+ *
+ * @param platform - Target build platform (determines continuation mechanism)
+ */
+function renderRelayInstructions(platform: BuildPlatform): string {
+	const continueStep =
+		platform === "codex"
+			? "Send the answer back to the same agent via `followup_task` to continue its work"
+			: "Send the answer back to the agent to continue its work";
+
+	return (
+		"\n\n**Relay protocol**: If the agent returns a structured envelope instead of completing directly, follow this relay loop:" +
+		'\n\n- `{type: "needs_input", question: "...", options?: [...]}`: The agent needs user input.' +
+		"\n  1. Present the `question` to the user (include `options` if provided)" +
+		"\n  2. Collect the user's answer" +
+		`\n  3. ${continueStep}` +
+		"\n  4. Repeat until the agent signals completion" +
+		'\n\n- `{type: "completed"}`: The agent has finished. Continue with the workflow.'
+	);
 }
 
 function renderDispatch(
@@ -226,6 +261,13 @@ export class DispatchAgentTag extends Tag {
 	*render(ctx: Context, emitter: Emitter): Generator<unknown, void, unknown> {
 		const platform = ctx.getSync(["platform"]) as BuildPlatform;
 
+		// Read platform capabilities for relay detection (falls back to
+		// platform-based detection when platformConfig is unavailable)
+		const platformConfig = ctx.getSync(["platformConfig"]) as
+			| { capabilities?: readonly string[] }
+			| undefined;
+		const capabilities = platformConfig?.capabilities;
+
 		let prompt: string;
 		let isBlock: boolean;
 
@@ -249,14 +291,22 @@ export class DispatchAgentTag extends Tag {
 			isBlock = true;
 		}
 
-		emitter.write(
-			renderDispatch(
-				this.agentRef,
-				formatPrompt(prompt, isBlock),
-				this.mode,
-				this.context,
-				platform,
-			),
+		let output = renderDispatch(
+			this.agentRef,
+			formatPrompt(prompt, isBlock),
+			this.mode,
+			this.context,
+			platform,
 		);
+
+		// Append relay protocol for foreground dispatches on relay harnesses
+		if (
+			this.mode === "foreground" &&
+			!isDirectInteractionHarness(platform, capabilities)
+		) {
+			output += renderRelayInstructions(platform);
+		}
+
+		emitter.write(output);
 	}
 }
