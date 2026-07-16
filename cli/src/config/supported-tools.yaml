@@ -17,6 +17,7 @@ tools:
       - slash-commands
       - agents
       - skills
+      - sub-agent-user-interaction
 
   - id: opencode
     name: OpenCode

@@ -198,7 +198,13 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 		install_url:
 			"https://docs.anthropic.com/en/docs/claude-code/getting-started",
 		plugin_install_cmd: "claude plugin install {plugin}",
-		capabilities: ["plugins", "slash-commands", "agents", "skills"],
+		capabilities: [
+			"plugins",
+			"slash-commands",
+			"agents",
+			"skills",
+			"sub-agent-user-interaction",
+		],
 	},
 	copilot: {
 		id: "copilot",

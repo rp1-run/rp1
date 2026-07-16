@@ -82,7 +82,7 @@ agents:
   - name: rp1-dev:bootstrap-scaffolder
     description: "Direct-interaction scaffolder for tech stack selection, research, and project scaffolding"
     plugin: dev
-    last_checksum: 1c5dbdcff609c1d58cfcb568a454f2109d21dc50ef53377fc7f52811f5b20dd6
+    last_checksum: 6280f8140d2c5a4243ea61cfa43cb67d293db694346430a66fb00dda59aecdf2
   - name: rp1-dev:bug-investigator
     description: "Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes"
     plugin: dev
@@ -110,7 +110,7 @@ agents:
   - name: rp1-dev:charter-interviewer
     description: "Direct-interaction interview agent for greenfield project vision capture via charter sections"
     plugin: dev
-    last_checksum: 0c1ef36718e24eeb3b0a5000914dec37eda3614b829cb52354b2ca5b4e3a473c
+    last_checksum: 226b390151d7bd6165c96e54ee480cced9f393229c7f4923867893ce77c8c0cc
   - name: rp1-dev:code-auditor
     description: "Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift"
     plugin: dev

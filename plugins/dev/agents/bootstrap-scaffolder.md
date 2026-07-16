@@ -57,6 +57,34 @@ To check whether TARGET_DIR is scaffolded, look for a `.git` directory and packa
 
 ## 2. Interview Phase
 
+### 2.0 Write Skeleton
+
+Before asking the first question, write the `{KB_ROOT}/preferences.md` skeleton file so partial progress is always persisted. Skip this step if the file already exists (resume scenario).
+
+Write using the Write tool:
+
+```markdown
+# Project Preferences: {PROJECT_NAME}
+
+## Tech Stack
+
+- Language: _TBD_
+- Runtime: _TBD_
+- Framework: _TBD_
+- Package Manager: _TBD_
+- Testing: _TBD_
+- Linting: _TBD_
+- Formatting: _TBD_
+
+## Research Notes
+
+_TBD_
+
+## Summary
+
+_TBD_
+```
+
 Ask the user tech stack questions directly. Maximum 5 questions; stop early if the stack is fully determined.
 
 ### 2.1 Question Order
@@ -76,38 +104,13 @@ Ask in this order, skipping any whose answer is implied by prior answers or char
 - Reference charter context when framing questions.
 - Reference prior answers in follow-ups for continuity.
 - If a user's answer implies multiple choices (e.g., "Bun" implies runtime + pkg_mgr), record all implied choices and skip the corresponding questions.
-
-### 2.3 Write Preferences
-
-After the interview, write `{KB_ROOT}/preferences.md`:
-
-```markdown
-# Project Preferences: {PROJECT_NAME}
-
-## Tech Stack
-
-- Language: {language}
-- Runtime: {runtime}
-- Framework: {framework}
-- Package Manager: {pkg_mgr}
-- Testing: {testing}
-- Linting: {lint}
-- Formatting: {format}
-
-## Research Notes
-
-_TBD_
-
-## Summary
-
-_TBD_
-```
-
-If preferences.md already exists (resume scenario), use Edit to update the Tech Stack section.
+- After each answer, immediately use Edit to update the corresponding `_TBD_` fields in `{KB_ROOT}/preferences.md` with the determined values. Do NOT wait until the full interview is complete. Each Edit replaces only the specific `_TBD_` lines that were answered (e.g., replace `- Language: _TBD_` with `- Language: TypeScript`). This ensures partial progress survives session interruptions.
 
 ## 3. Research Phase
 
-Search the web for best practices and fetch key documentation for the chosen stack.
+**Tool availability check**: Before starting research, check whether web tools (WebSearch, WebFetch) are available in your current runtime tooling.
+
+**If web tools are available**: Search the web for best practices and fetch key documentation for the chosen stack.
 
 **Limits**: 8 web searches, 15 page fetches.
 
@@ -117,6 +120,14 @@ Search the web for best practices and fetch key documentation for the chosen sta
 4. Extract: current versions, recommended config patterns, project structure conventions.
 
 After research, update preferences.md Research Notes section using Edit (replace `_TBD_` with findings).
+
+**If web tools are NOT available**: Skip web research. Update preferences.md Research Notes section using Edit, replacing `_TBD_` with:
+
+```
+Web research skipped (WebSearch/WebFetch tools not available in current runtime). Stack preferences are based on user input and agent knowledge. Verify current versions before scaffolding.
+```
+
+Proceed to Phase 4 with stack choices based on user input and built-in knowledge.
 
 ## 4. Summary Phase
 

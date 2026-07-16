@@ -45,16 +45,19 @@ Identify which charter sections still contain `_TBD_` placeholder text. These ar
 
 | Priority | Section | Charter Heading | Content Focus |
 |----------|---------|-----------------|---------------|
-| 1 | problem | Problem & Context | Why this exists, pain points, why now |
-| 2 | users | Target Users | Who uses it, user segments, needs |
-| 3 | value_prop | Business Rationale | Value delivered, benefits, differentiation |
-| 4 | scope | Scope Guardrails | Will/Won't lists, boundaries |
-| 5 | success | Success Criteria | Metrics, failure modes, definition of done |
+| 1 | vision | Vision | One-sentence north star, long-term aspiration |
+| 2 | problem | Problem & Context | Why this exists, pain points, why now |
+| 3 | users | Target Users | Who uses it, user segments, needs |
+| 4 | value_prop | Business Rationale | Value delivered, benefits, differentiation |
+| 5 | scope | Scope Guardrails | Will/Won't lists, boundaries |
+| 6 | success | Success Criteria | Metrics, failure modes, definition of done |
 
 For each section heading, check the content below it:
 
 - Contains `_TBD_` --> section is a **gap** (needs questions)
 - Contains real content (not `_TBD_`) --> section is **filled** (skip)
+
+**Nested marker handling for Scope Guardrails**: The `scope` section contains two nested subsections (`### Will` and `### Won't`), each with their own `_TBD_` marker. The `scope` section is a gap if EITHER nested marker contains `_TBD_`. It is filled only when BOTH `### Will` and `### Won't` have real content.
 
 Build: `gaps = [section_ids where content contains _TBD_]`
 
@@ -76,6 +79,7 @@ Conduct the interview directly with the user. Maximum 5 questions total. Stop ea
 
    | Gap | Question Focus |
    |-----|---------------|
+   | vision | What is the long-term aspiration for this project? In one sentence, what future does it enable? |
    | problem | What specific problem does this address? Why is it painful? Why solve it now? |
    | users | Who are the primary users? What are they trying to accomplish? |
    | value_prop | What unique value does your solution provide vs alternatives? |
@@ -103,6 +107,13 @@ After each user answer, write synthesized section content to the charter file us
 2. Use Edit to replace the `_TBD_` placeholder in that section with the synthesized content.
    - `old_string`: Include the section heading and the `_TBD_` text to ensure uniqueness (e.g., the line with `## Problem & Context` followed by the `_TBD_` line).
    - `new_string`: The section heading followed by synthesized content.
+
+**Nested Scope Guardrails procedure**: The `scope` section has two nested subsections that must be replaced independently:
+
+- Replace `### Will` + `- _TBD_` with `### Will` + bullet list of in-scope items.
+- Replace `### Won't` + `- _TBD_` with `### Won't` + bullet list of out-of-scope items.
+
+Each nested marker is a separate Edit call. If the user's answer only addresses one subsection (e.g., Will but not Won't), replace only that subsection's marker and leave the other as `_TBD_`. Re-check both nested markers when evaluating whether `scope` is complete.
 
 **Quality standards**:
 
