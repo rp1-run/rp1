@@ -23,17 +23,6 @@ date.
 
 ---
 
-## Advanced Agent Tools
-
-These references expose machine-facing commands. Use them when debugging or
-automating rp1; normal project setup and workflow use do not require them.
-
-| Tool | Description |
-|------|-------------|
-| [`work-search`](work-search.md) | Search project-scoped markdown work artifacts through `rp1 agent-tools work-search` |
-
----
-
 ## Skill Categories
 
 ### Knowledge Management

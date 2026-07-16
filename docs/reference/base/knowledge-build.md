@@ -201,4 +201,3 @@ flowchart TB
 ## See Also
 
 - [Knowledge-Aware Agents](../../concepts/knowledge-aware-agents.md) - How agents use the KB
-- [Map-Reduce Workflows](../../concepts/map-reduce-workflows.md) - The parallel architecture

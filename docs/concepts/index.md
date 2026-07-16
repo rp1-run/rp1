@@ -86,15 +86,3 @@ the product.
 
 **Onboarding teammates?** See [Team Onboarding](../guides/team-onboarding.md) and [`project-birds-eye-view`](../reference/base/project-birds-eye-view.md).
 
-## Advanced And Contributor Material
-
-The pages below are useful when you want to understand or maintain rp1 itself.
-They are not required for normal setup, feature work, PR review, or Arcade use.
-
-| Need | Advanced path |
-|------|---------------|
-| Understand how workflows delegate work internally | [Workflow Delegation](command-agent-pattern.md) |
-| Understand how large analysis jobs split and merge work | [Parallel Analysis](map-reduce-workflows.md) |
-| Understand resumable interview workflow design | [Resumable Interviews](stateless-agents.md) |
-| Understand Build implementation and review internals | [Build Implementation Review](builder-reviewer-agents.md) |
-| Author or maintain rp1 prompt packages | [Skill Format](skill-format.md) |

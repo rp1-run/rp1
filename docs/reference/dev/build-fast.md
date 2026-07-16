@@ -1,6 +1,6 @@
 # build-fast
 
-Quick-iteration development for small, well-scoped tasks using the [command-agent pattern](../../concepts/command-agent-pattern.md).
+Quick-iteration development for small, well-scoped tasks.
 
 ---
 
@@ -43,8 +43,7 @@ automatic comment cleanup through a generated change manifest after
 implementation and optional review. Cleanup runs only when that manifest is
 created and non-empty.
 
-This command uses the [skill-agent pattern](../../concepts/command-agent-pattern.md)
-with scope gating and AFK mode support.
+This command uses scope gating and AFK mode support.
 
 !!! tip "Codex syntax"
     In Codex, use the same workflow name with the `$rp1-dev-...` prefix, for

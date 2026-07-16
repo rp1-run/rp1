@@ -176,7 +176,6 @@ Project context should be refreshed when your codebase changes significantly:
 ## Related Concepts
 
 - [Consistent Workflows](constitutional-prompting.md) - Why rp1 workflows are structured
-- [Parallel Analysis](map-reduce-workflows.md) - Advanced explanation of how large analysis jobs split work
 
 ## Learn More
 
