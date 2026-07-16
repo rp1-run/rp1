@@ -94,7 +94,7 @@ function renderWebAccess(
 		case "antigravity":
 			return renderOC(capability, directive);
 		case "goose":
-			return `Goose unsupported capability: web access is not supported in this build. Use local evidence only, or stop and ask the user for the required source before continuing: ${directive}`;
+			return `Goose does not support web access: ${directive}`;
 	}
 }
 

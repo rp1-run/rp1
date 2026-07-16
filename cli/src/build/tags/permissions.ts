@@ -37,7 +37,7 @@ function renderPermissions(directive: string, platform: BuildPlatform): string {
 		case "antigravity":
 			return `Use Antigravity CLI trust, sandbox, and approval policy to ${directive}`;
 		case "goose":
-			return `Use Goose extension configuration and headless approval limitations to ${directive}`;
+			return `Use Goose extension configuration to ${directive}`;
 	}
 }
 

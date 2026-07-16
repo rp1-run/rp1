@@ -17,7 +17,6 @@ export {
 	buildPlatformPlugin,
 	deriveCCOutputDir,
 	deriveCodexOutputDir,
-	deriveGooseOutputDir,
 	executeBuild,
 	parseBuildArgs,
 } from "./command.js";

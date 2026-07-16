@@ -91,18 +91,6 @@ const toAntigravityArray = (
 	return [...new Set(mapped)];
 };
 
-const toGooseExtensions = (
-	allowedTools: string,
-	registry: PlatformRegistry,
-): readonly string[] => {
-	const mapped = allowedTools
-		.split(",")
-		.map((tool) => tool.trim().match(/^([A-Za-z]+)/)?.[1] ?? tool.trim())
-		.map((tool) => registry.toolMappings[tool])
-		.filter((tool): tool is string => tool !== undefined && tool !== null);
-	return [...new Set(mapped)];
-};
-
 const toCopilotShellPattern = (pattern: string): string => {
 	const trimmed = pattern.trim();
 	const wildcardStem = trimmed.match(/^([^\s]+)\s+\*$/);
@@ -225,7 +213,5 @@ export const allowedToolsFilter = (
 			return toCopilotArray(allowedTools, registry);
 		case "antigravity":
 			return toAntigravityArray(allowedTools, registry);
-		case "goose":
-			return toGooseExtensions(allowedTools, registry);
 	}
 };

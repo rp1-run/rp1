@@ -53,7 +53,9 @@ describe("L002: orphaned-platform", () => {
 
 		test("detects {% when 'goose' %}", () => {
 			const content = '{% when "goose" %}\\nGoose.';
-			expect(orphanedPlatformRule(content, "goose", "test.md").length).toBeGreaterThan(0);
+			expect(
+				orphanedPlatformRule(content, "goose", "test.md").length,
+			).toBeGreaterThan(0);
 		});
 
 		test("reports correct line number", () => {

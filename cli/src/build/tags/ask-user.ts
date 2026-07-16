@@ -12,8 +12,6 @@
  *   Codex: request_user_input: "<question>" with required options array
  *          and subagent unavailability note
  *   Antigravity: ask_user: "<question>" (with options if provided)
- *   Gemini: ask_user: "<question>" (with options if provided)
- *   Goose: unsupported interactive input note
  */
 
 import {
@@ -99,15 +97,8 @@ function renderAskUser(
 			return renderCopilot(question, options);
 		case "antigravity":
 			return renderOpenCode(question, options);
-		case "gemini":
-			return renderOpenCode(question, options);
-		case "goose": {
-			const optionsText =
-				options.length > 0
-					? ` Available options: ${options.map((option) => `"${option}"`).join(", ")}.`
-					: "";
-			return `Goose unsupported capability: interactive user input and elicitation are not supported in this build. Do not wait for headless approval. Stop and ask the user directly: "${question}".${optionsText}`;
-		}
+		case "goose":
+			return `Goose does not support interactive user input: ${question}`;
 	}
 }
 

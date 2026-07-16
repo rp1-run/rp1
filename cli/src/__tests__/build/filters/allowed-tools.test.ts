@@ -7,7 +7,6 @@
 import { describe, expect, test } from "bun:test";
 import { codexRegistry } from "../../../build/codex/registry.js";
 import { copilotRegistry } from "../../../build/copilot/registry.js";
-import { gooseRegistry } from "../../../build/goose/registry.js";
 import {
 	allowedToolsFilter,
 	copilotPermissionPatternsFilter,

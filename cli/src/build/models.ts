@@ -275,7 +275,6 @@ export interface BuildConfig {
 		| "claude-code"
 		| "copilot"
 		| "antigravity"
-		| "goose"
 		| "all";
 	readonly jsonOutput: boolean;
 	readonly lintOnly: boolean;

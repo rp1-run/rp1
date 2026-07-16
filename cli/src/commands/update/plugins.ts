@@ -8,8 +8,10 @@ import * as E from "fp-ts/lib/Either.js";
 import { formatError, getExitCode } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import { loadToolsRegistry } from "../../config/supported-tools.js";
+import { detectTools } from "../../init/tool-detector.js";
 import { getColorFns } from "../../lib/colors.js";
 import {
+	getEffectiveHarnesses,
 	type InstallAllResult,
 	type InstallContext,
 	installAllDetectedTools,
@@ -21,12 +23,16 @@ interface PluginsSubcommandDeps {
 	readonly loadToolsRegistry: typeof loadToolsRegistry;
 	readonly installAllDetectedTools: typeof installAllDetectedTools;
 	readonly updateForSpecificTool: typeof updateForSpecificTool;
+	readonly detectTools: typeof detectTools;
+	readonly getEffectiveHarnesses: typeof getEffectiveHarnesses;
 }
 
 const defaultPluginsSubcommandDeps: PluginsSubcommandDeps = {
 	loadToolsRegistry,
 	installAllDetectedTools,
 	updateForSpecificTool,
+	detectTools,
+	getEffectiveHarnesses,
 };
 
 /**
@@ -38,8 +44,6 @@ const VALID_TOOLS = [
 	"codex",
 	"copilot",
 	"antigravity",
-	"gemini",
-	"goose",
 ] as const;
 type ValidTool = (typeof VALID_TOOLS)[number];
 
@@ -152,7 +156,7 @@ export const formatUpdateAllResult = (
  *   rp1 update plugins [tool]
  *
  * Arguments:
- *   tool - Specific tool to update (claude-code, opencode, codex, copilot, antigravity, gemini, goose) or "all"
+ *   tool - Specific tool to update (claude-code, opencode, codex, copilot, antigravity) or "all"
  *          If omitted, defaults to "all"
  *
  * Options:
@@ -166,7 +170,7 @@ export const createPluginsSubcommand = (
 		.description("Update rp1 plugins for agentic tools")
 		.argument(
 			"[tool]",
-			'Tool to update: "all", "claude-code", "opencode", "codex", "copilot", "antigravity", "gemini", or "goose" (default: "all")',
+			'Tool to update: "all", "claude-code", "opencode", "codex", "copilot", or "antigravity" (default: "all")',
 		)
 		.option("--dry-run", "Show what would be done without executing", false)
 		.option("-y, --yes", "Skip confirmation prompts", false)
@@ -181,8 +185,6 @@ Arguments:
         - codex        Update plugins for Codex only
         - copilot      Update plugins for Copilot CLI only
         - antigravity  Refresh Antigravity CLI package assets only
-        - gemini       Refresh Gemini extension assets only
-        - goose        Refresh Goose recipe harness assets only
 
 Examples:
   rp1 update plugins           Update plugins for all detected tools
@@ -192,8 +194,6 @@ Examples:
   rp1 update plugins codex        Update Codex plugins only
   rp1 update plugins copilot      Update Copilot CLI plugins only
   rp1 update plugins antigravity  Refresh Antigravity package assets
-  rp1 update plugins gemini       Refresh Gemini extension assets
-  rp1 update plugins goose        Refresh Goose recipe harness assets
   rp1 update plugins --dry-run    Preview what would be updated
 `,
 		)
@@ -221,7 +221,7 @@ Examples:
 				!VALID_TOOLS.includes(targetTool as ValidTool)
 			) {
 				console.error(
-					`Invalid tool: ${targetTool}. Use "all", "claude-code", "opencode", "codex", "copilot", "antigravity", "gemini", or "goose".`,
+					`Invalid tool: ${targetTool}. Use "all", "claude-code", "opencode", "codex", "copilot", or "antigravity".`,
 				);
 				process.exit(1);
 			}
@@ -248,17 +248,55 @@ Examples:
 			let restartTargets: string[] = [];
 
 			if (targetTool === "all") {
-				// Update all detected tools
+				// Detect tools and filter to effective harnesses
 				console.log("Detecting installed tools...");
-				const result = await deps.installAllDetectedTools(registry, ctx)();
+				const detection = await deps.detectTools(registry)();
 
-				if (E.isLeft(result)) {
-					console.error(formatError(result.left, isTTY));
-					process.exit(getExitCode(result.left));
+				if (E.isLeft(detection) || detection.right.detected.length === 0) {
+					console.log(
+						"No installed agentic tools detected. Nothing to update.",
+					);
+					process.exit(0);
 				}
 
-				formatUpdateAllResult(result.right, isTTY);
-				restartTargets = result.right.results
+				const effective = deps.getEffectiveHarnesses(detection.right);
+
+				if (effective.length === 0) {
+					console.log(
+						"No enabled harnesses among detected tools. Nothing to update.",
+					);
+					process.exit(0);
+				}
+
+				const results: ToolInstallResult[] = [];
+				for (const tool of effective) {
+					const toolResult = await deps.updateForSpecificTool(
+						tool.tool.id,
+						registry,
+						ctx,
+					)();
+					if (E.isRight(toolResult)) {
+						results.push(toolResult.right);
+					} else {
+						results.push({
+							toolId: tool.tool.id,
+							toolName: tool.tool.name,
+							success: false,
+							pluginsInstalled: [],
+							warnings: [],
+							error: toolResult.left,
+						});
+					}
+				}
+
+				const allResult: InstallAllResult = {
+					installed: results.filter((r) => r.success).length,
+					results,
+					detected: effective,
+				};
+
+				formatUpdateAllResult(allResult, isTTY);
+				restartTargets = results
 					.filter(
 						(toolResult) =>
 							toolResult.success && toolResult.restartRequired !== false,
@@ -267,7 +305,7 @@ Examples:
 
 				// Exit with error if any failed
 				if (
-					result.right.results.some(
+					results.some(
 						(toolResult) => !toolResult.success && !toolResult.skipped,
 					)
 				) {

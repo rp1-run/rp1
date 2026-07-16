@@ -242,15 +242,13 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 	goose: {
 		id: "goose",
 		name: "Goose",
-		enabled: true,
+		enabled: false,
 		binary: "goose",
 		min_version: "1.35.0",
 		instruction_file: "AGENTS.md",
 		install_url: "https://block.github.io/goose/",
 		plugin_install_cmd: null,
-		supportLevel: "experimental",
-		icon: { source: "@lobehub/icons", name: "Goose", variant: "mono" },
-		capabilities: ["skills", "agents", "recipes"],
+		capabilities: ["skills", "agents"],
 	},
 };
 
@@ -269,12 +267,6 @@ import {
 	antigravityPreparePlugin,
 } from "./antigravity/hooks.js";
 import { antigravityRegistry } from "./antigravity/registry.js";
-import {
-	goosePostPluginBuild,
-	goosePostSkillWrite,
-	goosePreparePlugin,
-} from "./goose/hooks.js";
-import { gooseRegistry } from "./goose/registry.js";
 import { claudeCodeRegistry } from "./claude-code/registry.js";
 import { codexRegistry } from "./codex/registry.js";
 import { mapAgentToRoleType } from "./codex/role-mapper.js";
@@ -670,7 +662,7 @@ const copilotPostPluginBuild = async (
 
 const opencodePlatform: PlatformDefinition = {
 	id: "opencode",
-	registry: gooseRegistry,
+	registry: defaultRegistry,
 	config: platformConfigs.opencode,
 	templates: {
 		skill: "opencode/skill",
@@ -685,11 +677,6 @@ const opencodePlatform: PlatformDefinition = {
 	},
 	hooks: {
 		preparePlugin: opencodePreparePlugin,
-	},
-	hooks: {
-		preparePlugin: goosePreparePlugin,
-		postSkillWrite: goosePostSkillWrite,
-		postPluginBuild: goosePostPluginBuild,
 	},
 	producesBundleAssets: true,
 };
@@ -786,24 +773,6 @@ const antigravityPlatform: PlatformDefinition = {
 	producesBundleAssets: true,
 };
 
-const goosePlatform: PlatformDefinition = {
-	id: "goose",
-	registry: defaultRegistry,
-	config: platformConfigs.goose,
-	templates: {
-		skill: "goose/skill",
-		agent: "goose/agent",
-		manifest: "goose/manifest",
-	},
-	naming: {
-		skillDirPrefix: "rp1-",
-		agentFileName: (pluginName: string, agentName: string) =>
-			`rp1-${pluginName}-${agentName}`,
-		agentExtension: ".md",
-	},
-	producesBundleAssets: true,
-};
-
 // ---------------------------------------------------------------------------
 // Platform definitions map
 // ---------------------------------------------------------------------------
@@ -817,7 +786,6 @@ export const PLATFORM_DEFINITIONS: ReadonlyMap<
 	["codex", codexPlatform],
 	["copilot", copilotPlatform],
 	["antigravity", antigravityPlatform],
-	["goose", goosePlatform],
 ]);
 
 /**

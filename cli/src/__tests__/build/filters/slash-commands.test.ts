@@ -176,36 +176,4 @@ describe("slash_commands filter", () => {
 			expect(result).toContain("/rp1-dev/other");
 		});
 	});
-
-	describe("gemini (passthrough)", () => {
-		test("keeps Gemini colon namespace command references", () => {
-			const content = "Run /rp1-base:knowledge-load to load.";
-			expect(slashCommands(content, "gemini")).toBe(content);
-		});
-	});
-
-	describe("goose (unsupported slash command)", () => {
-		test("rewrites slash command references to fail-closed guidance", () => {
-			const content = "Run /rp1-base:knowledge-load to load.";
-			const result = slashCommands(content, "goose");
-
-			expect(result).toContain("Goose unsupported capability");
-			expect(result).toContain("/rp1-base:knowledge-load");
-			expect(result).toContain("slash-command-capable harness");
-			expect(result).not.toBe(content);
-		});
-
-		test("preserves slash command examples inside code blocks", () => {
-			const content = [
-				"Run /rp1-dev:build-fast outside.",
-				"```",
-				"/rp1-dev:build-fast inside code block",
-				"```",
-			].join("\n");
-
-			const result = slashCommands(content, "goose");
-			expect(result).toContain("Goose unsupported capability");
-			expect(result).toContain("/rp1-dev:build-fast inside code block");
-		});
-	});
 });
