@@ -59,6 +59,7 @@ export {
 	PLATFORM_DEFINITIONS,
 } from "./platform-definitions.js";
 // Preprocessor
+export type { PreprocessOptions } from "./preprocessor.js";
 export { preprocessConditionals } from "./preprocessor.js";
 // Registry
 export {

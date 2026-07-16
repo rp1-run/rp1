@@ -649,6 +649,9 @@ export const buildPlatformPlugin = async (
 		const preprocessResult = await preprocessConditionals(
 			includeResult.right,
 			platform,
+			undefined,
+			undefined,
+			{ platformConfig, artifactKind: "skill" },
 		);
 		if (E.isLeft(preprocessResult)) {
 			errors.push(formatError(preprocessResult.left, false));
@@ -857,6 +860,9 @@ export const buildPlatformPlugin = async (
 		const preprocessResult = await preprocessConditionals(
 			agentIncludeResult.right,
 			platform,
+			undefined,
+			undefined,
+			{ platformConfig, artifactKind: "agent" },
 		);
 		if (E.isLeft(preprocessResult)) {
 			errors.push(formatError(preprocessResult.left, false));

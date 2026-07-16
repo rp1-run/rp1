@@ -16,9 +16,21 @@ import * as E from "fp-ts/lib/Either.js";
 import { Liquid } from "liquidjs";
 import type { CLIError } from "../../shared/errors.js";
 import { generationError } from "../../shared/errors.js";
+import type { SupportedTool } from "../config/supported-tools.js";
 import type { PlatformRegistry } from "./models.js";
 import { registerTags } from "./tags/index.js";
 import type { BuildPlatform } from "./template-context.js";
+
+/**
+ * Optional enrichment context for preprocessor evaluation.
+ * Provides platformConfig and artifactKind to Liquid conditionals
+ * so that source content can gate on platform capabilities and
+ * whether the current artifact is a skill or agent.
+ */
+export interface PreprocessOptions {
+	readonly platformConfig?: SupportedTool;
+	readonly artifactKind?: "skill" | "agent";
+}
 
 const PLACEHOLDER_PREFIX = "@@RP1_CODEBLOCK_";
 const OUTPUT_TAG_PREFIX = "@@RP1_OUTPUTTAG_";
@@ -208,6 +220,7 @@ export const preprocessConditionals = async (
 	platform: BuildPlatform,
 	registry?: PlatformRegistry,
 	skillMap?: ReadonlyMap<string, string>,
+	options?: PreprocessOptions,
 ): Promise<E.Either<CLIError, string>> => {
 	try {
 		const { processed: withoutCode, blocks } = extractCodeBlocks(content);
@@ -220,6 +233,12 @@ export const preprocessConditionals = async (
 		}
 		if (skillMap !== undefined) {
 			context.skillMap = skillMap;
+		}
+		if (options?.platformConfig !== undefined) {
+			context.platformConfig = options.platformConfig;
+		}
+		if (options?.artifactKind !== undefined) {
+			context.artifactKind = options.artifactKind;
 		}
 		const rendered = await liquid.parseAndRender(processed, context);
 

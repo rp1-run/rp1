@@ -342,6 +342,116 @@ describe("preprocessConditionals", () => {
 		});
 	});
 
+	describe("context enrichment", () => {
+		test("platformConfig is accessible in Liquid context", async () => {
+			const content = [
+				"Start.",
+				"{% if platformConfig %}",
+				"Has config.",
+				"{% endif %}",
+				"End.",
+			].join("\n");
+
+			const withConfig = expectRight(
+				await preprocessConditionals(content, "codex", undefined, undefined, {
+					platformConfig: {
+						id: "codex",
+						name: "Codex",
+						binary: "codex",
+						min_version: "0.1.0",
+						instruction_file: "AGENTS.md",
+						install_url: "https://example.com",
+						plugin_install_cmd: null,
+						capabilities: ["dispatch-agent"],
+					},
+				}),
+			);
+			expect(withConfig).toContain("Has config.");
+
+			const withoutConfig = expectRight(
+				await preprocessConditionals(content, "codex"),
+			);
+			expect(withoutConfig).not.toContain("Has config.");
+		});
+
+		test("artifactKind is accessible in Liquid context", async () => {
+			const content = [
+				"Start.",
+				'{% if artifactKind == "agent" %}',
+				"Agent-specific content.",
+				"{% endif %}",
+				'{% if artifactKind == "skill" %}',
+				"Skill-specific content.",
+				"{% endif %}",
+				"End.",
+			].join("\n");
+
+			const agentResult = expectRight(
+				await preprocessConditionals(content, "codex", undefined, undefined, {
+					artifactKind: "agent",
+				}),
+			);
+			expect(agentResult).toContain("Agent-specific content.");
+			expect(agentResult).not.toContain("Skill-specific content.");
+
+			const skillResult = expectRight(
+				await preprocessConditionals(content, "codex", undefined, undefined, {
+					artifactKind: "skill",
+				}),
+			);
+			expect(skillResult).toContain("Skill-specific content.");
+			expect(skillResult).not.toContain("Agent-specific content.");
+		});
+
+		test("platformConfig capabilities are queryable in Liquid conditionals", async () => {
+			const content = [
+				"Start.",
+				'{% if platformConfig.capabilities contains "sub-agent-user-interaction" %}',
+				"Has interaction capability.",
+				"{% endif %}",
+				"End.",
+			].join("\n");
+
+			const withCap = expectRight(
+				await preprocessConditionals(
+					content,
+					"claude-code",
+					undefined,
+					undefined,
+					{
+						platformConfig: {
+							id: "claude-code",
+							name: "Claude Code",
+							binary: "claude",
+							min_version: "1.0.0",
+							instruction_file: "CLAUDE.md",
+							install_url: "https://example.com",
+							plugin_install_cmd: null,
+							capabilities: ["sub-agent-user-interaction", "dispatch-agent"],
+						},
+					},
+				),
+			);
+			expect(withCap).toContain("Has interaction capability.");
+
+			const withoutCap = expectRight(
+				await preprocessConditionals(content, "codex", undefined, undefined, {
+					platformConfig: {
+						id: "codex",
+						name: "Codex",
+						binary: "codex",
+						min_version: "0.1.0",
+						instruction_file: "AGENTS.md",
+						install_url: "https://example.com",
+						plugin_install_cmd: null,
+						capabilities: ["dispatch-agent"],
+					},
+				}),
+			);
+			expect(withoutCap).not.toContain("Has interaction capability.");
+		});
+	});
+
 	describe("error handling", () => {
 		test("returns Left on malformed Liquid syntax", async () => {
 			const content = ["Start.", "{% if %}", "Bad syntax.", "{% endif %}"].join(
