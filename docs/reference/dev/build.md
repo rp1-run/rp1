@@ -458,5 +458,4 @@ for live Antigravity evidence.
 ## See Also
 
 - [Feature Development Guide](../../guides/feature-development.md) - End-to-end feature workflow and build guidance
-- [Builder-Reviewer Agents](../../concepts/builder-reviewer-agents.md) - How the build step works
 - [Codex Platform Guide](../platforms/codex.md) - Codex invocation and generated build output

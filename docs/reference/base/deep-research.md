@@ -281,5 +281,4 @@ The command asks clarifying questions only when the research topic is ambiguous:
 
 ## See Also
 
-- [Map-Reduce Workflows](../../concepts/map-reduce-workflows.md) - The parallel architecture pattern
 - [Knowledge-Aware Agents](../../concepts/knowledge-aware-agents.md) - How KB improves research quality

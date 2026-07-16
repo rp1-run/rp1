@@ -71,18 +71,13 @@ available when you need the complete command list.
 | Remote PR review from automation | [Remote PR Review](../guides/remote-pr-review.md) |
 | PR review configuration file | [`pr-review.yaml`](pr-review-config.md) |
 
-## Advanced And Maintainer References
+## Advanced References
 
 | Need | Reference |
 |------|-----------|
-| Public-docs boundary and routing rules | [Documentation Boundary](documentation-boundary.md) |
 | Project-local `.rp1/` files | [The `.rp1` Directory](../getting-started/rp1-directory.md) |
 | User-facing concepts | [Concepts](../concepts/index.md) |
-| Advanced workflow architecture | [Workflow Delegation](../concepts/command-agent-pattern.md), [Parallel Analysis](../concepts/map-reduce-workflows.md), [Resumable Interviews](../concepts/stateless-agents.md) |
-| Authoring format for rp1 skills | [Skill Format](../concepts/skill-format.md) |
-| Search work artifacts through the agent-tool API | [`work-search`](base/work-search.md) |
 | Fence marker versioning | [Fence Versioning](cli/fence-versioning.md) |
-| Retired features | [Retired Features](../retired-features.md) |
 
 ## Complete Catalogs
 

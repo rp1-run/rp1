@@ -89,11 +89,11 @@ arguments:
 
 The build pipeline auto-derives the `argument-hint` string from these definitions. Do not write manual `argument-hint` strings or hand-written `## Parameters` / `## 0. Parameters` tables -- both trigger build errors.
 
-Argument names use UPPER_SNAKE_CASE. Supported types: `string`, `boolean`, `enum`. See [docs/concepts/skill-format.md](docs/concepts/skill-format.md) for the full field reference.
+Argument names use UPPER_SNAKE_CASE. Supported types: `string`, `boolean`, `enum`.
 
 ### Canonical variable assignment
 
-The build pipeline automatically injects a `## 0. Resolve Arguments` section into every parameterized skill that declares `metadata.arguments`. This section calls `rp1 agent-tools resolve-args --name rp1-{plugin}:{skill}` to resolve both user-supplied arguments and environment variables, returning structured JSON. Skill authors do **not** write this section — it is generated from frontmatter. See [docs/concepts/skill-format.md](docs/concepts/skill-format.md) for details.
+The build pipeline automatically injects a `## 0. Resolve Arguments` section into every parameterized skill that declares `metadata.arguments`. This section calls `rp1 agent-tools resolve-args --name rp1-{plugin}:{skill}` to resolve both user-supplied arguments and environment variables, returning structured JSON. Skill authors do **not** write this section — it is generated from frontmatter.
 
 **Agents are excluded** from this requirement -- they receive pre-resolved named parameters from parent skills and do not call `resolve-args` themselves.
 
@@ -138,7 +138,7 @@ The system automatically resolves relative paths against the correct base direct
 
 ## Skill frontmatter
 
-All invocable prompts use the canonical `SKILL.md` format described in [docs/concepts/skill-format.md](docs/concepts/skill-format.md).
+All invocable prompts use the canonical `SKILL.md` format.
 
 If a skill executes shell commands, add `allowed-tools` in frontmatter. Default to:
 
@@ -203,7 +203,7 @@ Examples of correctly namespaced steps:
 - `feature-verifier:verifying`, `feature-verifier:completed`, `feature-verifier:failed`
 - `task-reviewer:reviewing`, `task-reviewer:completed`, `task-reviewer:failed`
 
-For the full pattern and command examples, see [docs/concepts/state-machines.md](docs/concepts/state-machines.md).
+For the full pattern and command examples, see the STATE-MACHINE sections in the relevant agent and skill files.
 
 ## Repo-specific development defaults
 

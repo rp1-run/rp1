@@ -17,7 +17,6 @@ AI assistant session.
 | [`check-update`](check-update.md) | Check for CLI and stanza updates |
 | [`settings`](settings.md) | Manage settings files and model tier remappings |
 | [`rp1 migrate`](rp1-migrate.md) | Migrate older projects into the project-local `.rp1/` layout |
-| [`agent-tools`](agent-tools.md) | Agent-oriented tools for directory resolution, event emission, and argument resolution |
 | [Fence Versioning](fence-versioning.md) | How fence version markers work |
 
 ---

@@ -138,7 +138,6 @@ session.
 ## Related Concepts
 
 - [Project Context](knowledge-aware-agents.md) - How workflows understand your codebase
-- [Workflow Delegation](command-agent-pattern.md) - Advanced explanation of how rp1 routes work internally
 
 ## Learn More
 
