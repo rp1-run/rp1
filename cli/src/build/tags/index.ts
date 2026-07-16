@@ -27,6 +27,48 @@ import { PlanToolTag } from "./plan-tool.js";
 import { WebAccessTag } from "./web-access.js";
 
 // ---------------------------------------------------------------------------
+// Relay detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Capability string indicating a platform's sub-agents can prompt
+ * users directly (no parent relay needed).
+ */
+export const SUB_AGENT_USER_INTERACTION = "sub-agent-user-interaction" as const;
+
+/**
+ * Platforms known to support direct sub-agent user interaction.
+ * Used as a fallback when the capabilities array is unavailable
+ * (e.g., in tests or custom render contexts).
+ */
+const DIRECT_INTERACTION_PLATFORMS: ReadonlySet<BuildPlatform> = new Set([
+	"claude-code",
+]);
+
+/**
+ * Determine whether a harness supports direct sub-agent user interaction
+ * (the sub-agent can prompt the user itself) or requires a relay protocol
+ * (the parent skill relays questions/answers between sub-agent and user).
+ *
+ * When `capabilities` is provided, detection is data-driven from the
+ * platform config. When omitted, falls back to a known-platform set
+ * for edge cases like tests and custom renders.
+ *
+ * @param platform - Target build platform
+ * @param capabilities - Platform capabilities array (from SupportedTool.capabilities)
+ * @returns `true` if sub-agents can prompt users directly; `false` for relay mode
+ */
+export function isDirectInteractionHarness(
+	platform: BuildPlatform,
+	capabilities?: readonly string[],
+): boolean {
+	if (capabilities !== undefined) {
+		return capabilities.includes(SUB_AGENT_USER_INTERACTION);
+	}
+	return DIRECT_INTERACTION_PLATFORMS.has(platform);
+}
+
+// ---------------------------------------------------------------------------
 // Parsed tag arguments model
 // ---------------------------------------------------------------------------
 
