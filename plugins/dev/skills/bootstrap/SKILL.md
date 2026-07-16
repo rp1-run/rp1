@@ -83,7 +83,7 @@ Create subdir if needed: `mkdir -p "{TARGET_DIR}"` (fail -> abort)
 
 **Resolve paths**: `rp1Dir = {TARGET_DIR}/.rp1` then `kbRoot = {rp1Dir}/context`
 
-## §4 Charter Phase (Stateless)
+## §4 Charter Phase
 
 ### 4.1 Init Charter
 
@@ -91,125 +91,25 @@ Create subdir if needed: `mkdir -p "{TARGET_DIR}"` (fail -> abort)
 mkdir -p "{kbRoot}"
 ```
 
-Create `{kbRoot}/charter.md`:
+Read the charter template at `plugins/base/skills/artifact-templates/templates/charter-interviewer/charter.md`. Create `{kbRoot}/charter.md` from it, filling `{Project Name}` with `{PROJECT_NAME}`, `{Date}` with today's date, and `{Draft | Complete}` with "Draft".
 
-```markdown
-# Project Charter: {PROJECT_NAME}
-**Version**: 1.0.0 | **Status**: Draft | **Created**: {timestamp}
+### 4.2 Charter Interview
 
-## Vision
-_TBD_
-## Problem & Context
-_TBD_
-## Target Users
-_TBD_
-## Business Rationale
-_TBD_
-## Scope Guardrails
-### Will Do
-_TBD_
-### Won't Do
-_TBD_
-## Success Criteria
-_TBD_
-## Scratch Pad
-<!-- Interview state - removed on completion -->
-<!-- Mode: CREATE -->
-<!-- Started: {timestamp} -->
-<!-- End scratch pad -->
-```
-
-### 4.2 Interview Loop
-
-CHARTER_PATH = `{kbRoot}/charter.md`
-question_count = 0
-
-while question_count < 10:
-    {% dispatch_agent "rp1-dev:charter-interviewer" %}
-    CHARTER_PATH: {CHARTER_PATH}, MODE: CREATE
-    {% enddispatch_agent %}
-
-    response = parse_json(output)
-
-    if response.type == "next_question":
-        answer = {% ask_user "response.next_question" %}
-        question_count++
-        Append to scratch pad: `### Q{n}: {topic}` / `**Asked**: {q}` / `**Answer**: {answer}`
-
-    elif response.type == "success":
-        Update charter sections w/ response.charter_content
-        Remove scratch pad section
-        break
-
-    elif response.type == "skip":
-        question_count++
-        Append: `### Q{n}: Skipped` / `**Skipped**: {response.message}`
-
-    elif response.type == "error":
-        Output: "Charter error: {response.message}. Re-run /bootstrap to retry."
-        break
+{% dispatch_agent "rp1-dev:charter-interviewer" %}
+CHARTER_PATH={kbRoot}/charter.md, MODE=CREATE
+{% enddispatch_agent %}
 
 ### 4.3 Verify
 
 `ls "{kbRoot}/charter.md"` - missing -> warn, continue
 
-## §5 Scaffold Phase (Stateless)
+## §5 Scaffold Phase
 
-### 5.1 Init Preferences
+{% dispatch_agent "rp1-dev:bootstrap-scaffolder" %}
+PROJECT_NAME={PROJECT_NAME}, TARGET_DIR={TARGET_DIR}, CHARTER_PATH={kbRoot}/charter.md, KB_ROOT={kbRoot}
+{% enddispatch_agent %}
 
-Create `{kbRoot}/preferences.md`:
-
-```markdown
-# Project Preferences
-**Generated**: {timestamp} | **Status**: In Progress
-
-## Scratch Pad
-<!-- Phase: INTERVIEW -->
-<!-- Questions Asked: 0 -->
-<!-- Started: {timestamp} -->
-
-### Tech Stack State
-Language: [?] | Runtime: [?] | Framework: [?] | PkgMgr: [?]
-Testing: [?] | Build: [?] | Lint: [?] | Format: [?]
-
-### Q&A History
-### Research Notes
-<!-- End scratch pad -->
-```
-
-### 5.2 Scaffolder Loop
-
-PREFS_PATH = `{kbRoot}/preferences.md`
-question_count = 0, summary_iterations = 0
-
-loop:
-  {% dispatch_agent "rp1-dev:bootstrap-scaffolder" %}
-  PROJECT_NAME, TARGET_DIR, CHARTER_PATH, PREFS_PATH
-  KB_ROOT={kbRoot}
-  {% enddispatch_agent %}
-
-  response = parse_json(output)
-
-  if "next_question":
-    answer = {% ask_user "response.next_question" %}
-    question_count++
-    Append to scratch pad: `### Q{n}: {topic}` / `**Asked**: {q}` / `**Answer**: {answer}`
-    continue
-  elif "research_ready": update phase to RESEARCH, continue
-  elif "summary":
-    answer = {% ask_user "{summary} Proceed?", options: "Yes", "No" %}
-    if Yes: update phase to SCAFFOLD, continue
-    else:
-      summary_iterations++
-      if >= 2: "Max revisions. Re-run /bootstrap." break
-      answer = {% ask_user "What would you like to change?" %}
-      Append to scratch pad: `### Revision: {answer}`
-      continue
-  elif "scaffold": continue
-  elif "success": Output response.output, break
-  elif "error": Output error, break
-
-### 5.3 Verify
+### 5.1 Verify
 
 `ls "{TARGET_DIR}"` - confirm: package.json (or equiv), src/, tests/, README.md, AGENTS.md
 
