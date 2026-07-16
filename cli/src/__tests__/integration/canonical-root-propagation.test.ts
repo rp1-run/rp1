@@ -28,7 +28,8 @@ describe("canonical root propagation", () => {
 			{
 				path: "plugins/dev/skills/blueprint/SKILL.md",
 				expected: [
-					"PRD_NAME={PRD_NAME}, EXTRA_CONTEXT={EXTRA_CONTEXT}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}",
+					"CHARTER_PATH={kbRoot}/charter.md",
+					"PRD_NAME={PRD_NAME}, PRD_PATH={workRoot}/prds/{PRD_NAME}.md, EXTRA_CONTEXT={EXTRA_CONTEXT}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}",
 				],
 			},
 			{
@@ -133,11 +134,9 @@ describe("canonical root propagation", () => {
 				expected: [
 					"{{KB_ROOT from prompt}}",
 					"{{WORK_ROOT from prompt}}",
-					"PRD=`{WORK_ROOT}/prds/{PRD_NAME}.md`, Charter=`{KB_ROOT}/charter.md`",
+					"`{KB_ROOT}/charter.md`",
 				],
-				unexpected: [
-					"PRD=`.rp1/work/prds/{PRD_NAME}.md`, Charter=`.rp1/context/charter.md`",
-				],
+				unexpected: ["`.rp1/context/charter.md`"],
 			},
 			{
 				path: "plugins/base/agents/project-documenter.md",
