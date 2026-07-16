@@ -22,10 +22,14 @@ Guided wizard that captures project vision through a two-tier document hierarchy
 
 ## Description
 
-The `blueprint` command creates the foundational documentation for your project through guided questioning. It establishes a two-tier hierarchy:
+The `blueprint` command creates the foundational documentation for your project through guided interviews. Each interview phase dispatches an agent once, and the agent asks you questions directly and writes completed sections to the artifact incrementally.
+
+It establishes a two-tier hierarchy:
 
 1. **Charter** - Project-level vision document (why, who, scope)
 2. **PRDs** - Surface-specific requirements (what to build)
+
+**Resume**: If an interview is interrupted, re-running `/blueprint` detects which sections still contain `_TBD_` placeholders and asks only about those incomplete sections. Already-completed sections are preserved.
 
 ## Parameters
 

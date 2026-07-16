@@ -112,7 +112,7 @@ Path Variable ──locates──> Knowledge Base (KB_ROOT resolves the storage-
 | Map-Reduce | KB generation, PR review | Spatial analyzer maps work to parallel units; orchestrator reduces results |
 | Skill-Agent Delegation | All workflow entry points | Skill interprets request, loads context, delegates bounded work to agents |
 | Builder-Reviewer | Feature implementation | Builder implements, reviewer verifies; one retry cycle with user escalation |
-| Stateless Agent | Blueprint charter creation | State persisted in visible file-based scratch pad for session-independent resumability |
+| Single-Dispatch Interview | Blueprint/bootstrap interviews | Agent dispatched once, asks user directly, writes sections incrementally, resumes via _TBD_ gap analysis |
 | Data-Driven Platform Build | Multi-platform artifacts | PlatformDefinition entries capture all platform-varying behavior |
 | Notification Auto-Generation | Emit pipeline | Status changes and waiting_for_user events auto-generate deduplicated notifications |
 | Build-Time Tier Resolution | Agent build pipeline | Frontmatter declares abstract tier + effort; `resolveTier()`/`resolveEffort()` map to platform specifics before rendering. Templates stay format-only |
