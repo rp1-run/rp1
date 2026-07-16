@@ -391,12 +391,53 @@ Interview the user about their project vision and goals
 			});
 		});
 
-		describe("codex followup_task specificity", () => {
-			test("codex relay mentions followup_task but opencode does not", async () => {
-				const codexOutput = await render(template, "codex");
-				const opencodeOutput = await render(template, "opencode");
-				expect(codexOutput).toContain("followup_task");
-				expect(opencodeOutput).not.toContain("followup_task");
+		describe("per-harness continuation semantics", () => {
+			test("codex relay specifies followup_task continuation", async () => {
+				const output = await render(template, "codex");
+				expect(output).toContain("followup_task");
+			});
+
+			test("opencode relay specifies re-dispatch with accumulated context", async () => {
+				const output = await render(template, "opencode");
+				expect(output).toMatch(/Re-dispatch/);
+				expect(output).toContain("extra context");
+				expect(output).toMatch(
+					/sub-agent sessions cannot be.*(prompted|resumed)/i,
+				);
+			});
+
+			test("opencode relay does not mention followup_task", async () => {
+				const output = await render(template, "opencode");
+				expect(output).not.toContain("followup_task");
+			});
+
+			test("copilot relay specifies artifact-file handoff", async () => {
+				const output = await render(template, "copilot");
+				expect(output).toContain("artifact");
+				expect(output).toMatch(/\.rp1\/work\/agent-output\//);
+			});
+
+			test("antigravity relay specifies re-invocation", async () => {
+				const output = await render(template, "antigravity");
+				expect(output).toMatch(/re-invok/i);
+			});
+
+			test("each relay harness has a distinct continuation mechanism", async () => {
+				const codex = await render(template, "codex");
+				const opencode = await render(template, "opencode");
+				const copilot = await render(template, "copilot");
+				const antigravity = await render(template, "antigravity");
+
+				// Each platform mentions its own mechanism
+				expect(codex).toContain("followup_task");
+				expect(opencode).toMatch(/Re-dispatch/);
+				expect(copilot).toContain("artifact");
+				expect(antigravity).toMatch(/re-invok/i);
+
+				// No two platforms share the same generic step 3 text
+				expect(opencode).not.toContain("followup_task");
+				expect(copilot).not.toContain("followup_task");
+				expect(antigravity).not.toContain("followup_task");
 			});
 		});
 	});

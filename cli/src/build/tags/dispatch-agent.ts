@@ -121,10 +121,32 @@ This agent runs in the background. Continue with other work. Check its result la
  * @param platform - Target build platform (determines continuation mechanism)
  */
 function renderRelayInstructions(platform: BuildPlatform): string {
-	const continueStep =
-		platform === "codex"
-			? "Send the answer back to the same agent via `followup_task` to continue its work"
-			: "Send the answer back to the agent to continue its work";
+	let continueStep: string;
+	switch (platform) {
+		case "codex":
+			continueStep =
+				"Send the answer back to the same agent via `followup_task` to continue its work";
+			break;
+		case "opencode":
+			continueStep =
+				"Re-dispatch the interview agent with the user's answer appended as extra context " +
+				"(OpenCode sub-agent sessions cannot be prompted or resumed after dispatch). " +
+				"The agent's gap analysis resumes naturally from accumulated written state";
+			break;
+		case "copilot":
+			continueStep =
+				"Write the user's answer to the agent's artifact file at " +
+				"`.rp1/work/agent-output/{run-id}/answer.json` and re-dispatch the agent " +
+				"to continue from where it left off";
+			break;
+		case "antigravity":
+			continueStep =
+				"Re-invoke the agent with the user's answer appended as extra context to continue its work";
+			break;
+		default:
+			continueStep = "Send the answer back to the agent to continue its work";
+			break;
+	}
 
 	return (
 		"\n\n**Relay protocol**: If the agent returns a structured envelope instead of completing directly, follow this relay loop:" +
