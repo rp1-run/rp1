@@ -1,6 +1,6 @@
 ---
 name: blueprint
-description: "Guided wizard for project vision via two-tier docs (charter + PRDs) with stateless interview loops."
+description: "Guided wizard for project vision via two-tier docs (charter + PRDs) with single-dispatch interviews."
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: planning
@@ -17,7 +17,7 @@ metadata:
     - onboarding
     - core
   created: 2025-11-30
-  updated: 2026-02-26
+  updated: 2026-07-16
   author: cloud-on-prem/rp1
   arguments:
     - name: PRD_NAME
@@ -85,190 +85,85 @@ Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the gen
 
 ## §PROC
 
-### Step 1: Mode Detection
+### Step 1: Detect Mode
+
+Emit detect state:
+```
+rp1 agent-tools emit --workflow blueprint --type status_change --run-id {RUN_ID} --name "{RUN_NAME}" --step detect --data '{"status": "running"}'
+```
 
 Read `{kbRoot}/charter.md`:
 
-| Condition | Mode | Message |
-|-----------|------|---------|
-| Not exist | CREATE | "Starting new charter creation. I'll guide you through defining your project vision." |
-| Exists + has `## Scratch Pad` | RESUME | "Resuming interrupted charter session. I'll continue from where you left off." |
-| Exists + no scratch pad | UPDATE | "Updating existing charter. I'll ask focused questions about changes you want to make." |
+| Condition | Charter Action | Next |
+|-----------|----------------|------|
+| Not exist | CREATE: create from template, dispatch charter-interviewer | Step 2 |
+| Exists + has `_TBD_` sections | UPDATE: dispatch charter-interviewer to fill gaps | Step 2 |
+| Exists + no `_TBD_` sections | Charter complete, skip charter phase | Step 3 |
 
-### Step 2: Initialize Scratch Pad
+### Step 2: Charter Phase
 
-**CREATE** - Write charter.md:
-```markdown
-# Project Charter: [To Be Determined]
-
-**Version**: 1.0.0
-**Status**: Draft
-**Created**: {YYYY-MM-DD}
-
-## Scratch Pad
-
-<!-- Interview state - will be removed upon completion -->
-<!-- Mode: CREATE -->
-<!-- Started: {ISO timestamp} -->
-
-<!-- End scratch pad -->
+Emit charter state:
+```
+rp1 agent-tools emit --workflow blueprint --type status_change --run-id {RUN_ID} --step charter --data '{"status": "running"}'
 ```
 
-**UPDATE** - Edit: append scratch pad after last line:
-```markdown
-## Scratch Pad
+**If CREATE** (charter does not exist):
 
-<!-- Interview state - will be removed upon completion -->
-<!-- Mode: UPDATE -->
-<!-- Started: {ISO timestamp} -->
+Read the charter template at `plugins/base/skills/artifact-templates/templates/charter-interviewer/charter.md`. Create `{kbRoot}/charter.md` from it, filling `{Project Name}` with "To Be Determined", `{Date}` with today's date, and `{Draft | Complete}` with "Draft".
 
-<!-- End scratch pad -->
+**Dispatch** (both CREATE and UPDATE):
+
+{% dispatch_agent "rp1-dev:charter-interviewer" %}
+CHARTER_PATH={kbRoot}/charter.md, MODE={CREATE or UPDATE}
+{% enddispatch_agent %}
+
+Register charter artifact:
+```bash
+rp1 agent-tools emit \
+  --workflow blueprint \
+  --type artifact_registered \
+  --run-id {RUN_ID} \
+  --step charter \
+  --data '{"path": ".rp1/context/charter.md", "feature": "blueprint", "storageRoot": "project"}'
 ```
 
-**RESUME** - No init (scratch pad exists).
+### Step 3: PRD Creation
 
-### Step 3: Charter Interview Loop
+Emit prd state:
+```
+rp1 agent-tools emit --workflow blueprint --type status_change --run-id {RUN_ID} --step prd --data '{"status": "running"}'
+```
 
-question_number = 0
-loop:
-  1. {% dispatch_agent "rp1-dev:charter-interviewer" %}
-     CHARTER_PATH={kbRoot}/charter.md, MODE={mode}
-     {% enddispatch_agent %}
+#### 3.1 PRD Name
 
-  2. Parse JSON response
-
-  3. Handle by type:
-
-     next_question:
-        question_number = metadata.question_number
-        topic = map_gap_to_topic(metadata.gaps_remaining[0])
-        answer = {% ask_user "response.next_question" %}
-        Edit charter.md (insert before `<!-- End scratch pad -->`):
-           `### Q{N}: {topic}`
-           `**Asked**: {question}`
-           `**Answer**: {answer}`
-        continue
-
-     success:
-        Write charter sections from response.charter_content
-        Remove "## Scratch Pad" section entirely
-        Update status to "Complete"
-        Register artifact:
-        ```bash
-        rp1 agent-tools emit \
-          --workflow blueprint \
-          --type artifact_registered \
-          --run-id {RUN_ID} \
-          --step charter \
-          --data '{"path": ".rp1/context/charter.md", "feature": "blueprint", "storageRoot": "project"}'
-        ```
-        Output: "Charter complete! Proceeding to PRD creation..."
-        break -> Step 4
-
-     skip:
-        question_number = metadata.question_number
-        topic = from message
-        Edit charter.md:
-           `### Q{N}: {topic}`
-           `**Skipped**: {message}`
-        continue
-
-     error:
-        Output: "Charter interview encountered an error. Scratch pad state preserved for retry."
-        Preserve scratch pad, EXIT (no PRD)
-
-**Topic Map**:
-| Gap | Topic |
-|-----|-------|
-| problem | Problem & Context |
-| users | Target Users |
-| value_prop | Value Proposition |
-| scope | Scope |
-| success | Success Criteria |
-| (Q1 CREATE) | Brain Dump |
-
-**Scratch Pad Edits**:
-- Insert Q&A: `old_string: <!-- End scratch pad -->` -> prepend entry
-- Remove: match `## Scratch Pad` through `<!-- End scratch pad -->`, replace w/ empty
-
-### Step 4: PRD Creation
-
-#### 4.1 PRD Name
 `PRD_NAME = PRD_NAME || "main"`
 
-#### 4.2 Init PRD
-Create `{workRoot}/prds/{PRD_NAME}.md`:
-```markdown
-# PRD: {PRD_NAME}
+#### 3.2 Init PRD
 
-**Charter**: [Project Charter]({kbRoot}/charter.md)
-**Version**: 1.0.0
-**Status**: Draft
-**Created**: {YYYY-MM-DD}
+If `{workRoot}/prds/{PRD_NAME}.md` does not exist:
 
-## Scratch Pad
+Read the PRD template at `plugins/base/skills/artifact-templates/templates/blueprint-wizard/prd.md`. Create `{workRoot}/prds/{PRD_NAME}.md` from it, filling `{Surface Name}` with `{PRD_NAME}` and `{Date}` with today's date.
 
-<!-- Mode: CREATE -->
-<!-- Section: 1 -->
-<!-- Started: {timestamp} -->
+If the PRD exists and contains no `_TBD_` sections, skip to 3.4 (PRD already complete).
 
-### Q&A History
+#### 3.3 PRD Interview
 
-<!-- End scratch pad -->
+{% dispatch_agent "rp1-dev:blueprint-wizard" %}
+PRD_NAME={PRD_NAME}, PRD_PATH={workRoot}/prds/{PRD_NAME}.md, EXTRA_CONTEXT={EXTRA_CONTEXT}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}
+{% enddispatch_agent %}
+
+Register PRD artifact:
+```bash
+rp1 agent-tools emit \
+  --workflow blueprint \
+  --type artifact_registered \
+  --run-id {RUN_ID} \
+  --step prd \
+  --data '{"path": "prds/{PRD_NAME}.md", "feature": "{PRD_NAME}", "storageRoot": "work_dir"}'
 ```
 
-#### 4.3 PRD Loop
+#### 3.4 Success Output
 
-PRD_PATH = `{workRoot}/prds/{PRD_NAME}.md`
-question_count = 0
-
-loop:
-  {% dispatch_agent "rp1-dev:blueprint-wizard" %}
-  PRD_NAME={PRD_NAME}, EXTRA_CONTEXT={EXTRA_CONTEXT}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}
-  {% enddispatch_agent %}
-
-  Parse JSON response
-
-  next_question | validate:
-      answer = {% ask_user "response.next_question" %}
-      question_count++
-      Edit PRD (insert before `<!-- End scratch pad -->`):
-         `#### S{section}: {topic}`
-         `**Asked**: {question}`
-         `**Answer**: {answer}`
-      continue
-
-  section_complete:
-      Update section marker: `<!-- Section: {N} -->` -> `<!-- Section: {N+1} -->`
-      Write section content to PRD above scratch pad
-      continue
-
-  uncertainty:
-      guess = {% ask_user "response.message" %}
-      Add: `**Assumption**: {guess}`
-      continue
-
-  success:
-      Write PRD w/ response.prd_content (removes scratch pad)
-      Register artifact:
-      ```bash
-      rp1 agent-tools emit \
-        --workflow blueprint \
-        --type artifact_registered \
-        --run-id {RUN_ID} \
-        --step prd \
-        --data '{"path": "prds/{PRD_NAME}.md", "feature": "{PRD_NAME}", "storageRoot": "work_dir"}'
-      ```
-      Output: "PRD created at {PRD_PATH}"
-      break
-
-  error:
-      Output: "PRD creation error: {message}"
-      If metadata.missing == "charter":
-         Output: "Please run /blueprint without arguments to create the charter first."
-      break
-
-#### 4.4 Success Output
 ```
 PRD created!
 
@@ -279,6 +174,11 @@ Next Steps:
 - For a single feature: /rp1-dev:build <feature-id>
 - For initiative-sized work: /rp1-dev:phase-plan prds/{PRD_NAME}.md
 - Add more surfaces: /rp1-dev:blueprint mobile-app
+```
+
+Emit completion:
+```
+rp1 agent-tools emit --workflow blueprint --type status_change --run-id {RUN_ID} --step prd --data '{"status": "completed"}' --close-run
 ```
 
 ## §USAGE
