@@ -48,15 +48,13 @@ function findAnchorPosition(
 		case "text-selection": {
 			const textAnchor = anchor as TextSelectionAnchor;
 
-			// Source coordinates are exact slices of the markdown file;
-			// prefer them over rendered-text matching. Occurrence identity is
-			// preserved: when the original occurrence is gone, fall through to
-			// rendered matching instead of wrapping an arbitrary duplicate.
+			// Source coordinates are exact slices of the markdown file and are
+			// authoritative: when the annotated occurrence is gone, do not fall
+			// back to rendered-text matching — it would wrap an arbitrary
+			// duplicate. Rendered matching below is for legacy anchors only.
 			if (textAnchor.source) {
 				const located = locateSourceAnchor(textAnchor.source, content);
-				if (located) {
-					return { start: located.start, end: located.end };
-				}
+				return located ? { start: located.start, end: located.end } : null;
 			}
 
 			const searchText = textAnchor.selectedText;
