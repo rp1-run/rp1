@@ -150,6 +150,7 @@ To resume, re-run:
 
 - If PRD_NAME was provided: print `/rp1-dev:blueprint {PRD_NAME}`
 - If no PRD_NAME was provided: print `/rp1-dev:blueprint`
+- If EXTRA_CONTEXT was originally provided (non-empty), append ` --EXTRA_CONTEXT "{EXTRA_CONTEXT}"` (safely quoted) to the command
 
 ```
 The charter-interviewer will detect remaining _TBD_ sections and resume via gap analysis.
@@ -228,7 +229,14 @@ PRD partially complete -- some sections still need input.
 Partial progress saved:
 - {workRoot}/prds/{PRD_NAME}.md
 
-To resume: re-run `/rp1-dev:blueprint {PRD_NAME}` -- the wizard will detect remaining _TBD_ sections and resume via gap analysis.
+To resume, re-run:
+```
+
+- Print `/rp1-dev:blueprint {PRD_NAME}`
+- If EXTRA_CONTEXT was originally provided (non-empty), append ` --EXTRA_CONTEXT "{EXTRA_CONTEXT}"` (safely quoted)
+
+```
+The wizard will detect remaining _TBD_ sections and resume via gap analysis.
 ```
 
 Emit completed status and close the run:

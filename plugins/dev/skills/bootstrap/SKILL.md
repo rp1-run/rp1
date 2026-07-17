@@ -39,7 +39,8 @@ Classify directory state:
 
 - **rp1-initialized**: Only `.`, `..`, `.DS_Store`, `.rp1/`, `CLAUDE.md`, `AGENTS.md` (user ran `rp1 init` here)
 - **Empty**: Only `.`, `..`, `.DS_Store` (no rp1 files)
-- **Non-empty**: Contains project files -> list top 10-15
+- **bootstrap-in-progress**: `.rp1/context/charter.md` exists (prior partial bootstrap)
+- **Non-empty**: Contains project files without `.rp1/context/charter.md` -> list top 10-15
 
 **Extract CURRENT_DIR_NAME**: basename of current working directory (e.g., `/home/user/my-app` -> `my-app`)
 
@@ -47,7 +48,7 @@ Classify directory state:
 
 **PROJECT_NAME provided**: Validate (no spaces, valid dir chars). PROJECT_NAME = PROJECT_NAME
 
-**PROJECT_NAME empty + rp1-initialized**: PROJECT_NAME = CURRENT_DIR_NAME (auto-extracted from directory basename)
+**PROJECT_NAME empty + rp1-initialized or bootstrap-in-progress**: PROJECT_NAME = CURRENT_DIR_NAME (auto-extracted from directory basename)
 
 **PROJECT_NAME empty + Empty/Non-empty**: {% ask_user "What would you like to name your project? Use lowercase, numbers, hyphens (e.g., my-awesome-app)." %}
 
@@ -71,6 +72,12 @@ Max 2 attempts for validation, then abort.
 
 - here/1: TARGET_DIR = cwd
 - subdirectory/2: TARGET_DIR = `{cwd}/{PROJECT_NAME}`
+
+### Case B+: Bootstrap-in-Progress
+
+Prior partial bootstrap detected (`.rp1/context/charter.md` exists). Inform user: "Detected an existing partial bootstrap. Resuming in current directory."
+
+TARGET_DIR = cwd
 
 ### Case C: Non-Empty
 
