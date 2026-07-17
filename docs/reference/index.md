@@ -32,6 +32,7 @@ available when you need the complete command list.
 | Validate a design assumption before coding | [`validate-hypothesis`](dev/validate-hypothesis.md) |
 | Create or manage PRD and feature artifacts | [`blueprint`](dev/blueprint.md), [`feature-edit`](dev/feature-edit.md), [`feature-archive`](dev/feature-archive.md), [`feature-unarchive`](dev/feature-unarchive.md) |
 | Check code quality or investigate a bug | [`code-check`](dev/code-check.md), [`code-audit`](dev/code-audit.md), [`code-investigate`](dev/code-investigate.md) |
+| Find tech debt and bloat worth removing | [`tech-debt-collector`](dev/tech-debt-collector.md) |
 
 [:octicons-arrow-right-24: Ship code guide](../guides/feature-development.md)
 
