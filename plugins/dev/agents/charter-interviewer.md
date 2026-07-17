@@ -67,6 +67,41 @@ Build: `gaps = [section_ids where content contains _TBD_]`
 
 If no gaps remain, return the completion message immediately (Section 4).
 
+{% unless platform == "claude-code" %}
+## Relay Checkpoint Protocol
+
+After reading the charter file (Section 1.1), scan for an existing checkpoint comment at the end of the file:
+
+```
+<!-- INTERVIEW_CHECKPOINT {"pending_question":"...","options":[...],"question_count":N,"revision_count":N,"original_args":{...}} -->
+```
+
+**If a checkpoint exists** (relay continuation):
+
+1. Parse the JSON payload from the checkpoint comment.
+2. Restore `question_count` and `revision_count` from the persisted values.
+3. The current user message is the answer to `pending_question`. Interpret it against the persisted `options`.
+4. Process the answer: synthesize and write the corresponding charter section per Section 3.
+5. Re-run gap analysis. If gaps remain and `question_count < 5`, continue the interview (Section 2). Otherwise proceed to Section 4 (Completion).
+
+**If no checkpoint exists** (first invocation):
+
+Initialize `question_count = 0` and `revision_count = 0`. Proceed to Section 2.
+
+### Checkpoint Write
+
+Before emitting each `needs_input` envelope during the interview:
+
+1. Increment `question_count`.
+2. Build the checkpoint comment with the pending question, options, updated counters, and `original_args: {"CHARTER_PATH": "<value>", "MODE": "<value>"}`.
+3. If a prior checkpoint exists in the charter file, replace it using Edit. Otherwise, append it to the end of the file.
+4. Then emit the `needs_input` envelope and end your turn.
+
+### Budget Enforcement
+
+If `question_count >= 5` after restoring from checkpoint, skip the interview and proceed directly to Section 4.2 (Budget-Exhausted Partial Charter). The budget is cumulative across all relay continuations.
+{% endunless %}
+
 ## 2. Interview
 
 {% if platform == "claude-code" %}

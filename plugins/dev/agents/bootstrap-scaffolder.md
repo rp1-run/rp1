@@ -67,6 +67,45 @@ To check whether TARGET_DIR is fully scaffolded, verify **all** of the following
 
 If only `.git` and the package manifest exist but the source entry point, test file, or initial commit is missing, treat the scaffold as **incomplete** and resume from Phase 5 (Scaffold).
 
+{% unless platform == "claude-code" %}
+## Relay Checkpoint Protocol
+
+After reading preferences.md (Section 1.2), scan for an existing checkpoint comment at the end of the file:
+
+```
+<!-- INTERVIEW_CHECKPOINT {"pending_question":"...","options":[...],"question_count":N,"revision_count":N,"original_args":{...}} -->
+```
+
+**If a checkpoint exists** (relay continuation):
+
+1. Parse the JSON payload from the checkpoint comment.
+2. Restore `question_count` and `revision_count` from the persisted values. Do NOT reset these counters.
+3. The current user message is the answer to `pending_question`. Interpret it against the persisted `options`.
+4. Determine the current phase from the checkpoint context:
+   - If the pending question was a tech stack question (Phase 2): process the answer and update the corresponding `_TBD_` fields in preferences.md. If `question_count < 5` and `_TBD_` fields remain in Tech Stack, continue Phase 2. Otherwise proceed to Phase 3 (Research).
+   - If the pending question was a summary confirmation (Phase 4): if the user confirms, proceed to Phase 5 (Scaffold). If the user requests changes and `revision_count < 2`, increment `revision_count`, apply changes, and re-present. If `revision_count >= 2`, report error and stop.
+
+**If no checkpoint exists** (first invocation):
+
+Initialize `question_count = 0` and `revision_count = 0`. Proceed to Section 1.2 Resume Detection.
+
+### Checkpoint Write
+
+Before emitting each `needs_input` envelope:
+
+1. For interview questions (Phase 2): increment `question_count`.
+2. For summary confirmations (Phase 4): do not increment `question_count` (these are confirmation prompts, not interview questions).
+3. Build the checkpoint comment with the pending question, options, updated counters, and `original_args: {"PROJECT_NAME": "<value>", "TARGET_DIR": "<value>", "CHARTER_PATH": "<value>", "KB_ROOT": "<value>"}`.
+4. If a prior checkpoint exists in preferences.md, replace it using Edit. Otherwise, append it to the end of the file.
+5. Then emit the `needs_input` envelope and end your turn.
+
+### Budget Enforcement
+
+- **Interview budget**: if `question_count >= 5` after restoring from checkpoint, skip remaining interview questions and proceed to Phase 3 (Research).
+- **Revision budget**: if `revision_count >= 2` after restoring from checkpoint and the user requests another change, report error and stop.
+- Both budgets are cumulative across all relay continuations and must never be reset.
+{% endunless %}
+
 ## 2. Interview Phase
 
 ### 2.0 Write Skeleton
