@@ -36,6 +36,47 @@ import { createMermaidPlugin } from "./mermaid-plugin";
 
 import "@milkdown/kit/prose/view/style/prosemirror.css";
 
+// Kick off the shared highlighter load as soon as this module is evaluated,
+// so it is (almost always) resolved before the first editor mounts.
+void getHighlighter();
+
+interface HighlightConfig {
+	parser: ReturnType<typeof createParser>;
+	languageExtractor: (node: { attrs: { language?: string } }) => string;
+}
+
+/**
+ * Resolve the Shiki-backed highlight config once per app session.
+ * The editor is created only after this resolves: adding the highlight
+ * plugin later would require tearing down and recreating the editor,
+ * which destroys the user's selection and any in-progress annotation.
+ */
+function useHighlightConfig(): HighlightConfig | null {
+	const [config, setConfig] = useState<HighlightConfig | null>(null);
+
+	useEffect(() => {
+		let cancelled = false;
+		getHighlighter().then((highlighter) => {
+			if (cancelled) return;
+			const parser = withLineNumbers(
+				createParser(highlighter, {
+					themes: { light: "min-light", dark: "min-dark" },
+				}),
+			);
+			setConfig({
+				parser,
+				languageExtractor: (node: { attrs: { language?: string } }) =>
+					normalizeLanguage(node.attrs.language || "typescript"),
+			});
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	return config;
+}
+
 export interface MilkdownEditorHandle {
 	getEditorView: () => EditorView | undefined;
 }
@@ -86,39 +127,16 @@ function MilkdownEditorInner({
 	content,
 	onContentChange,
 	editorRef,
+	highlightConfig,
 }: Pick<MilkdownEditorProps, "content" | "onContentChange"> & {
 	editorRef: React.Ref<MilkdownEditorHandle>;
+	highlightConfig: HighlightConfig;
 }) {
 	const viewRef = useRef<EditorView | undefined>(undefined);
 	const latestMarkdownRef = useRef(content);
 	const isApplyingExternalUpdateRef = useRef(false);
 	const externalUpdateFrameRef = useRef<number | null>(null);
 	const onContentChangeRef = useRef(onContentChange);
-
-	const [highlightConfig, setHighlightConfig] = useState<{
-		parser: ReturnType<typeof createParser>;
-		languageExtractor: (node: { attrs: { language?: string } }) => string;
-	} | null>(null);
-
-	useEffect(() => {
-		let cancelled = false;
-		getHighlighter().then((highlighter) => {
-			if (cancelled) return;
-			const parser = withLineNumbers(
-				createParser(highlighter, {
-					themes: { light: "min-light", dark: "min-dark" },
-				}),
-			);
-			setHighlightConfig({
-				parser,
-				languageExtractor: (node: { attrs: { language?: string } }) =>
-					normalizeLanguage(node.attrs.language || "typescript"),
-			});
-		});
-		return () => {
-			cancelled = true;
-		};
-	}, []);
 
 	useEffect(() => {
 		onContentChangeRef.current = onContentChange;
@@ -142,9 +160,12 @@ function MilkdownEditorInner({
 		[],
 	);
 
-	const { get: getEditor, loading } = useEditor(
-		(root) => {
-			const editor = Editor.make()
+	// The editor is created exactly once per mount: highlightConfig is
+	// resolved before this component renders, so no dependency can change
+	// and force a teardown that would wipe the user's selection.
+	const { get: getEditor, loading } = useEditor((root) => {
+		return (
+			Editor.make()
 				.config((ctx) => {
 					ctx.set(rootCtx, root);
 					ctx.set(defaultValueCtx, content);
@@ -157,9 +178,7 @@ function MilkdownEditorInner({
 						.destroy(() => {
 							viewRef.current = undefined;
 						});
-					if (highlightConfig) {
-						ctx.set(highlightPluginConfig.key, highlightConfig);
-					}
+					ctx.set(highlightPluginConfig.key, highlightConfig);
 				})
 				.use(commonmark)
 				.use(gfm)
@@ -167,18 +186,11 @@ function MilkdownEditorInner({
 				.use(listener)
 				.use(createMermaidPlugin())
 				.use(createContextMenuSelectionPlugin())
-				.use(createLinkClickPlugin());
-
-			// Note: mermaid NodeView must come after commonmark (needs code_block schema)
-
-			if (highlightConfig) {
-				editor.use(highlight);
-			}
-
-			return editor;
-		},
-		[highlightConfig],
-	);
+				.use(createLinkClickPlugin())
+				// Note: mermaid NodeView must come after commonmark (needs code_block schema)
+				.use(highlight)
+		);
+	}, []);
 
 	useEffect(() => {
 		if (loading) return;
@@ -249,6 +261,15 @@ export const MilkdownEditor = forwardRef<
 	MilkdownEditorHandle,
 	MilkdownEditorProps
 >(function MilkdownEditor({ content, onContentChange }, ref) {
+	const highlightConfig = useHighlightConfig();
+
+	// Wait for the (session-cached) highlighter instead of mounting an
+	// editor without it: swapping the plugin in later would rebuild the
+	// editor and destroy the user's selection mid-annotation.
+	if (!highlightConfig) {
+		return <div className="milkdown-editor-root" />;
+	}
+
 	return (
 		<MilkdownProvider>
 			<div className="milkdown-editor-root">
@@ -256,6 +277,7 @@ export const MilkdownEditor = forwardRef<
 					content={content}
 					onContentChange={onContentChange}
 					editorRef={ref}
+					highlightConfig={highlightConfig}
 				/>
 			</div>
 		</MilkdownProvider>
