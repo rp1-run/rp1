@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { access } from "node:fs/promises";
+import { access, rm } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { Command } from "commander";
 import { createInstallAntigravitySubcommand } from "../../commands/install/antigravity.js";
@@ -66,6 +67,18 @@ describe("Antigravity install command", () => {
 
 	afterEach(async () => {
 		await cleanupTempDir(tempDir);
+		// The spawn-based tests run real installs against the shared sandbox
+		// home (env overrides of HOME are forbidden by check:test-home-env).
+		// Remove what they wrote so later tests — e.g. the uninstall dry-run's
+		// clean-home assertion — are not order-dependent.
+		const sandboxHome = process.env.HOME ?? homedir();
+		await rm(join(sandboxHome, ".gemini", "antigravity-cli"), {
+			recursive: true,
+			force: true,
+		});
+		await rm(join(sandboxHome, ".rp1", "platform-versions.json"), {
+			force: true,
+		});
 	});
 
 	test("registers the Antigravity install subcommand", () => {
@@ -87,10 +100,6 @@ describe("Antigravity install command", () => {
 					...process.env,
 					NO_COLOR: "1",
 					RP1_ANTIGRAVITY_BUNDLE_DIR: bundleDir,
-					// Keep the spawned CLI inside this test's home: writes to the
-					// shared sandbox home leak into other tests' assertions.
-					HOME: tempDir,
-					USERPROFILE: tempDir,
 				},
 				stdout: "pipe",
 				stderr: "pipe",
@@ -155,11 +164,6 @@ describe("Antigravity install command", () => {
 					...process.env,
 					NO_COLOR: "1",
 					RP1_ANTIGRAVITY_BUNDLE_DIR: bundleDir,
-					// A real (non-dry-run) install: must target this test's home,
-					// not the shared sandbox home, or the assets leak into other
-					// tests (e.g. the uninstall dry-run's clean-home assertion).
-					HOME: tempDir,
-					USERPROFILE: tempDir,
 				},
 				stdout: "pipe",
 				stderr: "pipe",
