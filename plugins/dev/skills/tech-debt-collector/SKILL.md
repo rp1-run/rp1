@@ -242,8 +242,6 @@ Proceed to Phase 3 (Validating).
 
 **Objective**: Dispatch hypothesis-tester to refute/confirm clustered leads, collect validation results, and assign confidence tiers.
 
-**Note**: Detailed dispatch and confidence-tiering logic is part of T3 (separate task). This phase emits the validating state and prepares the lead queue for hypothesis-tester dispatch.
-
 ### 3.1 Emit Validating State
 
 ```bash
@@ -255,35 +253,152 @@ rp1 agent-tools emit \
   --data "{\"status\": \"running\", \"leads_to_validate\": 8}"
 ```
 
-### 3.2 Prepare for Hypothesis-Tester Dispatch (T3)
+### 3.2 Hypothesis-Tester Dispatch (Parallel, up to 8 leads)
 
-In task T3, the orchestrator will:
-1. For each of top 8 clustered leads, frame hypothesis: "Try to refute this bloat claim: {claim}"
-2. Dispatch to hypothesis-tester agent (parallel, up to 8 concurrent)
-3. Collect validation results:
-   - CONFIRMED: promote toward findings list
-   - REJECTED: move to retain register with refutation evidence
-4. Assign confidence tiers (C1-C4) to confirmed leads:
-   - C1: All evidence present, no gaps, strong validation
-   - C2: Evidence with gaps (missing telemetry OR unchecked dynamic dispatch)
-   - C3: Moderate gaps, partial validation coverage
-   - C4: High uncertainty, many unresolved safety flags
-5. Apply confidence caps:
-   - Missing telemetry → max C2
-   - Unchecked dynamic dispatch (for unused-code claims) → max C2
-   - Multiple unresolved safety flags (3+) → max C3
+For each of the top 8 clustered leads from Phase 2:
 
-**Dispatch Example** (from T3 implementation):
+**Step 1: Frame the Bloat Claim Hypothesis**
 
-```bash
-# For each of top 8 leads:
-CLAIM="{lead.claim}"
-BURDEN="{lead.burden_signal.metric}: {lead.burden_signal.value} {lead.burden_signal.unit}"
+Construct a hypothesis statement that enables hypothesis-tester to attempt refutation:
 
-dispatch_agent "rp1-dev:hypothesis-tester" with:
-  HYPOTHESIS="Try to refute this bloat claim: $CLAIM (Burden: $BURDEN, Locus: {lead.locus}, Safety Flags: {lead.safety_flags})"
-  ...
 ```
+Frame Template:
+"Try to refute this bloat claim: {claim}
+
+Claim Details:
+- Locus: {locus} (dead_code | over_abstraction | redundant_abstraction | speculative_generalization)
+- Cause: {cause} (never_used | unmatched_generality | duplicated_logic | hidden_consumer | etc.)
+- Burden: {burden_signal.metric} = {burden_signal.value} {burden_signal.unit}
+- Evidence Sites: {exact_sites[0:3]} (code locations where bloat is manifest)
+- Safety Flags: {safety_flags} (potential false positives to investigate)
+
+Refutation Methods to Try:
+1. Hidden Consumer Detection: Search for dynamic dispatch, reflection, indirect consumers via re-exports, test mocks
+2. Dynamic Dispatch Analysis: Check if code is registered in callback/strategy systems, string-based lookups
+3. Semantic Equivalence: Verify if claimed 'redundant' code is truly equivalent or has behavioral differences
+4. Protected Obligation: Check if code is part of public API or breaking-change-protected contract
+5. Counterfactual Failure: Analyze if removing this code would cause failures (tests, runtime behavior, ecosystem)
+
+Task: Attempt to identify evidence that refutes the bloat claim. If refutation evidence found → REJECTED. If no refutation found → CONFIRMED."
+```
+
+**Step 2: Dispatch to hypothesis-tester Agent**
+
+For each lead (dispatch in parallel, up to 8 concurrent):
+
+{% dispatch_agent "rp1-dev:hypothesis-tester" %}
+HYPOTHESIS="{framed hypothesis from Step 1}"
+SCOPE={SCOPE}
+CODE_ROOT={codeRoot}
+{% enddispatch_agent %}
+
+**Dispatch Pattern**: Use parallel dispatch syntax to allow hypothesis-tester runs to execute concurrently. Each dispatch includes:
+- Full hypothesis statement with claim, locus, cause, burden, evidence sites, and safety flags
+- Original SCOPE for codebase analysis context
+- CODE_ROOT for code access during refutation testing
+
+### 3.3 Collect Validation Results
+
+After all hypothesis-tester dispatches complete:
+
+**Parse Results**:
+```
+For each validation result:
+  IF status == "CONFIRMED":
+    - Lead is valid; proceed to confidence tier assignment (§3.4)
+    - Store: { lead_id, status: "CONFIRMED", confidence_tier: "TBD" }
+  IF status == "REJECTED":
+    - Lead is refuted; move to retain register
+    - Store: { lead_id, status: "REJECTED", refutation_evidence: "..." }
+```
+
+**Retain Register**:
+- Collects all rejected leads with their refutation evidence
+- Logged for transparency in final report (shows why leads were excluded)
+- Examples: "Found hidden consumer via dynamic dispatch", "Code is protected by breaking-change policy"
+
+### 3.4 Assign Confidence Tiers (C1-C4)
+
+For each CONFIRMED lead, assign an ordinal confidence tier (C1=highest, C4=lowest) using the following rules:
+
+**Base Tier Assignment** (before caps):
+- **C1 (Highest)**: All evidence present, no methodology gaps, strong validation by hypothesis-tester
+  - Examples: Unused code with no dynamic dispatch detected, confirmed by hypothesis-tester, usage data available
+- **C2**: Evidence sufficient but with known gaps
+  - Examples: Unused code but dynamic dispatch present (verified but not fully confirmable); or no usage tracking available
+- **C3**: Moderate evidence gaps, partial validation coverage
+  - Examples: Speculative generalization with some consumer evidence but incomplete proof; multiple safety flags partially investigated
+- **C4 (Lowest)**: High uncertainty, many unresolved safety flags
+  - Examples: Over-abstraction claim with multiple hidden-consumer flags and incomplete refutation evidence
+
+**Confidence Tier Caps** (hard limits, may downgrade from base tier):
+
+1. **Missing Telemetry Cap**: If no usage data available for usage-based claims
+   - Rule: `max_tier = C2` (cannot be C1, even with strong validation)
+   - Rationale: Usage claims require telemetry for definitive confirmation
+
+2. **Dynamic Dispatch Cap**: For unused-code claims with unchecked dynamic dispatch in safety_flags
+   - Rule: `if (locus == "dead_code" && safety_flags.includes("dynamic_dispatch")) max_tier = C2`
+   - Rationale: Dynamic dispatch prevents definitive proof of non-usage
+
+3. **Safety Flag Overload Cap**: If 3 or more unresolved safety flags remain after validation
+   - Rule: `if (safety_flags.length >= 3) max_tier = C3`
+   - Rationale: Multiple unresolved safety flags indicate high uncertainty
+
+4. **Speculative Generalization Cap**: For speculative_generalization locus without strong consumer evidence
+   - Rule: `if (locus == "speculative_generalization" && validation_confirms_no_consumers) max_tier = C3`
+   - Rationale: Future-focused code inherently has higher epistemic uncertainty
+
+**Tier Assignment Algorithm**:
+
+```javascript
+function assignConfidenceTier(lead, validationResult) {
+  // Start with base tier from hypothesis-tester result
+  let tier = baseTierFromValidation(validationResult); // C1, C2, C3, or C4
+  
+  // Apply caps (may downgrade)
+  if (!lead.has_usage_telemetry) {
+    tier = Math.max(tier, "C2"); // Cap at C2 if no telemetry
+  }
+  
+  if (lead.locus === "dead_code" && lead.safety_flags.includes("dynamic_dispatch")) {
+    tier = Math.max(tier, "C2"); // Cap at C2 for dynamic dispatch in dead_code
+  }
+  
+  if (lead.safety_flags.length >= 3) {
+    tier = Math.max(tier, "C3"); // Cap at C3 if 3+ safety flags
+  }
+  
+  if (lead.locus === "speculative_generalization" && validationResult.no_consumers_found) {
+    tier = Math.max(tier, "C3"); // Cap at C3 for unconfirmed speculative code
+  }
+  
+  return tier;
+}
+```
+
+**Tier Assignment Notation** (for reporting):
+
+Store: `{ lead_id, status: "CONFIRMED", confidence_tier: "{C1|C2|C3|C4}", tier_reasoning: "..." }`
+
+Examples:
+- "C1: All evidence present, no gaps, hypothesis-tester found no refutation, usage data available"
+- "C2: Evidence sufficient but dynamic dispatch present (capped from C1); hypothesis-tester confirmed no consumer via static analysis"
+- "C3: Moderate gaps; multiple safety flags partially investigated; speculative generalization without full proof"
+- "C4: High uncertainty; multiple unresolved safety flags; incomplete refutation evidence"
+
+### 3.5 Prepare Confirmed Leads for Report Generation
+
+After validation and confidence tier assignment:
+
+1. **Confirmed Leads List**: All CONFIRMED leads with assigned confidence tiers (C1-C4), sorted by materiality score (highest first)
+2. **Retain Register**: All REJECTED leads with refutation evidence
+3. **State Persistence**: Store confirmed leads and retain register for Phase 4 (Reporting)
+
+Pass to Phase 4:
+- `confirmed_leads[]` — up to 8 leads, each with: { lead_id, claim, exact_sites, burden_signal, materiality_score, locus, cause, confidence_tier, tier_reasoning }
+- `retain_register[]` — rejected leads with refutation evidence
+- `validation_summary` — statistics (total validated, confirmed, rejected, high-confidence count)
 
 ---
 
@@ -394,4 +509,19 @@ Partial results are acceptable; never block on transient failures.
 - [x] Analysis-only constraint enforced
 - [x] Dispatch logic for scout agent
 - [x] Lead clustering and materiality scoring implemented
+
+**T3 Scope (from tasks.md)**:
+- [x] Validation phase fully implemented in §3
+- [x] Hypothesis-tester dispatch logic: frame bloat claims, dispatch parallel (up to 8 leads)
+- [x] Dispatch framing includes: claim, exact sites, burden signal, locus, cause, safety_flags
+- [x] Validation result mapping: CONFIRMED → findings, REJECTED → retain register
+- [x] Confidence tier assignment (C1-C4) with base tier determination
+- [x] Confidence tier caps implemented:
+  - [x] Missing telemetry → max C2
+  - [x] Dynamic dispatch (unused-code claims) → max C2
+  - [x] Multiple safety flags (3+) → max C3
+  - [x] Speculative generalization without proof → max C3
+- [x] Confirmed leads sorted by materiality for final selection (T4)
+- [x] Retain register populated with rejected leads and refutation evidence
+- [x] Tier assignment reasoning documented for each lead
 
