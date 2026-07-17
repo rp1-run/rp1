@@ -137,18 +137,27 @@ Proceed to Step 3.
 
 **If `_TBD_` markers remain** (charter incomplete):
 
+Print a rerun command that preserves the user's original arguments:
+
 ```
 Charter partially complete -- some sections still need input.
 
 Partial progress saved:
 - {kbRoot}/charter.md
 
-To resume: re-run `/rp1-dev:blueprint` -- the charter-interviewer will detect remaining _TBD_ sections and resume via gap analysis.
+To resume, re-run:
 ```
 
-Emit waiting status (do NOT use `--close-run`):
+- If PRD_NAME was provided: print `/rp1-dev:blueprint {PRD_NAME}`
+- If no PRD_NAME was provided: print `/rp1-dev:blueprint`
+
 ```
-rp1 agent-tools emit --workflow blueprint --type status_change --run-id {RUN_ID} --step charter --data '{"status": "waiting", "reason": "Charter has remaining _TBD_ sections"}'
+The charter-interviewer will detect remaining _TBD_ sections and resume via gap analysis.
+```
+
+Emit completed status and close the run:
+```
+rp1 agent-tools emit --workflow blueprint --type status_change --run-id {RUN_ID} --step charter --data '{"status": "completed", "reason": "Charter has remaining _TBD_ sections"}' --close-run
 ```
 
 Do NOT proceed to Step 3.
@@ -222,9 +231,9 @@ Partial progress saved:
 To resume: re-run `/rp1-dev:blueprint {PRD_NAME}` -- the wizard will detect remaining _TBD_ sections and resume via gap analysis.
 ```
 
-Emit incomplete status and close the current run before re-run:
+Emit completed status and close the run:
 ```
-rp1 agent-tools emit --workflow blueprint --type status_change --run-id {RUN_ID} --step prd --data '{"status": "incomplete", "reason": "PRD has remaining _TBD_ sections"}' --close-run
+rp1 agent-tools emit --workflow blueprint --type status_change --run-id {RUN_ID} --step prd --data '{"status": "completed", "reason": "PRD has remaining _TBD_ sections"}' --close-run
 ```
 
 ## §USAGE
