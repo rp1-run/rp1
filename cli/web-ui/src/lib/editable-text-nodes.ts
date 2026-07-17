@@ -1,14 +1,27 @@
 /**
+ * Selector for elements whose text must never enter annotation anchors:
+ * UI chrome marked with data-annotation-exclude (mermaid tab bars, action
+ * buttons) plus Shiki line-number widgets, which are injected as plain
+ * `.line-number` spans by prosemirror-highlight and carry no marker of
+ * their own.
+ */
+export const ANNOTATION_EXCLUDE_SELECTOR =
+	"[data-annotation-exclude], .line-number";
+
+export function isAnnotationExcluded(el: HTMLElement | null): boolean {
+	return el?.closest(ANNOTATION_EXCLUDE_SELECTOR) != null;
+}
+
+/**
  * Collect text nodes from a container, skipping UI chrome
- * (e.g., mermaid tab bars, action buttons, line numbers) marked with
- * data-annotation-exclude. Code block content is included.
+ * (e.g., mermaid tab bars, action buttons, line numbers) matching
+ * ANNOTATION_EXCLUDE_SELECTOR. Code block content is included.
  */
 export function getEditableTextNodes(container: HTMLElement): Text[] {
 	const nodes: Text[] = [];
 	const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
 		acceptNode(node) {
-			const el = node.parentElement;
-			if (el?.closest("[data-annotation-exclude]")) {
+			if (isAnnotationExcluded(node.parentElement)) {
 				return NodeFilter.FILTER_REJECT;
 			}
 			return NodeFilter.FILTER_ACCEPT;

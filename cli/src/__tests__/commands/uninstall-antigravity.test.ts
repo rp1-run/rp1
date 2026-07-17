@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { access, mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, rm, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { uninstallCommand } from "../../commands/uninstall.js";
@@ -131,6 +132,14 @@ describe("Antigravity uninstall command", () => {
 	});
 
 	test("executes the dry-run CLI path with root logger context", async () => {
+		// The spawned CLI inspects the shared sandbox home (HOME overrides are
+		// forbidden by check:test-home-env) and this test asserts it is clean.
+		// Remove any antigravity assets other suites may have installed there.
+		await rm(
+			join(process.env.HOME ?? homedir(), ".gemini", "antigravity-cli"),
+			{ recursive: true, force: true },
+		);
+
 		const proc = Bun.spawn(
 			["bun", "src/main.ts", "uninstall", "antigravity", "--dry-run"],
 			{

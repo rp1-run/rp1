@@ -14,6 +14,7 @@ import {
 	parseEmbeddedAnnotations,
 	removeEmbedding,
 } from "../../server/markdown-embedder";
+import { makeSourceAnchor } from "../../server/markdown-projection";
 import type { CreateAnnotationRequest } from "../../types/annotations";
 
 const SCHEMA_SQL = `
@@ -160,6 +161,42 @@ Another annotation
 			expect(updatedContent).toContain(
 				`<!-- rp1:annotation:${annotation.id} -->Hello<!-- /rp1:annotation:${annotation.id} -->`,
 			);
+		});
+
+		test("does not embed a source-anchored annotation onto a surviving duplicate", async () => {
+			const artifactPath = "docs/duplicate.md";
+			const docId = "doc-embed-dup";
+			seedArtifact(docId, artifactPath);
+			const fullPath = join(testProjectPath, artifactPath);
+			await mkdir(join(testProjectPath, "docs"), { recursive: true });
+
+			// The annotation was anchored to the second occurrence...
+			const original = "alpha shared text beta\n\ngamma shared text delta\n";
+			const request: CreateAnnotationRequest = {
+				docId,
+				artifactPath,
+				anchor: {
+					type: "text-selection",
+					startOffset: 0,
+					endOffset: 11,
+					selectedText: "shared text",
+					contextBefore: "gamma ",
+					contextAfter: " delta",
+					source: makeSourceAnchor(original, 30, 41),
+				},
+				content: "Comment on the gamma occurrence",
+			};
+			createAnnotation(db, request);
+
+			// ...whose paragraph was then deleted; a duplicate survives.
+			await writeFile(
+				fullPath,
+				"alpha shared text beta\n\nrewritten closing paragraph\n",
+			);
+			await embedAnnotations(db, testProjectPath, artifactPath);
+
+			const updatedContent = await readFile(fullPath, "utf-8");
+			expect(updatedContent).not.toContain("rp1:annotation:");
 		});
 
 		test("skips orphaned annotations", async () => {

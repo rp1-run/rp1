@@ -9,6 +9,21 @@ export type AnchorType = "text-selection" | "hidden-anchor" | "line";
 /** Resolution status */
 export type AnnotationStatus = "open" | "resolved";
 
+/**
+ * Anchor coordinates in the raw markdown source. Resolved server-side at
+ * creation time by projecting the source through mdast and locating the
+ * rendered selection. `text` is a verbatim slice of the source file, so
+ * validity checks and embedding are exact string operations — no
+ * rendered-text vs. source heuristics.
+ */
+export interface SourceAnchor {
+	readonly start: number;
+	readonly end: number;
+	readonly text: string;
+	readonly contextBefore: string;
+	readonly contextAfter: string;
+}
+
 /** Text selection anchor data */
 export interface TextSelectionAnchor {
 	readonly type: "text-selection";
@@ -17,6 +32,8 @@ export interface TextSelectionAnchor {
 	readonly selectedText: string;
 	readonly contextBefore: string;
 	readonly contextAfter: string;
+	/** Source-domain coordinates; absent on legacy anchors until migrated. */
+	readonly source?: SourceAnchor;
 }
 
 /** Hidden anchor reference */

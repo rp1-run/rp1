@@ -821,6 +821,13 @@
   background-color: hsl(var(--accent) / 0.15);
 }
 
+/* In-progress annotation selection (locked selection / open comment form).
+   Painted from the anchor instead of the native selection so it survives
+   editor re-renders. */
+::highlight(pending-annotation) {
+  background-color: hsl(var(--accent) / 0.25);
+}
+
 /* Status pulse animation — the only continuous animation in the design system */
 @keyframes status-pulse {
   0%, 100% {
