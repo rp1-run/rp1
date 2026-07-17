@@ -20,7 +20,7 @@ Evidence-gated tech debt and software bloat detection with concrete remediation 
 
 ## Description
 
-The `tech-debt-collector` command finds tech debt and software bloat in a target scope and reports only findings that survive an explicit refutation attempt. A scout agent discovers candidate signals, the orchestrator clusters them by root cause and ranks them by materiality, and each admitted lead is dispatched to the hypothesis-tester agent with the framing "try to refute this claim" (hidden consumers, dynamic dispatch, protected obligations, semantic differences). Only claims that survive validation at sufficient confidence are promoted.
+The `tech-debt-collector` command finds tech debt and software bloat in a target scope and reports only findings that survive an explicit refutation attempt. A scout agent discovers candidate signals, the orchestrator clusters them by root cause and ranks them by materiality, and the admitted leads are framed as refutation hypotheses ("try to refute this claim" — hidden consumers, dynamic dispatch, protected obligations, semantic differences) and validated by the hypothesis-tester agent. Only claims that survive validation at sufficient confidence are promoted.
 
 The workflow is **analysis-only**: it never edits source code or project state. Each finding ships with a concrete remediation action and a rollback plan for you to apply manually.
 
@@ -42,7 +42,7 @@ Signals are never verdicts: low usage, no static callers, or a single implementa
 | **C3** | Supported — scope covered, counterevidence searched, no known contradiction |
 | **C4** | Well-established — independent evidence converges and the claim survived refutation |
 
-Hard caps keep confidence honest: missing usage telemetry or unchecked dynamic dispatch caps a claim at C2. **Only C3+ leads become findings.** C1–C2 leads are routed to a *Needs Measurement* queue with the evidence that would raise them; refuted leads land in a *Retain Register* documenting why they were kept.
+Hard caps keep confidence honest: a usage-based claim without runtime telemetry or a complete static reference proof caps at C2, as does unchecked dynamic dispatch. **Only C3+ leads become findings.** C1–C2 leads are routed to a *Needs Measurement* queue with the evidence that would raise them; refuted leads land in a *Retain Register* documenting why they were kept.
 
 ## Output
 
@@ -54,9 +54,9 @@ The report contains up to **5 findings** ranked by materiality — **0 findings 
 
 | Phase | What Happens |
 |-------|-------------|
-| **Scoping** | Resolve and validate the target (project, file, branch, or PR diff) |
-| **Scouting** | 1–3 scout dispatches return structured leads (claim, sites, burden, safety flags) |
-| **Validating** | Leads clustered by root cause, ranked by materiality; top ~8 dispatched to hypothesis-tester for refutation |
+| **Scoping** | Resolve and validate the target (project, file, branch, or PR diff); unresolvable targets fail closed |
+| **Scouting** | 1–3 scout dispatches return structured leads (claim, sites, burden, safety flags, usage evidence) |
+| **Validating** | Leads clustered by root cause, ranked by materiality; top ~8 framed as refutation hypotheses and validated by hypothesis-tester |
 | **Reporting** | Survivors promoted through the C3+ gate; report written and registered with the Arcade |
 
 ## Examples

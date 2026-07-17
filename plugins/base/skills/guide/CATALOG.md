@@ -37,7 +37,7 @@
 | `/code-audit` | dev | Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift. |
 | `/code-check` | dev | Fast code hygiene validation (lints, formatters, tests, coverage) for quick development loop feedback. |
 | `/code-clean-comments` | dev | Systematically removes unnecessary comments from a user scope by first resolving it into a durable change manifest. |
-| `/tech-debt-collector` | dev | Orchestrate tech debt and software bloat detection workflow. Discovers candidate signals via scout agent, clusters by root cause, ranks by materiality, validates via hypothesis-tester, and produces evidence-gated findings with remediation actions. |
+| `/tech-debt-collector` | dev | Evidence-gated tech debt and bloat detection. Scouts signals, ranks by materiality, validates by refutation, reports up to 5 findings with actions. |
 
 ## Review
 

@@ -1,7 +1,7 @@
 ---
 name: tech-debt-collector
-description: "Orchestrate tech debt and software bloat detection workflow. Discovers candidate signals via scout agent, clusters by root cause, ranks by materiality, validates via hypothesis-tester, and produces evidence-gated findings with remediation actions."
-allowed-tools: Bash(echo *), Bash(rp1 *)
+description: "Evidence-gated tech debt and bloat detection. Scouts signals, ranks by materiality, validates by refutation, reports up to 5 findings with actions."
+allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git rev-parse *)
 metadata:
   category: quality
   is_workflow: true
@@ -46,9 +46,7 @@ This workflow identifies candidate tech debt signals via a scout agent, clusters
 
 ---
 
-## §0. Workflow Bootstrap
-
-{% resolve_args "rp1-dev:tech-debt-collector" %}
+§CTX: Use the pre-resolved `SCOPE`, `LENS`, `RUN_ID`, `projectRoot`, `kbRoot`, `workRoot`, and `codeRoot` values from the generated Workflow Bootstrap section. Do not hardcode `.rp1/work/` or `.rp1/context/` paths.
 
 ---
 
@@ -64,34 +62,30 @@ This workflow identifies candidate tech debt signals via a scout agent, clusters
 
 ### 1.1 Validate Scope and Resolve Target
 
-Parse the `SCOPE` argument:
+Classify the `SCOPE` argument in this exact order — explicit project, PR reference, filesystem path, verified git ref — and fail closed on anything else. A token that is both a path and a branch resolves as a path; use `pull/<N>/diff` or a path-free branch name to disambiguate.
 
 ```bash
-# Normalize scope and determine target type
-SCOPE_TYPE="unknown"
+SCOPE_TYPE=""
 TARGET=""
 
-if [ "$SCOPE" = "project" ] || [ -z "$SCOPE" ]; then
+if [ -z "$SCOPE" ] || [ "$SCOPE" = "project" ]; then
   SCOPE_TYPE="project"
-  TARGET="project-root"
-elif [[ "$SCOPE" =~ ^pull/[0-9]+/diff$ ]]; then
+  TARGET="{codeRoot}"
+elif [[ "$SCOPE" =~ ^pull/[0-9]+/diff$ ]] || [[ "$SCOPE" =~ ^PR[[:space:]]?#?[0-9]+$ ]]; then
   SCOPE_TYPE="pr-diff"
-  TARGET="$SCOPE"
-elif [[ "$SCOPE" =~ ^[a-zA-Z0-9_\-]+$ ]] && [ ${#SCOPE} -lt 100 ]; then
-  SCOPE_TYPE="branch"
   TARGET="$SCOPE"
 elif [ -e "$SCOPE" ]; then
   SCOPE_TYPE="file"
   TARGET="$SCOPE"
+elif git rev-parse --verify --quiet "$SCOPE^{commit}" >/dev/null 2>&1; then
+  SCOPE_TYPE="branch"
+  TARGET="$SCOPE"
 else
-  # Default: treat as project root if empty
-  SCOPE_TYPE="project"
-  TARGET="project-root"
+  echo "ERROR: SCOPE '$SCOPE' is not 'project', an existing path, a resolvable git branch/ref, or a PR reference (pull/<N>/diff or PR #<N>)."
 fi
-
-# Export for downstream phases
-NORMALIZED_SCOPE="$SCOPE_TYPE:$TARGET"
 ```
+
+If classification fails, emit `scoping` with `{"status": "failed", "reason": "unresolvable_scope"}` and STOP. Never silently default an unknown target to project scope.
 
 ### 1.2 Emit Scoping State
 
@@ -152,10 +146,10 @@ rp1 agent-tools emit \
   --data "{\"status\": \"running\", \"dispatch_count\": $DISPATCH_COUNT}"
 ```
 
-**Dispatch Template** (repeat for each lens):
+**Dispatch Template** (repeat for each lens; scope is pre-resolved in §1.1 — scouts never re-classify):
 
 {% dispatch_agent "rp1-dev:bloat-scout" %}
-SCOPE={SCOPE}, LENS={current-lens}, CODE_ROOT={codeRoot}, WORK_ROOT={workRoot}, KB_ROOT={kbRoot}
+SCOPE_TYPE={SCOPE_TYPE}, TARGET={TARGET}, LENS={current-lens}, CODE_ROOT={codeRoot}, KB_ROOT={kbRoot}
 {% enddispatch_agent %}
 
 Each scout dispatch returns ~20-30 leads with structure:
@@ -173,6 +167,7 @@ Each scout dispatch returns ~20-30 leads with structure:
   "locus": "dead_code",
   "cause": "never_used",
   "safety_flags": ["hidden_consumer"],
+  "usage_evidence": "static-partial",
   "materiality_score": 0  // Will be computed by orchestrator
 }
 ```
@@ -253,64 +248,49 @@ rp1 agent-tools emit \
   --data "{\"status\": \"running\", \"leads_to_validate\": 8}"
 ```
 
-### 3.2 Hypothesis-Tester Dispatch (Parallel, up to 8 leads)
+### 3.2 Hypothesis-Tester Dispatch (single dispatch, up to 8 leads)
 
-For each of the top 8 clustered leads from Phase 2:
+`hypothesis-tester` is document-driven: it requires `FEATURE_ID`, `KB_ROOT`, and `WORK_ROOT`, and validates the PENDING hypotheses in an existing `hypotheses.md`. Satisfy that contract by materializing the admitted leads as a hypothesis document, then dispatching once.
 
-**Step 1: Frame the Bloat Claim Hypothesis**
+**Step 1: Write the Hypothesis Document**
 
-Construct a hypothesis statement that enables hypothesis-tester to attempt refutation:
+Write `{workRoot}/features/tech-debt-collector/hypotheses.md` following the canonical template at `plugins/base/skills/artifact-templates/templates/hypothesis-tester/hypothesis-document.md` (fall back to the `rp1-base:artifact-templates` SKILL.md index if the direct path fails). This file is owned by this workflow and overwritten on each run. One entry per admitted lead, IDs `HYP-TD-001` … `HYP-TD-008`:
 
-```
-Frame Template:
-"Try to refute this bloat claim: {claim}
-
-Claim Details:
-- Locus: {locus} (dead_code | over_abstraction | redundant_abstraction | speculative_generalization)
-- Cause: {cause} (never_used | unmatched_generality | duplicated_logic | hidden_consumer | etc.)
-- Burden: {burden_signal.metric} = {burden_signal.value} {burden_signal.unit}
-- Evidence Sites: {exact_sites[0:3]} (code locations where bloat is manifest)
-- Safety Flags: {safety_flags} (potential false positives to investigate)
-
-Refutation Methods to Try:
-1. Hidden Consumer Detection: Search for dynamic dispatch, reflection, indirect consumers via re-exports, test mocks
-2. Dynamic Dispatch Analysis: Check if code is registered in callback/strategy systems, string-based lookups
-3. Semantic Equivalence: Verify if claimed 'redundant' code is truly equivalent or has behavioral differences
-4. Protected Obligation: Check if code is part of public API or breaking-change-protected contract
-5. Counterfactual Failure: Analyze if removing this code would cause failures (tests, runtime behavior, ecosystem)
-
-Task: Attempt to identify evidence that refutes the bloat claim. If refutation evidence found → REJECTED. If no refutation found → CONFIRMED."
+```markdown
+### HYP-TD-{NNN}: {short title derived from claim}
+**Risk Level**: {HIGH if safety_flags non-empty, else MEDIUM}
+**Status**: PENDING
+**Statement**: {atomic bloat claim, verbatim from lead}
+**Context**: Locus: {locus} | Cause: {cause} | Burden: {burden_signal.metric}={burden_signal.value} {burden_signal.unit} | Sites: {exact_sites[0:3]} | Safety flags: {safety_flags} | Usage evidence: {usage_evidence}
+**Validation Criteria**:
+- CONFIRM if: all refutation attempts fail — no hidden consumers (dynamic dispatch, reflection, re-exports, test mocks), no protected API or backward-compatibility obligation, no semantic difference for redundancy claims, no counterfactual failure from removal
+- REJECT if: any refuting evidence is found (a consumer, a protected obligation, a semantic difference, or a failure mode triggered by removal)
+**Suggested Method**: CODEBASE_ANALYSIS
 ```
 
-**Step 2: Dispatch to hypothesis-tester Agent**
-
-For each lead (dispatch in parallel, up to 8 concurrent):
+**Step 2: Dispatch hypothesis-tester (full declared contract)**
 
 {% dispatch_agent "rp1-dev:hypothesis-tester" %}
-HYPOTHESIS="{framed hypothesis from Step 1}"
-SCOPE={SCOPE}
-CODE_ROOT={codeRoot}
+FEATURE_ID=tech-debt-collector, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, WORKFLOW=tech-debt-collector, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-**Dispatch Pattern**: Use parallel dispatch syntax to allow hypothesis-tester runs to execute concurrently. Each dispatch includes:
-- Full hypothesis statement with claim, locus, cause, burden, evidence sites, and safety flags
-- Original SCOPE for codebase analysis context
-- CODE_ROOT for code access during refutation testing
+The tester validates every PENDING hypothesis in the document (parallelizing independent ones internally), appends findings under `## Validation Findings`, and updates each Status to CONFIRMED or REJECTED.
 
 ### 3.3 Collect Validation Results
 
-After all hypothesis-tester dispatches complete:
+After the dispatch completes, read back `{workRoot}/features/tech-debt-collector/hypotheses.md` and map each `HYP-TD-{NNN}` result to its lead:
 
-**Parse Results**:
 ```
-For each validation result:
-  IF status == "CONFIRMED":
+For each hypothesis result:
+  IF Result == "CONFIRMED":   # claim survived refutation
     - Lead is valid; proceed to confidence tier assignment (§3.4)
-    - Store: { lead_id, status: "CONFIRMED", confidence_tier: "TBD" }
-  IF status == "REJECTED":
+    - Store: { lead_id, status: "CONFIRMED", confidence_tier: "TBD", evidence: {recorded findings} }
+  IF Result == "REJECTED":    # refuting evidence found
     - Lead is refuted; move to retain register
-    - Store: { lead_id, status: "REJECTED", refutation_evidence: "..." }
+    - Store: { lead_id, status: "REJECTED", refutation_evidence: {recorded findings} }
 ```
+
+If the tester returns a `rejected_hypotheses` JSON block, it enumerates the refuted leads. No user gate applies in this workflow — rejection simply routes those leads to the retain register.
 
 **Retain Register**:
 - Collects all rejected leads with their refutation evidence
@@ -333,9 +313,9 @@ For each CONFIRMED lead, assign an ordinal confidence tier (C1=lowest/speculativ
 
 **Confidence Tier Caps** (hard upper bounds; may downgrade from base tier):
 
-1. **Missing Telemetry Cap**: If no usage data available for usage-based claims
-   - Rule: `tier <= C2` (cannot exceed C2; maximum tier is C2)
-   - Rationale: Usage claims require telemetry for definitive confirmation; C3+ requires proof of non-usage
+1. **Missing Usage-Proof Cap**: Usage-based claims (locus `dead_code` or cause `never_used`) require proof of non-usage for C3+
+   - Rule: `tier <= C2` unless `usage_evidence` is `runtime-telemetry`, or is `static-complete` with none of the `hidden_consumer`/`dynamic_dispatch`/`ecosystem_boundary` safety flags
+   - Rationale: C3+ requires proof of non-usage — either runtime telemetry or an exhaustive static reference search with dynamic patterns ruled out
 
 2. **Dynamic Dispatch Cap**: For unused-code claims with unchecked dynamic dispatch in safety_flags
    - Rule: `if (locus == "dead_code" && safety_flags.includes("dynamic_dispatch")) tier <= C2`
@@ -362,8 +342,11 @@ function assignConfidenceTier(lead, validationResult) {
   let tierValue = tierValues[baseTierStr];
   
   // Apply caps (hard upper bounds; may downgrade from base tier)
-  // Missing Telemetry Cap: max C2 (cannot exceed tier 2)
-  if (!lead.has_usage_telemetry) {
+  // Missing Usage-Proof Cap: usage-based claims need telemetry or complete static proof for C3+
+  const usageBased = lead.locus === "dead_code" || lead.cause === "never_used";
+  const staticProof = lead.usage_evidence === "static-complete" &&
+    !lead.safety_flags.some(f => ["hidden_consumer", "dynamic_dispatch", "ecosystem_boundary"].includes(f));
+  if (usageBased && lead.usage_evidence !== "runtime-telemetry" && !staticProof) {
     tierValue = Math.min(tierValue, tierValues["C2"]); // Clamp to 2
   }
   
@@ -451,8 +434,6 @@ Pass to Phase 4:
 
 **Objective**: Finalize findings, generate report artifact, and register to Arcade.
 
-**Note**: Detailed report generation and artifact registration logic is part of T4 (separate task). This phase emits the reporting state and prepares for final report generation.
-
 ### 4.1 Emit Reporting State
 
 ```bash
@@ -464,9 +445,9 @@ rp1 agent-tools emit \
   --data "{\"status\": \"running\", \"confirmed_findings\": \"N/A\"}"
 ```
 
-### 4.2 Report Generation (T4)
+### 4.2 Report Generation
 
-**Objective**: Generate final report artifact with findings section (C3-C4 only, max 5), needs-measurement queue, retain register, and methodology.
+**Objective**: Generate the final report artifact with findings section (C3-C4 only, max 5), needs-measurement queue, retain register, and methodology.
 
 **Step 1: Select Top 5 Findings from C3-C4 Queue**
 
@@ -478,9 +459,15 @@ FINAL_FINDINGS_COUNT=$(( ${#findings_queue[@]} > 5 ? 5 : ${#findings_queue[@]} )
 FINAL_FINDINGS=("${findings_queue[@]:0:$FINAL_FINDINGS_COUNT}")
 ```
 
-**Step 2: Format Findings Section**
+**Step 2: Read the Canonical Template**
 
-For each of the top 5 findings (ranked 1-5 by materiality):
+Read `plugins/base/skills/artifact-templates/templates/tech-debt-collector/report.md` (fall back to the `rp1-base:artifact-templates` SKILL.md Template Index if the direct path fails). The template body is the single source of truth for report structure — do not invent a parallel skeleton.
+
+**Step 3: Fill Template Placeholders**
+
+Fill `{RUN_ID}`, `{Date}`, `{SCOPE_TYPE}`, `{TARGET}`, `{LENSES_USED}`, `{LENSES_APPLIED}`, `{DISPATCH_COUNT}`, `{HYPOTHESIS_COUNT}`, and all lead-count placeholders from Phase 2/3 state. Fill the three section placeholders as follows.
+
+`{FINDINGS_SECTION}` — for each of the top 5 findings (ranked 1-5 by materiality):
 
 ```markdown
 ### Finding {RANK}: {TITLE}
@@ -520,9 +507,9 @@ Validation Checks:
 Recovery Time Estimate: {TIME} (e.g., "~5 minutes", "< 2 hours")
 ```
 
-**Step 3: Format Needs Measurement Section**
+If `FINDINGS_COUNT == 0`, fill with: "**No findings at C3+ confidence level.** Insufficient evidence for actionable recommendations at this time. See Needs Measurement section for leads requiring additional investigation."
 
-For each C1-C2 confirmed lead:
+`{NEEDS_MEASUREMENT_SECTION}` — for each C1-C2 confirmed lead (or "No leads in needs-measurement queue." when empty):
 
 ```markdown
 - **Claim**: {CLAIM}
@@ -531,9 +518,7 @@ For each C1-C2 confirmed lead:
   - **Required to Reach C3**: {ACTION_TO_INCREASE_CONFIDENCE}
 ```
 
-**Step 4: Format Retain Register Section**
-
-For each refuted lead:
+`{RETAIN_REGISTER_SECTION}` — for each refuted lead (or "No refuted leads." when empty):
 
 ```markdown
 - **Claim**: {CLAIM}
@@ -541,120 +526,11 @@ For each refuted lead:
   - **Status**: REJECTED
 ```
 
-**Step 5: Build Report Artifact**
+**Step 4: Write the Report**
 
-Combine all sections into the final report file at `.rp1/work/features/tech-debt-collector/report.md`:
+Write the filled template to `{workRoot}/features/tech-debt-collector/report.md` using the Write tool. This is the executable production step — the file must exist on disk before Step 5 registration. Writing this work artifact is explicitly permitted by the analysis-only constraint (§6.1).
 
-```markdown
-# Tech Debt & Software Bloat Detection Report
-
-**Run ID**: {RUN_ID}
-**Generated**: {ISO_DATE_TIME}
-**Scope**: {SCOPE_TYPE}: {TARGET}
-**Lenses Used**: {COMMA_SEPARATED_LENSES}
-
-## Executive Summary
-
-This report identifies evidence-gated tech debt and software bloat findings in the specified scope. Findings are ranked by materiality and confidence-tiered using C1-C4 ordinal scale.
-
-- **Total Leads Discovered**: {TOTAL_LEADS}
-- **Leads Clustered**: {CLUSTERED_COUNT}
-- **Leads Validated**: {VALIDATED_COUNT}
-- **C3+ Findings Admitted**: {C3_PLUS_COUNT}
-- **C1-C2 Needs Measurement**: {NEEDS_MEASUREMENT_COUNT}
-- **Refuted Leads**: {REFUTED_COUNT}
-
-**Result**: {FINDINGS_COUNT} findings reported below (max 5). 0 findings is valid success when insufficient C3+ leads.
-
----
-
-## Findings (C3-C4, Ranked by Materiality)
-
-{FORMATTED_FINDINGS_SECTION}
-
-{If FINDINGS_COUNT == 0: "**No findings at C3+ confidence level.** Insufficient evidence for actionable recommendations at this time. See Needs Measurement section for leads requiring additional investigation."}
-
----
-
-## Needs Measurement (C1-C2 Confirmed Leads)
-
-Confirmed leads with insufficient confidence to promote to findings. Evidence required to reach C3+:
-
-{FORMATTED_NEEDS_MEASUREMENT_SECTION}
-
-{If NEEDS_MEASUREMENT_COUNT == 0: "No leads in needs-measurement queue."}
-
----
-
-## Retain Register (Refuted Leads)
-
-Leads refuted during hypothesis-tester validation:
-
-{FORMATTED_RETAIN_REGISTER_SECTION}
-
-{If REFUTED_COUNT == 0: "No refuted leads."}
-
----
-
-## Methodology
-
-**Scope Type**: {SCOPE_TYPE}
-- Whole Project: Full codebase analysis
-- File/Directory: Targeted analysis of specified path and dependents
-- Branch: Incoming changes relative to main
-- PR Diff: Changes in diff only plus affected dependents
-
-**Discovery Phase**:
-- Scout dispatches: {DISPATCH_COUNT} (1-3 per scope strategy)
-- Lenses applied: {LENSES_APPLIED}
-- Leads per dispatch: ~20-30
-
-**Clustering & Ranking**:
-- Duplicates merged by (locus, cause) root cause
-- Materiality ranking: Primary sort by burden signal (files > dependencies > LoC > CI time)
-- Top 8 leads selected for validation
-
-**Validation Phase**:
-- Hypothesis-tester dispatches: {HYPOTHESIS_COUNT} (up to 8 parallel)
-- Refutation methods: Hidden consumer detection, dynamic dispatch analysis, semantic equivalence, protected obligation detection, counterfactual failure testing
-
-**Promotion Gate** (C3+ Confidence):
-- Only C3-C4 leads eligible for findings (max 5)
-- C1-C2 confirmed leads routed to needs-measurement
-- Refuted leads documented in retain register
-
-**Lead Counts by Phase**:
-| Phase | Count | Description |
-|-------|-------|-------------|
-| Discovery | {TOTAL_LEADS} | Raw leads from scout dispatches |
-| Clustered | {CLUSTERED_COUNT} | Leads merged by root cause |
-| Ranked Top 8 | {TOP_8_COUNT} | Leads selected for validation |
-| Validated CONFIRMED | {CONFIRMED_COUNT} | Leads confirmed by hypothesis-tester |
-| Validated REJECTED | {REFUTED_COUNT} | Leads refuted by hypothesis-tester |
-| C3+ Eligible | {C3_PLUS_COUNT} | Confirmed leads at C3+ confidence |
-| Final Findings | {FINDINGS_COUNT} | Leads admitted to report (max 5) |
-
-**Confidence Tier Definitions** (C1-C4 ascending):
-- **C1 (Speculative/Lowest)**: Smell or unvalidated conjecture; evidence incomplete or partially contradicted
-- **C2 (Provisional)**: Reproducible supporting evidence but decision-critical test or evidence source is missing
-- **C3 (Supported)**: Scope reasonably covered, counterevidence searches performed, no known contradiction
-- **C4 (Well-Established/Highest)**: Independent evidence converges and claim survived refutation attempt
-
-**Hard Confidence Caps**:
-- Missing telemetry (no usage data for usage-based claims) → max C2
-- Unchecked dynamic dispatch (for unused-code claims) → max C2
-- 3+ unresolved safety flags → max C3
-- Speculative generalization without consumer proof → max C3
-
----
-
-## Quality Notes
-
-- **Analysis-Only**: This report presents findings only. No source code modifications were made.
-- **Confidence Gating**: All reported findings meet C3+ confidence threshold. Lower-confidence leads documented separately for transparency.
-```
-
-**Step 6: Register Report Artifact to Arcade** (T5)
+**Step 5: Register Report Artifact to Arcade**
 
 After report file is written, verify file exists and emit artifact_registered event:
 
@@ -689,7 +565,7 @@ fi
 - ✅ Emit data includes `path`, `feature`, and `storageRoot: "work_dir"`
 - ✅ Errors logged as warnings; report availability unaffected
 
-**Step 7: Emit Reporting Complete**
+**Step 6: Emit Reporting Complete**
 
 ```bash
 rp1 agent-tools emit \
@@ -732,11 +608,11 @@ stateDiagram-v2
 
 ### 6.1 Analysis-Only Constraint
 
-This orchestrator enforces analysis-only operation:
-- ✅ Allowed: Read files, run Bash (grep, find), emit events, dispatch agents
-- ❌ Not allowed: Edit files, Write files, Bash commands that modify files
+This orchestrator never inspects or modifies source code:
+- ✅ Allowed: dispatch agents, emit events, read work artifacts and canonical templates, write work artifacts under `{workRoot}/features/tech-debt-collector/` only (`leads.json`, `hypotheses.md`, `report.md`)
+- ❌ Not allowed: reading source files, editing or writing anything outside that work directory, Bash commands that modify files
 
-All discovery, clustering, validation, and reporting are read-only or state-management operations.
+Source-level discovery and validation happen exclusively inside bloat-scout and hypothesis-tester dispatches; the orchestrator handles only structured lead data, which protects the main context window.
 
 ### 6.2 Lead Queue Persistence
 
@@ -754,79 +630,4 @@ If any phase fails:
 - Report generation failure → emit warning, still mark phase as validating-complete
 
 Partial results are acceptable; never block on transient failures.
-
----
-
-## §7. Acceptance Criteria Checklist
-
-**T2 Scope (from tasks.md)**:
-- [x] Skill created at `plugins/dev/skills/tech-debt-collector/SKILL.md` with frontmatter
-- [x] Scoping phase: parse scope, resolve target, validate readability, emit state
-- [x] Scouting phase: dispatch scout 1-3 times, cluster, rank by materiality, select top 8, emit state
-- [x] Materiality ranking algorithm per design.md §6.2
-- [x] Validating phase: emit state, prepare for hypothesis-tester dispatch (T3)
-- [x] Reporting phase: emit state, prepare for report generation (T4)
-- [x] State machine definition with user-visible states
-- [x] Analysis-only constraint enforced
-- [x] Dispatch logic for scout agent
-- [x] Lead clustering and materiality scoring implemented
-
-**T3 Scope (from tasks.md)**:
-- [x] Validation phase fully implemented in §3
-- [x] Hypothesis-tester dispatch logic: frame bloat claims, dispatch parallel (up to 8 leads)
-- [x] Dispatch framing includes: claim, exact sites, burden signal, locus, cause, safety_flags
-- [x] Validation result mapping: CONFIRMED → findings, REJECTED → retain register
-- [x] Confidence tier assignment (C1-C4) with base tier determination
-- [x] Confidence tier caps implemented:
-  - [x] Missing telemetry → max C2
-  - [x] Dynamic dispatch (unused-code claims) → max C2
-  - [x] Multiple safety flags (3+) → max C3
-  - [x] Speculative generalization without proof → max C3
-- [x] Confirmed leads sorted by materiality for final selection (T4)
-- [x] Retain register populated with rejected leads and refutation evidence
-- [x] Tier assignment reasoning documented for each lead
-
-**T3R Scope (Confidence Scale Correction from tasks.md)**:
-- [x] T3 implementation reviewed: Phase 3 sections 3.2-3.5 corrected to use ASCENDING scale
-- [x] Confidence scale corrected per design.md EDIT-001: C1 (Speculative/Lowest) → C2 (Provisional) → C3 (Supported) → C4 (Well-Established/Highest)
-- [x] Base tier assignment logic updated (§3.4): new definitions reflect ascending scale with correct epistemics
-- [x] Four confidence caps implemented as hard upper bounds using ordinal comparison:
-  - [x] Missing telemetry (no usage data for usage-based claims) → max C2
-  - [x] Unchecked dynamic dispatch (for unused-code claims) → max C2
-  - [x] 3+ unresolved safety flags → max C3
-  - [x] Speculative generalization without consumer proof → max C3
-- [x] Pseudocode corrected (§3.4): Replaced broken string-comparison `Math.max(tier, "C2")` with explicit ordinal-based cap logic using numeric tier values
-- [x] C3+ promotion gate implemented (§3.5): Separates C3-C4 leads for findings section from C1-C2 leads for needs-measurement section
-- [x] Phase 3 implementation verified against corrected design.md: tier definitions, caps, and promotion gates all correct
-
-**T4 Scope (Report Artifact & Template Generation from tasks.md)**:
-- [x] Report template created at `plugins/base/skills/artifact-templates/templates/tech-debt-collector/report.md` with YAML frontmatter
-- [x] Phase 4 report generation logic fully implemented in §4.2:
-  - [x] Select top 5 C3-C4 findings from findings queue (or fewer if insufficient)
-  - [x] Format findings section with rank, claim, evidence summary, exact sites, burden signal, confidence tier, action (title + steps + side effects + validation), rollback plan
-  - [x] Format needs-measurement section: C1-C2 confirmed leads with missing evidence descriptions
-  - [x] Format retain register section: refuted leads with refutation evidence
-  - [x] Build complete report artifact with header (run ID, scope, lenses), executive summary, findings (1-5, C3+ only), needs measurement, retain register, methodology
-  - [x] Enforce C3+ gate: only C3-C4 leads admitted to findings section (max 5)
-  - [x] Document 0 findings as valid success when insufficient C3+ leads
-  - [x] Include report metadata: lead counts at each phase, confidence tier definitions, hard confidence caps, scope details
-- [x] Register artifact to Arcade:
-  - [x] Emit `artifact_registered` event after report file written
-  - [x] Include path, feature, and storageRoot in emit data
-  - [x] Verify report file exists before registration
-- [x] Reporting phase complete: emit final status_change to completed
-- [x] Analysis-only constraint maintained: no file modifications beyond report generation
-
-**T5 Scope (Artifact Registration & Arcade Integration from tasks.md)**:
-- [x] After report artifact is written, emit `artifact_registered` event via `rp1 agent-tools emit`
-- [x] Emit command includes: `--workflow tech-debt-collector --type artifact_registered --step reporting --run-id {RUN_ID}`
-- [x] Emit data includes: `path: "features/tech-debt-collector/report.md"`, `feature: "tech-debt-collector"`, `storageRoot: "work_dir"`
-- [x] State machine validation passes: `reporting` is valid step and valid transition from `validating` (verified in §5)
-- [x] Report file verified to exist on disk at emit time (no race conditions):
-  - [x] File existence check before emit: `[ -f "$REPORT_FILE" ]`
-  - [x] Warning logged if file missing
-- [x] Error handling: emit errors logged as warnings; report availability unaffected
-  - [x] If emit fails, warning logged but workflow continues to completion
-  - [x] Emit status tracked in EMIT_STATUS variable for completion telemetry
-- [x] Analysis-only constraint maintained: emit is read-only (no file modifications)
 

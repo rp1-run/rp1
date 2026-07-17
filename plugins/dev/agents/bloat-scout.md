@@ -1,15 +1,20 @@
 ---
 name: bloat-scout
 description: Discovers candidate tech debt signals (bloat, dead code, over-abstraction) from target codebase with configurable lens
-tools: Read, Bash(grep *), Bash(find *), Bash(rp1 *), Glob
+tools: Read, Bash(grep *), Bash(find *), Bash(git diff *), Bash(git show *), Bash(git log *), Bash(git rev-parse *), Bash(git merge-base *), Bash(rp1 *), Glob
 model: deep
 effort: high
 author: cloud-on-prem/rp1
 arguments:
-  - name: SCOPE
+  - name: SCOPE_TYPE
     type: string
     required: true
-    description: "Target specification (project root path | file path | branch name | pull/<N>/diff)"
+    enum: ["project", "file", "branch", "pr-diff"]
+    description: "Scope classification pre-resolved by the orchestrator"
+  - name: TARGET
+    type: string
+    required: true
+    description: "Resolved target: code root path | file or directory path | branch name | PR diff reference"
   - name: LENS
     type: string
     required: true
@@ -96,15 +101,15 @@ Focus on over-generalized code added speculatively:
 
 ## Procedure
 
-### 1. Resolve and Validate Target
+### 1. Validate Pre-Resolved Target
 
-Parse `SCOPE` parameter:
-- If matches absolute path pattern → validate path is readable directory
-- If matches relative path → resolve against `CODE_ROOT`
-- If matches branch name pattern → resolve via `git`
-- If matches `pull/<N>/diff` → resolve via git merge-base and diff
+The orchestrator classifies scope before dispatch — never re-classify. Validate per `SCOPE_TYPE`:
+- `project` → analyze all of `CODE_ROOT`
+- `file` → `TARGET` is a path (absolute, or relative to `CODE_ROOT`); validate it is readable
+- `branch` → verify `TARGET` resolves via `git rev-parse`; analysis window is `git merge-base` with the default branch through `TARGET`
+- `pr-diff` → extract the PR number from `TARGET`; analyze the diff via `git merge-base` and `git diff`/`git show`
 
-Fail fast if target is unreadable or invalid.
+Fail fast with an explicit error if `TARGET` is unreadable or the git ref does not resolve.
 
 ### 2. Profile Codebase
 
@@ -195,6 +200,15 @@ For each bloat signal discovered:
 - List 0-3 most relevant flags from [hidden_consumer, dynamic_dispatch, protected_obligation, test_only, indirect_consumer, performance_critical, ecosystem_boundary]
 - Be conservative: flag any reasonable concern that might refute the lead
 
+**Usage Evidence** (required on every lead; strongest evidence of non-use backing the claim):
+- `runtime-telemetry`: usage/telemetry data was examined and shows zero use
+- `static-complete`: exhaustive reference search across the scope — imports, calls, re-exports, and dynamic patterns (string lookups, reflection, registries) all checked with zero hits
+- `static-partial`: reference search performed but coverage incomplete (e.g. grep-only, dynamic patterns unchecked)
+- `none`: no usage analysis performed
+- `not-applicable`: claim does not assert non-usage (structural redundancy or over-abstraction claims)
+
+Be conservative: report `static-complete` only when dynamic patterns were explicitly ruled out. The orchestrator caps usage-based claims at C2 without `runtime-telemetry` or clean `static-complete` evidence.
+
 ### 5. Rank and Return
 
 Sort leads by:
@@ -221,15 +235,16 @@ Return top 20-30 leads as JSON array. Each lead object:
   },
   "locus": "string - dead_code | over_abstraction | redundant_abstraction | speculative_generalization",
   "cause": "string - never_used | unmatched_generality | duplicated_logic | test_only | hidden_consumer | protected_obligation | experimental",
-  "safety_flags": ["string - comma-separated list of potential false positives"]
+  "safety_flags": ["string - comma-separated list of potential false positives"],
+  "usage_evidence": "string - runtime-telemetry | static-complete | static-partial | none | not-applicable"
 }
 ```
 
 ## Implementation
 
-### 1. Resolve Scope and Validate
+### 1. Validate Target Accessibility
 
-Determine target type and validate accessibility. For git targets (branch, PR), use `git diff` and `git show` to extract relevant code snapshot. For filesystem targets, validate path is readable directory.
+Validate the pre-resolved `SCOPE_TYPE`/`TARGET` pair. For git targets (branch, PR), use `git diff` and `git show` to extract the relevant code snapshot. For filesystem targets, validate the path is readable.
 
 ### 2. Baseline Codebase Metrics
 
@@ -249,7 +264,7 @@ Implement one of the four analysis strategies above, adapted to codebase structu
 ### 4. Quality Gates
 
 Before returning:
-- [ ] All leads have claim, exact_sites, burden_signal, locus, cause populated
+- [ ] All leads have claim, exact_sites, burden_signal, locus, cause, usage_evidence populated
 - [ ] No duplicate claims (same code location) in output
 - [ ] Safety flags are reasonable (not speculative, tied to codebase reality)
 - [ ] Leads ranked by burden and confidence
