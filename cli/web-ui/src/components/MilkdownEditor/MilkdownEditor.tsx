@@ -47,28 +47,41 @@ interface HighlightConfig {
 
 /**
  * Resolve the Shiki-backed highlight config once per app session.
- * The editor is created only after this resolves: adding the highlight
+ * The editor is created only after this settles: adding the highlight
  * plugin later would require tearing down and recreating the editor,
  * which destroys the user's selection and any in-progress annotation.
+ * Returns undefined while pending and null when highlighter initialization
+ * failed — the editor then mounts without syntax highlighting.
  */
-function useHighlightConfig(): HighlightConfig | null {
-	const [config, setConfig] = useState<HighlightConfig | null>(null);
+function useHighlightConfig(): HighlightConfig | null | undefined {
+	const [config, setConfig] = useState<HighlightConfig | null | undefined>(
+		undefined,
+	);
 
 	useEffect(() => {
 		let cancelled = false;
-		getHighlighter().then((highlighter) => {
-			if (cancelled) return;
-			const parser = withLineNumbers(
-				createParser(highlighter, {
-					themes: { light: "min-light", dark: "min-dark" },
-				}),
-			);
-			setConfig({
-				parser,
-				languageExtractor: (node: { attrs: { language?: string } }) =>
-					normalizeLanguage(node.attrs.language || "typescript"),
+		getHighlighter()
+			.then((highlighter) => {
+				if (cancelled) return;
+				const parser = withLineNumbers(
+					createParser(highlighter, {
+						themes: { light: "min-light", dark: "min-dark" },
+					}),
+				);
+				setConfig({
+					parser,
+					languageExtractor: (node: { attrs: { language?: string } }) =>
+						normalizeLanguage(node.attrs.language || "typescript"),
+				});
+			})
+			.catch((error: unknown) => {
+				if (cancelled) return;
+				console.warn(
+					"Syntax highlighter failed to initialize; editing without highlighting",
+					error,
+				);
+				setConfig(null);
 			});
-		});
 		return () => {
 			cancelled = true;
 		};
@@ -130,7 +143,7 @@ function MilkdownEditorInner({
 	highlightConfig,
 }: Pick<MilkdownEditorProps, "content" | "onContentChange"> & {
 	editorRef: React.Ref<MilkdownEditorHandle>;
-	highlightConfig: HighlightConfig;
+	highlightConfig: HighlightConfig | null;
 }) {
 	const viewRef = useRef<EditorView | undefined>(undefined);
 	const latestMarkdownRef = useRef(content);
@@ -161,35 +174,35 @@ function MilkdownEditorInner({
 	);
 
 	// The editor is created exactly once per mount: highlightConfig is
-	// resolved before this component renders, so no dependency can change
+	// settled before this component renders, so no dependency can change
 	// and force a teardown that would wipe the user's selection.
 	const { get: getEditor, loading } = useEditor((root) => {
-		return (
-			Editor.make()
-				.config((ctx) => {
-					ctx.set(rootCtx, root);
-					ctx.set(defaultValueCtx, content);
-					ctx
-						.get(listenerCtx)
-						.markdownUpdated(onChange)
-						.mounted((listenerContext) => {
-							viewRef.current = listenerContext.get(editorViewCtx);
-						})
-						.destroy(() => {
-							viewRef.current = undefined;
-						});
+		const editor = Editor.make()
+			.config((ctx) => {
+				ctx.set(rootCtx, root);
+				ctx.set(defaultValueCtx, content);
+				ctx
+					.get(listenerCtx)
+					.markdownUpdated(onChange)
+					.mounted((listenerContext) => {
+						viewRef.current = listenerContext.get(editorViewCtx);
+					})
+					.destroy(() => {
+						viewRef.current = undefined;
+					});
+				if (highlightConfig) {
 					ctx.set(highlightPluginConfig.key, highlightConfig);
-				})
-				.use(commonmark)
-				.use(gfm)
-				.use(history)
-				.use(listener)
-				.use(createMermaidPlugin())
-				.use(createContextMenuSelectionPlugin())
-				.use(createLinkClickPlugin())
-				// Note: mermaid NodeView must come after commonmark (needs code_block schema)
-				.use(highlight)
-		);
+				}
+			})
+			.use(commonmark)
+			.use(gfm)
+			.use(history)
+			.use(listener)
+			// Note: mermaid NodeView must come after commonmark (needs code_block schema)
+			.use(createMermaidPlugin())
+			.use(createContextMenuSelectionPlugin())
+			.use(createLinkClickPlugin());
+		return highlightConfig ? editor.use(highlight) : editor;
 	}, []);
 
 	useEffect(() => {
@@ -263,10 +276,11 @@ export const MilkdownEditor = forwardRef<
 >(function MilkdownEditor({ content, onContentChange }, ref) {
 	const highlightConfig = useHighlightConfig();
 
-	// Wait for the (session-cached) highlighter instead of mounting an
-	// editor without it: swapping the plugin in later would rebuild the
-	// editor and destroy the user's selection mid-annotation.
-	if (!highlightConfig) {
+	// Wait for the (session-cached) highlighter to settle instead of
+	// mounting an editor without it: swapping the plugin in later would
+	// rebuild the editor and destroy the user's selection mid-annotation.
+	// On initialization failure (null) the editor mounts sans highlighting.
+	if (highlightConfig === undefined) {
 		return <div className="milkdown-editor-root" />;
 	}
 
