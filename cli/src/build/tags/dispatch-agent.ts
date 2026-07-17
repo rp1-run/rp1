@@ -135,8 +135,7 @@ function renderRelayInstructions(platform: BuildPlatform): string {
 			break;
 		case "copilot":
 			continueStep =
-				"Write the user's answer to the agent's artifact file at " +
-				"`.rp1/work/agent-output/{run-id}/answer.json` and re-dispatch the agent " +
+				"Re-dispatch the agent with the user's answer included directly in the prompt message " +
 				"to continue from where it left off";
 			break;
 		case "antigravity":

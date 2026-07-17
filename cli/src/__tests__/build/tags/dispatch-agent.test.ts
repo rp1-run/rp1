@@ -411,10 +411,12 @@ Interview the user about their project vision and goals
 				expect(output).not.toContain("followup_task");
 			});
 
-			test("copilot relay specifies artifact-file handoff", async () => {
+			test("copilot relay specifies inline prompt-message answer relay", async () => {
 				const output = await render(template, "copilot");
-				expect(output).toContain("artifact");
-				expect(output).toMatch(/\.rp1\/work\/agent-output\//);
+				expect(output).toMatch(/[Rr]e-dispatch/);
+				expect(output).toContain("prompt message");
+				expect(output).not.toContain("answer.json");
+				expect(output).not.toMatch(/\.rp1\/work\/agent-output\/.*answer/);
 			});
 
 			test("antigravity relay specifies re-invocation", async () => {
@@ -431,7 +433,8 @@ Interview the user about their project vision and goals
 				// Each platform mentions its own mechanism
 				expect(codex).toContain("followup_task");
 				expect(opencode).toMatch(/Re-dispatch/);
-				expect(copilot).toContain("artifact");
+				expect(copilot).toMatch(/[Rr]e-dispatch/);
+				expect(copilot).toContain("prompt message");
 				expect(antigravity).toMatch(/re-invok/i);
 
 				// No two platforms share the same generic step 3 text
