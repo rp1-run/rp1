@@ -26,20 +26,23 @@ async function render(template: string, platform: string): Promise<string> {
 }
 
 /**
- * Render with full context including artifact type and platform capabilities,
+ * Render with full context including artifactKind and platform capabilities,
  * for testing sub-agent vs top-level behavior.
+ *
+ * Uses the production `artifactKind` context variable (set by the
+ * preprocessor enrichment) rather than the legacy `artifact.type`.
  */
 async function renderWithContext(
 	template: string,
 	platform: string,
-	artifactType: "agent" | "skill",
+	artifactKind: "agent" | "skill",
 	capabilities: readonly string[] = [],
 ): Promise<string> {
 	const liquid = createLiquid();
 	return (
 		await liquid.parseAndRender(template, {
 			platform,
-			artifact: { type: artifactType },
+			artifactKind,
 			platformConfig: { capabilities },
 		})
 	).trim();
@@ -465,6 +468,43 @@ describe("ask_user tag", () => {
 				);
 				expect(withoutContext).toBe(withSkillContext);
 			});
+		});
+	});
+
+	describe("artifactKind context variable bridge (T10)", () => {
+		const template =
+			'{% ask_user "What framework?", options: "React", "Vue", "Svelte" %}';
+
+		test("artifactKind=agent on relay platform produces valid JSON relay envelope", async () => {
+			const output = await renderWithContext(template, "codex", "agent");
+			const jsonMatch = output.match(/```json\n([\s\S]*?)\n```/);
+			expect(jsonMatch).not.toBeNull();
+			const envelope = JSON.parse(jsonMatch![1]);
+			expect(envelope.type).toBe("needs_input");
+			expect(envelope.question).toBe("What framework?");
+			expect(envelope.options).toEqual(["React", "Vue", "Svelte"]);
+		});
+
+		test("artifactKind=agent on claude-code preserves direct prompting", async () => {
+			const output = await renderWithContext(template, "claude-code", "agent", [
+				SUB_AGENT_USER_INTERACTION,
+			]);
+			expect(output).toContain('AskUserQuestion: "What framework?"');
+			expect(output).toContain("- React");
+			expect(output).not.toContain("needs_input");
+			expect(output).not.toContain("end your turn");
+		});
+
+		test("legacy artifact.type fallback still works when artifactKind absent", async () => {
+			const liquid = createLiquid();
+			const output = (
+				await liquid.parseAndRender(template, {
+					platform: "codex",
+					artifact: { type: "agent" },
+				})
+			).trim();
+			expect(output).toContain("needs_input");
+			expect(output).toContain("What framework?");
 		});
 	});
 });

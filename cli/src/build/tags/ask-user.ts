@@ -155,9 +155,14 @@ export class AskUserTag extends Tag {
 	render(ctx: Context, emitter: Emitter): void {
 		const platform = ctx.getSync(["platform"]) as BuildPlatform;
 
-		// Detect sub-agent context from artifact type
-		const artifact = ctx.getSync(["artifact"]) as { type?: string } | undefined;
-		const isSubAgent = artifact?.type === "agent";
+		// Derive sub-agent context from preprocessor-enriched artifactKind.
+		// Falls back to legacy artifact.type for contexts not yet migrated (deprecated).
+		const artifactKind = ctx.getSync(["artifactKind"]) as string | undefined;
+		const isSubAgent =
+			artifactKind !== undefined
+				? artifactKind === "agent"
+				: (ctx.getSync(["artifact"]) as { type?: string } | undefined)?.type ===
+					"agent";
 
 		// Detect direct-interaction capability from platform config
 		const platformConfig = ctx.getSync(["platformConfig"]) as
