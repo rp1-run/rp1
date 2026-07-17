@@ -132,8 +132,8 @@ describe("canonical root propagation", () => {
 			{
 				path: "plugins/dev/agents/blueprint-wizard.md",
 				expected: [
-					"{{KB_ROOT from prompt}}",
-					"{{WORK_ROOT from prompt}}",
+					"<kb_root>$4</kb_root>",
+					"<work_root>$5</work_root>",
 					"`{KB_ROOT}/charter.md`",
 				],
 				unexpected: ["`.rp1/context/charter.md`"],

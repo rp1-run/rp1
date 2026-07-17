@@ -78,7 +78,7 @@ agents:
   - name: rp1-dev:blueprint-wizard
     description: "Direct-interaction PRD wizard for surface-specific requirements through guided interview"
     plugin: dev
-    last_checksum: a9cdc0fc2d9fec1a96405c4772f614322d45b15b8f53a1bbc9824f60020c77e9
+    last_checksum: 8ef7bf4c0656a5513c43bb4a6f3f23b85d6d6d66f7bd10823f8b55b489c11e2c
   - name: rp1-dev:bootstrap-scaffolder
     description: "Direct-interaction scaffolder for tech stack selection, research, and project scaffolding"
     plugin: dev
