@@ -71,6 +71,10 @@ agents:
     description: "Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs"
     plugin: base
     last_checksum: a11c9873430a2fe09951700553adc9134ff42b3e9234c23bb3b2a0ffc59705aa
+  - name: rp1-dev:bloat-scout
+    description: "Discovers candidate tech debt signals (bloat, dead code, over-abstraction) from target codebase with configurable lens"
+    plugin: dev
+    last_checksum: c33b4a5463cb0de468422fe9f904fbec0a22ebb0b86749fb4ff8963713eee71f
   - name: rp1-dev:blueprint-auditor
     description: "Audits PRD documents against implementation status and executes disposition actions"
     plugin: dev
