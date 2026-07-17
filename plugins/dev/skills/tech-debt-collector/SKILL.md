@@ -464,27 +464,221 @@ rp1 agent-tools emit \
   --data "{\"status\": \"running\", \"confirmed_findings\": \"N/A\"}"
 ```
 
-### 4.2 Prepare for Report Generation (T4)
+### 4.2 Report Generation (T4)
 
-In task T4, the orchestrator will:
-1. Select top 5 confirmed findings (or fewer if fewer confirmed)
-2. For each finding, ensure concrete action and rollback plan
-3. Sort by materiality score (highest first)
-4. Generate report artifact at `.rp1/work/features/tech-debt-collector/report.md`:
-   - Header with summary (run ID, scope, lenses used, lead counts at each phase)
-   - Findings section (1-5 findings, ranked)
-   - Retain Register section (refuted leads with refutation evidence)
-   - Needs Measurement section (leads requiring additional telemetry)
-   - Methodology section (detailed breakdown of discovery → clustering → validation → promotion pipeline)
-5. Register artifact to Arcade:
-   ```bash
-   rp1 agent-tools emit \
-     --workflow tech-debt-collector \
-     --type artifact_registered \
-     --run-id {RUN_ID} \
-     --step reporting \
-     --data '{"path": "features/tech-debt-collector/report.md", "feature": "tech-debt-collector", "storageRoot": "work_dir"}'
-   ```
+**Objective**: Generate final report artifact with findings section (C3-C4 only, max 5), needs-measurement queue, retain register, and methodology.
+
+**Step 1: Select Top 5 Findings from C3-C4 Queue**
+
+From the findings_queue (already sorted by materiality from Phase 3):
+
+```bash
+# Take top 5 findings (or fewer if insufficient C3+ leads)
+FINAL_FINDINGS_COUNT=$(( ${#findings_queue[@]} > 5 ? 5 : ${#findings_queue[@]} ))
+FINAL_FINDINGS=("${findings_queue[@]:0:$FINAL_FINDINGS_COUNT}")
+```
+
+**Step 2: Format Findings Section**
+
+For each of the top 5 findings (ranked 1-5 by materiality):
+
+```markdown
+### Finding {RANK}: {TITLE}
+
+**Claim**: {ATOMIC_CLAIM}
+
+**Confidence Tier**: {C3|C4} ({TIER_DEFINITION})
+
+**Materiality Score**: {SCORE}
+
+**Evidence Summary**: {PROSE_SUMMARY_OF_EXACT_SITES_AND_BURDEN}
+
+**Exact Sites**:
+- {file}: {lines} ({symbol})
+- {file}: {lines} ({symbol})
+
+**Burden Signal**: {METRIC} = {VALUE} {UNIT}
+  (e.g., "10 files affected", "42 transitive dependencies", "1,247 LoC", "~5 CI minutes savings")
+
+**Action: {ACTION_TITLE}**
+
+Steps:
+1. {specific step}
+2. {specific step}
+3. {specific step}
+
+Expected Side Effects:
+- {side effect}
+- {side effect}
+
+Validation Checks:
+- [ ] {check} (e.g., "Test suite passes", "No import errors", "CI/CD succeeds", "Import time reduced")
+- [ ] {check}
+
+**Rollback Plan**: {PROCEDURE}
+
+Recovery Time Estimate: {TIME} (e.g., "~5 minutes", "< 2 hours")
+```
+
+**Step 3: Format Needs Measurement Section**
+
+For each C1-C2 confirmed lead:
+
+```markdown
+- **Claim**: {CLAIM}
+  - **Current Confidence**: {C1|C2} ({TIER_DEFINITION})
+  - **Missing Evidence**: {DESCRIPTION_OF_MISSING_DATA}
+  - **Required to Reach C3**: {ACTION_TO_INCREASE_CONFIDENCE}
+```
+
+**Step 4: Format Retain Register Section**
+
+For each refuted lead:
+
+```markdown
+- **Claim**: {CLAIM}
+  - **Refutation Evidence**: {REASON_FOR_REJECTION}
+  - **Status**: REJECTED
+```
+
+**Step 5: Build Report Artifact**
+
+Combine all sections into the final report file at `.rp1/work/features/tech-debt-collector/report.md`:
+
+```markdown
+# Tech Debt & Software Bloat Detection Report
+
+**Run ID**: {RUN_ID}
+**Generated**: {ISO_DATE_TIME}
+**Scope**: {SCOPE_TYPE}: {TARGET}
+**Lenses Used**: {COMMA_SEPARATED_LENSES}
+
+## Executive Summary
+
+This report identifies evidence-gated tech debt and software bloat findings in the specified scope. Findings are ranked by materiality and confidence-tiered using C1-C4 ordinal scale.
+
+- **Total Leads Discovered**: {TOTAL_LEADS}
+- **Leads Clustered**: {CLUSTERED_COUNT}
+- **Leads Validated**: {VALIDATED_COUNT}
+- **C3+ Findings Admitted**: {C3_PLUS_COUNT}
+- **C1-C2 Needs Measurement**: {NEEDS_MEASUREMENT_COUNT}
+- **Refuted Leads**: {REFUTED_COUNT}
+
+**Result**: {FINDINGS_COUNT} findings reported below (max 5). 0 findings is valid success when insufficient C3+ leads.
+
+---
+
+## Findings (C3-C4, Ranked by Materiality)
+
+{FORMATTED_FINDINGS_SECTION}
+
+{If FINDINGS_COUNT == 0: "**No findings at C3+ confidence level.** Insufficient evidence for actionable recommendations at this time. See Needs Measurement section for leads requiring additional investigation."}
+
+---
+
+## Needs Measurement (C1-C2 Confirmed Leads)
+
+Confirmed leads with insufficient confidence to promote to findings. Evidence required to reach C3+:
+
+{FORMATTED_NEEDS_MEASUREMENT_SECTION}
+
+{If NEEDS_MEASUREMENT_COUNT == 0: "No leads in needs-measurement queue."}
+
+---
+
+## Retain Register (Refuted Leads)
+
+Leads refuted during hypothesis-tester validation:
+
+{FORMATTED_RETAIN_REGISTER_SECTION}
+
+{If REFUTED_COUNT == 0: "No refuted leads."}
+
+---
+
+## Methodology
+
+**Scope Type**: {SCOPE_TYPE}
+- Whole Project: Full codebase analysis
+- File/Directory: Targeted analysis of specified path and dependents
+- Branch: Incoming changes relative to main
+- PR Diff: Changes in diff only plus affected dependents
+
+**Discovery Phase**:
+- Scout dispatches: {DISPATCH_COUNT} (1-3 per scope strategy)
+- Lenses applied: {LENSES_APPLIED}
+- Leads per dispatch: ~20-30
+
+**Clustering & Ranking**:
+- Duplicates merged by (locus, cause) root cause
+- Materiality ranking: Primary sort by burden signal (files > dependencies > LoC > CI time)
+- Top 8 leads selected for validation
+
+**Validation Phase**:
+- Hypothesis-tester dispatches: {HYPOTHESIS_COUNT} (up to 8 parallel)
+- Refutation methods: Hidden consumer detection, dynamic dispatch analysis, semantic equivalence, protected obligation detection, counterfactual failure testing
+
+**Promotion Gate** (C3+ Confidence):
+- Only C3-C4 leads eligible for findings (max 5)
+- C1-C2 confirmed leads routed to needs-measurement
+- Refuted leads documented in retain register
+
+**Lead Counts by Phase**:
+| Phase | Count | Description |
+|-------|-------|-------------|
+| Discovery | {TOTAL_LEADS} | Raw leads from scout dispatches |
+| Clustered | {CLUSTERED_COUNT} | Leads merged by root cause |
+| Ranked Top 8 | {TOP_8_COUNT} | Leads selected for validation |
+| Validated CONFIRMED | {CONFIRMED_COUNT} | Leads confirmed by hypothesis-tester |
+| Validated REJECTED | {REFUTED_COUNT} | Leads refuted by hypothesis-tester |
+| C3+ Eligible | {C3_PLUS_COUNT} | Confirmed leads at C3+ confidence |
+| Final Findings | {FINDINGS_COUNT} | Leads admitted to report (max 5) |
+
+**Confidence Tier Definitions** (C1-C4 ascending):
+- **C1 (Speculative/Lowest)**: Smell or unvalidated conjecture; evidence incomplete or partially contradicted
+- **C2 (Provisional)**: Reproducible supporting evidence but decision-critical test or evidence source is missing
+- **C3 (Supported)**: Scope reasonably covered, counterevidence searches performed, no known contradiction
+- **C4 (Well-Established/Highest)**: Independent evidence converges and claim survived refutation attempt
+
+**Hard Confidence Caps**:
+- Missing telemetry (no usage data for usage-based claims) → max C2
+- Unchecked dynamic dispatch (for unused-code claims) → max C2
+- 3+ unresolved safety flags → max C3
+- Speculative generalization without consumer proof → max C3
+
+---
+
+## Quality Notes
+
+- **Analysis-Only**: This report presents findings only. No source code modifications were made.
+- **Confidence Gating**: All reported findings meet C3+ confidence threshold. Lower-confidence leads documented separately for transparency.
+```
+
+**Step 6: Register Report Artifact to Arcade**
+
+After report file is written, emit artifact_registered event:
+
+```bash
+rp1 agent-tools emit \
+  --workflow tech-debt-collector \
+  --type artifact_registered \
+  --run-id {RUN_ID} \
+  --step reporting \
+  --data '{"path": "features/tech-debt-collector/report.md", "feature": "tech-debt-collector", "storageRoot": "work_dir"}'
+```
+
+**Step 7: Emit Reporting Complete**
+
+```bash
+rp1 agent-tools emit \
+  --workflow tech-debt-collector \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step reporting \
+  --data "{\"status\": \"completed\", \"findings_count\": $FINAL_FINDINGS_COUNT, \"report_path\": \"features/tech-debt-collector/report.md\"}"
+```
+
+**Reporting Phase Complete**: Report artifact is now registered to Arcade and visible to users. Workflow is complete.
 
 ---
 
@@ -582,4 +776,22 @@ Partial results are acceptable; never block on transient failures.
 - [x] Pseudocode corrected (§3.4): Replaced broken string-comparison `Math.max(tier, "C2")` with explicit ordinal-based cap logic using numeric tier values
 - [x] C3+ promotion gate implemented (§3.5): Separates C3-C4 leads for findings section from C1-C2 leads for needs-measurement section
 - [x] Phase 3 implementation verified against corrected design.md: tier definitions, caps, and promotion gates all correct
+
+**T4 Scope (Report Artifact & Template Generation from tasks.md)**:
+- [x] Report template created at `plugins/base/skills/artifact-templates/templates/tech-debt-collector/report.md` with YAML frontmatter
+- [x] Phase 4 report generation logic fully implemented in §4.2:
+  - [x] Select top 5 C3-C4 findings from findings queue (or fewer if insufficient)
+  - [x] Format findings section with rank, claim, evidence summary, exact sites, burden signal, confidence tier, action (title + steps + side effects + validation), rollback plan
+  - [x] Format needs-measurement section: C1-C2 confirmed leads with missing evidence descriptions
+  - [x] Format retain register section: refuted leads with refutation evidence
+  - [x] Build complete report artifact with header (run ID, scope, lenses), executive summary, findings (1-5, C3+ only), needs measurement, retain register, methodology
+  - [x] Enforce C3+ gate: only C3-C4 leads admitted to findings section (max 5)
+  - [x] Document 0 findings as valid success when insufficient C3+ leads
+  - [x] Include report metadata: lead counts at each phase, confidence tier definitions, hard confidence caps, scope details
+- [x] Register artifact to Arcade:
+  - [x] Emit `artifact_registered` event after report file written
+  - [x] Include path, feature, and storageRoot in emit data
+  - [x] Verify report file exists before registration
+- [x] Reporting phase complete: emit final status_change to completed
+- [x] Analysis-only constraint maintained: no file modifications beyond report generation
 
