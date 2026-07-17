@@ -31,7 +31,9 @@ import type {
 	TextSelectionAnchor,
 } from "../types/annotations";
 import {
+	locateSourceAnchor,
 	type MarkdownProjection,
+	makeSourceAnchor,
 	projectMarkdown,
 	resolveSourceAnchor,
 } from "./markdown-projection";
@@ -444,7 +446,7 @@ function isAnchorValid(anchor: Anchor, content: string): boolean {
 		case "text-selection": {
 			const textAnchor = anchor as TextSelectionAnchor;
 			if (textAnchor.source) {
-				return content.includes(textAnchor.source.text);
+				return locateSourceAnchor(textAnchor.source, content) !== null;
 			}
 			if (content.includes(textAnchor.selectedText)) {
 				return true;
@@ -489,8 +491,9 @@ function escapeRegex(str: string): string {
 /**
  * Resolve source coordinates for a text-selection anchor when they are
  * missing or no longer match the content (the document may have been
- * reformatted while the rendered text survived). Returns the original
- * anchor when nothing better can be resolved.
+ * reformatted while the rendered text survived). Existing anchors whose
+ * occurrence moved are re-anchored at the located position with fresh
+ * contexts. Returns the original anchor when nothing better can be resolved.
  */
 export function enrichAnchorWithSource(
 	anchor: Anchor,
@@ -499,8 +502,20 @@ export function enrichAnchorWithSource(
 ): Anchor {
 	if (anchor.type !== "text-selection") return anchor;
 	const textAnchor = anchor as TextSelectionAnchor;
-	if (textAnchor.source && content.includes(textAnchor.source.text)) {
-		return anchor;
+	if (textAnchor.source) {
+		const located = locateSourceAnchor(textAnchor.source, content);
+		if (located) {
+			if (
+				located.start === textAnchor.source.start &&
+				located.end === textAnchor.source.end
+			) {
+				return anchor;
+			}
+			return {
+				...textAnchor,
+				source: makeSourceAnchor(content, located.start, located.end),
+			};
+		}
 	}
 	const resolved = resolveSourceAnchor(textAnchor, content, projection);
 	return resolved ? { ...textAnchor, source: resolved } : anchor;

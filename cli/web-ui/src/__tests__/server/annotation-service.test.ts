@@ -588,6 +588,75 @@ describe("annotation-service (SQLite)", () => {
 			expect(anchor.source?.text).toBe("exposes `val logger` _verbatim");
 		});
 
+		test("orphans annotations when the annotated occurrence is deleted and only a duplicate remains", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: {
+					type: "text-selection",
+					startOffset: 0,
+					endOffset: 11,
+					selectedText: "shared text",
+					contextBefore: "gamma ",
+					contextAfter: " delta",
+				},
+				content: "Comment on the second occurrence",
+			});
+
+			// First pass anchors the annotation to the gamma occurrence.
+			detectOrphanedAnnotations(
+				db,
+				"doc-1",
+				"alpha shared text beta\n\ngamma shared text delta\n",
+			);
+			expect(getAnnotation(db, created.id)?.orphaned).toBe(false);
+
+			// The annotated paragraph is deleted; identical text survives
+			// elsewhere with a foreign neighborhood. The annotation must not
+			// silently move to the duplicate.
+			detectOrphanedAnnotations(
+				db,
+				"doc-1",
+				"alpha shared text beta\n\nclosing line rewritten entirely\n",
+			);
+			expect(getAnnotation(db, created.id)?.orphaned).toBe(true);
+		});
+
+		test("re-anchors source coordinates when the annotated paragraph moves", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: {
+					type: "text-selection",
+					startOffset: 0,
+					endOffset: 11,
+					selectedText: "shared text",
+					contextBefore: "gamma ",
+					contextAfter: " delta",
+				},
+				content: "Comment",
+			});
+
+			const original = "alpha shared text beta\n\ngamma shared text delta\n";
+			detectOrphanedAnnotations(db, "doc-1", original);
+			const before = getAnnotation(db, created.id)?.anchor as {
+				source?: { start: number; text: string };
+			};
+			expect(before.source?.text).toBe("shared text");
+
+			// Prepending a section shifts every offset; the occurrence itself
+			// (with its neighborhood) is unchanged.
+			const moved = `# New intro section\n\n${original}`;
+			detectOrphanedAnnotations(db, "doc-1", moved);
+			const fetched = getAnnotation(db, created.id);
+			expect(fetched?.orphaned).toBe(false);
+			const after = fetched?.anchor as {
+				source?: { start: number; text: string };
+			};
+			expect(after.source?.text).toBe("shared text");
+			expect(after.source?.start).toBe(
+				(before.source?.start ?? 0) + "# New intro section\n\n".length,
+			);
+		});
+
 		test("still orphans selections whose text is genuinely gone", () => {
 			const created = createAnnotation(db, {
 				docId: "doc-1",

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
+	locateSourceAnchor,
+	makeSourceAnchor,
 	projectMarkdown,
 	resolveSourceAnchor,
 } from "../../server/markdown-projection";
@@ -136,5 +138,69 @@ describe("resolveSourceAnchor", () => {
 		expect(
 			resolveSourceAnchor(anchor(" CM --> F\n13    PS --> F"), SOURCE),
 		).toBeNull();
+	});
+
+	test("resolves selections across decoded named character references", () => {
+		const source = "Alpha &amp; Beta and more text\n";
+		const resolved = resolveSourceAnchor(anchor("Alpha & Beta"), source);
+		expect(resolved).not.toBeNull();
+		expect(resolved!.text).toBe("Alpha &amp; Beta");
+		expect(source.slice(resolved!.start, resolved!.end)).toBe(resolved!.text);
+	});
+
+	test("resolves selections across numeric character references", () => {
+		const source = "Copyright &#169; 2026 rp1\n";
+		const resolved = resolveSourceAnchor(anchor("© 2026"), source);
+		expect(resolved).not.toBeNull();
+		expect(resolved!.text).toBe("&#169; 2026");
+	});
+
+	test("never splits an entity when the selection covers only its character", () => {
+		const source = "Alpha &amp; Beta\n";
+		const resolved = resolveSourceAnchor(
+			anchor("&", "Alpha ", " Beta"),
+			source,
+		);
+		expect(resolved).not.toBeNull();
+		expect(resolved!.text).toBe("&amp;");
+	});
+
+	test("rejects selections over unmappable references instead of corrupting", () => {
+		const source = "Rights &copy; reserved\n";
+		expect(resolveSourceAnchor(anchor("© reserved"), source)).toBeNull();
+		expect(resolveSourceAnchor(anchor("reserved"), source)).toBeNull();
+	});
+
+	test("resolves multi-line blockquote selections", () => {
+		const source = "> quoted alpha\n> quoted beta\n";
+		const resolved = resolveSourceAnchor(anchor("alpha\nquoted beta"), source);
+		expect(resolved).not.toBeNull();
+		expect(resolved!.text).toBe("alpha\n> quoted beta");
+		expect(source.slice(resolved!.start, resolved!.end)).toBe(resolved!.text);
+	});
+});
+
+describe("locateSourceAnchor", () => {
+	const content = "alpha shared text beta\n\ngamma shared text delta\n";
+
+	test("accepts an anchor whose coordinates still match exactly", () => {
+		const source = makeSourceAnchor(content, 6, 17);
+		expect(content.slice(6, 17)).toBe("shared text");
+		expect(locateSourceAnchor(source, content)).toEqual({ start: 6, end: 17 });
+	});
+
+	test("relocates a moved occurrence via surviving context", () => {
+		const source = makeSourceAnchor(content, 30, 41);
+		const edited = `intro paragraph\n\n${content}`;
+		const located = locateSourceAnchor(source, edited);
+		expect(located).not.toBeNull();
+		expect(edited.slice(located!.start, located!.end)).toBe("shared text");
+		expect(edited.slice(located!.start - 6, located!.start)).toBe("gamma ");
+	});
+
+	test("rejects duplicates when the annotated occurrence is deleted", () => {
+		const source = makeSourceAnchor(content, 30, 41);
+		const edited = "alpha shared text beta\n\nunrelated closing line\n";
+		expect(locateSourceAnchor(source, edited)).toBeNull();
 	});
 });
