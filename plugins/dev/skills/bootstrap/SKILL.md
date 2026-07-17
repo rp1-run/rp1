@@ -91,12 +91,28 @@ Create subdir if needed: `mkdir -p "{TARGET_DIR}"` (fail -> abort)
 mkdir -p "{kbRoot}"
 ```
 
-Read the charter template at `plugins/base/skills/artifact-templates/templates/charter-interviewer/charter.md`. Create `{kbRoot}/charter.md` from it, filling `{Project Name}` with `{PROJECT_NAME}`, `{Date}` with today's date, and `{Draft | Complete}` with "Draft".
+Check charter state:
+
+```bash
+if [ -f "{kbRoot}/charter.md" ]; then
+  grep -q "_TBD_" "{kbRoot}/charter.md" && echo "HAS_TBD" || echo "COMPLETE"
+else
+  echo "ABSENT"
+fi
+```
+
+**ABSENT**: Read the charter template at `plugins/base/skills/artifact-templates/templates/charter-interviewer/charter.md`. Create `{kbRoot}/charter.md` from it, filling `{Project Name}` with `{PROJECT_NAME}`, `{Date}` with today's date, and `{Draft | Complete}` with "Draft". Set CHARTER_MODE=CREATE.
+
+**HAS_TBD**: Preserve existing `{kbRoot}/charter.md` unchanged. Set CHARTER_MODE=UPDATE.
+
+**COMPLETE**: Charter is fully populated. Skip to §5 (no interviewer dispatch).
 
 ### 4.2 Charter Interview
 
+Only when CHARTER_MODE is set (ABSENT or HAS_TBD path):
+
 {% dispatch_agent "rp1-dev:charter-interviewer" %}
-CHARTER_PATH={kbRoot}/charter.md, MODE=CREATE
+CHARTER_PATH={kbRoot}/charter.md, MODE={CHARTER_MODE}
 {% enddispatch_agent %}
 
 ### 4.3 Verify
