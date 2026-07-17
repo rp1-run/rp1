@@ -31,6 +31,11 @@ import type {
 	TextSelectionAnchor,
 } from "../types/annotations";
 import {
+	type MarkdownProjection,
+	projectMarkdown,
+	resolveSourceAnchor,
+} from "./markdown-projection";
+import {
 	resolveArtifactAbsolutePath,
 	resolveProjectDirectories,
 } from "./project-paths";
@@ -406,13 +411,51 @@ export function addReply(
 }
 
 /**
+ * Project markdown (or rendered DOM text) onto a whitespace-free plain-text
+ * form for anchor matching. Text-selection anchors carry text captured from
+ * the rendered DOM, where inline markers (backticks, emphasis), link syntax,
+ * HTML tags, and block separators are absent or differ from the markdown
+ * source, so a literal `includes` check wrongly orphans any selection that
+ * spans formatting. Stripping syntax on both sides and dropping all
+ * whitespace makes the match layout-insensitive; false positives only make
+ * an annotation count as still-anchored, which is the safe direction.
+ */
+export function normalizeForAnchorMatch(text: string): string {
+	return text
+		.replace(/^ {0,3}(?:`{3,}|~{3,}).*$/gm, "")
+		.replace(/<[a-zA-Z/][^>]*>/g, "")
+		.replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+		.replace(/\[([^\]]*)\]\(([^)]*)\)/g, "$1")
+		.replace(/\\([\\`*_{}[\]()#+\-.!|])/g, "$1")
+		.replace(/[`*_~|#>]/g, "")
+		.replace(/\s+/g, "");
+}
+
+/**
  * Check if an anchor can be found in the given content.
+ *
+ * Text-selection anchors with resolved source coordinates are validated by
+ * exact source-domain matching. Legacy anchors (rendered-text only) fall
+ * back to literal and then normalized matching until lazy migration in
+ * detectOrphanedAnnotations resolves them to source coordinates.
  */
 function isAnchorValid(anchor: Anchor, content: string): boolean {
 	switch (anchor.type) {
 		case "text-selection": {
 			const textAnchor = anchor as TextSelectionAnchor;
-			return content.includes(textAnchor.selectedText);
+			if (textAnchor.source) {
+				return content.includes(textAnchor.source.text);
+			}
+			if (content.includes(textAnchor.selectedText)) {
+				return true;
+			}
+			const normalizedSelection = normalizeForAnchorMatch(
+				textAnchor.selectedText,
+			);
+			if (normalizedSelection.length === 0) {
+				return false;
+			}
+			return normalizeForAnchorMatch(content).includes(normalizedSelection);
 		}
 		case "hidden-anchor": {
 			const hiddenAnchor = anchor as HiddenAnchor;
@@ -444,8 +487,31 @@ function escapeRegex(str: string): string {
 }
 
 /**
+ * Resolve source coordinates for a text-selection anchor when they are
+ * missing or no longer match the content (the document may have been
+ * reformatted while the rendered text survived). Returns the original
+ * anchor when nothing better can be resolved.
+ */
+export function enrichAnchorWithSource(
+	anchor: Anchor,
+	content: string,
+	projection?: MarkdownProjection,
+): Anchor {
+	if (anchor.type !== "text-selection") return anchor;
+	const textAnchor = anchor as TextSelectionAnchor;
+	if (textAnchor.source && content.includes(textAnchor.source.text)) {
+		return anchor;
+	}
+	const resolved = resolveSourceAnchor(textAnchor, content, projection);
+	return resolved ? { ...textAnchor, source: resolved } : anchor;
+}
+
+/**
  * Detect and mark orphaned annotations for a specific artifact by doc_id.
  * An annotation is orphaned when its anchor text can no longer be found in the content.
+ * Text-selection anchors are (re-)resolved to source coordinates as part of
+ * the pass, which lazily migrates legacy anchors and re-anchors annotations
+ * after the document is reformatted.
  * Returns the list of annotation IDs whose orphaned flag was flipped in this pass.
  */
 export function detectOrphanedAnnotations(
@@ -458,6 +524,7 @@ export function detectOrphanedAnnotations(
 	);
 
 	const flippedIds: string[] = [];
+	let projection: MarkdownProjection | undefined;
 
 	for (const record of records) {
 		const data: AnnotationData | null = record.data
@@ -468,18 +535,28 @@ export function detectOrphanedAnnotations(
 			continue;
 		}
 
-		const isValid = isAnchorValid(data.anchor, content);
-		const shouldBeOrphaned = !isValid;
+		let anchor = data.anchor;
+		if (anchor.type === "text-selection") {
+			projection ??= projectMarkdown(content);
+			anchor = enrichAnchorWithSource(anchor, content, projection);
+		}
 
-		if (data.orphaned !== shouldBeOrphaned) {
+		const isValid = isAnchorValid(anchor, content);
+		const shouldBeOrphaned = !isValid;
+		const anchorChanged = anchor !== data.anchor;
+
+		if (data.orphaned !== shouldBeOrphaned || anchorChanged) {
 			const updatedData: AnnotationData = {
 				...data,
+				anchor,
 				orphaned: shouldBeOrphaned,
 			};
 			dbUpdateAnnotation(db, record.id, {
 				data: JSON.stringify(updatedData),
 			});
-			flippedIds.push(String(record.id));
+			if (data.orphaned !== shouldBeOrphaned) {
+				flippedIds.push(String(record.id));
+			}
 		}
 	}
 

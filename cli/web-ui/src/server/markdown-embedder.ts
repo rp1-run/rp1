@@ -46,6 +46,23 @@ function findAnchorPosition(
 	switch (anchor.type) {
 		case "text-selection": {
 			const textAnchor = anchor as TextSelectionAnchor;
+
+			// Source coordinates are exact slices of the markdown file;
+			// prefer them over rendered-text matching.
+			if (textAnchor.source) {
+				const { text, contextBefore, contextAfter } = textAnchor.source;
+				const fullPattern = contextBefore + text + contextAfter;
+				const fullIndex = content.indexOf(fullPattern);
+				if (fullIndex !== -1) {
+					const start = fullIndex + contextBefore.length;
+					return { start, end: start + text.length };
+				}
+				const index = content.indexOf(text);
+				if (index !== -1) {
+					return { start: index, end: index + text.length };
+				}
+			}
+
 			const searchText = textAnchor.selectedText;
 			const contextBefore = textAnchor.contextBefore;
 			const contextAfter = textAnchor.contextAfter;

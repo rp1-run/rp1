@@ -496,6 +496,115 @@ describe("annotation-service (SQLite)", () => {
 			expect(fetched?.orphaned).toBe(false);
 		});
 
+		test("keeps rendered-text selections anchored across inline markdown syntax", () => {
+			// Selection text is captured from the rendered DOM, so backticks,
+			// bold markers, and table pipes present in the source are absent.
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor(
+					"THE single shared collaborator. Class members: putAudit, audit; exposes val logger = getLogger<Svc>() verbatim type argument",
+				),
+				content: "Comment",
+			});
+
+			detectOrphanedAnnotations(
+				db,
+				"doc-1",
+				"| `Support.kt` | THE single shared collaborator. Class members: `putAudit`, `audit`; exposes `val logger = getLogger<Svc>()` **verbatim type argument** |",
+			);
+
+			const fetched = getAnnotation(db, created.id);
+			expect(fetched?.orphaned).toBe(false);
+		});
+
+		test("keeps selections anchored across block boundaries and soft line wraps", () => {
+			// DOM extraction concatenates block text without separators, while
+			// the markdown source separates the same text with newlines.
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("REQ-001: Gate DiscoveryPriority: Must Have"),
+				content: "Comment",
+			});
+
+			detectOrphanedAnnotations(
+				db,
+				"doc-1",
+				"## REQ-001: Gate Discovery\n\nPriority: Must Have\n",
+			);
+
+			const fetched = getAnnotation(db, created.id);
+			expect(fetched?.orphaned).toBe(false);
+		});
+
+		test("lazily migrates legacy anchors to source coordinates", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("exposes val logger verbatim"),
+				content: "Comment",
+			});
+
+			detectOrphanedAnnotations(
+				db,
+				"doc-1",
+				"Body that exposes `val logger` **verbatim** here.",
+			);
+
+			const fetched = getAnnotation(db, created.id);
+			expect(fetched?.orphaned).toBe(false);
+			const anchor = fetched?.anchor as {
+				source?: { text: string };
+			};
+			expect(anchor.source).toBeDefined();
+			expect(anchor.source?.text).toBe("exposes `val logger` **verbatim");
+		});
+
+		test("re-anchors source coordinates after the document is reformatted", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("exposes val logger verbatim"),
+				content: "Comment",
+			});
+
+			// First pass stores source coordinates for the bold form.
+			detectOrphanedAnnotations(
+				db,
+				"doc-1",
+				"Body that exposes `val logger` **verbatim** here.",
+			);
+
+			// The document is reformatted: bold becomes italics. The stored
+			// source slice is gone, but the rendered text still resolves.
+			detectOrphanedAnnotations(
+				db,
+				"doc-1",
+				"Body that exposes `val logger` _verbatim_ here.",
+			);
+
+			const fetched = getAnnotation(db, created.id);
+			expect(fetched?.orphaned).toBe(false);
+			const anchor = fetched?.anchor as {
+				source?: { text: string };
+			};
+			expect(anchor.source?.text).toBe("exposes `val logger` _verbatim");
+		});
+
+		test("still orphans selections whose text is genuinely gone", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("this sentence was deleted"),
+				content: "Comment",
+			});
+
+			detectOrphanedAnnotations(
+				db,
+				"doc-1",
+				"# Doc\n\nEntirely rewritten body with `code` and **bold**.",
+			);
+
+			const fetched = getAnnotation(db, created.id);
+			expect(fetched?.orphaned).toBe(true);
+		});
+
 		test("validates hidden anchors", () => {
 			const created = createAnnotation(db, {
 				docId: "doc-1",
