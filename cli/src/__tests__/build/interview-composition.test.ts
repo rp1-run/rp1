@@ -2,14 +2,17 @@
  * Composed-prompt regression tests for interview agents.
  *
  * Exercises buildPlatformPlugin over the three interview agents
- * (charter-interviewer, blueprint-wizard, bootstrap-scaffolder) for
- * Claude Code and Codex platforms. Asserts:
+ * (charter-interviewer, blueprint-wizard, bootstrap-scaffolder) for all
+ * five supported platforms: Claude Code, Codex, OpenCode, Copilot, and
+ * Antigravity. Asserts:
  *
- * - Exactly one completion contract per harness type (REQ-004).
- * - No contradictory anti-loop prohibition in interview agents (REQ-001).
- * - Non-interview agents still include the generic anti-loop (blast-radius).
- *
- * These tests fail if REQ-001 or REQ-004 regress.
+ * - Interview-loop directive replaces anti-loop on all platforms.
+ * - Exactly one completion contract per platform type:
+ *   Claude Code uses plain-text markers; relay platforms use relay-envelope JSON.
+ * - No unconditional direct-prompt language on relay platforms.
+ * - Direct-prompt phrasing retained on Claude Code builds (regression guard).
+ * - Relay platforms include checkpoint protocol for durable continuations.
+ * - Non-interview agents retain the generic anti-loop (blast-radius).
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -18,13 +21,11 @@ import { join } from "node:path";
 import { createLogger } from "../../../shared/logger.js";
 import { buildPlatformPlugin } from "../../build/command.js";
 import { PLATFORM_DEFINITIONS } from "../../build/platform-definitions.js";
+import type { BuildPlatform } from "../../build/template-context.js";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
 
 const projectRoot = join(import.meta.dir, "..", "..", "..", "..");
 const logger = createLogger({ level: "error", color: false });
-
-const claudeCodeDef = PLATFORM_DEFINITIONS.get("claude-code")!;
-const codexDef = PLATFORM_DEFINITIONS.get("codex")!;
 
 const INTERVIEW_AGENTS = [
 	"charter-interviewer",
@@ -34,6 +35,19 @@ const INTERVIEW_AGENTS = [
 
 // Non-interview agent used for blast-radius verification.
 const NON_INTERVIEW_AGENT = "feature-architect";
+
+// Relay platforms: all platforms except Claude Code.
+const RELAY_PLATFORMS: readonly BuildPlatform[] = [
+	"codex",
+	"opencode",
+	"copilot",
+	"antigravity",
+];
+
+const ALL_PLATFORMS: readonly BuildPlatform[] = [
+	"claude-code",
+	...RELAY_PLATFORMS,
+];
 
 // --- Content markers ---
 
@@ -50,6 +64,9 @@ const RELAY_ENVELOPE_HEADING = "Relay Envelope Protocol";
 const RELAY_ENVELOPE_COMPLETION = '"type": "completed"';
 const RELAY_ENVELOPE_NEEDS_INPUT = '"type": "needs_input"';
 
+// Checkpoint marker: present only on relay platforms (from relay-envelope shared include)
+const CHECKPOINT_MARKER = "INTERVIEW_CHECKPOINT";
+
 // Plain-text completion markers per agent (Claude Code only)
 const CLAUDE_CODE_COMPLETIONS: Record<string, string> = {
 	"charter-interviewer": "Charter interview complete",
@@ -57,63 +74,76 @@ const CLAUDE_CODE_COMPLETIONS: Record<string, string> = {
 	"bootstrap-scaffolder": "Project scaffolded at",
 };
 
-describe("interview agent composition", () => {
-	let ccOutputDir: string;
-	let codexOutputDir: string;
+// Direct-prompt phrasing gated by {% if platform == "claude-code" %} in agent
+// role paragraphs. Must be present on Claude Code, absent on relay builds.
+const DIRECT_PROMPT_PHRASES = [
+	"direct charter interviews",
+	"direct PRD interviews",
+	"direct interview with the user",
+	"You ask the user questions",
+];
 
-	// Built agent content caches, keyed by agent name.
-	const ccAgentContent = new Map<string, string>();
-	const codexAgentContent = new Map<string, string>();
+/**
+ * Resolve the output file path for a built agent on a given platform.
+ */
+function agentPath(
+	outputDir: string,
+	platform: BuildPlatform,
+	agentName: string,
+): string {
+	switch (platform) {
+		case "claude-code":
+			return join(outputDir, "dev", "agents", `${agentName}.md`);
+		case "codex":
+			return join(outputDir, "dev", "agents", `rp1-dev-${agentName}.toml`);
+		case "opencode":
+		case "antigravity":
+			return join(outputDir, "dev", "agents", `rp1-dev-${agentName}.md`);
+		case "copilot":
+			return join(outputDir, "dev", "agents", `rp1-dev-${agentName}.agent.md`);
+	}
+}
+
+describe("interview agent composition", () => {
+	// Per-platform output dirs and agent content caches.
+	const outputDirs = new Map<BuildPlatform, string>();
+	const agentContent = new Map<BuildPlatform, Map<string, string>>();
 
 	beforeAll(async () => {
-		ccOutputDir = await createTempDir("interview-cc-");
-		codexOutputDir = await createTempDir("interview-codex-");
-
-		// Build the dev plugin for both platforms.
-		const [ccResult, codexResult] = await Promise.all([
-			buildPlatformPlugin(
-				"dev",
-				projectRoot,
-				ccOutputDir,
-				claudeCodeDef,
-				logger,
-				true, // jsonOutput (suppresses spinner)
-			),
-			buildPlatformPlugin(
-				"dev",
-				projectRoot,
-				codexOutputDir,
-				codexDef,
-				logger,
-				true,
-			),
-		]);
-
-		expect(ccResult.summary.errors).toHaveLength(0);
-		expect(codexResult.summary.errors).toHaveLength(0);
+		// Build the dev plugin for all 5 platforms in parallel.
+		const builds = await Promise.all(
+			ALL_PLATFORMS.map(async (platform) => {
+				const dir = await createTempDir(`interview-${platform}-`);
+				outputDirs.set(platform, dir);
+				const result = await buildPlatformPlugin(
+					"dev",
+					projectRoot,
+					dir,
+					PLATFORM_DEFINITIONS.get(platform)!,
+					logger,
+					true, // jsonOutput (suppresses spinner)
+				);
+				expect(result.summary.errors).toHaveLength(0);
+				return { platform, dir };
+			}),
+		);
 
 		// Read all interview agents + the non-interview control agent.
 		const agentsToRead = [...INTERVIEW_AGENTS, NON_INTERVIEW_AGENT];
-
-		for (const agentName of agentsToRead) {
-			const ccPath = join(ccOutputDir, "dev", "agents", `${agentName}.md`);
-			ccAgentContent.set(agentName, await readFile(ccPath, "utf-8"));
-
-			const codexPath = join(
-				codexOutputDir,
-				"dev",
-				"agents",
-				`rp1-dev-${agentName}.toml`,
-			);
-			codexAgentContent.set(agentName, await readFile(codexPath, "utf-8"));
+		for (const { platform, dir } of builds) {
+			const contentMap = new Map<string, string>();
+			for (const name of agentsToRead) {
+				const path = agentPath(dir, platform, name);
+				contentMap.set(name, await readFile(path, "utf-8"));
+			}
+			agentContent.set(platform, contentMap);
 		}
-	}, 60000);
+	}, 120000);
 
 	afterAll(async () => {
-		await Promise.all([
-			cleanupTempDir(ccOutputDir),
-			cleanupTempDir(codexOutputDir),
-		]);
+		await Promise.all(
+			[...outputDirs.values()].map((dir) => cleanupTempDir(dir)),
+		);
 	});
 
 	// -----------------------------------------------------------------------
@@ -124,74 +154,90 @@ describe("interview agent composition", () => {
 		for (const agentName of INTERVIEW_AGENTS) {
 			describe(agentName, () => {
 				test("contains interview-loop directive, not anti-loop", () => {
-					const content = ccAgentContent.get(agentName)!;
-					expect(content).toContain(INTERVIEW_LOOP_HEADING);
-					expect(content).toContain(INTERVIEW_LOOP_MARKER);
-					expect(content).not.toContain(ANTI_LOOP_PROHIBITION);
+					const c = agentContent.get("claude-code")!.get(agentName)!;
+					expect(c).toContain(INTERVIEW_LOOP_HEADING);
+					expect(c).toContain(INTERVIEW_LOOP_MARKER);
+					expect(c).not.toContain(ANTI_LOOP_PROHIBITION);
 				});
 
 				test("contains plain-text completion contract", () => {
-					const content = ccAgentContent.get(agentName)!;
-					const marker = CLAUDE_CODE_COMPLETIONS[agentName];
-					expect(content).toContain(marker);
+					const c = agentContent.get("claude-code")!.get(agentName)!;
+					expect(c).toContain(CLAUDE_CODE_COMPLETIONS[agentName]);
 				});
 
 				test("does not contain relay envelope", () => {
-					const content = ccAgentContent.get(agentName)!;
-					expect(content).not.toContain(RELAY_ENVELOPE_HEADING);
-					expect(content).not.toContain(RELAY_ENVELOPE_NEEDS_INPUT);
+					const c = agentContent.get("claude-code")!.get(agentName)!;
+					expect(c).not.toContain(RELAY_ENVELOPE_HEADING);
+					expect(c).not.toContain(RELAY_ENVELOPE_NEEDS_INPUT);
+				});
+
+				test("retains direct-prompt interaction phrasing", () => {
+					const c = agentContent.get("claude-code")!.get(agentName)!;
+					const hasDirectPrompt = DIRECT_PROMPT_PHRASES.some((phrase) =>
+						c.includes(phrase),
+					);
+					expect(hasDirectPrompt).toBe(true);
 				});
 			});
 		}
 	});
 
 	// -----------------------------------------------------------------------
-	// Codex: interview agents
+	// Relay platforms: Codex, OpenCode, Copilot, Antigravity
 	// -----------------------------------------------------------------------
 
-	describe("Codex interview agents", () => {
-		for (const agentName of INTERVIEW_AGENTS) {
-			describe(agentName, () => {
-				test("contains interview-loop directive, not anti-loop", () => {
-					const content = codexAgentContent.get(agentName)!;
-					expect(content).toContain(INTERVIEW_LOOP_HEADING);
-					expect(content).toContain(INTERVIEW_LOOP_MARKER);
-					expect(content).not.toContain(ANTI_LOOP_PROHIBITION);
-				});
+	for (const platform of RELAY_PLATFORMS) {
+		describe(`${platform} interview agents`, () => {
+			for (const agentName of INTERVIEW_AGENTS) {
+				describe(agentName, () => {
+					test("contains interview-loop directive, not anti-loop", () => {
+						const c = agentContent.get(platform)!.get(agentName)!;
+						expect(c).toContain(INTERVIEW_LOOP_HEADING);
+						expect(c).toContain(INTERVIEW_LOOP_MARKER);
+						expect(c).not.toContain(ANTI_LOOP_PROHIBITION);
+					});
 
-				test("contains relay envelope with JSON completion contract", () => {
-					const content = codexAgentContent.get(agentName)!;
-					expect(content).toContain(RELAY_ENVELOPE_HEADING);
-					expect(content).toContain(RELAY_ENVELOPE_COMPLETION);
-					expect(content).toContain(RELAY_ENVELOPE_NEEDS_INPUT);
-				});
+					test("contains relay envelope with JSON completion contract", () => {
+						const c = agentContent.get(platform)!.get(agentName)!;
+						expect(c).toContain(RELAY_ENVELOPE_HEADING);
+						expect(c).toContain(RELAY_ENVELOPE_COMPLETION);
+						expect(c).toContain(RELAY_ENVELOPE_NEEDS_INPUT);
+					});
 
-				test("does not contain plain-text completion directive", () => {
-					const content = codexAgentContent.get(agentName)!;
-					const marker = CLAUDE_CODE_COMPLETIONS[agentName];
-					expect(content).not.toContain(marker);
+					test("does not contain plain-text completion directive", () => {
+						const c = agentContent.get(platform)!.get(agentName)!;
+						const marker = CLAUDE_CODE_COMPLETIONS[agentName];
+						expect(c).not.toContain(marker);
+					});
+
+					test("does not contain unconditional direct-prompt phrasing", () => {
+						const c = agentContent.get(platform)!.get(agentName)!;
+						for (const phrase of DIRECT_PROMPT_PHRASES) {
+							expect(c).not.toContain(phrase);
+						}
+					});
+
+					test("contains checkpoint protocol for relay continuations", () => {
+						const c = agentContent.get(platform)!.get(agentName)!;
+						expect(c).toContain(CHECKPOINT_MARKER);
+					});
 				});
-			});
-		}
-	});
+			}
+		});
+	}
 
 	// -----------------------------------------------------------------------
 	// Blast-radius: non-interview agent retains generic anti-loop
 	// -----------------------------------------------------------------------
 
 	describe("non-interview agent blast-radius", () => {
-		test(`${NON_INTERVIEW_AGENT} on Claude Code retains anti-loop`, () => {
-			const content = ccAgentContent.get(NON_INTERVIEW_AGENT)!;
-			expect(content).toContain(ANTI_LOOP_HEADING);
-			expect(content).toContain(ANTI_LOOP_PROHIBITION);
-			expect(content).not.toContain(INTERVIEW_LOOP_HEADING);
-		});
-
-		test(`${NON_INTERVIEW_AGENT} on Codex retains anti-loop`, () => {
-			const content = codexAgentContent.get(NON_INTERVIEW_AGENT)!;
-			expect(content).toContain(ANTI_LOOP_HEADING);
-			expect(content).toContain(ANTI_LOOP_PROHIBITION);
-			expect(content).not.toContain(INTERVIEW_LOOP_HEADING);
-		});
+		for (const platform of ALL_PLATFORMS) {
+			test(`${NON_INTERVIEW_AGENT} on ${platform} retains anti-loop`, () => {
+				const c = agentContent.get(platform)!.get(NON_INTERVIEW_AGENT)!;
+				expect(c).toContain(ANTI_LOOP_HEADING);
+				expect(c).toContain(ANTI_LOOP_PROHIBITION);
+				expect(c).not.toContain(INTERVIEW_LOOP_HEADING);
+			});
+		}
 	});
 });
