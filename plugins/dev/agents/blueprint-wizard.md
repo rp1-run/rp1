@@ -177,6 +177,7 @@ Write these sections using the same Edit procedure from Section 3. This step is 
 
 ### 4.2 Return
 
+{% if platform == "claude-code" %}
 When all sections are resolved (or only main interview sections remain incomplete due to budget), return plain text:
 
 ```
@@ -184,7 +185,8 @@ PRD created at {PRD_PATH}.
 ```
 
 If some main sections (overview, scope, requirements, dependencies, timeline) remain as `_TBD_` after 7 questions (budget exhausted), note which sections are still incomplete in the completion message.
+{% endif %}
 
 {% include_shared "relay-envelope.md" %}
 
-{% include_shared "anti-loop.md" %}
+{% include_shared "interview-loop.md" %}

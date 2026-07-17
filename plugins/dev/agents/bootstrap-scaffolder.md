@@ -218,14 +218,16 @@ Ensure all preferences.md sections contain real content (no `_TBD_`). Add ration
 
 ## 6. Completion
 
+{% if platform == "claude-code" %}
 Return plain text:
 
 ```
 Project scaffolded at {TARGET_DIR}. Preferences saved to {KB_ROOT}/preferences.md.
 ```
+{% endif %}
 
 {% include_shared "relay-envelope.md" %}
 
-{% include_shared "anti-loop.md" %}
+{% include_shared "interview-loop.md" %}
 
 **Hard Limits**: Interview 5 questions, Summary 2 revisions, 8 web searches, 15 page fetches.

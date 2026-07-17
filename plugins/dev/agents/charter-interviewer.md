@@ -124,6 +124,7 @@ Each nested marker is a separate Edit call. If the user's answer only addresses 
 
 ## 4. Completion
 
+{% if platform == "claude-code" %}
 When all gaps are filled or 5 questions have been asked, return plain text:
 
 ```
@@ -131,7 +132,8 @@ Charter interview complete. All sections populated in {CHARTER_PATH}.
 ```
 
 If some sections remain as `_TBD_` after 5 questions (budget exhausted), note which sections are still incomplete in the completion message so the user knows they can resume later.
+{% endif %}
 
 {% include_shared "relay-envelope.md" %}
 
-{% include_shared "anti-loop.md" %}
+{% include_shared "interview-loop.md" %}

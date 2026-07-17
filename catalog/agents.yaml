@@ -78,11 +78,11 @@ agents:
   - name: rp1-dev:blueprint-wizard
     description: "Direct-interaction PRD wizard for surface-specific requirements through guided interview"
     plugin: dev
-    last_checksum: 8ef7bf4c0656a5513c43bb4a6f3f23b85d6d6d66f7bd10823f8b55b489c11e2c
+    last_checksum: 99dd67a5be5028ea7f56dc6978112673a4418be30345fda8d78e615c19d6011b
   - name: rp1-dev:bootstrap-scaffolder
     description: "Direct-interaction scaffolder for tech stack selection, research, and project scaffolding"
     plugin: dev
-    last_checksum: ec0b616c5d15c9b07c69d6726d0b2f777236663d4469a9f5590e56c97005183f
+    last_checksum: 687b3e36a254571dfd9cc95999d6e80991a2fdc11279f98b3795822e1e78ad4a
   - name: rp1-dev:bug-investigator
     description: "Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes"
     plugin: dev
@@ -110,7 +110,7 @@ agents:
   - name: rp1-dev:charter-interviewer
     description: "Direct-interaction interview agent for greenfield project vision capture via charter sections"
     plugin: dev
-    last_checksum: 6dea944c2c34551549cff96a8e780052220449155eb0353f75fb2baae953daa2
+    last_checksum: 0324637edb920c4d76a2073344da9b2c60ba20abf6e9c23be11cd19ba497eb5f
   - name: rp1-dev:code-auditor
     description: "Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift"
     plugin: dev
