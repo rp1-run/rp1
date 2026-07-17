@@ -87,6 +87,10 @@ describe("Antigravity install command", () => {
 					...process.env,
 					NO_COLOR: "1",
 					RP1_ANTIGRAVITY_BUNDLE_DIR: bundleDir,
+					// Keep the spawned CLI inside this test's home: writes to the
+					// shared sandbox home leak into other tests' assertions.
+					HOME: tempDir,
+					USERPROFILE: tempDir,
 				},
 				stdout: "pipe",
 				stderr: "pipe",
@@ -151,6 +155,11 @@ describe("Antigravity install command", () => {
 					...process.env,
 					NO_COLOR: "1",
 					RP1_ANTIGRAVITY_BUNDLE_DIR: bundleDir,
+					// A real (non-dry-run) install: must target this test's home,
+					// not the shared sandbox home, or the assets leak into other
+					// tests (e.g. the uninstall dry-run's clean-home assertion).
+					HOME: tempDir,
+					USERPROFILE: tempDir,
 				},
 				stdout: "pipe",
 				stderr: "pipe",

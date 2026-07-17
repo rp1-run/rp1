@@ -139,6 +139,10 @@ describe("Antigravity uninstall command", () => {
 					...process.env,
 					NO_COLOR: "1",
 					RP1_ANTIGRAVITY_BUNDLE_DIR: bundleDir,
+					// Assert against this test's guaranteed-clean home rather than
+					// the shared sandbox home, which other tests may have touched.
+					HOME: tempDir,
+					USERPROFILE: tempDir,
 				},
 				stdout: "pipe",
 				stderr: "pipe",
