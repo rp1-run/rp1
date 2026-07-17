@@ -50,10 +50,18 @@ Check if `{KB_ROOT}/preferences.md` exists. If it does, read it and determine th
 | File does not exist | Phase 2 (Interview) |
 | File exists, Tech Stack section contains `_TBD_` or is missing | Phase 2 (Interview) |
 | File exists, Tech Stack filled, Research Notes contains `_TBD_` | Phase 3 (Research) |
+| File exists, Tech Stack + Research filled, Summary contains `_TBD_` | Phase 4 (Summary) |
 | File exists, all sections filled, TARGET_DIR not yet scaffolded | Phase 5 (Scaffold) |
 | File exists, all sections filled, TARGET_DIR already scaffolded | Return completion (Phase 6) |
 
-To check whether TARGET_DIR is scaffolded, look for a `.git` directory and package manifest inside TARGET_DIR.
+To check whether TARGET_DIR is fully scaffolded, verify **all** of the following inside TARGET_DIR:
+
+1. `.git` directory with at least one commit (`git -C "{TARGET_DIR}" rev-parse HEAD` succeeds)
+2. Package manifest file (e.g., `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`)
+3. Source entry point (e.g., `src/main.ts`, `src/main.py`, `main.go`)
+4. Test file (e.g., `tests/main.test.ts`, `tests/test_main.py`)
+
+If only `.git` and the package manifest exist but the source entry point, test file, or initial commit is missing, treat the scaffold as **incomplete** and resume from Phase 5 (Scaffold).
 
 ## 2. Interview Phase
 
@@ -215,6 +223,8 @@ Return plain text:
 ```
 Project scaffolded at {TARGET_DIR}. Preferences saved to {KB_ROOT}/preferences.md.
 ```
+
+{% include_shared "relay-envelope.md" %}
 
 {% include_shared "anti-loop.md" %}
 
