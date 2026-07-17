@@ -132,4 +132,6 @@ Charter interview complete. All sections populated in {CHARTER_PATH}.
 
 If some sections remain as `_TBD_` after 5 questions (budget exhausted), note which sections are still incomplete in the completion message so the user knows they can resume later.
 
+{% include_shared "relay-envelope.md" %}
+
 {% include_shared "anti-loop.md" %}
