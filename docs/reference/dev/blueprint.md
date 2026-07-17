@@ -22,14 +22,25 @@ Guided wizard that captures project vision through a two-tier document hierarchy
 
 ## Description
 
-The `blueprint` command creates the foundational documentation for your project through guided interviews. Each interview phase dispatches an agent once, and the agent asks you questions directly and writes completed sections to the artifact incrementally.
+The `blueprint` command creates the foundational documentation for your project through guided interviews. Each interview phase dispatches an agent once to fill sections of the artifact incrementally.
 
 It establishes a two-tier hierarchy:
 
 1. **Charter** - Project-level vision document (why, who, scope)
 2. **PRDs** - Surface-specific requirements (what to build)
 
-**Resume**: If an interview is interrupted, re-running `/blueprint` detects which sections still contain `_TBD_` placeholders and asks only about those incomplete sections. Already-completed sections are preserved.
+### Harness Interaction Models
+
+How the interview agent communicates with you depends on the harness:
+
+- **Claude Code** (direct interaction) -- The dispatched agent asks you questions directly in the conversation. You answer inline and the agent writes completed sections immediately.
+- **Codex, OpenCode, Copilot, Antigravity** (relay harnesses) -- The agent cannot prompt you directly. Instead, it sends a JSON envelope to the parent skill, which relays the question to you. Your answer is passed back to the agent in a follow-up dispatch, and the agent resumes from where it left off.
+
+On relay harnesses, each question-answer exchange is a separate dispatch cycle. The agent uses `_TBD_` gap analysis on re-dispatch to determine which sections still need input.
+
+### Resume
+
+If an interview is interrupted, re-running `/blueprint` detects which sections still contain `_TBD_` placeholders and asks only about those incomplete sections. Already-completed sections are preserved. This works identically across all harnesses -- the `_TBD_` gap analysis is the universal resume mechanism.
 
 ## Parameters
 
