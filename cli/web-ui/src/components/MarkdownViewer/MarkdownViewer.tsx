@@ -10,6 +10,7 @@ import { AnnotationPopover } from "@/components/v2/AnnotationPopover";
 import { GroupedAnnotationIndicators } from "@/components/v2/GroupedAnnotationIndicators";
 import { SelectionIndicator } from "@/components/v2/SelectionIndicator";
 import { SelectionPopover } from "@/components/v2/SelectionPopover";
+import { useAnchorHighlight } from "@/hooks/useAnchorHighlight";
 import { useAnnotationFlow } from "@/hooks/useAnnotationFlow";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import {
@@ -87,6 +88,36 @@ export function AnnotationLayer({
 	const activeAnnotation = activeAnnotationId
 		? (annotations.find((a) => a.id === activeAnnotationId) ?? null)
 		: null;
+
+	// Highlights are derived from anchors, not from the native browser
+	// selection: any DOM replacement (external refresh, editor re-render)
+	// destroys native selection, while anchor-derived highlights re-resolve
+	// against the new DOM.
+	const pendingAnchor =
+		flowState.state === "selected" ||
+		flowState.state === "indicator_visible" ||
+		flowState.state === "form_open"
+			? flowState.selection
+			: null;
+	useAnchorHighlight("pending-annotation", pendingAnchor, containerRef);
+
+	const activeTextAnchor =
+		activeAnnotation && activeAnnotation.anchor.type === "text-selection"
+			? activeAnnotation.anchor
+			: null;
+	useAnchorHighlight("active-annotation", activeTextAnchor, containerRef);
+
+	// Once the anchor-derived highlight is painted, the native selection is
+	// redundant; dropping it avoids double-painting and removes any
+	// dependence on its survival.
+	useEffect(() => {
+		if (
+			flowState.state === "indicator_visible" ||
+			flowState.state === "form_open"
+		) {
+			window.getSelection()?.removeAllRanges();
+		}
+	}, [flowState.state]);
 
 	const handleAnnotationClick = useCallback(
 		(annotation: Annotation, position: SelectionPosition) => {
@@ -199,55 +230,6 @@ export function AnnotationLayer({
 		containerRef,
 		dispatch,
 	]);
-
-	// CSS Custom Highlight API for active annotation highlighting
-	useEffect(() => {
-		if (!("highlights" in CSS) || !containerRef.current) return;
-
-		if (!activeAnnotationId) {
-			CSS.highlights.delete("active-annotation");
-			return;
-		}
-
-		const annotation = annotations.find((a) => a.id === activeAnnotationId);
-		if (!annotation || annotation.anchor.type !== "text-selection") {
-			CSS.highlights.delete("active-annotation");
-			return;
-		}
-
-		const container = containerRef.current;
-		const { selectedText, contextBefore, contextAfter } = annotation.anchor;
-		const nodes = getEditableTextNodes(container);
-		const fullText = getEditableText(container);
-		const searchPattern = contextBefore + selectedText + contextAfter;
-		const patternIndex = fullText.indexOf(searchPattern);
-
-		if (patternIndex === -1) {
-			CSS.highlights.delete("active-annotation");
-			return;
-		}
-
-		const startIndex = patternIndex + contextBefore.length;
-		const endIndex = startIndex + selectedText.length;
-		const found = findTextRange(nodes, startIndex, endIndex);
-
-		if (found) {
-			const { startNode, startOffset, endNode, endOffset } = found;
-			try {
-				const range = new Range();
-				range.setStart(startNode, startOffset);
-				range.setEnd(endNode, endOffset);
-				const highlight = new Highlight(range);
-				CSS.highlights.set("active-annotation", highlight);
-			} catch {
-				CSS.highlights.delete("active-annotation");
-			}
-		}
-
-		return () => {
-			CSS.highlights.delete("active-annotation");
-		};
-	}, [activeAnnotationId, annotations, containerRef]);
 
 	// Dismiss handler for indicator_visible state.
 	// SelectionPopover and AnnotationPopover handle their own dismiss via useDismiss,
