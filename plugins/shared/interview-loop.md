@@ -10,7 +10,7 @@
 
 **DO NOT**:
 - Re-implement or retry completed work
-- Revisit sections already populated with non-`_TBD_` content
+- Revisit sections already populated with non-`_TBD_` content on your own initiative (explicit user-requested revisions are permitted; honour the revision and resume)
 - Continue past the question budget
 - Ask multiple questions in a single turn
 
