@@ -319,61 +319,70 @@ For each validation result:
 
 ### 3.4 Assign Confidence Tiers (C1-C4)
 
-For each CONFIRMED lead, assign an ordinal confidence tier (C1=highest, C4=lowest) using the following rules:
+For each CONFIRMED lead, assign an ordinal confidence tier (C1=lowest/speculative, C4=highest/well-established) using the following rules:
 
 **Base Tier Assignment** (before caps):
-- **C1 (Highest)**: All evidence present, no methodology gaps, strong validation by hypothesis-tester
-  - Examples: Unused code with no dynamic dispatch detected, confirmed by hypothesis-tester, usage data available
-- **C2**: Evidence sufficient but with known gaps
-  - Examples: Unused code but dynamic dispatch present (verified but not fully confirmable); or no usage tracking available
-- **C3**: Moderate evidence gaps, partial validation coverage
-  - Examples: Speculative generalization with some consumer evidence but incomplete proof; multiple safety flags partially investigated
-- **C4 (Lowest)**: High uncertainty, many unresolved safety flags
-  - Examples: Over-abstraction claim with multiple hidden-consumer flags and incomplete refutation evidence
+- **C1 (Speculative/Lowest)**: Smell or unvalidated conjecture; evidence incomplete or partially contradicted
+  - Examples: Initial scan detected potential bloat but validation found unresolved safety flags; incomplete refutation coverage
+- **C2 (Provisional)**: Reproducible supporting evidence but decision-critical test or evidence source is missing
+  - Examples: Unused code detected but dynamic dispatch prevents definitive proof; no usage telemetry available for validation
+- **C3 (Supported)**: Scope reasonably covered, counterevidence searches performed, no known contradiction
+  - Examples: Unused code confirmed with no dynamic dispatch; hypothesis-tester found no consumers; usage data supports finding
+- **C4 (Well-Established/Highest)**: Independent evidence converges and claim survived refutation attempt
+  - Examples: Multiple validation methods confirm dead code; usage data confirms zero consumption; strong consensus across refutation checks
 
-**Confidence Tier Caps** (hard limits, may downgrade from base tier):
+**Confidence Tier Caps** (hard upper bounds; may downgrade from base tier):
 
 1. **Missing Telemetry Cap**: If no usage data available for usage-based claims
-   - Rule: `max_tier = C2` (cannot be C1, even with strong validation)
-   - Rationale: Usage claims require telemetry for definitive confirmation
+   - Rule: `tier <= C2` (cannot exceed C2; maximum tier is C2)
+   - Rationale: Usage claims require telemetry for definitive confirmation; C3+ requires proof of non-usage
 
 2. **Dynamic Dispatch Cap**: For unused-code claims with unchecked dynamic dispatch in safety_flags
-   - Rule: `if (locus == "dead_code" && safety_flags.includes("dynamic_dispatch")) max_tier = C2`
-   - Rationale: Dynamic dispatch prevents definitive proof of non-usage
+   - Rule: `if (locus == "dead_code" && safety_flags.includes("dynamic_dispatch")) tier <= C2`
+   - Rationale: Unchecked dynamic dispatch prevents definitive proof of non-usage; C3+ requires ruling out hidden dispatch
 
 3. **Safety Flag Overload Cap**: If 3 or more unresolved safety flags remain after validation
-   - Rule: `if (safety_flags.length >= 3) max_tier = C3`
-   - Rationale: Multiple unresolved safety flags indicate high uncertainty
+   - Rule: `if (safety_flags.length >= 3) tier <= C3`
+   - Rationale: Multiple unresolved safety flags indicate high uncertainty; C4 requires strong convergence
 
 4. **Speculative Generalization Cap**: For speculative_generalization locus without strong consumer evidence
-   - Rule: `if (locus == "speculative_generalization" && validation_confirms_no_consumers) max_tier = C3`
-   - Rationale: Future-focused code inherently has higher epistemic uncertainty
+   - Rule: `if (locus == "speculative_generalization" && validation_confirms_no_consumers) tier <= C3`
+   - Rationale: Speculative code inherently has higher epistemic uncertainty; C4 requires independent evidence convergence
 
 **Tier Assignment Algorithm**:
 
 ```javascript
 function assignConfidenceTier(lead, validationResult) {
+  // Confidence tier mapping: C1=1 (Speculative/Lowest), C4=4 (Well-Established/Highest)
+  const tierValues = { "C1": 1, "C2": 2, "C3": 3, "C4": 4 };
+  const valueTiers = { 1: "C1", 2: "C2", 3: "C3", 4: "C4" };
+  
   // Start with base tier from hypothesis-tester result
-  let tier = baseTierFromValidation(validationResult); // C1, C2, C3, or C4
+  const baseTierStr = baseTierFromValidation(validationResult); // "C1", "C2", "C3", or "C4"
+  let tierValue = tierValues[baseTierStr];
   
-  // Apply caps (may downgrade)
+  // Apply caps (hard upper bounds; may downgrade from base tier)
+  // Missing Telemetry Cap: max C2 (cannot exceed tier 2)
   if (!lead.has_usage_telemetry) {
-    tier = Math.max(tier, "C2"); // Cap at C2 if no telemetry
+    tierValue = Math.min(tierValue, tierValues["C2"]); // Clamp to 2
   }
   
+  // Dynamic Dispatch Cap: max C2 for unused-code claims (cannot exceed tier 2)
   if (lead.locus === "dead_code" && lead.safety_flags.includes("dynamic_dispatch")) {
-    tier = Math.max(tier, "C2"); // Cap at C2 for dynamic dispatch in dead_code
+    tierValue = Math.min(tierValue, tierValues["C2"]); // Clamp to 2
   }
   
+  // Safety Flag Overload Cap: max C3 if 3+ unresolved flags (cannot exceed tier 3)
   if (lead.safety_flags.length >= 3) {
-    tier = Math.max(tier, "C3"); // Cap at C3 if 3+ safety flags
+    tierValue = Math.min(tierValue, tierValues["C3"]); // Clamp to 3
   }
   
+  // Speculative Generalization Cap: max C3 without strong consumer evidence (cannot exceed tier 3)
   if (lead.locus === "speculative_generalization" && validationResult.no_consumers_found) {
-    tier = Math.max(tier, "C3"); // Cap at C3 for unconfirmed speculative code
+    tierValue = Math.min(tierValue, tierValues["C3"]); // Clamp to 3
   }
   
-  return tier;
+  return valueTiers[tierValue];
 }
 ```
 
@@ -382,23 +391,59 @@ function assignConfidenceTier(lead, validationResult) {
 Store: `{ lead_id, status: "CONFIRMED", confidence_tier: "{C1|C2|C3|C4}", tier_reasoning: "..." }`
 
 Examples:
-- "C1: All evidence present, no gaps, hypothesis-tester found no refutation, usage data available"
-- "C2: Evidence sufficient but dynamic dispatch present (capped from C1); hypothesis-tester confirmed no consumer via static analysis"
-- "C3: Moderate gaps; multiple safety flags partially investigated; speculative generalization without full proof"
-- "C4: High uncertainty; multiple unresolved safety flags; incomplete refutation evidence"
+- "C1: Initial detection only; multiple unresolved safety flags present; limited refutation coverage; speculative finding"
+- "C2: Evidence present but dynamic dispatch prevents definitive proof; no usage telemetry available; decision-critical test missing"
+- "C3: Scope reasonably covered; hypothesis-tester found no refutation; no unresolved safety flags; usage data supports claim"
+- "C4: Strong evidence convergence; independent validation methods agree; claim survived rigorous refutation testing; production-ready confidence"
 
-### 3.5 Prepare Confirmed Leads for Report Generation
+### 3.5 C3+ Promotion Gate and Lead Routing
 
-After validation and confidence tier assignment:
+After confidence tier assignment, apply the C3+ promotion gate to route confirmed leads into appropriate buckets:
 
-1. **Confirmed Leads List**: All CONFIRMED leads with assigned confidence tiers (C1-C4), sorted by materiality score (highest first)
-2. **Retain Register**: All REJECTED leads with refutation evidence
-3. **State Persistence**: Store confirmed leads and retain register for Phase 4 (Reporting)
+**Promotion Gate Logic**:
+
+```javascript
+// Separate confirmed leads into two queues based on confidence tier
+const findings_queue = [];    // C3-C4 leads: eligible for final findings section
+const needs_measurement = []; // C1-C2 leads: require additional evidence/telemetry
+
+for (const lead of confirmed_leads) {
+  const tierValue = { "C1": 1, "C2": 2, "C3": 3, "C4": 4 }[lead.confidence_tier];
+  
+  if (tierValue >= 3) {  // C3 or C4
+    findings_queue.push(lead);
+  } else {  // C1 or C2
+    needs_measurement.push({
+      ...lead,
+      missing_evidence: describeMissingEvidenceForTier(lead.confidence_tier, lead)
+    });
+  }
+}
+
+// Sort findings_queue by materiality (highest first) for final ranking
+findings_queue.sort((a, b) => b.materiality_score - a.materiality_score);
+```
+
+**Routing Summary**:
+
+1. **Findings Queue (C3-C4)**: Confirmed leads with sufficient evidence; eligible for the final findings section (max 5 findings in report)
+2. **Needs Measurement Queue (C1-C2)**: Confirmed leads requiring additional telemetry or evidence to reach C3+; will be documented in "Needs Measurement" section of report
+3. **Retain Register**: All REJECTED leads with refutation evidence; documented for transparency on why leads were excluded
+
+### 3.6 Prepare Confirmed Leads for Report Generation
+
+After C3+ gate routing:
+
+1. **Findings Queue**: C3-C4 leads sorted by materiality, ready for final ranking (1-5) in report
+2. **Needs Measurement Queue**: C1-C2 leads with descriptions of missing evidence required to raise tier
+3. **Retain Register**: All REJECTED leads with refutation evidence
+4. **State Persistence**: Store findings queue, needs-measurement queue, and retain register for Phase 4 (Reporting)
 
 Pass to Phase 4:
-- `confirmed_leads[]` — up to 8 leads, each with: { lead_id, claim, exact_sites, burden_signal, materiality_score, locus, cause, confidence_tier, tier_reasoning }
+- `findings_queue[]` — up to 8 C3-C4 leads, each with: { lead_id, claim, exact_sites, burden_signal, materiality_score, locus, cause, confidence_tier, tier_reasoning }
+- `needs_measurement[]` — C1-C2 leads with missing_evidence descriptions
 - `retain_register[]` — rejected leads with refutation evidence
-- `validation_summary` — statistics (total validated, confirmed, rejected, high-confidence count)
+- `validation_summary` — statistics (total validated, confirmed, rejected, c3_plus_count)
 
 ---
 
@@ -524,4 +569,17 @@ Partial results are acceptable; never block on transient failures.
 - [x] Confirmed leads sorted by materiality for final selection (T4)
 - [x] Retain register populated with rejected leads and refutation evidence
 - [x] Tier assignment reasoning documented for each lead
+
+**T3R Scope (Confidence Scale Correction from tasks.md)**:
+- [x] T3 implementation reviewed: Phase 3 sections 3.2-3.5 corrected to use ASCENDING scale
+- [x] Confidence scale corrected per design.md EDIT-001: C1 (Speculative/Lowest) → C2 (Provisional) → C3 (Supported) → C4 (Well-Established/Highest)
+- [x] Base tier assignment logic updated (§3.4): new definitions reflect ascending scale with correct epistemics
+- [x] Four confidence caps implemented as hard upper bounds using ordinal comparison:
+  - [x] Missing telemetry (no usage data for usage-based claims) → max C2
+  - [x] Unchecked dynamic dispatch (for unused-code claims) → max C2
+  - [x] 3+ unresolved safety flags → max C3
+  - [x] Speculative generalization without consumer proof → max C3
+- [x] Pseudocode corrected (§3.4): Replaced broken string-comparison `Math.max(tier, "C2")` with explicit ordinal-based cap logic using numeric tier values
+- [x] C3+ promotion gate implemented (§3.5): Separates C3-C4 leads for findings section from C1-C2 leads for needs-measurement section
+- [x] Phase 3 implementation verified against corrected design.md: tier definitions, caps, and promotion gates all correct
 
