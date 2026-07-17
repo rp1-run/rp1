@@ -110,7 +110,7 @@ agents:
   - name: rp1-dev:charter-interviewer
     description: "Interview agent for greenfield project vision capture via charter sections"
     plugin: dev
-    last_checksum: 8a2c4f916335c6ce2a8b02c16835973a0116beb199b827bf5703a541d90aea12
+    last_checksum: 716caf7fb5458b0ade1478eb85a767a79c02488a8c51258062b1c105dd829fb5
   - name: rp1-dev:code-auditor
     description: "Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift"
     plugin: dev

@@ -132,15 +132,40 @@ Each nested marker is a separate Edit call. If the user's answer only addresses 
 
 ## 4. Completion
 
+After the interview loop ends (all gaps filled OR 5 questions asked), perform a final gap scan of the charter. Count how many sections still contain `_TBD_` markers.
+
+### 4.1 Complete Charter (all sections populated)
+
+When the final gap scan finds zero `_TBD_` markers remaining:
+
 {% if platform == "claude-code" %}
-When all gaps are filled or 5 questions have been asked, return plain text:
+Return plain text:
 
 ```
 Charter interview complete. All sections populated in {CHARTER_PATH}.
 ```
-
-If some sections remain as `_TBD_` after 5 questions (budget exhausted), note which sections are still incomplete in the completion message so the user knows they can resume later.
+{% else %}
+Follow the relay-envelope completion protocol (strip checkpoint, return `completed` envelope).
 {% endif %}
+
+### 4.2 Budget-Exhausted Partial Charter (_TBD_ sections remain)
+
+When 5 questions have been asked but `_TBD_` markers remain in one or more sections:
+
+{% if platform == "claude-code" %}
+List the incomplete sections explicitly. Return plain text:
+
+```
+Charter interview paused (question budget exhausted). The following sections still need input:
+- {list each section heading where _TBD_ remains}
+
+Charter saved to {CHARTER_PATH}. Rerun the interview to continue filling gaps.
+```
+{% else %}
+Follow the relay-envelope completion protocol (strip checkpoint, return `completed` envelope).
+{% endif %}
+
+Do **not** use "All sections populated" or equivalent when `_TBD_` sections remain.
 
 {% include_shared "relay-envelope.md" %}
 
