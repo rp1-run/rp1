@@ -397,13 +397,15 @@ Interview the user about their project vision and goals
 				expect(output).toContain("followup_task");
 			});
 
-			test("opencode relay specifies re-dispatch with accumulated context", async () => {
+			test("opencode relay specifies re-dispatch with checkpoint recovery", async () => {
 				const output = await render(template, "opencode");
 				expect(output).toMatch(/Re-dispatch/);
 				expect(output).toContain("extra context");
 				expect(output).toMatch(
 					/sub-agent sessions cannot be.*(prompted|resumed)/i,
 				);
+				expect(output).toContain("checkpoint state from the artifact file");
+				expect(output).toContain("pending question and options");
 			});
 
 			test("opencode relay does not mention followup_task", async () => {
@@ -411,17 +413,27 @@ Interview the user about their project vision and goals
 				expect(output).not.toContain("followup_task");
 			});
 
-			test("copilot relay specifies inline prompt-message answer relay", async () => {
+			test("copilot relay specifies inline prompt-message with checkpoint recovery", async () => {
 				const output = await render(template, "copilot");
 				expect(output).toMatch(/[Rr]e-dispatch/);
 				expect(output).toContain("prompt message");
 				expect(output).not.toContain("answer.json");
 				expect(output).not.toMatch(/\.rp1\/work\/agent-output\/.*answer/);
+				expect(output).toContain("checkpoint state from the artifact file");
+				expect(output).toContain("pending question and options");
 			});
 
-			test("antigravity relay specifies re-invocation", async () => {
+			test("antigravity relay specifies re-invocation with checkpoint recovery", async () => {
 				const output = await render(template, "antigravity");
 				expect(output).toMatch(/re-invok/i);
+				expect(output).toContain("checkpoint state from the artifact file");
+				expect(output).toContain("pending question and options");
+			});
+
+			test("codex relay does not reference checkpoint (same-agent continuation)", async () => {
+				const output = await render(template, "codex");
+				expect(output).toContain("followup_task");
+				expect(output).not.toContain("checkpoint state");
 			});
 
 			test("each relay harness has a distinct continuation mechanism", async () => {

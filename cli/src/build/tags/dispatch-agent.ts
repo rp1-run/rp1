@@ -131,16 +131,20 @@ function renderRelayInstructions(platform: BuildPlatform): string {
 			continueStep =
 				"Re-dispatch the interview agent with the user's answer appended as extra context " +
 				"(OpenCode sub-agent sessions cannot be prompted or resumed after dispatch). " +
-				"The agent's gap analysis resumes naturally from accumulated written state";
+				"The re-dispatched agent reads checkpoint state from the artifact file to interpret " +
+				"the answer against the persisted pending question and options";
 			break;
 		case "copilot":
 			continueStep =
-				"Re-dispatch the agent with the user's answer included directly in the prompt message " +
-				"to continue from where it left off";
+				"Re-dispatch the agent with the user's answer included directly in the prompt message. " +
+				"The re-dispatched agent reads checkpoint state from the artifact file to interpret " +
+				"the answer against the persisted pending question and options";
 			break;
 		case "antigravity":
 			continueStep =
-				"Re-invoke the agent with the user's answer appended as extra context to continue its work";
+				"Re-invoke the agent with the user's answer appended as extra context. " +
+				"The agent reads checkpoint state from the artifact file to interpret " +
+				"the answer against the persisted pending question and options";
 			break;
 		default:
 			continueStep = "Send the answer back to the agent to continue its work";
