@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getEditableText } from "@/lib/editable-text-nodes";
+import {
+	getEditableText,
+	isAnnotationExcluded,
+} from "@/lib/editable-text-nodes";
 import type { TextSelectionAnchor } from "@/types/annotations";
 
 /** Anchor rectangle for popover positioning */
@@ -54,7 +57,7 @@ const DEFAULT_SHOW_DELAY = 250;
  */
 function isAnnotatableElement(node: Node): boolean {
 	if (!(node instanceof HTMLElement)) return true;
-	return !node.hasAttribute("data-annotation-exclude");
+	return !isAnnotationExcluded(node);
 }
 
 function getContainerText(container: Node): string {
@@ -136,11 +139,6 @@ function createTextSelectionAnchor(
 		return null;
 	}
 
-	const selectedText = range.toString();
-	if (!selectedText.trim()) {
-		return null;
-	}
-
 	const fullText = getContainerText(container);
 	const startOffset = calculateTextOffset(
 		container,
@@ -152,6 +150,15 @@ function createTextSelectionAnchor(
 		range.endContainer,
 		range.endOffset,
 	);
+
+	// Slice the filtered text stream rather than using range.toString():
+	// the raw range includes excluded UI chrome (e.g. Shiki line-number
+	// widgets), which would bake non-content text into the anchor and make
+	// it impossible to re-find in the markdown source.
+	const selectedText = fullText.slice(startOffset, endOffset);
+	if (!selectedText.trim()) {
+		return null;
+	}
 
 	const { contextBefore, contextAfter } = extractContext(
 		fullText,
