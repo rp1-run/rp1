@@ -654,18 +654,40 @@ Leads refuted during hypothesis-tester validation:
 - **Confidence Gating**: All reported findings meet C3+ confidence threshold. Lower-confidence leads documented separately for transparency.
 ```
 
-**Step 6: Register Report Artifact to Arcade**
+**Step 6: Register Report Artifact to Arcade** (T5)
 
-After report file is written, emit artifact_registered event:
+After report file is written, verify file exists and emit artifact_registered event:
 
 ```bash
-rp1 agent-tools emit \
-  --workflow tech-debt-collector \
-  --type artifact_registered \
-  --run-id {RUN_ID} \
-  --step reporting \
-  --data '{"path": "features/tech-debt-collector/report.md", "feature": "tech-debt-collector", "storageRoot": "work_dir"}'
+# Verify report file exists before registration (no race conditions)
+REPORT_FILE="${WORK_ROOT}/features/tech-debt-collector/report.md"
+if [ ! -f "$REPORT_FILE" ]; then
+  echo "⚠️  Warning: Report file not found at $REPORT_FILE. Emit skipped."
+  EMIT_STATUS="skipped"
+else
+  # Emit artifact_registered event for Arcade discovery
+  rp1 agent-tools emit \
+    --workflow tech-debt-collector \
+    --type artifact_registered \
+    --run-id {RUN_ID} \
+    --step reporting \
+    --data '{"path": "features/tech-debt-collector/report.md", "feature": "tech-debt-collector", "storageRoot": "work_dir"}' \
+    2>/dev/null || {
+      echo "⚠️  Warning: artifact_registered emit failed. Report is ready but not discoverable via Arcade yet."
+      EMIT_STATUS="failed"
+    }
+  [ $? -eq 0 ] && EMIT_STATUS="success" || EMIT_STATUS="failed"
+fi
 ```
+
+**Emission Success Criteria**:
+- ✅ Report file exists at `.rp1/work/features/tech-debt-collector/report.md`
+- ✅ `artifact_registered` event emitted with correct parameters
+- ✅ `--workflow tech-debt-collector` matches skill name
+- ✅ `--step reporting` is valid state and transition from `validating` is valid
+- ✅ `--run-id {RUN_ID}` provided by rp1 runtime
+- ✅ Emit data includes `path`, `feature`, and `storageRoot: "work_dir"`
+- ✅ Errors logged as warnings; report availability unaffected
 
 **Step 7: Emit Reporting Complete**
 
@@ -675,10 +697,10 @@ rp1 agent-tools emit \
   --type status_change \
   --run-id {RUN_ID} \
   --step reporting \
-  --data "{\"status\": \"completed\", \"findings_count\": $FINAL_FINDINGS_COUNT, \"report_path\": \"features/tech-debt-collector/report.md\"}"
+  --data "{\"status\": \"completed\", \"findings_count\": $FINAL_FINDINGS_COUNT, \"report_path\": \"features/tech-debt-collector/report.md\", \"artifact_emit_status\": \"$EMIT_STATUS\"}"
 ```
 
-**Reporting Phase Complete**: Report artifact is now registered to Arcade and visible to users. Workflow is complete.
+**Reporting Phase Complete**: Report artifact is written and registered to Arcade (if successful). Workflow transitions to completed state.
 
 ---
 
@@ -794,4 +816,17 @@ Partial results are acceptable; never block on transient failures.
   - [x] Verify report file exists before registration
 - [x] Reporting phase complete: emit final status_change to completed
 - [x] Analysis-only constraint maintained: no file modifications beyond report generation
+
+**T5 Scope (Artifact Registration & Arcade Integration from tasks.md)**:
+- [x] After report artifact is written, emit `artifact_registered` event via `rp1 agent-tools emit`
+- [x] Emit command includes: `--workflow tech-debt-collector --type artifact_registered --step reporting --run-id {RUN_ID}`
+- [x] Emit data includes: `path: "features/tech-debt-collector/report.md"`, `feature: "tech-debt-collector"`, `storageRoot: "work_dir"`
+- [x] State machine validation passes: `reporting` is valid step and valid transition from `validating` (verified in §5)
+- [x] Report file verified to exist on disk at emit time (no race conditions):
+  - [x] File existence check before emit: `[ -f "$REPORT_FILE" ]`
+  - [x] Warning logged if file missing
+- [x] Error handling: emit errors logged as warnings; report availability unaffected
+  - [x] If emit fails, warning logged but workflow continues to completion
+  - [x] Emit status tracked in EMIT_STATUS variable for completion telemetry
+- [x] Analysis-only constraint maintained: emit is read-only (no file modifications)
 
