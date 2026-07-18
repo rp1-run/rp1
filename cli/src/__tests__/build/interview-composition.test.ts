@@ -1,9 +1,10 @@
 /**
- * Composed-prompt regression tests for interview agents.
+ * Composed-prompt regression tests for interview agents and parent skills.
  *
  * Exercises buildPlatformPlugin over the three interview agents
- * (charter-interviewer, blueprint-wizard, bootstrap-scaffolder) for all
- * five supported platforms: Claude Code, Codex, OpenCode, Copilot, and
+ * (charter-interviewer, blueprint-wizard, bootstrap-scaffolder), parent
+ * skills (bootstrap, blueprint), and a control agent for all five
+ * supported platforms: Claude Code, Codex, OpenCode, Copilot, and
  * Antigravity. Asserts:
  *
  * - Interview-loop directive replaces anti-loop on all platforms.
@@ -13,6 +14,10 @@
  * - Direct-prompt phrasing retained on Claude Code builds (regression guard).
  * - Relay platforms include checkpoint protocol for durable continuations.
  * - Non-interview agents retain the generic anti-loop (blast-radius).
+ * - Bootstrap parent skill uses coordinator-loop (not anti-loop) on relay
+ *   platforms and single-pass coordinator on Claude Code.
+ * - Apply-answer-first budget enforcement text present in relay agents.
+ * - Checkpoint codec with JSON escape instructions in relay agents.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -35,6 +40,9 @@ const INTERVIEW_AGENTS = [
 
 // Non-interview agent used for blast-radius verification.
 const NON_INTERVIEW_AGENT = "feature-architect";
+
+// Parent skills read for composition assertions (bootstrap + blueprint).
+const PARENT_SKILLS = ["bootstrap", "blueprint"] as const;
 
 // Relay platforms: all platforms except Claude Code.
 const RELAY_PLATFORMS: readonly BuildPlatform[] = [
@@ -83,6 +91,27 @@ const DIRECT_PROMPT_PHRASES = [
 	"You ask the user questions",
 ];
 
+// Coordinator-loop relay markers: present in bootstrap skill on relay platforms.
+const COORDINATOR_LOOP_HEADING = "Coordinator Loop Directive";
+const COORDINATOR_LOOP_RELAY_MARKER = "Bounded relay coordinator";
+
+// Coordinator non-relay markers: present in bootstrap skill on Claude Code.
+const COORDINATOR_SINGLE_PASS = "Single-pass coordinator execution";
+
+// Relay dispatch loop marker in parent skills (from dispatch_agent tag).
+const RELAY_DISPATCH_LOOP = "Relay protocol";
+
+// Apply-answer-first budget enforcement (interview agents, relay only).
+const BUDGET_GATE_ONLY =
+	"Budget is enforced only as a gate before asking another question";
+const BUDGET_NEVER_ON_RESTORE =
+	"never on checkpoint restore before the pending answer is applied";
+
+// Checkpoint codec markers (interview agents via relay-envelope, relay only).
+const CODEC_HEADING = "Checkpoint Codec";
+// Literal > JSON Unicode escape — must appear instead of &gt; HTML entity.
+const CODEC_GT_ESCAPE = "\\u003e";
+
 /**
  * Resolve the output file path for a built agent on a given platform.
  */
@@ -104,10 +133,23 @@ function agentPath(
 	}
 }
 
+/**
+ * Resolve the output file path for a built skill on a given platform.
+ */
+function skillPath(
+	outputDir: string,
+	platform: BuildPlatform,
+	skillName: string,
+): string {
+	const prefix = platform === "claude-code" ? "" : "rp1-";
+	return join(outputDir, "dev", "skills", `${prefix}${skillName}`, "SKILL.md");
+}
+
 describe("interview agent composition", () => {
-	// Per-platform output dirs and agent content caches.
+	// Per-platform output dirs, agent content, and skill content caches.
 	const outputDirs = new Map<BuildPlatform, string>();
 	const agentContent = new Map<BuildPlatform, Map<string, string>>();
+	const skillContent = new Map<BuildPlatform, Map<string, string>>();
 
 	beforeAll(async () => {
 		// Build the dev plugin for all 5 platforms in parallel.
@@ -137,6 +179,16 @@ describe("interview agent composition", () => {
 				contentMap.set(name, await readFile(path, "utf-8"));
 			}
 			agentContent.set(platform, contentMap);
+		}
+
+		// Read parent skill artifacts for composition assertions.
+		for (const { platform, dir } of builds) {
+			const contentMap = new Map<string, string>();
+			for (const name of PARENT_SKILLS) {
+				const path = skillPath(dir, platform, name);
+				contentMap.set(name, await readFile(path, "utf-8"));
+			}
+			skillContent.set(platform, contentMap);
 		}
 	}, 120000);
 
@@ -238,6 +290,78 @@ describe("interview agent composition", () => {
 				expect(c).toContain(ANTI_LOOP_PROHIBITION);
 				expect(c).not.toContain(INTERVIEW_LOOP_HEADING);
 			});
+		}
+	});
+
+	// -----------------------------------------------------------------------
+	// Bootstrap parent skill: coordinator directive composition
+	// -----------------------------------------------------------------------
+
+	describe("bootstrap parent skill coordinator directive", () => {
+		for (const platform of RELAY_PLATFORMS) {
+			describe(`${platform}`, () => {
+				test("contains coordinator-loop relay directive", () => {
+					const c = skillContent.get(platform)!.get("bootstrap")!;
+					expect(c).toContain(COORDINATOR_LOOP_HEADING);
+					expect(c).toContain(COORDINATOR_LOOP_RELAY_MARKER);
+				});
+
+				test("does not contain anti-loop prohibitions", () => {
+					const c = skillContent.get(platform)!.get("bootstrap")!;
+					expect(c).not.toContain(ANTI_LOOP_HEADING);
+					expect(c).not.toContain(ANTI_LOOP_PROHIBITION);
+				});
+
+				test("contains dispatch relay-loop instructions", () => {
+					const c = skillContent.get(platform)!.get("bootstrap")!;
+					expect(c).toContain(RELAY_DISPATCH_LOOP);
+				});
+			});
+		}
+
+		describe("claude-code", () => {
+			test("contains single-pass coordinator directive", () => {
+				const c = skillContent.get("claude-code")!.get("bootstrap")!;
+				expect(c).toContain(COORDINATOR_SINGLE_PASS);
+			});
+
+			test("does not contain relay coordinator-loop directive", () => {
+				const c = skillContent.get("claude-code")!.get("bootstrap")!;
+				expect(c).not.toContain(COORDINATOR_LOOP_HEADING);
+				expect(c).not.toContain(COORDINATOR_LOOP_RELAY_MARKER);
+			});
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Budget enforcement: apply-answer-first ordering on relay platforms
+	// -----------------------------------------------------------------------
+
+	describe("relay interview agent budget enforcement", () => {
+		for (const platform of RELAY_PLATFORMS) {
+			for (const agentName of INTERVIEW_AGENTS) {
+				test(`${agentName} on ${platform} contains apply-answer-first budget text`, () => {
+					const c = agentContent.get(platform)!.get(agentName)!;
+					expect(c).toContain(BUDGET_GATE_ONLY);
+					expect(c).toContain(BUDGET_NEVER_ON_RESTORE);
+				});
+			}
+		}
+	});
+
+	// -----------------------------------------------------------------------
+	// Checkpoint codec: JSON escape instructions on relay platforms
+	// -----------------------------------------------------------------------
+
+	describe("relay interview agent checkpoint codec", () => {
+		for (const platform of RELAY_PLATFORMS) {
+			for (const agentName of INTERVIEW_AGENTS) {
+				test(`${agentName} on ${platform} contains codec with JSON escape`, () => {
+					const c = agentContent.get(platform)!.get(agentName)!;
+					expect(c).toContain(CODEC_HEADING);
+					expect(c).toContain(CODEC_GT_ESCAPE);
+				});
+			}
 		}
 	});
 });
