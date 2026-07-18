@@ -77,6 +77,8 @@ The report contains up to **5 findings** ranked by materiality — **0 findings 
 
 ### Check a PR Diff for Incoming Bloat
 
+PR scopes are resolved through the GitHub CLI (`gh`), which must be installed and authenticated.
+
 === "Claude Code"
 
     ```bash

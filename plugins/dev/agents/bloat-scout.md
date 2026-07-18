@@ -1,7 +1,7 @@
 ---
 name: bloat-scout
 description: Discovers candidate tech debt signals (bloat, dead code, over-abstraction) from target codebase with configurable lens
-tools: Read, Bash(grep *), Bash(find *), Bash(git diff *), Bash(git show *), Bash(git log *), Bash(git rev-parse *), Bash(git merge-base *), Bash(rp1 *), Glob
+tools: Read, Bash(grep *), Bash(find *), Bash(git diff *), Bash(git show *), Bash(git log *), Bash(git rev-parse *), Bash(git merge-base *), Bash(gh pr diff *), Bash(gh pr view *), Bash(rp1 *), Glob
 model: deep
 effort: high
 author: cloud-on-prem/rp1
@@ -14,7 +14,7 @@ arguments:
   - name: TARGET
     type: string
     required: true
-    description: "Resolved target: code root path | file or directory path | branch name | PR diff reference"
+    description: "Resolved target: code root path | file or directory path | branch name | bare PR number"
   - name: LENS
     type: string
     required: true
@@ -107,9 +107,9 @@ The orchestrator classifies scope before dispatch — never re-classify. Validat
 - `project` → analyze all of `CODE_ROOT`
 - `file` → `TARGET` is a path (absolute, or relative to `CODE_ROOT`); validate it is readable
 - `branch` → verify `TARGET` resolves via `git rev-parse`; analysis window is `git merge-base` with the default branch through `TARGET`
-- `pr-diff` → extract the PR number from `TARGET`; analyze the diff via `git merge-base` and `git diff`/`git show`
+- `pr-diff` → `TARGET` is the bare PR number; obtain the diff via `gh pr diff $TARGET` and changed-file metadata via `gh pr view $TARGET --json files,baseRefName`, then analyze blast radius against the local checkout
 
-Fail fast with an explicit error if `TARGET` is unreadable or the git ref does not resolve.
+Fail fast with an explicit error if `TARGET` is unreadable, the git ref does not resolve, or (for `pr-diff`) the `gh` CLI is unavailable or unauthenticated — never guess at PR contents.
 
 ### 2. Profile Codebase
 
@@ -244,7 +244,7 @@ Return top 20-30 leads as JSON array. Each lead object:
 
 ### 1. Validate Target Accessibility
 
-Validate the pre-resolved `SCOPE_TYPE`/`TARGET` pair. For git targets (branch, PR), use `git diff` and `git show` to extract the relevant code snapshot. For filesystem targets, validate the path is readable.
+Validate the pre-resolved `SCOPE_TYPE`/`TARGET` pair. For branch targets, use `git diff` and `git show` to extract the relevant code snapshot; for PR targets, use `gh pr diff` and `gh pr view`. For filesystem targets, validate the path is readable.
 
 ### 2. Baseline Codebase Metrics
 

@@ -1,7 +1,7 @@
 ---
 name: tech-debt-collector
 description: "Evidence-gated tech debt and bloat detection. Scouts signals, ranks by materiality, validates by refutation, reports up to 5 findings with actions."
-allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git rev-parse *)
+allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git rev-parse *), Read, Write
 metadata:
   category: quality
   is_workflow: true
@@ -43,6 +43,7 @@ This workflow identifies candidate tech debt signals via a scout agent, clusters
 - Scope: supports whole project, specific file path, branch, or PR diff
 - Output: 0-5 findings per run (0 findings is valid success)
 - Confidence: C1-C4 ordinal tier system only (no C5)
+- Single active run: work artifacts (`hypotheses.md`, `leads.json`, `report.md`) live at fixed paths under `features/tech-debt-collector/` and are overwritten by each run — copy the report elsewhere before starting another scope
 
 ---
 
@@ -62,7 +63,7 @@ This workflow identifies candidate tech debt signals via a scout agent, clusters
 
 ### 1.1 Validate Scope and Resolve Target
 
-Classify the `SCOPE` argument in this exact order — explicit project, PR reference, filesystem path, verified git ref — and fail closed on anything else. A token that is both a path and a branch resolves as a path; use `pull/<N>/diff` or a path-free branch name to disambiguate.
+Classify the `SCOPE` argument in this exact order — explicit project, PR reference, filesystem path, verified git ref — and fail closed on anything else. A token that is both a path and a branch resolves as a path; use `pull/<N>/diff` or a path-free branch name to disambiguate. For PR scopes, `TARGET` is the bare PR number; scouts resolve the diff via the GitHub CLI (`gh`), which must be available and authenticated.
 
 ```bash
 SCOPE_TYPE=""
@@ -71,9 +72,9 @@ TARGET=""
 if [ -z "$SCOPE" ] || [ "$SCOPE" = "project" ]; then
   SCOPE_TYPE="project"
   TARGET="{codeRoot}"
-elif [[ "$SCOPE" =~ ^pull/[0-9]+/diff$ ]] || [[ "$SCOPE" =~ ^PR[[:space:]]?#?[0-9]+$ ]]; then
+elif [[ "$SCOPE" =~ ^pull/([0-9]+)/diff$ ]] || [[ "$SCOPE" =~ ^PR[[:space:]]?#?([0-9]+)$ ]]; then
   SCOPE_TYPE="pr-diff"
-  TARGET="$SCOPE"
+  TARGET="${BASH_REMATCH[1]}"   # bare PR number, e.g. 433
 elif [ -e "$SCOPE" ]; then
   SCOPE_TYPE="file"
   TARGET="$SCOPE"
@@ -197,7 +198,7 @@ Result: ~10-15 clustered leads from all dispatches.
 **Materiality Scoring Algorithm** (from design.md §6.2):
 
 ```javascript
-materiality_score = 
+materiality_score =
   (burden_signal.files * 100) +           // Highest weight: broad impact
   (burden_signal.dependencies * 50) +     // High weight: coupling impact
   (burden_signal.loc / 100) +             // Medium weight: size
@@ -336,11 +337,11 @@ function assignConfidenceTier(lead, validationResult) {
   // Confidence tier mapping: C1=1 (Speculative/Lowest), C4=4 (Well-Established/Highest)
   const tierValues = { "C1": 1, "C2": 2, "C3": 3, "C4": 4 };
   const valueTiers = { 1: "C1", 2: "C2", 3: "C3", 4: "C4" };
-  
+
   // Start with base tier from hypothesis-tester result
   const baseTierStr = baseTierFromValidation(validationResult); // "C1", "C2", "C3", or "C4"
   let tierValue = tierValues[baseTierStr];
-  
+
   // Apply caps (hard upper bounds; may downgrade from base tier)
   // Missing Usage-Proof Cap: usage-based claims need telemetry or complete static proof for C3+
   const usageBased = lead.locus === "dead_code" || lead.cause === "never_used";
@@ -349,22 +350,22 @@ function assignConfidenceTier(lead, validationResult) {
   if (usageBased && lead.usage_evidence !== "runtime-telemetry" && !staticProof) {
     tierValue = Math.min(tierValue, tierValues["C2"]); // Clamp to 2
   }
-  
+
   // Dynamic Dispatch Cap: max C2 for unused-code claims (cannot exceed tier 2)
   if (lead.locus === "dead_code" && lead.safety_flags.includes("dynamic_dispatch")) {
     tierValue = Math.min(tierValue, tierValues["C2"]); // Clamp to 2
   }
-  
+
   // Safety Flag Overload Cap: max C3 if 3+ unresolved flags (cannot exceed tier 3)
   if (lead.safety_flags.length >= 3) {
     tierValue = Math.min(tierValue, tierValues["C3"]); // Clamp to 3
   }
-  
+
   // Speculative Generalization Cap: max C3 without strong consumer evidence (cannot exceed tier 3)
   if (lead.locus === "speculative_generalization" && validationResult.no_consumers_found) {
     tierValue = Math.min(tierValue, tierValues["C3"]); // Clamp to 3
   }
-  
+
   return valueTiers[tierValue];
 }
 ```
@@ -392,7 +393,7 @@ const needs_measurement = []; // C1-C2 leads: require additional evidence/teleme
 
 for (const lead of confirmed_leads) {
   const tierValue = { "C1": 1, "C2": 2, "C3": 3, "C4": 4 }[lead.confidence_tier];
-  
+
   if (tierValue >= 3) {  // C3 or C4
     findings_queue.push(lead);
   } else {  // C1 or C2
@@ -536,7 +537,7 @@ After report file is written, verify file exists and emit artifact_registered ev
 
 ```bash
 # Verify report file exists before registration (no race conditions)
-REPORT_FILE="${WORK_ROOT}/features/tech-debt-collector/report.md"
+REPORT_FILE="{workRoot}/features/tech-debt-collector/report.md"
 if [ ! -f "$REPORT_FILE" ]; then
   echo "⚠️  Warning: Report file not found at $REPORT_FILE. Emit skipped."
   EMIT_STATUS="skipped"
@@ -630,4 +631,3 @@ If any phase fails:
 - Report generation failure → emit warning, still mark phase as validating-complete
 
 Partial results are acceptable; never block on transient failures.
-

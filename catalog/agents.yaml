@@ -74,7 +74,7 @@ agents:
   - name: rp1-dev:bloat-scout
     description: "Discovers candidate tech debt signals (bloat, dead code, over-abstraction) from target codebase with configurable lens"
     plugin: dev
-    last_checksum: e32eae6ba60be4246e486a04916f8017af448ca445e36c5b0ab95e3b5164f4c2
+    last_checksum: 36c4334474c3cb4752376e0e043474b947d1059b963776d9481d92d7e472f604
   - name: rp1-dev:blueprint-auditor
     description: "Audits PRD documents against implementation status and executes disposition actions"
     plugin: dev
