@@ -73,6 +73,7 @@ Active `/build` artifacts are producer-owned: the agent that writes the artifact
 | knowledge-base | meta.json | data | kbRoot | meta.json | templates/knowledge-base/meta.json |
 | note | note.md | document | workRoot | notes/{yyyy-mm-dd}-{title-slug}.md | templates/note/note.md |
 | prompt-eval-builder | promptfoo-config | document | - | (agent-determined) | templates/prompt-eval-builder/promptfoo-config.yaml |
+| tech-debt-collector | report.md | document | workRoot | features/tech-debt-collector/report.md | templates/tech-debt-collector/report.md |
 
 For Socratic Duel, `managed-debate-region` is retained for legacy in-progress duels. New artifact-backed runs use `debate-artifact.md` under `workRoot`.
 

@@ -144,6 +144,7 @@ nav:
       - code-audit: reference/dev/code-audit.md
       - code-investigate: reference/dev/code-investigate.md
       - code-clean-comments: reference/dev/code-clean-comments.md
+      - tech-debt-collector: reference/dev/tech-debt-collector.md
     - PR Review Reference:
       - pr-review: reference/dev/pr-review.md
       - pr-visual: reference/dev/pr-visual.md
