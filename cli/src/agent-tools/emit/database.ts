@@ -3053,6 +3053,39 @@ export const getArtifactByDocId = (
 };
 
 /**
+ * Get the most recently registered file artifact at a given location.
+ * Used at registration time to reuse the existing doc_id when the file
+ * itself no longer carries one (frontmatter stripped by a rewrite) or
+ * cannot carry one (non-markdown), instead of minting a duplicate row.
+ */
+export const getLatestArtifactByLocation = (
+	db: Database,
+	location: {
+		readonly projectPath: string;
+		readonly path: string;
+		readonly storageRoot: ArtifactStorageRoot;
+	},
+): ArtifactRecord | null => {
+	const row = db
+		.prepare(
+			`SELECT * FROM artifacts
+			 WHERE project_path = $projectPath
+			   AND path = $path
+			   AND storage_root = $storageRoot
+			   AND location_kind = 'file'
+			 ORDER BY id DESC
+			 LIMIT 1`,
+		)
+		.get({
+			$projectPath: location.projectPath,
+			$path: location.path,
+			$storageRoot: location.storageRoot,
+		}) as ArtifactRow | null;
+
+	return row ? artifactRowToRecord(row) : null;
+};
+
+/**
  * Get the baseline content and path info for an artifact by doc_id.
  */
 export const getArtifactBaseline = (

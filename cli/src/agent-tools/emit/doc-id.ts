@@ -83,23 +83,34 @@ export const injectFrontmatter = (
  * For markdown files (.md, .mdx):
  * - Reads the file and parses frontmatter
  * - If rp1_doc_id exists in frontmatter, returns it (idempotent)
- * - If no rp1_doc_id, generates one and injects it into frontmatter
+ * - If no rp1_doc_id, reuses `existingDocId` when provided (healing a
+ *   rewrite that stripped frontmatter) or generates one, then injects it
  * - Writes the updated content back to the file
  *
- * For non-markdown files:
- * - Generates a UUID and returns it without modifying the file
+ * For non-markdown files (which cannot carry frontmatter):
+ * - Reuses `existingDocId` when provided, otherwise generates a UUID;
+ *   the file is never modified
+ *
+ * `existingDocId` is the doc_id of the artifact row already registered at
+ * this location, so re-registering the same file keeps a stable identity
+ * instead of minting a duplicate artifact row per emit.
  */
 export const resolveDocId = (
 	filePath: string,
+	existingDocId?: string,
 ): TE.TaskEither<CLIError, DocIdResult> => {
 	if (!isMarkdownFile(filePath)) {
-		return TE.right({ docId: generateDocId(), isNew: true });
+		return TE.right(
+			existingDocId
+				? { docId: existingDocId, isNew: false }
+				: { docId: generateDocId(), isNew: true },
+		);
 	}
 
 	return TE.tryCatch(
 		async () => {
 			const content = await readFile(filePath, "utf-8");
-			const docId = generateDocId();
+			const docId = existingDocId ?? generateDocId();
 			const result = injectFrontmatter(content, docId);
 
 			if (!result.isNew) {
@@ -111,7 +122,7 @@ export const resolveDocId = (
 			}
 
 			await writeFile(filePath, result.content, "utf-8");
-			return { docId, isNew: true };
+			return { docId, isNew: existingDocId === undefined };
 		},
 		(error) =>
 			runtimeError(

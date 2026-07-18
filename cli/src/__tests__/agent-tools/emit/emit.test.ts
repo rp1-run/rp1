@@ -9,7 +9,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
 	closeDatabase,
@@ -318,6 +318,106 @@ describe("emit end-to-end", () => {
 
 			expect(artifact?.storageRoot).toBe("work_dir");
 			expect(artifact?.path).toBe("features/test-feat/design.md");
+		});
+
+		test("reuses the existing doc_id when markdown frontmatter is stripped by a rewrite", async () => {
+			const projectRoot = join(tempDir, "project-docid-heal");
+			await writeFixture(
+				projectRoot,
+				".rp1/project_id",
+				"test-docid-heal-uuid",
+			);
+			const filePath = await writeFixture(
+				join(projectRoot, ".rp1", "work"),
+				"features/heal-feat/tasks.md",
+				"# Tasks\n",
+			);
+			const runId = `run-docid-heal-${Date.now()}`;
+
+			const register = () =>
+				expectTaskRight(
+					executeEmit(
+						makeInput({
+							type: "artifact_registered",
+							runId,
+							step: "planning",
+							projectPath: projectRoot,
+							data: {
+								path: "features/heal-feat/tasks.md",
+								feature: "heal-feat",
+								storageRoot: "work_dir",
+								type: "markdown",
+								workflow: "build",
+							},
+						}),
+					),
+				);
+
+			const first = await register();
+
+			// Simulate an agent rewriting the file without preserving frontmatter.
+			writeFileSync(filePath, "# Tasks rewritten\n");
+
+			const second = await register();
+
+			expect(second.data.docId).toBe(first.data.docId);
+
+			const healed = await readFile(filePath, "utf-8");
+			expect(healed).toContain(`rp1_doc_id: ${first.data.docId}`);
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const rowCount = db
+				.prepare(
+					"SELECT COUNT(*) AS n FROM artifacts WHERE path = 'features/heal-feat/tasks.md'",
+				)
+				.get() as { n: number };
+			expect(rowCount.n).toBe(1);
+		});
+
+		test("reuses the existing doc_id for non-markdown artifacts across re-registrations", async () => {
+			const projectRoot = join(tempDir, "project-docid-json");
+			await writeFixture(
+				projectRoot,
+				".rp1/project_id",
+				"test-docid-json-uuid",
+			);
+			await writeFixture(
+				join(projectRoot, ".rp1", "work"),
+				"features/json-feat/tasks.json",
+				'{"tasks": []}',
+			);
+			const runId = `run-docid-json-${Date.now()}`;
+
+			const register = () =>
+				expectTaskRight(
+					executeEmit(
+						makeInput({
+							type: "artifact_registered",
+							runId,
+							step: "planning",
+							projectPath: projectRoot,
+							data: {
+								path: "features/json-feat/tasks.json",
+								feature: "json-feat",
+								storageRoot: "work_dir",
+								workflow: "build",
+							},
+						}),
+					),
+				);
+
+			const first = await register();
+			const second = await register();
+
+			expect(second.data.docId).toBe(first.data.docId);
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const rowCount = db
+				.prepare(
+					"SELECT COUNT(*) AS n FROM artifacts WHERE path = 'features/json-feat/tasks.json'",
+				)
+				.get() as { n: number };
+			expect(rowCount.n).toBe(1);
 		});
 
 		test("uses frontmatter doc_id for relative work-dir artifacts when storageRoot is explicit", async () => {

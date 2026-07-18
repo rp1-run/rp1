@@ -35,6 +35,7 @@ import {
 	type EventInput,
 	endRun,
 	getEmitDatabase,
+	getLatestArtifactByLocation,
 	getRunById,
 	getSkippableSteps,
 	getStepStatuses,
@@ -388,19 +389,29 @@ const handleArtifactRegistration = (
 		);
 	}
 
-	const docIdTask = pipe(
-		resolveDocId(absolutePath),
-		TE.orElse(() =>
-			TE.right({ docId: generateDocId(), isNew: true } as DocIdResult),
-		),
-	);
-
 	return pipe(
-		docIdTask,
-		TE.chain((docIdResult) =>
-			pipe(
-				getEmitDatabase(),
-				TE.map((db) => {
+		getEmitDatabase(),
+		TE.chain((db) => {
+			// Reuse the doc_id already registered at this location so repeated
+			// registrations of the same file (frontmatter stripped by a rewrite,
+			// or non-markdown files that cannot carry frontmatter) refresh the
+			// existing artifact row instead of minting a duplicate per emit.
+			const existing = getLatestArtifactByLocation(db, {
+				projectPath: input.projectPath,
+				path: normalizedStorage.path,
+				storageRoot: normalizedStorage.storageRoot,
+			});
+
+			return pipe(
+				resolveDocId(absolutePath, existing?.docId),
+				TE.orElse(
+					(): TE.TaskEither<CLIError, DocIdResult> =>
+						TE.right({
+							docId: existing?.docId ?? generateDocId(),
+							isNew: existing == null,
+						}),
+				),
+				TE.map((docIdResult) => {
 					const artifactType =
 						(input.data.type as string) ?? classifyArtifactType(filePath);
 					const feature = (input.data.feature as string) ?? "unknown";
@@ -421,8 +432,8 @@ const handleArtifactRegistration = (
 					upsertArtifact(db, artifactInput);
 					return { docId: docIdResult.docId };
 				}),
-			),
-		),
+			);
+		}),
 	);
 };
 
