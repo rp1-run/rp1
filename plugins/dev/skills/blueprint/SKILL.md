@@ -1,6 +1,6 @@
 ---
 name: blueprint
-description: "Guided wizard for project vision via two-tier docs (charter + PRDs) with single-dispatch interviews."
+description: "Guided wizard for project vision via two-tier docs (charter + PRDs) with single-dispatch interviews across direct and relay topologies."
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: planning

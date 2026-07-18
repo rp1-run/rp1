@@ -95,7 +95,7 @@
 
 | Skill | Plugin | Description |
 |-------|--------|-------------|
-| `/blueprint` | dev | Guided wizard for project vision via two-tier docs (charter + PRDs) with single-dispatch interviews. |
+| `/blueprint` | dev | Guided wizard for project vision via two-tier docs (charter + PRDs) with single-dispatch interviews across direct and relay topologies. |
 | `/blueprint-archive` | dev | Archives a completed PRD to the archives directory with associated features and closure summary. |
 | `/blueprint-audit` | dev | Audits a PRD against implementation status and guides lifecycle decisions. |
 
