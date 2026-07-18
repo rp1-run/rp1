@@ -14,6 +14,12 @@ import { runtimeError } from "../../../shared/errors.js";
 export interface DocIdResult {
 	readonly docId: string;
 	readonly isNew: boolean;
+	/**
+	 * Where the doc_id came from. "frontmatter" is authoritative (the file
+	 * itself carries the identity); "existing" reuses a previously registered
+	 * artifact row; "generated" is a freshly minted UUID.
+	 */
+	readonly source: "frontmatter" | "existing" | "generated";
 }
 
 const MARKDOWN_EXTENSIONS = new Set([".md", ".mdx"]);
@@ -78,6 +84,37 @@ export const injectFrontmatter = (
 };
 
 /**
+ * Force rp1_doc_id in a markdown file's frontmatter to the given value,
+ * overwriting any existing id. Used to re-heal a file after a concurrent
+ * registration race settles on a different doc_id than the one this
+ * process injected.
+ */
+export const overwriteDocIdFrontmatter = async (
+	filePath: string,
+	docId: string,
+): Promise<void> => {
+	if (!isMarkdownFile(filePath)) return;
+
+	const content = await readFile(filePath, "utf-8");
+	const parsed = parseFrontmatter(content);
+
+	if (!parsed) {
+		await writeFile(
+			filePath,
+			`---\nrp1_doc_id: ${docId}\n---\n${content}`,
+			"utf-8",
+		);
+		return;
+	}
+
+	if (parsed.frontmatter.rp1_doc_id === docId) return;
+
+	parsed.frontmatter.rp1_doc_id = docId;
+	const serialized = stringify(parsed.frontmatter).trimEnd();
+	await writeFile(filePath, `---\n${serialized}\n---${parsed.body}`, "utf-8");
+};
+
+/**
  * Resolve the doc_id for a file path.
  *
  * For markdown files (.md, .mdx):
@@ -102,8 +139,8 @@ export const resolveDocId = (
 	if (!isMarkdownFile(filePath)) {
 		return TE.right(
 			existingDocId
-				? { docId: existingDocId, isNew: false }
-				: { docId: generateDocId(), isNew: true },
+				? { docId: existingDocId, isNew: false, source: "existing" as const }
+				: { docId: generateDocId(), isNew: true, source: "generated" as const },
 		);
 	}
 
@@ -118,11 +155,16 @@ export const resolveDocId = (
 				return {
 					docId: String(parsed?.frontmatter.rp1_doc_id),
 					isNew: false,
+					source: "frontmatter" as const,
 				};
 			}
 
 			await writeFile(filePath, result.content, "utf-8");
-			return { docId, isNew: existingDocId === undefined };
+			return {
+				docId,
+				isNew: existingDocId === undefined,
+				source: existingDocId ? ("existing" as const) : ("generated" as const),
+			};
 		},
 		(error) =>
 			runtimeError(

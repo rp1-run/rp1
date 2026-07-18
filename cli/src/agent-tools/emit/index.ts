@@ -45,7 +45,12 @@ import {
 	upsertAnnotation,
 	upsertArtifact,
 } from "./database.js";
-import { type DocIdResult, generateDocId, resolveDocId } from "./doc-id.js";
+import {
+	type DocIdResult,
+	generateDocId,
+	overwriteDocIdFrontmatter,
+	resolveDocId,
+} from "./doc-id.js";
 import type { EmitInput, EmitResult } from "./models.js";
 import { maybeGenerateNotification } from "./notification-generator.js";
 import {
@@ -396,11 +401,12 @@ const handleArtifactRegistration = (
 			// registrations of the same file (frontmatter stripped by a rewrite,
 			// or non-markdown files that cannot carry frontmatter) refresh the
 			// existing artifact row instead of minting a duplicate per emit.
-			const existing = getLatestArtifactByLocation(db, {
+			const location = {
 				projectPath: input.projectPath,
 				path: normalizedStorage.path,
 				storageRoot: normalizedStorage.storageRoot,
-			});
+			};
+			const existing = getLatestArtifactByLocation(db, location);
 
 			return pipe(
 				resolveDocId(absolutePath, existing?.docId),
@@ -409,29 +415,64 @@ const handleArtifactRegistration = (
 						TE.right({
 							docId: existing?.docId ?? generateDocId(),
 							isNew: existing == null,
+							source: existing ? "existing" : "generated",
 						}),
 				),
-				TE.map((docIdResult) => {
-					const artifactType =
-						(input.data.type as string) ?? classifyArtifactType(filePath);
-					const feature = (input.data.feature as string) ?? "unknown";
+				TE.chain((docIdResult) =>
+					TE.tryCatch(
+						async () => {
+							const artifactType =
+								(input.data.type as string) ?? classifyArtifactType(filePath);
+							const feature = (input.data.feature as string) ?? "unknown";
 
-					const artifactInput: ArtifactInput = {
-						docId: docIdResult.docId,
-						runId: input.runId,
-						path: normalizedStorage.path,
-						type: artifactType,
-						storageRoot: normalizedStorage.storageRoot,
-						projectPath: input.projectPath,
-						projectId: run.projectId ?? undefined,
-						feature,
-						step: input.step,
-						subflow: input.data.subflow === true,
-					};
+							// Re-check the location inside a write transaction so
+							// concurrent first registrations converge on one doc_id
+							// instead of inserting two rows. Frontmatter identity is
+							// authoritative and never overridden by the re-check.
+							const register = db.transaction(() => {
+								const docId =
+									docIdResult.source === "frontmatter"
+										? docIdResult.docId
+										: (getLatestArtifactByLocation(db, location)?.docId ??
+											docIdResult.docId);
 
-					upsertArtifact(db, artifactInput);
-					return { docId: docIdResult.docId };
-				}),
+								const artifactInput: ArtifactInput = {
+									docId,
+									runId: input.runId,
+									path: normalizedStorage.path,
+									type: artifactType,
+									storageRoot: normalizedStorage.storageRoot,
+									projectPath: input.projectPath,
+									projectId: run.projectId ?? undefined,
+									feature,
+									step: input.step,
+									subflow: input.data.subflow === true,
+								};
+
+								upsertArtifact(db, artifactInput);
+								return docId;
+							});
+							const docId = register.immediate() as string;
+
+							if (docId !== docIdResult.docId) {
+								// A concurrent registration won the race; re-point the
+								// file at the winning identity. Best-effort: the row is
+								// already correct and the next emit reconverges anyway.
+								try {
+									await overwriteDocIdFrontmatter(absolutePath, docId);
+								} catch {
+									// File may be gone or unwritable; ignore.
+								}
+							}
+
+							return { docId };
+						},
+						(error) =>
+							runtimeError(
+								`Failed to register artifact for ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+							),
+					),
+				),
 			);
 		}),
 	);

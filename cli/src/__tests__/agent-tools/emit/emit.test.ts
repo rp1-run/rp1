@@ -420,6 +420,103 @@ describe("emit end-to-end", () => {
 			expect(rowCount.n).toBe(1);
 		});
 
+		test("keeps frontmatter identity when a stale duplicate row has a higher id", async () => {
+			const projectRoot = join(tempDir, "project-frontmatter-auth");
+			await writeFixture(
+				projectRoot,
+				".rp1/project_id",
+				"test-frontmatter-auth-uuid",
+			);
+			const filePath = await writeFixture(
+				join(projectRoot, ".rp1", "work"),
+				"features/auth-feat/design.md",
+				"---\nrp1_doc_id: doc-auth\n---\n# Design\n",
+			);
+
+			// Legacy doc-id churn: a stale duplicate row at the same location
+			// with a higher row id than the authoritative one.
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			for (const docId of ["doc-auth", "doc-stale"]) {
+				upsertArtifact(db, {
+					docId,
+					path: "features/auth-feat/design.md",
+					type: "markdown",
+					storageRoot: "work_dir",
+					projectPath: projectRoot,
+					feature: "auth-feat",
+				});
+			}
+
+			const result = await expectTaskRight(
+				executeEmit(
+					makeInput({
+						type: "artifact_registered",
+						step: "planning",
+						projectPath: projectRoot,
+						data: {
+							path: "features/auth-feat/design.md",
+							feature: "auth-feat",
+							storageRoot: "work_dir",
+							type: "markdown",
+							workflow: "build",
+						},
+					}),
+				),
+			);
+
+			expect(result.data.docId).toBe("doc-auth");
+			const content = await readFile(filePath, "utf-8");
+			expect(content).toContain("rp1_doc_id: doc-auth");
+		});
+
+		test("converges concurrent first registrations on a single artifact row", async () => {
+			const projectRoot = join(tempDir, "project-race");
+			await writeFixture(projectRoot, ".rp1/project_id", "test-race-uuid");
+			const filePath = await writeFixture(
+				join(projectRoot, ".rp1", "work"),
+				"features/race-feat/notes.md",
+				"# Notes\n",
+			);
+
+			const emitFor = (runId: string) =>
+				expectTaskRight(
+					executeEmit(
+						makeInput({
+							type: "artifact_registered",
+							runId,
+							step: "planning",
+							projectPath: projectRoot,
+							data: {
+								path: "features/race-feat/notes.md",
+								feature: "race-feat",
+								storageRoot: "work_dir",
+								type: "markdown",
+								workflow: "build",
+							},
+						}),
+					),
+				);
+
+			const stamp = Date.now();
+			const [first, second] = await Promise.all([
+				emitFor(`run-race-a-${stamp}`),
+				emitFor(`run-race-b-${stamp}`),
+			]);
+
+			expect(second.data.docId).toBe(first.data.docId);
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const rowCount = db
+				.prepare(
+					"SELECT COUNT(*) AS n FROM artifacts WHERE path = 'features/race-feat/notes.md'",
+				)
+				.get() as { n: number };
+			expect(rowCount.n).toBe(1);
+
+			const content = await readFile(filePath, "utf-8");
+			expect(content).toContain(`rp1_doc_id: ${first.data.docId}`);
+		});
+
 		test("uses frontmatter doc_id for relative work-dir artifacts when storageRoot is explicit", async () => {
 			const projectRoot = join(tempDir, "project-relative-doc-id");
 			await writeFixture(
