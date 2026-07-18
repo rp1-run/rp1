@@ -805,7 +805,7 @@ describe("agent-tools command adapter", () => {
 
 		const { TOOL_MODULES } = await import("../../agent-tools/command.js");
 		expect(TOOL_MODULES).toBeInstanceOf(Map);
-		expect(TOOL_MODULES.size).toBe(13);
+		expect(TOOL_MODULES.size).toBe(14);
 
 		// Verify that calling an unrelated tool's loader actually works
 		// (proves modules load on demand, not at import time)

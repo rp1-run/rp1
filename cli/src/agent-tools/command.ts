@@ -55,6 +55,10 @@ process.on("SIGINT", () => {
  */
 export const TOOL_MODULES: ReadonlyMap<string, () => Promise<void>> = new Map([
 	[
+		"bootstrap-state",
+		() => import("./bootstrap-state/index.js").then(() => undefined),
+	],
+	[
 		"build-task-plan",
 		() => import("./build-task-plan/index.js").then(() => undefined),
 	],
@@ -128,6 +132,7 @@ export const agentToolsCommand = new Command("agent-tools")
 		"after",
 		`
 Available Tools:
+  bootstrap-state   Manage bootstrap recovery state markers (write, read)
   mmd-validate      Validate Mermaid diagram syntax
   resolve-args      Resolve structured arguments from schema, settings, and user input
   rp1-root-dir      Resolve project, KB, and work directories with worktree detection
@@ -3007,5 +3012,151 @@ Examples:
 		}
 
 		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
+
+const bootstrapStateCommand = agentToolsCommand
+	.command("bootstrap-state")
+	.description("Manage bootstrap recovery state markers")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Manages bootstrap recovery state markers with safe JSON serialization.
+  Provides atomic write (temp+rename) and validated read operations for
+  bootstrap recovery markers stored at {target-dir}/.rp1/bootstrap-state.json.
+
+Subcommands:
+  write   Write a bootstrap recovery state marker atomically
+  read    Read and validate a bootstrap recovery state marker
+
+Examples:
+  rp1 agent-tools bootstrap-state write --project-name "my-app" --target-dir /path/to/project
+  rp1 agent-tools bootstrap-state read --target-dir /path/to/project
+`,
+	);
+
+bootstrapStateCommand
+	.command("write")
+	.description("Write a bootstrap recovery state marker atomically")
+	.requiredOption("--project-name <name>", "Project name")
+	.requiredOption("--target-dir <dir>", "Absolute path to the target directory")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Writes a bootstrap recovery state marker as JSON using atomic temp-file +
+  rename. The marker is stored at {target-dir}/.rp1/bootstrap-state.json with
+  a version field, project name, canonical absolute target-dir path, and
+  creation timestamp. The .rp1 directory is created if it does not exist.
+
+Options:
+  --project-name <name>   Project name to record (required, non-empty)
+  --target-dir <dir>      Target directory path (required, resolved to absolute)
+
+Output:
+  JSON ToolResult with:
+  - version: State format version
+  - projectName: Recorded project name
+  - targetDir: Canonical absolute target directory path
+  - createdAt: ISO 8601 creation timestamp
+
+Examples:
+  rp1 agent-tools bootstrap-state write \\
+    --project-name "my-app" \\
+    --target-dir /path/to/project
+`,
+	)
+	.action(
+		async (options: {
+			projectName: string;
+			targetDir: string;
+		}): Promise<void> => {
+			const toolName = "bootstrap-state";
+			await ensureToolLoaded(toolName);
+
+			const { writeBootstrapState } = await import(
+				"./bootstrap-state/index.js"
+			);
+			const result = await writeBootstrapState({
+				projectName: options.projectName,
+				targetDir: options.targetDir,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(
+				formatOutput({
+					success: true,
+					tool: toolName,
+					data: result.right,
+				}),
+			);
+			process.exit(0);
+		},
+	);
+
+bootstrapStateCommand
+	.command("read")
+	.description("Read and validate a bootstrap recovery state marker")
+	.requiredOption(
+		"--target-dir <dir>",
+		"Absolute path to the directory to check for a marker",
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Reads and validates a bootstrap recovery state marker at
+  {target-dir}/.rp1/bootstrap-state.json. The marker is validated for JSON
+  structure, required fields, version compatibility, and canonical path
+  consistency (the recorded target directory must match the actual location).
+
+  Returns a structured result indicating validity. Invalid markers include
+  a classified error type (malformed, stale, conflicting) so the calling
+  skill can disable automatic resume and surface appropriate warnings.
+
+Options:
+  --target-dir <dir>   Directory to check for a marker (required)
+
+Output:
+  JSON ToolResult with:
+  - valid: true/false
+  - state: Bootstrap state object (when valid)
+  - error: { type, message } (when invalid)
+    - type "malformed": JSON parse error, missing fields, or wrong types
+    - type "stale": Unsupported state version
+    - type "conflicting": Recorded target directory does not match location
+
+Examples:
+  rp1 agent-tools bootstrap-state read --target-dir /path/to/project
+`,
+	)
+	.action(async (options: { targetDir: string }): Promise<void> => {
+		const toolName = "bootstrap-state";
+		await ensureToolLoaded(toolName);
+
+		const { readBootstrapState } = await import("./bootstrap-state/index.js");
+		const result = await readBootstrapState(options.targetDir)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(
+			formatOutput({
+				success: true,
+				tool: toolName,
+				data: result.right,
+			}),
+		);
 		process.exit(0);
 	});
