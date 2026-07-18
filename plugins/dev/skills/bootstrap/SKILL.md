@@ -1,7 +1,7 @@
 ---
 name: bootstrap
 description: "Bootstrap a new project with charter discovery and tech stack scaffolding for greenfield development."
-allowed-tools: Bash(echo *), Bash(cat *), Bash(rm *), Bash(rp1 *)
+allowed-tools: Bash(echo *), Bash(rm *), Bash(rp1 *)
 metadata:
   category: development
   is_workflow: false
@@ -35,11 +35,45 @@ Minimal coordinator: pre-flight checks -> charter-interviewer -> bootstrap-scaff
 ls -la
 ```
 
-Classify directory state:
+### 1.1 Marker Discovery
+
+Scan cwd and immediate child directories for bootstrap recovery markers.
+
+**Check cwd**:
+
+```bash
+rp1 agent-tools bootstrap-state read --target-dir "$(pwd)"
+```
+
+**Check immediate children** (each direct subdirectory):
+
+```bash
+for child in */; do
+  [ -d "$child" ] || continue
+  CHILD_ABS="$(cd "$child" && pwd)"
+  rp1 agent-tools bootstrap-state read --target-dir "$CHILD_ABS"
+done
+```
+
+Each successful read returns JSON with `data.valid` (true or false). Commands that exit non-zero (no marker file) produce no candidate.
+
+Classify results into two lists:
+- **valid_markers**: entries where `data.valid === true` -- record `projectName` and `targetDir` from `data.state`
+- **invalid_markers**: entries where `data.valid === false` -- surface a warning with the error type and message; invalid markers NEVER trigger automatic resume
+
+### 1.2 Classification
+
+Apply marker-first precedence:
+
+- **Exactly one valid marker**: Classification is **bootstrap-in-progress**. Takes PRECEDENCE over rp1-initialized, Empty, Non-empty, and all other classifications. Set RESUME_PROJECT_NAME and RESUME_TARGET_DIR from the marker's `data.state`. Skip to §2 (Case B+).
+- **Multiple valid markers + interactive session**: {% ask_user "Multiple partial bootstraps detected. Which would you like to resume?", options: one option per candidate showing "{projectName} at {targetDir}" %}. Set the chosen candidate as the active marker; skip to §2 (Case B+).
+- **Multiple valid markers + relay/AFK session**: Abort with: "Multiple partial bootstrap markers found. Re-run interactively or remove stale markers:" followed by each candidate's projectName and targetDir.
+- **Zero valid markers**: Proceed with normal directory classification below.
+
+Normal directory classification (zero valid markers only):
 
 - **rp1-initialized**: Only `.`, `..`, `.DS_Store`, `.rp1/`, `CLAUDE.md`, `AGENTS.md` (user ran `rp1 init` here)
 - **Empty**: Only `.`, `..`, `.DS_Store` (no rp1 files)
-- **bootstrap-in-progress**: `.rp1/bootstrap-state.json` exists AND its `TARGET_DIR` matches cwd
 - **Non-empty**: Contains other project files -> list top 10-15
 
 **Extract CURRENT_DIR_NAME**: basename of current working directory (e.g., `/home/user/my-app` -> `my-app`)
@@ -77,13 +111,9 @@ Max 2 attempts for validation, then abort.
 
 ### Case B+: Bootstrap-in-Progress
 
-Prior partial bootstrap detected. Restore state from the marker:
+Prior partial bootstrap detected via marker discovery (§1.1). The validated read result provides the recovery state.
 
-```bash
-cat .rp1/bootstrap-state.json
-```
-
-Set PROJECT_NAME and TARGET_DIR from the marker values. Inform user: "Detected an existing partial bootstrap. Resuming with project '{PROJECT_NAME}' in {TARGET_DIR}."
+Set PROJECT_NAME = RESUME_PROJECT_NAME and TARGET_DIR = RESUME_TARGET_DIR from the validated marker. Inform user: "Detected an existing partial bootstrap. Resuming with project '{PROJECT_NAME}' in {TARGET_DIR}."
 
 ### Case C: Non-Empty
 
@@ -99,8 +129,7 @@ Create subdir if needed: `mkdir -p "{TARGET_DIR}"` (fail -> abort)
 **Write bootstrap marker** (Cases A, B, C only; B+ already has it):
 
 ```bash
-mkdir -p "{rp1Dir}"
-echo '{"PROJECT_NAME": "{PROJECT_NAME}", "TARGET_DIR": "{TARGET_DIR}"}' > "{rp1Dir}/bootstrap-state.json"
+rp1 agent-tools bootstrap-state write --project-name "{PROJECT_NAME}" --target-dir "{TARGET_DIR}"
 ```
 
 ## §4 Charter Phase
@@ -147,11 +176,19 @@ PROJECT_NAME={PROJECT_NAME}, TARGET_DIR={TARGET_DIR}, CHARTER_PATH={kbRoot}/char
 
 ### 5.1 Verify
 
-`ls "{TARGET_DIR}"` - confirm: package.json (or equiv), src/, tests/, README.md, AGENTS.md
+Run the scaffold completeness probe:
 
-## §6 Success Output
+```bash
+rp1 agent-tools scaffold-probe --target-dir "{TARGET_DIR}"
+```
 
-**Delete bootstrap marker** (coordinator owns marker lifecycle; delete after scaffold verification passes):
+Parse the JSON result. The probe checks four points: git-commit, package-manifest, source-entry, test-file. Each point reports `pass` (true/false) and `detail`.
+
+## §6 Completion
+
+**If scaffold-probe passed** (all four points pass):
+
+Delete the bootstrap marker:
 
 ```bash
 rm -f "{rp1Dir}/bootstrap-state.json"
@@ -168,6 +205,19 @@ Next: cd {PROJECT_NAME}, review code, run app (see README.md)
 Commands: /rp1-dev:build, /rp1-dev:blueprint update, /rp1-base:knowledge-build
 ```
 
+**If scaffold-probe failed** (any point failed) **or scaffold agent errored**:
+
+Explicitly RETAIN the bootstrap marker (do NOT delete `{rp1Dir}/bootstrap-state.json`). Report partial state with the failed probe points:
+
+```
+Bootstrap partially complete — marker retained for recovery.
+Project: {PROJECT_NAME} | Location: {TARGET_DIR}
+
+Scaffold probe failed points: [list each failed point name and detail]
+
+Re-run /bootstrap to resume from the scaffold phase.
+```
+
 {% include_shared "coordinator-loop.md" %}
 
 **File-specific constraints**:
@@ -176,6 +226,6 @@ Commands: /rp1-dev:build, /rp1-dev:blueprint update, /rp1-base:knowledge-build
 
 **Flow**: Check dir -> Resolve name (max 2 validations) -> Setup target -> Charter interview phase -> Scaffold phase -> Output -> STOP
 
-**Errors**: Dir fail -> abort | User declines -> abort | Charter fails -> warn, continue | Scaffold fails -> report partial
+**Errors**: Dir fail -> abort | User declines -> abort | Charter fails -> warn, continue | Scaffold fails or probe fails -> retain marker, report partial
 
 Begin: check directory state, proceed through workflow.
