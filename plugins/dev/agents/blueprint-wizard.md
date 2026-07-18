@@ -115,8 +115,8 @@ After reading the PRD file (Section 1.2), scan for an existing checkpoint commen
 1. Parse the JSON payload from the checkpoint comment.
 2. Restore `question_count` and `revision_count` from the persisted values.
 3. The current user message is the answer to `pending_question`. Interpret it against the persisted `options`.
-4. Process the answer: synthesize and write the corresponding PRD section per Section 3.
-5. Re-run gap analysis. If gaps remain and `question_count < 7`, continue the interview (Section 2). Otherwise proceed to Section 4 (Completion).
+4. Apply the answer first: synthesize and write the corresponding PRD section per Section 3. This step always executes — even when the checkpoint is at the budget cap.
+5. Re-run gap analysis. If gaps remain and budget allows another question (see Budget Enforcement), continue the interview (Section 2). Otherwise proceed to Section 4 (Completion).
 
 **If no checkpoint exists** (first invocation):
 
@@ -133,7 +133,9 @@ Before emitting each `needs_input` envelope during the interview:
 
 ### Budget Enforcement
 
-If `question_count >= 7` after restoring from checkpoint, skip the interview and proceed directly to Section 4 (Completion). The budget is cumulative across all relay continuations.
+Budget is enforced only as a gate before asking another question — never on checkpoint restore before the pending answer is applied. When continuing from a checkpoint, always apply the pending answer first (steps 1–4 above), then re-run gap analysis.
+
+After the pending answer is applied: if `question_count >= 7`, do not ask another question. Proceed to Section 4 (Completion). The budget is cumulative across all relay continuations.
 {% endunless %}
 
 ## 2. Interview

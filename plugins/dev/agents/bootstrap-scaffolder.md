@@ -81,9 +81,9 @@ After reading preferences.md (Section 1.2), scan for an existing checkpoint comm
 1. Parse the JSON payload from the checkpoint comment.
 2. Restore `question_count` and `revision_count` from the persisted values. Do NOT reset these counters.
 3. The current user message is the answer to `pending_question`. Interpret it against the persisted `options`.
-4. Determine the current phase from the checkpoint context:
-   - If the pending question was a tech stack question (Phase 2): process the answer and update the corresponding `_TBD_` fields in preferences.md. If `question_count < 5` and `_TBD_` fields remain in Tech Stack, continue Phase 2. Otherwise proceed to Phase 3 (Research).
-   - If the pending question was a summary confirmation (Phase 4): if the user confirms, proceed to Phase 5 (Scaffold). If the user requests changes and `revision_count < 2`, increment `revision_count`, apply changes, and re-present. If `revision_count >= 2`, report error and stop.
+4. Apply the answer first — this step always executes, even when the checkpoint is at a budget cap. Determine the current phase from the checkpoint context:
+   - If the pending question was a tech stack question (Phase 2): process the answer and update the corresponding `_TBD_` fields in preferences.md. Then check budget: if `question_count < 5` and `_TBD_` fields remain in Tech Stack, continue Phase 2. Otherwise proceed to Phase 3 (Research).
+   - If the pending question was a summary confirmation (Phase 4): process the user's response first. If the user confirms, proceed to Phase 5 (Scaffold). If the user requests changes, apply the requested changes. Then check budget: if `revision_count < 2`, increment `revision_count` and re-present. If `revision_count >= 2`, report error and stop.
 
 **If no checkpoint exists** (first invocation):
 
@@ -101,8 +101,10 @@ Before emitting each `needs_input` envelope:
 
 ### Budget Enforcement
 
-- **Interview budget**: if `question_count >= 5` after restoring from checkpoint, skip remaining interview questions and proceed to Phase 3 (Research).
-- **Revision budget**: if `revision_count >= 2` after restoring from checkpoint and the user requests another change, report error and stop.
+Budget is enforced only as a gate before asking another question or presenting another revision — never on checkpoint restore before the pending answer is applied. When continuing from a checkpoint, always apply the pending answer first (steps 1–4 above).
+
+- **Interview budget**: after the pending answer is applied, if `question_count >= 5`, do not ask another question. Proceed to Phase 3 (Research).
+- **Revision budget**: after the pending revision response is applied, if `revision_count >= 2` and the user requests another change, report error and stop.
 - Both budgets are cumulative across all relay continuations and must never be reset.
 {% endunless %}
 
