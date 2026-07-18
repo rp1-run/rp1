@@ -82,7 +82,7 @@ agents:
   - name: rp1-dev:bootstrap-scaffolder
     description: "Scaffolder for tech stack selection, research, and project scaffolding"
     plugin: dev
-    last_checksum: 463d49dd7e1995736742fb3f64c1fae77bd4be9737361110e2c17cb32a9ea726
+    last_checksum: d2ec5b5f16ba38c9011a97e943a9123b9f75acda0b56978cb911ac319b82a034
   - name: rp1-dev:bug-investigator
     description: "Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes"
     plugin: dev

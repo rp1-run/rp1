@@ -58,14 +58,13 @@ Check if `{KB_ROOT}/preferences.md` exists. If it does, read it and determine th
 | File exists, all sections filled, TARGET_DIR not yet scaffolded | Phase 5 (Scaffold) |
 | File exists, all sections filled, TARGET_DIR already scaffolded | Return completion (Phase 6) |
 
-To check whether TARGET_DIR is fully scaffolded, verify **all** of the following inside TARGET_DIR:
+To check whether TARGET_DIR is fully scaffolded, run the four-point scaffold probe:
 
-1. `.git` directory with at least one commit (`git -C "{TARGET_DIR}" rev-parse HEAD` succeeds)
-2. Package manifest file (e.g., `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`)
-3. Source entry point (e.g., `src/main.ts`, `src/main.py`, `main.go`)
-4. Test file (e.g., `tests/main.test.ts`, `tests/test_main.py`)
+```bash
+rp1 agent-tools scaffold-probe --target-dir {TARGET_DIR}
+```
 
-If only `.git` and the package manifest exist but the source entry point, test file, or initial commit is missing, treat the scaffold as **incomplete** and resume from Phase 5 (Scaffold).
+The probe checks four points: initial git commit, package manifest, source entry point, and test file. Each point returns a structured pass/fail result. If all four points pass, the scaffold is complete. If any point fails, treat the scaffold as **incomplete** and resume from Phase 5 (Scaffold).
 
 {% unless platform == "claude-code" %}
 ## Relay Checkpoint Protocol
@@ -83,7 +82,7 @@ After reading preferences.md (Section 1.2), scan for an existing checkpoint comm
 3. The current user message is the answer to `pending_question`. Interpret it against the persisted `options`.
 4. Apply the answer first — this step always executes, even when the checkpoint is at a budget cap. Determine the current phase from the checkpoint context:
    - If the pending question was a tech stack question (Phase 2): process the answer and update the corresponding `_TBD_` fields in preferences.md. Then check budget: if `question_count < 5` and `_TBD_` fields remain in Tech Stack, continue Phase 2. Otherwise proceed to Phase 3 (Research).
-   - If the pending question was a summary confirmation (Phase 4): process the user's response first. If the user confirms, proceed to Phase 5 (Scaffold). If the user requests changes, apply the requested changes. Then check budget: if `revision_count < 2`, increment `revision_count` and re-present. If `revision_count >= 2`, report error and stop.
+   - If the pending question was a summary confirmation (Phase 4): classify the user's response first. If the user confirms, proceed to Phase 5 (Scaffold) — confirmation is always allowed, even at the revision cap. If the user requests changes, check budget BEFORE applying: if `revision_count < 2`, apply the requested changes, increment `revision_count`, and re-present the summary. If `revision_count >= 2`, return the cap error WITHOUT editing the artifact.
 
 **If no checkpoint exists** (first invocation):
 
@@ -104,7 +103,7 @@ Before emitting each `needs_input` envelope:
 Budget is enforced only as a gate before asking another question or presenting another revision — never on checkpoint restore before the pending answer is applied. When continuing from a checkpoint, always apply the pending answer first (steps 1–4 above).
 
 - **Interview budget**: after the pending answer is applied, if `question_count >= 5`, do not ask another question. Proceed to Phase 3 (Research).
-- **Revision budget**: after the pending revision response is applied, if `revision_count >= 2` and the user requests another change, report error and stop.
+- **Revision budget**: after classifying the pending response, if it is a change request and `revision_count >= 2`, return the cap error WITHOUT applying the edit. Confirmations always proceed to the next phase regardless of revision count.
 - Both budgets are cumulative across all relay continuations and must never be reset.
 {% endunless %}
 
