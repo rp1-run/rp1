@@ -111,6 +111,38 @@ const BUDGET_NEVER_ON_RESTORE =
 const CODEC_HEADING = "Checkpoint Codec";
 // Literal > JSON Unicode escape — must appear instead of &gt; HTML entity.
 const CODEC_GT_ESCAPE = "\\u003e";
+// Codec specification rule markers (relay-envelope checkpoint codec section).
+const CODEC_JSON_ESCAPE_RULE = "JSON string escaping";
+const CODEC_HTML_SAFETY_RULE = "HTML comment safety";
+
+// Apply-answer-first text (relay agents, relay checkpoint protocol).
+const APPLY_ANSWER_FIRST = "Apply the answer first";
+
+// CC coordinator narrowing markers (coordinator-loop.md CC branch).
+const PRESCRIBED_PROMPTS_PERMISSION =
+	"Execute every user prompt prescribed by the composing skill";
+const NARROWED_PROHIBITION = "unplanned clarification questions";
+
+// Bootstrap marker discovery and probe (bootstrap SKILL.md).
+const MARKER_DISCOVERY_SCAN = "bootstrap-state read";
+const SCAFFOLD_PROBE_REF = "scaffold-probe";
+
+// Blueprint sidecar lifecycle (blueprint SKILL.md, platform-independent).
+const SIDECAR_LIFECYCLE_HEADING = "Extra-Context Sidecar";
+const SIDECAR_RESTORE_TEXT = "restored from the blueprint context sidecar";
+
+/**
+ * Count non-overlapping occurrences of a marker in a text body.
+ */
+function countOccurrences(text: string, marker: string): number {
+	let count = 0;
+	let pos = 0;
+	while ((pos = text.indexOf(marker, pos)) !== -1) {
+		count++;
+		pos += marker.length;
+	}
+	return count;
+}
 
 /**
  * Resolve the output file path for a built agent on a given platform.
@@ -362,6 +394,190 @@ describe("interview agent composition", () => {
 					expect(c).toContain(CODEC_GT_ESCAPE);
 				});
 			}
+		}
+	});
+
+	// -----------------------------------------------------------------------
+	// Exact-count/XOR contract assertions
+	// -----------------------------------------------------------------------
+
+	describe("exact contract counts per agent", () => {
+		for (const agentName of INTERVIEW_AGENTS) {
+			describe(`${agentName} on claude-code`, () => {
+				test("has exactly one interview-loop interaction contract", () => {
+					const c = agentContent.get("claude-code")!.get(agentName)!;
+					expect(countOccurrences(c, INTERVIEW_LOOP_HEADING)).toBe(1);
+				});
+
+				test("has exactly one plain-text completion and no relay completion", () => {
+					const c = agentContent.get("claude-code")!.get(agentName)!;
+					expect(countOccurrences(c, CLAUDE_CODE_COMPLETIONS[agentName])).toBe(
+						1,
+					);
+					expect(countOccurrences(c, RELAY_ENVELOPE_COMPLETION)).toBe(0);
+				});
+			});
+		}
+
+		for (const platform of RELAY_PLATFORMS) {
+			for (const agentName of INTERVIEW_AGENTS) {
+				describe(`${agentName} on ${platform}`, () => {
+					test("has exactly one interview-loop interaction contract", () => {
+						const c = agentContent.get(platform)!.get(agentName)!;
+						expect(countOccurrences(c, INTERVIEW_LOOP_HEADING)).toBe(1);
+					});
+
+					test("has exactly one relay-envelope completion and no plain-text completion", () => {
+						const c = agentContent.get(platform)!.get(agentName)!;
+						expect(countOccurrences(c, RELAY_ENVELOPE_COMPLETION)).toBe(1);
+						expect(
+							countOccurrences(c, CLAUDE_CODE_COMPLETIONS[agentName]),
+						).toBe(0);
+					});
+				});
+			}
+		}
+	});
+
+	// -----------------------------------------------------------------------
+	// Index-order: apply-answer-first precedes budget-gate on relay agents
+	// -----------------------------------------------------------------------
+
+	describe("relay agent apply-answer-first ordering", () => {
+		for (const platform of RELAY_PLATFORMS) {
+			for (const agentName of INTERVIEW_AGENTS) {
+				test(`${agentName} on ${platform} has apply-answer-first before budget-gate`, () => {
+					const c = agentContent.get(platform)!.get(agentName)!;
+					const applyIdx = c.indexOf(APPLY_ANSWER_FIRST);
+					const budgetIdx = c.indexOf(BUDGET_GATE_ONLY);
+					expect(applyIdx).toBeGreaterThanOrEqual(0);
+					expect(budgetIdx).toBeGreaterThanOrEqual(0);
+					expect(applyIdx).toBeLessThan(budgetIdx);
+				});
+			}
+		}
+	});
+
+	// -----------------------------------------------------------------------
+	// Codec round-trip: executable verification of checkpoint encoding rules
+	// -----------------------------------------------------------------------
+
+	describe("checkpoint codec round-trip", () => {
+		function encodeCodec(value: unknown): string {
+			const json = JSON.stringify(value);
+			return json.replace(/>/g, "\\u003e");
+		}
+
+		function embedInComment(encodedJson: string): string {
+			return `<!-- INTERVIEW_CHECKPOINT ${encodedJson} -->`;
+		}
+
+		function extractFromComment(comment: string): string {
+			const prefix = "<!-- INTERVIEW_CHECKPOINT ";
+			const suffix = " -->";
+			const start = comment.indexOf(prefix) + prefix.length;
+			const end = comment.lastIndexOf(suffix);
+			return comment.slice(start, end);
+		}
+
+		const vectors: ReadonlyArray<{ name: string; value: unknown }> = [
+			{ name: "double quotes", value: { text: 'He said "hello"' } },
+			{ name: "backslashes", value: { path: "C:\\Users\\name" } },
+			{ name: "newlines", value: { text: "line1\nline2" } },
+			{ name: "greater-than", value: { expr: "a > b" } },
+			{ name: "comment terminator", value: { html: "comment --> end" } },
+			{ name: "emoji", value: { mood: "Happy \u{1F389}" } },
+			{ name: "CJK", value: { greeting: "こんにちは" } },
+			{
+				name: "realistic checkpoint",
+				value: {
+					pending_question: "What language do you prefer?",
+					options: ["TypeScript", "Python"],
+					question_count: 3,
+					revision_count: 0,
+					original_args: {
+						PROJECT_NAME: "my-app",
+						TARGET_DIR: "/home/user/my-app",
+					},
+				},
+			},
+		];
+
+		for (const { name, value } of vectors) {
+			test(`round-trips ${name}`, () => {
+				const encoded = encodeCodec(value);
+				const comment = embedInComment(encoded);
+				expect(encoded).not.toContain("-->");
+				const extracted = extractFromComment(comment);
+				const decoded = JSON.parse(extracted);
+				expect(decoded).toEqual(value);
+			});
+		}
+
+		test("rendered relay agents prescribe the codec rules", () => {
+			for (const platform of RELAY_PLATFORMS) {
+				for (const agentName of INTERVIEW_AGENTS) {
+					const c = agentContent.get(platform)!.get(agentName)!;
+					expect(c).toContain(CODEC_JSON_ESCAPE_RULE);
+					expect(c).toContain(CODEC_HTML_SAFETY_RULE);
+				}
+			}
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Blueprint parent-skill composition
+	// -----------------------------------------------------------------------
+
+	describe("blueprint parent skill composition", () => {
+		for (const platform of RELAY_PLATFORMS) {
+			test(`${platform} contains dispatch relay-loop instructions`, () => {
+				const c = skillContent.get(platform)!.get("blueprint")!;
+				expect(c).toContain(RELAY_DISPATCH_LOOP);
+			});
+		}
+
+		test("claude-code does not contain dispatch relay-loop", () => {
+			const c = skillContent.get("claude-code")!.get("blueprint")!;
+			expect(c).not.toContain(RELAY_DISPATCH_LOOP);
+		});
+
+		for (const platform of ALL_PLATFORMS) {
+			test(`${platform} contains sidecar lifecycle wording`, () => {
+				const c = skillContent.get(platform)!.get("blueprint")!;
+				expect(c).toContain(SIDECAR_LIFECYCLE_HEADING);
+				expect(c).toContain(SIDECAR_RESTORE_TEXT);
+			});
+		}
+	});
+
+	// -----------------------------------------------------------------------
+	// Bootstrap parent-skill: CC narrowing, marker discovery, probe
+	// -----------------------------------------------------------------------
+
+	describe("bootstrap CC prescribed-prompts narrowing", () => {
+		test("claude-code contains prescribed-prompts permission", () => {
+			const c = skillContent.get("claude-code")!.get("bootstrap")!;
+			expect(c).toContain(PRESCRIBED_PROMPTS_PERMISSION);
+		});
+
+		test("claude-code contains narrowed prohibition", () => {
+			const c = skillContent.get("claude-code")!.get("bootstrap")!;
+			expect(c).toContain(NARROWED_PROHIBITION);
+		});
+	});
+
+	describe("bootstrap marker discovery and probe-gated deletion", () => {
+		for (const platform of ALL_PLATFORMS) {
+			test(`${platform} contains marker-discovery scan`, () => {
+				const c = skillContent.get(platform)!.get("bootstrap")!;
+				expect(c).toContain(MARKER_DISCOVERY_SCAN);
+			});
+
+			test(`${platform} contains probe-gated deletion reference`, () => {
+				const c = skillContent.get(platform)!.get("bootstrap")!;
+				expect(c).toContain(SCAFFOLD_PROBE_REF);
+			});
 		}
 	});
 });
