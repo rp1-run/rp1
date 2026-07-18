@@ -55,7 +55,7 @@ Before emitting a `needs_input` envelope, persist a durable checkpoint in your a
 When building the checkpoint JSON for the HTML comment wrapper, apply these encoding rules to prevent payload corruption:
 
 1. **JSON string escaping** (standard): escape `"` as `\"`, `\` as `\\`, newlines as `\n`.
-2. **HTML comment safety**: encode every `>` inside JSON string values as `&gt;` so the `-->` comment terminator can never appear in the payload.
+2. **HTML comment safety**: encode every `>` inside JSON string values as the escape sequence `\u003e` so the `-->` comment terminator can never appear in the payload.
 
-On continuation, extract the JSON text from the HTML comment and pass it to `JSON.parse`. Standard JSON parsing handles the escaped characters, and `&gt;` persists as literal text in the parsed string values — no custom decode step is required.
+On continuation, extract the JSON text from the HTML comment and pass it to `JSON.parse`. `JSON.parse` decodes `\u003e` back to `>` automatically — no custom decode step is required.
 {% endunless %}
