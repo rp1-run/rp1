@@ -71,6 +71,10 @@ export const TOOL_MODULES: ReadonlyMap<string, () => Promise<void>> = new Map([
 		() => import("./resolve-args/index.js").then(() => undefined),
 	],
 	[
+		"scaffold-probe",
+		() => import("./scaffold-probe/index.js").then(() => undefined),
+	],
+	[
 		"rp1-root-dir",
 		() => import("./rp1-root-dir/index.js").then(() => undefined),
 	],
@@ -135,6 +139,7 @@ Available Tools:
   bootstrap-state   Manage bootstrap recovery state markers (write, read)
   mmd-validate      Validate Mermaid diagram syntax
   resolve-args      Resolve structured arguments from schema, settings, and user input
+  scaffold-probe    Four-point scaffold completeness probe (git commit, manifest, source, tests)
   rp1-root-dir      Resolve project, KB, and work directories with worktree detection
   workflow-bootstrap Resolve canonical tracked-workflow bootstrap context and run selection
   workflow-state    Read workflow state and next parent phase from the emit database
@@ -3143,6 +3148,64 @@ Examples:
 
 		const { readBootstrapState } = await import("./bootstrap-state/index.js");
 		const result = await readBootstrapState(options.targetDir)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(
+			formatOutput({
+				success: true,
+				tool: toolName,
+				data: result.right,
+			}),
+		);
+		process.exit(0);
+	});
+
+agentToolsCommand
+	.command("scaffold-probe")
+	.description("Four-point scaffold completeness probe")
+	.requiredOption(
+		"--target-dir <dir>",
+		"Absolute path to the scaffolded project directory",
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Runs a four-point completeness probe against a scaffolded project directory
+  to verify that the bootstrap scaffolder produced a viable project. Both the
+  bootstrap coordinator skill and the bootstrap-scaffolder agent use this
+  subcommand to gate marker deletion on probe success.
+
+  Probe points:
+    1. git-commit        Initial git commit exists in the target repo
+    2. package-manifest  A package manifest exists (package.json, Cargo.toml, etc.)
+    3. source-entry      A source entry point exists (src/, lib/, main.ts, etc.)
+    4. test-file         At least one test file or test directory exists
+
+Options:
+  --target-dir <dir>   Directory to probe (required)
+
+Output:
+  JSON ToolResult with:
+  - pass: true if all four points pass, false otherwise
+  - points: Array of { name, pass, detail } for each probe point
+
+Examples:
+  rp1 agent-tools scaffold-probe --target-dir /path/to/project
+`,
+	)
+	.action(async (options: { targetDir: string }): Promise<void> => {
+		const toolName = "scaffold-probe";
+		await ensureToolLoaded(toolName);
+
+		const { probeScaffold } = await import("./scaffold-probe/index.js");
+		const result = await probeScaffold(options.targetDir)();
 
 		if (E.isLeft(result)) {
 			console.error(
