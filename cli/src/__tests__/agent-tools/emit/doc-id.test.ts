@@ -6,18 +6,16 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { readFile, rm } from "node:fs/promises";
+import { join } from "node:path";
 import {
 	generateDocId,
 	injectFrontmatter,
 	isMarkdownFile,
+	overwriteDocIdFrontmatter,
 	parseFrontmatter,
-	resolveDocId,
+	readFrontmatterDocId,
 } from "../../../agent-tools/emit/doc-id.js";
-import {
-	createTempDir,
-	expectTaskRight,
-	writeFixture,
-} from "../../helpers/index.js";
+import { createTempDir, writeFixture } from "../../helpers/index.js";
 
 const UUID_V4_REGEX =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -126,86 +124,133 @@ describe("doc-id utility", () => {
 		});
 	});
 
-	describe("resolveDocId", () => {
-		test("creates frontmatter for markdown with no frontmatter", async () => {
+	describe("readFrontmatterDocId", () => {
+		test("returns the rp1_doc_id from markdown frontmatter without modifying the file", async () => {
+			const existingId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+			const originalContent = `---\nrp1_doc_id: ${existingId}\ntitle: Existing\n---\n# Content`;
 			const filePath = await writeFixture(
 				tempDir,
-				"no-frontmatter.md",
+				"peek-has-doc-id.md",
+				originalContent,
+			);
+
+			expect(await readFrontmatterDocId(filePath)).toBe(existingId);
+
+			const fileContent = await readFile(filePath, "utf-8");
+			expect(fileContent).toBe(originalContent);
+		});
+
+		test("returns null for markdown without frontmatter and never writes", async () => {
+			const originalContent = "# My Document\n\nSome content here.";
+			const filePath = await writeFixture(
+				tempDir,
+				"peek-no-frontmatter.md",
+				originalContent,
+			);
+
+			expect(await readFrontmatterDocId(filePath)).toBeNull();
+
+			const fileContent = await readFile(filePath, "utf-8");
+			expect(fileContent).toBe(originalContent);
+		});
+
+		test("returns null for frontmatter without rp1_doc_id", async () => {
+			const filePath = await writeFixture(
+				tempDir,
+				"peek-other-frontmatter.md",
+				"---\ntitle: Design Doc\n---\n# Design",
+			);
+
+			expect(await readFrontmatterDocId(filePath)).toBeNull();
+		});
+
+		test("returns null for non-markdown files", async () => {
+			const filePath = await writeFixture(
+				tempDir,
+				"peek-script.ts",
+				"const x = 42;\n",
+			);
+
+			expect(await readFrontmatterDocId(filePath)).toBeNull();
+		});
+
+		test("returns null for missing files", async () => {
+			expect(
+				await readFrontmatterDocId(join(tempDir, "does-not-exist.md")),
+			).toBeNull();
+		});
+	});
+
+	describe("overwriteDocIdFrontmatter", () => {
+		test("prepends frontmatter to markdown without any", async () => {
+			const filePath = await writeFixture(
+				tempDir,
+				"stamp-no-frontmatter.md",
 				"# My Document\n\nSome content here.",
 			);
 
-			const result = await expectTaskRight(resolveDocId(filePath));
+			await overwriteDocIdFrontmatter(filePath, "doc-stamped");
 
-			expect(result.isNew).toBe(true);
-			expect(result.docId).toMatch(UUID_V4_REGEX);
-
-			const updatedContent = await readFile(filePath, "utf-8");
-			expect(updatedContent).toContain("rp1_doc_id:");
-			expect(updatedContent).toContain(result.docId);
-			expect(updatedContent).toContain("# My Document");
+			const content = await readFile(filePath, "utf-8");
+			expect(content).toContain("rp1_doc_id: doc-stamped");
+			expect(content).toContain("# My Document");
 		});
 
 		test("adds rp1_doc_id to existing frontmatter", async () => {
 			const filePath = await writeFixture(
 				tempDir,
-				"existing-frontmatter.md",
-				"---\ntitle: Design Doc\nauthor: Test\n---\n# Design\n\nDetails here.",
+				"stamp-existing-frontmatter.md",
+				"---\ntitle: Design Doc\n---\n# Design\n",
 			);
 
-			const result = await expectTaskRight(resolveDocId(filePath));
+			await overwriteDocIdFrontmatter(filePath, "doc-added");
 
-			expect(result.isNew).toBe(true);
-			expect(result.docId).toMatch(UUID_V4_REGEX);
-
-			const updatedContent = await readFile(filePath, "utf-8");
-			expect(updatedContent).toContain("rp1_doc_id:");
-			expect(updatedContent).toContain("title: Design Doc");
+			const content = await readFile(filePath, "utf-8");
+			expect(content).toContain("rp1_doc_id: doc-added");
+			expect(content).toContain("title: Design Doc");
 		});
 
-		test("returns existing rp1_doc_id without modifying file", async () => {
-			const existingId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
-			const originalContent = `---\nrp1_doc_id: ${existingId}\ntitle: Existing\n---\n# Content`;
+		test("replaces a mismatched rp1_doc_id", async () => {
 			const filePath = await writeFixture(
 				tempDir,
-				"has-doc-id.md",
+				"stamp-mismatch.md",
+				"---\nrp1_doc_id: doc-loser\ntitle: Kept\n---\n# Body\n",
+			);
+
+			await overwriteDocIdFrontmatter(filePath, "doc-winner");
+
+			const content = await readFile(filePath, "utf-8");
+			expect(content).toContain("rp1_doc_id: doc-winner");
+			expect(content).not.toContain("doc-loser");
+			expect(content).toContain("title: Kept");
+		});
+
+		test("leaves a matching rp1_doc_id untouched", async () => {
+			const originalContent = "---\nrp1_doc_id: doc-same\n---\n# Body\n";
+			const filePath = await writeFixture(
+				tempDir,
+				"stamp-same.md",
 				originalContent,
 			);
 
-			const result = await expectTaskRight(resolveDocId(filePath));
+			await overwriteDocIdFrontmatter(filePath, "doc-same");
 
-			expect(result.isNew).toBe(false);
-			expect(result.docId).toBe(existingId);
-
-			const fileContent = await readFile(filePath, "utf-8");
-			expect(fileContent).toBe(originalContent);
+			const content = await readFile(filePath, "utf-8");
+			expect(content).toBe(originalContent);
 		});
 
-		test("generates doc_id for non-markdown without file modification", async () => {
-			const originalContent = "const x = 42;\nexport { x };\n";
+		test("never touches non-markdown files", async () => {
+			const originalContent = "const x = 42;\n";
 			const filePath = await writeFixture(
 				tempDir,
-				"script.ts",
+				"stamp-script.ts",
 				originalContent,
 			);
 
-			const result = await expectTaskRight(resolveDocId(filePath));
+			await overwriteDocIdFrontmatter(filePath, "doc-ignored");
 
-			expect(result.isNew).toBe(true);
-			expect(result.docId).toMatch(UUID_V4_REGEX);
-
-			const fileContent = await readFile(filePath, "utf-8");
-			expect(fileContent).toBe(originalContent);
-		});
-
-		test("generated doc_id is a valid UUID v4", async () => {
-			const filePath = await writeFixture(
-				tempDir,
-				"uuid-test.md",
-				"# UUID Test",
-			);
-
-			const result = await expectTaskRight(resolveDocId(filePath));
-			expect(result.docId).toMatch(UUID_V4_REGEX);
+			const content = await readFile(filePath, "utf-8");
+			expect(content).toBe(originalContent);
 		});
 	});
 });
