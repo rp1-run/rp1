@@ -93,7 +93,7 @@ Initialize `question_count = 0` and `revision_count = 0`. Proceed to Section 2.
 Before emitting each `needs_input` envelope during the interview:
 
 1. Increment `question_count`.
-2. Build the checkpoint comment with the pending question, options, updated counters, and `original_args: {"CHARTER_PATH": "<value>", "MODE": "<value>"}`.
+2. Build the checkpoint comment with the pending question, options, updated counters, and `original_args: {"CHARTER_PATH": "<value>", "MODE": "<value>"}`. Apply the Checkpoint Codec (see Relay Envelope Protocol) when encoding the JSON payload.
 3. If a prior checkpoint exists in the charter file, replace it using Edit. Otherwise, append it to the end of the file.
 4. Then emit the `needs_input` envelope and end your turn.
 

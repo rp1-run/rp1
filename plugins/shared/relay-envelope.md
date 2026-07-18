@@ -49,4 +49,13 @@ Before emitting a `needs_input` envelope, persist a durable checkpoint in your a
 **On continuation**: read the existing checkpoint from the artifact, interpret the user's answer against the persisted `pending_question` and `options`, and resume from the persisted counters.
 
 **On completion**: strip the checkpoint comment from the artifact before returning the `completed` envelope. The final artifact must not contain any checkpoint marker.
+
+#### Checkpoint Codec
+
+When building the checkpoint JSON for the HTML comment wrapper, apply these encoding rules to prevent payload corruption:
+
+1. **JSON string escaping** (standard): escape `"` as `\"`, `\` as `\\`, newlines as `\n`.
+2. **HTML comment safety**: encode every `>` inside JSON string values as `&gt;` so the `-->` comment terminator can never appear in the payload.
+
+On continuation, extract the JSON text from the HTML comment and pass it to `JSON.parse`. Standard JSON parsing handles the escaped characters, and `&gt;` persists as literal text in the parsed string values — no custom decode step is required.
 {% endunless %}

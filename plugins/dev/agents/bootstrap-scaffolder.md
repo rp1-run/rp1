@@ -95,7 +95,7 @@ Before emitting each `needs_input` envelope:
 
 1. For interview questions (Phase 2): increment `question_count`.
 2. For summary confirmations (Phase 4): do not increment `question_count` (these are confirmation prompts, not interview questions).
-3. Build the checkpoint comment with the pending question, options, updated counters, and `original_args: {"PROJECT_NAME": "<value>", "TARGET_DIR": "<value>", "CHARTER_PATH": "<value>", "KB_ROOT": "<value>"}`.
+3. Build the checkpoint comment with the pending question, options, updated counters, and `original_args: {"PROJECT_NAME": "<value>", "TARGET_DIR": "<value>", "CHARTER_PATH": "<value>", "KB_ROOT": "<value>"}`. Apply the Checkpoint Codec (see Relay Envelope Protocol) when encoding the JSON payload.
 4. If a prior checkpoint exists in preferences.md, replace it using Edit. Otherwise, append it to the end of the file.
 5. Then emit the `needs_input` envelope and end your turn.
 
