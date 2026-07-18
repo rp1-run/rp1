@@ -497,13 +497,18 @@ describe("emit end-to-end", () => {
 					),
 				);
 
+			// Three concurrent callers cover the third-reader interleaving:
+			// identity is only ever written to the file after the transaction
+			// picks the winner, so no caller can observe a transient losing id.
 			const stamp = Date.now();
-			const [first, second] = await Promise.all([
+			const [first, second, third] = await Promise.all([
 				emitFor(`run-race-a-${stamp}`),
 				emitFor(`run-race-b-${stamp}`),
+				emitFor(`run-race-c-${stamp}`),
 			]);
 
 			expect(second.data.docId).toBe(first.data.docId);
+			expect(third.data.docId).toBe(first.data.docId);
 
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 			const rowCount = db

@@ -46,10 +46,9 @@ import {
 	upsertArtifact,
 } from "./database.js";
 import {
-	type DocIdResult,
 	generateDocId,
 	overwriteDocIdFrontmatter,
-	resolveDocId,
+	readFrontmatterDocId,
 } from "./doc-id.js";
 import type { EmitInput, EmitResult } from "./models.js";
 import { maybeGenerateNotification } from "./notification-generator.js";
@@ -396,85 +395,71 @@ const handleArtifactRegistration = (
 
 	return pipe(
 		getEmitDatabase(),
-		TE.chain((db) => {
-			// Reuse the doc_id already registered at this location so repeated
-			// registrations of the same file (frontmatter stripped by a rewrite,
-			// or non-markdown files that cannot carry frontmatter) refresh the
-			// existing artifact row instead of minting a duplicate per emit.
-			const location = {
-				projectPath: input.projectPath,
-				path: normalizedStorage.path,
-				storageRoot: normalizedStorage.storageRoot,
-			};
-			const existing = getLatestArtifactByLocation(db, location);
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const artifactType =
+						(input.data.type as string) ?? classifyArtifactType(filePath);
+					const feature = (input.data.feature as string) ?? "unknown";
+					const location = {
+						projectPath: input.projectPath,
+						path: normalizedStorage.path,
+						storageRoot: normalizedStorage.storageRoot,
+					};
 
-			return pipe(
-				resolveDocId(absolutePath, existing?.docId),
-				TE.orElse(
-					(): TE.TaskEither<CLIError, DocIdResult> =>
-						TE.right({
-							docId: existing?.docId ?? generateDocId(),
-							isNew: existing == null,
-							source: existing ? "existing" : "generated",
-						}),
-				),
-				TE.chain((docIdResult) =>
-					TE.tryCatch(
-						async () => {
-							const artifactType =
-								(input.data.type as string) ?? classifyArtifactType(filePath);
-							const feature = (input.data.feature as string) ?? "unknown";
+					// Identity resolution never writes before the transaction picks
+					// the winner: a speculative doc_id written to the file first
+					// could be read as authoritative by a concurrent registration.
+					// Frontmatter is peeked read-only; when absent, the identity is
+					// established inside the write transaction (reusing the row
+					// already registered at this location — frontmatter stripped by
+					// a rewrite, non-markdown files, or a concurrent racer — and
+					// minting a UUID only when there is none) and injected after.
+					const frontmatterDocId = await readFrontmatterDocId(absolutePath);
 
-							// Re-check the location inside a write transaction so
-							// concurrent first registrations converge on one doc_id
-							// instead of inserting two rows. Frontmatter identity is
-							// authoritative and never overridden by the re-check.
-							const register = db.transaction(() => {
-								const docId =
-									docIdResult.source === "frontmatter"
-										? docIdResult.docId
-										: (getLatestArtifactByLocation(db, location)?.docId ??
-											docIdResult.docId);
+					const register = db.transaction(() => {
+						const docId =
+							frontmatterDocId ??
+							getLatestArtifactByLocation(db, location)?.docId ??
+							generateDocId();
 
-								const artifactInput: ArtifactInput = {
-									docId,
-									runId: input.runId,
-									path: normalizedStorage.path,
-									type: artifactType,
-									storageRoot: normalizedStorage.storageRoot,
-									projectPath: input.projectPath,
-									projectId: run.projectId ?? undefined,
-									feature,
-									step: input.step,
-									subflow: input.data.subflow === true,
-								};
+						const artifactInput: ArtifactInput = {
+							docId,
+							runId: input.runId,
+							path: normalizedStorage.path,
+							type: artifactType,
+							storageRoot: normalizedStorage.storageRoot,
+							projectPath: input.projectPath,
+							projectId: run.projectId ?? undefined,
+							feature,
+							step: input.step,
+							subflow: input.data.subflow === true,
+						};
 
-								upsertArtifact(db, artifactInput);
-								return docId;
-							});
-							const docId = register.immediate() as string;
+						upsertArtifact(db, artifactInput);
+						return docId;
+					});
+					const docId = register.immediate() as string;
 
-							if (docId !== docIdResult.docId) {
-								// A concurrent registration won the race; re-point the
-								// file at the winning identity. Best-effort: the row is
-								// already correct and the next emit reconverges anyway.
-								try {
-									await overwriteDocIdFrontmatter(absolutePath, docId);
-								} catch {
-									// File may be gone or unwritable; ignore.
-								}
-							}
+					if (frontmatterDocId === null) {
+						// Inject the winning identity into markdown frontmatter.
+						// Best-effort: the row is already correct, the file may be
+						// gone or unwritable, and the next emit reconverges anyway.
+						try {
+							await overwriteDocIdFrontmatter(absolutePath, docId);
+						} catch {
+							// Ignore.
+						}
+					}
 
-							return { docId };
-						},
-						(error) =>
-							runtimeError(
-								`Failed to register artifact for ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
-							),
+					return { docId };
+				},
+				(error) =>
+					runtimeError(
+						`Failed to register artifact for ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
 					),
-				),
-			);
-		}),
+			),
+		),
 	);
 };
 

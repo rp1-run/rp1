@@ -5,22 +5,7 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import { extname } from "node:path";
-import * as TE from "fp-ts/lib/TaskEither.js";
 import { parse, stringify } from "yaml";
-import type { CLIError } from "../../../shared/errors.js";
-import { runtimeError } from "../../../shared/errors.js";
-
-/** Result of resolving a doc_id for a file */
-export interface DocIdResult {
-	readonly docId: string;
-	readonly isNew: boolean;
-	/**
-	 * Where the doc_id came from. "frontmatter" is authoritative (the file
-	 * itself carries the identity); "existing" reuses a previously registered
-	 * artifact row; "generated" is a freshly minted UUID.
-	 */
-	readonly source: "frontmatter" | "existing" | "generated";
-}
 
 const MARKDOWN_EXTENSIONS = new Set([".md", ".mdx"]);
 const FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---/;
@@ -84,10 +69,34 @@ export const injectFrontmatter = (
 };
 
 /**
+ * Read the rp1_doc_id carried in a markdown file's frontmatter without
+ * modifying the file. Returns null for non-markdown files, files without
+ * an rp1_doc_id, and unreadable files. This is the only pre-registration
+ * identity probe: a speculative doc_id must never be written to the file
+ * before the registration transaction picks the winning identity, or a
+ * concurrent registration could adopt a transient losing id as
+ * authoritative.
+ */
+export const readFrontmatterDocId = async (
+	filePath: string,
+): Promise<string | null> => {
+	if (!isMarkdownFile(filePath)) return null;
+
+	let content: string;
+	try {
+		content = await readFile(filePath, "utf-8");
+	} catch {
+		return null;
+	}
+
+	const docId = parseFrontmatter(content)?.frontmatter.rp1_doc_id;
+	return docId ? String(docId) : null;
+};
+
+/**
  * Force rp1_doc_id in a markdown file's frontmatter to the given value,
- * overwriting any existing id. Used to re-heal a file after a concurrent
- * registration race settles on a different doc_id than the one this
- * process injected.
+ * overwriting any existing id. Called after the registration transaction
+ * settles the winning identity, to stamp it into the file.
  */
 export const overwriteDocIdFrontmatter = async (
 	filePath: string,
@@ -112,63 +121,4 @@ export const overwriteDocIdFrontmatter = async (
 	parsed.frontmatter.rp1_doc_id = docId;
 	const serialized = stringify(parsed.frontmatter).trimEnd();
 	await writeFile(filePath, `---\n${serialized}\n---${parsed.body}`, "utf-8");
-};
-
-/**
- * Resolve the doc_id for a file path.
- *
- * For markdown files (.md, .mdx):
- * - Reads the file and parses frontmatter
- * - If rp1_doc_id exists in frontmatter, returns it (idempotent)
- * - If no rp1_doc_id, reuses `existingDocId` when provided (healing a
- *   rewrite that stripped frontmatter) or generates one, then injects it
- * - Writes the updated content back to the file
- *
- * For non-markdown files (which cannot carry frontmatter):
- * - Reuses `existingDocId` when provided, otherwise generates a UUID;
- *   the file is never modified
- *
- * `existingDocId` is the doc_id of the artifact row already registered at
- * this location, so re-registering the same file keeps a stable identity
- * instead of minting a duplicate artifact row per emit.
- */
-export const resolveDocId = (
-	filePath: string,
-	existingDocId?: string,
-): TE.TaskEither<CLIError, DocIdResult> => {
-	if (!isMarkdownFile(filePath)) {
-		return TE.right(
-			existingDocId
-				? { docId: existingDocId, isNew: false, source: "existing" as const }
-				: { docId: generateDocId(), isNew: true, source: "generated" as const },
-		);
-	}
-
-	return TE.tryCatch(
-		async () => {
-			const content = await readFile(filePath, "utf-8");
-			const docId = existingDocId ?? generateDocId();
-			const result = injectFrontmatter(content, docId);
-
-			if (!result.isNew) {
-				const parsed = parseFrontmatter(content);
-				return {
-					docId: String(parsed?.frontmatter.rp1_doc_id),
-					isNew: false,
-					source: "frontmatter" as const,
-				};
-			}
-
-			await writeFile(filePath, result.content, "utf-8");
-			return {
-				docId,
-				isNew: existingDocId === undefined,
-				source: existingDocId ? ("existing" as const) : ("generated" as const),
-			};
-		},
-		(error) =>
-			runtimeError(
-				`Failed to resolve doc_id for ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
-			),
-	);
 };
