@@ -27,6 +27,20 @@ describe("editable text nodes", () => {
 		).toBe(false);
 	});
 
+	test("skips Shiki line-number widgets", () => {
+		const container = document.createElement("article");
+		container.innerHTML = [
+			"<pre><code>",
+			'<span class="line-number ProseMirror-widget" contenteditable="false">1</span>',
+			'<span class="shiki">flowchart TB</span>\n',
+			'<span class="line-number ProseMirror-widget" contenteditable="false">2</span>',
+			'<span class="shiki">    CM --&gt; F</span>',
+			"</code></pre>",
+		].join("");
+
+		expect(getEditableText(container)).toBe("flowchart TB\n    CM --> F");
+	});
+
 	test("maps a character range across multiple text nodes", () => {
 		const container = document.createElement("div");
 		container.innerHTML = "<span>Alpha </span><span>Beta</span>";

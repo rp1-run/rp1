@@ -18,8 +18,10 @@ import {
 	addReply,
 	createAnnotation,
 	deleteAnnotation,
+	enrichAnchorWithSource,
 	getAnnotation,
 	getAnnotations,
+	loadContentForDocId,
 	reopenAnnotation,
 	resolveAnnotation,
 	runOrphanDetectionForDoc,
@@ -251,7 +253,21 @@ export async function handleAnnotationCreateRequest(
 			return errorResponse(validation.error ?? "Invalid request", 400);
 		}
 
-		const annotation = createAnnotation(db, validation.request);
+		// Resolve the rendered-text selection to source coordinates while the
+		// content is known-current; later validity checks are then exact
+		// string operations in the source domain.
+		let request = validation.request;
+		if (request.anchor.type === "text-selection") {
+			const content = await loadContentForDocId(db, request.docId);
+			if (content !== null) {
+				request = {
+					...request,
+					anchor: enrichAnchorWithSource(request.anchor, content),
+				};
+			}
+		}
+
+		const annotation = createAnnotation(db, request);
 
 		ctx.websocketHub?.broadcastAnnotationCreated(annotation);
 

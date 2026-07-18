@@ -116,6 +116,28 @@ describe("useTextSelection", () => {
 		});
 	});
 
+	test("excludes chrome text from selectedText when the range spans excluded nodes", async () => {
+		container.innerHTML =
+			'<pre><code><span class="line-number" contenteditable="false">1</span><span>alpha</span>\n<span class="line-number" contenteditable="false">2</span><span>beta</span></code></pre>';
+		const { result } = renderHook(() =>
+			useTextSelection({ containerRef, enabled: true, showDelay: 0 }),
+		);
+
+		const spans = container.querySelectorAll("span:not(.line-number)");
+		const range = document.createRange();
+		range.setStart(spans[0].firstChild as Text, 0);
+		range.setEnd(spans[1].firstChild as Text, 4);
+		const selection = window.getSelection();
+		selection?.removeAllRanges();
+		selection?.addRange(range);
+		document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+
+		await waitFor(() => {
+			expect(result.current.selection).not.toBeNull();
+		});
+		expect(result.current.selection?.selectedText).toBe("alpha\nbeta");
+	});
+
 	test("ignores selections that are outside the configured container", async () => {
 		const outside = document.createElement("p");
 		outside.textContent = "outside text";

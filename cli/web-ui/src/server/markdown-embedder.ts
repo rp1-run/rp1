@@ -14,6 +14,7 @@ import type {
 	TextSelectionAnchor,
 } from "../types/annotations";
 import { getAnnotations } from "./annotation-service";
+import { locateSourceAnchor } from "./markdown-projection";
 
 /**
  * Regex patterns for parsing embedded annotations.
@@ -46,6 +47,16 @@ function findAnchorPosition(
 	switch (anchor.type) {
 		case "text-selection": {
 			const textAnchor = anchor as TextSelectionAnchor;
+
+			// Source coordinates are exact slices of the markdown file and are
+			// authoritative: when the annotated occurrence is gone, do not fall
+			// back to rendered-text matching — it would wrap an arbitrary
+			// duplicate. Rendered matching below is for legacy anchors only.
+			if (textAnchor.source) {
+				const located = locateSourceAnchor(textAnchor.source, content);
+				return located ? { start: located.start, end: located.end } : null;
+			}
+
 			const searchText = textAnchor.selectedText;
 			const contextBefore = textAnchor.contextBefore;
 			const contextAfter = textAnchor.contextAfter;
