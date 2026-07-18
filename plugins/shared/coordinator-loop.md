@@ -24,10 +24,13 @@
 
 **Single-pass coordinator execution.** Sub-agents interact with the user directly.
 
+**DO**:
+- Execute every user prompt prescribed by the composing skill's own procedure (pre-flight checks, target selection, and other steps the skill spells out)
+
 **DO NOT**:
+- Ask the user unplanned clarification questions beyond the skill's prescribed procedure
 - Re-run a phase that has already completed
 - Re-implement or retry completed work
-- Request additional information outside of dispatched sub-agent interactions
 
 **Blocking issue**:
 1. Document the error clearly
