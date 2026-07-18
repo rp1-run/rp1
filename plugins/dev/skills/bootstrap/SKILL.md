@@ -149,13 +149,13 @@ Next: cd {PROJECT_NAME}, review code, run app (see README.md)
 Commands: /rp1-dev:build, /rp1-dev:blueprint update, /rp1-base:knowledge-build
 ```
 
-{% include_shared "anti-loop.md" %}
+{% include_shared "coordinator-loop.md" %}
 
 **File-specific constraints**:
 - Do NOT modify files outside TARGET_DIR
 - Do NOT re-run agents after completion
 
-**Flow**: Check dir (1x) -> Resolve name (1x, max 2 validations) -> Setup target (1x) -> charter-interviewer (1x) -> bootstrap-scaffolder (1x) -> Output -> STOP
+**Flow**: Check dir -> Resolve name (max 2 validations) -> Setup target -> Charter interview phase -> Scaffold phase -> Output -> STOP
 
 **Errors**: Dir fail -> abort | User declines -> abort | Charter fails -> warn, continue | Scaffold fails -> report partial
 
