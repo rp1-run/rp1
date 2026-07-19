@@ -1,7 +1,7 @@
 ---
 name: bootstrap
 description: "Bootstrap a new project with charter discovery and tech stack scaffolding for greenfield development."
-allowed-tools: Bash(echo *), Bash(rm *), Bash(rp1 *)
+allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   category: development
   is_workflow: false
@@ -66,8 +66,12 @@ Classify results into two lists:
 Apply marker-first precedence:
 
 - **Exactly one valid marker**: Classification is **bootstrap-in-progress**. Takes PRECEDENCE over rp1-initialized, Empty, Non-empty, and all other classifications. Set RESUME_PROJECT_NAME and RESUME_TARGET_DIR from the marker's `data.state`. Skip to §2 (Case B+).
-- **Multiple valid markers + interactive session**: {% ask_user "Multiple partial bootstraps detected. Which would you like to resume?", options: one option per candidate showing "{projectName} at {targetDir}" %}. Set the chosen candidate as the active marker; skip to §2 (Case B+).
-- **Multiple valid markers + relay/AFK session**: Abort with: "Multiple partial bootstrap markers found. Re-run interactively or remove stale markers:" followed by each candidate's projectName and targetDir.
+- **Multiple valid markers**: Session-mode signal source is the build-time `{platform}` gate below (`claude-code` = interactive; every other platform = relay/AFK, non-interactive).
+{% if platform == "claude-code" %}
+  {% ask_user "Multiple partial bootstraps detected. Which would you like to resume?", options: one option per candidate showing "{projectName} at {targetDir}" %}. Set the chosen candidate as the active marker; skip to §2 (Case B+).
+{% else %}
+  Abort with: "Multiple partial bootstrap markers found. Re-run interactively or remove stale markers:" followed by each candidate's projectName and targetDir.
+{% endif %}
 - **Zero valid markers**: Proceed with normal directory classification below.
 
 Normal directory classification (zero valid markers only):
@@ -191,7 +195,7 @@ Parse the JSON result. The probe checks four points: git-commit, package-manifes
 Delete the bootstrap marker:
 
 ```bash
-rm -f "{rp1Dir}/bootstrap-state.json"
+rp1 agent-tools bootstrap-state delete --target-dir "{TARGET_DIR}"
 ```
 
 ```
