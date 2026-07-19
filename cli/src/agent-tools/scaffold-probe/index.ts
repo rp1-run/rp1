@@ -13,7 +13,7 @@ const execute = (
 	TE.right(
 		successResult(TOOL_NAME, {
 			message:
-				"Use subcommand: probe --target-dir <path>. See --help for details.",
+				"Use: scaffold-probe --target-dir <path>. See --help for details.",
 		}),
 	);
 

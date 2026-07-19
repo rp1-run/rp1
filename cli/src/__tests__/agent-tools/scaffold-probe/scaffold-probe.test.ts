@@ -315,4 +315,21 @@ describe("scaffold-probe operations", () => {
 			}
 		});
 	});
+
+	describe("input guards", () => {
+		test("returns a NotFoundError for a blank target-dir", async () => {
+			const error = await expectTaskLeft(probeScaffold(""));
+
+			expect(error._tag).toBe("NotFoundError");
+		});
+
+		test("returns a RuntimeError when target-dir points to a file", async () => {
+			const filePath = join(tempBase, "not-a-directory.txt");
+			await writeFile(filePath, "not a directory");
+
+			const error = await expectTaskLeft(probeScaffold(filePath));
+
+			expect(error._tag).toBe("RuntimeError");
+		});
+	});
 });
