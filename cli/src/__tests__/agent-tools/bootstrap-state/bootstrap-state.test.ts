@@ -639,4 +639,90 @@ describe("bootstrap-state operations", () => {
 			expect(capturedMode).toBe(0o600);
 		});
 	});
+
+	describe("path canonicalization and field domains (review M1)", () => {
+		test("reads a marker through a symlinked target dir and returns the real canonical path", async () => {
+			const realDir = await makeDir("m1-real-target");
+			await expectTaskRight(
+				writeBootstrapState({ projectName: "sym-proj", targetDir: realDir }),
+			);
+
+			const linkDir = join(tempBase, "m1-link-target");
+			await symlink(realDir, linkDir);
+
+			const result = await expectTaskRight(readBootstrapState(linkDir));
+
+			expect(result.valid).toBe(true);
+			if (!result.valid) return;
+			// Physical resolution collapses the symlink to the real directory
+			// rather than reporting a spurious conflict.
+			expect(result.state.targetDir).toBe(realDir);
+			expect(result.state.projectName).toBe("sym-proj");
+		});
+
+		test("reports conflicting when the recorded target dir no longer resolves", async () => {
+			const dir = await makeDir("m1-vanished-record");
+			const rp1Dir = join(dir, ".rp1");
+			await mkdir(rp1Dir, { recursive: true });
+			writeFileSync(
+				join(rp1Dir, BOOTSTRAP_STATE_FILENAME),
+				JSON.stringify({
+					version: BOOTSTRAP_STATE_VERSION,
+					projectName: "ghost",
+					targetDir: join(tempBase, "m1-never-created"),
+					createdAt: new Date().toISOString(),
+				}),
+			);
+
+			const result = await expectTaskRight(readBootstrapState(dir));
+
+			expect(result.valid).toBe(false);
+			if (result.valid) return;
+			expect(result.error.type).toBe("conflicting");
+		});
+
+		test("rejects a marker whose projectName spans multiple lines", async () => {
+			const dir = await makeDir("m1-multiline-name");
+			const rp1Dir = join(dir, ".rp1");
+			await mkdir(rp1Dir, { recursive: true });
+			writeFileSync(
+				join(rp1Dir, BOOTSTRAP_STATE_FILENAME),
+				JSON.stringify({
+					version: BOOTSTRAP_STATE_VERSION,
+					projectName: "line-one\nline-two",
+					targetDir: dir,
+					createdAt: new Date().toISOString(),
+				}),
+			);
+
+			const result = await expectTaskRight(readBootstrapState(dir));
+
+			expect(result.valid).toBe(false);
+			if (result.valid) return;
+			expect(result.error.type).toBe("malformed");
+			expect(result.error.message).toContain("projectName");
+		});
+
+		test("rejects a marker whose createdAt is not a parseable timestamp", async () => {
+			const dir = await makeDir("m1-bad-createdat");
+			const rp1Dir = join(dir, ".rp1");
+			await mkdir(rp1Dir, { recursive: true });
+			writeFileSync(
+				join(rp1Dir, BOOTSTRAP_STATE_FILENAME),
+				JSON.stringify({
+					version: BOOTSTRAP_STATE_VERSION,
+					projectName: "bad-date",
+					targetDir: dir,
+					createdAt: "not-a-timestamp",
+				}),
+			);
+
+			const result = await expectTaskRight(readBootstrapState(dir));
+
+			expect(result.valid).toBe(false);
+			if (result.valid) return;
+			expect(result.error.type).toBe("malformed");
+			expect(result.error.message).toContain("createdAt");
+		});
+	});
 });

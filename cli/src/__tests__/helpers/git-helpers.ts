@@ -108,6 +108,27 @@ export async function createInitialCommit(
 }
 
 /**
+ * Stage and commit everything currently in the working tree.
+ *
+ * Use after writing scaffold files so the resulting commit actually tracks
+ * them (a clean working tree), rather than leaving them untracked against an
+ * earlier commit.
+ *
+ * @param repoPath - Path to the repo
+ * @param message - Commit message (default: "Commit scaffold")
+ */
+export async function commitAll(
+	repoPath: string,
+	message = "Commit scaffold",
+): Promise<void> {
+	const addProc = spawnGit(["add", "-A"], { cwd: repoPath });
+	await addProc.exited;
+
+	const commitProc = spawnGit(["commit", "-m", message], { cwd: repoPath });
+	await commitProc.exited;
+}
+
+/**
  * Create a worktree in a test repo with isolated environment.
  *
  * @param repoPath - Path to the main repo

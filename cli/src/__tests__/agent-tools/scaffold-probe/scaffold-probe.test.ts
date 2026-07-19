@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { ProbePoint } from "../../../agent-tools/scaffold-probe/models.js";
 import { probeScaffold } from "../../../agent-tools/scaffold-probe/probe.js";
 import {
+	commitAll,
 	createInitialCommit,
 	initTestRepo,
 } from "../../helpers/git-helpers.js";
@@ -31,7 +32,6 @@ describe("scaffold-probe operations", () => {
 
 	const setupFullScaffold = async (dir: string): Promise<void> => {
 		await initTestRepo(dir);
-		await createInitialCommit(dir);
 		await writeFile(join(dir, "package.json"), '{"name": "test-project"}');
 		await mkdir(join(dir, "src"), { recursive: true });
 		await writeFile(join(dir, "src", "index.ts"), "export {};");
@@ -40,6 +40,9 @@ describe("scaffold-probe operations", () => {
 			join(dir, "__tests__", "app.test.ts"),
 			'import { test } from "bun:test";',
 		);
+		// Commit the scaffold last so HEAD actually tracks these files and the
+		// working tree is clean (review DEFERRED-FROM-H2).
+		await createInitialCommit(dir);
 	};
 
 	const pointByName = (
@@ -126,17 +129,39 @@ describe("scaffold-probe operations", () => {
 			const gitPoint = pointByName(result.points, "git-commit");
 			expect(gitPoint.pass).toBe(false);
 		});
+
+		test("reports git-commit as failed when scaffold files are uncommitted against an unrelated HEAD", async () => {
+			const dir = await makeDir("git-uncommitted-scaffold");
+			await initTestRepo(dir);
+			// An unrelated prior commit (README only) — a HEAD exists...
+			await createInitialCommit(dir);
+			// ...but the scaffold files are written afterward and never committed.
+			await writeFile(join(dir, "package.json"), '{"name": "uncommitted"}');
+			await mkdir(join(dir, "src"), { recursive: true });
+			await writeFile(join(dir, "src", "index.ts"), "export {};");
+			await mkdir(join(dir, "__tests__"), { recursive: true });
+			await writeFile(join(dir, "__tests__", "a.test.ts"), "");
+
+			const result = await expectTaskRight(probeScaffold(dir));
+
+			// git-commit must reject the dirty tree even though a HEAD exists...
+			expect(pointByName(result.points, "git-commit").pass).toBe(false);
+			// ...while the other points still detect the on-disk files.
+			expect(pointByName(result.points, "package-manifest").pass).toBe(true);
+			expect(pointByName(result.points, "source-entry").pass).toBe(true);
+			expect(pointByName(result.points, "test-file").pass).toBe(true);
+		});
 	});
 
 	describe("missing package manifest fails that point only", () => {
 		test("reports package-manifest as failed when no manifest exists", async () => {
 			const dir = await makeDir("no-manifest");
 			await initTestRepo(dir);
-			await createInitialCommit(dir);
 			await mkdir(join(dir, "src"), { recursive: true });
 			await writeFile(join(dir, "src", "index.ts"), "export {};");
 			await mkdir(join(dir, "__tests__"), { recursive: true });
 			await writeFile(join(dir, "__tests__", "a.test.ts"), "");
+			await commitAll(dir);
 
 			const result = await expectTaskRight(probeScaffold(dir));
 
@@ -153,10 +178,10 @@ describe("scaffold-probe operations", () => {
 		test("reports source-entry as failed when no source dir or entry file exists", async () => {
 			const dir = await makeDir("no-source");
 			await initTestRepo(dir);
-			await createInitialCommit(dir);
 			await writeFile(join(dir, "package.json"), '{"name": "test"}');
 			await mkdir(join(dir, "__tests__"), { recursive: true });
 			await writeFile(join(dir, "__tests__", "a.test.ts"), "");
+			await commitAll(dir);
 
 			const result = await expectTaskRight(probeScaffold(dir));
 
@@ -173,10 +198,10 @@ describe("scaffold-probe operations", () => {
 		test("reports test-file as failed when no test file or dir exists", async () => {
 			const dir = await makeDir("no-tests");
 			await initTestRepo(dir);
-			await createInitialCommit(dir);
 			await writeFile(join(dir, "package.json"), '{"name": "test"}');
 			await mkdir(join(dir, "src"), { recursive: true });
 			await writeFile(join(dir, "src", "index.ts"), "export {};");
+			await commitAll(dir);
 
 			const result = await expectTaskRight(probeScaffold(dir));
 
@@ -203,12 +228,12 @@ describe("scaffold-probe operations", () => {
 		test("detects Cargo.toml as a valid package manifest", async () => {
 			const dir = await makeDir("cargo-manifest");
 			await initTestRepo(dir);
-			await createInitialCommit(dir);
 			await writeFile(join(dir, "Cargo.toml"), '[package]\nname = "test"');
 			await mkdir(join(dir, "src"), { recursive: true });
 			await writeFile(join(dir, "src", "main.rs"), "fn main() {}");
 			await mkdir(join(dir, "tests"), { recursive: true });
 			await writeFile(join(dir, "tests", "integration.rs"), "");
+			await commitAll(dir);
 
 			const result = await expectTaskRight(probeScaffold(dir));
 
@@ -219,11 +244,11 @@ describe("scaffold-probe operations", () => {
 		test("detects go.mod as a valid package manifest", async () => {
 			const dir = await makeDir("go-manifest");
 			await initTestRepo(dir);
-			await createInitialCommit(dir);
 			await writeFile(join(dir, "go.mod"), "module example.com/test");
 			await writeFile(join(dir, "main.go"), "package main\nfunc main(){}");
 			await mkdir(join(dir, "tests"), { recursive: true });
 			await writeFile(join(dir, "tests", "main_test.go"), "package tests");
+			await commitAll(dir);
 
 			const result = await expectTaskRight(probeScaffold(dir));
 

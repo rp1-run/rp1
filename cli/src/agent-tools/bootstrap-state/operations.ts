@@ -1,5 +1,12 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import {
+	mkdir,
+	readFile,
+	realpath,
+	rename,
+	unlink,
+	writeFile,
+} from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -33,10 +40,10 @@ const tempMarkerPath = (canonicalTargetDir: string): string =>
 		`.${BOOTSTRAP_STATE_FILENAME}.${randomBytes(8).toString("hex")}.tmp`,
 	);
 
-const validateRawState = (
+const validateRawState = async (
 	raw: string,
 	expectedTargetDir: string,
-): BootstrapReadResult => {
+): Promise<BootstrapReadResult> => {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(raw);
@@ -83,6 +90,16 @@ const validateRawState = (
 		};
 	}
 
+	if (/[\r\n]/.test(obj.projectName as string)) {
+		return {
+			valid: false,
+			error: {
+				type: "malformed",
+				message: "Invalid 'projectName' field (must be a single line)",
+			},
+		};
+	}
+
 	if (typeof obj.targetDir !== "string" || obj.targetDir.trim() === "") {
 		return {
 			valid: false,
@@ -104,6 +121,16 @@ const validateRawState = (
 		};
 	}
 
+	if (Number.isNaN(Date.parse(obj.createdAt as string))) {
+		return {
+			valid: false,
+			error: {
+				type: "malformed",
+				message: "Invalid 'createdAt' field (expected a parseable timestamp)",
+			},
+		};
+	}
+
 	if (obj.version !== BOOTSTRAP_STATE_VERSION) {
 		return {
 			valid: false,
@@ -114,13 +141,28 @@ const validateRawState = (
 		};
 	}
 
-	const recordedTargetDir = resolve(obj.targetDir as string);
-	if (recordedTargetDir !== expectedTargetDir) {
+	// Physically resolve the recorded target directory so a symlinked or moved
+	// marker cannot masquerade as belonging to the directory it was read from
+	// (review M1). `expectedTargetDir` is already the realpath of that location.
+	let recordedRealDir: string;
+	try {
+		recordedRealDir = await realpath(resolve(obj.targetDir as string));
+	} catch {
 		return {
 			valid: false,
 			error: {
 				type: "conflicting",
-				message: `Recorded target directory '${recordedTargetDir}' does not match marker location '${expectedTargetDir}'`,
+				message: `Recorded target directory '${resolve(obj.targetDir as string)}' does not resolve to an existing path`,
+			},
+		};
+	}
+
+	if (recordedRealDir !== expectedTargetDir) {
+		return {
+			valid: false,
+			error: {
+				type: "conflicting",
+				message: `Recorded target directory '${recordedRealDir}' does not match marker location '${expectedTargetDir}'`,
 			},
 		};
 	}
@@ -130,7 +172,7 @@ const validateRawState = (
 		state: {
 			version: obj.version as number,
 			projectName: obj.projectName as string,
-			targetDir: obj.targetDir as string,
+			targetDir: expectedTargetDir,
 			createdAt: obj.createdAt as string,
 		},
 	};
@@ -223,7 +265,22 @@ export const readBootstrapState = (
 				);
 			},
 		),
-		TE.map((raw) => validateRawState(raw, canonicalTargetDir)),
+		TE.chain((raw) =>
+			TE.tryCatch(
+				async () => {
+					// Follow symlinks on the read location so it matches the recorded
+					// target's realpath (review M1). The marker file was just read, so
+					// the directory is guaranteed to exist here.
+					const expectedTargetDir = await realpath(canonicalTargetDir);
+					return validateRawState(raw, expectedTargetDir);
+				},
+				(error): CLIError =>
+					runtimeError(
+						`Failed to validate bootstrap state: ${error instanceof Error ? error.message : String(error)}`,
+						error,
+					),
+			),
+		),
 	);
 };
 

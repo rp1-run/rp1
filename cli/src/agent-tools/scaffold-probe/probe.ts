@@ -122,10 +122,44 @@ const checkGitCommit = async (targetDir: string): Promise<ProbePoint> => {
 			};
 		}
 
+		// A HEAD alone is not enough: an unrelated prior commit can exist while
+		// the freshly scaffolded files remain untracked. Require a clean working
+		// tree so the scaffold is actually committed (review DEFERRED-FROM-H2).
+		const statusProc = Bun.spawn(["git", "status", "--porcelain"], {
+			cwd: targetDir,
+			stdout: "pipe",
+			stderr: "pipe",
+			env: {
+				...process.env,
+				GIT_DIR: undefined,
+				GIT_WORK_TREE: undefined,
+				GIT_INDEX_FILE: undefined,
+				GIT_COMMON_DIR: undefined,
+			},
+		});
+		const statusExit = await statusProc.exited;
+		const statusOutput = (await new Response(statusProc.stdout).text()).trim();
+
+		if (statusExit !== 0) {
+			return {
+				name: "git-commit",
+				pass: false,
+				detail: "Failed to inspect git working tree",
+			};
+		}
+
+		if (statusOutput.length > 0) {
+			return {
+				name: "git-commit",
+				pass: false,
+				detail: "Scaffold files are not committed (working tree is dirty)",
+			};
+		}
+
 		return {
 			name: "git-commit",
 			pass: true,
-			detail: "Initial git commit exists",
+			detail: "Initial git commit includes the scaffold (clean working tree)",
 		};
 	} catch {
 		return {
