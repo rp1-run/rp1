@@ -78,7 +78,7 @@ agents:
   - name: rp1-dev:blueprint-wizard
     description: "PRD wizard for surface-specific requirements through guided interview"
     plugin: dev
-    last_checksum: 97765af828d236fa7569987655082d68fb3cfd25f9fdb3cd0ae62fdfec0ffdfa
+    last_checksum: f05186275d01f763c055df232a9c60f5954af4dbefec5e1f6c80bf10563c20cc
   - name: rp1-dev:bootstrap-scaffolder
     description: "Scaffolder for tech stack selection, research, and project scaffolding"
     plugin: dev
@@ -110,7 +110,7 @@ agents:
   - name: rp1-dev:charter-interviewer
     description: "Interview agent for greenfield project vision capture via charter sections"
     plugin: dev
-    last_checksum: 8e2147335944af637b3271e5df7e68d73c492d3396cad0a7d1183b9d8d15a77c
+    last_checksum: 070754c883b315321ab27ba481caafec1d9a8ba8f59a125b98ea759e281e2c62
   - name: rp1-dev:code-auditor
     description: "Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift"
     plugin: dev
