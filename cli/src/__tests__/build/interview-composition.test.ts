@@ -643,7 +643,10 @@ describe("interview agent composition", () => {
 		for (const platform of RELAY_PLATFORMS) {
 			test(`${platform} own checkpoint schema omits revision_count`, () => {
 				const c = agentContent.get(platform)!.get("charter-interviewer")!;
-				const ownSectionEnd = c.indexOf(RELAY_ENVELOPE_HEADING);
+				// Boundary must be the include's markdown heading, not the earlier
+				// prose cross-reference ("see Relay Envelope Protocol") in the
+				// checkpoint procedure, so the slice covers the full own content.
+				const ownSectionEnd = c.indexOf(`## ${RELAY_ENVELOPE_HEADING}`);
 				expect(ownSectionEnd).toBeGreaterThan(0);
 				const ownSection = c.slice(0, ownSectionEnd);
 				expect(ownSection).not.toContain(REVISION_COUNT_FIELD);
