@@ -66,12 +66,11 @@ Classify results into two lists:
 Apply marker-first precedence:
 
 - **Exactly one valid marker**: Classification is **bootstrap-in-progress**. Takes PRECEDENCE over rp1-initialized, Empty, Non-empty, and all other classifications. Set RESUME_PROJECT_NAME and RESUME_TARGET_DIR from the marker's `data.state`. Skip to §2 (Case B+).
-- **Multiple valid markers**: Session-mode signal source is the build-time `{platform}` gate below (`claude-code` = interactive; every other platform = relay/AFK, non-interactive).
-{% if platform == "claude-code" %}
-  {% ask_user "Multiple partial bootstraps detected. Which would you like to resume?", options: one option per candidate showing "{projectName} at {targetDir}" %}. Set the chosen candidate as the active marker; skip to §2 (Case B+).
-{% else %}
-  Abort with: "Multiple partial bootstrap markers found. Re-run interactively or remove stale markers:" followed by each candidate's projectName and targetDir.
-{% endif %}
+- **Multiple valid markers**: Selecting which bootstrap to resume is a PARENT-coordinator prompt, not a sub-agent dispatch, so it works on every interactive harness (relay platforms included). Do NOT gate it on the build-time platform. Enumerate the validated markers from §1.1 at runtime and ask the user to choose:
+
+  {% ask_user "Multiple partial bootstraps detected. Which would you like to resume?" %}
+
+  Present one numbered option per valid marker as "{projectName} at {targetDir}". Set the chosen candidate as the active marker; skip to §2 (Case B+). Reserve aborting for genuinely non-interactive execution (AFK / no TTY to prompt): print "Multiple partial bootstrap markers found. Re-run interactively or remove stale markers:" followed by each candidate's projectName and targetDir.
 - **Zero valid markers**: Proceed with normal directory classification below.
 
 Normal directory classification (zero valid markers only):

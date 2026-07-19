@@ -11,7 +11,7 @@ strictness: strict
 
 **Charter**: [Project Charter](.rp1/context/charter.md)
 **Version**: 1.0.0
-**Status**: Complete
+**Status**: Draft
 **Created**: {Date}
 
 ## Surface Overview

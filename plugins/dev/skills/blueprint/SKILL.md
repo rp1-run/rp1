@@ -85,18 +85,22 @@ Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the gen
 
 ### Extra-Context Sidecar
 
-EXTRA_CONTEXT is preserved across partial completions in a coordinator-owned plain-text sidecar file under `{workRoot}/blueprint/context/`. Each phase uses a distinct key:
+EXTRA_CONTEXT is preserved across partial completions in a coordinator-owned plain-text sidecar keyed by the effective PRD name (`PRD_NAME || "main"`), under `{workRoot}/blueprint/context/`:
 
-| Phase | Sidecar Path |
-|-------|-------------|
-| PRD | `{workRoot}/blueprint/context/{PRD_NAME}.txt` |
+| Key | Sidecar Path |
+|-----|-------------|
+| Effective PRD name (`CONTEXT_KEY`) | `{workRoot}/blueprint/context/{CONTEXT_KEY}.txt` |
+
+`CONTEXT_KEY` is the effective PRD name validated as a single safe path segment: it MUST match `^[A-Za-z0-9._-]+$` and MUST NOT be `.` or `..`. If the effective PRD name fails this check (separators, `..`, spaces, globs), skip the sidecar entirely for this run rather than run an unsafe shell path.
 
 **Lifecycle**:
-- **Write/overwrite**: When EXTRA_CONTEXT is explicitly supplied non-empty, write the sidecar for the target phase before dispatching the agent.
-- **Restore**: When EXTRA_CONTEXT is empty or absent and a sidecar exists for the target phase, read the sidecar contents and use that value as EXTRA_CONTEXT.
-- **Delete**: Only after the target artifact fully completes (no remaining `_TBD_` markers). Partial completions retain the sidecar.
+- **Resolve early**: Resolved in Step 1.5, BEFORE the charter phase, so context survives a charter that exits partial. It is never managed inside the charter phase.
+- **Write/overwrite**: When EXTRA_CONTEXT is explicitly supplied non-empty, write the sidecar before dispatching any agent.
+- **Restore**: When EXTRA_CONTEXT is empty or absent and the sidecar exists, read its contents and use that value as EXTRA_CONTEXT.
+- **Retain**: Every partial exit (partial charter AND partial PRD) retains the sidecar.
+- **Delete**: Only after the target PRD fully completes (no remaining `_TBD_` markers).
 
-The sidecar stores the raw EXTRA_CONTEXT string as plain text (not JSON) to avoid shell interpolation hazards.
+Always quote sidecar shell paths (`"{workRoot}/..."`) so a workRoot containing spaces (central storage) stays safe. The sidecar stores the raw EXTRA_CONTEXT string as plain text (not JSON) to avoid shell interpolation hazards.
 
 ## §PROC
 
@@ -114,6 +118,21 @@ Read `{kbRoot}/charter.md`:
 | Not exist | CREATE: create from template, dispatch charter-interviewer | Step 2 |
 | Exists + has `_TBD_` sections | UPDATE: dispatch charter-interviewer to fill gaps | Step 2 |
 | Exists + no `_TBD_` sections | Charter complete, skip charter phase | Step 3 |
+
+### Step 1.5: Resolve Extra-Context (early)
+
+Compute `CONTEXT_KEY = PRD_NAME || "main"` and validate it as a single safe path segment (§CTX Extra-Context Sidecar). If invalid, skip this step (no sidecar this run).
+
+Otherwise resolve the sidecar now, before the charter phase, so a charter that exits partial does not lose the user's context:
+
+- If EXTRA_CONTEXT is non-empty:
+  ```bash
+  mkdir -p "{workRoot}/blueprint/context"
+  ```
+  Write EXTRA_CONTEXT to `"{workRoot}/blueprint/context/{CONTEXT_KEY}.txt"` (overwrite if present).
+- If EXTRA_CONTEXT is empty or absent and `"{workRoot}/blueprint/context/{CONTEXT_KEY}.txt"` exists, read it and use that value as EXTRA_CONTEXT.
+
+This runs whether or not the charter is created.
 
 ### Step 2: Charter Phase
 
@@ -198,15 +217,7 @@ If the PRD exists and contains no `_TBD_` sections, skip to 3.4 (PRD already com
 
 #### 3.3 PRD Interview
 
-**PRD sidecar management** (before dispatch):
-
-If EXTRA_CONTEXT is non-empty:
-```bash
-mkdir -p {workRoot}/blueprint/context
-```
-Write EXTRA_CONTEXT to `{workRoot}/blueprint/context/{PRD_NAME}.txt` (overwrite if exists).
-
-If EXTRA_CONTEXT is empty or absent, check whether `{workRoot}/blueprint/context/{PRD_NAME}.txt` exists. If so, read its contents and use that value as EXTRA_CONTEXT.
+EXTRA_CONTEXT was already resolved from the sidecar in Step 1.5 (early, quoted, validated key). Dispatch the wizard with that value:
 
 {% dispatch_agent "rp1-dev:blueprint-wizard" %}
 PRD_NAME={PRD_NAME}, PRD_PATH={workRoot}/prds/{PRD_NAME}.md, EXTRA_CONTEXT={EXTRA_CONTEXT}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}
@@ -228,9 +239,9 @@ Read `{workRoot}/prds/{PRD_NAME}.md` and check for remaining `_TBD_` markers.
 
 **If NO `_TBD_` markers remain** (PRD complete):
 
-Delete the PRD sidecar if it exists:
+Delete the PRD sidecar for `CONTEXT_KEY` if it exists (skip when the key was invalid — no sidecar was created):
 ```bash
-rm -f {workRoot}/blueprint/context/{PRD_NAME}.txt
+rm -f "{workRoot}/blueprint/context/{CONTEXT_KEY}.txt"
 ```
 
 ```

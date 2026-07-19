@@ -220,6 +220,8 @@ Before returning, check Open Questions and Assumptions & Risks in the PRD. If ei
 
 Write these sections using the same Edit procedure from Section 3. This step is mandatory regardless of question budget -- these sections must never remain as `_TBD_` when the wizard returns.
 
+Then set the PRD status: re-scan for `_TBD_` markers. If zero remain, use Edit to replace the `**Status**:` line with `**Status**: Complete`. If any `_TBD_` markers remain (budget-exhausted partial), leave `**Status**: Draft` unchanged — the skeleton starts at `Draft` and MUST stay `Draft` on partial exits.
+
 ### 4.2 Return
 
 {% if platform == "claude-code" %}

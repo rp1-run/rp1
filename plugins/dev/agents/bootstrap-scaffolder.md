@@ -61,7 +61,7 @@ Check if `{KB_ROOT}/preferences.md` exists. If it does, read it and determine th
 To check whether TARGET_DIR is fully scaffolded, run the four-point scaffold probe:
 
 ```bash
-rp1 agent-tools scaffold-probe --target-dir {TARGET_DIR}
+rp1 agent-tools scaffold-probe --target-dir "{TARGET_DIR}"
 ```
 
 The probe checks four points: initial git commit, package manifest, source entry point, and test file. Each point returns a structured pass/fail result. If all four points pass, the scaffold is complete. If any point fails, treat the scaffold as **incomplete** and resume from Phase 5 (Scaffold).

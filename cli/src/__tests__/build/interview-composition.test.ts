@@ -653,4 +653,63 @@ describe("interview agent composition", () => {
 			});
 		}
 	});
+
+	// -----------------------------------------------------------------------
+	// Round-8 fixes: extra-context persistence (M2), sidecar quoting/key
+	// validation (M4), platform-independent marker selection (M3), artifact
+	// status lifecycle (M5).
+	// -----------------------------------------------------------------------
+
+	describe("blueprint early extra-context persistence (M2)", () => {
+		for (const platform of ALL_PLATFORMS) {
+			test(`${platform} resolves extra-context (Step 1.5) before the charter phase`, () => {
+				const c = skillContent.get(platform)!.get("blueprint")!;
+				const earlyIdx = c.indexOf("Step 1.5");
+				const charterIdx = c.indexOf(CHARTER_PHASE_HEADING);
+				expect(earlyIdx).toBeGreaterThanOrEqual(0);
+				expect(charterIdx).toBeGreaterThan(earlyIdx);
+				// Retention wording covers the partial-charter exit path.
+				expect(c).toContain("partial charter");
+			});
+		}
+	});
+
+	describe("blueprint sidecar quoting and key validation (M4)", () => {
+		for (const platform of ALL_PLATFORMS) {
+			test(`${platform} quotes sidecar shell paths and validates the key`, () => {
+				const c = skillContent.get(platform)!.get("blueprint")!;
+				expect(c).toContain("Always quote sidecar shell paths");
+				expect(c).toContain("single safe path segment");
+				// The old unquoted mkdir must be gone.
+				expect(c).not.toContain("mkdir -p {workRoot}/blueprint/context");
+			});
+		}
+	});
+
+	describe("bootstrap platform-independent marker selection (M3)", () => {
+		for (const platform of ALL_PLATFORMS) {
+			test(`${platform} enumerates markers as a parent-coordinator prompt`, () => {
+				const c = skillContent.get(platform)!.get("bootstrap")!;
+				expect(c).toContain("one numbered option per valid marker");
+				expect(c).toContain("PARENT-coordinator prompt");
+				// No build-time platform gate drives the marker selection anymore.
+				expect(c).not.toContain("build-time `{platform}` gate");
+			});
+		}
+	});
+
+	describe("interview artifact status lifecycle (M5)", () => {
+		for (const platform of ALL_PLATFORMS) {
+			test(`${platform} charter-interviewer flips status to Complete on completion`, () => {
+				const c = agentContent.get(platform)!.get("charter-interviewer")!;
+				expect(c).toContain("**Status**: Complete");
+				expect(c).toContain("stay `Draft` on any partial exit");
+			});
+
+			test(`${platform} blueprint-wizard flips status to Complete on completion`, () => {
+				const c = agentContent.get(platform)!.get("blueprint-wizard")!;
+				expect(c).toContain("**Status**: Complete");
+			});
+		}
+	});
 });

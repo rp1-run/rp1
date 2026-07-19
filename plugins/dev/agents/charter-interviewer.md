@@ -175,6 +175,8 @@ After the interview loop ends (all gaps filled OR 5 questions asked), perform a 
 
 When the final gap scan finds zero `_TBD_` markers remaining:
 
+Set status to Complete: use Edit to replace the `**Status**:` line with `**Status**: Complete`. Do this ONLY when zero `_TBD_` markers remain — the skeleton starts at `Draft` and MUST stay `Draft` on any partial exit.
+
 {% if platform == "claude-code" %}
 Return plain text:
 
@@ -188,6 +190,8 @@ Follow the relay-envelope completion protocol (strip checkpoint, return `complet
 ### 4.2 Budget-Exhausted Partial Charter (_TBD_ sections remain)
 
 When 5 questions have been asked but `_TBD_` markers remain in one or more sections:
+
+Leave the `**Status**: Draft` line unchanged — the charter is not complete.
 
 {% if platform == "claude-code" %}
 List the incomplete sections explicitly. Return plain text:
