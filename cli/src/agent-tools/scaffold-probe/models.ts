@@ -36,6 +36,29 @@ export const PACKAGE_MANIFESTS: readonly string[] = [
 	"deno.jsonc",
 ];
 
+// Map a package manifest to its language ecosystem. Test-file conventions are
+// language-specific: Rust integration tests are any `.rs` file under `tests/`
+// (arbitrary names), whereas JS/TS require a `.test.`/`.spec.` naming pattern.
+// The probe uses this so `tests/integration.rs` is accepted while a non-test
+// helper like `tests/helper.ts` is rejected (review H2).
+export const MANIFEST_LANGUAGE: Readonly<Record<string, string>> = {
+	"package.json": "js",
+	"deno.json": "js",
+	"deno.jsonc": "js",
+	"Cargo.toml": "rust",
+	"go.mod": "go",
+	"pyproject.toml": "python",
+	"setup.py": "python",
+	"setup.cfg": "python",
+	Gemfile: "ruby",
+	"pom.xml": "jvm",
+	"build.gradle": "jvm",
+	"build.gradle.kts": "jvm",
+	"composer.json": "php",
+	"mix.exs": "elixir",
+	"Makefile.PL": "perl",
+};
+
 export const SOURCE_ENTRY_DIRS: readonly string[] = [
 	"src",
 	"lib",
@@ -59,6 +82,45 @@ export const SOURCE_ENTRY_FILES: readonly string[] = [
 	"__init__.py",
 	"main.rs",
 	"lib.rs",
+];
+
+// Recognized source-code file extensions. A file inside a source directory only
+// counts as a source entry when its name is a known entry file OR its extension
+// is a real source extension — this rejects docs/config masquerading as source
+// (e.g. `src/README.md`) that any-regular-file detection accepted (review H2).
+export const SOURCE_ENTRY_EXTENSIONS: readonly string[] = [
+	".ts",
+	".tsx",
+	".js",
+	".jsx",
+	".mjs",
+	".cjs",
+	".py",
+	".go",
+	".rs",
+	".rb",
+	".java",
+	".kt",
+	".kts",
+	".scala",
+	".ex",
+	".exs",
+	".php",
+	".c",
+	".cc",
+	".cpp",
+	".cxx",
+	".h",
+	".hpp",
+	".hh",
+	".cs",
+	".swift",
+	".clj",
+	".cljs",
+	".dart",
+	".zig",
+	".ml",
+	".hs",
 ];
 
 export const TEST_PATTERNS: readonly RegExp[] = [

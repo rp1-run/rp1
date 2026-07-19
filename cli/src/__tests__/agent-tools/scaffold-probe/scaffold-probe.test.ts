@@ -283,7 +283,7 @@ describe("scaffold-probe operations", () => {
 			expect(pointByName(result.points, "test-file").pass).toBe(true);
 		});
 
-		test("detects test directory (tests/) as passing test-file point", async () => {
+		test("detects a real test file inside a tests/ directory", async () => {
 			const dir = await makeDir("test-dir-detection");
 			await initTestRepo(dir);
 			await createInitialCommit(dir);
@@ -291,11 +291,47 @@ describe("scaffold-probe operations", () => {
 			await mkdir(join(dir, "src"), { recursive: true });
 			await writeFile(join(dir, "src", "index.ts"), "export {};");
 			await mkdir(join(dir, "tests"), { recursive: true });
-			await writeFile(join(dir, "tests", "helper.ts"), "");
+			// A file matching the JS/TS test naming convention — not a bare helper.
+			await writeFile(join(dir, "tests", "example.test.ts"), "");
 
 			const result = await expectTaskRight(probeScaffold(dir));
 
 			expect(pointByName(result.points, "test-file").pass).toBe(true);
+		});
+
+		test("accepts a Rust integration test (any .rs under tests/) — language-aware", async () => {
+			const dir = await makeDir("rust-integration-test");
+			await initTestRepo(dir);
+			await writeFile(join(dir, "Cargo.toml"), '[package]\nname = "test"');
+			await mkdir(join(dir, "src"), { recursive: true });
+			await writeFile(join(dir, "src", "main.rs"), "fn main() {}");
+			await mkdir(join(dir, "tests"), { recursive: true });
+			// Rust integration tests carry arbitrary names; membership in tests/
+			// makes them tests, so this must pass for a Cargo project even though
+			// the filename matches no JS-style pattern (review H2).
+			await writeFile(join(dir, "tests", "integration.rs"), "#[test] fn t(){}");
+			await commitAll(dir);
+
+			const result = await expectTaskRight(probeScaffold(dir));
+
+			expect(pointByName(result.points, "test-file").pass).toBe(true);
+		});
+
+		test("rejects a non-test .rs helper in a non-Rust (JS) project", async () => {
+			const dir = await makeDir("js-rs-helper");
+			await initTestRepo(dir);
+			await createInitialCommit(dir);
+			await writeFile(join(dir, "package.json"), '{"name": "test"}');
+			await mkdir(join(dir, "src"), { recursive: true });
+			await writeFile(join(dir, "src", "index.ts"), "export {};");
+			await mkdir(join(dir, "tests"), { recursive: true });
+			// The `.rs` allowance is scoped to Rust projects only; in a JS project
+			// a stray `.rs` file must not count as a test (review H2).
+			await writeFile(join(dir, "tests", "notes.rs"), "// not a test");
+
+			const result = await expectTaskRight(probeScaffold(dir));
+
+			expect(pointByName(result.points, "test-file").pass).toBe(false);
 		});
 	});
 
@@ -402,6 +438,65 @@ describe("scaffold-probe operations", () => {
 			const result = await expectTaskRight(probeScaffold(dir));
 
 			expect(pointByName(result.points, "test-file").pass).toBe(true);
+		});
+
+		// Reviewer reproduction #1: a committed scaffold whose only "source" is a
+		// doc (src/README.md) and whose only "test-dir" file is a non-test helper
+		// (tests/helper.ts). Any-regular-file detection accepted both; semantic
+		// recognition must reject them so an incomplete scaffold does not report
+		// complete (review H2).
+		test("committed docs-as-source and helper-as-test do not complete the scaffold (review H2 repro #1)", async () => {
+			const dir = await makeDir("h2-repro-doc-source-helper-test");
+			await initTestRepo(dir);
+			await writeFile(join(dir, "package.json"), '{"name": "x"}');
+			await mkdir(join(dir, "src"), { recursive: true });
+			await writeFile(join(dir, "src", "README.md"), "# not source code");
+			await mkdir(join(dir, "tests"), { recursive: true });
+			await writeFile(join(dir, "tests", "helper.ts"), "export const h = 1;");
+			await commitAll(dir);
+
+			const result = await expectTaskRight(probeScaffold(dir));
+
+			expect(result.pass).toBe(false);
+			// Manifest and git are genuinely satisfied; the incompleteness is
+			// isolated to the source and test points.
+			expect(pointByName(result.points, "package-manifest").pass).toBe(true);
+			expect(pointByName(result.points, "git-commit").pass).toBe(true);
+			expect(pointByName(result.points, "source-entry").pass).toBe(false);
+			expect(pointByName(result.points, "test-file").pass).toBe(false);
+		});
+
+		// Reviewer reproduction #2: real source and test files exist on disk but
+		// are gitignored, so only .gitignore + package.json are committed. Because
+		// ignored files are invisible to `git status --porcelain`, the tree looks
+		// clean — yet the scaffold is not actually committed. The git-commit point
+		// must verify HEAD membership, not merely a clean tree (review H2).
+		test("gitignored source and test files are absent from HEAD despite a clean tree (review H2 repro #2)", async () => {
+			const dir = await makeDir("h2-repro-gitignored-scaffold");
+			await initTestRepo(dir);
+			// initTestRepo writes a .gitignore containing ".rp1/"; also ignore the
+			// scaffold dirs so they never enter the commit.
+			await writeFile(join(dir, ".gitignore"), ".rp1/\nsrc/\ntests/\n");
+			await writeFile(join(dir, "package.json"), '{"name": "x"}');
+			await mkdir(join(dir, "src"), { recursive: true });
+			await writeFile(join(dir, "src", "main.ts"), "console.log(1);");
+			await mkdir(join(dir, "tests"), { recursive: true });
+			await writeFile(
+				join(dir, "tests", "app.test.ts"),
+				"test('x', () => {});",
+			);
+			await commitAll(dir);
+
+			const result = await expectTaskRight(probeScaffold(dir));
+
+			// The files exist on disk, so the presence checks pass...
+			expect(pointByName(result.points, "package-manifest").pass).toBe(true);
+			expect(pointByName(result.points, "source-entry").pass).toBe(true);
+			expect(pointByName(result.points, "test-file").pass).toBe(true);
+			// ...but git-commit must fail: the accepted files are not in HEAD even
+			// though the working tree is clean.
+			expect(pointByName(result.points, "git-commit").pass).toBe(false);
+			expect(result.pass).toBe(false);
 		});
 	});
 
