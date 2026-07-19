@@ -62,13 +62,16 @@ describe("ask_user tag", () => {
 			expect(output).toBe('ask_user: "What is your preference?"');
 		});
 
-		test("Codex: renders request_user_input with placeholder options", async () => {
+		test("Codex: renders request_user_input as a free-text prompt (no placeholder options)", async () => {
 			const output = await render(template, "codex");
 			expect(output).toContain(
 				'request_user_input: "What is your preference?"',
 			);
-			expect(output).toContain("options:");
-			expect(output).toContain("(provide appropriate options)");
+			// A free-text (no-options) question must NOT fabricate an options array
+			// or a placeholder choice (review M5).
+			expect(output).not.toContain("options:");
+			expect(output).not.toContain("(provide appropriate options)");
+			expect(output).toContain("Please respond with your answer.");
 			expect(output).toContain(
 				"User input is unavailable in subagent contexts on Codex",
 			);

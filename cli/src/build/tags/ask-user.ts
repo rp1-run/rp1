@@ -53,18 +53,28 @@ function renderCopilot(question: string, options: readonly string[]): string {
 }
 
 function renderCodex(question: string, options: readonly string[]): string {
-	const optionsList =
-		options.length > 0 ? options : ["(provide appropriate options)"];
+	// A build-time `ask_user` with no options is a free-text question. Emitting a
+	// fake `["(provide appropriate options)"]` array (the old behavior) produced
+	// a placeholder-only prompt on Codex, so render it as a plain free-text input
+	// request instead. Runtime-discovered choices must not use this tag at all —
+	// the parent enumerates them at runtime (review M5).
+	const hasOptions = options.length > 0;
 	let output = `request_user_input: "${question}"`;
-	output += `\noptions: [${optionsList.map((o) => `"${o}"`).join(", ")}]`;
+	if (hasOptions) {
+		output += `\noptions: [${options.map((o) => `"${o}"`).join(", ")}]`;
+	}
 
 	// Plain-text fallback for non-plan-mode contexts
 	output += `\n\n**Plain-text fallback**: If \`request_user_input\` is unavailable (e.g., outside of plan mode), present the following to the user instead:`;
 	output += "\n\n---";
 	output += "\nI need your input before continuing.";
 	output += `\n\n**${question}**`;
-	output += "\n\nPlease respond with one of the following:";
-	output += `\n${optionsList.map((o) => `- ${o}`).join("\n")}`;
+	if (hasOptions) {
+		output += "\n\nPlease respond with one of the following:";
+		output += `\n${options.map((o) => `- ${o}`).join("\n")}`;
+	} else {
+		output += "\n\nPlease respond with your answer.";
+	}
 	output +=
 		"\n\n**Checkpoint**: Before stopping, save a checkpoint file that includes:";
 	output += "\n- Current workflow phase and step name";

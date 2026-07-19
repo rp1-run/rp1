@@ -674,14 +674,21 @@ describe("interview agent composition", () => {
 		}
 	});
 
-	describe("blueprint sidecar quoting and key validation (M4)", () => {
+	describe("blueprint sidecar CRUD via the blueprint-context helper (M4/round-9 M3)", () => {
 		for (const platform of ALL_PLATFORMS) {
-			test(`${platform} quotes sidecar shell paths and validates the key`, () => {
+			test(`${platform} routes sidecar CRUD through the structured CLI helper`, () => {
 				const c = skillContent.get(platform)!.get("blueprint")!;
-				expect(c).toContain("Always quote sidecar shell paths");
-				expect(c).toContain("single safe path segment");
-				// The old unquoted mkdir must be gone.
+				// All sidecar CRUD goes through the structured helper (which
+				// validates the key, resolves the canonical path below workRoot,
+				// and writes atomically) rather than raw shell filesystem ops.
+				expect(c).toContain("rp1 agent-tools blueprint-context write");
+				expect(c).toContain("rp1 agent-tools blueprint-context read");
+				expect(c).toContain("rp1 agent-tools blueprint-context delete");
+				// Payload travels over stdin, never as an interpolated shell arg.
+				expect(c).toContain("never as a shell argument");
+				// The old unquoted raw filesystem sidecar ops must be gone.
 				expect(c).not.toContain("mkdir -p {workRoot}/blueprint/context");
+				expect(c).not.toContain("rm -f {workRoot}/blueprint/context");
 			});
 		}
 	});
@@ -690,10 +697,12 @@ describe("interview agent composition", () => {
 		for (const platform of ALL_PLATFORMS) {
 			test(`${platform} enumerates markers as a parent-coordinator prompt`, () => {
 				const c = skillContent.get(platform)!.get("bootstrap")!;
-				expect(c).toContain("one numbered option per valid marker");
+				// Round-9 M5: candidates are enumerated at runtime as a numbered
+				// list, never via a compiled option tag (which would render
+				// placeholder options and break selection on relay harnesses).
+				expect(c).toContain("bounded numbered list");
 				expect(c).toContain("PARENT-coordinator prompt");
-				// No build-time platform gate drives the marker selection anymore.
-				expect(c).not.toContain("build-time `{platform}` gate");
+				expect(c).toContain("Do NOT use a build-time option tag here");
 			});
 		}
 	});

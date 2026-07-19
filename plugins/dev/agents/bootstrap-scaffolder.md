@@ -249,15 +249,25 @@ Based on confirmed stack and research findings, create:
 - Source entry point (src/main.ts, src/main.py, main.go, etc.)
 - Test file (tests/main.test.ts, tests/test_main.py, etc.)
 - Config files (tsconfig.json, biome.json, .eslintrc, etc.)
+- `.gitignore` — MUST include a `.rp1/` entry so the bootstrap recovery marker (`.rp1/bootstrap-state.json`, machine-local state) is never committed to the initial scaffold
 - AGENTS.md with project-specific agent instructions
 - CLAUDE.md with project documentation
 - README.md with project overview, setup, and usage
 
 ### 5.3 Install and Commit
 
+The bootstrap recovery marker at `.rp1/bootstrap-state.json` is machine-local state and MUST NOT be committed — otherwise a successful bootstrap leaves a tracked deletion (dirty worktree) after §6 removes it, and records an absolute machine path in history. Ensure `.rp1/` is ignored before staging, then verify the marker did not get tracked:
+
 ```bash
 cd "{TARGET_DIR}" && {install_command}
-cd "{TARGET_DIR}" && git add -A && git commit -m "Initial project scaffold"
+cd "{TARGET_DIR}"
+grep -qxF '.rp1/' .gitignore 2>/dev/null || printf '.rp1/\n' >> .gitignore
+git add -A
+if git ls-files --error-unmatch .rp1/bootstrap-state.json >/dev/null 2>&1; then
+  echo "ERROR: bootstrap marker is tracked despite .rp1/ ignore; aborting commit" >&2
+  exit 1
+fi
+git commit -m "Initial project scaffold"
 ```
 
 ### 5.4 Finalize Preferences
