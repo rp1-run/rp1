@@ -36,6 +36,32 @@ const contextFileOf = (workRoot: string, key: string): string =>
 const isEnoent = (error: unknown): boolean =>
 	(error as NodeJS.ErrnoException).code === "ENOENT";
 
+/**
+ * Store-boundary guard (review M3, directory-symlink escape). The `blueprint`
+ * and `context` components we own under the work root must be real directories,
+ * never symlinks that redirect the store outside the work tree — otherwise a
+ * write becomes an arbitrary-location write primitive, a read pulls foreign
+ * content back as authoritative context, and a delete unlinks a foreign file.
+ * A symlinked work root itself is allowed (central storage): the write path
+ * additionally compares realpath(contextDir) against realpath(workRoot)/subdir.
+ *
+ * Returns a human-readable reason when a boundary-violating symlink is found on
+ * the owned components, or `null` when they are safe to operate on.
+ */
+const detectContextBoundaryViolation = async (
+	workRoot: string,
+): Promise<string | null> => {
+	let current = resolve(workRoot);
+	for (const segment of BLUEPRINT_CONTEXT_SUBDIR) {
+		current = join(current, segment);
+		const st = await lstat(current).catch(() => null);
+		if (st?.isSymbolicLink()) {
+			return `Store path '${current}' is a symlink; refusing to cross the context store boundary`;
+		}
+	}
+	return null;
+};
+
 /** Filesystem dependencies for the atomic write, injectable for failure-path testing. */
 export interface BlueprintContextWriteDeps {
 	readonly rename: typeof rename;
@@ -70,11 +96,29 @@ export const writeBlueprintContext = (
 
 	return TE.tryCatch(
 		async () => {
+			// Refuse a symlinked `blueprint`/`context` component before mkdir can
+			// create anything through it (review M3, directory-symlink escape).
+			const violation = await detectContextBoundaryViolation(input.workRoot);
+			if (violation) {
+				throw new Error(violation);
+			}
+
 			await mkdir(contextDir, { recursive: true });
 
-			// Bind the write to the physical context directory so a symlinked
-			// work root or context dir cannot redirect it outside the boundary.
+			// Bind the write to the physical context directory and confine it to
+			// the store: realpath() follows a symlinked component, so compare the
+			// resolved dir against the expected location under the work root's
+			// realpath (a symlinked work root itself is allowed).
 			const canonicalDir = await realpath(contextDir);
+			const expectedDir = join(
+				await realpath(resolve(input.workRoot)),
+				...BLUEPRINT_CONTEXT_SUBDIR,
+			);
+			if (canonicalDir !== expectedDir) {
+				throw new Error(
+					`Context directory '${contextDir}' resolves to '${canonicalDir}', outside the store boundary '${expectedDir}'; refusing to write`,
+				);
+			}
 			const dest = join(canonicalDir, `${input.key}.json`);
 
 			// Never write through a symlink planted at the destination leaf.
@@ -153,6 +197,14 @@ export const readBlueprintContext = (
 
 	return TE.tryCatch(
 		async () => {
+			// Refuse to read across a symlinked store component (review M3,
+			// directory-symlink escape) before touching the leaf, so foreign
+			// content is never returned as authoritative resume context.
+			const dirViolation = await detectContextBoundaryViolation(workRoot);
+			if (dirViolation) {
+				return { found: true, valid: false, error: dirViolation, path };
+			}
+
 			const leafStat = await lstat(path).catch(() => null);
 			if (leafStat?.isSymbolicLink()) {
 				return {
@@ -264,6 +316,13 @@ export const deleteBlueprintContext = (
 
 	return TE.tryCatch(
 		async () => {
+			// Never unlink across a symlinked store component — that would delete a
+			// foreign file outside the work tree (review M3, directory-symlink escape).
+			const violation = await detectContextBoundaryViolation(workRoot);
+			if (violation) {
+				throw new Error(violation);
+			}
+
 			try {
 				await unlink(path);
 				return { deleted: true, path };

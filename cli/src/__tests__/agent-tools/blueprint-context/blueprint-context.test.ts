@@ -161,6 +161,87 @@ describe("blueprint-context operations", () => {
 		});
 	});
 
+	// Round-9 adversarial finding: a symlinked `context` (or `blueprint`) store
+	// COMPONENT must not redirect the sidecar outside the work tree. Guarding only
+	// the leaf leaves write as an arbitrary-location write primitive, read pulling
+	// foreign content back as authoritative, and delete unlinking a foreign file.
+	describe("directory-symlink store boundary (review M3, round-9)", () => {
+		test("write refuses a symlinked context directory and creates nothing outside", async () => {
+			const workRoot = await makeWorkRoot("dir-symlink-write");
+			const outside = join(tempBase, "outside-store-write");
+			await mkdir(join(workRoot, "blueprint"), { recursive: true });
+			await mkdir(outside, { recursive: true });
+			await symlink(outside, join(workRoot, "blueprint", "context"));
+
+			const error = await expectTaskLeft(
+				writeBlueprintContext({ key: "main", content: "escaped", workRoot }),
+			);
+			expect(error._tag).toBe("RuntimeError");
+			if (error._tag === "RuntimeError") {
+				expect(error.message).toContain("symlink");
+			}
+			// Nothing may have been written into the external directory.
+			expect(await readdir(outside)).toEqual([]);
+		});
+
+		test("read refuses a symlinked context directory, never trusting foreign content", async () => {
+			const workRoot = await makeWorkRoot("dir-symlink-read");
+			const outside = join(tempBase, "outside-store-read");
+			await mkdir(join(workRoot, "blueprint"), { recursive: true });
+			await mkdir(outside, { recursive: true });
+			// A structurally valid foreign payload the reader must NOT trust.
+			await writeFile(
+				join(outside, "main.json"),
+				JSON.stringify({ version: 1, key: "main", content: "foreign" }),
+			);
+			await symlink(outside, join(workRoot, "blueprint", "context"));
+
+			const read = await expectTaskRight(
+				readBlueprintContext(workRoot, "main"),
+			);
+			expect(read.found).toBe(true);
+			expect(read.found && read.valid === false).toBe(true);
+		});
+
+		test("delete refuses a symlinked context directory, leaving foreign files intact", async () => {
+			const workRoot = await makeWorkRoot("dir-symlink-delete");
+			const outside = join(tempBase, "outside-store-delete");
+			await mkdir(join(workRoot, "blueprint"), { recursive: true });
+			await mkdir(outside, { recursive: true });
+			const victim = join(outside, "main.json");
+			await writeFile(victim, "victim");
+			await symlink(outside, join(workRoot, "blueprint", "context"));
+
+			const error = await expectTaskLeft(
+				deleteBlueprintContext(workRoot, "main"),
+			);
+			expect(error._tag).toBe("RuntimeError");
+			if (error._tag === "RuntimeError") {
+				expect(error.message).toContain("symlink");
+			}
+			// The foreign file must survive.
+			expect(await readFile(victim, "utf-8")).toBe("victim");
+		});
+
+		test("allows a symlinked work root itself (central storage) to round-trip", async () => {
+			const realStore = await makeWorkRoot("central-real-store");
+			const linkRoot = join(tempBase, "central-link");
+			await symlink(realStore, linkRoot);
+
+			await expectTaskRight(
+				writeBlueprintContext({
+					key: "main",
+					content: "central-ok",
+					workRoot: linkRoot,
+				}),
+			);
+			const read = await expectTaskRight(
+				readBlueprintContext(linkRoot, "main"),
+			);
+			expect(read.found && read.valid && read.content).toBe("central-ok");
+		});
+	});
+
 	describe("key validation (review M2, M3)", () => {
 		const badKeys: ReadonlyArray<[string, string]> = [
 			["traversal", "../escape"],
