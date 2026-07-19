@@ -73,20 +73,20 @@ If no gaps remain, return the completion message immediately (Section 4).
 After reading the charter file (Section 1.1), scan for an existing checkpoint comment at the end of the file:
 
 ```
-<!-- INTERVIEW_CHECKPOINT {"pending_question":"...","options":[...],"question_count":N,"revision_count":N,"original_args":{...}} -->
+<!-- INTERVIEW_CHECKPOINT {"pending_question":"...","options":[...],"question_count":N,"original_args":{...}} -->
 ```
 
 **If a checkpoint exists** (relay continuation):
 
 1. Parse the JSON payload from the checkpoint comment.
-2. Restore `question_count` and `revision_count` from the persisted values.
+2. Restore `question_count` from the persisted value.
 3. The current user message is the answer to `pending_question`. Interpret it against the persisted `options`.
 4. Apply the answer first: synthesize and write the corresponding charter section per Section 3. This step always executes — even when the checkpoint is at the budget cap.
 5. Re-run gap analysis. If gaps remain and budget allows another question (see Budget Enforcement), continue the interview (Section 2). Otherwise proceed to Section 4 (Completion).
 
 **If no checkpoint exists** (first invocation):
 
-Initialize `question_count = 0` and `revision_count = 0`. Proceed to Section 2.
+Initialize `question_count = 0`. Proceed to Section 2.
 
 ### Checkpoint Write
 

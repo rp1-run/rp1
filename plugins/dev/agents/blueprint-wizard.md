@@ -230,6 +230,10 @@ PRD created at {PRD_PATH}.
 ```
 
 If some main sections (overview, scope, requirements, dependencies, timeline) remain as `_TBD_` after 7 questions (budget exhausted), note which sections are still incomplete in the completion message.
+{% else %}
+When all sections are resolved (or only main interview sections remain incomplete due to budget), return the `completed` envelope:
+
+1. Strip the `INTERVIEW_CHECKPOINT` comment from the PRD artifact before returning -- this restates the shared Relay Envelope Protocol's Checkpoint Persistence strip rule below so the two never drift independently.
 {% endif %}
 
 {% include_shared "relay-envelope.md" %}
