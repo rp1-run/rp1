@@ -128,7 +128,12 @@ const isTrackedInHead = async (
 	relPath: string,
 ): Promise<boolean> => {
 	try {
-		const proc = Bun.spawn(["git", "cat-file", "-e", `HEAD:${relPath}`], {
+		// `HEAD:./<path>` resolves the path relative to cwd (the target), not the
+		// repository root. Bootstrap always `git init`s the target so root == cwd,
+		// but the `./` prefix keeps this correct even if the target is ever a
+		// subdirectory of a larger repo, where a bare `HEAD:<path>` would resolve
+		// against the repo root tree instead (review H2, round-9 hardening).
+		const proc = Bun.spawn(["git", "cat-file", "-e", `HEAD:./${relPath}`], {
 			cwd: targetDir,
 			stdout: "ignore",
 			stderr: "ignore",
