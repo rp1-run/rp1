@@ -131,6 +131,20 @@ const SCAFFOLD_PROBE_REF = "scaffold-probe";
 const SIDECAR_LIFECYCLE_HEADING = "Extra-Context Sidecar";
 const SIDECAR_RESTORE_TEXT = "restored from the blueprint context sidecar";
 
+// Charter-phase section bounds (blueprint SKILL.md): sidecar management is
+// scoped to the PRD phase only after charter-sidecar removal (round-7 T6).
+const CHARTER_PHASE_HEADING = "Step 2: Charter Phase";
+const PRD_PHASE_HEADING = "Step 3: PRD Creation";
+
+// Explicit checkpoint-strip step restated in blueprint-wizard's own
+// completion procedure (round-7 T9), independent of the shared
+// relay-envelope include's strip rule.
+const CHECKPOINT_STRIP_STEP =
+	"Strip the `INTERVIEW_CHECKPOINT` comment from the PRD artifact before returning";
+
+// Dead checkpoint metadata removed from charter-interviewer (round-7 T8).
+const REVISION_COUNT_FIELD = "revision_count";
+
 /**
  * Count non-overlapping occurrences of a marker in a text body.
  */
@@ -577,6 +591,62 @@ describe("interview agent composition", () => {
 			test(`${platform} contains probe-gated deletion reference`, () => {
 				const c = skillContent.get(platform)!.get("bootstrap")!;
 				expect(c).toContain(SCAFFOLD_PROBE_REF);
+			});
+		}
+	});
+
+	// -----------------------------------------------------------------------
+	// Round-7 fixes: charter sidecar removal, checkpoint strip step,
+	// revision_count removal (REQ-001, REQ-003, REQ-005)
+	// -----------------------------------------------------------------------
+
+	describe("blueprint charter-phase sidecar removal (REQ-001)", () => {
+		function charterPhaseSection(skillText: string): string {
+			const start = skillText.indexOf(CHARTER_PHASE_HEADING);
+			const end = skillText.indexOf(PRD_PHASE_HEADING, start);
+			expect(start).toBeGreaterThanOrEqual(0);
+			expect(end).toBeGreaterThan(start);
+			return skillText.slice(start, end);
+		}
+
+		for (const platform of ALL_PLATFORMS) {
+			test(`${platform} charter phase contains no sidecar management`, () => {
+				const c = skillContent.get(platform)!.get("blueprint")!;
+				const charterSection = charterPhaseSection(c);
+				expect(charterSection.toLowerCase()).not.toContain("sidecar");
+			});
+		}
+
+		for (const platform of ALL_PLATFORMS) {
+			test(`${platform} retains the PRD Extra-Context Sidecar heading and restore text`, () => {
+				const c = skillContent.get(platform)!.get("blueprint")!;
+				expect(c).toContain(SIDECAR_LIFECYCLE_HEADING);
+				expect(c).toContain(SIDECAR_RESTORE_TEXT);
+			});
+		}
+	});
+
+	describe("blueprint-wizard explicit checkpoint-strip step (REQ-003)", () => {
+		for (const platform of RELAY_PLATFORMS) {
+			test(`${platform} restates the INTERVIEW_CHECKPOINT strip step`, () => {
+				const c = agentContent.get(platform)!.get("blueprint-wizard")!;
+				expect(c).toContain(CHECKPOINT_STRIP_STEP);
+			});
+		}
+	});
+
+	describe("charter-interviewer dead revision_count removal (REQ-005)", () => {
+		// Scoped to charter-interviewer's own checkpoint schema, ahead of the
+		// shared Relay Envelope Protocol include -- that shared codec doc
+		// documents revision_count generically for all relay agents and is
+		// intentionally untouched (see design.md Open Risks).
+		for (const platform of RELAY_PLATFORMS) {
+			test(`${platform} own checkpoint schema omits revision_count`, () => {
+				const c = agentContent.get(platform)!.get("charter-interviewer")!;
+				const ownSectionEnd = c.indexOf(RELAY_ENVELOPE_HEADING);
+				expect(ownSectionEnd).toBeGreaterThan(0);
+				const ownSection = c.slice(0, ownSectionEnd);
+				expect(ownSection).not.toContain(REVISION_COUNT_FIELD);
 			});
 		}
 	});
