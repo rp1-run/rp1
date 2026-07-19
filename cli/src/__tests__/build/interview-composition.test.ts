@@ -674,21 +674,22 @@ describe("interview agent composition", () => {
 		}
 	});
 
-	describe("blueprint sidecar CRUD via the blueprint-context helper (M4/round-9 M3)", () => {
+	describe("blueprint in-prompt sidecar quoting and key validation (M4)", () => {
 		for (const platform of ALL_PLATFORMS) {
-			test(`${platform} routes sidecar CRUD through the structured CLI helper`, () => {
+			test(`${platform} quotes sidecar shell paths and relies on the §NAME-GATE key`, () => {
 				const c = skillContent.get(platform)!.get("blueprint")!;
-				// All sidecar CRUD goes through the structured helper (which
-				// validates the key, resolves the canonical path below workRoot,
-				// and writes atomically) rather than raw shell filesystem ops.
-				expect(c).toContain("rp1 agent-tools blueprint-context write");
-				expect(c).toContain("rp1 agent-tools blueprint-context read");
-				expect(c).toContain("rp1 agent-tools blueprint-context delete");
-				// Payload travels over stdin, never as an interpolated shell arg.
-				expect(c).toContain("never as a shell argument");
-				// The old unquoted raw filesystem sidecar ops must be gone.
-				expect(c).not.toContain("mkdir -p {workRoot}/blueprint/context");
-				expect(c).not.toContain("rm -f {workRoot}/blueprint/context");
+				// Sidecar CRUD is in-prompt: quoted shell paths so a spaced work
+				// root is safe, the key validated as a single safe path segment,
+				// and the payload written via a file-write tool (never the shell).
+				expect(c).toContain("Always quote sidecar shell paths");
+				expect(c).toContain("single safe path segment");
+				expect(c).toContain('mkdir -p "{workRoot}/blueprint/context"');
+				expect(c).toContain(
+					'rm -f "{workRoot}/blueprint/context/{CONTEXT_KEY}.txt"',
+				);
+				expect(c).toContain("file-write tool");
+				// The withdrawn CLI helper must not be referenced anywhere.
+				expect(c).not.toContain("blueprint-context");
 			});
 		}
 	});

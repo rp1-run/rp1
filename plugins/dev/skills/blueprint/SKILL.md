@@ -85,30 +85,18 @@ Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from the gen
 
 ### Extra-Context Sidecar
 
-EXTRA_CONTEXT is preserved across partial completions in a coordinator-owned sidecar keyed by the effective PRD name (`CONTEXT_KEY = PRD_NAME || "main"`). All sidecar CRUD goes through the `rp1 agent-tools blueprint-context` helper — never a raw `mkdir`/`echo`/`rm`. The helper validates the key, resolves the canonical path below `workRoot`, and writes atomically (random owner-only temp + rename), so arbitrary multiline/quoted/command-like context is stored verbatim and no reader ever sees a partial or shell-interpreted value.
+EXTRA_CONTEXT is preserved across partial completions in a coordinator-owned plain-text sidecar keyed by the effective PRD name, under `{workRoot}/blueprint/context/`:
 
-`CONTEXT_KEY` shares one domain with `PRD_NAME` (see §NAME-GATE): a safe slug the helper accepts. The helper is the enforcement backstop — it rejects any unsafe key — so the sidecar and the PRD artifact path can never diverge.
+| Key | Sidecar Path |
+|-----|--------------|
+| Effective PRD name (`CONTEXT_KEY = PRD_NAME \|\| "main"`) | `{workRoot}/blueprint/context/{CONTEXT_KEY}.txt` |
 
-Commands (payload travels over stdin via a quoted heredoc, never as a shell argument):
-
-```bash
-# write (only when EXTRA_CONTEXT is non-empty); pick a heredoc delimiter that
-# does not occur in EXTRA_CONTEXT (append random digits if it might):
-rp1 agent-tools blueprint-context write --key {CONTEXT_KEY} --work-root "{workRoot}" <<'RP1_CTX_EOF'
-{EXTRA_CONTEXT}
-RP1_CTX_EOF
-
-# read (parse ToolResult: data.found / data.valid / data.content):
-rp1 agent-tools blueprint-context read --key {CONTEXT_KEY} --work-root "{workRoot}"
-
-# delete (idempotent):
-rp1 agent-tools blueprint-context delete --key {CONTEXT_KEY} --work-root "{workRoot}"
-```
+`CONTEXT_KEY` is the effective PRD name already validated as a single safe path segment by §NAME-GATE (letters, numbers, hyphen, underscore only, starting with a letter or number — no separators, `..`, spaces, or globs), so it is safe to interpolate into the sidecar path and can never diverge from the PRD artifact path. Always quote sidecar shell paths (`"{workRoot}/..."`) so a workRoot containing spaces (central storage) stays safe. Store the raw EXTRA_CONTEXT string as plain text (not JSON), and write the payload with your file-write tool rather than piping it through the shell, so quoted/command-like context is never interpreted.
 
 **Lifecycle**:
 - **Resolve early**: Resolved in Step 1.5, BEFORE the charter phase, so context survives a charter that exits partial. It is never managed inside the charter phase.
 - **Write/overwrite**: When EXTRA_CONTEXT is explicitly supplied non-empty, write the sidecar before dispatching any agent.
-- **Restore**: When EXTRA_CONTEXT is empty or absent, `read` the sidecar; if `data.found` and `data.valid`, use `data.content` as EXTRA_CONTEXT. Ignore a `found:false` or `valid:false` result (no authoritative context).
+- **Restore**: When EXTRA_CONTEXT is empty or absent and the sidecar exists, read its contents and use that value as EXTRA_CONTEXT.
 - **Retain**: Every partial exit (partial charter AND partial PRD) retains the sidecar.
 - **Delete**: Only after the target PRD fully completes (no remaining `_TBD_` markers).
 
@@ -116,7 +104,7 @@ rp1 agent-tools blueprint-context delete --key {CONTEXT_KEY} --work-root "{workR
 
 The effective PRD name (`PRD_NAME || "main"`) drives the sidecar key, the PRD artifact path (`{workRoot}/prds/{PRD_NAME}.md`), the dispatched wizard arguments, and the rerun guidance. Validate it ONCE, up front in Step 1, before any sidecar or artifact work:
 
-- It MUST be a safe slug: letters, numbers, hyphen, and underscore only, starting with a letter or number — the exact domain enforced by `rp1 agent-tools blueprint-context`.
+- It MUST be a safe slug: letters, numbers, hyphen, and underscore only, starting with a letter or number (matches `^[A-Za-z0-9][A-Za-z0-9_-]*$`). This is also the single safe path segment used for the context sidecar (§CTX), so the gate and the sidecar path can never diverge.
 - If it does not match, ABORT immediately with an actionable error (do not create files, dispatch agents, or continue with a raw value):
 
 ```
@@ -155,10 +143,14 @@ Read `{kbRoot}/charter.md`:
 
 ### Step 1.5: Resolve Extra-Context (early)
 
-`CONTEXT_KEY = PRD_NAME || "main"` was already validated by the §NAME-GATE in Step 1. Resolve the sidecar now, before the charter phase, so a charter that exits partial does not lose the user's context (§CTX Extra-Context Sidecar for the exact commands):
+`CONTEXT_KEY = PRD_NAME || "main"` was already validated by the §NAME-GATE in Step 1, so it is a single safe path segment. Resolve the sidecar now, before the charter phase, so a charter that exits partial does not lose the user's context (§CTX Extra-Context Sidecar):
 
-- If EXTRA_CONTEXT is non-empty: `blueprint-context write` it (overwrites any prior value).
-- If EXTRA_CONTEXT is empty or absent: `blueprint-context read`; if `data.found` and `data.valid`, use `data.content` as EXTRA_CONTEXT. Otherwise proceed with no extra context.
+- If EXTRA_CONTEXT is non-empty:
+  ```bash
+  mkdir -p "{workRoot}/blueprint/context"
+  ```
+  Then write EXTRA_CONTEXT verbatim to `"{workRoot}/blueprint/context/{CONTEXT_KEY}.txt"` with your file-write tool (overwrite if present) — do not pipe it through the shell.
+- If EXTRA_CONTEXT is empty or absent and `"{workRoot}/blueprint/context/{CONTEXT_KEY}.txt"` exists, read it and use that value as EXTRA_CONTEXT. Otherwise proceed with no extra context.
 
 This runs whether or not the charter is created.
 
@@ -267,9 +259,9 @@ Read `{workRoot}/prds/{PRD_NAME}.md` and check for remaining `_TBD_` markers.
 
 **If NO `_TBD_` markers remain** (PRD complete):
 
-Apply §STATUS to the PRD (set `**Status**: Complete`), then delete the PRD sidecar for `CONTEXT_KEY` (idempotent — succeeds even if none exists):
+Apply §STATUS to the PRD (set `**Status**: Complete`), then delete the PRD sidecar (idempotent — `-f` succeeds even if none exists):
 ```bash
-rp1 agent-tools blueprint-context delete --key {CONTEXT_KEY} --work-root "{workRoot}"
+rm -f "{workRoot}/blueprint/context/{CONTEXT_KEY}.txt"
 ```
 
 ```
