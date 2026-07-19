@@ -185,7 +185,15 @@ describe("Antigravity install command", () => {
 					stderr: "pipe",
 				},
 			);
-			await cleanupProc.exited;
+			// Drain both pipes so a verbose cleanup cannot block, and assert the
+			// uninstall actually succeeded — a silent failure would leave assets
+			// in the shared home and make later tests order-dependent.
+			const [cleanupExit] = await Promise.all([
+				cleanupProc.exited,
+				new Response(cleanupProc.stdout).text(),
+				new Response(cleanupProc.stderr).text(),
+			]);
+			expect(cleanupExit).toBe(0);
 		}
 	});
 });
