@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, writeFileSync } from "node:fs";
-import { mkdir, realpath, rm } from "node:fs/promises";
+import type { rename } from "node:fs/promises";
+import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -8,6 +9,7 @@ import {
 	BOOTSTRAP_STATE_VERSION,
 } from "../../../agent-tools/bootstrap-state/models.js";
 import {
+	deleteBootstrapState,
 	readBootstrapState,
 	writeBootstrapState,
 } from "../../../agent-tools/bootstrap-state/operations.js";
@@ -182,6 +184,34 @@ describe("bootstrap-state operations", () => {
 
 		test("rejects empty target directory", async () => {
 			const error = await expectTaskLeft(readBootstrapState(""));
+
+			expect(error._tag).toBe("UsageError");
+		});
+	});
+
+	describe("delete", () => {
+		test("removes a present marker and reports deleted", async () => {
+			const targetDir = await makeDir("delete-present");
+			await expectTaskRight(
+				writeBootstrapState({ projectName: "delete-test", targetDir }),
+			);
+
+			const result = await expectTaskRight(deleteBootstrapState(targetDir));
+
+			expect(result.deleted).toBe(true);
+			expect(existsSync(markerFile(targetDir))).toBe(false);
+		});
+
+		test("is idempotent when no marker is present", async () => {
+			const targetDir = await makeDir("delete-absent");
+
+			const result = await expectTaskRight(deleteBootstrapState(targetDir));
+
+			expect(result.deleted).toBe(false);
+		});
+
+		test("rejects empty target directory", async () => {
+			const error = await expectTaskLeft(deleteBootstrapState(""));
 
 			expect(error._tag).toBe("UsageError");
 		});
@@ -501,6 +531,37 @@ describe("bootstrap-state operations", () => {
 			expect(secondResult.valid).toBe(true);
 			if (!secondResult.valid) return;
 			expect(secondResult.state.projectName).toBe("second-write");
+
+			const rp1Dir = join(targetDir, ".rp1");
+			const files = readdirSync(rp1Dir);
+			const tempFiles = files.filter((f) => f.includes(".tmp"));
+			expect(tempFiles).toHaveLength(0);
+		});
+
+		test("injected rename failure leaves pre-existing marker unchanged and no orphaned temp file", async () => {
+			const targetDir = await makeDir("atomic-injected-failure");
+
+			const firstWrite = await expectTaskRight(
+				writeBootstrapState({ projectName: "before-failure", targetDir }),
+			);
+
+			const failingRename: typeof rename = () => {
+				throw new Error("simulated rename failure");
+			};
+
+			const error = await expectTaskLeft(
+				writeBootstrapState(
+					{ projectName: "after-failure", targetDir },
+					{ rename: failingRename, writeFile },
+				),
+			);
+
+			expect(error._tag).toBe("RuntimeError");
+
+			const readResult = await expectTaskRight(readBootstrapState(targetDir));
+			expect(readResult.valid).toBe(true);
+			if (!readResult.valid) return;
+			expect(readResult.state).toEqual(firstWrite);
 
 			const rp1Dir = join(targetDir, ".rp1");
 			const files = readdirSync(rp1Dir);

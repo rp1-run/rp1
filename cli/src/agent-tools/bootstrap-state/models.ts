@@ -33,3 +33,8 @@ export interface BootstrapReadResultInvalid {
 export type BootstrapReadResult =
 	| BootstrapReadResultValid
 	| BootstrapReadResultInvalid;
+
+export interface BootstrapDeleteResult {
+	readonly deleted: boolean;
+	readonly path: string;
+}

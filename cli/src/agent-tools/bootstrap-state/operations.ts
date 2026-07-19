@@ -11,6 +11,7 @@ import {
 import {
 	BOOTSTRAP_STATE_FILENAME,
 	BOOTSTRAP_STATE_VERSION,
+	type BootstrapDeleteResult,
 	type BootstrapReadResult,
 	type BootstrapState,
 	type BootstrapWriteInput,
@@ -127,8 +128,17 @@ const validateRawState = (
 	};
 };
 
+/** Filesystem dependencies for the atomic write, injectable for failure-path testing. */
+export interface WriteBootstrapStateDeps {
+	readonly rename: typeof rename;
+	readonly writeFile: typeof writeFile;
+}
+
+const DEFAULT_WRITE_DEPS: WriteBootstrapStateDeps = { rename, writeFile };
+
 export const writeBootstrapState = (
 	input: BootstrapWriteInput,
+	deps: WriteBootstrapStateDeps = DEFAULT_WRITE_DEPS,
 ): TE.TaskEither<CLIError, BootstrapState> => {
 	if (!input.projectName || input.projectName.trim() === "") {
 		return TE.left(
@@ -155,8 +165,8 @@ export const writeBootstrapState = (
 		async () => {
 			await mkdir(rp1Dir, { recursive: true });
 			const json = JSON.stringify(state, null, 2);
-			await writeFile(tmp, json, "utf-8");
-			await rename(tmp, dest);
+			await deps.writeFile(tmp, json, "utf-8");
+			await deps.rename(tmp, dest);
 			return state;
 		},
 		(error): CLIError => {
@@ -196,5 +206,35 @@ export const readBootstrapState = (
 			},
 		),
 		TE.map((raw) => validateRawState(raw, canonicalTargetDir)),
+	);
+};
+
+export const deleteBootstrapState = (
+	targetDir: string,
+): TE.TaskEither<CLIError, BootstrapDeleteResult> => {
+	if (!targetDir || targetDir.trim() === "") {
+		return TE.left(usageError("target-dir is required and must be non-empty"));
+	}
+
+	const canonicalTargetDir = resolve(targetDir);
+	const path = markerPath(canonicalTargetDir);
+
+	return TE.tryCatch(
+		async () => {
+			try {
+				await unlink(path);
+				return { deleted: true, path };
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+					return { deleted: false, path };
+				}
+				throw error;
+			}
+		},
+		(error): CLIError =>
+			runtimeError(
+				`Failed to delete bootstrap state: ${error instanceof Error ? error.message : String(error)}`,
+				error,
+			),
 	);
 };
