@@ -1,4 +1,5 @@
-import { readdir, stat } from "node:fs/promises";
+import type { Dirent } from "node:fs";
+import { lstat, readdir, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -26,14 +27,65 @@ const exists = async (path: string): Promise<boolean> => {
 	}
 };
 
+// lstat, not stat: a symlink must not masquerade as a directory (review H2).
 const isDirectory = async (path: string): Promise<boolean> => {
 	try {
-		const s = await stat(path);
+		const s = await lstat(path);
 		return s.isDirectory();
 	} catch {
 		return false;
 	}
 };
+
+// lstat, not stat: a symlink or directory must not masquerade as a regular
+// file (review H2).
+const isRegularFile = async (path: string): Promise<boolean> => {
+	try {
+		const s = await lstat(path);
+		return s.isFile();
+	} catch {
+		return false;
+	}
+};
+
+// Bounded, no-follow search for at least one regular file under `dir`,
+// optionally matching `match`. readdir's Dirent types come from lstat, so
+// symlinks report as neither file nor directory and are skipped. An empty or
+// symlink-only directory therefore does not count as populated (review H2).
+const dirContainsRegularFile = async (
+	dir: string,
+	match?: (name: string) => boolean,
+	depth = 5,
+): Promise<boolean> => {
+	let entries: Dirent[];
+	try {
+		entries = await readdir(dir, { withFileTypes: true });
+	} catch {
+		return false;
+	}
+
+	for (const entry of entries) {
+		if (entry.isFile() && (match ? match(entry.name) : true)) {
+			return true;
+		}
+	}
+
+	if (depth > 0) {
+		for (const entry of entries) {
+			if (
+				entry.isDirectory() &&
+				(await dirContainsRegularFile(join(dir, entry.name), match, depth - 1))
+			) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+};
+
+const matchesTestPattern = (name: string): boolean =>
+	TEST_PATTERNS.some((pattern) => pattern.test(name));
 
 const checkGitCommit = async (targetDir: string): Promise<ProbePoint> => {
 	const gitDir = join(targetDir, ".git");
@@ -86,7 +138,7 @@ const checkGitCommit = async (targetDir: string): Promise<ProbePoint> => {
 
 const checkPackageManifest = async (targetDir: string): Promise<ProbePoint> => {
 	for (const manifest of PACKAGE_MANIFESTS) {
-		if (await exists(join(targetDir, manifest))) {
+		if (await isRegularFile(join(targetDir, manifest))) {
 			return {
 				name: "package-manifest",
 				pass: true,
@@ -104,17 +156,21 @@ const checkPackageManifest = async (targetDir: string): Promise<ProbePoint> => {
 
 const checkSourceEntry = async (targetDir: string): Promise<ProbePoint> => {
 	for (const dir of SOURCE_ENTRY_DIRS) {
-		if (await isDirectory(join(targetDir, dir))) {
+		const dirPath = join(targetDir, dir);
+		if (
+			(await isDirectory(dirPath)) &&
+			(await dirContainsRegularFile(dirPath))
+		) {
 			return {
 				name: "source-entry",
 				pass: true,
-				detail: `Found ${dir}/ directory`,
+				detail: `Found source file in ${dir}/`,
 			};
 		}
 	}
 
 	for (const file of SOURCE_ENTRY_FILES) {
-		if (await exists(join(targetDir, file))) {
+		if (await isRegularFile(join(targetDir, file))) {
 			return {
 				name: "source-entry",
 				pass: true,
@@ -132,30 +188,26 @@ const checkSourceEntry = async (targetDir: string): Promise<ProbePoint> => {
 
 const checkTestFile = async (targetDir: string): Promise<ProbePoint> => {
 	for (const dir of TEST_DIRS) {
-		if (await isDirectory(join(targetDir, dir))) {
+		const dirPath = join(targetDir, dir);
+		if (
+			(await isDirectory(dirPath)) &&
+			(await dirContainsRegularFile(dirPath))
+		) {
 			return {
 				name: "test-file",
 				pass: true,
-				detail: `Found ${dir}/ directory`,
+				detail: `Found file in ${dir}/`,
 			};
 		}
 	}
 
-	try {
-		const entries = await readdir(targetDir);
-		for (const entry of entries) {
-			for (const pattern of TEST_PATTERNS) {
-				if (pattern.test(entry)) {
-					return {
-						name: "test-file",
-						pass: true,
-						detail: `Found ${entry}`,
-					};
-				}
-			}
-		}
-	} catch {
-		// readdir failure handled by returning false below
+	// Root-level regular file matching a test naming pattern (top level only).
+	if (await dirContainsRegularFile(targetDir, matchesTestPattern, 0)) {
+		return {
+			name: "test-file",
+			pass: true,
+			detail: "Found test file by naming pattern",
+		};
 	}
 
 	return {

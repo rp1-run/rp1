@@ -1,7 +1,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, writeFileSync } from "node:fs";
-import type { rename } from "node:fs/promises";
-import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
+import {
+	mkdir,
+	realpath,
+	rename,
+	rm,
+	symlink,
+	writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -567,6 +573,70 @@ describe("bootstrap-state operations", () => {
 			const files = readdirSync(rp1Dir);
 			const tempFiles = files.filter((f) => f.includes(".tmp"));
 			expect(tempFiles).toHaveLength(0);
+		});
+	});
+
+	describe("filesystem safety (review H1)", () => {
+		test("does not follow a symlink planted at the legacy temp path", async () => {
+			const targetDir = await makeDir("h1-symlink-guard");
+			await mkdir(join(targetDir, ".rp1"), { recursive: true });
+
+			const victimDir = await makeDir("h1-victim");
+			const victim = join(victimDir, "precious.txt");
+			await writeFile(victim, "ORIGINAL");
+
+			// Pre-plant a symlink at the OLD fixed temp path the vulnerable code used.
+			const legacyTmp = join(
+				targetDir,
+				".rp1",
+				`.${BOOTSTRAP_STATE_FILENAME}.tmp`,
+			);
+			await symlink(victim, legacyTmp);
+
+			const state = await expectTaskRight(
+				writeBootstrapState({ projectName: "safe-write", targetDir }),
+			);
+			expect(state.projectName).toBe("safe-write");
+
+			// The marker is written at its canonical location...
+			const read = await expectTaskRight(readBootstrapState(targetDir));
+			expect(read.valid).toBe(true);
+
+			// ...and the symlink victim is never touched.
+			const after = await Bun.file(victim).text();
+			expect(after).toBe("ORIGINAL");
+		});
+
+		test("writes the temp file with exclusive-create and owner-only mode", async () => {
+			const targetDir = await makeDir("h1-flag-guard");
+
+			let capturedFlag: unknown;
+			let capturedMode: unknown;
+			const recordingWriteFile = (async (
+				path: Parameters<typeof writeFile>[0],
+				data: Parameters<typeof writeFile>[1],
+				options?: Parameters<typeof writeFile>[2],
+			) => {
+				if (options && typeof options === "object") {
+					capturedFlag = (options as { flag?: unknown }).flag;
+					capturedMode = (options as { mode?: unknown }).mode;
+				} else {
+					capturedFlag = options;
+				}
+				// Delegate to the real writeFile so the subsequent rename succeeds.
+				return writeFile(path, data, options);
+			}) as unknown as typeof writeFile;
+
+			await expectTaskRight(
+				writeBootstrapState(
+					{ projectName: "flag-check", targetDir },
+					{ rename, writeFile: recordingWriteFile },
+				),
+			);
+
+			// O_EXCL (no-follow, no-truncate) + owner-only permissions.
+			expect(capturedFlag).toBe("wx");
+			expect(capturedMode).toBe(0o600);
 		});
 	});
 });

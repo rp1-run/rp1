@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ProbePoint } from "../../../agent-tools/scaffold-probe/models.js";
@@ -313,6 +313,70 @@ describe("scaffold-probe operations", () => {
 			for (const point of result.points) {
 				expect(point.pass).toBe(false);
 			}
+		});
+	});
+
+	describe("adversarial completeness (review H2)", () => {
+		test("empty source and test directories are not a complete scaffold", async () => {
+			const dir = await makeDir("h2-empty-dirs");
+			await initTestRepo(dir);
+			await createInitialCommit(dir);
+			await writeFile(join(dir, "package.json"), '{"name": "partial"}');
+			await mkdir(join(dir, "src"), { recursive: true });
+			await mkdir(join(dir, "tests"), { recursive: true });
+
+			const result = await expectTaskRight(probeScaffold(dir));
+
+			expect(result.pass).toBe(false);
+			expect(pointByName(result.points, "source-entry").pass).toBe(false);
+			expect(pointByName(result.points, "test-file").pass).toBe(false);
+		});
+
+		test("a directory masquerading as a manifest file does not pass package-manifest", async () => {
+			const dir = await makeDir("h2-dir-manifest");
+			await initTestRepo(dir);
+			await createInitialCommit(dir);
+			await mkdir(join(dir, "package.json"), { recursive: true });
+			await mkdir(join(dir, "src"), { recursive: true });
+			await writeFile(join(dir, "src", "index.ts"), "export {};");
+			await mkdir(join(dir, "tests"), { recursive: true });
+			await writeFile(join(dir, "tests", "a.test.ts"), "");
+
+			const result = await expectTaskRight(probeScaffold(dir));
+
+			expect(pointByName(result.points, "package-manifest").pass).toBe(false);
+		});
+
+		test("a symlinked source directory does not pass source-entry", async () => {
+			const dir = await makeDir("h2-symlink-src");
+			await initTestRepo(dir);
+			await createInitialCommit(dir);
+			await writeFile(join(dir, "package.json"), '{"name": "x"}');
+			const realSrc = join(dir, "real-src");
+			await mkdir(realSrc, { recursive: true });
+			await writeFile(join(realSrc, "index.ts"), "export {};");
+			await symlink(realSrc, join(dir, "src"));
+			await mkdir(join(dir, "tests"), { recursive: true });
+			await writeFile(join(dir, "tests", "a.test.ts"), "");
+
+			const result = await expectTaskRight(probeScaffold(dir));
+
+			expect(pointByName(result.points, "source-entry").pass).toBe(false);
+		});
+
+		test("a test directory populated only via nested files still passes (recursive)", async () => {
+			const dir = await makeDir("h2-nested-test");
+			await initTestRepo(dir);
+			await createInitialCommit(dir);
+			await writeFile(join(dir, "package.json"), '{"name": "x"}');
+			await mkdir(join(dir, "src"), { recursive: true });
+			await writeFile(join(dir, "src", "index.ts"), "export {};");
+			await mkdir(join(dir, "tests", "unit"), { recursive: true });
+			await writeFile(join(dir, "tests", "unit", "a.test.ts"), "");
+
+			const result = await expectTaskRight(probeScaffold(dir));
+
+			expect(pointByName(result.points, "test-file").pass).toBe(true);
 		});
 	});
 

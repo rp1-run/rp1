@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pipe } from "fp-ts/lib/function.js";
@@ -22,8 +23,15 @@ const RP1_DIR = ".rp1";
 const markerPath = (canonicalTargetDir: string): string =>
 	join(canonicalTargetDir, RP1_DIR, BOOTSTRAP_STATE_FILENAME);
 
+// Unpredictable per-write suffix so an attacker cannot pre-plant a symlink at
+// the temp path; combined with the exclusive-create flag below, this closes the
+// symlink-follow clobber described in review H1.
 const tempMarkerPath = (canonicalTargetDir: string): string =>
-	join(canonicalTargetDir, RP1_DIR, `.${BOOTSTRAP_STATE_FILENAME}.tmp`);
+	join(
+		canonicalTargetDir,
+		RP1_DIR,
+		`.${BOOTSTRAP_STATE_FILENAME}.${randomBytes(8).toString("hex")}.tmp`,
+	);
 
 const validateRawState = (
 	raw: string,
@@ -165,17 +173,27 @@ export const writeBootstrapState = (
 		async () => {
 			await mkdir(rp1Dir, { recursive: true });
 			const json = JSON.stringify(state, null, 2);
-			await deps.writeFile(tmp, json, "utf-8");
-			await deps.rename(tmp, dest);
+			try {
+				// `wx` = O_CREAT | O_EXCL | O_WRONLY: fails if the path already
+				// exists (including as a symlink), so we never follow or truncate
+				// a pre-existing file. mode 0600 keeps the marker owner-only.
+				await deps.writeFile(tmp, json, {
+					encoding: "utf-8",
+					flag: "wx",
+					mode: 0o600,
+				});
+				await deps.rename(tmp, dest);
+			} catch (error) {
+				await unlink(tmp).catch(() => {});
+				throw error;
+			}
 			return state;
 		},
-		(error): CLIError => {
-			unlink(tmp).catch(() => {});
-			return runtimeError(
+		(error): CLIError =>
+			runtimeError(
 				`Failed to write bootstrap state: ${error instanceof Error ? error.message : String(error)}`,
 				error,
-			);
-		},
+			),
 	);
 };
 
