@@ -136,7 +136,7 @@ export const agentToolsCommand = new Command("agent-tools")
 		"after",
 		`
 Available Tools:
-  bootstrap-state   Manage bootstrap recovery state markers (write, read)
+  bootstrap-state   Manage bootstrap recovery state markers (write, read, delete)
   mmd-validate      Validate Mermaid diagram syntax
   resolve-args      Resolve structured arguments from schema, settings, and user input
   scaffold-probe    Four-point scaffold completeness probe (git commit, manifest, source, tests)
@@ -3032,12 +3032,14 @@ Description:
   bootstrap recovery markers stored at {target-dir}/.rp1/bootstrap-state.json.
 
 Subcommands:
-  write   Write a bootstrap recovery state marker atomically
-  read    Read and validate a bootstrap recovery state marker
+  write    Write a bootstrap recovery state marker atomically
+  read     Read and validate a bootstrap recovery state marker
+  delete   Delete a bootstrap recovery state marker idempotently
 
 Examples:
   rp1 agent-tools bootstrap-state write --project-name "my-app" --target-dir /path/to/project
   rp1 agent-tools bootstrap-state read --target-dir /path/to/project
+  rp1 agent-tools bootstrap-state delete --target-dir /path/to/project
 `,
 	);
 
@@ -3148,6 +3150,57 @@ Examples:
 
 		const { readBootstrapState } = await import("./bootstrap-state/index.js");
 		const result = await readBootstrapState(options.targetDir)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(
+			formatOutput({
+				success: true,
+				tool: toolName,
+				data: result.right,
+			}),
+		);
+		process.exit(0);
+	});
+
+bootstrapStateCommand
+	.command("delete")
+	.description("Delete a bootstrap recovery state marker idempotently")
+	.requiredOption(
+		"--target-dir <dir>",
+		"Absolute path to the directory whose marker should be deleted",
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Deletes the bootstrap recovery state marker at
+  {target-dir}/.rp1/bootstrap-state.json. Idempotent: succeeds with
+  deleted=false when no marker exists at the location.
+
+Options:
+  --target-dir <dir>   Directory whose marker should be deleted (required)
+
+Output:
+  JSON ToolResult with:
+  - deleted: true if a marker was removed, false if none existed
+  - path: Canonical absolute path to the marker location
+
+Examples:
+  rp1 agent-tools bootstrap-state delete --target-dir /path/to/project
+`,
+	)
+	.action(async (options: { targetDir: string }): Promise<void> => {
+		const toolName = "bootstrap-state";
+		await ensureToolLoaded(toolName);
+
+		const { deleteBootstrapState } = await import("./bootstrap-state/index.js");
+		const result = await deleteBootstrapState(options.targetDir)();
 
 		if (E.isLeft(result)) {
 			console.error(

@@ -12,7 +12,7 @@ const execute = (
 ): TE.TaskEither<CLIError, ToolResult<{ message: string }>> =>
 	TE.right(
 		successResult(TOOL_NAME, {
-			message: "Use subcommands: write, read. See --help for details.",
+			message: "Use subcommands: write, read, delete. See --help for details.",
 		}),
 	);
 
@@ -24,4 +24,8 @@ registerTool({
 });
 
 export { TOOL_NAME };
-export { readBootstrapState, writeBootstrapState } from "./operations.js";
+export {
+	deleteBootstrapState,
+	readBootstrapState,
+	writeBootstrapState,
+} from "./operations.js";
