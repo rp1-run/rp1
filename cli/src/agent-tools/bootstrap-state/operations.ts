@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import {
+	lstat,
 	mkdir,
 	readFile,
 	realpath,
@@ -23,9 +24,43 @@ import {
 	type BootstrapReadResult,
 	type BootstrapState,
 	type BootstrapWriteInput,
+	validateProjectName,
 } from "./models.js";
 
 const RP1_DIR = ".rp1";
+
+/**
+ * Physical-boundary guard (review H1). Marker operations must never follow a
+ * symlink at the target directory, its `.rp1` parent, or the marker file
+ * itself into a directory outside the selected target. A symlinked ancestor of
+ * the target is fine — only the components we create/read/write under are
+ * checked, immediately before the operation.
+ *
+ * Returns a human-readable reason string when a boundary-violating symlink is
+ * found, or `null` when the path components are safe to operate on.
+ */
+const detectBoundaryViolation = async (
+	canonicalTargetDir: string,
+): Promise<string | null> => {
+	const targetStat = await lstat(canonicalTargetDir).catch(() => null);
+	if (targetStat?.isSymbolicLink()) {
+		return `Target directory '${canonicalTargetDir}' is a symlink; refusing to cross the physical target boundary`;
+	}
+
+	const rp1Dir = join(canonicalTargetDir, RP1_DIR);
+	const rp1Stat = await lstat(rp1Dir).catch(() => null);
+	if (rp1Stat?.isSymbolicLink()) {
+		return `Marker parent '${rp1Dir}' is a symlink; refusing to cross the physical target boundary`;
+	}
+
+	const marker = join(canonicalTargetDir, RP1_DIR, BOOTSTRAP_STATE_FILENAME);
+	const markerStat = await lstat(marker).catch(() => null);
+	if (markerStat?.isSymbolicLink()) {
+		return `Marker file '${marker}' is a symlink; refusing to cross the physical target boundary`;
+	}
+
+	return null;
+};
 
 const markerPath = (canonicalTargetDir: string): string =>
 	join(canonicalTargetDir, RP1_DIR, BOOTSTRAP_STATE_FILENAME);
@@ -79,23 +114,13 @@ const validateRawState = async (
 		};
 	}
 
-	if (typeof obj.projectName !== "string" || obj.projectName.trim() === "") {
+	const nameCheck = validateProjectName(obj.projectName);
+	if (!nameCheck.valid) {
 		return {
 			valid: false,
 			error: {
 				type: "malformed",
-				message:
-					"Missing or invalid 'projectName' field (expected non-empty string)",
-			},
-		};
-	}
-
-	if (/[\r\n]/.test(obj.projectName as string)) {
-		return {
-			valid: false,
-			error: {
-				type: "malformed",
-				message: "Invalid 'projectName' field (must be a single line)",
+				message: `Invalid 'projectName' field (${nameCheck.message})`,
 			},
 		};
 	}
@@ -190,30 +215,58 @@ export const writeBootstrapState = (
 	input: BootstrapWriteInput,
 	deps: WriteBootstrapStateDeps = DEFAULT_WRITE_DEPS,
 ): TE.TaskEither<CLIError, BootstrapState> => {
-	if (!input.projectName || input.projectName.trim() === "") {
-		return TE.left(
-			usageError("project-name is required and must be non-empty"),
-		);
+	const nameCheck = validateProjectName(input.projectName);
+	if (!nameCheck.valid) {
+		return TE.left(usageError(`project-name ${nameCheck.message}`));
 	}
 	if (!input.targetDir || input.targetDir.trim() === "") {
 		return TE.left(usageError("target-dir is required and must be non-empty"));
 	}
 
-	const canonicalTargetDir = resolve(input.targetDir);
-	const rp1Dir = join(canonicalTargetDir, RP1_DIR);
-	const dest = markerPath(canonicalTargetDir);
-	const tmp = tempMarkerPath(canonicalTargetDir);
-
-	const state: BootstrapState = {
-		version: BOOTSTRAP_STATE_VERSION,
-		projectName: input.projectName,
-		targetDir: canonicalTargetDir,
-		createdAt: new Date().toISOString(),
-	};
+	const requestedTargetDir = resolve(input.targetDir);
 
 	return TE.tryCatch(
 		async () => {
+			// Ensure the target exists so it can be physically resolved, then bind
+			// every subsequent path to that real directory (review H1). `mkdir` on
+			// an existing directory is a no-op and never replaces a symlink.
+			await mkdir(requestedTargetDir, { recursive: true });
+
+			const violation = await detectBoundaryViolation(requestedTargetDir);
+			if (violation) {
+				throw new Error(violation);
+			}
+
+			const canonicalTargetDir = await realpath(requestedTargetDir);
+			const rp1Dir = join(canonicalTargetDir, RP1_DIR);
+
+			// Create `.rp1` only after confirming it is not a symlink, then verify
+			// it still physically resides under the target (guards a symlink swap
+			// between the check and the create).
 			await mkdir(rp1Dir, { recursive: true });
+			if ((await realpath(rp1Dir)) !== rp1Dir) {
+				throw new Error(
+					`Marker parent '${rp1Dir}' resolves outside the target directory`,
+				);
+			}
+
+			const dest = markerPath(canonicalTargetDir);
+			const tmp = tempMarkerPath(canonicalTargetDir);
+
+			const destStat = await lstat(dest).catch(() => null);
+			if (destStat?.isSymbolicLink()) {
+				throw new Error(
+					`Marker path '${dest}' is a symlink; refusing to write across the target boundary`,
+				);
+			}
+
+			const state: BootstrapState = {
+				version: BOOTSTRAP_STATE_VERSION,
+				projectName: input.projectName,
+				targetDir: canonicalTargetDir,
+				createdAt: new Date().toISOString(),
+			};
+
 			const json = JSON.stringify(state, null, 2);
 			try {
 				// `wx` = O_CREAT | O_EXCL | O_WRONLY: fails if the path already
@@ -250,37 +303,58 @@ export const readBootstrapState = (
 	const path = markerPath(canonicalTargetDir);
 
 	return pipe(
+		// Discovery/resume must not follow a symlinked target, `.rp1`, or marker
+		// into an external directory (review H1). A boundary violation is reported
+		// as an INVALID marker (never a hard error) so the coordinator classifies
+		// it like any other invalid marker and never auto-resumes it.
 		TE.tryCatch(
-			() => readFile(path, "utf-8"),
-			(error): CLIError => {
-				if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-					return notFoundError(
-						`Bootstrap state marker at ${path}`,
-						"No bootstrap-state marker exists at this location.",
-					);
-				}
-				return runtimeError(
-					`Failed to read bootstrap state: ${error instanceof Error ? error.message : String(error)}`,
+			() => detectBoundaryViolation(canonicalTargetDir),
+			(error): CLIError =>
+				runtimeError(
+					`Failed to inspect bootstrap state location: ${error instanceof Error ? error.message : String(error)}`,
 					error,
-				);
-			},
+				),
 		),
-		TE.chain((raw) =>
-			TE.tryCatch(
-				async () => {
-					// Follow symlinks on the read location so it matches the recorded
-					// target's realpath (review M1). The marker file was just read, so
-					// the directory is guaranteed to exist here.
-					const expectedTargetDir = await realpath(canonicalTargetDir);
-					return validateRawState(raw, expectedTargetDir);
-				},
-				(error): CLIError =>
-					runtimeError(
-						`Failed to validate bootstrap state: ${error instanceof Error ? error.message : String(error)}`,
-						error,
+		TE.chain((violation): TE.TaskEither<CLIError, BootstrapReadResult> => {
+			if (violation) {
+				return TE.right({
+					valid: false,
+					error: { type: "conflicting", message: violation },
+				});
+			}
+			return pipe(
+				TE.tryCatch(
+					() => readFile(path, "utf-8"),
+					(error): CLIError => {
+						if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+							return notFoundError(
+								`Bootstrap state marker at ${path}`,
+								"No bootstrap-state marker exists at this location.",
+							);
+						}
+						return runtimeError(
+							`Failed to read bootstrap state: ${error instanceof Error ? error.message : String(error)}`,
+							error,
+						);
+					},
+				),
+				TE.chain((raw) =>
+					TE.tryCatch(
+						async () => {
+							// The target/.rp1/marker were just confirmed symlink-free, so
+							// realpath only resolves benign ancestor symlinks here.
+							const expectedTargetDir = await realpath(canonicalTargetDir);
+							return validateRawState(raw, expectedTargetDir);
+						},
+						(error): CLIError =>
+							runtimeError(
+								`Failed to validate bootstrap state: ${error instanceof Error ? error.message : String(error)}`,
+								error,
+							),
 					),
-			),
-		),
+				),
+			);
+		}),
 	);
 };
 

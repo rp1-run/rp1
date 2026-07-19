@@ -104,18 +104,40 @@ describe("bootstrap-state operations", () => {
 			expect(tempFiles).toHaveLength(0);
 		});
 
-		test("handles special characters in project name via real JSON serialization", async () => {
-			const targetDir = await makeDir("write-special-chars");
-			const specialName = "Project \"with' quotes & back\\slashes\nnewlines";
+		test("accepts a name in the documented lowercase/number/hyphen domain", async () => {
+			const targetDir = await makeDir("write-valid-domain");
 			const state = await expectTaskRight(
-				writeBootstrapState({ projectName: specialName, targetDir }),
+				writeBootstrapState({ projectName: "my-app-2", targetDir }),
 			);
 
-			expect(state.projectName).toBe(specialName);
+			expect(state.projectName).toBe("my-app-2");
 
 			const raw = await Bun.file(markerFile(targetDir)).text();
 			const parsed = JSON.parse(raw);
-			expect(parsed.projectName).toBe(specialName);
+			expect(parsed.projectName).toBe("my-app-2");
+		});
+
+		test("rejects project names outside the documented domain (review L1)", async () => {
+			// Writer and reader must agree on the accepted domain: a name the
+			// writer serializes must round-trip through the reader. These carry
+			// control/shell/path-significant characters and are rejected at write.
+			const badNames = [
+				"line-one\nline-two", // newline (the writer/reader mismatch case)
+				"My-App", // uppercase
+				"has space", // whitespace
+				"../escape", // traversal + separators
+				"a/b", // path separator
+				"weird$(cmd)", // shell metacharacters
+			];
+			for (const name of badNames) {
+				const targetDir = await makeDir(
+					`write-bad-${Buffer.from(name).toString("hex").slice(0, 12)}`,
+				);
+				const error = await expectTaskLeft(
+					writeBootstrapState({ projectName: name, targetDir }),
+				);
+				expect(error._tag).toBe("UsageError");
+			}
 		});
 
 		test("rejects empty project name", async () => {
@@ -166,18 +188,18 @@ describe("bootstrap-state operations", () => {
 			expect(readResult.state).toEqual(written);
 		});
 
-		test("round-trip preserves special characters", async () => {
-			const targetDir = await makeDir("read-special");
-			const specialName = 'Name with "quotes" and \\ backslash and > angle';
+		test("round-trip preserves a valid-domain name exactly (review L1)", async () => {
+			const targetDir = await makeDir("read-domain-roundtrip");
+			const name = "surface-api-v2";
 			const written = await expectTaskRight(
-				writeBootstrapState({ projectName: specialName, targetDir }),
+				writeBootstrapState({ projectName: name, targetDir }),
 			);
 
 			const readResult = await expectTaskRight(readBootstrapState(targetDir));
 
 			expect(readResult.valid).toBe(true);
 			if (!readResult.valid) return;
-			expect(readResult.state.projectName).toBe(specialName);
+			expect(readResult.state.projectName).toBe(name);
 			expect(readResult.state).toEqual(written);
 		});
 
@@ -640,26 +662,101 @@ describe("bootstrap-state operations", () => {
 		});
 	});
 
-	describe("path canonicalization and field domains (review M1)", () => {
-		test("reads a marker through a symlinked target dir and returns the real canonical path", async () => {
-			const realDir = await makeDir("m1-real-target");
+	describe("physical boundary containment (review H1)", () => {
+		test("write refuses when target/.rp1 is a symlink to an external dir (no clobber)", async () => {
+			// The classic escape: `.rp1` itself is a symlink, so every write
+			// under it lands in the external directory. The write must be rejected
+			// and the external marker left untouched.
+			const external = await makeDir("h1-write-external");
+			const externalMarker = join(external, BOOTSTRAP_STATE_FILENAME);
+			await writeFile(externalMarker, "EXTERNAL-ORIGINAL");
+
+			const victim = await makeDir("h1-write-victim");
+			await symlink(external, join(victim, ".rp1"));
+
+			const error = await expectTaskLeft(
+				writeBootstrapState({ projectName: "evil-proj", targetDir: victim }),
+			);
+			expect(error._tag).toBe("RuntimeError");
+			if (error._tag !== "RuntimeError") return;
+			expect(error.message).toContain("symlink");
+
+			// The external marker is never overwritten.
+			expect(await Bun.file(externalMarker).text()).toBe("EXTERNAL-ORIGINAL");
+		});
+
+		test("read refuses a symlinked target directory (not auto-resumable)", async () => {
+			// A genuine marker lives in an external real directory; an immediate
+			// child symlink points at it. Discovery must NOT return it as a valid,
+			// resumable marker outside the physical launch boundary.
+			const realDir = await makeDir("h1-read-real");
 			await expectTaskRight(
-				writeBootstrapState({ projectName: "sym-proj", targetDir: realDir }),
+				writeBootstrapState({ projectName: "real-proj", targetDir: realDir }),
 			);
 
-			const linkDir = join(tempBase, "m1-link-target");
+			const linkDir = join(tempBase, "h1-read-link");
 			await symlink(realDir, linkDir);
 
 			const result = await expectTaskRight(readBootstrapState(linkDir));
 
-			expect(result.valid).toBe(true);
-			if (!result.valid) return;
-			// Physical resolution collapses the symlink to the real directory
-			// rather than reporting a spurious conflict.
-			expect(result.state.targetDir).toBe(realDir);
-			expect(result.state.projectName).toBe("sym-proj");
+			expect(result.valid).toBe(false);
+			if (result.valid) return;
+			expect(result.error.type).toBe("conflicting");
+			expect(result.error.message).toContain("symlink");
 		});
 
+		test("read refuses when .rp1 is a symlink to an external marker", async () => {
+			const external = await makeDir("h1-read-rp1-external");
+			const externalRp1 = join(external, ".rp1");
+			await mkdir(externalRp1, { recursive: true });
+			writeFileSync(
+				join(externalRp1, BOOTSTRAP_STATE_FILENAME),
+				JSON.stringify({
+					version: BOOTSTRAP_STATE_VERSION,
+					projectName: "external-proj",
+					targetDir: external,
+					createdAt: new Date().toISOString(),
+				}),
+			);
+
+			const victim = await makeDir("h1-read-rp1-victim");
+			await symlink(externalRp1, join(victim, ".rp1"));
+
+			const result = await expectTaskRight(readBootstrapState(victim));
+
+			expect(result.valid).toBe(false);
+			if (result.valid) return;
+			expect(result.error.type).toBe("conflicting");
+			expect(result.error.message).toContain("symlink");
+		});
+
+		test("read refuses when the marker file itself is a symlink", async () => {
+			const external = await makeDir("h1-read-marker-external");
+			const externalMarker = join(external, "planted-marker.json");
+			writeFileSync(
+				externalMarker,
+				JSON.stringify({
+					version: BOOTSTRAP_STATE_VERSION,
+					projectName: "planted",
+					targetDir: external,
+					createdAt: new Date().toISOString(),
+				}),
+			);
+
+			const victim = await makeDir("h1-read-marker-victim");
+			await mkdir(join(victim, ".rp1"), { recursive: true });
+			await symlink(externalMarker, markerFile(victim));
+
+			const result = await expectTaskRight(readBootstrapState(victim));
+
+			expect(result.valid).toBe(false);
+			if (result.valid) return;
+			expect(result.error.type).toBe("conflicting");
+			expect(result.error.message).toContain("symlink");
+		});
+	});
+
+	describe("path canonicalization and field domains (review M1)", () => {
 		test("reports conflicting when the recorded target dir no longer resolves", async () => {
 			const dir = await makeDir("m1-vanished-record");
 			const rp1Dir = join(dir, ".rp1");
