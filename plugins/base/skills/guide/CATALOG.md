@@ -9,7 +9,7 @@
 | Skill | Plugin | Description |
 |-------|--------|-------------|
 | `/task` | base | Discover and manage queued tasks for agent execution |
-| `/bootstrap` | dev | Bootstrap a new project with charter discovery and tech stack scaffolding for greenfield development. |
+| `/bootstrap` | dev | Bootstrap a greenfield project with parent-owned interviews and bounded plan, revision, and apply actions. |
 | `/build` | dev | End-to-end feature workflow (requirements -> planning -> implementation -> release) in a single command. |
 | `/build-fast` | dev | Quick-iteration development for small/medium scope changes with persistent artifacts and optional review. |
 | `/feature-archive` | dev | Archives a completed feature to the archives directory with optional documentation validation. |
@@ -96,7 +96,7 @@
 
 | Skill | Plugin | Description |
 |-------|--------|-------------|
-| `/blueprint` | dev | Guided wizard for project vision via two-tier docs (charter + PRDs) with stateless interview loops. |
+| `/blueprint` | dev | Guided parent-owned project charter and PRD interviews with durable artifact-only resume. |
 | `/blueprint-archive` | dev | Archives a completed PRD to the archives directory with associated features and closure summary. |
 | `/blueprint-audit` | dev | Audits a PRD against implementation status and guides lifecycle decisions. |
 
