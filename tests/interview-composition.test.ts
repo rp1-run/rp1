@@ -231,6 +231,124 @@ describe("parent-owned interview foundation", () => {
 		}
 	});
 
+	test("defines bootstrap scaffolding as one-shot action work", async () => {
+		const scaffolder = await readRepoFile(
+			"plugins/dev/agents/bootstrap-scaffolder.md",
+		);
+
+		expect(scaffolder).toContain(
+			"description: One-shot non-interactive bootstrap worker for bounded PLAN, REVISE, or APPLY actions",
+		);
+		expect(scaffolder).toContain("- name: ACTION");
+		expect(scaffolder).toContain("type: enum");
+		for (const action of ["PLAN", "REVISE", "APPLY"]) {
+			expect(scaffolder).toContain(`      - "${action}"`);
+		}
+		for (const argument of [
+			"PROJECT_NAME",
+			"TARGET_DIR",
+			"CHARTER_PATH",
+			"PREFS_PATH",
+			"KB_ROOT",
+			"WORK_ROOT",
+			"RUN_ID",
+		]) {
+			expect(scaffolder).toContain(`- name: ${argument}`);
+		}
+		expect(scaffolder).toContain(
+			"Perform exactly one bounded `ACTION`, return one result, then stop.",
+		);
+		expect(scaffolder).toContain(
+			"The parent skill owns all user interaction and artifact registration. Never ask the user or request input.",
+		);
+		expect(scaffolder).toContain("Do not invoke another skill or agent.");
+		expect(scaffolder).toContain(
+			"Return exactly one raw JSON object with these keys in this order: `action`, `status`, `changed_files`, `conflicts`, `research_fallback`, `warnings`, `retry_guidance`.",
+		);
+		expect(scaffolder).not.toMatch(
+			/\$[1-9]|next_question|research_ready|Phase: INTERVIEW|Scratch Pad|Caller handles interaction|re-invokes|relay|continuation|checkpoint/i,
+		);
+		expect(scaffolder).not.toMatch(
+			/{%\s*(?:ask_user|dispatch_agent|include_shared)\b/,
+		);
+	});
+
+	test("makes bootstrap planning research bounded with an explicit fallback", async () => {
+		const scaffolder = await readRepoFile(
+			"plugins/dev/agents/bootstrap-scaffolder.md",
+		);
+
+		expect(scaffolder).toContain(
+			"tools: Read, Write, Bash, WebFetch, WebSearch",
+		);
+		expect(scaffolder).toContain(
+			"Read the complete `CHARTER_PATH` and `PREFS_PATH` before planning.",
+		);
+		expect(scaffolder).toContain(
+			"Use at most 6 searches and 8 authoritative source reads.",
+		);
+		expect(scaffolder).toContain(
+			"Prefer primary, authoritative sources for current tool and framework guidance.",
+		);
+		expect(scaffolder).toContain(
+			"If no web research tool is available or a required lookup fails, continue from the persisted artifacts and model knowledge.",
+		);
+		expect(scaffolder).toContain(
+			"Mark every version-sensitive claim without current authoritative evidence as `Verify before apply`.",
+		);
+		expectInOrder(scaffolder, [
+			"Write the complete reconstructed preferences document",
+			"Re-read `PREFS_PATH` and verify both updated sections",
+		]);
+	});
+
+	test("revises one persisted bootstrap plan exactly once", async () => {
+		const scaffolder = await readRepoFile(
+			"plugins/dev/agents/bootstrap-scaffolder.md",
+		);
+
+		expect(scaffolder).toContain(
+			"Require one substantive persisted `Revision Request` and a substantive `Scaffold Plan`.",
+		);
+		expect(scaffolder).toContain(
+			"Write the replacement into `Revised Plan` exactly once; preserve the original `Scaffold Plan` and `Revision Request`.",
+		);
+		expect(scaffolder).toContain(
+			"If `Revised Plan` is already substantive, do not revise it again.",
+		);
+		expect(scaffolder).toContain(
+			"For `Revision Request` and `Revised Plan`, `Not requested` is also not a substantive revision value.",
+		);
+		expect(scaffolder).toContain(
+			"Use only the ordinary charter and preferences sections as action state.",
+		);
+	});
+
+	test("applies approved bootstrap plans idempotently without overwrites", async () => {
+		const scaffolder = await readRepoFile(
+			"plugins/dev/agents/bootstrap-scaffolder.md",
+		);
+
+		expectInOrder(scaffolder, [
+			"Require a fresh `PREFS_PATH` read whose `Plan Review` is exactly `Approved` before any scaffold effect.",
+			"Use a substantive `Revised Plan` when present; otherwise use `Scaffold Plan`.",
+			"Check only the expected outputs declared by the approved plan.",
+			"Create only missing planned outputs.",
+			"Write the complete reconstructed preferences document with an `Apply Result`",
+		]);
+		expect(scaffolder).toContain(
+			"Preserve every pre-existing output with different or unrelated content and report it as a conflict; never overwrite or merge it.",
+		);
+		expect(scaffolder).toContain(
+			"On every APPLY invocation, re-check the approved plan and its expected outputs directly, including after a partial prior result.",
+		);
+		expect(scaffolder).toContain(
+			"Resolve dependency versions through the selected package manager or installed-tool evidence; never assert an unverified exact version.",
+		);
+		expect(scaffolder).not.toContain("--type artifact_registered");
+		expect(scaffolder).not.toContain("rp1 agent-tools emit");
+	});
+
 	test("rejects every bootstrap project name before target effects", async () => {
 		const bootstrap = await readRepoFile(
 			"plugins/dev/skills/bootstrap/SKILL.md",
