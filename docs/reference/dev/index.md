@@ -49,6 +49,7 @@ Maintain code health with automated checks and analysis.
 | [`code-audit`](code-audit.md) | Pattern consistency and maintainability audit |
 | [`code-investigate`](code-investigate.md) | Systematic bug investigation |
 | [`code-clean-comments`](code-clean-comments.md) | Remove unnecessary code comments |
+| [`tech-debt-collector`](tech-debt-collector.md) | Evidence-gated tech debt and bloat detection with remediation actions |
 
 ### PR Management
 

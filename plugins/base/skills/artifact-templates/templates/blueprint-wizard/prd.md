@@ -9,41 +9,42 @@ strictness: strict
 
 # PRD: {Surface Name}
 
-**Charter**: [Project Charter](.rp1/context/charter.md)
+**Charter**: {Resolved Charter Link}
+**Additional Context**: _TBD_
 **Version**: 1.0.0
-**Status**: Complete
+**Status**: Draft
 **Created**: {Date}
 
 ## Surface Overview
-{From Section 1 interview}
+_TBD_
 
 ## Scope
 
 ### In Scope
-{From Section 2 interview}
+_TBD_
 
 ### Out of Scope
-{From Section 2 interview}
+_TBD_
 
 ## Requirements
 
 ### Functional Requirements
-{From Section 3 interview}
+_TBD_
 
 ### Non-Functional Requirements
-{From Section 3 interview}
+_TBD_
 
 ## Dependencies & Constraints
-{From Section 4 interview}
+_TBD_
 
 ## Milestones & Timeline
-{From Section 5 interview}
+_TBD_
 
 ## Open Questions
-{Any unresolved items}
+_TBD_
 
 ## Assumptions & Risks
 
 | ID | Assumption | Risk if Wrong | Charter Ref |
 |----|------------|---------------|-------------|
-| A1 | {assumption} | {risk} | {charter section} |
+| A1 | _TBD_ | _TBD_ | _TBD_ |

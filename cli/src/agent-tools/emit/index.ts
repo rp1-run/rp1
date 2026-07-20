@@ -35,6 +35,7 @@ import {
 	type EventInput,
 	endRun,
 	getEmitDatabase,
+	getLatestArtifactByLocation,
 	getRunById,
 	getSkippableSteps,
 	getStepStatuses,
@@ -44,7 +45,11 @@ import {
 	upsertAnnotation,
 	upsertArtifact,
 } from "./database.js";
-import { type DocIdResult, generateDocId, resolveDocId } from "./doc-id.js";
+import {
+	generateDocId,
+	overwriteDocIdFrontmatter,
+	readFrontmatterDocId,
+} from "./doc-id.js";
 import type { EmitInput, EmitResult } from "./models.js";
 import { maybeGenerateNotification } from "./notification-generator.js";
 import {
@@ -388,39 +393,71 @@ const handleArtifactRegistration = (
 		);
 	}
 
-	const docIdTask = pipe(
-		resolveDocId(absolutePath),
-		TE.orElse(() =>
-			TE.right({ docId: generateDocId(), isNew: true } as DocIdResult),
-		),
-	);
-
 	return pipe(
-		docIdTask,
-		TE.chain((docIdResult) =>
-			pipe(
-				getEmitDatabase(),
-				TE.map((db) => {
+		getEmitDatabase(),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
 					const artifactType =
 						(input.data.type as string) ?? classifyArtifactType(filePath);
 					const feature = (input.data.feature as string) ?? "unknown";
-
-					const artifactInput: ArtifactInput = {
-						docId: docIdResult.docId,
-						runId: input.runId,
-						path: normalizedStorage.path,
-						type: artifactType,
-						storageRoot: normalizedStorage.storageRoot,
+					const location = {
 						projectPath: input.projectPath,
-						projectId: run.projectId ?? undefined,
-						feature,
-						step: input.step,
-						subflow: input.data.subflow === true,
+						path: normalizedStorage.path,
+						storageRoot: normalizedStorage.storageRoot,
 					};
 
-					upsertArtifact(db, artifactInput);
-					return { docId: docIdResult.docId };
-				}),
+					// Identity resolution never writes before the transaction picks
+					// the winner: a speculative doc_id written to the file first
+					// could be read as authoritative by a concurrent registration.
+					// Frontmatter is peeked read-only; when absent, the identity is
+					// established inside the write transaction (reusing the row
+					// already registered at this location — frontmatter stripped by
+					// a rewrite, non-markdown files, or a concurrent racer — and
+					// minting a UUID only when there is none) and injected after.
+					const frontmatterDocId = await readFrontmatterDocId(absolutePath);
+
+					const register = db.transaction(() => {
+						const docId =
+							frontmatterDocId ??
+							getLatestArtifactByLocation(db, location)?.docId ??
+							generateDocId();
+
+						const artifactInput: ArtifactInput = {
+							docId,
+							runId: input.runId,
+							path: normalizedStorage.path,
+							type: artifactType,
+							storageRoot: normalizedStorage.storageRoot,
+							projectPath: input.projectPath,
+							projectId: run.projectId ?? undefined,
+							feature,
+							step: input.step,
+							subflow: input.data.subflow === true,
+						};
+
+						upsertArtifact(db, artifactInput);
+						return docId;
+					});
+					const docId = register.immediate() as string;
+
+					if (frontmatterDocId === null) {
+						// Inject the winning identity into markdown frontmatter.
+						// Best-effort: the row is already correct, the file may be
+						// gone or unwritable, and the next emit reconverges anyway.
+						try {
+							await overwriteDocIdFrontmatter(absolutePath, docId);
+						} catch {
+							// Ignore.
+						}
+					}
+
+					return { docId };
+				},
+				(error) =>
+					runtimeError(
+						`Failed to register artifact for ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+					),
 			),
 		),
 	);

@@ -20,6 +20,7 @@ import { dirname, join } from "node:path";
 import {
 	closeDatabase,
 	countEventsSince,
+	dedupeArtifactLocations,
 	deleteActivitySearchRun,
 	deleteAnnotation,
 	deriveRunStatus,
@@ -57,6 +58,7 @@ import {
 	reclassifyInactiveRuns,
 	resetInstance,
 	resolveArtifactPathForRun,
+	setArtifactBaseline,
 	updateAnnotation,
 	upsertActivitySearchRun,
 	upsertAnnotation,
@@ -390,7 +392,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(18);
+			expect(versionRow.version).toBe(LATEST_SCHEMA_VERSION);
 
 			const runRow = db
 				.prepare(
@@ -503,7 +505,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(18);
+			expect(versionRow.version).toBe(LATEST_SCHEMA_VERSION);
 
 			const duelColumns = db
 				.prepare("PRAGMA table_info(socratic_duels)")
@@ -621,7 +623,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(18);
+			expect(versionRow.version).toBe(LATEST_SCHEMA_VERSION);
 
 			const migratedDuel = db
 				.prepare(
@@ -762,7 +764,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(18);
+			expect(versionRow.version).toBe(LATEST_SCHEMA_VERSION);
 			expect(
 				db
 					.prepare(
@@ -906,7 +908,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(18);
+			expect(versionRow.version).toBe(LATEST_SCHEMA_VERSION);
 		});
 
 		test("migrates v2 schema to add subflow column to artifacts", async () => {
@@ -997,7 +999,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(18);
+			expect(versionRow.version).toBe(LATEST_SCHEMA_VERSION);
 		});
 
 		test("v3 to v4 migration adds baseline column and cleans orphaned edit-diff annotations", async () => {
@@ -1084,7 +1086,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(18);
+			expect(versionRow.version).toBe(LATEST_SCHEMA_VERSION);
 
 			const annotations = db.prepare("SELECT * FROM annotations").all() as {
 				content: string;
@@ -1204,7 +1206,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(18);
+			expect(versionRow.version).toBe(LATEST_SCHEMA_VERSION);
 
 			const indexes = db.prepare("PRAGMA index_list(runs)").all() as {
 				name: string;
@@ -1411,7 +1413,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(18);
+			expect(versionRow.version).toBe(LATEST_SCHEMA_VERSION);
 		});
 
 		test("foreign key constraints are enforced", async () => {
@@ -2117,6 +2119,129 @@ describe("emit database", () => {
 
 			expect(artifact.storageRoot).toBe("work_dir");
 			expect(artifact.path).toBe("features/feat/design.md");
+		});
+	});
+
+	describe("dedupeArtifactLocations", () => {
+		test("merges duplicate rows keeping the most recently registered doc_id", async () => {
+			const dbPath = join(tempDir, "artifact-dedupe.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-dedupe",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			// Three churned rows for one location. doc-a has the lowest row id
+			// but the most recent artifact_registered event, so it is the
+			// authoritative identity despite doc-c having the highest row id.
+			for (const docId of ["doc-a", "doc-b", "doc-c"]) {
+				upsertArtifact(db, {
+					docId,
+					runId: "run-dedupe",
+					path: "features/feat/tasks.md",
+					type: "markdown",
+					storageRoot: "work_dir",
+					projectPath: "/p",
+					feature: "feat",
+				});
+			}
+			insertEvent(db, {
+				runId: "run-dedupe",
+				type: "artifact_registered",
+				data: JSON.stringify({
+					docId: "doc-b",
+					path: "features/feat/tasks.md",
+				}),
+			});
+			insertEvent(db, {
+				runId: "run-dedupe",
+				type: "artifact_registered",
+				data: JSON.stringify({
+					docId: "doc-a",
+					path: "features/feat/tasks.md",
+				}),
+			});
+
+			// Attachments on rows that will be merged away must survive.
+			upsertAnnotation(db, {
+				docId: "doc-b",
+				runId: "run-dedupe",
+				content: "note on stale row",
+			});
+			setArtifactBaseline(db, "doc-c", "baseline content");
+
+			dedupeArtifactLocations(db);
+
+			const rows = db
+				.prepare(
+					"SELECT doc_id, baseline FROM artifacts WHERE path = 'features/feat/tasks.md'",
+				)
+				.all() as { doc_id: string; baseline: string | null }[];
+			expect(rows).toHaveLength(1);
+			expect(rows[0].doc_id).toBe("doc-a");
+			expect(rows[0].baseline).toBe("baseline content");
+
+			const annotations = db
+				.prepare("SELECT doc_id, content FROM annotations")
+				.all() as { doc_id: string; content: string }[];
+			expect(annotations).toHaveLength(1);
+			expect(annotations[0].doc_id).toBe("doc-a");
+			expect(annotations[0].content).toBe("note on stale row");
+		});
+
+		test("leaves distinct locations and url artifacts untouched", async () => {
+			const dbPath = join(tempDir, "artifact-dedupe-noop.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-dedupe-noop",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			upsertArtifact(db, {
+				docId: "doc-one",
+				runId: "run-dedupe-noop",
+				path: "features/feat/design.md",
+				type: "markdown",
+				storageRoot: "work_dir",
+				projectPath: "/p",
+				feature: "feat",
+			});
+			upsertArtifact(db, {
+				docId: "doc-two",
+				runId: "run-dedupe-noop",
+				path: "features/feat/tasks.md",
+				type: "markdown",
+				storageRoot: "work_dir",
+				projectPath: "/p",
+				feature: "feat",
+			});
+			// Two url artifacts sharing a path must not be merged.
+			for (const docId of ["link-one", "link-two"]) {
+				upsertArtifact(db, {
+					docId,
+					runId: "run-dedupe-noop",
+					locationKind: "url",
+					path: "https://example.com/pr/1",
+					url: "https://example.com/pr/1",
+					type: "link",
+					storageRoot: "work_dir",
+					projectPath: "/p",
+					feature: "feat",
+				});
+			}
+
+			dedupeArtifactLocations(db);
+
+			const count = db.prepare("SELECT COUNT(*) AS n FROM artifacts").get() as {
+				n: number;
+			};
+			expect(count.n).toBe(4);
 		});
 	});
 

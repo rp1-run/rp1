@@ -35,7 +35,7 @@ import { readProjectId } from "../../../shared/project-id.js";
 import { computeDirectoryPaths } from "../../../shared/storage-mode.js";
 
 /** Current schema version. Bump when adding migrations. */
-export const LATEST_SCHEMA_VERSION = 18;
+export const LATEST_SCHEMA_VERSION = 19;
 
 /** Default database file location. Override with RP1_DB env var. */
 const getDefaultDbPath = (): string =>
@@ -190,6 +190,7 @@ CREATE INDEX IF NOT EXISTS idx_artifacts_doc_id ON artifacts(doc_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_project_feature ON artifacts(project_path, feature);
 CREATE INDEX IF NOT EXISTS idx_artifacts_project_id ON artifacts(project_id);
+CREATE INDEX IF NOT EXISTS idx_artifacts_location ON artifacts(project_path, path, storage_root);
 
 CREATE TABLE IF NOT EXISTS annotations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -922,6 +923,78 @@ const migrateSocraticDuelLockSchema = (db: Database): void => {
 };
 
 /**
+ * Merge duplicate file-artifact rows that share one on-disk location.
+ *
+ * Doc-id churn (pre-v19 registration minted a fresh doc_id whenever
+ * markdown lost its frontmatter, and on every non-markdown registration)
+ * left multiple artifact rows per (project_path, path, storage_root).
+ * The keeper is the doc_id with the most recent artifact_registered
+ * event — true registration recency, which for markdown matches the
+ * doc_id last injected into the file — falling back to the highest row
+ * id. Annotations are re-pointed to the keeper, the newest surviving
+ * baseline is preserved, and the stale rows are deleted.
+ */
+export const dedupeArtifactLocations = (db: Database): void => {
+	const groups = db
+		.prepare(
+			`SELECT project_path, path, storage_root
+			 FROM artifacts
+			 WHERE location_kind = 'file'
+			 GROUP BY project_path, path, storage_root
+			 HAVING COUNT(*) > 1`,
+		)
+		.all() as { project_path: string; path: string; storage_root: string }[];
+
+	const mergeGroup = db.transaction(
+		(group: { project_path: string; path: string; storage_root: string }) => {
+			const rows = db
+				.prepare(
+					`SELECT a.id, a.doc_id, a.baseline,
+					        (SELECT MAX(e.id) FROM events e
+					          WHERE e.type = 'artifact_registered'
+					            AND json_extract(e.data, '$.docId') = a.doc_id) AS last_event_id
+					 FROM artifacts a
+					 WHERE a.project_path = $projectPath
+					   AND a.path = $path
+					   AND a.storage_root = $storageRoot
+					   AND a.location_kind = 'file'
+					 ORDER BY COALESCE(last_event_id, -1) DESC, a.id DESC`,
+				)
+				.all({
+					$projectPath: group.project_path,
+					$path: group.path,
+					$storageRoot: group.storage_root,
+				}) as { id: number; doc_id: string; baseline: string | null }[];
+
+			const [keeper, ...stale] = rows;
+			if (!keeper) return;
+
+			let keeperBaseline = keeper.baseline;
+			for (const row of stale) {
+				db.prepare(
+					"UPDATE annotations SET doc_id = $keeperDocId WHERE doc_id = $staleDocId",
+				).run({ $keeperDocId: keeper.doc_id, $staleDocId: row.doc_id });
+
+				if (keeperBaseline == null && row.baseline != null) {
+					db.prepare(
+						"UPDATE artifacts SET baseline = $baseline WHERE doc_id = $docId",
+					).run({ $baseline: row.baseline, $docId: keeper.doc_id });
+					keeperBaseline = row.baseline;
+				}
+
+				db.prepare("DELETE FROM artifacts WHERE id = $id").run({
+					$id: row.id,
+				});
+			}
+		},
+	);
+
+	for (const group of groups) {
+		mergeGroup(group);
+	}
+};
+
+/**
  * Apply schema migrations based on the current schema version.
  * Each migration bumps the version to prevent re-application.
  */
@@ -1414,6 +1487,14 @@ const applyMigrations = (db: Database): void => {
 		.get() as { version: number } | null;
 
 	if ((postV17Version?.version ?? 17) < 18) {
+		applyV18Migration(db);
+	}
+
+	const postV18Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV18Version?.version ?? 18) < 19) {
 		const artifactsTable = db
 			.prepare(
 				"SELECT name FROM sqlite_master WHERE type='table' AND name='artifacts'",
@@ -1421,44 +1502,61 @@ const applyMigrations = (db: Database): void => {
 			.get() as { name: string } | null;
 
 		if (artifactsTable) {
-			const artifactCols = db.prepare("PRAGMA table_info(artifacts)").all() as {
-				name: string;
-			}[];
-			const artifactColNames = new Set(artifactCols.map((c) => c.name));
-
-			if (!artifactColNames.has("location_kind")) {
-				db.exec(
-					"ALTER TABLE artifacts ADD COLUMN location_kind TEXT NOT NULL DEFAULT 'file' CHECK(location_kind IN ('file', 'url'))",
-				);
-			}
-			if (!artifactColNames.has("url")) {
-				db.exec("ALTER TABLE artifacts ADD COLUMN url TEXT DEFAULT NULL");
-			}
-			if (!artifactColNames.has("label")) {
-				db.exec("ALTER TABLE artifacts ADD COLUMN label TEXT DEFAULT NULL");
-			}
-			if (!artifactColNames.has("relationship")) {
-				db.exec(
-					"ALTER TABLE artifacts ADD COLUMN relationship TEXT DEFAULT NULL",
-				);
-			}
-			if (!artifactColNames.has("source_context")) {
-				db.exec(
-					"ALTER TABLE artifacts ADD COLUMN source_context TEXT DEFAULT NULL",
-				);
-			}
-			if (!artifactColNames.has("source_artifact_path")) {
-				db.exec(
-					"ALTER TABLE artifacts ADD COLUMN source_artifact_path TEXT DEFAULT NULL",
-				);
-			}
-			if (!artifactColNames.has("metadata")) {
-				db.exec("ALTER TABLE artifacts ADD COLUMN metadata TEXT DEFAULT NULL");
-			}
+			dedupeArtifactLocations(db);
+			db.exec(
+				"CREATE INDEX IF NOT EXISTS idx_artifacts_location ON artifacts(project_path, path, storage_root)",
+			);
 		}
 
-		db.prepare("UPDATE schema_version SET version = 18").run();
+		db.prepare("UPDATE schema_version SET version = 19").run();
 	}
+};
+
+const applyV18Migration = (db: Database): void => {
+	const artifactsTable = db
+		.prepare(
+			"SELECT name FROM sqlite_master WHERE type='table' AND name='artifacts'",
+		)
+		.get() as { name: string } | null;
+
+	if (artifactsTable) {
+		const artifactCols = db.prepare("PRAGMA table_info(artifacts)").all() as {
+			name: string;
+		}[];
+		const artifactColNames = new Set(artifactCols.map((c) => c.name));
+
+		if (!artifactColNames.has("location_kind")) {
+			db.exec(
+				"ALTER TABLE artifacts ADD COLUMN location_kind TEXT NOT NULL DEFAULT 'file' CHECK(location_kind IN ('file', 'url'))",
+			);
+		}
+		if (!artifactColNames.has("url")) {
+			db.exec("ALTER TABLE artifacts ADD COLUMN url TEXT DEFAULT NULL");
+		}
+		if (!artifactColNames.has("label")) {
+			db.exec("ALTER TABLE artifacts ADD COLUMN label TEXT DEFAULT NULL");
+		}
+		if (!artifactColNames.has("relationship")) {
+			db.exec(
+				"ALTER TABLE artifacts ADD COLUMN relationship TEXT DEFAULT NULL",
+			);
+		}
+		if (!artifactColNames.has("source_context")) {
+			db.exec(
+				"ALTER TABLE artifacts ADD COLUMN source_context TEXT DEFAULT NULL",
+			);
+		}
+		if (!artifactColNames.has("source_artifact_path")) {
+			db.exec(
+				"ALTER TABLE artifacts ADD COLUMN source_artifact_path TEXT DEFAULT NULL",
+			);
+		}
+		if (!artifactColNames.has("metadata")) {
+			db.exec("ALTER TABLE artifacts ADD COLUMN metadata TEXT DEFAULT NULL");
+		}
+	}
+
+	db.prepare("UPDATE schema_version SET version = 18").run();
 };
 
 /**
@@ -3048,6 +3146,39 @@ export const getArtifactByDocId = (
 	const row = db
 		.prepare("SELECT * FROM artifacts WHERE doc_id = $docId")
 		.get({ $docId: docId }) as ArtifactRow | null;
+
+	return row ? artifactRowToRecord(row) : null;
+};
+
+/**
+ * Get the most recently registered file artifact at a given location.
+ * Used at registration time to reuse the existing doc_id when the file
+ * itself no longer carries one (frontmatter stripped by a rewrite) or
+ * cannot carry one (non-markdown), instead of minting a duplicate row.
+ */
+export const getLatestArtifactByLocation = (
+	db: Database,
+	location: {
+		readonly projectPath: string;
+		readonly path: string;
+		readonly storageRoot: ArtifactStorageRoot;
+	},
+): ArtifactRecord | null => {
+	const row = db
+		.prepare(
+			`SELECT * FROM artifacts
+			 WHERE project_path = $projectPath
+			   AND path = $path
+			   AND storage_root = $storageRoot
+			   AND location_kind = 'file'
+			 ORDER BY id DESC
+			 LIMIT 1`,
+		)
+		.get({
+			$projectPath: location.projectPath,
+			$path: location.path,
+			$storageRoot: location.storageRoot,
+		}) as ArtifactRow | null;
 
 	return row ? artifactRowToRecord(row) : null;
 };
