@@ -442,7 +442,7 @@ Legacy milestone/quick-build mode:
 
 **If QUICK_BUILD_PATH is not empty** (quick-build mode):
 
-Write or update the `## Verification` section in the quick-build artifact:
+Append a `## Verification` section to the end of the quick-build artifact (do not search for or replace an existing section -- the template does not pre-stub one):
 
 ```markdown
 ## Verification

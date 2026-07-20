@@ -358,7 +358,7 @@ If the process fails after acquiring the lock, remove the lock before returning 
 
 **IF QUICK_BUILD_PATH is not empty** (Quick-build mode):
 
-Add or update `## Implementation Summary` section in the quick-build artifact with table format:
+Append a `## Implementation Summary` section to the end of the quick-build artifact (do not search for or replace an existing section -- the template does not pre-stub one). Use table format:
 
 ```markdown
 ## Implementation Summary

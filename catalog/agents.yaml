@@ -98,7 +98,7 @@ agents:
   - name: rp1-dev:build-fast-planner
     description: "Quick-iteration workflow planner. Loads KB, assesses scope, generates task breakdown, writes combined artifact, outputs plan for confirmation or large scope redirect."
     plugin: dev
-    last_checksum: 61fb505e572b04f894bc5bb53f10fc46866f538ba2208e46147658a9adbb23cb
+    last_checksum: 8fc2cc3f4403755b91fc4a082ae0c572dd60d2834bf5e6bcc9115e209b557f2d
   - name: rp1-dev:build-task-grouper
     description: "Batches parsed tasks into execution units based on complexity rules"
     plugin: dev
@@ -206,11 +206,11 @@ agents:
   - name: rp1-dev:task-builder
     description: "Implements assigned task(s) w/ full context, writes summaries to the resolved task file. Uses extended thinking (or ultrathink)."
     plugin: dev
-    last_checksum: af9935b641aa18addcaa5125ab269946dc37bffb3ba3f3e510cddb7816aa43f0
+    last_checksum: a501ad2af781a070c22840e673defd13f12d0bd9a679029d7e1fe5f5ec44a206
   - name: rp1-dev:task-reviewer
     description: "Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification."
     plugin: dev
-    last_checksum: 127b1f730e6983fbaf645d5b8a086e9af8b9e662c0ab64874320be2d597f9be1
+    last_checksum: 1b8c0c2e5cc9360a6942962c884c87c453ad9d70b768471b85a3e38b4c250451
   - name: rp1-dev:test-runner
     description: "Executes comprehensive functional testing of implemented features including automated tests, coverage measurement, acceptance criteria verification, and detailed test reporting"
     plugin: dev

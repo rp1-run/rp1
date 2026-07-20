@@ -170,7 +170,7 @@ Interpret the planner redirect before stopping:
 
 When skipped: Do NOT prompt the user. Proceed directly to §PHASE-2.
 
-**Interactive plan gate rule**: When `AFK=false`, this checkpoint is REQUIRED after the planner registers the quick-build artifact and before entering §PHASE-2. Complete both actions below in order:
+**Interactive plan gate rule**: When `AFK=false`, this checkpoint is REQUIRED after the planner writes and registers the quick-build artifact (via `artifact_registered` with `--step plan`) and before entering §PHASE-2. The planner's registration is the initial one -- the user sees the plan in the Arcade before this gate. Complete both actions below in order:
 1. Emit `waiting_for_user` for the plan gate
 2. Call `ask_user` and wait for the answer
 
@@ -396,7 +396,7 @@ Review the changes.
 
 ## §OUTPUT
 
-Register the artifact in the database:
+Re-register the artifact for the build-completion lifecycle (the planner already registered it under `--step plan` so the Arcade shows it during planning; this re-registration under `--step build` marks the artifact as associated with the completed build phase):
 
 ```bash
 rp1 agent-tools emit \
