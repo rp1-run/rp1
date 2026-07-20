@@ -198,6 +198,43 @@ describe("syncAntigravityActivePlugins", () => {
 		}
 	});
 
+	test("treats a manifest-recorded import with no registry directories as drift", async () => {
+		const homeDir = await createTempDir(
+			"antigravity-active-registry-manifest-only",
+		);
+		try {
+			await writeActiveAsset(
+				join(homeDir, ".gemini/config/import_manifest.json"),
+				JSON.stringify({
+					imports: [
+						{ name: "rp1-base", source: "antigravity" },
+						{ name: "rp1-dev", source: "antigravity" },
+					],
+				}),
+			);
+
+			const manifestOnly = await syncAntigravityActivePlugins({
+				dryRun: true,
+				homeDir,
+				assetManifest: bundleAssets,
+			});
+			expect(manifestOnly.driftDetected).toBe(true);
+			expect(manifestOnly.driftIssue).toContain(
+				"has no active plugin registry directory",
+			);
+
+			await writeActiveRegistry(homeDir, CURRENT_REGISTRY_ROOT);
+			const repaired = await syncAntigravityActivePlugins({
+				dryRun: true,
+				homeDir,
+				assetManifest: bundleAssets,
+			});
+			expect(repaired.driftDetected).toBe(false);
+		} finally {
+			await cleanupTempDir(homeDir);
+		}
+	});
+
 	test("reads the current import manifest before the legacy one", async () => {
 		const homeDir = await createTempDir("antigravity-active-registry-manifest");
 		try {
@@ -231,7 +268,15 @@ describe("syncAntigravityActivePlugins", () => {
 				homeDir,
 				assetManifest: bundleAssets,
 			});
-			expect(currentWins.driftDetected).toBe(false);
+			expect(currentWins.driftIssue).not.toContain("Gemini CLI");
+
+			await writeActiveRegistry(homeDir, CURRENT_REGISTRY_ROOT);
+			const settled = await syncAntigravityActivePlugins({
+				dryRun: true,
+				homeDir,
+				assetManifest: bundleAssets,
+			});
+			expect(settled.driftDetected).toBe(false);
 		} finally {
 			await cleanupTempDir(homeDir);
 		}

@@ -220,13 +220,13 @@ const inspectActiveAntigravityImports = async (options: {
 		);
 		if (importManifest !== null) break;
 	}
+	const latestImportSourceByName = new Map<string, unknown>();
 	if (
 		importManifest &&
 		typeof importManifest === "object" &&
 		"imports" in importManifest &&
 		Array.isArray((importManifest as { readonly imports?: unknown }).imports)
 	) {
-		const latestImportSourceByName = new Map<string, unknown>();
 		for (const entry of (importManifest as { readonly imports: unknown[] })
 			.imports) {
 			if (typeof entry !== "object" || entry === null) continue;
@@ -258,14 +258,27 @@ const inspectActiveAntigravityImports = async (options: {
 		"support_matrix",
 		"support_metadata",
 	]);
+	const activeRefreshRemediation =
+		"Run `rp1 update plugins antigravity -y` (or `rp1 install antigravity`) to refresh Antigravity's active plugin registry.";
 	const registryRoot = await detectActivePluginRegistryRoot(
 		options.homeDir,
 		expectedPlugins,
 	);
-	if (!registryRoot) return null;
-
-	const activeRefreshRemediation =
-		"Run `rp1 update plugins antigravity -y` (or `rp1 install antigravity`) to refresh Antigravity's active plugin registry.";
+	if (!registryRoot) {
+		// The import manifest claims rp1 plugins are imported, yet no active
+		// registry directory exists in either layout — the registry was
+		// removed or never materialized and must be re-imported.
+		const importedPlugin = latestImportSourceByName.keys().next().value as
+			| string
+			| undefined;
+		if (importedPlugin !== undefined) {
+			return {
+				issue: `${importedPlugin} is recorded in Antigravity's import manifest but has no active plugin registry directory.`,
+				remediation: activeRefreshRemediation,
+			};
+		}
+		return null;
+	}
 	for (const asset of options.assets) {
 		if (!activeComparableKinds.has(asset.kind)) continue;
 		const activeRelativePath = activePluginRelativePathFor(asset, registryRoot);
