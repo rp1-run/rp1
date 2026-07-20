@@ -132,7 +132,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step charter \
-  --data '{"path": "{kbRoot}/charter.md", "feature": "blueprint", "storageRoot": "project"}'
+  --data '{"path": "{kbRoot}/charter.md", "feature": "blueprint", "storageRoot": "absolute"}'
 ```
 
 ### 3. Create Or Resume The PRD

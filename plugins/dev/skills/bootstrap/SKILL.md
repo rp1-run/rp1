@@ -264,7 +264,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id "{BOOTSTRAP_RUN_ID}" \
   --project "{targetProjectRoot}" \
-  --data '{"path": "{targetKbRoot}/charter.md", "feature": "{PROJECT_NAME}", "storageRoot": "project"}'
+  --data '{"path": "{targetKbRoot}/charter.md", "feature": "{PROJECT_NAME}", "storageRoot": "absolute"}'
 ```
 
 Preferences:
@@ -275,7 +275,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id "{BOOTSTRAP_RUN_ID}" \
   --project "{targetProjectRoot}" \
-  --data '{"path": "{targetKbRoot}/preferences.md", "feature": "{PROJECT_NAME}", "storageRoot": "project"}'
+  --data '{"path": "{targetKbRoot}/preferences.md", "feature": "{PROJECT_NAME}", "storageRoot": "absolute"}'
 ```
 
 ### 9. Complete

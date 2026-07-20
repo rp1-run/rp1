@@ -227,6 +227,9 @@ describe("parent-owned interview foundation", () => {
 			"Persist `EXTRA_CONTEXT` in `**Additional Context**`",
 		);
 		expect(blueprint).toContain(
+			'"path": "{kbRoot}/charter.md", "feature": "blueprint", "storageRoot": "absolute"',
+		);
+		expect(blueprint).not.toContain(
 			'"path": "{kbRoot}/charter.md", "feature": "blueprint", "storageRoot": "project"',
 		);
 		expect(blueprint).toContain(
@@ -773,12 +776,21 @@ describe("parent-owned interview foundation", () => {
 						kbRoot,
 					);
 					expect(resolvedBlueprint).toContain(
+						`"path": "${kbRoot}/charter.md", "feature": "blueprint", "storageRoot": "absolute"`,
+					);
+					expect(resolvedBootstrap).toContain(
+						`"path": "${kbRoot}/charter.md", "feature": "{PROJECT_NAME}", "storageRoot": "absolute"`,
+					);
+					expect(resolvedBootstrap).toContain(
+						`"path": "${kbRoot}/preferences.md", "feature": "{PROJECT_NAME}", "storageRoot": "absolute"`,
+					);
+					expect(resolvedBlueprint).not.toContain(
 						`"path": "${kbRoot}/charter.md", "feature": "blueprint", "storageRoot": "project"`,
 					);
-					expect(resolvedBootstrap).toContain(
+					expect(resolvedBootstrap).not.toContain(
 						`"path": "${kbRoot}/charter.md", "feature": "{PROJECT_NAME}", "storageRoot": "project"`,
 					);
-					expect(resolvedBootstrap).toContain(
+					expect(resolvedBootstrap).not.toContain(
 						`"path": "${kbRoot}/preferences.md", "feature": "{PROJECT_NAME}", "storageRoot": "project"`,
 					);
 				}
@@ -837,9 +849,15 @@ describe("parent-owned interview foundation", () => {
 		);
 		expect(bootstrap).toContain('--project "{targetProjectRoot}"');
 		expect(bootstrap).toContain(
-			'"path": "{targetKbRoot}/charter.md", "feature": "{PROJECT_NAME}", "storageRoot": "project"',
+			'"path": "{targetKbRoot}/charter.md", "feature": "{PROJECT_NAME}", "storageRoot": "absolute"',
 		);
 		expect(bootstrap).toContain(
+			'"path": "{targetKbRoot}/preferences.md", "feature": "{PROJECT_NAME}", "storageRoot": "absolute"',
+		);
+		expect(bootstrap).not.toContain(
+			'"path": "{targetKbRoot}/charter.md", "feature": "{PROJECT_NAME}", "storageRoot": "project"',
+		);
+		expect(bootstrap).not.toContain(
 			'"path": "{targetKbRoot}/preferences.md", "feature": "{PROJECT_NAME}", "storageRoot": "project"',
 		);
 	});
