@@ -482,7 +482,10 @@ const installForTool = (
 
 	if (tool.tool.id === "antigravity") {
 		return pipe(
-			installAntigravityBundleAssets({ dryRun: ctx.dryRun }),
+			installAntigravityBundleAssets({
+				dryRun: ctx.dryRun,
+				homeDir: ctx.homeDir,
+			}),
 			TE.map(
 				(result): ToolInstallResult => ({
 					...baseResult,
@@ -683,7 +686,10 @@ export const updateForSpecificTool = (
 
 	if (lookup.tool.id === "antigravity") {
 		return pipe(
-			refreshAntigravityManifestAssets({ dryRun: ctx.dryRun }),
+			refreshAntigravityManifestAssets({
+				dryRun: ctx.dryRun,
+				homeDir: ctx.homeDir,
+			}),
 			TE.chain((result) =>
 				TE.tryCatch(
 					async () => ({
@@ -691,7 +697,10 @@ export const updateForSpecificTool = (
 						sync:
 							result.initialStatus.state === "blocked"
 								? null
-								: await syncAntigravityActivePlugins({ dryRun: ctx.dryRun }),
+								: await syncAntigravityActivePlugins({
+										dryRun: ctx.dryRun,
+										homeDir: ctx.homeDir,
+									}),
 					}),
 					(error) =>
 						installError(
@@ -843,7 +852,10 @@ export const installForSpecificTool = (
 
 	if (tool.id === "antigravity") {
 		return pipe(
-			installAntigravityBundleAssets({ dryRun: ctx.dryRun }),
+			installAntigravityBundleAssets({
+				dryRun: ctx.dryRun,
+				homeDir: ctx.homeDir,
+			}),
 			TE.map(
 				(result): ToolInstallResult => ({
 					toolId: tool.id,

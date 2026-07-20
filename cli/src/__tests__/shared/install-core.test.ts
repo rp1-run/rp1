@@ -1033,6 +1033,269 @@ describe("install-core tool routing", () => {
 		}
 	});
 
+	test("direct Antigravity update route honors the caller-provided home directory", async () => {
+		const processHome = await createTempDir(
+			"install-core-antigravity-process-home",
+		);
+		const targetHome = await createTempDir(
+			"install-core-antigravity-target-home",
+		);
+		const restoreHome = withEnvOverride("HOME", processHome);
+		const restoreBundle = await withAntigravityBundleDir(targetHome);
+
+		try {
+			const registry = { version: "1.0.0", tools: [createAntigravityTool()] };
+			const result = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"antigravity",
+					registry,
+					createMockContext({ dryRun: false, homeDir: targetHome }),
+				),
+			);
+
+			expect(result.success).toBe(true);
+			expect(
+				await Bun.file(
+					join(targetHome, ".gemini/antigravity-cli/rp1-base/plugin.json"),
+				).exists(),
+			).toBe(true);
+			expect(
+				await Bun.file(
+					join(processHome, ".gemini/antigravity-cli/rp1-base/plugin.json"),
+				).exists(),
+			).toBe(false);
+		} finally {
+			restoreBundle();
+			restoreHome();
+			await cleanupTempDir(targetHome);
+			await cleanupTempDir(processHome);
+		}
+	});
+
+	test("direct Antigravity update route warns when active drift exists but agy is missing", async () => {
+		const homeDir = await createTempDir(
+			"install-core-antigravity-sync-no-binary",
+		);
+		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restoreBundle = await withAntigravityBundleDir(homeDir);
+		const originalWhich = Bun.which;
+		Bun.which = ((command: string) =>
+			command === "agy" ? null : originalWhich(command)) as typeof Bun.which;
+
+		try {
+			const registry = { version: "1.0.0", tools: [createAntigravityTool()] };
+			const seeded = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"antigravity",
+					registry,
+					createMockContext({ dryRun: false }),
+				),
+			);
+			expect(seeded.success).toBe(true);
+
+			const driftedActivePath = join(
+				homeDir,
+				".gemini/config/plugins/rp1-base/commands/rp1-base/guide.toml",
+			);
+			await mkdir(dirname(driftedActivePath), { recursive: true });
+			await writeFile(driftedActivePath, 'description = "Stale"\n', "utf-8");
+
+			const result = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"antigravity",
+					registry,
+					createMockContext({ dryRun: false }),
+				),
+			);
+			expect(result).toMatchObject({
+				toolId: "antigravity",
+				success: true,
+				restartRequired: false,
+			});
+			expect(result.warnings.join("\n")).toContain(
+				"`agy` was not found in PATH",
+			);
+			expect(result.details?.join("\n")).toContain(
+				"Active plugin registry: skipped",
+			);
+		} finally {
+			Bun.which = originalWhich;
+			restoreBundle();
+			restoreHome();
+			await cleanupTempDir(homeDir);
+		}
+	});
+
+	test("direct Antigravity update route fails when the active plugin reimport fails", async () => {
+		const homeDir = await createTempDir(
+			"install-core-antigravity-sync-failure",
+		);
+		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restorePath = withEnvOverride(
+			"PATH",
+			[homeDir, process.env.PATH ?? ""].filter(Boolean).join(delimiter),
+		);
+		const restoreBundle = await withAntigravityBundleDir(homeDir);
+		const agyPath = join(homeDir, "agy");
+		const originalWhich = Bun.which;
+
+		await writeFile(
+			agyPath,
+			[
+				"#!/bin/sh",
+				'if [ "$1" = "plugin" ] && [ "$2" = "install" ]; then',
+				'  echo "import rejected" >&2',
+				"  exit 1",
+				"fi",
+				"exit 0",
+				"",
+			].join("\n"),
+			"utf-8",
+		);
+		await chmod(agyPath, 0o755);
+		Bun.which = ((command: string) =>
+			command === "agy" ? agyPath : originalWhich(command)) as typeof Bun.which;
+
+		try {
+			const registry = { version: "1.0.0", tools: [createAntigravityTool()] };
+			const seeded = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"antigravity",
+					registry,
+					createMockContext({ dryRun: false }),
+				),
+			);
+			expect(seeded.success).toBe(true);
+
+			const driftedActivePath = join(
+				homeDir,
+				".gemini/config/plugins/rp1-base/commands/rp1-base/guide.toml",
+			);
+			await mkdir(dirname(driftedActivePath), { recursive: true });
+			await writeFile(driftedActivePath, 'description = "Stale"\n', "utf-8");
+
+			const result = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"antigravity",
+					registry,
+					createMockContext({ dryRun: false }),
+				),
+			);
+			expect(result).toMatchObject({
+				toolId: "antigravity",
+				success: false,
+			});
+			expect(result.error).toBeDefined();
+			expect(getErrorMessage(result.error as CLIError)).toContain(
+				"import rejected",
+			);
+			expect(result.details?.join("\n")).toContain(
+				"Active plugin registry: refresh failed",
+			);
+		} finally {
+			Bun.which = originalWhich;
+			restoreBundle();
+			restorePath();
+			restoreHome();
+			await cleanupTempDir(homeDir);
+		}
+	});
+
+	test("direct Antigravity update route is idempotent once the reimport lands active assets", async () => {
+		const homeDir = await createTempDir(
+			"install-core-antigravity-sync-idempotent",
+		);
+		const restoreHome = withEnvOverride("HOME", homeDir);
+		const restorePath = withEnvOverride(
+			"PATH",
+			[homeDir, process.env.PATH ?? ""].filter(Boolean).join(delimiter),
+		);
+		const restoreBundle = await withAntigravityBundleDir(homeDir);
+		const agyPath = join(homeDir, "agy");
+		const installLogPath = join(homeDir, "agy-plugin-install.log");
+		const originalWhich = Bun.which;
+
+		// Fake agy that mimics the real import: copies the package directory
+		// into the current active registry location.
+		await writeFile(
+			agyPath,
+			[
+				"#!/bin/sh",
+				'if [ "$1" = "plugin" ] && [ "$2" = "install" ]; then',
+				'  name=$(basename "$3")',
+				`  mkdir -p "$HOME/.gemini/config/plugins/$name"`,
+				`  cp -R "$3/." "$HOME/.gemini/config/plugins/$name/"`,
+				`  echo "$3" >> "${installLogPath}"`,
+				"  exit 0",
+				"fi",
+				"exit 0",
+				"",
+			].join("\n"),
+			"utf-8",
+		);
+		await chmod(agyPath, 0o755);
+		Bun.which = ((command: string) =>
+			command === "agy" ? agyPath : originalWhich(command)) as typeof Bun.which;
+
+		try {
+			const registry = { version: "1.0.0", tools: [createAntigravityTool()] };
+			const seeded = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"antigravity",
+					registry,
+					createMockContext({ dryRun: false }),
+				),
+			);
+			expect(seeded.success).toBe(true);
+
+			const driftedActivePath = join(
+				homeDir,
+				".gemini/config/plugins/rp1-base/commands/rp1-base/guide.toml",
+			);
+			await mkdir(dirname(driftedActivePath), { recursive: true });
+			await writeFile(driftedActivePath, 'description = "Stale"\n', "utf-8");
+
+			const refreshed = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"antigravity",
+					registry,
+					createMockContext({ dryRun: false }),
+				),
+			);
+			expect(refreshed).toMatchObject({
+				success: true,
+				restartRequired: true,
+			});
+			expect(refreshed.details?.join("\n")).toContain(
+				"Active plugin registry: refreshed",
+			);
+
+			const second = await expectTaskRight(
+				updateForSpecificToolDirect(
+					"antigravity",
+					registry,
+					createMockContext({ dryRun: false }),
+				),
+			);
+			expect(second).toMatchObject({
+				success: true,
+				restartRequired: false,
+			});
+			expect(second.details?.join("\n")).toContain(
+				"Active plugin registry: current",
+			);
+
+			const installLog = await Bun.file(installLogPath).text();
+			expect(installLog.trim().split("\n")).toHaveLength(2);
+		} finally {
+			Bun.which = originalWhich;
+			restoreBundle();
+			restorePath();
+			restoreHome();
+			await cleanupTempDir(homeDir);
+		}
+	});
+
 	test("installAllDetectedTools imports Antigravity active plugins during automatic install", async () => {
 		const homeDir = await createTempDir(
 			"install-core-antigravity-auto-install",
