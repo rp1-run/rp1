@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { resolveSharedIncludes } from "../cli/src/build/preprocessor.js";
 
 const repoRoot = resolve(import.meta.dir, "..");
 
@@ -212,5 +213,163 @@ describe("parent-owned interview foundation", () => {
 				"Report every remaining required gap explicitly in `gaps`.",
 			);
 		}
+	});
+
+	test("rejects every bootstrap project name before target effects", async () => {
+		const bootstrap = await readRepoFile(
+			"plugins/dev/skills/bootstrap/SKILL.md",
+		);
+
+		expect(bootstrap).toContain("`^[a-z0-9][a-z0-9-]*$`");
+		expect(bootstrap).toContain(
+			"Validate every supplied, inferred, or recovered project name",
+		);
+		expect(bootstrap).toContain(
+			"Do not trim, sanitize, lowercase, or otherwise rewrite a candidate",
+		);
+		expectInOrder(bootstrap, [
+			"Validate `CANDIDATE_PROJECT_NAME`",
+			"Only after validation may the parent set `PROJECT_NAME` and `TARGET_DIR`",
+			"Initialize Or Reuse The Selected Target",
+		]);
+	});
+
+	test("discovers bootstrap resume state only from ordinary preferences", async () => {
+		const bootstrap = await readRepoFile(
+			"plugins/dev/skills/bootstrap/SKILL.md",
+		);
+
+		expect(bootstrap).toContain(
+			"A resumable candidate exists only when its resolved `{targetKbRoot}/preferences.md` exists.",
+		);
+		expect(bootstrap).toContain(
+			"Inspect only the current directory and safe-named direct children",
+		);
+		expect(bootstrap).toContain(
+			"Known `_TBD_` sections in `charter.md` and `preferences.md` are the only resume state.",
+		);
+		expect(bootstrap).not.toContain("rp1 agent-tools workflow-state");
+		expect(bootstrap).not.toContain("## Scratch Pad");
+		expect(bootstrap).not.toContain("<!-- Phase:");
+	});
+
+	test("keeps bootstrap interviews parent-owned and durable before planning", async () => {
+		const bootstrap = await readRepoFile(
+			"plugins/dev/skills/bootstrap/SKILL.md",
+		);
+
+		expect(bootstrap).toContain(
+			'{% include_shared "parent-owned-interview.md" %}',
+		);
+		expectInOrder(bootstrap, [
+			"Ask one focused charter question directly from this parent skill.",
+			"Write the complete reconstructed charter",
+			"Re-read the charter after the successful write",
+			"Ask one focused preferences question directly from this parent skill.",
+			"Write the complete reconstructed preferences document",
+			"Re-read the preferences document after the successful write",
+			"ACTION=PLAN",
+		]);
+		expect(bootstrap).toContain(
+			"MUST NOT dispatch inside either interview loop",
+		);
+		expect(bootstrap).not.toMatch(/{%\s*ask_user\b/);
+		expect(bootstrap).not.toContain(
+			'{% dispatch_agent "rp1-dev:charter-interviewer" %}',
+		);
+	});
+
+	test("keeps the composed bootstrap prompt compatible with parent-owned questions", async () => {
+		const bootstrap = await readRepoFile(
+			"plugins/dev/skills/bootstrap/SKILL.md",
+		);
+		const result = await resolveSharedIncludes(bootstrap, repoRoot);
+
+		expect(result._tag).toBe("Right");
+		if (result._tag === "Left") {
+			throw new Error(result.left.message);
+		}
+
+		expect(bootstrap).not.toContain('{% include_shared "anti-loop.md" %}');
+		for (const prohibition of [
+			"Ask for clarification or approval",
+			"Wait for user feedback",
+			"Request additional information",
+		]) {
+			expect(result.right).not.toContain(prohibition);
+		}
+	});
+
+	test("persists bootstrap approval decisions before their actions", async () => {
+		const bootstrap = await readRepoFile(
+			"plugins/dev/skills/bootstrap/SKILL.md",
+		);
+
+		expectInOrder(bootstrap, [
+			"Persist the accepted plan as `Approved` in `Plan Review`",
+			"Re-read and verify the approval",
+			"ACTION=APPLY",
+		]);
+		expectInOrder(bootstrap, [
+			"Persist the complete requested change in `Revision Request`",
+			"Re-read and verify the requested change",
+			"ACTION=REVISE",
+		]);
+		expect(bootstrap).toContain(
+			"Persist `Revision limit reached; rerun bootstrap to request another plan`",
+		);
+		expect(bootstrap).toContain(
+			"Stop without another dispatch and give rerun guidance.",
+		);
+	});
+
+	test("bounds bootstrap to one plan, one revision, and one apply dispatch", async () => {
+		const bootstrap = await readRepoFile(
+			"plugins/dev/skills/bootstrap/SKILL.md",
+		);
+
+		expect(bootstrap.match(/ACTION=PLAN/g)).toHaveLength(1);
+		expect(bootstrap.match(/ACTION=REVISE/g)).toHaveLength(1);
+		expect(bootstrap.match(/ACTION=APPLY/g)).toHaveLength(1);
+		expect(
+			bootstrap.match(/{% dispatch_agent "rp1-dev:bootstrap-scaffolder" %}/g),
+		).toHaveLength(3);
+	});
+
+	test("registers bootstrap KB artifacts from the resolved target roots", async () => {
+		const bootstrap = await readRepoFile(
+			"plugins/dev/skills/bootstrap/SKILL.md",
+		);
+
+		expect(bootstrap).toContain(
+			"Map `directories.projectRoot` to `targetProjectRoot` and `directories.kbRoot` to `targetKbRoot`",
+		);
+		expect(bootstrap).toContain('--project "{targetProjectRoot}"');
+		expect(bootstrap).toContain(
+			'"path": "{targetKbRoot}/charter.md", "feature": "{PROJECT_NAME}", "storageRoot": "project"',
+		);
+		expect(bootstrap).toContain(
+			'"path": "{targetKbRoot}/preferences.md", "feature": "{PROJECT_NAME}", "storageRoot": "project"',
+		);
+	});
+
+	test("defines ordinary bootstrap preference gaps", async () => {
+		const bootstrap = await readRepoFile(
+			"plugins/dev/skills/bootstrap/SKILL.md",
+		);
+
+		for (const heading of [
+			"Project",
+			"Tech Stack",
+			"Research Notes",
+			"Scaffold Plan",
+			"Plan Review",
+			"Revision Request",
+			"Revised Plan",
+			"Apply Result",
+		]) {
+			expect(bootstrap).toContain(`## ${heading}`);
+		}
+		expect(bootstrap).toContain("**Status**: Draft");
 	});
 });
