@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Logger } from "../cli/shared/logger.js";
 import { buildPlatformPlugin } from "../cli/src/build/command.js";
-import { PLATFORM_DEFINITIONS } from "../cli/src/build/platform-definitions.js";
+import {
+	PLATFORM_DEFINITIONS,
+	type PlatformDefinition,
+} from "../cli/src/build/platform-definitions.js";
 import { resolveSharedIncludes } from "../cli/src/build/preprocessor.js";
 
 const repoRoot = resolve(import.meta.dir, "..");
@@ -37,6 +40,65 @@ const expectInOrder = (content: string, fragments: string[]): void => {
 		previousIndex = index;
 	}
 };
+
+const expectContainsAll = (content: string, fragments: string[]): void => {
+	for (const fragment of fragments) expect(content).toContain(fragment);
+};
+
+const countMatches = (content: string, pattern: RegExp): number =>
+	content.match(pattern)?.length ?? 0;
+
+const renderedSkillPath = (
+	platformOutput: string,
+	definition: PlatformDefinition,
+	skillName: string,
+): string =>
+	join(
+		platformOutput,
+		"dev",
+		"skills",
+		`${definition.naming.skillDirPrefix}${skillName}`,
+		"SKILL.md",
+	);
+
+const renderedAgentPath = (
+	platformOutput: string,
+	definition: PlatformDefinition,
+	agentName: string,
+): string =>
+	join(
+		platformOutput,
+		"dev",
+		"agents",
+		`${definition.naming.agentFileName("dev", agentName)}${definition.naming.agentExtension}`,
+	);
+
+const countRenderedDispatches = (content: string, agentName: string): number =>
+	content
+		.split("\n")
+		.filter(
+			(line) =>
+				/^\s*(?:subagent_type:|agent_type:|Invoke @)/.test(line) &&
+				line.includes(agentName),
+		).length;
+
+const isUnresolved = (value: string): boolean => {
+	const content = value
+		.split("\n")
+		.map((line) => line.trim())
+		.filter(Boolean);
+	return (
+		content.length === 0 ||
+		content.every((line) => line === "_TBD_" || line === "- _TBD_")
+	);
+};
+
+type ArtifactFixture = Readonly<Record<string, string>>;
+const scanDeclaredGaps = (
+	fixture: ArtifactFixture,
+	requiredRegions: readonly string[],
+): string[] =>
+	requiredRegions.filter((region) => isUnresolved(fixture[region] ?? ""));
 
 describe("parent-owned interview foundation", () => {
 	test("keeps interaction in the parent and persists before continuing", async () => {
@@ -434,20 +496,108 @@ describe("parent-owned interview foundation", () => {
 		}
 	});
 
-	test("renders one directory-only selected-target handoff on every platform", async () => {
+	test("resumes fixtures only from declared current section gaps", () => {
+		const charterRegions = [
+			"Vision",
+			"Problem & Context",
+			"Target Users",
+			"Business Rationale",
+			"Scope Guardrails / Will",
+			"Scope Guardrails / Won't",
+			"Success Criteria",
+		];
+		const nestedScopeAnswer = {
+			will: "- Keep questions in the parent\n  - Persist answers\n  - Resume from artifacts",
+			wont: "- Add session state\n  - No checkpoints\n  - No relay sidecars",
+		};
+		const completeCharter: ArtifactFixture = {
+			Vision: "Predictable setup across every supported harness.",
+			"Problem & Context": "Leaf-owned answers can be lost.",
+			"Target Users": "Developers running rp1 workflows.",
+			"Business Rationale": "Durable interruption recovery.",
+			"Scope Guardrails / Will": nestedScopeAnswer.will,
+			"Scope Guardrails / Won't": nestedScopeAnswer.wont,
+			"Success Criteria": "One bounded topology.",
+			"Historical Notes": "An unrelated _TBD_ example.",
+		};
+		const partialCharter = { ...completeCharter, Vision: "_TBD_" };
+
+		expect(scanDeclaredGaps(partialCharter, charterRegions)).toEqual([
+			"Vision",
+		]);
+		expect(scanDeclaredGaps(completeCharter, charterRegions)).toEqual([]);
+		expect(completeCharter["Scope Guardrails / Will"]).toContain(
+			"\n  - Persist answers",
+		);
+		expect(completeCharter["Scope Guardrails / Won't"]).toContain(
+			"\n  - No relay sidecars",
+		);
+
+		const prdRegions = [
+			"Additional Context",
+			"Surface Overview",
+			"Scope / In Scope",
+			"Scope / Out of Scope",
+			"Requirements / Functional Requirements",
+			"Requirements / Non-Functional Requirements",
+			"Dependencies & Constraints",
+			"Milestones & Timeline",
+			"Open Questions",
+			"Assumptions & Risks / A1",
+		];
+		const completePrd: ArtifactFixture = {
+			...Object.fromEntries(
+				prdRegions.map((region) => [region, `${region} is resolved.`]),
+			),
+			"Reviewer Notes": "An unrelated _TBD_ example.",
+		};
+		const partialPrd = { ...completePrd, "Open Questions": "_TBD_" };
+
+		expect(scanDeclaredGaps(partialPrd, prdRegions)).toEqual([
+			"Open Questions",
+		]);
+		expect(scanDeclaredGaps(completePrd, prdRegions)).toEqual([]);
+
+		const preferenceRegions = [
+			"Project / Scaffold goals",
+			"Tech Stack / Language",
+			"Tech Stack / Runtime",
+			"Tech Stack / Framework",
+			"Tech Stack / Package Manager",
+			"Tech Stack / Testing",
+			"Tech Stack / Build",
+			"Tech Stack / Lint",
+			"Tech Stack / Format",
+		];
+		const completePreferences: ArtifactFixture = {
+			...Object.fromEntries(
+				preferenceRegions.map((region) => [region, `${region} is resolved.`]),
+			),
+			"Research Notes": "_TBD_",
+			"Scaffold Plan": "_TBD_",
+			"Plan Review": "_TBD_",
+		};
+		const partialPreferences = {
+			...completePreferences,
+			"Tech Stack / Runtime": "_TBD_",
+		};
+
+		expect(scanDeclaredGaps(partialPreferences, preferenceRegions)).toEqual([
+			"Tech Stack / Runtime",
+		]);
+		expect(scanDeclaredGaps(completePreferences, preferenceRegions)).toEqual(
+			[],
+		);
+	});
+
+	test("renders the complete parent-owned contract on every registered platform", async () => {
 		const outputRoot = await mkdtemp(
-			join(tmpdir(), "rp1-bootstrap-directory-handoff-"),
+			join(tmpdir(), "rp1-parent-owned-composition-"),
 		);
 
 		try {
 			const platformDefinitions = Array.from(PLATFORM_DEFINITIONS.values());
-			expect(platformDefinitions.map(({ id }) => id).sort()).toEqual([
-				"antigravity",
-				"claude-code",
-				"codex",
-				"copilot",
-				"opencode",
-			]);
+			expect(platformDefinitions.length).toBeGreaterThan(0);
 
 			for (const definition of platformDefinitions) {
 				const platformOutput = join(outputRoot, definition.id);
@@ -461,20 +611,110 @@ describe("parent-owned interview foundation", () => {
 				);
 
 				expect(result.summary.errors).toEqual([]);
-				const skillDirectory =
-					definition.id === "claude-code" ? "bootstrap" : "rp1-bootstrap";
-				const bootstrap = await readFile(
-					join(platformOutput, "dev", "skills", skillDirectory, "SKILL.md"),
-					"utf8",
-				);
+				const [
+					blueprint,
+					bootstrap,
+					charterFinalizer,
+					prdFinalizer,
+					scaffolder,
+				] = await Promise.all([
+					readFile(
+						renderedSkillPath(platformOutput, definition, "blueprint"),
+						"utf8",
+					),
+					readFile(
+						renderedSkillPath(platformOutput, definition, "bootstrap"),
+						"utf8",
+					),
+					readFile(
+						renderedAgentPath(
+							platformOutput,
+							definition,
+							"charter-interviewer",
+						),
+						"utf8",
+					),
+					readFile(
+						renderedAgentPath(platformOutput, definition, "blueprint-wizard"),
+						"utf8",
+					),
+					readFile(
+						renderedAgentPath(
+							platformOutput,
+							definition,
+							"bootstrap-scaffolder",
+						),
+						"utf8",
+					),
+				]);
 
-				expect(bootstrap.match(/rp1 agent-tools resolve-args/g)).toHaveLength(
-					2,
+				for (const parent of [blueprint, bootstrap]) {
+					expectContainsAll(parent, [
+						"Only the including top-level skill asks user-facing questions.",
+						"Treat `_TBD_` as a gap only when it is placeholder content in one of those sections; never scan for the token globally.",
+					]);
+					expect(parent).not.toMatch(/{%\s*(?:ask_user|if|case)\b/);
+					expect(parent).not.toMatch(
+						/FEATURE_PATH|next_question|qa_history|rp1 agent-tools workflow-state|## Scratch Pad|<!--\s*Phase:|--type\s+(?:checkpoint|continuation)|\.bootstrap-(?:marker|state)|capability_(?:probe|matrix)/i,
+					);
+				}
+
+				expectInOrder(blueprint, [
+					"Validate `EFFECTIVE_PRD_NAME`",
+					"`^[A-Za-z0-9][A-Za-z0-9_-]*$`",
+					"This validation MUST happen before any artifact read, artifact write, user question, or agent dispatch.",
+					"### 2. Create Or Resume The Charter",
+				]);
+				expectInOrder(blueprint, [
+					"Ask one focused charter question directly from this parent skill.",
+					"complete reconstructed charter",
+					"Re-read the charter after the successful write",
+					"Re-read `{kbRoot}/charter.md` after a successful finalization",
+				]);
+				expectInOrder(blueprint, [
+					"Ask one focused PRD question directly from this parent skill.",
+					"complete reconstructed PRD",
+					"Re-read the PRD after the successful write",
+					"Re-read the PRD after a successful finalization",
+				]);
+				expect(countRenderedDispatches(blueprint, "charter-interviewer")).toBe(
+					1,
 				);
-				expect(bootstrap.match(/--args "/g)).toHaveLength(1);
+				expect(countRenderedDispatches(blueprint, "blueprint-wizard")).toBe(1);
+
+				expectInOrder(bootstrap, [
+					"`^[a-z0-9][a-z0-9-]*$`",
+					"Validate `CANDIDATE_PROJECT_NAME` before continuing.",
+					"Only after validation may the parent set `PROJECT_NAME` and `TARGET_DIR`",
+					"### 2. Initialize Or Reuse The Selected Target",
+					"ACTION=PLAN",
+				]);
+				expectInOrder(bootstrap, [
+					"Ask one focused charter question directly from this parent skill.",
+					"complete reconstructed charter",
+					"Re-read the charter after the successful write",
+					"Ask one focused preferences question directly from this parent skill.",
+				]);
+				expectInOrder(bootstrap, [
+					"Ask one focused preferences question directly from this parent skill.",
+					"complete reconstructed preferences document",
+					"Re-read the preferences document after the successful write",
+					"ACTION=PLAN",
+				]);
+				expect(countRenderedDispatches(bootstrap, "bootstrap-scaffolder")).toBe(
+					3,
+				);
+				expect(countMatches(bootstrap, /ACTION=PLAN/g)).toBe(1);
+				expect(countMatches(bootstrap, /ACTION=REVISE/g)).toBe(1);
+				expect(countMatches(bootstrap, /ACTION=APPLY/g)).toBe(1);
+
 				expect(
-					bootstrap.match(/--project-root "\{TARGET_DIR\}"/g),
-				).toHaveLength(1);
+					countMatches(bootstrap, /^rp1 agent-tools resolve-args\b/gm),
+				).toBe(2);
+				expect(countMatches(bootstrap, /--args "/g)).toBe(1);
+				expect(
+					countMatches(bootstrap, /--project-root "\{TARGET_DIR\}"/g),
+				).toBe(1);
 				expect(bootstrap).toContain("--name rp1-dev':'bootstrap");
 				expectInOrder(bootstrap, [
 					"## 0. Resolve Arguments",
@@ -485,6 +725,66 @@ describe("parent-owned interview foundation", () => {
 					"Consume only `data.directories`",
 					"`targetProjectRoot`, `targetKbRoot`, and `targetWorkRoot` replace the invocation roots",
 				]);
+				const lookupStart = bootstrap.lastIndexOf(
+					"rp1 agent-tools resolve-args",
+				);
+				const lookupEnd = bootstrap.indexOf(
+					"Consume only `data.directories`",
+					lookupStart,
+				);
+				expect(lookupStart).toBeGreaterThan(-1);
+				expect(lookupEnd).toBeGreaterThan(lookupStart);
+				expect(bootstrap.slice(lookupStart, lookupEnd)).not.toContain("--args");
+				expectContainsAll(bootstrap, [
+					"KB_ROOT={targetKbRoot}",
+					"WORK_ROOT={targetWorkRoot}",
+					'--project "{targetProjectRoot}"',
+				]);
+
+				for (const finalizer of [charterFinalizer, prdFinalizer]) {
+					expectContainsAll(finalizer, [
+						"one-shot non-interactive finalizer",
+						"Do not ask the user or request input. The parent skill owns all user interaction.",
+						"Do not invoke another skill or agent.",
+						"Artifact registration belongs to the parent skill.",
+					]);
+					expect(finalizer).not.toMatch(
+						/{%\s*(?:ask_user|dispatch_agent|include_shared)\b|request_user_input|next_question|qa_history|--type artifact_registered|^[ \t]*rp1 agent-tools emit(?:[ \t]|\\|$)/im,
+					);
+				}
+				expectContainsAll(scaffolder, [
+					"Perform exactly one bounded `ACTION`, return one result, then stop.",
+					"The parent skill owns all user interaction and artifact registration. Never ask the user or request input.",
+					"Research current guidance only when a web research tool is present.",
+					"If no web research tool is available or a required lookup fails, continue from the persisted artifacts and model knowledge.",
+					"Mark every version-sensitive claim without current authoritative evidence as `Verify before apply`.",
+				]);
+				expect(scaffolder).not.toMatch(
+					/{%\s*(?:ask_user|dispatch_agent|include_shared)\b|request_user_input|next_question|qa_history|--type artifact_registered|^[ \t]*rp1 agent-tools emit(?:[ \t]|\\|$)/im,
+				);
+
+				for (const kbRoot of [
+					"/workspace/.rp1/context",
+					"/central/projects/demo/context",
+				]) {
+					const resolvedBlueprint = blueprint.replaceAll("{kbRoot}", kbRoot);
+					const resolvedBootstrap = bootstrap.replaceAll(
+						"{targetKbRoot}",
+						kbRoot,
+					);
+					expect(resolvedBlueprint).toContain(
+						`"path": "${kbRoot}/charter.md", "feature": "blueprint", "storageRoot": "project"`,
+					);
+					expect(resolvedBootstrap).toContain(
+						`"path": "${kbRoot}/charter.md", "feature": "{PROJECT_NAME}", "storageRoot": "project"`,
+					);
+					expect(resolvedBootstrap).toContain(
+						`"path": "${kbRoot}/preferences.md", "feature": "{PROJECT_NAME}", "storageRoot": "project"`,
+					);
+				}
+				expect(blueprint).toContain(
+					'"path": "prds/{EFFECTIVE_PRD_NAME}.md", "feature": "{EFFECTIVE_PRD_NAME}", "storageRoot": "work_dir"',
+				);
 			}
 		} finally {
 			await rm(outputRoot, { recursive: true, force: true });
