@@ -188,6 +188,43 @@ describe("parent-owned interview foundation", () => {
 		]);
 	});
 
+	test("preserves canonical Blueprint roots through finalization and completion", async () => {
+		const [blueprint, finalizer] = await Promise.all([
+			readRepoFile("plugins/dev/skills/blueprint/SKILL.md"),
+			readRepoFile("plugins/dev/agents/blueprint-wizard.md"),
+		]);
+
+		expectInOrder(blueprint, [
+			"Validate `EFFECTIVE_PRD_NAME`",
+			"Set `PRD_PATH = {workRoot}/prds/{EFFECTIVE_PRD_NAME}.md`",
+			'{% dispatch_agent "rp1-dev:blueprint-wizard" %}',
+			"PRD_PATH={PRD_PATH}, PRD_NAME={EFFECTIVE_PRD_NAME}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}",
+		]);
+		expect(countMatches(blueprint, /Set `PRD_PATH =/g)).toBe(1);
+		expect(blueprint).not.toContain("{workRoot}/prds/{PRD_NAME}.md");
+		const dispatchStart = blueprint.indexOf(
+			'{% dispatch_agent "rp1-dev:blueprint-wizard" %}',
+		);
+		const dispatchEnd = blueprint.indexOf(
+			"{% enddispatch_agent %}",
+			dispatchStart,
+		);
+		const dispatch = blueprint.slice(dispatchStart, dispatchEnd);
+		expect(dispatch).not.toContain("EXTRA_CONTEXT={EXTRA_CONTEXT}");
+		expect(finalizer).toContain(
+			"PRD=`{WORK_ROOT}/prds/{PRD_NAME}.md`, Charter=`{KB_ROOT}/charter.md`",
+		);
+		expect(finalizer).toContain(
+			"`PRD_PATH` MUST equal `PRD`; write only `PRD_PATH`, and treat `Charter` as read-only.",
+		);
+		expect(blueprint).toContain(
+			"Terminal state guidance: close the run only after fresh reads prove both artifacts complete, using `--close-run`.",
+		);
+		expect(blueprint).toMatch(
+			/--step prd[\s\S]*--data '\{"status": "completed"\}'[\s\\]*--close-run/,
+		);
+	});
+
 	test("keeps blueprint interviews parent-owned and finalizers bounded", async () => {
 		const blueprint = await readRepoFile(
 			"plugins/dev/skills/blueprint/SKILL.md",
@@ -680,6 +717,13 @@ describe("parent-owned interview foundation", () => {
 					"Re-read the PRD after the successful write",
 					"Re-read the PRD after a successful finalization",
 				]);
+				expectContainsAll(blueprint, [
+					"Set `PRD_PATH = {workRoot}/prds/{EFFECTIVE_PRD_NAME}.md`",
+					"PRD_PATH={PRD_PATH}, PRD_NAME={EFFECTIVE_PRD_NAME}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}",
+					"Terminal state guidance: close the run only after fresh reads prove both artifacts complete, using `--close-run`.",
+					"--step prd",
+					`--data '{"status": "completed"}'`,
+				]);
 				expect(countRenderedDispatches(blueprint, "charter-interviewer")).toBe(
 					1,
 				);
@@ -755,6 +799,10 @@ describe("parent-owned interview foundation", () => {
 						/{%\s*(?:ask_user|dispatch_agent|include_shared)\b|request_user_input|next_question|qa_history|--type artifact_registered|^[ \t]*rp1 agent-tools emit(?:[ \t]|\\|$)/im,
 					);
 				}
+				expectContainsAll(prdFinalizer, [
+					"PRD=`{WORK_ROOT}/prds/{PRD_NAME}.md`, Charter=`{KB_ROOT}/charter.md`",
+					"`PRD_PATH` MUST equal `PRD`; write only `PRD_PATH`, and treat `Charter` as read-only.",
+				]);
 				expectContainsAll(scaffolder, [
 					"Perform exactly one bounded `ACTION`, return one result, then stop.",
 					"The parent skill owns all user interaction and artifact registration. Never ask the user or request input.",

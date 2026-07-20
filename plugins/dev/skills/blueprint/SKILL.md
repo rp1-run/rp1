@@ -17,7 +17,7 @@ metadata:
     - onboarding
     - core
   created: 2025-11-30
-  updated: 2026-07-19
+  updated: 2026-07-20
   author: cloud-on-prem/rp1
   arguments:
     - name: PRD_NAME
@@ -58,7 +58,7 @@ On each phase transition, report with `rp1 agent-tools emit` using workflow `blu
 Use the pre-resolved `projectRoot`, `kbRoot`, and `workRoot` values from Workflow Bootstrap. They are authoritative and may point to different storage locations.
 
 - Charter: `{kbRoot}/charter.md`
-- PRD: `{workRoot}/prds/{EFFECTIVE_PRD_NAME}.md`
+- PRD: `PRD_PATH`, derived after name validation as `{workRoot}/prds/{EFFECTIVE_PRD_NAME}.md`
 - Charter template: `plugins/base/skills/artifact-templates/templates/charter-interviewer/charter.md`
 - PRD template: `plugins/base/skills/artifact-templates/templates/blueprint-wizard/prd.md`
 
@@ -70,7 +70,11 @@ Set `EFFECTIVE_PRD_NAME = PRD_NAME || "main"`.
 
 Validate `EFFECTIVE_PRD_NAME` against `^[A-Za-z0-9][A-Za-z0-9_-]*$`. Use the value exactly as validated; do not trim, sanitize, or rewrite it. If it does not match, explain that the name must begin with an ASCII letter or number and contain only ASCII letters, numbers, `_`, or `-`, then stop. This validation MUST happen before any artifact read, artifact write, user question, or agent dispatch.
 
-After successful validation, emit `detect` running and derive the paths in Context. Read `{kbRoot}/charter.md` to begin artifact-only detection.
+After successful validation:
+
+1. Set `PRD_PATH = {workRoot}/prds/{EFFECTIVE_PRD_NAME}.md`. This is the sole writable PRD artifact path.
+2. Emit `detect` running.
+3. Read `{kbRoot}/charter.md` to begin artifact-only detection.
 
 Only after validation, when a creation step below needs a canonical template, read it from its direct path and fall back to the `rp1-base:artifact-templates` Template Index when the direct path is unavailable. If `rp1-base` is unavailable, tell the user to install it and stop before creating an artifact.
 
@@ -139,12 +143,12 @@ rp1 agent-tools emit \
 
 Proceed only after the charter's fresh content is Complete. Emit `prd` running.
 
-If `{workRoot}/prds/{EFFECTIVE_PRD_NAME}.md` does not exist:
+If `PRD_PATH` does not exist:
 
 1. Read the canonical PRD template.
 2. Fill `{Surface Name}` with `{EFFECTIVE_PRD_NAME}`, `{Resolved Charter Link}` with `[Project Charter]({kbRoot}/charter.md)`, and `{Date}` with the current date.
 3. Persist `EXTRA_CONTEXT` in `**Additional Context**`. When `EXTRA_CONTEXT` is non-empty, also use it to fill any required PRD regions it substantively resolves. When it is empty, retain the section-scoped `_TBD_` placeholder.
-4. Write the complete PRD to `{workRoot}/prds/{EFFECTIVE_PRD_NAME}.md` with status `Draft`.
+4. Write the complete PRD to `PRD_PATH` with status `Draft`.
 5. Re-read the PRD, verify the initialized content, and register the verified write before asking a question or dispatching a finalizer.
 
 If the PRD exists, preserve its completed content. If non-empty `EXTRA_CONTEXT` is not already represented, reconstruct the complete document once to persist it in `**Additional Context**` and any required regions it resolves, then re-read, verify, and register that write before continuing.
@@ -171,7 +175,7 @@ When gaps exist, execute the shared parent-owned loop with a maximum of 10 quest
 1. Ask one focused PRD question directly from this parent skill. Ask in the current top-level conversation and wait for the user's answer; no leaf agent participates in the question.
 2. Interpret the accepted answer and apply it to every required region it resolves.
 3. Set status to `Complete` only when every required region is substantive; otherwise set it to `Draft`.
-4. Write the complete reconstructed PRD to `{workRoot}/prds/{EFFECTIVE_PRD_NAME}.md` once. Preserve completed and unrelated content.
+4. Write the complete reconstructed PRD to `PRD_PATH` once. Preserve completed and unrelated content.
 5. Re-read the PRD after the successful write, verify the accepted content, register the verified write, and recompute gaps from the fresh file before asking another question or dispatching a finalizer.
 
 On a write, re-read, or verification failure, stop before another question or dispatch. If 10 questions are exhausted, keep the PRD Draft, list the remaining gaps, provide rerun guidance, and stop without dispatching a finalizer.
@@ -180,8 +184,10 @@ On a write, re-read, or verification failure, stop before another question or di
 
 After the fresh PRD read has no required gaps, the parent may dispatch the PRD finalizer exactly once when prose or derived content needs normalization. Skip it when the artifact is already complete and coherent. Never dispatch it inside the interview loop or to discover a question.
 
+The previous canonical-root handoff was expressed as `PRD_NAME={PRD_NAME}, EXTRA_CONTEXT={EXTRA_CONTEXT}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}`. Preserve its root guarantee through the replacement below, but do not dispatch that legacy tuple: the raw name is replaced by the validated effective name, and `EXTRA_CONTEXT` is already durable in `PRD_PATH` rather than duplicated as finalizer state.
+
 {% dispatch_agent "rp1-dev:blueprint-wizard" %}
-PRD_PATH={workRoot}/prds/{EFFECTIVE_PRD_NAME}.md, PRD_NAME={EFFECTIVE_PRD_NAME}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}
+PRD_PATH={PRD_PATH}, PRD_NAME={EFFECTIVE_PRD_NAME}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}
 {% enddispatch_agent %}
 
 Parse only the finalizer's raw `{status, artifact, gaps, warnings}` JSON. Re-read the PRD after a successful finalization and verify that required content and status still agree. If verification fails or gaps remain, keep status Draft and stop with the reported gaps; do not dispatch the finalizer again. Register a verified finalizer write.
@@ -201,7 +207,21 @@ rp1 agent-tools emit \
 
 ### 4. Complete
 
-Re-read both artifacts. Complete only when the charter and PRD contain no required gaps and both statuses are `Complete`. Emit `prd` completed with `--close-run`, then report:
+Re-read both artifacts. Complete only when the charter and PRD contain no required gaps and both statuses are `Complete`.
+
+Terminal state guidance: close the run only after fresh reads prove both artifacts complete, using `--close-run`.
+
+```bash
+rp1 agent-tools emit \
+  --workflow blueprint \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step prd \
+  --data '{"status": "completed"}' \
+  --close-run
+```
+
+After that command succeeds, report:
 
 ```text
 Blueprint complete!

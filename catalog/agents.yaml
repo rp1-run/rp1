@@ -82,7 +82,7 @@ agents:
   - name: rp1-dev:blueprint-wizard
     description: "One-shot non-interactive PRD finalizer that preserves authored requirements, derives completion from required sections, and reports remaining gaps as raw JSON"
     plugin: dev
-    last_checksum: 1f3b0967f4eb9fbdc678a78f80ed552b0f339122b3b83a57c113d81aeb96b8c3
+    last_checksum: 2b450bfbefaba797926096316d585bcd963604728543ab84430566bbd02e7ba4
   - name: rp1-dev:bootstrap-scaffolder
     description: "One-shot non-interactive bootstrap worker for bounded PLAN, REVISE, or APPLY actions"
     plugin: dev
