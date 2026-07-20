@@ -89,4 +89,64 @@ describe("parent-owned interview foundation", () => {
 		expect(prd).toContain("| A1 | _TBD_ | _TBD_ | _TBD_ |");
 		expect(prd).not.toContain(".rp1/context/charter.md");
 	});
+
+	test("validates the effective PRD name before blueprint artifact effects", async () => {
+		const blueprint = await readRepoFile(
+			"plugins/dev/skills/blueprint/SKILL.md",
+		);
+
+		expect(blueprint).toContain('`EFFECTIVE_PRD_NAME = PRD_NAME || "main"`');
+		expect(blueprint).toContain("`^[A-Za-z0-9][A-Za-z0-9_-]*$`");
+		expectInOrder(blueprint, [
+			'`EFFECTIVE_PRD_NAME = PRD_NAME || "main"`',
+			"Validate `EFFECTIVE_PRD_NAME`",
+			"Read `{kbRoot}/charter.md`",
+		]);
+	});
+
+	test("keeps blueprint interviews parent-owned and finalizers bounded", async () => {
+		const blueprint = await readRepoFile(
+			"plugins/dev/skills/blueprint/SKILL.md",
+		);
+
+		expect(blueprint).toContain(
+			'{% include_shared "parent-owned-interview.md" %}',
+		);
+		expectInOrder(blueprint, [
+			"Ask one focused charter question directly from this parent skill.",
+			"Write the complete reconstructed charter",
+			"Re-read the charter after the successful write",
+			'{% dispatch_agent "rp1-dev:charter-interviewer" %}',
+		]);
+		expectInOrder(blueprint, [
+			"Ask one focused PRD question directly from this parent skill.",
+			"Write the complete reconstructed PRD",
+			"Re-read the PRD after the successful write",
+			'{% dispatch_agent "rp1-dev:blueprint-wizard" %}',
+		]);
+		expect(
+			blueprint.match(/{% dispatch_agent "rp1-dev:charter-interviewer" %}/g),
+		).toHaveLength(1);
+		expect(
+			blueprint.match(/{% dispatch_agent "rp1-dev:blueprint-wizard" %}/g),
+		).toHaveLength(1);
+		expect(blueprint).not.toMatch(/{%\s*ask_user\b/);
+		expect(blueprint).not.toContain("Scratch Pad");
+	});
+
+	test("persists blueprint context and registers resolved artifacts", async () => {
+		const blueprint = await readRepoFile(
+			"plugins/dev/skills/blueprint/SKILL.md",
+		);
+
+		expect(blueprint).toContain(
+			"Persist `EXTRA_CONTEXT` in `**Additional Context**`",
+		);
+		expect(blueprint).toContain(
+			'"path": "{kbRoot}/charter.md", "feature": "blueprint", "storageRoot": "project"',
+		);
+		expect(blueprint).toContain(
+			'"path": "prds/{EFFECTIVE_PRD_NAME}.md", "feature": "{EFFECTIVE_PRD_NAME}", "storageRoot": "work_dir"',
+		);
+	});
 });
