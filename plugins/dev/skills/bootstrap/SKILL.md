@@ -47,21 +47,20 @@ Begin from a non-mutating directory inventory. Inspect only the current director
 
 Validate every supplied, inferred, or recovered project name against `^[a-z0-9][a-z0-9-]*$` before using it as a path segment. Do not trim, sanitize, lowercase, or otherwise rewrite a candidate. Reject separators, `..`, whitespace, globs, punctuation other than `-`, an empty name, or a leading hyphen with actionable lowercase-kebab-case guidance.
 
-Resume discovery:
+Target discovery:
 
 1. Enumerate the current directory name and direct-child names without entering them.
-2. Discard a name unless it passes the project-name regex. Never derive a candidate path from an unsafe name.
-3. For each remaining initialized candidate, resolve its canonical directories read-only using the target-root procedure in Section 2. Require the returned project root to equal that candidate directory; an ancestor project does not make a child resumable.
-4. A resumable candidate exists only when its resolved `{targetKbRoot}/preferences.md` exists. Do not inspect run state, marker files, package manifests, or expected scaffold outputs to infer resume state.
-5. If one candidate exists, offer to resume it. If several exist, present only the validated names and ask the user to choose one or provide a new name. If none exists and no argument was supplied, infer the current directory basename only when the current directory is already its own rp1 project; otherwise ask for a name.
+2. Discard a name unless it passes the project-name regex, then retain only candidates with their own `.rp1/project_id`. Never derive a candidate path from an unsafe name, and never treat an ancestor project as candidate initialization.
+3. If one initialized candidate exists, offer to inspect and use it. If several exist, present only the validated names and ask the user to choose one or provide a new name. If none exists and no argument was supplied, infer the current directory basename only when the current directory is already its own rp1 project; otherwise ask for a name.
+4. Do not call a selected initialized target resumable until Section 2 resolves its canonical directories and `{targetKbRoot}/preferences.md` exists. A resumable candidate exists only when its resolved `{targetKbRoot}/preferences.md` exists. Do not inspect run state, marker files, package manifests, or expected scaffold outputs to infer resume state.
 
 The project-name acquisition question is the only permitted interaction before a new candidate can be validated. Validate its answer immediately. Allow one correction, then stop without writing, initializing, or dispatching.
 
-Set `CANDIDATE_PROJECT_NAME` from the supplied argument, the selected validated resume candidate, the valid inferred basename, or the user's name answer. Validate `CANDIDATE_PROJECT_NAME` again before continuing. Only after validation may the parent set `PROJECT_NAME` and `TARGET_DIR`, ask a placement or confirmation question, create a directory, initialize rp1, write an artifact, or dispatch an agent.
+Set `CANDIDATE_PROJECT_NAME` from the generated Resolve Arguments section's already-resolved `PROJECT_NAME`, the selected validated target candidate, the valid inferred basename, or the user's name answer. Do not reconstruct that argument value or parse raw user input again. Validate `CANDIDATE_PROJECT_NAME` before continuing. Only after validation may the parent set `PROJECT_NAME` and `TARGET_DIR`, ask a placement or confirmation question, create a directory, initialize rp1, write an artifact, or dispatch an agent.
 
 ### 2. Initialize Or Reuse The Selected Target
 
-If a resume candidate was selected, use its directory as `TARGET_DIR`. Otherwise, after name validation:
+If an initialized target candidate was selected, use its directory as `TARGET_DIR`. Otherwise, after name validation:
 
 - Current directory is empty: ask whether to use it or create the direct child `{PROJECT_NAME}`.
 - Current directory is its own rp1 project with only rp1 setup files: ask whether to use it or create the direct child.
@@ -70,16 +69,19 @@ If a resume candidate was selected, use its directory as `TARGET_DIR`. Otherwise
 
 Create a missing `TARGET_DIR` only after confirmation. If it lacks `.rp1/project_id`, run `rp1 init --yes --force-nested` with `TARGET_DIR` as the command working directory. On failure, stop before artifact creation. If it is already initialized, reuse it without reinitializing.
 
-Resolve the selected target's canonical directories after initialization:
+The generated Resolve Arguments section already parsed `PROJECT_NAME` and returned directories for the invocation context. Reuse that exact argument value. Its `projectRoot`, `kbRoot`, and `workRoot` values do not become directories for a different selected target.
+
+After target selection and initialization, resolve the selected target's canonical directories exactly once. This directory-only lookup is the one explicit exception to the generated instruction not to re-derive project directories. It MUST NOT include `--args` or parse arguments again:
 
 ```bash
 rp1 agent-tools resolve-args \
-  --name rp1-dev:bootstrap \
-  --args "{PROJECT_NAME}" \
+  --name rp1-dev':'bootstrap \
   --project-root "{TARGET_DIR}"
 ```
 
-Map `directories.projectRoot` to `targetProjectRoot` and `directories.kbRoot` to `targetKbRoot`; retain `directories.workRoot` as `targetWorkRoot`. Require `targetProjectRoot` to identify the selected target. These resolved values are authoritative, including when the KB is stored outside the checkout.
+Consume only `data.directories`; ignore any returned argument values. Map `directories.projectRoot` to `targetProjectRoot` and `directories.kbRoot` to `targetKbRoot`; retain `directories.workRoot` as `targetWorkRoot`. Require `targetProjectRoot` to identify the selected target.
+
+From this handoff onward, `targetProjectRoot`, `targetKbRoot`, and `targetWorkRoot` replace the invocation roots for every selected-target read, write, resume check, registration, PLAN, REVISE, and APPLY operation, including when `TARGET_DIR` differs from the invocation `projectRoot` or the KB is stored outside the checkout. Treat `targetProjectRoot` as the canonical `TARGET_DIR` for all subsequent target operations.
 
 Set:
 

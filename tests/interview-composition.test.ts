@@ -1,12 +1,28 @@
 import { describe, expect, test } from "bun:test";
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import type { Logger } from "../cli/shared/logger.js";
+import { buildPlatformPlugin } from "../cli/src/build/command.js";
+import { PLATFORM_DEFINITIONS } from "../cli/src/build/platform-definitions.js";
 import { resolveSharedIncludes } from "../cli/src/build/preprocessor.js";
 
 const repoRoot = resolve(import.meta.dir, "..");
 
 const readRepoFile = (path: string): Promise<string> =>
 	readFile(resolve(repoRoot, path), "utf8");
+
+const noopLogger: Logger = {
+	trace: () => {},
+	debug: () => {},
+	info: () => {},
+	warn: () => {},
+	error: () => {},
+	start: () => {},
+	success: () => {},
+	fail: () => {},
+	box: () => {},
+};
 
 const blueprintFinalizerPaths = [
 	"plugins/dev/agents/charter-interviewer.md",
@@ -297,6 +313,63 @@ describe("parent-owned interview foundation", () => {
 			"Request additional information",
 		]) {
 			expect(result.right).not.toContain(prohibition);
+		}
+	});
+
+	test("renders one directory-only selected-target handoff on every platform", async () => {
+		const outputRoot = await mkdtemp(
+			join(tmpdir(), "rp1-bootstrap-directory-handoff-"),
+		);
+
+		try {
+			const platformDefinitions = Array.from(PLATFORM_DEFINITIONS.values());
+			expect(platformDefinitions.map(({ id }) => id).sort()).toEqual([
+				"antigravity",
+				"claude-code",
+				"codex",
+				"copilot",
+				"opencode",
+			]);
+
+			for (const definition of platformDefinitions) {
+				const platformOutput = join(outputRoot, definition.id);
+				const result = await buildPlatformPlugin(
+					"dev",
+					repoRoot,
+					platformOutput,
+					definition,
+					noopLogger,
+					true,
+				);
+
+				expect(result.summary.errors).toEqual([]);
+				const skillDirectory =
+					definition.id === "claude-code" ? "bootstrap" : "rp1-bootstrap";
+				const bootstrap = await readFile(
+					join(platformOutput, "dev", "skills", skillDirectory, "SKILL.md"),
+					"utf8",
+				);
+
+				expect(bootstrap.match(/rp1 agent-tools resolve-args/g)).toHaveLength(
+					2,
+				);
+				expect(bootstrap.match(/--args "/g)).toHaveLength(1);
+				expect(
+					bootstrap.match(/--project-root "\{TARGET_DIR\}"/g),
+				).toHaveLength(1);
+				expect(bootstrap).toContain("--name rp1-dev':'bootstrap");
+				expectInOrder(bootstrap, [
+					"## 0. Resolve Arguments",
+					"Use these resolved values for all subsequent steps.",
+					"The generated Resolve Arguments section already parsed `PROJECT_NAME`",
+					"This directory-only lookup is the one explicit exception",
+					'--project-root "{TARGET_DIR}"',
+					"Consume only `data.directories`",
+					"`targetProjectRoot`, `targetKbRoot`, and `targetWorkRoot` replace the invocation roots",
+				]);
+			}
+		} finally {
+			await rm(outputRoot, { recursive: true, force: true });
 		}
 	});
 
