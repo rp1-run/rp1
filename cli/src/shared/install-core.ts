@@ -30,11 +30,13 @@ import {
 	type ToolDetectionResult,
 } from "../init/tool-detector.js";
 import {
+	type AntigravityActivePluginSyncResult,
 	type AntigravityManifestRefreshResult,
 	antigravityBundleScope,
 	antigravityPackageDisplayRoot,
 	installAntigravityBundleAssets,
 	refreshAntigravityManifestAssets,
+	syncAntigravityActivePlugins,
 } from "../install/antigravity/index.js";
 import { extractPlatformAssets } from "../install/asset-extractor.js";
 import { installAllPlugins } from "../install/claudecode/installer.js";
@@ -480,7 +482,10 @@ const installForTool = (
 
 	if (tool.tool.id === "antigravity") {
 		return pipe(
-			installAntigravityBundleAssets({ dryRun: ctx.dryRun }),
+			installAntigravityBundleAssets({
+				dryRun: ctx.dryRun,
+				homeDir: ctx.homeDir,
+			}),
 			TE.map(
 				(result): ToolInstallResult => ({
 					...baseResult,
@@ -576,8 +581,29 @@ const antigravityInstallDetails = (
 		: "Next action: restart Antigravity CLI, then run `rp1 verify antigravity` for manifest, version marker, MCP, and plugin validation status.",
 ];
 
+const antigravityActiveRegistryDetail = (
+	dryRun: boolean,
+	sync: AntigravityActivePluginSyncResult | null,
+): readonly string[] => {
+	if (!sync) return [];
+	if (!sync.driftDetected) return ["Active plugin registry: current"];
+	if (dryRun) {
+		return [
+			"Would refresh Antigravity's active plugin registry via `agy plugin install`.",
+		];
+	}
+	const status = sync.install?.status ?? "not_run";
+	if (status === "passed") return ["Active plugin registry: refreshed"];
+	if (status === "missing_binary") {
+		return ["Active plugin registry: skipped (`agy` not found in PATH)"];
+	}
+	if (status === "failed") return ["Active plugin registry: refresh failed"];
+	return ["Active plugin registry: not refreshed"];
+};
+
 const antigravityUpdateDetails = (
 	result: AntigravityManifestRefreshResult,
+	sync: AntigravityActivePluginSyncResult | null,
 ): readonly string[] => {
 	if (result.initialStatus.state === "blocked") {
 		return [
@@ -587,23 +613,38 @@ const antigravityUpdateDetails = (
 		];
 	}
 
-	if (result.dryRun && result.refreshableAssets.length > 0) {
+	const activeRegistry = antigravityActiveRegistryDetail(result.dryRun, sync);
+
+	if (
+		result.dryRun &&
+		(result.refreshableAssets.length > 0 || sync?.driftDetected)
+	) {
 		return [
 			"Lifecycle stage: update",
 			`Lifecycle state: ${result.initialStatus.state}`,
-			`Would refresh: ${formatAssetDisplayList(result.refreshableAssets)}`,
+			...(result.refreshableAssets.length > 0
+				? [`Would refresh: ${formatAssetDisplayList(result.refreshableAssets)}`]
+				: []),
+			...activeRegistry,
 			"Next action: Run `rp1 update plugins antigravity -y` to refresh, then restart Antigravity CLI and run `rp1 verify antigravity`.",
 		];
 	}
 
-	if (result.refreshedAssets.length > 0 || result.versionMarkerWritten) {
+	if (
+		result.refreshedAssets.length > 0 ||
+		result.versionMarkerWritten ||
+		sync?.install?.status === "passed"
+	) {
 		return [
 			"Lifecycle stage: update",
 			"Lifecycle result: refreshed",
-			`Refreshed: ${formatAssetDisplayList(result.refreshedAssets)}`,
+			...(result.refreshedAssets.length > 0
+				? [`Refreshed: ${formatAssetDisplayList(result.refreshedAssets)}`]
+				: []),
 			`Version marker: ${
 				result.versionMarkerWritten ? "current" : "unchanged"
 			}`,
+			...activeRegistry,
 			"Next action: Restart Antigravity CLI, then run `rp1 verify antigravity`.",
 		];
 	}
@@ -612,6 +653,7 @@ const antigravityUpdateDetails = (
 		"Lifecycle stage: update",
 		"Lifecycle state: current",
 		`Version marker: ${result.finalStatus.versionMarker.freshness}`,
+		...activeRegistry,
 		`Next action: ${result.finalStatus.userAction}`,
 	];
 };
@@ -644,32 +686,77 @@ export const updateForSpecificTool = (
 
 	if (lookup.tool.id === "antigravity") {
 		return pipe(
-			refreshAntigravityManifestAssets({ dryRun: ctx.dryRun }),
-			TE.map((result): ToolInstallResult => {
+			refreshAntigravityManifestAssets({
+				dryRun: ctx.dryRun,
+				homeDir: ctx.homeDir,
+			}),
+			TE.chain((result) =>
+				TE.tryCatch(
+					async () => ({
+						result,
+						sync:
+							result.initialStatus.state === "blocked"
+								? null
+								: await syncAntigravityActivePlugins({
+										dryRun: ctx.dryRun,
+										homeDir: ctx.homeDir,
+									}),
+					}),
+					(error) =>
+						installError(
+							"antigravity-active-plugin-refresh",
+							error instanceof Error
+								? error.message
+								: "Failed to refresh Antigravity's active plugin registry.",
+						),
+				),
+			),
+			TE.map(({ result, sync }): ToolInstallResult => {
 				const blocked = result.initialStatus.state === "blocked";
+				const activeInstallStatus = sync?.install?.status ?? null;
 				const toolResult = {
 					toolId: lookup.tool.id,
 					toolName: lookup.tool.name,
-					success: !blocked,
+					success: !blocked && activeInstallStatus !== "failed",
 					restartRequired:
 						!ctx.dryRun &&
 						!blocked &&
-						(result.refreshedAssets.length > 0 || result.versionMarkerWritten),
+						(result.refreshedAssets.length > 0 ||
+							result.versionMarkerWritten ||
+							activeInstallStatus === "passed"),
 					pluginsInstalled: [],
-					details: antigravityUpdateDetails(result),
-					warnings: [],
+					details: antigravityUpdateDetails(result, sync),
+					warnings:
+						activeInstallStatus === "missing_binary"
+							? [
+									"Antigravity active plugin refresh was skipped because `agy` was not found in PATH.",
+								]
+							: [],
 				};
 
-				if (!blocked) return toolResult;
+				if (blocked) {
+					return {
+						...toolResult,
+						error: installError(
+							"antigravity-lifecycle-update",
+							result.initialStatus.issue ??
+								"Antigravity lifecycle update blocked.",
+						),
+					};
+				}
 
-				return {
-					...toolResult,
-					error: installError(
-						"antigravity-lifecycle-update",
-						result.initialStatus.issue ??
-							"Antigravity lifecycle update blocked.",
-					),
-				};
+				if (activeInstallStatus === "failed") {
+					return {
+						...toolResult,
+						error: installError(
+							"antigravity-active-plugin-refresh",
+							sync?.install?.issue ??
+								"Antigravity active plugin refresh failed.",
+						),
+					};
+				}
+
+				return toolResult;
 			}),
 			TE.orElse((error) =>
 				TE.right<CLIError, ToolInstallResult>(
@@ -765,7 +852,10 @@ export const installForSpecificTool = (
 
 	if (tool.id === "antigravity") {
 		return pipe(
-			installAntigravityBundleAssets({ dryRun: ctx.dryRun }),
+			installAntigravityBundleAssets({
+				dryRun: ctx.dryRun,
+				homeDir: ctx.homeDir,
+			}),
 			TE.map(
 				(result): ToolInstallResult => ({
 					toolId: tool.id,

@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
@@ -65,6 +65,23 @@ export interface AntigravityVerifyDeps {
 	readonly runAgyPluginValidate?: AntigravityPluginValidationOptions["runAgyPluginValidate"];
 }
 
+export interface AntigravityActivePluginSyncOptions {
+	readonly dryRun: boolean;
+	readonly homeDir?: string;
+	readonly getAntigravityBinaryPath?: () => string | null;
+	readonly assetManifest?: readonly AntigravityAssetManifestEntry[];
+	readonly bundledAssets?: BundledAssets;
+	readonly distDir?: string;
+	readonly readAssetFile?: (path: string) => Promise<string>;
+	readonly runAgyPluginInstall?: AntigravityInstallOptions["runAgyPluginInstall"];
+}
+
+export interface AntigravityActivePluginSyncResult {
+	readonly driftDetected: boolean;
+	readonly driftIssue: string | null;
+	readonly install: AntigravityPluginInstallResult | null;
+}
+
 const PLATFORM_ID = "antigravity";
 
 const homeDirFor = (homeDir?: string): string =>
@@ -78,7 +95,10 @@ export const getAntigravityPaths = (
 });
 
 const bundleOptionsFor = (
-	options: AntigravityInstallOptions | AntigravityVerifyDeps,
+	options:
+		| AntigravityInstallOptions
+		| AntigravityVerifyDeps
+		| AntigravityActivePluginSyncOptions,
 ): AntigravityBundleAssetManifestOptions => ({
 	assetManifest: options.assetManifest,
 	bundledAssets: options.bundledAssets,
@@ -107,8 +127,45 @@ const pluginDirs = (
 ): readonly string[] =>
 	pluginRelativeDirs(assets).map((relativeDir) => join(homeDir, relativeDir));
 
-const activePluginRelativePath = (
+/**
+ * Locations of Antigravity's active plugin registry, most current layout
+ * first. Antigravity CLI >= 1.1.x imports plugins into
+ * `~/.gemini/config/plugins/`; older releases used
+ * `~/.gemini/antigravity-cli/plugins/`. Exactly one root is authoritative:
+ * whichever contains an expected rp1 plugin directory, preferring the
+ * current layout. A stale file left behind in the legacy location must not
+ * be reported as drift once the current registry is authoritative, and a
+ * file missing from the authoritative root is drift — a per-file fallback
+ * would mask it.
+ */
+const ACTIVE_PLUGIN_REGISTRY_ROOTS = {
+	current: ".gemini/config/plugins",
+	legacy: ".gemini/antigravity-cli/plugins",
+} as const;
+
+type ActivePluginRegistryRoot = keyof typeof ACTIVE_PLUGIN_REGISTRY_ROOTS;
+
+const detectActivePluginRegistryRoot = async (
+	homeDir: string,
+	pluginNames: ReadonlySet<string | undefined>,
+): Promise<ActivePluginRegistryRoot | null> => {
+	for (const root of ["current", "legacy"] as const) {
+		for (const pluginName of pluginNames) {
+			if (!pluginName) continue;
+			try {
+				const stats = await stat(
+					join(homeDir, ACTIVE_PLUGIN_REGISTRY_ROOTS[root], pluginName),
+				);
+				if (stats.isDirectory()) return root;
+			} catch {}
+		}
+	}
+	return null;
+};
+
+const activePluginRelativePathFor = (
 	asset: AntigravityAssetManifestEntry,
+	root: ActivePluginRegistryRoot,
 ): string | null => {
 	const parts = asset.relativePath.split("/");
 	if (
@@ -120,10 +177,15 @@ const activePluginRelativePath = (
 		return null;
 	}
 
-	return [".gemini", "antigravity-cli", "plugins", parts[2], ...parts.slice(3)]
+	return [ACTIVE_PLUGIN_REGISTRY_ROOTS[root], parts[2], ...parts.slice(3)]
 		.join("/")
 		.replace(/\/+/g, "/");
 };
+
+const ACTIVE_IMPORT_MANIFEST_RELATIVE_PATHS = [
+	".gemini/config/import_manifest.json",
+	".gemini/antigravity-cli/import_manifest.json",
+] as const;
 
 const readJsonFile = async (path: string): Promise<unknown | null> => {
 	try {
@@ -151,16 +213,20 @@ const inspectActiveAntigravityImports = async (options: {
 			relativeDir.split("/").at(-1),
 		),
 	);
-	const importManifest = await readJsonFile(
-		join(options.homeDir, ".gemini/antigravity-cli/import_manifest.json"),
-	);
+	let importManifest: unknown | null = null;
+	for (const manifestRelativePath of ACTIVE_IMPORT_MANIFEST_RELATIVE_PATHS) {
+		importManifest = await readJsonFile(
+			join(options.homeDir, manifestRelativePath),
+		);
+		if (importManifest !== null) break;
+	}
+	const latestImportSourceByName = new Map<string, unknown>();
 	if (
 		importManifest &&
 		typeof importManifest === "object" &&
 		"imports" in importManifest &&
 		Array.isArray((importManifest as { readonly imports?: unknown }).imports)
 	) {
-		const latestImportSourceByName = new Map<string, unknown>();
 		for (const entry of (importManifest as { readonly imports: unknown[] })
 			.imports) {
 			if (typeof entry !== "object" || entry === null) continue;
@@ -192,21 +258,52 @@ const inspectActiveAntigravityImports = async (options: {
 		"support_matrix",
 		"support_metadata",
 	]);
+	const activeRefreshRemediation =
+		"Run `rp1 update plugins antigravity -y` (or `rp1 install antigravity`) to refresh Antigravity's active plugin registry.";
+	const registryRoot = await detectActivePluginRegistryRoot(
+		options.homeDir,
+		expectedPlugins,
+	);
+	if (!registryRoot) {
+		// The import manifest claims rp1 plugins are imported, yet no active
+		// registry directory exists in either layout — the registry was
+		// removed or never materialized and must be re-imported.
+		const importedPlugin = latestImportSourceByName.keys().next().value as
+			| string
+			| undefined;
+		if (importedPlugin !== undefined) {
+			return {
+				issue: `${importedPlugin} is recorded in Antigravity's import manifest but has no active plugin registry directory.`,
+				remediation: activeRefreshRemediation,
+			};
+		}
+		return null;
+	}
 	for (const asset of options.assets) {
 		if (!activeComparableKinds.has(asset.kind)) continue;
-		const activeRelativePath = activePluginRelativePath(asset);
+		const activeRelativePath = activePluginRelativePathFor(asset, registryRoot);
 		if (!activeRelativePath) continue;
 		const activePath = join(options.homeDir, activeRelativePath);
+		let activeContent: string;
 		try {
-			const activeContent = await readActiveAsset(activePath);
-			if (activeContent !== asset.expectedContent) {
-				return {
-					issue: `Active Antigravity plugin asset ~/${activeRelativePath} does not match the installed rp1 Antigravity package asset.`,
-					remediation:
-						"Run `rp1 install antigravity` to refresh Antigravity's active plugin registry.",
-				};
-			}
-		} catch {}
+			activeContent = await readActiveAsset(activePath);
+		} catch (error) {
+			const code =
+				typeof error === "object" && error !== null && "code" in error
+					? String((error as { readonly code?: unknown }).code)
+					: undefined;
+			if (code !== "ENOENT") continue;
+			return {
+				issue: `Active Antigravity plugin asset ~/${activeRelativePath} is missing from Antigravity's active plugin registry.`,
+				remediation: activeRefreshRemediation,
+			};
+		}
+		if (activeContent !== asset.expectedContent) {
+			return {
+				issue: `Active Antigravity plugin asset ~/${activeRelativePath} does not match the installed rp1 Antigravity package asset.`,
+				remediation: activeRefreshRemediation,
+			};
+		}
 	}
 
 	return null;
@@ -252,25 +349,31 @@ const notRunActivePluginInstall = (
 	remediation: activePluginInstallRemediation("not_run"),
 });
 
-const defaultRunAgyPluginInstall = async (
-	binaryPath: string,
-	pluginDir: string,
-): Promise<{
-	readonly exitCode: number;
-	readonly stdout: string;
-	readonly stderr: string;
-}> => {
-	const proc = Bun.spawn([binaryPath, "plugin", "install", pluginDir], {
-		stdout: "pipe",
-		stderr: "pipe",
-	});
-	const [exitCode, stdout, stderr] = await Promise.all([
-		proc.exited,
-		new Response(proc.stdout).text(),
-		new Response(proc.stderr).text(),
-	]);
-	return { exitCode, stdout, stderr };
-};
+// HOME is passed explicitly: Bun.spawn's default child env is a startup
+// snapshot, so runtime homeDir overrides would otherwise never reach agy,
+// which resolves its active plugin registry from HOME.
+const defaultRunAgyPluginInstall =
+	(homeDir: string) =>
+	async (
+		binaryPath: string,
+		pluginDir: string,
+	): Promise<{
+		readonly exitCode: number;
+		readonly stdout: string;
+		readonly stderr: string;
+	}> => {
+		const proc = Bun.spawn([binaryPath, "plugin", "install", pluginDir], {
+			stdout: "pipe",
+			stderr: "pipe",
+			env: { ...process.env, HOME: homeDir },
+		});
+		const [exitCode, stdout, stderr] = await Promise.all([
+			proc.exited,
+			new Response(proc.stdout).text(),
+			new Response(proc.stderr).text(),
+		]);
+		return { exitCode, stdout, stderr };
+	};
 
 const activePluginInstallStatus = (
 	results: readonly { readonly status: AntigravityPluginInstallStatus }[],
@@ -286,6 +389,7 @@ const activePluginInstallStatus = (
 };
 
 const installAntigravityActivePlugins = async (options: {
+	readonly homeDir: string;
 	readonly binaryPath: string | null;
 	readonly pluginDirs: readonly string[];
 	readonly pluginDisplayDirs: readonly string[];
@@ -314,7 +418,8 @@ const installAntigravityActivePlugins = async (options: {
 		};
 	}
 
-	const runInstall = options.runAgyPluginInstall ?? defaultRunAgyPluginInstall;
+	const runInstall =
+		options.runAgyPluginInstall ?? defaultRunAgyPluginInstall(options.homeDir);
 	const plugins: AntigravityPluginInstallPluginResult[] = [];
 
 	for (let i = 0; i < options.pluginDirs.length; i++) {
@@ -360,6 +465,45 @@ const installAntigravityActivePlugins = async (options: {
 	};
 };
 
+/**
+ * Re-imports rp1 package assets into Antigravity's active plugin registry
+ * (`~/.gemini/antigravity-cli/plugins/`) when the registry has drifted from
+ * the installed package assets. Used by the update flow so that
+ * `rp1 update plugins antigravity` clears the drift that
+ * `rp1 verify antigravity` reports, instead of requiring a full
+ * `rp1 install antigravity`.
+ */
+export const syncAntigravityActivePlugins = async (
+	options: AntigravityActivePluginSyncOptions,
+): Promise<AntigravityActivePluginSyncResult> => {
+	const homeDir = homeDirFor(options.homeDir);
+	const assets = await loadAntigravityBundleAssetManifest(
+		bundleOptionsFor(options),
+	);
+	const drift = await inspectActiveAntigravityImports({
+		homeDir,
+		assets,
+		readAssetFile: options.readAssetFile,
+	});
+	if (!drift) {
+		return { driftDetected: false, driftIssue: null, install: null };
+	}
+	if (options.dryRun) {
+		return { driftDetected: true, driftIssue: drift.issue, install: null };
+	}
+
+	const resolveBinaryPath =
+		options.getAntigravityBinaryPath ?? (() => Bun.which("agy"));
+	const install = await installAntigravityActivePlugins({
+		homeDir,
+		binaryPath: resolveBinaryPath(),
+		pluginDirs: pluginDirs(homeDir, assets),
+		pluginDisplayDirs: pluginDisplayDirs(assets),
+		runAgyPluginInstall: options.runAgyPluginInstall,
+	});
+	return { driftDetected: true, driftIssue: drift.issue, install };
+};
+
 const defaultAntigravityVersion = async (): Promise<string | null> => {
 	const binaryPath = Bun.which("agy");
 	if (!binaryPath) return null;
@@ -397,8 +541,9 @@ export const installAntigravityBundleAssets = (
 			const assets = await loadAntigravityBundleAssetManifest(
 				bundleOptionsFor(options),
 			);
-			const binaryPath =
-				options.getAntigravityBinaryPath?.() ?? Bun.which("agy");
+			const binaryPath = (
+				options.getAntigravityBinaryPath ?? (() => Bun.which("agy"))
+			)();
 			const warnings: string[] = [];
 
 			if (!binaryPath) {
@@ -420,6 +565,7 @@ export const installAntigravityBundleAssets = (
 			const activePluginInstall = options.dryRun
 				? notRunActivePluginInstall(binaryPath)
 				: await installAntigravityActivePlugins({
+						homeDir,
 						binaryPath,
 						pluginDirs: pluginDirsToValidate,
 						pluginDisplayDirs: pluginDisplayDirsToValidate,
