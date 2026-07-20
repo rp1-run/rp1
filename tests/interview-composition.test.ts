@@ -7,6 +7,11 @@ const repoRoot = resolve(import.meta.dir, "..");
 const readRepoFile = (path: string): Promise<string> =>
 	readFile(resolve(repoRoot, path), "utf8");
 
+const blueprintFinalizerPaths = [
+	"plugins/dev/agents/charter-interviewer.md",
+	"plugins/dev/agents/blueprint-wizard.md",
+] as const;
+
 const expectInOrder = (content: string, fragments: string[]): void => {
 	let previousIndex = -1;
 	for (const fragment of fragments) {
@@ -148,5 +153,64 @@ describe("parent-owned interview foundation", () => {
 		expect(blueprint).toContain(
 			'"path": "prds/{EFFECTIVE_PRD_NAME}.md", "feature": "{EFFECTIVE_PRD_NAME}", "storageRoot": "work_dir"',
 		);
+	});
+
+	test("keeps retained blueprint agents one-shot and non-interactive", async () => {
+		for (const path of blueprintFinalizerPaths) {
+			const finalizer = await readRepoFile(path);
+
+			expect(finalizer).toContain("one-shot non-interactive finalizer");
+			expect(finalizer).toContain("tools: Read, Write");
+			expect(finalizer).toContain(
+				"Return exactly one raw JSON object with these keys in this order: `status`, `artifact`, `gaps`, `warnings`.",
+			);
+			expect(finalizer).toContain(
+				"Artifact registration belongs to the parent skill.",
+			);
+			expect(finalizer).not.toMatch(
+				/{%\s*(?:ask_user|dispatch_agent|include_shared)\b/,
+			);
+			expect(finalizer).not.toMatch(
+				/next_question|request_user_input|Scratch Pad|qa_history|relay envelope|continuation payload|checkpoint|--type artifact_registered/i,
+			);
+		}
+	});
+
+	test("keeps unresolved charter Vision draft and preserves nested scope", async () => {
+		const finalizer = await readRepoFile(
+			"plugins/dev/agents/charter-interviewer.md",
+		);
+
+		expect(finalizer).toContain(
+			"Missing, empty, or placeholder-only Vision is a gap.",
+		);
+		expect(finalizer).toContain(
+			"Never infer or invent Vision from another section.",
+		);
+		expect(finalizer).toContain(
+			"Keep the document status `Draft` whenever any required gap remains.",
+		);
+		expect(finalizer).toContain(
+			"Preserve the complete nested list blocks under `Will` and `Won't` byte-for-byte.",
+		);
+		expect(finalizer).toContain(
+			"Never move, merge, flatten, reorder, or drop items between them.",
+		);
+	});
+
+	test("preserves substantive content while finalizing either artifact", async () => {
+		for (const path of blueprintFinalizerPaths) {
+			const finalizer = await readRepoFile(path);
+
+			expect(finalizer).toContain(
+				"Preserve every substantive user-authored field and every unrelated section.",
+			);
+			expect(finalizer).toContain(
+				"Read the supplied ordinary artifact before deciding whether a write is needed.",
+			);
+			expect(finalizer).toContain(
+				"Report every remaining required gap explicitly in `gaps`.",
+			);
+		}
 	});
 });
