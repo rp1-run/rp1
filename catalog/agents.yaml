@@ -80,13 +80,13 @@ agents:
     plugin: dev
     last_checksum: b9fa265ccc043134173d3befa9f670da952cb6d8248d1e34324a43e763e10697
   - name: rp1-dev:blueprint-wizard
-    description: "Stateless PRD wizard that analyzes interview state and returns structured JSON responses for PRD creation"
+    description: "One-shot non-interactive PRD finalizer that preserves authored requirements, derives completion from required sections, and reports remaining gaps as raw JSON"
     plugin: dev
-    last_checksum: 2e9cb6150c9970b8b17bcfcc6b00e9dd3c654df3d4dbd23842553b553b02fc40
+    last_checksum: 2b450bfbefaba797926096316d585bcd963604728543ab84430566bbd02e7ba4
   - name: rp1-dev:bootstrap-scaffolder
-    description: "Stateless scaffolder that analyzes interview state and returns structured JSON responses for tech stack selection and project scaffolding"
+    description: "One-shot non-interactive bootstrap worker for bounded PLAN, REVISE, or APPLY actions"
     plugin: dev
-    last_checksum: a243535b24e3a0d33bb7e55405c1312083599fed0b3c4ec19f7b175c8012aca1
+    last_checksum: 3d3ed4ad858262b899233c0cafa002900e92ccbb8e11460096b9f98be38cb26b
   - name: rp1-dev:bug-investigator
     description: "Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes"
     plugin: dev
@@ -112,9 +112,9 @@ agents:
     plugin: dev
     last_checksum: ae940bac221e1bdd49c0027d7155c0d7d9f8e5b0e8fe97b6c584ca7ddd3dc454
   - name: rp1-dev:charter-interviewer
-    description: "Stateless interview agent that analyzes charter state and returns structured JSON responses for greenfield project vision capture"
+    description: "One-shot non-interactive charter finalizer that preserves authored content, derives completion from required sections, and reports remaining gaps as raw JSON"
     plugin: dev
-    last_checksum: ea9eb5a37fd7e77c3cfea9985ffcd8ad2d15dedcd80294b4830496f219d20812
+    last_checksum: 7fb010871ff318dd1000576d2fad15d29662aa2a7521374bba304b5863971153
   - name: rp1-dev:code-auditor
     description: "Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift"
     plugin: dev
