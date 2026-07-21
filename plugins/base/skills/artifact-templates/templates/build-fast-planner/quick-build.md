@@ -16,26 +16,36 @@ emit_hint: |
 
 # Quick Build: {Feature Slug Title Case}
 
-**Created**: {ISO timestamp}
-**Request**: {original REQUEST}
-**Scope**: {Small | Medium}
+- **Created**: {ISO timestamp}
+- **Scope**: {Small | Medium}
+
+## Summary
+
+- **Problem**: {1-2 sentence description of the problem or need}
+- **Outcome**: {1-2 sentence description of the desired result}
+
+## Scope
+
+### In
+
+- {in-scope item 1}
+- {in-scope item 2}
+
+### Out
+
+- {out-of-scope item 1}
+- {out-of-scope item 2}
 
 ## Plan
 
-**Reasoning**: {why this scope assessment - files, systems, risk}
-**Files Affected**: {list of files or patterns}
-**Approach**: {2-4 sentence summary of implementation approach}
-**Estimated Effort**: {hours estimate}
+- **Reasoning**: {why this scope assessment -- files, systems, risk}
+- **Files Affected**:
+  - `{file/pattern 1}`
+  - `{file/pattern 2}`
+- **Approach**: {2-4 sentence summary of implementation approach}
+- **Estimated Effort**: {hours estimate}
 
 ## Tasks
 
 - [ ] **T1**: {description} `[complexity:simple|medium]`
 - [ ] **T2**: {description} `[complexity:simple|medium]`
-
-## Implementation Summary
-
-{To be added by task-builder}
-
-## Verification
-
-{To be added by task-reviewer if --review flag used}

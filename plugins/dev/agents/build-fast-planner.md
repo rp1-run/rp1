@@ -165,9 +165,10 @@ Write the file to `{WORK_ROOT}/quick-builds/{filename}`.
 
 #### Content Guidance
 
-- **Plan section**: Include reasoning (scope assessment), files affected, approach (2-4 sentences), estimated effort.
+- **Summary section**: Fill Problem (1-2 sentences describing the problem or need) and Outcome (1-2 sentences describing the desired result), derived from the REQUEST.
+- **Scope section**: Fill In (bullet list of what is in scope) and Out (bullet list of what is explicitly out of scope). Aim for 2-5 items each.
+- **Plan section**: Include reasoning (scope assessment), files affected (as a nested bullet list of file paths), approach (2-4 sentences), and estimated effort.
 - **Tasks section**: Max 5 tasks, each with description + complexity tag (`simple` or `medium`).
-- **Implementation Summary / Verification**: Left for task-builder and task-reviewer to fill.
 
 ### 4.4 Artifact Registration
 
