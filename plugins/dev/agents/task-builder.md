@@ -358,7 +358,7 @@ If the process fails after acquiring the lock, remove the lock before returning 
 
 **IF QUICK_BUILD_PATH is not empty** (Quick-build mode):
 
-Append a `## Implementation Summary` section to the end of the quick-build artifact (do not search for or replace an existing section -- the template does not pre-stub one). Use table format:
+The template does not pre-stub this section. If the artifact has no `## Implementation Summary` heading, append the section to the end. If the heading already exists (retry or Add/Edit re-run), update that section in place: add or update the rows for {TASK_IDS}, keep rows for other tasks, and never append a second heading. Use table format:
 
 ```markdown
 ## Implementation Summary
