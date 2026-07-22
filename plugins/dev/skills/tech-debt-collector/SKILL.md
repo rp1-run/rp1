@@ -1,7 +1,7 @@
 ---
 name: tech-debt-collector
 description: "Evidence-gated tech debt and bloat detection. Scouts signals, ranks by materiality, validates by refutation, reports up to 5 findings with actions."
-allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git rev-parse *), Read, Write
+allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git rev-parse *), Bash(gh *), Bash(git merge-base *), Bash(mkdir *), Bash(mv *), Read, Write, Task
 metadata:
   category: quality
   is_workflow: true
@@ -63,7 +63,7 @@ This workflow identifies candidate tech debt signals via a scout agent, clusters
 
 ### 1.1 Validate Scope and Resolve Target
 
-Classify the `SCOPE` argument in this exact order — explicit project, PR reference, filesystem path, verified git ref — and fail closed on anything else. A token that is both a path and a branch resolves as a path; use `pull/<N>/diff` or a path-free branch name to disambiguate. For PR scopes, `TARGET` is the bare PR number; scouts resolve the diff via the GitHub CLI (`gh`), which must be available and authenticated.
+Classify the `SCOPE` argument in this exact order — explicit project, PR reference, filesystem path, verified git ref — and fail closed on anything else. A token that is both a path and a branch resolves as a path; use `pull/<N>/diff` or a path-free branch name to disambiguate. PR references accept the short forms (`pull/<N>/diff`, `PR #<N>`), a full GitHub PR URL, and that URL's bare path form (without scheme/host, e.g. `owner/repo/pull/<N>`) — all four resolve to the same bare `TARGET` PR number; scouts resolve the diff via the GitHub CLI (`gh`), which must be available and authenticated.
 
 ```bash
 SCOPE_TYPE=""
@@ -72,7 +72,10 @@ TARGET=""
 if [ -z "$SCOPE" ] || [ "$SCOPE" = "project" ]; then
   SCOPE_TYPE="project"
   TARGET="{codeRoot}"
-elif [[ "$SCOPE" =~ ^pull/([0-9]+)/diff$ ]] || [[ "$SCOPE" =~ ^PR[[:space:]]?#?([0-9]+)$ ]]; then
+elif [[ "$SCOPE" =~ ^pull/([0-9]+)/diff$ ]] || \
+     [[ "$SCOPE" =~ ^PR[[:space:]]?#?([0-9]+)$ ]] || \
+     [[ "$SCOPE" =~ ^https://github\.com/[^/[:space:]]+/[^/[:space:]]+/pull/([0-9]+)/?$ ]] || \
+     [[ "$SCOPE" =~ ^[^/[:space:]]+/[^/[:space:]]+/pull/([0-9]+)/?$ ]]; then
   SCOPE_TYPE="pr-diff"
   TARGET="${BASH_REMATCH[1]}"   # bare PR number, e.g. 433
 elif [ -e "$SCOPE" ]; then
@@ -82,11 +85,13 @@ elif git rev-parse --verify --quiet "$SCOPE^{commit}" >/dev/null 2>&1; then
   SCOPE_TYPE="branch"
   TARGET="$SCOPE"
 else
-  echo "ERROR: SCOPE '$SCOPE' is not 'project', an existing path, a resolvable git branch/ref, or a PR reference (pull/<N>/diff or PR #<N>)."
+  echo "ERROR: SCOPE '$SCOPE' is not 'project', an existing path, a resolvable git branch/ref, or a PR reference. Use the canonical form 'PR #<N>' (pull/<N>/diff, a full GitHub PR URL, and its bare owner/repo/pull/<N> path form are also accepted)."
 fi
 ```
 
 If classification fails, emit `scoping` with `{"status": "failed", "reason": "unresolvable_scope"}` and STOP. Never silently default an unknown target to project scope.
+
+**Canonical Scope Form** (REQ-003): `PR #<N>` is this workflow's canonical, identity-stable PR scope form. `SCOPE` is also this workflow's declared `identity_args` value, hashed verbatim by the shared workflow-identity mechanism — so `pull/<N>/diff`, the full URL, and the bare path form still produce a different run identity than `PR #<N>` even though all four resolve to the same `TARGET`. Canonicalizing identity itself would require changing the shared identity-hashing mechanism every rp1 workflow depends on, which is disproportionate to this fix; documenting one canonical form and steering the fail-closed error message toward it keeps the change scoped to this skill. Operators who need run-identity continuity across repeated invocations against the same PR should always invoke with `PR #<N>`.
 
 ### 1.2 Emit Scoping State
 
@@ -581,7 +586,7 @@ rp1 agent-tools emit \
 
 ---
 
-## §5. State Machine
+## STATE-MACHINE
 
 ```mermaid
 stateDiagram-v2
