@@ -290,7 +290,8 @@ After the dispatch completes, read back `{workRoot}/features/tech-debt-collector
 For each hypothesis result:
   IF Result == "CONFIRMED":   # claim survived refutation
     - Lead is valid; proceed to confidence tier assignment (§3.4)
-    - Store: { lead_id, status: "CONFIRMED", confidence_tier: "TBD", evidence: {recorded findings} }
+    - Parse `refutation_coverage` from the findings' `Refutation Coverage` field (`complete`|`minor-gaps`|`partial`|`contradicted`) and `unresolved_safety_flags` from the `Safety Flags Unresolved` field (list; empty when "None")
+    - Store: { lead_id, status: "CONFIRMED", confidence_tier: "TBD", validation_result: { refutation_coverage, unresolved_safety_flags }, evidence: {recorded findings} }
   IF Result == "REJECTED":    # refuting evidence found
     - Lead is refuted; move to retain register
     - Store: { lead_id, status: "REJECTED", refutation_evidence: {recorded findings} }
@@ -316,6 +317,27 @@ For each CONFIRMED lead, assign an ordinal confidence tier (C1=lowest/speculativ
   - Examples: Unused code confirmed with no dynamic dispatch; hypothesis-tester found no consumers; usage data supports finding
 - **C4 (Well-Established/Highest)**: Independent evidence converges and claim survived refutation attempt
   - Examples: Multiple validation methods confirm dead code; usage data confirms zero consumption; strong consensus across refutation checks
+
+**Base Tier Rule** (`baseTierFromValidation`, fully deterministic from recorded evidence):
+
+Every CONFIRMED lead carries a `validation_result` (§3.3) with `refutation_coverage` (`complete`|`minor-gaps`|`partial`|`contradicted`) and `unresolved_safety_flags` (list), both read back from the hypothesis-tester's per-hypothesis findings (`hypothesis-tester.md` §4: `Refutation Coverage` and `Safety Flags Unresolved` fields). The base tier is a pure function of these two recorded values — an unresolved safety flag is the recorded signal for missing decision-critical evidence, so it does not need a third input:
+
+```javascript
+function baseTierFromValidation(validationResult) {
+  const { refutation_coverage, unresolved_safety_flags } = validationResult;
+
+  if (refutation_coverage === "partial" || refutation_coverage === "contradicted") {
+    return "C1"; // coverage incomplete or contradicted
+  }
+  if (unresolved_safety_flags.length > 0) {
+    return "C2"; // missing decision-critical evidence or any unresolved safety flag
+  }
+  if (refutation_coverage === "minor-gaps") {
+    return "C3"; // complete coverage with minor gaps, no unresolved flags
+  }
+  return "C4"; // complete refutation-vector coverage, all safety flags resolved
+}
+```
 
 **Confidence Tier Caps** (hard upper bounds; may downgrade from base tier):
 

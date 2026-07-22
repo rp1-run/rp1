@@ -35,6 +35,9 @@ emit_hint: |
 **Validated**: {ISO timestamp}
 **Method**: {method}
 **Result**: CONFIRMED|REJECTED
+**Refutation Coverage**: complete|minor-gaps|partial|contradicted
+**Safety Flags Resolved**: {list, or None}
+**Safety Flags Unresolved**: {list, or None}
 
 **Evidence**:
 {detailed evidence}
