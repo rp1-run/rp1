@@ -9,4 +9,6 @@ export interface Rp1RootResult {
 	readonly isWorktree: boolean;
 	readonly worktreeName?: string;
 	readonly storageMode: StorageMode;
+	readonly kbInitialized: boolean;
+	readonly kbNextStepHint?: string;
 }

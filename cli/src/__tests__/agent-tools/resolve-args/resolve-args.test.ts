@@ -670,8 +670,70 @@ description: "A skill with no arguments for testing purposes"
 				isWorktree: false,
 				status: "uninitialized",
 				nextStepCommand: "rp1 init",
+				kbInitialized: false,
+				kbNextStepHint:
+					"Knowledge base not found. Run /rp1-base:knowledge-build to initialize it.",
 			});
 			expect(result.right.unresolved).toEqual([]);
+		}
+	});
+
+	test("kbInitialized is false with hint when kbRoot exists but is empty (no index.md)", async () => {
+		await mkdir(join(tempDir, ".rp1", "context"), { recursive: true });
+		await writeFile(join(tempDir, ".rp1", "project_id"), "project-123");
+
+		const schemaPath = await createSkillFile(
+			tempDir,
+			`---
+name: empty-skill
+description: "A skill with no arguments for testing purposes"
+---
+# Empty skill
+`,
+		);
+
+		const result = await resolveArgs({
+			schema_path: schemaPath,
+			raw_args: "",
+			project_root: tempDir,
+		})();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.directories.kbInitialized).toBe(false);
+			expect(result.right.directories.kbNextStepHint).toBe(
+				"Knowledge base not found. Run /rp1-base:knowledge-build to initialize it.",
+			);
+			expect(result.right.directories.status).toBe("initialized");
+		}
+	});
+
+	test("kbInitialized is true and no hint is present when kbRoot has index.md content", async () => {
+		await mkdir(join(tempDir, ".rp1", "context"), { recursive: true });
+		await writeFile(join(tempDir, ".rp1", "project_id"), "project-123");
+		await writeFile(join(tempDir, ".rp1", "context", "index.md"), "# KB\n");
+
+		const schemaPath = await createSkillFile(
+			tempDir,
+			`---
+name: empty-skill
+description: "A skill with no arguments for testing purposes"
+---
+# Empty skill
+`,
+		);
+
+		const result = await resolveArgs({
+			schema_path: schemaPath,
+			raw_args: "",
+			project_root: tempDir,
+		})();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.directories.kbInitialized).toBe(true);
+			expect(result.right.directories.kbNextStepHint).toBeUndefined();
+			expect(result.right.directories.status).toBe("initialized");
 		}
 	});
 
@@ -1119,6 +1181,9 @@ metadata:
 				codeRoot: tempDir,
 				isWorktree: false,
 				status: "initialized",
+				kbInitialized: false,
+				kbNextStepHint:
+					"Knowledge base not found. Run /rp1-base:knowledge-build to initialize it.",
 			});
 		}
 	});
@@ -1163,6 +1228,9 @@ metadata:
 				isWorktree: false,
 				status: "legacy",
 				nextStepCommand: "rp1 migrate",
+				kbInitialized: false,
+				kbNextStepHint:
+					"Knowledge base not found. Run /rp1-base:knowledge-build to initialize it.",
 			});
 		}
 	});
@@ -1204,6 +1272,9 @@ metadata:
 				isWorktree: false,
 				status: "uninitialized",
 				nextStepCommand: "rp1 init",
+				kbInitialized: false,
+				kbNextStepHint:
+					"Knowledge base not found. Run /rp1-base:knowledge-build to initialize it.",
 			});
 		}
 	});
@@ -1250,6 +1321,9 @@ metadata:
 				isWorktree: false,
 				status: "uninitialized",
 				nextStepCommand: "rp1 init",
+				kbInitialized: false,
+				kbNextStepHint:
+					"Knowledge base not found. Run /rp1-base:knowledge-build to initialize it.",
 			});
 		}
 	});
@@ -1303,6 +1377,9 @@ metadata:
 				isWorktree: true,
 				worktreeName: "test-branch",
 				status: "initialized",
+				kbInitialized: false,
+				kbNextStepHint:
+					"Knowledge base not found. Run /rp1-base:knowledge-build to initialize it.",
 			});
 		}
 	});
