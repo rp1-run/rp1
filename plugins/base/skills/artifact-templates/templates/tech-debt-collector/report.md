@@ -12,6 +12,8 @@ strictness: flexible
 **Run ID**: {RUN_ID}
 **Generated**: {Date}
 **Scope**: {SCOPE_TYPE}: {TARGET}
+**Base Commit**: {BASE_COMMIT}
+**Head Commit**: {HEAD_COMMIT}
 **Lenses Used**: {LENSES_USED}
 
 ## Executive Summary

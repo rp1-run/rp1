@@ -455,7 +455,30 @@ rp1 agent-tools emit \
 
 **Objective**: Generate the final report artifact with findings section (C3-C4 only, max 5), needs-measurement queue, retain register, and methodology.
 
-**Step 1: Select Top 5 Findings from C3-C4 Queue**
+**Step 1: Capture Base/Head Commit SHAs**
+
+Compute `BASE_COMMIT` and `HEAD_COMMIT` for the report header from the `SCOPE_TYPE`/`TARGET` resolved in §1.1, using only tooling already declared in `allowed-tools`:
+
+```bash
+case "$SCOPE_TYPE" in
+  pr-diff)
+    BASE_COMMIT=$(gh pr view "$TARGET" --json baseRefOid --jq '.baseRefOid')
+    HEAD_COMMIT=$(gh pr view "$TARGET" --json headRefOid --jq '.headRefOid')
+    ;;
+  branch)
+    BASE_COMMIT=$(git merge-base main "$TARGET")
+    HEAD_COMMIT=$(git rev-parse "$TARGET")
+    ;;
+  project|file)
+    BASE_COMMIT="N/A"
+    HEAD_COMMIT=$(git rev-parse HEAD)
+    ;;
+esac
+```
+
+This is read-only VCS metadata capture, permitted under §6.1.
+
+**Step 2: Select Top 5 Findings from C3-C4 Queue**
 
 From the findings_queue (already sorted by materiality from Phase 3):
 
@@ -465,13 +488,13 @@ FINAL_FINDINGS_COUNT=$(( ${#findings_queue[@]} > 5 ? 5 : ${#findings_queue[@]} )
 FINAL_FINDINGS=("${findings_queue[@]:0:$FINAL_FINDINGS_COUNT}")
 ```
 
-**Step 2: Read the Canonical Template**
+**Step 3: Read the Canonical Template**
 
 Read `plugins/base/skills/artifact-templates/templates/tech-debt-collector/report.md` (fall back to the `rp1-base:artifact-templates` SKILL.md Template Index if the direct path fails). The template body is the single source of truth for report structure — do not invent a parallel skeleton.
 
-**Step 3: Fill Template Placeholders**
+**Step 4: Fill Template Placeholders**
 
-Fill `{RUN_ID}`, `{Date}`, `{SCOPE_TYPE}`, `{TARGET}`, `{LENSES_USED}`, `{LENSES_APPLIED}`, `{DISPATCH_COUNT}`, `{HYPOTHESIS_COUNT}`, and all lead-count placeholders from Phase 2/3 state. Fill the three section placeholders as follows.
+Fill `{RUN_ID}`, `{Date}`, `{SCOPE_TYPE}`, `{TARGET}`, `{BASE_COMMIT}`, `{HEAD_COMMIT}`, `{LENSES_USED}`, `{LENSES_APPLIED}`, `{DISPATCH_COUNT}`, `{HYPOTHESIS_COUNT}`, and all lead-count placeholders from Phase 2/3 state. Fill the three section placeholders as follows.
 
 `{FINDINGS_SECTION}` — for each of the top 5 findings (ranked 1-5 by materiality):
 
@@ -532,11 +555,11 @@ If `FINDINGS_COUNT == 0`, fill with: "**No findings at C3+ confidence level.** I
   - **Status**: REJECTED
 ```
 
-**Step 4: Write the Report**
+**Step 5: Write the Report**
 
-Write the filled template to `{workRoot}/features/tech-debt-collector/report.md` using the Write tool. This is the executable production step — the file must exist on disk before Step 5 registration. Writing this work artifact is explicitly permitted by the analysis-only constraint (§6.1).
+Write the filled template to `{workRoot}/features/tech-debt-collector/report.md` using the Write tool. This is the executable production step — the file must exist on disk before Step 6 registration. Writing this work artifact is explicitly permitted by the analysis-only constraint (§6.1).
 
-**Step 5: Register Report Artifact to Arcade**
+**Step 6: Register Report Artifact to Arcade**
 
 After report file is written, verify file exists and emit artifact_registered event:
 
@@ -571,7 +594,7 @@ fi
 - ✅ Emit data includes `path`, `feature`, and `storageRoot: "work_dir"`
 - ✅ Errors logged as warnings; report availability unaffected
 
-**Step 6: Emit Reporting Complete**
+**Step 7: Emit Reporting Complete**
 
 ```bash
 rp1 agent-tools emit \
@@ -615,8 +638,8 @@ stateDiagram-v2
 ### 6.1 Analysis-Only Constraint
 
 This orchestrator never inspects or modifies source code:
-- ✅ Allowed: dispatch agents, emit events, read work artifacts and canonical templates, write work artifacts under `{workRoot}/features/tech-debt-collector/` only (`leads.json`, `hypotheses.md`, `report.md`)
-- ❌ Not allowed: reading source files, editing or writing anything outside that work directory, Bash commands that modify files
+- ✅ Allowed: dispatch agents, emit events, read work artifacts and canonical templates, write work artifacts under `{workRoot}/features/tech-debt-collector/` only (`leads.json`, `hypotheses.md`, `report.md`), read-only VCS metadata capture (`gh pr view`, `git merge-base`, `git rev-parse`) for report reproducibility (§4.2)
+- ❌ Not allowed: reading source files, editing or writing anything outside that work directory, Bash commands that modify files or mutate VCS state (e.g. `git checkout`, `git merge`, `git commit`, `git push`)
 
 Source-level discovery and validation happen exclusively inside bloat-scout and hypothesis-tester dispatches; the orchestrator handles only structured lead data, which protects the main context window.
 
