@@ -200,14 +200,11 @@ Result: ~10-15 clustered leads from all dispatches.
 
 ### 2.4 Rank by Materiality
 
-**Materiality Scoring Algorithm** (from design.md §6.2):
+**Materiality Scoring Algorithm**: each lead carries exactly one `burden_signal {metric, value, unit}`. Score it against the documented per-metric weight — never against fields the schema does not carry:
 
 ```javascript
-materiality_score =
-  (burden_signal.files * 100) +           // Highest weight: broad impact
-  (burden_signal.dependencies * 50) +     // High weight: coupling impact
-  (burden_signal.loc / 100) +             // Medium weight: size
-  (burden_signal.ci_minutes * 20)         // Lower weight: perf gain
+WEIGHT = { files: 100, dependencies: 50, loc: 0.01, ci_minutes: 20 };
+materiality_score = burden_signal.value * WEIGHT[burden_signal.metric];
 ```
 
 **Ranking Tiebreaker**:

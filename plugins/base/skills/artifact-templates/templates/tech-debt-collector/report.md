@@ -64,7 +64,7 @@ Leads refuted during hypothesis-tester validation:
 
 **Clustering & Ranking**:
 - Leads clustered by (locus, cause) root cause: {LEADS_CLUSTERED}
-- Materiality ranking: burden signal (files > deps > LoC > CI) primary sort
+- Materiality ranking: `score = value * WEIGHT[metric]`, `WEIGHT = {files: 100, dependencies: 50, loc: 0.01, ci_minutes: 20}`, primary sort
 - Top 8 selected for validation
 
 **Validation Phase**:

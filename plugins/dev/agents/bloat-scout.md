@@ -188,7 +188,7 @@ For each bloat signal discovered:
 **Burden Signal** (quantified natural units):
 - **files**: Count of files involved (definition + consumers + re-exports)
 - **dependencies**: Transitive dependency count (direct + indirect)
-- **lines_of_code**: Total LoC of affected code block
+- **loc**: Total LoC of affected code block
 - **ci_minutes**: Estimated CI time saved by removal (optional, placeholder if unmeasurable)
 - Pick 1-2 most relevant metrics per lead
 
@@ -229,7 +229,7 @@ Return top 20-30 leads as JSON array. Each lead object:
     }
   ],
   "burden_signal": {
-    "metric": "string - files | dependencies | lines_of_code | ci_minutes",
+    "metric": "string - files | dependencies | loc | ci_minutes",
     "value": "number - numeric value",
     "unit": "string - files | transitive_deps | LoC | minutes"
   },
