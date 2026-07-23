@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { resetContainerDetectionCache } from "../../../../shared/storage-mode.js";
 import {
 	findArtifactByRequestedPath,
 	getRunDirectories,
+	listProjectSectionRoots,
 	type ProjectDirectories,
 	parseProjectSectionPath,
 	resolveArtifactAbsolutePath,
@@ -270,6 +272,102 @@ describe("project-paths", () => {
 		} finally {
 			await rm(defaultProjectDir, { recursive: true, force: true });
 		}
+	});
+
+	describe("central storage resolution", () => {
+		let centralTmpDir: string;
+		const testProjectId = "test-central-id-12345";
+
+		beforeAll(async () => {
+			resetContainerDetectionCache();
+			centralTmpDir = await mkdtemp(
+				join(tmpdir(), "rp1-project-paths-central-"),
+			);
+			await mkdir(join(centralTmpDir, ".rp1"), { recursive: true });
+			await writeFile(join(centralTmpDir, ".rp1", "project_id"), testProjectId);
+			await writeFile(
+				join(centralTmpDir, ".rp1", "settings.toml"),
+				'[storage]\nmode = "central"\n',
+			);
+		});
+
+		afterAll(async () => {
+			resetContainerDetectionCache();
+			if (centralTmpDir) {
+				await rm(centralTmpDir, { recursive: true, force: true });
+			}
+		});
+
+		test("resolveProjectDirectories returns central paths when storage mode is central", () => {
+			const resolved = resolveProjectDirectories(centralTmpDir);
+			const expectedBase = join(homedir(), ".rp1", "projects", testProjectId);
+
+			expect(resolved.projectRoot).toBe(centralTmpDir);
+			expect(resolved.kbRoot).toBe(join(expectedBase, "context"));
+			expect(resolved.workRoot).toBe(join(expectedBase, "work"));
+		});
+
+		test("listProjectSectionRoots returns absolute central paths with canonical display paths", () => {
+			const resolved = resolveProjectDirectories(centralTmpDir);
+			const roots = listProjectSectionRoots(resolved);
+			const expectedBase = join(homedir(), ".rp1", "projects", testProjectId);
+
+			expect(roots[0].section).toBe("work");
+			expect(roots[0].absolutePath).toBe(join(expectedBase, "work"));
+			expect(roots[0].displayPath).toBe(".rp1/work");
+
+			expect(roots[1].section).toBe("kb");
+			expect(roots[1].absolutePath).toBe(join(expectedBase, "context"));
+			expect(roots[1].displayPath).toBe(".rp1/context");
+		});
+
+		test("resolveProjectDirectories returns local paths when storage mode is local", async () => {
+			const localTmpDir = await mkdtemp(
+				join(tmpdir(), "rp1-project-paths-local-"),
+			);
+
+			try {
+				await mkdir(join(localTmpDir, ".rp1"), { recursive: true });
+				await writeFile(
+					join(localTmpDir, ".rp1", "project_id"),
+					"local-test-id",
+				);
+				await writeFile(
+					join(localTmpDir, ".rp1", "settings.toml"),
+					'[storage]\nmode = "local"\n',
+				);
+
+				const resolved = resolveProjectDirectories(localTmpDir);
+
+				expect(resolved.projectRoot).toBe(localTmpDir);
+				expect(resolved.kbRoot).toBe(join(localTmpDir, ".rp1", "context"));
+				expect(resolved.workRoot).toBe(join(localTmpDir, ".rp1", "work"));
+			} finally {
+				await rm(localTmpDir, { recursive: true, force: true });
+			}
+		});
+
+		test("resolveProjectDirectories defaults to local when no project_id exists", async () => {
+			const noIdTmpDir = await mkdtemp(
+				join(tmpdir(), "rp1-project-paths-noid-"),
+			);
+
+			try {
+				await mkdir(join(noIdTmpDir, ".rp1"), { recursive: true });
+				await writeFile(
+					join(noIdTmpDir, ".rp1", "settings.toml"),
+					'[storage]\nmode = "central"\n',
+				);
+
+				const resolved = resolveProjectDirectories(noIdTmpDir);
+
+				expect(resolved.projectRoot).toBe(noIdTmpDir);
+				expect(resolved.kbRoot).toBe(join(noIdTmpDir, ".rp1", "context"));
+				expect(resolved.workRoot).toBe(join(noIdTmpDir, ".rp1", "work"));
+			} finally {
+				await rm(noIdTmpDir, { recursive: true, force: true });
+			}
+		});
 	});
 
 	describe("parseProjectSectionPath backward compatibility", () => {
