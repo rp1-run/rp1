@@ -36,6 +36,7 @@ Active `/build` artifacts are producer-owned: the agent that writes the artifact
 | build-verify-aggregator | build-readiness.md | document | workRoot | features/{FEATURE_ID}/build-readiness.md | templates/build-verify-aggregator/build-readiness.md |
 | feature-editor | edit-marker | section | workRoot | features/{FEATURE_ID}/requirements.md (append) | templates/_sections/edit-marker.md |
 | hypothesis-tester | hypothesis-document.md | document | workRoot | features/{FEATURE_ID}/hypotheses.md | templates/hypothesis-tester/hypothesis-document.md |
+| hypothesis-tester | hypothesis-document-adhoc.md | document | workRoot | hypotheses/{YYYY-MM-DD}-{SLUG}.md | templates/hypothesis-tester/hypothesis-document-adhoc.md |
 | research-reporter | research-report.md | document | workRoot | research/{YYYY-MM-DD}-{TOPIC_SLUG}.md | templates/research-reporter/research-report.md |
 | project-documenter | birds-eye-view.md | document | workRoot | birds-eye/{YYYY-MM-DD}-{PROJECT_SLUG}.md | templates/project-documenter/birds-eye-view.md |
 | security-validator | security-report.md | document | workRoot | security/{REPORT_ID}/report.md | templates/security-validator/security-report.md |
