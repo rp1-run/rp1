@@ -127,8 +127,8 @@ Re-run the design phase with /build {FEATURE_ID} or create the file manually fol
 2. Set date: `YYYY-MM-DD` (today).
 3. Set `EXPERIMENT_ID` = the generated slug (used for both setup and cleanup).
 4. `mkdir -p {WORK_ROOT}/hypotheses/`
-5. Resolve target path with exclusive-create semantics: start with `{WORK_ROOT}/hypotheses/{YYYY-MM-DD}-{slug}.md`. If the file exists, try `{YYYY-MM-DD}-{slug}-2.md`, then `-3`, etc. until a free path is found.
-6. Create the document at the resolved path using the ad-hoc template format from §FMT.
+5. Allocate a collision-free path atomically via no-clobber creation. Attempt `(set -C; > "{WORK_ROOT}/hypotheses/{YYYY-MM-DD}-{slug}.md") 2>/dev/null`; if it fails (file already exists), retry with suffix `-2`, then `-3`, etc. Only a successful no-clobber redirect establishes the path -- never check existence separately.
+6. Write the document content into the allocated file using the ad-hoc template format from §FMT.
 7. Synthesize HYP-001: derive statement, validation criteria, and method from the HYPOTHESIS description.
 
 Transition to `testing` state per STATE-MACHINE section (skip if WORKFLOW is empty).

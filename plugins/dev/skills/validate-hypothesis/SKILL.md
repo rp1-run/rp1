@@ -21,6 +21,7 @@ metadata:
     - name: HYPOTHESIS
       type: string
       required: false
+      variadic: true
       description: "Free-form hypothesis or scenario description to validate ad-hoc, without a feature context."
   sub_agents:
     - "rp1-dev:hypothesis-tester"
@@ -42,19 +43,19 @@ At least one of FEATURE_ID or HYPOTHESIS must be provided. If neither is set:
 ERROR: Provide either FEATURE_ID (for feature-bound validation) or --hypothesis "text" (for ad-hoc validation).
 ```
 
-If both are provided, prefer feature-bound mode (FEATURE_ID takes precedence).
+### Mode Selection
 
-### Mode Disambiguation
+Mode is determined by feature-directory existence, not argument precedence:
 
-When FEATURE_ID is resolved but HYPOTHESIS is empty, check before dispatching feature-bound mode:
-
-1. If `{workRoot}/features/{FEATURE_ID}/` exists -> feature-bound mode (proceed).
-2. Otherwise, if the resolved FEATURE_ID value contains whitespace (indicates free-form prose was bound positionally) -> treat the entire resolved value as HYPOTHESIS, clear FEATURE_ID, and dispatch ad-hoc mode instead.
-3. Otherwise (single-token FEATURE_ID, no matching feature dir) -> error:
-   ```
-   ERROR: Feature directory not found: {workRoot}/features/{FEATURE_ID}/
-   For ad-hoc validation, use: --hypothesis "your scenario description"
-   ```
+1. If FEATURE_ID is set AND `{workRoot}/features/{FEATURE_ID}/` exists -> **feature-bound mode**.
+2. If FEATURE_ID is set AND `{workRoot}/features/{FEATURE_ID}/` does NOT exist:
+   - If HYPOTHESIS is also populated -> combine as `HYPOTHESIS = "{FEATURE_ID} {HYPOTHESIS}"`, clear FEATURE_ID -> **ad-hoc mode**.
+   - If HYPOTHESIS is empty (lone token, no matching directory) -> error:
+     ```
+     ERROR: Feature directory not found: {workRoot}/features/{FEATURE_ID}/
+     For ad-hoc validation, use: --hypothesis "your scenario description"
+     ```
+3. If only HYPOTHESIS is set (no FEATURE_ID) -> **ad-hoc mode**.
 
 ## Execution
 
