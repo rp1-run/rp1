@@ -3,6 +3,7 @@
  * Implements 5-layer merge, implies chain resolution, and unresolved detection.
  */
 
+import { existsSync } from "node:fs";
 import path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
@@ -412,6 +413,19 @@ export const resolveImpliesChains = (
 	}
 };
 
+/** Guidance surfaced when the resolved kbRoot does not exist on disk yet. */
+const KB_NOT_INITIALIZED_HINT =
+	"Knowledge base not found. Run /rp1-base:knowledge-build to initialize it.";
+
+/**
+ * KB presence is defined by content, not bare directory existence: `rp1 init`
+ * unconditionally pre-creates an empty kbRoot, so `existsSync(kbRoot)` alone
+ * would report every freshly-initialized project as KB-initialized. Mirrors
+ * the `hasKBContent` semantics in `cli/src/init/directory-model.ts`.
+ */
+const hasKBContent = (kbRoot: string): boolean =>
+	existsSync(path.join(kbRoot, "index.md"));
+
 const buildFallbackDirectories = (projectRoot: string): ResolvedDirectories => {
 	const resolvedProjectRoot = path.resolve(projectRoot);
 	const { kbRoot, workRoot } = computeDirectoryPaths(
@@ -419,6 +433,7 @@ const buildFallbackDirectories = (projectRoot: string): ResolvedDirectories => {
 		undefined,
 		"local",
 	);
+	const kbInitialized = hasKBContent(kbRoot);
 
 	return {
 		projectRoot: resolvedProjectRoot,
@@ -429,24 +444,32 @@ const buildFallbackDirectories = (projectRoot: string): ResolvedDirectories => {
 		isWorktree: false,
 		status: "uninitialized",
 		nextStepCommand: "rp1 init",
+		kbInitialized,
+		...(!kbInitialized && { kbNextStepHint: KB_NOT_INITIALIZED_HINT }),
 	};
 };
 
 const mapResolvedDirectories = (
 	directories: ResolvedDirectorySet,
-): ResolvedDirectories => ({
-	projectRoot: directories.projectRoot,
-	projectId: directories.projectId,
-	kbRoot: directories.kbRoot,
-	workRoot: directories.workRoot,
-	codeRoot: directories.codeRoot,
-	isWorktree: directories.isWorktree,
-	worktreeName: directories.worktreeName,
-	status: directories.projectId === undefined ? "legacy" : "initialized",
-	...(directories.projectId === undefined && {
-		nextStepCommand: "rp1 migrate" as const,
-	}),
-});
+): ResolvedDirectories => {
+	const kbInitialized = hasKBContent(directories.kbRoot);
+
+	return {
+		projectRoot: directories.projectRoot,
+		projectId: directories.projectId,
+		kbRoot: directories.kbRoot,
+		workRoot: directories.workRoot,
+		codeRoot: directories.codeRoot,
+		isWorktree: directories.isWorktree,
+		worktreeName: directories.worktreeName,
+		status: directories.projectId === undefined ? "legacy" : "initialized",
+		...(directories.projectId === undefined && {
+			nextStepCommand: "rp1 migrate" as const,
+		}),
+		kbInitialized,
+		...(!kbInitialized && { kbNextStepHint: KB_NOT_INITIALIZED_HINT }),
+	};
+};
 
 export const resolveDirectories = (
 	projectRoot: string,

@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -12,6 +14,19 @@ export interface Rp1RootResolutionOptions {
 	readonly homeDir?: string;
 }
 
+/** Guidance surfaced when the resolved kbRoot does not exist on disk yet. */
+const KB_NOT_INITIALIZED_HINT =
+	"Knowledge base not found. Run /rp1-base:knowledge-build to initialize it.";
+
+/**
+ * KB presence is defined by content, not bare directory existence: `rp1 init`
+ * unconditionally pre-creates an empty kbRoot, so `existsSync(kbRoot)` alone
+ * would report every freshly-initialized project as KB-initialized. Mirrors
+ * the `hasKBContent` semantics in `cli/src/init/directory-model.ts`.
+ */
+const hasKBContent = (kbRoot: string): boolean =>
+	existsSync(path.join(kbRoot, "index.md"));
+
 export const resolveRp1Root = (
 	cwd: string = process.cwd(),
 	options: Rp1RootResolutionOptions = {},
@@ -23,8 +38,9 @@ export const resolveRp1Root = (
 				allowHomeProjectRoot: options.allowHomeProjectRoot,
 				homeDir: options.homeDir,
 			}),
-			E.map(
-				(directories: ResolvedDirectorySet): Rp1RootResult => ({
+			E.map((directories: ResolvedDirectorySet): Rp1RootResult => {
+				const kbInitialized = hasKBContent(directories.kbRoot);
+				return {
 					projectRoot: directories.projectRoot,
 					projectId: directories.projectId,
 					kbRoot: directories.kbRoot,
@@ -33,7 +49,9 @@ export const resolveRp1Root = (
 					isWorktree: directories.isWorktree,
 					worktreeName: directories.worktreeName,
 					storageMode: directories.storageMode,
-				}),
-			),
+					kbInitialized,
+					...(!kbInitialized && { kbNextStepHint: KB_NOT_INITIALIZED_HINT }),
+				};
+			}),
 		),
 	);

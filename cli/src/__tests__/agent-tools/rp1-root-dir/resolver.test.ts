@@ -103,6 +103,56 @@ describe("rp1-root-dir resolver", () => {
 			expect(result.storageMode).toBe("local");
 		});
 
+		test("reports kbInitialized: false with a next-step hint when kbRoot is absent", async () => {
+			const result = await expectTaskRight(resolveRp1Root(standardRepoRoot));
+
+			expect(result.kbInitialized).toBe(false);
+			expect(result.kbNextStepHint).toBeDefined();
+			expect(result.projectId).toBe("aaa00000-0000-0000-0000-000000000001");
+		});
+
+		test("reports kbInitialized: false with a hint when kbRoot exists but is empty (no index.md)", async () => {
+			await mkdir(join(standardRepoRoot, ".rp1", "context"), {
+				recursive: true,
+			});
+
+			try {
+				const result = await expectTaskRight(resolveRp1Root(standardRepoRoot));
+
+				expect(result.kbInitialized).toBe(false);
+				expect(result.kbNextStepHint).toBeDefined();
+				expect(result.projectId).toBe("aaa00000-0000-0000-0000-000000000001");
+			} finally {
+				await rm(join(standardRepoRoot, ".rp1", "context"), {
+					recursive: true,
+					force: true,
+				});
+			}
+		});
+
+		test("reports kbInitialized: true with no hint when kbRoot has index.md content", async () => {
+			await mkdir(join(standardRepoRoot, ".rp1", "context"), {
+				recursive: true,
+			});
+			await Bun.write(
+				join(standardRepoRoot, ".rp1", "context", "index.md"),
+				"# KB\n",
+			);
+
+			try {
+				const result = await expectTaskRight(resolveRp1Root(standardRepoRoot));
+
+				expect(result.kbInitialized).toBe(true);
+				expect(result.kbNextStepHint).toBeUndefined();
+				expect(result.projectId).toBe("aaa00000-0000-0000-0000-000000000001");
+			} finally {
+				await rm(join(standardRepoRoot, ".rp1", "context"), {
+					recursive: true,
+					force: true,
+				});
+			}
+		});
+
 		test("includes storageMode in output for agent and bootstrap consumers", async () => {
 			const result = await expectTaskRight(resolveRp1Root(standardRepoRoot));
 

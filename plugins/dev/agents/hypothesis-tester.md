@@ -166,6 +166,9 @@ Append to hypotheses.md per hypothesis:
 **Validated**: {ISO timestamp}
 **Method**: {method}
 **Result**: CONFIRMED|REJECTED
+**Refutation Coverage**: complete|minor-gaps|partial|contradicted
+**Safety Flags Resolved**: {list, or None}
+**Safety Flags Unresolved**: {list, or None}
 
 **Evidence**:
 {detailed evidence}
@@ -176,6 +179,10 @@ Append to hypotheses.md per hypothesis:
 **Implications for Design**:
 {design impact}
 ```
+
+`Refutation Coverage` records how much of the hypothesis's stated refutation vectors (Validation Criteria's REJECT-if conditions) were actually checked: `complete` = every listed vector checked; `minor-gaps` = every vector checked but with limited depth on a non-decision-critical one; `partial` = one or more vectors not checked; `contradicted` = checking surfaced conflicting evidence that could not be resolved.
+
+`Safety Flags Resolved`/`Safety Flags Unresolved` split any safety flags named in the hypothesis's `**Context**` line (e.g. `hidden_consumer`, `dynamic_dispatch`, `ecosystem_boundary`) into those the validation work ruled out with evidence (Resolved) and those that remain open or unchecked (Unresolved). Callers with a base-tier rule keyed on these fields (e.g. `/tech-debt-collector`) depend on both being recorded even when empty.
 
 Update status: PENDING -> CONFIRMED|REJECTED
 

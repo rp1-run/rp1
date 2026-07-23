@@ -12,11 +12,13 @@ strictness: flexible
 **Run ID**: {RUN_ID}
 **Generated**: {Date}
 **Scope**: {SCOPE_TYPE}: {TARGET}
+**Base Commit**: {BASE_COMMIT}
+**Head Commit**: {HEAD_COMMIT}
 **Lenses Used**: {LENSES_USED}
 
 ## Executive Summary
 
-This report identifies evidence-gated tech debt and software bloat findings in the specified scope. Findings are ranked by materiality (impact × burden) and confidence-tiered using an ordinal C1-C4 scale.
+This report identifies evidence-gated tech debt and software bloat findings in the specified scope. Findings are ranked by materiality (a weighted single-metric burden score) and confidence-tiered using an ordinal C1-C4 scale.
 
 - **Total Leads Discovered**: {TOTAL_LEADS_DISCOVERED}
 - **Leads Clustered**: {LEADS_CLUSTERED}
@@ -61,8 +63,8 @@ Leads refuted during hypothesis-tester validation:
 - Total leads discovered: {TOTAL_LEADS_DISCOVERED}
 
 **Clustering & Ranking**:
-- Leads clustered by (locus, cause) root cause: {LEADS_CLUSTERED}
-- Materiality ranking: burden signal (files > deps > LoC > CI) primary sort
+- Leads clustered by (locus, cause, module) root cause + locality key: {LEADS_CLUSTERED}
+- Materiality ranking: `score = value * WEIGHT[metric]`, `WEIGHT = {files: 100, dependencies: 50, loc: 0.01, ci_minutes: 20}`, primary sort
 - Top 8 selected for validation
 
 **Validation Phase**:

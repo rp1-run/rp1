@@ -1,7 +1,7 @@
 ---
 name: tech-debt-collector
 description: "Evidence-gated tech debt and bloat detection. Scouts signals, ranks by materiality, validates by refutation, reports up to 5 findings with actions."
-allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git rev-parse *), Read, Write
+allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git rev-parse *), Bash(gh *), Bash(git merge-base *), Bash(mkdir *), Bash(mv *), Bash(grep *), Bash(sed *), Bash(date *), Read, Write, Task
 metadata:
   category: quality
   is_workflow: true
@@ -43,7 +43,7 @@ This workflow identifies candidate tech debt signals via a scout agent, clusters
 - Scope: supports whole project, specific file path, branch, or PR diff
 - Output: 0-5 findings per run (0 findings is valid success)
 - Confidence: C1-C4 ordinal tier system only (no C5)
-- Single active run: work artifacts (`hypotheses.md`, `leads.json`, `report.md`) live at fixed paths under `features/tech-debt-collector/` and are overwritten by each run — copy the report elsewhere before starting another scope
+- Non-destructive runs: work artifacts (`hypotheses.md`, `leads.json`, `report.md`) live at fixed paths under `features/tech-debt-collector/`; at run start any prior versions are archived into `features/tech-debt-collector/runs/<prior-run-id>/` (§1.4) before the new run writes, so completed runs remain retrievable
 
 ---
 
@@ -63,18 +63,25 @@ This workflow identifies candidate tech debt signals via a scout agent, clusters
 
 ### 1.1 Validate Scope and Resolve Target
 
-Classify the `SCOPE` argument in this exact order — explicit project, PR reference, filesystem path, verified git ref — and fail closed on anything else. A token that is both a path and a branch resolves as a path; use `pull/<N>/diff` or a path-free branch name to disambiguate. For PR scopes, `TARGET` is the bare PR number; scouts resolve the diff via the GitHub CLI (`gh`), which must be available and authenticated.
+Classify the `SCOPE` argument in this exact order — explicit project, PR reference, filesystem path, verified git ref — and fail closed on anything else. A token that is both a path and a branch resolves as a path; use `pull/<N>/diff` or a path-free branch name to disambiguate. PR references accept the short forms (`pull/<N>/diff`, `PR #<N>`), a full GitHub PR URL, and that URL's bare path form (without scheme/host, e.g. `owner/repo/pull/<N>`) — all four resolve to the same bare `TARGET` PR number; scouts resolve the diff via the GitHub CLI (`gh`), which must be available and authenticated. URL forms carry a repository slug: it MUST match the current repository, otherwise the same-numbered PR in the current repository would be silently analyzed instead.
 
 ```bash
 SCOPE_TYPE=""
 TARGET=""
+SCOPE_REPO=""
 
 if [ -z "$SCOPE" ] || [ "$SCOPE" = "project" ]; then
   SCOPE_TYPE="project"
   TARGET="{codeRoot}"
-elif [[ "$SCOPE" =~ ^pull/([0-9]+)/diff$ ]] || [[ "$SCOPE" =~ ^PR[[:space:]]?#?([0-9]+)$ ]]; then
+elif [[ "$SCOPE" =~ ^pull/([0-9]+)/diff$ ]] || \
+     [[ "$SCOPE" =~ ^PR[[:space:]]?#?([0-9]+)$ ]]; then
   SCOPE_TYPE="pr-diff"
   TARGET="${BASH_REMATCH[1]}"   # bare PR number, e.g. 433
+elif [[ "$SCOPE" =~ ^https://github\.com/([^/[:space:]]+/[^/[:space:]]+)/pull/([0-9]+)/?$ ]] || \
+     [[ "$SCOPE" =~ ^([^/[:space:]]+/[^/[:space:]]+)/pull/([0-9]+)/?$ ]]; then
+  SCOPE_TYPE="pr-diff"
+  SCOPE_REPO="${BASH_REMATCH[1]}"  # owner/repo slug carried by the URL forms
+  TARGET="${BASH_REMATCH[2]}"      # bare PR number, e.g. 433
 elif [ -e "$SCOPE" ]; then
   SCOPE_TYPE="file"
   TARGET="$SCOPE"
@@ -82,13 +89,47 @@ elif git rev-parse --verify --quiet "$SCOPE^{commit}" >/dev/null 2>&1; then
   SCOPE_TYPE="branch"
   TARGET="$SCOPE"
 else
-  echo "ERROR: SCOPE '$SCOPE' is not 'project', an existing path, a resolvable git branch/ref, or a PR reference (pull/<N>/diff or PR #<N>)."
+  echo "ERROR: SCOPE '$SCOPE' is not 'project', an existing path, a resolvable git branch/ref, or a PR reference. Use the canonical form 'PR #<N>' (pull/<N>/diff, a full GitHub PR URL, and its bare owner/repo/pull/<N> path form are also accepted)."
+fi
+
+# URL forms name a repository — refuse a slug that is not this repository.
+if [ -n "$SCOPE_REPO" ]; then
+  CURRENT_REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+  if [ "$SCOPE_REPO" != "$CURRENT_REPO" ]; then
+    echo "ERROR: PR URL targets repository '$SCOPE_REPO', but the current project is '$CURRENT_REPO'. This workflow analyzes only the current repository — run it from a checkout of '$SCOPE_REPO' to analyze that PR."
+    SCOPE_TYPE=""
+  fi
 fi
 ```
 
-If classification fails, emit `scoping` with `{"status": "failed", "reason": "unresolvable_scope"}` and STOP. Never silently default an unknown target to project scope.
+If classification fails, emit `scoping` with `{"status": "failed", "reason": "unresolvable_scope"}` and STOP. If the repository check fails, emit `scoping` with `{"status": "failed", "reason": "cross_repository_scope"}` and STOP. Never silently default an unknown target to project scope.
 
-### 1.2 Emit Scoping State
+**Canonical Scope Form** (REQ-003): `PR #<N>` is this workflow's canonical, identity-stable PR scope form. `SCOPE` is also this workflow's declared `identity_args` value, hashed verbatim by the shared workflow-identity mechanism — so `pull/<N>/diff`, the full URL, and the bare path form still produce a different run identity than `PR #<N>` even though all four resolve to the same `TARGET`. Canonicalizing identity itself would require changing the shared identity-hashing mechanism every rp1 workflow depends on, which is disproportionate to this fix; documenting one canonical form and steering the fail-closed error message toward it keeps the change scoped to this skill. Operators who need run-identity continuity across repeated invocations against the same PR should always invoke with `PR #<N>`.
+
+### 1.2 Pin the Analyzed Snapshot (Base/Head SHAs)
+
+Resolve immutable `BASE_COMMIT`/`HEAD_COMMIT` SHAs NOW — before any scout runs — so the report identifies the exact snapshot the analysis observed. PR and branch refs are mutable; capturing them after analysis (or only at reporting) can attribute findings to commits that were never analyzed. §4.2 re-verifies these values at reporting time and fails closed if the refs moved mid-run.
+
+```bash
+case "$SCOPE_TYPE" in
+  pr-diff)
+    BASE_COMMIT=$(gh pr view "$TARGET" --json baseRefOid --jq '.baseRefOid')
+    HEAD_COMMIT=$(gh pr view "$TARGET" --json headRefOid --jq '.headRefOid')
+    ;;
+  branch)
+    BASE_COMMIT=$(git merge-base main "$TARGET")
+    HEAD_COMMIT=$(git rev-parse "$TARGET")
+    ;;
+  project|file)
+    BASE_COMMIT="N/A"
+    HEAD_COMMIT=$(git rev-parse HEAD)
+    ;;
+esac
+```
+
+This is read-only VCS metadata capture, permitted under §6.1.
+
+### 1.3 Emit Scoping State
 
 ```bash
 rp1 agent-tools emit \
@@ -96,12 +137,40 @@ rp1 agent-tools emit \
   --type status_change \
   --run-id {RUN_ID} \
   --step scoping \
-  --data "{\"status\": \"running\", \"scope_type\": \"$SCOPE_TYPE\", \"target\": \"$TARGET\"}"
+  --data "{\"status\": \"running\", \"scope_type\": \"$SCOPE_TYPE\", \"target\": \"$TARGET\", \"base_commit\": \"$BASE_COMMIT\", \"head_commit\": \"$HEAD_COMMIT\"}"
 ```
 
-### 1.3 Transition to Scouting
+### 1.4 Archive Prior Run Artifacts
 
-Scoping validation complete. Proceed to Phase 2.
+Before this run writes `leads.json`, `hypotheses.md`, or `report.md`, archive any surviving artifacts from a prior run so they remain retrievable. The prior run's ID is recovered from `report.md`'s `**Run ID**` field when present; fall back to a UTC timestamp when `report.md` is missing or unparseable (e.g. the prior run never reached the reporting phase):
+
+```bash
+WORK_DIR="{workRoot}/features/tech-debt-collector"
+PRIOR_REPORT="$WORK_DIR/report.md"
+
+PRIOR_RUN_ID=""
+if [ -f "$PRIOR_REPORT" ]; then
+  PRIOR_RUN_ID=$(grep -m1 '^\*\*Run ID\*\*:' "$PRIOR_REPORT" | sed 's/^\*\*Run ID\*\*: *//')
+  # The recovered ID names a directory segment under runs/ — reject anything that
+  # could escape it (path separators, leading dots) and fall through to the timestamp.
+  [[ "$PRIOR_RUN_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || PRIOR_RUN_ID=""
+fi
+[ -z "$PRIOR_RUN_ID" ] && PRIOR_RUN_ID=$(date -u +%Y%m%dT%H%M%SZ)
+
+if [ -f "$WORK_DIR/leads.json" ] || [ -f "$WORK_DIR/hypotheses.md" ] || [ -f "$PRIOR_REPORT" ]; then
+  ARCHIVE_DIR="$WORK_DIR/runs/$PRIOR_RUN_ID"
+  mkdir -p "$ARCHIVE_DIR"
+  [ -f "$WORK_DIR/leads.json" ] && mv "$WORK_DIR/leads.json" "$ARCHIVE_DIR/"
+  [ -f "$WORK_DIR/hypotheses.md" ] && mv "$WORK_DIR/hypotheses.md" "$ARCHIVE_DIR/"
+  [ -f "$PRIOR_REPORT" ] && mv "$PRIOR_REPORT" "$ARCHIVE_DIR/"
+fi
+```
+
+This is a `mkdir`+`mv` relocation confined to `{workRoot}/features/tech-debt-collector/`, not a read of archived content — permitted under §6.1. The hypothesis-tester's fixed feature-ID-keyed read path (`{workRoot}/features/tech-debt-collector/hypotheses.md`, §3.2) is unaffected: this run writes a fresh `hypotheses.md` at that same path in §3.2 Step 1, after the prior copy has already been moved aside. New artifact registrations in §4.2 Step 6 continue to point at the fixed, non-archived path and are unambiguously distinguishable from the archived prior run under `runs/<prior-run-id>/`.
+
+### 1.5 Transition to Scouting
+
+Scoping validation and archival complete. Proceed to Phase 2.
 
 ---
 
@@ -178,31 +247,31 @@ Each scout dispatch returns ~20-30 leads with structure:
 After collecting leads from all dispatches:
 
 **Clustering Algorithm**:
-1. Group leads by `(locus, cause)` tuple
-2. For each group, identify canonical representative (highest internal confidence from scout)
-3. Merge overlapping claims (e.g., claims referencing same file/module)
-4. Preserve safety flags across merged leads (union of all flags from group)
+1. For each lead, derive `module` = the directory portion (all path segments except the filename) of `exact_sites[0].file` — the lead's primary exact site
+2. Group leads by `(locus, cause, module)` tuple — locus/cause alone is not sufficient; leads whose primary sites live in unrelated modules never merge, even with matching locus/cause
+3. For each group, identify canonical representative (highest internal confidence from scout) — unchanged
+4. Merge overlapping claims within a group (e.g., claims referencing the same file/module) — unchanged
+5. Preserve safety flags across merged leads (union of all flags from group) — unchanged
 
 **Example**:
-- **Cluster A** (dead_code, never_used): Modules A, B, C never referenced
-  - Merge: "Modules A, B, C are all unused exports from factory.ts"
+- **Cluster A** (dead_code, never_used, `src/legacy/factory`): Modules A, B, C never referenced
+  - Merge: "Modules A, B, C are all unused exports from `src/legacy/factory/factory.ts`"
   - Safety flags: [hidden_consumer]
-- **Cluster B** (over_abstraction, unmatched_generality): Generic factory patterns without current use
-  - Merge: "Generic factory abstractions in foo/factories.ts lack consumers"
+- **Cluster B** (dead_code, never_used, `src/billing/adapters`): unrelated dead-code lead sharing the same `(locus, cause)` as Cluster A but a different module
+  - Stays separate from Cluster A despite the matching locus/cause, because its primary exact site is in `src/billing/adapters`
+- **Cluster C** (over_abstraction, unmatched_generality, `src/foo`): Generic factory patterns without current use
+  - Merge: "Generic factory abstractions in `src/foo/factories.ts` lack consumers"
   - Safety flags: [dynamic_dispatch, ecosystem_boundary]
 
 Result: ~10-15 clustered leads from all dispatches.
 
 ### 2.4 Rank by Materiality
 
-**Materiality Scoring Algorithm** (from design.md §6.2):
+**Materiality Scoring Algorithm**: each lead carries exactly one `burden_signal {metric, value, unit}`. Score it against the documented per-metric weight — never against fields the schema does not carry:
 
 ```javascript
-materiality_score =
-  (burden_signal.files * 100) +           // Highest weight: broad impact
-  (burden_signal.dependencies * 50) +     // High weight: coupling impact
-  (burden_signal.loc / 100) +             // Medium weight: size
-  (burden_signal.ci_minutes * 20)         // Lower weight: perf gain
+WEIGHT = { files: 100, dependencies: 50, loc: 0.01, ci_minutes: 20 };
+materiality_score = burden_signal.value * WEIGHT[burden_signal.metric];
 ```
 
 **Ranking Tiebreaker**:
@@ -285,7 +354,8 @@ After the dispatch completes, read back `{workRoot}/features/tech-debt-collector
 For each hypothesis result:
   IF Result == "CONFIRMED":   # claim survived refutation
     - Lead is valid; proceed to confidence tier assignment (§3.4)
-    - Store: { lead_id, status: "CONFIRMED", confidence_tier: "TBD", evidence: {recorded findings} }
+    - Parse `refutation_coverage` from the findings' `Refutation Coverage` field (`complete`|`minor-gaps`|`partial`|`contradicted`) and `unresolved_safety_flags` from the `Safety Flags Unresolved` field (list; empty when "None")
+    - Store: { lead_id, status: "CONFIRMED", confidence_tier: "TBD", validation_result: { refutation_coverage, unresolved_safety_flags }, evidence: {recorded findings} }
   IF Result == "REJECTED":    # refuting evidence found
     - Lead is refuted; move to retain register
     - Store: { lead_id, status: "REJECTED", refutation_evidence: {recorded findings} }
@@ -312,23 +382,44 @@ For each CONFIRMED lead, assign an ordinal confidence tier (C1=lowest/speculativ
 - **C4 (Well-Established/Highest)**: Independent evidence converges and claim survived refutation attempt
   - Examples: Multiple validation methods confirm dead code; usage data confirms zero consumption; strong consensus across refutation checks
 
-**Confidence Tier Caps** (hard upper bounds; may downgrade from base tier):
+**Base Tier Rule** (`baseTierFromValidation`, fully deterministic from recorded evidence):
+
+Every CONFIRMED lead carries a `validation_result` (§3.3) with `refutation_coverage` (`complete`|`minor-gaps`|`partial`|`contradicted`) and `unresolved_safety_flags` (list), both read back from the hypothesis-tester's per-hypothesis findings (`hypothesis-tester.md` §4: `Refutation Coverage` and `Safety Flags Unresolved` fields). The base tier is a pure function of these two recorded values — an unresolved safety flag is the recorded signal for missing decision-critical evidence, so it does not need a third input:
+
+```javascript
+function baseTierFromValidation(validationResult) {
+  const { refutation_coverage, unresolved_safety_flags } = validationResult;
+
+  if (refutation_coverage === "partial" || refutation_coverage === "contradicted") {
+    return "C1"; // coverage incomplete or contradicted
+  }
+  if (unresolved_safety_flags.length > 0) {
+    return "C2"; // missing decision-critical evidence or any unresolved safety flag
+  }
+  if (refutation_coverage === "minor-gaps") {
+    return "C3"; // complete coverage with minor gaps, no unresolved flags
+  }
+  return "C4"; // complete refutation-vector coverage, all safety flags resolved
+}
+```
+
+**Confidence Tier Caps** (hard upper bounds; may downgrade from base tier). Caps 1-3 consume `validationResult.unresolved_safety_flags` — the flags still standing AFTER validation — never the scout's original `safety_flags` list, which validation may have already resolved:
 
 1. **Missing Usage-Proof Cap**: Usage-based claims (locus `dead_code` or cause `never_used`) require proof of non-usage for C3+
-   - Rule: `tier <= C2` unless `usage_evidence` is `runtime-telemetry`, or is `static-complete` with none of the `hidden_consumer`/`dynamic_dispatch`/`ecosystem_boundary` safety flags
+   - Rule: `tier <= C2` unless `usage_evidence` is `runtime-telemetry`, or is `static-complete` with none of `hidden_consumer`/`dynamic_dispatch`/`ecosystem_boundary` among `unresolved_safety_flags`
    - Rationale: C3+ requires proof of non-usage — either runtime telemetry or an exhaustive static reference search with dynamic patterns ruled out
 
-2. **Dynamic Dispatch Cap**: For unused-code claims with unchecked dynamic dispatch in safety_flags
-   - Rule: `if (locus == "dead_code" && safety_flags.includes("dynamic_dispatch")) tier <= C2`
-   - Rationale: Unchecked dynamic dispatch prevents definitive proof of non-usage; C3+ requires ruling out hidden dispatch
+2. **Dynamic Dispatch Cap**: For unused-code claims with dynamic dispatch still unresolved after validation
+   - Rule: `if (locus == "dead_code" && unresolved_safety_flags.includes("dynamic_dispatch")) tier <= C2`
+   - Rationale: Unresolved dynamic dispatch prevents definitive proof of non-usage; C3+ requires ruling out hidden dispatch
 
 3. **Safety Flag Overload Cap**: If 3 or more unresolved safety flags remain after validation
-   - Rule: `if (safety_flags.length >= 3) tier <= C3`
+   - Rule: `if (unresolved_safety_flags.length >= 3) tier <= C3`
    - Rationale: Multiple unresolved safety flags indicate high uncertainty; C4 requires strong convergence
 
-4. **Speculative Generalization Cap**: For speculative_generalization locus without strong consumer evidence
-   - Rule: `if (locus == "speculative_generalization" && validation_confirms_no_consumers) tier <= C3`
-   - Rationale: Speculative code inherently has higher epistemic uncertainty; C4 requires independent evidence convergence
+4. **Speculative Generalization Cap**: For every confirmed speculative_generalization lead
+   - Rule: `if (locus == "speculative_generalization") tier <= C3`
+   - Rationale: Confirmation for this locus means the refutation search found no consumers — codebase analysis alone cannot establish that speculative generality will never be needed, so C4 requires independent evidence convergence (e.g. roadmap or telemetry) that this workflow does not collect
 
 **Tier Assignment Algorithm**:
 
@@ -342,27 +433,31 @@ function assignConfidenceTier(lead, validationResult) {
   const baseTierStr = baseTierFromValidation(validationResult); // "C1", "C2", "C3", or "C4"
   let tierValue = tierValues[baseTierStr];
 
-  // Apply caps (hard upper bounds; may downgrade from base tier)
+  // Apply caps (hard upper bounds; may downgrade from base tier).
+  // Caps consume post-validation unresolved flags — a flag the tester resolved must not keep capping.
+  const unresolvedFlags = validationResult.unresolved_safety_flags;
+
   // Missing Usage-Proof Cap: usage-based claims need telemetry or complete static proof for C3+
   const usageBased = lead.locus === "dead_code" || lead.cause === "never_used";
   const staticProof = lead.usage_evidence === "static-complete" &&
-    !lead.safety_flags.some(f => ["hidden_consumer", "dynamic_dispatch", "ecosystem_boundary"].includes(f));
+    !unresolvedFlags.some(f => ["hidden_consumer", "dynamic_dispatch", "ecosystem_boundary"].includes(f));
   if (usageBased && lead.usage_evidence !== "runtime-telemetry" && !staticProof) {
     tierValue = Math.min(tierValue, tierValues["C2"]); // Clamp to 2
   }
 
-  // Dynamic Dispatch Cap: max C2 for unused-code claims (cannot exceed tier 2)
-  if (lead.locus === "dead_code" && lead.safety_flags.includes("dynamic_dispatch")) {
+  // Dynamic Dispatch Cap: max C2 for unused-code claims with dispatch still unresolved
+  if (lead.locus === "dead_code" && unresolvedFlags.includes("dynamic_dispatch")) {
     tierValue = Math.min(tierValue, tierValues["C2"]); // Clamp to 2
   }
 
-  // Safety Flag Overload Cap: max C3 if 3+ unresolved flags (cannot exceed tier 3)
-  if (lead.safety_flags.length >= 3) {
+  // Safety Flag Overload Cap: max C3 if 3+ flags remain unresolved after validation
+  if (unresolvedFlags.length >= 3) {
     tierValue = Math.min(tierValue, tierValues["C3"]); // Clamp to 3
   }
 
-  // Speculative Generalization Cap: max C3 without strong consumer evidence (cannot exceed tier 3)
-  if (lead.locus === "speculative_generalization" && validationResult.no_consumers_found) {
+  // Speculative Generalization Cap: max C3 — confirmation here means no consumers were found,
+  // and codebase analysis alone cannot prove speculative generality is safe to call C4
+  if (lead.locus === "speculative_generalization") {
     tierValue = Math.min(tierValue, tierValues["C3"]); // Clamp to 3
   }
 
@@ -450,7 +545,11 @@ rp1 agent-tools emit \
 
 **Objective**: Generate the final report artifact with findings section (C3-C4 only, max 5), needs-measurement queue, retain register, and methodology.
 
-**Step 1: Select Top 5 Findings from C3-C4 Queue**
+**Step 1: Verify the Pinned Snapshot (Base/Head SHAs)**
+
+`BASE_COMMIT`/`HEAD_COMMIT` were pinned in §1.2 before any scout ran — those pinned values are what the report header states. Re-resolve the same refs now (same commands as §1.2) and compare: if either SHA differs from its pinned value, the underlying ref moved mid-run and the findings no longer describe a verifiable snapshot. In that case emit `reporting` with `{"status": "failed", "reason": "snapshot_drift", "pinned_head": "$HEAD_COMMIT", "current_head": "<re-resolved value>"}` and STOP with a message telling the operator to re-run against the updated ref. Do not write a report attributing findings to SHAs that were not analyzed.
+
+**Step 2: Select Top 5 Findings from C3-C4 Queue**
 
 From the findings_queue (already sorted by materiality from Phase 3):
 
@@ -460,13 +559,13 @@ FINAL_FINDINGS_COUNT=$(( ${#findings_queue[@]} > 5 ? 5 : ${#findings_queue[@]} )
 FINAL_FINDINGS=("${findings_queue[@]:0:$FINAL_FINDINGS_COUNT}")
 ```
 
-**Step 2: Read the Canonical Template**
+**Step 3: Read the Canonical Template**
 
 Read `plugins/base/skills/artifact-templates/templates/tech-debt-collector/report.md` (fall back to the `rp1-base:artifact-templates` SKILL.md Template Index if the direct path fails). The template body is the single source of truth for report structure — do not invent a parallel skeleton.
 
-**Step 3: Fill Template Placeholders**
+**Step 4: Fill Template Placeholders**
 
-Fill `{RUN_ID}`, `{Date}`, `{SCOPE_TYPE}`, `{TARGET}`, `{LENSES_USED}`, `{LENSES_APPLIED}`, `{DISPATCH_COUNT}`, `{HYPOTHESIS_COUNT}`, and all lead-count placeholders from Phase 2/3 state. Fill the three section placeholders as follows.
+Fill `{RUN_ID}`, `{Date}`, `{SCOPE_TYPE}`, `{TARGET}`, `{BASE_COMMIT}`, `{HEAD_COMMIT}`, `{LENSES_USED}`, `{LENSES_APPLIED}`, `{DISPATCH_COUNT}`, `{HYPOTHESIS_COUNT}`, and all lead-count placeholders from Phase 2/3 state. Fill the three section placeholders as follows.
 
 `{FINDINGS_SECTION}` — for each of the top 5 findings (ranked 1-5 by materiality):
 
@@ -527,11 +626,11 @@ If `FINDINGS_COUNT == 0`, fill with: "**No findings at C3+ confidence level.** I
   - **Status**: REJECTED
 ```
 
-**Step 4: Write the Report**
+**Step 5: Write the Report**
 
-Write the filled template to `{workRoot}/features/tech-debt-collector/report.md` using the Write tool. This is the executable production step — the file must exist on disk before Step 5 registration. Writing this work artifact is explicitly permitted by the analysis-only constraint (§6.1).
+Write the filled template to `{workRoot}/features/tech-debt-collector/report.md` using the Write tool. This is the executable production step — the file must exist on disk before Step 6 registration. Writing this work artifact is explicitly permitted by the analysis-only constraint (§6.1).
 
-**Step 5: Register Report Artifact to Arcade**
+**Step 6: Register Report Artifact to Arcade**
 
 After report file is written, verify file exists and emit artifact_registered event:
 
@@ -566,7 +665,7 @@ fi
 - ✅ Emit data includes `path`, `feature`, and `storageRoot: "work_dir"`
 - ✅ Errors logged as warnings; report availability unaffected
 
-**Step 6: Emit Reporting Complete**
+**Step 7: Emit Reporting Complete**
 
 ```bash
 rp1 agent-tools emit \
@@ -581,7 +680,7 @@ rp1 agent-tools emit \
 
 ---
 
-## §5. State Machine
+## STATE-MACHINE
 
 ```mermaid
 stateDiagram-v2
@@ -610,8 +709,8 @@ stateDiagram-v2
 ### 6.1 Analysis-Only Constraint
 
 This orchestrator never inspects or modifies source code:
-- ✅ Allowed: dispatch agents, emit events, read work artifacts and canonical templates, write work artifacts under `{workRoot}/features/tech-debt-collector/` only (`leads.json`, `hypotheses.md`, `report.md`)
-- ❌ Not allowed: reading source files, editing or writing anything outside that work directory, Bash commands that modify files
+- ✅ Allowed: dispatch agents, emit events, read work artifacts and canonical templates, write work artifacts under `{workRoot}/features/tech-debt-collector/` only (`leads.json`, `hypotheses.md`, `report.md`), read-only VCS metadata capture (`gh pr view`, `git merge-base`, `git rev-parse`) for snapshot pinning and report reproducibility (§1.2, §4.2), `mkdir`+`mv` archival of prior-run artifacts confined to `{workRoot}/features/tech-debt-collector/runs/` at run start (§1.4) for non-destructive runs
+- ❌ Not allowed: reading source files, editing or writing anything outside that work directory, Bash commands that modify files or mutate VCS state (e.g. `git checkout`, `git merge`, `git commit`, `git push`)
 
 Source-level discovery and validation happen exclusively inside bloat-scout and hypothesis-tester dispatches; the orchestrator handles only structured lead data, which protects the main context window.
 

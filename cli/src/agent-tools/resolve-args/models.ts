@@ -43,6 +43,8 @@ export interface ResolvedDirectories {
 	readonly worktreeName?: string;
 	readonly status: ResolvedDirectoryStatus;
 	readonly nextStepCommand?: "rp1 init" | "rp1 migrate";
+	readonly kbInitialized: boolean;
+	readonly kbNextStepHint?: string;
 }
 
 /** Output payload for the resolve-args tool. */
