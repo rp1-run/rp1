@@ -74,7 +74,7 @@ agents:
   - name: rp1-dev:bloat-scout
     description: "Discovers candidate tech debt signals (bloat, dead code, over-abstraction) from target codebase with configurable lens"
     plugin: dev
-    last_checksum: 36c4334474c3cb4752376e0e043474b947d1059b963776d9481d92d7e472f604
+    last_checksum: 8ca8056a81746c660743ff3e277b76f95a54e4e40d9a1c6da0c288acd593b1af
   - name: rp1-dev:blueprint-auditor
     description: "Audits PRD documents against implementation status and executes disposition actions"
     plugin: dev
@@ -154,7 +154,7 @@ agents:
   - name: rp1-dev:hypothesis-tester
     description: "Validates design hypotheses through code experiments, codebase analysis, and external research"
     plugin: dev
-    last_checksum: f2197ee767b985cbb4ac6462492d6d3d57459fe218006e6d054bbc4f93622375
+    last_checksum: 87adb391c9948fae8b0e60b671cfa7cb68212ab686ddbeee12756cef70ad72bc
   - name: rp1-dev:phase-planner
     description: "Decomposes a planning source into a source-adjacent phase-plan artifact and refreshes source backlinks."
     plugin: dev
