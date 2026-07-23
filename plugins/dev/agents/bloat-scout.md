@@ -190,7 +190,7 @@ For each bloat signal discovered:
 - **dependencies**: Transitive dependency count (direct + indirect)
 - **loc**: Total LoC of affected code block
 - **ci_minutes**: Estimated CI time saved by removal (optional, placeholder if unmeasurable)
-- Pick 1-2 most relevant metrics per lead
+- Pick exactly ONE metric per lead — the single most decision-relevant one. `burden_signal` is a single object (see the JSON contract below), and the orchestrator's materiality scoring consumes exactly one `{metric, value, unit}`; a second metric has nowhere to go.
 
 **Locus** (category of bloat): one of [dead_code, over_abstraction, redundant_abstraction, speculative_generalization]
 
