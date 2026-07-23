@@ -1,7 +1,7 @@
 ---
 name: tech-debt-collector
 description: "Evidence-gated tech debt and bloat detection. Scouts signals, ranks by materiality, validates by refutation, reports up to 5 findings with actions."
-allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git rev-parse *), Bash(gh *), Bash(git merge-base *), Bash(mkdir *), Bash(mv *), Read, Write, Task
+allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git rev-parse *), Bash(gh *), Bash(git merge-base *), Bash(mkdir *), Bash(mv *), Bash(grep *), Bash(sed *), Bash(date *), Read, Write, Task
 metadata:
   category: quality
   is_workflow: true
@@ -43,7 +43,7 @@ This workflow identifies candidate tech debt signals via a scout agent, clusters
 - Scope: supports whole project, specific file path, branch, or PR diff
 - Output: 0-5 findings per run (0 findings is valid success)
 - Confidence: C1-C4 ordinal tier system only (no C5)
-- Single active run: work artifacts (`hypotheses.md`, `leads.json`, `report.md`) live at fixed paths under `features/tech-debt-collector/` and are overwritten by each run — copy the report elsewhere before starting another scope
+- Non-destructive runs: work artifacts (`hypotheses.md`, `leads.json`, `report.md`) live at fixed paths under `features/tech-debt-collector/`; at run start any prior versions are archived into `features/tech-debt-collector/runs/<prior-run-id>/` (§1.3) before the new run writes, so completed runs remain retrievable
 
 ---
 
@@ -104,9 +104,34 @@ rp1 agent-tools emit \
   --data "{\"status\": \"running\", \"scope_type\": \"$SCOPE_TYPE\", \"target\": \"$TARGET\"}"
 ```
 
-### 1.3 Transition to Scouting
+### 1.3 Archive Prior Run Artifacts
 
-Scoping validation complete. Proceed to Phase 2.
+Before this run writes `leads.json`, `hypotheses.md`, or `report.md`, archive any surviving artifacts from a prior run so they remain retrievable. The prior run's ID is recovered from `report.md`'s `**Run ID**` field when present; fall back to a UTC timestamp when `report.md` is missing or unparseable (e.g. the prior run never reached the reporting phase):
+
+```bash
+WORK_DIR="{workRoot}/features/tech-debt-collector"
+PRIOR_REPORT="$WORK_DIR/report.md"
+
+PRIOR_RUN_ID=""
+if [ -f "$PRIOR_REPORT" ]; then
+  PRIOR_RUN_ID=$(grep -m1 '^\*\*Run ID\*\*:' "$PRIOR_REPORT" | sed 's/^\*\*Run ID\*\*: *//')
+fi
+[ -z "$PRIOR_RUN_ID" ] && PRIOR_RUN_ID=$(date -u +%Y%m%dT%H%M%SZ)
+
+if [ -f "$WORK_DIR/leads.json" ] || [ -f "$WORK_DIR/hypotheses.md" ] || [ -f "$PRIOR_REPORT" ]; then
+  ARCHIVE_DIR="$WORK_DIR/runs/$PRIOR_RUN_ID"
+  mkdir -p "$ARCHIVE_DIR"
+  [ -f "$WORK_DIR/leads.json" ] && mv "$WORK_DIR/leads.json" "$ARCHIVE_DIR/"
+  [ -f "$WORK_DIR/hypotheses.md" ] && mv "$WORK_DIR/hypotheses.md" "$ARCHIVE_DIR/"
+  [ -f "$PRIOR_REPORT" ] && mv "$PRIOR_REPORT" "$ARCHIVE_DIR/"
+fi
+```
+
+This is a `mkdir`+`mv` relocation confined to `{workRoot}/features/tech-debt-collector/`, not a read of archived content — permitted under §6.1. The hypothesis-tester's fixed feature-ID-keyed read path (`{workRoot}/features/tech-debt-collector/hypotheses.md`, §3.2) is unaffected: this run writes a fresh `hypotheses.md` at that same path in §3.2 Step 1, after the prior copy has already been moved aside. New artifact registrations in §4.2 Step 6 continue to point at the fixed, non-archived path and are unambiguously distinguishable from the archived prior run under `runs/<prior-run-id>/`.
+
+### 1.4 Transition to Scouting
+
+Scoping validation and archival complete. Proceed to Phase 2.
 
 ---
 
@@ -660,7 +685,7 @@ stateDiagram-v2
 ### 6.1 Analysis-Only Constraint
 
 This orchestrator never inspects or modifies source code:
-- ✅ Allowed: dispatch agents, emit events, read work artifacts and canonical templates, write work artifacts under `{workRoot}/features/tech-debt-collector/` only (`leads.json`, `hypotheses.md`, `report.md`), read-only VCS metadata capture (`gh pr view`, `git merge-base`, `git rev-parse`) for report reproducibility (§4.2)
+- ✅ Allowed: dispatch agents, emit events, read work artifacts and canonical templates, write work artifacts under `{workRoot}/features/tech-debt-collector/` only (`leads.json`, `hypotheses.md`, `report.md`), read-only VCS metadata capture (`gh pr view`, `git merge-base`, `git rev-parse`) for report reproducibility (§4.2), `mkdir`+`mv` archival of prior-run artifacts confined to `{workRoot}/features/tech-debt-collector/runs/` at run start (§1.3) for non-destructive runs
 - ❌ Not allowed: reading source files, editing or writing anything outside that work directory, Bash commands that modify files or mutate VCS state (e.g. `git checkout`, `git merge`, `git commit`, `git push`)
 
 Source-level discovery and validation happen exclusively inside bloat-scout and hypothesis-tester dispatches; the orchestrator handles only structured lead data, which protects the main context window.
