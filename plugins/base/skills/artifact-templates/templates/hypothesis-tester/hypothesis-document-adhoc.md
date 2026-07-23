@@ -1,17 +1,18 @@
 ---
 scope: workRoot
-path_pattern: "hypotheses/{YYYY-MM-DD}-{SLUG}.md"
+path_pattern: "hypotheses/{YYYY-MM-DD}-{SLUG}[-{N}].md"
 producer: hypothesis-tester
 type: document
-description: "Ad-hoc hypothesis document for validating standalone scenarios without a feature context. Created and updated by hypothesis-tester in ad-hoc mode."
+description: "Ad-hoc hypothesis document for validating standalone scenarios without a feature context. Created and updated by hypothesis-tester in ad-hoc mode. Optional [-{N}] suffix resolves same-day slug collisions."
 strictness: strict
 emit_hint: |
+  # Skip if WORKFLOW is empty (standalone invocation).
   rp1 agent-tools emit \
     --workflow {WORKFLOW} \
     --type artifact_registered \
     --run-id {RUN_ID} \
     --step hypothesis-tester:testing \
-    --data '{"path": "hypotheses/{YYYY-MM-DD}-{SLUG}.md", "storageRoot": "work_dir"}'
+    --data '{"path": "hypotheses/{RESOLVED_FILENAME}", "storageRoot": "work_dir"}'
 ---
 
 # Hypothesis Document: {SLUG}

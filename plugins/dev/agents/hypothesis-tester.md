@@ -88,10 +88,19 @@ ERROR: No FEATURE_ID or HYPOTHESIS provided. Cannot determine validation mode.
 3. This mode reads and updates existing documents -- it does not create them. The initial document is created by feature-architect.
 
 **Ad-hoc mode**:
-1. Read the template at `plugins/base/skills/artifact-templates/templates/hypothesis-tester/hypothesis-document-adhoc.md` for format reference.
+1. Read the template at `plugins/base/skills/artifact-templates/templates/hypothesis-tester/hypothesis-document-adhoc.md` for format reference (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
 2. Create the hypothesis document from scratch: synthesize HYP-001 from the HYPOTHESIS description, set Risk Level to MEDIUM (default), derive validation criteria and method from the scenario.
 3. Ensure `{WORK_ROOT}/hypotheses/` directory exists (`mkdir -p`).
-4. Write the document, then run the experiment and append findings to it.
+4. Write the document using exclusive-create semantics (see §PROC step 1 for collision resolution).
+5. Register the artifact after creation (skip if WORKFLOW is empty):
+   ```bash
+   rp1 agent-tools emit \
+     --workflow {WORKFLOW} \
+     --type artifact_registered \
+     --run-id {RUN_ID} \
+     --step hypothesis-tester:testing \
+     --data '{"path": "hypotheses/{resolved-filename}", "storageRoot": "work_dir"}'
+   ```
 
 ## §KB: Load Knowledge Base
 
@@ -114,11 +123,13 @@ Re-run the design phase with /build {FEATURE_ID} or create the file manually fol
 ```
 
 **Ad-hoc mode**: Create the hypothesis document:
-1. Generate slug: lowercase the HYPOTHESIS description, replace non-alphanumeric with hyphens, collapse consecutive hyphens, trim leading/trailing hyphens, truncate to 50 chars.
+1. Generate slug: lowercase the HYPOTHESIS description, replace non-alphanumeric with hyphens, collapse consecutive hyphens, trim leading/trailing hyphens, truncate to 50 chars. If the result is empty, use `adhoc-hypothesis` as the slug.
 2. Set date: `YYYY-MM-DD` (today).
-3. `mkdir -p {WORK_ROOT}/hypotheses/`
-4. Create `{WORK_ROOT}/hypotheses/{YYYY-MM-DD}-{slug}.md` using the ad-hoc template format from §FMT.
-5. Synthesize HYP-001: derive statement, validation criteria, and method from the HYPOTHESIS description.
+3. Set `EXPERIMENT_ID` = the generated slug (used for both setup and cleanup).
+4. `mkdir -p {WORK_ROOT}/hypotheses/`
+5. Resolve target path with exclusive-create semantics: start with `{WORK_ROOT}/hypotheses/{YYYY-MM-DD}-{slug}.md`. If the file exists, try `{YYYY-MM-DD}-{slug}-2.md`, then `-3`, etc. until a free path is found.
+6. Create the document at the resolved path using the ad-hoc template format from §FMT.
+7. Synthesize HYP-001: derive statement, validation criteria, and method from the HYPOTHESIS description.
 
 Transition to `testing` state per STATE-MACHINE section (skip if WORKFLOW is empty).
 Report once per experiment using `--unit hypothesis-{N}` where N is the sequential experiment number (e.g., `hypothesis-1`, `hypothesis-2`):
@@ -157,8 +168,10 @@ Do planning in `<validation_planning>` thinking block:
 #### CODE_EXPERIMENT
 For runtime/API behavior testing.
 
+Set `EXPERIMENT_ID` per mode: FEATURE_ID (feature-bound) or slug (ad-hoc, from §PROC step 1.3).
+
 ```bash
-mkdir -p /tmp/hypothesis-{feature-id}
+mkdir -p /tmp/hypothesis-{EXPERIMENT_ID}
 ```
 - Match project lang (check package.json/Cargo.toml/pyproject.toml/go.mod)
 - Write + execute experimental code
@@ -275,11 +288,11 @@ rp1 agent-tools emit \
 ### 6. Cleanup
 
 ```bash
-rm -rf /tmp/hypothesis-{feature-id-or-slug}/
-ls /tmp/ | grep hypothesis-{feature-id-or-slug}  # verify empty
+rm -rf /tmp/hypothesis-{EXPERIMENT_ID}/
+ls /tmp/ | grep hypothesis-{EXPERIMENT_ID}  # verify empty
 ```
 
-Use FEATURE_ID in feature-bound mode, slug in ad-hoc mode.
+`EXPERIMENT_ID` resolved per mode: FEATURE_ID (feature-bound) or slug (ad-hoc, set in §PROC step 1 ad-hoc sub-step 3).
 
 ### 7. Report Summary
 

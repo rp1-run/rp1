@@ -39,10 +39,22 @@ Supports two modes:
 At least one of FEATURE_ID or HYPOTHESIS must be provided. If neither is set:
 
 ```
-ERROR: Provide either FEATURE_ID (for feature-bound validation) or HYPOTHESIS (for ad-hoc validation).
+ERROR: Provide either FEATURE_ID (for feature-bound validation) or --hypothesis "text" (for ad-hoc validation).
 ```
 
 If both are provided, prefer feature-bound mode (FEATURE_ID takes precedence).
+
+### Mode Disambiguation
+
+When FEATURE_ID is resolved but HYPOTHESIS is empty, check before dispatching feature-bound mode:
+
+1. If `{workRoot}/features/{FEATURE_ID}/` exists -> feature-bound mode (proceed).
+2. Otherwise, if the resolved FEATURE_ID value contains whitespace (indicates free-form prose was bound positionally) -> treat the entire resolved value as HYPOTHESIS, clear FEATURE_ID, and dispatch ad-hoc mode instead.
+3. Otherwise (single-token FEATURE_ID, no matching feature dir) -> error:
+   ```
+   ERROR: Feature directory not found: {workRoot}/features/{FEATURE_ID}/
+   For ad-hoc validation, use: --hypothesis "your scenario description"
+   ```
 
 ## Execution
 
