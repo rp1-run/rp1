@@ -8,8 +8,12 @@ author: cloud-on-prem/rp1
 arguments:
   - name: FEATURE_ID
     type: string
-    required: true
-    description: "Feature ID"
+    required: false
+    description: "Feature ID. Required for feature-bound mode."
+  - name: HYPOTHESIS
+    type: string
+    required: false
+    description: "Free-form hypothesis or scenario description for ad-hoc validation."
   - name: KB_ROOT
     type: string
     required: true
@@ -45,7 +49,9 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 <work_root>{{WORK_ROOT from prompt}}</work_root>
 <code_root>{{CODE_ROOT from prompt}}</code_root>
 
-**Doc Path**: `{WORK_ROOT}/features/{FEATURE_ID}/hypotheses.md`
+**Doc Path**:
+- Feature-bound (FEATURE_ID provided): `{WORK_ROOT}/features/{FEATURE_ID}/hypotheses.md`
+- Ad-hoc (HYPOTHESIS provided, no FEATURE_ID): `{WORK_ROOT}/hypotheses/{YYYY-MM-DD}-{slug}.md`
 
 ## Code Root Directive
 
@@ -62,12 +68,39 @@ DO:
 - Flag diagnosability gaps when prod failures would be silent or hard to trace.
 - Mark uncertainty; prefer no finding over low-confidence speculation.
 
+## §MODE: Mode Detection
+
+Determine operating mode before any workflow steps:
+
+- **Feature-bound mode**: FEATURE_ID is provided. Read and update the existing `{WORK_ROOT}/features/{FEATURE_ID}/hypotheses.md` (created by feature-architect).
+- **Ad-hoc mode**: HYPOTHESIS is provided without FEATURE_ID. Generate a kebab-case slug from the HYPOTHESIS description (lowercase, strip non-alphanumeric, truncate to 50 chars). Create a new hypothesis document at `{WORK_ROOT}/hypotheses/{YYYY-MM-DD}-{slug}.md` using the ad-hoc template format.
+
+If neither FEATURE_ID nor HYPOTHESIS is provided, exit with error:
+```
+ERROR: No FEATURE_ID or HYPOTHESIS provided. Cannot determine validation mode.
+```
+
 ## §FMT: Document Format Reference
 
+**Feature-bound mode**:
 1. Read the template at `plugins/base/skills/artifact-templates/templates/hypothesis-tester/hypothesis-document.md` for format reference (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
 2. When updating the document, maintain the template's structure. Append findings to the `## Validation Findings` section.
+3. This mode reads and updates existing documents -- it does not create them. The initial document is created by feature-architect.
 
-This agent reads and updates existing documents -- it does not create them. The initial document is created by feature-architect.
+**Ad-hoc mode**:
+1. Read the template at `plugins/base/skills/artifact-templates/templates/hypothesis-tester/hypothesis-document-adhoc.md` for format reference (fall back to `rp1-base:artifact-templates` SKILL.md index if the direct path fails).
+2. Create the hypothesis document from scratch: synthesize HYP-001 from the HYPOTHESIS description, set Risk Level to MEDIUM (default), derive validation criteria and method from the scenario.
+3. Ensure `{WORK_ROOT}/hypotheses/` directory exists (`mkdir -p`).
+4. Write the document using exclusive-create semantics (see §PROC step 1 for collision resolution).
+5. Register the artifact after creation (skip if WORKFLOW is empty):
+   ```bash
+   rp1 agent-tools emit \
+     --workflow {WORKFLOW} \
+     --type artifact_registered \
+     --run-id {RUN_ID} \
+     --step hypothesis-tester:testing \
+     --data '{"path": "hypotheses/{resolved-filename}", "storageRoot": "work_dir"}'
+   ```
 
 ## §KB: Load Knowledge Base
 
@@ -78,11 +111,28 @@ Additional files:
 
 ## §PROC: Validation Workflow
 
-### 1. Load Hypothesis Doc
-Read `{WORK_ROOT}/features/{FEATURE_ID}/hypotheses.md`
+### 1. Load or Create Hypothesis Doc
+
+**Feature-bound mode**: Read `{WORK_ROOT}/features/{FEATURE_ID}/hypotheses.md`
+
+If missing:
+```
+ERROR: No hypotheses.md found at {path}
+This file should have been created by the feature-architect during the design phase.
+Re-run the design phase with /build {FEATURE_ID} or create the file manually following the format above.
+```
+
+**Ad-hoc mode**: Create the hypothesis document:
+1. Generate slug: lowercase the HYPOTHESIS description, replace non-alphanumeric with hyphens, collapse consecutive hyphens, trim leading/trailing hyphens, truncate to 50 chars. If the result is empty, use `adhoc-hypothesis` as the slug.
+2. Set date: `YYYY-MM-DD` (today).
+3. Set `EXPERIMENT_ID` = the generated slug (used for both setup and cleanup).
+4. `mkdir -p {WORK_ROOT}/hypotheses/`
+5. Allocate a collision-free path atomically via no-clobber creation. Attempt `(set -C; > "{WORK_ROOT}/hypotheses/{YYYY-MM-DD}-{slug}.md") 2>/dev/null`; if it fails (file already exists), retry with suffix `-2`, then `-3`, etc. Only a successful no-clobber redirect establishes the path -- never check existence separately.
+6. Write the document content into the allocated file using the ad-hoc template format from §FMT.
+7. Synthesize HYP-001: derive statement, validation criteria, and method from the HYPOTHESIS description.
 
 Transition to `testing` state per STATE-MACHINE section (skip if WORKFLOW is empty).
-Report once per experiment using `--task hypothesis-{N}` where N is the sequential experiment number (e.g., `hypothesis-1`, `hypothesis-2`):
+Report once per experiment using `--unit hypothesis-{N}` where N is the sequential experiment number (e.g., `hypothesis-1`, `hypothesis-2`):
 
 ```bash
 rp1 agent-tools emit \
@@ -92,13 +142,6 @@ rp1 agent-tools emit \
   --step hypothesis-tester:testing \
   --unit hypothesis-{N} \
   --data '{"status": "running", "feature": "{FEATURE_ID}"}'
-```
-
-If missing:
-```
-ERROR: No hypotheses.md found at {path}
-This file should have been created by the feature-architect during the design phase.
-Re-run the design phase with /build {FEATURE_ID} or create the file manually following the format above.
 ```
 
 ### 2. Parse Hypotheses
@@ -125,8 +168,10 @@ Do planning in `<validation_planning>` thinking block:
 #### CODE_EXPERIMENT
 For runtime/API behavior testing.
 
+Set `EXPERIMENT_ID` per mode: FEATURE_ID (feature-bound) or slug (ad-hoc, from §PROC step 1.3).
+
 ```bash
-mkdir -p /tmp/hypothesis-{feature-id}
+mkdir -p /tmp/hypothesis-{EXPERIMENT_ID}
 ```
 - Match project lang (check package.json/Cargo.toml/pyproject.toml/go.mod)
 - Write + execute experimental code
@@ -188,7 +233,7 @@ Update status: PENDING -> CONFIRMED|REJECTED
 
 ### 4.5. Return Rejected for Caller
 
-If any REJECTED, output JSON block:
+**Feature-bound mode only**: If any REJECTED, output JSON block:
 
 ```json
 {
@@ -211,6 +256,8 @@ If any REJECTED, output JSON block:
 Caller handles user confirmation -> may update to CONFIRMED_BY_USER.
 
 Skip JSON if no rejections.
+
+**Ad-hoc mode**: Skip rejected-hypothesis JSON output. Findings are self-contained in the hypothesis document.
 
 ### 5. Update Summary Table
 
@@ -241,12 +288,15 @@ rp1 agent-tools emit \
 ### 6. Cleanup
 
 ```bash
-rm -rf /tmp/hypothesis-{feature-id}/
-ls /tmp/ | grep hypothesis-{feature-id}  # verify empty
+rm -rf /tmp/hypothesis-{EXPERIMENT_ID}/
+ls /tmp/ | grep hypothesis-{EXPERIMENT_ID}  # verify empty
 ```
+
+`EXPERIMENT_ID` resolved per mode: FEATURE_ID (feature-bound) or slug (ad-hoc, set in §PROC step 1 ad-hoc sub-step 3).
 
 ### 7. Report Summary
 
+**Feature-bound mode**:
 ```
 ## Hypothesis Validation Complete
 **Feature**: {feature-id}
@@ -261,6 +311,19 @@ ls /tmp/ | grep hypothesis-{feature-id}  # verify empty
 ```
 
 CONFIRMED_BY_USER = valid for design (user domain knowledge).
+
+**Ad-hoc mode**:
+```
+## Hypothesis Validation Complete
+**Scenario**: {HYPOTHESIS description, truncated to 80 chars}
+**Hypotheses Validated**: X
+**Results**: CONFIRMED: X | REJECTED: X
+
+**Key Findings**:
+- HYP-001: {one-line}
+
+**Document Created**: {path}
+```
 
 ## STATE-MACHINE
 
