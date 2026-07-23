@@ -1,5 +1,11 @@
 import { isAbsolute, join, relative, resolve } from "node:path";
 import type { RunRecord } from "../../../shared/events.js";
+import { readProjectId } from "../../../shared/project-id.js";
+import {
+	computeDirectoryPaths,
+	isContainerEnvironment,
+	readStorageMode,
+} from "../../../shared/storage-mode.js";
 import type { ArtifactRecord } from "../../../src/agent-tools/emit/database.js";
 
 export interface ProjectDirectories {
@@ -36,11 +42,19 @@ const LEGACY_SECTION_PREFIXES: Record<ProjectSection, readonly string[]> = {
 
 const deriveProjectDirectories = (projectPath: string): ProjectDirectories => {
 	const projectRoot = resolve(projectPath);
-	const rp1DotDir = join(projectRoot, ".rp1");
+	const projectId = readProjectId(projectRoot);
+	const mode = isContainerEnvironment()
+		? "local"
+		: readStorageMode(projectRoot);
+	const { kbRoot, workRoot } = computeDirectoryPaths(
+		projectRoot,
+		projectId,
+		mode,
+	);
 	return {
 		projectRoot,
-		kbRoot: join(rp1DotDir, "context"),
-		workRoot: join(rp1DotDir, "work"),
+		kbRoot,
+		workRoot,
 	};
 };
 
