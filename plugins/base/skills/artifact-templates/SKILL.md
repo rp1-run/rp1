@@ -62,6 +62,7 @@ Active `/build` artifacts are producer-owned: the agent that writes the artifact
 | knowledge-base | interaction-model.md | document | kbRoot | interaction-model.md | templates/knowledge-base/single-project/interaction-model.md |
 | knowledge-base | modules.md | document | kbRoot | modules.md | templates/knowledge-base/single-project/modules.md |
 | knowledge-base | patterns.md | document | kbRoot | patterns.md | templates/knowledge-base/single-project/patterns.md |
+| knowledge-base | features.md | document | kbRoot | features.md | templates/knowledge-base/single-project/features.md |
 | knowledge-base | index.md (monorepo) | document | kbRoot | index.md | templates/knowledge-base/monorepo/index.md |
 | knowledge-base | concept_map.md (monorepo) | document | kbRoot | concept_map.md | templates/knowledge-base/monorepo/concept_map.md |
 | knowledge-base | architecture.md (monorepo) | document | kbRoot | architecture.md | templates/knowledge-base/monorepo/architecture.md |
@@ -70,6 +71,7 @@ Active `/build` artifacts are producer-owned: the agent that writes the artifact
 | knowledge-base | patterns.md (monorepo) | document | kbRoot | patterns.md | templates/knowledge-base/monorepo/patterns.md |
 | knowledge-base | dependencies.md (monorepo) | document | kbRoot | dependencies.md | templates/knowledge-base/monorepo/dependencies.md |
 | knowledge-base | technology-matrix.md (monorepo) | document | kbRoot | technology-matrix.md | templates/knowledge-base/monorepo/technology-matrix.md |
+| knowledge-base | features.md (monorepo) | document | kbRoot | features.md | templates/knowledge-base/monorepo/features.md |
 | knowledge-base | state.json | data | kbRoot | state.json | templates/knowledge-base/state.json |
 | knowledge-base | meta.json | data | kbRoot | meta.json | templates/knowledge-base/meta.json |
 | note | note.md | document | workRoot | notes/{yyyy-mm-dd}-{title-slug}.md | templates/note/note.md |
@@ -133,7 +135,9 @@ templates/
 |   +-- meta.json
 |   +-- state.json
 |   +-- monorepo/
+|   |   +-- features.md
 |   +-- single-project/
+|   |   +-- features.md
 +-- note/
 |   +-- note.md
 +-- phase-planner/
