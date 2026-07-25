@@ -224,6 +224,8 @@ Tag each node using generic heuristics applicable to any target project:
 - **agent**: Capability belongs to a detected agent-facing tool surface (only when the project has such a surface -- e.g., `agent-tools/` directory, MCP server tools, API tools for agents). If no agent-facing surface is detected in the project, NEVER apply the `agent` tag
 - **internal**: Capability has hidden flags (`hidden: true`), `@internal`/`@hidden` JSDoc markers, test-harness-only registration, or naming conventions indicating internal use (leading underscore, `_internal` suffix)
 
+The audience vocabulary is CLOSED: every node's `audience` value MUST be exactly one of `user`, `agent`, or `internal`. Never emit any other label (e.g., `developer`, `contributor`, `maintainer`) -- when a project's end users are developers, they are still `user`.
+
 **Precedence**: When a capability matches multiple heuristics, the most visible tag wins: `user > agent > internal`.
 
 ## 9. Emit Steps
