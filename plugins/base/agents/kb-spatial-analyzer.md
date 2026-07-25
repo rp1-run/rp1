@@ -275,10 +275,19 @@ Categorize each file into one or more KB sections:
 - Components: UI components, reusable modules
 - Tests: `tests/`, `__tests__/`, `*.test.*`
 
+**feature_files** (for features.md - capability inventory):
+- CLI command registrations: files in `commands/`, `cmd/`, `cli/` directories containing command-builder patterns (Commander, yargs, oclif, clap, cobra, argparse)
+- Web/API route definitions: files in `routes/`, `handlers/`, `controllers/`, `pages/`, `api/` directories; OpenAPI specs (`openapi.yaml`, `swagger.*`); gRPC service definitions (`*.proto`)
+- UI entry surfaces: files in `pages/`, `screens/`, `views/` directories; SPA route configuration files
+- Extension/plugin manifests: `SKILL.md`, `plugin.json`, `*.plugin.*`, hook registration files, extension manifests
+- Public API surface: index/barrel files exporting public interfaces (`index.ts`, `mod.rs`, `__init__.py` at module boundaries)
+- Documentation tree: files in `docs/` that reference project capabilities
+
 **Categorization Rules**:
 - A file can appear in multiple categories if relevant (e.g., `models/user.py` in both concept_files and module_files)
 - Prioritize categories by relevance: Entry point → index_files, Domain model → concept_files + module_files
 - Include score with each file for downstream filtering
+- Files categorized into feature_files receive a minimum importance score of 3 -- they were mechanically identified as capability-anchor registration points and must survive downstream score filtering
 - When CHANGED_FILES is provided, relevant changed files are mandatory inclusions in their categories
 
 ## 5. Metadata Extraction
@@ -309,6 +318,7 @@ Return structured JSON with these fields:
   "arch_files": [{"path": <path>, "score": <0-5>}, ...],
   "interaction_files": [{"path": <path>, "score": <0-5>}, ...],
   "module_files": [{"path": <path>, "score": <0-5>}, ...],
+  "feature_files": [{"path": <path>, "score": <0-5>}, ...],
   "local_meta": {
     "repo_root": "/absolute/path",
     "current_project_path": "project/ | ."

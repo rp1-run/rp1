@@ -15,6 +15,10 @@ agents:
     description: "Extracts domain concepts and terminology for concept_map.md from pre-filtered files"
     plugin: base
     last_checksum: 86dd178b5ca9dcb3f006a2790d52a20e7194a78531de2de3b35d6b326ec14c96
+  - name: rp1-base:kb-feature-extractor
+    description: "Extracts project capabilities and feature inventory for features.md from pre-filtered anchor-class files"
+    plugin: base
+    last_checksum: 81a4a2f225ad1c13288377574f87fd38a3216ae4946fee04103d17a907d63ab0
   - name: rp1-base:kb-index-builder
     description: "[DEPRECATED] Generates project overview data for index.md from pre-filtered files"
     plugin: base
@@ -34,7 +38,7 @@ agents:
   - name: rp1-base:kb-spatial-analyzer
     description: "Scans repository files, ranks by importance (0-5), and categorizes them by KB section for parallel analysis"
     plugin: base
-    last_checksum: ef1e6d7f770f4d441277a26f189c1993c6a58d459708a235d239a6529d362682
+    last_checksum: 7f923e22e795f7e5cbf22a4fd4e706ea68b34e36262191447eb764e546d237b1
   - name: rp1-base:mermaid-fixer
     description: "Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates each diagram, attempts automatic repair (up to 3 iterations), and inserts placeholders for unfixable diagrams."
     plugin: base
