@@ -39,6 +39,8 @@
 | ArcadeSettings | entity | User-configurable Arcade UI preferences from `settings.toml` `[arcade]`: `theme` (light/dark/system, validated against `VALID_ARCADE_THEMES`) + `[arcade.downsampling]` `thresholdHours`. Defaults: system theme, 24h threshold |
 | Settings Migration | mechanism | Automated legacy `settings.json` → canonical `settings.toml` conversion (arcade fields) at both global and project paths. Runs inside `rp1 migrate` and as daemon grace fallback; dry-run support; originals renamed `.migrated` for audit trail; idempotent merge never overwrites existing TOML keys |
 | Path Variable | mechanism | Parameterized directory placeholder declared in agent/skill frontmatter (`KB_ROOT`, `WORK_ROOT`, `CODE_ROOT`) and interpolated at dispatch time, decoupling prompt logic from storage layout. Two naming layers: UPPER_SNAKE in agent arguments, camelCase (`kbRoot`/`workRoot`) in skill dispatch blocks |
+| HarnessSelection | entity | User-configurable list of AI harnesses (`[harnesses].enabled` in user-level `settings.toml`) controlling which platforms receive global instruction stanzas and sandbox grants. Absent = auto-detect; empty = skip all. Written by `rp1 init`, updated by `install`/`uninstall`, consumed by `update`, `init` sandbox grants, and `migrate --to-central` |
+| Artifact Template | entity | Canonical output-format definition in `plugins/base/skills/artifact-templates/` with YAML routing metadata (`scope`, `path_pattern`, `emit_hint`) and markdown body with placeholder patterns. All 20 producer agents load templates via two-hop discovery instead of embedding formats inline |
 
 ## Key Terminology
 
@@ -73,6 +75,9 @@
 | RemappableTier | Preset-exposed tier subset: `deep`, `standard`, `fast` (`frontier` and `inherit` excluded from presets) |
 | Effort Clamping | Codex-specific `max` → `xhigh` mapping (Codex supports four levels); CC supports all five natively |
 | Hermetic Settings Seam | Optional `globalSettingsPath` parameter on settings loaders/resolvers isolating tests from real `~/.config/rp1/settings.toml` |
+| enabled harnesses | Persisted list in `[harnesses].enabled` determining which platforms receive stanza writes and sandbox grants; absent triggers auto-detection, empty array skips all |
+| Instruction Variant | Template-loading pattern (A through D) matching agent output type to the correct artifact-template discovery and fill strategy |
+| Validation Matrix | Per-change-area expected local validation commands (e.g. `just check-cli`, `just build-plugins-check`) documented in CONTRIBUTING.md and mirrored in the PR template |
 
 ## Relationships
 
@@ -102,6 +107,10 @@ Preset ──provides defaults for──> TierRemappingConfig (explicit override
 Task File Lock ──protects──> Task Queue (serializes concurrent task-file writes)
 Workflow Bootstrap ──resolves──> Path Variable (kbRoot/workRoot/codeRoot from rp1-root-dir → dispatch parameters)
 Path Variable ──locates──> Knowledge Base (KB_ROOT resolves the storage-mode-aware KB directory)
+HarnessSelection ──targets──> Platform Definition (determines which platforms receive stanza writes and sandbox grants)
+HarnessSelection ──consumed by──> Settings Migration, Project Lifecycle (update, init, migrate)
+Artifact Template ──shapes──> Artifact (20 producer agents load templates for output format)
+Parent-Owned Interview ──structures──> Skill (interactive skills follow the interview contract)
 ```
 
 ## Agent Patterns
@@ -120,6 +129,8 @@ Path Variable ──locates──> Knowledge Base (KB_ROOT resolves the storage-
 | Generator-Verifier Asymmetry | Agent classification | Generator agents (task-builder) run at standard tier because deep-tier verifiers (task-reviewer) validate their output — quality preserved, cost reduced |
 | Directory-Based File Lock | Parallel task-builder execution | `mkdir` atomicity serializes concurrent read-modify-write on shared task files; sleep-poll on contention; always release |
 | Variable-Based Path Interpolation | All agent and skill dispatch | Skills resolve `{kbRoot}`/`{workRoot}` via workflow-bootstrap; agents receive `{KB_ROOT}`/`{WORK_ROOT}` as frontmatter arguments. No literal path references — enables storage-mode redirection without prompt changes |
+| Parent-Owned Interview | Interactive artifact completion (blueprint, bootstrap) | Only the parent skill asks user questions; leaf agents are bounded non-interactive workers. Artifact file is the sole resume source. At most 10 questions per phase; re-read after each write to verify durability before continuing |
+| Two-Hop Template Discovery | All producer agents (20 agents) | Agent reads artifact-templates SKILL.md index to find the template path, then reads the template file for routing metadata and placeholder body. Decouples output format from agent prompt |
 
 ## Bounded Contexts
 
@@ -134,9 +145,10 @@ Path Variable ──locates──> Knowledge Base (KB_ROOT resolves the storage-
 | Platform Abstraction | build pipeline | Platform Tag, CanonicalName, Platform Definition, ModelTier, EffortLevel, Tier Resolution, TIER_RANK |
 | Model Settings | cli/src/settings | TierRemappingConfig, Preset, Artifact Rewriter, BundleAgentEntry, Install-Time Tier Remapping, ArcadeSettings |
 | Discovery | cli/catalog | Discovery Registry, Guide, Skill Category, Arcade Tracked |
-| Project Lifecycle | cli/init, cli/migrate | Fence Versioning, Init Wizard, Project Migration, Settings Migration |
+| Project Lifecycle | cli/init, cli/migrate | Fence Versioning, Init Wizard, Project Migration, Settings Migration, HarnessSelection |
 | Quality Assurance | evals/ | Attestation |
 | Storage Resolution | cli/src/agent-tools, build pipeline | Path Variable, Storage Mode, codeRoot, rp1-root-dir |
+| Contributor Contracts | CONTRIBUTING.md, .github/ | Validation Matrix, Authoring Contract, PR Template, Merge Assessment |
 
 ## Cross-Cutting Concerns
 
@@ -150,3 +162,6 @@ Path Variable ──locates──> Knowledge Base (KB_ROOT resolves the storage-
 - **Single-source discovery**: Frontmatter metadata drives all catalog views, avoiding drift
 - **Standard tool envelope**: All agent-tools return `ToolResult<T>` JSON for predictable AI-agent parsing
 - **Concurrent task safety**: Directory-based file locks protect shared task-file updates during parallel builder execution
+- **Parent-owned interactivity**: Interactive workflows confine user-facing questions to the parent skill; leaf agents never ask, interpret, or relay user input, and the artifact file is the only resume source
+- **Template-driven output formats**: Producer agents load canonical artifact templates at runtime rather than embedding output formats, ensuring format consistency and routing metadata across all 20 producers
+- **Harness-aware stanza management**: Global instruction stanzas and sandbox grants target only the user's declared harnesses, preventing stale writes to uninstalled platforms
