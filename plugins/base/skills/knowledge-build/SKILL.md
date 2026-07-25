@@ -31,6 +31,7 @@ metadata:
     - "rp1-base:kb-interaction-mapper"
     - "rp1-base:kb-module-analyzer"
     - "rp1-base:kb-pattern-extractor"
+    - "rp1-base:kb-feature-extractor"
 ---
 
 # Knowledge Build
@@ -47,6 +48,7 @@ metadata:
   - `interaction-model.md`
   - `modules.md`
   - `patterns.md`
+  - `features.md`
   - `state.json`
   - `meta.json`
 - `index.md` is orchestrator-owned. Never delegate it.
@@ -63,7 +65,7 @@ metadata:
 - When prior KB exists, section agents MUST reconcile against it, even in `FULL`.
 - Section agents MUST also treat prior KB as incomplete and perform one explicit novelty scan for material knowledge absent from it.
 - Replace all placeholders with concrete values before dispatching child agents.
-- Spawn the 5 analysis agents in one parallel batch.
+- Spawn the 6 analysis agents in one parallel batch.
 - Wait patiently for child agents on the critical path. Do not declare them stalled after a short wait.
 - Keep user-visible output terse:
   1. Initial status line
@@ -147,7 +149,7 @@ Use the computed build inputs from the parent orchestrator.
 
 - MODE: actual build mode (`FULL`, `INCREMENTAL`, or `FEATURE_LEARNING`)
 - CHANGED_FILES: actual JSON array for the scoped changed-file list when available; empty only for first-time `FULL`
-- Task: rank files 0-5 and categorize them into `index_files`, `concept_files`, `arch_files`, `interaction_files`, `module_files`
+- Task: rank files 0-5 and categorize them into `index_files`, `concept_files`, `arch_files`, `interaction_files`, `module_files`, `feature_files`
 - Return JSON only with:
   - `repo_type`
   - `monorepo_projects`
@@ -157,6 +159,7 @@ Use the computed build inputs from the parent orchestrator.
   - `arch_files`
   - `interaction_files`
   - `module_files`
+  - `feature_files`
   - `local_meta`
 Do not echo placeholder tokens.
 {% enddispatch_agent %}
@@ -177,8 +180,9 @@ Do not echo placeholder tokens.
 1. Compute:
   - `PATTERN_FILES = unique(concept_files + module_files)`
   - `INTERACTION_FILES = unique(interaction_files)`
+  - `FEATURE_FILES = unique(feature_files)`
   - per-agent diff subsets from `FILE_DIFFS`
-2. Spawn all 5 analyzers in one batch:
+2. Spawn all 6 analyzers in one batch:
 
 {% dispatch_agent "rp1-base:kb-concept-extractor", background %}
 Use the parent-computed inputs.
@@ -241,7 +245,19 @@ Use the parent-computed inputs.
 - Constraint: rendered `patterns.md` MUST stay <=150 lines
 {% enddispatch_agent %}
 
-3. Wait for all 5 agents to finish.
+{% dispatch_agent "rp1-base:kb-feature-extractor", background %}
+Use the parent-computed inputs.
+
+- KB_ROOT={kbRoot}
+- MODE: actual mode
+- REPO_TYPE: actual repo type
+- FEATURE_FILES_JSON: actual JSON array
+- FILE_DIFFS: actual diff subset JSON or empty object
+- FEATURE_CONTEXT: actual feature context JSON or empty object
+- Task: return JSON only for `features.md`
+{% enddispatch_agent %}
+
+3. Wait for all 6 agents to finish.
 4. Parse JSON from each response.
 5. Failure policy:
    - 0 failures: continue normally
@@ -257,6 +273,7 @@ Use the parent-computed inputs.
    - `interaction-model.md`
    - `modules.md`
    - `patterns.md`
+   - `features.md`
 3. Validate the `architecture.md` Mermaid diagram via `rp1-base:mermaid`.
    - If invalid: simplify or omit the broken diagram, do not fail the whole run for diagram syntax alone.
 4. Write these files first:
@@ -265,6 +282,7 @@ Use the parent-computed inputs.
    - `{kbRoot}/interaction-model.md`
    - `{kbRoot}/modules.md`
    - `{kbRoot}/patterns.md`
+   - `{kbRoot}/features.md`
 5. Count lines for the written markdown files.
 6. Generate `index.md` directly from aggregated results plus measured line counts.
 7. Write `{kbRoot}/index.md` last.
