@@ -44,6 +44,7 @@ strictness: strict
 | modules.md | ~[N] | Component breakdown, module responsibilities |
 | patterns.md | ~[N] | Code conventions, implementation patterns |
 | concept_map.md | ~[N] | Domain terminology, business concepts |
+| features.md | ~[N] | Capability inventory, coverage gaps, feature audience |
 | dependencies.md | ~[N] | Inter-project dependencies, shared code |
 | technology-matrix.md | ~[N] | Technology decisions, framework choices |
 
@@ -53,8 +54,9 @@ strictness: strict
 |------|---------------|
 | Code review | `patterns.md` |
 | Bug investigation | `architecture.md`, `modules.md` |
-| Feature implementation | `modules.md`, `patterns.md` |
+| Feature implementation | `modules.md`, `patterns.md`, `features.md` |
 | Frontend / UX / surface work | `interaction-model.md`, `modules.md`, `patterns.md` |
+| Capability audit / coverage review | `features.md` |
 | Strategic analysis | ALL files |
 | Security audit | `architecture.md`, `dependencies.md` |
 
@@ -80,5 +82,6 @@ Read: .rp1/context/{filename}
 - **[modules.md](modules.md)**: Component breakdown
 - **[patterns.md](patterns.md)**: Code conventions
 - **[concept_map.md](concept_map.md)**: Domain terminology
+- **[features.md](features.md)**: Capability inventory and coverage
 - **[dependencies.md](dependencies.md)**: Inter-project dependencies
 - **[technology-matrix.md](technology-matrix.md)**: Technology decisions
