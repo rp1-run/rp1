@@ -99,8 +99,8 @@ Each template file contains YAML frontmatter with these fields:
 
 Templates under `templates/knowledge-base/` are organized by project type:
 
-- **`single-project/`**: Standard single-project KB documentation (index, concept_map, architecture, interaction-model, modules, patterns)
-- **`monorepo/`**: Multi-project KB documentation (adds dependencies, technology-matrix)
+- **`single-project/`**: Standard single-project KB documentation (index, concept_map, architecture, interaction-model, modules, patterns, features)
+- **`monorepo/`**: Multi-project KB documentation (adds dependencies, technology-matrix, features)
 - **`state.json`**: KB metadata tracking template
 - **`meta.json`**: Local-only values template (not committed)
 
@@ -135,9 +135,7 @@ templates/
 |   +-- meta.json
 |   +-- state.json
 |   +-- monorepo/
-|   |   +-- features.md
 |   +-- single-project/
-|   |   +-- features.md
 +-- note/
 |   +-- note.md
 +-- phase-planner/
