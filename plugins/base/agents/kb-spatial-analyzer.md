@@ -287,6 +287,7 @@ Categorize each file into one or more KB sections:
 - A file can appear in multiple categories if relevant (e.g., `models/user.py` in both concept_files and module_files)
 - Prioritize categories by relevance: Entry point → index_files, Domain model → concept_files + module_files
 - Include score with each file for downstream filtering
+- Files categorized into feature_files receive a minimum importance score of 3 -- they were mechanically identified as capability-anchor registration points and must survive downstream score filtering
 - When CHANGED_FILES is provided, relevant changed files are mandatory inclusions in their categories
 
 ## 5. Metadata Extraction

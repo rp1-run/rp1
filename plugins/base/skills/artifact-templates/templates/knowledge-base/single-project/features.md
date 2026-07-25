@@ -4,12 +4,6 @@ path_pattern: "features.md"
 producer: knowledge-base
 type: document
 description: "Capability inventory with two-level surface-to-feature tree, evidence-tier badges, audience tags, and stable node IDs for a single-project codebase."
-emit_hint: |
-  rp1 agent-tools emit \
-    --workflow knowledge-build \
-    --type artifact_registered \
-    --step kb-feature-extractor:completed \
-    --data '{"path": ".rp1/context/features.md", "storageRoot": "project"}'
 strictness: strict
 ---
 # Project Capabilities

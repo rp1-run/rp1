@@ -18,7 +18,7 @@ agents:
   - name: rp1-base:kb-feature-extractor
     description: "Extracts project capabilities and feature inventory for features.md from pre-filtered anchor-class files"
     plugin: base
-    last_checksum: e439f2a09b21c6b747e7641d5fbb863a2094586eb9271bd594fb3770a50618d5
+    last_checksum: 63ebbb39c380813c29185ac3312f64d8624707bcb814c37b3e2696a2679ff8c6
   - name: rp1-base:kb-index-builder
     description: "[DEPRECATED] Generates project overview data for index.md from pre-filtered files"
     plugin: base
@@ -38,7 +38,7 @@ agents:
   - name: rp1-base:kb-spatial-analyzer
     description: "Scans repository files, ranks by importance (0-5), and categorizes them by KB section for parallel analysis"
     plugin: base
-    last_checksum: 53bf61f724b8d2b97a483e8267a8f185a38f5573004e67511506da6773d42d81
+    last_checksum: 7f923e22e795f7e5cbf22a4fd4e706ea68b34e36262191447eb764e546d237b1
   - name: rp1-base:mermaid-fixer
     description: "Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates each diagram, attempts automatic repair (up to 3 iterations), and inserts placeholders for unfixable diagrams."
     plugin: base
