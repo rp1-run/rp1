@@ -194,7 +194,7 @@ Generate node IDs deterministically:
 - Format: `{surface}.{capability}[.{sub-feature}]`
 - Normalize all segments to lowercase kebab-case
 - Derive from source registration names, not LLM-chosen labels
-- Examples: `cli.build`, `web-ui.artifact-browser`, `plugin-skills.knowledge-build`
+- Examples: `cli.serve`, `web-ui.dashboard`, `plugins.auth-provider`
 
 **ID stability rules**:
 - If the prior features.md contains a node with matching registration point, reuse its ID

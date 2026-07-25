@@ -18,7 +18,7 @@ agents:
   - name: rp1-base:kb-feature-extractor
     description: "Extracts project capabilities and feature inventory for features.md from pre-filtered anchor-class files"
     plugin: base
-    last_checksum: d78ed5a00c4f1cc064af692a6a589a6fa4bc93d2fcf733d096520095ec8006e5
+    last_checksum: 605a01ab8fdf247b56e53b1461b28497c676711cffb1072f7c854d90350117f8
   - name: rp1-base:kb-index-builder
     description: "[DEPRECATED] Generates project overview data for index.md from pre-filtered files"
     plugin: base
