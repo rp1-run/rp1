@@ -14,6 +14,8 @@ strictness: strict
 
 ## [Surface Name]
 
+[Include this line only when the surface was capped: *Showing [K] of [total_capabilities] capabilities -- [N] omitted by tier-first deterministic sampling.*]
+
 - **[Capability Name]** `T{N}` -- [One-line description]
   <!-- id: {surface}.{capability} | tier: T{N} | audience: {tag} | evidence: {comma-separated paths} -->
   - [Sub-feature Name] `T{N}` -- [One-line description]

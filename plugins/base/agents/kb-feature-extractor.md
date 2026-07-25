@@ -131,7 +131,8 @@ The prior is incomplete.
 Extract file list from FEATURE_FILES_JSON:
 - Parse JSON array
 - Extract paths for files with score >= 3
-- Limit to top 150 files by score for efficiency
+- Sort by score descending, then path ascending; take the first 150
+- Record the pre-cap count in the processing block's `files_received` so any capping stays visible
 
 **Check MODE**:
 - **FULL mode**: Analyze all assigned files completely. If `FILE_DIFFS` is non-empty, start from that changed-file frontier, then widen.
@@ -200,7 +201,7 @@ Generate node IDs deterministically:
 - If the prior features.md contains a node with matching registration point, reuse its ID
 - If a capability is renamed in source, retire the old ID and create a new one
 - Never silently reuse an old ID for a different capability
-- If two distinct capabilities in the same surface normalize to the same ID, keep the first unsuffixed and append `-2`, `-3`, ... to the rest, ordered lexicographically by first evidence file path
+- Same-surface ID collisions: first reserve every ID reused from the prior (a new collider never displaces a prior ID); then order the remaining new colliders by the total key (first evidence file path, then registration name, both lexicographic ascending) and assign each the next free suffix (`-2`, `-3`, ...)
 
 ## 7. Evidence-Tier Scoring
 
@@ -293,6 +294,7 @@ Use the template structure to format your JSON output fields consistently. The o
     "unanalyzed_classes": ["List of anchor classes not detected in this project"]
   },
   "processing": {
+    "files_received": 0,
     "files_analyzed": 0,
     "surfaces_detected": 0,
     "nodes_total": 0,

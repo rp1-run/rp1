@@ -273,7 +273,7 @@ Use the parent-computed inputs.
    - `interaction-model.md`
    - `modules.md`
    - `patterns.md`
-   - `features.md`
+   - `features.md` -- render each surface's `total_capabilities`: when it exceeds the listed capability count, include the template's truncation note so sampling omissions stay visible
 3. Validate the `architecture.md` Mermaid diagram via `rp1-base:mermaid`.
    - If invalid: simplify or omit the broken diagram, do not fail the whole run for diagram syntax alone.
 4. Write these files first:

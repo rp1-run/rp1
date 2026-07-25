@@ -2,76 +2,76 @@
 
 **Repository**: rp1
 **Last Updated**: 2026-07-25
-**Surfaces**: 10 detected
+**Surfaces**: 13 detected
 **Scope**: Capabilities inventoried across all projects in this repository.
 
 ## CLI Core
 
 - **Project Initialization** `T1` -- Interactive setup of `.rp1/` directory structure, context detection, gitignore configuration, and global stanza injection
-  <!-- id: cli-core.init | tier: T1 | audience: developer | evidence: cli/src/commands/init.ts, cli/src/init/index.ts, docs/reference/cli/init.md -->
+  <!-- id: cli-core.init | tier: T1 | audience: user | evidence: cli/src/commands/init.ts, cli/src/init/index.ts, docs/reference/cli/init.md -->
 - **Multi-Platform Installation** `T1` -- Installs rp1 skills and agents into Claude Code, OpenCode, Codex, Copilot, and Antigravity with per-platform adapters
-  <!-- id: cli-core.install | tier: T1 | audience: developer | evidence: cli/src/commands/install/index.ts, cli/src/install/installer.ts, docs/reference/cli/install.md -->
+  <!-- id: cli-core.install | tier: T1 | audience: user | evidence: cli/src/commands/install/index.ts, cli/src/install/installer.ts, docs/reference/cli/install.md -->
   - Claude Code Installer `T1` -- Writes CLAUDE.md stanzas and registers marketplace plugin
-    <!-- id: cli-core.install.claude-code | tier: T1 | audience: developer | evidence: cli/src/install/claudecode/installer.ts, cli/src/commands/install/claude-code.ts -->
+    <!-- id: cli-core.install.claude-code | tier: T1 | audience: user | evidence: cli/src/install/claudecode/installer.ts, cli/src/commands/install/claude-code.ts -->
   - OpenCode Installer `T1` -- Generates OpenCode-compatible agent configuration
-    <!-- id: cli-core.install.opencode | tier: T1 | audience: developer | evidence: cli/src/commands/install/opencode.ts -->
+    <!-- id: cli-core.install.opencode | tier: T1 | audience: user | evidence: cli/src/commands/install/opencode.ts -->
   - Codex Installer `T1` -- Produces Codex agent AGENTS.md and sub-agent configs
-    <!-- id: cli-core.install.codex | tier: T1 | audience: developer | evidence: cli/src/install/codex/installer.ts, cli/src/commands/install/codex.ts -->
+    <!-- id: cli-core.install.codex | tier: T1 | audience: user | evidence: cli/src/install/codex/installer.ts, cli/src/commands/install/codex.ts -->
   - Copilot Installer `T1` -- Writes GitHub Copilot instructions and marketplace extensions
-    <!-- id: cli-core.install.copilot | tier: T1 | audience: developer | evidence: cli/src/install/copilot/installer.ts, cli/src/commands/install/copilot.ts -->
+    <!-- id: cli-core.install.copilot | tier: T1 | audience: user | evidence: cli/src/install/copilot/installer.ts, cli/src/commands/install/copilot.ts -->
   - Antigravity Installer `T1` -- Bundles assets and lifecycle hooks for the Antigravity platform
-    <!-- id: cli-core.install.antigravity | tier: T1 | audience: developer | evidence: cli/src/install/antigravity/index.ts, cli/src/commands/install/antigravity.ts -->
+    <!-- id: cli-core.install.antigravity | tier: T1 | audience: user | evidence: cli/src/install/antigravity/index.ts, cli/src/commands/install/antigravity.ts -->
   - Install All `T2` -- Auto-detects installed platforms and installs to all in one pass
-    <!-- id: cli-core.install.all | tier: T2 | audience: developer | evidence: cli/src/commands/install/all.ts -->
+    <!-- id: cli-core.install.all | tier: T2 | audience: user | evidence: cli/src/commands/install/all.ts -->
 - **Installation Verification** `T1` -- Validates that rp1 is correctly installed on each platform with platform-specific health checks
-  <!-- id: cli-core.verify | tier: T1 | audience: developer | evidence: cli/src/commands/verify/index.ts, docs/reference/cli/verify.md -->
+  <!-- id: cli-core.verify | tier: T1 | audience: user | evidence: cli/src/commands/verify/index.ts, docs/reference/cli/verify.md -->
 - **Self-Update** `T1` -- Checks for and applies CLI binary updates from GitHub releases
-  <!-- id: cli-core.self-update | tier: T1 | audience: developer | evidence: cli/src/commands/check-update.ts, cli/src/commands/self-update.ts -->
+  <!-- id: cli-core.self-update | tier: T1 | audience: user | evidence: cli/src/commands/check-update.ts, cli/src/commands/self-update.ts -->
 - **Update and Plugin Sync** `T1` -- Updates installed platform artifacts and manages plugin versions
-  <!-- id: cli-core.update | tier: T1 | audience: developer | evidence: cli/src/commands/update/index.ts, cli/src/commands/update/plugins.ts, docs/reference/cli/update.md -->
+  <!-- id: cli-core.update | tier: T1 | audience: user | evidence: cli/src/commands/update/index.ts, cli/src/commands/update/plugins.ts, docs/reference/cli/update.md -->
 - **Uninstall** `T1` -- Removes rp1 artifacts from all platforms including Antigravity, Codex, and Copilot-specific cleanup
-  <!-- id: cli-core.uninstall | tier: T1 | audience: developer | evidence: cli/src/commands/uninstall.ts, cli/src/commands/uninstall-antigravity.ts, cli/src/commands/uninstall-codex.ts, cli/src/commands/uninstall-copilot.ts, docs/reference/cli/uninstall.md -->
+  <!-- id: cli-core.uninstall | tier: T1 | audience: user | evidence: cli/src/commands/uninstall.ts, cli/src/commands/uninstall-antigravity.ts, cli/src/commands/uninstall-codex.ts, cli/src/commands/uninstall-copilot.ts, docs/reference/cli/uninstall.md -->
 - **List Installed Plugins** `T2` -- Shows which plugins are installed and their versions
-  <!-- id: cli-core.list | tier: T2 | audience: developer | evidence: cli/src/commands/install.ts -->
+  <!-- id: cli-core.list | tier: T2 | audience: user | evidence: cli/src/commands/install.ts -->
 - **Migration** `T1` -- Upgrades `.rp1/` directory from older layout versions with database backfill, central store migration, stanza upgrades, and legacy work directory conversion
-  <!-- id: cli-core.migrate | tier: T1 | audience: developer | evidence: cli/src/commands/migrate.ts, cli/src/migrate/index.ts, cli/src/migrate/db-backfill.ts, cli/src/migrate/central-store.ts, docs/reference/cli/rp1-migrate.md -->
+  <!-- id: cli-core.migrate | tier: T1 | audience: user | evidence: cli/src/commands/migrate.ts, cli/src/migrate/index.ts, cli/src/migrate/db-backfill.ts, cli/src/migrate/central-store.ts, docs/reference/cli/rp1-migrate.md -->
 - **Settings Management** `T1` -- Validates, applies, and manages settings.toml presets including arcade and harness configuration
-  <!-- id: cli-core.settings | tier: T1 | audience: developer | evidence: cli/src/commands/settings.ts, cli/src/settings/loader.ts, cli/src/settings/rewriter.ts, docs/reference/cli/settings.md -->
+  <!-- id: cli-core.settings | tier: T1 | audience: user | evidence: cli/src/commands/settings.ts, cli/src/settings/loader.ts, cli/src/settings/rewriter.ts, docs/reference/cli/settings.md -->
 - **Deprecated Command Shims** `T3` -- Hidden compatibility shims for renamed or removed commands
-  <!-- id: cli-core.deprecated | tier: T3 | audience: developer | evidence: cli/src/commands/deprecated/index.ts -->
+  <!-- id: cli-core.deprecated | tier: T3 | audience: internal | evidence: cli/src/commands/deprecated/index.ts -->
 - **Fake Data Generator** `T3` -- Generates synthetic emit events and workflow artifacts for testing the Arcade UI
-  <!-- id: cli-core.fake | tier: T3 | audience: contributor | evidence: cli/src/commands/fake.ts -->
+  <!-- id: cli-core.fake | tier: T3 | audience: internal | evidence: cli/src/commands/fake.ts -->
 
 ## Build Pipeline
 
 - **Prompt Compiler** `T1` -- Parses skill and agent markdown, resolves arguments, applies preprocessor transforms, validates structure, and emits platform-specific output
-  <!-- id: build-pipeline.compiler | tier: T1 | audience: contributor | evidence: cli/src/build/parser.ts, cli/src/build/preprocessor.ts, cli/src/build/validator.ts, cli/src/build/command.ts -->
+  <!-- id: build-pipeline.compiler | tier: T1 | audience: user | evidence: cli/src/build/parser.ts, cli/src/build/preprocessor.ts, cli/src/build/validator.ts, cli/src/build/command.ts -->
   - Template Engine `T1` -- Interpolates `{variables}` and processes conditional sections in prompt files
-    <!-- id: build-pipeline.compiler.template-engine | tier: T1 | audience: contributor | evidence: cli/src/build/template-engine.ts, cli/src/build/template-context.ts -->
+    <!-- id: build-pipeline.compiler.template-engine | tier: T1 | audience: user | evidence: cli/src/build/template-engine.ts, cli/src/build/template-context.ts -->
   - Argument Resolution `T1` -- Parses structured `arguments` arrays from frontmatter into runtime parameter blocks
-    <!-- id: build-pipeline.compiler.arguments | tier: T1 | audience: contributor | evidence: cli/src/build/arguments.ts -->
+    <!-- id: build-pipeline.compiler.arguments | tier: T1 | audience: user | evidence: cli/src/build/arguments.ts -->
   - Tag Processing `T1` -- Expands custom XML tags during build (e.g. inline includes, platform conditionals)
-    <!-- id: build-pipeline.compiler.tags | tier: T1 | audience: contributor | evidence: cli/src/build/tags/ -->
+    <!-- id: build-pipeline.compiler.tags | tier: T1 | audience: user | evidence: cli/src/build/tags/ -->
 - **Platform Definitions** `T1` -- Declares per-platform build targets with feature flags and output format specifications
-  <!-- id: build-pipeline.platform-defs | tier: T1 | audience: contributor | evidence: cli/src/build/platform-definitions.ts -->
+  <!-- id: build-pipeline.platform-defs | tier: T1 | audience: user | evidence: cli/src/build/platform-definitions.ts -->
   - Claude Code Target `T1` -- Emits CLAUDE.md-compatible skill stanzas
-    <!-- id: build-pipeline.platform-defs.claude-code | tier: T1 | audience: contributor | evidence: cli/src/build/claude-code/registry.ts -->
+    <!-- id: build-pipeline.platform-defs.claude-code | tier: T1 | audience: user | evidence: cli/src/build/claude-code/registry.ts -->
   - Codex Target `T1` -- Emits AGENTS.md with sub-agent delegation and role mapping
-    <!-- id: build-pipeline.platform-defs.codex | tier: T1 | audience: contributor | evidence: cli/src/build/codex/index.ts, cli/src/build/codex/role-mapper.ts, cli/src/build/codex/sub-agent-validator.ts -->
+    <!-- id: build-pipeline.platform-defs.codex | tier: T1 | audience: user | evidence: cli/src/build/codex/index.ts, cli/src/build/codex/role-mapper.ts, cli/src/build/codex/sub-agent-validator.ts -->
   - Antigravity Target `T1` -- Produces Gemini-compatible bundles with lifecycle hooks
-    <!-- id: build-pipeline.platform-defs.antigravity | tier: T1 | audience: contributor | evidence: cli/src/build/antigravity/hooks.ts, cli/src/build/antigravity/registry.ts -->
+    <!-- id: build-pipeline.platform-defs.antigravity | tier: T1 | audience: user | evidence: cli/src/build/antigravity/hooks.ts, cli/src/build/antigravity/registry.ts -->
   - Copilot Target `T2` -- Generates GitHub Copilot instruction files
-    <!-- id: build-pipeline.platform-defs.copilot | tier: T2 | audience: contributor | evidence: cli/src/build/copilot/registry.ts -->
+    <!-- id: build-pipeline.platform-defs.copilot | tier: T2 | audience: user | evidence: cli/src/build/copilot/registry.ts -->
 - **Model Tier Resolution** `T1` -- Resolves per-agent model and reasoning-effort overrides from settings.toml tiering configuration
-  <!-- id: build-pipeline.tier-resolution | tier: T1 | audience: contributor | evidence: cli/src/build/tier-resolution.ts -->
+  <!-- id: build-pipeline.tier-resolution | tier: T1 | audience: user | evidence: cli/src/build/tier-resolution.ts -->
 - **Build Lint Rules** `T2` -- Static analysis rules that validate prompt file structure, naming conventions, and cross-references
-  <!-- id: build-pipeline.lint | tier: T2 | audience: contributor | evidence: cli/src/build/lint/index.ts, cli/src/build/lint/rules/ -->
+  <!-- id: build-pipeline.lint | tier: T2 | audience: user | evidence: cli/src/build/lint/index.ts, cli/src/build/lint/rules/ -->
 - **Catalog Generator** `T1` -- Produces `catalog/agents.yaml` manifest from all agent and skill definitions for discovery and registry use
-  <!-- id: build-pipeline.catalog | tier: T1 | audience: contributor | evidence: cli/src/build/catalog-generator.ts, cli/src/catalog/, catalog/agents.yaml -->
+  <!-- id: build-pipeline.catalog | tier: T1 | audience: user | evidence: cli/src/build/catalog-generator.ts, cli/src/catalog/, catalog/agents.yaml -->
 - **Build-Time Filters** `T2` -- Configurable filter chain for content transformation during build (e.g. stripping comments, minifying)
-  <!-- id: build-pipeline.filters | tier: T2 | audience: contributor | evidence: cli/src/build/filters/ -->
+  <!-- id: build-pipeline.filters | tier: T2 | audience: user | evidence: cli/src/build/filters/ -->
 - **Parse Cache** `T2` -- Caches parsed prompt ASTs to accelerate incremental builds
-  <!-- id: build-pipeline.parse-cache | tier: T2 | audience: contributor | evidence: cli/src/build/parse-cache.ts -->
+  <!-- id: build-pipeline.parse-cache | tier: T2 | audience: user | evidence: cli/src/build/parse-cache.ts -->
 
 ## Agent Tools Runtime
 
@@ -115,56 +115,56 @@
 ## Arcade (Web UI)
 
 - **Dashboard** `T1` -- Real-time web dashboard showing workflow runs, artifacts, and project status across multiple workspaces
-  <!-- id: arcade.dashboard | tier: T1 | audience: developer | evidence: cli/web-ui/src/pages/v2/HomePage.tsx, docs/arcade/dashboard.md -->
+  <!-- id: arcade.dashboard | tier: T1 | audience: user | evidence: cli/web-ui/src/pages/v2/HomePage.tsx, docs/arcade/dashboard.md -->
   - Workspace Tab Strip `T1` -- Multi-workspace tabbed interface with pinned projects and live status indicators
-    <!-- id: arcade.dashboard.workspace-tabs | tier: T1 | audience: developer | evidence: cli/web-ui/src/components/v2/WorkspaceTabStrip.tsx, cli/web-ui/src/hooks/useWorkspaceTabs.tsx -->
+    <!-- id: arcade.dashboard.workspace-tabs | tier: T1 | audience: user | evidence: cli/web-ui/src/components/v2/WorkspaceTabStrip.tsx, cli/web-ui/src/hooks/useWorkspaceTabs.tsx -->
   - Run Cards `T1` -- Real-time workflow run cards with status badges, step progress, and event streams
-    <!-- id: arcade.dashboard.run-cards | tier: T1 | audience: developer | evidence: cli/web-ui/src/components/v2/RunCard.tsx, cli/web-ui/src/hooks/useRuns.ts -->
+    <!-- id: arcade.dashboard.run-cards | tier: T1 | audience: user | evidence: cli/web-ui/src/components/v2/RunCard.tsx, cli/web-ui/src/hooks/useRuns.ts -->
   - Notification System `T1` -- Toast and sidebar notifications for workflow events with configurable attention levels
-    <!-- id: arcade.dashboard.notifications | tier: T1 | audience: developer | evidence: cli/web-ui/src/components/v2/NotificationsSidebar.tsx, cli/web-ui/src/components/v2/NotificationToast.tsx, cli/web-ui/src/hooks/useNotifications.ts -->
+    <!-- id: arcade.dashboard.notifications | tier: T1 | audience: user | evidence: cli/web-ui/src/components/v2/NotificationsSidebar.tsx, cli/web-ui/src/components/v2/NotificationToast.tsx, cli/web-ui/src/hooks/useNotifications.ts -->
   - Command Palette `T1` -- Keyboard-driven command palette for navigation and actions
-    <!-- id: arcade.dashboard.command-palette | tier: T1 | audience: developer | evidence: cli/web-ui/src/components/v2/CommandPalette.tsx -->
+    <!-- id: arcade.dashboard.command-palette | tier: T1 | audience: user | evidence: cli/web-ui/src/components/v2/CommandPalette.tsx -->
 - **Artifact Browser** `T1` -- File-tree browser for viewing and navigating rp1 work artifacts with markdown rendering
-  <!-- id: arcade.artifact-browser | tier: T1 | audience: developer | evidence: cli/web-ui/src/pages/v2/FileBrowserPage.tsx, cli/web-ui/src/components/FileTree/, docs/arcade/artifact-viewer.md -->
+  <!-- id: arcade.artifact-browser | tier: T1 | audience: user | evidence: cli/web-ui/src/pages/v2/FileBrowserPage.tsx, cli/web-ui/src/components/FileTree/, docs/arcade/artifact-viewer.md -->
   - Markdown Viewer `T1` -- Rich markdown renderer with syntax highlighting, mermaid diagrams, and table of contents
-    <!-- id: arcade.artifact-browser.markdown-viewer | tier: T1 | audience: developer | evidence: cli/web-ui/src/components/MarkdownViewer/, cli/web-ui/src/components/v2/UnifiedContentRenderer.tsx -->
+    <!-- id: arcade.artifact-browser.markdown-viewer | tier: T1 | audience: user | evidence: cli/web-ui/src/components/MarkdownViewer/, cli/web-ui/src/components/v2/UnifiedContentRenderer.tsx -->
   - Sandboxed HTML Artifacts `T1` -- Renders HTML artifacts in secure sandboxed iframes
-    <!-- id: arcade.artifact-browser.sandboxed-html | tier: T1 | audience: developer | evidence: cli/web-ui/src/components/v2/SandboxedHtmlArtifact.tsx -->
+    <!-- id: arcade.artifact-browser.sandboxed-html | tier: T1 | audience: user | evidence: cli/web-ui/src/components/v2/SandboxedHtmlArtifact.tsx -->
   - Artifact Grouping `T2` -- Groups related artifacts by workflow and type for organized browsing
-    <!-- id: arcade.artifact-browser.grouping | tier: T2 | audience: developer | evidence: cli/web-ui/src/lib/artifact-groups.ts -->
+    <!-- id: arcade.artifact-browser.grouping | tier: T2 | audience: user | evidence: cli/web-ui/src/lib/artifact-groups.ts -->
 - **Annotation System** `T1` -- User feedback annotations on artifacts with popover and sidebar interfaces for review collaboration
-  <!-- id: arcade.annotations | tier: T1 | audience: developer | evidence: cli/web-ui/src/components/v2/AnnotationPopover.tsx, cli/web-ui/src/components/v2/AnnotationSidebar.tsx, cli/web-ui/src/hooks/useAnnotations.ts, docs/arcade/annotations.md -->
+  <!-- id: arcade.annotations | tier: T1 | audience: user | evidence: cli/web-ui/src/components/v2/AnnotationPopover.tsx, cli/web-ui/src/components/v2/AnnotationSidebar.tsx, cli/web-ui/src/hooks/useAnnotations.ts, docs/arcade/annotations.md -->
   - Text Selection Annotations `T1` -- Select text in artifacts to create inline annotations
-    <!-- id: arcade.annotations.text-selection | tier: T1 | audience: developer | evidence: cli/web-ui/src/hooks/useTextSelection.ts, cli/web-ui/src/components/v2/SelectionPopover.tsx -->
+    <!-- id: arcade.annotations.text-selection | tier: T1 | audience: user | evidence: cli/web-ui/src/hooks/useTextSelection.ts, cli/web-ui/src/components/v2/SelectionPopover.tsx -->
   - Milkdown Editor `T2` -- WYSIWYG markdown editor for annotation content
-    <!-- id: arcade.annotations.milkdown | tier: T2 | audience: developer | evidence: cli/web-ui/src/components/MilkdownEditor/ -->
+    <!-- id: arcade.annotations.milkdown | tier: T2 | audience: user | evidence: cli/web-ui/src/components/MilkdownEditor/ -->
 - **Run Detail View** `T1` -- Detailed view of a single workflow run showing step-by-step progress, artifacts, and event timeline
-  <!-- id: arcade.run-detail | tier: T1 | audience: developer | evidence: cli/web-ui/src/pages/v2/RunDetailPage.tsx, cli/web-ui/src/components/v2/RunDetailSurface.tsx, cli/web-ui/src/hooks/useRunDetail.ts -->
+  <!-- id: arcade.run-detail | tier: T1 | audience: user | evidence: cli/web-ui/src/pages/v2/RunDetailPage.tsx, cli/web-ui/src/components/v2/RunDetailSurface.tsx, cli/web-ui/src/hooks/useRunDetail.ts -->
   - Vertical Step List `T1` -- Displays workflow steps as a vertical timeline with completion status
-    <!-- id: arcade.run-detail.step-list | tier: T1 | audience: developer | evidence: cli/web-ui/src/components/v2/VerticalStepList.tsx, cli/web-ui/src/hooks/useWorkflowSteps.ts -->
+    <!-- id: arcade.run-detail.step-list | tier: T1 | audience: user | evidence: cli/web-ui/src/components/v2/VerticalStepList.tsx, cli/web-ui/src/hooks/useWorkflowSteps.ts -->
   - Walkthrough Reveal Reader `T2` -- Slide-by-slide reveal presentation of PR walkthrough artifacts
-    <!-- id: arcade.run-detail.walkthrough | tier: T2 | audience: developer | evidence: cli/web-ui/src/components/v2/WalkthroughRevealReader.tsx, cli/web-ui/src/lib/walkthrough-slide-source.ts -->
+    <!-- id: arcade.run-detail.walkthrough | tier: T2 | audience: user | evidence: cli/web-ui/src/components/v2/WalkthroughRevealReader.tsx, cli/web-ui/src/lib/walkthrough-slide-source.ts -->
 - **Project Overview** `T1` -- Project-level dashboard with run history, artifact counts, and workspace descriptor
-  <!-- id: arcade.project-overview | tier: T1 | audience: developer | evidence: cli/web-ui/src/pages/v2/ProjectOverviewPage.tsx, cli/web-ui/src/pages/v2/ProjectsPage.tsx -->
+  <!-- id: arcade.project-overview | tier: T1 | audience: user | evidence: cli/web-ui/src/pages/v2/ProjectOverviewPage.tsx, cli/web-ui/src/pages/v2/ProjectsPage.tsx -->
 - **Daemon Manager** `T1` -- Background daemon process that serves the Arcade web UI with lifecycle locking and IPC communication
-  <!-- id: arcade.daemon | tier: T1 | audience: developer | evidence: cli/web-ui/src/daemon/manager.ts, cli/web-ui/src/daemon/lifecycle-lock.ts, cli/web-ui/src/daemon/ipc.ts -->
+  <!-- id: arcade.daemon | tier: T1 | audience: user | evidence: cli/web-ui/src/daemon/manager.ts, cli/web-ui/src/daemon/lifecycle-lock.ts, cli/web-ui/src/daemon/ipc.ts -->
 - **Keyboard Shortcuts** `T1` -- Comprehensive keyboard shortcut system with global and contextual bindings and a help overlay
-  <!-- id: arcade.keyboard | tier: T1 | audience: developer | evidence: cli/web-ui/src/hooks/useGlobalShortcuts.ts, cli/web-ui/src/hooks/useContextualShortcuts.ts, cli/web-ui/src/components/v2/ShortcutHelpOverlay.tsx, docs/arcade/keyboard-shortcuts.md -->
+  <!-- id: arcade.keyboard | tier: T1 | audience: user | evidence: cli/web-ui/src/hooks/useGlobalShortcuts.ts, cli/web-ui/src/hooks/useContextualShortcuts.ts, cli/web-ui/src/components/v2/ShortcutHelpOverlay.tsx, docs/arcade/keyboard-shortcuts.md -->
 - **Arcade Settings Bridge** `T2` -- Syncs settings between the CLI and the Arcade web UI
-  <!-- id: arcade.settings-bridge | tier: T2 | audience: developer | evidence: cli/web-ui/src/server/arcade-settings-bridge.ts, docs/arcade/settings.md -->
+  <!-- id: arcade.settings-bridge | tier: T2 | audience: user | evidence: cli/web-ui/src/server/arcade-settings-bridge.ts, docs/arcade/settings.md -->
 - **Server-Side Services** `T1` -- Hono-based HTTP and WebSocket server with activity search, markdown projection, file watching, and project registry
-  <!-- id: arcade.server | tier: T1 | audience: contributor | evidence: cli/web-ui/src/server.ts, cli/web-ui/src/server/http.ts, cli/web-ui/src/server/websocket.ts, cli/web-ui/src/server/registry.ts -->
+  <!-- id: arcade.server | tier: T1 | audience: user | evidence: cli/web-ui/src/server.ts, cli/web-ui/src/server/http.ts, cli/web-ui/src/server/websocket.ts, cli/web-ui/src/server/registry.ts -->
   - Activity Search `T1` -- Full-text search across workflow activities and events
-    <!-- id: arcade.server.activity-search | tier: T1 | audience: developer | evidence: cli/web-ui/src/server/activity-search.ts -->
+    <!-- id: arcade.server.activity-search | tier: T1 | audience: user | evidence: cli/web-ui/src/server/activity-search.ts -->
   - Markdown Projection `T1` -- Server-side markdown processing with embedding resolution for artifact display
-    <!-- id: arcade.server.markdown-projection | tier: T1 | audience: contributor | evidence: cli/web-ui/src/server/markdown-projection.ts, cli/web-ui/src/server/markdown-embedder.ts -->
+    <!-- id: arcade.server.markdown-projection | tier: T1 | audience: user | evidence: cli/web-ui/src/server/markdown-projection.ts, cli/web-ui/src/server/markdown-embedder.ts -->
   - Annotations API `T1` -- REST API for annotation CRUD with server-side service layer
-    <!-- id: arcade.server.annotations-api | tier: T1 | audience: contributor | evidence: cli/web-ui/src/server/routes/annotations-api.ts, cli/web-ui/src/server/annotation-service.ts -->
+    <!-- id: arcade.server.annotations-api | tier: T1 | audience: user | evidence: cli/web-ui/src/server/routes/annotations-api.ts, cli/web-ui/src/server/annotation-service.ts -->
 
 ## Plugin System: Base
 
 - **Knowledge Build** `T1` -- Orchestrates parallel KB generation using spatial analysis and map-reduce architecture with incremental and feature-learning modes
-  <!-- id: plugin-base.knowledge-build | tier: T1 | audience: developer | evidence: plugins/base/skills/knowledge-build/SKILL.md, docs/reference/base/knowledge-build.md -->
+  <!-- id: plugin-base.knowledge-build | tier: T1 | audience: user | evidence: plugins/base/skills/knowledge-build/SKILL.md, docs/reference/base/knowledge-build.md -->
   - KB Index Builder `T1` -- Produces the top-level index.md from aggregated analysis results
     <!-- id: plugin-base.knowledge-build.index-builder | tier: T1 | audience: agent | evidence: plugins/base/agents/kb-index-builder.md -->
   - KB Feature Extractor `T1` -- Discovers and inventories project capabilities into features.md
@@ -182,44 +182,44 @@
   - KB Spatial Analyzer `T1` -- Performs directory-level spatial analysis as input to other KB agents
     <!-- id: plugin-base.knowledge-build.spatial-analyzer | tier: T1 | audience: agent | evidence: plugins/base/agents/kb-spatial-analyzer.md -->
 - **Deep Research** `T1` -- Autonomous map-reduce research on codebases and technical topics with structured report output
-  <!-- id: plugin-base.deep-research | tier: T1 | audience: developer | evidence: plugins/base/skills/deep-research/SKILL.md, plugins/base/agents/research-explorer.md, plugins/base/agents/research-reporter.md, docs/reference/base/deep-research.md -->
+  <!-- id: plugin-base.deep-research | tier: T1 | audience: user | evidence: plugins/base/skills/deep-research/SKILL.md, plugins/base/agents/research-explorer.md, plugins/base/agents/research-reporter.md, docs/reference/base/deep-research.md -->
 - **Security Analysis** `T1` -- Evidence-bounded security posture assessment with standards mapping and registered report output
-  <!-- id: plugin-base.analyse-security | tier: T1 | audience: developer | evidence: plugins/base/skills/analyse-security/SKILL.md, plugins/base/agents/security-validator.md, docs/reference/base/analyse-security.md -->
+  <!-- id: plugin-base.analyse-security | tier: T1 | audience: user | evidence: plugins/base/skills/analyse-security/SKILL.md, plugins/base/agents/security-validator.md, docs/reference/base/analyse-security.md -->
 - **Socratic Duel** `T1` -- Bounded two-agent debate with lock-based turn coordination and structured artifact output
-  <!-- id: plugin-base.socratic-duel | tier: T1 | audience: developer | evidence: plugins/base/skills/socratic-duel/SKILL.md, plugins/base/skills/socratic-duel-run/SKILL.md, plugins/base/agents/socratic-duel-participant.md, docs/reference/base/socratic-duel.md -->
+  <!-- id: plugin-base.socratic-duel | tier: T1 | audience: user | evidence: plugins/base/skills/socratic-duel/SKILL.md, plugins/base/skills/socratic-duel-run/SKILL.md, plugins/base/agents/socratic-duel-participant.md, docs/reference/base/socratic-duel.md -->
 - **Strategic Advisor** `T1` -- Holistic systems analysis with quantified trade-offs across cost, quality, performance, and complexity
-  <!-- id: plugin-base.strategize | tier: T1 | audience: developer | evidence: plugins/base/skills/strategize/SKILL.md, plugins/base/agents/strategic-advisor.md, docs/reference/base/strategize.md -->
+  <!-- id: plugin-base.strategize | tier: T1 | audience: user | evidence: plugins/base/skills/strategize/SKILL.md, plugins/base/agents/strategic-advisor.md, docs/reference/base/strategize.md -->
 - **Project Overview Generator** `T1` -- Produces three-tier arc42/C4-aligned project overview with provenance metadata
-  <!-- id: plugin-base.project-birds-eye-view | tier: T1 | audience: developer | evidence: plugins/base/skills/project-birds-eye-view/SKILL.md, plugins/base/agents/project-documenter.md, docs/reference/base/project-birds-eye-view.md -->
+  <!-- id: plugin-base.project-birds-eye-view | tier: T1 | audience: user | evidence: plugins/base/skills/project-birds-eye-view/SKILL.md, plugins/base/agents/project-documenter.md, docs/reference/base/project-birds-eye-view.md -->
 - **Mermaid Diagram Tools** `T1` -- Creates, validates, and repairs Mermaid.js diagrams with auto-fix for common syntax errors
-  <!-- id: plugin-base.mermaid | tier: T1 | audience: developer | evidence: plugins/base/skills/mermaid/SKILL.md, plugins/base/skills/fix-mermaid/SKILL.md, plugins/base/agents/mermaid-fixer.md, docs/reference/base/fix-mermaid.md -->
+  <!-- id: plugin-base.mermaid | tier: T1 | audience: user | evidence: plugins/base/skills/mermaid/SKILL.md, plugins/base/skills/fix-mermaid/SKILL.md, plugins/base/agents/mermaid-fixer.md, docs/reference/base/fix-mermaid.md -->
 - **Artifact Templates** `T1` -- Canonical output templates for 20+ agent producers ensuring format consistency and routing metadata
   <!-- id: plugin-base.artifact-templates | tier: T1 | audience: agent | evidence: plugins/base/skills/artifact-templates/SKILL.md, plugins/base/skills/artifact-templates/templates/ -->
 - **Guide** `T1` -- Interactive skill discovery and workflow guidance for rp1 capabilities
-  <!-- id: plugin-base.guide | tier: T1 | audience: developer | evidence: plugins/base/skills/guide/SKILL.md, docs/reference/base/guide.md -->
+  <!-- id: plugin-base.guide | tier: T1 | audience: user | evidence: plugins/base/skills/guide/SKILL.md, docs/reference/base/guide.md -->
 - **Self-Update** `T1` -- Updates rp1 and runs the full post-update lifecycle
-  <!-- id: plugin-base.self-update | tier: T1 | audience: developer | evidence: plugins/base/skills/self-update/SKILL.md, docs/reference/base/self-update.md -->
+  <!-- id: plugin-base.self-update | tier: T1 | audience: user | evidence: plugins/base/skills/self-update/SKILL.md, docs/reference/base/self-update.md -->
 - **Note Capture** `T2` -- Captures session context as structured markdown notes with auto-maintained index
-  <!-- id: plugin-base.note | tier: T2 | audience: developer | evidence: plugins/base/skills/note/SKILL.md -->
+  <!-- id: plugin-base.note | tier: T2 | audience: user | evidence: plugins/base/skills/note/SKILL.md -->
 - **Content Writer** `T2` -- Interactive prompt for creating polished technical documents through structured writing workflows
-  <!-- id: plugin-base.write-content | tier: T2 | audience: developer | evidence: plugins/base/skills/write-content/SKILL.md, docs/reference/base/write-content.md -->
+  <!-- id: plugin-base.write-content | tier: T2 | audience: user | evidence: plugins/base/skills/write-content/SKILL.md, docs/reference/base/write-content.md -->
 - **User Docs Generator** `T2` -- Synchronizes user-facing documentation with current KB through validate-stale-scan-approval orchestration
-  <!-- id: plugin-base.generate-user-docs | tier: T2 | audience: developer | evidence: plugins/base/skills/generate-user-docs/SKILL.md -->
+  <!-- id: plugin-base.generate-user-docs | tier: T2 | audience: user | evidence: plugins/base/skills/generate-user-docs/SKILL.md -->
 - **Markdown Preview** `T2` -- Generates browser-viewable HTML previews from markdown with auto-validation and Mermaid rendering
-  <!-- id: plugin-base.markdown-preview | tier: T2 | audience: developer | evidence: plugins/base/skills/markdown-preview/SKILL.md -->
+  <!-- id: plugin-base.markdown-preview | tier: T2 | audience: user | evidence: plugins/base/skills/markdown-preview/SKILL.md -->
 - **Code Comments Extractor** `T2` -- Extracts comment locations from code files for analysis
-  <!-- id: plugin-base.code-comments | tier: T2 | audience: developer | evidence: plugins/base/skills/code-comments/SKILL.md -->
+  <!-- id: plugin-base.code-comments | tier: T2 | audience: user | evidence: plugins/base/skills/code-comments/SKILL.md -->
 - **Task Manager** `T2` -- Discovers and manages queued tasks for agent execution
-  <!-- id: plugin-base.task | tier: T2 | audience: developer | evidence: plugins/base/skills/task/SKILL.md -->
+  <!-- id: plugin-base.task | tier: T2 | audience: user | evidence: plugins/base/skills/task/SKILL.md -->
 - **Prompt Writer** `T1` -- Writes maximally terse agent prompts with constitutional governance through a six-stage pipeline
-  <!-- id: plugin-base.prompt-writer | tier: T1 | audience: contributor | evidence: plugins/base/skills/prompt-writer/SKILL.md -->
+  <!-- id: plugin-base.prompt-writer | tier: T1 | audience: user | evidence: plugins/base/skills/prompt-writer/SKILL.md -->
 - **Scribe Agent** `T2` -- Note-taking agent for structured session capture
   <!-- id: plugin-base.scribe | tier: T2 | audience: agent | evidence: plugins/base/agents/scribe.md -->
 
 ## Plugin System: Dev
 
 - **Build Workflow** `T1` -- End-to-end feature development workflow from requirements through planning, implementation, verification, and release
-  <!-- id: plugin-dev.build | tier: T1 | audience: developer | evidence: plugins/dev/skills/build/SKILL.md, docs/reference/dev/build.md -->
+  <!-- id: plugin-dev.build | tier: T1 | audience: user | evidence: plugins/dev/skills/build/SKILL.md, docs/reference/dev/build.md -->
   - Feature Requirement Gatherer `T1` -- Interviews user and generates structured requirements document
     <!-- id: plugin-dev.build.requirement-gatherer | tier: T1 | audience: agent | evidence: plugins/dev/agents/feature-requirement-gatherer.md -->
   - Feature Architect `T1` -- Produces design.md with component diagrams and technical approach from requirements
@@ -243,21 +243,21 @@
   - Test Runner `T1` -- Executes test suites and reports results with coverage
     <!-- id: plugin-dev.build.test-runner | tier: T1 | audience: agent | evidence: plugins/dev/agents/test-runner.md -->
 - **Build Fast** `T1` -- Quick-iteration development for small/medium scope changes with persistent plan artifact and optional review
-  <!-- id: plugin-dev.build-fast | tier: T1 | audience: developer | evidence: plugins/dev/skills/build-fast/SKILL.md, plugins/dev/agents/build-fast-planner.md, docs/reference/dev/build-fast.md -->
+  <!-- id: plugin-dev.build-fast | tier: T1 | audience: user | evidence: plugins/dev/skills/build-fast/SKILL.md, plugins/dev/agents/build-fast-planner.md, docs/reference/dev/build-fast.md -->
 - **Speedrun** `T1` -- Interactive loop for small low-risk changes delegated to a general sub-agent
-  <!-- id: plugin-dev.speedrun | tier: T1 | audience: developer | evidence: plugins/dev/skills/speedrun/SKILL.md, plugins/dev/agents/speedrun-builder.md -->
+  <!-- id: plugin-dev.speedrun | tier: T1 | audience: user | evidence: plugins/dev/skills/speedrun/SKILL.md, plugins/dev/agents/speedrun-builder.md -->
 - **Blueprint** `T1` -- Guided project charter and PRD creation through parent-owned interviews with durable artifact resume
-  <!-- id: plugin-dev.blueprint | tier: T1 | audience: developer | evidence: plugins/dev/skills/blueprint/SKILL.md, plugins/dev/agents/blueprint-wizard.md, plugins/dev/agents/charter-interviewer.md, docs/reference/dev/blueprint.md -->
+  <!-- id: plugin-dev.blueprint | tier: T1 | audience: user | evidence: plugins/dev/skills/blueprint/SKILL.md, plugins/dev/agents/blueprint-wizard.md, plugins/dev/agents/charter-interviewer.md, docs/reference/dev/blueprint.md -->
   - Blueprint Audit `T1` -- Audits PRD against implementation status and guides lifecycle decisions
-    <!-- id: plugin-dev.blueprint.audit | tier: T1 | audience: developer | evidence: plugins/dev/skills/blueprint-audit/SKILL.md, plugins/dev/agents/blueprint-auditor.md, docs/reference/dev/blueprint-audit.md -->
+    <!-- id: plugin-dev.blueprint.audit | tier: T1 | audience: user | evidence: plugins/dev/skills/blueprint-audit/SKILL.md, plugins/dev/agents/blueprint-auditor.md, docs/reference/dev/blueprint-audit.md -->
   - Blueprint Archive `T1` -- Archives completed PRD with associated features and closure summary
-    <!-- id: plugin-dev.blueprint.archive | tier: T1 | audience: developer | evidence: plugins/dev/skills/blueprint-archive/SKILL.md, docs/reference/dev/blueprint-archive.md -->
+    <!-- id: plugin-dev.blueprint.archive | tier: T1 | audience: user | evidence: plugins/dev/skills/blueprint-archive/SKILL.md, docs/reference/dev/blueprint-archive.md -->
 - **Phase Plan** `T1` -- Decomposes completed PRD or oversized requirements into durable delivery phases
-  <!-- id: plugin-dev.phase-plan | tier: T1 | audience: developer | evidence: plugins/dev/skills/phase-plan/SKILL.md, plugins/dev/agents/phase-planner.md, docs/reference/dev/phase-plan.md -->
+  <!-- id: plugin-dev.phase-plan | tier: T1 | audience: user | evidence: plugins/dev/skills/phase-plan/SKILL.md, plugins/dev/agents/phase-planner.md, docs/reference/dev/phase-plan.md -->
 - **Bootstrap** `T1` -- Scaffolds a greenfield project with parent-owned interviews and bounded plan-revise-apply actions
-  <!-- id: plugin-dev.bootstrap | tier: T1 | audience: developer | evidence: plugins/dev/skills/bootstrap/SKILL.md, plugins/dev/agents/bootstrap-scaffolder.md -->
+  <!-- id: plugin-dev.bootstrap | tier: T1 | audience: user | evidence: plugins/dev/skills/bootstrap/SKILL.md, plugins/dev/agents/bootstrap-scaffolder.md -->
 - **PR Review** `T1` -- Intent-aware map-reduce PR review with CI/CD support, confidence gating, and intelligent comment deduplication
-  <!-- id: plugin-dev.pr-review | tier: T1 | audience: developer | evidence: plugins/dev/skills/pr-review/SKILL.md, docs/reference/dev/pr-review.md -->
+  <!-- id: plugin-dev.pr-review | tier: T1 | audience: user | evidence: plugins/dev/skills/pr-review/SKILL.md, docs/reference/dev/pr-review.md -->
   - PR Sub-Reviewer `T1` -- Reviews individual file segments for issues
     <!-- id: plugin-dev.pr-review.sub-reviewer | tier: T1 | audience: agent | evidence: plugins/dev/agents/pr-sub-reviewer.md -->
   - PR Review Splitter `T1` -- Splits large diffs into reviewable segments for parallel sub-review
@@ -271,42 +271,42 @@
   - PR Comment Poster `T1` -- Posts individual review comments to GitHub PRs
     <!-- id: plugin-dev.pr-review.poster | tier: T1 | audience: agent | evidence: plugins/dev/agents/pr-comment-poster.md -->
 - **PR Visual** `T1` -- Transforms PR diffs into Mermaid diagrams for visual code review
-  <!-- id: plugin-dev.pr-visual | tier: T1 | audience: developer | evidence: plugins/dev/skills/pr-visual/SKILL.md, plugins/dev/agents/pr-visualizer.md, docs/reference/dev/pr-visual.md -->
+  <!-- id: plugin-dev.pr-visual | tier: T1 | audience: user | evidence: plugins/dev/skills/pr-visual/SKILL.md, plugins/dev/agents/pr-visualizer.md, docs/reference/dev/pr-visual.md -->
 - **PR Walkthrough** `T1` -- Generates evidence-grounded markdown walkthrough for a pull request
-  <!-- id: plugin-dev.pr-walkthrough | tier: T1 | audience: developer | evidence: plugins/dev/skills/pr-walkthrough/SKILL.md, plugins/dev/agents/pr-walkthrough-reporter.md, docs/reference/dev/pr-walkthrough.md -->
+  <!-- id: plugin-dev.pr-walkthrough | tier: T1 | audience: user | evidence: plugins/dev/skills/pr-walkthrough/SKILL.md, plugins/dev/agents/pr-walkthrough-reporter.md, docs/reference/dev/pr-walkthrough.md -->
 - **PR Stack** `T1` -- Plans and executes splitting a large PR into a reviewable stacked PR sequence
-  <!-- id: plugin-dev.pr-stack | tier: T1 | audience: developer | evidence: plugins/dev/skills/pr-stack/SKILL.md, docs/reference/dev/pr-stack.md -->
+  <!-- id: plugin-dev.pr-stack | tier: T1 | audience: user | evidence: plugins/dev/skills/pr-stack/SKILL.md, docs/reference/dev/pr-stack.md -->
 - **Address PR Feedback** `T1` -- Unified workflow to collect, triage, and fix review comments in a single command
-  <!-- id: plugin-dev.address-pr-feedback | tier: T1 | audience: developer | evidence: plugins/dev/skills/address-pr-feedback/SKILL.md, plugins/dev/agents/pr-feedback-collector.md, docs/reference/dev/address-pr-feedback.md -->
+  <!-- id: plugin-dev.address-pr-feedback | tier: T1 | audience: user | evidence: plugins/dev/skills/address-pr-feedback/SKILL.md, plugins/dev/agents/pr-feedback-collector.md, docs/reference/dev/address-pr-feedback.md -->
 - **Publish Artifact** `T1` -- Publishes rp1 artifacts as idempotent PR or issue comments that update in place
-  <!-- id: plugin-dev.publish-artifact | tier: T1 | audience: developer | evidence: plugins/dev/skills/publish-artifact/SKILL.md, docs/reference/dev/publish-artifact.md -->
+  <!-- id: plugin-dev.publish-artifact | tier: T1 | audience: user | evidence: plugins/dev/skills/publish-artifact/SKILL.md, docs/reference/dev/publish-artifact.md -->
 - **Code Investigate** `T1` -- Systematic bug investigation through evidence-based analysis and hypothesis testing without permanent code changes
-  <!-- id: plugin-dev.code-investigate | tier: T1 | audience: developer | evidence: plugins/dev/skills/code-investigate/SKILL.md, plugins/dev/agents/bug-investigator.md, docs/reference/dev/code-investigate.md -->
+  <!-- id: plugin-dev.code-investigate | tier: T1 | audience: user | evidence: plugins/dev/skills/code-investigate/SKILL.md, plugins/dev/agents/bug-investigator.md, docs/reference/dev/code-investigate.md -->
 - **Validate Hypothesis** `T1` -- Validates design hypotheses via code experiments, codebase analysis, and external research with support for ad-hoc test scenarios
-  <!-- id: plugin-dev.validate-hypothesis | tier: T1 | audience: developer | evidence: plugins/dev/skills/validate-hypothesis/SKILL.md, plugins/dev/agents/hypothesis-tester.md, docs/reference/dev/validate-hypothesis.md -->
+  <!-- id: plugin-dev.validate-hypothesis | tier: T1 | audience: user | evidence: plugins/dev/skills/validate-hypothesis/SKILL.md, plugins/dev/agents/hypothesis-tester.md, docs/reference/dev/validate-hypothesis.md -->
 - **Tech Debt Collector** `T1` -- Evidence-gated tech debt and bloat detection with materiality ranking and refutation validation
-  <!-- id: plugin-dev.tech-debt-collector | tier: T1 | audience: developer | evidence: plugins/dev/skills/tech-debt-collector/SKILL.md, plugins/dev/agents/bloat-scout.md, docs/reference/dev/tech-debt-collector.md -->
+  <!-- id: plugin-dev.tech-debt-collector | tier: T1 | audience: user | evidence: plugins/dev/skills/tech-debt-collector/SKILL.md, plugins/dev/agents/bloat-scout.md, docs/reference/dev/tech-debt-collector.md -->
 - **Code Audit** `T1` -- Analyzes code for pattern consistency, maintainability, duplication, comment quality, and documentation drift
-  <!-- id: plugin-dev.code-audit | tier: T1 | audience: developer | evidence: plugins/dev/skills/code-audit/SKILL.md, plugins/dev/agents/code-auditor.md, docs/reference/dev/code-audit.md -->
+  <!-- id: plugin-dev.code-audit | tier: T1 | audience: user | evidence: plugins/dev/skills/code-audit/SKILL.md, plugins/dev/agents/code-auditor.md, docs/reference/dev/code-audit.md -->
 - **Code Check** `T1` -- Fast code hygiene validation running lints, formatters, tests, and coverage in a quick feedback loop
-  <!-- id: plugin-dev.code-check | tier: T1 | audience: developer | evidence: plugins/dev/skills/code-check/SKILL.md, plugins/dev/agents/code-checker.md, docs/reference/dev/code-check.md -->
+  <!-- id: plugin-dev.code-check | tier: T1 | audience: user | evidence: plugins/dev/skills/code-check/SKILL.md, plugins/dev/agents/code-checker.md, docs/reference/dev/code-check.md -->
 - **Code Clean Comments** `T1` -- Systematically removes unnecessary comments by first resolving scope into a durable change manifest
-  <!-- id: plugin-dev.code-clean-comments | tier: T1 | audience: developer | evidence: plugins/dev/skills/code-clean-comments/SKILL.md, plugins/dev/agents/comment-cleaner.md, docs/reference/dev/code-clean-comments.md -->
+  <!-- id: plugin-dev.code-clean-comments | tier: T1 | audience: user | evidence: plugins/dev/skills/code-clean-comments/SKILL.md, plugins/dev/agents/comment-cleaner.md, docs/reference/dev/code-clean-comments.md -->
 - **Feature Lifecycle** `T1` -- Archive, edit, and unarchive feature documentation with validation and propagation
-  <!-- id: plugin-dev.feature-lifecycle | tier: T1 | audience: developer | evidence: plugins/dev/skills/feature-archive/SKILL.md, plugins/dev/skills/feature-edit/SKILL.md, plugins/dev/skills/feature-unarchive/SKILL.md, plugins/dev/agents/feature-archiver.md, plugins/dev/agents/feature-editor.md -->
+  <!-- id: plugin-dev.feature-lifecycle | tier: T1 | audience: user | evidence: plugins/dev/skills/feature-archive/SKILL.md, plugins/dev/skills/feature-edit/SKILL.md, plugins/dev/skills/feature-unarchive/SKILL.md, plugins/dev/agents/feature-archiver.md, plugins/dev/agents/feature-editor.md -->
 - **Arcade Collab** `T2` -- Structured guidance for agents to read, classify, and act on user feedback from the Arcade
   <!-- id: plugin-dev.arcade-collab | tier: T2 | audience: agent | evidence: plugins/dev/skills/arcade-collab/SKILL.md -->
 
 ## Plugin System: Utils
 
 - **Build Prompt** `T1` -- Builds governed prompts through the six-stage prompt-writer pipeline with budgeted governance
-  <!-- id: plugin-utils.build-prompt | tier: T1 | audience: contributor | evidence: plugins/utils/skills/build-prompt/SKILL.md -->
+  <!-- id: plugin-utils.build-prompt | tier: T1 | audience: user | evidence: plugins/utils/skills/build-prompt/SKILL.md -->
 - **Tersify Prompt** `T1` -- Rewrites agent-instruction prompts to be maximally terse while preserving full intent
-  <!-- id: plugin-utils.tersify-prompt | tier: T1 | audience: contributor | evidence: plugins/utils/skills/tersify-prompt/SKILL.md, plugins/utils/agents/prompt-tersifier.md -->
+  <!-- id: plugin-utils.tersify-prompt | tier: T1 | audience: user | evidence: plugins/utils/skills/tersify-prompt/SKILL.md, plugins/utils/agents/prompt-tersifier.md -->
 - **Prompt Eval Builder** `T2` -- Extracts eval assertions and generates test invocation prompts from command/agent specs
-  <!-- id: plugin-utils.prompt-eval-builder | tier: T2 | audience: contributor | evidence: plugins/utils/skills/prompt-eval-builder/SKILL.md -->
+  <!-- id: plugin-utils.prompt-eval-builder | tier: T2 | audience: user | evidence: plugins/utils/skills/prompt-eval-builder/SKILL.md -->
 - **Tester** `T3` -- Test command template for verifying argument passing and skill invocation
-  <!-- id: plugin-utils.tester | tier: T3 | audience: contributor | evidence: plugins/utils/skills/tester/SKILL.md -->
+  <!-- id: plugin-utils.tester | tier: T3 | audience: user | evidence: plugins/utils/skills/tester/SKILL.md -->
 
 ## Plugin System: Shared
 
@@ -324,85 +324,87 @@
 ## Teach-Me
 
 - **Lesson Renderer** `T1` -- Assembles lesson data models into self-contained interactive HTML lessons with Mermaid diagram pre-rendering
-  <!-- id: teach-me.renderer | tier: T1 | audience: developer | evidence: cli/src/teach-me/assemble.ts, cli/src/teach-me/inline.ts, cli/src/teach-me/prerender/, cli/src/commands/teach-me/ -->
+  <!-- id: teach-me.renderer | tier: T1 | audience: user | evidence: cli/src/teach-me/assemble.ts, cli/src/teach-me/inline.ts, cli/src/teach-me/prerender/, cli/src/commands/teach-me/ -->
   - Lesson Schema `T1` -- JSON schema for structured lesson data models with sections, quizzes, and code examples
-    <!-- id: teach-me.renderer.schema | tier: T1 | audience: developer | evidence: cli/src/teach-me/schema/ -->
+    <!-- id: teach-me.renderer.schema | tier: T1 | audience: user | evidence: cli/src/teach-me/schema/ -->
   - Widget System `T2` -- Embeddable interactive widgets within lessons
-    <!-- id: teach-me.renderer.widgets | tier: T2 | audience: developer | evidence: cli/src/teach-me/widgets/ -->
+    <!-- id: teach-me.renderer.widgets | tier: T2 | audience: user | evidence: cli/src/teach-me/widgets/ -->
   - Quality Gate `T2` -- Validates lesson content meets quality thresholds before rendering
-    <!-- id: teach-me.renderer.gate | tier: T2 | audience: developer | evidence: cli/src/teach-me/gate/ -->
+    <!-- id: teach-me.renderer.gate | tier: T2 | audience: user | evidence: cli/src/teach-me/gate/ -->
+  - Lesson Exporter `T2` -- Re-asserts self-containment and emits a standalone lesson artifact
+    <!-- id: teach-me.renderer.export | tier: T2 | audience: user | evidence: cli/src/commands/teach-me/export.ts, cli/src/__tests__/teach-me/export.test.ts -->
 - **Teach-Me Skill** `T1` -- Turns a "teach me X" request into an interactive HTML lesson rendered Arcade-first
-  <!-- id: teach-me.skill | tier: T1 | audience: developer | evidence: plugins/base/skills/teach-me/SKILL.md -->
+  <!-- id: teach-me.skill | tier: T1 | audience: user | evidence: plugins/base/skills/teach-me/SKILL.md -->
 
 ## Native App
 
-- **Electrobun Desktop App** `T3` -- Cross-platform desktop wrapper for the Arcade web UI using Electrobun
-  <!-- id: native-app.electrobun | tier: T3 | audience: developer | evidence: native-app/electrobun.config.ts, native-app/package.json, native-app/src/ -->
+- **Electrobun Desktop App** `T2` -- Cross-platform desktop wrapper for the Arcade web UI using Electrobun
+  <!-- id: native-app.electrobun | tier: T2 | audience: user | evidence: native-app/electrobun.config.ts, native-app/package.json, native-app/src/, native-app/src/__tests__/launch-state.test.ts -->
 
 ## Eval Framework
 
 - **Promptfoo Integration** `T1` -- Behavioral evaluation suites for agent skills using promptfoo with custom assertions and model usage tracking
-  <!-- id: eval-framework.promptfoo | tier: T1 | audience: contributor | evidence: evals/package.json, evals/src/index.ts, evals/src/model-usage.ts -->
+  <!-- id: eval-framework.promptfoo | tier: T1 | audience: user | evidence: evals/package.json, evals/src/index.ts, evals/src/model-usage.ts -->
   - Build Eval Suite `T1` -- Evaluates the /build workflow agent chain
-    <!-- id: eval-framework.promptfoo.build | tier: T1 | audience: contributor | evidence: evals/suites/rp1-dev/build/ -->
+    <!-- id: eval-framework.promptfoo.build | tier: T1 | audience: user | evidence: evals/suites/rp1-dev/build/ -->
   - Build-Fast Eval Suite `T1` -- Evaluates the /build-fast workflow
-    <!-- id: eval-framework.promptfoo.build-fast | tier: T1 | audience: contributor | evidence: evals/suites/rp1-dev/build-fast/ -->
+    <!-- id: eval-framework.promptfoo.build-fast | tier: T1 | audience: user | evidence: evals/suites/rp1-dev/build-fast/ -->
   - Speedrun Eval Suite `T1` -- Evaluates the /speedrun workflow
-    <!-- id: eval-framework.promptfoo.speedrun | tier: T1 | audience: contributor | evidence: evals/suites/rp1-dev/speedrun/ -->
+    <!-- id: eval-framework.promptfoo.speedrun | tier: T1 | audience: user | evidence: evals/suites/rp1-dev/speedrun/ -->
   - Create-Prompt Eval Suite `T1` -- Evaluates the prompt creation pipeline
-    <!-- id: eval-framework.promptfoo.create-prompt | tier: T1 | audience: contributor | evidence: evals/suites/rp1-base/create-prompt/ -->
+    <!-- id: eval-framework.promptfoo.create-prompt | tier: T1 | audience: user | evidence: evals/suites/rp1-base/create-prompt/ -->
   - Shared Assertions `T1` -- Reusable assertion library for eval suites
-    <!-- id: eval-framework.promptfoo.shared-assertions | tier: T1 | audience: contributor | evidence: evals/suites/shared/assertions/, evals/suites/shared/extension.ts -->
+    <!-- id: eval-framework.promptfoo.shared-assertions | tier: T1 | audience: user | evidence: evals/suites/shared/assertions/, evals/suites/shared/extension.ts -->
   - Attestation Verification `T1` -- Verifies eval suite attestation hashes match built artifacts
-    <!-- id: eval-framework.promptfoo.attestation | tier: T1 | audience: contributor | evidence: evals/src/attestation/, evals/attestation.json -->
+    <!-- id: eval-framework.promptfoo.attestation | tier: T1 | audience: user | evidence: evals/src/attestation/, evals/attestation.json -->
 - **Docker Eval Runner** `T2` -- Containerized eval execution environment with certificate management
-  <!-- id: eval-framework.docker | tier: T2 | audience: contributor | evidence: docker/Dockerfile, docker/eval-run.sh -->
+  <!-- id: eval-framework.docker | tier: T2 | audience: user | evidence: docker/Dockerfile, docker/eval-run.sh -->
 
 ## CI/CD and Release
 
 - **GitHub Actions CI** `T1` -- Multi-job CI pipeline with lint, typecheck, tests, docs link check, catalog verification, plugin build, and attestation checks
-  <!-- id: cicd.github-actions | tier: T1 | audience: contributor | evidence: .github/workflows/ci.yml -->
+  <!-- id: cicd.github-actions | tier: T1 | audience: user | evidence: .github/workflows/ci.yml -->
   - Test Isolation Boundary `T1` -- Docker-based disposable filesystem boundary for safe test execution
-    <!-- id: cicd.github-actions.test-isolation | tier: T1 | audience: contributor | evidence: .github/test-isolation.Dockerfile -->
+    <!-- id: cicd.github-actions.test-isolation | tier: T1 | audience: user | evidence: .github/test-isolation.Dockerfile -->
 - **Release Please** `T1` -- Automated semantic versioning and changelog generation with post-release artifact upload and Cloudflare Pages deployment
-  <!-- id: cicd.release-please | tier: T1 | audience: contributor | evidence: .github/workflows/release-please.yml, release-please-config.json, .release-please-manifest.json -->
+  <!-- id: cicd.release-please | tier: T1 | audience: user | evidence: .github/workflows/release-please.yml, release-please-config.json, .release-please-manifest.json -->
 - **GoReleaser** `T1` -- Cross-platform binary builds (darwin-arm64/x64, linux-arm64/x64, windows-x64) via Bun compile with GitHub Release publishing
-  <!-- id: cicd.goreleaser | tier: T1 | audience: contributor | evidence: .goreleaser.yml, .github/workflows/goreleaser.yml -->
+  <!-- id: cicd.goreleaser | tier: T1 | audience: user | evidence: .goreleaser.yml, .github/workflows/goreleaser.yml -->
 - **PR Title Validation** `T2` -- Enforces Conventional Commits format on PR titles
-  <!-- id: cicd.pr-title | tier: T2 | audience: contributor | evidence: .github/workflows/pr-title.yml -->
+  <!-- id: cicd.pr-title | tier: T2 | audience: user | evidence: .github/workflows/pr-title.yml -->
 - **Lighthouse CI** `T2` -- Post-release performance auditing of the documentation site
-  <!-- id: cicd.lighthouse | tier: T2 | audience: contributor | evidence: lighthouserc.json, .github/workflows/release-please.yml -->
+  <!-- id: cicd.lighthouse | tier: T2 | audience: user | evidence: lighthouserc.json, .github/workflows/release-please.yml -->
 - **Pre-Commit Hooks** `T2` -- Lefthook-based pre-commit checks for catalog freshness and commit conventions
-  <!-- id: cicd.lefthook | tier: T2 | audience: contributor | evidence: lefthook.yml, .lefthook/ -->
+  <!-- id: cicd.lefthook | tier: T2 | audience: user | evidence: lefthook.yml, .lefthook/ -->
 - **Docker Dev Environment** `T2` -- Development container setup for consistent build environments
-  <!-- id: cicd.docker-dev | tier: T2 | audience: contributor | evidence: docker/setup-dev.sh, docker/test-install.sh -->
+  <!-- id: cicd.docker-dev | tier: T2 | audience: user | evidence: docker/setup-dev.sh, docker/test-install.sh -->
 - **Beta Release Pipeline** `T2` -- Separate release channel for pre-release builds
-  <!-- id: cicd.beta-release | tier: T2 | audience: contributor | evidence: scripts/beta-release.sh, .goreleaser-beta.yml -->
+  <!-- id: cicd.beta-release | tier: T2 | audience: user | evidence: scripts/beta-release.sh, .goreleaser-beta.yml -->
 
 ## Documentation Site
 
 - **MkDocs Material Site** `T1` -- Public documentation site built with MkDocs Material and deployed to Cloudflare Pages
-  <!-- id: docs-site.mkdocs | tier: T1 | audience: developer | evidence: mkdocs.yml, docs/index.md, site/ -->
+  <!-- id: docs-site.mkdocs | tier: T1 | audience: user | evidence: mkdocs.yml, docs/index.md, site/ -->
   - Getting Started Guides `T1` -- Installation, first workflow, and directory structure documentation
-    <!-- id: docs-site.mkdocs.getting-started | tier: T1 | audience: developer | evidence: docs/getting-started/ -->
+    <!-- id: docs-site.mkdocs.getting-started | tier: T1 | audience: user | evidence: docs/getting-started/ -->
   - Workflow Guides `T1` -- In-depth guides for feature development, bug investigation, PR review, CI/CD integration, and team scaling
-    <!-- id: docs-site.mkdocs.guides | tier: T1 | audience: developer | evidence: docs/guides/ -->
+    <!-- id: docs-site.mkdocs.guides | tier: T1 | audience: user | evidence: docs/guides/ -->
   - CLI Reference `T1` -- Command reference for init, install, update, verify, migrate, settings, and uninstall
-    <!-- id: docs-site.mkdocs.cli-reference | tier: T1 | audience: developer | evidence: docs/reference/cli/ -->
+    <!-- id: docs-site.mkdocs.cli-reference | tier: T1 | audience: user | evidence: docs/reference/cli/ -->
   - Base Plugin Reference `T1` -- Reference docs for all base plugin skills
-    <!-- id: docs-site.mkdocs.base-reference | tier: T1 | audience: developer | evidence: docs/reference/base/ -->
+    <!-- id: docs-site.mkdocs.base-reference | tier: T1 | audience: user | evidence: docs/reference/base/ -->
   - Dev Plugin Reference `T1` -- Reference docs for all dev plugin skills
-    <!-- id: docs-site.mkdocs.dev-reference | tier: T1 | audience: developer | evidence: docs/reference/dev/ -->
+    <!-- id: docs-site.mkdocs.dev-reference | tier: T1 | audience: user | evidence: docs/reference/dev/ -->
   - Platform Guides `T1` -- Platform-specific documentation for Antigravity, Codex, and Copilot
-    <!-- id: docs-site.mkdocs.platforms | tier: T1 | audience: developer | evidence: docs/reference/platforms/ -->
+    <!-- id: docs-site.mkdocs.platforms | tier: T1 | audience: user | evidence: docs/reference/platforms/ -->
   - Arcade Documentation `T1` -- Dashboard, artifact viewer, annotations, keyboard shortcuts, and settings docs
-    <!-- id: docs-site.mkdocs.arcade | tier: T1 | audience: developer | evidence: docs/arcade/ -->
+    <!-- id: docs-site.mkdocs.arcade | tier: T1 | audience: user | evidence: docs/arcade/ -->
   - Configuration Reference `T1` -- settings.toml schema and configuration options
-    <!-- id: docs-site.mkdocs.configuration | tier: T1 | audience: developer | evidence: docs/reference/configuration.md -->
+    <!-- id: docs-site.mkdocs.configuration | tier: T1 | audience: user | evidence: docs/reference/configuration.md -->
   - Concepts `T2` -- Conceptual guides on constitutional prompting and knowledge-aware agents
-    <!-- id: docs-site.mkdocs.concepts | tier: T2 | audience: developer | evidence: docs/concepts/ -->
+    <!-- id: docs-site.mkdocs.concepts | tier: T2 | audience: user | evidence: docs/concepts/ -->
   - Readiness Assessment `T2` -- Framework for evaluating team readiness to adopt rp1
-    <!-- id: docs-site.mkdocs.readiness | tier: T2 | audience: developer | evidence: docs/readiness/ -->
+    <!-- id: docs-site.mkdocs.readiness | tier: T2 | audience: user | evidence: docs/readiness/ -->
 
 ## Surfaces Not Analyzed
 
@@ -412,9 +414,9 @@ None. All anchor classes were detected: CLI command registrations, build pipelin
 
 | Tier | Count | Meaning |
 |------|-------|---------|
-| T1 | 131 | Documented and tested |
-| T2 | 31 | Documented or tested |
-| T3 | 4 | Referenced but undocumented/untested |
+| T1 | 140 | Documented and tested |
+| T2 | 38 | Documented or tested |
+| T3 | 3 | Referenced but undocumented/untested |
 | T4 | 0 | Investigation candidates |
 
 ## Related KB Links

@@ -31,7 +31,7 @@ rp1 is a Bun/TypeScript CLI and plugin monorepo for authoring, building, and run
 | modules.md | 106 | Module boundaries, responsibilities, dependency highlights |
 | patterns.md | 88 | Code conventions, workflow idioms, extension patterns |
 | concept_map.md | 167 | Domain concepts, terminology, bounded contexts |
-| features.md | 425 | Capability inventory, coverage gaps, feature audience |
+| features.md | 427 | Capability inventory, coverage gaps, feature audience |
 
 ## Task-Based Loading
 
