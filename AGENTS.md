@@ -179,6 +179,7 @@ Skills and agents may opt into workflow state tracking by adding a `## STATE-MAC
 
 Required rules:
 
+- `--workflow` must be the bare skill directory name (or agent filename) that owns the state machine -- `build`, not `rp1-dev:build`. The loader resolves the value verbatim to `plugins/<plugin>/skills/<workflow>/SKILL.md`, then `plugins/<plugin>/agents/<workflow>.md`. A mismatch fails with `state machine for '<workflow>' not found`, which reads like a missing diagram rather than a wrong name.
 - State IDs must match the `--step` values sent to `rp1 agent-tools emit`.
 - `--run-id` is mandatory for state-machine-enabled skills and agents.
 - `--unit` enables per-task tracking.
