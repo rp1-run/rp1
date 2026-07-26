@@ -274,7 +274,7 @@ If abort: output cancellation, stop w/o changes.
 
 If edit implies code changes: document requirement, add tasks for impl agent, DO NOT implement.
 
-{% include_shared "anti-loop.md" %}
+{% include_shared "bounded-iteration.md" %}
 
 **File-specific constraints**:
 - Execute the workflow ONCE through ALL 8 sections (S1-S8) before stopping.

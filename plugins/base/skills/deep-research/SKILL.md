@@ -350,7 +350,7 @@ Full report saved to: `{report_path}`
 - Diagrams generated: {count}
 ```
 
-{% include_shared "anti-loop.md" %}
+{% include_shared "bounded-iteration.md" %}
 
 **File-specific constraints**:
 - Do NOT re-run explorers
