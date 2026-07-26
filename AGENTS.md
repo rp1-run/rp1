@@ -233,7 +233,7 @@ After changes:
 
 If `uv`, `bun`, or npm package installs fail unexpectedly for network-related reasons, there may be environment-specific handling that applies. Consult your memory / local environment notes for the relevant steps before retrying repeatedly or escalating to the user.
 
-<!-- rp1:start:v0.7.1 -->
+<!-- rp1:start:v0.7.12 -->
 ## rp1 Knowledge Base
 
 **Use Progressive Disclosure Pattern**
@@ -257,29 +257,12 @@ Loading rules:
 
 ## rp1 Skill Awareness
 
-You have access to rp1 skills. When you notice the user working on a task
-that an rp1 skill addresses, briefly suggest it.
+Installed plugins: rp1-base, rp1-dev. Run `/guide` to discover skills by task.
 
-### Skill Categories
-| Category | Skills | Suggest When |
-|----------|--------|--------------|
-| Development | /task, /bootstrap, /build, /build-fast, /feature-archive, /feature-edit, /feature-unarchive, /phase-plan, /speedrun | User starts a new feature, describes a change, or needs to scaffold a project |
-| Investigation | /code-investigate, /validate-hypothesis | User is debugging, examining errors, or testing a design hypothesis |
-| Quality | /code-comments, /code-audit, /code-check, /code-clean-comments | User finishes implementation and needs hygiene checks, audits, or comment cleanup |
-| Review | /address-pr-feedback, /arcade-collab, /pr-review, /pr-visual, /pr-walkthrough | User prepares a PR, receives review feedback, or needs visual diff understanding |
-| Documentation | /fix-mermaid, /generate-user-docs, /markdown-preview, /mermaid, /project-birds-eye-view, /write-content | User writes, updates, or previews docs, diagrams, or project overviews |
-| Knowledge | /guide, /knowledge-build, /self-update | User needs codebase context, KB is stale, or wants KB templates |
-| Strategy | /analyse-security, /deep-research, /socratic-duel, /socratic-duel-run, /strategize | User faces architectural decisions, security concerns, or needs deep research |
-| Planning | /blueprint, /blueprint-archive, /blueprint-audit | User plans a project, audits a PRD, or manages blueprint lifecycle |
-| Prompt | /prompt-writer | User authors, rewrites, or evaluates agent prompts |
-
-### Suggestion Rules
-- Limit to 1 suggestion per turn. Format: skill name, one sentence why, offer to run.
-- Do not re-suggest a skill the user declined this session.
-- Do not suggest while an rp1 workflow is already running.
+- Suggest at most 1 skill per turn: name, one-line reason, offer to run.
+- Skip if the user declined this session or a workflow is already running.
 - Only suggest when there is a clear match to the user's current activity.
-- For deeper questions about rp1, suggest the user invoke /guide.
-<!-- rp1:end:v0.7.1 -->
+<!-- rp1:end:v0.7.12 -->
 
 <!-- 1up:start:0.1.7 -->
 # 1up — Agent Quick Reference

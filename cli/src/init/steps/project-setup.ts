@@ -334,6 +334,15 @@ export function hasAgentsReference(content: string): boolean {
 }
 
 /**
+ * Detect an `@AGENTS.md` import that the file owns outside the rp1 fence.
+ * Such a file already imports AGENTS.md on its own, so adding the fenced
+ * reference template would import it twice.
+ */
+export function hasUnfencedAgentsReference(content: string): boolean {
+	return hasAgentsReference(removeFencedContent(content));
+}
+
+/**
  * Inject rp1 KB instructions into a single instruction file.
  * When `templateOverride` is provided it replaces the auto-resolved template.
  */
@@ -438,12 +447,21 @@ export async function injectInstructions(
 		);
 		if (agentsAction) actions.push(agentsAction);
 
-		// A CLAUDE.md that already imports AGENTS.md on its own (and carries no
-		// rp1 fence to manage) needs nothing from us — injecting the reference
-		// fence would make the import line appear twice.
+		// A CLAUDE.md that already imports AGENTS.md on its own must not also
+		// receive the fenced reference — that would import AGENTS.md twice. If
+		// such a file still carries a fenced stanza, the stanza is redundant
+		// (AGENTS.md holds the canonical copy) and is dropped instead.
 		const claudeContent = await fs.readFile(claudePath, "utf-8");
-		if (hasAgentsReference(claudeContent) && !hasFencedContent(claudeContent)) {
-			logger.info("CLAUDE.md already references AGENTS.md; skipping");
+		if (hasUnfencedAgentsReference(claudeContent)) {
+			if (hasFencedContent(claudeContent)) {
+				await writeFileContent(claudePath, removeFencedContent(claudeContent));
+				actions.push({ type: "updated_file", path: claudePath });
+				logger.success(
+					"Removed redundant rp1 stanza from CLAUDE.md (it imports AGENTS.md)",
+				);
+			} else {
+				logger.info("CLAUDE.md already references AGENTS.md; skipping");
+			}
 		} else {
 			const claudeAction = await injectIntoFile(
 				cwd,

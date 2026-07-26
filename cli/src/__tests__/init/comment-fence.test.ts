@@ -365,6 +365,19 @@ after`;
 			expect(result).not.toContain("managed");
 		});
 
+		test("keeps a blank line between the blocks that surrounded the fence", () => {
+			const content =
+				"- last bullet before.\n\n<!-- rp1:start -->\nmanaged\n<!-- rp1:end -->\n\n<!-- other:start -->\nanother tool's block\n<!-- other:end -->\n";
+			const result = removeFencedContent(content);
+
+			// Without a separator the bullet would run straight into the next
+			// block's opening comment, corrupting both.
+			expect(result).toBe(
+				"- last bullet before.\n\n<!-- other:start -->\nanother tool's block\n<!-- other:end -->\n",
+			);
+			expect(result).not.toContain("before.<!--");
+		});
+
 		test("handles versioned fence markers", () => {
 			const content =
 				"Keep this.\n\n<!-- rp1:start:v0.7.1 -->\nversioned managed\n<!-- rp1:end:v0.7.1 -->\n\nAlso keep.";
