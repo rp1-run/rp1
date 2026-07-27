@@ -518,7 +518,9 @@ If none: `"manual_verification": []`
 
 ### On SUCCESS
 
-All dimensions PASS. `issues`: []. Emit state transition:
+Every dimension meets its SUCCESS criterion in section 4 -- which allows `N/A`
+for testing, commit, and comments -- and no issue is `blocking`. Suggestions may
+be present. Emit state transition:
 
 ```bash
 rp1 agent-tools emit \
@@ -534,7 +536,8 @@ Skip if WORKFLOW is empty.
 
 ### On FAILURE
 
-Failing dimensions: FAIL. `issues` populated w/ evidence. Emit state transition:
+At least one dimension meets a FAILURE criterion in section 4. `issues` carries
+every blocking entry with evidence. Emit state transition:
 
 ```bash
 rp1 agent-tools emit \
