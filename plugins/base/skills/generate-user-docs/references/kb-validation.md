@@ -5,7 +5,7 @@ knowledge base. Load when the validate step runs.
 
 ### 2. Validate KB
 
-Use Glob to confirm `{kbRoot}/state.json` exists.
+Confirm `{kbRoot}/state.json` exists.
 If missing:
 - Output:
   ```
