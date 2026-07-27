@@ -21,6 +21,11 @@
  * Scope: only fully-formed block commands (carrying both `--workflow` and
  * `--type`) are checked. Prose mentions such as "register via `rp1
  * agent-tools emit --type artifact_registered`" are references, not commands.
+ *
+ * Checks read parsed option values, not substrings of the command text: a
+ * `--run-id` mentioned inside a `--data` payload does not satisfy the run-id
+ * contract, and `--step=building` must be held to the same namespacing rule
+ * as `--step building`.
  */
 
 import { findEmitEventCommands } from "../../emit-command-utils.js";
@@ -39,11 +44,55 @@ const findLineNumber = (content: string, index: number): number => {
 };
 
 /**
- * A prose reference names the command without invoking it. Real emits always
- * carry a workflow and an event type.
+ * Split a command into option names and values, tolerating both `--flag value`
+ * and `--flag=value`, shell line continuations, and quoted values (a `--data`
+ * payload is a single-quoted JSON blob that contains spaces).
+ *
+ * A flag with no value maps to the empty string, which keeps "present but
+ * empty" distinguishable from absent.
  */
-const isBlockCommand = (command: string): boolean =>
-	command.includes("--workflow") && command.includes("--type");
+const parseEmitOptions = (command: string): Map<string, string> => {
+	const options = new Map<string, string>();
+	const tokens = command
+		.replace(/\\\r?\n/g, " ")
+		.matchAll(/--[\w-]+=(?:'[^']*'|"[^"]*"|\S*)|'[^']*'|"[^"]*"|\S+/g);
+	let pending: string | null = null;
+
+	const unquote = (value: string): string =>
+		(value.startsWith("'") && value.endsWith("'")) ||
+		(value.startsWith('"') && value.endsWith('"'))
+			? value.slice(1, -1)
+			: value;
+
+	for (const [token] of tokens) {
+		if (token.startsWith("--")) {
+			if (pending !== null) options.set(pending, "");
+			const equals = token.indexOf("=");
+			if (equals === -1) {
+				pending = token.slice(2);
+			} else {
+				options.set(token.slice(2, equals), unquote(token.slice(equals + 1)));
+				pending = null;
+			}
+			continue;
+		}
+		if (pending !== null) {
+			options.set(pending, unquote(token));
+			pending = null;
+		}
+	}
+	if (pending !== null) options.set(pending, "");
+
+	return options;
+};
+
+/**
+ * Does the `--data` payload declare a `storageRoot` key? Payloads carry
+ * unresolved placeholders, so they are rarely valid JSON — match the key
+ * position instead of parsing.
+ */
+const declaresStorageRoot = (data: string): boolean =>
+	/["']?storageRoot["']?\s*:/.test(data);
 
 export function emitContractInvariantsRule(
 	content: string,
@@ -60,13 +109,18 @@ export function emitContractInvariantsRule(
 
 	for (const match of findEmitEventCommands(content)) {
 		const { command, index } = match;
-		if (!isBlockCommand(command)) {
+		const options = parseEmitOptions(command);
+
+		// A prose reference names the command without invoking it. Real emits
+		// always carry a workflow and an event type.
+		if (!options.has("workflow") || !options.has("type")) {
 			continue;
 		}
 
 		const line = findLineNumber(content, index);
+		const eventType = options.get("type") ?? "";
 
-		if (!command.includes("--run-id")) {
+		if (!options.get("run-id")) {
 			diagnostics.push({
 				rule: "L016",
 				severity: "error",
@@ -80,8 +134,8 @@ export function emitContractInvariantsRule(
 		}
 
 		if (
-			command.includes("artifact_registered") &&
-			!command.includes("storageRoot")
+			eventType === "artifact_registered" &&
+			!declaresStorageRoot(options.get("data") ?? "")
 		) {
 			diagnostics.push({
 				rule: "L016",
@@ -95,8 +149,8 @@ export function emitContractInvariantsRule(
 			});
 		}
 
-		if (isSubAgent && command.includes("status_change")) {
-			const step = /--step\s+([^\s\\]+)/.exec(command)?.[1];
+		if (isSubAgent && eventType === "status_change") {
+			const step = options.get("step");
 			if (step && !isPlaceholder(step) && !step.includes(":")) {
 				diagnostics.push({
 					rule: "L016",

@@ -152,6 +152,82 @@ describe("L016: emit-contract-invariants", () => {
 		});
 	});
 
+	describe("option values, not substrings", () => {
+		test("does not accept --run-id mentioned inside a payload", () => {
+			const content = `rp1 agent-tools emit \\
+  --workflow build \\
+  --type status_change \\
+  --step planning \\
+  --data '{"note": "pass --run-id from the bootstrap"}'`;
+			const diagnostics = emitContractInvariantsRule(
+				content,
+				"claude-code",
+				SKILL,
+			);
+			expect(diagnostics).toHaveLength(1);
+			expect(diagnostics[0].message).toContain("--run-id");
+		});
+
+		test("does not accept storageRoot mentioned outside the payload", () => {
+			const content = `rp1 agent-tools emit \\
+  --workflow build \\
+  --type artifact_registered \\
+  --run-id {RUN_ID} \\
+  --step planning \\
+  --data '{"path": "features/x/design.md"}' # remember storageRoot`;
+			const diagnostics = emitContractInvariantsRule(
+				content,
+				"claude-code",
+				SKILL,
+			);
+			expect(diagnostics).toHaveLength(1);
+			expect(diagnostics[0].message).toContain("storageRoot");
+		});
+
+		test("holds --step=value to the namespacing rule", () => {
+			const content = `rp1 agent-tools emit --workflow build --type status_change --run-id {RUN_ID} --step=building`;
+			const diagnostics = emitContractInvariantsRule(
+				content,
+				"claude-code",
+				AGENT,
+			);
+			expect(diagnostics).toHaveLength(1);
+			expect(diagnostics[0].message).toContain("not namespaced");
+		});
+
+		test("accepts --flag=value forms of the required options", () => {
+			const content = `rp1 agent-tools emit --workflow=build --type=artifact_registered --run-id={RUN_ID} --step=planning --data='{"path": "x.md", "storageRoot": "work_dir"}'`;
+			expect(
+				emitContractInvariantsRule(content, "claude-code", SKILL),
+			).toHaveLength(0);
+		});
+
+		test("flags an empty --run-id value", () => {
+			const content = `rp1 agent-tools emit --workflow build --type status_change --run-id --step planning`;
+			const diagnostics = emitContractInvariantsRule(
+				content,
+				"claude-code",
+				SKILL,
+			);
+			expect(diagnostics).toHaveLength(1);
+			expect(diagnostics[0].message).toContain("--run-id");
+		});
+
+		test("ignores artifact_registered named only inside a payload", () => {
+			// The event type is status_change; the words in the payload must not
+			// pull in the artifact contract.
+			const content = `rp1 agent-tools emit \\
+  --workflow build \\
+  --type status_change \\
+  --run-id {RUN_ID} \\
+  --step planning \\
+  --data '{"status": "running", "next": "artifact_registered"}'`;
+			expect(
+				emitContractInvariantsRule(content, "claude-code", SKILL),
+			).toHaveLength(0);
+		});
+	});
+
 	describe("prose references are not commands", () => {
 		test("ignores an inline mention lacking --workflow", () => {
 			const content =
