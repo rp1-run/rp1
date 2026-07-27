@@ -1,11 +1,34 @@
 import { describe, expect, test } from "bun:test";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readdir, readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 const REPO_ROOT = join(import.meta.dir, "..", "..", "..", "..");
 
 const readPrompt = (relativePath: string): Promise<string> =>
 	readFile(join(REPO_ROOT, relativePath), "utf-8");
+
+/**
+ * Read a prompt's full surface. For a SKILL.md that means the file plus every
+ * markdown companion under its `references/` directory: progressive disclosure
+ * splits one skill's dispatches across several files, so a claim about what
+ * the skill passes to its agents holds over the whole surface.
+ */
+const readPromptSurface = async (relativePath: string): Promise<string> => {
+	const parts = [await readPrompt(relativePath)];
+	if (relativePath.endsWith("/SKILL.md")) {
+		const refsDir = join(REPO_ROOT, dirname(relativePath), "references");
+		try {
+			for (const entry of (await readdir(refsDir)).sort()) {
+				if (entry.endsWith(".md")) {
+					parts.push(await readFile(join(refsDir, entry), "utf-8"));
+				}
+			}
+		} catch {
+			// No references/ directory for this prompt.
+		}
+	}
+	return parts.join("\n");
+};
 
 describe("canonical root propagation", () => {
 	test("passes canonical roots through workflow and standalone skill dispatches", async () => {
@@ -70,7 +93,7 @@ describe("canonical root propagation", () => {
 		] as const;
 
 		for (const { path, expected } of cases) {
-			const content = await readPrompt(path);
+			const content = await readPromptSurface(path);
 			for (const snippet of expected) {
 				expect(content).toContain(snippet);
 			}
