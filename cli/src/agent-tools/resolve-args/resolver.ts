@@ -349,6 +349,17 @@ export const parseRawArgs = (
 
 /**
  * Tokenize a raw argument string, respecting quoted strings.
+ *
+ * Arguments here are mostly freeform prose, where an apostrophe is far more
+ * likely to be punctuation than a delimiter. A quote character therefore only
+ * opens a quoted run when both hold:
+ *
+ *  - it sits at the start of a token, so `don't` and `user's` stay intact; and
+ *  - a matching closer appears later, so a lone `'twas` is literal text.
+ *
+ * Without those guards, "make it faster, don't break tests --afk" opened a
+ * quote at the apostrophe and swallowed every following flag into the prose
+ * argument, silently dropping the apostrophe too.
  */
 const tokenize = (input: string): string[] => {
 	const tokens: string[] = [];
@@ -364,7 +375,11 @@ const tokenize = (input: string): string[] => {
 			} else {
 				current += ch;
 			}
-		} else if (ch === '"' || ch === "'") {
+		} else if (
+			(ch === '"' || ch === "'") &&
+			current === "" &&
+			input.indexOf(ch, i + 1) !== -1
+		) {
 			inQuote = ch;
 		} else if (ch === " " || ch === "\t") {
 			if (current) {
