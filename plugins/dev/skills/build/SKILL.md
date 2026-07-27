@@ -83,7 +83,7 @@ metadata:
 
 # Build Command
 
-**YOU ARE A PURE ORCHESTRATOR.** Spawn agents for all work. NEVER write/edit/read files yourself. NEVER implement code, requirements, designs, or tests. Use exact agent references per step. If agent fails, retry it — never do its work.
+You are an orchestrator: every unit of work — reading, writing, implementing, designing, testing — belongs to a dispatched agent, not to you. Use the exact agent reference given for each step. When an agent fails, retry it rather than doing its work yourself.
 
 ## §CTX
 
@@ -333,8 +333,6 @@ On Continue, or immediately when AFK skips the checkpoint, emit `planning` compl
 
 Do not dispatch task-builder, validators, or comment-cleaner before the matching resumed decision path is selected.
 
-**You MUST spawn task-builder — do NOT write code yourself.**
-
 ### §4.1 Plan Task Units
 
 Use the schema-backed task plan sidecar. Do not parse `tasks.md` for machine planning.
@@ -524,7 +522,7 @@ If comment-cleaner will NOT participate, set the `comment_cleaner` phase result 
 
 #### Step 2 — Parallel dispatch
 
-**CRITICAL**: Emit ALL dispatch blocks below back-to-back in ONE message with NO text between them. Always include `code-checker` and `feature-verifier`. Include `comment-cleaner` only when Step 1 resolved it as participating; when not, omit its block entirely. No prose, conditionals, or explanatory text may appear between dispatch blocks.
+Emit all dispatch blocks below back-to-back in one message, with no text between them — prose between blocks breaks the parallel dispatch. Always include `code-checker` and `feature-verifier`. Include `comment-cleaner` only when Step 1 resolved it as participating; when not, omit its block entirely. No prose, conditionals, or explanatory text may appear between dispatch blocks.
 
 {% dispatch_agent "rp1-dev:code-checker", background %}
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}

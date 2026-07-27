@@ -46,7 +46,7 @@ agents:
   - name: rp1-base:project-documenter
     description: "Generates a digestible 3-tier/9-section birds-eye-view document from KB + codebase, with per-claim provenance in hidden HTML comments"
     plugin: base
-    last_checksum: 57e663472cab105d80ce513eb8af7a2745af3003ac0f1cb880b116d7472dd0bf
+    last_checksum: e1e9419e033e541efad06764383e5288f3887d171ee2de9ea8a8fae2ed1d609f
   - name: rp1-base:prompt-pipeline-runner
     description: "Executes the six-stage prompt-writer pipeline and produces two mandatory output artifacts (ready-to-run prompt, confidence report)"
     plugin: base
@@ -210,7 +210,7 @@ agents:
   - name: rp1-dev:task-builder
     description: "Implements assigned task(s) w/ full context, writes summaries to the resolved task file. Uses extended thinking (or ultrathink)."
     plugin: dev
-    last_checksum: 47643dc7369328c0f732ba6ce6007983ee6b51795cf7f81d269ce2c42ce8303e
+    last_checksum: 3a5e32e698ce2d1d163d5a2947d78340589e5e20700fe17ffa7f748ad30da630
   - name: rp1-dev:task-reviewer
     description: "Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification."
     plugin: dev

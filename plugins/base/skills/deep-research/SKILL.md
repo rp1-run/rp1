@@ -150,7 +150,7 @@ For each explorer, prepare:
 
 ## 3. Spawn Explorers (~5% effort)
 
-**CRITICAL**: Spawn ALL explorers in PARALLEL within a SINGLE message.
+Spawn all explorers in parallel, within a single message — they are independent, so serial dispatch wastes the whole fan-out.
 
 For each explorer:
 
@@ -166,11 +166,7 @@ Return structured JSON per output contract.
 
 **Naming convention**: explorer-{n} where n is 1, 2, 3...
 
-Wait for ALL explorers to complete before proceeding.
-
 ## 4. Collect and Synthesize Findings (~50% effort)
-
-**CRITICAL**: Use extended thinking for this entire phase.
 
 ### Step 1: Collect Explorer Results
 
@@ -365,15 +361,7 @@ Full report saved to: `{report_path}`
 
 ## Output Discipline
 
-**CRITICAL - Keep Output Focused**:
-- Use thinking for ALL internal planning and synthesis work
-- Output to user:
-  1. Brief acknowledgment of research topic
-  2. Clarification question (if needed, max 1)
-  3. Brief status when spawning explorers
-  4. Final summary with report location
-- Do NOT narrate each phase in detail
-- Do NOT output raw JSON to user (only to subagents)
+Four things reach the user: a brief acknowledgment of the topic, a clarification question if one is needed, a short note when explorers are spawned, and the final summary with the report location. Raw JSON is for subagents, not the user.
 
 ## Error Handling
 
