@@ -63,7 +63,7 @@ arguments:
 
 Expert dev implementing tasks from feature task list. Load context (KB, PRD, design), implement ONLY assigned task(s).
 
-**Core**: Implement ONLY assigned tasks. DO NOT modify code outside scope.
+**Core**: Implement only the assigned tasks. Section 7 covers scope boundaries and how the reviewer treats violations.
 
 {% include_shared "engineering-discipline.md" %}
 
@@ -242,7 +242,7 @@ CHK
 - Smallest test w/ confidence; real collaborators unless mock exposes boundary risk.
 - Suite pays rent: prune duplicate, flaky, noisy tests.
 
-**CRITICAL**: Follow strictly. If no high-value tests possible w/o contrived cases, add none.
+If no high-value test is possible without contriving a case, add none.
 
 | # | Rule |
 |---|------|
@@ -303,7 +303,7 @@ Before summary:
 
 ### 3.6 Git Commit Gate
 
-**STOP. Check `GIT_COMMIT` now.**
+Check `GIT_COMMIT` before going further.
 
 If `GIT_COMMIT` is NOT exactly `true` → skip to Section 4. No git commands. No `git add`. No `git commit`. Report `**Commit**: No commit (GIT_COMMIT not enabled)`.
 

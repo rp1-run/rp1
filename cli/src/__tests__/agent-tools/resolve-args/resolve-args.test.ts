@@ -576,6 +576,74 @@ describe("parseRawArgs", () => {
 			REQUEST: "review the commit message then push afk notification changes",
 		});
 	});
+
+	describe("apostrophes in prose are not quote delimiters", () => {
+		const buildFastSchema: readonly ArgumentDefinition[] = [
+			{
+				name: "DEVELOPMENT_REQUEST",
+				type: "string",
+				required: true,
+				description: "Request",
+				variadic: true,
+			},
+			{
+				name: "GIT_COMMIT",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Commit",
+			},
+			{
+				name: "AFK",
+				type: "boolean",
+				required: false,
+				default: false,
+				description: "Unattended",
+			},
+		];
+
+		test("keeps a mid-word apostrophe and still binds trailing flags", () => {
+			// An apostrophe used to open a quoted run, swallowing every following
+			// flag into the prose argument and dropping the apostrophe itself.
+			expect(
+				parseRawArgs(
+					"add a json script that's ultra performant --git-commit --afk",
+					buildFastSchema,
+				),
+			).toEqual({
+				DEVELOPMENT_REQUEST: "add a json script that's ultra performant",
+				GIT_COMMIT: true,
+				AFK: true,
+			});
+		});
+
+		test("resolves the quoted and unquoted forms identically", () => {
+			const unquoted = parseRawArgs("don't break tests --afk", buildFastSchema);
+			const quoted = parseRawArgs(
+				'"don\'t break tests" --afk',
+				buildFastSchema,
+			);
+			expect(unquoted).toEqual(quoted);
+			expect(unquoted).toEqual({
+				DEVELOPMENT_REQUEST: "don't break tests",
+				AFK: true,
+			});
+		});
+
+		test("treats an unmatched leading quote as literal text", () => {
+			expect(parseRawArgs("'twas broken --afk", buildFastSchema)).toEqual({
+				DEVELOPMENT_REQUEST: "'twas broken",
+				AFK: true,
+			});
+		});
+
+		test("still strips a balanced quote wrapping the whole value", () => {
+			expect(parseRawArgs("'quoted phrase' --afk", buildFastSchema)).toEqual({
+				DEVELOPMENT_REQUEST: "quoted phrase",
+				AFK: true,
+			});
+		});
+	});
 });
 
 describe("resolveImpliesChains", () => {

@@ -150,7 +150,7 @@ For each explorer, prepare:
 
 ## 3. Spawn Explorers (~5% effort)
 
-**CRITICAL**: Spawn ALL explorers in PARALLEL within a SINGLE message.
+Spawn all explorers in parallel, within a single message — they are independent, so serial dispatch wastes the whole fan-out.
 
 For each explorer:
 
@@ -166,11 +166,9 @@ Return structured JSON per output contract.
 
 **Naming convention**: explorer-{n} where n is 1, 2, 3...
 
-Wait for ALL explorers to complete before proceeding.
+Wait for every explorer to complete before starting section 4. Synthesis is a reduce step over the full result set, so beginning it while an explorer is still running silently drops that explorer's findings. Harnesses differ in whether a dispatch call blocks, so treat this as an explicit barrier rather than assuming the dispatch mechanism enforces it.
 
 ## 4. Collect and Synthesize Findings (~50% effort)
-
-**CRITICAL**: Use extended thinking for this entire phase.
 
 ### Step 1: Collect Explorer Results
 
@@ -195,7 +193,7 @@ Combine findings from all explorers:
 
 ### Step 3: Synthesize Insights
 
-Using extended thinking, analyze merged findings to:
+Analyze the merged findings to:
 
 1. **Answer research questions**: For each primary question, synthesize answer from supporting findings
 2. **Identify patterns**: What patterns emerge across explorers/projects?
@@ -355,7 +353,7 @@ Full report saved to: `{report_path}`
 **File-specific constraints**:
 - Do NOT re-run explorers
 - Spawn explorers in PARALLEL (single message, multiple parallel calls)
-- Synthesis is ONE pass with extended thinking
+- Synthesis is a single pass
 
 **If blocked**:
 - Missing clarification: Ask ONE focused question, then proceed
@@ -365,15 +363,7 @@ Full report saved to: `{report_path}`
 
 ## Output Discipline
 
-**CRITICAL - Keep Output Focused**:
-- Use thinking for ALL internal planning and synthesis work
-- Output to user:
-  1. Brief acknowledgment of research topic
-  2. Clarification question (if needed, max 1)
-  3. Brief status when spawning explorers
-  4. Final summary with report location
-- Do NOT narrate each phase in detail
-- Do NOT output raw JSON to user (only to subagents)
+Four things reach the user: a brief acknowledgment of the topic, a clarification question if one is needed, a short note when explorers are spawned, and the final summary with the report location. Raw JSON is for subagents, not the user.
 
 ## Error Handling
 

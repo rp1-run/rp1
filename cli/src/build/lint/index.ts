@@ -14,11 +14,13 @@
  */
 
 import type { BuildPlatform } from "../template-context.js";
+import { emitContractInvariantsRule } from "./rules/emit-contract-invariants.js";
 import { incompleteDispatchRule } from "./rules/incomplete-dispatch.js";
 import { missingEmitHarnessRule } from "./rules/missing-emit-harness.js";
 import { nullToolInProseRule } from "./rules/null-tool-in-prose.js";
 import { nullToolRefsRule } from "./rules/null-tool-refs.js";
 import { orphanedPlatformRule } from "./rules/orphaned-platform.js";
+import { skillBodySizeRule } from "./rules/skill-body-size.js";
 import { trackedWorkflowBootstrapRule } from "./rules/tracked-workflow-bootstrap.js";
 import { unresolvedTagsRule } from "./rules/unresolved-tags.js";
 
@@ -118,3 +120,5 @@ registerLintRule(unresolvedTagsRule);
 registerLintRule(nullToolInProseRule);
 registerLintRule(missingEmitHarnessRule);
 registerLintRule(trackedWorkflowBootstrapRule);
+registerLintRule(emitContractInvariantsRule);
+registerLintRule(skillBodySizeRule);

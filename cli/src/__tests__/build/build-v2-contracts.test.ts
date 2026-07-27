@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
 	deriveOrderedSteps,
@@ -15,6 +15,28 @@ const buildSkillDir = join(projectRoot, "plugins/dev/skills/build");
 
 const readProjectFile = async (relativePath: string): Promise<string> =>
 	readFile(join(projectRoot, relativePath), "utf-8");
+
+/**
+ * Read a skill's full prompt surface: SKILL.md plus every file under its
+ * references/ directory. Progressive disclosure splits one skill's
+ * instructions across several files, so a contract about what the skill
+ * specifies holds over the whole surface, not SKILL.md alone.
+ */
+const readSkillSurface = async (skillRelativeDir: string): Promise<string> => {
+	const dir = join(projectRoot, skillRelativeDir);
+	const parts = [await readFile(join(dir, "SKILL.md"), "utf-8")];
+	const refsDir = join(dir, "references");
+	try {
+		for (const entry of (await readdir(refsDir)).sort()) {
+			if (entry.endsWith(".md")) {
+				parts.push(await readFile(join(refsDir, entry), "utf-8"));
+			}
+		}
+	} catch {
+		// No references/ directory for this skill.
+	}
+	return parts.join("\n");
+};
 
 const extractDispatches = (content: string, agentName: string): string[] => {
 	const pattern = new RegExp(
@@ -110,7 +132,7 @@ describe("Build v2 static contracts", () => {
 	});
 
 	test("checkpoint menus stay within the AskUserQuestion 4-option cap and keep Arcade/Stop", async () => {
-		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const content = await readSkillSurface("plugins/dev/skills/build");
 
 		// The discipline rule that prevents a surfaced sub-decision from evicting a
 		// canonical option (e.g. dropping "Review feedback from Arcade") exists.
@@ -136,7 +158,7 @@ describe("Build v2 static contracts", () => {
 	});
 
 	test("planning has one normal feature-tasker dispatch after the hypothesis gate", async () => {
-		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const content = await readSkillSurface("plugins/dev/skills/build");
 		const dispatches = extractDispatches(content, "rp1-dev:feature-tasker");
 		const normalDispatches = dispatches.filter((dispatch) =>
 			dispatch.includes("UPDATE_MODE=false"),
@@ -168,7 +190,7 @@ describe("Build v2 static contracts", () => {
 	});
 
 	test("planning revision context is passed to architect and tasker agents", async () => {
-		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const content = await readSkillSurface("plugins/dev/skills/build");
 		const architect = await readProjectFile(
 			"plugins/dev/agents/feature-architect.md",
 		);
@@ -191,7 +213,7 @@ describe("Build v2 static contracts", () => {
 	});
 
 	test("planning consumes feature-tasker structured JSON completion", async () => {
-		const build = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const build = await readSkillSurface("plugins/dev/skills/build");
 		const tasker = await readProjectFile(
 			"plugins/dev/agents/feature-tasker.md",
 		);
@@ -215,7 +237,7 @@ describe("Build v2 static contracts", () => {
 	});
 
 	test("implementation consumes tasks.json through build-task-plan without parser or grouper agents", async () => {
-		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const content = await readSkillSurface("plugins/dev/skills/build");
 
 		expect(content).toContain("rp1 agent-tools build-task-plan");
 		expect(content).toContain(
@@ -232,7 +254,7 @@ describe("Build v2 static contracts", () => {
 	});
 
 	test("implementation checks the ready wave before falling back to serial dispatch", async () => {
-		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const content = await readSkillSurface("plugins/dev/skills/build");
 
 		const readySetIndex = content.indexOf("#### Ready-Set Derivation");
 		const pipelinedIndex = content.indexOf("#### Pipelined Dispatch");
@@ -257,7 +279,7 @@ describe("Build v2 static contracts", () => {
 	});
 
 	test("parallel builder reference integrates secondary work only after primary review succeeds", async () => {
-		const build = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const build = await readSkillSurface("plugins/dev/skills/build");
 		const reference = await readProjectFile(
 			"plugins/dev/skills/build/references/parallel-builders.md",
 		);
@@ -298,7 +320,7 @@ describe("Build v2 static contracts", () => {
 	});
 
 	test("interactive Add Task paths update tasks.json before stopping", async () => {
-		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const content = await readSkillSurface("plugins/dev/skills/build");
 
 		expect(content).toContain("collect `ADDED_TASK_REQUEST`");
 		expect(content).toContain(
@@ -316,7 +338,7 @@ describe("Build v2 static contracts", () => {
 	});
 
 	test("waiting-phase resumes branch before producer dispatches", async () => {
-		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const content = await readSkillSurface("plugins/dev/skills/build");
 
 		for (const phase of [
 			'"requirements"',
@@ -342,7 +364,7 @@ describe("Build v2 static contracts", () => {
 	});
 
 	test("implementation persists successful task units through task-reviewer", async () => {
-		const build = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const build = await readSkillSurface("plugins/dev/skills/build");
 		const reviewer = await readProjectFile(
 			"plugins/dev/agents/task-reviewer.md",
 		);
@@ -365,7 +387,7 @@ describe("Build v2 static contracts", () => {
 	});
 
 	test("phase dispatches pass AFK_MODE and CODE_ROOT to the agents that require them", async () => {
-		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const content = await readSkillSurface("plugins/dev/skills/build");
 		const afkAgents = [
 			"plugins/dev/agents/feature-requirement-gatherer.md",
 			"plugins/dev/agents/feature-architect.md",
@@ -476,7 +498,7 @@ describe("Build v2 static contracts", () => {
 	});
 
 	test("readiness statuses and release behavior stay aligned", async () => {
-		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const content = await readSkillSurface("plugins/dev/skills/build");
 		const aggregator = await readProjectFile(
 			"plugins/dev/agents/build-verify-aggregator.md",
 		);
@@ -501,7 +523,7 @@ describe("Build v2 static contracts", () => {
 	});
 
 	test("implementation checkpoint happens after readiness aggregation", async () => {
-		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const content = await readSkillSurface("plugins/dev/skills/build");
 		const aggregatorDispatchIndex = content.indexOf(
 			'{% dispatch_agent "rp1-dev:build-verify-aggregator" %}',
 		);
@@ -523,7 +545,7 @@ describe("Build v2 static contracts", () => {
 	});
 
 	test("archive completion is ordered after feature-archiver success", async () => {
-		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const content = await readSkillSurface("plugins/dev/skills/build");
 		const releaseRunningIndex = content.indexOf("Emit `release` running");
 		const releaseGateIndex = content.indexOf("**Release gate**");
 		const declineIndex = content.indexOf("Complete without archive");
@@ -554,7 +576,7 @@ describe("Build v2 static contracts", () => {
 		const archiver = await readProjectFile(
 			"plugins/dev/agents/feature-archiver.md",
 		);
-		const build = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const build = await readSkillSurface("plugins/dev/skills/build");
 
 		expect(archiver).toContain("REGISTRATION_ONLY=true");
 		expect(archiver).toContain(
@@ -578,7 +600,7 @@ describe("Build v2 static contracts", () => {
 	});
 
 	test("release Stop and archive decline emits are separate decisions", async () => {
-		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const content = await readSkillSurface("plugins/dev/skills/build");
 		const stopIndex = content.indexOf("On Stop: emit `release` waiting");
 		const completeIndex = content.indexOf(
 			"On Complete without archive: emit `release` completed",
