@@ -12,6 +12,7 @@ import {
 	getDistPluginPath,
 	parseAgentRefs,
 	parseSkillRefs,
+	toPosixPath,
 } from "../deps-graph.js";
 
 let tempDir: string;
@@ -259,6 +260,20 @@ skill: unknown-plugin:some-skill
 	});
 });
 
+describe("toPosixPath", () => {
+	test("rewrites Windows separators", () => {
+		expect(toPosixPath("dist\\claude-code\\dev\\skills\\build\\SKILL.md")).toBe(
+			"dist/claude-code/dev/skills/build/SKILL.md",
+		);
+	});
+
+	test("leaves a posix path untouched", () => {
+		expect(toPosixPath("dist/claude-code/dev/agents/task-builder.md")).toBe(
+			"dist/claude-code/dev/agents/task-builder.md",
+		);
+	});
+});
+
 describe("buildDependencyGraph", () => {
 	test("handles skill with no dependencies", async () => {
 		const skillDir = join(tempDir, "skills/simple-skill");
@@ -482,6 +497,36 @@ subagent_type: rp1-dev:planner
 				(a) => a.split("/").pop() as string,
 			);
 			expect(agentNames.sort()).toEqual(["builder.md", "planner.md"]);
+		}
+	});
+
+	test("keeps every graph path forward-slashed", async () => {
+		// Graph paths are identity: computeDepsHash sorts by them, so a
+		// platform-dependent separator would hash the same content differently on
+		// Windows than on POSIX.
+		const distDev = join(tempDir, "dist/claude-code/dev");
+		const skillDir = join(distDev, "skills/posix-skill");
+		await mkdir(join(distDev, "agents"), { recursive: true });
+		await mkdir(join(skillDir, "references"), { recursive: true });
+		const skillPath = join(skillDir, "SKILL.md");
+		await writeFile(
+			skillPath,
+			"---\nname: posix-skill\n---\nsubagent_type: rp1-dev:worker\n",
+		);
+		await writeFile(
+			join(skillDir, "references", "phase.md"),
+			"Companion.\n",
+		);
+		await writeFile(join(distDev, "agents/worker.md"), "Worker.\n");
+
+		const result = await buildDependencyGraph(skillPath, "claude-code")();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			const g = result.right;
+			const all = [g.skillPath, ...g.agents, ...g.skills, ...g.companions];
+			expect(all.length).toBeGreaterThan(2);
+			expect(all.filter((path) => path.includes("\\"))).toEqual([]);
 		}
 	});
 

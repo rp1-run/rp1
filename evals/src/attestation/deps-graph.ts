@@ -5,7 +5,7 @@
  */
 
 import { readdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { posix } from "node:path";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
 import type { DependencyGraph, EvalPlatform } from "./types.js";
@@ -21,6 +21,12 @@ const TASK_PATTERN = /(?:Task|subagent_type):\s*(\w+-\w+):(\w[\w-]*)/g;
  * Matches: skill: rp1-base:skill-name, skill `rp1-dev:skill-name`, Skill rp1-base:skill-name
  */
 const SKILL_PATTERN = /[Ss]kill[:\s]+`?(\w+-\w+):(\w[\w-]*)`?/g;
+
+/**
+ * Rewrite Windows separators to forward slashes so a path can serve as
+ * platform-independent graph identity.
+ */
+export const toPosixPath = (value: string): string => value.replace(/\\/g, "/");
 
 /**
  * Map plugin name to source path prefix (relative to repo root).
@@ -124,20 +130,27 @@ export function parseSkillRefs(
  * Returns an empty list for anything that is not a SKILL.md, and for skills
  * that have no companions. Paths are sorted so the graph — and therefore the
  * deps hash — is stable across filesystems.
+ *
+ * Graph paths are identity, not just filesystem locations: `computeDepsHash`
+ * sorts by them, so a platform-dependent separator would give the same content
+ * a different hash on Windows than on POSIX. Every path here is built with
+ * forward slashes, matching how agent and skill refs are constructed. Node's
+ * fs accepts forward slashes on Windows, so no conversion is needed to read.
  */
 async function listSkillCompanions(
 	filePath: string,
 ): Promise<readonly string[]> {
-	if (!filePath.endsWith("/SKILL.md")) {
+	const normalized = toPosixPath(filePath);
+	if (!normalized.endsWith("/SKILL.md")) {
 		return [];
 	}
-	const refsDir = join(dirname(filePath), "references");
+	const refsDir = `${posix.dirname(normalized)}/references`;
 	try {
 		const entries = await readdir(refsDir);
 		return entries
 			.filter((entry) => entry.endsWith(".md"))
 			.sort()
-			.map((entry) => join(refsDir, entry));
+			.map((entry) => `${refsDir}/${entry}`);
 	} catch {
 		return [];
 	}
@@ -148,14 +161,18 @@ async function listSkillCompanions(
  * Recursively traverses all agent and skill references using BFS
  * with cycle detection to capture transitive dependencies.
  *
- * @param promptPath - Path to the built skill file (dist/{platform}/{plugin}/skills/{name}/SKILL.md)
+ * Every path in the returned graph uses forward slashes, so the deps hash a
+ * caller derives from it is identical on Windows and POSIX.
+ *
+ * @param rawPromptPath - Path to the built skill file (dist/{platform}/{plugin}/skills/{name}/SKILL.md)
  * @param platform - Target eval platform
  * @returns TaskEither with dependency graph or error
  */
 export function buildDependencyGraph(
-	promptPath: string,
+	rawPromptPath: string,
 	platform: EvalPlatform,
 ): TE.TaskEither<Error, DependencyGraph> {
+	const promptPath = toPosixPath(rawPromptPath);
 	return pipe(
 		TE.tryCatch(
 			async () => {
