@@ -6,7 +6,7 @@
 		"useIgnoreFile": false
 	},
 	"files": {
-		"includes": ["**", "!!**/output", "!!**/fixtures"]
+		"includes": ["**", "!!**/output", "!!**/fixtures", "!**/attestation.json"]
 	},
 	"formatter": {
 		"enabled": true,

@@ -441,4 +441,61 @@ Content.
 			expect(result.right.skill).toBe(weirdPath);
 		}
 	});
+
+	test("includes reference companions and the agents they dispatch", async () => {
+		// Progressive disclosure moves whole phases into references/. Without
+		// traversing them, an attestation stays "current" while the agents those
+		// phases dispatch change underneath it.
+		const distDev = join(tempDir, "dist/claude-code/dev");
+		const skillDir = join(distDev, "skills/split-skill");
+		await mkdir(join(distDev, "agents"), { recursive: true });
+		await mkdir(join(skillDir, "references"), { recursive: true });
+
+		const skillPath = join(skillDir, "SKILL.md");
+		await writeFile(
+			skillPath,
+			`---
+name: split-skill
+description: Skill whose implementation phase lives in a companion
+---
+
+Read \`references/phase.md\` and follow it.
+
+subagent_type: rp1-dev:planner
+`,
+		);
+		await writeFile(
+			join(skillDir, "references", "phase.md"),
+			"subagent_type: rp1-dev:builder\n",
+		);
+		await writeFile(join(distDev, "agents/planner.md"), "Planner.\n");
+		await writeFile(join(distDev, "agents/builder.md"), "Builder.\n");
+
+		const result = await buildDependencyGraph(skillPath, "claude-code")();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.companions).toEqual([
+				join(skillDir, "references", "phase.md"),
+			]);
+			const agentNames = result.right.agents.map(
+				(a) => a.split("/").pop() as string,
+			);
+			expect(agentNames.sort()).toEqual(["builder.md", "planner.md"]);
+		}
+	});
+
+	test("reports no companions for a skill without a references directory", async () => {
+		const skillDir = join(tempDir, "skills/flat-skill");
+		await mkdir(skillDir, { recursive: true });
+		const skillPath = join(skillDir, "SKILL.md");
+		await writeFile(skillPath, "---\nname: flat-skill\n---\nContent.\n");
+
+		const result = await buildDependencyGraph(skillPath, "claude-code")();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.companions).toEqual([]);
+		}
+	});
 });

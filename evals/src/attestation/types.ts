@@ -49,6 +49,12 @@ export interface DependencyGraph {
 	readonly platform: EvalPlatform;
 	readonly agents: readonly string[];
 	readonly skills: readonly string[];
+	/**
+	 * Reference companions belonging to the skills in this graph. Progressive
+	 * disclosure moves whole phases out of SKILL.md, so a companion's content
+	 * and the agents it dispatches are part of the attested surface.
+	 */
+	readonly companions: readonly string[];
 }
 
 /**

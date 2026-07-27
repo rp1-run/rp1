@@ -4,6 +4,8 @@
  * Resolves paths from dist/{platform}/ built artifacts.
  */
 
+import { readdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
 import type { DependencyGraph, EvalPlatform } from "./types.js";
@@ -117,6 +119,31 @@ export function parseSkillRefs(
 }
 
 /**
+ * List the markdown companions under a skill's `references/` directory.
+ *
+ * Returns an empty list for anything that is not a SKILL.md, and for skills
+ * that have no companions. Paths are sorted so the graph — and therefore the
+ * deps hash — is stable across filesystems.
+ */
+async function listSkillCompanions(
+	filePath: string,
+): Promise<readonly string[]> {
+	if (!filePath.endsWith("/SKILL.md")) {
+		return [];
+	}
+	const refsDir = join(dirname(filePath), "references");
+	try {
+		const entries = await readdir(refsDir);
+		return entries
+			.filter((entry) => entry.endsWith(".md"))
+			.sort()
+			.map((entry) => join(refsDir, entry));
+	} catch {
+		return [];
+	}
+}
+
+/**
  * Build complete dependency graph for a skill built artifact.
  * Recursively traverses all agent and skill references using BFS
  * with cycle detection to capture transitive dependencies.
@@ -142,6 +169,7 @@ export function buildDependencyGraph(
 				const visited = new Set<string>();
 				const allAgents: string[] = [];
 				const allSkills: string[] = [];
+				const allCompanions: string[] = [];
 				const queue: string[] = [promptPath];
 
 				while (queue.length > 0) {
@@ -152,6 +180,16 @@ export function buildDependencyGraph(
 					const file = Bun.file(current);
 					if (!(await file.exists())) continue;
 					const content = await file.text();
+
+					// A skill's instructions may continue in its reference companions,
+					// so they are part of the attested surface and are traversed for
+					// the agents they dispatch.
+					for (const companion of await listSkillCompanions(current)) {
+						if (!visited.has(companion)) {
+							allCompanions.push(companion);
+							queue.push(companion);
+						}
+					}
 
 					const agentRefs = parseAgentRefs(content, platform);
 					for (const ref of agentRefs) {
@@ -179,6 +217,7 @@ export function buildDependencyGraph(
 					platform,
 					agents: [...new Set(allAgents)],
 					skills: [...new Set(allSkills)],
+					companions: [...new Set(allCompanions)],
 				};
 			},
 			(error: unknown) => new Error(`Failed to build dep graph: ${error}`),

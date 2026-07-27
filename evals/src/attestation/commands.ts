@@ -196,7 +196,12 @@ function runEvalSuite(
 function computeAllHashes(
 	graph: DependencyGraph,
 ): TE.TaskEither<Error, readonly HashResult[]> {
-	const allPaths = [graph.skillPath, ...graph.agents, ...graph.skills];
+	const allPaths = [
+		graph.skillPath,
+		...graph.agents,
+		...graph.skills,
+		...graph.companions,
+	];
 	return pipe(
 		allPaths,
 		A.map(computePromptHash),
