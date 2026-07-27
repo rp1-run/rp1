@@ -470,7 +470,7 @@ This section replaces the inline Validation Summary used in feature mode.
 
 ## 6. Output Contract
 
-Your final output MUST be valid JSON:
+Final output MUST be valid JSON:
 
 ```json
 {
@@ -507,19 +507,18 @@ Your final output MUST be valid JSON:
 
 ### Manual Verification Detection
 
-During completeness check, identify acceptance criteria that CANNOT be automated:
+During completeness check, flag AC that cannot be automated as `manual_verification`:
 
-**Mark as manual_verification when**:
-- Requires physical device testing
-- Requires third-party service UI inspection
-- Requires subjective human judgment
-- Requires production environment access
+- Physical device testing
+- Third-party service UI inspection
+- Subjective human judgment
+- Production env access
 
-If no manual items, return empty array: `"manual_verification": []`
+If none: `"manual_verification": []`
 
 ### On SUCCESS
 
-Transition to `completed` state per STATE-MACHINE section:
+All dimensions PASS. `issues`: []. Emit state transition:
 
 ```bash
 rp1 agent-tools emit \
@@ -533,35 +532,9 @@ rp1 agent-tools emit \
 
 Skip if WORKFLOW is empty.
 
-```json
-{
-  "task_ids": ["T1"],
-  "status": "SUCCESS",
-  "confidence": 92,
-  "dimensions": {
-    "discipline": "PASS",
-    "accuracy": "PASS",
-    "completeness": "PASS",
-    "quality": "PASS",
-    "testing": "PASS",
-    "commit": "PASS",
-    "comments": "PASS"
-  },
-  "issues": [],
-  "manual_verification": [
-    {
-      "criterion": "Verify external API response format",
-      "reason": "Third-party API, behavior may vary"
-    }
-  ],
-  "task_plan_updated": true,
-  "summary": "Task T1 implemented correctly. JWT validation follows design spec."
-}
-```
-
 ### On FAILURE
 
-Transition to `failed` state per STATE-MACHINE section:
+Failing dimensions: FAIL. `issues` populated w/ evidence. Emit state transition:
 
 ```bash
 rp1 agent-tools emit \
@@ -574,34 +547,6 @@ rp1 agent-tools emit \
 ```
 
 Skip if WORKFLOW is empty.
-
-```json
-{
-  "task_ids": ["T1"],
-  "status": "FAILURE",
-  "confidence": 78,
-  "dimensions": {
-    "discipline": "PASS",
-    "accuracy": "FAIL",
-    "completeness": "PASS",
-    "quality": "PASS",
-    "testing": "N/A",
-    "commit": "PASS",
-    "comments": "PASS"
-  },
-  "issues": [
-    {
-      "type": "accuracy",
-      "description": "Missing signature validation in JWT verification",
-      "evidence": "src/auth.ts:45 - jwt.decode() used instead of jwt.verify()",
-      "severity": "blocking"
-    }
-  ],
-  "manual_verification": [],
-  "task_plan_updated": false,
-  "summary": "Implementation missing signature validation. Use jwt.verify() instead of jwt.decode()."
-}
-```
 
 {% include_shared "anti-loop.md" %}
 
