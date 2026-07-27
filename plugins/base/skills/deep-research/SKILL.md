@@ -191,7 +191,7 @@ Combine findings from all explorers:
 
 ### Step 3: Synthesize Insights
 
-Using extended thinking, analyze merged findings to:
+Analyze the merged findings to:
 
 1. **Answer research questions**: For each primary question, synthesize answer from supporting findings
 2. **Identify patterns**: What patterns emerge across explorers/projects?
@@ -351,7 +351,7 @@ Full report saved to: `{report_path}`
 **File-specific constraints**:
 - Do NOT re-run explorers
 - Spawn explorers in PARALLEL (single message, multiple parallel calls)
-- Synthesis is ONE pass with extended thinking
+- Synthesis is a single pass
 
 **If blocked**:
 - Missing clarification: Ask ONE focused question, then proceed

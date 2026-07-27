@@ -92,7 +92,7 @@ Or in the terminal: `rp1 update`
 
 ## §FLAG-LOGIC
 
-**CRITICAL OVERRIDE**: When `AFK=true`, treat `CONFIRM_PLAN` as `false` regardless of its passed value. AFK mode means zero user interaction - skip ALL user prompts throughout this workflow.
+When `AFK=true`, treat `CONFIRM_PLAN` as `false` regardless of the value passed. AFK means zero user interaction, so every user prompt in this workflow is skipped — an AFK run that pauses for input has nobody to answer it.
 
 When `AFK=false`, the plan review checkpoint is mandatory after planner artifact registration and before §PHASE-2. `CONFIRM_PLAN` does not control the plan checkpoint; it only enables the post-implementation checkpoint in §4.4.
 
@@ -220,7 +220,7 @@ Output "Build fast cancelled. Artifact preserved at {artifact_path}" and STOP.
 
 ## §PHASE-2: Execution
 
-**CRITICAL**: You are an orchestrator. You MUST delegate implementation to `task-builder` by spawning an agent. Do NOT write, edit, or create source code files yourself. Do NOT implement the plan directly. Your only job is to spawn agents and parse their responses.
+You are an orchestrator: spawn agents and parse their responses. Implementation belongs to `task-builder`, so writing, editing, or creating source files yourself is out of scope.
 
 ### §2.1 Cleanup Manifest Baseline
 
@@ -235,8 +235,6 @@ rp1 agent-tools change-manifest snapshot \
 Parse the `ToolResult` envelope. If the command fails or returns malformed output, continue execution but record `cleanup_manifest_result` as skipped with `skipReason: "baseline_snapshot_failed"`, `files: 0`, `ownedLineCount: 0`, and `statusPath: "{workRoot}/quick-builds/{RUN_ID}-change-manifest-status.json"`. Do not dispatch `comment-cleaner` later unless a generated manifest result explicitly returns `status: "created"` and non-empty ownership.
 
 ### §2.2 Task Execution
-
-**You MUST spawn task-builder here.** Do not implement the tasks yourself.
 
 {% dispatch_agent "rp1-dev:task-builder" %}
 KB_ROOT={kbRoot}
@@ -429,21 +427,21 @@ rp1 agent-tools emit \
 
 ## §ORCHESTRATOR-RULES
 
-**MANDATORY — violations cause eval failure**:
+These are the boundaries of the orchestrator role.
 
 **DO**:
 - Spawn agents for every phase (planner, task-builder, reviewer)
-- Wait for each spawned agent to complete before proceeding, UNLESS agents are dispatched as an explicitly-marked parallel group (`background` dispatch tag), in which case wait for the entire group to complete before proceeding
+- Wait for a spawned agent to complete before proceeding. The exception is an explicitly-marked parallel group (`background` dispatch tag), where you wait for the whole group
 - Prompt user for the plan checkpoint whenever `AFK=false`
 - Treat the plan checkpoint as a hard gate when `AFK=false`
 - Treat the post-implementation checkpoint as a hard gate when `AFK=false` AND `CONFIRM_PLAN=true`
-- Register artifact via `rp1 agent-tools emit --type artifact_registered` in §OUTPUT — this is REQUIRED
+- Register the artifact via `rp1 agent-tools emit --type artifact_registered` in §OUTPUT
 
-**DO NOT** (hard constraints — never violate these):
-- Write/edit ANY source code files directly — planner writes the artifact, task-builder writes code
+**DO NOT**:
+- Write/edit source code files directly — planner writes the artifact, task-builder writes code
 - Read source code files to understand the task — subagents handle their own context
-- Implement anything yourself — you are ONLY a workflow orchestrator, not an implementer
-- Skip the task-builder spawn — it is MANDATORY for Small/Medium scope
+- Implement anything yourself — you orchestrate the workflow
+- Skip the task-builder spawn for Small/Medium scope
 - Skip a required plan-review checkpoint in interactive mode
 - Skip a required post-implementation checkpoint in interactive confirm mode
 - Emit final `artifact_registered` output for the build phase before a required post-implementation checkpoint completes

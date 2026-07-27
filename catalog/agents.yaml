@@ -10,19 +10,19 @@ agents:
   - name: rp1-base:kb-architecture-mapper
     description: "Maps system architecture patterns, layers, and integrations for architecture.md from pre-filtered files"
     plugin: base
-    last_checksum: 999437250ed1764c043afe3a5de016f8e898f01170c61ae9c2782868f04396e8
+    last_checksum: 5fe518bbd98f6ca256cd4b3c4e3bfaa07f419a3801529372c7376f3af8f85504
   - name: rp1-base:kb-concept-extractor
     description: "Extracts domain concepts and terminology for concept_map.md from pre-filtered files"
     plugin: base
-    last_checksum: 86dd178b5ca9dcb3f006a2790d52a20e7194a78531de2de3b35d6b326ec14c96
+    last_checksum: 3e2db067f454f0832435f47d01e38c3885131a17ffb6e559cc4156de25170fd6
   - name: rp1-base:kb-feature-extractor
     description: "Extracts project capabilities and feature inventory for features.md from pre-filtered anchor-class files"
     plugin: base
-    last_checksum: 81a4a2f225ad1c13288377574f87fd38a3216ae4946fee04103d17a907d63ab0
+    last_checksum: 28093956f249620edfc22b94d2c51f16e3f9a5a1b7354032075567ebfa703374
   - name: rp1-base:kb-index-builder
     description: "[DEPRECATED] Generates project overview data for index.md from pre-filtered files"
     plugin: base
-    last_checksum: 73c0fd95ba8157582ed26bc344e9f626d5ba3a577cb889aa8a93a9e0cc7ea729
+    last_checksum: e76a9a16e9c7b07342fab725161462a4dfca8fcfb035627184d3624dcdb62a13
   - name: rp1-base:kb-interaction-mapper
     description: "Maps cross-surface interaction semantics for interaction-model.md from pre-filtered files"
     plugin: base
@@ -30,11 +30,11 @@ agents:
   - name: rp1-base:kb-module-analyzer
     description: "Analyzes modules, components, and dependencies for modules.md from pre-filtered files"
     plugin: base
-    last_checksum: 53070458cc0b07b531999b2d5d977de3b978004df895710ebb2ea6cea8a7225b
+    last_checksum: 63c1a8bfb5a312e4031eba83f2bdbdf9a3aa0c7e6e7920e6827e715b46f4b953
   - name: rp1-base:kb-pattern-extractor
     description: "Extracts implementation patterns and idioms for patterns.md from pre-filtered source files"
     plugin: base
-    last_checksum: c250cb1ad7f91af78eb83b49cdc8b8f6aaa90662db93904250c61feff5e09e3f
+    last_checksum: 667d32c445f9ef402f5e0e9baaf11d82ec5b74f102110a4a0bd1fffa62b16fec
   - name: rp1-base:kb-spatial-analyzer
     description: "Scans repository files, ranks by importance (0-5), and categorizes them by KB section for parallel analysis"
     plugin: base
@@ -50,7 +50,7 @@ agents:
   - name: rp1-base:prompt-pipeline-runner
     description: "Executes the six-stage prompt-writer pipeline and produces two mandatory output artifacts (ready-to-run prompt, confidence report)"
     plugin: base
-    last_checksum: 605f47f09e034d7f5a250a5c0de95446fb95c63d768686d8f0484120f0428e6a
+    last_checksum: 4b8f7e0e5552fa0890d558a993133215fc3132c0ad0c24da1b58ea34620b068d
   - name: rp1-base:research-explorer
     description: "Deep exploration of codebases or web resources, returning structured JSON findings with evidence"
     plugin: base
@@ -94,7 +94,7 @@ agents:
   - name: rp1-dev:bug-investigator
     description: "Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes"
     plugin: dev
-    last_checksum: 0e90a63aba9a6c2cb3576793e782999feeb9d6130d2cbba749727ff3fa5590a6
+    last_checksum: 48d90034a145ea4d75d48fd75a4ff9899de753aa990a22aa7ac8f0f9285c5c40
   - name: rp1-dev:build-artifact-detector
     description: "Determines workflow start_step by checking existing feature artifacts using bootstrap-provided run context"
     plugin: dev
@@ -122,7 +122,7 @@ agents:
   - name: rp1-dev:code-auditor
     description: "Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift"
     plugin: dev
-    last_checksum: 51974522df4de596ea392a109090c24bc544c2a03e56a5a428cc8b646398238e
+    last_checksum: 2cbc9fb06ffca37f1ad5ce5e591c0e22632e231ec03c2c55abb625f0697d6ee1
   - name: rp1-dev:code-checker
     description: "Fast code hygiene validation (linters, formatters, tests, coverage) for quick dev loop feedback"
     plugin: dev
@@ -142,7 +142,7 @@ agents:
   - name: rp1-dev:feature-editor
     description: "Analyzes mid-stream edits for validity, detects conflicts, and propagates approved changes across feature documentation"
     plugin: dev
-    last_checksum: 4625173755c5713ba7b9ee2c848988e4104f062f8f528d08a41c14a173cfca0e
+    last_checksum: f419748557b068d2a054215563d4c42f8f424354396d439e990eeca62644a4c0
   - name: rp1-dev:feature-requirement-gatherer
     description: "Transforms high-level feature concepts into structured requirements specifications. Invoked by /build workflow."
     plugin: dev
@@ -154,11 +154,11 @@ agents:
   - name: rp1-dev:feature-verifier
     description: "Verifies feature acceptance criteria and requirements mapping with full KB context awareness for comprehensive feature validation before merge"
     plugin: dev
-    last_checksum: 1eff89e6b8511d4f23a175abe6106ce287e3f70d3799a6ead7fd0508117a49fa
+    last_checksum: d7e25760d95235c04ab08ee1ee260e9dfbd0b2475d080514c0761d50fd833baa
   - name: rp1-dev:hypothesis-tester
     description: "Validates design hypotheses through code experiments, codebase analysis, and external research"
     plugin: dev
-    last_checksum: 83941a408ff58660cb9a10d3466c670088c403666d100ac94a841138c9a2c681
+    last_checksum: 294262253ca6ff0816dd5594191c9dd0d8a5d8bc89ac07442283afb9e0831d7f
   - name: rp1-dev:phase-planner
     description: "Decomposes a planning source into a source-adjacent phase-plan artifact and refreshes source backlinks."
     plugin: dev
@@ -186,7 +186,7 @@ agents:
   - name: rp1-dev:pr-review-synthesizer
     description: "Holistic cross-file verification using compressed summaries"
     plugin: dev
-    last_checksum: 13d1a930c76747e1a5dc57aaf20401c4fd79d22b74f9defbcad92781361aed5d
+    last_checksum: 0c9858c0357ada8627a1eba0fbbf43a99d57f516dd46e46a9024668c12a46e40
   - name: rp1-dev:pr-sub-reviewer
     description: "Analyzes one review unit across 5 dimensions with confidence gating"
     plugin: dev
