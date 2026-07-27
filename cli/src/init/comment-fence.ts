@@ -105,10 +105,13 @@ export function removeFencedContent(content: string): string {
 	const position = findFencedContent(content);
 	if (!position) return content;
 
-	const before = content.slice(0, position.start);
-	const after = content.slice(position.end);
+	const before = content.slice(0, position.start).trimEnd();
+	const after = content.slice(position.end).trimStart();
 
-	const result = (before.trimEnd() + after.trimStart()).trim();
+	// Keep a blank line between the surrounding blocks; concatenating directly
+	// would glue the last line before the fence onto the first line after it.
+	const separator = before.length > 0 && after.length > 0 ? "\n\n" : "";
+	const result = (before + separator + after).trim();
 	return result.length > 0 ? `${result}\n` : "";
 }
 

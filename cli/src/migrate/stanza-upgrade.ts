@@ -2,8 +2,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import {
+	extractFencedContent,
 	extractFenceVersion,
 	hasFencedContent,
+	removeFencedContent,
 	replaceFencedContent,
 } from "../init/comment-fence.js";
 import { buildManagedGitignoreContent } from "../init/gitignore.js";
@@ -12,6 +14,7 @@ import {
 	hasShellFencedContent,
 	replaceShellFencedContent,
 } from "../init/shell-fence.js";
+import { hasUnfencedAgentsReference } from "../init/steps/project-setup.js";
 import {
 	AGENTS_REFERENCE_TEMPLATE,
 	resolveInstructionTemplate,
@@ -79,6 +82,18 @@ const UPGRADE_SPECS: readonly UpgradeSpec[] = [
 	},
 ];
 
+/**
+ * A CLAUDE.md has converged onto the single-file layout when it either owns a
+ * bare `@AGENTS.md` import with no leftover fence, or carries nothing but the
+ * reference template inside its fence.
+ */
+function isConvergedOntoAgentsReference(content: string): boolean {
+	if (hasUnfencedAgentsReference(content)) {
+		return !hasFencedContent(content);
+	}
+	return extractFencedContent(content) === AGENTS_REFERENCE_TEMPLATE;
+}
+
 function readFileSafe(filePath: string): string | null {
 	try {
 		return fs.readFileSync(filePath, "utf-8");
@@ -119,20 +134,33 @@ export function upgradeStanzas(projectRoot: string): StanzaUpgradeResult {
 			const version = spec.versionExtractor(content);
 			const effectiveVersion = version ?? "0.0.0";
 
+			// When both files carry fenced stanzas, CLAUDE.md should use the
+			// @AGENTS.md import reference instead of a full duplicate template.
+			const convergeToReference = spec.file === "CLAUDE.md" && agentsHasFence;
+			const needsConvergence =
+				convergeToReference && !isConvergedOntoAgentsReference(content);
+
 			const cmp = compareVersions(effectiveVersion, LATEST_FENCE_VERSION);
-			if (cmp >= 0) {
+			if (cmp >= 0 && !needsConvergence) {
 				filesAlreadyCurrent.push(spec.file);
 				continue;
 			}
 
-			// When both files carry fenced stanzas, CLAUDE.md should use the
-			// @AGENTS.md import reference instead of a full duplicate template.
-			let template: string;
-			if (spec.file === "CLAUDE.md" && agentsHasFence) {
-				template = AGENTS_REFERENCE_TEMPLATE;
-			} else {
-				template = spec.getTemplate(content);
+			// A CLAUDE.md that already imports AGENTS.md itself needs no fenced
+			// reference; keeping one would import AGENTS.md twice.
+			if (convergeToReference && hasUnfencedAgentsReference(content)) {
+				fs.writeFileSync(filePath, removeFencedContent(content));
+				filesUpgraded.push({
+					file: spec.file,
+					fromVersion: effectiveVersion,
+					toVersion: LATEST_FENCE_VERSION,
+				});
+				continue;
 			}
+
+			const template = convergeToReference
+				? AGENTS_REFERENCE_TEMPLATE
+				: spec.getTemplate(content);
 
 			if (!template) {
 				errors.push({

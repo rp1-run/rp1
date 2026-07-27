@@ -27,6 +27,63 @@ describe("shared fragment contracts", () => {
 		expect(fragment).toContain("STOP");
 	});
 
+	test("bounded-iteration.md permits exactly one clarifying question", async () => {
+		const fragment = await readFragment("bounded-iteration.md");
+		expect(fragment).toContain("Single pass through the phase graph");
+		expect(fragment).toContain("one** focused question");
+		expect(fragment).toContain("do not open a dialogue");
+		expect(fragment).toContain("stop instead of retrying");
+	});
+
+	test("bounded-iteration.md does not forbid what it exists to allow", async () => {
+		// This fragment is the counterpart to anti-loop.md for workflows that
+		// own a clarify/interview state. Reintroducing anti-loop's blanket
+		// prohibition here would recreate the contradiction it resolves.
+		const fragment = await readFragment("bounded-iteration.md");
+		expect(fragment).not.toContain("Ask for clarification or approval");
+	});
+
+	test("anti-loop.md and bounded-iteration.md have disjoint consumers", async () => {
+		// A prompt including both would carry contradictory clarification rules.
+		const { Glob } = await import("bun");
+		const glob = new Glob("plugins/**/*.md");
+		const offenders: string[] = [];
+
+		for await (const file of glob.scan(REPO_ROOT)) {
+			const content = await readFile(join(REPO_ROOT, file), "utf-8");
+			if (
+				content.includes('include_shared "anti-loop.md"') &&
+				content.includes('include_shared "bounded-iteration.md"')
+			) {
+				offenders.push(file);
+			}
+		}
+
+		expect(offenders).toEqual([]);
+	});
+
+	test("delegated workers that escalate decisions do not use bounded-iteration.md", async () => {
+		// A prompt returning `needs_decision` hands the question to its caller,
+		// which owns the user prompt and reinvokes with the answer. Granting it
+		// bounded-iteration's permission to ask directly contradicts that
+		// protocol, so such prompts must stay on anti-loop.md.
+		const { Glob } = await import("bun");
+		const glob = new Glob("plugins/**/*.md");
+		const offenders: string[] = [];
+
+		for await (const file of glob.scan(REPO_ROOT)) {
+			const content = await readFile(join(REPO_ROOT, file), "utf-8");
+			if (
+				content.includes("needs_decision") &&
+				content.includes('include_shared "bounded-iteration.md"')
+			) {
+				offenders.push(file);
+			}
+		}
+
+		expect(offenders).toEqual([]);
+	});
+
 	test("engineering-discipline.md pins the ten MUST rules", async () => {
 		const fragment = await readFragment("engineering-discipline.md");
 		const rules = fragment.split("\n").filter((line) => line.startsWith("- "));

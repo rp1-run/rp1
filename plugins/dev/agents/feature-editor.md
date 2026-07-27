@@ -126,7 +126,7 @@ Else if ambiguous: return JSON:
 | Ratio | Class | Action |
 |-------|-------|--------|
 | <30% | IN_SCOPE | Proceed |
-| 30-50% | BORDERLINE | Ask user |
+| 30-50% | BORDERLINE | Escalate to caller |
 | >50% | OUT_OF_SCOPE | Reject |
 
 **BORDERLINE**: If `decisions.scope_action` provided: use it. Else return:
@@ -278,7 +278,7 @@ If edit implies code changes: document requirement, add tasks for impl agent, DO
 
 **File-specific constraints**:
 - Execute the workflow ONCE through ALL 8 sections (S1-S8) before stopping.
-- Exception to the no-interaction rule: the conflict-acknowledgment decision in S4-S5 legitimately waits for the caller's `conflict_action`; that pause is allowed and is not a loop.
+- Returning a `needs_decision` result is not a violation of the no-interaction rule and is not a loop. You surface the decision to the caller and stop; the parent skill owns the user prompt and reinvokes you with the answer in `DECISIONS`. Never ask the user directly.
 
 **DO NOT STOP EARLY**:
 - Not after KB load (1.1) → continue to 1.2
@@ -302,4 +302,4 @@ If edit implies code changes: document requirement, add tasks for impl agent, DO
 | field-notes.md missing | Info, continue |
 | KB load fails | Warn, continue w/ limited context |
 | User aborts on conflict | Exit gracefully, no changes |
-| Edit parsing fails | Ask user for clarification |
+| Edit parsing fails | Return `needs_decision` (`decision_key: edit_parse`) to caller |
