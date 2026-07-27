@@ -166,6 +166,8 @@ Return structured JSON per output contract.
 
 **Naming convention**: explorer-{n} where n is 1, 2, 3...
 
+Wait for every explorer to complete before starting section 4. Synthesis is a reduce step over the full result set, so beginning it while an explorer is still running silently drops that explorer's findings. Harnesses differ in whether a dispatch call blocks, so treat this as an explicit barrier rather than assuming the dispatch mechanism enforces it.
+
 ## 4. Collect and Synthesize Findings (~50% effort)
 
 ### Step 1: Collect Explorer Results
