@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const projectRoot = join(import.meta.dir, "..", "..", "..", "..");
@@ -7,11 +7,31 @@ const projectRoot = join(import.meta.dir, "..", "..", "..", "..");
 const readProjectFile = async (relativePath: string): Promise<string> =>
 	readFile(join(projectRoot, relativePath), "utf-8");
 
+/**
+ * Read a skill's full prompt surface: SKILL.md plus every file under its
+ * references/ directory. Progressive disclosure splits one skill's
+ * instructions across several files, so a contract about what the skill
+ * specifies holds over the whole surface, not SKILL.md alone.
+ */
+const readSkillSurface = async (skillRelativeDir: string): Promise<string> => {
+	const dir = join(projectRoot, skillRelativeDir);
+	const parts = [await readFile(join(dir, "SKILL.md"), "utf-8")];
+	const refsDir = join(dir, "references");
+	try {
+		for (const entry of (await readdir(refsDir)).sort()) {
+			if (entry.endsWith(".md")) {
+				parts.push(await readFile(join(refsDir, entry), "utf-8"));
+			}
+		}
+	} catch {
+		// No references/ directory for this skill.
+	}
+	return parts.join("\n");
+};
+
 describe("comment cleanup manifest prompt contracts", () => {
 	test("build snapshots and gates comment-cleaner on a generated non-empty manifest", async () => {
-		const buildSkill = await readProjectFile(
-			"plugins/dev/skills/build/SKILL.md",
-		);
+		const buildSkill = await readSkillSurface("plugins/dev/skills/build");
 
 		expect(buildSkill).toContain("change-manifest snapshot");
 		expect(buildSkill).toContain("change-manifest-baseline.json");
@@ -36,8 +56,8 @@ describe("comment cleanup manifest prompt contracts", () => {
 	});
 
 	test("build-fast snapshots and gates comment-cleaner on a generated non-empty manifest", async () => {
-		const buildFastSkill = await readProjectFile(
-			"plugins/dev/skills/build-fast/SKILL.md",
+		const buildFastSkill = await readSkillSurface(
+			"plugins/dev/skills/build-fast",
 		);
 
 		expect(buildFastSkill).toContain("change-manifest snapshot");

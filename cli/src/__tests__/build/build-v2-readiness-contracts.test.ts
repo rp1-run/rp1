@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { parseAgent } from "../../build/parser.js";
@@ -10,6 +10,28 @@ const FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
 
 const readProjectFile = async (relativePath: string): Promise<string> =>
 	readFile(join(projectRoot, relativePath), "utf-8");
+
+/**
+ * Read a skill's full prompt surface: SKILL.md plus every file under its
+ * references/ directory. Progressive disclosure splits one skill's
+ * instructions across several files, so a contract about what the skill
+ * specifies holds over the whole surface, not SKILL.md alone.
+ */
+const readSkillSurface = async (skillRelativeDir: string): Promise<string> => {
+	const dir = join(projectRoot, skillRelativeDir);
+	const parts = [await readFile(join(dir, "SKILL.md"), "utf-8")];
+	const refsDir = join(dir, "references");
+	try {
+		for (const entry of (await readdir(refsDir)).sort()) {
+			if (entry.endsWith(".md")) {
+				parts.push(await readFile(join(refsDir, entry), "utf-8"));
+			}
+		}
+	} catch {
+		// No references/ directory for this skill.
+	}
+	return parts.join("\n");
+};
 
 const extractTemplateFrontmatter = (
 	content: string,
@@ -141,7 +163,7 @@ describe("Build v2 readiness contracts", () => {
 	});
 
 	test("build skill passes readiness context and branches on PASS WARN FAIL WAITING", async () => {
-		const content = await readProjectFile("plugins/dev/skills/build/SKILL.md");
+		const content = await readSkillSurface("plugins/dev/skills/build");
 
 		expect(content).toContain(
 			"PHASE_RESULTS={PHASE_RESULTS_JSON}, FEATURE_ID={FEATURE_ID}, WORK_ROOT={workRoot}, WORKFLOW=build, RUN_ID={RUN_ID}",

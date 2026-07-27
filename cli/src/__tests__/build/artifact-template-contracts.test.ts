@@ -16,6 +16,28 @@ const TEMPLATE_PATH_REGEX =
 const readProjectFile = async (relativePath: string): Promise<string> =>
 	readFile(join(projectRoot, relativePath), "utf-8");
 
+/**
+ * Read a skill's full prompt surface: SKILL.md plus every file under its
+ * references/ directory. Progressive disclosure splits one skill's
+ * instructions across several files, so a contract about what the skill
+ * specifies holds over the whole surface, not SKILL.md alone.
+ */
+const readSkillSurface = async (skillRelativeDir: string): Promise<string> => {
+	const dir = join(projectRoot, skillRelativeDir);
+	const parts = [await readFile(join(dir, "SKILL.md"), "utf-8")];
+	const refsDir = join(dir, "references");
+	try {
+		for (const entry of (await readdir(refsDir)).sort()) {
+			if (entry.endsWith(".md")) {
+				parts.push(await readFile(join(refsDir, entry), "utf-8"));
+			}
+		}
+	} catch {
+		// No references/ directory for this skill.
+	}
+	return parts.join("\n");
+};
+
 describe("artifact template contracts", () => {
 	test("birds-eye template stores snapshot metadata in generated frontmatter", async () => {
 		const template = await readProjectFile(
@@ -64,15 +86,16 @@ describe("artifact template contracts", () => {
 	});
 
 	test("pr-review skill registers only the reviewed PR URL as a link artifact", async () => {
-		const skill = await readProjectFile(
-			"plugins/dev/skills/pr-review/SKILL.md",
-		);
+		const skill = await readSkillSurface("plugins/dev/skills/pr-review");
 		const linkArtifacts = await readProjectFile(
 			"plugins/dev/skills/pr-review/references/link-artifacts.md",
 		);
-		const combined = `${skill}\n${linkArtifacts}`;
+		// readSkillSurface already includes references/, so `skill` covers the
+		// companion too. Concatenating linkArtifacts again would double-count
+		// its payloads. It stays read separately for the assertions below that
+		// pin which file the content lives in.
 		const linkPayloads = [
-			...combined.matchAll(/--data '([^']*"locationKind":"url"[^']*)'/g),
+			...skill.matchAll(/--data '([^']*"locationKind":"url"[^']*)'/g),
 		].map((match) => match[1]);
 		const reusablePayloads = linkPayloads.filter((payload) =>
 			payload.includes('"url":"{LINK_URL}"'),
@@ -120,7 +143,7 @@ describe("artifact template contracts", () => {
 		expect(linkArtifacts).toContain(
 			"Do not register posted GitHub review URLs",
 		);
-		expect(combined).not.toContain('"url":"{REVIEW_URL}"');
+		expect(skill).not.toContain('"url":"{REVIEW_URL}"');
 	});
 
 	test("all direct template path references in agent and skill files point to existing files", async () => {
