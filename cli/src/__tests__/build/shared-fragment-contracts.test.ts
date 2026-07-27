@@ -62,6 +62,28 @@ describe("shared fragment contracts", () => {
 		expect(offenders).toEqual([]);
 	});
 
+	test("delegated workers that escalate decisions do not use bounded-iteration.md", async () => {
+		// A prompt returning `needs_decision` hands the question to its caller,
+		// which owns the user prompt and reinvokes with the answer. Granting it
+		// bounded-iteration's permission to ask directly contradicts that
+		// protocol, so such prompts must stay on anti-loop.md.
+		const { Glob } = await import("bun");
+		const glob = new Glob("plugins/**/*.md");
+		const offenders: string[] = [];
+
+		for await (const file of glob.scan(REPO_ROOT)) {
+			const content = await readFile(join(REPO_ROOT, file), "utf-8");
+			if (
+				content.includes("needs_decision") &&
+				content.includes('include_shared "bounded-iteration.md"')
+			) {
+				offenders.push(file);
+			}
+		}
+
+		expect(offenders).toEqual([]);
+	});
+
 	test("engineering-discipline.md pins the ten MUST rules", async () => {
 		const fragment = await readFragment("engineering-discipline.md");
 		const rules = fragment.split("\n").filter((line) => line.startsWith("- "));

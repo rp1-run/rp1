@@ -142,7 +142,7 @@ agents:
   - name: rp1-dev:feature-editor
     description: "Analyzes mid-stream edits for validity, detects conflicts, and propagates approved changes across feature documentation"
     plugin: dev
-    last_checksum: 95a7b7f4654627d8d30e3a4009903cc49379de80c45dbf4021aa394c12600738
+    last_checksum: 4625173755c5713ba7b9ee2c848988e4104f062f8f528d08a41c14a173cfca0e
   - name: rp1-dev:feature-requirement-gatherer
     description: "Transforms high-level feature concepts into structured requirements specifications. Invoked by /build workflow."
     plugin: dev
