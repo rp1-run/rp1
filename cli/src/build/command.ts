@@ -63,6 +63,7 @@ import {
 	resolveSharedIncludes,
 } from "./preprocessor.js";
 import { defaultRegistry } from "./registry.js";
+import { RP1_TAG_NAMES } from "./tags/index.js";
 import type { BuildPlatform } from "./template-context.js";
 import {
 	buildTemplateContext,
@@ -354,22 +355,90 @@ const collectAllFiles = async (dir: string, prefix = ""): Promise<string[]> => {
 	return files;
 };
 
+const RP1_MARKUP_REGEX = new RegExp(
+	`\\{%-?\\s*(?:end)?(?:${RP1_TAG_NAMES.join("|")})\\b`,
+);
+
 /**
- * Recursively copy supporting files.
+ * Does this content use rp1's semantic markup?
+ *
+ * Only files that do are worth rendering. Some companions are documentation
+ * *about* Liquid templating (the prompt-eval and prompt-writer pattern
+ * guides), so their `{% if %}` and `{{ VAR }}` examples must survive the
+ * build intact.
+ */
+const hasRp1Markup = (content: string): boolean =>
+	RP1_MARKUP_REGEX.test(content);
+
+/**
+ * Copy a skill's supporting files, preprocessing markdown ones.
+ *
+ * Markdown companions are prompt content the agent reads on demand, so they
+ * need the same treatment as SKILL.md: shared includes resolved and semantic
+ * tags expanded to host-specific instructions. Copying them verbatim ships
+ * literal `{% dispatch_agent %}` text, which an agent cannot act on.
+ *
+ * Non-markdown files (scripts, data, images) are copied unchanged, as are
+ * markdown companions carrying no rp1 markup — some of those document Liquid
+ * templating itself, and rendering them would consume the very examples they
+ * teach.
+ *
+ * Returns the processed markdown content per file so callers can lint it.
  */
 const copySupportingFiles = async (
 	srcDir: string,
 	destDir: string,
 	files: readonly string[],
-): Promise<void> => {
+	projectRoot: string,
+	platform: BuildPlatform,
+): Promise<{ processed: Map<string, string>; errors: string[] }> => {
+	const processed = new Map<string, string>();
+	const errors: string[] = [];
+
 	for (const file of files) {
 		const srcPath = join(srcDir, file);
 		const destPath = join(destDir, file);
 		await mkdir(dirname(destPath), { recursive: true });
+
+		if (!file.endsWith(".md")) {
+			try {
+				await copyFile(srcPath, destPath);
+			} catch {}
+			continue;
+		}
+
+		let raw: string;
 		try {
-			await copyFile(srcPath, destPath);
-		} catch {}
+			raw = await readFile(srcPath, "utf-8");
+		} catch {
+			continue;
+		}
+
+		if (!hasRp1Markup(raw)) {
+			await writeFile(destPath, raw);
+			continue;
+		}
+
+		const includeResult = await resolveSharedIncludes(raw, projectRoot);
+		if (E.isLeft(includeResult)) {
+			errors.push(`${file}: ${formatError(includeResult.left, false)}`);
+			continue;
+		}
+
+		const preprocessResult = await preprocessConditionals(
+			includeResult.right,
+			platform,
+		);
+		if (E.isLeft(preprocessResult)) {
+			errors.push(`${file}: ${formatError(preprocessResult.left, false)}`);
+			continue;
+		}
+
+		await writeFile(destPath, preprocessResult.right);
+		processed.set(file, preprocessResult.right);
 	}
+
+	return { processed, errors };
 };
 
 /**
@@ -743,11 +812,35 @@ export const buildPlatformPlugin = async (
 			await mkdir(skillOutputDir, { recursive: true });
 			await writeFile(join(skillOutputDir, "SKILL.md"), skillContent);
 
-			await copySupportingFiles(
+			const supporting = await copySupportingFiles(
 				skillDir,
 				skillOutputDir,
 				ccSkill.supportingFiles,
+				projectRoot,
+				platform,
 			);
+			for (const err of supporting.errors) {
+				errors.push(`${namespacedSkillDir}: ${err}`);
+			}
+			// Companions are prompt content too — hold them to the same lint
+			// rules, so an unexpanded tag fails the build instead of shipping.
+			for (const [file, companionContent] of supporting.processed) {
+				const companionLint = lintArtifact(
+					companionContent,
+					platform,
+					`${namespacedSkillDir}/${file}`,
+				);
+				for (const d of companionLint.diagnostics) {
+					if (d.severity === "warning" && !jsonOutput && !suppressOutput) {
+						emitWarn(formatLintDiagnostic(d));
+					}
+				}
+				if (companionLint.hasErrors) {
+					for (const d of companionLint.diagnostics) {
+						if (d.severity === "error") errors.push(formatLintDiagnostic(d));
+					}
+				}
+			}
 
 			if (definition.hooks?.postSkillWrite) {
 				await definition.hooks.postSkillWrite(

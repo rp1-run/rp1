@@ -109,6 +109,23 @@ describe("L016: emit-contract-invariants", () => {
 			).toHaveLength(0);
 		});
 
+		test("allows bare steps in a skill's reference companion", () => {
+			// A companion belongs to the skill that owns the state machine, so its
+			// steps are the skill's own, not a sub-agent's.
+			const content = `rp1 agent-tools emit \\
+  --workflow socratic-duel \\
+  --type status_change \\
+  --run-id {RUN_ID} \\
+  --step debating`;
+			expect(
+				emitContractInvariantsRule(
+					content,
+					"claude-code",
+					"rp1-socratic-duel/references/protocol.md",
+				),
+			).toHaveLength(0);
+		});
+
 		test("allows an unresolved placeholder step", () => {
 			const content = `rp1 agent-tools emit \\
   --workflow build \\

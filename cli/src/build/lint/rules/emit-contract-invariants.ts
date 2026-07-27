@@ -53,8 +53,10 @@ export function emitContractInvariantsRule(
 	const diagnostics: LintDiagnostic[] = [];
 
 	// Skills own their state machine and emit bare steps; only sub-agents must
-	// namespace. Skills are linted as `<dir>/SKILL.md`, agents as a filename.
-	const isSubAgent = !file.endsWith("SKILL.md");
+	// namespace. Skills are linted as `<dir>/SKILL.md` and their companions as
+	// `<dir>/references/<name>.md`, so anything carrying a path separator
+	// belongs to a skill. Agents are linted under a bare filename.
+	const isSubAgent = !file.includes("/");
 
 	for (const match of findEmitEventCommands(content)) {
 		const { command, index } = match;

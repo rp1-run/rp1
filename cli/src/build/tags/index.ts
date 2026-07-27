@@ -253,3 +253,17 @@ export function registerTags(liquid: Liquid): void {
 	liquid.registerTag("plan_tool", PlanToolTag);
 	liquid.registerTag("web_access", WebAccessTag);
 }
+
+/**
+ * Names of every custom semantic tag, for callers that need to detect rp1
+ * markup in source content without rendering it.
+ */
+export const RP1_TAG_NAMES = [
+	"dispatch_agent",
+	"ask_user",
+	"edit_model",
+	"permissions",
+	"plan_tool",
+	"web_access",
+	"include_shared",
+] as const;

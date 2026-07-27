@@ -1415,3 +1415,114 @@ ${plugin} parity content.
 		expect(parallelSummary.status).toBe("success");
 	});
 });
+
+describe("buildPlatformPlugin (skill reference companions)", () => {
+	let tempDir: string;
+
+	beforeAll(async () => {
+		tempDir = await createTempDir("build-cmd-companions");
+		await assertTestIsolation(tempDir);
+	});
+
+	afterAll(async () => {
+		await cleanupTempDir(tempDir);
+	});
+
+	const writeSkillWithCompanions = async (
+		projectRoot: string,
+		companions: Record<string, string>,
+	): Promise<void> => {
+		await writeFixture(
+			projectRoot,
+			"plugins/base/.claude-plugin/plugin.json",
+			JSON.stringify({ name: "rp1-base", version: "1.0.0" }),
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/skills/sample/SKILL.md",
+			`---
+name: sample
+description: "Sample skill with enough description text for validation"
+metadata:
+  category: development
+  is_workflow: false
+---
+
+Read \`references/phase.md\` and follow it.
+`,
+		);
+		for (const [path, content] of Object.entries(companions)) {
+			await writeFixture(
+				projectRoot,
+				`plugins/base/skills/sample/${path}`,
+				content,
+			);
+		}
+	};
+
+	test("expands semantic tags in markdown companions", async () => {
+		const projectRoot = join(tempDir, "project-expand");
+		await writeSkillWithCompanions(projectRoot, {
+			"references/phase.md": `# Phase 3
+
+{% dispatch_agent "rp1-dev:task-builder" %}
+TASK_ID=1
+{% enddispatch_agent %}
+`,
+		});
+
+		const out = join(tempDir, "out-expand");
+		const result = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			out,
+			claudeCodeDef,
+			noopLogger,
+			true,
+		);
+
+		expect(result.summary.errors).toEqual([]);
+		const companion = await readFile(
+			join(out, "base", "skills", "sample", "references", "phase.md"),
+			"utf-8",
+		);
+		// A companion is prompt content the agent reads on demand, so a raw tag
+		// would reach the model verbatim.
+		expect(companion).not.toContain("{% dispatch_agent");
+		expect(companion).toContain("subagent_type: rp1-dev:task-builder");
+	});
+
+	test("leaves companions without rp1 markup byte-identical", async () => {
+		const projectRoot = join(tempDir, "project-verbatim");
+		// Some companions document Liquid templating itself; rendering them
+		// would consume the examples they exist to teach.
+		const docs = `# Patterns
+
+| Form | Template |
+|------|----------|
+| Flag | \`{% if FLAG_VAR %} --flag={{FLAG_VAR}}{% endif %}\` |
+`;
+		await writeSkillWithCompanions(projectRoot, {
+			"references/phase.md": "Plain guidance, no tags.\n",
+			"PATTERNS.md": docs,
+		});
+
+		const out = join(tempDir, "out-verbatim");
+		const result = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			out,
+			claudeCodeDef,
+			noopLogger,
+			true,
+		);
+
+		expect(result.summary.errors).toEqual([]);
+		expect(
+			await readFile(
+				join(out, "base", "skills", "sample", "PATTERNS.md"),
+				"utf-8",
+			),
+		).toBe(docs);
+	});
+});
