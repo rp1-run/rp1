@@ -14,6 +14,7 @@
  */
 
 import type { BuildPlatform } from "../template-context.js";
+import { emitContractInvariantsRule } from "./rules/emit-contract-invariants.js";
 import { incompleteDispatchRule } from "./rules/incomplete-dispatch.js";
 import { missingEmitHarnessRule } from "./rules/missing-emit-harness.js";
 import { nullToolInProseRule } from "./rules/null-tool-in-prose.js";
@@ -118,3 +119,4 @@ registerLintRule(unresolvedTagsRule);
 registerLintRule(nullToolInProseRule);
 registerLintRule(missingEmitHarnessRule);
 registerLintRule(trackedWorkflowBootstrapRule);
+registerLintRule(emitContractInvariantsRule);

@@ -184,7 +184,9 @@ Required rules:
 - `--run-id` is mandatory for state-machine-enabled skills and agents.
 - `--unit` enables per-task tracking.
 - Follow graph transitions exactly; invalid steps are rejected with actionable error messages listing valid states and transitions.
-- Sub-agents emitting into a parent run must namespace their step names with the agent identifier and a colon separator to avoid collision with parent workflow states.
+- Sub-agents emitting into a parent run must namespace their step names with the agent identifier and a colon separator to avoid collision with parent workflow states. This applies to `status_change`; for `artifact_registered` the step is a phase label that may match the parent's state.
+
+Build lint `L016` enforces the `--run-id`, `storageRoot`, and sub-agent step-namespacing rules against compiled output on every platform, so violating them fails the build rather than surfacing at runtime.
 
 ### Sub-agent step namespacing
 
