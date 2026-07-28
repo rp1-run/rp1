@@ -513,10 +513,7 @@ subagent_type: rp1-dev:planner
 			skillPath,
 			"---\nname: posix-skill\n---\nsubagent_type: rp1-dev:worker\n",
 		);
-		await writeFile(
-			join(skillDir, "references", "phase.md"),
-			"Companion.\n",
-		);
+		await writeFile(join(skillDir, "references", "phase.md"), "Companion.\n");
 		await writeFile(join(distDev, "agents/worker.md"), "Worker.\n");
 
 		const result = await buildDependencyGraph(skillPath, "claude-code")();
