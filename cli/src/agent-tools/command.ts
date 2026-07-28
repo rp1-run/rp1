@@ -870,6 +870,195 @@ Examples:
 	);
 
 /**
+ * schedule-wave subcommand.
+ * Computes the next dispatch wave from a task plan and completed-task state.
+ */
+agentToolsCommand
+	.command("schedule-wave")
+	.description("Compute the next builder dispatch wave from task plan state")
+	.option("--tasks-path <path>", "Absolute path to tasks.md or tasks.json")
+	.option(
+		"--completed-task-ids <ids>",
+		"Comma-separated task IDs already completed by reviewers",
+	)
+	.option("--max-builders <n>", "Maximum concurrent builders (default 4)")
+	.option("--git-commit <boolean>", "Whether builders produce atomic commits")
+	.option(
+		"--clean-tree <boolean>",
+		"Whether the working tree is clean (no unstaged/uncommitted changes)",
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Stateless advisory scheduler. Reads the task plan from tasks.json, combines
+  it with the set of completed task IDs supplied by the orchestrator, and
+  returns the wave to dispatch now: primary builder, up to max_builders-1
+  worktree secondaries, reviewer-pipelining pairs, and held units.
+
+  File-disjointness is computed from task targets. Known-shared paths
+  (lockfiles, generated catalog) are treated as always-overlapping.
+
+Input (CLI flags):
+  - tasks_path: Absolute path to tasks.md or tasks.json (required)
+  - completed_task_ids: Comma-separated string of completed task IDs (default "")
+  - max_builders: Positive integer (default 4)
+  - git_commit: Boolean (default false)
+  - clean_tree: Boolean (default false)
+
+Output:
+  JSON ToolResult with dispatch array (unit_id, task_ids, role), mode,
+  reviewer_pipelining pairs, and held unit IDs.
+
+Examples:
+  rp1 agent-tools schedule-wave \\
+    --tasks-path /project/.rp1/work/features/example/tasks.json \\
+    --completed-task-ids "T1,T2,T3" \\
+    --max-builders 4 \\
+    --git-commit true \\
+    --clean-tree true
+`,
+	)
+	.action(
+		async (options: {
+			tasksPath?: string;
+			completedTaskIds?: string;
+			maxBuilders?: string;
+			gitCommit?: string;
+			cleanTree?: string;
+		}): Promise<void> => {
+			const toolName = "schedule-wave";
+			await ensureToolLoaded("build-task-plan");
+
+			if (!options.tasksPath) {
+				console.log(
+					createErrorResponse(toolName, "Missing required --tasks-path."),
+				);
+				process.exit(1);
+			}
+
+			if (!isPlatformAbsoluteProjectPath(options.tasksPath)) {
+				console.log(
+					createErrorResponse(
+						toolName,
+						"--tasks-path must be an absolute path.",
+					),
+				);
+				process.exit(1);
+			}
+
+			let gitCommit = false;
+			let cleanTree = false;
+			let maxBuilders = 4;
+
+			try {
+				gitCommit =
+					parseBooleanFlag(options.gitCommit, "--git-commit") ?? false;
+				cleanTree =
+					parseBooleanFlag(options.cleanTree, "--clean-tree") ?? false;
+			} catch (error) {
+				console.log(
+					createErrorResponse(toolName, formatError(error as CLIError, false)),
+				);
+				process.exit(1);
+			}
+
+			if (options.maxBuilders) {
+				const parsed = Number.parseInt(options.maxBuilders, 10);
+				if (Number.isNaN(parsed) || parsed <= 0) {
+					console.log(
+						createErrorResponse(
+							toolName,
+							"--max-builders must be a positive integer.",
+						),
+					);
+					process.exit(1);
+				}
+				maxBuilders = parsed;
+			}
+
+			const completedTaskIds = options.completedTaskIds
+				? options.completedTaskIds
+						.split(",")
+						.map((id) => id.trim())
+						.filter(Boolean)
+				: [];
+
+			const planInput = JSON.stringify({
+				tasks_path: options.tasksPath,
+			});
+
+			const tool = getTool("build-task-plan");
+			if (!tool) {
+				console.log(
+					createErrorResponse(toolName, "build-task-plan tool not found"),
+				);
+				process.exit(1);
+			}
+
+			const planResult = await tool.execute(planInput, {
+				inputSource: "stdin",
+			})();
+
+			if (E.isLeft(planResult)) {
+				console.log(
+					createErrorResponse(
+						toolName,
+						`Task plan read failed: ${formatError(planResult.left, false)}`,
+					),
+				);
+				process.exit(1);
+			}
+
+			const plan = planResult.right;
+			if (!plan.success || !plan.data) {
+				console.log(
+					JSON.stringify(
+						{
+							success: false,
+							tool: toolName,
+							data: null,
+							errors: plan.errors ?? [{ message: "Task plan parsing failed." }],
+						},
+						null,
+						2,
+					),
+				);
+				process.exit(1);
+			}
+
+			const planData = plan.data as {
+				task_units: import("./build-task-plan/models.js").BuildTaskUnit[];
+				tasks: import("./build-task-plan/models.js").BuildTaskPlanTask[];
+			};
+
+			const { scheduleWave } = await import("./build-task-plan/index.js");
+
+			const waveResult = scheduleWave({
+				task_units: planData.task_units,
+				tasks: planData.tasks,
+				completed_task_ids: completedTaskIds,
+				max_builders: maxBuilders,
+				git_commit: gitCommit,
+				clean_tree: cleanTree,
+			});
+
+			console.log(
+				JSON.stringify(
+					{
+						success: true,
+						tool: toolName,
+						data: waveResult,
+					},
+					null,
+					2,
+				),
+			);
+			process.exit(0);
+		},
+	);
+
+/**
  * work-search subcommand.
  * Searches project-scoped rp1 work artifacts.
  */

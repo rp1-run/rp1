@@ -22,10 +22,13 @@ import {
 	type BuildTaskStatus,
 	type BuildTaskType,
 	type BuildTaskUnit,
+	type ScheduleWaveInput,
+	type ScheduleWaveResult,
 	TASK_PLAN_SCHEMA_VERSION,
 	VALID_BUILD_TASK_COMPLEXITIES,
 	VALID_BUILD_TASK_STATUSES,
 	VALID_BUILD_TASK_TYPES,
+	type WaveDispatch,
 } from "./models.js";
 
 const TOOL_NAME = "build-task-plan";
@@ -659,6 +662,193 @@ const buildResult = (
 			dependencyBlockedIds,
 		),
 	});
+};
+
+const KNOWN_SHARED_BASENAMES = new Set([
+	"package-lock.json",
+	"bun.lockb",
+	"bun.lock",
+	"yarn.lock",
+	"pnpm-lock.yaml",
+	"npm-shrinkwrap.json",
+	"agents.yaml",
+]);
+
+const SHARED_SENTINEL = "__shared__";
+
+const isKnownSharedPath = (target: string): boolean => {
+	const name = basename(target);
+	return KNOWN_SHARED_BASENAMES.has(name);
+};
+
+const targetsForUnit = (
+	unit: BuildTaskUnit,
+	tasksByIdMap: ReadonlyMap<string, BuildTaskPlanTask>,
+): readonly string[] => {
+	const targets: string[] = [];
+	for (const taskId of unit.task_ids) {
+		const task = tasksByIdMap.get(taskId);
+		if (task) {
+			targets.push(
+				isKnownSharedPath(task.target) ? SHARED_SENTINEL : task.target,
+			);
+		}
+	}
+	return targets;
+};
+
+const unitsAreFileDisjoint = (
+	targetsA: readonly string[],
+	targetsB: readonly string[],
+): boolean => {
+	const setA = new Set(targetsA);
+	return !targetsB.some((target) => setA.has(target));
+};
+
+export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
+	const {
+		task_units,
+		tasks,
+		completed_task_ids,
+		max_builders,
+		git_commit,
+		clean_tree,
+	} = input;
+
+	const completedSet = new Set(completed_task_ids);
+	const tasksByIdMap = new Map(tasks.map((t) => [t.id, t]));
+
+	const readyUnits = task_units
+		.filter((unit) => {
+			const allTasksDone = unit.task_ids.every((id) => completedSet.has(id));
+			if (allTasksDone) return false;
+			return unit.depends_on.every((dep) => completedSet.has(dep));
+		})
+		.sort((a, b) => a.unit_id - b.unit_id);
+
+	if (readyUnits.length === 0) {
+		return {
+			dispatch: [],
+			reviewer_pipelining: [],
+			held: [],
+			mode: "serial",
+			reason: "no_ready_units",
+		};
+	}
+
+	const unitTargetsMap = new Map(
+		readyUnits.map((u) => [u.unit_id, targetsForUnit(u, tasksByIdMap)]),
+	);
+
+	const canParallelWave =
+		git_commit && clean_tree && readyUnits.length >= 2 && max_builders >= 2;
+
+	if (canParallelWave) {
+		const dispatched: WaveDispatch[] = [];
+		const held: number[] = [];
+
+		const primaryUnit = readyUnits[0];
+		dispatched.push({
+			unit_id: primaryUnit.unit_id,
+			task_ids: [...primaryUnit.task_ids],
+			role: "primary",
+		});
+
+		const primaryTargets = unitTargetsMap.get(primaryUnit.unit_id) ?? [];
+		const dispatchedTargetsSoFar = new Set(primaryTargets);
+
+		for (let i = 1; i < readyUnits.length; i++) {
+			const candidate = readyUnits[i];
+			const candidateTargets = unitTargetsMap.get(candidate.unit_id) ?? [];
+
+			if (dispatched.length >= max_builders) {
+				held.push(candidate.unit_id);
+				continue;
+			}
+
+			const hasMutualDep =
+				candidate.depends_on.some((dep) =>
+					dispatched.some((d) => d.task_ids.includes(dep)),
+				) ||
+				dispatched.some((d) => {
+					const dUnit = task_units.find((u) => u.unit_id === d.unit_id);
+					return dUnit?.depends_on.some((dep) =>
+						candidate.task_ids.includes(dep),
+					);
+				});
+
+			if (hasMutualDep) {
+				held.push(candidate.unit_id);
+				continue;
+			}
+
+			const disjointFromAll = !candidateTargets.some((t) =>
+				dispatchedTargetsSoFar.has(t),
+			);
+
+			if (!disjointFromAll) {
+				held.push(candidate.unit_id);
+				continue;
+			}
+
+			dispatched.push({
+				unit_id: candidate.unit_id,
+				task_ids: [...candidate.task_ids],
+				role: "secondary",
+			});
+
+			for (const t of candidateTargets) {
+				dispatchedTargetsSoFar.add(t);
+			}
+		}
+
+		if (dispatched.length >= 2) {
+			return {
+				dispatch: dispatched,
+				reviewer_pipelining: [],
+				held,
+				mode: "parallel-wave",
+			};
+		}
+	}
+
+	const primary = readyUnits[0];
+	const dispatch: WaveDispatch[] = [
+		{
+			unit_id: primary.unit_id,
+			task_ids: [...primary.task_ids],
+			role: "primary",
+		},
+	];
+
+	const primaryTargets = unitTargetsMap.get(primary.unit_id) ?? [];
+	const pipelining: { review_unit_id: number; build_unit_id: number }[] = [];
+
+	if (readyUnits.length >= 2) {
+		const next = readyUnits[1];
+		const nextTargets = unitTargetsMap.get(next.unit_id) ?? [];
+
+		const nextDependsOnPrimary = next.depends_on.some((dep) =>
+			primary.task_ids.includes(dep),
+		);
+		const filesOverlap = !unitsAreFileDisjoint(primaryTargets, nextTargets);
+
+		if (!nextDependsOnPrimary && !filesOverlap) {
+			pipelining.push({
+				review_unit_id: primary.unit_id,
+				build_unit_id: next.unit_id,
+			});
+		}
+	}
+
+	const held = readyUnits.slice(1).map((u) => u.unit_id);
+
+	return {
+		dispatch,
+		reviewer_pipelining: pipelining,
+		held,
+		mode: "serial",
+	};
 };
 
 export const execute = (

@@ -1,0 +1,388 @@
+import { describe, expect, test } from "bun:test";
+import { scheduleWave } from "../../../agent-tools/build-task-plan/index.js";
+import type {
+	BuildTaskPlanTask,
+	BuildTaskUnit,
+	ScheduleWaveInput,
+} from "../../../agent-tools/build-task-plan/models.js";
+
+const task = (
+	id: string,
+	target: string,
+	overrides: Partial<BuildTaskPlanTask> = {},
+): BuildTaskPlanTask => ({
+	id,
+	title: `Task ${id}`,
+	type: "code",
+	status: "pending",
+	complexity: "simple",
+	acceptance_refs: ["REQ-001"],
+	dependencies: [],
+	target,
+	...overrides,
+});
+
+const unit = (
+	unit_id: number,
+	task_ids: string[],
+	depends_on: string[] = [],
+): BuildTaskUnit => ({
+	unit_id,
+	task_ids,
+	complexity: "simple",
+	depends_on,
+});
+
+const wave = (
+	overrides: Partial<ScheduleWaveInput> = {},
+): ScheduleWaveInput => ({
+	task_units: [],
+	tasks: [],
+	completed_task_ids: [],
+	max_builders: 4,
+	git_commit: true,
+	clean_tree: true,
+	...overrides,
+});
+
+describe("scheduleWave", () => {
+	test("returns empty dispatch when no units exist", () => {
+		const result = scheduleWave(wave());
+
+		expect(result.dispatch).toEqual([]);
+		expect(result.held).toEqual([]);
+		expect(result.mode).toBe("serial");
+		expect(result.reason).toBe("no_ready_units");
+	});
+
+	test("returns empty dispatch when all units are completed", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
+				completed_task_ids: ["T1", "T2"],
+			}),
+		);
+
+		expect(result.dispatch).toEqual([]);
+		expect(result.reason).toBe("no_ready_units");
+	});
+
+	test("returns empty dispatch when all ready units are dependency-blocked", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"], ["T1"])],
+				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
+				completed_task_ids: [],
+			}),
+		);
+
+		expect(result.dispatch).toHaveLength(1);
+		expect(result.dispatch[0].unit_id).toBe(1);
+	});
+
+	test("dispatches single primary unit in serial mode when git_commit is false", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
+				git_commit: false,
+			}),
+		);
+
+		expect(result.mode).toBe("serial");
+		expect(result.dispatch).toEqual([
+			{ unit_id: 1, task_ids: ["T1"], role: "primary" },
+		]);
+		expect(result.held).toEqual([2]);
+	});
+
+	test("dispatches single primary unit in serial mode when tree is dirty", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
+				clean_tree: false,
+			}),
+		);
+
+		expect(result.mode).toBe("serial");
+		expect(result.dispatch).toHaveLength(1);
+		expect(result.dispatch[0].role).toBe("primary");
+		expect(result.held).toEqual([2]);
+	});
+
+	test("dispatches parallel-wave with two disjoint units", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
+			}),
+		);
+
+		expect(result.mode).toBe("parallel-wave");
+		expect(result.dispatch).toEqual([
+			{ unit_id: 1, task_ids: ["T1"], role: "primary" },
+			{ unit_id: 2, task_ids: ["T2"], role: "secondary" },
+		]);
+		expect(result.held).toEqual([]);
+		expect(result.reviewer_pipelining).toEqual([]);
+	});
+
+	test("dispatches up to max_builders secondaries", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [
+					unit(1, ["T1"]),
+					unit(2, ["T2"]),
+					unit(3, ["T3"]),
+					unit(4, ["T4"]),
+					unit(5, ["T5"]),
+				],
+				tasks: [
+					task("T1", "src/a.ts"),
+					task("T2", "src/b.ts"),
+					task("T3", "src/c.ts"),
+					task("T4", "src/d.ts"),
+					task("T5", "src/e.ts"),
+				],
+				max_builders: 3,
+			}),
+		);
+
+		expect(result.mode).toBe("parallel-wave");
+		expect(result.dispatch).toHaveLength(3);
+		expect(result.dispatch[0].role).toBe("primary");
+		expect(result.dispatch[1].role).toBe("secondary");
+		expect(result.dispatch[2].role).toBe("secondary");
+		expect(result.held).toEqual([4, 5]);
+	});
+
+	test("falls back to serial when all candidates overlap on target", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "src/shared.ts"), task("T2", "src/shared.ts")],
+			}),
+		);
+
+		expect(result.mode).toBe("serial");
+		expect(result.dispatch).toHaveLength(1);
+		expect(result.dispatch[0].role).toBe("primary");
+	});
+
+	test("treats lockfiles as always-overlapping via shared sentinel", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "bun.lockb"), task("T2", "package-lock.json")],
+			}),
+		);
+
+		expect(result.mode).toBe("serial");
+		expect(result.dispatch).toHaveLength(1);
+	});
+
+	test("treats catalog agents.yaml as known-shared", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [
+					task("T1", "catalog/agents.yaml"),
+					task("T2", "catalog/agents.yaml"),
+				],
+			}),
+		);
+
+		expect(result.mode).toBe("serial");
+	});
+
+	test("skips dependency-blocked units entirely (not ready)", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"], ["T1"]), unit(3, ["T3"])],
+				tasks: [
+					task("T1", "src/a.ts"),
+					task("T2", "src/b.ts"),
+					task("T3", "src/c.ts"),
+				],
+			}),
+		);
+
+		expect(result.mode).toBe("parallel-wave");
+		expect(result.dispatch).toEqual([
+			{ unit_id: 1, task_ids: ["T1"], role: "primary" },
+			{ unit_id: 3, task_ids: ["T3"], role: "secondary" },
+		]);
+		expect(result.held).toEqual([]);
+	});
+
+	test("computes reviewer-pipelining pair in serial mode", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
+				git_commit: false,
+			}),
+		);
+
+		expect(result.mode).toBe("serial");
+		expect(result.reviewer_pipelining).toEqual([
+			{ review_unit_id: 1, build_unit_id: 2 },
+		]);
+	});
+
+	test("omits pipelining pair when next unit depends on primary", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"], ["T1"])],
+				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
+				git_commit: false,
+			}),
+		);
+
+		expect(result.mode).toBe("serial");
+		expect(result.reviewer_pipelining).toEqual([]);
+	});
+
+	test("omits pipelining pair when next unit shares files with primary", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "src/shared.ts"), task("T2", "src/shared.ts")],
+				git_commit: false,
+			}),
+		);
+
+		expect(result.mode).toBe("serial");
+		expect(result.reviewer_pipelining).toEqual([]);
+	});
+
+	test("handles multi-task units with mixed targets", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1", "T2"]), unit(2, ["T3", "T4"])],
+				tasks: [
+					task("T1", "src/a.ts"),
+					task("T2", "src/b.ts"),
+					task("T3", "src/c.ts"),
+					task("T4", "src/d.ts"),
+				],
+			}),
+		);
+
+		expect(result.mode).toBe("parallel-wave");
+		expect(result.dispatch).toHaveLength(2);
+	});
+
+	test("blocks parallel-wave when multi-task units share a target", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1", "T2"]), unit(2, ["T3", "T4"])],
+				tasks: [
+					task("T1", "src/a.ts"),
+					task("T2", "src/overlap.ts"),
+					task("T3", "src/c.ts"),
+					task("T4", "src/overlap.ts"),
+				],
+			}),
+		);
+
+		expect(result.mode).toBe("serial");
+		expect(result.dispatch).toHaveLength(1);
+	});
+
+	test("respects unit ordering by unit_id", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(3, ["T3"]), unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [
+					task("T1", "src/a.ts"),
+					task("T2", "src/b.ts"),
+					task("T3", "src/c.ts"),
+				],
+			}),
+		);
+
+		expect(result.dispatch[0].unit_id).toBe(1);
+	});
+
+	test("excludes third unit from parallel-wave when it overlaps with second", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"]), unit(3, ["T3"])],
+				tasks: [
+					task("T1", "src/a.ts"),
+					task("T2", "src/b.ts"),
+					task("T3", "src/b.ts"),
+				],
+			}),
+		);
+
+		expect(result.mode).toBe("parallel-wave");
+		expect(result.dispatch).toHaveLength(2);
+		expect(result.dispatch.map((d) => d.unit_id)).toEqual([1, 2]);
+		expect(result.held).toEqual([3]);
+	});
+
+	test("single ready unit dispatches as serial primary", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"])],
+				tasks: [task("T1", "src/a.ts")],
+			}),
+		);
+
+		expect(result.mode).toBe("serial");
+		expect(result.dispatch).toEqual([
+			{ unit_id: 1, task_ids: ["T1"], role: "primary" },
+		]);
+		expect(result.held).toEqual([]);
+	});
+
+	test("handles completed_task_ids unlocking dependent units", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"], ["T1"]), unit(3, ["T3"])],
+				tasks: [
+					task("T1", "src/a.ts"),
+					task("T2", "src/b.ts"),
+					task("T3", "src/c.ts"),
+				],
+				completed_task_ids: ["T1"],
+			}),
+		);
+
+		expect(result.mode).toBe("parallel-wave");
+		expect(result.dispatch.map((d) => d.unit_id)).toEqual([2, 3]);
+	});
+
+	test("default max_builders of 4 allows primary plus 3 secondaries", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [
+					unit(1, ["T1"]),
+					unit(2, ["T2"]),
+					unit(3, ["T3"]),
+					unit(4, ["T4"]),
+					unit(5, ["T5"]),
+				],
+				tasks: [
+					task("T1", "src/a.ts"),
+					task("T2", "src/b.ts"),
+					task("T3", "src/c.ts"),
+					task("T4", "src/d.ts"),
+					task("T5", "src/e.ts"),
+				],
+				max_builders: 4,
+			}),
+		);
+
+		expect(result.dispatch).toHaveLength(4);
+		expect(result.dispatch[0].role).toBe("primary");
+		expect(result.dispatch[1].role).toBe("secondary");
+		expect(result.dispatch[2].role).toBe("secondary");
+		expect(result.dispatch[3].role).toBe("secondary");
+		expect(result.held).toEqual([5]);
+	});
+});

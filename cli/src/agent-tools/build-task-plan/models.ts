@@ -49,6 +49,34 @@ export interface BuildTaskUnit {
 	readonly depends_on: readonly string[];
 }
 
+export interface ScheduleWaveInput {
+	readonly task_units: readonly BuildTaskUnit[];
+	readonly tasks: readonly BuildTaskPlanTask[];
+	readonly completed_task_ids: readonly string[];
+	readonly max_builders: number;
+	readonly git_commit: boolean;
+	readonly clean_tree: boolean;
+}
+
+export interface WaveDispatch {
+	readonly unit_id: number;
+	readonly task_ids: readonly string[];
+	readonly role: "primary" | "secondary";
+}
+
+export interface ReviewerPipelinePair {
+	readonly review_unit_id: number;
+	readonly build_unit_id: number;
+}
+
+export interface ScheduleWaveResult {
+	readonly dispatch: readonly WaveDispatch[];
+	readonly reviewer_pipelining: readonly ReviewerPipelinePair[];
+	readonly held: readonly number[];
+	readonly mode: "serial" | "parallel-wave";
+	readonly reason?: string;
+}
+
 export interface BuildTaskPlanSummary {
 	readonly total_tasks: number;
 	readonly pending: number;
