@@ -1492,6 +1492,44 @@ TASK_ID=1
 		expect(companion).toContain("subagent_type: rp1-dev:task-builder");
 	});
 
+	test("injects the emit harness flag into companions", async () => {
+		const projectRoot = join(tempDir, "project-harness");
+		await writeSkillWithCompanions(projectRoot, {
+			"references/phase.md": `# Phase 3
+
+\`\`\`bash
+rp1 agent-tools emit \\
+  --workflow sample \\
+  --type status_change \\
+  --run-id {RUN_ID} \\
+  --step building
+\`\`\`
+
+{% dispatch_agent "rp1-dev:task-builder" %}
+TASK_ID=1
+{% enddispatch_agent %}
+`,
+		});
+
+		const out = join(tempDir, "out-harness");
+		const result = await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			out,
+			claudeCodeDef,
+			noopLogger,
+			true,
+		);
+
+		expect(result.summary.errors).toEqual([]);
+		const companion = await readFile(
+			join(out, "base", "skills", "sample", "references", "phase.md"),
+			"utf-8",
+		);
+		// Without this transform the companion's events record a NULL harness.
+		expect(companion).toContain("rp1 agent-tools emit --harness $CURRENT_HOST");
+	});
+
 	test("leaves companions without rp1 markup byte-identical", async () => {
 		const projectRoot = join(tempDir, "project-verbatim");
 		// Some companions document Liquid templating itself; rendering them

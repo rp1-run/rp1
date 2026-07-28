@@ -4,24 +4,24 @@
     "rp1-dev:build@claude-code": {
       "platform": "claude-code",
       "prompt_hash": "sha256:fba683f80ca873521961e7404e7a9f635f73fad4f8adcc2191ebd4ff1c85527e",
-      "deps_hash": "sha256:c84aea2c6b68cc7e38c059c705482464f51d37f842d649f88ff461b0b424a393",
+      "deps_hash": "sha256:4bd17b1f82bb8bd4f532e1839cdb106b75c51e14458b3d9c18f722e24d3968bf",
       "version": "3.0.0",
       "last_eval": {
         "passed": true,
-        "timestamp": "2026-07-27T08:13:54.298Z",
-        "git_commit": "d64bcd98",
+        "timestamp": "2026-07-28T00:08:45.563Z",
+        "git_commit": "74b9f3b1",
         "result_file": "output/rp1-dev-build.json"
       }
     },
     "rp1-dev:build-fast@claude-code": {
       "platform": "claude-code",
       "prompt_hash": "sha256:a22f015297d7e97d1a64f6658feb86bc51797a9c74b87c12749303e65b0b41a0",
-      "deps_hash": "sha256:bda3f8055bddc1e2150886a3483e1729e8740dc4c47c86500bc950cdc492542b",
+      "deps_hash": "sha256:7333b00fa52fce6b6b49fed568e43b7c10fd0b5a6a83f408c5015613ac3b010d",
       "version": "3.0.0",
       "last_eval": {
         "passed": true,
-        "timestamp": "2026-07-27T21:08:47.877Z",
-        "git_commit": "d64bcd98",
+        "timestamp": "2026-07-28T00:24:50.176Z",
+        "git_commit": "74b9f3b1",
         "result_file": "output/rp1-dev-build-fast.json"
       }
     },
@@ -80,7 +80,7 @@
     "dist/claude-code/dev/skills/build-fast/SKILL.md": "sha256:a22f015297d7e97d1a64f6658feb86bc51797a9c74b87c12749303e65b0b41a0",
     "dist/claude-code/dev/agents/build-fast-planner.md": "sha256:c99b6b5a012e00a098d8fc2a038ec51aafcf3f3a3ec50a3f27a0f73682099b7c",
     "dist/claude-code/dev/agents/task-builder.md": "sha256:da6a60d0e884ac036650892efc3fefcbf3d181fd288e463adb8aa9e95b1ca7b3",
-    "dist/claude-code/dev/agents/task-reviewer.md": "sha256:cb3affacd3c8d63c584b29f48056f9c119003bb873f0643edecbc4b16be8cde0",
+    "dist/claude-code/dev/agents/task-reviewer.md": "sha256:52f28d924e2757916bcdd62a8e364a3829535c22e11351dff2c05a5c307f89af",
     "dist/claude-code/dev/skills/speedrun/SKILL.md": "sha256:255736bc8c009149b3d2f3831c3223e260053830fe7e8b06c89c56bd54c0fc71",
     "dist/claude-code/dev/agents/speedrun-builder.md": "sha256:f2c2cad660c9a4d810a536afd407359ea90496b46da114d16726abadfb3f17a5",
     "dist/claude-code/dev/skills/build/SKILL.md": "sha256:fba683f80ca873521961e7404e7a9f635f73fad4f8adcc2191ebd4ff1c85527e",
@@ -92,9 +92,13 @@
     "dist/claude-code/dev/agents/build-task-parser.md": "sha256:df5e6f3f94d56f9d3675e84d2fea3af7f7f39552e9871d5e6a622430a02cde18",
     "dist/claude-code/dev/agents/build-task-grouper.md": "sha256:2178da8cc353e11e63bf180977843d052b0e7f60fdf95079d3bb30025e2fd223",
     "dist/claude-code/dev/agents/code-checker.md": "sha256:7a00bebed42e50725252e581e3829e3338778a5c112deb378d5c6aa0b503944c",
-    "dist/claude-code/dev/agents/feature-verifier.md": "sha256:d2c1bc5571ba5ddf3ce70dc112c60f7ace01bd51b6834253ab50300ea5510821",
+    "dist/claude-code/dev/agents/feature-verifier.md": "sha256:cf2e9f5703f68548422e108e5b6f8caa77597f8f9565d588d23ceda3f94ab34d",
     "dist/claude-code/dev/agents/comment-cleaner.md": "sha256:2b32e84b70025dfebf2ac71e2c39fc3642a46cce277bb10f484aa0b3d3d2c906",
     "dist/claude-code/dev/agents/build-verify-aggregator.md": "sha256:e07a7a99c34bc2fbbe16ba14ecbaa609deb4dd7f54674e1e9969bb0c4b3b8cb7",
-    "dist/claude-code/dev/agents/feature-archiver.md": "sha256:55274c3100910c926950f6c81090fbfdae6eb25e6809cbf038c7d259884cc418"
+    "dist/claude-code/dev/agents/feature-archiver.md": "sha256:55274c3100910c926950f6c81090fbfdae6eb25e6809cbf038c7d259884cc418",
+    "dist/claude-code/dev/skills/build/references/build-redirected.md": "sha256:93488d6a49ab51e3a8ee430cf54f3390e00471ef36112abb6bbd831165b5025f",
+    "dist/claude-code/dev/skills/build/references/implementation-and-release.md": "sha256:49e8eaeef517c5466a89baa207156a83e09aa813c6c3335438ec71e304fce3e1",
+    "dist/claude-code/dev/skills/build/references/parallel-builders.md": "sha256:4b4c3de6a7f83026fe05b73ae04784ed9a73e7920e33641ad3b2c0a72d20a455",
+    "dist/claude-code/dev/skills/build-fast/references/review-and-finalization.md": "sha256:098c4e678c4a18a12f8c38f2c8e862b3cf69d5bad7cea49e7d577856e7580b89"
   }
 }

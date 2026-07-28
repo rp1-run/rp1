@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join, posix, relative } from "node:path";
 
 const REPO_ROOT = join(import.meta.dir, "..", "..", "..", "..");
 const PLUGINS_ROOT = join(REPO_ROOT, "plugins");
@@ -155,6 +155,37 @@ const listTrackedWorkflowSkills = async (
 	return trackedSkills.sort();
 };
 
+/**
+ * Markdown companions under a skill's `references/` directory, sorted so the
+ * traversal order — and therefore the deps hash — is stable.
+ *
+ * Paths are forward-slash identity, not filesystem locations: the deps hash
+ * sorts by them, so a platform-dependent separator would hash the same content
+ * differently on Windows than on POSIX.
+ *
+ * Mirrors `listSkillCompanions` in evals/src/attestation/deps-graph.ts. The
+ * two live in separate packages, so the traversal is duplicated rather than
+ * shared; keep them in step.
+ */
+const listSkillCompanions = async (
+	filePath: string,
+): Promise<readonly string[]> => {
+	const normalized = filePath.replace(/\\/g, "/");
+	if (!normalized.endsWith("/SKILL.md")) {
+		return [];
+	}
+	const relativeRefsDir = `${posix.dirname(normalized)}/references`;
+	try {
+		const entries = await readdir(join(REPO_ROOT, relativeRefsDir));
+		return entries
+			.filter((entry) => entry.endsWith(".md"))
+			.sort()
+			.map((entry) => `${relativeRefsDir}/${entry}`);
+	} catch {
+		return [];
+	}
+};
+
 const collectDependencyPaths = async (skillPath: string): Promise<string[]> => {
 	const visited = new Set<string>();
 	const hashes: string[] = [];
@@ -171,6 +202,7 @@ const collectDependencyPaths = async (skillPath: string): Promise<string[]> => {
 
 		const content = await readPrompt(currentPath);
 		for (const ref of [
+			...(await listSkillCompanions(currentPath)),
 			...parseAgentRefs(content),
 			...parseSkillRefs(content),
 		]) {

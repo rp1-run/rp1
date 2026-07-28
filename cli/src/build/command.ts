@@ -434,8 +434,12 @@ const copySupportingFiles = async (
 			continue;
 		}
 
-		await writeFile(destPath, preprocessResult.right);
-		processed.set(file, preprocessResult.right);
+		// Companions carry emit commands of their own, so they need the same
+		// post-render transform as SKILL.md — without it their events record a
+		// NULL harness.
+		const content = injectEmitHarness(preprocessResult.right, platform);
+		await writeFile(destPath, content);
+		processed.set(file, content);
 	}
 
 	return { processed, errors };
