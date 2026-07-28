@@ -247,7 +247,7 @@ describe("Build v2 static contracts", () => {
 			"Use the schema-backed task plan sidecar. Do not parse `tasks.md` for machine planning.",
 		);
 		expect(content).toContain(
-			"Never derive task IDs from `tasks.md`; use `TASK_UNIT_IDS` from the current `task_unit`.",
+			"Never derive task IDs from `tasks.md`; use the tool output.",
 		);
 		expect(content).not.toContain("build-task-parser");
 		expect(content).not.toContain("build-task-grouper");
@@ -256,26 +256,23 @@ describe("Build v2 static contracts", () => {
 	test("implementation checks the ready wave before falling back to serial dispatch", async () => {
 		const content = await readSkillSurface("plugins/dev/skills/build");
 
-		const readySetIndex = content.indexOf("#### Ready-Set Derivation");
-		const pipelinedIndex = content.indexOf("#### Pipelined Dispatch");
-		const parallelWaveIndex = content.indexOf("#### Parallel-Wave Mode");
+		const dispatchCycleIndex = content.indexOf("#### Dispatch Cycle");
+		const dispatchFromIndex = content.indexOf(
+			"#### Dispatching from `schedule-wave` Output",
+		);
+		const parallelModeIndex = content.indexOf("**Parallel-wave mode**");
+		const serialModeIndex = content.indexOf("**Serial mode**");
 
-		expect(readySetIndex).toBeGreaterThan(-1);
-		expect(pipelinedIndex).toBeGreaterThan(readySetIndex);
-		expect(parallelWaveIndex).toBeGreaterThan(pipelinedIndex);
+		expect(dispatchCycleIndex).toBeGreaterThan(-1);
+		expect(dispatchFromIndex).toBeGreaterThan(dispatchCycleIndex);
+		expect(parallelModeIndex).toBeGreaterThan(dispatchFromIndex);
+		expect(serialModeIndex).toBeGreaterThan(parallelModeIndex);
+		expect(content).toContain("rp1 agent-tools schedule-wave");
 		expect(content).toContain(
-			"Before every dispatch cycle, recalculate `READY_UNITS`",
+			"Repeat until `schedule-wave` returns an empty dispatch",
 		);
-		expect(content).toContain(
-			"Do not require one builder to finish before checking for a ready wave.",
-		);
-		expect(content).toContain(
-			"If `READY_UNITS` has 2+ entries and all Parallel-Wave Mode preconditions pass, use Parallel-Wave Mode immediately.",
-		);
-		expect(content).toContain(
-			"At the start of each dispatch cycle, before selecting a serial unit",
-		);
-		expect(content).toContain("Default no-commit builds are serial.");
+		expect(content).toContain('`mode == "parallel-wave"`');
+		expect(content).toContain('`mode == "serial"`');
 	});
 
 	test("parallel builder reference integrates secondary work only after primary review succeeds", async () => {
@@ -286,10 +283,10 @@ describe("Build v2 static contracts", () => {
 		const builder = await readProjectFile("plugins/dev/agents/task-builder.md");
 
 		expect(build).toContain(
-			"Dispatch reviewer(k) on the primary `codeRoot` before integrating the secondary worktree.",
+			"Review the primary unit first. On primary reviewer success, integrate each secondary worktree",
 		);
 		expect(build).toContain(
-			"If reviewer(k) fails or is malformed, abandon the secondary worktree",
+			"If the primary reviewer fails, abandon all secondary worktrees",
 		);
 		expect(reference).toContain(
 			"After both builders complete and reviewer(k) succeeds on the primary branch",

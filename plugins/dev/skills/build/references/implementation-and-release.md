@@ -78,7 +78,11 @@ If `dispatch` is empty and uncompleted units remain, emit `implementation` waiti
 **Parallel-wave mode** (`mode == "parallel-wave"`): Dispatch all units in `dispatch` as concurrent builders. The first entry (role `primary`) runs on `codeRoot`; each `secondary` entry runs on a dedicated worktree (see `references/parallel-builders.md` for worktree lifecycle). Dispatch all builder blocks back-to-back in one message:
 
 {% dispatch_agent "rp1-dev:task-builder", background %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot or worktreePath}, TASK_IDS={dispatch[n].task_ids}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={dispatch[primary].task_ids}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
+
+{% dispatch_agent "rp1-dev:task-builder", background %}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={worktreePath}, TASK_IDS={dispatch[secondary].task_ids}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 Wait for all builders to complete. Review the primary unit first. On primary reviewer success, integrate each secondary worktree per `references/parallel-builders.md`, then review each integrated secondary on the primary `codeRoot`. If the primary reviewer fails, abandon all secondary worktrees, retry or escalate the primary per the Reviewer Failure section, and rebuild secondaries serially after the primary passes. If integration fails for a secondary, apply the Conflict Fallback (discard worktree, rebuild that unit serially).
