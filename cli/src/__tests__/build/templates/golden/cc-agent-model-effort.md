@@ -1,6 +1,7 @@
 ---
 model: opus
 effort: high
+tools: Bash, Read
 ---
 
 ## Host Context

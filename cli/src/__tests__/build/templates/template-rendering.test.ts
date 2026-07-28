@@ -16,6 +16,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { agentTools } from "../../../build/filters/agent-tools.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const GOLDEN_DIR = join(__dirname, "golden");
@@ -105,6 +106,10 @@ const createTestEngine = () => {
 			}
 			return content;
 		},
+	);
+
+	engine.registerFilter("agent_tools", (tools: readonly string[]) =>
+		agentTools(tools),
 	);
 
 	engine.registerFilter("allowed_tools", (value: string, platform: string) => {
@@ -1324,6 +1329,73 @@ describeWithLiquid("template rendering", () => {
 			});
 			expect(result).not.toContain("---");
 			expect(result).not.toContain("model:");
+		});
+
+		test("emits the declared tool allowlist so restrictions survive compilation", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("claude-code/agent", {
+				platform: "claude-code",
+				artifact: {
+					type: "agent",
+					name: "test-agent",
+					description: "Test agent",
+					model: "sonnet",
+					tools: ["Read", "Grep", "Glob"],
+					content: "Agent content.",
+				},
+			});
+			expect(result).toContain("tools: Read, Grep, Glob");
+		});
+
+		test("collapses scoped Bash specifiers in the emitted allowlist", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("claude-code/agent", {
+				platform: "claude-code",
+				artifact: {
+					type: "agent",
+					name: "test-agent",
+					description: "Test agent",
+					model: "sonnet",
+					tools: ["Read", "Write", "Glob", "Bash(rp1 *)"],
+					content: "Agent content.",
+				},
+			});
+			expect(result).toContain("tools: Read, Write, Glob, Bash");
+			expect(result).not.toContain("Bash(rp1 *)");
+		});
+
+		test("emits frontmatter for tools alone when model is inherit and effort absent", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("claude-code/agent", {
+				platform: "claude-code",
+				artifact: {
+					type: "agent",
+					name: "test-agent",
+					description: "Test agent",
+					model: "inherit",
+					tools: ["Read"],
+					content: "Agent content.",
+				},
+			});
+			expect(result).toContain("tools: Read");
+			expect(result).not.toContain("model:");
+		});
+
+		test("omits tools when the declared list is empty so the agent inherits", async () => {
+			const engine = createTestEngine();
+			const result = await engine.renderFile("claude-code/agent", {
+				platform: "claude-code",
+				artifact: {
+					type: "agent",
+					name: "test-agent",
+					description: "Test agent",
+					model: "sonnet",
+					tools: [],
+					content: "Agent content.",
+				},
+			});
+			expect(result).toContain("model: sonnet");
+			expect(result).not.toContain("tools:");
 		});
 
 		test("golden: model + effort produces frontmatter with both fields", async () => {
