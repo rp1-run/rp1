@@ -1,10 +1,14 @@
-{%- if artifact.model != "inherit" or artifact.effortValue -%}
+{%- assign agentToolList = artifact.tools | agent_tools -%}
+{%- if artifact.model != "inherit" or artifact.effortValue or agentToolList != "" -%}
 ---
 {%- if artifact.model != "inherit" %}
 model: {{ artifact.model }}
 {%- endif %}
 {%- if artifact.effortValue %}
 {{ artifact.effortFieldName }}: {{ artifact.effortValue }}
+{%- endif %}
+{%- if agentToolList != "" %}
+tools: {{ agentToolList }}
 {%- endif %}
 ---
 

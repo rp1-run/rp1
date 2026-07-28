@@ -1,5 +1,6 @@
 ---
 model: haiku
+tools: Bash
 ---
 
 ## Host Context
