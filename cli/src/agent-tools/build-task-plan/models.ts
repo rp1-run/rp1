@@ -1,5 +1,15 @@
 export const TASK_PLAN_SCHEMA_VERSION = 1;
 
+/** Concurrent builders the scheduler proposes when the caller says nothing. */
+export const DEFAULT_MAX_BUILDERS = 4;
+
+/**
+ * Hard ceiling on concurrent builders. Every builder past the primary runs in
+ * its own git worktree, so the ceiling matches the worktree lifecycle the build
+ * skill documents rather than being unbounded.
+ */
+export const MAX_BUILDERS_LIMIT = 4;
+
 export const VALID_BUILD_TASK_TYPES = ["code", "docs"] as const;
 export const VALID_BUILD_TASK_STATUSES = [
 	"pending",
@@ -49,10 +59,18 @@ export interface BuildTaskUnit {
 	readonly depends_on: readonly string[];
 }
 
+/**
+ * Scheduler input. Cross-call state is carried by task ID, never by
+ * `unit_id`: units are renumbered from 1 on every call as tasks complete, so a
+ * `unit_id` is only meaningful within the response that produced it.
+ */
 export interface ScheduleWaveInput {
 	readonly task_units: readonly BuildTaskUnit[];
 	readonly tasks: readonly BuildTaskPlanTask[];
+	/** Task IDs whose reviewer returned SUCCESS. Satisfies dependencies. */
 	readonly completed_task_ids: readonly string[];
+	/** Task IDs a builder finished but no reviewer has accepted yet. */
+	readonly built_task_ids: readonly string[];
 	readonly max_builders: number;
 	readonly git_commit: boolean;
 	readonly clean_tree: boolean;
@@ -64,16 +82,25 @@ export interface WaveDispatch {
 	readonly role: "primary" | "secondary";
 }
 
-export interface ReviewerPipelinePair {
-	readonly review_unit_id: number;
-	readonly build_unit_id: number;
+/** A unit whose build is already done and which needs review, not rebuilding. */
+export interface WaveReview {
+	readonly unit_id: number;
+	readonly task_ids: readonly string[];
 }
 
+/**
+ * Scheduler output.
+ *
+ * `review` and `dispatch` are independent: when both are non-empty the
+ * orchestrator runs them concurrently, which is the reviewer-pipelining case.
+ * The scheduler only pairs them when the build is dependency-free and
+ * file-disjoint from the unit under review.
+ */
 export interface ScheduleWaveResult {
+	readonly review: readonly WaveReview[];
 	readonly dispatch: readonly WaveDispatch[];
-	readonly reviewer_pipelining: readonly ReviewerPipelinePair[];
 	readonly held: readonly number[];
-	readonly mode: "serial" | "parallel-wave";
+	readonly mode: "serial" | "parallel-wave" | "review-only";
 	readonly reason?: string;
 }
 

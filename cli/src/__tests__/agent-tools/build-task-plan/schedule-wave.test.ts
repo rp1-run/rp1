@@ -39,6 +39,7 @@ const wave = (
 	task_units: [],
 	tasks: [],
 	completed_task_ids: [],
+	built_task_ids: [],
 	max_builders: 4,
 	git_commit: true,
 	clean_tree: true,
@@ -126,7 +127,7 @@ describe("scheduleWave", () => {
 			{ unit_id: 2, task_ids: ["T2"], role: "secondary" },
 		]);
 		expect(result.held).toEqual([]);
-		expect(result.reviewer_pipelining).toEqual([]);
+		expect(result.review).toEqual([]);
 	});
 
 	test("dispatches up to max_builders secondaries", () => {
@@ -217,45 +218,140 @@ describe("scheduleWave", () => {
 		expect(result.held).toEqual([]);
 	});
 
-	test("computes reviewer-pipelining pair in serial mode", () => {
+	test("pipelines one builder alongside the review of a built unit", () => {
 		const result = scheduleWave(
 			wave({
 				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
 				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
+				built_task_ids: ["T1"],
 				git_commit: false,
 			}),
 		);
 
 		expect(result.mode).toBe("serial");
-		expect(result.reviewer_pipelining).toEqual([
-			{ review_unit_id: 1, build_unit_id: 2 },
+		expect(result.review).toEqual([{ unit_id: 1, task_ids: ["T1"] }]);
+		expect(result.dispatch).toEqual([
+			{ unit_id: 2, task_ids: ["T2"], role: "primary" },
 		]);
 	});
 
-	test("omits pipelining pair when next unit depends on primary", () => {
+	test("does not pipeline a builder that depends on the unit under review", () => {
 		const result = scheduleWave(
 			wave({
 				task_units: [unit(1, ["T1"]), unit(2, ["T2"], ["T1"])],
 				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
+				built_task_ids: ["T1"],
 				git_commit: false,
 			}),
 		);
 
-		expect(result.mode).toBe("serial");
-		expect(result.reviewer_pipelining).toEqual([]);
+		expect(result.mode).toBe("review-only");
+		expect(result.review).toEqual([{ unit_id: 1, task_ids: ["T1"] }]);
+		expect(result.dispatch).toEqual([]);
+		// Unit 2 is dependency-blocked rather than held: its dependency is built
+		// but not yet reviewed, so it is not a ready unit at all.
+		expect(result.held).toEqual([]);
 	});
 
-	test("omits pipelining pair when next unit shares files with primary", () => {
+	test("does not pipeline a builder sharing files with the unit under review", () => {
 		const result = scheduleWave(
 			wave({
 				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
 				tasks: [task("T1", "src/shared.ts"), task("T2", "src/shared.ts")],
+				built_task_ids: ["T1"],
 				git_commit: false,
 			}),
 		);
 
+		expect(result.mode).toBe("review-only");
+		expect(result.dispatch).toEqual([]);
+		expect(result.held).toEqual([2]);
+	});
+
+	test("never re-dispatches a builder for a unit that is already built", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
+				built_task_ids: ["T2"],
+				git_commit: false,
+			}),
+		);
+
+		expect(result.review).toEqual([{ unit_id: 2, task_ids: ["T2"] }]);
+		expect(result.dispatch.map((d) => d.unit_id)).not.toContain(2);
+	});
+
+	test("offers a built unit for review before starting a parallel wave", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"]), unit(3, ["T3"])],
+				tasks: [
+					task("T1", "src/a.ts"),
+					task("T2", "src/b.ts"),
+					task("T3", "src/c.ts"),
+				],
+				built_task_ids: ["T1"],
+			}),
+		);
+
+		expect(result.review).toEqual([{ unit_id: 1, task_ids: ["T1"] }]);
+		expect(result.dispatch).toHaveLength(1);
 		expect(result.mode).toBe("serial");
-		expect(result.reviewer_pipelining).toEqual([]);
+	});
+
+	test("reviews built units in ascending unit order", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
+				built_task_ids: ["T2", "T1"],
+			}),
+		);
+
+		expect(result.review).toEqual([{ unit_id: 1, task_ids: ["T1"] }]);
+		expect(result.mode).toBe("review-only");
+		expect(result.held).toEqual([2]);
+	});
+
+	test("treats a directory target as overlapping a file beneath it", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [
+					task("T1", "cli/src/build"),
+					task("T2", "cli/src/build/filters/index.ts"),
+				],
+			}),
+		);
+
+		expect(result.mode).toBe("serial");
+		expect(result.dispatch).toHaveLength(1);
+		expect(result.held).toEqual([2]);
+	});
+
+	test("does not treat a sibling path sharing a prefix as overlapping", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "cli/src/build"), task("T2", "cli/src/buildx")],
+			}),
+		);
+
+		expect(result.mode).toBe("parallel-wave");
+		expect(result.dispatch).toHaveLength(2);
+	});
+
+	test("normalizes equivalent target spellings as overlapping", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "./src/a.ts"), task("T2", "src/a.ts")],
+			}),
+		);
+
+		expect(result.mode).toBe("serial");
+		expect(result.held).toEqual([2]);
 	});
 
 	test("handles multi-task units with mixed targets", () => {

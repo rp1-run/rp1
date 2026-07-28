@@ -681,6 +681,18 @@ const isKnownSharedPath = (target: string): boolean => {
 	return KNOWN_SHARED_BASENAMES.has(name);
 };
 
+/**
+ * Normalize a task target for comparison: drop a leading `./`, collapse
+ * repeated separators, and drop a trailing separator so that `./src/a/`,
+ * `src//a`, and `src/a` all compare equal.
+ */
+const normalizeTarget = (target: string): string => {
+	const unified = target.trim().replace(/\\/g, "/");
+	const withoutPrefix = unified.replace(/^\.\//, "");
+	const collapsed = withoutPrefix.replace(/\/{2,}/g, "/");
+	return collapsed.length > 1 ? collapsed.replace(/\/$/, "") : collapsed;
+};
+
 const targetsForUnit = (
 	unit: BuildTaskUnit,
 	tasksByIdMap: ReadonlyMap<string, BuildTaskPlanTask>,
@@ -690,77 +702,140 @@ const targetsForUnit = (
 		const task = tasksByIdMap.get(taskId);
 		if (task) {
 			targets.push(
-				isKnownSharedPath(task.target) ? SHARED_SENTINEL : task.target,
+				isKnownSharedPath(task.target)
+					? SHARED_SENTINEL
+					: normalizeTarget(task.target),
 			);
 		}
 	}
 	return targets;
 };
 
+/**
+ * Two targets overlap when they are equal or when one contains the other.
+ * A directory target such as `cli/src/build` overlaps a file target beneath
+ * it, so comparing for equality alone would let overlapping work run
+ * concurrently. Comparison is segment-aware: `cli/src/buildx` does not
+ * overlap `cli/src/build`.
+ */
+const targetsOverlap = (a: string, b: string): boolean =>
+	a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
+
 const unitsAreFileDisjoint = (
 	targetsA: readonly string[],
 	targetsB: readonly string[],
-): boolean => {
-	const setA = new Set(targetsA);
-	return !targetsB.some((target) => setA.has(target));
-};
+): boolean => !targetsA.some((a) => targetsB.some((b) => targetsOverlap(a, b)));
 
 export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 	const {
 		task_units,
 		tasks,
 		completed_task_ids,
+		built_task_ids,
 		max_builders,
 		git_commit,
 		clean_tree,
 	} = input;
 
 	const completedSet = new Set(completed_task_ids);
+	const builtSet = new Set(built_task_ids);
 	const tasksByIdMap = new Map(tasks.map((t) => [t.id, t]));
 
+	const isCompleted = (unit: BuildTaskUnit): boolean =>
+		unit.task_ids.every((id) => completedSet.has(id));
+	const isBuilt = (unit: BuildTaskUnit): boolean =>
+		!isCompleted(unit) && unit.task_ids.every((id) => builtSet.has(id));
+
+	const byUnitId = (a: BuildTaskUnit, b: BuildTaskUnit): number =>
+		a.unit_id - b.unit_id;
+	const targetsFor = (unit: BuildTaskUnit): readonly string[] =>
+		targetsForUnit(unit, tasksByIdMap);
+
+	const builtUnits = task_units.filter(isBuilt).sort(byUnitId);
+
+	// A unit is ready to build only when no builder has produced it yet and
+	// every dependency has been *reviewed*, not merely built.
 	const readyUnits = task_units
-		.filter((unit) => {
-			const allTasksDone = unit.task_ids.every((id) => completedSet.has(id));
-			if (allTasksDone) return false;
-			return unit.depends_on.every((dep) => completedSet.has(dep));
-		})
-		.sort((a, b) => a.unit_id - b.unit_id);
+		.filter(
+			(unit) =>
+				!isCompleted(unit) &&
+				!isBuilt(unit) &&
+				unit.depends_on.every((dep) => completedSet.has(dep)),
+		)
+		.sort(byUnitId);
+
+	// Built work must be reviewed, never re-dispatched to a builder: its edits
+	// are already on disk, so rebuilding would re-apply them.
+	if (builtUnits.length > 0) {
+		const reviewUnit = builtUnits[0];
+		const review = [
+			{ unit_id: reviewUnit.unit_id, task_ids: [...reviewUnit.task_ids] },
+		];
+		const reviewTargets = targetsFor(reviewUnit);
+		const heldUnits = builtUnits.slice(1).map((u) => u.unit_id);
+
+		// One builder may run alongside the review, but only where a retry
+		// rebuild of the reviewed unit could not collide with it.
+		const candidate = readyUnits.find(
+			(unit) =>
+				!unit.depends_on.some((dep) => reviewUnit.task_ids.includes(dep)) &&
+				unitsAreFileDisjoint(reviewTargets, targetsFor(unit)),
+		);
+
+		if (!candidate) {
+			return {
+				review,
+				dispatch: [],
+				held: [...heldUnits, ...readyUnits.map((u) => u.unit_id)],
+				mode: "review-only",
+			};
+		}
+
+		return {
+			review,
+			dispatch: [
+				{
+					unit_id: candidate.unit_id,
+					task_ids: [...candidate.task_ids],
+					role: "primary",
+				},
+			],
+			held: [
+				...heldUnits,
+				...readyUnits
+					.filter((u) => u.unit_id !== candidate.unit_id)
+					.map((u) => u.unit_id),
+			],
+			mode: "serial",
+		};
+	}
 
 	if (readyUnits.length === 0) {
 		return {
+			review: [],
 			dispatch: [],
-			reviewer_pipelining: [],
 			held: [],
 			mode: "serial",
 			reason: "no_ready_units",
 		};
 	}
 
-	const unitTargetsMap = new Map(
-		readyUnits.map((u) => [u.unit_id, targetsForUnit(u, tasksByIdMap)]),
-	);
-
 	const canParallelWave =
 		git_commit && clean_tree && readyUnits.length >= 2 && max_builders >= 2;
 
 	if (canParallelWave) {
-		const dispatched: WaveDispatch[] = [];
-		const held: number[] = [];
-
 		const primaryUnit = readyUnits[0];
-		dispatched.push({
-			unit_id: primaryUnit.unit_id,
-			task_ids: [...primaryUnit.task_ids],
-			role: "primary",
-		});
+		const dispatched: WaveDispatch[] = [
+			{
+				unit_id: primaryUnit.unit_id,
+				task_ids: [...primaryUnit.task_ids],
+				role: "primary",
+			},
+		];
+		const held: number[] = [];
+		const claimedTargets: string[] = [...targetsFor(primaryUnit)];
 
-		const primaryTargets = unitTargetsMap.get(primaryUnit.unit_id) ?? [];
-		const dispatchedTargetsSoFar = new Set(primaryTargets);
-
-		for (let i = 1; i < readyUnits.length; i++) {
-			const candidate = readyUnits[i];
-			const candidateTargets = unitTargetsMap.get(candidate.unit_id) ?? [];
-
+		for (const candidate of readyUnits.slice(1)) {
 			if (dispatched.length >= max_builders) {
 				held.push(candidate.unit_id);
 				continue;
@@ -782,11 +857,8 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 				continue;
 			}
 
-			const disjointFromAll = !candidateTargets.some((t) =>
-				dispatchedTargetsSoFar.has(t),
-			);
-
-			if (!disjointFromAll) {
+			const candidateTargets = targetsFor(candidate);
+			if (!unitsAreFileDisjoint(claimedTargets, candidateTargets)) {
 				held.push(candidate.unit_id);
 				continue;
 			}
@@ -796,57 +868,25 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 				task_ids: [...candidate.task_ids],
 				role: "secondary",
 			});
-
-			for (const t of candidateTargets) {
-				dispatchedTargetsSoFar.add(t);
-			}
+			claimedTargets.push(...candidateTargets);
 		}
 
 		if (dispatched.length >= 2) {
-			return {
-				dispatch: dispatched,
-				reviewer_pipelining: [],
-				held,
-				mode: "parallel-wave",
-			};
+			return { review: [], dispatch: dispatched, held, mode: "parallel-wave" };
 		}
 	}
 
 	const primary = readyUnits[0];
-	const dispatch: WaveDispatch[] = [
-		{
-			unit_id: primary.unit_id,
-			task_ids: [...primary.task_ids],
-			role: "primary",
-		},
-	];
-
-	const primaryTargets = unitTargetsMap.get(primary.unit_id) ?? [];
-	const pipelining: { review_unit_id: number; build_unit_id: number }[] = [];
-
-	if (readyUnits.length >= 2) {
-		const next = readyUnits[1];
-		const nextTargets = unitTargetsMap.get(next.unit_id) ?? [];
-
-		const nextDependsOnPrimary = next.depends_on.some((dep) =>
-			primary.task_ids.includes(dep),
-		);
-		const filesOverlap = !unitsAreFileDisjoint(primaryTargets, nextTargets);
-
-		if (!nextDependsOnPrimary && !filesOverlap) {
-			pipelining.push({
-				review_unit_id: primary.unit_id,
-				build_unit_id: next.unit_id,
-			});
-		}
-	}
-
-	const held = readyUnits.slice(1).map((u) => u.unit_id);
-
 	return {
-		dispatch,
-		reviewer_pipelining: pipelining,
-		held,
+		review: [],
+		dispatch: [
+			{
+				unit_id: primary.unit_id,
+				task_ids: [...primary.task_ids],
+				role: "primary",
+			},
+		],
+		held: readyUnits.slice(1).map((u) => u.unit_id),
 		mode: "serial",
 	};
 };
@@ -895,4 +935,4 @@ registerTool({
 	execute,
 });
 
-export { TOOL_NAME, planPathFor };
+export { TOOL_NAME, parsePositiveInteger, planPathFor };

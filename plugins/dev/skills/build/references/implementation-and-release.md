@@ -56,7 +56,12 @@ Process `TASK_PLAN.task_units` via the `schedule-wave` tool. Never derive task I
 
 #### Dispatch Cycle
 
-Initialize `COMPLETED_TASK_IDS` as an empty list. Repeat until `schedule-wave` returns an empty dispatch:
+Track two lists of task IDs across the loop. Unit IDs are renumbered on every call, so never carry a `unit_id` between cycles.
+
+- `COMPLETED_TASK_IDS`: task IDs whose reviewer returned SUCCESS. Starts empty.
+- `BUILT_TASK_IDS`: task IDs a builder finished that no reviewer has accepted yet. Starts empty.
+
+Repeat until `schedule-wave` returns both an empty `review` and an empty `dispatch`:
 
 ```bash
 CLEAN_TREE=$([ -z "$(git -C "{codeRoot}" status --porcelain)" ] && echo true || echo false)
@@ -64,69 +69,68 @@ CLEAN_TREE=$([ -z "$(git -C "{codeRoot}" status --porcelain)" ] && echo true || 
 rp1 agent-tools schedule-wave \
   --tasks-path "{workRoot}/features/{FEATURE_ID}/tasks.json" \
   --completed-task-ids "{COMPLETED_TASK_IDS}" \
+  --built-task-ids "{BUILT_TASK_IDS}" \
   --max-builders 4 \
   --git-commit {GIT_COMMIT} \
   --clean-tree "$CLEAN_TREE"
 ```
 
-Parse the JSON `ToolResult`. Extract `mode`, `dispatch`, `reviewer_pipelining`, and `held`.
+Parse the JSON `ToolResult`. Extract `mode`, `review`, `dispatch`, and `held`.
 
-If `dispatch` is empty and uncompleted units remain, emit `implementation` waiting with `reason: "dependency_deadlock"` and STOP.
+Every builder you dispatch adds that unit's `task_ids` to `BUILT_TASK_IDS` when it returns successfully. Every reviewer that returns SUCCESS moves its unit's `task_ids` out of `BUILT_TASK_IDS` and into `COMPLETED_TASK_IDS`. Units in `review` are already built -- dispatch a reviewer for them, never a builder.
+
+If `review` and `dispatch` are both empty and uncompleted units remain, emit `implementation` waiting with `reason: "dependency_deadlock"` and STOP.
 
 #### Dispatching from `schedule-wave` Output
 
-**Parallel-wave mode** (`mode == "parallel-wave"`): Dispatch all units in `dispatch` as concurrent builders. The first entry (role `primary`) runs on `codeRoot`; each `secondary` entry runs on a dedicated worktree (see `references/parallel-builders.md` for worktree lifecycle). Dispatch all builder blocks back-to-back in one message:
+Dispatch every block the tool asks for in ONE message, then wait for all of them. `review[i].task_ids` and `dispatch[i].task_ids` are the only source of `TASK_IDS`.
 
-{% dispatch_agent "rp1-dev:task-builder", background %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={dispatch[primary].task_ids}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
-{% enddispatch_agent %}
-
-{% dispatch_agent "rp1-dev:task-builder", background %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={worktreePath}, TASK_IDS={dispatch[secondary].task_ids}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
-{% enddispatch_agent %}
-
-Wait for all builders to complete. Review the primary unit first. On primary reviewer success, integrate each secondary worktree per `references/parallel-builders.md`, then review each integrated secondary on the primary `codeRoot`. If the primary reviewer fails, abandon all secondary worktrees, retry or escalate the primary per the Reviewer Failure section, and rebuild secondaries serially after the primary passes. If integration fails for a secondary, apply the Conflict Fallback (discard worktree, rebuild that unit serially).
-
-**Serial mode** (`mode == "serial"`): Dispatch the single `primary` unit's builder:
-
-{% dispatch_agent "rp1-dev:task-builder" %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={dispatch[0].task_ids}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
-{% enddispatch_agent %}
-
-After the builder completes, check `reviewer_pipelining`. If a pair exists matching this unit as `review_unit_id`, dispatch the reviewer and the paired `build_unit_id`'s builder as parallel agents in one message:
+**Reviewers** -- one block per entry in `review`. Reviewers always run on the primary `codeRoot`:
 
 {% dispatch_agent "rp1-dev:task-reviewer", background %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={completed_unit_task_ids}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={review[i].task_ids}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
+
+**Builders** -- one block per entry in `dispatch`. The `primary` entry runs on `codeRoot`:
 
 {% dispatch_agent "rp1-dev:task-builder", background %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={pipelined_unit_task_ids}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={dispatch[i].task_ids}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-Wait for both to complete. Process the reviewer result first. If no pipelining pair exists, dispatch the reviewer alone and wait.
+Each `secondary` entry runs on its own worktree, created per `references/parallel-builders.md` and keyed by that entry's `unit_id`:
+
+{% dispatch_agent "rp1-dev:task-builder", background %}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={worktreePath}, TASK_IDS={dispatch[i].task_ids}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
+
+`mode` tells you what the wave contains: `review-only` has no builders, `serial` has one, `parallel-wave` has a primary plus one or more worktree secondaries.
+
+After every dispatched agent returns, update `BUILT_TASK_IDS` and `COMPLETED_TASK_IDS` per the Dispatch Cycle rules, integrate any secondary worktrees per `references/parallel-builders.md`, then call `schedule-wave` again. Process reviewer results before integrating.
 
 #### Reviewer Success
 
-Reviewer contract: `SUCCESS` + `task_plan_updated = true` completes the unit. Append the unit's `task_ids` to `COMPLETED_TASK_IDS` and call `schedule-wave` again for the next cycle.
+Reviewer contract: `SUCCESS` + `task_plan_updated = true` completes the unit. Move the unit's `task_ids` out of `BUILT_TASK_IDS` and into `COMPLETED_TASK_IDS`, then call `schedule-wave` again for the next cycle.
 
 #### Reviewer Failure
+
+Set `RETRY_TASK_IDS` to the failing unit's `task_ids` and remove them from `BUILT_TASK_IDS` -- the retry rebuilds that unit, so it must not be offered for review again until a builder has re-produced it.
 
 `attempt = 1`, `max = 2`. On FAILURE with attempt < max: build `PREVIOUS_FEEDBACK` JSON from `issues`/`summary`, re-spawn task-builder with feedback (if `GIT_COMMIT=true`, pass `REWRITE_COMMITS=true`):
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={TASK_UNIT_IDS}, GIT_COMMIT={GIT_COMMIT}, REWRITE_COMMITS={GIT_COMMIT}, PREVIOUS_FEEDBACK={PREVIOUS_FEEDBACK}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={RETRY_TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, REWRITE_COMMITS={GIT_COMMIT}, PREVIOUS_FEEDBACK={PREVIOUS_FEEDBACK}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-Re-run task-reviewer for the same unit. On second failure, escalate per §4.3.7.
+Re-add `RETRY_TASK_IDS` to `BUILT_TASK_IDS` when that builder succeeds, then re-run task-reviewer for the same unit. On second failure, escalate per §4.3.7.
 
-If a pipelined builder was in flight when the reviewer failed: wait for it to finish, resolve the failed unit's retry first, then review the already-built pipelined unit only after the failed unit passes. If retry is exhausted, the pipelined unit is abandoned alongside it.
+If another builder was in flight when the reviewer failed: wait for it to finish and record its `task_ids` in `BUILT_TASK_IDS`, but resolve the failed unit's retry before dispatching anything new. The scheduler will offer the waiting unit for review once the failed unit passes. If retry is exhausted, the waiting unit is abandoned alongside it.
 
 #### Exhausted-Retry Escalation {#s4-3-7}
 
 Escalate without marking parent `implementation` failed while recovery remains.
 
-- Interactive: emit `waiting_for_user` on `implementation` with prompt "Task review failed after retry. Repair, Skip task, or Stop?" and context about the failing task unit. Then emit `implementation` waiting with `task_unit: "{TASK_UNIT_IDS}"` and `reason: "review_retry_exhausted"`. STOP with `/build {FEATURE_ID}` resume instructions.
-- AFK: if an explicit skip policy exists, record the skipped `TASK_UNIT_IDS` as release follow-ups; otherwise emit parent `implementation` failed only because no skip/repair path remains.
+- Interactive: emit `waiting_for_user` on `implementation` with prompt "Task review failed after retry. Repair, Skip task, or Stop?" and context about the failing task unit. Then emit `implementation` waiting with `task_unit: "{RETRY_TASK_IDS}"` and `reason: "review_retry_exhausted"`. STOP with `/build {FEATURE_ID}` resume instructions.
+- AFK: if an explicit skip policy exists, record the skipped `RETRY_TASK_IDS` as release follow-ups; otherwise emit parent `implementation` failed only because no skip/repair path remains.
 
 #### Safety Rules
 

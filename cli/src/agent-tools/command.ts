@@ -8,6 +8,10 @@ import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { type CLIError, formatError, usageError } from "../../shared/errors.js";
 import { VALID_EVENT_TYPES } from "../../shared/events.js";
+import {
+	DEFAULT_MAX_BUILDERS,
+	MAX_BUILDERS_LIMIT,
+} from "./build-task-plan/models.js";
 import { CHANGE_MANIFEST_SOURCES } from "./change-manifest/index.js";
 import { closeDatabase as closeEmitDatabase } from "./emit/database.js";
 import type { EmitCommandOptions } from "./emit/validate.js";
@@ -881,7 +885,14 @@ agentToolsCommand
 		"--completed-task-ids <ids>",
 		"Comma-separated task IDs already completed by reviewers",
 	)
-	.option("--max-builders <n>", "Maximum concurrent builders (default 4)")
+	.option(
+		"--built-task-ids <ids>",
+		"Comma-separated task IDs already built but not yet reviewed",
+	)
+	.option(
+		"--max-builders <n>",
+		`Maximum concurrent builders, 1-${MAX_BUILDERS_LIMIT} (default ${DEFAULT_MAX_BUILDERS})`,
+	)
 	.option("--git-commit <boolean>", "Whether builders produce atomic commits")
 	.option(
 		"--clean-tree <boolean>",
@@ -892,28 +903,41 @@ agentToolsCommand
 		`
 Description:
   Stateless advisory scheduler. Reads the task plan from tasks.json, combines
-  it with the set of completed task IDs supplied by the orchestrator, and
-  returns the wave to dispatch now: primary builder, up to max_builders-1
-  worktree secondaries, reviewer-pipelining pairs, and held units.
+  it with the completed and built task IDs supplied by the orchestrator, and
+  returns what to run now: units to review, builders to dispatch, and the
+  units held back.
 
-  File-disjointness is computed from task targets. Known-shared paths
+  Units already built but not yet reviewed are returned in "review", never in
+  "dispatch": their edits are already on disk, so rebuilding would re-apply
+  them. When "review" and "dispatch" are both non-empty, run them
+  concurrently -- that is the reviewer-pipelining case, and the scheduler only
+  pairs them when the build cannot collide with a retry of the reviewed unit.
+
+  File-disjointness is computed from task targets, comparing whole path
+  segments so a directory target overlaps files beneath it. Known-shared paths
   (lockfiles, generated catalog) are treated as always-overlapping.
+
+  State is carried by task ID. Unit IDs are renumbered on every call as tasks
+  complete, so they are only meaningful within one response.
 
 Input (CLI flags):
   - tasks_path: Absolute path to tasks.md or tasks.json (required)
-  - completed_task_ids: Comma-separated string of completed task IDs (default "")
-  - max_builders: Positive integer (default 4)
+  - completed_task_ids: Comma-separated IDs whose reviewer passed (default "")
+  - built_task_ids: Comma-separated IDs built but not yet reviewed (default "")
+  - max_builders: Whole number, 1-${MAX_BUILDERS_LIMIT} (default ${DEFAULT_MAX_BUILDERS})
   - git_commit: Boolean (default false)
   - clean_tree: Boolean (default false)
 
 Output:
-  JSON ToolResult with dispatch array (unit_id, task_ids, role), mode,
-  reviewer_pipelining pairs, and held unit IDs.
+  JSON ToolResult with review array (unit_id, task_ids), dispatch array
+  (unit_id, task_ids, role), mode (serial | parallel-wave | review-only), and
+  held unit IDs.
 
 Examples:
   rp1 agent-tools schedule-wave \\
     --tasks-path /project/.rp1/work/features/example/tasks.json \\
     --completed-task-ids "T1,T2,T3" \\
+    --built-task-ids "T4" \\
     --max-builders 4 \\
     --git-commit true \\
     --clean-tree true
@@ -923,6 +947,7 @@ Examples:
 		async (options: {
 			tasksPath?: string;
 			completedTaskIds?: string;
+			builtTaskIds?: string;
 			maxBuilders?: string;
 			gitCommit?: string;
 			cleanTree?: string;
@@ -949,7 +974,7 @@ Examples:
 
 			let gitCommit = false;
 			let cleanTree = false;
-			let maxBuilders = 4;
+			let maxBuilders = DEFAULT_MAX_BUILDERS;
 
 			try {
 				gitCommit =
@@ -963,26 +988,45 @@ Examples:
 				process.exit(1);
 			}
 
-			if (options.maxBuilders) {
-				const parsed = Number.parseInt(options.maxBuilders, 10);
-				if (Number.isNaN(parsed) || parsed <= 0) {
+			if (options.maxBuilders !== undefined) {
+				// Reuses the strict whole-number parser so "4abc" and "3.9" are
+				// rejected instead of silently truncating to 4 and 3.
+				const { parsePositiveInteger } = await import(
+					"./build-task-plan/index.js"
+				);
+				const parsed = parsePositiveInteger(
+					options.maxBuilders,
+					"--max-builders",
+					DEFAULT_MAX_BUILDERS,
+				);
+				if (E.isLeft(parsed)) {
+					console.log(
+						createErrorResponse(toolName, formatError(parsed.left, false)),
+					);
+					process.exit(1);
+				}
+				if (parsed.right > MAX_BUILDERS_LIMIT) {
 					console.log(
 						createErrorResponse(
 							toolName,
-							"--max-builders must be a positive integer.",
+							`--max-builders must not exceed ${MAX_BUILDERS_LIMIT}; each builder beyond the primary needs its own worktree.`,
 						),
 					);
 					process.exit(1);
 				}
-				maxBuilders = parsed;
+				maxBuilders = parsed.right;
 			}
 
-			const completedTaskIds = options.completedTaskIds
-				? options.completedTaskIds
-						.split(",")
-						.map((id) => id.trim())
-						.filter(Boolean)
-				: [];
+			const splitTaskIds = (raw: string | undefined): readonly string[] =>
+				raw
+					? raw
+							.split(",")
+							.map((id) => id.trim())
+							.filter(Boolean)
+					: [];
+
+			const completedTaskIds = splitTaskIds(options.completedTaskIds);
+			const builtTaskIds = splitTaskIds(options.builtTaskIds);
 
 			const planInput = JSON.stringify({
 				tasks_path: options.tasksPath,
@@ -1038,6 +1082,7 @@ Examples:
 				task_units: planData.task_units,
 				tasks: planData.tasks,
 				completed_task_ids: completedTaskIds,
+				built_task_ids: builtTaskIds,
 				max_builders: maxBuilders,
 				git_commit: gitCommit,
 				clean_tree: cleanTree,

@@ -260,19 +260,23 @@ describe("Build v2 static contracts", () => {
 		const dispatchFromIndex = content.indexOf(
 			"#### Dispatching from `schedule-wave` Output",
 		);
-		const parallelModeIndex = content.indexOf("**Parallel-wave mode**");
-		const serialModeIndex = content.indexOf("**Serial mode**");
 
 		expect(dispatchCycleIndex).toBeGreaterThan(-1);
 		expect(dispatchFromIndex).toBeGreaterThan(dispatchCycleIndex);
-		expect(parallelModeIndex).toBeGreaterThan(dispatchFromIndex);
-		expect(serialModeIndex).toBeGreaterThan(parallelModeIndex);
 		expect(content).toContain("rp1 agent-tools schedule-wave");
 		expect(content).toContain(
-			"Repeat until `schedule-wave` returns an empty dispatch",
+			"Repeat until `schedule-wave` returns both an empty `review` and an empty `dispatch`",
 		);
-		expect(content).toContain('`mode == "parallel-wave"`');
-		expect(content).toContain('`mode == "serial"`');
+		// Built-but-unreviewed work must be reviewed, never handed back to a
+		// builder: its edits are already on disk.
+		expect(content).toContain("--built-task-ids");
+		expect(content).toContain(
+			"Units in `review` are already built -- dispatch a reviewer for them, never a builder.",
+		);
+		// All three wave shapes stay documented so serial remains the fallback.
+		expect(content).toContain(
+			"`review-only` has no builders, `serial` has one, `parallel-wave` has a primary",
+		);
 	});
 
 	test("parallel builder reference integrates secondary work only after primary review succeeds", async () => {
@@ -282,17 +286,14 @@ describe("Build v2 static contracts", () => {
 		);
 		const builder = await readProjectFile("plugins/dev/agents/task-builder.md");
 
-		expect(build).toContain(
-			"Review the primary unit first. On primary reviewer success, integrate each secondary worktree",
-		);
-		expect(build).toContain(
-			"If the primary reviewer fails, abandon all secondary worktrees",
+		expect(build).toContain("Process reviewer results before integrating.");
+		// A wave may carry several secondaries, so integration order and the
+		// primary-review precondition must both stay explicit.
+		expect(reference).toContain(
+			"Integrate secondaries **one at a time, in ascending `unit_id` order**, and only after the primary unit's reviewer has succeeded.",
 		);
 		expect(reference).toContain(
-			"After both builders complete and reviewer(k) succeeds on the primary branch",
-		);
-		expect(reference).toContain(
-			"If reviewer(k) fails after both builders succeeded:",
+			"The primary's reviewer failed after builders succeeded: do not integrate any secondary worktree yet.",
 		);
 		expect(builder).toContain(".task-file.lock");
 		expect(builder).toContain(
