@@ -1,40 +1,31 @@
 /**
  * Liquid filter: agent_tools
  *
- * Renders an agent's declared tool allowlist for platforms whose agent
- * frontmatter takes bare tool names (Claude Code).
+ * Renders an agent's declared tool allowlist into the comma-separated form
+ * Claude Code expects in agent frontmatter.
  *
- * Claude Code's agent `tools` field is an allowlist of tool names, not a
- * permission-grant mechanism: scoped specifiers such as `Bash(rp1 *)` belong in
- * a skill's `allowed-tools` or in `permissions.allow`. Scoped entries therefore
- * collapse to their base tool name, and the duplicates that collapsing can
- * produce (`Bash` plus `Bash(rp1 *)`) are removed while preserving order.
+ * A subagent's `tools` field accepts the same `ToolName(specifier)` rule format
+ * as `permissions.allow`, so scoped entries such as `Bash(rp1 *)` are preserved
+ * verbatim: collapsing them to a bare `Bash` would widen the grant to every
+ * shell command and defeat the restriction the agent declared. Only exact
+ * duplicates are removed, and declaration order is preserved.
  */
 
-const SCOPED_TOOL_PATTERN = /^([A-Za-z][\w-]*)\(.*\)$/;
-
 /**
- * Collapse scoped tool entries to bare tool names and de-duplicate.
+ * Join declared tool entries, dropping blanks and exact duplicates.
  */
 export const agentTools = (tools: readonly string[]): string => {
 	const seen = new Set<string>();
-	const names: string[] = [];
+	const entries: string[] = [];
 
 	for (const entry of tools) {
 		const trimmed = entry.trim();
-		if (!trimmed) {
+		if (!trimmed || seen.has(trimmed)) {
 			continue;
 		}
-
-		const scoped = trimmed.match(SCOPED_TOOL_PATTERN);
-		const name = scoped ? scoped[1] : trimmed;
-
-		if (seen.has(name)) {
-			continue;
-		}
-		seen.add(name);
-		names.push(name);
+		seen.add(trimmed);
+		entries.push(trimmed);
 	}
 
-	return names.join(", ");
+	return entries.join(", ");
 };

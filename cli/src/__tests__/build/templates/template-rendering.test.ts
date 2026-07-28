@@ -1347,7 +1347,7 @@ describeWithLiquid("template rendering", () => {
 			expect(result).toContain("tools: Read, Grep, Glob");
 		});
 
-		test("collapses scoped Bash specifiers in the emitted allowlist", async () => {
+		test("preserves scoped Bash specifiers in the emitted allowlist", async () => {
 			const engine = createTestEngine();
 			const result = await engine.renderFile("claude-code/agent", {
 				platform: "claude-code",
@@ -1360,8 +1360,9 @@ describeWithLiquid("template rendering", () => {
 					content: "Agent content.",
 				},
 			});
-			expect(result).toContain("tools: Read, Write, Glob, Bash");
-			expect(result).not.toContain("Bash(rp1 *)");
+			// Collapsing the specifier to a bare `Bash` would grant every shell
+			// command, which is the restriction this allowlist exists to impose.
+			expect(result).toContain("tools: Read, Write, Glob, Bash(rp1 *)");
 		});
 
 		test("emits frontmatter for tools alone when model is inherit and effort absent", async () => {
