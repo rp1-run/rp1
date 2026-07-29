@@ -905,4 +905,167 @@ describe("agent-tools command adapter", () => {
 		};
 		expect(parsed.errors[0]?.message).toContain("Batch event[1]");
 	});
+
+	describe("schedule-wave", () => {
+		const writePlan = async (): Promise<string> => {
+			const projectRoot = await createProject();
+			const plansDir = join(projectRoot, ".rp1", "work", "features", "demo");
+			await mkdir(plansDir, { recursive: true });
+			const tasksPath = join(plansDir, "tasks.json");
+			await writeFile(
+				tasksPath,
+				JSON.stringify({
+					schema_version: 1,
+					feature_id: "demo",
+					tasks: [
+						{
+							id: "T1",
+							title: "First",
+							type: "code",
+							status: "pending",
+							complexity: "simple",
+							acceptance_refs: ["REQ-001"],
+							dependencies: [],
+							target: "src/a.ts",
+						},
+						{
+							id: "T2",
+							title: "Second",
+							type: "code",
+							status: "pending",
+							complexity: "simple",
+							acceptance_refs: ["REQ-001"],
+							dependencies: [],
+							target: "src/b.ts",
+						},
+					],
+				}),
+			);
+			return tasksPath;
+		};
+
+		const errorMessage = (): string => {
+			const raw = logs.at(-1);
+			if (!raw) {
+				throw new Error("No command output captured");
+			}
+			return (JSON.parse(raw) as { errors?: { message: string }[] }).errors?.[0]
+				?.message as string;
+		};
+
+		test("rejects a --tasks-path that is not absolute", async () => {
+			await expectExit(
+				["schedule-wave", "--tasks-path", "relative/tasks.json"],
+				1,
+			);
+
+			expect(errorMessage()).toContain("must be an absolute path");
+		});
+
+		test("rejects malformed --max-builders values", async () => {
+			const tasksPath = await writePlan();
+
+			for (const bad of ["4abc", "3.9", "0", "-1"]) {
+				await expectExit(
+					["schedule-wave", "--tasks-path", tasksPath, "--max-builders", bad],
+					1,
+				);
+				expect(errorMessage()).toContain("--max-builders");
+			}
+		});
+
+		test("rejects --max-builders above the worktree ceiling", async () => {
+			const tasksPath = await writePlan();
+
+			await expectExit(
+				["schedule-wave", "--tasks-path", tasksPath, "--max-builders", "5"],
+				1,
+			);
+
+			expect(errorMessage()).toContain("must not exceed 4");
+		});
+
+		test("rejects state task IDs absent from the task plan", async () => {
+			const tasksPath = await writePlan();
+
+			await expectExit(
+				["schedule-wave", "--tasks-path", tasksPath, "--built-task-ids", "T1x"],
+				1,
+			);
+
+			expect(errorMessage()).toContain("absent from the task plan");
+		});
+
+		test("rejects duplicate task IDs within one state list", async () => {
+			const tasksPath = await writePlan();
+
+			await expectExit(
+				[
+					"schedule-wave",
+					"--tasks-path",
+					tasksPath,
+					"--completed-task-ids",
+					"T1,T1",
+				],
+				1,
+			);
+
+			expect(errorMessage()).toContain("duplicate task IDs");
+		});
+
+		test("rejects a task ID present in two state lists", async () => {
+			const tasksPath = await writePlan();
+
+			await expectExit(
+				[
+					"schedule-wave",
+					"--tasks-path",
+					tasksPath,
+					"--completed-task-ids",
+					"T1",
+					"--built-task-ids",
+					"T1",
+				],
+				1,
+			);
+
+			expect(errorMessage()).toContain("cannot be in both");
+		});
+
+		test("returns a compact wave payload for valid input", async () => {
+			const tasksPath = await writePlan();
+
+			await expectExit(
+				[
+					"schedule-wave",
+					"--tasks-path",
+					tasksPath,
+					"--max-builders",
+					"4",
+					"--git-commit",
+					"true",
+					"--clean-tree",
+					"true",
+				],
+				0,
+			);
+
+			const payload = lastOutput<{
+				success: boolean;
+				tool: string;
+				data: { mode: string; dispatch: { role: string }[] };
+			}>();
+			expect(payload.success).toBe(true);
+			expect(payload.tool).toBe("schedule-wave");
+			// Both tasks are simple, so unit grouping batches them into one unit
+			// and a single primary builder covers the whole plan.
+			expect(payload.data.mode).toBe("serial");
+			expect(payload.data.dispatch).toHaveLength(1);
+			expect(payload.data.dispatch[0]?.role).toBe("primary");
+			// Sibling subcommands emit compact JSON via formatOutput; schedule-wave
+			// must not pretty-print, since the payload lands in an agent's context
+			// once per build cycle.
+			expect(logs.at(-1)).not.toContain("\n");
+		});
+	});
 });

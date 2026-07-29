@@ -8,6 +8,10 @@ import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { type CLIError, formatError, usageError } from "../../shared/errors.js";
 import { VALID_EVENT_TYPES } from "../../shared/events.js";
+import {
+	DEFAULT_MAX_BUILDERS,
+	MAX_BUILDERS_LIMIT,
+} from "./build-task-plan/models.js";
 import { CHANGE_MANIFEST_SOURCES } from "./change-manifest/index.js";
 import { closeDatabase as closeEmitDatabase } from "./emit/database.js";
 import type { EmitCommandOptions } from "./emit/validate.js";
@@ -865,6 +869,312 @@ Examples:
 			}
 
 			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+/**
+ * schedule-wave subcommand.
+ * Computes the next dispatch wave from a task plan and completed-task state.
+ */
+agentToolsCommand
+	.command("schedule-wave")
+	.description("Compute the next builder dispatch wave from task plan state")
+	.option("--tasks-path <path>", "Absolute path to tasks.md or tasks.json")
+	.option(
+		"--completed-task-ids <ids>",
+		"Comma-separated task IDs already completed by reviewers",
+	)
+	.option(
+		"--built-task-ids <ids>",
+		"Comma-separated task IDs already built but not yet reviewed",
+	)
+	.option(
+		"--pending-integration-task-ids <ids>",
+		"Comma-separated task IDs built in a worktree that is not yet integrated",
+	)
+	.option(
+		"--max-builders <n>",
+		`Maximum concurrent builders, 1-${MAX_BUILDERS_LIMIT} (default ${DEFAULT_MAX_BUILDERS})`,
+	)
+	.option("--git-commit <boolean>", "Whether builders produce atomic commits")
+	.option(
+		"--clean-tree <boolean>",
+		"Whether the working tree is clean (no unstaged/uncommitted changes)",
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Stateless advisory scheduler. Reads the task plan from tasks.json, combines
+  it with the completed and built task IDs supplied by the orchestrator, and
+  returns what to run now: units to review, builders to dispatch, and the
+  units held back.
+
+  Units already built but not yet reviewed are returned in "review", never in
+  "dispatch": their edits are already on disk, so rebuilding would re-apply
+  them. "review" and "dispatch" are mutually exclusive -- any built unit makes
+  the wave review-only with every builder held, because the reviewer inspects
+  the live checkout and no concurrent builder can be made safe.
+
+  Work built in a worktree that is not yet integrated belongs in
+  pending_integration_task_ids, not built_task_ids: it is on neither the
+  primary branch nor available for review. Such units are held, and no builder
+  is dispatched over their files, until the orchestrator integrates or discards
+  the worktree. A wave with nothing to do reports reason "pending_integration"
+  when integration is still owed, distinguishing it from a real deadlock.
+
+  All three state lists are validated against the task plan: unknown IDs,
+  duplicates, and an ID in two lists are rejected. A unit whose tasks span
+  states is not rejected: grouping is recomputed on every call, so mid-build
+  plan edits legitimately regroup tasks, and the scheduler splits such units
+  by state instead of failing the run.
+
+  File-disjointness is computed from task targets, comparing whole path
+  segments so a directory target overlaps files beneath it. Known-shared paths
+  (lockfiles, generated catalog) are treated as always-overlapping.
+
+  State is carried by task ID. Unit IDs are renumbered on every call as tasks
+  complete, so they are only meaningful within one response.
+
+Input (CLI flags):
+  - tasks_path: Absolute path to tasks.md or tasks.json (required)
+  - completed_task_ids: Comma-separated IDs whose reviewer passed (default "")
+  - built_task_ids: Comma-separated IDs built but not yet reviewed (default "")
+  - pending_integration_task_ids: Comma-separated IDs built in an unintegrated
+    worktree (default "")
+  - max_builders: Whole number, 1-${MAX_BUILDERS_LIMIT} (default ${DEFAULT_MAX_BUILDERS})
+  - git_commit: Boolean (default false)
+  - clean_tree: Boolean (default false)
+
+Output:
+  JSON ToolResult with review array (unit_id, task_ids), dispatch array
+  (unit_id, task_ids, role), mode (serial | parallel-wave | review-only), and
+  held unit IDs.
+
+Examples:
+  rp1 agent-tools schedule-wave \\
+    --tasks-path /project/.rp1/work/features/example/tasks.json \\
+    --completed-task-ids "T1,T2,T3" \\
+    --built-task-ids "T4" \\
+    --max-builders 4 \\
+    --git-commit true \\
+    --clean-tree true
+`,
+	)
+	.action(
+		async (options: {
+			tasksPath?: string;
+			completedTaskIds?: string;
+			builtTaskIds?: string;
+			pendingIntegrationTaskIds?: string;
+			maxBuilders?: string;
+			gitCommit?: string;
+			cleanTree?: string;
+		}): Promise<void> => {
+			const toolName = "schedule-wave";
+			await ensureToolLoaded("build-task-plan");
+
+			if (!options.tasksPath) {
+				console.log(
+					createErrorResponse(toolName, "Missing required --tasks-path."),
+				);
+				process.exit(1);
+			}
+
+			if (!isPlatformAbsoluteProjectPath(options.tasksPath)) {
+				console.log(
+					createErrorResponse(
+						toolName,
+						"--tasks-path must be an absolute path.",
+					),
+				);
+				process.exit(1);
+			}
+
+			let gitCommit = false;
+			let cleanTree = false;
+			let maxBuilders = DEFAULT_MAX_BUILDERS;
+
+			try {
+				gitCommit =
+					parseBooleanFlag(options.gitCommit, "--git-commit") ?? false;
+				cleanTree =
+					parseBooleanFlag(options.cleanTree, "--clean-tree") ?? false;
+			} catch (error) {
+				console.log(
+					createErrorResponse(toolName, formatError(error as CLIError, false)),
+				);
+				process.exit(1);
+			}
+
+			if (options.maxBuilders !== undefined) {
+				// Reuses the strict whole-number parser so "4abc" and "3.9" are
+				// rejected instead of silently truncating to 4 and 3.
+				const { parsePositiveInteger } = await import(
+					"./build-task-plan/index.js"
+				);
+				const parsed = parsePositiveInteger(
+					options.maxBuilders,
+					"--max-builders",
+					DEFAULT_MAX_BUILDERS,
+				);
+				if (E.isLeft(parsed)) {
+					console.log(
+						createErrorResponse(toolName, formatError(parsed.left, false)),
+					);
+					process.exit(1);
+				}
+				if (parsed.right > MAX_BUILDERS_LIMIT) {
+					console.log(
+						createErrorResponse(
+							toolName,
+							`--max-builders must not exceed ${MAX_BUILDERS_LIMIT}; each builder beyond the primary needs its own worktree.`,
+						),
+					);
+					process.exit(1);
+				}
+				maxBuilders = parsed.right;
+			}
+
+			const splitTaskIds = (raw: string | undefined): readonly string[] =>
+				raw
+					? raw
+							.split(",")
+							.map((id) => id.trim())
+							.filter(Boolean)
+					: [];
+
+			const completedTaskIds = splitTaskIds(options.completedTaskIds);
+			const builtTaskIds = splitTaskIds(options.builtTaskIds);
+			const pendingIntegrationTaskIds = splitTaskIds(
+				options.pendingIntegrationTaskIds,
+			);
+
+			const planInput = JSON.stringify({
+				tasks_path: options.tasksPath,
+			});
+
+			const tool = getTool("build-task-plan");
+			if (!tool) {
+				console.log(
+					createErrorResponse(toolName, "build-task-plan tool not found"),
+				);
+				process.exit(1);
+			}
+
+			const planResult = await tool.execute(planInput, {
+				inputSource: "stdin",
+			})();
+
+			if (E.isLeft(planResult)) {
+				console.log(
+					createErrorResponse(
+						toolName,
+						`Task plan read failed: ${formatError(planResult.left, false)}`,
+					),
+				);
+				process.exit(1);
+			}
+
+			const plan = planResult.right;
+			if (!plan.success || !plan.data) {
+				console.log(
+					JSON.stringify(
+						{
+							success: false,
+							tool: toolName,
+							data: null,
+							errors: plan.errors ?? [{ message: "Task plan parsing failed." }],
+						},
+						null,
+						2,
+					),
+				);
+				process.exit(1);
+			}
+
+			const planData = plan.data as {
+				task_units: import("./build-task-plan/models.js").BuildTaskUnit[];
+				tasks: import("./build-task-plan/models.js").BuildTaskPlanTask[];
+			};
+
+			// The orchestrator is an LLM, so a mistyped or mis-serialized ID is a
+			// realistic input. Unknown IDs would otherwise be silently ignored and
+			// yield a confidently wrong schedule, so every list is checked against
+			// the plan before scheduling.
+			const knownTaskIds = new Set(planData.tasks.map((task) => task.id));
+			const stateLists = [
+				{ flag: "--completed-task-ids", ids: completedTaskIds },
+				{ flag: "--built-task-ids", ids: builtTaskIds },
+				{
+					flag: "--pending-integration-task-ids",
+					ids: pendingIntegrationTaskIds,
+				},
+			] as const;
+
+			for (const { flag, ids } of stateLists) {
+				const unknown = ids.filter((id) => !knownTaskIds.has(id));
+				if (unknown.length > 0) {
+					console.log(
+						createErrorResponse(
+							toolName,
+							`${flag} contains task IDs absent from the task plan: ${unknown.join(", ")}.`,
+						),
+					);
+					process.exit(1);
+				}
+
+				const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
+				if (duplicates.length > 0) {
+					console.log(
+						createErrorResponse(
+							toolName,
+							`${flag} contains duplicate task IDs: ${[...new Set(duplicates)].join(", ")}.`,
+						),
+					);
+					process.exit(1);
+				}
+			}
+
+			for (const [a, b] of [
+				[stateLists[0], stateLists[1]],
+				[stateLists[0], stateLists[2]],
+				[stateLists[1], stateLists[2]],
+			] as const) {
+				const overlap = a.ids.filter((id) => b.ids.includes(id));
+				if (overlap.length > 0) {
+					console.log(
+						createErrorResponse(
+							toolName,
+							`A task ID cannot be in both ${a.flag} and ${b.flag}: ${overlap.join(", ")}.`,
+						),
+					);
+					process.exit(1);
+				}
+			}
+
+			// Mixed state within a unit is NOT rejected: grouping is recomputed on
+			// every call, so editing the plan mid-build legitimately batches a new
+			// task together with one already built. The scheduler splits such units
+			// by state instead of failing the run.
+
+			const { scheduleWave } = await import("./build-task-plan/index.js");
+
+			const waveResult = scheduleWave({
+				task_units: planData.task_units,
+				tasks: planData.tasks,
+				completed_task_ids: completedTaskIds,
+				built_task_ids: builtTaskIds,
+				pending_integration_task_ids: pendingIntegrationTaskIds,
+				max_builders: maxBuilders,
+				git_commit: gitCommit,
+				clean_tree: cleanTree,
+			});
+
+			console.log(
+				formatOutput({ success: true, tool: toolName, data: waveResult }),
+			);
 			process.exit(0);
 		},
 	);

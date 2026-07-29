@@ -22,10 +22,13 @@ import {
 	type BuildTaskStatus,
 	type BuildTaskType,
 	type BuildTaskUnit,
+	type ScheduleWaveInput,
+	type ScheduleWaveResult,
 	TASK_PLAN_SCHEMA_VERSION,
 	VALID_BUILD_TASK_COMPLEXITIES,
 	VALID_BUILD_TASK_STATUSES,
 	VALID_BUILD_TASK_TYPES,
+	type WaveDispatch,
 } from "./models.js";
 
 const TOOL_NAME = "build-task-plan";
@@ -661,6 +664,384 @@ const buildResult = (
 	});
 };
 
+const KNOWN_SHARED_BASENAMES = new Set([
+	"package-lock.json",
+	"bun.lockb",
+	"bun.lock",
+	"yarn.lock",
+	"pnpm-lock.yaml",
+	"npm-shrinkwrap.json",
+	"agents.yaml",
+]);
+
+const SHARED_SENTINEL = "__shared__";
+
+const isKnownSharedPath = (target: string): boolean => {
+	const name = basename(target);
+	return KNOWN_SHARED_BASENAMES.has(name);
+};
+
+/**
+ * Normalize a task target for comparison so that spellings of the same path
+ * compare equal: `./src/a/`, `src//a`, `src/b/../a`, and `src/a` all collapse
+ * to `src/a`. Dot segments are resolved because an unresolved `..` would make
+ * two targets for the same file look disjoint and let overlapping work run
+ * concurrently.
+ */
+const normalizeTarget = (target: string): string => {
+	const unified = target.trim().replace(/\\/g, "/");
+	const isAbsolute = unified.startsWith("/");
+	const resolved: string[] = [];
+
+	for (const segment of unified.split("/")) {
+		if (segment === "" || segment === ".") {
+			continue;
+		}
+		if (segment === "..") {
+			// A leading `..` cannot be resolved away, so keep it: dropping it
+			// would make `../shared` compare equal to `shared`.
+			if (resolved.length > 0 && resolved[resolved.length - 1] !== "..") {
+				resolved.pop();
+			} else if (!isAbsolute) {
+				resolved.push("..");
+			}
+			continue;
+		}
+		resolved.push(segment);
+	}
+
+	if (resolved.length === 0) {
+		return isAbsolute ? "/" : ".";
+	}
+	return `${isAbsolute ? "/" : ""}${resolved.join("/")}`;
+};
+
+const targetsForUnit = (
+	unit: BuildTaskUnit,
+	tasksByIdMap: ReadonlyMap<string, BuildTaskPlanTask>,
+): readonly string[] => {
+	const targets: string[] = [];
+	for (const taskId of unit.task_ids) {
+		const task = tasksByIdMap.get(taskId);
+		if (task) {
+			targets.push(
+				isKnownSharedPath(task.target)
+					? SHARED_SENTINEL
+					: normalizeTarget(task.target),
+			);
+		}
+	}
+	return targets;
+};
+
+/**
+ * Two targets overlap when they are equal or when one contains the other.
+ * A directory target such as `cli/src/build` overlaps a file target beneath
+ * it, so comparing for equality alone would let overlapping work run
+ * concurrently. Comparison is segment-aware: `cli/src/buildx` does not
+ * overlap `cli/src/build`.
+ */
+const isRootTarget = (target: string): boolean =>
+	target === "." || target === "/";
+
+const targetsOverlap = (a: string, b: string): boolean =>
+	a === b ||
+	// A root target covers the whole tree, so it overlaps every path. Prefix
+	// matching alone would miss this: neither "." nor "/" is a slash-prefix of
+	// "src/a.ts", so a repo-wide task would look disjoint from everything.
+	isRootTarget(a) ||
+	isRootTarget(b) ||
+	a.startsWith(`${b}/`) ||
+	b.startsWith(`${a}/`);
+
+const unitsAreFileDisjoint = (
+	targetsA: readonly string[],
+	targetsB: readonly string[],
+): boolean => !targetsA.some((a) => targetsB.some((b) => targetsOverlap(a, b)));
+
+type TaskState = "completed" | "built" | "pending" | "unset";
+
+/**
+ * Split any unit whose tasks are in different states into one sub-unit per
+ * state, dropping the already-completed tasks.
+ *
+ * Unit membership is recomputed from the plan on every call, while state is
+ * carried per task. Editing the plan mid-build -- which the add-task resume
+ * path does -- can therefore batch a newly unlocked task together with one that
+ * is already built: a plan holding only `T1` groups as `[T1]`, and adding `T2`
+ * regroups it as `[T1, T2]`. Treating that unit as a whole would either rebuild
+ * `T1` or stall the run, so the states are separated here instead.
+ *
+ * The first sub-unit keeps the parent's `unit_id` so unsplit plans renumber
+ * nothing; extras get fresh IDs above the current maximum. Dependencies that
+ * were internal to the parent become real cross-unit dependencies, which is what
+ * keeps an unset sub-unit from building before its built sibling is reviewed.
+ */
+const splitMixedStateUnits = (
+	units: readonly BuildTaskUnit[],
+	stateOf: (taskId: string) => TaskState,
+	tasksByIdMap: ReadonlyMap<string, BuildTaskPlanTask>,
+): readonly BuildTaskUnit[] => {
+	let nextUnitId =
+		units.reduce((max, unit) => Math.max(max, unit.unit_id), 0) + 1;
+	const result: BuildTaskUnit[] = [];
+
+	for (const unit of units) {
+		const groups = new Map<TaskState, string[]>();
+		for (const taskId of unit.task_ids) {
+			const state = stateOf(taskId);
+			const group = groups.get(state);
+			if (group) {
+				group.push(taskId);
+			} else {
+				groups.set(state, [taskId]);
+			}
+		}
+
+		if (groups.size <= 1) {
+			result.push(unit);
+			continue;
+		}
+
+		let isFirst = true;
+		for (const state of ["built", "pending", "unset"] as const) {
+			const taskIds = groups.get(state);
+			if (!taskIds || taskIds.length === 0) {
+				continue;
+			}
+
+			const own = new Set(taskIds);
+			const siblingDependencies = taskIds.flatMap((taskId) =>
+				(tasksByIdMap.get(taskId)?.dependencies ?? []).filter(
+					(dependency) =>
+						unit.task_ids.includes(dependency) && !own.has(dependency),
+				),
+			);
+
+			result.push({
+				unit_id: isFirst ? unit.unit_id : nextUnitId++,
+				task_ids: taskIds,
+				complexity: unit.complexity,
+				depends_on: [...new Set([...unit.depends_on, ...siblingDependencies])],
+			});
+			isFirst = false;
+		}
+	}
+
+	return result;
+};
+
+export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
+	const {
+		tasks,
+		completed_task_ids,
+		built_task_ids,
+		pending_integration_task_ids,
+		max_builders,
+		git_commit,
+		clean_tree,
+	} = input;
+
+	const completedSet = new Set(completed_task_ids);
+	const builtSet = new Set(built_task_ids);
+	const pendingSet = new Set(pending_integration_task_ids);
+	const tasksByIdMap = new Map(tasks.map((t) => [t.id, t]));
+
+	// Pending outranks built for the same reason isBuilt checks it: worktree-only
+	// work is not on the primary tree.
+	const stateOf = (taskId: string): TaskState =>
+		completedSet.has(taskId)
+			? "completed"
+			: pendingSet.has(taskId)
+				? "pending"
+				: builtSet.has(taskId)
+					? "built"
+					: "unset";
+
+	const task_units = splitMixedStateUnits(
+		input.task_units,
+		stateOf,
+		tasksByIdMap,
+	);
+
+	const isCompleted = (unit: BuildTaskUnit): boolean =>
+		unit.task_ids.every((id) => completedSet.has(id));
+	// Pending integration takes precedence over built: if any task's work is only
+	// in a worktree, the unit's edits are not all on the primary tree and it must
+	// not be reviewed. The CLI rejects an ID in two lists, so this only matters
+	// for callers reaching the exported function directly.
+	const isBuilt = (unit: BuildTaskUnit): boolean =>
+		!isCompleted(unit) &&
+		!unit.task_ids.some((id) => pendingSet.has(id)) &&
+		unit.task_ids.every((id) => builtSet.has(id));
+	// Work sitting in an unintegrated worktree: not on the primary branch, so it
+	// can be neither reviewed nor rebuilt until the orchestrator resolves it.
+	//
+	// This deliberately tests `some` where the predicates above test `every`.
+	// splitMixedStateUnits separates states before these predicates run, but
+	// holding on any pending task is still the safe direction should a mixed
+	// unit ever reach them: `every` would let a partially-pending unit look
+	// ready and be rebuilt over work that already exists in the worktree. Do
+	// not "simplify" this to `every`.
+	const isPendingIntegration = (unit: BuildTaskUnit): boolean =>
+		!isCompleted(unit) &&
+		!isBuilt(unit) &&
+		unit.task_ids.some((id) => pendingSet.has(id));
+
+	const byUnitId = (a: BuildTaskUnit, b: BuildTaskUnit): number =>
+		a.unit_id - b.unit_id;
+	const targetsFor = (unit: BuildTaskUnit): readonly string[] =>
+		targetsForUnit(unit, tasksByIdMap);
+
+	const builtUnits = task_units.filter(isBuilt).sort(byUnitId);
+	const pendingUnits = task_units.filter(isPendingIntegration).sort(byUnitId);
+
+	// A unit is ready to build only when no builder has produced it yet and
+	// every dependency has been *reviewed*, not merely built.
+	const readyUnits = task_units
+		.filter(
+			(unit) =>
+				!isCompleted(unit) &&
+				!isBuilt(unit) &&
+				!isPendingIntegration(unit) &&
+				unit.depends_on.every((dep) => completedSet.has(dep)),
+		)
+		.sort(byUnitId);
+
+	// Built work must be reviewed, never re-dispatched to a builder: its edits
+	// are already on disk, so rebuilding would re-apply them.
+	//
+	// The wave is review-only: no builder is dispatched while a review is out.
+	// The reviewer works against the live checkout -- reading source, running
+	// tests, checking scope, and updating the task artifacts -- so a concurrent
+	// builder would race it on both the tree and the artifacts. File
+	// disjointness cannot make that safe: tests and scope checks read beyond
+	// the unit's own targets.
+	if (builtUnits.length > 0) {
+		const reviewUnit = builtUnits[0];
+		return {
+			review: [
+				{ unit_id: reviewUnit.unit_id, task_ids: [...reviewUnit.task_ids] },
+			],
+			dispatch: [],
+			held: [
+				...builtUnits.slice(1).map((u) => u.unit_id),
+				...pendingUnits.map((u) => u.unit_id),
+				...readyUnits.map((u) => u.unit_id),
+			],
+			mode: "review-only",
+		};
+	}
+
+	// Commits waiting in a worktree are replayed onto the primary tree, so every
+	// builder dispatched from here must stay clear of their files.
+	const pendingTargets = pendingUnits.flatMap((u) => targetsFor(u));
+	const pendingHeld = pendingUnits.map((u) => u.unit_id);
+
+	// Ready units that overlap unintegrated work are held rather than dispatched:
+	// the worktree rebase would replay its commits over the builder's edits.
+	const dispatchableUnits = readyUnits.filter((unit) =>
+		unitsAreFileDisjoint(pendingTargets, targetsFor(unit)),
+	);
+	const blockedByPending = readyUnits
+		.filter((unit) => !dispatchableUnits.includes(unit))
+		.map((u) => u.unit_id);
+
+	if (dispatchableUnits.length === 0) {
+		return {
+			review: [],
+			dispatch: [],
+			held: [...pendingHeld, ...blockedByPending],
+			mode: "serial",
+			// Distinguishing these matters: pending integration means the
+			// orchestrator still owes work, while no ready units and nothing
+			// pending is a genuine dependency deadlock.
+			reason:
+				pendingUnits.length > 0 ? "pending_integration" : "no_ready_units",
+		};
+	}
+
+	const canParallelWave =
+		git_commit &&
+		clean_tree &&
+		dispatchableUnits.length >= 2 &&
+		max_builders >= 2;
+
+	if (canParallelWave) {
+		const primaryUnit = dispatchableUnits[0];
+		const dispatched: WaveDispatch[] = [
+			{
+				unit_id: primaryUnit.unit_id,
+				task_ids: [...primaryUnit.task_ids],
+				role: "primary",
+			},
+		];
+		const held: number[] = [...pendingHeld, ...blockedByPending];
+		const claimedTargets: string[] = [
+			...pendingTargets,
+			...targetsFor(primaryUnit),
+		];
+
+		for (const candidate of dispatchableUnits.slice(1)) {
+			if (dispatched.length >= max_builders) {
+				held.push(candidate.unit_id);
+				continue;
+			}
+
+			const hasMutualDep =
+				candidate.depends_on.some((dep) =>
+					dispatched.some((d) => d.task_ids.includes(dep)),
+				) ||
+				dispatched.some((d) => {
+					const dUnit = task_units.find((u) => u.unit_id === d.unit_id);
+					return dUnit?.depends_on.some((dep) =>
+						candidate.task_ids.includes(dep),
+					);
+				});
+
+			if (hasMutualDep) {
+				held.push(candidate.unit_id);
+				continue;
+			}
+
+			const candidateTargets = targetsFor(candidate);
+			if (!unitsAreFileDisjoint(claimedTargets, candidateTargets)) {
+				held.push(candidate.unit_id);
+				continue;
+			}
+
+			dispatched.push({
+				unit_id: candidate.unit_id,
+				task_ids: [...candidate.task_ids],
+				role: "secondary",
+			});
+			claimedTargets.push(...candidateTargets);
+		}
+
+		if (dispatched.length >= 2) {
+			return { review: [], dispatch: dispatched, held, mode: "parallel-wave" };
+		}
+	}
+
+	const primary = dispatchableUnits[0];
+	return {
+		review: [],
+		dispatch: [
+			{
+				unit_id: primary.unit_id,
+				task_ids: [...primary.task_ids],
+				role: "primary",
+			},
+		],
+		held: [
+			...pendingHeld,
+			...blockedByPending,
+			...dispatchableUnits.slice(1).map((u) => u.unit_id),
+		],
+		mode: "serial",
+	};
+};
+
 export const execute = (
 	input: string,
 	_options: ToolOptions,
@@ -705,4 +1086,4 @@ registerTool({
 	execute,
 });
 
-export { TOOL_NAME, planPathFor };
+export { TOOL_NAME, parsePositiveInteger, planPathFor };
