@@ -913,9 +913,9 @@ Description:
 
   Units already built but not yet reviewed are returned in "review", never in
   "dispatch": their edits are already on disk, so rebuilding would re-apply
-  them. When "review" and "dispatch" are both non-empty, run them
-  concurrently -- that is the reviewer-pipelining case, and the scheduler only
-  pairs them when the build cannot collide with a retry of the reviewed unit.
+  them. "review" and "dispatch" are mutually exclusive -- any built unit makes
+  the wave review-only with every builder held, because the reviewer inspects
+  the live checkout and no concurrent builder can be made safe.
 
   Work built in a worktree that is not yet integrated belongs in
   pending_integration_task_ids, not built_task_ids: it is on neither the
@@ -925,7 +925,10 @@ Description:
   when integration is still owed, distinguishing it from a real deadlock.
 
   All three state lists are validated against the task plan: unknown IDs,
-  duplicates, an ID in two lists, and partial unit state are rejected.
+  duplicates, and an ID in two lists are rejected. A unit whose tasks span
+  states is not rejected: grouping is recomputed on every call, so mid-build
+  plan edits legitimately regroup tasks, and the scheduler splits such units
+  by state instead of failing the run.
 
   File-disjointness is computed from task targets, comparing whole path
   segments so a directory target overlaps files beneath it. Known-shared paths

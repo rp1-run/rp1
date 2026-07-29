@@ -273,42 +273,31 @@ describe("Build v2 static contracts", () => {
 		expect(content).toContain(
 			"Units in `review` are already built on the primary tree -- dispatch a reviewer for them, never a builder.",
 		);
-		// All three wave shapes stay documented so serial remains the fallback,
-		// and `serial` is explicitly the pipelined case too.
+		// All three wave shapes stay documented, and review is exclusive: a wave
+		// never mixes a reviewer with builders.
 		expect(content).toContain(
-			"`review-only` has no builders, `serial` has exactly one builder",
+			"`review-only` has exactly one reviewer and no builders, `serial` has exactly one builder and no reviewers",
+		);
+		expect(content).toContain(
+			"`review` and `dispatch` are never both non-empty",
 		);
 		// Task ID lists cross a shell boundary as comma-separated strings; an
 		// array literal would send unusable IDs.
 		expect(content).toContain("joined with commas");
 	});
 
-	test("reviewers inspect a pinned commit so a concurrent builder cannot move HEAD", async () => {
+	test("reviewers run alone: a review wave dispatches no builders", async () => {
 		const content = await readSkillSurface("plugins/dev/skills/build");
-		const reviewerArgs = await readAgentArgumentNames(
-			"plugins/dev/agents/task-reviewer.md",
-		);
-		const reviewer = await readProjectFile(
-			"plugins/dev/agents/task-reviewer.md",
-		);
 
-		// The skill must capture the SHA before dispatch and pass it through.
+		// The reviewer works against the live checkout -- source reads, tests,
+		// scope checks, task-artifact updates -- so nothing may run beside it.
+		// SHA pinning was rejected as insufficient: it protects only Git
+		// metadata, and protects nothing when GIT_COMMIT=false.
 		expect(content).toContain(
-			'REVIEW_SHA=$(git -C "{codeRoot}" rev-parse HEAD)',
+			"A wave with a `review` entry is always `review-only`",
 		);
-		const reviewerDispatches = extractDispatches(
-			content,
-			"rp1-dev:task-reviewer",
-		);
-		expect(reviewerDispatches).toHaveLength(1);
-		expect(reviewerDispatches[0]).toContain("REVIEW_SHA={REVIEW_SHA}");
-
-		// And the agent must accept it and prefer it over bare HEAD.
-		expect(reviewerArgs).toContain("REVIEW_SHA");
-		expect(reviewer).toContain(
-			"Always inspect `REVIEW_REF`, never bare `HEAD`",
-		);
-		expect(reviewer).not.toContain("--name-only -r HEAD");
+		expect(content).toContain("Never reviewer and builder concurrently.");
+		expect(content).not.toContain("REVIEW_SHA");
 	});
 
 	test("implementation holds worktree work in a pending-integration state", async () => {

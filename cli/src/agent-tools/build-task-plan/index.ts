@@ -877,11 +877,12 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 	// Work sitting in an unintegrated worktree: not on the primary branch, so it
 	// can be neither reviewed nor rebuilt until the orchestrator resolves it.
 	//
-	// This deliberately tests `some` where the predicates above test `every`. The
-	// CLI rejects partial unit state, but holding on any pending task is the safe
-	// direction for callers that reach this function directly: `every` would let a
-	// partially-pending unit look ready and be rebuilt over work that already
-	// exists in the worktree. Do not "simplify" this to `every`.
+	// This deliberately tests `some` where the predicates above test `every`.
+	// splitMixedStateUnits separates states before these predicates run, but
+	// holding on any pending task is still the safe direction should a mixed
+	// unit ever reach them: `every` would let a partially-pending unit look
+	// ready and be rebuilt over work that already exists in the worktree. Do
+	// not "simplify" this to `every`.
 	const isPendingIntegration = (unit: BuildTaskUnit): boolean =>
 		!isCompleted(unit) &&
 		!isBuilt(unit) &&
@@ -909,56 +910,26 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 
 	// Built work must be reviewed, never re-dispatched to a builder: its edits
 	// are already on disk, so rebuilding would re-apply them.
+	//
+	// The wave is review-only: no builder is dispatched while a review is out.
+	// The reviewer works against the live checkout -- reading source, running
+	// tests, checking scope, and updating the task artifacts -- so a concurrent
+	// builder would race it on both the tree and the artifacts. File
+	// disjointness cannot make that safe: tests and scope checks read beyond
+	// the unit's own targets.
 	if (builtUnits.length > 0) {
 		const reviewUnit = builtUnits[0];
-		const review = [
-			{ unit_id: reviewUnit.unit_id, task_ids: [...reviewUnit.task_ids] },
-		];
-		const heldUnits = [
-			...builtUnits.slice(1).map((u) => u.unit_id),
-			...pendingUnits.map((u) => u.unit_id),
-		];
-
-		// A pipelined builder must not touch files belonging to ANY unit awaiting
-		// review, not merely the one under review now: a later reviewer failure
-		// retries that unit on the shared tree, and unintegrated worktree commits
-		// are replayed onto it. Overlap with either is unsafe.
-		const unreviewedTargets = [
-			...builtUnits.flatMap((u) => targetsFor(u)),
-			...pendingUnits.flatMap((u) => targetsFor(u)),
-		];
-
-		const candidate = readyUnits.find(
-			(unit) =>
-				!unit.depends_on.some((dep) => reviewUnit.task_ids.includes(dep)) &&
-				unitsAreFileDisjoint(unreviewedTargets, targetsFor(unit)),
-		);
-
-		if (!candidate) {
-			return {
-				review,
-				dispatch: [],
-				held: [...heldUnits, ...readyUnits.map((u) => u.unit_id)],
-				mode: "review-only",
-			};
-		}
-
 		return {
-			review,
-			dispatch: [
-				{
-					unit_id: candidate.unit_id,
-					task_ids: [...candidate.task_ids],
-					role: "primary",
-				},
+			review: [
+				{ unit_id: reviewUnit.unit_id, task_ids: [...reviewUnit.task_ids] },
 			],
+			dispatch: [],
 			held: [
-				...heldUnits,
-				...readyUnits
-					.filter((u) => u.unit_id !== candidate.unit_id)
-					.map((u) => u.unit_id),
+				...builtUnits.slice(1).map((u) => u.unit_id),
+				...pendingUnits.map((u) => u.unit_id),
+				...readyUnits.map((u) => u.unit_id),
 			],
-			mode: "serial",
+			mode: "review-only",
 		};
 	}
 

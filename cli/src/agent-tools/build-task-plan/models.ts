@@ -99,10 +99,10 @@ export interface WaveReview {
 /**
  * Scheduler output.
  *
- * `review` and `dispatch` are independent: when both are non-empty the
- * orchestrator runs them concurrently, which is the reviewer-pipelining case.
- * The scheduler only pairs them when the build is dependency-free and
- * file-disjoint from the unit under review.
+ * `review` and `dispatch` are mutually exclusive: any built unit makes the
+ * wave review-only, with every builder held. The reviewer works against the
+ * live checkout (source reads, tests, scope checks, task-artifact updates),
+ * so no builder may run concurrently with it.
  */
 export interface ScheduleWaveResult {
 	readonly review: readonly WaveReview[];

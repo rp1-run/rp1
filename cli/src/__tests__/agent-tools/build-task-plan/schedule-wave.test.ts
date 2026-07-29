@@ -219,24 +219,31 @@ describe("scheduleWave", () => {
 		expect(result.held).toEqual([]);
 	});
 
-	test("pipelines one builder alongside the review of a built unit", () => {
+	test("never dispatches a builder while a built unit awaits review", () => {
+		// Ready C is dependency-free and file-disjoint from every built unit, yet
+		// it is still held: the reviewer inspects the live checkout (source reads,
+		// tests, scope checks, HEAD) and updates the task artifacts, so no
+		// concurrent builder can be made safe by file disjointness alone.
 		const result = scheduleWave(
 			wave({
-				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
-				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
-				built_task_ids: ["T1"],
+				task_units: [unit(1, ["A"]), unit(2, ["B"]), unit(3, ["C"])],
+				tasks: [
+					task("A", "src/a.ts"),
+					task("B", "src/b.ts"),
+					task("C", "src/c.ts"),
+				],
+				built_task_ids: ["A", "B"],
 				git_commit: false,
 			}),
 		);
 
-		expect(result.mode).toBe("serial");
-		expect(result.review).toEqual([{ unit_id: 1, task_ids: ["T1"] }]);
-		expect(result.dispatch).toEqual([
-			{ unit_id: 2, task_ids: ["T2"], role: "primary" },
-		]);
+		expect(result.mode).toBe("review-only");
+		expect(result.review).toEqual([{ unit_id: 1, task_ids: ["A"] }]);
+		expect(result.dispatch).toEqual([]);
+		expect(result.held).toEqual([2, 3]);
 	});
 
-	test("does not pipeline a builder that depends on the unit under review", () => {
+	test("does not treat a dependent of the unit under review as ready", () => {
 		const result = scheduleWave(
 			wave({
 				task_units: [unit(1, ["T1"]), unit(2, ["T2"], ["T1"])],
@@ -254,66 +261,6 @@ describe("scheduleWave", () => {
 		expect(result.held).toEqual([]);
 	});
 
-	test("does not pipeline a builder overlapping a built unit that is only held", () => {
-		// Built A (src/a.ts) is reviewed now; built B (src/shared.ts) is held for a
-		// later cycle. Ready C also targets src/shared.ts. Dispatching C would
-		// contaminate B's files before B is ever reviewed, and a later retry of B
-		// would rebuild over C's edits.
-		const result = scheduleWave(
-			wave({
-				task_units: [unit(1, ["A"]), unit(2, ["B"]), unit(3, ["C"])],
-				tasks: [
-					task("A", "src/a.ts"),
-					task("B", "src/shared.ts"),
-					task("C", "src/shared.ts"),
-				],
-				built_task_ids: ["A", "B"],
-				git_commit: false,
-			}),
-		);
-
-		expect(result.mode).toBe("review-only");
-		expect(result.review).toEqual([{ unit_id: 1, task_ids: ["A"] }]);
-		expect(result.dispatch).toEqual([]);
-		expect(result.held).toEqual([2, 3]);
-	});
-
-	test("still pipelines a builder that is disjoint from every built unit", () => {
-		const result = scheduleWave(
-			wave({
-				task_units: [unit(1, ["A"]), unit(2, ["B"]), unit(3, ["C"])],
-				tasks: [
-					task("A", "src/a.ts"),
-					task("B", "src/b.ts"),
-					task("C", "src/c.ts"),
-				],
-				built_task_ids: ["A", "B"],
-				git_commit: false,
-			}),
-		);
-
-		expect(result.review).toEqual([{ unit_id: 1, task_ids: ["A"] }]);
-		expect(result.dispatch).toEqual([
-			{ unit_id: 3, task_ids: ["C"], role: "primary" },
-		]);
-		expect(result.held).toEqual([2]);
-	});
-
-	test("does not pipeline a builder sharing files with the unit under review", () => {
-		const result = scheduleWave(
-			wave({
-				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
-				tasks: [task("T1", "src/shared.ts"), task("T2", "src/shared.ts")],
-				built_task_ids: ["T1"],
-				git_commit: false,
-			}),
-		);
-
-		expect(result.mode).toBe("review-only");
-		expect(result.dispatch).toEqual([]);
-		expect(result.held).toEqual([2]);
-	});
-
 	test("never re-dispatches a builder for a unit that is already built", () => {
 		const result = scheduleWave(
 			wave({
@@ -328,7 +275,7 @@ describe("scheduleWave", () => {
 		expect(result.dispatch.map((d) => d.unit_id)).not.toContain(2);
 	});
 
-	test("offers a built unit for review before starting a parallel wave", () => {
+	test("offers a built unit for review instead of starting a parallel wave", () => {
 		const result = scheduleWave(
 			wave({
 				task_units: [unit(1, ["T1"]), unit(2, ["T2"]), unit(3, ["T3"])],
@@ -342,8 +289,9 @@ describe("scheduleWave", () => {
 		);
 
 		expect(result.review).toEqual([{ unit_id: 1, task_ids: ["T1"] }]);
-		expect(result.dispatch).toHaveLength(1);
-		expect(result.mode).toBe("serial");
+		expect(result.dispatch).toEqual([]);
+		expect(result.mode).toBe("review-only");
+		expect(result.held).toEqual([2, 3]);
 	});
 
 	test("reviews built units in ascending unit order", () => {
@@ -425,10 +373,11 @@ describe("scheduleWave", () => {
 		expect(result.mode).toBe("parallel-wave");
 	});
 
-	test("splits a regrouped unit so built work is reviewed and new work is built", () => {
+	test("splits a regrouped unit so built work is reviewed, not rebuilt", () => {
 		// Grouping is recomputed every call: a plan holding only T1 groups as [T1],
 		// and the add-task path regroups it as [T1, T2]. T1 is already built, so the
-		// unit must not be handed to a builder as a whole.
+		// unit must not be handed to a builder as a whole. The split leaves T2 in
+		// its own unit, held until T1's review completes.
 		const result = scheduleWave(
 			wave({
 				task_units: [unit(1, ["T1", "T2"])],
@@ -438,10 +387,10 @@ describe("scheduleWave", () => {
 			}),
 		);
 
+		expect(result.mode).toBe("review-only");
 		expect(result.review).toEqual([{ unit_id: 1, task_ids: ["T1"] }]);
-		expect(result.dispatch).toEqual([
-			{ unit_id: 2, task_ids: ["T2"], role: "primary" },
-		]);
+		expect(result.dispatch).toEqual([]);
+		expect(result.held).toEqual([2]);
 	});
 
 	test("holds new work that depended on a built task in the same regrouped unit", () => {

@@ -95,18 +95,10 @@ If `review` and `dispatch` are both empty, use `reason` to decide: `pending_inte
 
 Dispatch every block the tool asks for in ONE message, then wait for all of them. `review[i].task_ids` and `dispatch[i].task_ids` are the only source of `TASK_IDS`. Both are JSON arrays; pass them as a comma-separated string, never as an array literal.
 
-**Reviewers** -- one block per entry in `review`. Reviewers always run on the primary `codeRoot`.
-
-When `GIT_COMMIT=true`, capture the commit each reviewer must inspect *before* dispatching anything, and pass it as `REVIEW_SHA`:
-
-```bash
-REVIEW_SHA=$(git -C "{codeRoot}" rev-parse HEAD)
-```
-
-A builder dispatched in the same wave commits to this same checkout, which moves `HEAD` off the work under review. Pinning the SHA is what makes review and build safe to run concurrently; file-disjointness alone does not protect `HEAD`. Pass `REVIEW_SHA=""` when `GIT_COMMIT=false`, since there are no commits to pin.
+**Reviewers** -- one block per entry in `review`. Reviewers always run on the primary `codeRoot`. A wave with a `review` entry is always `review-only`: the reviewer inspects the live checkout (source, tests, scope, `HEAD`) and updates the task artifacts, so nothing else may run beside it.
 
 {% dispatch_agent "rp1-dev:task-reviewer", background %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={review[i].task_ids joined with commas}, GIT_COMMIT={GIT_COMMIT}, REVIEW_SHA={REVIEW_SHA}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={review[i].task_ids joined with commas}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 **Builders** -- one block per entry in `dispatch`. The `primary` entry runs on `codeRoot`:
@@ -121,7 +113,7 @@ Each `secondary` entry runs on its own worktree, created per `references/paralle
 FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={worktreePath}, TASK_IDS={dispatch[i].task_ids joined with commas}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-`mode` tells you what the wave contains: `review-only` has no builders, `serial` has exactly one builder -- whether standalone or pipelined alongside a review -- and `parallel-wave` has a primary plus one or more worktree secondaries.
+`mode` tells you what the wave contains: `review-only` has exactly one reviewer and no builders, `serial` has exactly one builder and no reviewers, and `parallel-wave` has a primary builder plus one or more worktree secondaries. `review` and `dispatch` are never both non-empty.
 
 After every dispatched agent returns, update the three state lists per the Dispatch Cycle rules, integrate any secondary worktrees per `references/parallel-builders.md`, then call `schedule-wave` again. Process reviewer results before integrating.
 
@@ -141,8 +133,6 @@ FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={code
 
 Re-add `RETRY_TASK_IDS` to `BUILT_TASK_IDS` when that builder succeeds, then re-run task-reviewer for the same unit. On second failure, escalate per §4.3.7.
 
-If another builder was in flight when the reviewer failed: wait for it to finish and record its `task_ids` in `BUILT_TASK_IDS`, but resolve the failed unit's retry before dispatching anything new. The scheduler will offer the waiting unit for review once the failed unit passes. If retry is exhausted, the waiting unit is abandoned alongside it.
-
 #### Exhausted-Retry Escalation {#s4-3-7}
 
 Escalate without marking parent `implementation` failed while recovery remains.
@@ -154,8 +144,8 @@ Escalate without marking parent `implementation` failed while recovery remains.
 
 #### Safety Rules
 
-1. **Never reviewer and builder on the same unit.** A unit's reviewer dispatches only after that unit's builder completes.
-2. **Failure isolation.** When a pipelined reviewer fails, wait for any in-flight builder to finish, then resolve the retry before any new dispatch.
+1. **Never reviewer and builder concurrently.** A review wave contains no builders and a dispatch wave contains no reviewers; the scheduler enforces this, and you must not dispatch extra work beside a review. A unit's reviewer dispatches only after that unit's builder completes.
+2. **Failure isolation.** When a reviewer fails, resolve that unit's retry before any new dispatch.
 3. **Serial fallback.** When in doubt about preconditions, file overlap, or worktree health, fall back to serial. Parallel-wave is an optimization, not a requirement. The tool may always be called with `--clean-tree false` to force serial mode.
 4. **Emit namespacing unchanged.** Both primary and secondary builders emit with the same `task-builder:` step prefix. The `--unit` parameter distinguishes their events.
 
