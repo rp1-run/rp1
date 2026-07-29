@@ -173,7 +173,12 @@ docker_run_args+=(
     rp1-dev
     zsh
     -lc
-    'cd /src/rp1 && just eval-run-local "$@"'
+    # safe.directory: the mounted repo is owned by the host user, not rp1user,
+    # so git otherwise fails with "dubious ownership" and the --attest step
+    # cannot record which commit the eval ran against. setup-dev.sh also sets
+    # this, but that script is baked into the image -- repeating it here makes
+    # the fix effective on images built before it existed.
+    'git config --global --add safe.directory "*" && cd /src/rp1 && just eval-run-local "$@"'
     --
     "${container_args[@]}"
 )
