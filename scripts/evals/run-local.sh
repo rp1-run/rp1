@@ -66,9 +66,6 @@ for config in $configs_list; do
     echo "=== ${suite_path} (harness: ${harness}) ==="
     if cd "${evals_dir}" && bunx promptfoo eval -c "suites/${suite_path}/evals.yaml" --output "${output_file}" $verbose_flag $provider_flag; then
         passed_suites="${passed_suites} ${output_file}"
-        if [ -n "$passed_suites_file" ]; then
-            printf '%s\n' "${output_file}" >> "$passed_suites_file"
-        fi
         cd "${repo_root}"
     else
         echo "FAILED: ${suite_path}"
@@ -77,12 +74,23 @@ for config in $configs_list; do
     fi
 done
 
+attest_failed=0
 if [ "$attest" = "true" ] && [ -n "$passed_suites" ]; then
     echo ""
     echo "=== Attesting passing suites ==="
     for output in $passed_suites; do
         echo "Attesting: $output"
-        bun run evals/src/attestation/cli.ts attest-from-output "evals/${output}" --platform="${platform}" || echo "Attestation failed for ${output}"
+        if bun run evals/src/attestation/cli.ts attest-from-output "evals/${output}" --platform="${platform}"; then
+            # The passed-suites file is the host-commit contract: a suite is
+            # only eligible for commit once it has passed AND attested, so a
+            # failed attestation can never ship its output.
+            if [ -n "$passed_suites_file" ]; then
+                printf '%s\n' "${output}" >> "$passed_suites_file"
+            fi
+        else
+            echo "Attestation FAILED for ${output}"
+            attest_failed=1
+        fi
     done
 fi
 
@@ -91,4 +99,5 @@ if [ "$do_commit" = "true" ]; then
 fi
 
 if [ "$failed" = "1" ]; then echo "Some evals FAILED"; exit 1; fi
+if [ "$attest_failed" = "1" ]; then echo "Some attestations FAILED"; exit 1; fi
 echo "All evals PASSED"

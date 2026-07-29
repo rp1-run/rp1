@@ -220,7 +220,14 @@ else
 fi
 
 if [ "$do_commit" = "true" ] && [ "$attest" = "true" ]; then
-    host_commit_eval_results "$host_commit_outputs_file"
+    # A non-zero container exit includes attestation failure (run-local.sh
+    # exits 1 when any attestation fails), so committing here would ship eval
+    # outputs without their provenance record.
+    if [ "$docker_exit" -eq 0 ]; then
+        host_commit_eval_results "$host_commit_outputs_file"
+    else
+        echo "Skipping eval-results commit: containerized run exited ${docker_exit}"
+    fi
 elif [ "$do_commit" = "true" ]; then
     echo "--commit requested without --attest; skipping commit"
 fi
