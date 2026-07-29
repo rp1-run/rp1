@@ -4,11 +4,11 @@
     "rp1-dev:build@claude-code": {
       "platform": "claude-code",
       "prompt_hash": "sha256:fba683f80ca873521961e7404e7a9f635f73fad4f8adcc2191ebd4ff1c85527e",
-      "deps_hash": "sha256:abe86802fdb436cd02039938911145ba3ecd68f56b7d007ad281134be576b573",
+      "deps_hash": "sha256:c93e96f402cfb1cbafe23dee10fdd3e529d80793772a445884c314252f15baa9",
       "version": "3.0.0",
       "last_eval": {
         "passed": true,
-        "timestamp": "2026-07-29T01:47:14.637Z",
+        "timestamp": "2026-07-29T04:06:03.574Z",
         "git_commit": "",
         "result_file": "output/rp1-dev-build.json"
       }
@@ -97,7 +97,7 @@
     "dist/claude-code/dev/agents/build-verify-aggregator.md": "sha256:e07a7a99c34bc2fbbe16ba14ecbaa609deb4dd7f54674e1e9969bb0c4b3b8cb7",
     "dist/claude-code/dev/agents/feature-archiver.md": "sha256:55274c3100910c926950f6c81090fbfdae6eb25e6809cbf038c7d259884cc418",
     "dist/claude-code/dev/skills/build/references/build-redirected.md": "sha256:93488d6a49ab51e3a8ee430cf54f3390e00471ef36112abb6bbd831165b5025f",
-    "dist/claude-code/dev/skills/build/references/implementation-and-release.md": "sha256:346924b92fce56130ab0ea6cc30de891e537a5fbd1a9ed2916c8d82af8bc10a8",
+    "dist/claude-code/dev/skills/build/references/implementation-and-release.md": "sha256:d92083a0fac47ff93f269ceb635963ef2cc40546b4310c55a14ad9bbb284fbbc",
     "dist/claude-code/dev/skills/build/references/parallel-builders.md": "sha256:f22efaaa86b2cd72ebaad424d6504410528e5b5d2694b1bd90447defa256238f",
     "dist/claude-code/dev/skills/build-fast/references/review-and-finalization.md": "sha256:098c4e678c4a18a12f8c38f2c8e862b3cf69d5bad7cea49e7d577856e7580b89"
   }
