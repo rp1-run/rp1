@@ -155,6 +155,10 @@ kind="$1"
 shift || true
 printf '%s\n' "$@" > "\${DOCKER_STUB_LOG_DIR}/\${kind}-args.txt"
 env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
+# Report the image as absent so the launcher exercises its build path.
+if [ "$kind" = "image" ]; then
+    exit 1
+fi
 `,
 			"utf-8",
 		);
@@ -216,7 +220,9 @@ env | sort > "\${DOCKER_STUB_LOG_DIR}/\${kind}-env.txt"
 		expect(runArgs).toContain("rp1-dev");
 		expect(runArgs).toContain("zsh");
 		expect(runArgs).toContain("-lc");
-		expect(runArgs).toContain('cd /src/rp1 && just eval-run-local "$@"');
+		expect(runArgs).toContain(
+			'git config --global --add safe.directory "*" && cd /src/rp1 && just eval-run-local "$@"',
+		);
 		expect(runArgs).toContain("--");
 		expect(runArgs).toContain("rp1-dev/build-fast");
 		expect(runArgs).toContain("--harness=opencode");
@@ -400,6 +406,81 @@ esac
 			`-C ${REPO_ROOT} add evals/output/rp1-dev-build-fast.json`,
 		);
 		expect(gitLog).toContain(`-C ${REPO_ROOT} commit -m`);
+	});
+
+	test("skips the host commit when the containerized run fails", async () => {
+		// run-local.sh exits non-zero when an eval or its attestation fails, so
+		// a failing container must never reach the host git commit: that would
+		// ship eval outputs without their provenance record.
+		const stubRoot = await createTempDir("rp1-docker-failed-run-");
+		const binDir = join(stubRoot, "bin");
+		const logDir = join(stubRoot, "logs");
+		const dockerStubPath = join(binDir, "docker");
+		const gitStubPath = join(binDir, "git");
+		const gitLogPath = join(logDir, "git.log");
+
+		await mkdir(binDir, { recursive: true });
+		await mkdir(logDir, { recursive: true });
+		await writeFile(
+			dockerStubPath,
+			`#!/usr/bin/env bash
+set -euo pipefail
+kind="$1"
+shift || true
+printf '%s\n' "$@" > "\${DOCKER_STUB_LOG_DIR}/\${kind}-args.txt"
+if [ "$kind" = "run" ]; then
+    exit 1
+fi
+`,
+			"utf-8",
+		);
+		await writeFile(
+			gitStubPath,
+			`#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "\${GIT_STUB_LOG}"
+if [ "$1" = "-C" ]; then
+    shift 2
+fi
+case "$1" in
+    rev-parse)
+        case "$2" in
+            --is-inside-work-tree)
+                echo true
+                ;;
+            --git-dir|--git-common-dir)
+                echo .git
+                ;;
+        esac
+        ;;
+esac
+`,
+			"utf-8",
+		);
+		await chmod(dockerStubPath, 0o755);
+		await chmod(gitStubPath, 0o755);
+		await writeFile(gitLogPath, "", "utf-8");
+
+		const result = await runCommand(
+			"bash",
+			[EVAL_LAUNCHER_PATH, "rp1-dev/build-fast", "--attest", "--commit"],
+			{
+				cwd: REPO_ROOT,
+				env: {
+					...process.env,
+					PATH: `${binDir}:${process.env.PATH ?? ""}`,
+					DOCKER_STUB_LOG_DIR: logDir,
+					GIT_STUB_LOG: gitLogPath,
+				},
+			},
+		);
+
+		expect(result.exitCode).not.toBe(0);
+		expect(result.stdout).toContain("Skipping eval-results commit");
+
+		const gitLog = await readFile(gitLogPath, "utf-8");
+		expect(gitLog).not.toContain("add evals/attestation.json");
+		expect(gitLog).not.toContain("commit -m");
 	});
 
 	test("quarantines corrupt promptfoo database files before reuse", async () => {

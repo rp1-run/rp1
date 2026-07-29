@@ -106,6 +106,16 @@ jobs:
       - name: Run native app tests
         run: just test-native-app
 
+      - name: Install eval dependencies
+        run: cd evals && bun install --frozen-lockfile
+
+      # The eval unit tests cover the attestation provenance contract and the
+      # dockerized launcher scripts (docker stubbed via PATH). Without this
+      # step nothing in CI exercises evals/src or the launcher contract, which
+      # let a stale launcher test sit broken for months unnoticed.
+      - name: Run eval unit tests
+        run: cd evals && bun test
+
       - name: Generate coverage report
         if: ${{ always() && !cancelled() && steps.test_home_boundary.outcome == 'success' }}
         shell: bash

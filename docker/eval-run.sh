@@ -173,7 +173,12 @@ docker_run_args+=(
     rp1-dev
     zsh
     -lc
-    'cd /src/rp1 && just eval-run-local "$@"'
+    # safe.directory: the mounted repo is owned by the host user, not rp1user,
+    # so git otherwise fails with "dubious ownership" and the --attest step
+    # cannot record which commit the eval ran against. setup-dev.sh also sets
+    # this, but that script is baked into the image -- repeating it here makes
+    # the fix effective on images built before it existed.
+    'git config --global --add safe.directory "*" && cd /src/rp1 && just eval-run-local "$@"'
     --
     "${container_args[@]}"
 )
@@ -215,7 +220,14 @@ else
 fi
 
 if [ "$do_commit" = "true" ] && [ "$attest" = "true" ]; then
-    host_commit_eval_results "$host_commit_outputs_file"
+    # A non-zero container exit includes attestation failure (run-local.sh
+    # exits 1 when any attestation fails), so committing here would ship eval
+    # outputs without their provenance record.
+    if [ "$docker_exit" -eq 0 ]; then
+        host_commit_eval_results "$host_commit_outputs_file"
+    else
+        echo "Skipping eval-results commit: containerized run exited ${docker_exit}"
+    fi
 elif [ "$do_commit" = "true" ]; then
     echo "--commit requested without --attest; skipping commit"
 fi

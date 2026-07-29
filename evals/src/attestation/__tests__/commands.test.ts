@@ -5,12 +5,14 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as E from "fp-ts/Either";
 import {
 	attestFromOutput,
 	detectPassRate,
 	extractSuiteFromFilename,
+	getGitCommit,
 } from "../commands.js";
 
 const evalRoot = join(import.meta.dirname, "..", "..", "..");
@@ -393,5 +395,79 @@ describe("detectPassRate", () => {
 			},
 		};
 		expect(detectPassRate(output)).toBe(false);
+	});
+});
+
+describe("getGitCommit", () => {
+	// Must live outside the rp1 checkout: git walks parent directories, so a
+	// temp dir inside the repo resolves to the repo's own HEAD.
+	let tempDir: string;
+
+	beforeEach(async () => {
+		tempDir = join(
+			tmpdir(),
+			`rp1-git-commit-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
+		await mkdir(tempDir, { recursive: true });
+	});
+
+	afterEach(async () => {
+		await rm(tempDir, { recursive: true, force: true });
+	});
+
+	const run = (args: string[]): Promise<number> => {
+		const proc = Bun.spawn(["git", ...args], {
+			stdout: "ignore",
+			stderr: "ignore",
+		});
+		return proc.exited;
+	};
+
+	test("returns the short SHA of HEAD in a git repository", async () => {
+		expect(await run(["-C", tempDir, "init", "-q"])).toBe(0);
+		expect(
+			await run([
+				"-C",
+				tempDir,
+				"-c",
+				"user.email=test@example.com",
+				"-c",
+				"user.name=Test",
+				"commit",
+				"--allow-empty",
+				"-q",
+				"-m",
+				"initial",
+			]),
+		).toBe(0);
+
+		const sha = await getGitCommit(tempDir);
+		expect(sha).toMatch(/^[0-9a-f]{4,40}$/);
+	});
+
+	test("rejects a zero-exit run that produces no SHA", async () => {
+		// Practically unreachable with real git, but the guard is part of the
+		// contract: provenance is never recorded as an empty string. Stub
+		// Bun.spawn for this one call to simulate exit 0 with empty stdout.
+		const original = Bun.spawn;
+		try {
+			Bun.spawn = (() => ({
+				stdout: new Response("\n").body,
+				stderr: new Response("").body,
+				exited: Promise.resolve(0),
+			})) as unknown as typeof Bun.spawn;
+			await expect(getGitCommit()).rejects.toThrow(/produced no output/);
+		} finally {
+			Bun.spawn = original;
+		}
+	});
+
+	test("throws with the git error instead of returning an empty string outside a repository", async () => {
+		// The regression this guards: a failed `git rev-parse` (e.g. "dubious
+		// ownership" inside the eval container) was written to the attestation
+		// manifest as git_commit: "".
+		await expect(getGitCommit(tempDir)).rejects.toThrow(
+			/git rev-parse --short HEAD exited with 128/,
+		);
 	});
 });

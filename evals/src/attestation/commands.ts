@@ -125,14 +125,38 @@ function suiteToSkillPath(suite: string, platform: EvalPlatform): string {
 
 /**
  * Get current git commit SHA (short form).
+ *
+ * Throws when git fails or produces no SHA. Provenance is part of the
+ * attestation record: a silent empty string here once shipped attestations
+ * that could not be traced to the commit they were evaluated against, because
+ * a non-zero git exit was written to the manifest as valid data. Exported for
+ * tests; `cwd` defaults to the process working directory.
  */
-async function getGitCommit(): Promise<string> {
+export async function getGitCommit(cwd?: string): Promise<string> {
 	const proc = Bun.spawn(["git", "rev-parse", "--short", "HEAD"], {
 		stdout: "pipe",
+		stderr: "pipe",
+		...(cwd ? { cwd } : {}),
 	});
-	const output = await new Response(proc.stdout).text();
-	await proc.exited;
-	return output.trim();
+	const [output, errorOutput, exitCode] = await Promise.all([
+		new Response(proc.stdout).text(),
+		new Response(proc.stderr).text(),
+		proc.exited,
+	]);
+
+	if (exitCode !== 0) {
+		throw new Error(
+			`git rev-parse --short HEAD exited with ${exitCode}: ${errorOutput.trim()}`,
+		);
+	}
+
+	const sha = output.trim();
+	if (!sha) {
+		throw new Error(
+			"git rev-parse --short HEAD produced no output; cannot record eval provenance",
+		);
+	}
+	return sha;
 }
 
 /**

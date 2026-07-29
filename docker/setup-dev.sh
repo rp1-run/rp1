@@ -31,6 +31,16 @@ echo ""
 echo "━━━ rp1 dev container setup ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
+# The mounted repo is owned by the host user while this container runs as
+# rp1user, so git refuses every command with "detected dubious ownership"
+# (exit 128). That silently broke the dev-SHA embed below and wrote empty
+# git_commit provenance into eval attestations. Trust all mounted paths:
+# the repo lands at /src/rp1, and worktree runs additionally mount the git
+# common dir at its arbitrary host path, so a fixed path list cannot cover it.
+# This is an ephemeral single-purpose container; the multi-user attack that
+# safe.directory guards against does not apply.
+git config --global --add safe.directory '*'
+
 ensure_writable_dir() {
     local dir="$1"
     mkdir -p "$dir"
