@@ -425,6 +425,60 @@ describe("scheduleWave", () => {
 		expect(result.mode).toBe("parallel-wave");
 	});
 
+	test("splits a regrouped unit so built work is reviewed and new work is built", () => {
+		// Grouping is recomputed every call: a plan holding only T1 groups as [T1],
+		// and the add-task path regroups it as [T1, T2]. T1 is already built, so the
+		// unit must not be handed to a builder as a whole.
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1", "T2"])],
+				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
+				built_task_ids: ["T1"],
+				git_commit: false,
+			}),
+		);
+
+		expect(result.review).toEqual([{ unit_id: 1, task_ids: ["T1"] }]);
+		expect(result.dispatch).toEqual([
+			{ unit_id: 2, task_ids: ["T2"], role: "primary" },
+		]);
+	});
+
+	test("holds new work that depended on a built task in the same regrouped unit", () => {
+		// T2 depended on T1 inside the original unit. Splitting turns that into a
+		// cross-unit dependency, so T2 waits until T1 is reviewed rather than
+		// building against unreviewed work.
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1", "T2"])],
+				tasks: [
+					task("T1", "src/a.ts"),
+					task("T2", "src/b.ts", { dependencies: ["T1"] }),
+				],
+				built_task_ids: ["T1"],
+				git_commit: false,
+			}),
+		);
+
+		expect(result.review).toEqual([{ unit_id: 1, task_ids: ["T1"] }]);
+		expect(result.dispatch).toEqual([]);
+		expect(result.mode).toBe("review-only");
+	});
+
+	test("drops completed tasks when splitting a partially completed unit", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1", "T2"])],
+				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
+				completed_task_ids: ["T1"],
+			}),
+		);
+
+		expect(result.dispatch).toEqual([
+			{ unit_id: 1, task_ids: ["T2"], role: "primary" },
+		]);
+	});
+
 	test("treats a repo-root target as overlapping every nested path", () => {
 		// A task targeting the whole repo cannot run beside anything. Prefix
 		// matching alone misses this: "." is not a slash-prefix of "src/a.ts".

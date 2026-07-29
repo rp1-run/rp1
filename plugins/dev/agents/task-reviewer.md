@@ -32,6 +32,11 @@ arguments:
     required: false
     default: false
     description: "Whether commits were requested"
+  - name: REVIEW_SHA
+    type: string
+    required: false
+    default: ""
+    description: "Commit to review; pins inspection when a builder may move HEAD concurrently"
   - name: WORKFLOW
     type: string
     required: false
@@ -296,27 +301,29 @@ Verify across seven dimensions, using `<thinking>` for detailed analysis:
 
 **Pass Criteria**: Valid commit exists with correct format and relevant files
 
+**Commit under review**: set `REVIEW_REF` to `REVIEW_SHA` when it is non-empty, otherwise `HEAD`. A builder for a different unit may be committing to this same checkout while you run, which moves `HEAD` off the work you were asked to verify. Always inspect `REVIEW_REF`, never bare `HEAD`, so the review is pinned to the commit the orchestrator dispatched you for.
+
 **Checks**:
 
-1. **Commit Exists**: Run `git -C {SOURCE_ROOT} log -1 --oneline` to verify recent commit
+1. **Commit Exists**: Run `git -C {SOURCE_ROOT} log -1 --oneline {REVIEW_REF}` to verify recent commit
 2. **Message Format**: Verify commit message matches pattern:
    ```
    feat({FEATURE_ID}): implement {TASK_ID} - {description}
    ```
-3. **Files Relevant**: Run `git -C {SOURCE_ROOT} diff-tree --no-commit-id --name-only -r HEAD` to list committed files. Verify all files are relevant to the task.
+3. **Files Relevant**: Run `git -C {SOURCE_ROOT} diff-tree --no-commit-id --name-only -r {REVIEW_REF}` to list committed files. Verify all files are relevant to the task.
 4. **Atomic**: Only one commit for the task (not multiple or amended)
 
 **Validation Commands**:
 
 ```bash
 # Check last commit message
-git -C {SOURCE_ROOT} log -1 --format='%s'
+git -C {SOURCE_ROOT} log -1 --format='%s' {REVIEW_REF}
 
 # Check committed files
-git -C {SOURCE_ROOT} diff-tree --no-commit-id --name-only -r HEAD
+git -C {SOURCE_ROOT} diff-tree --no-commit-id --name-only -r {REVIEW_REF}
 
 # Verify FEATURE_ID in scope
-git -C {SOURCE_ROOT} log -1 --format='%s' | grep -E '^feat\({FEATURE_ID}\): implement T[0-9]+'
+git -C {SOURCE_ROOT} log -1 --format='%s' {REVIEW_REF} | grep -E '^feat\({FEATURE_ID}\): implement T[0-9]+'
 ```
 
 **FAIL if**:

@@ -1151,31 +1151,10 @@ Examples:
 				}
 			}
 
-			// A unit is built, completed, or integrated as a whole. Partial state
-			// means the orchestrator lost track, and left unchecked the unit looks
-			// ready and gets rebuilt over edits that already exist on disk.
-			const stateById = new Map<string, string>();
-			for (const { flag, ids } of stateLists) {
-				for (const id of ids) {
-					stateById.set(id, flag);
-				}
-			}
-			for (const unit of planData.task_units) {
-				const states = new Set(
-					unit.task_ids.map((id) => stateById.get(id) ?? "unset"),
-				);
-				if (states.size > 1) {
-					console.log(
-						createErrorResponse(
-							toolName,
-							`Task unit ${unit.unit_id} has mixed state across its tasks (${unit.task_ids
-								.map((id) => `${id}=${stateById.get(id) ?? "unset"}`)
-								.join(", ")}). Record state one whole unit at a time.`,
-						),
-					);
-					process.exit(1);
-				}
-			}
+			// Mixed state within a unit is NOT rejected: grouping is recomputed on
+			// every call, so editing the plan mid-build legitimately batches a new
+			// task together with one already built. The scheduler splits such units
+			// by state instead of failing the run.
 
 			const { scheduleWave } = await import("./build-task-plan/index.js");
 

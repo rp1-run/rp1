@@ -759,9 +759,80 @@ const unitsAreFileDisjoint = (
 	targetsB: readonly string[],
 ): boolean => !targetsA.some((a) => targetsB.some((b) => targetsOverlap(a, b)));
 
+type TaskState = "completed" | "built" | "pending" | "unset";
+
+/**
+ * Split any unit whose tasks are in different states into one sub-unit per
+ * state, dropping the already-completed tasks.
+ *
+ * Unit membership is recomputed from the plan on every call, while state is
+ * carried per task. Editing the plan mid-build -- which the add-task resume
+ * path does -- can therefore batch a newly unlocked task together with one that
+ * is already built: a plan holding only `T1` groups as `[T1]`, and adding `T2`
+ * regroups it as `[T1, T2]`. Treating that unit as a whole would either rebuild
+ * `T1` or stall the run, so the states are separated here instead.
+ *
+ * The first sub-unit keeps the parent's `unit_id` so unsplit plans renumber
+ * nothing; extras get fresh IDs above the current maximum. Dependencies that
+ * were internal to the parent become real cross-unit dependencies, which is what
+ * keeps an unset sub-unit from building before its built sibling is reviewed.
+ */
+const splitMixedStateUnits = (
+	units: readonly BuildTaskUnit[],
+	stateOf: (taskId: string) => TaskState,
+	tasksByIdMap: ReadonlyMap<string, BuildTaskPlanTask>,
+): readonly BuildTaskUnit[] => {
+	let nextUnitId =
+		units.reduce((max, unit) => Math.max(max, unit.unit_id), 0) + 1;
+	const result: BuildTaskUnit[] = [];
+
+	for (const unit of units) {
+		const groups = new Map<TaskState, string[]>();
+		for (const taskId of unit.task_ids) {
+			const state = stateOf(taskId);
+			const group = groups.get(state);
+			if (group) {
+				group.push(taskId);
+			} else {
+				groups.set(state, [taskId]);
+			}
+		}
+
+		if (groups.size <= 1) {
+			result.push(unit);
+			continue;
+		}
+
+		let isFirst = true;
+		for (const state of ["built", "pending", "unset"] as const) {
+			const taskIds = groups.get(state);
+			if (!taskIds || taskIds.length === 0) {
+				continue;
+			}
+
+			const own = new Set(taskIds);
+			const siblingDependencies = taskIds.flatMap((taskId) =>
+				(tasksByIdMap.get(taskId)?.dependencies ?? []).filter(
+					(dependency) =>
+						unit.task_ids.includes(dependency) && !own.has(dependency),
+				),
+			);
+
+			result.push({
+				unit_id: isFirst ? unit.unit_id : nextUnitId++,
+				task_ids: taskIds,
+				complexity: unit.complexity,
+				depends_on: [...new Set([...unit.depends_on, ...siblingDependencies])],
+			});
+			isFirst = false;
+		}
+	}
+
+	return result;
+};
+
 export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 	const {
-		task_units,
 		tasks,
 		completed_task_ids,
 		built_task_ids,
@@ -775,6 +846,23 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 	const builtSet = new Set(built_task_ids);
 	const pendingSet = new Set(pending_integration_task_ids);
 	const tasksByIdMap = new Map(tasks.map((t) => [t.id, t]));
+
+	// Pending outranks built for the same reason isBuilt checks it: worktree-only
+	// work is not on the primary tree.
+	const stateOf = (taskId: string): TaskState =>
+		completedSet.has(taskId)
+			? "completed"
+			: pendingSet.has(taskId)
+				? "pending"
+				: builtSet.has(taskId)
+					? "built"
+					: "unset";
+
+	const task_units = splitMixedStateUnits(
+		input.task_units,
+		stateOf,
+		tasksByIdMap,
+	);
 
 	const isCompleted = (unit: BuildTaskUnit): boolean =>
 		unit.task_ids.every((id) => completedSet.has(id));

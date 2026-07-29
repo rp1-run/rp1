@@ -214,7 +214,7 @@ agents:
   - name: rp1-dev:task-reviewer
     description: "Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification."
     plugin: dev
-    last_checksum: 441aad5fcc3efb912f420d07fda2d86757f332ab89f18025956be4fc9cfdb2f0
+    last_checksum: f2aeca9646ace7ab5c7072f3fe9c9bfa302c3aeb795ab7a4c28e3ff66cdf8dab
   - name: rp1-dev:test-runner
     description: "Executes comprehensive functional testing of implemented features including automated tests, coverage measurement, acceptance criteria verification, and detailed test reporting"
     plugin: dev

@@ -56,7 +56,7 @@ Process `TASK_PLAN.task_units` via the `schedule-wave` tool. Never derive task I
 
 #### Dispatch Cycle
 
-Track three lists of task IDs across the loop. Unit IDs are renumbered on every call, so never carry a `unit_id` between cycles. Each list holds whole units: record a unit's `task_ids` together, never a subset, or the tool rejects the call as mixed unit state.
+Track three lists of task IDs across the loop. Unit IDs are renumbered on every call, so never carry a `unit_id` between cycles. Record a unit's `task_ids` together rather than a subset. If the plan is edited mid-build and a later grouping batches new work with work already built, the tool splits that unit by state and returns the parts separately -- you do not need to reconcile it yourself.
 
 - `COMPLETED_TASK_IDS`: task IDs whose reviewer returned SUCCESS. Starts empty.
 - `BUILT_TASK_IDS`: task IDs built **on the primary tree** that no reviewer has accepted yet. Starts empty.
@@ -95,10 +95,18 @@ If `review` and `dispatch` are both empty, use `reason` to decide: `pending_inte
 
 Dispatch every block the tool asks for in ONE message, then wait for all of them. `review[i].task_ids` and `dispatch[i].task_ids` are the only source of `TASK_IDS`. Both are JSON arrays; pass them as a comma-separated string, never as an array literal.
 
-**Reviewers** -- one block per entry in `review`. Reviewers always run on the primary `codeRoot`:
+**Reviewers** -- one block per entry in `review`. Reviewers always run on the primary `codeRoot`.
+
+When `GIT_COMMIT=true`, capture the commit each reviewer must inspect *before* dispatching anything, and pass it as `REVIEW_SHA`:
+
+```bash
+REVIEW_SHA=$(git -C "{codeRoot}" rev-parse HEAD)
+```
+
+A builder dispatched in the same wave commits to this same checkout, which moves `HEAD` off the work under review. Pinning the SHA is what makes review and build safe to run concurrently; file-disjointness alone does not protect `HEAD`. Pass `REVIEW_SHA=""` when `GIT_COMMIT=false`, since there are no commits to pin.
 
 {% dispatch_agent "rp1-dev:task-reviewer", background %}
-FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={review[i].task_ids joined with commas}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, KB_ROOT={kbRoot}, WORK_ROOT={workRoot}, CODE_ROOT={codeRoot}, TASK_IDS={review[i].task_ids joined with commas}, GIT_COMMIT={GIT_COMMIT}, REVIEW_SHA={REVIEW_SHA}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 **Builders** -- one block per entry in `dispatch`. The `primary` entry runs on `codeRoot`:
