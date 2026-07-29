@@ -741,8 +741,18 @@ const targetsForUnit = (
  * concurrently. Comparison is segment-aware: `cli/src/buildx` does not
  * overlap `cli/src/build`.
  */
+const isRootTarget = (target: string): boolean =>
+	target === "." || target === "/";
+
 const targetsOverlap = (a: string, b: string): boolean =>
-	a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
+	a === b ||
+	// A root target covers the whole tree, so it overlaps every path. Prefix
+	// matching alone would miss this: neither "." nor "/" is a slash-prefix of
+	// "src/a.ts", so a repo-wide task would look disjoint from everything.
+	isRootTarget(a) ||
+	isRootTarget(b) ||
+	a.startsWith(`${b}/`) ||
+	b.startsWith(`${a}/`);
 
 const unitsAreFileDisjoint = (
 	targetsA: readonly string[],
@@ -768,8 +778,14 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 
 	const isCompleted = (unit: BuildTaskUnit): boolean =>
 		unit.task_ids.every((id) => completedSet.has(id));
+	// Pending integration takes precedence over built: if any task's work is only
+	// in a worktree, the unit's edits are not all on the primary tree and it must
+	// not be reviewed. The CLI rejects an ID in two lists, so this only matters
+	// for callers reaching the exported function directly.
 	const isBuilt = (unit: BuildTaskUnit): boolean =>
-		!isCompleted(unit) && unit.task_ids.every((id) => builtSet.has(id));
+		!isCompleted(unit) &&
+		!unit.task_ids.some((id) => pendingSet.has(id)) &&
+		unit.task_ids.every((id) => builtSet.has(id));
 	// Work sitting in an unintegrated worktree: not on the primary branch, so it
 	// can be neither reviewed nor rebuilt until the orchestrator resolves it.
 	//

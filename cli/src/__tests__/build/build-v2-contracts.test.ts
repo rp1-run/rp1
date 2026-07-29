@@ -265,7 +265,7 @@ describe("Build v2 static contracts", () => {
 		expect(dispatchFromIndex).toBeGreaterThan(dispatchCycleIndex);
 		expect(content).toContain("rp1 agent-tools schedule-wave");
 		expect(content).toContain(
-			"Repeat until `schedule-wave` returns an empty `review`, an empty `dispatch`, and an empty `PENDING_INTEGRATION_TASK_IDS`",
+			"Repeat until `schedule-wave` returns an empty `review` and an empty `dispatch`, and your own `PENDING_INTEGRATION_TASK_IDS` list is also empty",
 		);
 		// Built-but-unreviewed work must be reviewed, never handed back to a
 		// builder: its edits are already on disk.

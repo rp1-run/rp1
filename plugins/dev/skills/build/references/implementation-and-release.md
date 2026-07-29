@@ -64,7 +64,7 @@ Track three lists of task IDs across the loop. Unit IDs are renumbered on every 
 
 Every list is passed as a comma-separated string. The tool output gives `task_ids` as JSON arrays, so join them explicitly with `,` -- passing an array literal sends unusable IDs and the tool rejects them.
 
-Repeat until `schedule-wave` returns an empty `review`, an empty `dispatch`, and an empty `PENDING_INTEGRATION_TASK_IDS`:
+Repeat until `schedule-wave` returns an empty `review` and an empty `dispatch`, and your own `PENDING_INTEGRATION_TASK_IDS` list is also empty (that list is orchestrator state, not a field of the tool's response):
 
 ```bash
 CLEAN_TREE=$([ -z "$(git -C "{codeRoot}" status --porcelain)" ] && echo true || echo false)
@@ -79,7 +79,7 @@ rp1 agent-tools schedule-wave \
   --clean-tree "$CLEAN_TREE"
 ```
 
-Parse the JSON `ToolResult`. Extract `mode`, `review`, `dispatch`, `held`, and `reason`.
+Parse the JSON `ToolResult`. Extract `mode`, `review`, `dispatch`, and `held`. When `review` and `dispatch` are both empty, also read `reason` -- it is present only in that case.
 
 State transitions, which must be applied exactly once per unit:
 
@@ -138,6 +138,8 @@ If another builder was in flight when the reviewer failed: wait for it to finish
 #### Exhausted-Retry Escalation {#s4-3-7}
 
 Escalate without marking parent `implementation` failed while recovery remains.
+
+**Before stopping or failing, drain pending integration.** If `PENDING_INTEGRATION_TASK_IDS` is non-empty, abandon every secondary worktree per the Cleanup section of `references/parallel-builders.md` and clear those `task_ids` from `PENDING_INTEGRATION_TASK_IDS`. Those units then belong to no state list, so a later cycle rebuilds them on the primary tree. Skipping this strands the worktrees and leaves the run unable to make progress: integration requires the primary unit's reviewer to have succeeded, which will never happen for an escalated unit, so `schedule-wave` would keep reporting `pending_integration` forever.
 
 - Interactive: emit `waiting_for_user` on `implementation` with prompt "Task review failed after retry. Repair, Skip task, or Stop?" and context about the failing task unit. Then emit `implementation` waiting with `task_unit: "{RETRY_TASK_IDS}"` and `reason: "review_retry_exhausted"`. STOP with `/build {FEATURE_ID}` resume instructions.
 - AFK: if an explicit skip policy exists, record the skipped `RETRY_TASK_IDS` as release follow-ups; otherwise emit parent `implementation` failed only because no skip/repair path remains.

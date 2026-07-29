@@ -425,6 +425,38 @@ describe("scheduleWave", () => {
 		expect(result.mode).toBe("parallel-wave");
 	});
 
+	test("treats a repo-root target as overlapping every nested path", () => {
+		// A task targeting the whole repo cannot run beside anything. Prefix
+		// matching alone misses this: "." is not a slash-prefix of "src/a.ts".
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "."), task("T2", "src/a.ts")],
+			}),
+		);
+
+		expect(result.mode).toBe("serial");
+		expect(result.held).toEqual([2]);
+	});
+
+	test("does not review a unit whose work is also pending integration", () => {
+		// Precondition-violating input that the CLI rejects, but the pure function
+		// must still fail safe: pending integration outranks built, because the
+		// edits are not all on the primary tree.
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"])],
+				tasks: [task("T1", "src/a.ts")],
+				built_task_ids: ["T1"],
+				pending_integration_task_ids: ["T1"],
+			}),
+		);
+
+		expect(result.review).toEqual([]);
+		expect(result.held).toEqual([1]);
+		expect(result.reason).toBe("pending_integration");
+	});
+
 	test("holds a unit pending integration instead of reviewing or rebuilding it", () => {
 		// T2 was built by a secondary whose worktree is not yet integrated: its
 		// edits are absent from the primary tree, so it can be neither reviewed
