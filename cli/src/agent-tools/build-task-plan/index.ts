@@ -772,6 +772,12 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 		!isCompleted(unit) && unit.task_ids.every((id) => builtSet.has(id));
 	// Work sitting in an unintegrated worktree: not on the primary branch, so it
 	// can be neither reviewed nor rebuilt until the orchestrator resolves it.
+	//
+	// This deliberately tests `some` where the predicates above test `every`. The
+	// CLI rejects partial unit state, but holding on any pending task is the safe
+	// direction for callers that reach this function directly: `every` would let a
+	// partially-pending unit look ready and be rebuilt over work that already
+	// exists in the worktree. Do not "simplify" this to `every`.
 	const isPendingIntegration = (unit: BuildTaskUnit): boolean =>
 		!isCompleted(unit) &&
 		!isBuilt(unit) &&
