@@ -265,17 +265,38 @@ describe("Build v2 static contracts", () => {
 		expect(dispatchFromIndex).toBeGreaterThan(dispatchCycleIndex);
 		expect(content).toContain("rp1 agent-tools schedule-wave");
 		expect(content).toContain(
-			"Repeat until `schedule-wave` returns both an empty `review` and an empty `dispatch`",
+			"Repeat until `schedule-wave` returns an empty `review`, an empty `dispatch`, and an empty `PENDING_INTEGRATION_TASK_IDS`",
 		);
 		// Built-but-unreviewed work must be reviewed, never handed back to a
 		// builder: its edits are already on disk.
 		expect(content).toContain("--built-task-ids");
 		expect(content).toContain(
-			"Units in `review` are already built -- dispatch a reviewer for them, never a builder.",
+			"Units in `review` are already built on the primary tree -- dispatch a reviewer for them, never a builder.",
 		);
-		// All three wave shapes stay documented so serial remains the fallback.
+		// All three wave shapes stay documented so serial remains the fallback,
+		// and `serial` is explicitly the pipelined case too.
 		expect(content).toContain(
-			"`review-only` has no builders, `serial` has one, `parallel-wave` has a primary",
+			"`review-only` has no builders, `serial` has exactly one builder",
+		);
+		// Task ID lists cross a shell boundary as comma-separated strings; an
+		// array literal would send unusable IDs.
+		expect(content).toContain("joined with commas");
+	});
+
+	test("implementation holds worktree work in a pending-integration state", async () => {
+		const content = await readSkillSurface("plugins/dev/skills/build");
+
+		// Work built in an unintegrated worktree is on neither the primary branch
+		// nor available for review, so it must not be recorded as built.
+		expect(content).toContain("--pending-integration-task-ids");
+		expect(content).toContain(
+			"adds its unit's `task_ids` to `PENDING_INTEGRATION_TASK_IDS`, not `BUILT_TASK_IDS`",
+		);
+		// A stalled wave that still owes integration is not a deadlock.
+		expect(content).toContain("`pending_integration` means integrate");
+		// Partial unit state is what let already-built work get rebuilt.
+		expect(content).toContain(
+			"record a unit's `task_ids` together, never a subset",
 		);
 	});
 

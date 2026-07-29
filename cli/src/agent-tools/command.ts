@@ -890,6 +890,10 @@ agentToolsCommand
 		"Comma-separated task IDs already built but not yet reviewed",
 	)
 	.option(
+		"--pending-integration-task-ids <ids>",
+		"Comma-separated task IDs built in a worktree that is not yet integrated",
+	)
+	.option(
 		"--max-builders <n>",
 		`Maximum concurrent builders, 1-${MAX_BUILDERS_LIMIT} (default ${DEFAULT_MAX_BUILDERS})`,
 	)
@@ -913,6 +917,16 @@ Description:
   concurrently -- that is the reviewer-pipelining case, and the scheduler only
   pairs them when the build cannot collide with a retry of the reviewed unit.
 
+  Work built in a worktree that is not yet integrated belongs in
+  pending_integration_task_ids, not built_task_ids: it is on neither the
+  primary branch nor available for review. Such units are held, and no builder
+  is dispatched over their files, until the orchestrator integrates or discards
+  the worktree. A wave with nothing to do reports reason "pending_integration"
+  when integration is still owed, distinguishing it from a real deadlock.
+
+  All three state lists are validated against the task plan: unknown IDs,
+  duplicates, an ID in two lists, and partial unit state are rejected.
+
   File-disjointness is computed from task targets, comparing whole path
   segments so a directory target overlaps files beneath it. Known-shared paths
   (lockfiles, generated catalog) are treated as always-overlapping.
@@ -924,6 +938,8 @@ Input (CLI flags):
   - tasks_path: Absolute path to tasks.md or tasks.json (required)
   - completed_task_ids: Comma-separated IDs whose reviewer passed (default "")
   - built_task_ids: Comma-separated IDs built but not yet reviewed (default "")
+  - pending_integration_task_ids: Comma-separated IDs built in an unintegrated
+    worktree (default "")
   - max_builders: Whole number, 1-${MAX_BUILDERS_LIMIT} (default ${DEFAULT_MAX_BUILDERS})
   - git_commit: Boolean (default false)
   - clean_tree: Boolean (default false)
@@ -948,6 +964,7 @@ Examples:
 			tasksPath?: string;
 			completedTaskIds?: string;
 			builtTaskIds?: string;
+			pendingIntegrationTaskIds?: string;
 			maxBuilders?: string;
 			gitCommit?: string;
 			cleanTree?: string;
@@ -1027,6 +1044,9 @@ Examples:
 
 			const completedTaskIds = splitTaskIds(options.completedTaskIds);
 			const builtTaskIds = splitTaskIds(options.builtTaskIds);
+			const pendingIntegrationTaskIds = splitTaskIds(
+				options.pendingIntegrationTaskIds,
+			);
 
 			const planInput = JSON.stringify({
 				tasks_path: options.tasksPath,
@@ -1076,6 +1096,87 @@ Examples:
 				tasks: import("./build-task-plan/models.js").BuildTaskPlanTask[];
 			};
 
+			// The orchestrator is an LLM, so a mistyped or mis-serialized ID is a
+			// realistic input. Unknown IDs would otherwise be silently ignored and
+			// yield a confidently wrong schedule, so every list is checked against
+			// the plan before scheduling.
+			const knownTaskIds = new Set(planData.tasks.map((task) => task.id));
+			const stateLists = [
+				{ flag: "--completed-task-ids", ids: completedTaskIds },
+				{ flag: "--built-task-ids", ids: builtTaskIds },
+				{
+					flag: "--pending-integration-task-ids",
+					ids: pendingIntegrationTaskIds,
+				},
+			] as const;
+
+			for (const { flag, ids } of stateLists) {
+				const unknown = ids.filter((id) => !knownTaskIds.has(id));
+				if (unknown.length > 0) {
+					console.log(
+						createErrorResponse(
+							toolName,
+							`${flag} contains task IDs absent from the task plan: ${unknown.join(", ")}.`,
+						),
+					);
+					process.exit(1);
+				}
+
+				const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
+				if (duplicates.length > 0) {
+					console.log(
+						createErrorResponse(
+							toolName,
+							`${flag} contains duplicate task IDs: ${[...new Set(duplicates)].join(", ")}.`,
+						),
+					);
+					process.exit(1);
+				}
+			}
+
+			for (const [a, b] of [
+				[stateLists[0], stateLists[1]],
+				[stateLists[0], stateLists[2]],
+				[stateLists[1], stateLists[2]],
+			] as const) {
+				const overlap = a.ids.filter((id) => b.ids.includes(id));
+				if (overlap.length > 0) {
+					console.log(
+						createErrorResponse(
+							toolName,
+							`A task ID cannot be in both ${a.flag} and ${b.flag}: ${overlap.join(", ")}.`,
+						),
+					);
+					process.exit(1);
+				}
+			}
+
+			// A unit is built, completed, or integrated as a whole. Partial state
+			// means the orchestrator lost track, and left unchecked the unit looks
+			// ready and gets rebuilt over edits that already exist on disk.
+			const stateById = new Map<string, string>();
+			for (const { flag, ids } of stateLists) {
+				for (const id of ids) {
+					stateById.set(id, flag);
+				}
+			}
+			for (const unit of planData.task_units) {
+				const states = new Set(
+					unit.task_ids.map((id) => stateById.get(id) ?? "unset"),
+				);
+				if (states.size > 1) {
+					console.log(
+						createErrorResponse(
+							toolName,
+							`Task unit ${unit.unit_id} has mixed state across its tasks (${unit.task_ids
+								.map((id) => `${id}=${stateById.get(id) ?? "unset"}`)
+								.join(", ")}). Record state one whole unit at a time.`,
+						),
+					);
+					process.exit(1);
+				}
+			}
+
 			const { scheduleWave } = await import("./build-task-plan/index.js");
 
 			const waveResult = scheduleWave({
@@ -1083,21 +1184,14 @@ Examples:
 				tasks: planData.tasks,
 				completed_task_ids: completedTaskIds,
 				built_task_ids: builtTaskIds,
+				pending_integration_task_ids: pendingIntegrationTaskIds,
 				max_builders: maxBuilders,
 				git_commit: gitCommit,
 				clean_tree: cleanTree,
 			});
 
 			console.log(
-				JSON.stringify(
-					{
-						success: true,
-						tool: toolName,
-						data: waveResult,
-					},
-					null,
-					2,
-				),
+				formatOutput({ success: true, tool: toolName, data: waveResult }),
 			);
 			process.exit(0);
 		},

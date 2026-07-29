@@ -682,15 +682,38 @@ const isKnownSharedPath = (target: string): boolean => {
 };
 
 /**
- * Normalize a task target for comparison: drop a leading `./`, collapse
- * repeated separators, and drop a trailing separator so that `./src/a/`,
- * `src//a`, and `src/a` all compare equal.
+ * Normalize a task target for comparison so that spellings of the same path
+ * compare equal: `./src/a/`, `src//a`, `src/b/../a`, and `src/a` all collapse
+ * to `src/a`. Dot segments are resolved because an unresolved `..` would make
+ * two targets for the same file look disjoint and let overlapping work run
+ * concurrently.
  */
 const normalizeTarget = (target: string): string => {
 	const unified = target.trim().replace(/\\/g, "/");
-	const withoutPrefix = unified.replace(/^\.\//, "");
-	const collapsed = withoutPrefix.replace(/\/{2,}/g, "/");
-	return collapsed.length > 1 ? collapsed.replace(/\/$/, "") : collapsed;
+	const isAbsolute = unified.startsWith("/");
+	const resolved: string[] = [];
+
+	for (const segment of unified.split("/")) {
+		if (segment === "" || segment === ".") {
+			continue;
+		}
+		if (segment === "..") {
+			// A leading `..` cannot be resolved away, so keep it: dropping it
+			// would make `../shared` compare equal to `shared`.
+			if (resolved.length > 0 && resolved[resolved.length - 1] !== "..") {
+				resolved.pop();
+			} else if (!isAbsolute) {
+				resolved.push("..");
+			}
+			continue;
+		}
+		resolved.push(segment);
+	}
+
+	if (resolved.length === 0) {
+		return isAbsolute ? "/" : ".";
+	}
+	return `${isAbsolute ? "/" : ""}${resolved.join("/")}`;
 };
 
 const targetsForUnit = (
@@ -732,6 +755,7 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 		tasks,
 		completed_task_ids,
 		built_task_ids,
+		pending_integration_task_ids,
 		max_builders,
 		git_commit,
 		clean_tree,
@@ -739,12 +763,19 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 
 	const completedSet = new Set(completed_task_ids);
 	const builtSet = new Set(built_task_ids);
+	const pendingSet = new Set(pending_integration_task_ids);
 	const tasksByIdMap = new Map(tasks.map((t) => [t.id, t]));
 
 	const isCompleted = (unit: BuildTaskUnit): boolean =>
 		unit.task_ids.every((id) => completedSet.has(id));
 	const isBuilt = (unit: BuildTaskUnit): boolean =>
 		!isCompleted(unit) && unit.task_ids.every((id) => builtSet.has(id));
+	// Work sitting in an unintegrated worktree: not on the primary branch, so it
+	// can be neither reviewed nor rebuilt until the orchestrator resolves it.
+	const isPendingIntegration = (unit: BuildTaskUnit): boolean =>
+		!isCompleted(unit) &&
+		!isBuilt(unit) &&
+		unit.task_ids.some((id) => pendingSet.has(id));
 
 	const byUnitId = (a: BuildTaskUnit, b: BuildTaskUnit): number =>
 		a.unit_id - b.unit_id;
@@ -752,6 +783,7 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 		targetsForUnit(unit, tasksByIdMap);
 
 	const builtUnits = task_units.filter(isBuilt).sort(byUnitId);
+	const pendingUnits = task_units.filter(isPendingIntegration).sort(byUnitId);
 
 	// A unit is ready to build only when no builder has produced it yet and
 	// every dependency has been *reviewed*, not merely built.
@@ -760,6 +792,7 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 			(unit) =>
 				!isCompleted(unit) &&
 				!isBuilt(unit) &&
+				!isPendingIntegration(unit) &&
 				unit.depends_on.every((dep) => completedSet.has(dep)),
 		)
 		.sort(byUnitId);
@@ -771,15 +804,24 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 		const review = [
 			{ unit_id: reviewUnit.unit_id, task_ids: [...reviewUnit.task_ids] },
 		];
-		const reviewTargets = targetsFor(reviewUnit);
-		const heldUnits = builtUnits.slice(1).map((u) => u.unit_id);
+		const heldUnits = [
+			...builtUnits.slice(1).map((u) => u.unit_id),
+			...pendingUnits.map((u) => u.unit_id),
+		];
 
-		// One builder may run alongside the review, but only where a retry
-		// rebuild of the reviewed unit could not collide with it.
+		// A pipelined builder must not touch files belonging to ANY unit awaiting
+		// review, not merely the one under review now: a later reviewer failure
+		// retries that unit on the shared tree, and unintegrated worktree commits
+		// are replayed onto it. Overlap with either is unsafe.
+		const unreviewedTargets = [
+			...builtUnits.flatMap((u) => targetsFor(u)),
+			...pendingUnits.flatMap((u) => targetsFor(u)),
+		];
+
 		const candidate = readyUnits.find(
 			(unit) =>
 				!unit.depends_on.some((dep) => reviewUnit.task_ids.includes(dep)) &&
-				unitsAreFileDisjoint(reviewTargets, targetsFor(unit)),
+				unitsAreFileDisjoint(unreviewedTargets, targetsFor(unit)),
 		);
 
 		if (!candidate) {
@@ -810,21 +852,42 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 		};
 	}
 
-	if (readyUnits.length === 0) {
+	// Commits waiting in a worktree are replayed onto the primary tree, so every
+	// builder dispatched from here must stay clear of their files.
+	const pendingTargets = pendingUnits.flatMap((u) => targetsFor(u));
+	const pendingHeld = pendingUnits.map((u) => u.unit_id);
+
+	// Ready units that overlap unintegrated work are held rather than dispatched:
+	// the worktree rebase would replay its commits over the builder's edits.
+	const dispatchableUnits = readyUnits.filter((unit) =>
+		unitsAreFileDisjoint(pendingTargets, targetsFor(unit)),
+	);
+	const blockedByPending = readyUnits
+		.filter((unit) => !dispatchableUnits.includes(unit))
+		.map((u) => u.unit_id);
+
+	if (dispatchableUnits.length === 0) {
 		return {
 			review: [],
 			dispatch: [],
-			held: [],
+			held: [...pendingHeld, ...blockedByPending],
 			mode: "serial",
-			reason: "no_ready_units",
+			// Distinguishing these matters: pending integration means the
+			// orchestrator still owes work, while no ready units and nothing
+			// pending is a genuine dependency deadlock.
+			reason:
+				pendingUnits.length > 0 ? "pending_integration" : "no_ready_units",
 		};
 	}
 
 	const canParallelWave =
-		git_commit && clean_tree && readyUnits.length >= 2 && max_builders >= 2;
+		git_commit &&
+		clean_tree &&
+		dispatchableUnits.length >= 2 &&
+		max_builders >= 2;
 
 	if (canParallelWave) {
-		const primaryUnit = readyUnits[0];
+		const primaryUnit = dispatchableUnits[0];
 		const dispatched: WaveDispatch[] = [
 			{
 				unit_id: primaryUnit.unit_id,
@@ -832,10 +895,13 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 				role: "primary",
 			},
 		];
-		const held: number[] = [];
-		const claimedTargets: string[] = [...targetsFor(primaryUnit)];
+		const held: number[] = [...pendingHeld, ...blockedByPending];
+		const claimedTargets: string[] = [
+			...pendingTargets,
+			...targetsFor(primaryUnit),
+		];
 
-		for (const candidate of readyUnits.slice(1)) {
+		for (const candidate of dispatchableUnits.slice(1)) {
 			if (dispatched.length >= max_builders) {
 				held.push(candidate.unit_id);
 				continue;
@@ -876,7 +942,7 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 		}
 	}
 
-	const primary = readyUnits[0];
+	const primary = dispatchableUnits[0];
 	return {
 		review: [],
 		dispatch: [
@@ -886,7 +952,11 @@ export const scheduleWave = (input: ScheduleWaveInput): ScheduleWaveResult => {
 				role: "primary",
 			},
 		],
-		held: readyUnits.slice(1).map((u) => u.unit_id),
+		held: [
+			...pendingHeld,
+			...blockedByPending,
+			...dispatchableUnits.slice(1).map((u) => u.unit_id),
+		],
 		mode: "serial",
 	};
 };

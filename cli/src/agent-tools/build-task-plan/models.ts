@@ -71,6 +71,14 @@ export interface ScheduleWaveInput {
 	readonly completed_task_ids: readonly string[];
 	/** Task IDs a builder finished but no reviewer has accepted yet. */
 	readonly built_task_ids: readonly string[];
+	/**
+	 * Task IDs a secondary builder finished in a worktree whose commits are not
+	 * yet on the primary branch. Such work is neither built nor ready: reviewing
+	 * it would inspect a tree that lacks its edits, and rebuilding it would
+	 * duplicate work that already exists in the worktree. These units are held
+	 * until the orchestrator integrates or discards the worktree.
+	 */
+	readonly pending_integration_task_ids: readonly string[];
 	readonly max_builders: number;
 	readonly git_commit: boolean;
 	readonly clean_tree: boolean;

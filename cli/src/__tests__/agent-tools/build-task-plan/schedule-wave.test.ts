@@ -40,6 +40,7 @@ const wave = (
 	tasks: [],
 	completed_task_ids: [],
 	built_task_ids: [],
+	pending_integration_task_ids: [],
 	max_builders: 4,
 	git_commit: true,
 	clean_tree: true,
@@ -253,6 +254,51 @@ describe("scheduleWave", () => {
 		expect(result.held).toEqual([]);
 	});
 
+	test("does not pipeline a builder overlapping a built unit that is only held", () => {
+		// Built A (src/a.ts) is reviewed now; built B (src/shared.ts) is held for a
+		// later cycle. Ready C also targets src/shared.ts. Dispatching C would
+		// contaminate B's files before B is ever reviewed, and a later retry of B
+		// would rebuild over C's edits.
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["A"]), unit(2, ["B"]), unit(3, ["C"])],
+				tasks: [
+					task("A", "src/a.ts"),
+					task("B", "src/shared.ts"),
+					task("C", "src/shared.ts"),
+				],
+				built_task_ids: ["A", "B"],
+				git_commit: false,
+			}),
+		);
+
+		expect(result.mode).toBe("review-only");
+		expect(result.review).toEqual([{ unit_id: 1, task_ids: ["A"] }]);
+		expect(result.dispatch).toEqual([]);
+		expect(result.held).toEqual([2, 3]);
+	});
+
+	test("still pipelines a builder that is disjoint from every built unit", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["A"]), unit(2, ["B"]), unit(3, ["C"])],
+				tasks: [
+					task("A", "src/a.ts"),
+					task("B", "src/b.ts"),
+					task("C", "src/c.ts"),
+				],
+				built_task_ids: ["A", "B"],
+				git_commit: false,
+			}),
+		);
+
+		expect(result.review).toEqual([{ unit_id: 1, task_ids: ["A"] }]);
+		expect(result.dispatch).toEqual([
+			{ unit_id: 3, task_ids: ["C"], role: "primary" },
+		]);
+		expect(result.held).toEqual([2]);
+	});
+
 	test("does not pipeline a builder sharing files with the unit under review", () => {
 		const result = scheduleWave(
 			wave({
@@ -352,6 +398,94 @@ describe("scheduleWave", () => {
 
 		expect(result.mode).toBe("serial");
 		expect(result.held).toEqual([2]);
+	});
+
+	test("resolves dot segments so the same file never parallelizes", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "src/x/../shared.ts"), task("T2", "src/shared.ts")],
+			}),
+		);
+
+		expect(result.mode).toBe("serial");
+		expect(result.held).toEqual([2]);
+	});
+
+	test("keeps a leading dot-dot distinct from a bare path", () => {
+		// `../shared.ts` escapes the tree and is a different file from
+		// `shared.ts`, so these two units may still run concurrently.
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "../shared.ts"), task("T2", "shared.ts")],
+			}),
+		);
+
+		expect(result.mode).toBe("parallel-wave");
+	});
+
+	test("holds a unit pending integration instead of reviewing or rebuilding it", () => {
+		// T2 was built by a secondary whose worktree is not yet integrated: its
+		// edits are absent from the primary tree, so it can be neither reviewed
+		// nor rebuilt.
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
+				completed_task_ids: ["T1"],
+				pending_integration_task_ids: ["T2"],
+			}),
+		);
+
+		expect(result.review).toEqual([]);
+		expect(result.dispatch).toEqual([]);
+		expect(result.held).toEqual([2]);
+		expect(result.reason).toBe("pending_integration");
+	});
+
+	test("reports no_ready_units rather than pending_integration when nothing is pending", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"])],
+				tasks: [task("T1", "src/a.ts")],
+				completed_task_ids: ["T1"],
+			}),
+		);
+
+		expect(result.held).toEqual([]);
+		expect(result.reason).toBe("no_ready_units");
+	});
+
+	test("does not dispatch a builder over files pending integration", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "src/shared.ts"), task("T2", "src/shared.ts")],
+				completed_task_ids: [],
+				pending_integration_task_ids: ["T1"],
+			}),
+		);
+
+		expect(result.dispatch).toEqual([]);
+		expect(result.held).toEqual([1, 2]);
+		expect(result.reason).toBe("pending_integration");
+	});
+
+	test("dispatches a builder that is disjoint from pending integration work", () => {
+		const result = scheduleWave(
+			wave({
+				task_units: [unit(1, ["T1"]), unit(2, ["T2"])],
+				tasks: [task("T1", "src/a.ts"), task("T2", "src/b.ts")],
+				pending_integration_task_ids: ["T1"],
+			}),
+		);
+
+		expect(result.mode).toBe("serial");
+		expect(result.dispatch).toEqual([
+			{ unit_id: 2, task_ids: ["T2"], role: "primary" },
+		]);
+		expect(result.held).toEqual([1]);
 	});
 
 	test("handles multi-task units with mixed targets", () => {
