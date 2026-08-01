@@ -94,7 +94,7 @@ agents:
   - name: rp1-dev:bug-investigator
     description: "Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes"
     plugin: dev
-    last_checksum: 448d77e82a053686c5d378404e87ab6467967ac2c3bbe718df97c3966627b619
+    last_checksum: 69834fd3b330d64449f12afdf66b8181480d3ad07105caf7e81b74a818e7487b
   - name: rp1-dev:build-artifact-detector
     description: "Determines workflow start_step by checking existing feature artifacts using bootstrap-provided run context"
     plugin: dev
