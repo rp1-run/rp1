@@ -210,7 +210,7 @@ agents:
   - name: rp1-dev:task-builder
     description: "Implements assigned task(s) w/ full context, writes summaries to the resolved task file. Uses extended thinking (or ultrathink)."
     plugin: dev
-    last_checksum: 4563d42e43d163973f4cf3523c7bf7ce9f29863b873ff57a14d02f2d97cfeb78
+    last_checksum: 905c8010792b668e9d214e0a527170e76fcb0138e6100dfb81b8693bc032ea15
   - name: rp1-dev:task-reviewer
     description: "Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification."
     plugin: dev
