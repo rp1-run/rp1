@@ -24,7 +24,11 @@ import type { BuildPlatform } from "../template-context.js";
 
 /**
  * Tool names that are never ordinary English words. Every whole-word
- * occurrence in prose is assumed to be a genuine tool reference.
+ * occurrence in prose is assumed to be a genuine tool reference. This
+ * includes "Glob" and "Grep": unlike Read/Write/Edit/Task/Skill, neither
+ * doubles as an ordinary English verb or noun in technical prose, so they
+ * never need marker-gating -- every bare capitalised occurrence measured
+ * across the plugins corpus was a genuine tool reference.
  */
 const UNAMBIGUOUS_TOOL_NAMES = [
 	"AskUserQuestion",
@@ -34,6 +38,8 @@ const UNAMBIGUOUS_TOOL_NAMES = [
 	"EnterPlanMode",
 	"ExitPlanMode",
 	"SlashCommand",
+	"Glob",
+	"Grep",
 ] as const;
 
 /**
@@ -50,8 +56,6 @@ const AMBIGUOUS_TOOL_NAMES = [
 	"Write",
 	"Task",
 	"Skill",
-	"Glob",
-	"Grep",
 ] as const;
 
 /**

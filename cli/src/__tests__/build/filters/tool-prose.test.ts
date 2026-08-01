@@ -49,6 +49,20 @@ describe("tool_prose filter", () => {
 			expect(result).toBe("Run the find via shell tool to find files.");
 		});
 
+		describe("unambiguous names -- unconditional substitution", () => {
+			test("substitutes bare 'Glob' in direct imperative prose", () => {
+				const input = "Glob `{path}` to find matching files.";
+				const result = toolProse(input, "codex", codexRegistry);
+				expect(result).toBe("find via shell `{path}` to find matching files.");
+			});
+
+			test("substitutes bare 'Grep' in direct imperative prose", () => {
+				const input = "Grep for those terms in the codebase.";
+				const result = toolProse(input, "codex", codexRegistry);
+				expect(result).toBe("grep via shell for those terms in the codebase.");
+			});
+		});
+
 		test("replaces WebFetch with not-available fallback", () => {
 			const input = "Use WebFetch to download.";
 			const result = toolProse(input, "codex", codexRegistry);
@@ -112,7 +126,7 @@ describe("tool_prose filter", () => {
 
 			test("does not substitute bare prose occurrences of ambiguous names", () => {
 				const input =
-					"Read the spec, Write a summary, Task the reviewer, run the Skill, use Glob patterns, then Grep the logs.";
+					"Read the spec, Write a summary, Task the reviewer, run the Skill.";
 				const result = toolProse(input, "codex", codexRegistry);
 				expect(result).toBe(input);
 			});
