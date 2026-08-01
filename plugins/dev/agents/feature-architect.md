@@ -192,7 +192,9 @@ When requirements don't specify tech choices:
 
 Only continue when §2.1 classified the work as a single feature.
 
-Write to `{WORK_ROOT}/features/{FEATURE_ID}/design.md`.
+Immediately after analysis, `Write` `{WORK_ROOT}/features/{FEATURE_ID}/design.md` with its section-heading skeleton (from the template below) before filling in section content.
+
+**Not done yet**: writing the skeleton does not complete this task -- the design-decisions artifact (§8), artifact registration (§9), and the final completion result (§12) are still required.
 
 ### Template Loading
 

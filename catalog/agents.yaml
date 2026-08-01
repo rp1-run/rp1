@@ -134,7 +134,7 @@ agents:
   - name: rp1-dev:feature-architect
     description: "Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester."
     plugin: dev
-    last_checksum: e498c7a10724072cc28a4f78cf9dbc2bb9f5209ff76595c4dc65f1d0b6736d0c
+    last_checksum: edcbb2d13747af4c58bdcc5467373ec195a8b0b91f6be523dfed9989bb93965e
   - name: rp1-dev:feature-archiver
     description: "Archives completed features to .rp1/work/archives/features/ or restores archived features back to active features directory"
     plugin: dev
