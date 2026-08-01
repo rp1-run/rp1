@@ -68,6 +68,12 @@ describe("dispatch_agent tag", () => {
 				expect(output).toContain("Do NOT proceed until the agent has finished");
 			});
 
+			test("includes patience and disk-check guidance for silent artifact-producing agents", async () => {
+				const output = await render(template, "codex");
+				expect(output).toContain("silence alone is not evidence of failure");
+				expect(output).toContain("check for its expected artifact on disk");
+			});
+
 			test("uses hyphen namespace format", async () => {
 				const output = await render(template, "codex");
 				expect(output).toContain("rp1-dev-code-writer");
@@ -91,6 +97,14 @@ describe("dispatch_agent tag", () => {
 				const output = await render(bgTemplate, "codex");
 				expect(output).toContain("This agent runs in the background");
 				expect(output).not.toContain("Wait for the spawned agent to complete");
+			});
+
+			test("does not leak foreground patience/disk-check language into background output", async () => {
+				const output = await render(bgTemplate, "codex");
+				expect(output).not.toContain(
+					"silence alone is not evidence of failure",
+				);
+				expect(output).not.toContain("check for its expected artifact on disk");
 			});
 
 			test("background mode does not affect CC output", async () => {

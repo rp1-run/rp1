@@ -85,7 +85,7 @@ function renderCodexForeground(
   fork_context: ${context === "inherit" ? "true" : "false"}
 ${renderPromptField("  ", prompt)}
 
-Wait for the spawned agent to complete. Do NOT proceed until the agent has finished and returned its result. Check the agent's output for success/failure before continuing.`;
+Wait for the spawned agent to complete. Do NOT proceed until the agent has finished and returned its result. Check the agent's output for success/failure before continuing. Artifact-producing agents may stay silent for several minutes while working; silence alone is not evidence of failure. Before concluding the agent has failed, check for its expected artifact on disk.`;
 }
 
 function renderCodexBackground(
