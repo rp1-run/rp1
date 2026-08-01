@@ -265,7 +265,7 @@ Use each template's structure for the corresponding output. Fill placeholders pe
 
 ## §8 Decisions Output
 
-Write to `{WORK_ROOT}/features/{FEATURE_ID}/design-decisions.md`.
+`Write` to `{WORK_ROOT}/features/{FEATURE_ID}/design-decisions.md`.
 
 Use the `design-decisions.md` template loaded in §7. Log all major technology/architecture decisions with rationales and alternatives.
 
@@ -297,7 +297,7 @@ If either command fails, log a warning (`[feature-architect] Failed to register 
 
 After artifact registration, if `flagged_hypotheses[]` is non-empty, persist the hypotheses to disk. When `flagged_hypotheses[]` is empty, skip this section entirely -- do NOT create `hypotheses.md`.
 
-1. Write `{WORK_ROOT}/features/{FEATURE_ID}/hypotheses.md` using the `hypothesis-document.md` template loaded in §7.
+1. `Write` `{WORK_ROOT}/features/{FEATURE_ID}/hypotheses.md` using the `hypothesis-document.md` template loaded in §7.
 2. Register the artifact (skip if WORKFLOW is empty).
 3. Add `"hypotheses"` to the `artifacts` map in the completion JSON (§12).
 
