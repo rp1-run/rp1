@@ -185,7 +185,8 @@ const toCodexString = (
 		}
 	}
 
-	return mapped.length > 0 ? mapped.join(", ") : undefined;
+	const deduped = [...new Set(mapped)];
+	return deduped.length > 0 ? deduped.join(", ") : undefined;
 };
 
 /**

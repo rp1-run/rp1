@@ -41,12 +41,6 @@ describe("tool_prose filter", () => {
 			);
 		});
 
-		test("replaces Write with shell fallback", () => {
-			const input = "Use Write to create the file.";
-			const result = toolProse(input, "codex", codexRegistry);
-			expect(result).toBe("Use file writes via shell to create the file.");
-		});
-
 		test("replaces Glob with shell fallback", () => {
 			const input = "Run Glob to find files.";
 			const result = toolProse(input, "codex", codexRegistry);

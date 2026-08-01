@@ -46,7 +46,6 @@ const PROSE_TOOL_NAMES = [
  */
 const CODEX_PROSE_FALLBACKS: Record<string, string> = {
 	Read: "cat/head/tail via shell",
-	Write: "file writes via shell",
 	Glob: "find via shell",
 	Grep: "grep via shell",
 	WebFetch: "web fetching (not available)",

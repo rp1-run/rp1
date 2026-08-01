@@ -62,11 +62,29 @@ describe("allowed_tools filter", () => {
 
 		test("filters out null-mapped tools", () => {
 			const result = allowedToolsFilter(
-				"Bash, Read, Write, Grep, Glob",
+				"Bash, Read, Grep, Glob",
 				"codex",
 				codexRegistry,
 			);
 			expect(result).toBe("functions.exec_command");
+		});
+
+		test("dedupes mapped tool names", () => {
+			const result = allowedToolsFilter(
+				"Read, Write, Edit",
+				"codex",
+				codexRegistry,
+			);
+			expect(result).toBe("functions.apply_patch");
+		});
+
+		test("dedupes mapped tool names alongside other tools", () => {
+			const result = allowedToolsFilter(
+				"Bash, Read, Write, Edit",
+				"codex",
+				codexRegistry,
+			);
+			expect(result).toBe("functions.exec_command, functions.apply_patch");
 		});
 
 		test("handles parenthesized tool patterns", () => {
@@ -81,7 +99,7 @@ describe("allowed_tools filter", () => {
 
 		test("returns undefined when all tools are filtered out", () => {
 			const result = allowedToolsFilter(
-				"Read, Write, Grep, Glob",
+				"Read, Grep, Glob",
 				"codex",
 				codexRegistry,
 			);
