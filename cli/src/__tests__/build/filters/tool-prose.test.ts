@@ -28,9 +28,11 @@ describe("tool_prose filter", () => {
 		});
 
 		test("rewrites Edit to Codex equivalent", () => {
-			const input = "Use Edit to modify the file.";
+			const input = "Use the Edit tool to modify the file.";
 			const result = toolProse(input, "codex", codexRegistry);
-			expect(result).toBe("Use functions.apply_patch to modify the file.");
+			expect(result).toBe(
+				"Use the functions.apply_patch tool to modify the file.",
+			);
 		});
 
 		test("replaces null-mapped tools with prose fallbacks", () => {
@@ -41,16 +43,24 @@ describe("tool_prose filter", () => {
 			);
 		});
 
-		test("replaces Write with shell fallback", () => {
-			const input = "Use Write to create the file.";
+		test("replaces Glob with shell fallback", () => {
+			const input = "Run the Glob tool to find files.";
 			const result = toolProse(input, "codex", codexRegistry);
-			expect(result).toBe("Use file writes via shell to create the file.");
+			expect(result).toBe("Run the find via shell tool to find files.");
 		});
 
-		test("replaces Glob with shell fallback", () => {
-			const input = "Run Glob to find files.";
-			const result = toolProse(input, "codex", codexRegistry);
-			expect(result).toBe("Run find via shell to find files.");
+		describe("unambiguous names -- unconditional substitution", () => {
+			test("substitutes bare 'Glob' in direct imperative prose", () => {
+				const input = "Glob `{path}` to find matching files.";
+				const result = toolProse(input, "codex", codexRegistry);
+				expect(result).toBe("find via shell `{path}` to find matching files.");
+			});
+
+			test("substitutes bare 'Grep' in direct imperative prose", () => {
+				const input = "Grep for those terms in the codebase.";
+				const result = toolProse(input, "codex", codexRegistry);
+				expect(result).toBe("grep via shell for those terms in the codebase.");
+			});
 		});
 
 		test("replaces WebFetch with not-available fallback", () => {
@@ -94,6 +104,69 @@ describe("tool_prose filter", () => {
 			expect(result).not.toContain("AskUserQuestion");
 			expect(result).toContain("functions.request_user_input");
 		});
+
+		describe("ambiguous tool names -- marker-gated substitution", () => {
+			test("does not substitute 'Edit Classification' heading", () => {
+				const input = "## Edit Classification\n\nSome section content.";
+				const result = toolProse(input, "codex", codexRegistry);
+				expect(result).toBe(input);
+			});
+
+			test("does not substitute 'Add/Edit' phrase", () => {
+				const input = "Use the Add/Edit form to update the record.";
+				const result = toolProse(input, "codex", codexRegistry);
+				expect(result).toBe(input);
+			});
+
+			test("does not substitute 'Feature Edit Command Router' heading", () => {
+				const input = "### Feature Edit Command Router";
+				const result = toolProse(input, "codex", codexRegistry);
+				expect(result).toBe(input);
+			});
+
+			test("does not substitute bare prose occurrences of ambiguous names", () => {
+				const input =
+					"Read the spec, Write a summary, Task the reviewer, run the Skill.";
+				const result = toolProse(input, "codex", codexRegistry);
+				expect(result).toBe(input);
+			});
+
+			test("substitutes a backticked `Edit` span", () => {
+				const input = "Call `Edit` to modify the file.";
+				const result = toolProse(input, "codex", codexRegistry);
+				expect(result).toBe("Call `functions.apply_patch` to modify the file.");
+			});
+
+			test("substitutes a backticked `Write` span with functions.apply_patch", () => {
+				const input = "Call `Write` to create the file.";
+				const result = toolProse(input, "codex", codexRegistry);
+				expect(result).toBe("Call `functions.apply_patch` to create the file.");
+			});
+
+			test("substitutes 'Edit tool' phrasing", () => {
+				const input = "Use the Edit tool to modify the file.";
+				const result = toolProse(input, "codex", codexRegistry);
+				expect(result).toBe(
+					"Use the functions.apply_patch tool to modify the file.",
+				);
+			});
+
+			test("substitutes 'Read tool' phrasing with its prose fallback", () => {
+				const input = "Use the Read tool to view the file.";
+				const result = toolProse(input, "codex", codexRegistry);
+				expect(result).toBe(
+					"Use the cat/head/tail via shell tool to view the file.",
+				);
+			});
+
+			test("substitutes 'Write tools' (plural) phrasing", () => {
+				const input = "Multiple Write tools exist for file creation.";
+				const result = toolProse(input, "codex", codexRegistry);
+				expect(result).toBe(
+					"Multiple functions.apply_patch tools exist for file creation.",
+				);
+			});
+		});
 	});
 
 	describe("opencode", () => {
@@ -112,15 +185,15 @@ describe("tool_prose filter", () => {
 		});
 
 		test("rewrites Edit to Copilot equivalent", () => {
-			const input = "Use Edit to modify the file.";
+			const input = "Use the Edit tool to modify the file.";
 			const result = toolProse(input, "copilot", copilotRegistry);
-			expect(result).toBe("Use edit_file to modify the file.");
+			expect(result).toBe("Use the edit_file tool to modify the file.");
 		});
 
 		test("rewrites Read to Copilot equivalent", () => {
-			const input = "Use Read to view the file.";
+			const input = "Use the `Read` tool to view the file.";
 			const result = toolProse(input, "copilot", copilotRegistry);
-			expect(result).toBe("Use read_file to view the file.");
+			expect(result).toBe("Use the `read_file` tool to view the file.");
 		});
 
 		test("replaces WebSearch with not-available fallback", () => {

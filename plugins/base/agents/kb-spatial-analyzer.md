@@ -128,7 +128,7 @@ Run fast heuristics in priority order using path inventory and, at most, one tar
 ### Step 3: Extract Project Metadata
 
 If "monorepo" detected:
-- Use Glob from REPO_ROOT to list directories containing plugin.json or package.json at depth 1-2
+- Use `Glob` from REPO_ROOT to list directories containing plugin.json or package.json at depth 1-2
 - Store as `monorepo_projects` array (e.g., `["base/", "dev/"]`)
 - Use `CURRENT_PROJECT` from Step 1 as `current_project_path` (LOCAL - goes in meta.json)
 - Store absolute path: `repo_root` = `REPO_ROOT` (LOCAL - goes in meta.json)

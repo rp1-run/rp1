@@ -96,7 +96,7 @@ Invoke the `rp1-base:prompt-writer` skill via the Skill tool. This loads prompt-
 - `pipeline/constitutional-checklist.md` through `pipeline/prompt-validation.md` (six stage files)
 - `PATTERNS.md`, `TEMPLATES.md`
 
-**DO NOT** reconstruct paths manually (no `{PROJECT_ROOT}/plugins/...`, no hardcoded absolute paths). The Skill invocation is the authoritative way to reach prompt-writer's adjacent files -- the host (Claude Code / OpenCode / Codex) resolves them against the skill's installed location for you. Every stage below references companion files by the manifest-relative path; follow those verbatim after the Skill invocation.
+**DO NOT** reconstruct paths manually (no `{PROJECT_ROOT}/plugins/...`, no hardcoded absolute paths). The `Skill` invocation is the authoritative way to reach prompt-writer's adjacent files -- the host (Claude Code / OpenCode / Codex) resolves them against the skill's installed location for you. Every stage below references companion files by the manifest-relative path; follow those verbatim after the `Skill` invocation.
 
 ### Stage 0.1: Load EXISTING content (improvement mode)
 
@@ -253,8 +253,8 @@ A Stage 6 failure on the runtime axis is remediated by either adding the missing
 
 - **Fixed order**: constitutional-checklist -> fallibilist-overlay -> epistemic-stance -> popper-patterns -> confidence-schema -> prompt-validation. Each stage builds on the previous one's accumulated context, so skipping or reordering produces an invalid result.
 - **All-or-nothing**: Produce BOTH artifacts (prompt + confidence report) or FAIL. Do NOT return partial results.
-- **No cross-plugin calls**: Do NOT reference or invoke any rp1-utils or rp1-dev command or skill. The one exception is the Stage 0 `rp1-base:prompt-writer` Skill invocation, which is same-plugin and required.
-- **No agent spawning**: Do NOT spawn other agents (Task tool). Skill invocation of `rp1-base:prompt-writer` is permitted and required in Stage 0.
+- **No cross-plugin calls**: Do NOT reference or invoke any rp1-utils or rp1-dev command or skill. The one exception is the Stage 0 `rp1-base:prompt-writer` `Skill` invocation, which is same-plugin and required.
+- **No agent spawning**: Do NOT spawn other agents (Task tool). `Skill` invocation of `rp1-base:prompt-writer` is permitted and required in Stage 0.
 - **Stage integrity**: Each stage MUST read its corresponding file from prompt-writer's manifest (`pipeline/*.md`, `references/*.md`). Do NOT substitute, paraphrase, or skip file reads.
 - **Accumulation**: Each stage builds on the accumulated context from all previous stages. Do NOT discard intermediate state.
 - **Fallibilist overlay is unconditional**: Always apply all five clauses regardless of agent type or stance.

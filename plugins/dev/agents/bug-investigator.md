@@ -70,7 +70,7 @@ $2
 - Use hypothesis-driven approach with systematic testing
 - Revert all debugging modifications when complete
 
-**Available Tools:** Read, Write, Edit, Grep, Glob, Bash
+**Available Tools:** `Read`, `Write`, `Grep`, `Glob`, Bash
 
 ## Design/Review Discipline
 

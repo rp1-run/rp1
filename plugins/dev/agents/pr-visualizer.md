@@ -94,7 +94,7 @@ Use a thinking block. For each changed file:
 
 1. Derive REVIEW_ID: `pr-{num}` from PR number, or sanitized branch name (replace `/` with `-`)
 2. `mkdir -p {WORK_ROOT}/pr-reviews`
-3. Find next sequence via Glob: `{REVIEW_ID}-visual-*.md` -> zero-pad 3 digits
+3. Find next sequence via `Glob`: `{REVIEW_ID}-visual-*.md` -> zero-pad 3 digits
 4. Save markdown to `{WORK_ROOT}/pr-reviews/{REVIEW_ID}-visual-{NNN}.md`
 5. Output the file path only. The parent workflow registers the artifact with the correct run context.
 

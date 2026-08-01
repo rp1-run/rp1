@@ -282,7 +282,7 @@ Analyze once per dispatch. Do not loop, refine, or retry discovery. Return best-
 
 ## Analysis-Only Constraint
 
-- [ ] No `Edit` or `Write` calls (analysis only)
+- [ ] No file-creation or file-modification tool calls (analysis only)
 - [ ] No file-modifying `Bash` commands (grep, find, read-only)
 - [ ] No project state changes
 - [ ] No modifications to source code

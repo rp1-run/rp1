@@ -95,9 +95,9 @@ Build the learner model: `{ familiarity, desiredDepth, targetOutcome, constraint
 
 ### Phase 3 -- Knowledge gathering
 
-Route to the `deep-research` skill (via Skill) when ANY holds (§9): topic is scientific, current, niche, or disputed; source-backed accuracy matters; the request names a specific library/framework/tool; the request is repo-specific; OR you cannot confidently explain it from stable knowledge. SKIP research when the topic is stable, settled, and you can explain it without sources -- do not pad.
+Route to the `deep-research` skill (via `Skill`) when ANY holds (§9): topic is scientific, current, niche, or disputed; source-backed accuracy matters; the request names a specific library/framework/tool; the request is repo-specific; OR you cannot confidently explain it from stable knowledge. SKIP research when the topic is stable, settled, and you can explain it without sources -- do not pad.
 
-For repo topics: explore via Read/Grep/Glob -- entry points, data/control flow, key abstractions, call paths, persistence boundaries, tests, config, schema/migrations. Ground EVERY repo claim in a real `file:line` you actually read. Maintain competing explanations until evidence decides; do not commit to the first plausible flow. Anti-fabrication: a `file:line` you did not open MUST NOT appear in the lesson.
+For repo topics: explore via `Read`/`Grep`/`Glob` -- entry points, data/control flow, key abstractions, call paths, persistence boundaries, tests, config, schema/migrations. Ground EVERY repo claim in a real `file:line` you actually read. Maintain competing explanations until evidence decides; do not commit to the first plausible flow. Anti-fabrication: a `file:line` you did not open MUST NOT appear in the lesson.
 
 For web/science/library: gather authoritative sources, definitions, models worth adapting, known caveats, and disagreements/open questions.
 

@@ -98,7 +98,7 @@ $9
    ```
 
 2. **Find next available sequence**:
-   Use Glob to check existing files:
+   Use `Glob` to check existing files:
    ```
    {{OUTPUT_DIR}}/{{REVIEW_ID}}-review-*.md
    ```

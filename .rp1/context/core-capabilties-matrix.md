@@ -164,7 +164,7 @@ These capabilities are non-negotiable. If a harness lacks any of these and RP1 c
 | ------------------ | -------------------------------- | -------------------------- | ----------------------- | ---------------------------- |
 | Claude Code        | `Read`                           | `Write`                    | `Edit`                  | `Glob`, `Grep`               |
 | OpenCode           | `read_file`                      | `write_file`               | `edit_file`             | `glob_pattern`, `grep_file`  |
-| Codex              | Shell reads (`sed`, `cat`, `rg`) | Shell writes where allowed | `functions.apply_patch` | Shell search (`rg`)          |
+| Codex              | Shell reads (`sed`, `cat`, `rg`) | `functions.apply_patch`    | `functions.apply_patch` | Shell search (`rg`)          |
 | GitHub Copilot CLI | `read_file`                      | `write_file`               | `edit_file`             | `grep_search`, `file_search` |
 
 **Evidence**: `cli/src/build/*/registry.ts`, `cli/src/build/filters/tool-prose.ts`, `docs/reference/platforms/copilot.md`

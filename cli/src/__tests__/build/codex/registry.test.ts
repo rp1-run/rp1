@@ -14,11 +14,11 @@ describe("codexRegistry", () => {
 			expect(codexRegistry.toolMappings.AskUserQuestion).toBe(
 				"functions.request_user_input",
 			);
+			expect(codexRegistry.toolMappings.Write).toBe("functions.apply_patch");
 		});
 
 		test("maps file operation tools to null", () => {
 			expect(codexRegistry.toolMappings.Read).toBeNull();
-			expect(codexRegistry.toolMappings.Write).toBeNull();
 			expect(codexRegistry.toolMappings.Grep).toBeNull();
 			expect(codexRegistry.toolMappings.Glob).toBeNull();
 		});

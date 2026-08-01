@@ -109,7 +109,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
   --data '{"status":"running","target":"{TARGET_PATH}","topic":"{TOPIC}"}'
 ```
 
-Emit `artifact_registered` exactly once, immediately after the first Write that creates `{debate_path}` (in `debating`). Path is relative to `{WORK_ROOT}`:
+Emit `artifact_registered` exactly once, immediately after the first `Write` that creates `{debate_path}` (in `debating`). Path is relative to `{WORK_ROOT}`:
 
 ```bash
 rp1 agent-tools emit --harness $CURRENT_HOST \
@@ -240,7 +240,7 @@ rp1 agent-tools emit --harness $CURRENT_HOST \
        --run-id "{RUN_ID}"
      ```
    - Parse `duel_id`, `participant_id`, `participant_count`, `status`, `source_path`, `topic`, `topic_slug`, `debate_path`, `next_step`.
-   - Emit `participant_registered`. Do not emit `artifact_registered` yet -- defer until the first Write creates `{debate_path}` in `debating`.
+   - Emit `participant_registered`. Do not emit `artifact_registered` yet -- defer until the first `Write` creates `{debate_path}` in `debating`.
    - Read the template at `{CODE_ROOT}/plugins/base/skills/artifact-templates/templates/socratic-duel/debate-artifact.md` (fall back to `{CODE_ROOT}/plugins/base/skills/artifact-templates/SKILL.md` index if the direct path fails).
    - Do not create the debate artifact unless this participant holds the active lease.
    - If `participant_count` is fewer than 2, transition to `waiting_for_participant`; otherwise transition to `debating`.

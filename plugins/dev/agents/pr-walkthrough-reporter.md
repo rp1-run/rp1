@@ -53,7 +53,7 @@ Generate one slide-ready markdown PR walkthrough with plain markdown fallback fr
 
 ## 1. Load Context
 
-Read:
+`Read`:
 
 1. `{KB_ROOT}/index.md`
 2. `{KB_ROOT}/patterns.md`
@@ -182,7 +182,7 @@ Before writing, self-check the complete markdown. If any check fails, revise the
    mkdir -p "{WORK_ROOT}/pr-walkthroughs"
    ```
 
-2. Determine the next sequence number using Glob:
+2. Determine the next sequence number using `Glob`:
 
    ```text
    {WORK_ROOT}/pr-walkthroughs/{REVIEW_ID}-walkthrough-*.md

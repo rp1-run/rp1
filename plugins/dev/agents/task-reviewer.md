@@ -184,7 +184,7 @@ For each file:
 ### 2.3 Scope Violation Detection
 
 Check for unauthorized changes:
-1. Use Glob/Grep to search for recent modifications
+1. Use `Glob`/`Grep` to search for recent modifications
 2. Verify no files outside claimed scope were modified
 3. Flag any unexpected changes
 

@@ -3,7 +3,7 @@ name: feature-architect
 description: Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester.
 tools: Read, Write, Glob, Bash(rp1 *)
 model: deep
-effort: xhigh
+effort: high
 skills: rp1-base:mermaid
 arguments:
   - name: FEATURE_ID
@@ -192,7 +192,9 @@ When requirements don't specify tech choices:
 
 Only continue when §2.1 classified the work as a single feature.
 
-Write to `{WORK_ROOT}/features/{FEATURE_ID}/design.md`.
+Immediately after analysis, `Write` `{WORK_ROOT}/features/{FEATURE_ID}/design.md` with its section-heading skeleton (from the template below) before filling in section content.
+
+**Not done yet**: writing the skeleton does not complete this task -- the design-decisions artifact (§8), artifact registration (§9), and the final completion result (§12) are still required.
 
 ### Template Loading
 
@@ -263,7 +265,7 @@ Use each template's structure for the corresponding output. Fill placeholders pe
 
 ## §8 Decisions Output
 
-Write to `{WORK_ROOT}/features/{FEATURE_ID}/design-decisions.md`.
+`Write` to `{WORK_ROOT}/features/{FEATURE_ID}/design-decisions.md`.
 
 Use the `design-decisions.md` template loaded in §7. Log all major technology/architecture decisions with rationales and alternatives.
 
@@ -295,7 +297,7 @@ If either command fails, log a warning (`[feature-architect] Failed to register 
 
 After artifact registration, if `flagged_hypotheses[]` is non-empty, persist the hypotheses to disk. When `flagged_hypotheses[]` is empty, skip this section entirely -- do NOT create `hypotheses.md`.
 
-1. Write `{WORK_ROOT}/features/{FEATURE_ID}/hypotheses.md` using the `hypothesis-document.md` template loaded in §7.
+1. `Write` `{WORK_ROOT}/features/{FEATURE_ID}/hypotheses.md` using the `hypothesis-document.md` template loaded in §7.
 2. Register the artifact (skip if WORKFLOW is empty).
 3. Add `"hypotheses"` to the `artifacts` map in the completion JSON (§12).
 

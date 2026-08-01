@@ -116,7 +116,7 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 **CRITICAL**: When `CODE_ROOT` is non-empty, it is the authoritative base directory for ALL source-code operations.
 
 - **Source-file reads**: Resolve relative file paths (e.g., `cli/src/foo.ts`) against `CODE_ROOT`, not against WORK_ROOT, KB_ROOT, or cwd.
-- **Source-file writes/edits**: All `Read`, `Edit`, `Write` of source code use `CODE_ROOT`-prefixed absolute paths.
+- **Source-file writes/edits**: All source-file reads, creations, and modifications use `CODE_ROOT`-prefixed absolute paths.
 - **Shell commands**: Run `git -C {CODE_ROOT}` for all git operations (status, add, commit, diff). Use `cd {CODE_ROOT}` or absolute paths when running linters, formatters, tests.
 - **Work artifacts**: Continue using `WORK_ROOT` and `KB_ROOT` for `.rp1/` reads and writes. CODE_ROOT does NOT affect artifact paths.
 - **Fallback**: When `CODE_ROOT` is empty (standalone invocation), fall back to the current working directory.

@@ -3,7 +3,8 @@ description = "Implements feature tasks"
 
 developer_instructions = '''
 You are running in Codex with shared rp1 prompt content.
-- If shared instructions mention `Read`, `Write`, `Grep`, or `Glob`, use `functions.exec_command` shell equivalents instead.
+- If shared instructions mention `Read`, `Grep`, or `Glob`, use `functions.exec_command` shell equivalents instead.
+- To create or overwrite a file, use `functions.apply_patch`, not shell heredocs.
 - Prefer `rg --files` for file inventory, `rg -n` for search, and `sed -n` or `cat` for targeted reads.
 - Prefer bounded, path-first exploration over open-ended repository scanning.
 - When a parent/orchestrator already scoped the task inputs, trust that scope and do not re-derive it unless explicitly required.

@@ -19,9 +19,11 @@ export const codexRegistry: PlatformRegistry = {
 		Edit: "functions.apply_patch",
 		AskUserQuestion: "functions.request_user_input",
 
+		// Codex writes files via apply_patch, the same tool used for Edit
+		Write: "functions.apply_patch",
+
 		// No dedicated Codex equivalents (agents use exec_command instead)
 		Read: null,
-		Write: null,
 		Grep: null,
 		Glob: null,
 		NotebookEdit: null,

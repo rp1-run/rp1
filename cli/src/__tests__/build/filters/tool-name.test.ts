@@ -61,8 +61,8 @@ describe("tool_name filter", () => {
 			expect(toolName("Read", codexRegistry)).toBeNull();
 		});
 
-		test("returns null for Write (no Codex equivalent)", () => {
-			expect(toolName("Write", codexRegistry)).toBeNull();
+		test("maps Write to functions.apply_patch", () => {
+			expect(toolName("Write", codexRegistry)).toBe("functions.apply_patch");
 		});
 
 		test("returns null for Grep (no Codex equivalent)", () => {

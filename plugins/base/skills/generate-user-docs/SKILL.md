@@ -112,7 +112,7 @@ rp1 agent-tools emit \
 
 ### 1. Discover Docs + Style
 
-Discover candidate user docs via Glob:
+Discover candidate user docs via `Glob`:
 - `README.md`
 - `docs/**/*.md`
 - `docs/**/*.mdx`
