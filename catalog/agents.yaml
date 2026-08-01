@@ -70,7 +70,7 @@ agents:
   - name: rp1-base:socratic-duel-participant
     description: "Participates in a Socratic Duel run using pre-resolved launcher context and participant-owned artifact writes."
     plugin: base
-    last_checksum: 4260cbc7c74ac0aca78463d957f5d99b9ed5c13705f7886c1924404f5ce8f7b1
+    last_checksum: 09c6157487654a473fac4441e2ad734f109ce037f71288ad536079b0c009a342
   - name: rp1-base:strategic-advisor
     description: "Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs"
     plugin: base
@@ -94,7 +94,7 @@ agents:
   - name: rp1-dev:bug-investigator
     description: "Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes"
     plugin: dev
-    last_checksum: 48d90034a145ea4d75d48fd75a4ff9899de753aa990a22aa7ac8f0f9285c5c40
+    last_checksum: 448d77e82a053686c5d378404e87ab6467967ac2c3bbe718df97c3966627b619
   - name: rp1-dev:build-artifact-detector
     description: "Determines workflow start_step by checking existing feature artifacts using bootstrap-provided run context"
     plugin: dev
@@ -198,7 +198,7 @@ agents:
   - name: rp1-dev:pr-walkthrough-reporter
     description: "Generate an evidence-grounded slide-ready markdown walkthrough for a pull request"
     plugin: dev
-    last_checksum: 1b0b21618a81485e748b73ced428db15de24d2306ef9941e822b62c38d5fa518
+    last_checksum: 4e0463cb50f68eb968bf9b5ed16d01a26c0baad5a7653bb267f352ced5b0d2ee
   - name: rp1-dev:prd-archiver
     description: "Archives completed PRDs to .rp1/work/archives/prds/, archives associated completed features, checks KB staleness, and generates closure summaries"
     plugin: dev

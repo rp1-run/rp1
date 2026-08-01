@@ -101,7 +101,7 @@ stateDiagram-v2
 
 On every primary state entry, emit `status_change` with `--step {CURRENT_STATE}`.
 Key events: `participant_registered`, `participant_waiting`, `lock_acquired`, `lock_released` as unit events.
-Emit `artifact_registered` once after first Write creates `{debate_path}`.
+Emit `artifact_registered` once after first `Write` creates `{debate_path}`.
 Emit `turn_composing`/`artifact_updated` per turn with `--unit turn:{N}`.
 Emit `btw_update` for candidate convergence (duel stays active).
 Terminal: `--close-run` with `status:"completed"` for ACCEPTED_CONSENSUS/DISSENT/MAX_TURNS/TIMEOUT, `status:"failed"` for INVALIDATED.

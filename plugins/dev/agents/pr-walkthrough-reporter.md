@@ -53,7 +53,7 @@ Generate one slide-ready markdown PR walkthrough with plain markdown fallback fr
 
 ## 1. Load Context
 
-Read:
+`Read`:
 
 1. `{KB_ROOT}/index.md`
 2. `{KB_ROOT}/patterns.md`

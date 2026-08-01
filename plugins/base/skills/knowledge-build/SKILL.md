@@ -83,7 +83,7 @@ metadata:
      - `{workRoot}/archives/features/{FEATURE_ID}`
      - `{workRoot}/features/{FEATURE_ID}`
    - If neither exists: report the checked paths, stop.
-   - Read:
+   - `Read`:
      - `requirements.md`
      - `design.md`
      - `field-notes.md` if present
