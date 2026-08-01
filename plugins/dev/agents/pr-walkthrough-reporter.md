@@ -182,7 +182,7 @@ Before writing, self-check the complete markdown. If any check fails, revise the
    mkdir -p "{WORK_ROOT}/pr-walkthroughs"
    ```
 
-2. Determine the next sequence number using Glob:
+2. Determine the next sequence number using `Glob`:
 
    ```text
    {WORK_ROOT}/pr-walkthroughs/{REVIEW_ID}-walkthrough-*.md

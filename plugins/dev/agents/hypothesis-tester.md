@@ -182,9 +182,9 @@ mkdir -p /tmp/hypothesis-{EXPERIMENT_ID}
 #### CODEBASE_ANALYSIS
 For verifying existing patterns/implementations.
 
-- Grep: `pattern="{term}" output_mode="content"`
-- Glob: `pattern="**/*.{ext}"`
-- Read specific files
+- `Grep`: `pattern="{term}" output_mode="content"`
+- `Glob`: `pattern="**/*.{ext}"`
+- `Read` specific files
 - Cite `file:line` refs (max 20 lines/snippet)
 - Document search patterns used
 

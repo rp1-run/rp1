@@ -38,7 +38,7 @@ agents:
   - name: rp1-base:kb-spatial-analyzer
     description: "Scans repository files, ranks by importance (0-5), and categorizes them by KB section for parallel analysis"
     plugin: base
-    last_checksum: 7f923e22e795f7e5cbf22a4fd4e706ea68b34e36262191447eb764e546d237b1
+    last_checksum: 1da801291fb2f982c9a888d9a341dbe9b241afdc08ef4a5e62fb0daa1f73a594
   - name: rp1-base:mermaid-fixer
     description: "Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates each diagram, attempts automatic repair (up to 3 iterations), and inserts placeholders for unfixable diagrams."
     plugin: base
@@ -50,7 +50,7 @@ agents:
   - name: rp1-base:prompt-pipeline-runner
     description: "Executes the six-stage prompt-writer pipeline and produces two mandatory output artifacts (ready-to-run prompt, confidence report)"
     plugin: base
-    last_checksum: 4b8f7e0e5552fa0890d558a993133215fc3132c0ad0c24da1b58ea34620b068d
+    last_checksum: 85ccd8b007751ba6bf42bd2adb011873569cfad9aefeefe8b27cbf884dc69fae
   - name: rp1-base:research-explorer
     description: "Deep exploration of codebases or web resources, returning structured JSON findings with evidence"
     plugin: base
@@ -158,7 +158,7 @@ agents:
   - name: rp1-dev:hypothesis-tester
     description: "Validates design hypotheses through code experiments, codebase analysis, and external research"
     plugin: dev
-    last_checksum: 294262253ca6ff0816dd5594191c9dd0d8a5d8bc89ac07442283afb9e0831d7f
+    last_checksum: 7a347c56dd4d264e9f7fc7b380d9510d4733a65ff41af14eff38d1514ad51889
   - name: rp1-dev:phase-planner
     description: "Decomposes a planning source into a source-adjacent phase-plan artifact and refreshes source backlinks."
     plugin: dev
@@ -178,7 +178,7 @@ agents:
   - name: rp1-dev:pr-review-reporter
     description: "Formats findings into markdown report and writes to file"
     plugin: dev
-    last_checksum: e8e79e7d532aa18150925a92a7dc0d8c4478a85accdf928dcb408c44f845cce0
+    last_checksum: b4b89ccacbf558a61621b692ed7aa6290055d9abcdb26a4874b67f3d6dd01940
   - name: rp1-dev:pr-review-splitter
     description: "Splits PR diff into reviewable units, filtering out generated/low-value files"
     plugin: dev
@@ -194,11 +194,11 @@ agents:
   - name: rp1-dev:pr-visualizer
     description: "Transform PR diffs into Mermaid diagrams for visual code review"
     plugin: dev
-    last_checksum: df4a4a325fc95b033f40e85f9cecb99fe286b759f6fde628b981bc847d19f76e
+    last_checksum: c02771794ca7675f44e4419b846af618c94cdf48a332972ca5398c1965b74660
   - name: rp1-dev:pr-walkthrough-reporter
     description: "Generate an evidence-grounded slide-ready markdown walkthrough for a pull request"
     plugin: dev
-    last_checksum: 6feabfb683117308accf7a322876cc8203c6b2c06dd07faf0e26d1c606062759
+    last_checksum: 1b0b21618a81485e748b73ced428db15de24d2306ef9941e822b62c38d5fa518
   - name: rp1-dev:prd-archiver
     description: "Archives completed PRDs to .rp1/work/archives/prds/, archives associated completed features, checks KB staleness, and generates closure summaries"
     plugin: dev
@@ -214,7 +214,7 @@ agents:
   - name: rp1-dev:task-reviewer
     description: "Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification."
     plugin: dev
-    last_checksum: 441aad5fcc3efb912f420d07fda2d86757f332ab89f18025956be4fc9cfdb2f0
+    last_checksum: ef6c635d3dfccc0df0831c09163eb092513786ea74c4c8bd88cc040fddebb0e5
   - name: rp1-dev:test-runner
     description: "Executes comprehensive functional testing of implemented features including automated tests, coverage measurement, acceptance criteria verification, and detailed test reporting"
     plugin: dev
