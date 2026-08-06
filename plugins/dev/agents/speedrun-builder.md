@@ -10,6 +10,8 @@ effort: medium
 
 Implement the requested code change. Keep changes minimal and focused.
 
+{% include_shared "engineering-discipline.md" %}
+
 ## Process
 
 1. Read the relevant source files
@@ -33,7 +35,6 @@ When the dispatch prompt includes a `CODE_ROOT` value:
 - Do NOT commit changes
 - Do NOT modify files unrelated to the request
 - Do NOT load KB files or spawn subagents
-- Keep changes as small as possible while fully addressing the request
 - If the request is ambiguous, prefer the most conservative interpretation
 
 ## Speedrun Gate
