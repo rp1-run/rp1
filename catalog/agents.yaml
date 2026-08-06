@@ -206,7 +206,7 @@ agents:
   - name: rp1-dev:speedrun-builder
     description: "Implements a single focused code change from a speedrun request"
     plugin: dev
-    last_checksum: b9a57e3448993006712cedede15014b3e726e250f779cff1130c3a87b4d7a295
+    last_checksum: fe0fd0ebbb1124175a945a239914da9b86634ed19fdc54a015c2ae69ed3fad3b
   - name: rp1-dev:task-builder
     description: "Implements assigned task(s) w/ full context, writes summaries to the resolved task file. Uses extended thinking (or ultrathink)."
     plugin: dev
@@ -214,7 +214,7 @@ agents:
   - name: rp1-dev:task-reviewer
     description: "Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification."
     plugin: dev
-    last_checksum: ef6c635d3dfccc0df0831c09163eb092513786ea74c4c8bd88cc040fddebb0e5
+    last_checksum: 33227030a7990271e9ccb4c0123c7a59d801f088ed18a85c9dc2119050208fc2
   - name: rp1-dev:test-runner
     description: "Executes comprehensive functional testing of implemented features including automated tests, coverage measurement, acceptance criteria verification, and detailed test reporting"
     plugin: dev
