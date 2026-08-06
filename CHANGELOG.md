@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.7.13](https://github.com/rp1-run/rp1/compare/v0.7.12...v0.7.13) (2026-08-06)
+
+
+### Features
+
+* /tech-debt-collector — evidence-gated tech-debt/bloat detection workflow ([#433](https://github.com/rp1-run/rp1/issues/433)) ([a4fcd1a](https://github.com/rp1-run/rp1/commit/a4fcd1a7088dd15db877b272f59625505cfc0e31))
+* **agents:** add reuse-first scope discipline ([#450](https://github.com/rp1-run/rp1/issues/450)) ([c2aa731](https://github.com/rp1-run/rp1/commit/c2aa7312c97679983474f52ff785493f84d1a9f1))
+* **build-fast:** redesign quick-build plan artifact and switch to append semantics ([#438](https://github.com/rp1-run/rp1/issues/438)) ([bd98a8d](https://github.com/rp1-run/rp1/commit/bd98a8d0ff53e26eb1e8b1cbe99d8667abd30b33))
+* **build:** add emit-contract and skill-size lints, de-emphasise directives, split oversized skills ([#444](https://github.com/rp1-run/rp1/issues/444)) ([b3e73c4](https://github.com/rp1-run/rp1/commit/b3e73c46bfdf7fc637754f53b88372db1e1bbdcf))
+* **build:** add schedule-wave tool for builder-reviewer dispatch ([#446](https://github.com/rp1-run/rp1/issues/446)) ([a67eb5e](https://github.com/rp1-run/rp1/commit/a67eb5e5b35f30d02a5a8ed99df47e3914723937))
+* **kb:** add feature-inventory dimension to knowledge-build suite ([#442](https://github.com/rp1-run/rp1/issues/442)) ([bc21dd2](https://github.com/rp1-run/rp1/commit/bc21dd23709e3e17108f828f3d2631f0aff4f475))
+* **validate-hypothesis:** support ad-hoc test scenarios without a feature artifact ([#441](https://github.com/rp1-run/rp1/issues/441)) ([8f90888](https://github.com/rp1-run/rp1/commit/8f908888dd52423503268224b459ead905981641))
+
+
+### Bug Fixes
+
+* **antigravity:** sync active plugin registry on update and check current registry path ([#437](https://github.com/rp1-run/rp1/issues/437)) ([eab95fd](https://github.com/rp1-run/rp1/commit/eab95fd7acea0639e81b42b612e9064c0792c051))
+* **build:** emit agent tool allowlists for Claude Code ([#447](https://github.com/rp1-run/rp1/issues/447)) ([fcea5bd](https://github.com/rp1-run/rp1/commit/fcea5bd1cdbac93d6127cc73539fb84f275edf84))
+* **codex:** give Codex agents a real write path and recover from a silent feature-architect ([#449](https://github.com/rp1-run/rp1/issues/449)) ([9fe3c39](https://github.com/rp1-run/rp1/commit/9fe3c39003856c7e0ffe50e636a7700ea3c0a329))
+* **emit:** reuse existing artifact doc_id when file identity is lost ([#435](https://github.com/rp1-run/rp1/issues/435)) ([20a1988](https://github.com/rp1-run/rp1/commit/20a1988df95d634fccca18bd4c268d36f2520adb))
+* **evals:** attest reference companions; trim task-reviewer output contract ([#445](https://github.com/rp1-run/rp1/issues/445)) ([d4a4885](https://github.com/rp1-run/rp1/commit/d4a48850367732a0677cec8c0ceaf2b675dd3f8d))
+* **evals:** record real eval provenance instead of silently empty git_commit ([#448](https://github.com/rp1-run/rp1/issues/448)) ([f23a984](https://github.com/rp1-run/rp1/commit/f23a984d46b8ba83f73684359cf0211b5c0c9741))
+* **init:** converge duplicate rp1 stanzas and resolve the anti-loop contradiction ([#443](https://github.com/rp1-run/rp1/issues/443)) ([957ea13](https://github.com/rp1-run/rp1/commit/957ea130c5ae9609533bf94269081e015a87adf9))
+* **tech-debt-collector:** repair workflow-contract defects from cash-server retrospective ([#439](https://github.com/rp1-run/rp1/issues/439)) ([a89f83a](https://github.com/rp1-run/rp1/commit/a89f83a32a6b16d3b56bbe8c8af1d92efd68bada))
+* **web-ui:** resolve central storage roots in Arcade artifact browser ([#440](https://github.com/rp1-run/rp1/issues/440)) ([96b6bd4](https://github.com/rp1-run/rp1/commit/96b6bd479dbb1bbdc060b16dd9f297b676c2a092))
+* **web-ui:** stop annotation orphaning — source-coordinate anchors, stable editor, anchor-derived highlights ([#432](https://github.com/rp1-run/rp1/issues/432)) ([17394f3](https://github.com/rp1-run/rp1/commit/17394f394a5db22e1c1b1f0eaa13fdd616190438))
+
+
+### Code Refactoring
+
+* **dev:** replace relay interviews with parent-owned flows ([#436](https://github.com/rp1-run/rp1/issues/436)) ([1668412](https://github.com/rp1-run/rp1/commit/1668412ec21fd96badb7d2c05773ed5f73495606))
+
+
+### Documentation
+
+* remove internal/contributor pages and keep docs user-facing ([#429](https://github.com/rp1-run/rp1/issues/429)) ([f8c1381](https://github.com/rp1-run/rp1/commit/f8c13811c9ce8f31f67cd333b9ddfccf3e27819c))
+
 ## [0.7.12](https://github.com/rp1-run/rp1/compare/v0.7.11...v0.7.12) (2026-07-16)
 
 
