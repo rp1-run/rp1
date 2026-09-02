@@ -9,6 +9,7 @@ export interface FileNode {
 	path: string;
 	name: string;
 	type: "file" | "directory";
+	absolutePath?: string;
 	size?: number;
 	modifiedAt?: string;
 	children?: FileNode[];
@@ -131,6 +132,7 @@ export async function buildFileTree(
 					path: entryRelativePath,
 					name: entry.name,
 					type: "file",
+					absolutePath: resolve(entryPath),
 					size: fileStat.size,
 					modifiedAt: fileStat.mtime?.toISOString(),
 				});

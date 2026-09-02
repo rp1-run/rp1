@@ -25,7 +25,12 @@ interface FileTreeNodeProps {
 export const getCopyableFilePath = (
 	projectPath: string | null | undefined,
 	filePath: string,
+	absolutePath?: string | null,
 ): string => {
+	if (absolutePath) {
+		return absolutePath;
+	}
+
 	if (!projectPath) {
 		return filePath;
 	}
@@ -134,10 +139,18 @@ export function FileTreeNode({
 				{!isDirectory ? (
 					<button
 						type="button"
-						title={getCopyableFilePath(projectPath, node.path)}
+						title={getCopyableFilePath(
+							projectPath,
+							node.path,
+							node.absolutePath,
+						)}
 						onClick={(e) => {
 							e.stopPropagation();
-							const fullPath = getCopyableFilePath(projectPath, node.path);
+							const fullPath = getCopyableFilePath(
+								projectPath,
+								node.path,
+								node.absolutePath,
+							);
 							navigator.clipboard.writeText(fullPath).then(() => {
 								setCopied(true);
 								setTimeout(() => setCopied(false), 2000);

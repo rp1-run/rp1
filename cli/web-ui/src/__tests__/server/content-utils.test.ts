@@ -53,6 +53,24 @@ describe("content-utils", () => {
 	});
 
 	describe("buildFileTree", () => {
+		test("reports each file's absolute path alongside its display path", async () => {
+			const tempDir = await mkdtemp(join(tmpdir(), "rp1-content-utils-"));
+			const treeRoot = join(tempDir, "central-store", "work");
+
+			try {
+				await mkdir(join(treeRoot, "notes"), { recursive: true });
+				await Bun.write(join(treeRoot, "notes", "stack.md"), "# stack");
+
+				const tree = await buildFileTree(treeRoot, ".rp1/work");
+				const note = tree?.children?.[0]?.children?.[0];
+
+				expect(note?.path).toBe(".rp1/work/notes/stack.md");
+				expect(note?.absolutePath).toBe(join(treeRoot, "notes", "stack.md"));
+			} finally {
+				await rm(tempDir, { recursive: true, force: true });
+			}
+		});
+
 		test("skips nested git worktree directories", async () => {
 			const tempDir = await mkdtemp(join(tmpdir(), "rp1-content-utils-"));
 			const treeRoot = join(tempDir, "tree-root");
