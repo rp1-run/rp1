@@ -1,6 +1,6 @@
 {
 	"name": "@rp1-run/rp1",
-	"version": "0.7.12",
+	"version": "0.7.13",
 	"description": "AI-assisted development workflows CLI",
 	"license": "Apache-2.0",
 	"repository": {
