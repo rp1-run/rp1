@@ -161,6 +161,12 @@ brew uninstall rp1-beta && brew install rp1-run/tap/rp1
 
 The `just beta-release` recipe prints the beta cleanup checklist after a successful beta publish.
 
+### Attestation waivers
+
+An attestation waiver temporarily relaxes the dependency-hash gate for a named skill. Each waiver is pinned to an exact `waived_deps_hash` and bounded by `expires_after_version`; it cannot waive a missing skill. All CI jobs, including Verify Attestations, still run. A change to the hashed prompt graph, or a release version greater than `expires_after_version`, fails verification again. Release 0.7.13 currently has waivers for `rp1-dev:build`, `rp1-dev:build-fast`, and `rp1-dev:speedrun` because their prompt graphs changed in #449 and #450 after their last real eval runs (build 2026-07-29, build-fast 2026-07-28, speedrun 2026-07-04), with no eval API access available to re-run. The waivers expire after 0.7.14, a planned dependency-only follow-up release with no prompt changes. To restore attestations, run `just eval-run --attest --commit`, remove the corresponding `waivers` entries, and run `just eval-verify`.
+
+The hash pin is a pre-existing gate limitation: `computePromptHash` strips frontmatter, so model, effort, and tool-allowlist changes are not detected by it. Verification also covers only skills present in the manifest.
+
 ## More Documentation
 
 See [rp1.run](https://rp1.run) for public guides and reference documentation. Open a GitHub issue or discussion when a contribution needs design discussion before implementation.

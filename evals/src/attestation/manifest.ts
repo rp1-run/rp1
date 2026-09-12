@@ -23,6 +23,7 @@ export function emptyManifest(): AttestationManifest {
 		schema_version: SCHEMA_VERSION,
 		skills: {},
 		files: {},
+		waivers: {},
 	};
 }
 
@@ -51,6 +52,7 @@ function migrateV1ToV2(manifest: AttestationManifest): AttestationManifest {
 		schema_version: SCHEMA_VERSION,
 		skills: migratedSkills,
 		files: manifest.files,
+		...(manifest.waivers ? { waivers: manifest.waivers } : {}),
 	};
 }
 

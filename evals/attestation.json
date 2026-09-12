@@ -38,6 +38,29 @@
       }
     }
   },
+  "waivers": {
+    "rp1-dev:build@claude-code": {
+      "reason": "Release 0.7.13 unblock: prompt graph changed by #449 (Codex write path, feature-architect recovery) and #450 (reuse-first scope discipline in shared engineering-discipline.md) after the Jul 29 build eval run; no eval API access available to re-run. 0.7.14 is a dependency-only follow-up release with no prompt changes. Re-attest via `just eval-run --attest --commit` and delete this waiver.",
+      "granted_at": "2026-09-12T20:44:02.300Z",
+      "granted_commit": "c2aa7312",
+      "waived_deps_hash": "sha256:b4462c93ec9818eab187d0434a12c4f66de1502f6688639b46081dee81b91e1b",
+      "expires_after_version": "0.7.14"
+    },
+    "rp1-dev:build-fast@claude-code": {
+      "reason": "Release 0.7.13 unblock: prompt graph changed by #449 (Codex write path, feature-architect recovery) and #450 (reuse-first scope discipline in shared engineering-discipline.md) after the Jul 28 build-fast eval run; no eval API access available to re-run. 0.7.14 is a dependency-only follow-up release with no prompt changes. Re-attest via `just eval-run --attest --commit` and delete this waiver.",
+      "granted_at": "2026-09-12T20:44:02.300Z",
+      "granted_commit": "c2aa7312",
+      "waived_deps_hash": "sha256:8d2f1cadc5c6cef5e36dcc235cd1fa516fa55b247958e227319d0947c48621e7",
+      "expires_after_version": "0.7.14"
+    },
+    "rp1-dev:speedrun@claude-code": {
+      "reason": "Release 0.7.13 unblock: prompt graph changed by #449 (Codex write path, feature-architect recovery) and #450 (reuse-first scope discipline in shared engineering-discipline.md) after the Jul 4 speedrun eval run; no eval API access available to re-run. 0.7.14 is a dependency-only follow-up release with no prompt changes. Re-attest via `just eval-run --attest --commit` and delete this waiver.",
+      "granted_at": "2026-09-12T20:44:02.300Z",
+      "granted_commit": "c2aa7312",
+      "waived_deps_hash": "sha256:d6de3ff97804a87893753a474f3a2bcfe3ba6523b45a4b49e28ea00e7b456fa0",
+      "expires_after_version": "0.7.14"
+    }
+  },
   "files": {
     "plugins/dev/skills/worktree-workflow/SKILL.md": "sha256:c0f5beca9cba362eba543220df679b8016c8710390adcf8a61c95b0c10b06f48",
     "plugins/dev/agents/build-artifact-detector.md": "sha256:4338c2daef255cc7547f723e056c4bfcabc6bb44fced8a8640c21ef43eb0f710",

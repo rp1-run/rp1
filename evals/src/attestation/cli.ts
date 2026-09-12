@@ -81,16 +81,18 @@ function parsePlatformFlag(args: string[]): {
 /**
  * Format verification summary for console output.
  */
-function formatSummary(summary: {
+export function formatSummary(summary: {
 	passed: boolean;
 	total: number;
 	current: number;
 	stale: number;
 	missing: number;
+	waived: number;
 	results: readonly {
 		skill: string;
 		status: string;
 		reason?: string;
+		expires_after_version?: string;
 	}[];
 }): string {
 	const lines: string[] = [];
@@ -101,15 +103,22 @@ function formatSummary(summary: {
 	lines.push(`Current: ${summary.current}`);
 	lines.push(`Stale:   ${summary.stale}`);
 	lines.push(`Missing: ${summary.missing}`);
+	lines.push(`Waived:  ${summary.waived}`);
 	lines.push("");
 
-	if (summary.stale > 0 || summary.missing > 0) {
-		lines.push("Skills needing attention:");
+	if (summary.stale > 0 || summary.missing > 0 || summary.waived > 0) {
+		if (summary.waived > 0)
+			lines.push("WAIVED (gate relaxed -- restore before the waiver expires):");
+		if (summary.stale > 0 || summary.missing > 0)
+			lines.push("Skills needing attention:");
 		for (const result of summary.results) {
 			if (result.status !== "current") {
 				lines.push(`  - ${result.skill} [${result.status}]`);
 				if (result.reason) {
 					lines.push(`    Reason: ${result.reason}`);
+				}
+				if (result.status === "waived" && result.expires_after_version) {
+					lines.push(`    Expires after: ${result.expires_after_version}`);
 				}
 			}
 		}
@@ -117,9 +126,11 @@ function formatSummary(summary: {
 	}
 
 	lines.push(
-		summary.passed
+		summary.passed && summary.waived === 0
 			? "All attestations current."
-			: "Some attestations need updating.",
+			: summary.passed
+				? `Attestations pass with ${summary.waived} waiver(s) active.`
+				: "Some attestations need updating.",
 	);
 
 	return lines.join("\n");
